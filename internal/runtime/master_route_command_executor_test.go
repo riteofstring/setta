@@ -6,7 +6,6 @@ import (
 	"errors"
 	"testing"
 
-	"setta/internal/applayout"
 	"setta/internal/conversation"
 	"setta/internal/master"
 	"setta/internal/narration"
@@ -63,36 +62,6 @@ func TestMasterRouteCommandExecutorCompletesPersistedNarratorDegradation(t *test
 	}
 }
 
-func TestMasterRouteCommandExecutorNotifiesAppliedCreateConversationInput(t *testing.T) {
-	store := &masterRouteCommandExecutorStore{applied: []bool{true}}
-	narratorService := &routeCommandExecutorNarrator{}
-	executor, err := newMasterRouteCommandExecutor(
-		store,
-		&masterRouteCommandExecutorConversations{},
-		narratorService,
-	)
-	if err != nil {
-		t.Fatalf("newMasterRouteCommandExecutor: %v", err)
-	}
-
-	if err := executor.ExecuteMasterRouteCommand(
-		context.Background(),
-		masterRoutedFolderlessCreateDecisionRecord(),
-		nil,
-	); err != nil {
-		t.Fatalf("ExecuteMasterRouteCommand: %v", err)
-	}
-	if store.appliedCalls != 1 ||
-		len(narratorService.notified) != 1 ||
-		narratorService.notified[0] != "conversation_master_created" {
-		t.Fatalf(
-			"create notification = applied:%d notified:%v",
-			store.appliedCalls,
-			narratorService.notified,
-		)
-	}
-}
-
 func masterRoutedNarratorStatusDecisionRecord() master.RouteDecisionRecord {
 	decision := master.RouteDecision{
 		Kind: master.RouteDecisionKindAskNarrator,
@@ -114,7 +83,7 @@ func masterRoutedNarratorStatusDecisionRecord() master.RouteDecisionRecord {
 			ActiveWorkspaceIDs:   []string{"workspace_test"},
 			TargetAuthorities: []master.RouteTargetAuthority{{
 				ConversationID:       "conversation_test",
-				ResourceScope:        master.FolderRouteResourceScope("workspace_test", ""),
+				WorkspaceID:          "workspace_test",
 				AllowedDecisionKinds: []master.RouteDecisionKind{master.RouteDecisionKindAskNarrator},
 				CompletedForkTurnIDs: []string{},
 			}},
@@ -143,10 +112,9 @@ func masterRoutedNarratorStatusDecisionRecord() master.RouteDecisionRecord {
 			Kind: master.RouteDecisionKindAskNarrator,
 			AskNarrator: &master.MasterAskNarratorRouteCommand{
 				Target: master.ConversationPresentationTarget{
-					ConversationID:   "conversation_test",
-					ResourceScope:    master.FolderRouteResourceScope("workspace_test", ""),
-					ResourceBindings: masterRouteExecutorTestResourceBindings(),
-					Title:            "Test conversation",
+					WorkspaceID:    "workspace_test",
+					ConversationID: "conversation_test",
+					Title:          "Test conversation",
 				},
 				RequestID: "master_narrator_status_test",
 				Question:  "What is the current status?",
@@ -154,74 +122,6 @@ func masterRoutedNarratorStatusDecisionRecord() master.RouteDecisionRecord {
 		},
 		DecidedAt: "2026-07-14T20:00:00Z",
 	}
-}
-
-func masterRoutedFolderlessCreateDecisionRecord() master.RouteDecisionRecord {
-	decision := master.RouteDecision{
-		Kind: master.RouteDecisionKindCreateConversation,
-		CreateConversation: &master.MasterCreateConversationRouteDecision{
-			ResourceScope: master.FolderlessRouteResourceScope(),
-			InitialInput:  "Start an app-level topic.",
-			ProposedTitle: "App-level topic",
-		},
-	}
-	return master.RouteDecisionRecord{
-		StreamSequence:  1,
-		ID:              "master_route_decision_create",
-		MasterSessionID: "master_session_test",
-		InputID:         "master_input_create",
-		RoutingAttempt:  1,
-		Context: master.RouteContextAudit{
-			InputSequence:        1,
-			RetrievedCandidates:  []master.RouteCandidateAudit{},
-			IncludedCandidateIDs: []string{},
-			ActiveWorkspaceIDs:   []string{},
-			TargetAuthorities:    []master.RouteTargetAuthority{},
-		},
-		ResolvedInvocation: master.RouteInvocationAudit{
-			Configuration: master.RouteModelConfigurationAudit{
-				RequestedProfile:         json.RawMessage(`{"role":"master"}`),
-				RequestedModel:           "gpt-master-test",
-				ResolvedModel:            "gpt-master-test",
-				RequestedReasoningEffort: "medium",
-				ResolvedReasoningEffort:  "medium",
-				RequestedPermissionMode:  "read_only",
-				ResolvedPermissionMode:   "read_only",
-				RequestedApprovalMode:    "never",
-				ResolvedApprovalMode:     "never",
-				MaxInputBytes:            1024,
-			},
-			ProviderRequestID: "master_route_request_create",
-			ProviderThreadID:  "master_route_thread_test",
-			ProviderTurnID:    "master_route_turn_create",
-			StartedAt:         "2026-07-14T19:59:59Z",
-			EndedAt:           "2026-07-14T20:00:00Z",
-		},
-		Decision: decision,
-		ResultingCommand: master.RouteCommand{
-			Kind: master.RouteDecisionKindCreateConversation,
-			CreateConversation: &master.MasterCreateConversationRouteCommand{
-				Target: master.ConversationPresentationTarget{
-					ConversationID:   "conversation_master_created",
-					ResourceScope:    master.FolderlessRouteResourceScope(),
-					ResourceBindings: []applayout.ConversationPaneResourceBinding{},
-					Title:            "App-level topic",
-				},
-				InitialInputID:        "conversation_input_master_created",
-				InitialInput:          "Start an app-level topic.",
-				InitialInputModality:  master.MasterInputModalityText,
-				InitialInputSubmitted: "2026-07-14T19:59:58Z",
-			},
-		},
-		DecidedAt: "2026-07-14T20:00:00Z",
-	}
-}
-
-func masterRouteExecutorTestResourceBindings() []applayout.ConversationPaneResourceBinding {
-	return []applayout.ConversationPaneResourceBinding{{
-		Folder: &applayout.FolderResourceBinding{RootPath: "/tmp/setta-master-route-executor-test"},
-		Kind:   applayout.ConversationPaneResourceBindingKindFolder,
-	}}
 }
 
 type masterRouteCommandExecutorStore struct {

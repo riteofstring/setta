@@ -149,9 +149,6 @@ func readMasterRouteAllowedKinds(
 	forkPoints []master.RouteForkPoint,
 ) ([]master.RouteDecisionKind, error) {
 	allowed := []master.RouteDecisionKind{master.RouteDecisionKindFocusConversation}
-	if conversation.WorkspaceID == nil {
-		return allowed, nil
-	}
 	narratorAvailable, err := masterRouteNarratorAvailable(ctx, reader, conversation.ID)
 	if err != nil {
 		return nil, err

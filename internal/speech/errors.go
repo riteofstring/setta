@@ -8,16 +8,14 @@ import (
 type ErrorCode string
 
 const (
-	ErrorNotConfigured                   ErrorCode = "speech_not_configured"
-	ErrorProviderRejected                ErrorCode = "speech_provider_rejected"
-	ErrorRateLimited                     ErrorCode = "speech_rate_limited"
-	ErrorProviderUnavailable             ErrorCode = "speech_provider_unavailable"
-	ErrorProviderResponseMalformed       ErrorCode = "speech_provider_response_malformed"
-	ErrorAudioTooLarge                   ErrorCode = "speech_audio_too_large"
-	ErrorSourceUnavailable               ErrorCode = "speech_source_unavailable"
-	ErrorVoiceUnavailable                ErrorCode = "speech_voice_unavailable"
-	ErrorCredentialInvalid               ErrorCode = "speech_credential_invalid"
-	ErrorCredentialManagementUnavailable ErrorCode = "speech_credential_management_unavailable"
+	ErrorNotConfigured             ErrorCode = "speech_not_configured"
+	ErrorProviderRejected          ErrorCode = "speech_provider_rejected"
+	ErrorRateLimited               ErrorCode = "speech_rate_limited"
+	ErrorProviderUnavailable       ErrorCode = "speech_provider_unavailable"
+	ErrorProviderResponseMalformed ErrorCode = "speech_provider_response_malformed"
+	ErrorAudioTooLarge             ErrorCode = "speech_audio_too_large"
+	ErrorSourceUnavailable         ErrorCode = "speech_source_unavailable"
+	ErrorVoiceUnavailable          ErrorCode = "speech_voice_unavailable"
 )
 
 type Error struct {

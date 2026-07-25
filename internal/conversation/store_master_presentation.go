@@ -193,26 +193,13 @@ func masterPresentationPaneIsBound(
 	target master.ConversationPresentationTarget,
 ) (bool, error) {
 	var value int
-	workspaceID, folderScoped := target.ResourceScope.FolderWorkspaceID()
-	if !folderScoped {
-		if err := reader.QueryRowContext(ctx, `
-SELECT EXISTS(
-  SELECT 1
-  FROM pane_bindings
-  WHERE pane_id = ? AND workspace_id IS NULL AND conversation_id = ?
-)
-`, paneID, target.ConversationID).Scan(&value); err != nil {
-			return false, err
-		}
-		return value == 1, nil
-	}
 	if err := reader.QueryRowContext(ctx, `
 SELECT EXISTS(
   SELECT 1
   FROM pane_bindings
   WHERE pane_id = ? AND workspace_id = ? AND conversation_id = ?
 )
-`, paneID, workspaceID, target.ConversationID).Scan(&value); err != nil {
+`, paneID, target.WorkspaceID, target.ConversationID).Scan(&value); err != nil {
 		return false, err
 	}
 	return value == 1, nil

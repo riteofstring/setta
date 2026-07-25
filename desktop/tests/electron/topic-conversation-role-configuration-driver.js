@@ -183,7 +183,8 @@
     const snapshot = await window.setta.conversations.create({ title, workspaceId });
     return {
       conversationId: snapshot.conversation.id,
-      threadLinked: snapshot.threadBinding !== null,
+      model: snapshot.threadBinding?.providerMetadata.model ?? "",
+      threadId: snapshot.threadBinding?.threadId ?? "",
     };
   }
 
@@ -228,7 +229,6 @@
       requestedModel: roleConfigurationTurnRequestedModel(turn),
       resolvedModel: roleConfigurationTurnResolvedModel(turn),
       status: turn?.status ?? "",
-      threadModel: snapshot.threadBinding?.providerMetadata.model ?? "",
     };
   }
 
