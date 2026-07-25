@@ -43,7 +43,7 @@ describe("speech IPC handlers", () => {
           voiceIds: ["marin", "cedar"],
         },
       })),
-      readMasterVoiceSelection: vi.fn(async () => ({
+      readDirectorVoiceSelection: vi.fn(async () => ({
         requestedVoiceId: "marin",
         resolvedVoiceId: "marin",
         selection: "exact",
@@ -61,7 +61,7 @@ describe("speech IPC handlers", () => {
         resolvedVoiceId: request.resolvedVoiceId,
         source: request.source,
       })),
-      updateMasterVoiceSelection: vi.fn(async () => ({
+      updateDirectorVoiceSelection: vi.fn(async () => ({
         requestedVoiceId: "cedar",
         resolvedVoiceId: "cedar",
         selection: "exact",
@@ -86,11 +86,11 @@ describe("speech IPC handlers", () => {
     const capabilities = await invoke(handlers, ipcChannels.speechReadCapabilities);
     const localHealth = await invoke(handlers, ipcChannels.speechReadLocalMacOSVoiceHealth);
     const localVoices = await invoke(handlers, ipcChannels.speechListLocalMacOSVoices);
-    const masterVoice = await invoke(handlers, ipcChannels.speechReadMasterVoiceSelection);
+    const directorVoice = await invoke(handlers, ipcChannels.speechReadDirectorVoiceSelection);
     const narratorDefault = await invoke(handlers, ipcChannels.speechReadNarratorVoiceDefault);
-    const updatedMasterVoice = await invoke(
+    const updatedDirectorVoice = await invoke(
       handlers,
-      ipcChannels.speechUpdateMasterVoiceSelection,
+      ipcChannels.speechUpdateDirectorVoiceSelection,
       { requestedVoiceId: "cedar", selection: "exact" },
     );
     const updatedNarratorDefault = await invoke(
@@ -128,8 +128,8 @@ describe("speech IPC handlers", () => {
       version: "fixture-local-voices",
       voiceIds: ["com.apple.voice.compact.en-US.Samantha", "com.apple.voice.compact.en-US.Alex"],
     });
-    expect(masterVoice).toMatchObject({ resolvedVoiceId: "marin", selection: "exact" });
-    expect(updatedMasterVoice).toMatchObject({ resolvedVoiceId: "cedar", selection: "exact" });
+    expect(directorVoice).toMatchObject({ resolvedVoiceId: "marin", selection: "exact" });
+    expect(updatedDirectorVoice).toMatchObject({ resolvedVoiceId: "cedar", selection: "exact" });
     expect(narratorDefault).toMatchObject({ requestedVoiceId: null, selection: "auto_distinct" });
     expect(updatedNarratorDefault).toMatchObject({ requestedVoiceId: "ash", selection: "exact" });
     expect(session).toMatchObject({ clientSecret });
@@ -143,9 +143,9 @@ describe("speech IPC handlers", () => {
       capabilities,
       localHealth,
       localVoices,
-      masterVoice,
+      directorVoice,
       narratorDefault,
-      updatedMasterVoice,
+      updatedDirectorVoice,
       updatedNarratorDefault,
       { redacted: true, type: "speech_transcription_session" },
       {
@@ -465,8 +465,8 @@ describe("speech IPC handlers", () => {
     const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
     const source = {
       conversationId: null,
-      eventId: "master-answer-speech",
-      speaker: "master" as const,
+      eventId: "director-answer-speech",
+      speaker: "director" as const,
     };
     const backend = {
       resolveSpeechSynthesisInput: vi.fn(async (request) => ({
@@ -521,8 +521,8 @@ describe("speech IPC handlers", () => {
     const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
     const source = {
       conversationId: null,
-      eventId: "master-answer-speech",
-      speaker: "master" as const,
+      eventId: "director-answer-speech",
+      speaker: "director" as const,
     };
     const backend = {
       resolveSpeechSynthesisInput: vi.fn(async (request) => ({
@@ -643,8 +643,8 @@ describe("speech IPC handlers", () => {
     const handlers = new Map<string, Parameters<IpcMain["handle"]>[1]>();
     const source = {
       conversationId: null,
-      eventId: "master-answer-speech",
-      speaker: "master" as const,
+      eventId: "director-answer-speech",
+      speaker: "director" as const,
     };
     const backend = {
       resolveSpeechSynthesisInput: vi.fn(async (request) => ({

@@ -7,16 +7,12 @@ import (
 	"unicode"
 )
 
-const SchemaVersion = 3
+const SchemaVersion = 4
 
 const (
-	accessibleBlack               = "oklch(0.0000 0.0000 0.00)"
-	accessibleWhite               = "oklch(1.0000 0.0000 0.00)"
-	defaultOverviewCardMaxWidthPx = 460
-	defaultOverviewCardMinWidthPx = 280
-	maximumOverviewCardWidthPx    = 900
-	minimumOverviewCardWidthPx    = 180
-	wcagAANormalTextContrast      = 4.5
+	accessibleBlack          = "oklch(0.0000 0.0000 0.00)"
+	accessibleWhite          = "oklch(1.0000 0.0000 0.00)"
+	wcagAANormalTextContrast = 4.5
 )
 
 type AppearanceColorMode string
@@ -65,12 +61,11 @@ const settaLogoCyan = "oklch(0.8460 0.1292 213.38)"
 var presetIDValues = defaultPresetIDValues()
 
 type AppearanceSettings struct {
-	SchemaVersion int                         `json:"schemaVersion"`
-	Mode          AppearanceColorMode         `json:"mode"`
-	Light         AppearanceColorScheme       `json:"light"`
-	Dark          AppearanceColorScheme       `json:"dark"`
-	Fonts         AppearanceFontScheme        `json:"fonts"`
-	Developer     AppearanceDeveloperSettings `json:"developer"`
+	SchemaVersion int                   `json:"schemaVersion"`
+	Mode          AppearanceColorMode   `json:"mode"`
+	Light         AppearanceColorScheme `json:"light"`
+	Dark          AppearanceColorScheme `json:"dark"`
+	Fonts         AppearanceFontScheme  `json:"fonts"`
 }
 
 type AppearanceColorScheme struct {
@@ -182,11 +177,6 @@ func DefaultSettings() AppearanceSettings {
 			Mono:    `"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace`,
 			Heading: `Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`,
 		},
-		Developer: AppearanceDeveloperSettings{
-			OverviewCardMaxWidthPx: defaultOverviewCardMaxWidthPx,
-			OverviewCardMinWidthPx: defaultOverviewCardMinWidthPx,
-			ShowPerformanceStats:   false,
-		},
 	}
 }
 
@@ -251,20 +241,7 @@ func Validate(settings AppearanceSettings) error {
 	if err := validateFontScheme(settings.Fonts); err != nil {
 		return err
 	}
-	if err := validateDeveloperSettings(settings.Developer); err != nil {
-		return err
-	}
 	return nil
-}
-
-func Normalize(settings AppearanceSettings) AppearanceSettings {
-	if settings.Developer.OverviewCardMinWidthPx == 0 {
-		settings.Developer.OverviewCardMinWidthPx = defaultOverviewCardMinWidthPx
-	}
-	if settings.Developer.OverviewCardMaxWidthPx == 0 {
-		settings.Developer.OverviewCardMaxWidthPx = defaultOverviewCardMaxWidthPx
-	}
-	return settings
 }
 
 func validateColorScheme(label string, scheme AppearanceColorScheme) error {

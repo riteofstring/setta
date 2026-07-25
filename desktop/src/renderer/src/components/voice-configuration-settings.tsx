@@ -1,7 +1,5 @@
 import type {
-  ConversationPaletteID,
-  ConversationPresentationProfile,
-  MasterVoiceSelection,
+  DirectorVoiceSelection,
   NarratorVoiceDefault,
   SpeechCapabilities,
   SpeechVoiceID,
@@ -12,18 +10,9 @@ import type {
   RuntimeConnectionStatus,
   RuntimeRegistrySnapshot,
 } from "@shared/types";
-import { conversationPaletteCatalog } from "@generated/backend";
-import { Loader2, RotateCcw, Save, SlidersHorizontal, Volume2 } from "lucide-react";
-import {
-  type Dispatch,
-  type ReactNode,
-  type SetStateAction,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { Loader2, RotateCcw, Save, Volume2 } from "lucide-react";
+import { type Dispatch, type ReactNode, type SetStateAction, useEffect, useState } from "react";
 
-import { hydrateConversationProjectionSnapshot } from "../stores/conversation-projection-runtime";
 import { useRuntimeStore } from "../stores/runtime-store";
 import type { SettingsFocusRequest } from "../stores/settings-navigation-store";
 import {
@@ -37,7 +26,7 @@ const automaticSelectionValue = "auto_distinct";
 
 interface GlobalVoiceConfiguration {
   capabilities: SpeechCapabilities;
-  master: MasterVoiceSelection;
+  director: DirectorVoiceSelection;
   narratorDefault: NarratorVoiceDefault;
 }
 
@@ -51,23 +40,23 @@ interface RuntimeKeyedError {
   runtimeKey: string;
 }
 
-interface PresentationConfigurationSettingsState {
+interface VoiceConfigurationSettingsState {
   activeRuntimeVoiceStatus: ActiveRuntimeVoiceStatus | null;
   configuration: GlobalVoiceConfiguration | null;
   error: string | null;
-  onMasterUpdate: (master: MasterVoiceSelection) => void;
+  onDirectorUpdate: (director: DirectorVoiceSelection) => void;
   onNarratorDefaultUpdate: (narratorDefault: NarratorVoiceDefault) => void;
 }
 
-export function PresentationConfigurationSettings({
+export function VoiceConfigurationSettings({
   focusRequest = null,
 }: {
   focusRequest?: SettingsFocusRequest | null;
 }) {
-  const state = usePresentationConfigurationSettingsState();
+  const state = useVoiceConfigurationSettingsState();
 
   return (
-    <section className="grid gap-3" data-testid="presentation-configuration-settings">
+    <section className="grid gap-3" data-testid="voice-configuration-settings">
       <SpeechProviderSelectionCard
         focusRequest={focusRequest?.target === "voice_provider_selection" ? focusRequest : null}
       />
@@ -75,16 +64,12 @@ export function PresentationConfigurationSettings({
         activeRuntimeVoiceStatus={state.activeRuntimeVoiceStatus}
         focusRequest={focusRequest?.target === "openai_voice_connection" ? focusRequest : null}
       />
-      <PresentationConfigurationSettingsContent state={state} />
+      <VoiceConfigurationSettingsContent state={state} />
     </section>
   );
 }
 
-function PresentationConfigurationSettingsContent({
-  state,
-}: {
-  state: PresentationConfigurationSettingsState;
-}) {
+function VoiceConfigurationSettingsContent({ state }: { state: VoiceConfigurationSettingsState }) {
   if (state.error) {
     return <ConfigurationMessage kind="error">{state.error}</ConfigurationMessage>;
   }
@@ -92,7 +77,7 @@ function PresentationConfigurationSettingsContent({
     return (
       <GlobalVoiceConfigurationForm
         configuration={state.configuration}
-        onMasterUpdate={state.onMasterUpdate}
+        onDirectorUpdate={state.onDirectorUpdate}
         onNarratorDefaultUpdate={state.onNarratorDefaultUpdate}
       />
     );
@@ -105,7 +90,7 @@ function PresentationConfigurationSettingsContent({
   );
 }
 
-function usePresentationConfigurationSettingsState(): PresentationConfigurationSettingsState {
+function useVoiceConfigurationSettingsState(): VoiceConfigurationSettingsState {
   const runtimeSnapshot = useRuntimeStore((state) => state.snapshot);
   const activeRuntimeKey = connectedRuntimeConfigurationKey(runtimeSnapshot);
   const [configurationState, setConfigurationState] = useState<RuntimeKeyedConfiguration | null>(
@@ -128,12 +113,12 @@ function usePresentationConfigurationSettingsState(): PresentationConfigurationS
     }),
     configuration,
     error,
-    onMasterUpdate: (master) => {
+    onDirectorUpdate: (director) => {
       if (!activeRuntimeKey) {
         return;
       }
       setConfigurationState((current) =>
-        updateRuntimeScopedConfiguration(current, activeRuntimeKey, { master }),
+        updateRuntimeScopedConfiguration(current, activeRuntimeKey, { director }),
       );
     },
     onNarratorDefaultUpdate: (narratorDefault) => {
@@ -159,7 +144,7 @@ function useLoadVoiceConfiguration(
       return;
     }
     const speech = window.setta.speech;
-    if (!speech.readMasterVoiceSelection || !speech.readNarratorVoiceDefault) {
+    if (!speech.readDirectorVoiceSelection || !speech.readNarratorVoiceDefault) {
       setConfigurationState(null);
       setErrorState({
         message: "Voice configuration is unavailable in this client.",
@@ -172,13 +157,13 @@ function useLoadVoiceConfiguration(
     setErrorState(null);
     void Promise.all([
       speech.readCapabilities(),
-      speech.readMasterVoiceSelection(),
+      speech.readDirectorVoiceSelection(),
       speech.readNarratorVoiceDefault(),
     ]).then(
-      ([capabilities, master, narratorDefault]) => {
+      ([capabilities, director, narratorDefault]) => {
         if (active) {
           setConfigurationState({
-            configuration: { capabilities, master, narratorDefault },
+            configuration: { capabilities, director, narratorDefault },
             runtimeKey: activeRuntimeKey,
           });
           setErrorState(null);
@@ -261,7 +246,7 @@ function runtimeScopedError(
 function updateRuntimeScopedConfiguration(
   current: RuntimeKeyedConfiguration | null,
   runtimeKey: string,
-  update: Partial<Pick<GlobalVoiceConfiguration, "master" | "narratorDefault">>,
+  update: Partial<Pick<GlobalVoiceConfiguration, "director" | "narratorDefault">>,
 ): RuntimeKeyedConfiguration | null {
   if (current?.runtimeKey !== runtimeKey) {
     return current;
@@ -347,43 +332,45 @@ function runtimeConnectionVoiceProviderStatus(
 
 export function GlobalVoiceConfigurationForm({
   configuration,
-  onMasterUpdate,
+  onDirectorUpdate,
   onNarratorDefaultUpdate,
 }: {
   configuration: GlobalVoiceConfiguration;
-  onMasterUpdate: (value: MasterVoiceSelection) => void;
+  onDirectorUpdate: (value: DirectorVoiceSelection) => void;
   onNarratorDefaultUpdate: (value: NarratorVoiceDefault) => void;
 }) {
-  const [masterDraft, setMasterDraft] = useState(() => voiceSelectionValue(configuration.master));
+  const [directorDraft, setDirectorDraft] = useState(() =>
+    voiceSelectionValue(configuration.director),
+  );
   const [narratorDraft, setNarratorDraft] = useState(() =>
     voiceSelectionValue(configuration.narratorDefault),
   );
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState<"master" | "narrator" | null>(null);
+  const [saving, setSaving] = useState<"director" | "narrator" | null>(null);
 
   useEffect(() => {
-    setMasterDraft(voiceSelectionValue(configuration.master));
+    setDirectorDraft(voiceSelectionValue(configuration.director));
     setError(null);
-  }, [configuration.master]);
+  }, [configuration.director]);
 
   useEffect(() => {
     setNarratorDraft(voiceSelectionValue(configuration.narratorDefault));
     setError(null);
   }, [configuration.narratorDefault]);
 
-  const masterDirty = masterDraft !== voiceSelectionValue(configuration.master);
+  const directorDirty = directorDraft !== voiceSelectionValue(configuration.director);
   const narratorDirty = narratorDraft !== voiceSelectionValue(configuration.narratorDefault);
 
-  const saveMaster = () => {
-    const update = window.setta.speech.updateMasterVoiceSelection;
+  const saveDirector = () => {
+    const update = window.setta.speech.updateDirectorVoiceSelection;
     if (!update || saving) {
       return;
     }
-    setSaving("master");
+    setSaving("director");
     setError(null);
-    void update(voiceSelectionRequest(masterDraft)).then(
+    void update(voiceSelectionRequest(directorDraft)).then(
       (value) => {
-        onMasterUpdate(value);
+        onDirectorUpdate(value);
         setSaving(null);
       },
       (reason: unknown) => {
@@ -416,11 +403,9 @@ export function GlobalVoiceConfigurationForm({
       <header className="flex min-h-8 items-start gap-2">
         <Volume2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <div>
-          <h2 className="text-xs font-semibold tracking-wide text-foreground">
-            Voices and presentation
-          </h2>
+          <h2 className="text-xs font-semibold tracking-wide text-foreground">Voices</h2>
           <p className="text-[11px] text-muted-foreground">
-            Speaker choices are validated against the backend voice catalog.
+            Choose distinct voices for the Director and workstream narrators.
           </p>
         </div>
       </header>
@@ -435,19 +420,19 @@ export function GlobalVoiceConfigurationForm({
       )}
       <div className="grid gap-2 md:grid-cols-2">
         <VoiceConfigurationCard
-          description={`Currently resolves to ${configuration.master.resolvedVoiceId ?? "no voice"}.`}
+          description={`Currently resolves to ${configuration.director.resolvedVoiceId ?? "no voice"}.`}
           disabled={saving !== null}
-          label="Master voice"
-          onChange={setMasterDraft}
-          onReset={() => setMasterDraft(voiceSelectionValue(configuration.master))}
-          onSave={saveMaster}
-          saving={saving === "master"}
-          selection={masterDraft}
-          dirty={masterDirty}
+          label="Director voice"
+          onChange={setDirectorDraft}
+          onReset={() => setDirectorDraft(voiceSelectionValue(configuration.director))}
+          onSave={saveDirector}
+          saving={saving === "director"}
+          selection={directorDraft}
+          dirty={directorDirty}
           voices={configuration.capabilities.voiceCatalog.voiceIds}
         />
         <VoiceConfigurationCard
-          description="Applied to new topic conversations; automatic mode resolves per conversation."
+          description="Used for new workstreams; automatic mode chooses a distinct voice for each."
           disabled={saving !== null}
           label="Default narrator voice"
           onChange={setNarratorDraft}
@@ -521,173 +506,6 @@ function VoiceConfigurationCard({
   );
 }
 
-export function ConversationPresentationConfiguration({
-  archived,
-  profile,
-  workspaceId,
-}: {
-  archived: boolean;
-  profile: ConversationPresentationProfile;
-  workspaceId: string;
-}) {
-  const [voiceIds, setVoiceIds] = useState<SpeechVoiceID[]>([]);
-  const [paletteDraft, setPaletteDraft] = useState(() => paletteSelectionValue(profile));
-  const [voiceDraft, setVoiceDraft] = useState(() => voiceSelectionValueForProfile(profile));
-  const [speechEnabled, setSpeechEnabled] = useState(profile.narratorSpeechEnabled);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    void window.setta.speech.readCapabilities().then(
-      (capabilities) => {
-        if (active) {
-          setVoiceIds(capabilities.voiceCatalog.voiceIds);
-        }
-      },
-      (reason: unknown) => {
-        if (active) {
-          setError(errorMessage(reason));
-        }
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    setPaletteDraft(paletteSelectionValue(profile));
-    setVoiceDraft(voiceSelectionValueForProfile(profile));
-    setSpeechEnabled(profile.narratorSpeechEnabled);
-    setError(null);
-  }, [profile]);
-
-  const settings = useMemo(
-    () => ({
-      narratorSpeechEnabled: speechEnabled,
-      narratorVoiceSelection: voiceSelectionRequest(voiceDraft),
-      paletteSelection: paletteSelectionRequest(paletteDraft),
-    }),
-    [paletteDraft, speechEnabled, voiceDraft],
-  );
-  const dirty =
-    paletteDraft !== paletteSelectionValue(profile) ||
-    voiceDraft !== voiceSelectionValueForProfile(profile) ||
-    speechEnabled !== profile.narratorSpeechEnabled;
-  const controlsDisabled = archived || saving;
-  const voiceDisabled = controlsDisabled || voiceIds.length === 0;
-  const resetDisabled = !dirty || controlsDisabled;
-  const saveDisabled = resetDisabled || voiceIds.length === 0;
-
-  const reset = () => {
-    setPaletteDraft(paletteSelectionValue(profile));
-    setVoiceDraft(voiceSelectionValueForProfile(profile));
-    setSpeechEnabled(profile.narratorSpeechEnabled);
-    setError(null);
-  };
-  const save = () => {
-    if (archived || saving || !dirty) {
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    void window.setta.conversations
-      .updatePresentation({
-        conversationId: profile.conversationId,
-        settings,
-        workspaceId,
-      })
-      .then((updated) => {
-        if (updated.conversationId !== profile.conversationId) {
-          throw new Error("Updated presentation profile belongs to another conversation.");
-        }
-        return window.setta.conversations.read({
-          conversationId: profile.conversationId,
-          workspaceId,
-        });
-      })
-      .then(
-        (snapshot) => {
-          hydrateConversationProjectionSnapshot(snapshot);
-          setSaving(false);
-        },
-        (reason: unknown) => {
-          setError(errorMessage(reason));
-          setSaving(false);
-        },
-      );
-  };
-
-  return (
-    <details
-      className="conversation-presentation-config"
-      data-testid="conversation-presentation-configuration"
-    >
-      <summary
-        aria-label="Voice and color settings"
-        className="conversation-presentation-config-trigger"
-        title="Voice and color"
-      >
-        <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
-      </summary>
-      <div className="conversation-presentation-config-panel">
-        <label className="grid gap-1 text-[11px] text-muted-foreground">
-          Conversation color
-          <select
-            aria-label="Conversation color selection"
-            className="h-8 rounded-sm border border-input bg-background px-2 text-xs text-foreground"
-            disabled={controlsDisabled}
-            onChange={(event) => setPaletteDraft(event.currentTarget.value)}
-            value={paletteDraft}
-          >
-            <option value={automaticSelectionValue}>Automatic distinct</option>
-            {conversationPaletteIDs.map((paletteId) => (
-              <option key={paletteId} value={paletteId}>
-                {titleCase(paletteId)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-[11px] text-muted-foreground">
-          Narrator voice
-          <VoiceSelectionControl
-            ariaLabel="Conversation narrator voice selection"
-            disabled={voiceDisabled}
-            onChange={setVoiceDraft}
-            selection={voiceDraft}
-            voices={voiceIds}
-          />
-        </label>
-        <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
-          <input
-            aria-label="Speak narrator updates"
-            checked={speechEnabled}
-            disabled={controlsDisabled}
-            onChange={(event) => setSpeechEnabled(event.currentTarget.checked)}
-            type="checkbox"
-          />
-          Speak narrator updates
-        </label>
-        {error ? (
-          <p className="text-[11px] text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <div className="flex justify-end gap-1">
-          <Button disabled={resetDisabled} onClick={reset} type="button">
-            Revert
-          </Button>
-          <Button disabled={saveDisabled} onClick={save} type="button" variant="primary">
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            Save
-          </Button>
-        </div>
-      </div>
-    </details>
-  );
-}
-
 function VoiceSelectionControl({
   ariaLabel,
   disabled,
@@ -740,40 +558,12 @@ function ConfigurationMessage({
   );
 }
 
-const conversationPaletteIDs = Object.keys(conversationPaletteCatalog) as ConversationPaletteID[];
-
-function paletteSelectionValue(profile: ConversationPresentationProfile): string {
-  return profile.paletteSelection === "auto_distinct"
-    ? automaticSelectionValue
-    : requireSelectionID(profile.requestedPaletteId, "exact conversation palette");
-}
-
-function paletteSelectionRequest(value: string) {
-  if (value === automaticSelectionValue) {
-    return { requestedPaletteId: null, selection: "auto_distinct" as const };
-  }
-  if (!conversationPaletteIDs.includes(value as ConversationPaletteID)) {
-    throw new Error(`Conversation palette ${value} is unavailable.`);
-  }
-  return {
-    requestedPaletteId: value as ConversationPaletteID,
-    selection: "exact" as const,
-  };
-}
-
 function voiceSelectionValue(
-  value: Pick<MasterVoiceSelection | NarratorVoiceDefault, "selection" | "requestedVoiceId">,
+  value: Pick<DirectorVoiceSelection | NarratorVoiceDefault, "selection" | "requestedVoiceId">,
 ): string {
   return value.selection === "auto_distinct"
     ? automaticSelectionValue
     : requireSelectionID(value.requestedVoiceId, "exact voice");
-}
-
-function voiceSelectionValueForProfile(profile: ConversationPresentationProfile): string {
-  return voiceSelectionValue({
-    requestedVoiceId: profile.requestedNarratorVoiceId,
-    selection: profile.narratorVoiceSelection,
-  });
 }
 
 function voiceSelectionRequest(value: string): VoiceSelectionRequest {
@@ -794,5 +584,5 @@ function titleCase(value: string): string {
 }
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Presentation configuration failed.";
+  return error instanceof Error ? error.message : "Unable to save voice settings. Try again.";
 }

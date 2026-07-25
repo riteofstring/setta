@@ -13,14 +13,12 @@ import {
   listLimit,
   nonEmptyString,
   optionalNonNegativeIntegerEnvironment,
-  scriptedMasterRouteDecision,
   validSideBoundary,
   validSideContextFrame,
-  validStructuredMasterRouteContext,
 } from "./fake-topic-codex-app-server-helpers.mjs";
 import { scriptedDirectorDecision } from "./fake-topic-codex-director-decisions.mjs";
 import { createExactStructuredInputRoutes } from "./fake-topic-codex-input-routes.mjs";
-import * as restrictedThread from "./fake-topic-codex-restricted-thread.mjs";
+import * as structuredCall from "./fake-topic-codex-structured-call.mjs";
 const persistedStatePath = process.env.SETTA_E2E_TOPIC_CODEX_STATE_PATH ?? "";
 const initialThreadStartDelayMs = optionalNonNegativeIntegerEnvironment(
   "SETTA_E2E_TOPIC_CODEX_INITIAL_THREAD_START_DELAY_MS",
@@ -160,14 +158,14 @@ function terminateBackgroundTerminals(message) {
 }
 function startThread(message) {
   const params = message.params ?? {};
-  const restricted = params.allowProviderModelFallback === false;
-  if (restricted) {
-    restrictedThread.assertRestrictedThreadParams(params, true);
+  const structured = params.allowProviderModelFallback === false;
+  if (structured) {
+    structuredCall.assertStructuredCallParams(params);
   }
   const delayInitialResponse = threadCounter === 0 && initialThreadStartDelayMs > 0;
   threadCounter += 1;
   const threadId = `topic-thread-${threadCounter}`;
-  const state = startThreadState(params, threadId, restricted);
+  const state = startThreadState(params, threadId, structured);
   loadedThreads.set(threadId, state);
   recordProviderMethod("thread/start", params, { threadId });
   persistState();
@@ -179,7 +177,7 @@ function startThread(message) {
   }
   sendResponse();
 }
-function startThreadState(params, threadId, restricted) {
+function startThreadState(params, threadId, structured) {
   return {
     approvalPolicy: params.approvalPolicy ?? null,
     cwd: requiredString(params, "cwd"),
@@ -189,15 +187,15 @@ function startThreadState(params, threadId, restricted) {
     id: threadId,
     model: params.model ?? "gpt-5.6-sol",
     reasoningEffort: params.config?.model_reasoning_effort ?? null,
-    restricted,
+    structured,
     runtimeWorkspaceRoots: params.runtimeWorkspaceRoots ?? [],
     sandbox: params.sandbox ?? null,
-    serviceTier: startThreadServiceTier(params, restricted),
+    serviceTier: startThreadServiceTier(params, structured),
     turnIds: [],
   };
 }
-function startThreadServiceTier(params, restricted) {
-  if (restricted && params.serviceTier === null) return "default";
+function startThreadServiceTier(params, structured) {
+  if (structured && params.serviceTier === null) return "default";
   return params.serviceTier ?? null;
 }
 function forkThread(message) {
@@ -292,9 +290,6 @@ function injectThreadItems(message) {
   if (injectTopicThreadInitialization(message)) {
     return;
   }
-  if (injectRestrictedThreadInitialization(message)) {
-    return;
-  }
   const request = sideContextInjectionRequest(message);
   if (!request) return;
   const boundary = injectedMessageText(request.items[0], "user");
@@ -322,7 +317,7 @@ function injectTopicThreadInitialization(message) {
   const params = message.params ?? {};
   const threadId = requiredString(params, "threadId");
   const thread = loadedThreads.get(threadId);
-  if (!thread || thread.ephemeral || thread.restricted) {
+  if (!thread || thread.ephemeral || thread.structured) {
     return false;
   }
   const items = params.items;
@@ -334,30 +329,6 @@ function injectTopicThreadInitialization(message) {
     )
   ) {
     respondError(message.id, -32602, "topic thread initialization drifted");
-    return true;
-  }
-  thread.materialized = true;
-  materializeDurableThread(thread);
-  respond(message.id, {});
-  return true;
-}
-
-function injectRestrictedThreadInitialization(message) {
-  const params = message.params ?? {};
-  const threadId = requiredString(params, "threadId");
-  const thread = loadedThreads.get(threadId);
-  if (!thread?.restricted || thread.ephemeral) {
-    return false;
-  }
-  const items = params.items;
-  if (
-    !Array.isArray(items) ||
-    items.length !== 1 ||
-    !injectedMessageText(items[0], "user").includes(
-      "Setta initialized this restricted durable thread",
-    )
-  ) {
-    respondError(message.id, -32602, "restricted thread initialization drifted");
     return true;
   }
   thread.materialized = true;
@@ -408,22 +379,23 @@ function resumeThread(message) {
     respondThreadNotFound(message.id, "thread/resume", threadId);
     return;
   }
-  if (!validateRestrictedThreadResume(message.id, threadId, state, params)) return;
-  restrictedThread.applyResumeParams(state, params);
+  applyResumeParams(state, params);
   loadedThreads.set(threadId, state);
   persistState();
   respond(message.id, threadOperationResponse(fakeThread(threadId), state));
 }
 
-function validateRestrictedThreadResume(messageId, threadId, state, params) {
-  if (!state.restricted) return true;
-  if (!state.materialized) {
-    respondThreadNotFound(messageId, "thread/resume", threadId);
-    return false;
-  }
-  restrictedThread.assertRestrictedThreadParams(params, false);
+function applyResumeParams(state, params) {
+  state.approvalPolicy = params.approvalPolicy ?? state.approvalPolicy;
+  state.cwd = params.cwd ?? state.cwd;
+  state.developerInstructions = params.developerInstructions ?? state.developerInstructions;
+  state.model = params.model ?? state.model;
+  state.reasoningEffort = params.config?.model_reasoning_effort ?? state.reasoningEffort;
   state.runtimeWorkspaceRoots = params.runtimeWorkspaceRoots ?? [];
-  return true;
+  state.sandbox = params.sandbox ?? state.sandbox;
+  if (Object.hasOwn(params, "serviceTier")) {
+    state.serviceTier = params.serviceTier;
+  }
 }
 
 function readThread(message) {
@@ -530,7 +502,6 @@ const structuredTurnEmitters = {
   director_decision: emitStructuredDirectorDecision,
   focus: emitStructuredFocus,
   input_route: emitStructuredInputRoute,
-  master_route: emitStructuredMasterRoute,
   projection: emitStructuredProjection,
   status: emitStructuredStatus,
 };
@@ -580,34 +551,6 @@ function emitStructuredCheckpoint(threadId, turnId, context) {
   );
   completeTurn(threadId, turnId, "completed");
   return true;
-}
-
-function emitStructuredMasterRoute(threadId, turnId, context, outputSchema) {
-  const input = context.input?.input;
-  const serialized = JSON.stringify(context);
-  const schema = JSON.stringify(outputSchema);
-  const decision = scriptedMasterRouteDecision(context, schema);
-  if (!validStructuredMasterRouteContext(context, serialized, schema) || decision === null) {
-    completeTurn(threadId, turnId, "failed", "master route context or schema drifted");
-    return true;
-  }
-  if (!validMasterEscalationInput(input)) {
-    completeTurn(threadId, turnId, "failed", "master escalation linkage drifted");
-    return true;
-  }
-  emitAgentMessage(threadId, turnId, JSON.stringify({ decision }));
-  completeTurn(threadId, turnId, "completed");
-  return true;
-}
-
-function validMasterEscalationInput(input) {
-  if (input?.source !== "conversation_escalation") {
-    return true;
-  }
-  return [
-    input.text === "route unrelated request through global master",
-    nonEmptyString(input.originatingConversationId),
-  ].every(Boolean);
 }
 
 function emitStructuredInputRoute(threadId, turnId, context) {
@@ -678,9 +621,6 @@ function structuredInputRouteKind(context, allowed) {
 }
 
 function specialStructuredInputRouteKind(context, allowed) {
-  if (isMasterEscalationRoute(context, allowed)) {
-    return "escalate_to_master";
-  }
   const clarification = structuredInputClarificationRouteKind(context, allowed);
   if (clarification) {
     return clarification;
@@ -720,13 +660,6 @@ function conversationStatusRouteKind(context, allowed) {
     return null;
   }
   return activeStructuredInputRouteKind(context, allowed);
-}
-
-function isMasterEscalationRoute(context, allowed) {
-  return (
-    context.input?.input?.text === "route unrelated request through global master" &&
-    allowed.includes("escalate_to_master")
-  );
 }
 
 function activeStructuredInputRouteKind(context, allowed) {
@@ -822,26 +755,10 @@ function holdStructuredTurnOnce(context) {
   return true;
 }
 function structuredHoldKey(context) {
-  if (isCancelledMasterRoute(context)) {
-    return "master:cancel-route";
-  }
-  if (isCrashMasterRoute(context)) {
-    return "master:crash-route";
-  }
   if (isCrashNarratorProjection(context)) {
     return "narrator:crash-projection";
   }
   return null;
-}
-
-function isCancelledMasterRoute(context) {
-  return (
-    context.kind === "master_route" && context.input?.input?.text === "Cancel active master route."
-  );
-}
-
-function isCrashMasterRoute(context) {
-  return context.kind === "master_route" && context.input?.input?.text === "Crash master route.";
 }
 
 function isCrashNarratorProjection(context) {
@@ -1384,12 +1301,38 @@ function threadOperationResponse(thread, state) {
     instructionSources: [],
     model: state.model,
     modelProvider: "fake",
-    reasoningEffort: state.reasoningEffort ?? restrictedThread.modelReasoningEffort(state.model),
+    reasoningEffort: state.reasoningEffort ?? modelReasoningEffort(state.model),
     runtimeWorkspaceRoots: state.runtimeWorkspaceRoots ?? [],
-    sandbox: restrictedThread.sandboxPolicy(state.sandbox ?? "workspace-write"),
+    sandbox: sandboxPolicy(state.sandbox ?? "workspace-write"),
     serviceTier: state.serviceTier ?? null,
     thread,
   };
+}
+
+function sandboxPolicy(mode) {
+  switch (mode) {
+    case "read-only":
+      return { networkAccess: false, type: "readOnly" };
+    case "workspace-write":
+      return {
+        excludeSlashTmp: false,
+        excludeTmpdirEnvVar: false,
+        networkAccess: false,
+        type: "workspaceWrite",
+        writableRoots: [],
+      };
+    case "danger-full-access":
+      return { type: "dangerFullAccess" };
+    default:
+      throw new Error(`unsupported sandbox mode ${mode}`);
+  }
+}
+
+function modelReasoningEffort(model) {
+  if (model === "gpt-5.4-mini") return "low";
+  if (model === "gpt-5.6-terra") return "medium";
+  if (model === "gpt-5.6-luna") return "medium";
+  return "high";
 }
 
 function fakeTurn(turnId, status) {

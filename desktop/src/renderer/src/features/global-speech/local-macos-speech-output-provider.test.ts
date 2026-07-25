@@ -7,8 +7,8 @@ describe("local macOS speech output provider", () => {
   test("adds the local macOS provider to backend synthesis requests", async () => {
     const source = {
       conversationId: null,
-      eventId: "master-answer-speech",
-      speaker: "master" as const,
+      eventId: "director-answer-speech",
+      speaker: "director" as const,
     };
     const synthesize = vi.fn(
       async (request: Parameters<NonNullable<SettaAPI["speech"]["synthesize"]>>[0]) => ({

@@ -9,7 +9,6 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
 	"setta/internal/director"
-	"setta/internal/master"
 	"setta/internal/runtimeauth"
 	"setta/internal/speech"
 	"setta/internal/workspaceui/conversationpalette"
@@ -49,13 +48,6 @@ func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
 		}
 		result[union.Type] = taggedUnionSpec{Discriminator: union.Discriminator, Branches: branches}
 	}
-	for _, union := range master.ContractTaggedUnions() {
-		branches := make([]taggedUnionBranch, 0, len(union.Branches))
-		for _, branch := range union.Branches {
-			branches = append(branches, taggedUnionBranch{Field: branch.Field, KindValue: branch.KindValue})
-		}
-		result[union.Type] = taggedUnionSpec{Discriminator: union.Discriminator, Branches: branches}
-	}
 	for _, union := range director.ContractTaggedUnions() {
 		branches := make([]taggedUnionBranch, 0, len(union.Branches))
 		for _, branch := range union.Branches {
@@ -68,26 +60,6 @@ func contractTaggedUnions() map[reflect.Type]taggedUnionSpec {
 
 func contractDiscriminatedStructs() map[reflect.Type]discriminatedStructSpec {
 	result := map[reflect.Type]discriminatedStructSpec{}
-	for _, contract := range master.ContractDiscriminatedStructs() {
-		variants := make([]discriminatedStructVariant, 0, len(contract.Variants))
-		for _, variant := range contract.Variants {
-			fields := make([]discriminatedStructField, 0, len(variant.Fields))
-			for _, field := range variant.Fields {
-				fields = append(fields, discriminatedStructField{
-					Name:    field.Name,
-					NonNull: field.NonNull,
-				})
-			}
-			variants = append(variants, discriminatedStructVariant{
-				DiscriminatorValue: variant.DiscriminatorValue,
-				Fields:             fields,
-			})
-		}
-		result[contract.Type] = discriminatedStructSpec{
-			Discriminator: contract.Discriminator,
-			Variants:      variants,
-		}
-	}
 	for _, contract := range director.ContractDiscriminatedStructs() {
 		variants := make([]discriminatedStructVariant, 0, len(contract.Variants))
 		for _, variant := range contract.Variants {
@@ -128,9 +100,6 @@ func contractValueSets() []contractValueSet {
 		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range director.ContractValueSets() {
-		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
-	}
-	for _, set := range master.ContractValueSets() {
 		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range runtimeauth.ContractValueSets() {

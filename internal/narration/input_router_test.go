@@ -530,7 +530,6 @@ func TestConversationRouteOutputDecodesEveryAllowedStrictVariant(t *testing.T) {
 		conversation.ConversationRouteDecisionKindAnswerAsNarrator,
 		conversation.ConversationRouteDecisionKindCreateSideConversation,
 		conversation.ConversationRouteDecisionKindForkConversation,
-		conversation.ConversationRouteDecisionKindEscalateToMaster,
 		conversation.ConversationRouteDecisionKindClarify,
 	}
 	contextBundle := ConversationRouteContextBundle{

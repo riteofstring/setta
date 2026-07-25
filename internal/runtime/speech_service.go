@@ -55,12 +55,12 @@ func (resolver runtimeSpeechSourceResolver) resolveDirectorSpeechSource(
 	if err := source.Validate(); err != nil {
 		return speech.ResolvedSpeechSource{}, err
 	}
-	voice, err := resolver.store.ReadMasterVoiceSelection(ctx)
+	voice, err := resolver.store.ReadDirectorVoiceSelection(ctx)
 	if err != nil {
 		return speech.ResolvedSpeechSource{}, err
 	}
 	if voice.ResolvedVoiceID == nil {
-		return speech.ResolvedSpeechSource{}, errors.New("director speech requires a resolved assistant voice")
+		return speech.ResolvedSpeechSource{}, errors.New("director speech requires a resolved Director voice")
 	}
 	text, err := resolver.resolveDirectorSpeechText(ctx, source.EventID)
 	if err != nil {

@@ -349,11 +349,11 @@ func newLiveSideConversationService(
 			t.Errorf("close live conversation store: %v", err)
 		}
 	})
-	if _, err := store.EnsureMasterVoiceSelection(
+	if _, err := store.EnsureDirectorVoiceSelection(
 		context.Background(),
-		speech.DefaultMasterVoiceSelection("2026-07-13T12:00:00Z"),
+		speech.DefaultDirectorVoiceSelection("2026-07-13T12:00:00Z"),
 	); err != nil {
-		t.Fatalf("EnsureMasterVoiceSelection: %v", err)
+		t.Fatalf("EnsureDirectorVoiceSelection: %v", err)
 	}
 	if _, err := store.EnsureNarratorVoiceDefault(
 		context.Background(),

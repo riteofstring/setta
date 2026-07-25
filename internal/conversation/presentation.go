@@ -23,17 +23,6 @@ type PresentationReuse struct {
 	ConflictingConversationIDs []string                `json:"conflictingConversationIds"`
 }
 
-type PresentationSelectionRequest struct {
-	Selection          PresentationSelectionMode                  `json:"selection"`
-	RequestedPaletteID *conversationpalette.ConversationPaletteID `json:"requestedPaletteId"`
-}
-
-type ConversationPresentationSettings struct {
-	PaletteSelection       PresentationSelectionRequest `json:"paletteSelection"`
-	NarratorVoiceSelection speech.VoiceSelectionRequest `json:"narratorVoiceSelection"`
-	NarratorSpeechEnabled  bool                         `json:"narratorSpeechEnabled"`
-}
-
 type ConversationPresentationProfile struct {
 	ConversationID           string                                     `json:"conversationId"`
 	PaletteSelection         PresentationSelectionMode                  `json:"paletteSelection"`
@@ -46,52 +35,6 @@ type ConversationPresentationProfile struct {
 	NarratorVoiceReuse       *PresentationReuse                         `json:"narratorVoiceReuse"`
 	NarratorSpeechEnabled    bool                                       `json:"narratorSpeechEnabled"`
 	UpdatedAt                string                                     `json:"updatedAt"`
-}
-
-func (request PresentationSelectionRequest) Validate() error {
-	switch request.Selection {
-	case PresentationSelectionExact:
-		if request.RequestedPaletteID == nil {
-			return fmt.Errorf("exact palette selection requires requested id")
-		}
-		if _, ok := conversationpalette.Lookup(*request.RequestedPaletteID); !ok {
-			return fmt.Errorf("conversation palette %q is not available", *request.RequestedPaletteID)
-		}
-		return nil
-	case PresentationSelectionAutoDistinct:
-		if request.RequestedPaletteID != nil {
-			return fmt.Errorf("automatic palette selection must not contain requested id")
-		}
-		return nil
-	default:
-		return fmt.Errorf("unsupported palette selection mode %q", request.Selection)
-	}
-}
-
-func (settings ConversationPresentationSettings) Validate() error {
-	if err := settings.PaletteSelection.Validate(); err != nil {
-		return err
-	}
-	if err := settings.NarratorVoiceSelection.Validate(); err != nil {
-		return fmt.Errorf("narrator voice selection: %w", err)
-	}
-	return nil
-}
-
-func PresentationSettingsForProfile(
-	profile ConversationPresentationProfile,
-) ConversationPresentationSettings {
-	return ConversationPresentationSettings{
-		PaletteSelection: PresentationSelectionRequest{
-			Selection:          profile.PaletteSelection,
-			RequestedPaletteID: clonePaletteID(profile.RequestedPaletteID),
-		},
-		NarratorVoiceSelection: speech.VoiceSelectionRequest{
-			Selection:        profile.NarratorVoiceSelection,
-			RequestedVoiceID: cloneVoiceID(profile.RequestedNarratorVoiceID),
-		},
-		NarratorSpeechEnabled: profile.NarratorSpeechEnabled,
-	}
 }
 
 func (reuse PresentationReuse) Validate(resolvedChoiceID string) error {
@@ -244,16 +187,6 @@ func paletteIDPointerString(value *conversationpalette.ConversationPaletteID) *s
 		return nil
 	}
 	result := string(*value)
-	return &result
-}
-
-func clonePaletteID(
-	value *conversationpalette.ConversationPaletteID,
-) *conversationpalette.ConversationPaletteID {
-	if value == nil {
-		return nil
-	}
-	result := *value
 	return &result
 }
 

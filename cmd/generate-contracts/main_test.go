@@ -11,7 +11,6 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
 	"setta/internal/httpapi"
-	"setta/internal/master"
 	"setta/internal/workspaceui/conversationpalette"
 )
 
@@ -359,40 +358,6 @@ func TestRenderTaggedUnionStructValidatesBranchInvariant(t *testing.T) {
 		if !strings.Contains(output, want) {
 			t.Fatalf("generated output missing %q:\n%s", want, output)
 		}
-	}
-}
-
-func TestRenderMasterPresentationResourceBindingRequiresFolderPayload(t *testing.T) {
-	specs, err := contractSpecs(httpapi.ContractSchema{
-		Endpoints: []httpapi.ContractEndpoint{{
-			Name:     "ContractPresentationResourceBinding",
-			Method:   "GET",
-			Path:     "/contract-presentation-resource-binding",
-			Response: reflect.TypeFor[master.PresentationResourceBinding](),
-		}},
-		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	})
-	if err != nil {
-		t.Fatalf("collect presentation resource binding contracts: %v", err)
-	}
-
-	var buffer bytes.Buffer
-	if err := render(&buffer, specs); err != nil {
-		t.Fatalf("render presentation resource binding contracts: %v", err)
-	}
-	output := buffer.String()
-	for _, want := range []string{
-		"export type PresentationResourceBinding = {",
-		"kind: \"folder\";\n      folder: PresentationFolderResourceBinding;",
-		"switch (result.kind)",
-		"PresentationResourceBinding.folder is required when kind is folder",
-	} {
-		if !strings.Contains(output, want) {
-			t.Fatalf("generated presentation resource binding contract missing %q:\n%s", want, output)
-		}
-	}
-	if strings.Contains(output, "AppPane") || strings.Contains(output, "WorkspaceUIPane") {
-		t.Fatalf("generated presentation resource binding contract retained deleted pane layout types:\n%s", output)
 	}
 }
 

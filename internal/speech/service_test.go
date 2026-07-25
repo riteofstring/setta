@@ -252,23 +252,23 @@ func TestSpeechServiceInitializesAndReadsStableVoiceConfiguration(t *testing.T) 
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
-	selection, err := service.ReadMasterVoiceSelection(context.Background())
+	selection, err := service.ReadDirectorVoiceSelection(context.Background())
 	if err != nil {
-		t.Fatalf("read master voice selection: %v", err)
+		t.Fatalf("read director voice selection: %v", err)
 	}
 	if selection.Selection != VoiceSelectionExact || selection.RequestedVoiceID == nil ||
 		selection.ResolvedVoiceID == nil || *selection.RequestedVoiceID != SpeechVoiceMarin ||
 		*selection.ResolvedVoiceID != SpeechVoiceMarin ||
 		selection.UpdatedAt != "2026-07-12T18:00:00Z" {
-		t.Fatalf("master voice selection = %+v", selection)
+		t.Fatalf("director voice selection = %+v", selection)
 	}
 	*selection.ResolvedVoiceID = SpeechVoiceCedar
-	reloaded, err := service.ReadMasterVoiceSelection(context.Background())
+	reloaded, err := service.ReadDirectorVoiceSelection(context.Background())
 	if err != nil {
-		t.Fatalf("reload master voice selection: %v", err)
+		t.Fatalf("reload director voice selection: %v", err)
 	}
 	if reloaded.ResolvedVoiceID == nil || *reloaded.ResolvedVoiceID != SpeechVoiceMarin {
-		t.Fatalf("reloaded master voice selection = %+v, err=%v", reloaded, err)
+		t.Fatalf("reloaded director voice selection = %+v, err=%v", reloaded, err)
 	}
 	narratorDefault, err := service.ReadNarratorVoiceDefault(context.Background())
 	if err != nil {
@@ -357,7 +357,7 @@ func TestSpeechServiceSynthesizesOnlyAuthoritativeSourceWithResolvedVoice(t *tes
 }
 
 func TestSpeechServiceResolvesLocalSynthesisInputWithoutProviderSnapshot(t *testing.T) {
-	source := SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"}
+	source := SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "director-answer-1"}
 	provider := &serviceTestProvider{configured: false}
 	resolver := &serviceTestSourceResolver{resolved: ResolvedSpeechSource{
 		Source:          source,
@@ -392,7 +392,7 @@ func TestSpeechServiceRejectsUnavailableSynthesisBeforeProviderCall(t *testing.T
 	service := newServiceTestServiceWithResolver(t, provider, resolver)
 	_, err := service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
 		Provider:        SpeechProviderOpenAI,
-		Source:          SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"},
+		Source:          SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "director-answer-1"},
 		ResolvedVoiceID: SpeechVoiceMarin,
 	})
 	assertSpeechServiceErrorCode(t, err, ErrorSourceUnavailable)
@@ -410,9 +410,9 @@ func TestSpeechServiceUsesSharedAssistantSynthesisRate(t *testing.T) {
 		voiceID SpeechVoiceID
 	}{
 		{
-			name:    "master",
-			source:  SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"},
-			text:    "The master answer is ready.",
+			name:    "director",
+			source:  SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "director-answer-1"},
+			text:    "The director answer is ready.",
 			voiceID: SpeechVoiceMarin,
 		},
 		{
@@ -464,7 +464,7 @@ func TestSpeechServiceUsesSharedAssistantSynthesisRate(t *testing.T) {
 }
 
 func TestSpeechServiceSnapshotsSynthesisProviderBeforeResolvingSource(t *testing.T) {
-	source := SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"}
+	source := SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "director-answer-1"}
 	originalProvider := &serviceTestProvider{
 		configured: true,
 		synthesized: SynthesizedAudio{
@@ -543,7 +543,7 @@ type blockingServiceTestSourceResolver struct {
 
 type serviceTestVoiceConfigurationStore struct {
 	narratorDefault *NarratorVoiceDefault
-	selection       *MasterVoiceSelection
+	selection       *DirectorVoiceSelection
 }
 
 type staticProviderController struct {
@@ -566,15 +566,15 @@ type serviceCredentialTestController struct {
 	clearCalls       int
 }
 
-func (store *serviceTestVoiceConfigurationStore) EnsureMasterVoiceSelection(
+func (store *serviceTestVoiceConfigurationStore) EnsureDirectorVoiceSelection(
 	_ context.Context,
-	initial MasterVoiceSelection,
-) (MasterVoiceSelection, error) {
+	initial DirectorVoiceSelection,
+) (DirectorVoiceSelection, error) {
 	if store.selection == nil {
-		cloned := CloneMasterVoiceSelection(initial)
+		cloned := CloneDirectorVoiceSelection(initial)
 		store.selection = &cloned
 	}
-	return CloneMasterVoiceSelection(*store.selection), nil
+	return CloneDirectorVoiceSelection(*store.selection), nil
 }
 
 func (store *serviceTestVoiceConfigurationStore) EnsureNarratorVoiceDefault(
@@ -588,13 +588,13 @@ func (store *serviceTestVoiceConfigurationStore) EnsureNarratorVoiceDefault(
 	return CloneNarratorVoiceDefault(*store.narratorDefault), nil
 }
 
-func (store *serviceTestVoiceConfigurationStore) ReadMasterVoiceSelection(
+func (store *serviceTestVoiceConfigurationStore) ReadDirectorVoiceSelection(
 	context.Context,
-) (MasterVoiceSelection, error) {
+) (DirectorVoiceSelection, error) {
 	if store.selection == nil {
-		return MasterVoiceSelection{}, errors.New("master voice selection is missing")
+		return DirectorVoiceSelection{}, errors.New("director voice selection is missing")
 	}
-	return CloneMasterVoiceSelection(*store.selection), nil
+	return CloneDirectorVoiceSelection(*store.selection), nil
 }
 
 func (store *serviceTestVoiceConfigurationStore) ReadNarratorVoiceDefault(
@@ -606,18 +606,18 @@ func (store *serviceTestVoiceConfigurationStore) ReadNarratorVoiceDefault(
 	return CloneNarratorVoiceDefault(*store.narratorDefault), nil
 }
 
-func (store *serviceTestVoiceConfigurationStore) UpdateMasterVoiceSelection(
+func (store *serviceTestVoiceConfigurationStore) UpdateDirectorVoiceSelection(
 	_ context.Context,
 	request VoiceSelectionRequest,
 	updatedAt string,
-) (MasterVoiceSelection, error) {
-	selection, err := ResolveMasterVoiceSelection(request, nil, updatedAt)
+) (DirectorVoiceSelection, error) {
+	selection, err := ResolveDirectorVoiceSelection(request, nil, updatedAt)
 	if err != nil {
-		return MasterVoiceSelection{}, err
+		return DirectorVoiceSelection{}, err
 	}
-	cloned := CloneMasterVoiceSelection(selection)
+	cloned := CloneDirectorVoiceSelection(selection)
 	store.selection = &cloned
-	return CloneMasterVoiceSelection(cloned), nil
+	return CloneDirectorVoiceSelection(cloned), nil
 }
 
 func (store *serviceTestVoiceConfigurationStore) UpdateNarratorVoiceDefault(

@@ -11,7 +11,6 @@ import (
 	"setta/internal/conversation"
 	"setta/internal/director"
 	"setta/internal/jsonio"
-	"setta/internal/master"
 	"setta/internal/speech"
 	"setta/internal/workspace"
 )
@@ -96,17 +95,6 @@ func requireRoleConfigurationService(
 			"role_configuration_service_unavailable",
 			"role configuration service is not available",
 		)
-		return nil
-	}
-	return service
-}
-
-func requireMasterInputService(
-	response http.ResponseWriter,
-	service MasterInputService,
-) MasterInputService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "master_input_service_unavailable", "master input service is not available")
 		return nil
 	}
 	return service
@@ -268,70 +256,6 @@ func writeConversationInputError(response http.ResponseWriter, err error) {
 	writeError(response, http.StatusBadRequest, "invalid_conversation_input", err.Error())
 }
 
-func writeMasterInputError(response http.ResponseWriter, err error) {
-	if master.IsInputConflict(err) {
-		writeError(response, http.StatusConflict, "master_input_conflict", err.Error())
-		return
-	}
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_master_input_state", err.Error())
-		return
-	}
-	if conversation.IsPersistenceError(err) {
-		writeError(response, http.StatusInternalServerError, "persist_master_input_failed", err.Error())
-		return
-	}
-	writeError(response, http.StatusBadRequest, "invalid_master_input", err.Error())
-}
-
-func writeMasterShellInteractionError(response http.ResponseWriter, err error) {
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_master_input_state", err.Error())
-		return
-	}
-	if errors.Is(err, conversation.ErrStoreClosed) {
-		writeError(response, http.StatusServiceUnavailable, "master_input_store_unavailable", err.Error())
-		return
-	}
-	writeError(response, http.StatusInternalServerError, "read_master_shell_interaction_failed", err.Error())
-}
-
-func writeMasterInputStateError(response http.ResponseWriter, err error) {
-	if conversation.IsStateConflict(err) {
-		writeError(response, http.StatusConflict, "master_input_state_conflict", err.Error())
-		return
-	}
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_master_input_state", err.Error())
-		return
-	}
-	if errors.Is(err, conversation.ErrStoreClosed) {
-		writeError(response, http.StatusServiceUnavailable, "master_input_store_unavailable", err.Error())
-		return
-	}
-	if conversation.IsPersistenceError(err) {
-		writeError(response, http.StatusInternalServerError, "read_master_input_state_failed", err.Error())
-		return
-	}
-	writeError(response, http.StatusBadRequest, "invalid_master_input_state_request", err.Error())
-}
-
-func writeMasterTranscriptError(response http.ResponseWriter, err error) {
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_master_transcript_state", err.Error())
-		return
-	}
-	if errors.Is(err, conversation.ErrStoreClosed) {
-		writeError(response, http.StatusServiceUnavailable, "master_input_store_unavailable", err.Error())
-		return
-	}
-	if conversation.IsPersistenceError(err) {
-		writeError(response, http.StatusInternalServerError, "read_master_transcript_failed", err.Error())
-		return
-	}
-	writeError(response, http.StatusBadRequest, "invalid_master_transcript_request", err.Error())
-}
-
 func writeSpeechError(response http.ResponseWriter, fallbackCode string, err error) {
 	if conversation.IsCorruptStateError(err) {
 		writeError(response, http.StatusInternalServerError, "corrupt_speech_source_state", err.Error())
@@ -362,14 +286,6 @@ func writeSpeechVoiceConfigurationError(response http.ResponseWriter, err error)
 		return
 	}
 	writeSpeechError(response, "invalid_speech_voice_configuration", err)
-}
-
-func writeConversationPresentationConfigurationError(response http.ResponseWriter, err error) {
-	if _, ok := speech.AsError(err); ok {
-		writeSpeechError(response, "invalid_speech_voice_configuration", err)
-		return
-	}
-	writeConversationError(response, "update_conversation_presentation_failed", err)
 }
 
 func speechErrorHTTPStatus(code speech.ErrorCode) int {

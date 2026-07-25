@@ -1,15 +1,10 @@
 /**
  * Measurement ownership for the graph renderer.
  *
- * The plan names four things the WebGL2 graph needs that the pane-era sampler
- * never had: CPU marks for projection, packing, buffer upload, and draw
+ * The graph owns CPU marks for projection, packing, buffer upload, and draw
  * submission; GPU timer-query sampling; p50/p95/p99 rather than average FPS;
- * and long-task counting that survives the pane shell's deletion.
- *
- * `workspace-layout/metrics.ts` is the pane shell's frame sampler and is inside
- * the Phase 5 deletion scope, so this rehomes the parts the graph needs instead
- * of importing them. The percentile convention is deliberately the same one the
- * committed E2E budget harness already asserts against, so a graph report and a
+ * and long-task counting. The percentile convention is deliberately the same
+ * one the committed E2E budget harness asserts against, so a graph report and a
  * workflow report mean the same thing by p95.
  */
 

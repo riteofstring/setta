@@ -10,7 +10,6 @@ import (
 
 	"setta/internal/conversation"
 	"setta/internal/director"
-	"setta/internal/master"
 )
 
 type contractSchemaHashInput struct {
@@ -311,41 +310,12 @@ type contractDiscriminatedStructFieldMetadata struct {
 func contractDiscriminatedStructForType(
 	goType reflect.Type,
 ) (contractDiscriminatedStructMetadata, bool) {
-	for _, contract := range master.ContractDiscriminatedStructs() {
-		if contract.Type == goType {
-			return contractDiscriminatedStructFromMaster(contract), true
-		}
-	}
 	for _, contract := range director.ContractDiscriminatedStructs() {
 		if contract.Type == goType {
 			return contractDiscriminatedStructFromDirector(contract), true
 		}
 	}
 	return contractDiscriminatedStructMetadata{}, false
-}
-
-func contractDiscriminatedStructFromMaster(
-	contract master.ContractDiscriminatedStruct,
-) contractDiscriminatedStructMetadata {
-	variants := make([]contractDiscriminatedStructVariantMetadata, 0, len(contract.Variants))
-	for _, variant := range contract.Variants {
-		fields := make([]contractDiscriminatedStructFieldMetadata, 0, len(variant.Fields))
-		for _, field := range variant.Fields {
-			fields = append(fields, contractDiscriminatedStructFieldMetadata{
-				Name:    field.Name,
-				NonNull: field.NonNull,
-			})
-		}
-		variants = append(variants, contractDiscriminatedStructVariantMetadata{
-			DiscriminatorValue: variant.DiscriminatorValue,
-			Fields:             fields,
-		})
-	}
-	return contractDiscriminatedStructMetadata{
-		Type:          contract.Type,
-		Discriminator: contract.Discriminator,
-		Variants:      variants,
-	}
 }
 
 func contractDiscriminatedStructFromDirector(

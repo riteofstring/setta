@@ -145,7 +145,7 @@ func TestValidateSpeechAudioAcceptsExactMaximumSize(t *testing.T) {
 		AudioBase64:     base64.StdEncoding.EncodeToString(audio),
 		MediaType:       SynthesisMediaType,
 		Format:          SynthesisFormat,
-		Source:          SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-summary"},
+		Source:          SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "director-summary"},
 		ResolvedVoiceID: SpeechVoiceMarin,
 	}
 	if err := ValidateSpeechAudio(value); err != nil {
@@ -159,11 +159,6 @@ func TestSpeechSynthesisRequestsRequireTypedSourceScopeAndAvailableVoice(t *test
 		{
 			Provider:        SpeechProviderOpenAI,
 			Source:          SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "director-answer-1"},
-			ResolvedVoiceID: SpeechVoiceMarin,
-		},
-		{
-			Provider:        SpeechProviderOpenAI,
-			Source:          SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"},
 			ResolvedVoiceID: SpeechVoiceMarin,
 		},
 		{
@@ -183,12 +178,11 @@ func TestSpeechSynthesisRequestsRequireTypedSourceScopeAndAvailableVoice(t *test
 	}
 
 	invalid := []SpeechSynthesisRequest{
-		{Provider: "", Source: SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "answer"}, ResolvedVoiceID: SpeechVoiceMarin},
+		{Provider: "", Source: SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "answer"}, ResolvedVoiceID: SpeechVoiceMarin},
 		{Provider: SpeechProviderOpenAI, Source: SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "answer", ConversationID: &conversationID}, ResolvedVoiceID: SpeechVoiceMarin},
-		{Provider: SpeechProviderOpenAI, Source: SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "answer", ConversationID: &conversationID}, ResolvedVoiceID: SpeechVoiceMarin},
 		{Provider: SpeechProviderOpenAI, Source: SpeechSource{Speaker: SpeechSpeakerNarrator, EventID: "status"}, ResolvedVoiceID: SpeechVoiceCedar},
 		{Provider: SpeechProviderOpenAI, Source: SpeechSource{Speaker: "unknown", EventID: "event"}, ResolvedVoiceID: SpeechVoiceMarin},
-		{Provider: SpeechProviderOpenAI, Source: SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "answer"}, ResolvedVoiceID: "retired"},
+		{Provider: SpeechProviderOpenAI, Source: SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "answer"}, ResolvedVoiceID: "retired"},
 	}
 	for _, request := range invalid {
 		if err := request.Validate(); err == nil {
@@ -223,7 +217,7 @@ func TestSpeechSynthesisInputRequiresValidatedProviderSourceTextVoiceAndRate(t *
 	conversationID := "conversation"
 	valid := SpeechSynthesisInput{
 		Provider:        SpeechProviderLocalMacOS,
-		Source:          SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"},
+		Source:          SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "director-answer-1"},
 		Text:            "The persisted answer is ready.",
 		ResolvedVoiceID: SpeechVoiceMarin,
 		Rate:            AssistantSynthesisRate,
@@ -233,7 +227,7 @@ func TestSpeechSynthesisInputRequiresValidatedProviderSourceTextVoiceAndRate(t *
 	}
 	invalid := []SpeechSynthesisInput{
 		{Provider: "", Source: valid.Source, Text: valid.Text, ResolvedVoiceID: valid.ResolvedVoiceID, Rate: valid.Rate},
-		{Provider: valid.Provider, Source: SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "answer", ConversationID: &conversationID}, Text: valid.Text, ResolvedVoiceID: valid.ResolvedVoiceID, Rate: valid.Rate},
+		{Provider: valid.Provider, Source: SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "answer", ConversationID: &conversationID}, Text: valid.Text, ResolvedVoiceID: valid.ResolvedVoiceID, Rate: valid.Rate},
 		{Provider: valid.Provider, Source: valid.Source, Text: "", ResolvedVoiceID: valid.ResolvedVoiceID, Rate: valid.Rate},
 		{Provider: valid.Provider, Source: valid.Source, Text: valid.Text, ResolvedVoiceID: "retired", Rate: valid.Rate},
 		{Provider: valid.Provider, Source: valid.Source, Text: valid.Text, ResolvedVoiceID: valid.ResolvedVoiceID, Rate: 0.24},
@@ -272,7 +266,7 @@ func TestSpeechContractValueSetsOwnClosedSpeechValues(t *testing.T) {
 	if strings.Join(sets[1].Values, ",") != "openai,local_macos" {
 		t.Fatalf("speech providers = %v", sets[1].Values)
 	}
-	if strings.Join(sets[2].Values, ",") != "director,master,narrator" {
+	if strings.Join(sets[2].Values, ",") != "director,narrator" {
 		t.Fatalf("speech speakers = %v", sets[2].Values)
 	}
 	if strings.Join(sets[4].Values, ",") != string(VoiceReuseCatalogExhausted) {

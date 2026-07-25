@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 
 	"setta/internal/agent"
+	"setta/internal/conversation"
 	"setta/internal/director"
-	"setta/internal/master"
 )
 
 // The Director's structured decision caller.
@@ -31,7 +31,7 @@ import (
 // runs as. It is the same durable role profile Setta already owns; the Director
 // does not get to choose its own model, effort, permissions, or input budget.
 type directorDecisionRole interface {
-	ResolveMasterRoleConfiguration(context.Context) (master.RoleConfiguration, error)
+	ResolveDirectorRoleConfiguration(context.Context) (conversation.DirectorRoleConfiguration, error)
 }
 
 // directorStructuredCallProvider runs one isolated schema-constrained turn.
@@ -111,7 +111,7 @@ func (caller *directorDecisionCaller) structuredRequest(
 	call director.DecisionCall,
 	input json.RawMessage,
 ) (agent.FreshStructuredCallRequest, error) {
-	configuration, err := caller.roles.ResolveMasterRoleConfiguration(ctx)
+	configuration, err := caller.roles.ResolveDirectorRoleConfiguration(ctx)
 	if err != nil {
 		return agent.FreshStructuredCallRequest{}, fmt.Errorf("resolve director decision role: %w", err)
 	}

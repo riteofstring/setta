@@ -60,40 +60,6 @@ func TestConversationRouteCommandExecutorCompletesPersistedNarratorDegradation(t
 	}
 }
 
-func TestConversationRouteCommandExecutorRejectsMissingAtomicMasterEffect(t *testing.T) {
-	store := &routeCommandExecutorStore{
-		applied:     []bool{false, false},
-		workspaceID: "workspace_test",
-	}
-	executor, err := newConversationRouteCommandExecutor(
-		store,
-		&routeCommandExecutorConversations{},
-		&routeCommandExecutorNarrator{},
-	)
-	if err != nil {
-		t.Fatalf("newConversationRouteCommandExecutor: %v", err)
-	}
-	record := routedNarratorStatusDecisionRecord()
-	record.Decision = conversation.ConversationRouteDecision{
-		Kind: conversation.ConversationRouteDecisionKindEscalateToMaster,
-		EscalateToMaster: &conversation.EscalateToMasterConversationRouteDecision{
-			Input: conversation.AuthoredInput{Text: "Escalate this request."},
-		},
-	}
-	record.ResultingCommand = conversation.ConversationRouteCommand{
-		Kind: conversation.ConversationRouteDecisionKindEscalateToMaster,
-		EscalateToMaster: &conversation.EscalateToMasterConversationRouteCommand{
-			MasterInputID: "master_input_test",
-			Input:         conversation.AuthoredInput{Text: "Escalate this request."},
-		},
-	}
-
-	err = executor.ExecuteConversationRouteCommand(context.Background(), record)
-	if err == nil {
-		t.Fatal("ExecuteConversationRouteCommand succeeded without the atomic master effect")
-	}
-}
-
 func TestConversationRouteCommandExecutorRunsFolderlessNarratorAnswer(t *testing.T) {
 	store := &routeCommandExecutorStore{
 		applied: []bool{false, true},

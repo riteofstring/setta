@@ -477,9 +477,9 @@ ON CONFLICT(conversation_id) DO UPDATE SET
 	return transaction.recordStateMutation()
 }
 
-func (transaction *WriteTransaction) UpdateMasterVoiceSelection(
+func (transaction *WriteTransaction) UpdateDirectorVoiceSelection(
 	expectedUpdatedAt string,
-	selection speech.MasterVoiceSelection,
+	selection speech.DirectorVoiceSelection,
 ) error {
 	if err := transaction.ensureActive(); err != nil {
 		return err
@@ -487,12 +487,12 @@ func (transaction *WriteTransaction) UpdateMasterVoiceSelection(
 	if err := selection.Validate(); err != nil {
 		return err
 	}
-	reuseJSON, err := encodeOptionalJSONColumn("master voice reuse", selection.Reuse)
+	reuseJSON, err := encodeOptionalJSONColumn("director voice reuse", selection.Reuse)
 	if err != nil {
 		return err
 	}
 	result, err := transaction.tx.ExecContext(transaction.ctx, `
-UPDATE master_voice_selection
+UPDATE director_voice_selection
 SET selection = ?, requested_voice_id = ?, resolved_voice_id = ?,
     reuse_json = ?, updated_at = ?
 WHERE singleton = 1 AND updated_at = ?
@@ -505,9 +505,9 @@ WHERE singleton = 1 AND updated_at = ?
 		expectedUpdatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("update master voice selection: %w", err)
+		return fmt.Errorf("update director voice selection: %w", err)
 	}
-	if err := requireOneRow(result, "master voice selection", "singleton", "configuration changed concurrently"); err != nil {
+	if err := requireOneRow(result, "director voice selection", "singleton", "configuration changed concurrently"); err != nil {
 		return err
 	}
 	return transaction.recordStateMutation()

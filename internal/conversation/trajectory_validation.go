@@ -956,7 +956,7 @@ func trajectoryKindRequiresTurn(kind TrajectoryEventKind) bool {
 
 func validTrajectoryActor(actor TrajectoryActor) bool {
 	switch actor {
-	case TrajectoryActorUser, TrajectoryActorAgent, TrajectoryActorProvider, TrajectoryActorSystem, TrajectoryActorMaster:
+	case TrajectoryActorUser, TrajectoryActorAgent, TrajectoryActorProvider, TrajectoryActorSystem:
 		return true
 	default:
 		return false

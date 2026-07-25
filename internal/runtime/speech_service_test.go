@@ -29,9 +29,9 @@ func TestRuntimeSpeechSourceResolverResolvesDirectorReplyFacts(t *testing.T) {
 		t.Fatalf("NewStore: %v", err)
 	}
 	defer store.Close()
-	voice := speech.DefaultMasterVoiceSelection("2026-07-25T18:00:00Z")
-	if _, err := store.EnsureMasterVoiceSelection(ctx, voice); err != nil {
-		t.Fatalf("EnsureMasterVoiceSelection: %v", err)
+	voice := speech.DefaultDirectorVoiceSelection("2026-07-25T18:00:00Z")
+	if _, err := store.EnsureDirectorVoiceSelection(ctx, voice); err != nil {
+		t.Fatalf("EnsureDirectorVoiceSelection: %v", err)
 	}
 	fact := director.DirectorFactEvent{
 		ID:        "director-fact-answer",

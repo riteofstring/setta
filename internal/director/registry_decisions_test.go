@@ -272,7 +272,7 @@ func TestDecisionContextOffersNoActionAuthorityWithoutWorkstreams(t *testing.T) 
 }
 
 // TestDecisionContextCarriesNoResourcePathsOrExecutionIdentity proves the hard
-// line the Master route context could not hold: nothing the model sees names a
+// line the legacy route context could not hold: nothing the model sees names a
 // filesystem path, a provider identity, an approval, or an artifact.
 func TestDecisionContextCarriesNoResourcePathsOrExecutionIdentity(t *testing.T) {
 	harness := newRegistryHarness(t)

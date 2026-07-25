@@ -8,11 +8,10 @@ import (
 // The Director decision protocol: the complete authority a routing model has
 // over one submitted intent.
 //
-// This is the Master route decision catalog adapted to the Director product
-// role. The catalog itself is DirectorDecisionKinds(); this file owns the
-// payloads the model may author, and decision_authority.go owns the trusted
-// state that bounds them. Five things changed, and each is a product
-// requirement rather than a rename:
+// The catalog itself is DirectorDecisionKinds(); this file owns the payloads
+// the model may author, and decision_authority.go owns the trusted state that
+// bounds them. Five properties distinguish this app-scoped protocol from the
+// superseded conversation router:
 //
 //   - Targets are workstreams. The model never sees a pane id, a provider id,
 //     an execution lease, an approval id, an artifact id, or a filesystem
@@ -30,9 +29,8 @@ import (
 //     the selected workstream's semantic trajectory, so a status question is
 //     `answer_directly`. Delegating it to a per-conversation narrator was a
 //     consequence of the router only knowing pane-visible state.
-//   - `recover_path` is new. The Master catalog had no way to say that durable
-//     state proves a retry or recovery is the right next action, so recovery
-//     could only be inferred from a failure code.
+//   - `recover_path` makes retry and recovery explicit when durable state
+//     proves that either is the right next action.
 
 const (
 	// MaxDecisionIntentTextBytes bounds one submitted intent.

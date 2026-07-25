@@ -52,36 +52,6 @@ describe("appearance store", () => {
     );
     expect(presets).not.toHaveBeenCalled();
   });
-
-  test("updates the draft performance stats setting", () => {
-    const settings = testAppearanceSettings();
-    useAppearanceStore.setState({
-      draft: settings,
-      settings,
-      status: "ready",
-    });
-
-    useAppearanceStore.getState().setShowPerformanceStats(true);
-
-    expect(useAppearanceStore.getState().draft?.developer.showPerformanceStats).toBe(true);
-    expect(settings.developer.showPerformanceStats).toBe(false);
-  });
-
-  test("updates the draft overview card width bounds", () => {
-    const settings = testAppearanceSettings();
-    useAppearanceStore.setState({
-      draft: settings,
-      settings,
-      status: "ready",
-    });
-
-    useAppearanceStore.getState().setOverviewCardWidthBounds(320, 540);
-
-    expect(useAppearanceStore.getState().draft?.developer.overviewCardMinWidthPx).toBe(320);
-    expect(useAppearanceStore.getState().draft?.developer.overviewCardMaxWidthPx).toBe(540);
-    expect(settings.developer.overviewCardMinWidthPx).toBe(280);
-    expect(settings.developer.overviewCardMaxWidthPx).toBe(460);
-  });
 });
 
 function installAppearanceAPI({
@@ -109,12 +79,7 @@ function testAppearanceSettings(): AppearanceSettings {
       mono: "Menlo, monospace",
       sans: "Inter, sans-serif",
     },
-    developer: {
-      overviewCardMaxWidthPx: 460,
-      overviewCardMinWidthPx: 280,
-      showPerformanceStats: false,
-    },
     mode: "dark",
-    schemaVersion: 3,
+    schemaVersion: 4,
   } as AppearanceSettings;
 }

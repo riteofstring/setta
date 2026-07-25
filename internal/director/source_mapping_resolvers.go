@@ -123,8 +123,6 @@ func SemanticActorForTrajectoryActor(actor conversation.TrajectoryActor) (Semant
 		return SemanticActorProvider, nil
 	case conversation.TrajectoryActorSystem:
 		return SemanticActorSystem, nil
-	case conversation.TrajectoryActorMaster:
-		return SemanticActorDirector, nil
 	default:
 		return "", fmt.Errorf("unknown trajectory actor %q", actor)
 	}

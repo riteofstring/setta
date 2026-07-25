@@ -36,10 +36,8 @@ import {
   settingsFromSeed,
 } from "./appearance-seed-palette";
 import { CodexAccountSettings } from "./codex-account-settings";
-import { DeveloperSettingsEditor } from "./developer-settings";
 import { FloatingMenu } from "./floating-menu";
 import { RoleConfigurationSettings } from "./role-configuration-settings";
-import { PresentationConfigurationSettings } from "./presentation-configuration-settings";
 import { RuntimePicker, RuntimePickerAddButton } from "./runtime-picker";
 import {
   AccordionSection,
@@ -52,6 +50,7 @@ import {
 import { settingsSubtabs, type SettingsSubtab } from "./settings-subtabs";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { VoiceConfigurationSettings } from "./voice-configuration-settings";
 import { cn } from "../lib/utils";
 import {
   appearanceSettingsEqual,
@@ -156,28 +155,12 @@ function SettingsSubtabContent({
   const setColorValue = useAppearanceStore((state) => state.setColorValue);
   const setFontValue = useAppearanceStore((state) => state.setFontValue);
   const setMode = useAppearanceStore((state) => state.setMode);
-  const setOverviewCardWidthBounds = useAppearanceStore(
-    (state) => state.setOverviewCardWidthBounds,
-  );
-  const setShowPerformanceStats = useAppearanceStore((state) => state.setShowPerformanceStats);
   const status = useAppearanceStore((state) => state.status);
   const dirty = draft !== null && !appearanceSettingsEqual(draft, settings);
   const contentBySubtab = {
     "codex-account": <CodexAccountSettings />,
-    developer: (
-      <DeveloperSettingsEditor
-        developer={draft?.developer ?? null}
-        dirty={dirty}
-        error={error}
-        onOverviewCardWidthBoundsChange={setOverviewCardWidthBounds}
-        onRevert={revertDraft}
-        onSave={saveDraft}
-        onShowPerformanceStatsChange={setShowPerformanceStats}
-        status={status}
-      />
-    ),
     roles: <RoleConfigurationSettings />,
-    speech: <PresentationConfigurationSettings focusRequest={focusRequest} />,
+    speech: <VoiceConfigurationSettings focusRequest={focusRequest} />,
     theme: (
       <AppearanceSettingsEditor
         defaultPresetId={defaultPresetId}
@@ -389,12 +372,10 @@ export function AppearanceSettingsEditor({
 function AppearanceStatus({
   dirty,
   error,
-  label = "theme",
   status,
 }: {
   dirty: boolean;
   error: string | null;
-  label?: "developer" | "theme";
   status: AppearanceStoreStatus;
 }) {
   if (error) {
@@ -409,18 +390,18 @@ function AppearanceStatus({
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Saving {label} settings
+        Saving theme settings
       </div>
     );
   }
   if (dirty) {
-    return <div className="text-xs text-muted-foreground">Unsaved {label} changes</div>;
+    return <div className="text-xs text-muted-foreground">Unsaved theme changes</div>;
   }
   if (status === "ready") {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Check className="h-3.5 w-3.5" />
-        {label === "theme" ? "Theme" : "Developer"} settings saved
+        Theme settings saved
       </div>
     );
   }
@@ -575,7 +556,6 @@ function PalettePresetChooser({
                   onClick={() => {
                     onApplySettings({
                       ...preset.settings,
-                      developer: settings.developer,
                       mode: settings.mode,
                     });
                     setOpen(false);
@@ -630,7 +610,6 @@ function presetMatchesSettings(preset: AppearancePreset, settings: AppearanceSet
   return appearanceSettingsEqual(
     {
       ...preset.settings,
-      developer: settings.developer,
       mode: settings.mode,
     },
     settings,

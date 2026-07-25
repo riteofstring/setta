@@ -45,7 +45,6 @@ export function narrationSpeechPlaybackIntent(
 export function speechPlaybackPriority(kind: SpeechPlaybackIntentKind): number {
   switch (kind) {
     case "director_reply":
-    case "master_answer":
     case "status_reply":
       return 4;
     case "attention":

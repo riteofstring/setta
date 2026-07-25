@@ -43,15 +43,15 @@ func (resolve SourceResolverFunc) ResolveSpeechSource(
 }
 
 type VoiceConfigurationStore interface {
-	EnsureMasterVoiceSelection(context.Context, MasterVoiceSelection) (MasterVoiceSelection, error)
+	EnsureDirectorVoiceSelection(context.Context, DirectorVoiceSelection) (DirectorVoiceSelection, error)
 	EnsureNarratorVoiceDefault(context.Context, NarratorVoiceDefault) (NarratorVoiceDefault, error)
-	ReadMasterVoiceSelection(context.Context) (MasterVoiceSelection, error)
+	ReadDirectorVoiceSelection(context.Context) (DirectorVoiceSelection, error)
 	ReadNarratorVoiceDefault(context.Context) (NarratorVoiceDefault, error)
-	UpdateMasterVoiceSelection(
+	UpdateDirectorVoiceSelection(
 		context.Context,
 		VoiceSelectionRequest,
 		string,
-	) (MasterVoiceSelection, error)
+	) (DirectorVoiceSelection, error)
 	UpdateNarratorVoiceDefault(
 		context.Context,
 		VoiceSelectionRequest,
@@ -96,13 +96,13 @@ func NewService(ctx context.Context, config ServiceConfig) (*Service, error) {
 		voiceConfigurationStore: config.VoiceConfigurationStore,
 		now:                     now,
 	}
-	initial := DefaultMasterVoiceSelection(now().UTC().Format(time.RFC3339Nano))
-	stored, err := service.voiceConfigurationStore.EnsureMasterVoiceSelection(ctx, initial)
+	initial := DefaultDirectorVoiceSelection(now().UTC().Format(time.RFC3339Nano))
+	stored, err := service.voiceConfigurationStore.EnsureDirectorVoiceSelection(ctx, initial)
 	if err != nil {
-		return nil, fmt.Errorf("initialize master voice selection: %w", err)
+		return nil, fmt.Errorf("initialize director voice selection: %w", err)
 	}
 	if err := stored.Validate(); err != nil {
-		return nil, fmt.Errorf("validate initialized master voice selection: %w", err)
+		return nil, fmt.Errorf("validate initialized director voice selection: %w", err)
 	}
 	narratorDefault := DefaultNarratorVoiceSelection(now().UTC().Format(time.RFC3339Nano))
 	storedNarratorDefault, err := service.voiceConfigurationStore.EnsureNarratorVoiceDefault(
@@ -327,42 +327,42 @@ func (service *Service) CreateTranscriptionSession(
 	return session, nil
 }
 
-func (service *Service) ReadMasterVoiceSelection(ctx context.Context) (MasterVoiceSelection, error) {
+func (service *Service) ReadDirectorVoiceSelection(ctx context.Context) (DirectorVoiceSelection, error) {
 	if service == nil || service.voiceConfigurationStore == nil {
-		return MasterVoiceSelection{}, errors.New("speech service is required")
+		return DirectorVoiceSelection{}, errors.New("speech service is required")
 	}
-	selection, err := service.voiceConfigurationStore.ReadMasterVoiceSelection(ctx)
+	selection, err := service.voiceConfigurationStore.ReadDirectorVoiceSelection(ctx)
 	if err != nil {
-		return MasterVoiceSelection{}, err
+		return DirectorVoiceSelection{}, err
 	}
 	if err := selection.Validate(); err != nil {
-		return MasterVoiceSelection{}, fmt.Errorf("validate persisted master voice selection: %w", err)
+		return DirectorVoiceSelection{}, fmt.Errorf("validate persisted director voice selection: %w", err)
 	}
-	return CloneMasterVoiceSelection(selection), nil
+	return CloneDirectorVoiceSelection(selection), nil
 }
 
-func (service *Service) UpdateMasterVoiceSelection(
+func (service *Service) UpdateDirectorVoiceSelection(
 	ctx context.Context,
 	request VoiceSelectionRequest,
-) (MasterVoiceSelection, error) {
+) (DirectorVoiceSelection, error) {
 	if service == nil || service.voiceConfigurationStore == nil {
-		return MasterVoiceSelection{}, errors.New("speech service is required")
+		return DirectorVoiceSelection{}, errors.New("speech service is required")
 	}
 	if err := request.Validate(); err != nil {
-		return MasterVoiceSelection{}, err
+		return DirectorVoiceSelection{}, err
 	}
-	selection, err := service.voiceConfigurationStore.UpdateMasterVoiceSelection(
+	selection, err := service.voiceConfigurationStore.UpdateDirectorVoiceSelection(
 		ctx,
 		request,
 		service.now().UTC().Format(time.RFC3339Nano),
 	)
 	if err != nil {
-		return MasterVoiceSelection{}, err
+		return DirectorVoiceSelection{}, err
 	}
 	if err := selection.Validate(); err != nil {
-		return MasterVoiceSelection{}, fmt.Errorf("validate updated master voice selection: %w", err)
+		return DirectorVoiceSelection{}, fmt.Errorf("validate updated director voice selection: %w", err)
 	}
-	return CloneMasterVoiceSelection(selection), nil
+	return CloneDirectorVoiceSelection(selection), nil
 }
 
 func (service *Service) ReadNarratorVoiceDefault(

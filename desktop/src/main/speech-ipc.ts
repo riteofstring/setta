@@ -258,8 +258,8 @@ export function registerSpeechIpcHandlers({
   );
   handleIpc(
     ipcMain,
-    "speechReadMasterVoiceSelection",
-    async () => requireBackendClient().readMasterVoiceSelection(),
+    "speechReadDirectorVoiceSelection",
+    async () => requireBackendClient().readDirectorVoiceSelection(),
     ipcObserver,
   );
   handleIpc(
@@ -270,8 +270,8 @@ export function registerSpeechIpcHandlers({
   );
   handleIpc(
     ipcMain,
-    "speechUpdateMasterVoiceSelection",
-    async (_event, request) => requireBackendClient().updateMasterVoiceSelection(request),
+    "speechUpdateDirectorVoiceSelection",
+    async (_event, request) => requireBackendClient().updateDirectorVoiceSelection(request),
     ipcObserver,
   );
   handleIpc(

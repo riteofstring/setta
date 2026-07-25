@@ -84,8 +84,6 @@ func readConversationRouteCommandEffect(
 		return readConversationRouteSideEffect(ctx, reader, record)
 	case ConversationRouteDecisionKindForkConversation:
 		return readConversationRouteForkEffect(ctx, reader, record)
-	case ConversationRouteDecisionKindEscalateToMaster:
-		return readConversationRouteMasterEffect(ctx, reader, record)
 	case ConversationRouteDecisionKindClarify:
 		// The clarification status and question are committed in the same
 		// transaction as the decision itself.
@@ -272,9 +270,9 @@ func readConversationRouteSideEffect(
 	}
 	if metadata.status == SideConversationStatusDisposing &&
 		metadata.disposedAt != nil && metadata.activeTurnID == nil {
-		// Closing the owning pane can dispose a router-created side before its
-		// first routed side turn is durably accepted. The user-visible terminal
-		// effect is the disposed side, so replaying would resurrect closed work.
+		// A user can dispose a router-created side before its first routed side
+		// turn is durably accepted. The terminal effect is the disposed side, so
+		// replaying would resurrect closed work.
 		return true, nil
 	}
 
@@ -417,32 +415,4 @@ WHERE child_conversation_id = ?
 		command.Input,
 		TurnDeliveryNormal,
 	)
-}
-
-func readConversationRouteMasterEffect(
-	ctx context.Context,
-	reader routeCommandEffectReader,
-	record ConversationRouteDecisionRecord,
-) (bool, error) {
-	command := record.ResultingCommand.EscalateToMaster
-	var text string
-	var originConversationID sql.NullString
-	var originInputID sql.NullString
-	err := reader.QueryRowContext(ctx, `
-SELECT input_text, originating_conversation_id, originating_conversation_input_id
-FROM master_inputs
-WHERE id = ?
-`, command.MasterInputID).Scan(&text, &originConversationID, &originInputID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	if text != command.Input.Text || !originConversationID.Valid ||
-		originConversationID.String != record.ConversationID || !originInputID.Valid ||
-		originInputID.String != record.InputID {
-		return false, stateConflict("conversation route master input", command.MasterInputID, "stored effect does not match its command")
-	}
-	return true, nil
 }

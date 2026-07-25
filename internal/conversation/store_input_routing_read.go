@@ -578,7 +578,6 @@ func decodeConversationRouteJSON(encoded string, target any) error {
 		"answerAsNarrator",
 		"createSideConversation",
 		"forkConversation",
-		"escalateToMaster",
 		"clarify",
 	} {
 		if _, found := fields[field]; !found {
@@ -760,7 +759,6 @@ func requireConversationRouteIdentifierAbsent(
 		"conversation_turns": true,
 		"side_conversations": true,
 		"conversations":      true,
-		"master_inputs":      true,
 		"trajectory_events":  true,
 	}
 	if !allowed[table] {

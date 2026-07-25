@@ -11,15 +11,15 @@ import (
 	"setta/internal/codexapp"
 )
 
-const restrictedThreadBaseInstructions = `You are a restricted Setta reasoning component. Follow the supplied developer instructions exactly and return only the requested response. You have no direct shell, filesystem, browser, application, plugin, MCP, or delegation capabilities. Returning schema-constrained classification labels or typed decision data named by the developer instructions does not exercise those capabilities and is allowed.`
+const structuredCallBaseInstructions = `You are a restricted Setta reasoning component. Follow the supplied developer instructions exactly and return only the requested response. You have no direct shell, filesystem, browser, application, plugin, MCP, or delegation capabilities. Returning schema-constrained classification labels or typed decision data named by the developer instructions does not exercise those capabilities and is allowed.`
 
-type restrictedConfigCaller interface {
+type structuredCallConfigCaller interface {
 	Call(context.Context, string, any) (json.RawMessage, error)
 }
 
-func readRestrictedModelThreadConfig(
+func readStructuredCallThreadConfig(
 	ctx context.Context,
-	caller restrictedConfigCaller,
+	caller structuredCallConfigCaller,
 	workspaceRoot string,
 	invocation Invocation,
 ) (map[string]json.RawMessage, error) {
@@ -27,46 +27,46 @@ func readRestrictedModelThreadConfig(
 	if err != nil {
 		return nil, err
 	}
-	return restrictedModelThreadConfig(invocation, serverNames)
+	return structuredCallThreadConfig(invocation, serverNames)
 }
 
 func readConfiguredMCPServerNames(
 	ctx context.Context,
-	caller restrictedConfigCaller,
+	caller structuredCallConfigCaller,
 	workspaceRoot string,
 ) ([]string, error) {
 	if caller == nil {
-		return nil, errors.New("restricted thread config caller is required")
+		return nil, errors.New("structured-call config caller is required")
 	}
 	raw, err := caller.Call(ctx, codexapp.CodexMethodConfigRead, codexapp.ConfigReadParams{
 		CWD: &workspaceRoot,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("read effective Codex config for restricted thread: %w", err)
+		return nil, fmt.Errorf("read effective Codex config for structured-call thread: %w", err)
 	}
 	if _, err := codexapp.DecodeConfigReadResponse(raw); err != nil {
-		return nil, fmt.Errorf("decode effective Codex config for restricted thread: %w", err)
+		return nil, fmt.Errorf("decode effective Codex config for structured-call thread: %w", err)
 	}
-	config, err := decodeEffectiveRestrictedConfig(raw)
+	config, err := decodeEffectiveStructuredCallConfig(raw)
 	if err != nil {
 		return nil, err
 	}
 	return configuredMCPServerNames(config)
 }
 
-func decodeEffectiveRestrictedConfig(raw json.RawMessage) (map[string]json.RawMessage, error) {
+func decodeEffectiveStructuredCallConfig(raw json.RawMessage) (map[string]json.RawMessage, error) {
 	var response struct {
 		Config json.RawMessage `json:"config"`
 	}
 	if err := json.Unmarshal(raw, &response); err != nil {
-		return nil, fmt.Errorf("inspect effective Codex config for restricted thread: %w", err)
+		return nil, fmt.Errorf("inspect effective Codex config for structured-call thread: %w", err)
 	}
 	var config map[string]json.RawMessage
 	if err := json.Unmarshal(response.Config, &config); err != nil {
-		return nil, fmt.Errorf("effective Codex config for restricted thread must be an object: %w", err)
+		return nil, fmt.Errorf("effective Codex config for structured-call thread must be an object: %w", err)
 	}
 	if config == nil {
-		return nil, errors.New("effective Codex config for restricted thread must be an object")
+		return nil, errors.New("effective Codex config for structured-call thread must be an object")
 	}
 	return config, nil
 }
@@ -94,7 +94,7 @@ func configuredMCPServerNames(config map[string]json.RawMessage) ([]string, erro
 	return names, nil
 }
 
-func restrictedModelThreadConfig(
+func structuredCallThreadConfig(
 	invocation Invocation,
 	mcpServerNames []string,
 ) (map[string]json.RawMessage, error) {

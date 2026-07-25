@@ -1,19 +1,15 @@
 import type {
   AcceptedConversationInput,
-  AcceptedMasterInput,
-  ActiveShellInteraction,
   ArchiveTopicConversationRequest,
   AppearancePresetList,
   AppearanceSettings,
   BackendHealth,
   BindTopicConversationFolderRequest,
-  CancelMasterInputRequest,
   CancelCodexLoginRequest,
   CodexAccountChangeEvent,
   CodexAccountState,
   ConversationEvent,
   ConversationInputRoutingState,
-  ConversationPresentationProfile,
   ConversationSnapshot,
   Artifact,
   ClearDesktopSpeechCredentialRequest,
@@ -27,15 +23,13 @@ import type {
   DisposeSideConversationRequest,
   ListTopicConversationsRequest,
   LogoutCodexAccountRequest,
-  MasterVoiceSelection,
+  DirectorVoiceSelection,
   NarratorVoiceDefault,
   NavigatorPage,
   OpenWorkspaceResponse,
   ReadConversationInputRoutingStateRequest,
   ReadConversationArtifactRequest,
   ReadConversationSnapshotRequest,
-  ReadMasterInputRoutingStateRequest,
-  ReadMasterTranscriptRequest,
   RefreshCodexAccountRequest,
   ReadConversationRoleConfigurationRequest,
   ReadWorkspaceRoleConfigurationRequest,
@@ -44,7 +38,6 @@ import type {
   RoleModelCatalog,
   RuntimeInfrastructureProvider,
   SendSideConversationTurnRequest,
-  ShellInteractionState,
   SpeechAudio,
   SpeechCapabilities,
   SpeechSynthesisRequest,
@@ -54,14 +47,11 @@ import type {
   StartCodexLoginResponse,
   StopTopicConversationTurnRequest,
   SubmitConversationInputRequest,
-  SubmitMasterInputRequest,
   SubmitTopicConversationApprovalRequest,
-  Transcript,
   UpdateAppearanceSettingsRequest,
   UpdateConversationRoleProfilesRequest,
   UpdateGlobalRoleProfilesRequest,
   UpdateWorkspaceRoleProfilesRequest,
-  UpdateTopicConversationPresentationRequest,
   VoiceSelectionRequest,
   WorkspaceSession,
 } from "@generated/backend";
@@ -230,9 +220,6 @@ export interface SettaAPI {
     ) => Promise<ConversationSnapshot>;
     submitInput?: (request: SubmitConversationInputRequest) => Promise<AcceptedConversationInput>;
     subscribe: (request: ConversationEventSubscriptionRequest) => Promise<void>;
-    updatePresentation: (
-      request: UpdateTopicConversationPresentationRequest,
-    ) => Promise<ConversationPresentationProfile>;
     waitInputState?: (
       request: ReadConversationInputRoutingStateRequest,
     ) => Promise<ConversationInputRoutingState>;
@@ -242,15 +229,6 @@ export interface SettaAPI {
     onEvent: (listener: (event: DirectorEvent) => void) => () => void;
     readSnapshot: () => Promise<DirectorSnapshot>;
     subscribe: (request: DirectorEventSubscriptionRequest) => Promise<void>;
-  };
-  master?: {
-    cancelInput: (request: CancelMasterInputRequest) => Promise<ShellInteractionState>;
-    readActiveInteraction: () => Promise<ActiveShellInteraction>;
-    readTranscript: (request: ReadMasterTranscriptRequest) => Promise<Transcript>;
-    submitInput: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
-    waitInteraction: (
-      request: ReadMasterInputRoutingStateRequest,
-    ) => Promise<ShellInteractionState>;
   };
   roles?: {
     readConversation: (
@@ -292,7 +270,7 @@ export interface SettaAPI {
     readLocalMacOSVoiceHealth?: () => Promise<LocalMacOSVoiceHealth>;
     readLocalMacOSVoiceModelDownload?: () => Promise<LocalMacOSVoiceModelDownloadStatus>;
     listLocalMacOSVoices?: () => Promise<SpeechVoiceCatalog>;
-    readMasterVoiceSelection?: () => Promise<MasterVoiceSelection>;
+    readDirectorVoiceSelection?: () => Promise<DirectorVoiceSelection>;
     readNarratorVoiceDefault?: () => Promise<NarratorVoiceDefault>;
     readProviderSelection?: () => Promise<SpeechProviderSelectionSettings>;
     removeCredential?: (
@@ -304,7 +282,9 @@ export interface SettaAPI {
     ) => Promise<LocalMacOSVoiceStartCaptureResult>;
     startLocalMacOSVoiceModelDownload?: () => Promise<LocalMacOSVoiceModelDownloadStatus>;
     synthesize?: (request: SpeechSynthesisRequest, operationId: string) => Promise<SpeechAudio>;
-    updateMasterVoiceSelection?: (request: VoiceSelectionRequest) => Promise<MasterVoiceSelection>;
+    updateDirectorVoiceSelection?: (
+      request: VoiceSelectionRequest,
+    ) => Promise<DirectorVoiceSelection>;
     updateNarratorVoiceDefault?: (request: VoiceSelectionRequest) => Promise<NarratorVoiceDefault>;
     updateProviderSelection?: (
       request: SpeechProviderSelectionUpdateRequest,

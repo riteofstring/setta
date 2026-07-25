@@ -30,7 +30,6 @@ describe("preload topic conversation API", () => {
       "submitApproval",
       "submitInput",
       "subscribe",
-      "updatePresentation",
       "waitInputState",
     ]);
     const listRequest = {
@@ -53,7 +52,6 @@ describe("preload topic conversation API", () => {
     };
     const sideDisposeRequest = {
       parentConversationId: target.conversationId,
-      parentPaneId: "pane_api",
       sideConversationId: sideTurnRequest.sideConversationId,
       workspaceId: target.workspaceId,
     };
@@ -85,20 +83,6 @@ describe("preload topic conversation API", () => {
       ...target,
       inputId: inputRequest.input.id,
     };
-    const presentationRequest = {
-      ...target,
-      settings: {
-        narratorSpeechEnabled: false,
-        narratorVoiceSelection: {
-          requestedVoiceId: "cedar" as const,
-          selection: "exact" as const,
-        },
-        paletteSelection: {
-          requestedPaletteId: "violet" as const,
-          selection: "exact" as const,
-        },
-      },
-    };
     await invokeConversationCommands(api, {
       approval,
       folderBindingRequest,
@@ -111,7 +95,6 @@ describe("preload topic conversation API", () => {
       subscription,
       target,
       artifactRequest,
-      presentationRequest,
     });
     const listener = vi.fn();
     const unsubscribe = api.conversations.onEvent(listener);
@@ -138,7 +121,6 @@ describe("preload topic conversation API", () => {
       [ipcChannels.conversationSubmitApproval, approval],
       [ipcChannels.conversationSubscribeEvents, subscription],
       [ipcChannels.conversationReleaseEvents, release],
-      [ipcChannels.conversationUpdatePresentation, presentationRequest],
     ]);
     expect(listener).toHaveBeenCalledWith(event);
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.conversationEvent, handler);
@@ -184,7 +166,6 @@ async function invokeConversationCommands(
     subscription: Parameters<SettaAPI["conversations"]["subscribe"]>[0];
     target: { conversationId: string; workspaceId: string };
     artifactRequest: Parameters<NonNullable<SettaAPI["conversations"]["readArtifact"]>>[0];
-    presentationRequest: Parameters<SettaAPI["conversations"]["updatePresentation"]>[0];
   },
 ) {
   const sendSide = requireConversationCommand(api.conversations.sendSide, "side conversation send");
@@ -233,7 +214,6 @@ async function invokeConversationCommands(
   await api.conversations.submitApproval(requests.approval);
   await api.conversations.subscribe(requests.subscription);
   await api.conversations.release(requests.release);
-  await api.conversations.updatePresentation(requests.presentationRequest);
 }
 
 function requireConversationCommand<Command>(command: Command | undefined, label: string): Command {

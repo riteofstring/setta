@@ -71,7 +71,6 @@ func (service *Service) ExecuteRouteCommand(
 			command,
 		)
 	case ConversationRouteDecisionKindAnswerAsNarrator,
-		ConversationRouteDecisionKindEscalateToMaster,
 		ConversationRouteDecisionKindClarify:
 		return ConversationSnapshot{}, fmt.Errorf(
 			"conversation route command %s is not an agent command",

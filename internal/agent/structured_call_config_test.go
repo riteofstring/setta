@@ -9,9 +9,9 @@ import (
 	"setta/internal/codexapp"
 )
 
-func TestReadRestrictedModelThreadConfigDisablesEffectiveExternalCapabilities(t *testing.T) {
+func TestReadStructuredCallThreadConfigDisablesEffectiveExternalCapabilities(t *testing.T) {
 	workspaceRoot := t.TempDir()
-	caller := restrictedConfigCallerFunc(func(_ context.Context, method string, params any) (json.RawMessage, error) {
+	caller := structuredCallConfigCallerFunc(func(_ context.Context, method string, params any) (json.RawMessage, error) {
 		if method != "config/read" {
 			t.Fatalf("config method = %q", method)
 		}
@@ -21,14 +21,14 @@ func TestReadRestrictedModelThreadConfigDisablesEffectiveExternalCapabilities(t 
 		}
 		return json.RawMessage(`{"config":{"mcp_servers":{"z-server":{"url":"https://example.invalid"},"a-server":{"command":"must-not-run"}}},"origins":{}}`), nil
 	})
-	config, err := readRestrictedModelThreadConfig(context.Background(), caller, workspaceRoot, Invocation{
-		Model:           "gpt-master-test",
+	config, err := readStructuredCallThreadConfig(context.Background(), caller, workspaceRoot, Invocation{
+		Model:           "gpt-director-test",
 		ReasoningEffort: "medium",
 		PermissionMode:  PermissionModeReadOnly,
 		ApprovalMode:    ApprovalModeNever,
 	})
 	if err != nil {
-		t.Fatalf("readRestrictedModelThreadConfig: %v", err)
+		t.Fatalf("readStructuredCallThreadConfig: %v", err)
 	}
 	var servers map[string]struct {
 		Enabled bool `json:"enabled"`
@@ -37,7 +37,7 @@ func TestReadRestrictedModelThreadConfigDisablesEffectiveExternalCapabilities(t 
 		t.Fatalf("decode MCP overrides: %v", err)
 	}
 	if len(servers) != 2 || servers["a-server"].Enabled || servers["z-server"].Enabled {
-		t.Fatalf("restricted MCP overrides = %+v", servers)
+		t.Fatalf("structured-call MCP overrides = %+v", servers)
 	}
 	var features map[string]bool
 	if err := json.Unmarshal(config["features"], &features); err != nil {
@@ -62,13 +62,13 @@ func TestReadRestrictedModelThreadConfigDisablesEffectiveExternalCapabilities(t 
 		"unified_exec",
 	} {
 		if enabled, found := features[feature]; !found || enabled {
-			t.Fatalf("restricted feature %s = %t found=%t", feature, enabled, found)
+			t.Fatalf("structured-call feature %s = %t found=%t", feature, enabled, found)
 		}
 	}
 }
 
 func TestReadConfiguredMCPServerNamesRejectsMalformedEffectiveConfig(t *testing.T) {
-	caller := restrictedConfigCallerFunc(func(context.Context, string, any) (json.RawMessage, error) {
+	caller := structuredCallConfigCallerFunc(func(context.Context, string, any) (json.RawMessage, error) {
 		return json.RawMessage(`{"config":{"mcp_servers":null},"origins":{}}`), nil
 	})
 	_, err := readConfiguredMCPServerNames(context.Background(), caller, t.TempDir())
@@ -77,9 +77,9 @@ func TestReadConfiguredMCPServerNamesRejectsMalformedEffectiveConfig(t *testing.
 	}
 }
 
-type restrictedConfigCallerFunc func(context.Context, string, any) (json.RawMessage, error)
+type structuredCallConfigCallerFunc func(context.Context, string, any) (json.RawMessage, error)
 
-func (call restrictedConfigCallerFunc) Call(
+func (call structuredCallConfigCallerFunc) Call(
 	ctx context.Context,
 	method string,
 	params any,

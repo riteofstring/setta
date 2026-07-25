@@ -135,38 +135,6 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 		t.Fatalf("last command scope = %q/%q", service.commandWorkspaceID, service.commandConversationID)
 	}
 
-	alloy := speech.SpeechVoiceAlloy
-	violet := conversationpalette.ConversationPaletteViolet
-	profile := postJSON[conversation.ConversationPresentationProfile](
-		t,
-		handler,
-		"/conversations/presentation/update",
-		UpdateTopicConversationPresentationRequest{
-			WorkspaceID:    "workspace-api",
-			ConversationID: "conversation-api",
-			Settings: conversation.ConversationPresentationSettings{
-				PaletteSelection: conversation.PresentationSelectionRequest{
-					Selection:          conversation.PresentationSelectionExact,
-					RequestedPaletteID: &violet,
-				},
-				NarratorVoiceSelection: speech.VoiceSelectionRequest{
-					Selection:        speech.VoiceSelectionExact,
-					RequestedVoiceID: &alloy,
-				},
-				NarratorSpeechEnabled: false,
-			},
-		},
-		http.StatusOK,
-	)
-	if service.command != "update_presentation" ||
-		service.presentationSettings.NarratorVoiceSelection.RequestedVoiceID == nil ||
-		*service.presentationSettings.NarratorVoiceSelection.RequestedVoiceID != alloy ||
-		service.presentationSettings.PaletteSelection.RequestedPaletteID == nil ||
-		*service.presentationSettings.PaletteSelection.RequestedPaletteID != violet ||
-		service.presentationSettings.NarratorSpeechEnabled ||
-		profile.ResolvedNarratorVoiceID == nil {
-		t.Fatalf("presentation command=%q settings=%+v profile=%+v", service.command, service.presentationSettings, profile)
-	}
 }
 
 func assertBindFolderConversationCommand(t *testing.T, handler http.Handler, service *httpTestConversationService) {
@@ -267,42 +235,6 @@ func assertSideConversationCommands(t *testing.T, handler http.Handler, service 
 	)
 	if service.command != "dispose_side" || service.commandConversationID != "side-api" {
 		t.Fatalf("dispose side command = %q side = %q", service.command, service.commandConversationID)
-	}
-}
-
-func TestTopicConversationPresentationMapsUnavailableExactVoiceSelection(t *testing.T) {
-	service := newHTTPTestConversationService(t)
-	missing := speech.SpeechVoiceID("retired")
-	service.presentationSettingsErr = &speech.Error{
-		Code:    speech.ErrorVoiceUnavailable,
-		Message: "Speech voice retired is unavailable.",
-	}
-	handler := newAuthenticatedTestHandler(t, HandlerConfig{
-		ConversationService: service,
-		Metadata:            BackendMetadata{Name: BackendName, Version: "test"},
-	})
-	response := postJSON[ErrorResponse](
-		t,
-		handler,
-		"/conversations/presentation/update",
-		UpdateTopicConversationPresentationRequest{
-			WorkspaceID:    "workspace-api",
-			ConversationID: "conversation-api",
-			Settings: conversation.ConversationPresentationSettings{
-				PaletteSelection: conversation.PresentationSelectionRequest{
-					Selection: conversation.PresentationSelectionAutoDistinct,
-				},
-				NarratorVoiceSelection: speech.VoiceSelectionRequest{
-					Selection:        speech.VoiceSelectionExact,
-					RequestedVoiceID: &missing,
-				},
-				NarratorSpeechEnabled: true,
-			},
-		},
-		http.StatusUnprocessableEntity,
-	)
-	if response.Error.Code != string(speech.ErrorVoiceUnavailable) {
-		t.Fatalf("narrator voice error = %+v", response.Error)
 	}
 }
 
@@ -534,8 +466,6 @@ type httpTestConversationService struct {
 	commandConversationID   string
 	commandText             string
 	approval                conversation.ConversationApprovalResponse
-	presentationSettings    conversation.ConversationPresentationSettings
-	presentationSettingsErr error
 }
 
 func (service *httpTestConversationService) CreateTopic(
@@ -610,17 +540,6 @@ func (service *httpTestConversationService) DisposeSideConversation(
 ) (conversation.ConversationSnapshot, error) {
 	service.recordCommand("dispose_side", workspaceID, sideConversationID, "")
 	return service.snapshot, nil
-}
-
-func (service *httpTestConversationService) UpdatePresentationProfile(
-	_ context.Context,
-	workspaceID string,
-	conversationID string,
-	settings conversation.ConversationPresentationSettings,
-) (conversation.ConversationPresentationProfile, error) {
-	service.recordCommand("update_presentation", workspaceID, conversationID, "")
-	service.presentationSettings = settings
-	return service.snapshot.PresentationProfile, service.presentationSettingsErr
 }
 
 func (service *httpTestConversationService) StopTurn(

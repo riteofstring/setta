@@ -30,7 +30,7 @@ describe("preload speech API", () => {
       readLocalMacOSVoiceModelDownload: NonNullable<
         SettaAPI["speech"]["readLocalMacOSVoiceModelDownload"]
       >;
-      readMasterVoiceSelection: NonNullable<SettaAPI["speech"]["readMasterVoiceSelection"]>;
+      readDirectorVoiceSelection: NonNullable<SettaAPI["speech"]["readDirectorVoiceSelection"]>;
       readNarratorVoiceDefault: NonNullable<SettaAPI["speech"]["readNarratorVoiceDefault"]>;
       readProviderSelection: NonNullable<SettaAPI["speech"]["readProviderSelection"]>;
       startLocalMacOSVoiceCapture: NonNullable<SettaAPI["speech"]["startLocalMacOSVoiceCapture"]>;
@@ -38,7 +38,7 @@ describe("preload speech API", () => {
         SettaAPI["speech"]["startLocalMacOSVoiceModelDownload"]
       >;
       synthesize: NonNullable<SettaAPI["speech"]["synthesize"]>;
-      updateMasterVoiceSelection: NonNullable<SettaAPI["speech"]["updateMasterVoiceSelection"]>;
+      updateDirectorVoiceSelection: NonNullable<SettaAPI["speech"]["updateDirectorVoiceSelection"]>;
       updateNarratorVoiceDefault: NonNullable<SettaAPI["speech"]["updateNarratorVoiceDefault"]>;
       updateProviderSelection: NonNullable<SettaAPI["speech"]["updateProviderSelection"]>;
     };
@@ -54,7 +54,7 @@ describe("preload speech API", () => {
     });
     await speech.finishLocalMacOSVoiceCapture({ captureSessionId: "capture_local" });
     await speech.cancelLocalMacOSVoiceCapture({ captureSessionId: "capture_local" });
-    await speech.readMasterVoiceSelection();
+    await speech.readDirectorVoiceSelection();
     await speech.readNarratorVoiceDefault();
     await speech.synthesize(
       {
@@ -69,7 +69,7 @@ describe("preload speech API", () => {
       "speech-operation",
     );
     await speech.cancelSynthesis("speech-operation");
-    await speech.updateMasterVoiceSelection({
+    await speech.updateDirectorVoiceSelection({
       requestedVoiceId: "cedar",
       selection: "exact",
     });
@@ -97,7 +97,7 @@ describe("preload speech API", () => {
       ],
       [ipcChannels.speechFinishLocalMacOSVoiceCapture, { captureSessionId: "capture_local" }],
       [ipcChannels.speechCancelLocalMacOSVoiceCapture, { captureSessionId: "capture_local" }],
-      [ipcChannels.speechReadMasterVoiceSelection],
+      [ipcChannels.speechReadDirectorVoiceSelection],
       [ipcChannels.speechReadNarratorVoiceDefault],
       [
         ipcChannels.speechSynthesize,
@@ -116,7 +116,7 @@ describe("preload speech API", () => {
       ],
       [ipcChannels.speechCancelSynthesis, "speech-operation"],
       [
-        ipcChannels.speechUpdateMasterVoiceSelection,
+        ipcChannels.speechUpdateDirectorVoiceSelection,
         { requestedVoiceId: "cedar", selection: "exact" },
       ],
       [

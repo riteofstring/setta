@@ -31,10 +31,10 @@ func (service speechCredentialPolicyService) ReadCapabilities(
 	return service.service.ReadCapabilities(ctx)
 }
 
-func (service speechCredentialPolicyService) ReadMasterVoiceSelection(
+func (service speechCredentialPolicyService) ReadDirectorVoiceSelection(
 	ctx context.Context,
-) (speech.MasterVoiceSelection, error) {
-	return service.service.ReadMasterVoiceSelection(ctx)
+) (speech.DirectorVoiceSelection, error) {
+	return service.service.ReadDirectorVoiceSelection(ctx)
 }
 
 func (service speechCredentialPolicyService) ReadNarratorVoiceDefault(
@@ -43,11 +43,11 @@ func (service speechCredentialPolicyService) ReadNarratorVoiceDefault(
 	return service.service.ReadNarratorVoiceDefault(ctx)
 }
 
-func (service speechCredentialPolicyService) UpdateMasterVoiceSelection(
+func (service speechCredentialPolicyService) UpdateDirectorVoiceSelection(
 	ctx context.Context,
 	request speech.VoiceSelectionRequest,
-) (speech.MasterVoiceSelection, error) {
-	return service.service.UpdateMasterVoiceSelection(ctx, request)
+) (speech.DirectorVoiceSelection, error) {
+	return service.service.UpdateDirectorVoiceSelection(ctx, request)
 }
 
 func (service speechCredentialPolicyService) UpdateNarratorVoiceDefault(

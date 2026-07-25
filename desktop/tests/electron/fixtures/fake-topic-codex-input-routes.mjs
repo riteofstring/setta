@@ -12,7 +12,6 @@ export function createExactStructuredInputRoutes({ simultaneousCompletionInput }
   ]);
   const folderlessNarratorInputs = new Set([
     "hi",
-    "Start the Gamma topic from the global master.",
     "what folder am I in?",
     "what can you help with?",
   ]);

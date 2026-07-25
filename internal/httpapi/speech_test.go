@@ -30,9 +30,9 @@ func newHTTPSpeechEndpointFixture(t *testing.T) httpSpeechEndpointFixture {
 		t.Fatalf("resolve test device ok=%v err=%v", ok, err)
 	}
 	service := &fakeHTTPSpeechService{
-		capabilities:         validHTTPSpeechCapabilities(),
-		masterVoiceSelection: speech.DefaultMasterVoiceSelection("2026-07-12T18:00:00Z"),
-		narratorVoiceDefault: speech.DefaultNarratorVoiceSelection("2026-07-12T18:00:00Z"),
+		capabilities:           validHTTPSpeechCapabilities(),
+		directorVoiceSelection: speech.DefaultDirectorVoiceSelection("2026-07-12T18:00:00Z"),
+		narratorVoiceDefault:   speech.DefaultNarratorVoiceSelection("2026-07-12T18:00:00Z"),
 		credentialValidationResult: speech.SpeechCredentialValidationResult{
 			Provider: speech.SpeechProviderOpenAI,
 			Valid:    true,
@@ -94,22 +94,22 @@ func TestSpeechVoiceEndpointsExposeTypedOperations(t *testing.T) {
 	if !reflect.DeepEqual(capabilities, fixture.service.capabilities) {
 		t.Fatalf("capabilities = %+v, want %+v", capabilities, fixture.service.capabilities)
 	}
-	selection := getSpeechJSONWithToken[speech.MasterVoiceSelection](t, fixture.handler, "/speech/voices/master", fixture.token, http.StatusOK)
-	if !reflect.DeepEqual(selection, fixture.service.masterVoiceSelection) {
-		t.Fatalf("master voice selection = %+v, want %+v", selection, fixture.service.masterVoiceSelection)
+	selection := getSpeechJSONWithToken[speech.DirectorVoiceSelection](t, fixture.handler, "/speech/voices/director", fixture.token, http.StatusOK)
+	if !reflect.DeepEqual(selection, fixture.service.directorVoiceSelection) {
+		t.Fatalf("director voice selection = %+v, want %+v", selection, fixture.service.directorVoiceSelection)
 	}
 	cedar := speech.SpeechVoiceCedar
-	updated := postJSONWithToken[speech.MasterVoiceSelection](
+	updated := postJSONWithToken[speech.DirectorVoiceSelection](
 		t,
 		fixture.handler,
-		"/speech/voices/master/update",
+		"/speech/voices/director/update",
 		speech.VoiceSelectionRequest{Selection: speech.VoiceSelectionExact, RequestedVoiceID: &cedar},
 		fixture.token,
 		http.StatusOK,
 	)
 	if updated.ResolvedVoiceID == nil || *updated.ResolvedVoiceID != cedar ||
-		fixture.service.masterVoiceUpdate.RequestedVoiceID == nil || *fixture.service.masterVoiceUpdate.RequestedVoiceID != cedar {
-		t.Fatalf("updated master voice=%+v request=%+v", updated, fixture.service.masterVoiceUpdate)
+		fixture.service.directorVoiceUpdate.RequestedVoiceID == nil || *fixture.service.directorVoiceUpdate.RequestedVoiceID != cedar {
+		t.Fatalf("updated director voice=%+v request=%+v", updated, fixture.service.directorVoiceUpdate)
 	}
 	narratorDefault := getSpeechJSONWithToken[speech.NarratorVoiceDefault](
 		t,
@@ -249,16 +249,16 @@ func TestSpeechEndpointsRequireAuthentication(t *testing.T) {
 		body   string
 	}{
 		{method: http.MethodGet, path: "/speech/capabilities"},
-		{method: http.MethodGet, path: "/speech/voices/master"},
-		{method: http.MethodPost, path: "/speech/voices/master/update", body: `{"selection":"auto_distinct","requestedVoiceId":null}`},
+		{method: http.MethodGet, path: "/speech/voices/director"},
+		{method: http.MethodPost, path: "/speech/voices/director/update", body: `{"selection":"auto_distinct","requestedVoiceId":null}`},
 		{method: http.MethodGet, path: "/speech/voices/narrator-default"},
 		{method: http.MethodPost, path: "/speech/voices/narrator-default/update", body: `{"selection":"auto_distinct","requestedVoiceId":null}`},
 		{method: http.MethodPost, path: "/speech/credentials/desktop/validate", body: `{"provider":"openai","apiKey":"sk-setta-http-speech-credential"}`},
 		{method: http.MethodPost, path: "/speech/credentials/desktop/load", body: `{"provider":"openai","apiKey":"sk-setta-http-speech-credential"}`},
 		{method: http.MethodPost, path: "/speech/credentials/desktop/clear", body: `{"provider":"openai"}`},
 		{method: http.MethodPost, path: "/speech/transcription/sessions", body: `{"provider":"openai"}`},
-		{method: http.MethodPost, path: "/speech/synthesis/resolve", body: `{"provider":"local_macos","source":{"speaker":"master","eventId":"answer","conversationId":null},"resolvedVoiceId":"marin"}`},
-		{method: http.MethodPost, path: "/speech/synthesis", body: `{"provider":"openai","source":{"speaker":"master","eventId":"answer","conversationId":null},"resolvedVoiceId":"marin"}`},
+		{method: http.MethodPost, path: "/speech/synthesis/resolve", body: `{"provider":"local_macos","source":{"speaker":"director","eventId":"answer","conversationId":null},"resolvedVoiceId":"marin"}`},
+		{method: http.MethodPost, path: "/speech/synthesis", body: `{"provider":"openai","source":{"speaker":"director","eventId":"answer","conversationId":null},"resolvedVoiceId":"marin"}`},
 	}
 	for _, test := range tests {
 		request := httptest.NewRequest(test.method, test.path, strings.NewReader(test.body))
@@ -281,7 +281,7 @@ func TestSpeechEndpointsRequireService(t *testing.T) {
 	}
 }
 
-func TestSpeechMasterVoiceEndpointMapsPersistentConfigurationFailures(t *testing.T) {
+func TestSpeechDirectorVoiceEndpointMapsPersistentConfigurationFailures(t *testing.T) {
 	tests := []struct {
 		err        error
 		wantCode   string
@@ -303,10 +303,10 @@ func TestSpeechMasterVoiceEndpointMapsPersistentConfigurationFailures(t *testing
 			handler := newAuthenticatedTestHandler(t, HandlerConfig{
 				Metadata: BackendMetadata{Name: BackendName, Version: "test"},
 				SpeechService: &fakeHTTPSpeechService{
-					masterVoiceSelectionErr: test.err,
+					directorVoiceSelectionErr: test.err,
 				},
 			})
-			response := getJSON[ErrorResponse](t, handler, "/speech/voices/master", test.wantStatus)
+			response := getJSON[ErrorResponse](t, handler, "/speech/voices/director", test.wantStatus)
 			if response.Error.Code != test.wantCode {
 				t.Fatalf("error = %+v", response.Error)
 			}
@@ -413,8 +413,8 @@ func TestSpeechSynthesisEndpointMapsSourceStateFailures(t *testing.T) {
 						speech.SpeechSynthesisRequest{
 							Provider: speech.SpeechProviderOpenAI,
 							Source: speech.SpeechSource{
-								Speaker: speech.SpeechSpeakerMaster,
-								EventID: "master-answer",
+								Speaker: speech.SpeechSpeakerDirector,
+								EventID: "director-answer",
 							},
 							ResolvedVoiceID: speech.SpeechVoiceMarin,
 						},
@@ -499,10 +499,10 @@ func TestSpeechEndpointRejectsOversizedRequestBeforeAuthenticationOrDecode(t *te
 type fakeHTTPSpeechService struct {
 	capabilities                  speech.SpeechCapabilities
 	capabilitiesErr               error
-	masterVoiceSelection          speech.MasterVoiceSelection
-	masterVoiceSelectionErr       error
-	masterVoiceUpdate             speech.VoiceSelectionRequest
-	masterVoiceUpdateErr          error
+	directorVoiceSelection        speech.DirectorVoiceSelection
+	directorVoiceSelectionErr     error
+	directorVoiceUpdate           speech.VoiceSelectionRequest
+	directorVoiceUpdateErr        error
 	narratorVoiceDefault          speech.NarratorVoiceDefault
 	narratorVoiceDefaultErr       error
 	narratorVoiceDefaultUpdate    speech.VoiceSelectionRequest
@@ -538,9 +538,9 @@ func (service *fakeHTTPSpeechService) ReadCapabilities(context.Context) (speech.
 	return service.capabilities, service.capabilitiesErr
 }
 
-func (service *fakeHTTPSpeechService) ReadMasterVoiceSelection(context.Context) (speech.MasterVoiceSelection, error) {
+func (service *fakeHTTPSpeechService) ReadDirectorVoiceSelection(context.Context) (speech.DirectorVoiceSelection, error) {
 	service.calls++
-	return service.masterVoiceSelection, service.masterVoiceSelectionErr
+	return service.directorVoiceSelection, service.directorVoiceSelectionErr
 }
 
 func (service *fakeHTTPSpeechService) ReadNarratorVoiceDefault(
@@ -550,16 +550,16 @@ func (service *fakeHTTPSpeechService) ReadNarratorVoiceDefault(
 	return service.narratorVoiceDefault, service.narratorVoiceDefaultErr
 }
 
-func (service *fakeHTTPSpeechService) UpdateMasterVoiceSelection(
+func (service *fakeHTTPSpeechService) UpdateDirectorVoiceSelection(
 	_ context.Context,
 	request speech.VoiceSelectionRequest,
-) (speech.MasterVoiceSelection, error) {
+) (speech.DirectorVoiceSelection, error) {
 	service.calls++
-	service.masterVoiceUpdate = request
-	if service.masterVoiceUpdateErr != nil {
-		return speech.MasterVoiceSelection{}, service.masterVoiceUpdateErr
+	service.directorVoiceUpdate = request
+	if service.directorVoiceUpdateErr != nil {
+		return speech.DirectorVoiceSelection{}, service.directorVoiceUpdateErr
 	}
-	selection := service.masterVoiceSelection
+	selection := service.directorVoiceSelection
 	selection.Selection = request.Selection
 	selection.RequestedVoiceID = request.RequestedVoiceID
 	selection.ResolvedVoiceID = request.RequestedVoiceID

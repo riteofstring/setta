@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"setta/internal/master"
 	"setta/internal/speech"
 	"setta/internal/workspaceui/conversationpalette"
 )
@@ -83,85 +82,13 @@ func TestStoreResolvesAuthoritativeNarrationSpeechSourceAndVoice(t *testing.T) {
 	assertSpeechSourceUnavailable(t, err)
 }
 
-func TestStoreResolvesAuthoritativeMasterAnswerSpeechSourceAndVoice(t *testing.T) {
-	store := newTestStore(t)
-	initialVoice := speech.DefaultMasterVoiceSelection("2026-07-12T18:00:00Z")
-	if _, err := store.EnsureMasterVoiceSelection(context.Background(), initialVoice); err != nil {
-		t.Fatalf("EnsureMasterVoiceSelection: %v", err)
-	}
-	ready := seedMasterRouteState(t, store)
-	accepted := acceptMasterRouteTestInput(
-		t,
-		store,
-		"master-input-answer-speech",
-		"2026-07-11T20:02:00Z",
-	)
-	work := claimMasterRouteCommitWork(t, store, accepted)
-	answer := "The global master answer is ready."
-	commit := masterRouteTestCommit(t, work, ready, master.RouteDecision{
-		Kind:         master.RouteDecisionKindAnswerGlobal,
-		AnswerGlobal: &master.MasterAnswerGlobalRouteDecision{Text: answer},
-	})
-	commitMasterRouteTestDecision(t, store, commit, accepted.Input.ID)
-
-	source := speech.SpeechSource{
-		Speaker: speech.SpeechSpeakerMaster,
-		EventID: accepted.Input.ID,
-	}
-	resolved, err := store.ResolveSpeechSource(context.Background(), source)
-	if err != nil {
-		t.Fatalf("ResolveSpeechSource: %v", err)
-	}
-	if resolved.Source != source ||
-		resolved.Text != answer ||
-		resolved.ResolvedVoiceID != *initialVoice.ResolvedVoiceID {
-		t.Fatalf("resolved master source = %+v, want text=%q voice=%s", resolved, answer, *initialVoice.ResolvedVoiceID)
-	}
-
-	cedar := speech.SpeechVoiceCedar
-	updated, err := store.UpdateMasterVoiceSelection(
-		context.Background(),
-		speech.VoiceSelectionRequest{Selection: speech.VoiceSelectionExact, RequestedVoiceID: &cedar},
-		"2026-07-12T18:00:01Z",
-	)
-	if err != nil {
-		t.Fatalf("UpdateMasterVoiceSelection: %v", err)
-	}
-	resolvedAfterVoiceUpdate, err := store.ResolveSpeechSource(context.Background(), source)
-	if err != nil {
-		t.Fatalf("ResolveSpeechSource after voice update: %v", err)
-	}
-	if resolvedAfterVoiceUpdate.ResolvedVoiceID != *updated.ResolvedVoiceID {
-		t.Fatalf("resolved master voice after update = %s, want %s", resolvedAfterVoiceUpdate.ResolvedVoiceID, *updated.ResolvedVoiceID)
-	}
-}
-
-func TestStoreRejectsUnavailableMasterAndUnspokenNarrationSources(t *testing.T) {
+func TestStoreRejectsDirectorAndUnspokenNarrationSources(t *testing.T) {
 	store := newTestStore(t)
 	seedTransactionConversation(t, store)
 
 	_, err := store.ResolveSpeechSource(context.Background(), speech.SpeechSource{
-		Speaker: speech.SpeechSpeakerMaster,
-		EventID: "master-reply-missing",
-	})
-	assertSpeechSourceUnavailable(t, err)
-
-	ready := seedMasterRouteState(t, store)
-	accepted := acceptMasterRouteTestInput(
-		t,
-		store,
-		"master-input-clarify-speech",
-		"2026-07-11T20:02:00Z",
-	)
-	work := claimMasterRouteCommitWork(t, store, accepted)
-	commit := masterRouteTestCommit(t, work, ready, master.RouteDecision{
-		Kind:    master.RouteDecisionKindClarify,
-		Clarify: &master.MasterClarifyRouteDecision{Question: "Which topic should handle this?"},
-	})
-	commitMasterRouteTestDecision(t, store, commit, accepted.Input.ID)
-	_, err = store.ResolveSpeechSource(context.Background(), speech.SpeechSource{
-		Speaker: speech.SpeechSpeakerMaster,
-		EventID: accepted.Input.ID,
+		Speaker: speech.SpeechSpeakerDirector,
+		EventID: "director-answer",
 	})
 	assertSpeechSourceUnavailable(t, err)
 

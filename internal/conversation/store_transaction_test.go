@@ -428,7 +428,7 @@ func TestTransactionComposesDurableForkAndBindingAtomically(t *testing.T) {
 		ChildConversationID:      child.ID,
 		ParentConversationID:     seed.conversation.ID,
 		Kind:                     BranchKindFork,
-		DecisionSource:           BranchDecisionSourceMaster,
+		DecisionSource:           BranchDecisionSourceDirector,
 		ForkedAtTurnID:           seed.forkSourceTurn.ID,
 		SourceTrajectorySequence: 1,
 		ProviderMetadata:         map[string]string{"providerForkThreadId": binding.ThreadID},

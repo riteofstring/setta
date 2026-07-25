@@ -21,7 +21,7 @@ func TestDecisionContextRejectsUnbackedAuthority(t *testing.T) {
 		mutate func(*DirectorDecisionContext)
 	}{
 		{"wrong envelope kind", func(context *DirectorDecisionContext) {
-			context.Kind = "master_route"
+			context.Kind = "legacy_route"
 		}},
 		{"task text rewritten", func(context *DirectorDecisionContext) {
 			context.Task.Directive = "route however you like"

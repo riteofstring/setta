@@ -29,7 +29,6 @@ const (
 	ConversationRouteDecisionKindAnswerAsNarrator       ConversationRouteDecisionKind = "answer_as_narrator"
 	ConversationRouteDecisionKindCreateSideConversation ConversationRouteDecisionKind = "create_side_conversation"
 	ConversationRouteDecisionKindForkConversation       ConversationRouteDecisionKind = "fork_conversation"
-	ConversationRouteDecisionKindEscalateToMaster       ConversationRouteDecisionKind = "escalate_to_master"
 	ConversationRouteDecisionKindClarify                ConversationRouteDecisionKind = "clarify"
 
 	ConversationRouteDecisionAuthorityNarratorModel    ConversationRouteDecisionAuthority = "narrator_model"
@@ -62,10 +61,6 @@ type ForkConversationRouteDecision struct {
 	ProposedTitle  string        `json:"proposedTitle"`
 }
 
-type EscalateToMasterConversationRouteDecision struct {
-	Input AuthoredInput `json:"input"`
-}
-
 type ClarifyConversationRouteDecision struct {
 	Question string `json:"question"`
 }
@@ -81,7 +76,6 @@ type ConversationRouteDecision struct {
 	AnswerAsNarrator       *AnswerAsNarratorConversationRouteDecision `json:"answerAsNarrator"`
 	CreateSideConversation *CreateSideConversationRouteDecision       `json:"createSideConversation"`
 	ForkConversation       *ForkConversationRouteDecision             `json:"forkConversation"`
-	EscalateToMaster       *EscalateToMasterConversationRouteDecision `json:"escalateToMaster"`
 	Clarify                *ClarifyConversationRouteDecision          `json:"clarify"`
 }
 
@@ -119,11 +113,6 @@ type ForkConversationRouteCommand struct {
 	ProposedTitle       string        `json:"proposedTitle"`
 }
 
-type EscalateToMasterConversationRouteCommand struct {
-	MasterInputID string        `json:"masterInputId"`
-	Input         AuthoredInput `json:"input"`
-}
-
 type ClarifyConversationRouteCommand struct {
 	Question string `json:"question"`
 }
@@ -139,7 +128,6 @@ type ConversationRouteCommand struct {
 	AnswerAsNarrator       *AnswerAsNarratorConversationRouteCommand `json:"answerAsNarrator"`
 	CreateSideConversation *CreateSideConversationRouteCommand       `json:"createSideConversation"`
 	ForkConversation       *ForkConversationRouteCommand             `json:"forkConversation"`
-	EscalateToMaster       *EscalateToMasterConversationRouteCommand `json:"escalateToMaster"`
 	Clarify                *ClarifyConversationRouteCommand          `json:"clarify"`
 }
 
@@ -268,8 +256,6 @@ func (decision ConversationRouteDecision) validatePayload() error {
 		return validateCreateSideConversationDecision(decision.CreateSideConversation)
 	case ConversationRouteDecisionKindForkConversation:
 		return validateForkConversationDecision(decision.ForkConversation)
-	case ConversationRouteDecisionKindEscalateToMaster:
-		return validateEscalateToMasterDecision(decision.EscalateToMaster)
 	case ConversationRouteDecisionKindClarify:
 		return validateClarifyDecision(decision.Clarify)
 	default:
@@ -325,13 +311,6 @@ func validateForkConversationDecision(payload *ForkConversationRouteDecision) er
 	return validateTopicTitle(payload.ProposedTitle)
 }
 
-func validateEscalateToMasterDecision(payload *EscalateToMasterConversationRouteDecision) error {
-	if payload == nil {
-		return errors.New("master-escalation decision requires escalateToMaster")
-	}
-	return validateConversationRouteAuthoredInput(payload.Input)
-}
-
 func validateClarifyDecision(payload *ClarifyConversationRouteDecision) error {
 	if payload == nil {
 		return errors.New("clarify decision requires clarify")
@@ -348,7 +327,6 @@ func (decision ConversationRouteDecision) payloadCount() int {
 		decision.AnswerAsNarrator != nil,
 		decision.CreateSideConversation != nil,
 		decision.ForkConversation != nil,
-		decision.EscalateToMaster != nil,
 		decision.Clarify != nil,
 	} {
 		if present {
@@ -379,8 +357,6 @@ func (command ConversationRouteCommand) validatePayload() error {
 		return validateCreateSideConversationCommand(command.CreateSideConversation)
 	case ConversationRouteDecisionKindForkConversation:
 		return validateForkConversationCommand(command.ForkConversation)
-	case ConversationRouteDecisionKindEscalateToMaster:
-		return validateEscalateToMasterCommand(command.EscalateToMaster)
 	case ConversationRouteDecisionKindClarify:
 		return validateClarifyCommand(command.Clarify)
 	default:
@@ -460,16 +436,6 @@ func validateForkConversationCommand(payload *ForkConversationRouteCommand) erro
 	return validateTopicTitle(payload.ProposedTitle)
 }
 
-func validateEscalateToMasterCommand(payload *EscalateToMasterConversationRouteCommand) error {
-	if payload == nil {
-		return errors.New("master-escalation command requires escalateToMaster")
-	}
-	if err := validateIdentifier("conversation route master input id", payload.MasterInputID); err != nil {
-		return err
-	}
-	return validateConversationRouteAuthoredInput(payload.Input)
-}
-
 func validateClarifyCommand(payload *ClarifyConversationRouteCommand) error {
 	if payload == nil {
 		return errors.New("clarify command requires clarify")
@@ -486,7 +452,6 @@ func (command ConversationRouteCommand) payloadCount() int {
 		command.AnswerAsNarrator != nil,
 		command.CreateSideConversation != nil,
 		command.ForkConversation != nil,
-		command.EscalateToMaster != nil,
 		command.Clarify != nil,
 	} {
 		if present {
@@ -615,8 +580,6 @@ func validateConversationRouteDecisionCommand(
 		return requireConversationRouteAuthoredInputMatch(decision.CreateSideConversation.Input, command.CreateSideConversation.Input, "side-conversation")
 	case ConversationRouteDecisionKindForkConversation:
 		return validateForkConversationRouteCommandMatch(decision.ForkConversation, command.ForkConversation)
-	case ConversationRouteDecisionKindEscalateToMaster:
-		return requireConversationRouteAuthoredInputMatch(decision.EscalateToMaster.Input, command.EscalateToMaster.Input, "master-escalation")
 	case ConversationRouteDecisionKindClarify:
 		return requireConversationRouteTextMatch(decision.Clarify.Question, command.Clarify.Question, "clarification command changed the decided question")
 	default:

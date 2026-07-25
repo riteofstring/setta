@@ -210,7 +210,7 @@ func (runtime *Runtime) startFreshStructuredThread(
 	if err != nil {
 		return "", err
 	}
-	config, err := readRestrictedModelThreadConfig(
+	config, err := readStructuredCallThreadConfig(
 		ctx,
 		session,
 		request.WorkspaceRoot,
@@ -220,7 +220,7 @@ func (runtime *Runtime) startFreshStructuredThread(
 		return "", err
 	}
 	allowFallback := false
-	baseInstructions := restrictedThreadBaseInstructions
+	baseInstructions := structuredCallBaseInstructions
 	ephemeral := true
 	dynamicTools := []codexapp.DynamicToolSpec{}
 	environments := []codexapp.TurnEnvironmentParams{}
@@ -253,16 +253,15 @@ func (runtime *Runtime) startFreshStructuredThread(
 	}
 	thread, err := providerThread(response.Thread, response.Model)
 	if err != nil {
-		return "", runtime.rejectRestrictedThread(
+		return "", runtime.rejectStructuredCallThread(
 			response.Thread.ID,
 			fmt.Errorf("map fresh structured call thread: %w", err),
 		)
 	}
-	if err := validateRestrictedModelThreadResponse(
+	if err := validateStructuredCallThreadResponse(
 		request.WorkspaceRoot,
 		request.Invocation,
-		true,
-		restrictedThreadResponse{
+		structuredCallThreadResponse{
 			ApprovalPolicy:        response.ApprovalPolicy,
 			CWD:                   response.CWD,
 			InstructionSources:    response.InstructionSources,
@@ -274,13 +273,13 @@ func (runtime *Runtime) startFreshStructuredThread(
 			Thread:                response.Thread,
 		},
 	); err != nil {
-		return "", runtime.rejectRestrictedThread(
+		return "", runtime.rejectStructuredCallThread(
 			thread.ID,
 			fmt.Errorf("validate fresh structured call thread: %w", err),
 		)
 	}
 	if err := session.OwnThread(thread.ID); err != nil {
-		return "", runtime.rejectRestrictedThread(thread.ID, err)
+		return "", runtime.rejectStructuredCallThread(thread.ID, err)
 	}
 	return thread.ID, nil
 }

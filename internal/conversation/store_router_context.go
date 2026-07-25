@@ -357,7 +357,6 @@ func readConversationRouterAllowedDecisionKinds(
 	if len(forkPoints) > 0 {
 		allowed = append(allowed, ConversationRouteDecisionKindForkConversation)
 	}
-	allowed = append(allowed, ConversationRouteDecisionKindEscalateToMaster)
 	if work.ClarificationReply == nil {
 		allowed = append(allowed, ConversationRouteDecisionKindClarify)
 	}

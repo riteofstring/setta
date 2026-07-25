@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -18,7 +17,6 @@ import (
 	"setta/internal/conversation"
 	"setta/internal/director"
 	"setta/internal/httpapi"
-	"setta/internal/master"
 )
 
 func TestBackendDirectorCommandCenterWithLiveCodex(t *testing.T) {
@@ -201,40 +199,6 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 	assertRuntimeLiveNarratorStatus(t, latestSnapshot, afterRoute, question)
 	assertRuntimeLiveConversationRouteIsolation(t, latestSnapshot, afterRoute)
 
-	masterInput := master.MasterInput{
-		ID:                    "live-master-route-answer",
-		Text:                  "Answer this app-global request with exactly GLOBAL_ROUTE_OK. Do not open, focus, create, modify, or send work to any topic conversation.",
-		Modality:              master.MasterInputModalityText,
-		Source:                master.MasterInputSourceShell,
-		SubmittedAt:           time.Now().UTC().Format(time.RFC3339Nano),
-		FocusedWorkspaceID:    &opened.Workspace.ID,
-		FocusedConversationID: &created.Conversation.ID,
-	}
-	acceptedMaster := postRuntimeJSON[master.AcceptedMasterInput](
-		t,
-		client,
-		baseURL,
-		"/master/inputs/submit",
-		httpapi.SubmitMasterInputRequest{Input: masterInput},
-		http.StatusAccepted,
-	)
-	masterRoute := waitForRuntimeLiveMasterRoute(t, client, baseURL, acceptedMaster.Input.ID)
-	assertRuntimeLiveMasterRoute(t, masterRoute, opened.Workspace.ID, created.Conversation.ID)
-	transcript := postRuntimeJSON[master.Transcript](
-		t,
-		client,
-		baseURL,
-		"/master/transcript/read",
-		httpapi.ReadMasterTranscriptRequest{Limit: master.MaxTranscriptReadEntries},
-		http.StatusOK,
-	)
-	if !runtimeLiveMasterAnswerRecorded(transcript, acceptedMaster.Input.ID, "GLOBAL_ROUTE_OK") {
-		encoded, err := json.MarshalIndent(transcript, "", "  ")
-		if err != nil {
-			t.Fatalf("encode invalid live master transcript: %v", err)
-		}
-		t.Fatalf("live master transcript = %s", encoded)
-	}
 }
 
 func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
@@ -299,62 +263,6 @@ func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
 	assertRuntimeLiveTableArtifact(t, latestTurn.ID, expectedTableTitle, metadata, artifact)
 }
 
-func runtimeLiveMasterAnswerRecorded(
-	transcript master.Transcript,
-	inputID string,
-	text string,
-) bool {
-	for _, entry := range transcript.Entries {
-		reply := entry.Payload.AssistantReply
-		if entry.Payload.InputID != inputID || reply == nil {
-			continue
-		}
-		if reply.ReplyKind == master.MasterReplyKindAnswer &&
-			strings.TrimSpace(reply.Text) == text {
-			return true
-		}
-	}
-	return false
-}
-
-func waitForRuntimeLiveMasterRoute(
-	t *testing.T,
-	client *http.Client,
-	baseURL string,
-	inputID string,
-) master.InputRoutingState {
-	t.Helper()
-	request := httpapi.ReadMasterInputRoutingStateRequest{InputID: inputID}
-	interaction := postRuntimeJSON[master.ShellInteractionState](
-		t,
-		client,
-		baseURL,
-		"/master/interaction/wait",
-		request,
-		http.StatusOK,
-	)
-	state := postRuntimeJSON[master.InputRoutingState](
-		t,
-		client,
-		baseURL,
-		"/master/inputs/state/read",
-		request,
-		http.StatusOK,
-	)
-	if interaction.Status != state.Status {
-		t.Fatalf("live master shell status = %s, routing status = %s", interaction.Status, state.Status)
-	}
-	switch state.Status {
-	case master.InputRoutingStatusDecided:
-		return state
-	case master.InputRoutingStatusCancelled, master.InputRoutingStatusFailed:
-		t.Fatalf("live master route did not complete: %+v", state)
-	default:
-		t.Fatalf("live master route wait returned unsettled state: %+v", state)
-	}
-	return master.InputRoutingState{}
-}
-
 func runtimeLiveTableArtifactMetadataForTurn(
 	t *testing.T,
 	snapshot conversation.ConversationSnapshot,
@@ -411,70 +319,6 @@ func runtimeLiveArtifactTableContains(table *conversation.TableArtifactPayload, 
 		}
 	}
 	return false
-}
-
-func assertRuntimeLiveMasterRoute(
-	t *testing.T,
-	state master.InputRoutingState,
-	workspaceID string,
-	conversationID string,
-) {
-	t.Helper()
-	record := state.Decision
-	if !validRuntimeLiveMasterRoute(record, state.Input.Sequence, workspaceID, conversationID) {
-		encoded, err := json.MarshalIndent(state, "", "  ")
-		if err != nil {
-			t.Fatalf("encode invalid live master route decision: %v", err)
-		}
-		t.Fatalf("live master route decision = %s", encoded)
-	}
-}
-
-func validRuntimeLiveMasterRoute(
-	record *master.RouteDecisionRecord,
-	inputSequence int,
-	workspaceID string,
-	conversationID string,
-) bool {
-	if record == nil {
-		return false
-	}
-	return validRuntimeLiveMasterAnswer(*record) &&
-		validRuntimeLiveMasterContext(*record, inputSequence, workspaceID, conversationID) &&
-		validRuntimeLiveMasterInvocation(record.ResolvedInvocation)
-}
-
-func validRuntimeLiveMasterAnswer(record master.RouteDecisionRecord) bool {
-	return record.Decision.Kind == master.RouteDecisionKindAnswerGlobal &&
-		record.Decision.AnswerGlobal != nil &&
-		strings.TrimSpace(record.Decision.AnswerGlobal.Text) == "GLOBAL_ROUTE_OK" &&
-		record.ResultingCommand.Kind == master.RouteDecisionKindAnswerGlobal &&
-		record.ResultingCommand.AnswerGlobal != nil &&
-		strings.TrimSpace(record.ResultingCommand.AnswerGlobal.Text) == "GLOBAL_ROUTE_OK"
-}
-
-func validRuntimeLiveMasterContext(
-	record master.RouteDecisionRecord,
-	inputSequence int,
-	workspaceID string,
-	conversationID string,
-) bool {
-	authorized := slices.ContainsFunc(record.Context.TargetAuthorities, func(target master.RouteTargetAuthority) bool {
-		targetWorkspaceID, ok := target.ResourceScope.FolderWorkspaceID()
-		return target.ConversationID == conversationID && ok && targetWorkspaceID == workspaceID
-	})
-	return record.Context.InputSequence == inputSequence &&
-		authorized &&
-		slices.Contains(record.Context.ActiveWorkspaceIDs, workspaceID)
-}
-
-func validRuntimeLiveMasterInvocation(invocation master.RouteInvocationAudit) bool {
-	return invocation.Configuration.ResolvedModel == "gpt-5.6-terra" &&
-		invocation.Configuration.ResolvedPermissionMode == "read_only" &&
-		invocation.Configuration.ResolvedApprovalMode == "never" &&
-		invocation.ProviderRequestID != "" &&
-		invocation.ProviderThreadID != "" &&
-		invocation.ProviderTurnID != ""
 }
 
 func waitForRuntimeLiveConversationRoute(

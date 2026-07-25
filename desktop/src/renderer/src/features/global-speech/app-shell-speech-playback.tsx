@@ -1,4 +1,3 @@
-import type { ConversationEvent, ConversationSnapshot, TurnStatus } from "@generated/backend";
 import type { SettaAPI } from "@shared/types";
 import {
   createContext,
@@ -11,12 +10,9 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { queuedConversationProjectionEventsBefore } from "../../stores/conversation-projection-runtime";
-import { useConversationStore } from "../../stores/conversation-store";
 import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
 import {
   AppShellSpeechPlaybackController,
-  narrationSpeechPlaybackIntent,
   type SpeechPlaybackControllerDependencies,
   type SpeechPlaybackSnapshot,
 } from "./app-shell-speech-playback-controller";
@@ -40,12 +36,10 @@ export function useAppShellSpeechPlayback(): AppShellSpeechPlaybackContextValue 
 
 export function AppShellSpeechPlaybackProvider({
   children,
-  conversationNarrationEnabled = true,
   runtimeId,
   setta,
 }: {
   children: ReactNode | ((controller: AppShellSpeechPlaybackController) => ReactNode);
-  conversationNarrationEnabled?: boolean;
   runtimeId: string | null;
   setta: SettaAPI;
 }) {
@@ -67,97 +61,12 @@ export function AppShellSpeechPlaybackProvider({
   useLayoutEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
   useLayoutEffect(() => registerRendererPageTeardown(() => controller.dispose()), [controller]);
   useEffect(() => controller.synchronizeRuntime(runtimeId), [controller, runtimeId]);
-  useEffect(() => {
-    if (!conversationNarrationEnabled) {
-      return;
-    }
-    return setta.conversations.onEvent((event) =>
-      handlePlaybackConversationEvent(controller, event),
-    );
-  }, [controller, conversationNarrationEnabled, setta]);
 
   return (
     <AppShellSpeechPlaybackContext.Provider value={context}>
       {content}
     </AppShellSpeechPlaybackContext.Provider>
   );
-}
-
-export function handlePlaybackConversationEvent(
-  controller: AppShellSpeechPlaybackController,
-  event: ConversationEvent,
-): void {
-  if (conversationEventPreemptsAutomaticSpeech(event)) {
-    controller.preemptForUserInput();
-  }
-  if (event.payload.type !== "conversation.narration.created") {
-    return;
-  }
-  const snapshot = useConversationStore
-    .getState()
-    .conversations.get(event.conversationId)?.snapshot;
-  if (!snapshot) {
-    throw new Error(
-      `live narration event ${event.payload.event.id} arrived without its conversation projection`,
-    );
-  }
-  const eventState = playbackEventState(snapshot, event);
-  const intent = narrationSpeechPlaybackIntent(
-    event.payload.event,
-    eventState.presentationProfile,
-    eventState.turnStatus,
-  );
-  if (intent) {
-    controller.enqueueAutomatic(intent);
-  }
-}
-
-function conversationEventPreemptsAutomaticSpeech(event: ConversationEvent): boolean {
-  if (event.payload.type !== "conversation.trajectory.appended") {
-    return false;
-  }
-  switch (event.payload.event.kind) {
-    case "user_input_accepted":
-    case "turn_steered":
-      return true;
-    default:
-      return false;
-  }
-}
-
-function playbackEventState(
-  snapshot: ConversationSnapshot,
-  event: ConversationEvent,
-): {
-  presentationProfile: ConversationSnapshot["presentationProfile"];
-  turnStatus: TurnStatus | null;
-} {
-  const turnId =
-    event.payload.type === "conversation.narration.created" ? event.payload.event.turnId : null;
-  let presentationProfile = snapshot.presentationProfile;
-  let turnStatus = narrationTurnStatus(turnId, snapshot);
-  for (const queued of queuedConversationProjectionEventsBefore(event)) {
-    if (queued.sequence <= snapshot.eventCursor.sequence) {
-      continue;
-    }
-    if (queued.payload.type === "conversation.presentation_profile.updated") {
-      presentationProfile = queued.payload.profile;
-    }
-    if (queued.payload.type === "conversation.turn.updated" && queued.payload.turn.id === turnId) {
-      turnStatus = queued.payload.turn.status;
-    }
-  }
-  return { presentationProfile, turnStatus };
-}
-
-function narrationTurnStatus(
-  turnId: string | null,
-  snapshot: ConversationSnapshot,
-): TurnStatus | null {
-  if (turnId === null) {
-    return null;
-  }
-  return snapshot.turns.turns.find((turn) => turn.id === turnId)?.status ?? null;
 }
 
 interface SpeechPlaybackControllerDisposable {

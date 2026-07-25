@@ -58,7 +58,7 @@ func conversationRouteOutputSchema(
 			),
 			"authoredInput": nullableConversationRouteSchema(
 				boundedStringSchema(conversation.MaxAuthoredInputBytes),
-				"For a parent, side, fork, or master route, copy the applicable user request; otherwise null. Never return placeholder text.",
+				"For a parent, side, or fork route, copy the applicable user request; otherwise null. Never return placeholder text.",
 			),
 			"question": nullableConversationRouteSchema(
 				boundedStringSchema(conversation.MaxConversationRouteQuestionBytes),
@@ -85,7 +85,7 @@ func nullableConversationRouteSchema(schema map[string]any, description string) 
 	}
 }
 
-const conversationRouteKindSchemaDescription = "Select exactly one allowed routing label. send_to_parent starts actionable topic work while idle or requests a folder resource for folderless filesystem work; queue_parent_turn preserves distinct follow-up work until the active turn completes; steer_parent_turn changes the active turn; answer_as_narrator delegates an existing status or trajectory question, or ordinary folderless non-filesystem chat; create_side_conversation isolates a bounded tangent beside the conversation; fork_conversation creates an explicitly durable child topic; escalate_to_master delegates an unrelated app-global request; clarify asks only for materially missing routing intent."
+const conversationRouteKindSchemaDescription = "Select exactly one allowed routing label. send_to_parent starts actionable topic work while idle or requests a folder resource for folderless filesystem work; queue_parent_turn preserves distinct follow-up work until the active turn completes; steer_parent_turn changes the active turn; answer_as_narrator delegates an existing status or trajectory question, or ordinary folderless non-filesystem chat; create_side_conversation isolates a bounded tangent beside the conversation; fork_conversation creates an explicitly durable child topic; clarify asks only for materially missing routing intent."
 
 func decodeConversationRouteOutput(
 	raw json.RawMessage,
@@ -130,8 +130,7 @@ func decodeConversationRouteDecision(
 	case conversation.ConversationRouteDecisionKindSendToParent,
 		conversation.ConversationRouteDecisionKindQueueParentTurn,
 		conversation.ConversationRouteDecisionKindSteerParentTurn,
-		conversation.ConversationRouteDecisionKindCreateSideConversation,
-		conversation.ConversationRouteDecisionKindEscalateToMaster:
+		conversation.ConversationRouteDecisionKindCreateSideConversation:
 		return decodeConversationRouteAuthoredDecision(wire.Kind, fields)
 	case conversation.ConversationRouteDecisionKindAnswerAsNarrator,
 		conversation.ConversationRouteDecisionKindClarify:
@@ -261,10 +260,6 @@ func conversationRouteAuthoredDecision(
 	case conversation.ConversationRouteDecisionKindCreateSideConversation:
 		return conversation.ConversationRouteDecision{
 			Kind: kind, CreateSideConversation: &conversation.CreateSideConversationRouteDecision{Input: input},
-		}, nil
-	case conversation.ConversationRouteDecisionKindEscalateToMaster:
-		return conversation.ConversationRouteDecision{
-			Kind: kind, EscalateToMaster: &conversation.EscalateToMasterConversationRouteDecision{Input: input},
 		}, nil
 	default:
 		return conversation.ConversationRouteDecision{}, fmt.Errorf("conversation route kind %q does not carry authored input", kind)

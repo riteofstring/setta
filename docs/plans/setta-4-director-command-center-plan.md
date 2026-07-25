@@ -187,27 +187,21 @@ duplicated because they still postdate the last backend/provider change; the
 focused workflows postdate every renderer-only audit correction. Phase 4
 therefore remains open only for the unavailable side-by-side mockup review and
 any Phase 4 polish that external evidence finds.
-Phase 5 has started with the renderer pane-shell deletion: the production
-renderer no longer contains `workspace-layout/`, the old easy-button pane
-surfaces, the global Master pane UI, stale pane CSS imports, the renderer
-conversation-pane store, or the pane-specific speech capture/submission glue.
-The shared speech capture lifetime and capability-refresh helpers were rehomed
-behind a pane-free module for Director voice capture, and the Electron workflow
-manifest no longer owns legacy pane/Niri workflows. The orphaned old
-topic-conversation workflow helpers that still waited on `workspace-layout-area`
-were removed with that manifest cleanup. The backend layout-persistence deletion
-is now committed: `internal/applayout`, the root `internal/workspaceui` layout
-package, their runtime observers/services, HTTP endpoints, Electron IPC/preload
-surface, and generated app/workspace layout contracts are gone. The still-used
-conversation palette catalog remains in `internal/workspaceui/conversationpalette`,
-and the residual Master presentation resource binding now lives in
-`internal/master` instead of importing app layout. The native browser-pane bridge
-is now removed from Electron main, preload, shared IPC/types, and recording
-snapshots; generated appearance contracts no longer expose Niri shortcut,
-workspace-pane palette, drag-target palette, or resized-pane developer settings,
-and protocol 90 carries that contract cutover. Remaining Master
-presentation/backing helpers and their pane-binding assumptions are still Phase 5
-work.
+Phase 5 is complete. The pane renderer, backend layout persistence, native
+browser-pane bridge, pane-owned workflows, and Niri-specific appearance
+contracts are gone. The superseded Master session, routing, transcript,
+presentation, persistence, HTTP, IPC, preload, speech, and provider-fixture
+paths are also removed now that the Director command center owns app-global
+intent. The remaining app-global role and voice settings are Director-owned,
+the local conversation router no longer emits a Master escalation, and the
+Master-only candidate index and durable restricted-thread agent path were
+deleted after their final consumers disappeared. Canonical conversation
+records, events, navigator reads, narrator presentation identity, approvals,
+resources, artifacts, speech credentials, and the fresh isolated Director
+structured-call path remain. Generated contracts were regenerated at protocol
+92, and the coherent static, deterministic production-path, and single
+live-provider audit is recorded in
+[`docs/reports/setta-4-command-center-phase5-audit-20260725.md`](../reports/setta-4-command-center-phase5-audit-20260725.md).
 Supply-chain release gate: `desktop/package.json` ignores `CVE-2026-14257`
 only because the first patched `brace-expansion` release, `5.0.8`, was published
 on 2026-07-23 and cannot satisfy the checked-in seven-day release-age policy
@@ -1811,16 +1805,13 @@ Remove:
 - pane layout stores, coordinators, camera/navigation machinery, and persisted layout. **Done. The
   renderer-side store/coordinator/camera/navigation owners, backend app-pane/workspace-UI layout
   persistence, and the conversation `pane_bindings` table with its replacement API are removed.**
-- pane-bound conversation routing and presentation resolution. **Done. The Master presentation
-  intent/resolution surface is removed end to end (Go contracts, store, service, HTTP endpoints,
-  Electron IPC/preload, generated contracts, and the `master_presentation_resolutions` table), and
-  pane identity is gone from master inputs, route context, conversation inputs, and side
-  conversations. Two Setta 4 semantics replace pane-derived state: a master route command stays
-  restorable in the shell interaction until the command completes instead of until a renderer
-  resolves a pane, and a conversation may hold one open side conversation instead of one per pane.
-  Conversation presentation identity — palette and narrator voice — is now held by every live
-  (non-archived) workstream instead of by pane-visible conversations, and it reconciles when a
-  conversation is created.**
+- pane-bound conversation routing and presentation resolution. **Done. The old Master
+  presentation intent/resolution surface and then the superseded Master session and router were
+  removed end to end: Go contracts and services, durable tables, runtime wiring, HTTP endpoints,
+  Electron IPC/preload, generated contracts, and scripted-provider branches are gone. Pane identity
+  is absent from conversation inputs and side conversations. Conversation presentation identity —
+  palette and narrator voice — remains automatic durable workstream state for every live
+  conversation and reconciles on creation.**
 - pane drag, resize, reorder, overview, and manual layout controls. **Done for the renderer UI and
   manifest-owned Electron workflows.**
 - Niri-specific shortcuts, toolbar, mobile pane controls, and CSS. **Done for visible renderer
@@ -1834,25 +1825,40 @@ Remove:
 
 Retain or rehome:
 
-- canonical conversation stores and projections
-- conversation event stream/replay infrastructure
-- Director routing and clarification behavior
-- approvals and resource requests
+- canonical conversation stores and projections. **Done. Durable conversation records, trajectory,
+  event replay, navigator reads, and Director projection inputs remain. The pane-shell renderer
+  conversation stores and projections were deleted because the production shell consumes the
+  Director snapshot and pushed Director deltas instead.**
+- conversation event stream/replay infrastructure. **Retained.**
+- Director routing and clarification behavior. **Retained behind the command-center boundary. The
+  local narrator router remains for conversation-owned work but can no longer escalate into the
+  deleted Master path.**
+- approvals and resource requests. **Retained as durable Director/conversation state and actions.**
 - speech and safe credential storage. **The Director-used speech playback controller and
   capture-provider utilities are retained; pane-specific capture presentation/submission glue is
-  removed.**
+  removed. The former Master voice contract, event stream, storage, HTTP, IPC, preload, settings,
+  and synthesis source are now Director-owned.**
 - browser/native content only where it becomes a typed capability or artifact view. **Done for the
   old pane-owned WebContentsView bridge — `workspace-browser-views`, the preload
   `workspaceNativeViews` API, browser-view IPC channels, and pane DOM recording snapshots are
   removed.**
 
-Exit gate:
+Exit gate: **Met.**
 
 - no primary workflow references pane identity
 - no dead pane/layout persistence remains
 - no dual UI path remains
 - generated contracts are regenerated after owner changes
 - a full source search finds no accidental Niri product dependency
+
+The coherent Phase 5 audit additionally removed the ownerless Master candidate
+topic index, per-conversation presentation mutation API, pane-era renderer
+projection stores, developer-only appearance settings, and durable restricted
+structured-thread API. The fresh ephemeral structured-call boundary used by the
+Director remains read-only, approval-free, capability-free, and validated
+against the exact requested provider selection. The required deterministic
+production-path matrix and the one available live Codex suite are green; Phase 6
+has not started.
 
 ### Phase 6 — Production-path verification and Setta 4 checkpoint
 
@@ -1904,8 +1910,8 @@ Setta 4 is complete when:
    resource request, which today only `DirectorDecisionCommitted.Answer` does; the second needs the
    submitted intent to survive the request. This is a product decision, not rewiring, so it should be
    brought to the user before either contract changes.
-   Retiring the Master presentation intent in item 7 waits for Phase 4's shell cutover, and the
-   remaining Master-to-Director renaming in item 2 should move with the code Phase 5 does not delete.
+   The Phase 4 shell cutover and Phase 5 deletion are complete: the Master presentation and routing
+   paths are gone, and the app-global role and speech surfaces that remain are Director-owned.
    Phase 3 has production-path Electron coverage that dispatches through the renderer preload,
    main-process IPC, HTTP, and durable store. The initial user-visible fullscreen renderer surface
    now owns those dispatches for text, voice capture, selection, approval, resource, artifact detail,

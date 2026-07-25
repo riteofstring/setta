@@ -43,12 +43,6 @@ type SubmitTopicConversationApprovalRequest struct {
 	Response       conversation.ConversationApprovalResponse `json:"response"`
 }
 
-type UpdateTopicConversationPresentationRequest struct {
-	WorkspaceID    string                                        `json:"workspaceId"`
-	ConversationID string                                        `json:"conversationId"`
-	Settings       conversation.ConversationPresentationSettings `json:"settings"`
-}
-
 type ReadConversationRoleConfigurationRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`

@@ -561,7 +561,6 @@ func conversationRouteDecisionRequiresWorkspace(
 		conversation.ConversationRouteDecisionKindForkConversation:
 		return true
 	case conversation.ConversationRouteDecisionKindAnswerAsNarrator,
-		conversation.ConversationRouteDecisionKindEscalateToMaster,
 		conversation.ConversationRouteDecisionKindClarify:
 		return false
 	default:
@@ -618,15 +617,6 @@ func (router *ConversationInputRouter) buildCommand(
 				TurnID:              turnID,
 				Input:               decision.ForkConversation.Input,
 				ProposedTitle:       decision.ForkConversation.ProposedTitle,
-			},
-		}, err
-	case conversation.ConversationRouteDecisionKindEscalateToMaster:
-		masterInputID, err := conversationRouteCommandID(newID, "master_input")
-		return conversation.ConversationRouteCommand{
-			Kind: decision.Kind,
-			EscalateToMaster: &conversation.EscalateToMasterConversationRouteCommand{
-				MasterInputID: masterInputID,
-				Input:         decision.EscalateToMaster.Input,
 			},
 		}, err
 	case conversation.ConversationRouteDecisionKindClarify:

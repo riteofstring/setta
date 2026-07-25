@@ -9,7 +9,7 @@ import { describe, expect, test, vi } from "vitest";
 import { ConversationEventRegistry } from "./conversation-event-registry";
 
 describe("conversation event registry", () => {
-  test("keeps a pane-released active stream until terminal narration arrives", async () => {
+  test("keeps a released active stream until terminal narration arrives", async () => {
     const harness = registryHarness();
     harness.registry.subscribe(harness.sender, target, cursor);
     await harness.registry.release(harness.sender, target, true);

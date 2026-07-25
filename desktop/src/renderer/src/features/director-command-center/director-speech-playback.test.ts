@@ -1,4 +1,4 @@
-import type { DirectorReceipt, MasterVoiceSelection } from "@generated/backend";
+import type { DirectorReceipt, DirectorVoiceSelection } from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
 
 import { AppShellSpeechPlaybackController } from "../global-speech/app-shell-speech-playback-controller";
@@ -11,7 +11,7 @@ describe("Director speech playback", () => {
   test("derives an app-scoped speech source from durable Director reply receipts", async () => {
     const receipt = directorReplyReceipt("answer_directly", "Nothing is running right now.");
 
-    expect(directorSpeechPlaybackIntent(receipt, masterVoice())).toEqual({
+    expect(directorSpeechPlaybackIntent(receipt, directorVoice())).toEqual({
       kind: "director_reply",
       resolvedVoiceId: "marin",
       source: {
@@ -33,7 +33,7 @@ describe("Director speech playback", () => {
             workstreamId: "workstream-alpha",
           },
         },
-        masterVoice(),
+        directorVoice(),
       ),
     ).toBeNull();
 
@@ -41,7 +41,7 @@ describe("Director speech playback", () => {
     const enqueue = vi.spyOn(controller, "enqueueAutomatic");
     await enqueueDirectorSpeechPlayback({
       controller,
-      readMasterVoiceSelection: async () => masterVoice(),
+      readDirectorVoiceSelection: async () => directorVoice(),
       receipt,
     });
 
@@ -88,7 +88,7 @@ function directorReplyReceipt(
   };
 }
 
-function masterVoice(): MasterVoiceSelection {
+function directorVoice(): DirectorVoiceSelection {
   return {
     requestedVoiceId: null,
     resolvedVoiceId: "marin",

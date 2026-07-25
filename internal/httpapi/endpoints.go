@@ -8,7 +8,6 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
 	"setta/internal/director"
-	"setta/internal/master"
 	"setta/internal/speech"
 	"setta/internal/workspacesession"
 )
@@ -69,7 +68,6 @@ var apiEndpoints = []endpoint{
 	post[ListTopicConversationsRequest, conversation.NavigatorPage]("ListTopicConversations", "/conversations/navigator/list", handler.listTopicConversations),
 	post[StopTopicConversationTurnRequest, conversation.ConversationSnapshot]("StopTopicConversationTurn", "/conversations/turns/stop", handler.stopTopicConversationTurn),
 	post[SubmitTopicConversationApprovalRequest, conversation.ConversationSnapshot]("SubmitTopicConversationApproval", "/conversations/approvals/submit", handler.submitTopicConversationApproval),
-	post[UpdateTopicConversationPresentationRequest, conversation.ConversationPresentationProfile]("UpdateTopicConversationPresentation", "/conversations/presentation/update", handler.updateTopicConversationPresentation),
 	streamEventWithQuery[SubscribeConversationEventsRequest, conversation.ConversationEvent]("ConversationEventStream", "/conversations/events", handler.conversationEventStream),
 	postWithRequestBodyLimit[SubmitConversationInputRequest, conversation.AcceptedConversationInput]("SubmitConversationInput", "/conversations/inputs/submit", conversationInputRequestBodyLimitBytes, handler.submitConversationInput),
 	post[ReadConversationInputRoutingStateRequest, conversation.ConversationInputRoutingState]("ReadConversationInputRoutingState", "/conversations/inputs/state/read", handler.readConversationInputRoutingState),
@@ -86,15 +84,9 @@ var apiEndpoints = []endpoint{
 	get[director.DirectorSnapshot]("ReadDirectorSnapshot", "/director/snapshot", handler.readDirectorSnapshot),
 	post[DispatchDirectorIntentRequest, director.DirectorReceipt]("DispatchDirectorIntent", "/director/intents/dispatch", handler.dispatchDirectorIntent),
 	streamEvent[director.DirectorEvent]("DirectorEventStream", "/director/events", handler.directorEventStream),
-	get[master.ActiveShellInteraction]("ReadActiveMasterShellInteraction", "/master/interaction/active", handler.readActiveMasterShellInteraction),
-	postWithRequestBodyLimit[SubmitMasterInputRequest, master.AcceptedMasterInput]("SubmitMasterInput", "/master/inputs/submit", masterInputRequestBodyLimitBytes, handler.submitMasterInput),
-	post[CancelMasterInputRequest, master.ShellInteractionState]("CancelMasterInput", "/master/inputs/cancel", handler.cancelMasterInput),
-	post[ReadMasterInputRoutingStateRequest, master.InputRoutingState]("ReadMasterInputRoutingState", "/master/inputs/state/read", handler.readMasterInputRoutingState),
-	post[ReadMasterTranscriptRequest, master.Transcript]("ReadMasterTranscript", "/master/transcript/read", handler.readMasterTranscript),
-	post[ReadMasterInputRoutingStateRequest, master.ShellInteractionState]("WaitMasterShellInteraction", "/master/interaction/wait", handler.waitMasterShellInteraction),
 	get[speech.SpeechCapabilities]("ReadSpeechCapabilities", "/speech/capabilities", handler.readSpeechCapabilities),
-	get[speech.MasterVoiceSelection]("ReadMasterVoiceSelection", "/speech/voices/master", handler.readMasterVoiceSelection),
-	post[speech.VoiceSelectionRequest, speech.MasterVoiceSelection]("UpdateMasterVoiceSelection", "/speech/voices/master/update", handler.updateMasterVoiceSelection),
+	get[speech.DirectorVoiceSelection]("ReadDirectorVoiceSelection", "/speech/voices/director", handler.readDirectorVoiceSelection),
+	post[speech.VoiceSelectionRequest, speech.DirectorVoiceSelection]("UpdateDirectorVoiceSelection", "/speech/voices/director/update", handler.updateDirectorVoiceSelection),
 	get[speech.NarratorVoiceDefault]("ReadNarratorVoiceDefault", "/speech/voices/narrator-default", handler.readNarratorVoiceDefault),
 	post[speech.VoiceSelectionRequest, speech.NarratorVoiceDefault]("UpdateNarratorVoiceDefault", "/speech/voices/narrator-default/update", handler.updateNarratorVoiceDefault),
 	postWithRequestBodyLimit[SpeechCredentialRequest, speech.SpeechCredentialValidationResult]("ValidateDesktopSpeechCredential", "/speech/credentials/desktop/validate", speechRequestBodyLimitBytes, handler.validateDesktopSpeechCredential),

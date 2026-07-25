@@ -14,7 +14,6 @@ func TestConversationRouteDecisionAndCommandCoverEveryRestrictedOutcome(t *testi
 		ConversationRouteDecisionKindAnswerAsNarrator,
 		ConversationRouteDecisionKindCreateSideConversation,
 		ConversationRouteDecisionKindForkConversation,
-		ConversationRouteDecisionKindEscalateToMaster,
 		ConversationRouteDecisionKindClarify,
 	}
 	for _, kind := range kinds {
@@ -254,17 +253,6 @@ func validConversationRouteDecisionAndCommand(
 					TurnID:              "turn_child_routed",
 					Input:               input,
 					ProposedTitle:       "Durable routed fork",
-				},
-			}
-	case ConversationRouteDecisionKindEscalateToMaster:
-		return ConversationRouteDecision{
-				Kind:             kind,
-				EscalateToMaster: &EscalateToMasterConversationRouteDecision{Input: input},
-			}, ConversationRouteCommand{
-				Kind: kind,
-				EscalateToMaster: &EscalateToMasterConversationRouteCommand{
-					MasterInputID: "master_input_routed",
-					Input:         input,
 				},
 			}
 	case ConversationRouteDecisionKindClarify:

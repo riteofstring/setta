@@ -154,8 +154,7 @@ func (executor *conversationRouteCommandExecutor) executeConversationRouteComman
 			command.Question,
 		)
 		return err
-	case conversation.ConversationRouteDecisionKindEscalateToMaster,
-		conversation.ConversationRouteDecisionKindClarify:
+	case conversation.ConversationRouteDecisionKindClarify:
 		return nil
 	default:
 		_, err := executor.conversations.ExecuteRouteCommand(

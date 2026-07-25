@@ -18,7 +18,7 @@ type InvocationOutcome string
 const (
 	ProviderCodex Provider = "codex"
 
-	RoleMaster    Role = "master"
+	RoleDirector  Role = "director"
 	RoleAgent     Role = "agent"
 	RoleNarrator  Role = "narrator"
 	RoleSideAgent Role = "side_agent"
@@ -267,12 +267,12 @@ func (override RoleProfileOverride) Validate() error {
 	if err := override.Profile.Validate(); err != nil {
 		return err
 	}
-	if override.Profile.Role == RoleMaster {
+	if override.Profile.Role == RoleDirector {
 		if override.ScopeKind != RoleProfileScopeGlobal {
-			return fmt.Errorf("master role profile override must use global scope")
+			return fmt.Errorf("director role profile override must use global scope")
 		}
-		if err := validateMasterRoleProfile(override.Profile); err != nil {
-			return fmt.Errorf("master role profile override: %w", err)
+		if err := validateDirectorRoleProfile(override.Profile); err != nil {
+			return fmt.Errorf("director role profile override: %w", err)
 		}
 	}
 	_, err := validateTimestamp("role profile override updatedAt", override.UpdatedAt)
@@ -449,7 +449,7 @@ func validateFailedInvocation(invocation ResolvedInvocation, hasEnded bool) erro
 
 func validRole(role Role) bool {
 	switch role {
-	case RoleMaster, RoleAgent, RoleNarrator, RoleSideAgent:
+	case RoleDirector, RoleAgent, RoleNarrator, RoleSideAgent:
 		return true
 	default:
 		return false

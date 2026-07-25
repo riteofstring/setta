@@ -33,8 +33,6 @@ interface AppearanceStore {
   ) => void;
   setFontValue: (name: keyof AppearanceFontScheme, value: string) => void;
   setMode: (mode: AppearanceColorMode) => void;
-  setOverviewCardWidthBounds: (minWidthPx: number, maxWidthPx: number) => void;
-  setShowPerformanceStats: (show: boolean) => void;
   status: AppearanceStoreStatus;
 }
 
@@ -116,25 +114,6 @@ export const useAppearanceStore = create<AppearanceStore>((set, get) => {
     },
     setMode: (mode) => {
       updateDraft((settings) => ({ ...settings, mode }));
-    },
-    setOverviewCardWidthBounds: (minWidthPx, maxWidthPx) => {
-      updateDraft((settings) => ({
-        ...settings,
-        developer: {
-          ...settings.developer,
-          overviewCardMaxWidthPx: Math.round(maxWidthPx),
-          overviewCardMinWidthPx: Math.round(minWidthPx),
-        },
-      }));
-    },
-    setShowPerformanceStats: (show) => {
-      updateDraft((settings) => ({
-        ...settings,
-        developer: {
-          ...settings.developer,
-          showPerformanceStats: show,
-        },
-      }));
     },
     status: "idle",
   };

@@ -52,7 +52,6 @@ const (
 	TrajectoryActorAgent    TrajectoryActor = "agent"
 	TrajectoryActorProvider TrajectoryActor = "provider"
 	TrajectoryActorSystem   TrajectoryActor = "system"
-	TrajectoryActorMaster   TrajectoryActor = "master"
 
 	PlanStepStatusPending    PlanStepStatus = "pending"
 	PlanStepStatusInProgress PlanStepStatus = "in_progress"

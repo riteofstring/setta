@@ -432,12 +432,12 @@ func (service *Service) initialPresentationProfile(
 	conversationID string,
 	updatedAt string,
 ) (ConversationPresentationProfile, error) {
-	master, err := service.store.ReadMasterVoiceSelection(ctx)
+	director, err := service.store.ReadDirectorVoiceSelection(ctx)
 	if err != nil {
-		return ConversationPresentationProfile{}, fmt.Errorf("read master voice selection: %w", err)
+		return ConversationPresentationProfile{}, fmt.Errorf("read director voice selection: %w", err)
 	}
-	if master.ResolvedVoiceID == nil {
-		return ConversationPresentationProfile{}, errors.New("master voice selection has no resolved voice")
+	if director.ResolvedVoiceID == nil {
+		return ConversationPresentationProfile{}, errors.New("director voice selection has no resolved voice")
 	}
 	narratorDefault, err := service.store.ReadNarratorVoiceDefault(ctx)
 	if err != nil {
@@ -445,7 +445,7 @@ func (service *Service) initialPresentationProfile(
 	}
 	resolvedVoiceID := cloneVoiceID(narratorDefault.RequestedVoiceID)
 	if narratorDefault.Selection == speech.VoiceSelectionAutoDistinct {
-		allocation, allocationErr := speech.AllocateNarratorVoice(*master.ResolvedVoiceID, nil)
+		allocation, allocationErr := speech.AllocateNarratorVoice(*director.ResolvedVoiceID, nil)
 		if allocationErr != nil {
 			return ConversationPresentationProfile{}, allocationErr
 		}

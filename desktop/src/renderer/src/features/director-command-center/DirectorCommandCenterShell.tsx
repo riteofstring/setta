@@ -415,7 +415,7 @@ function useDirectorRuntime(
       setReceiptText(receipt.submit?.publicText || null);
       void enqueueDirectorSpeechPlayback({
         controller: speechPlayback,
-        readMasterVoiceSelection: setta.speech.readMasterVoiceSelection,
+        readDirectorVoiceSelection: setta.speech.readDirectorVoiceSelection,
         receipt,
       }).catch((error: unknown) => {
         console.info(`Director speech playback unavailable: ${directorErrorMessage(error)}`);

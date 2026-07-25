@@ -1,33 +1,15 @@
-export function assertRestrictedThreadParams(params, starting) {
+export function assertStructuredCallParams(params) {
   const config = requiredObject(params, "config");
-  assertRestrictedThreadPolicies(params);
-  assertRestrictedThreadConfig(config);
-  assertRestrictedThreadCapabilities(params);
-  if (starting) {
-    assertRestrictedThreadStartCapabilities(params);
-  }
+  assertStructuredCallPolicies(params);
+  assertStructuredCallConfig(config);
+  assertStructuredCallCapabilities(params);
 }
 
-export function applyResumeParams(state, params) {
-  state.approvalPolicy = params.approvalPolicy ?? state.approvalPolicy;
-  state.cwd = params.cwd ?? state.cwd;
-  state.developerInstructions = params.developerInstructions ?? state.developerInstructions;
-  state.model = params.model ?? state.model;
-  state.reasoningEffort = params.config?.model_reasoning_effort ?? state.reasoningEffort;
-  state.sandbox = params.sandbox ?? state.sandbox;
-  state.serviceTier = resumeServiceTier(state, params);
-}
-
-function resumeServiceTier(state, params) {
-  if (!Object.hasOwn(params, "serviceTier")) return state.serviceTier;
-  if (state.restricted && params.serviceTier === null) return "default";
-  return params.serviceTier;
-}
-
-function assertRestrictedThreadPolicies(params) {
+function assertStructuredCallPolicies(params) {
   assertCondition(params.approvalPolicy === "never", "approval policy");
   assertCondition(params.sandbox === "read-only", "sandbox policy");
   assertCondition(Object.hasOwn(params, "serviceTier"), "service tier override");
+  assertCondition(params.ephemeral === true, "ephemeral lifecycle");
   assertCondition(typeof params.model === "string" && params.model !== "", "exact model");
   const baseInstructions = requiredString(params, "baseInstructions");
   assertCondition(
@@ -36,7 +18,7 @@ function assertRestrictedThreadPolicies(params) {
   );
 }
 
-function assertRestrictedThreadConfig(config) {
+function assertStructuredCallConfig(config) {
   const features = requiredObject(config, "features");
   const orchestrator = requiredObject(config, "orchestrator");
   const orchestratorMcp = requiredObject(orchestrator, "mcp");
@@ -49,10 +31,10 @@ function assertRestrictedThreadConfig(config) {
   assertCondition(orchestratorMcp.enabled === false, "orchestrator MCP");
   assertCondition(orchestratorSkills.enabled === false, "orchestrator skills");
   assertCondition(configuredServer.enabled === false, "configured MCP server");
-  assertRestrictedFeatures(features);
+  assertStructuredCallFeatures(features);
 }
 
-function assertRestrictedFeatures(features) {
+function assertStructuredCallFeatures(features) {
   assertCondition(features.apps === false, "apps feature");
   assertCondition(features.auth_elicitation === false, "auth elicitation feature");
   assertCondition(features.browser_use === false, "browser feature");
@@ -66,12 +48,8 @@ function assertRestrictedFeatures(features) {
   assertCondition(features.unified_exec === false, "unified exec feature");
 }
 
-function assertRestrictedThreadCapabilities(params) {
+function assertStructuredCallCapabilities(params) {
   assertEmptyArray(params.runtimeWorkspaceRoots, "runtime workspace roots");
-}
-
-function assertRestrictedThreadStartCapabilities(params) {
-  assertCondition(params.ephemeral === true || params.ephemeral === false, "durability override");
   assertEmptyArray(params.dynamicTools, "dynamic tools");
   assertEmptyArray(params.environments, "turn environments");
   assertEmptyArray(params.selectedCapabilityRoots, "capability roots");
@@ -98,31 +76,5 @@ function assertEmptyArray(value, label) {
 }
 
 function assertCondition(condition, label) {
-  if (!condition) throw new Error(`restricted thread ${label} boundary drifted`);
-}
-
-export function sandboxPolicy(mode) {
-  switch (mode) {
-    case "read-only":
-      return { networkAccess: false, type: "readOnly" };
-    case "workspace-write":
-      return {
-        excludeSlashTmp: false,
-        excludeTmpdirEnvVar: false,
-        networkAccess: false,
-        type: "workspaceWrite",
-        writableRoots: [],
-      };
-    case "danger-full-access":
-      return { type: "dangerFullAccess" };
-    default:
-      throw new Error(`unsupported sandbox mode ${mode}`);
-  }
-}
-
-export function modelReasoningEffort(model) {
-  if (model === "gpt-5.4-mini") return "low";
-  if (model === "gpt-5.6-terra") return "medium";
-  if (model === "gpt-5.6-luna") return "medium";
-  return "high";
+  if (!condition) throw new Error(`structured-call thread ${label} boundary drifted`);
 }

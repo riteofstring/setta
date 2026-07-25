@@ -1,9 +1,7 @@
 import type {
   ConversationPresentationProfile,
-  MasterVoiceSelection,
   NarrationEvent,
   SpeechAudio,
-  ShellInteractionState,
 } from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
 
@@ -16,7 +14,6 @@ import {
   type SpeechPlaybackObservation,
   type SpeechPlaybackSupersessionDecision,
 } from "./app-shell-speech-playback-controller";
-import { masterSpeechPlaybackIntent } from "./app-shell-master-speech-playback-intent";
 import type { VoiceSynthesisRequest } from "./voice-provider-boundary";
 
 describe("app-shell speech playback controller", () => {
@@ -65,30 +62,14 @@ describe("app-shell speech playback controller", () => {
         "running",
       ),
     ).toBeNull();
-    expect(masterSpeechPlaybackIntent(masterAnswerState(), masterVoice())).toMatchObject({
-      kind: "master_answer",
-      resolvedVoiceId: "marin",
-      source: {
-        conversationId: null,
-        eventId: "master-input-answer",
-        speaker: "master",
-      },
-    });
-    expect(
-      masterSpeechPlaybackIntent(
-        { ...masterAnswerState(), status: "routing", decision: null },
-        masterVoice(),
-      ),
-    ).toBeNull();
     expect([
       speechPlaybackPriority("director_reply"),
-      speechPlaybackPriority("master_answer"),
       speechPlaybackPriority("status_reply"),
       speechPlaybackPriority("attention"),
       speechPlaybackPriority("error"),
       speechPlaybackPriority("final_summary"),
       speechPlaybackPriority("milestone"),
-    ]).toEqual([4, 4, 4, 3, 3, 2, 1]);
+    ]).toEqual([4, 4, 3, 3, 2, 1]);
   });
 
   test("orders one queue by priority and FIFO within a priority across conversations", async () => {
@@ -593,48 +574,6 @@ function createHarness(
     signals,
     snapshot: controller.getSnapshot,
     supersessions,
-  };
-}
-
-function masterAnswerState(): ShellInteractionState {
-  return {
-    decision: {
-      answerGlobal: { text: "The master answer is ready." },
-      askNarrator: null,
-      clarify: null,
-      createConversation: null,
-      createSideConversation: null,
-      focusConversation: null,
-      forkConversation: null,
-      kind: "answer_global",
-      queueAgentTurn: null,
-      sendToAgent: null,
-      steerActiveTurn: null,
-    },
-    failure: null,
-    input: {
-      focusedConversationId: null,
-      focusedWorkspaceId: null,
-      id: "master-input-answer",
-      modality: "voice",
-      originatingConversationId: null,
-      originatingConversationInputId: null,
-      originatingWorkspaceId: null,
-      source: "shell",
-      submittedAt: "2026-07-12T18:00:00Z",
-      text: "Answer globally.",
-    },
-    status: "decided",
-  };
-}
-
-function masterVoice(): MasterVoiceSelection {
-  return {
-    requestedVoiceId: "marin",
-    resolvedVoiceId: "marin",
-    reuse: null,
-    selection: "exact",
-    updatedAt: "2026-07-12T18:00:00Z",
   };
 }
 

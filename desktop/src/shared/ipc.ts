@@ -15,7 +15,6 @@ import type {
 } from "@generated/backend";
 import { conversationIpcChannels, type ConversationIpc } from "./conversation-ipc";
 import { directorIpcChannels, type DirectorIpcContract } from "./director-ipc";
-import { masterIpcChannels, type MasterIpcContract } from "./master-ipc";
 import {
   roleConfigurationIpcChannels,
   type RoleConfigurationIpcContract,
@@ -53,7 +52,6 @@ export const ipcChannels = {
   runtimeSwitch: "runtimes:switch",
   ...conversationIpcChannels,
   ...directorIpcChannels,
-  ...masterIpcChannels,
   ...roleConfigurationIpcChannels,
   ...speechIpcChannels,
   codexAccountCancelLogin: "codex-account:cancel-login",
@@ -85,12 +83,7 @@ export const ipcEvents = {
 } as const;
 
 interface IpcContract
-  extends
-    ConversationIpc,
-    DirectorIpcContract,
-    MasterIpcContract,
-    RoleConfigurationIpcContract,
-    SpeechIpcContract {
+  extends ConversationIpc, DirectorIpcContract, RoleConfigurationIpcContract, SpeechIpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];

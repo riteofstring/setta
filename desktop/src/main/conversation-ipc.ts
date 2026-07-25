@@ -109,12 +109,6 @@ export function registerConversationIpcHandlers({
   );
   handleIpc(
     ipcMain,
-    "conversationUpdatePresentation",
-    async (_event, request) => requireBackendClient().updateTopicConversationPresentation(request),
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
     "conversationSubscribeEvents",
     async (event, request) => {
       conversationEvents.subscribe(event.sender, request, request.cursor);

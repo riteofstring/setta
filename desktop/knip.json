@@ -20,7 +20,6 @@
   ],
   "ignore": ["out/**", "dist/**", "src/generated/**"],
   "ignoreFiles": [
-    "src/renderer/src/app-layout.ts",
     "src/renderer/src/features/global-speech/app-shell-speech-playback.tsx",
     "src/renderer/src/use-viewport-size.ts"
   ],

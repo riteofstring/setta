@@ -165,14 +165,7 @@ func TestOnlyActionableLifecycleStatesBecomeNodes(t *testing.T) {
 	}
 }
 
-func TestTrajectoryActorsBecomeDirectorRoles(t *testing.T) {
-	actor, err := SemanticActorForTrajectoryActor(conversation.TrajectoryActorMaster)
-	if err != nil {
-		t.Fatalf("master actor was rejected: %v", err)
-	}
-	if actor != SemanticActorDirector {
-		t.Fatalf("master must present as the director, got %q", actor)
-	}
+func TestTrajectoryActorsBecomeSemanticRoles(t *testing.T) {
 	if actor, err := SemanticActorForTrajectoryActor(conversation.TrajectoryActorAgent); err != nil || actor != SemanticActorWorker {
 		t.Fatalf("agent must present as a worker, got %q (%v)", actor, err)
 	}

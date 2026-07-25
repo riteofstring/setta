@@ -295,9 +295,6 @@ func commitConversationRouteDecisionTransaction(
 	if err != nil {
 		return ConversationRouteDecisionRecord{}, err
 	}
-	if err := applyConversationRouteDecisionCommand(transaction, dbPath, root, commit); err != nil {
-		return ConversationRouteDecisionRecord{}, err
-	}
 	if err := applyConversationRouteDecisionStatus(transaction, root, active, commit); err != nil {
 		return ConversationRouteDecisionRecord{}, err
 	}
@@ -639,8 +636,6 @@ func validateConversationRouteCommandState(
 		return validateCreateSideConversationRouteCommandState(ctx, tx, commit)
 	case ConversationRouteDecisionKindForkConversation:
 		return validateForkConversationRouteCommandState(ctx, tx, commit)
-	case ConversationRouteDecisionKindEscalateToMaster:
-		return requireConversationRouteIdentifierAbsent(ctx, tx, "master_inputs", commit.ResultingCommand.EscalateToMaster.MasterInputID)
 	case ConversationRouteDecisionKindClarify:
 		return validateClarifyConversationRouteCommandState(commit)
 	default:

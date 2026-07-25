@@ -1,6 +1,6 @@
 import {
   decodeSpeechProvider,
-  type MasterVoiceSelection,
+  type DirectorVoiceSelection,
   type NarratorVoiceDefault,
   type CreateSpeechTranscriptionSessionRequest,
   type SpeechProvider,
@@ -22,7 +22,7 @@ export const speechIpcChannels = {
   speechReadLocalMacOSVoiceHealth: "speech:read-local-macos-voice-health",
   speechReadCredentialSettings: "speech:read-credential-settings",
   speechReadCapabilities: "speech:read-capabilities",
-  speechReadMasterVoiceSelection: "speech:read-master-voice-selection",
+  speechReadDirectorVoiceSelection: "speech:read-director-voice-selection",
   speechReadNarratorVoiceDefault: "speech:read-narrator-voice-default",
   speechReadProviderSelection: "speech:read-provider-selection",
   speechRemoveCredential: "speech:remove-credential",
@@ -30,7 +30,7 @@ export const speechIpcChannels = {
   speechStartLocalMacOSVoiceModelDownload: "speech:start-local-macos-voice-model-download",
   speechStartLocalMacOSVoiceCapture: "speech:start-local-macos-voice-capture",
   speechSynthesize: "speech:synthesize",
-  speechUpdateMasterVoiceSelection: "speech:update-master-voice-selection",
+  speechUpdateDirectorVoiceSelection: "speech:update-director-voice-selection",
   speechUpdateNarratorVoiceDefault: "speech:update-narrator-voice-default",
   speechUpdateProviderSelection: "speech:update-provider-selection",
 } as const;
@@ -243,9 +243,9 @@ export interface SpeechIpcContract {
     args: [request: SpeechCredentialProviderRequest];
     result: SpeechCredentialSettings;
   };
-  speechReadMasterVoiceSelection: {
+  speechReadDirectorVoiceSelection: {
     args: [];
-    result: MasterVoiceSelection;
+    result: DirectorVoiceSelection;
   };
   speechReadNarratorVoiceDefault: {
     args: [];
@@ -275,9 +275,9 @@ export interface SpeechIpcContract {
     args: [operation: SpeechSynthesisIpcRequest];
     result: SpeechAudio;
   };
-  speechUpdateMasterVoiceSelection: {
+  speechUpdateDirectorVoiceSelection: {
     args: [request: VoiceSelectionRequest];
-    result: MasterVoiceSelection;
+    result: DirectorVoiceSelection;
   };
   speechUpdateNarratorVoiceDefault: {
     args: [request: VoiceSelectionRequest];

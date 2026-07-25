@@ -71,7 +71,7 @@ func TestBranchDecisionScopeKeepsExecutionAuthorityOutsideModelDecision(t *testi
 	if err := (BranchDecisionExecutionScope{
 		ParentConversationID: "conversation-parent",
 		ChildConversationID:  &childConversationID,
-		Source:               BranchDecisionSourceMaster,
+		Source:               BranchDecisionSourceDirector,
 	}).Validate(side); err == nil {
 		t.Fatal("side decision accepted a child conversation id")
 	}

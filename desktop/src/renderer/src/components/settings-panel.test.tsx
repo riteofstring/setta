@@ -6,8 +6,7 @@ import type {
   AppearanceShadcnPalette,
   AppearanceStatusPalette,
   AppearanceTailwindPalette,
-  ConversationPresentationProfile,
-  MasterVoiceSelection,
+  DirectorVoiceSelection,
   NarratorVoiceDefault,
   Role,
   RoleConfiguration,
@@ -31,16 +30,14 @@ import {
   requestVoiceProviderSelectionSettings,
   useSettingsNavigationStore,
 } from "../stores/settings-navigation-store";
-import { DeveloperSettingsEditor } from "./developer-settings";
 import {
   OpenAIVoiceConnectionCardView,
   speechCredentialSaveRequestFromDraft,
 } from "./openai-voice-connection-card";
 import {
-  ConversationPresentationConfiguration,
   connectedRuntimeConfigurationKey,
   GlobalVoiceConfigurationForm,
-} from "./presentation-configuration-settings";
+} from "./voice-configuration-settings";
 import { RoleConfigurationForm, RoleConfigurationSettings } from "./role-configuration-settings";
 import { openAIVoiceConnectionSettings } from "./settings-navigation";
 import { AppearanceSettingsEditor, SettingsPanel } from "./settings-panel";
@@ -55,7 +52,6 @@ describe("appearance settings", () => {
     expect(html).toContain("Theme");
     expect(html).toContain("AI Roles");
     expect(html).toContain("Voices");
-    expect(html).toContain("Developer");
     expect(html).toContain("Codex Account");
     expect(html).toContain("bg-transparent");
     expect(html).toContain('role="tabpanel"');
@@ -65,48 +61,15 @@ describe("appearance settings", () => {
     expect(html).not.toContain('data-testid="codex-account-settings"');
   });
 
-  test("renders backend-owned per-conversation presentation controls", () => {
-    const profile: ConversationPresentationProfile = {
-      conversationId: "conversation-presentation",
-      narratorSpeechEnabled: true,
-      narratorVoiceReuse: null,
-      narratorVoiceSelection: "auto_distinct",
-      paletteReuse: null,
-      paletteSelection: "exact",
-      requestedNarratorVoiceId: null,
-      requestedPaletteId: "blue",
-      resolvedNarratorVoiceId: "alloy",
-      resolvedPaletteId: "blue",
-      updatedAt: "2026-07-14T12:00:00Z",
-    };
-
-    const html = renderToString(
-      <ConversationPresentationConfiguration
-        archived={false}
-        profile={profile}
-        workspaceId="workspace-presentation"
-      />,
-    );
-
-    expect(html).toContain('data-testid="conversation-presentation-configuration"');
-    expect(html).toContain('aria-label="Conversation color selection"');
-    expect(html).toContain('aria-label="Conversation narrator voice selection"');
-    expect(html).toContain('aria-label="Speak narrator updates"');
-    expect(html).toContain('value="auto_distinct"');
-    expect(html).toContain('value="blue" selected=""');
-    expect(html).toContain("Sky");
-    expect(html).toContain("Teal");
-  });
-
   test("keeps voice catalog selectors enabled while OpenAI voice is disconnected", () => {
     const html = renderToString(
       <GlobalVoiceConfigurationForm
         configuration={{
           capabilities: sampleSpeechCapabilities("not_configured"),
-          master: sampleMasterVoiceSelection(),
+          director: sampleDirectorVoiceSelection(),
           narratorDefault: sampleNarratorVoiceDefault(),
         }}
-        onMasterUpdate={vi.fn()}
+        onDirectorUpdate={vi.fn()}
         onNarratorDefaultUpdate={vi.fn()}
       />,
     );
@@ -115,7 +78,7 @@ describe("appearance settings", () => {
     expect(normalizedHtml).toContain("Voice catalog · 3 voices");
     expect(html).toContain("Marin");
     expect(html).toContain("Cedar");
-    expect(selectTagDisabled(html, "Master voice selection")).toBe(false);
+    expect(selectTagDisabled(html, "Director voice selection")).toBe(false);
     expect(selectTagDisabled(html, "Default narrator voice selection")).toBe(false);
     expect(html).not.toContain("OPENAI_API_KEY");
   });
@@ -503,11 +466,11 @@ describe("appearance settings", () => {
     expect(html).toContain('data-testid="role-configuration-settings"');
     expect(html).toContain("Primary workspace agent for durable topic work.");
     expect(html).toContain("Lightweight projection, status, and local routing role.");
-    expect(html).toContain("Restricted global topic discovery and routing role.");
+    expect(html).toContain("App-wide workstream decisions and routing.");
     expect(html).toContain("Read-only focused follow-up and side-conversation role.");
     expect(html).toContain('aria-label="Agent model"');
     expect(html).toContain('aria-label="Narrator model"');
-    expect(html).toContain('aria-label="Master model"');
+    expect(html).toContain('aria-label="Director model"');
     expect(html).toContain('aria-label="Side agent model"');
     expect(normalizedHtml).toContain("Provider catalog validated · 4 models");
     expect(html).toContain("gpt-5.6-sol");
@@ -523,7 +486,7 @@ describe("appearance settings", () => {
     expect(html).toContain("Selected workspace");
   });
 
-  test("renders workspace overrides without the global-only master role", () => {
+  test("renders workspace overrides without the global-only director role", () => {
     const configuration = sampleRoleConfiguration();
     const workspaceId = "workspace-role-settings";
     configuration.scope = {
@@ -532,7 +495,7 @@ describe("appearance settings", () => {
       workspaceId,
     };
     configuration.profiles = configuration.profiles
-      .filter((profile) => profile.role !== "master")
+      .filter((profile) => profile.role !== "director")
       .map((profile) => ({ ...profile, effectiveSource: "global" as const }));
     const html = renderToString(
       <RoleConfigurationForm configuration={configuration} onSave={async () => configuration} />,
@@ -542,34 +505,7 @@ describe("appearance settings", () => {
     expect(html).toContain('data-role-configuration-scope="workspace"');
     expect(html).toContain("Inherited from global");
     expect(normalizedHtml).toContain("Use inherited agent");
-    expect(html).not.toContain('aria-label="Master model"');
-  });
-
-  test("renders the developer performance stats toggle", () => {
-    const html = renderToString(
-      <DeveloperSettingsEditor
-        developer={{
-          overviewCardMaxWidthPx: 460,
-          overviewCardMinWidthPx: 280,
-          showPerformanceStats: false,
-        }}
-        dirty={false}
-        error={null}
-        onOverviewCardWidthBoundsChange={vi.fn()}
-        onRevert={vi.fn()}
-        onSave={async () => {}}
-        onShowPerformanceStatsChange={vi.fn()}
-        status="ready"
-      />,
-    );
-
-    expect(html).toContain('data-testid="developer-settings"');
-    expect(html).toContain("Top bar performance stats");
-    expect(html).toContain("Overview card min width");
-    expect(html).toContain("Overview card max width");
-    expect(html).toContain('value="280"');
-    expect(html).toContain('value="460"');
-    expect(html).toContain('type="checkbox"');
+    expect(html).not.toContain('aria-label="Director model"');
   });
 
   test("maps active appearance settings to Tailwind and shadcn CSS variables", () => {
@@ -757,7 +693,7 @@ function localModelDownloadStatus(
   };
 }
 
-function sampleMasterVoiceSelection(): MasterVoiceSelection {
+function sampleDirectorVoiceSelection(): DirectorVoiceSelection {
   return {
     requestedVoiceId: "marin",
     resolvedVoiceId: "marin",
@@ -824,7 +760,7 @@ function sampleRoleConfiguration(): RoleConfiguration {
   const profiles = [
     sampleRoleProfile("agent", "gpt-5.6-sol", "high"),
     sampleRoleProfile("narrator", "gpt-5.4-mini", "low"),
-    sampleRoleProfile("master", "gpt-5.6-terra", "medium"),
+    sampleRoleProfile("director", "gpt-5.6-terra", "medium"),
     sampleRoleProfile("side_agent", "gpt-5.6-luna", "medium"),
   ];
   return {
@@ -874,7 +810,7 @@ function sampleRoleProfile(role: Role, modelId: string, effort: string): RolePro
       providerPermissionProfile: role === "agent" ? ":workspace" : ":read-only",
       toolAccess: {
         allowedTools: [],
-        mode: role === "narrator" ? "none" : "all",
+        mode: role === "narrator" || role === "director" ? "none" : "all",
       },
       workspaceMutation: role === "agent",
     },
@@ -889,11 +825,6 @@ function sampleAppearanceSettings(): AppearanceSettings {
   const tailwind = sampleTailwindPalette();
   return {
     dark: sampleColorScheme(tailwind, 200),
-    developer: {
-      overviewCardMaxWidthPx: 460,
-      overviewCardMinWidthPx: 280,
-      showPerformanceStats: false,
-    },
     fonts: {
       heading: `"Aptos Display", ui-sans-serif, sans-serif`,
       mono: `"SFMono-Regular", Consolas, monospace`,
@@ -901,7 +832,7 @@ function sampleAppearanceSettings(): AppearanceSettings {
     },
     light: sampleColorScheme(tailwind, 100),
     mode: "dark",
-    schemaVersion: 3,
+    schemaVersion: 4,
   };
 }
 

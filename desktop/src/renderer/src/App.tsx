@@ -71,11 +71,7 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
         data-testid="app-director-shell"
         inert={settingsPageOpen || undefined}
       >
-        <AppShellSpeechPlaybackProvider
-          conversationNarrationEnabled={false}
-          runtimeId={runtime.connectedRuntimeId}
-          setta={setta}
-        >
+        <AppShellSpeechPlaybackProvider runtimeId={runtime.connectedRuntimeId} setta={setta}>
           {(speechPlayback) => (
             <DirectorCommandCenterShell
               connectedRuntimeId={runtime.connectedRuntimeId}

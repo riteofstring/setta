@@ -13,7 +13,6 @@ const (
 	BranchDecisionKindForkConversation       BranchDecisionKind = "fork_conversation"
 
 	BranchDecisionSourceConversationRouter BranchDecisionSource = "conversation_router"
-	BranchDecisionSourceMaster             BranchDecisionSource = "master"
 	// BranchDecisionSourceDirector is the app-scoped Director command center,
 	// which delegates to a child workstream.
 	BranchDecisionSourceDirector BranchDecisionSource = "director"
@@ -31,8 +30,8 @@ type ForkConversationBranchDecision struct {
 	ProposedTitle  string `json:"proposedTitle"`
 }
 
-// BranchDecision is the restricted payload shared by the conversation router
-// and global master. Exactly one branch must match Kind.
+// BranchDecision is the restricted payload shared by the conversation-local
+// router and Director execution boundary. Exactly one branch must match Kind.
 type BranchDecision struct {
 	Kind                   BranchDecisionKind                    `json:"kind"`
 	CreateSideConversation *CreateSideConversationBranchDecision `json:"createSideConversation"`
@@ -111,7 +110,6 @@ func (scope BranchDecisionExecutionScope) validateForkConversation() error {
 func validBranchDecisionSource(source BranchDecisionSource) bool {
 	switch source {
 	case BranchDecisionSourceConversationRouter,
-		BranchDecisionSourceMaster,
 		BranchDecisionSourceDirector:
 		return true
 	default:

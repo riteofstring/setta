@@ -16,7 +16,6 @@ const (
 	SpeechProviderOpenAI     SpeechProvider = "openai"
 
 	SpeechSpeakerDirector SpeechSpeaker = "director"
-	SpeechSpeakerMaster   SpeechSpeaker = "master"
 	SpeechSpeakerNarrator SpeechSpeaker = "narrator"
 
 	VoiceSelectionAutoDistinct VoiceSelectionMode = "auto_distinct"
@@ -46,7 +45,6 @@ var speechProviderValues = []SpeechProvider{SpeechProviderOpenAI, SpeechProvider
 
 var speechSpeakerValues = []SpeechSpeaker{
 	SpeechSpeakerDirector,
-	SpeechSpeakerMaster,
 	SpeechSpeakerNarrator,
 }
 
@@ -84,7 +82,7 @@ type NarratorVoiceAllocation struct {
 	Reuse   *VoiceReuse
 }
 
-type MasterVoiceSelection struct {
+type DirectorVoiceSelection struct {
 	Selection        VoiceSelectionMode `json:"selection"`
 	RequestedVoiceID *SpeechVoiceID     `json:"requestedVoiceId"`
 	ResolvedVoiceID  *SpeechVoiceID     `json:"resolvedVoiceId"`
@@ -112,24 +110,23 @@ type NarratorVoiceDefaultUpdate struct {
 	Default  NarratorVoiceDefault `json:"default"`
 }
 
-type MasterVoiceSelectionInitialization struct {
-	Catalog   SpeechVoiceCatalog   `json:"catalog"`
-	Selection MasterVoiceSelection `json:"selection"`
+type DirectorVoiceSelectionInitialization struct {
+	Catalog   SpeechVoiceCatalog     `json:"catalog"`
+	Selection DirectorVoiceSelection `json:"selection"`
 }
 
-type MasterVoiceSelectionUpdateReason string
+type DirectorVoiceSelectionUpdateReason string
 
 const (
-	MasterVoiceSelectionUpdateUserOverride       MasterVoiceSelectionUpdateReason = "user_override"
-	MasterVoiceSelectionUpdateNarratorOverride   MasterVoiceSelectionUpdateReason = "narrator_override"
-	MasterVoiceSelectionUpdateNarratorAssignment MasterVoiceSelectionUpdateReason = "narrator_assignment"
+	DirectorVoiceSelectionUpdateUserOverride       DirectorVoiceSelectionUpdateReason = "user_override"
+	DirectorVoiceSelectionUpdateNarratorAssignment DirectorVoiceSelectionUpdateReason = "narrator_assignment"
 )
 
-type MasterVoiceSelectionUpdate struct {
-	Catalog   SpeechVoiceCatalog               `json:"catalog"`
-	Previous  MasterVoiceSelection             `json:"previous"`
-	Selection MasterVoiceSelection             `json:"selection"`
-	Reason    MasterVoiceSelectionUpdateReason `json:"reason"`
+type DirectorVoiceSelectionUpdate struct {
+	Catalog   SpeechVoiceCatalog                 `json:"catalog"`
+	Previous  DirectorVoiceSelection             `json:"previous"`
+	Selection DirectorVoiceSelection             `json:"selection"`
+	Reason    DirectorVoiceSelectionUpdateReason `json:"reason"`
 }
 
 type SpeechCapabilities struct {

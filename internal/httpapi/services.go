@@ -9,7 +9,6 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
 	"setta/internal/director"
-	"setta/internal/master"
 	"setta/internal/runtimeauth"
 	"setta/internal/speech"
 	"setta/internal/workspace"
@@ -46,12 +45,6 @@ type ConversationService interface {
 		string,
 		conversation.ConversationApprovalResponse,
 	) (conversation.ConversationSnapshot, error)
-	UpdatePresentationProfile(
-		context.Context,
-		string,
-		string,
-		conversation.ConversationPresentationSettings,
-	) (conversation.ConversationPresentationProfile, error)
 	ReadArtifact(context.Context, string, string, string) (conversation.Artifact, error)
 	ReadSnapshot(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	ReadSnapshotByID(context.Context, string) (conversation.ConversationSnapshot, error)
@@ -116,23 +109,14 @@ type DirectorService interface {
 	Subscribe(director.DirectorEventCursor) (director.DirectorEventSubscription, error)
 }
 
-type MasterInputService interface {
-	CancelInput(context.Context, string) (master.ShellInteractionState, error)
-	ReadActiveShellInteraction(context.Context) (master.ActiveShellInteraction, error)
-	ReadInputState(context.Context, string) (master.InputRoutingState, error)
-	ReadTranscript(context.Context, int) (master.Transcript, error)
-	SubmitInput(context.Context, master.MasterInput) (master.AcceptedMasterInput, error)
-	WaitShellInteraction(context.Context, string) (master.ShellInteractionState, error)
-}
-
 type SpeechService interface {
 	ReadCapabilities(context.Context) (speech.SpeechCapabilities, error)
-	ReadMasterVoiceSelection(context.Context) (speech.MasterVoiceSelection, error)
+	ReadDirectorVoiceSelection(context.Context) (speech.DirectorVoiceSelection, error)
 	ReadNarratorVoiceDefault(context.Context) (speech.NarratorVoiceDefault, error)
-	UpdateMasterVoiceSelection(
+	UpdateDirectorVoiceSelection(
 		context.Context,
 		speech.VoiceSelectionRequest,
-	) (speech.MasterVoiceSelection, error)
+	) (speech.DirectorVoiceSelection, error)
 	UpdateNarratorVoiceDefault(
 		context.Context,
 		speech.VoiceSelectionRequest,
@@ -190,7 +174,6 @@ type HandlerConfig struct {
 	ConversationService          ConversationService
 	DirectorService              DirectorService
 	RoleConfigurationService     RoleConfigurationService
-	MasterInputService           MasterInputService
 	CodexAccountService          CodexAccountService
 	PairingFailureLimiter        *PairingFailureLimiter
 	RevocationSweepInterval      time.Duration
@@ -209,7 +192,6 @@ type handler struct {
 	conversationService          ConversationService
 	directorService              DirectorService
 	roleConfigurationService     RoleConfigurationService
-	masterInputService           MasterInputService
 	codexAccountService          CodexAccountService
 	pairingFailureLimiter        *PairingFailureLimiter
 	revocationSweepInterval      time.Duration
@@ -237,7 +219,6 @@ func NewHandler(config HandlerConfig) http.Handler {
 		conversationService:          config.ConversationService,
 		directorService:              config.DirectorService,
 		roleConfigurationService:     config.RoleConfigurationService,
-		masterInputService:           config.MasterInputService,
 		codexAccountService:          config.CodexAccountService,
 		pairingFailureLimiter:        pairingFailureLimiter,
 		revocationSweepInterval:      revocationSweepInterval,

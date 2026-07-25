@@ -36,7 +36,6 @@ import {
   createLocalMacOSVoiceModelDownloadService,
   type LocalMacOSVoiceModelDownloadService,
 } from "./local-macos-voice-model-download";
-import { registerMasterIpcHandlers } from "./master-ipc";
 import { configureMainRendererMicrophonePermissions } from "./microphone-permissions";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
 import { registerRoleConfigurationIpcHandlers } from "./role-configuration-ipc";
@@ -595,11 +594,6 @@ function registerIpc() {
     requireBackendClient,
     requireSpeechCredentialCoordinator,
     requireSpeechProviderSelectionStore,
-  });
-  registerMasterIpcHandlers({
-    ipcMain,
-    ipcObserver,
-    requireBackendClient,
   });
   registerConversationIpcHandlers({
     conversationEvents,

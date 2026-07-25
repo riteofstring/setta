@@ -18,10 +18,10 @@ const fakeTopicArtifactTurnsFixture = join(
   "fixtures",
   "fake-topic-artifact-turns.mjs",
 );
-const fakeTopicRestrictedThreadFixture = join(
+const fakeTopicStructuredCallFixture = join(
   dirname(fileURLToPath(import.meta.url)),
   "fixtures",
-  "fake-topic-codex-restricted-thread.mjs",
+  "fake-topic-codex-structured-call.mjs",
 );
 const fakeTopicAppServerHelpersFixture = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -57,8 +57,8 @@ export async function installFakeTopicCodex(fixture) {
   );
   await copyFile(fakeTopicInputRoutesFixture, join(binDir, "fake-topic-codex-input-routes.mjs"));
   await copyFile(
-    fakeTopicRestrictedThreadFixture,
-    join(binDir, "fake-topic-codex-restricted-thread.mjs"),
+    fakeTopicStructuredCallFixture,
+    join(binDir, "fake-topic-codex-structured-call.mjs"),
   );
   if (process.platform === "win32") {
     await writeFile(join(binDir, "codex.cmd"), `@echo off\r\nnode "${scriptPath}" %*\r\n`, "utf8");

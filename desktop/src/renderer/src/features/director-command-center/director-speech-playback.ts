@@ -1,4 +1,4 @@
-import type { DirectorReceipt, MasterVoiceSelection } from "@generated/backend";
+import type { DirectorReceipt, DirectorVoiceSelection } from "@generated/backend";
 
 import type {
   AppShellSpeechPlaybackController,
@@ -7,7 +7,7 @@ import type {
 
 export function directorSpeechPlaybackIntent(
   receipt: DirectorReceipt,
-  masterVoice: MasterVoiceSelection,
+  directorVoice: DirectorVoiceSelection,
 ): SpeechPlaybackIntent | null {
   const outcome = receipt.kind === "submit" ? receipt.submit : null;
   if (outcome === null) {
@@ -16,15 +16,15 @@ export function directorSpeechPlaybackIntent(
   if (outcome.decision !== "answer_directly" && outcome.decision !== "ask_clarification") {
     return null;
   }
-  if (!masterVoice.resolvedVoiceId) {
-    throw new Error("Director speech requires a resolved assistant voice");
+  if (!directorVoice.resolvedVoiceId) {
+    throw new Error("Director speech requires a resolved Director voice");
   }
   if (outcome.publicText.trim() === "") {
     throw new Error("Director reply speech requires public text");
   }
   return {
     kind: "director_reply",
-    resolvedVoiceId: masterVoice.resolvedVoiceId,
+    resolvedVoiceId: directorVoice.resolvedVoiceId,
     source: {
       conversationId: null,
       eventId: outcome.intentId,
@@ -36,18 +36,18 @@ export function directorSpeechPlaybackIntent(
 
 export async function enqueueDirectorSpeechPlayback({
   controller,
-  readMasterVoiceSelection,
+  readDirectorVoiceSelection,
   receipt,
 }: {
   controller: AppShellSpeechPlaybackController;
-  readMasterVoiceSelection: (() => Promise<MasterVoiceSelection>) | undefined;
+  readDirectorVoiceSelection: (() => Promise<DirectorVoiceSelection>) | undefined;
   receipt: DirectorReceipt;
 }): Promise<void> {
-  if (receipt.kind !== "submit" || readMasterVoiceSelection === undefined) {
+  if (receipt.kind !== "submit" || readDirectorVoiceSelection === undefined) {
     return;
   }
-  const masterVoice = await readMasterVoiceSelection();
-  const intent = directorSpeechPlaybackIntent(receipt, masterVoice);
+  const directorVoice = await readDirectorVoiceSelection();
+  const intent = directorSpeechPlaybackIntent(receipt, directorVoice);
   if (intent !== null) {
     controller.enqueueAutomatic(intent);
   }

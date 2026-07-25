@@ -93,7 +93,6 @@ const api: SettaAPI = {
     submitInput: (request) => invoke("conversationSubmitInput", request),
     submitApproval: (request) => invoke("conversationSubmitApproval", request),
     subscribe: (request) => invoke("conversationSubscribeEvents", request),
-    updatePresentation: (request) => invoke("conversationUpdatePresentation", request),
   },
   director: {
     dispatch: (intent) => invoke("directorDispatchIntent", intent),
@@ -108,13 +107,6 @@ const api: SettaAPI = {
     },
     readSnapshot: () => invoke("directorReadSnapshot"),
     subscribe: (request) => invoke("directorSubscribeEvents", request),
-  },
-  master: {
-    cancelInput: (request) => invoke("masterCancelInput", request),
-    readActiveInteraction: () => invoke("masterReadActiveInteraction"),
-    readTranscript: (request) => invoke("masterReadTranscript", request),
-    submitInput: (request) => invoke("masterSubmitInput", request),
-    waitInteraction: (request) => invoke("masterWaitInteraction", request),
   },
   roles: {
     readConversation: (request) => invoke("roleConfigurationReadConversation", request),
@@ -164,7 +156,7 @@ const api: SettaAPI = {
     listLocalMacOSVoices: () => invoke("speechListLocalMacOSVoices"),
     readLocalMacOSVoiceHealth: () => invoke("speechReadLocalMacOSVoiceHealth"),
     readLocalMacOSVoiceModelDownload: () => invoke("speechReadLocalMacOSVoiceModelDownload"),
-    readMasterVoiceSelection: () => invoke("speechReadMasterVoiceSelection"),
+    readDirectorVoiceSelection: () => invoke("speechReadDirectorVoiceSelection"),
     readNarratorVoiceDefault: () => invoke("speechReadNarratorVoiceDefault"),
     readProviderSelection: () => invoke("speechReadProviderSelection"),
     removeCredential: (request) => invoke("speechRemoveCredential", request),
@@ -172,7 +164,8 @@ const api: SettaAPI = {
     startLocalMacOSVoiceCapture: (request) => invoke("speechStartLocalMacOSVoiceCapture", request),
     startLocalMacOSVoiceModelDownload: () => invoke("speechStartLocalMacOSVoiceModelDownload"),
     synthesize: (request, operationId) => invoke("speechSynthesize", { operationId, request }),
-    updateMasterVoiceSelection: (request) => invoke("speechUpdateMasterVoiceSelection", request),
+    updateDirectorVoiceSelection: (request) =>
+      invoke("speechUpdateDirectorVoiceSelection", request),
     updateNarratorVoiceDefault: (request) => invoke("speechUpdateNarratorVoiceDefault", request),
     updateProviderSelection: (request) => invoke("speechUpdateProviderSelection", request),
   },

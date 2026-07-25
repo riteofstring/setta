@@ -213,7 +213,6 @@ func validConversationRouteDecisionKind(kind ConversationRouteDecisionKind) bool
 		ConversationRouteDecisionKindAnswerAsNarrator,
 		ConversationRouteDecisionKindCreateSideConversation,
 		ConversationRouteDecisionKindForkConversation,
-		ConversationRouteDecisionKindEscalateToMaster,
 		ConversationRouteDecisionKindClarify:
 		return true
 	default:

@@ -619,7 +619,7 @@ func (payload ConversationUpdatedEventPayload) validateConversationEventPayload(
 	if err := payload.Conversation.Validate(); err != nil {
 		return err
 	}
-	if payload.Conversation.ID != conversationID || !equalOptionalStrings(payload.Conversation.WorkspaceID, workspaceID) {
+	if payload.Conversation.ID != conversationID || !equalOptionalString(payload.Conversation.WorkspaceID, workspaceID) {
 		return fmt.Errorf("conversation.updated payload ownership does not match event")
 	}
 	return nil
@@ -933,7 +933,7 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet("ThreadBindingStatus", ThreadBindingStatusLinked, ThreadBindingStatusMissing, ThreadBindingStatusUnavailable),
 		contractValueSet("ArtifactKind", ArtifactKindMarkdown, ArtifactKindTable, ArtifactKindBarChart, ArtifactKindFile),
 		contractValueSet("Provider", ProviderCodex),
-		contractValueSet("Role", RoleMaster, RoleAgent, RoleNarrator, RoleSideAgent),
+		contractValueSet("Role", RoleDirector, RoleAgent, RoleNarrator, RoleSideAgent),
 		contractValueSet("RoleProfileScopeKind", RoleProfileScopeGlobal, RoleProfileScopeWorkspace, RoleProfileScopeConversation),
 		contractValueSet("RoleProfileSourceKind", RoleProfileSourceBuiltIn, RoleProfileSourceGlobal, RoleProfileSourceWorkspace, RoleProfileSourceConversation),
 		contractValueSet("ModelSelectionMode", ModelSelectionExact, ModelSelectionProviderDefault),
@@ -946,7 +946,6 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet(
 			"BranchDecisionSource",
 			BranchDecisionSourceConversationRouter,
-			BranchDecisionSourceMaster,
 			BranchDecisionSourceDirector,
 		),
 		contractValueSet("SideConversationStatus", SideConversationStatusPreparing, SideConversationStatusActive, SideConversationStatusDisposing, SideConversationStatusFailed),
@@ -956,7 +955,7 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet("PresentationSelectionMode", PresentationSelectionAutoDistinct, PresentationSelectionExact),
 		contractValueSet("PresentationReuseReason", PresentationReuseCatalogExhausted),
 		{Name: "TrajectoryEventKind", Values: stringValues(trajectoryEventKinds)},
-		contractValueSet("TrajectoryActor", TrajectoryActorUser, TrajectoryActorAgent, TrajectoryActorProvider, TrajectoryActorSystem, TrajectoryActorMaster),
+		contractValueSet("TrajectoryActor", TrajectoryActorUser, TrajectoryActorAgent, TrajectoryActorProvider, TrajectoryActorSystem),
 		{Name: "PlanStepStatus", Values: stringValues(planStepStatuses)},
 		{Name: "TrajectoryActivityKind", Values: stringValues(trajectoryActivityKinds)},
 		contractValueSet("FileChangeKind", FileChangeAdd, FileChangeDelete, FileChangeUpdate),

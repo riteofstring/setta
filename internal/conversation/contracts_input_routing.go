@@ -10,7 +10,6 @@ func conversationInputContractTaggedUnions() []ContractTaggedUnion {
 		{Field: "answerAsNarrator", KindValue: string(ConversationRouteDecisionKindAnswerAsNarrator)},
 		{Field: "createSideConversation", KindValue: string(ConversationRouteDecisionKindCreateSideConversation)},
 		{Field: "forkConversation", KindValue: string(ConversationRouteDecisionKindForkConversation)},
-		{Field: "escalateToMaster", KindValue: string(ConversationRouteDecisionKindEscalateToMaster)},
 		{Field: "clarify", KindValue: string(ConversationRouteDecisionKindClarify)},
 	}
 	return []ContractTaggedUnion{
@@ -31,7 +30,7 @@ func conversationInputContractValueSets() []ContractValueSet {
 	return []ContractValueSet{
 		contractValueSet("ConversationInputModality", ConversationInputModalityText, ConversationInputModalityVoice),
 		contractValueSet("ConversationInputStatus", ConversationInputStatusAccepted, ConversationInputStatusRouting, ConversationInputStatusAwaitingClarification, ConversationInputStatusDispatched, ConversationInputStatusFailed),
-		contractValueSet("ConversationRouteDecisionKind", ConversationRouteDecisionKindSendToParent, ConversationRouteDecisionKindQueueParentTurn, ConversationRouteDecisionKindSteerParentTurn, ConversationRouteDecisionKindAnswerAsNarrator, ConversationRouteDecisionKindCreateSideConversation, ConversationRouteDecisionKindForkConversation, ConversationRouteDecisionKindEscalateToMaster, ConversationRouteDecisionKindClarify),
+		contractValueSet("ConversationRouteDecisionKind", ConversationRouteDecisionKindSendToParent, ConversationRouteDecisionKindQueueParentTurn, ConversationRouteDecisionKindSteerParentTurn, ConversationRouteDecisionKindAnswerAsNarrator, ConversationRouteDecisionKindCreateSideConversation, ConversationRouteDecisionKindForkConversation, ConversationRouteDecisionKindClarify),
 		contractValueSet("ConversationRouteDecisionAuthority", ConversationRouteDecisionAuthorityNarratorModel, ConversationRouteDecisionAuthorityProductInvariant),
 	}
 }

@@ -206,9 +206,9 @@ func TestRoleConfigurationServiceReadsUpdatesAndAuditsWorkspacePrecedence(t *tes
 	if _, err := service.UpdateWorkspaceConfiguration(
 		context.Background(),
 		workspaceID,
-		[]RoleProfileUpdate{{Role: RoleMaster, Profile: nil}},
-	); err == nil || !containsError(err, "role master cannot be configured at workspace scope") {
-		t.Fatalf("workspace master update error = %v", err)
+		[]RoleProfileUpdate{{Role: RoleDirector, Profile: nil}},
+	); err == nil || !containsError(err, "role director cannot be configured at workspace scope") {
+		t.Fatalf("workspace director update error = %v", err)
 	}
 
 	configuration, err = service.UpdateWorkspaceConfiguration(
@@ -278,8 +278,8 @@ func TestRoleConfigurationServiceAppliesAndPublishesConversationOverrides(t *tes
 		t.Fatalf("workspace-effective agent = %+v", agentConfiguration)
 	}
 	for _, profile := range configuration.Profiles {
-		if profile.Role == RoleMaster {
-			t.Fatal("conversation role configuration exposed the app-global master role")
+		if profile.Role == RoleDirector {
+			t.Fatal("conversation role configuration exposed the app-global director role")
 		}
 	}
 
@@ -563,8 +563,8 @@ func assertWorkspaceRoleConfiguration(
 		t.Fatalf("workspace profiles = %d, want 3", len(configuration.Profiles))
 	}
 	for _, profile := range configuration.Profiles {
-		if profile.Role == RoleMaster {
-			t.Fatal("workspace role configuration exposed the global-only master role")
+		if profile.Role == RoleDirector {
+			t.Fatal("workspace role configuration exposed the global-only director role")
 		}
 	}
 }

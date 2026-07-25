@@ -22,12 +22,12 @@ func (handler handler) readSpeechCapabilities(response http.ResponseWriter, requ
 	writeJSON(response, http.StatusOK, capabilities)
 }
 
-func (handler handler) readMasterVoiceSelection(response http.ResponseWriter, request *http.Request) {
+func (handler handler) readDirectorVoiceSelection(response http.ResponseWriter, request *http.Request) {
 	service := requireSpeechService(response, handler.speechService)
 	if service == nil {
 		return
 	}
-	selection, err := service.ReadMasterVoiceSelection(request.Context())
+	selection, err := service.ReadDirectorVoiceSelection(request.Context())
 	if err != nil {
 		writeSpeechVoiceConfigurationError(response, err)
 		return
@@ -35,7 +35,7 @@ func (handler handler) readMasterVoiceSelection(response http.ResponseWriter, re
 	writeJSON(response, http.StatusOK, selection)
 }
 
-func (handler handler) updateMasterVoiceSelection(response http.ResponseWriter, request *http.Request) {
+func (handler handler) updateDirectorVoiceSelection(response http.ResponseWriter, request *http.Request) {
 	service := requireSpeechService(response, handler.speechService)
 	if service == nil {
 		return
@@ -44,7 +44,7 @@ func (handler handler) updateMasterVoiceSelection(response http.ResponseWriter, 
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	selection, err := service.UpdateMasterVoiceSelection(request.Context(), payload)
+	selection, err := service.UpdateDirectorVoiceSelection(request.Context(), payload)
 	if err != nil {
 		writeSpeechVoiceConfigurationError(response, err)
 		return

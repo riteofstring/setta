@@ -190,39 +190,6 @@ func (handler handler) submitTopicConversationApproval(response http.ResponseWri
 	writeConversationSnapshot(response, snapshot)
 }
 
-func (handler handler) updateTopicConversationPresentation(
-	response http.ResponseWriter,
-	request *http.Request,
-) {
-	service := requireConversationService(response, handler.conversationService)
-	if service == nil {
-		return
-	}
-	var payload UpdateTopicConversationPresentationRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
-		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_presentation_request", err.Error())
-		return
-	}
-	profile, err := service.UpdatePresentationProfile(
-		request.Context(),
-		payload.WorkspaceID,
-		payload.ConversationID,
-		payload.Settings,
-	)
-	if err != nil {
-		writeConversationPresentationConfigurationError(response, err)
-		return
-	}
-	if err := profile.Validate(); err != nil {
-		writeError(response, http.StatusInternalServerError, "invalid_conversation_presentation_profile", err.Error())
-		return
-	}
-	writeJSON(response, http.StatusOK, profile)
-}
-
 func writeConversationSnapshot(response http.ResponseWriter, snapshot conversation.ConversationSnapshot) {
 	if err := snapshot.Validate(); err != nil {
 		writeError(response, http.StatusInternalServerError, "invalid_conversation_snapshot", err.Error())

@@ -19,9 +19,7 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
 	"setta/internal/conversation"
-	"setta/internal/conversationindex"
 	"setta/internal/httpapi"
-	"setta/internal/master"
 	"setta/internal/narration"
 	"setta/internal/runtimeauth"
 	"setta/internal/runtimeidentity"
@@ -65,7 +63,6 @@ type Server struct {
 	closeDirectorRegistry  func()
 	closeRuntimeAuth       func() error
 	drainConversationTurns func(context.Context) error
-	drainMasterRouting     func(context.Context) error
 	drainNarration         func(context.Context) error
 	drainSpeech            func(context.Context) error
 	codexManager           *codexapp.Manager
@@ -82,12 +79,8 @@ type runtimeServices struct {
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
 	conversationInputService *conversation.InputService
-	conversationIndexService *conversationindex.Service
 	conversationStore        *conversation.Store
 	directorServices         directorServices
-	masterInputService       *master.Service
-	masterRouteService       *master.RouteService
-	masterSessionService     *master.SessionService
 	narratorService          *narration.Service
 	roleConfigurationService *conversation.RoleConfigurationService
 	speechService            *speech.Service
@@ -204,7 +197,6 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		closeDirectorRegistry:  func() { closeDirectorServices(services.directorServices) },
 		closeRuntimeAuth:       services.authStore.Close,
 		drainConversationTurns: services.conversationService.Shutdown,
-		drainMasterRouting:     services.masterRouteService.Shutdown,
 		drainNarration:         services.narratorService.Shutdown,
 		drainSpeech:            services.speechService.Shutdown,
 		codexManager:           services.codexManager,
@@ -264,12 +256,8 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		codexManager:             baseServices.codexManager,
 		conversationService:      baseServices.conversationService,
 		conversationInputService: baseServices.conversationInputService,
-		conversationIndexService: baseServices.conversationIndexService,
 		conversationStore:        baseServices.conversationStore,
 		directorServices:         baseServices.directorServices,
-		masterInputService:       baseServices.masterInputService,
-		masterRouteService:       baseServices.masterRouteService,
-		masterSessionService:     baseServices.masterSessionService,
 		narratorService:          baseServices.narratorService,
 		roleConfigurationService: baseServices.roleConfigurationService,
 		speechService:            baseServices.speechService,
@@ -319,7 +307,6 @@ func closeRuntimeServicesAfterReadyFailure(config Config, server *Server) {
 	defer cancel()
 	_ = server.shutdownConversationTurns(shutdownCtx)
 	_ = server.shutdownNarration(shutdownCtx)
-	_ = server.shutdownMasterRouting(shutdownCtx)
 	_ = server.shutdownSpeech(shutdownCtx)
 	server.shutdownDirectorRegistry()
 	_ = server.shutdownConversationStore()
@@ -363,7 +350,6 @@ func (server *Server) Shutdown(ctx context.Context) error {
 	httpShutdown := server.startHTTPShutdown(ctx)
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownConversationTurns(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownNarration(ctx))
-	shutdownErr = firstShutdownError(shutdownErr, server.shutdownMasterRouting(ctx))
 	shutdownErr = firstShutdownError(shutdownErr, waitHTTPShutdown(ctx, httpShutdown))
 	shutdownErr = firstShutdownError(shutdownErr, server.shutdownSpeech(ctx))
 	server.shutdownDirectorRegistry()

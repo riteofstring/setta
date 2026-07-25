@@ -18,7 +18,6 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 		ConversationService:          services.conversationService,
 		DirectorService:              services.directorServices.commandCenter,
 		RoleConfigurationService:     services.roleConfigurationService,
-		MasterInputService:           services.masterInputService,
 		CodexAccountService:          services.codexAccountService,
 		RuntimeAuthService:           services.authStore,
 		RuntimeIdentityService:       services.runtimeIdentityManager,
