@@ -74,6 +74,103 @@ func TestSDKClientFindRuntimeUsesDetailedObservation(t *testing.T) {
 	}
 }
 
+func TestAdapterInspectCheckpointFindsAutoCheckpointThroughSDKClient(t *testing.T) {
+	identity := testManagedIdentity(t)
+	autoCheckpoint := &spritessdk.Checkpoint{
+		ID:      "auto-checkpoint",
+		Comment: "automatic checkpoint",
+		IsAuto:  true,
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		switch {
+		case request.Method == http.MethodGet && request.URL.Path == "/v1/sprites/"+identity.Name:
+			if err := json.NewEncoder(response).Encode(testRuntimeInfo(identity, "running")); err != nil {
+				t.Fatalf("encode runtime: %v", err)
+			}
+		case request.Method == http.MethodGet && request.URL.Path == "/v1/sprites/"+identity.Name+"/checkpoints":
+			if request.URL.Query().Get("history") != "" {
+				t.Fatalf("history filter = %q, want empty", request.URL.Query().Get("history"))
+			}
+			if request.URL.Query().Get("includeAuto") != "true" {
+				if err := json.NewEncoder(response).Encode([]*spritessdk.Checkpoint{}); err != nil {
+					t.Fatalf("encode checkpoints: %v", err)
+				}
+				return
+			}
+			if err := json.NewEncoder(response).Encode([]*spritessdk.Checkpoint{autoCheckpoint}); err != nil {
+				t.Fatalf("encode checkpoints: %v", err)
+			}
+		default:
+			t.Fatalf("request = %s %s", request.Method, request.URL.String())
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	adapter := &Adapter{client: newSDKClientWithBaseURL("phase1b-token", server.URL)}
+	checkpoint, found, err := adapter.InspectCheckpoint(
+		context.Background(),
+		identity.Name,
+		autoCheckpoint.ID,
+	)
+	if err != nil || !found {
+		t.Fatalf("InspectCheckpoint: found=%t err=%v", found, err)
+	}
+	if checkpoint.ID != autoCheckpoint.ID || checkpoint.Comment != autoCheckpoint.Comment {
+		t.Fatalf("checkpoint = %#v", checkpoint)
+	}
+}
+
+func TestSDKClientCreateCheckpointDiffExcludesRacingAutoCheckpoint(t *testing.T) {
+	existing := &spritessdk.Checkpoint{ID: "existing"}
+	autoCheckpoint := &spritessdk.Checkpoint{ID: "auto-racer", IsAuto: true}
+	created := &spritessdk.Checkpoint{ID: "manual-created", Comment: "manual checkpoint"}
+	listCalls := 0
+	createObserved := false
+	var listIncludedAuto []bool
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch {
+		case request.Method == http.MethodGet && request.URL.Path == "/v1/sprites/test-runtime/checkpoints":
+			listCalls++
+			includeAuto := request.URL.Query().Get("includeAuto") == "true"
+			listIncludedAuto = append(listIncludedAuto, includeAuto)
+			checkpoints := []*spritessdk.Checkpoint{existing}
+			if createObserved {
+				if includeAuto {
+					checkpoints = append(checkpoints, autoCheckpoint)
+				}
+				checkpoints = append(checkpoints, created)
+			}
+			response.Header().Set("Content-Type", "application/json")
+			if err := json.NewEncoder(response).Encode(checkpoints); err != nil {
+				t.Fatalf("encode checkpoints: %v", err)
+			}
+		case request.Method == http.MethodPost && request.URL.Path == "/v1/sprites/test-runtime/checkpoint":
+			createObserved = true
+			response.Header().Set("Content-Type", "application/x-ndjson")
+			_, _ = response.Write([]byte("{\"type\":\"complete\"}\n"))
+		default:
+			t.Fatalf("request = %s %s", request.Method, request.URL.String())
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	client := newSDKClientWithBaseURL("phase1b-token", server.URL)
+	checkpoint, err := client.CreateCheckpoint(context.Background(), "test-runtime", created.Comment)
+	if err != nil {
+		t.Fatalf("CreateCheckpoint: %v", err)
+	}
+	if checkpoint.ID != created.ID {
+		t.Fatalf("checkpoint = %#v, want %#v", checkpoint, created)
+	}
+	if !createObserved || listCalls != 2 {
+		t.Fatalf("create observed=%t list calls=%d", createObserved, listCalls)
+	}
+	if !slices.Equal(listIncludedAuto, []bool{false, false}) {
+		t.Fatalf("list include-auto values = %v", listIncludedAuto)
+	}
+}
+
 func TestSDKClientPaginatesOrganizationSnapshot(t *testing.T) {
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {

@@ -289,7 +289,12 @@ func (client *sdkClient) CreateCheckpoint(
 	name string,
 	comment string,
 ) (*spritessdk.Checkpoint, error) {
-	before, err := client.client.ListCheckpoints(ctx, name, "")
+	// Pinned and latest published SDK stream messages carry no checkpoint ID, requiring a diff of non-auto lists.
+	checkpointDiffOptions := spritessdk.ListCheckpointsOptions{
+		HistoryFilter: "",
+		IncludeAuto:   false,
+	}
+	before, err := client.client.ListCheckpointsWithOptions(ctx, name, checkpointDiffOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +305,7 @@ func (client *sdkClient) CreateCheckpoint(
 	if err := consumeCheckpointStream(stream); err != nil {
 		return nil, err
 	}
-	after, err := client.client.ListCheckpoints(ctx, name, "")
+	after, err := client.client.ListCheckpointsWithOptions(ctx, name, checkpointDiffOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +317,10 @@ func (client *sdkClient) FindCheckpoint(
 	name string,
 	checkpointID string,
 ) (*spritessdk.Checkpoint, bool, error) {
-	checkpoints, err := client.client.ListCheckpoints(ctx, name, "")
+	checkpoints, err := client.client.ListCheckpointsWithOptions(ctx, name, spritessdk.ListCheckpointsOptions{
+		HistoryFilter: "",
+		IncludeAuto:   true,
+	})
 	if err != nil {
 		return nil, false, err
 	}
