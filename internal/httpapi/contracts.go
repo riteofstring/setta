@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"setta/internal/appearance"
+	"setta/internal/applayout"
 	"setta/internal/conversation"
 	"setta/internal/runtimeauth"
 	"setta/internal/speech"
@@ -101,9 +102,13 @@ type SaveWorkspaceUILayoutRequest struct {
 	Layout workspaceui.WorkspaceUILayout `json:"layout"`
 }
 
+type SaveAppPaneLayoutRequest struct {
+	Layout applayout.AppPaneLayout `json:"layout"`
+}
+
 type ReadConversationSnapshotRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
+	WorkspaceID    *string `json:"workspaceId"`
+	ConversationID string  `json:"conversationId"`
 }
 
 type ReadConversationArtifactRequest struct {
@@ -120,8 +125,8 @@ type ListTopicConversationsRequest struct {
 }
 
 type SubscribeConversationEventsRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
+	WorkspaceID    *string `json:"workspaceId"`
+	ConversationID string  `json:"conversationId"`
 }
 
 type SpeechCredentialRequest struct {

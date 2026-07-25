@@ -141,6 +141,74 @@ func TestConversationInputRouterDispatchesBlankConversationWithoutModelRouting(t
 	assertFixtureRouterProviderRequests(t, fixture.provider, 0)
 }
 
+func TestConversationInputRouterRoutesFolderlessChatToNarrator(t *testing.T) {
+	fixture := newFolderlessBlankStatusServiceFixture(t)
+	fixture.provider.routeKinds = []conversation.ConversationRouteDecisionKind{
+		conversation.ConversationRouteDecisionKindAnswerAsNarrator,
+	}
+	router := configuredFixtureInputRouter(fixture.service.inputRouter)
+	inputService := fixtureInputService(t, fixture.store)
+	accepted, err := inputService.SubmitInput(context.Background(), conversation.ConversationInput{
+		ID:             "input-route-folderless-chat",
+		ConversationID: fixture.conversationID,
+		Text:           "hi",
+		Modality:       conversation.ConversationInputModalityText,
+		SubmittedAt:    time.Now().UTC().Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		t.Fatalf("SubmitInput: %v", err)
+	}
+
+	if processed, err := router.ProcessNext(context.Background(), fixture.conversationID); err != nil || !processed {
+		t.Fatalf("ProcessNext = %t, %v", processed, err)
+	}
+	state := readFixtureRoutingStateWithWorkspace(t, fixture, "", accepted.Input.ID)
+	if state.Input.Status != conversation.ConversationInputStatusDispatched ||
+		len(state.Decisions) != 1 ||
+		state.Decisions[0].RouterContext.DecisionAuthority != conversation.ConversationRouteDecisionAuthorityNarratorModel ||
+		state.Decisions[0].Decision.Kind != conversation.ConversationRouteDecisionKindAnswerAsNarrator ||
+		state.Decisions[0].ResultingCommand.AnswerAsNarrator.Question != "hi" ||
+		!conversationRouteDecisionKindIncluded(
+			state.Decisions[0].RouterContext.AllowedDecisionKinds,
+			conversation.ConversationRouteDecisionKindAnswerAsNarrator,
+		) {
+		t.Fatalf("folderless chat route state = %+v", state)
+	}
+	assertFixtureRouterProviderRequests(t, fixture.provider, 1)
+}
+
+func TestConversationInputRouterRequiresFolderForFolderlessParentWork(t *testing.T) {
+	fixture := newFolderlessBlankStatusServiceFixture(t)
+	fixture.provider.routeKinds = []conversation.ConversationRouteDecisionKind{
+		conversation.ConversationRouteDecisionKindSendToParent,
+	}
+	router := configuredFixtureInputRouter(fixture.service.inputRouter)
+	inputService := fixtureInputService(t, fixture.store)
+	accepted, err := inputService.SubmitInput(context.Background(), conversation.ConversationInput{
+		ID:             "input-route-folderless-folder-required",
+		ConversationID: fixture.conversationID,
+		Text:           "Inspect the repository files.",
+		Modality:       conversation.ConversationInputModalityText,
+		SubmittedAt:    time.Now().UTC().Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		t.Fatalf("SubmitInput: %v", err)
+	}
+
+	if processed, err := router.ProcessNext(context.Background(), fixture.conversationID); err != nil || !processed {
+		t.Fatalf("ProcessNext = %t, %v", processed, err)
+	}
+	state := readFixtureRoutingStateWithWorkspace(t, fixture, "", accepted.Input.ID)
+	if state.Input.Status != conversation.ConversationInputStatusFailed ||
+		state.Input.Failure == nil ||
+		state.Input.Failure.Code != "conversation_resource_required" ||
+		!state.Input.Failure.Retryable ||
+		len(state.Decisions) != 0 {
+		t.Fatalf("folderless resource route state = %+v", state)
+	}
+	assertFixtureRouterProviderRequests(t, fixture.provider, 1)
+}
+
 func TestConversationInputRouterResolvesOneClarificationAndExcludesAnother(t *testing.T) {
 	fixture := newStatusServiceFixture(t, nil)
 	fixture.provider.routeKinds = []conversation.ConversationRouteDecisionKind{
@@ -696,9 +764,19 @@ func readFixtureRoutingState(
 	inputID string,
 ) conversation.ConversationInputRoutingState {
 	t.Helper()
+	return readFixtureRoutingStateWithWorkspace(t, fixture, fixture.workspace.ID, inputID)
+}
+
+func readFixtureRoutingStateWithWorkspace(
+	t *testing.T,
+	fixture statusServiceFixture,
+	workspaceID string,
+	inputID string,
+) conversation.ConversationInputRoutingState {
+	t.Helper()
 	state, err := fixture.store.ReadConversationInputRoutingState(
 		context.Background(),
-		fixture.workspace.ID,
+		workspaceID,
 		fixture.conversationID,
 		inputID,
 	)

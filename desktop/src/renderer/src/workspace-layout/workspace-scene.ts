@@ -26,9 +26,19 @@ export const defaultRealWorkspacePaneLimits = {
 } satisfies PaneLimitPolicy;
 
 export interface RealWorkspaceSceneOptions {
-  storedLayout: WorkspaceUILayout | null;
+  storedLayout: RealWorkspaceStoredLayout | null;
   workspaceId: string;
   workspaceName: string;
+}
+
+export type RealWorkspaceStoredLayout = WorkspaceUILayout | WorkspaceSceneStoredLayout;
+
+interface WorkspaceSceneStoredLayout {
+  columns: WorkspaceUIColumn[];
+  focusedPaneId: PaneId;
+  panes: WorkspacePane[];
+  schemaVersion: number;
+  workspaceId: string;
 }
 
 export interface RealWorkspaceSceneResult {
@@ -46,7 +56,7 @@ interface CreatePaneInput {
   columnId: string;
   sequence: number;
   subtitle: string;
-  surfaceKind: Exclude<ProductSurfaceKind, "easy-button">;
+  surfaceKind: Exclude<ProductSurfaceKind, "conversation" | "master">;
   title: string;
   tone: WorkspacePane["tone"];
   weight?: number;
@@ -60,7 +70,7 @@ export function createRealWorkspaceScene({
   if (storedLayout) {
     const scene = sceneFromPanesAndColumns(
       workspaceId,
-      storedLayout.panes.map(workspacePaneFromPersisted),
+      storedLayout.panes.map(workspacePaneFromStoredLayout),
       storedLayout.columns.map(workspaceColumnFromPersisted),
     );
     return {
@@ -167,7 +177,7 @@ function workspaceColumnFromPersisted(column: WorkspaceUIColumn): WorkspaceColum
   };
 }
 
-function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
+function workspacePaneFromStoredLayout(pane: WorkspaceUIPane | WorkspacePane): WorkspacePane {
   const fields = {
     columnId: pane.columnId,
     heat: pane.heat,
@@ -180,15 +190,19 @@ function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
     weight: pane.weight,
   };
   switch (pane.surfaceKind) {
-    case "easy-button":
+    case "conversation":
       return {
         ...fields,
-        easyButtonConfig: pane.easyButtonConfig,
+        conversationConfig: pane.conversationConfig,
         surfaceKind: pane.surfaceKind,
       };
     case "browser":
     case "empty-frame":
       return { ...fields, surfaceKind: pane.surfaceKind };
+    case "master":
+      return { ...fields, surfaceKind: pane.surfaceKind };
+    default:
+      return persistedDiagnosticPaneError(pane.surfaceKind);
   }
 }
 
@@ -205,15 +219,15 @@ function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
     weight: pane.weight,
   };
   switch (pane.surfaceKind) {
-    case "easy-button":
+    case "conversation":
       return {
         ...fields,
-        easyButtonConfig: pane.easyButtonConfig,
+        conversationConfig: pane.conversationConfig,
         surfaceKind: pane.surfaceKind,
       };
     case "browser":
     case "empty-frame":
-      return { ...fields, easyButtonConfig: null, surfaceKind: pane.surfaceKind };
+      return { ...fields, conversationConfig: null, surfaceKind: pane.surfaceKind };
     default:
       return persistedDiagnosticPaneError(pane.surfaceKind);
   }

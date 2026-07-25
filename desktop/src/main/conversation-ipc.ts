@@ -25,6 +25,12 @@ export function registerConversationIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "conversationBindFolder",
+    async (_event, request) => requireBackendClient().bindTopicConversationFolder(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "conversationDisposeSide",
     async (_event, request) => requireBackendClient().disposeSideConversation(request),
     ipcObserver,

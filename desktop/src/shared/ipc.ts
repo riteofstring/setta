@@ -2,6 +2,8 @@ import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 import type {
   AppearancePresetList,
   AppearanceSettings,
+  AppPaneLayout,
+  AppPaneLayoutReadResult,
   BackendHealth,
   CancelCodexLoginRequest,
   CodexAccountState,
@@ -41,6 +43,8 @@ export const ipcChannels = {
   appWindowDragMove: "app:window-drag-move",
   appWindowDragStart: "app:window-drag-start",
   appOpenExternalUrl: "app:open-external-url",
+  appPaneLayoutRead: "app-pane-layout:read",
+  appPaneLayoutSave: "app-pane-layout:save",
   appOpenWorkspaceInEditor: "app:open-workspace-in-editor",
   appVersions: "app:versions",
   appWorkspaceGitInfo: "app:workspace-git-info",
@@ -119,6 +123,14 @@ interface IpcContract
   appOpenExternalUrl: {
     args: [url: string];
     result: void;
+  };
+  appPaneLayoutRead: {
+    args: [];
+    result: AppPaneLayoutReadResult;
+  };
+  appPaneLayoutSave: {
+    args: [layout: AppPaneLayout];
+    result: AppPaneLayout;
   };
   appOpenWorkspaceInEditor: {
     args: [editorId: string, rootPath: string];

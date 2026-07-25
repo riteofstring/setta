@@ -19,7 +19,7 @@ interface ConversationEventStreamOptions {
   fetchImpl: BackendFetch;
   reconnectDelayMs?: number;
   sendEvent: (event: ConversationEvent) => void;
-  workspaceId: string;
+  workspaceId: string | null;
 }
 
 const defaultReconnectDelayMs = 500;
@@ -76,7 +76,9 @@ async function streamConversationEventsOnce(
   },
 ): Promise<ConversationEventCursor> {
   const url = new URL(backendEndpoints.ConversationEventStream.path, options.baseURL);
-  url.searchParams.set("workspaceId", options.workspaceId);
+  if (options.workspaceId !== null) {
+    url.searchParams.set("workspaceId", options.workspaceId);
+  }
   url.searchParams.set("conversationId", options.conversationId);
   const response = await options.fetchImpl(url, {
     headers: { "Last-Event-ID": encodeConversationEventCursor(options.cursor) },
