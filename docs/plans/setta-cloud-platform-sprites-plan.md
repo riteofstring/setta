@@ -2937,9 +2937,14 @@ Stop and reassess rather than hiding the problem if any of these occur:
   `text/event-stream` headers immediately while continuing to define
   first-response timing by actual body bytes. Zero-byte client disconnects
   remain explicitly measured as downstream stream failures rather than being
-  relabeled successful forwards. This proof joins the existing registered
-  hosted Electron workflow and Candidate B coverage for desktop disconnect,
-  bounded phone attach, administrative warm wake, runtime and gateway restart,
+  relabeled successful forwards. This proof joins
+  `TestCandidateBGatewayWorkContinuesAfterGatewayDisconnect`,
+  `TestCandidateBGatewayConversationControls`,
+  `TestTypedHostedAccessClientStreamsReadyOnPhoneThroughPrivateBoundary`,
+  `TestAdminServerAuditsRuntimeWakeAndTrustedHealthWithoutContent`, the
+  registered `hosted-cloud-chat` Electron workflow, and the registered
+  `topic-conversation-crash-recovery` workflow for desktop disconnect, bounded
+  phone attach, administrative warm wake, runtime and gateway restart,
   simulated provider-process loss, backend crash recovery, cursor replay, and
   durable state restoration. The focused gateway and complete production
   workflow passed ten race-instrumented repetitions; both affected Go packages
@@ -2949,3 +2954,20 @@ Stop and reassess rather than hiding the problem if any of these occur:
   ChatGPT-authenticated live Codex gates passed again: Electron, agent protocol,
   side isolation, and topic conversation. The adjacent identical authorized
   live-Sprite workload remains open. No provider or cloud mutation ran.
+- 2026-07-25 (inactive artifact-transfer policy): Completed the local artifact
+  side of the Phase 3 connection and idle policy without representing a
+  bounded immutable artifact read as a resumable byte stream. The authenticated
+  web client now opens no artifact request while the page is hidden, offline,
+  or page-cached; aborts an in-flight read as soon as that activity policy
+  becomes inactive; performs no timer retry or polling while inactive; and
+  restarts exactly one full read when activity returns. The existing artifact
+  identity validation and payload cache remain authoritative after the read
+  completes. A deterministic web lifecycle test proves the initial inactive
+  request count is zero, the active transfer is aborted, no retry occurs during
+  another inactive interval, and one authenticated replacement returns the
+  artifact. The complete three-file web suite, TypeScript typecheck, all 107
+  desktop files and 833 tests, production build, dead-code checks, registered
+  `hosted-cloud-chat` Electron workflow, and all four ChatGPT-authenticated live
+  Codex gates passed. The Phase 3 checkbox remains open only for the explicitly
+  separate live hosted attached-idle cost measurement; no Sprite or external
+  infrastructure was touched.
