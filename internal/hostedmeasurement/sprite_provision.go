@@ -2,7 +2,6 @@ package hostedmeasurement
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"setta/internal/runtimeprovider"
@@ -21,7 +20,11 @@ type SpriteProvisioner struct {
 
 func (provisioner SpriteProvisioner) Ensure(ctx context.Context, authorization Authorization) (runtimeprovider.RuntimeObservation, error) {
 	if provisioner.Now == nil || provisioner.Provider == nil || provisioner.State == nil {
-		return runtimeprovider.RuntimeObservation{}, errors.New("Sprite provisioner requires provider, clock, and durable state")
+		return runtimeprovider.RuntimeObservation{}, newHostedLifecycleFailure(
+			hostedLifecycleConfigurationInvalidFailureCode,
+			false,
+			"Sprite provisioner requires provider, clock, and durable state",
+		)
 	}
 	if err := requireCreateWindow(provisioner.Now(), authorization, provisioner.State); err != nil {
 		return runtimeprovider.RuntimeObservation{}, err
@@ -32,7 +35,11 @@ func (provisioner SpriteProvisioner) Ensure(ctx context.Context, authorization A
 	}
 	observation, found, err := provisioner.Provider.Inspect(ctx, identity.Name)
 	if err != nil {
-		return runtimeprovider.RuntimeObservation{}, errors.New("inspect hosted Sprite identity failed")
+		return runtimeprovider.RuntimeObservation{}, newHostedLifecycleFailure(
+			hostedLifecycleProviderRequestFailureCode,
+			true,
+			"inspect hosted Sprite identity failed",
+		)
 	}
 	return provisioner.ensureObserved(
 		ctx,
@@ -88,7 +95,11 @@ func (provisioner SpriteProvisioner) reconcileCreate(
 ) (runtimeprovider.RuntimeObservation, error) {
 	observation, found, err := provisioner.Provider.Inspect(ctx, identity.Name)
 	if err != nil || !found {
-		return runtimeprovider.RuntimeObservation{}, errors.New("create hosted Sprite failed and reconciliation did not confirm the identity")
+		return runtimeprovider.RuntimeObservation{}, newHostedLifecycleFailure(
+			hostedLifecycleProviderRequestFailureCode,
+			true,
+			"create hosted Sprite failed and reconciliation did not confirm the identity",
+		)
 	}
 	return provisioner.record(identity, resources, observation, OperationCreateAdopted)
 }
@@ -126,7 +137,11 @@ func requireRecordedSprite(
 	found bool,
 ) (runtimeprovider.RuntimeObservation, error) {
 	if !found {
-		return runtimeprovider.RuntimeObservation{}, errors.New("recorded hosted Sprite is not independently present")
+		return runtimeprovider.RuntimeObservation{}, newHostedLifecycleFailure(
+			hostedLifecycleRecordedResourceMissingFailureCode,
+			false,
+			"recorded hosted Sprite is not independently present",
+		)
 	}
 	if err := validateSpriteObservation(identity, resources, observation); err != nil {
 		return runtimeprovider.RuntimeObservation{}, err
@@ -145,13 +160,25 @@ func validateSpriteObservation(
 ) error {
 	if observation.ProviderResourceID == "" || observation.Name != identity.Name ||
 		!identity.OwnsObservedLabels(observation.Labels) {
-		return errors.New("hosted Sprite observation differs from the deterministic owned identity")
+		return newHostedLifecycleFailure(
+			hostedLifecycleOwnershipMismatchFailureCode,
+			false,
+			"hosted Sprite observation differs from the deterministic owned identity",
+		)
 	}
 	if observation.Resources != resources {
-		return errors.New("hosted Sprite observation differs from the authorized resource shape")
+		return newHostedLifecycleFailure(
+			hostedLifecycleResourceShapeMismatchFailureCode,
+			false,
+			"hosted Sprite observation differs from the authorized resource shape",
+		)
 	}
 	if observation.Placement != "" && !regionPattern.MatchString(observation.Placement) {
-		return errors.New("hosted Sprite observation has an invalid placement")
+		return newHostedLifecycleFailure(
+			hostedLifecycleProviderIdentityInvalidFailureCode,
+			false,
+			"hosted Sprite observation has an invalid placement",
+		)
 	}
 	return nil
 }
