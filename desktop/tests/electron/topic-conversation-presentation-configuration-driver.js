@@ -1,4 +1,4 @@
-/* global Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
+/* global Element, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
   const version = "setta-topic-conversation-presentation-configuration-driver-v1";
@@ -142,12 +142,27 @@
       return { conversationId, ok: false, x: 0, y: 0 };
     }
     const rect = summary.getBoundingClientRect();
+    const point = centerPoint(rect);
     return {
       conversationId,
-      ok: rect.width > 0 && rect.height > 0,
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
+      ok:
+        rect.width > 0 && rect.height > 0 && pointIsInViewport(point) && pointHits(summary, point),
+      x: point.x,
+      y: point.y,
     };
+  }
+
+  function centerPoint(rect) {
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  }
+
+  function pointIsInViewport({ x, y }) {
+    return x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight;
+  }
+
+  function pointHits(element, { x, y }) {
+    const hit = document.elementFromPoint(x, y);
+    return hit instanceof Element && (hit === element || element.contains(hit));
   }
 
   function unavailableConversationState(conversationId) {

@@ -142,12 +142,9 @@ func assertSideContextSanitized(t *testing.T, serialized string) {
 func TestServiceFailsSideWhenContextInjectionIsRejected(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Rejected side context")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Rejected side context")
 	runtime.injectErr = errors.New("scripted side context rejection")
-	_, err = service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-rejected-context")
+	_, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-rejected-context")
 	if err == nil || !strings.Contains(err.Error(), "scripted side context rejection") {
 		t.Fatalf("CreateSideConversation injection error = %v", err)
 	}
@@ -173,12 +170,9 @@ func TestServiceFailsSideWhenContextInjectionIsRejected(t *testing.T) {
 func TestServicePersistsFailedSideWhenProviderRejectsFork(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Failed side parent")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Failed side parent")
 	runtime.forkErr = errors.New("scripted side fork failure")
-	_, err = service.createRouterSideConversationForTest(
+	_, err := service.createRouterSideConversationForTest(
 		ctx,
 		workspaceID,
 		parent.Conversation.ID,
@@ -289,10 +283,7 @@ func prepareSideBeforeParentStartsWorking(
 	parentPaneID string,
 ) (preparedSideConversation, ConversationSnapshot) {
 	t.Helper()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Side preparation status")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Side preparation status")
 	workspaceSummary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
 	if err != nil {
 		t.Fatalf("ResolveActiveWorkspace: %v", err)
@@ -351,10 +342,7 @@ func assertSideUpdateParentStatus(
 func TestServiceRejectsInvalidSideForkWithoutUnsubscribingParent(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Invalid side parent")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Invalid side parent")
 	parentThreadID := parent.ThreadBinding.ThreadID
 	runtime.forkResponse = &agent.Thread{
 		ID:           parentThreadID,
@@ -363,7 +351,7 @@ func TestServiceRejectsInvalidSideForkWithoutUnsubscribingParent(t *testing.T) {
 		Ephemeral:    true,
 		ForkedFromID: &parentThreadID,
 	}
-	_, err = service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-invalid")
+	_, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-invalid")
 	if err == nil || !strings.Contains(err.Error(), "reused the parent thread id") {
 		t.Fatalf("CreateSideConversation invalid provider result = %v", err)
 	}
@@ -375,10 +363,7 @@ func TestServiceRejectsInvalidSideForkWithoutUnsubscribingParent(t *testing.T) {
 func TestServiceSideSnapshotRetainsOpenSideOverBoundedFailedHistory(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Bounded side history")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Bounded side history")
 	parentID := parent.Conversation.ID
 	runtime.forkErr = errors.New("scripted bounded side failure")
 	firstFailedSideID := ""
@@ -417,13 +402,11 @@ func TestServiceSideSnapshotRetainsOpenSideOverBoundedFailedHistory(t *testing.T
 func TestServiceUsesAuthoritativeOpenSideStateOutsideBoundedSnapshot(t *testing.T) {
 	store, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Authoritative side state")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Authoritative side state")
 	parentID := parent.Conversation.ID
 	firstSideID := ""
 	latest := ConversationSnapshot{}
+	var err error
 	for index := 0; index < MaxSnapshotSideConversations+1; index++ {
 		latest, err = service.createRouterSideConversationForTest(
 			ctx,
@@ -508,6 +491,34 @@ func containsSideConversation(sides []SideConversation, sideID string) bool {
 		}
 	}
 	return false
+}
+
+func createLinkedParentForSideTest(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	runtime *serviceTestAgentRuntime,
+	workspaceID string,
+	title string,
+) ConversationSnapshot {
+	t.Helper()
+	parent, err := service.CreateTopic(ctx, workspaceID, title)
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	if parent.ThreadBinding != nil {
+		t.Fatalf("new topic eagerly linked provider thread: %+v", parent.ThreadBinding)
+	}
+	setupText := "parent foundation: " + title
+	if _, err := service.sendTestTurn(ctx, workspaceID, parent.Conversation.ID, setupText); err != nil {
+		t.Fatalf("SendTurn parent foundation: %v", err)
+	}
+	runtime.waitForStart(t, setupText)
+	return assertServiceSnapshot(t, service, workspaceID, parent.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+		return snapshot.ThreadBinding != nil &&
+			snapshot.Conversation.Status == ConversationStatusIdle &&
+			latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
+	})
 }
 
 func sideAgentOverride(modelID string) RoleProfile {
@@ -605,11 +616,17 @@ func assertSideContextInjection(
 	wantObjective string,
 ) (SideInFlightContextFrame, string) {
 	t.Helper()
-	injections := runtime.injectedThreadItems()
-	if len(injections) != 1 || side.ProviderThreadID == nil || injections[0].threadID != *side.ProviderThreadID {
-		t.Fatalf("side context injections = %+v, side = %+v", injections, side)
+	allInjections := runtime.injectedThreadItems()
+	sideInjections := make([]serviceTestInjection, 0, 1)
+	for _, injection := range allInjections {
+		if side.ProviderThreadID != nil && injection.threadID == *side.ProviderThreadID {
+			sideInjections = append(sideInjections, injection)
+		}
 	}
-	items := injections[0].items
+	if len(sideInjections) != 1 {
+		t.Fatalf("side context injections = %+v, side = %+v", allInjections, side)
+	}
+	items := sideInjections[0].items
 	if len(items) != 2 ||
 		items[0].Role != "user" ||
 		!strings.Contains(items[0].Text, "Side conversation boundary.") ||
@@ -659,12 +676,19 @@ func assertSideForkRequest(
 		request.Invocation.Model != *profile.ModelSelection.ModelID ||
 		request.Invocation.ReasoningEffort != string(profile.ReasoningEffort) ||
 		request.Invocation.PermissionMode != agent.PermissionModeReadOnly ||
-		request.Invocation.ApprovalMode != agent.ApprovalModeOnRequest ||
+		request.Invocation.ApprovalMode != agent.ApprovalModeNever ||
 		!strings.Contains(request.DeveloperInstructions, "ephemeral side conversation") {
 		t.Fatalf("side fork request = %+v", request)
 	}
 	resolutions := runtime.invocationResolutions()
-	if len(resolutions) == 0 || resolutions[len(resolutions)-1].Model != request.Invocation.Model {
+	foundSideResolution := false
+	for _, resolution := range resolutions {
+		if resolution.Model == request.Invocation.Model &&
+			resolution.PermissionMode == agent.PermissionModeReadOnly {
+			foundSideResolution = true
+		}
+	}
+	if !foundSideResolution {
 		t.Fatalf("side profile resolution requests = %+v", resolutions)
 	}
 }

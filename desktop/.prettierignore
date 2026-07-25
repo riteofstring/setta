@@ -1,5 +1,7 @@
 node_modules
 .recordings
+.build
+native/*/.build
 out
 dist
 coverage

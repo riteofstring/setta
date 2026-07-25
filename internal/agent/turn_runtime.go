@@ -60,7 +60,7 @@ func (runtime *Runtime) startProviderTurn(ctx context.Context, request TurnReque
 	}
 	raw, err := session.Call(ctx, codexapp.CodexMethodTurnStart, params)
 	if err != nil {
-		return Event{}, fmt.Errorf("start agent turn: %w", err)
+		return Event{}, providerThreadOperationError("start agent turn", request.ProviderThreadID, err)
 	}
 	response, err := codexapp.DecodeTurnStartResponse(raw)
 	if err != nil {

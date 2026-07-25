@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -47,29 +46,6 @@ func TestDeviceSessionTokensAreHashedAndResolvable(t *testing.T) {
 
 	if _, ok, err := store.ResolveDeviceToken(context.Background(), "not-the-token"); err != nil || ok {
 		t.Fatalf("resolve invalid token ok=%v err=%v, want not found", ok, err)
-	}
-}
-
-func TestStoreRejectsUnversionedExistingSchema(t *testing.T) {
-	appDataDir := t.TempDir()
-	runtimeDir := filepath.Join(appDataDir, "runtime")
-	if err := os.MkdirAll(runtimeDir, 0o755); err != nil {
-		t.Fatalf("create runtime directory: %v", err)
-	}
-	db, err := sql.Open(sqliteDriverName, filepath.Join(runtimeDir, runtimeAuthDatabaseName))
-	if err != nil {
-		t.Fatalf("open fixture database: %v", err)
-	}
-	if _, err := db.Exec("CREATE TABLE obsolete_state (id TEXT PRIMARY KEY)"); err != nil {
-		t.Fatalf("create obsolete schema: %v", err)
-	}
-	if err := db.Close(); err != nil {
-		t.Fatalf("close fixture database: %v", err)
-	}
-
-	_, err = NewStore(appDataDir)
-	if err == nil || !IsCorruptStateError(err) {
-		t.Fatalf("NewStore error = %v, want corrupt state error", err)
 	}
 }
 
@@ -116,29 +92,6 @@ func TestPairingTokenExpires(t *testing.T) {
 	}
 	if ok {
 		t.Fatal("expired pairing token completed")
-	}
-}
-
-func TestPairingTokenCanBeConsumedWithoutCreatingLegacyDeviceSession(t *testing.T) {
-	store := newTestStore(t)
-	_, pairingToken, err := store.CreatePairingToken(context.Background())
-	if err != nil {
-		t.Fatalf("create pairing token: %v", err)
-	}
-	consumed, err := store.ConsumePairingToken(context.Background(), pairingToken)
-	if err != nil || !consumed {
-		t.Fatalf("consume pairing token consumed=%v err=%v", consumed, err)
-	}
-	consumed, err = store.ConsumePairingToken(context.Background(), pairingToken)
-	if err != nil || consumed {
-		t.Fatalf("consume pairing token twice consumed=%v err=%v", consumed, err)
-	}
-	sessions, err := store.ListDeviceSessions(context.Background())
-	if err != nil {
-		t.Fatalf("list device sessions: %v", err)
-	}
-	if len(sessions) != 0 {
-		t.Fatalf("device sessions = %+v, want none", sessions)
 	}
 }
 

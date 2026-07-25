@@ -21,14 +21,15 @@ const defaultServePort = 7345
 var version = "dev"
 
 type cliDeps struct {
-	getenv     func(string) string
-	unsetenv   func(string) error
-	httpClient *http.Client
-	now        func() time.Time
-	pid        func() int
-	renderQR   func(io.Writer, string)
-	stderr     io.Writer
-	stdout     io.Writer
+	commandRunner commandRunner
+	getenv        func(string) string
+	unsetenv      func(string) error
+	httpClient    *http.Client
+	now           func() time.Time
+	pid           func() int
+	renderQR      func(io.Writer, string)
+	stderr        io.Writer
+	stdout        io.Writer
 }
 
 type usageError struct {
@@ -101,6 +102,9 @@ func normalizeDeps(deps cliDeps) cliDeps {
 	if deps.unsetenv == nil {
 		deps.unsetenv = os.Unsetenv
 	}
+	if deps.commandRunner == nil {
+		deps.commandRunner = runExternalCommand
+	}
 	if deps.httpClient == nil {
 		deps.httpClient = &http.Client{Timeout: 5 * time.Second}
 	}
@@ -126,7 +130,7 @@ func (err usageError) Unwrap() error {
 
 func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "Usage:")
-	fmt.Fprintln(output, "  setta serve [--app-data-dir DIR] [--port PORT]")
+	fmt.Fprintln(output, "  setta serve [--app-data-dir DIR] [--port PORT] [--tailnet]")
 	fmt.Fprintln(output, "  setta pair [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta runtime rename <display-name> [--app-data-dir DIR]")
 	fmt.Fprintln(output, "  setta devices list [--app-data-dir DIR]")

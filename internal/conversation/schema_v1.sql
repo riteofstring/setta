@@ -1,6 +1,6 @@
 CREATE TABLE conversations (
   id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL,
+  workspace_id TEXT,
   title TEXT NOT NULL,
   topic_descriptor TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL CHECK (status IN ('idle', 'working', 'waiting_for_approval', 'failed')),
@@ -264,24 +264,30 @@ CREATE INDEX narration_events_conversation_stream_idx
 
 CREATE TABLE topic_index_documents (
   conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
-  workspace_id TEXT NOT NULL,
+  resource_scope_kind TEXT NOT NULL CHECK (resource_scope_kind IN ('folderless', 'folder')),
+  folder_workspace_id TEXT,
   title TEXT NOT NULL,
   topic_descriptor TEXT NOT NULL,
   recent_user_requests_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(recent_user_requests_json)),
   recent_final_summaries_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(recent_final_summaries_json)),
   updated_at TEXT NOT NULL,
-  updated_sort_key TEXT NOT NULL
+  updated_sort_key TEXT NOT NULL,
+  CHECK (
+    (resource_scope_kind = 'folderless' AND folder_workspace_id IS NULL)
+    OR (resource_scope_kind = 'folder' AND folder_workspace_id IS NOT NULL AND length(folder_workspace_id) > 0)
+  )
 ) STRICT;
 
-CREATE INDEX topic_index_documents_workspace_updated_idx
-  ON topic_index_documents(workspace_id, updated_sort_key DESC, conversation_id);
+CREATE INDEX topic_index_documents_scope_updated_idx
+  ON topic_index_documents(resource_scope_kind, folder_workspace_id, updated_sort_key DESC, conversation_id);
 
 CREATE INDEX topic_index_documents_updated_idx
   ON topic_index_documents(updated_sort_key DESC, conversation_id);
 
 CREATE VIRTUAL TABLE topic_index_search USING fts5(
   conversation_id UNINDEXED,
-  workspace_id UNINDEXED,
+  resource_scope_kind UNINDEXED,
+  folder_workspace_id UNINDEXED,
   title,
   topic_descriptor,
   recent_user_requests,
@@ -433,9 +439,17 @@ CREATE TABLE master_route_command_completions (
   completed_at TEXT NOT NULL
 ) STRICT;
 
+CREATE TABLE master_route_clarification_replies (
+  reply_input_id TEXT PRIMARY KEY REFERENCES master_inputs(id) ON DELETE CASCADE,
+  clarification_decision_id TEXT NOT NULL REFERENCES master_route_decisions(id) ON DELETE CASCADE
+) STRICT;
+
+CREATE INDEX master_route_clarification_replies_decision_idx
+  ON master_route_clarification_replies(clarification_decision_id);
+
 CREATE TABLE pane_bindings (
   pane_id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL,
+  workspace_id TEXT,
   conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
@@ -444,6 +458,9 @@ CREATE TABLE pane_bindings (
 
 CREATE INDEX pane_bindings_conversation_focus_idx
   ON pane_bindings(conversation_id, last_focused_at DESC, pane_id);
+
+CREATE UNIQUE INDEX pane_bindings_conversation_unique_idx
+  ON pane_bindings(conversation_id);
 
 CREATE TABLE committed_events (
   commit_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
