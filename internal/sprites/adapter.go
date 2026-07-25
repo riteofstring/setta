@@ -82,24 +82,28 @@ func (adapter *Adapter) Create(
 	if err := request.Identity.Validate(); err != nil {
 		return runtimeprovider.RuntimeObservation{}, err
 	}
+	if err := request.Resources.Validate(); err != nil {
+		return runtimeprovider.RuntimeObservation{}, err
+	}
 
 	existing, found, err := adapter.inspect(ctx, request.Identity.Name)
 	if err != nil {
 		return runtimeprovider.RuntimeObservation{}, operationError("inspect before create", err)
 	}
 	if found {
-		return requireOwnedObservation(request.Identity, existing)
+		return requireOwnedObservation(request.Identity, request.Resources, existing)
 	}
 
-	if err := adapter.client.Create(ctx, request.Identity.Name, request.Identity.Labels); err != nil {
-		return adapter.reconcileFailedCreate(ctx, request.Identity, err)
+	if err := adapter.client.Create(ctx, request.Identity.Name, request.Identity.Labels, request.Resources); err != nil {
+		return adapter.reconcileFailedCreate(ctx, request.Identity, request.Resources, err)
 	}
-	return adapter.inspectCreatedRuntime(ctx, request.Identity)
+	return adapter.inspectCreatedRuntime(ctx, request.Identity, request.Resources)
 }
 
 func (adapter *Adapter) inspectCreatedRuntime(
 	ctx context.Context,
 	identity runtimeprovider.ManagedIdentity,
+	resources runtimeprovider.RuntimeResources,
 ) (runtimeprovider.RuntimeObservation, error) {
 	created, found, err := adapter.inspect(ctx, identity.Name)
 	if err != nil {
@@ -108,19 +112,20 @@ func (adapter *Adapter) inspectCreatedRuntime(
 	if !found {
 		return runtimeprovider.RuntimeObservation{}, operationError("inspect after create", ErrIncompleteProviderStream)
 	}
-	return requireOwnedObservation(identity, created)
+	return requireOwnedObservation(identity, resources, created)
 }
 
 func (adapter *Adapter) reconcileFailedCreate(
 	ctx context.Context,
 	identity runtimeprovider.ManagedIdentity,
+	resources runtimeprovider.RuntimeResources,
 	createErr error,
 ) (runtimeprovider.RuntimeObservation, error) {
 	adopted, found, inspectErr := adapter.inspect(ctx, identity.Name)
 	if inspectErr != nil || !found {
 		return runtimeprovider.RuntimeObservation{}, operationError("create", createErr)
 	}
-	return requireOwnedObservation(identity, adopted)
+	return requireOwnedObservation(identity, resources, adopted)
 }
 
 func (adapter *Adapter) Inspect(
@@ -457,6 +462,10 @@ func mapRuntime(runtime *spritessdk.SpriteInfo) (runtimeprovider.RuntimeObservat
 	if runtime == nil {
 		return runtimeprovider.RuntimeObservation{}, fmt.Errorf("%w: missing runtime", ErrUnexpectedProviderValue)
 	}
+	resources, err := mapRuntimeResources(runtime.Config)
+	if err != nil {
+		return runtimeprovider.RuntimeObservation{}, err
+	}
 	activity, err := mapRuntimeActivity(runtime.Status)
 	if err != nil {
 		return runtimeprovider.RuntimeObservation{}, err
@@ -484,6 +493,7 @@ func mapRuntime(runtime *spritessdk.SpriteInfo) (runtimeprovider.RuntimeObservat
 		ProviderResourceID: runtime.ID,
 		Name:               runtime.Name,
 		Labels:             slices.Clone(runtime.Labels),
+		Resources:          resources,
 		Activity:           activity,
 		URL:                runtime.URL,
 		URLAccess:          access,
@@ -491,6 +501,37 @@ func mapRuntime(runtime *spritessdk.SpriteInfo) (runtimeprovider.RuntimeObservat
 		CreatedAt:          runtime.CreatedAt,
 		UpdatedAt:          runtime.UpdatedAt,
 	}, nil
+}
+
+func mapRuntimeResources(config *spritessdk.SpriteConfig) (runtimeprovider.RuntimeResources, error) {
+	if config == nil || config.CPUs <= 0 || config.RamMB <= 0 || config.StorageGB <= 0 {
+		return runtimeprovider.RuntimeResources{}, fmt.Errorf(
+			"%w: missing or invalid runtime resource configuration",
+			ErrUnexpectedProviderValue,
+		)
+	}
+	const (
+		cpuUnit     = uint64(1_000_000)
+		memoryUnit  = uint64(1_000_000)
+		storageUnit = uint64(1_000_000_000)
+	)
+	if uint64(config.CPUs) > ^uint64(0)/cpuUnit ||
+		uint64(config.RamMB) > ^uint64(0)/memoryUnit ||
+		uint64(config.StorageGB) > ^uint64(0)/storageUnit {
+		return runtimeprovider.RuntimeResources{}, fmt.Errorf(
+			"%w: runtime resource configuration overflows provider-neutral units",
+			ErrUnexpectedProviderValue,
+		)
+	}
+	resources := runtimeprovider.RuntimeResources{
+		CPUCoreMillionths: uint64(config.CPUs) * cpuUnit,
+		MemoryBytes:       uint64(config.RamMB) * memoryUnit,
+		StorageBytes:      uint64(config.StorageGB) * storageUnit,
+	}
+	if err := resources.Validate(); err != nil {
+		return runtimeprovider.RuntimeResources{}, fmt.Errorf("%w: %v", ErrUnexpectedProviderValue, err)
+	}
+	return resources, nil
 }
 
 func mapRuntimeActivity(status string) (runtimeprovider.RuntimeActivity, error) {
@@ -624,10 +665,17 @@ func requireLabels(identity runtimeprovider.ManagedIdentity, actual []string) er
 
 func requireOwnedObservation(
 	identity runtimeprovider.ManagedIdentity,
+	resources runtimeprovider.RuntimeResources,
 	observation runtimeprovider.RuntimeObservation,
 ) (runtimeprovider.RuntimeObservation, error) {
 	if err := requireLabels(identity, observation.Labels); err != nil {
 		return runtimeprovider.RuntimeObservation{}, err
+	}
+	if observation.Resources != resources {
+		return runtimeprovider.RuntimeObservation{}, fmt.Errorf(
+			"%w: runtime resources differ from the requested shape",
+			ErrOwnershipMismatch,
+		)
 	}
 	return observation, nil
 }

@@ -219,7 +219,9 @@ func (driver *liveMeasurementDriver) measureRuntime(
 	if err := driver.appendInterval(evidenceProviderExposure, exposureID+":exposure:start", cohort.Name, name, "start", exposureID, possibleWake, "possible-wake begins before create"); err != nil {
 		return err
 	}
-	created, err := driver.adapter.Create(ctx, runtimeprovider.CreateRequest{Identity: identity})
+	created, err := driver.adapter.Create(ctx, runtimeprovider.CreateRequest{
+		Identity: identity, Resources: testRuntimeResources(),
+	})
 	if err != nil {
 		return err
 	}

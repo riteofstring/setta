@@ -422,7 +422,9 @@ func createLiveRuntime(
 ) runtimeprovider.RuntimeObservation {
 	t.Helper()
 	for {
-		observation, err := adapter.Create(ctx, runtimeprovider.CreateRequest{Identity: identity})
+		observation, err := adapter.Create(ctx, runtimeprovider.CreateRequest{
+			Identity: identity, Resources: testRuntimeResources(),
+		})
 		if err == nil {
 			return observation
 		} else {

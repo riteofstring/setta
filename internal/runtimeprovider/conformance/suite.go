@@ -612,7 +612,14 @@ func (suite Suite) createRuntime(
 	if suite.Hooks.CreateRuntime != nil {
 		return suite.Hooks.CreateRuntime(ctx, identity)
 	}
-	return suite.Provider.Create(ctx, runtimeprovider.CreateRequest{Identity: identity})
+	return suite.Provider.Create(ctx, runtimeprovider.CreateRequest{
+		Identity: identity,
+		Resources: runtimeprovider.RuntimeResources{
+			CPUCoreMillionths: 1_000_000,
+			MemoryBytes:       512_000_000,
+			StorageBytes:      10_000_000_000,
+		},
+	})
 }
 
 func (suite Suite) waitForServiceRestart(

@@ -135,6 +135,7 @@ func TestColdSoakDestroyOwnedIsIdempotentAndChecksLabels(t *testing.T) {
 			}
 			return &spritessdk.SpriteInfo{
 				Name: name, Status: "cold", Labels: slices.Clone(identity.Labels),
+				Config:      &spritessdk.SpriteConfig{CPUs: 1, RamMB: 512, StorageGB: 10},
 				URLSettings: &spritessdk.URLSettings{},
 			}, true, nil
 		},

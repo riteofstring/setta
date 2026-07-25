@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 	"time"
@@ -117,7 +118,30 @@ func ValidateManagedName(name string) error {
 
 // CreateRequest describes an idempotent request for a Setta-managed runtime.
 type CreateRequest struct {
-	Identity ManagedIdentity
+	Identity  ManagedIdentity
+	Resources RuntimeResources
+}
+
+// RuntimeResources is the exact provider-neutral resource shape Setta requests
+// and later verifies. CPU uses one core = 1,000,000; memory and persistent
+// storage use bytes. Values fit the signed integer domain used by durable
+// provisioning contracts.
+type RuntimeResources struct {
+	CPUCoreMillionths uint64
+	MemoryBytes       uint64
+	StorageBytes      uint64
+}
+
+func (resources RuntimeResources) Validate() error {
+	if resources.CPUCoreMillionths == 0 || resources.MemoryBytes == 0 || resources.StorageBytes == 0 {
+		return fmt.Errorf("%w: runtime resource limits must be positive", ErrInvalidContract)
+	}
+	if resources.CPUCoreMillionths > math.MaxInt64 ||
+		resources.MemoryBytes > math.MaxInt64 ||
+		resources.StorageBytes > math.MaxInt64 {
+		return fmt.Errorf("%w: runtime resource limits exceed the durable integer range", ErrInvalidContract)
+	}
+	return nil
 }
 
 // RuntimeActivity is an observation of provider activity, not authoritative
@@ -145,6 +169,7 @@ type RuntimeObservation struct {
 	ProviderResourceID string
 	Name               string
 	Labels             []string
+	Resources          RuntimeResources
 	Activity           RuntimeActivity
 	URL                string
 	URLAccess          URLAccess

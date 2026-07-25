@@ -909,7 +909,9 @@ func (harness *coldSoakHarness) createWithBackoff(
 	identity runtimeprovider.ManagedIdentity,
 ) (runtimeprovider.RuntimeObservation, error) {
 	for {
-		observation, err := harness.adapter.Create(ctx, runtimeprovider.CreateRequest{Identity: identity})
+		observation, err := harness.adapter.Create(ctx, runtimeprovider.CreateRequest{
+			Identity: identity, Resources: testRuntimeResources(),
+		})
 		if err == nil {
 			return observation, nil
 		}

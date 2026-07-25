@@ -28,13 +28,16 @@ func TestAdapterCreateConvergesOnOwnedRuntime(t *testing.T) {
 			}
 			return created, true, nil
 		},
-		create: func(context.Context, string, []string) error {
+		create: func(_ context.Context, _ string, _ []string, resources runtimeprovider.RuntimeResources) error {
 			createCalls++
+			if resources != testRuntimeResources() {
+				t.Fatalf("Create resources = %+v", resources)
+			}
 			return providerFailure
 		},
 	}}
 
-	observation, err := adapter.Create(context.Background(), runtimeprovider.CreateRequest{Identity: identity})
+	observation, err := adapter.Create(context.Background(), testCreateRequest(identity))
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -53,13 +56,13 @@ func TestAdapterCreateReusesExistingOwnedRuntime(t *testing.T) {
 		findRuntime: func(context.Context, string) (*spritessdk.SpriteInfo, bool, error) {
 			return testRuntimeInfo(identity, "warm"), true, nil
 		},
-		create: func(context.Context, string, []string) error {
+		create: func(context.Context, string, []string, runtimeprovider.RuntimeResources) error {
 			createCalls++
 			return nil
 		},
 	}}
 
-	observation, err := adapter.Create(context.Background(), runtimeprovider.CreateRequest{Identity: identity})
+	observation, err := adapter.Create(context.Background(), testCreateRequest(identity))
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -68,6 +71,22 @@ func TestAdapterCreateReusesExistingOwnedRuntime(t *testing.T) {
 	}
 	if createCalls != 0 {
 		t.Fatalf("create calls = %d", createCalls)
+	}
+}
+
+func TestAdapterCreateRejectsExistingRuntimeWithDifferentResources(t *testing.T) {
+	identity := testManagedIdentity(t)
+	runtime := testRuntimeInfo(identity, "warm")
+	runtime.Config.RamMB++
+	adapter := &Adapter{client: &fakeSDKAPI{
+		findRuntime: func(context.Context, string) (*spritessdk.SpriteInfo, bool, error) {
+			return runtime, true, nil
+		},
+	}}
+
+	_, err := adapter.Create(context.Background(), testCreateRequest(identity))
+	if !errors.Is(err, ErrOwnershipMismatch) {
+		t.Fatalf("Create error = %v, want ErrOwnershipMismatch", err)
 	}
 }
 
@@ -82,7 +101,7 @@ func TestAdapterNeverAdoptsForeignLabels(t *testing.T) {
 				return foreign, true, nil
 			},
 		}}
-		_, err := adapter.Create(context.Background(), runtimeprovider.CreateRequest{Identity: identity})
+		_, err := adapter.Create(context.Background(), testCreateRequest(identity))
 		if !errors.Is(err, ErrOwnershipMismatch) {
 			t.Fatalf("Create error = %v, want ErrOwnershipMismatch", err)
 		}
@@ -98,11 +117,11 @@ func TestAdapterNeverAdoptsForeignLabels(t *testing.T) {
 				}
 				return foreign, true, nil
 			},
-			create: func(context.Context, string, []string) error {
+			create: func(context.Context, string, []string, runtimeprovider.RuntimeResources) error {
 				return errors.New("ambiguous")
 			},
 		}}
-		_, err := adapter.Create(context.Background(), runtimeprovider.CreateRequest{Identity: identity})
+		_, err := adapter.Create(context.Background(), testCreateRequest(identity))
 		if !errors.Is(err, ErrOwnershipMismatch) {
 			t.Fatalf("Create error = %v, want ErrOwnershipMismatch", err)
 		}
@@ -500,7 +519,7 @@ func TestOperationErrorDecodesPinnedSDKHTTPResponse(t *testing.T) {
 }
 
 type fakeSDKAPI struct {
-	create        func(context.Context, string, []string) error
+	create        func(context.Context, string, []string, runtimeprovider.RuntimeResources) error
 	findRuntime   func(context.Context, string) (*spritessdk.SpriteInfo, bool, error)
 	exec          func(context.Context, runtimeprovider.ExecRequest) (runtimeprovider.ExecResult, error)
 	configureURL  func(context.Context, string, string) error
@@ -518,11 +537,16 @@ type fakeSDKAPI struct {
 	orgSnapshot   func(context.Context) (*sdkOrganizationSnapshot, error)
 }
 
-func (client *fakeSDKAPI) Create(ctx context.Context, name string, labels []string) error {
+func (client *fakeSDKAPI) Create(
+	ctx context.Context,
+	name string,
+	labels []string,
+	resources runtimeprovider.RuntimeResources,
+) error {
 	if client.create == nil {
 		return errors.New("unexpected Create call")
 	}
-	return client.create(ctx, name, labels)
+	return client.create(ctx, name, labels, resources)
 }
 
 func (client *fakeSDKAPI) FindRuntime(ctx context.Context, name string) (*spritessdk.SpriteInfo, bool, error) {
@@ -716,10 +740,23 @@ func testRuntimeInfo(identity runtimeprovider.ManagedIdentity, status string) *s
 		Name:          identity.Name,
 		Status:        status,
 		Labels:        slices.Clone(identity.Labels),
+		Config:        &spritessdk.SpriteConfig{CPUs: 1, RamMB: 512, StorageGB: 10},
 		URL:           "https://runtime.example",
 		URLSettings:   &spritessdk.URLSettings{Auth: "sprite"},
 		PrimaryRegion: "yyz",
 		CreatedAt:     time.Date(2026, 7, 13, 18, 0, 0, 0, time.UTC),
 		UpdatedAt:     time.Date(2026, 7, 13, 19, 0, 0, 0, time.UTC),
 	}
+}
+
+func testRuntimeResources() runtimeprovider.RuntimeResources {
+	return runtimeprovider.RuntimeResources{
+		CPUCoreMillionths: 1_000_000,
+		MemoryBytes:       512_000_000,
+		StorageBytes:      10_000_000_000,
+	}
+}
+
+func testCreateRequest(identity runtimeprovider.ManagedIdentity) runtimeprovider.CreateRequest {
+	return runtimeprovider.CreateRequest{Identity: identity, Resources: testRuntimeResources()}
 }

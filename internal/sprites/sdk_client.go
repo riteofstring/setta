@@ -28,7 +28,7 @@ const (
 )
 
 type sdkAPI interface {
-	Create(context.Context, string, []string) error
+	Create(context.Context, string, []string, runtimeprovider.RuntimeResources) error
 	FindRuntime(context.Context, string) (*spritessdk.SpriteInfo, bool, error)
 	Exec(context.Context, runtimeprovider.ExecRequest) (runtimeprovider.ExecResult, error)
 	ConfigureURL(context.Context, string, string) error
@@ -72,9 +72,52 @@ func newSDKClientWithBaseURL(token string, baseURL string) *sdkClient {
 	}
 }
 
-func (client *sdkClient) Create(ctx context.Context, name string, labels []string) error {
-	_, err := client.client.CreateSpriteWithOrg(ctx, name, nil, nil, labels)
+func (client *sdkClient) Create(
+	ctx context.Context,
+	name string,
+	labels []string,
+	resources runtimeprovider.RuntimeResources,
+) error {
+	config, err := spriteConfig(resources)
+	if err != nil {
+		return err
+	}
+	_, err = client.client.CreateSpriteWithOrg(ctx, name, &config, nil, labels)
 	return err
+}
+
+func spriteConfig(resources runtimeprovider.RuntimeResources) (spritessdk.SpriteConfig, error) {
+	const (
+		coreMillionths = uint64(1_000_000)
+		bytesPerMB     = uint64(1_000_000)
+		bytesPerGB     = uint64(1_000_000_000)
+	)
+	if err := resources.Validate(); err != nil {
+		return spritessdk.SpriteConfig{}, err
+	}
+	if resources.CPUCoreMillionths%coreMillionths != 0 ||
+		resources.MemoryBytes%bytesPerMB != 0 ||
+		resources.StorageBytes%bytesPerGB != 0 {
+		return spritessdk.SpriteConfig{}, fmt.Errorf(
+			"%w: Sprites resources require whole CPUs, decimal MB memory, and decimal GB storage",
+			runtimeprovider.ErrInvalidContract,
+		)
+	}
+	cpus := resources.CPUCoreMillionths / coreMillionths
+	memoryMB := resources.MemoryBytes / bytesPerMB
+	storageGB := resources.StorageBytes / bytesPerGB
+	maxInt := uint64(^uint(0) >> 1)
+	if cpus > maxInt || memoryMB > maxInt || storageGB > maxInt {
+		return spritessdk.SpriteConfig{}, fmt.Errorf(
+			"%w: Sprites resources exceed the provider integer range",
+			runtimeprovider.ErrInvalidContract,
+		)
+	}
+	return spritessdk.SpriteConfig{
+		CPUs:      int(cpus),
+		RamMB:     int(memoryMB),
+		StorageGB: int(storageGB),
+	}, nil
 }
 
 func (client *sdkClient) FindRuntime(

@@ -2,10 +2,34 @@ package runtimeprovider
 
 import (
 	"errors"
+	"math"
 	"slices"
 	"strings"
 	"testing"
 )
+
+func TestRuntimeResourcesRequirePositiveDurableLimits(t *testing.T) {
+	valid := RuntimeResources{
+		CPUCoreMillionths: 1_000_000,
+		MemoryBytes:       512_000_000,
+		StorageBytes:      10_000_000_000,
+	}
+	if err := valid.Validate(); err != nil {
+		t.Fatalf("Validate valid resources: %v", err)
+	}
+	for name, resources := range map[string]RuntimeResources{
+		"missing cpu":      {MemoryBytes: 1, StorageBytes: 1},
+		"missing memory":   {CPUCoreMillionths: 1, StorageBytes: 1},
+		"missing storage":  {CPUCoreMillionths: 1, MemoryBytes: 1},
+		"integer overflow": {CPUCoreMillionths: math.MaxUint64, MemoryBytes: 1, StorageBytes: 1},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := resources.Validate(); !errors.Is(err, ErrInvalidContract) {
+				t.Fatalf("Validate error = %v, want ErrInvalidContract", err)
+			}
+		})
+	}
+}
 
 func TestNewManagedIdentityIsDeterministicAndOpaque(t *testing.T) {
 	first, err := NewManagedIdentity("user@example.com")

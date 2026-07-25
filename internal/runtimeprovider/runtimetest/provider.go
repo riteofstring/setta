@@ -278,7 +278,16 @@ func (provider *Provider) Create(
 	if err := request.Identity.Validate(); err != nil {
 		return runtimeprovider.RuntimeObservation{}, err
 	}
+	if err := request.Resources.Validate(); err != nil {
+		return runtimeprovider.RuntimeObservation{}, err
+	}
 	if existing, ok := provider.runtimes[request.Identity.Name]; ok {
+		if existing.Resources != request.Resources {
+			return runtimeprovider.RuntimeObservation{}, fmt.Errorf(
+				"%w: existing runtime resource shape differs from create request",
+				runtimeprovider.ErrInvalidContract,
+			)
+		}
 		return cloneRuntimeObservation(existing), nil
 	}
 	now := provider.options.Now().UTC()
@@ -288,6 +297,7 @@ func (provider *Provider) Create(
 		ProviderResourceID: resourceID,
 		Name:               request.Identity.Name,
 		Labels:             slices.Clone(request.Identity.Labels),
+		Resources:          request.Resources,
 		Activity:           runtimeprovider.RuntimeActivityActive,
 		URL:                "https://" + request.Identity.Name + ".invalid",
 		URLAccess:          runtimeprovider.URLAccessAuthenticated,

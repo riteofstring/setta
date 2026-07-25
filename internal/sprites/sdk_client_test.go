@@ -2,11 +2,52 @@ package sprites
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"slices"
 	"testing"
+
+	spritessdk "github.com/superfly/sprites-go"
+
+	"setta/internal/runtimeprovider"
 )
+
+func TestSDKClientCreateSendsExactResourceShape(t *testing.T) {
+	var requestBody spritessdk.CreateSpriteRequest
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodPost || request.URL.Path != "/v1/sprites" {
+			t.Fatalf("request = %s %s", request.Method, request.URL.Path)
+		}
+		if err := json.NewDecoder(request.Body).Decode(&requestBody); err != nil {
+			t.Fatalf("decode create request: %v", err)
+		}
+		response.WriteHeader(http.StatusCreated)
+		_, _ = response.Write([]byte(`{"name":"setta-u-runtime"}`))
+	}))
+	t.Cleanup(server.Close)
+
+	client := newSDKClientWithBaseURL("phase1b-token", server.URL)
+	resources := runtimeprovider.RuntimeResources{
+		CPUCoreMillionths: 2_000_000,
+		MemoryBytes:       768_000_000,
+		StorageBytes:      20_000_000_000,
+	}
+	if err := client.Create(
+		context.Background(),
+		"setta-u-runtime",
+		[]string{"setta-managed"},
+		resources,
+	); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if requestBody.Config == nil ||
+		requestBody.Config.CPUs != 2 ||
+		requestBody.Config.RamMB != 768 ||
+		requestBody.Config.StorageGB != 20 {
+		t.Fatalf("create config = %+v", requestBody.Config)
+	}
+}
 
 func TestSDKClientFindRuntimeUsesDetailedObservation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
