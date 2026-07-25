@@ -53,7 +53,7 @@
   #railLeft { left: 0; justify-content: flex-start; }
   /* floating transcript labels riding the ladder nodes */
   #nodeLabels { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
-  .nlabel { position: absolute; transform: translateY(-50%); max-width: 300px; font: 12px/1.4 var(--sans); letter-spacing: 0.01em;
+  .nlabel { position: absolute; transform: translateX(-50%); max-width: 300px; font: 12px/1.4 var(--sans); letter-spacing: 0.01em; text-align: center;
     padding: 3px 9px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     background: color-mix(in oklch, var(--bg) 62%, transparent); backdrop-filter: blur(2px); }
   .nl-user { color: var(--accent-teal); border: 1px solid color-mix(in oklch, var(--accent-teal) 30%, transparent); }
@@ -718,9 +718,10 @@ function buildNodeLabels(){ const c=document.getElementById('nodeLabels'); if(!c
     const r=document.createElement('div'); r.className='nlabel nl-resp'; r.textContent=g.nodes[T.respId].label;
     c.appendChild(u); c.appendChild(r); T.uLabel=u; T.rLabel=r; } }
 function posLabel(el,n){ if(!el) return; if(growT<n.born){ el.style.display='none'; return; }
-  const s=screenOf(n); if(s.y<-40||s.y>innerHeight+40){ el.style.display='none'; return; }
+  const s0=screenOf(n); if(s0.y<-60||s0.y>innerHeight+90){ el.style.display='none'; return; }
+  const s=warpToScreen(s0.x,s0.y);          // match the CRT barrel so labels stay pinned as you scroll
   el.style.display='block'; const d=nodeCssDiam(n);
-  el.style.left=Math.round(s.x+d*0.6+16)+'px'; el.style.top=Math.round(s.y)+'px'; }
+  el.style.left=Math.round(s.x)+'px'; el.style.top=Math.round(s.y+d*0.5+13)+'px'; }   // just below the node
 function updateNodeLabels(){ const c=document.getElementById('nodeLabels'); if(!c||!g.turns) return;
   c.style.display=showLabels?'block':'none'; if(!showLabels) return;
   for(const T of g.turns){ posLabel(T.uLabel,g.nodes[T.userId]); posLabel(T.rLabel,g.nodes[T.respId]); } }
