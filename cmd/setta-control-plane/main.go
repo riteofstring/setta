@@ -72,23 +72,17 @@ func run(
 	unsetenv func(string) error,
 ) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: setta-control-plane <serve|backup|restore|bootstrap|ensure-runtime|admin> [options]")
+		fmt.Fprintln(stderr, "usage: setta-control-plane <serve|backup|restore|bootstrap|ensure-runtime|generate-runtime-reporting-credential|admin> [options]")
 		return 2
 	}
-	if args[0] == "backup" {
-		return runBackup(args[1:], stdout, stderr)
-	}
-	if args[0] == "restore" {
-		return runRestore(args[1:], stdout, stderr)
-	}
-	if args[0] == "bootstrap" {
-		return runBootstrap(args[1:], stdin, stdout, stderr, getenv)
-	}
-	if args[0] == "ensure-runtime" {
-		return runEnsureRuntime(args[1:], stdout, stderr, getenv)
-	}
-	if args[0] == "admin" {
-		return runAdmin(args[1:], stdin, stdout, stderr)
+	if code, handled := runControlPlaneUtilityCommand(
+		args,
+		stdin,
+		stdout,
+		stderr,
+		getenv,
+	); handled {
+		return code
 	}
 	if args[0] != "serve" {
 		fmt.Fprintf(stderr, "unknown setta-control-plane command %q\n", args[0])
@@ -110,6 +104,31 @@ func run(
 		return 1
 	}
 	return 0
+}
+
+func runControlPlaneUtilityCommand(
+	args []string,
+	stdin io.Reader,
+	stdout io.Writer,
+	stderr io.Writer,
+	getenv func(string) string,
+) (int, bool) {
+	switch args[0] {
+	case "backup":
+		return runBackup(args[1:], stdout, stderr), true
+	case "restore":
+		return runRestore(args[1:], stdout, stderr), true
+	case "bootstrap":
+		return runBootstrap(args[1:], stdin, stdout, stderr, getenv), true
+	case "ensure-runtime":
+		return runEnsureRuntime(args[1:], stdout, stderr, getenv), true
+	case "generate-runtime-reporting-credential":
+		return runGenerateRuntimeReportingCredential(args[1:], stdout, stderr), true
+	case "admin":
+		return runAdmin(args[1:], stdin, stdout, stderr), true
+	default:
+		return 0, false
+	}
 }
 
 func serve(ctx context.Context, config commandConfig, stdout io.Writer) (returnErr error) {
