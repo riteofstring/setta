@@ -4,7 +4,9 @@ import {
   createBackendClient,
   decodeCodexAccountChangeEvent,
   decodeConversationEvent,
+  type Artifact,
   type BackendClient,
+  type ReadConversationArtifactRequest,
   type RuntimeInfoResponse,
 } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
@@ -48,6 +50,11 @@ interface WebEventStreamRegistration {
   stopActive: () => void;
 }
 
+interface WebArtifactTransfer {
+  abort: () => void;
+  start: () => void;
+}
+
 export function installWebSettaAPIIfNeeded(): void {
   const target = window as Window & { setta?: SettaAPI };
   if (target.setta) {
@@ -67,20 +74,23 @@ export function createWebSettaAPI(
   const connectionListeners = new Set<(snapshot: RuntimeRegistrySnapshot) => void>();
   const processStatusListeners = new Set<(status: BackendProcessStatus) => void>();
   const eventStreams = new Set<WebEventStreamRegistration>();
+  const artifactTransfers = new Set<WebArtifactTransfer>();
   const codexAccountChangeListeners = new Set<
     Parameters<SettaAPI["codexAccount"]["onChanged"]>[0]
   >();
   let stopCodexAccountEventStream: (() => void) | null = null;
   const conversationEventListeners = new Set<Parameters<SettaAPI["conversations"]["onEvent"]>[0]>();
   const conversationEventStreams = new Map<string, { keepAlive: boolean; stop: () => void }>();
-  let eventStreamsActive = streamActivity.isActive();
+  let clientConnectionsActive = streamActivity.isActive();
 
   streamActivity.onChanged((active) => {
-    eventStreamsActive = active;
+    clientConnectionsActive = active;
     if (active) {
       startInactiveEventStreams();
+      startInactiveArtifactTransfers();
     } else {
       stopActiveEventStreams();
+      stopActiveArtifactTransfers();
     }
   });
 
@@ -178,7 +188,7 @@ export function createWebSettaAPI(
         };
       },
       read: (request) => requireClient().readConversationSnapshot(request),
-      readArtifact: (request) => requireClient().readConversationArtifact(request),
+      readArtifact: readArtifactWhenActive,
       readInputState: (request) => requireClient().readConversationInputRoutingState(request),
       release: async (request) => {
         const key = conversationStreamKey(request.workspaceId, request.conversationId);
@@ -465,7 +475,7 @@ export function createWebSettaAPI(
     let cursor = options.initialCursor ?? { sequence: 0, streamId: "" };
     const registration: WebEventStreamRegistration = {
       start: () => {
-        if (unsubscribeActive || !eventStreamsActive) {
+        if (unsubscribeActive || !clientConnectionsActive) {
           return;
         }
         const stored = loadStoredDeviceSession();
@@ -502,6 +512,52 @@ export function createWebSettaAPI(
     return registration.stop;
   }
 
+  function readArtifactWhenActive(request: ReadConversationArtifactRequest): Promise<Artifact> {
+    return new Promise((resolve, reject) => {
+      let controller: AbortController | null = null;
+      const transfer: WebArtifactTransfer = {
+        abort: () => {
+          controller?.abort();
+        },
+        start: () => {
+          if (controller || !clientConnectionsActive) {
+            return;
+          }
+          controller = new AbortController();
+          const currentController = controller;
+          let result: Promise<Artifact>;
+          try {
+            result = requireClient().readConversationArtifact(request, {
+              signal: currentController.signal,
+            });
+          } catch (error) {
+            artifactTransfers.delete(transfer);
+            reject(error);
+            return;
+          }
+          void result.then(
+            (artifact) => {
+              artifactTransfers.delete(transfer);
+              controller = null;
+              resolve(artifact);
+            },
+            (error: unknown) => {
+              controller = null;
+              if (currentController.signal.aborted) {
+                transfer.start();
+                return;
+              }
+              artifactTransfers.delete(transfer);
+              reject(error);
+            },
+          );
+        },
+      };
+      artifactTransfers.add(transfer);
+      transfer.start();
+    });
+  }
+
   function startInactiveEventStreams() {
     for (const registration of eventStreams) {
       registration.start();
@@ -511,6 +567,18 @@ export function createWebSettaAPI(
   function stopActiveEventStreams() {
     for (const registration of eventStreams) {
       registration.stopActive();
+    }
+  }
+
+  function startInactiveArtifactTransfers() {
+    for (const transfer of artifactTransfers) {
+      transfer.start();
+    }
+  }
+
+  function stopActiveArtifactTransfers() {
+    for (const transfer of artifactTransfers) {
+      transfer.abort();
     }
   }
 

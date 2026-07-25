@@ -195,6 +195,90 @@ describe("web SettaAPI unpaired runtime state", () => {
     });
   });
 
+  test("pauses artifact reads while inactive and restarts one transfer when active", async () => {
+    withWebGlobals();
+    const streamActivity = controlledStreamActivity();
+    const artifactCalls: Array<{ authorization: string | null; signal: AbortSignal }> = [];
+    const api = createWebSettaAPI({
+      fetchImpl: async (input, init = {}) => {
+        switch (input.pathname) {
+          case "/runtime/info":
+            return jsonResponse(runtimeInfo());
+          case "/pairing/complete":
+            return jsonResponse({
+              deviceId: "device_web",
+              deviceToken: "token_web",
+              protocolVersion: backendProtocolVersion,
+              runtimeId: "runtime_web",
+            });
+          case "/devices/list":
+            return jsonResponse({ devices: [] });
+          case "/conversations/artifacts/read": {
+            const signal = init.signal as AbortSignal;
+            artifactCalls.push({
+              authorization: new Headers(init.headers).get("Authorization"),
+              signal,
+            });
+            if (artifactCalls.length === 1) {
+              return new Promise((_resolve, reject) => {
+                signal.addEventListener(
+                  "abort",
+                  () => reject(new DOMException("inactive artifact transfer", "AbortError")),
+                  { once: true },
+                );
+              });
+            }
+            return jsonResponse({
+              barChart: null,
+              conversationId: "conversation_web",
+              createdAt: "2026-07-19T19:00:00Z",
+              file: null,
+              id: "artifact_web",
+              kind: "markdown",
+              markdown: { markdown: "Durable artifact body" },
+              table: null,
+              title: "Durable artifact",
+              trajectorySequence: 1,
+              turnId: "turn_web",
+            });
+          }
+          default:
+            throw new Error(`unexpected request: ${input.pathname}`);
+        }
+      },
+      streamActivity: streamActivity.activity,
+    });
+    await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_web&tok=token_pair");
+
+    streamActivity.setActive(false);
+    const artifactPromise = api.conversations.readArtifact?.({
+      artifactId: "artifact_web",
+      conversationId: "conversation_web",
+      workspaceId: "workspace_web",
+    });
+    if (!artifactPromise) {
+      throw new Error("web artifact reader is unavailable");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(artifactCalls).toHaveLength(0);
+
+    streamActivity.setActive(true);
+    await waitFor(() => artifactCalls.length === 1);
+    streamActivity.setActive(false);
+    await waitFor(() => artifactCalls[0]?.signal.aborted === true);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(artifactCalls).toHaveLength(1);
+
+    streamActivity.setActive(true);
+    const artifact = await artifactPromise;
+    expect(artifact.id).toBe("artifact_web");
+    expect(artifactCalls).toHaveLength(2);
+    expect(artifactCalls.map((call) => call.authorization)).toEqual([
+      "Bearer token_web",
+      "Bearer token_web",
+    ]);
+  });
+
   test("exposes authenticated generated speech operations", async () => {
     withWebGlobals();
     const requests: Array<{ authorization: string | null; body: unknown; path: string }> = [];
