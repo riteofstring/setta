@@ -413,6 +413,7 @@ function prog(v,f){const p=gl.createProgram();gl.attachShader(p,sh(gl.VERTEX_SHA
   gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))fail(gl.getProgramInfoLog(p));return p;}
 
 const COMMON=`
+float hash11(float p){ p=fract(p*0.1031); p*=p+33.33; p*=p+p; return fract(p); }
 vec3 modeColor(float m){
   if(m<0.5) return vec3(0.30,0.80,0.95);   // think cyan
   if(m<1.5) return vec3(0.62,0.45,1.0);    // do violet
@@ -581,6 +582,7 @@ layout(location=10) in float childFail;   // time the child fails (9999 = never)
 layout(location=11) in float a_open;       // edge visibility 0..1 (reason edges fold, spine edges appear)
 uniform float u_cam,u_time,u_aspect,u_width,u_xshift;
 out float v_mode,v_recent,v_alpha,v_along,v_failP,v_arrive;
+float hash11(float p){ p=fract(p*0.1031); p*=p+33.33; p*=p+p; return fract(p); }
 void main(){
   if(a_open<0.004){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }   // folded away
   float grow=clamp((u_time-(childBorn-0.6))/0.6,0.0,1.0);   // line grows out; tip arrives at childBorn
@@ -594,10 +596,13 @@ void main(){
   float failP=smoothstep(childFail, childFail+0.35, u_time);   // 0 normal -> 1 once the child fails
   float unc=clamp((1.0-conf) + failP*0.85, 0.0, 1.0);          // straight normally, degrades to wavy on failure
   float succE=step(2.5,mode)*step(mode,3.5);
-  float arrive=exp(-max(0.0,u_time-childBorn)*3.0)*succE;      // brief charge when a success edge completes
+  float arrive=exp(-max(0.0,u_time-childBorn)*4.2)*succE;      // a quick hard strike, not a lingering ring
   float wob=(sin(tt*9.0+phase*6.2832+u_time*unc*3.2)*0.05 + sin(tt*19.0+phase*3.0)*0.02)*unc;
   wob*=sin(tt*3.14159);                                     // meet the endpoints cleanly
-  wob += arrive*sin(tt*46.0+u_time*34.0+phase*12.0)*0.03*sin(tt*3.14159);   // electric jitter -> lightning on success
+  // lightning: piecewise-constant kinks per segment, re-scrambled ~26x/sec (a smooth sine just reads as a plucked string)
+  float seg=floor(tt*12.0), tick=floor(u_time*26.0);
+  float bolt=(hash11(seg*7.13+tick*3.77+phase*11.0)-0.5) + (hash11(seg*2.31+tick*9.19)-0.5)*0.6;
+  wob += arrive*bolt*0.085*sin(tt*3.14159);
   vec2 p=mix(A,B,tt)+perpC*wob;
   vec2 e=p+perpC*side*(u_width*(0.85+conf*1.15));   // confident main threads thicker
   v_mode=mode; v_recent=exp(-max(0.0,u_cam-bWY)*0.9); v_alpha=grow*a_open; v_along=t; v_failP=failP; v_arrive=arrive;
@@ -617,9 +622,12 @@ void main(){
   float lead=smoothstep(grow-0.16, grow, v_along)*drawn;           // bright pulse riding the growing tip
   col=mix(col, vec3(0.92,0.98,1.0), lead*0.7);
   float a=drawn*(0.52+v_recent*0.34)*dash*(1.0+v_failP*0.8) + lead*(0.9+v_recent*0.5);
-  float elec=clamp(v_arrive*(0.4+0.6*sin(v_along*72.0 - u_time*66.0))*step(0.4,fract(v_along*15.0+u_time*11.0)),0.0,1.0)*drawn;  // success -> green electrical current
-  col=mix(col, vec3(0.72,1.0,0.82), elec*0.9);
-  a += elec*(0.85+v_recent*0.5);
+  float tick=floor(u_time*26.0);                                        // success -> high-voltage strike
+  float strobe=step(0.30, hash11(tick*1.37));                           // erratic on/off, not a smooth oscillation
+  float segB=0.30+0.70*hash11(floor(v_along*12.0)*5.7+tick*2.3);        // each kink burns at its own brightness
+  float elec=clamp(v_arrive*strobe*segB,0.0,1.0)*drawn;
+  col=mix(col, vec3(0.90,1.0,0.94), clamp(elec*1.35,0.0,1.0));          // white-hot core
+  a += elec*1.9;
   o=vec4(col*a,a);
 }`;
 
@@ -873,7 +881,8 @@ const STICKY_TOP=58, FADE_SPAN=0.42;
 function labelOpacity(n){ if(labelMode==='off') return 0; if(labelMode==='show') return 1; if(hovered===n) return 1;
   return Math.max(0, Math.min(1, 1-(autoCam-n.worldY)/FADE_SPAN)); }   // auto: fade to just the icon as the flow moves past
 function placeNodeLabel(n, el, place, opts){ opts=opts||{}; if(!el) return;
-  let op = opts.question ? (labelMode==='off'?0:(hovered===n?1:1)) : labelOpacity(n);   // question stays while its turn is expanded; others auto-fade
+  let op = opts.question ? (labelMode==='off'?0:1) : labelOpacity(n);   // question stays while its turn is expanded; others auto-fade
+  if(g.multi && labelMode!=='show') op = (hovered===n)?1:0;             // parallel columns: only show what you point at
   if(growT<n.born+(opts.delay||0)) op=0;                              // wait for birth (+ effects)
   if(opts.hideIfFolded && n.alpha<0.35) op=0;                         // question hidden once the turn folds
   const s0=screenOf(n);
@@ -963,7 +972,7 @@ document.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{particleMode=pa
 document.getElementById('scan').onchange=e=>scan=e.target.checked;
 document.getElementById('listen').onchange=e=>listenSim=e.target.checked;
 document.getElementById('speed').oninput=e=>{ const v=parseFloat(e.target.value); INTERVAL=1.1/v; DEAD_INTERVAL=0.8/v; rebuild(); };
-document.getElementById('restart').onclick=()=>{growT=0;autoCam=0;viewCam=0;detached=false;camWorld=0;};
+document.getElementById('restart').onclick=()=>{growT=0;if(activeConv)activeConv.gT=0;autoCam=0;viewCam=0;detached=false;camWorld=0;};
 
 let mouse={x:-1,y:-1,on:false};
 canvas.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;mouse.on=true;});
@@ -1013,7 +1022,9 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
     fpsEl.textContent=Math.round(frames/acc)+' fps'+(gpuMs?' · '+gpuMs.toFixed(2)+'ms gpu':'')+' · '+Math.round(renderScale*100)+'%';
     acc=0;frames=0;minDt=1;
   }
-  if(growT>g.lastBorn+FAIL_DELAY+6.0){ growT=0; if(!g.parallel){autoCam=0;viewCam=0;detached=false;} for(const T of g.turns){T.open=g.parallel?1:0;T.manual=null;} }   // replay
+  // the focused thread renders at ITS OWN clock, which has been running in the background — no restart on switch
+  if(!g.parallel && !g.multi && activeConv && typeof activeConv.gT==='number') growT=activeConv.gT;
+  else if(growT>g.lastBorn+FAIL_DELAY+6.0){ growT=0; if(!g.parallel){autoCam=0;viewCam=0;detached=false;} for(const T of g.turns){T.open=g.parallel?1:0;T.manual=null;} }
   layout(dt);
   if(sceneDirty || g.multi || (!g.parallel && g.turns.some(T=>Math.abs(T.open-T.openTarget)>0.0016))){ updateSceneBuffers(); sceneDirty=false; }   // re-upload while folding / columns scroll
   if(g.parallel){ autoCam=1.25; viewCam=1.25; camWorld=1.25; }     // frame the whole grid; no follow
@@ -1033,7 +1044,7 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
     switching.t += dt/0.62;
     if(switching.t>=0.5 && !switching.swapped){
       convIdx=(convIdx+switching.dir+CONVS.length)%CONVS.length;
-      seed=CONVS[convIdx].seed; activeConv=CONVS[convIdx]; rebuild(); growT=0; autoCam=0; viewCam=0; detached=false; camWorld=0;
+      snapToConv();                                   // arrive at whatever state that thread has progressed to
       renderConv(); switching.swapped=true; document.body.classList.remove('switching');
     }
     if(switching.t>=1.0){ switching=null; xShift=0; glitchAmt=0; }
@@ -1181,18 +1192,40 @@ const BASE_CONVS=[
 // the switchable thread list — every one of these ticks in parallel in the background
 const EXTRA_TITLES=['Pane focus ring','Sprite hydration','Overview pan cost','Codex queue drain','Voice VAD tuning',
   'Artifact diffing','Shortcut remap','Theme tokens','Session restore','Native view bounds','Presentation engine','Mobile controls'];
+// how long a thread's graph runs, in units of INTERVAL — mirrors addThread's clock so we can advance
+// a thread's progress in the background without ever building its graph
+function threadSpanUnits(conv){ let clock=0;
+  for(const T of (conv.thread||[])){
+    clock+=1;                                                    // the input node
+    const raw=(T.reason==='RUN')?RUN:(T.reason||[]);
+    for(const s of raw){ const k=s.k||'step';
+      if(k==='step') clock+=1;
+      else if(k==='dead') clock+=0.727;                          // DEAD_INTERVAL/INTERVAL
+      else if(k==='fan') clock+=Math.max(...s.lanes.map(l=>1+(l.steps?l.steps.length:0)))+1; }
+    clock+=1;                                                    // the outcome node
+    clock+=2; }                                                  // breath before the next turn
+  return Math.max(1,clock); }
 function buildConvList(n){ const list=[];
   for(let i=0;i<n;i++){ const base=BASE_CONVS[i%BASE_CONVS.length];
     const c=Object.assign({},base,{history:base.history.slice()});          // own mutable history; thread/arts are read-only and shared
     if(i>=BASE_CONVS.length){ const k=i-BASE_CONVS.length;
       c.title=EXTRA_TITLES[k%EXTRA_TITLES.length]+(k>=EXTRA_TITLES.length?' '+(1+Math.floor(k/EXTRA_TITLES.length)):'');
       c.seed=base.seed+i*37; c.t0=(i*1.7)%16; }
+    c.spanU=threadSpanUnits(c);
+    c.gT=((i*1.9)%c.spanU)*INTERVAL;                                        // its own graph clock, staggered so threads start out of phase
     list.push(mkConv(c)); }
   return list; }
+// jump straight to a thread's present state (no restart from zero)
+function snapToConv(){
+  activeConv=CONVS[convIdx]; seed=activeConv.seed||seed; rebuild();
+  activeConv.spanU=g.lastBorn/INTERVAL;                       // refine the estimate now that it's actually built
+  if(activeConv.gT>g.lastBorn+FAIL_DELAY+6.0) activeConv.gT=0;
+  growT=activeConv.gT||0; layout(0); updateSceneBuffers();
+  let maxY=0; for(const n of g.nodes) if(n.born<=growT&&n.alpha>0.02&&n.worldY>maxY) maxY=n.worldY;
+  autoCam=maxY; viewCam=maxY; detached=false; camWorld=viewCam; }
 let CONVS=buildConvList(3);
-function setThreads(n){ const keep=CONVS[convIdx]; CONVS=buildConvList(n);
-  convIdx=Math.min(convIdx,CONVS.length-1); activeConv=CONVS[convIdx]; seed=activeConv.seed;
-  lastIdx=-1; lastN=-1; rebuild(); growT=0; autoCam=0; viewCam=0; detached=false; renderConv(); void keep; }
+function setThreads(n){ CONVS=buildConvList(n);
+  convIdx=Math.min(convIdx,CONVS.length-1); lastIdx=-1; lastN=-1; snapToConv(); renderConv(); }
 let convIdx=0, lastIdx=-1, lastN=-1, lastComplete=false, dotAcc=0;
 const $=id=>document.getElementById(id);
 
@@ -1202,6 +1235,8 @@ function isComplete(c){ return c.t >= c.nows.length*REVEAL_INT + 0.8; }
 // background progression — every conversation advances on its own clock
 function tickConversations(dt){
   for(const c of CONVS){
+    c.gT=(c.gT||0)+dt;                                             // every thread's graph keeps running in the background
+    if(c.gT > c.spanU*INTERVAL + FAIL_DELAY + 6.0) c.gT=0;         // and loops on its own schedule
     if(isComplete(c)){ c.idle=(c.idle||0)+dt;                      // finished threads rest, then pick up new work so the set stays alive
       if(c.idle > 4 + (c.seed%9)){ c.t=0; c.lastReveal=0; c.idle=0; }
       continue; }
@@ -1268,7 +1303,9 @@ chatInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&chatInput.value.tr
   const val=chatInput.value.trim(); activeConv.thread.push({u:val, reason:'RUN', r:CONVS[convIdx].response||'Done.'});
   CONVS[convIdx].history.push({u:val, r:CONVS[convIdx].response});
   chatInput.value=''; rebuild();
-  const lastT=g.turns[g.turns.length-1]; growT=g.nodes[lastT.userId].born-0.6; layout(0); updateSceneBuffers();
+  activeConv.spanU=g.lastBorn/INTERVAL;
+  const lastT=g.turns[g.turns.length-1]; growT=g.nodes[lastT.userId].born-0.6; activeConv.gT=growT;
+  layout(0); updateSceneBuffers();
   autoCam=g.nodes[lastT.userId].worldY; viewCam=autoCam; detached=false;
 }});
 
@@ -1301,7 +1338,7 @@ $('devToggle').onclick=e=>{ const d=$('devbar'); d.hidden=!d.hidden; e.currentTa
 document.querySelectorAll('[data-tc]').forEach(b=>b.onclick=()=>{ setThreads(parseInt(b.dataset.tc));
   document.querySelectorAll('[data-tc]').forEach(x=>x.classList.toggle('on',x===b)); });   // how many threads you can arrow between
 
-seed=CONVS[convIdx].seed; activeConv=CONVS[convIdx]; rebuild(); growT=0; autoCam=0; viewCam=0; detached=false;
+snapToConv();
 renderConv();
 </script>
 </body>
