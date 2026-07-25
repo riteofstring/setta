@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  graphDitherCellPixels,
   GraphQualityController,
   graphQualityForViewport,
   graphQualityProfiles,
@@ -130,5 +131,23 @@ describe("graph quality controller", () => {
     const decision = controller.setProfile(graphQualityProfiles.reduced);
     expect(decision.tierChanged).toBe(true);
     expect(decision.renderScale).toBe(graphRenderScaleBounds.maximum);
+  });
+});
+
+describe("graph dither cell", () => {
+  it("keeps the authored cell size where the surface has the pixels", () => {
+    // Laptop: the post surface holds more device pixels than CSS pixels, so the
+    // authored 3 CSS-pixel cell is larger than 3 on the surface.
+    expect(graphDitherCellPixels(3, 2000, 1512)).toBeCloseTo(3.968, 3);
+    expect(graphDitherCellPixels(3, 1440, 1440)).toBe(3);
+  });
+
+  it("never asks the halftone to resolve finer than it was designed for", () => {
+    // 4K and 6K cap the post surface far below their logical size. A cell of
+    // about two surface pixels samples the scene once and leaves two fragment
+    // centres to resolve the dot, which erases every mid-tone.
+    expect(graphDitherCellPixels(3, 2529, 3840)).toBe(3);
+    expect(graphDitherCellPixels(3, 2529, 6016)).toBe(3);
+    expect(graphDitherCellPixels(3.4, 1632, 3840)).toBe(3);
   });
 });

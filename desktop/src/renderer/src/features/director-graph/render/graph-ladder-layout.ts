@@ -164,17 +164,35 @@ export class GraphLadderLayout {
     return packedValueAt(this.openness, turnIndex);
   }
 
+  /**
+   * Drops the incremental state.
+   *
+   * Turn ranges are only valid while each snapshot extends the one before it.
+   * A *replacement* is not an extension even when the workstream id is
+   * unchanged — a resync after `resync_required`, a cold replay after restart,
+   * or a reloaded window all hand the same workstream a snapshot that starts
+   * over — so the owner calls this whenever it replaces rather than extends.
+   */
+  reset(): void {
+    this.clear("");
+  }
+
+  private clear(workstreamId: string): void {
+    this.workstreamId = workstreamId;
+    this.syncedNodeCount = 0;
+    this.syncedTurnCount = 0;
+    this.lastLiveEdge = 0;
+    this.worldY = new Float32Array(0);
+    this.open = new Float32Array(0);
+    this.openness = new Float32Array(0);
+    this.turnTopY = new Float32Array(0);
+    this.turnFirstNode = new Int32Array(0);
+    this.turnNodeEnd = new Int32Array(0);
+  }
+
   private reallocate(snapshot: PackedGraphSnapshot): void {
     if (snapshot.workstreamId !== this.workstreamId) {
-      this.workstreamId = snapshot.workstreamId;
-      this.syncedNodeCount = 0;
-      this.syncedTurnCount = 0;
-      this.worldY = new Float32Array(0);
-      this.open = new Float32Array(0);
-      this.openness = new Float32Array(0);
-      this.turnTopY = new Float32Array(0);
-      this.turnFirstNode = new Int32Array(0);
-      this.turnNodeEnd = new Int32Array(0);
+      this.clear(snapshot.workstreamId);
     }
     if (this.worldY.length < snapshot.nodeCount) {
       const capacity = nextCapacity(this.worldY.length, snapshot.nodeCount);

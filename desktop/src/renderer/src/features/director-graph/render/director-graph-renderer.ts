@@ -55,7 +55,11 @@ import {
   type GraphPackedScene,
   type GraphUploadRange,
 } from "./graph-scene-packer";
-import { graphSurfaceSizes, type GraphQualityProfile } from "./graph-quality";
+import {
+  graphDitherCellPixels,
+  graphSurfaceSizes,
+  type GraphQualityProfile,
+} from "./graph-quality";
 import { packedGraphGlyphs, packedValueAt } from "../packed-graph-vocabulary";
 import type { PackedGraphSnapshot } from "../packed-graph-snapshot";
 
@@ -421,6 +425,22 @@ export class DirectorGraphRenderer {
 
   surfaceSizes(): Readonly<GraphSurfaces> {
     return this.surfaces;
+  }
+
+  /**
+   * Reads the drawn canvas back for the pixel check. Only valid inside the
+   * frame that drew it: the context is not created with `preserveDrawingBuffer`,
+   * so the buffer belongs to the compositor once the frame returns.
+   */
+  readCanvasPixels(target: Uint8Array): void {
+    const { postWidth, postHeight } = this.surfaces;
+    const required = postWidth * postHeight * 4;
+    if (target.length !== required) {
+      throw new Error(`pixel readback needs ${required} bytes, got ${target.length}`);
+    }
+    const gl = this.gl;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.readPixels(0, 0, postWidth, postHeight, gl.RGBA, gl.UNSIGNED_BYTE, target);
   }
 
   /** Uploads only the ranges the packer says changed. */
@@ -916,10 +936,7 @@ export class DirectorGraphRenderer {
     gl.uniform2f(this.postUniforms.u_res, this.surfaces.postWidth, this.surfaces.postHeight);
     gl.uniform1f(
       this.postUniforms.u_pixel,
-      Math.max(
-        1.6,
-        this.profile.ditherPixel * (this.surfaces.postWidth / Math.max(1, this.cssWidth())),
-      ),
+      graphDitherCellPixels(this.profile.ditherPixel, this.surfaces.postWidth, this.cssWidth()),
     );
     gl.uniform1f(this.postUniforms.u_scanlines, this.profile.effects.scanlines ? 1 : 0);
     gl.uniform1f(this.postUniforms.u_grain, this.profile.effects.grain ? 1 : 0);

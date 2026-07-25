@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import { GraphLadderLayout, advanceGraphCamera } from "./graph-ladder-layout";
 import { graphLadderSpacing } from "./graph-visual-language";
 import { packedGraphFixture, packedGraphFixtureBatches } from "../packed-graph-fixtures";
-import { buildPackedGraphSnapshot, type PackedGraphSnapshot } from "../packed-graph-snapshot";
+import {
+  buildPackedGraphSnapshot,
+  emptyPackedGraphSnapshot,
+  type PackedGraphSnapshot,
+} from "../packed-graph-snapshot";
 import { packedGraphRoleCode, packedValueAt } from "../packed-graph-vocabulary";
 
 const noPins = new Map<number, boolean>();
@@ -188,6 +192,31 @@ describe("graph ladder layout", () => {
     scrambled.nodes.turn[1] = 1;
     scrambled.nodes.turn[2] = 0;
     expect(() => advance(new GraphLadderLayout(), scrambled, 0)).toThrow(/not contiguous/u);
+  });
+
+  it("lays the same workstream out again after a replacement", () => {
+    // A resync, a cold replay, or a restarted stream hands the same workstream
+    // a snapshot that starts over. The turn ranges describe the snapshot they
+    // were built from, so carrying them into a replacement makes the first
+    // rebuilt row look like a discontiguous turn.
+    const batches = packedGraphFixtureBatches("branch-merge-and-dead-end");
+    const full = buildPackedGraphSnapshot("ws-replaced", batches);
+    const empty = emptyPackedGraphSnapshot("ws-replaced");
+    const stale = new GraphLadderLayout();
+    settle(stale, full, 60);
+    advance(stale, empty, 0);
+    expect(() => advance(stale, full, 0)).toThrow(/not contiguous/u);
+
+    const replaced = new GraphLadderLayout();
+    settle(replaced, full, 60);
+    replaced.reset();
+    advance(replaced, empty, 0);
+    const healed = settle(replaced, full, 60);
+    const cold = settle(new GraphLadderLayout(), full, 60);
+    expect(Array.from(healed.worldY.subarray(0, full.nodeCount))).toStrictEqual(
+      Array.from(cold.worldY.subarray(0, full.nodeCount)),
+    );
+    expect(healed.liveEdgeWorldY).toBe(cold.liveEdgeWorldY);
   });
 });
 

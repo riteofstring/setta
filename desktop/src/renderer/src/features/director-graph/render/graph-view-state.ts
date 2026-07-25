@@ -264,6 +264,17 @@ export class GraphViewController {
     this.selectedNode = nodeIndex === this.selectedNode ? null : nodeIndex;
   }
 
+  /**
+   * Drops the focus a snapshot replacement invalidates. Hover and selection are
+   * node indices, and a resync or a cold replay renumbers them; the camera and
+   * the turn pins survive, because they are about where the user is looking and
+   * which turns they opened.
+   */
+  clearNodeFocus(): void {
+    this.hoveredNode = null;
+    this.selectedNode = null;
+  }
+
   hovered(): number | null {
     return this.hoveredNode;
   }

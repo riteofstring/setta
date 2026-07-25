@@ -192,6 +192,29 @@ export function graphSurfaceSizes(
 }
 
 /**
+ * Halftone cell size on the post surface.
+ *
+ * The authored cell is in CSS pixels so the dots stay a constant size on
+ * screen, but the post surface is capped: at a 4K or 6K viewport it holds far
+ * fewer device pixels than CSS pixels, and the cell shrinks with it. Below
+ * about three surface pixels the dot mask stops resolving — a cell samples the
+ * scene once, and with only two fragment centres across it every mid-tone dot
+ * falls between them and is erased, which drains the graph to a dim blur. The
+ * floor is the authored cell size, so the pattern is never asked to resolve
+ * finer than it was designed for.
+ */
+const minimumDitherSurfacePixels = 3;
+
+export function graphDitherCellPixels(
+  ditherPixel: number,
+  postWidth: number,
+  cssWidth: number,
+): number {
+  const surfacePixels = ditherPixel * (postWidth / Math.max(1, cssWidth));
+  return Math.max(minimumDitherSurfacePixels, surfacePixels);
+}
+
+/**
  * The frame budget for adaptation. ProMotion is adaptive, so the budget is
  * derived from the shortest observed frame delta rather than assumed; the
  * clamp keeps a hitch or a background throttle from redefining the target.

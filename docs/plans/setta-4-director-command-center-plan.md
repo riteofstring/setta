@@ -1,17 +1,20 @@
 # Setta 4 Director Command Center — Plan of Record
 
 **Date:** 2026-07-24
-**Status:** Approved direction; Phase 0 repository work and Phase 1 implementation
-are complete. Phase 1 remains at its audit boundary until the required broad
+**Status:** Approved direction; Phase 0 repository work and Phases 1 and 2 are
+complete. Both remain at their audit boundary until the required broad
 verification has a post-fix green result. Phase 2 owns the standalone renderer:
 the packed GPU render snapshot, its deterministic fixture generation, and its
 burst/cursor-replay fixtures are committed in
-`desktop/src/renderer/src/features/director-graph/` (items 2 and 7), and the
-WebGL2 renderer itself is committed in
-`desktop/src/renderer/src/features/director-graph/render/` (items 1, 3, 4, 5,
-and the instrumentation half of item 6). What remains in Phase 2 is measurement:
-canvas-pixel checks, the scale and viewport scenarios, profiling, and the hitch
-fixes those find (the rest of item 6, and items 8 through 10).
+`desktop/src/renderer/src/features/director-graph/` (items 2 and 7); the WebGL2
+renderer itself is committed in
+`desktop/src/renderer/src/features/director-graph/render/` (items 1, 3, 4, 5);
+and the measurement half is committed as `render/graph-pixel-check.ts`, the
+fixture harness page in `features/director-graph/harness/`, and the workflow
+`desktop/tests/electron/director-graph-renderer-performance.test.mjs` (items 6,
+8, 9, and 10). Measured results for every scenario and tier are in
+[`docs/reports/performance/setta-4-graph-renderer-scenarios-20260724.md`](../reports/performance/setta-4-graph-renderer-scenarios-20260724.md).
+Real 4K, 6K, and phone hardware stays a release gate: those tiers are emulated.
 The checked-in
 Codex protocol snapshot is refreshed and the provider
 notification adapter matrix is committed in `internal/agent/provider_notification_matrix.go`
@@ -992,9 +995,9 @@ Exit gate:
    write back. Labels are pooled DOM over the canvas — one element per *visible*
    label — and the question and outcome pills are focusable buttons, which is the
    keyboard equivalent the fidelity checklist requires for the outcome-node click.
-   `DirectorGraphSurface.tsx` is the React mount and is listed in
-   `desktop/knip.json` `ignoreFiles` until Phase 4 items 1 and 6 mount it; that
-   entry is removed then, not extended.
+   `DirectorGraphSurface.tsx` is the React mount. Item 8's harness page is its
+   first consumer, so its `desktop/knip.json` `ignoreFiles` entry is gone; Phase 4
+   items 1 and 6 add the second consumer rather than restoring an exemption.
 4. Add quality tiers, level of detail, buffer reuse, shader prewarming, and an idle scheduler.
    **Done — `render/graph-quality.ts` and `render/graph-frame-scheduler.ts`.**
    Three explicit tiers carry the performance matrix's clamps (device-pixel 1.5,
@@ -1018,7 +1021,7 @@ Exit gate:
    The percentile convention is deliberately the one the committed E2E budget
    harness already asserts against.
 6. Add graph-specific fixture generation, CPU marks, GPU timer queries, and canvas-pixel checks.
-   **Fixture generation, CPU marks, and GPU timer queries done.**
+   **Done.**
    `packed-graph-scenes.ts` holds six deterministic
    scenes and `packed-graph-fixtures.ts` compiles a scene into the same ordered
    batch stream a live push would deliver, plus arbitrary-size scale scenes and a
@@ -1027,9 +1030,17 @@ Exit gate:
    that draws it fails the coverage test. `graph-instrumentation.ts` marks
    projection, packing, upload, and draw separately and samples GPU frame time
    through `EXT_disjoint_timer_query_webgl2`, discarding disjoint results rather
-   than reporting a wrong number. **Canvas-pixel checks are still open**: they
-   need a committed harness that drives the canvas in a real WebGL2 context, and
-   that harness lands with items 8 and 9.
+   than reporting a wrong number. Canvas-pixel checks are
+   `render/graph-pixel-check.ts`, read back inside the frame that drew them
+   through `DirectorGraphCanvas.requestPixelCheck`. Two properties of the picture
+   shape that check: the graph floats in a drifting medium whose brightest
+   *pixel* is as bright as a node's, so blankness is judged on concentration
+   rather than brightness; and the graph is letterboxed rather than stretched, so
+   the grid resolves the *reference frame* instead of the canvas and one set of
+   thresholds holds from a phone to 6K. Framing is then checked against the same
+   `graphFitFrame` the shaders use — content centred on the spine, inside the
+   letterbox, in the live edge's band — so the check fails when the renderer and
+   the layout disagree rather than when a viewport is merely unusual.
 7. Add burst-update fixtures that simulate pushed event batches and cursor replay.
    **Done — `packed-graph-burst.ts`. Storm, steady, and replay-catch-up arrival
    profiles schedule a fixture's batches; `coalesceDeliveriesByFrame` merges a
@@ -1039,22 +1050,76 @@ Exit gate:
    resuming from every cursor boundary is asserted to reach the same columns as a
    cold build of the whole stream.**
 8. Run the required scale and viewport scenarios against deterministic fixtures.
-   This needs the committed harness that item 6's canvas-pixel check also needs:
-   a real WebGL2 context driving `DirectorGraphCanvas` over the committed
-   fixtures, at the tiers in the performance matrix.
+    **Done — `desktop/tests/electron/director-graph-renderer-performance.test.mjs`,
+    registered in the `performance` tier of the Electron workflow manifest.** It
+    opens the committed harness page in the production Electron renderer and
+    runs every scenario in the matrix's section 4 at the tiers in its section 3.
+    The harness page (`features/director-graph/harness/`) is a second renderer
+    entry rather than a mode of the app shell, because the shell would put its
+    own React work and DOM into every frame sample and every pixel check.
+    Scenario plans are data — replay, burst, navigate, restart, sustained,
+    occlusion — and the runner turns them into pushes on real frames through the
+    committed fixtures, so the renderer is measured against the arrival cadence a
+    live subscription produces. Thresholds live with the workflow, not in the
+    renderer bundle: the pass/fail rule is a measurement decision that belongs
+    next to the matrix. The phone DPR-3 tier closes the matrix's first capability
+    gap — no E2E had ever set a device scale factor above 1.
 9. Profile with browser/Chrome developer tools and GPU timer queries.
-10. Fix hitches before integrating live app state.
+    **Done.** Every run carries GPU timer-query percentiles and the four CPU
+    marks, and the workflow captures a Chromium trace of the 4K interleaved
+    scenario as a separate untimed pass, because tracing costs frame time and a
+    traced run is not an accepted result. Results are in
+    [`docs/reports/performance/setta-4-graph-renderer-scenarios-20260724.md`](../reports/performance/setta-4-graph-renderer-scenarios-20260724.md).
+10. Fix hitches before integrating live app state. **Done.** No frame-time hitch
+    was found on the primary target — every tier holds p95 CPU and GPU inside the
+    budgets — and four defects were, none of which frame time alone would have
+    shown:
+    - `GraphLadderLayout` keyed its incremental turn ranges on the workstream id
+      alone, so a snapshot *replacement* that kept the id — a resync after
+      `resync_required`, a cold replay after restart, a reloaded window — left
+      ranges describing the previous snapshot. The soak reproduced it as an
+      exception thrown every frame. `setSnapshot` now resets the ladder and the
+      index-derived view focus alongside the packer, since a replacement is not
+      an extension. The camera and turn pins survive, because they are about
+      where the user is looking.
+    - An exception inside the frame loop kills that frame and nothing else: the
+      scenario still reports frames, still passes its budgets, and still shows
+      the last good picture. The workflow now reads the recorded renderer console
+      and fails on any error, rather than trusting the numbers.
+    - The quality controller could never hold a tier it earned. Every frame that
+      changed quality re-derived the tier from the viewport, handing back the
+      viewport's starting tier immediately — 894 tier changes in one 1200-frame
+      run, each a geometry rebuild. A viewport change now re-derives the tier and
+      everything else only resizes, with the surface key covering the adaptive
+      scale so a scale step reaches the framebuffers instead of waiting for the
+      next viewport change. Tier steps per run fell to 0–2 and CPU p95 halved.
+    - With the tier held, the graph ran at `full` on 4K and 6K for the first
+      time, and the canvas-pixel check called those frames blank. The halftone
+      cell is authored in CSS pixels so the dots stay a constant size on screen,
+      but the post surface is capped at 3.6 MP: at 4K the cell shrank to about two
+      surface pixels, and a cell that samples the scene once with two fragment
+      centres across it erases every mid-tone dot. `graphDitherCellPixels` floors
+      the cell at its authored size in surface pixels.
+    The renderer's own adaptation budget is deliberately *not* the report's frame
+    budget. It comes from the single shortest frame delta ever observed, which is
+    optimistic by design so a renderer stuck at half rate cannot redefine the
+    target as half rate; on a ProMotion panel that lands about a millisecond
+    under the real period. Reports resolve their budget through the committed
+    `performance-frame-budget.mjs` convention instead.
 
 Exit gate:
 
 - deterministic renderer fixtures visually match the mockup's graph language, labels, rails, and
-  composer integration points
-- the target hardware sustains the 120 Hz budgets in representative motion
-- p95 and p99 frame time, long tasks, memory, and dropped frames are recorded
-- phone-scale and high-DPI behavior are bounded
-- graph fixture harness and report template are committed
-- burst updates do not produce per-event React renders or animation-frame floods
-- no business logic exists in the renderer
+  composer integration points — met for the graph, labels, and history pills; the rails and composer
+  are Phase 4 surfaces and their integration points are the mount in `DirectorGraphSurface`
+- the target hardware sustains the 120 Hz budgets in representative motion — met on the primary
+  target across every scenario; real 4K, 6K, and phone displays are a release gate
+- p95 and p99 frame time, long tasks, memory, and dropped frames are recorded — met
+- phone-scale and high-DPI behavior are bounded — met; both phone tiers and DPR 3 are measured
+- graph fixture harness and report template are committed — met
+- burst updates do not produce per-event React renders or animation-frame floods — met; a backlog of
+  pushed batches is asserted to reach the columns in exactly one frame
+- no business logic exists in the renderer — met
 
 ### Phase 3 — Introduce the Director Command Center
 
@@ -1184,11 +1249,12 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Clear the Phase 1 audit boundary with one post-fix required broad verification run.
-2. Continue Phase 2 at the rest of item 6 and items 8 through 10: commit the harness that drives
-   `DirectorGraphCanvas` over the committed fixtures in a real WebGL2 context, add its canvas-pixel
-   checks, run the scale and viewport scenarios at the matrix's tiers, profile, and fix what the
-   profile finds. The renderer itself needs no production state and no Director endpoint.
+1. Clear the Phase 1 and Phase 2 audit boundary with one post-fix required broad verification run.
+2. Start Phase 3 at items 1 through 4: adapt the Master route decision catalog into the Director
+   decision protocol, rename the product-facing Master concepts, implement the deep
+   `DirectorCommandCenter` boundary, and stand up the app-scoped workstream registry with push
+   subscriptions and durable cursors. The renderer is proven standalone and needs only packed
+   snapshots, so the boundary work is what the graph is now waiting on.
 3. Build the exhaustive node/edge visual gallery after Phase 3 makes the Director contracts reachable
    to `desktop/src/generated/backend.ts`. `ProjectionFixtures()` is the production-contract source
    the gallery renders from. The four contract gaps the inventory found are already closed in

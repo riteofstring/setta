@@ -38,6 +38,16 @@ interface GraphPercentiles {
 
 export interface GraphPerformanceSummary {
   readonly frames: number;
+  /**
+   * The period the renderer *adapted* against: derived from the single shortest
+   * observed frame delta, which is deliberately optimistic so a renderer stuck
+   * at half rate cannot redefine the target as half rate. It is an adaptation
+   * input, not the display's refresh period, so a report resolves its own frame
+   * budget from the delta distribution rather than reusing this.
+   */
+  readonly adaptationBudgetMs: number;
+  /** Every frame delta still in the percentile window, for exact reporting. */
+  readonly frameDeltasMs: readonly number[];
   readonly cpuFrameMs: GraphPercentiles;
   readonly frameDeltaMs: GraphPercentiles;
   readonly gpuFrameMs: GraphPercentiles | null;
@@ -84,6 +94,10 @@ class RingBuffer {
       p99: quantile(sorted, 0.99),
       maximum: quantile(sorted, 1),
     };
+  }
+
+  samples(): number[] {
+    return Array.from(this.values.subarray(0, this.count));
   }
 
   countAtLeast(threshold: number): number {
@@ -174,6 +188,8 @@ export class GraphFrameSampler {
     const frames = this.cpuFrames.size();
     return {
       frames,
+      adaptationBudgetMs: this.slowFrameBudgetMs,
+      frameDeltasMs: this.frameDeltas.samples(),
       cpuFrameMs: this.cpuFrames.percentiles(),
       frameDeltaMs: this.frameDeltas.percentiles(),
       gpuFrameMs: this.gpuFrames.size() > 0 ? this.gpuFrames.percentiles() : null,

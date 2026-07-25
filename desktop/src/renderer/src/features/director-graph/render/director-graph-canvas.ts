@@ -36,6 +36,7 @@ import {
   type GraphPerformanceSummary,
 } from "./graph-instrumentation";
 import { GraphLabelLayer } from "./graph-label-layer";
+import { checkGraphCanvasPixels, type GraphCanvasPixelCheck } from "./graph-pixel-check";
 import { GraphLadderLayout, advanceGraphCamera } from "./graph-ladder-layout";
 import {
   computeGraphLabelPlacements,
@@ -47,6 +48,7 @@ import {
   graphQualityForViewport,
   graphReducedMotionProfile,
   graphRefreshPeriodMs,
+  type GraphQualityTier,
 } from "./graph-quality";
 import {
   GraphScenePacker,
@@ -61,8 +63,24 @@ import {
   type GraphScreenPoint,
   type GraphViewport,
 } from "./graph-view-state";
-import { graphMotionRates } from "./graph-visual-language";
+import { graphFitFrame, graphMotionRates } from "./graph-visual-language";
 import { packedValueAt } from "../packed-graph-vocabulary";
+
+export interface GraphCanvasQuality {
+  readonly tier: GraphQualityTier;
+  /**
+   * The viewport the graph is drawing at. It follows the element's resize
+   * observer, which is a frame behind the DOM box, so a measurement that
+   * changes the viewport waits on this rather than on the element.
+   */
+  readonly viewport: GraphViewport;
+  readonly devicePixelRatio: number;
+  readonly renderScale: number;
+  readonly postWidth: number;
+  readonly postHeight: number;
+  readonly sceneWidth: number;
+  readonly sceneHeight: number;
+}
 
 export interface DirectorGraphCanvasOptions {
   readonly canvas: HTMLCanvasElement;
@@ -105,9 +123,11 @@ export class DirectorGraphCanvas {
 
   private snapshot: PackedGraphSnapshot;
   private queued: PackedGraphBatch[] = [];
+  private pendingPixelChecks: ((check: GraphCanvasPixelCheck) => void)[] = [];
   private reducedMotion: boolean;
   private hoverAmount = 0;
   private lastViewportKey = "";
+  private lastSurfaceKey = "";
   private lastFrameTimestampMs = 0;
   private disposed = false;
 
@@ -141,14 +161,23 @@ export class DirectorGraphCanvas {
     );
   }
 
-  /** Replaces the whole graph, e.g. when the selected workstream changes. */
+  /**
+   * Replaces the whole graph: a workstream switch, a resync, or a cold replay
+   * after restart. Everything incremental resets, because a replacement is not
+   * an extension even when it carries the same workstream id — the ladder's
+   * turn ranges and the packer's upload ranges both describe the snapshot they
+   * were built from, not this one.
+   */
   setSnapshot(snapshot: PackedGraphSnapshot): void {
     if (snapshot.workstreamId !== this.snapshot.workstreamId) {
       this.view.reset();
       this.hoverAmount = 0;
+    } else {
+      this.view.clearNodeFocus();
     }
     this.snapshot = snapshot;
     this.queued = [];
+    this.layout.reset();
     this.packer.noteChanged(0, 0);
     this.scheduler.requestFrame();
   }
@@ -177,7 +206,10 @@ export class DirectorGraphCanvas {
       this.profileFor(viewport, this.options.devicePixelRatioOf()),
     );
     this.renderer.applyProfile(decision.profile);
+    // Reduced motion re-derives the profile, so both the tier and the surfaces
+    // have to be reapplied rather than only redrawn.
     this.lastViewportKey = "";
+    this.lastSurfaceKey = "";
     this.scheduler.requestFrame();
   }
 
@@ -250,12 +282,52 @@ export class DirectorGraphCanvas {
     return this.sampler.summary();
   }
 
+  /** False once the loop has gone to sleep: nothing on screen is moving. */
+  isAwake(): boolean {
+    return this.scheduler.isAwake();
+  }
+
+  /**
+   * Reads the next drawn frame back and judges it. The readback has to happen
+   * inside the frame that drew it, so this resolves after that frame rather
+   * than sampling whatever the compositor still holds.
+   */
+  requestPixelCheck(): Promise<GraphCanvasPixelCheck> {
+    if (this.disposed) {
+      throw new Error("cannot check pixels of a disposed graph canvas");
+    }
+    return new Promise((resolve) => {
+      this.pendingPixelChecks.push(resolve);
+      this.scheduler.requestFrame();
+    });
+  }
+
   resetPerformanceSampling(): void {
     this.sampler.reset();
   }
 
   currentSnapshot(): PackedGraphSnapshot {
     return this.snapshot;
+  }
+
+  /**
+   * The tier, adaptive scale, and pass sizes a performance report has to state.
+   * Derived values would drift from the ones actually in force, because both the
+   * tier and the scale move while a sample runs.
+   */
+  qualityState(): GraphCanvasQuality {
+    const decision = this.quality.current();
+    const surfaces = this.renderer.surfaceSizes();
+    return {
+      tier: decision.profile.tier,
+      viewport: this.options.viewportOf(),
+      devicePixelRatio: this.options.devicePixelRatioOf(),
+      renderScale: decision.renderScale,
+      postWidth: surfaces.postWidth,
+      postHeight: surfaces.postHeight,
+      sceneWidth: surfaces.sceneWidth,
+      sceneHeight: surfaces.sceneHeight,
+    };
   }
 
   dispose(): void {
@@ -368,10 +440,31 @@ export class DirectorGraphCanvas {
     });
     this.gpuTimer.endFrame();
     this.stopwatch.end();
+    this.resolvePixelChecks(viewport);
 
     this.updateLabels(timeSeconds, viewport, nodes);
     this.recordFrame(frameStart, timing);
     return this.decideOutcome(ladder, timeSeconds, arrived, hovering);
+  }
+
+  private resolvePixelChecks(viewport: GraphViewport): void {
+    if (this.pendingPixelChecks.length === 0) {
+      return;
+    }
+    const waiting = this.pendingPixelChecks;
+    this.pendingPixelChecks = [];
+    const surfaces = this.renderer.surfaceSizes();
+    const pixels = new Uint8Array(surfaces.postWidth * surfaces.postHeight * 4);
+    this.renderer.readCanvasPixels(pixels);
+    const check = checkGraphCanvasPixels({
+      pixels,
+      width: surfaces.postWidth,
+      height: surfaces.postHeight,
+      fit: graphFitFrame(viewport.width, viewport.height),
+    });
+    for (const resolve of waiting) {
+      resolve(check);
+    }
   }
 
   private renderView(timeSeconds: number): GraphRenderView {
@@ -388,21 +481,40 @@ export class DirectorGraphCanvas {
     };
   }
 
+  /**
+   * Two decisions, kept apart.
+   *
+   * A *viewport* change re-derives the starting tier, because the tier is chosen
+   * from how many pixels the surface has. Everything else — an adaptive tier
+   * step, an adaptive scale step — only resizes. Re-deriving the tier on every
+   * frame that changed quality would hand the viewport's starting tier back
+   * immediately, so the graph could never hold a tier it had earned and would
+   * pay for a geometry rebuild every few frames.
+   *
+   * The surface key covers the scale as well as the tier, so a scale step
+   * actually reaches the framebuffers instead of waiting for the next viewport
+   * change to carry it.
+   */
   private applyViewport(viewport: GraphViewport, devicePixelRatio: number): void {
-    const key = `${viewport.width}x${viewport.height}@${devicePixelRatio}`;
-    if (key === this.lastViewportKey) {
+    const viewportKey = `${viewport.width}x${viewport.height}@${devicePixelRatio}`;
+    if (viewportKey !== this.lastViewportKey) {
+      this.lastViewportKey = viewportKey;
+      const decision = this.quality.setProfile(this.profileFor(viewport, devicePixelRatio));
+      if (decision.tierChanged) {
+        this.renderer.applyProfile(decision.profile);
+      }
+    }
+    const current = this.quality.current();
+    const surfaceKey = `${viewportKey}|${current.profile.tier}|${current.renderScale}`;
+    if (surfaceKey === this.lastSurfaceKey) {
       return;
     }
-    this.lastViewportKey = key;
-    const decision = this.quality.setProfile(this.profileFor(viewport, devicePixelRatio));
-    if (decision.tierChanged) {
-      this.renderer.applyProfile(decision.profile);
-    }
+    this.lastSurfaceKey = surfaceKey;
     this.renderer.resize(
       viewport.width,
       viewport.height,
       devicePixelRatio,
-      decision.renderScale,
+      current.renderScale,
       this.options.canvas,
     );
   }
@@ -439,8 +551,9 @@ export class DirectorGraphCanvas {
       this.sampler.recordQuality(decision.renderScale, decision.tierChanged);
       if (decision.tierChanged) {
         this.renderer.applyProfile(decision.profile);
-        this.lastViewportKey = "";
       }
+      // The surfaces follow both knobs; `applyViewport` resizes on the next
+      // frame when either moved.
     }
     this.sampler.record({
       cpuFrameMs: this.now() - frameStart,

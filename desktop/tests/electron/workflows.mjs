@@ -164,6 +164,11 @@ export const electronWorkflows = [
     name: "topic-conversation-performance",
     tiers: ["performance"],
   },
+  {
+    file: "director-graph-renderer-performance.test.mjs",
+    name: "director-graph-renderer-performance",
+    tiers: ["performance"],
+  },
 ];
 
 export function electronWorkflowNames() {
