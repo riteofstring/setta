@@ -1,10 +1,9 @@
-# Setta 4 Director Command Center — Implementation Foundation
+# Setta 4 Director Command Center - Historical Implementation Foundation
 
-> Historical status: the current plan of record is
-> [`setta-4-director-command-center-recovery-plan.md`](setta-4-director-command-center-recovery-plan.md).
-> This document retains the completed implementation history, architectural
-> constraints, and verification evidence; its completion status and immediate
-> next actions are superseded.
+This document records the implementation foundation that existed before the
+Director runtime was re-centered on a persistent Codex conversation with Setta
+meta-tools. It is not the active implementation plan. The active plan is
+[`setta-4-director-codex-conversation-plan.md`](setta-4-director-codex-conversation-plan.md).
 
 **Date:** 2026-07-24
 **Status:** Approved direction; Phase 0 repository work and Phases 1 and 2 are
