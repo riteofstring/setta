@@ -25,9 +25,9 @@ belong in one durable transaction. Item 3's dispatch surface is committed in
 and `desktop/src/main/director-*.ts`: `DirectorCommandCenter` is the one boundary
 the shell talks to, three endpoints carry it, and the desktop forwards the
 app-scoped subscription through typed IPC. The Director contracts are therefore
-reachable in `desktop/src/generated/backend.ts` at protocol version 85, which is
-what Phase 1 item 13's visual gallery was waiting for. Executing a routed
-decision is committed in `internal/director/execution.go`,
+reachable in `desktop/src/generated/backend.ts`, and Phase 1 item 13's visual
+gallery now consumes them. Executing a routed decision is committed in
+`internal/director/execution.go`,
 `decision_execution.go`, and `internal/conversation/service_director_commands.go`
 (item 6's execution half): `WorkstreamExecution` is the consumer-owned execution
 port, and `DecisionExecutor.Execute` is total over a `RoutedIntent` — it commits
@@ -54,7 +54,13 @@ renderer itself is committed in
 and the measurement half is committed as `render/graph-pixel-check.ts`, the
 fixture harness page in `features/director-graph/harness/`, and the workflow
 `desktop/tests/electron/director-graph-renderer-performance.test.mjs` (items 6,
-8, 9, and 10). Measured results for every scenario and tier are in
+8, 9, and 10). The deferred production-contract visual gallery is now committed:
+`cmd/generate-director-graph-gallery` projects `ProjectionFixtures()` into
+generated TypeScript fixture data, `semantic-graph-visual-catalog.ts` maps the
+generated semantic values exhaustively onto packed visual vocabulary,
+`semantic-graph-packer.ts` packs those graphs for the existing WebGL2 canvas, and
+the `director-graph-gallery` renderer entry displays the coverage-bearing
+fixture catalog. Measured results for every scenario and tier are in
 [`docs/reports/performance/setta-4-graph-renderer-scenarios-20260724.md`](../reports/performance/setta-4-graph-renderer-scenarios-20260724.md).
 The corrective audit measurement is in
 [`docs/reports/performance/setta-4-graph-renderer-phase2-audit-20260724.md`](../reports/performance/setta-4-graph-renderer-phase2-audit-20260724.md).
@@ -80,11 +86,7 @@ typed provider lifecycle records for thread status, environment connection, and
 thread close; a `validation_recorded` trajectory event for Guardian review and
 model verification; and approval reconciliation for `serverRequest/resolved`.
 Provider lifecycle failures and retry intent use exact typed reasons, raw provider
-diagnostics stay behind the adapter, and Guardian risk remains a typed field. The
-visual gallery in item 13 is deferred to Phase 3, when the Director endpoints and
-events make the registered contracts reachable to the TypeScript generator. It is
-not a Phase 1 completion blocker, and no parallel TypeScript contract mirror should
-be introduced to build it earlier.
+diagnostics stay behind the adapter, and Guardian risk remains a typed field.
 The shared audit's final production-path evidence is green: all eight deterministic
 topic-conversation Electron workflows passed; the single live-provider attempt
 passed the agent protocol, conversation side-isolation, and runtime
@@ -959,10 +961,13 @@ Exit gate:
     than internal errors, app-scoped and per-conversation sequence gaps fail before projection,
     cross-workstream provenance and delegation authority are validated, and the fixtures are asserted
     to exercise every node kind and edge kind.**
-13. Build the exhaustive node/edge visual gallery from production contract fixtures. **Deferred to
-    Phase 3, and now unblocked: the Phase 3 item 3 endpoints put the Director contracts in
-    `desktop/src/generated/backend.ts`. `ProjectionFixtures()` remains the production-contract
-    source. This dependency-bound visual integration is not a Phase 1 contract or projector gap.**
+13. Build the exhaustive node/edge visual gallery from production contract fixtures. **Done in
+    Phase 3 — `cmd/generate-director-graph-gallery` projects `ProjectionFixtures()` into
+    `desktop/src/renderer/src/features/director-graph/projection-gallery-fixtures/`, including
+    coverage-bearing prefix projections for transient lifecycle states. The renderer imports those
+    decoded generated backend contracts, maps every generated semantic node kind, node status,
+    evidence class, and edge kind through `semantic-graph-visual-catalog.ts`, packs them through
+    `semantic-graph-packer.ts`, and displays them in the `director-graph-gallery` entry.**
 14. Adapt the remaining notifications the matrix marks `normalized` that still have no normalizer.
     **Done.** `thread/environment/*` and `model/safetyBuffering/updated` are registered in
     `internal/codexapp/protocolschema/supported_protocol.json`, and `ThreadStatus` is generated as a
@@ -1004,7 +1009,8 @@ Exit gate:
 - no graph node depends on keyword heuristics or private reasoning — met
 - invalid model output resolves through typed recovery policy — met at the projector boundary;
   model-driven Director integration is Phase 3
-- exhaustive visual mappings compile without a fallback case — deferred with item 13 to Phase 3
+- exhaustive visual mappings compile without a fallback case — met by the generated-contract visual
+  catalog and gallery packer
 
 ### Phase 2 — Prove the standalone 120 Hz renderer
 
@@ -1618,10 +1624,5 @@ Setta 4 is complete when:
    remaining Master-to-Director renaming in item 2 should move with the code Phase 5 does not delete.
    No dispatched intent has shell-facing end-to-end coverage yet, because no renderer surface
    dispatches one until Phase 4 items 1 through 4.
-2. Build the exhaustive node/edge visual gallery. Its dependency is closed: the Director contracts
-   are generated into `desktop/src/generated/backend.ts`, and `ProjectionFixtures()` is the
-   production-contract source the gallery renders from. The four contract gaps the inventory found
-   are already closed in `internal/director`; moving `internal/master` onto
-   `director.WorkstreamResourceBinding` is Phase 3 rewiring, not a remaining contract gap.
-3. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
+2. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.

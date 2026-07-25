@@ -46,6 +46,8 @@ export default defineConfig({
           // The Setta 4 graph measurement page: the canvas, its fixtures, and
           // nothing else, so frame samples and pixel checks see only the graph.
           "director-graph": resolve("src/renderer/director-graph.html"),
+          // Development gallery for Go-owned Director projection fixtures.
+          "director-graph-gallery": resolve("src/renderer/director-graph-gallery.html"),
         },
       },
     },

@@ -6,6 +6,7 @@
     "src/preload/index.ts",
     "src/renderer/src/main.tsx",
     "src/renderer/src/features/director-graph/harness/director-graph-harness-main.tsx",
+    "src/renderer/src/features/director-graph/gallery/director-graph-gallery-main.tsx",
     "vitest.config.ts"
   ],
   "project": [
