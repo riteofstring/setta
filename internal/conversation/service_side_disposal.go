@@ -18,20 +18,19 @@ func (service *Service) DisposeSideConversation(
 	ctx context.Context,
 	workspaceID string,
 	parentConversationID string,
-	parentPaneID string,
 	sideConversationID string,
 ) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	if err := validateSideDisposalRequest(parentConversationID, parentPaneID, sideConversationID); err != nil {
+	if err := validateSideDisposalRequest(parentConversationID, sideConversationID); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	if _, err := service.workspaces.ResolveActiveWorkspace(workspaceID); err != nil {
 		return ConversationSnapshot{}, err
 	}
 
-	side, err := service.prepareSideDisposal(ctx, workspaceID, parentConversationID, parentPaneID, sideConversationID)
+	side, err := service.prepareSideDisposal(ctx, workspaceID, parentConversationID, sideConversationID)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -44,8 +43,8 @@ func (service *Service) DisposeSideConversation(
 	return service.store.ReadSnapshot(ctx, workspaceID, parentConversationID)
 }
 
-func validateSideDisposalRequest(parentConversationID string, parentPaneID string, sideConversationID string) error {
-	if err := validateSideConversationRequest(parentConversationID, parentPaneID); err != nil {
+func validateSideDisposalRequest(parentConversationID string, sideConversationID string) error {
+	if err := validateSideConversationRequest(parentConversationID); err != nil {
 		return err
 	}
 	return validateIdentifier("side disposal side conversation id", sideConversationID)
@@ -128,7 +127,6 @@ func (service *Service) prepareSideDisposal(
 	ctx context.Context,
 	workspaceID string,
 	parentConversationID string,
-	parentPaneID string,
 	sideConversationID string,
 ) (SideConversation, error) {
 	lock := service.conversationLock(parentConversationID)
@@ -141,12 +139,6 @@ func (service *Service) prepareSideDisposal(
 	side, err := service.readSideConversation(ctx, snapshot, sideConversationID)
 	if err != nil {
 		return SideConversation{}, err
-	}
-	if side.ParentPaneID != parentPaneID {
-		return SideConversation{}, &CommandConflictError{
-			ConversationID: parentConversationID,
-			Reason:         fmt.Sprintf("side conversation %s belongs to pane %s", side.ID, side.ParentPaneID),
-		}
 	}
 	if side.DisposedAt != nil {
 		return side, nil
@@ -365,7 +357,6 @@ func (service *Service) RecoverSideConversations(ctx context.Context) error {
 				ctx,
 				record.WorkspaceID,
 				side.ParentConversationID,
-				side.ParentPaneID,
 				side.ID,
 			)
 			if err != nil {
@@ -399,7 +390,7 @@ func (store *Store) readRecoverableSideConversations(ctx context.Context) ([]rec
 	err := store.read(ctx, "read recoverable side conversations", func(ctx context.Context, connection *sql.Conn) error {
 		rows, err := connection.QueryContext(ctx, `
 SELECT parent.workspace_id, parent.status,
-       side.id, side.parent_conversation_id, side.parent_pane_id,
+       side.id, side.parent_conversation_id,
        side.decision_source, side.provider_thread_id, side.source_provider_thread_id,
        side.source_provider_turn_id, side.source_trajectory_sequence,
        side.last_event_sequence, side.active_turn_id, side.active_provider_turn_id,
@@ -428,7 +419,6 @@ ORDER BY side.created_at, side.id
 				&record.Side.ParentStatus,
 				&record.Side.ID,
 				&record.Side.ParentConversationID,
-				&record.Side.ParentPaneID,
 				&record.Side.DecisionSource,
 				&providerThreadID,
 				&record.Side.SourceProviderThreadID,
