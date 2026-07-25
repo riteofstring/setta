@@ -9,6 +9,10 @@ The existing Setta 4 plan correctly names the target experience, but the current
 core workflow shown in the latest recording. This document is the corrective plan for that failure.
 It is not a cosmetic polish list.
 
+This is the current Setta 4 plan of record. It supersedes the completion status and immediate next
+actions in `setta-4-director-command-center-plan.md`; that document remains the implementation
+foundation and historical verification record.
+
 Reference recording:
 
 - `.recordings/20260725T211050Z`
@@ -143,8 +147,13 @@ typed state.
 
 ### 1. Director actionability is incomplete
 
-The structured decision layer currently permits an actionable request to become `answer_directly`.
-That makes the Director feel useless.
+The structured decision layer currently authorizes `answer_directly` and `create_workstream` in
+every context. With no existing work candidate, it does not authorize `ask_clarification`, and its
+deterministic product rule only resolves a single existing-workstream candidate. An actionable
+folder-choice request can therefore become a passive answer or a folderless creation, with no typed
+outcome that presents the native picker. The natural-language decision catalog also does not yet
+cover the direct command-center actions for cancellation, approval resolution, and resource
+resolution.
 
 Needed changes:
 
@@ -153,6 +162,10 @@ Needed changes:
   cancellation, approval resolution, and resource resolution as actions the Director can take.
 - Tighten `answer_directly` authority so it is not valid for supported app-control requests.
 - Add recovery for invalid/passive decisions so the app retries, repairs, or applies a product rule.
+- Add a typed folder-choice/picker presentation outcome. Do not accept model-invented paths or use
+  keyword heuristics to infer one.
+- Make useful clarification possible when authorized workspace choices, rather than existing
+  workstream candidates, are what change the outcome.
 - Add command receipts that tell the user what action happened.
 
 The product invariant is: if Setta can do the thing through a typed action, the Director must not
@@ -160,20 +173,37 @@ pretend it cannot.
 
 ### 2. Workstream registration has no visual anchor
 
-The backend can register and select workstreams, but registration currently does not create graph
-truth visible to the renderer. Empty workstreams therefore disappear into the ambient background.
+The backend already derives a `workstream_registered` fact from each durable conversation record,
+but the source catalog classifies it as metadata-only. Projection is intentionally lazy until the
+first graph fact so a child conversation's parentage, committed after its conversation record, is
+available before delegation is derived. A cold snapshot already includes empty graph envelopes for
+selected and adjacent unprojected workstreams; registration still produces no node and pushes no
+graph update, so empty workstreams disappear into the ambient background.
 
 Needed changes:
 
 - Add a real semantic workstream-anchor representation sourced from durable workstream registration.
-- Ensure selected and adjacent idle workstreams appear in snapshots and pushed graph updates.
+- Replace the registration fact's metadata-only mapping with anchor projection after durable
+  parentage is available; do not weaken child/fork ordering or delegation provenance.
+- Ensure selected and adjacent idle workstreams carry an anchor node in snapshots and pushed graph
+  updates, rather than merely an empty graph envelope.
+- Preserve the bounded level-of-detail contract: adjacent projection retains the anchor, while
+  background workstreams remain aggregate-only context and receive no graph content.
 - Keep anchor nodes visually distinct from action/task nodes.
+- Keep anchors out of current-activity, history, and last-milestone fallbacks.
+- Make the anchor the stable graph root for later `followed_by` activity, and
+  preserve the existing cross-workstream `delegated_to` resolution when a child
+  anchor becomes the child's first node.
 - Connect child/forked workstreams with real durable parentage edges.
 - Make selection a view state/highlight, not fake graph truth.
 
 ### 3. The renderer treats "no graph history" like "no selection"
 
 The recording shows selected workstreams, but the UI says "No work has been selected."
+During the live session the renderer retained the empty graph list from launch because registration
+pushed no graph update. A cold snapshot after registration would instead contain empty selected and
+adjacent graph envelopes. Both states produce empty graph-derived history, and the renderer
+currently mistakes that for absent selection.
 
 Needed changes:
 
@@ -184,6 +214,12 @@ Needed changes:
 ### 4. Workspace/folder context is under-presented
 
 The user should always know where the next command will act.
+The renderer already receives trusted folder state through the selected workstream's
+`resourceScope` and the workspace session used by the workspace-start panel, including the root
+path. That state is not carried consistently into Now, History, the graph, and the composer. The
+model-facing decision context deliberately receives only authorized workspace ids and display
+names, not filesystem paths, so a full-path status answer must be constructed or grounded by
+trusted product code rather than model recall.
 
 Needed changes:
 
@@ -245,18 +281,38 @@ with the new interactive recording Phase 6 needs.
 
 Root-cause seams the report pins for the phases that follow:
 
-- `internal/director/registry_decisions.go:286` always authorizes
-  `answer_directly` alongside `create_workstream`, and
-  `DecisionRejectionReason` has no member for a schema-valid passive or refusing
-  answer, so nothing recovers from one (Phase 3).
-- `SemanticNodeKind` in `internal/director/semantic_graph.go` has no
-  workstream-anchor member, so durable registration has nothing to project
-  (Phase 2).
+- `allowedDecisionKinds` in `internal/director/registry_decisions.go` always
+  authorizes `answer_directly` alongside `create_workstream`, authorizes
+  clarification only when existing-work candidates exist, and
+  `ProductInvariantDecision` never resolves creation. `DecisionRejectionReason`
+  has no member for a schema-valid passive or refusing answer, so nothing
+  recovers from one (Phase 3).
+- The model-facing workspace option intentionally contains only id and display
+  name, while `AskClarificationDecision` contains only free text. Phase 3 needs a
+  typed authorized workspace-choice/picker path; it must not expose raw paths to
+  the model or add keyword matching.
+- `SemanticNodeKind` has no workstream-anchor member, and
+  `DirectorFactWorkstreamRegistered` is explicitly metadata-only in
+  `source_mapping.go`. `ensureProjected` is lazy to preserve child parentage
+  committed after the conversation record, so Phase 2 must add anchors without
+  regressing branch/delegation ordering.
+- `snapshotGraphs` already returns empty graph envelopes for selected and
+  adjacent idle workstreams. Phase 2's acceptance condition is an actual anchor
+  node and pushed graph delta, not merely a non-empty `graphs` array. Adjacent
+  LOD currently prunes non-waiting, non-milestone nodes, while background LOD
+  deliberately carries aggregate status and no graph.
+- Adding a node kind also affects generated TypeScript, exhaustive renderer
+  catalogs and labels, source identity/mapping, graph fixtures/packing, and
+  milestone/activity classification. Those surfaces must change together in
+  Phase 2, with generated outputs regenerated rather than edited.
 - `DirectorCommandCenterShell.tsx:775-795` and `DirectorHistoryOverlay.tsx:97-100`
   key "No work has been selected." off graph-derived history length rather than
   selection (Phase 4).
 - `DirectorCommandCenterShell.tsx:728` and `director-workstream-status.ts:44`
-  fall back to a fabricated `Setta` target when nothing is selected (Phase 4).
+  fall back to a fabricated `Setta` target when nothing is selected. The shell
+  already owns a workspace session and selected workstreams already carry a
+  trusted folder `rootPath`; Phase 4 must present that existing state
+  consistently rather than invent another backend contract.
 
 ### Phase 2 - Make Workstream Anchors Real Graph State
 
@@ -265,10 +321,18 @@ Extend the semantic graph projection so durable workstream registration creates 
 Deliverables:
 
 - semantic representation for a workstream anchor
-- projection from durable workstream registration to anchor state
-- graph snapshots that include selected/adjacent idle workstreams
+- projection from durable workstream registration to anchor state after
+  parentage is durable
+- graph snapshots whose selected/adjacent idle entries contain anchor nodes
 - pushed graph updates when a workstream first appears
-- renderer styling for idle, selected, adjacent, and background anchors
+- adjacent LOD that retains anchors, with background workstreams still
+  aggregate-only
+- renderer styling for idle, selected, and adjacent anchors, plus legible
+  aggregate-only background controls
+- stable `followed_by` and cross-workstream `delegated_to` edges rooted in the
+  new anchor
+- exhaustive semantic-kind/generated-contract updates and activity, history,
+  and milestone classifications that do not present registration as work
 
 Exit criteria:
 
@@ -284,9 +348,14 @@ Deliverables:
 
 - explicit action path for "create/start a conversation/workstream"
 - action path for "use current folder"
-- action path for "choose/open a new folder"
+- typed presentation path for "choose/open a new folder"
+- authorized workspace-choice clarification that also works when no workstream
+  exists
 - action path for "what folder are we in?"
-- recovery when the model returns a passive answer for an actionable command
+- natural-language paths for cancellation, approval resolution, and resource
+  resolution through the existing typed command-center actions
+- typed authority and recovery when the model returns a passive answer for an
+  actionable command, without keyword heuristics
 - command receipts for successful actions
 
 Exit criteria:
@@ -295,7 +364,7 @@ Exit criteria:
   conversation"
 - the Director either creates the workstream, opens/presents folder choice, or asks a useful
   clarification
-- status/folder questions answer from trusted app state
+- status/folder questions answer from trusted app state; the model need not receive a raw path
 
 ### Phase 4 - Separate Director UI From Workstream UI
 
@@ -325,7 +394,8 @@ Deliverables:
 - visible nodes for user goal, Director decision, run, tool activity, file changes, approvals,
   subagents, artifacts, failures, and completion
 - label/detail behavior matching the mockup's spirit
-- selected workstream focus with adjacent/background context
+- selected workstream focus with adjacent graph context and aggregate-only
+  background context
 - no polling
 
 Exit criteria:

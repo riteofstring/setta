@@ -29,7 +29,7 @@ renderer presentation.
 | `ipc.jsonl` | 61 IPC round trips, including 15 `director:dispatch-intent` |
 | `backend-http.jsonl` | 38 request/response pairs |
 | `renderer-console.jsonl` | 17 records: one CSP warning, 16 speech-playback telemetry lines |
-| `screenshots/0001..0016` | periodic captures every 10s |
+| `screenshots/0001..0016` | three event-triggered startup captures and 13 periodic captures at 10s intervals |
 
 `renderer-console.jsonl` contains no application error. The failure is entirely
 a product-behavior failure, not a crash or an exception path.
@@ -42,19 +42,19 @@ a product-behavior failure, not a crash or an exception path.
 | --- | --- | --- | --- |
 | 21:11:05.601 | launch | `GET /director/snapshot` returns `selectedWorkstreamId: null`, `workstreams: []`, `graphs: []`, `workstreamCount: 0`; renderer subscribes from cursor `director:m0` sequence 0 | `ipc.jsonl` `director:read-snapshot`, `director:subscribe-events` |
 | 21:11:15.9 | none | NOW rail reads `Setta` / `Idle`; composer target reads `on: Setta Idle`; History reads "No work has been selected."; canvas is ambient dots only | `screenshots/0004-periodic.png` |
-| 21:11:15.9 - 21:11:24.6 | voice capture 1 | "I want to start a new conversation in a new folder. Can you help me with th..." | `speech:start/finish-local-macos-voice-capture` |
+| 21:11:15.9 - 21:11:24.9 | voice capture 1 | "I want to start a new conversation in a new folder. Can you help me with that?" | `ipc.jsonl` `speech:finish-local-macos-voice-capture` result |
 | 21:11:24.9 -> 21:11:28.9 | submit | 3.94s later: `answer_directly`, `resolution: "model"`, `workstreamId: null`, publicText "I can help you start a new conversation in a new folder." No workstream, no folder request, no resource request. Spoken aloud. | `ipc.jsonl` dispatch result; `renderer-console.jsonl` playback |
-| 21:11:33.0 - 21:11:43.9 | voice capture 2 | "Okay, so yeah, the folder is my home directory /document/appdevelopmen..." | `screenshots/0007-periodic.png` |
-| 21:11:44.2 -> 21:11:48.4 | submit | 4.15s later: `answer_directly` "Thanks-your folder is /document/appdevelopment/setta." The Director echoes the user's dictated path back as if it were app state. No workspace was open at this point; the first `POST /workspaces/open` is 24s later. | `ipc.jsonl` dispatch result; `backend-http.jsonl` |
-| 21:11:52.5 - 21:11:58.2 | voice capture 3 | "Yeah, so can you can you make a new conversation for me, please?" | `screenshots/0011-periodic.png` composer |
-| 21:11:58.5 -> 21:12:02.2 | submit | 3.74s later: `answer_directly` "I can't create a new conversation." | `ipc.jsonl` dispatch result |
+| 21:11:33.0 - 21:11:44.2 | voice capture 2 | "Okay, so yeah, the folder is my home directory /document/appdevelopment/setta." | `ipc.jsonl` `speech:finish-local-macos-voice-capture` result |
+| 21:11:44.2 -> 21:11:48.4 | submit | 4.15s later: `answer_directly` "Thanks—your folder is /document/appdevelopment/setta." The Director echoes the user's dictated path back as if it were app state. No workspace was open at this point; the first `POST /workspaces/open` is 24s later. | `ipc.jsonl` dispatch result; `backend-http.jsonl` |
+| 21:11:52.5 - 21:11:58.5 | voice capture 3 | "Yeah, so can you can you make a new conversation for me, please?" | `ipc.jsonl` `speech:finish-local-macos-voice-capture` result |
+| 21:11:58.5 -> 21:12:02.2 | submit | 3.74s later: `answer_directly` "I can’t create a new conversation." | `ipc.jsonl` dispatch result |
 | 21:12:08.5 | next-workstream control | dispatch `move_selection` returns `selectedWorkstreamId: null` - the control is live with nothing to move between | `ipc.jsonl` |
 | 21:12:09.5 -> 21:12:12.4 | Choose folder | `workspace:open-local-folder`, then `POST /workspaces/open` for `workspace_848be839...` at `/Users/kevin/Documents/AppDevelopment/setta`, then dispatch `create_workstream` -> `workstream:conversation_7a01f3f0...`, title "setta", status `idle`, folder-scoped | `ipc.jsonl`, `backend-http.jsonl`, `events.jsonl` |
 | 21:12:15.2, 21:12:16.4 | Choose folder x2 | two more `create_workstream` dispatches; three idle workstreams all titled "setta", all bound to the same folder | `ipc.jsonl` |
 | 21:12:18.1 - 21:12:26.9 | circle clicks | seven `select_workstream` dispatches | `ipc.jsonl` |
 | 21:12:25.9 | none | three workstreams exist and one is selected, yet History still reads "No work has been selected."; canvas still ambient only | `screenshots/0011-periodic.png` |
-| 21:12:30.0 - 21:12:33.3 | voice capture 4 | "What folder are we in now?" | `screenshots/0013-periodic.png` |
-| 21:12:33.6 -> 21:12:37.8 | submit | 4.22s later: `answer_directly`, publicText "setta". A bare display name, no path, `resolution: "model"` - not read from the workspace record the app had opened 25s earlier. | `ipc.jsonl` dispatch result |
+| 21:12:30.0 - 21:12:33.6 | voice capture 4 | "What folder are we in now?" | `ipc.jsonl` `speech:finish-local-macos-voice-capture` result |
+| 21:12:33.6 -> 21:12:37.8 | submit | 4.22s later: `answer_directly`, `resolution: "model"`, publicText "setta". The model context could contain that authorized workspace display name, but it deliberately did not contain the root path. `resolution` identifies the decision source, not the answer's data provenance; the response neither exposes the actual folder path nor proves deterministic grounding in the opened workspace. | `ipc.jsonl` dispatch result; `internal/director/registry_decisions.go` workspace-option projection |
 
 ### 1.2 Aggregate backend facts for the session
 
@@ -78,7 +78,7 @@ Intent dispatch results:
 
 Every workstream in the recording reached `status: "idle"` with a real
 `resourceScope` of kind `folder` bound to `workspace_848be839...`. Durable
-workstream state existed and was pushed. Graph state never did.
+workstream state existed and was pushed. No graph node or graph delta did.
 
 ### 1.3 Root cause attribution against the plan
 
@@ -86,9 +86,13 @@ Each numbered root cause in the recovery plan maps to a specific fact and a
 specific code seam.
 
 **Root cause 1 - Director actionability is incomplete.**
-`allowedDecisionKinds` (`internal/director/registry_decisions.go:286`) seeds every
+`allowedDecisionKinds` (`internal/director/registry_decisions.go`) seeds every
 context with `answer_directly` and `create_workstream`, so at 21:11:58 the model
 held authority to create the workstream and returned a refusal string instead.
+It adds `ask_clarification` only when an existing workstream offers a work
+outcome, while `ProductInvariantDecision` resolves only a single existing-work
+candidate. With no workstream and no open workspace, the first utterance
+therefore had no typed folder-choice/picker outcome.
 The recovery layer cannot catch this: `DecisionRejectionReason`
 (`internal/director/decision_recovery.go:20-51`) enumerates malformed output,
 unknown/unauthorized kind, invalid payload, unknown/unauthorized target,
@@ -103,16 +107,24 @@ not hold, and there is no enforcement behind it.
 Three `create_workstream` dispatches produced 22 `director.workstream.updated`
 events and zero `director.graph.updated` events. `SemanticNodeKind`
 (`internal/director/semantic_graph.go:13-29`) has no workstream-anchor member;
-the catalog starts at `user_goal`. Durable registration therefore has no
-semantic representation to project into.
+the catalog starts at `user_goal`. The registry does derive a
+`workstream_registered` fact, but `source_mapping.go` explicitly classifies it
+as metadata-only, and `ensureProjected` waits until the first graph fact so
+child parentage committed after a conversation record is available. A cold
+snapshot already supplies empty graph envelopes for selected and adjacent
+unprojected workstreams. Phase 2 must turn the registration fact into an anchor
+node without losing that parentage ordering, and must preserve the existing
+aggregate-only background level of detail.
 
 **Root cause 3 - The renderer treats "no graph history" like "no selection".**
 The History section keys its empty state off graph-derived node history, not off
 selection: `history.length > 0 ? ... : "No work has been selected."`
 (`DirectorCommandCenterShell.tsx:775-795`, same string at
-`DirectorHistoryOverlay.tsx:97-100`). Because `graphs` is `[]` for a newly
-registered workstream, the copy denies a selection the backend had already made
-and pushed.
+`DirectorHistoryOverlay.tsx:97-100`). The live renderer retained `graphs: []`
+from its launch snapshot because registration pushed no graph event. A new
+snapshot after registration would contain empty selected/adjacent graph
+envelopes instead. Either representation still yields empty history, so the
+copy denies a selection the backend had already made and pushed.
 
 **Root cause 4 - Workspace/folder context is under-presented.**
 The NOW rail renders `workstream?.title ?? "Setta"`
@@ -120,8 +132,13 @@ The NOW rail renders `workstream?.title ?? "Setta"`
 via `director-workstream-status.ts:44`. With no workstream the surface presents a
 target named "Setta" in state "Idle" that does not exist, and once a real
 workstream titled "setta" appears the two are indistinguishable. No screenshot in
-the recording shows the folder path anywhere in the UI, which is why the folder
-question at 21:12:33 had nothing trustworthy to answer from.
+the recording shows the folder path anywhere in the UI. Trusted data was
+available: the selected workstream's folder `resourceScope` includes its
+`rootPath`, and the shell already owns the workspace session used by its
+workspace-start panel. The model-facing decision context intentionally exposes
+only authorized workspace ids and display names, not paths. The defect is that
+the product neither presents the trusted renderer state nor constructs a
+grounded folder-status answer from it.
 
 **Root cause 5 - Workstream controls are visually ambiguous.**
 Screenshots 0011 and 0013 show three identical unlabeled circles for three
@@ -138,9 +155,9 @@ Same four utterances, same picker clicks, same order.
    folderless state is explicit.
 2. **"I want to start a new conversation in a new folder."** The Director takes a
    typed action. Because the user asked for a *new* folder, the correct outcome
-   is to present folder choice - either `ask_clarification` naming the folder
-   options the app supplied, or driving the folder picker. It does not reply with
-   a passive statement of willingness.
+   is a typed folder-choice outcome that presents the picker, or a clarification
+   referencing authorized workspace options when meaningful choices already
+   exist. It does not reply with a passive statement of willingness.
 3. **"the folder is my home directory /document/appdevelopment/..."** The
    Director resolves the named folder against app-supplied workspace options. If
    it resolves, it creates and selects a folder-scoped workstream and emits a
@@ -158,8 +175,9 @@ Same four utterances, same picker clicks, same order.
    History and Now rails keep saying a workstream is selected and that it has no
    activity yet; neither claims nothing is selected.
 7. **"What folder are we in now?"** Answered from the durable workspace record -
-   the folder identity and path the app opened at 21:12:12 - not from model
-   recall. A bare display name is not an acceptable answer to a folder question.
+   the folder identity and path the app opened at 21:12:12 - through trusted
+   product state rather than model recall. The full path is available in the UI
+   or an explicit disclosure; a bare ambiguous display name is insufficient.
 8. **A real work request.** A run starts and the graph changes from pushed
    durable events while it runs.
 
@@ -179,9 +197,9 @@ Observed against a re-recording of the acceptance scenario. Kind names are from
 | --- | --- |
 | `director.graph.updated` at least once per workstream creation | every `create_workstream`, before any run exists |
 | `director.graph.updated` carrying a workstream-anchor node | first appearance of a workstream |
-| `GET /director/snapshot` with non-empty `graphs` when at least one workstream exists | app launch with existing workstreams |
-| A dispatch `submit` whose result is not `answer_directly` for an actionable command | utterances 1, 3, and 4 in section 2 |
-| A folder/status answer whose content is derived from durable workspace state | utterance 7 |
+| `GET /director/snapshot` whose selected/adjacent idle graph entries contain a workstream anchor | app launch with existing workstreams |
+| A dispatch `submit` whose result is not `answer_directly` for an actionable command | steps 2 through 4, the first three utterances in section 2 |
+| A folder/status answer whose content is derived from durable workspace state | step 7 |
 
 ### 3.2 Must continue to appear
 
@@ -199,8 +217,10 @@ progressed and completed or failed, file changes proposed or completed,
 approvals requested and resolved, subagents started and updated and completed or
 failed, artifacts emitted, and run completed or cancelled or failed or recovered.
 These map onto the existing `SemanticNodeKind` catalog
-(`internal/director/semantic_graph.go:13-29`); Phase 5 must not need new node
-kinds beyond the workstream anchor added in Phase 2.
+(`internal/director/semantic_graph.go:13-29`) where that catalog expresses the
+durable fact accurately. Phase 5 must audit every mapping and may extend the
+owned contract when a real semantic distinction is missing; it must not invent
+activity or infer it from untyped text.
 
 ### 3.4 Must not appear
 
@@ -279,3 +299,30 @@ display and a signed-in Codex CLI. That capture cannot be produced from the
 repository. Phase 6 acceptance against a re-recording is recorded here as a
 release gate, and the sign-off named in the Phase 1 exit criteria is an external
 agreement, not a repository artifact.
+
+## 6. Coherent Phase 1 audit
+
+The requested minimum audit range was
+`a503f7189d9f0f05b37026c9cc97191da0a58b63..5aeaf764d11c0acddfcd3f93c5f3798e9bec53ca`.
+The coherent range expands through the commit that introduced this recovery
+phase:
+`b4e59432e62a8cfba9baaeb663c6958198d95239^..5aeaf764d11c0acddfcd3f93c5f3798e9bec53ca`.
+
+Before audit corrections, that range added only this baseline and the recovery
+plan; it changed no implementation or generated contract. The static audit
+rechecked `.recordings/latest.json`, the manifest, event/IPC/HTTP/console logs,
+the complete screenshot-marker sequence and representative captures 0004,
+0011, and 0013, decision authority and recovery, workspace-option projection,
+registration/source mapping, projection sequencing and parentage, graph
+snapshot/event LOD, renderer selection/history/activity state, and trusted
+workspace state. The corrections above distinguish direct evidence from
+inference and pin the existing invariants the implementation phases must change
+or preserve.
+
+Phase 1 has no deterministic app matrix or live-provider suite: its deliverables
+are a recording-derived baseline and acceptance contract, not an implementation
+claim. A broad or live run would not validate these Markdown changes or prove
+the recorded product failures fixed, so no broad gate was repeated. The
+applicable repository verification is static diff, reference, and formatting
+inspection. The unavailable interactive re-recording and external agreement
+remain release gates; they were not retried or approximated.
