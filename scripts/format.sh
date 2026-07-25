@@ -10,7 +10,7 @@ if [[ -f "${repo_root}/go.mod" ]]; then
     go_files+=("${file_path}")
   done < <(
     find "${repo_root}" \
-      \( -path "${repo_root}/.git" -o -path "${repo_root}/.tools" -o -path "*/.build" -o -path "*/node_modules" -o -path "*/dist" -o -path "*/build" -o -path "*/out" -o -path "*/coverage" -o -path "*/test-results" -o -path "*/playwright-report" \) -prune \
+      \( -path "${repo_root}/.git" -o -path "${repo_root}/.tools" -o -path "*/node_modules" -o -path "*/dist" -o -path "*/build" -o -path "*/out" -o -path "*/coverage" -o -path "*/test-results" -o -path "*/playwright-report" \) -prune \
       -o -name '*.go' -type f -print \
       | LC_ALL=C sort
   )
@@ -25,7 +25,7 @@ while IFS= read -r package_json; do
   pnpm -C "${project_dir}" run format:write
 done < <(
   find "${repo_root}" \
-    \( -path "${repo_root}/.git" -o -path "${repo_root}/.tools" -o -path "*/.build" -o -path "*/node_modules" -o -path "*/dist" -o -path "*/build" -o -path "*/out" -o -path "*/coverage" -o -path "*/test-results" -o -path "*/playwright-report" \) -prune \
+    \( -path "${repo_root}/.git" -o -path "${repo_root}/.tools" -o -path "*/node_modules" -o -path "*/dist" -o -path "*/build" -o -path "*/out" -o -path "*/coverage" -o -path "*/test-results" -o -path "*/playwright-report" \) -prune \
     -o -name package.json -type f -print \
     | LC_ALL=C sort
 )

@@ -101,7 +101,6 @@ const (
 	CodexNotificationMcpServerOauthLoginCompleted            = "mcpServer/oauthLogin/completed"
 	CodexNotificationMcpServerStartupStatusUpdated           = "mcpServer/startupStatus/updated"
 	CodexNotificationModelRerouted                           = "model/rerouted"
-	CodexNotificationModelSafetyBufferingUpdated             = "model/safetyBuffering/updated"
 	CodexNotificationModelVerification                       = "model/verification"
 	CodexNotificationProcessExited                           = "process/exited"
 	CodexNotificationProcessOutputDelta                      = "process/outputDelta"
@@ -110,8 +109,6 @@ const (
 	CodexNotificationSkillsChanged                           = "skills/changed"
 	CodexNotificationThreadArchived                          = "thread/archived"
 	CodexNotificationThreadClosed                            = "thread/closed"
-	CodexNotificationThreadEnvironmentConnected              = "thread/environment/connected"
-	CodexNotificationThreadEnvironmentDisconnected           = "thread/environment/disconnected"
 	CodexNotificationThreadGoalCleared                       = "thread/goal/cleared"
 	CodexNotificationThreadGoalUpdated                       = "thread/goal/updated"
 	CodexNotificationThreadNameUpdated                       = "thread/name/updated"
@@ -202,7 +199,6 @@ var CodexSupportedNotificationValues = []string{
 	CodexNotificationMcpServerOauthLoginCompleted,
 	CodexNotificationMcpServerStartupStatusUpdated,
 	CodexNotificationModelRerouted,
-	CodexNotificationModelSafetyBufferingUpdated,
 	CodexNotificationModelVerification,
 	CodexNotificationProcessExited,
 	CodexNotificationProcessOutputDelta,
@@ -211,8 +207,6 @@ var CodexSupportedNotificationValues = []string{
 	CodexNotificationSkillsChanged,
 	CodexNotificationThreadArchived,
 	CodexNotificationThreadClosed,
-	CodexNotificationThreadEnvironmentConnected,
-	CodexNotificationThreadEnvironmentDisconnected,
 	CodexNotificationThreadGoalCleared,
 	CodexNotificationThreadGoalUpdated,
 	CodexNotificationThreadNameUpdated,
@@ -237,81 +231,6 @@ var CodexSupportedNotificationValues = []string{
 	CodexNotificationWarning,
 	CodexNotificationWindowsWorldWritableWarning,
 	CodexNotificationWindowsSandboxSetupCompleted,
-}
-
-// CodexUpstreamNotificationValues lists every server notification method in the
-// checked-in Codex protocol snapshot, including unregistered methods.
-var CodexUpstreamNotificationValues = []string{
-	"account/login/completed",
-	"account/rateLimits/updated",
-	"account/updated",
-	"app/list/updated",
-	"command/exec/outputDelta",
-	"configWarning",
-	"deprecationNotice",
-	"error",
-	"externalAgentConfig/import/completed",
-	"externalAgentConfig/import/progress",
-	"fs/changed",
-	"fuzzyFileSearch/sessionCompleted",
-	"fuzzyFileSearch/sessionUpdated",
-	"guardianWarning",
-	"hook/completed",
-	"hook/started",
-	"item/agentMessage/delta",
-	"item/autoApprovalReview/completed",
-	"item/autoApprovalReview/started",
-	"item/commandExecution/outputDelta",
-	"item/commandExecution/terminalInteraction",
-	"item/completed",
-	"item/fileChange/outputDelta",
-	"item/fileChange/patchUpdated",
-	"item/mcpToolCall/progress",
-	"item/plan/delta",
-	"item/reasoning/summaryPartAdded",
-	"item/reasoning/summaryTextDelta",
-	"item/reasoning/textDelta",
-	"item/started",
-	"mcpServer/oauthLogin/completed",
-	"mcpServer/startupStatus/updated",
-	"model/rerouted",
-	"model/safetyBuffering/updated",
-	"model/verification",
-	"process/exited",
-	"process/outputDelta",
-	"remoteControl/status/changed",
-	"serverRequest/resolved",
-	"skills/changed",
-	"thread/archived",
-	"thread/closed",
-	"thread/compacted",
-	"thread/deleted",
-	"thread/environment/connected",
-	"thread/environment/disconnected",
-	"thread/goal/cleared",
-	"thread/goal/updated",
-	"thread/name/updated",
-	"thread/realtime/closed",
-	"thread/realtime/error",
-	"thread/realtime/itemAdded",
-	"thread/realtime/outputAudio/delta",
-	"thread/realtime/sdp",
-	"thread/realtime/started",
-	"thread/realtime/transcript/delta",
-	"thread/realtime/transcript/done",
-	"thread/settings/updated",
-	"thread/started",
-	"thread/status/changed",
-	"thread/tokenUsage/updated",
-	"thread/unarchived",
-	"turn/completed",
-	"turn/diff/updated",
-	"turn/moderationMetadata",
-	"turn/plan/updated",
-	"turn/started",
-	"warning",
-	"windows/worldWritableWarning",
-	"windowsSandbox/setupCompleted",
 }
 
 type AbsolutePathBuf = string
@@ -629,6 +548,7 @@ type AppMetadata struct {
 	Categories                 *[]string        `json:"categories,omitempty"`
 	Developer                  *string          `json:"developer,omitempty"`
 	FirstPartyRequiresInstall  *bool            `json:"firstPartyRequiresInstall,omitempty"`
+	FirstPartyType             *string          `json:"firstPartyType,omitempty"`
 	Review                     *AppReview       `json:"review,omitempty"`
 	Screenshots                *[]AppScreenshot `json:"screenshots,omitempty"`
 	SeoDescription             *string          `json:"seoDescription,omitempty"`
@@ -1365,28 +1285,6 @@ type DynamicToolNamespaceTool = json.RawMessage
 
 type DynamicToolSpec = json.RawMessage
 
-type EnvironmentConnectionNotification struct {
-	EnvironmentId string `json:"environmentId"`
-	ThreadID      string `json:"threadId"`
-}
-
-func validateEnvironmentConnectionNotification(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "environmentId"}, {name: "threadId"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeEnvironmentConnectionNotification(raw json.RawMessage) (EnvironmentConnectionNotification, error) {
-	var value EnvironmentConnectionNotification
-	err := decodeCodexObject(raw, "EnvironmentConnectionNotification", validateEnvironmentConnectionNotification, &value)
-	return value, err
-}
-
 type ErrorNotification struct {
 	Error     TurnError `json:"error"`
 	ThreadID  string    `json:"threadId"`
@@ -1446,7 +1344,6 @@ type ExternalAgentConfigImportItemTypeFailure struct {
 	ItemType     ExternalAgentConfigMigrationItemType `json:"itemType"`
 	Message      string                               `json:"message"`
 	Source       *string                              `json:"source,omitempty"`
-	SubErrorType *string                              `json:"subErrorType,omitempty"`
 }
 
 func validateExternalAgentConfigImportItemTypeFailure(raw json.RawMessage, name string) error {
@@ -1530,7 +1427,6 @@ const (
 	ExternalAgentConfigMigrationItemTypeSUBAGENTS       ExternalAgentConfigMigrationItemType = "SUBAGENTS"
 	ExternalAgentConfigMigrationItemTypeHOOKS           ExternalAgentConfigMigrationItemType = "HOOKS"
 	ExternalAgentConfigMigrationItemTypeCOMMANDS        ExternalAgentConfigMigrationItemType = "COMMANDS"
-	ExternalAgentConfigMigrationItemTypeMEMORY          ExternalAgentConfigMigrationItemType = "MEMORY"
 	ExternalAgentConfigMigrationItemTypeSESSIONS        ExternalAgentConfigMigrationItemType = "SESSIONS"
 )
 
@@ -1900,7 +1796,6 @@ const (
 	HookEventNamePreCompact        HookEventName = "preCompact"
 	HookEventNamePostCompact       HookEventName = "postCompact"
 	HookEventNameSessionStart      HookEventName = "sessionStart"
-	HookEventNameSessionEnd        HookEventName = "sessionEnd"
 	HookEventNameUserPromptSubmit  HookEventName = "userPromptSubmit"
 	HookEventNameSubagentStart     HookEventName = "subagentStart"
 	HookEventNameSubagentStop      HookEventName = "subagentStop"
@@ -2162,7 +2057,6 @@ type InputModality string
 const (
 	InputModalityText  InputModality = "text"
 	InputModalityImage InputModality = "image"
-	InputModalityAudio InputModality = "audio"
 )
 
 type InternalChatMessageMetadataPassthrough struct {
@@ -2793,6 +2687,7 @@ type McpToolCallAppContext struct {
 	ConnectorId string  `json:"connectorId"`
 	LinkId      *string `json:"linkId,omitempty"`
 	ResourceUri *string `json:"resourceUri,omitempty"`
+	TemplateId  *string `json:"templateId,omitempty"`
 }
 
 func validateMcpToolCallAppContext(raw json.RawMessage, name string) error {
@@ -3099,33 +2994,6 @@ func DecodeModelReroutedNotification(raw json.RawMessage) (ModelReroutedNotifica
 	return value, err
 }
 
-type ModelSafetyBufferingUpdatedNotification struct {
-	FasterModel     *string  `json:"fasterModel,omitempty"`
-	Model           string   `json:"model"`
-	Reasons         []string `json:"reasons"`
-	ShowBufferingUi bool     `json:"showBufferingUi"`
-	ThreadID        string   `json:"threadId"`
-	TurnID          string   `json:"turnId"`
-	UseCases        []string `json:"useCases"`
-}
-
-func validateModelSafetyBufferingUpdatedNotification(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "model"}, {name: "reasons"}, {name: "showBufferingUi"}, {name: "threadId"}, {name: "turnId"}, {name: "useCases"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeModelSafetyBufferingUpdatedNotification(raw json.RawMessage) (ModelSafetyBufferingUpdatedNotification, error) {
-	var value ModelSafetyBufferingUpdatedNotification
-	err := decodeCodexObject(raw, "ModelSafetyBufferingUpdatedNotification", validateModelSafetyBufferingUpdatedNotification, &value)
-	return value, err
-}
-
 type ModelServiceTier struct {
 	Description string `json:"description"`
 	ID          string `json:"id"`
@@ -3287,159 +3155,7 @@ const (
 	PatchApplyStatusDeclined   PatchApplyStatus = "declined"
 )
 
-type PatchChangeKindType string
-
-const (
-	PatchChangeKindTypeAdd    PatchChangeKindType = "add"
-	PatchChangeKindTypeDelete PatchChangeKindType = "delete"
-	PatchChangeKindTypeUpdate PatchChangeKindType = "update"
-)
-
-type AddPatchChangeKind struct {
-	Type string `json:"type"`
-}
-
-func validateAddPatchChangeKind(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeAddPatchChangeKind(raw json.RawMessage) (AddPatchChangeKind, error) {
-	var value AddPatchChangeKind
-	err := decodeCodexObject(raw, "AddPatchChangeKind", validateAddPatchChangeKind, &value)
-	return value, err
-}
-
-type DeletePatchChangeKind struct {
-	Type string `json:"type"`
-}
-
-func validateDeletePatchChangeKind(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeDeletePatchChangeKind(raw json.RawMessage) (DeletePatchChangeKind, error) {
-	var value DeletePatchChangeKind
-	err := decodeCodexObject(raw, "DeletePatchChangeKind", validateDeletePatchChangeKind, &value)
-	return value, err
-}
-
-type UpdatePatchChangeKind struct {
-	MovePath *string `json:"move_path,omitempty"`
-	Type     string  `json:"type"`
-}
-
-func validateUpdatePatchChangeKind(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeUpdatePatchChangeKind(raw json.RawMessage) (UpdatePatchChangeKind, error) {
-	var value UpdatePatchChangeKind
-	err := decodeCodexObject(raw, "UpdatePatchChangeKind", validateUpdatePatchChangeKind, &value)
-	return value, err
-}
-
-type PatchChangeKind struct {
-	Type   PatchChangeKindType    `json:"type"`
-	Raw    json.RawMessage        `json:"-"`
-	Add    *AddPatchChangeKind    `json:"-"`
-	Delete *DeletePatchChangeKind `json:"-"`
-	Update *UpdatePatchChangeKind `json:"-"`
-}
-
-func (item *PatchChangeKind) UnmarshalJSON(raw []byte) error {
-	decoded, err := decodePatchChangeKind(json.RawMessage(raw), "PatchChangeKind")
-	if err != nil {
-		return err
-	}
-	*item = decoded
-	return nil
-}
-
-func (item PatchChangeKind) MarshalJSON() ([]byte, error) {
-	if len(item.Raw) > 0 {
-		return append([]byte{}, item.Raw...), nil
-	}
-	switch item.Type {
-	case PatchChangeKindTypeAdd:
-		if item.Add == nil {
-			return nil, codexUnsupportedStringValue("PatchChangeKind.type", string(item.Type))
-		}
-		return json.Marshal(item.Add)
-	case PatchChangeKindTypeDelete:
-		if item.Delete == nil {
-			return nil, codexUnsupportedStringValue("PatchChangeKind.type", string(item.Type))
-		}
-		return json.Marshal(item.Delete)
-	case PatchChangeKindTypeUpdate:
-		if item.Update == nil {
-			return nil, codexUnsupportedStringValue("PatchChangeKind.type", string(item.Type))
-		}
-		return json.Marshal(item.Update)
-	default:
-		return nil, codexUnsupportedStringValue("PatchChangeKind.type", string(item.Type))
-	}
-}
-
-func DecodePatchChangeKind(raw json.RawMessage) (PatchChangeKind, error) {
-	return decodePatchChangeKind(raw, "PatchChangeKind")
-}
-
-func decodePatchChangeKind(raw json.RawMessage, name string) (PatchChangeKind, error) {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return PatchChangeKind{}, err
-	}
-	typeText, err := codexStringField(fields, "type", name)
-	if err != nil {
-		return PatchChangeKind{}, err
-	}
-	typeValue := PatchChangeKindType(typeText)
-	item := PatchChangeKind{Type: typeValue, Raw: append(json.RawMessage{}, raw...)}
-	switch typeValue {
-	case PatchChangeKindTypeAdd:
-		value, err := DecodeAddPatchChangeKind(raw)
-		if err != nil {
-			return PatchChangeKind{}, err
-		}
-		item.Add = &value
-	case PatchChangeKindTypeDelete:
-		value, err := DecodeDeletePatchChangeKind(raw)
-		if err != nil {
-			return PatchChangeKind{}, err
-		}
-		item.Delete = &value
-	case PatchChangeKindTypeUpdate:
-		value, err := DecodeUpdatePatchChangeKind(raw)
-		if err != nil {
-			return PatchChangeKind{}, err
-		}
-		item.Update = &value
-	default:
-		return PatchChangeKind{}, codexUnsupportedStringValue(name+".type", typeText)
-	}
-	return item, nil
-}
+type PatchChangeKind = json.RawMessage
 
 type PermissionsRequestApprovalParams struct {
 	CWD           AbsolutePathBuf          `json:"cwd"`
@@ -3597,7 +3313,6 @@ type RateLimitSnapshot struct {
 	Primary              *RateLimitWindow           `json:"primary,omitempty"`
 	RateLimitReachedType *RateLimitReachedType      `json:"rateLimitReachedType,omitempty"`
 	Secondary            *RateLimitWindow           `json:"secondary,omitempty"`
-	SpendControlReached  *bool                      `json:"spendControlReached,omitempty"`
 }
 
 func validateRateLimitSnapshot(raw json.RawMessage, name string) error {
@@ -3657,7 +3372,6 @@ type RealtimeConversationVersion string
 const (
 	RealtimeConversationVersionV1 RealtimeConversationVersion = "v1"
 	RealtimeConversationVersionV2 RealtimeConversationVersion = "v2"
-	RealtimeConversationVersionV3 RealtimeConversationVersion = "v3"
 )
 
 type ReasoningEffort = string
@@ -4099,31 +3813,29 @@ func DecodeTextRange(raw json.RawMessage) (TextRange, error) {
 }
 
 type Thread struct {
-	AgentNickname        *string            `json:"agentNickname,omitempty"`
-	AgentRole            *string            `json:"agentRole,omitempty"`
-	CanAcceptDirectInput *bool              `json:"canAcceptDirectInput,omitempty"`
-	CliVersion           string             `json:"cliVersion"`
-	CreatedAt            int                `json:"createdAt"`
-	CWD                  AbsolutePathBuf    `json:"cwd"`
-	Ephemeral            bool               `json:"ephemeral"`
-	Extra                *ThreadExtra       `json:"extra,omitempty"`
-	ForkedFromId         *string            `json:"forkedFromId,omitempty"`
-	GitInfo              *GitInfo           `json:"gitInfo,omitempty"`
-	HistoryMode          *ThreadHistoryMode `json:"historyMode,omitempty"`
-	ID                   string             `json:"id"`
-	IsPinned             *bool              `json:"isPinned,omitempty"`
-	ModelProvider        string             `json:"modelProvider"`
-	Name                 *string            `json:"name,omitempty"`
-	ParentThreadId       *string            `json:"parentThreadId,omitempty"`
-	Path                 *string            `json:"path,omitempty"`
-	Preview              string             `json:"preview"`
-	RecencyAt            *int               `json:"recencyAt,omitempty"`
-	SessionId            string             `json:"sessionId"`
-	Source               SessionSource      `json:"source"`
-	Status               ThreadStatus       `json:"status"`
-	ThreadSource         *ThreadSource      `json:"threadSource,omitempty"`
-	Turns                []Turn             `json:"turns"`
-	UpdatedAt            int                `json:"updatedAt"`
+	AgentNickname  *string            `json:"agentNickname,omitempty"`
+	AgentRole      *string            `json:"agentRole,omitempty"`
+	CliVersion     string             `json:"cliVersion"`
+	CreatedAt      int                `json:"createdAt"`
+	CWD            AbsolutePathBuf    `json:"cwd"`
+	Ephemeral      bool               `json:"ephemeral"`
+	Extra          *ThreadExtra       `json:"extra,omitempty"`
+	ForkedFromId   *string            `json:"forkedFromId,omitempty"`
+	GitInfo        *GitInfo           `json:"gitInfo,omitempty"`
+	HistoryMode    *ThreadHistoryMode `json:"historyMode,omitempty"`
+	ID             string             `json:"id"`
+	ModelProvider  string             `json:"modelProvider"`
+	Name           *string            `json:"name,omitempty"`
+	ParentThreadId *string            `json:"parentThreadId,omitempty"`
+	Path           *string            `json:"path,omitempty"`
+	Preview        string             `json:"preview"`
+	RecencyAt      *int               `json:"recencyAt,omitempty"`
+	SessionId      string             `json:"sessionId"`
+	Source         SessionSource      `json:"source"`
+	Status         ThreadStatus       `json:"status"`
+	ThreadSource   *ThreadSource      `json:"threadSource,omitempty"`
+	Turns          []Turn             `json:"turns"`
+	UpdatedAt      int                `json:"updatedAt"`
 }
 
 func validateThread(raw json.RawMessage, name string) error {
@@ -4759,9 +4471,7 @@ type CommandExecutionThreadItem struct {
 	DurationMs       *int                    `json:"durationMs,omitempty"`
 	ExitCode         *int                    `json:"exitCode,omitempty"`
 	ID               string                  `json:"id"`
-	PluginId         *string                 `json:"pluginId,omitempty"`
 	ProcessId        *string                 `json:"processId,omitempty"`
-	ScriptPath       *string                 `json:"scriptPath,omitempty"`
 	Source           *CommandExecutionSource `json:"source,omitempty"`
 	Status           CommandExecutionStatus  `json:"status"`
 	Type             ThreadItemType          `json:"type"`
@@ -4937,11 +4647,10 @@ func DecodeSubAgentActivityThreadItem(raw json.RawMessage) (SubAgentActivityThre
 }
 
 type WebSearchThreadItem struct {
-	Action  *WebSearchAction   `json:"action,omitempty"`
-	ID      string             `json:"id"`
-	Query   string             `json:"query"`
-	Results *[]json.RawMessage `json:"results,omitempty"`
-	Type    ThreadItemType     `json:"type"`
+	Action *WebSearchAction `json:"action,omitempty"`
+	ID     string           `json:"id"`
+	Query  string           `json:"query"`
+	Type   ThreadItemType   `json:"type"`
 }
 
 func validateWebSearchThreadItem(raw json.RawMessage, name string) error {
@@ -5369,7 +5078,6 @@ type ThreadListParams struct {
 	Archived       *bool                `json:"archived,omitempty"`
 	Cursor         *string              `json:"cursor,omitempty"`
 	CWD            *ThreadListCwdFilter `json:"cwd,omitempty"`
-	IsPinned       *bool                `json:"isPinned,omitempty"`
 	Limit          *int                 `json:"limit,omitempty"`
 	ModelProviders *[]string            `json:"modelProviders,omitempty"`
 	SearchTerm     *string              `json:"searchTerm,omitempty"`
@@ -5768,7 +5476,6 @@ type ThreadResumeResponse struct {
 	CWD                     AbsolutePathBuf          `json:"cwd"`
 	InitialTurnsPage        *TurnsPage               `json:"initialTurnsPage,omitempty"`
 	InstructionSources      []LegacyAppPathString    `json:"instructionSources,omitempty"`
-	ItemsBackwardsCursor    *string                  `json:"itemsBackwardsCursor,omitempty"`
 	Model                   string                   `json:"model"`
 	ModelProvider           string                   `json:"modelProvider"`
 	MultiAgentMode          *MultiAgentMode          `json:"multiAgentMode,omitempty"`
@@ -5777,7 +5484,6 @@ type ThreadResumeResponse struct {
 	Sandbox                 SandboxPolicy            `json:"sandbox"`
 	ServiceTier             *string                  `json:"serviceTier,omitempty"`
 	Thread                  Thread                   `json:"thread"`
-	TurnsBackwardsCursor    *string                  `json:"turnsBackwardsCursor,omitempty"`
 }
 
 func validateThreadResumeResponse(raw json.RawMessage, name string) error {
@@ -6129,193 +5835,7 @@ func DecodeThreadStartedNotification(raw json.RawMessage) (ThreadStartedNotifica
 	return value, err
 }
 
-type ThreadStatusType string
-
-const (
-	ThreadStatusTypeNotLoaded   ThreadStatusType = "notLoaded"
-	ThreadStatusTypeIdle        ThreadStatusType = "idle"
-	ThreadStatusTypeSystemError ThreadStatusType = "systemError"
-	ThreadStatusTypeActive      ThreadStatusType = "active"
-)
-
-type NotLoadedThreadStatus struct {
-	Type string `json:"type"`
-}
-
-func validateNotLoadedThreadStatus(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeNotLoadedThreadStatus(raw json.RawMessage) (NotLoadedThreadStatus, error) {
-	var value NotLoadedThreadStatus
-	err := decodeCodexObject(raw, "NotLoadedThreadStatus", validateNotLoadedThreadStatus, &value)
-	return value, err
-}
-
-type IdleThreadStatus struct {
-	Type string `json:"type"`
-}
-
-func validateIdleThreadStatus(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeIdleThreadStatus(raw json.RawMessage) (IdleThreadStatus, error) {
-	var value IdleThreadStatus
-	err := decodeCodexObject(raw, "IdleThreadStatus", validateIdleThreadStatus, &value)
-	return value, err
-}
-
-type SystemErrorThreadStatus struct {
-	Type string `json:"type"`
-}
-
-func validateSystemErrorThreadStatus(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeSystemErrorThreadStatus(raw json.RawMessage) (SystemErrorThreadStatus, error) {
-	var value SystemErrorThreadStatus
-	err := decodeCodexObject(raw, "SystemErrorThreadStatus", validateSystemErrorThreadStatus, &value)
-	return value, err
-}
-
-type ActiveThreadStatus struct {
-	ActiveFlags []ThreadActiveFlag `json:"activeFlags"`
-	Type        string             `json:"type"`
-}
-
-func validateActiveThreadStatus(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "activeFlags"}, {name: "type"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeActiveThreadStatus(raw json.RawMessage) (ActiveThreadStatus, error) {
-	var value ActiveThreadStatus
-	err := decodeCodexObject(raw, "ActiveThreadStatus", validateActiveThreadStatus, &value)
-	return value, err
-}
-
-type ThreadStatus struct {
-	Type        ThreadStatusType         `json:"type"`
-	Raw         json.RawMessage          `json:"-"`
-	NotLoaded   *NotLoadedThreadStatus   `json:"-"`
-	Idle        *IdleThreadStatus        `json:"-"`
-	SystemError *SystemErrorThreadStatus `json:"-"`
-	Active      *ActiveThreadStatus      `json:"-"`
-}
-
-func (item *ThreadStatus) UnmarshalJSON(raw []byte) error {
-	decoded, err := decodeThreadStatus(json.RawMessage(raw), "ThreadStatus")
-	if err != nil {
-		return err
-	}
-	*item = decoded
-	return nil
-}
-
-func (item ThreadStatus) MarshalJSON() ([]byte, error) {
-	if len(item.Raw) > 0 {
-		return append([]byte{}, item.Raw...), nil
-	}
-	switch item.Type {
-	case ThreadStatusTypeNotLoaded:
-		if item.NotLoaded == nil {
-			return nil, codexUnsupportedStringValue("ThreadStatus.type", string(item.Type))
-		}
-		return json.Marshal(item.NotLoaded)
-	case ThreadStatusTypeIdle:
-		if item.Idle == nil {
-			return nil, codexUnsupportedStringValue("ThreadStatus.type", string(item.Type))
-		}
-		return json.Marshal(item.Idle)
-	case ThreadStatusTypeSystemError:
-		if item.SystemError == nil {
-			return nil, codexUnsupportedStringValue("ThreadStatus.type", string(item.Type))
-		}
-		return json.Marshal(item.SystemError)
-	case ThreadStatusTypeActive:
-		if item.Active == nil {
-			return nil, codexUnsupportedStringValue("ThreadStatus.type", string(item.Type))
-		}
-		return json.Marshal(item.Active)
-	default:
-		return nil, codexUnsupportedStringValue("ThreadStatus.type", string(item.Type))
-	}
-}
-
-func DecodeThreadStatus(raw json.RawMessage) (ThreadStatus, error) {
-	return decodeThreadStatus(raw, "ThreadStatus")
-}
-
-func decodeThreadStatus(raw json.RawMessage, name string) (ThreadStatus, error) {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return ThreadStatus{}, err
-	}
-	typeText, err := codexStringField(fields, "type", name)
-	if err != nil {
-		return ThreadStatus{}, err
-	}
-	typeValue := ThreadStatusType(typeText)
-	item := ThreadStatus{Type: typeValue, Raw: append(json.RawMessage{}, raw...)}
-	switch typeValue {
-	case ThreadStatusTypeNotLoaded:
-		value, err := DecodeNotLoadedThreadStatus(raw)
-		if err != nil {
-			return ThreadStatus{}, err
-		}
-		item.NotLoaded = &value
-	case ThreadStatusTypeIdle:
-		value, err := DecodeIdleThreadStatus(raw)
-		if err != nil {
-			return ThreadStatus{}, err
-		}
-		item.Idle = &value
-	case ThreadStatusTypeSystemError:
-		value, err := DecodeSystemErrorThreadStatus(raw)
-		if err != nil {
-			return ThreadStatus{}, err
-		}
-		item.SystemError = &value
-	case ThreadStatusTypeActive:
-		value, err := DecodeActiveThreadStatus(raw)
-		if err != nil {
-			return ThreadStatus{}, err
-		}
-		item.Active = &value
-	default:
-		return ThreadStatus{}, codexUnsupportedStringValue(name+".type", typeText)
-	}
-	return item, nil
-}
+type ThreadStatus = json.RawMessage
 
 type ThreadStatusChangedNotification struct {
 	Status   ThreadStatus `json:"status"`
@@ -6466,12 +5986,11 @@ const (
 )
 
 type TokenUsageBreakdown struct {
-	CacheWriteInputTokens *int `json:"cacheWriteInputTokens,omitempty"`
-	CachedInputTokens     int  `json:"cachedInputTokens"`
-	InputTokens           int  `json:"inputTokens"`
-	OutputTokens          int  `json:"outputTokens"`
-	ReasoningOutputTokens int  `json:"reasoningOutputTokens"`
-	TotalTokens           int  `json:"totalTokens"`
+	CachedInputTokens     int `json:"cachedInputTokens"`
+	InputTokens           int `json:"inputTokens"`
+	OutputTokens          int `json:"outputTokens"`
+	ReasoningOutputTokens int `json:"reasoningOutputTokens"`
+	TotalTokens           int `json:"totalTokens"`
 }
 
 func validateTokenUsageBreakdown(raw json.RawMessage, name string) error {
@@ -6674,9 +6193,8 @@ func DecodeTurnDiffUpdatedNotification(raw json.RawMessage) (TurnDiffUpdatedNoti
 }
 
 type TurnEnvironmentParams struct {
-	CWD                   LegacyAppPathString    `json:"cwd"`
-	EnvironmentId         string                 `json:"environmentId"`
-	RuntimeWorkspaceRoots *[]LegacyAppPathString `json:"runtimeWorkspaceRoots,omitempty"`
+	CWD           LegacyAppPathString `json:"cwd"`
+	EnvironmentId string              `json:"environmentId"`
 }
 
 func validateTurnEnvironmentParams(raw json.RawMessage, name string) error {

@@ -823,7 +823,6 @@ function trajectoryEvent(conversationId: string): TrajectoryEvent {
     planChanged: null,
     providerEventId: null,
     providerLifecycleChanged: null,
-    validationRecorded: null,
     providerThreadId: null,
     providerTurnId: null,
     publicReasoningSummaryUpdated: null,
