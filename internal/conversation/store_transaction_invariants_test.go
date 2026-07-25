@@ -147,12 +147,12 @@ func TestTransactionRejectsCrossWorkspaceFork(t *testing.T) {
 	store := newTestStore(t)
 	seed := seedTransactionConversation(t, store)
 	child := transactionTestConversation("conversation-cross-workspace")
-	child.WorkspaceID = stringPointer("workspace-2")
+	child.WorkspaceID = "workspace-2"
 	branch := ConversationBranch{
 		ChildConversationID:      child.ID,
 		ParentConversationID:     seed.conversation.ID,
 		Kind:                     BranchKindFork,
-		DecisionSource:           BranchDecisionSourceDirector,
+		DecisionSource:           BranchDecisionSourceMaster,
 		ForkedAtTurnID:           seed.forkSourceTurn.ID,
 		SourceTrajectorySequence: 1,
 		ProviderMetadata:         map[string]string{"providerForkThreadId": "provider-thread-child"},
@@ -185,6 +185,7 @@ func TestTransactionRejectsFailedSideConversationResurrection(t *testing.T) {
 	failed := SideConversation{
 		ID:                          "side-failed",
 		ParentConversationID:        seed.conversation.ID,
+		ParentPaneID:                "pane-1",
 		ParentStatus:                seed.conversation.Status,
 		DecisionSource:              BranchDecisionSourceConversationRouter,
 		SourceProviderThreadID:      "provider-thread-parent",

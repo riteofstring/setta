@@ -11,7 +11,6 @@ import (
 func TestReadEffectiveRoleProfileAppliesEveryScopeInPrecedenceOrder(t *testing.T) {
 	store := newTestStore(t)
 	conversation := transactionTestConversation("conversation-role-profile")
-	workspaceID := *conversation.WorkspaceID
 	persistRoleProfileTestMutation(t, store, "create-role-profile-conversation", func(transaction *WriteTransaction) error {
 		return transaction.InsertConversation(conversation)
 	})
@@ -27,7 +26,7 @@ func TestReadEffectiveRoleProfileAppliesEveryScopeInPrecedenceOrder(t *testing.T
 
 	workspace := narratorOverride(
 		RoleProfileScopeWorkspace,
-		workspaceID,
+		conversation.WorkspaceID,
 		"gpt-narrator-workspace",
 		ReasoningEffortLow,
 	)
@@ -78,7 +77,6 @@ func TestReadEffectiveRoleProfileRejectsWorkspaceMismatch(t *testing.T) {
 func TestReadEffectiveRoleProfileReportsCorruptStoredProfile(t *testing.T) {
 	store := newTestStore(t)
 	conversation := transactionTestConversation("conversation-corrupt-role-profile")
-	workspaceID := *conversation.WorkspaceID
 	override := narratorOverride(
 		RoleProfileScopeConversation,
 		conversation.ID,
@@ -110,7 +108,7 @@ WHERE scope_kind = 'conversation' AND scope_id = ? AND role = 'narrator'
 
 	_, err = store.ReadEffectiveRoleProfile(
 		context.Background(),
-		workspaceID,
+		conversation.WorkspaceID,
 		conversation.ID,
 		DefaultNarratorRoleProfile(),
 	)
@@ -143,7 +141,7 @@ func assertEffectiveRoleProfileModel(
 	t.Helper()
 	profile, err := store.ReadEffectiveRoleProfile(
 		context.Background(),
-		*topic.WorkspaceID,
+		topic.WorkspaceID,
 		topic.ID,
 		builtIn,
 	)

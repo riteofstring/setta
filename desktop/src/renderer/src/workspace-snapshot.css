@@ -1,0 +1,148 @@
+.workspace-snapshot-surface {
+  align-content: center;
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--muted) 70%, transparent), transparent 54%),
+    color-mix(in oklch, var(--popover) 80%, var(--background));
+}
+
+.workspace-snapshot-surface-has-texture {
+  align-content: stretch;
+  gap: 0;
+  padding: 0;
+}
+
+.workspace-snapshot-texture {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  pointer-events: none;
+  width: 100%;
+}
+
+.workspace-snapshot-texture > * {
+  height: 100%;
+  min-height: 0;
+  pointer-events: none;
+  width: 100%;
+}
+
+.workspace-snapshot-texture > .workspace-pane-content,
+.workspace-snapshot-texture > .workspace-react-dom-surface {
+  height: 100%;
+  margin-top: 0;
+}
+
+.workspace-snapshot-bitmap-texture {
+  background: var(--background);
+}
+
+.workspace-snapshot-bitmap {
+  display: block;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  user-select: none;
+  width: 100%;
+}
+
+.workspace-pane-host[data-surface-frozen="true"] {
+  cursor: default;
+}
+
+.workspace-pane-host[data-surface-frozen="true"] .workspace-pane-content,
+.workspace-pane-host[data-surface-frozen="true"] .workspace-pane-content *,
+.workspace-pane-host[data-surface-frozen="true"] .workspace-react-dom-surface,
+.workspace-pane-host[data-surface-frozen="true"] .workspace-react-dom-surface * {
+  caret-color: transparent !important;
+  cursor: default !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.workspace-react-dom-surface[data-live-frozen-hidden="true"] {
+  content-visibility: hidden;
+  visibility: hidden;
+}
+
+.workspace-frozen-dom-visual {
+  contain: layout paint size style;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  user-select: none;
+  z-index: 5;
+}
+
+.workspace-frozen-dom-visual,
+.workspace-frozen-dom-visual [data-snapshot-scroller="true"],
+.workspace-frozen-dom-visual .overflow-auto,
+.workspace-frozen-dom-visual .overflow-y-auto,
+.workspace-snapshot-texture [data-snapshot-scroller="true"],
+.workspace-snapshot-texture .overflow-auto,
+.workspace-snapshot-texture .overflow-y-auto,
+.workspace-react-dom-surface[data-scrollbars-suppressed="true"],
+.workspace-react-dom-surface[data-scrollbars-suppressed="true"] [data-snapshot-scroller="true"],
+.workspace-react-dom-surface[data-scrollbars-suppressed="true"] .overflow-auto,
+.workspace-react-dom-surface[data-scrollbars-suppressed="true"] .overflow-y-auto,
+.workspace-pane-host[data-moving="true"] .workspace-react-dom-surface .overflow-auto,
+.workspace-pane-host[data-moving="true"] .workspace-react-dom-surface .overflow-y-auto {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.workspace-frozen-dom-visual::-webkit-scrollbar,
+.workspace-frozen-dom-visual [data-snapshot-scroller="true"]::-webkit-scrollbar,
+.workspace-frozen-dom-visual .overflow-auto::-webkit-scrollbar,
+.workspace-frozen-dom-visual .overflow-y-auto::-webkit-scrollbar,
+.workspace-snapshot-texture [data-snapshot-scroller="true"]::-webkit-scrollbar,
+.workspace-snapshot-texture .overflow-auto::-webkit-scrollbar,
+.workspace-snapshot-texture .overflow-y-auto::-webkit-scrollbar,
+.workspace-react-dom-surface[data-scrollbars-suppressed="true"]::-webkit-scrollbar,
+.workspace-react-dom-surface[data-scrollbars-suppressed="true"]
+  [data-snapshot-scroller="true"]::-webkit-scrollbar,
+.workspace-react-dom-surface[data-scrollbars-suppressed="true"] .overflow-auto::-webkit-scrollbar,
+.workspace-react-dom-surface[data-scrollbars-suppressed="true"] .overflow-y-auto::-webkit-scrollbar,
+.workspace-pane-host[data-moving="true"]
+  .workspace-react-dom-surface
+  .overflow-auto::-webkit-scrollbar,
+.workspace-pane-host[data-moving="true"]
+  .workspace-react-dom-surface
+  .overflow-y-auto::-webkit-scrollbar {
+  display: none;
+  height: 0;
+  width: 0;
+}
+
+.workspace-snapshot-label {
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-snapshot-state {
+  color: var(--muted-foreground);
+  font-family: var(--setta-font-mono);
+  font-size: 10px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.workspace-unloaded-surface-placeholder {
+  align-items: center;
+  color: color-mix(in oklch, var(--muted-foreground) 64%, transparent);
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.workspace-unloaded-surface-placeholder svg {
+  opacity: 0.72;
+}

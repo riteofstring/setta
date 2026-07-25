@@ -105,12 +105,13 @@ export function ColorSchemeFields({
   const advancedColorCount =
     Object.keys(scheme.tailwind).length +
     Object.keys(scheme.shadcn).length +
-    Object.keys(scheme.accent).length;
+    Object.keys(scheme.accent).length +
+    Object.keys(scheme.workspace).length;
 
   return (
     <AccordionSection count={advancedColorCount} title="Advanced Color Tokens">
       <section className="grid gap-2">
-        {(["tailwind", "shadcn", "accent"] as const).map((group) => {
+        {(["workspace", "tailwind", "shadcn", "accent"] as const).map((group) => {
           const values = scheme[group];
           return (
             <AccordionSection
@@ -386,6 +387,7 @@ const colorGroupLabels = {
   shadcn: "shadcn/ui Tokens",
   status: "Status Colors",
   tailwind: "Palette Scale",
+  workspace: "Niri Workspace",
 } as const satisfies Record<AppearanceColorGroup, string>;
 
 const customColorOptionValue = "__custom_oklch__";
