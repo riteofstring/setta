@@ -934,6 +934,7 @@ function archivedConversationCommands(): EasyButtonConversationCommands {
     error: null,
     folderResourceRequest: null,
     input: "",
+    inputAvailable: false,
     pending: false,
     pendingAcceptedInput: null,
     presentRelatedConversation: vi.fn(),

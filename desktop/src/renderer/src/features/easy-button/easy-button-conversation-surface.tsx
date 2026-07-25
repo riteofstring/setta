@@ -60,8 +60,7 @@ export function EasyButtonSurface({
     workspaceId: effectiveWorkspaceId,
   });
   const speech = usePaneSpeechPresentation(conversationId, paneId, speechPresentation);
-  const folderResourceRequired = !effectiveWorkspaceId;
-  const readOnly = !folderResourceRequired && !workspaceAvailable;
+  const readOnly = effectiveWorkspaceId ? !workspaceAvailable : false;
   const parentTitle = useConversationNavigatorStore((state) => {
     const parentConversationId = projection?.snapshot?.branch?.parentConversationId;
     if (!effectiveWorkspaceId || !parentConversationId) {

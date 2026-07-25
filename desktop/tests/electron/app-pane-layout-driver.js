@@ -1,7 +1,7 @@
-/* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLTextAreaElement, InputEvent, KeyboardEvent, document, window */
+/* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, KeyboardEvent, document, window */
 
 (() => {
-  const version = "setta-app-pane-layout-driver-v3";
+  const version = "setta-app-pane-layout-driver-v4";
   const conversationPaneNavigationRequestEvent = "setta:conversation-pane-navigation-request";
   let roundTripPromise = null;
 
@@ -23,6 +23,7 @@
       appPaneLayoutReopenFolderlessConversation,
       appPaneLayoutRoundTrip,
       appPaneLayoutShellState,
+      appPaneLayoutSubmitFolderlessConversationText,
       appPaneLayoutSubmitMasterText,
       appPaneLayoutTranscriptState,
       appPaneLayoutVersion: version,
@@ -188,6 +189,13 @@
     setter?.call(textarea, value);
     textarea.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
     textarea.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function setInputValue(input, value) {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    setter?.call(input, value);
+    input.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
   async function waitForMasterRoutingResult({ expectedResultKind, text }) {
@@ -503,6 +511,13 @@
     return conversationPaneHosts(conversationId)[0] ?? null;
   }
 
+  function conversationPaneSurface(conversationId) {
+    const host = conversationPaneHost(conversationId);
+    return host instanceof HTMLElement
+      ? host.querySelector('[data-testid="easy-button-surface"]')
+      : null;
+  }
+
   function conversationPaneHosts(conversationId) {
     return Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
       .filter((host) => host instanceof HTMLElement && host.dataset.visible === "true")
@@ -530,9 +545,9 @@
     if (!(surface instanceof HTMLElement)) {
       return { reason: "missing-folderless-conversation-surface", status: "pending" };
     }
-    const resourceRequestState = folderlessConversationResourceRequestState(surface);
-    if (resourceRequestState.status !== "ready") {
-      return resourceRequestState;
+    const interactionState = folderlessConversationInitialInteractionState(surface);
+    if (interactionState.status !== "ready") {
+      return interactionState;
     }
     const api = appLayoutAPI();
     if (api.status === "failed") {
@@ -545,12 +560,70 @@
     );
   }
 
-  function folderlessConversationResourceRequestState(surface) {
+  function folderlessConversationInitialInteractionState(surface) {
     const folderResource = surface.querySelector('[data-testid="easy-button-folder-resource"]');
-    if (!(folderResource instanceof HTMLElement)) {
-      return { reason: "missing-folder-resource-request", status: "pending" };
+    if (folderResource instanceof HTMLElement) {
+      return { reason: "unexpected-folder-resource-request", status: "failed" };
+    }
+    const input = surface.querySelector('[data-testid="easy-button-input"]');
+    if (!(input instanceof HTMLInputElement)) {
+      return { reason: "missing-folderless-conversation-input", status: "pending" };
+    }
+    if (input.disabled) {
+      return { reason: "disabled-folderless-conversation-input", status: "failed" };
     }
     return { status: "ready" };
+  }
+
+  async function appPaneLayoutSubmitFolderlessConversationText({ conversationId, text }) {
+    const surface = conversationPaneSurface(conversationId);
+    const input = surface?.querySelector('[data-testid="easy-button-input"]');
+    if (!(input instanceof HTMLInputElement)) {
+      return { conversationId, reason: "missing-folderless-conversation-input", status: "failed" };
+    }
+    if (input.disabled || !input.form) {
+      return {
+        conversationId,
+        inputDisabled: input.disabled,
+        reason: "folderless-conversation-input-unavailable",
+        status: "failed",
+      };
+    }
+    setInputValue(input, text);
+    input.form.requestSubmit();
+    return waitForFolderlessConversationResourceRequest({ conversationId, text });
+  }
+
+  async function waitForFolderlessConversationResourceRequest({ conversationId, text }) {
+    const deadline = Date.now() + 5000;
+    let state = folderlessConversationResourceRequestState({ conversationId, text });
+    while (state.status !== "passed" && Date.now() < deadline) {
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+      state = folderlessConversationResourceRequestState({ conversationId, text });
+    }
+    return state.status === "passed" ? state : { ...state, status: "failed" };
+  }
+
+  function folderlessConversationResourceRequestState({ conversationId, text }) {
+    const surface = conversationPaneSurface(conversationId);
+    const input = surface?.querySelector('[data-testid="easy-button-input"]');
+    const folderResource = surface?.querySelector('[data-testid="easy-button-folder-resource"]');
+    const inputAvailable = input instanceof HTMLInputElement && !input.disabled;
+    const inputValue = input instanceof HTMLInputElement ? input.value : "";
+    const passed = [
+      surface instanceof HTMLElement,
+      folderResource instanceof HTMLButtonElement,
+      inputAvailable,
+      inputValue === text,
+    ].every(Boolean);
+    return {
+      conversationId,
+      folderResourceRequestPresent: folderResource instanceof HTMLElement,
+      inputAvailable,
+      inputValue,
+      reason: passed ? "folder-resource-requested" : "folder-resource-request-not-ready",
+      status: passed ? "passed" : "pending",
+    };
   }
 
   function persistedFolderlessConversationPaneState(layout, conversationId) {

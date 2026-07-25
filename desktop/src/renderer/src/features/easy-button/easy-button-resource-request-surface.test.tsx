@@ -29,6 +29,7 @@ function folderResourceRequestCommands(): EasyButtonConversationCommands {
     error: null,
     folderResourceRequest: { chooseFolder: vi.fn() },
     input: "",
+    inputAvailable: true,
     pending: false,
     pendingAcceptedInput: null,
     presentRelatedConversation: vi.fn(),

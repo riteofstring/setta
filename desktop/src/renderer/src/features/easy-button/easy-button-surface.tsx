@@ -104,16 +104,23 @@ function composerPlaceholder(
   view: EasyButtonProjectionView,
   commands: EasyButtonConversationCommands | undefined,
 ): string {
-  if (commands?.folderResourceRequest) {
+  if (!commands) {
+    return unavailableComposerPlaceholder(view);
+  }
+  if (commands.folderResourceRequest || folderlessInputAvailable(commands)) {
     return "Ask this topic agent...";
   }
-  if (!commands?.available) {
+  if (!commands.available) {
     return unavailableComposerPlaceholder(view);
   }
   if (commands.clarificationQuestion) {
     return "Answer the narrator’s clarification…";
   }
   return view.viewState === "working" ? "Send another request…" : "Ask this topic agent…";
+}
+
+function folderlessInputAvailable(commands: EasyButtonConversationCommands): boolean {
+  return commands.inputAvailable && !commands.available;
 }
 
 function unavailableComposerPlaceholder(view: EasyButtonProjectionView): string {

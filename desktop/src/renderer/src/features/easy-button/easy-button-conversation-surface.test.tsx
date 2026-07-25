@@ -19,7 +19,7 @@ describe("Easy Button conversation surface workspace context", () => {
     expect(unloaded).toContain("Conversation projection is not loaded");
   });
 
-  test("requests a folder for an explicitly folderless pane even when a workspace is selected", () => {
+  test("opens an explicitly folderless pane without requesting a folder", () => {
     const folderless = renderToString(
       <EasyButtonSurface
         conversationId="conversation_folderless"
@@ -32,8 +32,8 @@ describe("Easy Button conversation surface workspace context", () => {
 
     expect(folderless).toContain('data-conversation-id="conversation_folderless"');
     expect(folderless).toContain('data-easy-button-projection="unloaded"');
-    expect(folderless).toContain('data-testid="easy-button-folder-resource"');
-    expect(folderless).toContain("Choose folder");
+    expect(folderless).not.toContain('data-testid="easy-button-folder-resource"');
+    expect(folderless).not.toContain("Choose folder");
     expect(folderless).not.toContain("Conversation commands are unavailable");
     expect(input).not.toContain("disabled");
   });

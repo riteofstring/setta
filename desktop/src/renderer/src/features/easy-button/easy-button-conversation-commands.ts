@@ -43,6 +43,7 @@ export interface EasyButtonConversationCommands {
   error: string | null;
   folderResourceRequest: { chooseFolder: () => void } | null;
   input: string;
+  inputAvailable: boolean;
   masterReply?: { kind: "answer" | "clarification"; text: string } | null;
   pending: boolean;
   pendingAcceptedInput: string | null;
@@ -65,6 +66,11 @@ export interface EasyButtonConversationCommands {
 interface PendingSideCreation {
   finished: Promise<void>;
   resolveFinished: () => void;
+}
+
+interface PendingFolderResourceSubmission {
+  replyToInputId: string | null;
+  text: string;
 }
 
 const pendingSideCreationByPane = new Map<string, PendingSideCreation>();
@@ -122,6 +128,8 @@ export function useEasyButtonConversationCommands({
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [pendingAcceptedInput, setPendingAcceptedInput] = useState<string | null>(null);
+  const [pendingFolderResourceSubmission, setPendingFolderResourceSubmission] =
+    useState<PendingFolderResourceSubmission | null>(null);
   const [error, setError] = useState<string | null>(null);
   const routingPresentation = useConversationRoutingStore((state) =>
     conversationRoutingCommandState(
@@ -142,9 +150,10 @@ export function useEasyButtonConversationCommands({
   };
   const folderResourceRequired = workspaceId === null;
   const available = workspaceAvailable && conversationCommandsAvailable(workspaceId, projection);
+  const inputAvailable = folderResourceRequired ? paneId !== null : available;
   const canSubmit =
     conversationInputCanSubmit(
-      folderResourceRequired ? paneId !== null : available,
+      inputAvailable && pendingFolderResourceSubmission === null,
       pending,
       input,
     ) && !failedInput;
@@ -171,9 +180,15 @@ export function useEasyButtonConversationCommands({
   useEffect(() => {
     setPending(false);
     setPendingAcceptedInput(null);
+    setPendingFolderResourceSubmission(null);
     setInput("");
     setError(null);
   }, [conversationId, paneId, workspaceId]);
+
+  function setConversationInput(value: string): void {
+    setInput(value);
+    setPendingFolderResourceSubmission(null);
+  }
 
   async function run(
     command: () => Promise<ConversationSnapshot>,
@@ -199,22 +214,17 @@ export function useEasyButtonConversationCommands({
   }
 
   async function runInput(): Promise<boolean> {
-    setPending(true);
-    setError(null);
     const text = input.trim();
+    setError(null);
+    if (folderResourceRequired) {
+      setPendingFolderResourceSubmission({
+        replyToInputId: clarification?.inputId ?? null,
+        text,
+      });
+      return false;
+    }
+    setPending(true);
     try {
-      if (folderResourceRequired) {
-        const bound = await bindFolderResourceForConversation({ conversationId, paneId });
-        if (!bound) {
-          return false;
-        }
-        await submitTextInputToTarget(
-          { conversationId, workspaceId: bound.workspaceId },
-          text,
-          null,
-        );
-        return true;
-      }
       const target = requireTarget();
       await submitTextInputToTarget(target, text, clarification?.inputId ?? null);
       return true;
@@ -346,17 +356,18 @@ export function useEasyButtonConversationCommands({
     },
     error: conversationRoutingError(error, failedInput),
     folderResourceRequest:
-      folderResourceRequired && paneId !== null
+      pendingFolderResourceSubmission && paneId !== null
         ? {
             chooseFolder: () => {
               if (pending) {
                 return;
               }
-              void runFolderBindingOnly();
+              void runFolderBindingForSubmission(pendingFolderResourceSubmission);
             },
           }
         : null,
     input,
+    inputAvailable,
     masterReply,
     pending,
     pendingAcceptedInput,
@@ -392,7 +403,7 @@ export function useEasyButtonConversationCommands({
         false,
       );
     },
-    setInput,
+    setInput: setConversationInput,
     stop: () => {
       if (!available || pending) {
         return;
@@ -428,13 +439,24 @@ export function useEasyButtonConversationCommands({
     },
   };
 
-  async function runFolderBindingOnly(): Promise<void> {
+  async function runFolderBindingForSubmission(
+    submission: PendingFolderResourceSubmission,
+  ): Promise<void> {
     setPending(true);
     setError(null);
     try {
-      await bindFolderResourceForConversation({ conversationId, paneId });
+      const bound = await bindFolderResourceForConversation({ conversationId, paneId });
+      if (!bound) {
+        return;
+      }
+      setPendingFolderResourceSubmission(null);
+      await submitTextInputToTarget(
+        { conversationId, workspaceId: bound.workspaceId },
+        submission.text,
+        submission.replyToInputId,
+      );
     } catch (bindingError) {
-      setScopedError(errorMessage(bindingError));
+      setConversationRoutingCommandError(bindingError, setScopedError);
     } finally {
       if (commandScopeIsCurrent()) {
         setPending(false);

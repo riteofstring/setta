@@ -125,6 +125,12 @@ try {
       `master folderless conversation create failed: ${JSON.stringify(folderlessConversation)}`,
     );
   }
+  const folderlessConversationResourceRequest = await exerciseFolderlessConversationResourceRequest(
+    {
+      client: context.client,
+      folderlessConversation,
+    },
+  );
   const folderlessConversationReopen = await exerciseFolderlessConversationCloseAndReopen({
     client: context.client,
     folderlessConversation,
@@ -136,6 +142,7 @@ try {
     focusedMaster,
     folderlessConversation,
     folderlessConversationReopen,
+    folderlessConversationResourceRequest,
     folderlessMasterAnswer,
     focusedPaneId: result.readBack.layout.focusedPaneId,
     persistedShell,
@@ -322,6 +329,21 @@ async function exerciseActiveConversationCloseAndReopen({
     runningTurnStatusAfterClose: turnByText(runningAfterClose, holdText)?.status ?? "",
     stoppedTurnStatus: turnByText(stopped, holdText)?.status ?? "",
   };
+}
+
+async function exerciseFolderlessConversationResourceRequest({ client, folderlessConversation }) {
+  const { conversationId } = folderlessConversation;
+  if (!conversationId) {
+    throw new Error(
+      `folderless conversation result is incomplete: ${JSON.stringify(folderlessConversation)}`,
+    );
+  }
+  const requested = await client.driver("appPaneLayoutSubmitFolderlessConversationText", {
+    conversationId,
+    text: "Use a folder for this conversation.",
+  });
+  assertDriverStatus(requested, "folderless conversation resource request");
+  return requested;
 }
 
 async function exerciseFolderlessConversationCloseAndReopen({ client, folderlessConversation }) {
