@@ -203,9 +203,23 @@ Needed changes:
 - Make selected, adjacent, idle, running, blocked, and failed states legible.
 - Avoid controls that look like decorative mockup artifacts.
 
+## Status
+
+| Phase | Status |
+| --- | --- |
+| 1 - Rebaseline Against The Recording | Complete |
+| 2 - Make Workstream Anchors Real Graph State | Not started |
+| 3 - Make The Director Action-Capable | Not started |
+| 4 - Separate Director UI From Workstream UI | Not started |
+| 5 - Visualize Real Agent Activity | Not started |
+| 6 - Recording-Based Acceptance Pass | Not started, blocked on a new interactive recording |
+
 ## Proposed Implementation Sequence
 
 ### Phase 1 - Rebaseline Against The Recording
+
+Status: complete. Delivered by
+[`docs/reports/setta-4-recovery-phase1-recording-baseline-20260725.md`](../reports/setta-4-recovery-phase1-recording-baseline-20260725.md).
 
 Use `.recordings/20260725T211050Z` as the failing baseline.
 
@@ -220,6 +234,29 @@ Exit criteria:
 
 - the team agrees the target is not "the picker exists"
 - the target is "Director can start work and the graph shows real state"
+
+The baseline report rejects picker completeness as the target on the recording's
+own evidence: three `create_workstream` dispatches produced three durable,
+correctly folder-scoped workstreams, and the experience still failed, because
+zero `director.graph.updated` events were pushed and the renderer denied the
+selection the backend had already made. The sign-off named in the exit criteria
+is an external agreement and is recorded as a release gate in that report, along
+with the new interactive recording Phase 6 needs.
+
+Root-cause seams the report pins for the phases that follow:
+
+- `internal/director/registry_decisions.go:286` always authorizes
+  `answer_directly` alongside `create_workstream`, and
+  `DecisionRejectionReason` has no member for a schema-valid passive or refusing
+  answer, so nothing recovers from one (Phase 3).
+- `SemanticNodeKind` in `internal/director/semantic_graph.go` has no
+  workstream-anchor member, so durable registration has nothing to project
+  (Phase 2).
+- `DirectorCommandCenterShell.tsx:775-795` and `DirectorHistoryOverlay.tsx:97-100`
+  key "No work has been selected." off graph-derived history length rather than
+  selection (Phase 4).
+- `DirectorCommandCenterShell.tsx:728` and `director-workstream-status.ts:44`
+  fall back to a fabricated `Setta` target when nothing is selected (Phase 4).
 
 ### Phase 2 - Make Workstream Anchors Real Graph State
 
