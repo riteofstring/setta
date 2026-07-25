@@ -708,11 +708,7 @@ func mapCheckpoint(checkpoint *spritessdk.Checkpoint) (runtimeprovider.Checkpoin
 }
 
 func requireLabels(identity runtimeprovider.ManagedIdentity, actual []string) error {
-	expected := slices.Clone(identity.Labels)
-	actual = slices.Clone(actual)
-	slices.Sort(expected)
-	slices.Sort(actual)
-	if !slices.Equal(expected, actual) {
+	if !identity.OwnsObservedLabels(actual) {
 		return ErrOwnershipMismatch
 	}
 	return nil

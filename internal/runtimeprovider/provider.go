@@ -100,6 +100,16 @@ func (identity ManagedIdentity) Validate() error {
 	return nil
 }
 
+// OwnsObservedLabels reports whether provider-observed labels exactly match
+// this identity's ownership labels, independent of provider label order.
+func (identity ManagedIdentity) OwnsObservedLabels(observed []string) bool {
+	expected := slices.Clone(identity.Labels)
+	observed = slices.Clone(observed)
+	slices.Sort(expected)
+	slices.Sort(observed)
+	return slices.Equal(expected, observed)
+}
+
 // ValidateManagedName rejects names outside Setta's deterministic runtime
 // namespace without requiring callers to reconstruct provider labels.
 func ValidateManagedName(name string) error {

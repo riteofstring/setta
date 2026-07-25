@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 
 	"setta/internal/runtimeprovider"
 	settasprites "setta/internal/sprites"
@@ -57,7 +56,7 @@ func (client *SpritesCleanupClient) List(ctx context.Context, organization strin
 	if !found {
 		return nil, nil
 	}
-	if observation.Name != client.expectedName || !slices.Equal(observation.Labels, identity.Labels) {
+	if observation.Name != client.expectedName || !identity.OwnsObservedLabels(observation.Labels) {
 		return nil, errors.New("Sprites cleanup inventory ownership differs")
 	}
 	resource := ProviderResource{

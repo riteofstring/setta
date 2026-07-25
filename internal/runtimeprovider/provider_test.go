@@ -115,6 +115,33 @@ func TestManagedIdentityRejectsNonSettaValues(t *testing.T) {
 	}
 }
 
+func TestManagedIdentityOwnsObservedLabelsAsExactMultiset(t *testing.T) {
+	identity, err := NewManagedIdentity("observed-label-owner")
+	if err != nil {
+		t.Fatalf("NewManagedIdentity: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		observed []string
+		want     bool
+	}{
+		{name: "exact order", observed: slices.Clone(identity.Labels), want: true},
+		{name: "reversed order", observed: []string{identity.Labels[1], identity.Labels[0]}, want: true},
+		{name: "wrong owner digest", observed: []string{identity.Labels[0], "setta-owner-" + strings.Repeat("0", 32)}},
+		{name: "missing label", observed: identity.Labels[:1]},
+		{name: "extra label", observed: append(slices.Clone(identity.Labels), "provider-extra")},
+		{name: "duplicate label", observed: []string{identity.Labels[0], identity.Labels[0]}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := identity.OwnsObservedLabels(test.observed); got != test.want {
+				t.Fatalf("OwnsObservedLabels(%v) = %t, want %t", test.observed, got, test.want)
+			}
+		})
+	}
+}
+
 func TestNewManagedIdentityRejectsEmptyOwnerKey(t *testing.T) {
 	_, err := NewManagedIdentity("")
 	if !errors.Is(err, ErrInvalidContract) {

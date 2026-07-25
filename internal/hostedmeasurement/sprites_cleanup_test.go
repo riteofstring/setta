@@ -108,6 +108,134 @@ func TestSpritesCleanupClientInspectsAndDestroysExactOwnedRuntime(t *testing.T) 
 	}
 }
 
+func TestReorderedProviderLabelsAreAcceptedAcrossOwnershipChecks(t *testing.T) {
+	name := testManagedRuntimeName()
+	identity, err := runtimeprovider.ManagedIdentityFromName(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reorderedLabels := []string{identity.Labels[1], identity.Labels[0]}
+	resources := runtimeprovider.RuntimeResources{
+		CPUCoreMillionths: 1_000_000,
+		MemoryBytes:       512_000_000,
+		StorageBytes:      10_000_000_000,
+	}
+
+	tests := []struct {
+		name  string
+		check func(*testing.T) error
+	}{
+		{
+			name: "Sprites adapter",
+			check: func(t *testing.T) error {
+				destroyCalls := 0
+				server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+					if request.URL.Path != "/v1/sprites/"+name {
+						t.Fatalf("request path = %q", request.URL.Path)
+					}
+					switch request.Method {
+					case http.MethodGet:
+						response.Header().Set("Content-Type", "application/json")
+						if err := json.NewEncoder(response).Encode(map[string]any{
+							"id":             "sprite_123",
+							"name":           name,
+							"status":         "running",
+							"labels":         reorderedLabels,
+							"primary_region": "yyz",
+							"config": map[string]any{
+								"cpus": 1, "ram_mb": 512, "storage_gb": 10,
+							},
+							"url_settings": map[string]any{"auth": "sprite"},
+						}); err != nil {
+							t.Errorf("encode runtime response: %v", err)
+						}
+					case http.MethodDelete:
+						destroyCalls++
+						response.WriteHeader(http.StatusNoContent)
+					default:
+						t.Fatalf("request method = %q", request.Method)
+					}
+				}))
+				t.Cleanup(server.Close)
+
+				adapter, err := sprites.NewAdapterWithBaseURL("provider-token", server.URL)
+				if err != nil {
+					t.Fatalf("NewAdapterWithBaseURL: %v", err)
+				}
+				if err := adapter.Destroy(context.Background(), name); err != nil {
+					return err
+				}
+				if destroyCalls != 1 {
+					t.Fatalf("provider destroy calls = %d, want 1", destroyCalls)
+				}
+				return nil
+			},
+		},
+		{
+			name: "provisioner",
+			check: func(*testing.T) error {
+				return validateSpriteObservation(identity, resources, runtimeprovider.RuntimeObservation{
+					ProviderResourceID: "sprite_123",
+					Name:               name,
+					Labels:             reorderedLabels,
+					Resources:          resources,
+					Placement:          "yyz",
+				})
+			},
+		},
+		{
+			name: "cleanup list",
+			check: func(t *testing.T) error {
+				api := &fakeSpritesCleanupAPI{observation: runtimeprovider.RuntimeObservation{
+					ProviderResourceID: "sprite_123",
+					Name:               name,
+					Labels:             reorderedLabels,
+					Placement:          "yyz",
+				}, found: true}
+				listed, err := newSpritesCleanupClient(api, "setta-100", name).
+					List(context.Background(), "setta-100")
+				if err != nil {
+					return err
+				}
+				want := []ProviderResource{{ID: "sprite_123", Name: name, Region: "yyz"}}
+				if !reflect.DeepEqual(listed, want) {
+					t.Fatalf("resources = %+v, want %+v", listed, want)
+				}
+				return nil
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.check(t); err != nil {
+				t.Fatalf("reordered labels rejected: %v", err)
+			}
+		})
+	}
+}
+
+func TestSpritesCleanupClientDestroysRuntimeWithReorderedOwnershipLabels(t *testing.T) {
+	name := testManagedRuntimeName()
+	identity, err := runtimeprovider.ManagedIdentityFromName(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	api := &fakeSpritesCleanupAPI{observation: runtimeprovider.RuntimeObservation{
+		ProviderResourceID: "sprite_123",
+		Name:               name,
+		Labels:             []string{identity.Labels[1], identity.Labels[0]},
+		Placement:          "yyz",
+	}, found: true}
+	client := newSpritesCleanupClient(api, "setta-100", name)
+
+	if err := client.Destroy(context.Background(), "setta-100", "sprite_123"); err != nil {
+		t.Fatalf("Destroy reordered-label Sprite: %v", err)
+	}
+	if api.destroyedName != name {
+		t.Fatalf("destroyed name = %q, want %q", api.destroyedName, name)
+	}
+}
+
 func TestSpritesCleanupClientHandlesExactAbsenceAndRejectsUnsafeInventory(t *testing.T) {
 	name := testManagedRuntimeName()
 	client := newSpritesCleanupClient(&fakeSpritesCleanupAPI{}, "setta-100", name)

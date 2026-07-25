@@ -3,7 +3,6 @@ package hostedmeasurement
 import (
 	"context"
 	"errors"
-	"slices"
 	"time"
 
 	"setta/internal/runtimeprovider"
@@ -144,7 +143,8 @@ func validateSpriteObservation(
 	resources runtimeprovider.RuntimeResources,
 	observation runtimeprovider.RuntimeObservation,
 ) error {
-	if observation.ProviderResourceID == "" || observation.Name != identity.Name || !slices.Equal(observation.Labels, identity.Labels) {
+	if observation.ProviderResourceID == "" || observation.Name != identity.Name ||
+		!identity.OwnsObservedLabels(observation.Labels) {
 		return errors.New("hosted Sprite observation differs from the deterministic owned identity")
 	}
 	if observation.Resources != resources {
