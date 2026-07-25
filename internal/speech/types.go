@@ -15,6 +15,7 @@ const (
 	SpeechProviderLocalMacOS SpeechProvider = "local_macos"
 	SpeechProviderOpenAI     SpeechProvider = "openai"
 
+	SpeechSpeakerDirector SpeechSpeaker = "director"
 	SpeechSpeakerMaster   SpeechSpeaker = "master"
 	SpeechSpeakerNarrator SpeechSpeaker = "narrator"
 
@@ -44,6 +45,7 @@ var speechProviderStatusValues = []SpeechProviderStatus{
 var speechProviderValues = []SpeechProvider{SpeechProviderOpenAI, SpeechProviderLocalMacOS}
 
 var speechSpeakerValues = []SpeechSpeaker{
+	SpeechSpeakerDirector,
 	SpeechSpeakerMaster,
 	SpeechSpeakerNarrator,
 }

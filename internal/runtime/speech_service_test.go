@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -10,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/conversation"
+	"setta/internal/director"
 	"setta/internal/httpapi"
 	"setta/internal/speech"
 )
@@ -18,6 +21,48 @@ const (
 	runtimeSpeechAPIKey              = "sk-setta-runtime-speech-test"
 	runtimeSpeechTranscriptionSecret = "ek_runtime_speech_ephemeral"
 )
+
+func TestRuntimeSpeechSourceResolverResolvesDirectorReplyFacts(t *testing.T) {
+	ctx := context.Background()
+	store, err := conversation.NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	defer store.Close()
+	voice := speech.DefaultMasterVoiceSelection("2026-07-25T18:00:00Z")
+	if _, err := store.EnsureMasterVoiceSelection(ctx, voice); err != nil {
+		t.Fatalf("EnsureMasterVoiceSelection: %v", err)
+	}
+	fact := director.DirectorFactEvent{
+		ID:        "director-fact-answer",
+		EmittedAt: "2026-07-25T18:00:01Z",
+		Kind:      director.DirectorFactDecisionCommitted,
+		Actor:     director.SemanticActorDirector,
+		DecisionCommitted: &director.DirectorDecisionCommitted{
+			Decision:      director.DirectorDecisionAnswerDirectly,
+			IntentID:      "director-intent-answer",
+			PublicSummary: "Answered from app state.",
+			Answer:        &director.DirectorAnswerGiven{Text: "Nothing is running right now."},
+		},
+	}
+	if _, err := director.AppendDirectorFact(ctx, store, fact); err != nil {
+		t.Fatalf("AppendDirectorFact: %v", err)
+	}
+
+	resolver := runtimeSpeechSourceResolver{store: store}
+	resolved, err := resolver.ResolveSpeechSource(ctx, speech.SpeechSource{
+		Speaker: speech.SpeechSpeakerDirector,
+		EventID: "director-intent-answer",
+	})
+	if err != nil {
+		t.Fatalf("ResolveSpeechSource: %v", err)
+	}
+	if resolved.Text != fact.DecisionCommitted.Answer.Text ||
+		resolved.ResolvedVoiceID != *voice.ResolvedVoiceID ||
+		resolved.Source.Speaker != speech.SpeechSpeakerDirector {
+		t.Fatalf("resolved Director speech source = %+v", resolved)
+	}
+}
 
 func TestRuntimeServesTextOnlySpeechCapabilitiesAndTypedFailures(t *testing.T) {
 	server, ready := startRuntimeTestServer(t, testConfig(t))

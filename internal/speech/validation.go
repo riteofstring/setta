@@ -175,6 +175,10 @@ func (source SpeechSource) Validate() error {
 		return err
 	}
 	switch source.Speaker {
+	case SpeechSpeakerDirector:
+		if source.ConversationID != nil {
+			return errors.New("director speech source must not include a conversation id")
+		}
 	case SpeechSpeakerMaster:
 		if source.ConversationID != nil {
 			return errors.New("master speech source must not include a conversation id")

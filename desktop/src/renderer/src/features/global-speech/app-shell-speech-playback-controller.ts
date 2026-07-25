@@ -9,6 +9,7 @@ export {
 } from "./app-shell-speech-playback-intent";
 
 export type SpeechPlaybackIntentKind =
+  | "director_reply"
   | "master_answer"
   | "status_reply"
   | "attention"
@@ -28,15 +29,23 @@ interface MasterSpeechPlaybackIntent extends SpeechPlaybackIntentBase {
   source: SpeechSource & { conversationId: null; speaker: "master" };
 }
 
+interface DirectorSpeechPlaybackIntent extends SpeechPlaybackIntentBase {
+  kind: "director_reply";
+  source: SpeechSource & { conversationId: null; speaker: "director" };
+}
+
 export interface NarratorSpeechPlaybackIntent extends SpeechPlaybackIntentBase {
-  kind: Exclude<SpeechPlaybackIntentKind, "master_answer">;
+  kind: Exclude<SpeechPlaybackIntentKind, "director_reply" | "master_answer">;
   source: SpeechSource & { conversationId: string; speaker: "narrator" };
   sourceSequenceEnd: number;
   sourceSequenceStart: number;
   turnId: string | null;
 }
 
-export type SpeechPlaybackIntent = MasterSpeechPlaybackIntent | NarratorSpeechPlaybackIntent;
+export type SpeechPlaybackIntent =
+  | DirectorSpeechPlaybackIntent
+  | MasterSpeechPlaybackIntent
+  | NarratorSpeechPlaybackIntent;
 
 export type SpeechPlaybackState =
   | { type: "idle" }
@@ -843,11 +852,10 @@ function speechSourceIdentityKey(source: SpeechSource): string {
     throw new Error("speech playback requires a normalized source event id");
   }
   switch (source.speaker) {
+    case "director":
+      return appScopedSpeechSourceIdentityKey(source, "Director");
     case "master":
-      if (source.conversationId !== null) {
-        throw new Error("master speech playback must not include a conversation id");
-      }
-      return JSON.stringify([source.speaker, source.eventId]);
+      return appScopedSpeechSourceIdentityKey(source, "master");
     case "narrator":
       if (
         !source.conversationId?.trim() ||
@@ -863,6 +871,8 @@ function speechSourceIdentityKey(source: SpeechSource): string {
 
 function copySpeechPlaybackIntent(intent: SpeechPlaybackIntent): SpeechPlaybackIntent {
   switch (intent.kind) {
+    case "director_reply":
+      return { ...intent, source: { ...intent.source } };
     case "master_answer":
       return { ...intent, source: { ...intent.source } };
     case "status_reply":
@@ -893,6 +903,7 @@ function sameAutomaticMilestoneSource(left: QueuedSpeech, right: QueuedSpeech): 
 function intentClearsLowerPrioritySpeech(intent: SpeechPlaybackIntent): boolean {
   switch (intent.kind) {
     case "attention":
+    case "director_reply":
     case "error":
     case "final_summary":
     case "master_answer":
@@ -909,10 +920,30 @@ function sameSpeechPreemptionScope(
   left: SpeechPlaybackIntent,
   right: SpeechPlaybackIntent,
 ): boolean {
-  if (left.kind === "master_answer" || right.kind === "master_answer") {
-    return left.kind === "master_answer" && right.kind === "master_answer";
+  if (isAppScopedSpeech(left) || isAppScopedSpeech(right)) {
+    return isAppScopedSpeech(left) && isAppScopedSpeech(right);
+  }
+  if (!isNarratorSpeech(left) || !isNarratorSpeech(right)) {
+    return false;
   }
   return left.source.conversationId === right.source.conversationId && left.turnId === right.turnId;
+}
+
+function appScopedSpeechSourceIdentityKey(source: SpeechSource, label: string): string {
+  if (source.conversationId !== null) {
+    throw new Error(`${label} speech playback must not include a conversation id`);
+  }
+  return JSON.stringify([source.speaker, source.eventId]);
+}
+
+function isAppScopedSpeech(
+  intent: SpeechPlaybackIntent,
+): intent is DirectorSpeechPlaybackIntent | MasterSpeechPlaybackIntent {
+  return intent.kind === "director_reply" || intent.kind === "master_answer";
+}
+
+function isNarratorSpeech(intent: SpeechPlaybackIntent): intent is NarratorSpeechPlaybackIntent {
+  return !isAppScopedSpeech(intent);
 }
 
 function validateSpeechAudioResponse(intent: SpeechPlaybackIntent, response: SpeechAudio): void {

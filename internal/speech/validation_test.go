@@ -158,6 +158,11 @@ func TestSpeechSynthesisRequestsRequireTypedSourceScopeAndAvailableVoice(t *test
 	requests := []SpeechSynthesisRequest{
 		{
 			Provider:        SpeechProviderOpenAI,
+			Source:          SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "director-answer-1"},
+			ResolvedVoiceID: SpeechVoiceMarin,
+		},
+		{
+			Provider:        SpeechProviderOpenAI,
 			Source:          SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"},
 			ResolvedVoiceID: SpeechVoiceMarin,
 		},
@@ -179,6 +184,7 @@ func TestSpeechSynthesisRequestsRequireTypedSourceScopeAndAvailableVoice(t *test
 
 	invalid := []SpeechSynthesisRequest{
 		{Provider: "", Source: SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "answer"}, ResolvedVoiceID: SpeechVoiceMarin},
+		{Provider: SpeechProviderOpenAI, Source: SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "answer", ConversationID: &conversationID}, ResolvedVoiceID: SpeechVoiceMarin},
 		{Provider: SpeechProviderOpenAI, Source: SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "answer", ConversationID: &conversationID}, ResolvedVoiceID: SpeechVoiceMarin},
 		{Provider: SpeechProviderOpenAI, Source: SpeechSource{Speaker: SpeechSpeakerNarrator, EventID: "status"}, ResolvedVoiceID: SpeechVoiceCedar},
 		{Provider: SpeechProviderOpenAI, Source: SpeechSource{Speaker: "unknown", EventID: "event"}, ResolvedVoiceID: SpeechVoiceMarin},
@@ -266,7 +272,7 @@ func TestSpeechContractValueSetsOwnClosedSpeechValues(t *testing.T) {
 	if strings.Join(sets[1].Values, ",") != "openai,local_macos" {
 		t.Fatalf("speech providers = %v", sets[1].Values)
 	}
-	if strings.Join(sets[2].Values, ",") != "master,narrator" {
+	if strings.Join(sets[2].Values, ",") != "director,master,narrator" {
 		t.Fatalf("speech speakers = %v", sets[2].Values)
 	}
 	if strings.Join(sets[4].Values, ",") != string(VoiceReuseCatalogExhausted) {

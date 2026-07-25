@@ -109,9 +109,14 @@ pushed event stream, exposes workstream navigation and a text Director composer
 through generated Director intents, captures finalized voice transcripts through
 the same submit intent with voice provenance, and renders the Now,
 approval/resource, and artifact rails from generated Director contracts. Director
-speech playback still needs a typed Director speech-source contract; structured
-approval answer collection, rich artifact detail opening, final mockup-fidelity
-work, and live integrated performance reporting remain Phase 4 work.
+speech playback is now committed: the Go-owned speech contract includes the
+app-scoped `director` speaker, runtime synthesis resolves Director answer and
+clarification receipts from durable Director decision facts, and the production
+shell wraps the command center in the existing playback controller so accepted
+Director replies can be spoken from the same submitted text or voice intent.
+Structured approval answer collection, rich artifact detail opening, final
+mockup-fidelity work, and live integrated performance reporting remain Phase 4
+work.
 Supply-chain release gate: `desktop/package.json` ignores `CVE-2026-14257`
 only because the first patched `brace-expansion` release, `5.0.8`, was published
 on 2026-07-23 and cannot satisfy the checked-in seven-day release-age policy
@@ -1567,14 +1572,17 @@ Phase 3 audit verification:
    rail, right approvals/resources/artifacts rail, bottom text composer, compact semantic-history
    list, and fullscreen `DirectorGraphSurface` against the generated Director snapshot contract.
    Phase 5 still owns deleting the old pane modules; they are no longer the primary app mount.
-2. Connect speech capture and playback through the same Director intents as text. **Capture is
-   partially done** — the production shell now owns a Director-specific speech capture controller,
-   reuses the existing desktop voice provider/capability/credential paths, preserves a finalized
-   transcript for retry if Director dispatch fails, and submits it as `kind: "submit"` with
-   `modality: "voice"` through the same command-center dispatch function used by text. Playback
-   remains repository-actionable: speech synthesis currently resolves only `master` and `narrator`
-   sources, so Director receipt playback needs a first-class Director speech-source contract and
-   source resolver rather than a renderer-only fake source.
+2. Connect speech capture and playback through the same Director intents as text. **Done for
+   Director receipt playback** — the production shell now owns a Director-specific speech capture
+   controller, reuses the existing desktop voice provider/capability/credential paths, preserves a
+   finalized transcript for retry if Director dispatch fails, and submits it as `kind: "submit"`
+   with `modality: "voice"` through the same command-center dispatch function used by text. The
+   playback side is committed with a first-class app-scoped `director` `SpeechSource` speaker,
+   generated TypeScript contract coverage, a runtime resolver that rehydrates answer and
+   clarification text from durable `DirectorFactDecisionCommitted` records, and command-center
+   enqueueing through the existing speech playback controller. The Director source currently uses
+   the existing global assistant voice selection; a separate Director voice-setting surface is not
+   part of this Phase 4 item.
 3. Implement previous/next and direct workstream selection. **Done for the initial shell** — the
    top navigation dispatches `move_selection` for previous/next and `select_workstream` for direct
    visible-workstream selection; no pane id crosses the renderer boundary.
@@ -1701,7 +1709,7 @@ Setta 4 is complete when:
    Phase 3 has production-path Electron coverage that dispatches through the renderer preload,
    main-process IPC, HTTP, and durable store. The initial user-visible fullscreen renderer surface
    now owns those dispatches for text, voice capture, selection, approval, resource, and graph
-   updates; the remaining shell work is Director speech playback, structured approval answer
-   collection, rich artifact details, fidelity polish, and integrated performance reporting.
+   updates; the remaining shell work is structured approval answer collection, rich artifact
+   details, fidelity polish, and integrated performance reporting.
 2. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.

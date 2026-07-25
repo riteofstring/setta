@@ -1988,13 +1988,15 @@ export function decodeVoiceReuseReason(value: unknown, label = "VoiceReuseReason
   }
 }
 
-export type SpeechSpeaker = "master" | "narrator";
+export type SpeechSpeaker = "director" | "master" | "narrator";
 
-export const speechSpeakerValues = ["master", "narrator"] as const satisfies readonly SpeechSpeaker[];
+export const speechSpeakerValues = ["director", "master", "narrator"] as const satisfies readonly SpeechSpeaker[];
 
 export function decodeSpeechSpeaker(value: unknown, label = "SpeechSpeaker"): SpeechSpeaker {
   const decoded = decodeString(value, label);
   switch (decoded) {
+    case "director":
+      return decoded;
     case "master":
       return decoded;
     case "narrator":

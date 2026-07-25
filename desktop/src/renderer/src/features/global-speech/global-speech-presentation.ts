@@ -452,6 +452,7 @@ function playbackStateSource(state: SpeechPlaybackState): GlobalSpeechSource | n
   }
   const speaker = state.intent.source.speaker;
   switch (speaker) {
+    case "director":
     case "master":
       return { conversationId: null, sourcePaneId: null, type: "master" };
     case "narrator":

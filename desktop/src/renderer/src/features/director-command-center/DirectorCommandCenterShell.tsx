@@ -43,6 +43,7 @@ import { SettaLogoMark } from "../../components/setta-logo-mark";
 import { useAppWindowDragHandlers } from "../../app-window-drag";
 import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
 import { subscribeSpeechCapabilityRefresh } from "../global-speech/app-shell-speech-capture";
+import type { AppShellSpeechPlaybackController } from "../global-speech/app-shell-speech-playback-controller";
 import { createBrowserVoiceInputProvider } from "../global-speech/browser-voice-input-provider";
 import { emptyPackedGraphSnapshot } from "../director-graph/packed-graph-snapshot";
 import { packSemanticGraphComposition } from "../director-graph/semantic-graph-packer";
@@ -54,6 +55,7 @@ import {
   selectedWorkstreamEntry,
   visibleSelectedGraph,
 } from "./director-command-center-state";
+import { enqueueDirectorSpeechPlayback } from "./director-speech-playback";
 import { DirectorSpeechCaptureController } from "./director-speech-capture";
 
 interface DirectorCommandCenterShellProps {
@@ -62,6 +64,7 @@ interface DirectorCommandCenterShellProps {
   onOpenSettingsPage: () => void;
   platform: DesktopPlatform;
   setta: SettaAPI;
+  speechPlayback: AppShellSpeechPlaybackController;
 }
 
 type DirectorLoadState = "loading" | "ready" | "resyncing" | "error";
@@ -115,12 +118,14 @@ export function DirectorCommandCenterShell({
   onOpenSettingsPage,
   platform,
   setta,
+  speechPlayback,
 }: DirectorCommandCenterShellProps): React.JSX.Element {
-  const director = useDirectorRuntime(setta);
+  const director = useDirectorRuntime(setta, speechPlayback);
   const speechCapture = useDirectorSpeechCapture({
     dispatch: director.dispatch,
     runtimeId: connectedRuntimeId,
     setta,
+    speechPlayback,
   });
   const workspaceSession = useWorkspaceSession(setta);
   const selectedEntry = selectedWorkstreamEntry(director.snapshot);
@@ -187,7 +192,10 @@ export function DirectorCommandCenterShell({
   );
 }
 
-function useDirectorRuntime(setta: SettaAPI): DirectorRuntimeState & {
+function useDirectorRuntime(
+  setta: SettaAPI,
+  speechPlayback: AppShellSpeechPlaybackController,
+): DirectorRuntimeState & {
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
 } {
   const [snapshot, setSnapshotState] = useState<DirectorSnapshot | null>(null);
@@ -268,11 +276,19 @@ function useDirectorRuntime(setta: SettaAPI): DirectorRuntimeState & {
 
   const dispatch = useCallback(
     async (intent: DirectorIntent): Promise<DirectorReceipt> => {
+      speechPlayback.preemptForUserInput();
       setDispatching(true);
       setMessage(null);
       try {
         const receipt = await setta.director.dispatch(intent);
         setReceiptText(receipt.submit?.publicText || null);
+        void enqueueDirectorSpeechPlayback({
+          controller: speechPlayback,
+          readMasterVoiceSelection: setta.speech.readMasterVoiceSelection,
+          receipt,
+        }).catch((error: unknown) => {
+          console.info(`Director speech playback unavailable: ${directorErrorMessage(error)}`);
+        });
         return receipt;
       } catch (error) {
         setMessage("The Director could not accept that request.");
@@ -281,7 +297,7 @@ function useDirectorRuntime(setta: SettaAPI): DirectorRuntimeState & {
         setDispatching(false);
       }
     },
-    [setta],
+    [setta, speechPlayback],
   );
 
   return { dispatch, dispatching, loadState, message, receiptText, snapshot };
@@ -314,10 +330,12 @@ function useDirectorSpeechCapture({
   dispatch,
   runtimeId,
   setta,
+  speechPlayback,
 }: {
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
   runtimeId: string | null;
   setta: SettaAPI;
+  speechPlayback: AppShellSpeechPlaybackController;
 }): DirectorSpeechCaptureBinding {
   const dispatchRef = useRef(dispatch);
   dispatchRef.current = dispatch;
@@ -328,8 +346,8 @@ function useDirectorSpeechCapture({
         clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
         createCaptureSessionId: () => globalThis.crypto.randomUUID(),
         dispatchDirectorIntent: (intent) => dispatchRef.current(intent),
-        onCaptureEnd: () => {},
-        onCaptureStart: () => {},
+        onCaptureEnd: speechPlayback.resumeAfterCapture,
+        onCaptureStart: speechPlayback.preemptForCapture,
         setTimeout: (handler, delayMs) => globalThis.setTimeout(handler, delayMs),
       }),
   );
@@ -762,4 +780,10 @@ function resolveResourceRequestIntent(requestId: string, workspaceId: string): D
 
 function exhaustiveLoadState(state: never): never {
   throw new Error(`unsupported Director load state ${state}`);
+}
+
+function directorErrorMessage(error: unknown): string {
+  return error instanceof Error && error.message.trim()
+    ? error.message
+    : "unknown Director speech playback failure";
 }

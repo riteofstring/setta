@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { SettingsPanel } from "./components/settings-panel";
 import { useAppWindowDragHandlers } from "./app-window-drag";
 import { DirectorCommandCenterShell } from "./features/director-command-center/DirectorCommandCenterShell";
+import { AppShellSpeechPlaybackProvider } from "./features/global-speech/app-shell-speech-playback";
 import { resetRuntimeDerivedRendererState } from "./stores/runtime-derived-state";
 import { useRuntimeStore } from "./stores/runtime-store";
 import { useAppearanceStore } from "./stores/appearance-store";
@@ -69,13 +70,18 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
         data-testid="app-director-shell"
         inert={settingsPageOpen || undefined}
       >
-        <DirectorCommandCenterShell
-          connectedRuntimeId={runtime.connectedRuntimeId}
-          onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
-          onOpenSettingsPage={openSettingsPage}
-          platform={platform}
-          setta={setta}
-        />
+        <AppShellSpeechPlaybackProvider runtimeId={runtime.connectedRuntimeId} setta={setta}>
+          {(speechPlayback) => (
+            <DirectorCommandCenterShell
+              connectedRuntimeId={runtime.connectedRuntimeId}
+              onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
+              onOpenSettingsPage={openSettingsPage}
+              platform={platform}
+              setta={setta}
+              speechPlayback={speechPlayback}
+            />
+          )}
+        </AppShellSpeechPlaybackProvider>
       </div>
       {settingsRoute.page === "settings" ? (
         <SettingsShellPage onBack={closeSettingsPage} platform={platform} route={settingsRoute} />

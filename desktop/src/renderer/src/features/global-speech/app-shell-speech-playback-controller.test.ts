@@ -81,13 +81,14 @@ describe("app-shell speech playback controller", () => {
       ),
     ).toBeNull();
     expect([
+      speechPlaybackPriority("director_reply"),
       speechPlaybackPriority("master_answer"),
       speechPlaybackPriority("status_reply"),
       speechPlaybackPriority("attention"),
       speechPlaybackPriority("error"),
       speechPlaybackPriority("final_summary"),
       speechPlaybackPriority("milestone"),
-    ]).toEqual([4, 4, 3, 3, 2, 1]);
+    ]).toEqual([4, 4, 4, 3, 3, 2, 1]);
   });
 
   test("orders one queue by priority and FIFO within a priority across conversations", async () => {
