@@ -1,4 +1,4 @@
-/* global Element, document, getComputedStyle */
+/* global Element, document, getComputedStyle, window */
 
 (() => {
   const version = "setta-app-window-drag-driver-v1";
@@ -10,16 +10,57 @@
     }
     Object.assign(driver, {
       appWindowDragVersion: version,
+      elementCenterForVisibleTarget,
       sampleWindowDragRegions,
       shellTopBarControlMeasurements,
     });
   }
 
+  function elementCenterForVisibleTarget({ selector }) {
+    if (typeof selector !== "string" || selector === "") {
+      return { ok: false, reason: "missing-selector" };
+    }
+    for (const element of document.querySelectorAll(selector)) {
+      const point = centerPointForVisibleTarget(element);
+      if (point) {
+        return { ok: true, ...point };
+      }
+    }
+    return { ok: false, reason: "missing-visible-target", selector };
+  }
+
+  function centerPointForVisibleTarget(value) {
+    const element = elementOrNull(value);
+    if (!element) {
+      return null;
+    }
+    const rect = element.getBoundingClientRect();
+    const point = {
+      x: Math.round(rect.left + rect.width / 2),
+      y: Math.round(rect.top + rect.height / 2),
+    };
+    return rectHasArea(rect) && pointInViewport(point) && pointHitsElement(point, element)
+      ? point
+      : null;
+  }
+
+  function rectHasArea(rect) {
+    return rect.width > 0 && rect.height > 0;
+  }
+
+  function pointInViewport({ x, y }) {
+    return x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight;
+  }
+
+  function pointHitsElement({ x, y }, element) {
+    const hit = elementOrNull(document.elementFromPoint(x, y));
+    return Boolean(hit && (hit === element || element.contains(hit)));
+  }
+
   function shellTopBarControlMeasurements() {
     return {
-      masterButton: measuredRect('[data-testid="master-overlay-button"]'),
+      masterButton: measuredRect('[data-testid="master-pane-button"]'),
       newFrameButton: measuredRect(".workspace-toolbar-menu-button"),
-      projectToggle: measuredRect('[data-testid="project-sidebar-toggle"]'),
       settingsButton: measuredRect('[data-testid="shell-settings-button"]'),
       shellTopBar: measuredRect('[data-testid="shell-top-bar"]'),
       toolbarButton: measuredRect(".workspace-toolbar-button"),

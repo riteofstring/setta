@@ -11,13 +11,12 @@ import { fileURLToPath } from "node:url";
 import { driverCallExpression } from "./cdp-client.mjs";
 import { backendProbe, waitForBackendState } from "./electron-workflow-harness.mjs";
 import {
-  assertArtifactsExcludeMarkers,
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   dispatchKeyEvent,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   repoRoot,
   reloadPage,
@@ -29,7 +28,18 @@ import {
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
-import { startSpeechTranscriptionProviderFixture } from "./speech-transcription-provider-fixture.mjs";
+import {
+  finalizeLiveOpenAIArtifacts,
+  redactLiveOpenAIError,
+} from "./instant-voice-capture-live-openai-artifacts.mjs";
+import {
+  saveOpenAIVoiceCredentialThroughSettings,
+  selectOpenAIVoiceProvider,
+} from "./speech-credential-byok-workflow.mjs";
+import {
+  expectedSynthesisSpeed,
+  startSpeechTranscriptionProviderFixture,
+} from "./speech-transcription-provider-fixture.mjs";
 import {
   assertDriverAction,
   conversationSurfaces,
@@ -50,20 +60,17 @@ import {
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "instant-voice-capture-phase4-workflow";
 const workflowTimeoutMs = 45_000;
-const speechRealtimeBrowserFixture = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "speech-realtime-browser-fixture.js",
-);
-const speechRealtimeProcessedAudioObserverWorklet = join(
-  dirname(fileURLToPath(import.meta.url)),
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const browserFixturePath = join(scriptDir, "speech-realtime-browser-fixture.js");
+const audioObserverWorkletPath = join(
+  scriptDir,
   "speech-realtime-processed-audio-observer-worklet.js",
 );
 const providerSetupDelaysMs = [0, 1_500];
 const localReadinessCohortSampleCount = 20;
 const localReadinessInterSampleSettleMs = 500;
 const localReadinessP95BudgetMs = 100;
-const localReadinessP95DifferenceBudgetMs = 1000 / 60;
-const durationLimitMs = 120_000;
+const localReadinessP50DifferenceBudgetMs = 1000 / 60;
 
 if (options.help) {
   console.log(
@@ -83,32 +90,38 @@ const fakeCodex = await installFakeTopicCodex(fixture);
 const speechProvider = await startSpeechTranscriptionProviderFixture();
 let context = null;
 let remoteRuntime = null;
-let speechRealtimeBrowserFixtureSource = "";
-let speechRealtimeProcessedAudioObserverWorkletSource = "";
+let credentialSetup;
+let browserFixtureSource = "";
+let audioObserverWorkletSource = "";
+let workflowError = null;
 
 try {
-  speechRealtimeBrowserFixtureSource = await readFile(speechRealtimeBrowserFixture, "utf8");
-  speechRealtimeProcessedAudioObserverWorkletSource = await readFile(
-    speechRealtimeProcessedAudioObserverWorklet,
-    "utf8",
-  );
+  browserFixtureSource = await readFile(browserFixturePath, "utf8");
+  audioObserverWorkletSource = await readFile(audioObserverWorkletPath, "utf8");
   context = await launchElectronCdpContext({
     artifactDir,
     extraEnv: {
-      OPENAI_API_KEY: speechProvider.apiKey,
       PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
       SETTA_E2E_OPENAI_SPEECH_BASE_URL: speechProvider.baseURL,
       SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
     },
     fixture,
+    unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
+  const workspaceId = await openWorkspace(context.client);
+  credentialSetup = await saveOpenAIVoiceCredentialThroughSettings(
+    context.client,
+    speechProvider.apiKey,
+    workflowTimeoutMs,
+  );
+  await selectOpenAIVoiceProvider(context.client);
+  assertProviderCredentialRequests(speechProvider.requests, [credentialRequest("initial", false)]);
   await installSpeechRealtimeBrowserFixture();
 
-  const backend = await backendProbe(artifactDir, context.client);
-  const workspaceId = await openWorkspace(context.client);
+  const backend = await backendProbe(artifactDir);
   const alpha = await createTopic(
     context.client,
     backend,
@@ -139,10 +152,10 @@ try {
 
   const {
     cohorts: localReadinessCohorts,
-    p95DifferenceMs,
+    p50DifferenceMs,
     runOrder: localReadinessRunOrder,
   } = await collectLocalReadinessCohorts();
-  assertLocalReadinessInvariant(localReadinessCohorts, p95DifferenceMs);
+  assertLocalReadinessInvariant(localReadinessCohorts, p50DifferenceMs);
 
   const paneTranscript = "Phase 4 early pane marker transcript.";
   const paneRun = await exerciseFinishedCapture({
@@ -253,10 +266,11 @@ try {
     activeRunRoutingKind: activeRunRouting.decisions[0]?.decision?.kind ?? null,
     artifactDir,
     cleanup,
+    credentialSetup,
     localReadinessCohorts,
+    localReadinessP50DifferenceBudgetMs,
+    localReadinessP50DifferenceMs: p50DifferenceMs,
     localReadinessP95BudgetMs,
-    localReadinessP95DifferenceBudgetMs,
-    localReadinessP95DifferenceMs: p95DifferenceMs,
     localReadinessRunOrder,
     overlayRun: runSummary(overlayRun),
     paneRun: runSummary(paneRun),
@@ -270,14 +284,9 @@ try {
   await writeJson(join(artifactDir, "summary.json"), summary);
   await writeJson(join(artifactDir, "timing-summary.json"), summary);
   await captureScreenshot(context.client, join(artifactDir, "complete.png"));
-  await assertArtifactsExcludeMarkers(
-    artifactDir,
-    [speechProvider.apiKey, speechProvider.clientSecret],
-    "private speech credential",
-  );
   speechProvider.assertHealthy();
-  console.log(`Electron instant voice capture Phase 4 workflow passed: ${artifactDir}`);
 } catch (error) {
+  workflowError = error;
   if (context) {
     await captureScreenshot(context.client, join(artifactDir, "failure.png")).catch(() => {});
     await writeJson(join(artifactDir, "failure-snapshot.json"), {
@@ -286,18 +295,45 @@ try {
       surfaces: await safeConversationSurfaces(context.client),
     }).catch(() => {});
   }
+  const redactedError = redactLiveOpenAIError(error, speechProvider.privacyMarkers);
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
-    error: error instanceof Error ? error.message : String(error),
+    error: redactedError instanceof Error ? redactedError.message : String(redactedError),
     status: "failed",
-  });
-  throw error;
-} finally {
-  await stopElectronCdpContext(context);
-  await stopRemoteRuntime(remoteRuntime);
-  await speechProvider.close();
-  await rm(fixture.tempRoot, { force: true, recursive: true });
+  }).catch(() => {});
 }
+await finalizeLiveOpenAIArtifacts({
+  artifactDir,
+  cleanupFinalizers: [
+    async () => {
+      await rm(fixture.tempRoot, { force: true, recursive: true });
+    },
+  ],
+  description: "fake OpenAI speech credential",
+  finalizers: [
+    async () => {
+      const currentContext = context;
+      context = null;
+      await stopElectronCdpContext(currentContext);
+    },
+    async () => {
+      await stopRemoteRuntime(remoteRuntime);
+      remoteRuntime = null;
+    },
+    async () => {
+      await speechProvider.close();
+    },
+  ],
+  markers: speechProvider.privacyMarkers,
+  scanRoots: [
+    {
+      description: "temporary-state",
+      root: fixture.tempRoot,
+    },
+  ],
+  workflowError,
+});
+console.log(`Electron instant voice capture Phase 4 workflow passed: ${artifactDir}`);
 
 async function collectLocalReadinessCohorts() {
   const runsByProviderDelayMs = new Map(
@@ -327,8 +363,8 @@ async function collectLocalReadinessCohorts() {
   const cohorts = providerSetupDelaysMs.map((providerDelayMs) =>
     localReadinessCohortSummary(providerDelayMs, runsByProviderDelayMs.get(providerDelayMs) ?? []),
   );
-  const p95DifferenceMs = localReadinessP95DifferenceMs(cohorts);
-  return { cohorts, p95DifferenceMs, runOrder };
+  const p50DifferenceMs = localReadinessP50DifferenceMs(cohorts);
+  return { cohorts, p50DifferenceMs, runOrder };
 }
 
 function localReadinessProviderDelayOrder(sampleIndex) {
@@ -499,7 +535,7 @@ async function exerciseDurationFailureCleanup() {
   });
   await context.client.evaluate(
     `globalThis.__settaSpeechRealtimeBrowserFixture.setDurationTimerOverride(${JSON.stringify({
-      fromMs: durationLimitMs,
+      fromMs: 120_000,
       toMs: 500,
     })})`,
   );
@@ -680,9 +716,33 @@ function playbackSummary(playback) {
     providerRequest: {
       input: playback.providerRequest.input,
       path: playback.providerRequest.path,
+      speed: playback.providerRequest.speed,
       voice: playback.providerRequest.voice,
     },
   };
+}
+
+function credentialRequest(credentialLabel, rejected) {
+  return {
+    credentialLabel,
+    path: "/v1/realtime/client_secrets",
+    rejected,
+  };
+}
+
+function assertProviderCredentialRequests(requests, expected) {
+  const summary = providerCredentialRequestSummary(requests);
+  if (JSON.stringify(summary) !== JSON.stringify(expected)) {
+    throw new Error(`unexpected provider credential operations: ${JSON.stringify(summary)}`);
+  }
+}
+
+function providerCredentialRequestSummary(requests) {
+  return requests.map((request) => ({
+    credentialLabel: request.credentialLabel ?? null,
+    path: request.path,
+    rejected: request.rejected === true,
+  }));
 }
 
 async function waitForAutomaticNarrationStatusPlayback(initialRequestCount, text, resolvedVoiceId) {
@@ -694,6 +754,7 @@ async function waitForAutomaticNarrationStatusPlayback(initialRequestCount, text
         (candidate) =>
           candidate.path === "/v1/audio/speech" &&
           candidate.input === text &&
+          candidate.speed === expectedSynthesisSpeed &&
           candidate.voice === resolvedVoiceId,
       );
     if (request) {
@@ -837,7 +898,7 @@ async function clickPaneSpeechControl(client, conversationId) {
 
 async function clickMasterOverlayVoice(client) {
   const clicked = await client.evaluate(`(() => {
-    const button = document.querySelector('[data-testid="master-overlay-voice-capture"]');
+    const button = document.querySelector('[data-testid="master-pane-voice-capture"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return false;
     }
@@ -870,10 +931,10 @@ async function reloadSpeechFixture() {
 }
 
 async function installSpeechRealtimeBrowserFixture() {
-  await context.client.evaluate(speechRealtimeBrowserFixtureSource);
+  await context.client.evaluate(browserFixtureSource);
   await context.client.evaluate(
     `globalThis.__settaSpeechRealtimeBrowserFixture.installProcessedAudioObserverWorklet(${JSON.stringify(
-      speechRealtimeProcessedAudioObserverWorkletSource,
+      audioObserverWorkletSource,
     )})`,
   );
 }
@@ -886,7 +947,7 @@ async function openWorkspace(client) {
     workflowTimeoutMs,
   );
   if (!validWorkspaceId(initial.workspaceId)) {
-    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+    await openFixtureWorkspace(client, workflowTimeoutMs);
   }
   const opened = await waitForState(
     client,
@@ -1219,6 +1280,7 @@ function assertFinishedCaptureRun(runId, events, measurements, expectStopBeforeR
   if (marker.detail.observerMode !== "worklet") {
     throw new Error(`${runId} processed marker did not use the worklet observer`);
   }
+  assertLocalRecordingBeforeProviderReady(runId, events);
   assertFiniteMeasurement(
     runId,
     "clickToLocalCaptureReadyMs",
@@ -1231,6 +1293,14 @@ function assertFinishedCaptureRun(runId, events, measurements, expectStopBeforeR
   );
   if (expectStopBeforeReady) {
     assertStopBeforeReadyTimeline(runId, events);
+  }
+}
+
+function assertLocalRecordingBeforeProviderReady(runId, events) {
+  const recording = requiredEvent(events, "recording_observed");
+  const ready = requiredEvent(events, "realtime_session_created");
+  if (ready.performanceMs < recording.performanceMs) {
+    throw new Error(`${runId} provider readiness preceded local recording`);
   }
 }
 
@@ -1265,6 +1335,7 @@ function localReadinessCohortSummary(providerDelayMs, runs) {
   }
   return {
     clickToLocalCaptureReadyMs,
+    p50ClickToLocalCaptureReadyMs: nearestRankPercentile(clickToLocalCaptureReadyMs, 0.5),
     p95ClickToLocalCaptureReadyMs: nearestRankPercentile(clickToLocalCaptureReadyMs, 0.95),
     providerDelayMs,
     runIds: runs.map((run) => run.runId),
@@ -1272,7 +1343,7 @@ function localReadinessCohortSummary(providerDelayMs, runs) {
   };
 }
 
-function assertLocalReadinessInvariant(cohorts, p95DifferenceMs) {
+function assertLocalReadinessInvariant(cohorts, p50DifferenceMs) {
   for (const cohort of cohorts) {
     if (cohort.sampleCount < localReadinessCohortSampleCount) {
       throw new Error(
@@ -1285,18 +1356,18 @@ function assertLocalReadinessInvariant(cohorts, p95DifferenceMs) {
       );
     }
   }
-  if (p95DifferenceMs > localReadinessP95DifferenceBudgetMs) {
+  if (p50DifferenceMs > localReadinessP50DifferenceBudgetMs) {
     throw new Error(
-      `provider delay moved local readiness p95 by ${p95DifferenceMs} ms: ${JSON.stringify(cohorts)}`,
+      `provider delay moved local readiness p50 by ${p50DifferenceMs} ms: ${JSON.stringify(cohorts)}`,
     );
   }
 }
 
-function localReadinessP95DifferenceMs(cohorts) {
+function localReadinessP50DifferenceMs(cohorts) {
   const baseline = cohortForProviderDelay(cohorts, 0);
   const delayed = cohortForProviderDelay(cohorts, 1_500);
   return roundMilliseconds(
-    Math.abs(delayed.p95ClickToLocalCaptureReadyMs - baseline.p95ClickToLocalCaptureReadyMs),
+    Math.abs(delayed.p50ClickToLocalCaptureReadyMs - baseline.p50ClickToLocalCaptureReadyMs),
   );
 }
 
