@@ -73,6 +73,11 @@ func (store *Store) BeginGatewayAttachment(
 	if err := tx.Commit(); err != nil {
 		return runtimeaccess.GatewayAttachment{}, fmt.Errorf("commit gateway attachment: %w", err)
 	}
+	store.trackGatewayAttachmentLocked(
+		runtimeName,
+		attachmentID,
+		runtimeaccounting.EventBegin,
+	)
 	store.notifyOperationWakeLocked()
 	return runtimeaccess.GatewayAttachment{ID: attachmentID, RuntimeName: runtimeName}, nil
 }
@@ -115,6 +120,11 @@ func (store *Store) EndGatewayAttachment(
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit gateway attachment end: %w", err)
 	}
+	store.trackGatewayAttachmentLocked(
+		attachment.RuntimeName,
+		attachment.ID,
+		runtimeaccounting.EventEnd,
+	)
 	store.notifyOperationWakeLocked()
 	return nil
 }
@@ -189,8 +199,36 @@ func (store *Store) recordRuntimeAccountingEventLocked(
 	if err := tx.Commit(); err != nil {
 		return runtimeaccounting.LedgerState{}, fmt.Errorf("commit runtime accounting event: %w", err)
 	}
+	store.trackAccountingAttachmentLocked(request)
 	store.notifyOperationWakeLocked()
 	return state, nil
+}
+
+func (store *Store) trackAccountingAttachmentLocked(
+	request RecordRuntimeAccountingEventRequest,
+) {
+	if request.Transition.Kind != runtimeaccounting.ActivityAttachment {
+		return
+	}
+	store.trackGatewayAttachmentLocked(
+		request.RuntimeName,
+		request.Transition.SubjectID,
+		request.Transition.Action,
+	)
+}
+
+func (store *Store) trackGatewayAttachmentLocked(
+	runtimeName string,
+	attachmentID string,
+	action runtimeaccounting.EventAction,
+) {
+	key := gatewayAttachmentKey{runtimeName: runtimeName, id: attachmentID}
+	switch action {
+	case runtimeaccounting.EventBegin:
+		store.attachments[key] = struct{}{}
+	case runtimeaccounting.EventEnd:
+		delete(store.attachments, key)
+	}
 }
 
 func (store *Store) recordRuntimeAccountingTransitionTx(

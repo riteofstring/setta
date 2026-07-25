@@ -423,7 +423,8 @@ CREATE TABLE IF NOT EXISTS runtime_accounting_windows (
 CREATE TABLE IF NOT EXISTS operational_alert_deduplication (
   signal TEXT NOT NULL,
   subject_kind TEXT NOT NULL CHECK(subject_kind IN (
-    'runtime_operation', 'runtime_deletion_operation', 'budget_cutoff_operation'
+    'runtime_operation', 'runtime_deletion_operation', 'budget_cutoff_operation',
+    'workload_lease', 'gateway_attachment'
   )),
   subject_id TEXT NOT NULL,
   observed_at TEXT NOT NULL,

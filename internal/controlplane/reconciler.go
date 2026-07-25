@@ -123,7 +123,7 @@ func (reconciler *Reconciler) ReconcileOnce(ctx context.Context) (bool, error) {
 	if found {
 		return true, reconciler.reconcileBudgetCutoffClaim(ctx, operationCtx, cutoff)
 	}
-	backlogObserved, err := reconciler.observeReconciliationBacklog(operationCtx)
+	operationalAlertObserved, err := reconciler.observeOperationalAlerts(operationCtx)
 	if err != nil {
 		return false, err
 	}
@@ -148,7 +148,7 @@ func (reconciler *Reconciler) ReconcileOnce(ctx context.Context) (bool, error) {
 		reconciler.leaseDuration,
 	)
 	if err != nil || !found {
-		return found || backlogObserved, err
+		return found || operationalAlertObserved, err
 	}
 	return true, reconciler.reconcileProvisioningClaim(ctx, operationCtx, claim)
 }
@@ -177,6 +177,29 @@ func (reconciler *Reconciler) observeReconciliationBacklog(ctx context.Context) 
 		OccurredAt: backlog.OccurredAt,
 		Severity:   OperationalAlertWarning,
 		Signal:     OperationalAlertReconciliationBacklog,
+	})
+	return true, nil
+}
+
+func (reconciler *Reconciler) observeOperationalAlerts(ctx context.Context) (bool, error) {
+	backlogObserved, err := reconciler.observeReconciliationBacklog(ctx)
+	if err != nil {
+		return false, err
+	}
+	staleActivityObserved, err := reconciler.observeStaleRuntimeActivity(ctx)
+	return backlogObserved || staleActivityObserved, err
+}
+
+func (reconciler *Reconciler) observeStaleRuntimeActivity(ctx context.Context) (bool, error) {
+	alert, found, err := reconciler.store.ClaimStaleRuntimeActivityAlert(ctx)
+	if err != nil || !found {
+		return found, err
+	}
+	reconciler.alertObserver.ObserveOperationalAlert(OperationalAlertObservation{
+		ErrorCode:  alert.Reason,
+		OccurredAt: alert.OccurredAt,
+		Severity:   OperationalAlertWarning,
+		Signal:     alert.Signal,
 	})
 	return true, nil
 }

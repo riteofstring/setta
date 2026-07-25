@@ -132,6 +132,8 @@ const (
 	OperationalAlertBudgetCutoffFailed    OperationalAlertSignal = "budget_cutoff_failed"
 	OperationalAlertBudgetApproaching     OperationalAlertSignal = "budget_approaching"
 	OperationalAlertReconciliationBacklog OperationalAlertSignal = "reconciliation_backlog"
+	OperationalAlertStaleWorkloadTask     OperationalAlertSignal = "stale_workload_task"
+	OperationalAlertStaleActiveSession    OperationalAlertSignal = "stale_active_session"
 )
 
 type OperationalAlertSeverity string

@@ -26,7 +26,7 @@ import (
 
 const (
 	controlPlaneDatabaseName = "control-plane.sqlite"
-	controlPlaneStoreVersion = 14
+	controlPlaneStoreVersion = 15
 	sqliteDriverName         = "sqlite"
 	defaultGrantTTL          = 24 * time.Hour
 )
@@ -59,10 +59,16 @@ type Store struct {
 	hostedUpdates  map[string]chan struct{}
 	runtimeUpdates map[string]chan struct{}
 	operationWake  chan struct{}
+	attachments    map[gatewayAttachmentKey]struct{}
 }
 
 type grantKey struct {
 	deviceID    string
+	runtimeName string
+}
+
+type gatewayAttachmentKey struct {
+	id          string
 	runtimeName string
 }
 
@@ -111,6 +117,7 @@ func OpenStore(config StoreConfig) (*Store, error) {
 		hostedUpdates:  map[string]chan struct{}{},
 		runtimeUpdates: map[string]chan struct{}{},
 		operationWake:  make(chan struct{}, 1),
+		attachments:    map[gatewayAttachmentKey]struct{}{},
 	}
 	if err := store.configureDatabase(context.Background()); err != nil {
 		_ = db.Close()
