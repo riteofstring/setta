@@ -5,14 +5,12 @@ import (
 	"reflect"
 
 	"setta/internal/appearance"
-	"setta/internal/applayout"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
 	"setta/internal/director"
 	"setta/internal/master"
 	"setta/internal/speech"
 	"setta/internal/workspacesession"
-	"setta/internal/workspaceui"
 )
 
 type ContractSchema struct {
@@ -61,10 +59,6 @@ var apiEndpoints = []endpoint{
 	post[CloseWorkspaceRequest, workspacesession.WorkspaceSession]("CloseWorkspace", "/workspaces/close", handler.closeWorkspace),
 	post[ReorderWorkspaceRequest, workspacesession.WorkspaceSession]("ReorderWorkspace", "/workspaces/reorder", handler.reorderWorkspaces),
 	post[RemoveRecentWorkspaceRequest, workspacesession.WorkspaceSession]("RemoveRecentWorkspace", "/workspaces/remove-recent", handler.removeRecentWorkspace),
-	post[ReadWorkspaceUILayoutRequest, workspaceui.WorkspaceUILayoutReadResult]("ReadWorkspaceUILayout", "/workspaces/ui/layout/read", handler.readWorkspaceUILayout),
-	post[SaveWorkspaceUILayoutRequest, workspaceui.WorkspaceUILayout]("SaveWorkspaceUILayout", "/workspaces/ui/layout/save", handler.saveWorkspaceUILayout),
-	get[applayout.AppPaneLayoutReadResult]("ReadAppPaneLayout", "/app/panes/layout", handler.readAppPaneLayout),
-	post[SaveAppPaneLayoutRequest, applayout.AppPaneLayout]("SaveAppPaneLayout", "/app/panes/layout/save", handler.saveAppPaneLayout),
 	post[CreateTopicConversationRequest, conversation.ConversationSnapshot]("CreateTopicConversation", "/conversations/create", handler.createTopicConversation),
 	post[ArchiveTopicConversationRequest, conversation.ConversationSnapshot]("ArchiveTopicConversation", "/conversations/archive", handler.archiveTopicConversation),
 	post[BindTopicConversationFolderRequest, conversation.ConversationSnapshot]("BindTopicConversationFolder", "/conversations/resources/folder/bind", handler.bindTopicConversationFolder),

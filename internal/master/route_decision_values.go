@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-
-	"setta/internal/applayout"
 )
 
 func validRouteDecisionKind(kind RouteDecisionKind) bool {
@@ -104,17 +102,17 @@ func cloneRouteCommand(command RouteCommand) RouteCommand {
 func clonePresentationTarget(target ConversationPresentationTarget) ConversationPresentationTarget {
 	target.PreferredPaneID = cloneString(target.PreferredPaneID)
 	target.ResourceScope = cloneRouteResourceScope(target.ResourceScope)
-	target.ResourceBindings = cloneConversationPaneResourceBindings(target.ResourceBindings)
+	target.ResourceBindings = clonePresentationResourceBindings(target.ResourceBindings)
 	return target
 }
 
-func cloneConversationPaneResourceBindings(
-	bindings []applayout.ConversationPaneResourceBinding,
-) []applayout.ConversationPaneResourceBinding {
+func clonePresentationResourceBindings(
+	bindings []PresentationResourceBinding,
+) []PresentationResourceBinding {
 	if bindings == nil {
 		return nil
 	}
-	cloned := append([]applayout.ConversationPaneResourceBinding{}, bindings...)
+	cloned := append([]PresentationResourceBinding{}, bindings...)
 	for index := range cloned {
 		if cloned[index].Folder != nil {
 			folder := *cloned[index].Folder

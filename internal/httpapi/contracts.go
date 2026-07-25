@@ -2,13 +2,11 @@ package httpapi
 
 import (
 	"setta/internal/appearance"
-	"setta/internal/applayout"
 	"setta/internal/conversation"
 	"setta/internal/runtimeauth"
 	"setta/internal/speech"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
-	"setta/internal/workspaceui"
 )
 
 type RuntimeInfoResponse struct {
@@ -92,18 +90,6 @@ type ReorderWorkspaceRequest struct {
 
 type RemoveRecentWorkspaceRequest struct {
 	ID string `json:"id"`
-}
-
-type ReadWorkspaceUILayoutRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-}
-
-type SaveWorkspaceUILayoutRequest struct {
-	Layout workspaceui.WorkspaceUILayout `json:"layout"`
-}
-
-type SaveAppPaneLayoutRequest struct {
-	Layout applayout.AppPaneLayout `json:"layout"`
 }
 
 type ReadConversationSnapshotRequest struct {

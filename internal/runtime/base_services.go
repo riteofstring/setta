@@ -9,7 +9,6 @@ import (
 
 	"setta/internal/agent"
 	"setta/internal/appearance"
-	"setta/internal/applayout"
 	"setta/internal/codexapp"
 	"setta/internal/conversation"
 	"setta/internal/conversationindex"
@@ -17,14 +16,12 @@ import (
 	"setta/internal/narration"
 	"setta/internal/speech"
 	"setta/internal/workspacesession"
-	"setta/internal/workspaceui"
 )
 
 const masterRuntimeDirectoryName = "master"
 
 type runtimeBaseServices struct {
 	appearanceService        *appearance.Service
-	appPaneLayoutService     *applayout.Service
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
 	conversationInputService *conversation.InputService
@@ -38,7 +35,6 @@ type runtimeBaseServices struct {
 	roleConfigurationService *conversation.RoleConfigurationService
 	speechService            *speech.Service
 	workspaceService         *workspacesession.Service
-	workspaceUIService       *workspaceui.Service
 }
 
 func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
@@ -63,7 +59,6 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 	closeFoundationOnFailure = false
 	return runtimeBaseServices{
 		appearanceService:        foundation.appearanceService,
-		appPaneLayoutService:     foundation.appPaneLayoutService,
 		codexManager:             foundation.codexManager,
 		conversationService:      foundation.conversationService,
 		conversationInputService: foundation.conversationInputService,
@@ -77,7 +72,6 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		roleConfigurationService: foundation.roleConfigurationService,
 		speechService:            speechService,
 		workspaceService:         foundation.workspaceService,
-		workspaceUIService:       foundation.workspaceUIService,
 	}, nil
 }
 
@@ -130,7 +124,6 @@ func shutdownCodexManager(manager *codexapp.Manager, timeout time.Duration) {
 
 type runtimeFoundation struct {
 	appearanceService        *appearance.Service
-	appPaneLayoutService     *applayout.Service
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
 	conversationInputService *conversation.InputService
@@ -143,7 +136,6 @@ type runtimeFoundation struct {
 	narratorService          *narration.Service
 	roleConfigurationService *conversation.RoleConfigurationService
 	workspaceService         *workspacesession.Service
-	workspaceUIService       *workspaceui.Service
 }
 
 type runtimeAgentServices struct {
@@ -171,20 +163,6 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	conversationStore, err := conversation.NewStore(config.AppDataDir)
 	if err != nil {
 		return runtimeFoundation{}, fmt.Errorf("create conversation store: %w", err)
-	}
-	appPaneLayoutService, err := newAppPaneLayoutService(config.AppDataDir, conversationStore)
-	if err != nil {
-		_ = conversationStore.Close()
-		return runtimeFoundation{}, err
-	}
-	workspaceUIService, err := newWorkspaceUIService(
-		config.AppDataDir,
-		workspaceService,
-		conversationStore,
-	)
-	if err != nil {
-		_ = conversationStore.Close()
-		return runtimeFoundation{}, err
 	}
 	conversationIndexService, err := conversationindex.NewService(conversationStore, workspaceService)
 	if err != nil {
@@ -245,7 +223,6 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	}
 	foundation := runtimeFoundation{
 		appearanceService:        appearanceService,
-		appPaneLayoutService:     appPaneLayoutService,
 		codexManager:             codexManager,
 		conversationService:      conversationService,
 		conversationInputService: conversationInputService,
@@ -256,7 +233,6 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		narratorService:          narratorService,
 		roleConfigurationService: roleConfigurationService,
 		workspaceService:         workspaceService,
-		workspaceUIService:       workspaceUIService,
 	}
 	return attachMasterRouteService(config, foundation)
 }

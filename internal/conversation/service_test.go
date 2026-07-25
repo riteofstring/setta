@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"setta/internal/agent"
-	"setta/internal/applayout"
 	"setta/internal/master"
 	"setta/internal/speech"
 	"setta/internal/workspace"
@@ -159,7 +158,7 @@ func TestServiceExecutesMasterFolderlessCreateAsConversationInput(t *testing.T) 
 			Target: master.ConversationPresentationTarget{
 				ConversationID:   "conversation-master-folderless",
 				ResourceScope:    master.FolderlessRouteResourceScope(),
-				ResourceBindings: []applayout.ConversationPaneResourceBinding{},
+				ResourceBindings: []master.PresentationResourceBinding{},
 				Title:            "Folderless master topic",
 			},
 			InitialInputID:        "input-master-folderless",

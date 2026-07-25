@@ -2,8 +2,6 @@ import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 import type {
   AppearancePresetList,
   AppearanceSettings,
-  AppPaneLayout,
-  AppPaneLayoutReadResult,
   BackendHealth,
   CancelCodexLoginRequest,
   CodexAccountState,
@@ -13,8 +11,6 @@ import type {
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   UpdateAppearanceSettingsRequest,
-  WorkspaceUILayout,
-  WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
 import { conversationIpcChannels, type ConversationIpc } from "./conversation-ipc";
@@ -44,8 +40,6 @@ export const ipcChannels = {
   appWindowDragMove: "app:window-drag-move",
   appWindowDragStart: "app:window-drag-start",
   appOpenExternalUrl: "app:open-external-url",
-  appPaneLayoutRead: "app-pane-layout:read",
-  appPaneLayoutSave: "app-pane-layout:save",
   appOpenWorkspaceInEditor: "app:open-workspace-in-editor",
   appVersions: "app:versions",
   appWorkspaceGitInfo: "app:workspace-git-info",
@@ -74,11 +68,9 @@ export const ipcChannels = {
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceOpenPath: "workspace:open-path",
   workspaceRelocateLocalFolder: "workspace:relocate-local-folder",
-  workspaceReadUILayout: "workspace:read-ui-layout",
   workspaceRefreshAvailability: "workspace:refresh-availability",
   workspaceRemoveRecent: "workspace:remove-recent",
   workspaceReorder: "workspace:reorder",
-  workspaceSaveUILayout: "workspace:save-ui-layout",
   workspaceSelect: "workspace:select",
   workspaceSession: "workspace:session",
 } as const;
@@ -131,14 +123,6 @@ interface IpcContract
   appOpenExternalUrl: {
     args: [url: string];
     result: void;
-  };
-  appPaneLayoutRead: {
-    args: [];
-    result: AppPaneLayoutReadResult;
-  };
-  appPaneLayoutSave: {
-    args: [layout: AppPaneLayout];
-    result: AppPaneLayout;
   };
   appOpenWorkspaceInEditor: {
     args: [editorId: string, rootPath: string];
@@ -232,10 +216,6 @@ interface IpcContract
     args: [id: string];
     result: OpenWorkspaceResponse | null;
   };
-  workspaceReadUILayout: {
-    args: [workspaceId: string];
-    result: WorkspaceUILayoutReadResult;
-  };
   workspaceRefreshAvailability: {
     args: [id: string];
     result: WorkspaceSession;
@@ -247,10 +227,6 @@ interface IpcContract
   workspaceReorder: {
     args: [ids: string[]];
     result: WorkspaceSession;
-  };
-  workspaceSaveUILayout: {
-    args: [layout: WorkspaceUILayout];
-    result: WorkspaceUILayout;
   };
   workspaceSelect: {
     args: [id: string];

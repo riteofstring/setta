@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"setta/internal/appearance"
-	"setta/internal/applayout"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
 	"setta/internal/director"
@@ -15,7 +14,6 @@ import (
 	"setta/internal/speech"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
-	"setta/internal/workspaceui"
 )
 
 type AppearanceService interface {
@@ -32,16 +30,6 @@ type WorkspaceService interface {
 	Reorder(ids []string) (workspacesession.WorkspaceSession, error)
 	Select(id string) (workspacesession.WorkspaceSession, error)
 	Session() workspacesession.WorkspaceSession
-}
-
-type WorkspaceUIService interface {
-	ReadLayout(workspaceID string) (workspaceui.WorkspaceUILayoutReadResult, error)
-	SaveLayout(layout workspaceui.WorkspaceUILayout) (workspaceui.WorkspaceUILayout, error)
-}
-
-type AppPaneLayoutService interface {
-	ReadLayout() (applayout.AppPaneLayoutReadResult, error)
-	SaveLayout(layout applayout.AppPaneLayout) (applayout.AppPaneLayout, error)
 }
 
 type ConversationService interface {
@@ -198,7 +186,6 @@ type RuntimeIdentityService interface {
 
 type HandlerConfig struct {
 	AppearanceService            AppearanceService
-	AppPaneLayoutService         AppPaneLayoutService
 	Metadata                     BackendMetadata
 	ConversationInputService     ConversationInputService
 	ConversationNavigatorService ConversationNavigatorService
@@ -213,13 +200,11 @@ type HandlerConfig struct {
 	RuntimeIdentityService       RuntimeIdentityService
 	RuntimeMetadata              RuntimeMetadata
 	SpeechService                SpeechService
-	WorkspaceUIService           WorkspaceUIService
 	WorkspaceService             WorkspaceService
 }
 
 type handler struct {
 	appearanceService            AppearanceService
-	appPaneLayoutService         AppPaneLayoutService
 	metadata                     BackendMetadata
 	conversationInputService     ConversationInputService
 	conversationNavigatorService ConversationNavigatorService
@@ -234,7 +219,6 @@ type handler struct {
 	runtimeIdentityService       RuntimeIdentityService
 	runtimeMetadata              RuntimeMetadata
 	speechService                SpeechService
-	workspaceUIService           WorkspaceUIService
 	workspaceService             WorkspaceService
 }
 
@@ -249,7 +233,6 @@ func NewHandler(config HandlerConfig) http.Handler {
 	}
 	apiHandler := handler{
 		appearanceService:            config.AppearanceService,
-		appPaneLayoutService:         config.AppPaneLayoutService,
 		metadata:                     config.Metadata,
 		conversationInputService:     config.ConversationInputService,
 		conversationNavigatorService: config.ConversationNavigatorService,
@@ -264,7 +247,6 @@ func NewHandler(config HandlerConfig) http.Handler {
 		runtimeIdentityService:       config.RuntimeIdentityService,
 		runtimeMetadata:              config.RuntimeMetadata,
 		speechService:                config.SpeechService,
-		workspaceUIService:           config.WorkspaceUIService,
 		workspaceService:             config.WorkspaceService,
 	}
 	mux := http.NewServeMux()

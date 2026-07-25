@@ -128,37 +128,3 @@ func (handler handler) removeRecentWorkspace(response http.ResponseWriter, reque
 	}
 	writeJSON(response, http.StatusOK, session)
 }
-
-func (handler handler) readWorkspaceUILayout(response http.ResponseWriter, request *http.Request) {
-	service := requireWorkspaceUIService(response, handler.workspaceUIService)
-	if service == nil {
-		return
-	}
-	var payload ReadWorkspaceUILayoutRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	layout, err := service.ReadLayout(payload.WorkspaceID)
-	if err != nil {
-		writeWorkspaceUIError(response, "read_workspace_ui_layout_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, layout)
-}
-
-func (handler handler) saveWorkspaceUILayout(response http.ResponseWriter, request *http.Request) {
-	service := requireWorkspaceUIService(response, handler.workspaceUIService)
-	if service == nil {
-		return
-	}
-	var payload SaveWorkspaceUILayoutRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	layout, err := service.SaveLayout(payload.Layout)
-	if err != nil {
-		writeWorkspaceUIError(response, "save_workspace_ui_layout_failed", err)
-		return
-	}
-	writeJSON(response, http.StatusOK, layout)
-}

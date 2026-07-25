@@ -13,7 +13,6 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 			Version: config.Version,
 		},
 		AppearanceService:            services.appearanceService,
-		AppPaneLayoutService:         services.appPaneLayoutService,
 		ConversationInputService:     services.conversationInputService,
 		ConversationNavigatorService: services.conversationService,
 		ConversationService:          services.conversationService,
@@ -26,9 +25,8 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 		RuntimeMetadata: httpapi.RuntimeMetadata{
 			InfrastructureProvider: services.infrastructureProvider,
 		},
-		SpeechService:      speechServiceWithCredentialPolicy(config.SpeechCredentialOwner, services.speechService),
-		WorkspaceUIService: services.workspaceUIService,
-		WorkspaceService:   services.workspaceService,
+		SpeechService:    speechServiceWithCredentialPolicy(config.SpeechCredentialOwner, services.speechService),
+		WorkspaceService: services.workspaceService,
 	})
 	return &http.Server{
 		Handler:           apiHandler,

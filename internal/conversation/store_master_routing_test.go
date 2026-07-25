@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"setta/internal/master"
 	"slices"
 	"testing"
 	"time"
-
-	"setta/internal/applayout"
-	"setta/internal/master"
 )
 
 func TestStoreClaimsMasterRoutingInDurableInputSequence(t *testing.T) {
@@ -930,7 +928,7 @@ func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {
 	case master.RouteDecisionKindFocusConversation:
 		command.FocusConversation = &master.MasterFocusConversationRouteCommand{Target: target}
 	case master.RouteDecisionKindCreateConversation:
-		resourceBindings := []applayout.ConversationPaneResourceBinding{}
+		resourceBindings := []master.PresentationResourceBinding{}
 		if _, folderScoped := decision.CreateConversation.ResourceScope.FolderWorkspaceID(); folderScoped {
 			resourceBindings = masterRouteTestResourceBindings()
 		}
@@ -974,9 +972,9 @@ func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {
 	return command
 }
 
-func masterRouteTestResourceBindings() []applayout.ConversationPaneResourceBinding {
-	return []applayout.ConversationPaneResourceBinding{{
-		Folder: &applayout.FolderResourceBinding{RootPath: "/tmp/setta-master-route-test"},
-		Kind:   applayout.ConversationPaneResourceBindingKindFolder,
+func masterRouteTestResourceBindings() []master.PresentationResourceBinding {
+	return []master.PresentationResourceBinding{{
+		Folder: &master.PresentationFolderResourceBinding{RootPath: "/tmp/setta-master-route-test"},
+		Kind:   master.PresentationResourceBindingKindFolder,
 	}}
 }

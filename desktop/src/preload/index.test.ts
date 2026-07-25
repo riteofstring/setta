@@ -70,56 +70,25 @@ describe("preload workspace API", () => {
     ]);
   });
 
-  test("exposes typed app layout methods through IPC", async () => {
-    const { api, invoke } = await exposePreloadAPI();
-    expect(Object.keys(api.appLayout).sort()).toEqual(["readPaneLayout", "savePaneLayout"]);
-
-    const layout = {
-      columns: [],
-      focusedPaneId: "app_pane_master",
-      maximizedPaneId: null,
-      panes: [],
-      schemaVersion: 1,
-    };
-    await api.appLayout.readPaneLayout();
-    await api.appLayout.savePaneLayout(layout);
-
-    expectInvokeCalls(invoke, [
-      [ipcChannels.appPaneLayoutRead],
-      [ipcChannels.appPaneLayoutSave, layout],
-    ]);
-  });
-
   test("exposes typed workspace methods through IPC", async () => {
     const { api, invoke } = await exposePreloadAPI();
     expect(Object.keys(api.workspace).sort()).toEqual([
       "close",
       "openLocalFolder",
       "openPath",
-      "readUILayout",
       "refreshAvailability",
       "relocateLocalFolder",
       "removeRecent",
       "reorder",
-      "saveUILayout",
       "select",
       "session",
     ]);
 
-    const layout = {
-      columns: [],
-      focusedPaneId: "workspace_pane_0",
-      panes: [],
-      schemaVersion: 1,
-      workspaceId: "workspace_api",
-    };
     await api.workspace.session();
     await api.workspace.openLocalFolder();
     await api.workspace.openPath("/tmp/recent");
-    await api.workspace.readUILayout("workspace_api");
     await api.workspace.refreshAvailability("workspace_api");
     await api.workspace.relocateLocalFolder("workspace_api");
-    await api.workspace.saveUILayout(layout);
     await api.workspace.select("workspace_api");
     await api.workspace.close("workspace_api");
     await api.workspace.reorder(["workspace_web", "workspace_api"]);
@@ -129,10 +98,8 @@ describe("preload workspace API", () => {
       [ipcChannels.workspaceSession],
       [ipcChannels.workspaceOpenLocalFolder],
       [ipcChannels.workspaceOpenPath, "/tmp/recent"],
-      [ipcChannels.workspaceReadUILayout, "workspace_api"],
       [ipcChannels.workspaceRefreshAvailability, "workspace_api"],
       [ipcChannels.workspaceRelocateLocalFolder, "workspace_api"],
-      [ipcChannels.workspaceSaveUILayout, layout],
       [ipcChannels.workspaceSelect, "workspace_api"],
       [ipcChannels.workspaceClose, "workspace_api"],
       [ipcChannels.workspaceReorder, ["workspace_web", "workspace_api"]],

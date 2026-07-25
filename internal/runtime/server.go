@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"setta/internal/appearance"
-	"setta/internal/applayout"
 	"setta/internal/appstate"
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
@@ -29,7 +28,6 @@ import (
 	"setta/internal/speech"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
-	"setta/internal/workspaceui"
 )
 
 type Config struct {
@@ -78,7 +76,6 @@ type Server struct {
 
 type runtimeServices struct {
 	appearanceService        *appearance.Service
-	appPaneLayoutService     *applayout.Service
 	authStore                *runtimeauth.Store
 	bootstrapToken           string
 	codexAccountService      *codexaccount.Service
@@ -94,7 +91,6 @@ type runtimeServices struct {
 	narratorService          *narration.Service
 	roleConfigurationService *conversation.RoleConfigurationService
 	speechService            *speech.Service
-	workspaceUIService       *workspaceui.Service
 	workspaceService         *workspacesession.Service
 	runtimeIdentityManager   *runtimeIdentityManager
 	infrastructureProvider   httpapi.RuntimeInfrastructureProvider
@@ -262,7 +258,6 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	closeBaseServicesOnFailure = false
 	return runtimeServices{
 		appearanceService:        baseServices.appearanceService,
-		appPaneLayoutService:     baseServices.appPaneLayoutService,
 		authStore:                authBootstrap.store,
 		bootstrapToken:           authBootstrap.bootstrapToken,
 		codexAccountService:      codexAccountService,
@@ -278,7 +273,6 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		narratorService:          baseServices.narratorService,
 		roleConfigurationService: baseServices.roleConfigurationService,
 		speechService:            baseServices.speechService,
-		workspaceUIService:       baseServices.workspaceUIService,
 		workspaceService:         baseServices.workspaceService,
 		runtimeIdentityManager:   authBootstrap.identityManager,
 		infrastructureProvider:   authBootstrap.infrastructureProvider,
@@ -345,25 +339,6 @@ func newAppearanceService(appDataDir string) (*appearance.Service, error) {
 	return appearanceService, nil
 }
 
-func newAppPaneLayoutService(
-	appDataDir string,
-	conversationStore *conversation.Store,
-) (*applayout.Service, error) {
-	store, err := applayout.NewStore(appDataDir)
-	if err != nil {
-		return nil, fmt.Errorf("create app pane layout store: %w", err)
-	}
-	observer, err := newAppPaneLayoutPaneBindingObserver(conversationStore)
-	if err != nil {
-		return nil, fmt.Errorf("create app pane layout observer: %w", err)
-	}
-	service, err := applayout.NewService(store, observer)
-	if err != nil {
-		return nil, fmt.Errorf("create app pane layout service: %w", err)
-	}
-	return service, nil
-}
-
 func newWorkspaceService(appDataDir string) (*workspacesession.Service, error) {
 	appStore, err := appstate.NewStore(appDataDir)
 	if err != nil {
@@ -378,26 +353,6 @@ func newWorkspaceService(appDataDir string) (*workspacesession.Service, error) {
 		return nil, fmt.Errorf("load workspace session: %w", err)
 	}
 	return workspaceService, nil
-}
-
-func newWorkspaceUIService(
-	appDataDir string,
-	workspaceService *workspacesession.Service,
-	conversationStore *conversation.Store,
-) (*workspaceui.Service, error) {
-	store, err := workspaceui.NewStore(appDataDir)
-	if err != nil {
-		return nil, fmt.Errorf("create workspace UI store: %w", err)
-	}
-	observer, err := newWorkspaceUILayoutPaneBindingObserver(conversationStore)
-	if err != nil {
-		return nil, fmt.Errorf("create workspace UI pane binding observer: %w", err)
-	}
-	service, err := workspaceui.NewService(store, workspaceService, observer)
-	if err != nil {
-		return nil, fmt.Errorf("create workspace UI service: %w", err)
-	}
-	return service, nil
 }
 
 func (server *Server) Shutdown(ctx context.Context) error {

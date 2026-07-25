@@ -7,6 +7,22 @@ type ContractValueSet struct {
 	Values []string
 }
 
+type ContractDiscriminatedStruct struct {
+	Type          reflect.Type
+	Discriminator string
+	Variants      []ContractDiscriminatedStructVariant
+}
+
+type ContractDiscriminatedStructVariant struct {
+	DiscriminatorValue string
+	Fields             []ContractDiscriminatedStructField
+}
+
+type ContractDiscriminatedStructField struct {
+	Name    string
+	NonNull bool
+}
+
 type ContractTaggedUnion struct {
 	Discriminator string
 	Type          reflect.Type
@@ -48,6 +64,17 @@ func ContractTaggedUnions() []ContractTaggedUnion {
 			{Field: "openSideConversation", KindValue: string(PresentationIntentKindOpenSideConversation)},
 			{Field: "showMasterReply", KindValue: string(PresentationIntentKindShowMasterReply)},
 		},
+	}}
+}
+
+func ContractDiscriminatedStructs() []ContractDiscriminatedStruct {
+	return []ContractDiscriminatedStruct{{
+		Type:          reflect.TypeFor[PresentationResourceBinding](),
+		Discriminator: "kind",
+		Variants: []ContractDiscriminatedStructVariant{{
+			DiscriminatorValue: string(PresentationResourceBindingKindFolder),
+			Fields:             []ContractDiscriminatedStructField{{Name: "folder", NonNull: true}},
+		}},
 	}}
 }
 
@@ -113,6 +140,12 @@ func ContractValueSets() []ContractValueSet {
 			Values: []string{
 				string(MasterReplyKindClarification),
 				string(MasterReplyKindAnswer),
+			},
+		},
+		{
+			Name: "PresentationResourceBindingKind",
+			Values: []string{
+				string(PresentationResourceBindingKindFolder),
 			},
 		},
 		{

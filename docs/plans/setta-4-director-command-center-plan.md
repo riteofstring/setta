@@ -195,9 +195,15 @@ The shared speech capture lifetime and capability-refresh helpers were rehomed
 behind a pane-free module for Director voice capture, and the Electron workflow
 manifest no longer owns legacy pane/Niri workflows. The orphaned old
 topic-conversation workflow helpers that still waited on `workspace-layout-area`
-were removed with that manifest cleanup. Backend app-pane/workspace-UI
-persistence, generated contracts, and remaining Master presentation/backing
-helpers are still Phase 5 work.
+were removed with that manifest cleanup. The backend layout-persistence deletion
+is now committed: `internal/applayout`, the root `internal/workspaceui` layout
+package, their runtime observers/services, HTTP endpoints, Electron IPC/preload
+surface, and generated app/workspace layout contracts are gone. The still-used
+conversation palette catalog remains in `internal/workspaceui/conversationpalette`,
+and the residual Master presentation resource binding now lives in
+`internal/master` instead of importing app layout. Remaining Master
+presentation/backing helpers and their pane-binding assumptions are still
+Phase 5 work.
 Supply-chain release gate: `desktop/package.json` ignores `CVE-2026-14257`
 only because the first patched `brace-expansion` release, `5.0.8`, was published
 on 2026-07-23 and cannot satisfy the checked-in seven-day release-age policy
@@ -1401,9 +1407,10 @@ Exit gate:
      would only ask to resync again.
 
    `internal/director/FolderResourceBinding` became `WorkstreamFolderResource`:
-   the generated TypeScript surface is one namespace, and the pane world's
-   `applayout.FolderResourceBinding` still owns that name until Phase 5 deletes
-   it. Executing a routed decision is item 6.
+   the generated TypeScript surface is one namespace, and the pane world's old
+   app-layout binding later left in Phase 5. The residual Master presentation
+   route command now owns its local `PresentationResourceBinding` while those
+   helpers await deletion. Executing a routed decision is item 6.
 
 4. Add the app-scoped workstream registry with push subscriptions and durable cursors. **Done —
    `internal/director/registry*.go`.** The registry folds the durable committed log into the
@@ -1798,8 +1805,9 @@ Remove:
 - `desktop/src/renderer/src/workspace-layout/` **Done for the production renderer — the directory
   and its tests are removed.**
 - pane layout stores, coordinators, camera/navigation machinery, and persisted layout. **Done for
-  the renderer-side store/coordinator/camera/navigation owners; backend app-pane and workspace-UI
-  persistence and generated contracts still remain below.**
+  the renderer-side store/coordinator/camera/navigation owners and backend
+  app-pane/workspace-UI layout persistence; remaining conversation pane-binding
+  persistence is tied to Master presentation cleanup below.**
 - pane-bound conversation routing and presentation resolution. **Done for the renderer pane
   surfaces; backend Master presentation and pane-bound helper cleanup remains.**
 - pane drag, resize, reorder, overview, and manual layout controls. **Done for the renderer UI and
@@ -1807,7 +1815,9 @@ Remove:
 - Niri-specific shortcuts, toolbar, mobile pane controls, and CSS. **Done for visible renderer
   shortcuts and CSS imports; backend appearance shortcut contract cleanup remains with generated
   contract removal.**
-- workspace-layout endpoints, IPC, and generated contracts with no Setta 4 owner
+- workspace-layout endpoints, IPC, and generated contracts with no Setta 4 owner. **Done for
+  app-pane and workspace-UI layout read/save endpoints, Electron IPC/preload methods, and generated
+  backend contracts.**
 - Niri-specific Electron E2E workflows. **Done for the workflow manifest and the deleted
   pane-owned workflow files/drivers, including orphaned topic-conversation helper workflows.**
 

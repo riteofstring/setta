@@ -13,7 +13,6 @@ import type { BackendFetch } from "@shared/backend-runtime";
 import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
 import type { BackendProcessStatus, RuntimeRegistrySnapshot } from "@shared/types";
-import { registerAppPaneLayoutIpcHandlers } from "./app-pane-layout-ipc";
 import { registerAppIpcHandlers } from "./app-ipc";
 import { authenticatedBackendFetch } from "./backend-auth-fetch";
 import { attachBackendObservers } from "./backend-main-observers";
@@ -52,7 +51,6 @@ import { SpeechProviderSelectionStore } from "./speech-provider-selection-store"
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { registerAppWindowDragIpcHandlers } from "./window-drag";
-import { registerWorkspaceUILayoutIpcHandlers } from "./workspace-ui-ipc";
 
 let backend: BackendHandle | null = null;
 let codexAccountEventStream: CodexAccountEventStream | null = null;
@@ -458,7 +456,6 @@ function registerIpc() {
     ipcObserver,
     windowFromEvent: (event) => BrowserWindow.fromWebContents(event.sender),
   });
-  registerAppPaneLayoutIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
     "backendHealth",
@@ -576,7 +573,6 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerWorkspaceUILayoutIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
     "workspaceClose",

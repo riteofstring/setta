@@ -2,8 +2,6 @@ package master
 
 import (
 	"testing"
-
-	"setta/internal/applayout"
 )
 
 func TestPresentationIntentForCommandUsesTrustedPaneTargets(t *testing.T) {
@@ -65,7 +63,7 @@ func TestPresentationIntentForCommandAllowsFolderlessTargets(t *testing.T) {
 			Target: ConversationPresentationTarget{
 				ConversationID:   "conversation-folderless",
 				ResourceScope:    FolderlessRouteResourceScope(),
-				ResourceBindings: []applayout.ConversationPaneResourceBinding{},
+				ResourceBindings: []PresentationResourceBinding{},
 				Title:            "Folderless topic",
 			},
 		},
@@ -179,9 +177,9 @@ func TestRouteCommandRejectsDecisionPayloadDrift(t *testing.T) {
 	}
 }
 
-func testPresentationResourceBindings() []applayout.ConversationPaneResourceBinding {
-	return []applayout.ConversationPaneResourceBinding{{
-		Folder: &applayout.FolderResourceBinding{RootPath: "/tmp/setta-master-route-test"},
-		Kind:   applayout.ConversationPaneResourceBindingKindFolder,
+func testPresentationResourceBindings() []PresentationResourceBinding {
+	return []PresentationResourceBinding{{
+		Folder: &PresentationFolderResourceBinding{RootPath: "/tmp/setta-master-route-test"},
+		Kind:   PresentationResourceBindingKindFolder,
 	}}
 }

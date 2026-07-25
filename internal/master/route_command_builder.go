@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-
-	"setta/internal/applayout"
 )
 
 func (service *RouteService) buildRouteCommand(
@@ -270,20 +268,20 @@ func (service *RouteService) presentationTargetFor(target RouteConversationTarge
 
 func (service *RouteService) presentationResourceBindingsForScope(
 	scope RouteResourceScope,
-) ([]applayout.ConversationPaneResourceBinding, error) {
+) ([]PresentationResourceBinding, error) {
 	if err := scope.Validate(); err != nil {
 		return nil, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
 	workspaceID, folderScoped := scope.FolderWorkspaceID()
 	if !folderScoped {
-		return []applayout.ConversationPaneResourceBinding{}, nil
+		return []PresentationResourceBinding{}, nil
 	}
 	return service.presentationResourceBindingsForWorkspace(workspaceID)
 }
 
 func (service *RouteService) presentationResourceBindingsForWorkspace(
 	workspaceID string,
-) ([]applayout.ConversationPaneResourceBinding, error) {
+) ([]PresentationResourceBinding, error) {
 	if service == nil || service.workspaces == nil {
 		return nil, NewRouteAttemptFailure(
 			RouteFailureKindStateUnavailable,
@@ -300,9 +298,9 @@ func (service *RouteService) presentationResourceBindingsForWorkspace(
 			fmt.Errorf("master route workspace resolved as %s, want %s", resolved.ID, workspaceID),
 		)
 	}
-	bindings := []applayout.ConversationPaneResourceBinding{{
-		Folder: &applayout.FolderResourceBinding{RootPath: resolved.RootPath},
-		Kind:   applayout.ConversationPaneResourceBindingKindFolder,
+	bindings := []PresentationResourceBinding{{
+		Folder: &PresentationFolderResourceBinding{RootPath: resolved.RootPath},
+		Kind:   PresentationResourceBindingKindFolder,
 	}}
 	if err := validatePresentationResourceBindings(bindings); err != nil {
 		return nil, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)

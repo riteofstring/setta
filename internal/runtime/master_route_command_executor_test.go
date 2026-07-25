@@ -4,12 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"testing"
-
-	"setta/internal/applayout"
 	"setta/internal/conversation"
 	"setta/internal/master"
 	"setta/internal/narration"
+	"testing"
 )
 
 func TestMasterRouteCommandExecutorCompletesPersistedNarratorDegradation(t *testing.T) {
@@ -204,7 +202,7 @@ func masterRoutedFolderlessCreateDecisionRecord() master.RouteDecisionRecord {
 				Target: master.ConversationPresentationTarget{
 					ConversationID:   "conversation_master_created",
 					ResourceScope:    master.FolderlessRouteResourceScope(),
-					ResourceBindings: []applayout.ConversationPaneResourceBinding{},
+					ResourceBindings: []master.PresentationResourceBinding{},
 					Title:            "App-level topic",
 				},
 				InitialInputID:        "conversation_input_master_created",
@@ -217,10 +215,10 @@ func masterRoutedFolderlessCreateDecisionRecord() master.RouteDecisionRecord {
 	}
 }
 
-func masterRouteExecutorTestResourceBindings() []applayout.ConversationPaneResourceBinding {
-	return []applayout.ConversationPaneResourceBinding{{
-		Folder: &applayout.FolderResourceBinding{RootPath: "/tmp/setta-master-route-executor-test"},
-		Kind:   applayout.ConversationPaneResourceBindingKindFolder,
+func masterRouteExecutorTestResourceBindings() []master.PresentationResourceBinding {
+	return []master.PresentationResourceBinding{{
+		Folder: &master.PresentationFolderResourceBinding{RootPath: "/tmp/setta-master-route-executor-test"},
+		Kind:   master.PresentationResourceBindingKindFolder,
 	}}
 }
 

@@ -4,12 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-
-	"setta/internal/applayout"
 )
 
 type PresentationIntentKind string
 type MasterReplyKind string
+type PresentationResourceBindingKind string
 
 const (
 	MaxPresentationIntentIDBytes = MaxInputIDBytes + 32
@@ -21,17 +20,28 @@ const (
 
 	MasterReplyKindClarification MasterReplyKind = "clarification"
 	MasterReplyKindAnswer        MasterReplyKind = "answer"
+
+	PresentationResourceBindingKindFolder PresentationResourceBindingKind = "folder"
 )
+
+type PresentationFolderResourceBinding struct {
+	RootPath string `json:"rootPath"`
+}
+
+type PresentationResourceBinding struct {
+	Folder *PresentationFolderResourceBinding `json:"folder"`
+	Kind   PresentationResourceBindingKind    `json:"kind"`
+}
 
 // ConversationPresentationTarget is trusted application state captured when a
 // master decision is validated. The model never authors workspace, pane, or
 // presentation metadata beyond the conversation id selected by its decision.
 type ConversationPresentationTarget struct {
-	ConversationID   string                                      `json:"conversationId"`
-	ResourceScope    RouteResourceScope                          `json:"resourceScope"`
-	ResourceBindings []applayout.ConversationPaneResourceBinding `json:"resourceBindings"`
-	Title            string                                      `json:"title"`
-	PreferredPaneID  *string                                     `json:"preferredPaneId"`
+	ConversationID   string                        `json:"conversationId"`
+	ResourceScope    RouteResourceScope            `json:"resourceScope"`
+	ResourceBindings []PresentationResourceBinding `json:"resourceBindings"`
+	Title            string                        `json:"title"`
+	PreferredPaneID  *string                       `json:"preferredPaneId"`
 }
 
 type MasterSendToAgentRouteCommand struct {
@@ -181,7 +191,7 @@ func (target ConversationPresentationTarget) Validate() error {
 	return nil
 }
 
-func validatePresentationResourceBindings(bindings []applayout.ConversationPaneResourceBinding) error {
+func validatePresentationResourceBindings(bindings []PresentationResourceBinding) error {
 	if bindings == nil {
 		return errors.New("master presentation resource bindings must be an array")
 	}
@@ -193,9 +203,9 @@ func validatePresentationResourceBindings(bindings []applayout.ConversationPaneR
 	return nil
 }
 
-func validatePresentationResourceBinding(binding applayout.ConversationPaneResourceBinding) error {
+func validatePresentationResourceBinding(binding PresentationResourceBinding) error {
 	switch binding.Kind {
-	case applayout.ConversationPaneResourceBindingKindFolder:
+	case PresentationResourceBindingKindFolder:
 		if binding.Folder == nil {
 			return errors.New("folder binding requires a folder payload")
 		}

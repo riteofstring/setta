@@ -54,10 +54,6 @@ const api: SettaAPI = {
       };
     },
   },
-  appLayout: {
-    readPaneLayout: () => invoke("appPaneLayoutRead"),
-    savePaneLayout: (layout) => invoke("appPaneLayoutSave", layout),
-  },
   runtimes: {
     addByPairingUrl: (pairingUrl) => invoke("runtimeAddByPairingUrl", pairingUrl),
     current: () => invoke("runtimeCurrent"),
@@ -238,11 +234,9 @@ const api: SettaAPI = {
     openLocalFolder: () => invoke("workspaceOpenLocalFolder"),
     openPath: (rootPath: string) => invoke("workspaceOpenPath", rootPath),
     relocateLocalFolder: (id: string) => invoke("workspaceRelocateLocalFolder", id),
-    readUILayout: (workspaceId: string) => invoke("workspaceReadUILayout", workspaceId),
     refreshAvailability: (id: string) => invoke("workspaceRefreshAvailability", id),
     removeRecent: (id: string) => invoke("workspaceRemoveRecent", id),
     reorder: (ids: string[]) => invoke("workspaceReorder", ids),
-    saveUILayout: (layout) => invoke("workspaceSaveUILayout", layout),
     select: (id: string) => invoke("workspaceSelect", id),
     session: () => invoke("workspaceSession"),
   },

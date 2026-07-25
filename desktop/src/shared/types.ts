@@ -6,8 +6,6 @@ import type {
   AppearanceMasterVoiceShortcut,
   AppearancePresetList,
   AppearanceSettings,
-  AppPaneLayout,
-  AppPaneLayoutReadResult,
   BackendHealth,
   BindTopicConversationFolderRequest,
   CancelMasterInputRequest,
@@ -69,8 +67,6 @@ import type {
   UpdateWorkspaceRoleProfilesRequest,
   UpdateTopicConversationPresentationRequest,
   VoiceSelectionRequest,
-  WorkspaceUILayout,
-  WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
 import type {
@@ -302,10 +298,6 @@ export interface SettaAPI {
     health: () => Promise<BackendHealth>;
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
   };
-  appLayout: {
-    readPaneLayout: () => Promise<AppPaneLayoutReadResult>;
-    savePaneLayout: (layout: AppPaneLayout) => Promise<AppPaneLayout>;
-  };
   runtimes: {
     addByPairingUrl: (pairingUrl: string) => Promise<RuntimeRegistrySnapshot>;
     current: () => Promise<RuntimeRegistrySnapshot>;
@@ -441,11 +433,9 @@ export interface SettaAPI {
     openLocalFolder: () => Promise<OpenWorkspaceResponse | null>;
     openPath: (rootPath: string) => Promise<OpenWorkspaceResponse>;
     relocateLocalFolder: (id: string) => Promise<OpenWorkspaceResponse | null>;
-    readUILayout: (workspaceId: string) => Promise<WorkspaceUILayoutReadResult>;
     refreshAvailability: (id: string) => Promise<WorkspaceSession>;
     removeRecent: (id: string) => Promise<WorkspaceSession>;
     reorder: (ids: string[]) => Promise<WorkspaceSession>;
-    saveUILayout: (layout: WorkspaceUILayout) => Promise<WorkspaceUILayout>;
     select: (id: string) => Promise<WorkspaceSession>;
     session: () => Promise<WorkspaceSession>;
   };
