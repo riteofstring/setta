@@ -6,12 +6,14 @@ import (
 )
 
 func TestNormalizeConversationInputPreservesTextAndNormalizesUTCMetadata(t *testing.T) {
+	sourcePaneID := "pane_alpha"
 	replyToInputID := "input_parent"
 	input := ConversationInput{
 		ID:             "input_alpha",
 		ConversationID: "conversation_alpha",
+		SourcePaneID:   &sourcePaneID,
 		ReplyToInputID: &replyToInputID,
-		Text:           "  Keep the conversation transcript exact.  ",
+		Text:           "  Keep the pane transcript exact.  ",
 		Modality:       ConversationInputModalityVoice,
 		SubmittedAt:    "2026-07-12T18:00:00.000Z",
 	}
@@ -26,8 +28,9 @@ func TestNormalizeConversationInputPreservesTextAndNormalizesUTCMetadata(t *test
 	if normalized.SubmittedAt != "2026-07-12T18:00:00Z" {
 		t.Fatalf("submittedAt = %q, want canonical UTC", normalized.SubmittedAt)
 	}
+	sourcePaneID = "mutated"
 	replyToInputID = "mutated"
-	if *normalized.ReplyToInputID != "input_parent" {
+	if *normalized.SourcePaneID != "pane_alpha" || *normalized.ReplyToInputID != "input_parent" {
 		t.Fatalf("normalized input aliases caller pointers: %+v", normalized)
 	}
 }
@@ -60,6 +63,8 @@ func TestNormalizeConversationInputRejectsInvalidContracts(t *testing.T) {
 		{name: "oversized conversation", mutate: func(input *ConversationInput) {
 			input.ConversationID = strings.Repeat("c", MaxConversationInputReferenceBytes+1)
 		}},
+		{name: "empty source pane", mutate: func(input *ConversationInput) { empty := ""; input.SourcePaneID = &empty }},
+		{name: "spaced source pane", mutate: func(input *ConversationInput) { spaced := " pane "; input.SourcePaneID = &spaced }},
 		{name: "unsafe reply id", mutate: func(input *ConversationInput) { replyID := "input/unsafe"; input.ReplyToInputID = &replyID }},
 		{name: "self reply", mutate: func(input *ConversationInput) { input.ReplyToInputID = &input.ID }},
 		{name: "blank text", mutate: func(input *ConversationInput) { input.Text = " \n " }},

@@ -2,9 +2,11 @@ import type {
   AppearanceColorMode,
   AppearanceColorScheme,
   AppearanceFontScheme,
+  AppearanceMasterVoiceShortcut,
   AppearancePreset,
   AppearancePresetID,
   AppearanceSettings,
+  AppearanceWorkspaceNavigationShortcut,
 } from "@generated/backend";
 import { create } from "zustand";
 
@@ -32,7 +34,12 @@ interface AppearanceStore {
     value: string,
   ) => void;
   setFontValue: (name: keyof AppearanceFontScheme, value: string) => void;
+  setClampResizedPanesToViewport: (clamp: boolean) => void;
   setMode: (mode: AppearanceColorMode) => void;
+  setMasterVoiceShortcut: (shortcut: AppearanceMasterVoiceShortcut) => void;
+  setOverviewCardWidthBounds: (minWidthPx: number, maxWidthPx: number) => void;
+  setShowPerformanceStats: (show: boolean) => void;
+  setWorkspaceNavigationShortcut: (shortcut: AppearanceWorkspaceNavigationShortcut) => void;
   status: AppearanceStoreStatus;
 }
 
@@ -112,8 +119,54 @@ export const useAppearanceStore = create<AppearanceStore>((set, get) => {
         fonts: { ...settings.fonts, [name]: value },
       }));
     },
+    setClampResizedPanesToViewport: (clamp) => {
+      updateDraft((settings) => ({
+        ...settings,
+        developer: {
+          ...settings.developer,
+          allowResizedPanesToOverflowViewport: !clamp,
+        },
+      }));
+    },
     setMode: (mode) => {
       updateDraft((settings) => ({ ...settings, mode }));
+    },
+    setMasterVoiceShortcut: (shortcut) => {
+      updateDraft((settings) => ({
+        ...settings,
+        shortcuts: {
+          ...settings.shortcuts,
+          masterVoice: shortcut,
+        },
+      }));
+    },
+    setOverviewCardWidthBounds: (minWidthPx, maxWidthPx) => {
+      updateDraft((settings) => ({
+        ...settings,
+        developer: {
+          ...settings.developer,
+          overviewCardMaxWidthPx: Math.round(maxWidthPx),
+          overviewCardMinWidthPx: Math.round(minWidthPx),
+        },
+      }));
+    },
+    setShowPerformanceStats: (show) => {
+      updateDraft((settings) => ({
+        ...settings,
+        developer: {
+          ...settings.developer,
+          showPerformanceStats: show,
+        },
+      }));
+    },
+    setWorkspaceNavigationShortcut: (shortcut) => {
+      updateDraft((settings) => ({
+        ...settings,
+        shortcuts: {
+          ...settings.shortcuts,
+          workspaceNavigation: shortcut,
+        },
+      }));
     },
     status: "idle",
   };
@@ -199,6 +252,7 @@ export function appearanceStyleVariables(settings: AppearanceSettings): Record<s
     ...shadcnVariables(scheme),
     ...statusVariables(scheme),
     ...accentVariables(scheme),
+    ...workspaceVariables(scheme),
     "--font-heading": settings.fonts.heading,
     "--font-mono": settings.fonts.mono,
     "--font-sans": settings.fonts.sans,
@@ -245,6 +299,18 @@ function accentVariables(scheme: AppearanceColorScheme): Record<string, string> 
       [`--accent-${name}`, value],
       [`--color-accent-${name}`, value],
     ]),
+  );
+}
+
+function workspaceVariables(scheme: AppearanceColorScheme): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(scheme.workspace).flatMap(([name, value]) => {
+      const token = kebabCase(name);
+      return [
+        [`--workspace-${token}`, value],
+        [`--color-workspace-${token}`, value],
+      ];
+    }),
   );
 }
 

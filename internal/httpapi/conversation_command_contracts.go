@@ -5,16 +5,11 @@ import (
 )
 
 type CreateTopicConversationRequest struct {
-	WorkspaceID *string `json:"workspaceId"`
-	Title       string  `json:"title"`
+	WorkspaceID string `json:"workspaceId"`
+	Title       string `json:"title"`
 }
 
 type ArchiveTopicConversationRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-}
-
-type BindTopicConversationFolderRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
 }
@@ -29,6 +24,7 @@ type SendSideConversationTurnRequest struct {
 type DisposeSideConversationRequest struct {
 	WorkspaceID          string `json:"workspaceId"`
 	ParentConversationID string `json:"parentConversationId"`
+	ParentPaneID         string `json:"parentPaneId"`
 	SideConversationID   string `json:"sideConversationId"`
 }
 
@@ -41,6 +37,12 @@ type SubmitTopicConversationApprovalRequest struct {
 	WorkspaceID    string                                    `json:"workspaceId"`
 	ConversationID string                                    `json:"conversationId"`
 	Response       conversation.ConversationApprovalResponse `json:"response"`
+}
+
+type UpdateTopicConversationPresentationRequest struct {
+	WorkspaceID    string                                        `json:"workspaceId"`
+	ConversationID string                                        `json:"conversationId"`
+	Settings       conversation.ConversationPresentationSettings `json:"settings"`
 }
 
 type ReadConversationRoleConfigurationRequest struct {

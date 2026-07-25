@@ -1,20 +1,35 @@
 package conversation
 
-// DefaultDirectorRoleProfile is the app-global routing role. Its provider
-// call receives no shell, filesystem environment, tools, or prior thread
-// history. Trusted Director context and its output schema carry the complete
-// authority for each isolated decision.
-func DefaultDirectorRoleProfile() RoleProfile {
+const (
+	MasterToolConversationCandidatesRead = "conversation_candidates.read"
+	MasterToolConversationStatusRead     = "conversation_status.read"
+	MasterToolConversationCommandPropose = "conversation_command.propose"
+	MasterToolPresentationIntentPropose  = "presentation_intent.propose"
+)
+
+// DefaultMasterRoleProfile is the app-global routing role. Its provider
+// thread receives no shell or filesystem environment; this allowlist names
+// only Setta-owned, proposal-oriented capabilities that the backend validates
+// before executing.
+func DefaultMasterRoleProfile() RoleProfile {
 	modelID := "gpt-5.6-terra"
 	return RoleProfile{
-		Role:            RoleDirector,
+		Role:            RoleMaster,
 		Provider:        ProviderCodex,
 		ModelSelection:  ModelSelection{Mode: ModelSelectionExact, ModelID: &modelID},
 		ReasoningEffort: ReasoningEffortMedium,
 		PermissionProfile: PermissionProfile{
 			ApprovalPolicy:            ApprovalPolicyNever,
 			ProviderPermissionProfile: ":read-only",
-			ToolAccess:                ToolAccessPolicy{Mode: ToolAccessNone, AllowedTools: []string{}},
+			ToolAccess: ToolAccessPolicy{
+				Mode: ToolAccessAllowlist,
+				AllowedTools: []string{
+					MasterToolConversationCandidatesRead,
+					MasterToolConversationStatusRead,
+					MasterToolConversationCommandPropose,
+					MasterToolPresentationIntentPropose,
+				},
+			},
 		},
 		ContextBudget: ContextBudget{
 			MaxInputBytes:        128 * 1024,
@@ -35,10 +50,11 @@ func DefaultAgentRoleProfile() RoleProfile {
 		ModelSelection:  ModelSelection{Mode: ModelSelectionExact, ModelID: &modelID},
 		ReasoningEffort: ReasoningEffortHigh,
 		PermissionProfile: PermissionProfile{
-			ApprovalPolicy:            ApprovalPolicyNever,
+			ApprovalPolicy:            ApprovalPolicyOnRequest,
 			ProviderPermissionProfile: ":workspace",
 			ToolAccess:                ToolAccessPolicy{Mode: ToolAccessAll, AllowedTools: []string{}},
 			WorkspaceMutation:         true,
+			Approvals:                 true,
 		},
 		ContextBudget: ContextBudget{
 			MaxInputBytes:        256 * 1024,
@@ -82,10 +98,11 @@ func DefaultSideAgentRoleProfile() RoleProfile {
 		ModelSelection:  ModelSelection{Mode: ModelSelectionExact, ModelID: &modelID},
 		ReasoningEffort: ReasoningEffortMedium,
 		PermissionProfile: PermissionProfile{
-			ApprovalPolicy:            ApprovalPolicyNever,
+			ApprovalPolicy:            ApprovalPolicyOnRequest,
 			ProviderPermissionProfile: ":read-only",
 			ToolAccess:                ToolAccessPolicy{Mode: ToolAccessAll, AllowedTools: []string{}},
 			WorkspaceMutation:         false,
+			Approvals:                 true,
 		},
 		ContextBudget: ContextBudget{
 			MaxInputBytes:        256 * 1024,
