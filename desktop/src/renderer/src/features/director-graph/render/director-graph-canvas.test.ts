@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { DirectorGraphCanvas, graphHoverNeedsAnimation } from "./director-graph-canvas";
+import {
+  DirectorGraphCanvas,
+  graphAmbientFieldNeedsAnimation,
+  graphHoverNeedsAnimation,
+} from "./director-graph-canvas";
 import { DirectorGraphRenderer } from "./director-graph-renderer";
 import { graphSeededRandom } from "./graph-gl-programs";
 import { graphQualityProfiles } from "./graph-quality";
@@ -48,6 +52,12 @@ describe("director graph canvas host", () => {
     expect(graphHoverNeedsAnimation(false, false, 0.25)).toBe(true);
     expect(graphHoverNeedsAnimation(true, true, 1)).toBe(false);
     expect(graphHoverNeedsAnimation(true, false, 0)).toBe(false);
+  });
+
+  it("keeps the ambient field moving unless reduced motion is active", () => {
+    expect(graphAmbientFieldNeedsAnimation(false, true)).toBe(true);
+    expect(graphAmbientFieldNeedsAnimation(false, false)).toBe(false);
+    expect(graphAmbientFieldNeedsAnimation(true, true)).toBe(false);
   });
 });
 

@@ -251,6 +251,7 @@ export function DirectorCommandCenterShell({
         />
         <section className="director-command-center-stage" aria-label="Director command center">
           <DirectorGraphSurface
+            ambientMotion
             label="Director semantic graph"
             onReady={onGraphReady}
             timeSecondsAt={graphTimeSecondsAt}

@@ -96,6 +96,11 @@ export interface DirectorGraphCanvasOptions {
    */
   readonly timeSecondsAt: (timestampMs: number) => number;
   readonly reducedMotion: boolean;
+  /**
+   * Keeps the mockup's drifting void alive after semantic graph motion settles.
+   * Fixture harnesses leave this off so completed replays can still sleep.
+   */
+  readonly ambientMotion?: boolean;
   /** Injected for tests and for a harness that steps frames deterministically. */
   readonly frameHost?: GraphFrameSchedulerHost;
   readonly now?: () => number;
@@ -115,6 +120,13 @@ export function graphHoverNeedsAnimation(
   return !reducedMotion && (hovering || hoverAmount > 0);
 }
 
+export function graphAmbientFieldNeedsAnimation(
+  reducedMotion: boolean,
+  ambientMotion: boolean,
+): boolean {
+  return ambientMotion && !reducedMotion;
+}
+
 export class DirectorGraphCanvas {
   private readonly renderer: DirectorGraphRenderer;
   private readonly scheduler: GraphFrameScheduler;
@@ -129,6 +141,7 @@ export class DirectorGraphCanvas {
   private readonly placements: GraphLabelPlacement[] = [];
   private readonly quality: GraphQualityController;
   private readonly now: () => number;
+  private readonly ambientMotion: boolean;
 
   private snapshot: PackedGraphSnapshot;
   private queued: PackedGraphBatch[] = [];
@@ -143,6 +156,7 @@ export class DirectorGraphCanvas {
   constructor(private readonly options: DirectorGraphCanvasOptions) {
     this.snapshot = emptyPackedGraphSnapshot("");
     this.reducedMotion = options.reducedMotion;
+    this.ambientMotion = options.ambientMotion === true;
     this.now = options.now ?? (() => performance.now());
     const viewport = options.viewportOf();
     const profile = this.profileFor(viewport, options.devicePixelRatioOf());
@@ -588,6 +602,9 @@ export class DirectorGraphCanvas {
       return "continue";
     }
     if (graphHoverNeedsAnimation(this.reducedMotion, hovering, this.hoverAmount)) {
+      return "continue";
+    }
+    if (graphAmbientFieldNeedsAnimation(this.reducedMotion, this.ambientMotion)) {
       return "continue";
     }
     if (this.view.camera() !== this.layout.liveEdge() && !this.view.isDetached()) {

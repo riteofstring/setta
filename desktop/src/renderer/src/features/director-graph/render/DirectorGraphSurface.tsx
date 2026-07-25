@@ -25,13 +25,20 @@ export interface DirectorGraphSurfaceProps {
   /** Receives the host once it exists, and again as null on unmount. */
   onReady: (canvas: DirectorGraphCanvas | null) => void;
   label: string;
+  /** Keeps the background field moving after semantic graph motion settles. */
+  ambientMotion?: boolean;
 }
 
 function prefersReducedMotion(view: Window): boolean {
   return view.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function DirectorGraphSurface({ timeSecondsAt, onReady, label }: DirectorGraphSurfaceProps) {
+export function DirectorGraphSurface({
+  ambientMotion = false,
+  timeSecondsAt,
+  onReady,
+  label,
+}: DirectorGraphSurfaceProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
@@ -62,6 +69,7 @@ export function DirectorGraphSurface({ timeSecondsAt, onReady, label }: Director
       devicePixelRatioOf: () => view.devicePixelRatio,
       timeSecondsAt: (timestampMs) => timeRef.current(timestampMs),
       reducedMotion: prefersReducedMotion(view),
+      ambientMotion,
     });
     readyRef.current(host);
 
@@ -122,7 +130,7 @@ export function DirectorGraphSurface({ timeSecondsAt, onReady, label }: Director
       readyRef.current(null);
       host.dispose();
     };
-  }, []);
+  }, [ambientMotion]);
 
   return (
     <div
