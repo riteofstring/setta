@@ -57,7 +57,7 @@ func TestCancelStopsTheRunTheUserSaw(t *testing.T) {
 	harness.startTurn("conversation-running", "turn-running-1")
 	registry := harness.start()
 	execution := &recordedExecution{}
-	center := newSubmittingCommandCenter(t, harness, registry, unreachableDecisionCaller{}, execution)
+	center := newSubmittingCommandCenter(t, harness, registry, silentDirectorProvider{}, execution)
 
 	receipt := dispatch(t, center, cancelRun(running, "turn-running-1"))
 	if receipt.Kind != DirectorIntentCancelRun ||
@@ -93,7 +93,7 @@ func TestCancelRejectsAWorkstreamWithNoRun(t *testing.T) {
 	idle := harness.createConversation("conversation-idle", "Parser rewrite", &workspaceID)
 	registry := harness.start()
 	execution := &recordedExecution{}
-	center := newSubmittingCommandCenter(t, harness, registry, unreachableDecisionCaller{}, execution)
+	center := newSubmittingCommandCenter(t, harness, registry, silentDirectorProvider{}, execution)
 
 	if _, err := center.Dispatch(context.Background(), cancelRun(idle, "turn-idle-1")); !errors.Is(
 		err,
@@ -119,7 +119,7 @@ func TestResolvingAnApprovalAnswersOnItsOwnRun(t *testing.T) {
 	harness.requestApproval("conversation-approving", "turn-approving-1", "approval-migrate")
 	registry := harness.start()
 	execution := &recordedExecution{}
-	center := newSubmittingCommandCenter(t, harness, registry, unreachableDecisionCaller{}, execution)
+	center := newSubmittingCommandCenter(t, harness, registry, silentDirectorProvider{}, execution)
 
 	answers := []conversation.ConversationApprovalAnswer{}
 	dispatch(t, center, resolveApproval("approval-migrate", conversation.TrajectoryApprovalDecisionApproved, answers))
@@ -152,7 +152,7 @@ func TestResolvingAnApprovalCarriesStructuredAnswers(t *testing.T) {
 	harness.requestStructuredApproval("conversation-asking", "turn-asking-1", "approval-token")
 	registry := harness.start()
 	execution := &recordedExecution{}
-	center := newSubmittingCommandCenter(t, harness, registry, unreachableDecisionCaller{}, execution)
+	center := newSubmittingCommandCenter(t, harness, registry, silentDirectorProvider{}, execution)
 
 	answers := []conversation.ConversationApprovalAnswer{
 		{QuestionID: "question-token", Answers: []string{"hunter2"}},
@@ -194,7 +194,7 @@ func TestResolvingAnApprovalRejectsAnEndedRun(t *testing.T) {
 	harness.requestApproval("conversation-stopped", "turn-stopped-1", "approval-backfill")
 	registry := harness.start()
 	execution := &recordedExecution{}
-	center := newSubmittingCommandCenter(t, harness, registry, unreachableDecisionCaller{}, execution)
+	center := newSubmittingCommandCenter(t, harness, registry, silentDirectorProvider{}, execution)
 	subscription := subscribeFromSnapshot(t, registry)
 	defer subscription.Unsubscribe()
 
@@ -223,7 +223,7 @@ func TestSupplyingAFolderClosesTheRequestAndBindsTheWorkstream(t *testing.T) {
 	registry := harness.start()
 	execution := &recordedExecution{}
 	executor := newExecutorForTest(t, harness, registry, execution)
-	center := newSubmittingCommandCenter(t, harness, registry, unreachableDecisionCaller{}, execution)
+	center := newSubmittingCommandCenter(t, harness, registry, silentDirectorProvider{}, execution)
 	subscription := subscribeFromSnapshot(t, registry)
 	defer subscription.Unsubscribe()
 
@@ -287,7 +287,7 @@ func TestConcurrentResourceResolutionCannotDuplicateLifecycleFacts(t *testing.T)
 	registry := harness.start()
 	execution := &recordedExecution{}
 	executor := newExecutorForTest(t, harness, registry, execution)
-	center := newSubmittingCommandCenter(t, harness, registry, unreachableDecisionCaller{}, execution)
+	center := newSubmittingCommandCenter(t, harness, registry, silentDirectorProvider{}, execution)
 
 	executed, err := executor.Execute(context.Background(), routedFor(t, registry, DirectorDecision{
 		Kind:             DirectorDecisionSendToWorkstream,
@@ -348,7 +348,7 @@ func TestSupplyingAnUnofferedFolderIsRejected(t *testing.T) {
 	registry := harness.start()
 	execution := &recordedExecution{}
 	executor := newExecutorForTest(t, harness, registry, execution)
-	center := newSubmittingCommandCenter(t, harness, registry, unreachableDecisionCaller{}, execution)
+	center := newSubmittingCommandCenter(t, harness, registry, silentDirectorProvider{}, execution)
 	subscription := subscribeFromSnapshot(t, registry)
 	defer subscription.Unsubscribe()
 

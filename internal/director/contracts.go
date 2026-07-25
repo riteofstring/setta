@@ -61,7 +61,6 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "DirectorSelectionDirection", Values: stringValues(directorSelectionDirections)},
 		{Name: "DecisionIntentModality", Values: stringValues(decisionIntentModalities)},
 		{Name: "DirectorDecisionKind", Values: stringValues(directorDecisionKinds)},
-		{Name: "DecisionResolution", Values: stringValues(decisionResolutions)},
 		{Name: "DirectorEventKind", Values: stringValues(directorEventKinds)},
 		{Name: "DirectorResyncReason", Values: stringValues(directorResyncReasons)},
 		{Name: "DirectorConnectionStatus", Values: stringValues(directorConnectionStatuses)},

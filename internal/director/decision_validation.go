@@ -19,23 +19,20 @@ import (
 // malformed payload.
 func ValidateDecisionAuthority(context DirectorDecisionContext, decision DirectorDecision) error {
 	if err := context.Validate(); err != nil {
-		return newDecisionRejection(DecisionRejectedStaleContext, err.Error())
+		return rejectedDecision(err.Error())
 	}
 	if err := decision.Validate(); err != nil {
 		return err
 	}
 	if !context.allowsKind(decision.Kind) {
-		return newDecisionRejection(
-			DecisionRejectedUnauthorizedKind,
-			fmt.Sprintf("decision kind %q is not allowed by the supplied context", decision.Kind),
-		)
+		return rejectedDecision(fmt.Sprintf("decision kind %q is not allowed by the supplied context", decision.Kind))
 	}
 	return validateAuthorizedDecisionPayload(context, decision)
 }
 
 func validateAuthorizedDecisionPayload(context DirectorDecisionContext, decision DirectorDecision) error {
 	switch decision.Kind {
-	case DirectorDecisionAnswerDirectly, DirectorDecisionAskClarification:
+	case DirectorDecisionAnswerDirectly:
 		return nil
 	case DirectorDecisionCreateWorkstream:
 		return validateAuthorizedCreation(context, decision.CreateWorkstream.Origin)
@@ -50,10 +47,7 @@ func validateAuthorizedDecisionPayload(context DirectorDecisionContext, decision
 	case DirectorDecisionRecoverPath:
 		return validateAuthorizedRecovery(context, *decision.RecoverPath)
 	default:
-		return newDecisionRejection(
-			DecisionRejectedUnknownKind,
-			fmt.Sprintf("unknown director decision kind %q", decision.Kind),
-		)
+		return rejectedDecision(fmt.Sprintf("unknown director decision kind %q", decision.Kind))
 	}
 }
 
@@ -64,16 +58,10 @@ func validateAuthorizedTargetKind(
 ) error {
 	target, found := context.Target(workstreamID)
 	if !found {
-		return newDecisionRejection(
-			DecisionRejectedUnknownTarget,
-			fmt.Sprintf("workstream %s was not supplied by authoritative context", workstreamID),
-		)
+		return rejectedDecision(fmt.Sprintf("workstream %s was not supplied by authoritative context", workstreamID))
 	}
 	if !slices.Contains(target.AllowedDecisionKinds, kind) {
-		return newDecisionRejection(
-			DecisionRejectedUnauthorizedTarget,
-			fmt.Sprintf("workstream %s does not allow %q", workstreamID, kind),
-		)
+		return rejectedDecision(fmt.Sprintf("workstream %s does not allow %q", workstreamID, kind))
 	}
 	return nil
 }
@@ -88,10 +76,7 @@ func validateAuthorizedRecovery(context DirectorDecisionContext, payload Recover
 			return nil
 		}
 	}
-	return newDecisionRejection(
-		DecisionRejectedUnauthorizedFailure,
-		fmt.Sprintf("failure %s is not recoverable on workstream %s", payload.FailureEventID, payload.WorkstreamID),
-	)
+	return rejectedDecision(fmt.Sprintf("failure %s is not recoverable on workstream %s", payload.FailureEventID, payload.WorkstreamID))
 }
 
 func validateAuthorizedCreation(context DirectorDecisionContext, origin WorkstreamCreationOrigin) error {
@@ -103,10 +88,7 @@ func validateAuthorizedCreation(context DirectorDecisionContext, origin Workstre
 	case WorkstreamCreationFork:
 		return validateAuthorizedForkPoint(context, *origin.Fork)
 	default:
-		return newDecisionRejection(
-			DecisionRejectedInvalidPayload,
-			fmt.Sprintf("unknown workstream creation origin %q", origin.Kind),
-		)
+		return rejectedDecision(fmt.Sprintf("unknown workstream creation origin %q", origin.Kind))
 	}
 }
 
@@ -119,25 +101,16 @@ func validateAuthorizedScope(context DirectorDecisionContext, scope DecisionReso
 			return nil
 		}
 	}
-	return newDecisionRejection(
-		DecisionRejectedUnauthorizedResourceScope,
-		fmt.Sprintf("workspace %s is not an offered folder resource", scope.Folder.WorkspaceID),
-	)
+	return rejectedDecision(fmt.Sprintf("workspace %s is not an offered folder resource", scope.Folder.WorkspaceID))
 }
 
 func validateAuthorizedChildParent(context DirectorDecisionContext, parentID string) error {
 	target, found := context.Target(parentID)
 	if !found {
-		return newDecisionRejection(
-			DecisionRejectedUnknownTarget,
-			fmt.Sprintf("parent workstream %s was not supplied by authoritative context", parentID),
-		)
+		return rejectedDecision(fmt.Sprintf("parent workstream %s was not supplied by authoritative context", parentID))
 	}
 	if !target.AllowsChildWorkstream {
-		return newDecisionRejection(
-			DecisionRejectedUnauthorizedTarget,
-			fmt.Sprintf("workstream %s does not accept a child workstream", parentID),
-		)
+		return rejectedDecision(fmt.Sprintf("workstream %s does not accept a child workstream", parentID))
 	}
 	return nil
 }
@@ -145,18 +118,12 @@ func validateAuthorizedChildParent(context DirectorDecisionContext, parentID str
 func validateAuthorizedForkPoint(context DirectorDecisionContext, origin ForkWorkstreamOrigin) error {
 	target, found := context.Target(origin.ParentWorkstreamID)
 	if !found {
-		return newDecisionRejection(
-			DecisionRejectedUnknownTarget,
-			fmt.Sprintf("fork parent %s was not supplied by authoritative context", origin.ParentWorkstreamID),
-		)
+		return rejectedDecision(fmt.Sprintf("fork parent %s was not supplied by authoritative context", origin.ParentWorkstreamID))
 	}
 	for _, point := range target.ForkPoints {
 		if point.RunID == origin.ForkedAtRunID {
 			return nil
 		}
 	}
-	return newDecisionRejection(
-		DecisionRejectedUnauthorizedForkPoint,
-		fmt.Sprintf("run %s is not a fork point of workstream %s", origin.ForkedAtRunID, origin.ParentWorkstreamID),
-	)
+	return rejectedDecision(fmt.Sprintf("run %s is not a fork point of workstream %s", origin.ForkedAtRunID, origin.ParentWorkstreamID))
 }

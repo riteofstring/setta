@@ -13,14 +13,13 @@ export function directorSpeechPlaybackIntent(
   if (outcome === null) {
     return null;
   }
-  if (outcome.decision !== "answer_directly" && outcome.decision !== "ask_clarification") {
+  // A turn that only acted has nothing to say out loud. What it did reaches the
+  // user through the graph and the rails, not through the Director's voice.
+  if (outcome.replyText.trim() === "") {
     return null;
   }
   if (!directorVoice.resolvedVoiceId) {
     throw new Error("Director speech requires a resolved Director voice");
-  }
-  if (outcome.publicText.trim() === "") {
-    throw new Error("Director reply speech requires public text");
   }
   return {
     kind: "director_reply",

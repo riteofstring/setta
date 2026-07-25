@@ -24,12 +24,11 @@ import (
 // The registry owns what is durably true. The command center owns what the user
 // asked for.
 //
-// Submitting work is the front door: one text or voice request reaches the
-// router, which resolves it into the single decision trusted state authorizes,
-// and the executor carries that decision out. The shell supplies what the user
-// said and how they said it; the intent's identity and the moment it was
-// accepted are minted here, because an id a caller chose is an id product code
-// did not.
+// Submitting work is the front door: one text or voice request becomes a turn
+// of the Director's own Codex conversation, which answers in prose, calls Setta
+// tools, or both. The shell supplies what the user said and how they said it;
+// the intent's identity and the moment it was accepted are minted here, because
+// an id a caller chose is an id product code did not.
 //
 // The other intents are direct. Cancelling a run, answering an approval, and
 // supplying a folder are the user acting on something the command center is
@@ -191,9 +190,9 @@ type DirectorReceipt struct {
 	// workstream to select, and always null for a submitted request, whose own
 	// selection change arrives on the pushed stream.
 	SelectedWorkstreamID *string `json:"selectedWorkstreamId"`
-	// Submit is what the app did with a submitted request. It is populated
+	// Submit is the Director turn a submitted request produced. It is populated
 	// exactly for a submit dispatch.
-	Submit *ExecutedDecision `json:"submit"`
+	Submit *DirectorTurnReceipt `json:"submit"`
 }
 
 // ValidateDirectorIntent rejects an intent before it reaches durable state.
@@ -346,7 +345,7 @@ func ValidateDirectorReceipt(receipt DirectorReceipt) error {
 // CommandCenter is the application boundary the shell dispatches through.
 type CommandCenter struct {
 	registry *Registry
-	router   *DecisionRouter
+	thread   *DirectorThread
 	executor *DecisionExecutor
 	now      func() time.Time
 	newID    func(string) (string, error)
@@ -377,22 +376,23 @@ func WithCommandCenterIdentity(newID func(string) (string, error)) CommandCenter
 	}
 }
 
-// NewCommandCenter builds the boundary over the app-scoped registry, the router
-// that decides what a request means, and the executor that carries the decision
-// out. All three are required: a dispatch that accepted work it could not route
-// or perform would be a stub in the product's front door.
+// NewCommandCenter builds the boundary over the app-scoped registry, the
+// Director conversation a submitted request becomes a turn of, and the executor
+// the user's own direct commands run through. All three are required: a
+// dispatch that accepted work it could not carry out would be a stub in the
+// product's front door.
 func NewCommandCenter(
 	registry *Registry,
-	router *DecisionRouter,
+	thread *DirectorThread,
 	executor *DecisionExecutor,
 	options ...CommandCenterOption,
 ) (*CommandCenter, error) {
-	if registry == nil || router == nil || executor == nil {
-		return nil, errors.New("director command center requires the registry, the decision router, and the executor")
+	if registry == nil || thread == nil || executor == nil {
+		return nil, errors.New("director command center requires the registry, the director conversation, and the executor")
 	}
 	center := &CommandCenter{
 		registry: registry,
-		router:   router,
+		thread:   thread,
 		executor: executor,
 		now:      time.Now,
 		newID:    randomDirectorFactID,
@@ -409,7 +409,7 @@ func NewCommandCenter(
 }
 
 func (center *CommandCenter) available() error {
-	if center == nil || center.registry == nil || center.router == nil || center.executor == nil {
+	if center == nil || center.registry == nil || center.thread == nil || center.executor == nil {
 		return ErrDirectorUnavailable
 	}
 	return nil
@@ -513,26 +513,30 @@ func (center *CommandCenter) command(ctx context.Context, intent DirectorIntent)
 	}
 }
 
-// submit carries one request from the user's words to the work they produce:
-// accept the intent, route it against trusted state, and execute the decision
-// that came back.
+// submit carries one request from the user's words to whatever the Director
+// does about it: accept the intent, then run it as one turn of the Director
+// conversation. The turn's own tool calls commit the durable changes, so
+// nothing here decides what the request meant.
 func (center *CommandCenter) submit(
 	ctx context.Context,
 	payload DirectorSubmitIntent,
-) (ExecutedDecision, error) {
+) (DirectorTurnReceipt, error) {
 	intent, err := center.acceptIntent(payload)
 	if err != nil {
-		return ExecutedDecision{}, err
+		return DirectorTurnReceipt{}, err
 	}
-	routed, err := center.route(ctx, intent)
-	if err != nil {
-		return ExecutedDecision{}, err
+	receipt, err := center.thread.Submit(ctx, intent)
+	if err == nil {
+		return receipt, nil
 	}
-	// Execution failures are returned as they are. A rejected target is the
-	// caller's mistake and already typed; anything else is a durable-write or
-	// provider condition the shell reports, and calling it an unavailable command
-	// center would name the wrong thing.
-	return center.executor.Execute(ctx, routed)
+	// A rejected request is the caller's mistake and already typed. Anything
+	// else is a durable-write or provider condition: the Director could not be
+	// reached to answer at all, which is a runtime condition rather than
+	// something the user asked for wrongly.
+	if errors.Is(err, ErrDirectorIntentRejected) || errors.Is(err, ErrDirectorUnavailable) {
+		return DirectorTurnReceipt{}, err
+	}
+	return DirectorTurnReceipt{}, fmt.Errorf("%w: %w", ErrDirectorUnavailable, err)
 }
 
 // acceptIntent mints the durable identity of one submitted request. The id and
@@ -553,22 +557,4 @@ func (center *CommandCenter) acceptIntent(payload DirectorSubmitIntent) (Submitt
 		return SubmittedIntent{}, fmt.Errorf("%w: %w", ErrDirectorIntentRejected, err)
 	}
 	return intent, nil
-}
-
-// route resolves what the request meant. Invalid model output never reaches
-// here, because the recovery ladder inside the router resolves it; what can
-// reach here is a Director the app could not reach at all, which is a runtime
-// condition rather than the caller's mistake.
-func (center *CommandCenter) route(
-	ctx context.Context,
-	intent SubmittedIntent,
-) (RoutedIntent, error) {
-	routed, err := center.router.Route(ctx, intent)
-	if err == nil {
-		return routed, nil
-	}
-	if errors.Is(err, ErrDirectorIntentRejected) || errors.Is(err, ErrDirectorUnavailable) {
-		return RoutedIntent{}, err
-	}
-	return RoutedIntent{}, fmt.Errorf("%w: %w", ErrDirectorUnavailable, err)
 }

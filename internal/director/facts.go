@@ -29,9 +29,6 @@ const (
 	DirectorDecisionQueueBehindRun DirectorDecisionKind = "queue_behind_run"
 	// DirectorDecisionSteerRun changes the instruction of an active run.
 	DirectorDecisionSteerRun DirectorDecisionKind = "steer_run"
-	// DirectorDecisionAskClarification asks a question whose answer can change
-	// the outcome. It is a product action, never a schema repair path.
-	DirectorDecisionAskClarification DirectorDecisionKind = "ask_clarification"
 	// DirectorDecisionSelectWorkstream focuses an existing workstream.
 	DirectorDecisionSelectWorkstream DirectorDecisionKind = "select_workstream"
 	// DirectorDecisionRecoverPath retries or recovers a failed routing or
@@ -45,7 +42,6 @@ var directorDecisionKinds = []DirectorDecisionKind{
 	DirectorDecisionSendToWorkstream,
 	DirectorDecisionQueueBehindRun,
 	DirectorDecisionSteerRun,
-	DirectorDecisionAskClarification,
 	DirectorDecisionSelectWorkstream,
 	DirectorDecisionRecoverPath,
 }
@@ -100,32 +96,19 @@ type DirectorDecisionCommitted struct {
 	IntentID      string `json:"intentId"`
 	PublicSummary string `json:"publicSummary"`
 	// TargetWorkstreamID is the authorized target trusted code attached. It is
-	// null for a decision that targets no workstream, such as a clarification.
+	// null for a decision that targets no workstream, such as a reply.
 	TargetWorkstreamID *string `json:"targetWorkstreamId"`
-	// Clarification is populated exactly for a clarification decision.
-	Clarification *DirectorClarificationAsked `json:"clarification"`
 	// Answer is populated exactly for a direct answer.
 	Answer *DirectorAnswerGiven `json:"answer"`
 }
 
-// DirectorAnswerGiven is the answer a direct-answer decision gave the user. It
-// is durable for the same reason a clarification question is: it is the
-// Director's half of the dialogue, and a restart that lost it would leave the
-// user's request looking unanswered. It is deliberately not the decision's
-// public summary, because the summary labels the graph and model-authored text
-// never does.
+// DirectorAnswerGiven is what the Director told the user in its own words. It
+// is durable because it is the Director's half of the dialogue, and a restart
+// that lost it would leave the user's request looking unanswered. It is
+// deliberately not the decision's public summary, because the summary labels
+// the graph and model-authored text never does.
 type DirectorAnswerGiven struct {
 	Text string `json:"text"`
-}
-
-// DirectorClarificationAsked is the question a clarification decision asked and
-// the workstreams it was choosing between. Both are durable because the user's
-// next intent is the answer: without the question a restart would ask again,
-// and without the candidates the answer could be applied to a workstream the
-// question never offered.
-type DirectorClarificationAsked struct {
-	Question               string   `json:"question"`
-	CandidateWorkstreamIDs []string `json:"candidateWorkstreamIds"`
 }
 
 // DirectorResourceRequestOpened is the durable request that replaces deriving a
@@ -332,9 +315,6 @@ func validateCommittedDecision(fact DirectorFactEvent) error {
 	if err := validateOptionalIdentifier("committed decision target workstream id", payload.TargetWorkstreamID); err != nil {
 		return err
 	}
-	if err := validateCommittedClarification(fact); err != nil {
-		return err
-	}
 	if err := validateCommittedAnswer(fact); err != nil {
 		return err
 	}
@@ -369,7 +349,7 @@ func validateCommittedDecisionTarget(fact DirectorFactEvent) error {
 			return fmt.Errorf("director fact %s decision %q requires a target workstream", fact.ID, payload.Decision)
 		}
 		return requireDecisionWorkstream(fact)
-	case DirectorDecisionAnswerDirectly, DirectorDecisionAskClarification:
+	case DirectorDecisionAnswerDirectly:
 		if payload.TargetWorkstreamID != nil {
 			return fmt.Errorf("director fact %s decision %q must not target a workstream", fact.ID, payload.Decision)
 		}
@@ -416,52 +396,6 @@ func validateCommittedAnswer(fact DirectorFactEvent) error {
 	}
 	if len(answer.Text) > MaxDecisionAnswerBytes {
 		return fmt.Errorf("committed answer text exceeds %d bytes", MaxDecisionAnswerBytes)
-	}
-	return nil
-}
-
-// validateCommittedClarification requires the question and its candidates on
-// exactly the decision that asked one. A clarification without them is a
-// question the app cannot resume, and any other decision carrying them would
-// claim to be waiting for an answer it never asked for.
-func validateCommittedClarification(fact DirectorFactEvent) error {
-	payload := fact.DecisionCommitted
-	clarification := payload.Clarification
-	if (clarification != nil) != (payload.Decision == DirectorDecisionAskClarification) {
-		return fmt.Errorf(
-			"director fact %s must carry a clarification exactly for decision %q",
-			fact.ID,
-			DirectorDecisionAskClarification,
-		)
-	}
-	if clarification == nil {
-		return nil
-	}
-	if err := validateTrimmedText("committed clarification question", clarification.Question); err != nil {
-		return err
-	}
-	if len(clarification.Question) > MaxDecisionQuestionBytes {
-		return fmt.Errorf("committed clarification question exceeds %d bytes", MaxDecisionQuestionBytes)
-	}
-	if clarification.CandidateWorkstreamIDs == nil {
-		return fmt.Errorf("director fact %s clarification candidates must be an array, not null", fact.ID)
-	}
-	if len(clarification.CandidateWorkstreamIDs) > MaxDecisionWorkstreamTargets {
-		return fmt.Errorf(
-			"director fact %s clarification offers more than %d candidates",
-			fact.ID,
-			MaxDecisionWorkstreamTargets,
-		)
-	}
-	seen := map[string]bool{}
-	for _, candidate := range clarification.CandidateWorkstreamIDs {
-		if err := validateIdentifier("committed clarification candidate workstream id", candidate); err != nil {
-			return err
-		}
-		if seen[candidate] {
-			return fmt.Errorf("director fact %s repeats clarification candidate %s", fact.ID, candidate)
-		}
-		seen[candidate] = true
 	}
 	return nil
 }

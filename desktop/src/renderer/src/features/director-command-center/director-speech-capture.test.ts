@@ -190,17 +190,14 @@ function capabilities(): SpeechCapabilities {
   };
 }
 
-function receipt(publicText: string): DirectorReceipt {
+function receipt(replyText: string): DirectorReceipt {
   return {
     kind: "submit",
     selectedWorkstreamId: "workstream-alpha",
     submit: {
-      decision: "answer_directly",
       intentId: "intent-alpha",
-      publicText,
-      resolution: "model",
-      resourceRequestId: null,
-      workstreamId: null,
+      replyText,
+      toolCalls: [],
     },
   };
 }

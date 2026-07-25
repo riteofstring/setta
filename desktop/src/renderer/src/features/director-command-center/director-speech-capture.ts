@@ -512,7 +512,7 @@ export class DirectorSpeechCaptureController {
     this.updateSnapshot({
       capture: {
         ...completed,
-        receiptText: receipt.submit?.publicText.trim() || null,
+        receiptText: receipt.submit?.replyText.trim() || null,
         type: "submitted",
       },
     });

@@ -84,17 +84,16 @@ func newExecutorForTest(
 	return executor
 }
 
-func routedFor(t *testing.T, registry *Registry, decision DirectorDecision) RoutedIntent {
+func routedFor(t *testing.T, registry *Registry, decision DirectorDecision) AuthorizedDecision {
 	t.Helper()
 	decisionContext, err := registry.DecisionContext(decisionIntentFixture())
 	if err != nil {
 		t.Fatalf("DecisionContext: %v", err)
 	}
-	return RoutedIntent{
-		Intent:     decisionContext.Intent,
-		Context:    decisionContext,
-		Resolution: DecisionResolvedByModel,
-		Decision:   &decision,
+	return AuthorizedDecision{
+		Intent:   decisionContext.Intent,
+		Context:  decisionContext,
+		Decision: decision,
 	}
 }
 
@@ -206,14 +205,14 @@ func TestSteeringRejectsARunPromotedAfterTheDecisionContext(t *testing.T) {
 }
 
 // TestCreatingARootWorkstreamHappensInNoWorkstream proves a create decision is
-// committed before the workstream it names exists, and that the workstream's
-// app-scoped identity is derived from the conversation it runs on.
+// committed before the workstream it names exists, that the workstream's
+// app-scoped identity is derived from the conversation it runs on, and that the
+// workstream the request created is the one the user ends up looking at.
 func TestCreatingARootWorkstreamHappensInNoWorkstream(t *testing.T) {
 	harness := newRegistryHarness(t)
-	workspaceID := registryTestWorkspaceID
 	harness.createConversation("conversation-idle", "Parser rewrite", nil)
 	registry := harness.start()
-	execution := &recordedExecution{}
+	execution := &publishingStartExecution{harness: harness}
 	executor := newExecutorForTest(t, harness, registry, execution)
 
 	executed, err := executor.Execute(context.Background(), routedFor(t, registry, createRootDecisionFixture(
@@ -242,6 +241,9 @@ func TestCreatingARootWorkstreamHappensInNoWorkstream(t *testing.T) {
 	if executed.WorkstreamID == nil || *executed.WorkstreamID != expected {
 		t.Fatalf("executed workstream = %v, want %s", executed.WorkstreamID, expected)
 	}
+	if executed.SelectedWorkstreamID == nil || *executed.SelectedWorkstreamID != expected {
+		t.Fatalf("the created workstream is not selected: %+v", executed)
+	}
 	if len(execution.sends) != 1 || execution.sends[0].ConversationID != started.ConversationID {
 		t.Fatalf("initial work = %+v", execution.sends)
 	}
@@ -249,9 +251,7 @@ func TestCreatingARootWorkstreamHappensInNoWorkstream(t *testing.T) {
 
 	// The decision reached the durable log before the conversation record the
 	// registry derives the new workstream from, which is why it happened in no
-	// workstream. Committing that record now is what the execution port does,
-	// and the fold has to survive the order.
-	harness.createConversation(started.ConversationID, "Migration draft", &workspaceID)
+	// workstream. The fold has to survive that order across a restart.
 	restarted := harness.start()
 	decisions := requireDecisionContext(t, restarted).RecentDecisions
 	if len(decisions) != 1 ||
@@ -285,8 +285,8 @@ func TestFolderlessWorkOpensADurableResourceRequest(t *testing.T) {
 	if executed.ResourceRequestID == nil {
 		t.Fatal("folderless work opened no resource request")
 	}
-	if !strings.Contains(executed.PublicText, "folder") {
-		t.Fatalf("resource request summary = %q", executed.PublicText)
+	if !strings.Contains(executed.Summary, "folder") {
+		t.Fatalf("resource request summary = %q", executed.Summary)
 	}
 	registry.Close()
 
@@ -337,11 +337,10 @@ func TestRecoveringRestartsTheWorkThatFailed(t *testing.T) {
 }
 
 // TestRepliesAreDurableWithoutAWorkstream proves the Director's own dialogue is
-// committed: the answer is what the user was told, and the question is what
-// their next request is answering after a restart.
+// committed: the answer is what the user was told, and it survives a restart.
 func TestRepliesAreDurableWithoutAWorkstream(t *testing.T) {
 	harness := newRegistryHarness(t)
-	first := harness.createConversation("conversation-first", "Parser rewrite", nil)
+	harness.createConversation("conversation-first", "Parser rewrite", nil)
 	registry := harness.start()
 	execution := &recordedExecution{}
 	executor := newExecutorForTest(t, harness, registry, execution)
@@ -356,16 +355,8 @@ func TestRepliesAreDurableWithoutAWorkstream(t *testing.T) {
 	if answered.WorkstreamID != nil {
 		t.Fatalf("an answer happened in workstream %v", answered.WorkstreamID)
 	}
-	if answered.PublicText != "One workstream is idle and nothing is blocked." {
-		t.Fatalf("answer text = %q", answered.PublicText)
-	}
-	if _, err := executor.Execute(context.Background(), routedFor(t, registry, DirectorDecision{
-		Kind: DirectorDecisionAskClarification,
-		AskClarification: &AskClarificationDecision{
-			Question: "Should I steer the running work or queue this after it?",
-		},
-	})); err != nil {
-		t.Fatalf("Execute clarification: %v", err)
+	if answered.Summary == "" {
+		t.Fatalf("answer summary = %q", answered.Summary)
 	}
 	if len(execution.sends)+len(execution.starts)+len(execution.steers) != 0 {
 		t.Fatal("a reply reached the execution port")
@@ -374,49 +365,15 @@ func TestRepliesAreDurableWithoutAWorkstream(t *testing.T) {
 
 	restarted := harness.start()
 	resumed := requireDecisionContext(t, restarted)
-	if resumed.Clarification == nil ||
-		!strings.Contains(resumed.Clarification.Question, "steer the running work") {
-		t.Fatalf("pending clarification = %+v", resumed.Clarification)
-	}
-	if len(resumed.Clarification.CandidateWorkstreamIDs) != 1 ||
-		resumed.Clarification.CandidateWorkstreamIDs[0] != first {
-		t.Fatalf("clarification candidates = %v", resumed.Clarification.CandidateWorkstreamIDs)
-	}
-	if len(resumed.RecentDecisions) != 2 {
+	if len(resumed.RecentDecisions) != 1 {
 		t.Fatalf("recent decisions = %+v", resumed.RecentDecisions)
 	}
-}
-
-// TestBlockedRoutingCommitsNoDecision proves a request the app could not route
-// produces a public sentence and no durable claim that it decided anything.
-func TestBlockedRoutingCommitsNoDecision(t *testing.T) {
-	harness := newRegistryHarness(t)
-	harness.createConversation("conversation-idle", "Parser rewrite", nil)
-	registry := harness.start()
-	execution := &recordedExecution{}
-	executor := newExecutorForTest(t, harness, registry, execution)
-
-	executed, err := executor.Execute(context.Background(), RoutedIntent{
-		Intent:        selectionOnlyContextFixture().Intent,
-		Context:       selectionOnlyContextFixture(),
-		Resolution:    DecisionResolvedAsBlocked,
-		PublicSummary: "This request could not be routed to any workstream.",
-	})
-	if err != nil {
-		t.Fatalf("Execute: %v", err)
-	}
-	if executed.Decision != nil || executed.PublicText == "" {
-		t.Fatalf("blocked receipt = %+v", executed)
-	}
-	registry.Close()
-
-	restarted := harness.start()
-	if decisions := requireDecisionContext(t, restarted).RecentDecisions; len(decisions) != 0 {
-		t.Fatalf("blocked routing committed decisions %+v", decisions)
+	if resumed.RecentDecisions[0].Decision != DirectorDecisionAnswerDirectly {
+		t.Fatalf("resumed decision = %+v", resumed.RecentDecisions[0])
 	}
 }
 
-func TestExecutionRejectsRoutedIntentContractDriftBeforeEffects(t *testing.T) {
+func TestExecutionRejectsAuthorizedDecisionDriftBeforeEffects(t *testing.T) {
 	harness := newRegistryHarness(t)
 	workspaceID := registryTestWorkspaceID
 	workstreamID := harness.createConversation("conversation-idle", "Parser rewrite", &workspaceID)
@@ -433,12 +390,8 @@ func TestExecutionRejectsRoutedIntentContractDriftBeforeEffects(t *testing.T) {
 
 	mismatched := base
 	mismatched.Intent.Text = "different request"
-	falseInvariant := base
-	falseInvariant.Resolution = DecisionResolvedByProductInvariant
-	falseClarification := base
-	falseClarification.Resolution = DecisionResolvedByClarification
 	unauthorized := base
-	unauthorized.Decision = &DirectorDecision{
+	unauthorized.Decision = DirectorDecision{
 		Kind: DirectorDecisionSteerRun,
 		SteerRun: &SteerRunDecision{
 			WorkstreamID:  workstreamID,
@@ -446,23 +399,21 @@ func TestExecutionRejectsRoutedIntentContractDriftBeforeEffects(t *testing.T) {
 		},
 	}
 	malformed := base
-	malformed.Decision = &DirectorDecision{Kind: DirectorDecisionCreateWorkstream}
+	malformed.Decision = DirectorDecision{Kind: DirectorDecisionCreateWorkstream}
 
-	for name, routed := range map[string]RoutedIntent{
+	for name, routed := range map[string]AuthorizedDecision{
 		"context mismatch":          mismatched,
-		"false product invariant":   falseInvariant,
-		"false clarification":       falseClarification,
 		"unauthorized target state": unauthorized,
 		"malformed decision":        malformed,
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := executor.Execute(context.Background(), routed); err == nil {
-				t.Fatal("invalid routed contract was executed")
+				t.Fatal("invalid authorized contract was executed")
 			}
 		})
 	}
 	if len(execution.sends)+len(execution.queues)+len(execution.steers)+len(execution.starts) != 0 {
-		t.Fatalf("invalid routed contracts reached execution: %+v", execution)
+		t.Fatalf("invalid authorized contracts reached execution: %+v", execution)
 	}
 }
 

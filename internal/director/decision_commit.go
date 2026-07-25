@@ -35,7 +35,6 @@ func NewCommittedDecision(
 		IntentID:           context.Intent.ID,
 		PublicSummary:      summary,
 		TargetWorkstreamID: target,
-		Clarification:      committedClarification(context, decision),
 		Answer:             committedAnswer(decision),
 	}, nil
 }
@@ -49,24 +48,6 @@ func committedAnswer(decision DirectorDecision) *DirectorAnswerGiven {
 		return nil
 	}
 	return &DirectorAnswerGiven{Text: decision.AnswerDirectly.Text}
-}
-
-// committedClarification records what a clarification was choosing between.
-// The candidates are derived from trusted context rather than taken from the
-// decision, because the model authors the question and never the set of
-// workstreams the answer may be applied to.
-func committedClarification(
-	context DirectorDecisionContext,
-	decision DirectorDecision,
-) *DirectorClarificationAsked {
-	if decision.Kind != DirectorDecisionAskClarification {
-		return nil
-	}
-	candidates, _ := candidateWorkstreams(workCandidates(context))
-	return &DirectorClarificationAsked{
-		Question:               decision.AskClarification.Question,
-		CandidateWorkstreamIDs: candidates,
-	}
 }
 
 func committedDecisionTarget(decision DirectorDecision, createdWorkstreamID *string) (*string, error) {
@@ -101,8 +82,6 @@ func decisionSummaryText(context DirectorDecisionContext, decision DirectorDecis
 	switch decision.Kind {
 	case DirectorDecisionAnswerDirectly:
 		return "Answered from current app state.", nil
-	case DirectorDecisionAskClarification:
-		return "Asked one clarifying question before routing this request.", nil
 	case DirectorDecisionCreateWorkstream:
 		return createWorkstreamSummary(context, *decision.CreateWorkstream)
 	case DirectorDecisionSendToWorkstream:

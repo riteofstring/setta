@@ -145,7 +145,7 @@ func (projector *DirectorGraphProjector) validateDecisionTarget(
 				return fmt.Errorf("recovery decision targets unknown workstream %s", *payload.TargetWorkstreamID)
 			}
 		}
-	case DirectorDecisionAnswerDirectly, DirectorDecisionAskClarification:
+	case DirectorDecisionAnswerDirectly:
 	}
 	return nil
 }

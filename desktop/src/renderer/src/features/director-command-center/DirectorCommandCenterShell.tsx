@@ -415,7 +415,7 @@ function useDirectorRuntime(
       if (runtimeEpochRef.current !== dispatchEpoch || intent.kind !== "submit") {
         return;
       }
-      setReceiptText(receipt.submit?.publicText || null);
+      setReceiptText(receipt.submit?.replyText || null);
       void enqueueDirectorSpeechPlayback({
         controller: speechPlayback,
         readDirectorVoiceSelection: setta.speech.readDirectorVoiceSelection,

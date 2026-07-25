@@ -54,9 +54,8 @@ func TestBackendDirectorCommandCenterWithLiveCodex(t *testing.T) {
 		http.StatusOK,
 	)
 	if receipt.Submit == nil ||
-		receipt.Submit.Decision == nil ||
-		*receipt.Submit.Decision != director.DirectorDecisionAnswerDirectly ||
-		strings.TrimSpace(receipt.Submit.PublicText) != "DIRECTOR_LIVE_OK" {
+		len(receipt.Submit.ToolCalls) != 0 ||
+		strings.TrimSpace(receipt.Submit.ReplyText) != "DIRECTOR_LIVE_OK" {
 		encoded, err := json.MarshalIndent(receipt, "", "  ")
 		if err != nil {
 			t.Fatalf("encode invalid live Director receipt: %v", err)

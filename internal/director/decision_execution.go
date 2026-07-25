@@ -4,17 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"sync"
 	"time"
 )
 
-// Carrying out one routed decision.
+// Carrying out one authorized Director decision.
 //
-// The router turns a submitted intent into the decision trusted state
-// authorized. This turns that decision into the work it describes, and it is
-// the only place in the Director that both writes durable facts and calls the
-// execution port.
+// A Setta tool call is authorized against the registry and then arrives here.
+// This turns it into the work it describes, and it is the only place in the
+// Director that both writes durable facts and calls the execution port.
 //
 // Two orderings are load-bearing:
 //
@@ -29,10 +27,9 @@ import (
 //     the affordance the pane world could only derive from a routing failure
 //     code.
 //
-// The Director's own replies — an answer and a clarification — are committed as
-// app-scoped decisions that happen in no workstream, because they start no work
-// anywhere. They are still durable: the answer is what the user was told, and
-// the question is what their next request is answering.
+// The Director's own reply is committed as an app-scoped decision that happens
+// in no workstream, because prose starts work nowhere. It is still durable: the
+// answer is what the user was told, and it is what their next request answers.
 
 // resourceRequestSummaries are the public sentences a blocked-on-resource
 // workstream shows. They are keyed by the typed resource kind rather than
@@ -42,87 +39,61 @@ var resourceRequestSummaries = map[WorkstreamResourceKind]string{
 	WorkstreamResourceKindFolder: "Waiting for a project folder before this work can start.",
 }
 
-// ExecutedDecision is what carrying out one routed intent produced. It is a
-// receipt, not state: every durable change reaches the shell through the same
+// AuthorizedDecision is one Setta tool call the registry authorized. The
+// context it was authorized against travels with it, because the durable fact
+// the executor commits is derived from the same trusted state that allowed the
+// call rather than from the call's own arguments.
+type AuthorizedDecision struct {
+	Intent   SubmittedIntent
+	Context  DirectorDecisionContext
+	Decision DirectorDecision
+}
+
+// ExecutedDecision is what carrying out one authorized decision produced. It is
+// a receipt, not state: every durable change reaches the shell through the same
 // pushed stream as every other change.
 type ExecutedDecision struct {
-	IntentID   string             `json:"intentId"`
-	Resolution DecisionResolution `json:"resolution"`
-	// Decision is the decision that was carried out. It is nil exactly for a
-	// blocked resolution, which produced no decision to carry out.
-	Decision *DirectorDecisionKind `json:"decision"`
-	// WorkstreamID is the workstream the request ended up in, when it ended up
-	// in one. An answer, a question, and a blocked request name none.
+	IntentID string               `json:"intentId"`
+	Decision DirectorDecisionKind `json:"decision"`
+	// Summary is the public sentence the durable decision committed. It is
+	// derived from trusted state, so it is safe to show the user and safe to
+	// hand back to the Director as the receipt for its own call.
+	Summary string `json:"summary"`
+	// WorkstreamID is the workstream the call acted on or created.
 	WorkstreamID *string `json:"workstreamId"`
-	// PublicText is the Director's own words for the user: the answer, the
-	// question, or why the request could not be routed. It is empty for a
-	// decision that started work, because the work is the answer.
-	PublicText string `json:"publicText"`
+	// SelectedWorkstreamID is the app-wide selection after the call, populated
+	// exactly when the call moved it.
+	SelectedWorkstreamID *string `json:"selectedWorkstreamId"`
 	// ResourceRequestID names the durable request the work is waiting on, when
 	// the workstream could not start it yet.
 	ResourceRequestID *string `json:"resourceRequestId"`
 }
 
 // Validate proves the receipt describes something the app could actually have
-// done. It is checked before the receipt crosses the boundary, so a resolution
-// with no decision, or a reply with nothing to say, fails here rather than
-// reaching the shell as an outcome it cannot render.
+// done.
 func (executed ExecutedDecision) Validate() error {
 	if err := validateIdentifier("executed decision intent id", executed.IntentID); err != nil {
 		return err
 	}
-	if !isDecisionResolution(executed.Resolution) {
-		return fmt.Errorf("unknown director decision resolution %q", executed.Resolution)
+	if !isDirectorDecisionKind(executed.Decision) {
+		return fmt.Errorf("unknown director decision kind %q", executed.Decision)
 	}
-	if err := executed.validateDecision(); err != nil {
+	if err := validateTrimmedText("executed decision summary", executed.Summary); err != nil {
 		return err
 	}
 	if err := validateOptionalIdentifier("executed decision workstream id", executed.WorkstreamID); err != nil {
 		return err
 	}
 	if err := validateOptionalIdentifier(
-		"executed decision resource request id",
-		executed.ResourceRequestID,
+		"executed decision selected workstream id",
+		executed.SelectedWorkstreamID,
 	); err != nil {
 		return err
 	}
-	return executed.validatePublicText()
-}
-
-func (executed ExecutedDecision) validateDecision() error {
-	if executed.Resolution == DecisionResolvedAsBlocked {
-		if executed.Decision != nil {
-			return fmt.Errorf("blocked executed decision %s carries a decision", executed.IntentID)
-		}
-		return nil
-	}
-	if executed.Decision == nil {
-		return fmt.Errorf("executed decision %s resolved as %q without a decision", executed.IntentID, executed.Resolution)
-	}
-	if !isDirectorDecisionKind(*executed.Decision) {
-		return fmt.Errorf("unknown director decision kind %q", *executed.Decision)
-	}
-	return nil
-}
-
-// validatePublicText requires the Director's own words exactly where they are
-// the outcome: a blocked request, an answer, and a question are what the user
-// receives, so an empty one would leave the shell nothing to show.
-func (executed ExecutedDecision) validatePublicText() error {
-	required := executed.Resolution == DecisionResolvedAsBlocked ||
-		(executed.Decision != nil &&
-			(*executed.Decision == DirectorDecisionAnswerDirectly ||
-				*executed.Decision == DirectorDecisionAskClarification))
-	if !required && executed.PublicText == "" {
-		return nil
-	}
-	if err := validateTrimmedText("executed decision public text", executed.PublicText); err != nil {
-		return err
-	}
-	if len(executed.PublicText) > MaxDecisionAnswerBytes {
-		return fmt.Errorf("executed decision public text exceeds %d bytes", MaxDecisionAnswerBytes)
-	}
-	return nil
+	return validateOptionalIdentifier(
+		"executed decision resource request id",
+		executed.ResourceRequestID,
+	)
 }
 
 // DecisionExecutor carries out what the command center resolved: the decision a
@@ -201,145 +172,73 @@ func (executor *DecisionExecutor) available(ctx context.Context) error {
 	return executor.registry.requireAvailable()
 }
 
-// Execute carries out one routed intent.
-func (executor *DecisionExecutor) Execute(ctx context.Context, routed RoutedIntent) (ExecutedDecision, error) {
+// Execute carries out one authorized decision.
+func (executor *DecisionExecutor) Execute(
+	ctx context.Context,
+	authorized AuthorizedDecision,
+) (ExecutedDecision, error) {
 	if err := executor.available(ctx); err != nil {
 		return ExecutedDecision{}, err
 	}
-	if err := validateRoutedIntent(routed); err != nil {
+	if err := validateAuthorizedDecision(authorized); err != nil {
 		return ExecutedDecision{}, err
 	}
-	if routed.Resolution == DecisionResolvedAsBlocked {
-		return ExecutedDecision{
-			IntentID:   routed.Intent.ID,
-			Resolution: routed.Resolution,
-			PublicText: routed.PublicSummary,
-		}, nil
-	}
-	return executor.carryOut(ctx, routed, *routed.Decision)
+	return executor.carryOut(ctx, authorized)
 }
 
 // carryOut dispatches one validated decision to the effect it names. It is
 // total over the catalog, so a decision kind with no effect here fails loudly
-// instead of being silently accepted as routed.
+// instead of being silently accepted as authorized.
 func (executor *DecisionExecutor) carryOut(
 	ctx context.Context,
-	routed RoutedIntent,
-	decision DirectorDecision,
+	authorized AuthorizedDecision,
 ) (ExecutedDecision, error) {
-	switch decision.Kind {
-	case DirectorDecisionAnswerDirectly, DirectorDecisionAskClarification:
-		return executor.reply(ctx, routed, decision)
+	switch authorized.Decision.Kind {
+	case DirectorDecisionAnswerDirectly:
+		return executor.reply(ctx, authorized)
 	case DirectorDecisionCreateWorkstream:
-		return executor.createWorkstream(ctx, routed, decision)
+		return executor.createWorkstream(ctx, authorized)
 	case DirectorDecisionSendToWorkstream,
 		DirectorDecisionQueueBehindRun,
 		DirectorDecisionSteerRun:
-		return executor.deliverWork(ctx, routed, decision)
+		return executor.deliverWork(ctx, authorized)
 	case DirectorDecisionSelectWorkstream:
-		return executor.selectWorkstream(ctx, routed, decision)
+		return executor.selectWorkstream(ctx, authorized)
 	case DirectorDecisionRecoverPath:
-		return executor.recoverPath(ctx, routed, decision)
+		return executor.recoverPath(ctx, authorized)
 	default:
-		return ExecutedDecision{}, fmt.Errorf("unknown director decision kind %q", decision.Kind)
+		return ExecutedDecision{}, fmt.Errorf("unknown director decision kind %q", authorized.Decision.Kind)
 	}
 }
 
-func validateRoutedIntent(routed RoutedIntent) error {
-	if err := validateRoutedIntentEnvelope(routed); err != nil {
+func validateAuthorizedDecision(authorized AuthorizedDecision) error {
+	if err := validateSubmittedIntent(authorized.Intent); err != nil {
 		return err
 	}
-	switch routed.Resolution {
-	case DecisionResolvedByModel, DecisionResolvedByProductInvariant, DecisionResolvedByClarification:
-		return validateResolvedRoutedIntent(routed)
-	case DecisionResolvedAsBlocked:
-		if routed.Decision != nil {
-			return fmt.Errorf("blocked routed intent %s carries a decision", routed.Intent.ID)
-		}
-		return validateTrimmedText("blocked decision public summary", routed.PublicSummary)
-	default:
-		return fmt.Errorf("unknown director decision resolution %q", routed.Resolution)
+	if err := authorized.Context.Validate(); err != nil {
+		return fmt.Errorf("authorized decision %s carries invalid context: %w", authorized.Intent.ID, err)
 	}
-}
-
-func validateRoutedIntentEnvelope(routed RoutedIntent) error {
-	if err := validateSubmittedIntent(routed.Intent); err != nil {
-		return err
+	if authorized.Context.Intent != authorized.Intent {
+		return fmt.Errorf("authorized decision %s does not match its context", authorized.Intent.ID)
 	}
-	if err := routed.Context.Validate(); err != nil {
-		return fmt.Errorf("routed intent %s carries invalid decision context: %w", routed.Intent.ID, err)
-	}
-	if routed.Context.Intent != routed.Intent {
-		return fmt.Errorf("routed intent %s does not match its decision context", routed.Intent.ID)
-	}
-	return nil
-}
-
-func validateResolvedRoutedIntent(routed RoutedIntent) error {
-	if routed.Decision == nil {
-		return fmt.Errorf("routed intent %s resolved as %q without a decision", routed.Intent.ID, routed.Resolution)
-	}
-	if routed.PublicSummary != "" {
-		return fmt.Errorf("routed intent %s carries blocked text with a decision", routed.Intent.ID)
-	}
-	if err := ValidateDecisionAuthority(routed.Context, *routed.Decision); err != nil {
-		return err
-	}
-	switch routed.Resolution {
-	case DecisionResolvedByProductInvariant:
-		return validateProductInvariantResolution(routed)
-	case DecisionResolvedByClarification:
-		return validateClarificationResolution(routed)
-	default:
-		return nil
-	}
-}
-
-func validateProductInvariantResolution(routed RoutedIntent) error {
-	expected, resolved := ProductInvariantDecision(routed.Context)
-	if !resolved || !reflect.DeepEqual(expected, *routed.Decision) {
-		return fmt.Errorf(
-			"routed intent %s claims a decision that no product invariant resolved",
-			routed.Intent.ID,
-		)
-	}
-	return nil
-}
-
-func validateClarificationResolution(routed RoutedIntent) error {
-	if routed.Decision.Kind != DirectorDecisionAskClarification ||
-		routed.Decision.AskClarification.Question != clarificationQuestion(workCandidates(routed.Context)) {
-		return fmt.Errorf(
-			"routed intent %s claims a clarification trusted context did not derive",
-			routed.Intent.ID,
-		)
-	}
-	return nil
+	return ValidateDecisionAuthority(authorized.Context, authorized.Decision)
 }
 
 // reply commits what the Director told the user. The fact happens in no
-// workstream because the reply started work in none, and it is durable because
-// the answer is what the user was told and the question is what their next
-// request is answering.
+// workstream because prose started work in none, and it is durable because the
+// answer is what the user was told and what their next request is answering.
 func (executor *DecisionExecutor) reply(
 	ctx context.Context,
-	routed RoutedIntent,
-	decision DirectorDecision,
+	authorized AuthorizedDecision,
 ) (ExecutedDecision, error) {
-	if _, err := executor.commitDecision(ctx, routed, decision, nil, nil); err != nil {
+	summary, err := executor.commitDecision(ctx, authorized, nil, nil)
+	if err != nil {
 		return ExecutedDecision{}, err
 	}
-	text := ""
-	if decision.Kind == DirectorDecisionAnswerDirectly {
-		text = decision.AnswerDirectly.Text
-	} else {
-		text = decision.AskClarification.Question
-	}
 	return ExecutedDecision{
-		IntentID:   routed.Intent.ID,
-		Resolution: routed.Resolution,
-		Decision:   &decision.Kind,
-		PublicText: text,
+		IntentID: authorized.Intent.ID,
+		Decision: authorized.Decision.Kind,
+		Summary:  summary.PublicSummary,
 	}, nil
 }
 
@@ -347,12 +246,16 @@ func (executor *DecisionExecutor) reply(
 // that created it, and then creates the durable substrate it runs on. The
 // workstream id is derived from the conversation id, so a replay of the log
 // always addresses the same workstream.
+// createWorkstream mints the new workstream, records the decision that created
+// it, creates its durable substrate, and selects it. Selection is part of
+// creating: the user asked for a new workstream, so the one they get is the one
+// they are then looking at. Initial input is optional, because an idle
+// workstream the user can start work in later is a real product outcome.
 func (executor *DecisionExecutor) createWorkstream(
 	ctx context.Context,
-	routed RoutedIntent,
-	decision DirectorDecision,
+	authorized AuthorizedDecision,
 ) (ExecutedDecision, error) {
-	payload := *decision.CreateWorkstream
+	payload := *authorized.Decision.CreateWorkstream
 	conversationID, err := executor.newID("conversation")
 	if err != nil {
 		return ExecutedDecision{}, err
@@ -361,21 +264,39 @@ func (executor *DecisionExecutor) createWorkstream(
 	if err != nil {
 		return ExecutedDecision{}, err
 	}
-	start, parent, err := executor.startRequest(routed.Context, decision, conversationID, workstreamID)
+	start, parent, err := executor.startRequest(authorized, conversationID, workstreamID)
 	if err != nil {
 		return ExecutedDecision{}, err
 	}
-	if _, err := executor.commitDecision(ctx, routed, decision, parent, &workstreamID); err != nil {
+	committed, err := executor.commitDecision(ctx, authorized, parent, &workstreamID)
+	if err != nil {
 		return ExecutedDecision{}, err
 	}
 	if err := executor.execution.StartWorkstream(ctx, start); err != nil {
 		return ExecutedDecision{}, err
 	}
+	if err := executor.registry.awaitWorkstream(ctx, workstreamID); err != nil {
+		return ExecutedDecision{}, err
+	}
+	selected, err := executor.registry.SelectWorkstream(ctx, workstreamID)
+	if err != nil {
+		return ExecutedDecision{}, err
+	}
+	executed := ExecutedDecision{
+		IntentID:             authorized.Intent.ID,
+		Decision:             authorized.Decision.Kind,
+		Summary:              committed.PublicSummary,
+		WorkstreamID:         &workstreamID,
+		SelectedWorkstreamID: selected,
+	}
+	if payload.InitialInput == "" {
+		return executed, nil
+	}
 	runID, err := executor.newID("turn")
 	if err != nil {
 		return ExecutedDecision{}, err
 	}
-	return executor.finishWork(ctx, routed, decision, workstreamID, func() error {
+	return executor.finishWork(ctx, executed, workstreamID, func() error {
 		workspaceID, err := requireFolderResource(start.WorkspaceID)
 		if err != nil {
 			return err
@@ -394,11 +315,12 @@ func (executor *DecisionExecutor) createWorkstream(
 // the authorized workspace enum; a child and a fork inherit their parent's, so
 // the decision cannot rescope existing work.
 func (executor *DecisionExecutor) startRequest(
-	decisionContext DirectorDecisionContext,
-	decision DirectorDecision,
+	authorized AuthorizedDecision,
 	conversationID string,
 	workstreamID string,
 ) (WorkstreamStartRequest, *string, error) {
+	decisionContext := authorized.Context
+	decision := authorized.Decision
 	payload := *decision.CreateWorkstream
 	start := WorkstreamStartRequest{
 		ConversationID: conversationID,
@@ -449,16 +371,16 @@ func offersWorkspace(decisionContext DirectorDecisionContext, workspaceID string
 // deliverWork sends, queues, or steers on a workstream that already exists.
 func (executor *DecisionExecutor) deliverWork(
 	ctx context.Context,
-	routed RoutedIntent,
-	decision DirectorDecision,
+	authorized AuthorizedDecision,
 ) (ExecutedDecision, error) {
+	decision := authorized.Decision
 	workstreamID := *DecisionTargetWorkstreamID(decision)
 	target, err := executor.registry.ExecutionTarget(workstreamID)
 	if err != nil {
 		return ExecutedDecision{}, err
 	}
 	if decision.Kind == DirectorDecisionSteerRun {
-		expected, offered := routed.Context.Target(workstreamID)
+		expected, offered := authorized.Context.Target(workstreamID)
 		if !offered || expected.ActiveRunID == nil {
 			return ExecutedDecision{}, fmt.Errorf(
 				"%w: workstream %s has no authorized run to steer",
@@ -475,7 +397,7 @@ func (executor *DecisionExecutor) deliverWork(
 			)
 		}
 	}
-	factID, err := executor.commitDecision(ctx, routed, decision, &workstreamID, nil)
+	committed, err := executor.commitDecision(ctx, authorized, &workstreamID, nil)
 	if err != nil {
 		return ExecutedDecision{}, err
 	}
@@ -483,8 +405,13 @@ func (executor *DecisionExecutor) deliverWork(
 	if err != nil {
 		return ExecutedDecision{}, err
 	}
-	return executor.finishWork(ctx, routed, decision, workstreamID, func() error {
-		return executor.callWorkPort(ctx, decision, target, runID, factID)
+	return executor.finishWork(ctx, ExecutedDecision{
+		IntentID:     authorized.Intent.ID,
+		Decision:     decision.Kind,
+		Summary:      committed.PublicSummary,
+		WorkstreamID: &workstreamID,
+	}, workstreamID, func() error {
+		return executor.callWorkPort(ctx, decision, target, runID, committed.FactID)
 	})
 }
 
@@ -532,11 +459,11 @@ func (executor *DecisionExecutor) callWorkPort(
 // registry writes it and the decision records that the Director chose it.
 func (executor *DecisionExecutor) selectWorkstream(
 	ctx context.Context,
-	routed RoutedIntent,
-	decision DirectorDecision,
+	authorized AuthorizedDecision,
 ) (ExecutedDecision, error) {
-	workstreamID := decision.SelectWorkstream.WorkstreamID
-	if _, err := executor.commitDecision(ctx, routed, decision, &workstreamID, nil); err != nil {
+	workstreamID := authorized.Decision.SelectWorkstream.WorkstreamID
+	committed, err := executor.commitDecision(ctx, authorized, &workstreamID, nil)
+	if err != nil {
 		return ExecutedDecision{}, err
 	}
 	selected, err := executor.registry.SelectWorkstream(ctx, workstreamID)
@@ -544,10 +471,11 @@ func (executor *DecisionExecutor) selectWorkstream(
 		return ExecutedDecision{}, err
 	}
 	return ExecutedDecision{
-		IntentID:     routed.Intent.ID,
-		Resolution:   routed.Resolution,
-		Decision:     &decision.Kind,
-		WorkstreamID: selected,
+		IntentID:             authorized.Intent.ID,
+		Decision:             authorized.Decision.Kind,
+		Summary:              committed.PublicSummary,
+		WorkstreamID:         &workstreamID,
+		SelectedWorkstreamID: selected,
 	}, nil
 }
 
@@ -556,10 +484,9 @@ func (executor *DecisionExecutor) selectWorkstream(
 // the restarted run rather than inferred from the run that follows it.
 func (executor *DecisionExecutor) recoverPath(
 	ctx context.Context,
-	routed RoutedIntent,
-	decision DirectorDecision,
+	authorized AuthorizedDecision,
 ) (ExecutedDecision, error) {
-	payload := *decision.RecoverPath
+	payload := *authorized.Decision.RecoverPath
 	target, err := executor.registry.ExecutionTarget(payload.WorkstreamID)
 	if err != nil {
 		return ExecutedDecision{}, err
@@ -568,13 +495,11 @@ func (executor *DecisionExecutor) recoverPath(
 	if err != nil {
 		return ExecutedDecision{}, err
 	}
-	summary, err := DecisionPublicSummary(routed.Context, decision)
+	committed, err := executor.commitDecision(ctx, authorized, &payload.WorkstreamID, nil)
 	if err != nil {
 		return ExecutedDecision{}, err
 	}
-	if _, err := executor.commitDecision(ctx, routed, decision, &payload.WorkstreamID, nil); err != nil {
-		return ExecutedDecision{}, err
-	}
+	summary := committed.PublicSummary
 	recoveryID, err := executor.newID("director-recovery")
 	if err != nil {
 		return ExecutedDecision{}, err
@@ -596,7 +521,12 @@ func (executor *DecisionExecutor) recoverPath(
 	if err != nil {
 		return ExecutedDecision{}, err
 	}
-	return executor.finishWork(ctx, routed, decision, payload.WorkstreamID, func() error {
+	return executor.finishWork(ctx, ExecutedDecision{
+		IntentID:     authorized.Intent.ID,
+		Decision:     authorized.Decision.Kind,
+		Summary:      summary,
+		WorkstreamID: &payload.WorkstreamID,
+	}, payload.WorkstreamID, func() error {
 		workspaceID, err := requireFolderResource(target.WorkspaceID)
 		if err != nil {
 			return err
@@ -616,17 +546,10 @@ func (executor *DecisionExecutor) recoverPath(
 // something to record as a product state the user can act on.
 func (executor *DecisionExecutor) finishWork(
 	ctx context.Context,
-	routed RoutedIntent,
-	decision DirectorDecision,
+	executed ExecutedDecision,
 	workstreamID string,
 	run func() error,
 ) (ExecutedDecision, error) {
-	executed := ExecutedDecision{
-		IntentID:     routed.Intent.ID,
-		Resolution:   routed.Resolution,
-		Decision:     &decision.Kind,
-		WorkstreamID: &workstreamID,
-	}
 	err := run()
 	if err == nil {
 		return executed, nil
@@ -640,7 +563,7 @@ func (executor *DecisionExecutor) finishWork(
 		return ExecutedDecision{}, err
 	}
 	executed.ResourceRequestID = &requestID
-	executed.PublicText = summary
+	executed.Summary = summary
 	return executed, nil
 }
 
@@ -682,25 +605,35 @@ func (executor *DecisionExecutor) openResourceRequest(
 	return requestID, summary, nil
 }
 
-// commitDecision writes the durable decision and returns its fact id, which is
-// the durable decision identity the work it authorizes is recorded against.
+// committedDecision is the durable identity and public sentence one decision
+// landed with. The work the decision authorizes is recorded against the fact
+// id, and the receipt the Director explains to the user is the summary.
+type committedDecision struct {
+	FactID        string
+	PublicSummary string
+}
+
+// commitDecision writes the durable decision.
 func (executor *DecisionExecutor) commitDecision(
 	ctx context.Context,
-	routed RoutedIntent,
-	decision DirectorDecision,
+	authorized AuthorizedDecision,
 	workstreamID *string,
 	createdWorkstreamID *string,
-) (string, error) {
-	committed, err := NewCommittedDecision(routed.Context, decision, createdWorkstreamID)
+) (committedDecision, error) {
+	committed, err := NewCommittedDecision(authorized.Context, authorized.Decision, createdWorkstreamID)
 	if err != nil {
-		return "", err
+		return committedDecision{}, err
 	}
-	return executor.appendFact(ctx, DirectorFactEvent{
+	factID, err := executor.appendFact(ctx, DirectorFactEvent{
 		Kind:              DirectorFactDecisionCommitted,
 		WorkstreamID:      copyOptionalString(workstreamID),
 		Actor:             SemanticActorDirector,
 		DecisionCommitted: &committed,
 	})
+	if err != nil {
+		return committedDecision{}, err
+	}
+	return committedDecision{FactID: factID, PublicSummary: committed.PublicSummary}, nil
 }
 
 // appendFact stamps and commits one Director fact and reports the durable id it

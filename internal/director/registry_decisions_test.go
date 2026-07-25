@@ -118,7 +118,6 @@ func TestDecisionContextDerivesTargetAuthorityFromRunState(t *testing.T) {
 	for _, kind := range []DirectorDecisionKind{
 		DirectorDecisionAnswerDirectly,
 		DirectorDecisionCreateWorkstream,
-		DirectorDecisionAskClarification,
 		DirectorDecisionRecoverPath,
 	} {
 		if !slices.Contains(decisionContext.AllowedDecisionKinds, kind) {
@@ -262,9 +261,8 @@ func TestDecisionContextOffersNoActionAuthorityWithoutWorkstreams(t *testing.T) 
 	}) {
 		t.Fatalf("empty registry allows %v", decisionContext.AllowedDecisionKinds)
 	}
-	if decisionContext.SelectedID != nil || decisionContext.Clarification != nil {
-		t.Fatalf("empty registry context selects %v and clarifies %v",
-			decisionContext.SelectedID, decisionContext.Clarification)
+	if decisionContext.SelectedID != nil {
+		t.Fatalf("empty registry context selects %v", decisionContext.SelectedID)
 	}
 	if len(decisionContext.Workspaces) != 1 || decisionContext.Workspaces[0].WorkspaceID != registryTestWorkspaceID {
 		t.Fatalf("workspace options = %+v", decisionContext.Workspaces)
@@ -369,10 +367,10 @@ func TestDecisionContextClosesRecoveryOnceItIsAddressed(t *testing.T) {
 	}
 }
 
-// TestDecisionContextResumesTheClarificationItAsked proves a question survives
-// a restart with the candidates it offered, so the next intent is understood as
-// the answer rather than as a new request.
-func TestDecisionContextResumesTheClarificationItAsked(t *testing.T) {
+// TestDecisionContextResumesTheDecisionsItCommitted proves the Director's own
+// recent decisions survive a restart, so a later tool call is authorized with
+// the continuity the app already committed.
+func TestDecisionContextResumesTheDecisionsItCommitted(t *testing.T) {
 	harness := newRegistryHarness(t)
 	first := harness.createConversation("conversation-first", "Parser rewrite", nil)
 	second := harness.createConversation("conversation-second", "Release notes", nil)
@@ -388,60 +386,33 @@ func TestDecisionContextResumesTheClarificationItAsked(t *testing.T) {
 			TargetWorkstreamID: &first,
 		},
 	})
-	// A clarification happens in no workstream: it starts work nowhere, and the
-	// workstreams it is choosing between are its candidates rather than its home.
-	asked := harness.appendFact(DirectorFactEvent{
+	// A reply happens in no workstream: the Director told the user something and
+	// started work nowhere.
+	harness.appendFact(DirectorFactEvent{
 		Kind:  DirectorFactDecisionCommitted,
 		Actor: SemanticActorDirector,
 		DecisionCommitted: &DirectorDecisionCommitted{
-			Decision:      DirectorDecisionAskClarification,
-			IntentID:      "intent-asked",
-			PublicSummary: "Asked one clarifying question before routing this request.",
-			Clarification: &DirectorClarificationAsked{
-				Question:               "Which workstream should handle this: \"Parser rewrite\", \"Release notes\"?",
-				CandidateWorkstreamIDs: []string{first, second},
-			},
+			Decision:      DirectorDecisionAnswerDirectly,
+			IntentID:      "intent-answered",
+			PublicSummary: "Answered from current app state.",
+			Answer:        &DirectorAnswerGiven{Text: "Two workstreams are idle."},
 		},
 	})
 
 	registry := harness.start()
-	pending := requireDecisionContext(t, registry)
-	if pending.Clarification == nil {
-		t.Fatalf("a committed clarification is not pending")
+	resumed := requireDecisionContext(t, registry)
+	if len(resumed.RecentDecisions) != 2 {
+		t.Fatalf("recent decisions = %+v", resumed.RecentDecisions)
 	}
-	if pending.Clarification.DecisionID != asked.ID || pending.Clarification.IntentID != "intent-asked" {
-		t.Fatalf("pending clarification = %+v", pending.Clarification)
+	if resumed.RecentDecisions[0].IntentID != "intent-sent" ||
+		resumed.RecentDecisions[0].DecidedAt != sent.EmittedAt {
+		t.Fatalf("first recent decision = %+v", resumed.RecentDecisions[0])
 	}
-	if !slices.Equal(pending.Clarification.CandidateWorkstreamIDs, []string{first, second}) {
-		t.Fatalf("pending clarification candidates = %v", pending.Clarification.CandidateWorkstreamIDs)
+	if resumed.RecentDecisions[1].TargetWorkstreamID != nil {
+		t.Fatalf("a reply reports target %v", resumed.RecentDecisions[1].TargetWorkstreamID)
 	}
-	if len(pending.RecentDecisions) != 2 {
-		t.Fatalf("recent decisions = %+v", pending.RecentDecisions)
-	}
-	if pending.RecentDecisions[0].IntentID != "intent-sent" ||
-		pending.RecentDecisions[0].DecidedAt != sent.EmittedAt {
-		t.Fatalf("first recent decision = %+v", pending.RecentDecisions[0])
-	}
-	if pending.RecentDecisions[1].TargetWorkstreamID != nil {
-		t.Fatalf("a clarification reports target %v", pending.RecentDecisions[1].TargetWorkstreamID)
-	}
-	registry.Close()
-
-	harness.appendFact(DirectorFactEvent{
-		Kind:         DirectorFactDecisionCommitted,
-		WorkstreamID: &second,
-		Actor:        SemanticActorDirector,
-		DecisionCommitted: &DirectorDecisionCommitted{
-			Decision:           DirectorDecisionSendToWorkstream,
-			IntentID:           "intent-answered",
-			PublicSummary:      "Sent new work to \"Release notes\".",
-			TargetWorkstreamID: &second,
-		},
-	})
-
-	answered := requireDecisionContext(t, harness.start())
-	if answered.Clarification != nil {
-		t.Fatalf("an answered clarification is still pending: %+v", answered.Clarification)
+	if _, found := resumed.Target(second); !found {
+		t.Fatalf("the second workstream is not a routing target")
 	}
 }
 

@@ -17,8 +17,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 94;
-export const backendContractSchemaHash = "sha256:b97ba46c352f2aeb7c74a30fb567d805f7e2990735cfa4ae5ec0e194c86c3b04";
+export const backendProtocolVersion = 95;
+export const backendContractSchemaHash = "sha256:dec05b4101c495ba21e4239283816175bd550686f02217ea9e15b4304a019566";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -1483,54 +1483,6 @@ export function decodeDirectorSelectionDirection(value: unknown, label = "Direct
     case "previous":
       return decoded;
     case "next":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type DecisionResolution = "model" | "product_invariant" | "clarification" | "blocked";
-
-export const decisionResolutionValues = ["model", "product_invariant", "clarification", "blocked"] as const satisfies readonly DecisionResolution[];
-
-export function decodeDecisionResolution(value: unknown, label = "DecisionResolution"): DecisionResolution {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "model":
-      return decoded;
-    case "product_invariant":
-      return decoded;
-    case "clarification":
-      return decoded;
-    case "blocked":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type DirectorDecisionKind = "answer_directly" | "create_workstream" | "send_to_workstream" | "queue_behind_run" | "steer_run" | "ask_clarification" | "select_workstream" | "recover_path";
-
-export const directorDecisionKindValues = ["answer_directly", "create_workstream", "send_to_workstream", "queue_behind_run", "steer_run", "ask_clarification", "select_workstream", "recover_path"] as const satisfies readonly DirectorDecisionKind[];
-
-export function decodeDirectorDecisionKind(value: unknown, label = "DirectorDecisionKind"): DirectorDecisionKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "answer_directly":
-      return decoded;
-    case "create_workstream":
-      return decoded;
-    case "send_to_workstream":
-      return decoded;
-    case "queue_behind_run":
-      return decoded;
-    case "steer_run":
-      return decoded;
-    case "ask_clarification":
-      return decoded;
-    case "select_workstream":
-      return decoded;
-    case "recover_path":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3388,19 +3340,24 @@ export interface DispatchDirectorIntentRequest {
   intent: DirectorIntent;
 }
 
-export interface ExecutedDecision {
-  intentId: string;
-  resolution: DecisionResolution;
-  decision: DirectorDecisionKind | null;
+export interface DirectorToolCall {
+  tool: string;
+  succeeded: boolean;
+  summary: string;
   workstreamId: string | null;
-  publicText: string;
-  resourceRequestId: string | null;
+  selectedWorkstreamId: string | null;
+}
+
+export interface DirectorTurnReceipt {
+  intentId: string;
+  replyText: string;
+  toolCalls: DirectorToolCall[];
 }
 
 export interface DirectorReceipt {
   kind: DirectorIntentKind;
   selectedWorkstreamId: string | null;
-  submit: ExecutedDecision | null;
+  submit: DirectorTurnReceipt | null;
 }
 
 export interface DirectorWorkstreamUpdatedPayload {
@@ -6633,16 +6590,25 @@ export function decodeDispatchDirectorIntentRequest(value: unknown): DispatchDir
   };
 }
 
-export function decodeExecutedDecision(value: unknown): ExecutedDecision {
-  const record = assertRecord(value, "ExecutedDecision");
-  assertKnownFields(record, "ExecutedDecision", ["intentId", "resolution", "decision", "workstreamId", "publicText", "resourceRequestId"]);
+export function decodeDirectorToolCall(value: unknown): DirectorToolCall {
+  const record = assertRecord(value, "DirectorToolCall");
+  assertKnownFields(record, "DirectorToolCall", ["tool", "succeeded", "summary", "workstreamId", "selectedWorkstreamId"]);
   return {
-    intentId: decodeString(requireField(record, "intentId", "ExecutedDecision"), "ExecutedDecision.intentId"),
-    resolution: decodeDecisionResolution(requireField(record, "resolution", "ExecutedDecision"), "ExecutedDecision.resolution"),
-    decision: decodeNullable(requireField(record, "decision", "ExecutedDecision"), "ExecutedDecision.decision", (item) => decodeDirectorDecisionKind(item, "ExecutedDecision.decision")),
-    workstreamId: decodeNullable(requireField(record, "workstreamId", "ExecutedDecision"), "ExecutedDecision.workstreamId", (item) => decodeString(item, "ExecutedDecision.workstreamId")),
-    publicText: decodeString(requireField(record, "publicText", "ExecutedDecision"), "ExecutedDecision.publicText"),
-    resourceRequestId: decodeNullable(requireField(record, "resourceRequestId", "ExecutedDecision"), "ExecutedDecision.resourceRequestId", (item) => decodeString(item, "ExecutedDecision.resourceRequestId")),
+    tool: decodeString(requireField(record, "tool", "DirectorToolCall"), "DirectorToolCall.tool"),
+    succeeded: decodeBoolean(requireField(record, "succeeded", "DirectorToolCall"), "DirectorToolCall.succeeded"),
+    summary: decodeString(requireField(record, "summary", "DirectorToolCall"), "DirectorToolCall.summary"),
+    workstreamId: decodeNullable(requireField(record, "workstreamId", "DirectorToolCall"), "DirectorToolCall.workstreamId", (item) => decodeString(item, "DirectorToolCall.workstreamId")),
+    selectedWorkstreamId: decodeNullable(requireField(record, "selectedWorkstreamId", "DirectorToolCall"), "DirectorToolCall.selectedWorkstreamId", (item) => decodeString(item, "DirectorToolCall.selectedWorkstreamId")),
+  };
+}
+
+export function decodeDirectorTurnReceipt(value: unknown): DirectorTurnReceipt {
+  const record = assertRecord(value, "DirectorTurnReceipt");
+  assertKnownFields(record, "DirectorTurnReceipt", ["intentId", "replyText", "toolCalls"]);
+  return {
+    intentId: decodeString(requireField(record, "intentId", "DirectorTurnReceipt"), "DirectorTurnReceipt.intentId"),
+    replyText: decodeString(requireField(record, "replyText", "DirectorTurnReceipt"), "DirectorTurnReceipt.replyText"),
+    toolCalls: decodeArray(requireField(record, "toolCalls", "DirectorTurnReceipt"), "DirectorTurnReceipt.toolCalls", (item) => decodeDirectorToolCall(item)),
   };
 }
 
@@ -6652,7 +6618,7 @@ export function decodeDirectorReceipt(value: unknown): DirectorReceipt {
   return {
     kind: decodeDirectorIntentKind(requireField(record, "kind", "DirectorReceipt"), "DirectorReceipt.kind"),
     selectedWorkstreamId: decodeNullable(requireField(record, "selectedWorkstreamId", "DirectorReceipt"), "DirectorReceipt.selectedWorkstreamId", (item) => decodeString(item, "DirectorReceipt.selectedWorkstreamId")),
-    submit: decodeNullable(requireField(record, "submit", "DirectorReceipt"), "DirectorReceipt.submit", (item) => decodeExecutedDecision(item)),
+    submit: decodeNullable(requireField(record, "submit", "DirectorReceipt"), "DirectorReceipt.submit", (item) => decodeDirectorTurnReceipt(item)),
   };
 }
 

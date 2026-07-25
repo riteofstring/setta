@@ -20,12 +20,6 @@ func TestDecisionContextRejectsUnbackedAuthority(t *testing.T) {
 		name   string
 		mutate func(*DirectorDecisionContext)
 	}{
-		{"wrong envelope kind", func(context *DirectorDecisionContext) {
-			context.Kind = "legacy_route"
-		}},
-		{"task text rewritten", func(context *DirectorDecisionContext) {
-			context.Task.Directive = "route however you like"
-		}},
 		{"selection outside the offered set", func(context *DirectorDecisionContext) {
 			missing := "workstream-missing"
 			context.SelectedID = &missing
@@ -45,13 +39,14 @@ func TestDecisionContextRejectsUnbackedAuthority(t *testing.T) {
 				DirectorDecisionSelectWorkstream,
 			}
 		}},
-		{"clarification names an unlisted candidate", func(context *DirectorDecisionContext) {
-			context.Clarification = &DecisionClarificationContext{
-				DecisionID:             "decision-1",
-				IntentID:               "intent-0",
-				Question:               "which one?",
-				CandidateWorkstreamIDs: []string{"workstream-missing"},
-			}
+		{"recent decision names an unlisted workstream", func(context *DirectorDecisionContext) {
+			missing := "workstream-missing"
+			context.RecentDecisions = []DecisionSummary{{
+				IntentID:           "intent-0",
+				Decision:           DirectorDecisionSelectWorkstream,
+				TargetWorkstreamID: &missing,
+				DecidedAt:          "2026-07-24T11:59:00Z",
+			}}
 		}},
 		{"null collections", func(context *DirectorDecisionContext) {
 			context.RecentDecisions = nil
@@ -146,38 +141,38 @@ func TestDecisionAuthorityRejectsUnauthorizedDecisions(t *testing.T) {
 	cases := []struct {
 		name     string
 		decision DirectorDecision
-		reason   DecisionRejectionReason
+		detail   string
 	}{
 		{
 			name:     "workstream outside the offered set",
 			decision: sendDecisionFixture("workstream-missing"),
-			reason:   DecisionRejectedUnknownTarget,
+			detail:   "was not supplied by authoritative context",
 		},
 		{
 			name:     "action the target does not allow",
 			decision: sendDecisionFixture(fixtureActiveWorkstream),
-			reason:   DecisionRejectedUnauthorizedTarget,
+			detail:   "does not allow",
 		},
 		{
 			name: "steering a workstream with no active run",
 			decision: DirectorDecision{Kind: DirectorDecisionSteerRun, SteerRun: &SteerRunDecision{
 				WorkstreamID: fixtureIdleWorkstream, AuthoredInput: "change course",
 			}},
-			reason: DecisionRejectedUnauthorizedTarget,
+			detail: "does not allow",
 		},
 		{
 			name: "recovering a failure the workstream does not own",
 			decision: DirectorDecision{Kind: DirectorDecisionRecoverPath, RecoverPath: &RecoverPathDecision{
 				WorkstreamID: fixtureFailedWorkstream, FailureEventID: "event-other",
 			}},
-			reason: DecisionRejectedUnauthorizedFailure,
+			detail: "is not recoverable on workstream",
 		},
 		{
 			name: "recovering a workstream that has not failed",
 			decision: DirectorDecision{Kind: DirectorDecisionRecoverPath, RecoverPath: &RecoverPathDecision{
 				WorkstreamID: fixtureIdleWorkstream, FailureEventID: fixtureFailureEventID,
 			}},
-			reason: DecisionRejectedUnauthorizedTarget,
+			detail: "does not allow",
 		},
 		{
 			name: "scoping a new workstream to an unoffered folder",
@@ -185,7 +180,7 @@ func TestDecisionAuthorityRejectsUnauthorizedDecisions(t *testing.T) {
 				Kind:   WorkstreamResourceScopeFolder,
 				Folder: &DecisionFolderResource{WorkspaceID: fixtureUnofferedWorkspace},
 			}),
-			reason: DecisionRejectedUnauthorizedResourceScope,
+			detail: "is not an offered folder resource",
 		},
 		{
 			name: "forking a run that is not a fork point",
@@ -203,7 +198,7 @@ func TestDecisionAuthorityRejectsUnauthorizedDecisions(t *testing.T) {
 					ProposedTitle: "Alternate parser",
 				},
 			},
-			reason: DecisionRejectedUnauthorizedForkPoint,
+			detail: "is not a fork point of workstream",
 		},
 		{
 			name: "hanging a child off a workstream that does not accept one",
@@ -218,7 +213,7 @@ func TestDecisionAuthorityRejectsUnauthorizedDecisions(t *testing.T) {
 					ProposedTitle: "Tangent",
 				},
 			},
-			reason: DecisionRejectedUnauthorizedTarget,
+			detail: "does not accept a child workstream",
 		},
 		{
 			name: "two payloads for one kind",
@@ -227,19 +222,19 @@ func TestDecisionAuthorityRejectsUnauthorizedDecisions(t *testing.T) {
 				AnswerDirectly:   &AnswerDirectlyDecision{Text: "all good"},
 				SelectWorkstream: &SelectWorkstreamDecision{WorkstreamID: fixtureIdleWorkstream},
 			},
-			reason: DecisionRejectedInvalidPayload,
+			detail: "must",
 		},
 		{
 			name:     "a kind outside the catalog",
 			decision: DirectorDecision{Kind: "ask_narrator"},
-			reason:   DecisionRejectedUnknownKind,
+			detail:   "unknown director decision kind",
 		},
 	}
 	context := decisionContextFixture()
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			err := ValidateDecisionAuthority(context, testCase.decision)
-			assertRejection(t, err, testCase.reason)
+			assertRejection(t, err, testCase.detail)
 		})
 	}
 }
@@ -249,7 +244,7 @@ func TestDecisionAuthorityRejectsKindsTheContextWithheld(t *testing.T) {
 	decision := DirectorDecision{Kind: DirectorDecisionRecoverPath, RecoverPath: &RecoverPathDecision{
 		WorkstreamID: fixtureIdleWorkstream, FailureEventID: fixtureFailureEventID,
 	}}
-	assertRejection(t, ValidateDecisionAuthority(context, decision), DecisionRejectedUnauthorizedKind)
+	assertRejection(t, ValidateDecisionAuthority(context, decision), "is not allowed by the supplied context")
 }
 
 func TestDecisionAuthorityRejectsAStaleContext(t *testing.T) {
@@ -258,7 +253,7 @@ func TestDecisionAuthorityRejectsAStaleContext(t *testing.T) {
 	assertRejection(
 		t,
 		ValidateDecisionAuthority(context, sendDecisionFixture(fixtureIdleWorkstream)),
-		DecisionRejectedStaleContext,
+		"director decision intent text is required",
 	)
 }
 
@@ -288,9 +283,6 @@ func authorizedDecisionsForFixture() []DirectorDecision {
 		{Kind: DirectorDecisionSteerRun, SteerRun: &SteerRunDecision{
 			WorkstreamID: fixtureActiveWorkstream, AuthoredInput: "shorter, please",
 		}},
-		{Kind: DirectorDecisionAskClarification, AskClarification: &AskClarificationDecision{
-			Question: "Should I steer the running work or queue this after it?",
-		}},
 		{Kind: DirectorDecisionSelectWorkstream, SelectWorkstream: &SelectWorkstreamDecision{
 			WorkstreamID: fixtureActiveWorkstream,
 		}},
@@ -309,9 +301,6 @@ func TestDecisionCatalogIsFullyCovered(t *testing.T) {
 		if !covered[kind] {
 			t.Fatalf("decision kind %q has no authorized fixture", kind)
 		}
-		if decisionSchemaDescriptions[kind] == "" {
-			t.Fatalf("decision kind %q has no schema description", kind)
-		}
 	}
 	if len(covered) != len(DirectorDecisionKinds()) {
 		t.Fatalf("the fixture set covers %d kinds but the catalog has %d",
@@ -319,28 +308,18 @@ func TestDecisionCatalogIsFullyCovered(t *testing.T) {
 	}
 }
 
-func TestDecisionContextRejectsClarificationWithoutWorkAuthority(t *testing.T) {
-	context := selectionOnlyContextFixture()
-	context.AllowedDecisionKinds = append(
-		context.AllowedDecisionKinds,
-		DirectorDecisionAskClarification,
-	)
-	if err := context.Validate(); err == nil ||
-		!strings.Contains(err.Error(), "no work outcome") {
-		t.Fatalf("clarification-only context error = %v", err)
-	}
-}
-
-func assertRejection(t *testing.T, err error, expected DecisionRejectionReason) {
+// assertRejection proves an unauthorized call was refused specifically. The
+// sentence is what Setta hands back to the Director as its own tool result, so
+// the reason has to name what was wrong rather than only that something was.
+func assertRejection(t *testing.T, err error, detail string) {
 	t.Helper()
 	if err == nil {
-		t.Fatalf("expected rejection %q but the decision was accepted", expected)
+		t.Fatalf("expected a rejection mentioning %q but the decision was accepted", detail)
 	}
-	var rejection *DecisionRejection
-	if !errors.As(err, &rejection) {
-		t.Fatalf("expected a typed rejection, got %v", err)
+	if !errors.Is(err, ErrDirectorIntentRejected) {
+		t.Fatalf("expected a rejected intent, got %v", err)
 	}
-	if rejection.Reason != expected {
-		t.Fatalf("expected rejection %q, got %q (%v)", expected, rejection.Reason, err)
+	if !strings.Contains(err.Error(), detail) {
+		t.Fatalf("rejection %v does not mention %q", err, detail)
 	}
 }

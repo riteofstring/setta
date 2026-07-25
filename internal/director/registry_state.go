@@ -76,10 +76,6 @@ type registryState struct {
 	// bounded here rather than at materialization, because the Director only
 	// ever receives the most recent few as continuity context.
 	decisions []DecisionSummary
-	// clarification is the question the Director is waiting on, if any. The
-	// next committed decision supersedes it, because that decision is what the
-	// user's answer produced.
-	clarification *DecisionClarificationContext
 }
 
 func newRegistryState() *registryState {

@@ -85,3 +85,11 @@ func stringValues[T ~string](values []T) []string {
 	}
 	return result
 }
+
+// rejectedDecision reports that a Setta tool call named something trusted state
+// does not hold. It is the caller's mistake rather than a runtime failure, and
+// the sentence is handed straight back to the Director as its own tool result,
+// so it has to say what was wrong specifically enough to act on.
+func rejectedDecision(detail string) error {
+	return fmt.Errorf("%w: %s", ErrDirectorIntentRejected, detail)
+}

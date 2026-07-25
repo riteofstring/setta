@@ -2,7 +2,6 @@ package director
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"testing"
 )
@@ -12,38 +11,53 @@ import (
 // snapshot and its pushed stream say. Nothing here names a pane, a conversation,
 // or a provider, because the boundary exposes none of them.
 
-// unreachableDecisionCaller belongs to every dispatch that must not consult the
+// silentDirectorProvider belongs to every dispatch that must not consult the
 // Director. Selection is app state the registry owns, so a selection that
 // reached a provider would be a routing path the product never asked for.
-type unreachableDecisionCaller struct{}
+type silentDirectorProvider struct{}
 
-func (unreachableDecisionCaller) CallDecision(context.Context, DecisionCall) (json.RawMessage, error) {
-	return nil, errors.New("selection must not reach the director decision caller")
+func (silentDirectorProvider) StartDirectorThread(
+	context.Context,
+	DirectorThreadStart,
+) (DirectorProviderThread, error) {
+	return DirectorProviderThread{}, errors.New("this dispatch must not reach the director conversation")
+}
+
+func (silentDirectorProvider) RunDirectorTurn(context.Context, DirectorTurnRequest) (string, error) {
+	return "", errors.New("this dispatch must not reach the director conversation")
 }
 
 func newTestCommandCenter(t *testing.T, harness *registryHarness, registry *Registry) *CommandCenter {
 	t.Helper()
-	return newSubmittingCommandCenter(t, harness, registry, unreachableDecisionCaller{}, &recordedExecution{})
+	return newSubmittingCommandCenter(t, harness, registry, silentDirectorProvider{}, &recordedExecution{})
 }
 
 // newSubmittingCommandCenter assembles the boundary the way the runtime does:
-// the registry is trusted state, the router asks a caller for one decision, and
-// the executor carries it out through the execution port.
+// the registry is trusted state, a submitted request becomes one turn of the
+// Director conversation, and the executor carries its tool calls out through
+// the execution port.
 func newSubmittingCommandCenter(
 	t *testing.T,
 	harness *registryHarness,
 	registry *Registry,
-	caller DecisionCaller,
+	provider DirectorThreadPort,
 	execution WorkstreamExecution,
 ) *CommandCenter {
 	t.Helper()
-	router, err := NewDecisionRouter(registry, caller)
+	thread, err := NewDirectorThread(
+		registry,
+		newExecutorForTest(t, harness, registry, execution),
+		newDirectorConversationStoreForTest(),
+		provider,
+		WithDirectorThreadClock(harness.clock),
+		WithDirectorThreadIdentity(harness.identity),
+	)
 	if err != nil {
-		t.Fatalf("NewDecisionRouter: %v", err)
+		t.Fatalf("NewDirectorThread: %v", err)
 	}
 	center, err := NewCommandCenter(
 		registry,
-		router,
+		thread,
 		newExecutorForTest(t, harness, registry, execution),
 		WithCommandCenterClock(harness.clock),
 		WithCommandCenterIdentity(harness.identity),
@@ -111,7 +125,7 @@ func TestCommandCenterCreatesAndSelectsWorkspaceWorkstream(t *testing.T) {
 	harness := newRegistryHarness(t)
 	registry := harness.start()
 	execution := &publishingStartExecution{harness: harness}
-	center := newSubmittingCommandCenter(t, harness, registry, unreachableDecisionCaller{}, execution)
+	center := newSubmittingCommandCenter(t, harness, registry, silentDirectorProvider{}, execution)
 	subscription := subscribeFromSnapshot(t, registry)
 	defer subscription.Unsubscribe()
 
@@ -341,34 +355,37 @@ func TestCommandCenterReportsUnavailableRegistry(t *testing.T) {
 
 // TestCommandCenterSubmitCarriesOneRequestIntoWork proves the front door works
 // end to end: the shell hands over what the user said, the app mints the
-// intent's identity, the Director's decision is authorized against durable
+// intent's identity, the Director's tool call is authorized against durable
 // state, and the work reaches the execution port addressed by Setta ids.
 func TestCommandCenterSubmitCarriesOneRequestIntoWork(t *testing.T) {
 	harness := newRegistryHarness(t)
 	workspaceID := registryTestWorkspaceID
 	idle := harness.createConversation("conversation-idle", "Parser rewrite", &workspaceID)
 	registry := harness.start()
-	caller := &scriptedDecisionCaller{outputs: []json.RawMessage{decisionOutput(t, map[string]any{
-		"kind":          string(DirectorDecisionSendToWorkstream),
-		"workstreamId":  idle,
-		"authoredInput": "rewrite the parser",
-	})}}
+	provider := &scriptedDirectorProvider{
+		reply: "Sent it to the parser workstream.",
+		calls: []scriptedDirectorToolCall{{
+			tool: "submit_work",
+			arguments: map[string]any{
+				"workstreamId": idle,
+				"input":        "rewrite the parser",
+			},
+		}},
+	}
 	execution := &recordedExecution{}
-	center := newSubmittingCommandCenter(t, harness, registry, caller, execution)
+	center := newSubmittingCommandCenter(t, harness, registry, provider, execution)
 
 	receipt := dispatch(t, center, submit("rewrite the parser", DecisionIntentModalityVoice))
 
-	executed := requireSubmittedOutcome(t, receipt)
-	if executed.Resolution != DecisionResolvedByModel ||
-		executed.Decision == nil ||
-		*executed.Decision != DirectorDecisionSendToWorkstream {
-		t.Fatalf("executed decision = %+v", executed)
+	turn := requireSubmittedOutcome(t, receipt)
+	if turn.ReplyText != "Sent it to the parser workstream." {
+		t.Fatalf("director reply = %q", turn.ReplyText)
 	}
-	if executed.WorkstreamID == nil || *executed.WorkstreamID != idle {
-		t.Fatalf("executed workstream = %v, want %s", executed.WorkstreamID, idle)
+	if len(turn.ToolCalls) != 1 || turn.ToolCalls[0].Tool != "submit_work" || !turn.ToolCalls[0].Succeeded {
+		t.Fatalf("director tool calls = %+v", turn.ToolCalls)
 	}
-	if executed.PublicText != "" || executed.ResourceRequestID != nil {
-		t.Fatalf("work that started reported words instead of work: %+v", executed)
+	if turn.ToolCalls[0].WorkstreamID == nil || *turn.ToolCalls[0].WorkstreamID != idle {
+		t.Fatalf("tool call workstream = %v, want %s", turn.ToolCalls[0].WorkstreamID, idle)
 	}
 	if len(execution.sends) != 1 ||
 		execution.sends[0].ConversationID != "conversation-idle" ||
@@ -376,10 +393,10 @@ func TestCommandCenterSubmitCarriesOneRequestIntoWork(t *testing.T) {
 		execution.sends[0].Text != "rewrite the parser" {
 		t.Fatalf("execution sends = %+v", execution.sends)
 	}
-	requireRoutedIntent(t, caller, executed, "rewrite the parser", DecisionIntentModalityVoice)
+	requireDirectorTurnInput(t, provider, turn, "rewrite the parser")
 }
 
-func requireSubmittedOutcome(t *testing.T, receipt DirectorReceipt) ExecutedDecision {
+func requireSubmittedOutcome(t *testing.T, receipt DirectorReceipt) DirectorTurnReceipt {
 	t.Helper()
 	if receipt.Kind != DirectorIntentSubmit || receipt.Submit == nil || receipt.SelectedWorkstreamID != nil {
 		t.Fatalf("receipt = %+v", receipt)
@@ -387,32 +404,28 @@ func requireSubmittedOutcome(t *testing.T, receipt DirectorReceipt) ExecutedDeci
 	return *receipt.Submit
 }
 
-// requireRoutedIntent proves the Director was asked about the intent the app
-// accepted. The shell supplies only the words and the modality, so the id and
-// the submission time it was routed with are the ones product code minted.
-func requireRoutedIntent(
+// requireDirectorTurnInput proves the Director was asked about the intent the
+// app accepted. The shell supplies only the words and the modality, so the id
+// the turn ran under is the one product code minted.
+func requireDirectorTurnInput(
 	t *testing.T,
-	caller *scriptedDecisionCaller,
-	executed ExecutedDecision,
+	provider *scriptedDirectorProvider,
+	turn DirectorTurnReceipt,
 	text string,
-	modality DecisionIntentModality,
 ) {
 	t.Helper()
-	if len(caller.calls) != 1 {
-		t.Fatalf("director was called %d times", len(caller.calls))
+	if len(provider.turns) != 1 {
+		t.Fatalf("director ran %d turns", len(provider.turns))
 	}
-	call := caller.calls[0]
-	if call.Context.Intent.ID == "" || call.Context.Intent.ID != executed.IntentID {
-		t.Fatalf("routed intent %q does not match the receipt's %q", call.Context.Intent.ID, executed.IntentID)
+	ran := provider.turns[0]
+	if ran.TurnID == "" || ran.TurnID != turn.IntentID {
+		t.Fatalf("director turn %q does not match the receipt's %q", ran.TurnID, turn.IntentID)
 	}
-	if call.Context.Intent.Text != text || call.Context.Intent.Modality != modality {
-		t.Fatalf("routed intent = %+v", call.Context.Intent)
+	if ran.Text != text {
+		t.Fatalf("director turn text = %q, want %q", ran.Text, text)
 	}
-	if call.Context.Intent.SubmittedAt == "" {
-		t.Fatalf("accepted intent has no submission time")
-	}
-	if call.Diagnostic != "" || len(call.Schema) == 0 {
-		t.Fatalf("first attempt carried %q and a %d-byte schema", call.Diagnostic, len(call.Schema))
+	if ran.ThreadID == "" || len(ran.Tools) == 0 {
+		t.Fatalf("director turn ran without a thread or tools: %+v", ran)
 	}
 }
 
@@ -422,20 +435,14 @@ func requireRoutedIntent(
 func TestCommandCenterSubmitAnswersWithoutStartingWork(t *testing.T) {
 	harness := newRegistryHarness(t)
 	registry := harness.start()
-	caller := &scriptedDecisionCaller{outputs: []json.RawMessage{decisionOutput(t, map[string]any{
-		"kind": string(DirectorDecisionAnswerDirectly),
-		"text": "Nothing is running right now.",
-	})}}
+	provider := &scriptedDirectorProvider{reply: "Nothing is running right now."}
 	execution := &recordedExecution{}
-	center := newSubmittingCommandCenter(t, harness, registry, caller, execution)
+	center := newSubmittingCommandCenter(t, harness, registry, provider, execution)
 
-	executed := *dispatch(t, center, submit("what is running?", DecisionIntentModalityText)).Submit
+	turn := *dispatch(t, center, submit("what is running?", DecisionIntentModalityText)).Submit
 
-	if executed.Decision == nil || *executed.Decision != DirectorDecisionAnswerDirectly {
-		t.Fatalf("executed decision = %+v", executed)
-	}
-	if executed.PublicText != "Nothing is running right now." || executed.WorkstreamID != nil {
-		t.Fatalf("answer = %+v", executed)
+	if turn.ReplyText != "Nothing is running right now." || len(turn.ToolCalls) != 0 {
+		t.Fatalf("answer = %+v", turn)
 	}
 	if len(execution.starts)+len(execution.sends)+len(execution.queues) != 0 {
 		t.Fatalf("an answer reached the execution port: %+v", execution)
@@ -453,7 +460,7 @@ func TestCommandCenterSubmitReportsAnUnreachableDirector(t *testing.T) {
 		t,
 		harness,
 		registry,
-		&scriptedDecisionCaller{err: errors.New("provider is not signed in")},
+		&scriptedDirectorProvider{err: errors.New("provider is not signed in")},
 		execution,
 	)
 

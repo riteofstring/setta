@@ -9,7 +9,7 @@ import {
 
 describe("Director speech playback", () => {
   test("derives an app-scoped speech source from durable Director reply receipts", async () => {
-    const receipt = directorReplyReceipt("answer_directly", "Nothing is running right now.");
+    const receipt = directorReplyReceipt("Nothing is running right now.");
 
     expect(directorSpeechPlaybackIntent(receipt, directorVoice())).toEqual({
       kind: "director_reply",
@@ -28,9 +28,16 @@ describe("Director speech playback", () => {
           ...receipt,
           submit: {
             ...receipt.submit!,
-            decision: "send_to_workstream",
-            publicText: "",
-            workstreamId: "workstream-alpha",
+            replyText: "",
+            toolCalls: [
+              {
+                selectedWorkstreamId: "workstream-alpha",
+                succeeded: true,
+                summary: 'Sent new work to "Parser rewrite".',
+                tool: "submit_work",
+                workstreamId: "workstream-alpha",
+              },
+            ],
           },
         },
         directorVoice(),
@@ -70,20 +77,14 @@ function playbackController(): AppShellSpeechPlaybackController {
   });
 }
 
-function directorReplyReceipt(
-  decision: NonNullable<NonNullable<DirectorReceipt["submit"]>["decision"]>,
-  publicText: string,
-): DirectorReceipt {
+function directorReplyReceipt(replyText: string): DirectorReceipt {
   return {
     kind: "submit",
     selectedWorkstreamId: null,
     submit: {
-      decision,
       intentId: "director-intent-answer",
-      publicText,
-      resolution: "model",
-      resourceRequestId: null,
-      workstreamId: null,
+      replyText,
+      toolCalls: [],
     },
   };
 }

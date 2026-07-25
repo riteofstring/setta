@@ -250,6 +250,8 @@ Deliverables:
 
 ### Phase 1 - Persistent Director Codex Thread
 
+Status: implemented. Ready for phase audit.
+
 Deliverables:
 
 - add a durable Director conversation/thread binding
@@ -270,11 +272,36 @@ Exit criteria:
 - the Director can also answer normal conversational questions without losing
   the long-running thread
 
+#### Resolved: dynamic tools do not survive a resumed thread
+
+Codex app-server accepts `dynamicTools` only on `thread/start`.
+`ThreadResumeParams` has no such field, and `resume_thread_with_history` passes
+an empty dynamic-tool set into the spawned session
+(`codex-rs/core/src/thread_manager.rs`). A Director thread resumed after a
+restart would therefore come back able to talk and unable to act.
+
+Setta owns the Director conversation instead of the provider. Director user
+turns, assistant replies, tool calls, and tool receipts are durable in
+`director_conversation_entries`, and the first turn of each app run starts a
+fresh provider thread with the `setta` namespace attached and that history
+replayed into it. `director_thread` records which provider thread is carrying
+the conversation now.
+
+This keeps a single path, so MCP is not needed for the Director. It should be
+revisited only if Codex adds dynamic tools to thread resume, or if the Director
+needs provider-side state that history replay cannot reproduce.
+
 ### Phase 2 - Setta Meta-Tools
+
+Phase 1 shipped the tools its own exit criteria need: `list_workspaces`,
+`list_workstreams`, `create_workstream`, `select_workstream`, `submit_work`,
+`steer_work`, and `recover_run`. This phase completes the catalog.
 
 Deliverables:
 
-- implement the required `setta` tool catalog
+- implement the rest of the required `setta` tool catalog: `cancel_run`,
+  `resolve_approval`, `resolve_resource_request`, `read_activity`,
+  `rename_workstream`, and `archive_workstream`
 - validate every tool input against authorized Setta state
 - commit every successful tool call as a durable fact/event
 - return concise tool receipts that Codex can explain to the user
@@ -387,13 +414,20 @@ The acceptance recording should start from a clean app data directory and show:
 
 These are implementation questions, not product questions:
 
-- Does Codex app-server preserve dynamic tool availability across resumed
-  threads, or must Setta expose the same tool catalog through MCP?
-- Should the Director receive normal filesystem/shell tools, or only Setta
-  meta-tools? The required product behavior does not depend on shell access;
-  Setta control must happen through Setta tools either way.
-- Which existing `decision_*` types should be deleted immediately in Phase 1
-  versus after the tool catalog fully replaces them in Phase 2?
+- Answered in Phase 1: Codex app-server does not preserve dynamic tools across a
+  resumed thread. Setta owns the Director conversation durably and re-establishes
+  the provider thread from it, so MCP is not required.
+- Answered in Phase 1: the Director receives only Setta meta-tools. Its provider
+  thread runs read-only with approvals off, because it coordinates workstreams
+  and the work itself runs in workstream threads with their own permissions.
+- Answered in Phase 1: the schema-constrained routing protocol is gone —
+  decision router, generated output schema, output decoding, recovery ladder,
+  and the fresh structured caller. What remains of `decision_*` is the durable
+  fact catalog, the trusted authority context, and the executor, all of which
+  the tool layer uses directly.
+- Open: should a Director reply stay a durable `answer_directly` decision fact
+  once Phase 3 projects Director turns into the graph from the conversation
+  entries themselves? Two records of the same reply should not survive Phase 3.
 
 None of these questions changes the product model: the Director is a persistent
 Codex conversation with Setta meta-tools, and the UI should match the mockup.

@@ -115,8 +115,6 @@ func directorDecisionSpeechText(decision director.DirectorDecisionCommitted) (st
 	switch decision.Decision {
 	case director.DirectorDecisionAnswerDirectly:
 		return decision.Answer.Text, nil
-	case director.DirectorDecisionAskClarification:
-		return decision.Clarification.Question, nil
 	default:
 		return "", speech.SourceUnavailable(
 			"The requested Director speech event has no spoken text.",

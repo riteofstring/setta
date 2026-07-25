@@ -39,8 +39,6 @@ const (
 	// workstream. It matches the intent bound because the Director may pass
 	// the user's request through unchanged.
 	MaxDecisionAuthoredInputBytes = MaxDecisionIntentTextBytes
-	// MaxDecisionQuestionBytes bounds a clarification question.
-	MaxDecisionQuestionBytes = 16 * 1024
 	// MaxDecisionAnswerBytes bounds a direct answer.
 	MaxDecisionAnswerBytes = 64 * 1024
 	// MaxDecisionTitleBytes bounds a proposed workstream title.
@@ -103,12 +101,6 @@ const (
 	WorkstreamCreationFork WorkstreamCreationOriginKind = "fork"
 )
 
-var workstreamCreationOriginKinds = []WorkstreamCreationOriginKind{
-	WorkstreamCreationRoot,
-	WorkstreamCreationChild,
-	WorkstreamCreationFork,
-}
-
 // RootWorkstreamOrigin creates an independent workstream. Only a root
 // workstream chooses its own scope; a child or a fork inherits the parent's,
 // so the model cannot rescope existing work.
@@ -167,11 +159,6 @@ type SteerRunDecision struct {
 	AuthoredInput string `json:"authoredInput"`
 }
 
-// AskClarificationDecision asks a question whose answer changes the outcome.
-type AskClarificationDecision struct {
-	Question string `json:"question"`
-}
-
 // SelectWorkstreamDecision moves app-wide selection. It carries no
 // presentation authority: the shell owns how a selected workstream is shown.
 type SelectWorkstreamDecision struct {
@@ -194,7 +181,6 @@ type DirectorDecision struct {
 	SendToWorkstream *SendToWorkstreamDecision `json:"sendToWorkstream"`
 	QueueBehindRun   *QueueBehindRunDecision   `json:"queueBehindRun"`
 	SteerRun         *SteerRunDecision         `json:"steerRun"`
-	AskClarification *AskClarificationDecision `json:"askClarification"`
 	SelectWorkstream *SelectWorkstreamDecision `json:"selectWorkstream"`
 	RecoverPath      *RecoverPathDecision      `json:"recoverPath"`
 }
@@ -209,7 +195,6 @@ func decisionPayloads(decision DirectorDecision) map[DirectorDecisionKind]bool {
 		DirectorDecisionSendToWorkstream: decision.SendToWorkstream != nil,
 		DirectorDecisionQueueBehindRun:   decision.QueueBehindRun != nil,
 		DirectorDecisionSteerRun:         decision.SteerRun != nil,
-		DirectorDecisionAskClarification: decision.AskClarification != nil,
 		DirectorDecisionSelectWorkstream: decision.SelectWorkstream != nil,
 		DirectorDecisionRecoverPath:      decision.RecoverPath != nil,
 	}
@@ -221,17 +206,11 @@ func decisionPayloads(decision DirectorDecision) map[DirectorDecisionKind]bool {
 func (decision DirectorDecision) Validate() error {
 	present := decisionPayloads(decision)
 	if _, known := present[decision.Kind]; !known {
-		return newDecisionRejection(
-			DecisionRejectedUnknownKind,
-			fmt.Sprintf("unknown director decision kind %q", decision.Kind),
-		)
+		return rejectedDecision(fmt.Sprintf("unknown director decision kind %q", decision.Kind))
 	}
 	for kind, populated := range present {
 		if populated != (kind == decision.Kind) {
-			return newDecisionRejection(
-				DecisionRejectedInvalidPayload,
-				fmt.Sprintf("director decision %q must populate exactly its own payload", decision.Kind),
-			)
+			return rejectedDecision(fmt.Sprintf("director decision %q must populate exactly its own payload", decision.Kind))
 		}
 	}
 	return decision.validatePayload()
@@ -249,26 +228,26 @@ func (decision DirectorDecision) validatePayload() error {
 		return validateWorkstreamWork("queue", decision.QueueBehindRun.WorkstreamID, decision.QueueBehindRun.AuthoredInput)
 	case DirectorDecisionSteerRun:
 		return validateWorkstreamWork("steer", decision.SteerRun.WorkstreamID, decision.SteerRun.AuthoredInput)
-	case DirectorDecisionAskClarification:
-		return validateDecisionText("clarification question", decision.AskClarification.Question, MaxDecisionQuestionBytes)
 	case DirectorDecisionSelectWorkstream:
 		return validateDecisionReference("selected workstream id", decision.SelectWorkstream.WorkstreamID)
 	case DirectorDecisionRecoverPath:
 		return validateRecoverPathDecision(*decision.RecoverPath)
 	default:
-		return newDecisionRejection(
-			DecisionRejectedUnknownKind,
-			fmt.Sprintf("unknown director decision kind %q", decision.Kind),
-		)
+		return rejectedDecision(fmt.Sprintf("unknown director decision kind %q", decision.Kind))
 	}
 }
 
+// validateCreateWorkstreamDecision allows a workstream with no initial input.
+// An idle workstream the user can start work in later is a real outcome, so
+// requiring first words here would force the Director to invent them.
 func validateCreateWorkstreamDecision(payload CreateWorkstreamDecision) error {
 	if err := validateWorkstreamCreationOrigin(payload.Origin); err != nil {
 		return err
 	}
-	if err := validateDecisionText("initial input", payload.InitialInput, MaxDecisionAuthoredInputBytes); err != nil {
-		return err
+	if payload.InitialInput != "" {
+		if err := validateDecisionText("initial input", payload.InitialInput, MaxDecisionAuthoredInputBytes); err != nil {
+			return err
+		}
 	}
 	return validateDecisionText("proposed workstream title", payload.ProposedTitle, MaxDecisionTitleBytes)
 }
@@ -280,17 +259,11 @@ func validateWorkstreamCreationOrigin(origin WorkstreamCreationOrigin) error {
 		WorkstreamCreationFork:  origin.Fork != nil,
 	}
 	if _, known := present[origin.Kind]; !known {
-		return newDecisionRejection(
-			DecisionRejectedInvalidPayload,
-			fmt.Sprintf("unknown workstream creation origin %q", origin.Kind),
-		)
+		return rejectedDecision(fmt.Sprintf("unknown workstream creation origin %q", origin.Kind))
 	}
 	for kind, populated := range present {
 		if populated != (kind == origin.Kind) {
-			return newDecisionRejection(
-				DecisionRejectedInvalidPayload,
-				fmt.Sprintf("workstream creation origin %q must populate exactly its own payload", origin.Kind),
-			)
+			return rejectedDecision(fmt.Sprintf("workstream creation origin %q must populate exactly its own payload", origin.Kind))
 		}
 	}
 	return validateCreationOriginPayload(origin)
@@ -308,10 +281,7 @@ func validateCreationOriginPayload(origin WorkstreamCreationOrigin) error {
 		}
 		return validateDecisionReference("forked at run id", origin.Fork.ForkedAtRunID)
 	default:
-		return newDecisionRejection(
-			DecisionRejectedInvalidPayload,
-			fmt.Sprintf("unknown workstream creation origin %q", origin.Kind),
-		)
+		return rejectedDecision(fmt.Sprintf("unknown workstream creation origin %q", origin.Kind))
 	}
 }
 
@@ -319,25 +289,16 @@ func validateDecisionResourceScope(scope DecisionResourceScope) error {
 	switch scope.Kind {
 	case WorkstreamResourceScopeFolderless:
 		if scope.Folder != nil {
-			return newDecisionRejection(
-				DecisionRejectedInvalidPayload,
-				"folderless decision scope must not carry a folder",
-			)
+			return rejectedDecision("folderless decision scope must not carry a folder")
 		}
 		return nil
 	case WorkstreamResourceScopeFolder:
 		if scope.Folder == nil {
-			return newDecisionRejection(
-				DecisionRejectedInvalidPayload,
-				"folder decision scope requires a folder",
-			)
+			return rejectedDecision("folder decision scope requires a folder")
 		}
 		return validateDecisionReference("decision scope workspace id", scope.Folder.WorkspaceID)
 	default:
-		return newDecisionRejection(
-			DecisionRejectedInvalidPayload,
-			fmt.Sprintf("unknown decision resource scope kind %q", scope.Kind),
-		)
+		return rejectedDecision(fmt.Sprintf("unknown decision resource scope kind %q", scope.Kind))
 	}
 }
 
@@ -357,32 +318,20 @@ func validateWorkstreamWork(label string, workstreamID string, authoredInput str
 
 func validateDecisionReference(label string, value string) error {
 	if value == "" || strings.TrimSpace(value) != value {
-		return newDecisionRejection(
-			DecisionRejectedInvalidPayload,
-			fmt.Sprintf("%s must be a trimmed non-empty reference", label),
-		)
+		return rejectedDecision(fmt.Sprintf("%s must be a trimmed non-empty reference", label))
 	}
 	if len(value) > MaxDecisionReferenceBytes {
-		return newDecisionRejection(
-			DecisionRejectedInvalidPayload,
-			fmt.Sprintf("%s exceeds %d bytes", label, MaxDecisionReferenceBytes),
-		)
+		return rejectedDecision(fmt.Sprintf("%s exceeds %d bytes", label, MaxDecisionReferenceBytes))
 	}
 	return nil
 }
 
 func validateDecisionText(label string, value string, maximum int) error {
 	if strings.TrimSpace(value) == "" || strings.TrimSpace(value) != value {
-		return newDecisionRejection(
-			DecisionRejectedInvalidPayload,
-			fmt.Sprintf("%s must be non-empty without surrounding whitespace", label),
-		)
+		return rejectedDecision(fmt.Sprintf("%s must be non-empty without surrounding whitespace", label))
 	}
 	if len(value) > maximum {
-		return newDecisionRejection(
-			DecisionRejectedInvalidPayload,
-			fmt.Sprintf("%s exceeds %d bytes", label, maximum),
-		)
+		return rejectedDecision(fmt.Sprintf("%s exceeds %d bytes", label, maximum))
 	}
 	return nil
 }
@@ -426,15 +375,6 @@ func DecisionParentWorkstreamID(decision DirectorDecision) *string {
 func isDecisionIntentModality(modality DecisionIntentModality) bool {
 	for _, candidate := range decisionIntentModalities {
 		if candidate == modality {
-			return true
-		}
-	}
-	return false
-}
-
-func isWorkstreamCreationOriginKind(kind WorkstreamCreationOriginKind) bool {
-	for _, candidate := range workstreamCreationOriginKinds {
-		if candidate == kind {
 			return true
 		}
 	}

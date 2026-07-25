@@ -25,8 +25,8 @@ import (
 // conversation service.
 
 // directorRuntimeDirectoryName holds the isolated, read-only working directory
-// the Director's decision turns run in. They cannot read a workspace, so this
-// directory only ever needs to exist.
+// the Director conversation runs in. The Director coordinates workstreams and
+// reads no workspace itself, so this directory only ever needs to exist.
 const directorRuntimeDirectoryName = "director"
 
 type directorServices struct {
@@ -41,8 +41,8 @@ func newDirectorServices(
 	store *conversation.Store,
 	workspaces *workspacesession.Service,
 	conversations *conversation.Service,
-	roles directorDecisionRole,
-	provider directorStructuredCallProvider,
+	roles directorRoleResolver,
+	provider directorProviderRuntime,
 ) (directorServices, error) {
 	registry, err := director.NewRegistry(store, directorWorkspaceResources{workspaces: workspaces})
 	if err != nil {
@@ -51,7 +51,7 @@ func newDirectorServices(
 	if err := registry.Start(context.Background()); err != nil {
 		return directorServices{}, fmt.Errorf("materialize director registry: %w", err)
 	}
-	commandCenter, err := newDirectorCommandCenter(appDataDir, registry, conversations, roles, provider)
+	commandCenter, err := newDirectorCommandCenter(appDataDir, store, registry, conversations, roles, provider)
 	if err != nil {
 		_ = registry.Close()
 		return directorServices{}, err
@@ -61,22 +61,19 @@ func newDirectorServices(
 
 func newDirectorCommandCenter(
 	appDataDir string,
+	store *conversation.Store,
 	registry *director.Registry,
 	conversations *conversation.Service,
-	roles directorDecisionRole,
-	provider directorStructuredCallProvider,
+	roles directorRoleResolver,
+	provider directorProviderRuntime,
 ) (*director.CommandCenter, error) {
-	decisionRoot := filepath.Join(filepath.Clean(appDataDir), directorRuntimeDirectoryName)
-	if err := os.MkdirAll(decisionRoot, 0o700); err != nil {
+	threadRoot := filepath.Join(filepath.Clean(appDataDir), directorRuntimeDirectoryName)
+	if err := os.MkdirAll(threadRoot, 0o700); err != nil {
 		return nil, fmt.Errorf("create director runtime directory: %w", err)
 	}
-	caller, err := newDirectorDecisionCaller(roles, provider, decisionRoot)
+	caller, err := newDirectorThreadCaller(roles, provider, threadRoot)
 	if err != nil {
-		return nil, fmt.Errorf("create director decision caller: %w", err)
-	}
-	router, err := director.NewDecisionRouter(registry, caller)
-	if err != nil {
-		return nil, fmt.Errorf("create director decision router: %w", err)
+		return nil, fmt.Errorf("create director thread caller: %w", err)
 	}
 	execution, err := newDirectorWorkstreamExecution(conversations)
 	if err != nil {
@@ -86,7 +83,11 @@ func newDirectorCommandCenter(
 	if err != nil {
 		return nil, fmt.Errorf("create director decision executor: %w", err)
 	}
-	commandCenter, err := director.NewCommandCenter(registry, router, executor)
+	thread, err := director.NewDirectorThread(registry, executor, store, caller)
+	if err != nil {
+		return nil, fmt.Errorf("create director conversation: %w", err)
+	}
+	commandCenter, err := director.NewCommandCenter(registry, thread, executor)
 	if err != nil {
 		return nil, fmt.Errorf("create director command center: %w", err)
 	}

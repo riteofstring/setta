@@ -82,8 +82,6 @@ func failedDecisionTarget() WorkstreamDecisionTarget {
 func decisionContextFixture() DirectorDecisionContext {
 	selected := fixtureIdleWorkstream
 	return DirectorDecisionContext{
-		Kind: DecisionContextKind,
-		Task: DecisionTask(),
 		Intent: SubmittedIntent{
 			ID:          "intent-1",
 			Text:        "keep going on the parser",
@@ -106,7 +104,7 @@ func decisionContextFixture() DirectorDecisionContext {
 }
 
 // singleTargetContextFixture leaves exactly one authorized way to put an
-// intent into work, which is the product-invariant condition.
+// intent into work.
 func singleTargetContextFixture() DirectorDecisionContext {
 	context := decisionContextFixture()
 	context.SelectedID = nil
@@ -115,7 +113,6 @@ func singleTargetContextFixture() DirectorDecisionContext {
 		DirectorDecisionAnswerDirectly,
 		DirectorDecisionCreateWorkstream,
 		DirectorDecisionSendToWorkstream,
-		DirectorDecisionAskClarification,
 		DirectorDecisionSelectWorkstream,
 	}
 	return context

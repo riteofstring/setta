@@ -96,9 +96,7 @@ func (workstream *registryWorkstream) resolveRunFailure(failureEventID string) {
 }
 
 // recordCommittedDecision folds one durable decision into the continuity the
-// next decision is materialized with. A clarification stays pending until the
-// following decision replaces it, because that decision is what the user's
-// answer produced.
+// next tool call is authorized against.
 func (state *registryState) recordCommittedDecision(fact DirectorFactEvent) {
 	payload := fact.DecisionCommitted
 	summary := DecisionSummary{
@@ -110,16 +108,6 @@ func (state *registryState) recordCommittedDecision(fact DirectorFactEvent) {
 	state.decisions = append(state.decisions, summary)
 	if len(state.decisions) > MaxRecentDecisionSummaries {
 		state.decisions = append([]DecisionSummary(nil), state.decisions[len(state.decisions)-MaxRecentDecisionSummaries:]...)
-	}
-	if payload.Clarification == nil {
-		state.clarification = nil
-		return
-	}
-	state.clarification = &DecisionClarificationContext{
-		DecisionID:             fact.ID,
-		IntentID:               payload.IntentID,
-		Question:               payload.Clarification.Question,
-		CandidateWorkstreamIDs: append([]string{}, payload.Clarification.CandidateWorkstreamIDs...),
 	}
 }
 
@@ -192,13 +180,10 @@ func (state *registryState) decisionContext(
 		listed[target.WorkstreamID] = true
 	}
 	context := DirectorDecisionContext{
-		Kind:                 DecisionContextKind,
-		Task:                 DecisionTask(),
 		Intent:               intent,
 		SelectedID:           listedSelection(state.selected, listed),
 		Workspaces:           workspaces,
 		Workstreams:          targets,
-		Clarification:        listedClarification(state.clarification, listed),
 		RecentDecisions:      listedDecisions(state.decisions, listed),
 		AllowedDecisionKinds: allowedDecisionKinds(targets),
 	}
@@ -289,11 +274,6 @@ func allowedDecisionKinds(targets []WorkstreamDecisionTarget) []DirectorDecision
 			kinds = append(kinds, kind)
 		}
 	}
-	for _, kind := range workDecisionKinds {
-		if offered[kind] {
-			return append(kinds, DirectorDecisionAskClarification)
-		}
-	}
 	return kinds
 }
 
@@ -338,28 +318,6 @@ func listedDecisions(decisions []DecisionSummary, listed map[string]bool) []Deci
 		summaries = append(summaries, summary)
 	}
 	return summaries
-}
-
-// listedClarification keeps the pending question with the candidates that still
-// exist. The question is still what the user is answering even when one of its
-// candidates is gone, and a candidate the context does not carry is an id no
-// decision could name.
-func listedClarification(
-	clarification *DecisionClarificationContext,
-	listed map[string]bool,
-) *DecisionClarificationContext {
-	if clarification == nil {
-		return nil
-	}
-	candidates := make([]string, 0, len(clarification.CandidateWorkstreamIDs))
-	for _, candidate := range clarification.CandidateWorkstreamIDs {
-		if listed[candidate] {
-			candidates = append(candidates, candidate)
-		}
-	}
-	pending := *clarification
-	pending.CandidateWorkstreamIDs = candidates
-	return &pending
 }
 
 func recentDecisionForkPoints(points []DecisionForkPoint) []DecisionForkPoint {

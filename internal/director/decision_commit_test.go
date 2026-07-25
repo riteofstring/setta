@@ -90,7 +90,6 @@ func TestCommittedDecisionTargetsFollowTheCatalog(t *testing.T) {
 		target := DecisionTargetWorkstreamID(decision)
 		switch decision.Kind {
 		case DirectorDecisionAnswerDirectly,
-			DirectorDecisionAskClarification,
 			DirectorDecisionCreateWorkstream:
 			if target != nil {
 				t.Fatalf("%q must not carry an existing target, got %q", decision.Kind, *target)
@@ -140,7 +139,7 @@ func decisionFactFixture(committed DirectorDecisionCommitted, workstreamID *stri
 // in the workstream it acted on.
 func decisionFactWorkstream(decision DirectorDecision) *string {
 	switch decision.Kind {
-	case DirectorDecisionAnswerDirectly, DirectorDecisionAskClarification:
+	case DirectorDecisionAnswerDirectly:
 		return nil
 	case DirectorDecisionCreateWorkstream:
 		return DecisionParentWorkstreamID(decision)
