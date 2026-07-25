@@ -35,7 +35,8 @@ Setta-owned tools.
 ## Non-Negotiables
 
 - No backward compatibility, migrations, compatibility shims, transitional
-  adapters, old aliases, dual paths, or preservation of superseded behavior.
+  adapters, old aliases, dual paths, legacy readers/writers, silent fallbacks,
+  or preservation of superseded behavior.
 - No pane concept. Easy-button panes, browser panes, pane identity, and pane
   presentation contracts stay gone.
 - No fake production nodes. Production visualization only renders real durable
@@ -47,8 +48,31 @@ Setta-owned tools.
   the action, the Director should call the tool, ask a useful clarification, or
   report a specific product failure.
 - The current workspace/folder context must be visible.
-- The Director must be visually distinct from ordinary workstream
-  conversations.
+- The Director must be visually distinct from ordinary workstream conversations
+  only through subtle role treatment inside the same command-center UI. Do not
+  build a separate Director screen, separate chatbot panel, or fundamentally
+  different Director layout.
+
+## Unreleased Product Implementation Rule
+
+Setta is unreleased. Implement this plan as a direct replacement, not as a
+transition.
+
+When the Director moves to the persistent Codex-thread-plus-tools model:
+
+- change current contracts and data shapes in place
+- regenerate affected generated surfaces from the Go-owned contracts
+- delete superseded Director decision-router/runtime code as soon as the new
+  tool-thread path owns the behavior
+- delete obsolete renderer assumptions instead of preserving aliases
+- do not write data migrations for old Director records
+- do not keep dual execution paths so old and new Director models can both run
+- do not add compatibility fallbacks that hide missing new behavior by routing
+  through the old decision model
+
+If existing local development data is incompatible with the new Director model,
+it may be discarded or recreated. Do not spend implementation effort preserving
+it.
 
 ## Codex Integration Decision
 
@@ -192,9 +216,15 @@ The active UI must match the spirit and structure of the mockup:
 - compact top navigation for workstreams/conversations
 - visible current workspace/folder context
 - left/right activity and artifact rails
-- Director conversation visually distinct from ordinary workstream
-  conversations
+- Director conversation subtly distinguished from ordinary workstream
+  conversations while sharing the same space background, live graph, command
+  center layout, and composer pattern
 - no pane grid, pane cards, browser-pane chrome, or easy-button pane UI
+
+"Distinct Director UI" means minor styling differences such as role labeling,
+accent treatment, avatar/icon, tool-call badges, or graph node treatment inside
+the same mockup-faithful command center. It does not mean a different app
+surface.
 
 The confusing "three circles at the top" problem should be fixed by making the
 top control communicate real workstream selection and state. Dots are fine when
@@ -230,7 +260,8 @@ Deliverables:
 - attach the `setta` dynamic tool namespace at thread start
 - confirm tool availability after app restart; if app-server cannot preserve or
   reattach dynamic tools, implement Setta MCP tools for the Director
-- remove the fresh, tool-less Director decision caller as the active path
+- remove the fresh, tool-less Director decision caller as the active path; do
+  not keep it as a compatibility fallback
 
 Exit criteria:
 
@@ -247,7 +278,8 @@ Deliverables:
 - validate every tool input against authorized Setta state
 - commit every successful tool call as a durable fact/event
 - return concise tool receipts that Codex can explain to the user
-- remove superseded direct decision outcomes and action-specific router code
+- remove superseded direct decision outcomes and action-specific router code in
+  the same phase; do not preserve old decision kinds as aliases
 
 Exit criteria:
 
@@ -280,7 +312,8 @@ Deliverables:
 
 - make the production shell visually line up with the mockup
 - keep the star field moving without user interaction
-- make the Director visually distinct from workstreams
+- make the Director subtly distinct from workstreams without leaving the same
+  space-background/live-graph command center
 - make current workspace/folder context obvious
 - replace confusing chrome with meaningful workstream navigation
 - ensure the bottom Director composer behaves like the primary app entry point
@@ -302,13 +335,16 @@ Deliverables:
 - delete superseded generated contracts and renderer assumptions
 - delete stale docs that describe the wrong Director model
 - regenerate Go-owned TypeScript contracts after owner-contract changes
-- keep no compatibility adapters or transitional code
+- keep no compatibility adapters, migrations, aliases, dual paths, silent
+  fallbacks, or transitional code
 
 Exit criteria:
 
 - there is one Director runtime model in the codebase
 - there is one active plan of record
 - old pane and old decision-router concepts are not reachable product paths
+- no code path exists only to preserve behavior from the superseded Director
+  implementation
 
 ### Phase 6 - Verification When Requested
 
