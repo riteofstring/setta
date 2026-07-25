@@ -174,6 +174,11 @@ export const electronWorkflows = [
     name: "director-graph-renderer-performance",
     tiers: ["performance"],
   },
+  {
+    file: "director-command-center-performance.test.mjs",
+    name: "director-command-center-performance",
+    tiers: ["performance"],
+  },
 ];
 
 export function electronWorkflowNames() {

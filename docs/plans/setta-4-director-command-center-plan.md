@@ -124,8 +124,13 @@ selection with bounded windowing, Now and Artifacts rails are view-state
 disclosures that collapse to accessible compact drawers on phone-sized
 viewports, the compact history opens a focus-managed dialog, and shell-level
 keyboard handling routes workstream arrows without fighting text editing while
-`Escape` dismisses transient chrome. Side-by-side mockup review, any polish it
-finds, and live integrated performance reporting remain Phase 4 work.
+`Escape` dismisses transient chrome. The first integrated production-shell
+performance guardrail is committed as the `director-command-center-performance`
+Electron workflow, with focused lifecycle and 100-workstream navigation results
+recorded in
+[`docs/reports/performance/setta-4-command-center-integrated-performance-20260725.md`](../reports/performance/setta-4-command-center-integrated-performance-20260725.md).
+Side-by-side mockup review, any polish it finds, and the full live integrated
+performance audit remain Phase 4 work.
 Supply-chain release gate: `desktop/package.json` ignores `CVE-2026-14257`
 only because the first patched `brace-expansion` release, `5.0.8`, was published
 on 2026-07-23 and cannot satisfy the checked-in seven-day release-age policy
@@ -1626,6 +1631,20 @@ Phase 3 audit verification:
    treats graph updates as semantic deltas, advances the durable cursor, and triggers a fresh
    snapshot/subscription on `resync_required` or sequence drift.
 8. Reprofile all required live scenarios and record a second append-only report.
+   **Started for the production shell** —
+   `desktop/tests/electron/director-command-center-performance.test.mjs` is now
+   registered as a focused Electron `performance` workflow. It drives the real
+   command-center shell through Electron main, preload, HTTP, durable store,
+   Director registry subscription, React rails/composer, and the WebGL2 graph
+   mount with the scripted Codex provider, then asserts frame cadence, renderer
+   long tasks, DOM bounds, 19-dot workstream windowing, screenshots, and a clean
+   renderer console. The first report,
+   [`docs/reports/performance/setta-4-command-center-integrated-performance-20260725.md`](../reports/performance/setta-4-command-center-integrated-performance-20260725.md),
+   records a focused laptop run covering the resource/approval/artifact/failure
+   lifecycle and navigation across 100 workstreams. The full Phase 4 audit still
+   owns the complete required live scenario set and comparison against the
+   standalone graph-renderer report; real 4K, 6K, phone hardware, and the
+   side-by-side display review remain release gates.
 
 Exit gate:
 
@@ -1728,7 +1747,8 @@ Setta 4 is complete when:
    Phase 3 has production-path Electron coverage that dispatches through the renderer preload,
    main-process IPC, HTTP, and durable store. The initial user-visible fullscreen renderer surface
    now owns those dispatches for text, voice capture, selection, approval, resource, artifact detail,
-   and graph updates; the remaining shell work is side-by-side fidelity review, any review-driven
-   polish, and integrated performance reporting.
+   and graph updates; a first focused integrated performance workflow now covers lifecycle and
+   100-workstream navigation. The remaining shell work is side-by-side fidelity review, any
+   review-driven polish, and the full integrated performance audit.
 2. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.

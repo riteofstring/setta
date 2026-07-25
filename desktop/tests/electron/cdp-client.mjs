@@ -80,6 +80,11 @@ const driverExtensionScripts = [
       'globalThis.__settaE2EDriver?.topicConversationPerformanceVersion === "setta-topic-conversation-performance-driver-v2"',
     path: join(driverScriptDir, "topic-conversation-performance-driver.js"),
   },
+  {
+    installedExpression:
+      'globalThis.__settaE2EDriver?.directorCommandCenterPerformanceVersion === "setta-director-command-center-performance-driver-v1"',
+    path: join(driverScriptDir, "director-command-center-performance-driver.js"),
+  },
 ];
 
 export class CDPClient {
