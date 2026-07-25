@@ -18,7 +18,7 @@ func TestRouteOutputDecodesEveryStrictAuthorizedDecision(t *testing.T) {
 		{RouteDecisionKindSteerActiveTurn, `{"decision":{"kind":"steer_active_turn","conversationId":"conversation-alpha","authoredInput":"Use the strict contract instead."}}`},
 		{RouteDecisionKindAskNarrator, `{"decision":{"kind":"ask_narrator","conversationId":"conversation-alpha","question":"What is the current status?"}}`},
 		{RouteDecisionKindFocusConversation, `{"decision":{"kind":"focus_conversation","conversationId":"conversation-alpha"}}`},
-		{RouteDecisionKindCreateConversation, `{"decision":{"kind":"create_conversation","workspaceId":"workspace-alpha","initialInput":"Build the indexed view.","proposedTitle":"Indexed view"}}`},
+		{RouteDecisionKindCreateConversation, `{"decision":{"kind":"create_conversation","resourceScope":{"kind":"folderless"},"initialInput":"Build the indexed view.","proposedTitle":"Indexed view"}}`},
 		{RouteDecisionKindCreateSideConversation, `{"decision":{"kind":"create_side_conversation","parentConversationId":"conversation-alpha","input":"Investigate this tangent."}}`},
 		{RouteDecisionKindForkConversation, `{"decision":{"kind":"fork_conversation","parentConversationId":"conversation-alpha","forkedAtTurnId":"turn-completed","input":"Continue from this checkpoint."}}`},
 		{RouteDecisionKindClarify, `{"decision":{"kind":"clarify","question":"Should this preserve or steer the active turn?"}}`},
@@ -54,7 +54,7 @@ func TestRouteOutputRejectsInventedAuthorityAndMalformedJSON(t *testing.T) {
 		},
 		{
 			name: "invented workspace",
-			raw:  `{"decision":{"kind":"create_conversation","workspaceId":"workspace-invented","initialInput":"Do work.","proposedTitle":"Work"}}`,
+			raw:  `{"decision":{"kind":"create_conversation","resourceScope":{"kind":"folder","folder":{"workspaceId":"workspace-invented","workspaceName":"Invented"}},"initialInput":"Do work.","proposedTitle":"Work"}}`,
 			want: "not active",
 		},
 		{
@@ -109,6 +109,34 @@ func TestRouteOutputSchemaBindsForkPointsToTheirAuthorizedParent(t *testing.T) {
 		if wantTurns[parent] != turn {
 			t.Fatalf("fork schema paired parent %q with turn %q", parent, turn)
 		}
+	}
+}
+
+func TestRouteOutputAllowsFolderlessCreateWithoutActiveWorkspace(t *testing.T) {
+	context := fullTestRouteContext()
+	context.OpenWorkspaces = []RouteWorkspaceContext{}
+	context.ConversationTargets = []RouteConversationTarget{}
+	context.AllowedDecisionKinds = routeContextAllowedDecisionKinds(nil, nil)
+
+	schema, err := routeOutputSchema(context)
+	if err != nil {
+		t.Fatalf("routeOutputSchema: %v", err)
+	}
+	if !bytes.Contains(schema, []byte(`"create_conversation"`)) ||
+		!bytes.Contains(schema, []byte(`"folderless"`)) ||
+		bytes.Contains(schema, []byte(`"workspaceId"`)) {
+		t.Fatalf("folderless create schema = %s", schema)
+	}
+	decision, err := decodeRouteOutput(
+		json.RawMessage(`{"decision":{"kind":"create_conversation","resourceScope":{"kind":"folderless"},"initialInput":"Open an app-level topic.","proposedTitle":"App-level topic"}}`),
+		context,
+	)
+	if err != nil {
+		t.Fatalf("decodeRouteOutput: %v", err)
+	}
+	if decision.CreateConversation == nil ||
+		decision.CreateConversation.ResourceScope.Kind != RouteResourceScopeKindFolderless {
+		t.Fatalf("folderless create decision = %+v", decision)
 	}
 }
 
@@ -200,7 +228,7 @@ func fullTestRouteContext() RouteContextBundle {
 		OpenWorkspaces:       []RouteWorkspaceContext{{WorkspaceID: "workspace-alpha", WorkspaceName: "Alpha"}},
 		Focus:                RouteFocusContext{},
 		Candidates:           []RouteCandidateContext{},
-		ConversationTargets:  []RouteConversationTarget{{ConversationID: "conversation-alpha", WorkspaceID: "workspace-alpha", Title: "Alpha", Status: "working", OpenPaneIDs: []string{"pane-alpha"}, OpenPaneCount: 1, CompletedForkPoints: []RouteForkPoint{{TurnID: "turn-completed", InputExcerpt: "Initial work", CompletedAt: "2026-07-13T18:00:02Z"}}, AllowedDecisionKinds: targetKinds}},
+		ConversationTargets:  []RouteConversationTarget{{ConversationID: "conversation-alpha", ResourceScope: FolderRouteResourceScope("workspace-alpha", ""), Title: "Alpha", Status: "working", OpenPaneIDs: []string{"pane-alpha"}, OpenPaneCount: 1, CompletedForkPoints: []RouteForkPoint{{TurnID: "turn-completed", InputExcerpt: "Initial work", CompletedAt: "2026-07-13T18:00:02Z"}}, AllowedDecisionKinds: targetKinds}},
 		RecentRouteDecisions: []RouteDecisionSummary{},
 		AllowedDecisionKinds: []RouteDecisionKind{},
 	}
@@ -215,7 +243,7 @@ func routeContextWithTwoForkTargets() RouteContextBundle {
 	context := fullTestRouteContext()
 	context.ConversationTargets = append(context.ConversationTargets, RouteConversationTarget{
 		ConversationID:      "conversation-beta",
-		WorkspaceID:         "workspace-alpha",
+		ResourceScope:       FolderRouteResourceScope("workspace-alpha", ""),
 		Title:               "Beta",
 		Status:              "idle",
 		OpenPaneIDs:         []string{},
