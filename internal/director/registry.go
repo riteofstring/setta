@@ -351,6 +351,33 @@ func (registry *Registry) awaitCommit(ctx context.Context, commitSequence int64)
 	}
 }
 
+func (registry *Registry) awaitWorkstream(ctx context.Context, workstreamID string) error {
+	if ctx == nil {
+		return errors.New("director workstream wait context is required")
+	}
+	if err := validateIdentifier("director wait workstream id", workstreamID); err != nil {
+		return err
+	}
+	for {
+		registry.mutex.Lock()
+		if _, known := registry.state.workstreams[workstreamID]; known {
+			registry.mutex.Unlock()
+			return nil
+		}
+		if err := registry.requireAvailableLocked(); err != nil {
+			registry.mutex.Unlock()
+			return err
+		}
+		applied := registry.applied
+		registry.mutex.Unlock()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-applied:
+		}
+	}
+}
+
 func (registry *Registry) signalAppliedLocked() {
 	close(registry.applied)
 	registry.applied = make(chan struct{})

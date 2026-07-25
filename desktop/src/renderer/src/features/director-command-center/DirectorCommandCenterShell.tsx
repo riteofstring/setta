@@ -135,6 +135,7 @@ const directorEventVisibility = {
 } as const satisfies Record<DirectorEvent["kind"], boolean>;
 const directorIntentBusyState = {
   cancel_run: true,
+  create_workstream: true,
   move_selection: false,
   resolve_approval: true,
   resolve_resource_request: true,
@@ -272,6 +273,7 @@ export function DirectorCommandCenterShell({
             dispatch={director.dispatch}
             dispatching={director.dispatching}
             openLocalFolder={workspaceBinding.openLocalFolder}
+            openWorkspacePath={workspaceBinding.openWorkspacePath}
             readArtifact={setta.conversations.readArtifact}
             requests={snapshotView.requests}
             workspaceSession={workspaceBinding.session}
@@ -469,6 +471,7 @@ function useDirectorRuntime(
 
 function useDirectorWorkspaceBinding(setta: SettaAPI): {
   openLocalFolder: () => Promise<WorkspaceSummary | null>;
+  openWorkspacePath: (rootPath: string) => Promise<WorkspaceSummary>;
   session: WorkspaceSession | null;
 } {
   const session = useWorkspaceStore((state) => state.session);
@@ -481,7 +484,15 @@ function useDirectorWorkspaceBinding(setta: SettaAPI): {
     applyWorkspaceSession(response.session);
     return response.workspace;
   }, [applyWorkspaceSession, setta]);
-  return { openLocalFolder, session };
+  const openWorkspacePath = useCallback(
+    async (rootPath: string): Promise<WorkspaceSummary> => {
+      const response = await setta.workspace.openPath(rootPath);
+      applyWorkspaceSession(response.session);
+      return response.workspace;
+    },
+    [applyWorkspaceSession, setta],
+  );
+  return { openLocalFolder, openWorkspacePath, session };
 }
 
 function directorCommandCenterSnapshotView(

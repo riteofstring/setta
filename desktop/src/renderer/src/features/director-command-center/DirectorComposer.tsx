@@ -387,6 +387,7 @@ function DirectorVoiceGlyph({ state }: { state: DirectorVoiceComposerState["stat
 function submitIntent(text: string): DirectorIntent {
   return {
     cancelRun: null,
+    createWorkstream: null,
     kind: "submit",
     moveSelection: null,
     resolveApproval: null,

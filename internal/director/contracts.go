@@ -95,6 +95,7 @@ func ContractTaggedUnions() []ContractTaggedUnion {
 // an intent cannot leave a payload the renderer may set beside another kind.
 var directorIntentPayloadFields = map[DirectorIntentKind]string{
 	DirectorIntentSubmit:                 "submit",
+	DirectorIntentCreateWorkstream:       "createWorkstream",
 	DirectorIntentSelectWorkstream:       "selectWorkstream",
 	DirectorIntentMoveSelection:          "moveSelection",
 	DirectorIntentCancelRun:              "cancelRun",

@@ -423,6 +423,19 @@
   gap: 9px;
 }
 
+.director-workspace-start {
+  display: grid;
+  gap: 8px;
+}
+
+.director-resource-subtitle {
+  color: oklch(0.76 0.04 235);
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.25;
+  margin: 0;
+}
+
 .director-action-item {
   display: grid;
   gap: 10px;
@@ -452,6 +465,10 @@
   background: oklch(0.16 0.024 245 / 0.8);
   min-block-size: 38px;
   padding-inline: 10px;
+}
+
+.director-workspace-start-options button[data-source="recent"] {
+  color: oklch(0.78 0.04 245);
 }
 
 .director-action-controls button:disabled,
@@ -793,6 +810,10 @@
   font-size: 0.78rem;
   line-height: 1.4;
   margin: 8px 0 0;
+}
+
+.director-resource-error:empty {
+  margin: 0;
 }
 
 .director-spinner {

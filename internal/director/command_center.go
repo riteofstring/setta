@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"setta/internal/conversation"
@@ -52,6 +53,9 @@ type DirectorIntentKind string
 const (
 	// DirectorIntentSubmit hands one text or voice request to the Director.
 	DirectorIntentSubmit DirectorIntentKind = "submit"
+	// DirectorIntentCreateWorkstream starts a root workstream in a folder the
+	// command center is already offering.
+	DirectorIntentCreateWorkstream DirectorIntentKind = "create_workstream"
 	// DirectorIntentSelectWorkstream moves app-wide selection to a named
 	// workstream.
 	DirectorIntentSelectWorkstream DirectorIntentKind = "select_workstream"
@@ -69,6 +73,7 @@ const (
 
 var directorIntentKinds = []DirectorIntentKind{
 	DirectorIntentSubmit,
+	DirectorIntentCreateWorkstream,
 	DirectorIntentSelectWorkstream,
 	DirectorIntentMoveSelection,
 	DirectorIntentCancelRun,
@@ -97,6 +102,14 @@ var directorSelectionDirections = []DirectorSelectionDirection{
 type DirectorSubmitIntent struct {
 	Text     string                 `json:"text"`
 	Modality DecisionIntentModality `json:"modality"`
+}
+
+// DirectorCreateWorkstreamIntent creates a root workstream in a folder the app
+// can currently reach. The caller supplies a workspace id, never a filesystem
+// path; trusted code resolves the folder resource at dispatch time.
+type DirectorCreateWorkstreamIntent struct {
+	WorkspaceID string `json:"workspaceId"`
+	Title       string `json:"title"`
 }
 
 // DirectorSelectWorkstreamIntent names the workstream to select. It carries a
@@ -151,6 +164,7 @@ type DirectorResolveResourceRequestIntent struct {
 type DirectorIntent struct {
 	Kind                   DirectorIntentKind                    `json:"kind"`
 	Submit                 *DirectorSubmitIntent                 `json:"submit"`
+	CreateWorkstream       *DirectorCreateWorkstreamIntent       `json:"createWorkstream"`
 	SelectWorkstream       *DirectorSelectWorkstreamIntent       `json:"selectWorkstream"`
 	MoveSelection          *DirectorMoveSelectionIntent          `json:"moveSelection"`
 	CancelRun              *DirectorCancelRunIntent              `json:"cancelRun"`
@@ -172,10 +186,10 @@ type DirectorIntent struct {
 // belongs to the dispatched kind.
 type DirectorReceipt struct {
 	Kind DirectorIntentKind `json:"kind"`
-	// SelectedWorkstreamID is the app-wide selection after a selection dispatch.
-	// It is null when the registry holds no workstream to select, and always null
-	// for a submitted request, whose own selection change arrives on the pushed
-	// stream.
+	// SelectedWorkstreamID is the app-wide selection after a selection or direct
+	// workstream-create dispatch. It is null when the registry holds no
+	// workstream to select, and always null for a submitted request, whose own
+	// selection change arrives on the pushed stream.
 	SelectedWorkstreamID *string `json:"selectedWorkstreamId"`
 	// Submit is what the app did with a submitted request. It is populated
 	// exactly for a submit dispatch.
@@ -190,6 +204,8 @@ func ValidateDirectorIntent(intent DirectorIntent) error {
 	switch intent.Kind {
 	case DirectorIntentSubmit:
 		return validateSubmitIntent(*intent.Submit)
+	case DirectorIntentCreateWorkstream:
+		return validateCreateWorkstreamIntent(*intent.CreateWorkstream)
 	case DirectorIntentSelectWorkstream:
 		return validateIdentifier("director select workstream id", intent.SelectWorkstream.WorkstreamID)
 	case DirectorIntentMoveSelection:
@@ -211,6 +227,7 @@ func ValidateDirectorIntent(intent DirectorIntent) error {
 func validateIntentPayloadPresence(intent DirectorIntent) error {
 	present := map[DirectorIntentKind]bool{
 		DirectorIntentSubmit:                 intent.Submit != nil,
+		DirectorIntentCreateWorkstream:       intent.CreateWorkstream != nil,
 		DirectorIntentSelectWorkstream:       intent.SelectWorkstream != nil,
 		DirectorIntentMoveSelection:          intent.MoveSelection != nil,
 		DirectorIntentCancelRun:              intent.CancelRun != nil,
@@ -224,6 +241,25 @@ func validateIntentPayloadPresence(intent DirectorIntent) error {
 		if populated != (kind == intent.Kind) {
 			return fmt.Errorf("director intent %q requires exactly its own payload", intent.Kind)
 		}
+	}
+	return nil
+}
+
+func validateCreateWorkstreamIntent(create DirectorCreateWorkstreamIntent) error {
+	if err := validateIdentifier("director create workstream workspace id", create.WorkspaceID); err != nil {
+		return err
+	}
+	if err := validateTrimmedText("director create workstream title", create.Title); err != nil {
+		return err
+	}
+	if create.Title != strings.TrimSpace(create.Title) {
+		return fmt.Errorf("director create workstream title must not have surrounding whitespace")
+	}
+	if len(create.Title) > conversation.MaxConversationTitleBytes {
+		return fmt.Errorf(
+			"director create workstream title exceeds %d bytes",
+			conversation.MaxConversationTitleBytes,
+		)
 	}
 	return nil
 }
@@ -286,7 +322,7 @@ func ValidateDirectorReceipt(receipt DirectorReceipt) error {
 			return fmt.Errorf("director receipt %q requires exactly its own outcome", receipt.Kind)
 		}
 		return receipt.Submit.Validate()
-	case DirectorIntentSelectWorkstream, DirectorIntentMoveSelection:
+	case DirectorIntentCreateWorkstream, DirectorIntentSelectWorkstream, DirectorIntentMoveSelection:
 		if receipt.Submit != nil {
 			return fmt.Errorf("director receipt %q must not carry a submitted outcome", receipt.Kind)
 		}
@@ -431,6 +467,13 @@ func (center *CommandCenter) carryOut(
 			return DirectorReceipt{}, err
 		}
 		receipt.Submit = &executed
+		return receipt, nil
+	case DirectorIntentCreateWorkstream:
+		selected, err := center.executor.CreateWorkstream(ctx, *intent.CreateWorkstream)
+		if err != nil {
+			return DirectorReceipt{}, err
+		}
+		receipt.SelectedWorkstreamID = selected
 		return receipt, nil
 	case DirectorIntentSelectWorkstream:
 		selected, err := center.registry.SelectWorkstream(ctx, intent.SelectWorkstream.WorkstreamID)

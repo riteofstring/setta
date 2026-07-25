@@ -35,6 +35,7 @@ describe("Director speech capture controller", () => {
 
     expect(harness.dispatch).toHaveBeenCalledWith({
       cancelRun: null,
+      createWorkstream: null,
       kind: "submit",
       moveSelection: null,
       resolveApproval: null,

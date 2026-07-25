@@ -61,6 +61,13 @@ func submit(text string, modality DecisionIntentModality) DirectorIntent {
 	}
 }
 
+func createWorkstream(workspaceID string, title string) DirectorIntent {
+	return DirectorIntent{
+		CreateWorkstream: &DirectorCreateWorkstreamIntent{WorkspaceID: workspaceID, Title: title},
+		Kind:             DirectorIntentCreateWorkstream,
+	}
+}
+
 func dispatch(t *testing.T, center *CommandCenter, intent DirectorIntent) DirectorReceipt {
 	t.Helper()
 	receipt, err := center.Dispatch(context.Background(), intent)
@@ -81,6 +88,63 @@ func moveSelection(direction DirectorSelectionDirection) DirectorIntent {
 	return DirectorIntent{
 		Kind:          DirectorIntentMoveSelection,
 		MoveSelection: &DirectorMoveSelectionIntent{Direction: direction},
+	}
+}
+
+type publishingStartExecution struct {
+	recordedExecution
+	harness *registryHarness
+}
+
+func (execution *publishingStartExecution) StartWorkstream(
+	ctx context.Context,
+	request WorkstreamStartRequest,
+) error {
+	if err := execution.recordedExecution.StartWorkstream(ctx, request); err != nil {
+		return err
+	}
+	execution.harness.createConversation(request.ConversationID, request.Title, request.WorkspaceID)
+	return nil
+}
+
+func TestCommandCenterCreatesAndSelectsWorkspaceWorkstream(t *testing.T) {
+	harness := newRegistryHarness(t)
+	registry := harness.start()
+	execution := &publishingStartExecution{harness: harness}
+	center := newSubmittingCommandCenter(t, harness, registry, unreachableDecisionCaller{}, execution)
+	subscription := subscribeFromSnapshot(t, registry)
+	defer subscription.Unsubscribe()
+
+	receipt := dispatch(t, center, createWorkstream(registryTestWorkspaceID, "Setta"))
+	if receipt.Kind != DirectorIntentCreateWorkstream {
+		t.Fatalf("receipt kind = %q", receipt.Kind)
+	}
+	if len(execution.starts) != 1 {
+		t.Fatalf("start requests = %+v", execution.starts)
+	}
+	start := execution.starts[0]
+	if start.WorkspaceID == nil || *start.WorkspaceID != registryTestWorkspaceID {
+		t.Fatalf("created workstream workspace = %v", start.WorkspaceID)
+	}
+	if start.Origin.Kind != WorkstreamCreationRoot || start.Title != "Setta" {
+		t.Fatalf("created workstream request = %+v", start)
+	}
+	createdWorkstreamID, err := WorkstreamIDForConversation(start.ConversationID)
+	if err != nil {
+		t.Fatalf("WorkstreamIDForConversation: %v", err)
+	}
+	requireSelection(t, receipt, createdWorkstreamID)
+
+	awaitSnapshotSelection(t, center, subscription, createdWorkstreamID)
+	snapshot, err := center.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	entry := findEntry(t, snapshot, createdWorkstreamID)
+	if entry.Workstream.ResourceScope.Kind != WorkstreamResourceScopeFolder ||
+		entry.Workstream.ResourceScope.Folder == nil ||
+		entry.Workstream.ResourceScope.Folder.WorkspaceID != registryTestWorkspaceID {
+		t.Fatalf("created workstream scope = %+v", entry.Workstream.ResourceScope)
 	}
 }
 
@@ -221,6 +285,8 @@ func TestCommandCenterRejectsUnauthorizedIntents(t *testing.T) {
 	for name, intent := range map[string]DirectorIntent{
 		"unknown workstream": selectWorkstream("workstream:missing"),
 		"unknown direction":  moveSelection(DirectorSelectionDirection("sideways")),
+		"unknown workspace":  createWorkstream("workspace-missing", "Missing"),
+		"empty create title": createWorkstream(registryTestWorkspaceID, " "),
 		"unknown kind":       {Kind: DirectorIntentKind("open_pane")},
 		"missing payload":    {Kind: DirectorIntentSelectWorkstream},
 		"empty request":      submit("   ", DecisionIntentModalityText),

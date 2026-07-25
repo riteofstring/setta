@@ -227,6 +227,7 @@ export function StatusGlyph({ status }: { status: WorkstreamStatus }) {
 function selectWorkstreamIntent(workstreamId: string): DirectorIntent {
   return {
     cancelRun: null,
+    createWorkstream: null,
     kind: "select_workstream",
     moveSelection: null,
     resolveApproval: null,
@@ -239,6 +240,7 @@ function selectWorkstreamIntent(workstreamId: string): DirectorIntent {
 export function moveSelectionIntent(direction: "previous" | "next"): DirectorIntent {
   return {
     cancelRun: null,
+    createWorkstream: null,
     kind: "move_selection",
     moveSelection: { direction },
     resolveApproval: null,
