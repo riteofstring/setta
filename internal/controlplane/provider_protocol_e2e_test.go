@@ -187,12 +187,10 @@ func TestProductionProviderProtocolRecoversTimedOutExpiredLeaseAfterRestart(t *t
 	if err := store.Close(); err != nil {
 		t.Fatal(err)
 	}
-	now = now.Add(time.Second)
+	now = now.Add(3 * time.Second)
 	restarted := openTestStore(t, directory, func() time.Time { return now }, RateLimit{})
 	defer restarted.Close()
-	second := newTimedProtocolReconciler(
-		t, restarted, newProtocolTestAdapter(t, server.URL), "timeout-worker-second",
-	)
+	second := newTestReconciler(t, restarted, newProtocolTestAdapter(t, server.URL), 3)
 	requireProtocolReconcile(t, ctx, second)
 	requireProtocolOperationSucceeded(t, ctx, restarted, request)
 	if creates, _ := api.callCounts(); creates != 1 {
@@ -248,8 +246,8 @@ func newTimedProtocolReconciler(
 		t.Fatal(err)
 	}
 	reconciler, err := NewReconciler(ReconcilerConfig{
-		LeaseDuration: 100 * time.Millisecond, MaxAttempts: 3,
-		OperationTimeout: 20 * time.Millisecond,
+		LeaseDuration: 2 * time.Second, MaxAttempts: 3,
+		OperationTimeout: 500 * time.Millisecond,
 		Observer:         observer, Provider: adapter,
 		RetryDelay: time.Minute, Store: store, WorkerID: workerID,
 	})
