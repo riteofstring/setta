@@ -9,9 +9,9 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
+  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
-  openFixtureWorkspace,
   parseElectronHarnessArgs,
   reloadPage,
   startChromiumTrace,
@@ -335,7 +335,7 @@ async function openWorkspace(client) {
     workflowTimeoutMs,
   );
   if (!validWorkspaceId(initial.workspaceId)) {
-    await openFixtureWorkspace(client, workflowTimeoutMs);
+    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
   }
   const opened = await waitForState(
     client,
@@ -549,15 +549,14 @@ async function waitForSingleConversationPaneLayout(
   conversationId,
   expectedPaneCount,
 ) {
-  void workspaceId;
   const result = await waitForBackendState(
-    () => backend.get("/app/panes/layout"),
+    () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
     (current) => {
       const panes = current.layout?.panes ?? [];
       return (
-        panes.filter((pane) => pane.conversationConfig !== null).length === expectedPaneCount &&
-        panes.filter((pane) => pane.conversationConfig?.conversationId === conversationId)
-          .length === 1
+        panes.filter((pane) => pane.easyButtonConfig !== null).length === expectedPaneCount &&
+        panes.filter((pane) => pane.easyButtonConfig?.conversationId === conversationId).length ===
+          1
       );
     },
     workflowTimeoutMs,
@@ -565,9 +564,9 @@ async function waitForSingleConversationPaneLayout(
   const panes = result.layout?.panes ?? [];
   return {
     conversationId,
-    easyButtonPaneCount: panes.filter((pane) => pane.conversationConfig !== null).length,
+    easyButtonPaneCount: panes.filter((pane) => pane.easyButtonConfig !== null).length,
     matchingPaneCount: panes.filter(
-      (pane) => pane.conversationConfig?.conversationId === conversationId,
+      (pane) => pane.easyButtonConfig?.conversationId === conversationId,
     ).length,
   };
 }

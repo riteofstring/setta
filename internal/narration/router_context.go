@@ -244,10 +244,6 @@ func conversationRouteAuthoritativeContext(
 	source conversation.ConversationRouterContextSource,
 ) ConversationRouteAuthoritativeContext {
 	current := source.CurrentTurn
-	workspaceID := ""
-	if source.Conversation.WorkspaceID != nil {
-		workspaceID = *source.Conversation.WorkspaceID
-	}
 	var instructions *CurrentInstructions
 	if current.Turn != nil {
 		instructions = &CurrentInstructions{
@@ -261,7 +257,7 @@ func conversationRouteAuthoritativeContext(
 	return ConversationRouteAuthoritativeContext{
 		Conversation: ConversationIdentity{
 			ConversationID:           source.Conversation.ID,
-			WorkspaceID:              workspaceID,
+			WorkspaceID:              source.Conversation.WorkspaceID,
 			Title:                    source.Conversation.Title,
 			TopicDescriptor:          source.Conversation.TopicDescriptor,
 			NarratorTopicDescriptor:  source.NarratorState.TopicDescriptor,

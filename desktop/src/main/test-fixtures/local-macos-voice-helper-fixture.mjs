@@ -8,7 +8,6 @@ const localVoiceIds = [
   "com.apple.voice.compact.en-US.Alex",
 ];
 const minimalWavBase64 = "UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==";
-const transcriptQueue = parseTranscriptQueue(process.env.SETTA_E2E_LOCAL_MACOS_VOICE_TRANSCRIPTS);
 const input = createInterface({ input: process.stdin });
 const commandHandlers = new Map([
   ["cancel_capture", handleCancelCapture],
@@ -75,7 +74,7 @@ function handleFinishCapture(command) {
   }
   respond(command.id, {
     sessionId: command.payload.sessionId,
-    transcript: queuedTranscriptFor(command.payload.sessionId),
+    transcript: `local transcript for ${command.payload.sessionId}`,
   });
 }
 
@@ -194,19 +193,4 @@ function reject(id, code, message) {
       type: "response",
     }) + "\n",
   );
-}
-
-function queuedTranscriptFor(sessionId) {
-  return transcriptQueue.shift() ?? `local transcript for ${sessionId}`;
-}
-
-function parseTranscriptQueue(raw) {
-  if (!raw) {
-    return [];
-  }
-  const parsed = JSON.parse(raw);
-  if (!Array.isArray(parsed) || parsed.some((transcript) => typeof transcript !== "string")) {
-    throw new Error("SETTA_E2E_LOCAL_MACOS_VOICE_TRANSCRIPTS must be a JSON string array");
-  }
-  return [...parsed];
 }

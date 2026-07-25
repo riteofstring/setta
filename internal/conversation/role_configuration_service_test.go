@@ -181,7 +181,7 @@ func TestRoleConfigurationServiceReadsUpdatesAndAuditsWorkspacePrecedence(t *tes
 		false,
 	)
 	topic := transactionTestConversation("conversation-workspace-role-configuration-service")
-	topic.WorkspaceID = &workspaceID
+	topic.WorkspaceID = workspaceID
 	persistRoleProfileTestMutation(t, store, "create-workspace-role-configuration-topic", func(transaction *WriteTransaction) error {
 		return transaction.InsertConversation(topic)
 	})
@@ -241,14 +241,13 @@ func TestRoleConfigurationServiceReadsUpdatesAndAuditsWorkspacePrecedence(t *tes
 func TestRoleConfigurationServiceAppliesAndPublishesConversationOverrides(t *testing.T) {
 	store := newTestStore(t)
 	topic := transactionTestConversation("conversation-role-configuration-service")
-	topicWorkspaceID := *topic.WorkspaceID
 	persistRoleProfileTestMutation(t, store, "create-role-configuration-topic", func(transaction *WriteTransaction) error {
 		return transaction.InsertConversation(topic)
 	})
 	global := roleConfigurationAgentOverride(RoleProfileScopeGlobal, "", "gpt-5.6-terra", ReasoningEffortMedium)
 	workspace := roleConfigurationAgentOverride(
 		RoleProfileScopeWorkspace,
-		topicWorkspaceID,
+		topic.WorkspaceID,
 		"gpt-5.6-luna",
 		ReasoningEffortMedium,
 	)
@@ -265,7 +264,7 @@ func TestRoleConfigurationServiceAppliesAndPublishesConversationOverrides(t *tes
 
 	configuration, err := service.ReadConversationConfiguration(
 		context.Background(),
-		topicWorkspaceID,
+		topic.WorkspaceID,
 		topic.ID,
 	)
 	if err != nil {
@@ -291,7 +290,7 @@ func TestRoleConfigurationServiceAppliesAndPublishesConversationOverrides(t *tes
 	}
 	configuration, err = service.UpdateConversationConfiguration(
 		context.Background(),
-		topicWorkspaceID,
+		topic.WorkspaceID,
 		topic.ID,
 		[]RoleProfileUpdate{{Role: RoleAgent, Profile: &conversationProfile}},
 	)
@@ -313,7 +312,7 @@ func TestRoleConfigurationServiceAppliesAndPublishesConversationOverrides(t *tes
 
 	configuration, err = service.UpdateConversationConfiguration(
 		context.Background(),
-		topicWorkspaceID,
+		topic.WorkspaceID,
 		topic.ID,
 		[]RoleProfileUpdate{{Role: RoleAgent, Profile: nil}},
 	)

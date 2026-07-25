@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"setta/internal/applayout"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
 	"setta/internal/httpapi"
@@ -312,28 +311,6 @@ func TestWorkspaceUILayoutSchemaVersionRendersFromGoOwner(t *testing.T) {
 	}
 }
 
-func TestAppPaneLayoutSchemaVersionRendersFromGoOwner(t *testing.T) {
-	specs, err := contractSpecs(httpapi.ContractSchema{
-		Endpoints:      []httpapi.ContractEndpoint{contractEndpoint("ContractTest", "/contract-test")},
-		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	})
-	if err != nil {
-		t.Fatalf("collect contracts: %v", err)
-	}
-
-	var buffer bytes.Buffer
-	if err := render(&buffer, specs); err != nil {
-		t.Fatalf("render contracts: %v", err)
-	}
-	want := fmt.Sprintf(
-		"export const appPaneLayoutSchemaVersion = %d;",
-		applayout.SchemaVersion,
-	)
-	if !strings.Contains(buffer.String(), want) {
-		t.Fatalf("generated output is missing Go-owned app pane layout schema version %q:\n%s", want, buffer.String())
-	}
-}
-
 func TestConversationEventUnionRendersExactDiscriminators(t *testing.T) {
 	specs, err := contractSpecs(httpapi.ContractSchema{
 		Endpoints: []httpapi.ContractEndpoint{{
@@ -428,62 +405,19 @@ func TestRenderWorkspaceUIPaneRequiresDiscriminatedConversationBinding(t *testin
 	output := buffer.String()
 	for _, want := range []string{
 		"export type WorkspaceUIPane = {",
-		"surfaceKind: \"browser\";\n      conversationConfig: null;",
-		"surfaceKind: \"conversation\";\n      conversationConfig: WorkspaceConversationPaneConfig;",
-		"surfaceKind: \"empty-frame\";\n      conversationConfig: null;",
+		"surfaceKind: \"browser\";\n      easyButtonConfig: null;",
+		"surfaceKind: \"easy-button\";\n      easyButtonConfig: EasyButtonPaneConfig;",
+		"surfaceKind: \"empty-frame\";\n      easyButtonConfig: null;",
 		"switch (result.surfaceKind)",
-		"WorkspaceUIPane.conversationConfig is required when surfaceKind is conversation",
-		"WorkspaceUIPane.conversationConfig must be null when surfaceKind is empty-frame",
+		"WorkspaceUIPane.easyButtonConfig is required when surfaceKind is easy-button",
+		"WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is empty-frame",
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("generated workspace UI contract missing %q:\n%s", want, output)
 		}
 	}
-	if strings.Contains(output, "easy-button") || strings.Contains(output, "easyButtonConfig") {
-		t.Fatalf("generated workspace UI contract retained easy-button vocabulary:\n%s", output)
-	}
 	if strings.Contains(output, "settings-dom") {
 		t.Fatalf("generated workspace UI contract retained removed settings surface:\n%s", output)
-	}
-}
-
-func TestRenderAppPaneRequiresDiscriminatedSurfaceConfigs(t *testing.T) {
-	specs, err := contractSpecs(httpapi.ContractSchema{
-		Endpoints: []httpapi.ContractEndpoint{{
-			Name:     "ContractAppPaneLayout",
-			Method:   "GET",
-			Path:     "/contract-app-pane-layout",
-			Response: reflect.TypeFor[applayout.AppPaneLayout](),
-		}},
-		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	})
-	if err != nil {
-		t.Fatalf("collect app pane layout contracts: %v", err)
-	}
-
-	var buffer bytes.Buffer
-	if err := render(&buffer, specs); err != nil {
-		t.Fatalf("render app pane layout contracts: %v", err)
-	}
-	output := buffer.String()
-	for _, want := range []string{
-		"export type AppPane = {",
-		"surfaceKind: \"master\";\n      masterConfig: MasterPaneConfig;\n      conversationConfig: null;",
-		"surfaceKind: \"conversation\";\n      masterConfig: null;\n      conversationConfig: ConversationPaneConfig;",
-		"surfaceKind: \"browser\";\n      masterConfig: null;\n      conversationConfig: null;",
-		"surfaceKind: \"empty-frame\";\n      masterConfig: null;\n      conversationConfig: null;",
-		"AppPane.masterConfig is required when surfaceKind is master",
-		"AppPane.conversationConfig is required when surfaceKind is conversation",
-		"AppPane.conversationConfig must be null when surfaceKind is empty-frame",
-		"kind: \"folder\";\n      folder: FolderResourceBinding;",
-		"ConversationPaneResourceBinding.folder is required when kind is folder",
-	} {
-		if !strings.Contains(output, want) {
-			t.Fatalf("generated app pane layout contract missing %q:\n%s", want, output)
-		}
-	}
-	if strings.Contains(output, "easy-button") {
-		t.Fatalf("generated app pane layout contract retained easy-button:\n%s", output)
 	}
 }
 
