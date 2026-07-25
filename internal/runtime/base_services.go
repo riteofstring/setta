@@ -275,12 +275,12 @@ func newRuntimeAgentServices(
 		Version:     config.Version,
 	})
 	codexManager := agentRuntime.Manager()
-	// The app-global Director role is resolved from its durable profile for each
-	// isolated decision call.
+	// The app-global Director role is resolved from its durable profile when
+	// its provider thread starts and again for each conversational turn.
 	globalRoleResolver, err := conversation.NewDirectorRoleConfigurationResolver(conversationStore, agentRuntime)
 	if err != nil {
 		shutdownCodexManager(codexManager, config.ShutdownTimeout)
-		return runtimeAgentServices{}, fmt.Errorf("create global routing role resolver: %w", err)
+		return runtimeAgentServices{}, fmt.Errorf("create global Director role resolver: %w", err)
 	}
 	narratorService, err := narration.NewService(conversationStore, workspaceService, agentRuntime)
 	if err != nil {

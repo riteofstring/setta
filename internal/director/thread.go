@@ -46,6 +46,10 @@ type DirectorProviderThread struct {
 // DirectorThreadHistoryItem is one line of Director history replayed into a new
 // provider thread.
 type DirectorThreadHistoryItem struct {
+	// TurnID keeps replay trimming atomic: when the role's input budget drops
+	// old history, it drops a whole turn rather than leaving a receipt or reply
+	// without the user request it belongs to.
+	TurnID string
 	// Assistant reports whether the Director said it. Everything else — the
 	// user's words and Setta's own tool receipts — is replayed as user input,
 	// because that is what the Director was responding to.
@@ -353,16 +357,30 @@ func (thread *DirectorThread) replayHistory(
 	if err != nil {
 		return nil, err
 	}
+	// The entry limit may land inside a turn. Drop that incomplete prefix so a
+	// new provider thread never sees a tool receipt or assistant reply without
+	// the user turn it answered.
+	for len(entries) > 0 && entries[0].Kind != conversation.DirectorConversationUserTurn {
+		entries = entries[1:]
+	}
 	history := make([]DirectorThreadHistoryItem, 0, len(entries))
 	for _, entry := range entries {
 		switch entry.Kind {
 		case conversation.DirectorConversationUserTurn:
-			history = append(history, DirectorThreadHistoryItem{Text: entry.Text.Text})
+			history = append(history, DirectorThreadHistoryItem{
+				TurnID: entry.TurnID,
+				Text:   entry.Text.Text,
+			})
 		case conversation.DirectorConversationAssistantText:
-			history = append(history, DirectorThreadHistoryItem{Assistant: true, Text: entry.Text.Text})
+			history = append(history, DirectorThreadHistoryItem{
+				TurnID:    entry.TurnID,
+				Assistant: true,
+				Text:      entry.Text.Text,
+			})
 		case conversation.DirectorConversationToolReceipt:
 			history = append(history, DirectorThreadHistoryItem{
-				Text: fmt.Sprintf("Setta tool %s.%s reported: %s", SettaToolNamespace, entry.Tool.Tool, entry.Tool.Payload),
+				TurnID: entry.TurnID,
+				Text:   fmt.Sprintf("Setta tool %s.%s reported: %s", SettaToolNamespace, entry.Tool.Tool, entry.Tool.Payload),
 			})
 		case conversation.DirectorConversationToolCall:
 			// The call is durable so the app can explain what the Director did;

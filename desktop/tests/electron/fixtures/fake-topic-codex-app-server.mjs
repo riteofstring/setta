@@ -15,7 +15,12 @@ import {
   validSideBoundary,
   validSideContextFrame,
 } from "./fake-topic-codex-app-server-helpers.mjs";
-import { scriptedDirectorDecision } from "./fake-topic-codex-director-decisions.mjs";
+import {
+  decodeDirectorToolReceipt,
+  directorScenarioForTurn,
+  directorToolCallForStep,
+  threadHasDirectorTools,
+} from "./fake-topic-codex-director-tools.mjs";
 import { createExactStructuredInputRoutes } from "./fake-topic-codex-input-routes.mjs";
 import * as structuredCall from "./fake-topic-codex-structured-call.mjs";
 const persistedStatePath = process.env.SETTA_E2E_TOPIC_CODEX_STATE_PATH ?? "";
@@ -166,7 +171,11 @@ function startThread(message) {
   const threadId = `topic-thread-${threadCounter}`;
   const state = startThreadState(params, threadId, structured);
   loadedThreads.set(threadId, state);
-  recordProviderMethod("thread/start", params, { threadId });
+  recordProviderMethod("thread/start", params, {
+    ephemeral: state.ephemeral,
+    isDirector: threadHasDirectorTools(state),
+    threadId,
+  });
   persistState();
   const sendResponse = () =>
     respond(message.id, threadOperationResponse(fakeThread(threadId), state));
@@ -285,7 +294,19 @@ function validEphemeralSideSettings(params) {
 function injectThreadItems(message) {
   const params = message.params ?? {};
   const threadId = requiredString(params, "threadId");
-  recordProviderMethod("thread/inject_items", params, { threadId });
+  const thread = loadedThreads.get(threadId);
+  const isDirector = threadHasDirectorTools(thread);
+  recordProviderMethod("thread/inject_items", params, {
+    injectedRoles: Array.isArray(params.items)
+      ? params.items.map((item) => item?.role ?? null)
+      : null,
+    isDirector,
+    threadId,
+  });
+  if (isDirector) {
+    injectDirectorHistory(message, thread);
+    return;
+  }
   if (injectTopicThreadInitialization(message)) {
     return;
   }
@@ -308,6 +329,27 @@ function injectThreadItems(message) {
     return;
   }
   request.thread.sideContextFrame = frame;
+  persistState();
+  respond(message.id, {});
+}
+
+function injectDirectorHistory(message, thread) {
+  const items = message.params?.items;
+  if (!Array.isArray(items) || items.length === 0) {
+    respondError(message.id, -32602, "Director history injection requires at least one item");
+    return;
+  }
+  const valid = items.every((item) => {
+    const role = item?.role;
+    return (
+      ["assistant", "developer", "user"].includes(role) && injectedMessageText(item, role) !== ""
+    );
+  });
+  if (!valid) {
+    respondError(message.id, -32602, "Director history injection drifted");
+    return;
+  }
+  thread.directorHistory = items;
   persistState();
   respond(message.id, {});
 }
@@ -355,11 +397,12 @@ function sideContextInjectionRequest(message) {
 function injectedMessageText(item, role) {
   if (!Array.isArray(item?.content)) return "";
   const [content] = item.content;
+  const contentType = role === "assistant" ? "output_text" : "input_text";
   const valid = [
     item.type === "message",
     item.role === role,
     item.content.length === 1,
-    content?.type === "input_text",
+    content?.type === contentType,
     typeof content?.text === "string",
   ].every(Boolean);
   if (!valid) return "";
@@ -444,8 +487,12 @@ function listThreads(message) {
 function startTurn(message) {
   const threadId = requiredString(message.params, "threadId");
   const text = turnInputText(message.params);
-  recordProviderMethod("turn/start", message.params ?? {}, { inputText: text, threadId });
   const thread = loadedThreads.get(threadId);
+  recordProviderMethod("turn/start", message.params ?? {}, {
+    inputText: text,
+    isDirector: threadHasDirectorTools(thread),
+    threadId,
+  });
   if (!thread) {
     respondThreadNotFound(message.id, "turn/start", threadId);
     return;
@@ -469,6 +516,10 @@ function startTurn(message) {
   }
   respond(message.id, { turn });
   setImmediate(() => {
+    if (threadHasDirectorTools(thread)) {
+      emitDirectorTurnScenario(threadId, turnId, text, thread.directorHistory ?? []);
+      return;
+    }
     if (message.params?.outputSchema) {
       emitStructuredTurn(threadId, turnId, text, message.params.outputSchema);
       return;
@@ -505,23 +556,11 @@ function emitKnownStructuredTurn(threadId, turnId, context, outputSchema) {
 
 const structuredTurnEmitters = {
   checkpoint: emitStructuredCheckpoint,
-  director_decision: emitStructuredDirectorDecision,
   focus: emitStructuredFocus,
   input_route: emitStructuredInputRoute,
   projection: emitStructuredProjection,
   status: emitStructuredStatus,
 };
-
-function emitStructuredDirectorDecision(threadId, turnId, context, outputSchema) {
-  const decision = scriptedDirectorDecision(context, outputSchema);
-  if (decision === null) {
-    completeTurn(threadId, turnId, "failed", "director decision context or schema drifted");
-    return true;
-  }
-  emitAgentMessage(threadId, turnId, JSON.stringify({ decision }));
-  completeTurn(threadId, turnId, "completed");
-  return true;
-}
 
 function emitStructuredStatus(threadId, turnId, context) {
   if (context.trigger !== "explicit_status_requested") {
@@ -773,6 +812,20 @@ function isCrashNarratorProjection(context) {
     context.requestedChannel === "terminal_projection" &&
     context.authoritative?.currentInstructions?.objective?.text === "crash narrator"
   );
+}
+
+function emitDirectorTurnScenario(threadId, turnId, text, history) {
+  const scenario = directorScenarioForTurn(text, history);
+  if (scenario === null) {
+    completeTurn(threadId, turnId, "failed", `unsupported Director turn ${text}`);
+    return;
+  }
+  const call = directorToolCallForStep(scenario, 0, []);
+  if (call === null) {
+    completeDirectorTurn(threadId, turnId, scenario.reply);
+    return;
+  }
+  emitDirectorToolCall(threadId, turnId, scenario, 0, [], call);
 }
 
 function emitTurnScenario(threadId, turnId, text) {
@@ -1058,6 +1111,10 @@ function handleClientResponse(message) {
 
 function handleToolCallResponse(requestId, pending, message) {
   pendingToolCalls.delete(requestId);
+  if (pending.kind === "director") {
+    handleDirectorToolCallResponse(requestId, pending, message);
+    return;
+  }
   const action = artifactToolResponseAction(requestId, pending, message);
   if (action.kind === "next") {
     setImmediate(() =>
@@ -1069,6 +1126,29 @@ function handleToolCallResponse(requestId, pending, message) {
     emitAgentMessage(pending.threadId, pending.turnId, pending.scenario.completion);
     completeTurn(pending.threadId, pending.turnId, "completed");
   });
+}
+
+function handleDirectorToolCallResponse(requestId, pending, message) {
+  const receipt = decodeDirectorToolReceipt(requestId, pending.call.tool, message);
+  const receipts = [...pending.receipts, receipt];
+  const nextIndex = pending.index + 1;
+  const next = directorToolCallForStep(pending.scenario, nextIndex, receipts);
+  if (next !== null) {
+    setImmediate(() =>
+      emitDirectorToolCall(
+        pending.threadId,
+        pending.turnId,
+        pending.scenario,
+        nextIndex,
+        receipts,
+        next,
+      ),
+    );
+    return;
+  }
+  setImmediate(() =>
+    completeDirectorTurn(pending.threadId, pending.turnId, pending.scenario.reply),
+  );
 }
 
 function emitArtifact(threadId, turnId) {
@@ -1104,6 +1184,40 @@ function emitAgentMessage(threadId, turnId, text, itemId = `agent-${turnId}`) {
   });
 }
 
+function emitDirectorToolCall(threadId, turnId, scenario, index, receipts, call) {
+  const thread = loadedThreads.get(threadId);
+  if (!threadHasDirectorTools(thread)) {
+    completeTurn(threadId, turnId, "failed", "Director Setta tools were not registered");
+    return;
+  }
+  toolCallCounter += 1;
+  persistState();
+  const requestId = `topic-director-tool-${toolCallCounter}`;
+  pendingToolCalls.set(requestId, {
+    call,
+    index,
+    kind: "director",
+    receipts,
+    scenario,
+    threadId,
+    turnId,
+  });
+  request(requestId, "item/tool/call", {
+    arguments: call.arguments,
+    callId: `director-call-${toolCallCounter}`,
+    namespace: "setta",
+    threadId,
+    tool: call.tool,
+    turnId,
+  });
+}
+
+function completeDirectorTurn(threadId, turnId, reply) {
+  emitTextDelta(threadId, turnId, reply);
+  emitAgentMessage(threadId, turnId, reply);
+  completeTurn(threadId, turnId, "completed");
+}
+
 function emitArtifactToolCall(threadId, turnId, scenario, index) {
   const thread = loadedThreads.get(threadId) ?? durableThreads.get(threadId);
   if (!threadHasArtifactTool(thread)) {
@@ -1121,6 +1235,7 @@ function emitArtifactToolCall(threadId, turnId, scenario, index) {
   pendingToolCalls.set(requestId, {
     arguments: artifactArguments,
     index,
+    kind: "artifact",
     scenario,
     threadId,
     turnId,
@@ -1247,10 +1362,13 @@ function providerMethodLogEntry(method, params, extra) {
   return {
     archived: firstDefined(params.archived),
     cursor: firstDefined(params.cursor),
+    ephemeral: firstDefined(extra.ephemeral),
     excludeTurns: firstDefined(params.excludeTurns),
     generation: processGeneration,
     includeTurns: firstDefined(params.includeTurns),
+    injectedRoles: firstDefined(extra.injectedRoles),
     inputText: firstDefined(extra.inputText),
+    isDirector: firstDefined(extra.isDirector),
     method,
     sequence: methodSequence,
     threadId: firstDefined(extra.threadId, params.threadId),

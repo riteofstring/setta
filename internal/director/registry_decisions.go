@@ -11,16 +11,16 @@ import (
 
 // Materializing the trusted context one Director decision is bounded by.
 //
-// The decision protocol states what the model may return; this is where the
-// app answers what it may return it about. Every value here is folded from the
+// The tool catalog states what the Director may ask Setta to do; this is where
+// the app answers what it may do it to. Every value here is folded from the
 // durable log — the workstreams that exist, which of them is running, which
 // completed runs can be forked, which failures nothing recovered, and what the
-// Director already decided — so the authority a decision is validated against
-// is the same durable truth the rest of the command center renders.
+// Director already did — so tool authority is the same durable truth the rest
+// of the command center renders.
 //
-// Nothing model-authored reaches this file. A folder is offered as a workspace
-// id the app can currently reach, never as a path, and the ids a decision may
-// echo back exist here before the schema that offers them is generated.
+// Nothing provider-authored reaches this file. A folder is offered as a
+// workspace id the app can currently reach, never as a path, and every id a
+// tool call may echo back already exists here.
 
 // recordForkPoint offers a completed run as a fork origin. The excerpt is the
 // input that run answered, which is how the Director tells two fork points of
@@ -112,9 +112,9 @@ func (state *registryState) recordCommittedDecision(fact DirectorFactEvent) {
 }
 
 // DecisionContext materializes the trusted context for one submitted intent.
-// The registry is the only authority: a target the Director cannot see here
-// cannot appear in the generated schema, and a decision naming one is rejected
-// against this same context afterwards.
+// The registry is the only authority: a target the Director cannot see here is
+// not returned by a listing tool, and a call naming one is rejected against
+// this same context.
 func (registry *Registry) DecisionContext(intent SubmittedIntent) (DirectorDecisionContext, error) {
 	if err := validateSubmittedIntent(intent); err != nil {
 		return DirectorDecisionContext{}, err
@@ -193,10 +193,10 @@ func (state *registryState) decisionContext(
 	return context, nil
 }
 
-// decisionWindow bounds the routing set by recency. Archived workstreams are
-// excluded because they are not routing targets, and the selected workstream is
-// always inside the window: the user is looking at it, so it must be somewhere
-// the Director can send their next request.
+// decisionWindow bounds the tool target set by recency. Archived workstreams
+// are excluded because they are not active targets, and the selected workstream
+// is always inside the window: the user is looking at it, so it must be
+// somewhere the Director can send their next request.
 func (state *registryState) decisionWindow() []*registryWorkstream {
 	ordered := make([]*registryWorkstream, 0, len(state.order))
 	for _, workstream := range state.recencyOrdered() {

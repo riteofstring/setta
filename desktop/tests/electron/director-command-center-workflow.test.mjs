@@ -1,10 +1,15 @@
 #!/usr/bin/env node
 /* global console */
 
+import { readFile } from "node:fs/promises";
 import { basename, delimiter, join } from "node:path";
 import process from "node:process";
 
-import { backendProbe, waitForBackendState } from "./electron-workflow-harness.mjs";
+import {
+  backendProbe,
+  openFixtureWorkspace,
+  waitForBackendState,
+} from "./electron-workflow-harness.mjs";
 import {
   assertArtifactsExcludeMarkers,
   assertBuildExists,
@@ -51,43 +56,45 @@ let context = null;
 try {
   context = await launchDirectorElectron(firstLaunchDir);
   let backend = await backendProbe(firstLaunchDir);
+  const workspaceId = await openFixtureWorkspace(context.client, workflowTimeoutMs);
+  await waitForSelector(context.client, '[data-testid="director-command-center-shell"]');
   const initial = await subscribeFromRenderer(context.client);
   assertEqual(initial.workstreams.length, 0, "initial Director workstream count");
 
-  await submitDirectorInComposer(context.client, "Director create folderless.");
-  const folderless = await waitForDirectorSnapshot(
+  await submitDirectorInComposer(context.client, "Director create workspace workstream.");
+  const created = await waitForDirectorSnapshot(
     context.client,
     (snapshot) =>
       snapshot.workstreams.length === 1 &&
-      snapshot.workstreams[0]?.workstream.resourceScope.kind === "folderless" &&
-      snapshot.workstreams[0]?.workstream.status === "awaiting_resource" &&
-      snapshot.unresolvedResourceRequests.length === 1,
+      snapshot.workstreams[0]?.workstream.resourceScope.kind === "folder" &&
+      snapshot.workstreams[0]?.workstream.resourceScope.folder?.workspaceId === workspaceId &&
+      snapshot.workstreams[0]?.workstream.status === "idle" &&
+      snapshot.selectedWorkstreamId === snapshot.workstreams[0]?.workstream.id,
   );
   const rootWorkstreamId = requiredString(
-    folderless.workstreams[0]?.workstream.id,
-    "folderless workstream",
-  );
-  const resourceRequestId = requiredString(
-    folderless.unresolvedResourceRequests[0]?.id,
-    "folderless resource request",
-  );
-  assertEqual(folderless.aggregates.awaitingResourceCount, 1, "folderless resource aggregate");
-
-  const workspaceId = await chooseFolderForResourceRequest(context.client, resourceRequestId);
-  await waitForDirectorSnapshot(
-    context.client,
-    (snapshot) =>
-      snapshot.unresolvedResourceRequests.length === 0 &&
-      snapshot.workstreams.some(
-        (entry) =>
-          entry.workstream.id === rootWorkstreamId &&
-          entry.workstream.resourceScope.kind === "folder" &&
-          entry.workstream.resourceScope.folder?.workspaceId === workspaceId &&
-          entry.workstream.resourceBindings.length === 1,
-      ),
+    created.workstreams[0]?.workstream.id,
+    "workspace-scoped Director workstream",
   );
   const workspaceSettings = await verifyWorkspaceSettings(context.client, workspaceId);
-  await selectWorkstream(context.client, rootWorkstreamId);
+
+  const normal = await submitDirector(context.client, "Director normal conversation.");
+  assertEqual(
+    normal.submit?.replyText,
+    "The Director can answer without acting.",
+    "Director normal reply",
+  );
+  assertEqual(normal.submit?.toolCalls.length, 0, "Director normal reply tool-call count");
+
+  const remembered = await submitDirector(
+    context.client,
+    "Remember DIRECTOR_HISTORY_OK and acknowledge it.",
+  );
+  assertEqual(
+    remembered.submit?.replyText,
+    "I will remember DIRECTOR_HISTORY_OK.",
+    "Director remembered reply",
+  );
+  assertEqual(remembered.submit?.toolCalls.length, 0, "Director remembered reply tool-call count");
 
   await submitDirector(context.client, "Director send hold.");
   await waitForWorkstream(context.client, rootWorkstreamId, (workstream) =>
@@ -231,61 +238,17 @@ try {
     (workstream) => workstream.status === "completed" && workstream.activeRunId === null,
   );
 
-  const repaired = await submitDirector(context.client, "Director repair malformed.");
-  assertEqual(repaired.submit?.decision, "answer_directly", "repaired decision");
-  assertEqual(
-    repaired.submit?.publicText,
-    "The malformed decision was repaired.",
-    "repaired public answer",
-  );
-  assertExcludes(JSON.stringify(repaired), "not_a_director_decision", "Director receipt");
-
-  const childReceipt = await submitDirector(context.client, "Director create child.");
-  assertEqual(childReceipt.submit?.decision, "create_workstream", "child decision");
-  const childWorkstreamId = requiredString(
-    childReceipt.submit?.workstreamId,
-    "child receipt workstream",
-  );
-  const childConversationId = conversationID(childWorkstreamId);
-  await waitForDirectorSnapshot(context.client, (snapshot) =>
-    snapshot.workstreams.some(
-      (entry) =>
-        entry.workstream.id === childWorkstreamId &&
-        entry.workstream.parentId === rootWorkstreamId &&
-        entry.workstream.status === "completed",
-    ),
-  );
-  const childConversation = await waitForConversationSnapshot(
-    backend,
-    workspaceId,
-    childConversationId,
-    (snapshot) =>
-      snapshot.turns.turns.length === 1 && snapshot.turns.turns[0]?.status === "completed",
-  );
-  assertEqual(
-    childConversation.turns.turns[0]?.authoredInput.text,
-    "director child work",
-    "child first input",
-  );
-  const branch = await readBranch(backend, workspaceId, childConversationId);
-  assertEqual(branch.kind, "child", "Director child branch kind");
-  assertEqual(branch.decisionSource, "director", "Director child decision source");
-  assertEqual(branch.forkedAtTurnId, "", "Director child fork point");
-  assertEqual(Object.keys(branch.providerMetadata).length, 0, "Director child provider metadata");
-
-  await selectWorkstream(context.client, childWorkstreamId);
   await submitDirector(context.client, "Director artifact.");
   const beforeRestart = await waitForDirectorSnapshot(
     context.client,
     (snapshot) =>
-      snapshot.selectedWorkstreamId === childWorkstreamId &&
+      snapshot.selectedWorkstreamId === rootWorkstreamId &&
       snapshot.artifacts.some(
-        (artifact) =>
-          artifact.workstreamId === childWorkstreamId && artifact.status === "available",
+        (artifact) => artifact.workstreamId === rootWorkstreamId && artifact.status === "available",
       ),
   );
   const openedArtifact = beforeRestart.artifacts.find(
-    (artifact) => artifact.workstreamId === childWorkstreamId && artifact.status === "available",
+    (artifact) => artifact.workstreamId === rootWorkstreamId && artifact.status === "available",
   );
   const openedArtifactId = requiredString(openedArtifact?.id, "Director artifact");
   const artifactDetail = await openDirectorArtifactDetail(context.client, openedArtifactId);
@@ -303,17 +266,11 @@ try {
     "director.approval.updated",
     "director.artifact.updated",
     "director.graph.updated",
-    "director.resource_request.updated",
     "director.selection.changed",
     "director.text.delta",
     "director.workstream.updated",
   ]);
   assertExcludes(JSON.stringify(rendererEvents), secretApprovalAnswer, "Director pushed events");
-  assertExcludes(
-    JSON.stringify({ events: rendererEvents, snapshot: beforeRestart }),
-    "not_a_director_decision",
-    "Director renderer state",
-  );
   const durableBeforeRestart = comparableDirectorSnapshot(beforeRestart);
   await writeJson(join(artifactDir, "before-restart.json"), durableBeforeRestart);
 
@@ -321,23 +278,53 @@ try {
   context = null;
   await assertArtifactsExcludeMarkers(
     firstLaunchDir,
-    [secretApprovalAnswer, "not_a_director_decision"],
-    "Director private routing state",
+    [secretApprovalAnswer],
+    "Director private approval state",
   );
 
   context = await launchDirectorElectron(secondLaunchDir);
   backend = await backendProbe(secondLaunchDir);
-  const restoredWorkspaceId = await openWorkspace(context.client);
+  const restoredWorkspaceId = await openFixtureWorkspace(context.client, workflowTimeoutMs);
   assertEqual(restoredWorkspaceId, workspaceId, "restored Director workspace");
   const restored = await readDirectorSnapshot(context.client);
   const durableRestored = comparableDirectorSnapshot(restored);
   assertDeepEqual(durableRestored, durableBeforeRestart, "restored Director snapshot");
-  await readBranch(backend, workspaceId, childConversationId);
+
+  const recalled = await submitDirector(context.client, "What marker did I ask you to remember?");
+  assertEqual(recalled.submit?.replyText, "DIRECTOR_HISTORY_OK", "replayed Director reply");
+  assertEqual(recalled.submit?.toolCalls.length, 0, "replayed Director reply tool-call count");
+
+  const createdAfterRestart = await submitDirector(
+    context.client,
+    "Director create workspace workstream.",
+  );
+  const createCall = createdAfterRestart.submit?.toolCalls.find(
+    (call) => call.tool === "create_workstream" && call.succeeded,
+  );
+  const restartedWorkstreamId = requiredString(
+    createCall?.workstreamId,
+    "post-restart Director workstream",
+  );
+  if (restartedWorkstreamId === rootWorkstreamId) {
+    throw new Error("post-restart Director tool call reused the original workstream");
+  }
+  await waitForDirectorSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.selectedWorkstreamId === restartedWorkstreamId &&
+      snapshot.workstreams.some(
+        (entry) =>
+          entry.workstream.id === restartedWorkstreamId &&
+          entry.workstream.resourceScope.folder?.workspaceId === workspaceId,
+      ),
+  );
+  const providerLifecycle = await readDirectorProviderLifecycle(fakeCodex.statePath);
 
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
-    childWorkstreamId,
     eventCount: rendererEvents.length,
+    providerLifecycle,
+    restartedWorkstreamId,
     rootWorkstreamId,
     status: "passed",
     workspaceSettings,
@@ -372,35 +359,6 @@ async function launchDirectorElectron(launchArtifactDir) {
   await waitForSelector(launched.client, '[data-testid="director-command-center-shell"]');
   await launched.client.installDriver();
   return launched;
-}
-
-async function openWorkspace(client) {
-  const current = await selectedWorkspaceId(client);
-  if (!validWorkspaceId(current)) {
-    const opened = await client.evaluate(`(async () => {
-      const response = await window.setta?.workspace?.openLocalFolder?.();
-      return response?.session?.selectedWorkspaceId ?? "";
-    })()`);
-    if (!validWorkspaceId(opened)) {
-      throw new Error("fixture workspace did not open through preload IPC");
-    }
-  }
-  return waitForState(client, selectedWorkspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
-}
-
-function selectedWorkspaceId(client) {
-  return client.evaluate(selectedWorkspaceIdExpression());
-}
-
-function selectedWorkspaceIdExpression() {
-  return `(async () => {
-    const session = await window.setta?.workspace?.session?.();
-    return session?.selectedWorkspaceId ?? "";
-  })()`;
-}
-
-function validWorkspaceId(workspaceId) {
-  return workspaceId !== "" && workspaceId !== "empty";
 }
 
 async function assertRunningSummaryIsCurrent(client) {
@@ -504,26 +462,63 @@ function submitDirector(client, text) {
   });
 }
 
-async function chooseFolderForResourceRequest(client, requestId) {
-  const selector = `[data-resource-request-id="${requestId}"]`;
-  await waitForSelector(client, selector);
-  const clicked = await client.evaluate(`(() => {
-    const request = document.querySelector(${JSON.stringify(selector)});
-    const button = request instanceof HTMLElement
-      ? Array.from(request.querySelectorAll("button")).find(
-          (candidate) => candidate.textContent?.trim() === "Choose folder" && !candidate.disabled
-        )
-      : null;
-    if (!(button instanceof HTMLButtonElement)) {
-      return { ok: false, reason: "missing-choose-folder" };
-    }
-    button.click();
-    return { ok: true };
-  })()`);
-  if (!clicked.ok) {
-    throw new Error(`Director resource rail could not choose a folder: ${JSON.stringify(clicked)}`);
+async function readDirectorProviderLifecycle(statePath) {
+  const state = JSON.parse(await readFile(statePath, "utf8"));
+  const directorStarts = state.methodLog.filter(
+    (entry) => entry.method === "thread/start" && entry.isDirector === true,
+  );
+  const directorThreadIds = new Set(directorStarts.map((entry) => entry.threadId));
+  const directorInjections = state.methodLog.filter(
+    (entry) => entry.method === "thread/inject_items" && directorThreadIds.has(entry.threadId),
+  );
+  const directorTurns = state.methodLog.filter(
+    (entry) => entry.method === "turn/start" && entry.isDirector === true,
+  );
+  const directorResumes = state.methodLog.filter(
+    (entry) => entry.method === "thread/resume" && directorThreadIds.has(entry.threadId),
+  );
+  if (
+    directorStarts.length !== 2 ||
+    directorStarts.some((entry) => entry.ephemeral !== true) ||
+    new Set(directorStarts.map((entry) => entry.generation)).size !== 2
+  ) {
+    throw new Error(`Director provider starts drifted: ${JSON.stringify(directorStarts)}`);
   }
-  return waitForState(client, selectedWorkspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
+  if (directorInjections.length !== 2 || directorResumes.length !== 0) {
+    throw new Error(
+      `Director provider replay lifecycle drifted: ${JSON.stringify({
+        directorInjections,
+        directorResumes,
+      })}`,
+    );
+  }
+  if (
+    directorTurns.length < 2 ||
+    directorTurns.some((entry) => {
+      const started = directorStarts.find((candidate) => candidate.generation === entry.generation);
+      return started?.threadId !== entry.threadId;
+    })
+  ) {
+    throw new Error(
+      `Director turns did not stay on one provider thread per run: ${JSON.stringify(directorTurns)}`,
+    );
+  }
+  const replayRoles = directorInjections[1]?.injectedRoles;
+  if (
+    !Array.isArray(replayRoles) ||
+    !replayRoles.includes("user") ||
+    !replayRoles.includes("assistant")
+  ) {
+    throw new Error(
+      `Director restart omitted durable conversation roles: ${JSON.stringify(replayRoles)}`,
+    );
+  }
+  return {
+    generations: directorStarts.map((entry) => entry.generation),
+    replayRoles,
+    threadIds: directorStarts.map((entry) => entry.threadId),
+    turnCount: directorTurns.length,
+  };
 }
 
 async function verifyWorkspaceSettings(client, workspaceId) {
@@ -856,20 +851,6 @@ function waitForConversationSnapshot(backend, workspaceId, conversationId, ready
     ready,
     workflowTimeoutMs,
   );
-}
-
-async function readBranch(backend, workspaceId, conversationId) {
-  const page = await backend.post("/conversations/navigator/list", {
-    cursor: null,
-    limit: 50,
-    query: "",
-    workspaceId,
-  });
-  const item = page.items.find((candidate) => candidate.conversation.id === conversationId);
-  if (!item?.branch) {
-    throw new Error(`navigator omitted Director child branch ${conversationId}`);
-  }
-  return item.branch;
 }
 
 function conversationID(workstreamId) {

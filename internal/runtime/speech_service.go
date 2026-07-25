@@ -102,7 +102,12 @@ func (resolver runtimeSpeechSourceResolver) resolveDirectorSpeechText(
 			if decision == nil || decision.IntentID != intentID {
 				continue
 			}
-			return directorDecisionSpeechText(*decision)
+			// One Director turn may act through several tools before it
+			// answers. Those action decisions share the turn's intent id,
+			// but only the final answer owns spoken text.
+			if decision.Decision == director.DirectorDecisionAnswerDirectly {
+				return directorDecisionSpeechText(*decision)
+			}
 		}
 		if len(events) < conversation.MaxCommittedEventReadLimit {
 			break

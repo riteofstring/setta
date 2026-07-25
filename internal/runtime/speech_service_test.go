@@ -33,6 +33,22 @@ func TestRuntimeSpeechSourceResolverResolvesDirectorReplyFacts(t *testing.T) {
 	if _, err := store.EnsureDirectorVoiceSelection(ctx, voice); err != nil {
 		t.Fatalf("EnsureDirectorVoiceSelection: %v", err)
 	}
+	workstreamID := "workstream-created"
+	action := director.DirectorFactEvent{
+		ID:        "director-fact-action",
+		EmittedAt: "2026-07-25T18:00:00.5Z",
+		Kind:      director.DirectorFactDecisionCommitted,
+		Actor:     director.SemanticActorDirector,
+		DecisionCommitted: &director.DirectorDecisionCommitted{
+			Decision:           director.DirectorDecisionCreateWorkstream,
+			IntentID:           "director-intent-answer",
+			PublicSummary:      "Started a workstream.",
+			TargetWorkstreamID: &workstreamID,
+		},
+	}
+	if _, err := director.AppendDirectorFact(ctx, store, action); err != nil {
+		t.Fatalf("AppendDirectorFact action: %v", err)
+	}
 	fact := director.DirectorFactEvent{
 		ID:        "director-fact-answer",
 		EmittedAt: "2026-07-25T18:00:01Z",
@@ -46,7 +62,7 @@ func TestRuntimeSpeechSourceResolverResolvesDirectorReplyFacts(t *testing.T) {
 		},
 	}
 	if _, err := director.AppendDirectorFact(ctx, store, fact); err != nil {
-		t.Fatalf("AppendDirectorFact: %v", err)
+		t.Fatalf("AppendDirectorFact answer: %v", err)
 	}
 
 	resolver := runtimeSpeechSourceResolver{store: store}

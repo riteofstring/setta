@@ -5,32 +5,12 @@ import (
 	"strings"
 )
 
-// The Director decision protocol: the complete authority a routing model has
-// over one submitted intent.
+// The Director's trusted app-action protocol.
 //
-// The catalog itself is DirectorDecisionKinds(); this file owns the payloads
-// the model may author, and decision_authority.go owns the trusted state that
-// bounds them. Five properties distinguish this app-scoped protocol from the
-// superseded conversation router:
-//
-//   - Targets are workstreams. The model never sees a pane id, a provider id,
-//     an execution lease, an approval id, an artifact id, or a filesystem
-//     path, so no decision it returns can carry presentation authority.
-//   - `focus_conversation` became `select_workstream`. It moves app-wide
-//     selection; it does not resolve, open, or focus a pane. The old kind had
-//     to explain in its own schema description that it was not a renderer
-//     command, which is the shape of a contract holding the wrong authority.
-//   - `create_conversation`, `create_side_conversation`, and
-//     `fork_conversation` collapsed into `create_workstream` with a typed
-//     origin. The product difference between them is the new workstream's
-//     parentage, not three separate decisions, and the graph already derives
-//     `delegated_to` from parentage.
-//   - `ask_narrator` is gone. The Director holds the app-scoped snapshot and
-//     the selected workstream's semantic trajectory, so a status question is
-//     `answer_directly`. Delegating it to a per-conversation narrator was a
-//     consequence of the router only knowing pane-visible state.
-//   - `recover_path` makes retry and recovery explicit when durable state
-//     proves that either is the right next action.
+// Setta tool handlers and direct shell commands build these payloads, while
+// decision_authority.go owns the durable state that bounds them. Targets are
+// workstreams and authorized workspace ids; provider, pane, lease, and
+// filesystem identities never cross this boundary.
 
 const (
 	// MaxDecisionIntentTextBytes bounds one submitted intent.
@@ -43,9 +23,9 @@ const (
 	MaxDecisionAnswerBytes = 64 * 1024
 	// MaxDecisionTitleBytes bounds a proposed workstream title.
 	MaxDecisionTitleBytes = 200
-	// MaxDecisionReferenceBytes bounds every id the model may echo back.
+	// MaxDecisionReferenceBytes bounds every id a Director tool may echo back.
 	MaxDecisionReferenceBytes = 512
-	// MaxDecisionExcerptBytes bounds context excerpts shown to the model.
+	// MaxDecisionExcerptBytes bounds context excerpts shown to the Director.
 	MaxDecisionExcerptBytes = 512
 )
 
@@ -73,15 +53,15 @@ type SubmittedIntent struct {
 }
 
 // DecisionFolderResource references a folder resource the app already has
-// open. The model chooses a workspace id from an authorized enum; trusted
-// product code resolves it to the absolute path in a
+// open. The Director chooses a workspace id returned by Setta; trusted product
+// code resolves it to the absolute path in a
 // WorkstreamResourceBinding. Model output never supplies a path.
 type DecisionFolderResource struct {
 	WorkspaceID string `json:"workspaceId"`
 }
 
 // DecisionResourceScope is the scope a new workstream should run in. It is the
-// model-facing half of WorkstreamResourceScope, without the path.
+// Director-facing half of WorkstreamResourceScope, without the path.
 type DecisionResourceScope struct {
 	Kind   WorkstreamResourceScopeKind `json:"kind"`
 	Folder *DecisionFolderResource     `json:"folder"`
@@ -103,7 +83,7 @@ const (
 
 // RootWorkstreamOrigin creates an independent workstream. Only a root
 // workstream chooses its own scope; a child or a fork inherits the parent's,
-// so the model cannot rescope existing work.
+// so the Director cannot rescope existing work.
 type RootWorkstreamOrigin struct {
 	ResourceScope DecisionResourceScope `json:"resourceScope"`
 }
@@ -173,7 +153,8 @@ type RecoverPathDecision struct {
 	FailureEventID string `json:"failureEventId"`
 }
 
-// DirectorDecision is exactly one typed decision for one submitted intent.
+// DirectorDecision is one typed app action or answer produced while serving a
+// submitted intent. A tool-using turn may produce several.
 type DirectorDecision struct {
 	Kind             DirectorDecisionKind      `json:"kind"`
 	AnswerDirectly   *AnswerDirectlyDecision   `json:"answerDirectly"`

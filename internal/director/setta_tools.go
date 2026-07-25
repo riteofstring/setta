@@ -67,12 +67,13 @@ type SettaTool struct {
 // the workstream's own identity and run state and nothing about panes,
 // conversations, provider threads, or filesystem paths.
 type SettaWorkstreamSummary struct {
-	WorkstreamID   string           `json:"workstreamId"`
-	Title          string           `json:"title"`
-	Status         WorkstreamStatus `json:"status"`
-	Selected       bool             `json:"selected"`
-	HasActiveRun   bool             `json:"hasActiveRun"`
-	QueuedRunCount int              `json:"queuedRunCount"`
+	WorkstreamID        string                       `json:"workstreamId"`
+	Title               string                       `json:"title"`
+	Status              WorkstreamStatus             `json:"status"`
+	Selected            bool                         `json:"selected"`
+	HasActiveRun        bool                         `json:"hasActiveRun"`
+	QueuedRunCount      int                          `json:"queuedRunCount"`
+	RecoverableFailures []DecisionRecoverableFailure `json:"recoverableFailures"`
 	// WorkspaceID is the folder the workstream is scoped to, null when it is a
 	// folderless workstream waiting for one.
 	WorkspaceID *string `json:"workspaceId"`
@@ -133,15 +134,15 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 		{
 			Name: "list_workstreams",
 			Description: "List the workstreams the app is currently tracking, with their run state and " +
-				"which one is selected.",
+				"which one is selected, including any durable failures that can be recovered.",
 			InputSchema: settaToolSchema(nil, nil),
 			Handler:     box.listWorkstreams(intent),
 		},
 		{
 			Name: "create_workstream",
 			Description: "Create a new workstream and select it. Supply workspaceId from list_workspaces to " +
-				"scope it to a folder, or omit it for a folderless workstream that will ask the user for one. " +
-				"Supply initialInput to start work immediately.",
+				"scope it to a folder, or set it to null for a folderless workstream that will ask the user for one. " +
+				"Supply initialInput to start work immediately, or set it to null to create the workstream idle.",
 			InputSchema: settaToolSchema(map[string]any{
 				"title":        settaToolString("A short human title for the new workstream.", MaxDecisionTitleBytes),
 				"workspaceId":  settaToolNullableString("The workspace id from list_workspaces, or null for a folderless workstream.", MaxDecisionReferenceBytes),
@@ -260,6 +261,10 @@ func settaWorkstreamSummaries(decisionContext DirectorDecisionContext) []SettaWo
 			Selected:       selected,
 			HasActiveRun:   target.ActiveRunID != nil,
 			QueuedRunCount: target.QueuedRunCount,
+			RecoverableFailures: append(
+				[]DecisionRecoverableFailure{},
+				target.RecoverableFailures...,
+			),
 		}
 		if target.ResourceScope.Kind == WorkstreamResourceScopeFolder {
 			workspaceID := target.ResourceScope.Folder.WorkspaceID

@@ -1,9 +1,9 @@
 package conversation
 
-// DefaultDirectorRoleProfile is the app-global routing role. Its provider
-// call receives no shell, filesystem environment, tools, or prior thread
-// history. Trusted Director context and its output schema carry the complete
-// authority for each isolated decision.
+// DefaultDirectorRoleProfile is the app-global command-center role. Its
+// provider thread receives no shell or filesystem authority; Setta attaches
+// only its typed app-control tools and replays the durable Director
+// conversation.
 func DefaultDirectorRoleProfile() RoleProfile {
 	modelID := "gpt-5.6-terra"
 	return RoleProfile{

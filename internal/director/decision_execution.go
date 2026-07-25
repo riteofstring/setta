@@ -96,8 +96,8 @@ func (executed ExecutedDecision) Validate() error {
 	)
 }
 
-// DecisionExecutor carries out what the command center resolved: the decision a
-// routed request produced, and the commands the user dispatches directly.
+// DecisionExecutor carries out authorized Setta tool actions and the commands
+// the user dispatches directly.
 type DecisionExecutor struct {
 	registry      *Registry
 	execution     WorkstreamExecution
@@ -160,7 +160,7 @@ func NewDecisionExecutor(
 }
 
 // available reports whether the executor can reach the state and the port it
-// needs. It is checked before every effect, routed or dispatched, so a
+// needs. It is checked before every effect, tool-driven or dispatched, so a
 // half-assembled executor is a runtime condition rather than a nil dereference.
 func (executor *DecisionExecutor) available(ctx context.Context) error {
 	if executor == nil || executor.registry == nil || executor.execution == nil {
@@ -242,10 +242,6 @@ func (executor *DecisionExecutor) reply(
 	}, nil
 }
 
-// createWorkstream mints the new workstream's identity, records the decision
-// that created it, and then creates the durable substrate it runs on. The
-// workstream id is derived from the conversation id, so a replay of the log
-// always addresses the same workstream.
 // createWorkstream mints the new workstream, records the decision that created
 // it, creates its durable substrate, and selects it. Selection is part of
 // creating: the user asked for a new workstream, so the one they get is the one

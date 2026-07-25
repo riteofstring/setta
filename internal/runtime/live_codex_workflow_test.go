@@ -26,11 +26,15 @@ func TestBackendDirectorCommandCenterWithLiveCodex(t *testing.T) {
 	config := testConfig(t)
 	config.Version = "test"
 	server, ready := startRuntimeTestServer(t, config)
-	defer shutdownServer(t, server)
+	defer func() {
+		if server != nil {
+			shutdownServer(t, server)
+		}
+	}()
 
 	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 3*time.Minute)
 	baseURL := "http://" + server.Addr()
-	postRuntimeJSON[httpapi.OpenWorkspaceResponse](
+	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](
 		t,
 		client,
 		baseURL,
@@ -38,7 +42,7 @@ func TestBackendDirectorCommandCenterWithLiveCodex(t *testing.T) {
 		httpapi.OpenWorkspaceRequest{RootPath: t.TempDir()},
 		http.StatusOK,
 	)
-	receipt := postRuntimeJSON[director.DirectorReceipt](
+	created := postRuntimeJSON[director.DirectorReceipt](
 		t,
 		client,
 		baseURL,
@@ -46,21 +50,120 @@ func TestBackendDirectorCommandCenterWithLiveCodex(t *testing.T) {
 		httpapi.DispatchDirectorIntentRequest{Intent: director.DirectorIntent{
 			Kind: director.DirectorIntentSubmit,
 			Submit: &director.DirectorSubmitIntent{
-				Text: "Answer this request directly with exactly DIRECTOR_LIVE_OK and no other text. " +
-					"Do not create or select a workstream and do not start work.",
+				Text: "First call setta.list_workspaces. Then use the returned workspace id to create and select " +
+					"an idle workstream titled Live Director workstream; set initialInput to null. " +
+					"After the tool succeeds, answer exactly DIRECTOR_TOOL_HISTORY and no other text.",
 				Modality: director.DecisionIntentModalityText,
 			},
 		}},
 		http.StatusOK,
 	)
-	if receipt.Submit == nil ||
-		len(receipt.Submit.ToolCalls) != 0 ||
-		strings.TrimSpace(receipt.Submit.ReplyText) != "DIRECTOR_LIVE_OK" {
-		encoded, err := json.MarshalIndent(receipt, "", "  ")
+	if created.Submit == nil ||
+		!strings.HasSuffix(strings.TrimSpace(created.Submit.ReplyText), "DIRECTOR_TOOL_HISTORY") {
+		encoded, err := json.MarshalIndent(created, "", "  ")
 		if err != nil {
 			t.Fatalf("encode invalid live Director receipt: %v", err)
 		}
 		t.Fatalf("live Director receipt = %s", encoded)
+	}
+	var createdWorkstreamID string
+	listedWorkspaces := false
+	for _, call := range created.Submit.ToolCalls {
+		switch call.Tool {
+		case "list_workspaces":
+			listedWorkspaces = call.Succeeded
+		case "create_workstream":
+			if call.Succeeded && call.WorkstreamID != nil {
+				createdWorkstreamID = *call.WorkstreamID
+			}
+		}
+	}
+	if !listedWorkspaces || createdWorkstreamID == "" {
+		t.Fatalf("live Director tool calls = %+v, want successful workspace list and create", created.Submit.ToolCalls)
+	}
+	snapshot := getRuntimeJSON[director.DirectorSnapshot](t, client, baseURL, "/director/snapshot")
+	if snapshot.SelectedWorkstreamID == nil || *snapshot.SelectedWorkstreamID != createdWorkstreamID {
+		t.Fatalf("live Director selection = %v, want %s", snapshot.SelectedWorkstreamID, createdWorkstreamID)
+	}
+	var createdWorkstream *director.Workstream
+	for index := range snapshot.Workstreams {
+		if snapshot.Workstreams[index].Workstream.ID == createdWorkstreamID {
+			createdWorkstream = &snapshot.Workstreams[index].Workstream
+			break
+		}
+	}
+	if createdWorkstream == nil ||
+		createdWorkstream.ResourceScope.Kind != director.WorkstreamResourceScopeFolder ||
+		createdWorkstream.ResourceScope.Folder == nil ||
+		createdWorkstream.ResourceScope.Folder.WorkspaceID != opened.Workspace.ID {
+		t.Fatalf("live Director created workstream = %+v, want workspace %s", createdWorkstream, opened.Workspace.ID)
+	}
+
+	firstServer := server
+	server = nil
+	shutdownServer(t, firstServer)
+	server, ready = startRuntimeTestServer(t, config)
+	client = authenticatedRuntimeTestClient(ready.BootstrapToken, 3*time.Minute)
+	baseURL = "http://" + server.Addr()
+
+	reply := postRuntimeJSON[director.DirectorReceipt](
+		t,
+		client,
+		baseURL,
+		"/director/intents/dispatch",
+		httpapi.DispatchDirectorIntentRequest{Intent: director.DirectorIntent{
+			Kind: director.DirectorIntentSubmit,
+			Submit: &director.DirectorSubmitIntent{
+				Text: "Without calling a tool, repeat exactly the marker you gave after creating the workstream " +
+					"in the previous turn.",
+				Modality: director.DecisionIntentModalityText,
+			},
+		}},
+		http.StatusOK,
+	)
+	if reply.Submit == nil ||
+		len(reply.Submit.ToolCalls) != 0 ||
+		!strings.HasSuffix(strings.TrimSpace(reply.Submit.ReplyText), "DIRECTOR_TOOL_HISTORY") {
+		encoded, err := json.MarshalIndent(reply, "", "  ")
+		if err != nil {
+			t.Fatalf("encode invalid live Director conversation reply: %v", err)
+		}
+		t.Fatalf("live Director conversation reply = %s", encoded)
+	}
+
+	restarted := postRuntimeJSON[director.DirectorReceipt](
+		t,
+		client,
+		baseURL,
+		"/director/intents/dispatch",
+		httpapi.DispatchDirectorIntentRequest{Intent: director.DirectorIntent{
+			Kind: director.DirectorIntentSubmit,
+			Submit: &director.DirectorSubmitIntent{
+				Text: "Call setta.list_workstreams. After it succeeds, answer exactly " +
+					"DIRECTOR_RESTART_TOOLS_OK and no other text.",
+				Modality: director.DecisionIntentModalityText,
+			},
+		}},
+		http.StatusOK,
+	)
+	listedWorkstreams := false
+	if restarted.Submit != nil {
+		for _, call := range restarted.Submit.ToolCalls {
+			listedWorkstreams = listedWorkstreams ||
+				(call.Tool == "list_workstreams" && call.Succeeded)
+		}
+	}
+	if restarted.Submit == nil ||
+		!listedWorkstreams ||
+		!strings.HasSuffix(
+			strings.TrimSpace(restarted.Submit.ReplyText),
+			"DIRECTOR_RESTART_TOOLS_OK",
+		) {
+		encoded, err := json.MarshalIndent(restarted, "", "  ")
+		if err != nil {
+			t.Fatalf("encode invalid restarted live Director receipt: %v", err)
+		}
+		t.Fatalf("restarted live Director receipt = %s", encoded)
 	}
 }
 

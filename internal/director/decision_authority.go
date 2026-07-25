@@ -7,15 +7,14 @@ import (
 
 // The trusted state that bounds a Director decision.
 //
-// Everything the model may name comes from here, and nothing here is model
-// authored. A target's AllowedDecisionKinds is the only action authority it
-// carries; its fork points and recoverable failures are the only ids a create
-// or recover decision may reference. The schema is generated from this
-// context and the returned decision is validated against it again, so a
-// provider that ignores its own schema cannot widen authority.
+// Everything a Setta tool may name comes from here, and nothing here is
+// provider-authored. A target's AllowedDecisionKinds is the only action
+// authority it carries; its fork points and recoverable failures are the only
+// ids a create or recover action may reference. Every tool call is validated
+// against this context immediately before trusted code executes it.
 
 const (
-	// MaxDecisionWorkstreamTargets bounds the authoritative routing set.
+	// MaxDecisionWorkstreamTargets bounds the authoritative tool target set.
 	MaxDecisionWorkstreamTargets = 24
 	// MaxDecisionWorkspaceOptions bounds the folder resources a new workstream
 	// may be scoped to.
@@ -32,8 +31,8 @@ const (
 )
 
 // DecisionWorkspaceOption is one folder resource a new root workstream may be
-// scoped to. The name is context for the model; the id is the only value a
-// decision may echo back.
+// scoped to. The name is context for the Director; the id is the only value a
+// tool call may echo back.
 type DecisionWorkspaceOption struct {
 	WorkspaceID   string `json:"workspaceId"`
 	WorkspaceName string `json:"workspaceName"`
@@ -58,7 +57,7 @@ type DecisionRecoverableFailure struct {
 // DecisionMilestone is the last meaningful public fact of one workstream, told
 // to the Director so it can tell active work apart from stalled work. It is
 // WorkstreamMilestone without the graph node id: a node id is a renderer
-// identity, and an id the model can echo back into a decision it does not
+// identity, and an id the Director can echo back into a decision it does not
 // authorize is authority the context never meant to hand over.
 type DecisionMilestone struct {
 	Kind          SemanticNodeKind `json:"kind"`

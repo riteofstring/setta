@@ -4,15 +4,14 @@ import "fmt"
 
 // The trusted execution state a decision is carried out against.
 //
-// The decision protocol tells the Director what it may decide; this tells
-// trusted product code what carrying that decision out addresses. Both come
-// from the same durable fold, so the workstream the schema offered and the
-// conversation the work runs on cannot be resolved from two derivations that
-// disagree.
+// The tool boundary tells the Director what it may act on; this tells trusted
+// product code what carrying that action out addresses. Both come from the same
+// durable fold, so an offered workstream and its execution conversation cannot
+// be resolved from two derivations that disagree.
 
 // WorkstreamExecutionTarget is the durable substrate one workstream executes
-// on. It is trusted state: the model never sees a conversation id, a folder, or
-// a run id it did not receive as an authorized reference.
+// on. It is trusted state: the Director never sees a conversation id, a folder
+// path, or a run id it did not receive as an authorized reference.
 type WorkstreamExecutionTarget struct {
 	WorkstreamID   string
 	ConversationID string
@@ -47,7 +46,7 @@ func (registry *Registry) ExecutionTarget(workstreamID string) (WorkstreamExecut
 }
 
 // RecoverableRun resolves the run one recoverable failure interrupted. The
-// model names a durable failure event; the run it belongs to is trusted state,
+// Director names a durable failure event; the run it belongs to is trusted state,
 // so a recovery restarts the work that actually failed rather than work the
 // decision claimed.
 func (registry *Registry) RecoverableRun(workstreamID string, failureEventID string) (string, error) {

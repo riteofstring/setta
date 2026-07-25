@@ -19,10 +19,10 @@ import (
 // startup and then blocks on the store's committed-event wake.
 //
 // The command center is assembled from three pieces that stay separable: the
-// registry is what is durably true, the router is what one request means, and
-// the executor is how a decision becomes work. Only this file knows that the
-// Director decides through a provider and executes through the local
-// conversation service.
+// registry is what is durably true, the Director thread decides whether to talk
+// or call a Setta tool, and the executor turns authorized tool calls into work.
+// Only this file joins the provider conversation to the local conversation
+// service.
 
 // directorRuntimeDirectoryName holds the isolated, read-only working directory
 // the Director conversation runs in. The Director coordinates workstreams and

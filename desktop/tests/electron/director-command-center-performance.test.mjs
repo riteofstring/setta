@@ -5,7 +5,11 @@ import { rm } from "node:fs/promises";
 import { delimiter, join } from "node:path";
 import process from "node:process";
 
-import { backendProbe, waitForBackendState } from "./electron-workflow-harness.mjs";
+import {
+  backendProbe,
+  openFixtureWorkspace,
+  waitForBackendState,
+} from "./electron-workflow-harness.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
@@ -85,7 +89,7 @@ let summary = null;
 try {
   context = await launchDirectorElectron(initialLaunchDir);
   let backend = await backendProbe(initialLaunchDir);
-  const workspaceId = await openWorkspace(context.client);
+  const workspaceId = await openFixtureWorkspace(context.client, workflowTimeoutMs);
   const selectedScenarios = selectScenarios(workflowArgs.scenarios);
   const results = [];
   const rootWorkstreamId = await bootstrapRootWorkstream(context.client, workspaceId);
@@ -218,7 +222,7 @@ try {
     context = null;
     context = await launchDirectorElectron(restartLaunchDir);
     backend = await backendProbe(restartLaunchDir);
-    const restoredWorkspaceId = await openWorkspace(context.client);
+    const restoredWorkspaceId = await openFixtureWorkspace(context.client, workflowTimeoutMs);
     if (restoredWorkspaceId !== workspaceId) {
       throw new Error(`restart restored workspace ${restoredWorkspaceId}, want ${workspaceId}`);
     }
@@ -397,12 +401,23 @@ async function measureScenario(client, scenario, run, tier = "laptop") {
 
 async function bootstrapRootWorkstream(client, workspaceId) {
   const folderlessReceipt = await submitDirector(client, "Director create folderless.");
-  const rootWorkstreamId = requiredString(folderlessReceipt.submit?.workstreamId, "workstream");
+  const createCall = folderlessReceipt.submit?.toolCalls.find(
+    (call) => call.tool === "create_workstream" && call.succeeded,
+  );
+  const rootWorkstreamId = requiredString(createCall?.workstreamId, "workstream");
+  const awaiting = await waitForDirectorSnapshot(
+    client,
+    (snapshot) =>
+      awaitingResource(snapshot, rootWorkstreamId) &&
+      snapshot.unresolvedResourceRequests.some(
+        (request) => request.workstreamId === rootWorkstreamId,
+      ),
+  );
   const resourceRequestId = requiredString(
-    folderlessReceipt.submit?.resourceRequestId,
+    awaiting.unresolvedResourceRequests.find((request) => request.workstreamId === rootWorkstreamId)
+      ?.id,
     "resource request",
   );
-  await waitForDirectorSnapshot(client, (snapshot) => awaitingResource(snapshot, rootWorkstreamId));
   await dispatchDirector(client, {
     kind: "resolve_resource_request",
     resolveResourceRequest: { requestId: resourceRequestId, workspaceId },
@@ -666,35 +681,6 @@ async function seedNavigationWorkstreams(client, backend, workspaceId) {
     client,
     (snapshot) => snapshot.aggregates.workstreamCount >= navigationWorkstreamTarget,
   );
-}
-
-async function openWorkspace(client) {
-  const current = await selectedWorkspaceId(client);
-  if (!validWorkspaceId(current)) {
-    const opened = await client.evaluate(`(async () => {
-      const response = await window.setta?.workspace?.openLocalFolder?.();
-      return response?.session?.selectedWorkspaceId ?? "";
-    })()`);
-    if (!validWorkspaceId(opened)) {
-      throw new Error("fixture workspace did not open through preload IPC");
-    }
-  }
-  return waitForState(client, selectedWorkspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
-}
-
-function selectedWorkspaceId(client) {
-  return client.evaluate(selectedWorkspaceIdExpression());
-}
-
-function selectedWorkspaceIdExpression() {
-  return `(async () => {
-    const session = await window.setta?.workspace?.session?.();
-    return session?.selectedWorkspaceId ?? "";
-  })()`;
-}
-
-function validWorkspaceId(workspaceId) {
-  return workspaceId !== "" && workspaceId !== "empty";
 }
 
 function waitForShellReady(client) {

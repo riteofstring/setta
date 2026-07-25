@@ -7,11 +7,10 @@ import (
 
 // Strict trusted-target validation.
 //
-// A decision passes only if the trusted context that produced the schema also
-// authorizes the exact kind, target, fork point, failure, and resource scope
-// it names. Every rejection carries a typed reason, because the recovery
-// policy routes on the reason and the user-facing text is derived from it
-// rather than from provider output.
+// A decision passes only if current trusted context authorizes the exact kind,
+// target, fork point, failure, and resource scope it names. Tool refusals keep
+// that rejection inside the Director conversation so the Director can repair
+// its call or ask the user a useful question.
 
 // ValidateDecisionAuthority rejects a decision the supplied context did not
 // authorize. It re-runs the decision's own shape validation first, so a caller

@@ -104,7 +104,7 @@ func (caller *directorThreadCaller) StartDirectorThread(
 	if ctx == nil {
 		return director.DirectorProviderThread{}, errors.New("director thread context is required")
 	}
-	invocation, err := caller.invocation(ctx)
+	invocation, maxInputBytes, err := caller.invocation(ctx)
 	if err != nil {
 		return director.DirectorProviderThread{}, err
 	}
@@ -115,13 +115,18 @@ func (caller *directorThreadCaller) StartDirectorThread(
 	thread, err := caller.provider.StartThread(ctx, agent.StartThreadRequest{
 		WorkspaceRoot:         caller.workspaceRoot,
 		Invocation:            invocation,
+		Ephemeral:             true,
 		DeveloperInstructions: request.Instructions,
 		DynamicTools:          tools,
 	})
 	if err != nil {
 		return director.DirectorProviderThread{}, fmt.Errorf("start director thread: %w", err)
 	}
-	if err := caller.replay(ctx, thread.ID, request.History); err != nil {
+	if err := caller.replay(
+		ctx,
+		thread.ID,
+		directorHistoryWithinBudget(request.History, maxInputBytes),
+	); err != nil {
 		return director.DirectorProviderThread{}, err
 	}
 	return director.DirectorProviderThread{ThreadID: thread.ID, Model: thread.Model}, nil
@@ -153,6 +158,28 @@ func (caller *directorThreadCaller) replay(
 	return caller.provider.InjectItems(ctx, threadID, items)
 }
 
+// directorHistoryWithinBudget keeps the newest complete turns that fit the
+// Director role's input budget. Setta history is append-only and can outgrow a
+// provider request; dropping a whole oldest turn preserves causal replay.
+func directorHistoryWithinBudget(
+	history []director.DirectorThreadHistoryItem,
+	maxInputBytes int,
+) []director.DirectorThreadHistoryItem {
+	total := 0
+	for _, entry := range history {
+		total += len(entry.Text)
+	}
+	first := 0
+	for first < len(history) && total > maxInputBytes {
+		turnID := history[first].TurnID
+		for first < len(history) && history[first].TurnID == turnID {
+			total -= len(history[first].Text)
+			first++
+		}
+	}
+	return append([]director.DirectorThreadHistoryItem{}, history[first:]...)
+}
+
 const directorThreadInitialization = "Setta started this Director conversation. This is an inert history marker, not a request. Respond only to later user turns."
 
 // RunDirectorTurn runs one Director turn and returns the assistant text it
@@ -168,9 +195,17 @@ func (caller *directorThreadCaller) RunDirectorTurn(
 	if ctx == nil {
 		return "", errors.New("director turn context is required")
 	}
-	invocation, err := caller.invocation(ctx)
+	invocation, maxInputBytes, err := caller.invocation(ctx)
 	if err != nil {
 		return "", err
+	}
+	if len(request.Text) > maxInputBytes {
+		return "", fmt.Errorf(
+			"%w: the submitted request needs %d bytes, and the Director role allows %d",
+			director.ErrDirectorIntentRejected,
+			len(request.Text),
+			maxInputBytes,
+		)
 	}
 	tools, err := directorDynamicTools(request.Tools)
 	if err != nil {
@@ -197,33 +232,56 @@ func (caller *directorThreadCaller) RunDirectorTurn(
 	if result.Outcome != agent.TurnOutcomeCompleted {
 		return "", fmt.Errorf("director turn %s ended as %s", request.TurnID, result.Outcome)
 	}
-	return sink.text, nil
+	return sink.replyText(), nil
 }
 
 // invocation resolves the app-global Director role for one provider call. It is
 // resolved per call rather than cached, because the user can change the
 // Director's model while the conversation is running.
-func (caller *directorThreadCaller) invocation(ctx context.Context) (agent.Invocation, error) {
+func (caller *directorThreadCaller) invocation(ctx context.Context) (agent.Invocation, int, error) {
 	configuration, err := caller.roles.ResolveDirectorRoleConfiguration(ctx)
 	if err != nil {
-		return agent.Invocation{}, fmt.Errorf("resolve director role: %w", err)
+		return agent.Invocation{}, 0, fmt.Errorf("resolve director role: %w", err)
 	}
-	return configuration.PinnedInvocation()
+	invocation, err := configuration.PinnedInvocation()
+	if err != nil {
+		return agent.Invocation{}, 0, err
+	}
+	return invocation, configuration.MaxInputBytes, nil
 }
 
 // directorTurnSink collects the Director's own words. Everything else the turn
 // emits — activity, plans, reasoning — belongs to the graph rather than to the
 // reply, and the durable facts the tool calls commit are what carry it there.
 type directorTurnSink struct {
-	text string
+	completedText string
+	deltaText     string
 }
 
 func (sink *directorTurnSink) HandleAgentEvent(event agent.Event) error {
-	if event.Kind != agent.EventKindAgentTextDelta || event.Text == nil {
+	if event.Text == nil {
 		return nil
 	}
-	sink.text += event.Text.Text
+	switch event.Kind {
+	case agent.EventKindAgentTextDelta:
+		sink.deltaText += event.Text.Text
+	case agent.EventKindAgentTextCompleted:
+		if sink.completedText != "" {
+			sink.completedText += "\n"
+		}
+		sink.completedText += event.Text.Text
+	}
 	return nil
+}
+
+// replyText prefers completed provider items, which are the authoritative
+// assistant messages. Deltas remain a fallback for a provider that completed a
+// turn without publishing its final item.
+func (sink *directorTurnSink) replyText() string {
+	if sink.completedText != "" {
+		return sink.completedText
+	}
+	return sink.deltaText
 }
 
 // directorDynamicTools translates the Setta catalog into the provider's

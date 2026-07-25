@@ -771,16 +771,20 @@ func injectedItems(items []InjectedTextItem) ([]json.RawMessage, error) {
 	}
 	encoded := make([]json.RawMessage, 0, len(items))
 	for index, item := range items {
-		if item.Role != "user" && item.Role != "developer" {
+		if item.Role != "user" && item.Role != "developer" && item.Role != "assistant" {
 			return nil, fmt.Errorf("injected item %d has unsupported role %q", index, item.Role)
 		}
 		if strings.TrimSpace(item.Text) == "" {
 			return nil, fmt.Errorf("injected item %d text is required", index)
 		}
+		contentType := "input_text"
+		if item.Role == "assistant" {
+			contentType = "output_text"
+		}
 		raw, err := json.Marshal(map[string]any{
 			"type":    "message",
 			"role":    item.Role,
-			"content": []map[string]string{{"type": "input_text", "text": item.Text}},
+			"content": []map[string]string{{"type": contentType, "text": item.Text}},
 		})
 		if err != nil {
 			return nil, fmt.Errorf("encode injected item %d: %w", index, err)

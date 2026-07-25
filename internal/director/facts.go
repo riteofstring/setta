@@ -12,8 +12,8 @@ import "fmt"
 // list. Each one is committed here as a typed event instead.
 
 // DirectorDecisionKind is the catalog of decisions the Director may commit for
-// one submitted intent. The model chooses a kind and a target only from the ones
-// trusted application state authorized; trusted product code attaches the ids.
+// one submitted intent. Setta tools choose a kind and target only from current
+// trusted application state; trusted product code attaches durable ids.
 type DirectorDecisionKind string
 
 const (
@@ -31,8 +31,8 @@ const (
 	DirectorDecisionSteerRun DirectorDecisionKind = "steer_run"
 	// DirectorDecisionSelectWorkstream focuses an existing workstream.
 	DirectorDecisionSelectWorkstream DirectorDecisionKind = "select_workstream"
-	// DirectorDecisionRecoverPath retries or recovers a failed routing or
-	// execution path that durable state proves is the right next action.
+	// DirectorDecisionRecoverPath retries or recovers a failed execution path
+	// that durable state proves is the right next action.
 	DirectorDecisionRecoverPath DirectorDecisionKind = "recover_path"
 )
 
@@ -86,13 +86,12 @@ type DirectorWorkstreamResourceBound struct {
 }
 
 // DirectorDecisionCommitted is a Director decision that already passed trusted
-// validation. Trusted code derives its ids and public summary. The decision
-// kind and any answer or clarification text may originate from model output.
+// validation. Trusted code derives its ids and public summary. Tool arguments
+// and answer text may originate from provider output.
 type DirectorDecisionCommitted struct {
 	Decision DirectorDecisionKind `json:"decision"`
-	// IntentID is the submitted intent this decision answered. One intent
-	// produces exactly one decision, so the id is what lets a later decision be
-	// read as continuity rather than as an unrelated event.
+	// IntentID is the submitted intent this decision served. A tool-using turn
+	// can commit several action decisions and then an answer under the same id.
 	IntentID      string `json:"intentId"`
 	PublicSummary string `json:"publicSummary"`
 	// TargetWorkstreamID is the authorized target trusted code attached. It is

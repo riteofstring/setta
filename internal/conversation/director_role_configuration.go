@@ -14,10 +14,10 @@ type DirectorModelCatalogResolver interface {
 	ResolveInvocation(context.Context, agent.Invocation) (agent.ResolvedInvocation, error)
 }
 
-// DirectorRoleConfiguration freezes the exact provider resolution used for
-// one fresh Director decision call. The requested role profile stays
-// canonical JSON so the configuration owner can validate the provider
-// invocation against the profile that authorized it.
+// DirectorRoleConfiguration freezes the exact provider resolution used for a
+// Director provider call. The requested role profile stays canonical JSON so
+// the configuration owner can validate the provider invocation against the
+// profile that authorized it.
 type DirectorRoleConfiguration struct {
 	RequestedProfile   json.RawMessage          `json:"requestedProfile"`
 	ResolvedInvocation agent.ResolvedInvocation `json:"resolvedInvocation"`
