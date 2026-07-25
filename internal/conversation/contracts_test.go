@@ -239,7 +239,7 @@ func TestConversationEventRejectsMismatchedDiscriminatorAndOwnership(t *testing.
 func validConversationSnapshot() ConversationSnapshot {
 	conversation := TopicConversation{
 		ID:          "conversation-1",
-		WorkspaceID: stringPointer("workspace-1"),
+		WorkspaceID: "workspace-1",
 		Title:       "Generated conversation contracts",
 		Status:      ConversationStatusIdle,
 		CreatedAt:   testTimeStarted,

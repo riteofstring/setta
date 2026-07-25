@@ -19,11 +19,11 @@ func (handler handler) createTopicConversation(response http.ResponseWriter, req
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	if payload.WorkspaceID != nil && *payload.WorkspaceID != strings.TrimSpace(*payload.WorkspaceID) {
-		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_create_request", "workspace id must not have surrounding whitespace")
+	if strings.TrimSpace(payload.WorkspaceID) == "" || payload.WorkspaceID != strings.TrimSpace(payload.WorkspaceID) {
+		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_create_request", "workspace id is required without surrounding whitespace")
 		return
 	}
-	snapshot, err := service.CreateTopicWithOptionalWorkspace(request.Context(), payload.WorkspaceID, payload.Title)
+	snapshot, err := service.CreateTopic(request.Context(), payload.WorkspaceID, payload.Title)
 	if err != nil {
 		writeConversationError(response, "create_topic_conversation_failed", err)
 		return
@@ -51,31 +51,6 @@ func (handler handler) archiveTopicConversation(response http.ResponseWriter, re
 	)
 	if err != nil {
 		writeConversationError(response, "archive_topic_conversation_failed", err)
-		return
-	}
-	writeConversationSnapshot(response, snapshot)
-}
-
-func (handler handler) bindTopicConversationFolder(response http.ResponseWriter, request *http.Request) {
-	service := requireConversationService(response, handler.conversationService)
-	if service == nil {
-		return
-	}
-	var payload BindTopicConversationFolderRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
-		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_folder_bind_request", err.Error())
-		return
-	}
-	snapshot, err := service.BindFolderResource(
-		request.Context(),
-		payload.WorkspaceID,
-		payload.ConversationID,
-	)
-	if err != nil {
-		writeConversationError(response, "bind_topic_conversation_folder_failed", err)
 		return
 	}
 	writeConversationSnapshot(response, snapshot)

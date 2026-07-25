@@ -10,6 +10,8 @@
   Object.assign(driver, {
     settingsPageClickBack,
     settingsPageClickDesktopSettingsButton,
+    settingsPageClickMobileProjectSettingsButton,
+    settingsPageClickMobileProjectToggle,
     settingsPageClickMobileSettingsButton,
     settingsPageClickSettingsButton,
     settingsPageClickShellVoiceSetup,
@@ -30,8 +32,18 @@
     return clickButtonBySelector('[data-testid="workspace-mobile-settings"]');
   }
 
+  function settingsPageClickMobileProjectToggle() {
+    return clickButtonBySelector('[data-testid="workspace-mobile-project-toggle"]');
+  }
+
+  function settingsPageClickMobileProjectSettingsButton() {
+    return clickButtonBySelector(
+      '[data-testid="mobile-project-pane"] button[aria-label="Open settings"]',
+    );
+  }
+
   function settingsPageClickBack() {
-    const button = settingsPageButtonByText("Back to panes");
+    const button = settingsPageButtonByText("Back to workspace");
     if (!button || button.disabled) {
       return { clicked: false };
     }
@@ -74,6 +86,7 @@
       ...settingsShellState(settingsPage, workspaceShell),
       ...settingsChromeState(),
       ...runtimeState(runtime),
+      emptyWorkspaceVisible: hasTestId("workspace-empty-state"),
       layoutRecoveryVisible: hasTestId("workspace-layout-recovery"),
       nativeViewStats,
     };
@@ -82,6 +95,7 @@
   function settingsChromeState() {
     return {
       mobileBarVisible: hasTestId("workspace-mobile-bar"),
+      mobileProjectPaneVisible: hasTestId("mobile-project-pane"),
       shellTopBarVisible: hasTestId("shell-top-bar"),
     };
   }
@@ -136,7 +150,7 @@
           : "",
       openAIVoiceCardFocused: document.activeElement === openAIVoiceCard,
       openAIVoiceCardVisible: openAIVoiceCard !== null,
-      settingsBackVisible: Boolean(settingsPageButtonByText("Back to panes")),
+      settingsBackVisible: Boolean(settingsPageButtonByText("Back to workspace")),
       settingsPageCoversViewport: coversViewport(settingsPage),
       settingsPageOpen: settingsPage !== null,
       settingsPageRole: settingsPage?.getAttribute("role") ?? "",

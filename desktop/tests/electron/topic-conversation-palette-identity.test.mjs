@@ -8,9 +8,9 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
+  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
-  openFixtureWorkspace,
   parseElectronHarnessArgs,
   reloadPage,
   stopElectronCdpContext,
@@ -73,7 +73,7 @@ try {
     "Alpha palette identity",
     workflowTimeoutMs,
   );
-  await closeUnexpectedConversationPanes(context.client, [alpha.id]);
+  await disposeInitialEasyButtonPane(context.client, [alpha.id]);
   const beta = await createTopic(
     context.client,
     backend,
@@ -197,24 +197,35 @@ async function prepareRenderer(client) {
 }
 
 async function openWorkspace(client) {
-  const current = await client.evaluate(workspaceIdExpression());
-  if (!validWorkspaceId(current)) {
-    await openFixtureWorkspace(client, workflowTimeoutMs);
+  const initial = await waitForState(
+    client,
+    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
+    (state) => state.openButtonReady || validWorkspaceId(state.workspaceId),
+    workflowTimeoutMs,
+  );
+  if (!validWorkspaceId(initial.workspaceId)) {
+    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
   }
-  return waitForState(client, workspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
+  const opened = await waitForState(
+    client,
+    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
+    (state) => validWorkspaceId(state.workspaceId),
+    workflowTimeoutMs,
+  );
+  return opened.workspaceId;
 }
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
 }
 
-function workspaceIdExpression() {
-  return `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`;
-}
-
-async function closeUnexpectedConversationPanes(client, keptConversationIds) {
-  // Keep only the fixture topic pane so palette assertions are not affected by
-  // any previously restored conversation panes in the app layout.
+async function disposeInitialEasyButtonPane(client, keptConversationIds) {
+  // The first-run feature guarantees an easy-button pane on an empty workspace, so
+  // this test's topics open alongside an auto "New conversation" pane. Close it
+  // while exactly one real pane exists (the survivor stays focused/live, and there
+  // is no far neighbor to strand), restoring the pristine layout the palette checks
+  // assume. `useInitialEasyButtonPane` marks the workspace handled, so it is not
+  // recreated.
   const kept = new Set(keptConversationIds);
   const state = await waitForState(
     client,
@@ -222,13 +233,10 @@ async function closeUnexpectedConversationPanes(client, keptConversationIds) {
     (current) =>
       keptConversationIds.every((id) =>
         current.surfaces.some((surface) => surface.conversationId === id),
-      ),
+      ) && current.surfaces.some((surface) => !kept.has(surface.conversationId)),
     workflowTimeoutMs,
   );
   const auto = state.surfaces.find((surface) => !kept.has(surface.conversationId));
-  if (!auto) {
-    return;
-  }
   assertDriverAction(
     await client.driver("topicConversationCloseOneBoundPane", {
       conversationId: auto.conversationId,
@@ -424,9 +432,6 @@ async function assertReducedMotionNavigatorPresentation(client, topic) {
   });
   try {
     const state = await waitForNavigator(client, topic.id, 1, workflowTimeoutMs);
-    if (state.rowCount === 0) {
-      return;
-    }
     if (state.presentationTransitionDuration !== "0s") {
       throw new Error(
         `conversation palette navigator ignored reduced motion: ${JSON.stringify({ state, topic })}`,
@@ -438,9 +443,6 @@ async function assertReducedMotionNavigatorPresentation(client, topic) {
 }
 
 function assertPaletteNavigatorPresentation(state, topic, expectCurrent) {
-  if (state.rowCount === 0) {
-    return;
-  }
   const current = state.current === "page";
   if (
     state.paletteId !== topic.paletteId ||
@@ -462,20 +464,19 @@ async function waitForPersistedTopicPanes(
   betaId,
   singlePaneConversationIds = [],
 ) {
-  void workspaceId;
   return waitForBackendState(
-    () => backend.get("/app/panes/layout"),
+    () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
     (result) => {
       const topicPanes =
-        result.layout?.panes.filter((pane) => pane.surfaceKind === "conversation") ?? [];
+        result.layout?.panes.filter((pane) => pane.surfaceKind === "easy-button") ?? [];
       return (
-        topicPanes.filter((pane) => pane.conversationConfig?.conversationId === alphaId).length ===
+        topicPanes.filter((pane) => pane.easyButtonConfig?.conversationId === alphaId).length ===
           1 &&
-        topicPanes.filter((pane) => pane.conversationConfig?.conversationId === betaId).length ===
+        topicPanes.filter((pane) => pane.easyButtonConfig?.conversationId === betaId).length ===
           1 &&
         singlePaneConversationIds.every(
           (conversationId) =>
-            topicPanes.filter((pane) => pane.conversationConfig?.conversationId === conversationId)
+            topicPanes.filter((pane) => pane.easyButtonConfig?.conversationId === conversationId)
               .length === 1,
         )
       );
@@ -552,9 +553,9 @@ function paletteProfileIdentity(items, conversationIds) {
 
 function palettePaneIdentity(panes) {
   return panes
-    .filter((pane) => pane.surfaceKind === "conversation")
+    .filter((pane) => pane.surfaceKind === "easy-button")
     .map((pane) => ({
-      conversationId: pane.conversationConfig?.conversationId ?? "",
+      conversationId: pane.easyButtonConfig?.conversationId ?? "",
       paneId: pane.paneId,
     }))
     .sort((left, right) => left.paneId.localeCompare(right.paneId));

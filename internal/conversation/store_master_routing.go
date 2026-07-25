@@ -234,9 +234,6 @@ WHERE id = ? AND archived_at IS NULL
 	if err != nil {
 		return master.RouteConversationTarget{}, false, fmt.Errorf("read master route target %s: %w", conversationID, err)
 	}
-	if conversation.WorkspaceID == nil {
-		return master.RouteConversationTarget{}, false, nil
-	}
 	openPaneIDs, openPaneCount, err := readMasterRouteTargetPanes(ctx, reader, conversationID)
 	if err != nil {
 		return master.RouteConversationTarget{}, false, err
@@ -261,7 +258,7 @@ WHERE id = ? AND archived_at IS NULL
 	}
 	target := master.RouteConversationTarget{
 		ConversationID:       conversation.ID,
-		WorkspaceID:          *conversation.WorkspaceID,
+		WorkspaceID:          conversation.WorkspaceID,
 		Title:                conversation.Title,
 		Status:               string(conversation.Status),
 		OpenPaneIDs:          openPaneIDs,
@@ -787,7 +784,7 @@ func failMasterInputRoutingTransaction(
 	dbPath string,
 	failure master.InputRoutingFailure,
 ) error {
-	accepted, status, attempt, startedAt, err := readMasterRouteCommitInput(
+	_, status, attempt, startedAt, err := readMasterRouteCommitInput(
 		transaction.ctx,
 		transaction.tx,
 		failure.InputID,
@@ -836,10 +833,7 @@ WHERE id = ? AND routing_status = ? AND routing_attempt = ? AND routing_started_
 		Payload:     failure,
 		CommittedAt: failure.FailedAt,
 	})
-	if err != nil {
-		return err
-	}
-	return appendMasterTranscriptFailure(transaction, accepted, failure)
+	return err
 }
 
 func (store *Store) RecoverMasterInputRouting(ctx context.Context, recoveredAt string) error {
