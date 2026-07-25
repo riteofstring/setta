@@ -1,5 +1,5 @@
 import type { ConversationPaneResourceBinding, WorkspaceSession } from "@generated/backend";
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 
 import type { ConversationProjection } from "../../stores/conversation-projection";
 import {
@@ -52,7 +52,7 @@ export function EasyButtonSurface({
   const workspaceAvailable =
     workspaceScopeResolved &&
     (workspaceAvailability(workspaceSession, effectiveWorkspaceId)?.available ?? false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (effectiveWorkspaceId === undefined) {
       return;
     }

@@ -1,8 +1,7 @@
 # Master Folderless Conversation Routing Plan
 
 **Date:** 2026-07-23
-**Status:** Plan of record for making the master agent able to find, focus, reopen, and route to
-folderless conversations.
+**Status:** Implemented and final-audited.
 
 ## Product Decision
 
@@ -256,12 +255,14 @@ all folderless conversation UX.
 
 ### 8. Verify Through Production Paths
 
-**Repository status:** Implemented. Focused backend tests cover the folderless
+**Repository status:** Implemented and final-audited. Focused backend tests cover the folderless
 index/retrieval/target/authority/clarification pieces, and the deterministic
 `master-folderless-routing` Electron workflow covers no-folder master submission, folderless
 master-created conversations, semantic content lookup, focus, reopen, clarification confirmation,
-folder-resource request surfacing, and the no-workspace-selection invariant. Broad deterministic and
-live-provider final-audit gates remain pending.
+folder-resource request surfacing, and the no-workspace-selection invariant. Final audit evidence:
+`./scripts/format.sh`, `./check_quality.sh --git-changes`,
+`pnpm -C desktop run test:electron:built`, and
+`./scripts/test_topic_conversation_workflows.sh --skip-build --live-only` passed on 2026-07-24.
 
 Because this touches master routing, topic-conversation state, pane presentation, generated
 contracts, IPC/preload, renderer state, HTTP, and persistence, deterministic Electron E2E coverage is

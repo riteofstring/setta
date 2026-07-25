@@ -1434,13 +1434,10 @@ async function submitAndWaitForQueue(client, conversationId, text, queueCount) {
 }
 
 async function closeConversationPane(client, conversationId) {
-  assertDriverAction(
-    await client.driver("topicConversationCloseOneBoundPane", { conversationId }),
-    "clicked",
-  );
-  await waitForConversationSurfaces(client, (surfaces) =>
-    surfaces.every((surface) => surface.conversationId !== conversationId),
-  );
+  const closed = await client.driver("appPaneLayoutCloseConversationPane", { conversationId });
+  if (closed?.status !== "passed") {
+    throw new Error(`conversation pane did not close: ${JSON.stringify(closed)}`);
+  }
 }
 
 async function waitForConversationSurfaces(client, ready) {
