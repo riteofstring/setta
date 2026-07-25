@@ -14,8 +14,11 @@ describe("conversation pane binding store", () => {
   test("indexes optional pane ids and the focused conversation without duplicate rows", () => {
     const store = workspaceStore();
     const paneId = store.openPane({
-      easyButtonConfig: { conversationId: "conversation_shared" },
-      surfaceKind: "easy-button",
+      conversationConfig: {
+        conversationId: "conversation_shared",
+        resourceBindings: [{ folder: { rootPath: "/tmp/api" }, kind: "folder" }],
+      },
+      surfaceKind: "conversation",
     });
     store.focusPane(paneId);
 
@@ -25,8 +28,14 @@ describe("conversation pane binding store", () => {
 
     const workspace = useConversationPaneStore.getState().workspaces.get("workspace_api");
     expect(workspace?.focusedConversationId).toBe("conversation_shared");
+    expect(workspace?.focusedConversationResourceBindings).toEqual([
+      { folder: { rootPath: "/tmp/api" }, kind: "folder" },
+    ]);
     expect(workspace?.focusedPaneId).toBe(paneId);
     expect(workspace?.paneIdByConversationId.get("conversation_shared")).toBe(paneId);
+    expect(workspace?.resourceBindingsByConversationId.get("conversation_shared")).toEqual([
+      { folder: { rootPath: "/tmp/api" }, kind: "folder" },
+    ]);
 
     store.focusPane("workspace_pane_0");
     useConversationPaneStore
@@ -35,6 +44,7 @@ describe("conversation pane binding store", () => {
 
     expect(useConversationPaneStore.getState().workspaces.get("workspace_api")).toMatchObject({
       focusedConversationId: null,
+      focusedConversationResourceBindings: null,
       focusedPaneId: "workspace_pane_0",
     });
   });
@@ -59,6 +69,7 @@ describe("conversation pane binding store", () => {
 
     expect(useConversationPaneStore.getState().workspaces.get("workspace_api")).toMatchObject({
       focusedConversationId: null,
+      focusedConversationResourceBindings: null,
       focusedPaneId: browserPaneId,
     });
   });
@@ -113,13 +124,13 @@ function persistedConversationPane(
 ): WorkspaceUILayout["panes"][number] {
   return {
     columnId: "workspace_column_0",
-    easyButtonConfig: { conversationId: "conversation_shared" },
+    conversationConfig: { conversationId: "conversation_shared" },
     heat: 0,
     paneId,
     sequence,
     subtitle: "Topic conversation",
     surfaceId,
-    surfaceKind: "easy-button",
+    surfaceKind: "conversation",
     title: "Shared topic",
     tone: "cyan",
     weight: 1,

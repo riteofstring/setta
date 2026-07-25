@@ -1,10 +1,7 @@
 import type { IpcMainEvent, Rectangle } from "electron";
 import { describe, expect, test, vi } from "vitest";
 
-import type {
-  AppearanceMasterVoiceShortcut,
-  AppearanceWorkspaceNavigationShortcut,
-} from "@generated/backend";
+import type { AppearanceMasterVoiceShortcut } from "@generated/backend";
 import { ipcEvents } from "@shared/ipc";
 import type { WorkspaceBrowserViewBatch } from "@shared/types";
 import { WebContentsViewRegistry } from "./workspace-browser-views";
@@ -276,14 +273,14 @@ describe("workspace WebContentsView registry", () => {
     });
 
     registry.applyBatch(fakeEvent(), batch([update("surface-1", true)]));
-    const event = view.webContents.emitBeforeInput("ArrowRight", { meta: true });
+    const event = view.webContents.emitBeforeInput("ArrowRight", { alt: true, meta: true });
 
     expect(event.prevented).toBe(true);
     expect(owner.webContents.sent).toEqual([
       {
         channel: ipcEvents.workspaceBrowserViewKey,
         payload: {
-          altKey: false,
+          altKey: true,
           ctrlKey: false,
           key: "ArrowRight",
           metaKey: true,
@@ -295,27 +292,6 @@ describe("workspace WebContentsView registry", () => {
     ]);
   });
 
-  test("keeps vertical workspace shortcuts in the browser until rows are enabled", () => {
-    const owner = new FakeOwnerWindow();
-    const view = new FakeNativeView();
-    const registry = new WebContentsViewRegistry({
-      createClipView: () => new FakeNativeView() as never,
-      createView: () => view as never,
-      windowFromIpcEvent: () => owner as never,
-    });
-
-    registry.applyBatch(fakeEvent(), batch([update("surface-1", true)]));
-    const disabledEvent = view.webContents.emitBeforeInput("ArrowUp", { meta: true });
-    registry.applyBatch(
-      fakeEvent(),
-      batch([update("surface-1", true)], "mod_shift_k", "mod_arrows", true),
-    );
-    const enabledEvent = view.webContents.emitBeforeInput("ArrowUp", { meta: true });
-
-    expect(disabledEvent.prevented).toBe(false);
-    expect(enabledEvent.prevented).toBe(true);
-  });
-
   test("forwards browser control-alt arrow shortcuts to the owning renderer", () => {
     const owner = new FakeOwnerWindow();
     const view = new FakeNativeView();
@@ -325,10 +301,7 @@ describe("workspace WebContentsView registry", () => {
       windowFromIpcEvent: () => owner as never,
     });
 
-    registry.applyBatch(
-      fakeEvent(),
-      batch([update("surface-1", true)], "mod_shift_k", "ctrl_alt_arrows"),
-    );
+    registry.applyBatch(fakeEvent(), batch([update("surface-1", true)]));
     const event = view.webContents.emitBeforeInput("ArrowLeft", { alt: true, control: true });
 
     expect(event.prevented).toBe(true);
@@ -348,7 +321,7 @@ describe("workspace WebContentsView registry", () => {
     ]);
   });
 
-  test("forwards browser primary-enter split shortcuts to the owning renderer", () => {
+  test("forwards browser control-alt enter workspace shortcuts to the owning renderer", () => {
     const owner = new FakeOwnerWindow();
     const view = new FakeNativeView();
     const registry = new WebContentsViewRegistry({
@@ -358,17 +331,17 @@ describe("workspace WebContentsView registry", () => {
     });
 
     registry.applyBatch(fakeEvent(), batch([update("surface-1", true)]));
-    const event = view.webContents.emitBeforeInput("Enter", { meta: true });
+    const event = view.webContents.emitBeforeInput("Enter", { alt: true, control: true });
 
     expect(event.prevented).toBe(true);
     expect(owner.webContents.sent).toEqual([
       {
         channel: ipcEvents.workspaceBrowserViewKey,
         payload: {
-          altKey: false,
-          ctrlKey: false,
+          altKey: true,
+          ctrlKey: true,
           key: "Enter",
-          metaKey: true,
+          metaKey: false,
           shiftKey: false,
           surfaceId: "surface-1",
           workspaceId: "phase-4-browser-pane-benchmark",
@@ -956,14 +929,10 @@ class FakeOwnerWindow {
 function batch(
   updates: WorkspaceBrowserViewBatch["updates"],
   masterVoiceShortcut: AppearanceMasterVoiceShortcut = "mod_shift_k",
-  workspaceNavigationShortcut: AppearanceWorkspaceNavigationShortcut = "mod_arrows",
-  workspaceRowsEnabled = false,
 ): WorkspaceBrowserViewBatch {
   return {
     focusedSurfaceId: updates.find((candidate) => candidate.focused)?.surfaceId ?? null,
     masterVoiceShortcut,
-    workspaceNavigationShortcut,
-    workspaceRowsEnabled,
     totalBrowserPanes: 24,
     updates,
     visibleBrowserPanes: updates.length,

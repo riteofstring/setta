@@ -29,8 +29,6 @@ describe("workspace native view bounds batcher", () => {
     expect(sent[0]).toMatchObject({
       focusedSurfaceId: "browser-surface-1",
       masterVoiceShortcut: "mod_shift_k",
-      workspaceNavigationShortcut: "mod_arrows",
-      workspaceRowsEnabled: false,
       totalBrowserPanes: 24,
       visibleBrowserPanes: 2,
       workspaceId: "phase-4-browser-pane-benchmark",

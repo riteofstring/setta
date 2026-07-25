@@ -1,10 +1,20 @@
+import type { ConversationPaneResourceBinding } from "@generated/backend";
+import type { DesktopPlatform } from "@shared/types";
 import type { ReactNode } from "react";
 import { createRoot as createReactRoot, type Root } from "react-dom/client";
 
-import { EasyButtonSurface } from "../features/easy-button/easy-button-surface";
+import { EasyButtonSurface } from "../features/easy-button/easy-button-conversation-surface";
 import { requestEasyButtonPaneClose } from "../features/easy-button/easy-button-conversation-commands";
+import type { AppShellMasterController } from "../features/global-master/app-shell-master-controller";
+import {
+  AppShellMasterPaneSurface,
+  AppShellMasterPaneUnavailable,
+} from "../features/global-master/app-shell-master-pane-surface";
+import type { AppShellSpeechCaptureController } from "../features/global-speech/app-shell-speech-capture-controller";
+import type { AppShellSpeechPlaybackController } from "../features/global-speech/app-shell-speech-playback-controller";
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
 import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
+import { useWorkspaceStore } from "../stores/workspace-store";
 import {
   applySnapshotScrollOffsets,
   cloneSnapshotNode,
@@ -24,6 +34,7 @@ import type {
   SurfacePaneCloseResult,
   ViewportChangeReason,
 } from "./types";
+import { emptyWorkspaceRuntimeId } from "./workspace-layout-area-runtime";
 
 export interface ReactSurfaceRoot {
   render(node: ReactNode): void;
@@ -40,6 +51,11 @@ export interface ReactDomSurfaceState {
 }
 
 export interface ReactDomSurfaceAdapterOptions {
+  masterController?: AppShellMasterController;
+  onOpenVoiceCredentialSettings?: () => void;
+  masterSpeechCapture?: AppShellSpeechCaptureController;
+  masterSpeechPlayback?: AppShellSpeechPlaybackController;
+  platform?: DesktopPlatform;
   speechCapture?: SpeechCaptureRequester;
   speechPresentation?: GlobalSpeechPresentationSource;
   workspaceId?: string;
@@ -196,11 +212,11 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     }
     const root = this.root;
     this.root = null;
+    if (root) {
+      root.unmount();
+    }
     this.unmount();
     this.container = null;
-    if (root) {
-      deferReactRootUnmount(root);
-    }
     this.destroyed = true;
   }
 
@@ -340,23 +356,26 @@ export function createReactDomSurfaceAdapter(
       pane,
       renderSurface,
       rootFactory,
-      easyButtonPaneCloseRequest(pane, options),
+      reactDomPaneCloseRequest(pane, options),
     );
   }
   throw new Error(`surface ${pane.surfaceId} is not a React DOM surface`);
 }
 
-function easyButtonPaneCloseRequest(
+function reactDomPaneCloseRequest(
   pane: WorkspacePane,
   options: ReactDomSurfaceAdapterOptions,
 ): ((request: SurfacePaneCloseRequest) => Promise<SurfacePaneCloseResult>) | undefined {
-  if (pane.surfaceKind !== "easy-button") {
+  if (pane.surfaceKind === "master") {
+    return () => Promise.resolve({ removePane: false });
+  }
+  if (pane.surfaceKind !== "conversation") {
     return undefined;
   }
-  const conversationId = pane.easyButtonConfig.conversationId;
-  const workspaceId = options.workspaceId;
-  if (!workspaceId) {
-    return undefined;
+  const conversationId = pane.conversationConfig.conversationId;
+  const workspaceId = conversationPaneCloseWorkspaceId(pane, options.workspaceId ?? null);
+  if (workspaceId === null) {
+    return () => Promise.resolve({ removePane: true });
   }
   return (request) =>
     requestEasyButtonPaneClose({
@@ -368,16 +387,60 @@ function easyButtonPaneCloseRequest(
     });
 }
 
+function conversationPaneCloseWorkspaceId(
+  pane: Extract<WorkspacePane, { surfaceKind: "conversation" }>,
+  mountedWorkspaceId: string | null,
+): string | null {
+  const bindings = pane.conversationConfig.resourceBindings;
+  if (bindings !== undefined) {
+    return workspaceIdForConversationPaneResourceBindings(bindings);
+  }
+  if (!mountedWorkspaceId || mountedWorkspaceId === emptyWorkspaceRuntimeId) {
+    return null;
+  }
+  return mountedWorkspaceId;
+}
+
+function workspaceIdForConversationPaneResourceBindings(
+  bindings: readonly ConversationPaneResourceBinding[],
+): string | null {
+  const folderRootPath = bindings.find((binding) => binding.kind === "folder")?.folder.rootPath;
+  if (!folderRootPath) {
+    return null;
+  }
+  return (
+    useWorkspaceStore
+      .getState()
+      .session?.activeWorkspaces.find((workspace) => workspace.rootPath === folderRootPath)?.id ??
+    null
+  );
+}
+
 function reactDomSurfaceRenderFactory(
   pane: WorkspacePane,
   options: ReactDomSurfaceAdapterOptions,
 ): ((state: ReactDomSurfaceState) => ReactNode) | undefined {
   switch (pane.surfaceKind) {
-    case "easy-button":
+    case "master":
+      return ({ focused }) =>
+        options.masterController ? (
+          <AppShellMasterPaneSurface
+            controller={options.masterController}
+            focused={focused}
+            onOpenVoiceCredentialSettings={options.onOpenVoiceCredentialSettings}
+            platform={options.platform ?? "linux"}
+            speechCapture={options.masterSpeechCapture}
+            speechPlayback={options.masterSpeechPlayback}
+          />
+        ) : (
+          <AppShellMasterPaneUnavailable />
+        );
+    case "conversation":
       return () => (
         <EasyButtonSurface
-          conversationId={pane.easyButtonConfig.conversationId}
+          conversationId={pane.conversationConfig.conversationId}
           paneId={pane.paneId}
+          resourceBindings={pane.conversationConfig.resourceBindings}
           speechCapture={options.speechCapture}
           speechPresentation={options.speechPresentation}
           workspaceId={options.workspaceId ?? null}
@@ -393,12 +456,4 @@ function performanceNow(): number {
     return Date.now();
   }
   return performance.now();
-}
-
-function deferReactRootUnmount(root: ReactSurfaceRoot): void {
-  if (typeof queueMicrotask === "function") {
-    queueMicrotask(() => root.unmount());
-    return;
-  }
-  setTimeout(() => root.unmount(), 0);
 }

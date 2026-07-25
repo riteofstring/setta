@@ -1,7 +1,4 @@
-import type {
-  AppearanceMasterVoiceShortcut,
-  AppearanceWorkspaceNavigationShortcut,
-} from "@generated/backend";
+import type { AppearanceMasterVoiceShortcut } from "@generated/backend";
 import type {
   WorkspaceBrowserViewBatch,
   WorkspaceBrowserViewStats,
@@ -15,8 +12,6 @@ interface NativeViewBridge {
 
 export interface NativeViewBoundsBatcherOptions {
   masterVoiceShortcut?: AppearanceMasterVoiceShortcut;
-  workspaceNavigationShortcut?: AppearanceWorkspaceNavigationShortcut;
-  workspaceRowsEnabled?: boolean;
   totalBrowserPanes: number;
   workspaceId: string;
 }
@@ -31,12 +26,8 @@ export class NativeViewBoundsBatcher {
   private focusedSurfaceId: string | null = null;
   private lastLiveUpdates = new Map<string, WorkspaceBrowserViewUpdate>();
   private lastSentMasterVoiceShortcut: AppearanceMasterVoiceShortcut | null = null;
-  private lastSentWorkspaceNavigationShortcut: AppearanceWorkspaceNavigationShortcut | null = null;
-  private lastSentWorkspaceRowsEnabled: boolean | null = null;
   private lastSentUpdates = new Map<string, WorkspaceBrowserViewUpdate>();
   private masterVoiceShortcut: AppearanceMasterVoiceShortcut;
-  private workspaceNavigationShortcut: AppearanceWorkspaceNavigationShortcut;
-  private workspaceRowsEnabled: boolean;
   private readonly updates = new Map<string, WorkspaceBrowserViewUpdate>();
 
   constructor(
@@ -44,20 +35,10 @@ export class NativeViewBoundsBatcher {
     private readonly bridge: NativeViewBridge | null = nativeViewBridge(),
   ) {
     this.masterVoiceShortcut = options.masterVoiceShortcut ?? "mod_shift_k";
-    this.workspaceNavigationShortcut = options.workspaceNavigationShortcut ?? "mod_arrows";
-    this.workspaceRowsEnabled = options.workspaceRowsEnabled ?? false;
   }
 
   setMasterVoiceShortcut(shortcut: AppearanceMasterVoiceShortcut): void {
     this.masterVoiceShortcut = shortcut;
-  }
-
-  setWorkspaceNavigationShortcut(shortcut: AppearanceWorkspaceNavigationShortcut): void {
-    this.workspaceNavigationShortcut = shortcut;
-  }
-
-  setWorkspaceRowsEnabled(enabled: boolean): void {
-    this.workspaceRowsEnabled = enabled;
   }
 
   beginFrame(): void {
@@ -74,10 +55,7 @@ export class NativeViewBoundsBatcher {
     }
 
     const shouldSend =
-      updates.length > 0 ||
-      this.masterVoiceShortcut !== this.lastSentMasterVoiceShortcut ||
-      this.workspaceNavigationShortcut !== this.lastSentWorkspaceNavigationShortcut ||
-      this.workspaceRowsEnabled !== this.lastSentWorkspaceRowsEnabled;
+      updates.length > 0 || this.masterVoiceShortcut !== this.lastSentMasterVoiceShortcut;
 
     if (!shouldSend) {
       this.commitFlushState(nextLiveUpdates, updates);
@@ -87,8 +65,6 @@ export class NativeViewBoundsBatcher {
     this.bridge.batchBrowserViewUpdates({
       focusedSurfaceId: this.focusedSurfaceId,
       masterVoiceShortcut: this.masterVoiceShortcut,
-      workspaceNavigationShortcut: this.workspaceNavigationShortcut,
-      workspaceRowsEnabled: this.workspaceRowsEnabled,
       totalBrowserPanes: this.options.totalBrowserPanes,
       updates,
       visibleBrowserPanes: this.currentFrameSurfaceIds.size,
@@ -96,8 +72,6 @@ export class NativeViewBoundsBatcher {
     });
     this.commitFlushState(nextLiveUpdates, updates);
     this.lastSentMasterVoiceShortcut = this.masterVoiceShortcut;
-    this.lastSentWorkspaceNavigationShortcut = this.workspaceNavigationShortcut;
-    this.lastSentWorkspaceRowsEnabled = this.workspaceRowsEnabled;
     return { batchSent: true, updateCount: updates.length };
   }
 

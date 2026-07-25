@@ -3,8 +3,6 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
-  PanelLeftClose,
-  PanelLeftOpen,
   Plus,
   Settings,
   ZoomIn,
@@ -30,54 +28,34 @@ export function WorkspaceMobileControls({
   onNewPane,
   onOpenSettingsPage,
   onToggleOverview,
-  onToggleProjectPane,
   overviewActive,
-  projectPaneOpen,
-  workspaceRowsEnabled,
 }: {
   moveFocus: (direction: PaneDirection) => void;
   onNewPane: () => void;
   onOpenSettingsPage: () => void;
   onToggleOverview: () => void;
-  onToggleProjectPane: () => void;
   overviewActive: boolean;
-  projectPaneOpen: boolean;
-  workspaceRowsEnabled: boolean;
 }) {
-  const ProjectPaneIcon = projectPaneOpen ? PanelLeftClose : PanelLeftOpen;
   const OverviewIcon = overviewActive ? ZoomIn : ZoomOut;
   return (
     <nav
-      aria-label="Workspace pane controls"
+      aria-label="Pane controls"
       className="workspace-mobile-bar app-no-drag"
       data-testid="workspace-mobile-bar"
     >
       <div aria-label="Move pane focus" className="workspace-mobile-dpad" role="group">
-        {directionPadButtons
-          .filter(
-            ({ direction }) =>
-              workspaceRowsEnabled || direction === "left" || direction === "right",
-          )
-          .map(({ direction, Icon, label }) => (
-            <WorkspaceMobileButton
-              key={direction}
-              label={label}
-              onClick={() => moveFocus(direction)}
-              testId={`workspace-mobile-focus-${direction}`}
-            >
-              <Icon className="h-4 w-4" />
-            </WorkspaceMobileButton>
-          ))}
+        {directionPadButtons.map(({ direction, Icon, label }) => (
+          <WorkspaceMobileButton
+            key={direction}
+            label={label}
+            onClick={() => moveFocus(direction)}
+            testId={`workspace-mobile-focus-${direction}`}
+          >
+            <Icon className="h-4 w-4" />
+          </WorkspaceMobileButton>
+        ))}
       </div>
       <div className="workspace-mobile-actions">
-        <WorkspaceMobileButton
-          label={projectPaneOpen ? "Hide project sidebar" : "Show project sidebar"}
-          onClick={onToggleProjectPane}
-          pressed={projectPaneOpen}
-          testId="workspace-mobile-project-toggle"
-        >
-          <ProjectPaneIcon className="h-4 w-4" />
-        </WorkspaceMobileButton>
         <WorkspaceMobileButton
           label="New frame"
           onClick={onNewPane}

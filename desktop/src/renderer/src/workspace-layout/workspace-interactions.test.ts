@@ -34,9 +34,9 @@ describe("workspace keyboard interactions", () => {
     expect(context.persistLayout).not.toHaveBeenCalled();
   });
 
-  test("moves focus with Mod+Arrow", () => {
+  test("moves focus with Mod+Alt+Arrow", () => {
     const context = workspaceKeyContext();
-    const event = keyboardEvent({ key: "ArrowRight", metaKey: true });
+    const event = keyboardEvent({ altKey: true, key: "ArrowRight", metaKey: true });
 
     handleWorkspaceKeyDown({ ...context, event });
 
@@ -46,11 +46,11 @@ describe("workspace keyboard interactions", () => {
     expect(context.persistLayout).toHaveBeenCalledOnce();
   });
 
-  test("moves focus with Ctrl+Arrow when that preset is active", () => {
+  test("moves focus with Ctrl+Alt+Arrow when that preset is active", () => {
     const context = workspaceKeyContext({
-      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_arrows" },
+      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_alt_arrows" },
     });
-    const event = keyboardEvent({ ctrlKey: true, key: "ArrowRight" });
+    const event = keyboardEvent({ altKey: true, ctrlKey: true, key: "ArrowRight" });
 
     handleWorkspaceKeyDown({ ...context, event });
 
@@ -58,11 +58,11 @@ describe("workspace keyboard interactions", () => {
     expect(context.runtime.store.moveFocus).toHaveBeenCalledWith("right", context.viewport);
   });
 
-  test("ignores Mod+Arrow when Ctrl+Arrow is active", () => {
+  test("ignores Mod+Alt+Arrow when Ctrl+Alt+Arrow is active", () => {
     const context = workspaceKeyContext({
-      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_arrows" },
+      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_alt_arrows" },
     });
-    const event = keyboardEvent({ key: "ArrowRight", metaKey: true });
+    const event = keyboardEvent({ altKey: true, key: "ArrowRight", metaKey: true });
 
     handleWorkspaceKeyDown({ ...context, event });
 
@@ -70,9 +70,10 @@ describe("workspace keyboard interactions", () => {
     expect(context.runtime.store.moveFocus).not.toHaveBeenCalled();
   });
 
-  test("moves the focused pane with Mod+Shift+Arrow", () => {
+  test("moves the focused pane with Mod+Alt+Shift+Arrow", () => {
     const context = workspaceKeyContext();
     const event = keyboardEvent({
+      altKey: true,
       key: "ArrowLeft",
       metaKey: true,
       shiftKey: true,
@@ -85,35 +86,44 @@ describe("workspace keyboard interactions", () => {
     expect(context.runtime.store.moveFocus).not.toHaveBeenCalled();
   });
 
-  test("uses Mod+Enter for pane splits", () => {
+  test("uses Mod+Alt+Enter for plane splits", () => {
     const context = workspaceKeyContext();
-    const event = keyboardEvent({ key: "Enter", metaKey: true });
+    const event = keyboardEvent({ altKey: true, key: "Enter", metaKey: true });
 
     handleWorkspaceKeyDown({ ...context, event });
 
     expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(context.runtime.store.splitFocusedPane).toHaveBeenCalledWith("right");
-    expect(context.runtime.store.splitFocusedPaneToPlane).not.toHaveBeenCalled();
+    expect(context.runtime.store.splitFocusedPaneToPlane).toHaveBeenCalledWith("down");
+    expect(context.runtime.store.splitFocusedPane).not.toHaveBeenCalled();
   });
 
-  test("leaves vertical arrows unused while workspace rows are disabled", () => {
-    const context = workspaceKeyContext();
-    const event = keyboardEvent({ key: "ArrowUp", metaKey: true });
-
-    handleWorkspaceKeyDown({ ...context, event });
-
-    expect(event.preventDefault).not.toHaveBeenCalled();
-    expect(context.runtime.store.moveFocus).not.toHaveBeenCalled();
-  });
-
-  test("restores vertical navigation when workspace rows are enabled", () => {
-    const context = workspaceKeyContext({ workspaceRowsEnabled: true });
-    const event = keyboardEvent({ key: "ArrowUp", metaKey: true });
+  test("uses Ctrl+Alt+Enter for plane splits when that preset is active", () => {
+    const context = workspaceKeyContext({
+      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_alt_arrows" },
+    });
+    const event = keyboardEvent({ altKey: true, ctrlKey: true, key: "Enter" });
 
     handleWorkspaceKeyDown({ ...context, event });
 
     expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(context.runtime.store.moveFocus).toHaveBeenCalledWith("up", context.viewport);
+    expect(context.runtime.store.splitFocusedPaneToPlane).toHaveBeenCalledWith("down");
+    expect(context.runtime.store.splitFocusedPane).not.toHaveBeenCalled();
+  });
+
+  test("uses Mod+Alt+Shift+Enter for upward plane splits", () => {
+    const context = workspaceKeyContext();
+    const event = keyboardEvent({
+      altKey: true,
+      key: "Enter",
+      metaKey: true,
+      shiftKey: true,
+    });
+
+    handleWorkspaceKeyDown({ ...context, event });
+
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(context.runtime.store.splitFocusedPaneToPlane).toHaveBeenCalledWith("up");
+    expect(context.runtime.store.splitFocusedPane).not.toHaveBeenCalled();
   });
 
   test("opens a browser pane with Mod+Alt+B", () => {
@@ -148,7 +158,6 @@ describe("workspace keyboard interactions", () => {
   test("uses active shortcut settings for forwarded BrowserView arrows", () => {
     const context = workspaceKeyContext({
       shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_alt_arrows" },
-      workspaceRowsEnabled: true,
     });
 
     handleForwardedBrowserViewKey({
@@ -336,6 +345,24 @@ describe("workspace pane click focus", () => {
     expect(click.stopPropagation).not.toHaveBeenCalled();
   });
 
+  test("focuses another pane when master close is non-destructive", async () => {
+    const context = masterCloseClickContext();
+
+    handleWorkspaceClick({ ...context, event: context.event });
+    await waitForMicrotask();
+
+    expect(context.event.preventDefault).toHaveBeenCalledOnce();
+    expect(context.event.stopPropagation).toHaveBeenCalledOnce();
+    expect(context.scheduler.pauseBenchmark).toHaveBeenCalledOnce();
+    expect(context.adapter.requestPaneClose).toHaveBeenCalledOnce();
+    expect(context.runtime.store.mostRecentlyFocusedPaneId).toHaveBeenCalledWith([
+      "conversation-pane",
+    ]);
+    expect(context.runtime.store.focusPane).toHaveBeenCalledWith("conversation-pane");
+    expect(context.runtime.store.ensureFocusedPaneVisible).toHaveBeenCalledWith(context.viewport);
+    expect(context.runtime.store.closeFocusedPaneOrClearLastPane).not.toHaveBeenCalled();
+  });
+
   test("reveals top bar clicks on panes already focused by content", () => {
     const context = workspaceClickContext({ focusedPaneId: "pane" });
     const event = pointerEvent({ clientX: 240, clientY: 52, target: context.paneTarget });
@@ -375,7 +402,6 @@ function overviewWheelContext() {
     state: createWorkspaceTrackpadNavigationState(),
     viewport,
     viewportProvider: () => viewport,
-    workspaceRowsEnabled: false,
   };
 }
 
@@ -425,7 +451,79 @@ function workspaceClickContext({
     retargetedControlClick,
     viewport,
     viewportProvider: () => viewport,
-    workspaceRowsEnabled: false,
+  };
+}
+
+function masterCloseClickContext() {
+  const viewport: Rect = { height: 900, width: 1200, x: 0, y: 0 };
+  const paneHost = new FakeElement({
+    rect: { bottom: 260, left: 100, right: 420, top: 40 },
+    surfaceKind: "master",
+  });
+  paneHost.dataset.paneId = "master-pane";
+  const closeButton = new FakeElement({
+    closestHost: paneHost,
+    paneAction: "close",
+  });
+  const scene = {
+    paneById: new Map([
+      [
+        "master-pane",
+        {
+          paneId: "master-pane",
+          surfaceId: "master-surface",
+          surfaceKind: "master",
+        },
+      ],
+      [
+        "conversation-pane",
+        {
+          paneId: "conversation-pane",
+          surfaceId: "conversation-surface",
+          surfaceKind: "conversation",
+        },
+      ],
+    ]),
+    panes: [
+      {
+        paneId: "master-pane",
+        surfaceId: "master-surface",
+        surfaceKind: "master",
+      },
+      {
+        paneId: "conversation-pane",
+        surfaceId: "conversation-surface",
+        surfaceKind: "conversation",
+      },
+    ],
+  };
+  const adapter = {
+    requestPaneClose: vi.fn(async () => ({ removePane: false })),
+  };
+  const store = {
+    closeFocusedPaneOrClearLastPane: vi.fn(),
+    ensureFocusedPaneVisible: vi.fn(),
+    focusPane: vi.fn(() => true),
+    getSnapshot: () => ({ presentationMode: "normal" }),
+    mostRecentlyFocusedPaneId: vi.fn(() => "conversation-pane"),
+    toScene: vi.fn(() => scene),
+  };
+  const runtime = {
+    mode: "workspace",
+    store,
+    surfaceRegistry: {
+      adapterFor: vi.fn(() => adapter),
+    },
+  } as unknown as WorkspaceRuntime;
+  const scheduler = { pauseBenchmark: vi.fn() } as unknown as FrameScheduler;
+  return {
+    adapter,
+    event: mouseEvent({ clientX: 240, clientY: 52, target: closeButton }),
+    runLayoutAction: (action: () => void) => action(),
+    runtime,
+    scheduler,
+    viewport,
+    viewportProvider: () => viewport,
   };
 }
 
@@ -510,11 +608,9 @@ function pointerEvent({
 }
 
 function workspaceKeyContext({
-  shortcuts = { masterVoice: "mod_shift_k", workspaceNavigation: "mod_arrows" },
-  workspaceRowsEnabled = false,
+  shortcuts = { masterVoice: "mod_shift_k", workspaceNavigation: "mod_alt_arrows" },
 }: {
   shortcuts?: AppearanceShortcutsSettings;
-  workspaceRowsEnabled?: boolean;
 } = {}) {
   const viewport: Rect = { height: 900, width: 1200, x: 0, y: 0 };
   const store = {
@@ -530,14 +626,12 @@ function workspaceKeyContext({
   return {
     event: keyboardEvent({ key: "Escape" }),
     persistLayout: vi.fn(),
-    platform: "darwin" as const,
     runLayoutAction: (action: () => void) => action(),
     runtime,
     scheduler,
     shortcuts,
     viewport,
     viewportProvider: () => viewport,
-    workspaceRowsEnabled,
   };
 }
 
@@ -572,6 +666,12 @@ function keyboardEvent({
   };
 }
 
+function waitForMicrotask(): Promise<void> {
+  return new Promise((resolve) => {
+    queueMicrotask(resolve);
+  });
+}
+
 class FakeElement {
   readonly dataset: Record<string, string> = {};
   readonly classList = {
@@ -582,6 +682,7 @@ class FakeElement {
     private readonly options: {
       closestHost?: FakeElement;
       interactiveControl?: boolean;
+      paneAction?: string;
       pointTarget?: FakeElement;
       rect?: { bottom: number; left: number; right: number; top: number };
       surfaceKind?: string;
@@ -589,6 +690,9 @@ class FakeElement {
   ) {
     if (options.surfaceKind) {
       this.dataset.surfaceKind = options.surfaceKind;
+    }
+    if (options.paneAction) {
+      this.dataset.workspacePaneAction = options.paneAction;
     }
   }
 
@@ -599,9 +703,13 @@ class FakeElement {
   closest(selector: string): FakeElement | null {
     if (
       this.options.closestHost &&
-      selector === '[data-testid="workspace-pane-host"][data-visible="true"]'
+      (selector === '[data-testid="workspace-pane-host"][data-visible="true"]' ||
+        selector === '[data-testid="workspace-pane-host"]')
     ) {
       return this.options.closestHost;
+    }
+    if (this.options.paneAction && selector === "[data-workspace-pane-action]") {
+      return this;
     }
     if (
       this.options.interactiveControl &&

@@ -35,7 +35,6 @@ interface AppearanceStore {
   ) => void;
   setFontValue: (name: keyof AppearanceFontScheme, value: string) => void;
   setClampResizedPanesToViewport: (clamp: boolean) => void;
-  setEnableWorkspaceRows: (enabled: boolean) => void;
   setMode: (mode: AppearanceColorMode) => void;
   setMasterVoiceShortcut: (shortcut: AppearanceMasterVoiceShortcut) => void;
   setOverviewCardWidthBounds: (minWidthPx: number, maxWidthPx: number) => void;
@@ -126,15 +125,6 @@ export const useAppearanceStore = create<AppearanceStore>((set, get) => {
         developer: {
           ...settings.developer,
           allowResizedPanesToOverflowViewport: !clamp,
-        },
-      }));
-    },
-    setEnableWorkspaceRows: (enabled) => {
-      updateDraft((settings) => ({
-        ...settings,
-        developer: {
-          ...settings.developer,
-          enableWorkspaceRows: enabled,
         },
       }));
     },

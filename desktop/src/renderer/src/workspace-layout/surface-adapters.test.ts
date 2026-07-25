@@ -590,10 +590,10 @@ function fakePane(surfaceKind: WorkspacePane["surfaceKind"]): WorkspacePane {
     tone: "cyan" as const,
     weight: 1,
   };
-  return surfaceKind === "easy-button"
+  return surfaceKind === "conversation"
     ? {
         ...fields,
-        easyButtonConfig: { conversationId: "conversation_test" },
+        conversationConfig: { conversationId: "conversation_test" },
         surfaceKind,
       }
     : { ...fields, surfaceKind };

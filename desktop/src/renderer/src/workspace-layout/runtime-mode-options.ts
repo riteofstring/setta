@@ -1,4 +1,3 @@
-import type { WorkspaceUILayout } from "@generated/backend";
 import {
   generateBenchmarkScene,
   phaseOneVisiblePaneCount,
@@ -10,6 +9,7 @@ import { DEFAULT_PANE_BUDGET } from "./runtime-policy";
 import {
   createRealWorkspaceScene,
   defaultRealWorkspacePaneLimits,
+  type RealWorkspaceStoredLayout,
   type RealWorkspaceSceneResult,
 } from "./workspace-scene";
 import type { WorkspaceScene, PaneId, PaneRuntimeBudget } from "./types";
@@ -18,7 +18,7 @@ export type WorkspaceSceneMode = "benchmark" | "workspace";
 
 const syncAllRenderedContentDuringMovementByMode = {
   benchmark: false,
-  workspace: false,
+  workspace: true,
 } satisfies Record<WorkspaceSceneMode, boolean>;
 const runtimePolicyOptionsByMode = {
   benchmark: {
@@ -28,10 +28,10 @@ const runtimePolicyOptionsByMode = {
     degradeOverviewDuringResize: true,
   },
   workspace: {
-    degradeDuringMovement: true,
-    degradeDuringResize: true,
-    degradeOverview: true,
-    degradeOverviewDuringResize: true,
+    degradeDuringMovement: false,
+    degradeDuringResize: false,
+    degradeOverview: false,
+    degradeOverviewDuringResize: false,
   },
 } satisfies Record<
   WorkspaceSceneMode,
@@ -53,7 +53,7 @@ export function createRealSceneForRuntime({
   workspaceName,
 }: {
   mode: WorkspaceSceneMode;
-  storedLayout: WorkspaceUILayout | null;
+  storedLayout: RealWorkspaceStoredLayout | null;
   workspaceId: string;
   workspaceName: string;
 }): RealWorkspaceSceneResult | null {
@@ -73,7 +73,7 @@ export function initialFocusedPaneIdForRuntime(
   realScene: RealWorkspaceSceneResult | null,
 ): PaneId | undefined {
   if (mode === "workspace") {
-    return engine.firstPaneId() ?? realScene?.focusedPaneId;
+    return realScene?.focusedPaneId ?? engine.firstPaneId() ?? undefined;
   }
   return realScene?.focusedPaneId;
 }

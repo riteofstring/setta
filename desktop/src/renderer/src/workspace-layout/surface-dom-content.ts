@@ -193,10 +193,11 @@ type StaticSnapshotRenderer = (host: HTMLElement, pane: WorkspacePane) => HTMLEl
 
 const staticSnapshotRenderers = {
   browser: renderWrappedStaticBrowserSnapshot,
-  "easy-button": renderWrappedGenericSnapshot,
+  conversation: renderWrappedGenericSnapshot,
   "empty-frame": renderWrappedEmptyFrameSnapshot,
   "fake-dom": renderWrappedGenericSnapshot,
   "fake-heavy-dom": renderWrappedGenericSnapshot,
+  master: renderWrappedGenericSnapshot,
   snapshot: () => null,
 } satisfies Record<SurfaceKind, StaticSnapshotRenderer>;
 

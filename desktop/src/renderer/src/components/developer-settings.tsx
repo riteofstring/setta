@@ -10,7 +10,6 @@ interface DeveloperSettingsEditorProps {
   dirty: boolean;
   error: string | null;
   onClampResizedPanesToViewportChange: (clamp: boolean) => void;
-  onEnableWorkspaceRowsChange: (enabled: boolean) => void;
   onOverviewCardWidthBoundsChange: (minWidthPx: number, maxWidthPx: number) => void;
   onRevert: () => void;
   onSave: () => Promise<void>;
@@ -23,7 +22,6 @@ export function DeveloperSettingsEditor({
   dirty,
   error,
   onClampResizedPanesToViewportChange,
-  onEnableWorkspaceRowsChange,
   onOverviewCardWidthBoundsChange,
   onRevert,
   onSave,
@@ -70,12 +68,6 @@ export function DeveloperSettingsEditor({
             checked={!developer.allowResizedPanesToOverflowViewport}
             label="Clamp resized panes to viewport"
             onChange={onClampResizedPanesToViewportChange}
-          />
-          <DeveloperToggle
-            checked={developer.enableWorkspaceRows}
-            description="Allow pane focus, movement, and placement above or below the main row."
-            label="Multiple workspace rows"
-            onChange={onEnableWorkspaceRowsChange}
           />
           <DeveloperToggle
             checked={developer.showPerformanceStats}
@@ -148,25 +140,16 @@ function OverviewCardWidthField({
 
 function DeveloperToggle({
   checked,
-  description,
   label,
   onChange,
 }: {
   checked: boolean;
-  description?: string;
   label: string;
   onChange: (checked: boolean) => void;
 }) {
   return (
     <label className="flex min-h-10 items-center justify-between gap-3">
-      <span className="min-w-0">
-        <span className="block text-xs font-medium text-foreground">{label}</span>
-        {description ? (
-          <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
-            {description}
-          </span>
-        ) : null}
-      </span>
+      <span className="min-w-0 text-xs font-medium text-foreground">{label}</span>
       <span className="relative inline-flex h-6 w-10 shrink-0 items-center">
         <input
           checked={checked}

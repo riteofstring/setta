@@ -34,8 +34,9 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
 		RootPath: t.TempDir(),
 	}, http.StatusOK)
+	workspaceID := opened.Workspace.ID
 	created := postRuntimeJSON[conversation.ConversationSnapshot](t, client, baseURL, "/conversations/create", httpapi.CreateTopicConversationRequest{
-		WorkspaceID: opened.Workspace.ID,
+		WorkspaceID: &workspaceID,
 		Title:       "Live topic conversation",
 	}, http.StatusOK)
 	if created.ThreadBinding != nil {
@@ -398,7 +399,8 @@ func validRuntimeLiveMasterContext(
 	conversationID string,
 ) bool {
 	authorized := slices.ContainsFunc(record.Context.TargetAuthorities, func(target master.RouteTargetAuthority) bool {
-		return target.ConversationID == conversationID && target.WorkspaceID == workspaceID
+		targetWorkspaceID, ok := target.ResourceScope.FolderWorkspaceID()
+		return target.ConversationID == conversationID && ok && targetWorkspaceID == workspaceID
 	})
 	return record.Context.InputSequence == inputSequence &&
 		authorized &&
@@ -429,7 +431,7 @@ func waitForRuntimeLiveConversationRoute(
 		baseURL,
 		"/conversations/inputs/state/wait",
 		httpapi.ReadConversationInputRoutingStateRequest{
-			WorkspaceID:    workspaceID,
+			WorkspaceID:    &workspaceID,
 			ConversationID: conversationID,
 			InputID:        accepted.Input.ID,
 		},

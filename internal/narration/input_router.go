@@ -191,7 +191,7 @@ func (router *ConversationInputRouter) routeClaimedInput(
 			*invocation.EndedAt,
 		)
 	}
-	workspaceRoot, err := router.resolveWorkspaceRoot(workspaceID)
+	workspaceRoot, err := router.resolveConversationRouteWorkspaceRoot(workspaceID)
 	if err != nil {
 		return conversation.ConversationRouteDecisionRecord{}, err
 	}
@@ -230,7 +230,9 @@ func productInvariantInitialParentRoute(
 	work conversation.ConversationInputRoutingWork,
 	bundle ConversationRouteContextBundle,
 ) bool {
-	return productInvariantInitialInput(work) && productInvariantBlankParentRouteContext(bundle)
+	return bundle.Authoritative.Conversation.WorkspaceID != "" &&
+		productInvariantInitialInput(work) &&
+		productInvariantBlankParentRouteContext(bundle)
 }
 
 func productInvariantInitialInput(work conversation.ConversationInputRoutingWork) bool {
@@ -403,6 +405,13 @@ func (router *ConversationInputRouter) commitConversationRouteDecision(
 	invocation conversation.ResolvedInvocation,
 	after string,
 ) (conversation.ConversationRouteDecisionRecord, error) {
+	if conversationRouteDecisionRequiresWorkspace(decision.Kind) &&
+		bundle.Authoritative.Conversation.WorkspaceID == "" {
+		return conversation.ConversationRouteDecisionRecord{}, &conversation.ResourceRequiredError{
+			ConversationID: work.Input.Input.ConversationID,
+			ResourceKind:   "folder",
+		}
+	}
 	command, err := router.buildCommand(work, bundle, decision)
 	if err != nil {
 		return conversation.ConversationRouteDecisionRecord{}, err
@@ -486,18 +495,23 @@ func (router *ConversationInputRouter) contextLimits(
 	ctx context.Context,
 	conversationID string,
 ) (string, conversation.RoleProfile, ContextLimits, error) {
-	workspaceID, err := router.store.ReadConversationWorkspaceID(ctx, conversationID)
+	workspaceBindingID, err := router.store.ReadConversationWorkspaceBindingID(ctx, conversationID)
 	if err != nil {
 		return "", conversation.RoleProfile{}, ContextLimits{}, NewAttemptFailure(FailureKindStateUnavailable, err)
 	}
-	profile, err := router.profiles.ReadEffectiveRoleProfile(
-		ctx,
-		workspaceID,
-		conversationID,
-		conversation.DefaultNarratorRoleProfile(),
-	)
-	if err != nil {
-		return "", conversation.RoleProfile{}, ContextLimits{}, NewAttemptFailure(FailureKindConfigurationInvalid, err)
+	workspaceID := ""
+	profile := conversation.DefaultNarratorRoleProfile()
+	if workspaceBindingID != nil {
+		workspaceID = *workspaceBindingID
+		profile, err = router.profiles.ReadEffectiveRoleProfile(
+			ctx,
+			workspaceID,
+			conversationID,
+			profile,
+		)
+		if err != nil {
+			return "", conversation.RoleProfile{}, ContextLimits{}, NewAttemptFailure(FailureKindConfigurationInvalid, err)
+		}
 	}
 	if err := validateNarratorRoleProfile(profile); err != nil {
 		return "", conversation.RoleProfile{}, ContextLimits{}, NewAttemptFailure(FailureKindConfigurationInvalid, err)
@@ -521,6 +535,38 @@ func (router *ConversationInputRouter) resolveWorkspaceRoot(workspaceID string) 
 		)
 	}
 	return resolved.RootPath, nil
+}
+
+func (router *ConversationInputRouter) resolveConversationRouteWorkspaceRoot(
+	workspaceID string,
+) (string, error) {
+	if workspaceID == "" {
+		root, err := folderlessRuntimeRoot()
+		if err != nil {
+			return "", NewAttemptFailure(FailureKindStateUnavailable, err)
+		}
+		return root, nil
+	}
+	return router.resolveWorkspaceRoot(workspaceID)
+}
+
+func conversationRouteDecisionRequiresWorkspace(
+	kind conversation.ConversationRouteDecisionKind,
+) bool {
+	switch kind {
+	case conversation.ConversationRouteDecisionKindSendToParent,
+		conversation.ConversationRouteDecisionKindQueueParentTurn,
+		conversation.ConversationRouteDecisionKindSteerParentTurn,
+		conversation.ConversationRouteDecisionKindCreateSideConversation,
+		conversation.ConversationRouteDecisionKindForkConversation:
+		return true
+	case conversation.ConversationRouteDecisionKindAnswerAsNarrator,
+		conversation.ConversationRouteDecisionKindEscalateToMaster,
+		conversation.ConversationRouteDecisionKindClarify:
+		return false
+	default:
+		return true
+	}
 }
 
 func (router *ConversationInputRouter) buildCommand(
@@ -694,6 +740,15 @@ func (router *ConversationInputRouter) failClaimedInput(
 	work conversation.ConversationInputRoutingWork,
 	cause error,
 ) error {
+	var resourceRequired *conversation.ResourceRequiredError
+	if errors.As(cause, &resourceRequired) {
+		return router.failClaimedInputWithFailure(ctx, work, conversation.Failure{
+			Code:                "conversation_resource_required",
+			Message:             resourceRequired.Error(),
+			Retryable:           true,
+			DiagnosticReference: fmt.Sprintf("conversation_resource:%s:%d", conversationRouteActiveInputID(work), work.RoutingAttempt),
+		})
+	}
 	kind, classified, classificationErr := classifyTypedFailure(cause)
 	if classificationErr != nil {
 		return classificationErr
@@ -706,24 +761,31 @@ func (router *ConversationInputRouter) failClaimedInput(
 		conversationRouteActiveInputID(work),
 		work.RoutingAttempt,
 	)
+	return router.failClaimedInputWithFailure(ctx, work, conversation.Failure{
+		Code:                "conversation_router_" + string(kind),
+		Message:             conversationRouteFailureMessage(kind),
+		Retryable:           true,
+		DiagnosticReference: diagnosticReference,
+	})
+}
+
+func (router *ConversationInputRouter) failClaimedInputWithFailure(
+	ctx context.Context,
+	work conversation.ConversationInputRoutingWork,
+	reason conversation.Failure,
+) error {
 	failedAt, err := router.timestampAfter(work.RoutingStartedAt)
 	if err != nil {
 		return err
 	}
-	failure := conversation.ConversationInputRoutingFailure{
+	return router.store.FailConversationInputRouting(ctx, conversation.ConversationInputRoutingFailure{
 		ConversationID:       work.Input.Input.ConversationID,
 		InputID:              work.Input.Input.ID,
 		ClarificationInputID: conversationRouteClarificationInputID(work),
 		RoutingAttempt:       work.RoutingAttempt,
-		Failure: conversation.Failure{
-			Code:                "conversation_router_" + string(kind),
-			Message:             conversationRouteFailureMessage(kind),
-			Retryable:           true,
-			DiagnosticReference: diagnosticReference,
-		},
-		FailedAt: failedAt,
-	}
-	return router.store.FailConversationInputRouting(ctx, failure)
+		Failure:              reason,
+		FailedAt:             failedAt,
+	})
 }
 
 func classifyConversationRouteContextError(err error) error {

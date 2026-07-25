@@ -23,27 +23,19 @@ interface ShortcutSettingsEditorProps {
   status: AppearanceStoreStatus;
 }
 
-const workspaceNavigationOptions = Object.values({
-  mod_arrows: {
-    label: "Mod + Arrows",
-    value: "mod_arrows",
-  },
-  ctrl_arrows: {
-    label: "Ctrl + Arrows",
-    value: "ctrl_arrows",
-  },
-  mod_alt_arrows: {
+const workspaceNavigationOptions = [
+  {
     label: "Mod + Alt Arrows",
     value: "mod_alt_arrows",
   },
-  ctrl_alt_arrows: {
+  {
     label: "Ctrl + Alt Arrows",
     value: "ctrl_alt_arrows",
   },
-} as const satisfies Record<
-  AppearanceWorkspaceNavigationShortcut,
-  { label: string; value: AppearanceWorkspaceNavigationShortcut }
->);
+] as const satisfies Array<{
+  label: string;
+  value: AppearanceWorkspaceNavigationShortcut;
+}>;
 
 const masterVoiceOptions = [
   {
@@ -116,7 +108,7 @@ export function ShortcutSettingsEditor({
                 Workspace Navigation
               </h3>
               <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                {workspaceNavigationSummary(shortcuts.workspaceNavigation, platform)}
+                {workspaceNavigationSummary(shortcuts.workspaceNavigation)}
               </span>
             </div>
             <div
@@ -149,7 +141,7 @@ export function ShortcutSettingsEditor({
                         {selected ? <Check className="h-3 w-3" /> : null}
                       </span>
                     </span>
-                    <ShortcutChord value={focusShortcutLabel(option.value, platform)} />
+                    <ShortcutChord value={focusShortcutLabel(option.value)} />
                   </button>
                 );
               })}
@@ -203,10 +195,7 @@ export function ShortcutSettingsEditor({
               })}
             </div>
           </section>
-          <ShortcutPreview
-            platform={platform}
-            workspaceNavigation={shortcuts.workspaceNavigation}
-          />
+          <ShortcutPreview workspaceNavigation={shortcuts.workspaceNavigation} />
         </>
       ) : (
         <div className="flex h-16 items-center gap-2 rounded-sm border border-border px-3 text-xs text-muted-foreground">
@@ -219,16 +208,15 @@ export function ShortcutSettingsEditor({
 }
 
 function ShortcutPreview({
-  platform,
   workspaceNavigation,
 }: {
-  platform: DesktopPlatform;
   workspaceNavigation: AppearanceWorkspaceNavigationShortcut;
 }) {
   const rows = [
-    { action: "Focus pane", chord: focusShortcutLabel(workspaceNavigation, platform) },
-    { action: "Move pane", chord: moveShortcutLabel(workspaceNavigation, platform) },
-    { action: "Split pane", chord: splitShortcutLabel(platform) },
+    { action: "Focus pane", chord: focusShortcutLabel(workspaceNavigation) },
+    { action: "Move pane", chord: moveShortcutLabel(workspaceNavigation) },
+    { action: "Split plane below", chord: planeSplitShortcutLabel(workspaceNavigation, false) },
+    { action: "Split plane above", chord: planeSplitShortcutLabel(workspaceNavigation, true) },
   ];
   return (
     <section className="grid gap-1 rounded-sm border border-border bg-card/30 px-3 py-2.5">
@@ -300,52 +288,49 @@ function ShortcutSettingsStatus({
   return null;
 }
 
-function workspaceNavigationSummary(
-  value: AppearanceWorkspaceNavigationShortcut,
-  platform: DesktopPlatform,
-): string {
-  return workspaceNavigationModifierParts(value, platform).join(" + ");
+function workspaceNavigationSummary(value: AppearanceWorkspaceNavigationShortcut) {
+  switch (value) {
+    case "mod_alt_arrows":
+      return "Mod + Alt";
+    case "ctrl_alt_arrows":
+      return "Ctrl + Alt";
+    default:
+      assertNever(value);
+  }
 }
 
 function masterVoiceSummary(value: AppearanceMasterVoiceShortcut, platform: DesktopPlatform) {
   return masterVoiceShortcutParts(platform, value).join(" + ");
 }
 
-function focusShortcutLabel(
-  value: AppearanceWorkspaceNavigationShortcut,
-  platform: DesktopPlatform,
-): string[] {
-  return [...workspaceNavigationModifierParts(value, platform), "Arrow"];
-}
-
-function moveShortcutLabel(
-  value: AppearanceWorkspaceNavigationShortcut,
-  platform: DesktopPlatform,
-): string[] {
-  return [...workspaceNavigationModifierParts(value, platform), "Shift", "Arrow"];
-}
-
-function workspaceNavigationModifierParts(
-  value: AppearanceWorkspaceNavigationShortcut,
-  platform: DesktopPlatform,
-): string[] {
-  const primary = platform === "darwin" ? "⌘" : "Ctrl";
+function focusShortcutLabel(value: AppearanceWorkspaceNavigationShortcut): string[] {
   switch (value) {
-    case "mod_arrows":
-      return [primary];
-    case "ctrl_arrows":
-      return ["Ctrl"];
     case "mod_alt_arrows":
-      return [primary, "Alt"];
+      return ["Mod", "Alt", "Arrow"];
     case "ctrl_alt_arrows":
-      return ["Ctrl", "Alt"];
+      return ["Ctrl", "Alt", "Arrow"];
     default:
-      return assertNever(value);
+      assertNever(value);
   }
 }
 
-function splitShortcutLabel(platform: DesktopPlatform): string[] {
-  return [platform === "darwin" ? "⌘" : "Ctrl", "Enter"];
+function moveShortcutLabel(value: AppearanceWorkspaceNavigationShortcut): string[] {
+  switch (value) {
+    case "mod_alt_arrows":
+      return ["Mod", "Alt", "Shift", "Arrow"];
+    case "ctrl_alt_arrows":
+      return ["Ctrl", "Alt", "Shift", "Arrow"];
+    default:
+      assertNever(value);
+  }
+}
+
+function planeSplitShortcutLabel(
+  value: AppearanceWorkspaceNavigationShortcut,
+  upward: boolean,
+): string[] {
+  const base = value === "ctrl_alt_arrows" ? ["Ctrl", "Alt"] : ["Mod", "Alt"];
+  return upward ? [...base, "Shift", "Enter"] : [...base, "Enter"];
 }
 
 function assertNever(value: never): never {

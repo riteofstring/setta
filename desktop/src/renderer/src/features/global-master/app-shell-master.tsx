@@ -46,6 +46,14 @@ export function AppShellMasterProvider({
           }
           return setta.master.readActiveInteraction();
         },
+        readTranscript: (request) => {
+          if (!setta.master) {
+            return Promise.reject(
+              new Error("the desktop master transcript boundary is unavailable"),
+            );
+          }
+          return setta.master.readTranscript(request);
+        },
         readFocusHints: () => focusHintsRef.current,
         resolvePresentationIntent: (request) => {
           if (!setta.master) {

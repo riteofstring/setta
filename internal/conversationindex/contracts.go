@@ -12,22 +12,27 @@ import (
 )
 
 const (
-	MaxCandidateLimit             = 20
-	MaxCandidateQueryBytes        = 4096
-	MaxCandidateQueryTerms        = 64
-	MaxWorkspaceFilters           = 64
-	MaxWorkspaceIDBytes           = 512
-	MaxRecentUserRequests         = 3
-	MaxRecentFinalSummaries       = 3
-	MaxOpenPaneIDs                = 8
-	MaxTopicCardExcerptCharacters = 512
+	MaxCandidateLimit                 = 20
+	MaxCandidateQueryBytes            = 4096
+	MaxCandidateQueryTerms            = 64
+	MaxFolderResourceWorkspaceFilters = 64
+	MaxWorkspaceIDBytes               = 512
+	MaxRecentUserRequests             = 3
+	MaxRecentFinalSummaries           = 3
+	MaxOpenPaneIDs                    = 8
+	MaxTopicCardExcerptCharacters     = 512
 )
 
 type CandidateRequest struct {
-	Query        string   `json:"query"`
-	WorkspaceIDs []string `json:"workspaceIds"`
-	UpdatedSince *string  `json:"updatedSince"`
-	Limit        int      `json:"limit"`
+	Query        string               `json:"query"`
+	Scope        CandidateScopeFilter `json:"scope"`
+	UpdatedSince *string              `json:"updatedSince"`
+	Limit        int                  `json:"limit"`
+}
+
+type CandidateScopeFilter struct {
+	IncludeFolderless          bool     `json:"includeFolderless"`
+	FolderResourceWorkspaceIDs []string `json:"folderResourceWorkspaceIds"`
 }
 
 type TextExcerpt struct {
@@ -35,9 +40,25 @@ type TextExcerpt struct {
 	Truncated bool   `json:"truncated"`
 }
 
+type ResourceScopeKind string
+
+const (
+	ResourceScopeKindFolderless ResourceScopeKind = "folderless"
+	ResourceScopeKindFolder     ResourceScopeKind = "folder"
+)
+
+type FolderResourceScope struct {
+	WorkspaceID string `json:"workspaceId"`
+}
+
+type ResourceScope struct {
+	Kind   ResourceScopeKind    `json:"kind"`
+	Folder *FolderResourceScope `json:"folder"`
+}
+
 type StoredTopicCard struct {
 	ConversationID       string        `json:"conversationId"`
-	WorkspaceID          string        `json:"workspaceId"`
+	ResourceScope        ResourceScope `json:"resourceScope"`
 	Title                string        `json:"title"`
 	TopicDescriptor      string        `json:"topicDescriptor"`
 	RecentUserRequests   []TextExcerpt `json:"recentUserRequests"`
@@ -72,11 +93,11 @@ func NormalizeCandidateRequest(request CandidateRequest) (CandidateRequest, erro
 	if len(terms) > MaxCandidateQueryTerms {
 		return CandidateRequest{}, fmt.Errorf("conversation index query exceeds %d searchable terms", MaxCandidateQueryTerms)
 	}
-	workspaceIDs, err := normalizeWorkspaceIDs(request.WorkspaceIDs)
+	scope, err := normalizeCandidateScopeFilter(request.Scope)
 	if err != nil {
 		return CandidateRequest{}, err
 	}
-	request.WorkspaceIDs = workspaceIDs
+	request.Scope = scope
 	updatedSince, err := normalizeOptionalTimestamp(request.UpdatedSince)
 	if err != nil {
 		return CandidateRequest{}, err
@@ -90,6 +111,64 @@ func NormalizeCandidateRequest(request CandidateRequest) (CandidateRequest, erro
 		)
 	}
 	return request, nil
+}
+
+func FolderlessResourceScope() ResourceScope {
+	return ResourceScope{Kind: ResourceScopeKindFolderless}
+}
+
+func FolderResourceScopeForWorkspaceID(workspaceID string) ResourceScope {
+	return ResourceScope{
+		Kind:   ResourceScopeKindFolder,
+		Folder: &FolderResourceScope{WorkspaceID: workspaceID},
+	}
+}
+
+func ResourceScopeForWorkspaceID(workspaceID *string) ResourceScope {
+	if workspaceID == nil {
+		return FolderlessResourceScope()
+	}
+	return FolderResourceScopeForWorkspaceID(*workspaceID)
+}
+
+func (scope ResourceScope) Validate() error {
+	switch scope.Kind {
+	case ResourceScopeKindFolderless:
+		if scope.Folder != nil {
+			return errors.New("folderless topic card resource scope cannot include folder data")
+		}
+		return nil
+	case ResourceScopeKindFolder:
+		if scope.Folder == nil {
+			return errors.New("folder topic card resource scope requires folder data")
+		}
+		if err := validateWorkspaceID("topic card folder resource workspace id", scope.Folder.WorkspaceID); err != nil {
+			return err
+		}
+		return nil
+	default:
+		return fmt.Errorf("topic card resource scope kind %q is invalid", scope.Kind)
+	}
+}
+
+func (scope ResourceScope) FolderWorkspaceID() (string, bool) {
+	if scope.Kind != ResourceScopeKindFolder || scope.Folder == nil {
+		return "", false
+	}
+	return scope.Folder.WorkspaceID, true
+}
+
+func (scope ResourceScope) Equal(other ResourceScope) bool {
+	if scope.Kind != other.Kind {
+		return false
+	}
+	leftWorkspaceID, leftFolder := scope.FolderWorkspaceID()
+	rightWorkspaceID, rightFolder := other.FolderWorkspaceID()
+	return leftFolder == rightFolder && leftWorkspaceID == rightWorkspaceID
+}
+
+func (filter CandidateScopeFilter) Constrained() bool {
+	return candidateScopeFilterConstrained(filter)
 }
 
 func SearchTerms(query string) []string {
@@ -164,8 +243,8 @@ func (candidate StoredCandidate) Validate(request CandidateRequest) error {
 	if err := candidate.Card.Validate(); err != nil {
 		return err
 	}
-	if len(request.WorkspaceIDs) > 0 && !slices.Contains(request.WorkspaceIDs, candidate.Card.WorkspaceID) {
-		return fmt.Errorf("topic card workspace %s is outside the requested filter", candidate.Card.WorkspaceID)
+	if !candidateMatchesScopeFilter(candidate.Card.ResourceScope, request.Scope) {
+		return fmt.Errorf("topic card %s is outside the requested resource scope filter", candidate.Card.ConversationID)
 	}
 	if request.UpdatedSince != nil {
 		updatedAt, _ := time.Parse(time.RFC3339Nano, candidate.Card.UpdatedAt)
@@ -190,6 +269,9 @@ func (card StoredTopicCard) Validate() error {
 	if err := validateTopicCardIdentity(card); err != nil {
 		return err
 	}
+	if err := card.ResourceScope.Validate(); err != nil {
+		return err
+	}
 	if _, err := normalizeTimestamp("topic card updatedAt", card.UpdatedAt); err != nil {
 		return err
 	}
@@ -205,7 +287,6 @@ func (card StoredTopicCard) Validate() error {
 func validateTopicCardIdentity(card StoredTopicCard) error {
 	for label, value := range map[string]string{
 		"conversation id": card.ConversationID,
-		"workspace id":    card.WorkspaceID,
 		"title":           card.Title,
 		"active status":   card.ActiveStatus,
 	} {
@@ -239,22 +320,57 @@ func validateTopicCardOpenPanes(card StoredTopicCard) error {
 	return nil
 }
 
-func normalizeWorkspaceIDs(workspaceIDs []string) ([]string, error) {
-	if len(workspaceIDs) > MaxWorkspaceFilters {
-		return nil, fmt.Errorf("conversation index workspace filters exceed %d", MaxWorkspaceFilters)
+func normalizeCandidateScopeFilter(filter CandidateScopeFilter) (CandidateScopeFilter, error) {
+	workspaceIDs, err := normalizeFolderResourceWorkspaceIDs(filter.FolderResourceWorkspaceIDs)
+	if err != nil {
+		return CandidateScopeFilter{}, err
+	}
+	filter.FolderResourceWorkspaceIDs = workspaceIDs
+	return filter, nil
+}
+
+func normalizeFolderResourceWorkspaceIDs(workspaceIDs []string) ([]string, error) {
+	if len(workspaceIDs) > MaxFolderResourceWorkspaceFilters {
+		return nil, fmt.Errorf("conversation index folder resource filters exceed %d", MaxFolderResourceWorkspaceFilters)
 	}
 	normalized := append([]string{}, workspaceIDs...)
 	for _, workspaceID := range normalized {
-		if strings.TrimSpace(workspaceID) != workspaceID || workspaceID == "" {
-			return nil, errors.New("conversation index workspace id must be non-empty without surrounding whitespace")
-		}
-		if len(workspaceID) > MaxWorkspaceIDBytes {
-			return nil, fmt.Errorf("conversation index workspace id exceeds %d bytes", MaxWorkspaceIDBytes)
+		if err := validateWorkspaceID("conversation index folder resource workspace id", workspaceID); err != nil {
+			return nil, err
 		}
 	}
 	slices.Sort(normalized)
 	normalized = slices.Compact(normalized)
 	return normalized, nil
+}
+
+func validateWorkspaceID(label string, workspaceID string) error {
+	if strings.TrimSpace(workspaceID) != workspaceID || workspaceID == "" {
+		return fmt.Errorf("%s must be non-empty without surrounding whitespace", label)
+	}
+	if len(workspaceID) > MaxWorkspaceIDBytes {
+		return fmt.Errorf("%s exceeds %d bytes", label, MaxWorkspaceIDBytes)
+	}
+	return nil
+}
+
+func candidateMatchesScopeFilter(scope ResourceScope, filter CandidateScopeFilter) bool {
+	if !candidateScopeFilterConstrained(filter) {
+		return true
+	}
+	switch scope.Kind {
+	case ResourceScopeKindFolderless:
+		return filter.IncludeFolderless
+	case ResourceScopeKindFolder:
+		workspaceID, ok := scope.FolderWorkspaceID()
+		return ok && slices.Contains(filter.FolderResourceWorkspaceIDs, workspaceID)
+	default:
+		return false
+	}
+}
+
+func candidateScopeFilterConstrained(filter CandidateScopeFilter) bool {
+	return filter.IncludeFolderless || len(filter.FolderResourceWorkspaceIDs) > 0
 }
 
 func normalizeOptionalTimestamp(value *string) (*string, error) {
@@ -313,9 +429,14 @@ func storedCandidateBefore(left StoredCandidate, right StoredCandidate, ranked b
 
 func equalCandidateRequests(left CandidateRequest, right CandidateRequest) bool {
 	return left.Query == right.Query &&
-		slices.Equal(left.WorkspaceIDs, right.WorkspaceIDs) &&
+		equalCandidateScopeFilters(left.Scope, right.Scope) &&
 		equalOptionalString(left.UpdatedSince, right.UpdatedSince) &&
 		left.Limit == right.Limit
+}
+
+func equalCandidateScopeFilters(left CandidateScopeFilter, right CandidateScopeFilter) bool {
+	return left.IncludeFolderless == right.IncludeFolderless &&
+		slices.Equal(left.FolderResourceWorkspaceIDs, right.FolderResourceWorkspaceIDs)
 }
 
 func equalOptionalString(left *string, right *string) bool {

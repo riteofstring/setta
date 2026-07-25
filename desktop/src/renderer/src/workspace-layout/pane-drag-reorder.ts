@@ -57,7 +57,6 @@ export interface PaneDragSession {
   startClientX: number;
   startClientY: number;
   target: PaneDropTarget | null;
-  workspaceRowsEnabled?: boolean;
 }
 
 export interface PaneDragFinish {
@@ -86,7 +85,6 @@ interface PaneDragPreviewMetrics {
 export function beginPaneDragSession(
   event: PointerEvent,
   root: HTMLElement,
-  workspaceRowsEnabled = true,
 ): PaneDragSession | null {
   const target = paneDragTargetFromPointer(event);
   if (!target) {
@@ -107,7 +105,6 @@ export function beginPaneDragSession(
     startClientX: event.clientX,
     startClientY: event.clientY,
     target: null,
-    workspaceRowsEnabled,
   };
 }
 
@@ -266,13 +263,7 @@ function updatePaneDropTarget(
   store: WorkspaceLayoutStore,
   metrics?: PaneDragPreviewMetrics,
 ): void {
-  const target = paneDropTargetFromPointer(
-    event,
-    session.sourcePaneId,
-    store,
-    session.hostRects,
-    session.workspaceRowsEnabled ?? true,
-  );
+  const target = paneDropTargetFromPointer(event, session.sourcePaneId, store, session.hostRects);
   if (samePaneDropTarget(target, session.target)) {
     return;
   }
@@ -294,7 +285,6 @@ export function paneDropTargetFromPointer(
   sourcePaneId: string,
   store: WorkspaceLayoutStore,
   hostRects: readonly PaneHostRect[] = collectVisiblePaneHostRects(),
-  workspaceRowsEnabled = true,
 ): PaneDropTarget | null {
   const scene = store.toScene();
   const candidates = hostRects.filter((rect) => rect.paneId !== sourcePaneId);
@@ -307,14 +297,6 @@ export function paneDropTargetFromPointer(
   const target = directHost
     ? paneDropTargetOverHost(event, directHost, scene)
     : paneDropTargetInGap(event, candidates, scene, hostRects);
-  if (
-    !workspaceRowsEnabled &&
-    (target?.axis === "vertical" ||
-      target?.intent.kind === "row" ||
-      target?.intent.kind === "plane-slot")
-  ) {
-    return null;
-  }
   return target;
 }
 

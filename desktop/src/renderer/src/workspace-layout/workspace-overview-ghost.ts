@@ -50,14 +50,13 @@ export function overviewGhostTargetFromFrames(
   panes: OverviewPaneFrame[],
   clientX: number,
   clientY: number,
-  workspaceRowsEnabled = true,
 ): OverviewGhostTarget | null {
   if (panes.length === 0) {
     return null;
   }
   return (
     overviewRightGhostTarget(panes, clientX, clientY) ??
-    (workspaceRowsEnabled ? overviewVerticalGhostTarget(panes, clientX, clientY) : null)
+    overviewVerticalGhostTarget(panes, clientX, clientY)
   );
 }
 

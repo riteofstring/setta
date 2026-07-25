@@ -6,6 +6,7 @@ import {
   benchmarkHostPoolSizeFromSearch,
   benchmarkSceneOptionsFromSearch,
   hostPoolSizeForRuntime,
+  initialFocusedPaneIdForRuntime,
   presentationOptionsForRuntime,
   runtimePolicyBudgetForRuntime,
   runtimePolicyOptionsForRuntime,
@@ -20,9 +21,9 @@ describe("workspace runtime mode options", () => {
     });
   });
 
-  test("defers rendered workspace pane content sync during movement", () => {
+  test("syncs all rendered workspace pane content during movement", () => {
     expect(presentationOptionsForRuntime("workspace")).toStrictEqual({
-      syncAllRenderedContentDuringMovement: false,
+      syncAllRenderedContentDuringMovement: true,
     });
   });
 
@@ -52,12 +53,12 @@ describe("workspace runtime mode options", () => {
     });
   });
 
-  test("freezes real workspace panes during movement, resize, and overview", () => {
+  test("keeps real workspace panes live during movement and overview", () => {
     expect(runtimePolicyOptionsForRuntime("workspace")).toStrictEqual({
-      degradeDuringMovement: true,
-      degradeDuringResize: true,
-      degradeOverview: true,
-      degradeOverviewDuringResize: true,
+      degradeDuringMovement: false,
+      degradeDuringResize: false,
+      degradeOverview: false,
+      degradeOverviewDuringResize: false,
     });
   });
 
@@ -73,10 +74,21 @@ describe("workspace runtime mode options", () => {
     expect(hostPoolSizeForRuntime("workspace", workspaceScene)).toBe(workspaceScene.totalPanes);
   });
 
+  test("restores the focused pane from the persisted real workspace scene", () => {
+    const engine = {
+      firstPaneId: () => "first_pane",
+    } as Parameters<typeof initialFocusedPaneIdForRuntime>[1];
+    const realScene = {
+      focusedPaneId: "persisted_pane",
+    } as Parameters<typeof initialFocusedPaneIdForRuntime>[2];
+
+    expect(initialFocusedPaneIdForRuntime("workspace", engine, realScene)).toBe("persisted_pane");
+  });
+
   test("keeps every visible workspace surface live in a moving resize frame", () => {
     const scene = generateBenchmarkScene({ paneCount: 10, targetVisiblePanes: 10 });
     const items = [
-      renderItem("conversation", "easy-button"),
+      renderItem("conversation", "conversation"),
       renderItem("browser", "browser"),
       renderItem("heavy", "fake-heavy-dom"),
       renderItem("light", "fake-dom"),

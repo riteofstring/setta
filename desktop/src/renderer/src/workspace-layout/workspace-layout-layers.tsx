@@ -78,29 +78,21 @@ export function WorkspaceToolbarLayer({
 }
 
 export function WorkspaceMobileControlsLayer({
-  dismissProjectPaneOverlay,
   mobileLayout,
   onOpenSettingsPage,
-  onToggleProjectPane,
   overviewActive,
   persistLayout,
-  projectPaneOpen,
   runLayoutAction,
   runtime,
   stageViewport,
-  workspaceRowsEnabled,
 }: {
-  dismissProjectPaneOverlay: () => void;
   mobileLayout: boolean;
   onOpenSettingsPage: () => void;
-  onToggleProjectPane: () => void;
   overviewActive: boolean;
   persistLayout: () => void;
-  projectPaneOpen: boolean;
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   stageViewport: () => Rect;
-  workspaceRowsEnabled: boolean;
 }) {
   if (runtime.mode !== "workspace" || !mobileLayout) {
     return null;
@@ -108,26 +100,19 @@ export function WorkspaceMobileControlsLayer({
   return (
     <WorkspaceMobileControls
       moveFocus={(direction) => {
-        dismissProjectPaneOverlay();
         runtime.store.moveFocus(direction, stageViewport());
         persistLayout();
       }}
       onNewPane={() => {
-        dismissProjectPaneOverlay();
         runLayoutAction(() => runtime.store.openEmptyFrame());
       }}
       onOpenSettingsPage={() => {
-        dismissProjectPaneOverlay();
         onOpenSettingsPage();
       }}
       onToggleOverview={() => {
-        dismissProjectPaneOverlay();
         runLayoutAction(() => runtime.store.toggleOverviewMode());
       }}
-      onToggleProjectPane={onToggleProjectPane}
       overviewActive={overviewActive}
-      projectPaneOpen={projectPaneOpen}
-      workspaceRowsEnabled={workspaceRowsEnabled}
     />
   );
 }

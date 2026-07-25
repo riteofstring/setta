@@ -552,7 +552,6 @@ describe("appearance settings", () => {
       <DeveloperSettingsEditor
         developer={{
           allowResizedPanesToOverflowViewport: false,
-          enableWorkspaceRows: false,
           overviewCardMaxWidthPx: 460,
           overviewCardMinWidthPx: 280,
           showPerformanceStats: false,
@@ -560,7 +559,6 @@ describe("appearance settings", () => {
         dirty={false}
         error={null}
         onClampResizedPanesToViewportChange={vi.fn()}
-        onEnableWorkspaceRowsChange={vi.fn()}
         onOverviewCardWidthBoundsChange={vi.fn()}
         onRevert={vi.fn()}
         onSave={async () => {}}
@@ -572,7 +570,6 @@ describe("appearance settings", () => {
     expect(html).toContain('data-testid="developer-settings"');
     expect(html).toContain("Clamp resized panes to viewport");
     expect(html).toContain("Top bar performance stats");
-    expect(html).toContain("Multiple workspace rows");
     expect(html).toContain("Overview card min width");
     expect(html).toContain("Overview card max width");
     expect(html).toContain('value="280"');
@@ -906,7 +903,6 @@ function sampleAppearanceSettings(): AppearanceSettings {
     dark: sampleColorScheme(tailwind, 200),
     developer: {
       allowResizedPanesToOverflowViewport: false,
-      enableWorkspaceRows: false,
       overviewCardMaxWidthPx: 460,
       overviewCardMinWidthPx: 280,
       showPerformanceStats: false,
