@@ -145,14 +145,14 @@ type RouteModelConfigurationAudit struct {
 }
 
 type RouteCandidateAudit struct {
-	ConversationID string   `json:"conversationId"`
-	WorkspaceID    string   `json:"workspaceId"`
-	LexicalRank    *float64 `json:"lexicalRank"`
+	ConversationID string             `json:"conversationId"`
+	ResourceScope  RouteResourceScope `json:"resourceScope"`
+	LexicalRank    *float64           `json:"lexicalRank"`
 }
 
 type RouteTargetAuthority struct {
 	ConversationID       string              `json:"conversationId"`
-	WorkspaceID          string              `json:"workspaceId"`
+	ResourceScope        RouteResourceScope  `json:"resourceScope"`
 	AllowedDecisionKinds []RouteDecisionKind `json:"allowedDecisionKinds"`
 	CompletedForkTurnIDs []string            `json:"completedForkTurnIds"`
 }
@@ -602,9 +602,9 @@ func validateRouteContextAuditReferences(audit RouteContextAudit) error {
 }
 
 func validateRouteCandidateAudits(audit RouteContextAudit) error {
-	targetWorkspaces := make(map[string]string, len(audit.TargetAuthorities))
+	targetScopes := make(map[string]RouteResourceScope, len(audit.TargetAuthorities))
 	for _, authority := range audit.TargetAuthorities {
-		targetWorkspaces[authority.ConversationID] = authority.WorkspaceID
+		targetScopes[authority.ConversationID] = authority.ResourceScope
 	}
 	seenCandidates := map[string]bool{}
 	for index, candidate := range audit.RetrievedCandidates {
@@ -612,7 +612,7 @@ func validateRouteCandidateAudits(audit RouteContextAudit) error {
 			audit,
 			index,
 			candidate,
-			targetWorkspaces,
+			targetScopes,
 			seenCandidates,
 		); err != nil {
 			return err
@@ -626,18 +626,18 @@ func validateRouteCandidateAudit(
 	audit RouteContextAudit,
 	index int,
 	candidate RouteCandidateAudit,
-	targetWorkspaces map[string]string,
+	targetScopes map[string]RouteResourceScope,
 	seenCandidates map[string]bool,
 ) error {
 	if err := validateRouteReference("master route candidate conversation id", candidate.ConversationID); err != nil {
 		return err
 	}
-	if err := validateRouteReference("master route candidate workspace id", candidate.WorkspaceID); err != nil {
+	if err := candidate.ResourceScope.Validate(); err != nil {
 		return err
 	}
 	if seenCandidates[candidate.ConversationID] ||
 		audit.IncludedCandidateIDs[index] != candidate.ConversationID ||
-		targetWorkspaces[candidate.ConversationID] != candidate.WorkspaceID {
+		!targetScopes[candidate.ConversationID].Equal(candidate.ResourceScope) {
 		return errors.New("master route candidate audit is duplicated, reordered, or unauthorized")
 	}
 	return validateRouteCandidateRank(audit.CandidateQuery, candidate.LexicalRank)
@@ -666,7 +666,7 @@ func validateRouteTargetAuthorities(authorities []RouteTargetAuthority) error {
 			return fmt.Errorf("master route context repeats target %s", authority.ConversationID)
 		}
 		seen[authority.ConversationID] = true
-		if err := validateRouteReference("master route authority workspace id", authority.WorkspaceID); err != nil {
+		if err := authority.ResourceScope.Validate(); err != nil {
 			return err
 		}
 		if authority.AllowedDecisionKinds == nil || len(authority.AllowedDecisionKinds) == 0 {

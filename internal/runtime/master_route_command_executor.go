@@ -134,9 +134,13 @@ func (executor *masterRouteCommandExecutor) execute(
 	switch command.Kind {
 	case master.RouteDecisionKindAskNarrator:
 		payload := command.AskNarrator
-		_, err := executor.narrator.AskRoutedStatus(
+		workspaceID, err := masterRouteExecutorFolderWorkspaceID(payload.Target)
+		if err != nil {
+			return err
+		}
+		_, err = executor.narrator.AskRoutedStatus(
 			ctx,
-			payload.Target.WorkspaceID,
+			workspaceID,
 			payload.Target.ConversationID,
 			payload.RequestID,
 			payload.Question,
@@ -175,9 +179,13 @@ func (executor *masterRouteCommandExecutor) routedNarratorDegradationApplied(
 			payload.RequestID,
 		)
 	}
+	workspaceID, err := masterRouteExecutorFolderWorkspaceID(payload.Target)
+	if err != nil {
+		return false, err
+	}
 	snapshot, err := executor.store.ReadSnapshot(
 		ctx,
-		payload.Target.WorkspaceID,
+		workspaceID,
 		payload.Target.ConversationID,
 	)
 	if err != nil {
@@ -189,6 +197,16 @@ func (executor *masterRouteCommandExecutor) routedNarratorDegradationApplied(
 		return false, errors.New("verify master routed narrator degradation: durable state does not match the completed request")
 	}
 	return true, nil
+}
+
+func masterRouteExecutorFolderWorkspaceID(
+	target master.ConversationPresentationTarget,
+) (string, error) {
+	workspaceID, ok := target.ResourceScope.FolderWorkspaceID()
+	if !ok {
+		return "", fmt.Errorf("master route target %s has no folder resource", target.ConversationID)
+	}
+	return workspaceID, nil
 }
 
 var _ master.RouteCommandExecutor = (*masterRouteCommandExecutor)(nil)

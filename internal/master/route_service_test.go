@@ -1,12 +1,15 @@
 package master
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strings"
 	"testing"
 
 	"setta/internal/conversationindex"
+	"setta/internal/workspace"
+	"setta/internal/workspacesession"
 )
 
 func TestRouteContextTargetIDsPreserveRequiredTargetsBeforeGlobalState(t *testing.T) {
@@ -63,16 +66,63 @@ func TestRouteContextTargetIDsBoundAndValidateGlobalState(t *testing.T) {
 	}
 }
 
+func TestRouteServiceRetrievesFolderlessCandidatesWithoutActiveWorkspaces(t *testing.T) {
+	retriever := &routeServiceTestCandidateRetriever{
+		candidates: []conversationindex.Candidate{{
+			Card: conversationindex.TopicCard{
+				StoredTopicCard: conversationindex.StoredTopicCard{
+					ConversationID:       "conversation-folderless",
+					ResourceScope:        conversationindex.FolderlessResourceScope(),
+					Title:                "Folderless topic",
+					RecentUserRequests:   []conversationindex.TextExcerpt{},
+					RecentFinalSummaries: []conversationindex.TextExcerpt{},
+					UpdatedAt:            "2026-07-13T18:00:00Z",
+					ActiveStatus:         "idle",
+					OpenPaneIDs:          []string{"pane-folderless"},
+					OpenPaneCount:        1,
+				},
+			},
+		}},
+	}
+	service := &RouteService{
+		candidates: retriever,
+		workspaces: routeServiceTestWorkspaces{session: workspacesession.WorkspaceSession{
+			ActiveWorkspaces:        []workspace.WorkspaceSummary{},
+			WorkspaceAvailabilities: []workspacesession.WorkspaceAvailability{},
+		}},
+	}
+
+	_, retrieval, _, candidates, err := service.retrieveAvailableCandidates(context.Background(), MasterInput{
+		ID:          "master-input-folderless-search",
+		Text:        "Open the folderless topic.",
+		Modality:    MasterInputModalityText,
+		Source:      MasterInputSourceShell,
+		SubmittedAt: "2026-07-13T18:00:01Z",
+	})
+	if err != nil {
+		t.Fatalf("retrieveAvailableCandidates: %v", err)
+	}
+	if retriever.calls != 1 {
+		t.Fatalf("candidate retriever calls = %d, want 1", retriever.calls)
+	}
+	if !retrieval.Scope.IncludeFolderless || len(retrieval.Scope.FolderResourceWorkspaceIDs) != 0 {
+		t.Fatalf("retrieval scope = %+v, want folderless app scope", retrieval.Scope)
+	}
+	if len(candidates) != 1 || candidates[0].Card.ConversationID != "conversation-folderless" {
+		t.Fatalf("folderless candidates = %+v", candidates)
+	}
+}
+
 func TestRouteServiceBuildsStableSideAndForkPresentationCommands(t *testing.T) {
 	ordinal := 0
 	service := &RouteService{newID: func(prefix string) (string, error) {
 		ordinal++
 		return fmt.Sprintf("%s-%d", prefix, ordinal), nil
-	}}
+	}, workspaces: routeServiceTestWorkspaces{}}
 	activeTurnID := "turn-active"
 	bundle := RouteContextBundle{ConversationTargets: []RouteConversationTarget{{
 		ConversationID:      "conversation-alpha",
-		WorkspaceID:         "workspace-alpha",
+		ResourceScope:       FolderRouteResourceScope("workspace-alpha", ""),
 		Title:               "Alpha topic",
 		OpenPaneIDs:         []string{"pane-alpha"},
 		OpenPaneCount:       1,
@@ -119,4 +169,34 @@ func TestRouteServiceBuildsStableSideAndForkPresentationCommands(t *testing.T) {
 		fork.ForkConversation.Target.Title != "Fork of Alpha topic" {
 		t.Fatalf("fork route command = %+v err=%v", fork, err)
 	}
+}
+
+type routeServiceTestWorkspaces struct {
+	session workspacesession.WorkspaceSession
+}
+
+func (source routeServiceTestWorkspaces) Session() workspacesession.WorkspaceSession {
+	return source.session
+}
+
+func (routeServiceTestWorkspaces) ResolveActiveWorkspace(id string) (workspace.WorkspaceSummary, error) {
+	return workspace.WorkspaceSummary{
+		ID:       id,
+		RootPath: "/tmp/setta-route-service-test/" + id,
+	}, nil
+}
+
+type routeServiceTestCandidateRetriever struct {
+	calls      int
+	request    conversationindex.CandidateRequest
+	candidates []conversationindex.Candidate
+}
+
+func (retriever *routeServiceTestCandidateRetriever) RetrieveCandidates(
+	_ context.Context,
+	request conversationindex.CandidateRequest,
+) ([]conversationindex.Candidate, error) {
+	retriever.calls++
+	retriever.request = request
+	return retriever.candidates, nil
 }

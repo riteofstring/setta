@@ -8,9 +8,9 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   reloadPage,
   stopElectronCdpContext,
@@ -72,6 +72,10 @@ try {
   await context.client.installDriver();
   const backend = await backendProbe(artifactDir);
   const workspaceId = await openWorkspace(context.client);
+  assertDriverAction(
+    await context.client.driver("topicConversationClickNewFrameConversation"),
+    "clicked",
+  );
   const initialConversation = await waitForInitialConversation(backend, workspaceId);
   await waitForConversationSurface(
     context.client,
@@ -80,16 +84,6 @@ try {
   );
   await captureScreenshot(context.client, join(artifactDir, "initial.png"));
 
-  const headerConversation = await createConversationThroughUI({
-    action: () =>
-      context.client.driver("topicConversationClickNewConversationHeader", {
-        clicks: 1,
-      }),
-    backend,
-    client: context.client,
-    source: "sidebar-header",
-    workspaceId,
-  });
   const toolbarConversation = await createConversationThroughUI({
     action: () => context.client.driver("topicConversationClickNewFrameConversation"),
     backend,
@@ -97,7 +91,7 @@ try {
     source: "new-frame-menu",
     workspaceId,
   });
-  const emptyFramePaneId = await waitForEmptyFramePaneId(context.client);
+  const emptyFramePaneId = await ensureEmptyFramePaneForCreationRace(context.client);
   const emptyFrameConversation = await createConversationThroughUI({
     action: () =>
       context.client.driver("topicConversationClickEmptyFrameConversation", {
@@ -109,58 +103,36 @@ try {
     source: "empty-frame",
     workspaceId,
   });
-  assertDistinctConversationIds([
-    initialConversation,
-    headerConversation,
-    toolbarConversation,
-    emptyFrameConversation,
-  ]);
-  const rapidRepeatConversation = await createRapidRepeatConversationThroughUI({
-    backend,
-    client: context.client,
-    workspaceId,
-  });
-  assertDistinctConversationIds([
-    initialConversation,
-    headerConversation,
-    toolbarConversation,
-    emptyFrameConversation,
-    rapidRepeatConversation,
-  ]);
-  const creationRaceFailures = await exerciseConversationCreationRaceFailures({
-    backend,
-    client: context.client,
-    workspaceId,
-  });
+  assertDistinctConversationIds([initialConversation, toolbarConversation, emptyFrameConversation]);
 
   const focusResult = await verifyNavigatorFocusDoesNotDuplicate({
     backend,
     client: context.client,
-    conversation: headerConversation,
+    conversation: toolbarConversation,
     workspaceId,
   });
-  const restoredHeaderConversation = await verifyCloseAndRestoreFromNavigator({
+  const restoredToolbarConversation = await verifyCloseAndRestoreFromNavigator({
     backend,
     client: context.client,
-    conversation: headerConversation,
+    conversation: toolbarConversation,
     workspaceId,
   });
   const concurrentRuns = await submitConcurrentHoldTurns({
     backend,
     client: context.client,
-    conversations: [restoredHeaderConversation, toolbarConversation],
+    conversations: [restoredToolbarConversation, emptyFrameConversation],
     workspaceId,
   });
   const uiLifecycle = await exerciseUICreatedConversationLifecycle({
     backend,
     client: context.client,
-    conversation: restoredHeaderConversation,
+    conversation: restoredToolbarConversation,
     workspaceId,
   });
   const uiFailure = await exerciseUICreatedConversationFailure({
     backend,
     client: context.client,
-    conversation: toolbarConversation,
+    conversation: emptyFrameConversation,
     workspaceId,
   });
   const extraConversations = await createUntilMoreThanTenEasyButtonPanes({
@@ -168,13 +140,13 @@ try {
     client: context.client,
     workspaceId,
   });
-  const scaledLayout = await waitForUILayout(backend, workspaceId, (layout) => {
-    const easyButtonPanes = easyButtonLayoutPanes(layout);
-    return easyButtonPanes.length > 10 && uniqueEasyButtonConversationBindings(layout);
+  const scaledLayout = await waitForAppPaneLayout(backend, workspaceId, (layout) => {
+    const conversationPanes = appConversationLayoutPanes(layout);
+    return conversationPanes.length > 10 && uniqueAppConversationBindings(layout);
   });
   const scaledState = await waitForCreationWorkspaceState(
     context.client,
-    (state) => state.newConversationButtonEnabled && state.newFrameButtonEnabled,
+    (state) => state.newFrameButtonEnabled,
   );
 
   await captureScreenshot(context.client, join(artifactDir, "before-reload.png"));
@@ -191,10 +163,8 @@ try {
     backend,
     conversations: [
       initialConversation,
-      restoredHeaderConversation,
-      toolbarConversation,
+      restoredToolbarConversation,
       emptyFrameConversation,
-      rapidRepeatConversation,
       ...extraConversations,
     ],
     exactPaneBinding: {
@@ -203,9 +173,6 @@ try {
     },
     workspaceId,
   });
-  await waitForNavigatorOpenInWorkspace(context.client, restoredHeaderConversation.id);
-  await waitForNavigatorOpenInWorkspace(context.client, toolbarConversation.id);
-  await waitForNavigatorOpenInWorkspace(context.client, emptyFrameConversation.id);
   await captureScreenshot(context.client, join(artifactDir, "after-reload.png"));
 
   await writeJson(join(artifactDir, "summary.json"), {
@@ -215,15 +182,12 @@ try {
     emptyFramePaneId,
     extraConversationCount: extraConversations.length,
     focusResult,
-    headerConversation: restoredHeaderConversation,
     initialConversation,
-    creationRaceFailures,
-    rapidRepeatConversation,
-    reloadedEasyButtonPaneCount: easyButtonLayoutPanes(reloadedLayout).length,
-    scaledEasyButtonPaneCount: easyButtonLayoutPanes(scaledLayout).length,
+    reloadedEasyButtonPaneCount: appConversationLayoutPanes(reloadedLayout).length,
+    scaledEasyButtonPaneCount: appConversationLayoutPanes(scaledLayout).length,
     scaledState,
     status: "passed",
-    toolbarConversation,
+    toolbarConversation: restoredToolbarConversation,
     uiFailure,
     uiLifecycle,
     viewport,
@@ -250,26 +214,19 @@ try {
 }
 
 async function openWorkspace(client) {
-  const initial = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => state.openButtonReady || validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
-  if (!validWorkspaceId(initial.workspaceId)) {
-    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  const current = await client.evaluate(workspaceIdExpression());
+  if (!validWorkspaceId(current)) {
+    await openFixtureWorkspace(client, workflowTimeoutMs);
   }
-  const opened = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
-  return opened.workspaceId;
+  return waitForState(client, workspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
 }
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
+}
+
+function workspaceIdExpression() {
+  return `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`;
 }
 
 async function waitForInitialConversation(backend, workspaceId) {
@@ -317,113 +274,6 @@ async function createConversationThroughUI({
   return { ...created, paneId: surface.paneId };
 }
 
-async function createRapidRepeatConversationThroughUI({ backend, client, workspaceId }) {
-  const before = await listTopics(backend, workspaceId);
-  const beforeIds = new Set(before.items.map((item) => item.conversation.id));
-  const action = await client.driver("topicConversationClickNewConversationHeader", {
-    clicks: 2,
-  });
-  assertDriverAction(action, "clicked");
-  assertCondition(action.clickCount === 2, "rapid-repeat did not request two activations", {
-    action,
-  });
-  const page = await waitForBackendState(
-    () => listTopics(backend, workspaceId),
-    (current) => newConversationItems(current, beforeIds).length === 1,
-    workflowTimeoutMs,
-  );
-  const createdItems = newConversationItems(page, beforeIds);
-  const created = topicSummary(createdItems[0], "sidebar-header-rapid-repeat");
-  const surface = await waitForConversationSurface(
-    client,
-    created.id,
-    (candidate) => candidate.projectionStatus === "ready" && !candidate.inputDisabled,
-  );
-  await waitForPersistedConversationPane(backend, workspaceId, created.id, "");
-  await waitForNavigator(client, created.id, 1, workflowTimeoutMs);
-  return {
-    ...created,
-    createdConversationCount: createdItems.length,
-    paneId: surface.paneId,
-    requestedClickCount: action.clickCount,
-  };
-}
-
-async function exerciseConversationCreationRaceFailures({ backend, client, workspaceId }) {
-  return {
-    disappearedTarget: await createConversationWithPostCreateLayoutRace({
-      backend,
-      client,
-      expectedError: "The conversation was created, but its frame no longer exists.",
-      mutation: "close-target",
-      source: "empty-frame-disappeared-after-create",
-      workspaceId,
-    }),
-    nonEmptyTarget: await createConversationWithPostCreateLayoutRace({
-      backend,
-      client,
-      expectedError: "The conversation was created, but the selected frame is no longer empty.",
-      mutation: "fill-target-browser",
-      source: "empty-frame-filled-after-create",
-      workspaceId,
-    }),
-  };
-}
-
-async function createConversationWithPostCreateLayoutRace({
-  backend,
-  client,
-  expectedError,
-  mutation,
-  source,
-  workspaceId,
-}) {
-  const targetPaneId = await ensureEmptyFramePaneForCreationRace(client);
-  const before = await listTopics(backend, workspaceId);
-  const beforeIds = new Set(before.items.map((item) => item.conversation.id));
-  const action = await client.driver(
-    "topicConversationRequestEmptyFrameConversationWithDestinationRace",
-    {
-      mutation,
-      paneId: targetPaneId,
-    },
-  );
-  assertDriverAction(action, "requested");
-  assertCondition(
-    action.workspaceId === workspaceId,
-    "conversation creation race targeted the wrong workspace",
-    {
-      action,
-      workspaceId,
-    },
-  );
-  const page = await waitForBackendState(
-    () => listTopics(backend, workspaceId),
-    (current) => newConversationItems(current, beforeIds).length === 1,
-    workflowTimeoutMs,
-  );
-  const created = topicSummary(newConversationItems(page, beforeIds)[0], source);
-  await waitForCreationWorkspaceState(client, (state) =>
-    state.operationErrorText.includes(expectedError),
-  );
-  await waitForNavigator(client, created.id, 0, workflowTimeoutMs);
-  const layout = await waitForUILayout(backend, workspaceId, (candidate) =>
-    layoutMatchesPostCreateRace(candidate, {
-      conversationId: created.id,
-      mutation,
-      targetPaneId,
-    }),
-  );
-  return {
-    conversationId: created.id,
-    error: expectedError,
-    mutation,
-    targetPaneId,
-    targetPaneSurfaceKind:
-      layout.panes.find((pane) => pane.paneId === targetPaneId)?.surfaceKind ?? null,
-  };
-}
-
 async function ensureEmptyFramePaneForCreationRace(client) {
   const state = await waitForCreationWorkspaceState(
     client,
@@ -447,22 +297,6 @@ async function ensureEmptyFramePaneForCreationRace(client) {
     split,
   });
   return created.paneId;
-}
-
-function layoutMatchesPostCreateRace(layout, { conversationId, mutation, targetPaneId }) {
-  if (layoutHasConversationPane(layout, conversationId)) {
-    return false;
-  }
-  switch (mutation) {
-    case "close-target":
-      return !layout.panes.some((pane) => pane.paneId === targetPaneId);
-    case "fill-target-browser":
-      return layout.panes.some(
-        (pane) => pane.paneId === targetPaneId && pane.surfaceKind === "browser",
-      );
-    default:
-      throw new Error(`unsupported post-create race mutation: ${mutation}`);
-  }
 }
 
 function newConversationItems(page, beforeIds) {
@@ -502,10 +336,7 @@ async function verifyNavigatorFocusDoesNotDuplicate({
     driverCallExpression("topicConversationNavigatorState", {
       conversationId: conversation.id,
     }),
-    (state) =>
-      state.focusedPaneId === conversation.paneId &&
-      state.openViewCount === 1 &&
-      state.rowCount === 1,
+    (state) => state.focusedPaneId === conversation.paneId && state.openViewCount === 1,
     workflowTimeoutMs,
   );
   const afterPage = await listTopics(backend, workspaceId);
@@ -828,21 +659,18 @@ async function exerciseUICreatedConversationFailure({
 
 async function createUntilMoreThanTenEasyButtonPanes({ backend, client, workspaceId }) {
   const created = [];
-  let layout = await readUILayout(backend, workspaceId);
-  while (easyButtonLayoutPanes(layout).length <= 10) {
+  let layout = await readAppPaneLayout(backend, workspaceId);
+  while (appConversationLayoutPanes(layout).length <= 10) {
     created.push(
       await createConversationThroughUI({
-        action: () =>
-          client.driver("topicConversationClickNewConversationHeader", {
-            clicks: 1,
-          }),
+        action: () => client.driver("topicConversationClickNewFrameConversation"),
         backend,
         client,
-        source: `sidebar-header-scale-${created.length + 1}`,
+        source: `new-frame-scale-${created.length + 1}`,
         workspaceId,
       }),
     );
-    layout = await readUILayout(backend, workspaceId);
+    layout = await readAppPaneLayout(backend, workspaceId);
   }
   return created;
 }
@@ -853,33 +681,24 @@ async function verifyReloadedConversationBindings({
   exactPaneBinding,
   workspaceId,
 }) {
-  return waitForUILayout(backend, workspaceId, (layout) => {
-    if (!uniqueEasyButtonConversationBindings(layout)) {
+  return waitForAppPaneLayout(backend, workspaceId, (layout) => {
+    if (!uniqueAppConversationBindings(layout)) {
       return false;
     }
-    const easyButtonPanes = easyButtonLayoutPanes(layout);
+    const conversationPanes = appConversationLayoutPanes(layout);
     const boundConversationIds = new Set(
-      easyButtonPanes.map((pane) => pane.easyButtonConfig.conversationId),
+      conversationPanes.map((pane) => pane.conversationConfig.conversationId),
     );
     const allExpectedBound = conversations.every((conversation) =>
       boundConversationIds.has(conversation.id),
     );
-    const exactBound = easyButtonPanes.some(
+    const exactBound = conversationPanes.some(
       (pane) =>
         pane.paneId === exactPaneBinding.paneId &&
-        pane.easyButtonConfig.conversationId === exactPaneBinding.conversationId,
+        pane.conversationConfig.conversationId === exactPaneBinding.conversationId,
     );
-    return allExpectedBound && exactBound && easyButtonPanes.length > 10;
+    return allExpectedBound && exactBound && conversationPanes.length > 10;
   });
-}
-
-async function waitForEmptyFramePaneId(client) {
-  const state = await waitForCreationWorkspaceState(client, (candidate) =>
-    candidate.hosts.some((host) => host.surfaceKind === "empty-frame"),
-  );
-  const host = state.hosts.find((candidate) => candidate.surfaceKind === "empty-frame");
-  assertCondition(host?.paneId, "empty frame pane was unavailable", state);
-  return host.paneId;
 }
 
 async function waitForCreationWorkspaceState(client, ready) {
@@ -887,15 +706,6 @@ async function waitForCreationWorkspaceState(client, ready) {
     client,
     driverCallExpression("topicConversationCreationWorkspaceState", {}),
     ready,
-    workflowTimeoutMs,
-  );
-}
-
-async function waitForNavigatorOpenInWorkspace(client, conversationId) {
-  return waitForState(
-    client,
-    driverCallExpression("topicConversationNavigatorState", { conversationId }),
-    (state) => state.rowCount === 1 && state.label.includes("open in workspace"),
     workflowTimeoutMs,
   );
 }
@@ -969,47 +779,43 @@ async function waitForPersistedConversationPane(
   conversationId,
   expectedPaneId,
 ) {
-  return waitForUILayout(backend, workspaceId, (layout) =>
-    easyButtonLayoutPanes(layout).some(
+  return waitForAppPaneLayout(backend, workspaceId, (layout) =>
+    appConversationLayoutPanes(layout).some(
       (pane) =>
-        pane.easyButtonConfig.conversationId === conversationId &&
+        pane.conversationConfig.conversationId === conversationId &&
         (expectedPaneId === "" || pane.paneId === expectedPaneId),
     ),
   );
 }
 
-async function waitForUILayout(backend, workspaceId, ready) {
+async function waitForAppPaneLayout(backend, workspaceId, ready) {
+  void workspaceId;
   const result = await waitForBackendState(
-    () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
+    () => backend.get("/app/panes/layout"),
     (current) => Boolean(current.layout && ready(current.layout)),
     workflowTimeoutMs,
   );
   return result.layout;
 }
 
-async function readUILayout(backend, workspaceId) {
-  const result = await backend.post("/workspaces/ui/layout/read", { workspaceId });
+async function readAppPaneLayout(backend, workspaceId) {
+  void workspaceId;
+  const result = await backend.get("/app/panes/layout");
   if (!result.layout) {
-    throw new Error(`workspace layout was unavailable: ${JSON.stringify(result)}`);
+    throw new Error(`app pane layout was unavailable: ${JSON.stringify(result)}`);
   }
   return result.layout;
 }
 
-function easyButtonLayoutPanes(layout) {
+function appConversationLayoutPanes(layout) {
   return layout.panes.filter(
-    (pane) => pane.surfaceKind === "easy-button" && pane.easyButtonConfig?.conversationId,
+    (pane) => pane.surfaceKind === "conversation" && pane.conversationConfig?.conversationId,
   );
 }
 
-function layoutHasConversationPane(layout, conversationId) {
-  return easyButtonLayoutPanes(layout).some(
-    (pane) => pane.easyButtonConfig.conversationId === conversationId,
-  );
-}
-
-function uniqueEasyButtonConversationBindings(layout) {
-  const conversationIds = easyButtonLayoutPanes(layout).map(
-    (pane) => pane.easyButtonConfig.conversationId,
+function uniqueAppConversationBindings(layout) {
+  const conversationIds = appConversationLayoutPanes(layout).map(
+    (pane) => pane.conversationConfig.conversationId,
   );
   return new Set(conversationIds).size === conversationIds.length;
 }

@@ -49,7 +49,7 @@ export function EasyButtonForkLineageBanner({
       </span>
       <button
         data-testid="easy-button-open-parent"
-        disabled={!commands?.available || commands.pending}
+        disabled={!commands?.workspaceCommandsAvailable || commands.pending}
         onClick={() =>
           commands?.presentRelatedConversation(lineage.parentConversationId, lineage.parentTitle)
         }

@@ -487,6 +487,10 @@ func cloneMasterInputRoutingWork(work master.InputRoutingWork) master.InputRouti
 func cloneMasterRouteTargets(targets []master.RouteConversationTarget) []master.RouteConversationTarget {
 	cloned := append([]master.RouteConversationTarget{}, targets...)
 	for index := range cloned {
+		if cloned[index].ResourceScope.Folder != nil {
+			folder := *cloned[index].ResourceScope.Folder
+			cloned[index].ResourceScope.Folder = &folder
+		}
 		cloned[index].OpenPaneIDs = append([]string{}, cloned[index].OpenPaneIDs...)
 		cloned[index].ActiveTurnID = cloneStringPointer(cloned[index].ActiveTurnID)
 		cloned[index].CompletedForkPoints = append([]master.RouteForkPoint{}, cloned[index].CompletedForkPoints...)

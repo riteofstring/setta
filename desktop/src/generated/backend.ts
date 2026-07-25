@@ -18,10 +18,12 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 69;
-export const backendContractSchemaHash = "sha256:71f96c14b6b9635be2cfbfd7d2a296e64aa22579fb58ed0198da220035e73910";
+export const backendProtocolVersion = 77;
+export const backendContractSchemaHash = "sha256:9b293842fa5faaa439fd73034c647ee5c5be762d530b6b7004e880235c2a68e0";
 
 export const workspaceUILayoutSchemaVersion = 1;
+
+export const appPaneLayoutSchemaVersion = 1;
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -186,16 +188,16 @@ export function decodeColumnWidthUnit(value: unknown, label = "ColumnWidthUnit")
   }
 }
 
-export type SurfaceKind = "browser" | "easy-button" | "empty-frame";
+export type SurfaceKind = "browser" | "conversation" | "empty-frame";
 
-export const surfaceKindValues = ["browser", "easy-button", "empty-frame"] as const satisfies readonly SurfaceKind[];
+export const surfaceKindValues = ["browser", "conversation", "empty-frame"] as const satisfies readonly SurfaceKind[];
 
 export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): SurfaceKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "browser":
       return decoded;
-    case "easy-button":
+    case "conversation":
       return decoded;
     case "empty-frame":
       return decoded;
@@ -220,6 +222,78 @@ export function decodePaneTone(value: unknown, label = "PaneTone"): PaneTone {
     case "pink":
       return decoded;
     case "slate":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type AppPaneColumnWidthUnit = "proportion" | "px";
+
+export const appPaneColumnWidthUnitValues = ["proportion", "px"] as const satisfies readonly AppPaneColumnWidthUnit[];
+
+export function decodeAppPaneColumnWidthUnit(value: unknown, label = "AppPaneColumnWidthUnit"): AppPaneColumnWidthUnit {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "proportion":
+      return decoded;
+    case "px":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type AppPaneTone = "cyan" | "green" | "orange" | "pink" | "slate";
+
+export const appPaneToneValues = ["cyan", "green", "orange", "pink", "slate"] as const satisfies readonly AppPaneTone[];
+
+export function decodeAppPaneTone(value: unknown, label = "AppPaneTone"): AppPaneTone {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "cyan":
+      return decoded;
+    case "green":
+      return decoded;
+    case "orange":
+      return decoded;
+    case "pink":
+      return decoded;
+    case "slate":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ConversationPaneResourceBindingKind = "folder";
+
+export const conversationPaneResourceBindingKindValues = ["folder"] as const satisfies readonly ConversationPaneResourceBindingKind[];
+
+export function decodeConversationPaneResourceBindingKind(value: unknown, label = "ConversationPaneResourceBindingKind"): ConversationPaneResourceBindingKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "folder":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type AppPaneSurfaceKind = "master" | "conversation" | "browser" | "empty-frame";
+
+export const appPaneSurfaceKindValues = ["master", "conversation", "browser", "empty-frame"] as const satisfies readonly AppPaneSurfaceKind[];
+
+export function decodeAppPaneSurfaceKind(value: unknown, label = "AppPaneSurfaceKind"): AppPaneSurfaceKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "master":
+      return decoded;
+    case "conversation":
+      return decoded;
+    case "browser":
+      return decoded;
+    case "empty-frame":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1214,20 +1288,38 @@ export function decodeRouteDecisionKind(value: unknown, label = "RouteDecisionKi
   }
 }
 
-export type PresentationIntentKind = "focus_existing_conversation_pane" | "open_conversation_pane" | "open_side_conversation_in_parent_pane" | "show_master_reply";
+export type RouteResourceScopeKind = "folderless" | "folder";
 
-export const presentationIntentKindValues = ["focus_existing_conversation_pane", "open_conversation_pane", "open_side_conversation_in_parent_pane", "show_master_reply"] as const satisfies readonly PresentationIntentKind[];
+export const routeResourceScopeKindValues = ["folderless", "folder"] as const satisfies readonly RouteResourceScopeKind[];
 
-export function decodePresentationIntentKind(value: unknown, label = "PresentationIntentKind"): PresentationIntentKind {
+export function decodeRouteResourceScopeKind(value: unknown, label = "RouteResourceScopeKind"): RouteResourceScopeKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "focus_existing_conversation_pane":
+    case "folderless":
       return decoded;
-    case "open_conversation_pane":
+    case "folder":
       return decoded;
-    case "open_side_conversation_in_parent_pane":
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type TranscriptEntryKind = "user_input" | "assistant_reply" | "action_receipt" | "cancellation" | "failure";
+
+export const transcriptEntryKindValues = ["user_input", "assistant_reply", "action_receipt", "cancellation", "failure"] as const satisfies readonly TranscriptEntryKind[];
+
+export function decodeTranscriptEntryKind(value: unknown, label = "TranscriptEntryKind"): TranscriptEntryKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "user_input":
       return decoded;
-    case "show_master_reply":
+    case "assistant_reply":
+      return decoded;
+    case "action_receipt":
+      return decoded;
+    case "cancellation":
+      return decoded;
+    case "failure":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1244,6 +1336,26 @@ export function decodeMasterReplyKind(value: unknown, label = "MasterReplyKind")
     case "clarification":
       return decoded;
     case "answer":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type PresentationIntentKind = "focus_existing_conversation_pane" | "open_conversation_pane" | "open_side_conversation_in_parent_pane" | "show_master_reply";
+
+export const presentationIntentKindValues = ["focus_existing_conversation_pane", "open_conversation_pane", "open_side_conversation_in_parent_pane", "show_master_reply"] as const satisfies readonly PresentationIntentKind[];
+
+export function decodePresentationIntentKind(value: unknown, label = "PresentationIntentKind"): PresentationIntentKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "focus_existing_conversation_pane":
+      return decoded;
+    case "open_conversation_pane":
+      return decoded;
+    case "open_side_conversation_in_parent_pane":
+      return decoded;
+    case "show_master_reply":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1732,7 +1844,7 @@ export interface WorkspaceUIColumn {
   widthSpec: ColumnWidthSpec;
 }
 
-export interface EasyButtonPaneConfig {
+export interface WorkspaceConversationPaneConfig {
   conversationId: string;
 }
 
@@ -1749,15 +1861,15 @@ export type WorkspaceUIPane = {
 } & (
   | {
       surfaceKind: "browser";
-      easyButtonConfig: null;
+      conversationConfig: null;
     }
   | {
-      surfaceKind: "easy-button";
-      easyButtonConfig: EasyButtonPaneConfig;
+      surfaceKind: "conversation";
+      conversationConfig: WorkspaceConversationPaneConfig;
     }
   | {
       surfaceKind: "empty-frame";
-      easyButtonConfig: null;
+      conversationConfig: null;
     }
 );
 
@@ -1778,14 +1890,106 @@ export interface SaveWorkspaceUILayoutRequest {
   layout: WorkspaceUILayout;
 }
 
+export interface AppPaneColumnWidthSpec {
+  unit: AppPaneColumnWidthUnit;
+  value: number;
+}
+
+export interface AppPaneColumn {
+  columnId: string;
+  idealWidthSpec: AppPaneColumnWidthSpec;
+  index: number;
+  paneIds: string[];
+  planeIndex: number;
+  previousProportionWidth: number | null;
+  slotIndex: number;
+  widthSpec: AppPaneColumnWidthSpec;
+}
+
+export interface ConversationPanePresentationIdentity {
+  subtitle: string;
+  title: string;
+  tone: AppPaneTone;
+}
+
+export interface FolderResourceBinding {
+  rootPath: string;
+}
+
+export type ConversationPaneResourceBinding = {
+} & (
+  | {
+      kind: "folder";
+      folder: FolderResourceBinding;
+    }
+);
+
+export interface ConversationPaneConfig {
+  conversationId: string;
+  presentationIdentity: ConversationPanePresentationIdentity;
+  resourceBindings: ConversationPaneResourceBinding[];
+}
+
+export interface MasterPaneConfig {
+}
+
+export type AppPane = {
+  columnId: string;
+  heat: number;
+  paneId: string;
+  sequence: number;
+  subtitle: string;
+  surfaceId: string;
+  title: string;
+  tone: AppPaneTone;
+  weight: number;
+} & (
+  | {
+      surfaceKind: "master";
+      masterConfig: MasterPaneConfig;
+      conversationConfig: null;
+    }
+  | {
+      surfaceKind: "conversation";
+      masterConfig: null;
+      conversationConfig: ConversationPaneConfig;
+    }
+  | {
+      surfaceKind: "browser";
+      masterConfig: null;
+      conversationConfig: null;
+    }
+  | {
+      surfaceKind: "empty-frame";
+      masterConfig: null;
+      conversationConfig: null;
+    }
+);
+
+export interface AppPaneLayout {
+  schemaVersion: number;
+  focusedPaneId: string;
+  maximizedPaneId: string | null;
+  columns: AppPaneColumn[];
+  panes: AppPane[];
+}
+
+export interface AppPaneLayoutReadResult {
+  layout: AppPaneLayout | null;
+}
+
+export interface SaveAppPaneLayoutRequest {
+  layout: AppPaneLayout;
+}
+
 export interface CreateTopicConversationRequest {
-  workspaceId: string;
+  workspaceId: string | null;
   title: string;
 }
 
 export interface TopicConversation {
   id: string;
-  workspaceId: string;
+  workspaceId: string | null;
   title: string;
   topicDescriptor: string;
   status: ConversationStatus;
@@ -2353,6 +2557,11 @@ export interface ArchiveTopicConversationRequest {
   conversationId: string;
 }
 
+export interface BindTopicConversationFolderRequest {
+  workspaceId: string;
+  conversationId: string;
+}
+
 export interface SendSideConversationTurnRequest {
   workspaceId: string;
   parentConversationId: string;
@@ -2368,7 +2577,7 @@ export interface DisposeSideConversationRequest {
 }
 
 export interface ReadConversationSnapshotRequest {
-  workspaceId: string;
+  workspaceId: string | null;
   conversationId: string;
 }
 
@@ -2485,7 +2694,7 @@ export interface UpdateTopicConversationPresentationRequest {
 }
 
 export interface SubscribeConversationEventsRequest {
-  workspaceId: string;
+  workspaceId: string | null;
   conversationId: string;
 }
 
@@ -2574,7 +2783,7 @@ export interface ConversationEvent {
   sequence: number;
   eventId: string;
   emittedAt: string;
-  workspaceId: string;
+  workspaceId: string | null;
   conversationId: string;
   payload: ConversationEventPayload;
 }
@@ -2601,7 +2810,7 @@ export interface AcceptedConversationInput {
 }
 
 export interface ReadConversationInputRoutingStateRequest {
-  workspaceId: string;
+  workspaceId: string | null;
   conversationId: string;
   inputId: string;
 }
@@ -2757,13 +2966,13 @@ export interface ConversationInputRoutingState {
 }
 
 export interface RetryConversationInputRequest {
-  workspaceId: string;
+  workspaceId: string | null;
   conversationId: string;
   inputId: string;
 }
 
 export interface DiscardConversationInputRequest {
-  workspaceId: string;
+  workspaceId: string | null;
   conversationId: string;
   inputId: string;
 }
@@ -2964,15 +3173,25 @@ export interface ReadMasterInputRoutingStateRequest {
   inputId: string;
 }
 
+export interface RouteFolderResourceScope {
+  workspaceId: string;
+  workspaceName: string;
+}
+
+export interface RouteResourceScope {
+  kind: RouteResourceScopeKind;
+  folder: RouteFolderResourceScope | null;
+}
+
 export interface RouteCandidateAudit {
   conversationId: string;
-  workspaceId: string;
+  resourceScope: RouteResourceScope;
   lexicalRank: number | null;
 }
 
 export interface RouteTargetAuthority {
   conversationId: string;
-  workspaceId: string;
+  resourceScope: RouteResourceScope;
   allowedDecisionKinds: RouteDecisionKind[];
   completedForkTurnIds: string[];
 }
@@ -3016,8 +3235,9 @@ export interface RouteInvocationAudit {
 }
 
 export interface ConversationPresentationTarget {
-  workspaceId: string;
   conversationId: string;
+  resourceScope: RouteResourceScope;
+  resourceBindings: ConversationPaneResourceBinding[];
   title: string;
   preferredPaneId: string | null;
 }
@@ -3127,6 +3347,57 @@ export interface InputRoutingState {
   decision: RouteDecisionRecord | null;
   cancellation: InputRoutingCancellation | null;
   failure: RouteFailure | null;
+}
+
+export interface ReadMasterTranscriptRequest {
+  limit: number;
+}
+
+export interface TranscriptUserInput {
+  text: string;
+  modality: MasterInputModality;
+}
+
+export interface TranscriptAssistantReply {
+  replyKind: MasterReplyKind;
+  text: string;
+}
+
+export interface TranscriptActionReceipt {
+  decisionKind: RouteDecisionKind;
+  text: string;
+}
+
+export interface TranscriptCancellation {
+  message: string;
+}
+
+export interface TranscriptFailure {
+  code: string;
+  message: string;
+  retryable: boolean;
+}
+
+export interface TranscriptEntryPayload {
+  id: string;
+  inputId: string;
+  kind: TranscriptEntryKind;
+  createdAt: string;
+  userInput: TranscriptUserInput | null;
+  assistantReply: TranscriptAssistantReply | null;
+  actionReceipt: TranscriptActionReceipt | null;
+  cancellation: TranscriptCancellation | null;
+  failure: TranscriptFailure | null;
+}
+
+export interface TranscriptEntry {
+  sequence: number;
+  payload: TranscriptEntryPayload;
+}
+
+export interface Transcript {
+  entries: TranscriptEntry[];
+  lastSequence: number;
 }
 
 export interface FocusExistingConversationPaneIntent {
@@ -3442,6 +3713,15 @@ export const backendEndpoints = {
     path: "/workspaces/ui/layout/save",
     requestBodyLimitBytes: 4194304,
   },
+  ReadAppPaneLayout: {
+    method: "GET",
+    path: "/app/panes/layout",
+  },
+  SaveAppPaneLayout: {
+    method: "POST",
+    path: "/app/panes/layout/save",
+    requestBodyLimitBytes: 4194304,
+  },
   CreateTopicConversation: {
     method: "POST",
     path: "/conversations/create",
@@ -3450,6 +3730,11 @@ export const backendEndpoints = {
   ArchiveTopicConversation: {
     method: "POST",
     path: "/conversations/archive",
+    requestBodyLimitBytes: 4194304,
+  },
+  BindTopicConversationFolder: {
+    method: "POST",
+    path: "/conversations/resources/folder/bind",
     requestBodyLimitBytes: 4194304,
   },
   SendSideConversationTurn: {
@@ -3571,6 +3856,11 @@ export const backendEndpoints = {
   ReadMasterInputRoutingState: {
     method: "POST",
     path: "/master/inputs/state/read",
+    requestBodyLimitBytes: 4194304,
+  },
+  ReadMasterTranscript: {
+    method: "POST",
+    path: "/master/transcript/read",
     requestBodyLimitBytes: 4194304,
   },
   WaitMasterShellInteraction: {
@@ -4093,20 +4383,20 @@ export function decodeWorkspaceUIColumn(value: unknown): WorkspaceUIColumn {
   };
 }
 
-export function decodeEasyButtonPaneConfig(value: unknown): EasyButtonPaneConfig {
-  const record = assertRecord(value, "EasyButtonPaneConfig");
-  assertKnownFields(record, "EasyButtonPaneConfig", ["conversationId"]);
+export function decodeWorkspaceConversationPaneConfig(value: unknown): WorkspaceConversationPaneConfig {
+  const record = assertRecord(value, "WorkspaceConversationPaneConfig");
+  assertKnownFields(record, "WorkspaceConversationPaneConfig", ["conversationId"]);
   return {
-    conversationId: decodeString(requireField(record, "conversationId", "EasyButtonPaneConfig"), "EasyButtonPaneConfig.conversationId"),
+    conversationId: decodeString(requireField(record, "conversationId", "WorkspaceConversationPaneConfig"), "WorkspaceConversationPaneConfig.conversationId"),
   };
 }
 
 export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
   const record = assertRecord(value, "WorkspaceUIPane");
-  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "easyButtonConfig", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "title", "tone", "weight"]);
+  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "conversationConfig", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "title", "tone", "weight"]);
   const result = {
     columnId: decodeString(requireField(record, "columnId", "WorkspaceUIPane"), "WorkspaceUIPane.columnId"),
-    easyButtonConfig: decodeNullable(requireField(record, "easyButtonConfig", "WorkspaceUIPane"), "WorkspaceUIPane.easyButtonConfig", (item) => decodeEasyButtonPaneConfig(item)),
+    conversationConfig: decodeNullable(requireField(record, "conversationConfig", "WorkspaceUIPane"), "WorkspaceUIPane.conversationConfig", (item) => decodeWorkspaceConversationPaneConfig(item)),
     heat: decodeInteger(requireField(record, "heat", "WorkspaceUIPane"), "WorkspaceUIPane.heat"),
     paneId: decodeString(requireField(record, "paneId", "WorkspaceUIPane"), "WorkspaceUIPane.paneId"),
     sequence: decodeInteger(requireField(record, "sequence", "WorkspaceUIPane"), "WorkspaceUIPane.sequence"),
@@ -4119,33 +4409,33 @@ export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
   };
   switch (result.surfaceKind) {
     case "browser": {
-      if (result.easyButtonConfig !== null) {
-        throw new Error("WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is browser");
+      if (result.conversationConfig !== null) {
+        throw new Error("WorkspaceUIPane.conversationConfig must be null when surfaceKind is browser");
       }
       return {
         ...result,
         surfaceKind: "browser",
-        easyButtonConfig: null,
+        conversationConfig: null,
       };
     }
-    case "easy-button": {
-      if (result.easyButtonConfig === null) {
-        throw new Error("WorkspaceUIPane.easyButtonConfig is required when surfaceKind is easy-button");
+    case "conversation": {
+      if (result.conversationConfig === null) {
+        throw new Error("WorkspaceUIPane.conversationConfig is required when surfaceKind is conversation");
       }
       return {
         ...result,
-        surfaceKind: "easy-button",
-        easyButtonConfig: result.easyButtonConfig,
+        surfaceKind: "conversation",
+        conversationConfig: result.conversationConfig,
       };
     }
     case "empty-frame": {
-      if (result.easyButtonConfig !== null) {
-        throw new Error("WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is empty-frame");
+      if (result.conversationConfig !== null) {
+        throw new Error("WorkspaceUIPane.conversationConfig must be null when surfaceKind is empty-frame");
       }
       return {
         ...result,
         surfaceKind: "empty-frame",
-        easyButtonConfig: null,
+        conversationConfig: null,
       };
     }
     default:
@@ -4182,11 +4472,200 @@ export function decodeSaveWorkspaceUILayoutRequest(value: unknown): SaveWorkspac
   };
 }
 
+export function decodeAppPaneColumnWidthSpec(value: unknown): AppPaneColumnWidthSpec {
+  const record = assertRecord(value, "AppPaneColumnWidthSpec");
+  assertKnownFields(record, "AppPaneColumnWidthSpec", ["unit", "value"]);
+  return {
+    unit: decodeAppPaneColumnWidthUnit(requireField(record, "unit", "AppPaneColumnWidthSpec"), "AppPaneColumnWidthSpec.unit"),
+    value: decodeNumber(requireField(record, "value", "AppPaneColumnWidthSpec"), "AppPaneColumnWidthSpec.value"),
+  };
+}
+
+export function decodeAppPaneColumn(value: unknown): AppPaneColumn {
+  const record = assertRecord(value, "AppPaneColumn");
+  assertKnownFields(record, "AppPaneColumn", ["columnId", "idealWidthSpec", "index", "paneIds", "planeIndex", "previousProportionWidth", "slotIndex", "widthSpec"]);
+  return {
+    columnId: decodeString(requireField(record, "columnId", "AppPaneColumn"), "AppPaneColumn.columnId"),
+    idealWidthSpec: decodeAppPaneColumnWidthSpec(requireField(record, "idealWidthSpec", "AppPaneColumn")),
+    index: decodeInteger(requireField(record, "index", "AppPaneColumn"), "AppPaneColumn.index"),
+    paneIds: decodeArray(requireField(record, "paneIds", "AppPaneColumn"), "AppPaneColumn.paneIds", (item) => decodeString(item, "AppPaneColumn.paneIds item")),
+    planeIndex: decodeInteger(requireField(record, "planeIndex", "AppPaneColumn"), "AppPaneColumn.planeIndex"),
+    previousProportionWidth: decodeNullable(requireField(record, "previousProportionWidth", "AppPaneColumn"), "AppPaneColumn.previousProportionWidth", (item) => decodeNumber(item, "AppPaneColumn.previousProportionWidth")),
+    slotIndex: decodeInteger(requireField(record, "slotIndex", "AppPaneColumn"), "AppPaneColumn.slotIndex"),
+    widthSpec: decodeAppPaneColumnWidthSpec(requireField(record, "widthSpec", "AppPaneColumn")),
+  };
+}
+
+export function decodeConversationPanePresentationIdentity(value: unknown): ConversationPanePresentationIdentity {
+  const record = assertRecord(value, "ConversationPanePresentationIdentity");
+  assertKnownFields(record, "ConversationPanePresentationIdentity", ["subtitle", "title", "tone"]);
+  return {
+    subtitle: decodeString(requireField(record, "subtitle", "ConversationPanePresentationIdentity"), "ConversationPanePresentationIdentity.subtitle"),
+    title: decodeString(requireField(record, "title", "ConversationPanePresentationIdentity"), "ConversationPanePresentationIdentity.title"),
+    tone: decodeAppPaneTone(requireField(record, "tone", "ConversationPanePresentationIdentity"), "ConversationPanePresentationIdentity.tone"),
+  };
+}
+
+export function decodeFolderResourceBinding(value: unknown): FolderResourceBinding {
+  const record = assertRecord(value, "FolderResourceBinding");
+  assertKnownFields(record, "FolderResourceBinding", ["rootPath"]);
+  return {
+    rootPath: decodeString(requireField(record, "rootPath", "FolderResourceBinding"), "FolderResourceBinding.rootPath"),
+  };
+}
+
+export function decodeConversationPaneResourceBinding(value: unknown): ConversationPaneResourceBinding {
+  const record = assertRecord(value, "ConversationPaneResourceBinding");
+  assertKnownFields(record, "ConversationPaneResourceBinding", ["folder", "kind"]);
+  const result = {
+    folder: decodeNullable(requireField(record, "folder", "ConversationPaneResourceBinding"), "ConversationPaneResourceBinding.folder", (item) => decodeFolderResourceBinding(item)),
+    kind: decodeConversationPaneResourceBindingKind(requireField(record, "kind", "ConversationPaneResourceBinding"), "ConversationPaneResourceBinding.kind"),
+  };
+  switch (result.kind) {
+    case "folder": {
+      if (result.folder === null) {
+        throw new Error("ConversationPaneResourceBinding.folder is required when kind is folder");
+      }
+      return {
+        ...result,
+        kind: "folder",
+        folder: result.folder,
+      };
+    }
+    default:
+      throw new Error("ConversationPaneResourceBinding.kind is unsupported: " + result.kind);
+  }
+}
+
+export function decodeConversationPaneConfig(value: unknown): ConversationPaneConfig {
+  const record = assertRecord(value, "ConversationPaneConfig");
+  assertKnownFields(record, "ConversationPaneConfig", ["conversationId", "presentationIdentity", "resourceBindings"]);
+  return {
+    conversationId: decodeString(requireField(record, "conversationId", "ConversationPaneConfig"), "ConversationPaneConfig.conversationId"),
+    presentationIdentity: decodeConversationPanePresentationIdentity(requireField(record, "presentationIdentity", "ConversationPaneConfig")),
+    resourceBindings: decodeArray(requireField(record, "resourceBindings", "ConversationPaneConfig"), "ConversationPaneConfig.resourceBindings", (item) => decodeConversationPaneResourceBinding(item)),
+  };
+}
+
+export function decodeMasterPaneConfig(value: unknown): MasterPaneConfig {
+  const record = assertRecord(value, "MasterPaneConfig");
+  assertKnownFields(record, "MasterPaneConfig", []);
+  return {
+  };
+}
+
+export function decodeAppPane(value: unknown): AppPane {
+  const record = assertRecord(value, "AppPane");
+  assertKnownFields(record, "AppPane", ["columnId", "conversationConfig", "heat", "masterConfig", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "title", "tone", "weight"]);
+  const result = {
+    columnId: decodeString(requireField(record, "columnId", "AppPane"), "AppPane.columnId"),
+    conversationConfig: decodeNullable(requireField(record, "conversationConfig", "AppPane"), "AppPane.conversationConfig", (item) => decodeConversationPaneConfig(item)),
+    heat: decodeInteger(requireField(record, "heat", "AppPane"), "AppPane.heat"),
+    masterConfig: decodeNullable(requireField(record, "masterConfig", "AppPane"), "AppPane.masterConfig", (item) => decodeMasterPaneConfig(item)),
+    paneId: decodeString(requireField(record, "paneId", "AppPane"), "AppPane.paneId"),
+    sequence: decodeInteger(requireField(record, "sequence", "AppPane"), "AppPane.sequence"),
+    subtitle: decodeString(requireField(record, "subtitle", "AppPane"), "AppPane.subtitle"),
+    surfaceId: decodeString(requireField(record, "surfaceId", "AppPane"), "AppPane.surfaceId"),
+    surfaceKind: decodeAppPaneSurfaceKind(requireField(record, "surfaceKind", "AppPane"), "AppPane.surfaceKind"),
+    title: decodeString(requireField(record, "title", "AppPane"), "AppPane.title"),
+    tone: decodeAppPaneTone(requireField(record, "tone", "AppPane"), "AppPane.tone"),
+    weight: decodeNumber(requireField(record, "weight", "AppPane"), "AppPane.weight"),
+  };
+  switch (result.surfaceKind) {
+    case "master": {
+      if (result.masterConfig === null) {
+        throw new Error("AppPane.masterConfig is required when surfaceKind is master");
+      }
+      if (result.conversationConfig !== null) {
+        throw new Error("AppPane.conversationConfig must be null when surfaceKind is master");
+      }
+      return {
+        ...result,
+        surfaceKind: "master",
+        masterConfig: result.masterConfig,
+        conversationConfig: null,
+      };
+    }
+    case "conversation": {
+      if (result.masterConfig !== null) {
+        throw new Error("AppPane.masterConfig must be null when surfaceKind is conversation");
+      }
+      if (result.conversationConfig === null) {
+        throw new Error("AppPane.conversationConfig is required when surfaceKind is conversation");
+      }
+      return {
+        ...result,
+        surfaceKind: "conversation",
+        masterConfig: null,
+        conversationConfig: result.conversationConfig,
+      };
+    }
+    case "browser": {
+      if (result.masterConfig !== null) {
+        throw new Error("AppPane.masterConfig must be null when surfaceKind is browser");
+      }
+      if (result.conversationConfig !== null) {
+        throw new Error("AppPane.conversationConfig must be null when surfaceKind is browser");
+      }
+      return {
+        ...result,
+        surfaceKind: "browser",
+        masterConfig: null,
+        conversationConfig: null,
+      };
+    }
+    case "empty-frame": {
+      if (result.masterConfig !== null) {
+        throw new Error("AppPane.masterConfig must be null when surfaceKind is empty-frame");
+      }
+      if (result.conversationConfig !== null) {
+        throw new Error("AppPane.conversationConfig must be null when surfaceKind is empty-frame");
+      }
+      return {
+        ...result,
+        surfaceKind: "empty-frame",
+        masterConfig: null,
+        conversationConfig: null,
+      };
+    }
+    default:
+      throw new Error("AppPane.surfaceKind is unsupported: " + result.surfaceKind);
+  }
+}
+
+export function decodeAppPaneLayout(value: unknown): AppPaneLayout {
+  const record = assertRecord(value, "AppPaneLayout");
+  assertKnownFields(record, "AppPaneLayout", ["schemaVersion", "focusedPaneId", "maximizedPaneId", "columns", "panes"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "AppPaneLayout"), "AppPaneLayout.schemaVersion"),
+    focusedPaneId: decodeString(requireField(record, "focusedPaneId", "AppPaneLayout"), "AppPaneLayout.focusedPaneId"),
+    maximizedPaneId: decodeNullable(requireField(record, "maximizedPaneId", "AppPaneLayout"), "AppPaneLayout.maximizedPaneId", (item) => decodeString(item, "AppPaneLayout.maximizedPaneId")),
+    columns: decodeArray(requireField(record, "columns", "AppPaneLayout"), "AppPaneLayout.columns", (item) => decodeAppPaneColumn(item)),
+    panes: decodeArray(requireField(record, "panes", "AppPaneLayout"), "AppPaneLayout.panes", (item) => decodeAppPane(item)),
+  };
+}
+
+export function decodeAppPaneLayoutReadResult(value: unknown): AppPaneLayoutReadResult {
+  const record = assertRecord(value, "AppPaneLayoutReadResult");
+  assertKnownFields(record, "AppPaneLayoutReadResult", ["layout"]);
+  return {
+    layout: decodeNullable(requireField(record, "layout", "AppPaneLayoutReadResult"), "AppPaneLayoutReadResult.layout", (item) => decodeAppPaneLayout(item)),
+  };
+}
+
+export function decodeSaveAppPaneLayoutRequest(value: unknown): SaveAppPaneLayoutRequest {
+  const record = assertRecord(value, "SaveAppPaneLayoutRequest");
+  assertKnownFields(record, "SaveAppPaneLayoutRequest", ["layout"]);
+  return {
+    layout: decodeAppPaneLayout(requireField(record, "layout", "SaveAppPaneLayoutRequest")),
+  };
+}
+
 export function decodeCreateTopicConversationRequest(value: unknown): CreateTopicConversationRequest {
   const record = assertRecord(value, "CreateTopicConversationRequest");
   assertKnownFields(record, "CreateTopicConversationRequest", ["workspaceId", "title"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "CreateTopicConversationRequest"), "CreateTopicConversationRequest.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "CreateTopicConversationRequest"), "CreateTopicConversationRequest.workspaceId", (item) => decodeString(item, "CreateTopicConversationRequest.workspaceId")),
     title: decodeString(requireField(record, "title", "CreateTopicConversationRequest"), "CreateTopicConversationRequest.title"),
   };
 }
@@ -4196,7 +4675,7 @@ export function decodeTopicConversation(value: unknown): TopicConversation {
   assertKnownFields(record, "TopicConversation", ["id", "workspaceId", "title", "topicDescriptor", "status", "createdAt", "updatedAt", "archivedAt", "lastTrajectorySequence"]);
   return {
     id: decodeString(requireField(record, "id", "TopicConversation"), "TopicConversation.id"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "TopicConversation"), "TopicConversation.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "TopicConversation"), "TopicConversation.workspaceId", (item) => decodeString(item, "TopicConversation.workspaceId")),
     title: decodeString(requireField(record, "title", "TopicConversation"), "TopicConversation.title"),
     topicDescriptor: decodeString(requireField(record, "topicDescriptor", "TopicConversation"), "TopicConversation.topicDescriptor"),
     status: decodeConversationStatus(requireField(record, "status", "TopicConversation"), "TopicConversation.status"),
@@ -5102,6 +5581,15 @@ export function decodeArchiveTopicConversationRequest(value: unknown): ArchiveTo
   };
 }
 
+export function decodeBindTopicConversationFolderRequest(value: unknown): BindTopicConversationFolderRequest {
+  const record = assertRecord(value, "BindTopicConversationFolderRequest");
+  assertKnownFields(record, "BindTopicConversationFolderRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "BindTopicConversationFolderRequest"), "BindTopicConversationFolderRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "BindTopicConversationFolderRequest"), "BindTopicConversationFolderRequest.conversationId"),
+  };
+}
+
 export function decodeSendSideConversationTurnRequest(value: unknown): SendSideConversationTurnRequest {
   const record = assertRecord(value, "SendSideConversationTurnRequest");
   assertKnownFields(record, "SendSideConversationTurnRequest", ["workspaceId", "parentConversationId", "sideConversationId", "text"]);
@@ -5128,7 +5616,7 @@ export function decodeReadConversationSnapshotRequest(value: unknown): ReadConve
   const record = assertRecord(value, "ReadConversationSnapshotRequest");
   assertKnownFields(record, "ReadConversationSnapshotRequest", ["workspaceId", "conversationId"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ReadConversationSnapshotRequest"), "ReadConversationSnapshotRequest.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "ReadConversationSnapshotRequest"), "ReadConversationSnapshotRequest.workspaceId", (item) => decodeString(item, "ReadConversationSnapshotRequest.workspaceId")),
     conversationId: decodeString(requireField(record, "conversationId", "ReadConversationSnapshotRequest"), "ReadConversationSnapshotRequest.conversationId"),
   };
 }
@@ -5332,7 +5820,7 @@ export function decodeSubscribeConversationEventsRequest(value: unknown): Subscr
   const record = assertRecord(value, "SubscribeConversationEventsRequest");
   assertKnownFields(record, "SubscribeConversationEventsRequest", ["workspaceId", "conversationId"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SubscribeConversationEventsRequest"), "SubscribeConversationEventsRequest.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "SubscribeConversationEventsRequest"), "SubscribeConversationEventsRequest.workspaceId", (item) => decodeString(item, "SubscribeConversationEventsRequest.workspaceId")),
     conversationId: decodeString(requireField(record, "conversationId", "SubscribeConversationEventsRequest"), "SubscribeConversationEventsRequest.conversationId"),
   };
 }
@@ -5485,7 +5973,7 @@ export function decodeConversationEvent(value: unknown): ConversationEvent {
     sequence: decodeInteger(requireField(record, "sequence", "ConversationEvent"), "ConversationEvent.sequence"),
     eventId: decodeString(requireField(record, "eventId", "ConversationEvent"), "ConversationEvent.eventId"),
     emittedAt: decodeString(requireField(record, "emittedAt", "ConversationEvent"), "ConversationEvent.emittedAt"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "ConversationEvent"), "ConversationEvent.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "ConversationEvent"), "ConversationEvent.workspaceId", (item) => decodeString(item, "ConversationEvent.workspaceId")),
     conversationId: decodeString(requireField(record, "conversationId", "ConversationEvent"), "ConversationEvent.conversationId"),
     payload: decodeConversationEventPayload(requireField(record, "payload", "ConversationEvent")),
   };
@@ -5528,7 +6016,7 @@ export function decodeReadConversationInputRoutingStateRequest(value: unknown): 
   const record = assertRecord(value, "ReadConversationInputRoutingStateRequest");
   assertKnownFields(record, "ReadConversationInputRoutingStateRequest", ["workspaceId", "conversationId", "inputId"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ReadConversationInputRoutingStateRequest"), "ReadConversationInputRoutingStateRequest.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "ReadConversationInputRoutingStateRequest"), "ReadConversationInputRoutingStateRequest.workspaceId", (item) => decodeString(item, "ReadConversationInputRoutingStateRequest.workspaceId")),
     conversationId: decodeString(requireField(record, "conversationId", "ReadConversationInputRoutingStateRequest"), "ReadConversationInputRoutingStateRequest.conversationId"),
     inputId: decodeString(requireField(record, "inputId", "ReadConversationInputRoutingStateRequest"), "ReadConversationInputRoutingStateRequest.inputId"),
   };
@@ -5802,7 +6290,7 @@ export function decodeRetryConversationInputRequest(value: unknown): RetryConver
   const record = assertRecord(value, "RetryConversationInputRequest");
   assertKnownFields(record, "RetryConversationInputRequest", ["workspaceId", "conversationId", "inputId"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "RetryConversationInputRequest"), "RetryConversationInputRequest.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "RetryConversationInputRequest"), "RetryConversationInputRequest.workspaceId", (item) => decodeString(item, "RetryConversationInputRequest.workspaceId")),
     conversationId: decodeString(requireField(record, "conversationId", "RetryConversationInputRequest"), "RetryConversationInputRequest.conversationId"),
     inputId: decodeString(requireField(record, "inputId", "RetryConversationInputRequest"), "RetryConversationInputRequest.inputId"),
   };
@@ -5812,7 +6300,7 @@ export function decodeDiscardConversationInputRequest(value: unknown): DiscardCo
   const record = assertRecord(value, "DiscardConversationInputRequest");
   assertKnownFields(record, "DiscardConversationInputRequest", ["workspaceId", "conversationId", "inputId"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "DiscardConversationInputRequest"), "DiscardConversationInputRequest.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "DiscardConversationInputRequest"), "DiscardConversationInputRequest.workspaceId", (item) => decodeString(item, "DiscardConversationInputRequest.workspaceId")),
     conversationId: decodeString(requireField(record, "conversationId", "DiscardConversationInputRequest"), "DiscardConversationInputRequest.conversationId"),
     inputId: decodeString(requireField(record, "inputId", "DiscardConversationInputRequest"), "DiscardConversationInputRequest.inputId"),
   };
@@ -6155,22 +6643,40 @@ export function decodeReadMasterInputRoutingStateRequest(value: unknown): ReadMa
   };
 }
 
+export function decodeRouteFolderResourceScope(value: unknown): RouteFolderResourceScope {
+  const record = assertRecord(value, "RouteFolderResourceScope");
+  assertKnownFields(record, "RouteFolderResourceScope", ["workspaceId", "workspaceName"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "RouteFolderResourceScope"), "RouteFolderResourceScope.workspaceId"),
+    workspaceName: decodeString(requireField(record, "workspaceName", "RouteFolderResourceScope"), "RouteFolderResourceScope.workspaceName"),
+  };
+}
+
+export function decodeRouteResourceScope(value: unknown): RouteResourceScope {
+  const record = assertRecord(value, "RouteResourceScope");
+  assertKnownFields(record, "RouteResourceScope", ["kind", "folder"]);
+  return {
+    kind: decodeRouteResourceScopeKind(requireField(record, "kind", "RouteResourceScope"), "RouteResourceScope.kind"),
+    folder: decodeNullable(requireField(record, "folder", "RouteResourceScope"), "RouteResourceScope.folder", (item) => decodeRouteFolderResourceScope(item)),
+  };
+}
+
 export function decodeRouteCandidateAudit(value: unknown): RouteCandidateAudit {
   const record = assertRecord(value, "RouteCandidateAudit");
-  assertKnownFields(record, "RouteCandidateAudit", ["conversationId", "workspaceId", "lexicalRank"]);
+  assertKnownFields(record, "RouteCandidateAudit", ["conversationId", "resourceScope", "lexicalRank"]);
   return {
     conversationId: decodeString(requireField(record, "conversationId", "RouteCandidateAudit"), "RouteCandidateAudit.conversationId"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "RouteCandidateAudit"), "RouteCandidateAudit.workspaceId"),
+    resourceScope: decodeRouteResourceScope(requireField(record, "resourceScope", "RouteCandidateAudit")),
     lexicalRank: decodeNullable(requireField(record, "lexicalRank", "RouteCandidateAudit"), "RouteCandidateAudit.lexicalRank", (item) => decodeNumber(item, "RouteCandidateAudit.lexicalRank")),
   };
 }
 
 export function decodeRouteTargetAuthority(value: unknown): RouteTargetAuthority {
   const record = assertRecord(value, "RouteTargetAuthority");
-  assertKnownFields(record, "RouteTargetAuthority", ["conversationId", "workspaceId", "allowedDecisionKinds", "completedForkTurnIds"]);
+  assertKnownFields(record, "RouteTargetAuthority", ["conversationId", "resourceScope", "allowedDecisionKinds", "completedForkTurnIds"]);
   return {
     conversationId: decodeString(requireField(record, "conversationId", "RouteTargetAuthority"), "RouteTargetAuthority.conversationId"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "RouteTargetAuthority"), "RouteTargetAuthority.workspaceId"),
+    resourceScope: decodeRouteResourceScope(requireField(record, "resourceScope", "RouteTargetAuthority")),
     allowedDecisionKinds: decodeArray(requireField(record, "allowedDecisionKinds", "RouteTargetAuthority"), "RouteTargetAuthority.allowedDecisionKinds", (item) => decodeRouteDecisionKind(item, "RouteTargetAuthority.allowedDecisionKinds item")),
     completedForkTurnIds: decodeArray(requireField(record, "completedForkTurnIds", "RouteTargetAuthority"), "RouteTargetAuthority.completedForkTurnIds", (item) => decodeString(item, "RouteTargetAuthority.completedForkTurnIds item")),
   };
@@ -6228,10 +6734,11 @@ export function decodeRouteInvocationAudit(value: unknown): RouteInvocationAudit
 
 export function decodeConversationPresentationTarget(value: unknown): ConversationPresentationTarget {
   const record = assertRecord(value, "ConversationPresentationTarget");
-  assertKnownFields(record, "ConversationPresentationTarget", ["workspaceId", "conversationId", "title", "preferredPaneId"]);
+  assertKnownFields(record, "ConversationPresentationTarget", ["conversationId", "resourceScope", "resourceBindings", "title", "preferredPaneId"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ConversationPresentationTarget"), "ConversationPresentationTarget.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "ConversationPresentationTarget"), "ConversationPresentationTarget.conversationId"),
+    resourceScope: decodeRouteResourceScope(requireField(record, "resourceScope", "ConversationPresentationTarget")),
+    resourceBindings: decodeArray(requireField(record, "resourceBindings", "ConversationPresentationTarget"), "ConversationPresentationTarget.resourceBindings", (item) => decodeConversationPaneResourceBinding(item)),
     title: decodeString(requireField(record, "title", "ConversationPresentationTarget"), "ConversationPresentationTarget.title"),
     preferredPaneId: decodeNullable(requireField(record, "preferredPaneId", "ConversationPresentationTarget"), "ConversationPresentationTarget.preferredPaneId", (item) => decodeString(item, "ConversationPresentationTarget.preferredPaneId")),
   };
@@ -6414,6 +6921,93 @@ export function decodeInputRoutingState(value: unknown): InputRoutingState {
     decision: decodeNullable(requireField(record, "decision", "InputRoutingState"), "InputRoutingState.decision", (item) => decodeRouteDecisionRecord(item)),
     cancellation: decodeNullable(requireField(record, "cancellation", "InputRoutingState"), "InputRoutingState.cancellation", (item) => decodeInputRoutingCancellation(item)),
     failure: decodeNullable(requireField(record, "failure", "InputRoutingState"), "InputRoutingState.failure", (item) => decodeRouteFailure(item)),
+  };
+}
+
+export function decodeReadMasterTranscriptRequest(value: unknown): ReadMasterTranscriptRequest {
+  const record = assertRecord(value, "ReadMasterTranscriptRequest");
+  assertKnownFields(record, "ReadMasterTranscriptRequest", ["limit"]);
+  return {
+    limit: decodeInteger(requireField(record, "limit", "ReadMasterTranscriptRequest"), "ReadMasterTranscriptRequest.limit"),
+  };
+}
+
+export function decodeTranscriptUserInput(value: unknown): TranscriptUserInput {
+  const record = assertRecord(value, "TranscriptUserInput");
+  assertKnownFields(record, "TranscriptUserInput", ["text", "modality"]);
+  return {
+    text: decodeString(requireField(record, "text", "TranscriptUserInput"), "TranscriptUserInput.text"),
+    modality: decodeMasterInputModality(requireField(record, "modality", "TranscriptUserInput"), "TranscriptUserInput.modality"),
+  };
+}
+
+export function decodeTranscriptAssistantReply(value: unknown): TranscriptAssistantReply {
+  const record = assertRecord(value, "TranscriptAssistantReply");
+  assertKnownFields(record, "TranscriptAssistantReply", ["replyKind", "text"]);
+  return {
+    replyKind: decodeMasterReplyKind(requireField(record, "replyKind", "TranscriptAssistantReply"), "TranscriptAssistantReply.replyKind"),
+    text: decodeString(requireField(record, "text", "TranscriptAssistantReply"), "TranscriptAssistantReply.text"),
+  };
+}
+
+export function decodeTranscriptActionReceipt(value: unknown): TranscriptActionReceipt {
+  const record = assertRecord(value, "TranscriptActionReceipt");
+  assertKnownFields(record, "TranscriptActionReceipt", ["decisionKind", "text"]);
+  return {
+    decisionKind: decodeRouteDecisionKind(requireField(record, "decisionKind", "TranscriptActionReceipt"), "TranscriptActionReceipt.decisionKind"),
+    text: decodeString(requireField(record, "text", "TranscriptActionReceipt"), "TranscriptActionReceipt.text"),
+  };
+}
+
+export function decodeTranscriptCancellation(value: unknown): TranscriptCancellation {
+  const record = assertRecord(value, "TranscriptCancellation");
+  assertKnownFields(record, "TranscriptCancellation", ["message"]);
+  return {
+    message: decodeString(requireField(record, "message", "TranscriptCancellation"), "TranscriptCancellation.message"),
+  };
+}
+
+export function decodeTranscriptFailure(value: unknown): TranscriptFailure {
+  const record = assertRecord(value, "TranscriptFailure");
+  assertKnownFields(record, "TranscriptFailure", ["code", "message", "retryable"]);
+  return {
+    code: decodeString(requireField(record, "code", "TranscriptFailure"), "TranscriptFailure.code"),
+    message: decodeString(requireField(record, "message", "TranscriptFailure"), "TranscriptFailure.message"),
+    retryable: decodeBoolean(requireField(record, "retryable", "TranscriptFailure"), "TranscriptFailure.retryable"),
+  };
+}
+
+export function decodeTranscriptEntryPayload(value: unknown): TranscriptEntryPayload {
+  const record = assertRecord(value, "TranscriptEntryPayload");
+  assertKnownFields(record, "TranscriptEntryPayload", ["id", "inputId", "kind", "createdAt", "userInput", "assistantReply", "actionReceipt", "cancellation", "failure"]);
+  return {
+    id: decodeString(requireField(record, "id", "TranscriptEntryPayload"), "TranscriptEntryPayload.id"),
+    inputId: decodeString(requireField(record, "inputId", "TranscriptEntryPayload"), "TranscriptEntryPayload.inputId"),
+    kind: decodeTranscriptEntryKind(requireField(record, "kind", "TranscriptEntryPayload"), "TranscriptEntryPayload.kind"),
+    createdAt: decodeString(requireField(record, "createdAt", "TranscriptEntryPayload"), "TranscriptEntryPayload.createdAt"),
+    userInput: decodeNullable(requireField(record, "userInput", "TranscriptEntryPayload"), "TranscriptEntryPayload.userInput", (item) => decodeTranscriptUserInput(item)),
+    assistantReply: decodeNullable(requireField(record, "assistantReply", "TranscriptEntryPayload"), "TranscriptEntryPayload.assistantReply", (item) => decodeTranscriptAssistantReply(item)),
+    actionReceipt: decodeNullable(requireField(record, "actionReceipt", "TranscriptEntryPayload"), "TranscriptEntryPayload.actionReceipt", (item) => decodeTranscriptActionReceipt(item)),
+    cancellation: decodeNullable(requireField(record, "cancellation", "TranscriptEntryPayload"), "TranscriptEntryPayload.cancellation", (item) => decodeTranscriptCancellation(item)),
+    failure: decodeNullable(requireField(record, "failure", "TranscriptEntryPayload"), "TranscriptEntryPayload.failure", (item) => decodeTranscriptFailure(item)),
+  };
+}
+
+export function decodeTranscriptEntry(value: unknown): TranscriptEntry {
+  const record = assertRecord(value, "TranscriptEntry");
+  assertKnownFields(record, "TranscriptEntry", ["sequence", "payload"]);
+  return {
+    sequence: decodeInteger(requireField(record, "sequence", "TranscriptEntry"), "TranscriptEntry.sequence"),
+    payload: decodeTranscriptEntryPayload(requireField(record, "payload", "TranscriptEntry")),
+  };
+}
+
+export function decodeTranscript(value: unknown): Transcript {
+  const record = assertRecord(value, "Transcript");
+  assertKnownFields(record, "Transcript", ["entries", "lastSequence"]);
+  return {
+    entries: decodeArray(requireField(record, "entries", "Transcript"), "Transcript.entries", (item) => decodeTranscriptEntry(item)),
+    lastSequence: decodeInteger(requireField(record, "lastSequence", "Transcript"), "Transcript.lastSequence"),
   };
 }
 
@@ -6819,8 +7413,11 @@ export interface BackendClient {
   removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest, options?: BackendRequestOptions) => Promise<WorkspaceSession>;
   readWorkspaceUILayout: (request: ReadWorkspaceUILayoutRequest, options?: BackendRequestOptions) => Promise<WorkspaceUILayoutReadResult>;
   saveWorkspaceUILayout: (request: SaveWorkspaceUILayoutRequest, options?: BackendRequestOptions) => Promise<WorkspaceUILayout>;
+  readAppPaneLayout: (options?: BackendRequestOptions) => Promise<AppPaneLayoutReadResult>;
+  saveAppPaneLayout: (request: SaveAppPaneLayoutRequest, options?: BackendRequestOptions) => Promise<AppPaneLayout>;
   createTopicConversation: (request: CreateTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   archiveTopicConversation: (request: ArchiveTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
+  bindTopicConversationFolder: (request: BindTopicConversationFolderRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   sendSideConversationTurn: (request: SendSideConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   disposeSideConversation: (request: DisposeSideConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   readConversationSnapshot: (request: ReadConversationSnapshotRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
@@ -6845,6 +7442,7 @@ export interface BackendClient {
   submitMasterInput: (request: SubmitMasterInputRequest, options?: BackendRequestOptions) => Promise<AcceptedMasterInput>;
   cancelMasterInput: (request: CancelMasterInputRequest, options?: BackendRequestOptions) => Promise<ShellInteractionState>;
   readMasterInputRoutingState: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<InputRoutingState>;
+  readMasterTranscript: (request: ReadMasterTranscriptRequest, options?: BackendRequestOptions) => Promise<Transcript>;
   waitMasterShellInteraction: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<ShellInteractionState>;
   waitMasterPresentationIntent: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<PresentationIntent>;
   resolveMasterPresentationIntent: (request: PresentationResolutionRequest, options?: BackendRequestOptions) => Promise<PresentationResolution>;
@@ -7039,6 +7637,24 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
       signal: options?.signal,
     }),
+    readAppPaneLayout: (options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeAppPaneLayoutReadResult,
+      endpoint: backendEndpoints.ReadAppPaneLayout,
+      fetchImpl,
+      requestPayload: undefined,
+      signal: options?.signal,
+    }),
+    saveAppPaneLayout: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeAppPaneLayout,
+      endpoint: backendEndpoints.SaveAppPaneLayout,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
     createTopicConversation: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -7053,6 +7669,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationSnapshot,
       endpoint: backendEndpoints.ArchiveTopicConversation,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    bindTopicConversationFolder: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversationSnapshot,
+      endpoint: backendEndpoints.BindTopicConversationFolder,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,
@@ -7269,6 +7894,15 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeInputRoutingState,
       endpoint: backendEndpoints.ReadMasterInputRoutingState,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    readMasterTranscript: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeTranscript,
+      endpoint: backendEndpoints.ReadMasterTranscript,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

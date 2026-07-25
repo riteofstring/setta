@@ -9,7 +9,7 @@ import {
 
 export interface ConversationEventTarget {
   conversationId: string;
-  workspaceId: string;
+  workspaceId: string | null;
 }
 
 interface ConversationEventSender {
