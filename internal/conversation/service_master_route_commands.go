@@ -30,7 +30,7 @@ func (service *Service) ExecuteMasterRouteCommand(
 		return service.queueRoutedTurn(ctx, payload.Target.WorkspaceID, payload.Target.ConversationID, payload.AuthoredInput, payload.TurnID)
 	case master.RouteDecisionKindSteerActiveTurn:
 		payload := command.SteerActiveTurn
-		return service.steerTurn(ctx, payload.Target.WorkspaceID, payload.Target.ConversationID, payload.AuthoredInput, payload.TargetTurnID, decisionID)
+		return service.steerTurn(ctx, payload.Target.WorkspaceID, payload.Target.ConversationID, payload.AuthoredInput, payload.TargetTurnID, decisionID, nil)
 	case master.RouteDecisionKindCreateConversation:
 		return service.executeMasterCreateConversation(ctx, command.CreateConversation)
 	case master.RouteDecisionKindCreateSideConversation:

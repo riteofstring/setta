@@ -8,6 +8,7 @@ const (
 	OutcomeTimingCancellation      OutcomeTimingKind = "cancellation"
 	OutcomeTimingApproval          OutcomeTimingKind = "approval"
 	OutcomeTimingArtifactAvailable OutcomeTimingKind = "artifact_availability"
+	OutcomeTimingSteering          OutcomeTimingKind = "steering"
 )
 
 type OutcomeTiming struct {

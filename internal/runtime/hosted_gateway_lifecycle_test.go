@@ -478,6 +478,7 @@ func TestCandidateBGatewayConversationControls(t *testing.T) {
 	requireConversationOutcomeMeasurements(
 		t,
 		runtimeLogs.Bytes(),
+		steering.AcceptedAt,
 		opened.Workspace.ID,
 		created.Conversation.ID,
 		artifact.ID,
@@ -517,7 +518,12 @@ func TestCandidateBGatewayConversationControls(t *testing.T) {
 	requireHostedLifecycleRestartState(t, restarted)
 }
 
-func requireConversationOutcomeMeasurements(t *testing.T, encoded []byte, forbidden ...string) {
+func requireConversationOutcomeMeasurements(
+	t *testing.T,
+	encoded []byte,
+	steeringAcceptedAt string,
+	forbidden ...string,
+) {
 	t.Helper()
 	text := string(encoded)
 	for _, value := range forbidden {
@@ -526,6 +532,10 @@ func requireConversationOutcomeMeasurements(t *testing.T, encoded []byte, forbid
 		}
 	}
 	found := map[conversation.OutcomeTimingKind]bool{}
+	expectedSteeringStart, err := time.Parse(time.RFC3339Nano, steeringAcceptedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
 	decoder := json.NewDecoder(bytes.NewReader(encoded))
 	for {
 		var measurement conversationOutcomeMeasurement
@@ -542,12 +552,21 @@ func requireConversationOutcomeMeasurements(t *testing.T, encoded []byte, forbid
 			measurement.DurationMilliseconds < 0 {
 			t.Fatalf("conversation outcome measurement = %+v", measurement)
 		}
+		if measurement.Kind == conversation.OutcomeTimingSteering &&
+			!measurement.StartedAt.Equal(expectedSteeringStart) {
+			t.Fatalf(
+				"steering measurement started at %s, want durable acceptedAt %s",
+				measurement.StartedAt,
+				expectedSteeringStart,
+			)
+		}
 		found[measurement.Kind] = true
 	}
 	for _, kind := range []conversation.OutcomeTimingKind{
 		conversation.OutcomeTimingArtifactAvailable,
 		conversation.OutcomeTimingApproval,
 		conversation.OutcomeTimingCancellation,
+		conversation.OutcomeTimingSteering,
 	} {
 		if !found[kind] {
 			t.Fatalf("conversation outcome measurements omit %q: %s", kind, text)

@@ -155,11 +155,19 @@ func routedNarratorInvocation() conversation.ResolvedInvocation {
 }
 
 type routeCommandExecutorStore struct {
+	accepted      conversation.AcceptedConversationInput
 	applied       []bool
 	appliedCalls  int
 	snapshot      conversation.ConversationSnapshot
 	snapshotReads int
 	workspaceID   string
+}
+
+func (store *routeCommandExecutorStore) ReadConversationInput(
+	_ context.Context,
+	_ string,
+) (conversation.AcceptedConversationInput, bool, error) {
+	return store.accepted, store.accepted.Input.ID != "", nil
 }
 
 func (store *routeCommandExecutorStore) ConversationRouteCommandApplied(
@@ -194,6 +202,7 @@ type routeCommandExecutorConversations struct{}
 
 func (*routeCommandExecutorConversations) ExecuteRouteCommand(
 	context.Context,
+	string,
 	string,
 	string,
 	string,

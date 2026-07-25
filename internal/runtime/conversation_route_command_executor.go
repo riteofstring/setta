@@ -15,6 +15,7 @@ type conversationRouteCommandService interface {
 		string,
 		string,
 		string,
+		string,
 		conversation.ConversationRouteCommand,
 	) (conversation.ConversationSnapshot, error)
 }
@@ -35,6 +36,7 @@ type conversationRouteCommandStore interface {
 		conversation.ConversationRouteDecisionRecord,
 	) (bool, error)
 	ReadConversationWorkspaceID(context.Context, string) (string, error)
+	ReadConversationInput(context.Context, string) (conversation.AcceptedConversationInput, bool, error)
 	ReadSnapshot(context.Context, string, string) (conversation.ConversationSnapshot, error)
 }
 
@@ -114,15 +116,37 @@ func (executor *conversationRouteCommandExecutor) executeConversationRouteComman
 		conversation.ConversationRouteDecisionKindClarify:
 		return nil
 	default:
-		_, err := executor.conversations.ExecuteRouteCommand(
+		acceptedAt, err := executor.routeCommandAcceptedAt(ctx, record)
+		if err != nil {
+			return err
+		}
+		_, err = executor.conversations.ExecuteRouteCommand(
 			ctx,
 			workspaceID,
 			record.ConversationID,
 			record.ID,
+			acceptedAt,
 			record.ResultingCommand,
 		)
 		return err
 	}
+}
+
+func (executor *conversationRouteCommandExecutor) routeCommandAcceptedAt(
+	ctx context.Context,
+	record conversation.ConversationRouteDecisionRecord,
+) (string, error) {
+	if record.ResultingCommand.Kind != conversation.ConversationRouteDecisionKindSteerParentTurn {
+		return "", nil
+	}
+	accepted, found, err := executor.store.ReadConversationInput(ctx, record.InputID)
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		return "", errors.New("routed steering input is absent")
+	}
+	return accepted.AcceptedAt, nil
 }
 
 func (executor *conversationRouteCommandExecutor) verifyConversationRouteCommandEffect(
