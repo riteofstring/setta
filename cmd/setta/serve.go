@@ -11,17 +11,15 @@ import (
 
 	"setta/internal/runtime"
 	"setta/internal/speech"
-	"setta/internal/sprites"
 )
 
 type serveOptions struct {
-	AppDataDir            string
-	DisplayName           string
-	Host                  string
-	Port                  int
-	LocalCredentialIssuer bool
-	SpritesWorkloadLeases bool
-	Speech                speech.OpenAIClientConfig
+	AppDataDir  string
+	DisplayName string
+	Host        string
+	Port        int
+	Speech      speech.OpenAIStartupConfig
+	Tailnet     bool
 }
 
 type serveInstance struct {
@@ -47,12 +45,12 @@ func runServe(args []string, deps cliDeps) error {
 	return instance.Shutdown(shutdownCtx)
 }
 
-func serveOptionsFromArgs(_ context.Context, args []string, deps cliDeps) (serveOptions, error) {
+func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (serveOptions, error) {
 	appDataDir, err := defaultAppDataDir(deps.getenv)
 	if err != nil {
 		return serveOptions{}, err
 	}
-	speechConfig, err := speech.OpenAIClientConfigFromEnvironment(deps.getenv, deps.unsetenv)
+	speechConfig, err := speech.OpenAIStartupConfigFromServerEnvironment(deps.getenv, deps.unsetenv)
 	if err != nil {
 		return serveOptions{}, err
 	}
@@ -66,8 +64,7 @@ func serveOptionsFromArgs(_ context.Context, args []string, deps cliDeps) (serve
 	flagSet.StringVar(&options.AppDataDir, "app-data-dir", options.AppDataDir, "directory for persisted Setta app state")
 	flagSet.StringVar(&options.DisplayName, "display-name", deps.getenv("SETTA_RUNTIME_DISPLAY_NAME"), "runtime display name to persist for this Setta instance")
 	flagSet.IntVar(&options.Port, "port", options.Port, "port to bind, or 0 for an ephemeral port")
-	flagSet.BoolVar(&options.LocalCredentialIssuer, "local-credential-issuer", false, "host the local development credential issuer")
-	flagSet.BoolVar(&options.SpritesWorkloadLeases, "sprites-workload-leases", false, "enforce renewable agent workload leases through the Sprites management socket")
+	flagSet.BoolVar(&options.Tailnet, "tailnet", false, "bind this runtime to this machine's Tailscale IPv4 address")
 	if err := flagSet.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return serveOptions{}, usageError{err: err}
@@ -76,6 +73,13 @@ func serveOptionsFromArgs(_ context.Context, args []string, deps cliDeps) (serve
 	}
 	if flagSet.NArg() != 0 {
 		return serveOptions{}, usageError{err: fmt.Errorf("setta serve does not accept positional arguments")}
+	}
+	if options.Tailnet {
+		host, err := resolveTailnetIPv4(ctx, deps.commandRunner)
+		if err != nil {
+			return serveOptions{}, err
+		}
+		options.Host = host
 	}
 	return options, nil
 }
@@ -120,7 +124,7 @@ func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serve
 		_ = removeServeStateIfMatches(options.AppDataDir, state)
 		return nil, err
 	}
-	printServeStarted(deps.stdout, state, pairing, deps)
+	printServeStarted(deps.stdout, state, pairing, options.Tailnet, deps)
 	closeOnFailure = false
 	return &serveInstance{
 		appDataDir: options.AppDataDir,
@@ -131,19 +135,18 @@ func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serve
 
 func serveRuntimeConfig(options serveOptions, deps cliDeps, readyWriter io.Writer) runtime.Config {
 	config := runtime.DefaultConfig()
+	config.AllowRemote = options.Tailnet
 	config.AppDataDir = options.AppDataDir
 	config.Host = options.Host
 	config.Port = options.Port
 	config.RuntimeDisplayName = options.DisplayName
 	config.SkipBootstrapDeviceSession = true
-	config.EnableLocalCredentialIssuer = options.LocalCredentialIssuer
 	config.Stderr = deps.stderr
 	config.Stdout = readyWriter
 	config.Version = version
-	config.Speech = options.Speech
-	if options.SpritesWorkloadLeases {
-		config.WorkloadLeaseManager = sprites.NewWorkloadLeaseClient()
-	}
+	config.Speech = options.Speech.Provider
+	config.SpeechCredentialOwner = runtime.SpeechCredentialOwnerServerStartup
+	config.SpeechStartupAPIKey = options.Speech.APIKey
 	return config
 }
 
@@ -161,7 +164,7 @@ func decodeReadyEvent(reader io.Reader) (runtime.ReadyEvent, error) {
 	return ready, nil
 }
 
-func printServeStarted(output io.Writer, state serveState, pairing pairingResult, deps cliDeps) {
+func printServeStarted(output io.Writer, state serveState, pairing pairingResult, tailnet bool, deps cliDeps) {
 	fmt.Fprintln(output, "Setta runtime is ready.")
 	fmt.Fprintf(output, "  Name: %s\n", state.DisplayName)
 	fmt.Fprintf(output, "  ID: %s\n", state.RuntimeID)
@@ -171,6 +174,10 @@ func printServeStarted(output io.Writer, state serveState, pairing pairingResult
 	fmt.Fprintln(output, "QR:")
 	deps.renderQR(output, pairing.URL)
 	fmt.Fprintln(output)
+	if tailnet {
+		fmt.Fprintln(output, "Tailscale HTTPS:")
+		fmt.Fprintf(output, "  %s\n\n", tailscaleServeCommand(state.Addr))
+	}
 }
 
 func (instance *serveInstance) Shutdown(ctx context.Context) error {

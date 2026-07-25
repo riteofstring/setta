@@ -30,39 +30,6 @@ type deferredProjection struct {
 	trigger   conversation.NarrationTrigger
 }
 
-// RecoverCommittedTrajectory re-admits durable work that survived a narrator
-// process restart. It is a bounded startup scan, not polling; every provider
-// call still runs asynchronously through the normal per-conversation actor.
-func (service *Service) RecoverCommittedTrajectory(ctx context.Context) error {
-	if service == nil || service.store == nil || service.registry == nil {
-		return errors.New("narrator service is required")
-	}
-	if ctx == nil {
-		return errors.New("narrator recovery context is required")
-	}
-	targets, err := service.store.ListNarratorRecoveryTargets(ctx)
-	if err != nil {
-		return err
-	}
-	for _, target := range targets {
-		operation := ProjectionOperation{
-			WorkspaceID:     target.WorkspaceID,
-			TurnID:          target.TurnID,
-			ThroughSequence: target.ThroughSequence,
-		}
-		if target.Terminal {
-			service.enqueueTerminalProjection(target.ConversationID, operation)
-			continue
-		}
-		service.submitProjection(
-			target.ConversationID,
-			operation,
-			conversation.NarrationTriggerProgressWindowElapsed,
-		)
-	}
-	return nil
-}
-
 // ObserveCommittedTrajectory is the production push boundary from the topic
 // conversation lifecycle. It performs no provider or persistence work inline.
 func (service *Service) ObserveCommittedTrajectory(
@@ -75,8 +42,12 @@ func (service *Service) ObserveCommittedTrajectory(
 		WorkspaceID:     observation.WorkspaceID,
 		TurnID:          observation.TurnID,
 		ThroughSequence: observationThroughSequence(observation.Trajectory),
+		SemanticEvents:  append([]conversation.NarratorSemanticEvent{}, observation.Semantic...),
 	}
 	service.submitFocusObservations(observation)
+	if len(operation.SemanticEvents) == 0 && !observation.Terminal {
+		return
+	}
 	trigger, immediate := observationTrigger(observation)
 	if immediate {
 		service.cancelProgressWindow(observation.ConversationID)
@@ -181,14 +152,14 @@ func (service *Service) enqueueReadyTerminalProjection(
 		service.resumeTerminalProjection(conversationID)
 		return
 	}
-	if queue.active == operation {
+	if sameProjectionOperation(&queue.active, &operation) {
 		queue.retryRequested = queue.retryRequested || queue.activeInFlight
 		service.lifecycleMu.Unlock()
 		service.resumeTerminalProjection(conversationID)
 		return
 	}
 	for _, pending := range queue.pending {
-		if pending == operation {
+		if sameProjectionOperation(&pending, &operation) {
 			queue.retryRequested = queue.retryRequested || queue.activeInFlight
 			service.lifecycleMu.Unlock()
 			service.resumeTerminalProjection(conversationID)
@@ -234,8 +205,8 @@ func observationTrigger(
 	}
 	selected := conversation.NarrationTriggerProgressWindowElapsed
 	selectedPriority := 0
-	for _, event := range observation.Trajectory {
-		trigger, priority := trajectoryTrigger(event.Kind)
+	for _, event := range observation.Semantic {
+		trigger, priority := semanticTrigger(event)
 		if priority > selectedPriority {
 			selected = trigger
 			selectedPriority = priority
@@ -244,15 +215,38 @@ func observationTrigger(
 	return selected, selectedPriority > 0
 }
 
-func trajectoryTrigger(kind conversation.TrajectoryEventKind) (conversation.NarrationTrigger, int) {
-	switch kind {
-	case conversation.TrajectoryEventApprovalRequested:
+func semanticTrigger(event conversation.NarratorSemanticEvent) (conversation.NarrationTrigger, int) {
+	switch event.Kind {
+	case conversation.NarratorSemanticEventApprovalNeeded:
 		return conversation.NarrationTriggerApprovalRequired, 4
-	case conversation.TrajectoryEventPlanChanged:
-		return conversation.NarrationTriggerPlanChanged, 2
+	case conversation.NarratorSemanticEventMeaningfulProgress:
+		if event.MeaningfulProgress != nil && event.MeaningfulProgress.Plan != nil {
+			return conversation.NarrationTriggerPlanChanged, 2
+		}
+		return conversation.NarrationTriggerProgressWindowElapsed, 0
 	default:
 		return conversation.NarrationTriggerProgressWindowElapsed, 0
 	}
+}
+
+func mergeProjectionSemanticEvents(
+	current []conversation.NarratorSemanticEvent,
+	incoming []conversation.NarratorSemanticEvent,
+) []conversation.NarratorSemanticEvent {
+	result := make([]conversation.NarratorSemanticEvent, 0, len(current)+len(incoming))
+	seen := map[int]bool{}
+	for _, event := range current {
+		seen[event.SemanticSequence] = true
+		result = append(result, event)
+	}
+	for _, event := range incoming {
+		if seen[event.SemanticSequence] {
+			continue
+		}
+		seen[event.SemanticSequence] = true
+		result = append(result, event)
+	}
+	return result
 }
 
 func (service *Service) scheduleProgressWindow(
@@ -269,6 +263,10 @@ func (service *Service) scheduleProgressWindow(
 		if operation.ThroughSequence > current.operation.ThroughSequence {
 			current.operation.ThroughSequence = operation.ThroughSequence
 		}
+		current.operation.SemanticEvents = mergeProjectionSemanticEvents(
+			current.operation.SemanticEvents,
+			operation.SemanticEvents,
+		)
 		service.lifecycleMu.Unlock()
 		return
 	}
@@ -466,6 +464,10 @@ func (service *Service) deferProjectionBehindTerminal(
 			deferred.operation.ThroughSequence,
 			operation.ThroughSequence,
 		)
+		deferred.operation.SemanticEvents = mergeProjectionSemanticEvents(
+			deferred.operation.SemanticEvents,
+			operation.SemanticEvents,
+		)
 		if projectionTriggerPriority(trigger) > projectionTriggerPriority(deferred.trigger) {
 			deferred.trigger = trigger
 		}
@@ -493,7 +495,7 @@ func (service *Service) releaseTerminalProjection(
 	service.lifecycleMu.Lock()
 	queue := service.terminal[conversationID]
 	resume := false
-	if queue != nil && queue.active == operation {
+	if queue != nil && sameProjectionOperation(&queue.active, &operation) {
 		queue.activeInFlight = false
 		resume = queue.retryRequested && !service.closing
 		queue.retryRequested = false
@@ -528,7 +530,6 @@ func (service *Service) submitCheckpoint(
 	service.startTask(func(ctx context.Context) {
 		requestID, err := service.newID("narrator_checkpoint")
 		if err != nil {
-			service.releaseCheckpointTerminalProjection(conversationID, operation)
 			return
 		}
 		_, err = service.registry.Submit(ctx, Request{
@@ -538,24 +539,7 @@ func (service *Service) submitCheckpoint(
 			Trigger:        conversation.NarrationTriggerCheckpointWindowExceeded,
 			Checkpoint:     &operation,
 		})
-		if err != nil {
-			service.releaseCheckpointTerminalProjection(conversationID, operation)
-		}
 	})
-}
-
-func (service *Service) releaseCheckpointTerminalProjection(
-	conversationID string,
-	operation CheckpointOperation,
-) {
-	if operation.ResumeProjection == nil {
-		return
-	}
-	service.releaseTerminalProjection(
-		conversationID,
-		*operation.ResumeProjection,
-		operation.ResumeTrigger,
-	)
 }
 
 func (service *Service) startTask(task func(context.Context)) bool {
@@ -624,12 +608,7 @@ func (service *Service) releaseRequestTerminalProjection(request Request) {
 			)
 		}
 	case RequestKindCheckpoint:
-		if request.Checkpoint != nil {
-			service.releaseCheckpointTerminalProjection(
-				request.ConversationID,
-				*request.Checkpoint,
-			)
-		}
+		return
 	case RequestKindStatus:
 		return
 	}
@@ -644,16 +623,6 @@ func (service *Service) continueProjection(request Request) {
 			return
 		}
 		if state.ObservedThroughSequence < operation.ThroughSequence {
-			if state.CheckpointThroughSequence < state.ObservedThroughSequence {
-				turnID := operation.TurnID
-				service.submitCheckpoint(request.ConversationID, CheckpointOperation{
-					WorkspaceID:      operation.WorkspaceID,
-					TurnID:           &turnID,
-					ResumeProjection: &operation,
-					ResumeTrigger:    request.Trigger,
-				})
-				return
-			}
 			service.submitProjection(request.ConversationID, operation, request.Trigger)
 			return
 		}
@@ -667,9 +636,6 @@ func (service *Service) continueProjection(request Request) {
 			})
 			return
 		}
-		if request.Trigger != conversation.NarrationTriggerTurnTerminal {
-			service.recoverTerminalTrajectory(ctx, request.ConversationID)
-		}
 	})
 }
 
@@ -679,7 +645,7 @@ func (service *Service) completeTerminalProjection(
 ) {
 	service.lifecycleMu.Lock()
 	queue := service.terminal[conversationID]
-	if queue == nil || queue.active != operation {
+	if queue == nil || !sameProjectionOperation(&queue.active, &operation) {
 		service.lifecycleMu.Unlock()
 		return
 	}
@@ -713,62 +679,12 @@ func (service *Service) continueCheckpoint(request Request) {
 			service.submitCheckpoint(request.ConversationID, operation)
 			return
 		}
-		if operation.ResumeProjection != nil {
-			if state.CheckpointThroughSequence < state.ObservedThroughSequence {
-				service.submitCheckpoint(request.ConversationID, operation)
-				return
-			}
-			if operation.ResumeTrigger == conversation.NarrationTriggerTurnTerminal {
-				service.resumeCheckpointTerminalProjection(
-					request.ConversationID,
-					*operation.ResumeProjection,
-				)
-				return
-			}
-			service.submitProjection(
-				request.ConversationID,
-				*operation.ResumeProjection,
-				operation.ResumeTrigger,
-			)
-			return
-		}
 		if state.ObservedThroughSequence-state.CheckpointThroughSequence >=
 			service.checkpointWindowEvents {
 			service.submitCheckpoint(request.ConversationID, operation)
 			return
 		}
-		service.recoverTerminalTrajectory(ctx, request.ConversationID)
 	})
-}
-
-func (service *Service) recoverTerminalTrajectory(ctx context.Context, conversationID string) {
-	targets, err := service.store.ListNarratorRecoveryTargets(ctx)
-	if err != nil {
-		return
-	}
-	for _, target := range targets {
-		if !target.Terminal || target.ConversationID != conversationID {
-			continue
-		}
-		service.enqueueTerminalProjection(target.ConversationID, ProjectionOperation{
-			WorkspaceID:     target.WorkspaceID,
-			TurnID:          target.TurnID,
-			ThroughSequence: target.ThroughSequence,
-		})
-	}
-}
-
-func (service *Service) resumeCheckpointTerminalProjection(
-	conversationID string,
-	operation ProjectionOperation,
-) {
-	service.lifecycleMu.Lock()
-	queue := service.terminal[conversationID]
-	if queue != nil && queue.active == operation {
-		queue.activeInFlight = false
-	}
-	service.lifecycleMu.Unlock()
-	service.resumeTerminalProjection(conversationID)
 }
 
 func (service *Service) Shutdown(ctx context.Context) error {

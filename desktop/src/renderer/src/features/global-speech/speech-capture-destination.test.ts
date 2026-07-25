@@ -22,6 +22,17 @@ describe("speech capture destinations", () => {
     expect(Object.isFrozen(conversation.destination)).toBe(true);
   });
 
+  test("preserves folderless conversation destinations", () => {
+    expect(conversationSpeechCaptureRequest(null, "conversation_capture", "pane_capture")).toEqual({
+      destination: {
+        conversationId: "conversation_capture",
+        type: "conversation",
+        workspaceId: null,
+      },
+      sourcePaneId: "pane_capture",
+    });
+  });
+
   test("rejects malformed pane destinations instead of silently retargeting them", () => {
     expect(() =>
       conversationSpeechCaptureRequest("workspace_capture", " ", "pane_capture"),

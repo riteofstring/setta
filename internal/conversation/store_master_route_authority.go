@@ -19,7 +19,7 @@ func requireCurrentMasterRouteCommandAuthority(
 	if err != nil {
 		return err
 	}
-	if !found || current.WorkspaceID != target.WorkspaceID {
+	if !found || !current.ResourceScope.Equal(target.ResourceScope) {
 		return masterRouteCommandStateConflict(command, "presentation target changed before commit")
 	}
 	if command.Kind == master.RouteDecisionKindForkConversation {
@@ -92,7 +92,7 @@ func masterForkCommandParentTarget(
 	command *master.MasterForkConversationRouteCommand,
 ) (string, master.ConversationPresentationTarget, *string) {
 	parent := master.ConversationPresentationTarget{
-		WorkspaceID:    command.Target.WorkspaceID,
+		ResourceScope:  command.Target.ResourceScope,
 		ConversationID: command.ParentConversationID,
 		Title:          "",
 	}

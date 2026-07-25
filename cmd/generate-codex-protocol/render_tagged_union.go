@@ -13,6 +13,16 @@ type taggedObjectUnionMember struct {
 	Schema     jsonSchema
 }
 
+// taggedObjectUnionTypeNames are the upstream `oneOf` unions Setta decodes by
+// discriminator instead of carrying as raw JSON. A union outside this set stays
+// a raw alias, because rendering every one of them would generate variant
+// structs for payloads nothing reads.
+var taggedObjectUnionTypeNames = map[string]bool{
+	"PatchChangeKind": true,
+	"ThreadItem":      true,
+	"ThreadStatus":    true,
+}
+
 func isTaggedObjectUnionSchema(schema jsonSchema) bool {
 	if len(schema.OneOf) == 0 {
 		return false

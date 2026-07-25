@@ -162,8 +162,10 @@ func (store *Store) ReadConversationInputRoutingState(
 	if ctx == nil {
 		return ConversationInputRoutingState{}, errors.New("conversation input routing state context is required")
 	}
-	if err := validateConversationInputReference("conversation input routing workspace id", workspaceID); err != nil {
-		return ConversationInputRoutingState{}, err
+	if workspaceID != "" {
+		if err := validateConversationInputReference("conversation input routing workspace id", workspaceID); err != nil {
+			return ConversationInputRoutingState{}, err
+		}
 	}
 	if err := validateConversationInputReference("conversation input routing conversation id", conversationID); err != nil {
 		return ConversationInputRoutingState{}, err
@@ -847,13 +849,14 @@ func requireConversationInputRoutingOwner(
 	workspaceID string,
 	conversationID string,
 ) error {
-	var storedWorkspaceID string
+	var storedWorkspaceID sql.NullString
 	err := query.QueryRowContext(ctx, `
 SELECT workspace_id
 FROM conversations
 WHERE id = ?
 `, conversationID).Scan(&storedWorkspaceID)
-	if errors.Is(err, sql.ErrNoRows) || (err == nil && storedWorkspaceID != workspaceID) {
+	if errors.Is(err, sql.ErrNoRows) ||
+		(err == nil && workspaceID != "" && (!storedWorkspaceID.Valid || storedWorkspaceID.String != workspaceID)) {
 		return fmt.Errorf("%w: %s", ErrConversationNotFound, conversationID)
 	}
 	if err != nil {
