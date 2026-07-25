@@ -47,7 +47,7 @@ try {
     fixture,
     visible: options.visible,
   });
-  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  await waitForSelector(context.client, '[data-testid="app-director-shell"]');
   const browserFixture = await readFile(browserFixturePath, "utf8");
   const workletSource = await readFile(workletPath, "utf8");
   await context.client.evaluate(browserFixture);

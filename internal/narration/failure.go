@@ -84,7 +84,7 @@ func failureSpecForKind(kind FailureKind) (failureSpec, bool) {
 	case FailureKindProviderOutputInvalid:
 		return failureSpec{
 			code:      string(FailureKindProviderOutputInvalid),
-			message:   "Narration returned an invalid response and is temporarily unavailable.",
+			message:   "Narration is temporarily unavailable.",
 			retryable: true,
 		}, true
 	case FailureKindConfigurationInvalid:
