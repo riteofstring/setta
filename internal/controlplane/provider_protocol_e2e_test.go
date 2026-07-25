@@ -249,6 +249,7 @@ func newTimedProtocolReconciler(
 		AccountingObserver: observer,
 		AccountingWindow:   time.Minute,
 		AlertObserver:      observer,
+		BacklogAlertAfter:  2 * time.Second,
 		LeaseDuration:      2 * time.Second,
 		MaxAttempts:        3,
 		OperationTimeout:   500 * time.Millisecond,

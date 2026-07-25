@@ -32,6 +32,7 @@ const (
 	defaultReconcilerOperation   = 90 * time.Second
 	defaultReconcilerRetry       = 30 * time.Second
 	defaultAccountingWindow      = time.Minute
+	defaultReconciliationBacklog = defaultReconcilerLease
 	defaultReconcilerAttempts    = 10
 )
 
@@ -177,6 +178,7 @@ func startControlPlaneServices(
 		AccountingObserver: alertingObserver,
 		AccountingWindow:   defaultAccountingWindow,
 		AlertObserver:      alertingObserver,
+		BacklogAlertAfter:  defaultReconciliationBacklog,
 		LeaseDuration:      defaultReconcilerLease,
 		MaxAttempts:        defaultReconcilerAttempts,
 		OperationTimeout:   defaultReconcilerOperation,

@@ -22,6 +22,7 @@ type ReconcilerConfig struct {
 	AccountingObserver ControlPlaneAuditObserver
 	AccountingWindow   time.Duration
 	AlertObserver      OperationalAlertObserver
+	BacklogAlertAfter  time.Duration
 	LeaseDuration      time.Duration
 	MaxAttempts        int
 	OperationTimeout   time.Duration
@@ -37,6 +38,7 @@ type Reconciler struct {
 	accountingObserver ControlPlaneAuditObserver
 	accountingWindow   time.Duration
 	alertObserver      OperationalAlertObserver
+	backlogAlertAfter  time.Duration
 	leaseDuration      time.Duration
 	maxAttempts        int
 	operationTimeout   time.Duration
@@ -56,6 +58,7 @@ func NewReconciler(config ReconcilerConfig) (*Reconciler, error) {
 		accountingObserver: config.AccountingObserver,
 		accountingWindow:   config.AccountingWindow,
 		alertObserver:      config.AlertObserver,
+		backlogAlertAfter:  config.BacklogAlertAfter,
 		leaseDuration:      config.LeaseDuration,
 		maxAttempts:        config.MaxAttempts,
 		operationTimeout:   config.OperationTimeout,
@@ -96,7 +99,8 @@ func validateReconcilerDependencies(config ReconcilerConfig) error {
 
 func validateReconcilerLimits(config ReconcilerConfig) error {
 	if config.AccountingWindow <= 0 || config.LeaseDuration <= 0 ||
-		config.RetryDelay <= 0 || config.OperationTimeout <= 0 || config.MaxAttempts <= 0 {
+		config.BacklogAlertAfter <= 0 || config.RetryDelay <= 0 ||
+		config.OperationTimeout <= 0 || config.MaxAttempts <= 0 {
 		return errors.New("runtime reconciler durations and attempt ceiling must be positive")
 	}
 	if config.OperationTimeout >= config.LeaseDuration {
@@ -119,15 +123,13 @@ func (reconciler *Reconciler) ReconcileOnce(ctx context.Context) (bool, error) {
 	if found {
 		return true, reconciler.reconcileBudgetCutoffClaim(ctx, operationCtx, cutoff)
 	}
-	accounting, found, err := reconciler.store.NextAccountingWindow(
-		operationCtx,
-		reconciler.accountingWindow,
-	)
+	backlogObserved, err := reconciler.observeReconciliationBacklog(operationCtx)
 	if err != nil {
 		return false, err
 	}
-	if found && !accounting.WindowEnd.After(reconciler.store.clock().UTC()) {
-		return true, reconciler.finalizeScheduledAccountingWindow(operationCtx, accounting)
+	accountingProcessed, err := reconciler.reconcileDueAccounting(operationCtx)
+	if err != nil || accountingProcessed {
+		return accountingProcessed, err
 	}
 	deletion, found, err := reconciler.store.ClaimRuntimeDeletionOperation(
 		operationCtx,
@@ -146,9 +148,37 @@ func (reconciler *Reconciler) ReconcileOnce(ctx context.Context) (bool, error) {
 		reconciler.leaseDuration,
 	)
 	if err != nil || !found {
-		return found, err
+		return found || backlogObserved, err
 	}
 	return true, reconciler.reconcileProvisioningClaim(ctx, operationCtx, claim)
+}
+
+func (reconciler *Reconciler) reconcileDueAccounting(ctx context.Context) (bool, error) {
+	accounting, found, err := reconciler.store.NextAccountingWindow(
+		ctx,
+		reconciler.accountingWindow,
+	)
+	if err != nil || !found || accounting.WindowEnd.After(reconciler.store.clock().UTC()) {
+		return false, err
+	}
+	return true, reconciler.finalizeScheduledAccountingWindow(ctx, accounting)
+}
+
+func (reconciler *Reconciler) observeReconciliationBacklog(ctx context.Context) (bool, error) {
+	backlog, found, err := reconciler.store.ClaimReconciliationBacklogAlert(
+		ctx,
+		reconciler.backlogAlertAfter,
+	)
+	if err != nil || !found {
+		return found, err
+	}
+	reconciler.alertObserver.ObserveOperationalAlert(OperationalAlertObservation{
+		ErrorCode:  reconciliationBacklogReason,
+		OccurredAt: backlog.OccurredAt,
+		Severity:   OperationalAlertWarning,
+		Signal:     OperationalAlertReconciliationBacklog,
+	})
+	return true, nil
 }
 
 func (reconciler *Reconciler) finalizeScheduledAccountingWindow(

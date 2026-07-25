@@ -134,6 +134,7 @@ func newObservedTestReconciler(
 		AccountingObserver: accountingObserver,
 		AccountingWindow:   time.Minute,
 		AlertObserver:      accountingObserver,
+		BacklogAlertAfter:  time.Minute,
 		LeaseDuration:      time.Minute,
 		MaxAttempts:        maximumAttempts,
 		OperationTimeout:   30 * time.Second,

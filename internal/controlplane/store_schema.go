@@ -62,6 +62,7 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 			"runtime_accounting_ledgers",
 			"runtime_accounting_events",
 			"runtime_accounting_windows",
+			"operational_alert_deduplication",
 		); err != nil {
 			return err
 		}
@@ -417,6 +418,16 @@ CREATE TABLE IF NOT EXISTS runtime_accounting_windows (
   CHECK(window_end > window_start),
   UNIQUE(runtime_name, window_start),
   UNIQUE(runtime_name, window_end)
+);
+
+CREATE TABLE IF NOT EXISTS operational_alert_deduplication (
+  signal TEXT NOT NULL,
+  subject_kind TEXT NOT NULL CHECK(subject_kind IN (
+    'runtime_operation', 'runtime_deletion_operation', 'budget_cutoff_operation'
+  )),
+  subject_id TEXT NOT NULL,
+  observed_at TEXT NOT NULL,
+  PRIMARY KEY(signal, subject_kind, subject_id)
 );
 
 `

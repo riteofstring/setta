@@ -126,11 +126,12 @@ type ControlPlaneAuditMeasurement struct {
 type OperationalAlertSignal string
 
 const (
-	OperationalAlertProvisioningFailed OperationalAlertSignal = "provisioning_failed"
-	OperationalAlertWakeFailed         OperationalAlertSignal = "wake_failed"
-	OperationalAlertProviderError      OperationalAlertSignal = "provider_error"
-	OperationalAlertBudgetCutoffFailed OperationalAlertSignal = "budget_cutoff_failed"
-	OperationalAlertBudgetApproaching  OperationalAlertSignal = "budget_approaching"
+	OperationalAlertProvisioningFailed    OperationalAlertSignal = "provisioning_failed"
+	OperationalAlertWakeFailed            OperationalAlertSignal = "wake_failed"
+	OperationalAlertProviderError         OperationalAlertSignal = "provider_error"
+	OperationalAlertBudgetCutoffFailed    OperationalAlertSignal = "budget_cutoff_failed"
+	OperationalAlertBudgetApproaching     OperationalAlertSignal = "budget_approaching"
+	OperationalAlertReconciliationBacklog OperationalAlertSignal = "reconciliation_backlog"
 )
 
 type OperationalAlertSeverity string

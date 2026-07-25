@@ -254,37 +254,33 @@ WHERE idempotency_key = ? AND status = ? AND lease_owner = ? AND fence_token = ?
 	return nil
 }
 
-func (store *Store) NextRuntimeOperationAt(ctx context.Context) (time.Time, bool, error) {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	var raw sql.NullString
-	err := store.db.QueryRowContext(ctx, `
-SELECT MIN(due_at) FROM (
-  SELECT o.next_attempt_at AS due_at
+const actionableRuntimeOperationsSQL = `
+  SELECT 'runtime_operation' AS subject_kind, o.idempotency_key AS subject_id,
+         o.next_attempt_at AS due_at
   FROM runtime_operations o
   JOIN users u ON u.id = o.user_id AND u.active_runtime_name = o.runtime_name
   JOIN runtimes r ON r.name = o.runtime_name AND r.user_id = o.user_id
   WHERE u.status = ? AND r.lifecycle = ? AND o.status IN (?, ?)
   UNION ALL
-  SELECT o.lease_expires_at AS due_at
+  SELECT 'runtime_operation', o.idempotency_key, o.lease_expires_at
   FROM runtime_operations o
   JOIN users u ON u.id = o.user_id AND u.active_runtime_name = o.runtime_name
   JOIN runtimes r ON r.name = o.runtime_name AND r.user_id = o.user_id
   WHERE u.status = ? AND r.lifecycle = ? AND o.status = ?
   UNION ALL
-  SELECT o.next_attempt_at AS due_at
+  SELECT 'runtime_deletion_operation', o.idempotency_key, o.next_attempt_at
   FROM runtime_deletion_operations o
   JOIN runtimes r ON r.name = o.runtime_name AND r.user_id = o.user_id
   WHERE r.access_state = ? AND r.deletion_scheduled_at IS NOT NULL
     AND o.status IN (?, ?)
   UNION ALL
-  SELECT o.lease_expires_at AS due_at
+  SELECT 'runtime_deletion_operation', o.idempotency_key, o.lease_expires_at
   FROM runtime_deletion_operations o
   JOIN runtimes r ON r.name = o.runtime_name AND r.user_id = o.user_id
   WHERE r.access_state = ? AND r.deletion_scheduled_at IS NOT NULL
     AND o.status = ?
   UNION ALL
-  SELECT o.next_attempt_at AS due_at
+  SELECT 'budget_cutoff_operation', o.idempotency_key, o.next_attempt_at
   FROM budget_cutoff_operations o
   JOIN user_budget_policies b ON b.user_id = o.user_id AND b.period_start = o.period_start
   JOIN users u ON u.id = o.user_id
@@ -292,20 +288,36 @@ SELECT MIN(due_at) FROM (
   WHERE b.cutoff_required_at IS NOT NULL AND u.status = ? AND r.access_state = ?
     AND o.status IN (?, ?)
   UNION ALL
-  SELECT o.lease_expires_at AS due_at
+  SELECT 'budget_cutoff_operation', o.idempotency_key, o.lease_expires_at
   FROM budget_cutoff_operations o
   JOIN user_budget_policies b ON b.user_id = o.user_id AND b.period_start = o.period_start
   JOIN users u ON u.id = o.user_id
   JOIN runtimes r ON r.name = o.runtime_name AND r.user_id = o.user_id
   WHERE b.cutoff_required_at IS NOT NULL AND u.status = ? AND r.access_state = ?
     AND o.status = ?
-)
-`, UserStatusActive, RuntimeLifecycleProvisioning, RuntimeOperationPending, RuntimeOperationRetryWait,
+`
+
+func actionableRuntimeOperationArgs() []any {
+	return []any{
+		UserStatusActive, RuntimeLifecycleProvisioning,
+		RuntimeOperationPending, RuntimeOperationRetryWait,
 		UserStatusActive, RuntimeLifecycleProvisioning, RuntimeOperationRunning,
 		RuntimeAccessDeleteScheduled, RuntimeOperationPending, RuntimeOperationRetryWait,
 		RuntimeAccessDeleteScheduled, RuntimeOperationRunning,
 		UserStatusSuspended, RuntimeAccessSuspended, RuntimeOperationPending, RuntimeOperationRetryWait,
-		UserStatusSuspended, RuntimeAccessSuspended, RuntimeOperationRunning).Scan(&raw)
+		UserStatusSuspended, RuntimeAccessSuspended, RuntimeOperationRunning,
+	}
+}
+
+func (store *Store) NextRuntimeOperationAt(ctx context.Context) (time.Time, bool, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	var raw sql.NullString
+	err := store.db.QueryRowContext(
+		ctx,
+		`SELECT MIN(due_at) FROM (`+actionableRuntimeOperationsSQL+`)`,
+		actionableRuntimeOperationArgs()...,
+	).Scan(&raw)
 	if err != nil {
 		return time.Time{}, false, fmt.Errorf("read next runtime operation: %w", err)
 	}
