@@ -2671,7 +2671,7 @@ Stop and reassess rather than hiding the problem if any of these occur:
   Electron workflows. Supply-chain results remain unchanged: Go, exact
   versions, lockfile sync, and release-age checks pass, while the pre-existing
   transitive ESLint `brace-expansion <=5.0.7` advisory keeps the audit nonzero.
-  Failure-spike aggregation and owner-defined Task/session maximum ages remain
+  Failure-spike aggregation and unexpectedly old Task/session detection remain
   open. No provider or cloud mutation ran.
 - 2026-07-25 (Phase 6 progress and diagnostics audit): Closed two stale
   product-integration checklist items without changing executable code. The
@@ -2690,3 +2690,28 @@ Stop and reassess rather than hiding the problem if any of these occur:
   cloud-chat workflow items remain open because their existing deterministic
   workflow still invokes the trusted bootstrap completion explicitly. No
   executable files changed and no provider or cloud mutation ran.
+- 2026-07-25 (authoritative stale-activity warnings): Advanced the clean-break
+  control-plane schema to version 15 and closed the Task/session portion of the
+  Phase 5 alert item without inventing maximum ages. A workload Task now emits
+  one content-free `stale_workload_task` warning exactly when its centrally
+  observed renewable lease expires without an accepted end transition. Durable
+  deduplication includes the private runtime, Task name, and authoritative
+  expiry, so replay and restart are silent while a later occurrence of the
+  same fixed Task name can alert independently. The serving Store separately
+  tracks gateway attachments created by its own process. Any attachment
+  restored from SQLite but absent from that set is provably orphaned because
+  its HTTP/SSE connection could not survive the process; reconciliation emits
+  `stale_active_session` and atomically records the canonical attachment end,
+  repairing accounting rather than only reporting the symptom. Current
+  attachments and unexpired Tasks remain alert-free. Focused tests cover the
+  exact expiry boundary, current-process suppression, both alerts, accounting
+  repair, same-process deduplication, restart replay, and a second expiration
+  of the same Task name. `./check_quality.sh --git-changes` passed. The first
+  full gate passed all code-level layers and fourteen Electron workflows before
+  the known runtime-picker fixture race; that exact workflow passed immediately
+  in isolation. The repeated full gate then passed all 48 Go packages, 832
+  desktop tests, builds/dead-code checks, and all 20 required Electron
+  workflows. Supply-chain checks passed Go vulnerability, exact-version,
+  lockfile, and release-age policies; the pre-existing transitive ESLint
+  `brace-expansion <=5.0.7` advisory remains. Failure-spike aggregation is the
+  only local alert category still open. No provider or cloud mutation ran.
