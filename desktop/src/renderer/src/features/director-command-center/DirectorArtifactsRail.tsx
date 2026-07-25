@@ -2,6 +2,7 @@ import type {
   Artifact,
   ApprovalRequest,
   ArtifactKind,
+  ArtifactStatus,
   ConversationApprovalAnswer,
   DirectorIntent,
   DirectorReceipt,
@@ -13,7 +14,16 @@ import type {
   WorkspaceSession,
   WorkspaceSummary,
 } from "@generated/backend";
-import { Check, FileText, FolderOpen, X } from "lucide-react";
+import {
+  BarChart3,
+  Check,
+  File,
+  FileText,
+  FolderOpen,
+  Table2,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -33,6 +43,21 @@ const artifactLabels = {
   markdown: "Markdown",
   table: "Table",
 } as const satisfies Record<ArtifactKind, string>;
+
+const artifactIcons = {
+  bar_chart: BarChart3,
+  file: File,
+  markdown: FileText,
+  table: Table2,
+} as const satisfies Record<ArtifactKind, LucideIcon>;
+
+const artifactStatusLabels = {
+  available: "Ready",
+  declared: "Declared",
+  unresolved: "Pending",
+} as const satisfies Record<ArtifactStatus, string>;
+
+type ReadArtifact = ((request: ReadConversationArtifactRequest) => Promise<Artifact>) | undefined;
 
 export function ArtifactsRail({
   approvals,
@@ -150,28 +175,12 @@ export function ArtifactsRail({
         <p className="director-rail-kicker">Artifacts</p>
         <div className="director-artifact-list">
           {artifacts.slice(0, 8).map((artifact) => (
-            <button
-              aria-label={`Open artifact details: ${artifact.title}`}
-              className="director-artifact-item"
-              data-artifact-id={artifact.id}
-              data-artifact-kind={artifact.kind}
-              data-artifact-status={artifact.status}
-              disabled={artifact.status !== "available" || !readArtifact}
+            <ArtifactCard
+              artifact={artifact}
+              disabled={!directorArtifactCanOpen(artifact, readArtifact)}
               key={artifact.id}
-              onClick={(event) => {
-                void openArtifactDetail(artifact, event.currentTarget);
-              }}
-              type="button"
-            >
-              <FileText aria-hidden="true" size={15} />
-              <div>
-                <p>{artifact.title}</p>
-                <span>
-                  {artifactLabels[artifact.kind]}
-                  {artifact.status === "available" ? "" : " pending"}
-                </span>
-              </div>
-            </button>
+              onOpen={openArtifactDetail}
+            />
           ))}
           {artifacts.length === 0 ? (
             <p className="director-rail-summary">No artifacts yet.</p>
@@ -189,6 +198,54 @@ export function ArtifactsRail({
       ) : null}
     </aside>
   );
+}
+
+function ArtifactCard({
+  artifact,
+  disabled,
+  onOpen,
+}: {
+  artifact: WorkstreamArtifact;
+  disabled: boolean;
+  onOpen: (artifact: WorkstreamArtifact, trigger: HTMLButtonElement) => Promise<void>;
+}) {
+  const Icon = artifactIcons[artifact.kind];
+  return (
+    <button
+      aria-label={`Open artifact details: ${artifact.title}`}
+      className="director-artifact-item"
+      data-artifact-id={artifact.id}
+      data-artifact-kind={artifact.kind}
+      data-artifact-status={artifact.status}
+      disabled={disabled}
+      onClick={(event) => {
+        void onOpen(artifact, event.currentTarget);
+      }}
+      type="button"
+    >
+      <span aria-hidden="true" className="director-artifact-icon">
+        <Icon size={15} />
+      </span>
+      <span className="director-artifact-copy">
+        <span className="director-artifact-kicker">{artifactLabels[artifact.kind]}</span>
+        <span className="director-artifact-title">{artifact.title}</span>
+        <span className="director-artifact-meta">{directorArtifactCardMetadata(artifact)}</span>
+      </span>
+    </button>
+  );
+}
+
+function directorArtifactCanOpen(
+  artifact: WorkstreamArtifact,
+  readArtifact: ReadArtifact,
+): boolean {
+  return artifact.status === "available" && Boolean(readArtifact);
+}
+
+export function directorArtifactCardMetadata(artifact: WorkstreamArtifact): string {
+  const sourceCount = artifact.sourceEventIds.length;
+  const sourceLabel = `${sourceCount} ${sourceCount === 1 ? "source" : "sources"}`;
+  return `${artifactStatusLabels[artifact.status]} / ${sourceLabel}`;
 }
 
 function directorRailArrivalAnnouncement(

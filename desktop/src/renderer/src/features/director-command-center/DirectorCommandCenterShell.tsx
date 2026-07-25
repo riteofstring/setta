@@ -9,7 +9,7 @@ import type {
   WorkspaceSummary,
 } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
-import { History } from "lucide-react";
+import { ChevronDown, History } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
@@ -619,8 +619,20 @@ function CurrentWorkstreamSummary({ workstream }: { workstream: Workstream | nul
         <StatusGlyph status={status} />
         <span>{directorWorkstreamStatusLabels[status]}</span>
       </div>
-      {summary ? <p className="director-rail-summary">{summary}</p> : null}
+      {summary ? <CurrentWorkstreamSummaryDisclosure summary={summary} /> : null}
     </section>
+  );
+}
+
+function CurrentWorkstreamSummaryDisclosure({ summary }: { summary: string }) {
+  return (
+    <details className="director-summary-disclosure">
+      <summary>
+        <span>Summary</span>
+        <ChevronDown aria-hidden="true" size={15} />
+      </summary>
+      <p className="director-rail-summary">{summary}</p>
+    </details>
   );
 }
 

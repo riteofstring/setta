@@ -169,6 +169,7 @@
 
 .director-workstream-dot:focus-visible,
 .director-icon-button:focus-visible,
+.director-summary-disclosure summary:focus-visible,
 .director-composer textarea:focus-visible,
 .director-composer button:focus-visible,
 .director-action-controls button:focus-visible,
@@ -334,6 +335,50 @@
   overflow-wrap: anywhere;
 }
 
+.director-summary-disclosure {
+  background: oklch(0.1 0.012 252 / 0.66);
+  border: 1px solid oklch(0.3 0.026 250 / 0.62);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.director-summary-disclosure summary {
+  align-items: center;
+  color: oklch(0.78 0.05 225);
+  cursor: pointer;
+  display: flex;
+  font-size: 0.76rem;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: space-between;
+  line-height: 1.2;
+  list-style: none;
+  min-block-size: 38px;
+  padding-inline: 10px;
+  text-transform: uppercase;
+}
+
+.director-summary-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.director-summary-disclosure summary svg {
+  color: oklch(0.66 0.04 240);
+  flex: none;
+  transition-duration: 140ms;
+  transition-property: transform;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.director-summary-disclosure[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.director-summary-disclosure .director-rail-summary {
+  border-block-start: 1px solid oklch(0.28 0.025 250 / 0.54);
+  padding: 9px 10px 10px;
+}
+
 .director-history-list {
   display: grid;
   gap: 8px;
@@ -368,7 +413,8 @@
 }
 
 .director-action-item p,
-.director-artifact-item p {
+.director-artifact-title {
+  display: block;
   font-size: 0.84rem;
   line-height: 1.35;
   margin: 0;
@@ -410,16 +456,69 @@
   align-items: flex-start;
   background: oklch(0.12 0.012 252 / 0.74);
   display: grid;
-  gap: 9px;
-  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  grid-template-columns: 28px minmax(0, 1fr);
   inline-size: 100%;
   padding: 10px;
   text-align: start;
 }
 
-.director-artifact-item span {
+.director-artifact-icon {
+  align-items: center;
+  background: oklch(0.08 0.01 255 / 0.68);
+  block-size: 28px;
+  border: 1px solid oklch(0.34 0.026 250 / 0.58);
+  border-radius: 6px;
+  color: oklch(0.76 0.1 220);
+  display: inline-flex;
+  justify-content: center;
+  margin-block-start: 2px;
+  inline-size: 28px;
+}
+
+.director-artifact-item[data-artifact-kind="bar_chart"] .director-artifact-icon {
+  color: oklch(0.78 0.13 220);
+}
+
+.director-artifact-item[data-artifact-kind="file"] .director-artifact-icon {
+  color: oklch(0.8 0.15 152);
+}
+
+.director-artifact-item[data-artifact-kind="markdown"] .director-artifact-icon {
+  color: oklch(0.84 0.08 252);
+}
+
+.director-artifact-item[data-artifact-kind="table"] .director-artifact-icon {
+  color: oklch(0.84 0.14 78);
+}
+
+.director-artifact-copy {
+  display: grid;
+  gap: 3px;
+  min-inline-size: 0;
+}
+
+.director-artifact-kicker,
+.director-artifact-meta {
+  display: block;
+}
+
+.director-artifact-kicker {
+  color: oklch(0.72 0.08 220);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.director-artifact-title {
+  color: oklch(0.9 0.025 245);
+}
+
+.director-artifact-meta {
   color: oklch(0.68 0.04 250);
   font-size: 0.72rem;
+  line-height: 1.25;
 }
 
 .director-approval-form {
@@ -741,6 +840,7 @@
   .director-command-center-skip,
   .director-workstream-dot,
   .director-icon-button,
+  .director-summary-disclosure summary svg,
   .director-composer button,
   .director-action-controls button,
   .director-resource-options button,

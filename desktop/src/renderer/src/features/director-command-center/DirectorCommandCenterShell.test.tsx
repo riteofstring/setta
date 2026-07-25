@@ -4,12 +4,13 @@ import type {
   SemanticNode,
   SemanticNodeKind,
   SemanticNodeStatus,
+  WorkstreamArtifact,
   WorkstreamGraph,
   WorkstreamStatus,
 } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
-import { buildApprovalAnswers } from "./DirectorArtifactsRail";
+import { buildApprovalAnswers, directorArtifactCardMetadata } from "./DirectorArtifactsRail";
 import {
   directorEventChangesVisibleState,
   directorGraphTimeSecondsAt,
@@ -82,6 +83,24 @@ describe("Director command-center approval answers", () => {
 });
 
 describe("Director command-center shell view state", () => {
+  test("labels artifact cards from typed Director artifact metadata", () => {
+    expect(
+      directorArtifactCardMetadata({
+        ...workstreamArtifact(),
+        sourceEventIds: ["event:1"],
+        status: "available",
+      }),
+    ).toBe("Ready / 1 source");
+
+    expect(
+      directorArtifactCardMetadata({
+        ...workstreamArtifact(),
+        sourceEventIds: ["event:1", "event:2"],
+        status: "unresolved",
+      }),
+    ).toBe("Pending / 2 sources");
+  });
+
   test("builds bounded current activity from typed semantic nodes", () => {
     const activity = currentDirectorActivity(
       graphWithNodes([
@@ -349,6 +368,22 @@ function workstreamEntry(position: number, status: WorkstreamStatus): DirectorWo
       unresolvedResourceRequestCount: 0,
       updatedAt: `2026-07-25T17:${String(position).padStart(2, "0")}:00Z`,
     },
+  };
+}
+
+function workstreamArtifact(): WorkstreamArtifact {
+  return {
+    conversationId: "conversation:1",
+    createdAt: "2026-07-25T17:00:00Z",
+    id: "artifact:1",
+    kind: "file",
+    runId: "run:1",
+    sourceEventIds: [],
+    status: "declared",
+    title: "Generated artifact",
+    updatedAt: "2026-07-25T17:00:01Z",
+    workspaceId: "workspace:1",
+    workstreamId: "workstream:1",
   };
 }
 

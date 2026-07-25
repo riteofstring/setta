@@ -142,12 +142,18 @@ right rail's masked fade and pointer-transparent Now blank space, and the
 composer separates the `on:` hint from the 620 px command pill. Its focused
 lifecycle selector is recorded in
 [`docs/reports/performance/setta-4-command-center-chrome-fidelity-20260725.md`](../reports/performance/setta-4-command-center-chrome-fidelity-20260725.md).
+A second review-driven rail-fidelity pass is committed: the Now summary is
+collapsed behind the mockup's Summary disclosure, artifact cards use typed
+`WorkstreamArtifact` kind/status/source metadata with kind-specific icons, and
+focused lifecycle evidence is recorded in
+[`docs/reports/performance/setta-4-command-center-rail-fidelity-20260725.md`](../reports/performance/setta-4-command-center-rail-fidelity-20260725.md).
 The first integrated production-shell
 performance guardrail is committed as the `director-command-center-performance`
 Electron workflow, with focused lifecycle and 100-workstream navigation results
 recorded in
 [`docs/reports/performance/setta-4-command-center-integrated-performance-20260725.md`](../reports/performance/setta-4-command-center-integrated-performance-20260725.md).
-Side-by-side mockup review and any polish it finds remain Phase 4 work. The
+Side-by-side mockup review and any polish it finds remain Phase 4 work; no
+additional repository-actionable polish is known before that evidence. The
 coherent Phase 4 audit is recorded in
 [`docs/reports/performance/setta-4-command-center-phase4-audit-20260725.md`](../reports/performance/setta-4-command-center-phase4-audit-20260725.md).
 Its production fixes and green broad deterministic evidence are committed, and
@@ -159,7 +165,8 @@ and recorded in
 [`docs/reports/performance/setta-4-command-center-graph-update-performance-20260725.md`](../reports/performance/setta-4-command-center-graph-update-performance-20260725.md):
 the pushed text-delta burst, large live history compaction, and occlusion/resume
 rows now pass on the corrected production-shell probe. Phase 4 therefore remains
-open for side-by-side mockup review and any polish it finds. The remaining
+open for side-by-side mockup review and any polish it finds; no additional
+repository-actionable polish is known before that evidence. The remaining
 repository-actionable integrated performance rows are green and recorded in
 [`docs/reports/performance/setta-4-command-center-remaining-performance-20260725.md`](../reports/performance/setta-4-command-center-remaining-performance-20260725.md):
 100-workstream navigation, ten-minute sustained activity, and restart/replay now
@@ -1650,6 +1657,13 @@ Phase 3 audit verification:
    the command pill, and splits the composer CSS into its own checked stylesheet.
    The focused lifecycle selector is recorded in
    [`docs/reports/performance/setta-4-command-center-chrome-fidelity-20260725.md`](../reports/performance/setta-4-command-center-chrome-fidelity-20260725.md).
+   A second review-driven rail-fidelity pass now restores the mockup's collapsed
+   Now Summary disclosure and makes artifact rail cards read as typed outputs:
+   kind-specific icons and status/source metadata come from generated
+   `WorkstreamArtifact` records, while rich payload rendering stays in the
+   existing artifact detail surface. Its focused lifecycle selector is recorded
+   in
+   [`docs/reports/performance/setta-4-command-center-rail-fidelity-20260725.md`](../reports/performance/setta-4-command-center-rail-fidelity-20260725.md).
    Phase 5 still owns
    deleting the old pane modules; they are no longer the primary app mount.
 2. Connect speech capture and playback through the same Director intents as text. **Done for
@@ -1678,10 +1692,11 @@ Phase 3 audit verification:
    trajectory, Director events, and recordings.
 5. Render artifacts as typed outputs; open rich details in accessible DOM/native surfaces. **Done for
    the production shell** — typed artifact metadata is rendered in the rail from generated
-   `WorkstreamArtifact` records, and those records now carry the trusted workspace and conversation
-   ids needed to call the existing conversation artifact reader. Available artifacts open a focusable
-   DOM detail surface with typed markdown, table, bar-chart, and file payload renderers; unavailable
-   artifacts remain listed but disabled until the durable payload exists.
+   `WorkstreamArtifact` records, including kind-specific icons plus status/source provenance, and
+   those records now carry the trusted workspace and conversation ids needed to call the existing
+   conversation artifact reader. Available artifacts open a focusable DOM detail surface with typed
+   markdown, table, bar-chart, and file payload renderers; unavailable artifacts remain listed but
+   disabled until the durable payload exists.
 6. Integrate the WebGL2 canvas through packed snapshots, not component-level node state. **Done for
    the initial shell** — the shell packs generated `WorkstreamGraph` snapshots through
    `semantic-graph-packer.ts` and hands immutable packed snapshots to `DirectorGraphCanvas`; React
@@ -1832,7 +1847,10 @@ Setta 4 is complete when:
    proportions, and the separated composer hint/pill structure, with focused lifecycle evidence in
    [`docs/reports/performance/setta-4-command-center-chrome-fidelity-20260725.md`](../reports/performance/setta-4-command-center-chrome-fidelity-20260725.md). The remaining
    integrated performance rows now pass in the production workflow, including 100-workstream
-   navigation, ten-minute sustained activity, and restart/replay. The remaining shell work is
-   side-by-side fidelity review and any review-driven polish.
+   navigation, ten-minute sustained activity, and restart/replay. A second rail-fidelity pass now
+   restores the collapsed Now Summary disclosure and typed artifact card metadata, with focused
+   lifecycle evidence in
+   [`docs/reports/performance/setta-4-command-center-rail-fidelity-20260725.md`](../reports/performance/setta-4-command-center-rail-fidelity-20260725.md). The remaining shell work is
+   side-by-side fidelity review and any review-driven polish found by that external evidence.
 2. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.
