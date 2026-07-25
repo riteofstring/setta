@@ -212,11 +212,11 @@ export class ReactDomSurfaceAdapter implements SurfaceAdapter {
     }
     const root = this.root;
     this.root = null;
-    this.unmount();
-    this.container = null;
     if (root) {
       root.unmount();
     }
+    this.unmount();
+    this.container = null;
     this.destroyed = true;
   }
 

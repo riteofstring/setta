@@ -152,6 +152,20 @@ func TestRouteServiceRetrievesFolderlessCandidatesWithoutActiveWorkspaces(t *tes
 	}
 }
 
+func TestRouteFailureMessagesDoNotExposeInternalContracts(t *testing.T) {
+	for _, kind := range []RouteFailureKind{
+		RouteFailureKindProviderOutputInvalid,
+		RouteFailureKindInternal,
+	} {
+		message := strings.ToLower(routeFailureMessage(kind))
+		for _, forbidden := range []string{"invalid decision", "schema", "contract", "json", "internal"} {
+			if strings.Contains(message, forbidden) {
+				t.Fatalf("route failure message for %s exposes %q: %q", kind, forbidden, message)
+			}
+		}
+	}
+}
+
 func TestRouteServiceBuildsStableSideAndForkPresentationCommands(t *testing.T) {
 	ordinal := 0
 	service := &RouteService{newID: func(prefix string) (string, error) {

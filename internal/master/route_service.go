@@ -558,7 +558,7 @@ func routeFailureMessage(kind RouteFailureKind) string {
 	case RouteFailureKindProviderUnavailable:
 		return "Global routing is temporarily unavailable because the master model could not be reached."
 	case RouteFailureKindProviderOutputInvalid:
-		return "Global routing is temporarily unavailable because the master model returned an invalid decision."
+		return "Global routing is temporarily unavailable."
 	case RouteFailureKindConfigurationInvalid:
 		return "Global routing is unavailable because the master model configuration is invalid."
 	case RouteFailureKindContextBudgetExceeded:
@@ -568,7 +568,7 @@ func routeFailureMessage(kind RouteFailureKind) string {
 	case RouteFailureKindStateCorrupt:
 		return "Global routing is unavailable because durable application state is invalid."
 	default:
-		return "Global routing is temporarily unavailable because an internal routing contract failed."
+		return "Global routing is temporarily unavailable."
 	}
 }
 

@@ -113,6 +113,32 @@ describe("workspace React DOM surface adapter", () => {
     expect(fakeChildrenOf(secondHost)).toEqual([container]);
   });
 
+  test("unmounts React content before detaching the final host on destroy", () => {
+    const host = createFakeHost();
+    const unmountObservations: number[] = [];
+    const rootFactory: ReactSurfaceRootFactory = {
+      createRoot() {
+        return {
+          render() {},
+          unmount() {
+            unmountObservations.push(fakeChildrenOf(host).length);
+          },
+        };
+      },
+    };
+    const adapter = new ReactDomSurfaceAdapter(
+      fakePane("conversation"),
+      () => "conversation surface",
+      rootFactory,
+    );
+
+    adapter.mount(host);
+    adapter.destroy();
+
+    expect(unmountObservations).toEqual([1]);
+    expect(fakeChildrenOf(host)).toHaveLength(0);
+  });
+
   test("restores parked DOM scroller offsets when remounting React surfaces", () => {
     const rootFactory: ReactSurfaceRootFactory = {
       createRoot() {
