@@ -53,63 +53,24 @@ type PlanEvent struct {
 	Steps       []PlanStep `json:"steps"`
 }
 
-// ActivityKind is the typed activity vocabulary the Codex adapter reports. It
-// is deliberately as precise as the provider's own item types, because the
-// Director resolves a node kind from this fact: a search is an investigation, a
-// command is an action, and a bucket like "tool" would force the graph to guess
-// which one it was looking at.
 type ActivityKind string
 
 const (
-	ActivityKindCommand         ActivityKind = "command"
-	ActivityKindFileChange      ActivityKind = "file_change"
-	ActivityKindMCPTool         ActivityKind = "mcp_tool"
-	ActivityKindDynamicTool     ActivityKind = "dynamic_tool"
-	ActivityKindWebSearch       ActivityKind = "web_search"
-	ActivityKindImageView       ActivityKind = "image_view"
-	ActivityKindImageGeneration ActivityKind = "image_generation"
-	ActivityKindSleep           ActivityKind = "sleep"
-	ActivityKindHook            ActivityKind = "hook"
-	ActivityKindSubagent        ActivityKind = "subagent"
-	ActivityKindOther           ActivityKind = "other"
+	ActivityKindCommand       ActivityKind = "command"
+	ActivityKindFileChange    ActivityKind = "file_change"
+	ActivityKindTool          ActivityKind = "tool"
+	ActivityKindCollaboration ActivityKind = "collaboration"
+	ActivityKindSubagent      ActivityKind = "subagent"
+	ActivityKindArtifact      ActivityKind = "artifact"
+	ActivityKindOther         ActivityKind = "other"
 )
 
-var activityKinds = []ActivityKind{
-	ActivityKindCommand,
-	ActivityKindFileChange,
-	ActivityKindMCPTool,
-	ActivityKindDynamicTool,
-	ActivityKindWebSearch,
-	ActivityKindImageView,
-	ActivityKindImageGeneration,
-	ActivityKindSleep,
-	ActivityKindHook,
-	ActivityKindSubagent,
-	ActivityKindOther,
-}
-
-// ActivityKinds returns the adapter's activity catalog so a consumer can prove
-// it gave every reported activity a durable meaning.
-func ActivityKinds() []ActivityKind {
-	return append([]ActivityKind(nil), activityKinds...)
-}
-
-// ActivityEvent carries the typed identity of one provider activity. The
-// kind-specific fields are the provider's own facts, so the durable record does
-// not have to reconstruct a working directory, a server, or a tool name from a
-// display title.
 type ActivityEvent struct {
 	ProviderItemID string       `json:"providerItemId"`
 	Kind           ActivityKind `json:"kind"`
 	Status         string       `json:"status"`
 	Title          string       `json:"title"`
 	Summary        string       `json:"summary,omitempty"`
-	Command        *string      `json:"command,omitempty"`
-	CWD            *string      `json:"cwd,omitempty"`
-	Server         *string      `json:"server,omitempty"`
-	Tool           *string      `json:"tool,omitempty"`
-	Namespace      *string      `json:"namespace,omitempty"`
-	ProcessID      *string      `json:"processId,omitempty"`
 	ExitCode       *int         `json:"exitCode,omitempty"`
 }
 
@@ -233,12 +194,7 @@ func validateActivityEvent(event Event) error {
 	if event.Activity == nil {
 		return errors.New("agent activity event requires activity payload")
 	}
-	for _, kind := range activityKinds {
-		if event.Activity.Kind == kind {
-			return nil
-		}
-	}
-	return fmt.Errorf("unsupported agent activity kind %q", event.Activity.Kind)
+	return nil
 }
 
 func validateApprovalEvent(event Event) error {

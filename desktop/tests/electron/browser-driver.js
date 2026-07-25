@@ -1,4 +1,4 @@
-/* global CSS, CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, document, window */
+/* global CSS, CustomEvent, Event, HTMLButtonElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, document, window */
 
 (() => {
   function bodyText() {
@@ -43,110 +43,6 @@
     return { value: "value" in (element ?? {}) ? element.value : null };
   }
 
-  function masterOverlayOpenState() {
-    return {
-      open: Boolean(document.querySelector('[data-testid="master-pane-surface"]')),
-    };
-  }
-
-  function emptyMasterOverlayInteraction() {
-    return { decisionText: "", inputId: "", resultKind: "", status: "", transcript: "" };
-  }
-
-  function elementText(element) {
-    return element?.textContent ?? "";
-  }
-
-  function datasetValue(element, key) {
-    return element instanceof HTMLElement ? (element.dataset[key] ?? "") : "";
-  }
-
-  function queryText(root, selector) {
-    return root ? elementText(root.querySelector(selector)) : "";
-  }
-
-  function masterOverlayRoutedInteraction() {
-    const root = document.querySelector('[data-testid="master-active-interaction"]');
-    if (!(root instanceof HTMLElement)) {
-      return emptyMasterOverlayInteraction();
-    }
-    const result = root.querySelector(".setta-master-overlay-result");
-    return {
-      decisionText: queryText(result, "p"),
-      inputId: root.dataset.masterInputId ?? "",
-      resultKind: datasetValue(result, "masterResultKind"),
-      status: root.dataset.masterRoutingStatus ?? "",
-      transcript: queryText(root, '[data-testid="master-active-request"] p'),
-    };
-  }
-
-  function masterOverlayVoiceButtonState() {
-    const button = document.querySelector('[data-testid="master-pane-voice-capture"]');
-    if (!(button instanceof HTMLButtonElement)) {
-      return { label: "", ready: false };
-    }
-    return {
-      label: button.getAttribute("aria-label") ?? "",
-      ready: !button.disabled,
-    };
-  }
-
-  function masterOverlayVoiceClick() {
-    const button = document.querySelector('[data-testid="master-pane-voice-capture"]');
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return { clicked: false };
-    }
-    button.click();
-    return { clicked: true };
-  }
-
-  function masterPaneState({ draft }) {
-    const masterHost = document.querySelector(
-      '[data-testid="workspace-pane-host"][data-surface-kind="master"][data-visible="true"]',
-    );
-    const pane = masterHost?.querySelector('[data-testid="master-pane-surface"]');
-    const textarea = pane?.querySelector('textarea[aria-label="Ask Setta"]');
-    return {
-      draft: textarea instanceof HTMLTextAreaElement ? textarea.value : null,
-      expectedDraft: draft,
-      focused: textarea === document.activeElement,
-      masterHostFocused: masterHost?.getAttribute("data-focused") === "true",
-      maximized: masterHost?.getAttribute("data-maximized") === "true",
-      open: Boolean(pane),
-      overlayOpen: Boolean(document.querySelector('[data-testid="master-overlay"]')),
-    };
-  }
-
-  function workspaceFirstRunMasterPaneState() {
-    const area = document.querySelector('[data-testid="workspace-layout-area"]');
-    const masterHost = document.querySelector(
-      '[data-testid="workspace-pane-host"][data-surface-kind="master"][data-visible="true"]',
-    );
-    const masterPane = masterHost?.querySelector('[data-testid="master-pane-surface"]');
-    const masterComposer = masterPane?.querySelector('textarea[aria-label="Ask Setta"]');
-    const openFolderButtons = Array.from(document.querySelectorAll("button")).filter((button) =>
-      folderChoiceButtonLabel(
-        (button.textContent ?? "") + " " + (button.getAttribute("aria-label") ?? ""),
-      ),
-    );
-    return {
-      easyButtons: document.querySelectorAll('[data-testid="easy-button-surface"]').length,
-      folderChoiceControls: openFolderButtons.length,
-      masterFocused: masterComposer === document.activeElement,
-      masterHostFocused: masterHost?.getAttribute("data-focused") === "true",
-      masterMaximized: masterHost?.getAttribute("data-maximized") === "true",
-      masterOpen: Boolean(masterPane),
-      oldEmptyState: Boolean(document.querySelector('[data-testid="workspace-empty-state"]')),
-      paneCount: area instanceof HTMLElement ? (area.dataset.paneCount ?? "") : "",
-      search: Boolean(document.querySelector('[aria-label="Search conversations"]')),
-      workspaceId: area instanceof HTMLElement ? (area.dataset.workspaceId ?? "") : "",
-    };
-  }
-
-  function folderChoiceButtonLabel(label) {
-    return /folder|project/i.test(label) && /open|choose|select/i.test(label);
-  }
-
   function setInputValue({ selector, value }) {
     const element = document.querySelector(selector);
     if (!(element instanceof HTMLInputElement) && !(element instanceof HTMLTextAreaElement)) {
@@ -173,13 +69,7 @@
     clickButton,
     dispatchLayoutSnapshot,
     elementValue,
-    masterOverlayOpenState,
-    masterOverlayRoutedInteraction,
-    masterOverlayVoiceButtonState,
-    masterOverlayVoiceClick,
-    masterPaneState,
     setInputValue,
     version: "setta-e2e-driver-v13",
-    workspaceFirstRunMasterPaneState,
   };
 })();

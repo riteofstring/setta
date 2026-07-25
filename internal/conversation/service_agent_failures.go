@@ -3,8 +3,6 @@ package conversation
 import (
 	"context"
 	"errors"
-
-	"setta/internal/agent"
 )
 
 func (service *Service) persistUnexpectedTurnEnd(
@@ -37,7 +35,6 @@ func (service *Service) persistUnexpectedTurnEnd(
 type unexpectedTurnEndMutation struct {
 	conversation   TopicConversation
 	expectedStatus TurnStatus
-	binding        *AgentThreadBinding
 	queue          []QueuedConversationTurn
 	queueOrdinal   int
 	removeQueue    bool
@@ -104,11 +101,9 @@ func (service *Service) buildUnexpectedTurnEnd(
 	conversation := snapshot.Conversation
 	conversation.Status = conversationStatus
 	conversation.UpdatedAt = now
-	binding := missingThreadBinding(snapshot.ThreadBinding, runErr)
 	return unexpectedTurnEndMutation{
 		conversation:   conversation,
 		expectedStatus: expectedStatus,
-		binding:        binding,
 		queue:          queue,
 		queueOrdinal:   active.queueOrdinal,
 		removeQueue:    removeQueue,
@@ -116,15 +111,6 @@ func (service *Service) buildUnexpectedTurnEnd(
 		trajectory:     trajectory,
 		turn:           turn,
 	}, nil
-}
-
-func missingThreadBinding(binding *AgentThreadBinding, runErr error) *AgentThreadBinding {
-	if !agent.IsProviderThreadMissing(runErr) || binding == nil {
-		return nil
-	}
-	missing := *binding
-	missing.Status = ThreadBindingStatusMissing
-	return &missing
 }
 
 func applyUnexpectedTurnOutcome(
@@ -146,7 +132,7 @@ func applyUnexpectedTurnOutcome(
 		turn.EndedAt = &now
 		return ConversationStatusIdle
 	}
-	failure := unexpectedTurnFailure(runErr)
+	failure := Failure{Code: "agent_runtime_failed", Message: runErr.Error(), Retryable: true}
 	turn.Status = TurnStatusFailed
 	turn.Error = &failure
 	trajectory.Kind = TrajectoryEventTurnFailed
@@ -158,17 +144,6 @@ func applyUnexpectedTurnOutcome(
 	}
 	turn.EndedAt = &now
 	return ConversationStatusFailed
-}
-
-func unexpectedTurnFailure(runErr error) Failure {
-	if agent.IsProviderThreadMissing(runErr) {
-		return Failure{
-			Code:      "provider_thread_missing",
-			Message:   runErr.Error(),
-			Retryable: false,
-		}
-	}
-	return Failure{Code: "agent_runtime_failed", Message: runErr.Error(), Retryable: true}
 }
 
 func applyUnexpectedProviderReferences(
@@ -210,12 +185,6 @@ func unexpectedTurnEndPayloads(mutation unexpectedTurnEndMutation) []Conversatio
 	if mutation.removeQueue {
 		payloads = append(payloads, ConversationQueueUpdatedEventPayload{Type: ConversationEventTypeQueueUpdated, Queue: mutation.queue})
 	}
-	if mutation.binding != nil {
-		payloads = append(payloads, ConversationThreadBindingUpdatedEventPayload{
-			Type:    ConversationEventTypeThreadBindingUpdated,
-			Binding: *mutation.binding,
-		})
-	}
 	return append(payloads, ConversationTrajectoryAppendedEventPayload{Type: ConversationEventTypeTrajectoryAppended, Event: mutation.trajectory})
 }
 
@@ -240,11 +209,6 @@ func (service *Service) commitUnexpectedTurnEnd(
 		if err := applyUnexpectedQueueMutation(transaction, mutation); err != nil {
 			return err
 		}
-		if mutation.binding != nil {
-			if err := transaction.UpsertAgentThreadBinding(*mutation.binding); err != nil {
-				return err
-			}
-		}
 		if err := transaction.AppendTrajectoryEvent(mutation.trajectory); err != nil {
 			return err
 		}
@@ -253,9 +217,8 @@ func (service *Service) commitUnexpectedTurnEnd(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			mutation.conversation,
-			mutation.turn,
+			mutation.turn.ID,
 			[]TrajectoryEvent{mutation.trajectory},
-			artifactMetadataForTurn(mutation.snapshot.Artifacts.Artifacts, mutation.turn.ID),
 			true,
 		)
 	}

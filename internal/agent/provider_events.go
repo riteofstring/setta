@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"setta/internal/codexapp"
 )
@@ -177,21 +176,17 @@ func normalizedProviderNotification(message codexapp.Message, base Event) ([]Eve
 type providerNotificationHandler func([]byte, Event) ([]Event, *TerminalEvent, error)
 
 var providerNotificationHandlers = map[string]providerNotificationHandler{
-	codexapp.CodexNotificationTurnStarted:                             normalizeTurnStarted,
-	codexapp.CodexNotificationItemAgentMessageDelta:                   normalizeAgentTextDelta,
-	codexapp.CodexNotificationItemReasoningSummaryTextDelta:           normalizeReasoningDelta,
-	codexapp.CodexNotificationTurnPlanUpdated:                         normalizePlanUpdated,
-	codexapp.CodexNotificationItemStarted:                             normalizeItemStarted,
-	codexapp.CodexNotificationItemCompleted:                           normalizeItemCompleted,
-	codexapp.CodexNotificationItemCommandExecutionOutputDelta:         normalizeCommandOutputDelta,
-	codexapp.CodexNotificationItemCommandExecutionTerminalInteraction: normalizeTerminalInteraction,
-	codexapp.CodexNotificationItemFileChangePatchUpdated:              normalizeFilePatchUpdated,
-	codexapp.CodexNotificationItemMcpToolCallProgress:                 normalizeMcpToolProgress,
-	codexapp.CodexNotificationHookStarted:                             normalizeHookStarted,
-	codexapp.CodexNotificationHookCompleted:                           normalizeHookCompleted,
-	codexapp.CodexNotificationModelRerouted:                           normalizeModelRerouted,
-	codexapp.CodexNotificationTurnCompleted:                           normalizeTurnCompleted,
-	codexapp.CodexNotificationError:                                   normalizeProviderError,
+	codexapp.CodexNotificationTurnStarted:                     normalizeTurnStarted,
+	codexapp.CodexNotificationItemAgentMessageDelta:           normalizeAgentTextDelta,
+	codexapp.CodexNotificationItemReasoningSummaryTextDelta:   normalizeReasoningDelta,
+	codexapp.CodexNotificationTurnPlanUpdated:                 normalizePlanUpdated,
+	codexapp.CodexNotificationItemStarted:                     normalizeItemStarted,
+	codexapp.CodexNotificationItemCompleted:                   normalizeItemCompleted,
+	codexapp.CodexNotificationItemCommandExecutionOutputDelta: normalizeCommandOutputDelta,
+	codexapp.CodexNotificationItemFileChangePatchUpdated:      normalizeFilePatchUpdated,
+	codexapp.CodexNotificationModelRerouted:                   normalizeModelRerouted,
+	codexapp.CodexNotificationTurnCompleted:                   normalizeTurnCompleted,
+	codexapp.CodexNotificationError:                           normalizeProviderError,
 }
 
 func normalizeTurnStarted(raw []byte, base Event) ([]Event, *TerminalEvent, error) {
@@ -278,95 +273,6 @@ func normalizeCommandOutputDelta(raw []byte, base Event) ([]Event, *TerminalEven
 		ProviderItemID: notification.ItemId, Kind: ActivityKindCommand,
 		Status: "in_progress", Title: "Command output updated",
 	})
-}
-
-func normalizeTerminalInteraction(raw []byte, base Event) ([]Event, *TerminalEvent, error) {
-	notification, err := codexapp.DecodeTerminalInteractionNotification(raw)
-	if err != nil {
-		return nil, nil, err
-	}
-	// The keystrokes sent to an interactive process can carry a passphrase or
-	// another secret the user typed into a prompt, so the durable fact is that
-	// the command was driven, not what was typed into it.
-	return normalizedActivityUpdate(base, notification.ThreadID, notification.TurnID, ActivityEvent{
-		ProviderItemID: notification.ItemId, Kind: ActivityKindCommand,
-		Status: "in_progress", Title: "Terminal input sent",
-	})
-}
-
-func normalizeMcpToolProgress(raw []byte, base Event) ([]Event, *TerminalEvent, error) {
-	notification, err := codexapp.DecodeMcpToolCallProgressNotification(raw)
-	if err != nil {
-		return nil, nil, err
-	}
-	return normalizedActivityUpdate(base, notification.ThreadID, notification.TurnID, ActivityEvent{
-		ProviderItemID: notification.ItemId, Kind: ActivityKindMCPTool,
-		Status: "in_progress", Title: "MCP tool progress", Summary: notification.Message,
-	})
-}
-
-func normalizeHookStarted(raw []byte, base Event) ([]Event, *TerminalEvent, error) {
-	notification, err := codexapp.DecodeHookStartedNotification(raw)
-	if err != nil {
-		return nil, nil, err
-	}
-	return normalizedHookRun(base, notification.ThreadID, notification.TurnID, notification.Run, EventKindActivityStarted)
-}
-
-func normalizeHookCompleted(raw []byte, base Event) ([]Event, *TerminalEvent, error) {
-	notification, err := codexapp.DecodeHookCompletedNotification(raw)
-	if err != nil {
-		return nil, nil, err
-	}
-	return normalizedHookRun(base, notification.ThreadID, notification.TurnID, notification.Run, EventKindActivityCompleted)
-}
-
-// normalizedHookRun makes a hook execution a typed activity of the run that
-// triggered it. A hook that names no turn is thread-scoped provider work, so it
-// produces no event rather than being attributed to whichever run is active.
-func normalizedHookRun(
-	base Event,
-	threadID string,
-	turnID *string,
-	run codexapp.HookRunSummary,
-	kind EventKind,
-) ([]Event, *TerminalEvent, error) {
-	if turnID == nil {
-		return nil, nil, nil
-	}
-	if err := requireProviderScope(base, threadID, *turnID); err != nil {
-		return nil, nil, err
-	}
-	event := base
-	event.Kind = kind
-	event.ProviderEventID = stringPointer(run.ID)
-	event.Activity = &ActivityEvent{
-		ProviderItemID: run.ID,
-		Kind:           ActivityKindHook,
-		Status:         string(run.Status),
-		Title:          string(run.EventName) + " hook",
-		Summary:        hookAttribution(run),
-	}
-	return []Event{event}, nil, nil
-}
-
-// hookAttribution keeps the trusted answer to "whose hook was this" with the
-// activity, so a hook that blocks or fails is attributable to the plugin,
-// project, or user configuration that installed it.
-func hookAttribution(run codexapp.HookRunSummary) string {
-	parts := []string{}
-	if run.Source != nil {
-		parts = append(parts, string(*run.Source))
-	}
-	if trimmed := strings.TrimSpace(run.SourcePath); trimmed != "" {
-		parts = append(parts, trimmed)
-	}
-	if run.StatusMessage != nil {
-		if trimmed := strings.TrimSpace(*run.StatusMessage); trimmed != "" {
-			parts = append(parts, trimmed)
-		}
-	}
-	return strings.Join(parts, " · ")
 }
 
 func normalizeFilePatchUpdated(raw []byte, base Event) ([]Event, *TerminalEvent, error) {
