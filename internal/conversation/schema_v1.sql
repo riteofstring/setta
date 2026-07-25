@@ -441,7 +441,7 @@ CREATE TABLE master_route_command_completions (
 
 CREATE TABLE pane_bindings (
   pane_id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL,
+  workspace_id TEXT,
   conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,

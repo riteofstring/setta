@@ -93,6 +93,17 @@ func TestTopicIndexSearchesFolderlessConversations(t *testing.T) {
 	if _, err := store.AcceptConversationInput(context.Background(), input, "2026-07-13T18:00:02Z"); err != nil {
 		t.Fatalf("AcceptConversationInput: %v", err)
 	}
+	if err := store.ReplaceFolderlessPaneBindings(
+		context.Background(),
+		[]FolderlessPaneBinding{{
+			PaneID:         "pane-folderless-index",
+			ConversationID: conversation.ID,
+			Focused:        true,
+		}},
+		"2026-07-13T18:00:03Z",
+	); err != nil {
+		t.Fatalf("ReplaceFolderlessPaneBindings: %v", err)
+	}
 
 	matches := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
 		Query: "folder",
@@ -108,7 +119,10 @@ func TestTopicIndexSearchesFolderlessConversations(t *testing.T) {
 	if card.ResourceScope.Kind != conversationindex.ResourceScopeKindFolderless ||
 		card.ResourceScope.Folder != nil ||
 		len(card.RecentUserRequests) != 1 ||
-		card.RecentUserRequests[0].Text != input.Text {
+		card.RecentUserRequests[0].Text != input.Text ||
+		card.OpenPaneCount != 1 ||
+		len(card.OpenPaneIDs) != 1 ||
+		card.OpenPaneIDs[0] != "pane-folderless-index" {
 		t.Fatalf("folderless card = %+v", card)
 	}
 
