@@ -201,9 +201,13 @@ package, their runtime observers/services, HTTP endpoints, Electron IPC/preload
 surface, and generated app/workspace layout contracts are gone. The still-used
 conversation palette catalog remains in `internal/workspaceui/conversationpalette`,
 and the residual Master presentation resource binding now lives in
-`internal/master` instead of importing app layout. Remaining Master
-presentation/backing helpers and their pane-binding assumptions are still
-Phase 5 work.
+`internal/master` instead of importing app layout. The native browser-pane bridge
+is now removed from Electron main, preload, shared IPC/types, and recording
+snapshots; generated appearance contracts no longer expose Niri shortcut,
+workspace-pane palette, drag-target palette, or resized-pane developer settings,
+and protocol 90 carries that contract cutover. Remaining Master
+presentation/backing helpers and their pane-binding assumptions are still Phase 5
+work.
 Supply-chain release gate: `desktop/package.json` ignores `CVE-2026-14257`
 only because the first patched `brace-expansion` release, `5.0.8`, was published
 on 2026-07-23 and cannot satisfy the checked-in seven-day release-age policy
@@ -1813,8 +1817,8 @@ Remove:
 - pane drag, resize, reorder, overview, and manual layout controls. **Done for the renderer UI and
   manifest-owned Electron workflows.**
 - Niri-specific shortcuts, toolbar, mobile pane controls, and CSS. **Done for visible renderer
-  shortcuts and CSS imports; backend appearance shortcut contract cleanup remains with generated
-  contract removal.**
+  shortcuts and CSS imports, generated appearance shortcut/pane-palette contract removal, and the
+  obsolete resized-pane developer setting.**
 - workspace-layout endpoints, IPC, and generated contracts with no Setta 4 owner. **Done for
   app-pane and workspace-UI layout read/save endpoints, Electron IPC/preload methods, and generated
   backend contracts.**
@@ -1830,7 +1834,10 @@ Retain or rehome:
 - speech and safe credential storage. **The Director-used speech playback controller and
   capture-provider utilities are retained; pane-specific capture presentation/submission glue is
   removed.**
-- browser/native content only where it becomes a typed capability or artifact view
+- browser/native content only where it becomes a typed capability or artifact view. **Done for the
+  old pane-owned WebContentsView bridge — `workspace-browser-views`, the preload
+  `workspaceNativeViews` API, browser-view IPC channels, and pane DOM recording snapshots are
+  removed.**
 
 Exit gate:
 

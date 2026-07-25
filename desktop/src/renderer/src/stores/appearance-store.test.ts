@@ -67,22 +67,6 @@ describe("appearance store", () => {
     expect(settings.developer.showPerformanceStats).toBe(false);
   });
 
-  test("updates the draft resized pane viewport clamp setting", () => {
-    const settings = testAppearanceSettings();
-    useAppearanceStore.setState({
-      draft: settings,
-      settings,
-      status: "ready",
-    });
-
-    useAppearanceStore.getState().setClampResizedPanesToViewport(false);
-
-    expect(useAppearanceStore.getState().draft?.developer.allowResizedPanesToOverflowViewport).toBe(
-      true,
-    );
-    expect(settings.developer.allowResizedPanesToOverflowViewport).toBe(false);
-  });
-
   test("updates the draft overview card width bounds", () => {
     const settings = testAppearanceSettings();
     useAppearanceStore.setState({
@@ -97,36 +81,6 @@ describe("appearance store", () => {
     expect(useAppearanceStore.getState().draft?.developer.overviewCardMaxWidthPx).toBe(540);
     expect(settings.developer.overviewCardMinWidthPx).toBe(280);
     expect(settings.developer.overviewCardMaxWidthPx).toBe(460);
-  });
-
-  test("updates the draft workspace navigation shortcut", () => {
-    const settings = testAppearanceSettings();
-    useAppearanceStore.setState({
-      draft: settings,
-      settings,
-      status: "ready",
-    });
-
-    useAppearanceStore.getState().setWorkspaceNavigationShortcut("ctrl_alt_arrows");
-
-    expect(useAppearanceStore.getState().draft?.shortcuts.workspaceNavigation).toBe(
-      "ctrl_alt_arrows",
-    );
-    expect(settings.shortcuts.workspaceNavigation).toBe("mod_alt_arrows");
-  });
-
-  test("updates the draft master voice shortcut", () => {
-    const settings = testAppearanceSettings();
-    useAppearanceStore.setState({
-      draft: settings,
-      settings,
-      status: "ready",
-    });
-
-    useAppearanceStore.getState().setMasterVoiceShortcut("alt_shift_k");
-
-    expect(useAppearanceStore.getState().draft?.shortcuts.masterVoice).toBe("alt_shift_k");
-    expect(settings.shortcuts.masterVoice).toBe("mod_shift_k");
   });
 });
 
@@ -156,14 +110,9 @@ function testAppearanceSettings(): AppearanceSettings {
       sans: "Inter, sans-serif",
     },
     developer: {
-      allowResizedPanesToOverflowViewport: false,
       overviewCardMaxWidthPx: 460,
       overviewCardMinWidthPx: 280,
       showPerformanceStats: false,
-    },
-    shortcuts: {
-      workspaceNavigation: "mod_alt_arrows",
-      masterVoice: "mod_shift_k",
     },
     mode: "dark",
     schemaVersion: 3,

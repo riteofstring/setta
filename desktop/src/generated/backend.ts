@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 89;
-export const backendContractSchemaHash = "sha256:2da8a33d2550bebfaddc3de6ad1771b3da030a7feb50ffdc26784b7eee317780";
+export const backendProtocolVersion = 90;
+export const backendContractSchemaHash = "sha256:4c6c4ffb2f86b68152c3d56c705c0ec7f574765d80c2cd2fdd0a6360f22b7cdc";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -62,40 +62,6 @@ export function decodeAppearanceColorMode(value: unknown, label = "AppearanceCol
     case "dark":
       return decoded;
     case "light":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type AppearanceWorkspaceNavigationShortcut = "mod_alt_arrows" | "ctrl_alt_arrows";
-
-export const appearanceWorkspaceNavigationShortcutValues = ["mod_alt_arrows", "ctrl_alt_arrows"] as const satisfies readonly AppearanceWorkspaceNavigationShortcut[];
-
-export function decodeAppearanceWorkspaceNavigationShortcut(value: unknown, label = "AppearanceWorkspaceNavigationShortcut"): AppearanceWorkspaceNavigationShortcut {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "mod_alt_arrows":
-      return decoded;
-    case "ctrl_alt_arrows":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type AppearanceMasterVoiceShortcut = "mod_shift_k" | "ctrl_shift_k" | "alt_shift_k";
-
-export const appearanceMasterVoiceShortcutValues = ["mod_shift_k", "ctrl_shift_k", "alt_shift_k"] as const satisfies readonly AppearanceMasterVoiceShortcut[];
-
-export function decodeAppearanceMasterVoiceShortcut(value: unknown, label = "AppearanceMasterVoiceShortcut"): AppearanceMasterVoiceShortcut {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "mod_shift_k":
-      return decoded;
-    case "ctrl_shift_k":
-      return decoded;
-    case "alt_shift_k":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2170,24 +2136,11 @@ export interface AppearanceAccentPalette {
   teal: string;
 }
 
-export interface AppearanceWorkspacePalette {
-  surface: string;
-  dotGrid: string;
-  paneSurface: string;
-  paneTitleBarSurface: string;
-  paneEdge: string;
-  paneSelectedOutline: string;
-  paneSelectedGlow: string;
-  dragTargetSurface: string;
-  dragTargetOutline: string;
-}
-
 export interface AppearanceColorScheme {
   tailwind: AppearanceTailwindPalette;
   shadcn: AppearanceShadcnPalette;
   status: AppearanceStatusPalette;
   accent: AppearanceAccentPalette;
-  workspace: AppearanceWorkspacePalette;
 }
 
 export interface AppearanceFontScheme {
@@ -2197,15 +2150,9 @@ export interface AppearanceFontScheme {
 }
 
 export interface AppearanceDeveloperSettings {
-  allowResizedPanesToOverflowViewport: boolean;
   overviewCardMaxWidthPx: number;
   overviewCardMinWidthPx: number;
   showPerformanceStats: boolean;
-}
-
-export interface AppearanceShortcutsSettings {
-  workspaceNavigation: AppearanceWorkspaceNavigationShortcut;
-  masterVoice: AppearanceMasterVoiceShortcut;
 }
 
 export interface AppearanceSettings {
@@ -2215,7 +2162,6 @@ export interface AppearanceSettings {
   dark: AppearanceColorScheme;
   fonts: AppearanceFontScheme;
   developer: AppearanceDeveloperSettings;
-  shortcuts: AppearanceShortcutsSettings;
 }
 
 export interface AppearancePreset {
@@ -4848,31 +4794,14 @@ export function decodeAppearanceAccentPalette(value: unknown): AppearanceAccentP
   };
 }
 
-export function decodeAppearanceWorkspacePalette(value: unknown): AppearanceWorkspacePalette {
-  const record = assertRecord(value, "AppearanceWorkspacePalette");
-  assertKnownFields(record, "AppearanceWorkspacePalette", ["surface", "dotGrid", "paneSurface", "paneTitleBarSurface", "paneEdge", "paneSelectedOutline", "paneSelectedGlow", "dragTargetSurface", "dragTargetOutline"]);
-  return {
-    surface: decodeString(requireField(record, "surface", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.surface"),
-    dotGrid: decodeString(requireField(record, "dotGrid", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.dotGrid"),
-    paneSurface: decodeString(requireField(record, "paneSurface", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.paneSurface"),
-    paneTitleBarSurface: decodeString(requireField(record, "paneTitleBarSurface", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.paneTitleBarSurface"),
-    paneEdge: decodeString(requireField(record, "paneEdge", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.paneEdge"),
-    paneSelectedOutline: decodeString(requireField(record, "paneSelectedOutline", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.paneSelectedOutline"),
-    paneSelectedGlow: decodeString(requireField(record, "paneSelectedGlow", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.paneSelectedGlow"),
-    dragTargetSurface: decodeString(requireField(record, "dragTargetSurface", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.dragTargetSurface"),
-    dragTargetOutline: decodeString(requireField(record, "dragTargetOutline", "AppearanceWorkspacePalette"), "AppearanceWorkspacePalette.dragTargetOutline"),
-  };
-}
-
 export function decodeAppearanceColorScheme(value: unknown): AppearanceColorScheme {
   const record = assertRecord(value, "AppearanceColorScheme");
-  assertKnownFields(record, "AppearanceColorScheme", ["tailwind", "shadcn", "status", "accent", "workspace"]);
+  assertKnownFields(record, "AppearanceColorScheme", ["tailwind", "shadcn", "status", "accent"]);
   return {
     tailwind: decodeAppearanceTailwindPalette(requireField(record, "tailwind", "AppearanceColorScheme")),
     shadcn: decodeAppearanceShadcnPalette(requireField(record, "shadcn", "AppearanceColorScheme")),
     status: decodeAppearanceStatusPalette(requireField(record, "status", "AppearanceColorScheme")),
     accent: decodeAppearanceAccentPalette(requireField(record, "accent", "AppearanceColorScheme")),
-    workspace: decodeAppearanceWorkspacePalette(requireField(record, "workspace", "AppearanceColorScheme")),
   };
 }
 
@@ -4888,27 +4817,17 @@ export function decodeAppearanceFontScheme(value: unknown): AppearanceFontScheme
 
 export function decodeAppearanceDeveloperSettings(value: unknown): AppearanceDeveloperSettings {
   const record = assertRecord(value, "AppearanceDeveloperSettings");
-  assertKnownFields(record, "AppearanceDeveloperSettings", ["allowResizedPanesToOverflowViewport", "overviewCardMaxWidthPx", "overviewCardMinWidthPx", "showPerformanceStats"]);
+  assertKnownFields(record, "AppearanceDeveloperSettings", ["overviewCardMaxWidthPx", "overviewCardMinWidthPx", "showPerformanceStats"]);
   return {
-    allowResizedPanesToOverflowViewport: decodeBoolean(requireField(record, "allowResizedPanesToOverflowViewport", "AppearanceDeveloperSettings"), "AppearanceDeveloperSettings.allowResizedPanesToOverflowViewport"),
     overviewCardMaxWidthPx: decodeInteger(requireField(record, "overviewCardMaxWidthPx", "AppearanceDeveloperSettings"), "AppearanceDeveloperSettings.overviewCardMaxWidthPx"),
     overviewCardMinWidthPx: decodeInteger(requireField(record, "overviewCardMinWidthPx", "AppearanceDeveloperSettings"), "AppearanceDeveloperSettings.overviewCardMinWidthPx"),
     showPerformanceStats: decodeBoolean(requireField(record, "showPerformanceStats", "AppearanceDeveloperSettings"), "AppearanceDeveloperSettings.showPerformanceStats"),
   };
 }
 
-export function decodeAppearanceShortcutsSettings(value: unknown): AppearanceShortcutsSettings {
-  const record = assertRecord(value, "AppearanceShortcutsSettings");
-  assertKnownFields(record, "AppearanceShortcutsSettings", ["workspaceNavigation", "masterVoice"]);
-  return {
-    workspaceNavigation: decodeAppearanceWorkspaceNavigationShortcut(requireField(record, "workspaceNavigation", "AppearanceShortcutsSettings"), "AppearanceShortcutsSettings.workspaceNavigation"),
-    masterVoice: decodeAppearanceMasterVoiceShortcut(requireField(record, "masterVoice", "AppearanceShortcutsSettings"), "AppearanceShortcutsSettings.masterVoice"),
-  };
-}
-
 export function decodeAppearanceSettings(value: unknown): AppearanceSettings {
   const record = assertRecord(value, "AppearanceSettings");
-  assertKnownFields(record, "AppearanceSettings", ["schemaVersion", "mode", "light", "dark", "fonts", "developer", "shortcuts"]);
+  assertKnownFields(record, "AppearanceSettings", ["schemaVersion", "mode", "light", "dark", "fonts", "developer"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "AppearanceSettings"), "AppearanceSettings.schemaVersion"),
     mode: decodeAppearanceColorMode(requireField(record, "mode", "AppearanceSettings"), "AppearanceSettings.mode"),
@@ -4916,7 +4835,6 @@ export function decodeAppearanceSettings(value: unknown): AppearanceSettings {
     dark: decodeAppearanceColorScheme(requireField(record, "dark", "AppearanceSettings")),
     fonts: decodeAppearanceFontScheme(requireField(record, "fonts", "AppearanceSettings")),
     developer: decodeAppearanceDeveloperSettings(requireField(record, "developer", "AppearanceSettings")),
-    shortcuts: decodeAppearanceShortcutsSettings(requireField(record, "shortcuts", "AppearanceSettings")),
   };
 }
 

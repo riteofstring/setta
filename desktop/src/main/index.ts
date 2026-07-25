@@ -10,7 +10,7 @@ import {
   type CodexAccountChangeEvent,
 } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
-import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
+import { handleIpc, ipcEvents } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
 import type { BackendProcessStatus, RuntimeRegistrySnapshot } from "@shared/types";
 import { registerAppIpcHandlers } from "./app-ipc";
@@ -48,7 +48,6 @@ import {
 } from "./speech-credential-vault";
 import { registerSpeechIpcHandlers } from "./speech-ipc";
 import { SpeechProviderSelectionStore } from "./speech-provider-selection-store";
-import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { registerAppWindowDragIpcHandlers } from "./window-drag";
 
@@ -94,7 +93,6 @@ const directorEvents = new DirectorEventRegistry({
 const compactWindowMinHeight = 320;
 const compactWindowMinWidth = 320;
 const backendRequestDrainTimeoutMs = 1_500;
-const workspaceBrowserViews = createElectronWebContentsViewRegistry();
 function desktopRoot() {
   return process.cwd();
 }
@@ -375,7 +373,6 @@ async function createWindow() {
     }
   });
   mainWindow.on("closed", () => {
-    workspaceBrowserViews.teardownAll();
     mainWindow = null;
   });
 
@@ -426,12 +423,7 @@ function rendererURLWithQuery(rawURL: string): string {
 }
 
 function rendererQuery(): Record<string, string> | null {
-  const query: Record<string, string> = {};
-  const workspaceScene = process.env.SETTA_E2E_NIRI_SCENE;
-  if (workspaceScene) {
-    query.workspaceScene = workspaceScene;
-  }
-  return Object.keys(query).length > 0 ? query : null;
+  return null;
 }
 
 function registerIpc() {
@@ -442,9 +434,6 @@ function registerIpc() {
   const ipcObserver = recorder?.createIpcObserver();
   ipcMain.on(recordingRendererEventChannel, (_event, event: RendererRecordedEvent) => {
     recorder?.recordRendererEvent(event);
-  });
-  ipcMain.on(ipcMessages.workspaceBrowserViewBatch, (event, batch) => {
-    workspaceBrowserViews.applyBatch(event, batch);
   });
   registerAppIpcHandlers({
     ipcMain,
@@ -662,22 +651,6 @@ function registerIpc() {
     "codexAccountLogout",
     async (_event, request) => {
       return requireBackendClient().logoutCodexAccount(request);
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workspaceBrowserViewStats",
-    () => {
-      return workspaceBrowserViews.readStats();
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workspaceBrowserViewsTeardown",
-    (_event, workspaceId) => {
-      return workspaceBrowserViews.teardownWorkspace(workspaceId);
     },
     ipcObserver,
   );

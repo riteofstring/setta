@@ -1,16 +1,11 @@
 import type { UpdateAppearanceSettingsRequest } from "@generated/backend";
-import { ipcChannels, ipcEvents, ipcMessages } from "@shared/ipc";
-import type { SettaAPI, WorkspaceBrowserViewBatch } from "@shared/types";
+import { ipcChannels, ipcEvents } from "@shared/ipc";
+import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { codexAccountChangeEvent } from "./index.test.fixtures";
 
-async function exposePreloadAPI({
-  invoke = vi.fn(),
-  on = vi.fn(),
-  removeListener = vi.fn(),
-  send = vi.fn(),
-} = {}) {
+async function exposePreloadAPI({ invoke = vi.fn(), on = vi.fn(), removeListener = vi.fn() } = {}) {
   const exposed: Record<string, unknown> = {};
   vi.doMock("electron", () => ({
     contextBridge: {
@@ -18,12 +13,12 @@ async function exposePreloadAPI({
         exposed[name] = api;
       },
     },
-    ipcRenderer: { invoke, on, removeListener, send },
+    ipcRenderer: { invoke, on, removeListener, send: vi.fn() },
   }));
 
   await import("./index");
 
-  return { api: exposed.setta as SettaAPI, invoke, on, removeListener, send };
+  return { api: exposed.setta as SettaAPI, invoke, on, removeListener };
 }
 
 describe("preload workspace API", () => {
@@ -107,53 +102,6 @@ describe("preload workspace API", () => {
     ]);
   });
 
-  test("exposes typed workspace native view methods through IPC", async () => {
-    const { api, invoke, on, removeListener, send } = await exposePreloadAPI();
-    await api.app.captureRendererRegion({ height: 40, width: 80, x: 12, y: 24 });
-    const nativeViews = api.workspaceNativeViews;
-    if (!nativeViews) {
-      throw new Error("workspace native view API was not exposed");
-    }
-    const batch: WorkspaceBrowserViewBatch = {
-      focusedSurfaceId: "surface_browser",
-      masterVoiceShortcut: "mod_shift_k",
-      totalBrowserPanes: 24,
-      updates: [],
-      visibleBrowserPanes: 6,
-      workspaceId: "workspace_api",
-    };
-    nativeViews.batchBrowserViewUpdates(batch);
-    await nativeViews.readBrowserViewStats();
-    await nativeViews.teardownBrowserViews("workspace_api");
-
-    const keyListener = vi.fn();
-    const unsubscribeKey = nativeViews.onBrowserViewKey(keyListener);
-    const keyHandler = eventHandler(on, ipcEvents.workspaceBrowserViewKey);
-    keyHandler({}, browserKeyEvent());
-    unsubscribeKey();
-
-    const snapshotListener = vi.fn();
-    const unsubscribeSnapshot = nativeViews.onBrowserViewSnapshot(snapshotListener);
-    const snapshotHandler = eventHandler(on, ipcEvents.workspaceBrowserViewSnapshot);
-    const snapshot = browserSnapshot();
-    snapshotHandler({}, snapshot);
-    unsubscribeSnapshot();
-
-    expect(send).toHaveBeenCalledWith(ipcMessages.workspaceBrowserViewBatch, batch);
-    expectInvokeCalls(invoke, [
-      [ipcChannels.appCaptureRendererRegion, { height: 40, width: 80, x: 12, y: 24 }],
-      [ipcChannels.workspaceBrowserViewStats],
-      [ipcChannels.workspaceBrowserViewsTeardown, "workspace_api"],
-    ]);
-    expect(keyListener).toHaveBeenCalledWith(browserKeyEvent());
-    expect(snapshotListener).toHaveBeenCalledWith(snapshot);
-    expect(removeListener).toHaveBeenCalledWith(ipcEvents.workspaceBrowserViewKey, keyHandler);
-    expect(removeListener).toHaveBeenCalledWith(
-      ipcEvents.workspaceBrowserViewSnapshot,
-      snapshotHandler,
-    );
-  });
-
   test("exposes typed appearance and account methods through IPC", async () => {
     const { api, invoke, on, removeListener } = await exposePreloadAPI();
     const appearance = { settings: {} } as unknown as UpdateAppearanceSettingsRequest;
@@ -198,31 +146,6 @@ function eventHandler(on: ReturnType<typeof vi.fn>, channel: string) {
     throw new Error(`event handler was not registered for ${channel}`);
   }
   return handler;
-}
-
-function browserKeyEvent() {
-  return {
-    altKey: false,
-    ctrlKey: true,
-    key: "k",
-    metaKey: false,
-    shiftKey: false,
-    surfaceId: "surface_browser",
-    workspaceId: "workspace_api",
-  };
-}
-
-function browserSnapshot() {
-  return {
-    capturedAt: 99,
-    height: 120,
-    imageDataUrl: "data:image/png;base64,AAAA",
-    paneId: "pane_browser",
-    surfaceId: "surface_browser",
-    title: "Browser",
-    width: 240,
-    workspaceId: "workspace_api",
-  };
 }
 
 function expectInvokeCalls(invoke: ReturnType<typeof vi.fn>, calls: unknown[][]) {

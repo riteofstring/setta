@@ -6,7 +6,6 @@ import type {
   AppearanceShadcnPalette,
   AppearanceStatusPalette,
   AppearanceTailwindPalette,
-  AppearanceWorkspacePalette,
   ConversationPresentationProfile,
   MasterVoiceSelection,
   NarratorVoiceDefault,
@@ -550,14 +549,12 @@ describe("appearance settings", () => {
     const html = renderToString(
       <DeveloperSettingsEditor
         developer={{
-          allowResizedPanesToOverflowViewport: false,
           overviewCardMaxWidthPx: 460,
           overviewCardMinWidthPx: 280,
           showPerformanceStats: false,
         }}
         dirty={false}
         error={null}
-        onClampResizedPanesToViewportChange={vi.fn()}
         onOverviewCardWidthBoundsChange={vi.fn()}
         onRevert={vi.fn()}
         onSave={async () => {}}
@@ -567,7 +564,6 @@ describe("appearance settings", () => {
     );
 
     expect(html).toContain('data-testid="developer-settings"');
-    expect(html).toContain("Clamp resized panes to viewport");
     expect(html).toContain("Top bar performance stats");
     expect(html).toContain("Overview card min width");
     expect(html).toContain("Overview card max width");
@@ -586,10 +582,6 @@ describe("appearance settings", () => {
     expect(variables["--background"]).toBe(settings.dark.shadcn.background);
     expect(variables["--status-warning"]).toBe(settings.dark.status.warning);
     expect(variables["--color-status-warning"]).toBe(settings.dark.status.warning);
-    expect(variables["--workspace-surface"]).toBe(settings.dark.workspace.surface);
-    expect(variables["--color-workspace-pane-selected-outline"]).toBe(
-      settings.dark.workspace.paneSelectedOutline,
-    );
     expect(variables["--font-sans"]).toBe(settings.fonts.sans);
   });
 
@@ -656,7 +648,6 @@ describe("appearance settings", () => {
     expect(html).toContain("Dark");
     expect(html).toContain("Fonts");
     expect(html).toContain("Advanced Color Tokens");
-    expect(html).toContain("Niri Workspace");
     expect(html).toContain("Palette Scale");
     expect(html).toContain("shadcn/ui Tokens");
     expect(html).toContain("Status Colors");
@@ -665,8 +656,6 @@ describe("appearance settings", () => {
     expect(html).toContain("Lightness");
     expect(html).toContain("Chroma");
     expect(html).toContain("Hue");
-    expect(html).toContain("Pane selected outline");
-    expect(html).toContain("Dot grid");
     expect(html).toContain("Setta 900");
     expect(html).toContain("Card foreground");
     expect(html).toContain("Warning foreground");
@@ -901,7 +890,6 @@ function sampleAppearanceSettings(): AppearanceSettings {
   return {
     dark: sampleColorScheme(tailwind, 200),
     developer: {
-      allowResizedPanesToOverflowViewport: false,
       overviewCardMaxWidthPx: 460,
       overviewCardMinWidthPx: 280,
       showPerformanceStats: false,
@@ -914,10 +902,6 @@ function sampleAppearanceSettings(): AppearanceSettings {
     light: sampleColorScheme(tailwind, 100),
     mode: "dark",
     schemaVersion: 3,
-    shortcuts: {
-      workspaceNavigation: "mod_alt_arrows",
-      masterVoice: "mod_shift_k",
-    },
   };
 }
 
@@ -953,7 +937,6 @@ function sampleColorScheme(
     shadcn: sampleShadcnPalette(offset),
     status: sampleStatusPalette(offset + 40),
     tailwind,
-    workspace: sampleWorkspacePalette(offset + 80),
   };
 }
 
@@ -1033,20 +1016,6 @@ function sampleAccentPalette(offset: number): AppearanceAccentPalette {
     red: color(offset + 4),
     teal: color(offset + 7),
     violet: color(offset + 2),
-  };
-}
-
-function sampleWorkspacePalette(offset: number): AppearanceWorkspacePalette {
-  return {
-    dotGrid: color(offset + 1),
-    dragTargetOutline: color(offset + 8),
-    dragTargetSurface: color(offset + 7),
-    paneEdge: color(offset + 4),
-    paneSelectedGlow: color(offset + 6),
-    paneSelectedOutline: color(offset + 5),
-    paneSurface: color(offset + 2),
-    paneTitleBarSurface: color(offset + 3),
-    surface: color(offset),
   };
 }
 

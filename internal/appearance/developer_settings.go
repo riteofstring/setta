@@ -3,10 +3,9 @@ package appearance
 import "fmt"
 
 type AppearanceDeveloperSettings struct {
-	AllowResizedPanesToOverflowViewport bool `json:"allowResizedPanesToOverflowViewport"`
-	OverviewCardMaxWidthPx              int  `json:"overviewCardMaxWidthPx"`
-	OverviewCardMinWidthPx              int  `json:"overviewCardMinWidthPx"`
-	ShowPerformanceStats                bool `json:"showPerformanceStats"`
+	OverviewCardMaxWidthPx int  `json:"overviewCardMaxWidthPx"`
+	OverviewCardMinWidthPx int  `json:"overviewCardMinWidthPx"`
+	ShowPerformanceStats   bool `json:"showPerformanceStats"`
 }
 
 func validateDeveloperSettings(settings AppearanceDeveloperSettings) error {

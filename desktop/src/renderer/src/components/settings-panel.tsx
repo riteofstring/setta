@@ -155,9 +155,6 @@ function SettingsSubtabContent({
   const settings = useAppearanceStore((state) => state.settings);
   const setColorValue = useAppearanceStore((state) => state.setColorValue);
   const setFontValue = useAppearanceStore((state) => state.setFontValue);
-  const setClampResizedPanesToViewport = useAppearanceStore(
-    (state) => state.setClampResizedPanesToViewport,
-  );
   const setMode = useAppearanceStore((state) => state.setMode);
   const setOverviewCardWidthBounds = useAppearanceStore(
     (state) => state.setOverviewCardWidthBounds,
@@ -172,7 +169,6 @@ function SettingsSubtabContent({
         developer={draft?.developer ?? null}
         dirty={dirty}
         error={error}
-        onClampResizedPanesToViewportChange={setClampResizedPanesToViewport}
         onOverviewCardWidthBoundsChange={setOverviewCardWidthBounds}
         onRevert={revertDraft}
         onSave={saveDraft}
@@ -581,7 +577,6 @@ function PalettePresetChooser({
                       ...preset.settings,
                       developer: settings.developer,
                       mode: settings.mode,
-                      shortcuts: settings.shortcuts,
                     });
                     setOpen(false);
                     anchorRef.current?.focus();
@@ -637,7 +632,6 @@ function presetMatchesSettings(preset: AppearancePreset, settings: AppearanceSet
       ...preset.settings,
       developer: settings.developer,
       mode: settings.mode,
-      shortcuts: settings.shortcuts,
     },
     settings,
   );

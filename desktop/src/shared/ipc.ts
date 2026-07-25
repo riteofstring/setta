@@ -29,7 +29,6 @@ import type {
   RendererRegionSnapshot,
   RuntimeRegistrySnapshot,
   RuntimeVersions,
-  WorkspaceBrowserViewStats,
   WorkspaceGitInfo,
 } from "./types";
 
@@ -62,8 +61,6 @@ export const ipcChannels = {
   codexAccountRead: "codex-account:read",
   codexAccountRefresh: "codex-account:refresh",
   codexAccountStartLogin: "codex-account:start-login",
-  workspaceBrowserViewStats: "workspace:browser-view-stats",
-  workspaceBrowserViewsTeardown: "workspace:browser-views-teardown",
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceOpenPath: "workspace:open-path",
@@ -73,10 +70,6 @@ export const ipcChannels = {
   workspaceReorder: "workspace:reorder",
   workspaceSelect: "workspace:select",
   workspaceSession: "workspace:session",
-} as const;
-
-export const ipcMessages = {
-  workspaceBrowserViewBatch: "workspace:browser-view-batch",
 } as const;
 
 export const ipcEvents = {
@@ -89,8 +82,6 @@ export const ipcEvents = {
   speechCredentialSettingsChanged: "speech:credential-settings-changed",
   speechLocalMacOSVoiceModelDownloadChanged: "speech:local-macos-voice-model-download-changed",
   speechProviderSelectionChanged: "speech:provider-selection-changed",
-  workspaceBrowserViewKey: "workspace:browser-view-key",
-  workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",
 } as const;
 
 interface IpcContract
@@ -191,14 +182,6 @@ interface IpcContract
   codexAccountStartLogin: {
     args: [request: StartCodexLoginRequest];
     result: StartCodexLoginResponse;
-  };
-  workspaceBrowserViewStats: {
-    args: [];
-    result: WorkspaceBrowserViewStats;
-  };
-  workspaceBrowserViewsTeardown: {
-    args: [workspaceId: string];
-    result: WorkspaceBrowserViewStats;
   };
   workspaceClose: {
     args: [id: string];

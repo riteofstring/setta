@@ -3,7 +3,6 @@ import type {
   AcceptedMasterInput,
   ActiveShellInteraction,
   ArchiveTopicConversationRequest,
-  AppearanceMasterVoiceShortcut,
   AppearancePresetList,
   AppearanceSettings,
   BackendHealth,
@@ -139,102 +138,6 @@ export interface RendererRegionSnapshot {
   height: number;
   imageDataUrl: string;
   width: number;
-}
-
-type WorkspaceBrowserViewRuntimeState = "destroyed" | "hidden" | "live" | "snapshot";
-
-export interface WorkspaceBrowserViewUpdate {
-  bounds: {
-    height: number;
-    width: number;
-    x: number;
-    y: number;
-  };
-  contentBounds: {
-    height: number;
-    width: number;
-    x: number;
-    y: number;
-  };
-  focused: boolean;
-  paneId: string;
-  runtimeState: WorkspaceBrowserViewRuntimeState;
-  surfaceId: string;
-  title: string;
-  url: string;
-  visible: boolean;
-}
-
-export interface WorkspaceBrowserViewBatch {
-  focusedSurfaceId: string | null;
-  masterVoiceShortcut: AppearanceMasterVoiceShortcut;
-  totalBrowserPanes: number;
-  updates: WorkspaceBrowserViewUpdate[];
-  visibleBrowserPanes: number;
-  workspaceId: string;
-}
-
-export const workspaceBrowserViewKeyValues = [
-  "ArrowDown",
-  "ArrowLeft",
-  "ArrowRight",
-  "ArrowUp",
-  "Backspace",
-  "Delete",
-  "Enter",
-  "b",
-  "c",
-  "g",
-  "k",
-  "n",
-  "o",
-  "s",
-  "t",
-  "v",
-] as const;
-
-export type WorkspaceBrowserViewKey = (typeof workspaceBrowserViewKeyValues)[number];
-
-export interface WorkspaceBrowserViewKeyEvent {
-  altKey: boolean;
-  ctrlKey: boolean;
-  key: WorkspaceBrowserViewKey;
-  metaKey: boolean;
-  shiftKey: boolean;
-  surfaceId: string;
-  workspaceId: string;
-}
-
-export interface WorkspaceBrowserViewSnapshot {
-  capturedAt: number;
-  height: number;
-  imageDataUrl: string;
-  paneId: string;
-  surfaceId: string;
-  title: string;
-  width: number;
-  workspaceId: string;
-}
-
-export interface WorkspaceBrowserViewStats {
-  boundsBatchCount: number;
-  boundsUpdateCount: number;
-  contentLoaded: number;
-  destroyed: number;
-  focusedSurfaceId: string | null;
-  hidden: number;
-  live: number;
-  loading: number;
-  registered: number;
-  snapshotCaptureLastError: string | null;
-  snapshotCapturesFailed: number;
-  snapshotCapturesStarted: number;
-  snapshotCapturesSucceeded: number;
-  snapshotsInFlight: number;
-  teardownCount: number;
-  totalBrowserPanes: number;
-  visibleBrowserPanes: number;
-  workspaceId: string | null;
 }
 
 export type BackendProcessStatus =
@@ -418,15 +321,6 @@ export interface SettaAPI {
     presets: () => Promise<AppearancePresetList>;
     read: () => Promise<AppearanceSettings>;
     update: (request: UpdateAppearanceSettingsRequest) => Promise<AppearanceSettings>;
-  };
-  workspaceNativeViews?: {
-    batchBrowserViewUpdates: (batch: WorkspaceBrowserViewBatch) => void;
-    onBrowserViewKey: (listener: (event: WorkspaceBrowserViewKeyEvent) => void) => () => void;
-    onBrowserViewSnapshot: (
-      listener: (snapshot: WorkspaceBrowserViewSnapshot) => void,
-    ) => () => void;
-    readBrowserViewStats: () => Promise<WorkspaceBrowserViewStats>;
-    teardownBrowserViews: (workspaceId: string) => Promise<WorkspaceBrowserViewStats>;
   };
   workspace: {
     close: (id: string) => Promise<WorkspaceSession>;

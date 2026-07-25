@@ -5,13 +5,12 @@ import {
   decodeConversationEvent,
   decodeDirectorEvent,
 } from "@generated/backend";
-import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
+import { createRendererIpcInvoke, ipcEvents } from "@shared/ipc";
 import {
   decodeLocalMacOSVoiceModelDownloadStatus,
   decodeSpeechCredentialSettings,
   decodeSpeechProviderSelectionSettings,
 } from "@shared/speech-ipc";
-import { workspaceBrowserViewKeyValues } from "@shared/types";
 import type {
   BackendProcessStatus,
   DesktopPlatform,
@@ -19,14 +18,11 @@ import type {
   RuntimeConnectionState,
   RuntimeConnectionStatus,
   RuntimeRegistrySnapshot,
-  WorkspaceBrowserViewKeyEvent,
-  WorkspaceBrowserViewSnapshot,
   SettaAPI,
 } from "@shared/types";
 import { installRendererRecorder } from "./renderer-recorder";
 
 const invoke = createRendererIpcInvoke(ipcRenderer);
-const workspaceBrowserViewKeys = new Set<string>(workspaceBrowserViewKeyValues);
 
 const api: SettaAPI = {
   app: {
@@ -187,32 +183,6 @@ const api: SettaAPI = {
     read: () => invoke("appearanceRead"),
     update: (request) => invoke("appearanceUpdate", request),
   },
-  workspaceNativeViews: {
-    batchBrowserViewUpdates: (batch) => {
-      ipcRenderer.send(ipcMessages.workspaceBrowserViewBatch, batch);
-    },
-    onBrowserViewKey: (listener) => {
-      const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeWorkspaceBrowserViewKeyEvent(payload));
-      };
-      ipcRenderer.on(ipcEvents.workspaceBrowserViewKey, handler);
-      return () => {
-        ipcRenderer.removeListener(ipcEvents.workspaceBrowserViewKey, handler);
-      };
-    },
-    onBrowserViewSnapshot: (listener) => {
-      const handler = (_event: IpcRendererEvent, payload: unknown) => {
-        listener(decodeWorkspaceBrowserViewSnapshot(payload));
-      };
-      ipcRenderer.on(ipcEvents.workspaceBrowserViewSnapshot, handler);
-      return () => {
-        ipcRenderer.removeListener(ipcEvents.workspaceBrowserViewSnapshot, handler);
-      };
-    },
-    readBrowserViewStats: () => invoke("workspaceBrowserViewStats"),
-    teardownBrowserViews: (workspaceId: string) =>
-      invoke("workspaceBrowserViewsTeardown", workspaceId),
-  },
   codexAccount: {
     cancelLogin: (request) => invoke("codexAccountCancelLogin", request),
     logout: (request) => invoke("codexAccountLogout", request),
@@ -345,41 +315,6 @@ function decodeRuntimeConnectionStatus(value: string, label: string): RuntimeCon
   }
 }
 
-function decodeWorkspaceBrowserViewKeyEvent(value: unknown): WorkspaceBrowserViewKeyEvent {
-  const record = assertStatusRecord(value, "WorkspaceBrowserViewKeyEvent");
-  const key = stringField(record, "key", "WorkspaceBrowserViewKeyEvent");
-  if (!isWorkspaceBrowserViewKey(key)) {
-    throw new Error("WorkspaceBrowserViewKeyEvent.key is unsupported: " + key);
-  }
-  return {
-    altKey: booleanField(record, "altKey", "WorkspaceBrowserViewKeyEvent"),
-    ctrlKey: booleanField(record, "ctrlKey", "WorkspaceBrowserViewKeyEvent"),
-    key,
-    metaKey: booleanField(record, "metaKey", "WorkspaceBrowserViewKeyEvent"),
-    shiftKey: booleanField(record, "shiftKey", "WorkspaceBrowserViewKeyEvent"),
-    surfaceId: stringField(record, "surfaceId", "WorkspaceBrowserViewKeyEvent"),
-    workspaceId: stringField(record, "workspaceId", "WorkspaceBrowserViewKeyEvent"),
-  };
-}
-
-function isWorkspaceBrowserViewKey(key: string): key is WorkspaceBrowserViewKeyEvent["key"] {
-  return workspaceBrowserViewKeys.has(key);
-}
-
-function decodeWorkspaceBrowserViewSnapshot(value: unknown): WorkspaceBrowserViewSnapshot {
-  const record = assertStatusRecord(value, "WorkspaceBrowserViewSnapshot");
-  return {
-    capturedAt: numberField(record, "capturedAt", "WorkspaceBrowserViewSnapshot"),
-    height: numberField(record, "height", "WorkspaceBrowserViewSnapshot"),
-    imageDataUrl: stringField(record, "imageDataUrl", "WorkspaceBrowserViewSnapshot"),
-    paneId: stringField(record, "paneId", "WorkspaceBrowserViewSnapshot"),
-    surfaceId: stringField(record, "surfaceId", "WorkspaceBrowserViewSnapshot"),
-    title: stringField(record, "title", "WorkspaceBrowserViewSnapshot"),
-    width: numberField(record, "width", "WorkspaceBrowserViewSnapshot"),
-    workspaceId: stringField(record, "workspaceId", "WorkspaceBrowserViewSnapshot"),
-  };
-}
-
 function assertStatusRecord(value: unknown, label: string): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(label + " must be an object");
@@ -429,14 +364,6 @@ function nullableNumberField(
   }
   if (typeof value !== "number" || !Number.isFinite(value)) {
     throw new Error(label + "." + field + " must be a finite number or null");
-  }
-  return value;
-}
-
-function numberField(record: Record<string, unknown>, field: string, label: string): number {
-  const value = record[field];
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(label + "." + field + " must be a finite number");
   }
   return value;
 }

@@ -9,7 +9,6 @@ interface DeveloperSettingsEditorProps {
   developer: AppearanceDeveloperSettings | null;
   dirty: boolean;
   error: string | null;
-  onClampResizedPanesToViewportChange: (clamp: boolean) => void;
   onOverviewCardWidthBoundsChange: (minWidthPx: number, maxWidthPx: number) => void;
   onRevert: () => void;
   onSave: () => Promise<void>;
@@ -21,7 +20,6 @@ export function DeveloperSettingsEditor({
   developer,
   dirty,
   error,
-  onClampResizedPanesToViewportChange,
   onOverviewCardWidthBoundsChange,
   onRevert,
   onSave,
@@ -64,11 +62,6 @@ export function DeveloperSettingsEditor({
       <DeveloperSettingsStatus status={status} dirty={dirty} error={error} />
       {developer ? (
         <section className="grid gap-1 rounded-sm border border-border bg-card/30 px-3 py-2.5">
-          <DeveloperToggle
-            checked={!developer.allowResizedPanesToOverflowViewport}
-            label="Clamp resized panes to viewport"
-            onChange={onClampResizedPanesToViewportChange}
-          />
           <DeveloperToggle
             checked={developer.showPerformanceStats}
             label="Top bar performance stats"
