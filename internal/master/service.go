@@ -11,7 +11,6 @@ type InputStore interface {
 	AcceptMasterInput(context.Context, MasterInput, string) (AcceptedMasterInput, error)
 	ReadActiveMasterShellInteraction(context.Context) (ActiveShellInteraction, error)
 	ReadMasterInputRoutingState(context.Context, string) (InputRoutingState, error)
-	ReadMasterTranscript(context.Context, int) (Transcript, error)
 	WaitForMasterInputRoutingState(context.Context, string) (InputRoutingState, error)
 	WaitForMasterPresentationIntent(context.Context, string) (PresentationIntent, error)
 	ResolveMasterPresentationIntent(context.Context, PresentationResolutionRequest, string) (PresentationResolution, error)
@@ -103,26 +102,6 @@ func (service *Service) ReadInputState(ctx context.Context, inputID string) (Inp
 		return InputRoutingState{}, fmt.Errorf("master input store returned invalid routing state: %w", err)
 	}
 	return CloneInputRoutingState(state), nil
-}
-
-func (service *Service) ReadTranscript(ctx context.Context, limit int) (Transcript, error) {
-	if service == nil || service.store == nil {
-		return Transcript{}, errors.New("master input service is unavailable")
-	}
-	if ctx == nil {
-		return Transcript{}, errors.New("master transcript context is required")
-	}
-	if err := ValidateTranscriptReadLimit(limit); err != nil {
-		return Transcript{}, err
-	}
-	transcript, err := service.store.ReadMasterTranscript(ctx, limit)
-	if err != nil {
-		return Transcript{}, err
-	}
-	if err := transcript.Validate(); err != nil {
-		return Transcript{}, fmt.Errorf("master input store returned invalid transcript: %w", err)
-	}
-	return CloneTranscript(transcript), nil
 }
 
 func (service *Service) WaitShellInteraction(

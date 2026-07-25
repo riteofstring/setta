@@ -13,10 +13,11 @@ import (
 
 	"setta/internal/runtime"
 	"setta/internal/speech"
+	"setta/internal/sprites"
 )
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, os.Getenv))
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, os.Getenv, os.Unsetenv))
 }
 
 func run(
@@ -24,8 +25,9 @@ func run(
 	stdout io.Writer,
 	stderr io.Writer,
 	getenv func(string) string,
+	unsetenv func(string) error,
 ) int {
-	config, err := configFromArgs(args, stdout, stderr, getenv)
+	config, err := configFromArgs(args, stdout, stderr, getenv, unsetenv)
 	if err != nil {
 		fmt.Fprintf(stderr, "%v\n", err)
 		return 2
@@ -60,9 +62,9 @@ func configFromArgs(
 	stdout io.Writer,
 	stderr io.Writer,
 	getenv func(string) string,
+	unsetenv func(string) error,
 ) (runtime.Config, error) {
 	config := runtime.DefaultConfig()
-	config.SpeechCredentialOwner = runtime.SpeechCredentialOwnerElectronVault
 	config.Stdout = stdout
 	config.Stderr = stderr
 
@@ -78,23 +80,36 @@ func configFromArgs(
 	if err != nil {
 		return config, err
 	}
-	speechConfig, err := speech.OpenAIProviderConfigFromDesktopEnvironment(getenv)
+	speechConfig, err := speech.OpenAIClientConfigFromEnvironment(getenv, unsetenv)
 	if err != nil {
 		return config, err
 	}
 	config.Speech = speechConfig
+	if socketPath := getenv("SETTA_SPRITES_WORKLOAD_LEASE_SOCKET"); socketPath != "" {
+		manager, managerErr := sprites.NewWorkloadLeaseClientForSocket(socketPath)
+		if managerErr != nil {
+			return config, fmt.Errorf("configure Sprites workload leases: %w", managerErr)
+		}
+		config.WorkloadLeaseManager = manager
+	}
 
 	flagSet := flag.NewFlagSet("setta-backend", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)
+	localCredentialIssuer := false
 	flagSet.StringVar(&config.AppDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
 	flagSet.BoolVar(&config.AllowRemote, "allow-remote", allowRemote, "allow binding to non-loopback numeric IP addresses")
 	flagSet.StringVar(&config.RuntimeDisplayName, "display-name", envOrDefault(getenv, "SETTA_RUNTIME_DISPLAY_NAME", config.RuntimeDisplayName), "runtime display name to persist for this Setta instance")
 	flagSet.StringVar(&config.Host, "host", envOrDefault(getenv, "SETTA_BACKEND_HOST", config.Host), "loopback host to bind")
 	flagSet.IntVar(&config.Port, "port", port, "port to bind, or 0 for an ephemeral port")
+	flagSet.BoolVar(&localCredentialIssuer, "local-credential-issuer", false, "host the local development credential issuer")
 	flagSet.BoolVar(&config.SkipBootstrapDeviceSession, "skip-bootstrap-device-session", config.SkipBootstrapDeviceSession, "do not mint a bootstrap device token on startup")
 	flagSet.StringVar(&config.Version, "version", envOrDefault(getenv, "SETTA_BACKEND_VERSION", config.Version), "backend version metadata")
 	if err := flagSet.Parse(args); err != nil {
 		return config, err
+	}
+	if localCredentialIssuer {
+		config.EnableLocalCredentialIssuer = true
+		config.SkipBootstrapDeviceSession = true
 	}
 	return validatedConfig(config)
 }

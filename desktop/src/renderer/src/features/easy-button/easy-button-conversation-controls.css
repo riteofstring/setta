@@ -179,17 +179,13 @@
   gap: 8px;
 }
 
-.easy-button-resource-request button,
 .easy-button-routing-recovery button {
-  align-items: center;
   background: var(--easy-button-plate);
   border: 1px solid var(--easy-button-border);
   border-radius: 999px;
   color: var(--easy-button-ink);
   cursor: pointer;
-  display: inline-flex;
   font: inherit;
-  gap: 6px;
   padding: 5px 10px;
 }
 

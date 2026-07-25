@@ -83,13 +83,6 @@ func ContractValueSets() []ContractValueSet {
 			},
 		},
 		{
-			Name: "RouteResourceScopeKind",
-			Values: []string{
-				string(RouteResourceScopeKindFolderless),
-				string(RouteResourceScopeKindFolder),
-			},
-		},
-		{
 			Name: "InputRoutingStatus",
 			Values: []string{
 				string(InputRoutingStatusAccepted),
@@ -113,16 +106,6 @@ func ContractValueSets() []ContractValueSet {
 			Values: []string{
 				string(MasterReplyKindClarification),
 				string(MasterReplyKindAnswer),
-			},
-		},
-		{
-			Name: "TranscriptEntryKind",
-			Values: []string{
-				string(TranscriptEntryKindUserInput),
-				string(TranscriptEntryKindAssistantReply),
-				string(TranscriptEntryKindActionReceipt),
-				string(TranscriptEntryKindCancellation),
-				string(TranscriptEntryKindFailure),
 			},
 		},
 	}

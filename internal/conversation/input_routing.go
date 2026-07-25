@@ -20,7 +20,6 @@ const (
 )
 
 type ConversationRouteDecisionKind string
-type ConversationRouteDecisionAuthority string
 
 const (
 	ConversationRouteDecisionKindSendToParent           ConversationRouteDecisionKind = "send_to_parent"
@@ -31,9 +30,6 @@ const (
 	ConversationRouteDecisionKindForkConversation       ConversationRouteDecisionKind = "fork_conversation"
 	ConversationRouteDecisionKindEscalateToMaster       ConversationRouteDecisionKind = "escalate_to_master"
 	ConversationRouteDecisionKindClarify                ConversationRouteDecisionKind = "clarify"
-
-	ConversationRouteDecisionAuthorityNarratorModel    ConversationRouteDecisionAuthority = "narrator_model"
-	ConversationRouteDecisionAuthorityProductInvariant ConversationRouteDecisionAuthority = "product_invariant"
 )
 
 type SendToParentConversationRouteDecision struct {
@@ -176,16 +172,15 @@ type ConversationRouteDecisionRecord struct {
 // The decision and resolved invocation remain independently inspectable while
 // trajectory ranges and allowed variants prove the call's exact scope.
 type ConversationRouteContextAudit struct {
-	DecisionAuthority            ConversationRouteDecisionAuthority `json:"decisionAuthority"`
-	InputSequence                int                                `json:"inputSequence"`
-	ClarificationInputSequence   *int                               `json:"clarificationInputSequence"`
-	LatestTrajectorySequence     int                                `json:"latestTrajectorySequence"`
-	AvailableTrajectoryRange     *TrajectorySequenceRange           `json:"availableTrajectoryRange"`
-	IncludedTrajectoryRange      *TrajectorySequenceRange           `json:"includedTrajectoryRange"`
-	PriorNarrationCount          int                                `json:"priorNarrationCount"`
-	PriorRouteDecisionCount      int                                `json:"priorRouteDecisionCount"`
-	ValidCompletedForkPointCount int                                `json:"validCompletedForkPointCount"`
-	AllowedDecisionKinds         []ConversationRouteDecisionKind    `json:"allowedDecisionKinds"`
+	InputSequence                int                             `json:"inputSequence"`
+	ClarificationInputSequence   *int                            `json:"clarificationInputSequence"`
+	LatestTrajectorySequence     int                             `json:"latestTrajectorySequence"`
+	AvailableTrajectoryRange     *TrajectorySequenceRange        `json:"availableTrajectoryRange"`
+	IncludedTrajectoryRange      *TrajectorySequenceRange        `json:"includedTrajectoryRange"`
+	PriorNarrationCount          int                             `json:"priorNarrationCount"`
+	PriorRouteDecisionCount      int                             `json:"priorRouteDecisionCount"`
+	ValidCompletedForkPointCount int                             `json:"validCompletedForkPointCount"`
+	AllowedDecisionKinds         []ConversationRouteDecisionKind `json:"allowedDecisionKinds"`
 }
 
 // ConversationInputRoutingWork is the one store-claimed input exchange a
