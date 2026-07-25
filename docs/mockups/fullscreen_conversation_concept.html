@@ -738,8 +738,11 @@ void main(){
   gl_Position=vec4(pc.x + u_xshift*(0.35+depth*0.55), pc.y, 0.0,1.0);   // field slides on thread switch (parallax by depth)
   gl_PointSize=mix(5.0+layer*6.2, 7.0+layer*5.5, fl)*u_dpr;                            // big enough to survive the halftone; fluid stays modest
   float nearN=0.0;                                                                     // subtle darkening only right around actual nodes (radius follows node size)
-  for(int i=0;i<u_nodeCount;i++){ float R=u_nodes[i].z; float d=length((pc-u_nodes[i].xy)*vec2(u_aspect,1.0)); nearN=max(nearN, smoothstep(R, R*0.55, d)); }
-  v_a=(0.46+layer*0.52)*(0.8+0.2*sin(u_time*1.1+seed*44.0))*mix(1.0,0.72,fl)*(1.0-nearN*0.3);   // gentle, and it plateaus outside the node so it doesn't eat the node's own falloff
+  for(int i=0;i<u_nodeCount;i++){                                                      // donut: clear of the node itself, peaks just outside its edge
+    float R=max(u_nodes[i].z,0.012);
+    float rn=length((pc-u_nodes[i].xy)*vec2(u_aspect,1.0))/R;                          // 1.0 == the node's own edge
+    nearN=max(nearN, smoothstep(0.85,1.4,rn)*(1.0-smoothstep(1.4,2.5,rn))); }
+  v_a=(0.46+layer*0.52)*(0.8+0.2*sin(u_time*1.1+seed*44.0))*mix(1.0,0.72,fl)*(1.0-nearN*0.55);
   v_t=seed;
 }`;
 const BG_FS=`#version 300 es
@@ -990,7 +993,7 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
   gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
   let nc=0; for(const n of g.nodes){ if(nc>=24) break; if(growT<n.born||n.alpha<0.12) continue;   // dim the field only around visible nodes
     const yy=-0.35+(camWorld-n.worldY); if(yy<-1.35||yy>1.35) continue;
-    bgNodes[nc*3]=n.x; bgNodes[nc*3+1]=yy; bgNodes[nc*3+2]=Math.max(0.05, (nodeCssDiam(n)/innerHeight)*1.9); nc++; }   // halo scales with the node's actual size
+    bgNodes[nc*3]=n.x; bgNodes[nc*3+1]=yy; bgNodes[nc*3+2]=Math.max(0.012, nodeCssDiam(n)/innerHeight); nc++; }   // node's own clip radius; the shader rings just outside it
   gl.useProgram(bgP);gl.uniform1f(BU.time,growT);gl.uniform1f(BU.cam,camWorld);gl.uniform1f(BU.dpr,dpr);gl.uniform1f(BU.xshift,xShift);gl.uniform1f(BU.bgstyle,bgStyle);
   gl.uniform1f(BU.aspect,canvas.width/canvas.height);gl.uniform3fv(BU.nodes,bgNodes);gl.uniform1i(BU.nodeCount,nc);
   gl.uniform3fv(BU.cyan,CYAN);gl.uniform3fv(BU.violet,VIOLET);
