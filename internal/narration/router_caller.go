@@ -108,11 +108,7 @@ func (caller *ConversationRouteCaller) Call(
 			fmt.Errorf("run conversation router call for %s: %w", result.ConversationID, err),
 		)
 	}
-	completed, err := caller.completeConversationRouteCall(result, providerResult, contextBundle)
-	if err == nil || !conversationRouteProviderOutputInvalid(err) {
-		return completed, err
-	}
-	return caller.repairConversationRouteCall(ctx, providerRequest, completed, err, contextBundle)
+	return caller.completeConversationRouteCall(result, providerResult, contextBundle)
 }
 
 func validateConversationRouteCall(
@@ -167,69 +163,6 @@ func (caller *ConversationRouteCaller) completeConversationRouteCall(
 	return result, nil
 }
 
-func (caller *ConversationRouteCaller) repairConversationRouteCall(
-	ctx context.Context,
-	original agent.FreshStructuredCallRequest,
-	previous ConversationRouteCallResult,
-	validationErr error,
-	contextBundle ConversationRouteContextBundle,
-) (ConversationRouteCallResult, error) {
-	repairID, err := conversationRouteRepairRequestID(original.ID)
-	if err != nil {
-		return previous, NewAttemptFailure(FailureKindInternal, err)
-	}
-	repairRequest := original
-	repairRequest.ID = repairID
-	repairRequest.DeveloperInstructions = conversationRouteRepairInstructions(validationErr)
-	if err := repairRequest.Validate(); err != nil {
-		return previous, NewAttemptFailure(
-			FailureKindInternal,
-			fmt.Errorf("validate conversation router repair provider call: %w", err),
-		)
-	}
-	repair := previous
-	repair.RequestID = repairID
-	repair.ProviderThreadID = ""
-	repair.ProviderTurnID = ""
-	repair.OutputBytes = 0
-	repair.StructuredOutput = nil
-	repair.Decision = conversation.ConversationRouteDecision{}
-	repair.StartedAt, err = caller.timestampAfter(previous.EndedAt)
-	if err != nil {
-		return previous, NewAttemptFailure(FailureKindInternal, err)
-	}
-	providerResult, err := caller.provider.RunFreshStructuredCall(ctx, repairRequest)
-	if err != nil {
-		return repair, narratorCallFailure(
-			ctx,
-			FailureKindProviderUnavailable,
-			fmt.Errorf("repair conversation router call for %s: %w", repair.ConversationID, err),
-		)
-	}
-	return caller.completeConversationRouteCall(repair, providerResult, contextBundle)
-}
-
-func conversationRouteRepairRequestID(requestID string) (string, error) {
-	repairID := requestID + "_repair"
-	if err := validateIdentifier("conversation router repair request id", repairID); err != nil {
-		return "", err
-	}
-	return repairID, nil
-}
-
-func conversationRouteRepairInstructions(validationErr error) string {
-	return conversationRouteInstructions() + "\n\n" + strings.Join([]string{
-		"The previous routing decision was rejected by Setta's validator.",
-		"Validation error: " + validationErr.Error(),
-		"Return a fresh decision that satisfies the strict schema and the supplied allowedDecisionKinds exactly.",
-	}, "\n")
-}
-
-func conversationRouteProviderOutputInvalid(err error) bool {
-	var failure *AttemptFailure
-	return errors.As(err, &failure) && failure.Kind == FailureKindProviderOutputInvalid
-}
-
 func freezeConversationRouteContext(
 	contextBundle ConversationRouteContextBundle,
 ) (json.RawMessage, error) {
@@ -273,8 +206,7 @@ func conversationRouteInstructions() string {
 		"Return exactly one decision object whose kind is an allowedDecisionKinds value. Populate only the fields required by that strict schema branch.",
 		"Classify the user's requested intent. The returned decision is typed data and is not itself an application action. Do not refuse, answer, or choose another branch merely because this restricted router cannot execute the later effect; Setta separately validates and executes authorized decisions.",
 		"Route any actionable request that continues this topic to the parent agent: use send_to_parent when idle, and during active work distinguish queue_parent_turn from steer_parent_turn using the user's meaning. Actionable requests include implementation, edits, file or workspace operations, investigation, and requested deliverables. When queue versus steer is materially ambiguous, choose clarify if it is allowed.",
-		"When authoritative.conversation.workspaceId is empty, use answer_as_narrator for ordinary chat, explanations, and non-filesystem questions. Use send_to_parent only when the user is asking for filesystem, repository, workspace, or durable agent work that needs a folder resource.",
-		"Use answer_as_narrator only to delegate a direct status or trajectory question, or ordinary folderless non-filesystem chat, to Setta's separate narrator projector. Never use it for a command, requested action, new task, workspace operation, or deliverable, even when the user also asks for a verbal confirmation. Use create_side_conversation for a bounded tangent tied to the originating pane, and fork_conversation for an explicitly durable child topic at one supplied completed fork point.",
+		"Use answer_as_narrator only to delegate a direct status or trajectory question to Setta's separate narrator projector. Never use it for a command, requested action, new task, workspace operation, or deliverable, even when the user also asks for a verbal confirmation. Use create_side_conversation for a bounded tangent tied to the originating pane, and fork_conversation for an explicitly durable child topic at one supplied completed fork point.",
 		"Use escalate_to_master only when the input is unrelated to this topic and requires app-global routing. You cannot search, name, focus, or dispatch to another conversation.",
 		"Preserve the user's intent in authoredInput. Do not invent provider ids, pane ids, endpoint names, filesystem operations, shell commands, tools, renderer commands, or global targets.",
 		"If the context includes a clarification exchange, resolve one final non-clarify decision from the original input, question, and reply.",

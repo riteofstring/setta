@@ -37,15 +37,15 @@ describe("workspace fake surface adapters", () => {
     const host = createFakeHost();
     const adapter = new EmptyFrameSurfaceAdapter(fakePane("empty-frame"), () => [
       {
-        actionId: "browser",
         label: "Browser",
         meta: "2/10 Mod+Alt+B",
+        surfaceKind: "browser",
       },
       {
-        actionId: "conversation",
         disabled: true,
-        label: "Conversation",
-        meta: "Mod+Alt+C",
+        label: "Settings",
+        meta: "1/1 Mod+Alt+S",
+        surfaceKind: "settings-dom",
       },
     ]);
 
@@ -56,11 +56,9 @@ describe("workspace fake surface adapters", () => {
     expect(host.dataset.surfaceKind).toBe("empty-frame");
     expect(actions.map((action) => fakeTextContent(action))).toEqual([
       "Browser2/10 Mod+Alt+B",
-      "ConversationMod+Alt+C",
+      "Settings1/1 Mod+Alt+S",
     ]);
-    expect((actions[0] as HTMLButtonElement | undefined)?.dataset.workspaceFrameActionId).toBe(
-      "browser",
-    );
+    expect((actions[0] as HTMLButtonElement | undefined)?.dataset.surfaceKind).toBe("browser");
     expect((actions[1] as HTMLButtonElement | undefined)?.disabled).toBe(true);
   });
 
@@ -590,10 +588,10 @@ function fakePane(surfaceKind: WorkspacePane["surfaceKind"]): WorkspacePane {
     tone: "cyan" as const,
     weight: 1,
   };
-  return surfaceKind === "conversation"
+  return surfaceKind === "easy-button"
     ? {
         ...fields,
-        conversationConfig: { conversationId: "conversation_test" },
+        easyButtonConfig: { conversationId: "conversation_test" },
         surfaceKind,
       }
     : { ...fields, surfaceKind };

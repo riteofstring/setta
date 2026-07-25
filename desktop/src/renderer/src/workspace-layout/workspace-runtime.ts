@@ -1,7 +1,4 @@
-import type { DesktopPlatform } from "@shared/types";
-import type { AppShellMasterController } from "../features/global-master/app-shell-master-controller";
-import type { AppShellSpeechCaptureController } from "../features/global-speech/app-shell-speech-capture-controller";
-import type { AppShellSpeechPlaybackController } from "../features/global-speech/app-shell-speech-playback-controller";
+import type { WorkspaceUILayout } from "@generated/backend";
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
 import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
 
@@ -30,38 +27,25 @@ import { PaneRuntimePolicy } from "./runtime-policy";
 import { createDefaultSurfaceAdapter, EmptyFrameSurfaceAdapter } from "./surface-adapters";
 import { SurfaceRegistry } from "./surface-registry";
 import type { WorkspacePane } from "./types";
-import type { RealWorkspaceStoredLayout } from "./workspace-scene";
 
 export function createWorkspaceRuntime({
   allowResizedPanesToOverflowViewport,
-  masterController,
-  masterSpeechCapture,
-  masterSpeechPlayback,
   mode,
-  onOpenVoiceCredentialSettings,
   overviewCardMaxWidthPx,
   overviewCardMinWidthPx,
-  platform,
   speechCapture,
   speechPresentation,
-  initialMaximizedPaneId,
   storedLayout,
   workspaceId,
   workspaceName,
 }: {
   allowResizedPanesToOverflowViewport: boolean;
-  initialMaximizedPaneId?: string | null;
-  masterController?: AppShellMasterController;
-  masterSpeechCapture?: AppShellSpeechCaptureController;
-  masterSpeechPlayback?: AppShellSpeechPlaybackController;
   mode: WorkspaceSceneMode;
-  onOpenVoiceCredentialSettings?: () => void;
   overviewCardMaxWidthPx?: number;
   overviewCardMinWidthPx?: number;
-  platform: DesktopPlatform;
   speechCapture?: SpeechCaptureRequester;
   speechPresentation?: GlobalSpeechPresentationSource;
-  storedLayout: RealWorkspaceStoredLayout | null;
+  storedLayout: WorkspaceUILayout | null;
   workspaceId: string;
   workspaceName: string;
 }) {
@@ -77,7 +61,6 @@ export function createWorkspaceRuntime({
     scene,
     initialFocusedPaneIdForRuntime(mode, engine, realScene),
     {
-      initialMaximizedPaneId,
       paneLimits: paneLimitsForRuntime(mode),
     },
   );
@@ -88,11 +71,6 @@ export function createWorkspaceRuntime({
     workspaceId: scene.id,
   });
   const createSurfaceAdapter = createSurfaceAdapterFactory(store, nativeViewBoundsBatcher, {
-    masterController,
-    masterSpeechCapture,
-    masterSpeechPlayback,
-    onOpenVoiceCredentialSettings,
-    platform,
     speechCapture,
     speechPresentation,
     workspaceId,
@@ -134,11 +112,6 @@ function createSurfaceAdapterFactory(
   store: WorkspaceLayoutStore,
   nativeViewBoundsBatcher: NativeViewBoundsBatcher,
   options: {
-    masterController: AppShellMasterController | undefined;
-    masterSpeechCapture: AppShellSpeechCaptureController | undefined;
-    masterSpeechPlayback: AppShellSpeechPlaybackController | undefined;
-    onOpenVoiceCredentialSettings: (() => void) | undefined;
-    platform: DesktopPlatform;
     speechCapture: SpeechCaptureRequester | undefined;
     speechPresentation: GlobalSpeechPresentationSource | undefined;
     workspaceId: string;
@@ -152,11 +125,6 @@ function createSurfaceAdapterFactory(
       return new EmptyFrameSurfaceAdapter(pane, () => emptyFrameOptionsForStore(store));
     }
     return createDefaultSurfaceAdapter(pane, {
-      masterController: options.masterController,
-      masterSpeechCapture: options.masterSpeechCapture,
-      masterSpeechPlayback: options.masterSpeechPlayback,
-      onOpenVoiceCredentialSettings: options.onOpenVoiceCredentialSettings,
-      platform: options.platform,
       speechCapture: options.speechCapture,
       speechPresentation: options.speechPresentation,
       workspaceId: options.workspaceId,

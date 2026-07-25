@@ -29,7 +29,6 @@ out/
 
 # Go/tooling caches
 /.gocache/
-.build/
 .tools/
 __pycache__/
 *.py[cod]

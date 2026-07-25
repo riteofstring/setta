@@ -12,8 +12,7 @@ const (
 	SpeechProviderStatusConfigured    SpeechProviderStatus = "configured"
 	SpeechProviderStatusNotConfigured SpeechProviderStatus = "not_configured"
 
-	SpeechProviderLocalMacOS SpeechProvider = "local_macos"
-	SpeechProviderOpenAI     SpeechProvider = "openai"
+	SpeechProviderOpenAI SpeechProvider = "openai"
 
 	SpeechSpeakerMaster   SpeechSpeaker = "master"
 	SpeechSpeakerNarrator SpeechSpeaker = "narrator"
@@ -32,7 +31,6 @@ const (
 	MaximumRecordingSeconds       = 120
 	MaximumTranscriptCharacters   = 8_000
 	MaximumSynthesisAudioBytes    = 8 * 1024 * 1024
-	AssistantSynthesisRate        = 1.2
 	AIVoiceDisclosure             = "This voice is AI-generated and not a human voice."
 )
 
@@ -41,7 +39,7 @@ var speechProviderStatusValues = []SpeechProviderStatus{
 	SpeechProviderStatusNotConfigured,
 }
 
-var speechProviderValues = []SpeechProvider{SpeechProviderOpenAI, SpeechProviderLocalMacOS}
+var speechProviderValues = []SpeechProvider{SpeechProviderOpenAI}
 
 var speechSpeakerValues = []SpeechSpeaker{
 	SpeechSpeakerMaster,
@@ -141,16 +139,6 @@ type SpeechCapabilities struct {
 	AIVoiceDisclosure           string               `json:"aiVoiceDisclosure"`
 }
 
-type SpeechCredentialValidationResult struct {
-	Provider SpeechProvider `json:"provider"`
-	Valid    bool           `json:"valid"`
-}
-
-type SpeechCredentialStatus struct {
-	Provider       SpeechProvider       `json:"provider"`
-	ProviderStatus SpeechProviderStatus `json:"providerStatus"`
-}
-
 type SpeechTranscriptionSession struct {
 	ClientSecret                string `json:"clientSecret"`
 	ExpiresAt                   string `json:"expiresAt"`
@@ -168,9 +156,8 @@ type SpeechSource struct {
 }
 
 type SpeechSynthesisRequest struct {
-	Provider        SpeechProvider `json:"provider"`
-	Source          SpeechSource   `json:"source"`
-	ResolvedVoiceID SpeechVoiceID  `json:"resolvedVoiceId"`
+	Source          SpeechSource  `json:"source"`
+	ResolvedVoiceID SpeechVoiceID `json:"resolvedVoiceId"`
 }
 
 type SpeechAudio struct {
@@ -179,14 +166,6 @@ type SpeechAudio struct {
 	Format          string        `json:"format"`
 	Source          SpeechSource  `json:"source"`
 	ResolvedVoiceID SpeechVoiceID `json:"resolvedVoiceId"`
-}
-
-type SpeechSynthesisInput struct {
-	Provider        SpeechProvider `json:"provider"`
-	Source          SpeechSource   `json:"source"`
-	Text            string         `json:"text"`
-	ResolvedVoiceID SpeechVoiceID  `json:"resolvedVoiceId"`
-	Rate            float64        `json:"rate"`
 }
 
 type SpeechTranscriptionClientSecret struct {
@@ -198,12 +177,6 @@ type SynthesizedAudio struct {
 	Bytes     []byte
 	MediaType string
 	Format    string
-}
-
-type ProviderSynthesisInput struct {
-	Text    string
-	VoiceID SpeechVoiceID
-	Rate    float64
 }
 
 type ResolvedSpeechSource struct {
@@ -224,6 +197,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "SpeechSpeaker", Values: stringValues(speechSpeakerValues)},
 		{Name: "VoiceSelectionMode", Values: stringValues(voiceSelectionModeValues)},
 		{Name: "VoiceReuseReason", Values: stringValues(voiceReuseReasonValues)},
+		{Name: "SpeechVoiceID", Values: stringValues(openAISpeechVoiceIDs[:])},
 	}
 }
 

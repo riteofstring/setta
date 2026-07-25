@@ -70,11 +70,6 @@ func validateMaterializationTurn(source conversation.NarratorContextSource, turn
 		current.ActiveSubagents == nil || current.Artifacts == nil {
 		return fmt.Errorf("narrator authoritative current-state collections must not be nil")
 	}
-	if current.LatestAssistantMessage != nil {
-		if err := current.LatestAssistantMessage.Validate(); err != nil {
-			return fmt.Errorf("narrator latest assistant message: %w", err)
-		}
-	}
 	return nil
 }
 

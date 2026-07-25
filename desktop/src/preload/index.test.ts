@@ -70,26 +70,6 @@ describe("preload workspace API", () => {
     ]);
   });
 
-  test("exposes typed app layout methods through IPC", async () => {
-    const { api, invoke } = await exposePreloadAPI();
-    expect(Object.keys(api.appLayout).sort()).toEqual(["readPaneLayout", "savePaneLayout"]);
-
-    const layout = {
-      columns: [],
-      focusedPaneId: "app_pane_master",
-      maximizedPaneId: null,
-      panes: [],
-      schemaVersion: 1,
-    };
-    await api.appLayout.readPaneLayout();
-    await api.appLayout.savePaneLayout(layout);
-
-    expectInvokeCalls(invoke, [
-      [ipcChannels.appPaneLayoutRead],
-      [ipcChannels.appPaneLayoutSave, layout],
-    ]);
-  });
-
   test("exposes typed workspace methods through IPC", async () => {
     const { api, invoke } = await exposePreloadAPI();
     expect(Object.keys(api.workspace).sort()).toEqual([
@@ -222,6 +202,51 @@ describe("preload workspace API", () => {
     ]);
     expect(accountListener).toHaveBeenCalledWith(accountEvent);
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.codexAccountChange, accountHandler);
+  });
+
+  test("exposes typed hosted access commands and progress through IPC", async () => {
+    const { api, invoke, on, removeListener } = await exposePreloadAPI();
+    const hostedAccess = api.hostedAccess;
+    if (!hostedAccess) {
+      throw new Error("hosted access API was not exposed");
+    }
+    const intent = {
+      client: { deviceId: "phone-hosted", kind: "phone" as const },
+      idempotencyKey: "intent-hosted",
+      projectId: "project-hosted",
+      requestedCapabilities: ["observe", "steer"] as ("observe" | "steer")[],
+      userId: "user-hosted",
+      workstreamId: "workstream-hosted",
+    };
+    const progress = {
+      accessGrant: null,
+      cursor: "1",
+      intentId: "intent-hosted",
+      occurredAt: "2026-07-24T15:00:00Z",
+      reasonCode: "",
+      retryable: false,
+      state: "preparing_access" as const,
+    };
+
+    await hostedAccess.ensure(intent);
+    await hostedAccess.subscribeProgress({ intentId: intent.idempotencyKey, lastEventId: "" });
+    const listener = vi.fn();
+    const unsubscribe = hostedAccess.onProgress(listener);
+    const handler = eventHandler(on, ipcEvents.hostedAccessProgress);
+    handler({}, progress);
+    unsubscribe();
+    await hostedAccess.releaseProgress({ intentId: intent.idempotencyKey });
+
+    expectInvokeCalls(invoke, [
+      [ipcChannels.hostedAccessEnsure, intent],
+      [
+        ipcChannels.hostedAccessSubscribeProgress,
+        { intentId: intent.idempotencyKey, lastEventId: "" },
+      ],
+      [ipcChannels.hostedAccessReleaseProgress, { intentId: intent.idempotencyKey }],
+    ]);
+    expect(listener).toHaveBeenCalledWith(progress);
+    expect(removeListener).toHaveBeenCalledWith(ipcEvents.hostedAccessProgress, handler);
   });
 });
 

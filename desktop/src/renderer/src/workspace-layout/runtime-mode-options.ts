@@ -1,3 +1,4 @@
+import type { WorkspaceUILayout } from "@generated/backend";
 import {
   generateBenchmarkScene,
   phaseOneVisiblePaneCount,
@@ -9,7 +10,6 @@ import { DEFAULT_PANE_BUDGET } from "./runtime-policy";
 import {
   createRealWorkspaceScene,
   defaultRealWorkspacePaneLimits,
-  type RealWorkspaceStoredLayout,
   type RealWorkspaceSceneResult,
 } from "./workspace-scene";
 import type { WorkspaceScene, PaneId, PaneRuntimeBudget } from "./types";
@@ -53,7 +53,7 @@ export function createRealSceneForRuntime({
   workspaceName,
 }: {
   mode: WorkspaceSceneMode;
-  storedLayout: RealWorkspaceStoredLayout | null;
+  storedLayout: WorkspaceUILayout | null;
   workspaceId: string;
   workspaceName: string;
 }): RealWorkspaceSceneResult | null {
@@ -73,7 +73,7 @@ export function initialFocusedPaneIdForRuntime(
   realScene: RealWorkspaceSceneResult | null,
 ): PaneId | undefined {
   if (mode === "workspace") {
-    return realScene?.focusedPaneId ?? engine.firstPaneId() ?? undefined;
+    return engine.firstPaneId() ?? realScene?.focusedPaneId;
   }
   return realScene?.focusedPaneId;
 }

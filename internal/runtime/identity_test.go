@@ -35,40 +35,6 @@ func TestDefaultRuntimeDisplayNameCanGenerateCopperLantern(t *testing.T) {
 	}
 }
 
-func TestLoadRuntimeIdentityReplacesLegacyGenericDisplayName(t *testing.T) {
-	appDataDir := t.TempDir()
-	runtimeDir := filepath.Join(appDataDir, "runtime")
-	if err := os.MkdirAll(runtimeDir, 0o755); err != nil {
-		t.Fatalf("create runtime dir: %v", err)
-	}
-	identityPath := filepath.Join(runtimeDir, "identity.json")
-	legacyIdentity := runtimeIdentity{
-		RuntimeID:   "0123456789abcdef0123456789abcdef",
-		DisplayName: legacyGenericRuntimeDisplayName,
-	}
-	if err := writeRuntimeIdentity(identityPath, legacyIdentity); err != nil {
-		t.Fatalf("write legacy identity: %v", err)
-	}
-	expectedName, err := defaultRuntimeDisplayName(legacyIdentity.RuntimeID)
-	if err != nil {
-		t.Fatalf("read default runtime display name: %v", err)
-	}
-
-	manager, err := newRuntimeIdentityManager(appDataDir, "")
-	if err != nil {
-		t.Fatalf("load runtime identity: %v", err)
-	}
-	identity := manager.identitySnapshot()
-
-	if identity.DisplayName != expectedName {
-		t.Fatalf("display name = %q, want %q", identity.DisplayName, expectedName)
-	}
-	persisted := readRuntimeIdentityFixture(t, identityPath)
-	if persisted.DisplayName != expectedName {
-		t.Fatalf("persisted display name = %q, want %q", persisted.DisplayName, expectedName)
-	}
-}
-
 func TestRuntimeIdentityManagerPersistsOverrideAndRename(t *testing.T) {
 	appDataDir := t.TempDir()
 	manager, err := newRuntimeIdentityManager(appDataDir, "setta-copper-lantern")

@@ -8,9 +8,9 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
+  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
-  openFixtureWorkspace,
   parseElectronHarnessArgs,
   reloadPage,
   stopElectronCdpContext,
@@ -30,6 +30,7 @@ import {
   waitForPersistedConversationPane,
   waitForNavigator,
 } from "./topic-conversation-fork-workflow.mjs";
+import { assertDuplicateConversationPalette } from "./topic-conversation-projection-assertions.mjs";
 import { assertDistinctConversationPalettes } from "./topic-conversation-speech-state-assertions.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -63,7 +64,7 @@ try {
     visible: options.visible,
   });
   await prepareRenderer(context.client);
-  const backend = await backendProbe(artifactDir);
+  const backend = await backendProbe(artifactDir, context.client);
   const workspaceId = await openWorkspace(context.client);
   const dormantTopics = await createDormantPresentationTopics(context.client, workspaceId, 9);
   const alpha = await createTopic(
@@ -73,7 +74,7 @@ try {
     "Alpha palette identity",
     workflowTimeoutMs,
   );
-  await closeUnexpectedConversationPanes(context.client, [alpha.id]);
+  await disposeInitialEasyButtonPane(context.client, [alpha.id]);
   const beta = await createTopic(
     context.client,
     backend,
@@ -86,13 +87,30 @@ try {
   assertDistinctConversationPalettes(initial.surfaces, alpha.id, beta.id);
   assertExactTopicIdentity(initial.surfaces, alpha, beta, 1);
   assertPalettePanePresentation(initial.surfaces, alpha, beta);
-  const alphaNavigator = await waitForNavigator(context.client, alpha.id, 1, workflowTimeoutMs);
-  assertNavigator(alphaNavigator, alpha, 1);
-  assertPaletteNavigatorPresentation(alphaNavigator, alpha, false);
+
+  assertDriverAction(
+    await context.client.driver("topicConversationOpenBoundPane", {
+      conversationId: alpha.id,
+    }),
+    "requested",
+  );
+  const duplicated = await waitForPaletteSurfaces(context.client, alpha.id, beta.id, 2);
+  assertDuplicateConversationPalette(duplicated.surfaces, alpha.id);
+  assertDistinctConversationPalettes(duplicated.surfaces, alpha.id, beta.id);
+  assertExactTopicIdentity(duplicated.surfaces, alpha, beta, 2);
+  assertPalettePanePresentation(duplicated.surfaces, alpha, beta);
+  const duplicatedAlphaNavigator = await waitForNavigator(
+    context.client,
+    alpha.id,
+    2,
+    workflowTimeoutMs,
+  );
+  assertNavigator(duplicatedAlphaNavigator, alpha, 2);
+  assertPaletteNavigatorPresentation(duplicatedAlphaNavigator, alpha, true);
   assertPaletteNavigatorPresentation(
     await waitForNavigator(context.client, beta.id, 1, workflowTimeoutMs),
     beta,
-    true,
+    false,
   );
   await assertReducedMotionNavigatorPresentation(context.client, alpha);
   const exhaustedPalette = await exhaustVisiblePaletteCatalog(
@@ -112,7 +130,7 @@ try {
   );
   const beforeReload = await waitForPersistedPaletteIdentity(backend, workspaceId, activeTopicIds);
   const beforeReloadPanes = palettePaneIdentity(persistedPanes.layout?.panes ?? []);
-  await captureScreenshot(context.client, join(artifactDir, "palette-identity.png"));
+  await captureScreenshot(context.client, join(artifactDir, "duplicate-palette-identity.png"));
 
   await reloadPage(context.client);
   await prepareRenderer(context.client);
@@ -148,11 +166,17 @@ try {
     }),
     "clicked",
   );
-  await waitForTopicPaletteSurface(context.client, alpha.id, alpha.paletteId);
+  const reloadedAlphaSurfaces = await waitForTopicPaletteSurfaces(
+    context.client,
+    alpha.id,
+    alpha.paletteId,
+    2,
+  );
+  assertDuplicateConversationPalette(reloadedAlphaSurfaces.surfaces, alpha.id);
   const reloadedAlphaNavigator = await waitForNavigator(
     context.client,
     alpha.id,
-    1,
+    2,
     workflowTimeoutMs,
   );
   const reloadedBetaNavigator = await waitForNavigator(
@@ -161,7 +185,7 @@ try {
     1,
     workflowTimeoutMs,
   );
-  assertNavigator(reloadedAlphaNavigator, alpha, 1);
+  assertNavigator(reloadedAlphaNavigator, alpha, 2);
   assertNavigator(reloadedBetaNavigator, beta, 1);
   assertPaletteNavigatorPresentation(reloadedAlphaNavigator, alpha, true);
   assertPaletteNavigatorPresentation(reloadedBetaNavigator, beta, false);
@@ -197,24 +221,35 @@ async function prepareRenderer(client) {
 }
 
 async function openWorkspace(client) {
-  const current = await client.evaluate(workspaceIdExpression());
-  if (!validWorkspaceId(current)) {
-    await openFixtureWorkspace(client, workflowTimeoutMs);
+  const initial = await waitForState(
+    client,
+    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
+    (state) => state.openButtonReady || validWorkspaceId(state.workspaceId),
+    workflowTimeoutMs,
+  );
+  if (!validWorkspaceId(initial.workspaceId)) {
+    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
   }
-  return waitForState(client, workspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
+  const opened = await waitForState(
+    client,
+    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
+    (state) => validWorkspaceId(state.workspaceId),
+    workflowTimeoutMs,
+  );
+  return opened.workspaceId;
 }
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
 }
 
-function workspaceIdExpression() {
-  return `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`;
-}
-
-async function closeUnexpectedConversationPanes(client, keptConversationIds) {
-  // Keep only the fixture topic pane so palette assertions are not affected by
-  // any previously restored conversation panes in the app layout.
+async function disposeInitialEasyButtonPane(client, keptConversationIds) {
+  // The first-run feature guarantees an easy-button pane on an empty workspace, so
+  // this test's topics open alongside an auto "New conversation" pane. Close it
+  // while exactly one real pane exists (the survivor stays focused/live, and there
+  // is no far neighbor to strand), restoring the pristine layout the palette checks
+  // assume. `useInitialEasyButtonPane` marks the workspace handled, so it is not
+  // recreated.
   const kept = new Set(keptConversationIds);
   const state = await waitForState(
     client,
@@ -222,13 +257,10 @@ async function closeUnexpectedConversationPanes(client, keptConversationIds) {
     (current) =>
       keptConversationIds.every((id) =>
         current.surfaces.some((surface) => surface.conversationId === id),
-      ),
+      ) && current.surfaces.some((surface) => !kept.has(surface.conversationId)),
     workflowTimeoutMs,
   );
   const auto = state.surfaces.find((surface) => !kept.has(surface.conversationId));
-  if (!auto) {
-    return;
-  }
   assertDriverAction(
     await client.driver("topicConversationCloseOneBoundPane", {
       conversationId: auto.conversationId,
@@ -423,10 +455,7 @@ async function assertReducedMotionNavigatorPresentation(client, topic) {
     features: [{ name: "prefers-reduced-motion", value: "reduce" }],
   });
   try {
-    const state = await waitForNavigator(client, topic.id, 1, workflowTimeoutMs);
-    if (state.rowCount === 0) {
-      return;
-    }
+    const state = await waitForNavigator(client, topic.id, 2, workflowTimeoutMs);
     if (state.presentationTransitionDuration !== "0s") {
       throw new Error(
         `conversation palette navigator ignored reduced motion: ${JSON.stringify({ state, topic })}`,
@@ -438,9 +467,6 @@ async function assertReducedMotionNavigatorPresentation(client, topic) {
 }
 
 function assertPaletteNavigatorPresentation(state, topic, expectCurrent) {
-  if (state.rowCount === 0) {
-    return;
-  }
   const current = state.current === "page";
   if (
     state.paletteId !== topic.paletteId ||
@@ -462,20 +488,19 @@ async function waitForPersistedTopicPanes(
   betaId,
   singlePaneConversationIds = [],
 ) {
-  void workspaceId;
   return waitForBackendState(
-    () => backend.get("/app/panes/layout"),
+    () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
     (result) => {
       const topicPanes =
-        result.layout?.panes.filter((pane) => pane.surfaceKind === "conversation") ?? [];
+        result.layout?.panes.filter((pane) => pane.surfaceKind === "easy-button") ?? [];
       return (
-        topicPanes.filter((pane) => pane.conversationConfig?.conversationId === alphaId).length ===
-          1 &&
-        topicPanes.filter((pane) => pane.conversationConfig?.conversationId === betaId).length ===
+        topicPanes.filter((pane) => pane.easyButtonConfig?.conversationId === alphaId).length ===
+          2 &&
+        topicPanes.filter((pane) => pane.easyButtonConfig?.conversationId === betaId).length ===
           1 &&
         singlePaneConversationIds.every(
           (conversationId) =>
-            topicPanes.filter((pane) => pane.conversationConfig?.conversationId === conversationId)
+            topicPanes.filter((pane) => pane.easyButtonConfig?.conversationId === conversationId)
               .length === 1,
         )
       );
@@ -552,9 +577,9 @@ function paletteProfileIdentity(items, conversationIds) {
 
 function palettePaneIdentity(panes) {
   return panes
-    .filter((pane) => pane.surfaceKind === "conversation")
+    .filter((pane) => pane.surfaceKind === "easy-button")
     .map((pane) => ({
-      conversationId: pane.conversationConfig?.conversationId ?? "",
+      conversationId: pane.easyButtonConfig?.conversationId ?? "",
       paneId: pane.paneId,
     }))
     .sort((left, right) => left.paneId.localeCompare(right.paneId));
