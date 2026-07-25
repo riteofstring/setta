@@ -37,6 +37,7 @@ type LayoutStoreListener = (snapshot: WorkspaceLayoutSnapshot) => void;
 const scrollAnimationTimeConstantMs = 115;
 const maxAnimationStepMs = 1000 / 60;
 const defaultViewportHeight = 900;
+const masterPaneWidthSpec: ColumnWidthSpec = { unit: "px", value: 520 };
 
 export interface WorkspacePaneLimitState {
   allowed: boolean;
@@ -46,6 +47,7 @@ export interface WorkspacePaneLimitState {
 }
 
 interface WorkspaceLayoutStoreOptions {
+  initialMaximizedPaneId?: PaneId | null;
   paneLimits?: PaneLimitPolicy;
 }
 
@@ -90,6 +92,12 @@ export class WorkspaceLayoutStore {
     if (initialFocusedPaneId) {
       this.setFocusedPane(initialFocusedPaneId);
       this.snapScrollToTarget();
+    }
+    if (
+      options.initialMaximizedPaneId &&
+      this.engine.paneLocation(options.initialMaximizedPaneId)
+    ) {
+      this.maximizedPaneId = options.initialMaximizedPaneId;
     }
   }
 
@@ -271,6 +279,15 @@ export class WorkspaceLayoutStore {
     return closedPaneId;
   }
 
+  closeFocusedPaneOrClearLastPane(): PaneId {
+    if (this.engine.paneCount() <= 1) {
+      const paneId = this.focusedPaneId();
+      this.configurePane(paneId, emptyFramePaneRequest());
+      return paneId;
+    }
+    return this.closeFocusedPane()!;
+  }
+
   moveFocusedPane(direction: "up" | "down" | "left" | "right"): PaneId {
     const paneId = this.focusedPaneId();
     this.engine.movePane(paneId, direction);
@@ -284,6 +301,7 @@ export class WorkspaceLayoutStore {
     if (!limitState.allowed) {
       throw new Error(`workspace pane limit reached for ${limitState.surfaceKind}`);
     }
+    this.assertConversationPaneBindingAvailable(request);
     const columnId = request.columnId;
     const paneId = this.engine.openPane({
       ...request,
@@ -316,6 +334,7 @@ export class WorkspaceLayoutStore {
     if (!limitState.allowed && !this.configureKeepsPaneSurfaceKind(paneId, request)) {
       throw new Error(`workspace pane limit reached for ${limitState.surfaceKind}`);
     }
+    this.assertConversationPaneBindingAvailable(request, paneId);
     const configuredPaneId = this.engine.configurePane(paneId, request);
     this.setFocusedPane(configuredPaneId);
     this.notify();
@@ -335,7 +354,10 @@ export class WorkspaceLayoutStore {
   }
 
   canOpenPane(request: OpenPaneRequest): boolean {
-    return this.paneLimitState(request).allowed;
+    return (
+      this.paneLimitState(request).allowed &&
+      this.conversationPaneBindingConflict(request, null) === null
+    );
   }
 
   paneLimitState(request: { surfaceKind?: SurfaceKind }): WorkspacePaneLimitState {
@@ -348,8 +370,16 @@ export class WorkspaceLayoutStore {
         surfaceKind,
       };
     }
-    const limit = this.options.paneLimits?.[surfaceKind] ?? null;
     const count = this.toScene().panes.filter((pane) => pane.surfaceKind === surfaceKind).length;
+    if (surfaceKind === "conversation") {
+      return {
+        allowed: true,
+        count,
+        limit: null,
+        surfaceKind,
+      };
+    }
+    const limit = this.options.paneLimits?.[surfaceKind] ?? null;
     return {
       allowed: limit === null || count < limit,
       count,
@@ -432,6 +462,22 @@ export class WorkspaceLayoutStore {
     this.setFocusedPane(pane.paneId);
     this.notify();
     return pane.paneId;
+  }
+
+  ensureMasterPane(): PaneId {
+    const existingMasterPaneId = this.toScene().panes.find(
+      (candidate) => candidate.surfaceKind === "master",
+    )?.paneId;
+    if (existingMasterPaneId) {
+      return existingMasterPaneId;
+    }
+    return this.openPane({
+      subtitle: "Global coordinator",
+      surfaceKind: "master",
+      title: "Setta",
+      tone: "slate",
+      widthSpec: masterPaneWidthSpec,
+    });
   }
 
   focusPane(paneId: PaneId): boolean {
@@ -623,6 +669,16 @@ export class WorkspaceLayoutStore {
     this.notify();
   }
 
+  maximizePane(paneId: PaneId): boolean {
+    if (!this.engine.paneLocation(paneId)) {
+      return false;
+    }
+    this.maximizedPaneId = paneId;
+    this.setFocusedPane(paneId);
+    this.notify();
+    return true;
+  }
+
   toggleOverviewMode(): void {
     this.presentationMode = this.presentationMode === "overview" ? "normal" : "overview";
     this.targetOverviewProgress = this.presentationMode === "overview" ? 1 : 0;
@@ -767,6 +823,35 @@ export class WorkspaceLayoutStore {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  private assertConversationPaneBindingAvailable(
+    request: OpenPaneRequest,
+    targetPaneId: PaneId | null = null,
+  ): void {
+    const conflict = this.conversationPaneBindingConflict(request, targetPaneId);
+    if (conflict) {
+      throw new Error(conflict);
+    }
+  }
+
+  private conversationPaneBindingConflict(
+    request: OpenPaneRequest,
+    targetPaneId: PaneId | null,
+  ): string | null {
+    if (request.surfaceKind !== "conversation" || !request.conversationConfig?.conversationId) {
+      return null;
+    }
+    const conversationId = request.conversationConfig.conversationId;
+    const existing = this.toScene().panes.find(
+      (pane) =>
+        pane.paneId !== targetPaneId &&
+        pane.surfaceKind === "conversation" &&
+        pane.conversationConfig.conversationId === conversationId,
+    );
+    return existing
+      ? `conversation ${conversationId} is already bound to pane ${existing.paneId}`
+      : null;
   }
 
   private notify(): void {

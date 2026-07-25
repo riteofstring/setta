@@ -9,9 +9,9 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   reloadPage,
   startChromiumTrace,
@@ -80,7 +80,7 @@ try {
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  const backend = await backendProbe(artifactDir, context.client);
+  const backend = await backendProbe(artifactDir);
   const workspaceId = await openWorkspace(context.client);
   const initialConversationCount = (
     await waitForBackendState(
@@ -117,7 +117,7 @@ try {
     );
   }
   await expandNavigatorWorkspaces(context.client, navigatorWorkspaces, workspaceId);
-  const beforeDuplicate = await waitForPerformanceState(
+  const beforeExistingFocus = await waitForPerformanceState(
     context.client,
     (snapshot) => snapshot.paneCount === conversationCount + initialConversationCount,
   );
@@ -129,13 +129,13 @@ try {
   );
   await waitForPerformanceState(
     context.client,
-    (snapshot) => snapshot.paneCount === beforeDuplicate.paneCount + 1,
+    (snapshot) => snapshot.paneCount === beforeExistingFocus.paneCount,
   );
-  const duplicatePaneResult = await waitForDuplicatePaneLayout(
+  const existingPaneResult = await waitForSingleConversationPaneLayout(
     backend,
     workspaceId,
     conversations[0].id,
-    conversationCount + initialConversationCount + 1,
+    conversationCount + initialConversationCount,
   );
   const navigatorResult = await profileLargeNavigator({
     client: context.client,
@@ -157,7 +157,7 @@ try {
   const ready = await waitForPerformanceState(
     context.client,
     (snapshot) =>
-      snapshot.paneCount === beforeDuplicate.paneCount + 1 &&
+      snapshot.paneCount === beforeExistingFocus.paneCount &&
       snapshot.surfaces.every(
         (surface) =>
           surface.projectionStatus === "ready" &&
@@ -241,7 +241,7 @@ try {
     artifactDir,
     conversationCount,
     cursorDelta,
-    duplicatePane: duplicatePaneResult,
+    existingConversationPane: existingPaneResult,
     eventsPerConversation,
     final: stopped.final,
     frameBudget: frameBudgetSummary(stopped.sample),
@@ -335,7 +335,7 @@ async function openWorkspace(client) {
     workflowTimeoutMs,
   );
   if (!validWorkspaceId(initial.workspaceId)) {
-    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+    await openFixtureWorkspace(client, workflowTimeoutMs);
   }
   const opened = await waitForState(
     client,
@@ -543,15 +543,21 @@ async function readProfiledPanes(client, conversations) {
   return panes;
 }
 
-async function waitForDuplicatePaneLayout(backend, workspaceId, conversationId, expectedPaneCount) {
+async function waitForSingleConversationPaneLayout(
+  backend,
+  workspaceId,
+  conversationId,
+  expectedPaneCount,
+) {
+  void workspaceId;
   const result = await waitForBackendState(
-    () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
+    () => backend.get("/app/panes/layout"),
     (current) => {
       const panes = current.layout?.panes ?? [];
       return (
-        panes.filter((pane) => pane.easyButtonConfig !== null).length === expectedPaneCount &&
-        panes.filter((pane) => pane.easyButtonConfig?.conversationId === conversationId).length ===
-          2
+        panes.filter((pane) => pane.conversationConfig !== null).length === expectedPaneCount &&
+        panes.filter((pane) => pane.conversationConfig?.conversationId === conversationId)
+          .length === 1
       );
     },
     workflowTimeoutMs,
@@ -559,9 +565,9 @@ async function waitForDuplicatePaneLayout(backend, workspaceId, conversationId, 
   const panes = result.layout?.panes ?? [];
   return {
     conversationId,
-    easyButtonPaneCount: panes.filter((pane) => pane.easyButtonConfig !== null).length,
-    duplicatePaneCount: panes.filter(
-      (pane) => pane.easyButtonConfig?.conversationId === conversationId,
+    easyButtonPaneCount: panes.filter((pane) => pane.conversationConfig !== null).length,
+    matchingPaneCount: panes.filter(
+      (pane) => pane.conversationConfig?.conversationId === conversationId,
     ).length,
   };
 }

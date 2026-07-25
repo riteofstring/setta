@@ -109,7 +109,11 @@ func (service *Service) artifactTrajectory(
 		Actor:            TrajectoryActorSystem,
 		ProviderThreadID: &event.ProviderThreadID,
 		ProviderTurnID:   &event.ProviderTurnID,
-		ArtifactEmitted:  &TrajectoryArtifactEmitted{ArtifactID: artifact.ID},
+		ArtifactEmitted: &TrajectoryArtifactEmitted{
+			ArtifactID: artifact.ID,
+			Kind:       artifact.Kind,
+			Title:      artifact.Title,
+		},
 	}, nil
 }
 
@@ -130,6 +134,13 @@ func buildAgentProgressMutation(
 	}
 	if event.Kind == agent.EventKindApprovalRequested {
 		mutation.conversation.Status = ConversationStatusWaitingForApproval
+		mutation.conversation.UpdatedAt = advanceTimestamp(mutation.conversation.UpdatedAt, now)
+		mutation.conversationChanged = true
+	}
+	// A superseded approval stops being something the user can answer, so the
+	// conversation goes back to working unless another approval is still waiting.
+	if event.Kind == agent.EventKindApprovalSuperseded && len(pendingApprovalsForTurn(snapshot, turn.ID)) <= 1 {
+		mutation.conversation.Status = ConversationStatusWorking
 		mutation.conversation.UpdatedAt = advanceTimestamp(mutation.conversation.UpdatedAt, now)
 		mutation.conversationChanged = true
 	}
@@ -182,10 +193,15 @@ func (service *Service) commitAgentProgress(
 		return appendPublications(transaction, publications)
 	})
 	if err == nil {
+		artifacts := []ArtifactMetadata(nil)
+		if mutation.artifact != nil {
+			artifacts = []ArtifactMetadata{mutation.artifact.Metadata()}
+		}
 		service.observeCommittedTrajectory(
-			mutation.snapshot.Conversation,
-			mutation.turn.ID,
+			mutation.conversation,
+			mutation.turn,
 			mutation.trajectories,
+			artifacts,
 			false,
 		)
 	}
@@ -245,9 +261,13 @@ func (service *Service) populateAgentTrajectory(
 	case agent.EventKindPlanChanged:
 		return conversationPlanTrajectory(trajectory, event)
 	case agent.EventKindActivityStarted, agent.EventKindActivityUpdated, agent.EventKindActivityCompleted:
-		return service.conversationActivityTrajectory(trajectory, active, event, now)
+		return service.conversationActivityTrajectory(trajectory, event, now)
 	case agent.EventKindApprovalRequested:
 		return conversationApprovalTrajectory(trajectory, active, event, now)
+	case agent.EventKindApprovalSuperseded:
+		return conversationApprovalSupersededTrajectory(trajectory, snapshot, event, now)
+	case agent.EventKindValidationRecorded:
+		return conversationValidationTrajectory(trajectory, event)
 	case agent.EventKindModelRerouted:
 		return conversationModelRerouteTrajectory(trajectory, snapshot, event)
 	case agent.EventKindLifecycleChanged:
@@ -303,20 +323,36 @@ func conversationPlanTrajectory(
 
 func (service *Service) conversationActivityTrajectory(
 	trajectory TrajectoryEvent,
-	active *activeConversationTurn,
 	event agent.Event,
 	now string,
 ) (TrajectoryEvent, *Artifact, error) {
-	if event.Activity != nil &&
-		event.Activity.Kind == agent.ActivityKindSubagent &&
-		event.Kind == agent.EventKindActivityCompleted {
+	if event.Activity == nil {
+		return TrajectoryEvent{}, nil, fmt.Errorf("agent activity payload is required")
+	}
+	if event.Activity.Kind == agent.ActivityKindSubagent {
 		return conversationSubagentTrajectory(trajectory, event)
 	}
-	activity, err := conversationActivity(event.Activity, active.request.WorkspaceRoot)
+	if event.Activity.Kind == agent.ActivityKindFileChange &&
+		event.Kind != agent.EventKindActivityUpdated &&
+		len(event.Activity.FileChanges) > 0 {
+		return conversationFileChangeTrajectory(trajectory, event)
+	}
+	trajectory.Actor = TrajectoryActorAgent
+	// Progress addresses the activity the start already described, so it needs
+	// the activity's id and its new progress text, not a second description of
+	// what the activity is.
+	if event.Kind == agent.EventKindActivityUpdated {
+		trajectory.Kind = TrajectoryEventActivityProgressed
+		trajectory.ActivityProgressed = &TrajectoryActivityProgressed{
+			ActivityID: event.Activity.ProviderItemID,
+			Progress:   activityProgressText(*event.Activity),
+		}
+		return trajectory, nil, nil
+	}
+	activity, err := conversationActivity(*event.Activity)
 	if err != nil {
 		return TrajectoryEvent{}, nil, err
 	}
-	trajectory.Actor = TrajectoryActorAgent
 	return service.activityTrajectory(trajectory, activity, event, now)
 }
 
@@ -333,6 +369,54 @@ func conversationApprovalTrajectory(
 	trajectory.Kind = TrajectoryEventApprovalRequested
 	trajectory.Actor = TrajectoryActorProvider
 	trajectory.ApprovalRequested = &TrajectoryApprovalRequested{Approval: approval}
+	return trajectory, nil, nil
+}
+
+// conversationApprovalSupersededTrajectory resolves the durable approval record
+// the provider answered elsewhere. The decision is superseded rather than
+// cancelled, because nobody in this app made a choice.
+func conversationApprovalSupersededTrajectory(
+	trajectory TrajectoryEvent,
+	snapshot ConversationSnapshot,
+	event agent.Event,
+	now string,
+) (TrajectoryEvent, *Artifact, error) {
+	if event.ApprovalSuperseded == nil {
+		return TrajectoryEvent{}, nil, fmt.Errorf("agent approval superseded payload is required")
+	}
+	if trajectory.TurnID == nil {
+		return TrajectoryEvent{}, nil, fmt.Errorf("agent approval superseded trajectory turn id is required")
+	}
+	approvalID := event.ApprovalSuperseded.ApprovalID
+	if _, pending := pendingApprovalsForTurn(snapshot, *trajectory.TurnID)[approvalID]; !pending {
+		return TrajectoryEvent{}, nil, fmt.Errorf(
+			"agent approval %s cannot be superseded because it is not durably pending for turn %s",
+			approvalID,
+			*trajectory.TurnID,
+		)
+	}
+	trajectory.Kind = TrajectoryEventApprovalResolved
+	trajectory.Actor = TrajectoryActorProvider
+	trajectory.ApprovalResolved = &TrajectoryApprovalResolved{Resolution: TrajectoryApprovalResolution{
+		ApprovalID: approvalID,
+		Decision:   TrajectoryApprovalDecisionSuperseded,
+		Answers:    []ConversationApprovalAnswer{},
+		ResolvedAt: now,
+	}}
+	return trajectory, nil, nil
+}
+
+func conversationValidationTrajectory(
+	trajectory TrajectoryEvent,
+	event agent.Event,
+) (TrajectoryEvent, *Artifact, error) {
+	validation, err := conversationValidation(event.Validation)
+	if err != nil {
+		return TrajectoryEvent{}, nil, err
+	}
+	trajectory.Kind = TrajectoryEventValidationRecorded
+	trajectory.Actor = TrajectoryActorProvider
+	trajectory.ValidationRecorded = &TrajectoryValidationRecorded{Validation: validation}
 	return trajectory, nil, nil
 }
 
@@ -396,33 +480,63 @@ func conversationPlanStatus(status string) (PlanStepStatus, error) {
 	}
 }
 
-func conversationActivity(activity *agent.ActivityEvent, workspaceRoot string) (TrajectoryActivity, error) {
-	if activity == nil {
-		return TrajectoryActivity{}, fmt.Errorf("agent activity payload is required")
+func activityProgressText(activity agent.ActivityEvent) string {
+	if summary := strings.TrimSpace(activity.Summary); summary != "" {
+		return summary
 	}
-	result := TrajectoryActivity{ID: activity.ProviderItemID, Title: activity.Title}
-	switch activity.Kind {
-	case agent.ActivityKindCommand:
-		result.Kind = TrajectoryActivityCommand
-		result.Command = &result.Title
-		result.CWD = &workspaceRoot
-	case agent.ActivityKindFileChange:
-		result.Kind = TrajectoryActivityFileChange
-	case agent.ActivityKindTool:
-		result.Kind = TrajectoryActivityDynamicTool
-		result.Tool = &result.Title
-	case agent.ActivityKindCollaboration:
-		result.Kind = TrajectoryActivityOther
-	case agent.ActivityKindSubagent:
-		result.Kind = TrajectoryActivitySubagent
-	case agent.ActivityKindArtifact:
-		result.Kind = TrajectoryActivityImageGeneration
-	case agent.ActivityKindOther:
-		result.Kind = TrajectoryActivityOther
-	default:
-		return TrajectoryActivity{}, fmt.Errorf("unsupported agent activity kind %q", activity.Kind)
+	return activity.Title
+}
+
+func conversationActivity(activity agent.ActivityEvent) (TrajectoryActivity, error) {
+	kind, err := trajectoryActivityKind(activity.Kind)
+	if err != nil {
+		return TrajectoryActivity{}, err
+	}
+	result := TrajectoryActivity{
+		ID:        activity.ProviderItemID,
+		Kind:      kind,
+		Title:     activity.Title,
+		Command:   cloneStringPointer(activity.Command),
+		CWD:       cloneStringPointer(activity.CWD),
+		Server:    cloneStringPointer(activity.Server),
+		Tool:      cloneStringPointer(activity.Tool),
+		Namespace: cloneStringPointer(activity.Namespace),
+		ProcessID: cloneStringPointer(activity.ProcessID),
 	}
 	return result, result.Validate()
+}
+
+// trajectoryActivityKind renames the adapter's activity vocabulary into the
+// durable one. The two catalogs are the same set of typed activities, so a new
+// provider activity kind has to be given durable meaning here rather than
+// collapsing into a bucket the Director cannot resolve.
+func trajectoryActivityKind(kind agent.ActivityKind) (TrajectoryActivityKind, error) {
+	switch kind {
+	case agent.ActivityKindCommand:
+		return TrajectoryActivityCommand, nil
+	case agent.ActivityKindFileChange:
+		return TrajectoryActivityFileChange, nil
+	case agent.ActivityKindMCPTool:
+		return TrajectoryActivityMCPTool, nil
+	case agent.ActivityKindDynamicTool:
+		return TrajectoryActivityDynamicTool, nil
+	case agent.ActivityKindWebSearch:
+		return TrajectoryActivityWebSearch, nil
+	case agent.ActivityKindImageView:
+		return TrajectoryActivityImageView, nil
+	case agent.ActivityKindImageGeneration:
+		return TrajectoryActivityImageGeneration, nil
+	case agent.ActivityKindSleep:
+		return TrajectoryActivitySleep, nil
+	case agent.ActivityKindHook:
+		return TrajectoryActivityHook, nil
+	case agent.ActivityKindSubagent:
+		return TrajectoryActivitySubagent, nil
+	case agent.ActivityKindOther:
+		return TrajectoryActivityOther, nil
+	default:
+		return "", fmt.Errorf("unsupported agent activity kind %q", kind)
+	}
 }
 
 func conversationSubagentTrajectory(
@@ -433,10 +547,11 @@ func conversationSubagentTrajectory(
 	if activity == nil {
 		return TrajectoryEvent{}, nil, fmt.Errorf("agent subagent activity payload is required")
 	}
-	providerThreadID := strings.TrimSpace(activity.Summary)
-	if providerThreadID == "" {
+	if activity.ProviderSubagentThreadID == nil ||
+		strings.TrimSpace(*activity.ProviderSubagentThreadID) == "" {
 		return TrajectoryEvent{}, nil, fmt.Errorf("agent subagent activity requires provider thread id")
 	}
+	providerThreadID := strings.TrimSpace(*activity.ProviderSubagentThreadID)
 	subagent := Subagent{
 		ID:               providerThreadID,
 		ProviderThreadID: providerThreadID,
@@ -462,66 +577,145 @@ func conversationSubagentTrajectory(
 	return trajectory, nil, nil
 }
 
+func conversationFileChangeTrajectory(
+	trajectory TrajectoryEvent,
+	event agent.Event,
+) (TrajectoryEvent, *Artifact, error) {
+	if event.Activity == nil {
+		return TrajectoryEvent{}, nil, fmt.Errorf("agent file change activity payload is required")
+	}
+	changes, err := conversationFileChanges(event.Activity.FileChanges)
+	if err != nil {
+		return TrajectoryEvent{}, nil, err
+	}
+	trajectory.Actor = TrajectoryActorAgent
+	if event.Kind == agent.EventKindActivityStarted {
+		trajectory.Kind = TrajectoryEventFileChangeProposed
+		trajectory.FileChangeProposed = &TrajectoryFileChangeProposed{
+			ProviderItemID: event.Activity.ProviderItemID,
+			Changes:        changes,
+		}
+		return trajectory, nil, nil
+	}
+	if event.Kind != agent.EventKindActivityCompleted {
+		return TrajectoryEvent{}, nil, fmt.Errorf("unsupported agent file change event %q", event.Kind)
+	}
+	completed := &TrajectoryFileChangeCompleted{
+		ProviderItemID: event.Activity.ProviderItemID,
+		Changes:        changes,
+	}
+	switch event.Activity.Status {
+	case "completed":
+		completed.Outcome = FileChangeOutcomeCompleted
+	case "declined":
+		completed.Outcome = FileChangeOutcomeDeclined
+	case "failed":
+		completed.Outcome = FileChangeOutcomeFailed
+		completed.Failure = &Failure{
+			Code:      "provider_file_change_failed",
+			Message:   "The file change failed",
+			Retryable: true,
+		}
+	default:
+		return TrajectoryEvent{}, nil, fmt.Errorf(
+			"unsupported provider file change status %q",
+			event.Activity.Status,
+		)
+	}
+	trajectory.Kind = TrajectoryEventFileChangeCompleted
+	trajectory.FileChangeCompleted = completed
+	return trajectory, nil, nil
+}
+
+func conversationFileChanges(changes []agent.FileChange) ([]FileChange, error) {
+	result := make([]FileChange, 0, len(changes))
+	for _, change := range changes {
+		kind, err := conversationFileChangeKind(change.Kind)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, FileChange{
+			Path:     change.Path,
+			Kind:     kind,
+			MovePath: cloneStringPointer(change.MovePath),
+			Diff:     change.Diff,
+		})
+	}
+	if err := validateFileChanges(result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func conversationFileChangeKind(kind agent.FileChangeKind) (FileChangeKind, error) {
+	switch kind {
+	case agent.FileChangeKindAdd:
+		return FileChangeAdd, nil
+	case agent.FileChangeKindDelete:
+		return FileChangeDelete, nil
+	case agent.FileChangeKindUpdate:
+		return FileChangeUpdate, nil
+	default:
+		return "", fmt.Errorf("unsupported agent file change kind %q", kind)
+	}
+}
+
 func (service *Service) activityTrajectory(
 	trajectory TrajectoryEvent,
 	activity TrajectoryActivity,
 	event agent.Event,
 	now string,
 ) (TrajectoryEvent, *Artifact, error) {
-	summary := strings.TrimSpace(event.Activity.Summary)
-	if summary == "" {
-		summary = activity.Title
-	}
-	switch event.Kind {
-	case agent.EventKindActivityStarted:
+	summary := activityProgressText(*event.Activity)
+	if event.Kind == agent.EventKindActivityStarted {
 		trajectory.Kind = TrajectoryEventActivityStarted
 		trajectory.ActivityStarted = &TrajectoryActivityStarted{Activity: activity}
-	case agent.EventKindActivityUpdated:
-		trajectory.Kind = TrajectoryEventActivityProgressed
-		trajectory.ActivityProgressed = &TrajectoryActivityProgressed{
-			ActivityID: activity.ID,
-			Progress:   summary,
-		}
-	case agent.EventKindActivityCompleted:
-		failed, err := agentActivityFailed(event.Activity.Status)
-		if err != nil {
-			return TrajectoryEvent{}, nil, err
-		}
-		if failed {
-			failure := Failure{Code: "provider_activity_failed", Message: summary, Retryable: true}
-			trajectory.Kind = TrajectoryEventActivityFailed
-			trajectory.ActivityFailed = &TrajectoryActivityFailed{Activity: activity, Failure: failure}
-			break
-		}
-		trajectory.Kind = TrajectoryEventActivityCompleted
-		trajectory.ActivityCompleted = &TrajectoryActivityCompleted{
-			Activity: activity,
-			Summary:  summary,
-			ExitCode: event.Activity.ExitCode,
-		}
-		if event.Activity.Kind == agent.ActivityKindArtifact && strings.TrimSpace(event.Activity.Summary) != "" {
-			artifactID, err := service.newID("artifact")
-			if err != nil {
-				return TrajectoryEvent{}, nil, err
-			}
-			artifact := Artifact{
-				ID:             artifactID,
-				ConversationID: trajectory.ConversationID,
-				TurnID:         trajectory.TurnID,
-				Kind:           ArtifactKindFile,
-				Title:          activity.Title,
-				CreatedAt:      now,
-				File:           &FileArtifactPayload{Path: event.Activity.Summary},
-			}
-			return trajectory, &artifact, nil
-		}
+		return trajectory, nil, nil
 	}
-	return trajectory, nil, nil
+	if event.Kind != agent.EventKindActivityCompleted {
+		return TrajectoryEvent{}, nil, fmt.Errorf("unsupported agent activity event %q", event.Kind)
+	}
+	failed, err := agentActivityFailed(event.Activity.Status)
+	if err != nil {
+		return TrajectoryEvent{}, nil, err
+	}
+	if failed {
+		failure := Failure{Code: "provider_activity_failed", Message: summary, Retryable: true}
+		trajectory.Kind = TrajectoryEventActivityFailed
+		trajectory.ActivityFailed = &TrajectoryActivityFailed{Activity: activity, Failure: failure}
+		return trajectory, nil, nil
+	}
+	trajectory.Kind = TrajectoryEventActivityCompleted
+	trajectory.ActivityCompleted = &TrajectoryActivityCompleted{
+		Activity: activity,
+		Summary:  summary,
+		ExitCode: event.Activity.ExitCode,
+	}
+	if event.Activity.Kind != agent.ActivityKindImageGeneration ||
+		event.Activity.SavedPath == nil ||
+		strings.TrimSpace(*event.Activity.SavedPath) == "" {
+		return trajectory, nil, nil
+	}
+	artifactID, err := service.newID("artifact")
+	if err != nil {
+		return TrajectoryEvent{}, nil, err
+	}
+	return trajectory, &Artifact{
+		ID:             artifactID,
+		ConversationID: trajectory.ConversationID,
+		TurnID:         trajectory.TurnID,
+		Kind:           ArtifactKindFile,
+		Title:          activity.Title,
+		CreatedAt:      now,
+		File:           &FileArtifactPayload{Path: strings.TrimSpace(*event.Activity.SavedPath)},
+	}, nil
 }
 
 func agentActivityFailed(status string) (bool, error) {
 	switch status {
-	case "failed", "declined", "cancelled":
+	// A hook that blocks or stops the work it guards did not succeed, so it
+	// closes as a failed activity the user can see and act on.
+	case "failed", "declined", "cancelled", "blocked", "stopped":
 		return true, nil
 	case "completed", "inProgress", "in_progress", "running", "success", "succeeded":
 		return false, nil
@@ -534,27 +728,132 @@ func conversationProviderLifecycle(lifecycle *agent.LifecycleEvent) (ProviderLif
 	if lifecycle == nil {
 		return ProviderLifecycle{}, fmt.Errorf("agent lifecycle payload is required")
 	}
-	status := ProviderLifecycleUnavailable
-	switch lifecycle.State {
-	case "starting":
-		status = ProviderLifecycleStarting
-	case "ready":
-		status = ProviderLifecycleReady
-	case "restarting":
-		status = ProviderLifecycleRestarting
-	case "unavailable", "degraded":
-		status = ProviderLifecycleUnavailable
-	case "closed":
-		status = ProviderLifecycleClosed
+	status, err := conversationProviderLifecycleStatus(lifecycle.State)
+	if err != nil {
+		return ProviderLifecycle{}, err
+	}
+	reason, err := conversationProviderLifecycleReason(lifecycle.Reason)
+	if err != nil {
+		return ProviderLifecycle{}, err
+	}
+	result := ProviderLifecycle{Provider: ProviderCodex, Status: status, Reason: reason}
+	return result, result.Validate()
+}
+
+// conversationProviderLifecycleStatus renames the adapter's lifecycle states
+// into the durable ones. The two catalogs are the same set, so a new provider
+// state has to be given durable meaning here.
+func conversationProviderLifecycleStatus(state agent.LifecycleState) (ProviderLifecycleStatus, error) {
+	switch state {
+	case agent.LifecycleStateReady:
+		return ProviderLifecycleReady, nil
+	case agent.LifecycleStateRestarting:
+		return ProviderLifecycleRestarting, nil
+	case agent.LifecycleStateUnavailable:
+		return ProviderLifecycleUnavailable, nil
+	case agent.LifecycleStateClosed:
+		return ProviderLifecycleClosed, nil
 	default:
-		return ProviderLifecycle{}, fmt.Errorf("unsupported provider lifecycle state %q", lifecycle.State)
+		return "", fmt.Errorf("unsupported provider lifecycle state %q", state)
 	}
-	message := lifecycle.Reason
-	if lifecycle.Error != nil && *lifecycle.Error != "" {
-		message = *lifecycle.Error
+}
+
+func conversationProviderLifecycleReason(reason agent.LifecycleReason) (ProviderLifecycleReason, error) {
+	switch reason {
+	case agent.LifecycleReasonSessionFailed:
+		return ProviderLifecycleReasonSessionFailed, nil
+	case agent.LifecycleReasonTurnRetrying:
+		return ProviderLifecycleReasonTurnRetrying, nil
+	case agent.LifecycleReasonTurnFailed:
+		return ProviderLifecycleReasonTurnFailed, nil
+	case agent.LifecycleReasonThreadIdle:
+		return ProviderLifecycleReasonThreadIdle, nil
+	case agent.LifecycleReasonThreadActive:
+		return ProviderLifecycleReasonThreadActive, nil
+	case agent.LifecycleReasonThreadNotLoaded:
+		return ProviderLifecycleReasonThreadNotLoaded, nil
+	case agent.LifecycleReasonThreadSystemError:
+		return ProviderLifecycleReasonThreadSystemError, nil
+	case agent.LifecycleReasonThreadClosed:
+		return ProviderLifecycleReasonThreadClosed, nil
+	case agent.LifecycleReasonEnvironmentConnected:
+		return ProviderLifecycleReasonEnvironmentConnected, nil
+	case agent.LifecycleReasonEnvironmentDisconnected:
+		return ProviderLifecycleReasonEnvironmentDisconnected, nil
+	default:
+		return "", fmt.Errorf("unsupported provider lifecycle reason %q", reason)
 	}
-	if strings.TrimSpace(message) == "" {
-		message = string(status)
+}
+
+func conversationValidation(validation *agent.ValidationEvent) (TrajectoryValidation, error) {
+	if validation == nil {
+		return TrajectoryValidation{}, fmt.Errorf("agent validation payload is required")
 	}
-	return ProviderLifecycle{Provider: ProviderCodex, Status: status, Message: message}, nil
+	kind, err := conversationValidationKind(validation.Kind)
+	if err != nil {
+		return TrajectoryValidation{}, err
+	}
+	status, err := conversationValidationStatus(validation.Status)
+	if err != nil {
+		return TrajectoryValidation{}, err
+	}
+	risk, err := conversationValidationRisk(validation.Risk)
+	if err != nil {
+		return TrajectoryValidation{}, err
+	}
+	result := TrajectoryValidation{
+		ID:      validation.ID,
+		Kind:    kind,
+		Status:  status,
+		Risk:    risk,
+		Subject: cloneStringPointer(validation.Subject),
+		Summary: validation.Summary,
+	}
+	return result, result.Validate()
+}
+
+func conversationValidationRisk(risk *agent.ValidationRisk) (*TrajectoryValidationRisk, error) {
+	if risk == nil {
+		return nil, nil
+	}
+	var result TrajectoryValidationRisk
+	switch *risk {
+	case agent.ValidationRiskLow:
+		result = TrajectoryValidationRiskLow
+	case agent.ValidationRiskMedium:
+		result = TrajectoryValidationRiskMedium
+	case agent.ValidationRiskHigh:
+		result = TrajectoryValidationRiskHigh
+	case agent.ValidationRiskCritical:
+		result = TrajectoryValidationRiskCritical
+	default:
+		return nil, fmt.Errorf("unsupported agent validation risk %q", *risk)
+	}
+	return &result, nil
+}
+
+func conversationValidationKind(kind agent.ValidationKind) (TrajectoryValidationKind, error) {
+	switch kind {
+	case agent.ValidationKindGuardianReview:
+		return TrajectoryValidationGuardianReview, nil
+	case agent.ValidationKindModelVerification:
+		return TrajectoryValidationModelVerification, nil
+	default:
+		return "", fmt.Errorf("unsupported agent validation kind %q", kind)
+	}
+}
+
+func conversationValidationStatus(status agent.ValidationStatus) (TrajectoryValidationStatus, error) {
+	switch status {
+	case agent.ValidationStatusInProgress:
+		return TrajectoryValidationStatusInProgress, nil
+	case agent.ValidationStatusPassed:
+		return TrajectoryValidationStatusPassed, nil
+	case agent.ValidationStatusFailed:
+		return TrajectoryValidationStatusFailed, nil
+	case agent.ValidationStatusInconclusive:
+		return TrajectoryValidationStatusInconclusive, nil
+	default:
+		return "", fmt.Errorf("unsupported agent validation status %q", status)
+	}
 }

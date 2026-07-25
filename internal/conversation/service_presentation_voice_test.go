@@ -169,7 +169,7 @@ func TestServiceUpdatesPaletteAndNarratorSpeechAsOnePersistedPresentation(t *tes
 	assertExactBluePresentation(t, restored.PresentationProfile)
 }
 
-func TestVisiblePresentationIdentitySurvivesDuplicatePanesAndRestart(t *testing.T) {
+func TestVisiblePresentationIdentitySurvivesPaneBindingsAndRestart(t *testing.T) {
 	appDataDir := t.TempDir()
 	store, service, _, workspaceID := newConversationServiceTestHarness(t, appDataDir)
 	ctx := context.Background()
@@ -177,7 +177,6 @@ func TestVisiblePresentationIdentitySurvivesDuplicatePanesAndRestart(t *testing.
 	beta := createPresentationTestTopic(t, ctx, service, workspaceID, "Restart identity beta")
 	bindings := []WorkspacePaneBinding{
 		{PaneID: "pane-alpha-primary", ConversationID: alpha.Conversation.ID},
-		{PaneID: "pane-alpha-duplicate", ConversationID: alpha.Conversation.ID},
 		{PaneID: "pane-beta", ConversationID: beta.Conversation.ID},
 	}
 	if err := store.ReplaceWorkspacePaneBindings(
@@ -203,7 +202,7 @@ func TestVisiblePresentationIdentitySurvivesDuplicatePanesAndRestart(t *testing.
 		bindings,
 		"2026-07-11T22:00:00Z",
 	); err != nil {
-		t.Fatalf("restore duplicate pane bindings: %v", err)
+		t.Fatalf("restore pane bindings: %v", err)
 	}
 	alphaAfter := readPresentationTestSnapshot(t, ctx, reopened, workspaceID, alpha.Conversation.ID)
 	betaAfter := readPresentationTestSnapshot(t, ctx, reopened, workspaceID, beta.Conversation.ID)
@@ -564,6 +563,80 @@ func TestServiceRecordsFiniteNarratorVoiceCatalogReuse(t *testing.T) {
 	}
 	bindPresentationTopics(t, store, workspaceID, allTopics[1:]...)
 	relieved := readPresentationTestSnapshot(t, ctx, service, workspaceID, exhausted.Conversation.ID)
+	assertNarratorVoice(
+		t,
+		relieved.PresentationProfile,
+		speech.VoiceSelectionAutoDistinct,
+		speech.SpeechVoiceAlloy,
+		nil,
+	)
+}
+
+func TestServiceReleasesDormantNarratorVoiceReuseWithUnobservedTerminalBacklog(t *testing.T) {
+	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
+	t.Cleanup(func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = service.Shutdown(shutdownCtx)
+		_ = store.Close()
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	catalog := speech.SynthesisVoiceCatalog().VoiceIDs
+	allTopics := make([]ConversationSnapshot, 0, len(catalog))
+	for index := range catalog {
+		allTopics = append(
+			allTopics,
+			createPresentationTestTopic(
+				t,
+				ctx,
+				service,
+				workspaceID,
+				fmt.Sprintf("Dormant backlog voice pressure %02d", index+1),
+			),
+		)
+	}
+	exhausted := allTopics[len(allTopics)-1]
+	bindPresentationTopics(t, store, workspaceID, allTopics...)
+	exhausted = readPresentationTestSnapshot(t, ctx, service, workspaceID, exhausted.Conversation.ID)
+	if exhausted.PresentationProfile.NarratorVoiceReuse == nil {
+		t.Fatalf("active narrator catalog pressure did not create reuse: %+v", exhausted.PresentationProfile)
+	}
+
+	const input = "hold"
+	if _, err := service.sendTestTurn(ctx, workspaceID, exhausted.Conversation.ID, input); err != nil {
+		t.Fatalf("start exhausted narrator backlog turn: %v", err)
+	}
+	runtime.waitForStart(t, input)
+	if _, err := service.StopTurn(ctx, workspaceID, exhausted.Conversation.ID); err != nil {
+		t.Fatalf("stop exhausted narrator backlog turn: %v", err)
+	}
+	stopped := assertServiceSnapshot(
+		t,
+		service,
+		workspaceID,
+		exhausted.Conversation.ID,
+		func(snapshot ConversationSnapshot) bool {
+			return snapshot.Conversation.Status == ConversationStatusIdle
+		},
+	)
+	if stopped.NarratorState.ObservedThroughSequence >= stopped.Conversation.LastTrajectorySequence {
+		t.Fatalf(
+			"test did not create unobserved terminal backlog: narrator=%+v conversation=%+v",
+			stopped.NarratorState,
+			stopped.Conversation,
+		)
+	}
+
+	bindPresentationTopics(t, store, workspaceID, allTopics[:len(allTopics)-1]...)
+	relieved := readPresentationTestSnapshot(t, ctx, service, workspaceID, exhausted.Conversation.ID)
+	if relieved.NarratorState.ObservedThroughSequence >= relieved.Conversation.LastTrajectorySequence {
+		t.Fatalf(
+			"test unexpectedly consumed narrator backlog: narrator=%+v conversation=%+v",
+			relieved.NarratorState,
+			relieved.Conversation,
+		)
+	}
 	assertNarratorVoice(
 		t,
 		relieved.PresentationProfile,
