@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -472,7 +473,12 @@ func TestProviderStreamErrorPreservesResponseDetail(t *testing.T) {
 
 func TestServiceStreamRequiresExplicitCompletion(t *testing.T) {
 	stream := &fakeServiceStream{events: []*spritessdk.ServiceLogEvent{
+		{Type: "stdout", Data: "ordinary service output"},
+		{Type: "stderr", Data: "ordinary service error output"},
 		{Type: "started"},
+		{Type: "stopping"},
+		{Type: "stopped"},
+		{Type: "exit"},
 		{Type: "complete"},
 	}}
 	if err := consumeServiceStream(stream); err != nil {
@@ -485,6 +491,89 @@ func TestServiceStreamRequiresExplicitCompletion(t *testing.T) {
 	earlyEOF := &fakeServiceStream{events: []*spritessdk.ServiceLogEvent{{Type: "started"}}}
 	if err := consumeServiceStream(earlyEOF); !errors.Is(err, ErrIncompleteProviderStream) {
 		t.Fatalf("early EOF error = %v", err)
+	}
+
+	unknown := &fakeServiceStream{events: []*spritessdk.ServiceLogEvent{{Type: "progress"}}}
+	if err := consumeServiceStream(unknown); !errors.Is(err, ErrUnexpectedProviderValue) {
+		t.Fatalf("unknown event error = %v", err)
+	}
+}
+
+func TestServiceStreamErrorPreservesOnlyBoundedErrorEventData(t *testing.T) {
+	t.Run("trimmed error detail excludes prior output", func(t *testing.T) {
+		stream := &fakeServiceStream{events: []*spritessdk.ServiceLogEvent{
+			{Type: "stdout", Data: "stdout must not become error detail"},
+			{Type: "stderr", Data: "stderr must not become error detail"},
+			{Type: "error", Data: "  service supervisor is still restarting  "},
+		}}
+		err := consumeServiceStream(stream)
+		var streamErr *serviceStreamError
+		if !errors.As(err, &streamErr) {
+			t.Fatalf("consumeServiceStream error = %T %v", err, err)
+		}
+		if streamErr.detail != "service supervisor is still restarting" {
+			t.Fatalf("stream error detail = %q", streamErr.detail)
+		}
+		if !stream.closed {
+			t.Fatal("stream was not closed")
+		}
+	})
+
+	t.Run("empty error detail uses content-free fallback", func(t *testing.T) {
+		err := consumeServiceStream(&fakeServiceStream{events: []*spritessdk.ServiceLogEvent{{
+			Type: "error",
+			Data: " \n\t ",
+		}}})
+		var streamErr *serviceStreamError
+		if !errors.As(err, &streamErr) ||
+			streamErr.detail != "provider returned an error event without detail" {
+			t.Fatalf("consumeServiceStream error = %T %v", err, err)
+		}
+	})
+
+	t.Run("oversized error detail is truncated", func(t *testing.T) {
+		oversized := strings.Repeat("a", maximumServiceStreamErrorDetailBytes) + "tail-must-be-removed"
+		err := consumeServiceStream(&fakeServiceStream{events: []*spritessdk.ServiceLogEvent{{
+			Type: "error",
+			Data: oversized,
+		}}})
+		var streamErr *serviceStreamError
+		if !errors.As(err, &streamErr) {
+			t.Fatalf("consumeServiceStream error = %T %v", err, err)
+		}
+		if streamErr.detail != oversized[:maximumServiceStreamErrorDetailBytes] ||
+			len(streamErr.detail) != maximumServiceStreamErrorDetailBytes ||
+			streamErr.detail == oversized {
+			t.Fatalf("bounded detail length = %d, detail = %q", len(streamErr.detail), streamErr.detail)
+		}
+	})
+}
+
+func TestAdapterEnsureServiceSurfacesStreamDetailThroughOperationError(t *testing.T) {
+	identity := testManagedIdentity(t)
+	const detail = "service supervisor is still restarting"
+	adapter := &Adapter{client: &fakeSDKAPI{
+		findRuntime: func(context.Context, string) (*spritessdk.SpriteInfo, bool, error) {
+			return testRuntimeInfo(identity, "running"), true, nil
+		},
+		ensureService: func(context.Context, string, runtimeprovider.ServiceSpec) (*spritessdk.ServiceWithState, error) {
+			return nil, &serviceStreamError{detail: detail}
+		},
+	}}
+	_, err := adapter.EnsureService(context.Background(), identity.Name, runtimeprovider.ServiceSpec{
+		Name: "setta-runtime",
+		Path: "/var/lib/setta/runtime-install/releases/v1/setta",
+		RunAs: runtimeprovider.ServiceIdentity{
+			User:  "root",
+			Group: "root",
+		},
+	})
+	var operationErr *OperationError
+	if !errors.As(err, &operationErr) {
+		t.Fatalf("EnsureService error = %T %v", err, err)
+	}
+	if operationErr.Operation != "ensure service" || operationErr.Detail != detail {
+		t.Fatalf("operation error = %#v", operationErr)
 	}
 }
 

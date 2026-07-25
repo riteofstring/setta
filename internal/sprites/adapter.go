@@ -759,6 +759,11 @@ func operationError(operation string, err error) error {
 		result.Detail = detail
 		return result
 	}
+	var serviceErr *serviceStreamError
+	if errors.As(err, &serviceErr) {
+		result.Detail = serviceErr.detail
+		return result
+	}
 	result.Detail = strings.TrimSpace(err.Error())
 	return result
 }

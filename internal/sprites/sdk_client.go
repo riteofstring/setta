@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	spritessdk "github.com/superfly/sprites-go"
 
@@ -459,6 +460,16 @@ type serviceStream interface {
 	Close() error
 }
 
+const maximumServiceStreamErrorDetailBytes = 512
+
+type serviceStreamError struct {
+	detail string
+}
+
+func (err *serviceStreamError) Error() string {
+	return "service stream error: " + err.detail
+}
+
 func consumeServiceStream(stream serviceStream) error {
 	defer stream.Close()
 	completed := false
@@ -475,7 +486,7 @@ func consumeServiceStream(stream serviceStream) error {
 		case "complete":
 			completed = true
 		case "error":
-			return ErrIncompleteProviderStream
+			return &serviceStreamError{detail: serviceStreamEventDetail(event)}
 		default:
 			return fmt.Errorf("%w: service stream event %q", ErrUnexpectedProviderValue, event.Type)
 		}
@@ -484,6 +495,20 @@ func consumeServiceStream(stream serviceStream) error {
 		return ErrIncompleteProviderStream
 	}
 	return nil
+}
+
+func serviceStreamEventDetail(event *spritessdk.ServiceLogEvent) string {
+	detail := strings.TrimSpace(event.Data)
+	if detail == "" {
+		return "provider returned an error event without detail"
+	}
+	if len(detail) > maximumServiceStreamErrorDetailBytes {
+		detail = detail[:maximumServiceStreamErrorDetailBytes]
+		for !utf8.ValidString(detail) {
+			detail = detail[:len(detail)-1]
+		}
+	}
+	return detail
 }
 
 type checkpointStream interface {

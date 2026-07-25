@@ -495,7 +495,7 @@ func (loop Loop) ensureAndVerifyHealth(
 	health.Service = service
 	if err != nil {
 		health.Failure = err.Error()
-		return health, fmt.Errorf("%w: ensure runtime service: %v", ErrHealthCheckFailed, err)
+		return health, fmt.Errorf("%w: ensure runtime service: %w", ErrHealthCheckFailed, err)
 	}
 	if service.State != runtimeprovider.ServiceStateRunning {
 		health.Failure = fmt.Sprintf("service state is %s", service.State)
