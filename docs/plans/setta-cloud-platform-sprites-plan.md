@@ -3083,3 +3083,21 @@ Stop and reassess rather than hiding the problem if any of these occur:
   lifecycle suites, `./scripts/format.sh`, and
   `./check_quality.sh --git-changes` passed. No dependency file changed and no
   provider or cloud mutation ran.
+- 2026-07-25 (one ownership predicate): Removed a latent divergence in how
+  Setta decides that a provider-observed runtime is its own. The Sprites adapter
+  sorted both label sets before comparing, while the hosted cleanup client and
+  the Sprite provisioner used order-sensitive `slices.Equal`, so a provider that
+  ever reordered labels would have produced an adapter that accepts a runtime
+  and a cleanup path that refuses to delete it — the orphan case again, on the
+  path where nobody is watching. `ManagedIdentity.OwnsObservedLabels` now holds
+  that comparison at the owning provider-neutral boundary and all three sites
+  call it. The comparison remains an exact multiset match, so a missing, extra,
+  duplicated, or wrong-digest label is still refused;
+  `ManagedIdentity.Validate()` deliberately keeps its order-sensitive check
+  because it validates labels Setta itself constructed, where order is ours to
+  fix. A table test proves reversed provider label order is accepted identically
+  by the adapter, the provisioner, and the cleanup client, and a further test
+  proves a reordered-label Sprite is still destroyed through the cleanup client.
+  The three affected Go packages, `./scripts/format.sh`, and
+  `./check_quality.sh --git-changes` passed. No dependency file changed and no
+  provider or cloud mutation ran.
