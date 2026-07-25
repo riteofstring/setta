@@ -3,7 +3,12 @@
 **Date:** 2026-07-24
 **Status:** Approved direction; Phase 0 repository work and Phase 1 implementation
 are complete. Phase 1 remains at its audit boundary until the required broad
-verification has a post-fix green result; Phase 2 has not started. The checked-in
+verification has a post-fix green result. Phase 2 has started at its data
+boundary: the packed GPU render snapshot, its deterministic fixture generation,
+and its burst/cursor-replay fixtures are committed in
+`desktop/src/renderer/src/features/director-graph/` (Phase 2 items 2, 7, and the
+fixture-generation half of item 6). The WebGL2 renderer itself has not started.
+The checked-in
 Codex protocol snapshot is refreshed and the provider
 notification adapter matrix is committed in `internal/agent/provider_notification_matrix.go`
 (Phase 1 items 2 and 3). The Go-owned Setta 4 contract layer is committed in
@@ -939,12 +944,43 @@ Exit gate:
 ### Phase 2 — Prove the standalone 120 Hz renderer
 
 1. Implement the mockup's WebGL2 visual language as normal production source files.
-2. Define the packed immutable GPU snapshot boundary.
+2. Define the packed immutable GPU snapshot boundary. **Done —
+   `desktop/src/renderer/src/features/director-graph/packed-graph-snapshot.ts` and
+   `packed-graph-validation.ts`. Columns are typed arrays in durable event order,
+   so the snapshot at an earlier cursor is exactly a prefix of a later one and a
+   cold replay lands on the columns a live push produced. Extending allocates
+   fresh columns instead of writing into a previous snapshot's arrays and reports
+   `changed` — the first touched index per column group — so the renderer uploads
+   a range rather than a buffer. A parent's settle time is derived from its
+   earliest child, which is why appending can change a node from an earlier
+   batch. `packed-graph-vocabulary.ts` owns the renderer's visual vocabulary:
+   mode, glyph, role, emphasis, detail, edge channel, outcome, and label
+   placement. It deliberately carries no semantic strings. `internal/director`
+   owns node kinds, statuses, evidence classes, and edge kinds, and the exhaustive
+   catalog mapping those contract values onto this vocabulary belongs with item 13
+   once the Director endpoints make the generated TypeScript contracts reachable.
+   Splitting them is what lets the canvas be built and measured now without a
+   hand-maintained contract mirror. Camera, selection, hover, fold, and animation
+   phase stay out of the columns.**
 3. Implement the fullscreen graph canvas independently of production state.
 4. Add quality tiers, level of detail, buffer reuse, shader prewarming, and an idle scheduler.
 5. Reuse existing frame and long-task instrumentation where applicable.
 6. Add graph-specific fixture generation, CPU marks, GPU timer queries, and canvas-pixel checks.
+   **Fixture generation done — `packed-graph-scenes.ts` holds six deterministic
+   scenes and `packed-graph-fixtures.ts` compiles a scene into the same ordered
+   batch stream a live push would deliver, plus arbitrary-size scale scenes and a
+   distinct-workstream set for the navigation scenario. Between them the scenes
+   draw every value in the packed vocabulary, so adding a value without a fixture
+   that draws it fails the coverage test. CPU marks, GPU timer queries, and
+   canvas-pixel checks arrive with the canvas in item 3.**
 7. Add burst-update fixtures that simulate pushed event batches and cursor replay.
+   **Done — `packed-graph-burst.ts`. Storm, steady, and replay-catch-up arrival
+   profiles schedule a fixture's batches; `coalesceDeliveriesByFrame` merges a
+   frame's arrivals into the single batch it applies, keeping a burst from
+   producing one snapshot and one upload per pushed event. Coalesced application
+   is asserted to reach the same columns as applying the parts one at a time, and
+   resuming from every cursor boundary is asserted to reach the same columns as a
+   cold build of the whole stream.**
 8. Run the required scale and viewport scenarios against deterministic fixtures.
 9. Profile with browser/Chrome developer tools and GPU timer queries.
 10. Fix hitches before integrating live app state.
@@ -1088,9 +1124,11 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Clear the Phase 1 audit boundary with one post-fix required broad verification run. Do not start
-   Phase 2 until that gate is green.
-2. After the Phase 1 audit is clear, Phase 2 is the next repository implementation phase.
+1. Clear the Phase 1 audit boundary with one post-fix required broad verification run.
+2. Continue Phase 2 at items 1, 3, and 4: the WebGL2 visual language, the fullscreen graph canvas
+   over the packed snapshot boundary, and its quality tiers, buffer reuse, shader prewarming, and
+   idle scheduler. The canvas consumes `PackedGraphSnapshot` and the committed fixtures; it needs no
+   production state and no Director endpoint.
 3. Build the exhaustive node/edge visual gallery after Phase 3 makes the Director contracts reachable
    to `desktop/src/generated/backend.ts`. `ProjectionFixtures()` is the production-contract source
    the gallery renders from. The four contract gaps the inventory found are already closed in
