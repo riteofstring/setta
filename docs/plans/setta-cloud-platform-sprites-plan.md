@@ -3195,3 +3195,22 @@ Stop and reassess rather than hiding the problem if any of these occur:
   before startup unless `TMPDIR` is short. This is the same limit Slice 1
   addressed for Go tests and is tracked as follow-up harness work. No dependency
   file changed and no provider or cloud mutation ran.
+- 2026-07-25 (adapter API round-trip measurement): Quantified the cost of the
+  adapter's ownership pre-flight so the Phase 8 provider rate-limit conversation
+  can be backed by numbers rather than estimates. No behavior changed and no
+  pre-flight `Inspect` was removed or weakened. Counting the existing offline
+  `sdkAPI` fake shows most adapter operations cost two provider calls — one
+  ownership `FindRuntime` plus the operation — while a fresh `Create` costs
+  three. One successful fresh install driven through the production
+  `runtimeinstall.Loop` against a Sprites adapter backed by the counting fake
+  costs 44 provider calls: 22 `FindRuntime` pre-flights, 21 `Exec`, and one
+  `EnsureService`. Half of an install's provider traffic is ownership
+  verification, and the install total is substantially higher than the dozen the
+  audit estimated, which is the material input for the rate-limit decision. The
+  measurement is recorded as an append-only report at
+  `docs/reports/performance/sprites-adapter-api-round-trips-20260725.md`,
+  including the exact command to reproduce it, and the tests assert the counts
+  rather than only reporting them so a change that silently doubles round trips
+  fails. This is evidence for a later decision, not a decision. The affected
+  packages, `./scripts/format.sh`, and `./check_quality.sh --git-changes`
+  passed. No dependency file changed and no provider or cloud mutation ran.
