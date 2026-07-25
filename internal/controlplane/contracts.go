@@ -297,6 +297,12 @@ type RecordRuntimeHealthRequest struct {
 	ObservedRelease string
 }
 
+type ScheduleRuntimeDeletionRequest struct {
+	IdempotencyKey string
+	RuntimeName    string
+	ScheduledAt    time.Time
+}
+
 type RuntimeOperation struct {
 	IdempotencyKey string
 	UserID         string

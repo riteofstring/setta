@@ -48,8 +48,10 @@ SELECT kind, user_id, runtime_name, request_fingerprint FROM operations WHERE id
 	if errors.Is(err, sql.ErrNoRows) {
 		var count int
 		if countErr := tx.QueryRowContext(ctx, `
-SELECT COUNT(*) FROM runtime_operations WHERE idempotency_key = ?
-`, request.IdempotencyKey).Scan(&count); countErr != nil {
+SELECT
+  (SELECT COUNT(*) FROM runtime_operations WHERE idempotency_key = ?) +
+  (SELECT COUNT(*) FROM runtime_deletion_operations WHERE idempotency_key = ?)
+`, request.IdempotencyKey, request.IdempotencyKey).Scan(&count); countErr != nil {
 			return false, fmt.Errorf("check runtime operation idempotency key: %w", countErr)
 		}
 		if count != 0 {

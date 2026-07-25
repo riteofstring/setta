@@ -128,7 +128,7 @@ func verifyWakePolicy(t *testing.T, fixture *runtimePolicyFixture) {
 	ctx := context.Background()
 	runtimeRecord, err := fixture.store.RequestRuntimeWake(ctx, "wake-policy-state", fixture.runtimeName)
 	if err != nil || runtimeRecord.WakeRequestedAt == nil ||
-		runtimeRecord.HealthState != RuntimeHealthUnknown ||
+		runtimeRecord.HealthState != RuntimeHealthHealthy ||
 		runtimeRecord.Lifecycle != RuntimeLifecycleReady ||
 		runtimeRecord.AccessState != RuntimeAccessEnabled {
 		t.Fatalf("wake request state = %+v, %v", runtimeRecord, err)
@@ -160,7 +160,11 @@ func verifyDeletionPolicy(t *testing.T, fixture *runtimePolicyFixture) {
 	t.Helper()
 	ctx := context.Background()
 	deletionAt := fixture.now.Add(7 * 24 * time.Hour)
-	runtimeRecord, err := fixture.store.ScheduleRuntimeDeletion(ctx, fixture.runtimeName, deletionAt)
+	runtimeRecord, err := fixture.store.ScheduleRuntimeDeletion(ctx, ScheduleRuntimeDeletionRequest{
+		IdempotencyKey: "delete-policy-state",
+		RuntimeName:    fixture.runtimeName,
+		ScheduledAt:    deletionAt,
+	})
 	if err != nil || runtimeRecord.AccessState != RuntimeAccessDeleteScheduled ||
 		runtimeRecord.DeletionScheduledAt == nil ||
 		!runtimeRecord.DeletionScheduledAt.Equal(deletionAt) ||
@@ -168,13 +172,24 @@ func verifyDeletionPolicy(t *testing.T, fixture *runtimePolicyFixture) {
 		t.Fatalf("deletion schedule state = %+v, %v", runtimeRecord, err)
 	}
 	requireAuthorizationOutcome(t, fixture.store, fixture.grant.Token, runtimeaccess.AuthorizationSuspended)
-	if err := fixture.store.SetRuntimeAccessState(ctx, fixture.runtimeName, RuntimeAccessEnabled); err != nil {
+	if err := fixture.store.SetRuntimeAccessState(
+		ctx,
+		fixture.runtimeName,
+		RuntimeAccessEnabled,
+	); err == nil {
+		t.Fatal("generic access transition cleared a deletion schedule")
+	}
+	runtimeRecord, err = fixture.store.CancelRuntimeDeletion(
+		ctx,
+		fixture.runtimeName,
+		RuntimeAccessEnabled,
+	)
+	if err != nil {
 		t.Fatal(err)
 	}
-	runtimeRecord, err = fixture.store.Runtime(ctx, fixture.runtimeName)
-	if err != nil || runtimeRecord.DeletionScheduledAt != nil ||
+	if runtimeRecord.DeletionScheduledAt != nil ||
 		runtimeRecord.AccessState != RuntimeAccessEnabled {
-		t.Fatalf("cleared deletion schedule = %+v, %v", runtimeRecord, err)
+		t.Fatalf("cleared deletion schedule = %+v", runtimeRecord)
 	}
 	requireAuthorizationOutcome(t, fixture.store, fixture.grant.Token, runtimeaccess.AuthorizationAllowed)
 }
@@ -226,7 +241,11 @@ func TestRuntimePolicyRejectsInvalidTransitionsAndOldSchema(t *testing.T) {
 			t.Fatalf("invalid entitlement accepted: %+v", request)
 		}
 	}
-	if _, err := store.ScheduleRuntimeDeletion(ctx, runtimeName, now); err == nil {
+	if _, err := store.ScheduleRuntimeDeletion(ctx, ScheduleRuntimeDeletionRequest{
+		IdempotencyKey: "invalid-deletion",
+		RuntimeName:    runtimeName,
+		ScheduledAt:    now,
+	}); err == nil {
 		t.Fatal("non-future deletion schedule accepted")
 	}
 	if _, err := store.RecordRuntimeHealth(ctx, RecordRuntimeHealthRequest{
@@ -238,7 +257,7 @@ func TestRuntimePolicyRejectsInvalidTransitionsAndOldSchema(t *testing.T) {
 
 	oldDirectory := t.TempDir()
 	oldStore := openTestStore(t, oldDirectory, func() time.Time { return now }, RateLimit{})
-	if _, err := oldStore.db.ExecContext(ctx, "PRAGMA user_version = 2"); err != nil {
+	if _, err := oldStore.db.ExecContext(ctx, "PRAGMA user_version = 3"); err != nil {
 		t.Fatal(err)
 	}
 	if err := oldStore.Close(); err != nil {
@@ -246,7 +265,7 @@ func TestRuntimePolicyRejectsInvalidTransitionsAndOldSchema(t *testing.T) {
 	}
 	if reopened, err := OpenStore(StoreConfig{Directory: filepath.Clean(oldDirectory)}); err == nil {
 		reopened.Close()
-		t.Fatal("version 2 control-plane database was silently migrated")
+		t.Fatal("version 3 control-plane database was silently migrated")
 	}
 }
 

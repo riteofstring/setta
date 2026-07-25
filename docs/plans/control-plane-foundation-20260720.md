@@ -58,7 +58,7 @@ gateway.
 
 ## Persistence and schema ownership
 
-The `internal/controlplane` package owns schema version 3. SQLite uses foreign
+The `internal/controlplane` package owns schema version 4. SQLite uses foreign
 keys, WAL journaling, one process-local connection, a five-second busy timeout,
 and a private database file. A deferred composite foreign key makes an active
 runtime assignment refer to a runtime owned by the same user. Replacement may
@@ -99,8 +99,19 @@ release equality. Wake requests are globally idempotent durable desired state;
 health observations clear them. Suspension, export-only access, exact grace
 expiry, release mismatch, and scheduled deletion invalidate live grants
 without overwriting lifecycle. The signed bootstrap supplies its verified
-installed release explicitly. Schema version 3 is a deliberate clean break;
+installed release explicitly. Schema version 4 is a deliberate clean break;
 older databases fail rather than receiving an implicit migration.
+
+The deletion executor uses its own durable operation table rather than
+pretending deletion is a wake or provisioning operation. A future schedule is
+claimed only when due, with bounded attempts, expiring leases, and monotonic
+fencing. The worker validates the deterministic provider identity before
+destroy, inspects after destroy, and adopts an ambiguous success on retry
+without issuing a second destroy. Cancellation is explicit, is rejected after
+a claim starts, and can recover a terminally failed schedule. Candidate B wake
+execution remains the authenticated private runtime dial itself; recording a
+wake request therefore does not mark an otherwise healthy sleeping runtime
+unhealthy.
 
 The 2026-07-24 extension persists provider-neutral hosted-access intents,
 requested capability rows, and ordered progress events. The private Unix

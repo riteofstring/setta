@@ -13,6 +13,7 @@ type RuntimeReconcilerProvider interface {
 	Create(context.Context, runtimeprovider.CreateRequest) (runtimeprovider.RuntimeObservation, error)
 	Inspect(context.Context, string) (runtimeprovider.RuntimeObservation, bool, error)
 	ConfigureURL(context.Context, string, runtimeprovider.URLAccess) error
+	Destroy(context.Context, string) error
 }
 
 type ReconcilerConfig struct {
@@ -62,25 +63,48 @@ func NewReconciler(config ReconcilerConfig) (*Reconciler, error) {
 func (reconciler *Reconciler) ReconcileOnce(ctx context.Context) (bool, error) {
 	operationCtx, cancel := context.WithTimeout(ctx, reconciler.operationTimeout)
 	defer cancel()
-	claim, found, err := reconciler.store.ClaimRuntimeOperation(operationCtx, reconciler.workerID, reconciler.leaseDuration)
+	deletion, found, err := reconciler.store.ClaimRuntimeDeletionOperation(
+		operationCtx,
+		reconciler.workerID,
+		reconciler.leaseDuration,
+	)
+	if err != nil {
+		return false, err
+	}
+	if found {
+		return true, reconciler.reconcileDeletionClaim(ctx, operationCtx, deletion)
+	}
+	claim, found, err := reconciler.store.ClaimRuntimeOperation(
+		operationCtx,
+		reconciler.workerID,
+		reconciler.leaseDuration,
+	)
 	if err != nil || !found {
 		return found, err
 	}
+	return true, reconciler.reconcileProvisioningClaim(ctx, operationCtx, claim)
+}
+
+func (reconciler *Reconciler) reconcileProvisioningClaim(
+	parentCtx context.Context,
+	operationCtx context.Context,
+	claim ClaimedRuntimeOperation,
+) error {
 	verified, failure := reconciler.ensureProviderRuntime(operationCtx, claim)
 	if failure != nil {
 		if failure.permanent {
 			err := reconciler.failOperation(operationCtx, claim, failure.code)
-			return true, normalizeOperationError(ctx, operationCtx, err)
+			return normalizeOperationError(parentCtx, operationCtx, err)
 		}
-		return true, reconciler.deferProviderFailure(ctx, operationCtx, claim, failure.code)
+		return reconciler.deferProviderFailure(parentCtx, operationCtx, claim, failure.code)
 	}
 	if err := reconciler.store.CompleteRuntimeOperation(operationCtx, claim, verified); err != nil {
 		if errors.Is(err, ErrFenceLost) {
-			return true, nil
+			return nil
 		}
-		return true, normalizeOperationError(ctx, operationCtx, err)
+		return normalizeOperationError(parentCtx, operationCtx, err)
 	}
-	return true, nil
+	return nil
 }
 
 type providerReconcileFailure struct {
@@ -172,6 +196,94 @@ func (reconciler *Reconciler) failOperation(
 		return ctx.Err()
 	}
 	return reconciler.store.DeferRuntimeOperation(ctx, claim, errorCode, claim.UpdatedAt, true)
+}
+
+func (reconciler *Reconciler) reconcileDeletionClaim(
+	parentCtx context.Context,
+	operationCtx context.Context,
+	claim ClaimedRuntimeDeletionOperation,
+) error {
+	failure := reconciler.destroyProviderRuntime(operationCtx, claim)
+	if failure != nil {
+		if failure.permanent {
+			err := reconciler.failDeletion(operationCtx, claim, failure.code)
+			return normalizeOperationError(parentCtx, operationCtx, err)
+		}
+		return reconciler.deferDeletionFailure(parentCtx, operationCtx, claim, failure.code)
+	}
+	err := reconciler.store.CompleteRuntimeDeletionOperation(operationCtx, claim)
+	if errors.Is(err, ErrFenceLost) {
+		return nil
+	}
+	return normalizeOperationError(parentCtx, operationCtx, err)
+}
+
+func (reconciler *Reconciler) destroyProviderRuntime(
+	ctx context.Context,
+	claim ClaimedRuntimeDeletionOperation,
+) *providerReconcileFailure {
+	observation, found, err := reconciler.provider.Inspect(ctx, claim.RuntimeName)
+	if err != nil {
+		return &providerReconcileFailure{code: "provider_delete_inspect"}
+	}
+	if found {
+		if err := validateManagedObservation(claim.Identity, observation); err != nil {
+			return &providerReconcileFailure{code: "provider_identity_mismatch", permanent: true}
+		}
+		if err := reconciler.provider.Destroy(ctx, claim.RuntimeName); err != nil {
+			return &providerReconcileFailure{code: "provider_destroy"}
+		}
+	}
+	verified, stillPresent, err := reconciler.provider.Inspect(ctx, claim.RuntimeName)
+	if err != nil {
+		return &providerReconcileFailure{code: "provider_delete_verify"}
+	}
+	if !stillPresent {
+		return nil
+	}
+	if err := validateManagedObservation(claim.Identity, verified); err != nil {
+		return &providerReconcileFailure{code: "provider_identity_mismatch", permanent: true}
+	}
+	return &providerReconcileFailure{code: "provider_delete_unconfirmed"}
+}
+
+func (reconciler *Reconciler) deferDeletionFailure(
+	parentCtx context.Context,
+	operationCtx context.Context,
+	claim ClaimedRuntimeDeletionOperation,
+	errorCode string,
+) error {
+	if parentCtx.Err() != nil {
+		return parentCtx.Err()
+	}
+	if operationCtx.Err() != nil {
+		return nil
+	}
+	terminal := claim.AttemptCount >= reconciler.maxAttempts
+	return reconciler.store.DeferRuntimeDeletionOperation(
+		operationCtx,
+		claim,
+		errorCode,
+		claim.UpdatedAt.Add(reconciler.retryDelay),
+		terminal,
+	)
+}
+
+func (reconciler *Reconciler) failDeletion(
+	ctx context.Context,
+	claim ClaimedRuntimeDeletionOperation,
+	errorCode string,
+) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return reconciler.store.DeferRuntimeDeletionOperation(
+		ctx,
+		claim,
+		errorCode,
+		claim.UpdatedAt,
+		true,
+	)
 }
 
 func (reconciler *Reconciler) Run(ctx context.Context) error {

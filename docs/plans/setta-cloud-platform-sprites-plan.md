@@ -1344,7 +1344,7 @@ measured, and independent of provider UI.
 - [x] Handle create timeouts by inspecting deterministic identity before
   retrying. Ambiguous-create tests prove a restarted worker adopts the owned
   provider resource without issuing another create.
-- [ ] Implement wake, health, release mismatch, suspension, credential epochs,
+- [x] Implement wake, health, release mismatch, suspension, credential epochs,
   grace, and deletion scheduling without collapsing them into one lifecycle
   field.
 - [x] Store the Fly credential only in the control-plane secret store. The
@@ -2247,8 +2247,9 @@ Stop and reassess rather than hiding the problem if any of these occur:
   and is neither authenticated untrusted input nor the Phase 7 user-data
   export. Automated off-volume retention, recovery-time measurement,
   replication, and failover remain open.
-- 2026-07-24 (independent runtime policy state): Advanced the clean-break
-  control-plane schema to version 3 with separate entitlement, lifecycle,
+- 2026-07-24 (independent runtime policy and deletion execution): Advanced the
+  clean-break control-plane schema to version 4 with separate entitlement,
+  lifecycle,
   access, health, desired/observed release, wake-request, last-ready, grace,
   and deletion-schedule fields. Ready assignment and route resolution now fail
   closed unless health is healthy and the observed signed release exactly
@@ -2259,6 +2260,13 @@ Stop and reassess rather than hiding the problem if any of these occur:
   live grants without rewriting lifecycle. Focused tests cover invalid
   transitions, cross-operation idempotency, restart persistence, strict
   rejection of the prior schema, and backup/restore of entitlement and runtime
-  policy state. Provider wake reconciliation and scheduled deletion execution
-  remain open, so the encompassing Phase 5 checkbox stays open. No provider or
-  cloud mutation ran.
+  policy state. Candidate B wake execution remains the authenticated private
+  dial rather than a fictitious provider management operation; wake intent no
+  longer marks a healthy sleeping runtime unhealthy. Scheduled deletion now
+  has its own due-time durable queue, explicit pre-claim cancellation,
+  bounded retry, lease expiry, monotonic fencing, provider-identity validation,
+  post-destroy absence verification, and ambiguous-success adoption without a
+  repeated destroy. Restart, stale-fence, cancellation, foreign-identity, and
+  ambiguous-destroy tests close the independent-state Phase 5 checkbox. Push
+  progress and deletion audit events remain under their separate open
+  checkboxes. No provider or cloud mutation ran.

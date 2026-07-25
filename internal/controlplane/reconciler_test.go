@@ -244,7 +244,9 @@ type testReconcilerProvider struct {
 	observation       runtimeprovider.RuntimeObservation
 	found             bool
 	createCalls       int
+	destroyCalls      int
 	ambiguousCreate   bool
+	ambiguousDestroy  bool
 	malformedIdentity bool
 }
 
@@ -288,6 +290,19 @@ func (provider *testReconcilerProvider) ConfigureURL(
 	access runtimeprovider.URLAccess,
 ) error {
 	provider.observation.URLAccess = access
+	return nil
+}
+
+func (provider *testReconcilerProvider) Destroy(
+	_ context.Context,
+	_ string,
+) error {
+	provider.destroyCalls++
+	provider.found = false
+	if provider.ambiguousDestroy {
+		provider.ambiguousDestroy = false
+		return errors.New("ambiguous provider destroy")
+	}
 	return nil
 }
 

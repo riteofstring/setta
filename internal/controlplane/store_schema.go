@@ -45,6 +45,9 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 			"operations",
 			"runtime_operations",
 			"runtime_operations_due_idx",
+			"runtime_deletion_operations",
+			"runtime_deletion_operations_due_idx",
+			"runtime_deletion_operations_active_idx",
 			"provider_observations",
 			"hosted_access_intents",
 			"hosted_access_capabilities",
@@ -214,6 +217,31 @@ CREATE TABLE IF NOT EXISTS runtime_operations (
 
 CREATE INDEX IF NOT EXISTS runtime_operations_due_idx
   ON runtime_operations(status, next_attempt_at, created_at);
+
+CREATE TABLE IF NOT EXISTS runtime_deletion_operations (
+  idempotency_key TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  runtime_name TEXT NOT NULL REFERENCES runtimes(name),
+  request_fingerprint TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('pending', 'running', 'retry_wait', 'succeeded', 'failed', 'canceled')),
+  attempt_count INTEGER NOT NULL CHECK(attempt_count >= 0),
+  fence_token INTEGER NOT NULL CHECK(fence_token >= 0),
+  lease_owner TEXT,
+  lease_expires_at TEXT,
+  next_attempt_at TEXT NOT NULL,
+  last_error_code TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  completed_at TEXT,
+  CHECK((status = 'running') = (lease_owner IS NOT NULL AND lease_expires_at IS NOT NULL))
+);
+
+CREATE INDEX IF NOT EXISTS runtime_deletion_operations_due_idx
+  ON runtime_deletion_operations(status, next_attempt_at, created_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS runtime_deletion_operations_active_idx
+  ON runtime_deletion_operations(runtime_name)
+  WHERE status IN ('pending', 'running', 'retry_wait');
 
 CREATE TABLE IF NOT EXISTS provider_observations (
   runtime_name TEXT PRIMARY KEY REFERENCES runtimes(name),

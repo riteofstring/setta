@@ -175,9 +175,9 @@ func (store *Store) requestRuntimeWakeLocked(
 	now := timestamp(store.clock().UTC())
 	if _, err := tx.ExecContext(ctx, `
 UPDATE runtimes
-SET wake_requested_at = ?, health_state = ?, updated_at = ?
+SET wake_requested_at = ?, updated_at = ?
 WHERE name = ?
-`, now, RuntimeHealthUnknown, now, runtimeName); err != nil {
+`, now, now, runtimeName); err != nil {
 		return Runtime{}, fmt.Errorf("record runtime wake request: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `
@@ -203,35 +203,6 @@ func readRuntimeWakeOwner(ctx context.Context, tx *sql.Tx, runtimeName string) (
 		return "", fmt.Errorf("read runtime wake owner: %w", err)
 	}
 	return userID, nil
-}
-
-func (store *Store) ScheduleRuntimeDeletion(
-	ctx context.Context,
-	runtimeName string,
-	scheduledAt time.Time,
-) (Runtime, error) {
-	if err := runtimeprovider.ValidateManagedName(runtimeName); err != nil {
-		return Runtime{}, err
-	}
-	now := store.clock().UTC()
-	if !scheduledAt.After(now) {
-		return Runtime{}, errors.New("runtime deletion schedule must be in the future")
-	}
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	result, err := store.db.ExecContext(ctx, `
-UPDATE runtimes
-SET access_state = ?, deletion_scheduled_at = ?, updated_at = ?
-WHERE name = ?
-`, RuntimeAccessDeleteScheduled, timestamp(scheduledAt), timestamp(now), runtimeName)
-	if err != nil {
-		return Runtime{}, fmt.Errorf("schedule runtime deletion: %w", err)
-	}
-	if err := requireOneRow(result, "schedule runtime deletion"); err != nil {
-		return Runtime{}, err
-	}
-	store.invalidateRuntimeLocked(runtimeName)
-	return store.readRuntimeLocked(ctx, runtimeName)
 }
 
 func (store *Store) readEntitlementLocked(ctx context.Context, userID string) (Entitlement, error) {
@@ -298,8 +269,10 @@ FROM operations WHERE idempotency_key = ?
 	if errors.Is(err, sql.ErrNoRows) {
 		var count int
 		if countErr := tx.QueryRowContext(ctx, `
-SELECT COUNT(*) FROM runtime_operations WHERE idempotency_key = ?
-`, idempotencyKey).Scan(&count); countErr != nil {
+SELECT
+  (SELECT COUNT(*) FROM runtime_operations WHERE idempotency_key = ?) +
+  (SELECT COUNT(*) FROM runtime_deletion_operations WHERE idempotency_key = ?)
+`, idempotencyKey, idempotencyKey).Scan(&count); countErr != nil {
 			return false, fmt.Errorf("check runtime operation idempotency key: %w", countErr)
 		}
 		if count != 0 {

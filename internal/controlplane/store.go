@@ -26,7 +26,7 @@ import (
 
 const (
 	controlPlaneDatabaseName = "control-plane.sqlite"
-	controlPlaneStoreVersion = 3
+	controlPlaneStoreVersion = 4
 	sqliteDriverName         = "sqlite"
 	defaultGrantTTL          = 24 * time.Hour
 )
@@ -568,9 +568,20 @@ func (store *Store) SetRuntimeAccessState(
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
+	var current RuntimeAccessState
+	if err := store.db.QueryRowContext(ctx, `
+SELECT access_state FROM runtimes WHERE name = ?
+`, runtimeName).Scan(&current); errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	} else if err != nil {
+		return fmt.Errorf("read runtime access state: %w", err)
+	}
+	if current == RuntimeAccessDeleteScheduled {
+		return errors.New("delete-scheduled runtime access requires explicit deletion cancellation")
+	}
 	result, err := store.db.ExecContext(ctx, `
 UPDATE runtimes
-SET access_state = ?, deletion_scheduled_at = NULL, updated_at = ?
+SET access_state = ?, updated_at = ?
 WHERE name = ?
 `, state, timestamp(store.clock().UTC()), runtimeName)
 	if err != nil {

@@ -166,8 +166,10 @@ SELECT request_fingerprint FROM runtime_operations WHERE idempotency_key = ?
 	if errors.Is(err, sql.ErrNoRows) {
 		var count int
 		if countErr := tx.QueryRowContext(ctx, `
-SELECT COUNT(*) FROM operations WHERE idempotency_key = ?
-`, request.IdempotencyKey).Scan(&count); countErr != nil {
+SELECT
+  (SELECT COUNT(*) FROM operations WHERE idempotency_key = ?) +
+  (SELECT COUNT(*) FROM runtime_deletion_operations WHERE idempotency_key = ?)
+`, request.IdempotencyKey, request.IdempotencyKey).Scan(&count); countErr != nil {
 			return false, fmt.Errorf("check assignment idempotency key: %w", countErr)
 		}
 		if count != 0 {
