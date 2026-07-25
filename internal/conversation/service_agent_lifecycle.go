@@ -188,6 +188,8 @@ func (service *Service) handleAgentEvent(
 		agent.EventKindActivityUpdated,
 		agent.EventKindActivityCompleted,
 		agent.EventKindApprovalRequested,
+		agent.EventKindApprovalSuperseded,
+		agent.EventKindValidationRecorded,
 		agent.EventKindModelRerouted,
 		agent.EventKindLifecycleChanged:
 		return service.persistAgentProgress(ctx, active, event)

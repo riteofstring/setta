@@ -87,6 +87,7 @@ func TestNormalizedProviderNotificationsCarryTypedActivityFacts(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			events, terminal, err := normalizedProviderNotification(
+				newTestRuntime(),
 				providerNotificationMessage(t, testCase.method, testCase.params),
 				base,
 			)
@@ -123,7 +124,7 @@ func TestNormalizedHookRunOutsideATurnIsNotRunActivity(t *testing.T) {
 		"threadId": base.ProviderThreadID,
 	})
 
-	events, terminal, err := normalizedProviderNotification(message, base)
+	events, terminal, err := normalizedProviderNotification(newTestRuntime(), message, base)
 	if err != nil {
 		t.Fatalf("normalize thread-scoped hook: %v", err)
 	}
@@ -145,7 +146,7 @@ func TestNormalizedProviderNotificationsRejectAnotherTurnsScope(t *testing.T) {
 			"run":      hookRunParams("running", nil),
 			"threadId": base.ProviderThreadID, "turnId": "provider-turn-other",
 		}
-		events, _, err := normalizedProviderNotification(providerNotificationMessage(t, method, params), base)
+		events, _, err := normalizedProviderNotification(newTestRuntime(), providerNotificationMessage(t, method, params), base)
 		if err == nil {
 			t.Fatalf("%s accepted another turn's scope and produced %d events", method, len(events))
 		}
@@ -227,7 +228,7 @@ func TestNormalizedThreadItemsKeepProviderActivityIdentity(t *testing.T) {
 				"completedAtMs": 1, "item": testCase.item,
 				"threadId": base.ProviderThreadID, "turnId": base.ProviderTurnID,
 			})
-			events, _, err := normalizedProviderNotification(message, base)
+			events, _, err := normalizedProviderNotification(newTestRuntime(), message, base)
 			if err != nil {
 				t.Fatalf("normalize completed item: %v", err)
 			}
@@ -287,6 +288,10 @@ func providerNotificationTestBase() Event {
 		ProviderThreadID: "provider-thread-1",
 		ProviderTurnID:   "provider-turn-1",
 	}
+}
+
+func newTestRuntime() *Runtime {
+	return NewRuntime(Config{})
 }
 
 func providerNotificationMessage(t *testing.T, method string, params any) codexapp.Message {

@@ -475,6 +475,7 @@ function trajectoryEvent(overrides: Partial<TrajectoryEvent>): TrajectoryEvent {
     planChanged: null,
     providerEventId: "provider-event-recording",
     providerLifecycleChanged: null,
+    validationRecorded: null,
     providerThreadId: "provider-thread-recording",
     providerTurnId: "provider-turn-recording",
     publicReasoningSummaryUpdated: null,

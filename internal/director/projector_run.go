@@ -59,6 +59,7 @@ var trajectoryHandlers = map[conversation.TrajectoryEventKind]trajectoryHandler{
 	conversation.TrajectoryEventArtifactEmitted:               projectArtifactEmitted,
 	conversation.TrajectoryEventAgentLivenessChanged:          projectAgentLivenessChanged,
 	conversation.TrajectoryEventProviderLifecycleChanged:      projectProviderLifecycleChanged,
+	conversation.TrajectoryEventValidationRecorded:            projectProviderValidationRecorded,
 	conversation.TrajectoryEventModelRerouted:                 projectModelRerouted,
 }
 

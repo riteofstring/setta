@@ -21,6 +21,7 @@ const (
 	approvalSummaryFallback   = "Approval required"
 	activitySummaryFallback   = "Activity"
 	fileChangeSummaryFallback = "File change"
+	validationSummaryFallback = "Validation recorded"
 )
 
 func projectActivityStarted(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {
@@ -271,7 +272,7 @@ func approvalNodeStatus(status ApprovalStatus) (SemanticNodeStatus, error) {
 		return SemanticNodeStatusSucceeded, nil
 	case ApprovalStatusDenied:
 		return SemanticNodeStatusFailed, nil
-	case ApprovalStatusCancelled:
+	case ApprovalStatusCancelled, ApprovalStatusSuperseded:
 		return SemanticNodeStatusCancelled, nil
 	case ApprovalStatusPending:
 		return SemanticNodeStatusWaiting, nil
@@ -411,6 +412,77 @@ func projectProviderLifecycleChanged(projector *DirectorGraphProjector, context 
 	}
 	summary := firstText(payload.Lifecycle.Message, lifecycleSummaryFallback)
 	return projector.commitLifecycleNode(context, event.ID, kind, summary)
+}
+
+// projectValidationRecorded makes a provider check visible once it reaches a
+// verdict, and connects it to the work it covers. A check that is still running
+// is not a fact the user can act on, so it updates metadata and draws nothing.
+func projectProviderValidationRecorded(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {
+	payload := event.ValidationRecorded
+	if payload == nil {
+		return missingPayload(event)
+	}
+	validation := payload.Validation
+	kind, err := NodeKindForValidation(validation.Status)
+	if err != nil {
+		return err
+	}
+	if kind == SemanticNodeNone {
+		return nil
+	}
+	status, err := SemanticNodeStatusForValidation(validation.Status)
+	if err != nil {
+		return err
+	}
+	nodeID, err := projector.commitNode(context, nodeSpec{
+		identity: SemanticNodeIdentityValidation,
+		sourceID: validation.ID,
+		kind:     kind,
+		status:   status,
+		actor:    SemanticActorProvider,
+		summary:  firstText(validation.Summary, validationSummaryFallback),
+		evidence: EvidenceRuntimeFact,
+		chain:    true,
+	})
+	if err != nil {
+		return err
+	}
+	return projector.addEdge(
+		context,
+		SemanticEdgeValidatedBy,
+		projector.validationSubject(context, validation.Subject),
+		context.workstream.id,
+		nodeID,
+	)
+}
+
+// validationSubject names the node the check covers. The provider names the item
+// it reviewed when one exists, so the subject is resolved from that typed id
+// rather than from whatever node happens to be last; a check over the whole run
+// falls back to the run node.
+func (projector *DirectorGraphProjector) validationSubject(context factContext, subject *string) string {
+	if subject != nil {
+		for _, identity := range []SemanticNodeIdentity{SemanticNodeIdentityActivity, SemanticNodeIdentityFileChange} {
+			nodeID, err := SemanticNodeID(identity, *subject)
+			if err != nil {
+				continue
+			}
+			if _, exists := context.workstream.nodeIndex[nodeID]; exists {
+				return nodeID
+			}
+		}
+	}
+	if context.runID == nil {
+		return ""
+	}
+	runNodeID, err := SemanticNodeID(SemanticNodeIdentityRun, *context.runID)
+	if err != nil {
+		return ""
+	}
+	if _, exists := context.workstream.nodeIndex[runNodeID]; !exists {
+		return ""
+	}
+	return runNodeID
 }
 
 func projectModelRerouted(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {

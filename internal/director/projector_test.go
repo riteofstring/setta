@@ -512,6 +512,92 @@ func TestArtifactNodesNameTheArtifactTheyStandFor(t *testing.T) {
 	t.Fatal("no artifact node was projected")
 }
 
+func TestProviderValidationIsVisibleOnlyOnceItHasAVerdict(t *testing.T) {
+	fixture := fixtureByName(t, "approval_and_file_change")
+	projection := projectFixture(t, fixture)
+	graph, err := projection.Graph("ws-gamma", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("graph: %v", err)
+	}
+	validationNodeID, err := SemanticNodeID(SemanticNodeIdentityValidation, "review-gamma-1")
+	if err != nil {
+		t.Fatalf("validation node id: %v", err)
+	}
+	node, found := nodeByID(graph, validationNodeID)
+	if !found {
+		t.Fatal("a completed guardian review projected no validation node")
+	}
+	if node.Kind != SemanticNodeValidation || node.Status != SemanticNodeStatusFailed {
+		t.Fatalf("validation node = %s/%s, want %s/%s", node.Kind, node.Status, SemanticNodeValidation, SemanticNodeStatusFailed)
+	}
+	fileChangeNodeID, err := SemanticNodeID(SemanticNodeIdentityFileChange, "item-gamma-1")
+	if err != nil {
+		t.Fatalf("file change node id: %v", err)
+	}
+	// The review names the item it covered, so the edge comes from that work
+	// rather than from whatever node happened to be last.
+	if !hasEdge(graph, SemanticEdgeValidatedBy, fileChangeNodeID, validationNodeID) {
+		t.Fatal("expected a validated_by edge from the reviewed file change")
+	}
+
+	// A check that has started and has no verdict is not a fact the user can act
+	// on, so it must not add a node.
+	events := append([]ProjectorEvent(nil), fixture.Events...)
+	last := events[len(events)-1]
+	inProgress := *last.Trajectory
+	inProgress.ID = "trajectory-in-progress"
+	inProgress.Kind = conversation.TrajectoryEventValidationRecorded
+	inProgress.TurnCompleted = nil
+	inProgress.ValidationRecorded = &conversation.TrajectoryValidationRecorded{
+		Validation: conversation.TrajectoryValidation{
+			ID:      "review-gamma-2",
+			Kind:    conversation.TrajectoryValidationGuardianReview,
+			Status:  conversation.TrajectoryValidationStatusInProgress,
+			Summary: "Automatic approval review started",
+		},
+	}
+	events = append(events, ProjectorEvent{Sequence: last.Sequence + 1, Trajectory: &inProgress})
+	extended, err := ProjectDirectorGraph(events)
+	if err != nil {
+		t.Fatalf("project in-progress validation: %v", err)
+	}
+	extendedGraph, err := extended.Graph("ws-gamma", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("extended graph: %v", err)
+	}
+	if len(extendedGraph.Nodes) != len(graph.Nodes) {
+		t.Fatalf("an in-progress validation changed the node count from %d to %d", len(graph.Nodes), len(extendedGraph.Nodes))
+	}
+}
+
+func TestSupersededApprovalEndsWithoutAUserDecision(t *testing.T) {
+	projection := projectFixture(t, fixtureByName(t, "blocked_and_cancelled"))
+	graph, err := projection.Graph("ws-theta", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("graph: %v", err)
+	}
+	nodeID, err := SemanticNodeID(SemanticNodeIdentityApproval, "approval-theta-1")
+	if err != nil {
+		t.Fatalf("approval node id: %v", err)
+	}
+	node, found := nodeByID(graph, nodeID)
+	if !found {
+		t.Fatal("the superseded approval projected no node")
+	}
+	if node.Status != SemanticNodeStatusCancelled {
+		t.Fatalf("superseded approval status = %q, want %q", node.Status, SemanticNodeStatusCancelled)
+	}
+}
+
+func nodeByID(graph WorkstreamGraph, nodeID string) (SemanticNode, bool) {
+	for _, node := range graph.Nodes {
+		if node.ID == nodeID {
+			return node, true
+		}
+	}
+	return SemanticNode{}, false
+}
+
 func TestUnregisteredDirectorFactAndDuplicateRegistrationFailLoudly(t *testing.T) {
 	registration := ProjectorEvent{
 		Sequence: 1,

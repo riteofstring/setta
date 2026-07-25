@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -955,13 +954,11 @@ func summarizeCompaction(item codexapp.ThreadItem, summary *ThreadItemSummary) {
 	}
 }
 
-func providerThreadStatus(raw codexapp.ThreadStatus) string {
-	data := bytes.TrimSpace(raw)
-	var text string
-	if json.Unmarshal(data, &text) == nil {
-		return text
-	}
-	return string(data)
+// providerThreadStatus reads the status union's discriminator. Before the
+// protocol snapshot decoded this union, the status was raw JSON, so a thread
+// read reported `{"type":"idle"}` as its status text.
+func providerThreadStatus(status codexapp.ThreadStatus) string {
+	return string(status.Type)
 }
 
 func optionalStringPointer(value string) *string {

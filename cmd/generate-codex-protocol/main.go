@@ -633,7 +633,7 @@ func (generator *generator) renderSchema(buffer *bytes.Buffer, name string, sche
 		renderStringEnum(buffer, typeName, enumValues)
 		return nil
 	}
-	if typeName == "ThreadItem" && isTaggedObjectUnionSchema(schema) {
+	if taggedObjectUnionTypeNames[typeName] && isTaggedObjectUnionSchema(schema) {
 		return generator.renderTaggedObjectUnionSchema(buffer, typeName, schema)
 	}
 	if isObjectSchema(schema) {

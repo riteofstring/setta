@@ -52,6 +52,9 @@ const (
 	// SourceFactResolutionProviderLifecycle selects the node kind from the
 	// typed provider lifecycle status.
 	SourceFactResolutionProviderLifecycle SourceFactResolution = "provider_lifecycle"
+	// SourceFactResolutionValidationStatus selects the node kind from the typed
+	// validation status, so a check with no verdict yet stays invisible.
+	SourceFactResolutionValidationStatus SourceFactResolution = "validation_status"
 	// SourceFactResolutionNone projects no node.
 	SourceFactResolutionNone SourceFactResolution = "none"
 )
@@ -355,6 +358,14 @@ var trajectoryFactRules = map[conversation.TrajectoryEventKind]SourceFactRule{
 		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeBlockedBy, SemanticEdgeRecoveredBy},
 		EvidenceClass: EvidenceRuntimeFact,
 		Note:          "Ready, starting, and closed states update metadata; unavailable and restarting become visible nodes.",
+	},
+	conversation.TrajectoryEventValidationRecorded: {
+		Disposition:   SourceFactConditionalNode,
+		Resolution:    SourceFactResolutionValidationStatus,
+		NodeIdentity:  SemanticNodeIdentityValidation,
+		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy, SemanticEdgeValidatedBy},
+		EvidenceClass: EvidenceRuntimeFact,
+		Note:          "A provider check with a verdict becomes a validation node over the work it covers; a check still running updates metadata.",
 	},
 	conversation.TrajectoryEventModelRerouted: {
 		Disposition:   SourceFactCreatesNode,

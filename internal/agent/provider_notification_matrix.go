@@ -152,17 +152,17 @@ var providerNotificationMatrix = []ProviderNotificationRule{
 	{
 		Method:      codexapp.CodexNotificationThreadStatusChanged,
 		Disposition: ProviderNotificationNormalized,
-		Note:        "Typed thread status is a workstream lifecycle input; ready and pending states update metadata only.",
+		Note:        "Typed thread status is a workstream lifecycle input. Idle and active are the substrate working and stay metadata; unloaded and system-error states cannot carry the run and become visible.",
 	},
 	{
-		Method:      "thread/environment/connected",
+		Method:      codexapp.CodexNotificationThreadEnvironmentConnected,
 		Disposition: ProviderNotificationNormalized,
 		Note:        "Experimental upstream environment lifecycle. Attached states update metadata; the adapter absorbs upstream churn so Setta lifecycle contracts stay stable.",
 	},
 	{
-		Method:      "thread/environment/disconnected",
+		Method:      codexapp.CodexNotificationThreadEnvironmentDisconnected,
 		Disposition: ProviderNotificationNormalized,
-		Note:        "Experimental upstream environment lifecycle. Disconnected states may become blocked or recovery facts when the user or Director must act.",
+		Note:        "Experimental upstream environment lifecycle. A run cannot progress without an environment, so a disconnection becomes a visible blocked fact.",
 	},
 	{
 		Method:      codexapp.CodexNotificationThreadClosed,
@@ -175,27 +175,17 @@ var providerNotificationMatrix = []ProviderNotificationRule{
 	{
 		Method:      codexapp.CodexNotificationItemAutoApprovalReviewStarted,
 		Disposition: ProviderNotificationNormalized,
-		Note:        "Guardian review start is unstable upstream evidence behind a narrow adapter; only Setta validation records carry product meaning.",
+		Note:        "Guardian review start commits a Setta validation record with no verdict yet. The payload is unstable upstream, so only the review id, the reviewed item, and the typed status cross the adapter.",
 	},
 	{
 		Method:      codexapp.CodexNotificationItemAutoApprovalReviewCompleted,
 		Disposition: ProviderNotificationNormalized,
-		Note:        "Guardian review outcome is unstable upstream evidence behind a narrow adapter; Setta approval and validation records own the decision.",
-	},
-	{
-		Method:      codexapp.CodexNotificationGuardianWarning,
-		Disposition: ProviderNotificationNormalized,
-		Note:        "Guardian warnings may become typed Setta validation or blocked records with provenance; raw provider warning text is not shown as an app error.",
+		Note:        "Guardian review outcome commits the verdict onto the same Setta validation record. Approval records still own whether the user was asked; this record owns what the automatic review decided.",
 	},
 	{
 		Method:      codexapp.CodexNotificationModelVerification,
 		Disposition: ProviderNotificationNormalized,
-		Note:        "Model verification is a typed lifecycle input that may require user action, so it may become a Setta validation or blocked record.",
-	},
-	{
-		Method:      "model/safetyBuffering/updated",
-		Disposition: ProviderNotificationNormalized,
-		Note:        "Safety buffering changes what the provider will deliver next, so it may become a Setta status update or blocked record once it is registered.",
+		Note:        "Model verification is a typed check the provider applied to the run, so it becomes a Setta validation record that explains the run's added latency.",
 	},
 
 	// Accounting, telemetry, and evidence. These never become semantic nodes.
@@ -225,6 +215,16 @@ var providerNotificationMatrix = []ProviderNotificationRule{
 		Method:      codexapp.CodexNotificationTurnDiffUpdated,
 		Disposition: ProviderNotificationEvidence,
 		Note:        "Aggregate turn diff derived from file-change items; the items own durable file-change meaning.",
+	},
+	{
+		Method:      codexapp.CodexNotificationGuardianWarning,
+		Disposition: ProviderNotificationEvidence,
+		Note:        "The provider's own sentence about a Guardian outcome the typed review notification already reports, or about a turn it is about to interrupt. Normalizing it would commit a second record built from text, so the typed review and the turn's terminal state own the meaning.",
+	},
+	{
+		Method:      codexapp.CodexNotificationModelSafetyBufferingUpdated,
+		Disposition: ProviderNotificationEvidence,
+		Note:        "Output buffering changes how fast the provider delivers a response, not what the run is doing. It explains latency on a detail surface; the turn's own lifecycle owns what the user acts on.",
 	},
 	{
 		Method:      codexapp.CodexNotificationTurnModerationMetadata,

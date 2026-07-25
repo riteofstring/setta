@@ -1197,6 +1197,7 @@ function userInputTrajectory(
     planChanged: null,
     providerEventId: null,
     providerLifecycleChanged: null,
+    validationRecorded: null,
     providerThreadId: null,
     providerTurnId: null,
     publicReasoningSummaryUpdated: null,

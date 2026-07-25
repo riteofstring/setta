@@ -270,6 +270,15 @@ func approvalAndFileChangeFixture() ProjectionFixture {
 		func(event *conversation.TrajectoryEvent) {
 			event.FileChangeProposed = &conversation.TrajectoryFileChangeProposed{ProviderItemID: itemID, Changes: changes}
 		})
+	// The provider's automatic approval review declined to allow the change on
+	// its own, which is why the user is asked next.
+	builder.validation(conversationID, turnID, conversation.TrajectoryValidation{
+		ID:      "review-gamma-1",
+		Kind:    conversation.TrajectoryValidationGuardianReview,
+		Status:  conversation.TrajectoryValidationStatusFailed,
+		Subject: stringPointer(itemID),
+		Summary: "Automatic approval review declined the change (risk high)",
+	})
 	builder.trajectory(conversationID, stringPointer(turnID), conversation.TrajectoryEventApprovalRequested, conversation.TrajectoryActorSystem,
 		func(event *conversation.TrajectoryEvent) {
 			event.ApprovalRequested = &conversation.TrajectoryApprovalRequested{
@@ -616,20 +625,47 @@ func blockedAndCancelledFixture() ProjectionFixture {
 	builder.providerLifecycle(conversationID, turnID, conversation.ProviderLifecycle{
 		Provider: conversation.ProviderCodex,
 		Status:   conversation.ProviderLifecycleUnavailable,
-		Message:  "The Codex app server is unavailable",
+		Reason:   conversation.ProviderLifecycleReasonEnvironmentDisconnected,
+		Message:  "The execution environment disconnected",
 	})
 	builder.providerLifecycle(conversationID, turnID, conversation.ProviderLifecycle{
 		Provider: conversation.ProviderCodex,
 		Status:   conversation.ProviderLifecycleReady,
-		Message:  "The Codex app server is ready",
+		Reason:   conversation.ProviderLifecycleReasonEnvironmentConnected,
+		Message:  "The execution environment reconnected",
 	})
+	// The provider answered this request somewhere else, so the prompt is
+	// withdrawn without anyone here deciding it.
+	builder.trajectory(conversationID, stringPointer(turnID), conversation.TrajectoryEventApprovalRequested, conversation.TrajectoryActorSystem,
+		func(event *conversation.TrajectoryEvent) {
+			event.ApprovalRequested = &conversation.TrajectoryApprovalRequested{
+				Approval: conversation.TrajectoryApprovalRequest{
+					ID:             "approval-theta-1",
+					ProviderItemID: "item-theta-1",
+					Kind:           conversation.TrajectoryApprovalKindCommand,
+					Title:          "Run the preview deploy",
+					RequestedAt:    fixtureEpoch.Format(time.RFC3339Nano),
+				},
+			}
+		})
+	builder.trajectory(conversationID, stringPointer(turnID), conversation.TrajectoryEventApprovalResolved, conversation.TrajectoryActorProvider,
+		func(event *conversation.TrajectoryEvent) {
+			event.ApprovalResolved = &conversation.TrajectoryApprovalResolved{
+				Resolution: conversation.TrajectoryApprovalResolution{
+					ApprovalID: "approval-theta-1",
+					Decision:   conversation.TrajectoryApprovalDecisionSuperseded,
+					Answers:    []conversation.ConversationApprovalAnswer{},
+					ResolvedAt: fixtureEpoch.Format(time.RFC3339Nano),
+				},
+			}
+		})
 	builder.trajectory(conversationID, stringPointer(turnID), conversation.TrajectoryEventTurnInterrupted, conversation.TrajectoryActorUser,
 		func(event *conversation.TrajectoryEvent) {
 			event.TurnInterrupted = &conversation.TrajectoryTurnInterrupted{Reason: conversation.TurnInterruptionUserRequested}
 		})
 	return ProjectionFixture{
 		Name:        "blocked_and_cancelled",
-		Description: "A lost agent, a reconciliation, an unavailable then ready provider, and a user cancellation.",
+		Description: "A lost agent, a reconciliation, a disconnected then reconnected environment, an approval superseded by the provider, and a user cancellation.",
 		Events:      builder.events,
 	}
 }
@@ -645,6 +681,13 @@ func (builder *fixtureBuilder) providerLifecycle(conversationID string, turnID s
 	builder.trajectory(conversationID, &turnID, conversation.TrajectoryEventProviderLifecycleChanged, conversation.TrajectoryActorProvider,
 		func(event *conversation.TrajectoryEvent) {
 			event.ProviderLifecycleChanged = &conversation.TrajectoryProviderLifecycleChanged{Lifecycle: lifecycle}
+		})
+}
+
+func (builder *fixtureBuilder) validation(conversationID string, turnID string, validation conversation.TrajectoryValidation) {
+	builder.trajectory(conversationID, &turnID, conversation.TrajectoryEventValidationRecorded, conversation.TrajectoryActorProvider,
+		func(event *conversation.TrajectoryEvent) {
+			event.ValidationRecorded = &conversation.TrajectoryValidationRecorded{Validation: validation}
 		})
 }
 

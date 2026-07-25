@@ -16,8 +16,13 @@ owns the deterministic histories, and the projector plus its replay, ordering,
 lifecycle, provenance, redaction, resync, and recovery boundary tests cover every
 node kind and edge kind. The Codex adapter now delivers typed provider activities
 into that mapping, so `investigation` nodes, MCP tool calls, and hook executions
-are reachable from live work instead of only from fixtures. The ownership,
-surviving-path, and reusable-foundation inventories are committed in
+are reachable from live work instead of only from fixtures. Phase 1 item 14 is
+complete: the remaining `normalized` notifications now have durable Setta owners —
+typed provider lifecycle records for thread status, environment connection, and
+thread close; a `validation_recorded` trajectory event for Guardian review and
+model verification; and approval reconciliation for `serverRequest/resolved`. The
+only Phase 1 work left is item 13, the visual gallery, which is blocked on item 9.
+The ownership, surviving-path, and reusable-foundation inventories are committed in
 [`docs/reports/setta-4-phase0-ownership-inventory-20260724.md`](../reports/setta-4-phase0-ownership-inventory-20260724.md),
 the mockup fidelity checklist in
 [`docs/reports/setta-4-mockup-fidelity-checklist-20260724.md`](../reports/setta-4-mockup-fidelity-checklist-20260724.md),
@@ -428,8 +433,8 @@ must be added as typed events or records; do not fill gaps by parsing text.
 | `model_rerouted` | `recovery` or `milestone` | Use the typed reroute reason/status; do not infer risk from surrounding text. |
 | `turn_completed`, `turn_failed`, `turn_interrupted` | `completed`, `failed`, or `cancelled` | Terminal run state closes the visible causal chain for that run. |
 | `public_reasoning_summary_updated`, `agent_message_completed` | public summaries and detail surfaces | These update accessible text and summaries; they do not create nodes by default. |
-| Normalized Codex `thread/status/changed`, environment connection notifications, and environment status reads | workstream or provider lifecycle status, `blocked`, or `recovery` | Ready, pending, and attached states update metadata. Disconnected, unknown, or unavailable states become visible nodes only when typed lifecycle state says the user or Director needs to act. |
-| Normalized Codex Guardian review, Guardian warning, model verification, and model safety-buffering notifications | `validation`, `approval_required`, `blocked`, or status update | Treat Guardian review notification payloads as unstable provider evidence behind the adapter. Durable Setta approval, validation, and recovery records own graph meaning. |
+| Normalized Codex `thread/status/changed`, environment connection notifications, and environment status reads | workstream or provider lifecycle status, `blocked`, or `recovery` | Ready, pending, and attached states update metadata. Disconnected, unknown, or unavailable states become visible nodes only when typed lifecycle state says the user or Director needs to act. `ProviderLifecycle` carries a typed reason, so a blocked or recovering node says which provider fact produced it without reading its message. |
+| `validation_recorded` | `validation` | The durable owner of a typed provider check over declared work. A check with a verdict becomes a node connected to what it covered by `validated_by`; a check still running updates metadata, because a node with no verdict tells the user nothing to act on. Normalized Codex Guardian review and model verification notifications commit it. Guardian review payloads are unstable upstream, so only the review id, the reviewed item, the typed status, and the typed risk level cross the adapter. |
 | Codex token usage and raw response completion notifications | accounting, context, and detail-surface telemetry | These are not semantic graph nodes by default. They may update cost/context/detail surfaces with explicit redaction and provenance. |
 | Codex realtime transcript and audio notifications | live voice/transcript UI state | Transcript and audio deltas are transport state. Commit accepted user input, public assistant output, or public reasoning summaries as durable Setta events before changing semantic graph truth. |
 
@@ -460,9 +465,20 @@ dispositions.
   or a Setta-owned compaction event when deciding graph history compaction.
 - Guardian auto-review notifications are marked unstable upstream. Use them only through a narrow
   adapter that can change without changing Setta graph contracts.
+- `GuardianWarning` is the provider's own sentence about an outcome the typed Guardian review
+  notification already reports, or about a turn it is about to interrupt. Normalizing it would commit
+  a second durable record built from text, so it is evidence and the typed review plus the turn's
+  terminal state own the meaning.
+- `ModelSafetyBufferingUpdated` changes how fast the provider delivers a response, not what the run is
+  doing. It is evidence for a latency detail surface; the turn's own lifecycle owns what the user acts
+  on.
 - Environment connection and status notifications are lifecycle inputs. Ready states should stay as
   metadata; disconnected or unavailable states become visible only through typed blocked/recovery
   events.
+- `serverRequest/resolved` is broadcast to every subscribed client, including the one that answered.
+  The adapter's pending-request table is the trusted answer to whether this app is still waiting, so
+  a request this runtime already answered produces no event, and one it was still showing resolves the
+  durable approval as `superseded` rather than as a user cancellation.
 - Thread realtime notifications are useful for live voice, transcript previews, output audio, and
   handoff state. They are not durable semantic graph state until committed through Setta's own event
   model.
@@ -869,14 +885,24 @@ Exit gate:
     prefix boundary of every fixture, resync conditions surface as typed `ReplayError` reasons rather
     than internal errors, and the fixtures are asserted to exercise every node kind and edge kind.**
 13. Build the exhaustive node/edge visual gallery from production contract fixtures.
-14. Adapt the remaining notifications the matrix marks `normalized` that still have no normalizer:
-    thread status, environment connection and disconnection, thread close, Guardian review and
-    warning, model verification, model safety buffering, and server-request resolution. Each needs a
-    durable Setta owner before it can be normalized — workstream/provider lifecycle records for the
-    thread and environment signals, a validation record for the Guardian and verification signals,
-    and approval reconciliation for `serverRequest/resolved` — so this is contract work, not another
-    adapter switch. `thread/environment/*` and `model/safetyBuffering/updated` also have to be
-    registered in `internal/codexapp/protocolschema/supported_protocol.json` before a decoder exists.
+14. Adapt the remaining notifications the matrix marks `normalized` that still have no normalizer.
+    **Done.** `thread/environment/*` and `model/safetyBuffering/updated` are registered in
+    `internal/codexapp/protocolschema/supported_protocol.json`, and `ThreadStatus` is generated as a
+    decoded tagged union instead of raw JSON, so thread status is read from its discriminator rather
+    than stringified. `internal/agent/provider_lifecycle_events.go` holds the new normalizers.
+    - Thread status, environment connection and disconnection, and thread close commit provider
+      lifecycle records. `agent.LifecycleEvent` now carries typed `LifecycleState` and
+      `LifecycleReason` enums that match `conversation.ProviderLifecycle` one to one, so the loose
+      `degraded` state that had no durable counterpart is gone and every lifecycle node names the
+      provider fact that produced it.
+    - Guardian review and model verification commit `conversation.TrajectoryEventValidationRecorded`,
+      the durable owner a `validation` node and a `validated_by` edge are derived from.
+    - `serverRequest/resolved` reconciles the durable approval record as `superseded` and drops the
+      request from the adapter's pending table, so a later user answer cannot be sent to a request the
+      app server already closed.
+    - Two matrix dispositions were corrected rather than given normalizers, for the reasons recorded
+      in the adapter rules above: `guardianWarning` and `model/safetyBuffering/updated` are
+      `evidence`, because each is a second rendering of a fact Setta already commits typed.
 
 Exit gate:
 
@@ -1053,9 +1079,5 @@ Setta 4 is complete when:
    plan-step identity, and workstream resource bindings. Moving `internal/master` off
    `internal/applayout` onto `director.WorkstreamResourceBinding` is Phase 3 rewiring, not a
    remaining contract gap.
-2. Finish Phase 1 item 14. Hooks, MCP tool progress, and terminal interaction are adapted; the
-   remaining `normalized` notifications each need a durable Setta owner first, so start with the
-   workstream/provider lifecycle records that thread status, environment connection, and thread
-   close would commit into.
-3. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
+2. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.

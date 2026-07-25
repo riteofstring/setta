@@ -137,6 +137,13 @@ func buildAgentProgressMutation(
 		mutation.conversation.UpdatedAt = advanceTimestamp(mutation.conversation.UpdatedAt, now)
 		mutation.conversationChanged = true
 	}
+	// A superseded approval stops being something the user can answer, so the
+	// conversation goes back to working unless another approval is still waiting.
+	if event.Kind == agent.EventKindApprovalSuperseded && len(pendingApprovalsForTurn(snapshot, turn.ID)) <= 1 {
+		mutation.conversation.Status = ConversationStatusWorking
+		mutation.conversation.UpdatedAt = advanceTimestamp(mutation.conversation.UpdatedAt, now)
+		mutation.conversationChanged = true
+	}
 	if event.Kind == agent.EventKindModelRerouted {
 		reroute := trajectories[0].ModelRerouted.Reroute
 		mutation.turn.ResolvedInvocation.ModelReroutes = append(mutation.turn.ResolvedInvocation.ModelReroutes, reroute)
@@ -257,6 +264,10 @@ func (service *Service) populateAgentTrajectory(
 		return service.conversationActivityTrajectory(trajectory, event, now)
 	case agent.EventKindApprovalRequested:
 		return conversationApprovalTrajectory(trajectory, active, event, now)
+	case agent.EventKindApprovalSuperseded:
+		return conversationApprovalSupersededTrajectory(trajectory, event, now)
+	case agent.EventKindValidationRecorded:
+		return conversationValidationTrajectory(trajectory, event)
 	case agent.EventKindModelRerouted:
 		return conversationModelRerouteTrajectory(trajectory, snapshot, event)
 	case agent.EventKindLifecycleChanged:
@@ -354,6 +365,42 @@ func conversationApprovalTrajectory(
 	trajectory.Kind = TrajectoryEventApprovalRequested
 	trajectory.Actor = TrajectoryActorProvider
 	trajectory.ApprovalRequested = &TrajectoryApprovalRequested{Approval: approval}
+	return trajectory, nil, nil
+}
+
+// conversationApprovalSupersededTrajectory resolves the durable approval record
+// the provider answered elsewhere. The decision is superseded rather than
+// cancelled, because nobody in this app made a choice.
+func conversationApprovalSupersededTrajectory(
+	trajectory TrajectoryEvent,
+	event agent.Event,
+	now string,
+) (TrajectoryEvent, *Artifact, error) {
+	if event.ApprovalSuperseded == nil {
+		return TrajectoryEvent{}, nil, fmt.Errorf("agent approval superseded payload is required")
+	}
+	trajectory.Kind = TrajectoryEventApprovalResolved
+	trajectory.Actor = TrajectoryActorProvider
+	trajectory.ApprovalResolved = &TrajectoryApprovalResolved{Resolution: TrajectoryApprovalResolution{
+		ApprovalID: event.ApprovalSuperseded.ApprovalID,
+		Decision:   TrajectoryApprovalDecisionSuperseded,
+		Answers:    []ConversationApprovalAnswer{},
+		ResolvedAt: now,
+	}}
+	return trajectory, nil, nil
+}
+
+func conversationValidationTrajectory(
+	trajectory TrajectoryEvent,
+	event agent.Event,
+) (TrajectoryEvent, *Artifact, error) {
+	validation, err := conversationValidation(event.Validation)
+	if err != nil {
+		return TrajectoryEvent{}, nil, err
+	}
+	trajectory.Kind = TrajectoryEventValidationRecorded
+	trajectory.Actor = TrajectoryActorProvider
+	trajectory.ValidationRecorded = &TrajectoryValidationRecorded{Validation: validation}
 	return trajectory, nil, nil
 }
 
@@ -580,27 +627,106 @@ func conversationProviderLifecycle(lifecycle *agent.LifecycleEvent) (ProviderLif
 	if lifecycle == nil {
 		return ProviderLifecycle{}, fmt.Errorf("agent lifecycle payload is required")
 	}
-	status := ProviderLifecycleUnavailable
-	switch lifecycle.State {
-	case "starting":
-		status = ProviderLifecycleStarting
-	case "ready":
-		status = ProviderLifecycleReady
-	case "restarting":
-		status = ProviderLifecycleRestarting
-	case "unavailable", "degraded":
-		status = ProviderLifecycleUnavailable
-	case "closed":
-		status = ProviderLifecycleClosed
-	default:
-		return ProviderLifecycle{}, fmt.Errorf("unsupported provider lifecycle state %q", lifecycle.State)
+	status, err := conversationProviderLifecycleStatus(lifecycle.State)
+	if err != nil {
+		return ProviderLifecycle{}, err
 	}
-	message := lifecycle.Reason
-	if lifecycle.Error != nil && *lifecycle.Error != "" {
+	reason, err := conversationProviderLifecycleReason(lifecycle.Reason)
+	if err != nil {
+		return ProviderLifecycle{}, err
+	}
+	message := string(status)
+	if lifecycle.Error != nil && strings.TrimSpace(*lifecycle.Error) != "" {
 		message = *lifecycle.Error
 	}
-	if strings.TrimSpace(message) == "" {
-		message = string(status)
+	return ProviderLifecycle{Provider: ProviderCodex, Status: status, Reason: reason, Message: message}, nil
+}
+
+// conversationProviderLifecycleStatus renames the adapter's lifecycle states
+// into the durable ones. The two catalogs are the same set, so a new provider
+// state has to be given durable meaning here.
+func conversationProviderLifecycleStatus(state agent.LifecycleState) (ProviderLifecycleStatus, error) {
+	switch state {
+	case agent.LifecycleStateStarting:
+		return ProviderLifecycleStarting, nil
+	case agent.LifecycleStateReady:
+		return ProviderLifecycleReady, nil
+	case agent.LifecycleStateRestarting:
+		return ProviderLifecycleRestarting, nil
+	case agent.LifecycleStateUnavailable:
+		return ProviderLifecycleUnavailable, nil
+	case agent.LifecycleStateClosed:
+		return ProviderLifecycleClosed, nil
+	default:
+		return "", fmt.Errorf("unsupported provider lifecycle state %q", state)
 	}
-	return ProviderLifecycle{Provider: ProviderCodex, Status: status, Message: message}, nil
+}
+
+func conversationProviderLifecycleReason(reason agent.LifecycleReason) (ProviderLifecycleReason, error) {
+	switch reason {
+	case agent.LifecycleReasonSessionFailed:
+		return ProviderLifecycleReasonSessionFailed, nil
+	case agent.LifecycleReasonEventLag:
+		return ProviderLifecycleReasonEventLag, nil
+	case agent.LifecycleReasonTurnError:
+		return ProviderLifecycleReasonTurnError, nil
+	case agent.LifecycleReasonThreadStatus:
+		return ProviderLifecycleReasonThreadStatus, nil
+	case agent.LifecycleReasonThreadClosed:
+		return ProviderLifecycleReasonThreadClosed, nil
+	case agent.LifecycleReasonEnvironmentConnected:
+		return ProviderLifecycleReasonEnvironmentConnected, nil
+	case agent.LifecycleReasonEnvironmentDisconnected:
+		return ProviderLifecycleReasonEnvironmentDisconnected, nil
+	default:
+		return "", fmt.Errorf("unsupported provider lifecycle reason %q", reason)
+	}
+}
+
+func conversationValidation(validation *agent.ValidationEvent) (TrajectoryValidation, error) {
+	if validation == nil {
+		return TrajectoryValidation{}, fmt.Errorf("agent validation payload is required")
+	}
+	kind, err := conversationValidationKind(validation.Kind)
+	if err != nil {
+		return TrajectoryValidation{}, err
+	}
+	status, err := conversationValidationStatus(validation.Status)
+	if err != nil {
+		return TrajectoryValidation{}, err
+	}
+	result := TrajectoryValidation{
+		ID:      validation.ID,
+		Kind:    kind,
+		Status:  status,
+		Subject: cloneStringPointer(validation.Subject),
+		Summary: validation.Summary,
+	}
+	return result, result.Validate()
+}
+
+func conversationValidationKind(kind agent.ValidationKind) (TrajectoryValidationKind, error) {
+	switch kind {
+	case agent.ValidationKindGuardianReview:
+		return TrajectoryValidationGuardianReview, nil
+	case agent.ValidationKindModelVerification:
+		return TrajectoryValidationModelVerification, nil
+	default:
+		return "", fmt.Errorf("unsupported agent validation kind %q", kind)
+	}
+}
+
+func conversationValidationStatus(status agent.ValidationStatus) (TrajectoryValidationStatus, error) {
+	switch status {
+	case agent.ValidationStatusInProgress:
+		return TrajectoryValidationStatusInProgress, nil
+	case agent.ValidationStatusPassed:
+		return TrajectoryValidationStatusPassed, nil
+	case agent.ValidationStatusFailed:
+		return TrajectoryValidationStatusFailed, nil
+	case agent.ValidationStatusInconclusive:
+		return TrajectoryValidationStatusInconclusive, nil
+	default:
+		return "", fmt.Errorf("unsupported agent validation status %q", status)
+	}
 }

@@ -101,6 +101,7 @@ const (
 	CodexNotificationMcpServerOauthLoginCompleted            = "mcpServer/oauthLogin/completed"
 	CodexNotificationMcpServerStartupStatusUpdated           = "mcpServer/startupStatus/updated"
 	CodexNotificationModelRerouted                           = "model/rerouted"
+	CodexNotificationModelSafetyBufferingUpdated             = "model/safetyBuffering/updated"
 	CodexNotificationModelVerification                       = "model/verification"
 	CodexNotificationProcessExited                           = "process/exited"
 	CodexNotificationProcessOutputDelta                      = "process/outputDelta"
@@ -109,6 +110,8 @@ const (
 	CodexNotificationSkillsChanged                           = "skills/changed"
 	CodexNotificationThreadArchived                          = "thread/archived"
 	CodexNotificationThreadClosed                            = "thread/closed"
+	CodexNotificationThreadEnvironmentConnected              = "thread/environment/connected"
+	CodexNotificationThreadEnvironmentDisconnected           = "thread/environment/disconnected"
 	CodexNotificationThreadGoalCleared                       = "thread/goal/cleared"
 	CodexNotificationThreadGoalUpdated                       = "thread/goal/updated"
 	CodexNotificationThreadNameUpdated                       = "thread/name/updated"
@@ -199,6 +202,7 @@ var CodexSupportedNotificationValues = []string{
 	CodexNotificationMcpServerOauthLoginCompleted,
 	CodexNotificationMcpServerStartupStatusUpdated,
 	CodexNotificationModelRerouted,
+	CodexNotificationModelSafetyBufferingUpdated,
 	CodexNotificationModelVerification,
 	CodexNotificationProcessExited,
 	CodexNotificationProcessOutputDelta,
@@ -207,6 +211,8 @@ var CodexSupportedNotificationValues = []string{
 	CodexNotificationSkillsChanged,
 	CodexNotificationThreadArchived,
 	CodexNotificationThreadClosed,
+	CodexNotificationThreadEnvironmentConnected,
+	CodexNotificationThreadEnvironmentDisconnected,
 	CodexNotificationThreadGoalCleared,
 	CodexNotificationThreadGoalUpdated,
 	CodexNotificationThreadNameUpdated,
@@ -1358,6 +1364,28 @@ const (
 type DynamicToolNamespaceTool = json.RawMessage
 
 type DynamicToolSpec = json.RawMessage
+
+type EnvironmentConnectionNotification struct {
+	EnvironmentId string `json:"environmentId"`
+	ThreadID      string `json:"threadId"`
+}
+
+func validateEnvironmentConnectionNotification(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "environmentId"}, {name: "threadId"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeEnvironmentConnectionNotification(raw json.RawMessage) (EnvironmentConnectionNotification, error) {
+	var value EnvironmentConnectionNotification
+	err := decodeCodexObject(raw, "EnvironmentConnectionNotification", validateEnvironmentConnectionNotification, &value)
+	return value, err
+}
 
 type ErrorNotification struct {
 	Error     TurnError `json:"error"`
@@ -3068,6 +3096,33 @@ func validateModelReroutedNotification(raw json.RawMessage, name string) error {
 func DecodeModelReroutedNotification(raw json.RawMessage) (ModelReroutedNotification, error) {
 	var value ModelReroutedNotification
 	err := decodeCodexObject(raw, "ModelReroutedNotification", validateModelReroutedNotification, &value)
+	return value, err
+}
+
+type ModelSafetyBufferingUpdatedNotification struct {
+	FasterModel     *string  `json:"fasterModel,omitempty"`
+	Model           string   `json:"model"`
+	Reasons         []string `json:"reasons"`
+	ShowBufferingUi bool     `json:"showBufferingUi"`
+	ThreadID        string   `json:"threadId"`
+	TurnID          string   `json:"turnId"`
+	UseCases        []string `json:"useCases"`
+}
+
+func validateModelSafetyBufferingUpdatedNotification(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "model"}, {name: "reasons"}, {name: "showBufferingUi"}, {name: "threadId"}, {name: "turnId"}, {name: "useCases"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeModelSafetyBufferingUpdatedNotification(raw json.RawMessage) (ModelSafetyBufferingUpdatedNotification, error) {
+	var value ModelSafetyBufferingUpdatedNotification
+	err := decodeCodexObject(raw, "ModelSafetyBufferingUpdatedNotification", validateModelSafetyBufferingUpdatedNotification, &value)
 	return value, err
 }
 
@@ -5922,7 +5977,193 @@ func DecodeThreadStartedNotification(raw json.RawMessage) (ThreadStartedNotifica
 	return value, err
 }
 
-type ThreadStatus = json.RawMessage
+type ThreadStatusType string
+
+const (
+	ThreadStatusTypeNotLoaded   ThreadStatusType = "notLoaded"
+	ThreadStatusTypeIdle        ThreadStatusType = "idle"
+	ThreadStatusTypeSystemError ThreadStatusType = "systemError"
+	ThreadStatusTypeActive      ThreadStatusType = "active"
+)
+
+type NotLoadedThreadStatus struct {
+	Type string `json:"type"`
+}
+
+func validateNotLoadedThreadStatus(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeNotLoadedThreadStatus(raw json.RawMessage) (NotLoadedThreadStatus, error) {
+	var value NotLoadedThreadStatus
+	err := decodeCodexObject(raw, "NotLoadedThreadStatus", validateNotLoadedThreadStatus, &value)
+	return value, err
+}
+
+type IdleThreadStatus struct {
+	Type string `json:"type"`
+}
+
+func validateIdleThreadStatus(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeIdleThreadStatus(raw json.RawMessage) (IdleThreadStatus, error) {
+	var value IdleThreadStatus
+	err := decodeCodexObject(raw, "IdleThreadStatus", validateIdleThreadStatus, &value)
+	return value, err
+}
+
+type SystemErrorThreadStatus struct {
+	Type string `json:"type"`
+}
+
+func validateSystemErrorThreadStatus(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeSystemErrorThreadStatus(raw json.RawMessage) (SystemErrorThreadStatus, error) {
+	var value SystemErrorThreadStatus
+	err := decodeCodexObject(raw, "SystemErrorThreadStatus", validateSystemErrorThreadStatus, &value)
+	return value, err
+}
+
+type ActiveThreadStatus struct {
+	ActiveFlags []ThreadActiveFlag `json:"activeFlags"`
+	Type        string             `json:"type"`
+}
+
+func validateActiveThreadStatus(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "activeFlags"}, {name: "type"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeActiveThreadStatus(raw json.RawMessage) (ActiveThreadStatus, error) {
+	var value ActiveThreadStatus
+	err := decodeCodexObject(raw, "ActiveThreadStatus", validateActiveThreadStatus, &value)
+	return value, err
+}
+
+type ThreadStatus struct {
+	Type        ThreadStatusType         `json:"type"`
+	Raw         json.RawMessage          `json:"-"`
+	NotLoaded   *NotLoadedThreadStatus   `json:"-"`
+	Idle        *IdleThreadStatus        `json:"-"`
+	SystemError *SystemErrorThreadStatus `json:"-"`
+	Active      *ActiveThreadStatus      `json:"-"`
+}
+
+func (item *ThreadStatus) UnmarshalJSON(raw []byte) error {
+	decoded, err := decodeThreadStatus(json.RawMessage(raw), "ThreadStatus")
+	if err != nil {
+		return err
+	}
+	*item = decoded
+	return nil
+}
+
+func (item ThreadStatus) MarshalJSON() ([]byte, error) {
+	if len(item.Raw) > 0 {
+		return append([]byte{}, item.Raw...), nil
+	}
+	switch item.Type {
+	case ThreadStatusTypeNotLoaded:
+		if item.NotLoaded == nil {
+			return nil, codexUnsupportedStringValue("ThreadStatus.type", string(item.Type))
+		}
+		return json.Marshal(item.NotLoaded)
+	case ThreadStatusTypeIdle:
+		if item.Idle == nil {
+			return nil, codexUnsupportedStringValue("ThreadStatus.type", string(item.Type))
+		}
+		return json.Marshal(item.Idle)
+	case ThreadStatusTypeSystemError:
+		if item.SystemError == nil {
+			return nil, codexUnsupportedStringValue("ThreadStatus.type", string(item.Type))
+		}
+		return json.Marshal(item.SystemError)
+	case ThreadStatusTypeActive:
+		if item.Active == nil {
+			return nil, codexUnsupportedStringValue("ThreadStatus.type", string(item.Type))
+		}
+		return json.Marshal(item.Active)
+	default:
+		return nil, codexUnsupportedStringValue("ThreadStatus.type", string(item.Type))
+	}
+}
+
+func DecodeThreadStatus(raw json.RawMessage) (ThreadStatus, error) {
+	return decodeThreadStatus(raw, "ThreadStatus")
+}
+
+func decodeThreadStatus(raw json.RawMessage, name string) (ThreadStatus, error) {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return ThreadStatus{}, err
+	}
+	typeText, err := codexStringField(fields, "type", name)
+	if err != nil {
+		return ThreadStatus{}, err
+	}
+	typeValue := ThreadStatusType(typeText)
+	item := ThreadStatus{Type: typeValue, Raw: append(json.RawMessage{}, raw...)}
+	switch typeValue {
+	case ThreadStatusTypeNotLoaded:
+		value, err := DecodeNotLoadedThreadStatus(raw)
+		if err != nil {
+			return ThreadStatus{}, err
+		}
+		item.NotLoaded = &value
+	case ThreadStatusTypeIdle:
+		value, err := DecodeIdleThreadStatus(raw)
+		if err != nil {
+			return ThreadStatus{}, err
+		}
+		item.Idle = &value
+	case ThreadStatusTypeSystemError:
+		value, err := DecodeSystemErrorThreadStatus(raw)
+		if err != nil {
+			return ThreadStatus{}, err
+		}
+		item.SystemError = &value
+	case ThreadStatusTypeActive:
+		value, err := DecodeActiveThreadStatus(raw)
+		if err != nil {
+			return ThreadStatus{}, err
+		}
+		item.Active = &value
+	default:
+		return ThreadStatus{}, codexUnsupportedStringValue(name+".type", typeText)
+	}
+	return item, nil
+}
 
 type ThreadStatusChangedNotification struct {
 	Status   ThreadStatus `json:"status"`

@@ -40,6 +40,9 @@ const (
 	ApprovalStatusDenied             ApprovalStatus = "denied"
 	ApprovalStatusCancelled          ApprovalStatus = "cancelled"
 	ApprovalStatusAnswered           ApprovalStatus = "answered"
+	// ApprovalStatusSuperseded was resolved by the provider outside this app, so
+	// the request stopped waiting on the user without anyone here deciding it.
+	ApprovalStatusSuperseded ApprovalStatus = "superseded"
 )
 
 var approvalStatuses = []ApprovalStatus{
@@ -49,6 +52,7 @@ var approvalStatuses = []ApprovalStatus{
 	ApprovalStatusDenied,
 	ApprovalStatusCancelled,
 	ApprovalStatusAnswered,
+	ApprovalStatusSuperseded,
 }
 
 // ResourceRequestStatus is the lifecycle of one durable resource request, such
@@ -267,12 +271,14 @@ var approvalLifecycle = lifecycleTable[ApprovalStatus]{
 			ApprovalStatusDenied,
 			ApprovalStatusCancelled,
 			ApprovalStatusAnswered,
+			ApprovalStatusSuperseded,
 		},
 		ApprovalStatusApproved:           {},
 		ApprovalStatusApprovedForSession: {},
 		ApprovalStatusDenied:             {},
 		ApprovalStatusCancelled:          {},
 		ApprovalStatusAnswered:           {},
+		ApprovalStatusSuperseded:         {},
 	},
 }
 

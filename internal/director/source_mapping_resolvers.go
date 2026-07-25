@@ -77,6 +77,41 @@ func NodeKindForProviderLifecycle(status conversation.ProviderLifecycleStatus) (
 	}
 }
 
+// NodeKindForValidation maps a typed provider check onto a visible node. A
+// check that has started and has no verdict yet says nothing the user can act
+// on, and the work it covers is already visible, so it stays metadata until it
+// reaches an outcome.
+func NodeKindForValidation(status conversation.TrajectoryValidationStatus) (SemanticNodeKind, error) {
+	switch status {
+	case conversation.TrajectoryValidationStatusInProgress:
+		return SemanticNodeNone, nil
+	case conversation.TrajectoryValidationStatusPassed,
+		conversation.TrajectoryValidationStatusFailed,
+		conversation.TrajectoryValidationStatusInconclusive:
+		return SemanticNodeValidation, nil
+	default:
+		return SemanticNodeNone, fmt.Errorf("unknown trajectory validation status %q", status)
+	}
+}
+
+// SemanticNodeStatusForValidation maps a typed validation outcome onto its node
+// status. An inconclusive check ended without a verdict, which is not the same
+// fact as one that rejected the work.
+func SemanticNodeStatusForValidation(status conversation.TrajectoryValidationStatus) (SemanticNodeStatus, error) {
+	switch status {
+	case conversation.TrajectoryValidationStatusInProgress:
+		return SemanticNodeStatusActive, nil
+	case conversation.TrajectoryValidationStatusPassed:
+		return SemanticNodeStatusSucceeded, nil
+	case conversation.TrajectoryValidationStatusFailed:
+		return SemanticNodeStatusFailed, nil
+	case conversation.TrajectoryValidationStatusInconclusive:
+		return SemanticNodeStatusCancelled, nil
+	default:
+		return "", fmt.Errorf("unknown trajectory validation status %q", status)
+	}
+}
+
 // SemanticActorForTrajectoryActor renames the durable trajectory actors into
 // the Director product roles.
 func SemanticActorForTrajectoryActor(actor conversation.TrajectoryActor) (SemanticActor, error) {
@@ -142,6 +177,8 @@ func ApprovalStatusForDecision(decision conversation.TrajectoryApprovalDecision)
 		return ApprovalStatusCancelled, nil
 	case conversation.TrajectoryApprovalDecisionAnswered:
 		return ApprovalStatusAnswered, nil
+	case conversation.TrajectoryApprovalDecisionSuperseded:
+		return ApprovalStatusSuperseded, nil
 	default:
 		return "", fmt.Errorf("unknown approval decision %q", decision)
 	}
@@ -246,6 +283,13 @@ func markResolvedNodeKinds(produced map[SemanticNodeKind]bool) error {
 		}
 		markResolvedNodeKind(produced, resolved)
 	}
+	for _, status := range conversation.TrajectoryValidationStatuses() {
+		resolved, err := NodeKindForValidation(status)
+		if err != nil {
+			return err
+		}
+		markResolvedNodeKind(produced, resolved)
+	}
 	return nil
 }
 
@@ -317,6 +361,14 @@ func validateResolverCoverage() error {
 			return err
 		}
 	}
+	for _, status := range conversation.TrajectoryValidationStatuses() {
+		if _, err := NodeKindForValidation(status); err != nil {
+			return err
+		}
+		if _, err := SemanticNodeStatusForValidation(status); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -361,7 +413,8 @@ func validateSourceFactResolution(label string, rule SourceFactRule, producesNod
 		}
 	case SourceFactResolutionActivityKind,
 		SourceFactResolutionAgentLiveness,
-		SourceFactResolutionProviderLifecycle:
+		SourceFactResolutionProviderLifecycle,
+		SourceFactResolutionValidationStatus:
 		if !producesNode {
 			return fmt.Errorf("source fact %s resolves a node kind without projecting a node", label)
 		}

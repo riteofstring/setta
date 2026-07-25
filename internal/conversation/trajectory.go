@@ -12,6 +12,9 @@ type SubagentStatus string
 type AgentLivenessStatus string
 type AgentLivenessReason string
 type ProviderLifecycleStatus string
+type ProviderLifecycleReason string
+type TrajectoryValidationKind string
+type TrajectoryValidationStatus string
 type TurnInterruptionReason string
 
 const (
@@ -41,6 +44,7 @@ const (
 	TrajectoryEventArtifactEmitted               TrajectoryEventKind = "artifact_emitted"
 	TrajectoryEventAgentLivenessChanged          TrajectoryEventKind = "agent_liveness_changed"
 	TrajectoryEventProviderLifecycleChanged      TrajectoryEventKind = "provider_lifecycle_changed"
+	TrajectoryEventValidationRecorded            TrajectoryEventKind = "validation_recorded"
 	TrajectoryEventModelRerouted                 TrajectoryEventKind = "model_rerouted"
 
 	TrajectoryActorUser     TrajectoryActor = "user"
@@ -85,6 +89,10 @@ const (
 	TrajectoryApprovalDecisionDenied             TrajectoryApprovalDecision = "denied"
 	TrajectoryApprovalDecisionCancelled          TrajectoryApprovalDecision = "cancelled"
 	TrajectoryApprovalDecisionAnswered           TrajectoryApprovalDecision = "answered"
+	// TrajectoryApprovalDecisionSuperseded is the provider reporting that the
+	// request was answered outside this app. Setta's prompt is withdrawn without
+	// a user decision, which is not the same fact as the user cancelling it.
+	TrajectoryApprovalDecisionSuperseded TrajectoryApprovalDecision = "superseded"
 
 	SubagentStatusPendingInit SubagentStatus = "pending_init"
 	SubagentStatusRunning     SubagentStatus = "running"
@@ -117,6 +125,33 @@ const (
 	ProviderLifecycleRestarting  ProviderLifecycleStatus = "restarting"
 	ProviderLifecycleUnavailable ProviderLifecycleStatus = "unavailable"
 	ProviderLifecycleClosed      ProviderLifecycleStatus = "closed"
+
+	// The trusted cause of a provider lifecycle change. A lifecycle status says
+	// whether execution can continue; the reason says which provider fact said
+	// so, so a blocked or recovering node carries provenance instead of a
+	// message a consumer would have to read.
+	ProviderLifecycleReasonSessionFailed           ProviderLifecycleReason = "session_failed"
+	ProviderLifecycleReasonEventLag                ProviderLifecycleReason = "event_lag"
+	ProviderLifecycleReasonTurnError               ProviderLifecycleReason = "turn_error"
+	ProviderLifecycleReasonThreadStatus            ProviderLifecycleReason = "thread_status"
+	ProviderLifecycleReasonThreadClosed            ProviderLifecycleReason = "thread_closed"
+	ProviderLifecycleReasonEnvironmentConnected    ProviderLifecycleReason = "environment_connected"
+	ProviderLifecycleReasonEnvironmentDisconnected ProviderLifecycleReason = "environment_disconnected"
+
+	// The typed checks a provider applies to declared work before or while it
+	// takes effect. Each names a distinct provider mechanism, because "a check
+	// ran" is not enough to tell the user what was checked.
+	TrajectoryValidationGuardianReview    TrajectoryValidationKind = "guardian_review"
+	TrajectoryValidationModelVerification TrajectoryValidationKind = "model_verification"
+
+	// TrajectoryValidationStatusInProgress is a check that has started and has
+	// no verdict yet.
+	TrajectoryValidationStatusInProgress TrajectoryValidationStatus = "in_progress"
+	TrajectoryValidationStatusPassed     TrajectoryValidationStatus = "passed"
+	TrajectoryValidationStatusFailed     TrajectoryValidationStatus = "failed"
+	// TrajectoryValidationStatusInconclusive ended without a verdict, such as a
+	// review that timed out or was aborted.
+	TrajectoryValidationStatusInconclusive TrajectoryValidationStatus = "inconclusive"
 
 	TurnInterruptionUserRequested       TurnInterruptionReason = "user_requested"
 	TurnInterruptionProviderInterrupted TurnInterruptionReason = "provider_interrupted"
@@ -151,6 +186,7 @@ var trajectoryEventKinds = []TrajectoryEventKind{
 	TrajectoryEventArtifactEmitted,
 	TrajectoryEventAgentLivenessChanged,
 	TrajectoryEventProviderLifecycleChanged,
+	TrajectoryEventValidationRecorded,
 	TrajectoryEventModelRerouted,
 }
 
@@ -209,6 +245,52 @@ var providerLifecycleStatuses = []ProviderLifecycleStatus{
 func ProviderLifecycleStatuses() []ProviderLifecycleStatus {
 	result := make([]ProviderLifecycleStatus, len(providerLifecycleStatuses))
 	copy(result, providerLifecycleStatuses)
+	return result
+}
+
+var providerLifecycleReasons = []ProviderLifecycleReason{
+	ProviderLifecycleReasonSessionFailed,
+	ProviderLifecycleReasonEventLag,
+	ProviderLifecycleReasonTurnError,
+	ProviderLifecycleReasonThreadStatus,
+	ProviderLifecycleReasonThreadClosed,
+	ProviderLifecycleReasonEnvironmentConnected,
+	ProviderLifecycleReasonEnvironmentDisconnected,
+}
+
+// ProviderLifecycleReasons is the authoritative provider lifecycle cause
+// catalog.
+func ProviderLifecycleReasons() []ProviderLifecycleReason {
+	result := make([]ProviderLifecycleReason, len(providerLifecycleReasons))
+	copy(result, providerLifecycleReasons)
+	return result
+}
+
+var trajectoryValidationKinds = []TrajectoryValidationKind{
+	TrajectoryValidationGuardianReview,
+	TrajectoryValidationModelVerification,
+}
+
+// TrajectoryValidationKinds is the authoritative validation catalog.
+func TrajectoryValidationKinds() []TrajectoryValidationKind {
+	result := make([]TrajectoryValidationKind, len(trajectoryValidationKinds))
+	copy(result, trajectoryValidationKinds)
+	return result
+}
+
+var trajectoryValidationStatuses = []TrajectoryValidationStatus{
+	TrajectoryValidationStatusInProgress,
+	TrajectoryValidationStatusPassed,
+	TrajectoryValidationStatusFailed,
+	TrajectoryValidationStatusInconclusive,
+}
+
+// TrajectoryValidationStatuses is the authoritative validation status catalog.
+// Consumers iterate it so a new status fails their coverage checks instead of
+// falling through to a generic case.
+func TrajectoryValidationStatuses() []TrajectoryValidationStatus {
+	result := make([]TrajectoryValidationStatus, len(trajectoryValidationStatuses))
+	copy(result, trajectoryValidationStatuses)
 	return result
 }
 
@@ -312,7 +394,19 @@ type AgentLiveness struct {
 type ProviderLifecycle struct {
 	Provider Provider                `json:"provider"`
 	Status   ProviderLifecycleStatus `json:"status"`
+	Reason   ProviderLifecycleReason `json:"reason"`
 	Message  string                  `json:"message"`
+}
+
+// TrajectoryValidation is one typed provider check over declared work. Subject
+// names the provider item the check covers when the provider names one; a check
+// that covers the whole run leaves it null rather than guessing at a target.
+type TrajectoryValidation struct {
+	ID      string                     `json:"id"`
+	Kind    TrajectoryValidationKind   `json:"kind"`
+	Status  TrajectoryValidationStatus `json:"status"`
+	Subject *string                    `json:"subject"`
+	Summary string                     `json:"summary"`
 }
 
 type TrajectoryUserInputAccepted struct {
@@ -440,6 +534,10 @@ type TrajectoryProviderLifecycleChanged struct {
 	Lifecycle ProviderLifecycle `json:"lifecycle"`
 }
 
+type TrajectoryValidationRecorded struct {
+	Validation TrajectoryValidation `json:"validation"`
+}
+
 type TrajectoryModelRerouted struct {
 	Reroute InvocationModelReroute `json:"reroute"`
 }
@@ -481,5 +579,6 @@ type TrajectoryEvent struct {
 	ArtifactEmitted               *TrajectoryArtifactEmitted               `json:"artifactEmitted"`
 	AgentLivenessChanged          *TrajectoryAgentLivenessChanged          `json:"agentLivenessChanged"`
 	ProviderLifecycleChanged      *TrajectoryProviderLifecycleChanged      `json:"providerLifecycleChanged"`
+	ValidationRecorded            *TrajectoryValidationRecorded            `json:"validationRecorded"`
 	ModelRerouted                 *TrajectoryModelRerouted                 `json:"modelRerouted"`
 }

@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 80;
-export const backendContractSchemaHash = "sha256:81db1051644d2ced966b3b09dc01763b457bb4b19cd80f90c88547f7473f01ff";
+export const backendProtocolVersion = 81;
+export const backendContractSchemaHash = "sha256:859df9b284ae7b225f890a8f295a9c3baffcb5b0a633b471f890a02de24391ee";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -484,9 +484,9 @@ export function decodeThreadBindingStatus(value: unknown, label = "ThreadBinding
   }
 }
 
-export type TrajectoryEventKind = "user_input_accepted" | "turn_queued" | "turn_promoted" | "turn_started" | "turn_steered" | "turn_interrupted" | "turn_completed" | "turn_failed" | "agent_public_text_delta" | "agent_message_completed" | "public_reasoning_summary_updated" | "plan_changed" | "activity_started" | "activity_progressed" | "activity_completed" | "activity_failed" | "file_change_proposed" | "file_change_completed" | "approval_requested" | "approval_resolved" | "subagent_started" | "subagent_updated" | "subagent_completed" | "artifact_emitted" | "agent_liveness_changed" | "provider_lifecycle_changed" | "model_rerouted";
+export type TrajectoryEventKind = "user_input_accepted" | "turn_queued" | "turn_promoted" | "turn_started" | "turn_steered" | "turn_interrupted" | "turn_completed" | "turn_failed" | "agent_public_text_delta" | "agent_message_completed" | "public_reasoning_summary_updated" | "plan_changed" | "activity_started" | "activity_progressed" | "activity_completed" | "activity_failed" | "file_change_proposed" | "file_change_completed" | "approval_requested" | "approval_resolved" | "subagent_started" | "subagent_updated" | "subagent_completed" | "artifact_emitted" | "agent_liveness_changed" | "provider_lifecycle_changed" | "validation_recorded" | "model_rerouted";
 
-export const trajectoryEventKindValues = ["user_input_accepted", "turn_queued", "turn_promoted", "turn_started", "turn_steered", "turn_interrupted", "turn_completed", "turn_failed", "agent_public_text_delta", "agent_message_completed", "public_reasoning_summary_updated", "plan_changed", "activity_started", "activity_progressed", "activity_completed", "activity_failed", "file_change_proposed", "file_change_completed", "approval_requested", "approval_resolved", "subagent_started", "subagent_updated", "subagent_completed", "artifact_emitted", "agent_liveness_changed", "provider_lifecycle_changed", "model_rerouted"] as const satisfies readonly TrajectoryEventKind[];
+export const trajectoryEventKindValues = ["user_input_accepted", "turn_queued", "turn_promoted", "turn_started", "turn_steered", "turn_interrupted", "turn_completed", "turn_failed", "agent_public_text_delta", "agent_message_completed", "public_reasoning_summary_updated", "plan_changed", "activity_started", "activity_progressed", "activity_completed", "activity_failed", "file_change_proposed", "file_change_completed", "approval_requested", "approval_resolved", "subagent_started", "subagent_updated", "subagent_completed", "artifact_emitted", "agent_liveness_changed", "provider_lifecycle_changed", "validation_recorded", "model_rerouted"] as const satisfies readonly TrajectoryEventKind[];
 
 export function decodeTrajectoryEventKind(value: unknown, label = "TrajectoryEventKind"): TrajectoryEventKind {
   const decoded = decodeString(value, label);
@@ -542,6 +542,8 @@ export function decodeTrajectoryEventKind(value: unknown, label = "TrajectoryEve
     case "agent_liveness_changed":
       return decoded;
     case "provider_lifecycle_changed":
+      return decoded;
+    case "validation_recorded":
       return decoded;
     case "model_rerouted":
       return decoded;
@@ -704,9 +706,9 @@ export function decodeTrajectoryApprovalKind(value: unknown, label = "Trajectory
   }
 }
 
-export type TrajectoryApprovalDecision = "approved" | "approved_for_session" | "denied" | "cancelled" | "answered";
+export type TrajectoryApprovalDecision = "approved" | "approved_for_session" | "denied" | "cancelled" | "answered" | "superseded";
 
-export const trajectoryApprovalDecisionValues = ["approved", "approved_for_session", "denied", "cancelled", "answered"] as const satisfies readonly TrajectoryApprovalDecision[];
+export const trajectoryApprovalDecisionValues = ["approved", "approved_for_session", "denied", "cancelled", "answered", "superseded"] as const satisfies readonly TrajectoryApprovalDecision[];
 
 export function decodeTrajectoryApprovalDecision(value: unknown, label = "TrajectoryApprovalDecision"): TrajectoryApprovalDecision {
   const decoded = decodeString(value, label);
@@ -720,6 +722,8 @@ export function decodeTrajectoryApprovalDecision(value: unknown, label = "Trajec
     case "cancelled":
       return decoded;
     case "answered":
+      return decoded;
+    case "superseded":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -844,6 +848,68 @@ export function decodeProviderLifecycleStatus(value: unknown, label = "ProviderL
     case "unavailable":
       return decoded;
     case "closed":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ProviderLifecycleReason = "session_failed" | "event_lag" | "turn_error" | "thread_status" | "thread_closed" | "environment_connected" | "environment_disconnected";
+
+export const providerLifecycleReasonValues = ["session_failed", "event_lag", "turn_error", "thread_status", "thread_closed", "environment_connected", "environment_disconnected"] as const satisfies readonly ProviderLifecycleReason[];
+
+export function decodeProviderLifecycleReason(value: unknown, label = "ProviderLifecycleReason"): ProviderLifecycleReason {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "session_failed":
+      return decoded;
+    case "event_lag":
+      return decoded;
+    case "turn_error":
+      return decoded;
+    case "thread_status":
+      return decoded;
+    case "thread_closed":
+      return decoded;
+    case "environment_connected":
+      return decoded;
+    case "environment_disconnected":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type TrajectoryValidationKind = "guardian_review" | "model_verification";
+
+export const trajectoryValidationKindValues = ["guardian_review", "model_verification"] as const satisfies readonly TrajectoryValidationKind[];
+
+export function decodeTrajectoryValidationKind(value: unknown, label = "TrajectoryValidationKind"): TrajectoryValidationKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "guardian_review":
+      return decoded;
+    case "model_verification":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type TrajectoryValidationStatus = "in_progress" | "passed" | "failed" | "inconclusive";
+
+export const trajectoryValidationStatusValues = ["in_progress", "passed", "failed", "inconclusive"] as const satisfies readonly TrajectoryValidationStatus[];
+
+export function decodeTrajectoryValidationStatus(value: unknown, label = "TrajectoryValidationStatus"): TrajectoryValidationStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "in_progress":
+      return decoded;
+    case "passed":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "inconclusive":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2326,11 +2392,24 @@ export interface TrajectoryAgentLivenessChanged {
 export interface ProviderLifecycle {
   provider: Provider;
   status: ProviderLifecycleStatus;
+  reason: ProviderLifecycleReason;
   message: string;
 }
 
 export interface TrajectoryProviderLifecycleChanged {
   lifecycle: ProviderLifecycle;
+}
+
+export interface TrajectoryValidation {
+  id: string;
+  kind: TrajectoryValidationKind;
+  status: TrajectoryValidationStatus;
+  subject: string | null;
+  summary: string;
+}
+
+export interface TrajectoryValidationRecorded {
+  validation: TrajectoryValidation;
 }
 
 export interface TrajectoryModelRerouted {
@@ -2374,6 +2453,7 @@ export interface TrajectoryEvent {
   artifactEmitted: TrajectoryArtifactEmitted | null;
   agentLivenessChanged: TrajectoryAgentLivenessChanged | null;
   providerLifecycleChanged: TrajectoryProviderLifecycleChanged | null;
+  validationRecorded: TrajectoryValidationRecorded | null;
   modelRerouted: TrajectoryModelRerouted | null;
 }
 
@@ -5224,10 +5304,11 @@ export function decodeTrajectoryAgentLivenessChanged(value: unknown): Trajectory
 
 export function decodeProviderLifecycle(value: unknown): ProviderLifecycle {
   const record = assertRecord(value, "ProviderLifecycle");
-  assertKnownFields(record, "ProviderLifecycle", ["provider", "status", "message"]);
+  assertKnownFields(record, "ProviderLifecycle", ["provider", "status", "reason", "message"]);
   return {
     provider: decodeProvider(requireField(record, "provider", "ProviderLifecycle"), "ProviderLifecycle.provider"),
     status: decodeProviderLifecycleStatus(requireField(record, "status", "ProviderLifecycle"), "ProviderLifecycle.status"),
+    reason: decodeProviderLifecycleReason(requireField(record, "reason", "ProviderLifecycle"), "ProviderLifecycle.reason"),
     message: decodeString(requireField(record, "message", "ProviderLifecycle"), "ProviderLifecycle.message"),
   };
 }
@@ -5237,6 +5318,26 @@ export function decodeTrajectoryProviderLifecycleChanged(value: unknown): Trajec
   assertKnownFields(record, "TrajectoryProviderLifecycleChanged", ["lifecycle"]);
   return {
     lifecycle: decodeProviderLifecycle(requireField(record, "lifecycle", "TrajectoryProviderLifecycleChanged")),
+  };
+}
+
+export function decodeTrajectoryValidation(value: unknown): TrajectoryValidation {
+  const record = assertRecord(value, "TrajectoryValidation");
+  assertKnownFields(record, "TrajectoryValidation", ["id", "kind", "status", "subject", "summary"]);
+  return {
+    id: decodeString(requireField(record, "id", "TrajectoryValidation"), "TrajectoryValidation.id"),
+    kind: decodeTrajectoryValidationKind(requireField(record, "kind", "TrajectoryValidation"), "TrajectoryValidation.kind"),
+    status: decodeTrajectoryValidationStatus(requireField(record, "status", "TrajectoryValidation"), "TrajectoryValidation.status"),
+    subject: decodeNullable(requireField(record, "subject", "TrajectoryValidation"), "TrajectoryValidation.subject", (item) => decodeString(item, "TrajectoryValidation.subject")),
+    summary: decodeString(requireField(record, "summary", "TrajectoryValidation"), "TrajectoryValidation.summary"),
+  };
+}
+
+export function decodeTrajectoryValidationRecorded(value: unknown): TrajectoryValidationRecorded {
+  const record = assertRecord(value, "TrajectoryValidationRecorded");
+  assertKnownFields(record, "TrajectoryValidationRecorded", ["validation"]);
+  return {
+    validation: decodeTrajectoryValidation(requireField(record, "validation", "TrajectoryValidationRecorded")),
   };
 }
 
@@ -5250,7 +5351,7 @@ export function decodeTrajectoryModelRerouted(value: unknown): TrajectoryModelRe
 
 export function decodeTrajectoryEvent(value: unknown): TrajectoryEvent {
   const record = assertRecord(value, "TrajectoryEvent");
-  assertKnownFields(record, "TrajectoryEvent", ["id", "conversationId", "turnId", "sequence", "emittedAt", "kind", "actor", "providerEventId", "providerThreadId", "providerTurnId", "userInputAccepted", "turnQueued", "turnPromoted", "turnStarted", "turnSteered", "turnInterrupted", "turnCompleted", "turnFailed", "agentPublicTextDelta", "agentMessageCompleted", "publicReasoningSummaryUpdated", "planChanged", "activityStarted", "activityProgressed", "activityCompleted", "activityFailed", "fileChangeProposed", "fileChangeCompleted", "approvalRequested", "approvalResolved", "subagentStarted", "subagentUpdated", "subagentCompleted", "artifactEmitted", "agentLivenessChanged", "providerLifecycleChanged", "modelRerouted"]);
+  assertKnownFields(record, "TrajectoryEvent", ["id", "conversationId", "turnId", "sequence", "emittedAt", "kind", "actor", "providerEventId", "providerThreadId", "providerTurnId", "userInputAccepted", "turnQueued", "turnPromoted", "turnStarted", "turnSteered", "turnInterrupted", "turnCompleted", "turnFailed", "agentPublicTextDelta", "agentMessageCompleted", "publicReasoningSummaryUpdated", "planChanged", "activityStarted", "activityProgressed", "activityCompleted", "activityFailed", "fileChangeProposed", "fileChangeCompleted", "approvalRequested", "approvalResolved", "subagentStarted", "subagentUpdated", "subagentCompleted", "artifactEmitted", "agentLivenessChanged", "providerLifecycleChanged", "validationRecorded", "modelRerouted"]);
   const result: TrajectoryEvent = {
     id: decodeString(requireField(record, "id", "TrajectoryEvent"), "TrajectoryEvent.id"),
     conversationId: decodeString(requireField(record, "conversationId", "TrajectoryEvent"), "TrajectoryEvent.conversationId"),
@@ -5288,6 +5389,7 @@ export function decodeTrajectoryEvent(value: unknown): TrajectoryEvent {
     artifactEmitted: decodeNullable(requireField(record, "artifactEmitted", "TrajectoryEvent"), "TrajectoryEvent.artifactEmitted", (item) => decodeTrajectoryArtifactEmitted(item)),
     agentLivenessChanged: decodeNullable(requireField(record, "agentLivenessChanged", "TrajectoryEvent"), "TrajectoryEvent.agentLivenessChanged", (item) => decodeTrajectoryAgentLivenessChanged(item)),
     providerLifecycleChanged: decodeNullable(requireField(record, "providerLifecycleChanged", "TrajectoryEvent"), "TrajectoryEvent.providerLifecycleChanged", (item) => decodeTrajectoryProviderLifecycleChanged(item)),
+    validationRecorded: decodeNullable(requireField(record, "validationRecorded", "TrajectoryEvent"), "TrajectoryEvent.validationRecorded", (item) => decodeTrajectoryValidationRecorded(item)),
     modelRerouted: decodeNullable(requireField(record, "modelRerouted", "TrajectoryEvent"), "TrajectoryEvent.modelRerouted", (item) => decodeTrajectoryModelRerouted(item)),
   };
   assertTaggedUnionBranch("TrajectoryEvent", result.kind, {
@@ -5317,6 +5419,7 @@ export function decodeTrajectoryEvent(value: unknown): TrajectoryEvent {
     "artifact_emitted": result.artifactEmitted,
     "agent_liveness_changed": result.agentLivenessChanged,
     "provider_lifecycle_changed": result.providerLifecycleChanged,
+    "validation_recorded": result.validationRecorded,
     "model_rerouted": result.modelRerouted,
   });
   return result;
