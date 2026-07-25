@@ -2313,3 +2313,17 @@ Stop and reassess rather than hiding the problem if any of these occur:
   of negative measurements, and continued exclusion of identifiers. Broader
   provider ensure-to-ready/wake attribution and the live identical-workload
   latency matrix remain open. No provider or cloud mutation ran.
+- 2026-07-24 (agent workload-lease enforcement): Wired the existing trusted
+  Sprites Tasks lease client into the shared agent runtime used by topic,
+  side-agent, narrator, and master turns. The installed Sprite Service enables
+  it explicitly; local runtimes do not guess from ambient files. A single
+  runtime-wide slot enforces one active provider turn, acquisition precedes
+  provider-session creation, renewal occurs at half the bounded TTL, renewal
+  failure cancels the turn, and every exit attempts release through a separate
+  bounded cleanup context. Focused tests cover acquire failure, renewal,
+  renewal-failure cancellation, and release. The registered production
+  Electron hosted workflow uses the real Sprites Tasks HTTP client against a
+  deterministic Unix-socket server and proves balanced leases while retaining
+  queueing, steering, approvals, cancellation, failure, artifacts, and reload.
+  Per-user hard budget enforcement remains open, so the combined Phase 5
+  checklist item stays unchecked. No provider or cloud mutation ran.

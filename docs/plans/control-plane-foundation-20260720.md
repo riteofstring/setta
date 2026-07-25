@@ -137,6 +137,14 @@ reactivation. They retain only a typed action, resulting state, and timestamp;
 the response may carry the administrator-requested identifier, but the shared
 operational log does not.
 
+The installed Sprite runtime starts with explicit workload-lease enforcement.
+The shared agent runtime admits one provider turn at a time, acquires the
+trusted Sprites Tasks lease before opening a provider session, renews it at
+half its bounded TTL, cancels the turn if renewal fails, and releases through
+a separately bounded cleanup context on every return path. Local runtimes do
+not infer Sprite presence; they enable the same production client only through
+an explicit management-socket configuration.
+
 The 2026-07-24 extension persists provider-neutral hosted-access intents,
 requested capability rows, and ordered progress events. The private Unix
 administration boundary accepts strict intent JSON and exposes cursor-resumable

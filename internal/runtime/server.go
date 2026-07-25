@@ -58,6 +58,7 @@ type Config struct {
 	Version                     string
 	WorkloadLeaseDiagnosticName string
 	WorkloadLeaseManager        runtimeprovider.WorkloadLeaseManager
+	WorkloadLeaseTTL            time.Duration
 	Stdout                      io.Writer
 	Stderr                      io.Writer
 	ShutdownTimeout             time.Duration
@@ -132,6 +133,7 @@ func DefaultConfig() Config {
 		Port:                        0,
 		Version:                     "dev",
 		WorkloadLeaseDiagnosticName: "setta-agent",
+		WorkloadLeaseTTL:            2 * time.Minute,
 		Stdout:                      io.Discard,
 		Stderr:                      io.Discard,
 		ShutdownTimeout:             5 * time.Second,

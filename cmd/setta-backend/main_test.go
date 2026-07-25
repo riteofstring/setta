@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -74,6 +75,28 @@ func TestConfigFromArgsCanSkipBootstrapDeviceSession(t *testing.T) {
 	}
 	if !config.SkipBootstrapDeviceSession {
 		t.Fatal("skip bootstrap device session = false, want true")
+	}
+}
+
+func TestConfigFromArgsConfiguresExplicitSpritesWorkloadLeaseSocket(t *testing.T) {
+	socketPath := filepath.Join(t.TempDir(), "sprites.sock")
+	config, err := configFromArgs(
+		[]string{"--app-data-dir", t.TempDir()},
+		&bytes.Buffer{},
+		&bytes.Buffer{},
+		func(name string) string {
+			if name == "SETTA_SPRITES_WORKLOAD_LEASE_SOCKET" {
+				return socketPath
+			}
+			return ""
+		},
+		ignoreUnsetenv,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.WorkloadLeaseManager == nil {
+		t.Fatal("explicit Sprites workload lease socket did not configure a manager")
 	}
 }
 

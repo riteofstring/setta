@@ -11,6 +11,7 @@ import (
 
 	"setta/internal/runtime"
 	"setta/internal/speech"
+	"setta/internal/sprites"
 )
 
 type serveOptions struct {
@@ -19,6 +20,7 @@ type serveOptions struct {
 	Host                  string
 	Port                  int
 	LocalCredentialIssuer bool
+	SpritesWorkloadLeases bool
 	Speech                speech.OpenAIClientConfig
 }
 
@@ -65,6 +67,7 @@ func serveOptionsFromArgs(_ context.Context, args []string, deps cliDeps) (serve
 	flagSet.StringVar(&options.DisplayName, "display-name", deps.getenv("SETTA_RUNTIME_DISPLAY_NAME"), "runtime display name to persist for this Setta instance")
 	flagSet.IntVar(&options.Port, "port", options.Port, "port to bind, or 0 for an ephemeral port")
 	flagSet.BoolVar(&options.LocalCredentialIssuer, "local-credential-issuer", false, "host the local development credential issuer")
+	flagSet.BoolVar(&options.SpritesWorkloadLeases, "sprites-workload-leases", false, "enforce renewable agent workload leases through the Sprites management socket")
 	if err := flagSet.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return serveOptions{}, usageError{err: err}
@@ -138,6 +141,9 @@ func serveRuntimeConfig(options serveOptions, deps cliDeps, readyWriter io.Write
 	config.Stdout = readyWriter
 	config.Version = version
 	config.Speech = options.Speech
+	if options.SpritesWorkloadLeases {
+		config.WorkloadLeaseManager = sprites.NewWorkloadLeaseClient()
+	}
 	return config
 }
 

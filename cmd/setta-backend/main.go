@@ -13,6 +13,7 @@ import (
 
 	"setta/internal/runtime"
 	"setta/internal/speech"
+	"setta/internal/sprites"
 )
 
 func main() {
@@ -84,6 +85,13 @@ func configFromArgs(
 		return config, err
 	}
 	config.Speech = speechConfig
+	if socketPath := getenv("SETTA_SPRITES_WORKLOAD_LEASE_SOCKET"); socketPath != "" {
+		manager, managerErr := sprites.NewWorkloadLeaseClientForSocket(socketPath)
+		if managerErr != nil {
+			return config, fmt.Errorf("configure Sprites workload leases: %w", managerErr)
+		}
+		config.WorkloadLeaseManager = manager
+	}
 
 	flagSet := flag.NewFlagSet("setta-backend", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)

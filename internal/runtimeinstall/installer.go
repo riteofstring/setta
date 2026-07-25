@@ -450,6 +450,7 @@ func (loop Loop) ensureAndVerifyHealth(
 			"serve",
 			"--app-data-dir", layout.RuntimeStateDir,
 			"--port", strconv.Itoa(layout.HealthPort),
+			"--sprites-workload-leases",
 		},
 		HTTPPort: &port,
 		RunAs:    layout.TrustedRuntimeIdentity,
