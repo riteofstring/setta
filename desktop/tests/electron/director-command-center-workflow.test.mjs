@@ -591,6 +591,53 @@ async function readDirectorHistory(client) {
     throw new Error("Director history action was unavailable");
   }
   await waitForSelector(client, ".director-history-dialog");
+  const modal = await client.evaluate(`(() => {
+    const background = document.querySelector(".director-command-center-content");
+    const close = document.querySelector(
+      '.director-history-dialog button[aria-label="Close history"]'
+    );
+    const dialog = document.querySelector('[role="dialog"].director-history-overlay');
+    if (
+      !(background instanceof HTMLElement) ||
+      !(close instanceof HTMLButtonElement) ||
+      !(dialog instanceof HTMLElement)
+    ) {
+      return { ready: false };
+    }
+    const focusedInitially = document.activeElement === close;
+    close.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Tab"
+    }));
+    const focusedAfterTab = document.activeElement === close;
+    close.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Tab",
+      shiftKey: true
+    }));
+    return {
+      backgroundHidden: background.getAttribute("aria-hidden") === "true",
+      backgroundInert: background.inert,
+      focusedAfterShiftTab: document.activeElement === close,
+      focusedAfterTab,
+      focusedInitially,
+      ready: true
+    };
+  })()`);
+  assertDeepEqual(
+    modal,
+    {
+      backgroundHidden: true,
+      backgroundInert: true,
+      focusedAfterShiftTab: true,
+      focusedAfterTab: true,
+      focusedInitially: true,
+      ready: true,
+    },
+    "Director history focus isolation",
+  );
   const history = await client.evaluate(`(() =>
     Array.from(document.querySelectorAll(".director-history-dialog-list li")).map((item) => ({
       kind: item.getAttribute("data-node-kind") ?? "",
@@ -599,6 +646,20 @@ async function readDirectorHistory(client) {
   )()`);
   await client.evaluate(
     `document.querySelector('.director-history-dialog button[aria-label="Close history"]')?.click()`,
+  );
+  await waitForState(
+    client,
+    `(() => {
+      const background = document.querySelector(".director-command-center-content");
+      const trigger = document.querySelector(".director-history-open");
+      return {
+        backgroundInert: background instanceof HTMLElement && background.inert,
+        focusedTrigger: document.activeElement === trigger,
+        overlayOpen: Boolean(document.querySelector(".director-history-overlay"))
+      };
+    })()`,
+    (state) => !state.backgroundInert && state.focusedTrigger && !state.overlayOpen,
+    workflowTimeoutMs,
   );
   return history;
 }

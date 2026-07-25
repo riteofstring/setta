@@ -20,7 +20,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import { useAppWindowDragHandlers } from "../../app-window-drag";
 import { SettaLogoMark } from "../../components/setta-logo-mark";
@@ -75,6 +75,12 @@ export function CommandCenterTopBar({
   const windowDragHandlers = useAppWindowDragHandlers();
   const navigation = directorWorkstreamNavigation(snapshot);
   const selectedStatus = navigation.selected?.workstream.status ?? "idle";
+  const workstreamStripRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    centerSelectedWorkstreamDot(workstreamStripRef.current);
+  }, [snapshot?.selectedWorkstreamId, snapshot?.workstreams]);
+
   return (
     <header
       className="director-command-center-top app-drag"
@@ -102,7 +108,12 @@ export function CommandCenterTopBar({
               {navigation.counter ? ` ${navigation.counter}` : ""}
             </span>
           </div>
-          <div aria-label="Visible workstreams" className="director-workstream-strip" role="list">
+          <div
+            aria-label="Visible workstreams"
+            className="director-workstream-strip"
+            ref={workstreamStripRef}
+            role="list"
+          >
             {navigation.visibleEntries.map((item) => (
               <span key={item.entry.workstream.id} role="listitem">
                 <button
@@ -315,5 +326,21 @@ function workstreamNavigationCounter(
   if (snapshot.workstreams.length <= unwindowedWorkstreamLimit && !snapshot.hasMoreWorkstreams) {
     return null;
   }
+  if (snapshot.hasMoreWorkstreams) {
+    return `${total} total`;
+  }
   return `${Math.min(selectedIndex + 1, total)}/${total}`;
+}
+
+function centerSelectedWorkstreamDot(strip: HTMLDivElement | null): void {
+  if (strip === null) {
+    return;
+  }
+  const selected = strip.querySelector<HTMLElement>('[aria-current="page"]');
+  if (selected === null) {
+    return;
+  }
+  const centered = selected.offsetLeft - (strip.clientWidth - selected.offsetWidth) / 2;
+  const maximum = Math.max(0, strip.scrollWidth - strip.clientWidth);
+  strip.scrollLeft = Math.max(0, Math.min(centered, maximum));
 }

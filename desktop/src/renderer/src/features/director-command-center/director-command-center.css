@@ -22,6 +22,15 @@
   --director-right-rail-inline: 0px;
 }
 
+.director-command-center-content {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  min-block-size: 0;
+  min-inline-size: 0;
+  position: relative;
+}
+
 .director-command-center-skip {
   background: oklch(0.12 0.015 255);
   border: 1px solid oklch(0.78 0.13 220);
@@ -77,7 +86,7 @@
   display: grid;
   gap: 8px;
   grid-template-columns: 40px minmax(190px, 1fr) 40px;
-  inline-size: clamp(300px, calc(100vw - 390px), 430px);
+  inline-size: clamp(300px, calc(100vw - 390px), 642px);
   justify-self: start;
   min-inline-size: 300px;
 }
@@ -94,7 +103,7 @@
   align-items: baseline;
   display: flex;
   gap: 8px;
-  justify-content: center;
+  justify-content: safe center;
   min-inline-size: 0;
   text-align: center;
 }
@@ -120,9 +129,17 @@
 .director-workstream-strip {
   display: flex;
   gap: 5px;
-  justify-content: center;
+  inline-size: 100%;
+  justify-content: safe center;
+  max-inline-size: 100%;
   min-inline-size: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.director-workstream-strip::-webkit-scrollbar {
+  display: none;
 }
 
 .director-command-center-view-controls {
@@ -180,7 +197,7 @@
 .director-approval-question input:focus-visible,
 .director-approval-question select:focus-visible,
 .director-artifact-detail:focus-visible,
-.director-history-dialog:focus-visible {
+.director-history-overlay:focus-visible {
   outline: 2px solid;
   outline-offset: 2px;
 }

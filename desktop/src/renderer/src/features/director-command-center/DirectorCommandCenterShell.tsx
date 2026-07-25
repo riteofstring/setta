@@ -10,11 +10,22 @@ import type {
 } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
 import { ChevronDown, History } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
 import { useWorkspaceStore } from "../../stores/workspace-store";
-import { subscribeSpeechCapabilityRefresh } from "../global-speech/app-shell-speech-capture";
+import {
+  AppShellSpeechCaptureEffectLifetime,
+  subscribeSpeechCapabilityRefresh,
+} from "../global-speech/app-shell-speech-capture";
 import type { AppShellSpeechPlaybackController } from "../global-speech/app-shell-speech-playback-controller";
 import { createBrowserVoiceInputProvider } from "../global-speech/browser-voice-input-provider";
 import { emptyPackedGraphSnapshot } from "../director-graph/packed-graph-snapshot";
@@ -131,6 +142,31 @@ const directorIntentBusyState = {
   submit: true,
 } as const satisfies Record<DirectorIntent["kind"], boolean>;
 
+export class DirectorRefreshCoordinator {
+  private inFlight = false;
+  private resyncPending = false;
+
+  async request(
+    state: DirectorLoadState,
+    operation: (state: DirectorLoadState) => Promise<void>,
+  ): Promise<void> {
+    if (this.inFlight) {
+      this.resyncPending ||= state === "resyncing";
+      return;
+    }
+    this.inFlight = true;
+    try {
+      await operation(state);
+    } finally {
+      this.inFlight = false;
+      if (this.resyncPending) {
+        this.resyncPending = false;
+        await this.request("resyncing", operation);
+      }
+    }
+  }
+}
+
 export function DirectorCommandCenterShell({
   connectedRuntimeId,
   onOpenVoiceCredentialSettings,
@@ -139,7 +175,7 @@ export function DirectorCommandCenterShell({
   setta,
   speechPlayback,
 }: DirectorCommandCenterShellProps): React.JSX.Element {
-  const director = useDirectorRuntime(setta, speechPlayback);
+  const director = useDirectorRuntime(setta, speechPlayback, connectedRuntimeId);
   const speechCapture = useDirectorSpeechCapture({
     dispatch: director.dispatch,
     runtimeId: connectedRuntimeId,
@@ -197,56 +233,62 @@ export function DirectorCommandCenterShell({
       data-workstream-switch-direction={switchTransition.direction ?? undefined}
       data-workstream-switching={switchTransition.active ? "true" : "false"}
     >
-      <a className="director-command-center-skip" href="#director-composer-input">
-        Skip to composer
-      </a>
-      <CommandCenterTopBar
-        dispatch={director.dispatch}
-        onToggleRail={toggleRail}
-        onOpenSettingsPage={onOpenSettingsPage}
-        platform={platform}
-        railVisibility={effectiveRailVisibility}
-        snapshot={director.snapshot}
+      <div
+        aria-hidden={historyOpen || undefined}
+        className="director-command-center-content"
+        inert={historyOpen || undefined}
+      >
+        <a className="director-command-center-skip" href="#director-composer-input">
+          Skip to composer
+        </a>
+        <CommandCenterTopBar
+          dispatch={director.dispatch}
+          onToggleRail={toggleRail}
+          onOpenSettingsPage={onOpenSettingsPage}
+          platform={platform}
+          railVisibility={effectiveRailVisibility}
+          snapshot={director.snapshot}
+        />
+        <section className="director-command-center-stage" aria-label="Director command center">
+          <DirectorGraphSurface
+            label="Director semantic graph"
+            onReady={onGraphReady}
+            timeSecondsAt={graphTimeSecondsAt}
+          />
+          <WorkstreamSwitchTransition transition={switchTransition} />
+          <NowRail
+            activity={snapshotView.activity}
+            history={snapshotView.history}
+            loadState={director.loadState}
+            message={director.message}
+            onOpenHistory={openHistory}
+            receiptText={director.receiptText}
+            workstream={snapshotView.selectedWorkstream}
+          />
+          <ArtifactsRail
+            approvals={snapshotView.approvals}
+            artifacts={snapshotView.artifacts}
+            dispatch={director.dispatch}
+            dispatching={director.dispatching}
+            openLocalFolder={workspaceBinding.openLocalFolder}
+            readArtifact={setta.conversations.readArtifact}
+            requests={snapshotView.requests}
+            workspaceSession={workspaceBinding.session}
+          />
+          <DirectorComposer
+            commitment={directorComposerCommitment(snapshotView.selectedWorkstream)}
+            dispatch={director.dispatch}
+            dispatching={director.dispatching}
+            onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
+            speechCapture={speechCapture}
+          />
+        </section>
+      </div>
+      <DirectorHistoryOverlaySlot
+        history={snapshotView.history}
+        isOpen={historyOpen}
+        onClose={closeHistory}
       />
-      <section className="director-command-center-stage" aria-label="Director command center">
-        <DirectorGraphSurface
-          label="Director semantic graph"
-          onReady={onGraphReady}
-          timeSecondsAt={graphTimeSecondsAt}
-        />
-        <WorkstreamSwitchTransition transition={switchTransition} />
-        <NowRail
-          activity={snapshotView.activity}
-          history={snapshotView.history}
-          loadState={director.loadState}
-          message={director.message}
-          onOpenHistory={openHistory}
-          receiptText={director.receiptText}
-          workstream={snapshotView.selectedWorkstream}
-        />
-        <ArtifactsRail
-          approvals={snapshotView.approvals}
-          artifacts={snapshotView.artifacts}
-          dispatch={director.dispatch}
-          dispatching={director.dispatching}
-          openLocalFolder={workspaceBinding.openLocalFolder}
-          readArtifact={setta.conversations.readArtifact}
-          requests={snapshotView.requests}
-          workspaceSession={workspaceBinding.session}
-        />
-        <DirectorComposer
-          commitment={directorComposerCommitment(snapshotView.selectedWorkstream)}
-          dispatch={director.dispatch}
-          dispatching={director.dispatching}
-          onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
-          speechCapture={speechCapture}
-        />
-        <DirectorHistoryOverlaySlot
-          history={snapshotView.history}
-          isOpen={historyOpen}
-          onClose={closeHistory}
-        />
-      </section>
     </main>
   );
 }
@@ -254,6 +296,7 @@ export function DirectorCommandCenterShell({
 function useDirectorRuntime(
   setta: SettaAPI,
   speechPlayback: AppShellSpeechPlaybackController,
+  runtimeId: string | null,
 ): DirectorRuntimeState & {
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
 } {
@@ -263,18 +306,29 @@ function useDirectorRuntime(
   const [receiptText, setReceiptText] = useState<string | null>(null);
   const [dispatching, setDispatching] = useState(false);
   const snapshotRef = useRef<DirectorSnapshot | null>(null);
-  const refreshRef = useRef<((state: DirectorLoadState) => Promise<void>) | null>(null);
-
   const setSnapshot = useCallback((next: DirectorSnapshot | null) => {
     snapshotRef.current = next;
     setSnapshotState(next);
   }, []);
+  const runtimeEpoch = useMemo(() => Symbol(runtimeId ?? "disconnected"), [runtimeId]);
+  const runtimeEpochRef = useRef(runtimeEpoch);
+  const busyDispatchesRef = useRef(new Set<symbol>());
+
+  useLayoutEffect(() => {
+    runtimeEpochRef.current = runtimeEpoch;
+    busyDispatchesRef.current.clear();
+    setDispatching(false);
+    setReceiptText(null);
+    setSnapshot(null);
+    setLoadState("loading");
+    setMessage(null);
+  }, [runtimeEpoch, setSnapshot]);
 
   useEffect(() => {
     let disposed = false;
     let disposeEvents: (() => void) | null = null;
-    let refreshInFlight = false;
     let pendingVisibleFrame: number | null = null;
+    const refreshCoordinator = new DirectorRefreshCoordinator();
 
     const cancelPendingVisibleFrame = (): void => {
       if (pendingVisibleFrame === null) {
@@ -291,37 +345,35 @@ function useDirectorRuntime(
       }
     };
 
-    const refresh = async (state: DirectorLoadState): Promise<void> => {
-      if (refreshInFlight || disposed) {
-        return;
-      }
-      refreshInFlight = true;
-      cancelPendingVisibleFrame();
-      setLoadState(state);
-      setMessage(state === "resyncing" ? "Resyncing Director state." : null);
-      disposeEvents?.();
-      disposeEvents = null;
-      try {
-        const next = await setta.director.readSnapshot();
-        if (disposed) {
+    const refresh = (state: DirectorLoadState): Promise<void> =>
+      refreshCoordinator.request(state, async (requestedState) => {
+        if (disposed || runtimeId === null) {
           return;
         }
-        setSnapshot(next);
-        setLoadState("ready");
-        setMessage(null);
-        disposeEvents = setta.director.onEvent((event) => {
-          handleDirectorEvent(event);
-        });
-        await setta.director.subscribe({ cursor: next.eventCursor });
-      } catch {
-        if (!disposed) {
-          setLoadState("error");
-          setMessage("The Director command center is unavailable.");
+        cancelPendingVisibleFrame();
+        setLoadState(requestedState);
+        setMessage(requestedState === "resyncing" ? "Resyncing Director state." : null);
+        disposeEvents?.();
+        disposeEvents = null;
+        try {
+          const next = await setta.director.readSnapshot();
+          if (disposed) {
+            return;
+          }
+          setSnapshot(next);
+          setLoadState("ready");
+          setMessage(null);
+          disposeEvents = setta.director.onEvent((event) => {
+            handleDirectorEvent(event);
+          });
+          await setta.director.subscribe({ cursor: next.eventCursor });
+        } catch {
+          if (!disposed) {
+            setLoadState("error");
+            setMessage("The Director command center is unavailable.");
+          }
         }
-      } finally {
-        refreshInFlight = false;
-      }
-    };
+      });
 
     const handleDirectorEvent = (event: DirectorEvent): void => {
       const current = snapshotRef.current;
@@ -345,30 +397,36 @@ function useDirectorRuntime(
       }
     };
 
-    refreshRef.current = refresh;
-    void refresh("loading");
+    if (runtimeId !== null) {
+      void refresh("loading");
+    }
     return () => {
       disposed = true;
       cancelPendingVisibleFrame();
-      refreshRef.current = null;
       disposeEvents?.();
     };
-  }, [setSnapshot, setta]);
+  }, [runtimeEpoch, runtimeId, setSnapshot, setta]);
 
   const dispatch = useCallback(
     async (intent: DirectorIntent): Promise<DirectorReceipt> => {
       const usesBusyState = directorIntentUsesBusyState(intent);
+      const busyToken = usesBusyState ? Symbol(intent.kind) : null;
+      const dispatchEpoch = runtimeEpoch;
       if (intent.kind === "submit") {
         speechPlayback.preemptForUserInput();
       }
-      if (usesBusyState) {
+      if (busyToken !== null) {
+        busyDispatchesRef.current.add(busyToken);
         setDispatching(true);
       }
       setMessage(null);
       try {
         const receipt = await setta.director.dispatch(intent);
-        setReceiptText(receipt.submit?.publicText || null);
+        if (runtimeEpochRef.current !== dispatchEpoch) {
+          return receipt;
+        }
         if (intent.kind === "submit") {
+          setReceiptText(receipt.submit?.publicText || null);
           void enqueueDirectorSpeechPlayback({
             controller: speechPlayback,
             readMasterVoiceSelection: setta.speech.readMasterVoiceSelection,
@@ -379,15 +437,20 @@ function useDirectorRuntime(
         }
         return receipt;
       } catch (error) {
-        setMessage("The Director could not accept that request.");
+        if (runtimeEpochRef.current === dispatchEpoch) {
+          setMessage("The Director could not accept that request.");
+        }
         throw error;
       } finally {
-        if (usesBusyState) {
-          setDispatching(false);
+        if (busyToken !== null) {
+          busyDispatchesRef.current.delete(busyToken);
+          if (runtimeEpochRef.current === dispatchEpoch) {
+            setDispatching(busyDispatchesRef.current.size > 0);
+          }
         }
       }
     },
-    [setta, speechPlayback],
+    [runtimeEpoch, setta, speechPlayback],
   );
 
   return { dispatch, dispatching, loadState, message, receiptText, snapshot };
@@ -447,6 +510,7 @@ function directorRailVisibilityAttributes(visibility: DirectorRailVisibility) {
 
 function useDirectorHistoryDialog() {
   const [isOpen, setOpen] = useState(false);
+  const wasOpenRef = useRef(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const open = useCallback((trigger: HTMLButtonElement) => {
     triggerRef.current = trigger;
@@ -454,8 +518,17 @@ function useDirectorHistoryDialog() {
   }, []);
   const close = useCallback(() => {
     setOpen(false);
-    triggerRef.current?.focus();
   }, []);
+  useLayoutEffect(() => {
+    if (wasOpenRef.current && !isOpen) {
+      const trigger = triggerRef.current;
+      if (trigger !== null && document.contains(trigger)) {
+        trigger.focus({ preventScroll: true });
+      }
+      triggerRef.current = null;
+    }
+    wasOpenRef.current = isOpen;
+  }, [isOpen]);
   return { close, isOpen, open };
 }
 
@@ -558,19 +631,15 @@ function useDirectorSpeechCapture({
         setTimeout: (handler, delayMs) => globalThis.setTimeout(handler, delayMs),
       }),
   );
+  const [effectLifetime] = useState(() => new AppShellSpeechCaptureEffectLifetime());
   const snapshot = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
     controller.getSnapshot,
   );
 
-  useEffect(() => {
-    const unregister = registerRendererPageTeardown(() => controller.dispose());
-    return () => {
-      unregister();
-      controller.dispose();
-    };
-  }, [controller]);
+  useLayoutEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
+  useLayoutEffect(() => registerRendererPageTeardown(() => controller.dispose()), [controller]);
   useEffect(() => {
     void controller.synchronizeRuntime(runtimeId);
   }, [controller, runtimeId]);

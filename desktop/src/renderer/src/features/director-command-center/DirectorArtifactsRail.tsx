@@ -81,12 +81,13 @@ export function ArtifactsRail({
   const [artifactDetail, setArtifactDetail] = useState<ArtifactDetailState | null>(null);
   const detailRef = useRef<HTMLElement | null>(null);
   const lastArtifactTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const artifactDetailId = artifactDetail?.artifact.id ?? null;
 
   useEffect(() => {
-    if (artifactDetail !== null) {
+    if (artifactDetailId !== null) {
       detailRef.current?.focus();
     }
-  }, [artifactDetail?.artifact.id, artifactDetail?.status]);
+  }, [artifactDetailId]);
 
   const closeArtifactDetail = useCallback(() => {
     setArtifactDetail(null);

@@ -1,7 +1,7 @@
 /* global CSS, Event, HTMLButtonElement, HTMLCanvasElement, HTMLElement, HTMLInputElement, HTMLSelectElement, MutationObserver, PerformanceObserver, WheelEvent, document, performance, requestAnimationFrame, window */
 
 (() => {
-  const version = "setta-director-command-center-performance-driver-v2";
+  const version = "setta-director-command-center-performance-driver-v3";
   let activeProfiler = null;
 
   function installDirectorCommandCenterPerformanceDriver() {
@@ -58,6 +58,7 @@
     const canvas = document.querySelector(".director-graph-canvas");
     const nowRail = document.querySelector("#director-now-rail");
     const artifactsRail = document.querySelector("#director-artifacts-rail");
+    const workstreamStrip = document.querySelector(".director-workstream-strip");
     const dots = Array.from(document.querySelectorAll(".director-workstream-dot"));
     return {
       activityItems: document.querySelectorAll(".director-activity-item").length,
@@ -88,6 +89,7 @@
         id: dot instanceof HTMLElement ? (dot.dataset.workstreamId ?? "") : "",
         status: dot instanceof HTMLElement ? (dot.dataset.status ?? "") : "",
       })),
+      workstreamStrip: workstreamStripSnapshot(workstreamStrip, dots),
     };
   }
 
@@ -398,6 +400,36 @@
       descendantCount: rail instanceof HTMLElement ? rail.querySelectorAll("*").length : 0,
       present: rail instanceof HTMLElement,
       visible: rail instanceof HTMLElement && visibleElement(rail),
+    };
+  }
+
+  function workstreamStripSnapshot(strip, dots) {
+    if (!(strip instanceof HTMLElement)) {
+      return {
+        allDotsVisible: false,
+        clientWidth: 0,
+        present: false,
+        scrollWidth: 0,
+        selectedDotVisible: false,
+      };
+    }
+    const stripBox = strip.getBoundingClientRect();
+    const dotVisibility = dots.map((dot) => {
+      if (!(dot instanceof HTMLElement)) {
+        return false;
+      }
+      const dotBox = dot.getBoundingClientRect();
+      return dotBox.left >= stripBox.left - 1 && dotBox.right <= stripBox.right + 1;
+    });
+    const selectedIndex = dots.findIndex(
+      (dot) => dot instanceof HTMLElement && dot.getAttribute("aria-current") === "page",
+    );
+    return {
+      allDotsVisible: dotVisibility.every(Boolean),
+      clientWidth: strip.clientWidth,
+      present: true,
+      scrollWidth: strip.scrollWidth,
+      selectedDotVisible: selectedIndex >= 0 && dotVisibility[selectedIndex] === true,
     };
   }
 

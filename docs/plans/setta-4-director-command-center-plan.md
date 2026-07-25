@@ -152,9 +152,8 @@ performance guardrail is committed as the `director-command-center-performance`
 Electron workflow, with focused lifecycle and 100-workstream navigation results
 recorded in
 [`docs/reports/performance/setta-4-command-center-integrated-performance-20260725.md`](../reports/performance/setta-4-command-center-integrated-performance-20260725.md).
-Side-by-side mockup review and any polish it finds remain Phase 4 work; no
-additional repository-actionable polish is known before that evidence. The
-coherent Phase 4 audit is recorded in
+Side-by-side mockup review and any polish it finds remain Phase 4 work. The
+first coherent Phase 4 audit is recorded in
 [`docs/reports/performance/setta-4-command-center-phase4-audit-20260725.md`](../reports/performance/setta-4-command-center-phase4-audit-20260725.md).
 Its production fixes and green broad deterministic evidence are committed, and
 the one live-provider attempt passed all four suites. The corrected in-frame
@@ -177,6 +176,17 @@ cleared buffers. Visual evidence also exposed and the audit fixed a stale
 selected-workstream milestone that contradicted a running status; the focused
 shell tests and production Director Electron workflow pass after that final
 UI-only edit, and the earlier green broad deterministic gate was not duplicated.
+A second coherent audit expanded the review through the completed chrome and
+rail-fidelity commits and found and fixed runtime-keyed subscription, in-flight
+resync, StrictMode voice lifetime, modal focus isolation, artifact focus, and
+workstream-selector clipping defects. Its focused production lifecycle, local
+voice, and laptop/4K 100-workstream evidence is green in
+[`docs/reports/performance/setta-4-command-center-phase4-coherent-audit-20260725.md`](../reports/performance/setta-4-command-center-phase4-coherent-audit-20260725.md).
+The already-green broad deterministic and live-provider gates were not
+duplicated because they still postdate the last backend/provider change; the
+focused workflows postdate every renderer-only audit correction. Phase 4
+therefore remains open only for the unavailable side-by-side mockup review and
+any Phase 4 polish that external evidence finds.
 Supply-chain release gate: `desktop/package.json` ignores `CVE-2026-14257`
 only because the first patched `brace-expansion` release, `5.0.8`, was published
 on 2026-07-23 and cannot satisfy the checked-in seven-day release-age policy
@@ -1633,9 +1643,10 @@ Phase 3 audit verification:
    list, and fullscreen `DirectorGraphSurface` against the generated Director snapshot contract. A
    follow-up chrome-fidelity pass replaced the temporary tab-like workstream strip with the mockup's
    selected title plus status-dot navigation, bounded large workstream sets to a 19-dot window with
-   an `i/N` counter, added view-state Now/Artifacts disclosure controls that become compact drawers
-   on phone-sized viewports, and moved compact history into a focus-managed dialog reachable from
-   the Now rail. A second chrome-fidelity pass adds the mockup's deliberate
+   an `i/N` counter when the full registry is present and a truthful total when the bounded snapshot
+   is truncated, added view-state Now/Artifacts disclosure controls that become compact drawers on
+   phone-sized viewports, and moved compact history into a modal, background-isolating dialog
+   reachable from the Now rail. A second chrome-fidelity pass adds the mockup's deliberate
    workstream-switch transition as view state over the graph: rails and dots dim
    briefly, a signal tear renders below the rails, reduced-motion users get an
    opacity-only path, and the selected workstream snapshot still advances only
@@ -1664,6 +1675,11 @@ Phase 3 audit verification:
    existing artifact detail surface. Its focused lifecycle selector is recorded
    in
    [`docs/reports/performance/setta-4-command-center-rail-fidelity-20260725.md`](../reports/performance/setta-4-command-center-rail-fidelity-20260725.md).
+   The coherent audit now keeps the required 19-dot window fully visible at laptop and 4K widths,
+   provides accessible horizontal overflow and selected-dot centering below that width, and verifies
+   actual selector geometry rather than DOM count alone. Its lifecycle and navigation evidence is
+   recorded in
+   [`docs/reports/performance/setta-4-command-center-phase4-coherent-audit-20260725.md`](../reports/performance/setta-4-command-center-phase4-coherent-audit-20260725.md).
    Phase 5 still owns
    deleting the old pane modules; they are no longer the primary app mount.
 2. Connect speech capture and playback through the same Director intents as text. **Done for
@@ -1674,9 +1690,11 @@ Phase 3 audit verification:
    playback side is committed with a first-class app-scoped `director` `SpeechSource` speaker,
    generated TypeScript contract coverage, a runtime resolver that rehydrates answer and
    clarification text from durable `DirectorFactDecisionCommitted` records, and command-center
-   enqueueing through the existing speech playback controller. The Director source currently uses
-   the existing global assistant voice selection; a separate Director voice-setting surface is not
-   part of this Phase 4 item.
+   enqueueing through the existing speech playback controller. The coherent audit also gives the
+   Director capture controller the established delayed-disposal effect lifetime, so React
+   StrictMode replay cannot invalidate the controller retained by the shell. The Director source
+   currently uses the existing global assistant voice selection; a separate Director voice-setting
+   surface is not part of this Phase 4 item.
 3. Implement previous/next and direct workstream selection. **Done for the initial shell** — the
    top navigation dispatches `move_selection` for previous/next and `select_workstream` for direct
    visible-workstream selection; no pane id crosses the renderer boundary. The production chrome now
@@ -1705,7 +1723,9 @@ Phase 3 audit verification:
    scheduling. **Done for the initial shell** —
    `director-command-center-state.ts` applies the app-scoped pushed event catalog to the snapshot,
    treats graph updates as semantic deltas, advances the durable cursor, and triggers a fresh
-   snapshot/subscription on `resync_required` or sequence drift.
+   snapshot/subscription on `resync_required` or sequence drift. The coherent audit keys that
+   lifecycle to the connected runtime, ignores late results from the prior runtime, and coalesces a
+   resync that arrives while snapshot/subscription setup is still in flight instead of dropping it.
 8. Reprofile all required live scenarios and record a second append-only report.
    **Done for repository-actionable integrated rows** —
    `desktop/tests/electron/director-command-center-performance.test.mjs` is now
@@ -1737,6 +1757,11 @@ Phase 3 audit verification:
    sustained activity passes at laptop with no measured heap growth, and
    restart/durable replay passes at laptop and harness-standard. Real 4K, 6K,
    and phone hardware stay release gates, not repository-actionable blockers.
+   The expanded coherent audit,
+   [`docs/reports/performance/setta-4-command-center-phase4-coherent-audit-20260725.md`](../reports/performance/setta-4-command-center-phase4-coherent-audit-20260725.md),
+   reruns the affected 100-workstream row with rectangle-level selector assertions: all 19 dots and
+   the selected dot are visible at laptop and emulated 4K, with zero long tasks or frames over
+   50 ms.
 
 Exit gate:
 
@@ -1851,6 +1876,8 @@ Setta 4 is complete when:
    restores the collapsed Now Summary disclosure and typed artifact card metadata, with focused
    lifecycle evidence in
    [`docs/reports/performance/setta-4-command-center-rail-fidelity-20260725.md`](../reports/performance/setta-4-command-center-rail-fidelity-20260725.md). The remaining shell work is
-   side-by-side fidelity review and any review-driven polish found by that external evidence.
+   side-by-side fidelity review and any review-driven polish found by that external evidence. The
+   expanded coherent audit has no remaining repository-actionable defect and is recorded in
+   [`docs/reports/performance/setta-4-command-center-phase4-coherent-audit-20260725.md`](../reports/performance/setta-4-command-center-phase4-coherent-audit-20260725.md).
 2. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.

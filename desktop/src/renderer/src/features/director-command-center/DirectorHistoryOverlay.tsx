@@ -1,6 +1,12 @@
 import type { WorkstreamGraph } from "@generated/backend";
 import { X } from "lucide-react";
-import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import {
+  useId,
+  useLayoutEffect,
+  useRef,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
 
 export type DirectorHistory = WorkstreamGraph["nodes"];
 
@@ -29,10 +35,12 @@ export function DirectorHistoryOverlaySlot({
 }
 
 function HistoryOverlay({ history, onClose }: { history: DirectorHistory; onClose: () => void }) {
-  const dialogRef = useRef<HTMLElement | null>(null);
+  const headingId = useId();
+  const overlayRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  useEffect(() => {
-    dialogRef.current?.focus();
+  useLayoutEffect(() => {
+    closeButtonRef.current?.focus({ preventScroll: true });
   }, []);
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLElement>): void => {
@@ -44,43 +52,45 @@ function HistoryOverlay({ history, onClose }: { history: DirectorHistory; onClos
     if (event.key !== "Tab") {
       return;
     }
-    trapDialogFocus(event, dialogRef.current);
+    trapDialogFocus(event, overlayRef.current);
   };
 
   return (
-    <div className="director-history-overlay">
+    <section
+      aria-labelledby={headingId}
+      aria-modal="true"
+      className="director-history-overlay"
+      onKeyDown={onKeyDown}
+      ref={overlayRef}
+      role="dialog"
+      tabIndex={-1}
+    >
       <button
         aria-label="Close history"
         className="director-history-backdrop"
         onClick={onClose}
+        tabIndex={-1}
         type="button"
       />
-      <section
-        aria-label="Thread history"
-        aria-modal="true"
-        className="director-history-dialog"
-        onKeyDown={onKeyDown}
-        ref={dialogRef}
-        role="dialog"
-        tabIndex={-1}
-      >
+      <div className="director-history-dialog">
         <header>
           <div>
             <p className="director-rail-kicker">Thread history</p>
-            <h2>Recent user and outcome turns</h2>
+            <h2 id={headingId}>Recent user and outcome turns</h2>
           </div>
           <button
             aria-label="Close history"
             className="director-artifact-detail-close"
             onClick={onClose}
+            ref={closeButtonRef}
             type="button"
           >
             <X aria-hidden="true" size={15} />
           </button>
         </header>
         <HistoryOverlayBody history={history} />
-      </section>
-    </div>
+      </div>
+    </section>
   );
 }
 
@@ -105,9 +115,14 @@ function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>, dialog: HTMLEle
   }
   const focusable = Array.from(
     dialog.querySelectorAll<HTMLElement>(
-      "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
+      "button:not([tabindex='-1']), [href]:not([tabindex='-1']), input:not([tabindex='-1']), select:not([tabindex='-1']), textarea:not([tabindex='-1']), [tabindex]:not([tabindex='-1'])",
     ),
-  ).filter((node) => !node.hasAttribute("disabled") && !node.getAttribute("aria-hidden"));
+  ).filter(
+    (node) =>
+      !node.hasAttribute("disabled") &&
+      node.getAttribute("aria-hidden") !== "true" &&
+      !node.closest("[inert]"),
+  );
   if (focusable.length === 0) {
     event.preventDefault();
     dialog.focus();
@@ -115,10 +130,14 @@ function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>, dialog: HTMLEle
   }
   const first = focusable[0] as HTMLElement;
   const last = focusable[focusable.length - 1] as HTMLElement;
-  if (event.shiftKey && document.activeElement === first) {
+  const active = document.activeElement;
+  if (!dialog.contains(active) || active === dialog) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus();
+  } else if (event.shiftKey && active === first) {
     event.preventDefault();
     last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
+  } else if (!event.shiftKey && active === last) {
     event.preventDefault();
     first.focus();
   }

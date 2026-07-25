@@ -380,6 +380,7 @@ async function measureScenario(client, scenario, run, tier = "laptop") {
     minFrameCount: 30,
   });
   assertDomBudgets(stopped.final, scenario);
+  assertScenarioLayout(stopped.final, scenario, tier);
   assertCanvasPixel(stopped.final.canvasPixel, `${tier}/${scenario}`);
   assertScenarioPerformance(stopped.sample, scenario, tier);
   return {
@@ -929,6 +930,24 @@ function assertScenarioPerformance(sample, scenario, tier) {
   }
 }
 
+function assertScenarioLayout(snapshot, scenario, tier) {
+  if (scenario !== "navigate-100-workstreams") {
+    return;
+  }
+  if (
+    snapshot.visibleWorkstreamDotCount !== domBudgets.visibleWorkstreamDots ||
+    !snapshot.workstreamStrip.allDotsVisible ||
+    !snapshot.workstreamStrip.selectedDotVisible
+  ) {
+    throw new Error(
+      `${tier}/${scenario} clipped its bounded workstream selector: ${JSON.stringify({
+        dotCount: snapshot.visibleWorkstreamDotCount,
+        strip: snapshot.workstreamStrip,
+      })}`,
+    );
+  }
+}
+
 function assertBudget(actual, budget, label) {
   if (actual <= budget) {
     return;
@@ -967,6 +986,7 @@ function compactResult(result) {
       pendingResourceRequests: result.final.pendingResourceRequests,
       rails: result.final.rails,
       visibleWorkstreamDotCount: result.final.visibleWorkstreamDotCount,
+      workstreamStrip: result.final.workstreamStrip,
     },
     canvasBacking: result.final.graphCanvasBacking,
     frameBudget: result.frameBudget,

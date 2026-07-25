@@ -12,6 +12,7 @@ import { describe, expect, test } from "vitest";
 
 import { buildApprovalAnswers, directorArtifactCardMetadata } from "./DirectorArtifactsRail";
 import {
+  DirectorRefreshCoordinator,
   directorEventChangesVisibleState,
   directorGraphTimeSecondsAt,
   directorCurrentWorkstreamSummary,
@@ -222,6 +223,37 @@ describe("Director command-center shell view state", () => {
     expect(navigation.visibleEntries.at(-1)?.entry.workstream.id).toBe("workstream:30");
     expect(navigation.selected?.workstream.id).toBe("workstream:22");
     expect(navigation.counter).toBe("22/30");
+  });
+
+  test("does not invent a selected ordinal for a truncated registry window", () => {
+    const snapshot = snapshotWithWorkstreams(30, 22);
+    snapshot.aggregates.workstreamCount = 201;
+    snapshot.hasMoreWorkstreams = true;
+
+    expect(directorWorkstreamNavigation(snapshot).counter).toBe("201 total");
+  });
+
+  test("replays a resync requested while a Director snapshot refresh is in flight", async () => {
+    const coordinator = new DirectorRefreshCoordinator();
+    const states: string[] = [];
+    let releaseInitial!: () => void;
+    const initialBlocked = new Promise<void>((resolve) => {
+      releaseInitial = resolve;
+    });
+    const operation = async (state: string): Promise<void> => {
+      states.push(state);
+      if (state === "loading") {
+        await initialBlocked;
+      }
+    };
+
+    const initial = coordinator.request("loading", operation);
+    await coordinator.request("resyncing", operation);
+    await coordinator.request("resyncing", operation);
+    releaseInitial();
+    await initial;
+
+    expect(states).toEqual(["loading", "resyncing"]);
   });
 
   test("keeps compact rail disclosure as view state", () => {
