@@ -7,19 +7,19 @@ const rawProjectionGalleryFixture = {
   description: "A provider subagent that runs inside a workstream's run and closes with it.",
   graphs: [
     {
-      workstreamId: "ws-parent",
+      workstreamId: "workstream:conv-parent",
       detailLevel: "selected",
       nodes: [
         {
-          id: "workstream:ws-parent",
+          id: "workstream:workstream:conv-parent",
           kind: "workstream",
-          workstreamId: "ws-parent",
+          workstreamId: "workstream:conv-parent",
           runId: null,
           actor: "system",
           status: "active",
           publicSummary: "Ship the release",
           evidenceClass: "runtime_fact",
-          sourceEventIds: ["director-01"],
+          sourceEventIds: ["conversation-01"],
           artifactIds: [],
           createdAt: "2026-07-24T12:00:01Z",
           updatedAt: "2026-07-24T12:00:01Z",
@@ -29,7 +29,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "input:trajectory-03",
           kind: "user_goal",
-          workstreamId: "ws-parent",
+          workstreamId: "workstream:conv-parent",
           runId: "turn-parent-1",
           actor: "user",
           status: "succeeded",
@@ -45,7 +45,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run:turn-parent-1",
           kind: "action",
-          workstreamId: "ws-parent",
+          workstreamId: "workstream:conv-parent",
           runId: "turn-parent-1",
           actor: "system",
           status: "succeeded",
@@ -61,7 +61,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "subagent:trajectory-05",
           kind: "delegation",
-          workstreamId: "ws-parent",
+          workstreamId: "workstream:conv-parent",
           runId: "turn-parent-1",
           actor: "worker",
           status: "succeeded",
@@ -77,7 +77,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run_terminal:turn-parent-1",
           kind: "completed",
-          workstreamId: "ws-parent",
+          workstreamId: "workstream:conv-parent",
           runId: "turn-parent-1",
           actor: "system",
           status: "succeeded",
@@ -93,10 +93,10 @@ const rawProjectionGalleryFixture = {
       ],
       edges: [
         {
-          id: "followed_by:workstream:ws-parent-\u003einput:trajectory-03",
+          id: "followed_by:workstream:workstream:conv-parent-\u003einput:trajectory-03",
           kind: "followed_by",
-          workstreamId: "ws-parent",
-          fromNodeId: "workstream:ws-parent",
+          workstreamId: "workstream:conv-parent",
+          fromNodeId: "workstream:workstream:conv-parent",
           toNodeId: "input:trajectory-03",
           sourceEventIds: ["trajectory-03"],
           createdAt: "2026-07-24T12:00:03Z",
@@ -104,7 +104,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-03-\u003erun:turn-parent-1",
           kind: "followed_by",
-          workstreamId: "ws-parent",
+          workstreamId: "workstream:conv-parent",
           fromNodeId: "input:trajectory-03",
           toNodeId: "run:turn-parent-1",
           sourceEventIds: ["trajectory-04"],
@@ -113,7 +113,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:run:turn-parent-1-\u003esubagent:trajectory-05",
           kind: "followed_by",
-          workstreamId: "ws-parent",
+          workstreamId: "workstream:conv-parent",
           fromNodeId: "run:turn-parent-1",
           toNodeId: "subagent:trajectory-05",
           sourceEventIds: ["trajectory-05"],
@@ -122,7 +122,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "delegated_to:run:turn-parent-1-\u003esubagent:trajectory-05",
           kind: "delegated_to",
-          workstreamId: "ws-parent",
+          workstreamId: "workstream:conv-parent",
           fromNodeId: "run:turn-parent-1",
           toNodeId: "subagent:trajectory-05",
           sourceEventIds: ["trajectory-05"],
@@ -131,7 +131,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-03-\u003erun_terminal:turn-parent-1",
           kind: "followed_by",
-          workstreamId: "ws-parent",
+          workstreamId: "workstream:conv-parent",
           fromNodeId: "input:trajectory-03",
           toNodeId: "run_terminal:turn-parent-1",
           sourceEventIds: ["trajectory-07"],

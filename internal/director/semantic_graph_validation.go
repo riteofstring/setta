@@ -179,9 +179,7 @@ func validateNodeInterpretation(node SemanticNode) error {
 }
 
 // validateInterpretationMetadata enforces the provenance an interpretation owes
-// the user: who concluded it, on which runtime, how confident they were when
-// confidence means anything, and when. It is shared by the durable Director fact
-// that publishes an interpretation and the node projected from it.
+// the user: who concluded it, on which runtime, and when.
 func validateInterpretationMetadata(label string, metadata InterpretationMetadata) error {
 	switch metadata.InterpretedBy {
 	case SemanticActorDirector, SemanticActorWorker:
@@ -196,9 +194,6 @@ func validateInterpretationMetadata(label string, metadata InterpretationMetadat
 	}
 	if err := validateIdentifier("interpretation runtime id", metadata.Model.RuntimeID); err != nil {
 		return err
-	}
-	if metadata.Confidence != nil && (*metadata.Confidence < 0 || *metadata.Confidence > 1) {
-		return fmt.Errorf("%s interpretation confidence must be within [0,1]: %f", label, *metadata.Confidence)
 	}
 	return validateTimestamp("interpretation interpreted at", metadata.InterpretedAt)
 }
@@ -277,15 +272,7 @@ func equalInterpretation(left *InterpretationMetadata, right *InterpretationMeta
 	if left == nil || right == nil {
 		return left == nil && right == nil
 	}
-	if left.InterpretedBy != right.InterpretedBy ||
-		left.Model != right.Model ||
-		left.InterpretedAt != right.InterpretedAt {
-		return false
-	}
-	if left.Confidence == nil || right.Confidence == nil {
-		return left.Confidence == nil && right.Confidence == nil
-	}
-	return *left.Confidence == *right.Confidence
+	return *left == *right
 }
 
 func validateMonotonicUpdate(previous SemanticNode, next SemanticNode) error {

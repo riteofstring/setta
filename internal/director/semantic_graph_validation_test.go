@@ -95,14 +95,12 @@ func TestTerminalNodesCarryCompletionTimestamps(t *testing.T) {
 
 func TestInterpretationsAreNeverPresentedAsRuntimeFacts(t *testing.T) {
 	authority := testAuthority()
-	confidence := 0.7
 	node := testNode()
 	node.Kind = SemanticNodeMilestone
 	node.Actor = SemanticActorDirector
 	node.Interpretation = &InterpretationMetadata{
 		InterpretedBy: SemanticActorDirector,
 		Model:         InterpretationModelIdentity{Provider: "codex", Model: "gpt-5.1-codex", RuntimeID: "runtime-1"},
-		Confidence:    &confidence,
 		InterpretedAt: "2026-07-24T12:00:00Z",
 	}
 	if err := ValidateSemanticNode(node, authority); err == nil {
@@ -126,15 +124,6 @@ func TestInterpretationsAreNeverPresentedAsRuntimeFacts(t *testing.T) {
 	unattributed.Interpretation = &metadata
 	if err := ValidateSemanticNode(unattributed, authority); err == nil {
 		t.Fatal("an interpretation without runtime identity must be rejected")
-	}
-
-	overconfident := node
-	outOfRange := 1.5
-	confident := *node.Interpretation
-	confident.Confidence = &outOfRange
-	overconfident.Interpretation = &confident
-	if err := ValidateSemanticNode(overconfident, authority); err == nil {
-		t.Fatal("a confidence outside [0,1] must be rejected")
 	}
 }
 

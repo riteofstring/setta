@@ -8,19 +8,19 @@ const rawProjectionGalleryFixture = {
     "A folderless workstream accepts a goal, runs one command, produces an artifact, and completes.",
   graphs: [
     {
-      workstreamId: "ws-alpha",
+      workstreamId: "workstream:conv-alpha",
       detailLevel: "selected",
       nodes: [
         {
-          id: "workstream:ws-alpha",
+          id: "workstream:workstream:conv-alpha",
           kind: "workstream",
-          workstreamId: "ws-alpha",
+          workstreamId: "workstream:conv-alpha",
           runId: null,
           actor: "system",
           status: "active",
           publicSummary: "Summarize the release notes",
           evidenceClass: "runtime_fact",
-          sourceEventIds: ["director-01"],
+          sourceEventIds: ["conversation-01"],
           artifactIds: [],
           createdAt: "2026-07-24T12:00:01Z",
           updatedAt: "2026-07-24T12:00:01Z",
@@ -30,7 +30,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "input:trajectory-03",
           kind: "user_goal",
-          workstreamId: "ws-alpha",
+          workstreamId: "workstream:conv-alpha",
           runId: "turn-alpha-1",
           actor: "user",
           status: "succeeded",
@@ -46,7 +46,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "decision:director-04",
           kind: "director_decision",
-          workstreamId: "ws-alpha",
+          workstreamId: "workstream:conv-alpha",
           runId: "turn-alpha-1",
           actor: "director",
           status: "succeeded",
@@ -62,7 +62,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run:turn-alpha-1",
           kind: "action",
-          workstreamId: "ws-alpha",
+          workstreamId: "workstream:conv-alpha",
           runId: "turn-alpha-1",
           actor: "system",
           status: "succeeded",
@@ -78,7 +78,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "activity:trajectory-07",
           kind: "action",
-          workstreamId: "ws-alpha",
+          workstreamId: "workstream:conv-alpha",
           runId: "turn-alpha-1",
           actor: "worker",
           status: "succeeded",
@@ -94,7 +94,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "artifact:artifact-alpha-1",
           kind: "artifact",
-          workstreamId: "ws-alpha",
+          workstreamId: "workstream:conv-alpha",
           runId: "turn-alpha-1",
           actor: "system",
           status: "succeeded",
@@ -110,7 +110,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run_terminal:turn-alpha-1",
           kind: "completed",
-          workstreamId: "ws-alpha",
+          workstreamId: "workstream:conv-alpha",
           runId: "turn-alpha-1",
           actor: "system",
           status: "succeeded",
@@ -126,10 +126,10 @@ const rawProjectionGalleryFixture = {
       ],
       edges: [
         {
-          id: "followed_by:workstream:ws-alpha-\u003einput:trajectory-03",
+          id: "followed_by:workstream:workstream:conv-alpha-\u003einput:trajectory-03",
           kind: "followed_by",
-          workstreamId: "ws-alpha",
-          fromNodeId: "workstream:ws-alpha",
+          workstreamId: "workstream:conv-alpha",
+          fromNodeId: "workstream:workstream:conv-alpha",
           toNodeId: "input:trajectory-03",
           sourceEventIds: ["trajectory-03"],
           createdAt: "2026-07-24T12:00:03Z",
@@ -137,7 +137,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-03-\u003edecision:director-04",
           kind: "followed_by",
-          workstreamId: "ws-alpha",
+          workstreamId: "workstream:conv-alpha",
           fromNodeId: "input:trajectory-03",
           toNodeId: "decision:director-04",
           sourceEventIds: ["director-04"],
@@ -146,7 +146,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:decision:director-04-\u003erun:turn-alpha-1",
           kind: "followed_by",
-          workstreamId: "ws-alpha",
+          workstreamId: "workstream:conv-alpha",
           fromNodeId: "decision:director-04",
           toNodeId: "run:turn-alpha-1",
           sourceEventIds: ["trajectory-05"],
@@ -155,7 +155,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:run:turn-alpha-1-\u003eactivity:trajectory-07",
           kind: "followed_by",
-          workstreamId: "ws-alpha",
+          workstreamId: "workstream:conv-alpha",
           fromNodeId: "run:turn-alpha-1",
           toNodeId: "activity:trajectory-07",
           sourceEventIds: ["trajectory-07"],
@@ -164,7 +164,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:activity:trajectory-07-\u003eartifact:artifact-alpha-1",
           kind: "followed_by",
-          workstreamId: "ws-alpha",
+          workstreamId: "workstream:conv-alpha",
           fromNodeId: "activity:trajectory-07",
           toNodeId: "artifact:artifact-alpha-1",
           sourceEventIds: ["trajectory-09"],
@@ -173,7 +173,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "produced:run:turn-alpha-1-\u003eartifact:artifact-alpha-1",
           kind: "produced",
-          workstreamId: "ws-alpha",
+          workstreamId: "workstream:conv-alpha",
           fromNodeId: "run:turn-alpha-1",
           toNodeId: "artifact:artifact-alpha-1",
           sourceEventIds: ["trajectory-09"],
@@ -182,7 +182,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-03-\u003erun_terminal:turn-alpha-1",
           kind: "followed_by",
-          workstreamId: "ws-alpha",
+          workstreamId: "workstream:conv-alpha",
           fromNodeId: "input:trajectory-03",
           toNodeId: "run_terminal:turn-alpha-1",
           sourceEventIds: ["trajectory-11"],

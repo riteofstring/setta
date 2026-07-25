@@ -655,6 +655,43 @@ went is the branch kind only the Director wrote: a `child` branch was durable
 parentage with no carried history, created by nothing else, and `director` as a
 branch decision source went with it.
 
+#### Resolved: a Director fact nothing commits is not a fact
+
+Three Director fact kinds survived only because the fixtures still wrote them.
+Production committed none of them, and each had already been replaced.
+
+`workstream_registered` was the clearest: the registry rejected it on arrival
+with an error explaining that the anchor is derived from the conversation record
+instead, so the projector held two ways to mint a workstream and the app could
+reach exactly one. The rejection went with the fact, because a guard against a
+value the type system no longer has is a guard against nothing.
+
+`interpretation_published` was the Director's conclusion drawn as a node, which
+is what the Director's reply now is. Phase 3 already made the durable
+conversation entry the single record the graph, the provider replay, and the
+spoken reply are read from; the second way to say the same thing outlived it.
+Its `interpretation` node identity went too, and so did the confidence value on
+`InterpretationMetadata` — a reply carries the model that authored it, not a
+number no code path could ever set. The renderer stopped offering to print a
+percentage that could not exist.
+
+`validation_recorded` was the Director half of validating a structured
+declaration before it took effect, and the schema-constrained declaration it
+checked was removed in Phase 1. A refused tool call is already drawn as a failed
+node carrying Setta's own reason. The provider's own validation is a different
+fact, in the trajectory, and it still projects the `validation` node and the
+`validated_by` edge.
+
+The fixtures now register a workstream through the same `conversation.updated`
+projection production folds, so a fixture addresses work by an id the app would
+actually mint, and they gained the lane they were missing: a Director turn that
+calls a Setta tool, commits the create decision before the workstream exists,
+receives its receipt, and answers the user. That fixture is where the
+interpretation evidence class comes from now, which is the point — the coverage
+comes from the path the product runs. The gallery generator therefore emits the
+Director lane the way the snapshot fetches it, by name, and only when the
+Director actually said something.
+
 #### Verify in the phase audit
 
 - the decision-router deliverable above: what is left of `decision_*` is the
@@ -662,9 +699,9 @@ branch decision source went with it.
   Phase 1 recorded as the surface the tool layer uses directly — confirm no
   router remnant survives beyond that
 - stale docs that describe the wrong Director model
-- `DirectorFactWorkstreamRegistered` is described in `source_mapping.go` as a
-  fixture/projector-catalog fact whose production anchors come from
-  `conversation.updated`; confirm whether production still commits it
+- the Director command-center Electron workflow now asserts that a workstream
+  anchor cites no Director fact at all, which is the surviving half of an
+  assertion written against `workstream_registered`
 
 ### Phase 6 - Verification When Requested
 

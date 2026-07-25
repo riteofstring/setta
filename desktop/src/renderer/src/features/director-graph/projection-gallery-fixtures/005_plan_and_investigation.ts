@@ -8,19 +8,19 @@ const rawProjectionGalleryFixture = {
     "A committed plan, an investigation, and a second plan that supersedes the first plan's steps.",
   graphs: [
     {
-      workstreamId: "ws-delta",
+      workstreamId: "workstream:conv-delta",
       detailLevel: "selected",
       nodes: [
         {
-          id: "workstream:ws-delta",
+          id: "workstream:workstream:conv-delta",
           kind: "workstream",
-          workstreamId: "ws-delta",
+          workstreamId: "workstream:conv-delta",
           runId: null,
           actor: "system",
           status: "active",
           publicSummary: "Research the migration",
           evidenceClass: "runtime_fact",
-          sourceEventIds: ["director-01"],
+          sourceEventIds: ["conversation-01"],
           artifactIds: [],
           createdAt: "2026-07-24T12:00:01Z",
           updatedAt: "2026-07-24T12:00:01Z",
@@ -30,7 +30,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "input:trajectory-03",
           kind: "user_goal",
-          workstreamId: "ws-delta",
+          workstreamId: "workstream:conv-delta",
           runId: "turn-delta-1",
           actor: "user",
           status: "succeeded",
@@ -46,7 +46,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run:turn-delta-1",
           kind: "action",
-          workstreamId: "ws-delta",
+          workstreamId: "workstream:conv-delta",
           runId: "turn-delta-1",
           actor: "system",
           status: "succeeded",
@@ -62,7 +62,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "plan:turn-delta-1",
           kind: "plan",
-          workstreamId: "ws-delta",
+          workstreamId: "workstream:conv-delta",
           runId: "turn-delta-1",
           actor: "worker",
           status: "succeeded",
@@ -78,7 +78,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "activity:trajectory-06",
           kind: "investigation",
-          workstreamId: "ws-delta",
+          workstreamId: "workstream:conv-delta",
           runId: "turn-delta-1",
           actor: "worker",
           status: "succeeded",
@@ -94,7 +94,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "plan_step:trajectory-08:0",
           kind: "milestone",
-          workstreamId: "ws-delta",
+          workstreamId: "workstream:conv-delta",
           runId: "turn-delta-1",
           actor: "worker",
           status: "succeeded",
@@ -110,7 +110,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "plan_step:trajectory-08:1",
           kind: "milestone",
-          workstreamId: "ws-delta",
+          workstreamId: "workstream:conv-delta",
           runId: "turn-delta-1",
           actor: "worker",
           status: "succeeded",
@@ -126,7 +126,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run_terminal:turn-delta-1",
           kind: "completed",
-          workstreamId: "ws-delta",
+          workstreamId: "workstream:conv-delta",
           runId: "turn-delta-1",
           actor: "system",
           status: "succeeded",
@@ -142,10 +142,10 @@ const rawProjectionGalleryFixture = {
       ],
       edges: [
         {
-          id: "followed_by:workstream:ws-delta-\u003einput:trajectory-03",
+          id: "followed_by:workstream:workstream:conv-delta-\u003einput:trajectory-03",
           kind: "followed_by",
-          workstreamId: "ws-delta",
-          fromNodeId: "workstream:ws-delta",
+          workstreamId: "workstream:conv-delta",
+          fromNodeId: "workstream:workstream:conv-delta",
           toNodeId: "input:trajectory-03",
           sourceEventIds: ["trajectory-03"],
           createdAt: "2026-07-24T12:00:03Z",
@@ -153,7 +153,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-03-\u003erun:turn-delta-1",
           kind: "followed_by",
-          workstreamId: "ws-delta",
+          workstreamId: "workstream:conv-delta",
           fromNodeId: "input:trajectory-03",
           toNodeId: "run:turn-delta-1",
           sourceEventIds: ["trajectory-04"],
@@ -162,7 +162,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:run:turn-delta-1-\u003eplan:turn-delta-1",
           kind: "followed_by",
-          workstreamId: "ws-delta",
+          workstreamId: "workstream:conv-delta",
           fromNodeId: "run:turn-delta-1",
           toNodeId: "plan:turn-delta-1",
           sourceEventIds: ["trajectory-05"],
@@ -171,7 +171,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "depends_on:plan:turn-delta-1-\u003eplan_step:trajectory-08:0",
           kind: "depends_on",
-          workstreamId: "ws-delta",
+          workstreamId: "workstream:conv-delta",
           fromNodeId: "plan:turn-delta-1",
           toNodeId: "plan_step:trajectory-08:0",
           sourceEventIds: ["trajectory-08"],
@@ -180,7 +180,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "depends_on:plan:turn-delta-1-\u003eplan_step:trajectory-08:1",
           kind: "depends_on",
-          workstreamId: "ws-delta",
+          workstreamId: "workstream:conv-delta",
           fromNodeId: "plan:turn-delta-1",
           toNodeId: "plan_step:trajectory-08:1",
           sourceEventIds: ["trajectory-08"],
@@ -189,7 +189,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:plan_step:trajectory-08:0-\u003eplan_step:trajectory-08:1",
           kind: "followed_by",
-          workstreamId: "ws-delta",
+          workstreamId: "workstream:conv-delta",
           fromNodeId: "plan_step:trajectory-08:0",
           toNodeId: "plan_step:trajectory-08:1",
           sourceEventIds: ["trajectory-08"],
@@ -198,7 +198,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-03-\u003erun_terminal:turn-delta-1",
           kind: "followed_by",
-          workstreamId: "ws-delta",
+          workstreamId: "workstream:conv-delta",
           fromNodeId: "input:trajectory-03",
           toNodeId: "run_terminal:turn-delta-1",
           sourceEventIds: ["trajectory-09"],

@@ -6,80 +6,19 @@ import "fmt"
 //
 // These are the app-scoped facts a conversation cannot own: which workstream the
 // app selected, which decision routed the work, what the work is waiting for,
-// what the Director concluded, what was validated, and what was recovered.
+// and what was recovered.
 
 type directorHandler func(projector *DirectorGraphProjector, context factContext, fact DirectorFactEvent) error
 
-// directorHandlers is total over the Director fact catalog. Registration is
-// handled before dispatch, because it is what creates the workstream the other
-// handlers resolve.
+// directorHandlers is total over the Director fact catalog, so a fact kind with
+// no projection fails at the boundary instead of silently vanishing.
 var directorHandlers = map[DirectorSourceFact]directorHandler{
 	DirectorFactWorkstreamSelected:      projectWorkstreamSelected,
 	DirectorFactWorkstreamResourceBound: projectWorkstreamMetadataOnly,
 	DirectorFactDecisionCommitted:       projectDecisionCommitted,
 	DirectorFactResourceRequestOpened:   projectResourceRequestOpened,
 	DirectorFactResourceRequestResolved: projectResourceRequestResolved,
-	DirectorFactInterpretationPublished: projectInterpretationPublished,
-	DirectorFactValidationRecorded:      projectValidationRecorded,
 	DirectorFactRecoveryAttempted:       projectRecoveryAttempted,
-}
-
-// registerWorkstream admits a workstream to the projection and gives it its
-// anchor node. Identity is app-scoped: the conversation it names is where the
-// work executes, not what the workstream is.
-//
-// The anchor is what makes an idle workstream visible as itself. Registration is
-// durable state the user acted to create, so the workstream the app just made is
-// on the canvas before anything has been asked of it, and every later fact in it
-// chains from the anchor rather than from nothing.
-func (projector *DirectorGraphProjector) registerWorkstream(
-	fact DirectorFactEvent,
-	edgeKinds []SemanticEdgeKind,
-) error {
-	payload := fact.WorkstreamRegistered
-	workstreamID := *fact.WorkstreamID
-	if _, exists := projector.workstreams[workstreamID]; exists {
-		return fmt.Errorf("workstream %s is already registered", workstreamID)
-	}
-	if existing, bound := projector.byConversation[payload.ConversationID]; bound {
-		return fmt.Errorf(
-			"conversation %s is already projected as workstream %s",
-			payload.ConversationID,
-			existing,
-		)
-	}
-	if payload.ParentID != nil {
-		if _, known := projector.workstreams[*payload.ParentID]; !known {
-			return fmt.Errorf(
-				"workstream %s names parent %s, which is not registered",
-				workstreamID,
-				*payload.ParentID,
-			)
-		}
-	}
-	workstream := newProjectedWorkstream(workstreamID)
-	projector.workstreams[workstreamID] = workstream
-	projector.workstreamParents[workstreamID] = copyOptionalString(payload.ParentID)
-	projector.byConversation[payload.ConversationID] = workstreamID
-	projector.order = append(projector.order, workstreamID)
-	context := factContext{
-		eventID:    fact.ID,
-		emittedAt:  fact.EmittedAt,
-		workstream: workstream,
-		actor:      fact.Actor,
-		sourceFact: string(fact.Kind),
-		edgeKinds:  edgeKinds,
-	}
-	_, err := projector.commitNode(context, nodeSpec{
-		identity: SemanticNodeIdentityWorkstream,
-		sourceID: workstreamID,
-		kind:     SemanticNodeWorkstream,
-		status:   SemanticNodeStatusActive,
-		actor:    fact.Actor,
-		summary:  payload.Title,
-		evidence: EvidenceRuntimeFact,
-	})
-	return err
 }
 
 // projectWorkstreamSelected changes app state and detail level. Selection is
@@ -205,59 +144,6 @@ func projectResourceRequestResolved(projector *DirectorGraphProjector, context f
 	}
 	_, err = projector.commitNode(context, nodeSpec{nodeID: nodeID, status: status})
 	return err
-}
-
-func projectInterpretationPublished(projector *DirectorGraphProjector, context factContext, fact DirectorFactEvent) error {
-	payload := fact.InterpretationPublished
-	for _, sourceEventID := range payload.InterpretedEventIDs {
-		if err := projector.requirePriorSourceEvent(context.workstream.id, sourceEventID); err != nil {
-			return fmt.Errorf("interpretation %s: %w", payload.InterpretationID, err)
-		}
-	}
-	metadata := payload.Metadata
-	// An interpretation is visibly distinguishable from a runtime fact because it
-	// carries its evidence class, its attributable metadata, and the durable
-	// events it was drawn from.
-	_, err := projector.commitNode(context, nodeSpec{
-		identity:            SemanticNodeIdentityInterpretation,
-		sourceID:            payload.InterpretationID,
-		kind:                SemanticNodeMilestone,
-		status:              SemanticNodeStatusSucceeded,
-		actor:               context.actor,
-		summary:             payload.PublicSummary,
-		evidence:            EvidenceDirectorInterpretation,
-		interpretation:      &metadata,
-		extraSourceEventIDs: payload.InterpretedEventIDs,
-		chain:               true,
-	})
-	return err
-}
-
-func projectValidationRecorded(projector *DirectorGraphProjector, context factContext, fact DirectorFactEvent) error {
-	payload := fact.ValidationRecorded
-	subjectNodeID, err := projector.requirePriorSemanticNode(context.workstream.id, payload.SubjectEventID)
-	if err != nil {
-		return fmt.Errorf("validation %s: %w", payload.ValidationID, err)
-	}
-	status := SemanticNodeStatusSucceeded
-	if payload.Outcome == DirectorValidationFailed {
-		status = SemanticNodeStatusFailed
-	}
-	nodeID, err := projector.commitNode(context, nodeSpec{
-		identity:            SemanticNodeIdentityValidation,
-		sourceID:            payload.ValidationID,
-		kind:                SemanticNodeValidation,
-		status:              status,
-		actor:               context.actor,
-		summary:             payload.PublicSummary,
-		evidence:            EvidenceRuntimeFact,
-		extraSourceEventIDs: []string{payload.SubjectEventID},
-		chain:               true,
-	})
-	if err != nil {
-		return err
-	}
-	return projector.addEdge(context, SemanticEdgeValidatedBy, subjectNodeID, nodeID)
 }
 
 func projectRecoveryAttempted(projector *DirectorGraphProjector, context factContext, fact DirectorFactEvent) error {

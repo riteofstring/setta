@@ -8,19 +8,19 @@ const rawProjectionGalleryFixture = {
     "Work queued behind an active run, the active run steered, then both runs completing in order. Prefix through durable event 6.",
   graphs: [
     {
-      workstreamId: "ws-beta",
+      workstreamId: "workstream:conv-beta",
       detailLevel: "selected",
       nodes: [
         {
-          id: "workstream:ws-beta",
+          id: "workstream:workstream:conv-beta",
           kind: "workstream",
-          workstreamId: "ws-beta",
+          workstreamId: "workstream:conv-beta",
           runId: null,
           actor: "system",
           status: "active",
           publicSummary: "Refactor the importer",
           evidenceClass: "runtime_fact",
-          sourceEventIds: ["director-01"],
+          sourceEventIds: ["conversation-01"],
           artifactIds: [],
           createdAt: "2026-07-24T12:00:01Z",
           updatedAt: "2026-07-24T12:00:01Z",
@@ -30,7 +30,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "input:trajectory-03",
           kind: "user_goal",
-          workstreamId: "ws-beta",
+          workstreamId: "workstream:conv-beta",
           runId: "turn-beta-1",
           actor: "user",
           status: "active",
@@ -46,7 +46,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run:turn-beta-1",
           kind: "action",
-          workstreamId: "ws-beta",
+          workstreamId: "workstream:conv-beta",
           runId: "turn-beta-1",
           actor: "system",
           status: "active",
@@ -62,7 +62,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "input:trajectory-05",
           kind: "user_goal",
-          workstreamId: "ws-beta",
+          workstreamId: "workstream:conv-beta",
           runId: "turn-beta-2",
           actor: "user",
           status: "active",
@@ -78,7 +78,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run:turn-beta-2",
           kind: "action",
-          workstreamId: "ws-beta",
+          workstreamId: "workstream:conv-beta",
           runId: "turn-beta-2",
           actor: "system",
           status: "pending",
@@ -94,10 +94,10 @@ const rawProjectionGalleryFixture = {
       ],
       edges: [
         {
-          id: "followed_by:workstream:ws-beta-\u003einput:trajectory-03",
+          id: "followed_by:workstream:workstream:conv-beta-\u003einput:trajectory-03",
           kind: "followed_by",
-          workstreamId: "ws-beta",
-          fromNodeId: "workstream:ws-beta",
+          workstreamId: "workstream:conv-beta",
+          fromNodeId: "workstream:workstream:conv-beta",
           toNodeId: "input:trajectory-03",
           sourceEventIds: ["trajectory-03"],
           createdAt: "2026-07-24T12:00:03Z",
@@ -105,7 +105,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-03-\u003erun:turn-beta-1",
           kind: "followed_by",
-          workstreamId: "ws-beta",
+          workstreamId: "workstream:conv-beta",
           fromNodeId: "input:trajectory-03",
           toNodeId: "run:turn-beta-1",
           sourceEventIds: ["trajectory-04"],
@@ -114,7 +114,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:run:turn-beta-1-\u003einput:trajectory-05",
           kind: "followed_by",
-          workstreamId: "ws-beta",
+          workstreamId: "workstream:conv-beta",
           fromNodeId: "run:turn-beta-1",
           toNodeId: "input:trajectory-05",
           sourceEventIds: ["trajectory-05"],
@@ -123,7 +123,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-05-\u003erun:turn-beta-2",
           kind: "followed_by",
-          workstreamId: "ws-beta",
+          workstreamId: "workstream:conv-beta",
           fromNodeId: "input:trajectory-05",
           toNodeId: "run:turn-beta-2",
           sourceEventIds: ["trajectory-06"],
@@ -132,7 +132,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "depends_on:run:turn-beta-2-\u003erun:turn-beta-1",
           kind: "depends_on",
-          workstreamId: "ws-beta",
+          workstreamId: "workstream:conv-beta",
           fromNodeId: "run:turn-beta-2",
           toNodeId: "run:turn-beta-1",
           sourceEventIds: ["trajectory-06"],

@@ -8,19 +8,19 @@ const rawProjectionGalleryFixture = {
     "A lost agent, a reconciliation, a disconnected then reconnected environment, an approval superseded by the provider, and a user cancellation confirmed by the provider.",
   graphs: [
     {
-      workstreamId: "ws-theta",
+      workstreamId: "workstream:conv-theta",
       detailLevel: "selected",
       nodes: [
         {
-          id: "workstream:ws-theta",
+          id: "workstream:workstream:conv-theta",
           kind: "workstream",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           runId: null,
           actor: "system",
           status: "active",
           publicSummary: "Deploy the preview",
           evidenceClass: "runtime_fact",
-          sourceEventIds: ["director-01"],
+          sourceEventIds: ["conversation-01"],
           artifactIds: [],
           createdAt: "2026-07-24T12:00:01Z",
           updatedAt: "2026-07-24T12:00:01Z",
@@ -30,7 +30,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "input:trajectory-03",
           kind: "user_goal",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           runId: "turn-theta-1",
           actor: "user",
           status: "cancelled",
@@ -46,7 +46,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run:turn-theta-1",
           kind: "action",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           runId: "turn-theta-1",
           actor: "system",
           status: "cancelled",
@@ -62,7 +62,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "lifecycle:trajectory-05",
           kind: "blocked",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           runId: "turn-theta-1",
           actor: "system",
           status: "succeeded",
@@ -78,7 +78,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "lifecycle:trajectory-06",
           kind: "recovery",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           runId: "turn-theta-1",
           actor: "system",
           status: "succeeded",
@@ -94,7 +94,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "lifecycle:trajectory-08",
           kind: "blocked",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           runId: null,
           actor: "provider",
           status: "succeeded",
@@ -110,7 +110,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "approval:trajectory-10",
           kind: "approval_required",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           runId: "turn-theta-1",
           actor: "system",
           status: "cancelled",
@@ -126,7 +126,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run_terminal:turn-theta-1",
           kind: "cancelled",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           runId: "turn-theta-1",
           actor: "provider",
           status: "cancelled",
@@ -142,10 +142,10 @@ const rawProjectionGalleryFixture = {
       ],
       edges: [
         {
-          id: "followed_by:workstream:ws-theta-\u003einput:trajectory-03",
+          id: "followed_by:workstream:workstream:conv-theta-\u003einput:trajectory-03",
           kind: "followed_by",
-          workstreamId: "ws-theta",
-          fromNodeId: "workstream:ws-theta",
+          workstreamId: "workstream:conv-theta",
+          fromNodeId: "workstream:workstream:conv-theta",
           toNodeId: "input:trajectory-03",
           sourceEventIds: ["trajectory-03"],
           createdAt: "2026-07-24T12:00:03Z",
@@ -153,7 +153,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-03-\u003erun:turn-theta-1",
           kind: "followed_by",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           fromNodeId: "input:trajectory-03",
           toNodeId: "run:turn-theta-1",
           sourceEventIds: ["trajectory-04"],
@@ -162,7 +162,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:run:turn-theta-1-\u003elifecycle:trajectory-05",
           kind: "followed_by",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           fromNodeId: "run:turn-theta-1",
           toNodeId: "lifecycle:trajectory-05",
           sourceEventIds: ["trajectory-05"],
@@ -171,7 +171,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "blocked_by:run:turn-theta-1-\u003elifecycle:trajectory-05",
           kind: "blocked_by",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           fromNodeId: "run:turn-theta-1",
           toNodeId: "lifecycle:trajectory-05",
           sourceEventIds: ["trajectory-05"],
@@ -180,7 +180,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:lifecycle:trajectory-05-\u003elifecycle:trajectory-06",
           kind: "followed_by",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           fromNodeId: "lifecycle:trajectory-05",
           toNodeId: "lifecycle:trajectory-06",
           sourceEventIds: ["trajectory-06"],
@@ -189,7 +189,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "recovered_by:lifecycle:trajectory-05-\u003elifecycle:trajectory-06",
           kind: "recovered_by",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           fromNodeId: "lifecycle:trajectory-05",
           toNodeId: "lifecycle:trajectory-06",
           sourceEventIds: ["trajectory-06"],
@@ -198,7 +198,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:lifecycle:trajectory-06-\u003elifecycle:trajectory-08",
           kind: "followed_by",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           fromNodeId: "lifecycle:trajectory-06",
           toNodeId: "lifecycle:trajectory-08",
           sourceEventIds: ["trajectory-08"],
@@ -207,7 +207,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "blocked_by:run:turn-theta-1-\u003elifecycle:trajectory-08",
           kind: "blocked_by",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           fromNodeId: "run:turn-theta-1",
           toNodeId: "lifecycle:trajectory-08",
           sourceEventIds: ["trajectory-08"],
@@ -216,7 +216,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:lifecycle:trajectory-06-\u003eapproval:trajectory-10",
           kind: "followed_by",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           fromNodeId: "lifecycle:trajectory-06",
           toNodeId: "approval:trajectory-10",
           sourceEventIds: ["trajectory-10"],
@@ -225,7 +225,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "blocked_by:run:turn-theta-1-\u003eapproval:trajectory-10",
           kind: "blocked_by",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           fromNodeId: "run:turn-theta-1",
           toNodeId: "approval:trajectory-10",
           sourceEventIds: ["trajectory-10"],
@@ -234,7 +234,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-03-\u003erun_terminal:turn-theta-1",
           kind: "followed_by",
-          workstreamId: "ws-theta",
+          workstreamId: "workstream:conv-theta",
           fromNodeId: "input:trajectory-03",
           toNodeId: "run_terminal:turn-theta-1",
           sourceEventIds: ["trajectory-13"],

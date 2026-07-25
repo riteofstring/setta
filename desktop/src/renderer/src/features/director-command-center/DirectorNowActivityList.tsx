@@ -152,9 +152,6 @@ function directorActivityMetadata(node: SemanticNode): string[] {
       `${node.artifactIds.length} ${node.artifactIds.length === 1 ? "artifact" : "artifacts"}`,
     );
   }
-  if (node.interpretation?.confidence !== null && node.interpretation?.confidence !== undefined) {
-    metadata.push(`${Math.round(node.interpretation.confidence * 100)}% confidence`);
-  }
   return metadata;
 }
 

@@ -47,29 +47,6 @@ func DirectorDecisionKinds() []DirectorDecisionKind {
 	return append([]DirectorDecisionKind(nil), directorDecisionKinds...)
 }
 
-// DirectorValidationOutcome is the durable result of validating a structured
-// declaration before it caused any product effect.
-type DirectorValidationOutcome string
-
-const (
-	DirectorValidationPassed DirectorValidationOutcome = "passed"
-	DirectorValidationFailed DirectorValidationOutcome = "failed"
-)
-
-var directorValidationOutcomes = []DirectorValidationOutcome{
-	DirectorValidationPassed,
-	DirectorValidationFailed,
-}
-
-// DirectorWorkstreamRegistered admits a workstream to the app-scoped registry.
-// The conversation it names is its execution substrate, not its identity.
-type DirectorWorkstreamRegistered struct {
-	Title          string                  `json:"title"`
-	ConversationID string                  `json:"conversationId"`
-	ParentID       *string                 `json:"parentId"`
-	ResourceScope  WorkstreamResourceScope `json:"resourceScope"`
-}
-
 // DirectorWorkstreamSelected moves app-wide selection. Selection is persisted
 // app state with no pane identity, and it never writes graph truth.
 type DirectorWorkstreamSelected struct {
@@ -111,28 +88,6 @@ type DirectorResourceRequestResolved struct {
 	Binding   *WorkstreamResourceBinding `json:"binding"`
 }
 
-// DirectorInterpretationPublished is a public, attributable Director conclusion
-// about facts the app already committed. It never carries private reasoning.
-type DirectorInterpretationPublished struct {
-	InterpretationID string                 `json:"interpretationId"`
-	PublicSummary    string                 `json:"publicSummary"`
-	Metadata         InterpretationMetadata `json:"metadata"`
-	// InterpretedEventIDs are the durable events the conclusion was drawn from.
-	// An interpretation with no sources is not attributable, so it is invalid.
-	InterpretedEventIDs []string `json:"interpretedEventIds"`
-}
-
-// DirectorValidationRecorded is the durable outcome of checking a structured
-// declaration before it took effect. It is what a validated_by edge is derived
-// from, so validation is a visible typed fact rather than a silent retry.
-type DirectorValidationRecorded struct {
-	ValidationID string                    `json:"validationId"`
-	Outcome      DirectorValidationOutcome `json:"outcome"`
-	// SubjectEventID is the durable event whose declaration was validated.
-	SubjectEventID string `json:"subjectEventId"`
-	PublicSummary  string `json:"publicSummary"`
-}
-
 // DirectorRecoveryAttempted is trusted product code acting on a failed,
 // interrupted, lost, or unavailable execution path. It is what a recovered_by
 // edge is derived from.
@@ -161,14 +116,11 @@ type DirectorFactEvent struct {
 	// resource request opened by work that could not start.
 	RunID                   *string                          `json:"runId"`
 	Actor                   SemanticActor                    `json:"actor"`
-	WorkstreamRegistered    *DirectorWorkstreamRegistered    `json:"workstreamRegistered"`
 	WorkstreamSelected      *DirectorWorkstreamSelected      `json:"workstreamSelected"`
 	WorkstreamResourceBound *DirectorWorkstreamResourceBound `json:"workstreamResourceBound"`
 	DecisionCommitted       *DirectorDecisionCommitted       `json:"decisionCommitted"`
 	ResourceRequestOpened   *DirectorResourceRequestOpened   `json:"resourceRequestOpened"`
 	ResourceRequestResolved *DirectorResourceRequestResolved `json:"resourceRequestResolved"`
-	InterpretationPublished *DirectorInterpretationPublished `json:"interpretationPublished"`
-	ValidationRecorded      *DirectorValidationRecorded      `json:"validationRecorded"`
 	RecoveryAttempted       *DirectorRecoveryAttempted       `json:"recoveryAttempted"`
 }
 
@@ -217,14 +169,11 @@ func validateDirectorFactWorkstream(fact DirectorFactEvent) error {
 // silently omit a kind.
 func directorFactPayloads(fact DirectorFactEvent) map[DirectorSourceFact]bool {
 	return map[DirectorSourceFact]bool{
-		DirectorFactWorkstreamRegistered:    fact.WorkstreamRegistered != nil,
 		DirectorFactWorkstreamSelected:      fact.WorkstreamSelected != nil,
 		DirectorFactWorkstreamResourceBound: fact.WorkstreamResourceBound != nil,
 		DirectorFactDecisionCommitted:       fact.DecisionCommitted != nil,
 		DirectorFactResourceRequestOpened:   fact.ResourceRequestOpened != nil,
 		DirectorFactResourceRequestResolved: fact.ResourceRequestResolved != nil,
-		DirectorFactInterpretationPublished: fact.InterpretationPublished != nil,
-		DirectorFactValidationRecorded:      fact.ValidationRecorded != nil,
 		DirectorFactRecoveryAttempted:       fact.RecoveryAttempted != nil,
 	}
 }
@@ -244,8 +193,6 @@ func validateDirectorFactPayloadPresence(fact DirectorFactEvent) error {
 
 func validateDirectorFactPayload(fact DirectorFactEvent) error {
 	switch fact.Kind {
-	case DirectorFactWorkstreamRegistered:
-		return validateRegisteredWorkstream(fact)
 	case DirectorFactWorkstreamSelected:
 		return validateOptionalIdentifier("selected previous workstream id", fact.WorkstreamSelected.PreviousWorkstreamID)
 	case DirectorFactWorkstreamResourceBound:
@@ -256,32 +203,11 @@ func validateDirectorFactPayload(fact DirectorFactEvent) error {
 		return validateOpenedResourceRequest(fact)
 	case DirectorFactResourceRequestResolved:
 		return validateResolvedResourceRequest(fact)
-	case DirectorFactInterpretationPublished:
-		return validatePublishedInterpretation(fact)
-	case DirectorFactValidationRecorded:
-		return validateRecordedValidation(fact)
 	case DirectorFactRecoveryAttempted:
 		return validateAttemptedRecovery(fact)
 	default:
 		return fmt.Errorf("director fact %s has unknown kind %q", fact.ID, fact.Kind)
 	}
-}
-
-func validateRegisteredWorkstream(fact DirectorFactEvent) error {
-	payload := fact.WorkstreamRegistered
-	if err := validateTrimmedText("registered workstream title", payload.Title); err != nil {
-		return err
-	}
-	if err := validateIdentifier("registered workstream conversation id", payload.ConversationID); err != nil {
-		return err
-	}
-	if err := validateOptionalIdentifier("registered workstream parent id", payload.ParentID); err != nil {
-		return err
-	}
-	if payload.ParentID != nil && *payload.ParentID == *fact.WorkstreamID {
-		return fmt.Errorf("workstream %s cannot be its own parent", *fact.WorkstreamID)
-	}
-	return validateWorkstreamResourceScope(payload.ResourceScope)
 }
 
 func validateCommittedDecision(fact DirectorFactEvent) error {
@@ -383,45 +309,6 @@ func validateResolvedResourceRequest(fact DirectorFactEvent) error {
 	return ValidateWorkstreamResourceBinding(*payload.Binding)
 }
 
-func validatePublishedInterpretation(fact DirectorFactEvent) error {
-	payload := fact.InterpretationPublished
-	if err := validateIdentifier("published interpretation id", payload.InterpretationID); err != nil {
-		return err
-	}
-	if err := validateTrimmedText("published interpretation public summary", payload.PublicSummary); err != nil {
-		return err
-	}
-	if err := requireSourceEventIDs("published interpretation", payload.InterpretedEventIDs); err != nil {
-		return err
-	}
-	if payload.Metadata.InterpretedBy != fact.Actor {
-		return fmt.Errorf("director fact %s attributes its interpretation to %q but is actored by %q",
-			fact.ID, payload.Metadata.InterpretedBy, fact.Actor)
-	}
-	if err := validateInterpretationMetadata(fact.ID, payload.Metadata); err != nil {
-		return err
-	}
-	return validateTimestampOrder(
-		fmt.Sprintf("director fact %s interpretation timestamp", fact.ID),
-		payload.Metadata.InterpretedAt,
-		fact.EmittedAt,
-	)
-}
-
-func validateRecordedValidation(fact DirectorFactEvent) error {
-	payload := fact.ValidationRecorded
-	if err := validateIdentifier("recorded validation id", payload.ValidationID); err != nil {
-		return err
-	}
-	if !isDirectorValidationOutcome(payload.Outcome) {
-		return fmt.Errorf("director fact %s has unknown validation outcome %q", fact.ID, payload.Outcome)
-	}
-	if err := validateIdentifier("recorded validation subject event id", payload.SubjectEventID); err != nil {
-		return err
-	}
-	return validateTrimmedText("recorded validation public summary", payload.PublicSummary)
-}
-
 func validateAttemptedRecovery(fact DirectorFactEvent) error {
 	payload := fact.RecoveryAttempted
 	if err := validateIdentifier("attempted recovery id", payload.RecoveryID); err != nil {
@@ -446,15 +333,6 @@ func validateOptionalIdentifier(label string, value *string) error {
 func isDirectorDecisionKind(kind DirectorDecisionKind) bool {
 	for _, candidate := range directorDecisionKinds {
 		if candidate == kind {
-			return true
-		}
-	}
-	return false
-}
-
-func isDirectorValidationOutcome(outcome DirectorValidationOutcome) bool {
-	for _, candidate := range directorValidationOutcomes {
-		if candidate == outcome {
 			return true
 		}
 	}

@@ -85,7 +85,6 @@ const (
 	SemanticNodeIdentitySubagent        SemanticNodeIdentity = "subagent"
 	SemanticNodeIdentityArtifact        SemanticNodeIdentity = "artifact"
 	SemanticNodeIdentityLifecycle       SemanticNodeIdentity = "lifecycle"
-	SemanticNodeIdentityInterpretation  SemanticNodeIdentity = "interpretation"
 	SemanticNodeIdentityValidation      SemanticNodeIdentity = "validation"
 	SemanticNodeIdentityRecovery        SemanticNodeIdentity = "recovery"
 	SemanticNodeIdentityDirectorTurn    SemanticNodeIdentity = "director_turn"
@@ -108,7 +107,6 @@ var semanticNodeIdentities = []SemanticNodeIdentity{
 	SemanticNodeIdentitySubagent,
 	SemanticNodeIdentityArtifact,
 	SemanticNodeIdentityLifecycle,
-	SemanticNodeIdentityInterpretation,
 	SemanticNodeIdentityValidation,
 	SemanticNodeIdentityRecovery,
 	SemanticNodeIdentityDirectorTurn,
@@ -130,9 +128,9 @@ type SourceFactRule struct {
 }
 
 // workstreamRecordFactRule maps the durable conversation record that owns a
-// workstream's existence and current title. Registration facts remain part of
-// the fixture/projector catalog, but production anchors are sourced from the
-// real conversation.updated event the registry folded.
+// workstream's existence and current title. It is the only source of a
+// workstream anchor: the conversation record is what proves the work exists, so
+// nothing else may mint one.
 var workstreamRecordFactRule = SourceFactRule{
 	Disposition:   SourceFactUpsertsNode,
 	Resolution:    SourceFactResolutionFixed,
@@ -148,26 +146,20 @@ var workstreamRecordFactRule = SourceFactRule{
 type DirectorSourceFact string
 
 const (
-	DirectorFactWorkstreamRegistered    DirectorSourceFact = "workstream_registered"
 	DirectorFactWorkstreamSelected      DirectorSourceFact = "workstream_selected"
 	DirectorFactWorkstreamResourceBound DirectorSourceFact = "workstream_resource_bound"
 	DirectorFactDecisionCommitted       DirectorSourceFact = "director_decision_committed"
 	DirectorFactResourceRequestOpened   DirectorSourceFact = "resource_request_opened"
 	DirectorFactResourceRequestResolved DirectorSourceFact = "resource_request_resolved"
-	DirectorFactInterpretationPublished DirectorSourceFact = "interpretation_published"
-	DirectorFactValidationRecorded      DirectorSourceFact = "validation_recorded"
 	DirectorFactRecoveryAttempted       DirectorSourceFact = "recovery_attempted"
 )
 
 var directorSourceFacts = []DirectorSourceFact{
-	DirectorFactWorkstreamRegistered,
 	DirectorFactWorkstreamSelected,
 	DirectorFactWorkstreamResourceBound,
 	DirectorFactDecisionCommitted,
 	DirectorFactResourceRequestOpened,
 	DirectorFactResourceRequestResolved,
-	DirectorFactInterpretationPublished,
-	DirectorFactValidationRecorded,
 	DirectorFactRecoveryAttempted,
 }
 
@@ -407,15 +399,6 @@ var trajectoryFactRules = map[conversation.TrajectoryEventKind]SourceFactRule{
 }
 
 var directorFactRules = map[DirectorSourceFact]SourceFactRule{
-	DirectorFactWorkstreamRegistered: {
-		Disposition:   SourceFactCreatesNode,
-		Resolution:    SourceFactResolutionFixed,
-		NodeKind:      SemanticNodeWorkstream,
-		NodeIdentity:  SemanticNodeIdentityWorkstream,
-		EdgeKinds:     nil,
-		EvidenceClass: EvidenceRuntimeFact,
-		Note:          "A registered workstream is the anchor its own facts follow, so work with nothing in it yet is still visible as itself.",
-	},
 	DirectorFactWorkstreamSelected: {
 		Disposition:   SourceFactUpdatesMetadata,
 		Resolution:    SourceFactResolutionNone,
@@ -453,24 +436,6 @@ var directorFactRules = map[DirectorSourceFact]SourceFactRule{
 		NodeIdentity:  SemanticNodeIdentityResourceRequest,
 		EvidenceClass: EvidenceRuntimeFact,
 		Note:          "Resolution succeeds the waiting node and unblocks the work that depended on the resource.",
-	},
-	DirectorFactInterpretationPublished: {
-		Disposition:   SourceFactCreatesNode,
-		Resolution:    SourceFactResolutionFixed,
-		NodeKind:      SemanticNodeMilestone,
-		NodeIdentity:  SemanticNodeIdentityInterpretation,
-		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy},
-		EvidenceClass: EvidenceDirectorInterpretation,
-		Note:          "A public Director interpretation requires a summary, source events, actor, model identity, and timestamp.",
-	},
-	DirectorFactValidationRecorded: {
-		Disposition:   SourceFactCreatesNode,
-		Resolution:    SourceFactResolutionFixed,
-		NodeKind:      SemanticNodeValidation,
-		NodeIdentity:  SemanticNodeIdentityValidation,
-		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy, SemanticEdgeValidatedBy},
-		EvidenceClass: EvidenceRuntimeFact,
-		Note:          "Checking a structured declaration before it takes effect is a typed fact, so a rejected declaration is visible work rather than a silent retry.",
 	},
 	DirectorFactRecoveryAttempted: {
 		Disposition:   SourceFactUpsertsNode,

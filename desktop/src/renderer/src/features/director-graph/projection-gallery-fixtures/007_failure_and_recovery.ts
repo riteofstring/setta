@@ -8,19 +8,19 @@ const rawProjectionGalleryFixture = {
     "A failed activity and run, a trusted retry that recovers it, a model reroute, then a successful rerun.",
   graphs: [
     {
-      workstreamId: "ws-epsilon",
+      workstreamId: "workstream:conv-epsilon",
       detailLevel: "selected",
       nodes: [
         {
-          id: "workstream:ws-epsilon",
+          id: "workstream:workstream:conv-epsilon",
           kind: "workstream",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           runId: null,
           actor: "system",
           status: "active",
           publicSummary: "Build the installer",
           evidenceClass: "runtime_fact",
-          sourceEventIds: ["director-01"],
+          sourceEventIds: ["conversation-01"],
           artifactIds: [],
           createdAt: "2026-07-24T12:00:01Z",
           updatedAt: "2026-07-24T12:00:01Z",
@@ -30,7 +30,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "input:trajectory-03",
           kind: "user_goal",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           runId: "turn-epsilon-1",
           actor: "user",
           status: "failed",
@@ -46,7 +46,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run:turn-epsilon-1",
           kind: "action",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           runId: "turn-epsilon-1",
           actor: "system",
           status: "failed",
@@ -62,7 +62,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "activity:trajectory-05",
           kind: "action",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           runId: "turn-epsilon-1",
           actor: "worker",
           status: "failed",
@@ -78,7 +78,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run_terminal:turn-epsilon-1",
           kind: "failed",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           runId: "turn-epsilon-1",
           actor: "system",
           status: "failed",
@@ -94,7 +94,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "recovery:recovery-epsilon-1",
           kind: "retry",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           runId: null,
           actor: "director",
           status: "succeeded",
@@ -110,7 +110,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "lifecycle:trajectory-09",
           kind: "recovery",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           runId: "turn-epsilon-2",
           actor: "provider",
           status: "succeeded",
@@ -127,7 +127,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "input:trajectory-10",
           kind: "user_goal",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           runId: "turn-epsilon-2",
           actor: "user",
           status: "succeeded",
@@ -143,7 +143,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run:turn-epsilon-2",
           kind: "action",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           runId: "turn-epsilon-2",
           actor: "system",
           status: "succeeded",
@@ -159,7 +159,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run_terminal:turn-epsilon-2",
           kind: "completed",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           runId: "turn-epsilon-2",
           actor: "system",
           status: "succeeded",
@@ -175,10 +175,10 @@ const rawProjectionGalleryFixture = {
       ],
       edges: [
         {
-          id: "followed_by:workstream:ws-epsilon-\u003einput:trajectory-03",
+          id: "followed_by:workstream:workstream:conv-epsilon-\u003einput:trajectory-03",
           kind: "followed_by",
-          workstreamId: "ws-epsilon",
-          fromNodeId: "workstream:ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
+          fromNodeId: "workstream:workstream:conv-epsilon",
           toNodeId: "input:trajectory-03",
           sourceEventIds: ["trajectory-03"],
           createdAt: "2026-07-24T12:00:03Z",
@@ -186,7 +186,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-03-\u003erun:turn-epsilon-1",
           kind: "followed_by",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           fromNodeId: "input:trajectory-03",
           toNodeId: "run:turn-epsilon-1",
           sourceEventIds: ["trajectory-04"],
@@ -195,7 +195,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:run:turn-epsilon-1-\u003eactivity:trajectory-05",
           kind: "followed_by",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           fromNodeId: "run:turn-epsilon-1",
           toNodeId: "activity:trajectory-05",
           sourceEventIds: ["trajectory-05"],
@@ -204,7 +204,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-03-\u003erun_terminal:turn-epsilon-1",
           kind: "followed_by",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           fromNodeId: "input:trajectory-03",
           toNodeId: "run_terminal:turn-epsilon-1",
           sourceEventIds: ["trajectory-07"],
@@ -213,7 +213,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:run_terminal:turn-epsilon-1-\u003erecovery:recovery-epsilon-1",
           kind: "followed_by",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           fromNodeId: "run_terminal:turn-epsilon-1",
           toNodeId: "recovery:recovery-epsilon-1",
           sourceEventIds: ["director-08"],
@@ -222,7 +222,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "recovered_by:run_terminal:turn-epsilon-1-\u003erecovery:recovery-epsilon-1",
           kind: "recovered_by",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           fromNodeId: "run_terminal:turn-epsilon-1",
           toNodeId: "recovery:recovery-epsilon-1",
           sourceEventIds: ["director-08"],
@@ -231,7 +231,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:recovery:recovery-epsilon-1-\u003elifecycle:trajectory-09",
           kind: "followed_by",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           fromNodeId: "recovery:recovery-epsilon-1",
           toNodeId: "lifecycle:trajectory-09",
           sourceEventIds: ["trajectory-09"],
@@ -240,7 +240,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:lifecycle:trajectory-09-\u003einput:trajectory-10",
           kind: "followed_by",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           fromNodeId: "lifecycle:trajectory-09",
           toNodeId: "input:trajectory-10",
           sourceEventIds: ["trajectory-10"],
@@ -249,7 +249,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-10-\u003erun:turn-epsilon-2",
           kind: "followed_by",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           fromNodeId: "input:trajectory-10",
           toNodeId: "run:turn-epsilon-2",
           sourceEventIds: ["trajectory-11"],
@@ -258,7 +258,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:lifecycle:trajectory-09-\u003erun_terminal:turn-epsilon-2",
           kind: "followed_by",
-          workstreamId: "ws-epsilon",
+          workstreamId: "workstream:conv-epsilon",
           fromNodeId: "lifecycle:trajectory-09",
           toNodeId: "run_terminal:turn-epsilon-2",
           sourceEventIds: ["trajectory-13"],

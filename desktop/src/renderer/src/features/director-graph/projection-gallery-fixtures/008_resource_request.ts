@@ -8,19 +8,19 @@ const rawProjectionGalleryFixture = {
     "Folderless work blocked on a durable resource request, then unblocked by the folder the user chose.",
   graphs: [
     {
-      workstreamId: "ws-zeta",
+      workstreamId: "workstream:conv-zeta",
       detailLevel: "selected",
       nodes: [
         {
-          id: "workstream:ws-zeta",
+          id: "workstream:workstream:conv-zeta",
           kind: "workstream",
-          workstreamId: "ws-zeta",
+          workstreamId: "workstream:conv-zeta",
           runId: null,
           actor: "system",
           status: "active",
           publicSummary: "Run the test suite",
           evidenceClass: "runtime_fact",
-          sourceEventIds: ["director-01"],
+          sourceEventIds: ["conversation-01"],
           artifactIds: [],
           createdAt: "2026-07-24T12:00:01Z",
           updatedAt: "2026-07-24T12:00:01Z",
@@ -30,7 +30,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "input:trajectory-03",
           kind: "user_goal",
-          workstreamId: "ws-zeta",
+          workstreamId: "workstream:conv-zeta",
           runId: "turn-zeta-1",
           actor: "user",
           status: "succeeded",
@@ -46,7 +46,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "decision:director-04",
           kind: "director_decision",
-          workstreamId: "ws-zeta",
+          workstreamId: "workstream:conv-zeta",
           runId: null,
           actor: "director",
           status: "succeeded",
@@ -62,7 +62,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "resource_request:resource-zeta-1",
           kind: "resource_required",
-          workstreamId: "ws-zeta",
+          workstreamId: "workstream:conv-zeta",
           runId: "turn-zeta-1",
           actor: "director",
           status: "succeeded",
@@ -78,7 +78,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run:turn-zeta-1",
           kind: "action",
-          workstreamId: "ws-zeta",
+          workstreamId: "workstream:conv-zeta",
           runId: "turn-zeta-1",
           actor: "system",
           status: "succeeded",
@@ -94,7 +94,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run_terminal:turn-zeta-1",
           kind: "completed",
-          workstreamId: "ws-zeta",
+          workstreamId: "workstream:conv-zeta",
           runId: "turn-zeta-1",
           actor: "system",
           status: "succeeded",
@@ -110,10 +110,10 @@ const rawProjectionGalleryFixture = {
       ],
       edges: [
         {
-          id: "followed_by:workstream:ws-zeta-\u003einput:trajectory-03",
+          id: "followed_by:workstream:workstream:conv-zeta-\u003einput:trajectory-03",
           kind: "followed_by",
-          workstreamId: "ws-zeta",
-          fromNodeId: "workstream:ws-zeta",
+          workstreamId: "workstream:conv-zeta",
+          fromNodeId: "workstream:workstream:conv-zeta",
           toNodeId: "input:trajectory-03",
           sourceEventIds: ["trajectory-03"],
           createdAt: "2026-07-24T12:00:03Z",
@@ -121,7 +121,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-03-\u003edecision:director-04",
           kind: "followed_by",
-          workstreamId: "ws-zeta",
+          workstreamId: "workstream:conv-zeta",
           fromNodeId: "input:trajectory-03",
           toNodeId: "decision:director-04",
           sourceEventIds: ["director-04"],
@@ -130,7 +130,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-03-\u003eresource_request:resource-zeta-1",
           kind: "followed_by",
-          workstreamId: "ws-zeta",
+          workstreamId: "workstream:conv-zeta",
           fromNodeId: "input:trajectory-03",
           toNodeId: "resource_request:resource-zeta-1",
           sourceEventIds: ["director-05"],
@@ -139,7 +139,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "blocked_by:input:trajectory-03-\u003eresource_request:resource-zeta-1",
           kind: "blocked_by",
-          workstreamId: "ws-zeta",
+          workstreamId: "workstream:conv-zeta",
           fromNodeId: "input:trajectory-03",
           toNodeId: "resource_request:resource-zeta-1",
           sourceEventIds: ["director-05"],
@@ -148,7 +148,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:resource_request:resource-zeta-1-\u003erun:turn-zeta-1",
           kind: "followed_by",
-          workstreamId: "ws-zeta",
+          workstreamId: "workstream:conv-zeta",
           fromNodeId: "resource_request:resource-zeta-1",
           toNodeId: "run:turn-zeta-1",
           sourceEventIds: ["trajectory-08"],
@@ -157,7 +157,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-03-\u003erun_terminal:turn-zeta-1",
           kind: "followed_by",
-          workstreamId: "ws-zeta",
+          workstreamId: "workstream:conv-zeta",
           fromNodeId: "input:trajectory-03",
           toNodeId: "run_terminal:turn-zeta-1",
           sourceEventIds: ["trajectory-09"],

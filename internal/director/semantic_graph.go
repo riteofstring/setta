@@ -188,10 +188,7 @@ type InterpretationModelIdentity struct {
 type InterpretationMetadata struct {
 	InterpretedBy SemanticActor               `json:"interpretedBy"`
 	Model         InterpretationModelIdentity `json:"model"`
-	// Confidence is present only when a confidence value is meaningful for the
-	// interpretation.
-	Confidence    *float64 `json:"confidence"`
-	InterpretedAt string   `json:"interpretedAt"`
+	InterpretedAt string                      `json:"interpretedAt"`
 }
 
 // SemanticNode is one visible fact in the command-center graph. Every field is

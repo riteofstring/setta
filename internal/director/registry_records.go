@@ -336,13 +336,6 @@ func (state *registryState) applyDirectorFact(event conversation.CommittedEvent)
 	if err != nil {
 		return nil, err
 	}
-	if fact.Kind == DirectorFactWorkstreamRegistered {
-		return nil, fmt.Errorf(
-			"director fact %s registers workstream %s, which the registry derives from the conversation record",
-			fact.ID,
-			*fact.WorkstreamID,
-		)
-	}
 	if err := state.applyProjectorEvent(ProjectorEvent{Director: &fact}); err != nil {
 		return nil, err
 	}

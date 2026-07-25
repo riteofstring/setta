@@ -9,7 +9,7 @@ import { projectionGalleryFixture as fixture005 } from "./005_plan_and_investiga
 import { projectionGalleryFixture as fixture006 } from "./006_delegation";
 import { projectionGalleryFixture as fixture007 } from "./007_failure_and_recovery";
 import { projectionGalleryFixture as fixture008 } from "./008_resource_request";
-import { projectionGalleryFixture as fixture009 } from "./009_validation_and_interpretation";
+import { projectionGalleryFixture as fixture009 } from "./009_director_conversation";
 import { projectionGalleryFixture as fixture010 } from "./010_blocked_and_cancelled";
 
 export const projectionGalleryFixtures = [

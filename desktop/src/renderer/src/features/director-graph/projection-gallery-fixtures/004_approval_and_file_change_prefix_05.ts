@@ -8,19 +8,19 @@ const rawProjectionGalleryFixture = {
     "A proposed file change blocked by a secret-bearing approval, then answered and applied. Prefix through durable event 5.",
   graphs: [
     {
-      workstreamId: "ws-gamma",
+      workstreamId: "workstream:conv-gamma",
       detailLevel: "selected",
       nodes: [
         {
-          id: "workstream:ws-gamma",
+          id: "workstream:workstream:conv-gamma",
           kind: "workstream",
-          workstreamId: "ws-gamma",
+          workstreamId: "workstream:conv-gamma",
           runId: null,
           actor: "system",
           status: "active",
           publicSummary: "Fix the parser",
           evidenceClass: "runtime_fact",
-          sourceEventIds: ["director-01"],
+          sourceEventIds: ["conversation-01"],
           artifactIds: [],
           createdAt: "2026-07-24T12:00:01Z",
           updatedAt: "2026-07-24T12:00:01Z",
@@ -30,7 +30,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "input:trajectory-03",
           kind: "user_goal",
-          workstreamId: "ws-gamma",
+          workstreamId: "workstream:conv-gamma",
           runId: "turn-gamma-1",
           actor: "user",
           status: "active",
@@ -46,7 +46,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "run:turn-gamma-1",
           kind: "action",
-          workstreamId: "ws-gamma",
+          workstreamId: "workstream:conv-gamma",
           runId: "turn-gamma-1",
           actor: "system",
           status: "active",
@@ -62,7 +62,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "file_change:trajectory-05",
           kind: "action",
-          workstreamId: "ws-gamma",
+          workstreamId: "workstream:conv-gamma",
           runId: "turn-gamma-1",
           actor: "worker",
           status: "waiting",
@@ -78,10 +78,10 @@ const rawProjectionGalleryFixture = {
       ],
       edges: [
         {
-          id: "followed_by:workstream:ws-gamma-\u003einput:trajectory-03",
+          id: "followed_by:workstream:workstream:conv-gamma-\u003einput:trajectory-03",
           kind: "followed_by",
-          workstreamId: "ws-gamma",
-          fromNodeId: "workstream:ws-gamma",
+          workstreamId: "workstream:conv-gamma",
+          fromNodeId: "workstream:workstream:conv-gamma",
           toNodeId: "input:trajectory-03",
           sourceEventIds: ["trajectory-03"],
           createdAt: "2026-07-24T12:00:03Z",
@@ -89,7 +89,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:input:trajectory-03-\u003erun:turn-gamma-1",
           kind: "followed_by",
-          workstreamId: "ws-gamma",
+          workstreamId: "workstream:conv-gamma",
           fromNodeId: "input:trajectory-03",
           toNodeId: "run:turn-gamma-1",
           sourceEventIds: ["trajectory-04"],
@@ -98,7 +98,7 @@ const rawProjectionGalleryFixture = {
         {
           id: "followed_by:run:turn-gamma-1-\u003efile_change:trajectory-05",
           kind: "followed_by",
-          workstreamId: "ws-gamma",
+          workstreamId: "workstream:conv-gamma",
           fromNodeId: "run:turn-gamma-1",
           toNodeId: "file_change:trajectory-05",
           sourceEventIds: ["trajectory-05"],

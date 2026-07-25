@@ -1,6 +1,7 @@
 package director
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -39,7 +40,7 @@ func ProjectionFixtures() []ProjectionFixture {
 		delegationFixture(),
 		failureAndRecoveryFixture(),
 		resourceRequestFixture(),
-		validationAndInterpretationFixture(),
+		directorConversationFixture(),
 		blockedAndCancelledFixture(),
 	}
 }
@@ -50,6 +51,9 @@ type fixtureBuilder struct {
 	events              []ProjectorEvent
 	trajectorySequences map[string]int
 	tick                int
+	// selected is the workstream the history has focused so far. A selection
+	// fact names the one it replaced, so the builder has to remember it.
+	selected string
 }
 
 func (builder *fixtureBuilder) next() (int, string) {
@@ -66,6 +70,22 @@ func (builder *fixtureBuilder) director(workstreamID string, kind DirectorSource
 		Kind:         kind,
 		WorkstreamID: &workstreamID,
 		Actor:        actor,
+	}
+	apply(&fact)
+	builder.events = append(builder.events, ProjectorEvent{Sequence: sequence, Director: &fact})
+	return fact.ID
+}
+
+// directorApp appends one Director-owned fact that happened in no workstream.
+// A decision that creates a workstream is made before that workstream exists,
+// so it belongs to the Director's own lane.
+func (builder *fixtureBuilder) directorApp(kind DirectorSourceFact, actor SemanticActor, apply func(*DirectorFactEvent)) string {
+	sequence, emittedAt := builder.next()
+	fact := DirectorFactEvent{
+		ID:        fmt.Sprintf("director-%02d", sequence),
+		EmittedAt: emittedAt,
+		Kind:      kind,
+		Actor:     actor,
 	}
 	apply(&fact)
 	builder.events = append(builder.events, ProjectorEvent{Sequence: sequence, Director: &fact})
@@ -99,19 +119,73 @@ func (builder *fixtureBuilder) trajectory(
 	return event.ID
 }
 
+// directorConversation appends one durable Director conversation entry. The
+// Director's own lane is a conversation rather than a workstream, so its facts
+// carry no workstream at all.
+func (builder *fixtureBuilder) directorConversation(
+	turnID string,
+	kind conversation.DirectorConversationEntryKind,
+	apply func(*conversation.DirectorConversationEntry),
+) string {
+	sequence, recordedAt := builder.next()
+	entry := conversation.DirectorConversationEntry{
+		ID:         fmt.Sprintf("director-entry-%02d", sequence),
+		Kind:       kind,
+		TurnID:     turnID,
+		RecordedAt: recordedAt,
+	}
+	apply(&entry)
+	builder.events = append(builder.events, ProjectorEvent{Sequence: sequence, DirectorConversation: &entry})
+	return entry.ID
+}
+
 // register admits a workstream and selects it, which is how every history
 // starts: the app has an app-scoped owner for the work before any work happens.
-func (builder *fixtureBuilder) register(workstreamID string, conversationID string, title string, scope WorkstreamResourceScope) {
-	builder.director(workstreamID, DirectorFactWorkstreamRegistered, SemanticActorSystem, func(fact *DirectorFactEvent) {
-		fact.WorkstreamRegistered = &DirectorWorkstreamRegistered{
-			Title:          title,
+// The anchor comes from the durable conversation record, which is the same fact
+// production folds, so a fixture cannot mint a workstream the app could not.
+func (builder *fixtureBuilder) register(conversationID string, title string) string {
+	workstreamID := fixtureWorkstreamID(conversationID)
+	sequence, emittedAt := builder.next()
+	builder.events = append(builder.events, ProjectorEvent{
+		Sequence: sequence,
+		WorkstreamRecord: &WorkstreamRecordProjection{
+			ID:             fmt.Sprintf("conversation-%02d", sequence),
+			EmittedAt:      emittedAt,
+			WorkstreamID:   workstreamID,
 			ConversationID: conversationID,
-			ResourceScope:  scope,
-		}
+			Title:          title,
+		},
 	})
+	previous := builder.selected
 	builder.director(workstreamID, DirectorFactWorkstreamSelected, SemanticActorUser, func(fact *DirectorFactEvent) {
 		fact.WorkstreamSelected = &DirectorWorkstreamSelected{}
+		if previous != "" {
+			fact.WorkstreamSelected.PreviousWorkstreamID = stringPointer(previous)
+		}
 	})
+	builder.selected = workstreamID
+	return workstreamID
+}
+
+// fixtureWorkstreamID derives a workstream identity the way the registry does.
+// A fixture that named work by an id the app could never mint would prove
+// nothing about the projection production runs.
+func fixtureWorkstreamID(conversationID string) string {
+	workstreamID, err := WorkstreamIDForConversation(conversationID)
+	if err != nil {
+		panic("fixture conversation id: " + err.Error())
+	}
+	return workstreamID
+}
+
+// fixtureJSON encodes a durable payload a fixture carries across the tool
+// boundary as the JSON the boundary itself carries.
+func fixtureJSON(payload any) json.RawMessage {
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		panic("encode fixture payload: " + err.Error())
+	}
+	return encoded
 }
 
 func (builder *fixtureBuilder) acceptInput(conversationID string, turnID string, text string) string {
@@ -177,25 +251,13 @@ func fixtureInvocation(turnID string) conversation.ResolvedInvocation {
 	}
 }
 
-func folderlessScope() WorkstreamResourceScope {
-	return WorkstreamResourceScope{Kind: WorkstreamResourceScopeFolderless}
-}
-
-func folderScope(workspaceID string, rootPath string) WorkstreamResourceScope {
-	return WorkstreamResourceScope{
-		Kind:   WorkstreamResourceScopeFolder,
-		Folder: &WorkstreamFolderResource{WorkspaceID: workspaceID, RootPath: rootPath},
-	}
-}
-
 // folderlessStartFixture is the product's first promise: open the app with no
 // folder chosen and get useful work immediately.
 func folderlessStartFixture() ProjectionFixture {
 	builder := &fixtureBuilder{}
-	const workstreamID = "ws-alpha"
 	const conversationID = "conv-alpha"
 	const turnID = "turn-alpha-1"
-	builder.register(workstreamID, conversationID, "Summarize the release notes", folderlessScope())
+	workstreamID := builder.register(conversationID, "Summarize the release notes")
 	builder.acceptInput(conversationID, turnID, "Summarize the release notes")
 	builder.director(workstreamID, DirectorFactDecisionCommitted, SemanticActorDirector, func(fact *DirectorFactEvent) {
 		target := workstreamID
@@ -260,11 +322,10 @@ func (builder *fixtureBuilder) activity(
 // instruction changed mid-run.
 func queueAndSteeringFixture() ProjectionFixture {
 	builder := &fixtureBuilder{}
-	const workstreamID = "ws-beta"
 	const conversationID = "conv-beta"
 	const firstTurn = "turn-beta-1"
 	const secondTurn = "turn-beta-2"
-	builder.register(workstreamID, conversationID, "Refactor the importer", folderScope("workspace-beta", "/repo/beta"))
+	builder.register(conversationID, "Refactor the importer")
 	builder.acceptInput(conversationID, firstTurn, "Refactor the importer")
 	builder.startTurn(conversationID, firstTurn)
 	builder.acceptInput(conversationID, secondTurn, "Then update the docs")
@@ -295,12 +356,11 @@ func queueAndSteeringFixture() ProjectionFixture {
 // the change, and the typed decision releases it.
 func approvalAndFileChangeFixture() ProjectionFixture {
 	builder := &fixtureBuilder{}
-	const workstreamID = "ws-gamma"
 	const conversationID = "conv-gamma"
 	const turnID = "turn-gamma-1"
 	const approvalID = "approval-gamma-1"
 	const itemID = "item-gamma-1"
-	builder.register(workstreamID, conversationID, "Fix the parser", folderScope("workspace-gamma", "/repo/gamma"))
+	builder.register(conversationID, "Fix the parser")
 	builder.acceptInput(conversationID, turnID, "Fix the parser")
 	builder.startTurn(conversationID, turnID)
 	changes := []conversation.FileChange{{Path: "internal/parse/lexer.go", Kind: conversation.FileChangeUpdate, Diff: "@@ secret token @@"}}
@@ -371,10 +431,9 @@ func approvalAndFileChangeFixture() ProjectionFixture {
 // the case where step identity has to be retired rather than accumulated.
 func planAndInvestigationFixture() ProjectionFixture {
 	builder := &fixtureBuilder{}
-	const workstreamID = "ws-delta"
 	const conversationID = "conv-delta"
 	const turnID = "turn-delta-1"
-	builder.register(workstreamID, conversationID, "Research the migration", folderlessScope())
+	builder.register(conversationID, "Research the migration")
 	builder.acceptInput(conversationID, turnID, "Research the migration")
 	builder.startTurn(conversationID, turnID)
 	builder.planChanged(conversationID, turnID, "Investigate then report", []conversation.PlanStep{
@@ -412,10 +471,9 @@ func (builder *fixtureBuilder) planChanged(
 // subagent that does part of a run's work without ever earning its own address.
 func delegationFixture() ProjectionFixture {
 	builder := &fixtureBuilder{}
-	const workstreamID = "ws-parent"
 	const conversationID = "conv-parent"
 	const turnID = "turn-parent-1"
-	builder.register(workstreamID, conversationID, "Ship the release", folderScope("workspace-parent", "/repo/parent"))
+	builder.register(conversationID, "Ship the release")
 	builder.acceptInput(conversationID, turnID, "Ship the release")
 	builder.startTurn(conversationID, turnID)
 	subagent := conversation.Subagent{
@@ -447,11 +505,10 @@ func delegationFixture() ProjectionFixture {
 // internal error: work fails, trusted code retries, and the run recovers.
 func failureAndRecoveryFixture() ProjectionFixture {
 	builder := &fixtureBuilder{}
-	const workstreamID = "ws-epsilon"
 	const conversationID = "conv-epsilon"
 	const failedTurn = "turn-epsilon-1"
 	const retriedTurn = "turn-epsilon-2"
-	builder.register(workstreamID, conversationID, "Build the installer", folderScope("workspace-epsilon", "/repo/epsilon"))
+	workstreamID := builder.register(conversationID, "Build the installer")
 	builder.acceptInput(conversationID, failedTurn, "Build the installer")
 	builder.startTurn(conversationID, failedTurn)
 	activity := conversation.TrajectoryActivity{
@@ -526,11 +583,10 @@ func failureAndRecoveryFixture() ProjectionFixture {
 // render without a pane.
 func resourceRequestFixture() ProjectionFixture {
 	builder := &fixtureBuilder{}
-	const workstreamID = "ws-zeta"
 	const conversationID = "conv-zeta"
 	const turnID = "turn-zeta-1"
 	const requestID = "resource-zeta-1"
-	builder.register(workstreamID, conversationID, "Run the test suite", folderlessScope())
+	workstreamID := builder.register(conversationID, "Run the test suite")
 	builder.acceptInput(conversationID, turnID, "Run the test suite")
 	builder.director(workstreamID, DirectorFactDecisionCommitted, SemanticActorDirector, func(fact *DirectorFactEvent) {
 		target := workstreamID
@@ -572,59 +628,64 @@ func resourceRequestFixture() ProjectionFixture {
 	}
 }
 
-// validationAndInterpretationFixture covers the two facts that keep model output
-// honest: what was checked before it took effect, and what the Director
-// concluded from facts the app already committed.
-func validationAndInterpretationFixture() ProjectionFixture {
+// directorConversationFixture covers the Director's own lane: what the user
+// asked the app for, the Setta tool the Director called, the workstream that
+// call created, what the call reported back, and what the Director then said.
+// It is the only lane whose label a model authored, so it is where the
+// interpretation evidence class comes from.
+func directorConversationFixture() ProjectionFixture {
 	builder := &fixtureBuilder{}
-	const workstreamID = "ws-eta"
 	const conversationID = "conv-eta"
-	const turnID = "turn-eta-1"
-	builder.register(workstreamID, conversationID, "Audit the dependencies", folderScope("workspace-eta", "/repo/eta"))
-	inputEventID := builder.acceptInput(conversationID, turnID, "Audit the dependencies")
-	decisionEventID := builder.director(workstreamID, DirectorFactDecisionCommitted, SemanticActorDirector, func(fact *DirectorFactEvent) {
+	const turnID = "director-turn-eta-1"
+	builder.directorConversation(turnID, conversation.DirectorConversationUserTurn, func(entry *conversation.DirectorConversationEntry) {
+		entry.Text = &conversation.DirectorConversationText{Text: "Start a workstream that audits the dependencies"}
+	})
+	callID := builder.directorConversation(turnID, conversation.DirectorConversationToolCall, func(entry *conversation.DirectorConversationEntry) {
+		entry.Tool = &conversation.DirectorConversationToolActivity{
+			Tool:    "create_workstream",
+			Payload: json.RawMessage(`{"title":"Audit the dependencies","workspaceId":"workspace-eta"}`),
+		}
+	})
+	// The decision is committed before the workstream it authorized exists, which
+	// is why it is drawn in the lane rather than in the work it started.
+	workstreamID := fixtureWorkstreamID(conversationID)
+	builder.directorApp(DirectorFactDecisionCommitted, SemanticActorDirector, func(fact *DirectorFactEvent) {
 		target := workstreamID
-		fact.RunID = stringPointer(turnID)
 		fact.DecisionCommitted = &DirectorDecisionCommitted{
-			Decision:           DirectorDecisionSendToWorkstream,
+			Decision:           DirectorDecisionCreateWorkstream,
 			IntentID:           "intent-eta-1",
-			PublicSummary:      "Audit dependencies in this workstream",
+			PublicSummary:      "Create a workstream for the dependency audit",
 			TargetWorkstreamID: &target,
 		}
 	})
-	builder.director(workstreamID, DirectorFactValidationRecorded, SemanticActorSystem, func(fact *DirectorFactEvent) {
-		fact.RunID = stringPointer(turnID)
-		fact.ValidationRecorded = &DirectorValidationRecorded{
-			ValidationID:   "validation-eta-1",
-			Outcome:        DirectorValidationPassed,
-			SubjectEventID: decisionEventID,
-			PublicSummary:  "The routing decision named an authorized workstream",
+	builder.register(conversationID, "Audit the dependencies")
+	builder.directorConversation(turnID, conversation.DirectorConversationToolReceipt, func(entry *conversation.DirectorConversationEntry) {
+		receipt := SettaToolReceipt{
+			Tool:                 "create_workstream",
+			Summary:              "Created “Audit the dependencies” and selected it.",
+			WorkstreamID:         &workstreamID,
+			SelectedWorkstreamID: &workstreamID,
+		}
+		entry.Tool = &conversation.DirectorConversationToolActivity{
+			Tool:      receipt.Tool,
+			Payload:   fixtureJSON(receipt),
+			Succeeded: true,
+			CallID:    &callID,
 		}
 	})
-	builder.startTurn(conversationID, turnID)
-	builder.director(workstreamID, DirectorFactInterpretationPublished, SemanticActorDirector, func(fact *DirectorFactEvent) {
-		fact.RunID = stringPointer(turnID)
-		confidence := 0.8
-		fact.InterpretationPublished = &DirectorInterpretationPublished{
-			InterpretationID: "interpretation-eta-1",
-			PublicSummary:    "The audit will need a second pass for transitive pins",
-			Metadata: InterpretationMetadata{
-				InterpretedBy: SemanticActorDirector,
-				Model: InterpretationModelIdentity{
-					Provider:  "codex",
-					Model:     "gpt-5.1-codex",
-					RuntimeID: "runtime-eta-1",
-				},
-				Confidence:    &confidence,
-				InterpretedAt: fixtureEpoch.Format(time.RFC3339Nano),
+	builder.directorConversation(turnID, conversation.DirectorConversationAssistantText, func(entry *conversation.DirectorConversationEntry) {
+		entry.Text = &conversation.DirectorConversationText{
+			Text: "I started that workstream and selected it. Send it the audit whenever you are ready.",
+			Model: &conversation.DirectorConversationModel{
+				Provider: conversation.ProviderCodex,
+				Model:    "gpt-5.1-codex",
+				ThreadID: "thread-eta-1",
 			},
-			InterpretedEventIDs: []string{inputEventID, decisionEventID},
 		}
 	})
-	builder.completeTurn(conversationID, turnID)
 	return ProjectionFixture{
-		Name:        "validation_and_interpretation",
-		Description: "A validated routing decision and a sourced Director interpretation alongside runtime facts.",
+		Name:        "director_conversation",
+		Description: "A Director turn that calls a Setta tool, creates and selects a workstream, and answers the user.",
 		Events:      builder.events,
 	}
 }
@@ -633,10 +694,9 @@ func validationAndInterpretationFixture() ProjectionFixture {
 // app is stuck: a lost agent, an unavailable provider, and a cancelled run.
 func blockedAndCancelledFixture() ProjectionFixture {
 	builder := &fixtureBuilder{}
-	const workstreamID = "ws-theta"
 	const conversationID = "conv-theta"
 	const turnID = "turn-theta-1"
-	builder.register(workstreamID, conversationID, "Deploy the preview", folderScope("workspace-theta", "/repo/theta"))
+	builder.register(conversationID, "Deploy the preview")
 	builder.acceptInput(conversationID, turnID, "Deploy the preview")
 	builder.startTurn(conversationID, turnID)
 	builder.liveness(conversationID, turnID, conversation.AgentLiveness{

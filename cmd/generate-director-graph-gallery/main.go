@@ -68,7 +68,20 @@ func buildFixture(name string, description string, events []director.ProjectorEv
 	if err != nil {
 		return galleryFixture{}, fmt.Errorf("%s: project graph: %w", name, err)
 	}
-	graphs := make([]director.WorkstreamGraph, 0, len(projection.WorkstreamIDs))
+	graphs := make([]director.WorkstreamGraph, 0, len(projection.WorkstreamIDs)+1)
+	// The Director lane is a graph scope rather than a registry row, so it is
+	// fetched by name the way the snapshot fetches it. A history in which the
+	// Director said nothing has an empty lane, and an empty lane is not a scene.
+	lane, err := projection.Graph(director.DirectorLaneID, director.WorkstreamDetailSelected)
+	if err != nil {
+		return galleryFixture{}, fmt.Errorf("%s: director lane graph: %w", name, err)
+	}
+	if len(lane.Nodes) > 0 {
+		if err := director.ValidateWorkstreamGraph(lane, projection.Authority); err != nil {
+			return galleryFixture{}, fmt.Errorf("%s: validate director lane graph: %w", name, err)
+		}
+		graphs = append(graphs, lane)
+	}
 	for _, workstreamID := range projection.WorkstreamIDs {
 		graph, err := projection.Graph(workstreamID, director.WorkstreamDetailSelected)
 		if err != nil {

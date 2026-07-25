@@ -379,13 +379,6 @@ func (projector *DirectorGraphProjector) applyDirectorFact(sequence int, fact Di
 	if err := ValidateDirectorFactEvent(fact); err != nil {
 		return err
 	}
-	if fact.Kind == DirectorFactWorkstreamRegistered {
-		rule, err := DirectorFactRule(fact.Kind)
-		if err != nil {
-			return err
-		}
-		return projector.registerWorkstream(fact, rule.EdgeKinds)
-	}
 	handler, handled := directorHandlers[fact.Kind]
 	if !handled {
 		return fmt.Errorf("no projector handler for director fact %q", fact.Kind)
@@ -592,10 +585,6 @@ func cloneSemanticNode(node SemanticNode) SemanticNode {
 	cloned.CompletedAt = copyOptionalString(node.CompletedAt)
 	if node.Interpretation != nil {
 		interpretation := *node.Interpretation
-		if node.Interpretation.Confidence != nil {
-			confidence := *node.Interpretation.Confidence
-			interpretation.Confidence = &confidence
-		}
 		cloned.Interpretation = &interpretation
 	}
 	return cloned

@@ -17,8 +17,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 96;
-export const backendContractSchemaHash = "sha256:cc0b5cdefddd83b15d14a27299d7c800d84de32e6a57390699ff30d712003756";
+export const backendProtocolVersion = 97;
+export const backendContractSchemaHash = "sha256:69bdc868cd9fb2d8b5d5e301903970a5e17111d30043bac9f008a2cf66b63864";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -3108,7 +3108,6 @@ export interface InterpretationModelIdentity {
 export interface InterpretationMetadata {
   interpretedBy: SemanticActor;
   model: InterpretationModelIdentity;
-  confidence: number | null;
   interpretedAt: string;
 }
 
@@ -6097,11 +6096,10 @@ export function decodeInterpretationModelIdentity(value: unknown): Interpretatio
 
 export function decodeInterpretationMetadata(value: unknown): InterpretationMetadata {
   const record = assertRecord(value, "InterpretationMetadata");
-  assertKnownFields(record, "InterpretationMetadata", ["interpretedBy", "model", "confidence", "interpretedAt"]);
+  assertKnownFields(record, "InterpretationMetadata", ["interpretedBy", "model", "interpretedAt"]);
   return {
     interpretedBy: decodeSemanticActor(requireField(record, "interpretedBy", "InterpretationMetadata"), "InterpretationMetadata.interpretedBy"),
     model: decodeInterpretationModelIdentity(requireField(record, "model", "InterpretationMetadata")),
-    confidence: decodeNullable(requireField(record, "confidence", "InterpretationMetadata"), "InterpretationMetadata.confidence", (item) => decodeNumber(item, "InterpretationMetadata.confidence")),
     interpretedAt: decodeString(requireField(record, "interpretedAt", "InterpretationMetadata"), "InterpretationMetadata.interpretedAt"),
   };
 }

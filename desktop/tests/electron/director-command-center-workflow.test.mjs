@@ -1352,11 +1352,11 @@ function assertProjectedDirectorCreation(snapshot, workstreamId) {
       node.publicSummary === "Director root",
     "created workstream anchor",
   );
+  // The anchor's provenance is the durable conversation record, so it cites a
+  // committed event and never a Director fact.
   if (
     anchor.sourceEventIds.length === 0 ||
-    anchor.sourceEventIds.some((eventId) =>
-      eventId.startsWith("director-fact:workstream_registered:"),
-    )
+    anchor.sourceEventIds.some((eventId) => eventId.startsWith("director-fact:"))
   ) {
     throw new Error(
       `workstream anchor did not carry committed provenance: ${JSON.stringify(anchor)}`,
