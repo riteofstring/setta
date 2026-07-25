@@ -56,6 +56,68 @@ func TestReconcilerEmitsContentFreeRuntimeAuditOutcomes(t *testing.T) {
 	requireRuntimeAuditOutput(t, output.Bytes(), request)
 }
 
+func TestReconcilerEmitsContentFreeBudgetCutoffOutcomes(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 24, 23, 0, 0, 0, time.UTC)
+	store, runtimeName, operationID := seedBudgetCutoffOperation(t, ctx, &now)
+	defer store.Close()
+	var output bytes.Buffer
+	observer, err := NewJSONLinesObserver(&output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := activeBudgetTestProvider(runtimeName)
+	provider.ambiguousSuspend = true
+	reconciler := newObservedTestReconciler(t, store, provider, observer, 3)
+	if processed, err := reconciler.ReconcileOnce(ctx); err != nil || !processed {
+		t.Fatalf("retrying cutoff = %t, %v", processed, err)
+	}
+	operation, err := store.BudgetCutoffOperation(ctx, operationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now = operation.NextAttemptAt
+	if processed, err := reconciler.ReconcileOnce(ctx); err != nil || !processed {
+		t.Fatalf("completed cutoff = %t, %v", processed, err)
+	}
+	text := output.String()
+	for _, forbidden := range []string{runtimeName, operationID, "user-provider-budget"} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("budget cutoff audit exposed %q: %s", forbidden, text)
+		}
+	}
+	requireBudgetCutoffAuditMeasurements(t, output.Bytes())
+}
+
+func requireBudgetCutoffAuditMeasurements(t *testing.T, payload []byte) {
+	t.Helper()
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	want := []struct {
+		state     RuntimeProgressState
+		errorCode string
+		retryable bool
+	}{
+		{state: RuntimeProgressRetrying, errorCode: "provider_suspend", retryable: true},
+		{state: RuntimeProgressSuspended},
+	}
+	for index, expected := range want {
+		var measurement RuntimeAuditMeasurement
+		if err := decoder.Decode(&measurement); err != nil {
+			t.Fatalf("decode budget cutoff audit %d: %v", index, err)
+		}
+		if measurement.Kind != RuntimeProgressBudgetCutoff ||
+			measurement.State != expected.state ||
+			measurement.ErrorCode != expected.errorCode ||
+			measurement.Retryable != expected.retryable {
+			t.Fatalf("budget cutoff audit %d = %+v", index, measurement)
+		}
+	}
+	var extra RuntimeAuditMeasurement
+	if err := decoder.Decode(&extra); err != io.EOF {
+		t.Fatalf("budget cutoff audit trailing data = %+v, %v", extra, err)
+	}
+}
+
 func newObservedTestReconciler(
 	t *testing.T,
 	store *Store,

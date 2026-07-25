@@ -2342,3 +2342,17 @@ Stop and reassess rather than hiding the problem if any of these occur:
   reporter that derives each interval from the existing accounting ledger
   remain open, so this does not yet close per-user hard budget enforcement or
   the combined Phase 5 checklist item. No provider or cloud mutation ran.
+- 2026-07-24 (fenced provider budget cutoff): Advanced the clean-break
+  control-plane schema to version 7 and made every threshold crossing create a
+  durable provider-suspend operation in the same transaction as access
+  suspension. The reconciler prioritizes cutoff work, claims it with an
+  expiring lease and monotonic fence, validates exact managed identity before
+  mutation, treats an absent or already warm/cold runtime as satisfied, calls
+  provider suspend only when still active, and verifies the postcondition.
+  Ambiguous suspend enters bounded retry; a restarted worker adopts the
+  observed success without issuing a duplicate suspend. Tests cover direct
+  success, ambiguous-success restart, permanent foreign-identity rejection,
+  expired-lease fencing, due-time scheduling, and content-free retry and
+  success audits. The automatic trusted reporter that converts runtime ledger
+  events and enforced ceilings into these intervals remains open, so the
+  combined Phase 5 item stays unchecked. No provider or cloud mutation ran.

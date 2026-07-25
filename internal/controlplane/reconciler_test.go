@@ -246,8 +246,10 @@ type testReconcilerProvider struct {
 	found             bool
 	createCalls       int
 	destroyCalls      int
+	suspendCalls      int
 	ambiguousCreate   bool
 	ambiguousDestroy  bool
+	ambiguousSuspend  bool
 	malformedIdentity bool
 }
 
@@ -303,6 +305,19 @@ func (provider *testReconcilerProvider) Destroy(
 	if provider.ambiguousDestroy {
 		provider.ambiguousDestroy = false
 		return errors.New("ambiguous provider destroy")
+	}
+	return nil
+}
+
+func (provider *testReconcilerProvider) Suspend(
+	_ context.Context,
+	_ string,
+) error {
+	provider.suspendCalls++
+	provider.observation.Activity = runtimeprovider.RuntimeActivityWarm
+	if provider.ambiguousSuspend {
+		provider.ambiguousSuspend = false
+		return errors.New("ambiguous provider suspend")
 	}
 	return nil
 }

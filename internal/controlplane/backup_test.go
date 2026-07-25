@@ -317,7 +317,7 @@ func TestControlPlaneRestoreRejectsTamperingAndDuplicateFields(t *testing.T) {
 	duplicate := []byte(`{
 		"schema_version": 1,
 		"schema_version": 1,
-		"control_plane_schema_version": 6,
+		"control_plane_schema_version": 7,
 		"created_at": "2026-07-24T21:00:00Z",
 		"database_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"secrets": []

@@ -58,7 +58,7 @@ gateway.
 
 ## Persistence and schema ownership
 
-The `internal/controlplane` package owns schema version 6. SQLite uses foreign
+The `internal/controlplane` package owns schema version 7. SQLite uses foreign
 keys, WAL journaling, one process-local connection, a five-second busy timeout,
 and a private database file. A deferred composite foreign key makes an active
 runtime assignment refer to a runtime owned by the same user. Replacement may
@@ -99,7 +99,7 @@ release equality. Wake requests are globally idempotent durable desired state;
 health observations clear them. Suspension, export-only access, exact grace
 expiry, release mismatch, and scheduled deletion invalidate live grants
 without overwriting lifecycle. The signed bootstrap supplies its verified
-installed release explicitly. Schema version 6 is a deliberate clean break;
+installed release explicitly. Schema version 7 is a deliberate clean break;
 older databases fail rather than receiving an implicit migration.
 
 The deletion executor uses its own durable operation table rather than
@@ -132,7 +132,14 @@ suspends the user and runtime access, invalidates live grants, and publishes
 hosted-access suspension. The private administration boundary is the only
 production ingestion path and emits content-free `budget_set` and
 `usage_recorded` audit outcomes. Restart-safe provider-side suspend and retry
-remain required before this is a complete billable-compute cutoff.
+run as a separate fenced operation in schema version 7. The worker validates
+the deterministic provider identity before mutation, adopts an already
+warm/cold or absent runtime after restart, verifies suspension after the
+provider call, and uses bounded retry, expiring claims, and monotonic fencing.
+Retry, terminal failure, and successful suspension are emitted through the
+content-free reconciliation observer. The trusted automatic reporter that
+derives intervals from the accounting ledger remains required before this is
+a complete billable-compute cutoff.
 
 The reconciler projects committed provisioning and deletion outcomes to the
 shared JSONL observer. These content-free audit records identify only the

@@ -56,6 +56,8 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 			"user_budget_policies",
 			"usage_intervals",
 			"usage_intervals_runtime_window_idx",
+			"budget_cutoff_operations",
+			"budget_cutoff_operations_due_idx",
 		); err != nil {
 			return err
 		}
@@ -329,6 +331,7 @@ CREATE TABLE IF NOT EXISTS usage_intervals (
   request_fingerprint TEXT NOT NULL,
   user_id TEXT NOT NULL REFERENCES users(id),
   runtime_name TEXT NOT NULL REFERENCES runtimes(name),
+  budget_period_start TEXT NOT NULL,
   interval_start TEXT NOT NULL,
   interval_end TEXT NOT NULL,
   measurement_source TEXT NOT NULL CHECK(measurement_source = 'setta_conservative'),
@@ -342,5 +345,27 @@ CREATE TABLE IF NOT EXISTS usage_intervals (
 
 CREATE UNIQUE INDEX IF NOT EXISTS usage_intervals_runtime_window_idx
   ON usage_intervals(runtime_name, interval_start, interval_end);
+
+CREATE TABLE IF NOT EXISTS budget_cutoff_operations (
+  idempotency_key TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  runtime_name TEXT NOT NULL REFERENCES runtimes(name),
+  period_start TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('pending', 'running', 'retry_wait', 'succeeded', 'failed')),
+  attempt_count INTEGER NOT NULL CHECK(attempt_count >= 0),
+  fence_token INTEGER NOT NULL CHECK(fence_token >= 0),
+  lease_owner TEXT,
+  lease_expires_at TEXT,
+  next_attempt_at TEXT NOT NULL,
+  last_error_code TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  completed_at TEXT,
+  CHECK((status = 'running') = (lease_owner IS NOT NULL AND lease_expires_at IS NOT NULL)),
+  UNIQUE(user_id, period_start)
+);
+
+CREATE INDEX IF NOT EXISTS budget_cutoff_operations_due_idx
+  ON budget_cutoff_operations(status, next_attempt_at, created_at);
 
 `

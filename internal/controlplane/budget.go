@@ -63,6 +63,7 @@ type UsageInterval struct {
 	EnforcedBudgetUSDMicros int64
 	CutoffRequired          bool
 	RecordedAt              time.Time
+	BudgetPeriodStart       time.Time
 }
 
 func (store *Store) SetUserBudgetPolicy(
@@ -138,6 +139,7 @@ func (store *Store) RecordUsageInterval(
 	}
 	if interval.CutoffRequired {
 		store.invalidateRuntimeLocked(request.RuntimeName)
+		store.notifyOperationWakeLocked()
 		for _, deviceID := range deviceIDs {
 			store.invalidateDeviceLocked(deviceID)
 		}
@@ -224,11 +226,36 @@ func persistUsageInterval(
 		if err != nil {
 			return nil, err
 		}
+		if err := insertBudgetCutoffOperation(ctx, tx, interval); err != nil {
+			return nil, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit usage interval: %w", err)
 	}
 	return hostedIntentIDs, nil
+}
+
+func insertBudgetCutoffOperation(ctx context.Context, tx *sql.Tx, interval UsageInterval) error {
+	operationID := budgetCutoffOperationID(interval.UserID, interval.BudgetPeriodStart)
+	now := timestamp(interval.RecordedAt)
+	_, err := tx.ExecContext(ctx, `
+INSERT INTO budget_cutoff_operations (
+  idempotency_key, user_id, runtime_name, period_start, status,
+  attempt_count, fence_token, next_attempt_at, last_error_code, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, 0, 0, ?, '', ?, ?)
+ON CONFLICT(user_id, period_start) DO NOTHING
+`, operationID, interval.UserID, interval.RuntimeName, timestamp(interval.BudgetPeriodStart),
+		RuntimeOperationPending, now, now, now)
+	if err != nil {
+		return fmt.Errorf("record budget cutoff operation: %w", err)
+	}
+	return nil
+}
+
+func budgetCutoffOperationID(userID string, periodStart time.Time) string {
+	digest := sha256.Sum256([]byte(userID + "\x00" + timestamp(periodStart)))
+	return "budget_" + hex.EncodeToString(digest[:16])
 }
 
 func buildUsageInterval(
@@ -253,6 +280,7 @@ func buildUsageInterval(
 		EnforcedBudgetUSDMicros: enforcedBudget,
 		CutoffRequired:          cumulative >= enforcedBudget,
 		RecordedAt:              recordedAt,
+		BudgetPeriodStart:       policy.PeriodStart,
 	}, nil
 }
 
@@ -350,11 +378,11 @@ func readUsageIntervalByID(
 	idempotencyKey string,
 ) (persistedUsageInterval, bool, error) {
 	var persisted persistedUsageInterval
-	var start, end, recorded string
+	var budgetStart, start, end, recorded string
 	var cutoff int
 	err := query.QueryRowContext(ctx, `
 SELECT request_fingerprint, user_id, runtime_name, interval_start, interval_end,
-       measurement_source, covered_cost_usd_micros, cumulative_cost_usd_micros,
+       budget_period_start, measurement_source, covered_cost_usd_micros, cumulative_cost_usd_micros,
        enforced_budget_usd_micros, cutoff_required, recorded_at
 FROM usage_intervals WHERE idempotency_key = ?
 `, idempotencyKey).Scan(
@@ -363,6 +391,7 @@ FROM usage_intervals WHERE idempotency_key = ?
 		&persisted.interval.RuntimeName,
 		&start,
 		&end,
+		&budgetStart,
 		&persisted.interval.MeasurementSource,
 		&persisted.interval.CoveredCostUSDMicros,
 		&persisted.interval.CumulativeCostUSDMicros,
@@ -378,16 +407,18 @@ FROM usage_intervals WHERE idempotency_key = ?
 	}
 	persisted.interval.IdempotencyKey = idempotencyKey
 	persisted.interval.CutoffRequired = cutoff != 0
-	var parseErr error
-	persisted.interval.IntervalStart, parseErr = parseBudgetTimestamp(start)
-	if parseErr == nil {
-		persisted.interval.IntervalEnd, parseErr = parseBudgetTimestamp(end)
+	persisted.interval.BudgetPeriodStart, err = parseBudgetTimestamp(budgetStart)
+	if err == nil {
+		persisted.interval.IntervalStart, err = parseBudgetTimestamp(start)
 	}
-	if parseErr == nil {
-		persisted.interval.RecordedAt, parseErr = parseBudgetTimestamp(recorded)
+	if err == nil {
+		persisted.interval.IntervalEnd, err = parseBudgetTimestamp(end)
 	}
-	if parseErr != nil {
-		return persistedUsageInterval{}, false, parseErr
+	if err == nil {
+		persisted.interval.RecordedAt, err = parseBudgetTimestamp(recorded)
+	}
+	if err != nil {
+		return persistedUsageInterval{}, false, err
 	}
 	return persisted, true, nil
 }
@@ -451,12 +482,13 @@ func insertUsageInterval(
 	_, err := tx.ExecContext(ctx, `
 INSERT INTO usage_intervals (
   idempotency_key, request_fingerprint, user_id, runtime_name,
-  interval_start, interval_end, measurement_source,
+  budget_period_start, interval_start, interval_end, measurement_source,
   covered_cost_usd_micros, cumulative_cost_usd_micros,
   enforced_budget_usd_micros, cutoff_required, recorded_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `, interval.IdempotencyKey, fingerprint, interval.UserID, interval.RuntimeName,
-		timestamp(interval.IntervalStart), timestamp(interval.IntervalEnd), interval.MeasurementSource,
+		timestamp(interval.BudgetPeriodStart), timestamp(interval.IntervalStart),
+		timestamp(interval.IntervalEnd), interval.MeasurementSource,
 		interval.CoveredCostUSDMicros, interval.CumulativeCostUSDMicros,
 		interval.EnforcedBudgetUSDMicros, interval.CutoffRequired, timestamp(interval.RecordedAt))
 	if err != nil {

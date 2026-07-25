@@ -57,6 +57,7 @@ const (
 	RuntimeProgressEnsureRuntime RuntimeProgressKind = "ensure_runtime"
 	RuntimeProgressWakeRuntime   RuntimeProgressKind = "wake_runtime"
 	RuntimeProgressDeleteRuntime RuntimeProgressKind = "delete_runtime"
+	RuntimeProgressBudgetCutoff  RuntimeProgressKind = "budget_cutoff"
 
 	RuntimeProgressQueued            RuntimeProgressState = "queued"
 	RuntimeProgressReconciling       RuntimeProgressState = "reconciling"
@@ -68,6 +69,7 @@ const (
 	RuntimeProgressDeleted           RuntimeProgressState = "deleted"
 	RuntimeProgressFailed            RuntimeProgressState = "failed"
 	RuntimeProgressCanceled          RuntimeProgressState = "canceled"
+	RuntimeProgressSuspended         RuntimeProgressState = "suspended"
 
 	EntitlementActive     EntitlementState = "active"
 	EntitlementGrace      EntitlementState = "grace"

@@ -13,6 +13,7 @@ type RuntimeReconcilerProvider interface {
 	Create(context.Context, runtimeprovider.CreateRequest) (runtimeprovider.RuntimeObservation, error)
 	Inspect(context.Context, string) (runtimeprovider.RuntimeObservation, bool, error)
 	ConfigureURL(context.Context, string, runtimeprovider.URLAccess) error
+	Suspend(context.Context, string) error
 	Destroy(context.Context, string) error
 }
 
@@ -66,6 +67,17 @@ func NewReconciler(config ReconcilerConfig) (*Reconciler, error) {
 func (reconciler *Reconciler) ReconcileOnce(ctx context.Context) (bool, error) {
 	operationCtx, cancel := context.WithTimeout(ctx, reconciler.operationTimeout)
 	defer cancel()
+	cutoff, found, err := reconciler.store.ClaimBudgetCutoffOperation(
+		operationCtx,
+		reconciler.workerID,
+		reconciler.leaseDuration,
+	)
+	if err != nil {
+		return false, err
+	}
+	if found {
+		return true, reconciler.reconcileBudgetCutoffClaim(ctx, operationCtx, cutoff)
+	}
 	deletion, found, err := reconciler.store.ClaimRuntimeDeletionOperation(
 		operationCtx,
 		reconciler.workerID,
@@ -86,6 +98,147 @@ func (reconciler *Reconciler) ReconcileOnce(ctx context.Context) (bool, error) {
 		return found, err
 	}
 	return true, reconciler.reconcileProvisioningClaim(ctx, operationCtx, claim)
+}
+
+func (reconciler *Reconciler) reconcileBudgetCutoffClaim(
+	parentCtx context.Context,
+	operationCtx context.Context,
+	claim ClaimedBudgetCutoffOperation,
+) error {
+	failure := reconciler.suspendBudgetRuntime(operationCtx, claim)
+	if failure != nil {
+		return reconciler.deferBudgetCutoff(parentCtx, operationCtx, claim, failure)
+	}
+	err := reconciler.store.CompleteBudgetCutoffOperation(operationCtx, claim)
+	if errors.Is(err, ErrFenceLost) {
+		return nil
+	}
+	if err == nil {
+		reconciler.observeRuntimeAudit(
+			claim.RuntimeOperation,
+			RuntimeProgressBudgetCutoff,
+			RuntimeProgressSuspended,
+			"",
+			false,
+		)
+	}
+	return normalizeOperationError(parentCtx, operationCtx, err)
+}
+
+func (reconciler *Reconciler) suspendBudgetRuntime(
+	ctx context.Context,
+	claim ClaimedBudgetCutoffOperation,
+) *providerReconcileFailure {
+	observation, found, failure := reconciler.inspectBudgetRuntime(
+		ctx,
+		claim,
+		"provider_cutoff_inspect",
+	)
+	if failure != nil {
+		return failure
+	}
+	if !found {
+		return nil
+	}
+	if providerActivitySuspended(observation.Activity) {
+		return nil
+	}
+	if err := reconciler.provider.Suspend(ctx, claim.RuntimeName); err != nil {
+		return &providerReconcileFailure{code: "provider_suspend"}
+	}
+	verified, found, failure := reconciler.inspectBudgetRuntime(
+		ctx,
+		claim,
+		"provider_cutoff_verify",
+	)
+	if failure != nil {
+		return failure
+	}
+	if !found {
+		return nil
+	}
+	if !providerActivitySuspended(verified.Activity) {
+		return &providerReconcileFailure{code: "provider_cutoff_unconfirmed"}
+	}
+	return nil
+}
+
+func (reconciler *Reconciler) inspectBudgetRuntime(
+	ctx context.Context,
+	claim ClaimedBudgetCutoffOperation,
+	inspectErrorCode string,
+) (runtimeprovider.RuntimeObservation, bool, *providerReconcileFailure) {
+	observation, found, err := reconciler.provider.Inspect(ctx, claim.RuntimeName)
+	if err != nil {
+		return runtimeprovider.RuntimeObservation{}, false, &providerReconcileFailure{code: inspectErrorCode}
+	}
+	if !found {
+		return runtimeprovider.RuntimeObservation{}, false, nil
+	}
+	if err := validateManagedObservation(claim.Identity, observation); err != nil {
+		return runtimeprovider.RuntimeObservation{}, false, &providerReconcileFailure{
+			code: "provider_identity_mismatch", permanent: true,
+		}
+	}
+	if !validProviderActivity(observation.Activity) {
+		return runtimeprovider.RuntimeObservation{}, false, &providerReconcileFailure{
+			code: "provider_activity_invalid", permanent: true,
+		}
+	}
+	return observation, true, nil
+}
+
+func validProviderActivity(activity runtimeprovider.RuntimeActivity) bool {
+	switch activity {
+	case runtimeprovider.RuntimeActivityProvisioning,
+		runtimeprovider.RuntimeActivityActive,
+		runtimeprovider.RuntimeActivityWarm,
+		runtimeprovider.RuntimeActivityCold:
+		return true
+	default:
+		return false
+	}
+}
+
+func providerActivitySuspended(activity runtimeprovider.RuntimeActivity) bool {
+	return activity == runtimeprovider.RuntimeActivityWarm ||
+		activity == runtimeprovider.RuntimeActivityCold
+}
+
+func (reconciler *Reconciler) deferBudgetCutoff(
+	parentCtx context.Context,
+	operationCtx context.Context,
+	claim ClaimedBudgetCutoffOperation,
+	failure *providerReconcileFailure,
+) error {
+	if parentCtx.Err() != nil {
+		return parentCtx.Err()
+	}
+	if operationCtx.Err() != nil {
+		return nil
+	}
+	terminal := failure.permanent || claim.AttemptCount >= reconciler.maxAttempts
+	err := reconciler.store.DeferBudgetCutoffOperation(
+		operationCtx,
+		claim,
+		failure.code,
+		claim.UpdatedAt.Add(reconciler.retryDelay),
+		terminal,
+	)
+	if err == nil {
+		state := RuntimeProgressRetrying
+		if terminal {
+			state = RuntimeProgressFailed
+		}
+		reconciler.observeRuntimeAudit(
+			claim.RuntimeOperation,
+			RuntimeProgressBudgetCutoff,
+			state,
+			failure.code,
+			!terminal,
+		)
+	}
+	return err
 }
 
 func (reconciler *Reconciler) reconcileProvisioningClaim(
