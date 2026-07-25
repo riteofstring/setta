@@ -160,11 +160,18 @@ func validateNodeInterpretation(node SemanticNode) error {
 	if node.Interpretation == nil {
 		return nil
 	}
-	metadata := *node.Interpretation
+	return validateInterpretationMetadata(node.ID, *node.Interpretation)
+}
+
+// validateInterpretationMetadata enforces the provenance an interpretation owes
+// the user: who concluded it, on which runtime, how confident they were when
+// confidence means anything, and when. It is shared by the durable Director fact
+// that publishes an interpretation and the node projected from it.
+func validateInterpretationMetadata(label string, metadata InterpretationMetadata) error {
 	switch metadata.InterpretedBy {
 	case SemanticActorDirector, SemanticActorWorker:
 	default:
-		return fmt.Errorf("semantic node %s interpretation must be attributed to the director or a worker", node.ID)
+		return fmt.Errorf("%s interpretation must be attributed to the director or a worker", label)
 	}
 	if err := validateTrimmedText("interpretation provider", metadata.Model.Provider); err != nil {
 		return err
@@ -176,7 +183,7 @@ func validateNodeInterpretation(node SemanticNode) error {
 		return err
 	}
 	if metadata.Confidence != nil && (*metadata.Confidence < 0 || *metadata.Confidence > 1) {
-		return fmt.Errorf("semantic node %s interpretation confidence must be within [0,1]: %f", node.ID, *metadata.Confidence)
+		return fmt.Errorf("%s interpretation confidence must be within [0,1]: %f", label, *metadata.Confidence)
 	}
 	return validateTimestamp("interpretation interpreted at", metadata.InterpretedAt)
 }

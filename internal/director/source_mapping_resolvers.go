@@ -30,7 +30,11 @@ func NodeKindForActivity(kind conversation.TrajectoryActivityKind) (SemanticNode
 		conversation.TrajectoryActivityImageView:
 		return SemanticNodeInvestigation, nil
 	case conversation.TrajectoryActivityImageGeneration:
-		return SemanticNodeArtifact, nil
+		// Generating media is the action that produces an artifact, not the
+		// artifact itself. The artifact node appears when the artifact is
+		// durably emitted, because a node that claims to be an artifact without
+		// naming one has no provenance to open.
+		return SemanticNodeAction, nil
 	case conversation.TrajectoryActivitySubagent:
 		return SemanticNodeDelegation, nil
 	case conversation.TrajectoryActivityOther:
@@ -185,7 +189,70 @@ func ValidateSourceFactCoverage() error {
 	if err := validateDirectorFactCoverage(); err != nil {
 		return err
 	}
-	return validateResolverCoverage()
+	if err := validateResolverCoverage(); err != nil {
+		return err
+	}
+	return validateNodeKindCoverage()
+}
+
+// validateNodeKindCoverage proves the mapping runs in both directions: every
+// node kind the catalog offers is actually produced by some durable fact. A kind
+// nothing can produce is a promise the graph cannot keep, and it is exactly how
+// a renderer ends up inventing a source for it.
+func validateNodeKindCoverage() error {
+	produced := make(map[SemanticNodeKind]bool, len(semanticNodeKinds))
+	for _, rule := range trajectoryFactRules {
+		markProducedNodeKind(produced, rule)
+	}
+	for _, rule := range directorFactRules {
+		markProducedNodeKind(produced, rule)
+	}
+	if err := markResolvedNodeKinds(produced); err != nil {
+		return err
+	}
+	for _, kind := range semanticNodeKinds {
+		if !produced[kind] {
+			return fmt.Errorf("semantic node kind %q has no durable fact that produces it", kind)
+		}
+	}
+	return nil
+}
+
+func markProducedNodeKind(produced map[SemanticNodeKind]bool, rule SourceFactRule) {
+	if rule.Resolution == SourceFactResolutionFixed {
+		produced[rule.NodeKind] = true
+	}
+}
+
+func markResolvedNodeKinds(produced map[SemanticNodeKind]bool) error {
+	for _, kind := range conversation.TrajectoryActivityKinds() {
+		resolved, err := NodeKindForActivity(kind)
+		if err != nil {
+			return err
+		}
+		markResolvedNodeKind(produced, resolved)
+	}
+	for _, status := range conversation.AgentLivenessStatuses() {
+		resolved, err := NodeKindForAgentLiveness(status)
+		if err != nil {
+			return err
+		}
+		markResolvedNodeKind(produced, resolved)
+	}
+	for _, status := range conversation.ProviderLifecycleStatuses() {
+		resolved, err := NodeKindForProviderLifecycle(status)
+		if err != nil {
+			return err
+		}
+		markResolvedNodeKind(produced, resolved)
+	}
+	return nil
+}
+
+func markResolvedNodeKind(produced map[SemanticNodeKind]bool, kind SemanticNodeKind) {
+	if kind != SemanticNodeNone {
+		produced[kind] = true
+	}
 }
 
 func validateTrajectoryFactCoverage() error {

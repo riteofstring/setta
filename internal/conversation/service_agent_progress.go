@@ -109,7 +109,11 @@ func (service *Service) artifactTrajectory(
 		Actor:            TrajectoryActorSystem,
 		ProviderThreadID: &event.ProviderThreadID,
 		ProviderTurnID:   &event.ProviderTurnID,
-		ArtifactEmitted:  &TrajectoryArtifactEmitted{ArtifactID: artifact.ID},
+		ArtifactEmitted: &TrajectoryArtifactEmitted{
+			ArtifactID: artifact.ID,
+			Kind:       artifact.Kind,
+			Title:      artifact.Title,
+		},
 	}, nil
 }
 

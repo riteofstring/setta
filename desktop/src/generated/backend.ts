@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 79;
-export const backendContractSchemaHash = "sha256:5f32cf01642dbaa624e9fc98e69e54dbf09a833ce201b3a82e35628e12cf8cff";
+export const backendProtocolVersion = 80;
+export const backendContractSchemaHash = "sha256:81db1051644d2ced966b3b09dc01763b457bb4b19cd80f90c88547f7473f01ff";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -752,6 +752,26 @@ export function decodeSubagentStatus(value: unknown, label = "SubagentStatus"): 
   }
 }
 
+export type ArtifactKind = "markdown" | "table" | "bar_chart" | "file";
+
+export const artifactKindValues = ["markdown", "table", "bar_chart", "file"] as const satisfies readonly ArtifactKind[];
+
+export function decodeArtifactKind(value: unknown, label = "ArtifactKind"): ArtifactKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "markdown":
+      return decoded;
+    case "table":
+      return decoded;
+    case "bar_chart":
+      return decoded;
+    case "file":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type AgentLivenessStatus = "attached" | "reconciling" | "lost" | "terminal";
 
 export const agentLivenessStatusValues = ["attached", "reconciling", "lost", "terminal"] as const satisfies readonly AgentLivenessStatus[];
@@ -824,26 +844,6 @@ export function decodeProviderLifecycleStatus(value: unknown, label = "ProviderL
     case "unavailable":
       return decoded;
     case "closed":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type ArtifactKind = "markdown" | "table" | "bar_chart" | "file";
-
-export const artifactKindValues = ["markdown", "table", "bar_chart", "file"] as const satisfies readonly ArtifactKind[];
-
-export function decodeArtifactKind(value: unknown, label = "ArtifactKind"): ArtifactKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "markdown":
-      return decoded;
-    case "table":
-      return decoded;
-    case "bar_chart":
-      return decoded;
-    case "file":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2304,6 +2304,8 @@ export interface TrajectorySubagentCompleted {
 
 export interface TrajectoryArtifactEmitted {
   artifactId: string;
+  kind: ArtifactKind;
+  title: string;
 }
 
 export interface AgentLiveness {
@@ -5189,9 +5191,11 @@ export function decodeTrajectorySubagentCompleted(value: unknown): TrajectorySub
 
 export function decodeTrajectoryArtifactEmitted(value: unknown): TrajectoryArtifactEmitted {
   const record = assertRecord(value, "TrajectoryArtifactEmitted");
-  assertKnownFields(record, "TrajectoryArtifactEmitted", ["artifactId"]);
+  assertKnownFields(record, "TrajectoryArtifactEmitted", ["artifactId", "kind", "title"]);
   return {
     artifactId: decodeString(requireField(record, "artifactId", "TrajectoryArtifactEmitted"), "TrajectoryArtifactEmitted.artifactId"),
+    kind: decodeArtifactKind(requireField(record, "kind", "TrajectoryArtifactEmitted"), "TrajectoryArtifactEmitted.kind"),
+    title: decodeString(requireField(record, "title", "TrajectoryArtifactEmitted"), "TrajectoryArtifactEmitted.title"),
   };
 }
 

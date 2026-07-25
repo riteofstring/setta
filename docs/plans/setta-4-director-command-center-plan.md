@@ -9,7 +9,12 @@ notification adapter matrix is committed in `internal/agent/provider_notificatio
 evidence, status, and interpretation contracts; lifecycle tables for workstreams,
 runs, queue items, approvals, resource requests, artifacts, semantic nodes, and
 recovery; the source-fact-to-node mapping; and the app-scoped snapshot, cursor,
-event, and `resync_required` contracts. The ownership,
+event, and `resync_required` contracts. The missing typed Director runtime events
+and the pure `DirectorGraphProjector` are committed in the same package (Phase 1
+items 8, 10, 11, and 12): `facts.go` owns the durable Director facts, `fixtures.go`
+owns the deterministic histories, and the projector plus its replay, ordering,
+lifecycle, provenance, redaction, resync, and recovery boundary tests cover every
+node kind and edge kind. The ownership,
 surviving-path, and reusable-foundation inventories are committed in
 [`docs/reports/setta-4-phase0-ownership-inventory-20260724.md`](../reports/setta-4-phase0-ownership-inventory-20260724.md),
 the mockup fidelity checklist in
@@ -412,11 +417,11 @@ must be added as typed events or records; do not fill gaps by parsing text.
 | Validated Director route decision or command | `director_decision` | The model may choose only authorized decision kinds and targets; trusted code attaches ids and capabilities. |
 | `turn_queued`, `turn_promoted`, `turn_started`, `turn_steered` | `action` status updates plus selected-workstream milestones | Queue and run state should update one durable run node rather than create noisy duplicate nodes. |
 | `plan_changed` | `plan` plus step `milestone` nodes | Current provider plan steps do not have stable ids; initial step node ids should be derived from the source event id and step index unless the contract adds step ids. Codex `PlanDelta` is a provisional live text signal only; do not create authoritative plan nodes by concatenating deltas. |
-| `activity_started`, `activity_progressed`, `activity_completed`, `activity_failed` | `action`, `investigation`, `delegation`, or `artifact` | Map by typed activity kind: commands, hooks, MCP tools, dynamic tools, and file changes are `action`; web search and image view are `investigation`; subagents are `delegation`; generated media is `artifact`. Preserve trusted plugin/script attribution as evidence metadata. `other` is not visible until a typed owner assigns a precise semantic kind. |
+| `activity_started`, `activity_progressed`, `activity_completed`, `activity_failed` | `action`, `investigation`, or `delegation` | Map by typed activity kind: commands, hooks, MCP tools, dynamic tools, file changes, and generated media are `action`; web search and image view are `investigation`; subagents are `delegation`. Generating media is the action that produces an artifact, not the artifact: the `artifact` node appears when `artifact_emitted` names a durable artifact, because a node claiming to be an artifact without naming one has no provenance to open. Preserve trusted plugin/script attribution as evidence metadata. `other` is not visible until a typed owner assigns a precise semantic kind. |
 | `file_change_proposed`, `file_change_completed` | `action` with file-change evidence | Approval state comes from approval events, not inferred from file diffs. |
 | `approval_requested`, `approval_resolved` | `approval_required` | Secret answers and secret fields stay redacted in public graph state. |
 | Resource request and resolution records | `resource_required` | Add explicit Director/workstream records if the current source only exposes resource needs indirectly. |
-| `artifact_emitted` | `artifact` | Connect from the producing run/action with a `produced` edge. |
+| `artifact_emitted` | `artifact` | Connect from the producing run/action with a `produced` edge. The event carries the artifact's kind and title, so a node never has to resolve a second record — or invent a label — to say what was produced. |
 | `agent_liveness_changed`, `provider_lifecycle_changed` | `blocked`, `recovery`, or status update | Only typed lost/unavailable/reconciling/retryable states become visible nodes. Ready/attached states update metadata. |
 | `model_rerouted` | `recovery` or `milestone` | Use the typed reroute reason/status; do not infer risk from surrounding text. |
 | `turn_completed`, `turn_failed`, `turn_interrupted` | `completed`, `failed`, or `cancelled` | Terminal run state closes the visible causal chain for that run. |
@@ -829,14 +834,32 @@ Exit gate:
    node kinds and derives plan-step node ids.**
 7. Define the app-scoped Director snapshot, cursor, event, and `resync_required` contracts. **Done —
    `internal/director/snapshot.go`, including the lossless/best-effort backpressure classes.**
-8. Identify missing typed runtime events; add explicit events instead of UI inference.
+8. Identify missing typed runtime events; add explicit events instead of UI inference. **Done —
+   `internal/director/facts.go` commits the durable Director-owned facts a conversation cannot own:
+   workstream registration, selection, and resource binding; the validated decision; the resource
+   request and its resolution; the published interpretation; the recorded validation; and the
+   recovery attempt. The last two close the catalog: `validation` and `retry` previously had no fact
+   that could produce them, and `validated_by` and `recovered_by` had no derivation.
+   `ValidateSourceFactCoverage` now proves the mapping runs in both directions, so a node kind
+   nothing can produce fails loudly. `conversation.TrajectoryArtifactEmitted` carries the artifact's
+   kind and title, because the graph could otherwise only label a result by resolving a second
+   record.**
 9. Generate TypeScript surfaces. **Director contracts are registered with the generator in
    `cmd/generate-contracts/contract_registry.go`; they reach `desktop/src/generated/backend.ts` when
    the Phase 3 endpoints and events make them reachable.**
 10. Build deterministic event histories covering every node lifecycle and live replay boundary.
-11. Implement the pure `DirectorGraphProjector`.
+    **Done — `internal/director/fixtures.go` commits nine histories built from production contracts:
+    folderless start, queueing and steering, approval-gated file change, superseded plan and
+    investigation, delegation to a child workstream and to a subagent, failure and recovery,
+    resource request, validation and interpretation, and blocked/cancelled lifecycle.**
+11. Implement the pure `DirectorGraphProjector`. **Done — `internal/director/projector*.go`. It holds
+    no clock, randomness, I/O, or view state, and the live push path and cold replay run the same
+    `Apply`. Superseded plan steps leave the live window with every reference to them repaired,
+    because provider plan steps carry no stable identity.**
 12. Add replay, ordering, invalid-transition, provenance, redaction, live resync, and recovery
-    boundary tests.
+    boundary tests. **Done — `internal/director/projector_test.go`. Replay is compared across every
+    prefix boundary of every fixture, resync conditions surface as typed `ReplayError` reasons rather
+    than internal errors, and the fixtures are asserted to exercise every node kind and edge kind.**
 13. Build the exhaustive node/edge visual gallery from production contract fixtures.
 
 Exit gate:
@@ -1004,13 +1027,16 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Finish Phase 1 with items 8 and 10 through 13: the missing typed runtime events, deterministic
-   event histories, the pure `DirectorGraphProjector`, its replay/ordering/provenance/redaction
-   boundary tests, and the exhaustive node/edge visual gallery. The four contract gaps the inventory
-   found are closed as contracts in `internal/director` — durable resource-request records, the
-   app-scoped workstream registry, plan-step identity, and workstream resource bindings. Moving
-   `internal/master` off `internal/applayout` onto `director.WorkstreamResourceBinding` is Phase 3
-   rewiring, not a remaining contract gap.
+1. Finish Phase 1 with item 13, the exhaustive node/edge visual gallery. It is the one Phase 1 item
+   still open, and it is blocked on item 9: the Director contracts are registered with the generator
+   but do not reach `desktop/src/generated/backend.ts` until the Phase 3 endpoints and events make
+   them reachable, and a gallery must render generated contract values rather than a hand-maintained
+   TypeScript mirror. `ProjectionFixtures()` is the production-contract fixture source the gallery
+   renders from. The four contract gaps the inventory found are closed as contracts in
+   `internal/director` — durable resource-request records, the app-scoped workstream registry,
+   plan-step identity, and workstream resource bindings. Moving `internal/master` off
+   `internal/applayout` onto `director.WorkstreamResourceBinding` is Phase 3 rewiring, not a
+   remaining contract gap.
 2. Register and adapt the notifications the matrix marks `normalized` that have no normalizer yet —
    thread status, environment connection, Guardian and verification signals, hooks, MCP tool
    progress, terminal interaction, and server-request resolution — as typed Setta events rather than

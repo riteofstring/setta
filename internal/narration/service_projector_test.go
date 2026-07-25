@@ -979,6 +979,8 @@ func seedTerminalProjectorConversation(
 		Actor:          conversation.TrajectoryActorSystem,
 		ArtifactEmitted: &conversation.TrajectoryArtifactEmitted{
 			ArtifactID: artifact.ID,
+			Kind:       artifact.Kind,
+			Title:      artifact.Title,
 		},
 	})
 	terminal := conversation.TrajectoryEvent{

@@ -19,6 +19,10 @@ const (
 	// MaxSnapshotAdjacentGraphs bounds how many non-selected workstreams carry
 	// a compact graph.
 	MaxSnapshotAdjacentGraphs = 8
+	// MaxSnapshotAdjacentGraphNodes bounds one adjacent workstream's compact
+	// graph. An adjacent workstream answers "does this need me?", so it carries
+	// its blockers, its results, and its last milestone — not its trajectory.
+	MaxSnapshotAdjacentGraphNodes = 12
 	// MaxSnapshotGraphNodes bounds the selected workstream's projected window.
 	MaxSnapshotGraphNodes = 400
 	// MaxSnapshotGraphEdges bounds edges within one workstream graph.

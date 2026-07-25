@@ -336,7 +336,11 @@ func (service *Service) persistArtifactToolEmission(
 		ProviderEventID:  &callID,
 		ProviderThreadID: &providerThreadID,
 		ProviderTurnID:   &providerTurnID,
-		ArtifactEmitted:  &TrajectoryArtifactEmitted{ArtifactID: artifact.ID},
+		ArtifactEmitted: &TrajectoryArtifactEmitted{
+			ArtifactID: artifact.ID,
+			Kind:       artifact.Kind,
+			Title:      artifact.Title,
+		},
 	}
 	publications, err := service.publications(
 		conversationID,

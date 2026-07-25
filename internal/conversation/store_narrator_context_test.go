@@ -432,7 +432,11 @@ func narratorContextTrajectory(conversationID string, turn ConversationTurn) []T
 		ProviderThreadID: "provider-subagent-1",
 		Status:           SubagentStatusRunning,
 	}}
-	events[8].ArtifactEmitted = &TrajectoryArtifactEmitted{ArtifactID: "artifact-1"}
+	events[8].ArtifactEmitted = &TrajectoryArtifactEmitted{
+		ArtifactID: "artifact-1",
+		Kind:       ArtifactKindMarkdown,
+		Title:      "Narrator context artifact",
+	}
 	events[9].AgentPublicTextDelta = &TrajectoryAgentPublicTextDelta{
 		ProviderItemID: "provider-message-1",
 		Delta:          "Materializing context.",

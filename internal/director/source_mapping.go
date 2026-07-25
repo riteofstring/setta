@@ -76,7 +76,9 @@ const (
 	SemanticNodeIdentitySubagent        SemanticNodeIdentity = "subagent"
 	SemanticNodeIdentityArtifact        SemanticNodeIdentity = "artifact"
 	SemanticNodeIdentityLifecycle       SemanticNodeIdentity = "lifecycle"
-	SemanticNodeIdentityWorkstream      SemanticNodeIdentity = "workstream"
+	SemanticNodeIdentityInterpretation  SemanticNodeIdentity = "interpretation"
+	SemanticNodeIdentityValidation      SemanticNodeIdentity = "validation"
+	SemanticNodeIdentityRecovery        SemanticNodeIdentity = "recovery"
 )
 
 var semanticNodeIdentities = []SemanticNodeIdentity{
@@ -93,7 +95,9 @@ var semanticNodeIdentities = []SemanticNodeIdentity{
 	SemanticNodeIdentitySubagent,
 	SemanticNodeIdentityArtifact,
 	SemanticNodeIdentityLifecycle,
-	SemanticNodeIdentityWorkstream,
+	SemanticNodeIdentityInterpretation,
+	SemanticNodeIdentityValidation,
+	SemanticNodeIdentityRecovery,
 }
 
 // SourceFactRule is one row of the mapping.
@@ -121,6 +125,8 @@ const (
 	DirectorFactResourceRequestOpened   DirectorSourceFact = "resource_request_opened"
 	DirectorFactResourceRequestResolved DirectorSourceFact = "resource_request_resolved"
 	DirectorFactInterpretationPublished DirectorSourceFact = "interpretation_published"
+	DirectorFactValidationRecorded      DirectorSourceFact = "validation_recorded"
+	DirectorFactRecoveryAttempted       DirectorSourceFact = "recovery_attempted"
 )
 
 var directorSourceFacts = []DirectorSourceFact{
@@ -131,6 +137,8 @@ var directorSourceFacts = []DirectorSourceFact{
 	DirectorFactResourceRequestOpened,
 	DirectorFactResourceRequestResolved,
 	DirectorFactInterpretationPublished,
+	DirectorFactValidationRecorded,
+	DirectorFactRecoveryAttempted,
 }
 
 var trajectoryFactRules = map[conversation.TrajectoryEventKind]SourceFactRule{
@@ -408,10 +416,28 @@ var directorFactRules = map[DirectorSourceFact]SourceFactRule{
 		Disposition:   SourceFactCreatesNode,
 		Resolution:    SourceFactResolutionFixed,
 		NodeKind:      SemanticNodeMilestone,
-		NodeIdentity:  SemanticNodeIdentityDecision,
+		NodeIdentity:  SemanticNodeIdentityInterpretation,
 		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy},
 		EvidenceClass: EvidenceDirectorInterpretation,
 		Note:          "A public Director interpretation requires a summary, source events, actor, model identity, and timestamp.",
+	},
+	DirectorFactValidationRecorded: {
+		Disposition:   SourceFactCreatesNode,
+		Resolution:    SourceFactResolutionFixed,
+		NodeKind:      SemanticNodeValidation,
+		NodeIdentity:  SemanticNodeIdentityValidation,
+		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy, SemanticEdgeValidatedBy},
+		EvidenceClass: EvidenceRuntimeFact,
+		Note:          "Checking a structured declaration before it takes effect is a typed fact, so a rejected declaration is visible work rather than a silent retry.",
+	},
+	DirectorFactRecoveryAttempted: {
+		Disposition:   SourceFactCreatesNode,
+		Resolution:    SourceFactResolutionFixed,
+		NodeKind:      SemanticNodeRetry,
+		NodeIdentity:  SemanticNodeIdentityRecovery,
+		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy, SemanticEdgeRecoveredBy},
+		EvidenceClass: EvidenceRuntimeFact,
+		Note:          "Acting on a failed, interrupted, lost, or unavailable path creates the retry the failure recovers through.",
 	},
 }
 

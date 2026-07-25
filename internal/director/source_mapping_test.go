@@ -64,7 +64,7 @@ func TestActivityKindsMapToPreciseNodes(t *testing.T) {
 		conversation.TrajectoryActivitySleep:           SemanticNodeAction,
 		conversation.TrajectoryActivityWebSearch:       SemanticNodeInvestigation,
 		conversation.TrajectoryActivityImageView:       SemanticNodeInvestigation,
-		conversation.TrajectoryActivityImageGeneration: SemanticNodeArtifact,
+		conversation.TrajectoryActivityImageGeneration: SemanticNodeAction,
 		conversation.TrajectoryActivitySubagent:        SemanticNodeDelegation,
 		conversation.TrajectoryActivityOther:           SemanticNodeNone,
 	}

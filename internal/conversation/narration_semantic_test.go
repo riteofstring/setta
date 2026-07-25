@@ -31,7 +31,11 @@ func TestNarratorSemanticEventsForLiveCommitUseTypedSources(t *testing.T) {
 			}
 		}),
 		semanticTestTrajectory(TrajectoryEventArtifactEmitted, 5, func(event *TrajectoryEvent) {
-			event.ArtifactEmitted = &TrajectoryArtifactEmitted{ArtifactID: artifact.ID}
+			event.ArtifactEmitted = &TrajectoryArtifactEmitted{
+				ArtifactID: artifact.ID,
+				Kind:       artifact.Kind,
+				Title:      artifact.Title,
+			}
 		}),
 		semanticTestTrajectory(TrajectoryEventTurnCompleted, 6, func(event *TrajectoryEvent) {
 			event.TurnCompleted = &TrajectoryTurnCompleted{}

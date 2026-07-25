@@ -254,7 +254,3 @@ func TestWorkstreamGraphRejectsDanglingAndForeignContent(t *testing.T) {
 		t.Fatal("a background workstream must render aggregate status only")
 	}
 }
-
-func stringPointer(value string) *string {
-	return &value
-}
