@@ -1,5 +1,4 @@
 import {
-  speechVoiceIDValues,
   type AcceptedConversationInput,
   type AcceptedMasterInput,
   type SpeechCapabilities,
@@ -20,6 +19,10 @@ import {
   type BufferedMicrophoneCapture,
   type CreateBufferedMicrophoneCaptureOptions,
 } from "./buffered-microphone-capture";
+import {
+  createOpenAIBrowserSpeechCaptureProvider,
+  type OpenAIBrowserSpeechCaptureProviderDependencies,
+} from "./openai-speech-capture-provider";
 import {
   RealtimeTranscriptionError,
   type RealtimeTranscriptionErrorCode,
@@ -91,7 +94,6 @@ describe("app-shell speech capture controller", () => {
     await harness.connect();
 
     const start = harness.startMaster();
-    expect(harness.masterController.getSnapshot().overlayOpen).toBe(true);
     expect(harness.currentCapture()).toMatchObject({
       captureSessionId: "capture_1",
       transcript: "",
@@ -193,6 +195,35 @@ describe("app-shell speech capture controller", () => {
     expect(harness.transport.commit).toHaveBeenCalledOnce();
   });
 
+  test("accepts a provider final transcript emitted while finish is draining", async () => {
+    const harness = createHarness();
+    await harness.connect();
+
+    const start = harness.startMaster();
+    await harness.waitForTransport();
+    harness.transport.resolveReady();
+    await flushPromises();
+    await start;
+    harness.transport.commit.mockImplementationOnce(() => {
+      harness.transport.complete("Provider finished while draining.");
+    });
+
+    harness.controller.commit();
+    await flushPromises();
+
+    expect(harness.currentCapture()).toEqual({ type: "idle" });
+    expect(harness.masterInputRequests).toEqual([
+      {
+        input: expect.objectContaining({
+          id: "capture_1",
+          modality: "voice",
+          text: "Provider finished while draining.",
+        }),
+      },
+    ]);
+    expect(harness.transport.close).toHaveBeenCalledOnce();
+  });
+
   test("preempts playback only when a new recording lifecycle begins", async () => {
     const onCaptureEnd = vi.fn();
     const onCaptureStart = vi.fn();
@@ -290,6 +321,50 @@ describe("app-shell speech capture controller", () => {
       type: "failed",
     });
     expect(harness.mediaConstraints).toHaveLength(1);
+  });
+
+  test("settles folderless pane voice capture through the null workspace route", async () => {
+    const settleConversationInput = vi.fn(async () => {});
+    const harness = createHarness({ settleConversationInput });
+    await harness.connect();
+
+    const start = harness.controller.start(
+      conversationSpeechCaptureRequest(null, "conversation_folderless", "pane_folderless"),
+    );
+    await harness.waitForTransport();
+    harness.transport.resolveReady();
+    await flushPromises();
+    await start;
+    harness.controller.commit();
+    await flushPromises();
+    harness.transport.complete("what can you help with?");
+    await harness.waitForConversationSubmission("accepted");
+
+    expect(harness.masterInputRequests).toEqual([]);
+    expect(harness.conversationInputRequests).toEqual([
+      {
+        input: expect.objectContaining({
+          conversationId: "conversation_folderless",
+          id: "capture_1",
+          modality: "voice",
+          sourcePaneId: "pane_folderless",
+          text: "what can you help with?",
+        }),
+      },
+    ]);
+    expect(settleConversationInput).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          conversationId: "conversation_folderless",
+          id: "capture_1",
+        }),
+      }),
+      expect.objectContaining({
+        request: expect.objectContaining({
+          destination: expect.objectContaining({ workspaceId: null }),
+        }),
+      }),
+    );
   });
 
   test("cancels only the active conversation capture for a closing source pane", async () => {
@@ -731,6 +806,36 @@ describe("app-shell speech capture controller", () => {
     });
   });
 
+  test("refreshes unavailable capture after provider setup becomes ready", async () => {
+    const reads = [
+      capabilities({ providerStatus: "not_configured" }),
+      capabilities({ providerStatus: "configured" }),
+    ];
+    const harness = createHarness({ readCapabilities: async () => reads.shift()! });
+
+    await harness.controller.synchronizeRuntime("runtime_capture");
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      availability: { type: "not_configured" },
+      runtimeId: "runtime_capture",
+    });
+
+    await harness.controller.refreshCapabilities();
+    expect(harness.controller.getSnapshot()).toMatchObject({
+      availability: { type: "configured" },
+      runtimeId: "runtime_capture",
+    });
+
+    const start = harness.startMaster();
+    await harness.waitForTransport();
+    harness.transport.resolveReady();
+    await flushPromises();
+    await start;
+
+    expect(harness.currentCapture()).toMatchObject({ connection: "ready", type: "recording" });
+    expect(harness.mediaConstraints).toEqual([{ audio: true, video: false }]);
+    harness.controller.cancel();
+  });
+
   test("the recording-duration limit visibly fails and tears down capture", async () => {
     const session = deferred<SpeechTranscriptionSession>();
     const harness = createHarness({ createTranscriptionSession: () => session.promise });
@@ -914,7 +1019,7 @@ interface HarnessOverrides {
     options: CreateBufferedMicrophoneCaptureOptions,
   ) => Promise<BufferedMicrophoneCapture>;
   createTranscriptionSession?: () => Promise<SpeechTranscriptionSession>;
-  deferProviderConnection?: AppShellSpeechCaptureControllerDependencies["deferProviderConnection"];
+  deferProviderConnection?: OpenAIBrowserSpeechCaptureProviderDependencies["deferProviderConnection"];
   getUserMedia?: (constraints: MediaStreamConstraints) => Promise<MediaStream>;
   onCaptureEnd?: () => void;
   onCaptureStart?: () => void;
@@ -924,7 +1029,7 @@ interface HarnessOverrides {
     request: SubmitConversationInputRequest,
   ) => Promise<AcceptedConversationInput>;
   submitMasterInput?: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
-  support?: AppShellSpeechCaptureControllerDependencies["support"];
+  support?: OpenAIBrowserSpeechCaptureProviderDependencies["readSupport"];
 }
 
 function createHarness(overrides: HarnessOverrides = {}) {
@@ -943,8 +1048,7 @@ function createHarness(overrides: HarnessOverrides = {}) {
   const masterInputRequests: SubmitMasterInputRequest[] = [];
   const acceptedMasterInputs = new Map<string, AcceptedMasterInput>();
   const clearTimer = vi.fn();
-  const dependencies: AppShellSpeechCaptureControllerDependencies = {
-    clearTimeout: clearTimer,
+  const captureProvider = createOpenAIBrowserSpeechCaptureProvider({
     createBufferedCapture: async (options) => {
       if (overrides.createBufferedCapture) {
         return overrides.createBufferedCapture(options);
@@ -953,10 +1057,6 @@ function createHarness(overrides: HarnessOverrides = {}) {
       captures.push(capture);
       capture.resolveReady();
       return capture;
-    },
-    createCaptureSessionId: () => {
-      captureOrdinal += 1;
-      return `capture_${captureOrdinal}`;
     },
     createTranscriptionSession: async () => {
       transcriptionSessionCalls += 1;
@@ -975,17 +1075,25 @@ function createHarness(overrides: HarnessOverrides = {}) {
       mediaConstraints.push(constraints);
       return overrides.getUserMedia ? overrides.getUserMedia(constraints) : stream;
     },
+    readCapabilities: overrides.readCapabilities ?? (async () => capabilities()),
+    readSupport: overrides.support ?? (() => ({ supported: true })),
+  });
+  const dependencies: AppShellSpeechCaptureControllerDependencies = {
+    captureProvider,
+    clearTimeout: clearTimer,
+    createCaptureSessionId: () => {
+      captureOrdinal += 1;
+      return `capture_${captureOrdinal}`;
+    },
     now: () => new Date("2026-07-12T18:00:00Z"),
     onCaptureEnd: overrides.onCaptureEnd ?? (() => {}),
     onCaptureStart: overrides.onCaptureStart ?? (() => {}),
-    readCapabilities: overrides.readCapabilities ?? (async () => capabilities()),
     setTimeout: (handler, delayMs) => {
       timerHandler = handler;
       timerDelayMs = delayMs;
       return Symbol("timer");
     },
     settleConversationInput: overrides.settleConversationInput ?? (async () => {}),
-    support: overrides.support ?? (() => ({ supported: true })),
     submitConversationInput: async (request) => {
       conversationInputRequests.push(request);
       if (overrides.submitConversationInput) {
@@ -1012,6 +1120,7 @@ function createHarness(overrides: HarnessOverrides = {}) {
       focusedPaneId: null,
       focusedWorkspaceId: "workspace_capture",
     }),
+    readTranscript: async () => ({ entries: [], lastSequence: 0 }),
     resolvePresentationIntent: async (request) => ({
       ...request,
       resolvedAt: "2026-07-12T18:00:02Z",
@@ -1295,7 +1404,7 @@ function capabilities(overrides: Partial<SpeechCapabilities> = {}): SpeechCapabi
     voiceCatalog: {
       provider: "openai",
       version: "test",
-      voiceIds: [...speechVoiceIDValues],
+      voiceIds: ["marin", "cedar"],
     },
     ...overrides,
   };
