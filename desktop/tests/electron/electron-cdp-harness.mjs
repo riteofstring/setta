@@ -109,23 +109,19 @@ export async function createElectronFixture(name) {
   return { appDataDir, tempRoot, workspaceRoot };
 }
 
-export async function readCurrentRuntimeCredential(client) {
-  return waitForState(
-    client,
-    `(async () => {
-      try {
-        return await window.setta.runtimes.currentRuntimeCredential();
-      } catch {
-        return null;
-      }
-    })()`,
-    (credential) =>
-      typeof credential?.runtimeId === "string" &&
-      credential.runtimeId !== "" &&
-      typeof credential?.token === "string" &&
-      credential.token !== "",
-    pageLoadTimeoutMs,
-  );
+export async function readLocalRuntimeAccess(appDataDir) {
+  const path = join(appDataDir, "electron-user-data", "known-runtimes.json");
+  const registry = JSON.parse(await readFile(path, "utf8"));
+  const localRuntime = registry?.runtimes?.find((runtime) => runtime?.is_local === true);
+  if (
+    typeof localRuntime?.base_url !== "string" ||
+    localRuntime.base_url === "" ||
+    typeof localRuntime.device_token !== "string" ||
+    localRuntime.device_token === ""
+  ) {
+    throw new Error("protected runtime registry did not contain local backend access");
+  }
+  return { baseURL: localRuntime.base_url, deviceToken: localRuntime.device_token };
 }
 
 export async function assertArtifactsExcludeMarkers(root, markers, description) {
@@ -265,14 +261,13 @@ export async function clickEnabledButtonByAria(client, label, timeoutMs = stateW
     timeoutMs,
   );
   const clicked = await client.evaluate(`(() => {
-    const button = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)}
+    const button = Array.from(document.querySelectorAll("button")).find((candidate) =>
+      candidate.getAttribute("aria-label") === ${JSON.stringify(label)} &&
+      candidate instanceof HTMLButtonElement &&
+      !candidate.disabled
     );
     if (!(button instanceof HTMLButtonElement)) {
       return { ok: false, reason: "missing-button" };
-    }
-    if (button.disabled) {
-      return { ok: false, reason: "disabled-button" };
     }
     button.click();
     return { ok: true };
@@ -282,15 +277,50 @@ export async function clickEnabledButtonByAria(client, label, timeoutMs = stateW
   }
 }
 
+export async function openFixtureWorkspace(client, timeoutMs = stateWaitTimeoutMs) {
+  const currentWorkspaceId = await workspaceLayoutAreaId(client).catch(() => "");
+  if (currentWorkspaceId && currentWorkspaceId !== "empty") {
+    return currentWorkspaceId;
+  }
+  const opened = await client.evaluate(`(async () => {
+    const response = await window.setta?.workspace?.openLocalFolder?.();
+    return response?.session?.selectedWorkspaceId ?? "";
+  })()`);
+  if (!opened) {
+    throw new Error("fixture workspace did not open through preload IPC");
+  }
+  await reloadPage(client);
+  await waitForSelector(client, '[data-testid="workspace-layout-area"]', timeoutMs);
+  await client.installDriver();
+  return waitForState(
+    client,
+    `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`,
+    (workspaceId) => workspaceId === opened,
+    timeoutMs,
+  );
+}
+
+async function workspaceLayoutAreaId(client) {
+  return client.evaluate(
+    `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`,
+  );
+}
+
 function enabledButtonByAriaExpression(label) {
   return `(() => {
-    const button = Array.from(document.querySelectorAll("button")).find(
+    const buttons = Array.from(document.querySelectorAll("button")).filter(
       (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)}
     );
+    const button = buttons.find(
+      (candidate) => candidate instanceof HTMLButtonElement && !candidate.disabled
+    );
     if (!(button instanceof HTMLButtonElement)) {
-      return { ready: false, reason: "missing-button" };
+      return {
+        ready: false,
+        reason: buttons.length === 0 ? "missing-button" : "disabled-button"
+      };
     }
-    return { ready: !button.disabled, reason: button.disabled ? "disabled-button" : "ready" };
+    return { ready: true, reason: "ready" };
   })()`;
 }
 

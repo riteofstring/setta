@@ -103,6 +103,10 @@ func commitNarratorProjection(
 	if err := requireNarratorProjectionCoverage(transaction, request); err != nil {
 		return NarratorProjectionCommitResult{}, err
 	}
+	request, err = suppressStaleWorkingMilestones(transaction, request)
+	if err != nil {
+		return NarratorProjectionCommitResult{}, err
+	}
 	if err := requireProjectionMilestoneBudget(transaction, request); err != nil {
 		return NarratorProjectionCommitResult{}, err
 	}
@@ -125,6 +129,60 @@ func commitNarratorProjection(
 		return NarratorProjectionCommitResult{}, err
 	}
 	return result, nil
+}
+
+func suppressStaleWorkingMilestones(
+	transaction *WriteTransaction,
+	request NarratorProjectionCommit,
+) (NarratorProjectionCommit, error) {
+	if request.Trigger == NarrationTriggerTurnTerminal || len(request.Milestones) == 0 {
+		return request, nil
+	}
+	current, err := currentTurnTrajectoryPosition(transaction, request)
+	if err != nil {
+		return request, err
+	}
+	if current.LatestSequence <= request.ObservedThroughSequence && !current.Terminal {
+		return request, nil
+	}
+	request.Milestones = []NarrationTextCommit{}
+	return request, nil
+}
+
+type turnTrajectoryPosition struct {
+	LatestSequence int
+	Terminal       bool
+}
+
+func currentTurnTrajectoryPosition(
+	transaction *WriteTransaction,
+	request NarratorProjectionCommit,
+) (turnTrajectoryPosition, error) {
+	var status TurnStatus
+	var latestSequence int
+	err := transaction.tx.QueryRowContext(transaction.ctx, `
+SELECT turn.status, COALESCE((
+  SELECT MAX(sequence)
+  FROM trajectory_events
+  WHERE conversation_id = turn.conversation_id
+), 0)
+FROM conversation_turns AS turn
+WHERE turn.id = ? AND turn.conversation_id = ?
+`, request.TurnID, request.ConversationID).Scan(&status, &latestSequence)
+	if errors.Is(err, sql.ErrNoRows) {
+		return turnTrajectoryPosition{}, stateConflict(
+			"narrator projection",
+			request.ConversationID,
+			fmt.Sprintf("turn %s does not belong to the conversation", request.TurnID),
+		)
+	}
+	if err != nil {
+		return turnTrajectoryPosition{}, fmt.Errorf("read narrator projection turn position for %s: %w", request.ConversationID, err)
+	}
+	return turnTrajectoryPosition{
+		LatestSequence: latestSequence,
+		Terminal:       terminalTurnStatus(status),
+	}, nil
 }
 
 func commitNarratorFocus(
