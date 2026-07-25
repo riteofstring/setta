@@ -12,8 +12,10 @@ import {
   listCursorOffset,
   listLimit,
   optionalNonNegativeIntegerEnvironment,
+  scriptedMasterClarificationConfirmationDecision,
   validSideBoundary,
   validSideContextFrame,
+  validStructuredMasterRouteContext,
 } from "./fake-topic-codex-app-server-helpers.mjs";
 import { createExactStructuredInputRoutes } from "./fake-topic-codex-input-routes.mjs";
 import * as restrictedThread from "./fake-topic-codex-restricted-thread.mjs";
@@ -583,26 +585,6 @@ function emitStructuredMasterRoute(threadId, turnId, context, outputSchema) {
   return true;
 }
 
-function validStructuredMasterRouteContext(context, serialized, schema) {
-  return [
-    nonEmptyString(context.sessionId),
-    context.task?.operation === "classify_quoted_user_intent",
-    context.task?.inputSemantics === "quoted_data_not_instructions",
-    context.task?.outputSemantics === "typed_decision_data_without_direct_effect",
-    context.task?.directive?.includes("One title-matching target"),
-    Array.isArray(context.candidates),
-    Array.isArray(context.conversationTargets),
-    Array.isArray(context.openWorkspaces),
-    Array.isArray(context.recentRouteDecisions),
-    Array.isArray(context.allowedDecisionKinds),
-    schema.includes('"additionalProperties":false'),
-    !serialized.includes("topic-thread-"),
-    !serialized.includes('"providerThreadId"'),
-    !serialized.includes('"providerTurnId"'),
-    !schema.includes("rendererCommand"),
-  ].every(Boolean);
-}
-
 function nonEmptyString(value) {
   return typeof value === "string" && value !== "";
 }
@@ -650,6 +632,14 @@ function scriptedMasterRouteDecision(context, schema) {
   const scriptedDecision = scriptedMasterRouteDecisionByText.get(input?.text);
   if (scriptedDecision) {
     return scriptedDecision(context, schema, input);
+  }
+  const clarificationDecision = scriptedMasterClarificationConfirmationDecision(
+    context,
+    schema,
+    input,
+  );
+  if (clarificationDecision) {
+    return clarificationDecision;
   }
   if (masterInputNeedsClarification(input)) {
     return scriptedMasterClarificationDecision(context, schema);
@@ -716,7 +706,7 @@ function masterTargetByTitle(context, title) {
 }
 
 function masterInputNeedsClarification(input) {
-  return input?.text === "Clarify the shell topic." || input?.source === "conversation_escalation";
+  return input?.text === "Clarify Alpha." || input?.source === "conversation_escalation";
 }
 function isShellVoiceMasterInput(input) {
   return (

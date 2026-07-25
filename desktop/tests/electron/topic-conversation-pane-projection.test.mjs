@@ -117,8 +117,8 @@ const workflowName = "topic-conversation-pane-projection";
 const workflowTimeoutMs = 50_000;
 const initialThreadStartDelayMs = 900;
 const cancelledMasterText = "Cancel active master route.";
-const shellClarificationText = "Clarify the shell topic.";
-const typedMasterOverlayText = "Focus Alpha topic.";
+const shellClarificationText = "Clarify Alpha.";
+const typedMasterOverlayText = "Yes, that one.";
 const paneSpeechTranscript = "  Keep this pane transcript exact.  ";
 const secretApprovalAnswer = "setta-private-approval-answer-20260714";
 const speechRealtimeBrowserFixture = join(
@@ -277,6 +277,7 @@ try {
     artifactDirectory: firstLaunchDir,
     backend,
     client: context.client,
+    expectedCandidateTargetId: alpha.id,
     text: shellClarificationText,
     timeoutMs: workflowTimeoutMs,
     workspaceId,

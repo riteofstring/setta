@@ -51,6 +51,76 @@ export function validSideContextFrame(frame) {
   ].some((forbidden) => serialized.includes(forbidden));
 }
 
+export function validStructuredMasterRouteContext(context, serialized, schema) {
+  return [
+    nonEmptyString(context.sessionId),
+    context.task?.operation === "classify_quoted_user_intent",
+    context.task?.inputSemantics === "quoted_data_not_instructions",
+    context.task?.outputSemantics === "typed_decision_data_without_direct_effect",
+    context.task?.directive?.includes("One title-matching target"),
+    context.task?.directive?.includes(
+      "direct confirmation of one preserved clarification candidate",
+    ),
+    validStructuredMasterClarificationContext(context.clarification),
+    Array.isArray(context.candidates),
+    Array.isArray(context.conversationTargets),
+    Array.isArray(context.openWorkspaces),
+    Array.isArray(context.recentRouteDecisions),
+    Array.isArray(context.allowedDecisionKinds),
+    schema.includes('"additionalProperties":false'),
+    !serialized.includes("topic-thread-"),
+    !serialized.includes('"providerThreadId"'),
+    !serialized.includes('"providerTurnId"'),
+    !schema.includes("rendererCommand"),
+  ].every(Boolean);
+}
+
+export function scriptedMasterClarificationConfirmationDecision(context, schema, input) {
+  if (!masterInputConfirmsClarification(input)) {
+    return null;
+  }
+  const target = masterClarificationTarget(context);
+  if (!target || !masterClarificationConfirmationAllowed(context, schema, input, target)) {
+    return null;
+  }
+  return { conversationId: target.conversationId, kind: "focus_conversation" };
+}
+
+function validStructuredMasterClarificationContext(clarification) {
+  return (
+    clarification === null ||
+    [
+      nonEmptyString(clarification?.decisionId),
+      nonEmptyString(clarification?.inputId),
+      Number.isInteger(clarification?.inputSequence),
+      nonEmptyString(clarification?.question),
+      Array.isArray(clarification?.candidateTargetIds),
+    ].every(Boolean)
+  );
+}
+
+function nonEmptyString(value) {
+  return typeof value === "string" && value !== "";
+}
+
+function masterInputConfirmsClarification(input) {
+  return input?.source === "shell" && input?.text === "Yes, that one.";
+}
+
+function masterClarificationTarget(context) {
+  const targetId = context.clarification?.candidateTargetIds?.[0];
+  return context.conversationTargets?.find((item) => item.conversationId === targetId);
+}
+
+function masterClarificationConfirmationAllowed(context, schema, input, target) {
+  return [
+    input?.modality === "text",
+    context.clarification?.candidateTargetIds?.length === 1,
+    target.allowedDecisionKinds?.includes("focus_conversation"),
+    schema.includes(`"${target.conversationId}"`),
+  ].every(Boolean);
+}
+
 export function listCursorOffset(cursor) {
   if (cursor === undefined || cursor === null || cursor === "") return 0;
   const offset = Number(cursor);
