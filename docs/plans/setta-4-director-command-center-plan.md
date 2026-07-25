@@ -13,7 +13,14 @@ records, turns, queues, trajectory events, and artifacts, plus Director facts
 committed to their own `director:facts` stream — into workstreams, aggregates,
 approvals, resource requests, artifacts, selection, and graphs, and publishes the
 change on an epoch-scoped push stream with typed resync. Pane identity no longer
-has an application-level owner to be replaced by; it has a replacement.
+has an application-level owner to be replaced by; it has a replacement. The
+decision half of item 3 is committed in `registry_decisions.go` and
+`decision_router.go`: the registry materializes a `DirectorDecisionContext` from
+the same durable fold the command center renders, and the router turns one
+submitted intent into one authorized decision, repairing invalid model output
+through the typed ladder instead of surfacing it. The router deliberately does
+not commit the decision, because a decision fact and the work it describes
+belong in one durable transaction.
 Phase 2 owns the standalone renderer:
 the packed GPU render snapshot, its deterministic fixture generation, and its
 burst/cursor-replay fixtures are committed in
@@ -1197,7 +1204,39 @@ Exit gate:
    decision catalog half of this is done with item 1; the remaining `internal/master` session, input,
    route-service, and IPC naming moves with item 3, because renaming them before the boundary exists
    would churn call sites that are about to be replaced.
-3. Implement the deep `DirectorCommandCenter` boundary.
+3. Implement the deep `DirectorCommandCenter` boundary. **The decision half is
+   committed — `internal/director/registry_decisions.go` and `decision_router.go`.**
+   The registry materializes a `DirectorDecisionContext` from durable state, and
+   the router runs one intent through the protocol: generate the schema from
+   that context, decode and authorize the output against the same context, and
+   run the recovery ladder when it does not validate. Four decisions are
+   load-bearing:
+   - A target's authority is derived, never claimed. Send is offered only with
+     no active run, queue and steer only with one, recovery exactly when a
+     durable failure is unrecovered, and a completed run is the only thing that
+     becomes a fork point.
+   - A failure stops being recoverable when a recovery fact names it or a later
+     run of the same workstream completes, because durable state then shows the
+     workstream moved past it.
+   - `ask_clarification` is authorized only when at least one workstream can
+     take work. With nothing to choose between, a question cannot change the
+     outcome, so asking one would stall the request instead of routing it.
+   - The router does not commit the decision. `DirectorDecisionCommitted` is a
+     public claim that the app decided something, so it is written in the same
+     durable transaction as the work it describes; committing it here would
+     leave a decision node in the graph for work a crash or a rejected write
+     meant never happened.
+
+   `DirectorDecisionCommitted` gained the intent it answered and, for a
+   clarification, the question and the candidates it offered. Without them a
+   restart would ask the same question again, and the answer could be applied to
+   a workstream the question never named. `WorkstreamDecisionTarget.LastMilestone`
+   became `DecisionMilestone`, which drops the graph node id: a node id is a
+   renderer identity, and it carried approval and artifact ids into the one
+   place that must contain none. The remaining half of this item is the dispatch
+   surface, the HTTP endpoints and IPC that make the registered Director
+   contracts reachable to `desktop/src/generated/backend.ts`, and executing a
+   routed decision, which moves with item 6.
 4. Add the app-scoped workstream registry with push subscriptions and durable cursors. **Done —
    `internal/director/registry*.go`.** The registry folds the durable committed log into the
    app-scoped state and publishes what changed. Five decisions are load-bearing:
@@ -1243,9 +1282,10 @@ Exit gate:
    set that contradicts its own run state fails at the boundary instead of producing an unexecutable
    decision. Every workstream the Director can see is selectable. Fork points and recoverable
    failures are per target, and the schema emits one branch per parent, so a run id or failure id
-   cannot be paired with the wrong workstream. The registry in item 4 now holds the live state a
-   `DirectorDecisionContext` is materialized from; building that context and calling the protocol
-   with it is the route service in items 3 and 6.
+   cannot be paired with the wrong workstream. `Registry.DecisionContext` in item 3 now materializes
+   that context from the live registry, so the ids the schema offers and the ids validation accepts
+   come from one durable fold rather than from two derivations that could disagree. Executing the
+   validated decision is item 6.
 10. Keep current conversation stores and event streams as canonical inputs where their ownership is
    already correct. **Done.** The registry reads conversation records, turns, queues, trajectory
    events, and artifacts from the durable log and adds nothing that duplicates them. It owns only
@@ -1363,15 +1403,15 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Continue Phase 3 at item 3: implement the deep `DirectorCommandCenter` boundary over the committed
-   registry. `Registry.Snapshot`, `Registry.Subscribe`, and `Registry.SelectWorkstream` are the
-   registry half of `getSnapshot`, `subscribe`, and one intent; the boundary still needs the dispatch
-   surface, the HTTP endpoints and IPC that make the registered Director contracts reachable to
-   `desktop/src/generated/backend.ts`, and a route service that materializes a
-   `DirectorDecisionContext` from registry state and commits the resulting
-   `DirectorDecisionCommitted` fact. Item 6 moves folderless routing, conversation creation,
-   queueing, steering, cancellation, approvals, and resource requests behind it, and the remaining
-   Master-to-Director renaming in item 2 moves with that work rather than ahead of it.
+1. Continue Phase 3 at item 3's remaining half: the dispatch surface, and the HTTP endpoints and IPC
+   that make the registered Director contracts reachable to `desktop/src/generated/backend.ts`.
+   `Registry.Snapshot`, `Registry.Subscribe`, and `Registry.SelectWorkstream` are the registry half
+   of `getSnapshot`, `subscribe`, and one intent, and `DecisionRouter.Route` resolves a submitted
+   intent into the decision a dispatch carries out. Executing a `RoutedIntent` — creating the
+   workstream, sending, queueing, steering, or recovering, and committing `DirectorDecisionCommitted`
+   in the same transaction as that work — is item 6, together with folderless routing, clarification,
+   approvals, and resource requests. The remaining Master-to-Director renaming in item 2 moves with
+   that work rather than ahead of it.
 2. Build the exhaustive node/edge visual gallery after Phase 3 makes the Director contracts reachable
    to `desktop/src/generated/backend.ts`. `ProjectionFixtures()` is the production-contract source
    the gallery renders from. The four contract gaps the inventory found are already closed in

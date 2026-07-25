@@ -202,6 +202,7 @@ func folderlessStartFixture() ProjectionFixture {
 		fact.RunID = stringPointer(turnID)
 		fact.DecisionCommitted = &DirectorDecisionCommitted{
 			Decision:           DirectorDecisionSendToWorkstream,
+			IntentID:           "intent-alpha-1",
 			PublicSummary:      "Send the summary request to this workstream",
 			TargetWorkstreamID: &target,
 		}
@@ -425,6 +426,7 @@ func delegationFixture() ProjectionFixture {
 		fact.RunID = stringPointer(parentTurn)
 		fact.DecisionCommitted = &DirectorDecisionCommitted{
 			Decision:           DirectorDecisionCreateWorkstream,
+			IntentID:           "intent-delta-1",
 			PublicSummary:      "Delegate the changelog to its own workstream",
 			TargetWorkstreamID: &target,
 		}
@@ -559,6 +561,7 @@ func resourceRequestFixture() ProjectionFixture {
 		target := workstreamID
 		fact.DecisionCommitted = &DirectorDecisionCommitted{
 			Decision:           DirectorDecisionSendToWorkstream,
+			IntentID:           "intent-zeta-1",
 			PublicSummary:      "Run the tests in this workstream",
 			TargetWorkstreamID: &target,
 		}
@@ -609,6 +612,7 @@ func validationAndInterpretationFixture() ProjectionFixture {
 		fact.RunID = stringPointer(turnID)
 		fact.DecisionCommitted = &DirectorDecisionCommitted{
 			Decision:           DirectorDecisionSendToWorkstream,
+			IntentID:           "intent-eta-1",
 			PublicSummary:      "Audit dependencies in this workstream",
 			TargetWorkstreamID: &target,
 		}

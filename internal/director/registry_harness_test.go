@@ -3,6 +3,7 @@ package director
 import (
 	"context"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -20,10 +21,13 @@ const registryTestWorkspaceID = "workspace-alpha"
 var registryTestEpoch = time.Date(2026, time.July, 24, 9, 0, 0, 0, time.UTC)
 
 type registryHarness struct {
-	t          *testing.T
-	store      *conversation.Store
-	tick       int
-	sequences  map[string]int
+	t         *testing.T
+	store     *conversation.Store
+	tick      int
+	sequences map[string]int
+	// accepted records when each turn was accepted. The durable update matches
+	// on the accepted record, so ending a turn has to name the one that started.
+	accepted   map[string]string
 	workspaces map[string]workspace.WorkspaceSummary
 }
 
@@ -42,6 +46,7 @@ func newRegistryHarness(t *testing.T) *registryHarness {
 		t:         t,
 		store:     store,
 		sequences: map[string]int{},
+		accepted:  map[string]string{},
 		workspaces: map[string]workspace.WorkspaceSummary{
 			registryTestWorkspaceID: {
 				ID:          registryTestWorkspaceID,
@@ -52,9 +57,24 @@ func newRegistryHarness(t *testing.T) *registryHarness {
 	}
 }
 
-func (harness *registryHarness) lookupWorkspace(workspaceID string) (workspace.WorkspaceSummary, bool, error) {
+func (harness *registryHarness) LookupWorkspace(workspaceID string) (workspace.WorkspaceSummary, bool, error) {
 	summary, found := harness.workspaces[workspaceID]
 	return summary, found, nil
+}
+
+// AvailableWorkspaces offers the harness workspaces in id order, which is the
+// stable ordering a durable session list gives the decision context.
+func (harness *registryHarness) AvailableWorkspaces() ([]workspace.WorkspaceSummary, error) {
+	ids := make([]string, 0, len(harness.workspaces))
+	for id := range harness.workspaces {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	summaries := make([]workspace.WorkspaceSummary, 0, len(ids))
+	for _, id := range ids {
+		summaries = append(summaries, harness.workspaces[id])
+	}
+	return summaries, nil
 }
 
 // start materializes a registry over the harness store. Building a second one
@@ -64,7 +84,7 @@ func (harness *registryHarness) start() *Registry {
 	harness.t.Helper()
 	registry, err := NewRegistry(
 		harness.store,
-		harness.lookupWorkspace,
+		harness,
 		WithRegistryClock(harness.clock),
 		WithRegistryIdentity(harness.identity),
 	)
@@ -168,9 +188,41 @@ func (harness *registryHarness) createConversation(id string, title string, work
 	return workstreamID
 }
 
+// archiveConversation republishes the durable record as archived, which is how
+// a workstream stops being a routing target.
+func (harness *registryHarness) archiveConversation(id string, title string) string {
+	harness.t.Helper()
+	at := harness.now()
+	archivedAt := at
+	record := conversation.TopicConversation{
+		ID:         id,
+		Title:      title,
+		Status:     conversation.ConversationStatusIdle,
+		CreatedAt:  at,
+		UpdatedAt:  at,
+		ArchivedAt: &archivedAt,
+	}
+	harness.publish(
+		id,
+		conversation.ConversationUpdatedEventPayload{
+			Type:         conversation.ConversationEventTypeConversationUpdated,
+			Conversation: record,
+		},
+		conversation.ConversationEventTypeConversationUpdated,
+		at,
+		nil,
+	)
+	workstreamID, err := WorkstreamIDForConversation(id)
+	if err != nil {
+		harness.t.Fatalf("WorkstreamIDForConversation: %v", err)
+	}
+	return workstreamID
+}
+
 func (harness *registryHarness) startTurn(conversationID string, turnID string) {
 	harness.t.Helper()
 	at := harness.now()
+	harness.accepted[turnID] = at
 	startedAt := at
 	providerTurnID := "provider-" + turnID
 	invocation := fixtureInvocation(turnID)
@@ -201,24 +253,42 @@ func (harness *registryHarness) startTurn(conversationID string, turnID string) 
 	)
 }
 
-func (harness *registryHarness) completeTurn(conversationID string, turnID string) {
+// endTurn moves the durable turn row to its terminal state and publishes it.
+// Production writes both, and the store only allows one running turn per
+// conversation, so a test that publishes the event without updating the row
+// could never start a second run.
+func (harness *registryHarness) endTurn(
+	conversationID string,
+	turnID string,
+	status conversation.TurnStatus,
+	failure *conversation.Failure,
+) {
 	harness.t.Helper()
 	at := harness.now()
+	acceptedAt, started := harness.accepted[turnID]
+	if !started {
+		harness.t.Fatalf("turn %s ended before it started", turnID)
+	}
 	providerTurnID := "provider-" + turnID
 	invocation := fixtureInvocation(turnID)
 	invocation.ProviderReferences.TurnID = &providerTurnID
+	invocation.StartedAt = acceptedAt
+	invocation.EndedAt = &at
+	invocation.Outcome = terminalInvocationOutcome(status)
+	invocation.Failure = failure
 	turn := conversation.ConversationTurn{
 		ID:                   turnID,
 		ConversationID:       conversationID,
 		AuthoredInput:        conversation.AuthoredInput{Text: "do the work"},
 		Delivery:             conversation.TurnDeliveryNormal,
-		Status:               conversation.TurnStatusCompleted,
-		AcceptedAt:           at,
-		StartedAt:            &at,
+		Status:               status,
+		AcceptedAt:           acceptedAt,
+		StartedAt:            &acceptedAt,
 		EndedAt:              &at,
 		RequestedRoleProfile: invocation.Requested,
 		ResolvedInvocation:   &invocation,
 		ProviderTurnID:       &providerTurnID,
+		Error:                failure,
 	}
 	harness.publish(
 		conversationID,
@@ -228,8 +298,26 @@ func (harness *registryHarness) completeTurn(conversationID string, turnID strin
 		},
 		conversation.ConversationEventTypeTurnUpdated,
 		at,
-		nil,
+		func(transaction *conversation.WriteTransaction) error {
+			return transaction.UpdateTurn(conversation.TurnStatusRunning, turn)
+		},
 	)
+}
+
+func terminalInvocationOutcome(status conversation.TurnStatus) conversation.InvocationOutcome {
+	switch status {
+	case conversation.TurnStatusCompleted:
+		return conversation.InvocationOutcomeSucceeded
+	case conversation.TurnStatusFailed:
+		return conversation.InvocationOutcomeFailed
+	default:
+		return conversation.InvocationOutcomeCancelled
+	}
+}
+
+func (harness *registryHarness) completeTurn(conversationID string, turnID string) {
+	harness.t.Helper()
+	harness.endTurn(conversationID, turnID, conversation.TurnStatusCompleted, nil)
 }
 
 // appendTrajectory publishes one durable trajectory fact. Sequence numbering is
@@ -338,6 +426,69 @@ func (harness *registryHarness) resolveApproval(
 			}
 		},
 	)
+}
+
+// failTurn commits the durable run failure a recovery decision may name, and
+// ends the turn row with the same public failure.
+func (harness *registryHarness) failTurn(
+	conversationID string,
+	turnID string,
+	message string,
+) conversation.TrajectoryEvent {
+	harness.t.Helper()
+	harness.endTurn(conversationID, turnID, conversation.TurnStatusFailed, &conversation.Failure{
+		Code:                "run_failed",
+		Message:             message,
+		Retryable:           true,
+		DiagnosticReference: "diagnostic-" + turnID,
+	})
+	return harness.appendTrajectory(
+		conversationID,
+		&turnID,
+		conversation.TrajectoryEventTurnFailed,
+		conversation.TrajectoryActorSystem,
+		func(event *conversation.TrajectoryEvent) {
+			event.TurnFailed = &conversation.TrajectoryTurnFailed{
+				Failure: conversation.Failure{
+					Code:                "run_failed",
+					Message:             message,
+					Retryable:           true,
+					DiagnosticReference: "diagnostic-" + turnID,
+				},
+			}
+		},
+	)
+}
+
+func (harness *registryHarness) completeTurnTrajectory(
+	conversationID string,
+	turnID string,
+) conversation.TrajectoryEvent {
+	return harness.appendTrajectory(
+		conversationID,
+		&turnID,
+		conversation.TrajectoryEventTurnCompleted,
+		conversation.TrajectoryActorSystem,
+		func(event *conversation.TrajectoryEvent) {
+			event.TurnCompleted = &conversation.TrajectoryTurnCompleted{}
+		},
+	)
+}
+
+// appendFact commits one durable Director fact through the same append the
+// registry uses in production.
+func (harness *registryHarness) appendFact(fact DirectorFactEvent) DirectorFactEvent {
+	harness.t.Helper()
+	factID, err := harness.identity("director-fact")
+	if err != nil {
+		harness.t.Fatalf("identity: %v", err)
+	}
+	fact.ID = factID
+	fact.EmittedAt = harness.now()
+	if err := AppendDirectorFact(context.Background(), harness.store, fact); err != nil {
+		harness.t.Fatalf("AppendDirectorFact: %v", err)
+	}
+	return fact
 }
 
 // publishBranch records a fork's parentage. The durable log commits it after the

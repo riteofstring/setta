@@ -28,7 +28,7 @@ import (
 // Registry is the app-scoped registry and its derived event stream.
 type Registry struct {
 	facts      DirectorFactStore
-	workspaces WorkspaceLookup
+	workspaces WorkspaceResources
 	now        func() time.Time
 	newID      func(string) (string, error)
 
@@ -82,10 +82,11 @@ func WithRegistryIdentity(newID func(string) (string, error)) RegistryOption {
 	}
 }
 
-// NewRegistry builds a registry over the durable log. The workspace lookup
-// resolves the folder a conversation's workspace id names; a folderless
-// conversation never needs it, because folderless is a first-class scope.
-func NewRegistry(facts DirectorFactStore, workspaces WorkspaceLookup, options ...RegistryOption) (*Registry, error) {
+// NewRegistry builds a registry over the durable log. The workspace resources
+// resolve the folder a conversation's workspace id names and list the folders a
+// new workstream may be scoped to; a folderless conversation needs neither,
+// because folderless is a first-class scope.
+func NewRegistry(facts DirectorFactStore, workspaces WorkspaceResources, options ...RegistryOption) (*Registry, error) {
 	if facts == nil {
 		return nil, errors.New("director registry requires a durable fact store")
 	}

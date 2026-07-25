@@ -32,9 +32,29 @@ func NewCommittedDecision(
 	}
 	return DirectorDecisionCommitted{
 		Decision:           decision.Kind,
+		IntentID:           context.Intent.ID,
 		PublicSummary:      summary,
 		TargetWorkstreamID: target,
+		Clarification:      committedClarification(context, decision),
 	}, nil
+}
+
+// committedClarification records what a clarification was choosing between.
+// The candidates are derived from trusted context rather than taken from the
+// decision, because the model authors the question and never the set of
+// workstreams the answer may be applied to.
+func committedClarification(
+	context DirectorDecisionContext,
+	decision DirectorDecision,
+) *DirectorClarificationAsked {
+	if decision.Kind != DirectorDecisionAskClarification {
+		return nil
+	}
+	candidates, _ := candidateWorkstreams(workCandidates(context))
+	return &DirectorClarificationAsked{
+		Question:               decision.AskClarification.Question,
+		CandidateWorkstreamIDs: candidates,
+	}
 }
 
 func committedDecisionTarget(decision DirectorDecision, createdWorkstreamID *string) (*string, error) {

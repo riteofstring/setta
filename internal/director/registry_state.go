@@ -41,6 +41,14 @@ type registryWorkstream struct {
 	// repeating it.
 	blockedNodes map[string]bool
 	artifactIDs  []string
+	// forkPoints are the completed runs this workstream offers as fork
+	// origins, oldest first. Only a completed run can carry its history into a
+	// fork, so a running or failed one is not a fork point.
+	forkPoints []DecisionForkPoint
+	// recoverableFailures are the durable run failures nothing has recovered
+	// yet, oldest first. They are what makes recover_path an authorized
+	// decision, so a workstream that never failed cannot be asked to recover.
+	recoverableFailures []DecisionRecoverableFailure
 }
 
 // registryState is the whole app-scoped fold.
@@ -60,6 +68,14 @@ type registryState struct {
 	aggregates        DirectorAggregates
 	lastEventAt       *string
 	cursor            conversation.CommittedEventCursor
+	// decisions is the recent committed-decision history, oldest first. It is
+	// bounded here rather than at materialization, because the Director only
+	// ever receives the most recent few as continuity context.
+	decisions []DecisionSummary
+	// clarification is the question the Director is waiting on, if any. The
+	// next committed decision supersedes it, because that decision is what the
+	// user's answer produced.
+	clarification *DecisionClarificationContext
 }
 
 func newRegistryState() *registryState {

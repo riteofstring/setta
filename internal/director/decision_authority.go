@@ -84,6 +84,17 @@ type DecisionRecoverableFailure struct {
 	OccurredAt     string `json:"occurredAt"`
 }
 
+// DecisionMilestone is the last meaningful public fact of one workstream, told
+// to the Director so it can tell active work apart from stalled work. It is
+// WorkstreamMilestone without the graph node id: a node id is a renderer
+// identity, and an id the model can echo back into a decision it does not
+// authorize is authority the context never meant to hand over.
+type DecisionMilestone struct {
+	Kind          SemanticNodeKind `json:"kind"`
+	PublicSummary string           `json:"publicSummary"`
+	OccurredAt    string           `json:"occurredAt"`
+}
+
 // WorkstreamDecisionTarget is authoritative capability state for one
 // workstream the Director may act on. It carries no pane, provider, lease, or
 // filesystem identity.
@@ -94,7 +105,7 @@ type WorkstreamDecisionTarget struct {
 	ResourceScope  DecisionResourceScope `json:"resourceScope"`
 	ActiveRunID    *string               `json:"activeRunId"`
 	QueuedRunCount int                   `json:"queuedRunCount"`
-	LastMilestone  *WorkstreamMilestone  `json:"lastMilestone"`
+	LastMilestone  *DecisionMilestone    `json:"lastMilestone"`
 	// AllowedDecisionKinds is the only action authority this target carries.
 	// It holds workstream-scoped kinds only; creating a workstream from this
 	// one is authorized by AllowsChildWorkstream and ForkPoints instead.
@@ -330,7 +341,20 @@ func (target WorkstreamDecisionTarget) validateIdentity() error {
 	if err := validateCount("decision target queued run count", target.QueuedRunCount); err != nil {
 		return err
 	}
-	return validateWorkstreamMilestone(target.LastMilestone)
+	return validateDecisionMilestone(target.LastMilestone)
+}
+
+func validateDecisionMilestone(milestone *DecisionMilestone) error {
+	if milestone == nil {
+		return nil
+	}
+	if !isSemanticNodeKind(milestone.Kind) {
+		return fmt.Errorf("unknown decision milestone node kind %q", milestone.Kind)
+	}
+	if err := validateBoundedExcerpt("decision milestone public summary", milestone.PublicSummary); err != nil {
+		return err
+	}
+	return validateTimestamp("decision milestone occurred at", milestone.OccurredAt)
 }
 
 func (target WorkstreamDecisionTarget) validateAllowedKinds() error {

@@ -1,9 +1,6 @@
 package director
 
-import (
-	"fmt"
-	"sort"
-)
+import "fmt"
 
 // The bounded app-scoped snapshot.
 //
@@ -49,36 +46,7 @@ func (state *registryState) registrySnapshot(
 // workstream is always inside the window, because a snapshot that selects a
 // workstream it does not carry cannot be drawn.
 func (state *registryState) snapshotWindow() []*registryWorkstream {
-	ordered := make([]*registryWorkstream, 0, len(state.order))
-	for _, workstreamID := range state.order {
-		if workstream, known := state.workstreams[workstreamID]; known {
-			ordered = append(ordered, workstream)
-		}
-	}
-	sort.SliceStable(ordered, func(left, right int) bool {
-		leftRecord := ordered[left].record
-		rightRecord := ordered[right].record
-		if leftRecord.UpdatedAt != rightRecord.UpdatedAt {
-			return leftRecord.UpdatedAt > rightRecord.UpdatedAt
-		}
-		return leftRecord.ID < rightRecord.ID
-	})
-	if len(ordered) <= MaxSnapshotWorkstreams {
-		return ordered
-	}
-	window := ordered[:MaxSnapshotWorkstreams]
-	if state.selected == nil || containsWorkstream(window, *state.selected) {
-		return window
-	}
-	for _, workstream := range ordered[MaxSnapshotWorkstreams:] {
-		if workstream.record.ID != *state.selected {
-			continue
-		}
-		windowed := make([]*registryWorkstream, 0, MaxSnapshotWorkstreams)
-		windowed = append(windowed, workstream)
-		return append(windowed, window[:MaxSnapshotWorkstreams-1]...)
-	}
-	return window
+	return boundWorkstreamWindow(state.recencyOrdered(), MaxSnapshotWorkstreams, state.selected)
 }
 
 // snapshotEntries assigns detail levels. The selected workstream renders its

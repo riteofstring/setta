@@ -27,6 +27,14 @@ func (state *registryState) applyTrajectoryRecords(
 		return state.resolveApproval(workstream, event)
 	case conversation.TrajectoryEventArtifactEmitted:
 		return state.declareArtifact(workstream, event)
+	case conversation.TrajectoryEventTurnFailed:
+		return nil, workstream.recordRunFailure(event)
+	case conversation.TrajectoryEventTurnCompleted:
+		// A run that finished is durable proof the workstream moved past the
+		// failures before it, so offering to recover one would put a stale
+		// action in front of the user.
+		workstream.recoverableFailures = nil
+		return nil, nil
 	default:
 		return nil, nil
 	}
@@ -241,6 +249,12 @@ func (state *registryState) applyDirectorFactRecords(
 		return []registryEffect{{kind: effectSelection, id: selected}}, nil
 	case DirectorFactWorkstreamResourceBound:
 		return state.bindWorkstreamResource(workstream, fact)
+	case DirectorFactDecisionCommitted:
+		state.recordCommittedDecision(fact)
+		return nil, nil
+	case DirectorFactRecoveryAttempted:
+		workstream.resolveRunFailure(fact.RecoveryAttempted.FailureEventID)
+		return nil, nil
 	case DirectorFactResourceRequestOpened:
 		return state.openResourceRequest(workstream, fact)
 	case DirectorFactResourceRequestResolved:

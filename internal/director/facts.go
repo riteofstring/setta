@@ -93,11 +93,27 @@ type DirectorWorkstreamResourceBound struct {
 // validation. Nothing here is model-authored except the decision kind and the
 // public summary.
 type DirectorDecisionCommitted struct {
-	Decision      DirectorDecisionKind `json:"decision"`
-	PublicSummary string               `json:"publicSummary"`
+	Decision DirectorDecisionKind `json:"decision"`
+	// IntentID is the submitted intent this decision answered. One intent
+	// produces exactly one decision, so the id is what lets a later decision be
+	// read as continuity rather than as an unrelated event.
+	IntentID      string `json:"intentId"`
+	PublicSummary string `json:"publicSummary"`
 	// TargetWorkstreamID is the authorized target trusted code attached. It is
 	// null for a decision that targets no workstream, such as a clarification.
 	TargetWorkstreamID *string `json:"targetWorkstreamId"`
+	// Clarification is populated exactly for a clarification decision.
+	Clarification *DirectorClarificationAsked `json:"clarification"`
+}
+
+// DirectorClarificationAsked is the question a clarification decision asked and
+// the workstreams it was choosing between. Both are durable because the user's
+// next intent is the answer: without the question a restart would ask again,
+// and without the candidates the answer could be applied to a workstream the
+// question never offered.
+type DirectorClarificationAsked struct {
+	Question               string   `json:"question"`
+	CandidateWorkstreamIDs []string `json:"candidateWorkstreamIds"`
 }
 
 // DirectorResourceRequestOpened is the durable request that replaces deriving a
@@ -277,31 +293,98 @@ func validateCommittedDecision(fact DirectorFactEvent) error {
 	if fact.Actor != SemanticActorDirector {
 		return fmt.Errorf("director fact %s commits a decision attributed to %q", fact.ID, fact.Actor)
 	}
+	if err := validateIdentifier("committed decision intent id", payload.IntentID); err != nil {
+		return err
+	}
 	if err := validateOptionalIdentifier("committed decision target workstream id", payload.TargetWorkstreamID); err != nil {
 		return err
 	}
+	if err := validateCommittedClarification(fact); err != nil {
+		return err
+	}
+	if err := validateCommittedDecisionTarget(fact); err != nil {
+		return err
+	}
+	return validateTrimmedText("committed decision public summary", payload.PublicSummary)
+}
+
+// validateCommittedDecisionTarget requires the target the decision kind can act
+// on: work and selection name one, an answer and a question name none, and a
+// created workstream is never the workstream that decided to create it.
+func validateCommittedDecisionTarget(fact DirectorFactEvent) error {
+	payload := fact.DecisionCommitted
 	switch payload.Decision {
-	case DirectorDecisionCreateWorkstream,
-		DirectorDecisionSendToWorkstream,
+	case DirectorDecisionCreateWorkstream:
+		if payload.TargetWorkstreamID == nil {
+			return fmt.Errorf("director fact %s decision %q requires a target workstream", fact.ID, payload.Decision)
+		}
+		if *payload.TargetWorkstreamID == fact.WorkstreamID {
+			return fmt.Errorf("director fact %s cannot create its current workstream as a child", fact.ID)
+		}
+		return nil
+	case DirectorDecisionSendToWorkstream,
 		DirectorDecisionQueueBehindRun,
 		DirectorDecisionSteerRun,
 		DirectorDecisionSelectWorkstream:
 		if payload.TargetWorkstreamID == nil {
 			return fmt.Errorf("director fact %s decision %q requires a target workstream", fact.ID, payload.Decision)
 		}
+		return nil
 	case DirectorDecisionAnswerDirectly, DirectorDecisionAskClarification:
 		if payload.TargetWorkstreamID != nil {
 			return fmt.Errorf("director fact %s decision %q must not target a workstream", fact.ID, payload.Decision)
 		}
-	case DirectorDecisionRecoverPath:
+		return nil
+	default:
 		// Recovery may address this workstream or an explicitly authorized target.
+		return nil
 	}
-	if payload.Decision == DirectorDecisionCreateWorkstream &&
-		payload.TargetWorkstreamID != nil &&
-		*payload.TargetWorkstreamID == fact.WorkstreamID {
-		return fmt.Errorf("director fact %s cannot create its current workstream as a child", fact.ID)
+}
+
+// validateCommittedClarification requires the question and its candidates on
+// exactly the decision that asked one. A clarification without them is a
+// question the app cannot resume, and any other decision carrying them would
+// claim to be waiting for an answer it never asked for.
+func validateCommittedClarification(fact DirectorFactEvent) error {
+	payload := fact.DecisionCommitted
+	clarification := payload.Clarification
+	if (clarification != nil) != (payload.Decision == DirectorDecisionAskClarification) {
+		return fmt.Errorf(
+			"director fact %s must carry a clarification exactly for decision %q",
+			fact.ID,
+			DirectorDecisionAskClarification,
+		)
 	}
-	return validateTrimmedText("committed decision public summary", payload.PublicSummary)
+	if clarification == nil {
+		return nil
+	}
+	if err := validateTrimmedText("committed clarification question", clarification.Question); err != nil {
+		return err
+	}
+	if len(clarification.Question) > MaxDecisionQuestionBytes {
+		return fmt.Errorf("committed clarification question exceeds %d bytes", MaxDecisionQuestionBytes)
+	}
+	if clarification.CandidateWorkstreamIDs == nil {
+		return fmt.Errorf("director fact %s clarification candidates must be an array, not null", fact.ID)
+	}
+	if len(clarification.CandidateWorkstreamIDs) > MaxDecisionWorkstreamTargets {
+		return fmt.Errorf(
+			"director fact %s clarification offers more than %d candidates",
+			fact.ID,
+			MaxDecisionWorkstreamTargets,
+		)
+	}
+	seen := map[string]bool{}
+	for _, candidate := range clarification.CandidateWorkstreamIDs {
+		if err := validateIdentifier("committed clarification candidate workstream id", candidate); err != nil {
+			return err
+		}
+		if seen[candidate] {
+			return fmt.Errorf("director fact %s repeats clarification candidate %s", fact.ID, candidate)
+		}
+		seen[candidate] = true
+	}
+	return nil
 }
 
 func validateOpenedResourceRequest(fact DirectorFactEvent) error {

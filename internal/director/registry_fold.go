@@ -22,10 +22,15 @@ import (
 // same fact could disagree with it.
 const registrationFactPrefix = "director-fact:workstream_registered:"
 
-// WorkspaceLookup resolves the durable folder a workspace id names. The registry
-// reads durable workspace metadata rather than the session's open list, because
-// a workstream keeps its folder resource after the folder is closed.
-type WorkspaceLookup func(workspaceID string) (workspace.WorkspaceSummary, bool, error)
+// WorkspaceResources is the folder metadata the registry reads. Resolving a
+// bound folder and offering one to new work are different questions: a
+// workstream keeps its folder resource after the folder is closed, so lookups
+// read durable workspace metadata, while the folders a new workstream may be
+// scoped to are the ones the app can reach right now.
+type WorkspaceResources interface {
+	LookupWorkspace(workspaceID string) (workspace.WorkspaceSummary, bool, error)
+	AvailableWorkspaces() ([]workspace.WorkspaceSummary, error)
+}
 
 // registryEffectKind names what one applied durable event changed. Effects are
 // what the subscription turns into pushed events, so a fact that changed nothing
@@ -52,14 +57,14 @@ type registryEffect struct {
 // master transcript — are not registry inputs and change nothing.
 func (state *registryState) applyCommitted(
 	event conversation.CommittedEvent,
-	lookup WorkspaceLookup,
+	workspaces WorkspaceResources,
 ) ([]registryEffect, error) {
 	state.cursor.CommitSequence = event.CommitSequence
 	committedAt := event.CommittedAt
 	state.lastEventAt = &committedAt
 	switch event.Kind {
 	case string(conversation.ConversationEventTypeConversationUpdated):
-		return state.applyConversationUpdated(event, lookup)
+		return state.applyConversationUpdated(event, workspaces)
 	case string(conversation.ConversationEventTypeBranchCreated):
 		return state.applyBranchCreated(event)
 	case string(conversation.ConversationEventTypeTurnUpdated):
@@ -87,7 +92,7 @@ func decodeCommittedPayload[T any](event conversation.CommittedEvent) (T, error)
 
 func (state *registryState) applyConversationUpdated(
 	event conversation.CommittedEvent,
-	lookup WorkspaceLookup,
+	workspaces WorkspaceResources,
 ) ([]registryEffect, error) {
 	payload, err := decodeCommittedPayload[conversation.ConversationUpdatedEventPayload](event)
 	if err != nil {
@@ -99,7 +104,7 @@ func (state *registryState) applyConversationUpdated(
 	}
 	workstream, known := state.workstreams[state.byConversation[record.ID]]
 	if !known {
-		workstream, err = state.registerConversation(record, lookup)
+		workstream, err = state.registerConversation(record, workspaces)
 		if err != nil {
 			return nil, err
 		}
@@ -117,13 +122,13 @@ func (state *registryState) applyConversationUpdated(
 // resource it may bind, never the identity it needs to exist.
 func (state *registryState) registerConversation(
 	record conversation.TopicConversation,
-	lookup WorkspaceLookup,
+	workspaces WorkspaceResources,
 ) (*registryWorkstream, error) {
 	workstreamID, err := WorkstreamIDForConversation(record.ID)
 	if err != nil {
 		return nil, err
 	}
-	scope, bindings, err := resolveWorkstreamScope(record.WorkspaceID, lookup)
+	scope, bindings, err := resolveWorkstreamScope(record.WorkspaceID, workspaces)
 	if err != nil {
 		return nil, err
 	}
@@ -141,17 +146,17 @@ func (state *registryState) registerConversation(
 
 func resolveWorkstreamScope(
 	workspaceID *string,
-	lookup WorkspaceLookup,
+	workspaces WorkspaceResources,
 ) (WorkstreamResourceScope, []WorkstreamResourceBinding, error) {
 	if workspaceID == nil {
 		return WorkstreamResourceScope{Kind: WorkstreamResourceScopeFolderless},
 			[]WorkstreamResourceBinding{},
 			nil
 	}
-	if lookup == nil {
-		return WorkstreamResourceScope{}, nil, fmt.Errorf("workspace lookup is required to bind a folder resource")
+	if workspaces == nil {
+		return WorkstreamResourceScope{}, nil, fmt.Errorf("workspace resources are required to bind a folder resource")
 	}
-	summary, found, err := lookup(*workspaceID)
+	summary, found, err := workspaces.LookupWorkspace(*workspaceID)
 	if err != nil {
 		return WorkstreamResourceScope{}, nil, err
 	}
@@ -217,6 +222,9 @@ func (state *registryState) applyTurnUpdated(event conversation.CommittedEvent) 
 			workstream.activeRunID = nil
 		}
 		workstream.lastTerminalRun = turn.Status
+		if turn.Status == conversation.TurnStatusCompleted {
+			workstream.recordForkPoint(turn, event.CommittedAt)
+		}
 	case conversation.TurnStatusQueued:
 		// The durable queue owns how much work is waiting.
 	default:
