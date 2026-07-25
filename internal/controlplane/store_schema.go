@@ -45,6 +45,9 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 			"runtime_operations",
 			"runtime_operations_due_idx",
 			"provider_observations",
+			"hosted_access_intents",
+			"hosted_access_capabilities",
+			"hosted_access_progress",
 		); err != nil {
 			return err
 		}
@@ -202,6 +205,37 @@ CREATE TABLE IF NOT EXISTS provider_observations (
   url_access TEXT NOT NULL,
   placement TEXT NOT NULL,
   observed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS hosted_access_intents (
+  intent_id TEXT PRIMARY KEY,
+  request_fingerprint TEXT NOT NULL,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  project_id TEXT NOT NULL,
+  workstream_id TEXT NOT NULL,
+  client_device_id TEXT NOT NULL,
+  client_kind TEXT NOT NULL CHECK(client_kind IN ('desktop', 'phone')),
+  runtime_name TEXT REFERENCES runtimes(name),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS hosted_access_capabilities (
+  intent_id TEXT NOT NULL REFERENCES hosted_access_intents(intent_id),
+  capability TEXT NOT NULL CHECK(capability IN ('observe', 'steer', 'approve', 'artifacts')),
+  PRIMARY KEY(intent_id, capability)
+);
+
+CREATE TABLE IF NOT EXISTS hosted_access_progress (
+  intent_id TEXT NOT NULL REFERENCES hosted_access_intents(intent_id),
+  cursor INTEGER NOT NULL CHECK(cursor > 0),
+  state TEXT NOT NULL CHECK(state IN (
+    'preparing_access', 'syncing_project', 'ready_on_phone', 'needs_attention', 'suspended'
+  )),
+  reason_code TEXT NOT NULL,
+  retryable INTEGER NOT NULL CHECK(retryable IN (0, 1)),
+  occurred_at TEXT NOT NULL,
+  PRIMARY KEY(intent_id, cursor)
 );
 
 `
