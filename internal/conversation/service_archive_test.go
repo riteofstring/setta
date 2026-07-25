@@ -51,8 +51,10 @@ func TestServiceArchivesSettledTopicDurablyAndIdempotently(t *testing.T) {
 		t.Fatalf("archived navigator page = %+v, want empty", page)
 	}
 	candidates, err := store.RetrieveTopicCandidates(ctx, conversationindex.CandidateRequest{
-		WorkspaceIDs: []string{workspaceID},
-		Limit:        10,
+		Scope: conversationindex.CandidateScopeFilter{
+			FolderResourceWorkspaceIDs: []string{workspaceID},
+		},
+		Limit: 10,
 	})
 	if err != nil {
 		t.Fatalf("RetrieveTopicCandidates: %v", err)

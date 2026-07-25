@@ -33,14 +33,13 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/renderer/public/sw.js"],
+    files: ["tests/native/**/*.mjs"],
     languageOptions: {
       ecmaVersion: "latest",
       globals: {
-        ...globals.serviceworker,
-        URL: "readonly",
+        ...globals.node,
       },
-      sourceType: "script",
+      sourceType: "module",
     },
   },
 );
