@@ -78,8 +78,6 @@ func conversationRouteCommandKey(commit ConversationRouteDecisionCommit) (string
 		return "side_conversation:" + commit.ResultingCommand.CreateSideConversation.SideConversationID, nil
 	case ConversationRouteDecisionKindForkConversation:
 		return "topic_conversation:" + commit.ResultingCommand.ForkConversation.ChildConversationID, nil
-	case ConversationRouteDecisionKindEscalateToMaster:
-		return "master_input:" + commit.ResultingCommand.EscalateToMaster.MasterInputID, nil
 	case ConversationRouteDecisionKindClarify:
 		return "conversation_clarification:" + commit.ID, nil
 	default:
@@ -103,7 +101,6 @@ func cloneConversationRouteDecision(decision ConversationRouteDecision) Conversa
 	decision.AnswerAsNarrator = cloneConversationRoutePayload(decision.AnswerAsNarrator)
 	decision.CreateSideConversation = cloneConversationRoutePayload(decision.CreateSideConversation)
 	decision.ForkConversation = cloneConversationRoutePayload(decision.ForkConversation)
-	decision.EscalateToMaster = cloneConversationRoutePayload(decision.EscalateToMaster)
 	decision.Clarify = cloneConversationRoutePayload(decision.Clarify)
 	return decision
 }
@@ -115,7 +112,6 @@ func cloneConversationRouteCommand(command ConversationRouteCommand) Conversatio
 	command.AnswerAsNarrator = cloneConversationRoutePayload(command.AnswerAsNarrator)
 	command.CreateSideConversation = cloneConversationRoutePayload(command.CreateSideConversation)
 	command.ForkConversation = cloneConversationRoutePayload(command.ForkConversation)
-	command.EscalateToMaster = cloneConversationRoutePayload(command.EscalateToMaster)
 	command.Clarify = cloneConversationRoutePayload(command.Clarify)
 	return command
 }

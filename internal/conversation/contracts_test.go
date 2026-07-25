@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 func TestConversationSnapshotIsBoundedOwnedAndCursorAligned(t *testing.T) {
@@ -108,7 +108,6 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 	side := SideConversation{
 		ID:                          "side-1",
 		ParentConversationID:        conversationID,
-		ParentPaneID:                "pane-1",
 		ParentStatus:                snapshot.Conversation.Status,
 		DecisionSource:              BranchDecisionSourceConversationRouter,
 		ProviderThreadID:            stringPointer("provider-side-thread"),
@@ -239,7 +238,7 @@ func TestConversationEventRejectsMismatchedDiscriminatorAndOwnership(t *testing.
 func validConversationSnapshot() ConversationSnapshot {
 	conversation := TopicConversation{
 		ID:          "conversation-1",
-		WorkspaceID: "workspace-1",
+		WorkspaceID: stringPointer("workspace-1"),
 		Title:       "Generated conversation contracts",
 		Status:      ConversationStatusIdle,
 		CreatedAt:   testTimeStarted,

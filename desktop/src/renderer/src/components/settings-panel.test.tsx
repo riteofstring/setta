@@ -6,20 +6,42 @@ import type {
   AppearanceShadcnPalette,
   AppearanceStatusPalette,
   AppearanceTailwindPalette,
-  AppearanceWorkspacePalette,
-  ConversationPresentationProfile,
+  DirectorVoiceSelection,
+  NarratorVoiceDefault,
   Role,
   RoleConfiguration,
   RoleProfile,
+  SpeechCapabilities,
 } from "@generated/backend";
+import type {
+  LocalMacOSVoiceHealth,
+  LocalMacOSVoiceModelDownloadStatus,
+  SpeechCredentialSettings,
+  SpeechProviderSelectionSettings,
+} from "@shared/speech-ipc";
+import type { RuntimeConnectionStatus, RuntimeRegistrySnapshot } from "@shared/types";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
 import { appearanceStyleVariables, updateAppearanceColor } from "../stores/appearance-store";
-import { DeveloperSettingsEditor } from "./developer-settings";
+import {
+  completeSettingsNavigationRequest,
+  requestOpenAIVoiceConnectionSettings,
+  requestVoiceProviderSelectionSettings,
+  useSettingsNavigationStore,
+} from "../stores/settings-navigation-store";
+import {
+  OpenAIVoiceConnectionCardView,
+  speechCredentialSaveRequestFromDraft,
+} from "./openai-voice-connection-card";
+import {
+  connectedRuntimeConfigurationKey,
+  GlobalVoiceConfigurationForm,
+} from "./voice-configuration-settings";
 import { RoleConfigurationForm, RoleConfigurationSettings } from "./role-configuration-settings";
-import { ConversationPresentationConfiguration } from "./presentation-configuration-settings";
+import { openAIVoiceConnectionSettings } from "./settings-navigation";
 import { AppearanceSettingsEditor, SettingsPanel } from "./settings-panel";
+import { SpeechProviderSelectionCardView } from "./speech-provider-selection-card";
 
 describe("appearance settings", () => {
   test("renders theme as the default settings subtab", () => {
@@ -30,8 +52,6 @@ describe("appearance settings", () => {
     expect(html).toContain("Theme");
     expect(html).toContain("AI Roles");
     expect(html).toContain("Voices");
-    expect(html).toContain("Shortcuts");
-    expect(html).toContain("Developer");
     expect(html).toContain("Codex Account");
     expect(html).toContain("bg-transparent");
     expect(html).toContain('role="tabpanel"');
@@ -41,37 +61,397 @@ describe("appearance settings", () => {
     expect(html).not.toContain('data-testid="codex-account-settings"');
   });
 
-  test("renders backend-owned per-conversation presentation controls", () => {
-    const profile: ConversationPresentationProfile = {
-      conversationId: "conversation-presentation",
-      narratorSpeechEnabled: true,
-      narratorVoiceReuse: null,
-      narratorVoiceSelection: "auto_distinct",
-      paletteReuse: null,
-      paletteSelection: "exact",
-      requestedNarratorVoiceId: null,
-      requestedPaletteId: "blue",
-      resolvedNarratorVoiceId: "alloy",
-      resolvedPaletteId: "blue",
-      updatedAt: "2026-07-14T12:00:00Z",
-    };
-
+  test("keeps voice catalog selectors enabled while OpenAI voice is disconnected", () => {
     const html = renderToString(
-      <ConversationPresentationConfiguration
-        archived={false}
-        profile={profile}
-        workspaceId="workspace-presentation"
+      <GlobalVoiceConfigurationForm
+        configuration={{
+          capabilities: sampleSpeechCapabilities("not_configured"),
+          director: sampleDirectorVoiceSelection(),
+          narratorDefault: sampleNarratorVoiceDefault(),
+        }}
+        onDirectorUpdate={vi.fn()}
+        onNarratorDefaultUpdate={vi.fn()}
+      />,
+    );
+    const normalizedHtml = html.replaceAll("<!-- -->", "");
+
+    expect(normalizedHtml).toContain("Voice catalog · 3 voices");
+    expect(html).toContain("Marin");
+    expect(html).toContain("Cedar");
+    expect(selectTagDisabled(html, "Director voice selection")).toBe(false);
+    expect(selectTagDisabled(html, "Default narrator voice selection")).toBe(false);
+    expect(html).not.toContain("OPENAI_API_KEY");
+  });
+
+  test("renders the OpenAI voice connection setup card", () => {
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          provider: "openai",
+          status: "not_configured",
+        })}
+        apiKeyDraft=""
+        canManage
+        mode={null}
       />,
     );
 
-    expect(html).toContain('data-testid="conversation-presentation-configuration"');
-    expect(html).toContain('aria-label="Conversation color selection"');
-    expect(html).toContain('aria-label="Conversation narrator voice selection"');
-    expect(html).toContain('aria-label="Speak narrator updates"');
-    expect(html).toContain('value="auto_distinct"');
-    expect(html).toContain('value="blue" selected=""');
-    expect(html).toContain("Sky");
-    expect(html).toContain("Teal");
+    expect(html).toContain('data-testid="openai-voice-connection-card"');
+    expect(html).toContain("OpenAI voice connection");
+    expect(html).toContain("Not connected");
+    expect(html).toContain("Optional cloud voice provider");
+    expect(html).toContain("OpenAI API key");
+    expect(html).toContain('type="password"');
+    expect(html).toContain("Save and verify");
+    expect(html).toContain("OpenAI API keys");
+    expect(html).not.toContain("OPENAI_API_KEY");
+  });
+
+  test("renders local macOS as the default voice provider with OpenAI as an option", () => {
+    const html = renderToString(
+      <SpeechProviderSelectionCardView
+        error={null}
+        localHealth={localVoiceHealth("ready")}
+        onRefresh={vi.fn()}
+        onSelectProvider={vi.fn()}
+        selection={providerSelection("local_macos")}
+        updatingProvider={null}
+      />,
+    );
+
+    expect(html).toContain('data-testid="speech-provider-selection-card"');
+    expect(html).toContain("Voice provider");
+    expect(html).toContain("Local macOS is the default");
+    expect(html).toContain("Local macOS");
+    expect(html).toContain("Default");
+    expect(html).toContain("Selected");
+    expect(html).toContain("OpenAI");
+    expect(html).toContain("Use OpenAI");
+  });
+
+  test("renders a verified local model download action while the model is missing", () => {
+    const html = renderToString(
+      <SpeechProviderSelectionCardView
+        error={null}
+        localHealth={localVoiceHealth("missing_model")}
+        localModelDownload={localModelDownloadStatus("idle")}
+        onDownloadLocalModel={vi.fn()}
+        onRefresh={vi.fn()}
+        onSelectProvider={vi.fn()}
+        selection={providerSelection("local_macos")}
+        updatingProvider={null}
+      />,
+    );
+
+    expect(html).toContain("Missing model");
+    expect(html).toContain("Download model");
+    expect(html).toContain("Download the base.en voice model (141 MB)");
+  });
+
+  test("renders local model download progress without changing provider selection", () => {
+    const html = renderToString(
+      <SpeechProviderSelectionCardView
+        error={null}
+        localHealth={localVoiceHealth("missing_model")}
+        localModelDownload={localModelDownloadStatus("downloading")}
+        onDownloadLocalModel={vi.fn()}
+        onRefresh={vi.fn()}
+        onSelectProvider={vi.fn()}
+        selection={providerSelection("local_macos")}
+        updatingProvider={null}
+      />,
+    );
+    const normalizedHtml = html.replaceAll("<!-- -->", "");
+
+    expect(normalizedHtml).toContain("Downloading");
+    expect(normalizedHtml).toContain("16%");
+    expect(normalizedHtml).toContain("Downloading base.en voice model (24 MB of 141 MB).");
+    expect(normalizedHtml).toContain("Selected");
+  });
+
+  test("keeps a current provider selectable after provider selection storage fails", () => {
+    const html = renderToString(
+      <SpeechProviderSelectionCardView
+        canUpdateProvider
+        error={'Speech provider "local_macos" is not supported on linux.'}
+        fallbackSupportedProviders={["openai"]}
+        localHealth={null}
+        onRefresh={vi.fn()}
+        onSelectProvider={vi.fn()}
+        selection={null}
+        updatingProvider={null}
+      />,
+    );
+
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("Use OpenAI");
+    expect(html).not.toContain("Use Local macOS");
+    expect(html).not.toContain('disabled=""');
+  });
+
+  test("preserves leading and trailing whitespace in the credential save request", () => {
+    const draft = " renderer-whitespace-candidate ";
+
+    expect(speechCredentialSaveRequestFromDraft(draft)).toEqual({
+      provider: "openai",
+      apiKey: draft,
+    });
+    expect(speechCredentialSaveRequestFromDraft(" \n\t ")).toBeNull();
+  });
+
+  test("keeps the password draft after a save validation failure", () => {
+    const draft = " renderer-leading-trailing-candidate ";
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          message: "OpenAI API key must not contain leading or trailing whitespace.",
+          operation: "save",
+          status: "failed",
+        })}
+        apiKeyDraft={draft}
+        canManage
+      />,
+    );
+
+    expect(html).toContain('type="password"');
+    expect(html).toContain(`value="${draft}"`);
+    expect(html).toContain("Save failed");
+  });
+
+  test("records and completes typed navigation to the OpenAI voice connection card", () => {
+    useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
+
+    requestOpenAIVoiceConnectionSettings();
+    const request = useSettingsNavigationStore.getState().request;
+
+    expect(request).toEqual({
+      focusTarget: "openai_voice_connection",
+      requestId: 1,
+      subtab: "speech",
+    });
+    expect(useSettingsNavigationStore.getState().route).toEqual({
+      focusTarget: "openai_voice_connection",
+      page: "settings",
+      requestId: 1,
+      subtab: "speech",
+    });
+
+    completeSettingsNavigationRequest(request?.requestId ?? 0);
+
+    expect(useSettingsNavigationStore.getState().request).toBeNull();
+    expect(useSettingsNavigationStore.getState().route).toEqual({
+      focusTarget: null,
+      page: "settings",
+      requestId: 1,
+      subtab: "speech",
+    });
+
+    requestOpenAIVoiceConnectionSettings();
+
+    expect(useSettingsNavigationStore.getState().request?.requestId).toBe(2);
+  });
+
+  test("clears pending typed navigation when closing Settings", () => {
+    useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
+
+    requestOpenAIVoiceConnectionSettings();
+    useSettingsNavigationStore.getState().closeSettings();
+
+    expect(useSettingsNavigationStore.getState().request).toBeNull();
+    expect(useSettingsNavigationStore.getState().route).toEqual({ page: "workspace" });
+  });
+
+  test("opens the Settings page when routing to OpenAI voice setup", () => {
+    useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
+
+    openAIVoiceConnectionSettings();
+
+    expect(useSettingsNavigationStore.getState().request).toEqual({
+      focusTarget: "openai_voice_connection",
+      requestId: 1,
+      subtab: "speech",
+    });
+    expect(useSettingsNavigationStore.getState().route).toEqual({
+      focusTarget: "openai_voice_connection",
+      page: "settings",
+      requestId: 1,
+      subtab: "speech",
+    });
+  });
+
+  test("opens the Settings page when routing to voice provider setup", () => {
+    useSettingsNavigationStore.setState(useSettingsNavigationStore.getInitialState(), true);
+
+    requestVoiceProviderSelectionSettings();
+
+    expect(useSettingsNavigationStore.getState().request).toEqual({
+      focusTarget: "voice_provider_selection",
+      requestId: 1,
+      subtab: "speech",
+    });
+    expect(useSettingsNavigationStore.getState().route).toEqual({
+      focusTarget: "voice_provider_selection",
+      page: "settings",
+      requestId: 1,
+      subtab: "speech",
+    });
+  });
+
+  test("renders a connected OpenAI voice card without a saved value", () => {
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          provider: "openai",
+          status: "configured",
+        })}
+        apiKeyDraft="candidate-value-that-must-not-render"
+        canManage
+        mode={null}
+      />,
+    );
+
+    expect(html).toContain("Connected");
+    expect(html).toContain("Replace");
+    expect(html).toContain("Disconnect");
+    expect(html).not.toContain('type="password"');
+    expect(html).not.toContain("candidate-value-that-must-not-render");
+  });
+
+  test("distinguishes the local credential from active remote runtime voice status", () => {
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          provider: "openai",
+          status: "configured",
+        })}
+        activeRuntimeVoiceStatus={{
+          displayName: "Remote lab",
+          message: null,
+          providerStatus: "not_configured",
+        }}
+        canManage
+      />,
+    );
+
+    expect(html).toContain("Optional cloud voice provider");
+    expect(html).toContain("Active runtime voice status");
+    expect(html).toContain("Remote lab reports voice not connected.");
+    expect(html).toContain("Configure voice on that runtime.");
+    expect(html).toContain("The Local credential on this card is not sent there.");
+    expect(html).not.toContain("OPENAI_API_KEY");
+  });
+
+  test("shows active remote runtime voice status as checking while switching", () => {
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          provider: "openai",
+          status: "configured",
+        })}
+        activeRuntimeVoiceStatus={{
+          displayName: "Remote lab",
+          message: null,
+          providerStatus: "loading",
+        }}
+        canManage
+      />,
+    );
+
+    expect(html).toContain("Checking voice status for Remote lab.");
+    expect(html).toContain("The Local credential on this card is not sent to remote runtimes.");
+  });
+
+  test("loads voice configuration only for a connected active runtime snapshot", () => {
+    expect(
+      connectedRuntimeConfigurationKey(runtimeSnapshot({ connectionStatus: "connecting" })),
+    ).toBeNull();
+    expect(
+      connectedRuntimeConfigurationKey(runtimeSnapshot({ connectionStatus: "unreachable" })),
+    ).toBeNull();
+    expect(
+      connectedRuntimeConfigurationKey(runtimeSnapshot({ connectionStatus: "connected" })),
+    ).toBe("remote-runtime:63:2026-07-18T12:00:00.000Z");
+  });
+
+  test("renders replacement mode with an empty password control", () => {
+    const html = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          provider: "openai",
+          status: "configured",
+        })}
+        apiKeyDraft=""
+        canManage
+        mode="replace"
+      />,
+    );
+
+    expect(html).toContain("Connected");
+    expect(html).toContain("OpenAI API key");
+    expect(html).toContain("Cancel");
+    expect(html).toContain("Save and verify");
+  });
+
+  test("renders secure-storage and corrupt credential failures without an entry field", () => {
+    const secureStorage = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          message: "Electron safeStorage encryption is unavailable.",
+          status: "secure_storage_unavailable",
+        })}
+        canManage
+      />,
+    );
+    const corrupt = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          message: "Stored credential ciphertext could not be decrypted.",
+          reason: "decrypt_failed",
+          status: "corrupt",
+        })}
+        canManage
+      />,
+    );
+
+    expect(secureStorage).toContain("Storage unavailable");
+    expect(secureStorage).toContain("Electron safeStorage encryption is unavailable.");
+    expect(secureStorage).not.toContain('type="password"');
+    expect(corrupt).toContain("Needs attention");
+    expect(corrupt).toContain("Stored credential ciphertext could not be decrypted.");
+    expect(corrupt).toContain("Disconnect");
+    expect(corrupt).not.toContain('type="password"');
+    expect(corrupt).not.toContain("Replace");
+    expect(corrupt).not.toContain("Save and verify");
+  });
+
+  test("renders retry and failed-save credential presentations", () => {
+    const failedRead = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          message: "Local speech runtime is not connected.",
+          operation: "read",
+          status: "failed",
+        })}
+        canManage
+      />,
+    );
+    const failedSave = renderToString(
+      <OpenAIVoiceConnectionCardView
+        {...credentialCardProps({
+          message: "OpenAI voice credential could not be verified.",
+          operation: "save",
+          status: "failed",
+        })}
+        canManage
+      />,
+    );
+
+    expect(failedRead).toContain("Read failed");
+    expect(failedRead).toContain("Retry");
+    expect(failedRead).not.toContain('type="password"');
+    expect(failedSave).toContain("Save failed");
+    expect(failedSave).toContain("OpenAI API key");
+    expect(failedSave).toContain("Save and verify");
   });
 
   test("renders independent model and reasoning controls for every AI role", () => {
@@ -86,11 +466,11 @@ describe("appearance settings", () => {
     expect(html).toContain('data-testid="role-configuration-settings"');
     expect(html).toContain("Primary workspace agent for durable topic work.");
     expect(html).toContain("Lightweight projection, status, and local routing role.");
-    expect(html).toContain("Restricted global topic discovery and routing role.");
+    expect(html).toContain("App-wide workstream decisions and routing.");
     expect(html).toContain("Read-only focused follow-up and side-conversation role.");
     expect(html).toContain('aria-label="Agent model"');
     expect(html).toContain('aria-label="Narrator model"');
-    expect(html).toContain('aria-label="Master model"');
+    expect(html).toContain('aria-label="Director model"');
     expect(html).toContain('aria-label="Side agent model"');
     expect(normalizedHtml).toContain("Provider catalog validated · 4 models");
     expect(html).toContain("gpt-5.6-sol");
@@ -106,7 +486,7 @@ describe("appearance settings", () => {
     expect(html).toContain("Selected workspace");
   });
 
-  test("renders workspace overrides without the global-only master role", () => {
+  test("renders workspace overrides without the global-only director role", () => {
     const configuration = sampleRoleConfiguration();
     const workspaceId = "workspace-role-settings";
     configuration.scope = {
@@ -115,7 +495,7 @@ describe("appearance settings", () => {
       workspaceId,
     };
     configuration.profiles = configuration.profiles
-      .filter((profile) => profile.role !== "master")
+      .filter((profile) => profile.role !== "director")
       .map((profile) => ({ ...profile, effectiveSource: "global" as const }));
     const html = renderToString(
       <RoleConfigurationForm configuration={configuration} onSave={async () => configuration} />,
@@ -125,37 +505,7 @@ describe("appearance settings", () => {
     expect(html).toContain('data-role-configuration-scope="workspace"');
     expect(html).toContain("Inherited from global");
     expect(normalizedHtml).toContain("Use inherited agent");
-    expect(html).not.toContain('aria-label="Master model"');
-  });
-
-  test("renders the developer performance stats toggle", () => {
-    const html = renderToString(
-      <DeveloperSettingsEditor
-        developer={{
-          allowResizedPanesToOverflowViewport: false,
-          overviewCardMaxWidthPx: 460,
-          overviewCardMinWidthPx: 280,
-          showPerformanceStats: false,
-        }}
-        dirty={false}
-        error={null}
-        onClampResizedPanesToViewportChange={vi.fn()}
-        onOverviewCardWidthBoundsChange={vi.fn()}
-        onRevert={vi.fn()}
-        onSave={async () => {}}
-        onShowPerformanceStatsChange={vi.fn()}
-        status="ready"
-      />,
-    );
-
-    expect(html).toContain('data-testid="developer-settings"');
-    expect(html).toContain("Clamp resized panes to viewport");
-    expect(html).toContain("Top bar performance stats");
-    expect(html).toContain("Overview card min width");
-    expect(html).toContain("Overview card max width");
-    expect(html).toContain('value="280"');
-    expect(html).toContain('value="460"');
-    expect(html).toContain('type="checkbox"');
+    expect(html).not.toContain('aria-label="Director model"');
   });
 
   test("maps active appearance settings to Tailwind and shadcn CSS variables", () => {
@@ -168,10 +518,6 @@ describe("appearance settings", () => {
     expect(variables["--background"]).toBe(settings.dark.shadcn.background);
     expect(variables["--status-warning"]).toBe(settings.dark.status.warning);
     expect(variables["--color-status-warning"]).toBe(settings.dark.status.warning);
-    expect(variables["--workspace-surface"]).toBe(settings.dark.workspace.surface);
-    expect(variables["--color-workspace-pane-selected-outline"]).toBe(
-      settings.dark.workspace.paneSelectedOutline,
-    );
     expect(variables["--font-sans"]).toBe(settings.fonts.sans);
   });
 
@@ -238,7 +584,6 @@ describe("appearance settings", () => {
     expect(html).toContain("Dark");
     expect(html).toContain("Fonts");
     expect(html).toContain("Advanced Color Tokens");
-    expect(html).toContain("Niri Workspace");
     expect(html).toContain("Palette Scale");
     expect(html).toContain("shadcn/ui Tokens");
     expect(html).toContain("Status Colors");
@@ -247,19 +592,175 @@ describe("appearance settings", () => {
     expect(html).toContain("Lightness");
     expect(html).toContain("Chroma");
     expect(html).toContain("Hue");
-    expect(html).toContain("Pane selected outline");
-    expect(html).toContain("Dot grid");
     expect(html).toContain("Setta 900");
     expect(html).toContain("Card foreground");
     expect(html).toContain("Warning foreground");
   });
 });
 
+function credentialCardProps(
+  settings: SpeechCredentialSettings,
+): Parameters<typeof OpenAIVoiceConnectionCardView>[0] {
+  return {
+    apiKeyDraft: "",
+    canManage: false,
+    mode: null,
+    onApiKeyDraftChange: vi.fn(),
+    onCancelReplace: vi.fn(),
+    onDisconnect: vi.fn(),
+    onOpenApiKeys: vi.fn(),
+    onReplace: vi.fn(),
+    onRetry: vi.fn(),
+    onSave: vi.fn(),
+    operation: null,
+    settings,
+  };
+}
+
+function sampleSpeechCapabilities(
+  providerStatus: SpeechCapabilities["providerStatus"],
+): SpeechCapabilities {
+  return {
+    aiVoiceDisclosure: "AI-generated voice",
+    maximumRecordingSeconds: 60,
+    maximumSynthesisCharacters: 4096,
+    maximumTranscriptCharacters: 12000,
+    providerStatus,
+    synthesisModel: "gpt-4o-mini-tts",
+    transcriptionModel: "gpt-4o-transcribe",
+    voiceCatalog: {
+      provider: "openai",
+      version: "test-catalog",
+      voiceIds: ["alloy", "marin", "cedar"],
+    },
+  };
+}
+
+function providerSelection(provider: SpeechProviderSelectionSettings["provider"]) {
+  return {
+    defaultProvider: "local_macos",
+    provider,
+    supportedProviders: ["local_macos", "openai"],
+  } satisfies SpeechProviderSelectionSettings;
+}
+
+function localVoiceHealth(status: LocalMacOSVoiceHealth["status"]): LocalMacOSVoiceHealth {
+  if (status === "ready") {
+    return {
+      helperPath: "/tmp/setta-local-helper",
+      modelPath: "/tmp/ggml-base.en.bin",
+      modelSHA256: "model-sha",
+      provider: "local_macos",
+      status,
+    };
+  }
+  if (status === "missing_model") {
+    return {
+      message: "The configured Whisper model file is missing.",
+      modelPath: "/tmp/ggml-base.en.bin",
+      provider: "local_macos",
+      status,
+    };
+  }
+  return {
+    helperPath: null,
+    message: "The local macOS voice helper is not installed.",
+    provider: "local_macos",
+    status: "helper_unavailable",
+  };
+}
+
+function localModelDownloadStatus(
+  status: "downloading" | "idle",
+): LocalMacOSVoiceModelDownloadStatus {
+  const base = {
+    bytesTotal: 147_964_211,
+    modelName: "base.en",
+    modelPath: "/tmp/ggml-base.en.bin",
+    modelSHA256: "a".repeat(64),
+    provider: "local_macos" as const,
+  };
+  if (status === "downloading") {
+    return {
+      ...base,
+      bytesDownloaded: 25_000_000,
+      status,
+    };
+  }
+  return {
+    ...base,
+    status,
+  };
+}
+
+function sampleDirectorVoiceSelection(): DirectorVoiceSelection {
+  return {
+    requestedVoiceId: "marin",
+    resolvedVoiceId: "marin",
+    reuse: null,
+    selection: "exact",
+    updatedAt: "2026-07-18T12:00:00Z",
+  };
+}
+
+function sampleNarratorVoiceDefault(): NarratorVoiceDefault {
+  return {
+    requestedVoiceId: null,
+    selection: "auto_distinct",
+    updatedAt: "2026-07-18T12:00:00Z",
+  };
+}
+
+function runtimeSnapshot({
+  connectionStatus,
+}: {
+  connectionStatus: RuntimeConnectionStatus;
+}): RuntimeRegistrySnapshot {
+  return {
+    activeRuntimeId: "remote-runtime",
+    connection: {
+      message:
+        connectionStatus === "connected" ? "Connected to Remote lab" : "Connecting to Remote lab",
+      protocolVersion: connectionStatus === "connected" ? 63 : null,
+      runtimeId: "remote-runtime",
+      status: connectionStatus,
+      updatedAt: "2026-07-18T12:00:00.000Z",
+    },
+    runtimes: [
+      {
+        active: true,
+        baseUrl: "https://remote-runtime.example",
+        connectionMessage:
+          connectionStatus === "connected" ? "Connected to Remote lab" : "Connecting to Remote lab",
+        connectionStatus,
+        displayName: "Remote lab",
+        infrastructureProvider: {
+          displayName: "Manual",
+          iconUrl: "",
+          id: "manual",
+        },
+        isLocal: false,
+        lastConnected: null,
+        runtimeId: "remote-runtime",
+      },
+    ],
+    switching: connectionStatus === "connecting",
+  };
+}
+
+function selectTagDisabled(html: string, ariaLabel: string): boolean {
+  const match = new RegExp(`<select[^>]*aria-label="${ariaLabel}"[^>]*>`, "u").exec(html);
+  if (!match) {
+    throw new Error(`Missing select with aria-label ${ariaLabel}.`);
+  }
+  return /\sdisabled(=|\s|>)/u.test(match[0]);
+}
+
 function sampleRoleConfiguration(): RoleConfiguration {
   const profiles = [
     sampleRoleProfile("agent", "gpt-5.6-sol", "high"),
     sampleRoleProfile("narrator", "gpt-5.4-mini", "low"),
-    sampleRoleProfile("master", "gpt-5.6-terra", "medium"),
+    sampleRoleProfile("director", "gpt-5.6-terra", "medium"),
     sampleRoleProfile("side_agent", "gpt-5.6-luna", "medium"),
   ];
   return {
@@ -304,12 +805,12 @@ function sampleRoleProfile(role: Role, modelId: string, effort: string): RolePro
     },
     modelSelection: { mode: "exact", modelId },
     permissionProfile: {
-      approvalPolicy: role === "narrator" || role === "master" ? "never" : "on-request",
-      approvals: role !== "narrator" && role !== "master",
+      approvalPolicy: "never",
+      approvals: false,
       providerPermissionProfile: role === "agent" ? ":workspace" : ":read-only",
       toolAccess: {
         allowedTools: [],
-        mode: role === "narrator" ? "none" : "all",
+        mode: role === "narrator" || role === "director" ? "none" : "all",
       },
       workspaceMutation: role === "agent",
     },
@@ -324,12 +825,6 @@ function sampleAppearanceSettings(): AppearanceSettings {
   const tailwind = sampleTailwindPalette();
   return {
     dark: sampleColorScheme(tailwind, 200),
-    developer: {
-      allowResizedPanesToOverflowViewport: false,
-      overviewCardMaxWidthPx: 460,
-      overviewCardMinWidthPx: 280,
-      showPerformanceStats: false,
-    },
     fonts: {
       heading: `"Aptos Display", ui-sans-serif, sans-serif`,
       mono: `"SFMono-Regular", Consolas, monospace`,
@@ -337,11 +832,7 @@ function sampleAppearanceSettings(): AppearanceSettings {
     },
     light: sampleColorScheme(tailwind, 100),
     mode: "dark",
-    schemaVersion: 3,
-    shortcuts: {
-      workspaceNavigation: "mod_alt_arrows",
-      masterVoice: "mod_shift_k",
-    },
+    schemaVersion: 4,
   };
 }
 
@@ -377,7 +868,6 @@ function sampleColorScheme(
     shadcn: sampleShadcnPalette(offset),
     status: sampleStatusPalette(offset + 40),
     tailwind,
-    workspace: sampleWorkspacePalette(offset + 80),
   };
 }
 
@@ -457,20 +947,6 @@ function sampleAccentPalette(offset: number): AppearanceAccentPalette {
     red: color(offset + 4),
     teal: color(offset + 7),
     violet: color(offset + 2),
-  };
-}
-
-function sampleWorkspacePalette(offset: number): AppearanceWorkspacePalette {
-  return {
-    dotGrid: color(offset + 1),
-    dragTargetOutline: color(offset + 8),
-    dragTargetSurface: color(offset + 7),
-    paneEdge: color(offset + 4),
-    paneSelectedGlow: color(offset + 6),
-    paneSelectedOutline: color(offset + 5),
-    paneSurface: color(offset + 2),
-    paneTitleBarSurface: color(offset + 3),
-    surface: color(offset),
   };
 }
 

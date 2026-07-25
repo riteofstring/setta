@@ -12,9 +12,7 @@ import (
 func TestStoreAcceptsConversationInputIdempotentlyWithCommittedEvent(t *testing.T) {
 	store := newTestStore(t)
 	seedConversationInputTargets(t, store, "conversation_alpha")
-	sourcePaneID := "pane_alpha"
 	input := validConversationInput("input_alpha")
-	input.SourcePaneID = &sourcePaneID
 	input.Modality = ConversationInputModalityVoice
 
 	accepted, err := store.AcceptConversationInput(
@@ -47,12 +45,11 @@ func TestStoreAcceptsConversationInputIdempotentlyWithCommittedEvent(t *testing.
 
 	assertConversationInputAcceptedEvent(t, store, input, accepted)
 
-	sourcePaneID = "mutated"
 	stored, found, err := store.ReadConversationInput(context.Background(), input.ID)
 	if err != nil {
 		t.Fatalf("ReadConversationInput: %v", err)
 	}
-	if !found || *stored.Input.SourcePaneID != "pane_alpha" {
+	if !found {
 		t.Fatalf("stored input = %+v found=%v", stored, found)
 	}
 }
@@ -108,7 +105,6 @@ func TestStoreRejectsChangedConversationInputIdempotencyKey(t *testing.T) {
 		{name: "conversation", mutate: func(input *ConversationInput) { input.ConversationID = "conversation_beta" }},
 		{name: "modality", mutate: func(input *ConversationInput) { input.Modality = ConversationInputModalityVoice }},
 		{name: "submitted timestamp", mutate: func(input *ConversationInput) { input.SubmittedAt = "2026-07-12T18:00:02Z" }},
-		{name: "source pane", mutate: func(input *ConversationInput) { paneID := "pane_changed"; input.SourcePaneID = &paneID }},
 		{name: "reply target", mutate: func(input *ConversationInput) { replyID := "input_reply"; input.ReplyToInputID = &replyID }},
 	}
 	for _, test := range tests {

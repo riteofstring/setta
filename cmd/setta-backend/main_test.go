@@ -2,14 +2,10 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
-	"errors"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
-	"setta/internal/controlplane"
+	"setta/internal/runtime"
 	"setta/internal/speech"
 )
 
@@ -19,12 +15,7 @@ func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
 
 	appDataDir := t.TempDir()
 
-	config, err := configFromArgs([]string{
-		"--app-data-dir", appDataDir,
-		"--minimum-disk-free-mib", "1024",
-		"--port", "0",
-		"--version", "test",
-	}, &stdout, &stderr, emptyEnv, ignoreUnsetenv)
+	config, err := configFromArgs([]string{"--app-data-dir", appDataDir, "--port", "0", "--version", "test"}, &stdout, &stderr, emptyEnv)
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
 	}
@@ -37,24 +28,6 @@ func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
 	if config.AppDataDir != appDataDir {
 		t.Fatalf("app data dir = %q, want %q", config.AppDataDir, appDataDir)
 	}
-	if config.MinimumDiskFreeMiB != 1_024 {
-		t.Fatalf("minimum free disk = %d MiB, want 1024", config.MinimumDiskFreeMiB)
-	}
-}
-
-func TestConfigFromArgsEnablesLocalCredentialIssuerOnlyWithExplicitFlag(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	config, err := configFromArgs([]string{
-		"--app-data-dir", t.TempDir(),
-		"--local-credential-issuer",
-	}, &stdout, &stderr, emptyEnv, ignoreUnsetenv)
-	if err != nil {
-		t.Fatalf("config from args: %v", err)
-	}
-	if !config.EnableLocalCredentialIssuer || !config.SkipBootstrapDeviceSession {
-		t.Fatalf("local issuer config = %+v", config)
-	}
 }
 
 func TestConfigFromArgsRejectsInvalidEnvPort(t *testing.T) {
@@ -66,7 +39,7 @@ func TestConfigFromArgsRejectsInvalidEnvPort(t *testing.T) {
 			return "abc"
 		}
 		return ""
-	}, ignoreUnsetenv)
+	})
 	if err == nil {
 		t.Fatal("config succeeded, want error")
 	}
@@ -80,7 +53,7 @@ func TestConfigFromArgsCanSkipBootstrapDeviceSession(t *testing.T) {
 		"--app-data-dir",
 		t.TempDir(),
 		"--skip-bootstrap-device-session",
-	}, &stdout, &stderr, emptyEnv, ignoreUnsetenv)
+	}, &stdout, &stderr, emptyEnv)
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
 	}
@@ -89,78 +62,34 @@ func TestConfigFromArgsCanSkipBootstrapDeviceSession(t *testing.T) {
 	}
 }
 
-func TestConfigFromArgsConfiguresExplicitSpritesWorkloadLeaseSocket(t *testing.T) {
-	directory := t.TempDir()
-	socketPath := filepath.Join(directory, "sprites.sock")
-	credentialPath := filepath.Join(directory, "reporter.json")
-	credential, err := controlplane.NewRuntimeReportingCredential()
-	if err != nil {
-		t.Fatal(err)
-	}
-	encoded, err := json.Marshal(credential)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(credentialPath, encoded, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	config, err := configFromArgs(
-		[]string{"--app-data-dir", t.TempDir()},
-		&bytes.Buffer{},
-		&bytes.Buffer{},
-		func(name string) string {
-			switch name {
-			case "SETTA_SPRITES_WORKLOAD_LEASE_SOCKET":
-				return socketPath
-			case "SETTA_WORKLOAD_ACCOUNTING_URL":
-				return "https://control.setta.example"
-			case "SETTA_WORKLOAD_ACCOUNTING_CREDENTIAL_FILE":
-				return credentialPath
-			}
-			return ""
-		},
-		ignoreUnsetenv,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if config.WorkloadLeaseManager == nil || config.WorkloadLeaseReporter == nil {
-		t.Fatal("explicit Sprites workload accounting did not configure both dependencies")
-	}
-}
-
-func TestConfigFromArgsMapsSpeechEnvironment(t *testing.T) {
+func TestConfigFromArgsMapsDesktopSpeechProviderEnvironment(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
+	requested := map[string]int{}
 
-	var cleared string
-	config, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
-		switch name {
-		case "SETTA_E2E":
-			return "1"
-		case speech.APIKeyEnvironmentVariable:
-			return "sk-openai-speech-backend"
-		case speech.E2EBaseURLEnvironmentVariable:
-			return "http://127.0.0.1:24891/v1"
-		default:
-			return ""
-		}
-	}, func(name string) error {
-		cleared = name
-		return nil
-	})
+	config, err := configFromArgs(
+		[]string{"--app-data-dir", t.TempDir()},
+		&stdout,
+		&stderr,
+		trackedEnv(requested, map[string]string{
+			"SETTA_E2E":                          "1",
+			speech.APIKeyEnvironmentVariable:     "secret value",
+			speech.E2EBaseURLEnvironmentVariable: "http://127.0.0.1:24891/v1",
+		}),
+	)
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
 	}
-	if config.Speech.APIKey != "sk-openai-speech-backend" {
-		t.Fatalf("speech API key = %q, want OpenAI API key", config.Speech.APIKey)
+	if config.SpeechStartupAPIKey != "" {
+		t.Fatalf("speech startup API key = %q, want empty", config.SpeechStartupAPIKey)
+	}
+	if config.SpeechCredentialOwner != runtime.SpeechCredentialOwnerElectronVault {
+		t.Fatalf("speech credential owner = %q, want electron_vault", config.SpeechCredentialOwner)
 	}
 	if config.Speech.BaseURL != "http://127.0.0.1:24891/v1" || !config.Speech.AllowTestBaseURL {
 		t.Fatalf("speech provider config = %+v, want guarded E2E URL", config.Speech)
 	}
-	if cleared != speech.APIKeyEnvironmentVariable {
-		t.Fatalf("cleared environment variable = %q, want %q", cleared, speech.APIKeyEnvironmentVariable)
-	}
+	assertEnvNotRequested(t, requested, speech.APIKeyEnvironmentVariable)
 }
 
 func TestConfigFromArgsRejectsSpeechBaseURLWithoutE2EGuard(t *testing.T) {
@@ -172,33 +101,51 @@ func TestConfigFromArgsRejectsSpeechBaseURLWithoutE2EGuard(t *testing.T) {
 			return "http://127.0.0.1:24891/v1"
 		}
 		return ""
-	}, ignoreUnsetenv)
+	})
 	if err == nil || !strings.Contains(err.Error(), "requires SETTA_E2E=1") {
 		t.Fatalf("error = %v, want SETTA_E2E guard error", err)
 	}
 }
 
-func TestConfigFromArgsRejectsUnclearedSpeechCredential(t *testing.T) {
+func TestConfigFromArgsIgnoresInheritedSpeechCredential(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	clearErr := errors.New("environment is read-only")
+	requested := map[string]int{}
 
-	_, err := configFromArgs(
+	config, err := configFromArgs(
 		[]string{"--app-data-dir", t.TempDir()},
 		&stdout,
 		&stderr,
-		emptyEnv,
-		func(string) error { return clearErr },
+		trackedEnv(requested, map[string]string{
+			speech.APIKeyEnvironmentVariable: "secret value",
+		}),
 	)
-	if !errors.Is(err, clearErr) || !strings.Contains(err.Error(), speech.APIKeyEnvironmentVariable) {
-		t.Fatalf("error = %v, want wrapped speech credential clear failure", err)
+	if err != nil {
+		t.Fatalf("config from args: %v", err)
 	}
+	if config.SpeechStartupAPIKey != "" {
+		t.Fatalf("speech startup API key = %q, want empty", config.SpeechStartupAPIKey)
+	}
+	if config.SpeechCredentialOwner != runtime.SpeechCredentialOwnerElectronVault {
+		t.Fatalf("speech credential owner = %q, want electron_vault", config.SpeechCredentialOwner)
+	}
+	assertEnvNotRequested(t, requested, speech.APIKeyEnvironmentVariable)
 }
 
 func emptyEnv(string) string {
 	return ""
 }
 
-func ignoreUnsetenv(string) error {
-	return nil
+func trackedEnv(requested map[string]int, values map[string]string) func(string) string {
+	return func(name string) string {
+		requested[name]++
+		return values[name]
+	}
+}
+
+func assertEnvNotRequested(t *testing.T, requested map[string]int, name string) {
+	t.Helper()
+	if requested[name] != 0 {
+		t.Fatalf("environment variable %s was requested %d time(s)", name, requested[name])
+	}
 }

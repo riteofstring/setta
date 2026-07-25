@@ -6,7 +6,6 @@
   "packageManager": "pnpm@10.23.0",
   "scripts": {
     "build": "pnpm typecheck && electron-vite build",
-    "build:web": "pnpm typecheck && vite build --config vite.web.config.ts",
     "dev": "electron-vite dev",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
@@ -23,7 +22,6 @@
     "lucide-react": "1.16.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "react-virtuoso": "4.18.7",
     "tailwind-merge": "3.6.0",
     "zustand": "5.0.13"
   },
@@ -53,10 +51,15 @@
       "electron",
       "esbuild"
     ],
+    "auditConfig": {
+      "ignoreCves": [
+        "CVE-2026-14257"
+      ]
+    },
     "overrides": {
       "@babel/code-frame": "7.29.0",
       "@babel/compat-data": "7.29.3",
-      "@babel/core": "7.29.0",
+      "@babel/core": "7.29.7",
       "@babel/generator": "7.29.1",
       "@babel/helper-compilation-targets": "7.28.6",
       "@babel/helper-globals": "7.28.0",
@@ -103,8 +106,10 @@
       "@oxc-resolver/binding-wasm32-wasi": "11.19.1",
       "@oxc-resolver/binding-win32-arm64-msvc": "11.19.1",
       "@oxc-resolver/binding-win32-x64-msvc": "11.19.1",
+      "esbuild": "0.28.1",
       "electron-to-chromium": "1.5.360",
       "enhanced-resolve": "5.21.6",
+      "brace-expansion": "5.0.7",
       "oxc-resolver": "11.19.1",
       "postcss": "8.5.18",
       "tinyexec": "1.1.2",

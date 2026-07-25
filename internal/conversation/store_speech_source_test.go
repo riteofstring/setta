@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 func TestStoreResolvesAuthoritativeNarrationSpeechSourceAndVoice(t *testing.T) {
@@ -82,13 +82,13 @@ func TestStoreResolvesAuthoritativeNarrationSpeechSourceAndVoice(t *testing.T) {
 	assertSpeechSourceUnavailable(t, err)
 }
 
-func TestStoreRejectsUnavailableMasterAndUnspokenNarrationSources(t *testing.T) {
+func TestStoreRejectsDirectorAndUnspokenNarrationSources(t *testing.T) {
 	store := newTestStore(t)
 	seedTransactionConversation(t, store)
 
 	_, err := store.ResolveSpeechSource(context.Background(), speech.SpeechSource{
-		Speaker: speech.SpeechSpeakerMaster,
-		EventID: "master-reply-future",
+		Speaker: speech.SpeechSpeakerDirector,
+		EventID: "director-answer",
 	})
 	assertSpeechSourceUnavailable(t, err)
 

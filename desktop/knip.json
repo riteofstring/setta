@@ -4,8 +4,9 @@
     "eslint.config.mjs",
     "src/main/index.ts",
     "src/preload/index.ts",
-    "src/renderer/public/sw.js",
     "src/renderer/src/main.tsx",
+    "src/renderer/src/features/director-graph/harness/director-graph-harness-main.tsx",
+    "src/renderer/src/features/director-graph/gallery/director-graph-gallery-main.tsx",
     "vitest.config.ts"
   ],
   "project": [
@@ -18,9 +19,13 @@
     "vitest.config.ts"
   ],
   "ignore": ["out/**", "dist/**", "src/generated/**"],
-  "ignoreFiles": ["src/renderer/src/components/workspace-pane-split-overlay.tsx"],
+  "ignoreFiles": [
+    "src/renderer/src/features/global-speech/app-shell-speech-playback.tsx",
+    "src/renderer/src/use-viewport-size.ts"
+  ],
   "ignoreIssues": {
-    "src/renderer/src/components/workspace-pane.tsx": ["exports", "types"]
+    "src/renderer/src/features/global-speech/app-shell-speech-playback.tsx": ["exports"],
+    "src/renderer/src/features/global-speech/speech-capture-lifecycle.ts": ["exports"]
   },
   "ignoreDependencies": ["@types/node", "@types/react", "@types/react-dom", "tailwindcss", "vite"]
 }

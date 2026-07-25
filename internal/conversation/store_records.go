@@ -33,7 +33,7 @@ INSERT INTO conversations (
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		conversation.ID,
-		conversation.WorkspaceID,
+		nullableString(conversation.WorkspaceID),
 		conversation.Title,
 		conversation.TopicDescriptor,
 		conversation.Status,
@@ -44,9 +44,6 @@ INSERT INTO conversations (
 	)
 	if err != nil {
 		return fmt.Errorf("insert conversation %s: %w", conversation.ID, err)
-	}
-	if err := rebuildTopicIndexDocument(transaction.ctx, transaction.tx, conversation.ID); err != nil {
-		return fmt.Errorf("index inserted conversation %s: %w", conversation.ID, err)
 	}
 	return transaction.recordStateMutation()
 }
@@ -93,7 +90,7 @@ WHERE id = ?
 UPDATE conversations
 SET title = ?, topic_descriptor = ?, status = ?, updated_at = ?, archived_at = ?
 WHERE id = ?
-  AND workspace_id = ?
+  AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
   AND created_at = ?
   AND updated_at = ?
   AND last_trajectory_sequence = ?
@@ -104,7 +101,8 @@ WHERE id = ?
 		conversation.UpdatedAt,
 		nullableString(conversation.ArchivedAt),
 		conversation.ID,
-		conversation.WorkspaceID,
+		nullableString(conversation.WorkspaceID),
+		nullableString(conversation.WorkspaceID),
 		conversation.CreatedAt,
 		expected.UpdatedAt,
 		expected.LastTrajectorySequence,
@@ -115,8 +113,43 @@ WHERE id = ?
 	if err := requireOneRow(result, "conversation", conversation.ID, "projection expectation did not match"); err != nil {
 		return err
 	}
-	if err := rebuildTopicIndexDocument(transaction.ctx, transaction.tx, conversation.ID); err != nil {
-		return fmt.Errorf("index updated conversation %s: %w", conversation.ID, err)
+	return transaction.recordStateMutation()
+}
+
+func (transaction *WriteTransaction) BindConversationWorkspace(
+	expected ConversationExpectation,
+	conversation TopicConversation,
+) error {
+	if err := transaction.ensureActive(); err != nil {
+		return err
+	}
+	if conversation.WorkspaceID == nil {
+		return errors.New("conversation folder binding requires a workspace id")
+	}
+	if err := validateConversationExpectation(expected, conversation); err != nil {
+		return err
+	}
+	result, err := transaction.tx.ExecContext(transaction.ctx, `
+UPDATE conversations
+SET workspace_id = ?, updated_at = ?
+WHERE id = ?
+  AND workspace_id IS NULL
+  AND created_at = ?
+  AND updated_at = ?
+  AND last_trajectory_sequence = ?
+`,
+		*conversation.WorkspaceID,
+		conversation.UpdatedAt,
+		conversation.ID,
+		conversation.CreatedAt,
+		expected.UpdatedAt,
+		expected.LastTrajectorySequence,
+	)
+	if err != nil {
+		return fmt.Errorf("bind conversation %s workspace: %w", conversation.ID, err)
+	}
+	if err := requireOneRow(result, "conversation", conversation.ID, "folder binding expectation did not match"); err != nil {
+		return err
 	}
 	return transaction.recordStateMutation()
 }
@@ -166,9 +199,6 @@ INSERT INTO conversation_turns (
 	)
 	if err != nil {
 		return fmt.Errorf("insert conversation turn %s: %w", turn.ID, err)
-	}
-	if err := rebuildTopicIndexDocument(transaction.ctx, transaction.tx, turn.ConversationID); err != nil {
-		return fmt.Errorf("index conversation turn %s: %w", turn.ID, err)
 	}
 	return transaction.recordStateMutation()
 }
