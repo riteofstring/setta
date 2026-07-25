@@ -1399,11 +1399,11 @@ lose mutation intent, suspension, or budget enforcement.
 - [ ] Enforce the initial one-active-agent limit through existing queue
   semantics and bounded background-work leases. Keep those limits automatic;
   do not expose a scheduler or runtime-sizing UI.
-- [ ] Publish typed Director progress such as preparing access, syncing the
+- [x] Publish typed Director progress such as preparing access, syncing the
   project, ready on phone, needs attention, suspended, and exporting.
 - [x] Keep provider names, machine sizes, endpoints, pairing, wake controls,
   and runtime selection out of the ordinary client contract.
-- [ ] Preserve an internal diagnostics surface for support and development.
+- [x] Preserve an internal diagnostics surface for support and development.
 - [ ] Define who pays for model usage; implement the Codex installation,
   version, ChatGPT login/logout or alternative model credential flow, and
   checkpoint/export treatment of those credentials.
@@ -2673,3 +2673,20 @@ Stop and reassess rather than hiding the problem if any of these occur:
   transitive ESLint `brace-expansion <=5.0.7` advisory keeps the audit nonzero.
   Failure-spike aggregation and owner-defined Task/session maximum ages remain
   open. No provider or cloud mutation ran.
+- 2026-07-25 (Phase 6 progress and diagnostics audit): Closed two stale
+  product-integration checklist items without changing executable code. The
+  Go-owned hosted-access state machine durably publishes `preparing_access`,
+  `syncing_project`, `ready_on_phone`, `needs_attention`, and `suspended`
+  events with ordered cursors and push notification; the generated desktop
+  contract carries those states through the production main, preload, and
+  renderer boundary, and the required hosted-cloud Electron workflow proves
+  initial delivery and cursor replay. Exporting remains a future entitlement
+  lifecycle state rather than a prerequisite for the checklist's illustrative
+  progress examples. The existing runtime-info diagnostics surface reports
+  typed Setta release, Codex binary/authentication, workload lease, policy,
+  disk-space, and protected-state status with stable reason codes. Focused
+  tests prove healthy, unavailable, unknown, and failing projections and reject
+  sensitive account material. The ensure-hosted-access automation and broader
+  cloud-chat workflow items remain open because their existing deterministic
+  workflow still invokes the trusted bootstrap completion explicitly. No
+  executable files changed and no provider or cloud mutation ran.
