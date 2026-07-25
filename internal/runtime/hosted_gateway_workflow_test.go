@@ -257,9 +257,12 @@ func startHostedGateway(
 		RuntimeName:         identity.Name,
 		Lifecycle:           controlplane.RuntimeLifecycleReady,
 		AccessState:         controlplane.RuntimeAccessEnabled,
+		HealthState:         controlplane.RuntimeHealthHealthy,
 		CredentialEpoch:     1,
 		UpstreamAuthority:   "127.0.0.1:7345",
 		CredentialSecretRef: "hosted_runtime",
+		DesiredRelease:      "hosted-test-release",
+		ObservedRelease:     "hosted-test-release",
 	}); err != nil {
 		t.Fatal(err)
 	}

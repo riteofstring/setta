@@ -59,9 +59,12 @@ func newBackupCommandFixture(t *testing.T) backupCommandFixture {
 		RuntimeName:         identity.Name,
 		Lifecycle:           controlplane.RuntimeLifecycleReady,
 		AccessState:         controlplane.RuntimeAccessEnabled,
+		HealthState:         controlplane.RuntimeHealthHealthy,
 		CredentialEpoch:     1,
 		UpstreamAuthority:   "127.0.0.1:7345",
 		CredentialSecretRef: "backup_command_runtime",
+		DesiredRelease:      "backup-command-release",
+		ObservedRelease:     "backup-command-release",
 	}); err != nil {
 		t.Fatal(err)
 	}

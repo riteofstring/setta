@@ -2247,3 +2247,18 @@ Stop and reassess rather than hiding the problem if any of these occur:
   and is neither authenticated untrusted input nor the Phase 7 user-data
   export. Automated off-volume retention, recovery-time measurement,
   replication, and failover remain open.
+- 2026-07-24 (independent runtime policy state): Advanced the clean-break
+  control-plane schema to version 3 with separate entitlement, lifecycle,
+  access, health, desired/observed release, wake-request, last-ready, grace,
+  and deletion-schedule fields. Ready assignment and route resolution now fail
+  closed unless health is healthy and the observed signed release exactly
+  matches the desired release. The verified bootstrap and `ensure-runtime`
+  command carry that release explicitly. Durable globally idempotent wake
+  requests, exact entitlement-grace enforcement, export/ended denial, health
+  observations, release mismatch, and future deletion scheduling invalidate
+  live grants without rewriting lifecycle. Focused tests cover invalid
+  transitions, cross-operation idempotency, restart persistence, strict
+  rejection of the prior schema, and backup/restore of entitlement and runtime
+  policy state. Provider wake reconciliation and scheduled deletion execution
+  remain open, so the encompassing Phase 5 checkbox stays open. No provider or
+  cloud mutation ran.

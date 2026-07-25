@@ -35,6 +35,7 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 	case controlPlaneStoreVersion:
 		if err := requireControlPlaneSchemaObjects(ctx, store,
 			"users",
+			"entitlements",
 			"runtimes",
 			"runtimes_user_idx",
 			"devices",
@@ -128,15 +129,31 @@ CREATE TABLE IF NOT EXISTS users (
     DEFERRABLE INITIALLY DEFERRED
 );
 
+CREATE TABLE IF NOT EXISTS entitlements (
+  user_id TEXT PRIMARY KEY REFERENCES users(id),
+  state TEXT NOT NULL CHECK(state IN ('active', 'grace', 'export_only', 'ended')),
+  grace_ends_at TEXT,
+  updated_at TEXT NOT NULL,
+  CHECK((state = 'grace') = (grace_ends_at IS NOT NULL))
+);
+
 CREATE TABLE IF NOT EXISTS runtimes (
   name TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id),
   lifecycle TEXT NOT NULL CHECK(lifecycle IN ('provisioning', 'ready', 'deleting', 'failed')),
-  access_state TEXT NOT NULL CHECK(access_state IN ('enabled', 'suspended')),
+  access_state TEXT NOT NULL CHECK(access_state IN ('enabled', 'suspended', 'export_only', 'delete_scheduled')),
+  health_state TEXT NOT NULL DEFAULT 'unknown'
+    CHECK(health_state IN ('unknown', 'healthy', 'degraded', 'unreachable')),
   credential_epoch INTEGER NOT NULL CHECK(credential_epoch > 0),
   upstream_authority TEXT NOT NULL,
   credential_secret_ref TEXT NOT NULL,
+  desired_release TEXT NOT NULL DEFAULT '',
+  observed_release TEXT NOT NULL DEFAULT '',
+  wake_requested_at TEXT,
+  last_ready_at TEXT,
+  deletion_scheduled_at TEXT,
   updated_at TEXT NOT NULL,
+  CHECK((access_state = 'delete_scheduled') = (deletion_scheduled_at IS NOT NULL)),
   UNIQUE(name, user_id)
 );
 

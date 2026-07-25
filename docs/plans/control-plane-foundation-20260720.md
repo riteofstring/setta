@@ -8,10 +8,12 @@ foundation and has not been deployed.
 
 The boundary owns:
 
-- a SQLite authority for users, authoritative runtime assignment, devices,
-  hashed client credentials, runtime-access grants, credential epochs,
-  persistent fixed-window rate limits, idempotent assignment operations, and
-  durable ensure-runtime and Director-hosted-access intents;
+- a SQLite authority for users, entitlement and grace state, authoritative
+  runtime assignment, independent runtime lifecycle/access/health/release/wake/
+  deletion state, devices, hashed client credentials, runtime-access grants,
+  credential epochs, persistent fixed-window rate limits, idempotent assignment
+  and wake operations, and durable ensure-runtime and Director-hosted-access
+  intents;
 - a separate private filesystem secret store for inner runtime credentials;
 - provider-confined private transports resolved from durable route metadata;
 - bounded request bodies, declared content-length enforcement, concurrent
@@ -56,7 +58,7 @@ gateway.
 
 ## Persistence and schema ownership
 
-The `internal/controlplane` package owns schema version 2. SQLite uses foreign
+The `internal/controlplane` package owns schema version 3. SQLite uses foreign
 keys, WAL journaling, one process-local connection, a five-second busy timeout,
 and a private database file. A deferred composite foreign key makes an active
 runtime assignment refer to a runtime owned by the same user. Replacement may
@@ -64,15 +66,16 @@ leave the old runtime in `deleting` while the user atomically points at the new
 runtime; only the pointed-to runtime can authorize or resolve traffic.
 
 Assignment idempotency binds the complete request fingerprint. Reusing a key
-with different lifecycle, access, epoch, authority, or secret-reference data
-fails rather than silently changing the operation.
+with different lifecycle, access, health, desired or observed release, epoch,
+authority, or secret-reference data fails rather than silently changing the
+operation.
 
 Ensure-runtime idempotency is global with assignment idempotency and binds the
-user, deterministic managed runtime name, credential epoch, runtime target,
-and future credential-secret reference. Concurrent requests create one intent.
-Replacement atomically points the user at the new provisioning runtime and
-cancels unfinished intent for the old runtime without deleting its durable
-record.
+user, deterministic managed runtime name, desired release, credential epoch,
+runtime target, and future credential-secret reference. Concurrent requests
+create one intent. Replacement atomically points the user at the new
+provisioning runtime and cancels unfinished intent for the old runtime without
+deleting its durable record.
 
 The reconciler inspects the deterministic managed identity before create. If a
 create response is ambiguous, the durable operation enters retry wait; a new
@@ -88,6 +91,16 @@ Provider existence and authenticated URL access complete `ensure-runtime` but
 do not mark the runtime ready. Signed release installation, attestation, the
 inner runtime credential, and health must still complete before a separate
 lifecycle transition can enable routing.
+
+The 2026-07-24 runtime-policy extension makes readiness fail closed: routing
+and new grants require an active or unexpired-grace entitlement, ready
+lifecycle, enabled access, healthy observation, and exact desired/observed
+release equality. Wake requests are globally idempotent durable desired state;
+health observations clear them. Suspension, export-only access, exact grace
+expiry, release mismatch, and scheduled deletion invalidate live grants
+without overwriting lifecycle. The signed bootstrap supplies its verified
+installed release explicitly. Schema version 3 is a deliberate clean break;
+older databases fail rather than receiving an implicit migration.
 
 The 2026-07-24 extension persists provider-neutral hosted-access intents,
 requested capability rows, and ordered progress events. The private Unix

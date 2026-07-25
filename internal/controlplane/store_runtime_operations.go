@@ -93,19 +93,27 @@ func writeProvisioningAssignment(
 ) error {
 	result, err := tx.ExecContext(ctx, `
 INSERT INTO runtimes (
-  name, user_id, lifecycle, access_state, credential_epoch,
-  upstream_authority, credential_secret_ref, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  name, user_id, lifecycle, access_state, health_state, credential_epoch,
+  upstream_authority, credential_secret_ref, desired_release, observed_release,
+  wake_requested_at, last_ready_at, deletion_scheduled_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', NULL, NULL, NULL, ?)
 ON CONFLICT(name) DO UPDATE SET
   lifecycle = excluded.lifecycle,
   access_state = excluded.access_state,
+  health_state = excluded.health_state,
   credential_epoch = excluded.credential_epoch,
   upstream_authority = excluded.upstream_authority,
   credential_secret_ref = excluded.credential_secret_ref,
+  desired_release = excluded.desired_release,
+  observed_release = '',
+  wake_requested_at = NULL,
+  last_ready_at = NULL,
+  deletion_scheduled_at = NULL,
   updated_at = excluded.updated_at
 WHERE runtimes.user_id = excluded.user_id
 `, request.RuntimeName, request.UserID, request.Lifecycle, request.AccessState,
-		request.CredentialEpoch, request.UpstreamAuthority, request.CredentialSecretRef, now)
+		request.HealthState, request.CredentialEpoch, request.UpstreamAuthority,
+		request.CredentialSecretRef, request.DesiredRelease, now)
 	if err != nil {
 		return fmt.Errorf("record provisioning runtime: %w", err)
 	}
@@ -256,15 +264,17 @@ func ensureRuntimeAssignment(request EnsureRuntimeRequest) AssignRuntimeRequest 
 		RuntimeName:         request.RuntimeName,
 		Lifecycle:           RuntimeLifecycleProvisioning,
 		AccessState:         RuntimeAccessSuspended,
+		HealthState:         RuntimeHealthUnknown,
 		CredentialEpoch:     request.CredentialEpoch,
 		UpstreamAuthority:   request.UpstreamAuthority,
 		CredentialSecretRef: request.CredentialSecretRef,
+		DesiredRelease:      request.DesiredRelease,
 	}
 }
 
 func ensureRuntimeFingerprint(request EnsureRuntimeRequest) string {
 	fields := []string{request.UserID, request.RuntimeName, strconv.FormatUint(request.CredentialEpoch, 10),
-		request.UpstreamAuthority, request.CredentialSecretRef}
+		request.UpstreamAuthority, request.CredentialSecretRef, request.DesiredRelease}
 	digest := sha256.Sum256([]byte(strings.Join(fields, "\x00")))
 	return hex.EncodeToString(digest[:])
 }

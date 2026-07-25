@@ -26,7 +26,7 @@ import (
 
 const (
 	controlPlaneDatabaseName = "control-plane.sqlite"
-	controlPlaneStoreVersion = 2
+	controlPlaneStoreVersion = 3
 	sqliteDriverName         = "sqlite"
 	defaultGrantTTL          = 24 * time.Hour
 )
@@ -75,6 +75,8 @@ type authorizationRecord struct {
 	runtimeName       string
 	userStatus        UserStatus
 	runtimeAccess     RuntimeAccessState
+	entitlementState  EntitlementState
+	graceEndsAtRaw    sql.NullString
 	deviceRevokedAt   sql.NullString
 	grantRevokedAt    sql.NullString
 	grantExpiresAtRaw string
@@ -161,13 +163,28 @@ func (store *Store) UpsertUser(ctx context.Context, userID string) (User, error)
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	now := store.clock().UTC()
-	_, err := store.db.ExecContext(ctx, `
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return User{}, fmt.Errorf("begin control-plane user upsert: %w", err)
+	}
+	defer rollback(tx)
+	_, err = tx.ExecContext(ctx, `
 INSERT INTO users (id, status, updated_at)
 VALUES (?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at
 `, userID, UserStatusActive, timestamp(now))
 	if err != nil {
 		return User{}, fmt.Errorf("upsert control-plane user: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO entitlements (user_id, state, updated_at)
+VALUES (?, ?, ?)
+ON CONFLICT(user_id) DO NOTHING
+`, userID, EntitlementActive, timestamp(now)); err != nil {
+		return User{}, fmt.Errorf("initialize control-plane entitlement: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return User{}, fmt.Errorf("commit control-plane user upsert: %w", err)
 	}
 	return store.readUserLocked(ctx, userID)
 }
@@ -233,20 +250,29 @@ func writeRuntimeAssignment(
 ) error {
 	result, err := tx.ExecContext(ctx, `
 INSERT INTO runtimes (
-  name, user_id, lifecycle, access_state, credential_epoch,
-  upstream_authority, credential_secret_ref, updated_at
+  name, user_id, lifecycle, access_state, health_state, credential_epoch,
+  upstream_authority, credential_secret_ref, desired_release, observed_release,
+  last_ready_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(name) DO UPDATE SET
   lifecycle = excluded.lifecycle,
   access_state = excluded.access_state,
+  health_state = excluded.health_state,
   credential_epoch = excluded.credential_epoch,
   upstream_authority = excluded.upstream_authority,
   credential_secret_ref = excluded.credential_secret_ref,
+  desired_release = excluded.desired_release,
+  observed_release = excluded.observed_release,
+  wake_requested_at = NULL,
+  last_ready_at = excluded.last_ready_at,
+  deletion_scheduled_at = NULL,
   updated_at = excluded.updated_at
 WHERE runtimes.user_id = excluded.user_id
 `, request.RuntimeName, request.UserID, request.Lifecycle, request.AccessState,
-		request.CredentialEpoch, request.UpstreamAuthority, request.CredentialSecretRef, now)
+		request.HealthState, request.CredentialEpoch, request.UpstreamAuthority,
+		request.CredentialSecretRef, request.DesiredRelease, request.ObservedRelease,
+		readyTimestamp(request, now), now)
 	if err != nil {
 		return fmt.Errorf("record assigned runtime: %w", err)
 	}
@@ -323,7 +349,7 @@ func (store *Store) EnsureDeviceGrant(
 		return CreatedDeviceGrant{}, fmt.Errorf("begin device grant creation: %w", err)
 	}
 	defer rollback(tx)
-	if err := requireActiveRuntime(ctx, tx, request.UserID, request.RuntimeName); err != nil {
+	if err := requireActiveRuntime(ctx, tx, request.UserID, request.RuntimeName, now); err != nil {
 		return CreatedDeviceGrant{}, err
 	}
 	if _, err := tx.ExecContext(ctx, `
@@ -373,6 +399,15 @@ func (store *Store) AuthorizeClient(
 	if outcome != runtimeaccess.AuthorizationAllowed {
 		return runtimeaccess.ClientAuthorization{Outcome: outcome}, nil
 	}
+	if record.entitlementState == EntitlementGrace {
+		graceEndsAt, parseErr := time.Parse(time.RFC3339Nano, record.graceEndsAtRaw.String)
+		if parseErr != nil {
+			return runtimeaccess.ClientAuthorization{}, fmt.Errorf("parse entitlement grace expiry: %w", parseErr)
+		}
+		if graceEndsAt.Before(expiresAt) {
+			expiresAt = graceEndsAt
+		}
+	}
 	return store.authorizeAllowedRecordLocked(ctx, record, expiresAt)
 }
 
@@ -405,7 +440,19 @@ func authorizationOutcome(
 	if record.deviceRevokedAt.Valid || record.grantRevokedAt.Valid || !now.Before(expiresAt) {
 		return runtimeaccess.AuthorizationRevoked
 	}
-	if record.userStatus == UserStatusSuspended || record.runtimeAccess == RuntimeAccessSuspended {
+	if record.userStatus == UserStatusSuspended || record.runtimeAccess != RuntimeAccessEnabled {
+		return runtimeaccess.AuthorizationSuspended
+	}
+	switch record.entitlementState {
+	case EntitlementActive:
+	case EntitlementGrace:
+		graceEndsAt, err := time.Parse(time.RFC3339Nano, record.graceEndsAtRaw.String)
+		if err != nil || !now.Before(graceEndsAt) {
+			return runtimeaccess.AuthorizationSuspended
+		}
+	case EntitlementExportOnly, EntitlementEnded:
+		return runtimeaccess.AuthorizationSuspended
+	default:
 		return runtimeaccess.AuthorizationSuspended
 	}
 	return runtimeaccess.AuthorizationAllowed
@@ -516,10 +563,15 @@ func (store *Store) SetRuntimeAccessState(
 	if !validRuntimeAccessState(state) {
 		return fmt.Errorf("invalid runtime access state %q", state)
 	}
+	if state == RuntimeAccessDeleteScheduled {
+		return errors.New("delete-scheduled runtime access requires an explicit deletion schedule")
+	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	result, err := store.db.ExecContext(ctx, `
-UPDATE runtimes SET access_state = ?, updated_at = ? WHERE name = ?
+UPDATE runtimes
+SET access_state = ?, deletion_scheduled_at = NULL, updated_at = ?
+WHERE name = ?
 `, state, timestamp(store.clock().UTC()), runtimeName)
 	if err != nil {
 		return fmt.Errorf("set runtime access state: %w", err)
@@ -527,7 +579,7 @@ UPDATE runtimes SET access_state = ?, updated_at = ? WHERE name = ?
 	if err := requireOneRow(result, "set runtime access state"); err != nil {
 		return err
 	}
-	if state == RuntimeAccessSuspended {
+	if state != RuntimeAccessEnabled {
 		store.invalidateRuntimeLocked(runtimeName)
 	}
 	return nil
@@ -545,7 +597,16 @@ SELECT r.name, r.upstream_authority, r.credential_secret_ref
 FROM runtimes r
 JOIN users u ON u.id = r.user_id AND u.active_runtime_name = r.name
 WHERE r.name = ? AND u.status = ? AND r.access_state = ? AND r.lifecycle = ?
-`, runtimeName, UserStatusActive, RuntimeAccessEnabled, RuntimeLifecycleReady).Scan(
+  AND r.health_state = ? AND r.desired_release <> ''
+  AND r.observed_release = r.desired_release
+  AND EXISTS (
+    SELECT 1 FROM entitlements e
+    WHERE e.user_id = u.id
+      AND (e.state = ? OR (e.state = ? AND e.grace_ends_at > ?))
+  )
+`, runtimeName, UserStatusActive, RuntimeAccessEnabled, RuntimeLifecycleReady,
+		RuntimeHealthHealthy, EntitlementActive, EntitlementGrace,
+		timestamp(store.clock().UTC())).Scan(
 		&route.RuntimeName,
 		&route.UpstreamAuthority,
 		&route.CredentialSecretRef,
@@ -568,9 +629,11 @@ func (store *Store) readAuthorizationLocked(
 	var storedHash []byte
 	err := store.db.QueryRowContext(ctx, `
 SELECT d.id, d.token_hash, r.name, u.status, r.access_state,
+       e.state, e.grace_ends_at,
        d.revoked_at, g.revoked_at, g.expires_at
 FROM devices d
 JOIN users u ON u.id = d.user_id
+JOIN entitlements e ON e.user_id = u.id
 JOIN runtimes r ON r.name = u.active_runtime_name AND r.user_id = u.id
 JOIN runtime_access_grants g ON g.device_id = d.id AND g.runtime_name = r.name
 WHERE d.token_hash = ?
@@ -580,6 +643,8 @@ WHERE d.token_hash = ?
 		&record.runtimeName,
 		&record.userStatus,
 		&record.runtimeAccess,
+		&record.entitlementState,
+		&record.graceEndsAtRaw,
 		&record.deviceRevokedAt,
 		&record.grantRevokedAt,
 		&record.grantExpiresAtRaw,
@@ -730,31 +795,6 @@ func validateStoreConfig(config StoreConfig) error {
 	return nil
 }
 
-func validateAssignment(request AssignRuntimeRequest) error {
-	if err := validateIdentifier("idempotency key", request.IdempotencyKey); err != nil {
-		return err
-	}
-	if err := validateIdentifier("user id", request.UserID); err != nil {
-		return err
-	}
-	if err := runtimeprovider.ValidateManagedName(request.RuntimeName); err != nil {
-		return err
-	}
-	if !validRuntimeLifecycle(request.Lifecycle) {
-		return fmt.Errorf("invalid runtime lifecycle %q", request.Lifecycle)
-	}
-	if !validRuntimeAccessState(request.AccessState) {
-		return fmt.Errorf("invalid runtime access state %q", request.AccessState)
-	}
-	if request.CredentialEpoch == 0 {
-		return errors.New("runtime credential epoch must be positive")
-	}
-	if err := validateAuthority(request.UpstreamAuthority); err != nil {
-		return err
-	}
-	return validateSecretReference(request.CredentialSecretRef)
-}
-
 func validateDeviceGrantRequest(request CreateDeviceGrantRequest) error {
 	if err := validateIdentifier("user id", request.UserID); err != nil {
 		return err
@@ -773,19 +813,6 @@ func validateDeviceGrantRequest(request CreateDeviceGrantRequest) error {
 
 func validUserStatus(status UserStatus) bool {
 	return status == UserStatusActive || status == UserStatusSuspended
-}
-
-func validRuntimeLifecycle(lifecycle RuntimeLifecycle) bool {
-	switch lifecycle {
-	case RuntimeLifecycleProvisioning, RuntimeLifecycleReady, RuntimeLifecycleDeleting, RuntimeLifecycleFailed:
-		return true
-	default:
-		return false
-	}
-}
-
-func validRuntimeAccessState(state RuntimeAccessState) bool {
-	return state == RuntimeAccessEnabled || state == RuntimeAccessSuspended
 }
 
 func validateIdentifier(label string, value string) error {
@@ -849,9 +876,12 @@ func runtimeAssignmentFingerprint(request AssignRuntimeRequest) string {
 		request.RuntimeName,
 		string(request.Lifecycle),
 		string(request.AccessState),
+		string(request.HealthState),
 		strconv.FormatUint(request.CredentialEpoch, 10),
 		request.UpstreamAuthority,
 		request.CredentialSecretRef,
+		request.DesiredRelease,
+		request.ObservedRelease,
 	}
 	digest := sha256.Sum256([]byte(strings.Join(fields, "\x00")))
 	return hex.EncodeToString(digest[:])

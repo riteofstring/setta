@@ -17,6 +17,7 @@ type ensureRuntimeConfig struct {
 	DataDirectory    string
 	IdempotencyKey   string
 	RuntimeName      string
+	RuntimeRelease   string
 	RuntimeSecretRef string
 	RuntimeTarget    string
 	UserID           string
@@ -71,6 +72,7 @@ func queueEnsureRuntime(
 		CredentialEpoch:     config.CredentialEpoch,
 		UpstreamAuthority:   config.RuntimeTarget,
 		CredentialSecretRef: config.RuntimeSecretRef,
+		DesiredRelease:      config.RuntimeRelease,
 	})
 	if err != nil {
 		return err
@@ -99,6 +101,7 @@ func ensureRuntimeConfigFromArgs(
 	flagSet.StringVar(&config.DataDirectory, "data-dir", config.DataDirectory, "absolute durable control-plane database directory")
 	flagSet.StringVar(&config.IdempotencyKey, "idempotency-key", "", "unique ensure-runtime operation key")
 	flagSet.StringVar(&config.RuntimeName, "runtime-name", "", "deterministic Setta-managed runtime name")
+	flagSet.StringVar(&config.RuntimeRelease, "runtime-release", "", "desired Setta runtime release")
 	flagSet.StringVar(&config.RuntimeSecretRef, "runtime-secret-ref", "", "future runtime credential secret reference")
 	flagSet.StringVar(&config.RuntimeTarget, "runtime-target", config.RuntimeTarget, "loopback runtime HTTP target")
 	flagSet.StringVar(&config.UserID, "user-id", "", "immutable Setta user identifier")
@@ -112,8 +115,8 @@ func ensureRuntimeConfigFromArgs(
 		return ensureRuntimeConfig{}, errors.New("control-plane data directory must be absolute")
 	}
 	if config.CredentialEpoch == 0 || config.IdempotencyKey == "" || config.RuntimeName == "" ||
-		config.RuntimeSecretRef == "" || config.UserID == "" {
-		return ensureRuntimeConfig{}, errors.New("ensure-runtime identity, runtime, secret reference, epoch, and idempotency key are required")
+		config.RuntimeRelease == "" || config.RuntimeSecretRef == "" || config.UserID == "" {
+		return ensureRuntimeConfig{}, errors.New("ensure-runtime identity, runtime, release, secret reference, epoch, and idempotency key are required")
 	}
 	return config, nil
 }

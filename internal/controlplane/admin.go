@@ -49,6 +49,7 @@ type AdminCompleteHostedAccessRequest struct {
 	IdempotencyKey       string           `json:"idempotency_key"`
 	ProjectID            string           `json:"project_id"`
 	RuntimeName          string           `json:"runtime_name"`
+	RuntimeRelease       string           `json:"runtime_release"`
 	RuntimeSecretRef     string           `json:"runtime_secret_ref"`
 	RuntimeTarget        string           `json:"runtime_target"`
 	UserID               string           `json:"user_id"`
@@ -268,9 +269,12 @@ func completeHostedAccess(
 		RuntimeName:         payload.RuntimeName,
 		Lifecycle:           RuntimeLifecycleReady,
 		AccessState:         RuntimeAccessEnabled,
+		HealthState:         RuntimeHealthHealthy,
 		CredentialEpoch:     payload.CredentialEpoch,
 		UpstreamAuthority:   payload.RuntimeTarget,
 		CredentialSecretRef: payload.RuntimeSecretRef,
+		DesiredRelease:      payload.RuntimeRelease,
+		ObservedRelease:     payload.RuntimeRelease,
 	}); err != nil {
 		return CreatedDeviceGrant{}, recordHostedAccessFailure(
 			ctx,

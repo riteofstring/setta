@@ -30,6 +30,7 @@ type bootstrapConfig struct {
 	ProjectID             string
 	RuntimeCredentialFile string
 	RuntimeName           string
+	RuntimeRelease        string
 	RuntimeSecretRef      string
 	RuntimeTarget         string
 	SecretDirectory       string
@@ -86,6 +87,7 @@ func bootstrapControlPlane(ctx context.Context, config bootstrapConfig, stdin io
 			IdempotencyKey:       config.IdempotencyKey,
 			ProjectID:            config.ProjectID,
 			RuntimeName:          config.RuntimeName,
+			RuntimeRelease:       config.RuntimeRelease,
 			RuntimeSecretRef:     config.RuntimeSecretRef,
 			RuntimeTarget:        config.RuntimeTarget,
 			UserID:               config.UserID,
@@ -129,6 +131,7 @@ func bootstrapConfigFromArgs(
 	flagSet.StringVar(&config.ProjectID, "project-id", "", "trusted Setta project identifier")
 	flagSet.StringVar(&config.RuntimeCredentialFile, "runtime-credential-file", "", "private input file containing the inner runtime credential")
 	flagSet.StringVar(&config.RuntimeName, "runtime-name", "", "Setta-managed runtime name")
+	flagSet.StringVar(&config.RuntimeRelease, "runtime-release", "", "verified installed Setta runtime release")
 	flagSet.StringVar(&config.RuntimeSecretRef, "runtime-secret-ref", "", "secret-store reference for the runtime credential")
 	flagSet.StringVar(&config.RuntimeTarget, "runtime-target", config.RuntimeTarget, "loopback runtime HTTP target")
 	flagSet.StringVar(&config.SecretDirectory, "secret-dir", config.SecretDirectory, "absolute durable runtime credential directory")
@@ -226,7 +229,8 @@ func validateBootstrapPaths(config bootstrapConfig) error {
 func validateBootstrapIdentity(config bootstrapConfig) error {
 	if config.UserID == "" || config.ProjectID == "" || config.WorkstreamID == "" ||
 		config.HostedAccessIntentID == "" || config.RuntimeName == "" ||
-		config.RuntimeSecretRef == "" || config.DeviceDisplayName == "" || config.IdempotencyKey == "" {
+		config.RuntimeRelease == "" || config.RuntimeSecretRef == "" ||
+		config.DeviceDisplayName == "" || config.IdempotencyKey == "" {
 		return errors.New("bootstrap hosted intent, identity, project, workstream, runtime, device, secret reference, and idempotency key are required")
 	}
 	return nil

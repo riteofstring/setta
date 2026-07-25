@@ -56,7 +56,14 @@ func (bootstrapper ControlPlaneBootstrapper) Bootstrap(
 	if bootstrapper.State.Snapshot().Bootstrap.BootstrapAccepted != "" {
 		return ControlPlaneBootstrapResult{ClientCredentialPath: credentialPath, DeviceID: credential.DeviceID}, nil
 	}
-	if err := bootstrapper.execute(ctx, authorization, machine.ID, runtimeName, credential); err != nil {
+	if err := bootstrapper.execute(
+		ctx,
+		authorization,
+		machine.ID,
+		runtimeName,
+		runtime.Sprite.Install.Installed.Version,
+		credential,
+	); err != nil {
 		return ControlPlaneBootstrapResult{}, err
 	}
 	if err := bootstrapper.State.RecordBootstrapAccepted(bootstrapper.Now()); err != nil {
@@ -77,6 +84,7 @@ func (bootstrapper ControlPlaneBootstrapper) execute(
 	authorization Authorization,
 	machineID string,
 	runtimeName string,
+	runtimeRelease string,
 	credential controlplane.DeviceCredential,
 ) error {
 	payload, err := json.Marshal(credential)
@@ -85,8 +93,12 @@ func (bootstrapper ControlPlaneBootstrapper) execute(
 	}
 	result, err := bootstrapper.Fly.ExecMachine(ctx, FlyMachineExecRequest{
 		AppName: authorization.Manifest.FlyAppName, MachineID: machineID,
-		Command: bootstrapCommand(authorization.Manifest.RunID, runtimeName),
-		Stdin:   payload, TimeoutSeconds: bootstrapMachineTimeoutSeconds,
+		Command: bootstrapCommand(
+			authorization.Manifest.RunID,
+			runtimeName,
+			runtimeRelease,
+		),
+		Stdin: payload, TimeoutSeconds: bootstrapMachineTimeoutSeconds,
 	})
 	if err != nil {
 		return errors.New("execute hosted control-plane bootstrap failed")
@@ -204,7 +216,7 @@ func clientCredentialSHA256(credential controlplane.DeviceCredential) string {
 	return hex.EncodeToString(digest[:])
 }
 
-func bootstrapCommand(runID string, runtimeName string) string {
+func bootstrapCommand(runID string, runtimeName string, runtimeRelease string) string {
 	parts := []string{
 		"/usr/local/bin/setta-control-plane", "bootstrap",
 		"--client-credential-file", "/data/control-plane/bootstrap-client-credential.json",
@@ -218,6 +230,7 @@ func bootstrapCommand(runID string, runtimeName string) string {
 		"--project-id", "hosted-project-" + runID,
 		"--runtime-credential-file", "/run/setta/inner-runtime-credential",
 		"--runtime-name", runtimeName,
+		"--runtime-release", runtimeRelease,
 		"--runtime-secret-ref", "runtime-" + runID,
 		"--runtime-target", "127.0.0.1:7345",
 		"--secret-dir", "/data/runtime-secrets",

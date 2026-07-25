@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -30,7 +31,7 @@ func TestStorePersistsAssignmentsAndCredentialsAcrossRestart(t *testing.T) {
 	}
 	first := assignTestRuntime(t, store, "assign-first", "user-persistent", firstRuntime, "credential-first")
 	replayed := assignTestRuntime(t, store, "assign-first", "user-persistent", firstRuntime, "credential-first")
-	if replayed != first {
+	if !reflect.DeepEqual(replayed, first) {
 		t.Fatalf("replayed runtime = %+v, want %+v", replayed, first)
 	}
 	changedReplay := testAssignment("assign-first", "user-persistent", firstRuntime, "credential-changed")
@@ -271,9 +272,12 @@ func testAssignment(idempotencyKey string, userID string, runtimeName string, se
 		RuntimeName:         runtimeName,
 		Lifecycle:           RuntimeLifecycleReady,
 		AccessState:         RuntimeAccessEnabled,
+		HealthState:         RuntimeHealthHealthy,
 		CredentialEpoch:     1,
 		UpstreamAuthority:   "127.0.0.1:7345",
 		CredentialSecretRef: secretRef,
+		DesiredRelease:      "test-release",
+		ObservedRelease:     "test-release",
 	}
 }
 

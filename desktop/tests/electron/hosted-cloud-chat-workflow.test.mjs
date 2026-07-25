@@ -201,6 +201,8 @@ async function ensureHostedPhoneAccess({
       runtimeCredentialFile,
       "--runtime-name",
       runtimeName,
+      "--runtime-release",
+      "electron-hosted-test-release",
       "--runtime-secret-ref",
       "electron_hosted_runtime",
       "--secret-dir",

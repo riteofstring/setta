@@ -25,6 +25,7 @@ func TestControlPlaneBackupRestoreRoundTrip(t *testing.T) {
 type backupRoundTripFixture struct {
 	backupDirectory string
 	grant           CreatedDeviceGrant
+	graceEndsAt     time.Time
 	intent          EnsureHostedAccessIntent
 	now             time.Time
 	root            string
@@ -58,9 +59,20 @@ func newBackupRoundTripFixture(t *testing.T) backupRoundTripFixture {
 		RuntimeName:         runtimeName,
 		Lifecycle:           RuntimeLifecycleReady,
 		AccessState:         RuntimeAccessEnabled,
+		HealthState:         RuntimeHealthHealthy,
 		CredentialEpoch:     1,
 		UpstreamAuthority:   "127.0.0.1:7345",
 		CredentialSecretRef: "runtime_backup",
+		DesiredRelease:      "backup-release",
+		ObservedRelease:     "backup-release",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	graceEndsAt := now.Add(45 * time.Minute)
+	if _, err := store.UpdateEntitlement(t.Context(), UpdateEntitlementRequest{
+		UserID:      "user-backup",
+		State:       EntitlementGrace,
+		GraceEndsAt: &graceEndsAt,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -86,6 +98,7 @@ func newBackupRoundTripFixture(t *testing.T) backupRoundTripFixture {
 	return backupRoundTripFixture{
 		backupDirectory: filepath.Join(root, "backup"),
 		grant:           grant,
+		graceEndsAt:     graceEndsAt,
 		intent:          intent,
 		now:             now,
 		root:            root,
@@ -162,6 +175,7 @@ func restoreAndVerifyRoundTripBackup(
 		progress.AccessGrant == nil || progress.AccessGrant.DeviceID != fixture.grant.Device.ID {
 		t.Fatalf("restored hosted access progress = %+v, %v", progress, err)
 	}
+	verifyRestoredRuntimePolicy(t, restoredStore, fixture)
 	restoredSecretStore, err := OpenFileSecretStore(restoredSecrets)
 	if err != nil {
 		t.Fatal(err)
@@ -180,6 +194,25 @@ func restoreAndVerifyRoundTripBackup(
 		filepath.Join(fixture.root, "another-secret-restore"),
 	); err == nil {
 		t.Fatal("control-plane restore overwrote an existing destination")
+	}
+}
+
+func verifyRestoredRuntimePolicy(
+	t *testing.T,
+	restoredStore *Store,
+	fixture backupRoundTripFixture,
+) {
+	t.Helper()
+	runtimeRecord, err := restoredStore.Runtime(t.Context(), fixture.runtimeName)
+	if err != nil || runtimeRecord.HealthState != RuntimeHealthHealthy ||
+		runtimeRecord.ReleaseStatus() != RuntimeReleaseCurrent ||
+		runtimeRecord.LastReadyAt == nil || !runtimeRecord.LastReadyAt.Equal(fixture.now) {
+		t.Fatalf("restored runtime policy = %+v, %v", runtimeRecord, err)
+	}
+	entitlement, err := restoredStore.Entitlement(t.Context(), "user-backup")
+	if err != nil || entitlement.State != EntitlementGrace ||
+		entitlement.GraceEndsAt == nil || !entitlement.GraceEndsAt.Equal(fixture.graceEndsAt) {
+		t.Fatalf("restored entitlement = %+v, %v", entitlement, err)
 	}
 }
 
@@ -202,9 +235,12 @@ func TestControlPlaneBackupRejectsMissingReferencedSecret(t *testing.T) {
 		RuntimeName:         runtimeName,
 		Lifecycle:           RuntimeLifecycleReady,
 		AccessState:         RuntimeAccessEnabled,
+		HealthState:         RuntimeHealthHealthy,
 		CredentialEpoch:     1,
 		UpstreamAuthority:   "127.0.0.1:7345",
 		CredentialSecretRef: "missing_secret",
+		DesiredRelease:      "missing-secret-release",
+		ObservedRelease:     "missing-secret-release",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +290,7 @@ func TestControlPlaneRestoreRejectsTamperingAndDuplicateFields(t *testing.T) {
 	duplicate := []byte(`{
 		"schema_version": 1,
 		"schema_version": 1,
-		"control_plane_schema_version": 2,
+		"control_plane_schema_version": 3,
 		"created_at": "2026-07-24T21:00:00Z",
 		"database_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		"secrets": []

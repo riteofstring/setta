@@ -313,6 +313,7 @@ func testEnsureRuntimeRequest(
 		CredentialEpoch:     1,
 		UpstreamAuthority:   "127.0.0.1:7345",
 		CredentialSecretRef: "runtime_credential",
+		DesiredRelease:      "reconciler-test-release",
 	}
 }
 

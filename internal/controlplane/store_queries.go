@@ -72,14 +72,21 @@ func requireActiveRuntime(
 	tx *sql.Tx,
 	userID string,
 	runtimeName string,
+	now time.Time,
 ) error {
 	var count int
 	err := tx.QueryRowContext(ctx, `
 SELECT COUNT(*)
 FROM users u
 JOIN runtimes r ON r.name = u.active_runtime_name AND r.user_id = u.id
+JOIN entitlements e ON e.user_id = u.id
 WHERE u.id = ? AND r.name = ? AND u.status = ? AND r.access_state = ?
-`, userID, runtimeName, UserStatusActive, RuntimeAccessEnabled).Scan(&count)
+  AND r.lifecycle = ? AND r.health_state = ?
+  AND r.desired_release <> '' AND r.observed_release = r.desired_release
+  AND (e.state = ? OR (e.state = ? AND e.grace_ends_at > ?))
+`, userID, runtimeName, UserStatusActive, RuntimeAccessEnabled,
+		RuntimeLifecycleReady, RuntimeHealthHealthy, EntitlementActive,
+		EntitlementGrace, timestamp(now)).Scan(&count)
 	if err != nil {
 		return fmt.Errorf("validate active runtime assignment: %w", err)
 	}
@@ -201,19 +208,30 @@ SELECT id, status, active_runtime_name, updated_at FROM users WHERE id = ?
 
 func (store *Store) readRuntimeLocked(ctx context.Context, runtimeName string) (Runtime, error) {
 	var runtime Runtime
+	var wakeRequestedAt sql.NullString
+	var lastReadyAt sql.NullString
+	var deletionScheduledAt sql.NullString
 	var updatedAt string
 	err := store.db.QueryRowContext(ctx, `
-SELECT name, user_id, lifecycle, access_state, credential_epoch,
-       upstream_authority, credential_secret_ref, updated_at
+SELECT name, user_id, lifecycle, access_state, health_state, credential_epoch,
+       upstream_authority, credential_secret_ref, desired_release,
+       observed_release, wake_requested_at, last_ready_at,
+       deletion_scheduled_at, updated_at
 FROM runtimes WHERE name = ?
 `, runtimeName).Scan(
 		&runtime.Name,
 		&runtime.UserID,
 		&runtime.Lifecycle,
 		&runtime.AccessState,
+		&runtime.HealthState,
 		&runtime.CredentialEpoch,
 		&runtime.UpstreamAuthority,
 		&runtime.CredentialSecretRef,
+		&runtime.DesiredRelease,
+		&runtime.ObservedRelease,
+		&wakeRequestedAt,
+		&lastReadyAt,
+		&deletionScheduledAt,
 		&updatedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -221,6 +239,16 @@ FROM runtimes WHERE name = ?
 	}
 	if err != nil {
 		return Runtime{}, fmt.Errorf("read control-plane runtime: %w", err)
+	}
+	runtime.WakeRequestedAt, err = parseOptionalStoredTime(wakeRequestedAt)
+	if err == nil {
+		runtime.LastReadyAt, err = parseOptionalStoredTime(lastReadyAt)
+	}
+	if err == nil {
+		runtime.DeletionScheduledAt, err = parseOptionalStoredTime(deletionScheduledAt)
+	}
+	if err != nil {
+		return Runtime{}, fmt.Errorf("parse control-plane runtime policy time: %w", err)
 	}
 	parsed, err := time.Parse(time.RFC3339Nano, updatedAt)
 	if err != nil {

@@ -12,7 +12,10 @@ import (
 type UserStatus string
 type RuntimeLifecycle string
 type RuntimeAccessState string
+type RuntimeHealthState string
+type RuntimeReleaseStatus string
 type RuntimeOperationStatus string
+type EntitlementState string
 type HostedAccessCapability string
 type HostedAccessClientKind string
 type HostedAccessProgressState string
@@ -27,8 +30,20 @@ const (
 	RuntimeLifecycleDeleting     RuntimeLifecycle = "deleting"
 	RuntimeLifecycleFailed       RuntimeLifecycle = "failed"
 
-	RuntimeAccessEnabled   RuntimeAccessState = "enabled"
-	RuntimeAccessSuspended RuntimeAccessState = "suspended"
+	RuntimeAccessEnabled         RuntimeAccessState = "enabled"
+	RuntimeAccessSuspended       RuntimeAccessState = "suspended"
+	RuntimeAccessExportOnly      RuntimeAccessState = "export_only"
+	RuntimeAccessDeleteScheduled RuntimeAccessState = "delete_scheduled"
+
+	RuntimeHealthUnknown     RuntimeHealthState = "unknown"
+	RuntimeHealthHealthy     RuntimeHealthState = "healthy"
+	RuntimeHealthDegraded    RuntimeHealthState = "degraded"
+	RuntimeHealthUnreachable RuntimeHealthState = "unreachable"
+
+	RuntimeReleaseUnconfigured RuntimeReleaseStatus = "unconfigured"
+	RuntimeReleaseUnobserved   RuntimeReleaseStatus = "unobserved"
+	RuntimeReleaseCurrent      RuntimeReleaseStatus = "current"
+	RuntimeReleaseMismatch     RuntimeReleaseStatus = "mismatch"
 
 	RuntimeOperationPending   RuntimeOperationStatus = "pending"
 	RuntimeOperationRunning   RuntimeOperationStatus = "running"
@@ -36,6 +51,11 @@ const (
 	RuntimeOperationSucceeded RuntimeOperationStatus = "succeeded"
 	RuntimeOperationFailed    RuntimeOperationStatus = "failed"
 	RuntimeOperationCanceled  RuntimeOperationStatus = "canceled"
+
+	EntitlementActive     EntitlementState = "active"
+	EntitlementGrace      EntitlementState = "grace"
+	EntitlementExportOnly EntitlementState = "export_only"
+	EntitlementEnded      EntitlementState = "ended"
 
 	HostedAccessCapabilityObserve   HostedAccessCapability = "observe"
 	HostedAccessCapabilitySteer     HostedAccessCapability = "steer"
@@ -153,10 +173,36 @@ type Runtime struct {
 	UserID              string
 	Lifecycle           RuntimeLifecycle
 	AccessState         RuntimeAccessState
+	HealthState         RuntimeHealthState
 	CredentialEpoch     uint64
 	UpstreamAuthority   string
 	CredentialSecretRef string
+	DesiredRelease      string
+	ObservedRelease     string
+	WakeRequestedAt     *time.Time
+	LastReadyAt         *time.Time
+	DeletionScheduledAt *time.Time
 	UpdatedAt           time.Time
+}
+
+func (runtime Runtime) ReleaseStatus() RuntimeReleaseStatus {
+	switch {
+	case runtime.DesiredRelease == "":
+		return RuntimeReleaseUnconfigured
+	case runtime.ObservedRelease == "":
+		return RuntimeReleaseUnobserved
+	case runtime.DesiredRelease == runtime.ObservedRelease:
+		return RuntimeReleaseCurrent
+	default:
+		return RuntimeReleaseMismatch
+	}
+}
+
+type Entitlement struct {
+	UserID      string
+	State       EntitlementState
+	GraceEndsAt *time.Time
+	UpdatedAt   time.Time
 }
 
 type Device struct {
@@ -181,9 +227,12 @@ type AssignRuntimeRequest struct {
 	RuntimeName         string
 	Lifecycle           RuntimeLifecycle
 	AccessState         RuntimeAccessState
+	HealthState         RuntimeHealthState
 	CredentialEpoch     uint64
 	UpstreamAuthority   string
 	CredentialSecretRef string
+	DesiredRelease      string
+	ObservedRelease     string
 }
 
 type CreateDeviceGrantRequest struct {
@@ -233,6 +282,19 @@ type EnsureRuntimeRequest struct {
 	CredentialEpoch     uint64
 	UpstreamAuthority   string
 	CredentialSecretRef string
+	DesiredRelease      string
+}
+
+type UpdateEntitlementRequest struct {
+	UserID      string
+	State       EntitlementState
+	GraceEndsAt *time.Time
+}
+
+type RecordRuntimeHealthRequest struct {
+	RuntimeName     string
+	HealthState     RuntimeHealthState
+	ObservedRelease string
 }
 
 type RuntimeOperation struct {

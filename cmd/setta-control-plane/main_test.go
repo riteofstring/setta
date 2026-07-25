@@ -127,6 +127,7 @@ func TestEnsureRuntimeCommandPersistsOneRestartSafeIntent(t *testing.T) {
 		"--data-dir", filepath.Join(root, "data"),
 		"--idempotency-key", "ensure-command-operation",
 		"--runtime-name", identity.Name,
+		"--runtime-release", "ensure-command-release",
 		"--runtime-secret-ref", "future_runtime_credential",
 		"--user-id", "user-ensure-command",
 	}
@@ -246,6 +247,7 @@ func newBootstrapFixture(t *testing.T) bootstrapFixture {
 		"--project-id", "project-bootstrap",
 		"--runtime-credential-file", runtimeCredentialFile,
 		"--runtime-name", fixture.runtimeName,
+		"--runtime-release", "bootstrap-test-release",
 		"--runtime-secret-ref", "runtime_bootstrap",
 		"--secret-dir", fixture.secretDirectory,
 		"--user-id", "user-bootstrap",
