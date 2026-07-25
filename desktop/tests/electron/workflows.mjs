@@ -15,6 +15,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "hosted-cloud-chat-workflow.test.mjs",
+    name: "hosted-cloud-chat",
+    tiers: ["required"],
+  },
+  {
     file: "topic-conversation-artifact-unresolved.test.mjs",
     name: "topic-conversation-artifact-unresolved",
     tiers: ["required"],

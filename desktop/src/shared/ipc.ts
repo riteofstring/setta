@@ -16,6 +16,7 @@ import type {
   WorkspaceSession,
 } from "@generated/backend";
 import { conversationIpcChannels, type ConversationIpc } from "./conversation-ipc";
+import { hostedAccessIpcChannels, type HostedAccessIpcContract } from "./hosted-access-ipc";
 import { masterIpcChannels, type MasterIpcContract } from "./master-ipc";
 import {
   roleConfigurationIpcChannels,
@@ -56,6 +57,7 @@ export const ipcChannels = {
   runtimeRemove: "runtimes:remove",
   runtimeSwitch: "runtimes:switch",
   ...conversationIpcChannels,
+  ...hostedAccessIpcChannels,
   ...masterIpcChannels,
   ...roleConfigurationIpcChannels,
   ...speechIpcChannels,
@@ -88,13 +90,19 @@ export const ipcEvents = {
   backendUnexpectedExit: "backend:unexpected-exit",
   codexAccountChange: "codex-account:change",
   conversationEvent: "conversation:event",
+  hostedAccessProgress: "hosted-access:progress",
   runtimeConnectionState: "runtimes:connection-state",
   workspaceBrowserViewKey: "workspace:browser-view-key",
   workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",
 } as const;
 
 interface IpcContract
-  extends ConversationIpc, MasterIpcContract, RoleConfigurationIpcContract, SpeechIpcContract {
+  extends
+    ConversationIpc,
+    HostedAccessIpcContract,
+    MasterIpcContract,
+    RoleConfigurationIpcContract,
+    SpeechIpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];

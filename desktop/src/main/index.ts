@@ -32,6 +32,8 @@ import {
   enrollWithLocalRuntimeIssuer,
   LocalRuntimeCredentialClient,
 } from "./local-runtime-credential-client";
+import { registerHostedAccessIpcHandlers } from "./hosted-access-ipc";
+import { HostedAccessProgressRegistry } from "./hosted-access-progress-registry";
 import { registerMasterIpcHandlers } from "./master-ipc";
 import { configureMainRendererMicrophonePermissions } from "./microphone-permissions";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
@@ -71,6 +73,12 @@ const conversationEvents = new ConversationEventRegistry({
   recordDisconnect: (error) => {
     recorder?.recordAppEvent("conversation_event_stream_disconnected", errorPayload(error));
   },
+});
+const hostedAccessProgress = new HostedAccessProgressRegistry({
+  reportDisconnect: (error) => {
+    recorder?.recordAppEvent("hosted_access_progress_disconnected", errorPayload(error));
+  },
+  socketPath: hostedAccessSocketPath,
 });
 const compactWindowMinHeight = 320;
 const compactWindowMinWidth = 320;
@@ -236,6 +244,17 @@ function clientDisplayName() {
 
 function settaAppDataDir() {
   return process.env.SETTA_APP_DATA_DIR ?? join(homedir(), ".setta");
+}
+
+function hostedAccessSocketPath(): string {
+  const socketPath = process.env.SETTA_HOSTED_ACCESS_SOCKET?.trim() ?? "";
+  if (socketPath === "") {
+    throw new Error("hosted access is not configured");
+  }
+  if (!socketPath.startsWith("/")) {
+    throw new Error("SETTA_HOSTED_ACCESS_SOCKET must be an absolute path");
+  }
+  return socketPath;
 }
 
 function configureElectronUserDataPath() {
@@ -571,6 +590,12 @@ function registerIpc() {
     ipcObserver,
     requireBackendClient,
   });
+  registerHostedAccessIpcHandlers({
+    hostedAccessProgress,
+    ipcMain,
+    ipcObserver,
+    socketPath: hostedAccessSocketPath,
+  });
   registerRoleConfigurationIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
@@ -685,6 +710,7 @@ async function stopBackend() {
   backendRequests.setStopping(true);
   emitBackendProcessStatus({ message: "Backend is stopping", status: "offline" });
   await stopBackendEventStreams();
+  hostedAccessProgress.stopAll();
   await backendRequests.waitForIdle(backendRequestDrainTimeoutMs);
   await backend?.stop();
   backend = null;

@@ -1,6 +1,10 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
-import { decodeCodexAccountChangeEvent, decodeConversationEvent } from "@generated/backend";
+import {
+  decodeCodexAccountChangeEvent,
+  decodeConversationEvent,
+  decodeHostedAccessProgress,
+} from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
 import { workspaceBrowserViewKeyValues } from "@shared/types";
 import type {
@@ -44,6 +48,20 @@ const api: SettaAPI = {
         ipcRenderer.removeListener(ipcEvents.backendProcessStatus, handler);
       };
     },
+  },
+  hostedAccess: {
+    ensure: (intent) => invoke("hostedAccessEnsure", intent),
+    onProgress: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeHostedAccessProgress(payload));
+      };
+      ipcRenderer.on(ipcEvents.hostedAccessProgress, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.hostedAccessProgress, handler);
+      };
+    },
+    releaseProgress: (request) => invoke("hostedAccessReleaseProgress", request),
+    subscribeProgress: (request) => invoke("hostedAccessSubscribeProgress", request),
   },
   runtimes: {
     addByPairingUrl: (pairingUrl) => invoke("runtimeAddByPairingUrl", pairingUrl),

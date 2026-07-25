@@ -15,6 +15,8 @@ import type {
   ConversationInputRoutingState,
   ConversationPresentationProfile,
   ConversationSnapshot,
+  EnsureHostedAccessIntent,
+  HostedAccessProgress,
   Artifact,
   CreateTopicConversationRequest,
   DiscardConversationInputRequest,
@@ -64,6 +66,10 @@ import type {
   ConversationEventReleaseRequest,
   ConversationEventSubscriptionRequest,
 } from "./conversation-ipc";
+import type {
+  HostedAccessProgressReleaseRequest,
+  HostedAccessProgressSubscriptionRequest,
+} from "./hosted-access-ipc";
 
 export interface RuntimeVersions {
   app: string;
@@ -291,6 +297,12 @@ export interface SettaAPI {
   backend: {
     health: () => Promise<BackendHealth>;
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
+  };
+  hostedAccess?: {
+    ensure: (intent: EnsureHostedAccessIntent) => Promise<HostedAccessProgress>;
+    onProgress: (listener: (progress: HostedAccessProgress) => void) => () => void;
+    releaseProgress: (request: HostedAccessProgressReleaseRequest) => Promise<void>;
+    subscribeProgress: (request: HostedAccessProgressSubscriptionRequest) => Promise<void>;
   };
   runtimes: {
     addByPairingUrl: (pairingUrl: string) => Promise<RuntimeRegistrySnapshot>;

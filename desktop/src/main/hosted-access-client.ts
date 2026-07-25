@@ -34,16 +34,22 @@ export async function* streamHostedAccessProgress(
   socketPath: string,
   intentID: string,
   lastEventID = "",
+  signal?: AbortSignal,
 ): AsyncGenerator<HostedAccessProgress> {
   const headers: Record<string, string> = {};
   if (lastEventID !== "") {
     headers["Last-Event-ID"] = lastEventID;
   }
-  const response = await requestHostedAccess(socketPath, {
-    headers,
-    method: "GET",
-    path: `/v1/hosted-access/events?intentId=${encodeURIComponent(intentID)}`,
-  });
+  const response = await requestHostedAccess(
+    socketPath,
+    {
+      headers,
+      method: "GET",
+      path: `/v1/hosted-access/events?intentId=${encodeURIComponent(intentID)}`,
+    },
+    undefined,
+    signal,
+  );
   requireResponse(response, "text/event-stream");
   let cursor = parseCursor(lastEventID);
   const body = Readable.toWeb(response) as ReadableStream<Uint8Array>;
@@ -65,9 +71,10 @@ function requestHostedAccess(
   socketPath: string,
   options: RequestOptions,
   body?: Buffer,
+  signal?: AbortSignal,
 ): Promise<IncomingMessage> {
   return new Promise((resolve, reject) => {
-    const request = httpRequest({ ...options, socketPath }, resolve);
+    const request = httpRequest({ ...options, signal, socketPath }, resolve);
     request.on("error", reject);
     request.end(body);
   });
