@@ -9,10 +9,12 @@ COMPLETION_SENTINEL="PLAN_IMPLEMENTATION_COMPLETE"
 FINAL_AUDIT_SENTINEL="PLAN_IMPLEMENTATION_READY_FOR_FINAL_AUDIT"
 PHASE_AUDIT_SENTINEL="PLAN_PHASE_READY_FOR_AUDIT"
 PHASE_COMPLETE_SENTINEL="PLAN_PHASE_AUDIT_COMPLETE"
-AGENT_ONE_MODEL="opus"
+AGENT_ONE_RUNNER="claude"
+AGENT_ONE_MODEL="claude-opus-5"
 AGENT_ONE_EFFORT="xhigh"
-AGENT_TWO_MODEL="fable"
-AGENT_TWO_EFFORT="xhigh"
+AGENT_TWO_RUNNER="codex"
+AGENT_TWO_MODEL="gpt-5.6-sol"
+AGENT_TWO_EFFORT="max"
 OUTPUT_DIR=""
 INITIAL_RETRY_DELAY_SECONDS="15"
 MAX_RETRY_DELAY_SECONDS="300"
@@ -24,7 +26,7 @@ usage() {
   cat <<'EOF'
 Usage: scripts/automation/codex-loop/run-plan-implementation-loop.sh PLAN_PATH [options]
 
-Runs fresh Claude Code agents in a loop for the repository-relative plan document
+Runs fresh automation agents in a loop for the repository-relative plan document
 passed as PLAN_PATH.
 
 Agent 1 implements coherent batches from the current plan phase and uses
@@ -47,21 +49,21 @@ iteration. The loop has no iteration cap and does not stop before the separate
 whole-plan audit confirms completion. Operational script failures and manual
 termination still exit non-zero.
 
-This dedicated automation helper intentionally runs Claude Code in the current
+This dedicated automation helper intentionally runs Claude Code and Codex CLI agents in the current
 repository checkout with permission checks bypassed. That behavior is
 acceptable here because the loop is for unattended repo-local plan execution
 where agents are expected to edit, verify, and commit directly in a clean
 working tree.
 
-Claude Code transcripts are written outside the repository to per-agent log
-files. The terminal prints loop status and periodic progress lines.
+Agent transcripts are written outside the repository to per-agent log files.
+The terminal prints loop status and periodic progress lines.
 
 Options:
   --output-dir PATH     Directory for per-iteration transcripts and last
                         messages. Must be outside the repository. Default:
                         mktemp directory under TMPDIR.
-  --agent-1-model NAME  Claude model for Agent 1. Default: opus.
-  --agent-2-model NAME  Claude model for Agent 2. Default: fable.
+  --agent-1-model NAME  Claude model for Agent 1. Default: claude-opus-5.
+  --agent-2-model NAME  Codex model for Agent 2. Default: gpt-5.6-sol.
   --codex-reference-repo PATH
                         Full Codex source checkout used for protocol/source
                         verification. Default:
@@ -156,9 +158,10 @@ run_agent() {
   local prompt="$2"
   local attempt_prompt="${prompt}"
   local run_dir="$3"
-  local model="$4"
-  local effort="$5"
-  local must_finish_clean="$6"
+  local runner="$4"
+  local model="$5"
+  local effort="$6"
+  local must_finish_clean="$7"
   local transcript_file="${run_dir}/${agent_name}.transcript.log"
   local last_message_file="${run_dir}/${agent_name}.last-message.txt"
   local status_file="${run_dir}/${agent_name}.status.txt"
@@ -178,7 +181,7 @@ run_agent() {
   mkdir -p "${run_dir}"
   rm -f "${transcript_file}" "${last_message_file}" "${status_file}"
 
-  log_info "Starting ${agent_name} via claude. Transcript: ${transcript_file}. Last message: ${last_message_file}"
+  log_info "Starting ${agent_name} via ${runner}. Transcript: ${transcript_file}. Last message: ${last_message_file}"
 
   while true; do
     attempt_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
@@ -189,16 +192,38 @@ run_agent() {
 
     (
       cd "${ROOT_DIR}"
-      claude \
-        --print \
-        --output-format text \
-        --model "${model}" \
-        --effort "${effort}" \
-        --dangerously-skip-permissions \
-        --no-session-persistence \
-        "${attempt_prompt}" \
-        2> >(sed 's/^/[stderr] /' >>"${transcript_file}") |
-        tee "${last_message_file}" >>"${transcript_file}"
+      case "${runner}" in
+        claude)
+          claude \
+            --print \
+            --output-format text \
+            --model "${model}" \
+            --effort "${effort}" \
+            --dangerously-skip-permissions \
+            --no-session-persistence \
+            "${attempt_prompt}" \
+            2> >(sed 's/^/[stderr] /' >>"${transcript_file}") |
+            tee "${last_message_file}" >>"${transcript_file}"
+          ;;
+        codex)
+          codex exec \
+            --model "${model}" \
+            --config "model_reasoning_effort=\"${effort}\"" \
+            --sandbox danger-full-access \
+            --ask-for-approval never \
+            --dangerously-bypass-approvals-and-sandbox \
+            --ephemeral \
+            --cd "${ROOT_DIR}" \
+            --output-last-message "${last_message_file}" \
+            "${attempt_prompt}" \
+            >>"${transcript_file}" \
+            2> >(sed 's/^/[stderr] /' >>"${transcript_file}")
+          ;;
+        *)
+          echo "Unsupported agent runner: ${runner}" >&2
+          exit 1
+          ;;
+      esac
     ) &
     agent_pid="$!"
     ACTIVE_AGENT_PID="${agent_pid}"
@@ -383,10 +408,12 @@ if [[ "${MAX_RETRY_DELAY_SECONDS}" -lt "${INITIAL_RETRY_DELAY_SECONDS}" ]]; then
   exit 1
 fi
 
-if ! command -v claude >/dev/null 2>&1; then
-  echo "claude CLI not found on PATH" >&2
-  exit 1
-fi
+for required_runner in "${AGENT_ONE_RUNNER}" "${AGENT_TWO_RUNNER}"; do
+  if ! command -v "${required_runner}" >/dev/null 2>&1; then
+    echo "${required_runner} CLI not found on PATH" >&2
+    exit 1
+  fi
+done
 
 if [[ ! -d "${CODEX_REFERENCE_REPO}" ]]; then
   echo "Codex reference repository not found: ${CODEX_REFERENCE_REPO}" >&2
@@ -419,10 +446,10 @@ AGENT_ONE_PROMPT="Before acting, inspect ${PLAN_PATH} and its recent commit hist
 log_info "Output directory: ${OUTPUT_DIR}"
 log_info "Plan: ${ROOT_DIR}/${PLAN_PATH}"
 log_info "Codex reference source: ${CODEX_REFERENCE_REPO}"
-log_info "Agent 1 runner: claude"
+log_info "Agent 1 runner: ${AGENT_ONE_RUNNER}"
 log_info "Agent 1 model: ${AGENT_ONE_MODEL}"
 log_info "Agent 1 effort: ${AGENT_ONE_EFFORT}"
-log_info "Agent 2 runner: claude"
+log_info "Agent 2 runner: ${AGENT_TWO_RUNNER}"
 log_info "Agent 2 model: ${AGENT_TWO_MODEL}"
 log_info "Agent 2 effort: ${AGENT_TWO_EFFORT}"
 log_info "Dangerously skip permissions: enabled"
@@ -452,7 +479,7 @@ while true; do
   log_info "Starting iteration ${iteration}."
   require_clean_repo "before iteration ${iteration}"
   iteration_start_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
-  run_agent "agent-1" "${AGENT_ONE_PROMPT}" "${run_dir}" "${AGENT_ONE_MODEL}" "${AGENT_ONE_EFFORT}" 1
+  run_agent "agent-1" "${AGENT_ONE_PROMPT}" "${run_dir}" "${AGENT_ONE_RUNNER}" "${AGENT_ONE_MODEL}" "${AGENT_ONE_EFFORT}" 1
   implementer_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
   implementer_message="$(trimmed_nonempty_message "${implementer_last_message}")"
   if [[ "${implementer_message}" == "${FINAL_AUDIT_SENTINEL}" ]] && repo_is_clean; then
@@ -474,7 +501,7 @@ while true; do
     iteration="$((iteration + 1))"
     continue
   fi
-  run_agent "agent-2" "${reviewer_prompt}" "${run_dir}" "${AGENT_TWO_MODEL}" "${AGENT_TWO_EFFORT}" 1
+  run_agent "agent-2" "${reviewer_prompt}" "${run_dir}" "${AGENT_TWO_RUNNER}" "${AGENT_TWO_MODEL}" "${AGENT_TWO_EFFORT}" 1
   require_clean_repo "after agent-2 review"
 
   reviewer_message="$(trimmed_nonempty_message "${reviewer_last_message}")"
