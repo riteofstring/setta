@@ -3,14 +3,14 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createServer } from "node:net";
 import { existsSync } from "node:fs";
-import { appendFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { appendFile, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { CDPClient, driverCallExpression } from "./cdp-client.mjs";
+import { createElectronFixtureTempRoot } from "./electron-fixture-temp-root.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "../..");
@@ -248,8 +248,8 @@ function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
   return electron;
 }
 
-export async function createFixture(name) {
-  const tempRoot = await mkdtemp(join(tmpdir(), `setta-electron-${name}-`));
+export async function createFixture() {
+  const tempRoot = await createElectronFixtureTempRoot();
   const appDataDir = join(tempRoot, "app-data");
   const workspaceRoot = join(tempRoot, "workspace-root");
   await mkdir(appDataDir, { recursive: true });

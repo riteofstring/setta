@@ -2,14 +2,14 @@ import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { CDPClient } from "./cdp-client.mjs";
+import { createElectronFixtureTempRoot } from "./electron-fixture-temp-root.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 export const desktopRoot = resolve(scriptDir, "../..");
@@ -100,8 +100,8 @@ export async function writeLatestRecordingPointer(name, artifactDir) {
   });
 }
 
-export async function createElectronFixture(name) {
-  const tempRoot = await mkdtemp(join(tmpdir(), `setta-electron-${name}-`));
+export async function createElectronFixture() {
+  const tempRoot = await createElectronFixtureTempRoot();
   const appDataDir = join(tempRoot, "app-data");
   const workspaceRoot = join(tempRoot, "workspace-root");
   await mkdir(appDataDir, { recursive: true });
