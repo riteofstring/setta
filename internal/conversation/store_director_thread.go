@@ -74,9 +74,9 @@ ON CONFLICT(singleton) DO UPDATE SET
 	})
 }
 
-// AppendDirectorConversation records what one Director turn produced. The whole
-// turn is written in one transaction so a reply can never be durable without
-// the tool calls that produced it.
+// AppendDirectorConversation records one ordered batch of Director activity in
+// a transaction. A turn may append its tool calls as they happen and its reply
+// afterward, so a provider failure cannot erase an app action that already ran.
 func (store *Store) AppendDirectorConversation(ctx context.Context, entries []DirectorConversationEntry) error {
 	if store == nil {
 		return errors.New("conversation store is required")

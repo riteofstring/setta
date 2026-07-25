@@ -227,32 +227,32 @@ func (service *Service) RenameDirectorWorkstream(
 	ctx context.Context,
 	conversationID string,
 	title string,
-) error {
+) (ConversationSnapshot, error) {
 	if err := validateDirectorRequest(service, ctx); err != nil {
-		return err
+		return ConversationSnapshot{}, err
 	}
 	if err := validateIdentifier("director renamed conversation id", conversationID); err != nil {
-		return err
+		return ConversationSnapshot{}, err
 	}
 	if err := validateTopicTitle(title); err != nil {
-		return err
+		return ConversationSnapshot{}, err
 	}
 	lock := service.conversationLock(conversationID)
 	lock.Lock()
 	defer lock.Unlock()
 	snapshot, err := service.store.ReadSnapshotByID(ctx, conversationID)
 	if err != nil {
-		return err
+		return ConversationSnapshot{}, err
 	}
 	if snapshot.Conversation.ArchivedAt != nil {
-		return stateConflict(
+		return ConversationSnapshot{}, stateConflict(
 			"director workstream rename",
 			conversationID,
 			"archived conversations cannot be renamed",
 		)
 	}
 	if snapshot.Conversation.Title == title {
-		return nil
+		return snapshot, nil
 	}
 	renamed := snapshot.Conversation
 	renamed.Title = title
@@ -266,7 +266,7 @@ func (service *Service) RenameDirectorWorkstream(
 		},
 	)
 	if err != nil {
-		return err
+		return ConversationSnapshot{}, err
 	}
 	_, err = service.store.Transact(ctx, "rename director workstream", func(transaction *WriteTransaction) error {
 		if err := transaction.UpdateConversation(
@@ -280,7 +280,10 @@ func (service *Service) RenameDirectorWorkstream(
 		}
 		return appendPublications(transaction, publications)
 	})
-	return err
+	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	return service.store.ReadSnapshotByID(ctx, conversationID)
 }
 
 // ArchiveDirectorWorkstream retires the conversation one workstream runs on. It
@@ -289,21 +292,24 @@ func (service *Service) RenameDirectorWorkstream(
 func (service *Service) ArchiveDirectorWorkstream(
 	ctx context.Context,
 	conversationID string,
-) error {
+) (ConversationSnapshot, error) {
 	if err := validateDirectorRequest(service, ctx); err != nil {
-		return err
+		return ConversationSnapshot{}, err
 	}
 	if err := validateIdentifier("director archived conversation id", conversationID); err != nil {
-		return err
+		return ConversationSnapshot{}, err
 	}
 	lock := service.conversationLock(conversationID)
 	lock.Lock()
 	defer lock.Unlock()
 	snapshot, err := service.store.ReadSnapshotByID(ctx, conversationID)
 	if err != nil {
-		return err
+		return ConversationSnapshot{}, err
 	}
-	return service.archiveConversationSnapshot(ctx, snapshot)
+	if err := service.archiveConversationSnapshot(ctx, snapshot); err != nil {
+		return ConversationSnapshot{}, err
+	}
+	return service.store.ReadSnapshotByID(ctx, conversationID)
 }
 
 func validateDirectorRequest(service *Service, ctx context.Context) error {

@@ -132,12 +132,13 @@ func TestDirectorRenamesAndArchivesAFolderlessWorkstream(t *testing.T) {
 		t.Fatalf("StartDirectorWorkstream: %v", err)
 	}
 
-	if err := service.RenameDirectorWorkstream(ctx, created.Conversation.ID, "Release notes"); err != nil {
-		t.Fatalf("RenameDirectorWorkstream: %v", err)
-	}
-	renamed, err := store.ReadSnapshotByID(ctx, created.Conversation.ID)
+	renamed, err := service.RenameDirectorWorkstream(
+		ctx,
+		created.Conversation.ID,
+		"Release notes",
+	)
 	if err != nil {
-		t.Fatalf("ReadSnapshotByID: %v", err)
+		t.Fatalf("RenameDirectorWorkstream: %v", err)
 	}
 	if renamed.Conversation.Title != "Release notes" {
 		t.Fatalf("renamed conversation = %+v", renamed.Conversation)
@@ -146,22 +147,19 @@ func TestDirectorRenamesAndArchivesAFolderlessWorkstream(t *testing.T) {
 		t.Fatalf("rename did not advance updatedAt: %q", renamed.Conversation.UpdatedAt)
 	}
 
-	if err := service.ArchiveDirectorWorkstream(ctx, created.Conversation.ID); err != nil {
-		t.Fatalf("ArchiveDirectorWorkstream: %v", err)
-	}
-	archived, err := store.ReadSnapshotByID(ctx, created.Conversation.ID)
+	archived, err := service.ArchiveDirectorWorkstream(ctx, created.Conversation.ID)
 	if err != nil {
-		t.Fatalf("ReadSnapshotByID after archive: %v", err)
+		t.Fatalf("ArchiveDirectorWorkstream: %v", err)
 	}
 	if archived.Conversation.ArchivedAt == nil {
 		t.Fatalf("archived conversation = %+v", archived.Conversation)
 	}
 	// Archiving twice is the state the caller asked for, so it settles rather
 	// than conflicting.
-	if err := service.ArchiveDirectorWorkstream(ctx, created.Conversation.ID); err != nil {
+	if _, err := service.ArchiveDirectorWorkstream(ctx, created.Conversation.ID); err != nil {
 		t.Fatalf("archiving an archived workstream: %v", err)
 	}
-	if err := service.RenameDirectorWorkstream(ctx, created.Conversation.ID, "Too late"); err == nil {
+	if _, err := service.RenameDirectorWorkstream(ctx, created.Conversation.ID, "Too late"); err == nil {
 		t.Fatal("an archived workstream accepted a rename")
 	}
 }

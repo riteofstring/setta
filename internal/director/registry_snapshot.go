@@ -18,8 +18,9 @@ func (state *registryState) registrySnapshot(
 	connection DirectorConnectionState,
 	cursor DirectorEventCursor,
 ) (DirectorSnapshot, error) {
+	selected := state.activeSelection()
 	window := state.snapshotWindow()
-	entries, levels, err := state.snapshotEntries(window)
+	entries, levels, err := state.snapshotEntries(window, selected)
 	if err != nil {
 		return DirectorSnapshot{}, err
 	}
@@ -29,7 +30,7 @@ func (state *registryState) registrySnapshot(
 	}
 	snapshot := DirectorSnapshot{
 		SchemaVersion:              DirectorContractSchemaVersion,
-		SelectedWorkstreamID:       copyOptionalString(state.selected),
+		SelectedWorkstreamID:       selected,
 		Workstreams:                entries,
 		HasMoreWorkstreams:         state.aggregates.WorkstreamCount > len(entries),
 		Graphs:                     graphs,
@@ -50,7 +51,11 @@ func (state *registryState) registrySnapshot(
 // workstream is always inside the window, because a snapshot that selects a
 // workstream it does not carry cannot be drawn.
 func (state *registryState) snapshotWindow() []*registryWorkstream {
-	return boundWorkstreamWindow(state.recencyOrdered(), MaxSnapshotWorkstreams, state.selected)
+	return boundWorkstreamWindow(
+		state.activeRecencyOrdered(),
+		MaxSnapshotWorkstreams,
+		state.activeSelection(),
+	)
 }
 
 // snapshotEntries assigns detail levels. The selected workstream renders its
@@ -58,6 +63,7 @@ func (state *registryState) snapshotWindow() []*registryWorkstream {
 // the user, and the rest render aggregate status only.
 func (state *registryState) snapshotEntries(
 	window []*registryWorkstream,
+	selected *string,
 ) ([]DirectorWorkstreamEntry, map[string]WorkstreamDetailLevel, error) {
 	entries := make([]DirectorWorkstreamEntry, 0, len(window))
 	levels := make(map[string]WorkstreamDetailLevel, len(window))
@@ -66,7 +72,7 @@ func (state *registryState) snapshotEntries(
 	for _, workstream := range window {
 		level := WorkstreamDetailBackground
 		switch {
-		case state.selected != nil && *state.selected == workstream.record.ID:
+		case selected != nil && *selected == workstream.record.ID:
 			level = WorkstreamDetailSelected
 			selectedFound = true
 		case adjacent < MaxSnapshotAdjacentGraphs:
@@ -79,8 +85,8 @@ func (state *registryState) snapshotEntries(
 			DetailLevel: level,
 		})
 	}
-	if state.selected != nil && !selectedFound {
-		return nil, nil, fmt.Errorf("selected workstream %s is not in the registry", *state.selected)
+	if selected != nil && !selectedFound {
+		return nil, nil, fmt.Errorf("selected workstream %s is not in the active registry", *selected)
 	}
 	return entries, levels, nil
 }

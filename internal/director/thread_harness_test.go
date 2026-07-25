@@ -34,9 +34,10 @@ type ranDirectorTurn struct {
 }
 
 type scriptedDirectorProvider struct {
-	reply string
-	calls []scriptedDirectorToolCall
-	err   error
+	reply   string
+	calls   []scriptedDirectorToolCall
+	err     error
+	turnErr error
 
 	started []DirectorThreadStart
 	turns   []ranDirectorTurn
@@ -77,6 +78,9 @@ func (provider *scriptedDirectorProvider) RunDirectorTurn(
 			return "", err
 		}
 		provider.receipts = append(provider.receipts, receipt)
+	}
+	if provider.turnErr != nil {
+		return "", provider.turnErr
 	}
 	return provider.reply, nil
 }

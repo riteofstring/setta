@@ -99,6 +99,77 @@ func TestRegistryPushesWorkstreamAndGraphChanges(t *testing.T) {
 	}
 }
 
+func TestAwaitRunTerminalDoesNotReturnForTheInterruptionRequest(t *testing.T) {
+	harness := newRegistryHarness(t)
+	conversationID := "conversation-terminal-wait"
+	workstreamID := harness.createConversation(conversationID, "Stop safely", nil)
+	runID := "turn-terminal-wait"
+	harness.startTurn(conversationID, runID)
+	harness.acceptInput(conversationID, runID, "stop safely")
+	harness.appendTrajectory(
+		conversationID,
+		&runID,
+		conversation.TrajectoryEventTurnStarted,
+		conversation.TrajectoryActorSystem,
+		func(event *conversation.TrajectoryEvent) {
+			event.TurnStarted = &conversation.TrajectoryTurnStarted{
+				Invocation: fixtureInvocation(runID),
+			}
+		},
+	)
+	registry := harness.start()
+	if running := findEntry(t, requireSnapshot(t, registry), workstreamID).Workstream; running.Status != WorkstreamStatusRunning {
+		t.Fatalf("workstream status before interruption = %s, want running", running.Status)
+	}
+
+	streamID, err := conversation.ConversationStreamID(conversationID)
+	if err != nil {
+		t.Fatalf("ConversationStreamID: %v", err)
+	}
+	registry.mutex.Lock()
+	requestSequence := registry.state.streamSequences[streamID]
+	registry.mutex.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	harness.appendTrajectory(
+		conversationID,
+		&runID,
+		conversation.TrajectoryEventTurnInterrupted,
+		conversation.TrajectoryActorUser,
+		func(event *conversation.TrajectoryEvent) {
+			event.TurnInterrupted = &conversation.TrajectoryTurnInterrupted{
+				Reason: conversation.TurnInterruptionUserRequested,
+			}
+		},
+	)
+	requestSequence++
+	if err := registry.AwaitConversationEvent(ctx, conversationID, requestSequence); err != nil {
+		t.Fatalf("wait for interruption request: %v", err)
+	}
+
+	result := make(chan error, 1)
+	go func() {
+		result <- registry.AwaitRunTerminal(ctx, conversationID, runID, requestSequence)
+	}()
+
+	select {
+	case err := <-result:
+		t.Fatalf("terminal wait returned while the named run was active: %v", err)
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	harness.endTurn(conversationID, runID, conversation.TurnStatusCancelled, nil)
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatalf("AwaitRunTerminal: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("terminal wait did not observe the cancelled turn: %v", ctx.Err())
+	}
+}
+
 func TestRegistryPushesSelectedWorkstreamDetailText(t *testing.T) {
 	harness := newRegistryHarness(t)
 	workstreamID := harness.createConversation("conversation-text", "Explain the result", nil)
@@ -352,6 +423,53 @@ func TestRegistrySelectionIsDurable(t *testing.T) {
 	restartedSnapshot := requireSnapshot(t, restarted)
 	if restartedSnapshot.SelectedWorkstreamID == nil || *restartedSnapshot.SelectedWorkstreamID != second {
 		t.Fatalf("restarted selection = %v", restartedSnapshot.SelectedWorkstreamID)
+	}
+}
+
+func TestArchivingTheSelectedWorkstreamRemovesItFromTheLiveShell(t *testing.T) {
+	harness := newRegistryHarness(t)
+	first := harness.createConversation("conversation-active-first", "First", nil)
+	second := harness.createConversation("conversation-active-second", "Second", nil)
+	harness.appendFact(DirectorFactEvent{
+		Kind:               DirectorFactWorkstreamSelected,
+		WorkstreamID:       &second,
+		Actor:              SemanticActorUser,
+		WorkstreamSelected: &DirectorWorkstreamSelected{},
+	})
+	registry := harness.start()
+	subscription := subscribeFromSnapshot(t, registry)
+	defer subscription.Unsubscribe()
+
+	harness.archiveConversation("conversation-active-second", "Second")
+	removed := awaitEvent(t, subscription, DirectorEventWorkstreamRemoved)
+	if removed.WorkstreamRemoved.WorkstreamID != second {
+		t.Fatalf("archived workstream removal = %s, want %s", removed.WorkstreamRemoved.WorkstreamID, second)
+	}
+
+	snapshot := requireSnapshot(t, registry)
+	if snapshot.SelectedWorkstreamID != nil {
+		t.Fatalf("archived workstream remained selected: %v", snapshot.SelectedWorkstreamID)
+	}
+	if snapshot.Aggregates.WorkstreamCount != 1 ||
+		len(snapshot.Workstreams) != 1 ||
+		snapshot.Workstreams[0].Workstream.ID != first {
+		t.Fatalf("active snapshot after archive = %+v", snapshot)
+	}
+	if _, err := registry.SelectWorkstream(context.Background(), second); err == nil {
+		t.Fatal("archived workstream could be selected again")
+	}
+
+	harness.archiveConversation("conversation-active-first", "First")
+	removed = awaitEvent(t, subscription, DirectorEventWorkstreamRemoved)
+	if removed.WorkstreamRemoved.WorkstreamID != first {
+		t.Fatalf("last workstream removal = %s, want %s", removed.WorkstreamRemoved.WorkstreamID, first)
+	}
+	selected, err := registry.MoveSelection(context.Background(), DirectorSelectionNext)
+	if err != nil {
+		t.Fatalf("MoveSelection with no active workstreams: %v", err)
+	}
+	if selected != nil {
+		t.Fatalf("empty active registry reported archived selection %q", *selected)
 	}
 }
 

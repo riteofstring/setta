@@ -1129,7 +1129,12 @@ function handleToolCallResponse(requestId, pending, message) {
 }
 
 function handleDirectorToolCallResponse(requestId, pending, message) {
-  const receipt = decodeDirectorToolReceipt(requestId, pending.call.tool, message);
+  const receipt = decodeDirectorToolReceipt(
+    requestId,
+    pending.call.tool,
+    message,
+    pending.call.succeeds !== false,
+  );
   const receipts = [...pending.receipts, receipt];
   const nextIndex = pending.index + 1;
   const next = directorToolCallForStep(pending.scenario, nextIndex, receipts);

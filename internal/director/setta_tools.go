@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"setta/internal/jsonio"
 )
 
 // The `setta` meta-tool namespace: the Director's authority over the app.
@@ -627,9 +629,7 @@ func decodeSettaToolArguments(arguments json.RawMessage, target any) error {
 	if len(arguments) == 0 {
 		arguments = json.RawMessage("{}")
 	}
-	decoder := json.NewDecoder(bytes.NewReader(arguments))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
+	if err := jsonio.DecodeSingle(bytes.NewReader(arguments), target); err != nil {
 		return fmt.Errorf("%w: decode setta tool arguments: %w", ErrDirectorIntentRejected, err)
 	}
 	return nil

@@ -43,23 +43,31 @@ type directorWorkstreamCommands interface {
 		string,
 		conversation.ConversationApprovalResponse,
 	) (conversation.ConversationSnapshot, error)
-	RenameDirectorWorkstream(context.Context, string, string) error
-	ArchiveDirectorWorkstream(context.Context, string) error
+	RenameDirectorWorkstream(
+		context.Context,
+		string,
+		string,
+	) (conversation.ConversationSnapshot, error)
+	ArchiveDirectorWorkstream(context.Context, string) (conversation.ConversationSnapshot, error)
 	BindFolderResource(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	RecoverDirectorTurn(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
 }
 
 type directorWorkstreamExecution struct {
 	conversations directorWorkstreamCommands
+	registry      *director.Registry
 }
 
 func newDirectorWorkstreamExecution(
 	conversations directorWorkstreamCommands,
+	registry *director.Registry,
 ) (*directorWorkstreamExecution, error) {
-	if conversations == nil {
-		return nil, errors.New("director workstream execution requires the conversation service")
+	if conversations == nil || registry == nil {
+		return nil, errors.New(
+			"director workstream execution requires the conversation service and registry",
+		)
 	}
-	return &directorWorkstreamExecution{conversations: conversations}, nil
+	return &directorWorkstreamExecution{conversations: conversations, registry: registry}, nil
 }
 
 func (execution *directorWorkstreamExecution) StartWorkstream(
@@ -70,8 +78,8 @@ func (execution *directorWorkstreamExecution) StartWorkstream(
 	if err != nil {
 		return err
 	}
-	_, err = execution.conversations.StartDirectorWorkstream(ctx, start)
-	return directorExecutionError(err)
+	snapshot, err := execution.conversations.StartDirectorWorkstream(ctx, start)
+	return execution.observe(ctx, request.ConversationID, snapshot, err)
 }
 
 // directorWorkstreamStart maps the authorized origin onto the durable parentage
@@ -108,35 +116,35 @@ func (execution *directorWorkstreamExecution) SendWork(
 	ctx context.Context,
 	request director.WorkDeliveryRequest,
 ) error {
-	_, err := execution.conversations.SendDirectorTurn(
+	snapshot, err := execution.conversations.SendDirectorTurn(
 		ctx,
 		request.WorkspaceID,
 		request.ConversationID,
 		request.Text,
 		request.RunID,
 	)
-	return directorExecutionError(err)
+	return execution.observe(ctx, request.ConversationID, snapshot, err)
 }
 
 func (execution *directorWorkstreamExecution) QueueWork(
 	ctx context.Context,
 	request director.WorkDeliveryRequest,
 ) error {
-	_, err := execution.conversations.QueueDirectorTurn(
+	snapshot, err := execution.conversations.QueueDirectorTurn(
 		ctx,
 		request.WorkspaceID,
 		request.ConversationID,
 		request.Text,
 		request.RunID,
 	)
-	return directorExecutionError(err)
+	return execution.observe(ctx, request.ConversationID, snapshot, err)
 }
 
 func (execution *directorWorkstreamExecution) SteerRun(
 	ctx context.Context,
 	request director.SteerRunRequest,
 ) error {
-	_, err := execution.conversations.SteerDirectorTurn(
+	snapshot, err := execution.conversations.SteerDirectorTurn(
 		ctx,
 		request.WorkspaceID,
 		request.ConversationID,
@@ -144,27 +152,35 @@ func (execution *directorWorkstreamExecution) SteerRun(
 		request.TargetRunID,
 		request.DecisionID,
 	)
-	return directorExecutionError(err)
+	return execution.observe(ctx, request.ConversationID, snapshot, err)
 }
 
 func (execution *directorWorkstreamExecution) CancelRun(
 	ctx context.Context,
 	request director.CancelRunRequest,
 ) error {
-	_, err := execution.conversations.CancelDirectorTurn(
+	snapshot, err := execution.conversations.CancelDirectorTurn(
 		ctx,
 		request.WorkspaceID,
 		request.ConversationID,
 		request.RunID,
 	)
-	return directorExecutionError(err)
+	if err := directorExecutionError(err); err != nil {
+		return err
+	}
+	return execution.registry.AwaitRunTerminal(
+		context.WithoutCancel(ctx),
+		request.ConversationID,
+		request.RunID,
+		snapshot.EventCursor.Sequence,
+	)
 }
 
 func (execution *directorWorkstreamExecution) ResolveApproval(
 	ctx context.Context,
 	request director.ResolveApprovalRequest,
 ) error {
-	_, err := execution.conversations.SubmitDirectorApproval(
+	snapshot, err := execution.conversations.SubmitDirectorApproval(
 		ctx,
 		request.WorkspaceID,
 		request.ConversationID,
@@ -175,51 +191,69 @@ func (execution *directorWorkstreamExecution) ResolveApproval(
 			Answers:    request.Answers,
 		},
 	)
-	return directorExecutionError(err)
+	return execution.observe(ctx, request.ConversationID, snapshot, err)
 }
 
 func (execution *directorWorkstreamExecution) RenameWorkstream(
 	ctx context.Context,
 	request director.RenameWorkstreamRequest,
 ) error {
-	return directorExecutionError(execution.conversations.RenameDirectorWorkstream(
+	snapshot, err := execution.conversations.RenameDirectorWorkstream(
 		ctx,
 		request.ConversationID,
 		request.Title,
-	))
+	)
+	return execution.observe(ctx, request.ConversationID, snapshot, err)
 }
 
 func (execution *directorWorkstreamExecution) ArchiveWorkstream(
 	ctx context.Context,
 	request director.ArchiveWorkstreamRequest,
 ) error {
-	return directorExecutionError(execution.conversations.ArchiveDirectorWorkstream(ctx, request.ConversationID))
+	snapshot, err := execution.conversations.ArchiveDirectorWorkstream(ctx, request.ConversationID)
+	return execution.observe(ctx, request.ConversationID, snapshot, err)
 }
 
 func (execution *directorWorkstreamExecution) BindWorkstreamResource(
 	ctx context.Context,
 	request director.BindWorkstreamResourceRequest,
 ) error {
-	_, err := execution.conversations.BindFolderResource(
+	snapshot, err := execution.conversations.BindFolderResource(
 		ctx,
 		request.WorkspaceID,
 		request.ConversationID,
 	)
-	return directorExecutionError(err)
+	return execution.observe(ctx, request.ConversationID, snapshot, err)
 }
 
 func (execution *directorWorkstreamExecution) RecoverRun(
 	ctx context.Context,
 	request director.RecoverRunRequest,
 ) error {
-	_, err := execution.conversations.RecoverDirectorTurn(
+	snapshot, err := execution.conversations.RecoverDirectorTurn(
 		ctx,
 		request.WorkspaceID,
 		request.ConversationID,
 		request.FailedRunID,
 		request.RunID,
 	)
-	return directorExecutionError(err)
+	return execution.observe(ctx, request.ConversationID, snapshot, err)
+}
+
+func (execution *directorWorkstreamExecution) observe(
+	ctx context.Context,
+	conversationID string,
+	snapshot conversation.ConversationSnapshot,
+	commandErr error,
+) error {
+	if err := directorExecutionError(commandErr); err != nil {
+		return err
+	}
+	return execution.registry.AwaitConversationEvent(
+		context.WithoutCancel(ctx),
+		conversationID,
+		snapshot.EventCursor.Sequence,
+	)
 }
 
 // directorExecutionError translates the one error class the port speaks about.

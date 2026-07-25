@@ -120,6 +120,50 @@ func TestDirectorTurnIsDurableInOrder(t *testing.T) {
 	}
 }
 
+// TestDirectorToolCallSurvivesAProviderTurnFailure proves an app action is not
+// erased from the Director conversation just because the provider fails after
+// the tool already ran.
+func TestDirectorToolCallSurvivesAProviderTurnFailure(t *testing.T) {
+	harness := newRegistryHarness(t)
+	registry := harness.start()
+	execution := &publishingStartExecution{harness: harness}
+	provider := &scriptedDirectorProvider{
+		calls: []scriptedDirectorToolCall{{
+			tool: "create_workstream",
+			arguments: map[string]any{
+				"title":        "Durable parser work",
+				"workspaceId":  registryTestWorkspaceID,
+				"initialInput": nil,
+			},
+		}},
+		turnErr: errors.New("provider failed after tool execution"),
+	}
+	store := newDirectorConversationStoreForTest()
+	thread := newDirectorThreadForTest(t, harness, registry, provider, execution, store)
+
+	_, err := thread.Submit(context.Background(), directorTurnIntent("start durable parser work"))
+	if err == nil || !strings.Contains(err.Error(), "provider failed after tool execution") {
+		t.Fatalf("Submit returned %v", err)
+	}
+	if len(execution.starts) != 1 {
+		t.Fatalf("provider failure lost or repeated the executed action: %+v", execution.starts)
+	}
+	want := []conversation.DirectorConversationEntryKind{
+		conversation.DirectorConversationUserTurn,
+		conversation.DirectorConversationToolCall,
+		conversation.DirectorConversationToolReceipt,
+	}
+	got := store.kinds()
+	if len(got) != len(want) {
+		t.Fatalf("durable failed Director turn = %v, want %v", got, want)
+	}
+	for index, kind := range want {
+		if got[index] != kind {
+			t.Fatalf("durable failed Director turn = %v, want %v", got, want)
+		}
+	}
+}
+
 // TestDirectorThreadIsReEstablishedFromDurableHistory proves the Director keeps
 // its conversation across an app restart, and that the rebuilt provider thread
 // still carries the `setta` tools. Codex does not reattach dynamic tools to a
@@ -234,6 +278,32 @@ func TestDirectorToolsRejectUndeclaredArguments(t *testing.T) {
 	}
 	if len(execution.starts) != 0 {
 		t.Fatalf("an undeclared argument reached the execution port: %+v", execution)
+	}
+}
+
+func TestDirectorToolsRejectTrailingJSONValues(t *testing.T) {
+	harness := newRegistryHarness(t)
+	registry := harness.start()
+	execution := &recordedExecution{}
+	provider := &scriptedDirectorProvider{
+		reply: "That call was malformed.",
+		calls: []scriptedDirectorToolCall{{
+			tool:         "list_workspaces",
+			rawArguments: json.RawMessage(`{} {}`),
+		}},
+	}
+	store := newDirectorConversationStoreForTest()
+	thread := newDirectorThreadForTest(t, harness, registry, provider, execution, store)
+
+	receipt, err := thread.Submit(context.Background(), directorTurnIntent("list the workspaces"))
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	if len(receipt.ToolCalls) != 1 || receipt.ToolCalls[0].Succeeded {
+		t.Fatalf("trailing JSON value was accepted: %+v", receipt.ToolCalls)
+	}
+	if !strings.Contains(receipt.ToolCalls[0].Summary, "exactly one value") {
+		t.Fatalf("refusal does not explain the malformed input: %q", receipt.ToolCalls[0].Summary)
 	}
 }
 

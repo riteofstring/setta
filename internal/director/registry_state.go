@@ -72,6 +72,7 @@ type registryState struct {
 	aggregates        DirectorAggregates
 	lastEventAt       *string
 	cursor            conversation.CommittedEventCursor
+	streamSequences   map[string]int
 	// decisions is the recent committed-decision history, oldest first. It is
 	// bounded here rather than at materialization, because the Director only
 	// ever receives the most recent few as continuity context.
@@ -80,12 +81,13 @@ type registryState struct {
 
 func newRegistryState() *registryState {
 	return &registryState{
-		projector:      NewDirectorGraphProjector(),
-		workstreams:    map[string]*registryWorkstream{},
-		byConversation: map[string]string{},
-		approvals:      map[string]*ApprovalRequest{},
-		resources:      map[string]*ResourceRequest{},
-		artifacts:      map[string]*WorkstreamArtifact{},
+		projector:       NewDirectorGraphProjector(),
+		workstreams:     map[string]*registryWorkstream{},
+		byConversation:  map[string]string{},
+		approvals:       map[string]*ApprovalRequest{},
+		resources:       map[string]*ResourceRequest{},
+		artifacts:       map[string]*WorkstreamArtifact{},
+		streamSequences: map[string]int{},
 	}
 }
 
@@ -180,7 +182,6 @@ func (state *registryState) registerWorkstreamRecord(
 	state.workstreams[record.ID] = workstream
 	state.byConversation[conversationID] = record.ID
 	state.order = append(state.order, record.ID)
-	state.aggregates.WorkstreamCount++
 	state.applyAggregateDelta(record, 1)
 	return workstream, nil
 }
@@ -189,6 +190,10 @@ func (state *registryState) registerWorkstreamRecord(
 // the snapshot window, so a background blocker is never invisible just because
 // its workstream did not fit.
 func (state *registryState) applyAggregateDelta(record Workstream, sign int) {
+	if record.Status == WorkstreamStatusArchived {
+		return
+	}
+	state.aggregates.WorkstreamCount += sign
 	if record.ActiveRunID != nil {
 		state.aggregates.RunningCount += sign
 	}

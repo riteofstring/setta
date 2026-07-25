@@ -20,7 +20,8 @@ func (registry *Registry) SelectWorkstream(ctx context.Context, workstreamID str
 	registry.selectMutex.Lock()
 	defer registry.selectMutex.Unlock()
 	return registry.commitSelection(ctx, func(state *registryState, _ *string) (*string, error) {
-		if _, known := state.workstreams[workstreamID]; !known {
+		workstream, known := state.workstreams[workstreamID]
+		if !known || !state.isActiveWorkstream(workstream) {
 			return nil, fmt.Errorf("%w: workstream %s is not in the registry", ErrDirectorIntentRejected, workstreamID)
 		}
 		selected := workstreamID
@@ -70,7 +71,12 @@ func (registry *Registry) commitSelection(
 		registry.mutex.Unlock()
 		return nil, err
 	}
-	if next == nil || (previous != nil && *previous == *next) {
+	if next == nil {
+		selected := registry.state.activeSelection()
+		registry.mutex.Unlock()
+		return selected, nil
+	}
+	if previous != nil && *previous == *next {
 		registry.mutex.Unlock()
 		return previous, nil
 	}
@@ -119,7 +125,7 @@ func neighborWorkstream(
 	selected *string,
 	direction DirectorSelectionDirection,
 ) *string {
-	window := boundWorkstreamWindow(state.recencyOrdered(), MaxSnapshotWorkstreams, selected)
+	window := boundWorkstreamWindow(state.activeRecencyOrdered(), MaxSnapshotWorkstreams, selected)
 	if len(window) == 0 {
 		return nil
 	}

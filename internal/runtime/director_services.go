@@ -75,7 +75,7 @@ func newDirectorCommandCenter(
 	if err != nil {
 		return nil, fmt.Errorf("create director thread caller: %w", err)
 	}
-	execution, err := newDirectorWorkstreamExecution(conversations)
+	execution, err := newDirectorWorkstreamExecution(conversations, registry)
 	if err != nil {
 		return nil, fmt.Errorf("create director workstream execution: %w", err)
 	}

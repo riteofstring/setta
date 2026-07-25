@@ -245,13 +245,11 @@ func (state *registryState) decisionContext(
 // is always inside the window: the user is looking at it, so it must be
 // somewhere the Director can send their next request.
 func (state *registryState) decisionWindow() []*registryWorkstream {
-	ordered := make([]*registryWorkstream, 0, len(state.order))
-	for _, workstream := range state.recencyOrdered() {
-		if !workstream.archived && workstream.record.Status != WorkstreamStatusArchived {
-			ordered = append(ordered, workstream)
-		}
-	}
-	return boundWorkstreamWindow(ordered, MaxDecisionWorkstreamTargets, state.selected)
+	return boundWorkstreamWindow(
+		state.activeRecencyOrdered(),
+		MaxDecisionWorkstreamTargets,
+		state.activeSelection(),
+	)
 }
 
 // decisionTarget derives one target's authority from what is durably true. The
@@ -431,6 +429,39 @@ func (state *registryState) recencyOrdered() []*registryWorkstream {
 		return leftRecord.ID < rightRecord.ID
 	})
 	return ordered
+}
+
+// activeRecencyOrdered is the work the command center still offers. Archived
+// workstreams stay in the durable registry for history, but they no longer
+// occupy navigation, routing, or snapshot capacity.
+func (state *registryState) activeRecencyOrdered() []*registryWorkstream {
+	active := make([]*registryWorkstream, 0, len(state.order))
+	for _, workstream := range state.recencyOrdered() {
+		if state.isActiveWorkstream(workstream) {
+			active = append(active, workstream)
+		}
+	}
+	return active
+}
+
+func (state *registryState) isActiveWorkstream(workstream *registryWorkstream) bool {
+	return workstream != nil &&
+		!workstream.archived &&
+		workstream.record.Status != WorkstreamStatusArchived
+}
+
+// activeSelection projects durable selection onto active navigation. Archiving
+// keeps history, including the last selection fact, without leaving the shell
+// claiming that a retired workstream is still selected.
+func (state *registryState) activeSelection() *string {
+	if state.selected == nil {
+		return nil
+	}
+	workstream, known := state.workstreams[*state.selected]
+	if !known || !state.isActiveWorkstream(workstream) {
+		return nil
+	}
+	return copyOptionalString(state.selected)
 }
 
 // boundWorkstreamWindow keeps the most recent workstreams and, when one is

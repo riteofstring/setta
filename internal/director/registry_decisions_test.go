@@ -206,7 +206,7 @@ func TestQueueDrainClearsQueuedAuthority(t *testing.T) {
 	}
 }
 
-func TestArchivedWorkstreamOutranksStaleBlockers(t *testing.T) {
+func TestArchivedWorkstreamLeavesActiveNavigationAndRouting(t *testing.T) {
 	harness := newRegistryHarness(t)
 	workstreamID := harness.createConversation("conversation-archived", "Old work", nil)
 	harness.startTurn("conversation-archived", "turn-before-archive")
@@ -234,9 +234,13 @@ func TestArchivedWorkstreamOutranksStaleBlockers(t *testing.T) {
 	harness.archiveConversation("conversation-archived", "Old work")
 
 	registry := harness.start()
-	entry := findEntry(t, requireSnapshot(t, registry), workstreamID)
-	if entry.Workstream.Status != WorkstreamStatusArchived {
-		t.Fatalf("archived blocked workstream status = %q", entry.Workstream.Status)
+	snapshot := requireSnapshot(t, registry)
+	if len(snapshot.Workstreams) != 0 || snapshot.Aggregates.WorkstreamCount != 0 {
+		t.Fatalf(
+			"archived work remained active: workstreams=%+v aggregates=%+v",
+			snapshot.Workstreams,
+			snapshot.Aggregates,
+		)
 	}
 	if _, found := requireDecisionContext(t, registry).Target(workstreamID); found {
 		t.Fatal("archived blocked workstream remained a routing target")

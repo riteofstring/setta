@@ -27,6 +27,11 @@ import (
 // A managed runtime adapter satisfies exactly this contract. That is the point
 // of stating it here rather than depending on the conversation service: the
 // Director cannot grow a dependency on how local execution happens.
+//
+// A successful method has one additional semantic guarantee: the durable
+// change is visible to the Director registry before the method returns. The
+// provider may call another tool in the same turn, and that call must authorize
+// against the effect that just succeeded rather than against a stale fold.
 
 // WorkstreamResourceRequiredError reports work that cannot start until the user
 // supplies a resource the workstream does not have. It is a product state, not

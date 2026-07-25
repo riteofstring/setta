@@ -66,24 +66,31 @@ func (state *registryState) applyCommitted(
 	state.cursor.CommitSequence = event.CommitSequence
 	committedAt := event.CommittedAt
 	state.lastEventAt = &committedAt
+	var effects []registryEffect
+	var err error
 	switch event.Kind {
 	case string(conversation.ConversationEventTypeConversationUpdated):
-		return state.applyConversationUpdated(event, workspaces)
+		effects, err = state.applyConversationUpdated(event, workspaces)
 	case string(conversation.ConversationEventTypeBranchCreated):
-		return state.applyBranchCreated(event)
+		effects, err = state.applyBranchCreated(event)
 	case string(conversation.ConversationEventTypeTurnUpdated):
-		return state.applyTurnUpdated(event)
+		effects, err = state.applyTurnUpdated(event)
 	case string(conversation.ConversationEventTypeQueueUpdated):
-		return state.applyQueueUpdated(event)
+		effects, err = state.applyQueueUpdated(event)
 	case string(conversation.ConversationEventTypeTrajectoryAppended):
-		return state.applyTrajectoryAppended(event)
+		effects, err = state.applyTrajectoryAppended(event)
 	case string(conversation.ConversationEventTypeArtifactCreated):
-		return state.applyArtifactCreated(event)
+		effects, err = state.applyArtifactCreated(event)
 	case DirectorFactCommittedKind:
-		return state.applyDirectorFact(event)
+		effects, err = state.applyDirectorFact(event)
 	default:
-		return nil, nil
+		effects = nil
 	}
+	if err != nil {
+		return nil, err
+	}
+	state.streamSequences[event.StreamID] = event.StreamSequence
+	return effects, nil
 }
 
 func decodeCommittedPayload[T any](event conversation.CommittedEvent) (T, error) {

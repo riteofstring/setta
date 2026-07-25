@@ -378,6 +378,99 @@ func (registry *Registry) awaitWorkstream(ctx context.Context, workstreamID stri
 	}
 }
 
+// AwaitConversationEvent waits until the live app-scoped fold has observed the
+// durable conversation cursor an execution adapter just received. This is the
+// execution-port handoff that makes sequential Director tool calls honest: a
+// successful call returns only after the next call can authorize against its
+// effect. A per-stream sequence is used because some lifecycle mutations do not
+// retitle or otherwise advance the conversation record itself.
+func (registry *Registry) AwaitConversationEvent(
+	ctx context.Context,
+	conversationID string,
+	streamSequence int,
+) error {
+	if ctx == nil {
+		return errors.New("director conversation event wait context is required")
+	}
+	streamID, err := conversation.ConversationStreamID(conversationID)
+	if err != nil {
+		return err
+	}
+	if streamSequence <= 0 {
+		return fmt.Errorf("director conversation event wait sequence must be positive: %d", streamSequence)
+	}
+	for {
+		registry.mutex.Lock()
+		if registry.state.streamSequences[streamID] >= streamSequence {
+			registry.mutex.Unlock()
+			return nil
+		}
+		if err := registry.requireAvailableLocked(); err != nil {
+			registry.mutex.Unlock()
+			return err
+		}
+		applied := registry.applied
+		registry.mutex.Unlock()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-applied:
+		}
+	}
+}
+
+// AwaitRunTerminal waits until the registry has observed both the durable
+// cursor returned by a cancellation command and the terminal turn update that
+// retires the named run. The provider acknowledges an interrupt before it emits
+// that terminal update, so waiting for the command cursor alone would let a
+// same-turn tool call authorize against a run that is still projected active.
+// A promoted successor is allowed: the named run, not the whole workstream, is
+// what must have stopped.
+func (registry *Registry) AwaitRunTerminal(
+	ctx context.Context,
+	conversationID string,
+	runID string,
+	streamSequence int,
+) error {
+	if ctx == nil {
+		return errors.New("director terminal run wait context is required")
+	}
+	if err := validateIdentifier("director terminal run id", runID); err != nil {
+		return err
+	}
+	streamID, err := conversation.ConversationStreamID(conversationID)
+	if err != nil {
+		return err
+	}
+	if streamSequence <= 0 {
+		return fmt.Errorf("director terminal run wait sequence must be positive: %d", streamSequence)
+	}
+	for {
+		registry.mutex.Lock()
+		workstreamID, known := registry.state.byConversation[conversationID]
+		workstream := registry.state.workstreams[workstreamID]
+		cursorObserved := registry.state.streamSequences[streamID] >= streamSequence
+		runRetired := known &&
+			workstream != nil &&
+			(workstream.activeRunID == nil || *workstream.activeRunID != runID)
+		if cursorObserved && runRetired {
+			registry.mutex.Unlock()
+			return nil
+		}
+		if err := registry.requireAvailableLocked(); err != nil {
+			registry.mutex.Unlock()
+			return err
+		}
+		applied := registry.applied
+		registry.mutex.Unlock()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-applied:
+		}
+	}
+}
+
 func (registry *Registry) signalAppliedLocked() {
 	close(registry.applied)
 	registry.applied = make(chan struct{})

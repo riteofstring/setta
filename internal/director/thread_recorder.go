@@ -30,8 +30,15 @@ type recordedDirectorToolCall struct {
 	succeeded bool
 }
 
+type persistDirectorToolCall func(
+	context.Context,
+	recordedDirectorToolCall,
+	bool,
+) error
+
 type directorToolRecorder struct {
 	recorded []recordedDirectorToolCall
+	persist  persistDirectorToolCall
 }
 
 // instrument wraps each tool so the turn keeps what its handler was asked to do
@@ -58,10 +65,10 @@ func (recorder *directorToolRecorder) record(tool SettaTool) SettaToolHandler {
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return SettaToolReceipt{}, ctxErr
 			}
-			return recorder.refuse(tool.Name, arguments, err)
+			return recorder.refuse(ctx, tool.Name, arguments, err)
 		}
 		receipt.Tool = tool.Name
-		return receipt, recorder.append(tool.Name, arguments, receipt, true)
+		return receipt, recorder.append(ctx, tool.Name, arguments, receipt, true)
 	}
 }
 
@@ -69,6 +76,7 @@ func (recorder *directorToolRecorder) record(tool SettaTool) SettaToolHandler {
 // message is the app's own specific reason, so the Director can call the right
 // tool or ask the user a real question instead of reporting an internal fault.
 func (recorder *directorToolRecorder) refuse(
+	ctx context.Context,
 	tool string,
 	arguments json.RawMessage,
 	cause error,
@@ -77,7 +85,7 @@ func (recorder *directorToolRecorder) refuse(
 		Tool:    tool,
 		Summary: directorToolRefusal(cause),
 	}
-	if err := recorder.append(tool, arguments, receipt, false); err != nil {
+	if err := recorder.append(ctx, tool, arguments, receipt, false); err != nil {
 		return SettaToolReceipt{}, err
 	}
 	return receipt, nil
@@ -91,6 +99,7 @@ func directorToolRefusal(cause error) string {
 }
 
 func (recorder *directorToolRecorder) append(
+	ctx context.Context,
 	tool string,
 	arguments json.RawMessage,
 	receipt SettaToolReceipt,
@@ -100,13 +109,19 @@ func (recorder *directorToolRecorder) append(
 	if err != nil {
 		return fmt.Errorf("encode setta tool receipt %s: %w", tool, err)
 	}
-	recorder.recorded = append(recorder.recorded, recordedDirectorToolCall{
+	recorded := recordedDirectorToolCall{
 		tool:      tool,
 		arguments: normalizedDirectorToolArguments(arguments),
 		receipt:   encoded,
 		reported:  receipt,
 		succeeded: succeeded,
-	})
+	}
+	if recorder.persist != nil {
+		if err := recorder.persist(ctx, recorded, len(recorder.recorded) == 0); err != nil {
+			return err
+		}
+	}
+	recorder.recorded = append(recorder.recorded, recorded)
 	return nil
 }
 

@@ -245,7 +245,7 @@ func (registry *Registry) eventForEffect(effect registryEffect) ([]DirectorEvent
 		return []DirectorEvent{{
 			EmittedAt:        emittedAt,
 			Kind:             DirectorEventSelectionChanged,
-			SelectionChanged: &DirectorSelectionChangedPayload{SelectedWorkstreamID: copyOptionalString(registry.state.selected)},
+			SelectionChanged: &DirectorSelectionChangedPayload{SelectedWorkstreamID: registry.state.activeSelection()},
 		}}, nil
 	case effectRemoval:
 		return []DirectorEvent{{
@@ -436,12 +436,16 @@ func (registry *Registry) needsLevelRefresh(effects []registryEffect) bool {
 		if effect.kind != effectWorkstream {
 			continue
 		}
+		if workstream := registry.state.workstreams[effect.id]; registry.publishedWindow[effect.id] &&
+			!registry.state.isActiveWorkstream(workstream) {
+			return true
+		}
 		if !registry.publishedWindow[effect.id] ||
 			registry.detailLevelFor(effect.id) == WorkstreamDetailBackground {
 			return true
 		}
-		if registry.state.selected != nil &&
-			*registry.state.selected == effect.id &&
+		if selected := registry.state.activeSelection(); selected != nil &&
+			*selected == effect.id &&
 			registry.state.aggregates.WorkstreamCount > MaxSnapshotWorkstreams {
 			return true
 		}
@@ -706,7 +710,8 @@ func (registry *Registry) artifactEvent(artifactID string, emittedAt string) (Di
 // Detail level is a consequence of selection and recency, so an event carries
 // the level the receiving renderer should hold that workstream at.
 func (registry *Registry) detailLevelFor(workstreamID string) WorkstreamDetailLevel {
-	if registry.state.selected != nil && *registry.state.selected == workstreamID {
+	selected := registry.state.activeSelection()
+	if selected != nil && *selected == workstreamID {
 		return WorkstreamDetailSelected
 	}
 	if _, adjacent := registry.adjacent[workstreamID]; adjacent {
@@ -720,10 +725,11 @@ func (registry *Registry) detailLevelFor(workstreamID string) WorkstreamDetailLe
 // next snapshot assigns come from the same decision.
 func (registry *Registry) refreshDetailLevels() {
 	window := registry.state.snapshotWindow()
+	selected := registry.state.activeSelection()
 	adjacent := make(map[string]bool, MaxSnapshotAdjacentGraphs)
 	count := 0
 	for _, workstream := range window {
-		if registry.state.selected != nil && *registry.state.selected == workstream.record.ID {
+		if selected != nil && *selected == workstream.record.ID {
 			continue
 		}
 		if count == MaxSnapshotAdjacentGraphs {

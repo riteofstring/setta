@@ -135,10 +135,11 @@ try {
     (workstream) => workstream.activeRunId !== null,
   );
   const cancelledRunId = requiredString(cancellable.activeRunId, "cancellable Director run");
-  await dispatchDirector(context.client, {
-    cancelRun: { runId: cancelledRunId, workstreamId: rootWorkstreamId },
-    kind: "cancel_run",
-  });
+  const cancelTurn = await submitDirector(context.client, "Director cancel.");
+  const cancelCall = cancelTurn.submit?.toolCalls.find(
+    (call) => call.tool === "cancel_run" && call.succeeded,
+  );
+  assertEqual(cancelCall?.workstreamId, rootWorkstreamId, "Director cancel_run target");
   await waitForConversationSnapshot(
     backend,
     workspaceId,
@@ -170,6 +171,19 @@ try {
     "scope",
     "Director approval question",
   );
+  const refusedSecretTurn = await submitDirector(context.client, "Director try secret approval.");
+  const refusedSecretCall = refusedSecretTurn.submit?.toolCalls.find(
+    (call) => call.tool === "resolve_approval",
+  );
+  assertEqual(refusedSecretCall?.succeeded, false, "Director secret approval refusal");
+  if (!refusedSecretCall?.summary.includes("secret only the user can supply")) {
+    throw new Error(
+      `Director secret approval refusal was not specific: ${JSON.stringify(refusedSecretCall)}`,
+    );
+  }
+  await waitForDirectorSnapshot(context.client, (snapshot) =>
+    snapshot.unresolvedApprovals.some((approval) => approval.id === approvalId),
+  );
   await answerDirectorApprovalInRail(context.client, approvalId, "scope", secretApprovalAnswer);
   const approved = await waitForConversationSnapshot(
     backend,
@@ -190,6 +204,47 @@ try {
   assertEqual(durableApproval?.secretsRedacted, true, "secret approval redaction marker");
   assertEqual(durableApproval?.answers.length, 0, "durable secret approval answers");
   assertExcludes(JSON.stringify(approved), secretApprovalAnswer, "conversation trajectory");
+  await waitForDirectorSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.unresolvedApprovals.length === 0 &&
+      snapshot.workstreams.some(
+        (entry) =>
+          entry.workstream.id === rootWorkstreamId &&
+          entry.workstream.activeRunId === null &&
+          entry.workstream.unresolvedApprovalCount === 0,
+      ),
+  );
+
+  await submitDirector(context.client, "Director request command approval.");
+  const commandApprovalSnapshot = await waitForDirectorSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.unresolvedApprovals.length === 1 &&
+      snapshot.unresolvedApprovals[0]?.workstreamId === rootWorkstreamId &&
+      snapshot.unresolvedApprovals[0]?.secret === false,
+  );
+  const commandApprovalId = requiredString(
+    commandApprovalSnapshot.unresolvedApprovals[0]?.id,
+    "Director command approval",
+  );
+  const deniedTurn = await submitDirector(context.client, "Director deny command approval.");
+  const deniedCall = deniedTurn.submit?.toolCalls.find(
+    (call) => call.tool === "resolve_approval" && call.succeeded,
+  );
+  assertEqual(deniedCall?.workstreamId, rootWorkstreamId, "Director resolve_approval target");
+  await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    conversationID(rootWorkstreamId),
+    (snapshot) =>
+      snapshot.trajectory.events.some(
+        (event) =>
+          event.kind === "approval_resolved" &&
+          event.approvalResolved?.resolution.approvalId === commandApprovalId &&
+          event.approvalResolved?.resolution.decision === "denied",
+      ) && snapshot.turns.turns.at(-1)?.status === "completed",
+  );
   await waitForDirectorSnapshot(
     context.client,
     (snapshot) =>
@@ -238,6 +293,84 @@ try {
     (workstream) => workstream.status === "completed" && workstream.activeRunId === null,
   );
 
+  const folderlessTurn = await submitDirector(context.client, "Director create folderless.");
+  const folderlessCall = folderlessTurn.submit?.toolCalls.find(
+    (call) => call.tool === "create_workstream" && call.succeeded,
+  );
+  const folderlessWorkstreamId = requiredString(
+    folderlessCall?.workstreamId,
+    "folderless Director workstream",
+  );
+  const resourceSnapshot = await waitForDirectorSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.selectedWorkstreamId === folderlessWorkstreamId &&
+      snapshot.unresolvedResourceRequests.some(
+        (request) => request.workstreamId === folderlessWorkstreamId,
+      ),
+  );
+  const resourceRequestId = requiredString(
+    resourceSnapshot.unresolvedResourceRequests.find(
+      (request) => request.workstreamId === folderlessWorkstreamId,
+    )?.id,
+    "Director folder request",
+  );
+  const resolvedResourceTurn = await submitDirector(context.client, "Director resolve folder.");
+  const resolvedResourceCall = resolvedResourceTurn.submit?.toolCalls.find(
+    (call) => call.tool === "resolve_resource_request" && call.succeeded,
+  );
+  assertEqual(
+    resolvedResourceCall?.workstreamId,
+    folderlessWorkstreamId,
+    "Director resolve_resource_request target",
+  );
+  await waitForDirectorSnapshot(
+    context.client,
+    (snapshot) =>
+      !snapshot.unresolvedResourceRequests.some((request) => request.id === resourceRequestId) &&
+      snapshot.workstreams.some(
+        (entry) =>
+          entry.workstream.id === folderlessWorkstreamId &&
+          entry.workstream.resourceScope.kind === "folder" &&
+          entry.workstream.resourceScope.folder?.workspaceId === workspaceId &&
+          entry.workstream.activeRunId === null,
+      ),
+  );
+
+  const renamedTurn = await submitDirector(context.client, "Director rename selected.");
+  const renamedCall = renamedTurn.submit?.toolCalls.find(
+    (call) => call.tool === "rename_workstream" && call.succeeded,
+  );
+  assertEqual(renamedCall?.workstreamId, folderlessWorkstreamId, "Director rename target");
+  await waitForWorkstream(
+    context.client,
+    folderlessWorkstreamId,
+    (workstream) => workstream.title === "Resolved draft",
+  );
+
+  const archivedTurn = await submitDirector(context.client, "Director archive selected.");
+  const archivedCall = archivedTurn.submit?.toolCalls.find(
+    (call) => call.tool === "archive_workstream" && call.succeeded,
+  );
+  assertEqual(archivedCall?.workstreamId, folderlessWorkstreamId, "Director archive target");
+  await waitForDirectorSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.selectedWorkstreamId === null &&
+      !snapshot.workstreams.some((entry) => entry.workstream.id === folderlessWorkstreamId) &&
+      snapshot.aggregates.workstreamCount === 1,
+  );
+
+  const selectedRootTurn = await submitDirector(context.client, "Director select root.");
+  const selectedRootCall = selectedRootTurn.submit?.toolCalls.find(
+    (call) => call.tool === "select_workstream" && call.succeeded,
+  );
+  assertEqual(selectedRootCall?.workstreamId, rootWorkstreamId, "Director select target");
+  await waitForDirectorSnapshot(
+    context.client,
+    (snapshot) => snapshot.selectedWorkstreamId === rootWorkstreamId,
+  );
+
   await submitDirector(context.client, "Director artifact.");
   const beforeRestart = await waitForDirectorSnapshot(
     context.client,
@@ -266,8 +399,10 @@ try {
     "director.approval.updated",
     "director.artifact.updated",
     "director.graph.updated",
+    "director.resource_request.updated",
     "director.selection.changed",
     "director.text.delta",
+    "director.workstream.removed",
     "director.workstream.updated",
   ]);
   assertExcludes(JSON.stringify(rendererEvents), secretApprovalAnswer, "Director pushed events");
