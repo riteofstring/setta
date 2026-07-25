@@ -19,6 +19,7 @@ func TestAppearanceEndpointsReadAndUpdateSettings(t *testing.T) {
 	next := initial
 	next.Mode = appearance.ColorModeLight
 	next.Fonts.Heading = `"Work Sans", ui-sans-serif, sans-serif`
+	next.Developer.ShowPerformanceStats = true
 	updated := postJSON[appearance.AppearanceSettings](t, handler, "/appearance/settings", UpdateAppearanceSettingsRequest{
 		Settings: next,
 	}, http.StatusOK)
@@ -30,8 +31,8 @@ func TestAppearanceEndpointsReadAndUpdateSettings(t *testing.T) {
 	if reloaded.Fonts.Heading != next.Fonts.Heading {
 		t.Fatalf("heading font = %q, want %q", reloaded.Fonts.Heading, next.Fonts.Heading)
 	}
-	if reloaded.SchemaVersion != appearance.SchemaVersion {
-		t.Fatalf("schema version = %d, want %d", reloaded.SchemaVersion, appearance.SchemaVersion)
+	if !reloaded.Developer.ShowPerformanceStats {
+		t.Fatal("performance stats setting = false, want true")
 	}
 }
 

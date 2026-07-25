@@ -3,8 +3,9 @@ package conversation
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 
-	"setta/internal/conversation/conversationpalette"
+	"setta/internal/workspaceui/conversationpalette"
 )
 
 const (
@@ -122,14 +123,14 @@ type ConversationEvent struct {
 	Sequence       int                      `json:"sequence"`
 	EventID        string                   `json:"eventId"`
 	EmittedAt      string                   `json:"emittedAt"`
-	WorkspaceID    *string                  `json:"workspaceId"`
+	WorkspaceID    string                   `json:"workspaceId"`
 	ConversationID string                   `json:"conversationId"`
 	Payload        ConversationEventPayload `json:"payload"`
 }
 
 type ConversationEventPayload interface {
 	conversationEventType() ConversationEventType
-	validateConversationEventPayload(workspaceID *string, conversationID string) error
+	validateConversationEventPayload(workspaceID string, conversationID string) error
 }
 
 type ConversationEventSubscription interface {
@@ -204,6 +205,23 @@ type ConversationResyncRequiredEventPayload struct {
 	RequestedSequence int                   `json:"requestedSequence"`
 	CurrentStreamID   string                `json:"currentStreamId"`
 	CurrentSequence   int                   `json:"currentSequence"`
+}
+
+func ConversationStreamID(conversationID string) (string, error) {
+	if err := validateIdentifier("conversation event stream conversation id", conversationID); err != nil {
+		return "", err
+	}
+	return "conversation:" + conversationID, nil
+}
+
+func ConversationEventID(streamID string, sequence int) (string, error) {
+	if err := validateIdentifier("conversation event stream id", streamID); err != nil {
+		return "", err
+	}
+	if sequence <= 0 {
+		return "", fmt.Errorf("conversation event sequence must be positive: %d", sequence)
+	}
+	return streamID + ":" + strconv.Itoa(sequence), nil
 }
 
 func (cursor ConversationEventCursor) Validate(conversationID string) error {
@@ -563,10 +581,8 @@ func (event ConversationEvent) Validate() error {
 	if event.SchemaVersion != ConversationContractSchemaVersion {
 		return fmt.Errorf("conversation event schema version must be %d", ConversationContractSchemaVersion)
 	}
-	if event.WorkspaceID != nil {
-		if err := validateIdentifier("conversation event workspace id", *event.WorkspaceID); err != nil {
-			return err
-		}
+	if err := validateIdentifier("conversation event workspace id", event.WorkspaceID); err != nil {
+		return err
 	}
 	if err := validateIdentifier("conversation event conversation id", event.ConversationID); err != nil {
 		return err
@@ -612,14 +628,14 @@ func (payload ConversationUpdatedEventPayload) conversationEventType() Conversat
 	return ConversationEventTypeConversationUpdated
 }
 
-func (payload ConversationUpdatedEventPayload) validateConversationEventPayload(workspaceID *string, conversationID string) error {
+func (payload ConversationUpdatedEventPayload) validateConversationEventPayload(workspaceID string, conversationID string) error {
 	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
 		return err
 	}
 	if err := payload.Conversation.Validate(); err != nil {
 		return err
 	}
-	if payload.Conversation.ID != conversationID || !equalOptionalString(payload.Conversation.WorkspaceID, workspaceID) {
+	if payload.Conversation.ID != conversationID || payload.Conversation.WorkspaceID != workspaceID {
 		return fmt.Errorf("conversation.updated payload ownership does not match event")
 	}
 	return nil
@@ -629,7 +645,7 @@ func (payload ConversationTurnUpdatedEventPayload) conversationEventType() Conve
 	return ConversationEventTypeTurnUpdated
 }
 
-func (payload ConversationTurnUpdatedEventPayload) validateConversationEventPayload(_ *string, conversationID string) error {
+func (payload ConversationTurnUpdatedEventPayload) validateConversationEventPayload(_ string, conversationID string) error {
 	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
 		return err
 	}
@@ -643,7 +659,7 @@ func (payload ConversationQueueUpdatedEventPayload) conversationEventType() Conv
 	return ConversationEventTypeQueueUpdated
 }
 
-func (payload ConversationQueueUpdatedEventPayload) validateConversationEventPayload(_ *string, conversationID string) error {
+func (payload ConversationQueueUpdatedEventPayload) validateConversationEventPayload(_ string, conversationID string) error {
 	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
 		return err
 	}
@@ -665,7 +681,7 @@ func (payload ConversationThreadBindingUpdatedEventPayload) conversationEventTyp
 	return ConversationEventTypeThreadBindingUpdated
 }
 
-func (payload ConversationThreadBindingUpdatedEventPayload) validateConversationEventPayload(_ *string, conversationID string) error {
+func (payload ConversationThreadBindingUpdatedEventPayload) validateConversationEventPayload(_ string, conversationID string) error {
 	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
 		return err
 	}
@@ -679,7 +695,7 @@ func (payload ConversationTrajectoryAppendedEventPayload) conversationEventType(
 	return ConversationEventTypeTrajectoryAppended
 }
 
-func (payload ConversationTrajectoryAppendedEventPayload) validateConversationEventPayload(_ *string, conversationID string) error {
+func (payload ConversationTrajectoryAppendedEventPayload) validateConversationEventPayload(_ string, conversationID string) error {
 	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
 		return err
 	}
@@ -693,7 +709,7 @@ func (payload ConversationArtifactCreatedEventPayload) conversationEventType() C
 	return ConversationEventTypeArtifactCreated
 }
 
-func (payload ConversationArtifactCreatedEventPayload) validateConversationEventPayload(_ *string, conversationID string) error {
+func (payload ConversationArtifactCreatedEventPayload) validateConversationEventPayload(_ string, conversationID string) error {
 	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
 		return err
 	}
@@ -707,7 +723,7 @@ func (payload ConversationNarratorStateUpdatedEventPayload) conversationEventTyp
 	return ConversationEventTypeNarratorStateUpdated
 }
 
-func (payload ConversationNarratorStateUpdatedEventPayload) validateConversationEventPayload(_ *string, conversationID string) error {
+func (payload ConversationNarratorStateUpdatedEventPayload) validateConversationEventPayload(_ string, conversationID string) error {
 	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
 		return err
 	}
@@ -721,7 +737,7 @@ func (payload ConversationNarrationCreatedEventPayload) conversationEventType() 
 	return ConversationEventTypeNarrationCreated
 }
 
-func (payload ConversationNarrationCreatedEventPayload) validateConversationEventPayload(_ *string, conversationID string) error {
+func (payload ConversationNarrationCreatedEventPayload) validateConversationEventPayload(_ string, conversationID string) error {
 	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
 		return err
 	}
@@ -735,7 +751,7 @@ func (payload ConversationPresentationProfileUpdatedEventPayload) conversationEv
 	return ConversationEventTypePresentationProfileUpdated
 }
 
-func (payload ConversationPresentationProfileUpdatedEventPayload) validateConversationEventPayload(_ *string, conversationID string) error {
+func (payload ConversationPresentationProfileUpdatedEventPayload) validateConversationEventPayload(_ string, conversationID string) error {
 	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
 		return err
 	}
@@ -749,7 +765,7 @@ func (payload ConversationBranchCreatedEventPayload) conversationEventType() Con
 	return ConversationEventTypeBranchCreated
 }
 
-func (payload ConversationBranchCreatedEventPayload) validateConversationEventPayload(_ *string, conversationID string) error {
+func (payload ConversationBranchCreatedEventPayload) validateConversationEventPayload(_ string, conversationID string) error {
 	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
 		return err
 	}
@@ -763,7 +779,7 @@ func (payload ConversationSideConversationUpdatedEventPayload) conversationEvent
 	return ConversationEventTypeSideConversationUpdated
 }
 
-func (payload ConversationSideConversationUpdatedEventPayload) validateConversationEventPayload(_ *string, conversationID string) error {
+func (payload ConversationSideConversationUpdatedEventPayload) validateConversationEventPayload(_ string, conversationID string) error {
 	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
 		return err
 	}
@@ -777,7 +793,7 @@ func (payload ConversationResyncRequiredEventPayload) conversationEventType() Co
 	return ConversationEventTypeResyncRequired
 }
 
-func (payload ConversationResyncRequiredEventPayload) validateConversationEventPayload(_ *string, conversationID string) error {
+func (payload ConversationResyncRequiredEventPayload) validateConversationEventPayload(_ string, conversationID string) error {
 	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
 		return err
 	}
@@ -898,7 +914,6 @@ func ContractTaggedUnions() []ContractTaggedUnion {
 				{Field: "artifactEmitted", KindValue: string(TrajectoryEventArtifactEmitted)},
 				{Field: "agentLivenessChanged", KindValue: string(TrajectoryEventAgentLivenessChanged)},
 				{Field: "providerLifecycleChanged", KindValue: string(TrajectoryEventProviderLifecycleChanged)},
-				{Field: "validationRecorded", KindValue: string(TrajectoryEventValidationRecorded)},
 				{Field: "modelRerouted", KindValue: string(TrajectoryEventModelRerouted)},
 			},
 		},
@@ -933,21 +948,16 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet("ThreadBindingStatus", ThreadBindingStatusLinked, ThreadBindingStatusMissing, ThreadBindingStatusUnavailable),
 		contractValueSet("ArtifactKind", ArtifactKindMarkdown, ArtifactKindTable, ArtifactKindBarChart, ArtifactKindFile),
 		contractValueSet("Provider", ProviderCodex),
-		contractValueSet("Role", RoleDirector, RoleAgent, RoleNarrator, RoleSideAgent),
+		contractValueSet("Role", RoleMaster, RoleAgent, RoleNarrator, RoleSideAgent),
 		contractValueSet("RoleProfileScopeKind", RoleProfileScopeGlobal, RoleProfileScopeWorkspace, RoleProfileScopeConversation),
 		contractValueSet("RoleProfileSourceKind", RoleProfileSourceBuiltIn, RoleProfileSourceGlobal, RoleProfileSourceWorkspace, RoleProfileSourceConversation),
 		contractValueSet("ModelSelectionMode", ModelSelectionExact, ModelSelectionProviderDefault),
 		contractValueSet("ApprovalPolicy", ApprovalPolicyUnlessTrusted, ApprovalPolicyOnRequest, ApprovalPolicyNever),
 		contractValueSet("ToolAccessMode", ToolAccessAll, ToolAccessAllowlist, ToolAccessNone),
 		contractValueSet("InvocationOutcome", InvocationOutcomeRunning, InvocationOutcomeSucceeded, InvocationOutcomeFailed, InvocationOutcomeCancelled),
-		{Name: "InvocationModelRerouteReason", Values: stringValues(invocationModelRerouteReasons)},
-		contractValueSet("BranchKind", BranchKindFork, BranchKindChild),
+		contractValueSet("BranchKind", BranchKindFork),
 		contractValueSet("BranchDecisionKind", BranchDecisionKindCreateSideConversation, BranchDecisionKindForkConversation),
-		contractValueSet(
-			"BranchDecisionSource",
-			BranchDecisionSourceConversationRouter,
-			BranchDecisionSourceDirector,
-		),
+		contractValueSet("BranchDecisionSource", BranchDecisionSourceConversationRouter, BranchDecisionSourceMaster),
 		contractValueSet("SideConversationStatus", SideConversationStatusPreparing, SideConversationStatusActive, SideConversationStatusDisposing, SideConversationStatusFailed),
 		contractValueSet("NarratorStatus", NarratorStatusReady, NarratorStatusRunning, NarratorStatusDegraded),
 		contractValueSet("NarrationEventKind", NarrationEventKindMilestone, NarrationEventKindStatusReply, NarrationEventKindFinalSummary, NarrationEventKindTopicDescriptor),
@@ -955,21 +965,17 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet("PresentationSelectionMode", PresentationSelectionAutoDistinct, PresentationSelectionExact),
 		contractValueSet("PresentationReuseReason", PresentationReuseCatalogExhausted),
 		{Name: "TrajectoryEventKind", Values: stringValues(trajectoryEventKinds)},
-		contractValueSet("TrajectoryActor", TrajectoryActorUser, TrajectoryActorAgent, TrajectoryActorProvider, TrajectoryActorSystem),
-		{Name: "PlanStepStatus", Values: stringValues(planStepStatuses)},
-		{Name: "TrajectoryActivityKind", Values: stringValues(trajectoryActivityKinds)},
+		contractValueSet("TrajectoryActor", TrajectoryActorUser, TrajectoryActorAgent, TrajectoryActorProvider, TrajectoryActorSystem, TrajectoryActorMaster),
+		contractValueSet("PlanStepStatus", PlanStepStatusPending, PlanStepStatusInProgress, PlanStepStatusCompleted),
+		contractValueSet("TrajectoryActivityKind", TrajectoryActivityCommand, TrajectoryActivityMCPTool, TrajectoryActivityDynamicTool, TrajectoryActivityWebSearch, TrajectoryActivityImageView, TrajectoryActivityImageGeneration, TrajectoryActivitySleep, TrajectoryActivityHook, TrajectoryActivityFileChange, TrajectoryActivitySubagent, TrajectoryActivityOther),
 		contractValueSet("FileChangeKind", FileChangeAdd, FileChangeDelete, FileChangeUpdate),
 		contractValueSet("FileChangeOutcome", FileChangeOutcomeCompleted, FileChangeOutcomeFailed, FileChangeOutcomeDeclined),
 		contractValueSet("TrajectoryApprovalKind", TrajectoryApprovalKindCommand, TrajectoryApprovalKindFileChange, TrajectoryApprovalKindPermission, TrajectoryApprovalKindStructuredInput, TrajectoryApprovalKindUserInput, TrajectoryApprovalKindMCPElicitation),
-		contractValueSet("TrajectoryApprovalDecision", TrajectoryApprovalDecisionApproved, TrajectoryApprovalDecisionApprovedForSession, TrajectoryApprovalDecisionDenied, TrajectoryApprovalDecisionCancelled, TrajectoryApprovalDecisionAnswered, TrajectoryApprovalDecisionSuperseded),
+		contractValueSet("TrajectoryApprovalDecision", TrajectoryApprovalDecisionApproved, TrajectoryApprovalDecisionApprovedForSession, TrajectoryApprovalDecisionDenied, TrajectoryApprovalDecisionCancelled, TrajectoryApprovalDecisionAnswered),
 		contractValueSet("SubagentStatus", SubagentStatusPendingInit, SubagentStatusRunning, SubagentStatusInterrupted, SubagentStatusCompleted, SubagentStatusErrored, SubagentStatusShutdown, SubagentStatusNotFound),
-		{Name: "AgentLivenessStatus", Values: stringValues(agentLivenessStatuses)},
+		contractValueSet("AgentLivenessStatus", AgentLivenessAttached, AgentLivenessReconciling, AgentLivenessLost, AgentLivenessTerminal),
 		contractValueSet("AgentLivenessReason", AgentLivenessReasonProviderRefPending, AgentLivenessReasonProviderTurnLinked, AgentLivenessReasonProviderInactive, AgentLivenessReasonAttachmentMissing, AgentLivenessReasonTurnTerminal, AgentLivenessReasonWakeRecheck, AgentLivenessReasonSnapshotLoad, AgentLivenessReasonStreamResync, AgentLivenessReasonUserRetry, AgentLivenessReasonProviderRestarted, AgentLivenessReasonProviderUnavailable, AgentLivenessReasonTurnNotFound),
-		{Name: "ProviderLifecycleStatus", Values: stringValues(providerLifecycleStatuses)},
-		{Name: "ProviderLifecycleReason", Values: stringValues(providerLifecycleReasons)},
-		{Name: "TrajectoryValidationKind", Values: stringValues(trajectoryValidationKinds)},
-		{Name: "TrajectoryValidationStatus", Values: stringValues(trajectoryValidationStatuses)},
-		{Name: "TrajectoryValidationRisk", Values: stringValues(trajectoryValidationRisks)},
+		contractValueSet("ProviderLifecycleStatus", ProviderLifecycleStarting, ProviderLifecycleReady, ProviderLifecycleRestarting, ProviderLifecycleUnavailable, ProviderLifecycleClosed),
 		contractValueSet("TurnInterruptionReason", TurnInterruptionUserRequested, TurnInterruptionProviderInterrupted, TurnInterruptionRuntimeShutdown, TurnInterruptionReconciliation),
 		{Name: "ConversationEventType", Values: stringValues(conversationEventTypeValues)},
 		{Name: "ConversationPaletteID", Values: stringValues(conversationpalette.IDs())},

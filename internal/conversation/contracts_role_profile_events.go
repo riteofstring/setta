@@ -17,7 +17,7 @@ func (payload ConversationRoleProfileOverrideUpdatedEventPayload) conversationEv
 }
 
 func (payload ConversationRoleProfileOverrideUpdatedEventPayload) validateConversationEventPayload(
-	_ *string,
+	_ string,
 	conversationID string,
 ) error {
 	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
@@ -40,7 +40,7 @@ func (payload ConversationRoleProfileOverrideRemovedEventPayload) conversationEv
 }
 
 func (payload ConversationRoleProfileOverrideRemovedEventPayload) validateConversationEventPayload(
-	_ *string,
+	_ string,
 	_ string,
 ) error {
 	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {

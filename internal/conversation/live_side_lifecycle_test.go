@@ -23,6 +23,7 @@ const (
 	liveSideContextFailed   = "SETTA_LIVE_SIDE_CONTEXT_MISMATCH"
 	liveSideIsolationOK     = "SETTA_LIVE_SIDE_HISTORY_ISOLATED"
 	liveSideIsolationFailed = "SETTA_LIVE_SIDE_HISTORY_LEAKED"
+	liveSideParentPaneID    = "pane-live-side"
 )
 
 func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
@@ -77,7 +78,7 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 		t.Fatalf("active parent turn has no provider identity: %+v", activeTurn)
 	}
 
-	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID)
+	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID, liveSideParentPaneID)
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
@@ -206,6 +207,7 @@ func disposeLiveSideConversation(
 		ctx,
 		workspaceID,
 		parentID,
+		liveSideParentPaneID,
 		side.ID,
 	)
 	if err != nil {
@@ -349,11 +351,11 @@ func newLiveSideConversationService(
 			t.Errorf("close live conversation store: %v", err)
 		}
 	})
-	if _, err := store.EnsureDirectorVoiceSelection(
+	if _, err := store.EnsureMasterVoiceSelection(
 		context.Background(),
-		speech.DefaultDirectorVoiceSelection("2026-07-13T12:00:00Z"),
+		speech.DefaultMasterVoiceSelection("2026-07-13T12:00:00Z"),
 	); err != nil {
-		t.Fatalf("EnsureDirectorVoiceSelection: %v", err)
+		t.Fatalf("EnsureMasterVoiceSelection: %v", err)
 	}
 	if _, err := store.EnsureNarratorVoiceDefault(
 		context.Background(),
@@ -520,6 +522,7 @@ func assertLiveSideCreatedDuringParentTurn(
 		latestSnapshotTurn(created).ID != activeTurn.ID ||
 		latestSnapshotTurn(created).Status != TurnStatusRunning ||
 		side.ParentConversationID != created.Conversation.ID ||
+		side.ParentPaneID != liveSideParentPaneID ||
 		side.DecisionSource != BranchDecisionSourceConversationRouter ||
 		side.Status != SideConversationStatusActive ||
 		side.ParentStatus != ConversationStatusWorking ||
@@ -549,7 +552,7 @@ func assertLiveSideForkSnapshot(
 		request.Invocation.ModelSelectionProviderDefault ||
 		request.Invocation.ReasoningEffort != "medium" ||
 		request.Invocation.PermissionMode != agent.PermissionModeReadOnly ||
-		request.Invocation.ApprovalMode != agent.ApprovalModeNever {
+		request.Invocation.ApprovalMode != agent.ApprovalModeOnRequest {
 		t.Fatalf("live side invocation = %+v", request.Invocation)
 	}
 	if request.DeveloperInstructions != sideAgentDeveloperInstructions {

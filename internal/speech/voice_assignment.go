@@ -36,13 +36,13 @@ func validateVoiceSelectionRequestAgainstCatalog(
 	}
 }
 
-func ResolveDirectorVoiceSelection(
+func ResolveMasterVoiceSelection(
 	request VoiceSelectionRequest,
 	assignments []NarratorVoiceAssignment,
 	updatedAt string,
-) (DirectorVoiceSelection, error) {
+) (MasterVoiceSelection, error) {
 	if err := request.Validate(); err != nil {
-		return DirectorVoiceSelection{}, err
+		return MasterVoiceSelection{}, err
 	}
 	var resolved SpeechVoiceID
 	var reuse *VoiceReuse
@@ -53,9 +53,9 @@ func ResolveDirectorVoiceSelection(
 		resolved = leastUsedVoice(SynthesisVoiceCatalog().VoiceIDs, assignments)
 		reuse = VoiceReuseForAssignments(resolved, assignments)
 	default:
-		return DirectorVoiceSelection{}, fmt.Errorf("unsupported voice selection mode %q", request.Selection)
+		return MasterVoiceSelection{}, fmt.Errorf("unsupported voice selection mode %q", request.Selection)
 	}
-	selection := DirectorVoiceSelection{
+	selection := MasterVoiceSelection{
 		Selection:        request.Selection,
 		RequestedVoiceID: cloneVoiceID(request.RequestedVoiceID),
 		ResolvedVoiceID:  cloneVoiceID(&resolved),
@@ -63,21 +63,21 @@ func ResolveDirectorVoiceSelection(
 		UpdatedAt:        updatedAt,
 	}
 	if err := selection.Validate(); err != nil {
-		return DirectorVoiceSelection{}, err
+		return MasterVoiceSelection{}, err
 	}
 	return selection, nil
 }
 
-func RefreshAutomaticDirectorVoiceSelection(
-	previous DirectorVoiceSelection,
+func RefreshAutomaticMasterVoiceSelection(
+	previous MasterVoiceSelection,
 	assignments []NarratorVoiceAssignment,
 	updatedAt string,
-) (DirectorVoiceSelection, bool, error) {
+) (MasterVoiceSelection, bool, error) {
 	if err := previous.Validate(); err != nil {
-		return DirectorVoiceSelection{}, false, err
+		return MasterVoiceSelection{}, false, err
 	}
 	if previous.Selection != VoiceSelectionAutoDistinct || previous.ResolvedVoiceID == nil {
-		return DirectorVoiceSelection{}, false, errors.New("automatic director voice selection is required")
+		return MasterVoiceSelection{}, false, errors.New("automatic master voice selection is required")
 	}
 	resolved := leastUsedVoicePreferring(
 		SynthesisVoiceCatalog().VoiceIDs,
@@ -86,38 +86,38 @@ func RefreshAutomaticDirectorVoiceSelection(
 	)
 	reuse := VoiceReuseForAssignments(resolved, assignments)
 	if resolved == *previous.ResolvedVoiceID && voiceReuseEqual(reuse, previous.Reuse) {
-		return CloneDirectorVoiceSelection(previous), false, nil
+		return CloneMasterVoiceSelection(previous), false, nil
 	}
-	selection := DirectorVoiceSelection{
+	selection := MasterVoiceSelection{
 		Selection:       VoiceSelectionAutoDistinct,
 		ResolvedVoiceID: cloneVoiceID(&resolved),
 		Reuse:           reuse,
 		UpdatedAt:       updatedAt,
 	}
 	if err := selection.Validate(); err != nil {
-		return DirectorVoiceSelection{}, false, err
+		return MasterVoiceSelection{}, false, err
 	}
 	return selection, true, nil
 }
 
 func AllocateNarratorVoice(
-	directorVoiceID SpeechVoiceID,
+	masterVoiceID SpeechVoiceID,
 	assignments []NarratorVoiceAssignment,
 ) (NarratorVoiceAllocation, error) {
-	return AllocateNarratorVoicePreferring(directorVoiceID, assignments, nil)
+	return AllocateNarratorVoicePreferring(masterVoiceID, assignments, nil)
 }
 
 func AllocateNarratorVoicePreferring(
-	directorVoiceID SpeechVoiceID,
+	masterVoiceID SpeechVoiceID,
 	assignments []NarratorVoiceAssignment,
 	preferredVoiceID *SpeechVoiceID,
 ) (NarratorVoiceAllocation, error) {
-	if !LookupVoice(directorVoiceID) {
-		return NarratorVoiceAllocation{}, unavailableVoiceError(directorVoiceID)
+	if !LookupVoice(masterVoiceID) {
+		return NarratorVoiceAllocation{}, unavailableVoiceError(masterVoiceID)
 	}
 	return allocateNarratorVoice(
 		SynthesisVoiceCatalog().VoiceIDs,
-		directorVoiceID,
+		masterVoiceID,
 		assignments,
 		preferredVoiceID,
 	)
@@ -125,7 +125,7 @@ func AllocateNarratorVoicePreferring(
 
 func allocateNarratorVoice(
 	catalog []SpeechVoiceID,
-	directorVoiceID SpeechVoiceID,
+	masterVoiceID SpeechVoiceID,
 	assignments []NarratorVoiceAssignment,
 	preferredVoiceID *SpeechVoiceID,
 ) (NarratorVoiceAllocation, error) {
@@ -134,16 +134,16 @@ func allocateNarratorVoice(
 	}
 	choices := make([]SpeechVoiceID, 0, len(catalog))
 	for _, voiceID := range catalog {
-		if voiceID != directorVoiceID {
+		if voiceID != masterVoiceID {
 			choices = append(choices, voiceID)
 		}
 	}
 	if len(choices) == 0 {
-		return NarratorVoiceAllocation{}, errors.New("speech voice catalog has no narrator voice distinct from the director")
+		return NarratorVoiceAllocation{}, errors.New("speech voice catalog has no narrator voice distinct from the master")
 	}
 	selected := leastUsedVoice(choices, assignments)
 	if preferredVoiceID != nil &&
-		*preferredVoiceID != directorVoiceID &&
+		*preferredVoiceID != masterVoiceID &&
 		voiceUsage(*preferredVoiceID, assignments) == voiceUsage(selected, assignments) {
 		for _, choice := range choices {
 			if choice == *preferredVoiceID {

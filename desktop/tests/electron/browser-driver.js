@@ -1,4 +1,4 @@
-/* global CSS, Event, HTMLButtonElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, document */
+/* global CSS, CustomEvent, Event, HTMLButtonElement, HTMLInputElement, HTMLTextAreaElement, InputEvent, document, window */
 
 (() => {
   function bodyText() {
@@ -27,6 +27,15 @@
     }
     button.click();
     return { body: document.body.innerText, clicked: true, reason: "clicked" };
+  }
+
+  function dispatchLayoutSnapshot({ trigger }) {
+    window.dispatchEvent(
+      new CustomEvent("setta:record-layout-snapshot", {
+        detail: { trigger },
+      }),
+    );
+    return true;
   }
 
   function elementValue({ selector }) {
@@ -58,8 +67,9 @@
     ...globalThis.__settaE2EDriver,
     bodyText,
     clickButton,
+    dispatchLayoutSnapshot,
     elementValue,
     setInputValue,
-    version: "setta-e2e-driver-v14",
+    version: "setta-e2e-driver-v13",
   };
 })();

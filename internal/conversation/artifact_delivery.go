@@ -99,14 +99,8 @@ func reduceArtifactDeliveryAttempt(
 	return attempt
 }
 
-// artifactToolFailureEvent reads the artifact delivery outcome from Setta's own
-// record of the tool call. The provider also reports the failed tool item, but
-// that report only says the call failed; the Setta record carries the typed
-// failure the retry decision depends on.
 func artifactToolFailureEvent(event TrajectoryEvent) (Failure, bool) {
-	if event.Kind != TrajectoryEventActivityFailed ||
-		event.ActivityFailed == nil ||
-		event.Actor != TrajectoryActorSystem {
+	if event.Kind != TrajectoryEventActivityFailed || event.ActivityFailed == nil {
 		return Failure{}, false
 	}
 	activity := event.ActivityFailed.Activity

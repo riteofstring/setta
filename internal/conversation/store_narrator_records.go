@@ -170,6 +170,9 @@ func (transaction *WriteTransaction) AppendNarrationEvent(event NarrationEvent) 
 	if err := transaction.insertNarrationEvent(&event, payloadJSON, resolvedInvocationJSON); err != nil {
 		return NarrationEvent{}, err
 	}
+	if err := rebuildTopicIndexDocument(transaction.ctx, transaction.tx, event.ConversationID); err != nil {
+		return NarrationEvent{}, fmt.Errorf("index narration event %s: %w", event.ID, err)
+	}
 	if err := transaction.recordStateMutation(); err != nil {
 		return NarrationEvent{}, err
 	}
