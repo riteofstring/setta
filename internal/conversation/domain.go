@@ -43,7 +43,7 @@ const (
 
 type TopicConversation struct {
 	ID                     string             `json:"id"`
-	WorkspaceID            *string            `json:"workspaceId"`
+	WorkspaceID            string             `json:"workspaceId"`
 	Title                  string             `json:"title"`
 	TopicDescriptor        string             `json:"topicDescriptor"`
 	Status                 ConversationStatus `json:"status"`
@@ -154,10 +154,8 @@ func (conversation TopicConversation) Validate() error {
 	if err := validateIdentifier("conversation id", conversation.ID); err != nil {
 		return err
 	}
-	if conversation.WorkspaceID != nil {
-		if err := validateIdentifier("conversation workspace id", *conversation.WorkspaceID); err != nil {
-			return err
-		}
+	if err := validateIdentifier("conversation workspace id", conversation.WorkspaceID); err != nil {
+		return err
 	}
 	if err := validateTrimmedText("conversation title", conversation.Title); err != nil {
 		return err

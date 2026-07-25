@@ -108,107 +108,6 @@ func assertFixtureConversationRouteIsolation(
 	}
 }
 
-func TestConversationInputRouterDispatchesBlankConversationWithoutModelRouting(t *testing.T) {
-	fixture := newBlankStatusServiceFixture(t)
-	router := configuredFixtureInputRouter(fixture.service.inputRouter)
-	inputService := fixtureInputService(t, fixture.store)
-	accepted, err := inputService.SubmitInput(context.Background(), conversation.ConversationInput{
-		ID:             "input-route-blank",
-		ConversationID: fixture.conversationID,
-		Text:           "Count the lines of code and break them down by language.",
-		Modality:       conversation.ConversationInputModalityVoice,
-		SubmittedAt:    time.Now().UTC().Format(time.RFC3339Nano),
-	})
-	if err != nil {
-		t.Fatalf("SubmitInput: %v", err)
-	}
-
-	if processed, err := router.ProcessNext(context.Background(), fixture.conversationID); err != nil || !processed {
-		t.Fatalf("ProcessNext = %t, %v", processed, err)
-	}
-	state := readFixtureRoutingState(t, fixture, accepted.Input.ID)
-	if state.Input.Status != conversation.ConversationInputStatusDispatched ||
-		len(state.Decisions) != 1 ||
-		state.Decisions[0].RouterContext.DecisionAuthority != conversation.ConversationRouteDecisionAuthorityProductInvariant ||
-		state.Decisions[0].Decision.Kind != conversation.ConversationRouteDecisionKindSendToParent ||
-		state.Decisions[0].ResultingCommand.SendToParent.AuthoredInput.Text != accepted.Input.Text ||
-		state.Decisions[0].ResolvedInvocation.Resolved.ModelID != "product-invariant" ||
-		state.Decisions[0].ResolvedInvocation.ProviderReferences.ThreadID != nil ||
-		state.Decisions[0].ResolvedInvocation.ProviderReferences.TurnID != nil ||
-		state.Decisions[0].ResolvedInvocation.ProviderReferences.RequestID != nil {
-		t.Fatalf("blank route state = %+v", state)
-	}
-	assertFixtureRouterProviderRequests(t, fixture.provider, 0)
-}
-
-func TestConversationInputRouterRoutesFolderlessChatToNarrator(t *testing.T) {
-	fixture := newFolderlessBlankStatusServiceFixture(t)
-	fixture.provider.routeKinds = []conversation.ConversationRouteDecisionKind{
-		conversation.ConversationRouteDecisionKindAnswerAsNarrator,
-	}
-	router := configuredFixtureInputRouter(fixture.service.inputRouter)
-	inputService := fixtureInputService(t, fixture.store)
-	accepted, err := inputService.SubmitInput(context.Background(), conversation.ConversationInput{
-		ID:             "input-route-folderless-chat",
-		ConversationID: fixture.conversationID,
-		Text:           "hi",
-		Modality:       conversation.ConversationInputModalityText,
-		SubmittedAt:    time.Now().UTC().Format(time.RFC3339Nano),
-	})
-	if err != nil {
-		t.Fatalf("SubmitInput: %v", err)
-	}
-
-	if processed, err := router.ProcessNext(context.Background(), fixture.conversationID); err != nil || !processed {
-		t.Fatalf("ProcessNext = %t, %v", processed, err)
-	}
-	state := readFixtureRoutingStateWithWorkspace(t, fixture, "", accepted.Input.ID)
-	if state.Input.Status != conversation.ConversationInputStatusDispatched ||
-		len(state.Decisions) != 1 ||
-		state.Decisions[0].RouterContext.DecisionAuthority != conversation.ConversationRouteDecisionAuthorityNarratorModel ||
-		state.Decisions[0].Decision.Kind != conversation.ConversationRouteDecisionKindAnswerAsNarrator ||
-		state.Decisions[0].ResultingCommand.AnswerAsNarrator.Question != "hi" ||
-		!conversationRouteDecisionKindIncluded(
-			state.Decisions[0].RouterContext.AllowedDecisionKinds,
-			conversation.ConversationRouteDecisionKindAnswerAsNarrator,
-		) {
-		t.Fatalf("folderless chat route state = %+v", state)
-	}
-	assertFixtureRouterProviderRequests(t, fixture.provider, 1)
-}
-
-func TestConversationInputRouterRequiresFolderForFolderlessParentWork(t *testing.T) {
-	fixture := newFolderlessBlankStatusServiceFixture(t)
-	fixture.provider.routeKinds = []conversation.ConversationRouteDecisionKind{
-		conversation.ConversationRouteDecisionKindSendToParent,
-	}
-	router := configuredFixtureInputRouter(fixture.service.inputRouter)
-	inputService := fixtureInputService(t, fixture.store)
-	accepted, err := inputService.SubmitInput(context.Background(), conversation.ConversationInput{
-		ID:             "input-route-folderless-folder-required",
-		ConversationID: fixture.conversationID,
-		Text:           "Inspect the repository files.",
-		Modality:       conversation.ConversationInputModalityText,
-		SubmittedAt:    time.Now().UTC().Format(time.RFC3339Nano),
-	})
-	if err != nil {
-		t.Fatalf("SubmitInput: %v", err)
-	}
-
-	if processed, err := router.ProcessNext(context.Background(), fixture.conversationID); err != nil || !processed {
-		t.Fatalf("ProcessNext = %t, %v", processed, err)
-	}
-	state := readFixtureRoutingStateWithWorkspace(t, fixture, "", accepted.Input.ID)
-	if state.Input.Status != conversation.ConversationInputStatusFailed ||
-		state.Input.Failure == nil ||
-		state.Input.Failure.Code != "conversation_resource_required" ||
-		!state.Input.Failure.Retryable ||
-		len(state.Decisions) != 0 {
-		t.Fatalf("folderless resource route state = %+v", state)
-	}
-	assertFixtureRouterProviderRequests(t, fixture.provider, 1)
-}
-
 func TestConversationInputRouterResolvesOneClarificationAndExcludesAnother(t *testing.T) {
 	fixture := newStatusServiceFixture(t, nil)
 	fixture.provider.routeKinds = []conversation.ConversationRouteDecisionKind{
@@ -308,106 +207,44 @@ func assertFixtureClarifiedConversationRouteContext(
 	}
 }
 
-func TestConversationInputRouterRepairsInvalidModelOutputBeforeFailingInput(t *testing.T) {
+func TestConversationInputRouterPersistsInvalidOutputFailureAndRetriesExplicitly(t *testing.T) {
 	fixture := newStatusServiceFixture(t, nil)
-	fixture.provider.invalidRouteOutputsRemaining = 1
+	fixture.provider.invalidRouteOutput = true
 	router := configuredFixtureInputRouter(fixture.service.inputRouter)
 	inputService := fixtureInputService(t, fixture.store)
 	accepted := submitFixtureRouteInput(t, inputService, fixture.conversationID, "input-route-retry", nil)
 
 	if processed, err := router.ProcessNext(context.Background(), fixture.conversationID); err != nil || !processed {
-		t.Fatalf("repaired ProcessNext = %t, %v", processed, err)
+		t.Fatalf("failed ProcessNext = %t, %v", processed, err)
+	}
+	failed := readFixtureRoutingState(t, fixture, accepted.Input.ID)
+	if failed.Input.Status != conversation.ConversationInputStatusFailed || failed.Input.Failure == nil ||
+		!failed.Input.Failure.Retryable ||
+		failed.Input.Failure.Code != "conversation_router_provider_output_invalid" ||
+		len(failed.Decisions) != 0 {
+		t.Fatalf("router failure state = %+v", failed)
+	}
+	fixture.provider.mu.Lock()
+	fixture.provider.invalidRouteOutput = false
+	fixture.provider.mu.Unlock()
+	retriedAt := time.Now().UTC().Add(time.Second).Format(time.RFC3339Nano)
+	if _, err := fixture.store.RetryConversationInputRouting(
+		context.Background(),
+		fixture.workspace.ID,
+		fixture.conversationID,
+		accepted.Input.ID,
+		retriedAt,
+	); err != nil {
+		t.Fatalf("RetryConversationInputRouting: %v", err)
+	}
+	if processed, err := router.ProcessNext(context.Background(), fixture.conversationID); err != nil || !processed {
+		t.Fatalf("retried ProcessNext = %t, %v", processed, err)
 	}
 	recovered := readFixtureRoutingState(t, fixture, accepted.Input.ID)
 	if recovered.Input.Status != conversation.ConversationInputStatusDispatched ||
-		recovered.Input.RoutingAttempt != 1 || recovered.Input.Failure != nil ||
-		len(recovered.Decisions) != 1 ||
-		recovered.Decisions[0].Decision.Kind != conversation.ConversationRouteDecisionKindQueueParentTurn {
-		t.Fatalf("repaired router state = %+v", recovered)
+		recovered.Input.RoutingAttempt != 2 || len(recovered.Decisions) != 1 {
+		t.Fatalf("recovered router state = %+v", recovered)
 	}
-	fixture.provider.mu.Lock()
-	requests := append([]agent.FreshStructuredCallRequest{}, fixture.provider.routeRequests...)
-	fixture.provider.mu.Unlock()
-	if len(requests) != 2 ||
-		requests[1].ID != requests[0].ID+"_repair" ||
-		!strings.Contains(
-			requests[1].DeveloperInstructions,
-			"The previous routing decision was rejected by Setta's validator.",
-		) {
-		t.Fatalf("repair requests = %+v", requests)
-	}
-}
-
-func TestConversationInputRouterFallsBackToClarificationWhenInvalidOutputCannotRepair(t *testing.T) {
-	fixture := newStatusServiceFixture(t, nil)
-	fixture.provider.invalidRouteOutputsRemaining = 2
-	router := configuredFixtureInputRouter(fixture.service.inputRouter)
-	inputService := fixtureInputService(t, fixture.store)
-	accepted := submitFixtureRouteInput(t, inputService, fixture.conversationID, "input-route-repair-fallback", nil)
-
-	if processed, err := router.ProcessNext(context.Background(), fixture.conversationID); err != nil || !processed {
-		t.Fatalf("fallback ProcessNext = %t, %v", processed, err)
-	}
-	state := readFixtureRoutingState(t, fixture, accepted.Input.ID)
-	if state.Input.Status != conversation.ConversationInputStatusAwaitingClarification ||
-		state.Input.Failure != nil ||
-		len(state.Decisions) != 1 ||
-		state.Decisions[0].RouterContext.DecisionAuthority != conversation.ConversationRouteDecisionAuthorityProductInvariant ||
-		state.Decisions[0].Decision.Kind != conversation.ConversationRouteDecisionKindClarify ||
-		state.Decisions[0].Decision.Clarify.Question !=
-			"Should I change the current run or queue this as the next task?" ||
-		state.Decisions[0].ResolvedInvocation.Resolved.ModelID != "product-invariant" ||
-		state.Decisions[0].ResolvedInvocation.ProviderReferences.ThreadID != nil ||
-		state.Decisions[0].ResolvedInvocation.ProviderReferences.TurnID != nil ||
-		state.Decisions[0].ResolvedInvocation.ProviderReferences.RequestID != nil {
-		t.Fatalf("fallback route state = %+v", state)
-	}
-	assertFixtureRouterProviderRequests(t, fixture.provider, 2)
-}
-
-func TestConversationInputRouterInvalidClarificationOutputDoesNotExposeModelInternals(t *testing.T) {
-	fixture := newStatusServiceFixture(t, nil)
-	fixture.provider.routeKinds = []conversation.ConversationRouteDecisionKind{
-		conversation.ConversationRouteDecisionKindClarify,
-		conversation.ConversationRouteDecisionKindSteerParentTurn,
-	}
-	router := configuredFixtureInputRouter(fixture.service.inputRouter)
-	inputService := fixtureInputService(t, fixture.store)
-	root := submitFixtureRouteInput(
-		t,
-		inputService,
-		fixture.conversationID,
-		"input-route-invalid-clarification-root",
-		nil,
-	)
-
-	if processed, err := router.ProcessNext(context.Background(), fixture.conversationID); err != nil || !processed {
-		t.Fatalf("clarification ProcessNext = %t, %v", processed, err)
-	}
-	reply := submitFixtureRouteInput(
-		t,
-		inputService,
-		fixture.conversationID,
-		"input-route-invalid-clarification-reply",
-		&root.Input.ID,
-	)
-	fixture.provider.invalidRouteOutputsRemaining = 2
-	if processed, err := router.ProcessNext(context.Background(), fixture.conversationID); err != nil || !processed {
-		t.Fatalf("invalid clarification ProcessNext = %t, %v", processed, err)
-	}
-
-	state := readFixtureRoutingState(t, fixture, root.Input.ID)
-	if state.ClarificationReply == nil ||
-		state.ClarificationReply.Input.ID != reply.Input.ID ||
-		state.ClarificationReply.Status != conversation.ConversationInputStatusFailed ||
-		state.ClarificationReply.Failure == nil ||
-		state.ClarificationReply.Failure.Code != "conversation_router_provider_output_invalid" ||
-		state.ClarificationReply.Failure.Message != "Conversation routing is temporarily unavailable." ||
-		strings.Contains(strings.ToLower(state.ClarificationReply.Failure.Message), "invalid decision") ||
-		strings.Contains(strings.ToLower(state.ClarificationReply.Failure.Message), "model") {
-		t.Fatalf("invalid clarification route state = %+v", state)
-	}
-	assertFixtureRouterProviderRequests(t, fixture.provider, 3)
 }
 
 func TestConversationInputRouterClassifiesCommandIDFailureAsInternal(t *testing.T) {
@@ -530,6 +367,7 @@ func TestConversationRouteOutputDecodesEveryAllowedStrictVariant(t *testing.T) {
 		conversation.ConversationRouteDecisionKindAnswerAsNarrator,
 		conversation.ConversationRouteDecisionKindCreateSideConversation,
 		conversation.ConversationRouteDecisionKindForkConversation,
+		conversation.ConversationRouteDecisionKindEscalateToMaster,
 		conversation.ConversationRouteDecisionKindClarify,
 	}
 	contextBundle := ConversationRouteContextBundle{
@@ -763,19 +601,9 @@ func readFixtureRoutingState(
 	inputID string,
 ) conversation.ConversationInputRoutingState {
 	t.Helper()
-	return readFixtureRoutingStateWithWorkspace(t, fixture, fixture.workspace.ID, inputID)
-}
-
-func readFixtureRoutingStateWithWorkspace(
-	t *testing.T,
-	fixture statusServiceFixture,
-	workspaceID string,
-	inputID string,
-) conversation.ConversationInputRoutingState {
-	t.Helper()
 	state, err := fixture.store.ReadConversationInputRoutingState(
 		context.Background(),
-		workspaceID,
+		fixture.workspace.ID,
 		fixture.conversationID,
 		inputID,
 	)

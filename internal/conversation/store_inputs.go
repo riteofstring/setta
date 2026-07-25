@@ -101,13 +101,14 @@ func acceptConversationInputTransaction(
 	}
 	if err := tx.QueryRowContext(ctx, `
 INSERT INTO conversation_inputs (
-  id, conversation_id, reply_to_input_id, input_text,
+  id, conversation_id, source_pane_id, reply_to_input_id, input_text,
   input_modality, status, submitted_at, accepted_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING sequence
 `,
 		input.ID,
 		input.ConversationID,
+		nullableString(input.SourcePaneID),
 		nullableString(input.ReplyToInputID),
 		input.Text,
 		input.Modality,
@@ -119,6 +120,9 @@ RETURNING sequence
 	}
 	if err := appendConversationInputAcceptedEvent(ctx, tx, accepted); err != nil {
 		return AcceptedConversationInput{}, false, err
+	}
+	if err := rebuildTopicIndexDocument(ctx, tx, input.ConversationID); err != nil {
+		return AcceptedConversationInput{}, false, fmt.Errorf("index conversation input %s: %w", input.ID, err)
 	}
 	return accepted, true, nil
 }
@@ -273,11 +277,12 @@ func readConversationInputRecord(
 	dbPath string,
 ) (conversationInputRecord, bool, error) {
 	var record conversationInputRecord
+	var sourcePaneID sql.NullString
 	var replyToInputID sql.NullString
 	var routingStartedAt sql.NullString
 	var failureJSON sql.NullString
 	err := query.QueryRowContext(ctx, `
-SELECT sequence, id, conversation_id, reply_to_input_id,
+SELECT sequence, id, conversation_id, source_pane_id, reply_to_input_id,
        input_text, input_modality, status, routing_attempt,
        routing_started_at, failure_json, submitted_at, accepted_at
 FROM conversation_inputs
@@ -286,6 +291,7 @@ WHERE id = ?
 		&record.Accepted.Sequence,
 		&record.Accepted.Input.ID,
 		&record.Accepted.Input.ConversationID,
+		&sourcePaneID,
 		&replyToInputID,
 		&record.Accepted.Input.Text,
 		&record.Accepted.Input.Modality,
@@ -302,6 +308,7 @@ WHERE id = ?
 	if err != nil {
 		return conversationInputRecord{}, false, fmt.Errorf("read conversation input %s: %w", inputID, err)
 	}
+	record.Accepted.Input.SourcePaneID = optionalScannedString(sourcePaneID)
 	record.Accepted.Input.ReplyToInputID = optionalScannedString(replyToInputID)
 	record.RoutingStartedAt = optionalScannedString(routingStartedAt)
 	if failureJSON.Valid {

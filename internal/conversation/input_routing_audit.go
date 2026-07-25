@@ -40,65 +40,19 @@ func validateRouterConversationRouteDecisionAudit(
 	if resolvedInvocation.Role != RoleNarrator || resolvedInvocation.Outcome != InvocationOutcomeSucceeded {
 		return errors.New("conversation-router decision requires a successful narrator invocation")
 	}
-	switch routerContext.DecisionAuthority {
-	case ConversationRouteDecisionAuthorityNarratorModel:
-		return validateConversationRouterModelInvocationAudit(resolvedInvocation)
-	case ConversationRouteDecisionAuthorityProductInvariant:
-		return validateConversationRouterProductInvariantAudit(
-			clarificationInputID,
-			decisionKind,
-			resolvedInvocation,
-		)
-	default:
-		return fmt.Errorf("unsupported conversation-router decision authority %q", routerContext.DecisionAuthority)
-	}
+	return validateConversationRouterInvocationAudit(resolvedInvocation)
 }
 
-func validateConversationRouterModelInvocationAudit(invocation ResolvedInvocation) error {
-	if err := validateConversationRouterPermission(invocation); err != nil {
-		return err
-	}
-	if invocation.ProviderReferences.ThreadID == nil ||
-		invocation.ProviderReferences.TurnID == nil ||
-		invocation.ProviderReferences.RequestID == nil {
-		return errors.New("conversation-router model invocation must record provider thread, turn, and request references")
-	}
-	return nil
-}
-
-func validateConversationRouterProductInvariantAudit(
-	clarificationInputID *string,
-	decisionKind ConversationRouteDecisionKind,
-	invocation ResolvedInvocation,
-) error {
-	if clarificationInputID != nil {
-		return errors.New("conversation-router product invariant cannot resolve clarification replies")
-	}
-	switch decisionKind {
-	case ConversationRouteDecisionKindSendToParent,
-		ConversationRouteDecisionKindQueueParentTurn,
-		ConversationRouteDecisionKindSteerParentTurn,
-		ConversationRouteDecisionKindClarify:
-	default:
-		return fmt.Errorf("conversation-router product invariant cannot decide %s", decisionKind)
-	}
-	if err := validateConversationRouterPermission(invocation); err != nil {
-		return err
-	}
-	if invocation.ProviderReferences.ThreadID != nil ||
-		invocation.ProviderReferences.TurnID != nil ||
-		invocation.ProviderReferences.RequestID != nil ||
-		invocation.ProviderReferences.ResponseID != nil {
-		return errors.New("conversation-router product invariant must not record provider references")
-	}
-	return nil
-}
-
-func validateConversationRouterPermission(invocation ResolvedInvocation) error {
+func validateConversationRouterInvocationAudit(invocation ResolvedInvocation) error {
 	expectedPermission := DefaultNarratorRoleProfile().PermissionProfile
 	if !equalConversationRouterPermission(invocation.Requested.PermissionProfile, expectedPermission) ||
 		!equalConversationRouterPermission(invocation.Resolved.PermissionProfile, expectedPermission) {
 		return errors.New("conversation-router invocation must use the restricted narrator permission profile")
+	}
+	if invocation.ProviderReferences.ThreadID == nil ||
+		invocation.ProviderReferences.TurnID == nil ||
+		invocation.ProviderReferences.RequestID == nil {
+		return errors.New("conversation-router invocation must record provider thread, turn, and request references")
 	}
 	return nil
 }
@@ -113,9 +67,6 @@ func equalConversationRouterPermission(left PermissionProfile, right PermissionP
 }
 
 func (audit ConversationRouteContextAudit) Validate() error {
-	if err := validateConversationRouteAuditAuthority(audit.DecisionAuthority); err != nil {
-		return err
-	}
 	if err := validateConversationRouteAuditIdentity(audit); err != nil {
 		return err
 	}
@@ -123,16 +74,6 @@ func (audit ConversationRouteContextAudit) Validate() error {
 		return err
 	}
 	return validateConversationRouteAuditAllowedKinds(audit.AllowedDecisionKinds)
-}
-
-func validateConversationRouteAuditAuthority(authority ConversationRouteDecisionAuthority) error {
-	switch authority {
-	case ConversationRouteDecisionAuthorityNarratorModel,
-		ConversationRouteDecisionAuthorityProductInvariant:
-		return nil
-	default:
-		return fmt.Errorf("unsupported conversation route decision authority %q", authority)
-	}
 }
 
 func validateConversationRouteAuditIdentity(audit ConversationRouteContextAudit) error {
@@ -213,6 +154,7 @@ func validConversationRouteDecisionKind(kind ConversationRouteDecisionKind) bool
 		ConversationRouteDecisionKindAnswerAsNarrator,
 		ConversationRouteDecisionKindCreateSideConversation,
 		ConversationRouteDecisionKindForkConversation,
+		ConversationRouteDecisionKindEscalateToMaster,
 		ConversationRouteDecisionKindClarify:
 		return true
 	default:
