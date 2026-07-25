@@ -71,6 +71,20 @@ These foundations are inputs to the cutover, not legacy contracts to preserve. S
 move, delete, or reshape them directly when pane ownership or Master terminology conflicts with the
 Director command center.
 
+### Codex protocol baseline
+
+At this review, Setta's checked-in Codex app-server protocol snapshot records upstream commit
+`2b9c05046038c038ec6bddb9db7d11394995372d`, while the local Codex reference repo is at
+`99744cfe04`. Phase 1 must refresh the checked-in protocol snapshot, record the upstream commit used,
+and regenerate affected surfaces before implementing the Director execution adapter or graph mapping.
+
+The current Codex reference adds or sharpens app metadata/read APIs, environment connection and
+status signals, exact raw response usage notifications, Guardian review and warning notifications,
+model verification and safety-buffering notifications, plugin/script attribution on command
+executions, and experimental thread realtime. These are provider adapter inputs. They do not become
+canonical Setta state unless Setta translates them into typed durable events with redaction,
+provenance, and lifecycle ownership.
+
 ## Superseded Direction
 
 For the Setta 4 client, this plan supersedes product direction in documents that assume:
@@ -315,8 +329,8 @@ must be added as typed events or records; do not fill gaps by parsing text.
 | `user_input_accepted` | `user_goal` | The input event owns the user-authored summary and starts the visible causal chain. |
 | Validated Director route decision or command | `director_decision` | The model may choose only authorized decision kinds and targets; trusted code attaches ids and capabilities. |
 | `turn_queued`, `turn_promoted`, `turn_started`, `turn_steered` | `action` status updates plus selected-workstream milestones | Queue and run state should update one durable run node rather than create noisy duplicate nodes. |
-| `plan_changed` | `plan` plus step `milestone` nodes | Current provider plan steps do not have stable ids; initial step node ids should be derived from the source event id and step index unless the contract adds step ids. |
-| `activity_started`, `activity_progressed`, `activity_completed`, `activity_failed` | `action`, `investigation`, `delegation`, or `artifact` | Map by typed activity kind: commands, hooks, MCP tools, dynamic tools, and file changes are `action`; web search and image view are `investigation`; subagents are `delegation`; generated media is `artifact`. `other` is not visible until a typed owner assigns a precise semantic kind. |
+| `plan_changed` | `plan` plus step `milestone` nodes | Current provider plan steps do not have stable ids; initial step node ids should be derived from the source event id and step index unless the contract adds step ids. Codex `PlanDelta` is a provisional live text signal only; do not create authoritative plan nodes by concatenating deltas. |
+| `activity_started`, `activity_progressed`, `activity_completed`, `activity_failed` | `action`, `investigation`, `delegation`, or `artifact` | Map by typed activity kind: commands, hooks, MCP tools, dynamic tools, and file changes are `action`; web search and image view are `investigation`; subagents are `delegation`; generated media is `artifact`. Preserve trusted plugin/script attribution as evidence metadata. `other` is not visible until a typed owner assigns a precise semantic kind. |
 | `file_change_proposed`, `file_change_completed` | `action` with file-change evidence | Approval state comes from approval events, not inferred from file diffs. |
 | `approval_requested`, `approval_resolved` | `approval_required` | Secret answers and secret fields stay redacted in public graph state. |
 | Resource request and resolution records | `resource_required` | Add explicit Director/workstream records if the current source only exposes resource needs indirectly. |
@@ -325,6 +339,34 @@ must be added as typed events or records; do not fill gaps by parsing text.
 | `model_rerouted` | `recovery` or `milestone` | Use the typed reroute reason/status; do not infer risk from surrounding text. |
 | `turn_completed`, `turn_failed`, `turn_interrupted` | `completed`, `failed`, or `cancelled` | Terminal run state closes the visible causal chain for that run. |
 | `public_reasoning_summary_updated`, `agent_message_completed` | public summaries and detail surfaces | These update accessible text and summaries; they do not create nodes by default. |
+| Normalized Codex `thread/status/changed`, environment connection notifications, and environment status reads | workstream or provider lifecycle status, `blocked`, or `recovery` | Ready, pending, and attached states update metadata. Disconnected, unknown, or unavailable states become visible nodes only when typed lifecycle state says the user or Director needs to act. |
+| Normalized Codex Guardian review, Guardian warning, model verification, and model safety-buffering notifications | `validation`, `approval_required`, `blocked`, or status update | Treat Guardian review notification payloads as unstable provider evidence behind the adapter. Durable Setta approval, validation, and recovery records own graph meaning. |
+| Codex token usage and raw response completion notifications | accounting, context, and detail-surface telemetry | These are not semantic graph nodes by default. They may update cost/context/detail surfaces with explicit redaction and provenance. |
+| Codex realtime transcript and audio notifications | live voice/transcript UI state | Transcript and audio deltas are transport state. Commit accepted user input, public assistant output, or public reasoning summaries as durable Setta events before changing semantic graph truth. |
+
+### Provider notification adapter rules
+
+The Codex adapter must translate provider notifications into Setta-owned typed events at the Director
+execution port. Raw provider payloads, provider ids, leases, response ids, and realtime session ids
+remain evidence metadata behind trusted contracts.
+
+- `PlanDelta` is experimental and explicitly non-authoritative. The completed plan item or a
+  Setta-owned `plan_changed` event owns durable plan state.
+- `ReasoningTextDelta` is private reasoning and must not be persisted, displayed, summarized into
+  graph state, or used as graph evidence. Reasoning summary notifications may update public summaries
+  only.
+- `RawResponseCompleted`, `RawResponseItemCompleted`, and `ThreadTokenUsageUpdated` are telemetry or
+  evidence inputs, not visible semantic facts by default.
+- `ContextCompactedNotification` is deprecated upstream. Prefer the durable `ContextCompaction` item
+  or a Setta-owned compaction event when deciding graph history compaction.
+- Guardian auto-review notifications are marked unstable upstream. Use them only through a narrow
+  adapter that can change without changing Setta graph contracts.
+- Environment connection and status notifications are lifecycle inputs. Ready states should stay as
+  metadata; disconnected or unavailable states become visible only through typed blocked/recovery
+  events.
+- Thread realtime notifications are useful for live voice, transcript previews, output audio, and
+  handoff state. They are not durable semantic graph state until committed through Setta's own event
+  model.
 
 ### Edge derivation
 
@@ -371,7 +413,8 @@ polling, or periodic HTTP refreshes for ordinary updates.
 The existing Setta/Codex path already has the pieces for a non-polling implementation:
 
 1. Codex exposes turn progress as stream/notification events such as turn started, item updated,
-   plan updated, and turn completed.
+   plan updated, thread status changed, environment connection changed, realtime transcript/audio
+   updates, and turn completed.
 2. `codexapp.Manager` routes provider notifications into scoped session event channels.
 3. `agent.Runtime` reads `session.Events()` and normalizes provider notifications into typed Setta
    agent events.
@@ -385,6 +428,14 @@ The existing Setta/Codex path already has the pieces for a non-polling implement
 8. The renderer loads a snapshot with its cursor, subscribes from that cursor, batches pushed events
    into projection work, and requests animation frames only while visible changes or motion require
    drawing.
+
+The current Codex reference also exposes experimental `thread/realtime/*` requests and pushed
+notifications for thread-scoped realtime sessions over WebSocket or WebRTC. Setta can use that as a
+non-polling execution-port adapter for live voice, transcript preview, output audio, and Codex
+handoff state. Because the upstream surface is experimental, it must stay behind the execution
+adapter. Realtime transcript and audio deltas may update ephemeral live UI, but semantic graph state
+changes only after Setta commits durable accepted-input, public-output, summary, lifecycle, approval,
+artifact, or recovery events.
 
 Setta 4 should extend this pattern to an app-scoped Director subscription instead of creating a new
 timer loop. The Director command center should expose:
@@ -643,25 +694,34 @@ Exit gate:
 1. Start from existing Go-owned conversation statuses, input routing decisions, turn lifecycles,
    trajectory events, approval records, artifact records, snapshots, cursors, and Master route
    decisions.
-2. Define the missing Go-owned workstream, node, edge, evidence, status, and interpretation
+2. Refresh the checked-in Codex app-server protocol snapshot from the current reference repo, record
+   the upstream commit used, and regenerate affected Go and TypeScript surfaces.
+3. Define the Codex-to-Setta provider notification adapter matrix for thread status, environment
+   connection/status, plan deltas, reasoning summaries and private reasoning, raw response usage,
+   Guardian review/warning, model verification, model safety buffering, context compaction, command
+   attribution, and thread realtime.
+4. Define the missing Go-owned workstream, node, edge, evidence, status, and interpretation
    contracts.
-3. Define lifecycle tables for workstreams, runs, queue items, approvals, resource requests,
+5. Define lifecycle tables for workstreams, runs, queue items, approvals, resource requests,
    artifacts, semantic nodes, and recovery states.
-4. Codify the initial source-fact-to-node mapping in Go-owned contracts.
-5. Define the app-scoped Director snapshot, cursor, event, and `resync_required` contracts.
-6. Identify missing typed runtime events; add explicit events instead of UI inference.
-7. Generate TypeScript surfaces.
-8. Build deterministic event histories covering every node lifecycle and live replay boundary.
-9. Implement the pure `DirectorGraphProjector`.
-10. Add replay, ordering, invalid-transition, provenance, redaction, live resync, and recovery
+6. Codify the initial source-fact-to-node mapping in Go-owned contracts.
+7. Define the app-scoped Director snapshot, cursor, event, and `resync_required` contracts.
+8. Identify missing typed runtime events; add explicit events instead of UI inference.
+9. Generate TypeScript surfaces.
+10. Build deterministic event histories covering every node lifecycle and live replay boundary.
+11. Implement the pure `DirectorGraphProjector`.
+12. Add replay, ordering, invalid-transition, provenance, redaction, live resync, and recovery
     boundary tests.
-11. Build the exhaustive node/edge visual gallery from production contract fixtures.
+13. Build the exhaustive node/edge visual gallery from production contract fixtures.
 
 Exit gate:
 
+- checked-in Codex protocol inputs are current for the implementation baseline
+- the provider notification adapter matrix is explicit and covered by fixtures
 - every displayed semantic value has a defined owner and provenance
 - replay is deterministic
 - the app-scoped live graph subscription is cursored and push-driven
+- realtime transport deltas stay behind the execution adapter until committed as durable Setta events
 - lifecycle transitions are explicit and validated
 - no graph node depends on keyword heuristics or private reasoning
 - invalid model output resolves through typed recovery policy
@@ -811,5 +871,8 @@ Setta 4 is complete when:
 3. Review the fullscreen mockup and promote any implementation-critical visual details into this
    plan.
 4. Capture the current interaction and rendering performance baseline.
-5. Start Phase 1 by extending the existing routing, trajectory, snapshot, subscription, approval,
-   artifact, and speech contracts into the Setta 4 workstream and semantic graph contracts.
+5. Refresh the Codex app-server protocol snapshot and define the Codex-to-Setta provider notification
+   adapter matrix.
+6. Start Phase 1 by extending the existing routing, trajectory, snapshot, subscription, approval,
+   artifact, speech, realtime, lifecycle, and telemetry contracts into the Setta 4 workstream and
+   semantic graph contracts.
