@@ -3,6 +3,7 @@ package controlplane
 import (
 	"context"
 	"errors"
+	"io"
 	"sync"
 	"testing"
 	"time"
@@ -339,10 +340,15 @@ func newTestReconciler(
 	maximumAttempts int,
 ) *Reconciler {
 	t.Helper()
+	observer, err := NewJSONLinesObserver(io.Discard)
+	if err != nil {
+		t.Fatalf("NewJSONLinesObserver: %v", err)
+	}
 	reconciler, err := NewReconciler(ReconcilerConfig{
 		LeaseDuration:    time.Minute,
 		MaxAttempts:      maximumAttempts,
 		OperationTimeout: 30 * time.Second,
+		Observer:         observer,
 		Provider:         provider,
 		RetryDelay:       time.Minute,
 		Store:            store,

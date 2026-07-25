@@ -55,9 +55,32 @@ type HostedAccessFailureMeasurement struct {
 	Retryable   bool                   `json:"retryable"`
 }
 
+type RuntimeAuditObservation struct {
+	AttemptCount int
+	ErrorCode    string
+	Kind         RuntimeProgressKind
+	Retryable    bool
+	StartedAt    time.Time
+	State        RuntimeProgressState
+}
+
+type RuntimeAuditMeasurement struct {
+	AttemptCount int                  `json:"attempt_count"`
+	ErrorCode    string               `json:"error_code"`
+	Event        string               `json:"event"`
+	Kind         RuntimeProgressKind  `json:"kind"`
+	Retryable    bool                 `json:"retryable"`
+	StartedAt    time.Time            `json:"started_at"`
+	State        RuntimeProgressState `json:"state"`
+}
+
 type HostedAccessObserver interface {
 	ObserveHostedAccessFailure(HostedAccessFailureObservation)
 	ObserveHostedAccessTiming(HostedAccessTiming)
+}
+
+type RuntimeAuditObserver interface {
+	ObserveRuntimeAudit(RuntimeAuditObservation)
 }
 
 type JSONLinesObserver struct {
@@ -126,6 +149,23 @@ func (observer *JSONLinesObserver) ObserveHostedAccessFailure(observation Hosted
 	})
 }
 
+func (observer *JSONLinesObserver) ObserveRuntimeAudit(observation RuntimeAuditObservation) {
+	observer.mu.Lock()
+	defer observer.mu.Unlock()
+	if observer.err != nil {
+		return
+	}
+	observer.err = observer.encoder.Encode(RuntimeAuditMeasurement{
+		AttemptCount: observation.AttemptCount,
+		ErrorCode:    observation.ErrorCode,
+		Event:        "runtime_reconciliation",
+		Kind:         observation.Kind,
+		Retryable:    observation.Retryable,
+		StartedAt:    observation.StartedAt.UTC(),
+		State:        observation.State,
+	})
+}
+
 func milliseconds(duration time.Duration) float64 {
 	return float64(duration) / float64(time.Millisecond)
 }
@@ -138,3 +178,4 @@ func (observer *JSONLinesObserver) Err() error {
 
 var _ runtimeaccess.GatewayObserver = (*JSONLinesObserver)(nil)
 var _ HostedAccessObserver = (*JSONLinesObserver)(nil)
+var _ RuntimeAuditObserver = (*JSONLinesObserver)(nil)

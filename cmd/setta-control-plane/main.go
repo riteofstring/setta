@@ -150,6 +150,7 @@ func startControlPlaneServices(
 		LeaseDuration:    defaultReconcilerLease,
 		MaxAttempts:      defaultReconcilerAttempts,
 		OperationTimeout: defaultReconcilerOperation,
+		Observer:         observer,
 		Provider:         provider,
 		RetryDelay:       defaultReconcilerRetry,
 		Store:            store,

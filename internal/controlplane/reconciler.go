@@ -20,6 +20,7 @@ type ReconcilerConfig struct {
 	LeaseDuration    time.Duration
 	MaxAttempts      int
 	OperationTimeout time.Duration
+	Observer         RuntimeAuditObserver
 	Provider         RuntimeReconcilerProvider
 	RetryDelay       time.Duration
 	Store            *Store
@@ -30,6 +31,7 @@ type Reconciler struct {
 	leaseDuration    time.Duration
 	maxAttempts      int
 	operationTimeout time.Duration
+	observer         RuntimeAuditObserver
 	provider         RuntimeReconcilerProvider
 	retryDelay       time.Duration
 	store            *Store
@@ -37,8 +39,8 @@ type Reconciler struct {
 }
 
 func NewReconciler(config ReconcilerConfig) (*Reconciler, error) {
-	if config.Store == nil || config.Provider == nil {
-		return nil, errors.New("runtime reconciler requires a store and provider")
+	if config.Store == nil || config.Provider == nil || config.Observer == nil {
+		return nil, errors.New("runtime reconciler requires a store, provider, and observer")
 	}
 	if err := validateIdentifier("reconciler worker id", config.WorkerID); err != nil {
 		return nil, err
@@ -53,6 +55,7 @@ func NewReconciler(config ReconcilerConfig) (*Reconciler, error) {
 		leaseDuration:    config.LeaseDuration,
 		maxAttempts:      config.MaxAttempts,
 		operationTimeout: config.OperationTimeout,
+		observer:         config.Observer,
 		provider:         config.Provider,
 		retryDelay:       config.RetryDelay,
 		store:            config.Store,
@@ -104,6 +107,7 @@ func (reconciler *Reconciler) reconcileProvisioningClaim(
 		}
 		return normalizeOperationError(parentCtx, operationCtx, err)
 	}
+	reconciler.observeRuntimeAudit(claim.RuntimeOperation, RuntimeProgressEnsureRuntime, RuntimeProgressProvisioned, "", false)
 	return nil
 }
 
@@ -178,13 +182,21 @@ func (reconciler *Reconciler) deferProviderFailure(
 		return nil
 	}
 	terminal := claim.AttemptCount >= reconciler.maxAttempts
-	return reconciler.store.DeferRuntimeOperation(
+	err := reconciler.store.DeferRuntimeOperation(
 		operationCtx,
 		claim,
 		errorCode,
 		claim.UpdatedAt.Add(reconciler.retryDelay),
 		terminal,
 	)
+	if err == nil {
+		state := RuntimeProgressRetrying
+		if terminal {
+			state = RuntimeProgressFailed
+		}
+		reconciler.observeRuntimeAudit(claim.RuntimeOperation, RuntimeProgressEnsureRuntime, state, errorCode, !terminal)
+	}
+	return err
 }
 
 func (reconciler *Reconciler) failOperation(
@@ -195,7 +207,17 @@ func (reconciler *Reconciler) failOperation(
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	return reconciler.store.DeferRuntimeOperation(ctx, claim, errorCode, claim.UpdatedAt, true)
+	err := reconciler.store.DeferRuntimeOperation(ctx, claim, errorCode, claim.UpdatedAt, true)
+	if err == nil {
+		reconciler.observeRuntimeAudit(
+			claim.RuntimeOperation,
+			RuntimeProgressEnsureRuntime,
+			RuntimeProgressFailed,
+			errorCode,
+			false,
+		)
+	}
+	return err
 }
 
 func (reconciler *Reconciler) reconcileDeletionClaim(
@@ -214,6 +236,15 @@ func (reconciler *Reconciler) reconcileDeletionClaim(
 	err := reconciler.store.CompleteRuntimeDeletionOperation(operationCtx, claim)
 	if errors.Is(err, ErrFenceLost) {
 		return nil
+	}
+	if err == nil {
+		reconciler.observeRuntimeAudit(
+			claim.RuntimeOperation,
+			RuntimeProgressDeleteRuntime,
+			RuntimeProgressDeleted,
+			"",
+			false,
+		)
 	}
 	return normalizeOperationError(parentCtx, operationCtx, err)
 }
@@ -260,13 +291,21 @@ func (reconciler *Reconciler) deferDeletionFailure(
 		return nil
 	}
 	terminal := claim.AttemptCount >= reconciler.maxAttempts
-	return reconciler.store.DeferRuntimeDeletionOperation(
+	err := reconciler.store.DeferRuntimeDeletionOperation(
 		operationCtx,
 		claim,
 		errorCode,
 		claim.UpdatedAt.Add(reconciler.retryDelay),
 		terminal,
 	)
+	if err == nil {
+		state := RuntimeProgressRetrying
+		if terminal {
+			state = RuntimeProgressFailed
+		}
+		reconciler.observeRuntimeAudit(claim.RuntimeOperation, RuntimeProgressDeleteRuntime, state, errorCode, !terminal)
+	}
+	return err
 }
 
 func (reconciler *Reconciler) failDeletion(
@@ -277,13 +316,40 @@ func (reconciler *Reconciler) failDeletion(
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	return reconciler.store.DeferRuntimeDeletionOperation(
+	err := reconciler.store.DeferRuntimeDeletionOperation(
 		ctx,
 		claim,
 		errorCode,
 		claim.UpdatedAt,
 		true,
 	)
+	if err == nil {
+		reconciler.observeRuntimeAudit(
+			claim.RuntimeOperation,
+			RuntimeProgressDeleteRuntime,
+			RuntimeProgressFailed,
+			errorCode,
+			false,
+		)
+	}
+	return err
+}
+
+func (reconciler *Reconciler) observeRuntimeAudit(
+	operation RuntimeOperation,
+	kind RuntimeProgressKind,
+	state RuntimeProgressState,
+	errorCode string,
+	retryable bool,
+) {
+	reconciler.observer.ObserveRuntimeAudit(RuntimeAuditObservation{
+		AttemptCount: operation.AttemptCount,
+		ErrorCode:    errorCode,
+		Kind:         kind,
+		Retryable:    retryable,
+		StartedAt:    operation.UpdatedAt,
+		State:        state,
+	})
 }
 
 func (reconciler *Reconciler) Run(ctx context.Context) error {

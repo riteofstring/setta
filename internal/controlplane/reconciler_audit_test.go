@@ -1,0 +1,140 @@
+package controlplane
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestReconcilerEmitsContentFreeRuntimeAuditOutcomes(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 24, 22, 30, 0, 0, time.UTC)
+	store := openTestStore(t, t.TempDir(), func() time.Time { return now }, RateLimit{})
+	defer store.Close()
+	request := testEnsureRuntimeRequest(t, "audit-ensure", "user-audit", "audit-runtime")
+	if _, err := store.UpsertUser(ctx, request.UserID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.EnsureRuntimeIntent(ctx, request); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	observer, err := NewJSONLinesObserver(&output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := newTestReconcilerProvider(request.RuntimeName)
+	provider.ambiguousCreate = true
+	reconciler := newObservedTestReconciler(t, store, provider, observer, 3)
+	if processed, err := reconciler.ReconcileOnce(ctx); err != nil || !processed {
+		t.Fatalf("retrying reconcile = %t, %v", processed, err)
+	}
+	operation, err := store.RuntimeOperation(ctx, request.IdempotencyKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now = operation.NextAttemptAt
+	if processed, err := reconciler.ReconcileOnce(ctx); err != nil || !processed {
+		t.Fatalf("successful reconcile = %t, %v", processed, err)
+	}
+	scheduledAt := now.Add(time.Minute)
+	if _, err := store.ScheduleRuntimeDeletion(ctx, ScheduleRuntimeDeletionRequest{
+		IdempotencyKey: "audit-delete",
+		RuntimeName:    request.RuntimeName,
+		ScheduledAt:    scheduledAt,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	now = scheduledAt
+	if processed, err := reconciler.ReconcileOnce(ctx); err != nil || !processed {
+		t.Fatalf("deletion reconcile = %t, %v", processed, err)
+	}
+	requireRuntimeAuditOutput(t, output.Bytes(), request)
+}
+
+func newObservedTestReconciler(
+	t *testing.T,
+	store *Store,
+	provider RuntimeReconcilerProvider,
+	observer RuntimeAuditObserver,
+	maximumAttempts int,
+) *Reconciler {
+	t.Helper()
+	reconciler, err := NewReconciler(ReconcilerConfig{
+		LeaseDuration:    time.Minute,
+		MaxAttempts:      maximumAttempts,
+		OperationTimeout: 30 * time.Second,
+		Observer:         observer,
+		Provider:         provider,
+		RetryDelay:       time.Minute,
+		Store:            store,
+		WorkerID:         "audit-test-worker",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return reconciler
+}
+
+func requireRuntimeAuditOutput(t *testing.T, payload []byte, request EnsureRuntimeRequest) {
+	t.Helper()
+	text := string(payload)
+	for _, forbidden := range []string{
+		request.IdempotencyKey,
+		request.RuntimeName,
+		request.UserID,
+		request.CredentialSecretRef,
+		request.UpstreamAuthority,
+		"audit-delete",
+	} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("runtime audit exposed %q: %s", forbidden, text)
+		}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	want := []RuntimeAuditMeasurement{
+		{
+			AttemptCount: 1,
+			ErrorCode:    "provider_create",
+			Event:        "runtime_reconciliation",
+			Kind:         RuntimeProgressEnsureRuntime,
+			Retryable:    true,
+			State:        RuntimeProgressRetrying,
+		},
+		{
+			AttemptCount: 2,
+			Event:        "runtime_reconciliation",
+			Kind:         RuntimeProgressEnsureRuntime,
+			State:        RuntimeProgressProvisioned,
+		},
+		{
+			AttemptCount: 1,
+			Event:        "runtime_reconciliation",
+			Kind:         RuntimeProgressDeleteRuntime,
+			State:        RuntimeProgressDeleted,
+		},
+	}
+	for index, expected := range want {
+		var measurement RuntimeAuditMeasurement
+		if err := decoder.Decode(&measurement); err != nil {
+			t.Fatalf("decode runtime audit %d: %v", index, err)
+		}
+		if measurement.AttemptCount != expected.AttemptCount ||
+			measurement.ErrorCode != expected.ErrorCode ||
+			measurement.Event != expected.Event ||
+			measurement.Kind != expected.Kind ||
+			measurement.Retryable != expected.Retryable ||
+			measurement.State != expected.State ||
+			measurement.StartedAt.IsZero() {
+			t.Fatalf("runtime audit %d = %+v, want %+v with started_at", index, measurement, expected)
+		}
+	}
+	var extra RuntimeAuditMeasurement
+	if err := decoder.Decode(&extra); err != io.EOF {
+		t.Fatalf("runtime audit trailing data = %+v, %v", extra, err)
+	}
+}

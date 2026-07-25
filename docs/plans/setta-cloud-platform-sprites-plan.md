@@ -2283,3 +2283,13 @@ Stop and reassess rather than hiding the problem if any of these occur:
   observation, ambiguous deletion retry and restart replay, strict cursor
   handling, content-free SSE payloads, and backup/restore persistence. No
   provider or cloud mutation ran.
+- 2026-07-24 (content-free reconciliation audit): Extended the shared JSONL
+  observer with post-commit provisioning and deletion reconciliation outcomes.
+  Retry, provisioned, deleted, and terminal-failure records contain only the
+  typed operation kind and state, stable error classification, retryability,
+  attempt count, and attempt start time. Deterministic tests exercise an
+  ambiguous create retry followed by adoption and deletion, verify the exact
+  outcome sequence, and reject operation, user, runtime, route, and secret
+  identifiers in output. Wake, suspension, budget-cutoff audit, typed
+  intervals, workload leases, and hard budget enforcement remain open under
+  the combined Phase 5 checklist item. No provider or cloud mutation ran.

@@ -122,6 +122,13 @@ only after the transaction commits; reconnects replay from SQLite without
 polling. Progress contains operation state, stable error codes, retryability,
 and timestamps, but no user, runtime, provider, or Sprite identifiers.
 
+The reconciler projects committed provisioning and deletion outcomes to the
+shared JSONL observer. These content-free audit records identify only the
+operation kind, typed outcome, stable error classification, retryability,
+attempt number, and attempt start time. User, runtime, operation, route,
+credential, and provider-resource identifiers remain exclusively in durable
+control-plane state and are not copied into operational output.
+
 The 2026-07-24 extension persists provider-neutral hosted-access intents,
 requested capability rows, and ordered progress events. The private Unix
 administration boundary accepts strict intent JSON and exposes cursor-resumable
