@@ -115,6 +115,8 @@ Folderless route targets must support at least:
 
 ### 1. Replace Workspace-Only Candidate Contracts
 
+**Repository status:** Implemented.
+
 Replace the candidate/index contract so a topic card has an explicit resource scope instead of a
 required `workspaceId`.
 
@@ -125,11 +127,14 @@ Required changes:
 - Replace `StoredTopicCard.WorkspaceID string` with a typed resource scope.
 - Update validation so folderless topic cards are valid.
 - Keep deterministic ordering, recency limits, excerpt limits, and open-pane metadata.
-- Regenerate generated TypeScript surfaces if contract generation is affected.
+- Regenerate generated TypeScript surfaces if contract generation is affected. No generated
+  TypeScript surface was affected by this internal contract.
 
 Do not keep `workspaceIds` as an alias.
 
 ### 2. Index Folderless Conversations
+
+**Repository status:** Implemented.
 
 Change topic index rebuilding so folderless conversations produce searchable topic cards.
 

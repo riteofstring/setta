@@ -48,9 +48,8 @@ func TestTopicIndexSearchesAuthoritativeConversationInputsAndNarration(t *testin
 	seedTopicIndexPaneBinding(t, store, seed.conversation)
 
 	requestMatches := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
-		Query:        "nebula",
-		WorkspaceIDs: []string{},
-		Limit:        5,
+		Query: "nebula",
+		Limit: 5,
 	})
 	if len(requestMatches) != 1 {
 		t.Fatalf("request matches = %+v, want one", requestMatches)
@@ -65,9 +64,8 @@ func TestTopicIndexSearchesAuthoritativeConversationInputsAndNarration(t *testin
 	}
 
 	summaryMatches := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
-		Query:        "aurora",
-		WorkspaceIDs: []string{},
-		Limit:        5,
+		Query: "aurora",
+		Limit: 5,
 	})
 	if len(summaryMatches) != 1 || len(summaryMatches[0].Card.RecentFinalSummaries) != 1 ||
 		summaryMatches[0].Card.RecentFinalSummaries[0].Text != "The aurora release is complete and verified." {
@@ -75,6 +73,54 @@ func TestTopicIndexSearchesAuthoritativeConversationInputsAndNarration(t *testin
 	}
 	if summaryMatches[0].LexicalRank == nil {
 		t.Fatal("full-text result has no lexical rank")
+	}
+}
+
+func TestTopicIndexSearchesFolderlessConversations(t *testing.T) {
+	store := newTestStore(t)
+	conversation := seedFolderlessTopicIndexConversation(
+		t,
+		store,
+		"conversation-index-folderless",
+		"Folderless route card",
+		"recent question about what folder am I in",
+		"2026-07-13T18:00:00Z",
+	)
+	input := validConversationInput("input-topic-index-folderless")
+	input.ConversationID = conversation.ID
+	input.Text = "What folder am I in?"
+	input.SubmittedAt = "2026-07-13T18:00:01Z"
+	if _, err := store.AcceptConversationInput(context.Background(), input, "2026-07-13T18:00:02Z"); err != nil {
+		t.Fatalf("AcceptConversationInput: %v", err)
+	}
+
+	matches := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
+		Query: "folder",
+		Scope: conversationindex.CandidateScopeFilter{
+			IncludeFolderless: true,
+		},
+		Limit: 5,
+	})
+	if len(matches) != 1 || matches[0].Card.ConversationID != conversation.ID {
+		t.Fatalf("folderless matches = %+v, want %s", matches, conversation.ID)
+	}
+	card := matches[0].Card
+	if card.ResourceScope.Kind != conversationindex.ResourceScopeKindFolderless ||
+		card.ResourceScope.Folder != nil ||
+		len(card.RecentUserRequests) != 1 ||
+		card.RecentUserRequests[0].Text != input.Text {
+		t.Fatalf("folderless card = %+v", card)
+	}
+
+	folderOnly := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
+		Query: "folder",
+		Scope: conversationindex.CandidateScopeFilter{
+			FolderResourceWorkspaceIDs: []string{"workspace-a"},
+		},
+		Limit: 5,
+	})
+	if len(folderOnly) != 0 {
+		t.Fatalf("folder-only matches included folderless card: %+v", folderOnly)
 	}
 }
 
@@ -141,16 +187,14 @@ func TestTopicIndexUsesRoutedTurnIdentityAndPreservesRepeatedRequests(t *testing
 	})
 
 	rewrittenMatches := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
-		Query:        "nebula",
-		WorkspaceIDs: []string{},
-		Limit:        5,
+		Query: "nebula",
+		Limit: 5,
 	})
 	if len(rewrittenMatches) != 0 {
 		t.Fatalf("routed agent rewrite leaked into recent user requests: %+v", rewrittenMatches)
 	}
 	recent := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
-		WorkspaceIDs: []string{},
-		Limit:        5,
+		Limit: 5,
 	})
 	if len(recent) != 1 {
 		t.Fatalf("recent candidates = %+v, want one", recent)
@@ -187,8 +231,7 @@ INSERT INTO pane_bindings (
 	}
 
 	candidates := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
-		WorkspaceIDs: []string{},
-		Limit:        5,
+		Limit: 5,
 	})
 	if len(candidates) != 1 {
 		t.Fatalf("pane candidates = %+v, want one", candidates)
@@ -235,17 +278,18 @@ func TestTopicIndexBoundsGlobalRetrievalWithWorkspaceAndRecencyFilters(t *testin
 	updateTopicIndexConversation(t, store, archived, "archive-indexed-topic")
 
 	recent := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
-		WorkspaceIDs: []string{},
-		Limit:        1,
+		Limit: 1,
 	})
 	if len(recent) != 1 || recent[0].Card.ConversationID != newer.ID || recent[0].LexicalRank != nil {
 		t.Fatalf("bounded recent candidates = %+v", recent)
 	}
 
 	workspaceMatches := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
-		Query:        "retrieval",
-		WorkspaceIDs: []string{*older.WorkspaceID},
-		Limit:        5,
+		Query: "retrieval",
+		Scope: conversationindex.CandidateScopeFilter{
+			FolderResourceWorkspaceIDs: []string{*older.WorkspaceID},
+		},
+		Limit: 5,
 	})
 	if len(workspaceMatches) != 1 || workspaceMatches[0].Card.ConversationID != older.ID {
 		t.Fatalf("workspace matches = %+v", workspaceMatches)
@@ -254,7 +298,6 @@ func TestTopicIndexBoundsGlobalRetrievalWithWorkspaceAndRecencyFilters(t *testin
 	updatedSince := "2026-07-13T18:01:00Z"
 	recentMatches := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
 		Query:        "retrieval",
-		WorkspaceIDs: []string{},
 		UpdatedSince: &updatedSince,
 		Limit:        5,
 	})
@@ -263,9 +306,8 @@ func TestTopicIndexBoundsGlobalRetrievalWithWorkspaceAndRecencyFilters(t *testin
 	}
 
 	punctuationOnly := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
-		Query:        "...///",
-		WorkspaceIDs: []string{},
-		Limit:        5,
+		Query: "...///",
+		Limit: 5,
 	})
 	if len(punctuationOnly) != 0 {
 		t.Fatalf("punctuation-only matches = %+v, want none", punctuationOnly)
@@ -296,9 +338,8 @@ func TestTopicIndexReconciliationRestoresDerivedProjection(t *testing.T) {
 		t.Fatalf("ReconcileTopicIndex: %v", err)
 	}
 	matches := retrieveTopicCandidates(t, store, conversationindex.CandidateRequest{
-		Query:        "lighthouse",
-		WorkspaceIDs: []string{},
-		Limit:        5,
+		Query: "lighthouse",
+		Limit: 5,
 	})
 	if len(matches) != 1 || matches[0].Card.Title != conversation.Title {
 		t.Fatalf("reconciled matches = %+v", matches)
@@ -323,8 +364,7 @@ func TestTopicIndexRetrievalReportsMalformedProjection(t *testing.T) {
 		t.Fatalf("corrupt topic index card: %v", err)
 	}
 	_, err := store.RetrieveTopicCandidates(context.Background(), conversationindex.CandidateRequest{
-		WorkspaceIDs: []string{},
-		Limit:        5,
+		Limit: 5,
 	})
 	if !IsCorruptStateError(err) {
 		t.Fatalf("malformed topic index error = %T %v, want CorruptStateError", err, err)
@@ -365,6 +405,42 @@ func seedTopicIndexConversation(
 	})
 	if err != nil {
 		t.Fatalf("seed indexed topic %s: %v", conversationID, err)
+	}
+	return conversation
+}
+
+func seedFolderlessTopicIndexConversation(
+	t *testing.T,
+	store *Store,
+	conversationID string,
+	title string,
+	descriptor string,
+	updatedAt string,
+) TopicConversation {
+	t.Helper()
+	conversation := TopicConversation{
+		ID:              conversationID,
+		Title:           title,
+		TopicDescriptor: descriptor,
+		Status:          ConversationStatusIdle,
+		CreatedAt:       "2026-07-13T17:00:00Z",
+		UpdatedAt:       updatedAt,
+	}
+	_, err := store.Transact(context.Background(), "seed folderless indexed topic", func(transaction *WriteTransaction) error {
+		if err := transaction.InsertConversation(conversation); err != nil {
+			return err
+		}
+		_, err := transaction.AppendCommittedEvent(CommittedEventDraft{
+			ID:          "folderless-indexed-topic-created:" + conversationID,
+			StreamID:    "conversation:" + conversationID,
+			Kind:        "conversation.updated",
+			Payload:     conversation,
+			CommittedAt: updatedAt,
+		})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("seed folderless indexed topic %s: %v", conversationID, err)
 	}
 	return conversation
 }
