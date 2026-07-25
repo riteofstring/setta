@@ -18,9 +18,10 @@ measurements and Phase 3 comparison budgets remain deferred per
 `docs/plans/morning-decisions-20260717.md` while the end-to-end cloud UX
 viability path is proved.
 
-**Branch:** `setta-3-sprites`, created from `setta-3` at `92702eb7c` (the new
-Setta). Previous home: `setta-3-cloud-platform`, created from the old
-`setta-3` at `de4bae2e4`.
+**Branch:** `setta-3-sprites-development`, created from the pushed
+`setta-3-sprites` preserved baseline at `c8254b1f2`. The baseline branch was
+created from `setta-3` at `92702eb7c` (the new Setta). Previous home:
+`setta-3-cloud-platform`, created from the old `setta-3` at `de4bae2e4`.
 
 **Worktree:** `/Users/jeff/Documents/_projects/setta.setta-3-sprites`,
 created with the repository's `worktree.sh` script.
@@ -33,6 +34,79 @@ created with the repository's `worktree.sh` script.
   re-baseline section.
 - `setta-3-cloud-runs-2` remains historical design evidence only. Its
   reusable commits were already absorbed into `setta-3-cloud-platform`.
+
+## 2026-07-24 Development-First Continuation
+
+Owner direction: finish Sprites as a working standalone reference before any
+attempt to merge current `setta-3` into it.
+
+`setta-3-sprites` at `c8254b1f2` is the preserved and pushed baseline.
+`setta-3-sprites-development` is the active continuation branch. Do not merge
+`setta-3`, create a `setta-3-sprites-integration` branch, or begin Setta 4
+ports until the working-state gate below is complete or the owner explicitly
+changes the sequence.
+
+### Current objective
+
+Complete and prove the existing Sprites-first hosted runtime path:
+
+1. preserve the provider-neutral runtime, credential, install, backup,
+   accounting, lease, capability, setup, and conformance packages
+2. complete the bounded Candidate B hosted control-plane lifecycle
+3. prove runtime bootstrap and authenticated HTTP/SSE conversation behavior
+4. prove steering, cancellation, restart/replay, revocation, failure, and
+   cleanup behavior through production paths
+5. record content-free performance, reliability, placement, and cost evidence
+6. freeze and push one reproducible working reference
+
+Frontend redesign, Niri removal, Director UI work, and `setta-3` reconciliation
+remain outside this branch.
+
+### Working-state gate
+
+Sprites is in a working state when:
+
+- the deterministic offline provider and hosted lifecycle suites pass
+- one explicitly authorized disposable live run provisions the exact bounded
+  resources, installs and pairs the signed runtime, serves the Candidate B
+  gateway, completes the fixed HTTP/SSE lifecycle workload, and tears down
+- independent final inventories prove that every run-owned Sprite, Fly
+  Machine, volume, App, grant, and local credential copy is absent
+- live evidence contains no credential values or user conversation content
+- local and hosted runtime behavior passes the relevant shared conformance
+  contracts
+- production Electron conversation workflows remain green for every touched
+  lifecycle seam
+- actual resource placement, timing, relayed bytes, failure observations, and
+  cost inputs are recorded in append-only reports
+- the branch has a clean, pushed checkpoint suitable for later reference or
+  selective ports
+
+### Immediate boundary
+
+The offline implementation is already complete through the full hosted
+coordinator and Candidate B workload. The previous authorized live attempt
+stopped during Fly registry publication before it created a Machine, volume,
+Sprite, secret, or workload.
+
+The next live boundary begins with a fresh, time-bounded owner authorization
+and exact Fly organization/region selection. It then creates the one allowed
+volume, Machine, and private Sprite; bootstraps the paired runtime; executes the
+fixed lifecycle workload; and enters cleanup before the reserved teardown
+window.
+
+Do not begin that mutation from standing credentials or infer a Fly
+organization. A live continuation requires:
+
+- a newly valid authorization manifest
+- explicit Fly organization slug and region
+- separate short-lived Fly mutation and read-only inventory credentials
+- a short-lived Sprites organization credential
+- the existing spend cap, mutation limit, teardown reserve, and cleanup
+  deadline
+
+No OpenAI API key is required. Live Codex verification uses the existing
+ChatGPT-authenticated Codex CLI and must not use `OPENAI_API_KEY`.
 
 ## Authority and Superseded Direction
 
