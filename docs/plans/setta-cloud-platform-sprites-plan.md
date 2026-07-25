@@ -1395,7 +1395,7 @@ lose mutation intent, suspension, or budget enforcement.
   do not expose a scheduler or runtime-sizing UI.
 - [ ] Publish typed Director progress such as preparing access, syncing the
   project, ready on phone, needs attention, suspended, and exporting.
-- [ ] Keep provider names, machine sizes, endpoints, pairing, wake controls,
+- [x] Keep provider names, machine sizes, endpoints, pairing, wake controls,
   and runtime selection out of the ordinary client contract.
 - [ ] Preserve an internal diagnostics surface for support and development.
 - [ ] Define who pays for model usage; implement the Codex installation,
