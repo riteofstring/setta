@@ -55,8 +55,9 @@
   #nodeLabels { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
   .nlabel { position: absolute; transform: translateX(-50%); max-width: 300px; font: 12px/1.4 var(--sans); letter-spacing: 0.01em; text-align: center;
     padding: 3px 9px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    background: color-mix(in oklch, var(--bg) 86%, transparent); }   /* solid tint (no backdrop-filter: it recomputes every frame over the canvas) */
+    background: color-mix(in oklch, var(--bg) 86%, transparent); transition: opacity 0.28s ease; }   /* solid tint (no backdrop-filter); opacity animates the show->fade */
   .nl-user { color: var(--accent-teal); border: 1px solid color-mix(in oklch, var(--accent-teal) 30%, transparent); }
+  .nl-reason { color: var(--muted); border: 1px solid var(--border); font-size: 11.5px; max-width: 260px; }
   .nlabel.nl-sticky { z-index: 9; background: color-mix(in oklch, var(--bg) 90%, transparent); border-color: color-mix(in oklch, var(--accent-teal) 55%, transparent); box-shadow: 0 6px 18px rgba(0,0,0,0.55); transition: top 120ms ease-out; }
   /* outcome summary: floats over the ✓/✗ node, mark on the left, click to expand the full result */
   .nl-outcome { transform: translate(-50%, -50%); pointer-events: auto; display: inline-flex; align-items: baseline; gap: 7px;
@@ -212,7 +213,9 @@
   <div class="grp"><span>collapse</span>
     <button data-cm="off">off</button><button data-cm="ladder" class="on">ladder</button><button data-cm="focus">focus</button><button data-cm="implode">implode</button>
   </div>
-  <div class="grp"><label><input type="checkbox" id="labelsToggle" checked /> labels</label></div>
+  <div class="grp"><span>labels</span>
+    <button data-lm="auto" class="on">auto</button><button data-lm="show">show</button><button data-lm="off">off</button>
+  </div>
   <div class="grp"><span>pattern</span>
     <button data-pat="0" class="on">halftone</button><button data-pat="1">bayer</button><button data-pat="2">hatch</button>
   </div>
@@ -223,7 +226,7 @@
     <button data-pm="0" class="on">emit</button><button data-pm="1">orbit</button>
   </div>
   <div class="grp"><span>field</span>
-    <button data-bg="0" class="on">points</button><button data-bg="1">fluid</button>
+    <button data-bg="0">points</button><button data-bg="1" class="on">fluid</button>
   </div>
   <div class="grp"><label><input type="checkbox" id="scan" /> scanline</label></div>
   <div class="grp"><label><input type="checkbox" id="listen" /> listen</label></div>
@@ -270,7 +273,7 @@ const STEP=0.20, POP=0.38, FAIL_DELAY=1.1;
 const RESP_H=0.34, TURN_GAP=0.42;          // expanded spacing: reason->response gap, and gap after an open turn
 const COLLAPSE_GAP=0.18;                    // folded gap between outcome nodes (room for the question label under each)
 let INTERVAL=5.5, DEAD_INTERVAL=4.0;   // node dwell (driven by the speed slider, default slowest); animation durations stay fixed
-let collapseMode='ladder', showLabels=true, bgStyle=0;   // dev-panel variations on the collapse-into-a-ladder idea
+let collapseMode='ladder', labelMode='auto', bgStyle=1;   // dev-panel variations; fluid field is the default now
 function laneOffsets(K){if(K<=1)return[0];const s=0.30,st=-(K-1)/2*s,o=[];for(let i=0;i<K;i++)o.push(st+i*s);return o;}
 
 // A conversation is a THREAD of turns. Each turn is user-input node -> live reasoning graph -> final
@@ -469,6 +472,7 @@ void main(){
   float core=smoothstep(0.0,0.34,r);             // 0 at centre -> 1 toward the rim
   float bodyCore=disc*mix(0.07,1.0,core);        // solid disc that fades to near-black in the middle
   float body=mix(disc, bodyCore, v_isCore);
+  float baseCol=1.1;                             // nodes brighter so they sit clearly on top of the field
   if(v_ecl>0.001){                               // failure: a dark disc eclipses the red node, leaving a red corona/crescent
     vec2 sc=(gl_PointCoord-0.5)*2.0 + vec2(0.10,0.16)*v_ecl;
     float sd=length(sc), shR=0.30+v_ecl*0.30;
@@ -477,8 +481,8 @@ void main(){
     body=mix(body, disc*(1.0-inSh)+disc*rim, v_ecl);
     col=mix(col, vec3(1.0,0.52,0.44), rim*v_ecl*0.9);   // hot corona rim
   }
-  float a=v_alpha*(glow*(0.24+v_recent*0.18)*(1.0-v_isCore*0.9)+body*(1.05+v_recent*0.55));
-  col*=(0.8+v_active*0.35+v_hover*0.6);
+  float a=v_alpha*(glow*(0.26+v_recent*0.2)*(1.0-v_isCore*0.9)+body*(1.4+v_recent*0.6));
+  col*=(baseCol+v_active*0.35+v_hover*0.6);
   o=vec4(col*a,a);
 }`;
 
@@ -532,7 +536,7 @@ void main(){
   float dash=0.5+0.5*step(0.5,fract(v_along*13.0 - u_time*1.4));    // signal dashes
   float lead=smoothstep(grow-0.16, grow, v_along)*drawn;           // bright pulse riding the growing tip
   col=mix(col, vec3(0.92,0.98,1.0), lead*0.7);
-  float a=drawn*(0.34+v_recent*0.28)*dash*(1.0+v_failP*0.8) + lead*(0.75+v_recent*0.5);
+  float a=drawn*(0.52+v_recent*0.34)*dash*(1.0+v_failP*0.8) + lead*(0.9+v_recent*0.5);
   float elec=clamp(v_arrive*(0.4+0.6*sin(v_along*72.0 - u_time*66.0))*step(0.4,fract(v_along*15.0+u_time*11.0)),0.0,1.0)*drawn;  // success -> green electrical current
   col=mix(col, vec3(0.72,1.0,0.82), elec*0.9);
   a += elec*(0.85+v_recent*0.5);
@@ -686,7 +690,8 @@ void main(){
   p=fract(p);
   gl_Position=vec4(p.x*2.0-1.0 + u_xshift*(0.35+depth*0.55), p.y*2.0-1.0, 0.0,1.0);   // field slides on thread switch (parallax by depth)
   gl_PointSize=mix(5.0+layer*6.2, 7.0+layer*5.5, fl)*u_dpr;                            // big enough to survive the halftone; fluid stays modest
-  v_a=(0.46+layer*0.52)*(0.8+0.2*sin(u_time*1.1+seed*44.0))*mix(1.0,0.72,fl);          // brighter + steadier shimmer so the field reads clearly
+  float centerDim=smoothstep(0.04,0.24,abs(p.x-0.5));                                  // darker central column so nodes/edges have contrast
+  v_a=(0.46+layer*0.52)*(0.8+0.2*sin(u_time*1.1+seed*44.0))*mix(1.0,0.72,fl)*(0.34+0.66*centerDim);   // brighter + steadier, cleared behind the ladder
   v_t=seed;
 }`;
 const BG_FS=`#version 300 es
@@ -753,35 +758,41 @@ function rebuild(){
   g._IC=new Float32Array(g.nodes.length*6*10); g.icCount=g.nodes.length*6;
   layout(0); updateSceneBuffers(); buildNodeLabels();
 }
-// floating transcript labels riding the user + response nodes (the ladder reads as a chat)
+// unified node labels: one system for every node — show the text, then fade out to just the icon (configurable)
 function buildNodeLabels(){ const c=document.getElementById('nodeLabels'); if(!c) return; c.innerHTML='';
+  const mk=(cls,txt)=>{ const e=document.createElement('div'); e.className=cls; e.textContent=txt; c.appendChild(e); return e; };
   for(const T of g.turns){
-    const u=document.createElement('div'); u.className='nlabel nl-user'; u.textContent=g.nodes[T.userId].label;
-    const r=document.createElement('div'); r.className='nlabel nl-outcome '+(T.fail?'nl-fail':'nl-ok');
+    g.nodes[T.userId].labelEl = mk('nlabel nl-user', g.nodes[T.userId].label);
+    for(const rid of T.reasonIds) g.nodes[rid].labelEl = mk('nlabel nl-reason', g.nodes[rid].label);
+    const r=g.nodes[T.respId]; const pill=document.createElement('div'); pill.className='nlabel nl-outcome '+(T.fail?'nl-fail':'nl-ok');
     const mark=document.createElement('span'); mark.className='nl-mark'; mark.textContent=T.fail?'✕':'✓';
-    const sum=document.createElement('span'); sum.className='nl-sum'; sum.textContent=g.nodes[T.respId].label;
-    r.append(mark,sum);
-    r.addEventListener('click',ev=>{ ev.stopPropagation(); r.classList.toggle('expanded'); });   // expand the full result summary
-    c.appendChild(u); c.appendChild(r); T.uLabel=u; T.rLabel=r; } }
-const STICKY_TOP=58;
-function posLabel(el,n,opts){ opts=opts||{}; if(!el) return; if(growT<n.born){ el.style.display='none'; return; }
-  const s0=screenOf(n); const s=warpToScreen(s0.x,s0.y);          // match the CRT barrel so labels stay pinned as you scroll
-  if(opts.over){                                                  // result summary: centered over the outcome node
-    if(growT<n.born+0.9 || s0.y<-70||s0.y>innerHeight+100){ el.style.display='none'; return; }   // let the birth firework/eclipse play first
-    el.style.display='inline-flex'; el.style.left=Math.round(s.x)+'px'; el.style.top=Math.round(s.y)+'px'; return; }   // inline-flex so the summary ellipsizes
-  const d=nodeCssDiam(n); let top=s.y+d*0.5+13, sticky=false;     // question: just below the node
-  if(opts.sticky && top<STICKY_TOP){ top=STICKY_TOP; sticky=true; }   // pin the current question at the top while looking back
-  el.classList.toggle('nl-sticky',sticky);
-  if(!sticky && (s0.y<-60||s0.y>innerHeight+90)){ el.style.display='none'; return; }
-  el.style.display=el.classList.contains('nl-outcome')?'inline-flex':'block'; el.style.left=Math.round(s.x)+'px'; el.style.top=Math.round(top)+'px'; }
-function updateNodeLabels(){ const c=document.getElementById('nodeLabels'); if(!c||!g.turns) return;
-  c.style.display=showLabels?'block':'none'; if(!showLabels) return;
-  let latest=null; for(const T of g.turns){ if(growT>=g.nodes[T.userId].born) latest=T; }   // the active turn's question sticks
-  for(const T of g.turns){ const U=g.nodes[T.userId];
-    if(U.alpha>0.35) posLabel(T.uLabel,U,{sticky:T===latest});                  // question: only while the turn is expanded
-    else if(T.uLabel){ T.uLabel.style.display='none'; T.uLabel.classList.remove('nl-sticky'); }
-    if(T.rLabel) T.rLabel.classList.toggle('nl-below',T.fail);
-    posLabel(T.rLabel,g.nodes[T.respId],T.fail?{}:{over:true}); } }             // success over the node; failure below (eclipse stays visible)
+    const sum=document.createElement('span'); sum.className='nl-sum'; sum.textContent=r.label;
+    pill.append(mark,sum);
+    pill.addEventListener('click',ev=>{ ev.stopPropagation(); pill.classList.toggle('expanded'); });   // expand the full result summary
+    c.appendChild(pill); r.labelEl=pill; T.uLabel=g.nodes[T.userId].labelEl; T.rLabel=pill; } }
+const STICKY_TOP=58, FADE_SPAN=0.42;
+function labelOpacity(n){ if(labelMode==='off') return 0; if(labelMode==='show') return 1; if(hovered===n) return 1;
+  return Math.max(0, Math.min(1, 1-(autoCam-n.worldY)/FADE_SPAN)); }   // auto: fade to just the icon as the flow moves past
+function placeNodeLabel(n, el, place, opts){ opts=opts||{}; if(!el) return;
+  let op = opts.question ? (labelMode==='off'?0:(hovered===n?1:1)) : labelOpacity(n);   // question stays while its turn is expanded; others auto-fade
+  if(growT<n.born+(opts.delay||0)) op=0;                              // wait for birth (+ effects)
+  if(opts.hideIfFolded && n.alpha<0.35) op=0;                         // question hidden once the turn folds
+  const s0=screenOf(n);
+  if(op<0.02 || s0.y<-70||s0.y>innerHeight+100){ el.style.display='none'; el.classList.remove('nl-sticky'); return; }
+  const s=warpToScreen(s0.x,s0.y), d=nodeCssDiam(n), out=el.classList.contains('nl-outcome');
+  let top, tf='translateX(-50%)';
+  if(place==='over'){ top=s.y; tf='translate(-50%,-50%)'; }
+  else { top=s.y+d*0.5+13; let sticky=false;
+    if(opts.sticky && top<STICKY_TOP){ top=STICKY_TOP; sticky=true; } el.classList.toggle('nl-sticky',sticky); }
+  el.style.display = out?'inline-flex':'block';
+  el.style.opacity = op.toFixed(3);
+  el.style.left=Math.round(s.x)+'px'; el.style.top=Math.round(top)+'px'; el.style.transform=tf; }
+function updateNodeLabels(){ if(!g.turns) return;
+  let latest=null; for(const T of g.turns){ if(growT>=g.nodes[T.userId].born) latest=T; }   // the active turn's question sticks at the top
+  for(const T of g.turns){
+    placeNodeLabel(g.nodes[T.userId], T.uLabel, 'below', {question:true, sticky:T===latest, hideIfFolded:true});
+    for(const rid of T.reasonIds){ const rn=g.nodes[rid]; placeNodeLabel(rn, rn.labelEl, 'below', {hideIfFolded:true}); }   // reason labels only while the turn is expanded
+    placeNodeLabel(g.nodes[T.respId], T.rLabel, T.fail?'below':'over', {delay:0.9}); } }   // success over the node; failure below (eclipse stays visible)
 // dynamic layout: reasoning graph compresses into the user/AI ladder as each turn folds (open 1->0)
 function layout(dt){
   const started=g.turns.filter(T=>growT>=g.nodes[T.userId].born);
@@ -826,7 +837,7 @@ function updateSceneBuffers(){
   gl.bindBuffer(gl.ARRAY_BUFFER,icBuf);gl.bufferData(gl.ARRAY_BUFFER,IC,gl.DYNAMIC_DRAW);icVaoSetup();
 }
 document.querySelectorAll('[data-cm]').forEach(b=>b.onclick=()=>{collapseMode=b.dataset.cm;sceneDirty=true;document.querySelectorAll('[data-cm]').forEach(x=>x.classList.toggle('on',x===b));});
-document.getElementById('labelsToggle').onchange=e=>showLabels=e.target.checked;
+document.querySelectorAll('[data-lm]').forEach(b=>b.onclick=()=>{labelMode=b.dataset.lm;document.querySelectorAll('[data-lm]').forEach(x=>x.classList.toggle('on',x===b));});
 document.querySelectorAll('[data-bg]').forEach(b=>b.onclick=()=>{bgStyle=parseInt(b.dataset.bg);document.querySelectorAll('[data-bg]').forEach(x=>x.classList.toggle('on',x===b));});
 document.querySelectorAll('[data-pat]').forEach(b=>b.onclick=()=>{pattern=parseInt(b.dataset.pat);document.querySelectorAll('[data-pat]').forEach(x=>x.classList.toggle('on',x===b));});
 document.querySelectorAll('[data-px]').forEach(b=>b.onclick=()=>{ditherPx=parseFloat(b.dataset.px);document.querySelectorAll('[data-px]').forEach(x=>x.classList.toggle('on',x===b));});
@@ -861,19 +872,13 @@ function placeReticle(el,n){ if(!n||growT<n.born){el.style.display='none';return
   if(s0.y<-60||s0.y>innerHeight+60){el.style.display='none';return;} const s=warpToScreen(s0.x,s0.y);
   const d=nodeCssDiam(n)+16; el.style.display='block'; el.style.left=s.x+'px'; el.style.top=s.y+'px'; el.style.width=d+'px'; el.style.height=d+'px'; }
 function activeNode(){ let best=null,bb=-1; for(const n of g.nodes){ if(growT>=n.born&&growT<n.settleAt&&n.born>bb){bb=n.born;best=n;} } return best; }
+// hovering a node peeks its label back to full opacity (the label system replaces the old tooltip)
 function updateHover(){
-  if(switching){tip.style.display='none';hovered=null;return;}
+  if(switching){hovered=null;return;}
   let best=null,bd=40;
-  if(mouse.on){ for(const n of g.nodes){if(growT<n.born)continue;const s=screenOf(n);if(s.y<-40||s.y>innerHeight+40)continue;
-    const d=Math.hypot(s.x-mouse.x,s.y-mouse.y);if(d<bd){bd=d;best={n,s};}} }
-  hovered = best?best.n:null;
-  const target = best? best.n : selected;
-  if(target){ const s0=best?best.s:screenOf(target); const s=warpToScreen(s0.x,s0.y);
-    tip.style.display='block'; tip.style.left=s.x+'px'; tip.style.top=(s.y - nodeCssDiam(target)*0.5 - 12)+'px';   // just above the node's top edge
-    const chip=`<span class="chip" style="color:${MODE_COLORS[target.mode]};background:${MODE_COLORS[target.mode]}"></span>`;
-    const extra=target.why?` <span class="alt">✕ ${target.why}</span>`:(target.alts&&target.alts.length?` <span class="alt">▸ ${target.alts.join(' · ')}</span>`:'');
-    tip.innerHTML=`${chip}<span class="k">${MODE_NAME[target.mode]}</span> &nbsp;<b>${target.label}</b>${extra}`;
-  } else tip.style.display='none';
+  if(mouse.on){ for(const n of g.nodes){if(growT<n.born||n.alpha<0.15)continue;const s=screenOf(n);if(s.y<-40||s.y>innerHeight+40)continue;
+    const d=Math.hypot(s.x-mouse.x,s.y-mouse.y);if(d<bd){bd=d;best=n;}} }
+  hovered = best;
 }
 
 rebuild();resize();
