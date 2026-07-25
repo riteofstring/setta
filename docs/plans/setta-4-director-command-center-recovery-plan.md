@@ -13,6 +13,17 @@ Reference recording:
 
 - `.recordings/20260725T211050Z`
 
+Product vision source:
+
+- [`docs/mockups/fullscreen_conversation_concept.html`](../mockups/fullscreen_conversation_concept.html)
+
+The mockup is not a mood board. It spells out the product vision. Recovery work must make the
+production app deliver that vision: a fullscreen command center where the Director is the distinct
+command layer, workstreams are visible graph entities, and live agent activity is the primary visual
+subject. The implementation may replace mockup-only demo data with real typed Setta state, but it
+should not reinterpret the mockup as a generic chat UI, a passive ambient canvas, or a pane
+replacement.
+
 ## Current Failure
 
 The latest recording shows the app has not reached the intended experience.
@@ -332,4 +343,3 @@ This recovery plan is complete when:
 - Showing raw provider packets or hidden chain-of-thought.
 - Making web/native content a primary requirement.
 - Treating ambient canvas motion as the graph visualization.
-
