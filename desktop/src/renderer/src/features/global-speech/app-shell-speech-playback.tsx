@@ -1,45 +1,29 @@
 import type { SettaAPI } from "@shared/types";
-import {
-  createContext,
-  type ReactNode,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useState } from "react";
 
 import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
 import {
   AppShellSpeechPlaybackController,
   type SpeechPlaybackControllerDependencies,
-  type SpeechPlaybackSnapshot,
 } from "./app-shell-speech-playback-controller";
 import { selectDesktopVoiceOutputProvider } from "./desktop-speech-provider-coordinator";
 import { createLocalMacOSSpeechOutputProvider } from "./local-macos-speech-output-provider";
 import { createOpenAIBackendSpeechOutputProvider } from "./openai-speech-output-provider";
 import type { VoiceOutputProvider } from "./voice-provider-boundary";
 
-interface AppShellSpeechPlaybackContextValue {
-  controller: AppShellSpeechPlaybackController;
-  snapshot: SpeechPlaybackSnapshot;
-}
-
-const AppShellSpeechPlaybackContext = createContext<AppShellSpeechPlaybackContextValue | null>(
-  null,
-);
-
-export function useAppShellSpeechPlayback(): AppShellSpeechPlaybackContextValue | null {
-  return useContext(AppShellSpeechPlaybackContext);
-}
-
+/**
+ * Owns the app-shell playback controller and hands it to the one subtree that
+ * speaks. The controller is passed down directly rather than through context:
+ * the shell drives it by calling it, so a context would be a second way to reach
+ * the same object, and subscribing to its snapshot here would re-render the
+ * whole shell on every playback change for a value nothing renders.
+ */
 export function AppShellSpeechPlaybackProvider({
   children,
   runtimeId,
   setta,
 }: {
-  children: ReactNode | ((controller: AppShellSpeechPlaybackController) => ReactNode);
+  children: (controller: AppShellSpeechPlaybackController) => ReactNode;
   runtimeId: string | null;
   setta: SettaAPI;
 }) {
@@ -47,26 +31,13 @@ export function AppShellSpeechPlaybackProvider({
     () => new AppShellSpeechPlaybackController(browserPlaybackDependencies(setta)),
   );
   const [effectLifetime] = useState(() => new AppShellSpeechPlaybackEffectLifetime());
-  const snapshot = useSyncExternalStore(
-    controller.subscribe,
-    controller.getSnapshot,
-    controller.getSnapshot,
-  );
-  const context = useMemo(() => ({ controller, snapshot }), [controller, snapshot]);
-  const content = useMemo(
-    () => (typeof children === "function" ? children(controller) : children),
-    [children, controller],
-  );
+  const content = useMemo(() => children(controller), [children, controller]);
 
   useLayoutEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
   useLayoutEffect(() => registerRendererPageTeardown(() => controller.dispose()), [controller]);
   useEffect(() => controller.synchronizeRuntime(runtimeId), [controller, runtimeId]);
 
-  return (
-    <AppShellSpeechPlaybackContext.Provider value={context}>
-      {content}
-    </AppShellSpeechPlaybackContext.Provider>
-  );
+  return content;
 }
 
 interface SpeechPlaybackControllerDisposable {

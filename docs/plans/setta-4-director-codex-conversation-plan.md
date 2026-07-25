@@ -601,6 +601,8 @@ gate stated above and was not retried as repository verification.
 
 ### Phase 5 - Cleanup
 
+Status: implemented; awaiting the phase audit.
+
 Deliverables:
 
 - delete obsolete Director decision-router code once the tool-thread path owns
@@ -692,13 +694,56 @@ comes from the path the product runs. The gallery generator therefore emits the
 Director lane the way the snapshot fetches it, by name, and only when the
 Director actually said something.
 
+#### Resolved: the last routed-creation entry points had no caller
+
+`CreateRoutedTopic` and `CreateRoutedTopicWithOptionalWorkspace` were the
+Master-era way to create a conversation under an id trusted code had already
+minted. Nothing called either one. The Director creates a workstream's
+conversation through `StartDirectorWorkstream`, which validates the id it was
+handed and then calls the same private `createTopic` those two wrapped, so the
+pair was a second entrance to a room with a door. They are gone, and the durable
+creation surface is the one the tool layer actually uses.
+
+#### Resolved: the dead-code gate stopped exempting the dead code
+
+The renderer's dead-code gate carried carve-outs, and each named a superseded
+surface rather than a false positive.
+
+`use-viewport-size.ts` arrived with the mobile full-screen pane layout and lost
+its last importer when the pane shell went. It is deleted rather than exempted.
+
+`useAppShellSpeechPlayback` and the context behind it were a second way to reach
+a controller the shell is already handed directly. Nothing read the context, and
+publishing it made the provider subscribe to the playback controller and
+re-render the whole shell on every playback snapshot to keep a value no consumer
+wanted. The provider now owns the controller's lifetime and passes it down, and
+its `children` is the render prop the app actually uses rather than that or a
+plain node — one way in, one way down.
+
+The third carve-out exempted `speech-capture-lifecycle.ts` exports that the
+command center imports, so it was hiding nothing. `knip.json` now has no
+`ignoreFiles` and no `ignoreIssues`: the gate runs against the whole renderer.
+
+#### Resolved: which docs describe the wrong model, and which record it
+
+The superseded Director model is described in the historical plan and in the
+dated reports under `docs/reports/`, and both already say so in their own first
+lines — the old plan is headed as the historical implementation foundation and
+names this document as active, and the reports README states that reports are
+retained as evidence rather than as current direction. Evidence of what was true
+when it was written is not a stale doc, so those stay.
+
+What was stale was a doc that described the current app wrongly: the README said
+the reset script clears "workspace UI layout state" under `~/.setta/workspaces`.
+Pane layout persistence was deleted with the pane shell; that directory now holds
+the known-workspace records, which is what the README says.
+
 #### Verify in the phase audit
 
 - the decision-router deliverable above: what is left of `decision_*` is the
   durable fact catalog, the trusted authority context, and the executor, which
   Phase 1 recorded as the surface the tool layer uses directly — confirm no
   router remnant survives beyond that
-- stale docs that describe the wrong Director model
 - the Director command-center Electron workflow now asserts that a workstream
   anchor cites no Director fact at all, which is the surviving half of an
   assertion written against `workstream_registered`

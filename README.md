@@ -53,7 +53,7 @@ To reset the default global app state:
 The first command is a dry run. The reset script refuses to follow a symlinked
 state directory, refuses to run while a Setta backend appears active, and does
 not touch workspace-local `.setta` directories. It clears backend app data under
-`~/.setta`, including workspace UI layout state under `~/.setta/workspaces`,
+`~/.setta`, including the known-workspace records under `~/.setta/workspaces`,
 and Setta Electron user data.
 
 Record a desktop dogfood session:

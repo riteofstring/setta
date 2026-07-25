@@ -251,27 +251,6 @@ func (service *Service) CreateTopicWithOptionalWorkspace(
 	return service.createTopic(ctx, workspaceID, title, conversationID)
 }
 
-func (service *Service) CreateRoutedTopic(
-	ctx context.Context,
-	workspaceID string,
-	title string,
-	conversationID string,
-) (ConversationSnapshot, error) {
-	return service.CreateRoutedTopicWithOptionalWorkspace(ctx, &workspaceID, title, conversationID)
-}
-
-func (service *Service) CreateRoutedTopicWithOptionalWorkspace(
-	ctx context.Context,
-	workspaceID *string,
-	title string,
-	conversationID string,
-) (ConversationSnapshot, error) {
-	if err := validateIdentifier("routed topic conversation id", conversationID); err != nil {
-		return ConversationSnapshot{}, err
-	}
-	return service.createTopic(ctx, workspaceID, title, conversationID)
-}
-
 // createTopic creates a conversation with no durable parentage. A conversation
 // that carries a parent's provider history forward is created by the fork path
 // instead, which has the provider thread to bind.
