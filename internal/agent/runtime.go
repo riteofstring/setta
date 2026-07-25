@@ -21,9 +21,16 @@ type Config struct {
 type Runtime struct {
 	manager *codexapp.Manager
 
-	mu      sync.Mutex
-	active  map[string]*activeTurn
-	pending map[string]pendingApproval
+	mu              sync.Mutex
+	active          map[string]*activeTurn
+	attachedThreads map[string]threadAttachment
+	pending         map[string]pendingApproval
+}
+
+type threadAttachment struct {
+	fingerprint string
+	generation  uint64
+	thread      Thread
 }
 
 type activeTurn struct {
@@ -71,9 +78,10 @@ func NewRuntime(config Config) *Runtime {
 		})
 	}
 	return &Runtime{
-		manager: manager,
-		active:  map[string]*activeTurn{},
-		pending: map[string]pendingApproval{},
+		manager:         manager,
+		active:          map[string]*activeTurn{},
+		attachedThreads: map[string]threadAttachment{},
+		pending:         map[string]pendingApproval{},
 	}
 }
 
@@ -85,9 +93,7 @@ func initializeParams(version string) codexapp.InitializeParams {
 	title := "Setta"
 	experimental := true
 	requestAttestation := false
-	optOutNotificationMethods := []string{
-		codexapp.CodexNotificationThreadStarted,
-	}
+	optOutNotificationMethods := providerNotificationOptOutMethods()
 	return codexapp.InitializeParams{
 		ClientInfo: codexapp.ClientInfo{Name: "setta", Title: &title, Version: version},
 		Capabilities: &codexapp.InitializeCapabilities{

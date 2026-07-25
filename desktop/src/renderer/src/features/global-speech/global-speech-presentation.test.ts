@@ -1,8 +1,4 @@
-import {
-  speechVoiceIDValues,
-  type ConversationInput,
-  type SpeechCapabilities,
-} from "@generated/backend";
+import { type ConversationInput, type SpeechCapabilities } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import type { AppShellSpeechCaptureSnapshot } from "./app-shell-speech-capture-controller";
@@ -22,7 +18,7 @@ import {
 import { conversationSpeechCaptureRequest } from "./speech-capture-destination";
 
 describe("global speech presentation", () => {
-  test("attributes one locally recording conversation capture across its source pane, duplicate view, and other topics", () => {
+  test("attributes one locally recording conversation capture to its source pane and other topics", () => {
     const snapshot = captureSnapshot({
       capture: {
         captureSessionId: "capture-alpha",
@@ -59,17 +55,6 @@ describe("global speech presentation", () => {
     });
     expect(
       paneSpeechPresentation(capture, playback, {
-        conversationId: "conversation-alpha",
-        paneId: "pane-alpha-copy",
-      }),
-    ).toMatchObject({
-      activityLabel: "Listening in another view",
-      captureScope: "this_conversation",
-      transcriptPreview: null,
-      voiceControlDisabled: true,
-    });
-    expect(
-      paneSpeechPresentation(capture, playback, {
         conversationId: "conversation-beta",
         paneId: "pane-beta",
       }),
@@ -81,7 +66,7 @@ describe("global speech presentation", () => {
     });
   });
 
-  test("attributes narrator playback to every duplicate topic view without claiming another topic", () => {
+  test("attributes narrator playback to its topic without claiming another topic", () => {
     const capture = globalSpeechCapturePresentation(captureSnapshot());
     const playback = speakingPlayback("conversation-alpha");
 
@@ -167,6 +152,39 @@ describe("global speech presentation", () => {
       "Retry the voice request for Alpha topic",
     );
   });
+
+  test("routes missing voice credentials to Settings voice setup", () => {
+    const capture = globalSpeechCapturePresentation(
+      captureSnapshot({
+        availability: {
+          message: "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.",
+          provider: "openai",
+          setupAction: "open_voice_credential_settings",
+          type: "not_configured",
+        },
+      }),
+    );
+
+    expect(capture).toEqual({
+      message: "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.",
+      setupAction: "open_voice_credential_settings",
+      source: null,
+      state: "unavailable",
+    });
+    expect(shellSpeechCaptureAction(capture)).toBe("open_voice_credential_settings");
+    expect(shellSpeechCaptureControlLabel(capture)).toBe("Open voice settings");
+    expect(
+      paneSpeechPresentation(capture, idlePlayback(), {
+        conversationId: "conversation-alpha",
+        paneId: "pane-alpha",
+      }),
+    ).toMatchObject({
+      captureState: "unavailable",
+      voiceControlDisabled: false,
+      voiceControlLabel: "Open voice settings",
+      voiceControlSetupAction: "open_voice_credential_settings",
+    });
+  });
 });
 
 function captureSnapshot(
@@ -238,7 +256,7 @@ function capabilities(): SpeechCapabilities {
     voiceCatalog: {
       provider: "openai",
       version: "test",
-      voiceIds: [...speechVoiceIDValues],
+      voiceIds: ["marin", "cedar"],
     },
   };
 }

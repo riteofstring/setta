@@ -113,7 +113,11 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 			event.SubagentCompleted = &TrajectorySubagentCompleted{Subagent: completed}
 		}},
 		{TrajectoryEventArtifactEmitted, func(event *TrajectoryEvent) {
-			event.ArtifactEmitted = &TrajectoryArtifactEmitted{ArtifactID: "artifact-1"}
+			event.ArtifactEmitted = &TrajectoryArtifactEmitted{
+				ArtifactID: "artifact-1",
+				Kind:       ArtifactKindMarkdown,
+				Title:      "Focused test summary",
+			}
 		}},
 		{TrajectoryEventAgentLivenessChanged, func(event *TrajectoryEvent) {
 			event.AgentLivenessChanged = &TrajectoryAgentLivenessChanged{Liveness: AgentLiveness{

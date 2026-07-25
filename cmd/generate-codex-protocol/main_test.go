@@ -319,6 +319,32 @@ func TestRenderEmitsOnlyRegisteredCodexProtocolConstants(t *testing.T) {
 	}
 }
 
+func TestRenderEmitsUpstreamNotificationMethodsWithoutConstants(t *testing.T) {
+	generator := testProtocolGenerator(t)
+	generator.notifications = []protocolMember{
+		{Method: "item/fileChange/outputDelta", ConstName: "ItemFileChangeOutputDelta", ParamsName: "FileChangeOutputDeltaNotification", Source: "json"},
+		{Method: "thread/started", ConstName: "ThreadStarted", ParamsName: "ThreadStartedNotification", Source: "json"},
+	}
+	generator.supportedNotifications = []protocolMember{
+		{Method: "thread/started", ConstName: "ThreadStarted", ParamsName: "ThreadStartedNotification", Source: "json"},
+	}
+
+	output, err := generator.render()
+	if err != nil {
+		t.Fatalf("render protocol: %v", err)
+	}
+	text := string(output)
+	if !strings.Contains(text, `var CodexUpstreamNotificationValues = []string{`) {
+		t.Fatalf("output = %s, want upstream notification catalog", text)
+	}
+	if !strings.Contains(text, `"item/fileChange/outputDelta",`) {
+		t.Fatalf("output = %s, want unregistered notification in the upstream catalog", text)
+	}
+	if strings.Contains(text, "CodexNotificationItemFileChangeOutputDelta") {
+		t.Fatalf("output = %s, want no constant for an unregistered notification", text)
+	}
+}
+
 func TestRenderFiltersDeprecatedStringEnumValuesFromGeneratedSurface(t *testing.T) {
 	generator := testProtocolGenerator(t)
 	generator.schemas = map[string]jsonSchema{

@@ -2,6 +2,7 @@ import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import type {
   BackendClient,
   ReadMasterInputRoutingStateRequest,
+  ReadMasterTranscriptRequest,
   SubmitMasterInputRequest,
 } from "@generated/backend";
 import { ipcChannels, type IpcObserver } from "@shared/ipc";
@@ -55,9 +56,30 @@ describe("master IPC handlers", () => {
       paneId: "pane_alpha",
     };
     const resolution = { ...resolutionRequest, resolvedAt: "2026-07-12T18:00:02Z" };
+    const transcriptRequest = { limit: 20 };
+    const transcript = {
+      entries: [
+        {
+          payload: {
+            actionReceipt: null,
+            assistantReply: null,
+            cancellation: null,
+            createdAt: "2026-07-12T18:00:01Z",
+            failure: null,
+            id: `master-transcript:user:${request.input.id}`,
+            inputId: request.input.id,
+            kind: "user_input" as const,
+            userInput: { modality: "voice" as const, text: request.input.text },
+          },
+          sequence: 1,
+        },
+      ],
+      lastSequence: 1,
+    };
     const backend = {
       cancelMasterInput: vi.fn(async () => cancelled),
       readActiveMasterShellInteraction: vi.fn(async () => interaction),
+      readMasterTranscript: vi.fn(async () => transcript),
       resolveMasterPresentationIntent: vi.fn(async () => resolution),
       submitMasterInput: vi.fn(async () => accepted),
       waitMasterShellInteraction: vi.fn(async () => state),
@@ -71,6 +93,11 @@ describe("master IPC handlers", () => {
     });
 
     const loaded = await invoke(handlers, ipcChannels.masterReadActiveInteraction);
+    const transcriptRead = await invoke(
+      handlers,
+      ipcChannels.masterReadTranscript,
+      transcriptRequest,
+    );
     const resolved = await invoke(
       handlers,
       ipcChannels.masterResolvePresentation,
@@ -84,6 +111,8 @@ describe("master IPC handlers", () => {
 
     expect(backend.readActiveMasterShellInteraction).toHaveBeenCalledOnce();
     expect(loaded).toEqual(interaction);
+    expect(backend.readMasterTranscript).toHaveBeenCalledWith(transcriptRequest);
+    expect(transcriptRead).toEqual(transcript);
     expect(backend.resolveMasterPresentationIntent).toHaveBeenCalledWith(resolutionRequest);
     expect(resolved).toEqual(resolution);
     expect(backend.submitMasterInput).toHaveBeenCalledWith(request);
@@ -128,7 +157,10 @@ function observerSpies() {
 async function invoke(
   handlers: Map<string, Parameters<IpcMain["handle"]>[1]>,
   channel: string,
-  request?: SubmitMasterInputRequest | ReadMasterInputRoutingStateRequest,
+  request?:
+    | SubmitMasterInputRequest
+    | ReadMasterInputRoutingStateRequest
+    | ReadMasterTranscriptRequest,
 ) {
   const handler = handlers.get(channel);
   if (!handler) {

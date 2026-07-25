@@ -216,7 +216,7 @@ func validateSubagentTrajectoryPayload(payload any) (error, bool) {
 func validateSystemTrajectoryPayload(payload any) (error, bool) {
 	switch value := payload.(type) {
 	case *TrajectoryArtifactEmitted:
-		return validateIdentifier("emitted artifact id", value.ArtifactID), true
+		return validateEmittedArtifact(value), true
 	case *TrajectoryAgentLivenessChanged:
 		return value.Liveness.Validate(), true
 	case *TrajectoryProviderLifecycleChanged:
@@ -374,6 +374,16 @@ func validateFileChangeOutcome(payload *TrajectoryFileChangeCompleted) error {
 		return fmt.Errorf("unsupported file change outcome %q", payload.Outcome)
 	}
 	return nil
+}
+
+func validateEmittedArtifact(payload *TrajectoryArtifactEmitted) error {
+	if err := validateIdentifier("emitted artifact id", payload.ArtifactID); err != nil {
+		return err
+	}
+	if !validArtifactKind(payload.Kind) {
+		return fmt.Errorf("emitted artifact %s has unsupported kind %q", payload.ArtifactID, payload.Kind)
+	}
+	return validateTrimmedText("emitted artifact title", payload.Title)
 }
 
 func validateStartedSubagent(payload *TrajectorySubagentStarted) error {
