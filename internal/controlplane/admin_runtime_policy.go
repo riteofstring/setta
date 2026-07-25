@@ -1,6 +1,9 @@
 package controlplane
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+)
 
 func handleRuntimeAdminRoute(
 	store *Store,
@@ -50,6 +53,9 @@ func handleRuntimePolicyAdminRoute(
 	case "/v1/runtimes/deletion/cancel":
 		handleRuntimeDeletionCancellationAdmin(store, observer, response, request)
 		return true
+	case "/v1/runtimes/metadata/read":
+		handleRuntimeMetadataInspectionAdmin(store, observer, response, request)
+		return true
 	case "/v1/runtimes/health":
 		handleRuntimeHealthAdmin(store, observer, response, request)
 		return true
@@ -59,6 +65,48 @@ func handleRuntimePolicyAdminRoute(
 	default:
 		return false
 	}
+}
+
+func handleRuntimeMetadataInspectionAdmin(
+	store *Store,
+	observer ControlPlaneAuditObserver,
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if !requireAdminMethod(response, request, http.MethodPost) {
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	var payload AdminInspectRuntimeMetadataRequest
+	if !decodeAdminRequest(response, request, &payload) {
+		return
+	}
+	runtime, err := store.Runtime(request.Context(), payload.RuntimeName)
+	if err != nil {
+		writeAdminError(response)
+		return
+	}
+	metadata := AdminRuntimeMetadata{
+		Lifecycle:           runtime.Lifecycle,
+		AccessState:         runtime.AccessState,
+		HealthState:         runtime.HealthState,
+		DesiredRelease:      runtime.DesiredRelease,
+		ObservedRelease:     runtime.ObservedRelease,
+		ReleaseStatus:       runtime.ReleaseStatus(),
+		Resources:           runtime.Resources,
+		DeletionScheduledAt: runtime.DeletionScheduledAt,
+		UpdatedAt:           runtime.UpdatedAt,
+	}
+	if err := metadata.Validate(); err != nil {
+		writeAdminError(response)
+		return
+	}
+	observer.ObserveControlPlaneAudit(ControlPlaneAuditObservation{
+		Action:     ControlPlaneAuditRuntimeMetadataInspected,
+		OccurredAt: time.Now().UTC(),
+		State:      "read",
+	})
+	writeAdminJSON(response, metadata)
 }
 
 func handleRuntimeDeletionScheduleAdmin(

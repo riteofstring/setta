@@ -110,6 +110,7 @@ const (
 	ControlPlaneAuditRuntimeUsageReported     ControlPlaneAuditAction = "runtime_accounting_transition_recorded"
 	ControlPlaneAuditRuntimeDeletionScheduled ControlPlaneAuditAction = "runtime_deletion_scheduled"
 	ControlPlaneAuditRuntimeDeletionCancelled ControlPlaneAuditAction = "runtime_deletion_cancelled"
+	ControlPlaneAuditRuntimeMetadataInspected ControlPlaneAuditAction = "runtime_metadata_inspected"
 )
 
 type ControlPlaneAuditObservation struct {

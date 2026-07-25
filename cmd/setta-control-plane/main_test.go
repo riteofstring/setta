@@ -281,6 +281,7 @@ func TestAdminCommandsMutateTheLiveControlPlaneWithoutPrintingCredentials(t *tes
 	socketPath := controlplane.AdminSocketPath(fixture.dataDirectory)
 	requireAdminWakeHealthWorkflow(t, store, socketPath, fixture.runtimeName)
 	requireAdminRuntimeReportingCredentialWorkflow(t, store, socketPath, fixture.runtimeName)
+	requireAdminRuntimeMetadataWorkflow(t, store, socketPath, fixture.runtimeName)
 	requireAdminRuntimeDeletionWorkflow(t, store, socketPath, fixture.runtimeName)
 	accountingTransition, err := json.Marshal(runtimeaccounting.ActivityTransition{
 		EventID: "admin-provider-begin", At: time.Now().UTC(),
@@ -324,6 +325,90 @@ func TestAdminCommandsMutateTheLiveControlPlaneWithoutPrintingCredentials(t *tes
 	authorization, err = store.AuthorizeClient(context.Background(), credential.Token)
 	if err != nil || authorization.Outcome != runtimeaccess.AuthorizationRevoked {
 		t.Fatalf("revoked authorization = %+v, %v", authorization, err)
+	}
+}
+
+func requireAdminRuntimeMetadataWorkflow(
+	t *testing.T,
+	store *controlplane.Store,
+	socketPath string,
+	runtimeName string,
+) {
+	t.Helper()
+	before, err := store.Runtime(context.Background(), runtimeName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := runAdminTestCommand(t, []string{
+		"inspect-runtime-metadata", "--socket", socketPath,
+		"--runtime-name", runtimeName,
+	}, nil)
+	var metadata controlplane.AdminRuntimeMetadata
+	decoder := json.NewDecoder(bytes.NewReader(output))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&metadata); err != nil {
+		t.Fatal(err)
+	}
+	requireAdminRuntimeMetadataOutput(t, output, metadata, before, runtimeName)
+	after, err := store.Runtime(context.Background(), runtimeName)
+	requireRuntimeUnchangedByMetadataInspection(t, before, after, err)
+}
+
+func requireAdminRuntimeMetadataOutput(
+	t *testing.T,
+	output []byte,
+	metadata controlplane.AdminRuntimeMetadata,
+	runtimeRecord controlplane.Runtime,
+	runtimeName string,
+) {
+	t.Helper()
+	if err := metadata.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if metadata.Lifecycle != runtimeRecord.Lifecycle ||
+		metadata.AccessState != runtimeRecord.AccessState ||
+		metadata.HealthState != runtimeRecord.HealthState ||
+		metadata.DesiredRelease != runtimeRecord.DesiredRelease ||
+		metadata.ObservedRelease != runtimeRecord.ObservedRelease ||
+		metadata.ReleaseStatus != runtimeRecord.ReleaseStatus() ||
+		metadata.Resources != runtimeRecord.Resources ||
+		!metadata.UpdatedAt.Equal(runtimeRecord.UpdatedAt) {
+		t.Fatalf("runtime metadata command output = %+v, want projection of %+v", metadata, runtimeRecord)
+	}
+	for _, forbidden := range []string{
+		runtimeName,
+		runtimeRecord.UserID,
+		runtimeRecord.UpstreamAuthority,
+		runtimeRecord.CredentialSecretRef,
+		`"runtime_name"`,
+		`"user_id"`,
+		`"credential_epoch"`,
+		`"upstream_authority"`,
+		`"credential_secret_ref"`,
+	} {
+		if bytes.Contains(output, []byte(forbidden)) {
+			t.Fatalf("runtime metadata command exposed %q: %s", forbidden, output)
+		}
+	}
+}
+
+func requireRuntimeUnchangedByMetadataInspection(
+	t *testing.T,
+	before controlplane.Runtime,
+	after controlplane.Runtime,
+	err error,
+) {
+	t.Helper()
+	if err != nil ||
+		!after.UpdatedAt.Equal(before.UpdatedAt) ||
+		after.Lifecycle != before.Lifecycle ||
+		after.AccessState != before.AccessState ||
+		after.HealthState != before.HealthState ||
+		after.CredentialEpoch != before.CredentialEpoch ||
+		after.DesiredRelease != before.DesiredRelease ||
+		after.ObservedRelease != before.ObservedRelease ||
+		after.DeletionScheduledAt != nil {
+		t.Fatalf("runtime metadata command mutated runtime: before=%+v after=%+v err=%v", before, after, err)
 	}
 }
 

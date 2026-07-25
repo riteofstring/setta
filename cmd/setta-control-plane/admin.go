@@ -25,7 +25,7 @@ type adminClientConfig struct {
 
 func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: setta-control-plane admin <ensure-device|revoke-device|set-user-status|set-user-budget|request-runtime-wake|schedule-runtime-deletion|cancel-runtime-deletion|record-runtime-health|rotate-runtime-reporting-credential|record-usage|record-accounting-event|finalize-accounting-window> [options]")
+		fmt.Fprintln(stderr, "usage: setta-control-plane admin <ensure-device|revoke-device|set-user-status|set-user-budget|request-runtime-wake|schedule-runtime-deletion|cancel-runtime-deletion|inspect-runtime-metadata|record-runtime-health|rotate-runtime-reporting-credential|record-usage|record-accounting-event|finalize-accounting-window> [options]")
 		return 2
 	}
 	ctx := context.Background()
@@ -51,6 +51,9 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer
 		},
 		"cancel-runtime-deletion": func() error {
 			return adminCancelRuntimeDeletion(ctx, commandArgs, stdout, stderr)
+		},
+		"inspect-runtime-metadata": func() error {
+			return adminInspectRuntimeMetadata(ctx, commandArgs, stdout, stderr)
 		},
 		"record-runtime-health": func() error {
 			return adminRecordRuntimeHealth(ctx, commandArgs, stdout, stderr)
@@ -79,6 +82,46 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer
 		return 1
 	}
 	return 0
+}
+
+func adminInspectRuntimeMetadata(
+	ctx context.Context,
+	args []string,
+	stdout io.Writer,
+	stderr io.Writer,
+) error {
+	var config adminClientConfig
+	var payload controlplane.AdminInspectRuntimeMetadataRequest
+	flagSet := flag.NewFlagSet("setta-control-plane admin inspect-runtime-metadata", flag.ContinueOnError)
+	flagSet.SetOutput(stderr)
+	flagSet.StringVar(&config.SocketPath, "socket", "", "absolute private administration socket path")
+	flagSet.StringVar(&payload.RuntimeName, "runtime-name", "", "Setta-managed runtime name")
+	if err := flagSet.Parse(args); err != nil {
+		return err
+	}
+	if flagSet.NArg() != 0 {
+		return errors.New("inspect-runtime-metadata accepts no positional arguments")
+	}
+	if err := validateAdminClientConfig(config); err != nil {
+		return err
+	}
+	var metadata controlplane.AdminRuntimeMetadata
+	if err := executeAdminJSONRequest(
+		ctx,
+		config,
+		"/v1/runtimes/metadata/read",
+		payload,
+		&metadata,
+	); err != nil {
+		return err
+	}
+	if err := metadata.Validate(); err != nil {
+		return errors.New("control-plane administration response was invalid")
+	}
+	if err := json.NewEncoder(stdout).Encode(metadata); err != nil {
+		return errors.New("write runtime metadata failed")
+	}
+	return nil
 }
 
 func adminScheduleRuntimeDeletion(

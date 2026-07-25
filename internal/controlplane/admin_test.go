@@ -379,6 +379,117 @@ func TestAdminServerSchedulesAndCancelsRuntimeDeletionWithoutContent(t *testing.
 	})
 }
 
+func TestAdminServerInspectsOnlySanitizedRuntimeMetadata(t *testing.T) {
+	ctx := context.Background()
+	store, _, runtimeName, _ := seededControlPlane(t, ctx)
+	defer store.Close()
+	expected, err := store.Runtime(ctx, runtimeName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	socketPath := filepath.Join(filepath.Dir(store.Path()), "admin.sock")
+	var audit bytes.Buffer
+	server, err := StartAdminServer(AdminServerConfig{
+		Observer:      newAdminTestObserver(t, &audit),
+		PriceSchedule: adminTestPriceSchedule(),
+		SocketPath:    socketPath,
+		Store:         store,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer shutdownAdminTestServer(t, server)
+
+	metadata, encoded := readAdminRuntimeMetadata(t, adminTestClient(socketPath), runtimeName)
+	requireAdminRuntimeMetadataProjection(t, metadata, expected)
+	requireEncodedRuntimeMetadataIsSanitized(t, encoded, runtimeName, expected)
+	requireContentFreeControlPlaneAudit(t, audit.Bytes(), []ControlPlaneAuditMeasurement{
+		{Action: ControlPlaneAuditRuntimeMetadataInspected, State: "read"},
+	}, []string{
+		runtimeName,
+		expected.UserID,
+		expected.UpstreamAuthority,
+		expected.CredentialSecretRef,
+	})
+}
+
+func readAdminRuntimeMetadata(
+	t *testing.T,
+	client *http.Client,
+	runtimeName string,
+) (AdminRuntimeMetadata, []byte) {
+	t.Helper()
+	data, err := json.Marshal(AdminInspectRuntimeMetadataRequest{RuntimeName: runtimeName})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := client.Post(
+		"http://unix/v1/runtimes/metadata/read",
+		"application/json",
+		bytes.NewReader(data),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	encoded, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("runtime metadata response = %d: %s", response.StatusCode, encoded)
+	}
+	var metadata AdminRuntimeMetadata
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&metadata); err != nil {
+		t.Fatal(err)
+	}
+	if err := metadata.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	return metadata, encoded
+}
+
+func requireAdminRuntimeMetadataProjection(t *testing.T, metadata AdminRuntimeMetadata, expected Runtime) {
+	t.Helper()
+	if metadata.Lifecycle != expected.Lifecycle ||
+		metadata.AccessState != expected.AccessState ||
+		metadata.HealthState != expected.HealthState ||
+		metadata.DesiredRelease != expected.DesiredRelease ||
+		metadata.ObservedRelease != expected.ObservedRelease ||
+		metadata.ReleaseStatus != expected.ReleaseStatus() ||
+		metadata.Resources != expected.Resources ||
+		metadata.DeletionScheduledAt != nil ||
+		!metadata.UpdatedAt.Equal(expected.UpdatedAt) {
+		t.Fatalf("runtime metadata = %+v, want sanitized projection of %+v", metadata, expected)
+	}
+}
+
+func requireEncodedRuntimeMetadataIsSanitized(
+	t *testing.T,
+	encoded []byte,
+	runtimeName string,
+	expected Runtime,
+) {
+	t.Helper()
+	for _, forbidden := range []string{
+		`"runtime_name"`,
+		`"user_id"`,
+		`"credential_epoch"`,
+		`"upstream_authority"`,
+		`"credential_secret_ref"`,
+		runtimeName,
+		expected.UserID,
+		expected.UpstreamAuthority,
+		expected.CredentialSecretRef,
+	} {
+		if bytes.Contains(encoded, []byte(forbidden)) {
+			t.Fatalf("runtime metadata exposed %q: %s", forbidden, encoded)
+		}
+	}
+}
+
 func TestTypedHostedAccessClientStreamsReadyOnPhoneThroughPrivateBoundary(t *testing.T) {
 	directory := t.TempDir()
 	store := openTestStore(t, directory, time.Now, RateLimit{})

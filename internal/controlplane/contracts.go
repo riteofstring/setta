@@ -206,12 +206,16 @@ type Runtime struct {
 }
 
 func (runtime Runtime) ReleaseStatus() RuntimeReleaseStatus {
+	return runtimeReleaseStatus(runtime.DesiredRelease, runtime.ObservedRelease)
+}
+
+func runtimeReleaseStatus(desiredRelease string, observedRelease string) RuntimeReleaseStatus {
 	switch {
-	case runtime.DesiredRelease == "":
+	case desiredRelease == "":
 		return RuntimeReleaseUnconfigured
-	case runtime.ObservedRelease == "":
+	case observedRelease == "":
 		return RuntimeReleaseUnobserved
-	case runtime.DesiredRelease == runtime.ObservedRelease:
+	case desiredRelease == observedRelease:
 		return RuntimeReleaseCurrent
 	default:
 		return RuntimeReleaseMismatch

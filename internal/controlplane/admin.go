@@ -108,6 +108,57 @@ type AdminCancelRuntimeDeletionRequest struct {
 	RuntimeName string             `json:"runtime_name"`
 }
 
+type AdminInspectRuntimeMetadataRequest struct {
+	RuntimeName string `json:"runtime_name"`
+}
+
+type AdminRuntimeMetadata struct {
+	Lifecycle           RuntimeLifecycle                 `json:"lifecycle"`
+	AccessState         RuntimeAccessState               `json:"access_state"`
+	HealthState         RuntimeHealthState               `json:"health_state"`
+	DesiredRelease      string                           `json:"desired_release"`
+	ObservedRelease     string                           `json:"observed_release"`
+	ReleaseStatus       RuntimeReleaseStatus             `json:"release_status"`
+	Resources           runtimeprovider.RuntimeResources `json:"resources"`
+	DeletionScheduledAt *time.Time                       `json:"deletion_scheduled_at"`
+	UpdatedAt           time.Time                        `json:"updated_at"`
+}
+
+func (metadata AdminRuntimeMetadata) Validate() error {
+	if !validRuntimeLifecycle(metadata.Lifecycle) {
+		return errors.New("runtime metadata lifecycle is invalid")
+	}
+	if !validRuntimeAccessState(metadata.AccessState) {
+		return errors.New("runtime metadata access state is invalid")
+	}
+	if !validRuntimeHealthState(metadata.HealthState) {
+		return errors.New("runtime metadata health state is invalid")
+	}
+	if err := validateRelease("runtime metadata desired release", metadata.DesiredRelease); err != nil {
+		return err
+	}
+	if err := validateRelease("runtime metadata observed release", metadata.ObservedRelease); err != nil {
+		return err
+	}
+	if metadata.ReleaseStatus != runtimeReleaseStatus(
+		metadata.DesiredRelease,
+		metadata.ObservedRelease,
+	) {
+		return errors.New("runtime metadata release status is inconsistent")
+	}
+	if err := metadata.Resources.Validate(); err != nil {
+		return fmt.Errorf("runtime metadata resources: %w", err)
+	}
+	if metadata.UpdatedAt.IsZero() {
+		return errors.New("runtime metadata update time is required")
+	}
+	if (metadata.AccessState == RuntimeAccessDeleteScheduled) !=
+		(metadata.DeletionScheduledAt != nil) {
+		return errors.New("runtime metadata deletion schedule is inconsistent")
+	}
+	return nil
+}
+
 type AdminRecordRuntimeHealthRequest struct {
 	HealthState     RuntimeHealthState `json:"health_state"`
 	ObservedRelease string             `json:"observed_release"`
