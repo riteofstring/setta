@@ -17,20 +17,13 @@ type LocalCredentialRefreshRequest = localcredissuer.RefreshRequest
 type LocalCredentialRefreshResponse = localcredissuer.RuntimeCredentialResponse
 
 type RuntimeInfoResponse struct {
-	RuntimeID              string                               `json:"runtimeId"`
-	DisplayName            string                               `json:"displayName"`
-	InfrastructureProvider RuntimeInfrastructureProvider        `json:"infrastructureProvider"`
-	BackendName            string                               `json:"backendName"`
-	BackendVersion         string                               `json:"backendVersion"`
-	ProtocolVersion        int                                  `json:"protocolVersion"`
-	FeatureSet             runtimecapability.RuntimeFeatureSet  `json:"featureSet"`
-	Diagnostics            runtimecapability.RuntimeDiagnostics `json:"diagnostics"`
-}
-
-type RuntimeInfrastructureProvider struct {
-	ID          string `json:"id"`
-	DisplayName string `json:"displayName"`
-	IconURL     string `json:"iconUrl"`
+	RuntimeID       string                               `json:"runtimeId"`
+	DisplayName     string                               `json:"displayName"`
+	BackendName     string                               `json:"backendName"`
+	BackendVersion  string                               `json:"backendVersion"`
+	ProtocolVersion int                                  `json:"protocolVersion"`
+	FeatureSet      runtimecapability.RuntimeFeatureSet  `json:"featureSet"`
+	Diagnostics     runtimecapability.RuntimeDiagnostics `json:"diagnostics"`
 }
 
 type UpdateRuntimeDisplayNameRequest struct {

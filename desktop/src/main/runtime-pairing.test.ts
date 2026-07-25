@@ -80,7 +80,7 @@ describe("runtime connection verification", () => {
   test("marks older protocol versions incompatible", async () => {
     const fetchImpl: BackendFetch = async (input) => {
       if (input.pathname === "/runtime/info") {
-        return jsonResponse(legacyRuntimeInfo("runtime_expected", backendProtocolVersion - 1));
+        return jsonResponse(runtimeInfo("runtime_expected", backendProtocolVersion - 1));
       }
       return jsonResponse({ devices: [] });
     };
@@ -154,11 +154,6 @@ function runtimeInfo(runtimeId: string, protocolVersion: number) {
     backendName: "setta-backend",
     backendVersion: "test",
     displayName: "Remote",
-    infrastructureProvider: {
-      displayName: "Unknown provider",
-      iconUrl: "",
-      id: "unknown",
-    },
     protocolVersion,
     runtimeId,
     featureSet: {
@@ -166,17 +161,6 @@ function runtimeInfo(runtimeId: string, protocolVersion: number) {
       version: 1,
     },
     diagnostics: runtimeDiagnostics(),
-  };
-}
-
-function legacyRuntimeInfo(runtimeId: string, protocolVersion: number) {
-  return {
-    ...runtimeInfo(runtimeId, protocolVersion),
-    infrastructureProvider: {
-      displayName: "Unknown provider",
-      iconUrl: "",
-      id: "unknown",
-    },
   };
 }
 

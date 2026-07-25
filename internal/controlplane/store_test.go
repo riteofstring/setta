@@ -3,14 +3,18 @@ package controlplane
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"setta/internal/runtimeaccess"
 	"setta/internal/runtimeprovider"
+
+	_ "modernc.org/sqlite"
 )
 
 func TestStorePersistsAssignmentsAndCredentialsAcrossRestart(t *testing.T) {
@@ -76,6 +80,25 @@ func TestStorePersistsAssignmentsAndCredentialsAcrossRestart(t *testing.T) {
 	result, err = restarted.AuthorizeClient(ctx, secondGrant.Token)
 	if err != nil || result.Outcome != runtimeaccess.AuthorizationAllowed || result.RuntimeName != secondRuntime {
 		t.Fatalf("authorization after restart = %+v, %v", result, err)
+	}
+}
+
+func TestStoreRejectsUnversionedExistingSchema(t *testing.T) {
+	directory := t.TempDir()
+	db, err := sql.Open(sqliteDriverName, filepath.Join(directory, controlPlaneDatabaseName))
+	if err != nil {
+		t.Fatalf("open fixture database: %v", err)
+	}
+	if _, err := db.Exec("CREATE TABLE obsolete_state (id TEXT PRIMARY KEY)"); err != nil {
+		t.Fatalf("create obsolete schema: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close fixture database: %v", err)
+	}
+
+	_, err = OpenStore(StoreConfig{Directory: directory})
+	if err == nil || !strings.Contains(err.Error(), "unversioned control-plane database is not empty") {
+		t.Fatalf("OpenStore error = %v, want unversioned schema error", err)
 	}
 }
 

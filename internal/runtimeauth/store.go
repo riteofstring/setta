@@ -295,7 +295,7 @@ func (store *Store) CompletePairing(
 }
 
 // ConsumePairingToken burns a valid one-time pairing token without creating a
-// legacy device session. Local development credential issuers use this as the
+// device session. Local development credential issuers use this as the
 // bootstrap proof before enrolling a user-scoped device identity.
 func (store *Store) ConsumePairingToken(ctx context.Context, token string) (bool, error) {
 	if token == "" {
@@ -481,28 +481,76 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 			return store.persistenceError("configure runtime auth database", err)
 		}
 	}
-	if err := store.createSchema(ctx); err != nil {
-		return err
-	}
 	var userVersion int
 	if err := store.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&userVersion); err != nil {
 		return store.persistenceError("read runtime auth database schema version", err)
 	}
-	if userVersion != 0 && userVersion != runtimeAuthStoreVersion {
-		return store.corruptError("runtime auth database", fmt.Errorf("unsupported schema version %d", userVersion))
-	}
-	if userVersion == 0 {
-		if _, err := store.db.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", runtimeAuthStoreVersion)); err != nil {
-			return store.persistenceError("write runtime auth database schema version", err)
+	switch userVersion {
+	case 0:
+		hasSchema, err := store.hasUserSchema(ctx)
+		if err != nil {
+			return err
 		}
+		if hasSchema {
+			return store.corruptError("runtime auth database", errors.New("unversioned database is not empty"))
+		}
+		if err := store.createSchema(ctx); err != nil {
+			return err
+		}
+	case runtimeAuthStoreVersion:
+		if err := store.requireSchemaObjects(ctx, "device_sessions", "device_sessions_revoked_idx", "pairing_tokens", "pairing_tokens_available_idx"); err != nil {
+			return err
+		}
+	default:
+		return store.corruptError("runtime auth database", fmt.Errorf("unsupported schema version %d", userVersion))
 	}
 	return nil
 }
 
 func (store *Store) createSchema(ctx context.Context) error {
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return store.persistenceError("begin runtime auth database schema initialization", err)
+	}
+	defer rollback(tx)
 	for _, statement := range sqliteSchemaStatements {
-		if _, err := store.db.ExecContext(ctx, statement); err != nil {
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
 			return store.persistenceError("initialize runtime auth database schema", err)
+		}
+	}
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", runtimeAuthStoreVersion)); err != nil {
+		return store.persistenceError("write runtime auth database schema version", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return store.persistenceError("commit runtime auth database schema", err)
+	}
+	return nil
+}
+
+func (store *Store) hasUserSchema(ctx context.Context) (bool, error) {
+	var count int
+	if err := store.db.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM sqlite_schema
+WHERE name NOT LIKE 'sqlite_%'
+`).Scan(&count); err != nil {
+		return false, store.persistenceError("inspect runtime auth database schema", err)
+	}
+	return count != 0, nil
+}
+
+func (store *Store) requireSchemaObjects(ctx context.Context, names ...string) error {
+	for _, name := range names {
+		var count int
+		if err := store.db.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM sqlite_schema
+WHERE name = ? AND type IN ('index', 'table')
+`, name).Scan(&count); err != nil {
+			return store.persistenceError("validate runtime auth database schema", err)
+		}
+		if count != 1 {
+			return store.corruptError("runtime auth database", fmt.Errorf("missing schema object %s", name))
 		}
 	}
 	return nil

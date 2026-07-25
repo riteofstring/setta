@@ -356,7 +356,7 @@ async function desktopDeviceIdForRemote(probe) {
 async function pairProbeDevice(appDataDir) {
   const pairingURL = await mintPairingURL(appDataDir);
   const parsed = parsePairingURL(pairingURL);
-  const response = await fetch(parsed.baseUrl + "pairing/complete", {
+  const response = await fetch(parsed.baseUrl + "local-credentials/enroll", {
     body: JSON.stringify({
       clientDisplayName: "Runtime Picker Probe",
       pairingToken: parsed.pairingToken,
@@ -366,20 +366,23 @@ async function pairProbeDevice(appDataDir) {
   });
   const body = await response.text();
   if (!response.ok) {
-    throw new Error(`probe pairing failed with ${response.status}: ${body}`);
+    throw new Error(`probe enrollment failed with ${response.status}: ${body}`);
   }
-  const paired = JSON.parse(body);
+  const enrollment = JSON.parse(body);
+  const runtimeCredential = enrollment.runtimeCredential?.token;
+  if (typeof runtimeCredential !== "string" || runtimeCredential === "") {
+    throw new Error(`probe enrollment omitted the runtime credential: ${body}`);
+  }
   return {
     baseUrl: parsed.baseUrl,
-    deviceToken: paired.deviceToken,
-    get: (path) => remoteRequest(parsed.baseUrl, paired.deviceToken, "GET", path),
+    get: (path) => remoteRequest(parsed.baseUrl, runtimeCredential, "GET", path),
     post: (path, payload) =>
-      remoteRequest(parsed.baseUrl, paired.deviceToken, "POST", path, payload),
+      remoteRequest(parsed.baseUrl, runtimeCredential, "POST", path, payload),
   };
 }
 
-async function remoteRequest(baseUrl, deviceToken, method, path, payload) {
-  const headers = { Authorization: "Bearer " + deviceToken };
+async function remoteRequest(baseUrl, runtimeCredential, method, path, payload) {
+  const headers = { Authorization: "Bearer " + runtimeCredential };
   const init = { headers, method };
   if (payload !== undefined) {
     headers["Content-Type"] = "application/json";

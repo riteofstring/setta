@@ -90,12 +90,12 @@ func (handler handler) createSpeechTranscriptionSession(response http.ResponseWr
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	device, ok := authenticatedDeviceSession(request)
+	deviceID, ok := authenticatedDeviceID(request)
 	if !ok {
 		writeError(response, http.StatusInternalServerError, "authenticated_device_session_missing", "authenticated device session is missing")
 		return
 	}
-	session, err := service.CreateTranscriptionSession(request.Context(), device.ID)
+	session, err := service.CreateTranscriptionSession(request.Context(), deviceID)
 	if err != nil {
 		writeSpeechError(response, "create_speech_transcription_session_failed", err)
 		return

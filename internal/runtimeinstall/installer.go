@@ -145,14 +145,13 @@ type HealthCheck struct {
 }
 
 type RuntimeIdentityProof struct {
-	RuntimeID              string                                `json:"runtimeId"`
-	DisplayName            string                                `json:"displayName"`
-	RuntimeName            string                                `json:"runtimeName"`
-	InfrastructureProvider httpapi.RuntimeInfrastructureProvider `json:"infrastructureProvider"`
-	BackendName            string                                `json:"backendName"`
-	ReleaseVersion         string                                `json:"releaseVersion"`
-	ProtocolVersion        int                                   `json:"protocolVersion"`
-	CheckedAt              time.Time                             `json:"checkedAt"`
+	RuntimeID       string    `json:"runtimeId"`
+	DisplayName     string    `json:"displayName"`
+	RuntimeName     string    `json:"runtimeName"`
+	BackendName     string    `json:"backendName"`
+	ReleaseVersion  string    `json:"releaseVersion"`
+	ProtocolVersion int       `json:"protocolVersion"`
+	CheckedAt       time.Time `json:"checkedAt"`
 }
 
 func (loop Loop) Install(ctx context.Context, request InstallRequest) (InstallResult, error) {
@@ -523,12 +522,6 @@ func (loop Loop) probeRuntimeIdentity(
 	if strings.TrimSpace(info.DisplayName) == "" {
 		return RuntimeIdentityProof{}, errors.New("runtime info displayName is empty")
 	}
-	if strings.TrimSpace(info.InfrastructureProvider.ID) == "" {
-		return RuntimeIdentityProof{}, errors.New("runtime info infrastructure provider id is empty")
-	}
-	if strings.TrimSpace(info.InfrastructureProvider.DisplayName) == "" {
-		return RuntimeIdentityProof{}, errors.New("runtime info infrastructure provider displayName is empty")
-	}
 	if info.BackendName != httpapi.BackendName {
 		return RuntimeIdentityProof{}, fmt.Errorf("runtime info backend name = %q, want %q", info.BackendName, httpapi.BackendName)
 	}
@@ -539,14 +532,13 @@ func (loop Loop) probeRuntimeIdentity(
 		return RuntimeIdentityProof{}, fmt.Errorf("runtime info protocol version is invalid: %d", info.ProtocolVersion)
 	}
 	return RuntimeIdentityProof{
-		RuntimeID:              info.RuntimeID,
-		DisplayName:            info.DisplayName,
-		RuntimeName:            runtimeName,
-		InfrastructureProvider: info.InfrastructureProvider,
-		BackendName:            info.BackendName,
-		ReleaseVersion:         info.BackendVersion,
-		ProtocolVersion:        info.ProtocolVersion,
-		CheckedAt:              loop.Now().UTC(),
+		RuntimeID:       info.RuntimeID,
+		DisplayName:     info.DisplayName,
+		RuntimeName:     runtimeName,
+		BackendName:     info.BackendName,
+		ReleaseVersion:  info.BackendVersion,
+		ProtocolVersion: info.ProtocolVersion,
+		CheckedAt:       loop.Now().UTC(),
 	}, nil
 }
 

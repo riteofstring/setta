@@ -276,8 +276,8 @@ func assertFakeRestrictedDurableThreadStart(params map[string]any) {
 	if params["ephemeral"] != false {
 		panic("restricted durable thread must not be ephemeral")
 	}
-	if params["historyMode"] != "legacy" {
-		panic("restricted durable thread must retain provider history")
+	if _, ok := params["historyMode"]; ok {
+		panic("restricted durable thread must use the provider's current history mode")
 	}
 	assertFakeRestrictedThreadPolicy(params)
 	assertFakeEmptyArray(params, "dynamicTools")

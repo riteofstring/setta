@@ -445,7 +445,6 @@ export function createWebSettaAPI(
           connectionMessage: message,
           connectionStatus: status,
           displayName: info.displayName,
-          infrastructureProvider: info.infrastructureProvider,
           isLocal: false,
           lastConnected: status === "connected" ? updatedAt : null,
           runtimeId: info.runtimeId,

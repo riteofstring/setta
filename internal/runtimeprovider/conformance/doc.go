@@ -1,8 +1,8 @@
 // Package conformance runs provider-neutral lifecycle checks for Setta runtime
 // adapters.
 //
-// A future provider adapter such as E2B or an AWS build-out plugs into this
-// package by implementing runtimeprovider.Provider for the external lifecycle
+// A provider adapter plugs into this package by implementing
+// runtimeprovider.Provider for the external lifecycle
 // and runtimeprovider.WorkloadLeaseManager for the trusted in-runtime lease
 // API. The adapter test supplies a disposable runtime identity, a service probe
 // command that writes the configured persistent counter and heartbeat files,

@@ -37,16 +37,22 @@ created with the repository's `worktree.sh` script.
 ## Authority and Superseded Direction
 
 This document is the plan of record for Setta-operated cloud development
-runtimes. For this product direction it supersedes:
+runtimes. Superseded BYO-cloud research has been removed from the working tree
+and remains available in Git history.
 
-- `docs/plans/byo-cloud-one-click-runtime-plan.md`
-- `docs/plans/remote-runtime-plan.md`
-- the Fly Machines and Cloud Box recommendations in
-  `docs/plans/setta-v3-architecture-recommendations.md` and part 2
+### Deferred BYO-cloud plugin
 
-Those documents remain useful historical research. Their Tailscale-only,
-user-owned provider, provider wizard, workflow, and PWA assumptions are not
-requirements for this plan.
+Keep the former BYO-cloud/Tailscale direction available as a possible hidden,
+AI-installable plugin rather than core product behavior. When a user explicitly
+asks Setta to help create or connect a user-owned cloud runtime, the AI could
+offer to install this plugin and guide provider setup, Tailscale networking,
+bootstrap, pairing, and teardown. It must remain absent from the default product
+and must not introduce provider catalogs, credentials, transport branches, or
+compatibility paths into core Setta. If revived, recover the removed
+`byo-cloud-one-click-runtime-plan.md`, `byo-setta-runtime-architecture-report.md`,
+and `remote-runtime-plan.md` from Git history and redesign them against the
+then-current plugin contract and runtime credential model rather than restoring
+their old implementation unchanged.
 
 If this plan conflicts with repository-wide engineering rules in `AGENTS.md`,
 `AGENTS.md` wins.
@@ -74,7 +80,7 @@ a product rewrite, not an incremental move:
 - Terminals are entirely absent: no PTY, WebSocket, or xterm code exists in
   Go or the desktop app. There is no terminal data plane to port onto.
 - The contract protocol snapshot began at version 62 on the new base and is
-  now version 64 after the credential-authority and runtime-foundation ports
+  now version 65 after the credential-authority and runtime-foundation ports
   (the old base was 7; the previous branch's foundation slice set 11).
   "Protocol v11" references elsewhere in this document are old-base history.
 - The new base already ships remote-runtime plumbing this plan previously
@@ -82,10 +88,9 @@ a product rewrite, not an incremental move:
   `/pairing/complete`, SQLite device sessions with revocation and streaming
   revocation sweeps (`internal/runtimeauth`), persistent runtime identity
   (`internal/runtime/identity.go`), a desktop runtime registry and picker
-  with protocol-version negotiation and remote (tailnet or external-URL)
-  backends, desktop device-token storage (`known-runtimes.json`, mode 0600),
-  a browser/PWA pairing path (token in `localStorage`), and
-  infrastructure-provider detection (no Fly/Sprites entry yet).
+  with protocol-version negotiation and explicit external-URL backends,
+  desktop device-token storage (`known-runtimes.json`, mode 0600), and a
+  browser/PWA pairing path (token in `localStorage`).
 - The original new-base remote transport used plain HTTP origins with
   long-lived bearer device tokens. The desktop now stores only an encrypted
   device identity and resolves signed, expiring runtime credentials with
@@ -398,7 +403,7 @@ evidence is recorded in this plan.
     resilience side plan must keep working against every provider adapter so
     migration stays a drain-and-restore operation Setta controls.
 27. Maintain the live lifecycle harness as a provider conformance suite. A
-    new provider adapter (E2B, AWS build-out) is complete only when it passes
+    new provider adapter is complete only when it passes
     the same create/persist/Service/lease/restore/destroy assertions, with
     any provider-specific semantic gaps recorded in this plan rather than
     papered over.
@@ -1645,8 +1650,8 @@ Stop and reassess rather than hiding the problem if any of these occur:
   plan: restart-safe event accounting with expiring workload leases, enforced-
   ceiling cutoff exposure, deterministic local evidence generation, encrypted
   provider-exit export and inactive restore, a send-ready Fly inquiry, and
-  identical AWS/E2B contingency probe specifications. No live provider call or
-  external message was made. Durable provider fencing, credential rotation,
+  provider contingency probe specifications. No live provider call or external
+  message was made. Durable provider fencing, credential rotation,
   active-generation CAS, provider-bill reconciliation, and live probes remain
   separately gated. Plan: `docs/plans/cloud-runtime-resilience-side-plan.md`.
 - 2026-07-15: Ran the soak verify-due wakes. The 12-hour cohort (woken at

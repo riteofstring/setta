@@ -241,7 +241,6 @@ func restrictedThreadStartParams(
 	environments := []codexapp.TurnEnvironmentParams{}
 	capabilityRoots := []codexapp.SelectedCapabilityRoot{}
 	runtimeWorkspaceRoots := []codexapp.AbsolutePathBuf{}
-	historyMode := codexapp.ThreadHistoryModeLegacy
 	return codexapp.ThreadStartParams{
 		AllowProviderModelFallback: &allowFallback,
 		ApprovalPolicy:             approvalPolicy,
@@ -252,7 +251,6 @@ func restrictedThreadStartParams(
 		DynamicTools:               &dynamicTools,
 		Environments:               &environments,
 		Ephemeral:                  &ephemeral,
-		HistoryMode:                &historyMode,
 		Model:                      &request.Invocation.Model,
 		RuntimeWorkspaceRoots:      &runtimeWorkspaceRoots,
 		Sandbox:                    &sandbox,

@@ -58,16 +58,14 @@ type Session struct {
 	events  chan Event
 	done    chan struct{}
 
-	mu                           sync.Mutex
-	once                         sync.Once
-	closed                       bool
-	terminalErr                  error
-	threads                      map[string]struct{}
-	turnsByThread                map[string]map[string]struct{}
-	acceptsUnscopedNotifications bool
-	acceptsUnscopedRequests      bool
-	pendingLag                   map[sessionLagKey]*pendingSessionLag
-	highWaterMark                int
+	mu            sync.Mutex
+	once          sync.Once
+	closed        bool
+	terminalErr   error
+	threads       map[string]struct{}
+	turnsByThread map[string]map[string]struct{}
+	pendingLag    map[sessionLagKey]*pendingSessionLag
+	highWaterMark int
 }
 
 type EventKind string
@@ -409,9 +407,6 @@ func bestSessionMatches(sessions []*Session, scope messageScope, kind EventKind)
 			matches = append(matches, sessionMatch{session: session, score: score})
 		}
 	}
-	if len(matches) == 0 && scope.ThreadID == "" && (scope.ProviderItemID != "" || scope.ProviderProcessID != "") {
-		return providerScopeUnownedFallbackMatches(sessions, kind)
-	}
 	return matches
 }
 
@@ -506,34 +501,6 @@ func (session *Session) OwnTurn(threadID string, turnID string) error {
 	}
 	session.turnsByThread[threadID][turnID] = struct{}{}
 	return nil
-}
-
-func (session *Session) AcceptUnscopedNotifications() {
-	session.mu.Lock()
-	defer session.mu.Unlock()
-	session.acceptsUnscopedNotifications = true
-}
-
-func (session *Session) AcceptUnscopedRequests() {
-	session.mu.Lock()
-	defer session.mu.Unlock()
-	session.acceptsUnscopedRequests = true
-}
-
-func (session *Session) acceptsUnscopedKind(kind EventKind) bool {
-	session.mu.Lock()
-	defer session.mu.Unlock()
-	if session.closed {
-		return false
-	}
-	switch kind {
-	case EventRequest:
-		return session.acceptsUnscopedRequests
-	case EventNotification:
-		return session.acceptsUnscopedNotifications
-	default:
-		return false
-	}
 }
 
 func (session *Session) Close() {
@@ -961,23 +928,9 @@ func (session *Session) matchScore(scope messageScope, kind EventKind) (int, boo
 		return 0, false
 	}
 	if scope.ThreadID == "" {
-		return session.matchUnscopedScore(scope, kind)
+		return 0, false
 	}
 	return session.matchThreadScore(scope, kind)
-}
-
-func (session *Session) matchUnscopedScore(scope messageScope, kind EventKind) (int, bool) {
-	if scope.ProviderItemID != "" || scope.ProviderProcessID != "" {
-		return 0, false
-	}
-	switch kind {
-	case EventRequest:
-		return 0, session.acceptsUnscopedRequests
-	case EventNotification:
-		return 0, session.acceptsUnscopedNotifications
-	default:
-		return 0, false
-	}
 }
 
 func (session *Session) matchThreadScore(scope messageScope, kind EventKind) (int, bool) {

@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 64;
-export const backendContractSchemaHash = "sha256:1e85b939c2801a417bd8a0e3a291092400d9df7190bedbe49de595517d10bc5b";
+export const backendProtocolVersion = 65;
+export const backendContractSchemaHash = "sha256:415be7e3b3f60439d405c6bfb2cd202a3e1cd0f70b9b418fb548b0e37a6a7a97";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -1504,12 +1504,6 @@ export interface BackendHealth {
   protocolVersion: number;
 }
 
-export interface RuntimeInfrastructureProvider {
-  id: string;
-  displayName: string;
-  iconUrl: string;
-}
-
 export interface RuntimeFeatureSet {
   version: number;
   features: string[];
@@ -1593,7 +1587,6 @@ export interface RuntimeDiagnostics {
 export interface RuntimeInfoResponse {
   runtimeId: string;
   displayName: string;
-  infrastructureProvider: RuntimeInfrastructureProvider;
   backendName: string;
   backendVersion: string;
   protocolVersion: number;
@@ -3814,16 +3807,6 @@ export function decodeBackendHealth(value: unknown): BackendHealth {
   };
 }
 
-export function decodeRuntimeInfrastructureProvider(value: unknown): RuntimeInfrastructureProvider {
-  const record = assertRecord(value, "RuntimeInfrastructureProvider");
-  assertKnownFields(record, "RuntimeInfrastructureProvider", ["id", "displayName", "iconUrl"]);
-  return {
-    id: decodeString(requireField(record, "id", "RuntimeInfrastructureProvider"), "RuntimeInfrastructureProvider.id"),
-    displayName: decodeString(requireField(record, "displayName", "RuntimeInfrastructureProvider"), "RuntimeInfrastructureProvider.displayName"),
-    iconUrl: decodeString(requireField(record, "iconUrl", "RuntimeInfrastructureProvider"), "RuntimeInfrastructureProvider.iconUrl"),
-  };
-}
-
 export function decodeRuntimeFeatureSet(value: unknown): RuntimeFeatureSet {
   const record = assertRecord(value, "RuntimeFeatureSet");
   assertKnownFields(record, "RuntimeFeatureSet", ["version", "features"]);
@@ -3946,11 +3929,10 @@ export function decodeRuntimeDiagnostics(value: unknown): RuntimeDiagnostics {
 
 export function decodeRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
   const record = assertRecord(value, "RuntimeInfoResponse");
-  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "infrastructureProvider", "backendName", "backendVersion", "protocolVersion", "featureSet", "diagnostics"]);
+  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "backendName", "backendVersion", "protocolVersion", "featureSet", "diagnostics"]);
   return {
     runtimeId: decodeString(requireField(record, "runtimeId", "RuntimeInfoResponse"), "RuntimeInfoResponse.runtimeId"),
     displayName: decodeString(requireField(record, "displayName", "RuntimeInfoResponse"), "RuntimeInfoResponse.displayName"),
-    infrastructureProvider: decodeRuntimeInfrastructureProvider(requireField(record, "infrastructureProvider", "RuntimeInfoResponse")),
     backendName: decodeString(requireField(record, "backendName", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendName"),
     backendVersion: decodeString(requireField(record, "backendVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendVersion"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.protocolVersion"),

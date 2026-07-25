@@ -190,7 +190,7 @@ func TestManagerRoutesScopedNotificationToThreadOwnerWhenTurnIsUnknown(t *testin
 	}
 }
 
-func TestManagerDoesNotRouteScopedNotificationToUnscopedSession(t *testing.T) {
+func TestManagerDoesNotRouteNotificationFromAnotherThread(t *testing.T) {
 	manager := newTestManager("steady")
 	defer shutdownTestManager(t, manager)
 
@@ -199,7 +199,6 @@ func TestManagerDoesNotRouteScopedNotificationToUnscopedSession(t *testing.T) {
 		t.Fatalf("new session: %v", err)
 	}
 	defer session.Close()
-	session.AcceptUnscopedNotifications()
 	if err := session.OwnThread("thread_a"); err != nil {
 		t.Fatalf("own thread: %v", err)
 	}
@@ -257,64 +256,6 @@ func TestManagerDoesNotInferTurnOwnershipForStandaloneProcessOutput(t *testing.T
 	})
 
 	expectNoSessionEvent(t, session)
-}
-
-func TestManagerRoutesUnownedLegacyProcessOutputToSingleUnscopedSession(t *testing.T) {
-	manager := newTestManager("steady")
-	defer shutdownTestManager(t, manager)
-
-	session, err := manager.NewSession(context.Background())
-	if err != nil {
-		t.Fatalf("new session: %v", err)
-	}
-	defer session.Close()
-	session.AcceptUnscopedNotifications()
-
-	manager.dispatchNotification(Message{
-		Method: CodexNotificationProcessOutputDelta,
-		Params: rawTestMessage(t, map[string]any{
-			"capReached":    false,
-			"deltaBase64":   "b3V0Cg==",
-			"processHandle": "process_unknown",
-			"stream":        "stdout",
-		}),
-	})
-
-	event := readSessionEvent(t, session)
-	if event.Kind != EventNotification || event.Message.Method != CodexNotificationProcessOutputDelta {
-		t.Fatalf("event = %+v, want legacy process output delta", event)
-	}
-}
-
-func TestManagerDoesNotBroadcastUnownedLegacyProcessOutputToMultipleUnscopedSessions(t *testing.T) {
-	manager := newTestManager("steady")
-	defer shutdownTestManager(t, manager)
-
-	first, err := manager.NewSession(context.Background())
-	if err != nil {
-		t.Fatalf("new first session: %v", err)
-	}
-	defer first.Close()
-	first.AcceptUnscopedNotifications()
-	second, err := manager.NewSession(context.Background())
-	if err != nil {
-		t.Fatalf("new second session: %v", err)
-	}
-	defer second.Close()
-	second.AcceptUnscopedNotifications()
-
-	manager.dispatchNotification(Message{
-		Method: CodexNotificationProcessOutputDelta,
-		Params: rawTestMessage(t, map[string]any{
-			"capReached":    false,
-			"deltaBase64":   "b3V0Cg==",
-			"processHandle": "process_unknown",
-			"stream":        "stdout",
-		}),
-	})
-
-	expectNoSessionEvent(t, first)
-	expectNoSessionEvent(t, second)
 }
 
 func TestManagerRoutesRequestToSingleOwnedTurn(t *testing.T) {

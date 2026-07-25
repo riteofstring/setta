@@ -16,21 +16,88 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 			return fmt.Errorf("configure control-plane database: %w", err)
 		}
 	}
-	for _, statement := range splitSQLStatements(controlPlaneSchema) {
-		if _, err := store.db.ExecContext(ctx, statement); err != nil {
-			return fmt.Errorf("initialize control-plane database: %w", err)
-		}
-	}
 	var version int
 	if err := store.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return fmt.Errorf("read control-plane database version: %w", err)
 	}
-	if version != 0 && version != controlPlaneStoreVersion {
+	switch version {
+	case 0:
+		hasSchema, err := controlPlaneHasUserSchema(ctx, store)
+		if err != nil {
+			return err
+		}
+		if hasSchema {
+			return fmt.Errorf("unversioned control-plane database is not empty")
+		}
+		if err := createControlPlaneSchema(ctx, store); err != nil {
+			return err
+		}
+	case controlPlaneStoreVersion:
+		if err := requireControlPlaneSchemaObjects(ctx, store,
+			"users",
+			"runtimes",
+			"runtimes_user_idx",
+			"devices",
+			"devices_user_idx",
+			"runtime_access_grants",
+			"gateway_rate_windows",
+			"operations",
+			"runtime_operations",
+			"runtime_operations_due_idx",
+			"provider_observations",
+		); err != nil {
+			return err
+		}
+	default:
 		return fmt.Errorf("unsupported control-plane database version %d", version)
 	}
-	if version == 0 {
-		if _, err := store.db.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", controlPlaneStoreVersion)); err != nil {
-			return fmt.Errorf("write control-plane database version: %w", err)
+	return nil
+}
+
+func createControlPlaneSchema(ctx context.Context, store *Store) error {
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin control-plane database initialization: %w", err)
+	}
+	defer rollback(tx)
+	for _, statement := range splitSQLStatements(controlPlaneSchema) {
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("initialize control-plane database: %w", err)
+		}
+	}
+	if _, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", controlPlaneStoreVersion)); err != nil {
+		return fmt.Errorf("write control-plane database version: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit control-plane database initialization: %w", err)
+	}
+	return nil
+}
+
+func controlPlaneHasUserSchema(ctx context.Context, store *Store) (bool, error) {
+	var count int
+	if err := store.db.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM sqlite_schema
+WHERE name NOT LIKE 'sqlite_%'
+`).Scan(&count); err != nil {
+		return false, fmt.Errorf("inspect control-plane database schema: %w", err)
+	}
+	return count != 0, nil
+}
+
+func requireControlPlaneSchemaObjects(ctx context.Context, store *Store, names ...string) error {
+	for _, name := range names {
+		var count int
+		if err := store.db.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM sqlite_schema
+WHERE name = ? AND type IN ('index', 'table')
+`, name).Scan(&count); err != nil {
+			return fmt.Errorf("validate control-plane database schema: %w", err)
+		}
+		if count != 1 {
+			return fmt.Errorf("control-plane database is missing schema object %s", name)
 		}
 	}
 	return nil

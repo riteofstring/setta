@@ -113,15 +113,13 @@ type runtimeServices struct {
 	workspaceUIService        *workspaceui.Service
 	workspaceService          *workspacesession.Service
 	runtimeIdentityManager    *runtimeIdentityManager
-	infrastructureProvider    httpapi.RuntimeInfrastructureProvider
 }
 
 type runtimeAuthBootstrap struct {
-	identityManager        *runtimeIdentityManager
-	infrastructureProvider httpapi.RuntimeInfrastructureProvider
-	store                  *runtimeauth.Store
-	bootstrapToken         string
-	localPairingToken      string
+	identityManager   *runtimeIdentityManager
+	store             *runtimeauth.Store
+	bootstrapToken    string
+	localPairingToken string
 }
 
 func DefaultConfig() Config {
@@ -205,7 +203,7 @@ func validateBootstrapConfig(config Config) error {
 		return errors.New("bootstrap device display name is required")
 	}
 	if config.EnableLocalCredentialIssuer && !config.SkipBootstrapDeviceSession {
-		return errors.New("local credential issuer requires legacy bootstrap device sessions to be disabled")
+		return errors.New("local credential issuer requires bootstrap device sessions to be disabled")
 	}
 	return nil
 }
@@ -386,16 +384,11 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		workspaceUIService:        baseServices.workspaceUIService,
 		workspaceService:          baseServices.workspaceService,
 		runtimeIdentityManager:    authBootstrap.identityManager,
-		infrastructureProvider:    authBootstrap.infrastructureProvider,
 	}, nil
 }
 
 func newRuntimeAuthBootstrap(config Config) (runtimeAuthBootstrap, error) {
 	identityManager, err := newRuntimeIdentityManager(config.AppDataDir, config.RuntimeDisplayName)
-	if err != nil {
-		return runtimeAuthBootstrap{}, err
-	}
-	infrastructureProvider, err := defaultRuntimeInfrastructureProvider()
 	if err != nil {
 		return runtimeAuthBootstrap{}, err
 	}
@@ -425,11 +418,10 @@ func newRuntimeAuthBootstrap(config Config) (runtimeAuthBootstrap, error) {
 	}
 	closeAuthOnFailure = false
 	return runtimeAuthBootstrap{
-		identityManager:        identityManager,
-		infrastructureProvider: infrastructureProvider,
-		store:                  authStore,
-		bootstrapToken:         bootstrapToken,
-		localPairingToken:      localPairingToken,
+		identityManager:   identityManager,
+		store:             authStore,
+		bootstrapToken:    bootstrapToken,
+		localPairingToken: localPairingToken,
 	}, nil
 }
 

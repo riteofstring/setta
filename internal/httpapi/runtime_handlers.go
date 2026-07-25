@@ -114,23 +114,18 @@ func (handler handler) runtimeIdentity(response http.ResponseWriter, request *ht
 }
 
 func (handler handler) runtimeInfoResponse(ctx context.Context, identity RuntimeIdentity) RuntimeInfoResponse {
-	infrastructureProvider := handler.runtimeMetadata.InfrastructureProvider
-	if infrastructureProvider.ID == "" {
-		infrastructureProvider = UnknownRuntimeInfrastructureProvider()
-	}
 	diagnostics := runtimecapability.RuntimeDiagnosticsUnavailable("diagnostics_service_not_configured")
 	if handler.runtimeDiagnosticsService != nil {
 		diagnostics = handler.runtimeDiagnosticsService.RuntimeDiagnostics(ctx)
 	}
 	return RuntimeInfoResponse{
-		RuntimeID:              identity.ID,
-		DisplayName:            identity.DisplayName,
-		InfrastructureProvider: infrastructureProvider,
-		BackendName:            handler.metadata.Name,
-		BackendVersion:         handler.metadata.Version,
-		ProtocolVersion:        ProtocolVersion,
-		FeatureSet:             runtimecapability.RuntimeFeatureSetIdentity(),
-		Diagnostics:            diagnostics,
+		RuntimeID:       identity.ID,
+		DisplayName:     identity.DisplayName,
+		BackendName:     handler.metadata.Name,
+		BackendVersion:  handler.metadata.Version,
+		ProtocolVersion: ProtocolVersion,
+		FeatureSet:      runtimecapability.RuntimeFeatureSetIdentity(),
+		Diagnostics:     diagnostics,
 	}
 }
 
@@ -252,35 +247,29 @@ func setupAttestationFailure(status runtimesetup.AttestationStatus) (int, string
 }
 
 func (handler handler) listDevices(response http.ResponseWriter, request *http.Request) {
-	service := requireRuntimeAuthService(response, handler.runtimeAuthService)
-	if service == nil {
-		return
-	}
 	var payload ListDevicesRequest
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	devices, err := service.ListDeviceSessions(request.Context())
+	var devices []runtimeauth.DeviceSession
+	var err error
+	if handler.localCredentialIssuer != nil {
+		devices, err = handler.localCredentialIssuer.ListDeviceSessions(request.Context())
+	} else {
+		service := requireRuntimeAuthService(response, handler.runtimeAuthService)
+		if service == nil {
+			return
+		}
+		devices, err = service.ListDeviceSessions(request.Context())
+	}
 	if err != nil {
 		writeError(response, http.StatusInternalServerError, "list_devices_failed", err.Error())
 		return
-	}
-	if handler.localCredentialIssuer != nil {
-		localDevices, err := handler.localCredentialIssuer.ListDeviceSessions(request.Context())
-		if err != nil {
-			writeError(response, http.StatusInternalServerError, "list_local_devices_failed", err.Error())
-			return
-		}
-		devices = append(devices, localDevices...)
 	}
 	writeJSON(response, http.StatusOK, ListDevicesResponse{Devices: devices})
 }
 
 func (handler handler) revokeDevice(response http.ResponseWriter, request *http.Request) {
-	service := requireRuntimeAuthService(response, handler.runtimeAuthService)
-	if service == nil {
-		return
-	}
 	var payload RevokeDeviceRequest
 	if !decodeRequest(response, request, &payload) {
 		return
@@ -289,11 +278,16 @@ func (handler handler) revokeDevice(response http.ResponseWriter, request *http.
 		writeError(response, http.StatusBadRequest, "invalid_revoke_device_request", "device id is required")
 		return
 	}
-	device, ok, err := runtimeauth.DeviceSession{}, false, error(nil)
+	var device runtimeauth.DeviceSession
+	var ok bool
+	var err error
 	if handler.localCredentialIssuer != nil {
 		device, ok, err = handler.localCredentialIssuer.RevokeDeviceSession(request.Context(), payload.DeviceID)
-	}
-	if err == nil && !ok {
+	} else {
+		service := requireRuntimeAuthService(response, handler.runtimeAuthService)
+		if service == nil {
+			return
+		}
 		device, ok, err = service.RevokeDeviceSession(request.Context(), payload.DeviceID)
 	}
 	if err != nil {

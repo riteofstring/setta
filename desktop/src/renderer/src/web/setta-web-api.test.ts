@@ -283,11 +283,6 @@ function runtimeInfo() {
     backendName: "setta-backend",
     backendVersion: "test",
     displayName: "Web runtime",
-    infrastructureProvider: {
-      displayName: "Unknown provider",
-      iconUrl: "",
-      id: "unknown",
-    },
     protocolVersion: backendProtocolVersion,
     runtimeId: "runtime_web",
     featureSet: {

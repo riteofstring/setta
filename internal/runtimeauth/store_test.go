@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -46,6 +47,29 @@ func TestDeviceSessionTokensAreHashedAndResolvable(t *testing.T) {
 
 	if _, ok, err := store.ResolveDeviceToken(context.Background(), "not-the-token"); err != nil || ok {
 		t.Fatalf("resolve invalid token ok=%v err=%v, want not found", ok, err)
+	}
+}
+
+func TestStoreRejectsUnversionedExistingSchema(t *testing.T) {
+	appDataDir := t.TempDir()
+	runtimeDir := filepath.Join(appDataDir, "runtime")
+	if err := os.MkdirAll(runtimeDir, 0o755); err != nil {
+		t.Fatalf("create runtime directory: %v", err)
+	}
+	db, err := sql.Open(sqliteDriverName, filepath.Join(runtimeDir, runtimeAuthDatabaseName))
+	if err != nil {
+		t.Fatalf("open fixture database: %v", err)
+	}
+	if _, err := db.Exec("CREATE TABLE obsolete_state (id TEXT PRIMARY KEY)"); err != nil {
+		t.Fatalf("create obsolete schema: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close fixture database: %v", err)
+	}
+
+	_, err = NewStore(appDataDir)
+	if err == nil || !IsCorruptStateError(err) {
+		t.Fatalf("NewStore error = %v, want corrupt state error", err)
 	}
 }
 

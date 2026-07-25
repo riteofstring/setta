@@ -35,13 +35,10 @@ func newHTTPServer(config Config, services runtimeServices) (*http.Server, error
 		RuntimeAuthService:        services.authStore,
 		RuntimeDiagnosticsService: services.runtimeDiagnosticsService,
 		RuntimeIdentityService:    services.runtimeIdentityManager,
-		RuntimeMetadata: httpapi.RuntimeMetadata{
-			InfrastructureProvider: services.infrastructureProvider,
-		},
-		RuntimeSetupService: services.runtimeSetupStore,
-		SpeechService:       services.speechService,
-		WorkspaceUIService:  services.workspaceUIService,
-		WorkspaceService:    services.workspaceService,
+		RuntimeSetupService:       services.runtimeSetupStore,
+		SpeechService:             services.speechService,
+		WorkspaceUIService:        services.workspaceUIService,
+		WorkspaceService:          services.workspaceService,
 	})
 	if err != nil {
 		return nil, err

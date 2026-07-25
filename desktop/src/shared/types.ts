@@ -38,7 +38,6 @@ import type {
   RetryConversationInputRequest,
   RoleConfiguration,
   RoleModelCatalog,
-  RuntimeInfrastructureProvider,
   SendSideConversationTurnRequest,
   ShellInteractionState,
   SpeechAudio,
@@ -256,7 +255,6 @@ export interface KnownRuntimeView {
   connectionMessage: string;
   connectionStatus: RuntimeConnectionStatus;
   displayName: string;
-  infrastructureProvider: RuntimeInfrastructureProvider;
   isLocal: boolean;
   lastConnected: string | null;
   runtimeId: string;

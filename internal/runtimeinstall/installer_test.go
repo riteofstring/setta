@@ -92,9 +92,6 @@ func TestInstallHealthyVerifyReturnsStructuredBackendHealth(t *testing.T) {
 	if result.Health.Identity.ReleaseVersion != "v1.2.3" || result.Health.Identity.RuntimeName != identity.Name {
 		t.Fatalf("runtime identity proof = %#v", result.Health.Identity)
 	}
-	if result.Health.Identity.InfrastructureProvider.ID != "unknown" {
-		t.Fatalf("runtime identity proof = %#v", result.Health.Identity)
-	}
 }
 
 func TestInstallWritesSetupSeedUnderProtectedRuntimeState(t *testing.T) {
@@ -924,12 +921,11 @@ func (provider *fakeProvider) execCurl(request runtimeprovider.ExecRequest) (run
 			infoVersion = override
 		}
 		payload, err = json.Marshal(httpapi.RuntimeInfoResponse{
-			RuntimeID:              "0123456789abcdef0123456789abcdef",
-			DisplayName:            "setta-copper-lantern",
-			InfrastructureProvider: httpapi.UnknownRuntimeInfrastructureProvider(),
-			BackendName:            httpapi.BackendName,
-			BackendVersion:         infoVersion,
-			ProtocolVersion:        httpapi.ProtocolVersion,
+			RuntimeID:       "0123456789abcdef0123456789abcdef",
+			DisplayName:     "setta-copper-lantern",
+			BackendName:     httpapi.BackendName,
+			BackendVersion:  infoVersion,
+			ProtocolVersion: httpapi.ProtocolVersion,
 		})
 	} else {
 		payload, err = json.Marshal(httpapi.BackendHealth{

@@ -96,11 +96,6 @@ function runtimeSnapshot() {
         connectionMessage: "Connected to Remote",
         connectionStatus: "connected",
         displayName: "Remote",
-        infrastructureProvider: {
-          displayName: "Unknown provider",
-          iconUrl: "",
-          id: "unknown",
-        },
         isLocal: false,
         lastConnected: "2026-07-02T12:00:00Z",
         runtimeId: "runtime_remote",
