@@ -98,16 +98,18 @@ type RuntimeAuditMeasurement struct {
 type ControlPlaneAuditAction string
 
 const (
-	ControlPlaneAuditDeviceEnsured          ControlPlaneAuditAction = "device_ensured"
-	ControlPlaneAuditDeviceRevoked          ControlPlaneAuditAction = "device_revoked"
-	ControlPlaneAuditUserStatusSet          ControlPlaneAuditAction = "user_status_set"
-	ControlPlaneAuditBudgetSet              ControlPlaneAuditAction = "budget_set"
-	ControlPlaneAuditUsageRecorded          ControlPlaneAuditAction = "usage_recorded"
-	ControlPlaneAuditRuntimeWakeRequested   ControlPlaneAuditAction = "runtime_wake_requested"
-	ControlPlaneAuditRuntimeWakeObserved    ControlPlaneAuditAction = "runtime_wake_observed"
-	ControlPlaneAuditRuntimeHealthRecorded  ControlPlaneAuditAction = "runtime_health_recorded"
-	ControlPlaneAuditRuntimeReporterRotated ControlPlaneAuditAction = "runtime_reporting_credential_rotated"
-	ControlPlaneAuditRuntimeUsageReported   ControlPlaneAuditAction = "runtime_accounting_transition_recorded"
+	ControlPlaneAuditDeviceEnsured            ControlPlaneAuditAction = "device_ensured"
+	ControlPlaneAuditDeviceRevoked            ControlPlaneAuditAction = "device_revoked"
+	ControlPlaneAuditUserStatusSet            ControlPlaneAuditAction = "user_status_set"
+	ControlPlaneAuditBudgetSet                ControlPlaneAuditAction = "budget_set"
+	ControlPlaneAuditUsageRecorded            ControlPlaneAuditAction = "usage_recorded"
+	ControlPlaneAuditRuntimeWakeRequested     ControlPlaneAuditAction = "runtime_wake_requested"
+	ControlPlaneAuditRuntimeWakeObserved      ControlPlaneAuditAction = "runtime_wake_observed"
+	ControlPlaneAuditRuntimeHealthRecorded    ControlPlaneAuditAction = "runtime_health_recorded"
+	ControlPlaneAuditRuntimeReporterRotated   ControlPlaneAuditAction = "runtime_reporting_credential_rotated"
+	ControlPlaneAuditRuntimeUsageReported     ControlPlaneAuditAction = "runtime_accounting_transition_recorded"
+	ControlPlaneAuditRuntimeDeletionScheduled ControlPlaneAuditAction = "runtime_deletion_scheduled"
+	ControlPlaneAuditRuntimeDeletionCancelled ControlPlaneAuditAction = "runtime_deletion_cancelled"
 )
 
 type ControlPlaneAuditObservation struct {

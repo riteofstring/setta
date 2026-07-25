@@ -44,6 +44,12 @@ func handleRuntimePolicyAdminRoute(
 		})
 		writeAdminJSON(response, AdminEvent{Event: "runtime_wake_requested", Status: "requested"})
 		return true
+	case "/v1/runtimes/deletion/schedule":
+		handleRuntimeDeletionScheduleAdmin(store, observer, response, request)
+		return true
+	case "/v1/runtimes/deletion/cancel":
+		handleRuntimeDeletionCancellationAdmin(store, observer, response, request)
+		return true
 	case "/v1/runtimes/health":
 		handleRuntimeHealthAdmin(store, observer, response, request)
 		return true
@@ -53,6 +59,73 @@ func handleRuntimePolicyAdminRoute(
 	default:
 		return false
 	}
+}
+
+func handleRuntimeDeletionScheduleAdmin(
+	store *Store,
+	observer ControlPlaneAuditObserver,
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if !requireAdminMethod(response, request, http.MethodPost) {
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	var payload AdminScheduleRuntimeDeletionRequest
+	if !decodeAdminRequest(response, request, &payload) {
+		return
+	}
+	runtime, err := store.ScheduleRuntimeDeletion(
+		request.Context(),
+		ScheduleRuntimeDeletionRequest(payload),
+	)
+	if err != nil {
+		writeAdminError(response)
+		return
+	}
+	observer.ObserveControlPlaneAudit(ControlPlaneAuditObservation{
+		Action:     ControlPlaneAuditRuntimeDeletionScheduled,
+		OccurredAt: runtime.UpdatedAt,
+		State:      "scheduled",
+	})
+	writeAdminJSON(response, AdminEvent{
+		Event:  "runtime_deletion_scheduled",
+		Status: "scheduled",
+	})
+}
+
+func handleRuntimeDeletionCancellationAdmin(
+	store *Store,
+	observer ControlPlaneAuditObserver,
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if !requireAdminMethod(response, request, http.MethodPost) {
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	var payload AdminCancelRuntimeDeletionRequest
+	if !decodeAdminRequest(response, request, &payload) {
+		return
+	}
+	runtime, err := store.CancelRuntimeDeletion(
+		request.Context(),
+		payload.RuntimeName,
+		payload.AccessState,
+	)
+	if err != nil {
+		writeAdminError(response)
+		return
+	}
+	observer.ObserveControlPlaneAudit(ControlPlaneAuditObservation{
+		Action:     ControlPlaneAuditRuntimeDeletionCancelled,
+		OccurredAt: runtime.UpdatedAt,
+		State:      "cancelled",
+	})
+	writeAdminJSON(response, AdminEvent{
+		Event:  "runtime_deletion_cancelled",
+		Status: "cancelled",
+	})
 }
 
 func handleRuntimeReportingCredentialAdmin(

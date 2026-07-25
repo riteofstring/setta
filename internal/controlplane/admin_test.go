@@ -329,6 +329,56 @@ func TestAdminServerAuditsRuntimeWakeAndTrustedHealthWithoutContent(t *testing.T
 	})
 }
 
+func TestAdminServerSchedulesAndCancelsRuntimeDeletionWithoutContent(t *testing.T) {
+	ctx := context.Background()
+	store, _, runtimeName, _ := seededControlPlane(t, ctx)
+	defer store.Close()
+	socketPath := filepath.Join(filepath.Dir(store.Path()), "admin.sock")
+	var audit bytes.Buffer
+	server, err := StartAdminServer(AdminServerConfig{
+		Observer:      newAdminTestObserver(t, &audit),
+		PriceSchedule: adminTestPriceSchedule(),
+		SocketPath:    socketPath,
+		Store:         store,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer shutdownAdminTestServer(t, server)
+	client := adminTestClient(socketPath)
+	scheduledAt := time.Now().UTC().Add(time.Hour)
+	adminTestRequest(t, client, "/v1/runtimes/deletion/schedule", AdminScheduleRuntimeDeletionRequest{
+		IdempotencyKey: "admin-deletion-operation",
+		RuntimeName:    runtimeName,
+		ScheduledAt:    scheduledAt,
+	}, "runtime_deletion_scheduled")
+	scheduled, err := store.Runtime(ctx, runtimeName)
+	if err != nil ||
+		scheduled.AccessState != RuntimeAccessDeleteScheduled ||
+		scheduled.DeletionScheduledAt == nil ||
+		!scheduled.DeletionScheduledAt.Equal(scheduledAt) {
+		t.Fatalf("administratively scheduled runtime = %+v, %v", scheduled, err)
+	}
+	adminTestRequest(t, client, "/v1/runtimes/deletion/cancel", AdminCancelRuntimeDeletionRequest{
+		AccessState: RuntimeAccessSuspended,
+		RuntimeName: runtimeName,
+	}, "runtime_deletion_cancelled")
+	cancelled, err := store.Runtime(ctx, runtimeName)
+	if err != nil ||
+		cancelled.AccessState != RuntimeAccessSuspended ||
+		cancelled.DeletionScheduledAt != nil {
+		t.Fatalf("administratively cancelled runtime deletion = %+v, %v", cancelled, err)
+	}
+	requireContentFreeControlPlaneAudit(t, audit.Bytes(), []ControlPlaneAuditMeasurement{
+		{Action: ControlPlaneAuditRuntimeDeletionScheduled, State: "scheduled"},
+		{Action: ControlPlaneAuditRuntimeDeletionCancelled, State: "cancelled"},
+	}, []string{
+		"admin-deletion-operation",
+		runtimeName,
+		scheduledAt.Format(time.RFC3339Nano),
+	})
+}
+
 func TestTypedHostedAccessClientStreamsReadyOnPhoneThroughPrivateBoundary(t *testing.T) {
 	directory := t.TempDir()
 	store := openTestStore(t, directory, time.Now, RateLimit{})

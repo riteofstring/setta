@@ -25,7 +25,7 @@ type adminClientConfig struct {
 
 func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: setta-control-plane admin <ensure-device|revoke-device|set-user-status|set-user-budget|request-runtime-wake|record-runtime-health|rotate-runtime-reporting-credential|record-usage|record-accounting-event|finalize-accounting-window> [options]")
+		fmt.Fprintln(stderr, "usage: setta-control-plane admin <ensure-device|revoke-device|set-user-status|set-user-budget|request-runtime-wake|schedule-runtime-deletion|cancel-runtime-deletion|record-runtime-health|rotate-runtime-reporting-credential|record-usage|record-accounting-event|finalize-accounting-window> [options]")
 		return 2
 	}
 	ctx := context.Background()
@@ -45,6 +45,12 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer
 		},
 		"request-runtime-wake": func() error {
 			return adminRequestRuntimeWake(ctx, commandArgs, stdout, stderr)
+		},
+		"schedule-runtime-deletion": func() error {
+			return adminScheduleRuntimeDeletion(ctx, commandArgs, stdout, stderr)
+		},
+		"cancel-runtime-deletion": func() error {
+			return adminCancelRuntimeDeletion(ctx, commandArgs, stdout, stderr)
 		},
 		"record-runtime-health": func() error {
 			return adminRecordRuntimeHealth(ctx, commandArgs, stdout, stderr)
@@ -73,6 +79,77 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer
 		return 1
 	}
 	return 0
+}
+
+func adminScheduleRuntimeDeletion(
+	ctx context.Context,
+	args []string,
+	stdout io.Writer,
+	stderr io.Writer,
+) error {
+	var config adminClientConfig
+	var payload controlplane.AdminScheduleRuntimeDeletionRequest
+	var scheduledAt string
+	flagSet := flag.NewFlagSet("setta-control-plane admin schedule-runtime-deletion", flag.ContinueOnError)
+	flagSet.SetOutput(stderr)
+	flagSet.StringVar(&config.SocketPath, "socket", "", "absolute private administration socket path")
+	flagSet.StringVar(&payload.IdempotencyKey, "idempotency-key", "", "globally unique immutable deletion request key")
+	flagSet.StringVar(&payload.RuntimeName, "runtime-name", "", "Setta-managed runtime name")
+	flagSet.StringVar(&scheduledAt, "scheduled-at", "", "future RFC3339 deletion time")
+	if err := flagSet.Parse(args); err != nil {
+		return err
+	}
+	if flagSet.NArg() != 0 {
+		return errors.New("schedule-runtime-deletion accepts no positional arguments")
+	}
+	if err := validateAdminClientConfig(config); err != nil {
+		return err
+	}
+	var err error
+	payload.ScheduledAt, err = time.Parse(time.RFC3339Nano, scheduledAt)
+	if err != nil {
+		return errors.New("runtime deletion time must be RFC3339")
+	}
+	return executeAdminRequest(
+		ctx,
+		config,
+		"/v1/runtimes/deletion/schedule",
+		payload,
+		"runtime_deletion_scheduled",
+		stdout,
+	)
+}
+
+func adminCancelRuntimeDeletion(
+	ctx context.Context,
+	args []string,
+	stdout io.Writer,
+	stderr io.Writer,
+) error {
+	var config adminClientConfig
+	var payload controlplane.AdminCancelRuntimeDeletionRequest
+	flagSet := flag.NewFlagSet("setta-control-plane admin cancel-runtime-deletion", flag.ContinueOnError)
+	flagSet.SetOutput(stderr)
+	flagSet.StringVar((*string)(&payload.AccessState), "access-state", "", "enabled, suspended, or export_only")
+	flagSet.StringVar(&config.SocketPath, "socket", "", "absolute private administration socket path")
+	flagSet.StringVar(&payload.RuntimeName, "runtime-name", "", "Setta-managed runtime name")
+	if err := flagSet.Parse(args); err != nil {
+		return err
+	}
+	if flagSet.NArg() != 0 {
+		return errors.New("cancel-runtime-deletion accepts no positional arguments")
+	}
+	if err := validateAdminClientConfig(config); err != nil {
+		return err
+	}
+	return executeAdminRequest(
+		ctx,
+		config,
+		"/v1/runtimes/deletion/cancel",
+		payload,
+		"runtime_deletion_cancelled",
+		stdout,
+	)
 }
 
 func adminRotateRuntimeReportingCredential(

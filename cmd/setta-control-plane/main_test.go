@@ -281,6 +281,7 @@ func TestAdminCommandsMutateTheLiveControlPlaneWithoutPrintingCredentials(t *tes
 	socketPath := controlplane.AdminSocketPath(fixture.dataDirectory)
 	requireAdminWakeHealthWorkflow(t, store, socketPath, fixture.runtimeName)
 	requireAdminRuntimeReportingCredentialWorkflow(t, store, socketPath, fixture.runtimeName)
+	requireAdminRuntimeDeletionWorkflow(t, store, socketPath, fixture.runtimeName)
 	accountingTransition, err := json.Marshal(runtimeaccounting.ActivityTransition{
 		EventID: "admin-provider-begin", At: time.Now().UTC(),
 		Kind: runtimeaccounting.ActivityProvider, Action: runtimeaccounting.EventBegin,
@@ -323,6 +324,47 @@ func TestAdminCommandsMutateTheLiveControlPlaneWithoutPrintingCredentials(t *tes
 	authorization, err = store.AuthorizeClient(context.Background(), credential.Token)
 	if err != nil || authorization.Outcome != runtimeaccess.AuthorizationRevoked {
 		t.Fatalf("revoked authorization = %+v, %v", authorization, err)
+	}
+}
+
+func requireAdminRuntimeDeletionWorkflow(
+	t *testing.T,
+	store *controlplane.Store,
+	socketPath string,
+	runtimeName string,
+) {
+	t.Helper()
+	scheduledAt := time.Now().UTC().Add(time.Hour)
+	scheduleOutput := runAdminTestCommand(t, []string{
+		"schedule-runtime-deletion", "--socket", socketPath,
+		"--idempotency-key", "admin-command-deletion",
+		"--runtime-name", runtimeName,
+		"--scheduled-at", scheduledAt.Format(time.RFC3339Nano),
+	}, nil)
+	if bytes.Contains(scheduleOutput, []byte(runtimeName)) ||
+		bytes.Contains(scheduleOutput, []byte("admin-command-deletion")) {
+		t.Fatalf("runtime deletion schedule output exposed private identity: %s", scheduleOutput)
+	}
+	scheduled, err := store.Runtime(context.Background(), runtimeName)
+	if err != nil ||
+		scheduled.AccessState != controlplane.RuntimeAccessDeleteScheduled ||
+		scheduled.DeletionScheduledAt == nil ||
+		!scheduled.DeletionScheduledAt.Equal(scheduledAt) {
+		t.Fatalf("runtime after deletion command = %+v, %v", scheduled, err)
+	}
+	cancelOutput := runAdminTestCommand(t, []string{
+		"cancel-runtime-deletion", "--socket", socketPath,
+		"--runtime-name", runtimeName,
+		"--access-state", string(controlplane.RuntimeAccessEnabled),
+	}, nil)
+	if bytes.Contains(cancelOutput, []byte(runtimeName)) {
+		t.Fatalf("runtime deletion cancellation output exposed runtime identity: %s", cancelOutput)
+	}
+	cancelled, err := store.Runtime(context.Background(), runtimeName)
+	if err != nil ||
+		cancelled.AccessState != controlplane.RuntimeAccessEnabled ||
+		cancelled.DeletionScheduledAt != nil {
+		t.Fatalf("runtime after deletion cancellation command = %+v, %v", cancelled, err)
 	}
 }
 

@@ -97,6 +97,17 @@ type AdminRequestRuntimeWakeRequest struct {
 	RuntimeName    string `json:"runtime_name"`
 }
 
+type AdminScheduleRuntimeDeletionRequest struct {
+	IdempotencyKey string    `json:"idempotency_key"`
+	RuntimeName    string    `json:"runtime_name"`
+	ScheduledAt    time.Time `json:"scheduled_at"`
+}
+
+type AdminCancelRuntimeDeletionRequest struct {
+	AccessState RuntimeAccessState `json:"access_state"`
+	RuntimeName string             `json:"runtime_name"`
+}
+
 type AdminRecordRuntimeHealthRequest struct {
 	HealthState     RuntimeHealthState `json:"health_state"`
 	ObservedRelease string             `json:"observed_release"`
