@@ -145,6 +145,10 @@ func startControlPlaneServices(
 	if err != nil {
 		return controlPlaneServices{}, err
 	}
+	alertingObserver, err := controlplane.NewAlertingObserver(observer, observer, observer)
+	if err != nil {
+		return controlPlaneServices{}, err
+	}
 	workerID, err := newReconcilerWorkerID()
 	if err != nil {
 		return controlPlaneServices{}, err
@@ -153,7 +157,7 @@ func startControlPlaneServices(
 		LeaseDuration:    defaultReconcilerLease,
 		MaxAttempts:      defaultReconcilerAttempts,
 		OperationTimeout: defaultReconcilerOperation,
-		Observer:         observer,
+		Observer:         alertingObserver,
 		Provider:         provider,
 		RetryDelay:       defaultReconcilerRetry,
 		Store:            store,
@@ -169,7 +173,7 @@ func startControlPlaneServices(
 		ListenAddress:         net.JoinHostPort(config.Host, strconv.Itoa(config.Port)),
 		MaxConcurrentRequests: config.MaxConcurrentRequest,
 		MaxRequestBytes:       config.MaxRequestBytes,
-		Observer:              observer,
+		Observer:              alertingObserver,
 		Routes:                store,
 		RuntimeTarget:         config.RuntimeTarget,
 		Secrets:               secrets,
@@ -178,7 +182,7 @@ func startControlPlaneServices(
 		return controlPlaneServices{}, fmt.Errorf("start control-plane gateway: %w", err)
 	}
 	admin, err := controlplane.StartAdminServer(controlplane.AdminServerConfig{
-		Observer:      observer,
+		Observer:      alertingObserver,
 		PriceSchedule: controlPlanePriceSchedule(),
 		SocketPath:    controlplane.AdminSocketPath(config.DataDirectory),
 		Store:         store,

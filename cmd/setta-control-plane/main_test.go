@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -167,6 +170,98 @@ func TestEnsureRuntimeCommandPersistsOneRestartSafeIntent(t *testing.T) {
 		runtime.Resources.MemoryBytes != 512_000_000 ||
 		runtime.Resources.StorageBytes != 10_000_000_000 {
 		t.Fatalf("persisted ensure-runtime resources = %+v, %v", runtime.Resources, err)
+	}
+}
+
+func TestProductionServicesEmitContentFreeProviderAlerts(t *testing.T) {
+	provider := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		http.Error(response, "provider unavailable", http.StatusServiceUnavailable)
+	}))
+	defer provider.Close()
+	root := t.TempDir()
+	dataDirectory := filepath.Join(root, "data")
+	store, err := controlplane.OpenStore(controlplane.StoreConfig{Directory: dataDirectory})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	identity, err := runtimeprovider.NewManagedIdentity("production-alert")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.UpsertUser(t.Context(), "user-production-alert"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.EnsureRuntimeIntent(t.Context(), controlplane.EnsureRuntimeRequest{
+		CredentialSecretRef: "production_alert_secret",
+		CredentialEpoch:     1,
+		DesiredRelease:      "production-alert-release",
+		IdempotencyKey:      "production-alert-operation",
+		Resources: runtimeprovider.RuntimeResources{
+			CPUCoreMillionths: 1_000_000,
+			MemoryBytes:       512_000_000,
+			StorageBytes:      10_000_000_000,
+		},
+		RuntimeName:       identity.Name,
+		UpstreamAuthority: defaultRuntimeTarget,
+		UserID:            "user-production-alert",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	services, err := startControlPlaneServices(commandConfig{
+		DataDirectory: dataDirectory, Host: "127.0.0.1",
+		MaxConcurrentRequest: defaultMaxConcurrentRequests,
+		MaxRequestBytes:      defaultMaxRequestBytes,
+		Port:                 0,
+		ProviderBaseURL:      provider.URL,
+		ProviderToken:        "provider-token",
+		RuntimeTarget:        defaultRuntimeTarget,
+		SecretDirectory:      filepath.Join(root, "secrets"),
+		ShutdownTimeout:      defaultShutdownTimeout,
+	}, store, &output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := services.shutdownGateway(defaultShutdownTimeout); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	processed, err := services.reconciler.ReconcileOnce(t.Context())
+	if err != nil || !processed {
+		t.Fatalf("reconcile provider failure = %t, %v", processed, err)
+	}
+	var foundAlert bool
+	decoder := json.NewDecoder(bytes.NewReader(output.Bytes()))
+	for {
+		var event map[string]any
+		err := decoder.Decode(&event)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if event["event"] == "operational_alert" &&
+			event["signal"] == "provider_error" &&
+			event["severity"] == "warning" &&
+			event["error_code"] == "provider_inspect" {
+			foundAlert = true
+		}
+		for _, forbidden := range []string{
+			identity.Name,
+			"user-production-alert",
+			"production-alert-operation",
+			"provider-token",
+		} {
+			if strings.Contains(fmt.Sprint(event), forbidden) {
+				t.Fatalf("production alert stream exposed %q: %v", forbidden, event)
+			}
+		}
+	}
+	if !foundAlert {
+		t.Fatalf("production alert stream = %s", output.String())
 	}
 }
 

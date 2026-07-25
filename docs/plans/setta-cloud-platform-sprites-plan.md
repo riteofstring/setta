@@ -2546,3 +2546,14 @@ Stop and reassess rather than hiding the problem if any of these occur:
   possible provider mutation, uses an independent bounded context, and now
   inspects the deterministic identity after destroy to fail if the runtime is
   still present.
+- 2026-07-25 (immediate operational alert path): Extended the existing
+  content-free production JSONL operations stream with typed
+  `operational_alert` records. Provider protocol errors emit warning or
+  critical alerts according to retryability, while terminal provisioning,
+  wake, and budget-cutoff failures emit critical alerts without user,
+  runtime, operation, route, or credential identifiers. The deployable wires
+  the alerting observer across the production reconciler, administration, and
+  gateway observer boundary. Failure-spike aggregation, reconciliation
+  backlog, unexpectedly old Task/session, and approaching-budget thresholds
+  remain open, so the combined Phase 5 alert checkbox stays unchecked. No
+  provider or cloud mutation ran.

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -104,6 +105,37 @@ type ControlPlaneAuditMeasurement struct {
 	State      string                  `json:"state"`
 }
 
+type OperationalAlertSignal string
+
+const (
+	OperationalAlertProvisioningFailed OperationalAlertSignal = "provisioning_failed"
+	OperationalAlertWakeFailed         OperationalAlertSignal = "wake_failed"
+	OperationalAlertProviderError      OperationalAlertSignal = "provider_error"
+	OperationalAlertBudgetCutoffFailed OperationalAlertSignal = "budget_cutoff_failed"
+)
+
+type OperationalAlertSeverity string
+
+const (
+	OperationalAlertWarning  OperationalAlertSeverity = "warning"
+	OperationalAlertCritical OperationalAlertSeverity = "critical"
+)
+
+type OperationalAlertObservation struct {
+	ErrorCode  string
+	OccurredAt time.Time
+	Severity   OperationalAlertSeverity
+	Signal     OperationalAlertSignal
+}
+
+type OperationalAlertMeasurement struct {
+	ErrorCode  string                   `json:"error_code"`
+	Event      string                   `json:"event"`
+	OccurredAt time.Time                `json:"occurred_at"`
+	Severity   OperationalAlertSeverity `json:"severity"`
+	Signal     OperationalAlertSignal   `json:"signal"`
+}
+
 type HostedAccessObserver interface {
 	ObserveHostedAccessFailure(HostedAccessFailureObservation)
 	ObserveHostedAccessTiming(HostedAccessTiming)
@@ -117,10 +149,86 @@ type ControlPlaneAuditObserver interface {
 	ObserveControlPlaneAudit(ControlPlaneAuditObservation)
 }
 
+type OperationalAlertObserver interface {
+	ObserveOperationalAlert(OperationalAlertObservation)
+}
+
 type ControlPlaneObserver interface {
 	ControlPlaneAuditObserver
 	HostedAccessObserver
 	RuntimeAuditObserver
+}
+
+type AlertingObserver struct {
+	alerts     OperationalAlertObserver
+	downstream ControlPlaneObserver
+	gateway    runtimeaccess.GatewayObserver
+}
+
+func NewAlertingObserver(
+	downstream ControlPlaneObserver,
+	gateway runtimeaccess.GatewayObserver,
+	alerts OperationalAlertObserver,
+) (*AlertingObserver, error) {
+	if downstream == nil || gateway == nil || alerts == nil {
+		return nil, errors.New("alerting observer requires control-plane, gateway, and alert observers")
+	}
+	return &AlertingObserver{alerts: alerts, downstream: downstream, gateway: gateway}, nil
+}
+
+func (observer *AlertingObserver) ObserveGatewayRequest(observation runtimeaccess.GatewayRequestObservation) {
+	observer.gateway.ObserveGatewayRequest(observation)
+}
+
+func (observer *AlertingObserver) ObserveHostedAccessFailure(observation HostedAccessFailureObservation) {
+	observer.downstream.ObserveHostedAccessFailure(observation)
+}
+
+func (observer *AlertingObserver) ObserveHostedAccessTiming(timing HostedAccessTiming) {
+	observer.downstream.ObserveHostedAccessTiming(timing)
+}
+
+func (observer *AlertingObserver) ObserveControlPlaneAudit(observation ControlPlaneAuditObservation) {
+	observer.downstream.ObserveControlPlaneAudit(observation)
+}
+
+func (observer *AlertingObserver) ObserveRuntimeAudit(observation RuntimeAuditObservation) {
+	observer.downstream.ObserveRuntimeAudit(observation)
+	for _, alert := range runtimeAuditAlerts(observation) {
+		observer.alerts.ObserveOperationalAlert(alert)
+	}
+}
+
+func runtimeAuditAlerts(observation RuntimeAuditObservation) []OperationalAlertObservation {
+	alerts := make([]OperationalAlertObservation, 0, 2)
+	if strings.HasPrefix(observation.ErrorCode, "provider_") {
+		severity := OperationalAlertWarning
+		if !observation.Retryable {
+			severity = OperationalAlertCritical
+		}
+		alerts = append(alerts, OperationalAlertObservation{
+			ErrorCode: observation.ErrorCode, OccurredAt: observation.CompletedAt,
+			Severity: severity, Signal: OperationalAlertProviderError,
+		})
+	}
+	if observation.State != RuntimeProgressFailed {
+		return alerts
+	}
+	var signal OperationalAlertSignal
+	switch observation.Kind {
+	case RuntimeProgressEnsureRuntime:
+		signal = OperationalAlertProvisioningFailed
+	case RuntimeProgressWakeRuntime:
+		signal = OperationalAlertWakeFailed
+	case RuntimeProgressBudgetCutoff:
+		signal = OperationalAlertBudgetCutoffFailed
+	default:
+		return alerts
+	}
+	return append(alerts, OperationalAlertObservation{
+		ErrorCode: observation.ErrorCode, OccurredAt: observation.CompletedAt,
+		Severity: OperationalAlertCritical, Signal: signal,
+	})
 }
 
 type JSONLinesObserver struct {
@@ -227,6 +335,21 @@ func (observer *JSONLinesObserver) ObserveControlPlaneAudit(observation ControlP
 	})
 }
 
+func (observer *JSONLinesObserver) ObserveOperationalAlert(observation OperationalAlertObservation) {
+	observer.mu.Lock()
+	defer observer.mu.Unlock()
+	if observer.err != nil {
+		return
+	}
+	observer.err = observer.encoder.Encode(OperationalAlertMeasurement{
+		ErrorCode:  observation.ErrorCode,
+		Event:      "operational_alert",
+		OccurredAt: observation.OccurredAt.UTC(),
+		Severity:   observation.Severity,
+		Signal:     observation.Signal,
+	})
+}
+
 func milliseconds(duration time.Duration) float64 {
 	return float64(duration) / float64(time.Millisecond)
 }
@@ -238,6 +361,9 @@ func (observer *JSONLinesObserver) Err() error {
 }
 
 var _ runtimeaccess.GatewayObserver = (*JSONLinesObserver)(nil)
+var _ runtimeaccess.GatewayObserver = (*AlertingObserver)(nil)
 var _ ControlPlaneObserver = (*JSONLinesObserver)(nil)
+var _ ControlPlaneObserver = (*AlertingObserver)(nil)
 var _ HostedAccessObserver = (*JSONLinesObserver)(nil)
+var _ OperationalAlertObserver = (*JSONLinesObserver)(nil)
 var _ RuntimeAuditObserver = (*JSONLinesObserver)(nil)
