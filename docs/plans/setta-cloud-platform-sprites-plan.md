@@ -1311,7 +1311,7 @@ artifacts, disconnect, and resume from a durable cursor.
 - [ ] Verify desktop disconnect, phone attach, recurring idle reconnect, warm
   wake, simulated process loss, backend crash, and control-plane restart
   through production boundaries.
-- [ ] Prove conversation, queue, approval, artifact, and replay state survives
+- [x] Prove conversation, queue, approval, artifact, and replay state survives
   without process memory or `/tmp`.
 - [x] Prove a phone access request does not expose provider identity,
   endpoint, pairing, or wake controls to the client contract.
@@ -2198,3 +2198,13 @@ Stop and reassess rather than hiding the problem if any of these occur:
   terminal EOF, idempotency, and restart. Reactivation deliberately requires a
   fresh hosted-access intent; export progress and frontend projection remain
   open.
+- 2026-07-24 (hosted lifecycle restart proof): Strengthened the production
+  Candidate B control-path workflow to restart both the private gateway and the
+  serving runtime after completing queue promotion, steering, artifact
+  publication, approval denial, cancellation, and provider failure. The
+  restarted authenticated gateway reopens the same file-backed application and
+  control-plane directories and verifies all five durable turn outcomes, an
+  empty queue, the artifact, and the approval-resolution trajectory without
+  retaining either process. Together with the existing cursor replay restart
+  workflow, this directly closes the Phase 4 durable conversation/queue/
+  approval/artifact/replay checkbox. The focused production-path test passed.

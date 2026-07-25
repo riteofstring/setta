@@ -14,18 +14,26 @@ func TestCandidateBGatewayConversationControls(t *testing.T) {
 	config := testConfig(t)
 	config.Version = "hosted-gateway-controls"
 	runtimeServer, runtimeReady := startRuntimeTestServer(t, config)
-	defer shutdownServer(t, runtimeServer)
 
 	dialer := &hostedRuntimeDialer{}
 	dialer.SetAddress(runtimeServer.Addr())
-	gateway, store, _, client, _ := startHostedGateway(
+	controlDirectory := t.TempDir()
+	secretDirectory := t.TempDir()
+	gateway, store, secrets, client, grant := startHostedGateway(
 		t,
-		t.TempDir(),
-		t.TempDir(),
+		controlDirectory,
+		secretDirectory,
 		dialer,
 		runtimeReady.BootstrapToken,
 	)
-	defer shutdownHostedGateway(t, gateway, store)
+	defer func() {
+		if gateway != nil {
+			shutdownHostedGateway(t, gateway, store)
+		}
+		if runtimeServer != nil {
+			shutdownServer(t, runtimeServer)
+		}
+	}()
 
 	baseURL := "http://" + gateway.Addr().String()
 	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](
@@ -305,6 +313,77 @@ func TestCandidateBGatewayConversationControls(t *testing.T) {
 		afterFailure.Turns.Turns[4].Error == nil {
 		t.Fatalf("hosted failed turn = %+v", afterFailure.Turns.Turns[4])
 	}
+
+	shutdownHostedGateway(t, gateway, store)
+	gateway = nil
+	store = nil
+	shutdownServer(t, runtimeServer)
+	runtimeServer = nil
+
+	runtimeServer, runtimeReady = startRuntimeTestServer(t, config)
+	dialer.SetAddress(runtimeServer.Addr())
+	if err := secrets.WriteSecret(t.Context(), "hosted_runtime", []byte(runtimeReady.BootstrapToken)); err != nil {
+		t.Fatal(err)
+	}
+	gateway, store, _, client = restartHostedGateway(
+		t,
+		controlDirectory,
+		secretDirectory,
+		dialer,
+		grant.Token,
+	)
+	baseURL = "http://" + gateway.Addr().String()
+	restarted := postRuntimeJSON[conversation.ConversationSnapshot](
+		t,
+		client,
+		baseURL,
+		"/conversations/snapshot/read",
+		httpapi.ReadConversationSnapshotRequest{
+			WorkspaceID:    opened.Workspace.ID,
+			ConversationID: created.Conversation.ID,
+		},
+		http.StatusOK,
+	)
+	requireHostedLifecycleRestartState(t, restarted)
+}
+
+func requireHostedLifecycleRestartState(t *testing.T, snapshot conversation.ConversationSnapshot) {
+	t.Helper()
+	wantStatuses := []conversation.TurnStatus{
+		conversation.TurnStatusCompleted,
+		conversation.TurnStatusCompleted,
+		conversation.TurnStatusCompleted,
+		conversation.TurnStatusCancelled,
+		conversation.TurnStatusFailed,
+	}
+	if len(snapshot.Turns.Turns) != len(wantStatuses) {
+		t.Fatalf("restarted hosted turns = %+v", snapshot.Turns.Turns)
+	}
+	for index, want := range wantStatuses {
+		if snapshot.Turns.Turns[index].Status != want {
+			t.Fatalf("restarted hosted turn %d = %+v, want %s", index, snapshot.Turns.Turns[index], want)
+		}
+	}
+	if len(snapshot.Queue) != 0 ||
+		len(snapshot.Artifacts.Artifacts) != 1 ||
+		hostedPendingApprovalID(snapshot) != "" ||
+		!hostedApprovalResolutionPersisted(snapshot) {
+		t.Fatalf(
+			"restarted hosted state = queue=%+v artifacts=%+v trajectory=%+v",
+			snapshot.Queue,
+			snapshot.Artifacts,
+			snapshot.Trajectory,
+		)
+	}
+}
+
+func hostedApprovalResolutionPersisted(snapshot conversation.ConversationSnapshot) bool {
+	for _, event := range snapshot.Trajectory.Events {
+		if event.ApprovalResolved != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func submitHostedConversationInput(
