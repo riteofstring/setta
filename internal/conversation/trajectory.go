@@ -160,6 +160,71 @@ func TrajectoryEventKinds() []TrajectoryEventKind {
 	return result
 }
 
+var trajectoryActivityKinds = []TrajectoryActivityKind{
+	TrajectoryActivityCommand,
+	TrajectoryActivityMCPTool,
+	TrajectoryActivityDynamicTool,
+	TrajectoryActivityWebSearch,
+	TrajectoryActivityImageView,
+	TrajectoryActivityImageGeneration,
+	TrajectoryActivitySleep,
+	TrajectoryActivityHook,
+	TrajectoryActivityFileChange,
+	TrajectoryActivitySubagent,
+	TrajectoryActivityOther,
+}
+
+// TrajectoryActivityKinds is the authoritative activity catalog. Consumers that
+// map activities onto their own vocabulary iterate it so a new activity kind
+// fails their coverage checks instead of falling through to a generic case.
+func TrajectoryActivityKinds() []TrajectoryActivityKind {
+	result := make([]TrajectoryActivityKind, len(trajectoryActivityKinds))
+	copy(result, trajectoryActivityKinds)
+	return result
+}
+
+var agentLivenessStatuses = []AgentLivenessStatus{
+	AgentLivenessAttached,
+	AgentLivenessReconciling,
+	AgentLivenessLost,
+	AgentLivenessTerminal,
+}
+
+// AgentLivenessStatuses is the authoritative agent liveness catalog.
+func AgentLivenessStatuses() []AgentLivenessStatus {
+	result := make([]AgentLivenessStatus, len(agentLivenessStatuses))
+	copy(result, agentLivenessStatuses)
+	return result
+}
+
+var providerLifecycleStatuses = []ProviderLifecycleStatus{
+	ProviderLifecycleStarting,
+	ProviderLifecycleReady,
+	ProviderLifecycleRestarting,
+	ProviderLifecycleUnavailable,
+	ProviderLifecycleClosed,
+}
+
+// ProviderLifecycleStatuses is the authoritative provider lifecycle catalog.
+func ProviderLifecycleStatuses() []ProviderLifecycleStatus {
+	result := make([]ProviderLifecycleStatus, len(providerLifecycleStatuses))
+	copy(result, providerLifecycleStatuses)
+	return result
+}
+
+var planStepStatuses = []PlanStepStatus{
+	PlanStepStatusPending,
+	PlanStepStatusInProgress,
+	PlanStepStatusCompleted,
+}
+
+// PlanStepStatuses is the authoritative plan step status catalog.
+func PlanStepStatuses() []PlanStepStatus {
+	result := make([]PlanStepStatus, len(planStepStatuses))
+	copy(result, planStepStatuses)
+	return result
+}
+
 type PlanStep struct {
 	Text   string         `json:"text"`
 	Status PlanStepStatus `json:"status"`

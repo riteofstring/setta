@@ -4,7 +4,12 @@
 **Status:** Approved direction; Phase 0 repository work is complete and Phase 1 has
 started. The checked-in Codex protocol snapshot is refreshed and the provider
 notification adapter matrix is committed in `internal/agent/provider_notification_matrix.go`
-(Phase 1 items 2 and 3). The ownership,
+(Phase 1 items 2 and 3). The Go-owned Setta 4 contract layer is committed in
+`internal/director` (Phase 1 items 4 through 7): workstream, semantic node, edge,
+evidence, status, and interpretation contracts; lifecycle tables for workstreams,
+runs, queue items, approvals, resource requests, artifacts, semantic nodes, and
+recovery; the source-fact-to-node mapping; and the app-scoped snapshot, cursor,
+event, and `resync_required` contracts. The ownership,
 surviving-path, and reusable-foundation inventories are committed in
 [`docs/reports/setta-4-phase0-ownership-inventory-20260724.md`](../reports/setta-4-phase0-ownership-inventory-20260724.md),
 the mockup fidelity checklist in
@@ -812,13 +817,22 @@ Exit gate:
    attribution, and thread realtime. **Done — `internal/agent/provider_notification_matrix.go`
    classifies every notification in the snapshot and bounds what the adapter may do with each one.**
 4. Define the missing Go-owned workstream, node, edge, evidence, status, and interpretation
-   contracts.
+   contracts. **Done — `internal/director/workstream.go`, `semantic_graph.go`, `records.go`, and
+   their validators. Workstream resource bindings now have a Director-owned home, so `internal/master`
+   has a replacement contract to move onto in Phase 3.**
 5. Define lifecycle tables for workstreams, runs, queue items, approvals, resource requests,
-   artifacts, semantic nodes, and recovery states.
-6. Codify the initial source-fact-to-node mapping in Go-owned contracts.
-7. Define the app-scoped Director snapshot, cursor, event, and `resync_required` contracts.
+   artifacts, semantic nodes, and recovery states. **Done — `internal/director/lifecycle.go`. Run
+   lifecycle is expressed over the existing `conversation.TurnStatus` rather than duplicating it.**
+6. Codify the initial source-fact-to-node mapping in Go-owned contracts. **Done —
+   `internal/director/source_mapping.go` covers every trajectory event kind plus the Director-owned
+   facts, and `source_mapping_resolvers.go` resolves activity, liveness, and provider-lifecycle
+   node kinds and derives plan-step node ids.**
+7. Define the app-scoped Director snapshot, cursor, event, and `resync_required` contracts. **Done —
+   `internal/director/snapshot.go`, including the lossless/best-effort backpressure classes.**
 8. Identify missing typed runtime events; add explicit events instead of UI inference.
-9. Generate TypeScript surfaces.
+9. Generate TypeScript surfaces. **Director contracts are registered with the generator in
+   `cmd/generate-contracts/contract_registry.go`; they reach `desktop/src/generated/backend.ts` when
+   the Phase 3 endpoints and events make them reachable.**
 10. Build deterministic event histories covering every node lifecycle and live replay boundary.
 11. Implement the pure `DirectorGraphProjector`.
 12. Add replay, ordering, invalid-transition, provenance, redaction, live resync, and recovery
@@ -990,11 +1004,13 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Continue Phase 1 by extending the existing routing, trajectory, snapshot, subscription, approval,
-   artifact, speech, realtime, lifecycle, and telemetry contracts into the Setta 4 workstream and
-   semantic graph contracts, closing the four contract gaps the inventory found: durable
-   resource-request records, the app-scoped workstream registry, plan-step identity, and workstream
-   resource bindings that free `internal/master` from `internal/applayout`.
+1. Finish Phase 1 with items 8 and 10 through 13: the missing typed runtime events, deterministic
+   event histories, the pure `DirectorGraphProjector`, its replay/ordering/provenance/redaction
+   boundary tests, and the exhaustive node/edge visual gallery. The four contract gaps the inventory
+   found are closed as contracts in `internal/director` — durable resource-request records, the
+   app-scoped workstream registry, plan-step identity, and workstream resource bindings. Moving
+   `internal/master` off `internal/applayout` onto `director.WorkstreamResourceBinding` is Phase 3
+   rewiring, not a remaining contract gap.
 2. Register and adapt the notifications the matrix marks `normalized` that have no normalizer yet —
    thread status, environment connection, Guardian and verification signals, hooks, MCP tool
    progress, terminal interaction, and server-request resolution — as typed Setta events rather than
