@@ -572,10 +572,12 @@ function edVaoSetup(){gl.bindVertexArray(edVao);gl.bindBuffer(gl.ARRAY_BUFFER,ed
 const EDGE_SEG=12;
 
 let fbo=gl.createFramebuffer(),fboTex=gl.createTexture(),fw=0,fh=0;
-const MAX_BACKING_PIX=2300000;   // bound the full-screen post pass — canvas still fills the display (upscaled)
+const MAX_BACKING_PIX=2300000;   // hard ceiling on the full-screen post pass — canvas still fills the display (upscaled)
+let renderScale=1, minDt=1;      // adaptive scaler: drops backing res when GPU can't hold the refresh budget
 function resize(){const dpr=Math.min(window.devicePixelRatio||1,1.5);
   let w=Math.round(innerWidth*dpr),h=Math.round(innerHeight*dpr);
   if(w*h>MAX_BACKING_PIX){const s=Math.sqrt(MAX_BACKING_PIX/(w*h));w=Math.max(1,Math.round(w*s));h=Math.max(1,Math.round(h*s));}
+  w=Math.max(1,Math.round(w*renderScale)); h=Math.max(1,Math.round(h*renderScale));   // adaptive quality
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
   if(fw!==w||fh!==h){fw=w;fh=h;gl.bindTexture(gl.TEXTURE_2D,fboTex);
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
@@ -663,7 +665,16 @@ function updateHover(){
 rebuild();resize();
 const fpsEl=document.getElementById('fps');let last=performance.now(),acc=0,frames=0;
 function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+=dt;frames++;
-  if(acc>=0.5){fpsEl.textContent=Math.round(frames/acc)+' fps'+(gpuMs?' · '+gpuMs.toFixed(2)+'ms gpu':'');acc=0;frames=0;}
+  if(dt>0.003&&dt<minDt)minDt=dt;                                  // shortest interval ≈ display refresh period
+  if(acc>=0.5){
+    const refreshMs=Math.max(6,Math.min(20,minDt*1000));           // frame budget from the actual refresh rate
+    if(gpuMs>0 && !switching){                                     // stay inside the budget; recover when there's headroom
+      if(gpuMs>refreshMs*0.78 && renderScale>0.4) renderScale=Math.max(0.4,renderScale*0.85);
+      else if(gpuMs<refreshMs*0.45 && renderScale<1) renderScale=Math.min(1,renderScale*1.12);
+    }
+    fpsEl.textContent=Math.round(frames/acc)+' fps'+(gpuMs?' · '+gpuMs.toFixed(2)+'ms gpu':'')+' · '+Math.round(renderScale*100)+'%';
+    acc=0;frames=0;minDt=1;
+  }
   if(growT>g.lastBorn+FAIL_DELAY+10.0){growT=0;autoCam=0;scrollOffset=0;}   // linger on the listening node, then loop
   let maxY=0;for(const n of g.nodes)if(n.born<=growT&&n.worldY>maxY)maxY=n.worldY;
   autoCam+=(maxY-autoCam)*Math.min(1,dt*1.7);          // follow the newest node
