@@ -255,24 +255,6 @@ func TestSubagentActivityProjectsTypedLifecycle(t *testing.T) {
 		if _, ok := want[event.Kind]; ok {
 			want[event.Kind] = true
 		}
-		switch event.Kind {
-		case TrajectoryEventActivityStarted,
-			TrajectoryEventActivityProgressed,
-			TrajectoryEventActivityCompleted,
-			TrajectoryEventActivityFailed:
-			var activityKind TrajectoryActivityKind
-			switch event.Kind {
-			case TrajectoryEventActivityStarted:
-				activityKind = event.ActivityStarted.Activity.Kind
-			case TrajectoryEventActivityCompleted:
-				activityKind = event.ActivityCompleted.Activity.Kind
-			case TrajectoryEventActivityFailed:
-				activityKind = event.ActivityFailed.Activity.Kind
-			}
-			if activityKind == TrajectoryActivitySubagent {
-				t.Errorf("subagent provider item also produced generic activity event %s", event.Kind)
-			}
-		}
 	}
 	for kind, found := range want {
 		if !found {
@@ -295,7 +277,7 @@ func TestRuntimeCompletionRequiresDurableTerminalNotification(t *testing.T) {
 	failed := assertServiceSnapshot(t, service, workspaceID, created.Conversation.ID, func(snapshot ConversationSnapshot) bool {
 		return latestSnapshotTurn(snapshot).Status == TurnStatusFailed
 	})
-	if message := latestSnapshotTurn(failed).Error.Message; message != "The run stopped unexpectedly. Try again." {
+	if message := latestSnapshotTurn(failed).Error.Message; message != "agent runtime ended without a durable terminal event" {
 		t.Fatalf("missing-terminal failure = %q", message)
 	}
 }

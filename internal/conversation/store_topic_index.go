@@ -67,17 +67,14 @@ func rebuildTopicIndexDocument(
 	if err != nil {
 		return fmt.Errorf("encode topic card final summaries for %s: %w", conversationID, err)
 	}
-	resourceScope := conversationindex.ResourceScopeForWorkspaceID(document.conversation.WorkspaceID)
-	resourceScopeKind, folderWorkspaceID := topicIndexResourceScopeValues(resourceScope)
 	_, err = tx.ExecContext(ctx, `
 INSERT INTO topic_index_documents (
-  conversation_id, resource_scope_kind, folder_workspace_id, title, topic_descriptor,
+  conversation_id, workspace_id, title, topic_descriptor,
   recent_user_requests_json, recent_final_summaries_json,
   updated_at, updated_sort_key
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(conversation_id) DO UPDATE SET
-  resource_scope_kind = excluded.resource_scope_kind,
-  folder_workspace_id = excluded.folder_workspace_id,
+  workspace_id = excluded.workspace_id,
   title = excluded.title,
   topic_descriptor = excluded.topic_descriptor,
   recent_user_requests_json = excluded.recent_user_requests_json,
@@ -86,8 +83,7 @@ ON CONFLICT(conversation_id) DO UPDATE SET
   updated_sort_key = excluded.updated_sort_key
 `,
 		document.conversation.ID,
-		resourceScopeKind,
-		nullableString(folderWorkspaceID),
+		document.conversation.WorkspaceID,
 		document.conversation.Title,
 		document.conversation.TopicDescriptor,
 		string(requestsJSON),
@@ -333,17 +329,14 @@ func replaceTopicIndexSearch(
 	); err != nil {
 		return fmt.Errorf("remove full-text topic card %s: %w", document.conversation.ID, err)
 	}
-	resourceScope := conversationindex.ResourceScopeForWorkspaceID(document.conversation.WorkspaceID)
-	resourceScopeKind, folderWorkspaceID := topicIndexResourceScopeValues(resourceScope)
 	_, err := tx.ExecContext(ctx, `
 INSERT INTO topic_index_search (
-  conversation_id, resource_scope_kind, folder_workspace_id, title, topic_descriptor,
+  conversation_id, workspace_id, title, topic_descriptor,
   recent_user_requests, recent_final_summaries
-) VALUES (?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?)
 `,
 		document.conversation.ID,
-		resourceScopeKind,
-		nullableString(folderWorkspaceID),
+		document.conversation.WorkspaceID,
 		document.conversation.Title,
 		document.conversation.TopicDescriptor,
 		strings.Join(document.recentUserRequests, "\n"),
@@ -434,17 +427,18 @@ func topicIndexCandidateQuery(
 	lexicalRank := "NULL"
 	join := ""
 	conditions := []string{"conversation.archived_at IS NULL"}
-	arguments := make([]any, 0, len(request.Scope.FolderResourceWorkspaceIDs)+3)
+	arguments := make([]any, 0, len(request.WorkspaceIDs)+3)
 	if ranked {
 		lexicalRank = "bm25(topic_index_search, 0.0, 0.0, 8.0, 4.0, 1.5, 1.5)"
 		join = "JOIN topic_index_search ON topic_index_search.conversation_id = document.conversation_id"
 		conditions = append(conditions, "topic_index_search MATCH ?")
 		arguments = append(arguments, quotedTopicIndexTerms(terms))
 	}
-	scopeCondition, scopeArguments := topicIndexScopeFilterCondition(request.Scope)
-	if scopeCondition != "" {
-		conditions = append(conditions, scopeCondition)
-		arguments = append(arguments, scopeArguments...)
+	if len(request.WorkspaceIDs) > 0 {
+		conditions = append(conditions, "document.workspace_id IN ("+sqlPlaceholders(len(request.WorkspaceIDs))+")")
+		for _, workspaceID := range request.WorkspaceIDs {
+			arguments = append(arguments, workspaceID)
+		}
 	}
 	if request.UpdatedSince != nil {
 		sortKey, _ := topicIndexTimestampSortKey(*request.UpdatedSince)
@@ -459,8 +453,7 @@ func topicIndexCandidateQuery(
 	query := fmt.Sprintf(`
 SELECT
   document.conversation_id,
-  document.resource_scope_kind,
-  document.folder_workspace_id,
+  document.workspace_id,
   document.title,
   document.topic_descriptor,
   document.recent_user_requests_json,
@@ -477,68 +470,6 @@ ORDER BY %s
 LIMIT ?
 `, lexicalRank, join, strings.Join(conditions, "\n  AND "), order)
 	return query, arguments
-}
-
-func topicIndexResourceScopeValues(scope conversationindex.ResourceScope) (string, *string) {
-	if workspaceID, ok := scope.FolderWorkspaceID(); ok {
-		return string(scope.Kind), &workspaceID
-	}
-	return string(scope.Kind), nil
-}
-
-func topicIndexScopeFilterCondition(filter conversationindex.CandidateScopeFilter) (string, []any) {
-	if !filter.Constrained() {
-		return "", nil
-	}
-	arguments := make([]any, 0, len(filter.FolderResourceWorkspaceIDs)+2)
-	if filter.IncludeFolderless && len(filter.FolderResourceWorkspaceIDs) == 0 {
-		return "document.resource_scope_kind = ?", []any{string(conversationindex.ResourceScopeKindFolderless)}
-	}
-	if !filter.IncludeFolderless {
-		condition := "document.resource_scope_kind = ? AND document.folder_workspace_id IN (" +
-			sqlPlaceholders(len(filter.FolderResourceWorkspaceIDs)) + ")"
-		arguments = append(arguments, string(conversationindex.ResourceScopeKindFolder))
-		for _, workspaceID := range filter.FolderResourceWorkspaceIDs {
-			arguments = append(arguments, workspaceID)
-		}
-		return condition, arguments
-	}
-	condition := "(document.resource_scope_kind = ? OR (document.resource_scope_kind = ? AND document.folder_workspace_id IN (" +
-		sqlPlaceholders(len(filter.FolderResourceWorkspaceIDs)) + ")))"
-	arguments = append(arguments, string(conversationindex.ResourceScopeKindFolderless), string(conversationindex.ResourceScopeKindFolder))
-	for _, workspaceID := range filter.FolderResourceWorkspaceIDs {
-		arguments = append(arguments, workspaceID)
-	}
-	return condition, arguments
-}
-
-func scanTopicIndexResourceScope(
-	kind string,
-	folderWorkspaceID sql.NullString,
-) conversationindex.ResourceScope {
-	scopeKind := conversationindex.ResourceScopeKind(kind)
-	switch scopeKind {
-	case conversationindex.ResourceScopeKindFolderless:
-		if folderWorkspaceID.Valid {
-			return conversationindex.ResourceScope{
-				Kind:   scopeKind,
-				Folder: &conversationindex.FolderResourceScope{WorkspaceID: folderWorkspaceID.String},
-			}
-		}
-		return conversationindex.FolderlessResourceScope()
-	case conversationindex.ResourceScopeKindFolder:
-		if folderWorkspaceID.Valid {
-			return conversationindex.FolderResourceScopeForWorkspaceID(folderWorkspaceID.String)
-		}
-	}
-	return conversationindex.ResourceScope{Kind: scopeKind}
-}
-
-func nullableStringPointer(value sql.NullString) *string {
-	if !value.Valid {
-		return nil
-	}
-	return &value.String
 }
 
 func sqlPlaceholders(count int) string {
@@ -563,14 +494,11 @@ func scanTopicIndexCandidates(
 		var candidate conversationindex.StoredCandidate
 		var requestsJSON string
 		var summariesJSON string
-		var resourceScopeKind string
-		var folderWorkspaceID sql.NullString
-		var conversationWorkspaceID sql.NullString
+		var conversationWorkspaceID string
 		var lexicalRank sql.NullFloat64
 		if err := rows.Scan(
 			&candidate.Card.ConversationID,
-			&resourceScopeKind,
-			&folderWorkspaceID,
+			&candidate.Card.WorkspaceID,
 			&candidate.Card.Title,
 			&candidate.Card.TopicDescriptor,
 			&requestsJSON,
@@ -582,12 +510,10 @@ func scanTopicIndexCandidates(
 		); err != nil {
 			return nil, err
 		}
-		candidate.Card.ResourceScope = scanTopicIndexResourceScope(resourceScopeKind, folderWorkspaceID)
-		conversationScope := conversationindex.ResourceScopeForWorkspaceID(nullableStringPointer(conversationWorkspaceID))
-		if !candidate.Card.ResourceScope.Equal(conversationScope) {
+		if conversationWorkspaceID != candidate.Card.WorkspaceID {
 			return nil, &CorruptStateError{
 				Path: dbPath,
-				Err:  fmt.Errorf("topic card %s resource scope projection does not match its conversation", candidate.Card.ConversationID),
+				Err:  fmt.Errorf("topic card %s workspace projection does not match its conversation", candidate.Card.ConversationID),
 			}
 		}
 		if err := decodeTopicIndexExcerpts(requestsJSON, &candidate.Card.RecentUserRequests); err != nil {

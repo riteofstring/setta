@@ -18,8 +18,6 @@ import (
 	"setta/internal/runtimeidentity"
 )
 
-const legacyGenericRuntimeDisplayName = "Setta Runtime"
-
 type runtimeIdentity struct {
 	RuntimeID   string `json:"runtimeId"`
 	DisplayName string `json:"displayName"`
@@ -115,16 +113,6 @@ func loadRuntimeIdentity(runtimeDir string, identityPath string) (runtimeIdentit
 	if err := validateRuntimeIdentity(identity); err != nil {
 		return runtimeIdentity{}, fmt.Errorf("validate runtime identity %s: %w", identityPath, err)
 	}
-	if genericRuntimeDisplayName(identity.DisplayName) {
-		displayName, err := defaultRuntimeDisplayName(identity.RuntimeID)
-		if err != nil {
-			return runtimeIdentity{}, err
-		}
-		identity.DisplayName = displayName
-		if err := writeRuntimeIdentity(identityPath, identity); err != nil {
-			return runtimeIdentity{}, err
-		}
-	}
 	return identity, nil
 }
 
@@ -177,10 +165,6 @@ func validateRuntimeIdentity(identity runtimeIdentity) error {
 		return err
 	}
 	return nil
-}
-
-func genericRuntimeDisplayName(displayName string) bool {
-	return strings.EqualFold(strings.TrimSpace(displayName), legacyGenericRuntimeDisplayName)
 }
 
 func randomRuntimeID() (string, error) {

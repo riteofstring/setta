@@ -337,6 +337,28 @@ describe("workspace frame scheduler", () => {
 
     scheduler.teardown();
   });
+
+  test("does not reset normal workspace metrics after the benchmark warmup", () => {
+    const metrics = new WorkspaceMetricsCollector();
+    const reset = vi.spyOn(metrics, "reset");
+    const scheduler = new FrameScheduler({
+      engine: fakeEngine(),
+      layoutStore: createStableStore("normal", 0, 0, 0),
+      metrics,
+      presentation: fakePresentation(),
+      reportWriter: null,
+      runtimePolicy: new PaneRuntimePolicy(),
+      viewportProvider: () => viewport,
+    });
+
+    (
+      scheduler as unknown as {
+        startMeasurementAfterWarmup: (timestamp: number) => void;
+      }
+    ).startMeasurementAfterWarmup(2001);
+
+    expect(reset).not.toHaveBeenCalled();
+  });
 });
 
 const viewport: Rect = { height: 900, width: 1440, x: 0, y: 0 };
