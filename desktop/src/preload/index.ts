@@ -2,6 +2,11 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
 import { decodeCodexAccountChangeEvent, decodeConversationEvent } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
+import {
+  decodeLocalMacOSVoiceModelDownloadStatus,
+  decodeSpeechCredentialSettings,
+  decodeSpeechProviderSelectionSettings,
+} from "@shared/speech-ipc";
 import { workspaceBrowserViewKeyValues } from "@shared/types";
 import type {
   BackendProcessStatus,
@@ -45,10 +50,13 @@ const api: SettaAPI = {
       };
     },
   },
+  appLayout: {
+    readPaneLayout: () => invoke("appPaneLayoutRead"),
+    savePaneLayout: (layout) => invoke("appPaneLayoutSave", layout),
+  },
   runtimes: {
     addByPairingUrl: (pairingUrl) => invoke("runtimeAddByPairingUrl", pairingUrl),
     current: () => invoke("runtimeCurrent"),
-    currentRuntimeCredential: () => invoke("runtimeCurrentCredential"),
     list: () => invoke("runtimeList"),
     onConnectionState: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
@@ -64,6 +72,7 @@ const api: SettaAPI = {
   },
   conversations: {
     archive: (request) => invoke("conversationArchiveTopic", request),
+    bindFolder: (request) => invoke("conversationBindFolder", request),
     disposeSide: (request) => invoke("conversationDisposeSide", request),
     discardInput: (request) => invoke("conversationDiscardInput", request),
     create: (request) => invoke("conversationCreateTopic", request),
@@ -93,6 +102,7 @@ const api: SettaAPI = {
   master: {
     cancelInput: (request) => invoke("masterCancelInput", request),
     readActiveInteraction: () => invoke("masterReadActiveInteraction"),
+    readTranscript: (request) => invoke("masterReadTranscript", request),
     resolvePresentation: (request) => invoke("masterResolvePresentation", request),
     submitInput: (request) => invoke("masterSubmitInput", request),
     waitInteraction: (request) => invoke("masterWaitInteraction", request),
@@ -108,14 +118,55 @@ const api: SettaAPI = {
     updateWorkspace: (request) => invoke("roleConfigurationUpdateWorkspace", request),
   },
   speech: {
+    cancelLocalMacOSVoiceCapture: (request) =>
+      invoke("speechCancelLocalMacOSVoiceCapture", request),
     cancelSynthesis: (operationId) => invoke("speechCancelSynthesis", operationId),
-    createTranscriptionSession: () => invoke("speechCreateTranscriptionSession"),
+    createTranscriptionSession: (request) => invoke("speechCreateTranscriptionSession", request),
+    finishLocalMacOSVoiceCapture: (request) =>
+      invoke("speechFinishLocalMacOSVoiceCapture", request),
+    onCredentialSettingsChanged: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeSpeechCredentialSettings(payload));
+      };
+      ipcRenderer.on(ipcEvents.speechCredentialSettingsChanged, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.speechCredentialSettingsChanged, handler);
+      };
+    },
+    onProviderSelectionChanged: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeSpeechProviderSelectionSettings(payload));
+      };
+      ipcRenderer.on(ipcEvents.speechProviderSelectionChanged, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.speechProviderSelectionChanged, handler);
+      };
+    },
+    onLocalMacOSVoiceModelDownloadChanged: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeLocalMacOSVoiceModelDownloadStatus(payload));
+      };
+      ipcRenderer.on(ipcEvents.speechLocalMacOSVoiceModelDownloadChanged, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.speechLocalMacOSVoiceModelDownloadChanged, handler);
+      };
+    },
     readCapabilities: () => invoke("speechReadCapabilities"),
+    readCredentialSettings: (request) => invoke("speechReadCredentialSettings", request),
+    listLocalMacOSVoices: () => invoke("speechListLocalMacOSVoices"),
+    readLocalMacOSVoiceHealth: () => invoke("speechReadLocalMacOSVoiceHealth"),
+    readLocalMacOSVoiceModelDownload: () => invoke("speechReadLocalMacOSVoiceModelDownload"),
     readMasterVoiceSelection: () => invoke("speechReadMasterVoiceSelection"),
     readNarratorVoiceDefault: () => invoke("speechReadNarratorVoiceDefault"),
+    readProviderSelection: () => invoke("speechReadProviderSelection"),
+    removeCredential: (request) => invoke("speechRemoveCredential", request),
+    saveCredential: (request) => invoke("speechSaveCredential", request),
+    startLocalMacOSVoiceCapture: (request) => invoke("speechStartLocalMacOSVoiceCapture", request),
+    startLocalMacOSVoiceModelDownload: () => invoke("speechStartLocalMacOSVoiceModelDownload"),
     synthesize: (request, operationId) => invoke("speechSynthesize", { operationId, request }),
     updateMasterVoiceSelection: (request) => invoke("speechUpdateMasterVoiceSelection", request),
     updateNarratorVoiceDefault: (request) => invoke("speechUpdateNarratorVoiceDefault", request),
+    updateProviderSelection: (request) => invoke("speechUpdateProviderSelection", request),
   },
   appearance: {
     presets: () => invoke("appearancePresets"),
@@ -233,9 +284,25 @@ function decodeKnownRuntimeView(value: unknown, label: string): KnownRuntimeView
       `${label}.connectionStatus`,
     ),
     displayName: stringField(record, "displayName", label),
+    infrastructureProvider: decodeRuntimeInfrastructureProvider(
+      requireRuntimeField(record, "infrastructureProvider", label),
+      `${label}.infrastructureProvider`,
+    ),
     isLocal: booleanField(record, "isLocal", label),
     lastConnected: nullableStringField(record, "lastConnected", label),
     runtimeId: stringField(record, "runtimeId", label),
+  };
+}
+
+function decodeRuntimeInfrastructureProvider(
+  value: unknown,
+  label: string,
+): KnownRuntimeView["infrastructureProvider"] {
+  const record = assertStatusRecord(value, label);
+  return {
+    displayName: stringField(record, "displayName", label),
+    iconUrl: stringField(record, "iconUrl", label),
+    id: stringField(record, "id", label),
   };
 }
 

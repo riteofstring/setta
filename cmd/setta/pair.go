@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -14,16 +13,8 @@ import (
 )
 
 type pairingResult struct {
-	RuntimeID string
-	Token     string
-	URL       string
-}
-
-type pairingJSONEvent struct {
-	SchemaVersion int    `json:"schema_version"`
-	Event         string `json:"event"`
-	RuntimeID     string `json:"runtime_id"`
-	PairingToken  string `json:"pairing_token"`
+	Token string
+	URL   string
 }
 
 func runPair(args []string, deps cliDeps) error {
@@ -36,12 +27,12 @@ func runPair(args []string, deps cliDeps) error {
 	if err != nil {
 		return err
 	}
-	return printPairing(deps.stdout, pairing, options.JSON, deps)
+	printPairing(deps.stdout, pairing, deps)
+	return nil
 }
 
 type pairOptions struct {
 	AppDataDir string
-	JSON       bool
 }
 
 func pairOptionsFromArgs(args []string, deps cliDeps) (pairOptions, error) {
@@ -51,8 +42,6 @@ func pairOptionsFromArgs(args []string, deps cliDeps) (pairOptions, error) {
 	}
 	flagSet := newFlagSet("setta pair", deps.stderr)
 	flagSet.StringVar(&appDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
-	jsonOutput := false
-	flagSet.BoolVar(&jsonOutput, "json", false, "print one machine-readable pairing event")
 	if err := flagSet.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return pairOptions{}, usageError{err: err}
@@ -62,7 +51,7 @@ func pairOptionsFromArgs(args []string, deps cliDeps) (pairOptions, error) {
 	if flagSet.NArg() != 0 {
 		return pairOptions{}, usageError{err: fmt.Errorf("setta pair does not accept positional arguments")}
 	}
-	return pairOptions{AppDataDir: appDataDir, JSON: jsonOutput}, nil
+	return pairOptions{AppDataDir: appDataDir}, nil
 }
 
 func pairFromServeState(ctx context.Context, appDataDir string, deps cliDeps) (pairingResult, error) {
@@ -90,7 +79,7 @@ func mintPairing(ctx context.Context, appDataDir string, state serveState) (pair
 	if err != nil {
 		return pairingResult{}, err
 	}
-	return pairingResult{RuntimeID: state.RuntimeID, Token: token, URL: pairingURL}, nil
+	return pairingResult{Token: token, URL: pairingURL}, nil
 }
 
 func buildPairingURL(runtimeID string, token string, baseURL string) (string, error) {
@@ -119,19 +108,10 @@ func buildPairingURL(runtimeID string, token string, baseURL string) (string, er
 	return pairingURL.String(), nil
 }
 
-func printPairing(output io.Writer, pairing pairingResult, jsonOutput bool, deps cliDeps) error {
-	if jsonOutput {
-		if err := json.NewEncoder(output).Encode(pairingJSONEvent{
-			SchemaVersion: 1, Event: "runtime_pairing_ready", RuntimeID: pairing.RuntimeID, PairingToken: pairing.Token,
-		}); err != nil {
-			return fmt.Errorf("write pairing JSON: %w", err)
-		}
-		return nil
-	}
+func printPairing(output io.Writer, pairing pairingResult, deps cliDeps) {
 	fmt.Fprintln(output, "Pairing URL:")
 	fmt.Fprintf(output, "  %s\n\n", pairing.URL)
 	fmt.Fprintln(output, "QR:")
 	deps.renderQR(output, pairing.URL)
 	fmt.Fprintln(output)
-	return nil
 }

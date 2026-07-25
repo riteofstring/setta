@@ -7,9 +7,9 @@ import process from "node:process";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -58,7 +58,6 @@ try {
 
   const newFrame = await exerciseNewFrameButton(context.client);
   const focusSteps = await exerciseFocusNavigation(context.client);
-  const projectPane = await exerciseProjectPaneOverlay(context.client, artifactDir);
   const overview = await exerciseOverviewToggle(context.client);
 
   await context.client.call("Emulation.setDeviceMetricsOverride", desktopViewport);
@@ -79,7 +78,6 @@ try {
     mobileChrome,
     newFrame,
     overview,
-    projectPane,
     status: "passed",
     workspaceName: basename(fixture.workspaceRoot),
   });
@@ -106,7 +104,7 @@ async function ensureWorkspaceOpen(client) {
   if (currentWorkspaceId && !currentWorkspaceId.endsWith(":empty")) {
     return;
   }
-  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  await openFixtureWorkspace(client, workflowTimeoutMs);
   await waitForState(
     client,
     workspaceIdExpression(),
@@ -129,18 +127,12 @@ async function waitForCompactLayout(client, expectedCompact) {
 }
 
 // The mobile chrome contract: bottom control bar in, desktop top bar, top-left
-// toolbar, side project pane, and per-pane top-right action buttons out.
+// toolbar, and per-pane top-right action buttons out.
 async function waitForMobileChrome(client) {
   return waitForState(
     client,
     chromeStateExpression(),
-    (state) =>
-      state.mobileBar &&
-      !state.topBar &&
-      !state.toolbar &&
-      !state.projectPaneOverlay &&
-      !state.sideProjectPane &&
-      state.paneActionStripHidden,
+    (state) => state.mobileBar && !state.topBar && !state.toolbar && state.paneActionStripHidden,
     workflowTimeoutMs,
   );
 }
@@ -195,26 +187,6 @@ async function exerciseFocusNavigation(client) {
     workflowTimeoutMs,
   );
   return { initialPaneId, movedPaneId, restoredPaneId };
-}
-
-async function exerciseProjectPaneOverlay(client, artifactDir) {
-  await clickTestId(client, "workspace-mobile-project-toggle");
-  await waitForState(
-    client,
-    projectPaneOverlayExpression(),
-    (overlay) => overlay !== null && overlay.fullWidth,
-    workflowTimeoutMs,
-  );
-  const open = await client.evaluate(projectPaneOverlayExpression());
-  await captureScreenshot(client, join(artifactDir, "mobile-project-pane.png"));
-  await clickTestId(client, "workspace-mobile-project-toggle");
-  await waitForState(
-    client,
-    projectPaneOverlayExpression(),
-    (overlay) => overlay === null,
-    workflowTimeoutMs,
-  );
-  return { open };
 }
 
 async function exerciseOverviewToggle(client) {
@@ -285,27 +257,8 @@ function chromeStateExpression() {
       mobileBar: Boolean(document.querySelector('[data-testid="workspace-mobile-bar"]')),
       paneActionStripHidden:
         actionStrip instanceof Element ? getComputedStyle(actionStrip).display === "none" : false,
-      projectPaneOverlay: Boolean(document.querySelector('[data-testid="mobile-project-pane"]')),
-      sideProjectPane: Boolean(
-        document.querySelector('[aria-label="Resize project sidebar"]'),
-      ),
       topBar: Boolean(document.querySelector('[data-testid="shell-top-bar"]')),
       toolbar: Boolean(document.querySelector('[data-testid="workspace-toolbar"]')),
-    };
-  })()`;
-}
-
-function projectPaneOverlayExpression() {
-  return `(() => {
-    const overlay = document.querySelector('[data-testid="mobile-project-pane"]');
-    if (!(overlay instanceof Element)) {
-      return null;
-    }
-    const rect = overlay.getBoundingClientRect();
-    return {
-      fullWidth: Math.abs(rect.width - window.innerWidth) <= 1 && rect.left === 0 && rect.top === 0,
-      height: rect.height,
-      width: rect.width,
     };
   })()`;
 }

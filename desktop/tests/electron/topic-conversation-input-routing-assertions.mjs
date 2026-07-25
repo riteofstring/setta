@@ -200,7 +200,10 @@ export function assertRoutedConversationInputDecision(state, expectedInput, expe
   if (!decision?.routerContext?.allowedDecisionKinds?.includes(expectedKind)) {
     throw new Error(`routed decision was outside its authority: ${JSON.stringify(decision)}`);
   }
-  assertConversationRouterInvocation(decision.resolvedInvocation);
+  assertConversationRouterInvocation(
+    decision.resolvedInvocation,
+    decision.routerContext.decisionAuthority,
+  );
 }
 
 function routedConversationInputDecisionSummary(state) {
@@ -218,74 +221,6 @@ function routedConversationInputDecisionSummary(state) {
     input: conversationInputSummary(inputState.input),
     status: inputState.status,
   };
-}
-
-export function assertPaneClarificationExchange(state, root, reply) {
-  const initial = state.decisions[0];
-  const final = state.decisions[1];
-  assertEqualJSON(
-    {
-      clarificationInputId: final.clarificationInputId,
-      clarificationQuestion: initial.decision.clarify.question,
-      finalCommandKind: final.resultingCommand.kind,
-      finalCommandText: final.resultingCommand.sendToParent.authoredInput.text,
-      replyId: state.clarificationReply.input.id,
-      replyReplyToInputId: state.clarificationReply.input.replyToInputId,
-      replyStatus: state.clarificationReply.status,
-      rootId: state.input.input.id,
-      rootStatus: state.input.status,
-    },
-    {
-      clarificationInputId: reply.accepted.input.id,
-      clarificationQuestion: "Which exact pane request should I send?",
-      finalCommandKind: "send_to_parent",
-      finalCommandText: reply.accepted.input.text,
-      replyId: reply.accepted.input.id,
-      replyReplyToInputId: root.accepted.input.id,
-      replyStatus: "dispatched",
-      rootId: root.accepted.input.id,
-      rootStatus: "dispatched",
-    },
-    "pane clarification exchange",
-  );
-}
-
-export function duplicateConversationPaneId(surfaces, conversationId, originalPaneId) {
-  const duplicate = conversationRoutingSurfaces(surfaces, conversationId).find(
-    (surface) => surface.paneId !== originalPaneId,
-  );
-  if (!duplicate?.paneId) {
-    throw new Error(
-      `duplicate conversation pane was unavailable: ${JSON.stringify({ conversationId, originalPaneId, surfaces })}`,
-    );
-  }
-  return duplicate.paneId;
-}
-
-export function sharedPaneClarificationIsReady(
-  surfaces,
-  conversationId,
-  unrelatedConversationId,
-  question,
-) {
-  const conversation = conversationRoutingSurfaces(surfaces, conversationId);
-  const unrelated = conversationRoutingSurfaces(surfaces, unrelatedConversationId);
-  return (
-    conversation.length === 2 &&
-    conversation.every((surface) => surface.clarificationText === question) &&
-    unrelated.every((surface) => surface.clarificationText === "")
-  );
-}
-
-export function sharedPaneClarificationIsCleared(surfaces, conversationId) {
-  const conversation = conversationRoutingSurfaces(surfaces, conversationId);
-  return (
-    conversation.length === 2 && conversation.every((surface) => surface.clarificationText === "")
-  );
-}
-
-function conversationRoutingSurfaces(surfaces, conversationId) {
-  return surfaces.filter((surface) => surface.conversationId === conversationId);
 }
 
 const routeTextReaders = Object.freeze({
@@ -437,7 +372,10 @@ function assertRoutedConversationInputState(state, expectedInput, expectedRoute)
   );
   const decision = state.decisions[0];
   assertConversationRouterDecision(decision, expectedInput, expectedRoute);
-  assertConversationRouterInvocation(decision.resolvedInvocation);
+  assertConversationRouterInvocation(
+    decision.resolvedInvocation,
+    decision.routerContext.decisionAuthority,
+  );
 }
 
 function assertConversationRouterDecision(decision, expectedInput, expectedRoute) {
@@ -471,6 +409,7 @@ function assertIdleConversationRouterContextAudit(audit, inputSequence) {
     allowedDecisionKinds: audit.allowedDecisionKinds,
     availableTrajectoryRange: audit.availableTrajectoryRange,
     clarificationInputSequence: audit.clarificationInputSequence,
+    decisionAuthority: audit.decisionAuthority,
     includedTrajectoryRange: audit.includedTrajectoryRange,
     inputSequence: audit.inputSequence,
     latestTrajectorySequence: audit.latestTrajectorySequence,
@@ -482,6 +421,7 @@ function assertIdleConversationRouterContextAudit(audit, inputSequence) {
     allowedDecisionKinds: expectedAllowedKinds,
     availableTrajectoryRange: null,
     clarificationInputSequence: null,
+    decisionAuthority: "product_invariant",
     includedTrajectoryRange: null,
     inputSequence,
     latestTrajectorySequence: 0,
@@ -510,6 +450,7 @@ function assertWorkingConversationRouterContextAudit(audit, inputSequence) {
       allowedDecisionKinds: audit.allowedDecisionKinds,
       availableTrajectoryEnd: audit.availableTrajectoryRange?.end,
       clarificationInputSequence: audit.clarificationInputSequence,
+      decisionAuthority: audit.decisionAuthority,
       includedTrajectoryEnd: audit.includedTrajectoryRange?.end,
       inputSequence: audit.inputSequence,
       priorNarrationCount: audit.priorNarrationCount,
@@ -520,6 +461,7 @@ function assertWorkingConversationRouterContextAudit(audit, inputSequence) {
       allowedDecisionKinds: expectedAllowedKinds,
       availableTrajectoryEnd: audit.latestTrajectorySequence,
       clarificationInputSequence: null,
+      decisionAuthority: "narrator_model",
       includedTrajectoryEnd: audit.latestTrajectorySequence,
       inputSequence,
       priorNarrationCount: 3,
@@ -530,7 +472,7 @@ function assertWorkingConversationRouterContextAudit(audit, inputSequence) {
   );
 }
 
-function assertConversationRouterInvocation(invocation) {
+function assertConversationRouterInvocation(invocation, expectedAuthority) {
   const actual = {
     approvals: invocation.resolved.permissionProfile.approvals,
     modelMode: invocation.requested.modelSelection.mode,
@@ -555,7 +497,16 @@ function assertConversationRouterInvocation(invocation) {
     toolAccessMode: "none",
     workspaceMutation: false,
   };
+  if (expectedAuthority === "product_invariant") {
+    expected.resolvedModelId = "product-invariant";
+  }
   assertEqualJSON(actual, expected, "conversation-router invocation");
+  if (expectedAuthority === "product_invariant") {
+    assertNullish(invocation.providerReferences.threadId, "conversation-router thread id");
+    assertNullish(invocation.providerReferences.turnId, "conversation-router turn id");
+    assertNullish(invocation.providerReferences.requestId, "conversation-router request id");
+    return;
+  }
   assertNonEmptyString(invocation.providerReferences.threadId, "conversation-router thread id");
   assertNonEmptyString(invocation.providerReferences.turnId, "conversation-router turn id");
   assertNonEmptyString(invocation.providerReferences.requestId, "conversation-router request id");
@@ -569,6 +520,12 @@ function assertEqualJSON(actual, expected, label) {
 
 function assertNonEmptyString(value, label) {
   if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`invalid ${label}: ${JSON.stringify(value)}`);
+  }
+}
+
+function assertNullish(value, label) {
+  if (value !== null && value !== undefined) {
     throw new Error(`invalid ${label}: ${JSON.stringify(value)}`);
   }
 }
