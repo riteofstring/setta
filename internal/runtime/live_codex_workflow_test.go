@@ -34,17 +34,15 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
 		RootPath: t.TempDir(),
 	}, http.StatusOK)
-	workspaceID := opened.Workspace.ID
 	created := postRuntimeJSON[conversation.ConversationSnapshot](t, client, baseURL, "/conversations/create", httpapi.CreateTopicConversationRequest{
-		WorkspaceID: &workspaceID,
+		WorkspaceID: opened.Workspace.ID,
 		Title:       "Live topic conversation",
 	}, http.StatusOK)
-	if created.ThreadBinding != nil {
-		t.Fatalf("created live topic eagerly linked provider thread: %+v", created.ThreadBinding)
+	if created.ThreadBinding == nil || created.ThreadBinding.ThreadID == "" {
+		t.Fatalf("created live topic has no provider thread binding: %+v", created.ThreadBinding)
 	}
 
 	var latestSnapshot conversation.ConversationSnapshot
-	providerThreadID := ""
 	for index, task := range []struct {
 		expected string
 		text     string
@@ -106,13 +104,8 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 		if !runtimeTopicHasFinalNarration(snapshot, latestTurn.ID) {
 			t.Fatalf("live topic turn %s has no automatic narrator final summary", latestTurn.ID)
 		}
-		if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.ThreadID == "" {
-			t.Fatalf("live topic turn %d has no provider thread binding: %+v", index+1, snapshot.ThreadBinding)
-		}
-		if providerThreadID == "" {
-			providerThreadID = snapshot.ThreadBinding.ThreadID
-		} else if snapshot.ThreadBinding.ThreadID != providerThreadID {
-			t.Fatalf("live topic provider thread changed across turns: before=%s after=%+v", providerThreadID, snapshot.ThreadBinding)
+		if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.ThreadID != created.ThreadBinding.ThreadID {
+			t.Fatalf("live topic provider thread changed across turns: before=%+v after=%+v", created.ThreadBinding, snapshot.ThreadBinding)
 		}
 		latestSnapshot = snapshot
 	}
@@ -399,8 +392,7 @@ func validRuntimeLiveMasterContext(
 	conversationID string,
 ) bool {
 	authorized := slices.ContainsFunc(record.Context.TargetAuthorities, func(target master.RouteTargetAuthority) bool {
-		targetWorkspaceID, ok := target.ResourceScope.FolderWorkspaceID()
-		return target.ConversationID == conversationID && ok && targetWorkspaceID == workspaceID
+		return target.ConversationID == conversationID && target.WorkspaceID == workspaceID
 	})
 	return record.Context.InputSequence == inputSequence &&
 		authorized &&
@@ -431,7 +423,7 @@ func waitForRuntimeLiveConversationRoute(
 		baseURL,
 		"/conversations/inputs/state/wait",
 		httpapi.ReadConversationInputRoutingStateRequest{
-			WorkspaceID:    &workspaceID,
+			WorkspaceID:    workspaceID,
 			ConversationID: conversationID,
 			InputID:        accepted.Input.ID,
 		},

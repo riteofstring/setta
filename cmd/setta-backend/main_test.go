@@ -2,10 +2,11 @@ package main
 
 import (
 	"bytes"
+	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
-	"setta/internal/runtime"
 	"setta/internal/speech"
 )
 
@@ -15,7 +16,7 @@ func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
 
 	appDataDir := t.TempDir()
 
-	config, err := configFromArgs([]string{"--app-data-dir", appDataDir, "--port", "0", "--version", "test"}, &stdout, &stderr, emptyEnv)
+	config, err := configFromArgs([]string{"--app-data-dir", appDataDir, "--port", "0", "--version", "test"}, &stdout, &stderr, emptyEnv, ignoreUnsetenv)
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
 	}
@@ -30,6 +31,21 @@ func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
 	}
 }
 
+func TestConfigFromArgsEnablesLocalCredentialIssuerOnlyWithExplicitFlag(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	config, err := configFromArgs([]string{
+		"--app-data-dir", t.TempDir(),
+		"--local-credential-issuer",
+	}, &stdout, &stderr, emptyEnv, ignoreUnsetenv)
+	if err != nil {
+		t.Fatalf("config from args: %v", err)
+	}
+	if !config.EnableLocalCredentialIssuer || !config.SkipBootstrapDeviceSession {
+		t.Fatalf("local issuer config = %+v", config)
+	}
+}
+
 func TestConfigFromArgsRejectsInvalidEnvPort(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -39,7 +55,7 @@ func TestConfigFromArgsRejectsInvalidEnvPort(t *testing.T) {
 			return "abc"
 		}
 		return ""
-	})
+	}, ignoreUnsetenv)
 	if err == nil {
 		t.Fatal("config succeeded, want error")
 	}
@@ -53,7 +69,7 @@ func TestConfigFromArgsCanSkipBootstrapDeviceSession(t *testing.T) {
 		"--app-data-dir",
 		t.TempDir(),
 		"--skip-bootstrap-device-session",
-	}, &stdout, &stderr, emptyEnv)
+	}, &stdout, &stderr, emptyEnv, ignoreUnsetenv)
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
 	}
@@ -62,34 +78,60 @@ func TestConfigFromArgsCanSkipBootstrapDeviceSession(t *testing.T) {
 	}
 }
 
-func TestConfigFromArgsMapsDesktopSpeechProviderEnvironment(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	requested := map[string]int{}
-
+func TestConfigFromArgsConfiguresExplicitSpritesWorkloadLeaseSocket(t *testing.T) {
+	socketPath := filepath.Join(t.TempDir(), "sprites.sock")
 	config, err := configFromArgs(
 		[]string{"--app-data-dir", t.TempDir()},
-		&stdout,
-		&stderr,
-		trackedEnv(requested, map[string]string{
-			"SETTA_E2E":                          "1",
-			speech.APIKeyEnvironmentVariable:     "secret value",
-			speech.E2EBaseURLEnvironmentVariable: "http://127.0.0.1:24891/v1",
-		}),
+		&bytes.Buffer{},
+		&bytes.Buffer{},
+		func(name string) string {
+			if name == "SETTA_SPRITES_WORKLOAD_LEASE_SOCKET" {
+				return socketPath
+			}
+			return ""
+		},
+		ignoreUnsetenv,
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.WorkloadLeaseManager == nil {
+		t.Fatal("explicit Sprites workload lease socket did not configure a manager")
+	}
+}
+
+func TestConfigFromArgsMapsSpeechEnvironment(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	var cleared string
+	config, err := configFromArgs([]string{"--app-data-dir", t.TempDir()}, &stdout, &stderr, func(name string) string {
+		switch name {
+		case "SETTA_E2E":
+			return "1"
+		case speech.APIKeyEnvironmentVariable:
+			return "sk-openai-speech-backend"
+		case speech.E2EBaseURLEnvironmentVariable:
+			return "http://127.0.0.1:24891/v1"
+		default:
+			return ""
+		}
+	}, func(name string) error {
+		cleared = name
+		return nil
+	})
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
 	}
-	if config.SpeechStartupAPIKey != "" {
-		t.Fatalf("speech startup API key = %q, want empty", config.SpeechStartupAPIKey)
-	}
-	if config.SpeechCredentialOwner != runtime.SpeechCredentialOwnerElectronVault {
-		t.Fatalf("speech credential owner = %q, want electron_vault", config.SpeechCredentialOwner)
+	if config.Speech.APIKey != "sk-openai-speech-backend" {
+		t.Fatalf("speech API key = %q, want OpenAI API key", config.Speech.APIKey)
 	}
 	if config.Speech.BaseURL != "http://127.0.0.1:24891/v1" || !config.Speech.AllowTestBaseURL {
 		t.Fatalf("speech provider config = %+v, want guarded E2E URL", config.Speech)
 	}
-	assertEnvNotRequested(t, requested, speech.APIKeyEnvironmentVariable)
+	if cleared != speech.APIKeyEnvironmentVariable {
+		t.Fatalf("cleared environment variable = %q, want %q", cleared, speech.APIKeyEnvironmentVariable)
+	}
 }
 
 func TestConfigFromArgsRejectsSpeechBaseURLWithoutE2EGuard(t *testing.T) {
@@ -101,51 +143,33 @@ func TestConfigFromArgsRejectsSpeechBaseURLWithoutE2EGuard(t *testing.T) {
 			return "http://127.0.0.1:24891/v1"
 		}
 		return ""
-	})
+	}, ignoreUnsetenv)
 	if err == nil || !strings.Contains(err.Error(), "requires SETTA_E2E=1") {
 		t.Fatalf("error = %v, want SETTA_E2E guard error", err)
 	}
 }
 
-func TestConfigFromArgsIgnoresInheritedSpeechCredential(t *testing.T) {
+func TestConfigFromArgsRejectsUnclearedSpeechCredential(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	requested := map[string]int{}
+	clearErr := errors.New("environment is read-only")
 
-	config, err := configFromArgs(
+	_, err := configFromArgs(
 		[]string{"--app-data-dir", t.TempDir()},
 		&stdout,
 		&stderr,
-		trackedEnv(requested, map[string]string{
-			speech.APIKeyEnvironmentVariable: "secret value",
-		}),
+		emptyEnv,
+		func(string) error { return clearErr },
 	)
-	if err != nil {
-		t.Fatalf("config from args: %v", err)
+	if !errors.Is(err, clearErr) || !strings.Contains(err.Error(), speech.APIKeyEnvironmentVariable) {
+		t.Fatalf("error = %v, want wrapped speech credential clear failure", err)
 	}
-	if config.SpeechStartupAPIKey != "" {
-		t.Fatalf("speech startup API key = %q, want empty", config.SpeechStartupAPIKey)
-	}
-	if config.SpeechCredentialOwner != runtime.SpeechCredentialOwnerElectronVault {
-		t.Fatalf("speech credential owner = %q, want electron_vault", config.SpeechCredentialOwner)
-	}
-	assertEnvNotRequested(t, requested, speech.APIKeyEnvironmentVariable)
 }
 
 func emptyEnv(string) string {
 	return ""
 }
 
-func trackedEnv(requested map[string]int, values map[string]string) func(string) string {
-	return func(name string) string {
-		requested[name]++
-		return values[name]
-	}
-}
-
-func assertEnvNotRequested(t *testing.T, requested map[string]int, name string) {
-	t.Helper()
-	if requested[name] != 0 {
-		t.Fatalf("environment variable %s was requested %d time(s)", name, requested[name])
-	}
+func ignoreUnsetenv(string) error {
+	return nil
 }

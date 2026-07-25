@@ -1,6 +1,10 @@
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
+import type { SurfaceKind } from "./types";
 
-export const emptyWorkspaceRuntimeId = "empty";
+export interface WorkspaceSurfaceFocusRequest {
+  requestId: number;
+  surfaceKind: SurfaceKind;
+}
 
 export function workspaceBenchmarkShouldRun(mode: WorkspaceSceneMode): boolean {
   return mode === "benchmark" && workspaceAutoBenchmarkEnabled();
@@ -15,25 +19,14 @@ export function workspaceSceneMode(): WorkspaceSceneMode {
     : "workspace";
 }
 
-export function workspaceRuntimeIdentity(
-  workspace: { displayName: string; id: string; rootPath: string } | null,
-): {
+export function workspaceRuntimeIdentity(workspace: { displayName: string; id: string } | null): {
   workspaceId: string;
   workspaceName: string;
-  workspaceRootPath: string | null;
 } {
   if (!workspace) {
-    return {
-      workspaceId: emptyWorkspaceRuntimeId,
-      workspaceName: "No workspace",
-      workspaceRootPath: null,
-    };
+    return { workspaceId: "empty", workspaceName: "No workspace" };
   }
-  return {
-    workspaceId: workspace.id,
-    workspaceName: workspace.displayName,
-    workspaceRootPath: workspace.rootPath,
-  };
+  return { workspaceId: workspace.id, workspaceName: workspace.displayName };
 }
 
 function workspaceAutoBenchmarkEnabled(): boolean {

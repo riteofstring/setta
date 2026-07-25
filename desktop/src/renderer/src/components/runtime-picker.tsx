@@ -256,40 +256,7 @@ function RuntimeIcon({ runtime }: { runtime: KnownRuntimeView | null }) {
   if (runtime.isLocal) {
     return <Monitor className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
   }
-  if (
-    runtime.infrastructureProvider.id !== "unknown" &&
-    runtime.infrastructureProvider.iconUrl.trim() !== ""
-  ) {
-    return <RuntimeProviderIcon provider={runtime.infrastructureProvider} />;
-  }
   return <Server className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
-}
-
-function RuntimeProviderIcon({
-  provider,
-}: {
-  provider: KnownRuntimeView["infrastructureProvider"];
-}) {
-  const [failed, setFailed] = useState(false);
-  if (failed) {
-    return <Server className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
-  }
-  return (
-    <span
-      className="grid h-3.5 w-3.5 shrink-0 place-items-center overflow-hidden rounded-[2px]"
-      title={provider.displayName}
-    >
-      <img
-        alt=""
-        aria-hidden="true"
-        className="h-3.5 w-3.5 object-contain opacity-70 grayscale"
-        decoding="async"
-        onError={() => setFailed(true)}
-        referrerPolicy="no-referrer"
-        src={provider.iconUrl}
-      />
-    </span>
-  );
 }
 
 function RuntimeRowStatusAction({

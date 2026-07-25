@@ -114,13 +114,6 @@ RETURNING sequence
 	if err := appendMasterInputAcceptedEvent(ctx, tx, accepted); err != nil {
 		return master.AcceptedMasterInput{}, false, err
 	}
-	transaction := &WriteTransaction{ctx: ctx, tx: tx, active: true}
-	defer func() {
-		transaction.active = false
-	}()
-	if err := appendMasterTranscriptAcceptedInput(transaction, accepted); err != nil {
-		return master.AcceptedMasterInput{}, false, err
-	}
 	return accepted, true, nil
 }
 

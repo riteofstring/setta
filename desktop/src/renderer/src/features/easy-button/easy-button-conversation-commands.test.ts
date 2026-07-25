@@ -1,29 +1,9 @@
-import type {
-  AcceptedConversationInput,
-  ConversationInput,
-  ConversationInputRoutingState,
-  ConversationInputState,
-  ConversationRouteCommand,
-  ConversationSnapshot,
-  OpenWorkspaceResponse,
-  ReadConversationInputRoutingStateRequest,
-  SideConversation,
-  SubmitConversationInputRequest,
-} from "@generated/backend";
+import type { ConversationSnapshot, SideConversation } from "@generated/backend";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { useConversationNavigatorStore } from "../../stores/conversation-navigator-store";
-import {
-  conversationRoutingPresentation,
-  useConversationRoutingStore,
-} from "../../stores/conversation-routing-store";
 import { useConversationStore } from "../../stores/conversation-store";
-import { applyConversationRoutingPresentation } from "./conversation-routing-presentation";
-import {
-  bindFolderResourceForConversation,
-  requestEasyButtonPaneClose,
-  submitEasyButtonConversationTextInput,
-} from "./easy-button-conversation-commands";
+import { requestEasyButtonPaneClose } from "./easy-button-conversation-commands";
 
 const workspaceId = "workspace_topic";
 const timestamp = "2026-07-11T20:00:00Z";
@@ -31,7 +11,6 @@ const timestamp = "2026-07-11T20:00:00Z";
 describe("Easy Button conversation commands", () => {
   afterEach(() => {
     useConversationStore.getState().reset();
-    useConversationRoutingStore.getState().resetRuntimeState();
     useConversationNavigatorStore.getState().resetRuntimeState();
     vi.unstubAllGlobals();
   });
@@ -80,10 +59,6 @@ describe("Easy Button conversation commands", () => {
 
   test("cancels pane-owned speech capture after pane close is allowed", async () => {
     const snapshot = conversationSnapshot("conversation_close_voice");
-    const mounted = conversationSnapshot(snapshot.conversation.id);
-    mounted.conversation.title = "Mounted title";
-    useConversationStore.getState().hydrateSnapshot(workspaceId, snapshot.conversation.id, mounted);
-    snapshot.conversation.title = "Close-time title";
     const read = vi.fn(async () => snapshot);
     const cancelActiveConversationCapture = vi.fn();
     vi.stubGlobal("window", {
@@ -113,10 +88,6 @@ describe("Easy Button conversation commands", () => {
       },
       sourcePaneId: "pane_close_voice",
     });
-    expect(
-      useConversationStore.getState().conversations.get(snapshot.conversation.id)?.snapshot
-        ?.conversation.title,
-    ).toBe("Mounted title");
   });
 
   test("keeps the pane open when active-side disposal is not confirmed", async () => {
@@ -150,208 +121,8 @@ describe("Easy Button conversation commands", () => {
     expect(read).toHaveBeenCalledOnce();
     expect(disposeSide).not.toHaveBeenCalled();
     expect(cancelActiveConversationCapture).not.toHaveBeenCalled();
-    expect(
-      useConversationStore.getState().conversations.get(snapshot.conversation.id)?.snapshot,
-    ).toEqual(snapshot);
-  });
-
-  test("binds a folderless conversation to the selected folder and pane", async () => {
-    const snapshot = conversationSnapshot("conversation_bind_folder");
-    snapshot.conversation.workspaceId = "workspace_bound";
-    const opened = openWorkspaceResponse("workspace_bound", "/tmp/setta-bound");
-    const bindFolder = vi.fn(async () => snapshot);
-    const hydrateSnapshot = vi.fn();
-    const loadWorkspaceSession = vi.fn(async () => {});
-    const openLocalFolder = vi.fn(async () => opened);
-    const requestPaneFolderBinding = vi.fn(async () => {});
-
-    await expect(
-      bindFolderResourceForConversation(
-        { conversationId: snapshot.conversation.id, paneId: "pane_bind_folder" },
-        {
-          bindFolder,
-          hydrateSnapshot,
-          loadWorkspaceSession,
-          openLocalFolder,
-          requestPaneFolderBinding,
-        },
-      ),
-    ).resolves.toEqual({ workspaceId: "workspace_bound" });
-
-    expect(openLocalFolder).toHaveBeenCalledOnce();
-    expect(bindFolder).toHaveBeenCalledWith({
-      conversationId: snapshot.conversation.id,
-      workspaceId: "workspace_bound",
-    });
-    expect(hydrateSnapshot).toHaveBeenCalledWith(snapshot);
-    expect(requestPaneFolderBinding).toHaveBeenCalledWith({
-      conversationId: snapshot.conversation.id,
-      paneId: "pane_bind_folder",
-      rootPath: "/tmp/setta-bound",
-      workspaceId: "workspace_bound",
-    });
-    expect(loadWorkspaceSession).toHaveBeenCalledOnce();
-  });
-
-  test("leaves folderless conversation state untouched when folder selection is cancelled", async () => {
-    const bindFolder = vi.fn();
-    const hydrateSnapshot = vi.fn();
-    const loadWorkspaceSession = vi.fn(async () => {});
-    const openLocalFolder = vi.fn(async () => null);
-    const requestPaneFolderBinding = vi.fn(async () => {});
-
-    await expect(
-      bindFolderResourceForConversation(
-        { conversationId: "conversation_cancel_folder", paneId: "pane_cancel_folder" },
-        {
-          bindFolder,
-          hydrateSnapshot,
-          loadWorkspaceSession,
-          openLocalFolder,
-          requestPaneFolderBinding,
-        },
-      ),
-    ).resolves.toBeNull();
-
-    expect(openLocalFolder).toHaveBeenCalledOnce();
-    expect(bindFolder).not.toHaveBeenCalled();
-    expect(hydrateSnapshot).not.toHaveBeenCalled();
-    expect(requestPaneFolderBinding).not.toHaveBeenCalled();
-    expect(loadWorkspaceSession).not.toHaveBeenCalled();
-  });
-
-  test("submits folderless conversation input without requesting a folder resource", async () => {
-    const conversationId = "conversation_folderless_submit";
-    const paneId = "pane_folderless_submit";
-    let submittedInput: ConversationInput | null = null;
-    const submitInput = vi.fn(async ({ input }: SubmitConversationInputRequest) => {
-      submittedInput = input;
-      return acceptedConversationInput(input);
-    });
-    const waitInputState = vi.fn(
-      async ({ inputId, workspaceId }: ReadConversationInputRoutingStateRequest) => {
-        if (!submittedInput) {
-          throw new Error("missing submitted input");
-        }
-        return folderlessNarratorAnswerState(submittedInput, inputId, workspaceId);
-      },
-    );
-    const onAccepted = vi.fn();
-
-    await submitEasyButtonConversationTextInput({
-      applyRoutingState: (state, targetWorkspaceId) =>
-        applyConversationRoutingPresentation(targetWorkspaceId, state),
-      id: "input_folderless_hi",
-      onAccepted,
-      paneId,
-      replyToInputId: null,
-      submitInput,
-      submittedAt: timestamp,
-      target: { conversationId, workspaceId: null },
-      text: "hi",
-      waitInputState,
-    });
-
-    expect(submitInput).toHaveBeenCalledWith({
-      input: {
-        conversationId,
-        id: "input_folderless_hi",
-        modality: "text",
-        replyToInputId: null,
-        sourcePaneId: paneId,
-        submittedAt: timestamp,
-        text: "hi",
-      },
-    });
-    expect(waitInputState).toHaveBeenCalledWith({
-      conversationId,
-      inputId: "input_folderless_hi",
-      workspaceId: null,
-    });
-    expect(onAccepted).toHaveBeenCalledWith(
-      expect.objectContaining({ input: expect.objectContaining({ text: "hi" }) }),
-    );
-    expect(
-      conversationRoutingPresentation(
-        useConversationRoutingStore.getState().presentations,
-        null,
-        conversationId,
-      ),
-    ).toMatchObject({
-      inputId: "input_folderless_hi",
-      routingFailure: null,
-      sequence: 2,
-    });
   });
 });
-
-function acceptedConversationInput(input: ConversationInput): AcceptedConversationInput {
-  return {
-    acceptedAt: timestamp,
-    input,
-    sequence: 1,
-    status: "accepted",
-  };
-}
-
-function folderlessNarratorAnswerState(
-  input: ConversationInput,
-  inputId: string,
-  workspaceId: string | null,
-): ConversationInputRoutingState {
-  if (workspaceId !== null) {
-    throw new Error(`folderless submit waited with workspace ${workspaceId}`);
-  }
-  return routingState(
-    {
-      acceptedAt: timestamp,
-      failure: null,
-      input,
-      routingAttempt: 1,
-      routingStartedAt: timestamp,
-      sequence: 2,
-      status: "dispatched",
-    },
-    routeCommand({
-      answerAsNarrator: {
-        question: input.text,
-        requestId: `narrator_${inputId}`,
-      },
-      kind: "answer_as_narrator",
-    }),
-  );
-}
-
-function routingState(
-  input: ConversationInputState,
-  resultingCommand: ConversationRouteCommand,
-): ConversationInputRoutingState {
-  return {
-    clarificationReply: null,
-    decisions: [
-      {
-        resultingCommand,
-      } as ConversationInputRoutingState["decisions"][number],
-    ],
-    input,
-  };
-}
-
-function routeCommand(
-  selected: Partial<ConversationRouteCommand> & Pick<ConversationRouteCommand, "kind">,
-): ConversationRouteCommand {
-  return {
-    answerAsNarrator: null,
-    clarify: null,
-    createSideConversation: null,
-    escalateToMaster: null,
-    forkConversation: null,
-    queueParentTurn: null,
-    sendToParent: null,
-    steerParentTurn: null,
-    ...selected,
-  };
-}
 
 function conversationSnapshot(conversationId: string): ConversationSnapshot {
   return {
@@ -406,24 +177,6 @@ function conversationSnapshot(conversationId: string): ConversationSnapshot {
     trajectory: { events: [], hasEarlier: false },
     turns: { hasEarlier: false, turns: [] },
   } as ConversationSnapshot;
-}
-
-function openWorkspaceResponse(id: string, rootPath: string): OpenWorkspaceResponse {
-  const workspace = {
-    displayName: rootPath.split("/").at(-1) ?? rootPath,
-    id,
-    lastOpenedAt: timestamp,
-    rootPath,
-  };
-  return {
-    session: {
-      activeWorkspaces: [workspace],
-      recentWorkspaces: [],
-      selectedWorkspaceId: id,
-      workspaceAvailabilities: [{ available: true, unavailableReason: "", workspaceId: id }],
-    },
-    workspace,
-  };
 }
 
 function sideConversation(snapshot: ConversationSnapshot, parentPaneId: string): SideConversation {
