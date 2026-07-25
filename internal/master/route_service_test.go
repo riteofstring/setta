@@ -15,9 +15,13 @@ import (
 func TestRouteContextTargetIDsPreserveRequiredTargetsBeforeGlobalState(t *testing.T) {
 	focusedConversationID := "conversation-focused"
 	originatingConversationID := "conversation-originating"
-	input := MasterInput{
-		FocusedConversationID:     &focusedConversationID,
-		OriginatingConversationID: &originatingConversationID,
+	work := InputRoutingWork{
+		Input: AcceptedMasterInput{
+			Input: MasterInput{
+				FocusedConversationID:     &focusedConversationID,
+				OriginatingConversationID: &originatingConversationID,
+			},
+		},
 	}
 	candidates := []conversationindex.Candidate{{
 		Card: conversationindex.TopicCard{StoredTopicCard: conversationindex.StoredTopicCard{
@@ -30,7 +34,7 @@ func TestRouteContextTargetIDsPreserveRequiredTargetsBeforeGlobalState(t *testin
 		"conversation-global-open",
 	}
 
-	conversationIDs, err := routeContextTargetIDs(input, candidates, contextConversationIDs)
+	conversationIDs, err := routeContextTargetIDs(work, candidates, contextConversationIDs)
 	if err != nil {
 		t.Fatalf("routeContextTargetIDs: %v", err)
 	}
@@ -46,22 +50,57 @@ func TestRouteContextTargetIDsPreserveRequiredTargetsBeforeGlobalState(t *testin
 	}
 }
 
+func TestRouteContextTargetIDsPreserveClarificationCandidates(t *testing.T) {
+	prior := RouteDecisionRecord{
+		ResultingCommand: RouteCommand{
+			Kind: RouteDecisionKindClarify,
+			Clarify: &MasterClarifyRouteCommand{
+				Question: "Do you mean the folderless topic?",
+				CandidateTargetIDs: []string{
+					"conversation-clarification",
+					"conversation-candidate",
+				},
+			},
+		},
+	}
+	work := InputRoutingWork{PriorClarification: &prior}
+	candidates := []conversationindex.Candidate{{
+		Card: conversationindex.TopicCard{StoredTopicCard: conversationindex.StoredTopicCard{
+			ConversationID: "conversation-candidate",
+		}},
+	}}
+	contextConversationIDs := []string{"conversation-global-open"}
+
+	conversationIDs, err := routeContextTargetIDs(work, candidates, contextConversationIDs)
+	if err != nil {
+		t.Fatalf("routeContextTargetIDs: %v", err)
+	}
+	want := []string{
+		"conversation-candidate",
+		"conversation-clarification",
+		"conversation-global-open",
+	}
+	if !slices.Equal(conversationIDs, want) {
+		t.Fatalf("route context target ids = %v, want %v", conversationIDs, want)
+	}
+}
+
 func TestRouteContextTargetIDsBoundAndValidateGlobalState(t *testing.T) {
 	contextConversationIDs := make([]string, MaxRouteConversationTargets)
 	for index := range contextConversationIDs {
 		contextConversationIDs[index] = fmt.Sprintf("conversation-context-%02d", index)
 	}
-	conversationIDs, err := routeContextTargetIDs(MasterInput{}, nil, contextConversationIDs)
+	conversationIDs, err := routeContextTargetIDs(InputRoutingWork{}, nil, contextConversationIDs)
 	if err != nil || len(conversationIDs) != MaxRouteConversationTargets {
 		t.Fatalf("bounded route context ids = %v err=%v", conversationIDs, err)
 	}
 
 	contextConversationIDs[1] = contextConversationIDs[0]
-	_, err = routeContextTargetIDs(MasterInput{}, nil, contextConversationIDs)
+	_, err = routeContextTargetIDs(InputRoutingWork{}, nil, contextConversationIDs)
 	if err == nil || !strings.Contains(err.Error(), "repeats context conversation") {
 		t.Fatalf("duplicate route context id error = %v", err)
 	}
-	if _, err := routeContextTargetIDs(MasterInput{}, nil, nil); err == nil {
+	if _, err := routeContextTargetIDs(InputRoutingWork{}, nil, nil); err == nil {
 		t.Fatal("nil route context conversation ids were accepted")
 	}
 }
@@ -168,6 +207,31 @@ func TestRouteServiceBuildsStableSideAndForkPresentationCommands(t *testing.T) {
 		fork.ForkConversation.TurnID != "conversation_turn-4" ||
 		fork.ForkConversation.Target.Title != "Fork of Alpha topic" {
 		t.Fatalf("fork route command = %+v err=%v", fork, err)
+	}
+}
+
+func TestRouteServiceBuildsClarificationCommandWithCandidateTargets(t *testing.T) {
+	service := &RouteService{}
+	bundle := RouteContextBundle{
+		Candidates: []RouteCandidateContext{
+			{ConversationID: "conversation-alpha"},
+			{ConversationID: "conversation-beta"},
+		},
+	}
+	decision := RouteDecision{
+		Kind:    RouteDecisionKindClarify,
+		Clarify: &MasterClarifyRouteDecision{Question: "Which topic should Setta focus?"},
+	}
+	command, err := service.buildRouteCommand(decision, bundle)
+	if err != nil {
+		t.Fatalf("buildRouteCommand: %v", err)
+	}
+	if command.Clarify == nil ||
+		!slices.Equal(command.Clarify.CandidateTargetIDs, []string{"conversation-alpha", "conversation-beta"}) {
+		t.Fatalf("clarification command = %+v", command)
+	}
+	if err := command.ValidateDecision(decision); err != nil {
+		t.Fatalf("clarification command validation: %v", err)
 	}
 }
 

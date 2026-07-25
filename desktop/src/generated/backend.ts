@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 77;
-export const backendContractSchemaHash = "sha256:9b293842fa5faaa439fd73034c647ee5c5be762d530b6b7004e880235c2a68e0";
+export const backendProtocolVersion = 78;
+export const backendContractSchemaHash = "sha256:6b7a215f62ab6ecba6c05182beac970faf5271590e9dc340dd387201e9861d14";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -3189,6 +3189,12 @@ export interface RouteCandidateAudit {
   lexicalRank: number | null;
 }
 
+export interface RouteClarificationAudit {
+  decisionId: string;
+  inputSequence: number;
+  candidateTargetIds: string[];
+}
+
 export interface RouteTargetAuthority {
   conversationId: string;
   resourceScope: RouteResourceScope;
@@ -3206,6 +3212,7 @@ export interface RouteContextAudit {
   focusedWorkspaceId: string | null;
   focusedConversationId: string | null;
   originatingConversationId: string | null;
+  clarification: RouteClarificationAudit | null;
   targetAuthorities: RouteTargetAuthority[];
   priorDecisionCount: number;
 }
@@ -3293,6 +3300,7 @@ export interface MasterForkConversationRouteCommand {
 
 export interface MasterClarifyRouteCommand {
   question: string;
+  candidateTargetIds: string[];
 }
 
 export interface MasterAnswerGlobalRouteCommand {
@@ -6671,6 +6679,16 @@ export function decodeRouteCandidateAudit(value: unknown): RouteCandidateAudit {
   };
 }
 
+export function decodeRouteClarificationAudit(value: unknown): RouteClarificationAudit {
+  const record = assertRecord(value, "RouteClarificationAudit");
+  assertKnownFields(record, "RouteClarificationAudit", ["decisionId", "inputSequence", "candidateTargetIds"]);
+  return {
+    decisionId: decodeString(requireField(record, "decisionId", "RouteClarificationAudit"), "RouteClarificationAudit.decisionId"),
+    inputSequence: decodeInteger(requireField(record, "inputSequence", "RouteClarificationAudit"), "RouteClarificationAudit.inputSequence"),
+    candidateTargetIds: decodeArray(requireField(record, "candidateTargetIds", "RouteClarificationAudit"), "RouteClarificationAudit.candidateTargetIds", (item) => decodeString(item, "RouteClarificationAudit.candidateTargetIds item")),
+  };
+}
+
 export function decodeRouteTargetAuthority(value: unknown): RouteTargetAuthority {
   const record = assertRecord(value, "RouteTargetAuthority");
   assertKnownFields(record, "RouteTargetAuthority", ["conversationId", "resourceScope", "allowedDecisionKinds", "completedForkTurnIds"]);
@@ -6684,7 +6702,7 @@ export function decodeRouteTargetAuthority(value: unknown): RouteTargetAuthority
 
 export function decodeRouteContextAudit(value: unknown): RouteContextAudit {
   const record = assertRecord(value, "RouteContextAudit");
-  assertKnownFields(record, "RouteContextAudit", ["inputSequence", "candidateQuery", "candidateQueryTruncated", "retrievedCandidates", "includedCandidateIds", "activeWorkspaceIds", "focusedWorkspaceId", "focusedConversationId", "originatingConversationId", "targetAuthorities", "priorDecisionCount"]);
+  assertKnownFields(record, "RouteContextAudit", ["inputSequence", "candidateQuery", "candidateQueryTruncated", "retrievedCandidates", "includedCandidateIds", "activeWorkspaceIds", "focusedWorkspaceId", "focusedConversationId", "originatingConversationId", "clarification", "targetAuthorities", "priorDecisionCount"]);
   return {
     inputSequence: decodeInteger(requireField(record, "inputSequence", "RouteContextAudit"), "RouteContextAudit.inputSequence"),
     candidateQuery: decodeString(requireField(record, "candidateQuery", "RouteContextAudit"), "RouteContextAudit.candidateQuery"),
@@ -6695,6 +6713,7 @@ export function decodeRouteContextAudit(value: unknown): RouteContextAudit {
     focusedWorkspaceId: decodeNullable(requireField(record, "focusedWorkspaceId", "RouteContextAudit"), "RouteContextAudit.focusedWorkspaceId", (item) => decodeString(item, "RouteContextAudit.focusedWorkspaceId")),
     focusedConversationId: decodeNullable(requireField(record, "focusedConversationId", "RouteContextAudit"), "RouteContextAudit.focusedConversationId", (item) => decodeString(item, "RouteContextAudit.focusedConversationId")),
     originatingConversationId: decodeNullable(requireField(record, "originatingConversationId", "RouteContextAudit"), "RouteContextAudit.originatingConversationId", (item) => decodeString(item, "RouteContextAudit.originatingConversationId")),
+    clarification: decodeNullable(requireField(record, "clarification", "RouteContextAudit"), "RouteContextAudit.clarification", (item) => decodeRouteClarificationAudit(item)),
     targetAuthorities: decodeArray(requireField(record, "targetAuthorities", "RouteContextAudit"), "RouteContextAudit.targetAuthorities", (item) => decodeRouteTargetAuthority(item)),
     priorDecisionCount: decodeInteger(requireField(record, "priorDecisionCount", "RouteContextAudit"), "RouteContextAudit.priorDecisionCount"),
   };
@@ -6827,9 +6846,10 @@ export function decodeMasterForkConversationRouteCommand(value: unknown): Master
 
 export function decodeMasterClarifyRouteCommand(value: unknown): MasterClarifyRouteCommand {
   const record = assertRecord(value, "MasterClarifyRouteCommand");
-  assertKnownFields(record, "MasterClarifyRouteCommand", ["question"]);
+  assertKnownFields(record, "MasterClarifyRouteCommand", ["question", "candidateTargetIds"]);
   return {
     question: decodeString(requireField(record, "question", "MasterClarifyRouteCommand"), "MasterClarifyRouteCommand.question"),
+    candidateTargetIds: decodeArray(requireField(record, "candidateTargetIds", "MasterClarifyRouteCommand"), "MasterClarifyRouteCommand.candidateTargetIds", (item) => decodeString(item, "MasterClarifyRouteCommand.candidateTargetIds item")),
   };
 }
 

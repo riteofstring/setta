@@ -439,6 +439,14 @@ CREATE TABLE master_route_command_completions (
   completed_at TEXT NOT NULL
 ) STRICT;
 
+CREATE TABLE master_route_clarification_replies (
+  reply_input_id TEXT PRIMARY KEY REFERENCES master_inputs(id) ON DELETE CASCADE,
+  clarification_decision_id TEXT NOT NULL REFERENCES master_route_decisions(id) ON DELETE CASCADE
+) STRICT;
+
+CREATE INDEX master_route_clarification_replies_decision_idx
+  ON master_route_clarification_replies(clarification_decision_id);
+
 CREATE TABLE pane_bindings (
   pane_id TEXT PRIMARY KEY,
   workspace_id TEXT,

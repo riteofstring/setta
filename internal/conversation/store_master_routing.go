@@ -68,14 +68,19 @@ func claimNextMasterRouteInputTransaction(
 	if err := validateMasterRouteClaimTiming(accepted, startedAt); err != nil {
 		return master.InputRoutingWork{}, err
 	}
+	priorClarification, err := resolveMasterRouteClarificationForClaim(transaction, dbPath, accepted)
+	if err != nil {
+		return master.InputRoutingWork{}, err
+	}
 	attempt, err := advanceMasterRouteClaim(transaction, inputID, startedAt)
 	if err != nil {
 		return master.InputRoutingWork{}, err
 	}
 	work := master.InputRoutingWork{
-		Input:            accepted,
-		RoutingAttempt:   attempt,
-		RoutingStartedAt: startedAt,
+		Input:              accepted,
+		RoutingAttempt:     attempt,
+		RoutingStartedAt:   startedAt,
+		PriorClarification: priorClarification,
 	}
 	if err := work.Validate(); err != nil {
 		return master.InputRoutingWork{}, fmt.Errorf("validate claimed master input routing work: %w", err)
@@ -108,15 +113,6 @@ LIMIT 1
 		return "", fmt.Errorf("read next master input routing work: %w", err)
 	}
 	return inputID, nil
-}
-
-func validateMasterRouteClaimTiming(accepted master.AcceptedMasterInput, startedAt string) error {
-	started, _ := validateTimestamp("master input routing startedAt", startedAt)
-	acceptedTime, _ := validateTimestamp("master input acceptedAt", accepted.AcceptedAt)
-	if started.Before(acceptedTime) {
-		return errors.New("master input routing cannot start before input acceptance")
-	}
-	return nil
 }
 
 func advanceMasterRouteClaim(
@@ -358,6 +354,9 @@ func commitMasterRouteDecisionTransaction(
 		return master.RouteDecisionRecord{}, err
 	}
 	if err := requireMasterRouteCommitContext(accepted, commit); err != nil {
+		return master.RouteDecisionRecord{}, err
+	}
+	if err := requireMasterRouteClarificationReplyState(transaction, dbPath, commit); err != nil {
 		return master.RouteDecisionRecord{}, err
 	}
 	if err := requireMasterRouteInvocationState(transaction, dbPath, commit); err != nil {

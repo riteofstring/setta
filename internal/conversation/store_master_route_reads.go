@@ -480,8 +480,7 @@ func equalOptionalStrings(left *string, right *string) bool {
 }
 
 func cloneMasterInputRoutingWork(work master.InputRoutingWork) master.InputRoutingWork {
-	work.Input = master.CloneAcceptedInput(work.Input)
-	return work
+	return master.CloneInputRoutingWork(work)
 }
 
 func cloneMasterRouteTargets(targets []master.RouteConversationTarget) []master.RouteConversationTarget {

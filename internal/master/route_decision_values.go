@@ -71,6 +71,9 @@ func cloneRouteCommand(command RouteCommand) RouteCommand {
 	command.ForkConversation = cloneRoutePayload(command.ForkConversation)
 	command.Clarify = cloneRoutePayload(command.Clarify)
 	command.AnswerGlobal = cloneRoutePayload(command.AnswerGlobal)
+	if command.Clarify != nil {
+		command.Clarify.CandidateTargetIDs = append([]string{}, command.Clarify.CandidateTargetIDs...)
+	}
 	if command.SendToAgent != nil {
 		command.SendToAgent.Target = clonePresentationTarget(command.SendToAgent.Target)
 	}
@@ -160,6 +163,15 @@ func CloneInputRoutingState(state InputRoutingState) InputRoutingState {
 	return state
 }
 
+func CloneInputRoutingWork(work InputRoutingWork) InputRoutingWork {
+	work.Input = CloneAcceptedInput(work.Input)
+	if work.PriorClarification != nil {
+		prior := CloneRouteDecisionRecord(*work.PriorClarification)
+		work.PriorClarification = &prior
+	}
+	return work
+}
+
 func cloneRouteDecision(decision RouteDecision) RouteDecision {
 	decision.SendToAgent = cloneRoutePayload(decision.SendToAgent)
 	decision.QueueAgentTurn = cloneRoutePayload(decision.QueueAgentTurn)
@@ -198,6 +210,11 @@ func cloneRouteContextAudit(audit RouteContextAudit) RouteContextAudit {
 	audit.FocusedWorkspaceID = cloneString(audit.FocusedWorkspaceID)
 	audit.FocusedConversationID = cloneString(audit.FocusedConversationID)
 	audit.OriginatingConversationID = cloneString(audit.OriginatingConversationID)
+	if audit.Clarification != nil {
+		clarification := *audit.Clarification
+		clarification.CandidateTargetIDs = append([]string{}, clarification.CandidateTargetIDs...)
+		audit.Clarification = &clarification
+	}
 	audit.TargetAuthorities = append([]RouteTargetAuthority{}, audit.TargetAuthorities...)
 	for index := range audit.TargetAuthorities {
 		audit.TargetAuthorities[index].ResourceScope = cloneRouteResourceScope(

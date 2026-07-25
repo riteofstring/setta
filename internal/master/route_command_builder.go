@@ -3,6 +3,7 @@ package master
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"setta/internal/applayout"
 )
@@ -29,7 +30,13 @@ func (service *RouteService) buildRouteCommand(
 	case RouteDecisionKindForkConversation:
 		return service.buildForkConversationCommand(decision, bundle)
 	case RouteDecisionKindClarify:
-		return RouteCommand{Kind: decision.Kind, Clarify: &MasterClarifyRouteCommand{Question: decision.Clarify.Question}}, nil
+		return RouteCommand{
+			Kind: decision.Kind,
+			Clarify: &MasterClarifyRouteCommand{
+				Question:           decision.Clarify.Question,
+				CandidateTargetIDs: routeClarificationCandidateTargetIDs(bundle),
+			},
+		}, nil
 	case RouteDecisionKindAnswerGlobal:
 		return RouteCommand{Kind: decision.Kind, AnswerGlobal: &MasterAnswerGlobalRouteCommand{Text: decision.AnswerGlobal.Text}}, nil
 	default:
@@ -38,6 +45,16 @@ func (service *RouteService) buildRouteCommand(
 			fmt.Errorf("unsupported master route command kind %q", decision.Kind),
 		)
 	}
+}
+
+func routeClarificationCandidateTargetIDs(bundle RouteContextBundle) []string {
+	ids := make([]string, 0, len(bundle.Candidates))
+	for _, candidate := range bundle.Candidates {
+		if !slices.Contains(ids, candidate.ConversationID) {
+			ids = append(ids, candidate.ConversationID)
+		}
+	}
+	return ids
 }
 
 func (service *RouteService) buildSendToAgentCommand(decision RouteDecision, bundle RouteContextBundle) (RouteCommand, error) {

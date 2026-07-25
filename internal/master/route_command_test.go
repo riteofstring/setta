@@ -97,8 +97,11 @@ func TestPresentationIntentForCommandPreservesEscalationDelivery(t *testing.T) {
 		OriginatingConversationInputID: &conversationInputID,
 	}
 	intent, err := PresentationIntentForCommand(input, RouteCommand{
-		Kind:    RouteDecisionKindClarify,
-		Clarify: &MasterClarifyRouteCommand{Question: "Which topic should handle this?"},
+		Kind: RouteDecisionKindClarify,
+		Clarify: &MasterClarifyRouteCommand{
+			Question:           "Which topic should handle this?",
+			CandidateTargetIDs: []string{},
+		},
 	})
 	if err != nil {
 		t.Fatalf("PresentationIntentForCommand: %v", err)

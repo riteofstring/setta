@@ -283,7 +283,7 @@ func (service *RouteService) materializeClaimedInput(
 	if err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
-	targetIDs, err := routeContextTargetIDs(work.Input.Input, candidates, contextConversationIDs)
+	targetIDs, err := routeContextTargetIDs(work, candidates, contextConversationIDs)
 	if err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateCorrupt, err)
 	}
@@ -463,14 +463,14 @@ func (service *RouteService) failClaimedInput(
 }
 
 func routeContextTargetIDs(
-	input MasterInput,
+	work InputRoutingWork,
 	candidates []conversationindex.Candidate,
 	contextConversationIDs []string,
 ) ([]string, error) {
 	if err := validateRouteContextConversationIDs(contextConversationIDs); err != nil {
 		return nil, err
 	}
-	ids := requiredRouteContextTargetIDs(input, candidates)
+	ids := requiredRouteContextTargetIDs(work, candidates)
 	if len(ids) > MaxRouteConversationTargets {
 		return nil, fmt.Errorf("master route required targets exceed %d conversations", MaxRouteConversationTargets)
 	}
@@ -488,19 +488,34 @@ func validateRouteContextConversationIDs(conversationIDs []string) error {
 }
 
 func requiredRouteContextTargetIDs(
-	input MasterInput,
+	work InputRoutingWork,
 	candidates []conversationindex.Candidate,
 ) []string {
 	ids := make([]string, 0, MaxRouteConversationTargets)
 	for _, candidate := range candidates {
 		ids = append(ids, candidate.Card.ConversationID)
 	}
+	for _, conversationID := range clarificationCandidateTargetIDs(work) {
+		if !slices.Contains(ids, conversationID) {
+			ids = append(ids, conversationID)
+		}
+	}
+	input := work.Input.Input
 	for _, optional := range []*string{input.FocusedConversationID, input.OriginatingConversationID} {
 		if optional != nil && !slices.Contains(ids, *optional) {
 			ids = append(ids, *optional)
 		}
 	}
 	return ids
+}
+
+func clarificationCandidateTargetIDs(work InputRoutingWork) []string {
+	if work.PriorClarification == nil ||
+		work.PriorClarification.ResultingCommand.Kind != RouteDecisionKindClarify ||
+		work.PriorClarification.ResultingCommand.Clarify == nil {
+		return nil
+	}
+	return append([]string{}, work.PriorClarification.ResultingCommand.Clarify.CandidateTargetIDs...)
 }
 
 func appendRouteContextConversationIDs(ids []string, contextConversationIDs []string) []string {

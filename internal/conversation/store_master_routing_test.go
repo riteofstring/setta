@@ -397,6 +397,56 @@ func TestStoreProjectsOnlyRestorableActiveShellInteraction(t *testing.T) {
 	}
 }
 
+func TestStorePreservesMasterClarificationTargetsForFollowingInput(t *testing.T) {
+	store := newTestStore(t)
+	ready := seedMasterRouteState(t, store)
+	first := acceptMasterRouteTestInput(t, store, "master-input-clarification-root", "2026-07-11T20:02:00Z")
+	work := claimMasterRouteCommitWork(t, store, first)
+	clarification := masterRouteTestCommit(t, work, ready, master.RouteDecision{
+		Kind:    master.RouteDecisionKindClarify,
+		Clarify: &master.MasterClarifyRouteDecision{Question: "Do you mean the master routing topic?"},
+	})
+	clarificationRecord := commitMasterRouteTestDecision(t, store, clarification, first.Input.ID)
+
+	reply := acceptMasterRouteTestInput(t, store, "master-input-clarification-reply", "2026-07-11T20:05:00Z")
+	replyWork, found, err := store.ClaimNextMasterRouteInput(context.Background(), "2026-07-11T20:05:30Z")
+	if err != nil || !found {
+		t.Fatalf("claim clarification reply = %+v found=%v err=%v", replyWork, found, err)
+	}
+	assertMasterClarificationReplyWork(t, replyWork, reply.Input.ID, clarificationRecord.ID)
+
+	if err := store.RecoverMasterInputRouting(context.Background(), "2026-07-11T20:05:31Z"); err != nil {
+		t.Fatalf("RecoverMasterInputRouting: %v", err)
+	}
+	recoveredWork, found, err := store.ClaimNextMasterRouteInput(context.Background(), "2026-07-11T20:05:32Z")
+	if err != nil || !found {
+		t.Fatalf("claim recovered clarification reply = %+v found=%v err=%v", recoveredWork, found, err)
+	}
+	if recoveredWork.RoutingAttempt != replyWork.RoutingAttempt+1 {
+		t.Fatalf("recovered routing attempt = %d, want %d", recoveredWork.RoutingAttempt, replyWork.RoutingAttempt+1)
+	}
+	assertMasterClarificationReplyWork(t, recoveredWork, reply.Input.ID, clarificationRecord.ID)
+}
+
+func assertMasterClarificationReplyWork(
+	t *testing.T,
+	work master.InputRoutingWork,
+	replyInputID string,
+	clarificationDecisionID string,
+) {
+	t.Helper()
+	if work.Input.Input.ID != replyInputID ||
+		work.PriorClarification == nil ||
+		work.PriorClarification.ID != clarificationDecisionID ||
+		work.PriorClarification.ResultingCommand.Clarify == nil ||
+		!slices.Equal(
+			work.PriorClarification.ResultingCommand.Clarify.CandidateTargetIDs,
+			[]string{"conversation-master-route"},
+		) {
+		t.Fatalf("clarification reply work = %+v", work)
+	}
+}
+
 func TestStoreWaitsForMasterInputTerminalStateWithoutPolling(t *testing.T) {
 	store := newTestStore(t)
 	ready := seedMasterRouteState(t, store)
@@ -809,6 +859,14 @@ func masterRouteTestCommit(
 	if err != nil {
 		t.Fatalf("NewRouteModelConfigurationAudit: %v", err)
 	}
+	var clarification *master.RouteClarificationAudit
+	if work.PriorClarification != nil {
+		clarification = &master.RouteClarificationAudit{
+			DecisionID:         work.PriorClarification.ID,
+			InputSequence:      work.PriorClarification.Context.InputSequence,
+			CandidateTargetIDs: append([]string{}, work.PriorClarification.ResultingCommand.Clarify.CandidateTargetIDs...),
+		}
+	}
 	return master.RouteDecisionCommit{
 		ID:              "master-route-decision-" + work.Input.Input.ID,
 		MasterSessionID: session.ID,
@@ -822,6 +880,7 @@ func masterRouteTestCommit(
 			ActiveWorkspaceIDs:    []string{"workspace-1"},
 			FocusedWorkspaceID:    cloneStringPointer(work.Input.Input.FocusedWorkspaceID),
 			FocusedConversationID: cloneStringPointer(work.Input.Input.FocusedConversationID),
+			Clarification:         clarification,
 			TargetAuthorities: []master.RouteTargetAuthority{{
 				ConversationID:       "conversation-master-route",
 				ResourceScope:        master.FolderRouteResourceScope("workspace-1", ""),
@@ -898,7 +957,10 @@ func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {
 			Input:          decision.ForkConversation.Input,
 		}
 	case master.RouteDecisionKindClarify:
-		command.Clarify = &master.MasterClarifyRouteCommand{Question: decision.Clarify.Question}
+		command.Clarify = &master.MasterClarifyRouteCommand{
+			Question:           decision.Clarify.Question,
+			CandidateTargetIDs: []string{"conversation-master-route"},
+		}
 	case master.RouteDecisionKindAnswerGlobal:
 		command.AnswerGlobal = &master.MasterAnswerGlobalRouteCommand{Text: decision.AnswerGlobal.Text}
 	}

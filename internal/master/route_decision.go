@@ -157,18 +157,25 @@ type RouteTargetAuthority struct {
 	CompletedForkTurnIDs []string            `json:"completedForkTurnIds"`
 }
 
+type RouteClarificationAudit struct {
+	DecisionID         string   `json:"decisionId"`
+	InputSequence      int      `json:"inputSequence"`
+	CandidateTargetIDs []string `json:"candidateTargetIds"`
+}
+
 type RouteContextAudit struct {
-	InputSequence             int                    `json:"inputSequence"`
-	CandidateQuery            string                 `json:"candidateQuery"`
-	CandidateQueryTruncated   bool                   `json:"candidateQueryTruncated"`
-	RetrievedCandidates       []RouteCandidateAudit  `json:"retrievedCandidates"`
-	IncludedCandidateIDs      []string               `json:"includedCandidateIds"`
-	ActiveWorkspaceIDs        []string               `json:"activeWorkspaceIds"`
-	FocusedWorkspaceID        *string                `json:"focusedWorkspaceId"`
-	FocusedConversationID     *string                `json:"focusedConversationId"`
-	OriginatingConversationID *string                `json:"originatingConversationId"`
-	TargetAuthorities         []RouteTargetAuthority `json:"targetAuthorities"`
-	PriorDecisionCount        int                    `json:"priorDecisionCount"`
+	InputSequence             int                      `json:"inputSequence"`
+	CandidateQuery            string                   `json:"candidateQuery"`
+	CandidateQueryTruncated   bool                     `json:"candidateQueryTruncated"`
+	RetrievedCandidates       []RouteCandidateAudit    `json:"retrievedCandidates"`
+	IncludedCandidateIDs      []string                 `json:"includedCandidateIds"`
+	ActiveWorkspaceIDs        []string                 `json:"activeWorkspaceIds"`
+	FocusedWorkspaceID        *string                  `json:"focusedWorkspaceId"`
+	FocusedConversationID     *string                  `json:"focusedConversationId"`
+	OriginatingConversationID *string                  `json:"originatingConversationId"`
+	Clarification             *RouteClarificationAudit `json:"clarification"`
+	TargetAuthorities         []RouteTargetAuthority   `json:"targetAuthorities"`
+	PriorDecisionCount        int                      `json:"priorDecisionCount"`
 }
 
 type RouteDecisionCommit struct {
@@ -217,9 +224,10 @@ type InputRoutingRecovery struct {
 }
 
 type InputRoutingWork struct {
-	Input            AcceptedMasterInput `json:"input"`
-	RoutingAttempt   int                 `json:"routingAttempt"`
-	RoutingStartedAt string              `json:"routingStartedAt"`
+	Input              AcceptedMasterInput  `json:"input"`
+	RoutingAttempt     int                  `json:"routingAttempt"`
+	RoutingStartedAt   string               `json:"routingStartedAt"`
+	PriorClarification *RouteDecisionRecord `json:"priorClarification"`
 }
 
 type InputRoutingState struct {
@@ -595,6 +603,14 @@ func validateRouteContextAuditReferences(audit RouteContextAudit) error {
 	if err := validateRouteTargetAuthorities(audit.TargetAuthorities); err != nil {
 		return err
 	}
+	if audit.Clarification != nil {
+		if err := audit.Clarification.Validate(); err != nil {
+			return err
+		}
+		if audit.Clarification.InputSequence >= audit.InputSequence {
+			return errors.New("master route clarification input sequence must precede the routed input")
+		}
+	}
 	if len(audit.RetrievedCandidates) != len(audit.IncludedCandidateIDs) {
 		return errors.New("master route retrieved and included candidate counts differ")
 	}
@@ -801,25 +817,6 @@ func (recovery InputRoutingRecovery) Validate() error {
 	recoveredAt, err := normalizeTimestamp("master input routing recoveredAt", recovery.RecoveredAt)
 	if err != nil || recoveredAt != recovery.RecoveredAt {
 		return errors.New("master input routing recoveredAt must be normalized")
-	}
-	return nil
-}
-
-func (work InputRoutingWork) Validate() error {
-	if err := work.Input.Validate(); err != nil {
-		return err
-	}
-	if work.RoutingAttempt <= 0 {
-		return errors.New("master input routing work attempt must be positive")
-	}
-	startedAt, err := normalizeTimestamp("master input routing startedAt", work.RoutingStartedAt)
-	if err != nil || startedAt != work.RoutingStartedAt {
-		return errors.New("master input routing startedAt must be normalized")
-	}
-	started, _ := time.Parse(time.RFC3339Nano, startedAt)
-	accepted, _ := time.Parse(time.RFC3339Nano, work.Input.AcceptedAt)
-	if started.Before(accepted) {
-		return errors.New("master input routing starts before input acceptance")
 	}
 	return nil
 }

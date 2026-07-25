@@ -84,7 +84,8 @@ type MasterForkConversationRouteCommand struct {
 }
 
 type MasterClarifyRouteCommand struct {
-	Question string `json:"question"`
+	Question           string   `json:"question"`
+	CandidateTargetIDs []string `json:"candidateTargetIds"`
 }
 
 type MasterAnswerGlobalRouteCommand struct {
@@ -342,7 +343,14 @@ func validateMasterClarifyCommand(command *MasterClarifyRouteCommand) error {
 	if command == nil {
 		return errors.New("clarify command requires clarify")
 	}
-	return validateRouteText("master route command clarification", command.Question, MaxRouteQuestionBytes)
+	if err := validateRouteText("master route command clarification", command.Question, MaxRouteQuestionBytes); err != nil {
+		return err
+	}
+	return validateBoundedRouteConversationTargetIDs(
+		"clarification candidate target",
+		command.CandidateTargetIDs,
+		MaxRouteConversationTargets,
+	)
 }
 
 func validateMasterAnswerGlobalCommand(command *MasterAnswerGlobalRouteCommand) error {

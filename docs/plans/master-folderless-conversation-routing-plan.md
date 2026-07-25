@@ -214,6 +214,11 @@ The focus/open operation must not select a workspace first.
 
 ### 6. Preserve Clarification State
 
+**Repository status:** Implemented. Master clarification commands now carry bounded candidate target
+ids, following shell inputs are durably linked to unresolved clarification decisions, and the
+structured router receives the preserved clarification context. Production workflow coverage remains
+in phase 8.
+
 Fix clarification so the master can ask a targeted question and then act on the answer.
 
 Required behavior:
