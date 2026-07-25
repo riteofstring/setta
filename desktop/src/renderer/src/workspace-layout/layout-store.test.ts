@@ -143,31 +143,6 @@ describe("workspace layout store", () => {
     });
   });
 
-  test("close or clear turns the final conversation pane into an empty frame", () => {
-    const store = createStore();
-    for (const paneId of ["workspace_pane_0", "workspace_pane_1", "workspace_pane_3"]) {
-      expect(store.focusPane(paneId)).toBe(true);
-      expect(store.closeFocusedPane()).toBe(paneId);
-    }
-
-    expect(store.toScene().totalPanes).toBe(1);
-    expect(store.toScene().paneById.get("workspace_pane_2")).toMatchObject({
-      conversationConfig: { conversationId: "conversation_layout_test" },
-      surfaceKind: "conversation",
-    });
-
-    expect(store.closeFocusedPaneOrClearLastPane()).toBe("workspace_pane_2");
-
-    const clearedPane = store.toScene().paneById.get("workspace_pane_2");
-    expect(store.toScene().totalPanes).toBe(1);
-    expect(clearedPane).toMatchObject({
-      subtitle: "choose a pane type",
-      surfaceKind: "empty-frame",
-      title: "New frame",
-    });
-    expect(clearedPane && "conversationConfig" in clearedPane).toBe(false);
-  });
-
   test("keeps snapshots stable until layout state changes", () => {
     const store = createStore();
     const firstSnapshot = store.getSnapshot();
@@ -183,42 +158,40 @@ describe("workspace layout store", () => {
   });
 
   test("enforces configured pane limits for explicit opens", () => {
-    const store = createStore({ browser: 1 });
+    const store = createStore({
+      "easy-button": 10,
+      "settings-dom": 1,
+    });
 
-    expect(store.paneLimitState({ surfaceKind: "browser" })).toEqual({
+    expect(store.paneLimitState({ surfaceKind: "settings-dom" })).toEqual({
       allowed: false,
       count: 1,
       limit: 1,
-      surfaceKind: "browser",
+      surfaceKind: "settings-dom",
     });
-    expect(store.canOpenPane({ surfaceKind: "browser" })).toBe(false);
-    expect(() => store.openPane({ surfaceKind: "browser", title: "Browser" })).toThrow(
-      "workspace pane limit reached for browser",
+    expect(store.canOpenPane({ surfaceKind: "settings-dom" })).toBe(false);
+    expect(() => store.openPane({ surfaceKind: "settings-dom", title: "Settings" })).toThrow(
+      "workspace pane limit reached for settings-dom",
     );
-  });
 
-  test("does not impose a pane limit on conversation panes", () => {
-    const store = createStore({ browser: 1 });
-
-    for (let index = 0; index < 11; index += 1) {
-      expect(
-        store.canOpenPane({
-          conversationConfig: { conversationId: `conversation_${index}` },
-          surfaceKind: "conversation",
-        }),
-      ).toBe(true);
+    expect(
+      store.canOpenPane({
+        easyButtonConfig: { conversationId: "conversation_0" },
+        surfaceKind: "easy-button",
+      }),
+    ).toBe(true);
+    for (let index = 1; index < 10; index += 1) {
       store.openPane({
-        conversationConfig: { conversationId: `conversation_${index}` },
-        surfaceKind: "conversation",
+        easyButtonConfig: { conversationId: `conversation_${index}` },
+        surfaceKind: "easy-button",
         title: `Topic ${index}`,
       });
     }
-
-    expect(store.paneLimitState({ surfaceKind: "conversation" })).toEqual({
-      allowed: true,
-      count: 12,
-      limit: null,
-      surfaceKind: "conversation",
+    expect(store.paneLimitState({ surfaceKind: "easy-button" })).toEqual({
+      allowed: false,
+      count: 10,
+      limit: 10,
+      surfaceKind: "easy-button",
     });
   });
 
@@ -330,98 +303,73 @@ describe("workspace layout store", () => {
   });
 
   test("enforces pane limits when configuring an empty frame", () => {
-    const store = createStore({ browser: 1 });
+    const store = createStore({ "settings-dom": 1 });
     const emptyPaneId = store.openEmptyFrame();
 
     expect(() =>
       store.configurePane(emptyPaneId, {
-        surfaceKind: "browser",
-        title: "Browser",
+        surfaceKind: "settings-dom",
+        title: "Settings",
       }),
-    ).toThrow("workspace pane limit reached for browser");
+    ).toThrow("workspace pane limit reached for settings-dom");
     expect(store.toScene().paneById.get(emptyPaneId)?.surfaceKind).toBe("empty-frame");
   });
 
   test("allows reconfiguring a pane that already owns a limited surface kind", () => {
-    const store = createStore({ browser: 1 });
+    const store = createStore({ "settings-dom": 1 });
     const paneId = "workspace_pane_3";
     const before = store.toScene().paneById.get(paneId);
 
     expect(() =>
       store.configurePane(paneId, {
-        surfaceKind: "browser",
-        title: "Browser Reloaded",
+        surfaceKind: "settings-dom",
+        title: "Settings Reloaded",
       }),
     ).not.toThrow();
 
     const configured = store.toScene().paneById.get(paneId);
     expect(configured).toMatchObject({
       paneId,
-      surfaceKind: "browser",
-      title: "Browser Reloaded",
+      surfaceKind: "settings-dom",
+      title: "Settings Reloaded",
     });
     expect(configured?.surfaceId).not.toBe(before?.surfaceId);
   });
 
-  test("preserves a conversation binding only while the pane remains a conversation pane", () => {
-    const store = createStore();
-    const conversationConfig = { conversationId: "conversation-1" };
+  test("preserves an easy button binding only while the pane remains an easy button", () => {
+    const store = createStore({ "easy-button": 2 });
+    const easyButtonConfig = { conversationId: "conversation-1" };
     const paneId = store.openPane({
-      conversationConfig,
-      surfaceKind: "conversation",
+      easyButtonConfig,
+      surfaceKind: "easy-button",
       title: "Topic",
     });
 
     store.configurePane(paneId, { title: "Renamed topic" });
-    expect(store.toScene().paneById.get(paneId)?.conversationConfig).toEqual(conversationConfig);
+    expect(store.toScene().paneById.get(paneId)?.easyButtonConfig).toEqual(easyButtonConfig);
 
     store.configurePane(paneId, {
       surfaceKind: "browser",
       title: "Browser",
     });
-    expect(store.toScene().paneById.get(paneId)?.conversationConfig).toBeUndefined();
+    expect(store.toScene().paneById.get(paneId)?.easyButtonConfig).toBeUndefined();
   });
 
-  test("rejects duplicate conversation pane bindings before layout mutation", () => {
-    const store = createStore();
-    const firstPaneId = store.openPane({
-      conversationConfig: { conversationId: "conversation-1" },
-      surfaceKind: "conversation",
-      title: "Topic",
-    });
-    const emptyPaneId = store.openEmptyFrame();
-    const before = store.toScene();
-    const duplicateRequest = {
-      conversationConfig: { conversationId: "conversation-1" },
-      surfaceKind: "conversation",
-      title: "Topic copy",
-    } as const;
-
-    expect(store.canOpenPane(duplicateRequest)).toBe(false);
-    expect(() => store.openPane(duplicateRequest)).toThrow(
-      `conversation conversation-1 is already bound to pane ${firstPaneId}`,
-    );
-    expect(() => store.configurePane(emptyPaneId, duplicateRequest)).toThrow(
-      `conversation conversation-1 is already bound to pane ${firstPaneId}`,
-    );
-    expect(store.toScene()).toEqual(before);
-  });
-
-  test("rejects invalid conversation bindings before pane creation mutates layout", () => {
+  test("rejects invalid easy button bindings before pane creation mutates layout", () => {
     const invalidRequests = [
-      { surfaceKind: "conversation", title: "Missing binding" },
+      { surfaceKind: "easy-button", title: "Missing binding" },
       {
-        conversationConfig: { conversationId: "" },
-        surfaceKind: "conversation",
+        easyButtonConfig: { conversationId: "" },
+        surfaceKind: "easy-button",
         title: "Empty binding",
       },
       {
-        conversationConfig: { conversationId: " conversation_1" },
-        surfaceKind: "conversation",
+        easyButtonConfig: { conversationId: " conversation_1" },
+        surfaceKind: "easy-button",
         title: "Whitespace binding",
       },
       {
-        conversationConfig: { conversationId: "conversation_1" },
+        easyButtonConfig: { conversationId: "conversation_1" },
         surfaceKind: "empty-frame",
       },
     ] as unknown as OpenPaneRequest[];
@@ -436,17 +384,17 @@ describe("workspace layout store", () => {
     expect(store.toScene().columns).toEqual(before.columns);
   });
 
-  test("rejects an invalid conversation configuration without replacing the pane", () => {
+  test("rejects an invalid easy button configuration without replacing the pane", () => {
     const store = createStore();
     const emptyPaneId = store.openEmptyFrame();
     const before = store.toScene().paneById.get(emptyPaneId);
     const invalidRequest = {
-      surfaceKind: "conversation",
+      surfaceKind: "easy-button",
       title: "Missing binding",
     } as unknown as OpenPaneRequest;
 
     expect(() => store.configurePane(emptyPaneId, invalidRequest)).toThrow(
-      "conversation panes require a conversationConfig conversation binding",
+      "easy-button panes require an easyButtonConfig conversation binding",
     );
     expect(store.toScene().paneById.get(emptyPaneId)).toEqual(before);
   });
@@ -1038,10 +986,10 @@ describe("workspace layout store", () => {
     expect(revisions).toEqual([1, 2, 3]);
   });
 
-  test("focuses an existing surface by kind", () => {
+  test("focuses an existing surface by kind for sidebar entry points", () => {
     const store = createStore();
 
-    expect(store.focusPaneBySurfaceKind("browser")).toBe("workspace_pane_3");
+    expect(store.focusPaneBySurfaceKind("settings-dom")).toBe("workspace_pane_3");
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 3,
       focusedPaneId: "workspace_pane_3",
@@ -1231,29 +1179,6 @@ describe("workspace layout store", () => {
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 2,
       focusedPaneId: "workspace_pane_2",
-      maximizedPaneId: "workspace_pane_1",
-    });
-  });
-
-  test("restores initial maximized pane state", () => {
-    Object.defineProperty(globalThis, "window", {
-      configurable: true,
-      value: {},
-    });
-    const { focusedPaneId, scene } = createLayoutStoreTestScene(
-      "setta:workspace-layout:store-test",
-    );
-    const store = new WorkspaceLayoutStore(
-      new WorkspaceLikeLayoutEngine(scene),
-      scene,
-      focusedPaneId,
-      {
-        initialMaximizedPaneId: "workspace_pane_1",
-      },
-    );
-
-    expect(store.getSnapshot()).toMatchObject({
-      focusedPaneId,
       maximizedPaneId: "workspace_pane_1",
     });
   });

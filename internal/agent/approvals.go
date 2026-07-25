@@ -168,22 +168,17 @@ func (runtime *Runtime) SubmitApproval(response ApprovalResponse) error {
 	}
 	runtime.mu.Lock()
 	pending, ok := runtime.pending[response.RequestID]
+	if ok {
+		delete(runtime.pending, response.RequestID)
+	}
 	runtime.mu.Unlock()
-	if !ok || pending.superseded {
+	if !ok {
 		return fmt.Errorf("approval request %s is not pending", response.RequestID)
 	}
 	result, errorMessage, err := providerApprovalResult(pending, response)
 	if err != nil {
 		return err
 	}
-	runtime.mu.Lock()
-	current, stillPending := runtime.pending[response.RequestID]
-	if !stillPending || current.superseded {
-		runtime.mu.Unlock()
-		return fmt.Errorf("approval request %s is not pending", response.RequestID)
-	}
-	delete(runtime.pending, response.RequestID)
-	runtime.mu.Unlock()
 	if errorMessage != "" {
 		return pending.message.RespondError(-32001, errorMessage)
 	}

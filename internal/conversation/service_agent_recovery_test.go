@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -93,8 +94,8 @@ func TestRecoverAgentTurnsPersistsProviderLookupFailure(t *testing.T) {
 		return latestSnapshotTurn(snapshot).Status == TurnStatusFailed
 	})
 	turn := latestSnapshotTurn(failed)
-	if turn.Error == nil || turn.Error.Code != "provider_thread_missing" || turn.Error.Retryable ||
-		turn.Error.Message != "This run cannot continue because its provider session is no longer available. Start a new run." {
+	if turn.Error == nil || turn.Error.Code != "agent_runtime_failed" || !turn.Error.Retryable ||
+		!strings.Contains(turn.Error.Message, "reconcile provider turn after restart") {
 		t.Fatalf("durable recovery failure = %+v", turn.Error)
 	}
 }
@@ -139,7 +140,7 @@ func TestRecoverAgentTurnsFailsAcceptedTurnWithoutProviderIdentity(t *testing.T)
 	if recovered.Conversation.Status != ConversationStatusFailed || turn.ID != accepted.ID ||
 		turn.ProviderTurnID != nil || turn.StartedAt != nil || turn.Error == nil ||
 		turn.Error.Code != "agent_runtime_failed" || !turn.Error.Retryable ||
-		turn.Error.Message != "The run stopped unexpectedly. Try again." {
+		!strings.Contains(turn.Error.Message, "provider identity was not committed") {
 		t.Fatalf("recovered unlinked turn = %+v, conversation = %+v", turn, recovered.Conversation)
 	}
 	if requests := restartedRuntime.turnRequests(); len(requests) != 0 {

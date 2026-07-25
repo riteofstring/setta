@@ -35,13 +35,12 @@ type ManagerConfig struct {
 type Manager struct {
 	config ManagerConfig
 
-	startMu    sync.Mutex
-	mu         sync.Mutex
-	client     *Client
-	state      ManagerState
-	err        error
-	closed     bool
-	generation uint64
+	startMu sync.Mutex
+	mu      sync.Mutex
+	client  *Client
+	state   ManagerState
+	err     error
+	closed  bool
 
 	nextSessionID int
 	sessions      map[int]*Session
@@ -59,16 +58,14 @@ type Session struct {
 	events  chan Event
 	done    chan struct{}
 
-	mu                           sync.Mutex
-	once                         sync.Once
-	closed                       bool
-	terminalErr                  error
-	threads                      map[string]struct{}
-	turnsByThread                map[string]map[string]struct{}
-	acceptsUnscopedNotifications bool
-	acceptsUnscopedRequests      bool
-	pendingLag                   map[sessionLagKey]*pendingSessionLag
-	highWaterMark                int
+	mu            sync.Mutex
+	once          sync.Once
+	closed        bool
+	terminalErr   error
+	threads       map[string]struct{}
+	turnsByThread map[string]map[string]struct{}
+	pendingLag    map[sessionLagKey]*pendingSessionLag
+	highWaterMark int
 }
 
 type EventKind string
@@ -140,6 +137,12 @@ func NewManager(config ManagerConfig) *Manager {
 		notificationHandlers: map[string][]NotificationHandler{},
 		requestHandlers:      map[string][]RequestHandler{},
 	}
+}
+
+func (manager *Manager) State() (ManagerState, error) {
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	return manager.state, manager.err
 }
 
 func (manager *Manager) RegisterNotificationHandler(method string, handler NotificationHandler) {
@@ -271,7 +274,6 @@ func (manager *Manager) ensureStarted(ctx context.Context) (*Client, error) {
 	manager.client = client
 	manager.state = ManagerStateReady
 	manager.err = nil
-	manager.generation++
 	manager.mu.Unlock()
 
 	go manager.dispatchLoop(client)
@@ -405,9 +407,6 @@ func bestSessionMatches(sessions []*Session, scope messageScope, kind EventKind)
 			matches = append(matches, sessionMatch{session: session, score: score})
 		}
 	}
-	if len(matches) == 0 && scope.ThreadID == "" && (scope.ProviderItemID != "" || scope.ProviderProcessID != "") {
-		return providerScopeUnownedFallbackMatches(sessions, kind)
-	}
 	return matches
 }
 
@@ -419,7 +418,6 @@ func (manager *Manager) handleClientDone(client *Client) {
 		return
 	}
 	manager.client = nil
-	manager.generation++
 	if len(manager.sessions) == 0 {
 		manager.state = ManagerStateStopped
 	} else {
@@ -503,34 +501,6 @@ func (session *Session) OwnTurn(threadID string, turnID string) error {
 	}
 	session.turnsByThread[threadID][turnID] = struct{}{}
 	return nil
-}
-
-func (session *Session) AcceptUnscopedNotifications() {
-	session.mu.Lock()
-	defer session.mu.Unlock()
-	session.acceptsUnscopedNotifications = true
-}
-
-func (session *Session) AcceptUnscopedRequests() {
-	session.mu.Lock()
-	defer session.mu.Unlock()
-	session.acceptsUnscopedRequests = true
-}
-
-func (session *Session) acceptsUnscopedKind(kind EventKind) bool {
-	session.mu.Lock()
-	defer session.mu.Unlock()
-	if session.closed {
-		return false
-	}
-	switch kind {
-	case EventRequest:
-		return session.acceptsUnscopedRequests
-	case EventNotification:
-		return session.acceptsUnscopedNotifications
-	default:
-		return false
-	}
 }
 
 func (session *Session) Close() {
@@ -958,23 +928,9 @@ func (session *Session) matchScore(scope messageScope, kind EventKind) (int, boo
 		return 0, false
 	}
 	if scope.ThreadID == "" {
-		return session.matchUnscopedScore(scope, kind)
+		return 0, false
 	}
 	return session.matchThreadScore(scope, kind)
-}
-
-func (session *Session) matchUnscopedScore(scope messageScope, kind EventKind) (int, bool) {
-	if scope.ProviderItemID != "" || scope.ProviderProcessID != "" {
-		return 0, false
-	}
-	switch kind {
-	case EventRequest:
-		return 0, session.acceptsUnscopedRequests
-	case EventNotification:
-		return 0, session.acceptsUnscopedNotifications
-	default:
-		return 0, false
-	}
 }
 
 func (session *Session) matchThreadScore(scope messageScope, kind EventKind) (int, bool) {
