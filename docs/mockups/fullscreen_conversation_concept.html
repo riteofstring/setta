@@ -154,6 +154,7 @@
   .tb-dots i.act { background: var(--accent-teal); box-shadow: 0 0 7px currentColor; color: var(--accent-teal); animation: dotpulse 1.4s ease-in-out infinite; }
   .tb-dots i.done { background: var(--accent-green); opacity: 0.65; }
   @keyframes dotpulse { 50% { opacity: 0.4; } }
+  .dot-count { margin-left: 8px; font: 10px var(--mono); color: var(--faint); letter-spacing: 0.04em; }
   #railLeft, #railRight, #directorHint, .tb-conv, #convDots { transition: opacity 0.28s ease; }
   body.switching #railLeft, body.switching #railRight, body.switching #directorHint { opacity: 0; }
   body.switching .tb-conv, body.switching #convDots { opacity: 0.35; }
@@ -230,7 +231,10 @@
     <button data-bg="0">points</button><button data-bg="1" class="on">fluid</button>
   </div>
   <div class="grp"><span>threads</span>
-    <button data-th="1" class="on">1</button><button data-th="16">16</button><button data-th="64">64</button><button data-th="100">100</button>
+    <button data-tc="3" class="on">3</button><button data-tc="24">24</button><button data-tc="100">100</button>
+  </div>
+  <div class="grp"><span>grid</span>
+    <button data-th="1" class="on">off</button><button data-th="16">16</button><button data-th="64">64</button><button data-th="100">100</button>
   </div>
   <div class="grp"><label><input type="checkbox" id="scan" /> scanline</label></div>
   <div class="grp"><label><input type="checkbox" id="listen" /> listen</label></div>
@@ -1039,7 +1043,7 @@ addEventListener('wheel', e=>{ viewCam=Math.max(-0.7, Math.min(autoCam, viewCam 
 // a few demo conversations the director could be juggling
 const REVEAL_INT=3.2;   // seconds between "Now" items as a conversation progresses
 function mkConv(o){ o.t=o.t0||0; o.lastReveal=0; return o; }
-const CONVS=[
+const BASE_CONVS=[
   mkConv({ title:'Workspace drag-drop', seed:7, director:'on: fixing adjacent-swap in the pane grid', t0:0.5,
     nows:[{t:'Located the drag-reorder path',mode:0,full:'The reorder handler lives in pane-drag-reorder.ts and shares slot widths across the niri grid.'},
           {t:'Profiled frame timing — found a long task',mode:1,full:'Two long tasks over 50 ms fire on the overview-pan path during every reorder.'},
@@ -1120,6 +1124,21 @@ const CONVS=[
           {kicker:'Event',title:'Assistant stream',meta:'214 deltas',
            body:{type:'rows',rows:[['deltas','214'],['tools','6']]}}] }),
 ];
+// the switchable thread list — every one of these ticks in parallel in the background
+const EXTRA_TITLES=['Pane focus ring','Sprite hydration','Overview pan cost','Codex queue drain','Voice VAD tuning',
+  'Artifact diffing','Shortcut remap','Theme tokens','Session restore','Native view bounds','Presentation engine','Mobile controls'];
+function buildConvList(n){ const list=[];
+  for(let i=0;i<n;i++){ const base=BASE_CONVS[i%BASE_CONVS.length];
+    const c=Object.assign({},base,{history:base.history.slice()});          // own mutable history; thread/arts are read-only and shared
+    if(i>=BASE_CONVS.length){ const k=i-BASE_CONVS.length;
+      c.title=EXTRA_TITLES[k%EXTRA_TITLES.length]+(k>=EXTRA_TITLES.length?' '+(1+Math.floor(k/EXTRA_TITLES.length)):'');
+      c.seed=base.seed+i*37; c.t0=(i*1.7)%16; }
+    list.push(mkConv(c)); }
+  return list; }
+let CONVS=buildConvList(3);
+function setThreads(n){ const keep=CONVS[convIdx]; CONVS=buildConvList(n);
+  convIdx=Math.min(convIdx,CONVS.length-1); activeConv=CONVS[convIdx]; seed=activeConv.seed;
+  lastIdx=-1; lastN=-1; rebuild(); growT=0; autoCam=0; viewCam=0; detached=false; renderConv(); void keep; }
 let convIdx=0, lastIdx=-1, lastN=-1, lastComplete=false, dotAcc=0;
 const $=id=>document.getElementById(id);
 
@@ -1128,14 +1147,22 @@ function isComplete(c){ return c.t >= c.nows.length*REVEAL_INT + 0.8; }
 
 // background progression — every conversation advances on its own clock
 function tickConversations(dt){
-  for(const c of CONVS){ if(isComplete(c)) continue; const b=revealCount(c); c.t+=dt; if(revealCount(c)>b) c.lastReveal=c.t; }
+  for(const c of CONVS){
+    if(isComplete(c)){ c.idle=(c.idle||0)+dt;                      // finished threads rest, then pick up new work so the set stays alive
+      if(c.idle > 4 + (c.seed%9)){ c.t=0; c.lastReveal=0; c.idle=0; }
+      continue; }
+    const b=revealCount(c); c.t+=dt; if(revealCount(c)>b) c.lastReveal=c.t; }
   const c=CONVS[convIdx], n=revealCount(c), comp=isComplete(c);
   if(convIdx!==lastIdx||n!==lastN||comp!==lastComplete){ lastIdx=convIdx; lastN=n; lastComplete=comp; renderConv(); }
   dotAcc+=dt; if(dotAcc>0.3){ dotAcc=0; renderDots(); }
 }
-function renderDots(){ $('convDots').innerHTML=CONVS.map((c,i)=>{
-  let cls=i===convIdx?'on':''; if(isComplete(c)) cls+=' done'; else if(c.t-c.lastReveal<2.6) cls+=' act';
-  return `<i class="${cls.trim()}"></i>`; }).join(''); }
+function renderDots(){ const N=CONVS.length, el=$('convDots');
+  const dot=(c,i)=>{ let cls=i===convIdx?'on':''; if(isComplete(c)) cls+=' done'; else if(c.t-c.lastReveal<2.6) cls+=' act';
+    return `<i class="${cls.trim()}"></i>`; };
+  if(N<=24){ el.innerHTML=CONVS.map(dot).join(''); return; }
+  const half=9, start=Math.max(0, Math.min(N-(half*2+1), convIdx-half));    // window the strip once there are many threads
+  el.innerHTML=CONVS.slice(start,start+half*2+1).map((c,i)=>dot(c,start+i)).join('')+
+    `<span class="dot-count">${convIdx+1}/${N}</span>`; }
 
 function artifactBody(b){ if(!b) return '';
   if(b.type==='bars') return `<div class="artifact-body">`+b.rows.map(r=>`<div class="ab-row"><span>${r[0]}</span><span class="ab-track"><span class="ab-bar" style="width:${Math.round(r[2]*100)}%"></span></span><span class="ab-num">${r[1].toFixed(1)}</span></div>`).join('')+`</div>`;
@@ -1217,6 +1244,8 @@ addEventListener('keydown',e=>{ if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
 document.querySelectorAll('.tb-chip[data-view]').forEach(b=>b.onclick=()=>{
   b.classList.toggle('on'); document.body.classList.toggle('hide-'+b.dataset.view, !b.classList.contains('on')); });
 $('devToggle').onclick=e=>{ const d=$('devbar'); d.hidden=!d.hidden; e.currentTarget.classList.toggle('on',!d.hidden); };
+document.querySelectorAll('[data-tc]').forEach(b=>b.onclick=()=>{ setThreads(parseInt(b.dataset.tc));
+  document.querySelectorAll('[data-tc]').forEach(x=>x.classList.toggle('on',x===b)); });   // how many threads you can arrow between
 
 seed=CONVS[convIdx].seed; activeConv=CONVS[convIdx]; rebuild(); growT=0; autoCam=0; viewCam=0; detached=false;
 renderConv();
