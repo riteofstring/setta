@@ -74,23 +74,12 @@ export function DirectorGraphGallerySurface(): React.JSX.Element {
 
   const onTabKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
-      const lastIndex = projectionGalleryFixtures.length - 1;
-      let nextIndex: number | null = null;
-      if (event.key === "Home") {
-        nextIndex = 0;
-      } else if (event.key === "End") {
-        nextIndex = lastIndex;
-      } else if (
-        (orientation === "vertical" && event.key === "ArrowUp") ||
-        (orientation === "horizontal" && event.key === "ArrowLeft")
-      ) {
-        nextIndex = index === 0 ? lastIndex : index - 1;
-      } else if (
-        (orientation === "vertical" && event.key === "ArrowDown") ||
-        (orientation === "horizontal" && event.key === "ArrowRight")
-      ) {
-        nextIndex = index === lastIndex ? 0 : index + 1;
-      }
+      const nextIndex = nextGalleryTabIndex(
+        event.key,
+        index,
+        orientation,
+        projectionGalleryFixtures.length - 1,
+      );
       if (nextIndex === null) {
         return;
       }
@@ -147,4 +136,30 @@ export function DirectorGraphGallerySurface(): React.JSX.Element {
       </section>
     </main>
   );
+}
+
+const galleryNavigationKeys = {
+  horizontal: { next: "ArrowRight", previous: "ArrowLeft" },
+  vertical: { next: "ArrowDown", previous: "ArrowUp" },
+} as const;
+
+function nextGalleryTabIndex(
+  key: string,
+  index: number,
+  orientation: "horizontal" | "vertical",
+  lastIndex: number,
+): number | null {
+  if (key === "Home") {
+    return 0;
+  }
+  if (key === "End") {
+    return lastIndex;
+  }
+  if (key === galleryNavigationKeys[orientation].previous) {
+    return index === 0 ? lastIndex : index - 1;
+  }
+  if (key === galleryNavigationKeys[orientation].next) {
+    return index === lastIndex ? 0 : index + 1;
+  }
+  return null;
 }

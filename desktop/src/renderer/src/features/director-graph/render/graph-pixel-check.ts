@@ -156,30 +156,71 @@ function reduceGraphPixels(
   const cells = new Float32Array(columns * rows);
   const counts = new Uint32Array(columns * rows);
   const stride = Math.max(1, Math.floor(Math.sqrt((width * height) / maximumSampledPixels)));
-  let sampled = 0;
-  let peakPixel = 0;
+  const reduction: PixelReductionState = { peakPixel: 0, sampledPixels: 0 };
   for (let y = 0; y < height; y += stride) {
-    // `readPixels` hands back rows bottom-up; the grid is top-down.
-    const row = Math.min(rows - 1, Math.floor(((height - 1 - y) / height) * rows));
-    for (let x = 0; x < width; x += stride) {
-      const column = Math.min(columns - 1, Math.floor((x / width) * columns));
-      const offset = (y * width + x) * 4;
-      const red = pixels[offset] ?? 0;
-      const green = pixels[offset + 1] ?? 0;
-      const blue = pixels[offset + 2] ?? 0;
-      const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
-      peakPixel = Math.max(peakPixel, luminance);
-      const cell = row * columns + column;
-      cells[cell] = (cells[cell] ?? 0) + luminance;
-      counts[cell] = (counts[cell] ?? 0) + 1;
-      sampled += 1;
-    }
+    reduceGraphPixelRow(
+      { cells, columns, counts, height, pixels, rows, stride, width },
+      y,
+      reduction,
+    );
   }
+  normalizeGraphPixelCells(cells, counts);
+  return {
+    cells,
+    columns,
+    peakPixel: reduction.peakPixel,
+    rows,
+    sampledPixels: reduction.sampledPixels,
+  };
+}
+
+interface PixelReductionInput {
+  readonly cells: Float32Array;
+  readonly columns: number;
+  readonly counts: Uint32Array;
+  readonly height: number;
+  readonly pixels: Uint8Array;
+  readonly rows: number;
+  readonly stride: number;
+  readonly width: number;
+}
+
+interface PixelReductionState {
+  peakPixel: number;
+  sampledPixels: number;
+}
+
+function reduceGraphPixelRow(
+  input: PixelReductionInput,
+  y: number,
+  reduction: PixelReductionState,
+): void {
+  // `readPixels` hands back rows bottom-up; the grid is top-down.
+  const row = Math.min(
+    input.rows - 1,
+    Math.floor(((input.height - 1 - y) / input.height) * input.rows),
+  );
+  for (let x = 0; x < input.width; x += input.stride) {
+    const column = Math.min(input.columns - 1, Math.floor((x / input.width) * input.columns));
+    const offset = (y * input.width + x) * 4;
+    const luminance =
+      (0.2126 * (input.pixels[offset] ?? 0) +
+        0.7152 * (input.pixels[offset + 1] ?? 0) +
+        0.0722 * (input.pixels[offset + 2] ?? 0)) /
+      255;
+    reduction.peakPixel = Math.max(reduction.peakPixel, luminance);
+    const cell = row * input.columns + column;
+    input.cells[cell] = (input.cells[cell] ?? 0) + luminance;
+    input.counts[cell] = (input.counts[cell] ?? 0) + 1;
+    reduction.sampledPixels += 1;
+  }
+}
+
+function normalizeGraphPixelCells(cells: Float32Array, counts: Uint32Array): void {
   for (let index = 0; index < cells.length; index += 1) {
     const count = counts[index] ?? 0;
     cells[index] = count === 0 ? 0 : (cells[index] ?? 0) / count;
   }
-  return { columns, rows, cells, sampledPixels: sampled, peakPixel };
 }
 
 /** Reduces the canvas and judges it. */
@@ -277,52 +318,83 @@ interface GridStatistics {
 }
 
 function gridStatistics(grid: GraphPixelGrid): GridStatistics {
+  const luminance = gridLuminanceTotals(grid);
+  const litThreshold = Math.max(litCellFloor, luminance.peak * litCellFraction);
+  const contentThreshold = Math.max(contentCellFloor, luminance.peak * contentCellFraction);
+  const content = gridContentStatistics(grid, litThreshold, contentThreshold);
+  const cells = grid.columns * grid.rows;
+  return {
+    peak: luminance.peak,
+    mean: cells === 0 ? 0 : luminance.total / cells,
+    contentThreshold,
+    litRatio: cells === 0 ? 0 : content.lit / cells,
+    contentCells: content.cells,
+    centroidX: content.weight === 0 ? 0.5 : content.weightedX / content.weight,
+    centroidY: content.weight === 0 ? 0.5 : content.weightedY / content.weight,
+    spanX:
+      content.maximumColumn < 0
+        ? 0
+        : (content.maximumColumn - content.minimumColumn + 1) / grid.columns,
+    spanY: content.maximumRow < 0 ? 0 : (content.maximumRow - content.minimumRow + 1) / grid.rows,
+  };
+}
+
+function gridLuminanceTotals(grid: GraphPixelGrid): { peak: number; total: number } {
   let peak = 0;
   let total = 0;
   for (const value of grid.cells) {
     peak = Math.max(peak, value);
     total += value;
   }
-  const litThreshold = Math.max(litCellFloor, peak * litCellFraction);
-  const contentThreshold = Math.max(contentCellFloor, peak * contentCellFraction);
-  let lit = 0;
-  let contentCells = 0;
-  let weight = 0;
-  let weightedX = 0;
-  let weightedY = 0;
-  let minimumColumn = grid.columns;
-  let maximumColumn = -1;
-  let minimumRow = grid.rows;
-  let maximumRow = -1;
+  return { peak, total };
+}
+
+interface GridContentStatistics {
+  cells: number;
+  lit: number;
+  maximumColumn: number;
+  maximumRow: number;
+  minimumColumn: number;
+  minimumRow: number;
+  weight: number;
+  weightedX: number;
+  weightedY: number;
+}
+
+function gridContentStatistics(
+  grid: GraphPixelGrid,
+  litThreshold: number,
+  contentThreshold: number,
+): GridContentStatistics {
+  const result: GridContentStatistics = {
+    cells: 0,
+    lit: 0,
+    maximumColumn: -1,
+    maximumRow: -1,
+    minimumColumn: grid.columns,
+    minimumRow: grid.rows,
+    weight: 0,
+    weightedX: 0,
+    weightedY: 0,
+  };
   for (let row = 0; row < grid.rows; row += 1) {
     for (let column = 0; column < grid.columns; column += 1) {
       const value = grid.cells[row * grid.columns + column] ?? 0;
       if (value >= litThreshold) {
-        lit += 1;
+        result.lit += 1;
       }
       if (value < contentThreshold) {
         continue;
       }
-      contentCells += 1;
-      weight += value;
-      weightedX += value * ((column + 0.5) / grid.columns);
-      weightedY += value * ((row + 0.5) / grid.rows);
-      minimumColumn = Math.min(minimumColumn, column);
-      maximumColumn = Math.max(maximumColumn, column);
-      minimumRow = Math.min(minimumRow, row);
-      maximumRow = Math.max(maximumRow, row);
+      result.cells += 1;
+      result.weight += value;
+      result.weightedX += value * ((column + 0.5) / grid.columns);
+      result.weightedY += value * ((row + 0.5) / grid.rows);
+      result.minimumColumn = Math.min(result.minimumColumn, column);
+      result.maximumColumn = Math.max(result.maximumColumn, column);
+      result.minimumRow = Math.min(result.minimumRow, row);
+      result.maximumRow = Math.max(result.maximumRow, row);
     }
   }
-  const cells = grid.columns * grid.rows;
-  return {
-    peak,
-    mean: cells === 0 ? 0 : total / cells,
-    contentThreshold,
-    litRatio: cells === 0 ? 0 : lit / cells,
-    contentCells,
-    centroidX: weight === 0 ? 0.5 : weightedX / weight,
-    centroidY: weight === 0 ? 0.5 : weightedY / weight,
-    spanX: maximumColumn < 0 ? 0 : (maximumColumn - minimumColumn + 1) / grid.columns,
-    spanY: maximumRow < 0 ? 0 : (maximumRow - minimumRow + 1) / grid.rows,
-  };
+  return result;
 }

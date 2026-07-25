@@ -404,30 +404,42 @@ func (runtime *Runtime) handleFreshStructuredProviderEvent(
 		if err != nil {
 			return nil, err
 		}
-		for _, event := range events {
-			switch event.Kind {
-			case EventKindAgentTextDelta, EventKindReasoningSummary, EventKindTurnStarted, EventKindTurnTerminal:
-			case EventKindAgentTextCompleted:
-				if event.Text == nil {
-					return nil, errors.New("fresh structured call completed assistant message has no text")
-				}
-				*completedMessages = append(*completedMessages, event.Text.Text)
-			case EventKindLifecycleChanged:
-				if err := freshStructuredLifecycleError(event.Lifecycle); err != nil {
-					return nil, err
-				}
-			case EventKindValidationRecorded:
-				// Provider verification and Guardian review are evidence about
-				// this isolated call. They neither change its schema-constrained
-				// output nor authorize work, so the completed assistant message
-				// and terminal notification remain the call's result.
-			default:
-				return nil, fmt.Errorf("fresh structured call attempted disallowed provider activity %s", event.Kind)
-			}
+		if err := handleFreshStructuredEvents(events, completedMessages); err != nil {
+			return nil, err
 		}
 		return terminal, nil
 	default:
 		return nil, fmt.Errorf("unsupported fresh structured call provider event %q", providerEvent.Kind)
+	}
+}
+
+func handleFreshStructuredEvents(events []Event, completedMessages *[]string) error {
+	for _, event := range events {
+		if err := handleFreshStructuredEvent(event, completedMessages); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func handleFreshStructuredEvent(event Event, completedMessages *[]string) error {
+	switch event.Kind {
+	case EventKindAgentTextDelta, EventKindReasoningSummary, EventKindTurnStarted, EventKindTurnTerminal:
+		return nil
+	case EventKindAgentTextCompleted:
+		if event.Text == nil {
+			return errors.New("fresh structured call completed assistant message has no text")
+		}
+		*completedMessages = append(*completedMessages, event.Text.Text)
+		return nil
+	case EventKindLifecycleChanged:
+		return freshStructuredLifecycleError(event.Lifecycle)
+	case EventKindValidationRecorded:
+		// Provider verification and Guardian review are evidence about this
+		// isolated call. They do not change its schema-constrained result.
+		return nil
+	default:
+		return fmt.Errorf("fresh structured call attempted disallowed provider activity %s", event.Kind)
 	}
 }
 

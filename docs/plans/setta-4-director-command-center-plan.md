@@ -198,10 +198,14 @@ Master-only candidate index and durable restricted-thread agent path were
 deleted after their final consumers disappeared. Canonical conversation
 records, events, navigator reads, narrator presentation identity, approvals,
 resources, artifacts, speech credentials, and the fresh isolated Director
-structured-call path remain. Generated contracts were regenerated at protocol
-92, and the coherent static, deterministic production-path, and single
-live-provider audit is recorded in
+structured-call path remain. Phase 5 generated contracts at protocol 92, and
+the coherent static, deterministic production-path, and single live-provider
+audit is recorded in
 [`docs/reports/setta-4-command-center-phase5-audit-20260725.md`](../reports/setta-4-command-center-phase5-audit-20260725.md).
+The final whole-plan static audit rehomed the retained conversation palette from
+the deleted `internal/workspaceui` boundary to its conversation owner, advanced
+the regenerated contract snapshot to protocol 93, and restored disclosure-button
+focus when `Escape` closes a compact rail.
 Supply-chain release gate: `desktop/package.json` ignores `CVE-2026-14257`
 only because the first patched `brace-expansion` release, `5.0.8`, was published
 on 2026-07-23 and cannot satisfy the checked-in seven-day release-age policy
@@ -1857,10 +1861,9 @@ projection stores, developer-only appearance settings, and durable restricted
 structured-thread API. The fresh ephemeral structured-call boundary used by the
 Director remains read-only, approval-free, capability-free, and validated
 against the exact requested provider selection. The required deterministic
-production-path matrix and the one available live Codex suite are green; Phase 6
-has not started.
+production-path matrix and the one available live Codex suite are green.
 
-### Phase 6 — Production-path verification and Setta 4 checkpoint
+### Phase 6 — Production-path verification and Setta 4 checkpoint — Complete
 
 When the implementation is ready for final verification and the user asks verification to begin:
 
@@ -1876,6 +1879,21 @@ When the implementation is ready for final verification and the user asks verifi
 7. Freeze a named green Setta 4 checkpoint.
 
 The deterministic E2E suite is the product cutover proof. Component tests alone are insufficient.
+
+The final whole-plan audit inspected the phase evidence before verification and
+reused the already-green specialized deterministic, live-provider, and
+performance gates instead of rerunning them. After the static ownership,
+contract, privacy, accessibility, responsiveness, and deletion review was
+complete, focused affected-package and renderer checks passed. The one missing
+whole-repository gate, `./check_quality.sh --all`, then passed on the stable tree:
+all 23 Go packages, 72 desktop test files with 563 tests, the production build,
+dead-code and complexity checks, and all three required production Electron
+workflows were green. Generated contracts were inspected at protocol 93. The
+commit closing this audit is the named green Setta 4 checkpoint.
+
+Physical target-hardware measurements, side-by-side mockup review, optional
+extended soaks, and the time-blocked supply-chain check remain release gates;
+they are not repository-actionable verification to repeat or approximate here.
 
 ## Completion Definition
 

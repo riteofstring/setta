@@ -141,7 +141,7 @@ function placementFor(
   if (candidate === null) {
     return false;
   }
-  const { bornAt, worldY, opacity, anchor, isQuestion } = candidate;
+  const { worldY, opacity, anchor } = candidate;
   const position = graphNodeScreenPosition(
     packedValueAt(scene.snapshot.nodes.lane, index),
     worldY,
@@ -160,14 +160,29 @@ function placementFor(
   );
   target.nodeIndex = index;
   target.x = warped.x;
+  target.y = warped.y;
   target.opacity = opacity;
   target.anchor = anchor;
   target.sticky = false;
+  target.expanded = labelExpanded(scene, index);
+  return placeLabelVertically(scene, index, fit, target, candidate);
+}
+
+function labelExpanded(scene: GraphLabelScene, index: number): boolean {
   const turn = packedValueAt(scene.snapshot.nodes.turn, index);
   const input = packedValueAt(scene.snapshot.turns.inputNode, turn);
-  target.expanded = packedValueAt(scene.open, input) >= 0.5;
+  return packedValueAt(scene.open, input) >= 0.5;
+}
+
+function placeLabelVertically(
+  scene: GraphLabelScene,
+  index: number,
+  fit: GraphFitFrame,
+  target: GraphLabelPlacement,
+  candidate: LabelCandidate,
+): boolean {
+  const { anchor, bornAt, isQuestion, worldY } = candidate;
   if (anchor === "over") {
-    target.y = warped.y;
     return true;
   }
   const working =
@@ -175,7 +190,7 @@ function placementFor(
     scene.timeSeconds < packedValueAt(scene.snapshot.nodes.settleAt, index) &&
     scene.timeSeconds >= bornAt;
   const diameter = graphNodeCssDiameter(worldY, scene.cameraWorldY, working, fit);
-  const below = warped.y + diameter * 0.5 + belowGapPx;
+  const below = target.y + diameter * 0.5 + belowGapPx;
   const sticky =
     isQuestion &&
     packedValueAt(scene.snapshot.nodes.turn, index) === scene.activeTurn &&

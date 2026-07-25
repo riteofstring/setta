@@ -339,26 +339,57 @@ func validateDirectorFactCoverage() error {
 }
 
 func validateResolverCoverage() error {
+	for _, validate := range []func() error{
+		validateActivityResolverCoverage,
+		validateAgentLivenessResolverCoverage,
+		validateProviderLifecycleResolverCoverage,
+		validatePlanStepResolverCoverage,
+		validateTrajectoryValidationResolverCoverage,
+	} {
+		if err := validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateActivityResolverCoverage() error {
 	for _, kind := range conversation.TrajectoryActivityKinds() {
 		if _, err := NodeKindForActivity(kind); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func validateAgentLivenessResolverCoverage() error {
 	for _, status := range conversation.AgentLivenessStatuses() {
 		if _, err := NodeKindForAgentLiveness(status); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func validateProviderLifecycleResolverCoverage() error {
 	for _, status := range conversation.ProviderLifecycleStatuses() {
 		if _, err := NodeKindForProviderLifecycle(status); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func validatePlanStepResolverCoverage() error {
 	for _, status := range conversation.PlanStepStatuses() {
 		if _, err := SemanticNodeStatusForPlanStep(status); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func validateTrajectoryValidationResolverCoverage() error {
 	for _, status := range conversation.TrajectoryValidationStatuses() {
 		if _, err := NodeKindForValidation(status); err != nil {
 			return err
@@ -371,19 +402,37 @@ func validateResolverCoverage() error {
 }
 
 func validateSourceFactRule(label string, rule SourceFactRule) error {
-	producesNode := rule.Disposition == SourceFactCreatesNode ||
-		rule.Disposition == SourceFactUpdatesNode ||
-		rule.Disposition == SourceFactUpsertsNode ||
-		rule.Disposition == SourceFactConditionalNode
-	switch rule.Disposition {
-	case SourceFactCreatesNode, SourceFactUpdatesNode, SourceFactUpsertsNode, SourceFactConditionalNode,
-		SourceFactUpdatesMetadata, SourceFactDetailSurface:
-	default:
-		return fmt.Errorf("source fact %s has unknown disposition %q", label, rule.Disposition)
+	producesNode, err := validateSourceFactDisposition(label, rule.Disposition)
+	if err != nil {
+		return err
 	}
 	if err := validateSourceFactResolution(label, rule, producesNode); err != nil {
 		return err
 	}
+	if err := validateSourceFactNodeIdentity(label, rule, producesNode); err != nil {
+		return err
+	}
+	if err := validateSourceFactEvidence(label, rule); err != nil {
+		return err
+	}
+	return validateTrimmedText(fmt.Sprintf("source fact %s note", label), rule.Note)
+}
+
+func validateSourceFactDisposition(
+	label string,
+	disposition SourceFactDisposition,
+) (bool, error) {
+	switch disposition {
+	case SourceFactCreatesNode, SourceFactUpdatesNode, SourceFactUpsertsNode, SourceFactConditionalNode:
+		return true, nil
+	case SourceFactUpdatesMetadata, SourceFactDetailSurface:
+		return false, nil
+	default:
+		return false, fmt.Errorf("source fact %s has unknown disposition %q", label, disposition)
+	}
+}
+
+func validateSourceFactNodeIdentity(label string, rule SourceFactRule, producesNode bool) error {
 	if producesNode != (rule.NodeIdentity != SemanticNodeIdentityNone) {
 		return fmt.Errorf("source fact %s must name a node identity when, and only when, it projects a node", label)
 	}
@@ -393,12 +442,16 @@ func validateSourceFactRule(label string, rule SourceFactRule) error {
 	if !isEvidenceClass(rule.EvidenceClass) {
 		return fmt.Errorf("source fact %s has unknown evidence class %q", label, rule.EvidenceClass)
 	}
+	return nil
+}
+
+func validateSourceFactEvidence(label string, rule SourceFactRule) error {
 	for _, edgeKind := range rule.EdgeKinds {
 		if !isSemanticEdgeKind(edgeKind) {
 			return fmt.Errorf("source fact %s has unknown edge kind %q", label, edgeKind)
 		}
 	}
-	return validateTrimmedText(fmt.Sprintf("source fact %s note", label), rule.Note)
+	return nil
 }
 
 func validateSourceFactResolution(label string, rule SourceFactRule, producesNode bool) error {

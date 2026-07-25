@@ -8,10 +8,10 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/director"
 	"setta/internal/runtimeauth"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 func contractUnions() map[reflect.Type]unionSpec {

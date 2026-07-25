@@ -24,9 +24,7 @@ import {
   graphEdgeGeometry,
   graphFieldTint,
   graphFitFrame,
-  graphLiveEdgeClipY,
   graphModeColor,
-  graphNodeGeometry,
   graphReferenceFrame,
   graphVisualUniforms,
   type GraphFitFrame,
@@ -46,6 +44,7 @@ import {
 } from "./graph-shaders";
 import { createGraphProgram, graphSeededRandom, graphUniforms } from "./graph-gl-programs";
 import { createGraphGlyphAtlas } from "./graph-glyph-atlas";
+import { collectGraphHalos } from "./graph-halos";
 import {
   graphEdgeStaticStride,
   graphNodeStateStride,
@@ -989,35 +988,6 @@ export class DirectorGraphRenderer {
    * so the uniform stays small and the field's inner loop stays short.
    */
   private collectHalos(frame: GraphRenderFrame, fit: GraphFitFrame): number {
-    let count = 0;
-    for (
-      let index = frame.nodes.from;
-      index < frame.nodes.to && count < graphFieldHaloSlots;
-      index += 1
-    ) {
-      const open = packedValueAt(frame.scene.nodeState, index * graphNodeStateStride + 1);
-      if (open < 0.12) {
-        continue;
-      }
-      const worldY = packedValueAt(frame.worldY, index);
-      const clipY = graphLiveEdgeClipY + (frame.view.cameraWorldY - worldY);
-      if (clipY < -1.35 || clipY > 1.35) {
-        continue;
-      }
-      const working =
-        !frame.view.reducedMotion &&
-        frame.view.timeSeconds >= packedValueAt(frame.snapshot.nodes.bornAt, index) &&
-        frame.view.timeSeconds < packedValueAt(frame.snapshot.nodes.settleAt, index);
-      const diameter =
-        (graphNodeGeometry.baseDiameter + (working ? graphNodeGeometry.workingBonus : 0)) *
-        graphNodeGeometry.cssDiameterScale *
-        fit.size;
-      this.halos[count * 3] = packedValueAt(frame.snapshot.nodes.lane, index) * fit.fitX;
-      this.halos[count * 3 + 1] = clipY * fit.fitY;
-      this.halos[count * 3 + 2] = Math.max(0.012, diameter / Math.max(1, this.cssHeight()));
-      count += 1;
-    }
-    this.halos.fill(0, count * 3);
-    return count;
+    return collectGraphHalos(frame, fit, this.halos, this.cssHeight());
   }
 }

@@ -17,8 +17,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 92;
-export const backendContractSchemaHash = "sha256:763ed280397cc7f200cc3bcabb92081ff669c9ec9b4e11553f43dda9471d628f";
+export const backendProtocolVersion = 93;
+export const backendContractSchemaHash = "sha256:8a7971161e0f46ab196b1739279b61f97a2bd10621653746df3837a52c335c7b";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,

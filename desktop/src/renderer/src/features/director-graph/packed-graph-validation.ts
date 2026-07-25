@@ -328,44 +328,66 @@ function validateNodePlacement(
 ): void {
   const updatedTurns = new Map(batch.turns.map((turn) => [turn.index, turn]));
   for (const node of batch.nodes) {
-    if (
-      node.turn < previous.turnCount &&
-      packedValueAt(previous.turns.outcome, node.turn) !== packedGraphOutcomeCode.running
-    ) {
-      throw new Error(`packed graph node ${node.id} appends to terminal turn ${node.turn}`);
-    }
-    const rowSpan = rowSpans.get(node.turn);
-    requireTrue(
-      rowSpan !== undefined,
-      `packed graph node ${node.id} names turn ${node.turn}, which no batch has created`,
-    );
-    requireTrue(
-      node.row < (rowSpan ?? 0),
-      `packed graph node ${node.id} sits at row ${node.row}, outside its turn's ${rowSpan} rows`,
-    );
-    const updated = updatedTurns.get(node.turn);
-    const inputNodeId =
-      updated?.inputNodeId ??
-      (node.turn < previous.turnCount
-        ? previous.nodes.ids[packedValueAt(previous.turns.inputNode, node.turn)]
-        : undefined);
-    if (node.role === "input") {
-      requireTrue(
-        node.id === inputNodeId,
-        `packed graph input node ${node.id} is not turn ${node.turn}'s input`,
-      );
-    }
-    const previousOutcome =
-      node.turn < previous.turnCount ? packedValueAt(previous.turns.outcomeNode, node.turn) : -1;
-    const outcomeNodeId =
-      updated?.outcomeNodeId ?? (previousOutcome < 0 ? null : previous.nodes.ids[previousOutcome]);
-    if (node.role === "outcome") {
-      requireTrue(
-        node.id === outcomeNodeId,
-        `packed graph outcome node ${node.id} is not turn ${node.turn}'s outcome`,
-      );
-    }
+    validatePlacedNode(previous, node, rowSpans, updatedTurns.get(node.turn));
   }
+}
+
+function validatePlacedNode(
+  previous: PackedGraphSnapshot,
+  node: PackedGraphNodeInput,
+  rowSpans: ReadonlyMap<number, number>,
+  updated: PackedGraphTurnInput | undefined,
+): void {
+  if (
+    node.turn < previous.turnCount &&
+    packedValueAt(previous.turns.outcome, node.turn) !== packedGraphOutcomeCode.running
+  ) {
+    throw new Error(`packed graph node ${node.id} appends to terminal turn ${node.turn}`);
+  }
+  const rowSpan = rowSpans.get(node.turn);
+  requireTrue(
+    rowSpan !== undefined,
+    `packed graph node ${node.id} names turn ${node.turn}, which no batch has created`,
+  );
+  requireTrue(
+    node.row < (rowSpan ?? 0),
+    `packed graph node ${node.id} sits at row ${node.row}, outside its turn's ${rowSpan} rows`,
+  );
+  if (node.role === "input") {
+    requireTrue(
+      node.id === placedInputNodeId(previous, node.turn, updated),
+      `packed graph input node ${node.id} is not turn ${node.turn}'s input`,
+    );
+  }
+  if (node.role === "outcome") {
+    requireTrue(
+      node.id === placedOutcomeNodeId(previous, node.turn, updated),
+      `packed graph outcome node ${node.id} is not turn ${node.turn}'s outcome`,
+    );
+  }
+}
+
+function placedInputNodeId(
+  previous: PackedGraphSnapshot,
+  turn: number,
+  updated: PackedGraphTurnInput | undefined,
+): string | undefined {
+  const previousInputNodeId =
+    turn < previous.turnCount
+      ? previous.nodes.ids[packedValueAt(previous.turns.inputNode, turn)]
+      : undefined;
+  return updated?.inputNodeId ?? previousInputNodeId;
+}
+
+function placedOutcomeNodeId(
+  previous: PackedGraphSnapshot,
+  turn: number,
+  updated: PackedGraphTurnInput | undefined,
+): string | null | undefined {
+  const previousOutcome =
+    turn < previous.turnCount ? packedValueAt(previous.turns.outcomeNode, turn) : -1;
+  const previousOutcomeNodeId = previousOutcome < 0 ? null : previous.nodes.ids[previousOutcome];
+  return updated?.outcomeNodeId ?? previousOutcomeNodeId;
 }
 
 function validateEdge(edge: PackedGraphEdgeInput, view: BatchNodeView): void {

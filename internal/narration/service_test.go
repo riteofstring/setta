@@ -13,9 +13,9 @@ import (
 
 	"setta/internal/agent"
 	"setta/internal/conversation"
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
 	"setta/internal/workspace"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 const serviceTestTimestamp = "2026-07-12T12:00:00Z"

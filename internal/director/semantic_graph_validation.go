@@ -214,6 +214,19 @@ func validateInterpretationMetadata(label string, metadata InterpretationMetadat
 // step. Replaying the same events must reproduce the same node, so an update
 // may only advance status, summary, evidence, artifacts, and timestamps.
 func ValidateSemanticNodeUpdate(previous SemanticNode, next SemanticNode) error {
+	if err := validateStableSemanticNodeIdentity(previous, next); err != nil {
+		return err
+	}
+	if err := validateStableSemanticNodeProvenance(previous, next); err != nil {
+		return err
+	}
+	if err := ValidateSemanticNodeTransition(previous.Status, next.Status); err != nil {
+		return fmt.Errorf("semantic node %s: %w", previous.ID, err)
+	}
+	return validateMonotonicUpdate(previous, next)
+}
+
+func validateStableSemanticNodeIdentity(previous SemanticNode, next SemanticNode) error {
 	if previous.ID != next.ID {
 		return fmt.Errorf("semantic node id changed from %q to %q", previous.ID, next.ID)
 	}
@@ -229,6 +242,10 @@ func ValidateSemanticNodeUpdate(previous SemanticNode, next SemanticNode) error 
 	if !equalOptionalString(previous.RunID, next.RunID) {
 		return fmt.Errorf("semantic node %s run binding changed", previous.ID)
 	}
+	return nil
+}
+
+func validateStableSemanticNodeProvenance(previous SemanticNode, next SemanticNode) error {
 	if previous.EvidenceClass != next.EvidenceClass {
 		return fmt.Errorf("semantic node %s evidence class changed from %q to %q", previous.ID, previous.EvidenceClass, next.EvidenceClass)
 	}
@@ -247,10 +264,7 @@ func ValidateSemanticNodeUpdate(previous SemanticNode, next SemanticNode) error 
 	if previous.CompletedAt != nil && !equalOptionalString(previous.CompletedAt, next.CompletedAt) {
 		return fmt.Errorf("semantic node %s completion timestamp changed", previous.ID)
 	}
-	if err := ValidateSemanticNodeTransition(previous.Status, next.Status); err != nil {
-		return fmt.Errorf("semantic node %s: %w", previous.ID, err)
-	}
-	return validateMonotonicUpdate(previous, next)
+	return nil
 }
 
 func hasStringPrefix(values []string, prefix []string) bool {
@@ -378,6 +392,17 @@ func validateEdgeWorkstreamAuthority(edge SemanticEdge, authority GraphAuthority
 // ValidateWorkstreamGraph rejects a projected graph with duplicate ids, foreign
 // nodes, dangling endpoints, or detail-level violations.
 func ValidateWorkstreamGraph(graph WorkstreamGraph, authority GraphAuthority) error {
+	if err := validateWorkstreamGraphEnvelope(graph, authority); err != nil {
+		return err
+	}
+	nodeIDs, err := validateWorkstreamGraphNodes(graph, authority)
+	if err != nil {
+		return err
+	}
+	return validateGraphEdges(graph, authority, nodeIDs)
+}
+
+func validateWorkstreamGraphEnvelope(graph WorkstreamGraph, authority GraphAuthority) error {
 	if err := validateIdentifier("workstream graph workstream id", graph.WorkstreamID); err != nil {
 		return err
 	}
@@ -393,20 +418,27 @@ func ValidateWorkstreamGraph(graph WorkstreamGraph, authority GraphAuthority) er
 	if graph.DetailLevel == WorkstreamDetailBackground && (len(graph.Nodes) > 0 || len(graph.Edges) > 0) {
 		return fmt.Errorf("background workstream %s must render aggregate status only", graph.WorkstreamID)
 	}
+	return nil
+}
+
+func validateWorkstreamGraphNodes(
+	graph WorkstreamGraph,
+	authority GraphAuthority,
+) (map[string]bool, error) {
 	nodeIDs := make(map[string]bool, len(graph.Nodes))
 	for _, node := range graph.Nodes {
 		if err := ValidateSemanticNode(node, authority); err != nil {
-			return err
+			return nil, err
 		}
 		if node.WorkstreamID != graph.WorkstreamID {
-			return fmt.Errorf("workstream graph %s contains node %s owned by %q", graph.WorkstreamID, node.ID, node.WorkstreamID)
+			return nil, fmt.Errorf("workstream graph %s contains node %s owned by %q", graph.WorkstreamID, node.ID, node.WorkstreamID)
 		}
 		if nodeIDs[node.ID] {
-			return fmt.Errorf("workstream graph %s repeats node id %q", graph.WorkstreamID, node.ID)
+			return nil, fmt.Errorf("workstream graph %s repeats node id %q", graph.WorkstreamID, node.ID)
 		}
 		nodeIDs[node.ID] = true
 	}
-	return validateGraphEdges(graph, authority, nodeIDs)
+	return nodeIDs, nil
 }
 
 func validateGraphEdges(graph WorkstreamGraph, authority GraphAuthority, nodeIDs map[string]bool) error {

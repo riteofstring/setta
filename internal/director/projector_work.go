@@ -125,32 +125,25 @@ func (projector *DirectorGraphProjector) commitActivity(
 }
 
 func activityPublicSummary(kind conversation.TrajectoryActivityKind) (string, error) {
-	switch kind {
-	case conversation.TrajectoryActivityCommand:
-		return "Command", nil
-	case conversation.TrajectoryActivityMCPTool:
-		return "MCP tool", nil
-	case conversation.TrajectoryActivityDynamicTool:
-		return "Tool", nil
-	case conversation.TrajectoryActivityWebSearch:
-		return "Web search", nil
-	case conversation.TrajectoryActivityImageView:
-		return "Image inspection", nil
-	case conversation.TrajectoryActivityImageGeneration:
-		return "Image generation", nil
-	case conversation.TrajectoryActivitySleep:
-		return "Wait", nil
-	case conversation.TrajectoryActivityHook:
-		return "Hook", nil
-	case conversation.TrajectoryActivityFileChange:
-		return fileChangeSummaryFallback, nil
-	case conversation.TrajectoryActivitySubagent:
-		return subagentSummaryFallback, nil
-	case conversation.TrajectoryActivityOther:
-		return "", nil
-	default:
+	summary, ok := activityPublicSummaries[kind]
+	if !ok {
 		return "", fmt.Errorf("unsupported trajectory activity kind %q", kind)
 	}
+	return summary, nil
+}
+
+var activityPublicSummaries = map[conversation.TrajectoryActivityKind]string{
+	conversation.TrajectoryActivityCommand:         "Command",
+	conversation.TrajectoryActivityDynamicTool:     "Tool",
+	conversation.TrajectoryActivityFileChange:      fileChangeSummaryFallback,
+	conversation.TrajectoryActivityHook:            "Hook",
+	conversation.TrajectoryActivityImageGeneration: "Image generation",
+	conversation.TrajectoryActivityImageView:       "Image inspection",
+	conversation.TrajectoryActivityMCPTool:         "MCP tool",
+	conversation.TrajectoryActivityOther:           "",
+	conversation.TrajectoryActivitySleep:           "Wait",
+	conversation.TrajectoryActivitySubagent:        subagentSummaryFallback,
+	conversation.TrajectoryActivityWebSearch:       "Web search",
 }
 
 func projectFileChangeProposed(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {
@@ -501,62 +494,90 @@ func projectAgentLivenessChanged(projector *DirectorGraphProjector, context fact
 	}
 	switch kind {
 	case SemanticNodeBlocked:
-		nodeID, err := projector.commitTrackedLifecycleNode(
-			context,
-			event.ID,
-			context.workstream.agentLivenessBlock[runID],
-			kind,
-			SemanticNodeStatusWaiting,
-			summary,
-		)
-		if err != nil {
-			return err
-		}
-		context.workstream.agentLivenessBlock[runID] = nodeID
-		return projector.blockActiveRun(context, nodeID)
+		return projector.projectAgentLivenessBlock(context, event.ID, runID, kind, summary)
 	case SemanticNodeRecovery:
-		nodeID, err := projector.commitTrackedLifecycleNode(
-			context,
-			event.ID,
-			context.workstream.agentLivenessRecovery[runID],
-			kind,
-			SemanticNodeStatusActive,
-			summary,
-		)
-		if err != nil {
-			return err
-		}
-		context.workstream.agentLivenessRecovery[runID] = nodeID
-		if blocked := context.workstream.agentLivenessBlock[runID]; blocked != "" {
-			return projector.addEdge(context, SemanticEdgeRecoveredBy, blocked, context.workstream.id, nodeID)
-		}
-		return projector.recoverFrom(context, nodeID)
+		return projector.projectAgentLivenessRecovery(context, event.ID, runID, kind, summary)
 	case SemanticNodeNone:
 		if payload.Liveness.Status != conversation.AgentLivenessAttached {
 			return nil
 		}
-		if err := projector.resolveTrackedLifecycleNode(
-			context,
-			context.workstream.agentLivenessBlock[runID],
-			SemanticNodeStatusSucceeded,
-			summary,
-		); err != nil {
-			return err
-		}
-		if err := projector.resolveTrackedLifecycleNode(
-			context,
-			context.workstream.agentLivenessRecovery[runID],
-			SemanticNodeStatusSucceeded,
-			summary,
-		); err != nil {
-			return err
-		}
-		delete(context.workstream.agentLivenessBlock, runID)
-		delete(context.workstream.agentLivenessRecovery, runID)
-		return nil
+		return projector.resolveAgentLiveness(context, runID, summary)
 	default:
 		return fmt.Errorf("unsupported agent liveness node kind %q", kind)
 	}
+}
+
+func (projector *DirectorGraphProjector) projectAgentLivenessBlock(
+	context factContext,
+	eventID string,
+	runID string,
+	kind SemanticNodeKind,
+	summary string,
+) error {
+	nodeID, err := projector.commitTrackedLifecycleNode(
+		context,
+		eventID,
+		context.workstream.agentLivenessBlock[runID],
+		kind,
+		SemanticNodeStatusWaiting,
+		summary,
+	)
+	if err != nil {
+		return err
+	}
+	context.workstream.agentLivenessBlock[runID] = nodeID
+	return projector.blockActiveRun(context, nodeID)
+}
+
+func (projector *DirectorGraphProjector) projectAgentLivenessRecovery(
+	context factContext,
+	eventID string,
+	runID string,
+	kind SemanticNodeKind,
+	summary string,
+) error {
+	nodeID, err := projector.commitTrackedLifecycleNode(
+		context,
+		eventID,
+		context.workstream.agentLivenessRecovery[runID],
+		kind,
+		SemanticNodeStatusActive,
+		summary,
+	)
+	if err != nil {
+		return err
+	}
+	context.workstream.agentLivenessRecovery[runID] = nodeID
+	if blocked := context.workstream.agentLivenessBlock[runID]; blocked != "" {
+		return projector.addEdge(context, SemanticEdgeRecoveredBy, blocked, context.workstream.id, nodeID)
+	}
+	return projector.recoverFrom(context, nodeID)
+}
+
+func (projector *DirectorGraphProjector) resolveAgentLiveness(
+	context factContext,
+	runID string,
+	summary string,
+) error {
+	if err := projector.resolveTrackedLifecycleNode(
+		context,
+		context.workstream.agentLivenessBlock[runID],
+		SemanticNodeStatusSucceeded,
+		summary,
+	); err != nil {
+		return err
+	}
+	if err := projector.resolveTrackedLifecycleNode(
+		context,
+		context.workstream.agentLivenessRecovery[runID],
+		SemanticNodeStatusSucceeded,
+		summary,
+	); err != nil {
+		return err
+	}
+	delete(context.workstream.agentLivenessBlock, runID)
+	delete(context.workstream.agentLivenessRecovery, runID)
+	return nil
 }
 
 func projectProviderLifecycleChanged(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {

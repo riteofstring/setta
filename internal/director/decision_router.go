@@ -125,46 +125,63 @@ func (router *DecisionRouter) Route(ctx context.Context, intent SubmittedIntent)
 	ladder := DecisionRecoveryRequest{Context: decisionContext}
 	diagnostic := ""
 	for {
-		decision, rejection, err := router.attempt(ctx, decisionContext, diagnostic)
-		if err != nil {
-			return RoutedIntent{}, err
-		}
-		current, err := router.source.DecisionContext(intent)
-		if err != nil {
-			return RoutedIntent{}, err
-		}
-		contextChanged := !reflect.DeepEqual(decisionContext, current)
-		if rejection == nil && !contextChanged {
-			return RoutedIntent{
-				Intent:     intent,
-				Context:    decisionContext,
-				Resolution: DecisionResolvedByModel,
-				Decision:   &decision,
-			}, nil
-		}
-		if rejection == nil {
-			rejection = newDecisionRejection(
-				DecisionRejectedStaleContext,
-				"trusted decision context changed during the provider call",
-			)
-		}
-		recovery, err := router.nextRecovery(
+		routed, recovery, retry, err := router.routeAttempt(
+			ctx,
+			intent,
 			decisionContext,
-			current,
-			contextChanged,
-			rejection,
+			diagnostic,
 			&ladder,
 		)
-		if err != nil {
-			return RoutedIntent{}, err
-		}
-		decisionContext = ladder.Context
-		routed, retry, err := applyDecisionRecovery(intent, decisionContext, recovery, &ladder)
 		if err != nil || !retry {
 			return routed, err
 		}
+		decisionContext = ladder.Context
 		diagnostic = recovery.Diagnostic
 	}
+}
+
+func (router *DecisionRouter) routeAttempt(
+	ctx context.Context,
+	intent SubmittedIntent,
+	decisionContext DirectorDecisionContext,
+	diagnostic string,
+	ladder *DecisionRecoveryRequest,
+) (RoutedIntent, DecisionRecovery, bool, error) {
+	decision, rejection, err := router.attempt(ctx, decisionContext, diagnostic)
+	if err != nil {
+		return RoutedIntent{}, DecisionRecovery{}, false, err
+	}
+	current, err := router.source.DecisionContext(intent)
+	if err != nil {
+		return RoutedIntent{}, DecisionRecovery{}, false, err
+	}
+	contextChanged := !reflect.DeepEqual(decisionContext, current)
+	if rejection == nil && !contextChanged {
+		return RoutedIntent{
+			Intent:     intent,
+			Context:    decisionContext,
+			Resolution: DecisionResolvedByModel,
+			Decision:   &decision,
+		}, DecisionRecovery{}, false, nil
+	}
+	if rejection == nil {
+		rejection = newDecisionRejection(
+			DecisionRejectedStaleContext,
+			"trusted decision context changed during the provider call",
+		)
+	}
+	recovery, err := router.nextRecovery(
+		decisionContext,
+		current,
+		contextChanged,
+		rejection,
+		ladder,
+	)
+	if err != nil {
+		return RoutedIntent{}, DecisionRecovery{}, false, err
+	}
+	routed, retry, err := applyDecisionRecovery(intent, ladder.Context, recovery, ladder)
+	return routed, recovery, retry, err
 }
 
 func validateRouteRequest(router *DecisionRouter, ctx context.Context, intent SubmittedIntent) error {

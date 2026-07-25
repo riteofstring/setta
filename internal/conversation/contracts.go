@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"setta/internal/workspaceui/conversationpalette"
+	"setta/internal/conversation/conversationpalette"
 )
 
 const (

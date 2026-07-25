@@ -546,6 +546,8 @@ function useDirectorRailDisclosure() {
   const [railVisibility, setRailVisibility] =
     useState<DirectorRailVisibility>(defaultRailVisibility);
   const [compactRail, setCompactRail] = useState<DirectorCompactRail>(null);
+  const compactRailTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const wasCompactRailOpenRef = useRef(false);
   const compact = useCompactRailLayout();
   const effectiveVisibility = effectiveDirectorRailVisibility({
     compact,
@@ -555,15 +557,33 @@ function useDirectorRailDisclosure() {
   const closeCompactRail = useCallback(() => {
     setCompactRail(null);
   }, []);
+  useLayoutEffect(() => {
+    if (wasCompactRailOpenRef.current && compactRail === null) {
+      const trigger = compactRailTriggerRef.current;
+      if (trigger !== null && document.contains(trigger)) {
+        trigger.focus({ preventScroll: true });
+      }
+      compactRailTriggerRef.current = null;
+    }
+    wasCompactRailOpenRef.current = compactRail !== null;
+  }, [compactRail]);
+  useEffect(() => {
+    if (!compact) {
+      closeCompactRail();
+    }
+  }, [closeCompactRail, compact]);
   const toggleRail = useCallback(
-    (rail: Exclude<DirectorCompactRail, null>) => {
+    (rail: Exclude<DirectorCompactRail, null>, trigger: HTMLButtonElement) => {
       if (compact) {
+        if (compactRail !== rail) {
+          compactRailTriggerRef.current = trigger;
+        }
         setCompactRail((current) => (current === rail ? null : rail));
         return;
       }
       setRailVisibility((current) => ({ ...current, [rail]: !current[rail] }));
     },
-    [compact],
+    [compact, compactRail],
   );
   return { closeCompactRail, compactRail, effectiveVisibility, toggleRail };
 }

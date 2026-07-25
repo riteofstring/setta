@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 func TestListNavigatorPageUsesStableKeysetPaginationAndSearch(t *testing.T) {

@@ -47,6 +47,16 @@ const viewportTimeoutMs = 20_000;
 const scenarioTimeoutMs = 900_000;
 const tracedTier = "desktop-4k";
 const tracedScenario = "director-and-worker-interleaved";
+const graphWorkflowArgumentHandlers = {
+  "--scenario": (options, value) => options.scenarios.push(value),
+  "--soak-ms": (options, value) => {
+    options.soakMs = Number(value);
+    if (!Number.isFinite(options.soakMs) || options.soakMs <= 0) {
+      throw new Error(`--soak-ms must be a positive number of milliseconds: ${value}`);
+    }
+  },
+  "--tier": (options, value) => options.tiers.push(value),
+};
 
 const { workflowArgs, harnessArgv } = splitArgs(process.argv.slice(2));
 const options = parseElectronHarnessArgs(harnessArgv);
@@ -138,22 +148,14 @@ function splitArgs(argv) {
   const harnessArgv = [];
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === "--tier" || arg === "--scenario" || arg === "--soak-ms") {
+    const handle = graphWorkflowArgumentHandlers[arg];
+    if (handle) {
       const value = argv[index + 1];
       if (!value) {
         throw new Error(`${arg} requires a value`);
       }
       index += 1;
-      if (arg === "--tier") {
-        workflowArgs.tiers.push(value);
-      } else if (arg === "--scenario") {
-        workflowArgs.scenarios.push(value);
-      } else {
-        workflowArgs.soakMs = Number(value);
-        if (!Number.isFinite(workflowArgs.soakMs) || workflowArgs.soakMs <= 0) {
-          throw new Error(`--soak-ms must be a positive number of milliseconds: ${value}`);
-        }
-      }
+      handle(workflowArgs, value);
       continue;
     }
     harnessArgv.push(arg);

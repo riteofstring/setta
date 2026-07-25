@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 const testTimeLater = "2026-07-11T20:02:00Z"

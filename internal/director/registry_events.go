@@ -310,64 +310,118 @@ func (registry *Registry) levelChangeEffects(
 ) ([]registryEffect, map[string]bool, error) {
 	effects := make([]registryEffect, 0)
 	replacedGraphs := map[string]bool{}
-	nextWindow := map[string]bool{}
-	for _, workstream := range registry.state.snapshotWindow() {
-		nextWindow[workstream.record.ID] = true
-	}
+	nextWindow := registry.nextPublishedWindow()
 	appliedGraphChanges := graphChangesByWorkstream(applied)
 	for _, workstreamID := range registry.state.order {
-		wasWindowed := registry.publishedWindow[workstreamID]
-		isWindowed := nextWindow[workstreamID]
-		if wasWindowed && !isWindowed {
-			delete(registry.publishedLevels, workstreamID)
-			effects = append(effects, registryEffect{kind: effectRemoval, id: workstreamID})
-			replacedGraphs[workstreamID] = true
-			continue
-		}
-		if !isWindowed {
-			delete(registry.publishedLevels, workstreamID)
-			continue
-		}
-		level := registry.detailLevelFor(workstreamID)
-		previousLevel, hadLevel := registry.publishedLevels[workstreamID]
-		if wasWindowed && hadLevel && previousLevel == level {
-			continue
-		}
-		registry.publishedLevels[workstreamID] = level
-		effects = append(effects, registryEffect{kind: effectWorkstream, id: workstreamID})
-		replacedGraphs[workstreamID] = true
-		if level == WorkstreamDetailBackground {
-			continue
-		}
-		graph, err := registry.state.workstreamGraph(workstreamID, level)
+		changed, replaced, err := registry.levelChangeEffect(
+			workstreamID,
+			nextWindow[workstreamID],
+			appliedGraphChanges[workstreamID],
+		)
 		if err != nil {
 			return nil, nil, err
 		}
-		removed := append([]string{}, appliedGraphChanges[workstreamID].RemovedNodeIDs...)
-		if wasWindowed && hadLevel && previousLevel != WorkstreamDetailBackground {
-			previous, err := registry.state.workstreamGraph(workstreamID, previousLevel)
-			if err != nil {
-				return nil, nil, err
-			}
-			removed = append(removed, nodesMissingFromGraph(previous.Nodes, graph.Nodes)...)
+		effects = append(effects, changed...)
+		if replaced {
+			replacedGraphs[workstreamID] = true
 		}
-		removed = uniqueStrings(removed)
-		if len(graph.Nodes) == 0 && len(graph.Edges) == 0 && len(removed) == 0 {
-			continue
-		}
-		effects = append(effects, registryEffect{
-			kind: effectGraph,
-			id:   workstreamID,
-			graph: GraphChange{
-				WorkstreamID:   workstreamID,
-				Nodes:          graph.Nodes,
-				Edges:          graph.Edges,
-				RemovedNodeIDs: removed,
-			},
-		})
 	}
 	registry.publishedWindow = nextWindow
 	return effects, replacedGraphs, nil
+}
+
+func (registry *Registry) nextPublishedWindow() map[string]bool {
+	next := map[string]bool{}
+	for _, workstream := range registry.state.snapshotWindow() {
+		next[workstream.record.ID] = true
+	}
+	return next
+}
+
+func (registry *Registry) levelChangeEffect(
+	workstreamID string,
+	isWindowed bool,
+	appliedGraphChange GraphChange,
+) ([]registryEffect, bool, error) {
+	wasWindowed := registry.publishedWindow[workstreamID]
+	if wasWindowed && !isWindowed {
+		delete(registry.publishedLevels, workstreamID)
+		return []registryEffect{{kind: effectRemoval, id: workstreamID}}, true, nil
+	}
+	if !isWindowed {
+		delete(registry.publishedLevels, workstreamID)
+		return nil, false, nil
+	}
+	return registry.visibleLevelChangeEffects(workstreamID, wasWindowed, appliedGraphChange)
+}
+
+func (registry *Registry) visibleLevelChangeEffects(
+	workstreamID string,
+	wasWindowed bool,
+	appliedGraphChange GraphChange,
+) ([]registryEffect, bool, error) {
+	level := registry.detailLevelFor(workstreamID)
+	previousLevel, hadLevel := registry.publishedLevels[workstreamID]
+	if wasWindowed && hadLevel && previousLevel == level {
+		return nil, false, nil
+	}
+	registry.publishedLevels[workstreamID] = level
+	effects := []registryEffect{{kind: effectWorkstream, id: workstreamID}}
+	if level == WorkstreamDetailBackground {
+		return effects, true, nil
+	}
+	graph, err := registry.state.workstreamGraph(workstreamID, level)
+	if err != nil {
+		return nil, false, err
+	}
+	removed, err := registry.removedNodesForLevelChange(
+		workstreamID,
+		wasWindowed,
+		hadLevel,
+		previousLevel,
+		graph,
+		appliedGraphChange,
+	)
+	if err != nil {
+		return nil, false, err
+	}
+	if graphChangeIsEmpty(graph.Nodes, graph.Edges, removed) {
+		return effects, true, nil
+	}
+	return append(effects, registryEffect{
+		kind: effectGraph,
+		id:   workstreamID,
+		graph: GraphChange{
+			WorkstreamID:   workstreamID,
+			Nodes:          graph.Nodes,
+			Edges:          graph.Edges,
+			RemovedNodeIDs: removed,
+		},
+	}), true, nil
+}
+
+func (registry *Registry) removedNodesForLevelChange(
+	workstreamID string,
+	wasWindowed bool,
+	hadLevel bool,
+	previousLevel WorkstreamDetailLevel,
+	graph WorkstreamGraph,
+	appliedGraphChange GraphChange,
+) ([]string, error) {
+	removed := append([]string{}, appliedGraphChange.RemovedNodeIDs...)
+	if !wasWindowed || !hadLevel || previousLevel == WorkstreamDetailBackground {
+		return uniqueStrings(removed), nil
+	}
+	previous, err := registry.state.workstreamGraph(workstreamID, previousLevel)
+	if err != nil {
+		return nil, err
+	}
+	removed = append(removed, nodesMissingFromGraph(previous.Nodes, graph.Nodes)...)
+	return uniqueStrings(removed), nil
+}
+
+func graphChangeIsEmpty(nodes []SemanticNode, edges []SemanticEdge, removed []string) bool {
+	return len(nodes) == 0 && len(edges) == 0 && len(removed) == 0
 }
 
 // needsLevelRefresh answers whether the adjacency set can have moved. It changes
@@ -428,56 +482,94 @@ func (registry *Registry) recordPublishedCollections() {
 func (registry *Registry) prepareCollectionEffects(
 	effects []registryEffect,
 ) ([]registryEffect, bool) {
-	nextApprovals := approvalIDs(registry.state.snapshotApprovals(registry.publishedLevels))
-	nextResources := resourceRequestIDs(
-		registry.state.snapshotResourceRequests(registry.publishedLevels),
-	)
-	nextArtifacts := artifactIDs(registry.state.snapshotArtifacts(registry.publishedLevels))
+	published := registry.publishedCollections()
+	next := registry.nextPublishedCollections()
+	resync := collectionEffectsRequireResync(published, next, effects)
+	filtered := filterPublishedCollectionEffects(effects, published, next)
+	registry.publishedApprovals = next.approvals
+	registry.publishedResources = next.resources
+	registry.publishedArtifacts = next.artifacts
+	return filtered, resync
+}
 
-	expectedApprovals := applyCollectionEffects(
-		registry.publishedApprovals,
-		nextApprovals,
-		effects,
-		effectApproval,
-	)
-	expectedResources := applyCollectionEffects(
-		registry.publishedResources,
-		nextResources,
-		effects,
-		effectResource,
-	)
-	expectedArtifacts := applyCollectionEffects(
-		registry.publishedArtifacts,
-		nextArtifacts,
-		effects,
-		effectArtifact,
-	)
-	resync := !equalStringSets(expectedApprovals, nextApprovals) ||
-		!equalStringSets(expectedResources, nextResources) ||
-		!equalStringSets(expectedArtifacts, nextArtifacts)
+type publishedCollections struct {
+	approvals map[string]bool
+	artifacts map[string]bool
+	resources map[string]bool
+}
 
+func (registry *Registry) publishedCollections() publishedCollections {
+	return publishedCollections{
+		approvals: registry.publishedApprovals,
+		artifacts: registry.publishedArtifacts,
+		resources: registry.publishedResources,
+	}
+}
+
+func (registry *Registry) nextPublishedCollections() publishedCollections {
+	return publishedCollections{
+		approvals: approvalIDs(registry.state.snapshotApprovals(registry.publishedLevels)),
+		artifacts: artifactIDs(registry.state.snapshotArtifacts(registry.publishedLevels)),
+		resources: resourceRequestIDs(
+			registry.state.snapshotResourceRequests(registry.publishedLevels),
+		),
+	}
+}
+
+func collectionEffectsRequireResync(
+	published publishedCollections,
+	next publishedCollections,
+	effects []registryEffect,
+) bool {
+	for _, collection := range []struct {
+		before map[string]bool
+		after  map[string]bool
+		kind   registryEffectKind
+	}{
+		{before: published.approvals, after: next.approvals, kind: effectApproval},
+		{before: published.artifacts, after: next.artifacts, kind: effectArtifact},
+		{before: published.resources, after: next.resources, kind: effectResource},
+	} {
+		expected := applyCollectionEffects(collection.before, collection.after, effects, collection.kind)
+		if !equalStringSets(expected, collection.after) {
+			return true
+		}
+	}
+	return false
+}
+
+func filterPublishedCollectionEffects(
+	effects []registryEffect,
+	published publishedCollections,
+	next publishedCollections,
+) []registryEffect {
 	filtered := make([]registryEffect, 0, len(effects))
 	for _, effect := range effects {
-		switch effect.kind {
-		case effectApproval:
-			if !registry.publishedApprovals[effect.id] && !nextApprovals[effect.id] {
-				continue
-			}
-		case effectResource:
-			if !registry.publishedResources[effect.id] && !nextResources[effect.id] {
-				continue
-			}
-		case effectArtifact:
-			if !registry.publishedArtifacts[effect.id] && !nextArtifacts[effect.id] {
-				continue
-			}
+		if collectionEffectIsVisible(effect, published, next) {
+			filtered = append(filtered, effect)
 		}
-		filtered = append(filtered, effect)
 	}
-	registry.publishedApprovals = nextApprovals
-	registry.publishedResources = nextResources
-	registry.publishedArtifacts = nextArtifacts
-	return filtered, resync
+	return filtered
+}
+
+func collectionEffectIsVisible(
+	effect registryEffect,
+	published publishedCollections,
+	next publishedCollections,
+) bool {
+	var before map[string]bool
+	var after map[string]bool
+	switch effect.kind {
+	case effectApproval:
+		before, after = published.approvals, next.approvals
+	case effectArtifact:
+		before, after = published.artifacts, next.artifacts
+	case effectResource:
+		before, after = published.resources, next.resources
+	default:
+		return true
+	}
+	return before[effect.id] || after[effect.id]
 }
 
 func (registry *Registry) workstreamEvent(workstreamID string, emittedAt string) (DirectorEvent, bool, error) {

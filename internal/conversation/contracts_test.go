@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 func TestConversationSnapshotIsBoundedOwnedAndCursorAligned(t *testing.T) {

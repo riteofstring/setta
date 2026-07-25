@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sort"
 
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 type presentationActivityState struct {

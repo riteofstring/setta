@@ -296,6 +296,7 @@ try {
   await closeDirectorArtifactDetail(context.client);
   const history = await readDirectorHistory(context.client);
   assertHistoryContainsOnlyUserAndTerminalTurns(history);
+  await verifyCompactRailFocusRestoration(context.client);
   const rendererEvents = await readRendererEvents(context.client);
   assertDirectorEventSequence(initial.eventCursor, rendererEvents);
   assertEventKinds(rendererEvents, [
@@ -662,6 +663,86 @@ async function readDirectorHistory(client) {
     workflowTimeoutMs,
   );
   return history;
+}
+
+async function verifyCompactRailFocusRestoration(client) {
+  await client.call("Emulation.setDeviceMetricsOverride", {
+    deviceScaleFactor: 1,
+    height: 844,
+    mobile: true,
+    width: 390,
+  });
+  try {
+    await waitForState(
+      client,
+      `(() => ({
+        compact: matchMedia("(max-width: 760px)").matches,
+        triggerReady: Boolean(
+          document.querySelector('button[aria-controls="director-now-rail"][aria-expanded="false"]')
+        )
+      }))()`,
+      (state) => state.compact && state.triggerReady,
+      workflowTimeoutMs,
+    );
+    const opened = await client.evaluate(`(() => {
+      const trigger = document.querySelector(
+        'button[aria-controls="director-now-rail"][aria-expanded="false"]'
+      );
+      if (!(trigger instanceof HTMLButtonElement)) {
+        return false;
+      }
+      trigger.click();
+      return true;
+    })()`);
+    if (!opened) {
+      throw new Error("compact Now rail did not expose its disclosure button");
+    }
+    await waitForState(
+      client,
+      `(() => {
+        const rail = document.querySelector("#director-now-rail");
+        const trigger = document.querySelector('button[aria-controls="director-now-rail"]');
+        return {
+          expanded: trigger?.getAttribute("aria-expanded") === "true",
+          visible: rail instanceof HTMLElement && getComputedStyle(rail).display !== "none"
+        };
+      })()`,
+      (state) => state.expanded && state.visible,
+      workflowTimeoutMs,
+    );
+    const escaped = await client.evaluate(`(() => {
+      const railAction = document.querySelector("#director-now-rail .director-history-open");
+      if (!(railAction instanceof HTMLButtonElement)) {
+        return false;
+      }
+      railAction.focus();
+      railAction.dispatchEvent(new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: "Escape"
+      }));
+      return true;
+    })()`);
+    if (!escaped) {
+      throw new Error("compact Now rail did not contain a focusable history action");
+    }
+    await waitForState(
+      client,
+      `(() => {
+        const rail = document.querySelector("#director-now-rail");
+        const trigger = document.querySelector('button[aria-controls="director-now-rail"]');
+        return {
+          collapsed: trigger?.getAttribute("aria-expanded") === "false",
+          focusedTrigger: document.activeElement === trigger,
+          hidden: rail instanceof HTMLElement && getComputedStyle(rail).display === "none"
+        };
+      })()`,
+      (state) => state.collapsed && state.focusedTrigger && state.hidden,
+      workflowTimeoutMs,
+    );
+  } finally {
+    await client.call("Emulation.clearDeviceMetricsOverride");
+  }
 }
 
 function assertHistoryContainsOnlyUserAndTerminalTurns(history) {

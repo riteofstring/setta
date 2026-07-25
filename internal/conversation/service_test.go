@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"setta/internal/agent"
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
 	"setta/internal/workspace"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 func TestServiceRunsDurableConversationCommandsAndReload(t *testing.T) {

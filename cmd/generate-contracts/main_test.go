@@ -10,8 +10,8 @@ import (
 
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/httpapi"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 type ContractTestLeaf struct {

@@ -246,6 +246,23 @@ func (executor *DecisionExecutor) carryOut(
 }
 
 func validateRoutedIntent(routed RoutedIntent) error {
+	if err := validateRoutedIntentEnvelope(routed); err != nil {
+		return err
+	}
+	switch routed.Resolution {
+	case DecisionResolvedByModel, DecisionResolvedByProductInvariant, DecisionResolvedByClarification:
+		return validateResolvedRoutedIntent(routed)
+	case DecisionResolvedAsBlocked:
+		if routed.Decision != nil {
+			return fmt.Errorf("blocked routed intent %s carries a decision", routed.Intent.ID)
+		}
+		return validateTrimmedText("blocked decision public summary", routed.PublicSummary)
+	default:
+		return fmt.Errorf("unknown director decision resolution %q", routed.Resolution)
+	}
+}
+
+func validateRoutedIntentEnvelope(routed RoutedIntent) error {
 	if err := validateSubmittedIntent(routed.Intent); err != nil {
 		return err
 	}
@@ -255,45 +272,49 @@ func validateRoutedIntent(routed RoutedIntent) error {
 	if routed.Context.Intent != routed.Intent {
 		return fmt.Errorf("routed intent %s does not match its decision context", routed.Intent.ID)
 	}
-	switch routed.Resolution {
-	case DecisionResolvedByModel, DecisionResolvedByProductInvariant, DecisionResolvedByClarification:
-		if routed.Decision == nil {
-			return fmt.Errorf("routed intent %s resolved as %q without a decision", routed.Intent.ID, routed.Resolution)
-		}
-		if routed.PublicSummary != "" {
-			return fmt.Errorf("routed intent %s carries blocked text with a decision", routed.Intent.ID)
-		}
-		if err := ValidateDecisionAuthority(routed.Context, *routed.Decision); err != nil {
-			return err
-		}
-		switch routed.Resolution {
-		case DecisionResolvedByProductInvariant:
-			expected, resolved := ProductInvariantDecision(routed.Context)
-			if !resolved || !reflect.DeepEqual(expected, *routed.Decision) {
-				return fmt.Errorf(
-					"routed intent %s claims a decision that no product invariant resolved",
-					routed.Intent.ID,
-				)
-			}
-		case DecisionResolvedByClarification:
-			if routed.Decision.Kind != DirectorDecisionAskClarification ||
-				routed.Decision.AskClarification.Question !=
-					clarificationQuestion(workCandidates(routed.Context)) {
-				return fmt.Errorf(
-					"routed intent %s claims a clarification trusted context did not derive",
-					routed.Intent.ID,
-				)
-			}
-		}
-		return nil
-	case DecisionResolvedAsBlocked:
-		if routed.Decision != nil {
-			return fmt.Errorf("blocked routed intent %s carries a decision", routed.Intent.ID)
-		}
-		return validateTrimmedText("blocked decision public summary", routed.PublicSummary)
-	default:
-		return fmt.Errorf("unknown director decision resolution %q", routed.Resolution)
+	return nil
+}
+
+func validateResolvedRoutedIntent(routed RoutedIntent) error {
+	if routed.Decision == nil {
+		return fmt.Errorf("routed intent %s resolved as %q without a decision", routed.Intent.ID, routed.Resolution)
 	}
+	if routed.PublicSummary != "" {
+		return fmt.Errorf("routed intent %s carries blocked text with a decision", routed.Intent.ID)
+	}
+	if err := ValidateDecisionAuthority(routed.Context, *routed.Decision); err != nil {
+		return err
+	}
+	switch routed.Resolution {
+	case DecisionResolvedByProductInvariant:
+		return validateProductInvariantResolution(routed)
+	case DecisionResolvedByClarification:
+		return validateClarificationResolution(routed)
+	default:
+		return nil
+	}
+}
+
+func validateProductInvariantResolution(routed RoutedIntent) error {
+	expected, resolved := ProductInvariantDecision(routed.Context)
+	if !resolved || !reflect.DeepEqual(expected, *routed.Decision) {
+		return fmt.Errorf(
+			"routed intent %s claims a decision that no product invariant resolved",
+			routed.Intent.ID,
+		)
+	}
+	return nil
+}
+
+func validateClarificationResolution(routed RoutedIntent) error {
+	if routed.Decision.Kind != DirectorDecisionAskClarification ||
+		routed.Decision.AskClarification.Question != clarificationQuestion(workCandidates(routed.Context)) {
+		return fmt.Errorf(
+			"routed intent %s claims a clarification trusted context did not derive",
+			routed.Intent.ID,
+		)
+	}
+	return nil
 }
 
 // reply commits what the Director told the user. The fact happens in no

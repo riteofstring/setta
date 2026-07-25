@@ -113,7 +113,27 @@ function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>, dialog: HTMLEle
   if (dialog === null) {
     return;
   }
-  const focusable = Array.from(
+  const focusable = dialogFocusableElements(dialog);
+  if (focusable.length === 0) {
+    event.preventDefault();
+    dialog.focus();
+    return;
+  }
+  const target = dialogFocusTarget(
+    event.shiftKey,
+    document.activeElement,
+    dialog,
+    focusable[0] as HTMLElement,
+    focusable[focusable.length - 1] as HTMLElement,
+  );
+  if (target !== null) {
+    event.preventDefault();
+    target.focus();
+  }
+}
+
+function dialogFocusableElements(dialog: HTMLElement): HTMLElement[] {
+  return Array.from(
     dialog.querySelectorAll<HTMLElement>(
       "button:not([tabindex='-1']), [href]:not([tabindex='-1']), input:not([tabindex='-1']), select:not([tabindex='-1']), textarea:not([tabindex='-1']), [tabindex]:not([tabindex='-1'])",
     ),
@@ -123,22 +143,20 @@ function trapDialogFocus(event: ReactKeyboardEvent<HTMLElement>, dialog: HTMLEle
       node.getAttribute("aria-hidden") !== "true" &&
       !node.closest("[inert]"),
   );
-  if (focusable.length === 0) {
-    event.preventDefault();
-    dialog.focus();
-    return;
-  }
-  const first = focusable[0] as HTMLElement;
-  const last = focusable[focusable.length - 1] as HTMLElement;
-  const active = document.activeElement;
+}
+
+function dialogFocusTarget(
+  shiftKey: boolean,
+  active: Element | null,
+  dialog: HTMLElement,
+  first: HTMLElement,
+  last: HTMLElement,
+): HTMLElement | null {
   if (!dialog.contains(active) || active === dialog) {
-    event.preventDefault();
-    (event.shiftKey ? last : first).focus();
-  } else if (event.shiftKey && active === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && active === last) {
-    event.preventDefault();
-    first.focus();
+    return shiftKey ? last : first;
   }
+  if (shiftKey) {
+    return active === first ? last : null;
+  }
+  return active === last ? first : null;
 }

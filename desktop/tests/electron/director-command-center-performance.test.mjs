@@ -907,26 +907,33 @@ function assertCanvasPixel(pixel, label) {
 
 function assertScenarioPerformance(sample, scenario, tier) {
   if (scenario === "text-delta-burst") {
-    const mutations = sample.mutations;
-    if (
-      mutations.addedNodes > 80 ||
-      mutations.removedNodes > 80 ||
-      mutations.characterDataRecords > 80
-    ) {
-      throw new Error(
-        `${tier}/${scenario} turned best-effort text deltas into visible DOM churn: ${JSON.stringify(
-          mutations,
-        )}`,
-      );
-    }
+    assertTextDeltaMutationBudget(sample.mutations, scenario, tier);
   }
-  if (scenario !== "sustained-activity") {
+  if (scenario === "sustained-activity") {
+    assertSustainedHeapBudget(sample.heap, scenario, tier);
+  }
+}
+
+function assertTextDeltaMutationBudget(mutations, scenario, tier) {
+  if (
+    mutations.addedNodes <= 80 &&
+    mutations.removedNodes <= 80 &&
+    mutations.characterDataRecords <= 80
+  ) {
     return;
   }
-  const start = sample.heap?.startBytes;
-  const end = sample.heap?.endBytes;
+  throw new Error(
+    `${tier}/${scenario} turned best-effort text deltas into visible DOM churn: ${JSON.stringify(
+      mutations,
+    )}`,
+  );
+}
+
+function assertSustainedHeapBudget(heap, scenario, tier) {
+  const start = heap?.startBytes;
+  const end = heap?.endBytes;
   if (typeof start === "number" && typeof end === "number" && end - start > 48 * 1024 * 1024) {
-    throw new Error(`${tier}/${scenario} retained more than 48 MB: ${JSON.stringify(sample.heap)}`);
+    throw new Error(`${tier}/${scenario} retained more than 48 MB: ${JSON.stringify(heap)}`);
   }
 }
 

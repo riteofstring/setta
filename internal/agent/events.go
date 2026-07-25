@@ -395,51 +395,77 @@ func validateActivityEvent(event Event) error {
 	if event.Activity == nil {
 		return errors.New("agent activity event requires activity payload")
 	}
-	if strings.TrimSpace(event.Activity.ProviderItemID) == "" ||
-		strings.TrimSpace(event.Activity.ProviderItemID) != event.Activity.ProviderItemID ||
-		strings.TrimSpace(event.Activity.Status) == "" ||
-		strings.TrimSpace(event.Activity.Status) != event.Activity.Status ||
-		strings.TrimSpace(event.Activity.Title) == "" ||
-		strings.TrimSpace(event.Activity.Title) != event.Activity.Title {
+	activity := event.Activity
+	for _, validate := range []func() error{
+		func() error { return validateActivityIdentity(activity) },
+		func() error { return validateActivityKindFields(event.Kind, activity) },
+		func() error { return validateActivitySubagent(activity) },
+		func() error { return validateActivityFileChangePresence(activity) },
+		func() error { return validateActivitySavedPath(activity) },
+		func() error { return validateActivityFileChangeEntries(activity) },
+	} {
+		if err := validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateActivityIdentity(activity *ActivityEvent) error {
+	if strings.TrimSpace(activity.ProviderItemID) == "" ||
+		strings.TrimSpace(activity.ProviderItemID) != activity.ProviderItemID ||
+		strings.TrimSpace(activity.Status) == "" ||
+		strings.TrimSpace(activity.Status) != activity.Status ||
+		strings.TrimSpace(activity.Title) == "" ||
+		strings.TrimSpace(activity.Title) != activity.Title {
 		return errors.New("agent activity event requires item id, status, and title")
 	}
-	if !containsEnumValue(activityKinds, event.Activity.Kind) {
-		return fmt.Errorf("unsupported agent activity kind %q", event.Activity.Kind)
+	if !containsEnumValue(activityKinds, activity.Kind) {
+		return fmt.Errorf("unsupported agent activity kind %q", activity.Kind)
 	}
-	if event.Kind != EventKindActivityUpdated {
-		switch event.Activity.Kind {
+	return nil
+}
+
+func validateActivityKindFields(eventKind EventKind, activity *ActivityEvent) error {
+	if eventKind != EventKindActivityUpdated {
+		switch activity.Kind {
 		case ActivityKindCommand:
-			if !nonEmptyStringPointer(event.Activity.Command) || !nonEmptyStringPointer(event.Activity.CWD) {
+			if !nonEmptyStringPointer(activity.Command) || !nonEmptyStringPointer(activity.CWD) {
 				return errors.New("agent command activity requires command and cwd")
 			}
 		case ActivityKindMCPTool:
-			if !nonEmptyStringPointer(event.Activity.Server) || !nonEmptyStringPointer(event.Activity.Tool) {
+			if !nonEmptyStringPointer(activity.Server) || !nonEmptyStringPointer(activity.Tool) {
 				return errors.New("agent MCP activity requires server and tool")
 			}
 		case ActivityKindDynamicTool:
-			if !nonEmptyStringPointer(event.Activity.Tool) {
+			if !nonEmptyStringPointer(activity.Tool) {
 				return errors.New("agent dynamic tool activity requires tool")
 			}
 		}
 	}
-	if event.Activity.Kind == ActivityKindSubagent &&
-		!nonEmptyStringPointer(event.Activity.ProviderSubagentThreadID) {
+	return nil
+}
+
+func validateActivitySubagent(activity *ActivityEvent) error {
+	if activity.Kind == ActivityKindSubagent &&
+		!nonEmptyStringPointer(activity.ProviderSubagentThreadID) {
 		return errors.New("agent subagent activity requires provider subagent thread id")
 	}
-	if event.Activity.Kind != ActivityKindSubagent && event.Activity.ProviderSubagentThreadID != nil {
-		return fmt.Errorf("agent activity kind %q must not carry a provider subagent thread id", event.Activity.Kind)
+	if activity.Kind != ActivityKindSubagent && activity.ProviderSubagentThreadID != nil {
+		return fmt.Errorf("agent activity kind %q must not carry a provider subagent thread id", activity.Kind)
 	}
-	if event.Activity.Kind != ActivityKindFileChange && len(event.Activity.FileChanges) > 0 {
-		return fmt.Errorf("agent activity kind %q must not carry file changes", event.Activity.Kind)
+	return nil
+}
+
+func validateActivityFileChangePresence(activity *ActivityEvent) error {
+	if activity.Kind != ActivityKindFileChange && len(activity.FileChanges) > 0 {
+		return fmt.Errorf("agent activity kind %q must not carry file changes", activity.Kind)
 	}
-	if event.Activity.Kind == ActivityKindImageGeneration {
-		if event.Activity.SavedPath != nil && !nonEmptyStringPointer(event.Activity.SavedPath) {
-			return errors.New("agent image generation saved path must be non-empty without surrounding whitespace")
-		}
-	} else if event.Activity.SavedPath != nil {
-		return fmt.Errorf("agent activity kind %q must not carry a saved path", event.Activity.Kind)
-	}
-	for index, change := range event.Activity.FileChanges {
+	return nil
+}
+
+func validateActivityFileChangeEntries(activity *ActivityEvent) error {
+	for index, change := range activity.FileChanges {
 		if strings.TrimSpace(change.Path) == "" ||
 			strings.TrimSpace(change.Path) != change.Path ||
 			!containsEnumValue(fileChangeKinds, change.Kind) {
@@ -451,6 +477,19 @@ func validateActivityEvent(event Event) error {
 		if change.MovePath != nil && !nonEmptyStringPointer(change.MovePath) {
 			return fmt.Errorf("agent file change %d move path must be non-empty without surrounding whitespace", index)
 		}
+	}
+	return nil
+}
+
+func validateActivitySavedPath(activity *ActivityEvent) error {
+	if activity.Kind != ActivityKindImageGeneration {
+		if activity.SavedPath != nil {
+			return fmt.Errorf("agent activity kind %q must not carry a saved path", activity.Kind)
+		}
+		return nil
+	}
+	if activity.SavedPath != nil && !nonEmptyStringPointer(activity.SavedPath) {
+		return errors.New("agent image generation saved path must be non-empty without surrounding whitespace")
 	}
 	return nil
 }
@@ -479,27 +518,39 @@ func validateValidationEvent(event Event) error {
 	if event.Validation == nil {
 		return errors.New("agent validation event requires validation payload")
 	}
-	if strings.TrimSpace(event.Validation.ID) == "" ||
-		strings.TrimSpace(event.Validation.ID) != event.Validation.ID {
+	validation := event.Validation
+	if strings.TrimSpace(validation.ID) == "" ||
+		strings.TrimSpace(validation.ID) != validation.ID {
 		return errors.New("agent validation event requires a validation id")
 	}
-	if !containsEnumValue(validationKinds, event.Validation.Kind) {
-		return fmt.Errorf("unsupported agent validation kind %q", event.Validation.Kind)
+	if err := validateValidationEnums(validation); err != nil {
+		return err
 	}
-	if !containsEnumValue(validationStatuses, event.Validation.Status) {
-		return fmt.Errorf("unsupported agent validation status %q", event.Validation.Status)
+	return validateValidationPublicMetadata(validation)
+}
+
+func validateValidationEnums(validation *ValidationEvent) error {
+	if !containsEnumValue(validationKinds, validation.Kind) {
+		return fmt.Errorf("unsupported agent validation kind %q", validation.Kind)
 	}
-	if event.Validation.Risk != nil && !containsEnumValue(validationRisks, *event.Validation.Risk) {
-		return fmt.Errorf("unsupported agent validation risk %q", *event.Validation.Risk)
+	if !containsEnumValue(validationStatuses, validation.Status) {
+		return fmt.Errorf("unsupported agent validation status %q", validation.Status)
 	}
-	if event.Validation.Kind == ValidationKindModelVerification && event.Validation.Risk != nil {
+	if validation.Risk != nil && !containsEnumValue(validationRisks, *validation.Risk) {
+		return fmt.Errorf("unsupported agent validation risk %q", *validation.Risk)
+	}
+	if validation.Kind == ValidationKindModelVerification && validation.Risk != nil {
 		return errors.New("model verification must not carry Guardian risk")
 	}
-	if event.Validation.Subject != nil && !nonEmptyStringPointer(event.Validation.Subject) {
+	return nil
+}
+
+func validateValidationPublicMetadata(validation *ValidationEvent) error {
+	if validation.Subject != nil && !nonEmptyStringPointer(validation.Subject) {
 		return errors.New("agent validation subject must be non-empty without surrounding whitespace")
 	}
-	if strings.TrimSpace(event.Validation.Summary) == "" ||
-		strings.TrimSpace(event.Validation.Summary) != event.Validation.Summary {
+	if strings.TrimSpace(validation.Summary) == "" ||
+		strings.TrimSpace(validation.Summary) != validation.Summary {
 		return errors.New("agent validation event requires a trimmed public summary")
 	}
 	return nil

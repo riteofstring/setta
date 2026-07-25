@@ -66,21 +66,13 @@ export function CommandCenterTopBar({
   snapshot,
 }: {
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
-  onToggleRail: (rail: DirectorRailName) => void;
+  onToggleRail: (rail: DirectorRailName, trigger: HTMLButtonElement) => void;
   onOpenSettingsPage: () => void;
   platform: DesktopPlatform;
   railVisibility: DirectorRailVisibility;
   snapshot: DirectorSnapshot | null;
 }) {
   const windowDragHandlers = useAppWindowDragHandlers();
-  const navigation = directorWorkstreamNavigation(snapshot);
-  const selectedStatus = navigation.selected?.workstream.status ?? "idle";
-  const workstreamStripRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    centerSelectedWorkstreamDot(workstreamStripRef.current);
-  }, [snapshot?.selectedWorkstreamId, snapshot?.workstreams]);
-
   return (
     <header
       className="director-command-center-top app-drag"
@@ -93,82 +85,129 @@ export function CommandCenterTopBar({
       <div className="director-command-center-brand">
         <SettaLogoMark height={13} />
       </div>
-      <nav aria-label="Workstreams" className="director-workstream-nav app-no-drag">
-        <IconButton
-          label="Previous workstream"
-          onClick={() => dispatchDirectorIntent(dispatch, moveSelectionIntent("previous"))}
-        >
-          <ChevronLeft aria-hidden="true" size={16} />
-        </IconButton>
-        <div className="director-workstream-selector">
-          <div className="director-workstream-title">
-            <span>{navigation.selected?.workstream.title ?? "Setta"}</span>
-            <span>
-              {directorWorkstreamStatusLabels[selectedStatus]}
-              {navigation.counter ? ` ${navigation.counter}` : ""}
-            </span>
-          </div>
-          <div
-            aria-label="Visible workstreams"
-            className="director-workstream-strip"
-            ref={workstreamStripRef}
-            role="list"
-          >
-            {navigation.visibleEntries.map((item) => (
-              <span key={item.entry.workstream.id} role="listitem">
-                <button
-                  aria-current={
-                    item.entry.workstream.id === snapshot?.selectedWorkstreamId ? "page" : undefined
-                  }
-                  aria-label={`Select ${item.entry.workstream.title}, ${
-                    directorWorkstreamStatusLabels[item.entry.workstream.status]
-                  }`}
-                  className="director-workstream-dot"
-                  data-status={item.entry.workstream.status}
-                  data-workstream-id={item.entry.workstream.id}
-                  onClick={() =>
-                    dispatchDirectorIntent(
-                      dispatch,
-                      selectWorkstreamIntent(item.entry.workstream.id),
-                    )
-                  }
-                  type="button"
-                >
-                  <StatusGlyph status={item.entry.workstream.status} />
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-        <IconButton
-          label="Next workstream"
-          onClick={() => dispatchDirectorIntent(dispatch, moveSelectionIntent("next"))}
-        >
-          <ChevronRight aria-hidden="true" size={16} />
-        </IconButton>
-      </nav>
-      <div aria-label="View controls" className="director-command-center-view-controls app-no-drag">
-        <IconButton
-          controls="director-now-rail"
-          expanded={railVisibility.now}
-          label={railVisibility.now ? "Hide Now rail" : "Show Now rail"}
-          onClick={() => onToggleRail("now")}
-        >
-          <PanelLeft aria-hidden="true" size={16} />
-        </IconButton>
-        <IconButton
-          controls="director-artifacts-rail"
-          expanded={railVisibility.artifacts}
-          label={railVisibility.artifacts ? "Hide Artifacts rail" : "Show Artifacts rail"}
-          onClick={() => onToggleRail("artifacts")}
-        >
-          <PanelRight aria-hidden="true" size={16} />
-        </IconButton>
-        <IconButton label="Open settings" onClick={onOpenSettingsPage}>
-          <Settings aria-hidden="true" size={16} />
-        </IconButton>
-      </div>
+      <WorkstreamNavigation dispatch={dispatch} snapshot={snapshot} />
+      <DirectorRailControls
+        onOpenSettingsPage={onOpenSettingsPage}
+        onToggleRail={onToggleRail}
+        railVisibility={railVisibility}
+      />
     </header>
+  );
+}
+
+function WorkstreamNavigation({
+  dispatch,
+  snapshot,
+}: {
+  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
+  snapshot: DirectorSnapshot | null;
+}) {
+  const navigation = directorWorkstreamNavigation(snapshot);
+  const selectedStatus = navigation.selected?.workstream.status ?? "idle";
+  const workstreamStripRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    centerSelectedWorkstreamDot(workstreamStripRef.current);
+  }, [snapshot?.selectedWorkstreamId, snapshot?.workstreams]);
+  return (
+    <nav aria-label="Workstreams" className="director-workstream-nav app-no-drag">
+      <IconButton
+        label="Previous workstream"
+        onClick={() => dispatchDirectorIntent(dispatch, moveSelectionIntent("previous"))}
+      >
+        <ChevronLeft aria-hidden="true" size={16} />
+      </IconButton>
+      <div className="director-workstream-selector">
+        <div className="director-workstream-title">
+          <span>{navigation.selected?.workstream.title ?? "Setta"}</span>
+          <span>
+            {directorWorkstreamStatusLabels[selectedStatus]}
+            {navigation.counter ? ` ${navigation.counter}` : ""}
+          </span>
+        </div>
+        <div
+          aria-label="Visible workstreams"
+          className="director-workstream-strip"
+          ref={workstreamStripRef}
+          role="list"
+        >
+          {navigation.visibleEntries.map((item) => (
+            <WorkstreamDot
+              dispatch={dispatch}
+              entry={item.entry}
+              key={item.entry.workstream.id}
+              selectedWorkstreamId={snapshot?.selectedWorkstreamId ?? null}
+            />
+          ))}
+        </div>
+      </div>
+      <IconButton
+        label="Next workstream"
+        onClick={() => dispatchDirectorIntent(dispatch, moveSelectionIntent("next"))}
+      >
+        <ChevronRight aria-hidden="true" size={16} />
+      </IconButton>
+    </nav>
+  );
+}
+
+function WorkstreamDot({
+  dispatch,
+  entry,
+  selectedWorkstreamId,
+}: {
+  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
+  entry: DirectorWorkstreamEntry;
+  selectedWorkstreamId: string | null;
+}) {
+  const workstream = entry.workstream;
+  return (
+    <span role="listitem">
+      <button
+        aria-current={workstream.id === selectedWorkstreamId ? "page" : undefined}
+        aria-label={`Select ${workstream.title}, ${directorWorkstreamStatusLabels[workstream.status]}`}
+        className="director-workstream-dot"
+        data-status={workstream.status}
+        data-workstream-id={workstream.id}
+        onClick={() => dispatchDirectorIntent(dispatch, selectWorkstreamIntent(workstream.id))}
+        type="button"
+      >
+        <StatusGlyph status={workstream.status} />
+      </button>
+    </span>
+  );
+}
+
+function DirectorRailControls({
+  onOpenSettingsPage,
+  onToggleRail,
+  railVisibility,
+}: {
+  onOpenSettingsPage: () => void;
+  onToggleRail: (rail: DirectorRailName, trigger: HTMLButtonElement) => void;
+  railVisibility: DirectorRailVisibility;
+}) {
+  return (
+    <div aria-label="View controls" className="director-command-center-view-controls app-no-drag">
+      <IconButton
+        controls="director-now-rail"
+        expanded={railVisibility.now}
+        label={railVisibility.now ? "Hide Now rail" : "Show Now rail"}
+        onClick={(trigger) => onToggleRail("now", trigger)}
+      >
+        <PanelLeft aria-hidden="true" size={16} />
+      </IconButton>
+      <IconButton
+        controls="director-artifacts-rail"
+        expanded={railVisibility.artifacts}
+        label={railVisibility.artifacts ? "Hide Artifacts rail" : "Show Artifacts rail"}
+        onClick={(trigger) => onToggleRail("artifacts", trigger)}
+      >
+        <PanelRight aria-hidden="true" size={16} />
+      </IconButton>
+      <IconButton label="Open settings" onClick={onOpenSettingsPage}>
+        <Settings aria-hidden="true" size={16} />
+      </IconButton>
+    </div>
   );
 }
 
@@ -256,7 +295,7 @@ function IconButton({
   controls?: string;
   expanded?: boolean;
   label: string;
-  onClick: () => void;
+  onClick: (trigger: HTMLButtonElement) => void;
 }) {
   return (
     <button
@@ -264,7 +303,7 @@ function IconButton({
       aria-expanded={expanded}
       aria-label={label}
       className="director-icon-button"
-      onClick={onClick}
+      onClick={(event) => onClick(event.currentTarget)}
       title={label}
       type="button"
     >

@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"setta/internal/conversation"
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/httpapi"
 	"setta/internal/runtimeauth"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {

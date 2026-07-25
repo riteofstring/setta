@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 const (

@@ -1,8 +1,8 @@
 package conversation
 
 import (
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 func applyPresentationProfileUpdates(

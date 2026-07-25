@@ -11,7 +11,6 @@ import {
   emitSimultaneousAudioHoldProgress,
   listCursorOffset,
   listLimit,
-  nonEmptyString,
   optionalNonNegativeIntegerEnvironment,
   validSideBoundary,
   validSideContextFrame,
@@ -386,16 +385,23 @@ function resumeThread(message) {
 }
 
 function applyResumeParams(state, params) {
-  state.approvalPolicy = params.approvalPolicy ?? state.approvalPolicy;
-  state.cwd = params.cwd ?? state.cwd;
-  state.developerInstructions = params.developerInstructions ?? state.developerInstructions;
-  state.model = params.model ?? state.model;
-  state.reasoningEffort = params.config?.model_reasoning_effort ?? state.reasoningEffort;
-  state.runtimeWorkspaceRoots = params.runtimeWorkspaceRoots ?? [];
-  state.sandbox = params.sandbox ?? state.sandbox;
+  state.approvalPolicy = resumeValue(params.approvalPolicy, state.approvalPolicy);
+  state.cwd = resumeValue(params.cwd, state.cwd);
+  state.developerInstructions = resumeValue(
+    params.developerInstructions,
+    state.developerInstructions,
+  );
+  state.model = resumeValue(params.model, state.model);
+  state.reasoningEffort = resumeValue(params.config?.model_reasoning_effort, state.reasoningEffort);
+  state.runtimeWorkspaceRoots = resumeValue(params.runtimeWorkspaceRoots, []);
+  state.sandbox = resumeValue(params.sandbox, state.sandbox);
   if (Object.hasOwn(params, "serviceTier")) {
     state.serviceTier = params.serviceTier;
   }
+}
+
+function resumeValue(value, fallback) {
+  return value ?? fallback;
 }
 
 function readThread(message) {

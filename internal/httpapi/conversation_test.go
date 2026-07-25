@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"setta/internal/conversation"
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 func TestReadConversationSnapshotUsesTypedServiceBoundary(t *testing.T) {

@@ -22,7 +22,14 @@ function drawCanvas(
   },
 ): Uint8Array {
   const pixels = new Uint8Array(width * height * 4);
-  const mediumEvery = options.mediumEvery ?? 37;
+  drawMedium(pixels, width, height, options.mediumEvery ?? 37);
+  if (options.ladder !== undefined) {
+    drawLadder(pixels, width, height, options.ladder, options.nodeRadius);
+  }
+  return pixels;
+}
+
+function drawMedium(pixels: Uint8Array, width: number, height: number, mediumEvery: number): void {
   for (let index = 0; index < width * height; index += 1) {
     if (index % mediumEvery === 0) {
       // One bright particle: as bright per pixel as a node, but never
@@ -33,30 +40,33 @@ function drawCanvas(
       pixels[index * 4 + 3] = 255;
     }
   }
-  const ladder = options.ladder;
-  if (ladder !== undefined) {
-    const radius = options.nodeRadius ?? Math.round(width * 0.012);
-    const centerX = Math.round(ladder.centerX * width);
-    for (let step = 0; step <= 6; step += 1) {
-      const centerY = Math.round(
-        (ladder.fromY + ((ladder.toY - ladder.fromY) * step) / 6) * height,
-      );
-      for (let y = centerY - radius; y <= centerY + radius; y += 1) {
-        for (let x = centerX - radius; x <= centerX + radius; x += 1) {
-          if (x < 0 || y < 0 || x >= width || y >= height) {
-            continue;
-          }
-          // The buffer is bottom-up, so the requested top-down y is mirrored.
-          const offset = ((height - 1 - y) * width + x) * 4;
-          pixels[offset] = 220;
-          pixels[offset + 1] = 250;
-          pixels[offset + 2] = 255;
-          pixels[offset + 3] = 255;
+}
+
+function drawLadder(
+  pixels: Uint8Array,
+  width: number,
+  height: number,
+  ladder: { readonly centerX: number; readonly fromY: number; readonly toY: number },
+  nodeRadius: number | undefined,
+): void {
+  const radius = nodeRadius ?? Math.round(width * 0.012);
+  const centerX = Math.round(ladder.centerX * width);
+  for (let step = 0; step <= 6; step += 1) {
+    const centerY = Math.round((ladder.fromY + ((ladder.toY - ladder.fromY) * step) / 6) * height);
+    for (let y = centerY - radius; y <= centerY + radius; y += 1) {
+      for (let x = centerX - radius; x <= centerX + radius; x += 1) {
+        if (x < 0 || y < 0 || x >= width || y >= height) {
+          continue;
         }
+        // The buffer is bottom-up, so the requested top-down y is mirrored.
+        const offset = ((height - 1 - y) * width + x) * 4;
+        pixels[offset] = 220;
+        pixels[offset + 1] = 250;
+        pixels[offset + 2] = 255;
+        pixels[offset + 3] = 255;
       }
     }
   }
-  return pixels;
 }
 
 describe("graph pixel grid", () => {

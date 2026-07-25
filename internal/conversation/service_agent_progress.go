@@ -527,32 +527,25 @@ func conversationActivity(activity agent.ActivityEvent) (TrajectoryActivity, err
 // provider activity kind has to be given durable meaning here rather than
 // collapsing into a bucket the Director cannot resolve.
 func trajectoryActivityKind(kind agent.ActivityKind) (TrajectoryActivityKind, error) {
-	switch kind {
-	case agent.ActivityKindCommand:
-		return TrajectoryActivityCommand, nil
-	case agent.ActivityKindFileChange:
-		return TrajectoryActivityFileChange, nil
-	case agent.ActivityKindMCPTool:
-		return TrajectoryActivityMCPTool, nil
-	case agent.ActivityKindDynamicTool:
-		return TrajectoryActivityDynamicTool, nil
-	case agent.ActivityKindWebSearch:
-		return TrajectoryActivityWebSearch, nil
-	case agent.ActivityKindImageView:
-		return TrajectoryActivityImageView, nil
-	case agent.ActivityKindImageGeneration:
-		return TrajectoryActivityImageGeneration, nil
-	case agent.ActivityKindSleep:
-		return TrajectoryActivitySleep, nil
-	case agent.ActivityKindHook:
-		return TrajectoryActivityHook, nil
-	case agent.ActivityKindSubagent:
-		return TrajectoryActivitySubagent, nil
-	case agent.ActivityKindOther:
-		return TrajectoryActivityOther, nil
-	default:
+	resolved, ok := trajectoryActivityKindByAgentKind[kind]
+	if !ok {
 		return "", fmt.Errorf("unsupported agent activity kind %q", kind)
 	}
+	return resolved, nil
+}
+
+var trajectoryActivityKindByAgentKind = map[agent.ActivityKind]TrajectoryActivityKind{
+	agent.ActivityKindCommand:         TrajectoryActivityCommand,
+	agent.ActivityKindDynamicTool:     TrajectoryActivityDynamicTool,
+	agent.ActivityKindFileChange:      TrajectoryActivityFileChange,
+	agent.ActivityKindHook:            TrajectoryActivityHook,
+	agent.ActivityKindImageGeneration: TrajectoryActivityImageGeneration,
+	agent.ActivityKindImageView:       TrajectoryActivityImageView,
+	agent.ActivityKindMCPTool:         TrajectoryActivityMCPTool,
+	agent.ActivityKindOther:           TrajectoryActivityOther,
+	agent.ActivityKindSleep:           TrajectoryActivitySleep,
+	agent.ActivityKindSubagent:        TrajectoryActivitySubagent,
+	agent.ActivityKindWebSearch:       TrajectoryActivityWebSearch,
 }
 
 func conversationSubagentTrajectory(

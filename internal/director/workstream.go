@@ -232,13 +232,8 @@ func validateWorkstreamResources(workstream Workstream) error {
 	if err := validateWorkstreamResourceScope(workstream.ResourceScope); err != nil {
 		return err
 	}
-	if workstream.ResourceBindings == nil {
-		return fmt.Errorf("workstream %s resource bindings must be an array, not null", workstream.ID)
-	}
-	for index, binding := range workstream.ResourceBindings {
-		if err := ValidateWorkstreamResourceBinding(binding); err != nil {
-			return fmt.Errorf("workstream %s resource binding %d: %w", workstream.ID, index, err)
-		}
+	if err := validateWorkstreamResourceBindings(workstream); err != nil {
+		return err
 	}
 	switch workstream.ResourceScope.Kind {
 	case WorkstreamResourceScopeFolderless:
@@ -247,19 +242,35 @@ func validateWorkstreamResources(workstream Workstream) error {
 		}
 		return nil
 	case WorkstreamResourceScopeFolder:
-		if len(workstream.ResourceBindings) != 1 ||
-			workstream.ResourceBindings[0].Kind != WorkstreamResourceKindFolder ||
-			workstream.ResourceBindings[0].Folder == nil ||
-			*workstream.ResourceBindings[0].Folder != *workstream.ResourceScope.Folder {
-			return fmt.Errorf(
-				"folder workstream %s must carry exactly its scoped folder binding",
-				workstream.ID,
-			)
-		}
-		return nil
+		return validateFolderWorkstreamBinding(workstream)
 	default:
 		return fmt.Errorf("unknown workstream resource scope kind %q", workstream.ResourceScope.Kind)
 	}
+}
+
+func validateWorkstreamResourceBindings(workstream Workstream) error {
+	if workstream.ResourceBindings == nil {
+		return fmt.Errorf("workstream %s resource bindings must be an array, not null", workstream.ID)
+	}
+	for index, binding := range workstream.ResourceBindings {
+		if err := ValidateWorkstreamResourceBinding(binding); err != nil {
+			return fmt.Errorf("workstream %s resource binding %d: %w", workstream.ID, index, err)
+		}
+	}
+	return nil
+}
+
+func validateFolderWorkstreamBinding(workstream Workstream) error {
+	if len(workstream.ResourceBindings) == 1 &&
+		workstream.ResourceBindings[0].Kind == WorkstreamResourceKindFolder &&
+		workstream.ResourceBindings[0].Folder != nil &&
+		*workstream.ResourceBindings[0].Folder == *workstream.ResourceScope.Folder {
+		return nil
+	}
+	return fmt.Errorf(
+		"folder workstream %s must carry exactly its scoped folder binding",
+		workstream.ID,
+	)
 }
 
 func validateWorkstreamCounts(workstream Workstream) error {
@@ -286,60 +297,116 @@ func validateWorkstreamCounts(workstream Workstream) error {
 }
 
 func validateWorkstreamStatusState(workstream Workstream) error {
-	switch workstream.Status {
-	case WorkstreamStatusIdle:
-		if workstream.ActiveRunID != nil ||
-			workstream.QueuedRunCount != 0 ||
-			workstream.UnresolvedApprovalCount != 0 ||
-			workstream.UnresolvedResourceRequestCount != 0 {
-			return fmt.Errorf("idle workstream %s carries active or unresolved work", workstream.ID)
-		}
-	case WorkstreamStatusRunning:
-		if workstream.ActiveRunID == nil ||
-			workstream.UnresolvedApprovalCount != 0 ||
-			workstream.UnresolvedResourceRequestCount != 0 {
-			return fmt.Errorf("running workstream %s requires an active run with no unresolved blocker", workstream.ID)
-		}
-	case WorkstreamStatusQueued:
-		if workstream.ActiveRunID != nil ||
-			workstream.QueuedRunCount == 0 ||
-			workstream.UnresolvedApprovalCount != 0 ||
-			workstream.UnresolvedResourceRequestCount != 0 {
-			return fmt.Errorf("queued workstream %s requires only queued work and no active run", workstream.ID)
-		}
-	case WorkstreamStatusAwaitingApproval:
-		if workstream.ActiveRunID == nil || workstream.UnresolvedApprovalCount == 0 {
-			return fmt.Errorf("approval-waiting workstream %s requires an active run and unresolved approval", workstream.ID)
-		}
-	case WorkstreamStatusAwaitingResource:
-		if workstream.UnresolvedResourceRequestCount == 0 {
-			return fmt.Errorf("resource-waiting workstream %s requires an unresolved resource request", workstream.ID)
-		}
-	case WorkstreamStatusFailed:
-		if workstream.ActiveRunID != nil ||
-			workstream.QueuedRunCount != 0 ||
-			workstream.UnresolvedApprovalCount != 0 ||
-			workstream.UnresolvedResourceRequestCount != 0 {
-			return fmt.Errorf("failed workstream %s carries active or unresolved work", workstream.ID)
-		}
-	case WorkstreamStatusCompleted:
-		if workstream.ActiveRunID != nil ||
-			workstream.QueuedRunCount != 0 ||
-			workstream.UnresolvedApprovalCount != 0 ||
-			workstream.UnresolvedResourceRequestCount != 0 {
-			return fmt.Errorf("completed workstream %s carries active or unresolved work", workstream.ID)
-		}
-	case WorkstreamStatusArchived:
-		if workstream.ActiveRunID != nil ||
-			workstream.QueuedRunCount != 0 ||
-			workstream.UnresolvedApprovalCount != 0 ||
-			workstream.UnresolvedResourceRequestCount != 0 {
-			return fmt.Errorf("archived workstream %s carries active or unresolved work", workstream.ID)
-		}
-	case WorkstreamStatusBlocked:
-		// A typed provider, agent, approval, or resource fact owns the block.
+	rule, ok := workstreamStatusRules[workstream.Status]
+	if !ok {
+		return fmt.Errorf("unknown workstream status %q", workstream.Status)
 	}
-	return nil
+	if rule.matches(workstream) {
+		return nil
+	}
+	return fmt.Errorf("%s workstream %s %s", rule.statusLabel, workstream.ID, rule.failure)
+}
+
+type workstreamPresenceRequirement uint8
+
+const (
+	workstreamPresenceAny workstreamPresenceRequirement = iota
+	workstreamPresenceAbsent
+	workstreamPresencePresent
+)
+
+type workstreamStatusRule struct {
+	activeRun           workstreamPresenceRequirement
+	queuedRuns          workstreamPresenceRequirement
+	unresolvedApprovals workstreamPresenceRequirement
+	unresolvedResources workstreamPresenceRequirement
+	statusLabel         string
+	failure             string
+}
+
+var workstreamStatusRules = map[WorkstreamStatus]workstreamStatusRule{
+	WorkstreamStatusArchived: {
+		activeRun:           workstreamPresenceAbsent,
+		queuedRuns:          workstreamPresenceAbsent,
+		unresolvedApprovals: workstreamPresenceAbsent,
+		unresolvedResources: workstreamPresenceAbsent,
+		statusLabel:         "archived",
+		failure:             "carries active or unresolved work",
+	},
+	WorkstreamStatusAwaitingApproval: {
+		activeRun:           workstreamPresencePresent,
+		unresolvedApprovals: workstreamPresencePresent,
+		statusLabel:         "approval-waiting",
+		failure:             "requires an active run and unresolved approval",
+	},
+	WorkstreamStatusAwaitingResource: {
+		unresolvedResources: workstreamPresencePresent,
+		statusLabel:         "resource-waiting",
+		failure:             "requires an unresolved resource request",
+	},
+	WorkstreamStatusBlocked: {
+		statusLabel: "blocked",
+		failure:     "has invalid state",
+	},
+	WorkstreamStatusCompleted: {
+		activeRun:           workstreamPresenceAbsent,
+		queuedRuns:          workstreamPresenceAbsent,
+		unresolvedApprovals: workstreamPresenceAbsent,
+		unresolvedResources: workstreamPresenceAbsent,
+		statusLabel:         "completed",
+		failure:             "carries active or unresolved work",
+	},
+	WorkstreamStatusFailed: {
+		activeRun:           workstreamPresenceAbsent,
+		queuedRuns:          workstreamPresenceAbsent,
+		unresolvedApprovals: workstreamPresenceAbsent,
+		unresolvedResources: workstreamPresenceAbsent,
+		statusLabel:         "failed",
+		failure:             "carries active or unresolved work",
+	},
+	WorkstreamStatusIdle: {
+		activeRun:           workstreamPresenceAbsent,
+		queuedRuns:          workstreamPresenceAbsent,
+		unresolvedApprovals: workstreamPresenceAbsent,
+		unresolvedResources: workstreamPresenceAbsent,
+		statusLabel:         "idle",
+		failure:             "carries active or unresolved work",
+	},
+	WorkstreamStatusQueued: {
+		activeRun:           workstreamPresenceAbsent,
+		queuedRuns:          workstreamPresencePresent,
+		unresolvedApprovals: workstreamPresenceAbsent,
+		unresolvedResources: workstreamPresenceAbsent,
+		statusLabel:         "queued",
+		failure:             "requires only queued work and no active run",
+	},
+	WorkstreamStatusRunning: {
+		activeRun:           workstreamPresencePresent,
+		unresolvedApprovals: workstreamPresenceAbsent,
+		unresolvedResources: workstreamPresenceAbsent,
+		statusLabel:         "running",
+		failure:             "requires an active run with no unresolved blocker",
+	},
+}
+
+func (rule workstreamStatusRule) matches(workstream Workstream) bool {
+	return rule.activeRun.matches(workstream.ActiveRunID != nil) &&
+		rule.queuedRuns.matches(workstream.QueuedRunCount != 0) &&
+		rule.unresolvedApprovals.matches(workstream.UnresolvedApprovalCount != 0) &&
+		rule.unresolvedResources.matches(workstream.UnresolvedResourceRequestCount != 0)
+}
+
+func (requirement workstreamPresenceRequirement) matches(present bool) bool {
+	switch requirement {
+	case workstreamPresenceAny:
+		return true
+	case workstreamPresenceAbsent:
+		return !present
+	case workstreamPresencePresent:
+		return present
+	default:
+		return false
+	}
 }
 
 // ValidateWorkstreamResourceBinding enforces that the binding kind selects
