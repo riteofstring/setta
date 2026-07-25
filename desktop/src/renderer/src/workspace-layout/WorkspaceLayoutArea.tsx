@@ -194,6 +194,9 @@ function WorkspaceLayoutRuntimeArea({
   const showPerformanceStats = useAppearanceStore(
     (state) => (state.draft ?? state.settings)?.developer?.showPerformanceStats ?? false,
   );
+  const workspaceRowsEnabled = useAppearanceStore(
+    (state) => (state.draft ?? state.settings)?.developer?.enableWorkspaceRows ?? false,
+  );
   const shortcuts = useAppearanceStore(
     (state) => (state.draft ?? state.settings)?.shortcuts ?? null,
   );
@@ -245,7 +248,7 @@ function WorkspaceLayoutRuntimeArea({
   const nativeViewsOccluded = nativeViewOverlayActive || shellOverlayActive;
   const shellOverlayActiveRef = useRef(shellOverlayActive);
   shellOverlayActiveRef.current = shellOverlayActive;
-  const masterVoiceShortcut = shortcuts?.masterVoice ?? defaultShortcutsSettings.masterVoice;
+  const { masterVoice, workspaceNavigation } = shortcuts ?? defaultShortcutsSettings;
   const setOverviewGhostTarget = useCallback((target: OverviewGhostTarget | null) => {
     if (sameOverviewGhostTarget(overviewGhostTargetRef.current, target)) {
       return;
@@ -295,9 +298,11 @@ function WorkspaceLayoutRuntimeArea({
     schedulerRef.current?.requestFrame();
   }, [nativeViewsOccluded]);
   useEffect(() => {
-    runtime.presentation.setMasterVoiceShortcut(masterVoiceShortcut);
+    runtime.presentation.setMasterVoiceShortcut(masterVoice);
+    runtime.presentation.setWorkspaceNavigationShortcut(workspaceNavigation);
+    runtime.presentation.setWorkspaceRowsEnabled(workspaceRowsEnabled);
     schedulerRef.current?.requestFrame();
-  }, [masterVoiceShortcut, runtime]);
+  }, [masterVoice, runtime, workspaceNavigation, workspaceRowsEnabled]);
   usePresentationHostPool({ hostPoolSize, hostRefs, rootRef, runtime, schedulerRef, stageRef });
   const openOverviewGhostPane = useCallback(
     (target: OverviewGhostTarget) => {
@@ -363,11 +368,13 @@ function WorkspaceLayoutRuntimeArea({
         : handleWorkspaceKeyDown({
             event,
             persistLayout,
+            platform,
             runLayoutAction,
             runtime,
             scheduler,
             shortcuts: shortcuts ?? undefined,
             viewportProvider: stageViewport,
+            workspaceRowsEnabled,
           });
     const handleWheel = (event: WheelEvent) => {
       if (shellOverlayActiveRef.current) {
@@ -400,6 +407,7 @@ function WorkspaceLayoutRuntimeArea({
         stage,
         state: trackpadNavigationRef.current,
         viewportProvider: stageViewport,
+        workspaceRowsEnabled,
       });
     };
     const handleClick = (event: MouseEvent) => {
@@ -418,6 +426,7 @@ function WorkspaceLayoutRuntimeArea({
         runtime,
         scheduler,
         viewportProvider: stageViewport,
+        workspaceRowsEnabled,
       });
     };
     const syncOverviewInsertPreview = (event: PointerEvent) => {
@@ -430,7 +439,12 @@ function WorkspaceLayoutRuntimeArea({
       // The ghost is an overlay only: panes do not reflow until the user clicks.
       const frozen = overviewGhostTargetRef.current ? overviewInsertPreviewFramesRef.current : null;
       const frames = frozen ?? captureOverviewPaneFrames(stage);
-      const target = overviewGhostTargetFromFrames(frames, event.clientX, event.clientY);
+      const target = overviewGhostTargetFromFrames(
+        frames,
+        event.clientX,
+        event.clientY,
+        workspaceRowsEnabled,
+      );
       if (!target) {
         clearOverviewInsertPreview();
         return;
@@ -511,6 +525,7 @@ function WorkspaceLayoutRuntimeArea({
         overviewSession.sourcePaneId,
         runtime.store,
         overviewSession.hostRects,
+        workspaceRowsEnabled,
       );
       syncPaneDropTarget(root, target);
       clearOverviewInsertPreview();
@@ -551,7 +566,7 @@ function WorkspaceLayoutRuntimeArea({
       });
     };
     const beginPaneDrag = (event: PointerEvent): boolean => {
-      const paneDragSession = beginPaneDragSession(event, root);
+      const paneDragSession = beginPaneDragSession(event, root, workspaceRowsEnabled);
       if (!paneDragSession) {
         return false;
       }
@@ -800,11 +815,13 @@ function WorkspaceLayoutRuntimeArea({
         handleForwardedBrowserViewKey({
           event,
           persistLayout,
+          platform,
           runLayoutAction,
           runtime,
           scheduler,
           shortcuts: shortcuts ?? undefined,
           viewportProvider: stageViewport,
+          workspaceRowsEnabled,
         });
       }) ?? (() => {});
     window.addEventListener("keydown", handleKeyDown);
@@ -844,11 +861,13 @@ function WorkspaceLayoutRuntimeArea({
   }, [
     clearOverviewInsertPreview,
     persistLayout,
+    platform,
     runLayoutAction,
     runtime,
     setOverviewGhostTarget,
     shortcuts,
     stageViewport,
+    workspaceRowsEnabled,
   ]);
   useEffect(() => {
     runtime.presentation.setDebugOverlay(showPerformanceStats ? debugRef.current : null);
@@ -881,6 +900,7 @@ function WorkspaceLayoutRuntimeArea({
       data-presentation-mode={layoutSnapshot.presentationMode}
       data-workspace-mode={runtime.mode}
       data-workspace-id={runtime.scene.id}
+      data-workspace-rows-enabled={workspaceRowsEnabled}
       data-testid="workspace-layout-area"
       ref={rootRef}
     >
@@ -940,6 +960,7 @@ function WorkspaceLayoutRuntimeArea({
         runLayoutAction={runLayoutAction}
         runtime={runtime}
         stageViewport={stageViewport}
+        workspaceRowsEnabled={workspaceRowsEnabled}
       />
     </section>
   );

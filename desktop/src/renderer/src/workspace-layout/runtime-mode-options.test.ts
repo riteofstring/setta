@@ -20,9 +20,9 @@ describe("workspace runtime mode options", () => {
     });
   });
 
-  test("syncs all rendered workspace pane content during movement", () => {
+  test("defers rendered workspace pane content sync during movement", () => {
     expect(presentationOptionsForRuntime("workspace")).toStrictEqual({
-      syncAllRenderedContentDuringMovement: true,
+      syncAllRenderedContentDuringMovement: false,
     });
   });
 
@@ -52,12 +52,12 @@ describe("workspace runtime mode options", () => {
     });
   });
 
-  test("keeps real workspace panes live during movement and overview", () => {
+  test("freezes real workspace panes during movement, resize, and overview", () => {
     expect(runtimePolicyOptionsForRuntime("workspace")).toStrictEqual({
-      degradeDuringMovement: false,
-      degradeDuringResize: false,
-      degradeOverview: false,
-      degradeOverviewDuringResize: false,
+      degradeDuringMovement: true,
+      degradeDuringResize: true,
+      degradeOverview: true,
+      degradeOverviewDuringResize: true,
     });
   });
 

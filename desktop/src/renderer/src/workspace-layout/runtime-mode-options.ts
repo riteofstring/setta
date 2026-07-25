@@ -18,7 +18,7 @@ export type WorkspaceSceneMode = "benchmark" | "workspace";
 
 const syncAllRenderedContentDuringMovementByMode = {
   benchmark: false,
-  workspace: true,
+  workspace: false,
 } satisfies Record<WorkspaceSceneMode, boolean>;
 const runtimePolicyOptionsByMode = {
   benchmark: {
@@ -28,10 +28,10 @@ const runtimePolicyOptionsByMode = {
     degradeOverviewDuringResize: true,
   },
   workspace: {
-    degradeDuringMovement: false,
-    degradeDuringResize: false,
-    degradeOverview: false,
-    degradeOverviewDuringResize: false,
+    degradeDuringMovement: true,
+    degradeDuringResize: true,
+    degradeOverview: true,
+    degradeOverviewDuringResize: true,
   },
 } satisfies Record<
   WorkspaceSceneMode,

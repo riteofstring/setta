@@ -1,4 +1,7 @@
-import type { AppearanceMasterVoiceShortcut } from "@generated/backend";
+import type {
+  AppearanceMasterVoiceShortcut,
+  AppearanceWorkspaceNavigationShortcut,
+} from "@generated/backend";
 import type { WorkspaceMetricsCollector } from "./metrics";
 import type { NativeViewBoundsBatcher } from "./native-view-bounds-batcher";
 import {
@@ -145,6 +148,14 @@ export class PresentationEngine {
 
   setMasterVoiceShortcut(shortcut: AppearanceMasterVoiceShortcut): void {
     this.nativeViewBoundsBatcher?.setMasterVoiceShortcut(shortcut);
+  }
+
+  setWorkspaceNavigationShortcut(shortcut: AppearanceWorkspaceNavigationShortcut): void {
+    this.nativeViewBoundsBatcher?.setWorkspaceNavigationShortcut(shortcut);
+  }
+
+  setWorkspaceRowsEnabled(enabled: boolean): void {
+    this.nativeViewBoundsBatcher?.setWorkspaceRowsEnabled(enabled);
   }
 
   setDropPreviewOverlay(dropPreviewOverlay: HTMLElement | null): void {

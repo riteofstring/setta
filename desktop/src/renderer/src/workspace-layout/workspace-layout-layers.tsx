@@ -88,6 +88,7 @@ export function WorkspaceMobileControlsLayer({
   runLayoutAction,
   runtime,
   stageViewport,
+  workspaceRowsEnabled,
 }: {
   dismissProjectPaneOverlay: () => void;
   mobileLayout: boolean;
@@ -99,6 +100,7 @@ export function WorkspaceMobileControlsLayer({
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   stageViewport: () => Rect;
+  workspaceRowsEnabled: boolean;
 }) {
   if (runtime.mode !== "workspace" || !mobileLayout) {
     return null;
@@ -125,6 +127,7 @@ export function WorkspaceMobileControlsLayer({
       onToggleProjectPane={onToggleProjectPane}
       overviewActive={overviewActive}
       projectPaneOpen={projectPaneOpen}
+      workspaceRowsEnabled={workspaceRowsEnabled}
     />
   );
 }

@@ -1,8 +1,14 @@
 import { BrowserWindow, View, WebContentsView } from "electron";
 import type { IpcMainEvent, Rectangle } from "electron";
 
-import { decodeAppearanceMasterVoiceShortcut } from "@generated/backend";
-import type { AppearanceMasterVoiceShortcut } from "@generated/backend";
+import {
+  decodeAppearanceMasterVoiceShortcut,
+  decodeAppearanceWorkspaceNavigationShortcut,
+} from "@generated/backend";
+import type {
+  AppearanceMasterVoiceShortcut,
+  AppearanceWorkspaceNavigationShortcut,
+} from "@generated/backend";
 import { ipcEvents } from "@shared/ipc";
 import { workspaceBrowserViewKeyValues } from "@shared/types";
 import type {
@@ -87,7 +93,7 @@ interface BeforeInput {
 type BeforeInputListener = (event: BeforeInputEvent, input: BeforeInput) => void;
 type LoadFinishedListener = () => void;
 
-interface MasterVoiceModifierPattern {
+interface ShortcutModifierPattern {
   alt: boolean;
   control: boolean;
   meta: boolean;
@@ -114,6 +120,8 @@ interface BrowserViewRecord {
   view: NativeBrowserView;
   visible: boolean;
   workspaceId: string;
+  workspaceNavigationShortcut: AppearanceWorkspaceNavigationShortcut;
+  workspaceRowsEnabled: boolean;
 }
 
 interface WebContentsViewRegistryDependencies {
@@ -136,7 +144,7 @@ export class WebContentsViewRegistry {
     this.stats.totalBrowserPanes = batch.totalBrowserPanes;
     this.stats.visibleBrowserPanes = batch.visibleBrowserPanes;
     this.stats.workspaceId = batch.workspaceId;
-    this.syncWorkspaceMasterVoiceShortcut(batch.workspaceId, batch.masterVoiceShortcut);
+    this.syncWorkspaceShortcuts(batch);
 
     for (const update of batch.updates) {
       if (update.runtimeState === "destroyed") {
@@ -147,7 +155,7 @@ export class WebContentsViewRegistry {
         this.hideRecord(update.surfaceId);
         continue;
       }
-      this.upsertLiveRecord(ownerWindow, batch.workspaceId, batch.masterVoiceShortcut, update);
+      this.upsertLiveRecord(ownerWindow, batch, update);
     }
 
     this.routeFocus(ownerWindow, batch.focusedSurfaceId);
@@ -190,8 +198,7 @@ export class WebContentsViewRegistry {
 
   private createRecord(
     ownerWindow: OwnerWindow,
-    workspaceId: string,
-    masterVoiceShortcut: AppearanceMasterVoiceShortcut,
+    batch: WorkspaceBrowserViewBatch,
     update: WorkspaceBrowserViewUpdate,
   ): BrowserViewRecord {
     const clipView = this.dependencies.createClipView();
@@ -207,6 +214,8 @@ export class WebContentsViewRegistry {
         activeRecord.surfaceId,
         activeRecord.workspaceId,
         activeRecord.masterVoiceShortcut,
+        activeRecord.workspaceNavigationShortcut,
+        activeRecord.workspaceRowsEnabled,
       );
       if (!keyEvent) {
         return;
@@ -233,7 +242,7 @@ export class WebContentsViewRegistry {
       listener,
       loadFinishedListener,
       loadingURL: null,
-      masterVoiceShortcut,
+      masterVoiceShortcut: batch.masterVoiceShortcut,
       parent: ownerWindow.contentView,
       paneId: update.paneId,
       pendingSnapshotKey: null,
@@ -243,7 +252,9 @@ export class WebContentsViewRegistry {
       url: update.url,
       view,
       visible: true,
-      workspaceId,
+      workspaceId: batch.workspaceId,
+      workspaceNavigationShortcut: batch.workspaceNavigationShortcut,
+      workspaceRowsEnabled: batch.workspaceRowsEnabled,
     } satisfies BrowserViewRecord;
     recordHolder.record = record;
     view.webContents.on("before-input-event", listener);
@@ -362,26 +373,23 @@ export class WebContentsViewRegistry {
     }
   }
 
-  private syncWorkspaceMasterVoiceShortcut(
-    workspaceId: string,
-    shortcut: AppearanceMasterVoiceShortcut,
-  ): void {
+  private syncWorkspaceShortcuts(batch: WorkspaceBrowserViewBatch): void {
     for (const record of this.records.values()) {
-      if (record.workspaceId === workspaceId) {
-        record.masterVoiceShortcut = shortcut;
+      if (record.workspaceId === batch.workspaceId) {
+        record.masterVoiceShortcut = batch.masterVoiceShortcut;
+        record.workspaceNavigationShortcut = batch.workspaceNavigationShortcut;
+        record.workspaceRowsEnabled = batch.workspaceRowsEnabled;
       }
     }
   }
 
   private upsertLiveRecord(
     ownerWindow: OwnerWindow,
-    workspaceId: string,
-    masterVoiceShortcut: AppearanceMasterVoiceShortcut,
+    batch: WorkspaceBrowserViewBatch,
     update: WorkspaceBrowserViewUpdate,
   ): void {
     const existing = this.records.get(update.surfaceId);
-    const record =
-      existing ?? this.createRecord(ownerWindow, workspaceId, masterVoiceShortcut, update);
+    const record = existing ?? this.createRecord(ownerWindow, batch, update);
     if (!existing) {
       this.records.set(update.surfaceId, record);
     }
@@ -391,8 +399,10 @@ export class WebContentsViewRegistry {
     }
     record.paneId = update.paneId;
     record.title = update.title;
-    record.workspaceId = workspaceId;
-    record.masterVoiceShortcut = masterVoiceShortcut;
+    record.workspaceId = batch.workspaceId;
+    record.masterVoiceShortcut = batch.masterVoiceShortcut;
+    record.workspaceNavigationShortcut = batch.workspaceNavigationShortcut;
+    record.workspaceRowsEnabled = batch.workspaceRowsEnabled;
     record.visible = true;
     record.clipView.setVisible(true);
     record.view.setVisible(true);
@@ -684,6 +694,11 @@ function decodeBatch(value: unknown): WorkspaceBrowserViewBatch {
       record.masterVoiceShortcut,
       "WorkspaceBrowserViewBatch.masterVoiceShortcut",
     ),
+    workspaceNavigationShortcut: decodeAppearanceWorkspaceNavigationShortcut(
+      record.workspaceNavigationShortcut,
+      "WorkspaceBrowserViewBatch.workspaceNavigationShortcut",
+    ),
+    workspaceRowsEnabled: booleanField(record, "workspaceRowsEnabled", "WorkspaceBrowserViewBatch"),
     totalBrowserPanes: finiteNumberField(record, "totalBrowserPanes", "WorkspaceBrowserViewBatch"),
     updates: updatesValue.map(decodeUpdate),
     visibleBrowserPanes: finiteNumberField(
@@ -775,14 +790,23 @@ function workspaceBrowserViewKeyEventFromInput(
   surfaceId: string,
   workspaceId: string,
   masterVoiceShortcut: AppearanceMasterVoiceShortcut,
+  workspaceNavigationShortcut: AppearanceWorkspaceNavigationShortcut,
+  workspaceRowsEnabled: boolean,
 ): WorkspaceBrowserViewKeyEvent | null {
   if (input.type !== "keyDown") {
     return null;
   }
   const key = normalizeBrowserViewInputKey(input.key);
   const ctrlKey = input.control ?? false;
-  const workspaceModifier = input.alt && (input.meta || ctrlKey);
-  if (!shouldForwardWorkspaceBrowserViewKey(input, key, workspaceModifier, masterVoiceShortcut)) {
+  if (
+    !shouldForwardWorkspaceBrowserViewKey(
+      input,
+      key,
+      masterVoiceShortcut,
+      workspaceNavigationShortcut,
+      workspaceRowsEnabled,
+    )
+  ) {
     return null;
   }
   return {
@@ -799,19 +823,45 @@ function workspaceBrowserViewKeyEventFromInput(
 function shouldForwardWorkspaceBrowserViewKey(
   input: BeforeInput,
   key: string,
-  workspaceModifier: boolean,
   masterVoiceShortcut: AppearanceMasterVoiceShortcut,
+  workspaceNavigationShortcut: AppearanceWorkspaceNavigationShortcut,
+  workspaceRowsEnabled: boolean,
 ): key is WorkspaceBrowserViewKey {
   if (isArrowKey(key)) {
-    return workspaceModifier;
+    if (!workspaceRowsEnabled && (key === "ArrowDown" || key === "ArrowUp")) {
+      return false;
+    }
+    return shortcutModifierMatches(
+      input,
+      workspaceNavigationModifierPattern(workspaceNavigationShortcut),
+    );
   }
-  if (key === "Enter" && workspaceModifier) {
-    return true;
+  if (key === "Enter") {
+    return input.meta && !input.alt && !input.control;
   }
   if (key === "k") {
     return shouldForwardMasterKeyShortcut(input, masterVoiceShortcut);
   }
   return input.meta && isBrowserViewCommandKey(key);
+}
+
+function workspaceNavigationModifierPattern(
+  shortcut: AppearanceWorkspaceNavigationShortcut,
+): ShortcutModifierPattern {
+  const primary =
+    process.platform === "darwin" ? { control: false, meta: true } : { control: true, meta: false };
+  switch (shortcut) {
+    case "mod_arrows":
+      return { ...primary, alt: false };
+    case "ctrl_arrows":
+      return { alt: false, control: true, meta: false };
+    case "mod_alt_arrows":
+      return { ...primary, alt: true };
+    case "ctrl_alt_arrows":
+      return { alt: true, control: true, meta: false };
+    default:
+      return assertNever(shortcut);
+  }
 }
 
 function shouldForwardMasterKeyShortcut(
@@ -833,12 +883,12 @@ function isConfiguredMasterVoiceShortcutInput(
   shortcut: AppearanceMasterVoiceShortcut,
 ): boolean {
   const pattern = masterVoiceModifierPattern(shortcut);
-  return input.shift && masterVoiceModifierMatches(input, pattern);
+  return input.shift && shortcutModifierMatches(input, pattern);
 }
 
 function masterVoiceModifierPattern(
   shortcut: AppearanceMasterVoiceShortcut,
-): MasterVoiceModifierPattern {
+): ShortcutModifierPattern {
   switch (shortcut) {
     case "mod_shift_k":
       return process.platform === "darwin"
@@ -853,10 +903,7 @@ function masterVoiceModifierPattern(
   }
 }
 
-function masterVoiceModifierMatches(
-  input: BeforeInput,
-  pattern: MasterVoiceModifierPattern,
-): boolean {
+function shortcutModifierMatches(input: BeforeInput, pattern: ShortcutModifierPattern): boolean {
   return (
     input.alt === pattern.alt &&
     Boolean(input.control) === pattern.control &&

@@ -70,6 +70,15 @@
   margin-left: auto;
 }
 
+.workspace-layout-area[data-workspace-rows-enabled="false"]
+  :is(
+    .workspace-pane-action-split-down,
+    .workspace-pane-action-add-above,
+    .workspace-pane-action-add-below
+  ) {
+  display: none;
+}
+
 /* Mobile-width layout pages between full-screen panes; pane management moves
    to the bottom control bar, so the per-pane action buttons disappear, the
    reorder grip makes no sense outside overview, and the bar grows into an

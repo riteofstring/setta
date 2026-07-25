@@ -33,6 +33,7 @@ export function WorkspaceMobileControls({
   onToggleProjectPane,
   overviewActive,
   projectPaneOpen,
+  workspaceRowsEnabled,
 }: {
   moveFocus: (direction: PaneDirection) => void;
   onNewPane: () => void;
@@ -41,6 +42,7 @@ export function WorkspaceMobileControls({
   onToggleProjectPane: () => void;
   overviewActive: boolean;
   projectPaneOpen: boolean;
+  workspaceRowsEnabled: boolean;
 }) {
   const ProjectPaneIcon = projectPaneOpen ? PanelLeftClose : PanelLeftOpen;
   const OverviewIcon = overviewActive ? ZoomIn : ZoomOut;
@@ -51,16 +53,21 @@ export function WorkspaceMobileControls({
       data-testid="workspace-mobile-bar"
     >
       <div aria-label="Move pane focus" className="workspace-mobile-dpad" role="group">
-        {directionPadButtons.map(({ direction, Icon, label }) => (
-          <WorkspaceMobileButton
-            key={direction}
-            label={label}
-            onClick={() => moveFocus(direction)}
-            testId={`workspace-mobile-focus-${direction}`}
-          >
-            <Icon className="h-4 w-4" />
-          </WorkspaceMobileButton>
-        ))}
+        {directionPadButtons
+          .filter(
+            ({ direction }) =>
+              workspaceRowsEnabled || direction === "left" || direction === "right",
+          )
+          .map(({ direction, Icon, label }) => (
+            <WorkspaceMobileButton
+              key={direction}
+              label={label}
+              onClick={() => moveFocus(direction)}
+              testId={`workspace-mobile-focus-${direction}`}
+            >
+              <Icon className="h-4 w-4" />
+            </WorkspaceMobileButton>
+          ))}
       </div>
       <div className="workspace-mobile-actions">
         <WorkspaceMobileButton

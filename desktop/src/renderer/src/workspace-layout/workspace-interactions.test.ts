@@ -34,9 +34,9 @@ describe("workspace keyboard interactions", () => {
     expect(context.persistLayout).not.toHaveBeenCalled();
   });
 
-  test("moves focus with Mod+Alt+Arrow", () => {
+  test("moves focus with Mod+Arrow", () => {
     const context = workspaceKeyContext();
-    const event = keyboardEvent({ altKey: true, key: "ArrowRight", metaKey: true });
+    const event = keyboardEvent({ key: "ArrowRight", metaKey: true });
 
     handleWorkspaceKeyDown({ ...context, event });
 
@@ -46,11 +46,11 @@ describe("workspace keyboard interactions", () => {
     expect(context.persistLayout).toHaveBeenCalledOnce();
   });
 
-  test("moves focus with Ctrl+Alt+Arrow when that preset is active", () => {
+  test("moves focus with Ctrl+Arrow when that preset is active", () => {
     const context = workspaceKeyContext({
-      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_alt_arrows" },
+      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_arrows" },
     });
-    const event = keyboardEvent({ altKey: true, ctrlKey: true, key: "ArrowRight" });
+    const event = keyboardEvent({ ctrlKey: true, key: "ArrowRight" });
 
     handleWorkspaceKeyDown({ ...context, event });
 
@@ -58,11 +58,11 @@ describe("workspace keyboard interactions", () => {
     expect(context.runtime.store.moveFocus).toHaveBeenCalledWith("right", context.viewport);
   });
 
-  test("ignores Mod+Alt+Arrow when Ctrl+Alt+Arrow is active", () => {
+  test("ignores Mod+Arrow when Ctrl+Arrow is active", () => {
     const context = workspaceKeyContext({
-      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_alt_arrows" },
+      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_arrows" },
     });
-    const event = keyboardEvent({ altKey: true, key: "ArrowRight", metaKey: true });
+    const event = keyboardEvent({ key: "ArrowRight", metaKey: true });
 
     handleWorkspaceKeyDown({ ...context, event });
 
@@ -70,10 +70,9 @@ describe("workspace keyboard interactions", () => {
     expect(context.runtime.store.moveFocus).not.toHaveBeenCalled();
   });
 
-  test("moves the focused pane with Mod+Alt+Shift+Arrow", () => {
+  test("moves the focused pane with Mod+Shift+Arrow", () => {
     const context = workspaceKeyContext();
     const event = keyboardEvent({
-      altKey: true,
       key: "ArrowLeft",
       metaKey: true,
       shiftKey: true,
@@ -86,44 +85,35 @@ describe("workspace keyboard interactions", () => {
     expect(context.runtime.store.moveFocus).not.toHaveBeenCalled();
   });
 
-  test("uses Mod+Alt+Enter for plane splits", () => {
+  test("uses Mod+Enter for pane splits", () => {
     const context = workspaceKeyContext();
-    const event = keyboardEvent({ altKey: true, key: "Enter", metaKey: true });
+    const event = keyboardEvent({ key: "Enter", metaKey: true });
 
     handleWorkspaceKeyDown({ ...context, event });
 
     expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(context.runtime.store.splitFocusedPaneToPlane).toHaveBeenCalledWith("down");
-    expect(context.runtime.store.splitFocusedPane).not.toHaveBeenCalled();
+    expect(context.runtime.store.splitFocusedPane).toHaveBeenCalledWith("right");
+    expect(context.runtime.store.splitFocusedPaneToPlane).not.toHaveBeenCalled();
   });
 
-  test("uses Ctrl+Alt+Enter for plane splits when that preset is active", () => {
-    const context = workspaceKeyContext({
-      shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_alt_arrows" },
-    });
-    const event = keyboardEvent({ altKey: true, ctrlKey: true, key: "Enter" });
+  test("leaves vertical arrows unused while workspace rows are disabled", () => {
+    const context = workspaceKeyContext();
+    const event = keyboardEvent({ key: "ArrowUp", metaKey: true });
 
     handleWorkspaceKeyDown({ ...context, event });
 
-    expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(context.runtime.store.splitFocusedPaneToPlane).toHaveBeenCalledWith("down");
-    expect(context.runtime.store.splitFocusedPane).not.toHaveBeenCalled();
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(context.runtime.store.moveFocus).not.toHaveBeenCalled();
   });
 
-  test("uses Mod+Alt+Shift+Enter for upward plane splits", () => {
-    const context = workspaceKeyContext();
-    const event = keyboardEvent({
-      altKey: true,
-      key: "Enter",
-      metaKey: true,
-      shiftKey: true,
-    });
+  test("restores vertical navigation when workspace rows are enabled", () => {
+    const context = workspaceKeyContext({ workspaceRowsEnabled: true });
+    const event = keyboardEvent({ key: "ArrowUp", metaKey: true });
 
     handleWorkspaceKeyDown({ ...context, event });
 
     expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(context.runtime.store.splitFocusedPaneToPlane).toHaveBeenCalledWith("up");
-    expect(context.runtime.store.splitFocusedPane).not.toHaveBeenCalled();
+    expect(context.runtime.store.moveFocus).toHaveBeenCalledWith("up", context.viewport);
   });
 
   test("opens a browser pane with Mod+Alt+B", () => {
@@ -158,6 +148,7 @@ describe("workspace keyboard interactions", () => {
   test("uses active shortcut settings for forwarded BrowserView arrows", () => {
     const context = workspaceKeyContext({
       shortcuts: { masterVoice: "mod_shift_k", workspaceNavigation: "ctrl_alt_arrows" },
+      workspaceRowsEnabled: true,
     });
 
     handleForwardedBrowserViewKey({
@@ -384,6 +375,7 @@ function overviewWheelContext() {
     state: createWorkspaceTrackpadNavigationState(),
     viewport,
     viewportProvider: () => viewport,
+    workspaceRowsEnabled: false,
   };
 }
 
@@ -433,6 +425,7 @@ function workspaceClickContext({
     retargetedControlClick,
     viewport,
     viewportProvider: () => viewport,
+    workspaceRowsEnabled: false,
   };
 }
 
@@ -517,9 +510,11 @@ function pointerEvent({
 }
 
 function workspaceKeyContext({
-  shortcuts = { masterVoice: "mod_shift_k", workspaceNavigation: "mod_alt_arrows" },
+  shortcuts = { masterVoice: "mod_shift_k", workspaceNavigation: "mod_arrows" },
+  workspaceRowsEnabled = false,
 }: {
   shortcuts?: AppearanceShortcutsSettings;
+  workspaceRowsEnabled?: boolean;
 } = {}) {
   const viewport: Rect = { height: 900, width: 1200, x: 0, y: 0 };
   const store = {
@@ -535,12 +530,14 @@ function workspaceKeyContext({
   return {
     event: keyboardEvent({ key: "Escape" }),
     persistLayout: vi.fn(),
+    platform: "darwin" as const,
     runLayoutAction: (action: () => void) => action(),
     runtime,
     scheduler,
     shortcuts,
     viewport,
     viewportProvider: () => viewport,
+    workspaceRowsEnabled,
   };
 }
 

@@ -1,5 +1,5 @@
-import type { WorkspaceBrowserViewKeyEvent } from "@shared/types";
 import type { AppearanceShortcutsSettings } from "@generated/backend";
+import type { DesktopPlatform, WorkspaceBrowserViewKeyEvent } from "@shared/types";
 
 import type { FrameScheduler } from "./frame-scheduler";
 import type { WorkspaceRuntime } from "./workspace-runtime";
@@ -19,11 +19,7 @@ import {
   workspaceWheelNavigationTargetFromEventTarget,
 } from "./trackpad-navigation";
 import type { createWorkspaceTrackpadNavigationState } from "./trackpad-navigation";
-import {
-  isWorkspaceArrowNavigationShortcut,
-  workspaceShortcutModifierMatches,
-  workspaceArrowDirection,
-} from "./workspace-shortcuts";
+import { isWorkspaceArrowNavigationShortcut, workspaceArrowDirection } from "./workspace-shortcuts";
 import type { Rect, SurfacePaneCloseResult } from "./types";
 
 type PaneChromeAction = "add-above" | "add-below" | "close" | "maximize" | "split-down";
@@ -34,12 +30,14 @@ export function handleWorkspaceClick({
   runtime,
   scheduler,
   viewportProvider,
+  workspaceRowsEnabled,
 }: {
   event: MouseEvent;
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
   viewportProvider: () => Rect;
+  workspaceRowsEnabled: boolean;
 }): void {
   if (runtime.mode !== "workspace" || !(event.target instanceof Element)) {
     return;
@@ -54,6 +52,7 @@ export function handleWorkspaceClick({
       runtime,
       scheduler,
       viewportProvider,
+      workspaceRowsEnabled,
     })
   ) {
     return;
@@ -163,12 +162,14 @@ function handlePaneChromeActionClick({
   runtime,
   scheduler,
   viewportProvider,
+  workspaceRowsEnabled,
 }: {
   event: MouseEvent;
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
   viewportProvider: () => Rect;
+  workspaceRowsEnabled: boolean;
 }): boolean {
   if (!(event.target instanceof Element)) {
     return false;
@@ -182,7 +183,14 @@ function handlePaneChromeActionClick({
   event.preventDefault();
   event.stopPropagation();
   scheduler.pauseBenchmark();
-  runPaneChromeAction({ action, paneId, runLayoutAction, runtime, viewportProvider });
+  runPaneChromeAction({
+    action,
+    paneId,
+    runLayoutAction,
+    runtime,
+    viewportProvider,
+    workspaceRowsEnabled,
+  });
   return true;
 }
 
@@ -212,13 +220,18 @@ function runPaneChromeAction({
   runLayoutAction,
   runtime,
   viewportProvider,
+  workspaceRowsEnabled,
 }: {
   action: PaneChromeAction;
   paneId: string;
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   viewportProvider: () => Rect;
+  workspaceRowsEnabled: boolean;
 }): void {
+  if (!workspaceRowsEnabled && isVerticalPaneChromeAction(action)) {
+    return;
+  }
   switch (action) {
     case "add-above":
       runLayoutAction(() => {
@@ -261,6 +274,10 @@ function runPaneChromeAction({
   }
 }
 
+function isVerticalPaneChromeAction(action: PaneChromeAction): boolean {
+  return action === "add-above" || action === "add-below" || action === "split-down";
+}
+
 function handlePaneChromeFocusClick({
   event,
   runLayoutAction,
@@ -297,28 +314,34 @@ function handlePaneChromeFocusClick({
 export function handleWorkspaceKeyDown({
   event,
   persistLayout,
+  platform,
   runLayoutAction,
   runtime,
   scheduler,
   shortcuts,
   viewportProvider,
+  workspaceRowsEnabled,
 }: {
   event: KeyboardEvent;
   persistLayout: () => void;
+  platform: DesktopPlatform;
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
   shortcuts?: AppearanceShortcutsSettings;
   viewportProvider: () => Rect;
+  workspaceRowsEnabled: boolean;
 }): void {
   handleWorkspaceKeyAction({
     event,
     persistLayout,
+    platform,
     runLayoutAction,
     runtime,
     scheduler,
     shortcuts,
     viewportProvider,
+    workspaceRowsEnabled,
   });
 }
 
@@ -334,19 +357,23 @@ interface WorkspaceKeyEvent {
 export function handleForwardedBrowserViewKey({
   event,
   persistLayout,
+  platform,
   runLayoutAction,
   runtime,
   scheduler,
   shortcuts,
   viewportProvider,
+  workspaceRowsEnabled,
 }: {
   event: WorkspaceBrowserViewKeyEvent;
   persistLayout: () => void;
+  platform: DesktopPlatform;
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
   shortcuts?: AppearanceShortcutsSettings;
   viewportProvider: () => Rect;
+  workspaceRowsEnabled: boolean;
 }): void {
   handleWorkspaceKeyAction({
     event: {
@@ -358,36 +385,42 @@ export function handleForwardedBrowserViewKey({
       shiftKey: event.shiftKey,
     },
     persistLayout,
+    platform,
     runLayoutAction,
     runtime,
     scheduler,
     shortcuts,
     viewportProvider,
+    workspaceRowsEnabled,
   });
 }
 
 function handleWorkspaceKeyAction({
   event,
   persistLayout,
+  platform,
   runLayoutAction,
   runtime,
   scheduler,
   shortcuts,
   viewportProvider,
+  workspaceRowsEnabled,
 }: {
   event: WorkspaceKeyEvent;
   persistLayout: () => void;
+  platform: DesktopPlatform;
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   scheduler: FrameScheduler;
   shortcuts?: AppearanceShortcutsSettings;
   viewportProvider: () => Rect;
+  workspaceRowsEnabled: boolean;
 }): void {
   if (!isArrowKey(event.key)) {
     handleWorkspaceCommandKey({ event, runLayoutAction, runtime, shortcuts });
     return;
   }
-  if (!isWorkspaceArrowNavigationShortcut(event, shortcuts)) {
+  if (!isWorkspaceArrowNavigationShortcut(event, platform, workspaceRowsEnabled, shortcuts)) {
     return;
   }
   event.preventDefault();
@@ -413,7 +446,6 @@ function handleWorkspaceCommandKey({
 }): void {
   const handlers = [
     handleNewEmptyFrameCommand,
-    handleSplitFocusedPaneToPlaneCommand,
     handleSplitFocusedPaneCommand,
     handleOpenPaneShortcutCommand,
     handleToggleOverviewCommand,
@@ -455,21 +487,7 @@ const handleSplitFocusedPaneCommand: WorkspaceCommandHandler = ({
     return false;
   }
   event.preventDefault();
-  runLayoutAction(() => runtime.store.splitFocusedPane(event.shiftKey ? "down" : "right"));
-  return true;
-};
-
-const handleSplitFocusedPaneToPlaneCommand: WorkspaceCommandHandler = ({
-  event,
-  runLayoutAction,
-  runtime,
-  shortcuts,
-}) => {
-  if (event.key !== "Enter" || !workspaceShortcutModifierMatches(event, shortcuts)) {
-    return false;
-  }
-  event.preventDefault();
-  runLayoutAction(() => runtime.store.splitFocusedPaneToPlane(event.shiftKey ? "up" : "down"));
+  runLayoutAction(() => runtime.store.splitFocusedPane("right"));
   return true;
 };
 
@@ -582,6 +600,7 @@ export function handleWorkspaceWheel({
   stage,
   state,
   viewportProvider,
+  workspaceRowsEnabled,
 }: {
   event: WheelEvent;
   persistLayout: () => void;
@@ -593,6 +612,7 @@ export function handleWorkspaceWheel({
   stage: HTMLElement;
   state: ReturnType<typeof createWorkspaceTrackpadNavigationState>;
   viewportProvider: () => Rect;
+  workspaceRowsEnabled: boolean;
 }): void {
   const presentationMode = runtime.store.getSnapshot().presentationMode;
   if (presentationMode === "overview") {
@@ -618,14 +638,18 @@ export function handleWorkspaceWheel({
     return;
   }
 
-  event.preventDefault();
-  event.stopPropagation();
-  if (result.directions.length === 0) {
+  const directions = workspaceRowsEnabled
+    ? result.directions
+    : result.directions.filter((direction) => direction === "left" || direction === "right");
+  if (directions.length === 0) {
     return;
   }
 
+  event.preventDefault();
+  event.stopPropagation();
+
   scheduler.pauseBenchmark();
-  for (const direction of result.directions) {
+  for (const direction of directions) {
     if (
       navigationTarget.paneId &&
       presentationMode === "normal" &&
