@@ -430,7 +430,7 @@ func waitForRuntimeLiveConversationRoute(
 		baseURL,
 		"/conversations/inputs/state/wait",
 		httpapi.ReadConversationInputRoutingStateRequest{
-			WorkspaceID:    workspaceID,
+			WorkspaceID:    &workspaceID,
 			ConversationID: conversationID,
 			InputID:        accepted.Input.ID,
 		},

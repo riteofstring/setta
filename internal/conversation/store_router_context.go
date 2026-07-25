@@ -332,6 +332,16 @@ func readConversationRouterAllowedDecisionKinds(
 	narrator NarratorContextSource,
 	forkPoints []ConversationRouterForkPoint,
 ) ([]ConversationRouteDecisionKind, error) {
+	if narrator.Conversation.WorkspaceID == nil {
+		allowed := []ConversationRouteDecisionKind{
+			ConversationRouteDecisionKindSendToParent,
+			ConversationRouteDecisionKindAnswerAsNarrator,
+		}
+		if work.ClarificationReply == nil {
+			allowed = append(allowed, ConversationRouteDecisionKindClarify)
+		}
+		return allowed, nil
+	}
 	allowed, err := readConversationRouterParentDecisionKinds(ctx, reader, work, narrator)
 	if err != nil {
 		return nil, err

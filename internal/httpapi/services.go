@@ -65,9 +65,14 @@ type ConversationService interface {
 	) (conversation.ConversationPresentationProfile, error)
 	ReadArtifact(context.Context, string, string, string) (conversation.Artifact, error)
 	ReadSnapshot(context.Context, string, string) (conversation.ConversationSnapshot, error)
+	ReadSnapshotByID(context.Context, string) (conversation.ConversationSnapshot, error)
 	SubscribeEvents(
 		conversation.ConversationEventCursor,
 		string,
+		string,
+	) (conversation.ConversationEventSubscription, error)
+	SubscribeEventsByID(
+		conversation.ConversationEventCursor,
 		string,
 	) (conversation.ConversationEventSubscription, error)
 }

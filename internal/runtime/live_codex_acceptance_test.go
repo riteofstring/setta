@@ -724,7 +724,7 @@ func readRuntimeLiveSnapshot(
 		baseURL,
 		"/conversations/snapshot/read",
 		httpapi.ReadConversationSnapshotRequest{
-			WorkspaceID:    workspaceID,
+			WorkspaceID:    &workspaceID,
 			ConversationID: conversationID,
 		},
 		http.StatusOK,

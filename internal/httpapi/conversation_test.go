@@ -24,7 +24,10 @@ func TestReadConversationSnapshotUsesTypedServiceBoundary(t *testing.T) {
 		t,
 		handler,
 		"/conversations/snapshot/read",
-		ReadConversationSnapshotRequest{WorkspaceID: "workspace-api", ConversationID: "conversation-api"},
+		ReadConversationSnapshotRequest{
+			WorkspaceID:    httpTestStringPointer("workspace-api"),
+			ConversationID: "conversation-api",
+		},
 		http.StatusOK,
 	)
 	if response.Conversation.ID != "conversation-api" || response.EventCursor.StreamID != "conversation:conversation-api" {
@@ -341,7 +344,7 @@ func TestReadConversationSnapshotRejectsMissingIdentityBeforeService(t *testing.
 		t,
 		handler,
 		"/conversations/snapshot/read",
-		ReadConversationSnapshotRequest{WorkspaceID: "workspace-api"},
+		ReadConversationSnapshotRequest{WorkspaceID: httpTestStringPointer("workspace-api")},
 		http.StatusBadRequest,
 	)
 	if response.Error.Code != "invalid_conversation_snapshot_request" {
@@ -715,6 +718,15 @@ func (service *httpTestConversationService) ReadSnapshot(
 	return service.snapshot, nil
 }
 
+func (service *httpTestConversationService) ReadSnapshotByID(
+	_ context.Context,
+	conversationID string,
+) (conversation.ConversationSnapshot, error) {
+	service.readWorkspaceID = ""
+	service.readConversationID = conversationID
+	return service.snapshot, nil
+}
+
 func (service *httpTestConversationService) ReadArtifact(
 	_ context.Context,
 	workspaceID string,
@@ -758,6 +770,21 @@ func (service *httpTestConversationService) ListNavigatorPage(
 }
 
 func (service *httpTestConversationService) SubscribeEvents(
+	cursor conversation.ConversationEventCursor,
+	workspaceID string,
+	conversationID string,
+) (conversation.ConversationEventSubscription, error) {
+	return service.subscribeEvents(cursor, workspaceID, conversationID)
+}
+
+func (service *httpTestConversationService) SubscribeEventsByID(
+	cursor conversation.ConversationEventCursor,
+	conversationID string,
+) (conversation.ConversationEventSubscription, error) {
+	return service.subscribeEvents(cursor, "", conversationID)
+}
+
+func (service *httpTestConversationService) subscribeEvents(
 	cursor conversation.ConversationEventCursor,
 	workspaceID string,
 	conversationID string,

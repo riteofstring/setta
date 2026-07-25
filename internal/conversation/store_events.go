@@ -32,13 +32,33 @@ func (store *Store) SubscribeEvents(
 	workspaceID string,
 	conversationID string,
 ) (ConversationEventSubscription, error) {
+	return store.subscribeEvents(cursor, &workspaceID, conversationID)
+}
+
+func (store *Store) SubscribeEventsByID(
+	cursor ConversationEventCursor,
+	conversationID string,
+) (ConversationEventSubscription, error) {
+	return store.subscribeEvents(cursor, nil, conversationID)
+}
+
+func (store *Store) subscribeEvents(
+	cursor ConversationEventCursor,
+	workspaceID *string,
+	conversationID string,
+) (ConversationEventSubscription, error) {
 	if store == nil {
 		return nil, errors.New("conversation store is required")
 	}
 	if err := cursor.Validate(conversationID); err != nil {
 		return nil, err
 	}
-	snapshot, err := store.ReadSnapshot(context.Background(), workspaceID, conversationID)
+	snapshot, err := store.readSnapshot(
+		context.Background(),
+		workspaceID,
+		conversationID,
+		"subscribe conversation events",
+	)
 	if err != nil {
 		return nil, err
 	}

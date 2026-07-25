@@ -107,8 +107,8 @@ type SaveAppPaneLayoutRequest struct {
 }
 
 type ReadConversationSnapshotRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
+	WorkspaceID    *string `json:"workspaceId"`
+	ConversationID string  `json:"conversationId"`
 }
 
 type ReadConversationArtifactRequest struct {
@@ -125,8 +125,8 @@ type ListTopicConversationsRequest struct {
 }
 
 type SubscribeConversationEventsRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
+	WorkspaceID    *string `json:"workspaceId"`
+	ConversationID string  `json:"conversationId"`
 }
 
 type SpeechCredentialRequest struct {

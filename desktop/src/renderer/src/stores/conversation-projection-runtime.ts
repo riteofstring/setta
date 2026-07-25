@@ -23,7 +23,7 @@ let generation = 0;
 let scheduledFlush: ScheduledProjectionFlush | null = null;
 
 export function retainConversationProjection(
-  workspaceId: string,
+  workspaceId: string | null,
   conversationId: string,
 ): () => void {
   const key = projectionKey(workspaceId, conversationId);
@@ -72,11 +72,8 @@ function handleConversationProjectionEvents(events: readonly ConversationEvent[]
   }
   useConversationStore.getState().applyEvents(events);
   useConversationNavigatorStore.getState().applyEvents(events);
-  const affected = new Map<string, { conversationId: string; workspaceId: string }>();
+  const affected = new Map<string, { conversationId: string; workspaceId: string | null }>();
   for (const event of events) {
-    if (event.workspaceId === null) {
-      continue;
-    }
     markRetainedActiveWork(event);
     affected.set(projectionKey(event.workspaceId, event.conversationId), {
       conversationId: event.conversationId,
@@ -93,9 +90,6 @@ function handleConversationProjectionEvents(events: readonly ConversationEvent[]
 
 export function hydrateConversationProjectionSnapshot(snapshot: ConversationSnapshot): void {
   const { id: conversationId, workspaceId } = snapshot.conversation;
-  if (workspaceId === null) {
-    return;
-  }
   useConversationStore.getState().hydrateSnapshot(workspaceId, conversationId, snapshot);
   useConversationNavigatorStore.getState().upsertSnapshot(snapshot);
 }
@@ -151,7 +145,7 @@ function scheduleProjectionFlush(): void {
 }
 
 async function loadAndSubscribe(
-  workspaceId: string,
+  workspaceId: string | null,
   conversationId: string,
   retained: RetainedConversationProjection,
 ): Promise<void> {
@@ -178,7 +172,7 @@ async function loadAndSubscribe(
 
 function releaseConversationProjection(
   key: string,
-  workspaceId: string,
+  workspaceId: string | null,
   conversationId: string,
 ): void {
   const retained = retainedProjections.get(key);
@@ -211,7 +205,7 @@ function releaseConversationProjection(
 }
 
 function conversationSnapshotIncludingQueuedEvents(
-  workspaceId: string,
+  workspaceId: string | null,
   conversationId: string,
   events = queuedConversationProjectionEvents(workspaceId, conversationId),
 ): ConversationSnapshot | null | undefined {
@@ -237,9 +231,6 @@ export function conversationProjectionNeedsKeepAlive(
 }
 
 function markRetainedActiveWork(event: ConversationEvent): void {
-  if (event.workspaceId === null) {
-    return;
-  }
   if (!eventHasActiveWork(event)) {
     return;
   }
@@ -250,7 +241,7 @@ function markRetainedActiveWork(event: ConversationEvent): void {
 }
 
 function queuedConversationProjectionEvents(
-  workspaceId: string,
+  workspaceId: string | null,
   conversationId: string,
 ): ConversationEvent[] {
   return pendingEvents.filter(
@@ -286,7 +277,10 @@ function terminalTurnMissingFinalNarration(snapshot: ConversationSnapshot): bool
   return latestTerminalTurnId !== null && !summarizedTurnIds.has(latestTerminalTurnId);
 }
 
-function resyncConversationProjection(workspaceId: string, conversationId: string): Promise<void> {
+function resyncConversationProjection(
+  workspaceId: string | null,
+  conversationId: string,
+): Promise<void> {
   const key = projectionKey(workspaceId, conversationId);
   const current = resyncs.get(key);
   if (current) {
@@ -313,7 +307,7 @@ function resyncConversationProjection(workspaceId: string, conversationId: strin
 }
 
 async function refreshConversationProjectionUntilCurrent(
-  workspaceId: string,
+  workspaceId: string | null,
   conversationId: string,
   requestGeneration: number,
 ): Promise<void> {
@@ -351,7 +345,7 @@ function resyncRequirementsEqual(
 }
 
 function projectionIsRetained(
-  workspaceId: string,
+  workspaceId: string | null,
   conversationId: string,
   retained: RetainedConversationProjection,
 ): boolean {
@@ -361,6 +355,6 @@ function projectionIsRetained(
   );
 }
 
-function projectionKey(workspaceId: string, conversationId: string): string {
-  return `${workspaceId}\u0000${conversationId}`;
+function projectionKey(workspaceId: string | null, conversationId: string): string {
+  return `${workspaceId ?? "folderless"}\u0000${conversationId}`;
 }

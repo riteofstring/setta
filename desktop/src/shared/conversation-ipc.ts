@@ -46,13 +46,13 @@ export const conversationIpcChannels = {
 export interface ConversationEventSubscriptionRequest {
   conversationId: string;
   cursor: ConversationEventCursor;
-  workspaceId: string;
+  workspaceId: string | null;
 }
 
 export interface ConversationEventReleaseRequest {
   conversationId: string;
   keepAlive: boolean;
-  workspaceId: string;
+  workspaceId: string | null;
 }
 
 export interface ConversationIpc {

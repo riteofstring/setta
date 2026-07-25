@@ -6,6 +6,7 @@ import type {
   ConversationInputRoutingState,
   ConversationSnapshot,
   OpenWorkspaceResponse,
+  ReadConversationInputRoutingStateRequest,
   TrajectoryApprovalDecision,
   TrajectoryApprovalRequest,
 } from "@generated/backend";
@@ -68,11 +69,6 @@ interface PendingSideCreation {
   resolveFinished: () => void;
 }
 
-interface PendingFolderResourceSubmission {
-  replyToInputId: string | null;
-  text: string;
-}
-
 const pendingSideCreationByPane = new Map<string, PendingSideCreation>();
 
 export interface ConversationFolderResourceBindingTarget {
@@ -128,8 +124,6 @@ export function useEasyButtonConversationCommands({
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [pendingAcceptedInput, setPendingAcceptedInput] = useState<string | null>(null);
-  const [pendingFolderResourceSubmission, setPendingFolderResourceSubmission] =
-    useState<PendingFolderResourceSubmission | null>(null);
   const [error, setError] = useState<string | null>(null);
   const routingPresentation = useConversationRoutingStore((state) =>
     conversationRoutingCommandState(
@@ -137,6 +131,7 @@ export function useEasyButtonConversationCommands({
     ),
   );
   const { clarification, masterReply, routingFailure: failedInput } = routingPresentation;
+  const folderResourceFailure = conversationFolderResourceFailure(failedInput);
   const commandScope = JSON.stringify([workspaceId, conversationId, paneId]);
   const activeCommandScope = useRef(commandScope);
   useLayoutEffect(() => {
@@ -148,15 +143,14 @@ export function useEasyButtonConversationCommands({
       setError(value);
     }
   };
-  const folderResourceRequired = workspaceId === null;
   const available = workspaceAvailable && conversationCommandsAvailable(workspaceId, projection);
-  const inputAvailable = folderResourceRequired ? paneId !== null : available;
-  const canSubmit =
-    conversationInputCanSubmit(
-      inputAvailable && pendingFolderResourceSubmission === null,
-      pending,
-      input,
-    ) && !failedInput;
+  const inputAvailable = conversationInputAvailable({
+    available,
+    paneId,
+    projection,
+    workspaceId,
+  });
+  const canSubmit = conversationInputCanSubmit(inputAvailable, pending, input) && !failedInput;
   const applySettledRoutingState = useCallback(
     async (
       state: ConversationInputRoutingState,
@@ -180,14 +174,12 @@ export function useEasyButtonConversationCommands({
   useEffect(() => {
     setPending(false);
     setPendingAcceptedInput(null);
-    setPendingFolderResourceSubmission(null);
     setInput("");
     setError(null);
   }, [conversationId, paneId, workspaceId]);
 
   function setConversationInput(value: string): void {
     setInput(value);
-    setPendingFolderResourceSubmission(null);
   }
 
   async function run(
@@ -216,16 +208,9 @@ export function useEasyButtonConversationCommands({
   async function runInput(): Promise<boolean> {
     const text = input.trim();
     setError(null);
-    if (folderResourceRequired) {
-      setPendingFolderResourceSubmission({
-        replyToInputId: clarification?.inputId ?? null,
-        text,
-      });
-      return false;
-    }
     setPending(true);
     try {
-      const target = requireTarget();
+      const target = requireInputTarget();
       await submitTextInputToTarget(target, text, clarification?.inputId ?? null);
       return true;
     } catch (commandError) {
@@ -240,34 +225,33 @@ export function useEasyButtonConversationCommands({
   }
 
   async function submitTextInputToTarget(
-    target: { conversationId: string; workspaceId: string },
+    target: { conversationId: string; workspaceId: string | null },
     text: string,
     replyToInputId: string | null,
   ): Promise<void> {
     clearConversationRoutingMasterReply(target.workspaceId, target.conversationId);
-    const submitted = createEasyButtonTextConversationInput({
-      conversationId: target.conversationId,
+    await submitEasyButtonConversationTextInput({
+      applyRoutingState: applySettledRoutingState,
+      onAccepted: (accepted) => {
+        if (commandScopeIsCurrent()) {
+          setPendingAcceptedInput(accepted.input.text);
+          setInput("");
+        }
+      },
       paneId,
       replyToInputId,
+      submitInput: requireConversationInputSubmitter(),
+      target,
       text,
+      waitInputState: requireConversationInputWaiter(),
     });
-    beginPendingSideCreationForInput(target, paneId);
-    try {
-      const accepted = await requireConversationInputSubmitter()({ input: submitted });
-      assertAcceptedConversationInput(accepted, submitted);
-      if (commandScopeIsCurrent()) {
-        setPendingAcceptedInput(accepted.input.text);
-        setInput("");
-      }
-      const state = await requireConversationInputWaiter()({
-        conversationId: target.conversationId,
-        inputId: submitted.id,
-        workspaceId: target.workspaceId,
-      });
-      await applySettledRoutingState(state, target.workspaceId);
-    } finally {
-      finishPendingSideCreationForInput(target.workspaceId, target.conversationId, paneId);
+  }
+
+  function requireInputTarget(): { conversationId: string; workspaceId: string | null } {
+    if (!inputAvailable || !conversationId) {
+      throw new Error("Conversation input requires a ready conversation pane.");
     }
+    return { conversationId, workspaceId };
   }
 
   function requireTarget(): { conversationId: string; workspaceId: string } {
@@ -284,7 +268,7 @@ export function useEasyButtonConversationCommands({
     setPending(true);
     setError(null);
     try {
-      const target = requireTarget();
+      const target = requireInputTarget();
       clearConversationRoutingMasterReply(target.workspaceId, target.conversationId);
       await requireConversationInputRetry()({
         conversationId: target.conversationId,
@@ -313,7 +297,7 @@ export function useEasyButtonConversationCommands({
     setPending(true);
     setError(null);
     try {
-      const target = requireTarget();
+      const target = requireInputTarget();
       await requireConversationInputDiscard()({
         conversationId: target.conversationId,
         inputId: failedInput.inputId,
@@ -356,13 +340,13 @@ export function useEasyButtonConversationCommands({
     },
     error: conversationRoutingError(error, failedInput),
     folderResourceRequest:
-      pendingFolderResourceSubmission && paneId !== null
+      folderResourceFailure && paneId !== null
         ? {
             chooseFolder: () => {
               if (pending) {
                 return;
               }
-              void runFolderBindingForSubmission(pendingFolderResourceSubmission);
+              void runFolderBindingForFailure(folderResourceFailure.inputId);
             },
           }
         : null,
@@ -439,9 +423,7 @@ export function useEasyButtonConversationCommands({
     },
   };
 
-  async function runFolderBindingForSubmission(
-    submission: PendingFolderResourceSubmission,
-  ): Promise<void> {
+  async function runFolderBindingForFailure(inputId: string): Promise<void> {
     setPending(true);
     setError(null);
     try {
@@ -449,12 +431,18 @@ export function useEasyButtonConversationCommands({
       if (!bound) {
         return;
       }
-      setPendingFolderResourceSubmission(null);
-      await submitTextInputToTarget(
-        { conversationId, workspaceId: bound.workspaceId },
-        submission.text,
-        submission.replyToInputId,
-      );
+      clearConversationRoutingMasterReply(bound.workspaceId, conversationId);
+      await requireConversationInputRetry()({
+        conversationId,
+        inputId,
+        workspaceId: bound.workspaceId,
+      });
+      const state = await requireConversationInputWaiter()({
+        conversationId,
+        inputId,
+        workspaceId: bound.workspaceId,
+      });
+      await applySettledRoutingState(state, bound.workspaceId);
     } catch (bindingError) {
       setConversationRoutingCommandError(bindingError, setScopedError);
     } finally {
@@ -462,6 +450,60 @@ export function useEasyButtonConversationCommands({
         setPending(false);
       }
     }
+  }
+}
+
+export interface EasyButtonConversationTextInputSubmission {
+  applyRoutingState: (
+    state: ConversationInputRoutingState,
+    workspaceId: string | null,
+  ) => Promise<void>;
+  id?: string;
+  onAccepted?: (accepted: AcceptedConversationInput) => void;
+  paneId: string | null;
+  replyToInputId: string | null;
+  submitInput: NonNullable<(typeof window.setta.conversations)["submitInput"]>;
+  submittedAt?: string;
+  target: { conversationId: string; workspaceId: string | null };
+  text: string;
+  waitInputState: (
+    request: ReadConversationInputRoutingStateRequest,
+  ) => Promise<ConversationInputRoutingState>;
+}
+
+export async function submitEasyButtonConversationTextInput({
+  applyRoutingState,
+  id,
+  onAccepted,
+  paneId,
+  replyToInputId,
+  submitInput,
+  submittedAt,
+  target,
+  text,
+  waitInputState,
+}: EasyButtonConversationTextInputSubmission): Promise<void> {
+  const submitted = createEasyButtonTextConversationInput({
+    conversationId: target.conversationId,
+    id,
+    paneId,
+    replyToInputId,
+    submittedAt,
+    text,
+  });
+  beginPendingSideCreationForInput(target, paneId);
+  try {
+    const accepted = await submitInput({ input: submitted });
+    assertAcceptedConversationInput(accepted, submitted);
+    onAccepted?.(accepted);
+    const state = await waitInputState({
+      conversationId: target.conversationId,
+      inputId: submitted.id,
+      workspaceId: target.workspaceId,
+    });
+    await applyRoutingState(state, target.workspaceId);
+  } finally {
+    finishPendingSideCreationForInput(target.workspaceId, target.conversationId, paneId);
   }
 }
 
@@ -524,6 +566,9 @@ function conversationRoutingError(
   error: string | null,
   failure: ConversationRoutingPresentationState["routingFailure"],
 ): string | null {
+  if (conversationFolderResourceFailure(failure)) {
+    return error;
+  }
   return failure ? failure.message : error;
 }
 
@@ -546,7 +591,19 @@ function conversationVoiceCaptureAvailable(
 function conversationRoutingFailurePresentation(
   failure: ConversationRoutingPresentationState["routingFailure"],
 ): { message: string; retryable: boolean } | null {
+  if (conversationFolderResourceFailure(failure)) {
+    return null;
+  }
   return failure ? { message: failure.message, retryable: failure.retryable } : null;
+}
+
+function conversationFolderResourceFailure(
+  failure: ConversationRoutingPresentationState["routingFailure"],
+): { inputId: string } | null {
+  if (failure?.code !== "conversation_resource_required") {
+    return null;
+  }
+  return { inputId: failure.inputId };
 }
 
 function conversationCommandsAvailable(
@@ -563,15 +620,32 @@ function conversationCommandsAvailable(
   );
 }
 
+function conversationInputAvailable({
+  available,
+  paneId,
+  projection,
+  workspaceId,
+}: {
+  available: boolean;
+  paneId: string | null;
+  projection: ConversationProjection | undefined;
+  workspaceId: string | null;
+}): boolean {
+  if (workspaceId !== null) {
+    return available;
+  }
+  return paneId !== null && (projection?.snapshot?.conversation.archivedAt ?? null) === null;
+}
+
 function conversationInputCanSubmit(available: boolean, pending: boolean, input: string): boolean {
   return available && !pending && input.trim() !== "";
 }
 
 function beginPendingSideCreationForInput(
-  target: { conversationId: string; workspaceId: string },
+  target: { conversationId: string; workspaceId: string | null },
   paneId: string | null,
 ): void {
-  if (paneId) {
+  if (target.workspaceId && paneId) {
     beginPendingSideCreation(target.workspaceId, target.conversationId, paneId);
   }
 }
@@ -720,27 +794,16 @@ function requireConversationRoutingScope(
     paneId: string | null;
     workspaceId: string | null;
   },
-): { conversationId: string; workspaceId: string } {
+): { conversationId: string; workspaceId: string | null } {
   const submitted = state.clarificationReply ?? state.input;
   const matches = [
-    Boolean(scope.workspaceId),
     submitted.input.conversationId === scope.conversationId,
     submitted.input.sourcePaneId === scope.paneId,
   ].every(Boolean);
   if (!matches) {
     throw new Error("Conversation routing result belongs to another Easy Button pane.");
   }
-  return requireConversationRoutingTarget(scope.conversationId, scope.workspaceId);
-}
-
-function requireConversationRoutingTarget(
-  conversationId: string,
-  workspaceId: string | null,
-): { conversationId: string; workspaceId: string } {
-  if (!workspaceId) {
-    throw new Error("Conversation routing requires a workspace target.");
-  }
-  return { conversationId, workspaceId };
+  return { conversationId: scope.conversationId, workspaceId: scope.workspaceId };
 }
 
 async function presentConversationPane(

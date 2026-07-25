@@ -28,10 +28,9 @@ export interface ConversationProjection {
   resync: ConversationResyncRequirement | null;
   snapshot: ConversationSnapshot | null;
   status: ConversationProjectionStatus;
-  workspaceId: string;
+  workspaceId: string | null;
 }
 
-type WorkspaceScopedConversationEvent = ConversationEvent & { workspaceId: string };
 type ConversationEventType = ConversationEventPayload["type"];
 type ConversationPayloadOf<Type extends ConversationEventType> = Extract<
   ConversationEventPayload,
@@ -74,7 +73,7 @@ type EventCursorDisposition = "duplicate" | "next" | "sequence_gap" | "stream_ch
 
 export function loadingConversationProjection(
   current: ConversationProjection | undefined,
-  workspaceId: string,
+  workspaceId: string | null,
   conversationId: string,
 ): ConversationProjection {
   assertProjectionIdentity(current, workspaceId, conversationId);
@@ -90,7 +89,7 @@ export function loadingConversationProjection(
 
 export function failedConversationProjection(
   current: ConversationProjection | undefined,
-  workspaceId: string,
+  workspaceId: string | null,
   conversationId: string,
   error: unknown,
 ): ConversationProjection {
@@ -107,7 +106,7 @@ export function failedConversationProjection(
 
 export function hydratedConversationProjection(
   current: ConversationProjection | undefined,
-  workspaceId: string,
+  workspaceId: string | null,
   conversationId: string,
   snapshot: ConversationSnapshot,
 ): ConversationProjection {
@@ -139,9 +138,6 @@ export function applyConversationEvents(
 ): ReadonlyMap<string, ConversationProjection> {
   let next: Map<string, ConversationProjection> | null = null;
   for (const event of events) {
-    if (!isWorkspaceScopedConversationEvent(event)) {
-      continue;
-    }
     const projections = next ?? current;
     const projection = projections.get(event.conversationId);
     const updated = applyConversationEvent(projection, event);
@@ -153,15 +149,9 @@ export function applyConversationEvents(
   return next ?? current;
 }
 
-function isWorkspaceScopedConversationEvent(
-  event: ConversationEvent,
-): event is WorkspaceScopedConversationEvent {
-  return event.workspaceId !== null;
-}
-
 function applyConversationEvent(
   current: ConversationProjection | undefined,
-  event: WorkspaceScopedConversationEvent,
+  event: ConversationEvent,
 ): ConversationProjection {
   assertEventEnvelope(current, event);
   if (!current) {
@@ -201,7 +191,7 @@ function applyConversationEvent(
 
 function applyConversationEventBeforeHydration(
   current: ConversationProjection,
-  event: WorkspaceScopedConversationEvent,
+  event: ConversationEvent,
 ): ConversationProjection {
   if (event.payload.type === "conversation.resync_required") {
     return projectionWithTypedResync(current, serverResyncRequirement(event));
@@ -663,9 +653,7 @@ function serverResyncRequirement(event: ConversationEvent): ConversationResyncRe
   };
 }
 
-function unloadedProjectionForEvent(
-  event: WorkspaceScopedConversationEvent,
-): ConversationProjection {
+function unloadedProjectionForEvent(event: ConversationEvent): ConversationProjection {
   return {
     conversationId: event.conversationId,
     error: null,
@@ -824,7 +812,7 @@ function projectionAfterStaleSnapshot(current: ConversationProjection): Conversa
 
 function assertProjectionIdentity(
   current: ConversationProjection | undefined,
-  workspaceId: string,
+  workspaceId: string | null,
   conversationId: string,
 ): void {
   if (
@@ -839,7 +827,7 @@ function assertProjectionIdentity(
 
 function assertSnapshotIdentity(
   snapshot: ConversationSnapshot,
-  workspaceId: string,
+  workspaceId: string | null,
   conversationId: string,
 ): void {
   assertOwner("conversation snapshot", snapshot.conversation.id, conversationId);
@@ -848,7 +836,7 @@ function assertSnapshotIdentity(
 
 function assertEventEnvelope(
   current: ConversationProjection | undefined,
-  event: WorkspaceScopedConversationEvent,
+  event: ConversationEvent,
 ): void {
   if (current) {
     assertOwner("conversation event", event.conversationId, current.conversationId);

@@ -183,7 +183,7 @@ async function invokeConversationCommands(
     sideDisposeRequest: Parameters<NonNullable<SettaAPI["conversations"]["disposeSide"]>>[0];
     sideTurnRequest: Parameters<NonNullable<SettaAPI["conversations"]["sendSide"]>>[0];
     subscription: Parameters<SettaAPI["conversations"]["subscribe"]>[0];
-    target: Parameters<SettaAPI["conversations"]["read"]>[0];
+    target: { conversationId: string; workspaceId: string };
     artifactRequest: Parameters<NonNullable<SettaAPI["conversations"]["readArtifact"]>>[0];
     presentationRequest: Parameters<SettaAPI["conversations"]["updatePresentation"]>[0];
   },

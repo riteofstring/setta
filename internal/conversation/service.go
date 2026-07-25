@@ -190,6 +190,13 @@ func (service *Service) ReadSnapshot(
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
 }
 
+func (service *Service) ReadSnapshotByID(
+	ctx context.Context,
+	conversationID string,
+) (ConversationSnapshot, error) {
+	return service.store.ReadSnapshotByID(ctx, conversationID)
+}
+
 func (service *Service) ReadArtifact(
 	ctx context.Context,
 	workspaceID string,
@@ -215,6 +222,13 @@ func (service *Service) SubscribeEvents(
 	conversationID string,
 ) (ConversationEventSubscription, error) {
 	return service.store.SubscribeEvents(cursor, workspaceID, conversationID)
+}
+
+func (service *Service) SubscribeEventsByID(
+	cursor ConversationEventCursor,
+	conversationID string,
+) (ConversationEventSubscription, error) {
+	return service.store.SubscribeEventsByID(cursor, conversationID)
 }
 
 func (service *Service) CreateTopic(

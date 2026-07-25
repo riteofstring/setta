@@ -125,21 +125,26 @@ try {
       `master folderless conversation create failed: ${JSON.stringify(folderlessConversation)}`,
     );
   }
+  const folderlessConversationChat = await exerciseFolderlessConversationChat({
+    client: context.client,
+    folderlessConversation,
+  });
+  const folderlessConversationReopen = await exerciseFolderlessConversationCloseAndReopen({
+    client: context.client,
+    folderlessConversation,
+  });
   const folderlessConversationResourceRequest = await exerciseFolderlessConversationResourceRequest(
     {
       client: context.client,
       folderlessConversation,
     },
   );
-  const folderlessConversationReopen = await exerciseFolderlessConversationCloseAndReopen({
-    client: context.client,
-    folderlessConversation,
-  });
 
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     activeConversationClose,
     focusedMaster,
+    folderlessConversationChat,
     folderlessConversation,
     folderlessConversationReopen,
     folderlessConversationResourceRequest,
@@ -331,6 +336,24 @@ async function exerciseActiveConversationCloseAndReopen({
   };
 }
 
+async function exerciseFolderlessConversationChat({ client, folderlessConversation }) {
+  const { conversationId } = folderlessConversation;
+  if (!conversationId) {
+    throw new Error(
+      `folderless conversation result is incomplete: ${JSON.stringify(folderlessConversation)}`,
+    );
+  }
+  const submitted = await client.driver("appPaneLayoutSubmitFolderlessConversationText", {
+    conversationId,
+    text: "hi",
+  });
+  assertDriverStatus(submitted, "folderless conversation chat response");
+  if (submitted.folderResourceRequestPresent || submitted.workspaceId !== null) {
+    throw new Error(`folderless chat requested a folder: ${JSON.stringify(submitted)}`);
+  }
+  return submitted;
+}
+
 async function exerciseFolderlessConversationResourceRequest({ client, folderlessConversation }) {
   const { conversationId } = folderlessConversation;
   if (!conversationId) {
@@ -338,9 +361,9 @@ async function exerciseFolderlessConversationResourceRequest({ client, folderles
       `folderless conversation result is incomplete: ${JSON.stringify(folderlessConversation)}`,
     );
   }
-  const requested = await client.driver("appPaneLayoutSubmitFolderlessConversationText", {
+  const requested = await client.driver("appPaneLayoutRequestFolderlessConversationFolder", {
     conversationId,
-    text: "Use a folder for this conversation.",
+    text: "Inspect the repository files.",
   });
   assertDriverStatus(requested, "folderless conversation resource request");
   return requested;
@@ -360,20 +383,37 @@ async function exerciseFolderlessConversationCloseAndReopen({ client, folderless
     title: "New conversation",
   });
   assertDriverStatus(reopened, "folderless conversation pane reopen");
-  if (reopened.resourceRoot !== "") {
-    throw new Error(`folderless reopen gained a folder binding: ${JSON.stringify(reopened)}`);
+  if (
+    reopened.folderResourceRequestPresent ||
+    !Array.isArray(reopened.resourceBindings) ||
+    reopened.resourceBindings.length !== 0
+  ) {
+    throw new Error(`folderless reopen lost folderless state: ${JSON.stringify(reopened)}`);
   }
   const surface = await waitForState(
     client,
     driverCallExpression("appPaneLayoutConversationPaneState", { conversationId }),
-    (state) => state.open && state.visible && state.projectionStatus === "unloaded",
+    (state) => state.open && state.visible,
     workflowTimeoutMs,
   );
+  await client.call("Page.reload", { ignoreCache: true });
+  await waitForSelector(client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
+  await client.installDriver();
+  const reloaded = await waitForState(
+    client,
+    driverCallExpression("appPaneLayoutFolderlessConversationPaneState", { conversationId }),
+    (state) => state.status === "passed" || state.status === "failed",
+    workflowTimeoutMs,
+  );
+  assertDriverStatus(reloaded, "folderless conversation pane reload");
   return {
     closedPaneId: closed.paneId,
     conversationId,
+    reloadedPaneId: reloaded.paneId,
     reopenedPaneId: reopened.paneId,
     reopenedProjectionStatus: surface.projectionStatus,
+    resourceBindingsAfterReload: reloaded.resourceBindings,
+    resourceRootAfterReopen: reopened.resourceRoot,
   };
 }
 

@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 75;
-export const backendContractSchemaHash = "sha256:27a181f9c5776d53652ddb0124bfa5bf5be4b29624755d96746ba43569dd5773";
+export const backendProtocolVersion = 76;
+export const backendContractSchemaHash = "sha256:9e9021b3658b07f45b91be45b91ceb6c5623e3ccb3f2125b22c93c7833085d6a";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -2561,7 +2561,7 @@ export interface DisposeSideConversationRequest {
 }
 
 export interface ReadConversationSnapshotRequest {
-  workspaceId: string;
+  workspaceId: string | null;
   conversationId: string;
 }
 
@@ -2678,7 +2678,7 @@ export interface UpdateTopicConversationPresentationRequest {
 }
 
 export interface SubscribeConversationEventsRequest {
-  workspaceId: string;
+  workspaceId: string | null;
   conversationId: string;
 }
 
@@ -2794,7 +2794,7 @@ export interface AcceptedConversationInput {
 }
 
 export interface ReadConversationInputRoutingStateRequest {
-  workspaceId: string;
+  workspaceId: string | null;
   conversationId: string;
   inputId: string;
 }
@@ -2950,13 +2950,13 @@ export interface ConversationInputRoutingState {
 }
 
 export interface RetryConversationInputRequest {
-  workspaceId: string;
+  workspaceId: string | null;
   conversationId: string;
   inputId: string;
 }
 
 export interface DiscardConversationInputRequest {
-  workspaceId: string;
+  workspaceId: string | null;
   conversationId: string;
   inputId: string;
 }
@@ -5590,7 +5590,7 @@ export function decodeReadConversationSnapshotRequest(value: unknown): ReadConve
   const record = assertRecord(value, "ReadConversationSnapshotRequest");
   assertKnownFields(record, "ReadConversationSnapshotRequest", ["workspaceId", "conversationId"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ReadConversationSnapshotRequest"), "ReadConversationSnapshotRequest.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "ReadConversationSnapshotRequest"), "ReadConversationSnapshotRequest.workspaceId", (item) => decodeString(item, "ReadConversationSnapshotRequest.workspaceId")),
     conversationId: decodeString(requireField(record, "conversationId", "ReadConversationSnapshotRequest"), "ReadConversationSnapshotRequest.conversationId"),
   };
 }
@@ -5794,7 +5794,7 @@ export function decodeSubscribeConversationEventsRequest(value: unknown): Subscr
   const record = assertRecord(value, "SubscribeConversationEventsRequest");
   assertKnownFields(record, "SubscribeConversationEventsRequest", ["workspaceId", "conversationId"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SubscribeConversationEventsRequest"), "SubscribeConversationEventsRequest.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "SubscribeConversationEventsRequest"), "SubscribeConversationEventsRequest.workspaceId", (item) => decodeString(item, "SubscribeConversationEventsRequest.workspaceId")),
     conversationId: decodeString(requireField(record, "conversationId", "SubscribeConversationEventsRequest"), "SubscribeConversationEventsRequest.conversationId"),
   };
 }
@@ -5990,7 +5990,7 @@ export function decodeReadConversationInputRoutingStateRequest(value: unknown): 
   const record = assertRecord(value, "ReadConversationInputRoutingStateRequest");
   assertKnownFields(record, "ReadConversationInputRoutingStateRequest", ["workspaceId", "conversationId", "inputId"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ReadConversationInputRoutingStateRequest"), "ReadConversationInputRoutingStateRequest.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "ReadConversationInputRoutingStateRequest"), "ReadConversationInputRoutingStateRequest.workspaceId", (item) => decodeString(item, "ReadConversationInputRoutingStateRequest.workspaceId")),
     conversationId: decodeString(requireField(record, "conversationId", "ReadConversationInputRoutingStateRequest"), "ReadConversationInputRoutingStateRequest.conversationId"),
     inputId: decodeString(requireField(record, "inputId", "ReadConversationInputRoutingStateRequest"), "ReadConversationInputRoutingStateRequest.inputId"),
   };
@@ -6264,7 +6264,7 @@ export function decodeRetryConversationInputRequest(value: unknown): RetryConver
   const record = assertRecord(value, "RetryConversationInputRequest");
   assertKnownFields(record, "RetryConversationInputRequest", ["workspaceId", "conversationId", "inputId"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "RetryConversationInputRequest"), "RetryConversationInputRequest.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "RetryConversationInputRequest"), "RetryConversationInputRequest.workspaceId", (item) => decodeString(item, "RetryConversationInputRequest.workspaceId")),
     conversationId: decodeString(requireField(record, "conversationId", "RetryConversationInputRequest"), "RetryConversationInputRequest.conversationId"),
     inputId: decodeString(requireField(record, "inputId", "RetryConversationInputRequest"), "RetryConversationInputRequest.inputId"),
   };
@@ -6274,7 +6274,7 @@ export function decodeDiscardConversationInputRequest(value: unknown): DiscardCo
   const record = assertRecord(value, "DiscardConversationInputRequest");
   assertKnownFields(record, "DiscardConversationInputRequest", ["workspaceId", "conversationId", "inputId"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "DiscardConversationInputRequest"), "DiscardConversationInputRequest.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "DiscardConversationInputRequest"), "DiscardConversationInputRequest.workspaceId", (item) => decodeString(item, "DiscardConversationInputRequest.workspaceId")),
     conversationId: decodeString(requireField(record, "conversationId", "DiscardConversationInputRequest"), "DiscardConversationInputRequest.conversationId"),
     inputId: decodeString(requireField(record, "inputId", "DiscardConversationInputRequest"), "DiscardConversationInputRequest.inputId"),
   };

@@ -46,9 +46,6 @@ export function EasyButtonSurface({
   const workspaceAvailable =
     workspaceAvailability(workspaceSession, effectiveWorkspaceId)?.available ?? false;
   useEffect(() => {
-    if (!effectiveWorkspaceId) {
-      return;
-    }
     return retainConversationProjection(effectiveWorkspaceId, conversationId);
   }, [conversationId, effectiveWorkspaceId]);
   const commands = useEasyButtonConversationCommands({
