@@ -1,5 +1,33 @@
-import { workspaceAvailability, useWorkspaceStore } from "../stores/workspace-store";
+import type { DesktopPlatform } from "@shared/types";
+
+import {
+  type WorkspaceStatus,
+  workspaceAvailability,
+  useWorkspaceStore,
+} from "../stores/workspace-store";
+import { WorkspaceNoWorkspaceState } from "./workspace-empty-state";
 import { WorkspaceUnavailableNotice } from "./workspace-layout-area-components";
+
+export function WorkspaceFirstRunSurface({
+  platform,
+  status,
+}: {
+  platform: DesktopPlatform;
+  status: WorkspaceStatus;
+}) {
+  const openLocalFolder = useWorkspaceStore((state) => state.openLocalFolder);
+  const operation = useWorkspaceStore((state) => state.operation);
+  const error = useWorkspaceStore((state) => state.error);
+  return (
+    <WorkspaceNoWorkspaceState
+      busy={operation !== null || status === "loading"}
+      error={error}
+      onChooseFolder={() => void openLocalFolder()}
+      platform={platform}
+      status={status}
+    />
+  );
+}
 
 export function WorkspaceAvailabilityNotice({
   workspaceId,
