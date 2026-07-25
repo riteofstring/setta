@@ -68,14 +68,19 @@ func claimNextMasterRouteInputTransaction(
 	if err := validateMasterRouteClaimTiming(accepted, startedAt); err != nil {
 		return master.InputRoutingWork{}, err
 	}
+	priorClarification, err := resolveMasterRouteClarificationForClaim(transaction, dbPath, accepted)
+	if err != nil {
+		return master.InputRoutingWork{}, err
+	}
 	attempt, err := advanceMasterRouteClaim(transaction, inputID, startedAt)
 	if err != nil {
 		return master.InputRoutingWork{}, err
 	}
 	work := master.InputRoutingWork{
-		Input:            accepted,
-		RoutingAttempt:   attempt,
-		RoutingStartedAt: startedAt,
+		Input:              accepted,
+		RoutingAttempt:     attempt,
+		RoutingStartedAt:   startedAt,
+		PriorClarification: priorClarification,
 	}
 	if err := work.Validate(); err != nil {
 		return master.InputRoutingWork{}, fmt.Errorf("validate claimed master input routing work: %w", err)
@@ -108,15 +113,6 @@ LIMIT 1
 		return "", fmt.Errorf("read next master input routing work: %w", err)
 	}
 	return inputID, nil
-}
-
-func validateMasterRouteClaimTiming(accepted master.AcceptedMasterInput, startedAt string) error {
-	started, _ := validateTimestamp("master input routing startedAt", startedAt)
-	acceptedTime, _ := validateTimestamp("master input acceptedAt", accepted.AcceptedAt)
-	if started.Before(acceptedTime) {
-		return errors.New("master input routing cannot start before input acceptance")
-	}
-	return nil
 }
 
 func advanceMasterRouteClaim(
@@ -258,7 +254,7 @@ WHERE id = ? AND archived_at IS NULL
 	}
 	target := master.RouteConversationTarget{
 		ConversationID:       conversation.ID,
-		WorkspaceID:          conversation.WorkspaceID,
+		ResourceScope:        master.RouteResourceScopeForWorkspaceID(conversation.WorkspaceID),
 		Title:                conversation.Title,
 		Status:               string(conversation.Status),
 		OpenPaneIDs:          openPaneIDs,
@@ -358,6 +354,9 @@ func commitMasterRouteDecisionTransaction(
 		return master.RouteDecisionRecord{}, err
 	}
 	if err := requireMasterRouteCommitContext(accepted, commit); err != nil {
+		return master.RouteDecisionRecord{}, err
+	}
+	if err := requireMasterRouteClarificationReplyState(transaction, dbPath, commit); err != nil {
 		return master.RouteDecisionRecord{}, err
 	}
 	if err := requireMasterRouteInvocationState(transaction, dbPath, commit); err != nil {
@@ -784,7 +783,7 @@ func failMasterInputRoutingTransaction(
 	dbPath string,
 	failure master.InputRoutingFailure,
 ) error {
-	_, status, attempt, startedAt, err := readMasterRouteCommitInput(
+	accepted, status, attempt, startedAt, err := readMasterRouteCommitInput(
 		transaction.ctx,
 		transaction.tx,
 		failure.InputID,
@@ -833,7 +832,10 @@ WHERE id = ? AND routing_status = ? AND routing_attempt = ? AND routing_started_
 		Payload:     failure,
 		CommittedAt: failure.FailedAt,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	return appendMasterTranscriptFailure(transaction, accepted, failure)
 }
 
 func (store *Store) RecoverMasterInputRouting(ctx context.Context, recoveredAt string) error {

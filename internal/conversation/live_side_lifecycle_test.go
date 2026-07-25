@@ -552,7 +552,7 @@ func assertLiveSideForkSnapshot(
 		request.Invocation.ModelSelectionProviderDefault ||
 		request.Invocation.ReasoningEffort != "medium" ||
 		request.Invocation.PermissionMode != agent.PermissionModeReadOnly ||
-		request.Invocation.ApprovalMode != agent.ApprovalModeOnRequest {
+		request.Invocation.ApprovalMode != agent.ApprovalModeNever {
 		t.Fatalf("live side invocation = %+v", request.Invocation)
 	}
 	if request.DeveloperInstructions != sideAgentDeveloperInstructions {

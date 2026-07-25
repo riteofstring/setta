@@ -56,8 +56,8 @@ overrides:
   '@oxc-resolver/binding-win32-x64-msvc': 11.19.1
   electron-to-chromium: 1.5.360
   enhanced-resolve: 5.21.6
+  brace-expansion: 5.0.7
   oxc-resolver: 11.19.1
-  postcss: 8.5.18
   tinyexec: 1.1.2
   undici: 8.3.0
 
@@ -80,9 +80,6 @@ importers:
       react-dom:
         specifier: 19.2.6
         version: 19.2.6(react@19.2.6)
-      react-virtuoso:
-        specifier: 4.18.7
-        version: 4.18.7(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       tailwind-merge:
         specifier: 3.6.0
         version: 3.6.0
@@ -1960,8 +1957,8 @@ packages:
     resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
     engines: {node: '>=12'}
 
-  postcss@8.5.18:
-    resolution: {integrity: sha512-xdB1oSLHbz1vRWgCDalrCqEFTWzFlhqFC5tIHLMOSUIjhm3XXQ1qrFy8S/ESr1JYRRXqM3c1QFiMZUJdUTqyMQ==}
+  postcss@8.5.15:
+    resolution: {integrity: sha512-FfR8sjd4em2T6fb3I2MwAJU7HWVMr9zba+enmQeeWFfCbm+UOC/0X4DS8XtpUTMwWMGbjKYP7xjfNekzyGmB3A==}
     engines: {node: ^10 || ^12 || >=14}
 
   prelude-ls@1.2.1:
@@ -1996,12 +1993,6 @@ packages:
   react-refresh@0.18.0:
     resolution: {integrity: sha512-QgT5//D3jfjJb6Gsjxv0Slpj23ip+HtOpnNgnb2S5zU3CB26G/IDPGoy4RJB42wzFE46DRsstbW6tKHoKbhAxw==}
     engines: {node: '>=0.10.0'}
-
-  react-virtuoso@4.18.7:
-    resolution: {integrity: sha512-xNF5zDGEEIMB7cKwcen/pLig0YDf6OnfFrVgKFa7sHPf9fRem0CaLshyObbBcP88jzn0enavL39EgplgdyT21g==}
-    peerDependencies:
-      react: '>=16 || >=17 || >= 18 || >= 19'
-      react-dom: '>=16 || >=17 || >= 18 || >=19'
 
   react@19.2.6:
     resolution: {integrity: sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q==}
@@ -3895,7 +3886,7 @@ snapshots:
 
   picomatch@4.0.4: {}
 
-  postcss@8.5.18:
+  postcss@8.5.15:
     dependencies:
       nanoid: 3.3.12
       picocolors: 1.1.1
@@ -3922,11 +3913,6 @@ snapshots:
       scheduler: 0.27.0
 
   react-refresh@0.18.0: {}
-
-  react-virtuoso@4.18.7(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
-    dependencies:
-      react: 19.2.6
-      react-dom: 19.2.6(react@19.2.6)
 
   react@19.2.6: {}
 
@@ -4087,7 +4073,7 @@ snapshots:
       esbuild: 0.27.7
       fdir: 6.5.0(picomatch@4.0.4)
       picomatch: 4.0.4
-      postcss: 8.5.18
+      postcss: 8.5.15
       rollup: 4.60.4
       tinyglobby: 0.2.16
     optionalDependencies:

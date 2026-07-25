@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"setta/internal/codexapp"
-	"setta/internal/runtimeaccounting"
 )
 
 func TestInitializeParamsPreservesProductionCapabilities(t *testing.T) {
@@ -30,8 +29,10 @@ func TestInitializeParamsPreservesProductionCapabilities(t *testing.T) {
 		t.Fatal("opt-out notification methods are nil")
 	}
 	methods := *capabilities.OptOutNotificationMethods
-	if len(methods) != 1 || methods[0] != codexapp.CodexNotificationThreadStarted {
-		t.Fatalf("opt-out notification methods = %v, want [%s]", methods, codexapp.CodexNotificationThreadStarted)
+	if len(methods) != 2 ||
+		methods[0] != codexapp.CodexNotificationItemReasoningTextDelta ||
+		methods[1] != codexapp.CodexNotificationThreadStarted {
+		t.Fatalf("opt-out notification methods = %v, want private reasoning deltas and %s", methods, codexapp.CodexNotificationThreadStarted)
 	}
 }
 
@@ -44,6 +45,52 @@ func TestRuntimeThreadPrimitivesAndModelCatalog(t *testing.T) {
 	assertFakeForkAndCleanup(t, ctx, runtime, thread)
 	assertFakeModelResolution(t, ctx, runtime)
 	assertFakeReconciliation(t, ctx, runtime, thread)
+}
+
+func TestRuntimeConfiguredResumeExcludesTurns(t *testing.T) {
+	runtime := newFakeRuntime(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	invocation := testInvocation()
+	invocation.Model = ""
+	invocation.ModelSelectionProviderDefault = true
+	request := StartThreadRequest{
+		WorkspaceRoot: t.TempDir(),
+		Invocation:    invocation,
+	}
+	resumed, err := runtime.ResumeThreadWithConfiguration(ctx, "thread-existing", request)
+	if err != nil {
+		t.Fatalf("ResumeThreadWithConfiguration: %v", err)
+	}
+	if !resumed.Resumed || resumed.Thread.ID != "thread-existing" || resumed.Thread.Model != "gpt-agent-test" {
+		t.Fatalf("resumed thread = %+v", resumed)
+	}
+}
+
+func TestRuntimeConfiguredResumeClassifiesMissingThreadByListProbe(t *testing.T) {
+	runtime := newFakeRuntime(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err := runtime.ResumeThreadWithConfiguration(ctx, "thread-missing-list-confirms", StartThreadRequest{
+		WorkspaceRoot: t.TempDir(),
+		Invocation:    testInvocation(),
+	})
+	if !IsProviderThreadMissing(err) {
+		t.Fatalf("ResumeThreadWithConfiguration error = %T %v, want provider thread missing", err, err)
+	}
+}
+
+func TestRuntimeConfiguredResumeDoesNotTreatLoadErrorAsMissingWhenListFindsThread(t *testing.T) {
+	runtime := newFakeRuntime(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err := runtime.ResumeThreadWithConfiguration(ctx, "thread-load-error-list-present", StartThreadRequest{
+		WorkspaceRoot: t.TempDir(),
+		Invocation:    testInvocation(),
+	})
+	if err == nil || IsProviderThreadMissing(err) {
+		t.Fatalf("ResumeThreadWithConfiguration error = %T %v, want non-missing load failure", err, err)
+	}
 }
 
 func TestRuntimeStartsAndResumesDurableRestrictedThread(t *testing.T) {
@@ -372,85 +419,6 @@ func TestRuntimeRunsSequentialAndConcurrentConversationTurns(t *testing.T) {
 	}
 }
 
-func TestRuntimeSerializesConcurrentTurnsWhenWorkloadLeasesAreEnabled(t *testing.T) {
-	manager := &testWorkloadLeaseManager{}
-	reporter := &testWorkloadLeaseReporter{}
-	runtime := newFakeRuntimeWithConfig(t, Config{
-		WorkloadLeaseManager:  manager,
-		WorkloadLeaseReporter: reporter,
-		WorkloadLeaseTTL:      2 * time.Minute,
-	})
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	workspace := t.TempDir()
-	threads := make([]Thread, 2)
-	for index := range threads {
-		thread, err := runtime.StartThread(ctx, StartThreadRequest{
-			WorkspaceRoot: workspace,
-			Invocation:    testInvocation(),
-		})
-		if err != nil {
-			t.Fatalf("StartThread %d: %v", index, err)
-		}
-		threads[index] = thread
-	}
-
-	firstCtx, cancelFirst := context.WithCancel(ctx)
-	firstSink := newSignalingEventSink()
-	firstDone := make(chan error, 1)
-	go func() {
-		_, err := runtime.RunTurn(
-			firstCtx,
-			testTurnRequest(0, threads[0].ID, workspace, "hold"),
-			firstSink,
-		)
-		firstDone <- err
-	}()
-	firstSink.waitForKind(t, EventKindTurnStarted)
-	manager.requireCalls(t, 1, 0, 0)
-
-	secondSink := newSignalingEventSink()
-	secondResult := make(chan TurnResult, 1)
-	secondDone := make(chan error, 1)
-	go func() {
-		result, err := runtime.RunTurn(
-			ctx,
-			testTurnRequest(1, threads[1].ID, workspace, "normal"),
-			secondSink,
-		)
-		secondResult <- result
-		secondDone <- err
-	}()
-	select {
-	case err := <-secondDone:
-		t.Fatalf("second leased turn finished while the first was active: %v", err)
-	case <-time.After(100 * time.Millisecond):
-	}
-	if events := secondSink.snapshot(); len(events) != 0 {
-		t.Fatalf("second leased turn emitted events while the first was active: %+v", events)
-	}
-	manager.requireCalls(t, 1, 0, 0)
-
-	cancelFirst()
-	if err := <-firstDone; !errors.Is(err, context.Canceled) {
-		t.Fatalf("cancelled first leased turn = %v, want context canceled", err)
-	}
-	if err := <-secondDone; err != nil {
-		t.Fatalf("second leased turn after slot release: %v", err)
-	}
-	if result := <-secondResult; result.Outcome != TurnOutcomeCompleted {
-		t.Fatalf("second leased turn result = %+v", result)
-	}
-	manager.requireCalls(t, 2, 0, 2)
-	reporter.requireActions(
-		t,
-		runtimeaccounting.EventBegin,
-		runtimeaccounting.EventEnd,
-		runtimeaccounting.EventBegin,
-		runtimeaccounting.EventEnd,
-	)
-}
-
 func TestRuntimeHandlesDynamicToolCalls(t *testing.T) {
 	runtime := newFakeRuntime(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -670,16 +638,12 @@ func TestAgentRuntimeFakeAppServer(t *testing.T) {
 
 func newFakeRuntime(t *testing.T) *Runtime {
 	t.Helper()
-	return newFakeRuntimeWithConfig(t, Config{})
-}
-
-func newFakeRuntimeWithConfig(t *testing.T, config Config) *Runtime {
-	t.Helper()
-	config.Command = os.Args[0]
-	config.Args = []string{"-test.run=TestAgentRuntimeFakeAppServer", "--"}
-	config.Env = append(os.Environ(), "SETTA_AGENT_FAKE_APP_SERVER=1")
-	config.Version = "test"
-	runtime := NewRuntime(config)
+	runtime := NewRuntime(Config{
+		Command: os.Args[0],
+		Args:    []string{"-test.run=TestAgentRuntimeFakeAppServer", "--"},
+		Env:     append(os.Environ(), "SETTA_AGENT_FAKE_APP_SERVER=1"),
+		Version: "test",
+	})
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

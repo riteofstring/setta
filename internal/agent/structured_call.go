@@ -357,7 +357,7 @@ func (runtime *Runtime) waitForStructuredTurn(
 			if !ok {
 				return nil, errors.New("fresh structured call provider session closed before completion")
 			}
-			terminal, err := handleFreshStructuredProviderEvent(providerEvent, base, &completedMessages)
+			terminal, err := runtime.handleFreshStructuredProviderEvent(providerEvent, base, &completedMessages)
 			if err != nil {
 				return nil, err
 			}
@@ -383,7 +383,7 @@ func (runtime *Runtime) waitForStructuredTurn(
 	}
 }
 
-func handleFreshStructuredProviderEvent(
+func (runtime *Runtime) handleFreshStructuredProviderEvent(
 	providerEvent codexapp.Event,
 	base Event,
 	completedMessages *[]string,
@@ -394,15 +394,14 @@ func handleFreshStructuredProviderEvent(
 		_ = providerEvent.Message.RespondError(-32001, err.Error())
 		return nil, err
 	case codexapp.EventLifecycle:
-		message := "provider lifecycle changed"
-		if providerEvent.Err != nil {
-			message = providerEvent.Err.Error()
-		}
-		return nil, fmt.Errorf("fresh structured call provider lifecycle failed: %s", message)
+		return nil, &ProviderLifecycleError{Err: providerEvent.Err}
 	case codexapp.EventLag:
-		return nil, errors.New("fresh structured call provider event stream lagged")
+		// Lag markers describe only skipped best-effort deltas. Completed
+		// assistant messages and terminal notifications remain lossless, so a
+		// structured call can keep waiting for its authoritative result.
+		return nil, nil
 	case codexapp.EventNotification:
-		events, terminal, err := normalizedProviderNotification(providerEvent.Message, base)
+		events, terminal, err := normalizedProviderNotification(runtime, providerEvent.Message, base)
 		if err != nil {
 			return nil, err
 		}
@@ -414,6 +413,15 @@ func handleFreshStructuredProviderEvent(
 					return nil, errors.New("fresh structured call completed assistant message has no text")
 				}
 				*completedMessages = append(*completedMessages, event.Text.Text)
+			case EventKindLifecycleChanged:
+				if err := freshStructuredLifecycleError(event.Lifecycle); err != nil {
+					return nil, err
+				}
+			case EventKindValidationRecorded:
+				// Provider verification and Guardian review are evidence about
+				// this isolated call. They neither change its schema-constrained
+				// output nor authorize work, so the completed assistant message
+				// and terminal notification remain the call's result.
 			default:
 				return nil, fmt.Errorf("fresh structured call attempted disallowed provider activity %s", event.Kind)
 			}
@@ -421,6 +429,22 @@ func handleFreshStructuredProviderEvent(
 		return terminal, nil
 	default:
 		return nil, fmt.Errorf("unsupported fresh structured call provider event %q", providerEvent.Kind)
+	}
+}
+
+func freshStructuredLifecycleError(lifecycle *LifecycleEvent) error {
+	if lifecycle == nil {
+		return errors.New("fresh structured call lifecycle event has no payload")
+	}
+	switch lifecycle.State {
+	case LifecycleStateReady, LifecycleStateRestarting:
+		return nil
+	case LifecycleStateUnavailable, LifecycleStateClosed:
+		return &ProviderLifecycleError{
+			Err: fmt.Errorf("provider lifecycle reason %s", lifecycle.Reason),
+		}
+	default:
+		return fmt.Errorf("fresh structured call has unsupported provider lifecycle state %q", lifecycle.State)
 	}
 }
 
@@ -483,7 +507,7 @@ func freshStructuredTerminalNotification(
 	case codexapp.EventLifecycle:
 		return false, errors.New("fresh structured call provider stopped during interruption")
 	case codexapp.EventLag:
-		return false, errors.New("fresh structured call provider event stream lagged during interruption")
+		return false, nil
 	case codexapp.EventNotification:
 		if event.Message.Method != codexapp.CodexNotificationTurnCompleted {
 			return false, nil
