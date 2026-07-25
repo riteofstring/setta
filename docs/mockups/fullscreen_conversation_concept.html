@@ -81,6 +81,9 @@
   #devbar { position: fixed; top: 52px; left: 14px; z-index: 14; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; max-width: 62vw;
     background: rgba(8,10,16,0.62); border: 1px solid rgba(120,140,180,0.18); padding: 8px 10px; border-radius: 10px; backdrop-filter: blur(8px); }
   #devbar[hidden] { display: none; }
+  #railLeft, #railRight, #directorHint, .tb-conv, #convDots { transition: opacity 0.28s ease; }
+  body.switching #railLeft, body.switching #railRight, body.switching #directorHint { opacity: 0; }
+  body.switching .tb-conv, body.switching #convDots { opacity: 0.35; }
   @media (max-width: 760px) { .rail { display: none; } .tb-chip[data-view="summaries"], .tb-chip[data-view="artifacts"] { display: none; } .tb-conv { min-width: 120px; } }
 </style>
 </head>
@@ -248,7 +251,7 @@ layout(location=7) in float a_phase;  // per-particle phase 0..1
 layout(location=8) in float a_speed;  // per-particle speed
 layout(location=9) in float a_role;   // 0 core orbiter, 1 emitted spark
 layout(location=10) in float a_failAt; // node age at which it fails (999 = never)
-uniform float u_cam,u_time,u_dpr,u_hoverX,u_hoverWY,u_hoverOn,u_listen,u_pmode;
+uniform float u_cam,u_time,u_dpr,u_hoverX,u_hoverWY,u_hoverOn,u_listen,u_pmode,u_xshift;
 out float v_mode,v_recent,v_alpha,v_active,v_hover,v_fail,v_isCore;
 void main(){
   float age=u_time-a_born;
@@ -332,7 +335,7 @@ void main(){
   float succ=step(2.5,a_mode)*step(a_mode,3.5);
   psize*=(1.0+succ*0.5);                         // success flourish
   v_mode=a_mode; v_recent=recent; v_active=working; v_hover=hover; v_fail=failP; v_alpha=palpha*vis; v_isCore=step(a_role,0.5);
-  gl_Position=vec4(pos,0.0,1.0);
+  gl_Position=vec4(pos.x+u_xshift, pos.y,0.0,1.0);
   gl_PointSize=psize*u_dpr*vis;
 }`;
 const PT_FS=`#version 300 es
@@ -365,7 +368,7 @@ layout(location=7) in float t;      // 0..1 along the path
 layout(location=8) in float conf;   // confidence -> straightness
 layout(location=9) in float phase;
 layout(location=10) in float childFail;   // time the child fails (9999 = never)
-uniform float u_cam,u_time,u_aspect,u_width;
+uniform float u_cam,u_time,u_aspect,u_width,u_xshift;
 out float v_mode,v_recent,v_alpha,v_along,v_failP;
 void main(){
   float grow=clamp((u_time-(childBorn-0.6))/0.6,0.0,1.0);   // line grows out; tip arrives at childBorn
@@ -382,7 +385,7 @@ void main(){
   vec2 p=mix(A,B,tt)+perpC*wob;
   vec2 e=p+perpC*side*(u_width*(0.85+conf*1.15));   // confident main threads thicker
   v_mode=mode; v_recent=exp(-max(0.0,u_cam-bWY)*0.9); v_alpha=grow; v_along=t; v_failP=failP;
-  gl_Position=vec4(e,0.0,1.0);
+  gl_Position=vec4(e.x+u_xshift, e.y,0.0,1.0);
 }`;
 const EDGE_FS=`#version 300 es
 precision highp float;
@@ -406,7 +409,7 @@ out vec2 v_uv;
 void main(){vec2 c=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));v_uv=c;gl_Position=vec4(c*2.0-1.0,0.0,1.0);}`;
 const POST_FS=`#version 300 es
 precision highp float;
-in vec2 v_uv; uniform sampler2D u_tex; uniform vec3 u_bg; uniform float u_pixel,u_scan,u_pattern,u_time,u_cam;
+in vec2 v_uv; uniform sampler2D u_tex; uniform vec3 u_bg; uniform float u_pixel,u_scan,u_pattern,u_time,u_cam,u_glitch;
 out vec4 o;
 float bayer8(ivec2 p){const float m[64]=float[64](
   0.,32.,8.,40.,2.,34.,10.,42.,48.,16.,56.,24.,50.,18.,58.,26.,12.,44.,4.,36.,14.,46.,6.,38.,60.,28.,52.,20.,62.,30.,54.,22.,
@@ -422,9 +425,11 @@ void main(){
   vec2 uv=gl_FragCoord.xy/texRes; vec2 cc=uv-0.5;
   float r2=dot(cc,cc); vec2 uvw=cc*(1.0+r2*0.14)+0.5;                 // CRT barrel curvature
   if(uvw.x<0.0||uvw.x>1.0||uvw.y<0.0||uvw.y>1.0){o=vec4(0.0,0.0,0.0,1.0);return;}
+  // channel-change signal tear (only while switching conversations)
+  uvw.x += u_glitch*0.035*(hash(vec2(floor(uvw.y*46.0),floor(u_time*22.0)))-0.5)*step(0.55,hash(vec2(floor(uvw.y*9.0),floor(u_time*6.0))));
   vec2 fc=uvw*texRes; vec2 fromC=uvw-0.5;
   vec2 cell=floor(fc/px); vec2 base=(cell*px+px*0.5)/texRes;
-  vec2 ab=fromC*0.012;                                               // chromatic aberration
+  vec2 ab=fromC*(0.012+u_glitch*0.03);                               // aberration spikes on switch
   vec3 s; s.r=texture(u_tex,base+ab).r; s.g=texture(u_tex,base).g; s.b=texture(u_tex,base-ab).b;
   vec3 col=(u_bg+s)*1.7; col=col/(1.0+col);   // medium is the drifting particle field (drawn in-scene)
   // dither pattern (follows the curvature)
@@ -452,7 +457,7 @@ layout(location=5) in float a_failAt;
 layout(location=6) in float a_icon;
 layout(location=7) in float a_cx;
 layout(location=8) in float a_cy;
-uniform float u_cam,u_time,u_aspect,u_nicon;
+uniform float u_cam,u_time,u_aspect,u_nicon,u_xshift;
 out vec2 v_uv; out float v_mode,v_reveal,v_fail;
 void main(){
   float age=u_time-a_born; float vis=step(0.0,age);
@@ -466,7 +471,7 @@ void main(){
   v_uv=vec2((a_icon+(a_cx*0.5+0.5))/u_nicon, 1.0-(a_cy*0.5+0.5));
   v_mode=a_mode; v_reveal=smoothstep(0.06,0.30,age)*vis;
   vec2 uvp=pos*0.5+0.5; vec2 cc=uvp-0.5; uvp=0.5+cc/(1.0+dot(cc,cc)*0.14);   // match CRT barrel
-  gl_Position=vec4(uvp*2.0-1.0,0.0,1.0);
+  vec2 ndc=uvp*2.0-1.0; gl_Position=vec4(ndc.x+u_xshift, ndc.y,0.0,1.0);
 }`;
 const ICON_FS=`#version 300 es
 precision highp float;
@@ -509,7 +514,7 @@ const atlasTex=gl.createTexture();
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
 })();
-const iu=n=>gl.getUniformLocation(iconP,n); const IU={cam:iu('u_cam'),time:iu('u_time'),aspect:iu('u_aspect'),nicon:iu('u_nicon'),atlas:iu('u_atlas'),pixel:iu('u_pixel')};
+const iu=n=>gl.getUniformLocation(iconP,n); const IU={cam:iu('u_cam'),time:iu('u_time'),aspect:iu('u_aspect'),nicon:iu('u_nicon'),atlas:iu('u_atlas'),pixel:iu('u_pixel'),xshift:iu('u_xshift')};
 function iconFor(n){ const t=n.label.toLowerCase();
   if(n.mode===M.listening) return 11;
   if(n.mode===M.merge) return 7; if(n.mode===M.struggle) return 4; if(n.mode===M.success) return 5;
@@ -573,9 +578,9 @@ function resize(){const dpr=Math.min(window.devicePixelRatio||1,1.5);
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);}}
 window.addEventListener('resize',resize);
 
-const pu=n=>gl.getUniformLocation(ptP,n); const PU={cam:pu('u_cam'),time:pu('u_time'),dpr:pu('u_dpr'),hoverX:pu('u_hoverX'),hoverWY:pu('u_hoverWY'),hoverOn:pu('u_hoverOn'),listen:pu('u_listen'),pmode:pu('u_pmode')};
-const eu=n=>gl.getUniformLocation(edgeP,n); const EU={cam:eu('u_cam'),time:eu('u_time'),aspect:eu('u_aspect'),width:eu('u_width')};
-const ou=n=>gl.getUniformLocation(postP,n); const OU={tex:ou('u_tex'),bg:ou('u_bg'),pixel:ou('u_pixel'),scan:ou('u_scan'),pattern:ou('u_pattern'),time:ou('u_time')};
+const pu=n=>gl.getUniformLocation(ptP,n); const PU={cam:pu('u_cam'),time:pu('u_time'),dpr:pu('u_dpr'),hoverX:pu('u_hoverX'),hoverWY:pu('u_hoverWY'),hoverOn:pu('u_hoverOn'),listen:pu('u_listen'),pmode:pu('u_pmode'),xshift:pu('u_xshift')};
+const eu=n=>gl.getUniformLocation(edgeP,n); const EU={cam:eu('u_cam'),time:eu('u_time'),aspect:eu('u_aspect'),width:eu('u_width'),xshift:eu('u_xshift')};
+const ou=n=>gl.getUniformLocation(postP,n); const OU={tex:ou('u_tex'),bg:ou('u_bg'),pixel:ou('u_pixel'),scan:ou('u_scan'),pattern:ou('u_pattern'),time:ou('u_time'),glitch:ou('u_glitch')};
 
 let pattern=0,ditherPx=4,scan=false,seed=7,g,growT=0,camWorld=0,hovered=null,hoverAmt=0,hoverX=0,hoverWY=0,selected=null,speedMul=1,listenSim=false,particleMode=0;
 function rebuild(){
@@ -634,6 +639,7 @@ function placeReticle(el,n){ if(!n||growT<n.born){el.style.display='none';return
   const d=nodeCssDiam(n)+16; el.style.display='block'; el.style.left=s.x+'px'; el.style.top=s.y+'px'; el.style.width=d+'px'; el.style.height=d+'px'; }
 function activeNode(){ let best=null,bb=-1; for(const n of g.nodes){ if(growT>=n.born&&growT<n.settleAt&&n.born>bb){bb=n.born;best=n;} } return best; }
 function updateHover(){
+  if(switching){tip.style.display='none';hovered=null;return;}
   let best=null,bd=40;
   if(mouse.on){ for(const n of g.nodes){if(growT<n.born)continue;const s=screenOf(n);if(s.y<-40||s.y>innerHeight+40)continue;
     const d=Math.hypot(s.x-mouse.x,s.y-mouse.y);if(d<bd){bd=d;best={n,s};}} }
@@ -656,6 +662,23 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
   autoCam+=(maxY-autoCam)*Math.min(1,dt*1.7);          // follow the newest node
   camWorld=autoCam+scrollOffset;                        // mouse-wheel look-back offset
 
+  // ── conversation-switch channel-change transition ──
+  if(switching){
+    switching.t += dt/0.62;
+    if(switching.t>=0.5 && !switching.swapped){
+      convIdx=(convIdx+switching.dir+CONVS.length)%CONVS.length;
+      seed=CONVS[convIdx].seed; rebuild(); growT=0; autoCam=0; scrollOffset=0; camWorld=0;
+      renderConv(); switching.swapped=true; document.body.classList.remove('switching');
+    }
+    if(switching.t>=1.0){ switching=null; xShift=0; glitchAmt=0; }
+    else {
+      const d=switching.dir;
+      if(!switching.swapped){ const p=switching.t/0.5; xShift=-d*(p*p)*1.7; }                       // slide out (ease-in)
+      else { const p=(switching.t-0.5)/0.5, e=1.0-Math.pow(1.0-p,3.0); xShift=d*(1.0-e)*1.7; }       // slide in (ease-out)
+      glitchAmt=Math.sin(Math.min(switching.t,1.0)*Math.PI);                                         // peaks at the swap
+    }
+  } else { xShift=0; glitchAmt=0; }
+
   resize();const dpr=Math.min(window.devicePixelRatio||1,1.5);
   gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);gl.viewport(0,0,fw,fh);
   gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
@@ -663,9 +686,9 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
   gl.uniform3fv(BU.cyan,CYAN);gl.uniform3fv(BU.violet,VIOLET);
   gl.bindVertexArray(bgVao);gl.drawArrays(gl.POINTS,0,NBG);
   gl.useProgram(edgeP);gl.uniform1f(EU.cam,camWorld);gl.uniform1f(EU.time,growT);
-  gl.uniform1f(EU.aspect,canvas.width/canvas.height);gl.uniform1f(EU.width,0.0035);
+  gl.uniform1f(EU.aspect,canvas.width/canvas.height);gl.uniform1f(EU.width,0.0035);gl.uniform1f(EU.xshift,xShift);
   gl.bindVertexArray(edVao);gl.drawArrays(gl.TRIANGLES,0,g.edges.length*EDGE_SEG*6);
-  gl.useProgram(ptP);gl.uniform1f(PU.cam,camWorld);gl.uniform1f(PU.time,growT);gl.uniform1f(PU.dpr,dpr);
+  gl.useProgram(ptP);gl.uniform1f(PU.cam,camWorld);gl.uniform1f(PU.time,growT);gl.uniform1f(PU.dpr,dpr);gl.uniform1f(PU.xshift,xShift);
   hoverAmt+=((hovered?1:0)-hoverAmt)*Math.min(1,dt*7);   // ease the hover flare in/out
   if(hovered){hoverX=hovered.x;hoverWY=hovered.worldY;}
   gl.uniform1f(PU.hoverX,hoverX);gl.uniform1f(PU.hoverWY,hoverWY);gl.uniform1f(PU.hoverOn,hoverAmt);gl.uniform1f(PU.listen,listenSim?1:0);gl.uniform1f(PU.pmode,particleMode);
@@ -673,12 +696,12 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
 
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,canvas.width,canvas.height);gl.disable(gl.BLEND);
   gl.useProgram(postP);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,fboTex);
-  gl.uniform1i(OU.tex,0);gl.uniform3f(OU.bg,0,0,0);gl.uniform1f(OU.pixel,ditherPx);gl.uniform1f(OU.scan,scan?1:0);gl.uniform1f(OU.pattern,pattern);gl.uniform1f(OU.time,growT);
+  gl.uniform1i(OU.tex,0);gl.uniform3f(OU.bg,0,0,0);gl.uniform1f(OU.pixel,ditherPx);gl.uniform1f(OU.scan,scan?1:0);gl.uniform1f(OU.pattern,pattern);gl.uniform1f(OU.time,growT);gl.uniform1f(OU.glitch,glitchAmt);
   gl.bindVertexArray(null);gl.drawArrays(gl.TRIANGLES,0,3);
   // crisp icons on top (legible), barrel-aligned to the warped nodes
   gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
   gl.useProgram(iconP);
-  gl.uniform1f(IU.cam,camWorld);gl.uniform1f(IU.time,growT);gl.uniform1f(IU.aspect,canvas.width/canvas.height);gl.uniform1f(IU.nicon,NICON);gl.uniform1f(IU.pixel,ditherPx);
+  gl.uniform1f(IU.cam,camWorld);gl.uniform1f(IU.time,growT);gl.uniform1f(IU.aspect,canvas.width/canvas.height);gl.uniform1f(IU.nicon,NICON);gl.uniform1f(IU.pixel,ditherPx);gl.uniform1f(IU.xshift,xShift);
   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,atlasTex);gl.uniform1i(IU.atlas,1);
   gl.bindVertexArray(icVao);gl.drawArrays(gl.TRIANGLES,0,g.icCount);
   gl.disable(gl.BLEND);
@@ -690,7 +713,7 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
 requestAnimationFrame(frame);
 
 // ══ fullscreen conversation shell ══════════════════════════════════════════
-let autoCam=0, scrollOffset=0;
+let autoCam=0, scrollOffset=0, switching=null, xShift=0, glitchAmt=0;
 
 // mouse wheel = look back through the stream (chat-style history scroll)
 addEventListener('wheel', e=>{ scrollOffset=Math.max(-3.0, Math.min(0.35, scrollOffset + e.deltaY*0.0011)); }, {passive:true});
@@ -731,8 +754,8 @@ function renderConv(){
     `<div class="artifact" data-i="${i}"><div class="artifact-kicker">${a.kicker}<span class="exp">⤢</span></div>`+
     `<div class="artifact-title">${a.title}</div><div class="artifact-meta">${a.meta}</div></div>`).join('');
 }
-function switchConv(dir){ convIdx=(convIdx+dir+CONVS.length)%CONVS.length;
-  seed=CONVS[convIdx].seed; rebuild(); growT=0; autoCam=0; scrollOffset=0; renderConv(); }
+function switchConv(dir){ if(switching) return;   // start a channel-change transition (swap happens mid-slide)
+  switching={dir, t:0, swapped:false}; selected=null; document.body.classList.add('switching'); }
 $('convPrev').onclick=()=>switchConv(-1);
 $('convNext').onclick=()=>switchConv(1);
 
