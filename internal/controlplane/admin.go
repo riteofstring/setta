@@ -118,22 +118,141 @@ func validateAdminServerConfig(config AdminServerConfig) error {
 
 func adminHandler(store *Store) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.Method != http.MethodPost {
-			response.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		response.Header().Set("Content-Type", "application/json")
 		switch request.URL.Path {
+		case "/v1/hosted-access/ensure":
+			if !requireAdminMethod(response, request, http.MethodPost) {
+				return
+			}
+			response.Header().Set("Content-Type", "application/json")
+			handleAdminEnsureHostedAccess(store, response, request)
+		case "/v1/hosted-access/events":
+			if !requireAdminMethod(response, request, http.MethodGet) {
+				return
+			}
+			handleAdminHostedAccessEvents(store, response, request)
 		case "/v1/devices/ensure":
+			if !requireAdminMethod(response, request, http.MethodPost) {
+				return
+			}
+			response.Header().Set("Content-Type", "application/json")
 			handleAdminEnsureDevice(store, response, request)
 		case "/v1/devices/revoke":
+			if !requireAdminMethod(response, request, http.MethodPost) {
+				return
+			}
+			response.Header().Set("Content-Type", "application/json")
 			handleAdminRevokeDevice(store, response, request)
 		case "/v1/users/status":
+			if !requireAdminMethod(response, request, http.MethodPost) {
+				return
+			}
+			response.Header().Set("Content-Type", "application/json")
 			handleAdminSetUserStatus(store, response, request)
 		default:
 			response.WriteHeader(http.StatusNotFound)
 		}
 	})
+}
+
+func requireAdminMethod(response http.ResponseWriter, request *http.Request, method string) bool {
+	if request.Method == method {
+		return true
+	}
+	response.WriteHeader(http.StatusMethodNotAllowed)
+	return false
+}
+
+func handleAdminEnsureHostedAccess(store *Store, response http.ResponseWriter, request *http.Request) {
+	var intent EnsureHostedAccessIntent
+	if !decodeAdminRequest(response, request, &intent) {
+		return
+	}
+	if _, err := store.UpsertUser(request.Context(), intent.UserID); err != nil {
+		writeAdminError(response)
+		return
+	}
+	progress, err := store.EnsureHostedAccessIntent(request.Context(), intent)
+	if err != nil {
+		writeAdminError(response)
+		return
+	}
+	writeAdminJSON(response, progress)
+}
+
+func handleAdminHostedAccessEvents(store *Store, response http.ResponseWriter, request *http.Request) {
+	query := request.URL.Query()
+	intentID := query.Get("intentId")
+	if len(query) != 1 || intentID == "" {
+		writeAdminError(response)
+		return
+	}
+	cursor := request.Header.Get("Last-Event-ID")
+	events, update, err := store.HostedAccessProgressAfter(request.Context(), intentID, cursor)
+	if err != nil {
+		writeAdminError(response)
+		return
+	}
+	flusher, ok := response.(http.Flusher)
+	if !ok {
+		writeAdminError(response)
+		return
+	}
+	response.Header().Set("Content-Type", "text/event-stream")
+	response.Header().Set("Cache-Control", "no-store")
+	response.WriteHeader(http.StatusOK)
+	streamHostedAccessEvents(request.Context(), store, response, flusher, intentID, cursor, events, update)
+}
+
+func streamHostedAccessEvents(
+	ctx context.Context,
+	store *Store,
+	response http.ResponseWriter,
+	flusher http.Flusher,
+	intentID string,
+	cursor string,
+	events []HostedAccessProgress,
+	update <-chan struct{},
+) {
+	for {
+		terminal, writeErr := writeHostedAccessEvents(response, flusher, events)
+		if len(events) != 0 {
+			cursor = events[len(events)-1].Cursor
+		}
+		if writeErr != nil || terminal {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-update:
+		}
+		var err error
+		events, update, err = store.HostedAccessProgressAfter(ctx, intentID, cursor)
+		if err != nil {
+			return
+		}
+	}
+}
+
+func writeHostedAccessEvents(
+	response http.ResponseWriter,
+	flusher http.Flusher,
+	events []HostedAccessProgress,
+) (bool, error) {
+	for _, event := range events {
+		data, err := json.Marshal(event)
+		if err != nil {
+			return false, err
+		}
+		if _, err := fmt.Fprintf(response, "id: %s\nevent: hosted_access_progress\ndata: %s\n\n", event.Cursor, data); err != nil {
+			return false, err
+		}
+		flusher.Flush()
+		if event.State == HostedAccessProgressReadyOnPhone {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func handleAdminEnsureDevice(store *Store, response http.ResponseWriter, request *http.Request) {
@@ -187,7 +306,11 @@ func decodeAdminRequest(response http.ResponseWriter, request *http.Request, tar
 }
 
 func writeAdminEvent(response http.ResponseWriter, event AdminEvent) {
-	if err := json.NewEncoder(response).Encode(event); err != nil {
+	writeAdminJSON(response, event)
+}
+
+func writeAdminJSON(response http.ResponseWriter, value any) {
+	if err := json.NewEncoder(response).Encode(value); err != nil {
 		return
 	}
 }

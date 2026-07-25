@@ -56,6 +56,7 @@ type Store struct {
 	mu            sync.Mutex
 	closed        bool
 	invalidations map[grantKey]*grantInvalidation
+	hostedUpdates map[string]chan struct{}
 	operationWake chan struct{}
 }
 
@@ -104,6 +105,7 @@ func OpenStore(config StoreConfig) (*Store, error) {
 		dbPath:        dbPath,
 		rateLimit:     config.RateLimit,
 		invalidations: map[grantKey]*grantInvalidation{},
+		hostedUpdates: map[string]chan struct{}{},
 		operationWake: make(chan struct{}, 1),
 	}
 	if err := store.configureDatabase(context.Background()); err != nil {
@@ -137,6 +139,10 @@ func (store *Store) Close() error {
 		close(invalidation.channel)
 	}
 	store.invalidations = nil
+	for _, update := range store.hostedUpdates {
+		close(update)
+	}
+	store.hostedUpdates = nil
 	if err := store.db.Close(); err != nil {
 		return fmt.Errorf("close control-plane database: %w", err)
 	}

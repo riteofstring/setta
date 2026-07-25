@@ -1,9 +1,13 @@
 package controlplane
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -54,6 +58,149 @@ func TestAdminServerMutatesLiveAuthorizationAndPushInvalidation(t *testing.T) {
 		Status: UserStatusActive, UserID: "user-server",
 	}, "user_status_set")
 	requireAuthorizationOutcome(t, store, secondCredential.Token, runtimeaccess.AuthorizationAllowed)
+}
+
+func TestTypedHostedAccessClientStreamsReadyOnPhoneThroughPrivateBoundary(t *testing.T) {
+	ctx := context.Background()
+	directory := t.TempDir()
+	store := openTestStore(t, directory, time.Now, RateLimit{})
+	defer store.Close()
+	socketPath := filepath.Join(directory, "admin.sock")
+	server, err := StartAdminServer(AdminServerConfig{SocketPath: socketPath, Store: store})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer shutdownAdminTestServer(t, server)
+	client := adminTestClient(socketPath)
+	credential, err := NewDeviceCredential()
+	if err != nil {
+		t.Fatal(err)
+	}
+	intent := testHostedAccessIntent()
+	intent.Client.DeviceID = credential.DeviceID
+	progress := ensureHostedAccessFromTypedClient(t, client, intent)
+	requirePreparingHostedAccess(t, progress)
+
+	stream := openHostedAccessTestStream(t, client, intent.IdempotencyKey, "")
+	defer stream.Close()
+	first := readHostedAccessTestEvent(t, stream)
+	requirePreparingHostedAccess(t, first)
+
+	runtimeName := testRuntimeName(t, "typed-client-ready")
+	assignTestRuntime(t, store, "typed-client-runtime", intent.UserID, runtimeName, "typed_client_secret")
+	created, err := store.EnsureDeviceGrant(ctx, EnsureDeviceGrantRequest{
+		Credential:  credential,
+		UserID:      intent.UserID,
+		RuntimeName: runtimeName,
+		DisplayName: "Typed client phone",
+		GrantTTL:    time.Hour,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.CompleteHostedAccessIntent(ctx, intent.IdempotencyKey, created); err != nil {
+		t.Fatal(err)
+	}
+	syncing := readHostedAccessTestEvent(t, stream)
+	if syncing.Cursor != "2" || syncing.State != HostedAccessProgressSyncingProject {
+		t.Fatalf("syncing event = %+v", syncing)
+	}
+	ready := readHostedAccessTestEvent(t, stream)
+	requireReadyHostedAccess(t, ready, credential.DeviceID)
+	if _, err := readHostedAccessEvent(stream); !errors.Is(err, io.EOF) {
+		t.Fatalf("completed progress stream read error = %v, want EOF", err)
+	}
+
+	replayed := openHostedAccessTestStream(t, client, intent.IdempotencyKey, "2")
+	defer replayed.Close()
+	requireReadyHostedAccess(t, readHostedAccessTestEvent(t, replayed), credential.DeviceID)
+}
+
+func ensureHostedAccessFromTypedClient(
+	t *testing.T,
+	client *http.Client,
+	intent EnsureHostedAccessIntent,
+) HostedAccessProgress {
+	t.Helper()
+	data, err := json.Marshal(intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := client.Post("http://unix/v1/hosted-access/ensure", "application/json", bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var progress HostedAccessProgress
+	decoder := json.NewDecoder(response.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&progress); err != nil || response.StatusCode != http.StatusOK {
+		t.Fatalf("hosted access ensure response = %d %+v, %v", response.StatusCode, progress, err)
+	}
+	return progress
+}
+
+func openHostedAccessTestStream(
+	t *testing.T,
+	client *http.Client,
+	intentID string,
+	cursor string,
+) *hostedAccessTestStream {
+	t.Helper()
+	request, err := http.NewRequest(http.MethodGet, "http://unix/v1/hosted-access/events?intentId="+intentID, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cursor != "" {
+		request.Header.Set("Last-Event-ID", cursor)
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "text/event-stream" {
+		_ = response.Body.Close()
+		t.Fatalf("hosted access stream response = %d %q", response.StatusCode, response.Header.Get("Content-Type"))
+	}
+	return &hostedAccessTestStream{body: response.Body, reader: bufio.NewReader(response.Body)}
+}
+
+type hostedAccessTestStream struct {
+	body   io.ReadCloser
+	reader *bufio.Reader
+}
+
+func (stream *hostedAccessTestStream) Close() error {
+	return stream.body.Close()
+}
+
+func readHostedAccessTestEvent(t *testing.T, stream *hostedAccessTestStream) HostedAccessProgress {
+	t.Helper()
+	progress, err := readHostedAccessEvent(stream)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return progress
+}
+
+func readHostedAccessEvent(stream *hostedAccessTestStream) (HostedAccessProgress, error) {
+	var payload []byte
+	for {
+		line, err := stream.reader.ReadBytes('\n')
+		if err != nil {
+			return HostedAccessProgress{}, err
+		}
+		if bytes.HasPrefix(line, []byte("data: ")) {
+			payload = bytes.TrimSpace(bytes.TrimPrefix(line, []byte("data: ")))
+		}
+		if bytes.Equal(line, []byte("\n")) && payload != nil {
+			var progress HostedAccessProgress
+			if err := json.Unmarshal(payload, &progress); err != nil {
+				return HostedAccessProgress{}, fmt.Errorf("decode hosted access event: %w", err)
+			}
+			return progress, nil
+		}
+	}
 }
 
 func adminTestClient(socketPath string) *http.Client {

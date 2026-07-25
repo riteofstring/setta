@@ -44,6 +44,9 @@ func (store *Store) EnsureHostedAccessIntent(
 	if err := tx.Commit(); err != nil {
 		return HostedAccessProgress{}, fmt.Errorf("commit hosted access intent: %w", err)
 	}
+	if !replayed {
+		store.notifyHostedAccessLocked(intent.IdempotencyKey)
+	}
 	return progress, nil
 }
 
@@ -178,7 +181,121 @@ func (store *Store) CompleteHostedAccessIntent(
 	if err := tx.Commit(); err != nil {
 		return HostedAccessProgress{}, fmt.Errorf("commit hosted access completion: %w", err)
 	}
+	store.notifyHostedAccessLocked(intentID)
 	return progress, nil
+}
+
+func (store *Store) HostedAccessProgressAfter(
+	ctx context.Context,
+	intentID string,
+	afterCursor string,
+) ([]HostedAccessProgress, <-chan struct{}, error) {
+	if err := validateIdentifier("hosted access intent id", intentID); err != nil {
+		return nil, nil, err
+	}
+	cursor, err := parseHostedAccessCursor(afterCursor)
+	if err != nil {
+		return nil, nil, err
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	progress, err := readHostedAccessProgressAfter(ctx, store.db, intentID, cursor)
+	if err != nil {
+		return nil, nil, err
+	}
+	return progress, store.hostedAccessUpdateLocked(intentID), nil
+}
+
+func parseHostedAccessCursor(raw string) (int, error) {
+	if raw == "" {
+		return 0, nil
+	}
+	cursor, err := strconv.Atoi(raw)
+	if err != nil || cursor < 0 {
+		return 0, errors.New("hosted access cursor must be a non-negative integer")
+	}
+	return cursor, nil
+}
+
+func readHostedAccessProgressAfter(
+	ctx context.Context,
+	querier hostedAccessProgressQuerier,
+	intentID string,
+	afterCursor int,
+) ([]HostedAccessProgress, error) {
+	rows, err := querier.QueryContext(ctx, `
+SELECT intent_id, cursor, state, reason_code, retryable, occurred_at
+FROM hosted_access_progress
+WHERE intent_id = ? AND cursor > ?
+ORDER BY cursor
+`, intentID, afterCursor)
+	if err != nil {
+		return nil, fmt.Errorf("read hosted access progress events: %w", err)
+	}
+	defer rows.Close()
+	var events []HostedAccessProgress
+	for rows.Next() {
+		var event HostedAccessProgress
+		var cursor int
+		var retryable int
+		if err := rows.Scan(
+			&event.IntentID,
+			&cursor,
+			&event.State,
+			&event.ReasonCode,
+			&retryable,
+			&event.OccurredAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan hosted access progress event: %w", err)
+		}
+		event.Cursor = strconv.Itoa(cursor)
+		event.Retryable = retryable == 1
+		events = append(events, event)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate hosted access progress events: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("close hosted access progress events: %w", err)
+	}
+	if len(events) == 0 {
+		var count int
+		if err := querier.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM hosted_access_intents WHERE intent_id = ?
+`, intentID).Scan(&count); err != nil {
+			return nil, fmt.Errorf("validate hosted access progress intent: %w", err)
+		}
+		if count != 1 {
+			return nil, ErrNotFound
+		}
+		return nil, nil
+	}
+	if events[len(events)-1].State == HostedAccessProgressReadyOnPhone {
+		grant, err := readHostedAccessGrant(ctx, querier, intentID)
+		if err != nil {
+			return nil, err
+		}
+		events[len(events)-1].AccessGrant = &grant
+	}
+	return events, nil
+}
+
+func (store *Store) hostedAccessUpdateLocked(intentID string) <-chan struct{} {
+	update := store.hostedUpdates[intentID]
+	if update == nil {
+		update = make(chan struct{})
+		store.hostedUpdates[intentID] = update
+	}
+	return update
+}
+
+func (store *Store) notifyHostedAccessLocked(intentID string) {
+	update := store.hostedUpdates[intentID]
+	if update == nil {
+		return
+	}
+	close(update)
+	delete(store.hostedUpdates, intentID)
 }
 
 func validateHostedAccessCompletion(
