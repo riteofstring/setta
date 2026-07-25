@@ -141,6 +141,7 @@ try {
     workflowTimeoutMs,
   );
   assertStableWorkspaceIdentity(relocatedSession, workspaceId);
+  await assertWritableEasyButton(context.client, conversationId);
   await reopenConversationFromMasterPicker(context.client, conversationId);
   await assertWritableEasyButton(context.client, conversationId);
 

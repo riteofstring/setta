@@ -500,7 +500,7 @@ resolve or create the appropriate pane directly from the command target and its 
 
 ### 8. Verify End To End
 
-**Status:** Ready for phase audit.
+**Status:** Completed.
 
 Completed repository work:
 
@@ -522,12 +522,15 @@ Completed repository work:
 - Extended the same workflow to close and reopen a folderless conversation pane through the app-level
   conversation pane navigation coordinator with empty resource bindings, while preserving the
   folder-needed resource request surface and the single-master-pane invariant.
+- During phase audit, tightened `workspace-first-run-recovery` to wait for the relocated
+  conversation pane to recover writability before exercising the master shortcut and picker, avoiding
+  a renderer/session race after folder relocation while keeping the production app path under test.
+- Phase audit verification passed for the applicable deterministic selectors and the
+  ChatGPT-authenticated live Codex matrix.
 
 Remaining repository work:
 
-- Run the phase-audit deterministic workflow selectors once implementation coverage is complete.
-- Run live Codex E2E tests only at phase audit when local ChatGPT-authenticated Codex CLI access is
-  available; otherwise record that external provider verification as a release gate.
+- None.
 
 Because this touches pane layout, master routing, conversation creation, persistence, keyboard
 shortcuts, and renderer state, verification must include deterministic end-to-end app workflow
