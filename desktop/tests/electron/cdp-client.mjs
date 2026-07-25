@@ -7,7 +7,7 @@ const driverScriptPath = join(driverScriptDir, "browser-driver.js");
 const driverExtensionScripts = [
   {
     installedExpression:
-      'globalThis.__settaE2EDriver?.appPaneLayoutVersion === "setta-app-pane-layout-driver-v2"',
+      'globalThis.__settaE2EDriver?.appPaneLayoutVersion === "setta-app-pane-layout-driver-v3"',
     path: join(driverScriptDir, "app-pane-layout-driver.js"),
   },
   {

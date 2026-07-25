@@ -500,7 +500,7 @@ resolve or create the appropriate pane directly from the command target and its 
 
 ### 8. Verify End To End
 
-**Status:** In progress.
+**Status:** Ready for phase audit.
 
 Completed repository work:
 
@@ -511,13 +511,20 @@ Completed repository work:
 - Extended the same workflow to assert the live and persisted app pane layout keeps exactly one
   master pane while the resource-bound conversation pane is closed, and that removed project
   sidebar/selector hooks are absent from the primary pane flow.
+- Audited the existing focused deterministic workflow coverage: `workspace-first-run-recovery`
+  covers fresh folderless startup with exactly one focused master pane and no old folder picker,
+  while `app-pane-layout` is the focused selector for app-level pane layout, master shortcut,
+  close/reopen, transcript, and resource-request coverage.
+- Extended the focused app pane Electron workflow to submit a direct text answer through the master
+  pane before any folder is opened, verify the deterministic `answer_global` route, verify the
+  durable transcript through the backend read endpoint, reload the renderer, and assert the master
+  transcript restores in the pane UI.
+- Extended the same workflow to close and reopen a folderless conversation pane through the app-level
+  conversation pane navigation coordinator with empty resource bindings, while preserving the
+  folder-needed resource request surface and the single-master-pane invariant.
 
 Remaining repository work:
 
-- Audit the existing focused deterministic workflows against the required coverage below, then fill
-  any remaining repository-actionable gaps for folder-needed resource requests, folderless
-  conversation reopen, direct folderless master answers, transcript reload coverage, and broader
-  close/focus invariants that are not already covered.
 - Run the phase-audit deterministic workflow selectors once implementation coverage is complete.
 - Run live Codex E2E tests only at phase audit when local ChatGPT-authenticated Codex CLI access is
   available; otherwise record that external provider verification as a release gate.

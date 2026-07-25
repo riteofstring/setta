@@ -21,6 +21,10 @@ import {
 } from "./electron-cdp-harness.mjs";
 import { backendProbe, waitForBackendState } from "./electron-workflow-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
+import {
+  assertMasterRouteDecision,
+  waitForMasterRouteDecision,
+} from "./topic-conversation-master-overlay-assertions.mjs";
 import { assertDriverAction, conversationSurfaces } from "./topic-conversation-fork-workflow.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
@@ -58,6 +62,10 @@ try {
   await context.client.installDriver();
   const backend = await backendProbe(artifactDir);
   const workspaceRoot = await realpath(fixture.workspaceRoot);
+  const folderlessMasterAnswer = await exerciseFolderlessMasterAnswer({
+    backend,
+    client: context.client,
+  });
   const opened = await backend.post("/workspaces/open", { rootPath: workspaceRoot });
   const conversationId = await createFixtureConversation(
     backend,
@@ -117,12 +125,18 @@ try {
       `master folderless conversation create failed: ${JSON.stringify(folderlessConversation)}`,
     );
   }
+  const folderlessConversationReopen = await exerciseFolderlessConversationCloseAndReopen({
+    client: context.client,
+    folderlessConversation,
+  });
 
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
     activeConversationClose,
     focusedMaster,
     folderlessConversation,
+    folderlessConversationReopen,
+    folderlessMasterAnswer,
     focusedPaneId: result.readBack.layout.focusedPaneId,
     persistedShell,
     refocusedMaster,
@@ -160,6 +174,69 @@ async function ensureWorkspaceOpen(client) {
     workflowTimeoutMs,
   );
   return opened.workspaceId;
+}
+
+async function exerciseFolderlessMasterAnswer({ backend, client }) {
+  const text = "Answer from folderless master.";
+  const replyText = "The shell voice request was received.";
+  const submitted = await client.driver("appPaneLayoutSubmitMasterText", {
+    expectedResultKind: "answer_global",
+    text,
+  });
+  assertDriverStatus(submitted, "folderless master direct answer");
+  const route = await waitForMasterRouteDecision(backend, submitted.inputId, workflowTimeoutMs);
+  assertMasterRouteDecision(route, {
+    expectedInputId: submitted.inputId,
+    expectedKind: "answer_global",
+  });
+  const actualReply = route.decision?.resultingCommand?.answerGlobal?.text ?? "";
+  if (actualReply !== replyText) {
+    throw new Error(`folderless master answer drifted: ${JSON.stringify(route)}`);
+  }
+  const transcript = await waitForMasterAnswerTranscript({
+    backend,
+    inputId: submitted.inputId,
+    replyText,
+    text,
+  });
+  await client.call("Page.reload", { ignoreCache: true });
+  await waitForSelector(client, '[data-testid="workspace-layout-area"]', workflowTimeoutMs);
+  await client.installDriver();
+  const restoredTranscript = await waitForState(
+    client,
+    driverCallExpression("appPaneLayoutTranscriptState", {
+      replyText,
+      userText: text,
+    }),
+    (state) => state.userInputPresent && state.assistantReplyPresent,
+    workflowTimeoutMs,
+  );
+  return {
+    inputId: submitted.inputId,
+    restoredEntryCount: restoredTranscript.entryCount,
+    transcriptEntryCount: transcript.entries.length,
+  };
+}
+
+function waitForMasterAnswerTranscript({ backend, inputId, replyText, text }) {
+  return waitForBackendState(
+    () => backend.post("/master/transcript/read", { limit: 20 }),
+    (transcript) =>
+      transcript.entries.some(
+        (entry) =>
+          entry.payload.inputId === inputId &&
+          entry.payload.kind === "user_input" &&
+          entry.payload.userInput?.text === text,
+      ) &&
+      transcript.entries.some(
+        (entry) =>
+          entry.payload.inputId === inputId &&
+          entry.payload.kind === "assistant_reply" &&
+          entry.payload.assistantReply?.replyKind === "answer" &&
+          entry.payload.assistantReply?.text === replyText,
+      ),
+    workflowTimeoutMs,
+  );
 }
 
 async function exerciseActiveConversationCloseAndReopen({
@@ -244,6 +321,37 @@ async function exerciseActiveConversationCloseAndReopen({
     reopenedProjectionStatus: reopenedSurface.projectionStatus,
     runningTurnStatusAfterClose: turnByText(runningAfterClose, holdText)?.status ?? "",
     stoppedTurnStatus: turnByText(stopped, holdText)?.status ?? "",
+  };
+}
+
+async function exerciseFolderlessConversationCloseAndReopen({ client, folderlessConversation }) {
+  const { conversationId, paneId } = folderlessConversation;
+  if (!conversationId || !paneId) {
+    throw new Error(
+      `folderless conversation result is incomplete: ${JSON.stringify(folderlessConversation)}`,
+    );
+  }
+  const closed = await client.driver("appPaneLayoutCloseConversationPane", { conversationId });
+  assertDriverStatus(closed, "folderless conversation pane close");
+  const reopened = await client.driver("appPaneLayoutReopenFolderlessConversation", {
+    conversationId,
+    title: "New conversation",
+  });
+  assertDriverStatus(reopened, "folderless conversation pane reopen");
+  if (reopened.resourceRoot !== "") {
+    throw new Error(`folderless reopen gained a folder binding: ${JSON.stringify(reopened)}`);
+  }
+  const surface = await waitForState(
+    client,
+    driverCallExpression("appPaneLayoutConversationPaneState", { conversationId }),
+    (state) => state.open && state.visible && state.projectionStatus === "unloaded",
+    workflowTimeoutMs,
+  );
+  return {
+    closedPaneId: closed.paneId,
+    conversationId,
+    reopenedPaneId: reopened.paneId,
+    reopenedProjectionStatus: surface.projectionStatus,
   };
 }
 

@@ -1,7 +1,8 @@
-/* global HTMLButtonElement, HTMLElement, KeyboardEvent, document, window */
+/* global CustomEvent, Event, HTMLButtonElement, HTMLElement, HTMLTextAreaElement, InputEvent, KeyboardEvent, document, window */
 
 (() => {
-  const version = "setta-app-pane-layout-driver-v2";
+  const version = "setta-app-pane-layout-driver-v3";
+  const conversationPaneNavigationRequestEvent = "setta:conversation-pane-navigation-request";
   let roundTripPromise = null;
 
   function installAppPaneLayoutDriver() {
@@ -19,8 +20,11 @@
       appPaneLayoutPaneInvariantState,
       appPaneLayoutPersistedShellState,
       appPaneLayoutPressMasterFocusShortcut,
+      appPaneLayoutReopenFolderlessConversation,
       appPaneLayoutRoundTrip,
       appPaneLayoutShellState,
+      appPaneLayoutSubmitMasterText,
+      appPaneLayoutTranscriptState,
       appPaneLayoutVersion: version,
     });
   }
@@ -152,6 +156,133 @@
     return waitForFolderlessConversationPane();
   }
 
+  async function appPaneLayoutSubmitMasterText({ expectedResultKind = "answer_global", text }) {
+    const composer = masterPaneComposer();
+    if (!(composer instanceof HTMLTextAreaElement)) {
+      return { reason: "missing-master-pane-composer", status: "failed" };
+    }
+    setTextareaValue(composer, text);
+    composer.focus();
+    const send = masterPaneSurface()?.querySelector('button[aria-label="Send to Setta"]');
+    if (!(send instanceof HTMLButtonElement)) {
+      return { reason: "missing-master-send-button", status: "failed" };
+    }
+    if (send.disabled) {
+      return { reason: "disabled-master-send-button", status: "failed" };
+    }
+    send.click();
+    return waitForMasterRoutingResult({ expectedResultKind, text });
+  }
+
+  function masterPaneComposer() {
+    return masterPaneSurface()?.querySelector('textarea[aria-label="Ask Setta"]') ?? null;
+  }
+
+  function masterPaneSurface() {
+    const surface = document.querySelector('[data-testid="master-pane-surface"]');
+    return surface instanceof HTMLElement ? surface : null;
+  }
+
+  function setTextareaValue(textarea, value) {
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+    setter?.call(textarea, value);
+    textarea.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
+    textarea.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  async function waitForMasterRoutingResult({ expectedResultKind, text }) {
+    const deadline = Date.now() + 10_000;
+    let state = masterRoutingResultState({ expectedResultKind, text });
+    while (state.status !== "passed" && Date.now() < deadline) {
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+      state = masterRoutingResultState({ expectedResultKind, text });
+    }
+    return state.status === "passed" ? state : { ...state, status: "failed" };
+  }
+
+  function masterRoutingResultState({ expectedResultKind, text }) {
+    const interaction = masterActiveInteraction();
+    const result = interaction?.querySelector("[data-master-result-kind]") ?? null;
+    const requestText = masterInteractionText(
+      interaction,
+      '[data-testid="master-active-request"] p',
+    );
+    const resultKind = elementAttribute(result, "data-master-result-kind");
+    const inputId = masterInteractionInputId(interaction);
+    const resultText = elementText(result);
+    const passed = masterRoutingResultPassed({
+      expectedResultKind,
+      inputId,
+      requestText,
+      resultKind,
+      text,
+    });
+    return {
+      inputId,
+      requestText,
+      resultKind,
+      resultText,
+      status: passed ? "passed" : "pending",
+    };
+  }
+
+  function masterActiveInteraction() {
+    return masterPaneSurface()?.querySelector('[data-testid="master-active-interaction"]') ?? null;
+  }
+
+  function masterInteractionText(interaction, selector) {
+    return elementText(interaction?.querySelector(selector) ?? null);
+  }
+
+  function masterInteractionInputId(interaction) {
+    if (!(interaction instanceof HTMLElement)) {
+      return "";
+    }
+    return interaction.dataset.masterInputId ?? "";
+  }
+
+  function elementText(element) {
+    return element?.textContent ?? "";
+  }
+
+  function elementAttribute(element, attribute) {
+    return element?.getAttribute(attribute) ?? "";
+  }
+
+  function masterRoutingResultPassed({
+    expectedResultKind,
+    inputId,
+    requestText,
+    resultKind,
+    text,
+  }) {
+    return inputId.length > 0 && requestText === text && resultKind === expectedResultKind;
+  }
+
+  function appPaneLayoutTranscriptState({ replyText, userText }) {
+    const entries = masterTranscriptEntries();
+    return {
+      assistantReplyPresent: entries.some(
+        (entry) => entry.kind === "assistant_reply" && entry.text.includes(replyText),
+      ),
+      entries,
+      entryCount: entries.length,
+      status: "ready",
+      userInputPresent: entries.some(
+        (entry) => entry.kind === "user_input" && entry.text.includes(userText),
+      ),
+    };
+  }
+
+  function masterTranscriptEntries() {
+    return Array.from(document.querySelectorAll('[data-testid="master-transcript-entry"]'))
+      .filter((entry) => entry instanceof HTMLElement)
+      .map((entry) => ({
+        kind: entry.dataset.masterTranscriptKind ?? "",
+        text: entry.textContent ?? "",
+      }));
+  }
+
   async function appPaneLayoutOpenConversationFromMaster({ conversationId }) {
     const topicsButton = document.querySelector(
       '[data-testid="master-pane-surface"] [data-testid="master-topics-button"]',
@@ -167,6 +298,36 @@
       return masterConversationPickerRowState(conversationId, "failed");
     }
     row.click();
+    return waitForConversationPaneOpen(conversationId);
+  }
+
+  async function appPaneLayoutReopenFolderlessConversation({ conversationId, title }) {
+    const detail = {
+      completion: null,
+      request: {
+        conversationId,
+        resourceBindings: [],
+        title: title || "New conversation",
+        workspaceId: "empty",
+      },
+    };
+    window.dispatchEvent(new CustomEvent(conversationPaneNavigationRequestEvent, { detail }));
+    if (!detail.completion) {
+      return { reason: "missing-conversation-navigation-handler", status: "failed" };
+    }
+    let presentation;
+    try {
+      presentation = await detail.completion;
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error.message : String(error),
+        reason: "conversation-navigation-failed",
+        status: "failed",
+      };
+    }
+    if (presentation.kind !== "opened" && presentation.kind !== "focused") {
+      return { presentation, reason: "conversation-navigation-blocked", status: "failed" };
+    }
     return waitForConversationPaneOpen(conversationId);
   }
 
