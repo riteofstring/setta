@@ -1,10 +1,15 @@
 # Setta 4 Director Command Center — Plan of Record
 
 **Date:** 2026-07-24
-**Status:** Approved direction; Phase 0 in progress. The ownership, surviving-path,
-and reusable-foundation inventories are committed in
-[`docs/reports/setta-4-phase0-ownership-inventory-20260724.md`](../reports/setta-4-phase0-ownership-inventory-20260724.md).
-No source cutover work has started.
+**Status:** Approved direction; Phase 0 repository work is complete. The ownership,
+surviving-path, and reusable-foundation inventories are committed in
+[`docs/reports/setta-4-phase0-ownership-inventory-20260724.md`](../reports/setta-4-phase0-ownership-inventory-20260724.md),
+the mockup fidelity checklist in
+[`docs/reports/setta-4-mockup-fidelity-checklist-20260724.md`](../reports/setta-4-mockup-fidelity-checklist-20260724.md),
+and the target performance matrix in
+[`docs/reports/performance/setta-4-target-performance-matrix-20260724.md`](../reports/performance/setta-4-target-performance-matrix-20260724.md).
+The remaining Phase 0 items are verification actions that need an interactive
+desktop session, not repository edits. No source cutover work has started.
 
 ## Product Decision
 
@@ -66,6 +71,10 @@ data are not production contracts to merge wholesale.
 Setta 4 is not a loose redesign inspired by the mockup. Before Phase 4 exits, the production shell
 must pass a side-by-side visual and interaction review against the committed mockup at representative
 desktop and phone-sized viewports.
+
+The binding row-by-row checklist for that review is
+[`docs/reports/setta-4-mockup-fidelity-checklist-20260724.md`](../reports/setta-4-mockup-fidelity-checklist-20260724.md).
+Its section 5 is the complete list of allowed differences; adding one requires a plan amendment.
 
 The implementation must preserve:
 
@@ -746,26 +755,33 @@ deleting Niri; replace its product responsibilities first.
    into a self-contained visual specification if that artifact is superseded. **Done —
    `docs/mockups/fullscreen_conversation_concept.html`.**
 6. Convert the approved mockup into a fidelity checklist that separates required production UX from
-   prototype-only fake data, dev controls, and demo scripts.
+   prototype-only fake data, dev controls, and demo scripts. **Done —
+   `docs/reports/setta-4-mockup-fidelity-checklist-20260724.md`.**
 7. Capture the current interaction and rendering performance baseline before changing renderer
    assumptions.
-8. Define the target performance hardware, display, viewport, and device-pixel-ratio matrix.
+8. Define the target performance hardware, display, viewport, and device-pixel-ratio matrix. **Done —
+   `docs/reports/performance/setta-4-target-performance-matrix-20260724.md`.**
 
 The committed inventory is
 [`docs/reports/setta-4-phase0-ownership-inventory-20260724.md`](../reports/setta-4-phase0-ownership-inventory-20260724.md).
 Its section 4 lists the contract gaps Phase 1 must close, and its section 5 records the verification
 that needs an interactive desktop session.
 
+Items 1 and 7 are the only Phase 0 work left, and neither is a repository edit. Item 1 is a build
+confirmation that runs when verification begins; item 7 needs an interactive Electron session on the
+target display and is recorded as a release gate in the inventory's section 5 and in section 7 of the
+performance matrix.
+
 Exit gate:
 
-- reproducible desktop development build
+- reproducible desktop development build — pending verification start
 - Niri ownership inventory committed — met
 - retained/replaced/deleted production responsibilities documented — met
 - reusable foundation inventory committed — met
 - fullscreen design direction is present in the branch — met
-- mockup fidelity checklist is committed
-- baseline performance report committed
-- target performance matrix committed
+- mockup fidelity checklist is committed — met
+- baseline performance report committed — release gate; needs an interactive desktop session
+- target performance matrix committed — met
 
 ### Phase 1 — Extend truth before visuals
 
@@ -957,13 +973,13 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Convert the fullscreen mockup into a committed fidelity checklist: required production UX,
-   prototype-only demo behavior, typed-state requirements for every visual mode, and any known
-   implementation risks to matching the mockup.
-2. Define the target performance hardware, display, viewport, and device-pixel-ratio matrix.
-3. Capture the current interaction and rendering performance baseline.
-4. Refresh the Codex app-server protocol snapshot and define the Codex-to-Setta provider notification
-   adapter matrix.
-5. Start Phase 1 by extending the existing routing, trajectory, snapshot, subscription, approval,
+1. Refresh the Codex app-server protocol snapshot, record the upstream commit used, and regenerate
+   affected Go and TypeScript surfaces.
+2. Define the Codex-to-Setta provider notification adapter matrix.
+3. Start Phase 1 by extending the existing routing, trajectory, snapshot, subscription, approval,
    artifact, speech, realtime, lifecycle, and telemetry contracts into the Setta 4 workstream and
-   semantic graph contracts.
+   semantic graph contracts, closing the four contract gaps the inventory found: durable
+   resource-request records, the app-scoped workstream registry, plan-step identity, and workstream
+   resource bindings that free `internal/master` from `internal/applayout`.
+4. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
+   session is available, using the tiers and required report fields in the performance matrix.
