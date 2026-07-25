@@ -128,8 +128,9 @@ func TestTypedHostedAccessClientReceivesDurableAssignmentFailure(t *testing.T) {
 	directory := t.TempDir()
 	store := openTestStore(t, directory, time.Now, RateLimit{})
 	defer store.Close()
+	var measurements bytes.Buffer
 	server, err := StartAdminServer(AdminServerConfig{
-		Observer:   newAdminTestObserver(t, io.Discard),
+		Observer:   newAdminTestObserver(t, &measurements),
 		SocketPath: filepath.Join(directory, "admin.sock"),
 		Store:      store,
 	})
@@ -188,6 +189,7 @@ func TestTypedHostedAccessClientReceivesDurableAssignmentFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	requireHostedAccessFailure(t, persisted, HostedAccessReasonRuntimeAssignmentRejected)
+	requireContentFreeHostedAccessFailureMeasurement(t, measurements.Bytes())
 }
 
 func postHostedAccessCompletion(
@@ -279,6 +281,34 @@ func requireContentFreeHostedAccessMeasurement(t *testing.T, encoded []byte) {
 	}
 	if measurement["event"] != "hosted_access_ready" {
 		t.Fatalf("hosted access measurement = %v", measurement)
+	}
+}
+
+func requireContentFreeHostedAccessFailureMeasurement(t *testing.T, encoded []byte) {
+	t.Helper()
+	var measurement map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	if err := decoder.Decode(&measurement); err != nil {
+		t.Fatal(err)
+	}
+	wantKeys := map[string]bool{
+		"completed_at": true,
+		"event":        true,
+		"reason_code":  true,
+		"retryable":    true,
+	}
+	if len(measurement) != len(wantKeys) {
+		t.Fatalf("hosted access failure measurement fields = %v", measurement)
+	}
+	for key := range measurement {
+		if !wantKeys[key] {
+			t.Fatalf("hosted access failure measurement contains content-bearing field %q", key)
+		}
+	}
+	if measurement["event"] != "hosted_access_failed" ||
+		measurement["reason_code"] != string(HostedAccessReasonRuntimeAssignmentRejected) ||
+		measurement["retryable"] != false {
+		t.Fatalf("hosted access failure measurement = %v", measurement)
 	}
 }
 

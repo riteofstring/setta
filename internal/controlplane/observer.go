@@ -38,7 +38,21 @@ type HostedAccessTimingMeasurement struct {
 	SyncToReadyMilliseconds   float64   `json:"sync_to_ready_ms"`
 }
 
+type HostedAccessFailureObservation struct {
+	CompletedAt time.Time
+	ReasonCode  HostedAccessReasonCode
+	Retryable   bool
+}
+
+type HostedAccessFailureMeasurement struct {
+	CompletedAt time.Time              `json:"completed_at"`
+	Event       string                 `json:"event"`
+	ReasonCode  HostedAccessReasonCode `json:"reason_code"`
+	Retryable   bool                   `json:"retryable"`
+}
+
 type HostedAccessObserver interface {
+	ObserveHostedAccessFailure(HostedAccessFailureObservation)
 	ObserveHostedAccessTiming(HostedAccessTiming)
 }
 
@@ -87,6 +101,20 @@ func (observer *JSONLinesObserver) ObserveHostedAccessTiming(timing HostedAccess
 		EnsureToSyncMilliseconds:  milliseconds(timing.EnsureToSync),
 		Event:                     "hosted_access_ready",
 		SyncToReadyMilliseconds:   milliseconds(timing.SyncToReady),
+	})
+}
+
+func (observer *JSONLinesObserver) ObserveHostedAccessFailure(observation HostedAccessFailureObservation) {
+	observer.mu.Lock()
+	defer observer.mu.Unlock()
+	if observer.err != nil {
+		return
+	}
+	observer.err = observer.encoder.Encode(HostedAccessFailureMeasurement{
+		CompletedAt: observation.CompletedAt.UTC(),
+		Event:       "hosted_access_failed",
+		ReasonCode:  observation.ReasonCode,
+		Retryable:   observation.Retryable,
 	})
 }
 

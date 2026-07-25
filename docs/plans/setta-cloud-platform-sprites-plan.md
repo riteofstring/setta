@@ -2178,3 +2178,11 @@ Stop and reassess rather than hiding the problem if any of these occur:
   state survive process loss, and TypeScript client tests prove strict failure
   decoding. The larger typed-progress checkbox remains open for suspension,
   export, and the Director/frontend projection.
+- 2026-07-24 (content-free hosted failure audit): Extended the shared JSONL
+  observer with a `hosted_access_failed` record emitted only after the durable
+  needs-attention write succeeds. The record contains the completion
+  timestamp, Go-owned reason code, retryability, and event discriminator only.
+  The forced production-boundary assignment rejection test verifies the exact
+  field allowlist and rejects any accidental identifier or request-content
+  field. Broader audit coverage for provisioning, wake, suspension, export,
+  deletion, and budget cutoff remains open.

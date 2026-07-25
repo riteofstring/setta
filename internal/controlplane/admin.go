@@ -229,7 +229,7 @@ func handleAdminCompleteHostedAccess(
 	if !decodeAdminRequest(response, request, &payload) {
 		return
 	}
-	created, err := completeHostedAccess(request.Context(), store, payload)
+	created, err := completeHostedAccess(request.Context(), store, observer, payload)
 	if err != nil {
 		writeAdminError(response)
 		return
@@ -250,6 +250,7 @@ func handleAdminCompleteHostedAccess(
 func completeHostedAccess(
 	ctx context.Context,
 	store *Store,
+	observer HostedAccessObserver,
 	payload AdminCompleteHostedAccessRequest,
 ) (CreatedDeviceGrant, error) {
 	if _, err := store.UpsertUser(ctx, payload.UserID); err != nil {
@@ -274,6 +275,7 @@ func completeHostedAccess(
 		return CreatedDeviceGrant{}, recordHostedAccessFailure(
 			ctx,
 			store,
+			observer,
 			payload.HostedAccessIntentID,
 			HostedAccessReasonRuntimeAssignmentRejected,
 			err,
@@ -290,6 +292,7 @@ func completeHostedAccess(
 		return CreatedDeviceGrant{}, recordHostedAccessFailure(
 			ctx,
 			store,
+			observer,
 			payload.HostedAccessIntentID,
 			HostedAccessReasonDeviceGrantRejected,
 			err,
@@ -304,11 +307,19 @@ func completeHostedAccess(
 func recordHostedAccessFailure(
 	ctx context.Context,
 	store *Store,
+	observer HostedAccessObserver,
 	intentID string,
 	reason HostedAccessReasonCode,
 	cause error,
 ) error {
 	_, recordError := store.FailHostedAccessIntent(ctx, intentID, reason, false)
+	if recordError == nil {
+		observer.ObserveHostedAccessFailure(HostedAccessFailureObservation{
+			CompletedAt: time.Now(),
+			ReasonCode:  reason,
+			Retryable:   false,
+		})
+	}
 	return errors.Join(cause, recordError)
 }
 
