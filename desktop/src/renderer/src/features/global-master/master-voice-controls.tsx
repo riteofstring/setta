@@ -8,9 +8,15 @@ import type {
   AppShellSpeechCaptureSnapshot,
   SpeechCaptureState,
 } from "../global-speech/app-shell-speech-capture-controller";
+import { voiceProviderSetupActionLabel } from "../global-speech/speech-capture-availability";
 import { masterVoiceShortcutLabel } from "./master-shortcuts";
 
-type MasterVoiceAction = "cancel" | "commit" | "retry_master" | "start";
+type MasterVoiceAction =
+  | "cancel"
+  | "commit"
+  | "open_voice_credential_settings"
+  | "retry_master"
+  | "start";
 
 interface MasterVoiceModel {
   action: MasterVoiceAction | null;
@@ -67,13 +73,13 @@ export function MasterVoiceStatus({ model }: { model: MasterVoiceModel }) {
   }
   return (
     <div
-      className="setta-master-overlay-voice-status"
+      className="setta-master-pane-voice-status"
       data-master-voice-state={model.state}
-      data-testid="master-overlay-voice-status"
+      data-testid="master-pane-voice-status"
       role={model.state === "failed" ? "alert" : "status"}
     >
       <MasterVoiceStatusGlyph state={model.state} />
-      <span className="setta-master-overlay-voice-status-text">
+      <span className="setta-master-pane-voice-status-text">
         {model.statusLabel}
         {model.transcript ? (
           <span className="setta-master-overlay-voice-transcript">"{model.transcript}"</span>
@@ -83,14 +89,28 @@ export function MasterVoiceStatus({ model }: { model: MasterVoiceModel }) {
   );
 }
 
-export function MasterVoiceButton({ model }: { model: MasterVoiceModel }) {
+export function MasterVoiceButton({
+  className = "setta-master-overlay-voice-button",
+  model,
+  onOpenVoiceCredentialSettings,
+  testId = "master-pane-voice-capture",
+}: {
+  className?: string;
+  model: MasterVoiceModel;
+  onOpenVoiceCredentialSettings?: () => void;
+  testId?: string;
+}) {
+  const disabled =
+    model.action === null ||
+    (model.action === "open_voice_credential_settings" && !onOpenVoiceCredentialSettings);
   return (
     <button
       aria-label={model.controlLabel}
-      className="setta-master-overlay-voice-button"
-      data-testid="master-overlay-voice-capture"
-      disabled={model.action === null}
-      onClick={() => executeMasterVoiceAction(model)}
+      className={className}
+      data-master-voice-state={model.state}
+      data-testid={testId}
+      disabled={disabled}
+      onClick={() => executeMasterVoiceAction(model, onOpenVoiceCredentialSettings)}
       title={model.controlLabel}
       type="button"
     >
@@ -101,16 +121,22 @@ export function MasterVoiceButton({ model }: { model: MasterVoiceModel }) {
 
 export function executeMasterVoiceCommand(
   controller: AppShellSpeechCaptureController | null,
+  onOpenVoiceCredentialSettings?: () => void,
 ): void {
   if (!controller) {
     return;
   }
-  const activeMaster = activeMasterCapture(controller.getSnapshot().capture);
+  const snapshot = controller.getSnapshot();
+  const activeMaster = activeMasterCapture(snapshot.capture);
   if (activeMaster?.type === "recording") {
     controller.commit();
     return;
   }
   if (activeMaster) {
+    return;
+  }
+  if (snapshot.availability.type === "not_configured") {
+    onOpenVoiceCredentialSettings?.();
     return;
   }
   void controller.startMasterCapture();
@@ -210,9 +236,17 @@ function availabilityVoiceModel(
     case "loading":
       return unavailableMasterVoiceModel(controller, "Voice capture is loading", null);
     case "failed":
-    case "not_configured":
     case "unsupported":
       return unavailableMasterVoiceModel(controller, availability.message, null);
+    case "not_configured":
+      return {
+        action: "open_voice_credential_settings",
+        controlLabel: voiceProviderSetupActionLabel(availability.setupAction),
+        controller,
+        state: "unavailable",
+        statusLabel: availability.message,
+        transcript: null,
+      };
     default:
       return assertNever(availability);
   }
@@ -292,7 +326,10 @@ function isActiveSpeechCapture(capture: SpeechCaptureState): capture is ActiveSp
   return activeCaptureTypes.has(capture.type);
 }
 
-function executeMasterVoiceAction(model: MasterVoiceModel): void {
+function executeMasterVoiceAction(
+  model: MasterVoiceModel,
+  onOpenVoiceCredentialSettings: (() => void) | undefined,
+): void {
   if (!model.controller || model.action === null) {
     return;
   }
@@ -302,6 +339,9 @@ function executeMasterVoiceAction(model: MasterVoiceModel): void {
       return;
     case "commit":
       model.controller.commit();
+      return;
+    case "open_voice_credential_settings":
+      onOpenVoiceCredentialSettings?.();
       return;
     case "retry_master":
       model.controller.retryMasterSubmission();
@@ -338,6 +378,8 @@ function MasterVoiceButtonGlyph({ model }: { model: MasterVoiceModel }) {
       return <Square aria-hidden="true" />;
     case "commit":
       return <Square aria-hidden="true" />;
+    case "open_voice_credential_settings":
+      return <Mic aria-hidden="true" />;
     case "retry_master":
       return <RotateCcw aria-hidden="true" />;
     case "start":

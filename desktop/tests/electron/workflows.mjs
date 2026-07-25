@@ -1,12 +1,17 @@
 export const electronWorkflows = [
   {
+    file: "app-pane-layout-workflow.test.mjs",
+    name: "app-pane-layout",
+    tiers: ["required"],
+  },
+  {
     file: "app-window-drag-workflow.test.mjs",
     name: "app-window-drag",
     tiers: ["required"],
   },
   {
-    file: "settings-pane-workflow.test.mjs",
-    name: "settings-pane",
+    file: "settings-page-workflow.test.mjs",
+    name: "settings-page",
     tiers: ["required"],
   },
   {
@@ -15,14 +20,14 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
-    file: "hosted-cloud-chat-workflow.test.mjs",
-    name: "hosted-cloud-chat",
+    file: "topic-conversation-creation-workflow.test.mjs",
+    name: "topic-conversation-creation",
     tiers: ["required"],
   },
   {
-    file: "live-codex-electron-workflow.test.mjs",
-    name: "live-codex-electron",
-    tiers: ["live-codex"],
+    file: "topic-conversation-provider-thread-lifecycle.test.mjs",
+    name: "topic-conversation-provider-thread-lifecycle",
+    tiers: ["required"],
   },
   {
     file: "topic-conversation-artifact-unresolved.test.mjs",
@@ -70,14 +75,24 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "local-macos-voice-capture-workflow.test.mjs",
+    name: "local-macos-voice-capture",
+    tiers: ["required"],
+  },
+  {
+    file: "folderless-conversation-local-voice-workflow.test.mjs",
+    name: "folderless-conversation-local-voice",
+    tiers: ["required"],
+  },
+  {
     file: "topic-conversation-speech-arbitration.test.mjs",
     name: "topic-conversation-speech-arbitration",
     tiers: ["required"],
   },
   {
-    file: "instant-voice-capture-phase0-baseline.test.mjs",
-    name: "instant-voice-capture-phase0-baseline",
-    tiers: ["performance"],
+    file: "master-folderless-routing-workflow.test.mjs",
+    name: "master-folderless-routing",
+    tiers: ["required"],
   },
   {
     file: "instant-voice-capture-phase0-audioworklet.test.mjs",
@@ -147,6 +162,11 @@ export const electronWorkflows = [
   {
     file: "topic-conversation-performance.test.mjs",
     name: "topic-conversation-performance",
+    tiers: ["performance"],
+  },
+  {
+    file: "director-graph-renderer-performance.test.mjs",
+    name: "director-graph-renderer-performance",
     tiers: ["performance"],
   },
 ];
