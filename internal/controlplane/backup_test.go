@@ -66,6 +66,7 @@ func newBackupRoundTripFixture(t *testing.T) backupRoundTripFixture {
 		CredentialSecretRef: "runtime_backup",
 		DesiredRelease:      "backup-release",
 		ObservedRelease:     "backup-release",
+		Resources:           testRuntimeResources(),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -268,6 +269,7 @@ func TestControlPlaneBackupRejectsMissingReferencedSecret(t *testing.T) {
 		CredentialSecretRef: "missing_secret",
 		DesiredRelease:      "missing-secret-release",
 		ObservedRelease:     "missing-secret-release",
+		Resources:           testRuntimeResources(),
 	}); err != nil {
 		t.Fatal(err)
 	}

@@ -65,6 +65,11 @@ func newBackupCommandFixture(t *testing.T) backupCommandFixture {
 		CredentialSecretRef: "backup_command_runtime",
 		DesiredRelease:      "backup-command-release",
 		ObservedRelease:     "backup-command-release",
+		Resources: runtimeprovider.RuntimeResources{
+			CPUCoreMillionths: 1_000_000,
+			MemoryBytes:       512_000_000,
+			StorageBytes:      10_000_000_000,
+		},
 	}); err != nil {
 		t.Fatal(err)
 	}

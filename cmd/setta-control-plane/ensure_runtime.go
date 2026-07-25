@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"setta/internal/controlplane"
+	"setta/internal/runtimeprovider"
 )
 
 type ensureRuntimeConfig struct {
@@ -20,6 +21,7 @@ type ensureRuntimeConfig struct {
 	RuntimeRelease   string
 	RuntimeSecretRef string
 	RuntimeTarget    string
+	Resources        runtimeprovider.RuntimeResources
 	UserID           string
 }
 
@@ -73,6 +75,7 @@ func queueEnsureRuntime(
 		UpstreamAuthority:   config.RuntimeTarget,
 		CredentialSecretRef: config.RuntimeSecretRef,
 		DesiredRelease:      config.RuntimeRelease,
+		Resources:           config.Resources,
 	})
 	if err != nil {
 		return err
@@ -104,6 +107,9 @@ func ensureRuntimeConfigFromArgs(
 	flagSet.StringVar(&config.RuntimeRelease, "runtime-release", "", "desired Setta runtime release")
 	flagSet.StringVar(&config.RuntimeSecretRef, "runtime-secret-ref", "", "future runtime credential secret reference")
 	flagSet.StringVar(&config.RuntimeTarget, "runtime-target", config.RuntimeTarget, "loopback runtime HTTP target")
+	flagSet.Uint64Var(&config.Resources.CPUCoreMillionths, "cpu-core-millionths", 0, "enforced runtime CPU limit where one core is 1000000")
+	flagSet.Uint64Var(&config.Resources.MemoryBytes, "memory-bytes", 0, "enforced runtime memory limit in bytes")
+	flagSet.Uint64Var(&config.Resources.StorageBytes, "storage-bytes", 0, "enforced persistent runtime storage limit in bytes")
 	flagSet.StringVar(&config.UserID, "user-id", "", "immutable Setta user identifier")
 	if err := flagSet.Parse(args); err != nil {
 		return ensureRuntimeConfig{}, err
@@ -111,12 +117,19 @@ func ensureRuntimeConfigFromArgs(
 	if flagSet.NArg() != 0 {
 		return ensureRuntimeConfig{}, errors.New("ensure-runtime does not accept positional arguments")
 	}
+	if err := validateEnsureRuntimeConfig(config); err != nil {
+		return ensureRuntimeConfig{}, err
+	}
+	return config, nil
+}
+
+func validateEnsureRuntimeConfig(config ensureRuntimeConfig) error {
 	if config.DataDirectory == "" || !filepath.IsAbs(config.DataDirectory) {
-		return ensureRuntimeConfig{}, errors.New("control-plane data directory must be absolute")
+		return errors.New("control-plane data directory must be absolute")
 	}
 	if config.CredentialEpoch == 0 || config.IdempotencyKey == "" || config.RuntimeName == "" ||
 		config.RuntimeRelease == "" || config.RuntimeSecretRef == "" || config.UserID == "" {
-		return ensureRuntimeConfig{}, errors.New("ensure-runtime identity, runtime, release, secret reference, epoch, and idempotency key are required")
+		return errors.New("ensure-runtime identity, runtime, release, secret reference, epoch, and idempotency key are required")
 	}
-	return config, nil
+	return config.Resources.Validate()
 }

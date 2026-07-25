@@ -198,6 +198,7 @@ type Runtime struct {
 	CredentialSecretRef string
 	DesiredRelease      string
 	ObservedRelease     string
+	Resources           runtimeprovider.RuntimeResources
 	WakeRequestedAt     *time.Time
 	LastReadyAt         *time.Time
 	DeletionScheduledAt *time.Time
@@ -252,6 +253,7 @@ type AssignRuntimeRequest struct {
 	CredentialSecretRef string
 	DesiredRelease      string
 	ObservedRelease     string
+	Resources           runtimeprovider.RuntimeResources
 }
 
 type CreateDeviceGrantRequest struct {
@@ -302,6 +304,7 @@ type EnsureRuntimeRequest struct {
 	UpstreamAuthority   string
 	CredentialSecretRef string
 	DesiredRelease      string
+	Resources           runtimeprovider.RuntimeResources
 }
 
 type UpdateEntitlementRequest struct {
@@ -354,5 +357,6 @@ type ProviderObservation struct {
 	Activity           runtimeprovider.RuntimeActivity
 	URLAccess          runtimeprovider.URLAccess
 	Placement          string
+	Resources          runtimeprovider.RuntimeResources
 	ObservedAt         time.Time
 }

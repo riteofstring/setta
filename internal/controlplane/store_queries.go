@@ -217,7 +217,8 @@ func (store *Store) readRuntimeLocked(ctx context.Context, runtimeName string) (
 	err := store.db.QueryRowContext(ctx, `
 SELECT name, user_id, lifecycle, access_state, health_state, credential_epoch,
        upstream_authority, credential_secret_ref, desired_release,
-       observed_release, wake_requested_at, last_ready_at,
+       observed_release, cpu_core_millionths, memory_bytes, storage_bytes,
+       wake_requested_at, last_ready_at,
        deletion_scheduled_at, updated_at
 FROM runtimes WHERE name = ?
 `, runtimeName).Scan(
@@ -231,6 +232,9 @@ FROM runtimes WHERE name = ?
 		&runtime.CredentialSecretRef,
 		&runtime.DesiredRelease,
 		&runtime.ObservedRelease,
+		&runtime.Resources.CPUCoreMillionths,
+		&runtime.Resources.MemoryBytes,
+		&runtime.Resources.StorageBytes,
 		&wakeRequestedAt,
 		&lastReadyAt,
 		&deletionScheduledAt,

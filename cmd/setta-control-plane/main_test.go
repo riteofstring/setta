@@ -130,6 +130,9 @@ func TestEnsureRuntimeCommandPersistsOneRestartSafeIntent(t *testing.T) {
 		"--runtime-name", identity.Name,
 		"--runtime-release", "ensure-command-release",
 		"--runtime-secret-ref", "future_runtime_credential",
+		"--cpu-core-millionths", "1000000",
+		"--memory-bytes", "512000000",
+		"--storage-bytes", "10000000000",
 		"--user-id", "user-ensure-command",
 	}
 	for attempt := 0; attempt < 2; attempt++ {
@@ -153,6 +156,13 @@ func TestEnsureRuntimeCommandPersistsOneRestartSafeIntent(t *testing.T) {
 	operation, err := store.RuntimeOperation(context.Background(), "ensure-command-operation")
 	if err != nil || operation.AttemptCount != 0 || operation.Status != controlplane.RuntimeOperationPending {
 		t.Fatalf("persisted ensure-runtime operation = %+v, %v", operation, err)
+	}
+	runtime, err := store.Runtime(context.Background(), identity.Name)
+	if err != nil ||
+		runtime.Resources.CPUCoreMillionths != 1_000_000 ||
+		runtime.Resources.MemoryBytes != 512_000_000 ||
+		runtime.Resources.StorageBytes != 10_000_000_000 {
+		t.Fatalf("persisted ensure-runtime resources = %+v, %v", runtime.Resources, err)
 	}
 }
 
@@ -316,6 +326,9 @@ func newBootstrapFixture(t *testing.T) bootstrapFixture {
 		"--runtime-name", fixture.runtimeName,
 		"--runtime-release", "bootstrap-test-release",
 		"--runtime-secret-ref", "runtime_bootstrap",
+		"--cpu-core-millionths", "1000000",
+		"--memory-bytes", "512000000",
+		"--storage-bytes", "10000000000",
 		"--secret-dir", fixture.secretDirectory,
 		"--user-id", "user-bootstrap",
 		"--workstream-id", "workstream-bootstrap",

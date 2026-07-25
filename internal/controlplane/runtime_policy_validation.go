@@ -18,6 +18,9 @@ func validateAssignment(request AssignRuntimeRequest) error {
 	if request.CredentialEpoch == 0 {
 		return errors.New("runtime credential epoch must be positive")
 	}
+	if err := request.Resources.Validate(); err != nil {
+		return err
+	}
 	if err := validateAuthority(request.UpstreamAuthority); err != nil {
 		return err
 	}

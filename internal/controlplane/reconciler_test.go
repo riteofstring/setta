@@ -44,6 +44,17 @@ func TestReconcilerEnsuresOneRuntimeForConcurrentIntent(t *testing.T) {
 	if err != nil || !processed {
 		t.Fatalf("ReconcileOnce = %t, %v", processed, err)
 	}
+	requireReconciledRuntimeResources(t, ctx, store, provider, request)
+}
+
+func requireReconciledRuntimeResources(
+	t *testing.T,
+	ctx context.Context,
+	store *Store,
+	provider *testReconcilerProvider,
+	request EnsureRuntimeRequest,
+) {
+	t.Helper()
 	operation, err := store.RuntimeOperation(ctx, request.IdempotencyKey)
 	if err != nil {
 		t.Fatalf("RuntimeOperation: %v", err)
@@ -51,9 +62,17 @@ func TestReconcilerEnsuresOneRuntimeForConcurrentIntent(t *testing.T) {
 	if operation.Status != RuntimeOperationSucceeded || provider.createCalls != 1 {
 		t.Fatalf("operation/create calls = %+v/%d", operation, provider.createCalls)
 	}
+	if provider.lastCreateRequest.Resources != request.Resources {
+		t.Fatalf("provider create resources = %+v, want %+v", provider.lastCreateRequest.Resources, request.Resources)
+	}
+	runtime, err := store.Runtime(ctx, request.RuntimeName)
+	if err != nil || runtime.Resources != request.Resources {
+		t.Fatalf("persisted runtime resources = %+v, %v", runtime.Resources, err)
+	}
 	observation, err := store.ProviderObservation(ctx, request.RuntimeName)
 	if err != nil || observation.ProviderResourceID == "" ||
-		observation.URLAccess != runtimeprovider.URLAccessAuthenticated {
+		observation.URLAccess != runtimeprovider.URLAccessAuthenticated ||
+		observation.Resources != request.Resources {
 		t.Fatalf("ProviderObservation = %+v, %v", observation, err)
 	}
 	accounting, err := store.RuntimeAccountingSnapshot(ctx, request.RuntimeName)
@@ -61,6 +80,35 @@ func TestReconcilerEnsuresOneRuntimeForConcurrentIntent(t *testing.T) {
 		!accounting.Ledger.WindowStart.Equal(operation.CreatedAt) ||
 		accounting.Ledger.LastSequence != 1 {
 		t.Fatalf("provider accounting = %+v, %v", accounting, err)
+	}
+}
+
+func TestReconcilerRejectsProviderResourceShapeMismatch(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 20, 18, 5, 0, 0, time.UTC)
+	store := openTestStore(t, t.TempDir(), func() time.Time { return now }, RateLimit{})
+	defer store.Close()
+	if _, err := store.UpsertUser(ctx, "user-resource-mismatch"); err != nil {
+		t.Fatal(err)
+	}
+	request := testEnsureRuntimeRequest(t, "ensure-resource-mismatch", "user-resource-mismatch", "resource-mismatch")
+	request.Resources.MemoryBytes = 768_000_000
+	if _, err := store.EnsureRuntimeIntent(ctx, request); err != nil {
+		t.Fatal(err)
+	}
+	provider := newTestReconcilerProvider(request.RuntimeName)
+	reconciler := newTestReconciler(t, store, provider, 3)
+	if processed, err := reconciler.ReconcileOnce(ctx); err != nil || !processed {
+		t.Fatalf("ReconcileOnce = %t, %v", processed, err)
+	}
+	operation, err := store.RuntimeOperation(ctx, request.IdempotencyKey)
+	if err != nil ||
+		operation.Status != RuntimeOperationFailed ||
+		operation.LastErrorCode != "provider_resources_mismatch" {
+		t.Fatalf("resource mismatch operation = %+v, %v", operation, err)
+	}
+	if provider.createCalls != 1 || provider.lastCreateRequest.Resources != request.Resources {
+		t.Fatalf("provider create = %d %+v", provider.createCalls, provider.lastCreateRequest)
 	}
 }
 
@@ -258,6 +306,7 @@ type testReconcilerProvider struct {
 	ambiguousDestroy  bool
 	ambiguousSuspend  bool
 	malformedIdentity bool
+	lastCreateRequest runtimeprovider.CreateRequest
 }
 
 func newTestReconcilerProvider(runtimeName string) *testReconcilerProvider {
@@ -268,6 +317,7 @@ func newTestReconcilerProvider(runtimeName string) *testReconcilerProvider {
 			ProviderResourceID: "provider-resource",
 			Name:               runtimeName,
 			Labels:             identity.Labels,
+			Resources:          testRuntimeResources(),
 			Activity:           runtimeprovider.RuntimeActivityWarm,
 			URLAccess:          runtimeprovider.URLAccessPublic,
 		},
@@ -283,9 +333,10 @@ func (provider *testReconcilerProvider) Inspect(
 
 func (provider *testReconcilerProvider) Create(
 	_ context.Context,
-	_ runtimeprovider.CreateRequest,
+	request runtimeprovider.CreateRequest,
 ) (runtimeprovider.RuntimeObservation, error) {
 	provider.createCalls++
+	provider.lastCreateRequest = request
 	provider.found = true
 	if provider.ambiguousCreate {
 		provider.ambiguousCreate = false
@@ -352,6 +403,7 @@ func testEnsureRuntimeRequest(
 		UpstreamAuthority:   "127.0.0.1:7345",
 		CredentialSecretRef: "runtime_credential",
 		DesiredRelease:      "reconciler-test-release",
+		Resources:           testRuntimeResources(),
 	}
 }
 
@@ -392,6 +444,7 @@ func authenticatedTestObservation(t *testing.T, runtimeName string) runtimeprovi
 		ProviderResourceID: "provider-resource",
 		Name:               identity.Name,
 		Labels:             identity.Labels,
+		Resources:          testRuntimeResources(),
 		Activity:           runtimeprovider.RuntimeActivityWarm,
 		URLAccess:          runtimeprovider.URLAccessAuthenticated,
 	}

@@ -26,7 +26,7 @@ import (
 
 const (
 	controlPlaneDatabaseName = "control-plane.sqlite"
-	controlPlaneStoreVersion = 9
+	controlPlaneStoreVersion = 10
 	sqliteDriverName         = "sqlite"
 	defaultGrantTTL          = 24 * time.Hour
 )
@@ -258,9 +258,9 @@ func writeRuntimeAssignment(
 INSERT INTO runtimes (
   name, user_id, lifecycle, access_state, health_state, credential_epoch,
   upstream_authority, credential_secret_ref, desired_release, observed_release,
-  last_ready_at, updated_at
+  cpu_core_millionths, memory_bytes, storage_bytes, last_ready_at, updated_at
 )
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(name) DO UPDATE SET
   lifecycle = excluded.lifecycle,
   access_state = excluded.access_state,
@@ -270,6 +270,9 @@ ON CONFLICT(name) DO UPDATE SET
   credential_secret_ref = excluded.credential_secret_ref,
   desired_release = excluded.desired_release,
   observed_release = excluded.observed_release,
+  cpu_core_millionths = excluded.cpu_core_millionths,
+  memory_bytes = excluded.memory_bytes,
+  storage_bytes = excluded.storage_bytes,
   wake_requested_at = NULL,
   last_ready_at = excluded.last_ready_at,
   deletion_scheduled_at = NULL,
@@ -278,6 +281,7 @@ WHERE runtimes.user_id = excluded.user_id
 `, request.RuntimeName, request.UserID, request.Lifecycle, request.AccessState,
 		request.HealthState, request.CredentialEpoch, request.UpstreamAuthority,
 		request.CredentialSecretRef, request.DesiredRelease, request.ObservedRelease,
+		request.Resources.CPUCoreMillionths, request.Resources.MemoryBytes, request.Resources.StorageBytes,
 		readyTimestamp(request, now), now)
 	if err != nil {
 		return fmt.Errorf("record assigned runtime: %w", err)
@@ -899,6 +903,9 @@ func runtimeAssignmentFingerprint(request AssignRuntimeRequest) string {
 		request.CredentialSecretRef,
 		request.DesiredRelease,
 		request.ObservedRelease,
+		strconv.FormatUint(request.Resources.CPUCoreMillionths, 10),
+		strconv.FormatUint(request.Resources.MemoryBytes, 10),
+		strconv.FormatUint(request.Resources.StorageBytes, 10),
 	}
 	digest := sha256.Sum256([]byte(strings.Join(fields, "\x00")))
 	return hex.EncodeToString(digest[:])

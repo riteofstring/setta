@@ -38,6 +38,11 @@ func TestStorePersistsAssignmentsAndCredentialsAcrossRestart(t *testing.T) {
 	if _, err := store.AssignRuntime(ctx, changedReplay); !errors.Is(err, ErrIdempotencyConflict) {
 		t.Fatalf("changed idempotent assignment error = %v", err)
 	}
+	resourceChangedReplay := testAssignment("assign-first", "user-persistent", firstRuntime, "credential-first")
+	resourceChangedReplay.Resources.StorageBytes++
+	if _, err := store.AssignRuntime(ctx, resourceChangedReplay); !errors.Is(err, ErrIdempotencyConflict) {
+		t.Fatalf("resource-changed idempotent assignment error = %v", err)
+	}
 	created, err := store.CreateDeviceGrant(ctx, CreateDeviceGrantRequest{
 		UserID:      "user-persistent",
 		RuntimeName: firstRuntime,
@@ -278,6 +283,15 @@ func testAssignment(idempotencyKey string, userID string, runtimeName string, se
 		CredentialSecretRef: secretRef,
 		DesiredRelease:      "test-release",
 		ObservedRelease:     "test-release",
+		Resources:           testRuntimeResources(),
+	}
+}
+
+func testRuntimeResources() runtimeprovider.RuntimeResources {
+	return runtimeprovider.RuntimeResources{
+		CPUCoreMillionths: 1_000_000,
+		MemoryBytes:       512_000_000,
+		StorageBytes:      10_000_000_000,
 	}
 }
 

@@ -197,6 +197,7 @@ func TestTypedHostedAccessClientStreamsReadyOnPhoneThroughPrivateBoundary(t *tes
 		RuntimeRelease:       "typed-client-release",
 		RuntimeSecretRef:     "typed_client_secret",
 		RuntimeTarget:        "127.0.0.1:7345",
+		Resources:            testRuntimeResources(),
 		UserID:               intent.UserID,
 		WorkstreamID:         intent.WorkstreamID,
 	})
@@ -263,6 +264,7 @@ func TestTypedHostedAccessClientReceivesDurableAssignmentFailure(t *testing.T) {
 		RuntimeRelease:       "typed-client-release",
 		RuntimeSecretRef:     "conflicting_runtime_secret",
 		RuntimeTarget:        "127.0.0.1:7345",
+		Resources:            testRuntimeResources(),
 		UserID:               intent.UserID,
 		WorkstreamID:         intent.WorkstreamID,
 	})

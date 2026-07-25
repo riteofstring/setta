@@ -15,6 +15,7 @@ import (
 
 	"setta/internal/runtimeaccounting"
 	"setta/internal/runtimecost"
+	"setta/internal/runtimeprovider"
 )
 
 const maximumAdminRequestBytes = 16 * 1024
@@ -45,19 +46,20 @@ type AdminEnsureDeviceRequest struct {
 }
 
 type AdminCompleteHostedAccessRequest struct {
-	Credential           DeviceCredential `json:"credential"`
-	CredentialEpoch      uint64           `json:"credential_epoch"`
-	DeviceDisplayName    string           `json:"device_display_name"`
-	GrantTTL             time.Duration    `json:"grant_ttl"`
-	HostedAccessIntentID string           `json:"hosted_access_intent_id"`
-	IdempotencyKey       string           `json:"idempotency_key"`
-	ProjectID            string           `json:"project_id"`
-	RuntimeName          string           `json:"runtime_name"`
-	RuntimeRelease       string           `json:"runtime_release"`
-	RuntimeSecretRef     string           `json:"runtime_secret_ref"`
-	RuntimeTarget        string           `json:"runtime_target"`
-	UserID               string           `json:"user_id"`
-	WorkstreamID         string           `json:"workstream_id"`
+	Credential           DeviceCredential                 `json:"credential"`
+	CredentialEpoch      uint64                           `json:"credential_epoch"`
+	DeviceDisplayName    string                           `json:"device_display_name"`
+	GrantTTL             time.Duration                    `json:"grant_ttl"`
+	HostedAccessIntentID string                           `json:"hosted_access_intent_id"`
+	IdempotencyKey       string                           `json:"idempotency_key"`
+	ProjectID            string                           `json:"project_id"`
+	RuntimeName          string                           `json:"runtime_name"`
+	RuntimeRelease       string                           `json:"runtime_release"`
+	RuntimeSecretRef     string                           `json:"runtime_secret_ref"`
+	RuntimeTarget        string                           `json:"runtime_target"`
+	Resources            runtimeprovider.RuntimeResources `json:"resources"`
+	UserID               string                           `json:"user_id"`
+	WorkstreamID         string                           `json:"workstream_id"`
 }
 
 type AdminRevokeDeviceRequest struct {
@@ -434,6 +436,7 @@ func completeHostedAccess(
 		CredentialSecretRef: payload.RuntimeSecretRef,
 		DesiredRelease:      payload.RuntimeRelease,
 		ObservedRelease:     payload.RuntimeRelease,
+		Resources:           payload.Resources,
 	}); err != nil {
 		return CreatedDeviceGrant{}, recordHostedAccessFailure(
 			ctx,

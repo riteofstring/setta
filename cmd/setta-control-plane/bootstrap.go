@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"setta/internal/controlplane"
+	"setta/internal/runtimeprovider"
 )
 
 const maximumBootstrapCredentialBytes = 16 * 1024
@@ -33,6 +34,7 @@ type bootstrapConfig struct {
 	RuntimeRelease        string
 	RuntimeSecretRef      string
 	RuntimeTarget         string
+	Resources             runtimeprovider.RuntimeResources
 	SecretDirectory       string
 	UserID                string
 	WorkstreamID          string
@@ -90,6 +92,7 @@ func bootstrapControlPlane(ctx context.Context, config bootstrapConfig, stdin io
 			RuntimeRelease:       config.RuntimeRelease,
 			RuntimeSecretRef:     config.RuntimeSecretRef,
 			RuntimeTarget:        config.RuntimeTarget,
+			Resources:            config.Resources,
 			UserID:               config.UserID,
 			WorkstreamID:         config.WorkstreamID,
 		},
@@ -134,6 +137,9 @@ func bootstrapConfigFromArgs(
 	flagSet.StringVar(&config.RuntimeRelease, "runtime-release", "", "verified installed Setta runtime release")
 	flagSet.StringVar(&config.RuntimeSecretRef, "runtime-secret-ref", "", "secret-store reference for the runtime credential")
 	flagSet.StringVar(&config.RuntimeTarget, "runtime-target", config.RuntimeTarget, "loopback runtime HTTP target")
+	flagSet.Uint64Var(&config.Resources.CPUCoreMillionths, "cpu-core-millionths", 0, "enforced runtime CPU limit where one core is 1000000")
+	flagSet.Uint64Var(&config.Resources.MemoryBytes, "memory-bytes", 0, "enforced runtime memory limit in bytes")
+	flagSet.Uint64Var(&config.Resources.StorageBytes, "storage-bytes", 0, "enforced persistent runtime storage limit in bytes")
 	flagSet.StringVar(&config.SecretDirectory, "secret-dir", config.SecretDirectory, "absolute durable runtime credential directory")
 	flagSet.StringVar(&config.UserID, "user-id", "", "immutable Setta user identifier")
 	flagSet.StringVar(&config.WorkstreamID, "workstream-id", "", "trusted Setta workstream identifier")
@@ -209,7 +215,7 @@ func validateBootstrapConfig(config bootstrapConfig) error {
 	if config.CredentialEpoch == 0 || config.GrantTTL <= 0 || config.GrantTTL > 30*24*time.Hour {
 		return errors.New("bootstrap credential epoch and grant TTL are out of bounds")
 	}
-	return nil
+	return config.Resources.Validate()
 }
 
 func validateBootstrapPaths(config bootstrapConfig) error {

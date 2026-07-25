@@ -96,7 +96,7 @@ func (store *Store) CompleteRuntimeOperation(
 	claim ClaimedRuntimeOperation,
 	observation runtimeprovider.RuntimeObservation,
 ) error {
-	if err := validateProviderObservation(claim.Identity, observation); err != nil {
+	if err := validateProviderObservation(claim.Identity, claim.Resources, observation); err != nil {
 		return err
 	}
 	store.mu.Lock()
@@ -109,16 +109,22 @@ func (store *Store) CompleteRuntimeOperation(
 	now := store.clock().UTC()
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO provider_observations (
-  runtime_name, provider_resource_id, activity, url_access, placement, observed_at
-) VALUES (?, ?, ?, ?, ?, ?)
+  runtime_name, provider_resource_id, activity, url_access, placement,
+  cpu_core_millionths, memory_bytes, storage_bytes, observed_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(runtime_name) DO UPDATE SET
   provider_resource_id = excluded.provider_resource_id,
   activity = excluded.activity,
   url_access = excluded.url_access,
   placement = excluded.placement,
+  cpu_core_millionths = excluded.cpu_core_millionths,
+  memory_bytes = excluded.memory_bytes,
+  storage_bytes = excluded.storage_bytes,
   observed_at = excluded.observed_at
 `, claim.RuntimeName, observation.ProviderResourceID, observation.Activity,
-		observation.URLAccess, observation.Placement, timestamp(now)); err != nil {
+		observation.URLAccess, observation.Placement,
+		observation.Resources.CPUCoreMillionths, observation.Resources.MemoryBytes,
+		observation.Resources.StorageBytes, timestamp(now)); err != nil {
 		return fmt.Errorf("record provider observation: %w", err)
 	}
 	result, err := tx.ExecContext(ctx, `
@@ -329,10 +335,13 @@ func (store *Store) ProviderObservation(
 	var observation ProviderObservation
 	var observedAt string
 	err := store.db.QueryRowContext(ctx, `
-SELECT runtime_name, provider_resource_id, activity, url_access, placement, observed_at
+SELECT runtime_name, provider_resource_id, activity, url_access, placement,
+       cpu_core_millionths, memory_bytes, storage_bytes, observed_at
 FROM provider_observations WHERE runtime_name = ?
 `, runtimeName).Scan(&observation.RuntimeName, &observation.ProviderResourceID,
-		&observation.Activity, &observation.URLAccess, &observation.Placement, &observedAt)
+		&observation.Activity, &observation.URLAccess, &observation.Placement,
+		&observation.Resources.CPUCoreMillionths, &observation.Resources.MemoryBytes,
+		&observation.Resources.StorageBytes, &observedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ProviderObservation{}, ErrNotFound
 	}
@@ -348,6 +357,7 @@ FROM provider_observations WHERE runtime_name = ?
 
 func validateProviderObservation(
 	identity runtimeprovider.ManagedIdentity,
+	resources runtimeprovider.RuntimeResources,
 	observation runtimeprovider.RuntimeObservation,
 ) error {
 	if observation.ProviderResourceID == "" || observation.Name != identity.Name ||
@@ -356,6 +366,9 @@ func validateProviderObservation(
 	}
 	if observation.URLAccess != runtimeprovider.URLAccessAuthenticated {
 		return errors.New("provider observation does not confirm authenticated URL access")
+	}
+	if observation.Resources != resources {
+		return errors.New("provider observation does not confirm the requested runtime resources")
 	}
 	return nil
 }

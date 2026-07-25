@@ -16,7 +16,8 @@ import (
 
 type ClaimedRuntimeOperation struct {
 	RuntimeOperation
-	Identity runtimeprovider.ManagedIdentity
+	Identity  runtimeprovider.ManagedIdentity
+	Resources runtimeprovider.RuntimeResources
 }
 
 func (store *Store) EnsureRuntimeIntent(
@@ -113,8 +114,9 @@ func writeProvisioningAssignment(
 INSERT INTO runtimes (
   name, user_id, lifecycle, access_state, health_state, credential_epoch,
   upstream_authority, credential_secret_ref, desired_release, observed_release,
+  cpu_core_millionths, memory_bytes, storage_bytes,
   wake_requested_at, last_ready_at, deletion_scheduled_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', NULL, NULL, NULL, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?, ?, NULL, NULL, NULL, ?)
 ON CONFLICT(name) DO UPDATE SET
   lifecycle = excluded.lifecycle,
   access_state = excluded.access_state,
@@ -124,6 +126,9 @@ ON CONFLICT(name) DO UPDATE SET
   credential_secret_ref = excluded.credential_secret_ref,
   desired_release = excluded.desired_release,
   observed_release = '',
+  cpu_core_millionths = excluded.cpu_core_millionths,
+  memory_bytes = excluded.memory_bytes,
+  storage_bytes = excluded.storage_bytes,
   wake_requested_at = NULL,
   last_ready_at = NULL,
   deletion_scheduled_at = NULL,
@@ -131,7 +136,9 @@ ON CONFLICT(name) DO UPDATE SET
 WHERE runtimes.user_id = excluded.user_id
 `, request.RuntimeName, request.UserID, request.Lifecycle, request.AccessState,
 		request.HealthState, request.CredentialEpoch, request.UpstreamAuthority,
-		request.CredentialSecretRef, request.DesiredRelease, now)
+		request.CredentialSecretRef, request.DesiredRelease,
+		request.Resources.CPUCoreMillionths, request.Resources.MemoryBytes, request.Resources.StorageBytes,
+		now)
 	if err != nil {
 		return fmt.Errorf("record provisioning runtime: %w", err)
 	}
@@ -343,6 +350,10 @@ WHERE idempotency_key = ?
 	if err != nil {
 		return ClaimedRuntimeOperation{}, false, err
 	}
+	resources, err := readClaimedRuntimeResources(ctx, tx, operation.RuntimeName)
+	if err != nil {
+		return ClaimedRuntimeOperation{}, false, err
+	}
 	if err := tx.Commit(); err != nil {
 		return ClaimedRuntimeOperation{}, false, fmt.Errorf("commit runtime operation claim: %w", err)
 	}
@@ -351,7 +362,34 @@ WHERE idempotency_key = ?
 	if err != nil {
 		return ClaimedRuntimeOperation{}, false, err
 	}
-	return ClaimedRuntimeOperation{RuntimeOperation: operation, Identity: identity}, true, nil
+	return ClaimedRuntimeOperation{
+		RuntimeOperation: operation,
+		Identity:         identity,
+		Resources:        resources,
+	}, true, nil
+}
+
+func readClaimedRuntimeResources(
+	ctx context.Context,
+	tx *sql.Tx,
+	runtimeName string,
+) (runtimeprovider.RuntimeResources, error) {
+	var resources runtimeprovider.RuntimeResources
+	if err := tx.QueryRowContext(ctx, `
+SELECT cpu_core_millionths, memory_bytes, storage_bytes
+FROM runtimes
+WHERE name = ?
+`, runtimeName).Scan(
+		&resources.CPUCoreMillionths,
+		&resources.MemoryBytes,
+		&resources.StorageBytes,
+	); err != nil {
+		return runtimeprovider.RuntimeResources{}, fmt.Errorf("read claimed runtime resources: %w", err)
+	}
+	if err := resources.Validate(); err != nil {
+		return runtimeprovider.RuntimeResources{}, err
+	}
+	return resources, nil
 }
 
 func ensureRuntimeAssignment(request EnsureRuntimeRequest) AssignRuntimeRequest {
@@ -366,12 +404,16 @@ func ensureRuntimeAssignment(request EnsureRuntimeRequest) AssignRuntimeRequest 
 		UpstreamAuthority:   request.UpstreamAuthority,
 		CredentialSecretRef: request.CredentialSecretRef,
 		DesiredRelease:      request.DesiredRelease,
+		Resources:           request.Resources,
 	}
 }
 
 func ensureRuntimeFingerprint(request EnsureRuntimeRequest) string {
 	fields := []string{request.UserID, request.RuntimeName, strconv.FormatUint(request.CredentialEpoch, 10),
-		request.UpstreamAuthority, request.CredentialSecretRef, request.DesiredRelease}
+		request.UpstreamAuthority, request.CredentialSecretRef, request.DesiredRelease,
+		strconv.FormatUint(request.Resources.CPUCoreMillionths, 10),
+		strconv.FormatUint(request.Resources.MemoryBytes, 10),
+		strconv.FormatUint(request.Resources.StorageBytes, 10)}
 	digest := sha256.Sum256([]byte(strings.Join(fields, "\x00")))
 	return hex.EncodeToString(digest[:])
 }
