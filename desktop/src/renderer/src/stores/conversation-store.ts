@@ -12,10 +12,10 @@ import {
 interface ConversationStoreActions {
   applyEvent: (event: ConversationEvent) => void;
   applyEvents: (events: readonly ConversationEvent[]) => void;
-  beginSnapshotLoad: (workspaceId: string, conversationId: string) => void;
-  failSnapshotLoad: (workspaceId: string, conversationId: string, error: unknown) => void;
+  beginSnapshotLoad: (workspaceId: string | null, conversationId: string) => void;
+  failSnapshotLoad: (workspaceId: string | null, conversationId: string, error: unknown) => void;
   hydrateSnapshot: (
-    workspaceId: string,
+    workspaceId: string | null,
     conversationId: string,
     snapshot: ConversationSnapshot,
   ) => void;

@@ -556,6 +556,7 @@ async function closePaneWithConfirmation({
     return;
   }
   if (!closeResult.removePane) {
+    focusFallbackForUnremovedPane({ pane, paneId, runLayoutAction, runtime, viewportProvider });
     return;
   }
   runLayoutAction(() => {
@@ -563,6 +564,41 @@ async function closePaneWithConfirmation({
       return;
     }
     runtime.store.closeFocusedPaneOrClearLastPane();
+    if (viewportProvider) {
+      runtime.store.ensureFocusedPaneVisible(viewportProvider());
+    }
+  });
+}
+
+function focusFallbackForUnremovedPane({
+  pane,
+  paneId,
+  runLayoutAction,
+  runtime,
+  viewportProvider,
+}: {
+  pane: { paneId: string; surfaceKind: string };
+  paneId: string;
+  runLayoutAction: (action: () => void) => void;
+  runtime: WorkspaceRuntime;
+  viewportProvider?: () => Rect;
+}): void {
+  if (pane.surfaceKind !== "master") {
+    return;
+  }
+  const scene = runtime.store.toScene();
+  const candidatePaneIds = scene.panes
+    .filter((candidate) => candidate.paneId !== paneId)
+    .map((candidate) => candidate.paneId);
+  const fallbackPaneId =
+    runtime.store.mostRecentlyFocusedPaneId(candidatePaneIds) ?? candidatePaneIds[0] ?? null;
+  if (!fallbackPaneId) {
+    return;
+  }
+  runLayoutAction(() => {
+    if (!runtime.store.focusPane(fallbackPaneId)) {
+      return;
+    }
     if (viewportProvider) {
       runtime.store.ensureFocusedPaneVisible(viewportProvider());
     }

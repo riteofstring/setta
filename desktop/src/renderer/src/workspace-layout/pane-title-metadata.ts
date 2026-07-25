@@ -19,7 +19,7 @@ interface PaneTitleOverride {
 
 const fallbackTitle = "Pane";
 const paneChromeIconsBySurfaceKind: Partial<Record<SurfaceKind, PaneChromeIconName>> = {
-  "easy-button": "sparkles",
+  conversation: "sparkles",
 };
 
 export function paneChromeTitleModel(

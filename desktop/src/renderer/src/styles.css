@@ -256,35 +256,6 @@ h3 {
   font-family: var(--setta-font-heading);
 }
 
-.setta-sidebar-surface {
-  --setta-sidebar-content-x: 4px;
-  --setta-sidebar-logo-x: 16px;
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-  background: color-mix(in oklch, var(--setta-niri-pane-title-bar-surface) 58%, transparent);
-  border-right: 1px solid color-mix(in oklch, var(--foreground) 7%, transparent);
-}
-
-[data-color-mode="light"] .setta-sidebar-surface {
-  background: color-mix(in oklch, var(--setta-niri-pane-title-bar-surface) 68%, transparent);
-}
-
-.setta-sidebar-logo-shell {
-  padding-left: var(--setta-sidebar-logo-x);
-  padding-right: var(--setta-sidebar-logo-x);
-}
-
-.setta-sidebar-content-shell,
-.setta-sidebar-scroll-shell,
-.setta-sidebar-footer {
-  padding-left: var(--setta-sidebar-content-x);
-  padding-right: var(--setta-sidebar-content-x);
-}
-
-.setta-sidebar-content-shell {
-  padding-top: 8px;
-}
-
 .setta-shell-top-bar {
   --setta-shell-top-bar-chrome-inset: 0px;
   align-items: center;

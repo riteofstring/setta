@@ -26,8 +26,10 @@ type StatusOperation struct {
 }
 
 func (operation StatusOperation) Validate() error {
-	if err := validateIdentifier("narrator status workspace id", operation.WorkspaceID); err != nil {
-		return err
+	if operation.WorkspaceID != "" {
+		if err := validateIdentifier("narrator status workspace id", operation.WorkspaceID); err != nil {
+			return err
+		}
 	}
 	return ValidateStatusQuestion(operation.Question)
 }
