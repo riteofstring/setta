@@ -40,26 +40,6 @@ func TestServiceAskRoutedStatusPersistsReadOnlyReply(t *testing.T) {
 	assertStatusProviderRequest(t, fixture, question)
 }
 
-func TestServiceAskRoutedFolderlessStatusPersistsReply(t *testing.T) {
-	fixture := newFolderlessBlankStatusServiceFixture(t)
-	question := "hi"
-
-	snapshot, err := fixture.service.AskRoutedFolderlessStatus(
-		context.Background(),
-		fixture.conversationID,
-		"narrator_folderless_status_test",
-		question,
-	)
-	if err != nil {
-		t.Fatalf("AskRoutedFolderlessStatus: %v", err)
-	}
-	if snapshot.Conversation.WorkspaceID != nil {
-		t.Fatalf("folderless status bound workspace: %+v", snapshot.Conversation.WorkspaceID)
-	}
-	assertFolderlessStatusNarrationReply(t, snapshot, question)
-	assertFolderlessStatusProviderRequest(t, fixture, question)
-}
-
 func readStatusServiceSnapshot(t *testing.T, fixture statusServiceFixture) conversation.ConversationSnapshot {
 	t.Helper()
 	snapshot, err := fixture.store.ReadSnapshot(
@@ -122,25 +102,6 @@ func assertStatusNarrationReply(
 	}
 }
 
-func assertFolderlessStatusNarrationReply(
-	t *testing.T,
-	snapshot conversation.ConversationSnapshot,
-	question string,
-) {
-	t.Helper()
-	if len(snapshot.Narration.Events) != 1 {
-		t.Fatalf("folderless narration events = %+v, want one status reply", snapshot.Narration.Events)
-	}
-	reply := snapshot.Narration.Events[0]
-	if reply.Kind != conversation.NarrationEventKindStatusReply || reply.StatusReply == nil ||
-		reply.StatusReply.Question != question ||
-		reply.StatusReply.Text != "The primary agent turn is still running." ||
-		reply.Trigger != conversation.NarrationTriggerExplicitStatusRequested ||
-		reply.TurnID != nil {
-		t.Fatalf("folderless status narration event = %+v", reply)
-	}
-}
-
 func assertStatusProviderRequest(
 	t *testing.T,
 	fixture statusServiceFixture,
@@ -162,31 +123,6 @@ func assertStatusProviderRequest(
 		contextBundle.Authoritative.CurrentInstructions == nil ||
 		contextBundle.Authoritative.CurrentInstructions.TurnStatus != conversation.TurnStatusRunning {
 		t.Fatalf("structured status context = %+v", contextBundle)
-	}
-}
-
-func assertFolderlessStatusProviderRequest(
-	t *testing.T,
-	fixture statusServiceFixture,
-	question string,
-) {
-	t.Helper()
-	request := fixture.provider.lastRequest
-	if request.Invocation.PermissionMode != agent.PermissionModeReadOnly ||
-		request.Invocation.ApprovalMode != agent.ApprovalModeNever ||
-		request.WorkspaceRoot == fixture.workspace.RootPath ||
-		!filepath.IsAbs(request.WorkspaceRoot) {
-		t.Fatalf("folderless structured status request = %+v", request)
-	}
-	var contextBundle StatusContextBundle
-	if err := json.Unmarshal(request.Input, &contextBundle); err != nil {
-		t.Fatalf("decode folderless structured status input: %v", err)
-	}
-	if contextBundle.Question != question ||
-		contextBundle.Authoritative.Conversation.ConversationID != fixture.conversationID ||
-		contextBundle.Authoritative.Conversation.WorkspaceID != "" ||
-		contextBundle.Authoritative.CurrentInstructions != nil {
-		t.Fatalf("folderless structured status context = %+v", contextBundle)
 	}
 }
 
@@ -288,28 +224,13 @@ func newStatusServiceFixture(t *testing.T, providerErr error) statusServiceFixtu
 }
 
 func newBlankStatusServiceFixture(t *testing.T) statusServiceFixture {
-	return newBlankStatusServiceFixtureWithWorkspace(
-		t,
-		"conversation-blank-route",
-		stringPointerForServiceTest("workspace-status-service"),
-	)
-}
-
-func newFolderlessBlankStatusServiceFixture(t *testing.T) statusServiceFixture {
-	return newBlankStatusServiceFixtureWithWorkspace(t, "conversation-folderless-route", nil)
-}
-
-func newBlankStatusServiceFixtureWithWorkspace(
-	t *testing.T,
-	conversationID string,
-	workspaceID *string,
-) statusServiceFixture {
 	t.Helper()
 	store, err := conversation.NewStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("NewStore: %v", err)
 	}
-	seedBlankStatusServiceConversation(t, store, conversationID, workspaceID)
+	conversationID := "conversation-blank-route"
+	seedBlankStatusServiceConversation(t, store, conversationID)
 	workspaceSummary := workspace.WorkspaceSummary{
 		ID:       "workspace-status-service",
 		RootPath: filepath.Clean(t.TempDir()),
@@ -350,7 +271,7 @@ func seedStatusServiceConversation(t *testing.T, store *conversation.Store, conv
 	t.Helper()
 	record := conversation.TopicConversation{
 		ID:              conversationID,
-		WorkspaceID:     stringPointerForServiceTest("workspace-status-service"),
+		WorkspaceID:     "workspace-status-service",
 		Title:           "Status service topic",
 		TopicDescriptor: "Status service topic",
 		Status:          conversation.ConversationStatusWorking,
@@ -412,12 +333,11 @@ func seedBlankStatusServiceConversation(
 	t *testing.T,
 	store *conversation.Store,
 	conversationID string,
-	workspaceID *string,
 ) {
 	t.Helper()
 	record := conversation.TopicConversation{
 		ID:              conversationID,
-		WorkspaceID:     workspaceID,
+		WorkspaceID:     "workspace-status-service",
 		Title:           "New conversation",
 		TopicDescriptor: "New conversation",
 		Status:          conversation.ConversationStatusIdle,
@@ -461,10 +381,6 @@ func seedBlankStatusServiceConversation(
 	if err != nil {
 		t.Fatalf("seed blank conversation: %v", err)
 	}
-}
-
-func stringPointerForServiceTest(value string) *string {
-	return &value
 }
 
 func narrationTestVoiceIDPointer(value speech.SpeechVoiceID) *speech.SpeechVoiceID {

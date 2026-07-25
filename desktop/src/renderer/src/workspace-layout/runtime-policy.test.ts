@@ -34,10 +34,10 @@ describe("workspace pane runtime policy", () => {
     });
   });
 
-  test("budgets conversation panes as heavy DOM surfaces", () => {
+  test("budgets Easy Button panes as heavy DOM surfaces", () => {
     const items = [
-      renderItem("focused-easy", "conversation", true),
-      renderItem("background-easy", "conversation", false),
+      renderItem("focused-easy", "easy-button", true),
+      renderItem("background-easy", "easy-button", false),
     ];
 
     const summary = new PaneRuntimePolicy({ ...budget, maxLiveHeavyDomPanes: 0 }).apply(
@@ -55,7 +55,7 @@ describe("workspace pane runtime policy", () => {
 
   test("freezes expensive DOM surfaces during movement", () => {
     const items = [
-      renderItem("focused-easy", "conversation", true),
+      renderItem("focused-easy", "easy-button", true),
       renderItem("moving-heavy", "fake-heavy-dom", false),
       renderItem("moving-light", "fake-dom", false),
     ];
@@ -89,7 +89,7 @@ describe("workspace pane runtime policy", () => {
   test("keeps rendered workspace surfaces live when movement degradation is disabled", () => {
     const items = [
       renderItem("moving-heavy", "fake-heavy-dom", false),
-      renderItem("moving-easy", "conversation", false),
+      renderItem("moving-easy", "easy-button", false),
       renderItem("moving-browser", "browser", false),
       renderItem("moving-empty", "empty-frame", false),
     ];
@@ -126,7 +126,7 @@ describe("workspace pane runtime policy", () => {
   test("freezes every visible overview pane even when focused", () => {
     const items = [
       overviewItem("focused-browser", "browser", true),
-      overviewItem("overview-easy", "conversation", false),
+      overviewItem("overview-easy", "easy-button", false),
       overviewItem("overview-empty", "empty-frame", false),
       overviewItem("overview-light", "fake-dom", false),
     ];
@@ -146,7 +146,7 @@ describe("workspace pane runtime policy", () => {
   test("keeps workspace overview panes live when overview degradation is disabled", () => {
     const items = [
       overviewItem("focused-browser", "browser", true),
-      overviewItem("overview-easy", "conversation", false),
+      overviewItem("overview-easy", "easy-button", false),
       overviewItem("overview-empty", "empty-frame", false),
       overviewItem("overview-light", "fake-dom", false),
     ];

@@ -5,7 +5,6 @@ import type {
   RouteDecisionKind,
   ShellInteractionState,
   SubmitMasterInputRequest,
-  Transcript,
 } from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
 
@@ -40,21 +39,26 @@ describe("app-shell master controller", () => {
         state: { input: { id: "capture_alpha", modality: "voice" }, status: "decided" },
         type: "active",
       },
+      overlayOpen: true,
       runtimeId: "runtime_alpha",
       submission: { accepted: { sequence: 2 }, type: "accepted" },
     });
   });
 
-  test("shares a persistent master draft across pane entry points", async () => {
+  test("shares a persistent overlay draft across shell entry points", async () => {
     const harness = createHarness();
     harness.controller.synchronizeRuntime("runtime_alpha");
     await flushPromises();
 
+    harness.controller.openOverlay();
     harness.controller.setDraft("Bring back the speech routing topic");
+    harness.controller.closeOverlay();
+    harness.controller.openOverlay();
 
     expect(harness.controller.getSnapshot()).toMatchObject({
       draft: "Bring back the speech routing topic",
       interaction: { type: "idle" },
+      overlayOpen: true,
     });
   });
 
@@ -91,10 +95,7 @@ describe("app-shell master controller", () => {
 
   test("invalidates late submission and interaction results on runtime change", async () => {
     const pending = deferred<AcceptedMasterInput>();
-    const harness = createHarness({
-      readTranscript: async () => emptyTranscript(),
-      submitMasterInput: () => pending.promise,
-    });
+    const harness = createHarness({ submitMasterInput: () => pending.promise });
     harness.controller.synchronizeRuntime("runtime_old");
     await flushPromises();
     harness.controller.submitText("Old runtime request");
@@ -109,9 +110,9 @@ describe("app-shell master controller", () => {
       completedTranscript: null,
       draft: "",
       interaction: { type: "idle" },
+      overlayOpen: true,
       runtimeId: "runtime_new",
       submission: { type: "idle" },
-      transcript: { transcript: emptyTranscript(), type: "ready" },
     });
     expect(() =>
       harness.controller.submitVoiceTranscript("capture_old", "runtime_old", "Stale"),
@@ -127,6 +128,8 @@ describe("app-shell master controller", () => {
 
     harness.controller.synchronizeRuntime("runtime_alpha");
     await flushPromises();
+    harness.controller.openOverlay();
+    harness.controller.closeOverlay();
 
     expect(harness.controller.getSnapshot()).toMatchObject({
       interaction: {
@@ -136,39 +139,33 @@ describe("app-shell master controller", () => {
         },
         type: "active",
       },
+      overlayOpen: false,
     });
+    harness.controller.openOverlay();
     harness.controller.submitText("The speech routing topic");
     await waitForInteraction(harness.controller, "decided");
     expect(harness.requests).toHaveLength(1);
   });
 
-  test("keeps a completed immediate result and durable transcript in pane state", async () => {
+  test("dismisses a completed immediate result instead of retaining scrollback", async () => {
     const harness = createHarness();
     harness.controller.synchronizeRuntime("runtime_alpha");
     await flushPromises();
     harness.controller.submitText("What can you do globally?");
     await waitForInteraction(harness.controller, "decided");
-    await flushPromises();
+
+    harness.controller.closeOverlay();
+    harness.controller.openOverlay();
 
     expect(harness.controller.getSnapshot()).toMatchObject({
-      interaction: {
-        state: { input: { id: "master_input_1" }, status: "decided" },
-        type: "active",
-      },
-      transcript: {
-        transcript: {
-          entries: [
-            { payload: { kind: "user_input", inputId: "master_input_1" } },
-            { payload: { kind: "assistant_reply", inputId: "master_input_1" } },
-          ],
-        },
-        type: "ready",
-      },
+      interaction: { type: "idle" },
+      overlayOpen: true,
     });
     expect(harness.controller.getSnapshot()).not.toHaveProperty("recentInputs");
+    expect(harness.controller.getSnapshot()).not.toHaveProperty("history");
   });
 
-  test("applies a completed navigation intent in pane state", async () => {
+  test("applies a completed navigation intent before dismissing the shell overlay", async () => {
     const applied = deferred<{ paneId: string }>();
     const resolved = deferred<{
       inputId: string;
@@ -194,9 +191,12 @@ describe("app-shell master controller", () => {
     harness.controller.submitText("Focus alpha");
     await waitForInteraction(harness.controller, "decided");
     expect(present).toHaveBeenCalledWith(focusPresentation("master_input_1"));
+    expect(harness.controller.getSnapshot().overlayOpen).toBe(true);
     expect(harness.controller.canSubmitInput()).toBe(false);
+    harness.controller.closeOverlay();
     expect(harness.controller.getSnapshot()).toMatchObject({
       interaction: { type: "active" },
+      overlayOpen: false,
     });
 
     applied.resolve({ paneId: "pane_alpha" });
@@ -206,6 +206,7 @@ describe("app-shell master controller", () => {
       intentId: "master-presentation:master_input_1",
       paneId: "pane_alpha",
     });
+    expect(harness.controller.getSnapshot().overlayOpen).toBe(false);
 
     resolved.resolve({
       inputId: "master_input_1",
@@ -216,6 +217,7 @@ describe("app-shell master controller", () => {
     await flushPromises();
     expect(harness.controller.getSnapshot()).toMatchObject({
       interaction: { type: "idle" },
+      overlayOpen: false,
       submission: { type: "idle" },
     });
   });
@@ -250,6 +252,7 @@ describe("app-shell master controller", () => {
     });
     expect(harness.controller.getSnapshot()).toMatchObject({
       interaction: { type: "idle" },
+      overlayOpen: false,
     });
   });
 
@@ -272,33 +275,6 @@ describe("app-shell master controller", () => {
     expect(info).toHaveBeenCalledWith(
       "Active master shell interaction load failed: runtimeId=runtime_alpha",
     );
-    info.mockRestore();
-  });
-
-  test("reports transcript load failure and retries explicitly", async () => {
-    const readTranscript = vi
-      .fn<AppShellMasterControllerDependencies["readTranscript"]>()
-      .mockRejectedValueOnce(new Error("private transcript failure"))
-      .mockResolvedValueOnce(emptyTranscript());
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-    const harness = createHarness({ readTranscript });
-    harness.controller.synchronizeRuntime("runtime_alpha");
-    await flushPromises();
-
-    expect(harness.controller.getSnapshot().transcript).toMatchObject({
-      message: "Setta could not load the durable master transcript.",
-      type: "failed",
-    });
-    harness.controller.retryTranscript();
-    expect(harness.controller.getSnapshot().transcript).toEqual({ type: "loading" });
-    await flushPromises();
-
-    expect(harness.controller.getSnapshot().transcript).toEqual({
-      transcript: emptyTranscript(),
-      type: "ready",
-    });
-    expect(readTranscript).toHaveBeenCalledTimes(2);
-    expect(info).toHaveBeenCalledWith("Master transcript load failed: runtimeId=runtime_alpha");
     info.mockRestore();
   });
 
@@ -454,11 +430,6 @@ function createHarness(overrides: Partial<AppShellMasterControllerDependencies> 
   };
   const dependencies: AppShellMasterControllerDependencies = {
     ...selected,
-    cancelMasterInput: async (request) => {
-      const state = await selected.cancelMasterInput(request);
-      settledStates.set(request.inputId, state);
-      return state;
-    },
     submitMasterInput: async (request) => {
       requests.push(request);
       return selected.submitMasterInput(request);
@@ -495,7 +466,6 @@ function defaultHarnessDependencies(
       focusedPaneId: "pane_alpha",
       focusedWorkspaceId: "workspace_alpha",
     }),
-    readTranscript: async () => transcriptForRequests(requests, settledStates),
     resolvePresentationIntent: async (request) => ({
       ...request,
       resolvedAt: "2026-07-12T18:00:01Z",
@@ -512,148 +482,6 @@ function defaultHarnessDependencies(
       return presentationFor(state);
     },
   };
-}
-
-function transcriptForRequests(
-  requests: SubmitMasterInputRequest[],
-  settledStates: Map<string, ShellInteractionState>,
-): Transcript {
-  let sequence = 0;
-  const entries: Transcript["entries"] = [];
-  for (const request of requests) {
-    sequence += 1;
-    entries.push({
-      payload: {
-        actionReceipt: null,
-        assistantReply: null,
-        cancellation: null,
-        createdAt: "2026-07-12T18:00:01Z",
-        failure: null,
-        id: `master-transcript:user:${request.input.id}`,
-        inputId: request.input.id,
-        kind: "user_input",
-        userInput: { modality: request.input.modality, text: request.input.text },
-      },
-      sequence,
-    });
-    const settled = settledStates.get(request.input.id);
-    const payload = settled ? transcriptPayloadForSettledState(settled) : null;
-    if (payload) {
-      sequence += 1;
-      entries.push({ payload, sequence });
-    }
-  }
-  return { entries, lastSequence: sequence };
-}
-
-type TranscriptPayload = Transcript["entries"][number]["payload"];
-
-function transcriptPayloadForSettledState(state: ShellInteractionState): TranscriptPayload | null {
-  switch (state.status) {
-    case "decided":
-      return transcriptPayloadForDecisionState(state);
-    case "cancelled":
-      return cancellationTranscriptPayload(state);
-    case "failed":
-      return failureTranscriptPayload(state);
-    case "accepted":
-    case "routing":
-      return null;
-    default:
-      return assertNever(state.status);
-  }
-}
-
-function transcriptPayloadForDecisionState(state: ShellInteractionState): TranscriptPayload {
-  const assistantReply = assistantTranscriptReply(state);
-  return assistantReply
-    ? assistantReplyTranscriptPayload(state, assistantReply)
-    : actionReceiptTranscriptPayload(state);
-}
-
-function assistantTranscriptReply(
-  state: ShellInteractionState,
-): TranscriptPayload["assistantReply"] {
-  if (state.decision?.kind === "answer_global" && state.decision.answerGlobal) {
-    return { replyKind: "answer", text: state.decision.answerGlobal.text };
-  }
-  if (state.decision?.kind === "clarify" && state.decision.clarify) {
-    return { replyKind: "clarification", text: state.decision.clarify.question };
-  }
-  return null;
-}
-
-function assistantReplyTranscriptPayload(
-  state: ShellInteractionState,
-  assistantReply: NonNullable<TranscriptPayload["assistantReply"]>,
-): TranscriptPayload {
-  return {
-    actionReceipt: null,
-    assistantReply,
-    cancellation: null,
-    createdAt: "2026-07-12T18:00:02Z",
-    failure: null,
-    id: `master-transcript:decision:${state.input.id}`,
-    inputId: state.input.id,
-    kind: "assistant_reply",
-    userInput: null,
-  };
-}
-
-function actionReceiptTranscriptPayload(state: ShellInteractionState): TranscriptPayload {
-  return {
-    actionReceipt: {
-      decisionKind: state.decision?.kind ?? "focus_conversation",
-      text: 'Setta focused "Alpha topic".',
-    },
-    assistantReply: null,
-    cancellation: null,
-    createdAt: "2026-07-12T18:00:02Z",
-    failure: null,
-    id: `master-transcript:decision:${state.input.id}`,
-    inputId: state.input.id,
-    kind: "action_receipt",
-    userInput: null,
-  };
-}
-
-function cancellationTranscriptPayload(state: ShellInteractionState): TranscriptPayload {
-  return {
-    actionReceipt: null,
-    assistantReply: null,
-    cancellation: { message: "Setta cancelled this request before routing completed." },
-    createdAt: "2026-07-12T18:00:02Z",
-    failure: null,
-    id: `master-transcript:cancel:${state.input.id}`,
-    inputId: state.input.id,
-    kind: "cancellation",
-    userInput: null,
-  };
-}
-
-function failureTranscriptPayload(state: ShellInteractionState): TranscriptPayload | null {
-  if (!state.failure) {
-    return null;
-  }
-  return {
-    actionReceipt: null,
-    assistantReply: null,
-    cancellation: null,
-    createdAt: "2026-07-12T18:00:02Z",
-    failure: {
-      code: state.failure.code,
-      message: state.failure.message,
-      retryable: state.failure.retryable,
-    },
-    id: `master-transcript:failure:${state.input.id}`,
-    inputId: state.input.id,
-    kind: "failure",
-    userInput: null,
-  };
-}
-
-function emptyTranscript(): Transcript {
-  return { entries: [], lastSequence: 0 };
 }
 
 function cancelledState(request: SubmitMasterInputRequest): ShellInteractionState {
@@ -709,7 +537,6 @@ function focusPresentation(inputId: string): PresentationIntent {
       target: {
         conversationId: "conversation_alpha",
         preferredPaneId: "pane_alpha",
-        resourceBindings: [{ folder: { rootPath: "/tmp/setta-alpha" }, kind: "folder" }],
         title: "Alpha topic",
         workspaceId: "workspace_alpha",
       },

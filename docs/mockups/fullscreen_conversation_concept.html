@@ -1,0 +1,1091 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Setta — living reasoning stream</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #05060a; overflow: hidden;
+    font: 13px ui-monospace, Menlo, monospace; color: #cdd3e0; }
+  #c { display: block; width: 100vw; height: 100vh; }
+  .grp { display: flex; gap: 6px; align-items: center; }
+  .grp > span { opacity: 0.5; margin-right: 4px; letter-spacing: 0.04em; text-transform: uppercase; font-size: 11px; }
+  button { font: inherit; color: #cdd3e0; background: rgba(40,48,66,0.6);
+    border: 1px solid rgba(120,140,180,0.22); padding: 5px 10px; border-radius: 7px; cursor: pointer; }
+  button:hover { background: rgba(60,72,98,0.7); }
+  button.on { background: rgba(90,150,210,0.35); border-color: rgba(120,190,240,0.6); color: #eaf2ff; }
+  label { display: flex; gap: 6px; align-items: center; cursor: pointer; user-select: none; }
+  #tip { position: fixed; z-index: 12; pointer-events: none; transform: translate(-50%, -100%);
+    background: rgba(10,14,22,0.94); border: 1px solid rgba(120,190,240,0.5);
+    color: #eaf2ff; padding: 6px 10px; border-radius: 7px; white-space: nowrap; display: none; }
+  #tip .k { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.6; }
+  #tip .alt { opacity: 0.55; color: #b9a7ff; }
+  #tip .chip { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 7px; vertical-align: 0; box-shadow: 0 0 6px currentColor; }
+  .reticle { position: fixed; z-index: 11; pointer-events: none; display: none; transform: translate(-50%,-50%); }
+  .reticle .c { position: absolute; width: 11px; height: 11px; filter: drop-shadow(0 0 3px currentColor); }
+  .reticle .c.tl { left:0; top:0; border-left:2px solid; border-top:2px solid; }
+  .reticle .c.tr { right:0; top:0; border-right:2px solid; border-top:2px solid; }
+  .reticle .c.bl { left:0; bottom:0; border-left:2px solid; border-bottom:2px solid; }
+  .reticle .c.br { right:0; bottom:0; border-right:2px solid; border-bottom:2px solid; }
+  #reticleSel { color: rgba(255,158,216,0.95); }
+  #err { position: fixed; bottom: 0; left: 0; color: #f77; white-space: pre-wrap; padding: 8px; z-index: 20; }
+  /* ── setta palette + fullscreen chrome ── */
+  :root {
+    --bg: oklch(0.128 0.007 261); --surface: oklch(0.147 0.009 264); --panel: oklch(0.165 0.010 264);
+    --fg: oklch(0.908 0.013 263); --muted: oklch(0.717 0.044 264); --faint: oklch(0.522 0.065 264);
+    --border: oklch(0.290 0.032 262); --primary: oklch(0.76 0.115 250); --sans: ui-sans-serif, system-ui, sans-serif;
+    --mono: ui-monospace, Menlo, monospace; --accent-green: oklch(0.79 0.145 152); --accent-red: oklch(0.62 0.14 25.331); --accent-teal: oklch(0.82 0.125 185);
+  }
+  #topbar { position: fixed; top: 0; left: 0; right: 0; height: 44px; z-index: 14; font-family: var(--sans);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 14px;
+    background: linear-gradient(to bottom, rgba(8,10,16,0.8), rgba(8,10,16,0)); }
+  .tb-left, .tb-right { display: flex; align-items: center; gap: 8px; }
+  .tb-nav { font-size: 17px; line-height: 1; color: var(--muted); background: transparent; border: 0; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
+  .tb-nav:hover { color: var(--fg); background: rgba(255,255,255,0.05); }
+  .tb-conv { font-size: 13px; color: var(--fg); font-weight: 600; min-width: 190px; text-align: center; font-family: var(--sans); }
+  .tb-dots { display: flex; gap: 5px; margin-left: 6px; }
+  .tb-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--border); }
+  .tb-dots i.on { background: var(--primary); }
+  .tb-chip { font: 11px var(--sans); color: var(--faint); background: transparent; border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; cursor: pointer; letter-spacing: 0.02em; }
+  .tb-chip:hover { color: var(--muted); }
+  .tb-chip.on { color: var(--fg); border-color: color-mix(in oklch, var(--primary) 55%, transparent); background: color-mix(in oklch, var(--primary) 12%, transparent); }
+  .rail { position: fixed; top: 44px; bottom: 92px; width: 300px; z-index: 12; display: flex; flex-direction: column; gap: 12px; padding: 20px; font-family: var(--sans); pointer-events: none; }
+  .rail > * { pointer-events: auto; }
+  #railLeft { left: 0; justify-content: flex-start; }
+  /* floating transcript labels riding the ladder nodes */
+  #nodeLabels { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
+  .nlabel { position: absolute; transform: translateX(-50%); max-width: 300px; font: 12px/1.4 var(--sans); letter-spacing: 0.01em; text-align: center;
+    padding: 3px 9px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    background: color-mix(in oklch, var(--bg) 62%, transparent); backdrop-filter: blur(2px); }
+  .nl-user { color: var(--accent-teal); border: 1px solid color-mix(in oklch, var(--accent-teal) 30%, transparent); }
+  .nl-resp { color: var(--fg); border: 1px solid color-mix(in oklch, var(--accent-green) 30%, transparent); }
+  #railRight { right: 0; overflow-y: auto; scrollbar-width: thin;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+            mask-image: linear-gradient(to bottom, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
+  body.hide-summaries #railLeft, body.hide-artifacts #railRight, body.hide-composer #composer { display: none; }
+  .rail-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--faint); font-weight: 600; }
+  #highlights { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .hl { display: grid; grid-template-columns: 7px 1fr; gap: 9px; font-size: 13px; color: var(--muted); line-height: 1.35; cursor: pointer; }
+  .hl .d { width: 6px; height: 6px; border-radius: 50%; margin-top: 5px; box-shadow: 0 0 6px currentColor; }
+  .hl.old { opacity: 0.4; }
+  .hl.old:hover { opacity: 0.7; }
+  .hl.cur .hl-short { color: var(--fg); font-weight: 600; }
+  .hl-full { display: none; margin-top: 3px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .hl.cur .hl-full, .hl.expanded .hl-full { display: block; }   /* newest + clicked items show the fuller detail */
+  .hl.expanded .hl-short { color: var(--fg); }
+  .rail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .rail-link { background: transparent; border: 0; padding: 0; font: 11px var(--sans); color: var(--faint); cursor: pointer; letter-spacing: 0.02em; }
+  .rail-link:hover { color: var(--accent-teal); }
+  #artifacts { display: flex; flex-direction: column; gap: 12px; }
+  .artifact { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px 13px 13px; cursor: pointer; transition: border-color 160ms, transform 160ms;
+    animation: art-in 420ms cubic-bezier(0.22,1,0.36,1); }
+  @keyframes art-in { from { opacity: 0; transform: translateY(10px); } }
+  .artifact:hover { border-color: color-mix(in oklch, var(--primary) 45%, transparent); transform: translateY(-1px); }
+  .artifact-kicker { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--faint); font-weight: 600; margin-bottom: 3px; display: flex; justify-content: space-between; }
+  .artifact-kicker .exp { opacity: 0.55; font-size: 11px; }
+  .artifact-title { font-size: 13px; font-weight: 600; color: var(--fg); }
+  .artifact-meta { font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+  #composer { position: fixed; bottom: 0; left: 0; right: 0; z-index: 13; display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 0 24px 22px; font-family: var(--sans); }
+  #directorHint { font-size: 11px; color: var(--faint); display: flex; align-items: center; gap: 7px; }
+  #directorHint i { width: 6px; height: 6px; border-radius: 50%; background: oklch(0.82 0.125 185); color: oklch(0.82 0.125 185); box-shadow: 0 0 8px currentColor; }
+  .input-wrap { width: 100%; max-width: 620px; display: flex; align-items: center; gap: 8px;
+    background: color-mix(in oklch, var(--surface) 90%, transparent); border: 1px solid var(--border); border-radius: 999px; padding: 0 12px 0 18px; backdrop-filter: blur(10px); }
+  .input-wrap:focus-within { border-color: color-mix(in oklch, var(--primary) 55%, transparent); box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 10%, transparent); }
+  .input-wrap input { flex: 1; background: transparent; border: 0; outline: none; color: var(--fg); font: 13px var(--sans); padding: 13px 0; }
+  .input-wrap input::placeholder { color: var(--faint); }
+  .enter-chip { font: 10px ui-monospace, monospace; color: var(--faint); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  #devbar { position: fixed; top: 52px; left: 14px; z-index: 14; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; max-width: 62vw;
+    background: rgba(8,10,16,0.62); border: 1px solid rgba(120,140,180,0.18); padding: 8px 10px; border-radius: 10px; backdrop-filter: blur(8px); }
+  #devbar[hidden] { display: none; }
+  /* longer-form summary in the Now rail */
+  #summaryToggle { align-self: flex-start; margin-top: 4px; font: 11px var(--sans); color: var(--faint); background: transparent; border: 0; padding: 2px 0; cursor: pointer; letter-spacing: 0.03em; }
+  #summaryToggle:hover { color: var(--muted); }
+  #summaryToggle .caret { display: inline-block; transition: transform 160ms; }
+  #summaryToggle.open .caret { transform: rotate(90deg); }
+  #summaryText { font: 12.5px/1.5 var(--sans); color: var(--muted); max-width: 300px; }
+  #summaryText[hidden] { display: none; }
+  /* artifact body preview */
+  .artifact-body { margin-top: 9px; display: flex; flex-direction: column; gap: 4px; }
+  .ab-row { display: grid; grid-template-columns: 62px 1fr auto; gap: 8px; align-items: center; font: 11px var(--mono); color: var(--muted); }
+  .ab-track { height: 5px; border-radius: 3px; background: color-mix(in oklch, var(--border) 60%, transparent); overflow: hidden; }
+  .ab-bar { height: 100%; border-radius: 3px; background: color-mix(in oklch, var(--primary) 60%, transparent); }
+  .ab-num { font-variant-numeric: tabular-nums; }
+  .ab-diff { font: 11px var(--mono); white-space: pre; line-height: 1.5; }
+  .ab-add { color: var(--accent-green); } .ab-del { color: var(--accent-red); }
+  /* main response area */
+  #response-legacy-unused { position: fixed; left: 50%; transform: translateX(-50%); bottom: 96px; width: min(680px, calc(100vw - 660px)); z-index: 13; cursor: pointer; font-family: var(--sans);
+    background: color-mix(in oklch, var(--surface) 74%, transparent); border: 1px solid var(--border); border-top-color: color-mix(in oklch, var(--primary) 35%, transparent);
+    border-radius: 14px; padding: 13px 16px 9px; backdrop-filter: blur(10px); transition: border-color 160ms; }
+  #response:hover { border-color: color-mix(in oklch, var(--primary) 45%, transparent); }
+  body.hide-composer #response { bottom: 22px; }
+  #responseText { font: 14px/1.5 var(--sans); color: var(--fg); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  #responseText.working { color: var(--muted); }
+  #responseText.working::after { content: '▍'; color: var(--primary); animation: caret 1s steps(1) infinite; }
+  @keyframes caret { 50% { opacity: 0; } }
+  #responseFoot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font: 10px var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
+  .rf-hist { opacity: 0.8; }
+  /* history overlay */
+  #history { position: fixed; inset: 0; z-index: 20; background: rgba(4,6,10,0.6); backdrop-filter: blur(3px); display: grid; place-items: center; font-family: var(--sans); }
+  #history[hidden] { display: none; }
+  #historyPanel { width: min(560px, calc(100vw - 40px)); max-height: 74vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px 20px; animation: art-in 260ms cubic-bezier(0.22,1,0.36,1); }
+  .hh { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; color: var(--fg); }
+  .hh button { background: transparent; border: 0; color: var(--faint); font-size: 14px; cursor: pointer; }
+  .hh-note { font-size: 11px; color: var(--faint); margin: 4px 0 16px; }
+  .turn { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+  .turn .u { align-self: flex-end; font-size: 13px; color: var(--fg); background: color-mix(in oklch, var(--accent-teal) 14%, transparent); border: 1px solid color-mix(in oklch, var(--accent-teal) 32%, transparent); border-radius: 12px 12px 3px 12px; padding: 8px 12px; max-width: 82%; line-height: 1.4; }
+  .turn .r { align-self: flex-start; font-size: 13px; color: var(--fg); background: color-mix(in oklch, var(--surface) 80%, transparent); border: 1px solid var(--border); border-left: 2px solid var(--accent-green); border-radius: 12px 12px 12px 3px; padding: 8px 12px; max-width: 82%; line-height: 1.5; }
+  /* conversation-dot activity */
+  .tb-dots i { transition: background 300ms, box-shadow 300ms; }
+  .tb-dots i.act { background: var(--accent-teal); box-shadow: 0 0 7px currentColor; color: var(--accent-teal); animation: dotpulse 1.4s ease-in-out infinite; }
+  .tb-dots i.done { background: var(--accent-green); opacity: 0.65; }
+  @keyframes dotpulse { 50% { opacity: 0.4; } }
+  #railLeft, #railRight, #directorHint, .tb-conv, #convDots { transition: opacity 0.28s ease; }
+  body.switching #railLeft, body.switching #railRight, body.switching #directorHint { opacity: 0; }
+  body.switching .tb-conv, body.switching #convDots { opacity: 0.35; }
+  @media (max-width: 760px) { .rail { display: none; } .tb-chip[data-view="summaries"], .tb-chip[data-view="artifacts"] { display: none; } .tb-conv { min-width: 120px; } }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="reticleActive" class="reticle"><span class="c tl"></span><span class="c tr"></span><span class="c bl"></span><span class="c br"></span></div>
+<div id="reticleSel" class="reticle"><span class="c tl"></span><span class="c tr"></span><span class="c bl"></span><span class="c br"></span></div>
+<div id="tip"></div>
+<header id="topbar">
+  <div class="tb-left">
+    <button class="tb-nav" id="convPrev" aria-label="Previous conversation">‹</button>
+    <div class="tb-conv"><span id="convTitle">—</span></div>
+    <button class="tb-nav" id="convNext" aria-label="Next conversation">›</button>
+    <div class="tb-dots" id="convDots"></div>
+  </div>
+  <div class="tb-right">
+    <button class="tb-chip on" data-view="summaries">Summaries</button>
+    <button class="tb-chip on" data-view="artifacts">Artifacts</button>
+    <button class="tb-chip on" data-view="composer">Input</button>
+    <button class="tb-chip" id="devToggle">Dev</button>
+  </div>
+</header>
+
+<aside id="railLeft" class="rail">
+  <div class="rail-head"><span class="rail-label">Now</span><button id="threadHistoryBtn" type="button" class="rail-link">see thread history ›</button></div>
+  <ol id="highlights"></ol>
+  <button id="summaryToggle" type="button"><span class="caret">▸</span> Summary</button>
+  <div id="summaryText" hidden></div>
+</aside>
+
+<div id="nodeLabels"></div>
+
+<aside id="railRight" class="rail">
+  <div class="rail-label">Artifacts</div>
+  <div id="artifacts"></div>
+</aside>
+
+<div id="history" hidden>
+  <div id="historyPanel">
+    <div class="hh"><span>History</span><button id="historyClose" aria-label="Close">✕</button></div>
+    <div class="hh-note">Only your messages and each final response — nothing in between.</div>
+    <div id="historyLog"></div>
+  </div>
+</div>
+
+<div id="composer">
+  <div id="directorHint"><i></i><span id="directorText"></span></div>
+  <label class="input-wrap">
+    <input id="chatInput" type="text" placeholder="Ask the director…   (‹ › switch conversation · scroll to look back)" autocomplete="off" />
+    <span class="enter-chip">⏎</span>
+  </label>
+</div>
+
+<div id="devbar" hidden>
+  <div class="grp"><span>collapse</span>
+    <button data-cm="off">off</button><button data-cm="ladder" class="on">ladder</button><button data-cm="focus">focus</button><button data-cm="implode">implode</button>
+  </div>
+  <div class="grp"><label><input type="checkbox" id="labelsToggle" checked /> labels</label></div>
+  <div class="grp"><span>pattern</span>
+    <button data-pat="0" class="on">halftone</button><button data-pat="1">bayer</button><button data-pat="2">hatch</button>
+  </div>
+  <div class="grp"><span>size</span>
+    <button data-px="4" class="on">S</button><button data-px="6">M</button><button data-px="9">L</button>
+  </div>
+  <div class="grp"><span>particles</span>
+    <button data-pm="0" class="on">emit</button><button data-pm="1">orbit</button>
+  </div>
+  <div class="grp"><label><input type="checkbox" id="scan" /> scanline</label></div>
+  <div class="grp"><label><input type="checkbox" id="listen" /> listen</label></div>
+  <div class="grp"><span>speed</span><input id="speed" type="range" min="0.2" max="3" step="0.05" value="0.2" style="width:88px"></div>
+  <div class="grp"><button id="restart">restart</button></div>
+  <div class="grp" id="fps" style="opacity:0.6">–</div>
+</div>
+<pre id="err"></pre>
+<script>
+"use strict";
+const canvas=document.getElementById('c');
+const gl=canvas.getContext('webgl2',{alpha:false,antialias:false});
+const timerExt=gl.getExtension('EXT_disjoint_timer_query_webgl2');   // GPU frame-time (dev perf readout)
+let gpuQuery=null, gpuPending=null, gpuMs=0;
+const errEl=document.getElementById('err'), tip=document.getElementById('tip');
+function fail(m){errEl.textContent=m;throw new Error(m);}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+// modes: 0 think, 1 do, 2 struggle, 3 success, 4 fail, 5 merge
+const M={think:0,do:1,struggle:2,success:3,fail:4,merge:5,listening:6};
+const MODE_NAME=['thinking','doing','struggling','success','failed','synthesis','listening'];
+const MODE_COLORS=['#4dcbf0','#9e73ff','#ffcb42','#5cf5a0','#ff495e','#c7edff','#b8e6ff'];
+const CYAN=[0.30,0.80,0.95], VIOLET=[0.62,0.45,1.0];   // particle-field tints
+
+const RUN=[
+  {k:'step',m:'think',t:'read request'},
+  {k:'step',m:'do',t:'open workspace layout engine'},
+  {k:'dead',m:'do',t:'grep unrelated speech module',why:'wrong subsystem'},
+  {k:'step',m:'think',t:'locate drag-reorder path'},
+  {k:'fan',lanes:[
+     {m:'do',t:'inspect swap logic',steps:[{m:'do',t:'check slot widths'},{m:'struggle',t:'trace adjacency'}]},
+     {m:'do',t:'profile frame timing',steps:[{m:'think',t:'record baseline'}]},
+     {m:'do',t:'read overview ghost',steps:[{m:'do',t:'measure pan cost'}],dead:true},
+   ],merge:'synthesize findings'},
+  {k:'step',m:'think',t:'draft adjacent-swap fix'},
+  {k:'dead',m:'do',t:'add width-adopt compat shim',why:'violates no-compat rule'},
+  {k:'step',m:'do',t:'apply fix'},
+  {k:'step',m:'struggle',t:'re-measure frame timing'},
+  {k:'step',m:'success',t:'commit change'},
+];
+
+const STEP=0.20, POP=0.38, FAIL_DELAY=1.1;
+const RESP_H=0.34, TURN_GAP=0.42;      // ladder spacing: user->response gap when folded, and gap between turns
+let INTERVAL=5.5, DEAD_INTERVAL=4.0;   // node dwell (driven by the speed slider, default slowest); animation durations stay fixed
+let collapseMode='ladder', showLabels=true;   // dev-panel variations on the collapse-into-a-ladder idea
+function laneOffsets(K){if(K<=1)return[0];const s=0.30,st=-(K-1)/2*s,o=[];for(let i=0;i<K;i++)o.push(st+i*s);return o;}
+
+// A conversation is a THREAD of turns. Each turn is user-input node -> live reasoning graph -> final
+// response node. Positions are computed dynamically each frame (see layout()) so the reasoning graph can
+// collapse into a clean user/AI ladder once the answer is logged, and re-expand from stored data on click.
+function build(conv){
+  const nodes=[],edges=[],turns=[]; let clock=0;
+  const mk=(role,ti,x,label,mode,born,localY,fails)=>{ const md=M[mode]!==undefined?M[mode]:mode;
+    const id=nodes.length;
+    nodes.push({id,role,turn:ti,x,baseX:x,label,mode:md,born,
+      settleAt:born+(fails?FAIL_DELAY:INTERVAL*1.4), failAt:fails?FAIL_DELAY:999,
+      localY:localY||0, worldY:0, alpha:1});
+    return id; };
+  const link=(a,b,childBorn,mode,dead,spine)=>{ const md=M[mode]!==undefined?M[mode]:mode;
+    let conf=0.9; if(md===M.struggle) conf=0.45;
+    edges.push({a,b,childBorn,mode:md,dead:!!dead,conf,spine:!!spine,turn:nodes[b].turn}); };
+
+  (conv.thread||[]).forEach((T,ti)=>{
+    const turn={index:ti,userId:-1,reasonIds:[],respId:-1,open:0,openTarget:0,manual:null,collapseStart:0,reasonSpan:0,answerAt:0};
+    const uborn=clock; clock+=INTERVAL;
+    turn.userId=mk('user',ti,0,T.u,'listening',uborn,0);        // the listening node carries the user's input
+    let tip=turn.userId, rrow=1, side=1;
+    const raw=(T.reason==='RUN')?RUN:(T.reason||[]);
+    const items=raw.map(s=>s.k?s:{k:'step',m:s.m,t:s.t});   // {m,t} => a plain step; {k:...} passes through (fan/dead)
+    for(const ev of items){
+      if(ev.k==='step'){ const b=clock; clock+=INTERVAL;
+        const id=mk('reason',ti,0,ev.t,ev.m,b,rrow*STEP); turn.reasonIds.push(id); link(tip,id,b,ev.m); tip=id; rrow++; }
+      else if(ev.k==='dead'){ const b=clock; clock+=DEAD_INTERVAL;
+        const id=mk('reason',ti,0.30*side,ev.t,ev.m||'do',b,rrow*STEP,true); turn.reasonIds.push(id); link(tip,id,b,ev.m||'do',true); side*=-1; rrow++; }
+      else if(ev.k==='fan'){
+        const K=ev.lanes.length, xs=laneOffsets(K);
+        const chains=ev.lanes.map((l,i)=>({x:xs[i],seq:[{m:l.m,t:l.t}].concat(l.steps||[]),dead:!!l.dead}));
+        const maxLen=Math.max(...chains.map(c=>c.seq.length));
+        const prev=chains.map(()=>tip), aliveTip=chains.map(()=>null), startRow=rrow, startClock=clock;
+        for(let s=0;s<maxLen;s++){ const b=startClock+s*INTERVAL;
+          for(let i=0;i<chains.length;i++){ const c=chains[i]; if(s>=c.seq.length) continue;
+            const spec=c.seq[s], last=s===c.seq.length-1, isDead=c.dead&&last;
+            const id=mk('reason',ti,c.x,spec.t,spec.m,b+i*0.12,(startRow+s)*STEP,isDead);
+            turn.reasonIds.push(id); link(prev[i],id,b+i*0.12,spec.m,isDead); prev[i]=id; aliveTip[i]=(c.dead&&last)?null:id; } }
+        clock=startClock+maxLen*INTERVAL; rrow=startRow+maxLen;
+        const mb=clock; clock+=INTERVAL; const mm=mk('reason',ti,0,ev.merge||'synthesize','merge',mb,rrow*STEP);
+        turn.reasonIds.push(mm);
+        for(let i=0;i<chains.length;i++) if(!chains[i].dead && aliveTip[i]!=null) link(aliveTip[i],mm,mb,'merge');
+        tip=mm; rrow++;
+      }
+    }
+    const rborn=clock; clock+=INTERVAL;
+    turn.reasonSpan=rrow*STEP;
+    turn.respId=mk('response',ti,0,T.r,'success',rborn,turn.reasonSpan+RESP_H);   // green node = the response
+    link(tip,turn.respId,rborn,'success');
+    link(turn.userId,turn.respId,uborn,'success',false,true);    // spine: shown only when the turn is folded
+    turn.answerAt=rborn; turn.collapseStart=rborn+INTERVAL*1.4+0.9;
+    turns.push(turn);
+    clock+=INTERVAL*2;
+  });
+  // working envelope: a node stops "working" once it has produced its next thought (ignoring the spine)
+  const childBorn={};
+  for(const e of edges){ if(e.spine) continue; const cb=nodes[e.b].born; if(childBorn[e.a]===undefined||cb<childBorn[e.a]) childBorn[e.a]=cb; }
+  for(const n of nodes){ if(childBorn[n.id]!==undefined) n.settleAt=childBorn[n.id];
+    if(n.failAt<900) n.settleAt=n.born+n.failAt; }
+  return {nodes,edges,turns,lastBorn:clock};
+}
+
+// ---- GL ----
+function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);
+  if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))fail(gl.getShaderInfoLog(o));return o;}
+function prog(v,f){const p=gl.createProgram();gl.attachShader(p,sh(gl.VERTEX_SHADER,v));gl.attachShader(p,sh(gl.FRAGMENT_SHADER,f));
+  gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))fail(gl.getProgramInfoLog(p));return p;}
+
+const COMMON=`
+vec3 modeColor(float m){
+  if(m<0.5) return vec3(0.30,0.80,0.95);   // think cyan
+  if(m<1.5) return vec3(0.62,0.45,1.0);    // do violet
+  if(m<2.5) return vec3(1.0,0.79,0.26);    // struggle amber
+  if(m<3.5) return vec3(0.36,0.96,0.63);   // success green
+  if(m<4.5) return vec3(1.0,0.29,0.37);    // fail red
+  if(m<5.5) return vec3(0.78,0.95,1.0);    // merge bright
+  return vec3(0.72,0.90,1.0);              // listening pale cyan
+}`;
+
+const PT_VS=`#version 300 es
+layout(location=0) in float a_worldY;
+layout(location=1) in float a_x;
+layout(location=2) in float a_born;
+layout(location=3) in float a_settle;
+layout(location=4) in float a_mode;
+layout(location=5) in float a_dx;     // emission direction
+layout(location=6) in float a_dy;
+layout(location=7) in float a_phase;  // per-particle phase 0..1
+layout(location=8) in float a_speed;  // per-particle speed
+layout(location=9) in float a_role;   // 0 core orbiter, 1 emitted spark
+layout(location=10) in float a_failAt; // node age at which it fails (999 = never)
+layout(location=11) in float a_open;    // collapse visibility 0..1 (reason nodes fade as their turn folds)
+uniform float u_cam,u_time,u_dpr,u_hoverX,u_hoverWY,u_hoverOn,u_listen,u_pmode,u_xshift;
+out float v_mode,v_recent,v_alpha,v_active,v_hover,v_fail,v_isCore;
+void main(){
+  if(a_open<0.004){ gl_Position=vec4(2.0,2.0,2.0,1.0); gl_PointSize=0.0; return; }   // folded away
+  float age=u_time-a_born;
+  float vis=step(a_born - step(0.5,a_role)*step(a_role,1.5)*0.55, u_time);   // sparks appear early to spiral in
+  float recent=exp(-max(0.0,u_cam-a_worldY)*0.85);
+  // smooth "working" envelope: eases up at birth, eases down as it settles (no snapping)
+  float working=smoothstep(a_born,a_born+0.45,u_time)*(1.0-smoothstep(a_settle-0.35,a_settle+0.7,u_time));
+  // explosion pop: spikes past full size on arrival, then settles
+  float rise=smoothstep(0.0,0.10,age);
+  float settle=exp(-max(age-0.10,0.0)*6.0);
+  float pop=rise*(1.0+0.55*settle);
+  vec2 center=vec2(a_x, -0.35 + (u_cam - a_worldY));
+  if(center.y>1.3||center.y<-1.3){ gl_Position=vec4(2.0,2.0,2.0,1.0); gl_PointSize=0.0; return; }   // cull off-viewport
+  float hover = exp(-distance(vec2(a_x,a_worldY),vec2(u_hoverX,u_hoverWY))*20.0) * u_hoverOn;  // u_hoverOn is eased 0..1
+  float failing=step(a_failAt,998.0);
+  float failAge=age-a_failAt;
+  float failP=failing>0.5 ? smoothstep(0.0,0.35,failAge) : 0.0;   // was fine, now turning to failure
+  vec2 pos; float psize; float palpha;
+  if(failing>0.5 && failAge>0.0){
+    // executing node collapses: particles burst outward and fizzle (bigger, further, longer)
+    pos=center+vec2(a_dx,a_dy)*(0.02+failAge*0.16);
+    float life=clamp(1.0-failAge/1.7,0.0,1.0);
+    psize=(6.5+recent*10.0)*life; palpha=life*1.15;
+  } else if(a_role<0.5){
+    // node body — a clean ring. Listening node is large + calm (pulses only while receiving input).
+    float listen=step(5.5,a_mode);
+    float lp=1.0 + listen*u_listen*0.32*abs(sin(u_time*6.0));   // pulse only when simulating listening
+    pos=center;
+    psize=(40.0 + recent*20.0 + working*58.0 + hover*38.0 + listen*46.0)*pop*lp;   // listening node much larger
+    palpha=1.0;    // solid node body (black glyph is cut into it)
+  } else if(a_role<1.5){
+    float listen=step(5.5,a_mode);
+    float act=working*(1.0-listen*0.85);
+    vec2 dir=vec2(a_dx,a_dy); vec2 perp=vec2(-dir.y,dir.x);
+    float toBirth=a_born-u_time;                    // >0 while the pulse is still travelling the wire
+    if(toBirth>0.0){
+      // singularity: spiral inward to the point as the pulse approaches; collapse at arrival
+      float suck=clamp(toBirth/0.55, 0.0, 1.0);
+      float spin=a_phase*6.2832 + toBirth*9.0;
+      pos=center + vec2(cos(spin),sin(spin))*(suck*0.10);
+      palpha=(1.0-suck)*0.9 + 0.08;                 // brighter as they near the singularity
+      psize=(2.5+recent*3.0)*(0.45 + (1.0-suck)*0.8);
+    } else {
+      // pulse has arrived -> explode with a flash, then settle into emission cloud OR orbit shell
+      float et=-toBirth;
+      float snOut=16.0*et*exp(-et*13.0); float flash=snOut;
+      float pt=fract(u_time*a_speed*(0.18+act*0.18) + a_phase);
+      vec2 restPos; float restSize; float restAlpha;
+      if(u_pmode < 0.5){
+        // EMISSION cloud
+        float cloudFade=smoothstep(0.25, 0.70, et);
+        vec2 cloudOff=dir*(0.35+pt*0.65) + perp*0.30*sin(u_time*0.7 + a_phase*20.0);
+        float cloudR=0.020 + act*0.070 + recent*0.020 + hover*0.02;
+        restPos=center + cloudOff*cloudR*pop*cloudFade;
+        restAlpha=(1.0-pt)*(0.15 + act*0.9*cloudFade + recent*0.25 + hover*0.4);
+        restSize=(3.2+recent*5.0+act*4.0)*pop;
+      } else {
+        // ORBIT shell (tilted elliptical orbits around the node)
+        float planeAng=atan(a_dy,a_dx); float squash=0.30+0.5*fract(a_phase*7.0);
+        float ang=u_time*a_speed*1.6 + a_phase*6.2832;
+        vec2 ell=vec2(cos(ang), sin(ang)*squash); float ca=cos(planeAng),sa=sin(planeAng);
+        vec2 rot=vec2(ell.x*ca-ell.y*sa, ell.x*sa+ell.y*ca);
+        float on=clamp(working+hover,0.0,1.0);
+        restPos=center + rot*((0.045+recent*0.014+working*0.032)*pop);
+        restAlpha=on*(0.6+recent*0.3); restSize=(3.5+recent*4.0)*pop*(0.4+on);
+      }
+      pos=restPos + dir*(snOut*1.3*0.16);          // birth explosion pushes out over either mode
+      palpha=max(flash*1.3, 0.0) + restAlpha;
+      psize=restSize + flash*8.0*pop;
+    }
+  } else {
+    // orbital electron — tilted elliptical orbit; only when active/hovered (atom cloud)
+    float on=clamp(working+hover,0.0,1.0);
+    float ang=u_time*a_speed*1.5 + a_phase*6.2832;
+    vec2 ell=vec2(cos(ang), sin(ang)*a_dy);
+    float ca=cos(a_dx), sa=sin(a_dx);
+    vec2 rot=vec2(ell.x*ca-ell.y*sa, ell.x*sa+ell.y*ca);
+    float orbR=(0.045+recent*0.014+working*0.032)*pop;    // orbit further out (around the node)
+    pos=center+rot*orbR;
+    psize=(3.5+recent*4.0)*pop*on; palpha=on*(0.6+recent*0.3);
+  }
+  float succ=step(2.5,a_mode)*step(a_mode,3.5);
+  psize*=(1.0+succ*0.5);                         // success flourish
+  v_mode=a_mode; v_recent=recent; v_active=working; v_hover=hover; v_fail=failP; v_alpha=palpha*vis*a_open; v_isCore=step(a_role,0.5);
+  gl_Position=vec4(pos.x+u_xshift, pos.y,0.0,1.0);
+  gl_PointSize=psize*u_dpr*vis;
+}`;
+const PT_FS=`#version 300 es
+precision highp float;
+${COMMON}
+in float v_mode,v_recent,v_alpha,v_active,v_hover,v_fail,v_isCore;
+out vec4 o;
+void main(){
+  vec3 col=mix(modeColor(v_mode), vec3(1.0,0.29,0.37), v_fail);   // transitions to failure red
+  float r=length(gl_PointCoord-0.5)*2.0;
+  float glow=smoothstep(1.0,0.0,r);
+  float disc=smoothstep(0.55,0.42,r);
+  float core=smoothstep(0.0,0.34,r);             // 0 at centre -> 1 toward the rim
+  float bodyCore=disc*mix(0.07,1.0,core);        // solid disc that fades to near-black in the middle
+  float body=mix(disc, bodyCore, v_isCore);
+  float a=v_alpha*(glow*(0.24+v_recent*0.18)*(1.0-v_isCore*0.9)+body*(1.05+v_recent*0.55));
+  col*=(0.8+v_active*0.35+v_hover*0.6);
+  o=vec4(col*a,a);
+}`;
+
+const EDGE_VS=`#version 300 es
+layout(location=0) in float aWY;
+layout(location=1) in float aX;
+layout(location=2) in float bWY;
+layout(location=3) in float bX;
+layout(location=4) in float childBorn;
+layout(location=5) in float mode;
+layout(location=6) in float side;
+layout(location=7) in float t;      // 0..1 along the path
+layout(location=8) in float conf;   // confidence -> straightness
+layout(location=9) in float phase;
+layout(location=10) in float childFail;   // time the child fails (9999 = never)
+layout(location=11) in float a_open;       // edge visibility 0..1 (reason edges fold, spine edges appear)
+uniform float u_cam,u_time,u_aspect,u_width,u_xshift;
+out float v_mode,v_recent,v_alpha,v_along,v_failP;
+void main(){
+  if(a_open<0.004){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }   // folded away
+  float grow=clamp((u_time-(childBorn-0.6))/0.6,0.0,1.0);   // line grows out; tip arrives at childBorn
+  float tt=min(t,grow);
+  vec2 A=vec2(aX,-0.35+(u_cam-aWY));
+  vec2 B=vec2(bX,-0.35+(u_cam-bWY));
+  if((A.y>1.35&&B.y>1.35)||(A.y<-1.35&&B.y<-1.35)){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }   // cull off-viewport edges
+  vec2 dS=normalize((B-A)*vec2(u_aspect,1.0)+vec2(1e-6));
+  vec2 perpS=vec2(-dS.y,dS.x);
+  vec2 perpC=vec2(perpS.x/u_aspect, perpS.y);
+  float failP=smoothstep(childFail, childFail+0.35, u_time);   // 0 normal -> 1 once the child fails
+  float unc=clamp((1.0-conf) + failP*0.85, 0.0, 1.0);          // straight normally, degrades to wavy on failure
+  float wob=(sin(tt*9.0+phase*6.2832+u_time*unc*3.2)*0.05 + sin(tt*19.0+phase*3.0)*0.02)*unc;
+  wob*=sin(tt*3.14159);                                     // meet the endpoints cleanly
+  vec2 p=mix(A,B,tt)+perpC*wob;
+  vec2 e=p+perpC*side*(u_width*(0.85+conf*1.15));   // confident main threads thicker
+  v_mode=mode; v_recent=exp(-max(0.0,u_cam-bWY)*0.9); v_alpha=grow*a_open; v_along=t; v_failP=failP;
+  gl_Position=vec4(e.x+u_xshift, e.y,0.0,1.0);
+}`;
+const EDGE_FS=`#version 300 es
+precision highp float;
+${COMMON}
+in float v_mode,v_recent,v_alpha,v_along,v_failP;
+uniform float u_time;
+out vec4 o;
+void main(){
+  vec3 col=mix(modeColor(v_mode), vec3(1.0,0.29,0.37), v_failP);    // starts normal, degrades to red on failure
+  float grow=v_alpha;                                               // 0..1 how far the line has grown
+  float drawn=step(v_along,grow+0.001);                             // only the grown portion
+  float dash=0.5+0.5*step(0.5,fract(v_along*13.0 - u_time*1.4));    // signal dashes
+  float lead=smoothstep(grow-0.16, grow, v_along)*drawn;           // bright pulse riding the growing tip
+  col=mix(col, vec3(0.92,0.98,1.0), lead*0.7);
+  float a=drawn*(0.34+v_recent*0.28)*dash*(1.0+v_failP*0.8) + lead*(0.75+v_recent*0.5);
+  o=vec4(col*a,a);
+}`;
+
+const POST_VS=`#version 300 es
+out vec2 v_uv;
+void main(){vec2 c=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));v_uv=c;gl_Position=vec4(c*2.0-1.0,0.0,1.0);}`;
+const POST_FS=`#version 300 es
+precision highp float;
+in vec2 v_uv; uniform sampler2D u_tex; uniform vec3 u_bg; uniform float u_pixel,u_scan,u_pattern,u_time,u_cam,u_glitch;
+out vec4 o;
+float bayer8(ivec2 p){const float m[64]=float[64](
+  0.,32.,8.,40.,2.,34.,10.,42.,48.,16.,56.,24.,50.,18.,58.,26.,12.,44.,4.,36.,14.,46.,6.,38.,60.,28.,52.,20.,62.,30.,54.,22.,
+  3.,35.,11.,43.,1.,33.,9.,41.,51.,19.,59.,27.,49.,17.,57.,25.,15.,47.,7.,39.,13.,45.,5.,37.,63.,31.,55.,23.,61.,29.,53.,21.);
+  return m[(p.y&7)*8+(p.x&7)]/64.0-0.5;}
+float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+float vnoise2(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
+  float a=hash(i),b=hash(i+vec2(1,0)),c=hash(i+vec2(0,1)),d=hash(i+vec2(1,1));
+  return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}
+float fbm2(vec2 p){float s=0.0,a=0.5;for(int i=0;i<3;i++){s+=a*vnoise2(p);p=p*2.03+3.1;a*=0.5;}return s;}
+void main(){
+  float px=max(1.0,u_pixel); vec2 texRes=vec2(textureSize(u_tex,0));
+  vec2 uv=gl_FragCoord.xy/texRes; vec2 cc=uv-0.5;
+  float r2=dot(cc,cc); vec2 uvw=cc*(1.0+r2*0.14)+0.5;                 // CRT barrel curvature
+  if(uvw.x<0.0||uvw.x>1.0||uvw.y<0.0||uvw.y>1.0){o=vec4(0.0,0.0,0.0,1.0);return;}
+  // channel-change signal tear (only while switching conversations)
+  uvw.x += u_glitch*0.035*(hash(vec2(floor(uvw.y*46.0),floor(u_time*22.0)))-0.5)*step(0.55,hash(vec2(floor(uvw.y*9.0),floor(u_time*6.0))));
+  vec2 fc=uvw*texRes; vec2 fromC=uvw-0.5;
+  vec2 cell=floor(fc/px); vec2 base=(cell*px+px*0.5)/texRes;
+  vec2 ab=fromC*(0.012+u_glitch*0.03);                               // aberration spikes on switch
+  vec3 s; s.r=texture(u_tex,base+ab).r; s.g=texture(u_tex,base).g; s.b=texture(u_tex,base-ab).b;
+  vec3 col=(u_bg+s)*1.7; col=col/(1.0+col);   // medium is the drifting particle field (drawn in-scene)
+  // dither pattern (follows the curvature)
+  float lum=dot(col,vec3(0.3,0.59,0.11)); vec2 f=fract(fc/px)-0.5; float ink;
+  if(u_pattern<0.5){float radius=sqrt(clamp(lum,0.0,1.0))*0.95;float d=length(f)*2.0;ink=smoothstep(radius+0.12,radius-0.12,d);}
+  else if(u_pattern<1.5){ink=step(0.5,lum+bayer8(ivec2(cell)));}
+  else{float line=0.5+0.5*sin((f.x+f.y)*6.2832);ink=step(1.0-clamp(lum*1.3,0.0,1.0),line);}
+  col*=ink;
+  // cassette-futurism grade
+  float scan=0.72+0.28*step(1.0,mod(fc.y,3.0));                       // CRT scanlines
+  if(u_scan>0.5) scan*=0.72+0.28*step(px,mod(fc.y,px*2.0));
+  col*=scan;
+  col*=smoothstep(1.5,0.12,length(fromC*vec2(1.05,1.0)));            // vignette
+  col+=(hash(fc+fract(u_time))-0.5)*0.013;                           // subtle static grain (no flicker)
+  o=vec4(col,1.0);
+}`;
+
+const ICON_VS=`#version 300 es
+layout(location=0) in float a_worldY;
+layout(location=1) in float a_x;
+layout(location=2) in float a_born;
+layout(location=3) in float a_settle;
+layout(location=4) in float a_mode;
+layout(location=5) in float a_failAt;
+layout(location=6) in float a_icon;
+layout(location=7) in float a_cx;
+layout(location=8) in float a_cy;
+layout(location=9) in float a_open;   // collapse visibility 0..1
+uniform float u_cam,u_time,u_aspect,u_nicon,u_xshift;
+out vec2 v_uv; out float v_mode,v_reveal,v_fail;
+void main(){
+  if(a_open<0.004){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }   // folded away
+  float age=u_time-a_born; float vis=step(0.0,age);
+  float recent=exp(-max(0.0,u_cam-a_worldY)*0.85);
+  float working=smoothstep(a_born,a_born+0.45,u_time)*(1.0-smoothstep(a_settle-0.35,a_settle+0.7,u_time));
+  float rise=smoothstep(0.0,0.10,age); float settle=exp(-max(age-0.10,0.0)*6.0); float pop=rise*(1.0+0.55*settle);
+  float failing=step(a_failAt,998.0); float failAge=age-a_failAt; v_fail=failing>0.5?smoothstep(0.0,0.35,failAge):0.0;
+  float halfY=(0.020+recent*0.006+working*0.017)*pop; float halfX=halfY/u_aspect;   // sits inside the ring with margin
+  vec2 center=vec2(a_x, -0.35+(u_cam-a_worldY));
+  if(center.y>1.35||center.y<-1.35){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }   // cull off-viewport icons
+  vec2 pos=center+vec2(a_cx*halfX, a_cy*halfY);
+  v_uv=vec2((a_icon+(a_cx*0.5+0.5))/u_nicon, 1.0-(a_cy*0.5+0.5));
+  v_mode=a_mode; v_reveal=smoothstep(0.06,0.30,age)*vis*a_open;
+  vec2 uvp=pos*0.5+0.5; vec2 cc=uvp-0.5; uvp=0.5+cc/(1.0+dot(cc,cc)*0.14);   // match CRT barrel
+  vec2 ndc=uvp*2.0-1.0; gl_Position=vec4(ndc.x+u_xshift, ndc.y,0.0,1.0);
+}`;
+const ICON_FS=`#version 300 es
+precision highp float;
+${COMMON}
+in vec2 v_uv; in float v_mode,v_reveal,v_fail;
+uniform sampler2D u_atlas; uniform float u_pixel;
+out vec4 o;
+void main(){
+  float m=texture(u_atlas,v_uv).a * v_reveal;
+  float ink=smoothstep(0.28,0.5,m);              // clean solid glyph — legible in the node's dark centre
+  vec3 col=mix(modeColor(v_mode), vec3(1.0), 0.5);
+  col=mix(col, vec3(0.5,0.28,0.30), v_fail);     // failed glyph goes dull dark-red
+  col*=mix(1.0,0.55,v_fail);                     // and dimmer
+  col*=0.82+0.18*step(1.0,mod(gl_FragCoord.y,3.0));   // subtle scanline so it's not glass-crisp
+  o=vec4(col, ink);
+}`;
+const ptP=prog(PT_VS,PT_FS), edgeP=prog(EDGE_VS,EDGE_FS), postP=prog(POST_VS,POST_FS), iconP=prog(ICON_VS,ICON_FS);
+const NICON=12;
+const icBuf=gl.createBuffer(), icVao=gl.createVertexArray();
+function icVaoSetup(){gl.bindVertexArray(icVao);gl.bindBuffer(gl.ARRAY_BUFFER,icBuf);const st=40;
+  for(let i=0;i<10;i++){gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,1,gl.FLOAT,false,st,i*4);}}
+const atlasTex=gl.createTexture();
+(function(){ const cw=64,cvs=document.createElement('canvas');cvs.width=cw*NICON;cvs.height=cw;
+  const x=cvs.getContext('2d');x.strokeStyle='#fff';x.fillStyle='#fff';x.lineWidth=6;x.lineCap='round';x.lineJoin='round';
+  const cell=(i,fn)=>{x.save();x.translate(i*cw+cw/2,cw/2);fn();x.restore();};
+  cell(0,()=>{x.beginPath();x.moveTo(-19,0);x.quadraticCurveTo(0,-14,19,0);x.quadraticCurveTo(0,14,-19,0);x.closePath();x.stroke();x.beginPath();x.arc(0,0,5,0,7);x.fill();}); // 0 eye (read)
+  cell(1,()=>{x.strokeRect(-19,-15,38,30);x.beginPath();x.moveTo(-10,-4);x.lineTo(-3,3);x.lineTo(-10,10);x.stroke();x.beginPath();x.moveTo(2,10);x.lineTo(12,10);x.stroke();}); // 1 terminal (bash)
+  cell(2,()=>{x.beginPath();for(let k=0;k<6;k++){const a=k*Math.PI/3,px=Math.cos(a)*18,py=Math.sin(a)*18;k?x.lineTo(px,py):x.moveTo(px,py);}x.closePath();x.stroke();x.beginPath();x.arc(0,0,6,0,7);x.stroke();}); // 2 gear (edit)
+  cell(3,()=>{x.beginPath();x.moveTo(-20,0);x.lineTo(-10,-13);x.lineTo(0,9);x.lineTo(10,-7);x.lineTo(20,0);x.stroke();}); // 3 waveform (measure)
+  cell(4,()=>{x.beginPath();x.moveTo(0,-18);x.lineTo(18,16);x.lineTo(-18,16);x.closePath();x.stroke();x.beginPath();x.moveTo(0,-5);x.lineTo(0,5);x.stroke();x.beginPath();x.arc(0,11,2,0,7);x.fill();}); // 4 warning
+  cell(5,()=>{x.beginPath();x.moveTo(-15,0);x.lineTo(-4,13);x.lineTo(17,-13);x.stroke();}); // 5 check
+  cell(6,()=>{x.beginPath();x.moveTo(-13,-13);x.lineTo(13,13);x.moveTo(13,-13);x.lineTo(-13,13);x.stroke();}); // 6 X
+  cell(7,()=>{x.beginPath();x.moveTo(0,-18);x.lineTo(18,0);x.lineTo(0,18);x.lineTo(-18,0);x.closePath();x.stroke();}); // 7 diamond (synthesis)
+  cell(8,()=>{x.beginPath();x.arc(-4,-4,12,0,7);x.stroke();x.beginPath();x.moveTo(5,5);x.lineTo(17,17);x.stroke();}); // 8 magnifier (search)
+  cell(9,()=>{x.strokeRect(-12,-17,24,34);x.beginPath();x.moveTo(-6,-7);x.lineTo(6,-7);x.moveTo(-6,1);x.lineTo(6,1);x.moveTo(-6,9);x.lineTo(2,9);x.stroke();}); // 9 doc (write)
+  cell(10,()=>{x.beginPath();x.arc(0,0,8,0,7);x.fill();}); // 10 dot
+  cell(11,()=>{x.beginPath();x.moveTo(-6,-16);x.arc(0,-16,6,Math.PI,0,false);x.lineTo(6,-2);x.arc(0,-2,6,0,Math.PI,false);x.closePath();x.stroke();x.beginPath();x.arc(0,-2,12,0.35,Math.PI-0.35,false);x.stroke();x.beginPath();x.moveTo(0,10);x.lineTo(0,18);x.moveTo(-8,18);x.lineTo(8,18);x.stroke();}); // 11 mic (listening)
+  gl.bindTexture(gl.TEXTURE_2D,atlasTex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cvs);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+})();
+const iu=n=>gl.getUniformLocation(iconP,n); const IU={cam:iu('u_cam'),time:iu('u_time'),aspect:iu('u_aspect'),nicon:iu('u_nicon'),atlas:iu('u_atlas'),pixel:iu('u_pixel'),xshift:iu('u_xshift')};
+function iconFor(n){ const t=n.label.toLowerCase();
+  if(n.mode===M.listening) return 11;
+  if(n.mode===M.merge) return 7; if(n.mode===M.struggle) return 4; if(n.mode===M.success) return 5;
+  if(/bash|execute|run|command|shell|npm|git|grep/.test(t)) return 1;   // terminal
+  if(/read|open|inspect|scan|overview|view|request/.test(t)) return 0;  // eye
+  if(/search|find|locate/.test(t)) return 8;                            // magnifier
+  if(/profile|measure|trace|record|timing|frame|baseline|pan/.test(t)) return 3; // waveform
+  if(/apply|fix|edit|commit|shim|compat|swap/.test(t)) return 2;        // gear
+  if(/draft|write|add|doc/.test(t)) return 9;                           // doc
+  return n.mode===M.do?2:10; }
+// ---- fine drifting particle medium (the "fluid" void) ----
+const BG_VS=`#version 300 es
+layout(location=0) in float bx;
+layout(location=1) in float by;
+layout(location=2) in float seed;
+layout(location=3) in float layer;
+uniform float u_time,u_cam,u_dpr;
+out float v_a,v_t;
+void main(){
+  float depth=0.35+layer*0.65;                       // parallax depth
+  vec2 p=vec2(bx,by);
+  p.y += (u_cam*0.16 + u_time*0.004)*depth;           // parallax mostly from camera motion; tiny idle drift
+  p.x += 0.028*depth*sin(u_time*0.13 + seed*31.0 + by*7.0);   // gentle current
+  p.y += 0.014*depth*sin(u_time*0.10 + seed*19.0);
+  p=fract(p);
+  gl_Position=vec4(p*2.0-1.0,0.0,1.0);
+  gl_PointSize=(4.0+layer*5.4)*u_dpr;                          // big enough to survive the halftone pixelation
+  v_a=(0.34+layer*0.42)*(0.7+0.3*sin(u_time*1.1+seed*44.0));   // brighter so the field reads
+  v_t=seed;
+}`;
+const BG_FS=`#version 300 es
+precision highp float;
+in float v_a,v_t; uniform vec3 u_cyan,u_violet;
+out vec4 o;
+void main(){ float r=length(gl_PointCoord-0.5)*2.0; float d=smoothstep(1.0,0.0,r);
+  vec3 c=mix(u_cyan,u_violet,0.25+0.5*v_t); float a=v_a*d; o=vec4(c*a,a); }`;
+const bgP=prog(BG_VS,BG_FS);
+const NBG=2800; const bgBuf=gl.createBuffer(), bgVao=gl.createVertexArray();
+(function(){ const rng=mulberry32(4242); const A=new Float32Array(NBG*4);
+  for(let i=0;i<NBG;i++){A[i*4]=rng();A[i*4+1]=rng();A[i*4+2]=rng();A[i*4+3]=rng();}
+  gl.bindVertexArray(bgVao); gl.bindBuffer(gl.ARRAY_BUFFER,bgBuf); gl.bufferData(gl.ARRAY_BUFFER,A,gl.STATIC_DRAW);
+  for(let i=0;i<4;i++){gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,1,gl.FLOAT,false,16,i*4);} })();
+const bu=n=>gl.getUniformLocation(bgP,n); const BU={time:bu('u_time'),cam:bu('u_cam'),dpr:bu('u_dpr'),cyan:bu('u_cyan'),violet:bu('u_violet')};
+const ptBuf=gl.createBuffer(),ptVao=gl.createVertexArray();
+const edBuf=gl.createBuffer(),edVao=gl.createVertexArray();
+function ptVaoSetup(){gl.bindVertexArray(ptVao);gl.bindBuffer(gl.ARRAY_BUFFER,ptBuf);const st=48;
+  for(let i=0;i<12;i++){gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,1,gl.FLOAT,false,st,i*4);}}
+function edVaoSetup(){gl.bindVertexArray(edVao);gl.bindBuffer(gl.ARRAY_BUFFER,edBuf);const st=48;
+  for(let i=0;i<12;i++){gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,1,gl.FLOAT,false,st,i*4);}}
+const EDGE_SEG=12;
+
+let fbo=gl.createFramebuffer(),fboTex=gl.createTexture(),fw=0,fh=0;
+const MAX_BACKING_PIX=2300000;   // hard ceiling on the full-screen post pass — canvas still fills the display (upscaled)
+let renderScale=1, minDt=1;      // adaptive scaler: drops backing res when GPU can't hold the refresh budget
+function resize(){const dpr=Math.min(window.devicePixelRatio||1,1.5);
+  let w=Math.round(innerWidth*dpr),h=Math.round(innerHeight*dpr);
+  if(w*h>MAX_BACKING_PIX){const s=Math.sqrt(MAX_BACKING_PIX/(w*h));w=Math.max(1,Math.round(w*s));h=Math.max(1,Math.round(h*s));}
+  w=Math.max(1,Math.round(w*renderScale)); h=Math.max(1,Math.round(h*renderScale));   // adaptive quality
+  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+  if(fw!==w||fh!==h){fw=w;fh=h;gl.bindTexture(gl.TEXTURE_2D,fboTex);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,fboTex,0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER,null);}}
+window.addEventListener('resize',resize);
+
+const pu=n=>gl.getUniformLocation(ptP,n); const PU={cam:pu('u_cam'),time:pu('u_time'),dpr:pu('u_dpr'),hoverX:pu('u_hoverX'),hoverWY:pu('u_hoverWY'),hoverOn:pu('u_hoverOn'),listen:pu('u_listen'),pmode:pu('u_pmode'),xshift:pu('u_xshift')};
+const eu=n=>gl.getUniformLocation(edgeP,n); const EU={cam:eu('u_cam'),time:eu('u_time'),aspect:eu('u_aspect'),width:eu('u_width'),xshift:eu('u_xshift')};
+const ou=n=>gl.getUniformLocation(postP,n); const OU={tex:ou('u_tex'),bg:ou('u_bg'),pixel:ou('u_pixel'),scan:ou('u_scan'),pattern:ou('u_pattern'),time:ou('u_time'),glitch:ou('u_glitch')};
+
+let pattern=0,ditherPx=4,scan=false,seed=7,g,growT=0,camWorld=0,hovered=null,hoverAmt=0,hoverX=0,hoverWY=0,selected=null,speedMul=1,listenSim=false,particleMode=0,sceneDirty=false;
+// bootstrap thread so the first synchronous rebuild() has data before CONVS is defined further down
+const BOOT_CONV={ seed:7, thread:[
+  {u:'the drag and drop feels janky when I reorder panes', reason:[{m:'think',t:'read request'},{m:'do',t:'open layout engine'},{m:'struggle',t:'reproduce jank'}], r:'Reproduced it — the overview pan fires two long tasks on every reorder.'},
+  {u:'ok fix it, but no compat shims', reason:'RUN', r:'Reordering now swaps adjacent panes in place; the two long tasks on overview pan are gone. Committed (+18 −6).'} ] };
+let activeConv=BOOT_CONV;
+function rebuild(){
+  g=build(activeConv);
+  // each node becomes a small particle system: core orbiters + emitted sparks (fixed randomness, positions animate)
+  const rng=mulberry32((activeConv.seed||seed)*911+13); const K=22; g.parts=[];
+  for(const n of g.nodes){ for(let j=0;j<K;j++){
+    let role,dx,dy,speed; const phase=rng();
+    if(j===0){ role=0; dx=0; dy=0; speed=0.6; }
+    else { const a=rng()*6.2832,mag=0.35+rng()*0.95; role=1; dx=Math.cos(a)*mag; dy=Math.sin(a)*mag; speed=0.5+rng()*1.4; }
+    g.parts.push({n,dx,dy,phase,speed,role}); } }
+  g._P=new Float32Array(g.parts.length*12); g.ptCount=g.parts.length;
+  g.edges.forEach((e,ei)=>{ e.phase=(ei*0.373)%1.0;
+    e.cft=e.dead?(e.childBorn+(g.nodes[e.b].failAt!==undefined?g.nodes[e.b].failAt:0)):9999.0; });
+  g._E=new Float32Array(g.edges.length*EDGE_SEG*6*12);
+  g.icons=g.nodes.map(n=>({n,icon:iconFor(n)}));
+  g._IC=new Float32Array(g.nodes.length*6*10); g.icCount=g.nodes.length*6;
+  layout(0); updateSceneBuffers(); buildNodeLabels();
+}
+// floating transcript labels riding the user + response nodes (the ladder reads as a chat)
+function buildNodeLabels(){ const c=document.getElementById('nodeLabels'); if(!c) return; c.innerHTML='';
+  for(const T of g.turns){
+    const u=document.createElement('div'); u.className='nlabel nl-user'; u.textContent=g.nodes[T.userId].label;
+    const r=document.createElement('div'); r.className='nlabel nl-resp'; r.textContent=g.nodes[T.respId].label;
+    c.appendChild(u); c.appendChild(r); T.uLabel=u; T.rLabel=r; } }
+function posLabel(el,n){ if(!el) return; if(growT<n.born){ el.style.display='none'; return; }
+  const s0=screenOf(n); if(s0.y<-60||s0.y>innerHeight+90){ el.style.display='none'; return; }
+  const s=warpToScreen(s0.x,s0.y);          // match the CRT barrel so labels stay pinned as you scroll
+  el.style.display='block'; const d=nodeCssDiam(n);
+  el.style.left=Math.round(s.x)+'px'; el.style.top=Math.round(s.y+d*0.5+13)+'px'; }   // just below the node
+function updateNodeLabels(){ const c=document.getElementById('nodeLabels'); if(!c||!g.turns) return;
+  c.style.display=showLabels?'block':'none'; if(!showLabels) return;
+  for(const T of g.turns){ posLabel(T.uLabel,g.nodes[T.userId]); posLabel(T.rLabel,g.nodes[T.respId]); } }
+// dynamic layout: reasoning graph compresses into the user/AI ladder as each turn folds (open 1->0)
+function layout(dt){
+  const started=g.turns.filter(T=>growT>=g.nodes[T.userId].born);
+  const focusNewest=started.length?started[started.length-1].index:-1;
+  for(const T of g.turns){
+    let base;
+    if(growT<g.nodes[T.userId].born) base=0;                        // not yet reached this turn
+    else if(collapseMode==='off') base=1;                           // baseline: never fold
+    else if(collapseMode==='focus') base=(T.index===focusNewest)?1:0;// keep only the newest expanded
+    else base=(growT>T.collapseStart)?0:1;                          // ladder / implode: fold once answered
+    const target=(T.manual!=null)?(T.manual?1:0):base;              // click can pin a turn open/closed
+    T.openTarget=target;
+    if(dt>0){ T.open+=(target-T.open)*Math.min(1,dt*7.5); if(Math.abs(target-T.open)<0.0016) T.open=target; }
+    else T.open=target;
+  }
+  let cursor=0;
+  for(const T of g.turns){ const a=T.open;
+    const U=g.nodes[T.userId]; U.worldY=cursor; U.x=U.baseX; U.alpha=1;
+    for(const rid of T.reasonIds){ const rn=g.nodes[rid];
+      rn.worldY=cursor+rn.localY*a;                                 // reason rows compress toward the user node
+      rn.x=(collapseMode==='implode')?rn.baseX*a:rn.baseX;          // implode: also zip x into the spine
+      rn.alpha=a; }
+    const R=g.nodes[T.respId]; R.worldY=cursor+T.reasonSpan*a+RESP_H; R.x=R.baseX; R.alpha=1;
+    cursor=R.worldY+TURN_GAP;
+  }
+}
+function updateSceneBuffers(){
+  const P=g._P; g.parts.forEach((p,i)=>{const o=i*12,n=p.n;
+    P[o]=n.worldY;P[o+1]=n.x;P[o+2]=n.born;P[o+3]=n.settleAt;P[o+4]=n.mode;
+    P[o+5]=p.dx;P[o+6]=p.dy;P[o+7]=p.phase;P[o+8]=p.speed;P[o+9]=p.role;P[o+10]=n.failAt;P[o+11]=n.alpha;});
+  gl.bindBuffer(gl.ARRAY_BUFFER,ptBuf);gl.bufferData(gl.ARRAY_BUFFER,P,gl.DYNAMIC_DRAW);ptVaoSetup();
+  const E=g._E; let o=0;
+  const vert=(A,B,e,side,t,op)=>{E[o++]=A.worldY;E[o++]=A.x;E[o++]=B.worldY;E[o++]=B.x;E[o++]=e.childBorn;E[o++]=e.mode;E[o++]=side;E[o++]=t;E[o++]=e.conf;E[o++]=e.phase;E[o++]=e.cft;E[o++]=op;};
+  for(const e of g.edges){ const A=g.nodes[e.a],B=g.nodes[e.b],T=g.turns[e.turn],to=T?T.open:1, op=e.spine?(1-to):to;
+    for(let s=0;s<EDGE_SEG;s++){ const t0=s/EDGE_SEG,t1=(s+1)/EDGE_SEG;
+      vert(A,B,e,+1,t0,op);vert(A,B,e,-1,t0,op);vert(A,B,e,+1,t1,op);
+      vert(A,B,e,-1,t0,op);vert(A,B,e,-1,t1,op);vert(A,B,e,+1,t1,op); } }
+  gl.bindBuffer(gl.ARRAY_BUFFER,edBuf);gl.bufferData(gl.ARRAY_BUFFER,E,gl.DYNAMIC_DRAW);edVaoSetup();
+  const IC=g._IC; let io=0;
+  const iv=(n,ic,cx,cy)=>{IC[io++]=n.worldY;IC[io++]=n.x;IC[io++]=n.born;IC[io++]=n.settleAt;IC[io++]=n.mode;IC[io++]=n.failAt;IC[io++]=ic;IC[io++]=cx;IC[io++]=cy;IC[io++]=n.alpha;};
+  for(const ico of g.icons){ const n=ico.n,ic=ico.icon; iv(n,ic,-1,-1);iv(n,ic,1,-1);iv(n,ic,-1,1); iv(n,ic,-1,1);iv(n,ic,1,-1);iv(n,ic,1,1); }
+  gl.bindBuffer(gl.ARRAY_BUFFER,icBuf);gl.bufferData(gl.ARRAY_BUFFER,IC,gl.DYNAMIC_DRAW);icVaoSetup();
+}
+document.querySelectorAll('[data-cm]').forEach(b=>b.onclick=()=>{collapseMode=b.dataset.cm;sceneDirty=true;document.querySelectorAll('[data-cm]').forEach(x=>x.classList.toggle('on',x===b));});
+document.getElementById('labelsToggle').onchange=e=>showLabels=e.target.checked;
+document.querySelectorAll('[data-pat]').forEach(b=>b.onclick=()=>{pattern=parseInt(b.dataset.pat);document.querySelectorAll('[data-pat]').forEach(x=>x.classList.toggle('on',x===b));});
+document.querySelectorAll('[data-px]').forEach(b=>b.onclick=()=>{ditherPx=parseFloat(b.dataset.px);document.querySelectorAll('[data-px]').forEach(x=>x.classList.toggle('on',x===b));});
+document.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{particleMode=parseInt(b.dataset.pm);document.querySelectorAll('[data-pm]').forEach(x=>x.classList.toggle('on',x===b));});
+document.getElementById('scan').onchange=e=>scan=e.target.checked;
+document.getElementById('listen').onchange=e=>listenSim=e.target.checked;
+document.getElementById('speed').oninput=e=>{ const v=parseFloat(e.target.value); INTERVAL=1.1/v; DEAD_INTERVAL=0.8/v; rebuild(); };
+document.getElementById('restart').onclick=()=>{growT=0;camWorld=0;};
+
+let mouse={x:-1,y:-1,on:false};
+canvas.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;mouse.on=true;});
+canvas.addEventListener('mouseleave',()=>{mouse.on=false;});
+function screenOf(n){const clipY=-0.35+(camWorld-n.worldY);return{x:(n.x*0.5+0.5)*innerWidth,y:(1-(clipY*0.5+0.5))*innerHeight};}
+const reticleActive=document.getElementById('reticleActive'), reticleSel=document.getElementById('reticleSel');
+function distToSeg(px,py,ax,ay,bx,by){ const dx=bx-ax,dy=by-ay; const l2=dx*dx+dy*dy||1;
+  let t=((px-ax)*dx+(py-ay)*dy)/l2; t=Math.max(0,Math.min(1,t));
+  return Math.hypot(px-(ax+t*dx), py-(ay+t*dy)); }
+canvas.addEventListener('click',e=>{
+  // click a turn's column to expand its stored reasoning graph (or fold an open one back up)
+  let hitTurn=null,hb=54;
+  for(const T of g.turns){ if(growT<g.nodes[T.userId].born) continue;
+    const su=screenOf(g.nodes[T.userId]), sr=screenOf(g.nodes[T.respId]);
+    if(Math.max(su.y,sr.y)<-40||Math.min(su.y,sr.y)>innerHeight+40) continue;
+    const d=distToSeg(e.clientX,e.clientY,su.x,su.y,sr.x,sr.y);
+    if(d<hb){ hb=d; hitTurn=T; } }
+  if(hitTurn && collapseMode!=='off'){ hitTurn.manual = hitTurn.open>0.5 ? false : true; sceneDirty=true; selected=null; return; }
+  let best=null,bd=44;
+  for(const n of g.nodes){if(growT<n.born)continue;const s=screenOf(n);if(s.y<-40||s.y>innerHeight+40)continue;
+    const d=Math.hypot(s.x-e.clientX,s.y-e.clientY);if(d<bd){bd=d;best=n;}}
+  selected = best ? (best===selected?null:best) : null; });
+function nodeCssDiam(n){ const recent=Math.exp(-Math.max(0,camWorld-n.worldY)*0.85);
+  const active=(growT>=n.born&&growT<n.settleAt)?1:0; return (40+recent*20+active*58)*0.55; }
+function warpToScreen(sx,sy){ const cx=sx/innerWidth-0.5, cy=sy/innerHeight-0.5; const f=1/(1+(cx*cx+cy*cy)*0.14);
+  return { x:(cx*f+0.5)*innerWidth, y:(cy*f+0.5)*innerHeight }; }   // match CRT barrel so overlays line up
+function placeReticle(el,n){ if(!n||growT<n.born){el.style.display='none';return;} const s0=screenOf(n);
+  if(s0.y<-60||s0.y>innerHeight+60){el.style.display='none';return;} const s=warpToScreen(s0.x,s0.y);
+  const d=nodeCssDiam(n)+16; el.style.display='block'; el.style.left=s.x+'px'; el.style.top=s.y+'px'; el.style.width=d+'px'; el.style.height=d+'px'; }
+function activeNode(){ let best=null,bb=-1; for(const n of g.nodes){ if(growT>=n.born&&growT<n.settleAt&&n.born>bb){bb=n.born;best=n;} } return best; }
+function updateHover(){
+  if(switching){tip.style.display='none';hovered=null;return;}
+  let best=null,bd=40;
+  if(mouse.on){ for(const n of g.nodes){if(growT<n.born)continue;const s=screenOf(n);if(s.y<-40||s.y>innerHeight+40)continue;
+    const d=Math.hypot(s.x-mouse.x,s.y-mouse.y);if(d<bd){bd=d;best={n,s};}} }
+  hovered = best?best.n:null;
+  const target = best? best.n : selected;
+  if(target){ const s0=best?best.s:screenOf(target); const s=warpToScreen(s0.x,s0.y);
+    tip.style.display='block'; tip.style.left=s.x+'px'; tip.style.top=(s.y - nodeCssDiam(target)*0.5 - 12)+'px';   // just above the node's top edge
+    const chip=`<span class="chip" style="color:${MODE_COLORS[target.mode]};background:${MODE_COLORS[target.mode]}"></span>`;
+    const extra=target.why?` <span class="alt">✕ ${target.why}</span>`:(target.alts&&target.alts.length?` <span class="alt">▸ ${target.alts.join(' · ')}</span>`:'');
+    tip.innerHTML=`${chip}<span class="k">${MODE_NAME[target.mode]}</span> &nbsp;<b>${target.label}</b>${extra}`;
+  } else tip.style.display='none';
+}
+
+rebuild();resize();
+const fpsEl=document.getElementById('fps');let last=performance.now(),acc=0,frames=0;
+function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+=dt;frames++;
+  tickConversations(dt);                                          // every conversation advances, focused or not
+  if(dt>0.003&&dt<minDt)minDt=dt;                                  // shortest interval ≈ display refresh period
+  if(acc>=0.5){
+    const refreshMs=Math.max(6,Math.min(20,minDt*1000));           // frame budget from the actual refresh rate
+    if(gpuMs>0 && !switching){                                     // stay inside the budget; recover when there's headroom
+      if(gpuMs>refreshMs*0.78 && renderScale>0.4) renderScale=Math.max(0.4,renderScale*0.85);
+      else if(gpuMs<refreshMs*0.45 && renderScale<1) renderScale=Math.min(1,renderScale*1.12);
+    }
+    fpsEl.textContent=Math.round(frames/acc)+' fps'+(gpuMs?' · '+gpuMs.toFixed(2)+'ms gpu':'')+' · '+Math.round(renderScale*100)+'%';
+    acc=0;frames=0;minDt=1;
+  }
+  if(growT>g.lastBorn+FAIL_DELAY+6.0){ growT=0;autoCam=0;scrollOffset=0; for(const T of g.turns){T.open=0;T.manual=null;} }   // replay the thread
+  layout(dt);
+  if(sceneDirty || g.turns.some(T=>Math.abs(T.open-T.openTarget)>0.0016)){ updateSceneBuffers(); sceneDirty=false; }   // re-upload only while folding
+  let maxY=0;for(const n of g.nodes)if(n.born<=growT&&n.alpha>0.02&&n.worldY>maxY)maxY=n.worldY;
+  autoCam+=(maxY-autoCam)*Math.min(1,dt*2.2);          // follow the active bottom of the ladder
+  camWorld=autoCam+scrollOffset;                        // mouse-wheel look-back offset
+  updateNodeLabels();
+
+  // ── conversation-switch channel-change transition ──
+  if(switching){
+    switching.t += dt/0.62;
+    if(switching.t>=0.5 && !switching.swapped){
+      convIdx=(convIdx+switching.dir+CONVS.length)%CONVS.length;
+      seed=CONVS[convIdx].seed; activeConv=CONVS[convIdx]; rebuild(); growT=0; autoCam=0; scrollOffset=0; camWorld=0;
+      renderConv(); switching.swapped=true; document.body.classList.remove('switching');
+    }
+    if(switching.t>=1.0){ switching=null; xShift=0; glitchAmt=0; }
+    else {
+      const d=switching.dir;
+      if(!switching.swapped){ const p=switching.t/0.5; xShift=-d*(p*p)*1.7; }                       // slide out (ease-in)
+      else { const p=(switching.t-0.5)/0.5, e=1.0-Math.pow(1.0-p,3.0); xShift=d*(1.0-e)*1.7; }       // slide in (ease-out)
+      glitchAmt=Math.sin(Math.min(switching.t,1.0)*Math.PI);                                         // peaks at the swap
+    }
+  } else { xShift=0; glitchAmt=0; }
+
+  resize();const dpr=Math.min(window.devicePixelRatio||1,1.5);
+  if(timerExt && !gpuPending){ gpuQuery=gl.createQuery(); gl.beginQuery(timerExt.TIME_ELAPSED_EXT,gpuQuery); }
+  gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);gl.viewport(0,0,fw,fh);
+  gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
+  gl.useProgram(bgP);gl.uniform1f(BU.time,growT);gl.uniform1f(BU.cam,camWorld);gl.uniform1f(BU.dpr,dpr);
+  gl.uniform3fv(BU.cyan,CYAN);gl.uniform3fv(BU.violet,VIOLET);
+  gl.bindVertexArray(bgVao);gl.drawArrays(gl.POINTS,0,NBG);
+  gl.useProgram(edgeP);gl.uniform1f(EU.cam,camWorld);gl.uniform1f(EU.time,growT);
+  gl.uniform1f(EU.aspect,canvas.width/canvas.height);gl.uniform1f(EU.width,0.0035);gl.uniform1f(EU.xshift,xShift);
+  gl.bindVertexArray(edVao);gl.drawArrays(gl.TRIANGLES,0,g.edges.length*EDGE_SEG*6);
+  gl.useProgram(ptP);gl.uniform1f(PU.cam,camWorld);gl.uniform1f(PU.time,growT);gl.uniform1f(PU.dpr,dpr);gl.uniform1f(PU.xshift,xShift);
+  hoverAmt+=((hovered?1:0)-hoverAmt)*Math.min(1,dt*7);   // ease the hover flare in/out
+  if(hovered){hoverX=hovered.x;hoverWY=hovered.worldY;}
+  gl.uniform1f(PU.hoverX,hoverX);gl.uniform1f(PU.hoverWY,hoverWY);gl.uniform1f(PU.hoverOn,hoverAmt);gl.uniform1f(PU.listen,listenSim?1:0);gl.uniform1f(PU.pmode,particleMode);
+  gl.bindVertexArray(ptVao);gl.drawArrays(gl.POINTS,0,g.ptCount);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,canvas.width,canvas.height);gl.disable(gl.BLEND);
+  gl.useProgram(postP);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,fboTex);
+  gl.uniform1i(OU.tex,0);gl.uniform3f(OU.bg,0,0,0);gl.uniform1f(OU.pixel,ditherPx);gl.uniform1f(OU.scan,scan?1:0);gl.uniform1f(OU.pattern,pattern);gl.uniform1f(OU.time,growT);gl.uniform1f(OU.glitch,glitchAmt);
+  gl.bindVertexArray(null);gl.drawArrays(gl.TRIANGLES,0,3);
+  // crisp icons on top (legible), barrel-aligned to the warped nodes
+  gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  gl.useProgram(iconP);
+  gl.uniform1f(IU.cam,camWorld);gl.uniform1f(IU.time,growT);gl.uniform1f(IU.aspect,canvas.width/canvas.height);gl.uniform1f(IU.nicon,NICON);gl.uniform1f(IU.pixel,ditherPx);gl.uniform1f(IU.xshift,xShift);
+  gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,atlasTex);gl.uniform1i(IU.atlas,1);
+  gl.bindVertexArray(icVao);gl.drawArrays(gl.TRIANGLES,0,g.icCount);
+  gl.disable(gl.BLEND);
+  if(timerExt && gpuQuery){ gl.endQuery(timerExt.TIME_ELAPSED_EXT); gpuPending=gpuQuery; gpuQuery=null; }
+  if(gpuPending && gl.getQueryParameter(gpuPending,gl.QUERY_RESULT_AVAILABLE)){
+    if(!gl.getParameter(timerExt.GPU_DISJOINT_EXT)) gpuMs=gl.getQueryParameter(gpuPending,gl.QUERY_RESULT)/1e6;
+    gl.deleteQuery(gpuPending); gpuPending=null; }
+  updateHover();
+  reticleActive.style.display='none';        // selected-only for now
+  placeReticle(reticleSel, selected);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ══ fullscreen conversation shell ══════════════════════════════════════════
+let autoCam=0, scrollOffset=0, switching=null, xShift=0, glitchAmt=0;
+
+// mouse wheel = look back through the stream (chat-style history scroll)
+addEventListener('wheel', e=>{ scrollOffset=Math.max(-3.0, Math.min(0.35, scrollOffset + e.deltaY*0.0011)); }, {passive:true});
+
+// a few demo conversations the director could be juggling
+const REVEAL_INT=3.2;   // seconds between "Now" items as a conversation progresses
+function mkConv(o){ o.t=o.t0||0; o.lastReveal=0; return o; }
+const CONVS=[
+  mkConv({ title:'Workspace drag-drop', seed:7, director:'on: fixing adjacent-swap in the pane grid', t0:0.5,
+    nows:[{t:'Located the drag-reorder path',mode:0,full:'The reorder handler lives in pane-drag-reorder.ts and shares slot widths across the niri grid.'},
+          {t:'Profiled frame timing — found a long task',mode:1,full:'Two long tasks over 50 ms fire on the overview-pan path during every reorder.'},
+          {t:'Drafting an adjacent-swap fix',mode:1,full:'Route adjacency through swapPanes(src, dst) instead of adopting the destination width, then re-measure the row.'},
+          {t:'Re-measuring after the change',mode:2,full:'Paint drops back to ~0.8 ms/frame and the two long tasks disappear from the trace.'},
+          {t:'Committed the change',mode:3,full:'Committed to pane-drag-reorder.ts (+18 −6); no compat shim, per the no-backward-compat rule.'}],
+    summary:'The reorder path shares slot widths across the niri grid, so an adjacent drop should swap panes rather than adopt the destination width. Profiling traced two long tasks to the overview pan; routing adjacency through the swap path removes them and re-measures clean at ~0.8 ms/frame.',
+    response:'Reordering now swaps adjacent panes in place instead of adopting the destination width, and the two long tasks on overview pan are gone — paint is back to ~0.8 ms/frame. Committed to pane-drag-reorder.ts (+18 −6).',
+    history:[{u:'the drag and drop feels janky when I reorder panes', r:'Fixed — reordering swaps adjacent panes and paints at ~0.8 ms; the overview-pan hitches are resolved.'}],
+    thread:[
+      {u:'the drag and drop feels janky when I reorder panes',
+       reason:[{m:'think',t:'read request'},{m:'do',t:'open layout engine'},{m:'struggle',t:'reproduce jank'}],
+       r:'Reproduced it — the overview pan fires two long tasks on every reorder.'},
+      {u:'can you profile where the time goes',
+       reason:[{m:'do',t:'profile frame timing'},{m:'think',t:'record baseline'},{m:'do',t:'read overview ghost'}],
+       r:'Profiled: two long tasks > 50 ms sit on the overview-pan path; paint is the hot spot.'},
+      {u:'ok fix it, but no compat shims', reason:'RUN',
+       r:'Reordering now swaps adjacent panes in place instead of adopting the destination width, and the two long tasks on overview pan are gone — paint is back to ~0.8 ms/frame. Committed to pane-drag-reorder.ts (+18 −6).'}],
+    arts:[{kicker:'Benchmark',title:'Paint cost per frame',meta:'conic ×3 fastest',
+           body:{type:'bars',rows:[['conic ×3',0.8,0.13],['WebGL',1.2,0.20],['canvas 2D',2.4,0.39],['SVG turb.',6.1,1]]}},
+          {kicker:'Diff',title:'pane-drag-reorder.ts',meta:'+18 −6',
+           body:{type:'diff',lines:[['-','if (dropIsAdjacent) adoptWidth(dst)'],['+','if (dropIsAdjacent) swapPanes(src, dst)'],['+','remeasureRow(row)']]}},
+          {kicker:'Trace',title:'Overview pan cost',meta:'2 long tasks → 0',
+           body:{type:'rows',rows:[['before','2 tasks > 50ms'],['after','0 > 16ms']]}}] }),
+  mkConv({ title:'Local voice capture', seed:101, director:'on: wiring local macOS voice', t0:7.0,
+    nows:[{t:'Read the speech configuration',mode:0,full:'voice_configuration.go was pinned to the cloud provider, with no on-device model declared.'},
+          {t:'Enabled the local provider',mode:1,full:'Switched provider to "local" and set the model to parakeet-v2.'},
+          {t:'Downloaded the local model',mode:1,full:'Fetched parakeet-v2 (1.1 GB) and verified its checksum before enabling capture.'},
+          {t:'Refreshed capture after download',mode:3,full:'Capture re-initialised on-device automatically once the model landed — no cloud round-trip.'}],
+    summary:'Voice was falling back to the cloud provider because the on-device model was absent. Enabling the local provider and fetching the model lets capture run fully on-device; the session refreshes automatically once the download lands.',
+    response:'Voice now runs fully on-device — the local provider is enabled and the 1.1 GB model finished downloading, so capture refreshed automatically. No cloud round-trip.',
+    history:[{u:'can we do voice locally on my mac instead of the cloud', r:'Done — enabled the on-device provider and pulled the local model; capture is fully local now.'}],
+    thread:[
+      {u:'can we do voice locally on my mac instead of the cloud',
+       reason:[{m:'think',t:'read speech config'},{m:'do',t:'check providers'},{m:'struggle',t:'model missing'}],
+       r:'Voice is falling back to cloud because the on-device model isn’t present yet.'},
+      {u:'get the local model then',
+       reason:[{m:'do',t:'enable local provider'},{m:'do',t:'download model'},{m:'think',t:'verify checksum'}],
+       r:'Pulled parakeet-v2 (1.1 GB) and verified it; the local provider is enabled.'},
+      {u:'make sure capture actually uses it',
+       reason:[{k:'step',m:'think',t:'trace capture path'},
+               {k:'dead',m:'do',t:'restart cloud stream',why:'wrong provider'},
+               {k:'fan',lanes:[{m:'do',t:'warm recognizer',steps:[{m:'struggle',t:'first-run latency'}]},
+                               {m:'do',t:'refresh session',steps:[{m:'do',t:'rebind mic'}]}],merge:'reconnect capture'},
+               {k:'step',m:'success',t:'capture is local'}],
+       r:'Voice now runs fully on-device — capture refreshed automatically once the model landed. No cloud round-trip.'}],
+    arts:[{kicker:'Config',title:'voice_configuration.go',meta:'local provider',
+           body:{type:'diff',lines:[['-','provider: "cloud"'],['+','provider: "local"'],['+','model: "parakeet-v2"']]}},
+          {kicker:'Log',title:'Model download',meta:'ok · 1.1 GB',
+           body:{type:'rows',rows:[['parakeet-v2','1.1 GB'],['status','verified']]}}] }),
+  mkConv({ title:'Codex run lifecycle', seed:222, director:'on: queueing + steering an active run', t0:12.5,
+    nows:[{t:'Opened the topic conversation',mode:0,full:'A run was already active on this topic, so new instructions queue rather than interrupt it.'},
+          {t:'Queued work during an active run',mode:1,full:'The test task landed in the queue behind the active run instead of forcing a restart.'},
+          {t:'Steered mid-run',mode:2,full:'A mid-run steer nudged the objective without cancelling — deltas kept streaming.'},
+          {t:'Run completed',mode:3,full:'On completion the queued work promoted cleanly and the 214-delta stream reconciled.'}],
+    summary:'A run was already active, so the new instruction queued behind it rather than interrupting; a mid-run steer nudged the objective without a restart, and the queued work promoted cleanly on completion.',
+    response:'Your follow-up queued behind the active run and then promoted on completion — no restart. The mid-run steer landed, and the run finished with the queue drained.',
+    history:[{u:'add tests for the queue while it’s still running', r:'Queued behind the active run and steered mid-flight; it finished and the queued test work promoted cleanly.'}],
+    thread:[
+      {u:'open the codex run for the queue work',
+       reason:[{m:'think',t:'open topic conversation'},{m:'do',t:'read run state'},{m:'do',t:'a run is active'}],
+       r:'Opened it — there’s already an active run, so a new instruction will queue rather than interrupt.'},
+      {u:'add tests for the queue while it’s still running',
+       reason:[{m:'do',t:'queue behind active run'},{m:'struggle',t:'steer mid-run'},{m:'think',t:'confirm objective'}],
+       r:'Queued behind the active run and nudged the objective mid-flight — no restart.'},
+      {u:'let it finish and promote the queued work',
+       reason:[{k:'step',m:'do',t:'await active run'},
+               {k:'dead',m:'do',t:'force-cancel run',why:'would drop deltas'},
+               {k:'fan',lanes:[{m:'do',t:'drain queue',steps:[{m:'do',t:'promote tests'}]},
+                               {m:'do',t:'flush stream',steps:[{m:'think',t:'reconcile 214 deltas'}]}],merge:'finalize run'},
+               {k:'step',m:'success',t:'run completed'}],
+       r:'Your follow-up queued behind the active run and then promoted on completion — no restart. The mid-run steer landed and the run finished with the queue drained.'}],
+    arts:[{kicker:'State',title:'Run queue',meta:'1 active · 2 queued',
+           body:{type:'rows',rows:[['active','apply fix'],['queued','add tests'],['queued','re-measure']]}},
+          {kicker:'Event',title:'Assistant stream',meta:'214 deltas',
+           body:{type:'rows',rows:[['deltas','214'],['tools','6']]}}] }),
+];
+let convIdx=0, lastIdx=-1, lastN=-1, lastComplete=false, dotAcc=0;
+const $=id=>document.getElementById(id);
+
+function revealCount(c){ return Math.min(c.nows.length, Math.max(1, Math.floor(c.t/REVEAL_INT)+1)); }
+function isComplete(c){ return c.t >= c.nows.length*REVEAL_INT + 0.8; }
+
+// background progression — every conversation advances on its own clock
+function tickConversations(dt){
+  for(const c of CONVS){ if(isComplete(c)) continue; const b=revealCount(c); c.t+=dt; if(revealCount(c)>b) c.lastReveal=c.t; }
+  const c=CONVS[convIdx], n=revealCount(c), comp=isComplete(c);
+  if(convIdx!==lastIdx||n!==lastN||comp!==lastComplete){ lastIdx=convIdx; lastN=n; lastComplete=comp; renderConv(); }
+  dotAcc+=dt; if(dotAcc>0.3){ dotAcc=0; renderDots(); }
+}
+function renderDots(){ $('convDots').innerHTML=CONVS.map((c,i)=>{
+  let cls=i===convIdx?'on':''; if(isComplete(c)) cls+=' done'; else if(c.t-c.lastReveal<2.6) cls+=' act';
+  return `<i class="${cls.trim()}"></i>`; }).join(''); }
+
+function artifactBody(b){ if(!b) return '';
+  if(b.type==='bars') return `<div class="artifact-body">`+b.rows.map(r=>`<div class="ab-row"><span>${r[0]}</span><span class="ab-track"><span class="ab-bar" style="width:${Math.round(r[2]*100)}%"></span></span><span class="ab-num">${r[1].toFixed(1)}</span></div>`).join('')+`</div>`;
+  if(b.type==='diff') return `<div class="artifact-body"><div class="ab-diff">`+b.lines.map(l=>`<span class="ab-${l[0]==='+'?'add':'del'}">${l[0]} ${l[1].replace(/</g,'&lt;')}</span>`).join('\n')+`</div></div>`;
+  if(b.type==='rows') return `<div class="artifact-body">`+b.rows.map(r=>`<div class="ab-row" style="grid-template-columns:1fr auto"><span>${r[0]}</span><span class="ab-num">${r[1]}</span></div>`).join('')+`</div>`;
+  return ''; }
+
+function renderConv(){
+  const c=CONVS[convIdx], n=revealCount(c), complete=isComplete(c);
+  $('convTitle').textContent=c.title; $('directorText').textContent=c.director; renderDots();
+  const shown=c.nows.slice(0,n);
+  $('highlights').innerHTML=shown.map((h,i)=>{
+    const col=MODE_COLORS[h.mode]||'#8aa'; const newest=i===shown.length-1;
+    const cls='hl'+(i<shown.length-2?' old':'')+(newest?' cur':'')+(h.full?'':' nofull');   // newest shows its full text
+    const full=h.full?`<span class="hl-full">${h.full.replace(/</g,'&lt;')}</span>`:'';
+    return `<li class="${cls}" data-i="${i}"><span class="d" style="color:${col};background:${col}"></span>`+
+      `<span class="hl-body"><span class="hl-short">${h.t.replace(/</g,'&lt;')}</span>${full}</span></li>`;
+  }).join('');
+  $('summaryText').textContent=c.summary;
+  const reveal=Math.max(1, Math.ceil(n/c.nows.length*c.arts.length));
+  $('artifacts').innerHTML=c.arts.map((a,i)=> (complete||i<reveal)?
+    `<div class="artifact" data-i="${i}"><div class="artifact-kicker">${a.kicker}<span class="exp">⤢</span></div>`+
+    `<div class="artifact-title">${a.title}</div><div class="artifact-meta">${a.meta}</div>`+artifactBody(a.body)+`</div>`:'').join('');
+}
+function switchConv(dir){ if(switching) return;   // start a channel-change transition (swap happens mid-slide)
+  switching={dir, t:0, swapped:false}; selected=null; document.body.classList.add('switching'); }
+$('convPrev').onclick=()=>switchConv(-1);
+$('convNext').onclick=()=>switchConv(1);
+
+// artifact expand -> open the fuller content in a new tab (concept: its own surface)
+function expandBodyHTML(b){ if(!b) return '';
+  if(b.type==='bars') return b.rows.map(r=>`<div style="display:grid;grid-template-columns:110px 1fr 46px;gap:10px;align-items:center;margin:7px 0;font:13px ui-monospace"><span style="color:oklch(0.717 0.044 264)">${r[0]}</span><span style="height:9px;background:oklch(0.22 0.02 264);border-radius:5px;overflow:hidden"><span style="display:block;height:100%;width:${Math.round(r[2]*100)}%;background:oklch(0.72 0.13 210)"></span></span><span style="text-align:right;color:oklch(0.908 0.013 263)">${r[1].toFixed(1)}</span></div>`).join('');
+  if(b.type==='diff') return `<pre style="margin:0;font:13px/1.7 ui-monospace;white-space:pre-wrap">`+b.lines.map(l=>`<span style="color:${l[0]==='+'?'oklch(0.78 0.16 150)':'oklch(0.68 0.17 20)'}">${l[0]} ${l[1].replace(/</g,'&lt;')}</span>`).join('\n')+`</pre>`;
+  if(b.type==='rows') return b.rows.map(r=>`<div style="display:flex;justify-content:space-between;border-bottom:1px solid oklch(0.24 0.01 264);padding:8px 0;font:13px ui-monospace"><span style="color:oklch(0.717 0.044 264)">${r[0]}</span><span style="color:oklch(0.908 0.013 263)">${r[1]}</span></div>`).join('');
+  return ''; }
+$('artifacts').addEventListener('click',e=>{ const card=e.target.closest('.artifact'); if(!card) return;
+  const a=CONVS[convIdx].arts[+card.dataset.i];
+  const html=`<!doctype html><meta charset=utf-8><title>${a.title}</title>`+
+    `<body style="margin:0;background:oklch(0.128 0.007 261);color:oklch(0.908 0.013 263);font:15px/1.5 system-ui;display:grid;place-items:center;min-height:100vh">`+
+    `<div style="max-width:640px;width:100%;padding:40px"><div style="font:11px system-ui;letter-spacing:.14em;text-transform:uppercase;color:oklch(0.522 0.065 264)">${a.kicker}</div>`+
+    `<h1 style="font-size:26px;margin:6px 0 4px">${a.title}</h1><p style="color:oklch(0.717 0.044 264);margin:0 0 22px">${a.meta}</p>`+
+    `<div style="background:oklch(0.16 0.008 261);border:1px solid oklch(0.24 0.01 264);border-radius:12px;padding:18px 20px">${expandBodyHTML(a.body)}</div>`+
+    `<p style="color:oklch(0.522 0.065 264);font-size:12px;margin-top:22px">Expanded view — in the app this is the artifact's own tab / surface, with full history and controls.</p></div>`;
+  window.open('data:text/html,'+encodeURIComponent(html),'_blank'); });
+
+// chat input: the director takes the request -> append a new turn and jump the stream to it
+const chatInput=$('chatInput');
+chatInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&chatInput.value.trim()){
+  const val=chatInput.value.trim(); activeConv.thread.push({u:val, reason:'RUN', r:CONVS[convIdx].response||'Done.'});
+  CONVS[convIdx].history.push({u:val, r:CONVS[convIdx].response});
+  chatInput.value=''; rebuild();
+  const lastT=g.turns[g.turns.length-1]; growT=g.nodes[lastT.userId].born-0.6; layout(0); updateSceneBuffers();
+  autoCam=g.nodes[lastT.userId].worldY; scrollOffset=0;
+}});
+
+// Now items: click to expand an item's fuller detail (the newest is expanded already)
+$('highlights').addEventListener('click',e=>{ const li=e.target.closest('.hl'); if(li&&!li.classList.contains('nofull')) li.classList.toggle('expanded'); });
+
+// "see thread history" -> a traditional chat transcript (your messages + each final response)
+function renderHistory(){ const c=CONVS[convIdx];
+  $('historyLog').innerHTML=c.history.map(t=>`<div class="turn"><div class="u">${t.u}</div><div class="r">${t.r}</div></div>`).join('')||`<div class="turn"><div class="r">No prior turns on this thread yet.</div></div>`; }
+function openHistory(){ renderHistory(); $('history').hidden=false; }
+function closeHistory(){ $('history').hidden=true; }
+$('threadHistoryBtn').addEventListener('click',openHistory);
+$('historyClose').addEventListener('click',closeHistory);
+$('history').addEventListener('click',e=>{ if(e.target===$('history')) closeHistory(); });
+addEventListener('keydown',e=>{ if(e.key==='Escape'&&!$('history').hidden) closeHistory(); });
+
+// longer-form summary toggle (setta-3 keeps these; hidden until asked for)
+$('summaryToggle').addEventListener('click',()=>{ const st=$('summaryText'); st.hidden=!st.hidden; $('summaryToggle').classList.toggle('open',!st.hidden); });
+
+// ← / → switch conversations (mod key required while typing)
+addEventListener('keydown',e=>{ if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
+  const typing=document.activeElement===chatInput;
+  if(!typing || e.metaKey || e.ctrlKey){ e.preventDefault(); switchConv(e.key==='ArrowRight'?1:-1); }
+}});
+
+// top-bar view toggles + dev panel
+document.querySelectorAll('.tb-chip[data-view]').forEach(b=>b.onclick=()=>{
+  b.classList.toggle('on'); document.body.classList.toggle('hide-'+b.dataset.view, !b.classList.contains('on')); });
+$('devToggle').onclick=e=>{ const d=$('devbar'); d.hidden=!d.hidden; e.currentTarget.classList.toggle('on',!d.hidden); };
+
+seed=CONVS[convIdx].seed; activeConv=CONVS[convIdx]; rebuild(); growT=0; autoCam=0; scrollOffset=0;
+renderConv();
+</script>
+</body>
+</html>

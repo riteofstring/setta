@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	"setta/internal/appearance"
-	"setta/internal/applayout"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
 	"setta/internal/master"
@@ -62,11 +61,8 @@ var apiEndpoints = []endpoint{
 	post[RemoveRecentWorkspaceRequest, workspacesession.WorkspaceSession]("RemoveRecentWorkspace", "/workspaces/remove-recent", handler.removeRecentWorkspace),
 	post[ReadWorkspaceUILayoutRequest, workspaceui.WorkspaceUILayoutReadResult]("ReadWorkspaceUILayout", "/workspaces/ui/layout/read", handler.readWorkspaceUILayout),
 	post[SaveWorkspaceUILayoutRequest, workspaceui.WorkspaceUILayout]("SaveWorkspaceUILayout", "/workspaces/ui/layout/save", handler.saveWorkspaceUILayout),
-	get[applayout.AppPaneLayoutReadResult]("ReadAppPaneLayout", "/app/panes/layout", handler.readAppPaneLayout),
-	post[SaveAppPaneLayoutRequest, applayout.AppPaneLayout]("SaveAppPaneLayout", "/app/panes/layout/save", handler.saveAppPaneLayout),
 	post[CreateTopicConversationRequest, conversation.ConversationSnapshot]("CreateTopicConversation", "/conversations/create", handler.createTopicConversation),
 	post[ArchiveTopicConversationRequest, conversation.ConversationSnapshot]("ArchiveTopicConversation", "/conversations/archive", handler.archiveTopicConversation),
-	post[BindTopicConversationFolderRequest, conversation.ConversationSnapshot]("BindTopicConversationFolder", "/conversations/resources/folder/bind", handler.bindTopicConversationFolder),
 	post[SendSideConversationTurnRequest, conversation.ConversationSnapshot]("SendSideConversationTurn", "/conversations/sides/turns/send", handler.sendSideConversationTurn),
 	post[DisposeSideConversationRequest, conversation.ConversationSnapshot]("DisposeSideConversation", "/conversations/sides/dispose", handler.disposeSideConversation),
 	post[ReadConversationSnapshotRequest, conversation.ConversationSnapshot]("ReadConversationSnapshot", "/conversations/snapshot/read", handler.readConversationSnapshot),
@@ -92,7 +88,6 @@ var apiEndpoints = []endpoint{
 	postWithRequestBodyLimit[SubmitMasterInputRequest, master.AcceptedMasterInput]("SubmitMasterInput", "/master/inputs/submit", masterInputRequestBodyLimitBytes, handler.submitMasterInput),
 	post[CancelMasterInputRequest, master.ShellInteractionState]("CancelMasterInput", "/master/inputs/cancel", handler.cancelMasterInput),
 	post[ReadMasterInputRoutingStateRequest, master.InputRoutingState]("ReadMasterInputRoutingState", "/master/inputs/state/read", handler.readMasterInputRoutingState),
-	post[ReadMasterTranscriptRequest, master.Transcript]("ReadMasterTranscript", "/master/transcript/read", handler.readMasterTranscript),
 	post[ReadMasterInputRoutingStateRequest, master.ShellInteractionState]("WaitMasterShellInteraction", "/master/interaction/wait", handler.waitMasterShellInteraction),
 	post[ReadMasterInputRoutingStateRequest, master.PresentationIntent]("WaitMasterPresentationIntent", "/master/presentation/wait", handler.waitMasterPresentationIntent),
 	post[master.PresentationResolutionRequest, master.PresentationResolution]("ResolveMasterPresentationIntent", "/master/presentation/resolve", handler.resolveMasterPresentationIntent),

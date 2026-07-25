@@ -45,7 +45,7 @@
 
   function masterOverlayOpenState() {
     return {
-      open: Boolean(document.querySelector('[data-testid="master-pane-surface"]')),
+      open: Boolean(document.querySelector('[data-testid="master-overlay"]')),
     };
   }
 
@@ -81,7 +81,7 @@
   }
 
   function masterOverlayVoiceButtonState() {
-    const button = document.querySelector('[data-testid="master-pane-voice-capture"]');
+    const button = document.querySelector('[data-testid="master-overlay-voice-capture"]');
     if (!(button instanceof HTMLButtonElement)) {
       return { label: "", ready: false };
     }
@@ -92,59 +92,12 @@
   }
 
   function masterOverlayVoiceClick() {
-    const button = document.querySelector('[data-testid="master-pane-voice-capture"]');
+    const button = document.querySelector('[data-testid="master-overlay-voice-capture"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return { clicked: false };
     }
     button.click();
     return { clicked: true };
-  }
-
-  function masterPaneState({ draft }) {
-    const masterHost = document.querySelector(
-      '[data-testid="workspace-pane-host"][data-surface-kind="master"][data-visible="true"]',
-    );
-    const pane = masterHost?.querySelector('[data-testid="master-pane-surface"]');
-    const textarea = pane?.querySelector('textarea[aria-label="Ask Setta"]');
-    return {
-      draft: textarea instanceof HTMLTextAreaElement ? textarea.value : null,
-      expectedDraft: draft,
-      focused: textarea === document.activeElement,
-      masterHostFocused: masterHost?.getAttribute("data-focused") === "true",
-      maximized: masterHost?.getAttribute("data-maximized") === "true",
-      open: Boolean(pane),
-      overlayOpen: Boolean(document.querySelector('[data-testid="master-overlay"]')),
-    };
-  }
-
-  function workspaceFirstRunMasterPaneState() {
-    const area = document.querySelector('[data-testid="workspace-layout-area"]');
-    const masterHost = document.querySelector(
-      '[data-testid="workspace-pane-host"][data-surface-kind="master"][data-visible="true"]',
-    );
-    const masterPane = masterHost?.querySelector('[data-testid="master-pane-surface"]');
-    const masterComposer = masterPane?.querySelector('textarea[aria-label="Ask Setta"]');
-    const openFolderButtons = Array.from(document.querySelectorAll("button")).filter((button) =>
-      folderChoiceButtonLabel(
-        (button.textContent ?? "") + " " + (button.getAttribute("aria-label") ?? ""),
-      ),
-    );
-    return {
-      easyButtons: document.querySelectorAll('[data-testid="easy-button-surface"]').length,
-      folderChoiceControls: openFolderButtons.length,
-      masterFocused: masterComposer === document.activeElement,
-      masterHostFocused: masterHost?.getAttribute("data-focused") === "true",
-      masterMaximized: masterHost?.getAttribute("data-maximized") === "true",
-      masterOpen: Boolean(masterPane),
-      oldEmptyState: Boolean(document.querySelector('[data-testid="workspace-empty-state"]')),
-      paneCount: area instanceof HTMLElement ? (area.dataset.paneCount ?? "") : "",
-      search: Boolean(document.querySelector('[aria-label="Search conversations"]')),
-      workspaceId: area instanceof HTMLElement ? (area.dataset.workspaceId ?? "") : "",
-    };
-  }
-
-  function folderChoiceButtonLabel(label) {
-    return /folder|project/i.test(label) && /open|choose|select/i.test(label);
   }
 
   function setInputValue({ selector, value }) {
@@ -177,9 +130,7 @@
     masterOverlayRoutedInteraction,
     masterOverlayVoiceButtonState,
     masterOverlayVoiceClick,
-    masterPaneState,
     setInputValue,
     version: "setta-e2e-driver-v13",
-    workspaceFirstRunMasterPaneState,
   };
 })();

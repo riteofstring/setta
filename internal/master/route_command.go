@@ -3,9 +3,6 @@ package master
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
-
-	"setta/internal/applayout"
 )
 
 type PresentationIntentKind string
@@ -27,11 +24,10 @@ const (
 // master decision is validated. The model never authors workspace, pane, or
 // presentation metadata beyond the conversation id selected by its decision.
 type ConversationPresentationTarget struct {
-	WorkspaceID      string                                      `json:"workspaceId"`
-	ConversationID   string                                      `json:"conversationId"`
-	ResourceBindings []applayout.ConversationPaneResourceBinding `json:"resourceBindings"`
-	Title            string                                      `json:"title"`
-	PreferredPaneID  *string                                     `json:"preferredPaneId"`
+	WorkspaceID     string  `json:"workspaceId"`
+	ConversationID  string  `json:"conversationId"`
+	Title           string  `json:"title"`
+	PreferredPaneID *string `json:"preferredPaneId"`
 }
 
 type MasterSendToAgentRouteCommand struct {
@@ -166,9 +162,6 @@ func (target ConversationPresentationTarget) Validate() error {
 	if err := validateRouteReference("master presentation conversation id", target.ConversationID); err != nil {
 		return err
 	}
-	if err := validatePresentationResourceBindings(target.ResourceBindings); err != nil {
-		return err
-	}
 	if err := validateRouteText("master presentation conversation title", target.Title, MaxRouteConversationTitle); err != nil {
 		return err
 	}
@@ -176,36 +169,6 @@ func (target ConversationPresentationTarget) Validate() error {
 		return validateRouteReference("master presentation preferred pane id", *target.PreferredPaneID)
 	}
 	return nil
-}
-
-func validatePresentationResourceBindings(bindings []applayout.ConversationPaneResourceBinding) error {
-	if bindings == nil {
-		return errors.New("master presentation resource bindings must be an array")
-	}
-	for index, binding := range bindings {
-		if err := validatePresentationResourceBinding(binding); err != nil {
-			return fmt.Errorf("master presentation resource binding %d: %w", index, err)
-		}
-	}
-	return nil
-}
-
-func validatePresentationResourceBinding(binding applayout.ConversationPaneResourceBinding) error {
-	switch binding.Kind {
-	case applayout.ConversationPaneResourceBindingKindFolder:
-		if binding.Folder == nil {
-			return errors.New("folder binding requires a folder payload")
-		}
-		if binding.Folder.RootPath == "" {
-			return errors.New("folder binding requires a root path")
-		}
-		if !filepath.IsAbs(binding.Folder.RootPath) {
-			return fmt.Errorf("folder binding root path must be absolute: %s", binding.Folder.RootPath)
-		}
-		return nil
-	default:
-		return fmt.Errorf("unsupported resource binding kind %q", binding.Kind)
-	}
 }
 
 func (command RouteCommand) Validate() error {
