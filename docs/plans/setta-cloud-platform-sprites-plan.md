@@ -2446,3 +2446,18 @@ Stop and reassess rather than hiding the problem if any of these occur:
   neither provider transport nor accounting activity. In-runtime workload
   lease production, fixed-window closure, and automatic evidence submission
   remain open. No provider or cloud mutation ran.
+- 2026-07-24 (remaining automatic-accounting trust boundaries): The next
+  automatic steps are deliberately not papered over. The in-Sprite runtime
+  currently has no scoped cross-machine credential or authenticated callback
+  channel for reporting workload-lease transitions; the new administration
+  socket is correctly local to the control-plane volume and must not be
+  exposed. Separately, the pinned Sprites SDK can send CPU, RAM, and storage
+  configuration at creation, but Setta's provider-neutral `CreateRequest`,
+  persisted provisioning intent, and provider observation do not yet carry or
+  verify those limits. Therefore the control plane cannot truthfully construct
+  enforced CPU/memory/storage ceilings for automatic evidence, and using SDK
+  defaults or billing minima would be a forbidden heuristic. Required follow-up
+  is an explicit fixed resource contract persisted with the intent and verified
+  on adoption, plus a separately scoped runtime-reporting credential and
+  authenticated endpoint. Until both land, fixed-window closure, in-runtime
+  workload-lease reporting, and fully automatic budget intervals stay open.
