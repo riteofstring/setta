@@ -9,6 +9,7 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
 	"setta/internal/master"
+	"setta/internal/runtimeaccounting"
 	"setta/internal/speech"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
@@ -39,8 +40,22 @@ type endpoint struct {
 type routeHandler func(handler, http.ResponseWriter, *http.Request)
 
 const (
-	defaultRequestBodyLimitBytes int64 = 4 * 1024 * 1024
+	defaultRequestBodyLimitBytes          int64 = 4 * 1024 * 1024
+	runtimeAccountingReportBodyLimitBytes int64 = 64 * 1024
 )
+
+// controlPlaneEndpoints owns non-renderer HTTP contracts served by the hosted
+// control plane. They deliberately remain outside Contracts because the
+// generated desktop client must not expose runtime-only credential surfaces.
+var controlPlaneEndpoints = []ContractEndpoint{
+	{
+		Name:                  "RecordRuntimeAccountingTransition",
+		Method:                http.MethodPost,
+		Path:                  "/control-plane/runtime-accounting/events",
+		Request:               reflect.TypeFor[runtimeaccounting.ActivityTransition](),
+		RequestBodyLimitBytes: runtimeAccountingReportBodyLimitBytes,
+	},
+}
 
 var apiEndpoints = []endpoint{
 	unauthenticated(get[BackendHealth]("BackendHealth", "/health", handler.health)),
@@ -108,6 +123,12 @@ var apiEndpoints = []endpoint{
 	post[codexaccount.CancelCodexLoginRequest, codexaccount.CodexAccountState]("CancelCodexLogin", "/codex/account/login/cancel", handler.cancelCodexLogin),
 	post[codexaccount.LogoutCodexAccountRequest, codexaccount.CodexAccountState]("LogoutCodexAccount", "/codex/account/logout", handler.logoutCodexAccount),
 	streamEvent[codexaccount.CodexAccountChangeEvent]("CodexAccountEventStream", "/codex/account/events", handler.codexAccountEventStream),
+}
+
+func ControlPlaneEndpoints() []ContractEndpoint {
+	endpoints := make([]ContractEndpoint, len(controlPlaneEndpoints))
+	copy(endpoints, controlPlaneEndpoints)
+	return endpoints
 }
 
 func Contracts() ContractSchema {
