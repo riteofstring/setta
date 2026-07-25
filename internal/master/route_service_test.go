@@ -210,6 +210,55 @@ func TestRouteServiceBuildsStableSideAndForkPresentationCommands(t *testing.T) {
 	}
 }
 
+func TestRouteServiceBuildsFolderlessCreateConversationInputCommand(t *testing.T) {
+	ordinal := 0
+	service := &RouteService{newID: func(prefix string) (string, error) {
+		ordinal++
+		return fmt.Sprintf("%s-%d", prefix, ordinal), nil
+	}}
+	input := MasterInput{
+		ID:          "master-input-create-folderless",
+		Text:        "Start a new conversation about release notes.",
+		Modality:    MasterInputModalityVoice,
+		Source:      MasterInputSourceShell,
+		SubmittedAt: "2026-07-13T18:00:00Z",
+	}
+	bundle := RouteContextBundle{
+		Input: AcceptedMasterInput{
+			Sequence:      1,
+			Input:         input,
+			ReplyDelivery: ReplyDeliveryForInput(input),
+			AcceptedAt:    "2026-07-13T18:00:01Z",
+		},
+	}
+	decision := RouteDecision{
+		Kind: RouteDecisionKindCreateConversation,
+		CreateConversation: &MasterCreateConversationRouteDecision{
+			ResourceScope: FolderlessRouteResourceScope(),
+			InitialInput:  "Draft the release notes.",
+			ProposedTitle: "Release notes",
+		},
+	}
+
+	command, err := service.buildRouteCommand(decision, bundle)
+	if err != nil {
+		t.Fatalf("buildRouteCommand: %v", err)
+	}
+	if err := command.ValidateDecision(decision); err != nil {
+		t.Fatalf("create command validation: %v", err)
+	}
+	payload := command.CreateConversation
+	if payload == nil ||
+		payload.Target.ConversationID != "conversation-1" ||
+		payload.Target.ResourceScope.Kind != RouteResourceScopeKindFolderless ||
+		len(payload.Target.ResourceBindings) != 0 ||
+		payload.InitialInputID != "conversation_input-2" ||
+		payload.InitialInputModality != MasterInputModalityVoice ||
+		payload.InitialInputSubmitted != input.SubmittedAt {
+		t.Fatalf("folderless create command = %+v", command)
+	}
+}
+
 func TestRouteServiceBuildsClarificationCommandWithCandidateTargets(t *testing.T) {
 	service := &RouteService{}
 	bundle := RouteContextBundle{

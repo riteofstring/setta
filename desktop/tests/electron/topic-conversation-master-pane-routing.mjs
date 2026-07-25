@@ -48,7 +48,6 @@ export async function exerciseMasterPaneRouting({
     client,
     route,
     timeoutMs,
-    workspaceId,
   });
   return { createdConversationId, forkConversationId, sideConversationId };
 }
@@ -136,32 +135,58 @@ async function exerciseMasterForkRoute({
   return snapshot.conversation.id;
 }
 
-async function exerciseMasterCreateRoute({ backend, client, route, timeoutMs, workspaceId }) {
+async function exerciseMasterCreateRoute({ backend, client, route, timeoutMs }) {
   const command = await route("Create Gamma topic.", "create_conversation");
   const created = command.createConversation;
   if (!created) {
     throw new Error("master create route omitted its trusted command");
   }
+  if (
+    created.target.resourceScope?.kind !== "folderless" ||
+    created.target.resourceBindings.length !== 0
+  ) {
+    throw new Error(`master create route was not folderless: ${JSON.stringify(created)}`);
+  }
   const snapshot = await waitForConversationSnapshot(
     backend,
-    workspaceId,
+    null,
     created.target.conversationId,
     (value) =>
-      value.conversation.title === "Gamma topic" && value.turns.turns[0]?.status === "completed",
+      value.conversation.title === "Gamma topic" &&
+      value.conversation.workspaceId === null &&
+      value.narration.events.some(
+        (event) =>
+          event.kind === "status_reply" &&
+          event.statusReply?.question === created.initialInput &&
+          event.statusReply?.text.includes("I can answer questions here"),
+      ),
     timeoutMs,
   );
-  await assertPresentedConversation(client, created.target.conversationId, timeoutMs);
+  await waitForConversationInputState(
+    backend,
+    null,
+    created.target.conversationId,
+    created.initialInputId,
+    (state) => state.input?.status === "dispatched",
+    timeoutMs,
+  );
+  await assertPresentedConversation(
+    client,
+    created.target.conversationId,
+    timeoutMs,
+    (value) => value.projectionStatus === "ready" && value.state === "idle",
+  );
   await closeConversationPane(client, created.target.conversationId);
   return snapshot.conversation.id;
 }
 
-async function assertPresentedConversation(client, conversationId, timeoutMs) {
-  const surface = await waitForConversationSurface(
-    client,
-    conversationId,
-    (value) => value.projectionStatus === "ready" && value.state === "complete",
-    timeoutMs,
-  );
+async function assertPresentedConversation(
+  client,
+  conversationId,
+  timeoutMs,
+  ready = (value) => value.projectionStatus === "ready" && value.state === "complete",
+) {
+  const surface = await waitForConversationSurface(client, conversationId, ready, timeoutMs);
   await waitForState(
     client,
     driverCallExpression("topicConversationNavigatorState", { conversationId }),
@@ -187,6 +212,22 @@ function waitForConversationSnapshot(backend, workspaceId, conversationId, ready
   return waitForBackendState(
     async () => readConversationSnapshotForWait(backend, workspaceId, conversationId),
     (value) => value !== null && ready(value),
+    timeoutMs,
+  );
+}
+
+function waitForConversationInputState(
+  backend,
+  workspaceId,
+  conversationId,
+  inputId,
+  ready,
+  timeoutMs,
+) {
+  return waitForBackendState(
+    async () =>
+      backend.post("/conversations/inputs/state/read", { conversationId, inputId, workspaceId }),
+    ready,
     timeoutMs,
   );
 }

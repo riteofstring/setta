@@ -24,7 +24,7 @@ func (service *RouteService) buildRouteCommand(
 	case RouteDecisionKindFocusConversation:
 		return service.buildFocusConversationCommand(decision, bundle)
 	case RouteDecisionKindCreateConversation:
-		return service.buildCreateConversationCommand(decision)
+		return service.buildCreateConversationCommand(decision, bundle)
 	case RouteDecisionKindCreateSideConversation:
 		return service.buildCreateSideConversationCommand(decision, bundle)
 	case RouteDecisionKindForkConversation:
@@ -149,26 +149,32 @@ func (service *RouteService) buildFocusConversationCommand(decision RouteDecisio
 	}, nil
 }
 
-func (service *RouteService) buildCreateConversationCommand(decision RouteDecision) (RouteCommand, error) {
+func (service *RouteService) buildCreateConversationCommand(
+	decision RouteDecision,
+	bundle RouteContextBundle,
+) (RouteCommand, error) {
 	conversationID, err := service.routeCommandID("conversation")
 	if err != nil {
 		return RouteCommand{}, err
 	}
-	resourceBindings, err := service.presentationResourceBindingsForWorkspace(decision.CreateConversation.WorkspaceID)
+	resourceBindings, err := service.presentationResourceBindingsForScope(decision.CreateConversation.ResourceScope)
 	if err != nil {
 		return RouteCommand{}, err
 	}
-	turnID, err := service.routeCommandID("conversation_turn")
+	inputID, err := service.routeCommandID("conversation_input")
 	return RouteCommand{
 		Kind: decision.Kind,
 		CreateConversation: &MasterCreateConversationRouteCommand{
 			Target: ConversationPresentationTarget{
 				ConversationID:   conversationID,
-				ResourceScope:    FolderRouteResourceScope(decision.CreateConversation.WorkspaceID, ""),
+				ResourceScope:    cloneRouteResourceScope(decision.CreateConversation.ResourceScope),
 				ResourceBindings: resourceBindings,
 				Title:            decision.CreateConversation.ProposedTitle,
 			},
-			TurnID: turnID, InitialInput: decision.CreateConversation.InitialInput,
+			InitialInputID:        inputID,
+			InitialInput:          decision.CreateConversation.InitialInput,
+			InitialInputModality:  bundle.Input.Input.Modality,
+			InitialInputSubmitted: bundle.Input.Input.SubmittedAt,
 		},
 	}, err
 }

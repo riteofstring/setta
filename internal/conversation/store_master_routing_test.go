@@ -930,14 +930,21 @@ func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {
 	case master.RouteDecisionKindFocusConversation:
 		command.FocusConversation = &master.MasterFocusConversationRouteCommand{Target: target}
 	case master.RouteDecisionKindCreateConversation:
+		resourceBindings := []applayout.ConversationPaneResourceBinding{}
+		if _, folderScoped := decision.CreateConversation.ResourceScope.FolderWorkspaceID(); folderScoped {
+			resourceBindings = masterRouteTestResourceBindings()
+		}
 		command.CreateConversation = &master.MasterCreateConversationRouteCommand{
 			Target: master.ConversationPresentationTarget{
 				ConversationID:   "master-route-created-conversation",
-				ResourceScope:    master.FolderRouteResourceScope(decision.CreateConversation.WorkspaceID, ""),
-				ResourceBindings: masterRouteTestResourceBindings(),
+				ResourceScope:    decision.CreateConversation.ResourceScope,
+				ResourceBindings: resourceBindings,
 				Title:            decision.CreateConversation.ProposedTitle,
 			},
-			TurnID: "master-route-turn", InitialInput: decision.CreateConversation.InitialInput,
+			InitialInputID:        "master-route-initial-input",
+			InitialInput:          decision.CreateConversation.InitialInput,
+			InitialInputModality:  master.MasterInputModalityText,
+			InitialInputSubmitted: "2026-07-11T20:04:00Z",
 		}
 	case master.RouteDecisionKindCreateSideConversation:
 		command.CreateSideConversation = &master.MasterCreateSideConversationRouteCommand{

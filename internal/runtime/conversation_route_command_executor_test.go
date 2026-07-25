@@ -256,6 +256,7 @@ func (*routeCommandExecutorConversations) ExecuteRouteCommand(
 type routeCommandExecutorNarrator struct {
 	calls           int
 	folderlessCalls int
+	notified        []string
 	err             error
 }
 
@@ -278,4 +279,9 @@ func (service *routeCommandExecutorNarrator) AskRoutedFolderlessStatus(
 ) (conversation.ConversationSnapshot, error) {
 	service.folderlessCalls++
 	return conversation.ConversationSnapshot{}, service.err
+}
+
+func (service *routeCommandExecutorNarrator) NotifyConversationInput(conversationID string) error {
+	service.notified = append(service.notified, conversationID)
+	return service.err
 }

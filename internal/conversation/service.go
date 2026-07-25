@@ -257,10 +257,19 @@ func (service *Service) CreateRoutedTopic(
 	title string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
+	return service.CreateRoutedTopicWithOptionalWorkspace(ctx, &workspaceID, title, conversationID)
+}
+
+func (service *Service) CreateRoutedTopicWithOptionalWorkspace(
+	ctx context.Context,
+	workspaceID *string,
+	title string,
+	conversationID string,
+) (ConversationSnapshot, error) {
 	if err := validateIdentifier("routed topic conversation id", conversationID); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	return service.createTopic(ctx, &workspaceID, title, conversationID)
+	return service.createTopic(ctx, workspaceID, title, conversationID)
 }
 
 func (service *Service) createTopic(

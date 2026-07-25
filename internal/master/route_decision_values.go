@@ -183,6 +183,9 @@ func cloneRouteDecision(decision RouteDecision) RouteDecision {
 	decision.ForkConversation = cloneRoutePayload(decision.ForkConversation)
 	decision.Clarify = cloneRoutePayload(decision.Clarify)
 	decision.AnswerGlobal = cloneRoutePayload(decision.AnswerGlobal)
+	if decision.CreateConversation != nil {
+		decision.CreateConversation.ResourceScope = cloneRouteResourceScope(decision.CreateConversation.ResourceScope)
+	}
 	return decision
 }
 

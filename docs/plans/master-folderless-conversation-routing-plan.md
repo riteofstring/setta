@@ -236,6 +236,11 @@ the structured router.
 
 ### 7. Keep Folder Requests On Demand
 
+**Repository status:** Implemented. Master-created conversations are now resource-scoped, folderless
+creates require no active workspace, and their initial text is accepted through the normal
+conversation input router so ordinary folderless chat and typed folder-resource requests use the
+same production path as pane input. Production workflow coverage remains in phase 8.
+
 Folderless search/open/chat must not force folder selection.
 
 Required behavior:

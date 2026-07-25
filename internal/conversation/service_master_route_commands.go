@@ -117,21 +117,33 @@ func (service *Service) executeMasterCreateConversation(
 	ctx context.Context,
 	command *master.MasterCreateConversationRouteCommand,
 ) (ConversationSnapshot, error) {
-	targetWorkspaceID, err := masterRouteCommandFolderWorkspaceID(command.Target)
+	targetWorkspaceID, folderScoped, err := masterRouteCommandFolderWorkspaceScope(command.Target)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	workspaceID, err := service.store.ReadConversationWorkspaceID(ctx, command.Target.ConversationID)
+	snapshot, err := service.store.ReadSnapshotByID(ctx, command.Target.ConversationID)
 	if errors.Is(err, ErrConversationNotFound) {
-		if _, err := service.CreateRoutedTopic(ctx, targetWorkspaceID, command.Target.Title, command.Target.ConversationID); err != nil {
+		if _, err := service.CreateRoutedTopicWithOptionalWorkspace(
+			ctx,
+			optionalMasterRouteWorkspaceID(targetWorkspaceID, folderScoped),
+			command.Target.Title,
+			command.Target.ConversationID,
+		); err != nil {
 			return ConversationSnapshot{}, err
 		}
 	} else if err != nil {
 		return ConversationSnapshot{}, err
-	} else if workspaceID != targetWorkspaceID {
-		return ConversationSnapshot{}, stateConflict("master route conversation", command.Target.ConversationID, "stored conversation belongs to another workspace")
+	} else if err := validateExistingMasterRouteConversation(snapshot, command.Target, targetWorkspaceID, folderScoped); err != nil {
+		return ConversationSnapshot{}, err
 	}
-	return service.sendTurn(ctx, targetWorkspaceID, command.Target.ConversationID, command.InitialInput, command.TurnID)
+	input, err := masterRouteInitialConversationInput(command)
+	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	if _, err := service.store.AcceptConversationInput(ctx, input, service.timestamp()); err != nil {
+		return ConversationSnapshot{}, err
+	}
+	return service.store.ReadSnapshotByID(ctx, command.Target.ConversationID)
 }
 
 func (service *Service) executeMasterSideConversation(
@@ -214,7 +226,10 @@ func (service *Service) executeMasterForkConversation(
 func masterRouteCommandFolderWorkspaceID(
 	target master.ConversationPresentationTarget,
 ) (string, error) {
-	workspaceID, ok := target.ResourceScope.FolderWorkspaceID()
+	workspaceID, ok, err := masterRouteCommandFolderWorkspaceScope(target)
+	if err != nil {
+		return "", err
+	}
 	if !ok {
 		return "", &ResourceRequiredError{
 			ConversationID: target.ConversationID,
@@ -222,4 +237,72 @@ func masterRouteCommandFolderWorkspaceID(
 		}
 	}
 	return workspaceID, nil
+}
+
+func masterRouteCommandFolderWorkspaceScope(
+	target master.ConversationPresentationTarget,
+) (string, bool, error) {
+	if err := target.Validate(); err != nil {
+		return "", false, err
+	}
+	workspaceID, ok := target.ResourceScope.FolderWorkspaceID()
+	return workspaceID, ok, nil
+}
+
+func optionalMasterRouteWorkspaceID(workspaceID string, ok bool) *string {
+	if !ok {
+		return nil
+	}
+	return &workspaceID
+}
+
+func validateExistingMasterRouteConversation(
+	snapshot ConversationSnapshot,
+	target master.ConversationPresentationTarget,
+	targetWorkspaceID string,
+	folderScoped bool,
+) error {
+	if snapshot.Conversation.Title != target.Title {
+		return stateConflict("master route conversation", target.ConversationID, "stored conversation has a different title")
+	}
+	if !folderScoped {
+		if snapshot.Conversation.WorkspaceID != nil {
+			return stateConflict("master route conversation", target.ConversationID, "stored conversation has a folder resource")
+		}
+		return nil
+	}
+	if snapshot.Conversation.WorkspaceID == nil || *snapshot.Conversation.WorkspaceID != targetWorkspaceID {
+		return stateConflict("master route conversation", target.ConversationID, "stored conversation belongs to another resource scope")
+	}
+	return nil
+}
+
+func masterRouteInitialConversationInput(
+	command *master.MasterCreateConversationRouteCommand,
+) (ConversationInput, error) {
+	modality, err := masterRouteConversationInputModality(command.InitialInputModality)
+	if err != nil {
+		return ConversationInput{}, err
+	}
+	input := ConversationInput{
+		ID:             command.InitialInputID,
+		ConversationID: command.Target.ConversationID,
+		Text:           command.InitialInput,
+		Modality:       modality,
+		SubmittedAt:    command.InitialInputSubmitted,
+	}
+	return NormalizeConversationInput(input)
+}
+
+func masterRouteConversationInputModality(
+	modality master.MasterInputModality,
+) (ConversationInputModality, error) {
+	switch modality {
+	case master.MasterInputModalityText:
+		return ConversationInputModalityText, nil
+	case master.MasterInputModalityVoice:
+		return ConversationInputModalityVoice, nil
+	default:
+		return "", fmt.Errorf("unsupported master route initial input modality %q", modality)
+	}
 }

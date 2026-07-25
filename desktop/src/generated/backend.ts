@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 78;
-export const backendContractSchemaHash = "sha256:6b7a215f62ab6ecba6c05182beac970faf5271590e9dc340dd387201e9861d14";
+export const backendProtocolVersion = 79;
+export const backendContractSchemaHash = "sha256:5f32cf01642dbaa624e9fc98e69e54dbf09a833ce201b3a82e35628e12cf8cff";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -3091,8 +3091,18 @@ export interface MasterFocusConversationRouteDecision {
   conversationId: string;
 }
 
-export interface MasterCreateConversationRouteDecision {
+export interface RouteFolderResourceScope {
   workspaceId: string;
+  workspaceName: string;
+}
+
+export interface RouteResourceScope {
+  kind: RouteResourceScopeKind;
+  folder: RouteFolderResourceScope | null;
+}
+
+export interface MasterCreateConversationRouteDecision {
+  resourceScope: RouteResourceScope;
   initialInput: string;
   proposedTitle: string;
 }
@@ -3171,16 +3181,6 @@ export interface CancelMasterInputRequest {
 
 export interface ReadMasterInputRoutingStateRequest {
   inputId: string;
-}
-
-export interface RouteFolderResourceScope {
-  workspaceId: string;
-  workspaceName: string;
-}
-
-export interface RouteResourceScope {
-  kind: RouteResourceScopeKind;
-  folder: RouteFolderResourceScope | null;
 }
 
 export interface RouteCandidateAudit {
@@ -3279,8 +3279,10 @@ export interface MasterFocusConversationRouteCommand {
 
 export interface MasterCreateConversationRouteCommand {
   target: ConversationPresentationTarget;
-  turnId: string;
+  initialInputId: string;
   initialInput: string;
+  initialInputModality: MasterInputModality;
+  initialInputSubmittedAt: string;
 }
 
 export interface MasterCreateSideConversationRouteCommand {
@@ -6500,11 +6502,29 @@ export function decodeMasterFocusConversationRouteDecision(value: unknown): Mast
   };
 }
 
+export function decodeRouteFolderResourceScope(value: unknown): RouteFolderResourceScope {
+  const record = assertRecord(value, "RouteFolderResourceScope");
+  assertKnownFields(record, "RouteFolderResourceScope", ["workspaceId", "workspaceName"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "RouteFolderResourceScope"), "RouteFolderResourceScope.workspaceId"),
+    workspaceName: decodeString(requireField(record, "workspaceName", "RouteFolderResourceScope"), "RouteFolderResourceScope.workspaceName"),
+  };
+}
+
+export function decodeRouteResourceScope(value: unknown): RouteResourceScope {
+  const record = assertRecord(value, "RouteResourceScope");
+  assertKnownFields(record, "RouteResourceScope", ["kind", "folder"]);
+  return {
+    kind: decodeRouteResourceScopeKind(requireField(record, "kind", "RouteResourceScope"), "RouteResourceScope.kind"),
+    folder: decodeNullable(requireField(record, "folder", "RouteResourceScope"), "RouteResourceScope.folder", (item) => decodeRouteFolderResourceScope(item)),
+  };
+}
+
 export function decodeMasterCreateConversationRouteDecision(value: unknown): MasterCreateConversationRouteDecision {
   const record = assertRecord(value, "MasterCreateConversationRouteDecision");
-  assertKnownFields(record, "MasterCreateConversationRouteDecision", ["workspaceId", "initialInput", "proposedTitle"]);
+  assertKnownFields(record, "MasterCreateConversationRouteDecision", ["resourceScope", "initialInput", "proposedTitle"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "MasterCreateConversationRouteDecision"), "MasterCreateConversationRouteDecision.workspaceId"),
+    resourceScope: decodeRouteResourceScope(requireField(record, "resourceScope", "MasterCreateConversationRouteDecision")),
     initialInput: decodeString(requireField(record, "initialInput", "MasterCreateConversationRouteDecision"), "MasterCreateConversationRouteDecision.initialInput"),
     proposedTitle: decodeString(requireField(record, "proposedTitle", "MasterCreateConversationRouteDecision"), "MasterCreateConversationRouteDecision.proposedTitle"),
   };
@@ -6648,24 +6668,6 @@ export function decodeReadMasterInputRoutingStateRequest(value: unknown): ReadMa
   assertKnownFields(record, "ReadMasterInputRoutingStateRequest", ["inputId"]);
   return {
     inputId: decodeString(requireField(record, "inputId", "ReadMasterInputRoutingStateRequest"), "ReadMasterInputRoutingStateRequest.inputId"),
-  };
-}
-
-export function decodeRouteFolderResourceScope(value: unknown): RouteFolderResourceScope {
-  const record = assertRecord(value, "RouteFolderResourceScope");
-  assertKnownFields(record, "RouteFolderResourceScope", ["workspaceId", "workspaceName"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "RouteFolderResourceScope"), "RouteFolderResourceScope.workspaceId"),
-    workspaceName: decodeString(requireField(record, "workspaceName", "RouteFolderResourceScope"), "RouteFolderResourceScope.workspaceName"),
-  };
-}
-
-export function decodeRouteResourceScope(value: unknown): RouteResourceScope {
-  const record = assertRecord(value, "RouteResourceScope");
-  assertKnownFields(record, "RouteResourceScope", ["kind", "folder"]);
-  return {
-    kind: decodeRouteResourceScopeKind(requireField(record, "kind", "RouteResourceScope"), "RouteResourceScope.kind"),
-    folder: decodeNullable(requireField(record, "folder", "RouteResourceScope"), "RouteResourceScope.folder", (item) => decodeRouteFolderResourceScope(item)),
   };
 }
 
@@ -6813,11 +6815,13 @@ export function decodeMasterFocusConversationRouteCommand(value: unknown): Maste
 
 export function decodeMasterCreateConversationRouteCommand(value: unknown): MasterCreateConversationRouteCommand {
   const record = assertRecord(value, "MasterCreateConversationRouteCommand");
-  assertKnownFields(record, "MasterCreateConversationRouteCommand", ["target", "turnId", "initialInput"]);
+  assertKnownFields(record, "MasterCreateConversationRouteCommand", ["target", "initialInputId", "initialInput", "initialInputModality", "initialInputSubmittedAt"]);
   return {
     target: decodeConversationPresentationTarget(requireField(record, "target", "MasterCreateConversationRouteCommand")),
-    turnId: decodeString(requireField(record, "turnId", "MasterCreateConversationRouteCommand"), "MasterCreateConversationRouteCommand.turnId"),
+    initialInputId: decodeString(requireField(record, "initialInputId", "MasterCreateConversationRouteCommand"), "MasterCreateConversationRouteCommand.initialInputId"),
     initialInput: decodeString(requireField(record, "initialInput", "MasterCreateConversationRouteCommand"), "MasterCreateConversationRouteCommand.initialInput"),
+    initialInputModality: decodeMasterInputModality(requireField(record, "initialInputModality", "MasterCreateConversationRouteCommand"), "MasterCreateConversationRouteCommand.initialInputModality"),
+    initialInputSubmittedAt: decodeString(requireField(record, "initialInputSubmittedAt", "MasterCreateConversationRouteCommand"), "MasterCreateConversationRouteCommand.initialInputSubmittedAt"),
   };
 }
 

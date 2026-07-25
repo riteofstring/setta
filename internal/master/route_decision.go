@@ -79,9 +79,9 @@ type MasterFocusConversationRouteDecision struct {
 }
 
 type MasterCreateConversationRouteDecision struct {
-	WorkspaceID   string `json:"workspaceId"`
-	InitialInput  string `json:"initialInput"`
-	ProposedTitle string `json:"proposedTitle"`
+	ResourceScope RouteResourceScope `json:"resourceScope"`
+	InitialInput  string             `json:"initialInput"`
+	ProposedTitle string             `json:"proposedTitle"`
 }
 
 type MasterCreateSideConversationRouteDecision struct {
@@ -356,7 +356,7 @@ func validateCreateConversationDecision(payload *MasterCreateConversationRouteDe
 	if payload == nil {
 		return errors.New("create-conversation decision requires createConversation")
 	}
-	if err := validateRouteReference("master route create workspace id", payload.WorkspaceID); err != nil {
+	if err := payload.ResourceScope.Validate(); err != nil {
 		return err
 	}
 	if err := validateRouteText("master route initial input", payload.InitialInput, MaxRouteAuthoredInputBytes); err != nil {
@@ -886,15 +886,12 @@ func (audit RouteContextAudit) ValidateDecision(decision RouteDecision) error {
 	if err := decision.Validate(); err != nil {
 		return err
 	}
-	kind, conversationID, workspaceID, forkTurnID := decisionAuthorityReferences(decision)
+	kind, conversationID, createScope, forkTurnID := decisionAuthorityReferences(decision)
 	switch kind {
 	case RouteDecisionKindClarify, RouteDecisionKindAnswerGlobal:
 		return nil
 	case RouteDecisionKindCreateConversation:
-		if !slices.Contains(audit.ActiveWorkspaceIDs, workspaceID) {
-			return fmt.Errorf("master route create workspace %s is not active", workspaceID)
-		}
-		return nil
+		return audit.validateCreateConversationScope(createScope)
 	}
 	for _, authority := range audit.TargetAuthorities {
 		if authority.ConversationID != conversationID {
@@ -912,26 +909,40 @@ func (audit RouteContextAudit) ValidateDecision(decision RouteDecision) error {
 	return fmt.Errorf("master route target %s was not supplied by authoritative context", conversationID)
 }
 
-func decisionAuthorityReferences(decision RouteDecision) (RouteDecisionKind, string, string, string) {
+func (audit RouteContextAudit) validateCreateConversationScope(scope RouteResourceScope) error {
+	if err := scope.Validate(); err != nil {
+		return err
+	}
+	workspaceID, folderScoped := scope.FolderWorkspaceID()
+	if !folderScoped {
+		return nil
+	}
+	if !slices.Contains(audit.ActiveWorkspaceIDs, workspaceID) {
+		return fmt.Errorf("master route create workspace %s is not active", workspaceID)
+	}
+	return nil
+}
+
+func decisionAuthorityReferences(decision RouteDecision) (RouteDecisionKind, string, RouteResourceScope, string) {
 	switch decision.Kind {
 	case RouteDecisionKindSendToAgent:
-		return decision.Kind, decision.SendToAgent.ConversationID, "", ""
+		return decision.Kind, decision.SendToAgent.ConversationID, RouteResourceScope{}, ""
 	case RouteDecisionKindQueueAgentTurn:
-		return decision.Kind, decision.QueueAgentTurn.ConversationID, "", ""
+		return decision.Kind, decision.QueueAgentTurn.ConversationID, RouteResourceScope{}, ""
 	case RouteDecisionKindSteerActiveTurn:
-		return decision.Kind, decision.SteerActiveTurn.ConversationID, "", ""
+		return decision.Kind, decision.SteerActiveTurn.ConversationID, RouteResourceScope{}, ""
 	case RouteDecisionKindAskNarrator:
-		return decision.Kind, decision.AskNarrator.ConversationID, "", ""
+		return decision.Kind, decision.AskNarrator.ConversationID, RouteResourceScope{}, ""
 	case RouteDecisionKindFocusConversation:
-		return decision.Kind, decision.FocusConversation.ConversationID, "", ""
+		return decision.Kind, decision.FocusConversation.ConversationID, RouteResourceScope{}, ""
 	case RouteDecisionKindCreateConversation:
-		return decision.Kind, "", decision.CreateConversation.WorkspaceID, ""
+		return decision.Kind, "", decision.CreateConversation.ResourceScope, ""
 	case RouteDecisionKindCreateSideConversation:
-		return decision.Kind, decision.CreateSideConversation.ParentConversationID, "", ""
+		return decision.Kind, decision.CreateSideConversation.ParentConversationID, RouteResourceScope{}, ""
 	case RouteDecisionKindForkConversation:
-		return decision.Kind, decision.ForkConversation.ParentConversationID, "", decision.ForkConversation.ForkedAtTurnID
+		return decision.Kind, decision.ForkConversation.ParentConversationID, RouteResourceScope{}, decision.ForkConversation.ForkedAtTurnID
 	default:
-		return decision.Kind, "", "", ""
+		return decision.Kind, "", RouteResourceScope{}, ""
 	}
 }
 

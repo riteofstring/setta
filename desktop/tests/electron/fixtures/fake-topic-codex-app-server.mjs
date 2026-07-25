@@ -651,18 +651,17 @@ function scriptedMasterRouteDecision(context, schema) {
 }
 
 function scriptedMasterCreateDecision(context, schema) {
-  const workspace = context.openWorkspaces?.[0];
   const valid = [
     context.allowedDecisionKinds.includes("create_conversation"),
-    nonEmptyString(workspace?.workspaceId),
-    schema.includes(`"${workspace?.workspaceId}"`),
+    schema.includes('"resourceScope"'),
+    schema.includes('"folderless"'),
   ].every(Boolean);
   return valid
     ? {
         initialInput: "Start the Gamma topic from the global master.",
         kind: "create_conversation",
         proposedTitle: "Gamma topic",
-        workspaceId: workspace.workspaceId,
+        resourceScope: { kind: "folderless" },
       }
     : null;
 }
@@ -756,7 +755,7 @@ function emitStructuredInputRoute(threadId, turnId, context) {
   const routeKind = structuredInputRouteKind(context, allowed);
   const valid = [
     Array.isArray(allowed),
-    validStructuredRouteInput(input, routeKind),
+    validStructuredRouteInput(context, input, routeKind),
     validStructuredRouteHistory(context, routeKind),
     structuredRouteContextIsRedacted(serialized),
   ].every(Boolean);
@@ -874,13 +873,20 @@ function activeStructuredInputRouteKind(context, allowed) {
   return allowed.includes("queue_parent_turn") ? "queue_parent_turn" : null;
 }
 
-function validStructuredRouteInput(input, routeKind) {
+function validStructuredRouteInput(context, input, routeKind) {
   return (
     typeof input?.text === "string" &&
     ["text", "voice"].includes(input.modality) &&
-    input.hasSourcePane === true &&
+    validStructuredRouteInputSource(context, input) &&
     routeKind !== null
   );
+}
+
+function validStructuredRouteInputSource(context, input) {
+  if (input?.hasSourcePane === true) {
+    return true;
+  }
+  return input?.hasSourcePane === false && context.authoritative?.conversation?.workspaceId === "";
 }
 
 function validStructuredRouteHistory(context, routeKind) {

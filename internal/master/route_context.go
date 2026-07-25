@@ -685,9 +685,7 @@ func routeContextAllowedDecisionKinds(
 			}
 		}
 	}
-	if len(activeWorkspaceIDs) > 0 {
-		allowed = append(allowed, RouteDecisionKindCreateConversation)
-	}
+	allowed = append(allowed, RouteDecisionKindCreateConversation)
 	allowed = append(allowed, RouteDecisionKindClarify, RouteDecisionKindAnswerGlobal)
 	return allowed
 }
@@ -710,10 +708,14 @@ func routeTargetAuthorities(targets []RouteConversationTarget) []RouteTargetAuth
 }
 
 func summarizeRouteDecision(record RouteDecisionRecord) RouteDecisionSummary {
-	_, conversationID, workspaceID, _ := decisionAuthorityReferences(record.Decision)
+	_, conversationID, createScope, _ := decisionAuthorityReferences(record.Decision)
 	targetID := conversationID
-	if targetID == "" {
-		targetID = workspaceID
+	if targetID == "" && createScope.Kind != "" {
+		if workspaceID, folderScoped := createScope.FolderWorkspaceID(); folderScoped {
+			targetID = workspaceID
+		} else {
+			targetID = string(RouteResourceScopeKindFolderless)
+		}
 	}
 	var optionalTarget *string
 	if targetID != "" {

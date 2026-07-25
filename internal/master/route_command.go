@@ -63,9 +63,11 @@ type MasterFocusConversationRouteCommand struct {
 }
 
 type MasterCreateConversationRouteCommand struct {
-	Target       ConversationPresentationTarget `json:"target"`
-	TurnID       string                         `json:"turnId"`
-	InitialInput string                         `json:"initialInput"`
+	Target                ConversationPresentationTarget `json:"target"`
+	InitialInputID        string                         `json:"initialInputId"`
+	InitialInput          string                         `json:"initialInput"`
+	InitialInputModality  MasterInputModality            `json:"initialInputModality"`
+	InitialInputSubmitted string                         `json:"initialInputSubmittedAt"`
 }
 
 type MasterCreateSideConversationRouteCommand struct {
@@ -336,7 +338,20 @@ func validateMasterCreateConversationCommand(command *MasterCreateConversationRo
 	if command.Target.PreferredPaneID != nil {
 		return errors.New("create-conversation command cannot prefer an existing pane")
 	}
-	return validateMasterTurnCommand(command.Target, command.TurnID, command.InitialInput)
+	if err := command.Target.Validate(); err != nil {
+		return err
+	}
+	if err := validateRouteReference("master route command initial input id", command.InitialInputID); err != nil {
+		return err
+	}
+	if err := validateMasterCommandInputModality(command.InitialInputModality); err != nil {
+		return err
+	}
+	submittedAt, err := normalizeTimestamp("master route command initial input submittedAt", command.InitialInputSubmitted)
+	if err != nil || submittedAt != command.InitialInputSubmitted {
+		return errors.New("master route command initial input submittedAt must be normalized")
+	}
+	return validateRouteText("master route command initial input", command.InitialInput, MaxRouteAuthoredInputBytes)
 }
 
 func validateMasterClarifyCommand(command *MasterClarifyRouteCommand) error {
@@ -372,8 +387,9 @@ func validateMasterFocusConversationDecision(command *MasterFocusConversationRou
 }
 
 func validateMasterCreateConversationDecision(command *MasterCreateConversationRouteCommand, decision *MasterCreateConversationRouteDecision) error {
-	workspaceID, workspaceScoped := command.Target.ResourceScope.FolderWorkspaceID()
-	if !workspaceScoped || workspaceID != decision.WorkspaceID || command.Target.Title != decision.ProposedTitle || command.InitialInput != decision.InitialInput {
+	if !command.Target.ResourceScope.Equal(decision.ResourceScope) ||
+		command.Target.Title != decision.ProposedTitle ||
+		command.InitialInput != decision.InitialInput {
 		return errors.New("master create-conversation command does not match its decision")
 	}
 	return nil
@@ -408,6 +424,15 @@ func validateMasterTurnCommand(target ConversationPresentationTarget, turnID str
 		return err
 	}
 	return validateRouteText("master route command authored input", input, MaxRouteAuthoredInputBytes)
+}
+
+func validateMasterCommandInputModality(modality MasterInputModality) error {
+	switch modality {
+	case MasterInputModalityText, MasterInputModalityVoice:
+		return nil
+	default:
+		return fmt.Errorf("unsupported master route command input modality %q", modality)
+	}
 }
 
 func validateMasterSideCommand(command *MasterCreateSideConversationRouteCommand) error {

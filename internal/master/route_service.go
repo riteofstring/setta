@@ -424,7 +424,10 @@ func (service *RouteService) validateDecisionWorkspace(decision RouteDecision) e
 	if decision.Kind != RouteDecisionKindCreateConversation {
 		return nil
 	}
-	workspaceID := decision.CreateConversation.WorkspaceID
+	workspaceID, folderScoped := decision.CreateConversation.ResourceScope.FolderWorkspaceID()
+	if !folderScoped {
+		return nil
+	}
 	resolved, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
 	if err != nil {
 		return err

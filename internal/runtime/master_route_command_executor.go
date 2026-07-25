@@ -32,6 +32,7 @@ type masterRouteNarratorService interface {
 		string,
 		string,
 	) (conversation.ConversationSnapshot, error)
+	NotifyConversationInput(string) error
 }
 
 type masterRouteCommandExecutor struct {
@@ -64,11 +65,16 @@ func (executor *masterRouteCommandExecutor) ExecuteMasterRouteCommand(
 		return err
 	}
 	applied, err := executor.store.MasterRouteCommandApplied(ctx, record)
-	if err != nil || applied {
+	if err != nil {
 		return err
 	}
-	executeErr := executor.execute(ctx, record, resolvedPaneID)
-	return executor.verifyEffect(ctx, record, executeErr)
+	if !applied {
+		executeErr := executor.execute(ctx, record, resolvedPaneID)
+		if err := executor.verifyEffect(ctx, record, executeErr); err != nil {
+			return err
+		}
+	}
+	return executor.notifyFollowup(record)
 }
 
 func validateMasterRouteCommandExecution(
@@ -197,6 +203,17 @@ func (executor *masterRouteCommandExecutor) routedNarratorDegradationApplied(
 		return false, errors.New("verify master routed narrator degradation: durable state does not match the completed request")
 	}
 	return true, nil
+}
+
+func (executor *masterRouteCommandExecutor) notifyFollowup(record master.RouteDecisionRecord) error {
+	if record.ResultingCommand.Kind != master.RouteDecisionKindCreateConversation {
+		return nil
+	}
+	conversationID := record.ResultingCommand.CreateConversation.Target.ConversationID
+	if err := executor.narrator.NotifyConversationInput(conversationID); err != nil {
+		return fmt.Errorf("notify master-created conversation input %s: %w", conversationID, err)
+	}
+	return nil
 }
 
 func masterRouteExecutorFolderWorkspaceID(
