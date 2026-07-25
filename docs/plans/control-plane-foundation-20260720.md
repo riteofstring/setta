@@ -148,9 +148,16 @@ cutoff lag beside its monetary exposure reserve. Each claim derives an exact
 deadline from the durable threshold time, bounds provider work by the remaining
 interval, and fails with `cutoff_deadline_exceeded` rather than pretending a
 late cutoff stayed inside the promised exposure. Trusted workload-lease events
-now enter the accounting ledger automatically; scheduled window closure and
-automatic finalized-evidence submission remain required before this is a
-complete billable-compute cutoff.
+now enter the accounting ledger automatically, and the schema-version-13
+scheduler closes and submits their fixed windows without operator input.
+
+Committed usage emits one content-free warning when cumulative spend first
+enters the policy's existing maximum cutoff-exposure range. This boundary is
+derived from the enforced budget and the already-authoritative cutoff reserve;
+it is not an estimated percentage. A hard-cutoff interval does not emit the
+weaker warning, later intervals inside the same range do not repeat it, and
+exact usage replay remains alert-free. Automatic reconciler finalization and
+the private administration path share the same post-commit signal.
 
 Schema version 9 adds one ordered accounting event stream and restart-safe
 ledger snapshot per runtime. Event sequence and identity are unique within

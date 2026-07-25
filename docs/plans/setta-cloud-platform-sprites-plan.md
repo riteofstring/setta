@@ -2635,3 +2635,20 @@ Stop and reassess rather than hiding the problem if any of these occur:
   advisory; this slice changed no dependency file. Remaining aggregate alerts
   and explicitly authorized live-provider validation stay open. No provider or
   cloud mutation ran.
+- 2026-07-25 (authoritative approaching-budget warning): Added the remaining
+  non-heuristic budget warning to the existing content-free operational stream.
+  A newly committed usage interval emits `budget_approaching` exactly when
+  cumulative spend first enters the policy's server-derived maximum
+  cutoff-exposure range. The threshold reuses the durable enforced budget and
+  authoritative worst-case cutoff reserve instead of inventing a percentage;
+  a hard-cutoff interval emits only its stronger cutoff outcome, subsequent
+  intervals do not repeat the warning, and exact request replay remains
+  alert-free. Both automatic scheduled finalization and the private Unix-socket
+  usage/finalization paths emit only the signal, severity, stable reason code,
+  and timestamp. Focused tests repeatedly exercised the threshold, exposure
+  larger than the spendable budget, exact replay, and the production
+  administration boundary; `./check_quality.sh --git-changes` passed. Failure
+  spike and backlog aggregation remain open. No arbitrary maximum Task or
+  attachment-session age was added because the current product contracts do
+  not own one; adding such a threshold would be the forbidden heuristic the
+  implementation rules reject. No provider or cloud mutation ran.
