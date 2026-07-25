@@ -49,21 +49,11 @@ type budgetConfig struct {
 	RequiredDimensions     []runtimeprovider.UsageDimension `json:"required_dimensions"`
 }
 
-type evidence struct {
-	Version         int                              `json:"version"`
-	ConfigSHA256    string                           `json:"config_sha256"`
-	EventsSHA256    string                           `json:"events_sha256"`
-	RateCardVersion string                           `json:"rate_card_version"`
-	Usage           runtimeprovider.UsageObservation `json:"usage"`
-	Cost            runtimecost.Breakdown            `json:"cost"`
-	Cutoff          runtimeaccounting.CutoffDecision `json:"cutoff"`
-}
-
 type experimentState struct {
 	Version      int                           `json:"version"`
 	ConfigSHA256 string                        `json:"config_sha256"`
 	Ledger       runtimeaccounting.LedgerState `json:"ledger"`
-	Evidence     *evidence                     `json:"evidence,omitempty"`
+	Evidence     *runtimeaccounting.Evidence   `json:"evidence,omitempty"`
 }
 
 type commandOptions struct {
@@ -261,7 +251,7 @@ func buildEvidence(
 	schedule runtimecost.PriceSchedule,
 	policy runtimeaccounting.BudgetPolicy,
 	closed runtimeaccounting.ClosedWindow,
-) (*evidence, error) {
+) (*runtimeaccounting.Evidence, error) {
 	usage, err := runtimeaccounting.ConservativeObservation(
 		configuration.Provider,
 		configuration.RuntimeName,
@@ -280,7 +270,7 @@ func buildEvidence(
 	if err != nil {
 		return nil, err
 	}
-	return &evidence{
+	return &runtimeaccounting.Evidence{
 		Version: 1, ConfigSHA256: configHash, EventsSHA256: eventsHash,
 		RateCardVersion: schedule.Version, Usage: usage, Cost: cost, Cutoff: cutoff,
 	}, nil

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"setta/internal/runtimeaccess"
+	"setta/internal/runtimeaccounting"
 	"setta/internal/runtimeprovider"
 )
 
@@ -20,15 +21,15 @@ func TestUsageIntervalsAccumulateAndCutOffAuthorizationAtomically(t *testing.T) 
 	firstRequest := testUsageRequest(
 		"usage-1", "user-budget", runtimeName, now, now.Add(10*time.Minute), 400,
 	)
-	first, err := store.RecordUsageInterval(ctx, firstRequest)
+	first, err := store.recordUsageInterval(ctx, firstRequest)
 	requireContinuingUsage(t, first, err)
-	replayed, err := store.RecordUsageInterval(ctx, firstRequest)
+	replayed, err := store.recordUsageInterval(ctx, firstRequest)
 	if err != nil || !reflect.DeepEqual(replayed, first) {
 		t.Fatalf("replayed usage = %+v, %v", replayed, err)
 	}
 	requireBudgetAuthorization(t, ctx, store, grant.Token, runtimeaccess.AuthorizationAllowed)
 	now = now.Add(time.Minute)
-	second, err := store.RecordUsageInterval(ctx, testUsageRequest(
+	second, err := store.recordUsageInterval(ctx, testUsageRequest(
 		"usage-2", "user-budget", runtimeName,
 		first.IntervalEnd, first.IntervalEnd.Add(10*time.Minute), 300,
 	))
@@ -119,16 +120,16 @@ func TestUsageIntervalsRejectGapsConflictsAndNonConservativeEvidence(t *testing.
 		t.Fatalf("SetUserBudgetPolicy: %v", err)
 	}
 	gap := testUsageRequest("usage-gap", "user-validation", runtimeName, now.Add(time.Minute), now.Add(2*time.Minute), 1)
-	if _, err := store.RecordUsageInterval(ctx, gap); err == nil {
+	if _, err := store.recordUsageInterval(ctx, gap); err == nil {
 		t.Fatal("RecordUsageInterval accepted a gap")
 	}
 	first := testUsageRequest("usage-first", "user-validation", runtimeName, now, now.Add(time.Minute), 1)
-	if _, err := store.RecordUsageInterval(ctx, first); err != nil {
+	if _, err := store.recordUsageInterval(ctx, first); err != nil {
 		t.Fatalf("RecordUsageInterval first: %v", err)
 	}
 	conflict := first
 	conflict.CoveredCostUSDMicros = 2
-	if _, err := store.RecordUsageInterval(ctx, conflict); !errors.Is(err, ErrIdempotencyConflict) {
+	if _, err := store.recordUsageInterval(ctx, conflict); !errors.Is(err, ErrIdempotencyConflict) {
 		t.Fatalf("conflicting replay error = %v", err)
 	}
 	authoritative := testUsageRequest(
@@ -136,8 +137,79 @@ func TestUsageIntervalsRejectGapsConflictsAndNonConservativeEvidence(t *testing.
 		first.IntervalEnd, first.IntervalEnd.Add(time.Minute), 1,
 	)
 	authoritative.MeasurementSource = runtimeprovider.UsageBasisProviderAuthoritative
-	if _, err := store.RecordUsageInterval(ctx, authoritative); err == nil {
+	if _, err := store.recordUsageInterval(ctx, authoritative); err == nil {
 		t.Fatal("RecordUsageInterval accepted non-conservative evidence")
+	}
+}
+
+func TestUsageEvidenceRecomputesCostAndBindsReplayToTheFinalizedArtifact(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 24, 20, 0, 0, 0, time.UTC)
+	store := openTestStore(t, t.TempDir(), func() time.Time { return now }, RateLimit{})
+	defer store.Close()
+	runtimeName, _ := seedBudgetCutoffTest(t, ctx, store, now)
+	evidence := testAdminUsageEvidence(t, runtimeName, now)
+
+	tamperedCost := evidence
+	tamperedCost.Cost.CoveredTotal++
+	if _, err := store.RecordUsageEvidence(ctx, RecordUsageEvidenceRequest{
+		IdempotencyKey: "tampered-cost", UserID: "user-budget", Evidence: tamperedCost,
+	}, adminTestPriceSchedule()); err == nil {
+		t.Fatal("RecordUsageEvidence accepted a tampered cost")
+	}
+	policy, err := store.UserBudgetPolicy(ctx, "user-budget")
+	if err != nil || policy.AccruedUSDMicros != 0 {
+		t.Fatalf("budget after rejected evidence = %+v, %v", policy, err)
+	}
+
+	request := RecordUsageEvidenceRequest{
+		IdempotencyKey: "finalized-evidence", UserID: "user-budget", Evidence: evidence,
+	}
+	first, err := store.RecordUsageEvidence(ctx, request, adminTestPriceSchedule())
+	if err != nil {
+		t.Fatalf("RecordUsageEvidence: %v", err)
+	}
+	replayed, err := store.RecordUsageEvidence(ctx, request, adminTestPriceSchedule())
+	if err != nil || !reflect.DeepEqual(replayed, first) {
+		t.Fatalf("replayed evidence = %+v, %v", replayed, err)
+	}
+	conflict := request
+	conflict.Evidence.Cutoff.Action = runtimeaccounting.CutoffSuspend
+	if _, err := store.RecordUsageEvidence(ctx, conflict, adminTestPriceSchedule()); !errors.Is(err, ErrIdempotencyConflict) {
+		t.Fatalf("conflicting evidence replay error = %v", err)
+	}
+}
+
+func TestUsageEvidenceRejectsUntrustedIdentityAndMeasurementBasis(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 24, 20, 0, 0, 0, time.UTC)
+	store := openTestStore(t, t.TempDir(), func() time.Time { return now }, RateLimit{})
+	defer store.Close()
+	runtimeName, _ := seedBudgetCutoffTest(t, ctx, store, now)
+	valid := testAdminUsageEvidence(t, runtimeName, now)
+	tests := []struct {
+		name   string
+		mutate func(*runtimeaccounting.Evidence)
+	}{
+		{name: "version", mutate: func(evidence *runtimeaccounting.Evidence) { evidence.Version++ }},
+		{name: "rate card", mutate: func(evidence *runtimeaccounting.Evidence) { evidence.RateCardVersion = "foreign" }},
+		{name: "event hash", mutate: func(evidence *runtimeaccounting.Evidence) { evidence.EventsSHA256 = "invalid" }},
+		{name: "basis", mutate: func(evidence *runtimeaccounting.Evidence) {
+			evidence.Usage.Basis = runtimeprovider.UsageBasisProviderAuthoritative
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			evidence := valid
+			test.mutate(&evidence)
+			if _, err := store.RecordUsageEvidence(ctx, RecordUsageEvidenceRequest{
+				IdempotencyKey: "invalid-" + test.name,
+				UserID:         "user-budget",
+				Evidence:       evidence,
+			}, adminTestPriceSchedule()); err == nil {
+				t.Fatal("RecordUsageEvidence accepted invalid evidence")
+			}
+		})
 	}
 }
 
@@ -159,7 +231,7 @@ func TestBudgetPolicyPersistsAcrossRestartAndCannotResetActivePeriod(t *testing.
 	if _, err := store.SetUserBudgetPolicy(ctx, request); err != nil {
 		t.Fatalf("SetUserBudgetPolicy: %v", err)
 	}
-	if _, err := store.RecordUsageInterval(ctx, testUsageRequest(
+	if _, err := store.recordUsageInterval(ctx, testUsageRequest(
 		"usage-restart", "user-restart", runtimeName, now, now.Add(time.Minute), 123,
 	)); err != nil {
 		t.Fatalf("RecordUsageInterval: %v", err)
@@ -187,8 +259,8 @@ func testUsageRequest(
 	start time.Time,
 	end time.Time,
 	cost int64,
-) RecordUsageIntervalRequest {
-	return RecordUsageIntervalRequest{
+) recordUsageIntervalRequest {
+	return recordUsageIntervalRequest{
 		IdempotencyKey:       idempotencyKey,
 		UserID:               userID,
 		RuntimeName:          runtimeName,

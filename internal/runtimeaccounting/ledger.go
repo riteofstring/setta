@@ -661,6 +661,19 @@ type CutoffDecision struct {
 	ThresholdUSDMicros      uint64       `json:"threshold_usd_micros"`
 }
 
+// Evidence is the immutable, versioned output of one finalized accounting
+// window. Consumers must recompute Cost from Usage and the named rate card
+// rather than trusting the serialized breakdown.
+type Evidence struct {
+	Version         int                              `json:"version"`
+	ConfigSHA256    string                           `json:"config_sha256"`
+	EventsSHA256    string                           `json:"events_sha256"`
+	RateCardVersion string                           `json:"rate_card_version"`
+	Usage           runtimeprovider.UsageObservation `json:"usage"`
+	Cost            runtimecost.Breakdown            `json:"cost"`
+	Cutoff          CutoffDecision                   `json:"cutoff"`
+}
+
 // EvaluateCutoff constructs worst-case lag exposure from enforced ceilings. It
 // refuses to decide unless every required dimension is enforced and priced.
 func EvaluateCutoff(

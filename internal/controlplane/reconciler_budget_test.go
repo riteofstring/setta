@@ -143,7 +143,7 @@ func seedBudgetCutoffOperation(
 	if _, err := store.SetUserBudgetPolicy(ctx, policy); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.RecordUsageInterval(ctx, testUsageRequest(
+	if _, err := store.recordUsageInterval(ctx, testUsageRequest(
 		"usage-provider-cutoff",
 		"user-provider-budget",
 		runtimeName,

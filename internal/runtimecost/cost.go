@@ -91,6 +91,12 @@ func Estimate(schedule PriceSchedule, observation runtimeprovider.UsageObservati
 	return result, nil
 }
 
+// ValidatePriceSchedule rejects incomplete or internally inconsistent rate
+// cards before a long-running service accepts them.
+func ValidatePriceSchedule(schedule PriceSchedule) error {
+	return validateSchedule(schedule)
+}
+
 func validateEstimateInputs(schedule PriceSchedule, observation runtimeprovider.UsageObservation) error {
 	if err := validateSchedule(schedule); err != nil {
 		return err

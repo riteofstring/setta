@@ -13,7 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"setta/internal/runtimeprovider"
+	"setta/internal/runtimeaccounting"
+	"setta/internal/runtimecost"
 )
 
 const maximumAdminRequestBytes = 16 * 1024
@@ -21,9 +22,10 @@ const maximumAdminRequestBytes = 16 * 1024
 const adminSocketFileName = "admin.sock"
 
 type AdminServerConfig struct {
-	Observer   ControlPlaneObserver
-	SocketPath string
-	Store      *Store
+	Observer      ControlPlaneObserver
+	PriceSchedule runtimecost.PriceSchedule
+	SocketPath    string
+	Store         *Store
 }
 
 type AdminServer struct {
@@ -78,13 +80,9 @@ type AdminSetUserBudgetRequest struct {
 }
 
 type AdminRecordUsageRequest struct {
-	IdempotencyKey       string                     `json:"idempotency_key"`
-	UserID               string                     `json:"user_id"`
-	RuntimeName          string                     `json:"runtime_name"`
-	IntervalStart        time.Time                  `json:"interval_start"`
-	IntervalEnd          time.Time                  `json:"interval_end"`
-	MeasurementSource    runtimeprovider.UsageBasis `json:"measurement_source"`
-	CoveredCostUSDMicros int64                      `json:"covered_cost_usd_micros"`
+	IdempotencyKey string                     `json:"idempotency_key"`
+	UserID         string                     `json:"user_id"`
+	Evidence       runtimeaccounting.Evidence `json:"evidence"`
 }
 
 type AdminEvent struct {
@@ -111,7 +109,7 @@ func StartAdminServer(config AdminServerConfig) (*AdminServer, error) {
 		return nil, fmt.Errorf("protect control-plane administration socket: %w", err)
 	}
 	httpServer := &http.Server{
-		Handler:           adminHandler(config.Store, config.Observer),
+		Handler:           adminHandler(config.Store, config.Observer, config.PriceSchedule),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	server := &AdminServer{httpServer: httpServer, listener: listener, done: make(chan error, 1)}
@@ -147,6 +145,9 @@ func validateAdminServerConfig(config AdminServerConfig) error {
 	if config.Store == nil || config.Observer == nil || config.SocketPath == "" || !filepath.IsAbs(config.SocketPath) {
 		return errors.New("control-plane administration requires a store, observer, and absolute socket path")
 	}
+	if err := runtimecost.ValidatePriceSchedule(config.PriceSchedule); err != nil {
+		return fmt.Errorf("control-plane administration price schedule: %w", err)
+	}
 	if filepath.Dir(config.SocketPath) != filepath.Dir(config.Store.Path()) {
 		return errors.New("control-plane administration socket must share the private store directory")
 	}
@@ -158,7 +159,11 @@ func validateAdminServerConfig(config AdminServerConfig) error {
 	return nil
 }
 
-func adminHandler(store *Store, observer ControlPlaneObserver) http.Handler {
+func adminHandler(
+	store *Store,
+	observer ControlPlaneObserver,
+	priceSchedule runtimecost.PriceSchedule,
+) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if handleHostedAccessAdminRoute(store, observer, response, request) {
 			return
@@ -166,7 +171,7 @@ func adminHandler(store *Store, observer ControlPlaneObserver) http.Handler {
 		if handleRuntimeProgressAdminRoute(store, response, request) {
 			return
 		}
-		if handleBudgetAdminRoute(store, observer, response, request) {
+		if handleBudgetAdminRoute(store, observer, priceSchedule, response, request) {
 			return
 		}
 		switch request.URL.Path {
@@ -197,6 +202,7 @@ func adminHandler(store *Store, observer ControlPlaneObserver) http.Handler {
 func handleBudgetAdminRoute(
 	store *Store,
 	observer ControlPlaneObserver,
+	priceSchedule runtimecost.PriceSchedule,
 	response http.ResponseWriter,
 	request *http.Request,
 ) bool {
@@ -210,7 +216,7 @@ func handleBudgetAdminRoute(
 	case "/v1/usage/record":
 		if requireAdminMethod(response, request, http.MethodPost) {
 			response.Header().Set("Content-Type", "application/json")
-			handleAdminRecordUsage(store, observer, response, request)
+			handleAdminRecordUsage(store, observer, priceSchedule, response, request)
 		}
 		return true
 	default:
@@ -244,6 +250,7 @@ func handleAdminSetUserBudget(
 func handleAdminRecordUsage(
 	store *Store,
 	observer ControlPlaneAuditObserver,
+	priceSchedule runtimecost.PriceSchedule,
 	response http.ResponseWriter,
 	request *http.Request,
 ) {
@@ -251,7 +258,11 @@ func handleAdminRecordUsage(
 	if !decodeAdminRequest(response, request, &payload) {
 		return
 	}
-	interval, err := store.RecordUsageInterval(request.Context(), RecordUsageIntervalRequest(payload))
+	interval, err := store.RecordUsageEvidence(request.Context(), RecordUsageEvidenceRequest{
+		IdempotencyKey: payload.IdempotencyKey,
+		UserID:         payload.UserID,
+		Evidence:       payload.Evidence,
+	}, priceSchedule)
 	if err != nil {
 		writeAdminError(response)
 		return

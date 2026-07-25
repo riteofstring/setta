@@ -11,6 +11,8 @@ import (
 	"math"
 	"time"
 
+	"setta/internal/runtimeaccounting"
+	"setta/internal/runtimecost"
 	"setta/internal/runtimeprovider"
 )
 
@@ -43,14 +45,21 @@ type SetUserBudgetPolicyRequest struct {
 	MaximumCutoffLag        time.Duration
 }
 
-type RecordUsageIntervalRequest struct {
-	IdempotencyKey       string
-	UserID               string
-	RuntimeName          string
-	IntervalStart        time.Time
-	IntervalEnd          time.Time
-	MeasurementSource    runtimeprovider.UsageBasis
-	CoveredCostUSDMicros int64
+type recordUsageIntervalRequest struct {
+	IdempotencyKey        string
+	UserID                string
+	RuntimeName           string
+	IntervalStart         time.Time
+	IntervalEnd           time.Time
+	MeasurementSource     runtimeprovider.UsageBasis
+	CoveredCostUSDMicros  int64
+	SubmissionFingerprint string
+}
+
+type RecordUsageEvidenceRequest struct {
+	IdempotencyKey string
+	UserID         string
+	Evidence       runtimeaccounting.Evidence
 }
 
 type UsageInterval struct {
@@ -120,9 +129,9 @@ func (store *Store) UserBudgetPolicy(ctx context.Context, userID string) (UserBu
 	return readUserBudgetPolicy(ctx, store.db, userID)
 }
 
-func (store *Store) RecordUsageInterval(
+func (store *Store) recordUsageInterval(
 	ctx context.Context,
-	request RecordUsageIntervalRequest,
+	request recordUsageIntervalRequest,
 ) (UsageInterval, error) {
 	if err := validateRecordUsageIntervalRequest(request); err != nil {
 		return UsageInterval{}, err
@@ -154,9 +163,66 @@ func (store *Store) RecordUsageInterval(
 	return interval, nil
 }
 
+func (store *Store) RecordUsageEvidence(
+	ctx context.Context,
+	request RecordUsageEvidenceRequest,
+	schedule runtimecost.PriceSchedule,
+) (UsageInterval, error) {
+	if err := validateUsageEvidenceRequest(request, schedule); err != nil {
+		return UsageInterval{}, err
+	}
+	cost, err := runtimecost.Estimate(schedule, request.Evidence.Usage)
+	if err != nil {
+		return UsageInterval{}, fmt.Errorf("estimate submitted usage evidence: %w", err)
+	}
+	if cost != request.Evidence.Cost ||
+		request.Evidence.Cutoff.CurrentCoveredUSDMicros != cost.CoveredTotal {
+		return UsageInterval{}, errors.New("submitted usage evidence cost does not match its typed usage")
+	}
+	if cost.CoveredTotal > math.MaxInt64 {
+		return UsageInterval{}, errors.New("submitted usage evidence cost exceeds the control-plane range")
+	}
+	fingerprint, err := usageEvidenceFingerprint(request)
+	if err != nil {
+		return UsageInterval{}, err
+	}
+	return store.recordUsageInterval(ctx, recordUsageIntervalRequest{
+		IdempotencyKey:        request.IdempotencyKey,
+		UserID:                request.UserID,
+		RuntimeName:           request.Evidence.Usage.RuntimeName,
+		IntervalStart:         request.Evidence.Usage.Window.Start,
+		IntervalEnd:           request.Evidence.Usage.Window.End,
+		MeasurementSource:     request.Evidence.Usage.Basis,
+		CoveredCostUSDMicros:  int64(cost.CoveredTotal),
+		SubmissionFingerprint: fingerprint,
+	})
+}
+
+func validateUsageEvidenceRequest(
+	request RecordUsageEvidenceRequest,
+	schedule runtimecost.PriceSchedule,
+) error {
+	if err := validateIdentifier("usage idempotency key", request.IdempotencyKey); err != nil {
+		return err
+	}
+	if err := validateIdentifier("user id", request.UserID); err != nil {
+		return err
+	}
+	if request.Evidence.Version != 1 ||
+		request.Evidence.RateCardVersion != schedule.Version ||
+		!validSHA256(request.Evidence.ConfigSHA256) ||
+		!validSHA256(request.Evidence.EventsSHA256) {
+		return errors.New("submitted usage evidence identity is invalid")
+	}
+	if request.Evidence.Usage.Basis != runtimeprovider.UsageBasisSettaConservative {
+		return errors.New("hard budget evidence must be Setta-conservative")
+	}
+	return nil
+}
+
 func (store *Store) recordUsageIntervalLocked(
 	ctx context.Context,
-	request RecordUsageIntervalRequest,
+	request recordUsageIntervalRequest,
 	fingerprint string,
 ) (UsageInterval, []string, error) {
 	tx, err := store.db.BeginTx(ctx, nil)
@@ -263,7 +329,7 @@ func budgetCutoffOperationID(userID string, periodStart time.Time) string {
 }
 
 func buildUsageInterval(
-	request RecordUsageIntervalRequest,
+	request recordUsageIntervalRequest,
 	policy UserBudgetPolicy,
 	recordedAt time.Time,
 ) (UsageInterval, error) {
@@ -308,7 +374,7 @@ func validateUserBudgetPolicyRequest(request SetUserBudgetPolicyRequest) error {
 	return nil
 }
 
-func validateRecordUsageIntervalRequest(request RecordUsageIntervalRequest) error {
+func validateRecordUsageIntervalRequest(request recordUsageIntervalRequest) error {
 	if err := validateIdentifier("usage idempotency key", request.IdempotencyKey); err != nil {
 		return err
 	}
@@ -333,7 +399,7 @@ func validateRecordUsageIntervalRequest(request RecordUsageIntervalRequest) erro
 func validateUsageIntervalTarget(
 	ctx context.Context,
 	tx *sql.Tx,
-	request RecordUsageIntervalRequest,
+	request recordUsageIntervalRequest,
 	policy UserBudgetPolicy,
 ) error {
 	if request.IntervalStart.Before(policy.PeriodStart) || request.IntervalEnd.After(policy.PeriodEnd) {
@@ -546,10 +612,22 @@ UPDATE runtimes SET access_state = ?, updated_at = ? WHERE name = ? AND user_id 
 	return intentIDs, nil
 }
 
-func usageIntervalFingerprint(request RecordUsageIntervalRequest) (string, error) {
+func usageIntervalFingerprint(request recordUsageIntervalRequest) (string, error) {
+	if request.SubmissionFingerprint != "" {
+		return request.SubmissionFingerprint, nil
+	}
 	encoded, err := json.Marshal(request)
 	if err != nil {
 		return "", fmt.Errorf("encode usage interval fingerprint: %w", err)
+	}
+	digest := sha256.Sum256(encoded)
+	return hex.EncodeToString(digest[:]), nil
+}
+
+func usageEvidenceFingerprint(request RecordUsageEvidenceRequest) (string, error) {
+	encoded, err := json.Marshal(request)
+	if err != nil {
+		return "", fmt.Errorf("encode usage evidence fingerprint: %w", err)
 	}
 	digest := sha256.Sum256(encoded)
 	return hex.EncodeToString(digest[:]), nil

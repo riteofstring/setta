@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"setta/internal/controlplane"
-	"setta/internal/runtimeprovider"
+	"setta/internal/runtimeaccounting"
 )
 
 const adminRequestTimeout = 10 * time.Second
@@ -39,7 +39,7 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer
 	case "set-user-budget":
 		err = adminSetUserBudget(context.Background(), args[1:], stdout, stderr)
 	case "record-usage":
-		err = adminRecordUsage(context.Background(), args[1:], stdout, stderr)
+		err = adminRecordUsage(context.Background(), args[1:], stdin, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "unknown control-plane administration command %q\n", args[0])
 		return 2
@@ -95,22 +95,17 @@ func adminSetUserBudget(
 func adminRecordUsage(
 	ctx context.Context,
 	args []string,
+	stdin io.Reader,
 	stdout io.Writer,
 	stderr io.Writer,
 ) error {
 	var config adminClientConfig
 	var payload controlplane.AdminRecordUsageRequest
-	var intervalStart string
-	var intervalEnd string
 	flagSet := flag.NewFlagSet("setta-control-plane admin record-usage", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)
 	flagSet.StringVar(&config.SocketPath, "socket", "", "absolute private administration socket path")
 	flagSet.StringVar(&payload.IdempotencyKey, "idempotency-key", "", "globally unique immutable interval key")
 	flagSet.StringVar(&payload.UserID, "user-id", "", "immutable Setta user identifier")
-	flagSet.StringVar(&payload.RuntimeName, "runtime-name", "", "Setta-managed runtime name")
-	flagSet.StringVar(&intervalStart, "interval-start", "", "inclusive RFC3339 interval start")
-	flagSet.StringVar(&intervalEnd, "interval-end", "", "exclusive RFC3339 interval end")
-	flagSet.Int64Var(&payload.CoveredCostUSDMicros, "covered-cost-usd-micros", 0, "conservatively accounted interval cost in micro-US dollars")
 	if err := flagSet.Parse(args); err != nil {
 		return err
 	}
@@ -120,17 +115,22 @@ func adminRecordUsage(
 	if err := validateAdminClientConfig(config); err != nil {
 		return err
 	}
-	var err error
-	payload.IntervalStart, err = time.Parse(time.RFC3339Nano, intervalStart)
-	if err != nil {
-		return errors.New("usage interval start must be RFC3339")
+	if err := decodeRuntimeAccountingEvidence(stdin, &payload.Evidence); err != nil {
+		return err
 	}
-	payload.IntervalEnd, err = time.Parse(time.RFC3339Nano, intervalEnd)
-	if err != nil {
-		return errors.New("usage interval end must be RFC3339")
-	}
-	payload.MeasurementSource = runtimeprovider.UsageBasisSettaConservative
 	return executeAdminRequest(ctx, config, "/v1/usage/record", payload, "usage_recorded", stdout)
+}
+
+func decodeRuntimeAccountingEvidence(
+	reader io.Reader,
+	target *runtimeaccounting.Evidence,
+) error {
+	decoder := json.NewDecoder(io.LimitReader(reader, maximumBootstrapCredentialBytes+1))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil || decoder.Decode(&struct{}{}) != io.EOF {
+		return errors.New("decode runtime accounting evidence failed")
+	}
+	return nil
 }
 
 func adminEnsureDevice(

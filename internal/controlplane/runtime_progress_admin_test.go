@@ -26,9 +26,10 @@ func TestAdminRuntimeProgressSSEReplaysAndResumesWithoutProviderFields(t *testin
 	}
 	socketPath := filepath.Join(directory, "admin.sock")
 	server, err := StartAdminServer(AdminServerConfig{
-		Observer:   newAdminTestObserver(t, io.Discard),
-		SocketPath: socketPath,
-		Store:      store,
+		Observer:      newAdminTestObserver(t, io.Discard),
+		PriceSchedule: adminTestPriceSchedule(),
+		SocketPath:    socketPath,
+		Store:         store,
 	})
 	if err != nil {
 		t.Fatal(err)

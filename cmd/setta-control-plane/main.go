@@ -18,6 +18,8 @@ import (
 	"time"
 
 	"setta/internal/controlplane"
+	"setta/internal/runtimecost"
+	spritescost "setta/internal/runtimecost/sprites"
 	"setta/internal/sprites"
 )
 
@@ -174,9 +176,10 @@ func startControlPlaneServices(
 		return controlPlaneServices{}, fmt.Errorf("start control-plane gateway: %w", err)
 	}
 	admin, err := controlplane.StartAdminServer(controlplane.AdminServerConfig{
-		Observer:   observer,
-		SocketPath: controlplane.AdminSocketPath(config.DataDirectory),
-		Store:      store,
+		Observer:      observer,
+		PriceSchedule: controlPlanePriceSchedule(),
+		SocketPath:    controlplane.AdminSocketPath(config.DataDirectory),
+		Store:         store,
 	})
 	if err != nil {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
@@ -188,6 +191,10 @@ func startControlPlaneServices(
 		)
 	}
 	return controlPlaneServices{admin: admin, observer: observer, reconciler: reconciler, server: server}, nil
+}
+
+func controlPlanePriceSchedule() runtimecost.PriceSchedule {
+	return spritescost.PublishedRates20260714()
 }
 
 func (services controlPlaneServices) run(ctx context.Context, shutdownTimeout time.Duration) error {

@@ -2366,3 +2366,20 @@ Stop and reassess rather than hiding the problem if any of these occur:
   prevents a hung provider request from silently invalidating the conservative
   cost reserve; automatic trusted usage reporting and the failed-cutoff alert
   path remain open. No provider or cloud mutation ran.
+- 2026-07-24 (verified accounting evidence ingestion): Replaced the private
+  administration boundary's caller-supplied covered-cost fields with the exact
+  versioned artifact emitted by `setta-runtime-accounting`. The control plane
+  now owns the pinned Sprites rate card, validates the artifact version,
+  lowercase configuration/event hashes, rate-card identity, and conservative
+  measurement basis, then recomputes every covered micro-USD component from
+  the typed usage observation before writing an interval. The raw interval
+  writer is package-private. Durable idempotency binds the complete finalized
+  artifact, so exact replay is harmless while any mutation conflicts; altered
+  costs and invalid identities cannot accrue budget. The administration CLI
+  accepts one strict evidence document on stdin and rejects unknown fields or
+  trailing documents, providing a direct offline-ledger-to-control-plane
+  contract without a second cost representation. Focused tests cover valid
+  threshold enforcement, cost tampering, invalid version/rate/hash/basis,
+  exact replay, conflicting artifact replay, and strict CLI decoding. Automatic
+  event capture and scheduled submission remain open, so the combined Phase 5
+  checklist item stays unchecked. No provider or cloud mutation ran.

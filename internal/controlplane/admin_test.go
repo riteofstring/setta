@@ -16,6 +16,9 @@ import (
 	"time"
 
 	"setta/internal/runtimeaccess"
+	"setta/internal/runtimeaccounting"
+	"setta/internal/runtimecost"
+	spritescost "setta/internal/runtimecost/sprites"
 	"setta/internal/runtimeprovider"
 )
 
@@ -27,7 +30,7 @@ func TestAdminBudgetUsageCutsOffLiveAuthorizationAndAuditsWithoutContent(t *test
 	var audit bytes.Buffer
 	observer := newAdminTestObserver(t, &audit)
 	server, err := StartAdminServer(AdminServerConfig{
-		Observer: observer, SocketPath: socketPath, Store: store,
+		Observer: observer, PriceSchedule: adminTestPriceSchedule(), SocketPath: socketPath, Store: store,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -45,10 +48,9 @@ func TestAdminBudgetUsageCutsOffLiveAuthorizationAndAuditsWithoutContent(t *test
 		MaximumCutoffLag: time.Minute,
 	}, "user_budget_set")
 	adminTestRequest(t, client, "/v1/usage/record", AdminRecordUsageRequest{
-		IdempotencyKey: "private-usage-key", UserID: "user-server", RuntimeName: runtimeName,
-		IntervalStart: start, IntervalEnd: start.Add(time.Minute),
-		MeasurementSource:    runtimeprovider.UsageBasisSettaConservative,
-		CoveredCostUSDMicros: 700,
+		IdempotencyKey: "private-usage-key",
+		UserID:         "user-server",
+		Evidence:       testAdminUsageEvidence(t, runtimeName, start),
 	}, "usage_recorded")
 	requireClosed(t, authorization.Invalidated, "budget cutoff")
 	requireAuthorizationOutcome(t, store, grant.Token, runtimeaccess.AuthorizationSuspended)
@@ -72,7 +74,7 @@ func TestAdminServerMutatesLiveAuthorizationAndPushInvalidation(t *testing.T) {
 	var audit bytes.Buffer
 	observer := newAdminTestObserver(t, &audit)
 	server, err := StartAdminServer(AdminServerConfig{
-		Observer: observer, SocketPath: socketPath, Store: store,
+		Observer: observer, PriceSchedule: adminTestPriceSchedule(), SocketPath: socketPath, Store: store,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -132,7 +134,7 @@ func TestTypedHostedAccessClientStreamsReadyOnPhoneThroughPrivateBoundary(t *tes
 	var measurements bytes.Buffer
 	observer := newAdminTestObserver(t, &measurements)
 	server, err := StartAdminServer(AdminServerConfig{
-		Observer: observer, SocketPath: socketPath, Store: store,
+		Observer: observer, PriceSchedule: adminTestPriceSchedule(), SocketPath: socketPath, Store: store,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -192,9 +194,10 @@ func TestTypedHostedAccessClientReceivesDurableAssignmentFailure(t *testing.T) {
 	defer store.Close()
 	var measurements bytes.Buffer
 	server, err := StartAdminServer(AdminServerConfig{
-		Observer:   newAdminTestObserver(t, &measurements),
-		SocketPath: filepath.Join(directory, "admin.sock"),
-		Store:      store,
+		Observer:      newAdminTestObserver(t, &measurements),
+		PriceSchedule: adminTestPriceSchedule(),
+		SocketPath:    filepath.Join(directory, "admin.sock"),
+		Store:         store,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -261,7 +264,7 @@ func TestTypedHostedAccessClientReceivesTerminalUserSuspension(t *testing.T) {
 	defer store.Close()
 	socketPath := filepath.Join(directory, "admin.sock")
 	server, err := StartAdminServer(AdminServerConfig{
-		Observer: newAdminTestObserver(t, io.Discard), SocketPath: socketPath, Store: store,
+		Observer: newAdminTestObserver(t, io.Discard), PriceSchedule: adminTestPriceSchedule(), SocketPath: socketPath, Store: store,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -280,6 +283,44 @@ func TestTypedHostedAccessClientReceivesTerminalUserSuspension(t *testing.T) {
 	requireSuspendedHostedAccess(t, readHostedAccessTestEvent(t, stream), "2")
 	if _, err := readHostedAccessEvent(stream); !errors.Is(err, io.EOF) {
 		t.Fatalf("suspended progress stream read error = %v, want EOF", err)
+	}
+}
+
+func adminTestPriceSchedule() runtimecost.PriceSchedule {
+	return spritescost.PublishedRates20260714()
+}
+
+func testAdminUsageEvidence(
+	t *testing.T,
+	runtimeName string,
+	start time.Time,
+) runtimeaccounting.Evidence {
+	t.Helper()
+	usage := runtimeprovider.UsageObservation{
+		Provider: spritescost.Provider, RuntimeName: runtimeName,
+		Window:     runtimeprovider.UsageWindow{Start: start, End: start.Add(time.Minute)},
+		ObservedAt: start.Add(time.Minute), Basis: runtimeprovider.UsageBasisSettaConservative,
+		Coverage: []runtimeprovider.UsageDimension{
+			runtimeprovider.UsageDimensionProviderActive,
+			runtimeprovider.UsageDimensionCPU,
+			runtimeprovider.UsageDimensionMemory,
+		},
+		Quantities: runtimeprovider.UsageQuantities{
+			ProviderActive:      time.Minute,
+			CPUCoreMicroseconds: 120_000_000,
+			MemoryByteSeconds:   60_000_000_000,
+		},
+	}
+	cost, err := runtimecost.Estimate(adminTestPriceSchedule(), usage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return runtimeaccounting.Evidence{
+		Version: 1, ConfigSHA256: strings.Repeat("0", 64),
+		EventsSHA256:    strings.Repeat("1", 64),
+		RateCardVersion: adminTestPriceSchedule().Version,
+		Usage:           usage, Cost: cost,
+		Cutoff: runtimeaccounting.CutoffDecision{CurrentCoveredUSDMicros: cost.CoveredTotal},
 	}
 }
 

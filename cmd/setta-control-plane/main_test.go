@@ -12,6 +12,7 @@ import (
 
 	"setta/internal/controlplane"
 	"setta/internal/runtimeaccess"
+	"setta/internal/runtimeaccounting"
 	"setta/internal/runtimeprovider"
 )
 
@@ -200,6 +201,29 @@ func TestAdminCommandsMutateTheLiveControlPlaneWithoutPrintingCredentials(t *tes
 	}
 }
 
+func TestDecodeRuntimeAccountingEvidenceIsStrict(t *testing.T) {
+	expected := runtimeaccounting.Evidence{Version: 1}
+	encoded, err := json.Marshal(expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded runtimeaccounting.Evidence
+	if err := decodeRuntimeAccountingEvidence(bytes.NewReader(encoded), &decoded); err != nil {
+		t.Fatalf("decode evidence: %v", err)
+	}
+	if decoded.Version != expected.Version {
+		t.Fatalf("decoded evidence = %+v", decoded)
+	}
+	for _, input := range [][]byte{
+		[]byte(`{"version":1,"unknown":true}`),
+		append(append([]byte(nil), encoded...), []byte("{}")...),
+	} {
+		if err := decodeRuntimeAccountingEvidence(bytes.NewReader(input), &decoded); err == nil {
+			t.Fatalf("strict decoder accepted %q", input)
+		}
+	}
+}
+
 func runAdminTestCommand(t *testing.T, args []string, stdin []byte) []byte {
 	t.Helper()
 	var stdout bytes.Buffer
@@ -286,9 +310,10 @@ func startBootstrapAdminServer(
 		t.Fatal(err)
 	}
 	server, err := controlplane.StartAdminServer(controlplane.AdminServerConfig{
-		Observer:   observer,
-		SocketPath: controlplane.AdminSocketPath(dataDirectory),
-		Store:      store,
+		Observer:      observer,
+		PriceSchedule: controlPlanePriceSchedule(),
+		SocketPath:    controlplane.AdminSocketPath(dataDirectory),
+		Store:         store,
 	})
 	if err != nil {
 		_ = store.Close()

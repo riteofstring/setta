@@ -68,7 +68,7 @@ func TestRunProducesIdenticalOneShotAndRestartedEvidence(t *testing.T) {
 		t.Fatal("finalized evidence accepted an appended event stream")
 	}
 
-	var result evidence
+	var result runtimeaccounting.Evidence
 	if err := json.Unmarshal(oneShot, &result); err != nil {
 		t.Fatalf("Unmarshal evidence: %v", err)
 	}
