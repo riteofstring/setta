@@ -264,6 +264,7 @@ void main(){
   float settle=exp(-max(age-0.10,0.0)*6.0);
   float pop=rise*(1.0+0.55*settle);
   vec2 center=vec2(a_x, -0.35 + (u_cam - a_worldY));
+  if(center.y>1.3||center.y<-1.3){ gl_Position=vec4(2.0,2.0,2.0,1.0); gl_PointSize=0.0; return; }   // cull off-viewport
   float hover = exp(-distance(vec2(a_x,a_worldY),vec2(u_hoverX,u_hoverWY))*20.0) * u_hoverOn;  // u_hoverOn is eased 0..1
   float failing=step(a_failAt,998.0);
   float failAge=age-a_failAt;
@@ -375,6 +376,7 @@ void main(){
   float tt=min(t,grow);
   vec2 A=vec2(aX,-0.35+(u_cam-aWY));
   vec2 B=vec2(bX,-0.35+(u_cam-bWY));
+  if((A.y>1.35&&B.y>1.35)||(A.y<-1.35&&B.y<-1.35)){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }   // cull off-viewport edges
   vec2 dS=normalize((B-A)*vec2(u_aspect,1.0)+vec2(1e-6));
   vec2 perpS=vec2(-dS.y,dS.x);
   vec2 perpC=vec2(perpS.x/u_aspect, perpS.y);
@@ -467,6 +469,7 @@ void main(){
   float failing=step(a_failAt,998.0); float failAge=age-a_failAt; v_fail=failing>0.5?smoothstep(0.0,0.35,failAge):0.0;
   float halfY=(0.020+recent*0.006+working*0.017)*pop; float halfX=halfY/u_aspect;   // sits inside the ring with margin
   vec2 center=vec2(a_x, -0.35+(u_cam-a_worldY));
+  if(center.y>1.35||center.y<-1.35){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }   // cull off-viewport icons
   vec2 pos=center+vec2(a_cx*halfX, a_cy*halfY);
   v_uv=vec2((a_icon+(a_cx*0.5+0.5))/u_nicon, 1.0-(a_cy*0.5+0.5));
   v_mode=a_mode; v_reveal=smoothstep(0.06,0.30,age)*vis;
@@ -567,8 +570,10 @@ function edVaoSetup(){gl.bindVertexArray(edVao);gl.bindBuffer(gl.ARRAY_BUFFER,ed
 const EDGE_SEG=12;
 
 let fbo=gl.createFramebuffer(),fboTex=gl.createTexture(),fw=0,fh=0;
+const MAX_BACKING_PIX=2300000;   // bound the full-screen post pass — canvas still fills the display (upscaled)
 function resize(){const dpr=Math.min(window.devicePixelRatio||1,1.5);
-  const w=Math.round(innerWidth*dpr),h=Math.round(innerHeight*dpr);
+  let w=Math.round(innerWidth*dpr),h=Math.round(innerHeight*dpr);
+  if(w*h>MAX_BACKING_PIX){const s=Math.sqrt(MAX_BACKING_PIX/(w*h));w=Math.max(1,Math.round(w*s));h=Math.max(1,Math.round(h*s));}
   if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
   if(fw!==w||fh!==h){fw=w;fh=h;gl.bindTexture(gl.TEXTURE_2D,fboTex);
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
