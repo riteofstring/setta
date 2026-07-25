@@ -3101,3 +3101,25 @@ Stop and reassess rather than hiding the problem if any of these occur:
   The three affected Go packages, `./scripts/format.sh`, and
   `./check_quality.sh --git-changes` passed. No dependency file changed and no
   provider or cloud mutation ran.
+- 2026-07-25 (service-stream failure detail): Made a failed `EnsureService`
+  diagnosable without letting service output reach durable evidence.
+  `consumeServiceStream` had discarded the payload on an `error` event and
+  returned a bare `ErrIncompleteProviderStream`, while the mutation streams
+  carried detail, so the hosted install path was the least explainable one.
+  Service streams now build a typed error surfaced through the existing
+  `OperationError.Detail`. Because a service stream's `Data` is the service's
+  own stdout and stderr — and the pinned `ServiceLogEvent` has no separate
+  error field — the detail is taken only from `error`-type events, trimmed, and
+  bounded to 512 bytes on a UTF-8 boundary, with a fixed content-free sentence
+  when the event carries nothing usable. The runtime install health boundary now
+  wraps its cause so the typed error survives to callers. A deterministic test
+  drives a failing hosted install through the production adapter and install
+  loop with a distinctive marker in the service payload and proves the marker
+  reaches neither the hosted-measurement state file nor the runtime install
+  metadata, while remaining reachable in process through `errors.As`. The two
+  durable Candidate B reports were independently confirmed to be typed scalars
+  with no free-text failure field, so no hosted evidence artifact can carry the
+  detail. Non-error events, incomplete streams, and unrecognized event types are
+  unchanged. The three affected Go packages, `./scripts/format.sh`, and
+  `./check_quality.sh --git-changes` passed. No dependency file changed and no
+  provider or cloud mutation ran.
