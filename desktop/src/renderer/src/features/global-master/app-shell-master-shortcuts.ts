@@ -2,7 +2,6 @@ import type { AppearanceMasterVoiceShortcut } from "@generated/backend";
 import type { DesktopPlatform, WorkspaceBrowserViewKeyEvent } from "@shared/types";
 import { useEffect } from "react";
 
-import type { AppShellMasterController } from "./app-shell-master-controller";
 import { cancelMasterCaptureIfActive, executeMasterVoiceCommand } from "./master-voice-controls";
 import { isMasterVoiceShortcut } from "./master-shortcuts";
 import type { AppShellSpeechCaptureController } from "../global-speech/app-shell-speech-capture-controller";
@@ -12,13 +11,11 @@ import {
 } from "../../workspace-layout/master-pane-focus";
 
 export function useAppShellMasterShortcuts({
-  controller,
   masterVoiceShortcut,
   openVoiceCredentialSettingsFromMaster,
   platform,
   speechCaptureController,
 }: {
-  controller: AppShellMasterController;
   masterVoiceShortcut: AppearanceMasterVoiceShortcut;
   openVoiceCredentialSettingsFromMaster: () => void;
   platform: DesktopPlatform;
@@ -36,17 +33,12 @@ export function useAppShellMasterShortcuts({
       }
       if (isMasterPaneFocusShortcut(event)) {
         event.preventDefault();
-        controller.closeOverlay();
         requestMasterPaneFocus("keyboard");
         return;
       }
       if (event.key === "Escape" && cancelMasterCaptureIfActive(speechCaptureController)) {
         event.preventDefault();
         return;
-      }
-      if (event.key === "Escape" && controller.getSnapshot().overlayOpen) {
-        event.preventDefault();
-        controller.closeOverlay();
       }
     };
     const handleNativeViewKey = (event: WorkspaceBrowserViewKeyEvent) => {
@@ -55,7 +47,6 @@ export function useAppShellMasterShortcuts({
         return;
       }
       if (isMasterPaneFocusShortcut(event)) {
-        controller.closeOverlay();
         requestMasterPaneFocus("native-key");
       }
     };
@@ -67,7 +58,6 @@ export function useAppShellMasterShortcuts({
       window.removeEventListener("keydown", handleWindowKeyDown, { capture: true });
     };
   }, [
-    controller,
     masterVoiceShortcut,
     openVoiceCredentialSettingsFromMaster,
     platform,

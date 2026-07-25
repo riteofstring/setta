@@ -61,7 +61,6 @@ export interface AppShellMasterSnapshot {
   completedTranscript: CompletedGlobalSpeechTranscript | null;
   draft: string;
   interaction: MasterInteractionState;
-  overlayOpen: boolean;
   runtimeId: string | null;
   submission: MasterInputSubmissionState;
   transcript: MasterTranscriptState;

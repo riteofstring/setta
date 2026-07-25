@@ -43,7 +43,6 @@ export function AppShellMasterPaneSurface({
       snapshot={snapshot}
       speechCapture={speechCaptureContext}
       speechPlayback={speechPlayback ?? null}
-      variant="pane"
     />
   );
 }

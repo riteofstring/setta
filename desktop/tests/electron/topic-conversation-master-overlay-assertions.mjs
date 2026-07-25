@@ -215,10 +215,14 @@ async function assertMasterPaneEntryPoint(client, timeoutMs) {
 }
 
 async function openFromAppChrome(client, text, timeoutMs) {
-  await clickMasterSurfaceEntry(client, "master-overlay-button", timeoutMs);
-  await waitForMasterOverlay(client, { draft: text, focused: true }, timeoutMs);
-  await clickEnabledButtonByAria(client, "Close Ask Setta", timeoutMs);
-  await waitForMasterOverlayClosed(client, timeoutMs);
+  await clickMasterSurfaceEntry(client, "master-pane-button", timeoutMs);
+  await waitForState(
+    client,
+    driverCallExpression("masterPaneState", { draft: text }),
+    (state) =>
+      state.open && state.draft === text && state.focused && !state.overlayOpen && state.maximized,
+    timeoutMs,
+  );
 }
 
 async function openFromGlobalShortcut(client, text, timeoutMs) {
@@ -280,27 +284,6 @@ async function setMasterPaneDraft(client, text, timeoutMs) {
     throw new Error("master pane draft could not be updated");
   }
   await waitForMasterPane(client, { draft: text, focused: true }, timeoutMs);
-}
-
-async function waitForMasterOverlay(client, { draft, focused }, timeoutMs) {
-  return waitForState(
-    client,
-    `(() => {
-      const overlay = document.querySelector('[data-testid="master-overlay"]');
-      const textarea = overlay?.querySelector('textarea[aria-label="Ask Setta"]');
-      const shell = document.querySelector('[aria-hidden="true"][inert]');
-      const workspace = document.querySelector('[data-testid="workspace-layout-area"]');
-      return {
-        draft: textarea instanceof HTMLTextAreaElement ? textarea.value : null,
-        focused: textarea === document.activeElement,
-        nativeViewsOccluded: workspace?.getAttribute("data-native-view-overlay-active") === "true",
-        open: Boolean(overlay),
-        shellInert: Boolean(shell),
-      };
-    })()`,
-    (state) => state.open && state.draft === draft && state.focused === focused,
-    timeoutMs,
-  );
 }
 
 async function waitForMasterPane(client, { draft, focused }, timeoutMs) {
@@ -375,19 +358,6 @@ export async function verifyRestoredMasterInteraction({
 }
 
 export async function closeMasterOverlay(client, timeoutMs) {
-  const state = await waitForState(
-    client,
-    `(() => ({
-      overlayOpen: Boolean(document.querySelector('[data-testid="master-overlay"]')),
-      paneOpen: Boolean(document.querySelector('[data-testid="master-pane-surface"]')),
-    }))()`,
-    (candidate) => candidate.overlayOpen || candidate.paneOpen,
-    timeoutMs,
-  );
-  if (!state.overlayOpen) {
-    return;
-  }
-  await clickEnabledButtonByAria(client, "Close Ask Setta", timeoutMs);
   await waitForMasterOverlayClosed(client, timeoutMs);
 }
 

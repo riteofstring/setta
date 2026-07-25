@@ -19,7 +19,7 @@ import {
   Volume2,
 } from "lucide-react";
 import type { FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type {
   AppShellMasterController,
@@ -52,51 +52,28 @@ import { useAppearanceStore } from "../../stores/appearance-store";
 import { defaultShortcutsSettings } from "../../workspace-layout/workspace-shortcuts";
 export function AppShellMasterSurface({
   children,
-  controller,
   onOpenVoiceCredentialSettings,
   platform,
 }: {
-  children: (overlayOpen: boolean) => ReactNode;
-  controller: AppShellMasterController;
+  children: () => ReactNode;
   onOpenVoiceCredentialSettings: () => void;
   platform: DesktopPlatform;
 }) {
-  const snapshot = useSyncExternalStore(
-    controller.subscribe,
-    controller.getSnapshot,
-    controller.getSnapshot,
-  );
   const speechCapture = useAppShellSpeechCapture();
   const speechCaptureController = speechCapture?.controller ?? null;
   const masterVoiceShortcut = useMasterVoiceShortcut();
   const openVoiceCredentialSettingsFromMaster = useCallback(() => {
-    controller.closeOverlay();
     onOpenVoiceCredentialSettings();
-  }, [controller, onOpenVoiceCredentialSettings]);
+  }, [onOpenVoiceCredentialSettings]);
 
   useAppShellMasterShortcuts({
-    controller,
     masterVoiceShortcut,
     openVoiceCredentialSettingsFromMaster,
     platform,
     speechCaptureController,
   });
 
-  return (
-    <>
-      {children(snapshot.overlayOpen)}
-      {snapshot.overlayOpen ? (
-        <MasterOverlay
-          controller={controller}
-          masterVoiceShortcut={masterVoiceShortcut}
-          onOpenVoiceCredentialSettings={openVoiceCredentialSettingsFromMaster}
-          platform={platform}
-          snapshot={snapshot}
-          speechCapture={speechCapture}
-        />
-      ) : null}
-    </>
-  );
+  return <>{children()}</>;
 }
 
 export function useMasterVoiceShortcut(): AppearanceMasterVoiceShortcut {
@@ -107,71 +84,30 @@ export function useMasterVoiceShortcut(): AppearanceMasterVoiceShortcut {
   );
 }
 
-function MasterOverlay({
-  controller,
-  masterVoiceShortcut,
-  onOpenVoiceCredentialSettings,
-  platform,
-  snapshot,
-  speechCapture,
-}: {
-  controller: AppShellMasterController;
-  masterVoiceShortcut: AppearanceMasterVoiceShortcut;
-  onOpenVoiceCredentialSettings: () => void;
-  platform: DesktopPlatform;
-  snapshot: AppShellMasterSnapshot;
-  speechCapture: AppShellSpeechCaptureContextValue | null;
-}) {
-  return (
-    <div className="setta-master-overlay-layer" data-testid="master-overlay-layer">
-      <div
-        aria-hidden="true"
-        className="setta-master-overlay-backdrop"
-        onMouseDown={() => controller.closeOverlay()}
-      />
-      <MasterSurfaceFrame
-        controller={controller}
-        focused
-        masterVoiceShortcut={masterVoiceShortcut}
-        onClose={controller.closeOverlay}
-        onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
-        platform={platform}
-        snapshot={snapshot}
-        speechCapture={speechCapture}
-        speechPlayback={null}
-        variant="overlay"
-      />
-    </div>
-  );
-}
 export function MasterSurfaceFrame({
   controller,
   focused,
   masterVoiceShortcut,
-  onClose,
   onOpenVoiceCredentialSettings,
   platform,
   snapshot,
   speechCapture,
   speechPlayback,
-  variant,
 }: {
   controller: AppShellMasterController;
   focused: boolean;
   masterVoiceShortcut: AppearanceMasterVoiceShortcut;
-  onClose?: () => void;
   onOpenVoiceCredentialSettings?: () => void;
   platform: DesktopPlatform;
   snapshot: AppShellMasterSnapshot;
   speechCapture: AppShellSpeechCaptureContextValue | null;
   speechPlayback: AppShellSpeechPlaybackController | null;
-  variant: "overlay" | "pane";
 }) {
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const [synchronousError, setSynchronousError] = useState<string | null>(null);
   const canSubmit = controller.canSubmitInput() && snapshot.draft.trim() !== "";
   const masterVoice = createMasterVoiceModel(speechCapture, platform, masterVoiceShortcut);
-  const headingId = masterSurfaceHeadingId(variant);
+  const headingId = masterSurfaceHeadingId();
 
   useEffect(() => {
     if (focused) {
@@ -211,19 +147,15 @@ export function MasterSurfaceFrame({
   return (
     <section
       aria-labelledby={headingId}
-      aria-modal={variant === "overlay" ? true : undefined}
-      className={`setta-master-overlay${variant === "pane" ? " setta-master-pane" : ""}`}
-      data-master-overlay-state={variant === "overlay" ? "open" : undefined}
-      data-master-pane-state={variant === "pane" ? "ready" : undefined}
-      data-testid={variant === "pane" ? "master-pane-surface" : "master-overlay"}
-      role={variant === "overlay" ? "dialog" : "region"}
+      className="setta-master-overlay setta-master-pane"
+      data-master-pane-state="ready"
+      data-testid="master-pane-surface"
+      role="region"
     >
       <MasterSurfaceHeader
         headingId={headingId}
         masterVoiceShortcut={masterVoiceShortcut}
-        onClose={onClose}
         platform={platform}
-        variant={variant}
       />
 
       <MasterInteraction
@@ -247,8 +179,8 @@ export function MasterSurfaceFrame({
   );
 }
 
-function masterSurfaceHeadingId(variant: "overlay" | "pane"): string {
-  return variant === "pane" ? "setta-master-pane-title" : "setta-master-overlay-title";
+function masterSurfaceHeadingId(): string {
+  return "setta-master-pane-title";
 }
 
 function MasterSurfaceFooter({

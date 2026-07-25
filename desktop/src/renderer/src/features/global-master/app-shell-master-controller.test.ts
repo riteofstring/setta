@@ -40,26 +40,21 @@ describe("app-shell master controller", () => {
         state: { input: { id: "capture_alpha", modality: "voice" }, status: "decided" },
         type: "active",
       },
-      overlayOpen: true,
       runtimeId: "runtime_alpha",
       submission: { accepted: { sequence: 2 }, type: "accepted" },
     });
   });
 
-  test("shares a persistent overlay draft across shell entry points", async () => {
+  test("shares a persistent master draft across pane entry points", async () => {
     const harness = createHarness();
     harness.controller.synchronizeRuntime("runtime_alpha");
     await flushPromises();
 
-    harness.controller.openOverlay();
     harness.controller.setDraft("Bring back the speech routing topic");
-    harness.controller.closeOverlay();
-    harness.controller.openOverlay();
 
     expect(harness.controller.getSnapshot()).toMatchObject({
       draft: "Bring back the speech routing topic",
       interaction: { type: "idle" },
-      overlayOpen: true,
     });
   });
 
@@ -114,7 +109,6 @@ describe("app-shell master controller", () => {
       completedTranscript: null,
       draft: "",
       interaction: { type: "idle" },
-      overlayOpen: true,
       runtimeId: "runtime_new",
       submission: { type: "idle" },
       transcript: { transcript: emptyTranscript(), type: "ready" },
@@ -133,8 +127,6 @@ describe("app-shell master controller", () => {
 
     harness.controller.synchronizeRuntime("runtime_alpha");
     await flushPromises();
-    harness.controller.openOverlay();
-    harness.controller.closeOverlay();
 
     expect(harness.controller.getSnapshot()).toMatchObject({
       interaction: {
@@ -144,15 +136,13 @@ describe("app-shell master controller", () => {
         },
         type: "active",
       },
-      overlayOpen: false,
     });
-    harness.controller.openOverlay();
     harness.controller.submitText("The speech routing topic");
     await waitForInteraction(harness.controller, "decided");
     expect(harness.requests).toHaveLength(1);
   });
 
-  test("dismisses a completed immediate result while preserving durable transcript", async () => {
+  test("keeps a completed immediate result and durable transcript in pane state", async () => {
     const harness = createHarness();
     harness.controller.synchronizeRuntime("runtime_alpha");
     await flushPromises();
@@ -160,12 +150,11 @@ describe("app-shell master controller", () => {
     await waitForInteraction(harness.controller, "decided");
     await flushPromises();
 
-    harness.controller.closeOverlay();
-    harness.controller.openOverlay();
-
     expect(harness.controller.getSnapshot()).toMatchObject({
-      interaction: { type: "idle" },
-      overlayOpen: true,
+      interaction: {
+        state: { input: { id: "master_input_1" }, status: "decided" },
+        type: "active",
+      },
       transcript: {
         transcript: {
           entries: [
@@ -179,7 +168,7 @@ describe("app-shell master controller", () => {
     expect(harness.controller.getSnapshot()).not.toHaveProperty("recentInputs");
   });
 
-  test("applies a completed navigation intent before dismissing the shell overlay", async () => {
+  test("applies a completed navigation intent in pane state", async () => {
     const applied = deferred<{ paneId: string }>();
     const resolved = deferred<{
       inputId: string;
@@ -205,12 +194,9 @@ describe("app-shell master controller", () => {
     harness.controller.submitText("Focus alpha");
     await waitForInteraction(harness.controller, "decided");
     expect(present).toHaveBeenCalledWith(focusPresentation("master_input_1"));
-    expect(harness.controller.getSnapshot().overlayOpen).toBe(true);
     expect(harness.controller.canSubmitInput()).toBe(false);
-    harness.controller.closeOverlay();
     expect(harness.controller.getSnapshot()).toMatchObject({
       interaction: { type: "active" },
-      overlayOpen: false,
     });
 
     applied.resolve({ paneId: "pane_alpha" });
@@ -220,7 +206,6 @@ describe("app-shell master controller", () => {
       intentId: "master-presentation:master_input_1",
       paneId: "pane_alpha",
     });
-    expect(harness.controller.getSnapshot().overlayOpen).toBe(false);
 
     resolved.resolve({
       inputId: "master_input_1",
@@ -231,7 +216,6 @@ describe("app-shell master controller", () => {
     await flushPromises();
     expect(harness.controller.getSnapshot()).toMatchObject({
       interaction: { type: "idle" },
-      overlayOpen: false,
       submission: { type: "idle" },
     });
   });
@@ -266,7 +250,6 @@ describe("app-shell master controller", () => {
     });
     expect(harness.controller.getSnapshot()).toMatchObject({
       interaction: { type: "idle" },
-      overlayOpen: false,
     });
   });
 

@@ -521,11 +521,11 @@ async function assertTopBarHasMasterVoiceArea(client, timeoutMs) {
 
 export async function openMasterOverlayForSpeech(client, timeoutMs) {
   const alreadyOpen = await client.evaluate(
-    "Boolean(document.querySelector('[data-testid=\"master-overlay\"]'))",
+    "Boolean(document.querySelector('[data-testid=\"master-pane-surface\"]'))",
   );
   if (!alreadyOpen) {
     const clicked = await client.evaluate(`(() => {
-      const button = document.querySelector('[data-testid="master-overlay-button"]');
+      const button = document.querySelector('[data-testid="master-pane-button"]');
       if (!(button instanceof HTMLButtonElement) || button.disabled) {
         return false;
       }
@@ -539,12 +539,12 @@ export async function openMasterOverlayForSpeech(client, timeoutMs) {
   await waitForState(
     client,
     `(() => ({
-      open: Boolean(document.querySelector('[data-testid="master-overlay"]')),
+      open: Boolean(document.querySelector('[data-testid="master-pane-surface"]')),
       voiceControlPresent: Boolean(
-        document.querySelector('[data-testid="master-overlay"] [data-testid="master-overlay-voice-capture"]'),
+        document.querySelector('[data-testid="master-pane-surface"] [data-testid="master-pane-voice-capture"]'),
       ),
       legacyShellStatusPresent: Boolean(
-        document.querySelector('[data-testid="master-overlay"] [data-testid="shell-speech-status"]'),
+        document.querySelector('[data-testid="master-pane-surface"] [data-testid="shell-speech-status"]'),
       ),
     }))()`,
     (state) => state.open && state.voiceControlPresent && !state.legacyShellStatusPresent,
@@ -562,19 +562,6 @@ async function assertMasterOverlayExcludesTopicSpeech(client, excludedTexts, tim
 }
 
 async function closeMasterOverlay(client, timeoutMs) {
-  const clicked = await client.evaluate(`(() => {
-    const button = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === "Close Ask Setta",
-    );
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!clicked) {
-    throw new Error("Ask Setta could not be closed after checking its voice control");
-  }
   await waitForState(
     client,
     "Boolean(document.querySelector('[data-testid=\"master-overlay\"]'))",

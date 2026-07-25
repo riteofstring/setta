@@ -37,7 +37,10 @@ import type { AppShellSpeechPlaybackController } from "./features/global-speech/
 import { AppShellSpeechStatus } from "./features/global-speech/app-shell-speech-status";
 import type { GlobalSpeechPresentationSource } from "./features/global-speech/global-speech-presentation";
 import { cn } from "./lib/utils";
-import { masterPaneFocusRequestEvent } from "./workspace-layout/master-pane-focus";
+import {
+  masterPaneFocusRequestEvent,
+  requestMasterPaneFocus,
+} from "./workspace-layout/master-pane-focus";
 import { WorkspaceLayoutArea } from "./workspace-layout/WorkspaceLayoutArea";
 import { emptyWorkspaceRuntimeId } from "./workspace-layout/workspace-layout-area-runtime";
 import type {
@@ -309,18 +312,16 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
 
   const shell = ({
     master,
-    masterOverlayOpen = false,
     speechCapture,
     speechPlayback,
     speechPresentation,
   }: {
     master?: AppShellMasterController;
-    masterOverlayOpen?: boolean;
     speechCapture?: AppShellSpeechCaptureController;
     speechPlayback?: AppShellSpeechPlaybackController;
     speechPresentation?: GlobalSpeechPresentationSource;
   } = {}) => {
-    const workspaceShellHidden = masterOverlayOpen || settingsPageOpen;
+    const workspaceShellHidden = settingsPageOpen;
     return (
       <>
         <div
@@ -332,7 +333,6 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
           <AppChromeControls
             globalSpeechAvailable={speechCapture !== undefined}
             master={master}
-            masterOverlayOpen={masterOverlayOpen}
             mobileViewport={mobileViewport}
             openVoiceCredentialSettings={openVoiceCredentialSettings}
             openSettingsPage={openSettingsPage}
@@ -384,14 +384,12 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
             >
               {(speechCapture, speechPresentation) => (
                 <AppShellMasterSurface
-                  controller={master}
                   onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
                   platform={platform}
                 >
-                  {(masterOverlayOpen) =>
+                  {() =>
                     shell({
                       master,
-                      masterOverlayOpen,
                       speechCapture,
                       speechPlayback: playback,
                       speechPresentation,
@@ -665,7 +663,6 @@ function useAppearanceSettings() {
 function AppChromeControls({
   globalSpeechAvailable,
   master,
-  masterOverlayOpen,
   mobileViewport,
   openVoiceCredentialSettings,
   openSettingsPage,
@@ -673,7 +670,6 @@ function AppChromeControls({
 }: {
   globalSpeechAvailable: boolean;
   master: AppShellMasterController | undefined;
-  masterOverlayOpen: boolean;
   mobileViewport: boolean;
   openVoiceCredentialSettings: () => void;
   openSettingsPage: () => void;
@@ -686,7 +682,6 @@ function AppChromeControls({
     <DesktopShellTopBar
       globalSpeechAvailable={globalSpeechAvailable}
       master={master}
-      masterOverlayOpen={masterOverlayOpen}
       onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
       onOpenSettings={openSettingsPage}
       platform={platform}
@@ -697,14 +692,12 @@ function AppChromeControls({
 function DesktopShellTopBar({
   globalSpeechAvailable,
   master,
-  masterOverlayOpen,
   onOpenVoiceCredentialSettings,
   onOpenSettings,
   platform,
 }: {
   globalSpeechAvailable: boolean;
   master: AppShellMasterController | undefined;
-  masterOverlayOpen: boolean;
   onOpenVoiceCredentialSettings: () => void;
   onOpenSettings: () => void;
   platform: DesktopPlatform;
@@ -724,10 +717,10 @@ function DesktopShellTopBar({
           <div aria-label="Setta controls" className="setta-shell-top-bar-controls app-no-drag">
             {master ? (
               <ShellTopBarButton
-                active={masterOverlayOpen}
+                active={false}
                 label="Ask Setta"
-                onClick={master.openOverlay}
-                testId="master-overlay-button"
+                onClick={() => requestMasterPaneFocus("chrome")}
+                testId="master-pane-button"
               >
                 <Sparkles className="h-3.5 w-3.5" />
               </ShellTopBarButton>

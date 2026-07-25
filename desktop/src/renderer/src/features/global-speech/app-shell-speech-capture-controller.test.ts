@@ -94,7 +94,6 @@ describe("app-shell speech capture controller", () => {
     await harness.connect();
 
     const start = harness.startMaster();
-    expect(harness.masterController.getSnapshot().overlayOpen).toBe(true);
     expect(harness.currentCapture()).toMatchObject({
       captureSessionId: "capture_1",
       transcript: "",

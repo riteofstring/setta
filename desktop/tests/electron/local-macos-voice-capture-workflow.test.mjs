@@ -273,7 +273,7 @@ async function openMasterOverlay(client) {
     return;
   }
   const clicked = await client.evaluate(`(() => {
-    const button = document.querySelector('[data-testid="master-overlay-button"]');
+    const button = document.querySelector('[data-testid="master-pane-button"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return false;
     }
@@ -283,7 +283,7 @@ async function openMasterOverlay(client) {
   if (!clicked) {
     throw new Error("Ask Setta could not be opened for its voice control");
   }
-  await waitForSelector(client, '[data-testid="master-overlay"]');
+  await waitForSelector(client, '[data-testid="master-pane-surface"]');
 }
 
 async function clickMasterOverlayVoice(client) {

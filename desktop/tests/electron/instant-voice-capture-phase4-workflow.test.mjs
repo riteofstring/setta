@@ -898,7 +898,7 @@ async function clickPaneSpeechControl(client, conversationId) {
 
 async function clickMasterOverlayVoice(client) {
   const clicked = await client.evaluate(`(() => {
-    const button = document.querySelector('[data-testid="master-overlay-voice-capture"]');
+    const button = document.querySelector('[data-testid="master-pane-voice-capture"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return false;
     }

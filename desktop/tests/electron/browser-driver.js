@@ -45,7 +45,7 @@
 
   function masterOverlayOpenState() {
     return {
-      open: Boolean(document.querySelector('[data-testid="master-overlay"]')),
+      open: Boolean(document.querySelector('[data-testid="master-pane-surface"]')),
     };
   }
 
@@ -81,7 +81,7 @@
   }
 
   function masterOverlayVoiceButtonState() {
-    const button = document.querySelector('[data-testid="master-overlay-voice-capture"]');
+    const button = document.querySelector('[data-testid="master-pane-voice-capture"]');
     if (!(button instanceof HTMLButtonElement)) {
       return { label: "", ready: false };
     }
@@ -92,7 +92,7 @@
   }
 
   function masterOverlayVoiceClick() {
-    const button = document.querySelector('[data-testid="master-overlay-voice-capture"]');
+    const button = document.querySelector('[data-testid="master-pane-voice-capture"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return { clicked: false };
     }

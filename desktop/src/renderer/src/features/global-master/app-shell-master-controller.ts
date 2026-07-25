@@ -52,7 +52,6 @@ export class AppShellMasterController {
     completedTranscript: null,
     draft: "",
     interaction: { type: "disconnected" },
-    overlayOpen: false,
     runtimeId: null,
     submission: { type: "idle" },
     transcript: { type: "disconnected" },
@@ -92,30 +91,6 @@ export class AppShellMasterController {
       this.loadActiveInteraction(runtimeId);
     }
   }
-
-  openOverlay = (): void => {
-    this.assertUsable();
-    if (!this.snapshotValue.overlayOpen) {
-      this.updateSnapshot({ overlayOpen: true });
-    }
-  };
-
-  closeOverlay = (): void => {
-    this.assertUsable();
-    if (!this.snapshotValue.overlayOpen) {
-      return;
-    }
-    const update: Partial<AppShellMasterSnapshot> = { overlayOpen: false };
-    if (interactionIsDismissible(this.snapshotValue.interaction)) {
-      update.interaction = this.snapshotValue.runtimeId
-        ? { type: "idle" }
-        : { type: "disconnected" };
-      if (this.snapshotValue.submission.type === "accepted") {
-        update.submission = { type: "idle" };
-      }
-    }
-    this.updateSnapshot(update);
-  };
 
   setDraft = (draft: string): void => {
     this.assertUsable();
@@ -314,7 +289,6 @@ export class AppShellMasterController {
       completedTranscript,
       cancellation: { type: "idle" },
       interaction: { type: "idle" },
-      overlayOpen: true,
       submission: { input, type: "submitting" },
     });
     this.submitPending(pending);
@@ -602,7 +576,6 @@ export class AppShellMasterController {
         this.updateSnapshot({
           completedTranscript: null,
           interaction: { type: "idle" },
-          overlayOpen: false,
           submission: { type: "idle" },
         });
         this.loadTranscript(runtimeId, false);
@@ -939,25 +912,6 @@ function interactionBlocksNewInput(interaction: MasterInteractionState): boolean
         !shellInteractionSettled(interaction.state) ||
         interactionRequiresNavigation(interaction.state)
       );
-    default:
-      return assertNever(interaction);
-  }
-}
-
-function interactionIsDismissible(interaction: MasterInteractionState): boolean {
-  switch (interaction.type) {
-    case "active":
-      return (
-        shellInteractionSettled(interaction.state) &&
-        !interactionIsClarification(interaction.state) &&
-        !interactionRequiresNavigation(interaction.state)
-      );
-    case "disconnected":
-    case "idle":
-    case "load_failed":
-    case "loading":
-    case "observation_failed":
-      return false;
     default:
       return assertNever(interaction);
   }

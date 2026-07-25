@@ -8,6 +8,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { AppShellMasterController } from "./app-shell-master-controller";
+import { AppShellMasterPaneSurface } from "./app-shell-master-pane-surface";
 import { AppShellMasterSurface } from "./app-shell-master-surface";
 import { isMasterVoiceShortcut, masterVoiceShortcutLabel } from "./master-shortcuts";
 import {
@@ -16,24 +17,24 @@ import {
 } from "../../workspace-layout/master-pane-focus";
 
 describe("app-shell master surface", () => {
-  test("renders the active routing interaction and then durable transcript history", async () => {
+  test("renders the active routing interaction without opening or duplicating an overlay", async () => {
     const controller = masterController();
     controller.synchronizeRuntime("runtime_alpha");
     await flushPromises();
     controller.setDraft("Bring up the speech routing topic");
-    controller.openOverlay();
 
-    let html = renderSurface(controller);
-    expect(html).toContain('data-testid="master-overlay"');
+    let html = renderPaneSurface(controller);
+    expect(html).toContain('data-testid="master-pane-surface"');
+    expect(html).not.toContain('data-testid="master-overlay"');
     expect(html).toContain("Bring up the speech routing topic");
     expect(html).toContain("What should Setta bring into focus?");
     expect(html).toContain("Ctrl+K");
     expect(html).toContain("Ctrl+Shift+K");
-    expect(html).toContain('data-testid="master-overlay-voice-capture"');
+    expect(html).toContain('data-testid="master-pane-voice-capture"');
 
     controller.submitText("Open the latest narrator conversation");
     await flushPromises();
-    html = renderSurface(controller);
+    html = renderPaneSurface(controller);
 
     expect(html).toContain("Open the latest narrator conversation");
     expect(html).toContain('data-testid="master-active-request"');
@@ -41,12 +42,20 @@ describe("app-shell master surface", () => {
     expect(html).toContain('data-testid="master-answer-replay"');
     expect(html).toContain("The global router is ready.");
 
-    controller.closeOverlay();
-    controller.openOverlay();
     await flushPromises();
-    html = renderSurface(controller);
-    expect(html).toContain('data-testid="master-transcript-entry"');
-    expect(html).toContain('data-master-transcript-kind="assistant_reply"');
+    html = renderPaneSurface(controller);
+    expect(controller.getSnapshot()).toMatchObject({
+      transcript: {
+        transcript: {
+          entries: [
+            { payload: { kind: "user_input", inputId: "master_input_1" } },
+            { payload: { kind: "assistant_reply", inputId: "master_input_1" } },
+          ],
+        },
+        type: "ready",
+      },
+    });
+    expect(html).not.toContain('data-testid="master-transcript-entry"');
     expect(html).toContain("Open the latest narrator conversation");
     expect(html).toContain("The global router is ready.");
   });
@@ -55,9 +64,8 @@ describe("app-shell master surface", () => {
     const controller = masterController(clarificationState());
     controller.synchronizeRuntime("runtime_alpha");
     await flushPromises();
-    controller.openOverlay();
 
-    const html = renderSurface(controller);
+    const html = renderPaneSurface(controller);
     expect(html).toContain('data-master-result-kind="clarify"');
     expect(html).toContain("Which topic should Setta focus?");
     expect(html).toContain("Answer Setta’s clarification…");
@@ -69,9 +77,8 @@ describe("app-shell master surface", () => {
     });
     controller.synchronizeRuntime("runtime_alpha");
     await flushPromises();
-    controller.openOverlay();
 
-    const html = renderSurface(controller);
+    const html = renderPaneSurface(controller);
     expect(html).toContain("Setta could not load the durable master transcript.");
     expect(html).toContain("Retry transcript");
     expect(html).not.toContain("What should Setta bring into focus?");
@@ -84,15 +91,21 @@ describe("app-shell master surface", () => {
     await flushPromises();
     controller.submitText("Cancel this global route");
     await flushPromises();
-    controller.openOverlay();
 
-    let html = renderSurface(controller);
+    let html = renderPaneSurface(controller);
     expect(html).toContain('aria-label="Cancel active Setta request"');
     controller.cancelActiveInput();
     await flushPromises();
-    html = renderSurface(controller);
+    html = renderPaneSurface(controller);
     expect(html).toContain("Request cancelled");
     expect(html).toContain('data-master-routing-status="cancelled"');
+  });
+
+  test("does not render the removed overlay from the shell wrapper", () => {
+    const html = renderSurface();
+
+    expect(html).toContain('data-overlay-open="false"');
+    expect(html).not.toContain('data-testid="master-overlay"');
   });
 
   test("accepts the primary-modifier shortcut without stealing modified variants", () => {
@@ -117,15 +130,22 @@ describe("app-shell master surface", () => {
   });
 });
 
-function renderSurface(controller: AppShellMasterController): string {
+function renderSurface(): string {
   return renderToString(
-    <AppShellMasterSurface
+    <AppShellMasterSurface onOpenVoiceCredentialSettings={() => {}} platform="linux">
+      {() => <main data-overlay-open="false" />}
+    </AppShellMasterSurface>,
+  );
+}
+
+function renderPaneSurface(controller: AppShellMasterController): string {
+  return renderToString(
+    <AppShellMasterPaneSurface
       controller={controller}
+      focused
       onOpenVoiceCredentialSettings={() => {}}
       platform="linux"
-    >
-      {(overlayOpen) => <main data-overlay-open={overlayOpen} />}
-    </AppShellMasterSurface>,
+    />,
   );
 }
 

@@ -53,8 +53,7 @@
   }
 
   function topicConversationMasterActiveInteractionState() {
-    const overlay =
-      masterOverlay() ?? document.querySelector('[data-testid="master-pane-surface"]');
+    const overlay = masterSurface();
     return {
       interactionCount: overlayCount(overlay, '[data-testid="master-active-interaction"]'),
       legacyHistoryPresent: overlayHas(overlay, '[aria-label="Recent master exchanges"]'),
@@ -66,19 +65,16 @@
   }
 
   function topicConversationMasterOverlaySpeechIsolationState({ excludedTexts = [] }) {
-    const overlay = masterOverlay();
+    const overlay = masterSurface();
     const activeRequestText = overlayText(overlay, '[data-testid="master-active-request"]');
     const composerText = overlay?.querySelector('textarea[aria-label="Ask Setta"]')?.value ?? "";
-    const voiceStatusText = overlayText(overlay, '[data-testid="master-overlay-voice-status"]');
+    const voiceStatusText = overlayText(overlay, '[data-testid="master-pane-voice-status"]');
     const scopedText = [activeRequestText, composerText, voiceStatusText].join("\n");
     return {
       containsExcludedText: excludedTexts.some(
         (excluded) => excluded !== "" && scopedText.includes(excluded),
       ),
-      masterVoiceControlPresent: overlayHas(
-        overlay,
-        '[data-testid="master-overlay-voice-capture"]',
-      ),
+      masterVoiceControlPresent: overlayHas(overlay, '[data-testid="master-pane-voice-capture"]'),
       open: Boolean(overlay),
     };
   }
@@ -86,6 +82,10 @@
   function masterOverlay() {
     const overlay = document.querySelector('[data-testid="master-overlay"]');
     return overlay instanceof HTMLElement ? overlay : null;
+  }
+
+  function masterSurface() {
+    return masterOverlay() ?? document.querySelector('[data-testid="master-pane-surface"]');
   }
 
   function overlayCount(overlay, selector) {
@@ -483,7 +483,7 @@
 
   function topicConversationShellSpeechCapture() {
     const button =
-      document.querySelector('[data-testid="master-overlay-voice-capture"]') ??
+      document.querySelector('[data-testid="master-pane-voice-capture"]') ??
       document.querySelector('[data-testid="shell-speech-capture-control"]');
     if (!(button instanceof HTMLButtonElement) || button.disabled) {
       return { clicked: false };
