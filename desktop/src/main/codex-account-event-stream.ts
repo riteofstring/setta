@@ -14,6 +14,7 @@ export interface CodexAccountEventStream {
 interface CodexAccountEventStreamOptions {
   baseURL: string;
   fetchImpl: BackendFetch;
+  reportDisconnect?: (error: unknown) => void;
   reconnectDelayMs?: number;
   sendEvent: (event: CodexAccountChangeEvent) => void;
 }
@@ -57,7 +58,7 @@ async function runCodexAccountEventStreamLoop(
       if (options.signal.aborted) {
         return;
       }
-      console.warn("Codex account event stream disconnected", error);
+      options.reportDisconnect?.(error);
     }
     await sleepWithAbort(options.reconnectDelayMs, options.signal);
   }

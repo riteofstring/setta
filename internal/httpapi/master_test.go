@@ -110,44 +110,6 @@ func TestMasterInputRoutingStateEndpointReadsValidatedState(t *testing.T) {
 	}
 }
 
-func TestMasterTranscriptEndpointReadsValidatedDurableTranscript(t *testing.T) {
-	input := validSubmitMasterInputRequest().Input
-	transcript := master.Transcript{
-		Entries: []master.TranscriptEntry{{
-			Sequence: 1,
-			Payload: master.TranscriptEntryPayload{
-				ID:        "master-transcript:user:" + input.ID,
-				InputID:   input.ID,
-				Kind:      master.TranscriptEntryKindUserInput,
-				CreatedAt: "2026-07-12T18:00:01Z",
-				UserInput: &master.TranscriptUserInput{
-					Text:     input.Text,
-					Modality: input.Modality,
-				},
-			},
-		}},
-		LastSequence: 1,
-	}
-	service := &fakeHTTPMasterInputService{transcript: transcript}
-	handler := newAuthenticatedTestHandler(t, HandlerConfig{
-		MasterInputService: service,
-		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
-	})
-
-	read := postJSON[master.Transcript](
-		t,
-		handler,
-		"/master/transcript/read",
-		ReadMasterTranscriptRequest{Limit: 20},
-		http.StatusOK,
-	)
-	if service.transcriptLimit != 20 || len(read.Entries) != 1 ||
-		read.Entries[0].Payload.UserInput == nil ||
-		read.Entries[0].Payload.UserInput.Text != input.Text {
-		t.Fatalf("transcript=%+v limit=%d", read, service.transcriptLimit)
-	}
-}
-
 func TestMasterInputCancellationEndpointCancelsOneDurableShellInteraction(t *testing.T) {
 	input := validSubmitMasterInputRequest().Input
 	service := &fakeHTTPMasterInputService{state: master.InputRoutingState{
@@ -392,8 +354,6 @@ type fakeHTTPMasterInputService struct {
 	interactionCalls int
 	state            master.InputRoutingState
 	stateInputID     string
-	transcript       master.Transcript
-	transcriptLimit  int
 	waitInputID      string
 	intent           master.PresentationIntent
 	resolution       master.PresentationResolution
@@ -436,14 +396,6 @@ func (service *fakeHTTPMasterInputService) ReadInputState(
 ) (master.InputRoutingState, error) {
 	service.stateInputID = inputID
 	return master.CloneInputRoutingState(service.state), service.err
-}
-
-func (service *fakeHTTPMasterInputService) ReadTranscript(
-	_ context.Context,
-	limit int,
-) (master.Transcript, error) {
-	service.transcriptLimit = limit
-	return master.CloneTranscript(service.transcript), service.err
 }
 
 func (service *fakeHTTPMasterInputService) WaitShellInteraction(
