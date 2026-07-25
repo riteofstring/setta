@@ -94,8 +94,8 @@ func TestRecoverAgentTurnsPersistsProviderLookupFailure(t *testing.T) {
 		return latestSnapshotTurn(snapshot).Status == TurnStatusFailed
 	})
 	turn := latestSnapshotTurn(failed)
-	if turn.Error == nil || turn.Error.Code != "provider_thread_missing" || turn.Error.Retryable ||
-		!strings.Contains(turn.Error.Message, "resume provider thread before reconciliation") {
+	if turn.Error == nil || turn.Error.Code != "agent_runtime_failed" || !turn.Error.Retryable ||
+		!strings.Contains(turn.Error.Message, "reconcile provider turn after restart") {
 		t.Fatalf("durable recovery failure = %+v", turn.Error)
 	}
 }
