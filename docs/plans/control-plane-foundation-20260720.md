@@ -41,14 +41,18 @@ command requires all of the following:
 - positive concurrent-request, request-body, and shutdown ceilings.
 
 The command removes `SPRITE_TOKEN` from its process environment before opening
-the server. The Sprites adapter retains it only in process memory. Runtime
+the server. The Sprites adapter retains it only in process memory. Inner runtime
 credentials are never stored in SQLite and are re-read from the secret store
 for every route resolution, so an atomic secret-file replacement rotates new
-requests without restarting the gateway.
+requests without restarting the gateway. Runtime-reporting credentials are a
+separate scope: only their SHA-256 hashes and rotation epochs are durable in
+SQLite, while the raw credential remains in a mode-`0600` runtime file.
 
 TLS termination and normalized edge requests remain hosting-edge
 responsibilities. `/healthz` is content-free and does not contact the provider.
-All other paths enter the authenticated gateway.
+The registry-owned runtime-accounting report path authenticates its own scoped
+Bearer credential and derives runtime identity from that credential. All
+remaining paths enter the authenticated client gateway.
 
 The `ensure-runtime` operator command writes a provisioning intent but never
 calls the provider itself. The `serve` process claims durable intents and
@@ -58,7 +62,7 @@ gateway.
 
 ## Persistence and schema ownership
 
-The `internal/controlplane` package owns schema version 11. SQLite uses foreign
+The `internal/controlplane` package owns schema version 12. SQLite uses foreign
 keys, WAL journaling, one process-local connection, a five-second busy timeout,
 and a private database file. A deferred composite foreign key makes an active
 runtime assignment refer to a runtime owned by the same user. Replacement may
@@ -101,7 +105,7 @@ release equality. Wake requests are globally idempotent durable desired state;
 health observations clear them. Suspension, export-only access, exact grace
 expiry, release mismatch, and scheduled deletion invalidate live grants
 without overwriting lifecycle. The signed bootstrap supplies its verified
-installed release explicitly. Schema version 11 is a deliberate clean break;
+installed release explicitly. Schema version 12 is a deliberate clean break;
 older databases fail rather than receiving an implicit migration.
 
 The deletion executor uses its own durable operation table rather than
@@ -143,9 +147,10 @@ content-free reconciliation observer. Schema version 8 persists the maximum
 cutoff lag beside its monetary exposure reserve. Each claim derives an exact
 deadline from the durable threshold time, bounds provider work by the remaining
 interval, and fails with `cutoff_deadline_exceeded` rather than pretending a
-late cutoff stayed inside the promised exposure. The trusted automatic reporter that
-derives intervals from the accounting ledger remains required before this is
-a complete billable-compute cutoff.
+late cutoff stayed inside the promised exposure. Trusted workload-lease events
+now enter the accounting ledger automatically; scheduled window closure and
+automatic finalized-evidence submission remain required before this is a
+complete billable-compute cutoff.
 
 Schema version 9 adds one ordered accounting event stream and restart-safe
 ledger snapshot per runtime. Event sequence and identity are unique within
@@ -181,6 +186,20 @@ in-memory replay index while preserving sequence continuity and open provider,
 attachment, and workload-lease activity. A strict private administration
 command triggers closure without accepting evidence, quantities, resource
 limits, rates, or cutoff output from the caller.
+
+Schema version 12 adds one separately scoped runtime-reporting credential per
+managed runtime. Rotation stores only a unique SHA-256 token hash, increments a
+durable epoch, invalidates the prior token immediately, and emits no credential
+or runtime identity in its audit record. The public registry-owned reporting
+endpoint accepts only that credential, derives the runtime from its hash, and
+records only deterministic workload-lease transitions. The control plane
+assigns ledger order from its own store clock while preserving the
+producer-reported remaining lease TTL, so cross-machine clock skew cannot move
+an event behind concurrent gateway activity. Exact producer identity replay is
+a no-op; a body that does not match its deterministic event identity is
+rejected. Runtime credential generation, private-socket rotation, installer
+provisioning, and runtime service arguments all keep the raw token out of
+process arguments, responses, SQLite, and shared logs.
 
 The reconciler projects committed provisioning and deletion outcomes to the
 shared JSONL observer. These content-free audit records identify only the
@@ -221,13 +240,15 @@ committed health timestamp. The measurement contains only start, completion,
 and duration fields; degraded observations do not emit a completed interval,
 and negative intervals fail the observer.
 
-The installed Sprite runtime starts with explicit workload-lease enforcement.
+An installed Sprite runtime enables workload-lease enforcement only when the
+installer provides both an accounting origin and a private scoped credential.
 The shared agent runtime admits one provider turn at a time, acquires the
-trusted Sprites Tasks lease before opening a provider session, renews it at
-half its bounded TTL, cancels the turn if renewal fails, and releases through
-a separately bounded cleanup context on every return path. Local runtimes do
-not infer Sprite presence; they enable the same production client only through
-an explicit management-socket configuration.
+trusted Sprites Tasks lease, durably reports its begin before opening a provider
+session, renews and reports it at half its bounded TTL, cancels the turn if
+either renewal or reporting fails, and confirms provider release before
+reporting the end through separately bounded cleanup contexts. Local runtimes
+do not infer Sprite presence; the management socket and accounting reporter
+must be configured together.
 
 The 2026-07-24 extension persists provider-neutral hosted-access intents,
 requested capability rows, and ordered progress events. The private Unix

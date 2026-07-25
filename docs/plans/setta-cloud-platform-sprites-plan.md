@@ -2582,3 +2582,29 @@ Stop and reassess rather than hiding the problem if any of these occur:
   attribution, while the broader Phase 4 latency checkbox remains open for the
   authorized live workload comparison and remaining end-to-end outcome
   intervals. No provider or cloud mutation ran.
+- 2026-07-25 (authenticated workload-lease accounting): Advanced the
+  clean-break control-plane schema to version 12 with one separately scoped
+  runtime-reporting credential per managed runtime. Only the token hash and
+  rotation epoch enter SQLite; create-once credential generation writes a
+  private file, private-socket rotation invalidates the prior token, and
+  responses and content-free audits exclude both token and runtime identity.
+  The Go HTTP registry owns a runtime-only reporting contract outside the
+  generated desktop client. Its production endpoint accepts only the scoped
+  Bearer credential, derives runtime identity from that credential, rejects
+  non-workload transitions and mutated deterministic identities, and records
+  exact replay once. Central ingestion assigns ordered event time from the
+  store clock while carrying forward the producer-relative remaining lease
+  TTL, avoiding cross-machine and concurrent-gateway clock races without
+  clamping or keyword heuristics. The runtime reporter permits HTTPS and
+  numeric loopback HTTP only; the installer provisions the raw credential as a
+  protected runtime-owned file and passes its path, never its value, to the
+  service. Agent turns now fail closed unless acquire and renewal transitions
+  are accepted, cancel on reporting failure, and report end only after provider
+  release succeeds. The hosted cloud-chat Electron workflow exercises the real
+  control-plane deployable, credential generation and rotation, backend,
+  Electron main/preload/renderer paths, Sprites Tasks socket fixture,
+  queued/steered conversation lifecycle, reload, and balanced authenticated
+  lease reporting. Scheduled accounting-window closure, automatic finalized
+  evidence submission, remaining aggregate alerts, and authorized live-provider
+  validation stay open, so the combined Phase 5 accounting checkbox remains
+  unchecked. No provider or cloud mutation ran.
