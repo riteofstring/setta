@@ -85,6 +85,11 @@ type AdminRecordUsageRequest struct {
 	Evidence       runtimeaccounting.Evidence `json:"evidence"`
 }
 
+type AdminRecordRuntimeAccountingEventRequest struct {
+	RuntimeName string                          `json:"runtime_name"`
+	Event       runtimeaccounting.ActivityEvent `json:"event"`
+}
+
 type AdminEvent struct {
 	DeviceID string `json:"device_id,omitempty"`
 	Event    string `json:"event"`
@@ -171,6 +176,9 @@ func adminHandler(
 		if handleRuntimeProgressAdminRoute(store, response, request) {
 			return
 		}
+		if handleRuntimeAccountingAdminRoute(store, response, request) {
+			return
+		}
 		if handleBudgetAdminRoute(store, observer, priceSchedule, response, request) {
 			return
 		}
@@ -197,6 +205,30 @@ func adminHandler(
 			response.WriteHeader(http.StatusNotFound)
 		}
 	})
+}
+
+func handleRuntimeAccountingAdminRoute(
+	store *Store,
+	response http.ResponseWriter,
+	request *http.Request,
+) bool {
+	if request.URL.Path != "/v1/runtime-accounting/events" {
+		return false
+	}
+	if !requireAdminMethod(response, request, http.MethodPost) {
+		return true
+	}
+	response.Header().Set("Content-Type", "application/json")
+	var payload AdminRecordRuntimeAccountingEventRequest
+	if !decodeAdminRequest(response, request, &payload) {
+		return true
+	}
+	if _, err := store.RecordRuntimeAccountingEvent(request.Context(), RecordRuntimeAccountingEventRequest(payload)); err != nil {
+		writeAdminError(response)
+		return true
+	}
+	writeAdminJSON(response, AdminEvent{Event: "runtime_accounting_event_recorded", Status: "accepted"})
+	return true
 }
 
 func handleBudgetAdminRoute(

@@ -58,6 +58,8 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 			"usage_intervals_runtime_window_idx",
 			"budget_cutoff_operations",
 			"budget_cutoff_operations_due_idx",
+			"runtime_accounting_ledgers",
+			"runtime_accounting_events",
 		); err != nil {
 			return err
 		}
@@ -368,5 +370,21 @@ CREATE TABLE IF NOT EXISTS budget_cutoff_operations (
 
 CREATE INDEX IF NOT EXISTS budget_cutoff_operations_due_idx
   ON budget_cutoff_operations(status, next_attempt_at, created_at);
+
+CREATE TABLE IF NOT EXISTS runtime_accounting_ledgers (
+  runtime_name TEXT PRIMARY KEY REFERENCES runtimes(name),
+  state_json BLOB NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS runtime_accounting_events (
+  runtime_name TEXT NOT NULL REFERENCES runtimes(name),
+  sequence INTEGER NOT NULL CHECK(sequence > 0),
+  event_id TEXT NOT NULL,
+  event_json BLOB NOT NULL,
+  recorded_at TEXT NOT NULL,
+  PRIMARY KEY(runtime_name, sequence),
+  UNIQUE(runtime_name, event_id)
+);
 
 `

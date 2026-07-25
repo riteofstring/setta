@@ -2395,3 +2395,16 @@ Stop and reassess rather than hiding the problem if any of these occur:
   calculation path before adding online event ingestion. Durable push
   ingestion and automatic producer instrumentation remain open. No provider or
   cloud mutation ran.
+- 2026-07-24 (durable runtime accounting stream): Advanced the clean-break
+  control-plane schema to version 9 with one ordered event stream and
+  restart-safe ledger snapshot per managed runtime. The store accepts only the
+  next valid provider, attachment, or workload-lease transition; exact replay
+  is a no-op, while a reused sequence or event identity with different
+  canonical content, a gap, an impossible transition, or a foreign runtime
+  fails without changing the ledger. Offline and online streams now hash the
+  same canonical JSONL event representation. Deterministic tests prove ordered
+  append, exact replay, conflicting replay, gap rejection, foreign-runtime
+  rejection, canonical digest stability, and continuation after a complete
+  store restart. The private producer transport, source instrumentation,
+  window closure, and automatic evidence submission remain open. No provider
+  or cloud mutation ran.

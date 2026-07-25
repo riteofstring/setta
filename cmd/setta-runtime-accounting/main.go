@@ -9,7 +9,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -295,7 +294,7 @@ func applyEvents(name string, ledger *runtimeaccounting.Ledger) (string, error) 
 	}
 	defer file.Close()
 	digest := sha256.New()
-	scanner := bufio.NewScanner(io.TeeReader(file, digest))
+	scanner := bufio.NewScanner(file)
 	scanner.Buffer(make([]byte, 64*1024), maximumEventBytes)
 	line := 0
 	expectedSequence := uint64(1)
@@ -317,6 +316,13 @@ func applyEvents(name string, ledger *runtimeaccounting.Ledger) (string, error) 
 		expectedSequence++
 		if err := ledger.Apply(event); err != nil {
 			return "", fmt.Errorf("apply event line %d: %w", line, err)
+		}
+		canonical, err := runtimeaccounting.CanonicalActivityEventLine(event)
+		if err != nil {
+			return "", err
+		}
+		if _, err := digest.Write(canonical); err != nil {
+			return "", err
 		}
 	}
 	if err := scanner.Err(); err != nil {

@@ -158,3 +158,13 @@ func ValidSHA256(value string) bool {
 	decoded, err := hex.DecodeString(value)
 	return err == nil && len(decoded) == sha256.Size
 }
+
+// CanonicalActivityEventLine is the one JSONL representation hashed by both
+// offline and online accounting event streams.
+func CanonicalActivityEventLine(event ActivityEvent) ([]byte, error) {
+	encoded, err := json.Marshal(event)
+	if err != nil {
+		return nil, fmt.Errorf("encode accounting activity event: %w", err)
+	}
+	return append(encoded, '\n'), nil
+}

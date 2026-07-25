@@ -66,6 +66,33 @@ func TestAdminBudgetUsageCutsOffLiveAuthorizationAndAuditsWithoutContent(t *test
 	})
 }
 
+func TestAdminRecordsRuntimeAccountingEventThroughPrivateBoundary(t *testing.T) {
+	ctx := context.Background()
+	store, _, runtimeName, _ := seededControlPlane(t, ctx)
+	defer store.Close()
+	socketPath := filepath.Join(filepath.Dir(store.Path()), "admin.sock")
+	server, err := StartAdminServer(AdminServerConfig{
+		Observer: newAdminTestObserver(t, io.Discard), PriceSchedule: adminTestPriceSchedule(),
+		SocketPath: socketPath, Store: store,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer shutdownAdminTestServer(t, server)
+	event := accountingEvent(
+		1, "private-provider-begin", time.Date(2026, 7, 24, 20, 0, 0, 0, time.UTC),
+		runtimeaccounting.ActivityProvider, runtimeaccounting.EventBegin, "",
+	)
+	adminTestRequest(t, adminTestClient(socketPath), "/v1/runtime-accounting/events",
+		AdminRecordRuntimeAccountingEventRequest{RuntimeName: runtimeName, Event: event},
+		"runtime_accounting_event_recorded",
+	)
+	snapshot, err := store.RuntimeAccountingSnapshot(ctx, runtimeName)
+	if err != nil || snapshot.Ledger.LastSequence != 1 {
+		t.Fatalf("runtime accounting snapshot = %+v, %v", snapshot, err)
+	}
+}
+
 func TestAdminServerMutatesLiveAuthorizationAndPushInvalidation(t *testing.T) {
 	ctx := context.Background()
 	store, _, runtimeName, first := seededControlPlane(t, ctx)
