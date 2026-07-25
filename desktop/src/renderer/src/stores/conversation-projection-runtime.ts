@@ -1,5 +1,4 @@
 import type { ConversationEvent, ConversationSnapshot } from "@generated/backend";
-import { useSyncExternalStore } from "react";
 
 import { applyConversationEvents, type ConversationProjection } from "./conversation-projection";
 import { useConversationNavigatorStore } from "./conversation-navigator-store";
@@ -28,7 +27,6 @@ const maximumConversationEventFrameWaitMs = 50;
 const pendingEvents: ConversationEvent[] = [];
 const retainedProjections = new Map<string, RetainedConversationProjection>();
 const resyncs = new Map<string, Promise<void>>();
-const runtimeGenerationListeners = new Set<() => void>();
 let generation = 0;
 let scheduledFlush: ScheduledProjectionFlush | null = null;
 
@@ -120,15 +118,6 @@ export function resetConversationProjectionRuntime(): void {
   releaseRetainedConversationProjections();
   retainedProjections.clear();
   resyncs.clear();
-  emitRuntimeGenerationChange();
-}
-
-export function useConversationProjectionRuntimeGeneration(): number {
-  return useSyncExternalStore(
-    subscribeRuntimeGeneration,
-    conversationProjectionRuntimeGeneration,
-    conversationProjectionRuntimeGeneration,
-  );
 }
 
 function scheduleProjectionFlush(): void {
@@ -410,21 +399,4 @@ function projectionIsRetained(
 
 function projectionKey(workspaceId: string | null, conversationId: string): string {
   return `${workspaceId ?? "folderless"}\u0000${conversationId}`;
-}
-
-function subscribeRuntimeGeneration(listener: () => void): () => void {
-  runtimeGenerationListeners.add(listener);
-  return () => {
-    runtimeGenerationListeners.delete(listener);
-  };
-}
-
-function conversationProjectionRuntimeGeneration(): number {
-  return generation;
-}
-
-function emitRuntimeGenerationChange(): void {
-  for (const listener of runtimeGenerationListeners) {
-    listener();
-  }
 }

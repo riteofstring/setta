@@ -145,7 +145,7 @@ export interface RendererRegionSnapshot {
   width: number;
 }
 
-export type WorkspaceBrowserViewRuntimeState = "destroyed" | "hidden" | "live" | "snapshot";
+type WorkspaceBrowserViewRuntimeState = "destroyed" | "hidden" | "live" | "snapshot";
 
 export interface WorkspaceBrowserViewUpdate {
   bounds: {

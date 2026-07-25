@@ -2,7 +2,6 @@ import type { WorkspaceSession } from "@generated/backend";
 import { beforeEach, describe, expect, test } from "vitest";
 
 import { useConversationNavigatorStore } from "./conversation-navigator-store";
-import { useConversationPaneStore } from "./conversation-pane-store";
 import { useConversationRoutingStore } from "./conversation-routing-store";
 import { resetRuntimeDerivedRendererState } from "./runtime-derived-state";
 import { useWorkspaceStore } from "./workspace-store";
@@ -11,7 +10,6 @@ describe("runtime-derived renderer state reset", () => {
   beforeEach(() => {
     useWorkspaceStore.setState(useWorkspaceStore.getInitialState(), true);
     useConversationNavigatorStore.setState(useConversationNavigatorStore.getInitialState(), true);
-    useConversationPaneStore.setState(useConversationPaneStore.getInitialState(), true);
     useConversationRoutingStore.setState(useConversationRoutingStore.getInitialState(), true);
   });
 
@@ -29,20 +27,6 @@ describe("runtime-derived renderer state reset", () => {
           nextCursor: null,
         },
       },
-    });
-    useConversationPaneStore.setState({
-      workspaces: new Map([
-        [
-          "workspace_local",
-          {
-            focusedConversationId: "conversation_local",
-            focusedConversationResourceBindings: [],
-            focusedPaneId: "pane_local",
-            paneIdByConversationId: new Map([["conversation_local", "pane_local"]]),
-            resourceBindingsByConversationId: new Map([["conversation_local", []]]),
-          },
-        ],
-      ]),
     });
     useConversationRoutingStore.setState({
       presentations: new Map([
@@ -69,7 +53,6 @@ describe("runtime-derived renderer state reset", () => {
       status: "idle",
     });
     expect(useConversationNavigatorStore.getState()).toMatchObject({ workspaces: {} });
-    expect(useConversationPaneStore.getState().workspaces.size).toBe(0);
     expect(useConversationRoutingStore.getState().presentations.size).toBe(0);
   });
 });

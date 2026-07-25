@@ -94,7 +94,7 @@ try {
     unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
-  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  await waitForSelector(context.client, '[data-testid="app-director-shell"]');
   const workspaceId = await ensureWorkspaceOpen(context.client);
   const initialCapabilities = await context.client.evaluate(
     "window.setta.speech.readCapabilities()",
@@ -129,7 +129,7 @@ try {
     unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
-  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  await waitForSelector(context.client, '[data-testid="app-director-shell"]');
   const restoredWorkspaceId = await ensureWorkspaceOpen(context.client);
   secondLocalRuntimeAccess = await waitForLocalRuntimeAccess(context.client);
   assertLocalRuntimeReplacement(firstLocalRuntimeAccess, secondLocalRuntimeAccess);
@@ -219,24 +219,25 @@ async function runLiveOpenAISmoke({ audio, client, session }) {
 }
 
 async function ensureWorkspaceOpen(client) {
-  const initialWorkspaceId = await client.evaluate(workspaceIdExpression());
+  const initialWorkspaceId = await selectedWorkspaceId(client);
   if (validWorkspaceId(initialWorkspaceId)) {
     return initialWorkspaceId;
   }
   await openFixtureWorkspace(client, workflowTimeoutMs);
   return waitForState(
     client,
-    workspaceIdExpression(),
+    selectedWorkspaceIdExpression(),
     (workspaceId) => validWorkspaceId(workspaceId),
     workflowTimeoutMs,
   );
 }
 
-function workspaceIdExpression() {
-  return `(() => {
-    const area = document.querySelector('[data-testid="workspace-layout-area"]');
-    return area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "";
-  })()`;
+function selectedWorkspaceId(client) {
+  return client.evaluate(selectedWorkspaceIdExpression());
+}
+
+function selectedWorkspaceIdExpression() {
+  return `window.setta.workspace.session().then((session) => session.selectedWorkspaceId ?? "")`;
 }
 
 function validWorkspaceId(workspaceId) {

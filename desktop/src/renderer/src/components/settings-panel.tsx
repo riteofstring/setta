@@ -6,7 +6,6 @@ import type {
   AppearanceSettings,
   AppearanceTailwindPalette,
 } from "@generated/backend";
-import type { DesktopPlatform } from "@shared/types";
 import {
   Check,
   ChevronDown,
@@ -42,7 +41,6 @@ import { FloatingMenu } from "./floating-menu";
 import { RoleConfigurationSettings } from "./role-configuration-settings";
 import { PresentationConfigurationSettings } from "./presentation-configuration-settings";
 import { RuntimePicker, RuntimePickerAddButton } from "./runtime-picker";
-import { ShortcutSettingsEditor } from "./shortcut-settings";
 import {
   AccordionSection,
   ColorSchemeFields,
@@ -161,14 +159,10 @@ function SettingsSubtabContent({
     (state) => state.setClampResizedPanesToViewport,
   );
   const setMode = useAppearanceStore((state) => state.setMode);
-  const setMasterVoiceShortcut = useAppearanceStore((state) => state.setMasterVoiceShortcut);
   const setOverviewCardWidthBounds = useAppearanceStore(
     (state) => state.setOverviewCardWidthBounds,
   );
   const setShowPerformanceStats = useAppearanceStore((state) => state.setShowPerformanceStats);
-  const setWorkspaceNavigationShortcut = useAppearanceStore(
-    (state) => state.setWorkspaceNavigationShortcut,
-  );
   const status = useAppearanceStore((state) => state.status);
   const dirty = draft !== null && !appearanceSettingsEqual(draft, settings);
   const contentBySubtab = {
@@ -188,19 +182,6 @@ function SettingsSubtabContent({
     ),
     roles: <RoleConfigurationSettings />,
     speech: <PresentationConfigurationSettings focusRequest={focusRequest} />,
-    shortcuts: (
-      <ShortcutSettingsEditor
-        dirty={dirty}
-        error={error}
-        onMasterVoiceChange={setMasterVoiceShortcut}
-        onRevert={revertDraft}
-        onSave={saveDraft}
-        onWorkspaceNavigationChange={setWorkspaceNavigationShortcut}
-        platform={settingsPanelPlatform()}
-        shortcuts={draft?.shortcuts ?? null}
-        status={status}
-      />
-    ),
     theme: (
       <AppearanceSettingsEditor
         defaultPresetId={defaultPresetId}
@@ -300,13 +281,6 @@ function settingsSubtabButtonId(tab: SettingsSubtab) {
 
 function settingsSubtabPanelId(tab: SettingsSubtab) {
   return `settings-subtab-panel-${tab}`;
-}
-
-function settingsPanelPlatform(): DesktopPlatform {
-  if (typeof window === "undefined") {
-    return "linux";
-  }
-  return window.setta?.app.platform ?? "linux";
 }
 
 interface AppearanceSettingsEditorProps {

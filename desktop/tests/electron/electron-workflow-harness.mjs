@@ -50,11 +50,7 @@ export async function clickButtonByAria(client, label) {
 }
 
 export async function openFixtureWorkspace(client, timeoutMs = workflowTimeoutMs) {
-  const currentWorkspaceId = await client
-    .evaluate(
-      `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`,
-    )
-    .catch(() => "");
+  const currentWorkspaceId = await selectedWorkspaceId(client).catch(() => "");
   if (currentWorkspaceId && currentWorkspaceId !== "empty") {
     return currentWorkspaceId;
   }
@@ -68,10 +64,20 @@ export async function openFixtureWorkspace(client, timeoutMs = workflowTimeoutMs
   await client.evaluate("window.location.reload()");
   return waitForState(
     client,
-    `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`,
+    `(async () => {
+      const session = await window.setta?.workspace?.session?.();
+      return session?.selectedWorkspaceId ?? "";
+    })()`,
     (workspaceId) => workspaceId === opened,
     timeoutMs,
   );
+}
+
+async function selectedWorkspaceId(client) {
+  return client.evaluate(`(async () => {
+    const session = await window.setta?.workspace?.session?.();
+    return session?.selectedWorkspaceId ?? "";
+  })()`);
 }
 
 async function clickWorkflowButton(client, kind, value, errorMessage) {

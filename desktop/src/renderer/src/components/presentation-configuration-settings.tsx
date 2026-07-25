@@ -621,18 +621,17 @@ export function ConversationPresentationConfiguration({
 
   return (
     <details
-      className="easy-button-chrome-config"
+      className="conversation-presentation-config"
       data-testid="conversation-presentation-configuration"
-      data-workspace-pane-interactive-control="true"
     >
       <summary
         aria-label="Voice and color settings"
-        className="easy-button-chrome-config-trigger"
+        className="conversation-presentation-config-trigger"
         title="Voice and color"
       >
         <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
       </summary>
-      <div className="easy-button-chrome-config-panel">
+      <div className="conversation-presentation-config-panel">
         <label className="grid gap-1 text-[11px] text-muted-foreground">
           Conversation color
           <select

@@ -56,7 +56,6 @@ describe("appearance settings", () => {
     expect(html).toContain("Theme");
     expect(html).toContain("AI Roles");
     expect(html).toContain("Voices");
-    expect(html).toContain("Shortcuts");
     expect(html).toContain("Developer");
     expect(html).toContain("Codex Account");
     expect(html).toContain("bg-transparent");

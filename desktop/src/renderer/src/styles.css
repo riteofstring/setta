@@ -1,15 +1,4 @@
 @import "tailwindcss";
-@import "./workspace-layout.css";
-@import "./workspace-pane-resize.css";
-@import "./workspace-resize-preview.css";
-@import "./workspace-snapshot.css";
-@import "./workspace-pane-chrome.css";
-@import "./features/global-master/app-shell-master.css";
-@import "./features/easy-button/easy-button-conversation-palette.css";
-@import "./features/easy-button/easy-button.css";
-@import "./features/easy-button/easy-button-motion-layout.css";
-@import "./features/easy-button/easy-button-conversation-controls.css";
-@import "./features/easy-button/easy-button-side-presentation.css";
 @import "./features/director-graph/render/director-graph.css";
 @import "./features/director-command-center/director-command-center.css";
 @import "./features/director-command-center/director-command-center-composer.css";
@@ -148,8 +137,6 @@
   --workspace-pane-selected-glow: var(--setta-700);
   --workspace-drag-target-surface: var(--setta-850);
   --workspace-drag-target-outline: var(--setta-300);
-  --setta-niri-pane-surface: var(--workspace-pane-surface);
-  --setta-niri-pane-title-bar-surface: var(--workspace-pane-title-bar-surface);
   --setta-50: oklch(0.9574 0.0071 267.38);
   --setta-100: oklch(0.9085 0.013 263.02);
   --setta-150: oklch(0.8575 0.0208 262.99);

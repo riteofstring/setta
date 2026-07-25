@@ -25,7 +25,7 @@ import { createLocalMacOSSpeechOutputProvider } from "./local-macos-speech-outpu
 import { createOpenAIBackendSpeechOutputProvider } from "./openai-speech-output-provider";
 import type { VoiceOutputProvider } from "./voice-provider-boundary";
 
-export interface AppShellSpeechPlaybackContextValue {
+interface AppShellSpeechPlaybackContextValue {
   controller: AppShellSpeechPlaybackController;
   snapshot: SpeechPlaybackSnapshot;
 }

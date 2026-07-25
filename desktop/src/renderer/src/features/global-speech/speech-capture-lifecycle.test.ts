@@ -5,7 +5,7 @@ import { describe, expect, test, vi } from "vitest";
 import {
   AppShellSpeechCaptureEffectLifetime,
   subscribeSpeechCapabilityRefresh,
-} from "./app-shell-speech-capture";
+} from "./speech-capture-lifecycle";
 
 describe("app-shell speech capture provider lifetime", () => {
   test("survives StrictMode effect replay before disposing the real unmount", () => {

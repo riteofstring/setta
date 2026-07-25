@@ -25,7 +25,7 @@ import { useWorkspaceStore } from "../../stores/workspace-store";
 import {
   AppShellSpeechCaptureEffectLifetime,
   subscribeSpeechCapabilityRefresh,
-} from "../global-speech/app-shell-speech-capture";
+} from "../global-speech/speech-capture-lifecycle";
 import type { AppShellSpeechPlaybackController } from "../global-speech/app-shell-speech-playback-controller";
 import { createBrowserVoiceInputProvider } from "../global-speech/browser-voice-input-provider";
 import { emptyPackedGraphSnapshot } from "../director-graph/packed-graph-snapshot";
@@ -407,6 +407,33 @@ function useDirectorRuntime(
     };
   }, [runtimeEpoch, runtimeId, setSnapshot, setta]);
 
+  const handleDirectorReceipt = useCallback(
+    (intent: DirectorIntent, receipt: DirectorReceipt, dispatchEpoch: symbol) => {
+      if (runtimeEpochRef.current !== dispatchEpoch || intent.kind !== "submit") {
+        return;
+      }
+      setReceiptText(receipt.submit?.publicText || null);
+      void enqueueDirectorSpeechPlayback({
+        controller: speechPlayback,
+        readMasterVoiceSelection: setta.speech.readMasterVoiceSelection,
+        receipt,
+      }).catch((error: unknown) => {
+        console.info(`Director speech playback unavailable: ${directorErrorMessage(error)}`);
+      });
+    },
+    [setta, speechPlayback],
+  );
+
+  const finishBusyDispatch = useCallback((busyToken: symbol | null, dispatchEpoch: symbol) => {
+    if (busyToken === null) {
+      return;
+    }
+    busyDispatchesRef.current.delete(busyToken);
+    if (runtimeEpochRef.current === dispatchEpoch) {
+      setDispatching(busyDispatchesRef.current.size > 0);
+    }
+  }, []);
+
   const dispatch = useCallback(
     async (intent: DirectorIntent): Promise<DirectorReceipt> => {
       const usesBusyState = directorIntentUsesBusyState(intent);
@@ -422,19 +449,7 @@ function useDirectorRuntime(
       setMessage(null);
       try {
         const receipt = await setta.director.dispatch(intent);
-        if (runtimeEpochRef.current !== dispatchEpoch) {
-          return receipt;
-        }
-        if (intent.kind === "submit") {
-          setReceiptText(receipt.submit?.publicText || null);
-          void enqueueDirectorSpeechPlayback({
-            controller: speechPlayback,
-            readMasterVoiceSelection: setta.speech.readMasterVoiceSelection,
-            receipt,
-          }).catch((error: unknown) => {
-            console.info(`Director speech playback unavailable: ${directorErrorMessage(error)}`);
-          });
-        }
+        handleDirectorReceipt(intent, receipt, dispatchEpoch);
         return receipt;
       } catch (error) {
         if (runtimeEpochRef.current === dispatchEpoch) {
@@ -442,15 +457,10 @@ function useDirectorRuntime(
         }
         throw error;
       } finally {
-        if (busyToken !== null) {
-          busyDispatchesRef.current.delete(busyToken);
-          if (runtimeEpochRef.current === dispatchEpoch) {
-            setDispatching(busyDispatchesRef.current.size > 0);
-          }
-        }
+        finishBusyDispatch(busyToken, dispatchEpoch);
       }
     },
-    [runtimeEpoch, setta, speechPlayback],
+    [finishBusyDispatch, handleDirectorReceipt, runtimeEpoch, setta, speechPlayback],
   );
 
   return { dispatch, dispatching, loadState, message, receiptText, snapshot };

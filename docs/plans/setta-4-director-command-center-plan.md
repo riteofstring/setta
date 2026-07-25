@@ -187,6 +187,17 @@ duplicated because they still postdate the last backend/provider change; the
 focused workflows postdate every renderer-only audit correction. Phase 4
 therefore remains open only for the unavailable side-by-side mockup review and
 any Phase 4 polish that external evidence finds.
+Phase 5 has started with the renderer pane-shell deletion: the production
+renderer no longer contains `workspace-layout/`, the old easy-button pane
+surfaces, the global Master pane UI, stale pane CSS imports, the renderer
+conversation-pane store, or the pane-specific speech capture/submission glue.
+The shared speech capture lifetime and capability-refresh helpers were rehomed
+behind a pane-free module for Director voice capture, and the Electron workflow
+manifest no longer owns legacy pane/Niri workflows. The orphaned old
+topic-conversation workflow helpers that still waited on `workspace-layout-area`
+were removed with that manifest cleanup. Backend app-pane/workspace-UI
+persistence, generated contracts, and remaining Master presentation/backing
+helpers are still Phase 5 work.
 Supply-chain release gate: `desktop/package.json` ignores `CVE-2026-14257`
 only because the first patched `brace-expansion` release, `5.0.8`, was published
 on 2026-07-23 and cannot satisfy the checked-in seven-day release-age policy
@@ -1784,13 +1795,21 @@ Delete the old system only after Phase 4 owns its product responsibilities.
 
 Remove:
 
-- `desktop/src/renderer/src/workspace-layout/`
-- pane layout stores, coordinators, camera/navigation machinery, and persisted layout
-- pane-bound conversation routing and presentation resolution
-- pane drag, resize, reorder, overview, and manual layout controls
-- Niri-specific shortcuts, toolbar, mobile pane controls, and CSS
+- `desktop/src/renderer/src/workspace-layout/` **Done for the production renderer — the directory
+  and its tests are removed.**
+- pane layout stores, coordinators, camera/navigation machinery, and persisted layout. **Done for
+  the renderer-side store/coordinator/camera/navigation owners; backend app-pane and workspace-UI
+  persistence and generated contracts still remain below.**
+- pane-bound conversation routing and presentation resolution. **Done for the renderer pane
+  surfaces; backend Master presentation and pane-bound helper cleanup remains.**
+- pane drag, resize, reorder, overview, and manual layout controls. **Done for the renderer UI and
+  manifest-owned Electron workflows.**
+- Niri-specific shortcuts, toolbar, mobile pane controls, and CSS. **Done for visible renderer
+  shortcuts and CSS imports; backend appearance shortcut contract cleanup remains with generated
+  contract removal.**
 - workspace-layout endpoints, IPC, and generated contracts with no Setta 4 owner
-- Niri-specific Electron E2E workflows
+- Niri-specific Electron E2E workflows. **Done for the workflow manifest and the deleted
+  pane-owned workflow files/drivers, including orphaned topic-conversation helper workflows.**
 
 Retain or rehome:
 
@@ -1798,7 +1817,9 @@ Retain or rehome:
 - conversation event stream/replay infrastructure
 - Director routing and clarification behavior
 - approvals and resource requests
-- speech and safe credential storage
+- speech and safe credential storage. **The Director-used speech playback controller and
+  capture-provider utilities are retained; pane-specific capture presentation/submission glue is
+  removed.**
 - browser/native content only where it becomes a typed capability or artifact view
 
 Exit gate:
