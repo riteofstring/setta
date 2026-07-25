@@ -143,6 +143,27 @@ WHERE idempotency_key = ? AND status = ? AND lease_owner = ? AND fence_token = ?
 	if err := requireFenceRow(result); err != nil {
 		return err
 	}
+	if err := store.recordProviderAccountingBeginTx(
+		ctx,
+		tx,
+		claim.RuntimeName,
+		"provider-provisioned:"+claim.IdempotencyKey,
+		claim.CreatedAt,
+		now,
+	); err != nil {
+		return err
+	}
+	if providerActivitySuspended(observation.Activity) {
+		if err := store.recordProviderAccountingEndIfActiveTx(
+			ctx,
+			tx,
+			claim.RuntimeName,
+			"provider-observed-suspended:"+claim.IdempotencyKey,
+			now,
+		); err != nil {
+			return err
+		}
+	}
 	if err := appendRuntimeProgress(
 		ctx,
 		tx,

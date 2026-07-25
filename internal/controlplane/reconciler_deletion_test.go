@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"setta/internal/runtimeaccounting"
 )
 
 func TestDeletionReconcilerDestroysDueRuntimeAfterStoreRestart(t *testing.T) {
@@ -14,6 +16,15 @@ func TestDeletionReconcilerDestroysDueRuntimeAfterStoreRestart(t *testing.T) {
 	clock := func() time.Time { return now }
 	store := openTestStore(t, directory, clock, RateLimit{})
 	runtimeName := prepareDeletionRuntime(t, store, "delete-restart", "user-delete-restart")
+	if _, err := store.RecordRuntimeAccountingEvent(ctx, RecordRuntimeAccountingEventRequest{
+		RuntimeName: runtimeName,
+		Transition: runtimeaccounting.ActivityTransition{
+			EventID: "provider-active", At: now,
+			Kind: runtimeaccounting.ActivityProvider, Action: runtimeaccounting.EventBegin,
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
 	scheduledAt := now.Add(time.Hour)
 	if _, err := store.ScheduleRuntimeDeletion(ctx, ScheduleRuntimeDeletionRequest{
 		IdempotencyKey: "delete-restart-operation",
@@ -38,6 +49,10 @@ func TestDeletionReconcilerDestroysDueRuntimeAfterStoreRestart(t *testing.T) {
 		t.Fatalf("due deletion reconcile = %t, %v", processed, err)
 	}
 	requireCompletedDeletion(t, store, provider, runtimeName, "delete-restart-operation")
+	accounting, err := store.RuntimeAccountingSnapshot(ctx, runtimeName)
+	if err != nil || accounting.Ledger.ProviderActive || accounting.Ledger.LastSequence != 2 {
+		t.Fatalf("provider accounting after deletion = %+v, %v", accounting, err)
+	}
 }
 
 func TestDeletionReconcilerAdoptsAmbiguousDestroyWithoutRepeatingIt(t *testing.T) {

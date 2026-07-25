@@ -2408,3 +2408,16 @@ Stop and reassess rather than hiding the problem if any of these occur:
   stability, and continuation after a complete store restart. The private
   producer transport, source instrumentation, window closure, and automatic
   evidence submission remain open. No provider or cloud mutation ran.
+- 2026-07-24 (provider lifecycle accounting producer): Connected fenced
+  provider reconciliation to the durable accounting stream. Successful
+  provisioning records provider activity from the durable intent creation
+  time, conservatively covering create ambiguity and retries; an immediately
+  observed warm/cold runtime closes that interval. Verified budget suspension
+  and deletion close any active provider interval in the same transaction as
+  their fenced operation completion. A transition failure rolls back the
+  operation result so restart/adoption can retry without losing accounting.
+  Deterministic tests cover active provisioning, provider cutoff, deletion,
+  and store restart, while existing ambiguous-provider tests retain their
+  single-mutation guarantees. Normal warm/wake observations, gateway
+  attachments, workload-lease production, window closure, and automatic
+  evidence submission remain open. No provider or cloud mutation ran.

@@ -142,7 +142,12 @@ func (store *Store) CompleteBudgetCutoffOperation(
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	now := store.clock().UTC()
-	result, err := store.db.ExecContext(ctx, `
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin budget cutoff completion: %w", err)
+	}
+	defer rollback(tx)
+	result, err := tx.ExecContext(ctx, `
 UPDATE budget_cutoff_operations
 SET status = ?, lease_owner = NULL, lease_expires_at = NULL,
     last_error_code = '', updated_at = ?, completed_at = ?
@@ -159,7 +164,22 @@ WHERE idempotency_key = ? AND status = ? AND lease_owner = ? AND fence_token = ?
 	if err != nil {
 		return fmt.Errorf("complete budget cutoff operation: %w", err)
 	}
-	return requireFenceRow(result)
+	if err := requireFenceRow(result); err != nil {
+		return err
+	}
+	if err := store.recordProviderAccountingEndIfActiveTx(
+		ctx,
+		tx,
+		claim.RuntimeName,
+		"provider-budget-suspended:"+claim.IdempotencyKey,
+		now,
+	); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit budget cutoff completion: %w", err)
+	}
+	return nil
 }
 
 func (store *Store) DeferBudgetCutoffOperation(

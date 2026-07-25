@@ -28,6 +28,48 @@ type RuntimeAccountingSnapshot struct {
 	EventsSHA256 string
 }
 
+func (store *Store) recordProviderAccountingBeginTx(
+	ctx context.Context,
+	tx *sql.Tx,
+	runtimeName string,
+	eventID string,
+	activeFrom time.Time,
+	recordedAt time.Time,
+) error {
+	_, err := store.recordRuntimeAccountingTransitionTx(ctx, tx, RecordRuntimeAccountingEventRequest{
+		RuntimeName: runtimeName,
+		Transition: runtimeaccounting.ActivityTransition{
+			EventID: eventID, At: activeFrom,
+			Kind: runtimeaccounting.ActivityProvider, Action: runtimeaccounting.EventBegin,
+		},
+	}, recordedAt)
+	return err
+}
+
+func (store *Store) recordProviderAccountingEndIfActiveTx(
+	ctx context.Context,
+	tx *sql.Tx,
+	runtimeName string,
+	eventID string,
+	endedAt time.Time,
+) error {
+	ledger, found, err := readRuntimeAccountingLedger(ctx, tx, runtimeName)
+	if err != nil || !found {
+		return err
+	}
+	if !ledger.Snapshot().ProviderActive {
+		return nil
+	}
+	_, err = store.recordRuntimeAccountingTransitionTx(ctx, tx, RecordRuntimeAccountingEventRequest{
+		RuntimeName: runtimeName,
+		Transition: runtimeaccounting.ActivityTransition{
+			EventID: eventID, At: endedAt,
+			Kind: runtimeaccounting.ActivityProvider, Action: runtimeaccounting.EventEnd,
+		},
+	}, endedAt)
+	return err
+}
+
 func (store *Store) RecordRuntimeAccountingEvent(
 	ctx context.Context,
 	request RecordRuntimeAccountingEventRequest,
@@ -49,6 +91,22 @@ func (store *Store) recordRuntimeAccountingEventLocked(
 		return runtimeaccounting.LedgerState{}, fmt.Errorf("begin runtime accounting event: %w", err)
 	}
 	defer rollback(tx)
+	state, err := store.recordRuntimeAccountingTransitionTx(ctx, tx, request, store.clock())
+	if err != nil {
+		return runtimeaccounting.LedgerState{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return runtimeaccounting.LedgerState{}, fmt.Errorf("commit runtime accounting event: %w", err)
+	}
+	return state, nil
+}
+
+func (store *Store) recordRuntimeAccountingTransitionTx(
+	ctx context.Context,
+	tx *sql.Tx,
+	request RecordRuntimeAccountingEventRequest,
+	recordedAt time.Time,
+) (runtimeaccounting.LedgerState, error) {
 	ledger, event, replayed, err := prepareRuntimeAccountingLedger(ctx, tx, request)
 	if err != nil {
 		return runtimeaccounting.LedgerState{}, err
@@ -64,11 +122,8 @@ func (store *Store) recordRuntimeAccountingEventLocked(
 	if err != nil {
 		return runtimeaccounting.LedgerState{}, err
 	}
-	if err := persistRuntimeAccountingEvent(ctx, tx, request.RuntimeName, event, canonical, state, store.clock()); err != nil {
+	if err := persistRuntimeAccountingEvent(ctx, tx, request.RuntimeName, event, canonical, state, recordedAt); err != nil {
 		return runtimeaccounting.LedgerState{}, err
-	}
-	if err := tx.Commit(); err != nil {
-		return runtimeaccounting.LedgerState{}, fmt.Errorf("commit runtime accounting event: %w", err)
 	}
 	return state, nil
 }

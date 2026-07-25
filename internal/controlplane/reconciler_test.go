@@ -38,6 +38,7 @@ func TestReconcilerEnsuresOneRuntimeForConcurrentIntent(t *testing.T) {
 		}
 	}
 	provider := newTestReconcilerProvider(request.RuntimeName)
+	provider.observation.Activity = runtimeprovider.RuntimeActivityActive
 	reconciler := newTestReconciler(t, store, provider, 3)
 	processed, err := reconciler.ReconcileOnce(ctx)
 	if err != nil || !processed {
@@ -54,6 +55,12 @@ func TestReconcilerEnsuresOneRuntimeForConcurrentIntent(t *testing.T) {
 	if err != nil || observation.ProviderResourceID == "" ||
 		observation.URLAccess != runtimeprovider.URLAccessAuthenticated {
 		t.Fatalf("ProviderObservation = %+v, %v", observation, err)
+	}
+	accounting, err := store.RuntimeAccountingSnapshot(ctx, request.RuntimeName)
+	if err != nil || !accounting.Ledger.ProviderActive ||
+		!accounting.Ledger.WindowStart.Equal(operation.CreatedAt) ||
+		accounting.Ledger.LastSequence != 1 {
+		t.Fatalf("provider accounting = %+v, %v", accounting, err)
 	}
 }
 

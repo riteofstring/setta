@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/runtimeaccounting"
 	"setta/internal/runtimeprovider"
 )
 
@@ -26,6 +27,10 @@ func TestBudgetCutoffReconcilerSuspendsProviderAndCompletes(t *testing.T) {
 	operation, err := store.BudgetCutoffOperation(ctx, operationID)
 	if err != nil || operation.Status != RuntimeOperationSucceeded || provider.suspendCalls != 1 {
 		t.Fatalf("budget cutoff = %+v, calls %d, %v", operation, provider.suspendCalls, err)
+	}
+	accounting, err := store.RuntimeAccountingSnapshot(ctx, runtimeName)
+	if err != nil || accounting.Ledger.ProviderActive || accounting.Ledger.LastSequence != 2 {
+		t.Fatalf("provider accounting after cutoff = %+v, %v", accounting, err)
 	}
 }
 
@@ -135,6 +140,15 @@ func seedBudgetCutoffOperation(
 		runtimeName,
 		"provider-budget-secret",
 	)
+	if _, err := store.RecordRuntimeAccountingEvent(ctx, RecordRuntimeAccountingEventRequest{
+		RuntimeName: runtimeName,
+		Transition: runtimeaccounting.ActivityTransition{
+			EventID: "provider-active", At: *now,
+			Kind: runtimeaccounting.ActivityProvider, Action: runtimeaccounting.EventBegin,
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
 	policy := SetUserBudgetPolicyRequest{
 		UserID: "user-provider-budget", PeriodStart: *now, PeriodEnd: now.Add(time.Hour),
 		CoveredLimitUSDMicros: 1_000, SafetyReserveUSDMicros: 100, CutoffExposureUSDMicros: 200,

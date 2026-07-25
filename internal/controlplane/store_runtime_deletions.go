@@ -450,7 +450,8 @@ func (store *Store) CompleteRuntimeDeletionOperation(
 		return fmt.Errorf("begin runtime deletion completion: %w", err)
 	}
 	defer rollback(tx)
-	now := timestamp(store.clock().UTC())
+	completedAt := store.clock().UTC()
+	now := timestamp(completedAt)
 	result, err := tx.ExecContext(ctx, `
 UPDATE runtime_deletion_operations
 SET status = ?, lease_owner = NULL, lease_expires_at = NULL,
@@ -493,6 +494,15 @@ WHERE name = ? AND access_state = ?
 		"",
 		false,
 		now,
+	); err != nil {
+		return err
+	}
+	if err := store.recordProviderAccountingEndIfActiveTx(
+		ctx,
+		tx,
+		claim.RuntimeName,
+		"provider-deleted:"+claim.IdempotencyKey,
+		completedAt,
 	); err != nil {
 		return err
 	}
