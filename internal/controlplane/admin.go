@@ -112,6 +112,11 @@ type AdminInspectRuntimeMetadataRequest struct {
 	RuntimeName string `json:"runtime_name"`
 }
 
+type AdminSetRuntimeAccessRequest struct {
+	AccessState RuntimeAccessState `json:"access_state"`
+	RuntimeName string             `json:"runtime_name"`
+}
+
 type AdminRuntimeMetadata struct {
 	Lifecycle           RuntimeLifecycle                 `json:"lifecycle"`
 	AccessState         RuntimeAccessState               `json:"access_state"`

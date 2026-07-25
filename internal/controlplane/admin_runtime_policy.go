@@ -22,6 +22,9 @@ func handleRuntimePolicyAdminRoute(
 	request *http.Request,
 ) bool {
 	switch request.URL.Path {
+	case "/v1/runtimes/access":
+		handleRuntimeAccessAdmin(store, observer, response, request)
+		return true
 	case "/v1/runtimes/wake":
 		if !requireAdminMethod(response, request, http.MethodPost) {
 			return true
@@ -65,6 +68,39 @@ func handleRuntimePolicyAdminRoute(
 	default:
 		return false
 	}
+}
+
+func handleRuntimeAccessAdmin(
+	store *Store,
+	observer ControlPlaneAuditObserver,
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if !requireAdminMethod(response, request, http.MethodPost) {
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	var payload AdminSetRuntimeAccessRequest
+	if !decodeAdminRequest(response, request, &payload) {
+		return
+	}
+	if err := store.SetRuntimeAccessState(
+		request.Context(),
+		payload.RuntimeName,
+		payload.AccessState,
+	); err != nil {
+		writeAdminError(response)
+		return
+	}
+	observer.ObserveControlPlaneAudit(ControlPlaneAuditObservation{
+		Action:     ControlPlaneAuditRuntimeAccessSet,
+		OccurredAt: time.Now().UTC(),
+		State:      string(payload.AccessState),
+	})
+	writeAdminJSON(response, AdminEvent{
+		Event:  "runtime_access_set",
+		Status: string(payload.AccessState),
+	})
 }
 
 func handleRuntimeMetadataInspectionAdmin(

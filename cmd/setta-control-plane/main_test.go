@@ -282,6 +282,7 @@ func TestAdminCommandsMutateTheLiveControlPlaneWithoutPrintingCredentials(t *tes
 	requireAdminWakeHealthWorkflow(t, store, socketPath, fixture.runtimeName)
 	requireAdminRuntimeReportingCredentialWorkflow(t, store, socketPath, fixture.runtimeName)
 	requireAdminRuntimeMetadataWorkflow(t, store, socketPath, fixture.runtimeName)
+	requireAdminRuntimeAccessWorkflow(t, store, socketPath, fixture.runtimeName)
 	requireAdminRuntimeDeletionWorkflow(t, store, socketPath, fixture.runtimeName)
 	accountingTransition, err := json.Marshal(runtimeaccounting.ActivityTransition{
 		EventID: "admin-provider-begin", At: time.Now().UTC(),
@@ -325,6 +326,33 @@ func TestAdminCommandsMutateTheLiveControlPlaneWithoutPrintingCredentials(t *tes
 	authorization, err = store.AuthorizeClient(context.Background(), credential.Token)
 	if err != nil || authorization.Outcome != runtimeaccess.AuthorizationRevoked {
 		t.Fatalf("revoked authorization = %+v, %v", authorization, err)
+	}
+}
+
+func requireAdminRuntimeAccessWorkflow(
+	t *testing.T,
+	store *controlplane.Store,
+	socketPath string,
+	runtimeName string,
+) {
+	t.Helper()
+	for _, state := range []controlplane.RuntimeAccessState{
+		controlplane.RuntimeAccessSuspended,
+		controlplane.RuntimeAccessExportOnly,
+		controlplane.RuntimeAccessEnabled,
+	} {
+		output := runAdminTestCommand(t, []string{
+			"set-runtime-access", "--socket", socketPath,
+			"--runtime-name", runtimeName,
+			"--access-state", string(state),
+		}, nil)
+		if bytes.Contains(output, []byte(runtimeName)) {
+			t.Fatalf("runtime access output exposed runtime identity: %s", output)
+		}
+		runtimeRecord, err := store.Runtime(context.Background(), runtimeName)
+		if err != nil || runtimeRecord.AccessState != state {
+			t.Fatalf("runtime access after command = %+v, %v; want %s", runtimeRecord, err, state)
+		}
 	}
 }
 

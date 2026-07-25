@@ -413,6 +413,89 @@ func TestAdminServerInspectsOnlySanitizedRuntimeMetadata(t *testing.T) {
 	})
 }
 
+func TestAdminServerSetsRuntimeAccessAndPushesInvalidationWithoutContent(t *testing.T) {
+	ctx := context.Background()
+	store, _, runtimeName, grant := seededControlPlane(t, ctx)
+	defer store.Close()
+	socketPath := filepath.Join(filepath.Dir(store.Path()), "admin.sock")
+	var audit bytes.Buffer
+	server, err := StartAdminServer(AdminServerConfig{
+		Observer:      newAdminTestObserver(t, &audit),
+		PriceSchedule: adminTestPriceSchedule(),
+		SocketPath:    socketPath,
+		Store:         store,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer shutdownAdminTestServer(t, server)
+	client := adminTestClient(socketPath)
+	authorization := requireAuthorizationOutcome(
+		t,
+		store,
+		grant.Token,
+		runtimeaccess.AuthorizationAllowed,
+	)
+	setAdminRuntimeAccess(t, client, runtimeName, RuntimeAccessSuspended)
+	requireClosed(t, authorization.Invalidated, "administrative runtime suspension")
+	requireAuthorizationOutcome(t, store, grant.Token, runtimeaccess.AuthorizationSuspended)
+	setAdminRuntimeAccess(t, client, runtimeName, RuntimeAccessExportOnly)
+	requireAuthorizationOutcome(t, store, grant.Token, runtimeaccess.AuthorizationSuspended)
+	setAdminRuntimeAccess(t, client, runtimeName, RuntimeAccessEnabled)
+	requireAuthorizationOutcome(t, store, grant.Token, runtimeaccess.AuthorizationAllowed)
+	requireRejectedAdminRuntimeAccess(t, client, runtimeName, RuntimeAccessDeleteScheduled)
+	requireContentFreeControlPlaneAudit(t, audit.Bytes(), []ControlPlaneAuditMeasurement{
+		{Action: ControlPlaneAuditRuntimeAccessSet, State: string(RuntimeAccessSuspended)},
+		{Action: ControlPlaneAuditRuntimeAccessSet, State: string(RuntimeAccessExportOnly)},
+		{Action: ControlPlaneAuditRuntimeAccessSet, State: string(RuntimeAccessEnabled)},
+	}, []string{
+		runtimeName,
+		grant.Device.ID,
+		grant.Token,
+	})
+}
+
+func setAdminRuntimeAccess(
+	t *testing.T,
+	client *http.Client,
+	runtimeName string,
+	state RuntimeAccessState,
+) {
+	t.Helper()
+	adminTestRequest(t, client, "/v1/runtimes/access", AdminSetRuntimeAccessRequest{
+		AccessState: state,
+		RuntimeName: runtimeName,
+	}, "runtime_access_set")
+}
+
+func requireRejectedAdminRuntimeAccess(
+	t *testing.T,
+	client *http.Client,
+	runtimeName string,
+	state RuntimeAccessState,
+) {
+	t.Helper()
+	data, err := json.Marshal(AdminSetRuntimeAccessRequest{
+		AccessState: state,
+		RuntimeName: runtimeName,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := client.Post(
+		"http://unix/v1/runtimes/access",
+		"application/json",
+		bytes.NewReader(data),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode == http.StatusOK {
+		t.Fatal("runtime access administration accepted delete-scheduled without a deletion schedule")
+	}
+}
+
 func readAdminRuntimeMetadata(
 	t *testing.T,
 	client *http.Client,

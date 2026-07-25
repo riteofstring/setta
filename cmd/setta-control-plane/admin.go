@@ -25,7 +25,7 @@ type adminClientConfig struct {
 
 func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: setta-control-plane admin <ensure-device|revoke-device|set-user-status|set-user-budget|request-runtime-wake|schedule-runtime-deletion|cancel-runtime-deletion|inspect-runtime-metadata|record-runtime-health|rotate-runtime-reporting-credential|record-usage|record-accounting-event|finalize-accounting-window> [options]")
+		fmt.Fprintln(stderr, "usage: setta-control-plane admin <ensure-device|revoke-device|set-user-status|set-user-budget|set-runtime-access|request-runtime-wake|schedule-runtime-deletion|cancel-runtime-deletion|inspect-runtime-metadata|record-runtime-health|rotate-runtime-reporting-credential|record-usage|record-accounting-event|finalize-accounting-window> [options]")
 		return 2
 	}
 	ctx := context.Background()
@@ -42,6 +42,9 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer
 		},
 		"set-user-budget": func() error {
 			return adminSetUserBudget(ctx, commandArgs, stdout, stderr)
+		},
+		"set-runtime-access": func() error {
+			return adminSetRuntimeAccess(ctx, commandArgs, stdout, stderr)
 		},
 		"request-runtime-wake": func() error {
 			return adminRequestRuntimeWake(ctx, commandArgs, stdout, stderr)
@@ -82,6 +85,38 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer
 		return 1
 	}
 	return 0
+}
+
+func adminSetRuntimeAccess(
+	ctx context.Context,
+	args []string,
+	stdout io.Writer,
+	stderr io.Writer,
+) error {
+	var config adminClientConfig
+	var payload controlplane.AdminSetRuntimeAccessRequest
+	flagSet := flag.NewFlagSet("setta-control-plane admin set-runtime-access", flag.ContinueOnError)
+	flagSet.SetOutput(stderr)
+	flagSet.StringVar((*string)(&payload.AccessState), "access-state", "", "enabled, suspended, or export_only")
+	flagSet.StringVar(&config.SocketPath, "socket", "", "absolute private administration socket path")
+	flagSet.StringVar(&payload.RuntimeName, "runtime-name", "", "Setta-managed runtime name")
+	if err := flagSet.Parse(args); err != nil {
+		return err
+	}
+	if flagSet.NArg() != 0 {
+		return errors.New("set-runtime-access accepts no positional arguments")
+	}
+	if err := validateAdminClientConfig(config); err != nil {
+		return err
+	}
+	return executeAdminRequest(
+		ctx,
+		config,
+		"/v1/runtimes/access",
+		payload,
+		"runtime_access_set",
+		stdout,
+	)
 }
 
 func adminInspectRuntimeMetadata(
