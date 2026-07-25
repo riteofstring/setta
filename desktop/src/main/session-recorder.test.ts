@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type {
   ConversationEvent,
+  InvocationModelRerouteReason,
   ResolvedInvocation,
   Role,
   RoleProfile,
@@ -83,6 +84,11 @@ describe("session recording privacy", () => {
       "runtime_pairing_url",
       "setta://pair?tok=private-pairing-token",
     ],
+    [
+      ipcChannels.speechSaveCredential,
+      "speech_credential_save",
+      { provider: "openai", apiKey: "private-speech-api-key" },
+    ],
   ])("redacts sensitive IPC start payloads for %s", (channel, type, value) => {
     expect(ipcRecordingValue(channel, "start", [value], true)).toEqual({
       redacted: true,
@@ -124,6 +130,20 @@ describe("session recording privacy", () => {
     expect(JSON.stringify(recorded)).not.toContain(privateAnswer);
   });
 
+  test("redacts speech credential save failure details", () => {
+    const privateCredential = "sk-setta-recording-secret";
+    const recorded = ipcRecordingFailure(
+      ipcChannels.speechSaveCredential,
+      new Error(`credential rejected ${privateCredential}`),
+    );
+
+    expect(recorded).toEqual({
+      redacted: true,
+      type: "speech_credential_save_failure",
+    });
+    expect(JSON.stringify(recorded)).not.toContain(privateCredential);
+  });
+
   test("redacts credential-bearing external URL events", () => {
     const privateURL = "https://example.invalid/callback?code=private-authorization-code";
     const recorded = recordingEventValue("external_url_open_blocked", { url: privateURL });
@@ -136,7 +156,7 @@ describe("session recording privacy", () => {
     const authoredInput = "private authored objective";
     const finalSummary = "private narrator final summary";
     const failureMessage = "private provider failure detail";
-    const rerouteReason = "private provider reroute detail";
+    const rerouteReason: InvocationModelRerouteReason = "high_risk_cyber_activity";
     const invocation = resolvedInvocation("agent", failureMessage, rerouteReason);
     const turn = conversationRecordingEvents(
       conversationEvent({
@@ -202,13 +222,15 @@ describe("session recording privacy", () => {
       },
     ]);
     const serialized = JSON.stringify(recorded);
-    for (const secret of [authoredInput, finalSummary, failureMessage, rerouteReason]) {
+    for (const secret of [authoredInput, finalSummary, failureMessage]) {
       expect(serialized).not.toContain(secret);
     }
+    expect(serialized).not.toContain(rerouteReason);
   });
 
-  test("projects agent lifecycle and thread metadata without context text", () => {
+  test("projects typed lifecycle, validation, and thread metadata without context text", () => {
     const livenessMessage = "private liveness diagnosis";
+    const validationSummary = "private Guardian rationale";
     const metadataSecret = "private thread metadata";
     const lifecycle = trajectoryEvent({
       agentLivenessChanged: {
@@ -225,9 +247,45 @@ describe("session recording privacy", () => {
       },
       kind: "agent_liveness_changed",
     });
+    const providerLifecycle = trajectoryEvent({
+      actor: "provider",
+      agentLivenessChanged: null,
+      kind: "provider_lifecycle_changed",
+      providerLifecycleChanged: {
+        lifecycle: {
+          provider: "codex",
+          reason: "turn_failed",
+          status: "unavailable",
+        },
+      },
+    });
+    const validation = trajectoryEvent({
+      actor: "provider",
+      agentLivenessChanged: null,
+      kind: "validation_recorded",
+      validationRecorded: {
+        validation: {
+          id: "review-recording",
+          kind: "guardian_review",
+          risk: "high",
+          status: "failed",
+          subject: "provider-item-recording",
+          summary: validationSummary,
+        },
+      },
+    });
     const recorded = [
       ...conversationRecordingEvents(
         conversationEvent({ event: lifecycle, type: "conversation.trajectory.appended" }, 2),
+      ),
+      ...conversationRecordingEvents(
+        conversationEvent(
+          { event: providerLifecycle, type: "conversation.trajectory.appended" },
+          3,
+        ),
+      ),
+      ...conversationRecordingEvents(
+        conversationEvent({ event: validation, type: "conversation.trajectory.appended" }, 4),
       ),
       ...conversationRecordingEvents(
         conversationEvent(
@@ -244,7 +302,7 @@ describe("session recording privacy", () => {
             },
             type: "conversation.thread_binding.updated",
           },
-          3,
+          5,
         ),
       ),
     ];
@@ -259,6 +317,30 @@ describe("session recording privacy", () => {
       },
       {
         payload: {
+          eventKind: "provider_lifecycle_changed",
+          providerLifecycle: {
+            provider: "codex",
+            reason: "turn_failed",
+            status: "unavailable",
+          },
+        },
+        type: "agent_trajectory_observed",
+      },
+      {
+        payload: {
+          eventKind: "validation_recorded",
+          validation: {
+            id: "review-recording",
+            kind: "guardian_review",
+            risk: "high",
+            status: "failed",
+            subject: "provider-item-recording",
+          },
+        },
+        type: "agent_trajectory_observed",
+      },
+      {
+        payload: {
           metadataKeys: ["secret"],
           providerThreadId: "provider-thread-recording",
         },
@@ -266,7 +348,7 @@ describe("session recording privacy", () => {
       },
     ]);
     const serialized = JSON.stringify(recorded);
-    for (const secret of [livenessMessage, metadataSecret]) {
+    for (const secret of [livenessMessage, validationSummary, metadataSecret]) {
       expect(serialized).not.toContain(secret);
     }
   });
@@ -376,7 +458,7 @@ function conversationEvent(payload: ConversationEvent["payload"], sequence = 1):
 function resolvedInvocation(
   role: Role,
   failureMessage: string,
-  rerouteReason: string,
+  rerouteReason: InvocationModelRerouteReason,
 ): ResolvedInvocation {
   const requested = roleProfile(role);
   return {
@@ -456,6 +538,7 @@ function trajectoryEvent(overrides: Partial<TrajectoryEvent>): TrajectoryEvent {
     planChanged: null,
     providerEventId: "provider-event-recording",
     providerLifecycleChanged: null,
+    validationRecorded: null,
     providerThreadId: "provider-thread-recording",
     providerTurnId: "provider-turn-recording",
     publicReasoningSummaryUpdated: null,

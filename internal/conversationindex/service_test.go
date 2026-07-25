@@ -12,6 +12,7 @@ func TestServiceReconcilesAndResolvesWorkspaceNamesOncePerCandidateSet(t *testin
 	store := &candidateStoreStub{candidates: []StoredCandidate{
 		storedCandidate("conversation-a", "2026-07-13T18:02:00Z"),
 		storedCandidate("conversation-b", "2026-07-13T18:01:00Z"),
+		storedFolderlessCandidate("conversation-folderless", "2026-07-13T18:00:00Z"),
 	}}
 	resolver := &workspaceResolverStub{summary: workspace.WorkspaceSummary{
 		ID:          "workspace-a",
@@ -26,14 +27,14 @@ func TestServiceReconcilesAndResolvesWorkspaceNamesOncePerCandidateSet(t *testin
 	}
 
 	candidates, err := service.RetrieveCandidates(context.Background(), CandidateRequest{
-		WorkspaceIDs: []string{},
-		Limit:        2,
+		Limit: 3,
 	})
 	if err != nil {
 		t.Fatalf("RetrieveCandidates: %v", err)
 	}
-	if len(candidates) != 2 || candidates[0].Card.WorkspaceName != "Setta" ||
-		candidates[1].Card.WorkspaceName != "Setta" {
+	if len(candidates) != 3 || candidates[0].Card.WorkspaceName != "Setta" ||
+		candidates[1].Card.WorkspaceName != "Setta" ||
+		candidates[2].Card.WorkspaceName != "" {
 		t.Fatalf("candidates = %+v", candidates)
 	}
 	if resolver.resolveCalls != 1 {
@@ -54,13 +55,13 @@ func TestServiceRejectsInvalidStoreStateAndWorkspaceResolution(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}
-	if _, err := service.RetrieveCandidates(context.Background(), CandidateRequest{WorkspaceIDs: []string{}, Limit: 1}); err == nil {
+	if _, err := service.RetrieveCandidates(context.Background(), CandidateRequest{Limit: 1}); err == nil {
 		t.Fatal("recency candidate with lexical rank was accepted")
 	}
 
 	store.candidates[0].LexicalRank = nil
 	resolver.err = errors.New("workspace unavailable")
-	if _, err := service.RetrieveCandidates(context.Background(), CandidateRequest{WorkspaceIDs: []string{}, Limit: 1}); err == nil {
+	if _, err := service.RetrieveCandidates(context.Background(), CandidateRequest{Limit: 1}); err == nil {
 		t.Fatal("workspace resolution failure was ignored")
 	}
 }
@@ -96,7 +97,7 @@ func (resolver *workspaceResolverStub) ResolveWorkspace(string) (workspace.Works
 func storedCandidate(conversationID string, updatedAt string) StoredCandidate {
 	return StoredCandidate{Card: StoredTopicCard{
 		ConversationID:       conversationID,
-		WorkspaceID:          "workspace-a",
+		ResourceScope:        FolderResourceScopeForWorkspaceID("workspace-a"),
 		Title:                "Topic " + conversationID,
 		RecentUserRequests:   []TextExcerpt{},
 		RecentFinalSummaries: []TextExcerpt{},
@@ -104,5 +105,19 @@ func storedCandidate(conversationID string, updatedAt string) StoredCandidate {
 		ActiveStatus:         "idle",
 		OpenPaneIDs:          []string{"pane-a"},
 		OpenPaneCount:        1,
+	}}
+}
+
+func storedFolderlessCandidate(conversationID string, updatedAt string) StoredCandidate {
+	return StoredCandidate{Card: StoredTopicCard{
+		ConversationID:       conversationID,
+		ResourceScope:        FolderlessResourceScope(),
+		Title:                "Topic " + conversationID,
+		RecentUserRequests:   []TextExcerpt{},
+		RecentFinalSummaries: []TextExcerpt{},
+		UpdatedAt:            updatedAt,
+		ActiveStatus:         "idle",
+		OpenPaneIDs:          []string{},
+		OpenPaneCount:        0,
 	}}
 }

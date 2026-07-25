@@ -192,6 +192,7 @@ const sideEventHandlers = {
   turn_queued: ignoreSideEvent,
   turn_started: ignoreSideEvent,
   turn_steered: ignoreSideEvent,
+  validation_recorded: ignoreSideEvent,
   user_input_accepted(turn, event) {
     turn.userText = event.userInputAccepted?.input.text ?? turn.userText;
   },
