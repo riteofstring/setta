@@ -88,6 +88,7 @@ func (projection NarratorCurrentTurnProjection) validateArtifacts(conversationID
 func (projection NarratorCurrentTurnProjection) validateCurrentState() error {
 	validators := []func() error{
 		projection.validateSteering,
+		projection.validateLatestAssistantMessage,
 		projection.validatePlan,
 		projection.validateActivities,
 		projection.validateApprovals,
@@ -99,6 +100,13 @@ func (projection NarratorCurrentTurnProjection) validateCurrentState() error {
 		}
 	}
 	return nil
+}
+
+func (projection NarratorCurrentTurnProjection) validateLatestAssistantMessage() error {
+	if projection.LatestAssistantMessage == nil {
+		return nil
+	}
+	return projection.LatestAssistantMessage.Validate()
 }
 
 func (projection NarratorCurrentTurnProjection) validateSteering() error {

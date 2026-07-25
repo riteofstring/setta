@@ -324,6 +324,7 @@ function assertNarratorPlaybackAttribution(surfaces, conversationId) {
 }
 
 function assertRecordedShellMasterInput(recorded, workspaceId, transcript) {
+  void workspaceId;
   const input = recordedShellInput(recorded);
   const accepted = recordedShellAcceptance(recorded);
   if (!input || !accepted) {
@@ -334,7 +335,8 @@ function assertRecordedShellMasterInput(recorded, workspaceId, transcript) {
       input.modality === "voice",
       input.source === "shell",
       input.text === transcript,
-      input.focusedWorkspaceId === workspaceId,
+      input.focusedWorkspaceId === null,
+      input.focusedConversationId === null,
       typeof input.id === "string",
       input.id !== "",
       typeof input.submittedAt === "string",
@@ -403,7 +405,9 @@ function assertCaptureSurface(surface, conversationId, sourcePaneId, transcriptP
     assertSourcePaneCapture(surface, transcriptPreview);
     return;
   }
-  assertDuplicateViewCapture(surface);
+  throw new Error(
+    `conversation rendered in multiple panes during capture: ${JSON.stringify(surface)}`,
+  );
 }
 
 function assertOtherConversationCapture(surface) {
@@ -429,19 +433,6 @@ function assertSourcePaneCapture(surface, transcriptPreview) {
       surface.speechTranscriptText.includes(transcriptPreview),
     ],
     "source pane did not own its capture",
-    surface,
-  );
-}
-
-function assertDuplicateViewCapture(surface) {
-  assertState(
-    [
-      surface.captureScope === "this_conversation",
-      !surface.voiceCaptureAvailable,
-      surface.speechActivityText.includes("another view"),
-      surface.speechTranscriptText === "",
-    ],
-    "duplicate topic view claimed source-pane capture",
     surface,
   );
 }
@@ -530,11 +521,11 @@ async function assertTopBarHasMasterVoiceArea(client, timeoutMs) {
 
 export async function openMasterOverlayForSpeech(client, timeoutMs) {
   const alreadyOpen = await client.evaluate(
-    "Boolean(document.querySelector('[data-testid=\"master-overlay\"]'))",
+    "Boolean(document.querySelector('[data-testid=\"master-pane-surface\"]'))",
   );
   if (!alreadyOpen) {
     const clicked = await client.evaluate(`(() => {
-      const button = document.querySelector('[data-testid="master-overlay-button"]');
+      const button = document.querySelector('[data-testid="master-pane-button"]');
       if (!(button instanceof HTMLButtonElement) || button.disabled) {
         return false;
       }
@@ -548,12 +539,12 @@ export async function openMasterOverlayForSpeech(client, timeoutMs) {
   await waitForState(
     client,
     `(() => ({
-      open: Boolean(document.querySelector('[data-testid="master-overlay"]')),
+      open: Boolean(document.querySelector('[data-testid="master-pane-surface"]')),
       voiceControlPresent: Boolean(
-        document.querySelector('[data-testid="master-overlay"] [data-testid="master-overlay-voice-capture"]'),
+        document.querySelector('[data-testid="master-pane-surface"] [data-testid="master-pane-voice-capture"]'),
       ),
       legacyShellStatusPresent: Boolean(
-        document.querySelector('[data-testid="master-overlay"] [data-testid="shell-speech-status"]'),
+        document.querySelector('[data-testid="master-pane-surface"] [data-testid="shell-speech-status"]'),
       ),
     }))()`,
     (state) => state.open && state.voiceControlPresent && !state.legacyShellStatusPresent,
@@ -564,38 +555,13 @@ export async function openMasterOverlayForSpeech(client, timeoutMs) {
 async function assertMasterOverlayExcludesTopicSpeech(client, excludedTexts, timeoutMs) {
   await waitForState(
     client,
-    `(() => {
-      const overlay = document.querySelector('[data-testid="master-overlay"]');
-      const text = overlay?.textContent ?? "";
-      return {
-        containsExcludedText: ${JSON.stringify(excludedTexts)}.some(
-          (excluded) => excluded !== "" && text.includes(excluded),
-        ),
-        masterVoiceControlPresent: Boolean(
-          overlay?.querySelector('[data-testid="master-overlay-voice-capture"]'),
-        ),
-        open: Boolean(overlay),
-      };
-    })()`,
+    driverCallExpression("topicConversationMasterOverlaySpeechIsolationState", { excludedTexts }),
     (state) => state.open && state.masterVoiceControlPresent && !state.containsExcludedText,
     timeoutMs,
   );
 }
 
 async function closeMasterOverlay(client, timeoutMs) {
-  const clicked = await client.evaluate(`(() => {
-    const button = Array.from(document.querySelectorAll("button")).find(
-      (candidate) => candidate.getAttribute("aria-label") === "Close Ask Setta",
-    );
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!clicked) {
-    throw new Error("Ask Setta could not be closed after checking its voice control");
-  }
   await waitForState(
     client,
     "Boolean(document.querySelector('[data-testid=\"master-overlay\"]'))",
