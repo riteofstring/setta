@@ -38,6 +38,7 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 			"entitlements",
 			"runtimes",
 			"runtimes_user_idx",
+			"runtime_reporting_credentials",
 			"devices",
 			"devices_user_idx",
 			"runtime_access_grants",
@@ -173,6 +174,13 @@ CREATE TABLE IF NOT EXISTS runtimes (
 );
 
 CREATE INDEX IF NOT EXISTS runtimes_user_idx ON runtimes(user_id, name);
+
+CREATE TABLE IF NOT EXISTS runtime_reporting_credentials (
+  runtime_name TEXT PRIMARY KEY REFERENCES runtimes(name) ON DELETE CASCADE,
+  token_hash BLOB NOT NULL UNIQUE,
+  epoch INTEGER NOT NULL CHECK(epoch > 0),
+  updated_at TEXT NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS devices (
   id TEXT PRIMARY KEY,
