@@ -2995,3 +2995,24 @@ Stop and reassess rather than hiding the problem if any of these occur:
   Phase 7 checkbox remains open for the 100 GB ceiling, checkpoint retention,
   cache cleanup, destructive full-disk recovery, and user-facing quota
   behavior. No provider or cloud mutation ran.
+- 2026-07-25 (100 GB persistent-storage ceiling): Closed the ceiling portion
+  of the Phase 7 storage-exhaustion item at the provider-neutral runtime
+  resource owner. Exactly 100 decimal GB remains valid, while any larger shape
+  now fails with `ErrInvalidContract` before persistence or a provider call.
+  The shared validator already governs signed hosted manifests, bootstrap and
+  ensure commands, durable control-plane policy, accounting bounds, and the
+  Sprites adapter, so no duplicate cross-boundary constant was introduced.
+  Tests prove the boundary value, one-byte overflow, signed-manifest rejection,
+  and that a rejected production CLI request creates no control-plane state.
+  The broadened package run also exposed and corrected stale schema-3 command
+  fixtures so dry-run output now proves the authorized disk reserve. Ten
+  focused repetitions, all six affected Go packages, the registered
+  `hosted-cloud-chat` Electron workflow, and
+  `./check_quality.sh --git-changes` passed. With `OPENAI_API_KEY` removed, all
+  four ChatGPT-authenticated live Codex gates passed: Electron, agent protocol,
+  side isolation, and topic conversation. Supply-chain results were unchanged:
+  Go vulnerability, exact-version, lockfile, and release-age policies passed,
+  while the pre-existing transitive ESLint `brace-expansion <=5.0.7` advisory
+  remains; no dependency file changed. The combined Phase 7 checkbox remains
+  open for checkpoint retention, cache cleanup, destructive full-disk
+  recovery, and user-facing quota behavior. No provider or cloud mutation ran.
