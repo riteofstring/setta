@@ -99,6 +99,26 @@ describe("app-shell master surface", () => {
     expect(html).toContain('data-master-routing-status="cancelled"');
   });
 
+  test("renders durable cancellation transcript without an active request", async () => {
+    const pending = new Promise<ShellInteractionState>(() => {});
+    let transcript: Transcript = { entries: [], lastSequence: 0 };
+    const controller = masterController(null, pending, async () => transcript);
+    controller.synchronizeRuntime("runtime_alpha");
+    await flushPromises();
+    controller.submitText("Cancel this global route");
+    await flushPromises();
+
+    controller.cancelActiveInput();
+    transcript = cancellationTranscript("master_input_1", "Cancel this global route");
+    await flushPromises();
+    const html = renderPaneSurface(controller);
+
+    expect(html).toContain('data-testid="master-transcript-entry"');
+    expect(html).toContain('data-master-transcript-kind="cancellation"');
+    expect(html).toContain("Request cancelled");
+    expect(html).not.toContain('data-testid="master-active-request"');
+  });
+
   test("does not render the removed overlay from the shell wrapper", () => {
     const html = renderSurface();
 
@@ -242,6 +262,42 @@ function transcriptForRequests(requests: SubmitMasterInputRequest[]): Transcript
     });
   }
   return { entries, lastSequence: sequence };
+}
+
+function cancellationTranscript(inputId: string, text: string): Transcript {
+  return {
+    entries: [
+      {
+        payload: {
+          actionReceipt: null,
+          assistantReply: null,
+          cancellation: null,
+          createdAt: "2026-07-13T20:00:01Z",
+          failure: null,
+          id: `master-transcript:user:${inputId}`,
+          inputId,
+          kind: "user_input",
+          userInput: { modality: "text", text },
+        },
+        sequence: 1,
+      },
+      {
+        payload: {
+          actionReceipt: null,
+          assistantReply: null,
+          cancellation: { message: "Setta cancelled this request before routing completed." },
+          createdAt: "2026-07-13T20:00:02Z",
+          failure: null,
+          id: `master-transcript:cancel:${inputId}`,
+          inputId,
+          kind: "cancellation",
+          userInput: null,
+        },
+        sequence: 2,
+      },
+    ],
+    lastSequence: 2,
+  };
 }
 
 function acceptedInput(request: SubmitMasterInputRequest, sequence: number): AcceptedMasterInput {

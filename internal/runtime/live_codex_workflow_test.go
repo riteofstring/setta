@@ -399,7 +399,8 @@ func validRuntimeLiveMasterContext(
 	conversationID string,
 ) bool {
 	authorized := slices.ContainsFunc(record.Context.TargetAuthorities, func(target master.RouteTargetAuthority) bool {
-		return target.ConversationID == conversationID && target.WorkspaceID == workspaceID
+		targetWorkspaceID, ok := target.ResourceScope.FolderWorkspaceID()
+		return target.ConversationID == conversationID && ok && targetWorkspaceID == workspaceID
 	})
 	return record.Context.InputSequence == inputSequence &&
 		authorized &&

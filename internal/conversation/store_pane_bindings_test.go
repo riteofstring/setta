@@ -98,6 +98,123 @@ func TestStoreRejectsWorkspacePaneBindingForAnotherWorkspace(t *testing.T) {
 	}
 }
 
+func TestStoreReplacesFolderlessPaneBindingsAndPreservesFocusHistory(t *testing.T) {
+	store := newTestStore(t)
+	seedFolderlessPaneBindingConversations(t, store, "conversation_alpha", "conversation_beta")
+
+	if err := store.ReplaceFolderlessPaneBindings(
+		context.Background(),
+		[]FolderlessPaneBinding{{
+			PaneID:         "pane_alpha",
+			ConversationID: "conversation_alpha",
+			Focused:        true,
+		}},
+		"2026-07-13T18:00:00Z",
+	); err != nil {
+		t.Fatalf("replace initial folderless pane bindings: %v", err)
+	}
+	if err := store.ReplaceFolderlessPaneBindings(
+		context.Background(),
+		[]FolderlessPaneBinding{
+			{
+				PaneID:         "pane_alpha",
+				ConversationID: "conversation_alpha",
+			},
+			{
+				PaneID:         "pane_beta",
+				ConversationID: "conversation_beta",
+				Focused:        true,
+			},
+		},
+		"2026-07-13T18:01:00Z",
+	); err != nil {
+		t.Fatalf("replace expanded folderless pane bindings: %v", err)
+	}
+
+	assertStoredPaneBinding(t, store, storedPaneBinding{
+		paneID:         "pane_alpha",
+		workspaceID:    sql.NullString{},
+		conversationID: "conversation_alpha",
+		createdAt:      "2026-07-13T18:00:00Z",
+		updatedAt:      "2026-07-13T18:01:00Z",
+		lastFocusedAt:  sql.NullString{String: "2026-07-13T18:00:00Z", Valid: true},
+	})
+	assertStoredPaneBinding(t, store, storedPaneBinding{
+		paneID:         "pane_beta",
+		workspaceID:    sql.NullString{},
+		conversationID: "conversation_beta",
+		createdAt:      "2026-07-13T18:01:00Z",
+		updatedAt:      "2026-07-13T18:01:00Z",
+		lastFocusedAt:  sql.NullString{String: "2026-07-13T18:01:00Z", Valid: true},
+	})
+
+	if err := store.ReplaceFolderlessPaneBindings(
+		context.Background(),
+		[]FolderlessPaneBinding{},
+		"2026-07-13T18:02:00Z",
+	); err != nil {
+		t.Fatalf("clear folderless pane bindings: %v", err)
+	}
+	if count := countWorkspacePaneBindings(t, store, "pane_alpha"); count != 0 {
+		t.Fatalf("stale folderless pane binding count = %d, want 0", count)
+	}
+}
+
+func TestStoreRejectsFolderlessPaneBindingForWorkspaceConversation(t *testing.T) {
+	store := newTestStore(t)
+	seedConversationInputTargets(t, store, "conversation_alpha")
+
+	err := store.ReplaceFolderlessPaneBindings(
+		context.Background(),
+		[]FolderlessPaneBinding{{
+			PaneID:         "pane_alpha",
+			ConversationID: "conversation_alpha",
+		}},
+		"2026-07-13T18:00:00Z",
+	)
+	if !IsStateConflict(err) {
+		t.Fatalf("replace workspace conversation as folderless error = %T %v, want state conflict", err, err)
+	}
+}
+
+func TestStoreClearsStaleFolderlessPaneBindingAfterWorkspaceBinding(t *testing.T) {
+	store := newTestStore(t)
+	seedFolderlessPaneBindingConversations(t, store, "conversation_alpha")
+	if err := store.ReplaceFolderlessPaneBindings(
+		context.Background(),
+		[]FolderlessPaneBinding{{
+			PaneID:         "pane_alpha",
+			ConversationID: "conversation_alpha",
+		}},
+		"2026-07-13T18:00:00Z",
+	); err != nil {
+		t.Fatalf("replace folderless pane binding: %v", err)
+	}
+	if err := store.write(context.Background(), "bind folderless conversation for pane binding", func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(
+			ctx,
+			`UPDATE conversations SET workspace_id = ? WHERE id = ?`,
+			"workspace",
+			"conversation_alpha",
+		)
+		return err
+	}); err != nil {
+		t.Fatalf("bind folderless conversation: %v", err)
+	}
+
+	if err := store.ReplaceWorkspacePaneBindings(
+		context.Background(),
+		"workspace",
+		[]WorkspacePaneBinding{},
+		"2026-07-13T18:01:00Z",
+	); err != nil {
+		t.Fatalf("replace empty workspace pane bindings: %v", err)
+	}
+	if count := countWorkspacePaneBindings(t, store, "pane_alpha"); count != 0 {
+		t.Fatalf("stale owner-transition pane binding count = %d, want 0", count)
+	}
+}
+
 func TestStoreRejectsDuplicateConversationPaneBindings(t *testing.T) {
 	store := newTestStore(t)
 	seedConversationInputTargets(t, store, "conversation_alpha")
@@ -200,6 +317,15 @@ type storedWorkspacePaneBinding struct {
 	lastFocusedAt  sql.NullString
 }
 
+type storedPaneBinding struct {
+	paneID         string
+	workspaceID    sql.NullString
+	conversationID string
+	createdAt      string
+	updatedAt      string
+	lastFocusedAt  sql.NullString
+}
+
 func assertStoredWorkspacePaneBinding(
 	t *testing.T,
 	store *Store,
@@ -231,6 +357,38 @@ WHERE pane_id = ?
 	}
 }
 
+func assertStoredPaneBinding(
+	t *testing.T,
+	store *Store,
+	want storedPaneBinding,
+) {
+	t.Helper()
+	var got storedPaneBinding
+	err := store.read(context.Background(), "read test pane binding", func(
+		ctx context.Context,
+		connection *sql.Conn,
+	) error {
+		return connection.QueryRowContext(ctx, `
+SELECT pane_id, workspace_id, conversation_id, created_at, updated_at, last_focused_at
+FROM pane_bindings
+WHERE pane_id = ?
+`, want.paneID).Scan(
+			&got.paneID,
+			&got.workspaceID,
+			&got.conversationID,
+			&got.createdAt,
+			&got.updatedAt,
+			&got.lastFocusedAt,
+		)
+	})
+	if err != nil {
+		t.Fatalf("read pane binding %s: %v", want.paneID, err)
+	}
+	if got != want {
+		t.Fatalf("pane binding = %+v, want %+v", got, want)
+	}
+}
+
 func countWorkspacePaneBindings(t *testing.T, store *Store, paneID string) int {
 	t.Helper()
 	var count int
@@ -248,4 +406,22 @@ func countWorkspacePaneBindings(t *testing.T, store *Store, paneID string) int {
 		t.Fatalf("count pane binding %s: %v", paneID, err)
 	}
 	return count
+}
+
+func seedFolderlessPaneBindingConversations(t *testing.T, store *Store, conversationIDs ...string) {
+	t.Helper()
+	err := store.write(context.Background(), "seed folderless pane binding conversations", func(ctx context.Context, tx *sql.Tx) error {
+		for _, conversationID := range conversationIDs {
+			if _, err := tx.ExecContext(ctx, `
+INSERT INTO conversations(id, workspace_id, title, status, created_at, updated_at)
+VALUES (?, NULL, 'Test folderless conversation', 'idle', '2026-07-11T00:00:00Z', '2026-07-11T00:00:00Z')
+`, conversationID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("seed folderless pane binding conversations: %v", err)
+	}
 }

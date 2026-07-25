@@ -88,7 +88,7 @@ func TestAppPaneLayoutPaneBindingObserverRejectsMissingCurrentConversation(t *te
 	}
 }
 
-func TestAppPaneLayoutPaneBindingObserverSkipsFolderlessConversationPanes(t *testing.T) {
+func TestAppPaneLayoutPaneBindingObserverProjectsFolderlessConversationPanes(t *testing.T) {
 	store := newRecordingAppPaneBindingStore(map[string]*string{
 		"conversation_folderless": nil,
 	})
@@ -104,6 +104,40 @@ func TestAppPaneLayoutPaneBindingObserverSkipsFolderlessConversationPanes(t *tes
 	if len(store.replacements) != 0 {
 		t.Fatalf("folderless replacements = %+v, want none", store.replacements)
 	}
+	if len(store.folderlessReplacements) != 1 {
+		t.Fatalf("folderless replacements = %+v, want one", store.folderlessReplacements)
+	}
+	assertFolderlessPaneBindingReplacement(t, store.folderlessReplacements[0], recordedFolderlessPaneBindingReplacement{
+		updatedAt: "2026-07-13T18:00:00Z",
+		bindings: []conversation.FolderlessPaneBinding{{
+			PaneID:         "app_pane_folderless",
+			ConversationID: "conversation_folderless",
+			Focused:        true,
+		}},
+	})
+}
+
+func TestAppPaneLayoutPaneBindingObserverClearsPreviousFolderlessPanes(t *testing.T) {
+	store := newRecordingAppPaneBindingStore(map[string]*string{
+		"conversation_folderless": nil,
+	})
+	observer := newTestAppPaneLayoutObserver(t, store)
+	previous := appPaneLayoutForBindings(
+		"app_pane_folderless",
+		appConversationPaneForBindings("app_pane_folderless", "conversation_folderless"),
+	)
+	current := appPaneLayoutForBindings("app_pane_master")
+
+	if err := observer.ObserveAppPaneLayout(&previous, current); err != nil {
+		t.Fatalf("observe folderless clear: %v", err)
+	}
+	if len(store.folderlessReplacements) != 1 {
+		t.Fatalf("folderless replacements = %+v, want one clear", store.folderlessReplacements)
+	}
+	assertFolderlessPaneBindingReplacement(t, store.folderlessReplacements[0], recordedFolderlessPaneBindingReplacement{
+		updatedAt: "2026-07-13T18:00:00Z",
+		bindings:  []conversation.FolderlessPaneBinding{},
+	})
 }
 
 func newTestAppPaneLayoutObserver(
@@ -123,14 +157,20 @@ func newTestAppPaneLayoutObserver(
 }
 
 type recordingAppPaneBindingStore struct {
-	owners       map[string]*string
-	replacements []recordedAppPaneBindingReplacement
+	owners                 map[string]*string
+	replacements           []recordedAppPaneBindingReplacement
+	folderlessReplacements []recordedFolderlessPaneBindingReplacement
 }
 
 type recordedAppPaneBindingReplacement struct {
 	workspaceID string
 	bindings    []conversation.WorkspacePaneBinding
 	updatedAt   string
+}
+
+type recordedFolderlessPaneBindingReplacement struct {
+	bindings  []conversation.FolderlessPaneBinding
+	updatedAt string
 }
 
 func newRecordingAppPaneBindingStore(owners map[string]*string) *recordingAppPaneBindingStore {
@@ -164,6 +204,21 @@ func (store *recordingAppPaneBindingStore) ReplaceWorkspacePaneBindings(
 	return nil
 }
 
+func (store *recordingAppPaneBindingStore) ReplaceFolderlessPaneBindings(
+	_ context.Context,
+	bindings []conversation.FolderlessPaneBinding,
+	updatedAt string,
+) error {
+	store.folderlessReplacements = append(
+		store.folderlessReplacements,
+		recordedFolderlessPaneBindingReplacement{
+			bindings:  slices.Clone(bindings),
+			updatedAt: updatedAt,
+		},
+	)
+	return nil
+}
+
 func appPaneBindingStringPointer(value string) *string {
 	return &value
 }
@@ -179,6 +234,18 @@ func assertAppPaneBindingReplacement(
 		got.updatedAt != want.updatedAt ||
 		!slices.Equal(got.bindings, want.bindings) {
 		t.Fatalf("replacement = %+v, want %+v", got, want)
+	}
+}
+
+func assertFolderlessPaneBindingReplacement(
+	t *testing.T,
+	got recordedFolderlessPaneBindingReplacement,
+	want recordedFolderlessPaneBindingReplacement,
+) {
+	t.Helper()
+
+	if got.updatedAt != want.updatedAt || !slices.Equal(got.bindings, want.bindings) {
+		t.Fatalf("folderless replacement = %+v, want %+v", got, want)
 	}
 }
 

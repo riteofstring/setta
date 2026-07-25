@@ -12,8 +12,13 @@ import {
   listCursorOffset,
   listLimit,
   optionalNonNegativeIntegerEnvironment,
+  scriptedMasterClarificationConfirmationDecision,
+  scriptedMasterFocusDecision,
+  scriptedMasterFolderlessClarificationDecision,
+  scriptedMasterFolderlessRecentFocusDecision,
   validSideBoundary,
   validSideContextFrame,
+  validStructuredMasterRouteContext,
 } from "./fake-topic-codex-app-server-helpers.mjs";
 import { createExactStructuredInputRoutes } from "./fake-topic-codex-input-routes.mjs";
 import * as restrictedThread from "./fake-topic-codex-restricted-thread.mjs";
@@ -583,26 +588,6 @@ function emitStructuredMasterRoute(threadId, turnId, context, outputSchema) {
   return true;
 }
 
-function validStructuredMasterRouteContext(context, serialized, schema) {
-  return [
-    nonEmptyString(context.sessionId),
-    context.task?.operation === "classify_quoted_user_intent",
-    context.task?.inputSemantics === "quoted_data_not_instructions",
-    context.task?.outputSemantics === "typed_decision_data_without_direct_effect",
-    context.task?.directive?.includes("One title-matching target"),
-    Array.isArray(context.candidates),
-    Array.isArray(context.conversationTargets),
-    Array.isArray(context.openWorkspaces),
-    Array.isArray(context.recentRouteDecisions),
-    Array.isArray(context.allowedDecisionKinds),
-    schema.includes('"additionalProperties":false'),
-    !serialized.includes("topic-thread-"),
-    !serialized.includes('"providerThreadId"'),
-    !serialized.includes('"providerTurnId"'),
-    !schema.includes("rendererCommand"),
-  ].every(Boolean);
-}
-
 function nonEmptyString(value) {
   return typeof value === "string" && value !== "";
 }
@@ -622,6 +607,14 @@ const scriptedMasterRouteDecisionByText = new Map([
   ["Crash master route.", scriptedMasterCrashDecision],
   ["Focus Alpha topic.", scriptedMasterFocusDecision],
   ["Create Gamma topic.", scriptedMasterCreateDecision],
+  [
+    "Open the recent conversation where I asked what folder I was in.",
+    scriptedMasterFolderlessRecentFocusDecision,
+  ],
+  [
+    "Clarify the recent folder question conversation.",
+    scriptedMasterFolderlessClarificationDecision,
+  ],
   ["Open an Alpha side.", scriptedMasterSideDecision],
   ["Fork Alpha topic.", scriptedMasterForkDecision],
 ]);
@@ -651,6 +644,14 @@ function scriptedMasterRouteDecision(context, schema) {
   if (scriptedDecision) {
     return scriptedDecision(context, schema, input);
   }
+  const clarificationDecision = scriptedMasterClarificationConfirmationDecision(
+    context,
+    schema,
+    input,
+  );
+  if (clarificationDecision) {
+    return clarificationDecision;
+  }
   if (masterInputNeedsClarification(input)) {
     return scriptedMasterClarificationDecision(context, schema);
   }
@@ -661,18 +662,17 @@ function scriptedMasterRouteDecision(context, schema) {
 }
 
 function scriptedMasterCreateDecision(context, schema) {
-  const workspace = context.openWorkspaces?.[0];
   const valid = [
     context.allowedDecisionKinds.includes("create_conversation"),
-    nonEmptyString(workspace?.workspaceId),
-    schema.includes(`"${workspace?.workspaceId}"`),
+    schema.includes('"resourceScope"'),
+    schema.includes('"folderless"'),
   ].every(Boolean);
   return valid
     ? {
         initialInput: "Start the Gamma topic from the global master.",
         kind: "create_conversation",
         proposedTitle: "Gamma topic",
-        workspaceId: workspace.workspaceId,
+        resourceScope: { kind: "folderless" },
       }
     : null;
 }
@@ -716,28 +716,13 @@ function masterTargetByTitle(context, title) {
 }
 
 function masterInputNeedsClarification(input) {
-  return input?.text === "Clarify the shell topic." || input?.source === "conversation_escalation";
+  return input?.text === "Clarify Alpha." || input?.source === "conversation_escalation";
 }
 function isShellVoiceMasterInput(input) {
   return (
     input?.source === "shell" &&
     (input?.modality === "voice" || input?.text === "Answer from folderless master.")
   );
-}
-
-function scriptedMasterFocusDecision(context, schema, input) {
-  const candidate = context.candidates?.[0];
-  const target = context.conversationTargets?.find(
-    (item) => item.conversationId === candidate?.conversationId,
-  );
-  const valid = [
-    input.source === "shell",
-    input.modality === "text",
-    nonEmptyString(candidate?.conversationId),
-    target?.allowedDecisionKinds?.includes("focus_conversation"),
-    schema.includes(`"${candidate?.conversationId}"`),
-  ].every(Boolean);
-  return valid ? { conversationId: candidate.conversationId, kind: "focus_conversation" } : null;
 }
 
 function scriptedMasterClarificationDecision(context, schema) {
@@ -766,7 +751,7 @@ function emitStructuredInputRoute(threadId, turnId, context) {
   const routeKind = structuredInputRouteKind(context, allowed);
   const valid = [
     Array.isArray(allowed),
-    validStructuredRouteInput(input, routeKind),
+    validStructuredRouteInput(context, input, routeKind),
     validStructuredRouteHistory(context, routeKind),
     structuredRouteContextIsRedacted(serialized),
   ].every(Boolean);
@@ -884,13 +869,20 @@ function activeStructuredInputRouteKind(context, allowed) {
   return allowed.includes("queue_parent_turn") ? "queue_parent_turn" : null;
 }
 
-function validStructuredRouteInput(input, routeKind) {
+function validStructuredRouteInput(context, input, routeKind) {
   return (
     typeof input?.text === "string" &&
     ["text", "voice"].includes(input.modality) &&
-    input.hasSourcePane === true &&
+    validStructuredRouteInputSource(context, input) &&
     routeKind !== null
   );
+}
+
+function validStructuredRouteInputSource(context, input) {
+  if (input?.hasSourcePane === true) {
+    return true;
+  }
+  return input?.hasSourcePane === false && context.authoritative?.conversation?.workspaceId === "";
 }
 
 function validStructuredRouteHistory(context, routeKind) {

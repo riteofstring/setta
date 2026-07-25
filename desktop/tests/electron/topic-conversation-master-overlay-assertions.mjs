@@ -45,6 +45,7 @@ export async function createPersistentMasterClarification({
   artifactDirectory,
   backend,
   client,
+  expectedCandidateTargetId,
   text,
   timeoutMs,
   workspaceId,
@@ -61,7 +62,27 @@ export async function createPersistentMasterClarification({
     expectedInputId: recorded.accepted.input.id,
     expectedKind: "clarify",
   });
+  if (expectedCandidateTargetId !== undefined) {
+    assertClarificationCandidateTargets(route, expectedCandidateTargetId);
+  }
   return route;
+}
+
+function assertClarificationCandidateTargets(route, expectedCandidateTargetId) {
+  const candidateTargetIds = route?.decision?.resultingCommand?.clarify?.candidateTargetIds;
+  if (
+    !Array.isArray(candidateTargetIds) ||
+    candidateTargetIds.length !== 1 ||
+    candidateTargetIds[0] !== expectedCandidateTargetId
+  ) {
+    throw new Error(
+      `master clarification candidate targets drifted: ${JSON.stringify({
+        candidateTargetIds,
+        expectedCandidateTargetId,
+        route,
+      })}`,
+    );
+  }
 }
 
 export async function exerciseMasterCancellation({
@@ -553,9 +574,16 @@ function masterRouteTargetIsAuthorized(record, expectedKind, expectedTargetId) {
   return [
     masterRouteDecisionTargets(branch, expectedKind, expectedTargetId),
     masterRouteCommandTargets(command, expectedKind, expectedTargetId),
-    record?.context?.includedCandidateIds?.includes(expectedTargetId),
+    masterRouteContextIncludesTarget(record?.context, expectedTargetId),
     authority !== undefined,
   ].every(Boolean);
+}
+
+function masterRouteContextIncludesTarget(context, expectedTargetId) {
+  return (
+    context?.includedCandidateIds?.includes(expectedTargetId) ||
+    context?.clarification?.candidateTargetIds?.includes(expectedTargetId)
+  );
 }
 
 function masterRouteDecisionTargets(branch, expectedKind, expectedTargetId) {

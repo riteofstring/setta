@@ -40,6 +40,19 @@ export function visibleTranscriptEntries(snapshot: AppShellMasterSnapshot): Tran
   );
 }
 
+export function activeTerminalInteractionHasDurableTranscript(
+  snapshot: AppShellMasterSnapshot,
+): boolean {
+  if (snapshot.interaction.type !== "active") {
+    return false;
+  }
+  const state = snapshot.interaction.state;
+  if (state.status !== "cancelled" && state.status !== "failed") {
+    return false;
+  }
+  return transcriptHasTerminalEntry(snapshot, state.input.id, state.status);
+}
+
 function MasterTranscriptEntryView({ entry }: TranscriptEntryViewProps) {
   const EntryView = transcriptEntryViews[entry.payload.kind];
   return <EntryView entry={entry} />;
@@ -169,12 +182,29 @@ function pendingTranscriptInputId(snapshot: AppShellMasterSnapshot): string | nu
 
 function interactionTranscriptInputId(snapshot: AppShellMasterSnapshot): string | null {
   if (snapshot.interaction.type === "active") {
+    if (activeTerminalInteractionHasDurableTranscript(snapshot)) {
+      return null;
+    }
     return snapshot.interaction.state.input.id;
   }
   if (snapshot.interaction.type === "observation_failed") {
     return snapshot.interaction.state.input.id;
   }
   return null;
+}
+
+function transcriptHasTerminalEntry(
+  snapshot: AppShellMasterSnapshot,
+  inputId: string,
+  status: "cancelled" | "failed",
+): boolean {
+  if (snapshot.transcript.type !== "ready") {
+    return false;
+  }
+  const kind = status === "cancelled" ? "cancellation" : "failure";
+  return snapshot.transcript.transcript.entries.some(
+    (entry) => entry.payload.inputId === inputId && entry.payload.kind === kind,
+  );
 }
 
 function masterInputModalityLabel(modality: MasterInputModality): string {

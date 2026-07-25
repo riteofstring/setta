@@ -12,7 +12,12 @@ export function createExactStructuredInputRoutes({ simultaneousCompletionInput }
     "finish the parent after side work",
     "steer alpha now",
   ]);
-  const folderlessNarratorInputs = new Set(["hi", "what can you help with?"]);
+  const folderlessNarratorInputs = new Set([
+    "hi",
+    "Start the Gamma topic from the global master.",
+    "what folder am I in?",
+    "what can you help with?",
+  ]);
   const folderRequiredInputs = new Set(["Inspect the repository files."]);
   return [
     { inputs: new Set(["What is the primary agent doing?"]), kind: "answer_as_narrator" },

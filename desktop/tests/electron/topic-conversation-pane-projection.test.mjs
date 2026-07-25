@@ -117,8 +117,8 @@ const workflowName = "topic-conversation-pane-projection";
 const workflowTimeoutMs = 50_000;
 const initialThreadStartDelayMs = 900;
 const cancelledMasterText = "Cancel active master route.";
-const shellClarificationText = "Clarify the shell topic.";
-const typedMasterOverlayText = "Focus Alpha topic.";
+const shellClarificationText = "Clarify Alpha.";
+const typedMasterOverlayText = "Yes, that one.";
 const paneSpeechTranscript = "  Keep this pane transcript exact.  ";
 const secretApprovalAnswer = "setta-private-approval-answer-20260714";
 const speechRealtimeBrowserFixture = join(
@@ -277,6 +277,7 @@ try {
     artifactDirectory: firstLaunchDir,
     backend,
     client: context.client,
+    expectedCandidateTargetId: alpha.id,
     text: shellClarificationText,
     timeoutMs: workflowTimeoutMs,
     workspaceId,
@@ -1433,13 +1434,10 @@ async function submitAndWaitForQueue(client, conversationId, text, queueCount) {
 }
 
 async function closeConversationPane(client, conversationId) {
-  assertDriverAction(
-    await client.driver("topicConversationCloseOneBoundPane", { conversationId }),
-    "clicked",
-  );
-  await waitForConversationSurfaces(client, (surfaces) =>
-    surfaces.every((surface) => surface.conversationId !== conversationId),
-  );
+  const closed = await client.driver("appPaneLayoutCloseConversationPane", { conversationId });
+  if (closed?.status !== "passed") {
+    throw new Error(`conversation pane did not close: ${JSON.stringify(closed)}`);
+  }
 }
 
 async function waitForConversationSurfaces(client, ready) {

@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 describe("workspace React DOM surface adapter", () => {
-  test("parks React root across host unmounts and tears it down on destroy", async () => {
+  test("parks React root across host unmounts and tears it down synchronously on destroy", async () => {
     const events: string[] = [];
     const rootFactory: ReactSurfaceRootFactory = {
       createRoot(container) {
@@ -73,7 +73,6 @@ describe("workspace React DOM surface adapter", () => {
     expect(adapter.lifecycleState.mounted).toBe(true);
 
     adapter.destroy();
-    await waitForMicrotask();
 
     expect(events).toEqual([
       "create:workspace-react-dom-surface",
@@ -112,6 +111,32 @@ describe("workspace React DOM surface adapter", () => {
     expect(hostChanges).toEqual([null, secondHost]);
     expect(fakeChildrenOf(firstHost)).toHaveLength(0);
     expect(fakeChildrenOf(secondHost)).toEqual([container]);
+  });
+
+  test("unmounts React content before detaching the final host on destroy", () => {
+    const host = createFakeHost();
+    const unmountObservations: number[] = [];
+    const rootFactory: ReactSurfaceRootFactory = {
+      createRoot() {
+        return {
+          render() {},
+          unmount() {
+            unmountObservations.push(fakeChildrenOf(host).length);
+          },
+        };
+      },
+    };
+    const adapter = new ReactDomSurfaceAdapter(
+      fakePane("conversation"),
+      () => "conversation surface",
+      rootFactory,
+    );
+
+    adapter.mount(host);
+    adapter.destroy();
+
+    expect(unmountObservations).toEqual([1]);
+    expect(fakeChildrenOf(host)).toHaveLength(0);
   });
 
   test("restores parked DOM scroller offsets when remounting React surfaces", () => {

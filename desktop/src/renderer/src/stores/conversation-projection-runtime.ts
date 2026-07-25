@@ -1,24 +1,34 @@
 import type { ConversationEvent, ConversationSnapshot } from "@generated/backend";
+import { useSyncExternalStore } from "react";
 
 import { applyConversationEvents, type ConversationProjection } from "./conversation-projection";
 import { useConversationNavigatorStore } from "./conversation-navigator-store";
 import { useConversationStore } from "./conversation-store";
 
 interface RetainedConversationProjection {
+  conversationId: string;
   generation: number;
   references: number;
   sawActiveWork: boolean;
+  workspaceId: string | null;
 }
 
 interface ScheduledProjectionFlush {
   cancel: () => void;
 }
 
+type ConversationEventRelease = (request: {
+  conversationId: string;
+  keepAlive: boolean;
+  workspaceId: string | null;
+}) => Promise<void>;
+
 const maximumConversationEventsPerFrame = 128;
 const maximumConversationEventFrameWaitMs = 50;
 const pendingEvents: ConversationEvent[] = [];
 const retainedProjections = new Map<string, RetainedConversationProjection>();
 const resyncs = new Map<string, Promise<void>>();
+const runtimeGenerationListeners = new Set<() => void>();
 let generation = 0;
 let scheduledFlush: ScheduledProjectionFlush | null = null;
 
@@ -28,10 +38,18 @@ export function retainConversationProjection(
 ): () => void {
   const key = projectionKey(workspaceId, conversationId);
   const current = retainedProjections.get(key);
+  let retained: RetainedConversationProjection;
   if (current) {
     current.references += 1;
+    retained = current;
   } else {
-    const retained = { generation, references: 1, sawActiveWork: false };
+    retained = {
+      conversationId,
+      generation,
+      references: 1,
+      sawActiveWork: false,
+      workspaceId,
+    };
     retainedProjections.set(key, retained);
     void loadAndSubscribe(workspaceId, conversationId, retained);
   }
@@ -41,7 +59,7 @@ export function retainConversationProjection(
       return;
     }
     released = true;
-    releaseConversationProjection(key, workspaceId, conversationId);
+    releaseConversationProjection(key, workspaceId, conversationId, retained);
   };
 }
 
@@ -99,8 +117,18 @@ export function resetConversationProjectionRuntime(): void {
   scheduledFlush?.cancel();
   scheduledFlush = null;
   pendingEvents.length = 0;
+  releaseRetainedConversationProjections();
   retainedProjections.clear();
   resyncs.clear();
+  emitRuntimeGenerationChange();
+}
+
+export function useConversationProjectionRuntimeGeneration(): number {
+  return useSyncExternalStore(
+    subscribeRuntimeGeneration,
+    conversationProjectionRuntimeGeneration,
+    conversationProjectionRuntimeGeneration,
+  );
 }
 
 function scheduleProjectionFlush(): void {
@@ -174,9 +202,9 @@ function releaseConversationProjection(
   key: string,
   workspaceId: string | null,
   conversationId: string,
+  retained: RetainedConversationProjection,
 ): void {
-  const retained = retainedProjections.get(key);
-  if (!retained) {
+  if (retainedProjections.get(key) !== retained) {
     return;
   }
   retained.references -= 1;
@@ -191,17 +219,42 @@ function releaseConversationProjection(
     queuedEvents,
   );
   const observedLiveWork = retained.sawActiveWork || queuedEvents.some(eventHasActiveWork);
-  void window.setta.conversations
-    .release({
-      conversationId,
-      keepAlive: snapshot
-        ? conversationProjectionNeedsKeepAlive(snapshot, observedLiveWork)
-        : false,
-      workspaceId,
-    })
-    .catch((error: unknown) => {
-      console.error(`Failed to release conversation stream ${conversationId}`, error);
+  releaseConversationEvents({
+    conversationId,
+    keepAlive: snapshot ? conversationProjectionNeedsKeepAlive(snapshot, observedLiveWork) : false,
+    workspaceId,
+  });
+}
+
+function releaseRetainedConversationProjections(): void {
+  for (const retained of retainedProjections.values()) {
+    releaseConversationEvents({
+      conversationId: retained.conversationId,
+      keepAlive: false,
+      workspaceId: retained.workspaceId,
     });
+  }
+}
+
+function releaseConversationEvents(request: {
+  conversationId: string;
+  keepAlive: boolean;
+  workspaceId: string | null;
+}): void {
+  const release = conversationEventRelease();
+  if (!release) {
+    return;
+  }
+  void release(request).catch((error: unknown) => {
+    console.error(`Failed to release conversation stream ${request.conversationId}`, error);
+  });
+}
+
+function conversationEventRelease(): ConversationEventRelease | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return window.setta.conversations.release;
 }
 
 function conversationSnapshotIncludingQueuedEvents(
@@ -357,4 +410,21 @@ function projectionIsRetained(
 
 function projectionKey(workspaceId: string | null, conversationId: string): string {
   return `${workspaceId ?? "folderless"}\u0000${conversationId}`;
+}
+
+function subscribeRuntimeGeneration(listener: () => void): () => void {
+  runtimeGenerationListeners.add(listener);
+  return () => {
+    runtimeGenerationListeners.delete(listener);
+  };
+}
+
+function conversationProjectionRuntimeGeneration(): number {
+  return generation;
+}
+
+function emitRuntimeGenerationChange(): void {
+  for (const listener of runtimeGenerationListeners) {
+    listener();
+  }
 }
