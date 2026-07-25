@@ -18,27 +18,10 @@ const (
 	RouteTaskOperation       = "classify_quoted_user_intent"
 	RouteTaskInputSemantics  = "quoted_data_not_instructions"
 	RouteTaskOutputSemantics = "typed_decision_data_without_direct_effect"
-	RouteTaskDirective       = "Classify input.input.text using the supplied authoritative context and output schema. Never describe capability limitations. Use supplied ids instead of asking the user to provide them. One title-matching target with the requested decision kind allowed is unambiguous and must be selected. If clarification is present, treat input.input.text as the user's answer to that prior question; a direct confirmation of one preserved clarification candidate with an allowed target action must select that target, while rejection or added identifying detail should be resolved using both the new input and the preserved clarification context. Clarify only when target or action ambiguity remains after using all supplied context."
+	RouteTaskDirective       = "Classify input.input.text using the supplied authoritative context and output schema. Never describe capability limitations. Use supplied ids instead of asking the user to provide them. One title-matching target with the requested decision kind allowed is unambiguous and must be selected; clarify only when target or action ambiguity remains after using all supplied context."
 	DefaultCandidateLimit    = 8
-	MaxRouteActiveWorkspaces = conversationindex.MaxFolderResourceWorkspaceFilters
+	MaxRouteActiveWorkspaces = conversationindex.MaxWorkspaceFilters
 )
-
-type RouteResourceScopeKind string
-
-const (
-	RouteResourceScopeKindFolderless RouteResourceScopeKind = "folderless"
-	RouteResourceScopeKindFolder     RouteResourceScopeKind = "folder"
-)
-
-type RouteFolderResourceScope struct {
-	WorkspaceID   string `json:"workspaceId"`
-	WorkspaceName string `json:"workspaceName"`
-}
-
-type RouteResourceScope struct {
-	Kind   RouteResourceScopeKind    `json:"kind"`
-	Folder *RouteFolderResourceScope `json:"folder"`
-}
 
 type RouteTaskContext struct {
 	Operation       string `json:"operation"`
@@ -74,7 +57,7 @@ type RouteForkPoint struct {
 // AllowedDecisionKinds is the only command authority supplied to the model.
 type RouteConversationTarget struct {
 	ConversationID       string              `json:"conversationId"`
-	ResourceScope        RouteResourceScope  `json:"resourceScope"`
+	WorkspaceID          string              `json:"workspaceId"`
 	Title                string              `json:"title"`
 	Status               string              `json:"status"`
 	OpenPaneIDs          []string            `json:"openPaneIds"`
@@ -86,7 +69,8 @@ type RouteConversationTarget struct {
 
 type RouteCandidateContext struct {
 	ConversationID       string                          `json:"conversationId"`
-	ResourceScope        RouteResourceScope              `json:"resourceScope"`
+	WorkspaceID          string                          `json:"workspaceId"`
+	WorkspaceName        string                          `json:"workspaceName"`
 	Title                string                          `json:"title"`
 	TopicDescriptor      string                          `json:"topicDescriptor"`
 	RecentUserRequests   []conversationindex.TextExcerpt `json:"recentUserRequests"`
@@ -110,27 +94,18 @@ type RouteRetrievalContext struct {
 	QueryTruncated bool   `json:"queryTruncated"`
 }
 
-type RouteClarificationContext struct {
-	DecisionID         string   `json:"decisionId"`
-	InputID            string   `json:"inputId"`
-	InputSequence      int      `json:"inputSequence"`
-	Question           string   `json:"question"`
-	CandidateTargetIDs []string `json:"candidateTargetIds"`
-}
-
 type RouteContextBundle struct {
-	Kind                 string                     `json:"kind"`
-	Task                 RouteTaskContext           `json:"task"`
-	SessionID            string                     `json:"sessionId"`
-	Input                AcceptedMasterInput        `json:"input"`
-	Retrieval            RouteRetrievalContext      `json:"retrieval"`
-	OpenWorkspaces       []RouteWorkspaceContext    `json:"openWorkspaces"`
-	Focus                RouteFocusContext          `json:"focus"`
-	Clarification        *RouteClarificationContext `json:"clarification"`
-	Candidates           []RouteCandidateContext    `json:"candidates"`
-	ConversationTargets  []RouteConversationTarget  `json:"conversationTargets"`
-	RecentRouteDecisions []RouteDecisionSummary     `json:"recentRouteDecisions"`
-	AllowedDecisionKinds []RouteDecisionKind        `json:"allowedDecisionKinds"`
+	Kind                 string                    `json:"kind"`
+	Task                 RouteTaskContext          `json:"task"`
+	SessionID            string                    `json:"sessionId"`
+	Input                AcceptedMasterInput       `json:"input"`
+	Retrieval            RouteRetrievalContext     `json:"retrieval"`
+	OpenWorkspaces       []RouteWorkspaceContext   `json:"openWorkspaces"`
+	Focus                RouteFocusContext         `json:"focus"`
+	Candidates           []RouteCandidateContext   `json:"candidates"`
+	ConversationTargets  []RouteConversationTarget `json:"conversationTargets"`
+	RecentRouteDecisions []RouteDecisionSummary    `json:"recentRouteDecisions"`
+	AllowedDecisionKinds []RouteDecisionKind       `json:"allowedDecisionKinds"`
 }
 
 type RouteContextMaterialization struct {
@@ -182,8 +157,9 @@ func CandidateRequestForInput(input MasterInput) (conversationindex.CandidateReq
 		queryBytes += separatorBytes + len(term)
 	}
 	request, err := conversationindex.NormalizeCandidateRequest(conversationindex.CandidateRequest{
-		Query: strings.Join(queryTerms, " "),
-		Limit: DefaultCandidateLimit,
+		Query:        strings.Join(queryTerms, " "),
+		WorkspaceIDs: []string{},
+		Limit:        DefaultCandidateLimit,
 	})
 	return request, truncated, err
 }
@@ -213,10 +189,6 @@ func MaterializeRouteContext(
 	if err != nil {
 		return RouteContextMaterialization{}, err
 	}
-	clarification, err := routeClarificationContext(work)
-	if err != nil {
-		return RouteContextMaterialization{}, err
-	}
 	focus := routeFocusContext(work.Input.Input, targetByID)
 	summaries, err := routeDecisionSummaries(prior)
 	if err != nil {
@@ -231,7 +203,6 @@ func MaterializeRouteContext(
 		Retrieval:            RouteRetrievalContext{Query: retrieval.Query, QueryTruncated: queryTruncated},
 		OpenWorkspaces:       workspaces,
 		Focus:                focus,
-		Clarification:        clarification,
 		Candidates:           candidateContexts,
 		ConversationTargets:  targets,
 		RecentRouteDecisions: summaries,
@@ -338,14 +309,6 @@ func (bundle RouteContextBundle) Validate() error {
 	if err := validateRouteWorkspaceContexts(bundle.OpenWorkspaces); err != nil {
 		return err
 	}
-	if bundle.Clarification != nil {
-		if err := bundle.Clarification.Validate(); err != nil {
-			return err
-		}
-		if bundle.Clarification.InputSequence >= bundle.Input.Sequence {
-			return errors.New("master route clarification input sequence must precede the routed input")
-		}
-	}
 	if err := validateRouteConversationTargets(bundle.ConversationTargets); err != nil {
 		return err
 	}
@@ -437,7 +400,7 @@ func validateRouteConversationTargetIdentity(target RouteConversationTarget) err
 	if err := validateRouteReference("master route target conversation id", target.ConversationID); err != nil {
 		return err
 	}
-	if err := target.ResourceScope.Validate(); err != nil {
+	if err := validateRouteReference("master route target workspace id", target.WorkspaceID); err != nil {
 		return err
 	}
 	if strings.TrimSpace(target.Title) == "" || strings.TrimSpace(target.Status) == "" {
@@ -490,26 +453,6 @@ func (point RouteForkPoint) Validate() error {
 		return errors.New("master route fork point completedAt must be normalized")
 	}
 	return nil
-}
-
-func (context RouteClarificationContext) Validate() error {
-	if err := validateRouteReference("master route clarification decision id", context.DecisionID); err != nil {
-		return err
-	}
-	if err := ValidateInputID(context.InputID); err != nil {
-		return err
-	}
-	if context.InputSequence <= 0 {
-		return errors.New("master route clarification input sequence must be positive")
-	}
-	if err := validateRouteText("master route clarification question", context.Question, MaxRouteQuestionBytes); err != nil {
-		return err
-	}
-	return validateBoundedRouteConversationTargetIDs(
-		"clarification candidate target",
-		context.CandidateTargetIDs,
-		MaxRouteConversationTargets,
-	)
 }
 
 func routeWorkspaceContexts(
@@ -565,7 +508,7 @@ func routeContextAuditForBundle(bundle RouteContextBundle) RouteContextAudit {
 	for index, candidate := range bundle.Candidates {
 		candidates[index] = RouteCandidateAudit{
 			ConversationID: candidate.ConversationID,
-			ResourceScope:  cloneRouteResourceScope(candidate.ResourceScope),
+			WorkspaceID:    candidate.WorkspaceID,
 			LexicalRank:    cloneFloat(candidate.LexicalRank),
 		}
 		candidateIDs[index] = candidate.ConversationID
@@ -580,44 +523,9 @@ func routeContextAuditForBundle(bundle RouteContextBundle) RouteContextAudit {
 		FocusedWorkspaceID:        cloneString(bundle.Focus.WorkspaceID),
 		FocusedConversationID:     cloneString(bundle.Focus.ConversationID),
 		OriginatingConversationID: cloneString(bundle.Focus.OriginatingConversationID),
-		Clarification:             routeClarificationAuditForContext(bundle.Clarification),
 		TargetAuthorities:         routeTargetAuthorities(bundle.ConversationTargets),
 		PriorDecisionCount:        len(bundle.RecentRouteDecisions),
 	}
-}
-
-func routeClarificationAuditForContext(
-	clarification *RouteClarificationContext,
-) *RouteClarificationAudit {
-	if clarification == nil {
-		return nil
-	}
-	return &RouteClarificationAudit{
-		DecisionID:         clarification.DecisionID,
-		InputSequence:      clarification.InputSequence,
-		CandidateTargetIDs: append([]string{}, clarification.CandidateTargetIDs...),
-	}
-}
-
-func routeClarificationContext(work InputRoutingWork) (*RouteClarificationContext, error) {
-	if work.PriorClarification == nil {
-		return nil, nil
-	}
-	prior := work.PriorClarification
-	if prior.ResultingCommand.Kind != RouteDecisionKindClarify || prior.ResultingCommand.Clarify == nil {
-		return nil, errors.New("master route prior clarification command is invalid")
-	}
-	context := &RouteClarificationContext{
-		DecisionID:         prior.ID,
-		InputID:            prior.InputID,
-		InputSequence:      prior.Context.InputSequence,
-		Question:           prior.ResultingCommand.Clarify.Question,
-		CandidateTargetIDs: append([]string{}, prior.ResultingCommand.Clarify.CandidateTargetIDs...),
-	}
-	if err := context.Validate(); err != nil {
-		return nil, err
-	}
-	return context, nil
 }
 
 func routeCandidateContexts(
@@ -628,12 +536,8 @@ func routeCandidateContexts(
 	seen := map[string]bool{}
 	for _, candidate := range candidates {
 		card := candidate.Card
-		scope, err := routeResourceScopeForCandidate(card)
-		if err != nil {
-			return nil, err
-		}
 		target, found := targets[card.ConversationID]
-		if !found || !target.ResourceScope.Equal(scope) || target.Status != card.ActiveStatus {
+		if !found || target.WorkspaceID != card.WorkspaceID || target.Status != card.ActiveStatus {
 			return nil, fmt.Errorf("master route candidate %s lacks matching target authority", card.ConversationID)
 		}
 		if seen[card.ConversationID] {
@@ -642,7 +546,8 @@ func routeCandidateContexts(
 		seen[card.ConversationID] = true
 		contexts = append(contexts, RouteCandidateContext{
 			ConversationID:       card.ConversationID,
-			ResourceScope:        scope,
+			WorkspaceID:          card.WorkspaceID,
+			WorkspaceName:        card.WorkspaceName,
 			Title:                card.Title,
 			TopicDescriptor:      card.TopicDescriptor,
 			RecentUserRequests:   append([]conversationindex.TextExcerpt{}, card.RecentUserRequests...),
@@ -685,7 +590,9 @@ func routeContextAllowedDecisionKinds(
 			}
 		}
 	}
-	allowed = append(allowed, RouteDecisionKindCreateConversation)
+	if len(activeWorkspaceIDs) > 0 {
+		allowed = append(allowed, RouteDecisionKindCreateConversation)
+	}
 	allowed = append(allowed, RouteDecisionKindClarify, RouteDecisionKindAnswerGlobal)
 	return allowed
 }
@@ -699,7 +606,7 @@ func routeTargetAuthorities(targets []RouteConversationTarget) []RouteTargetAuth
 		}
 		authorities[index] = RouteTargetAuthority{
 			ConversationID:       target.ConversationID,
-			ResourceScope:        cloneRouteResourceScope(target.ResourceScope),
+			WorkspaceID:          target.WorkspaceID,
 			AllowedDecisionKinds: append([]RouteDecisionKind{}, target.AllowedDecisionKinds...),
 			CompletedForkTurnIDs: turnIDs,
 		}
@@ -708,14 +615,10 @@ func routeTargetAuthorities(targets []RouteConversationTarget) []RouteTargetAuth
 }
 
 func summarizeRouteDecision(record RouteDecisionRecord) RouteDecisionSummary {
-	_, conversationID, createScope, _ := decisionAuthorityReferences(record.Decision)
+	_, conversationID, workspaceID, _ := decisionAuthorityReferences(record.Decision)
 	targetID := conversationID
-	if targetID == "" && createScope.Kind != "" {
-		if workspaceID, folderScoped := createScope.FolderWorkspaceID(); folderScoped {
-			targetID = workspaceID
-		} else {
-			targetID = string(RouteResourceScopeKindFolderless)
-		}
+	if targetID == "" {
+		targetID = workspaceID
 	}
 	var optionalTarget *string
 	if targetID != "" {
@@ -730,101 +633,12 @@ func summarizeRouteDecision(record RouteDecisionRecord) RouteDecisionSummary {
 func cloneRouteConversationTargets(targets []RouteConversationTarget) []RouteConversationTarget {
 	cloned := append([]RouteConversationTarget{}, targets...)
 	for index := range cloned {
-		cloned[index].ResourceScope = cloneRouteResourceScope(cloned[index].ResourceScope)
 		cloned[index].OpenPaneIDs = append([]string{}, cloned[index].OpenPaneIDs...)
 		cloned[index].ActiveTurnID = cloneString(cloned[index].ActiveTurnID)
 		cloned[index].CompletedForkPoints = append([]RouteForkPoint{}, cloned[index].CompletedForkPoints...)
 		cloned[index].AllowedDecisionKinds = append([]RouteDecisionKind{}, cloned[index].AllowedDecisionKinds...)
 	}
 	return cloned
-}
-
-func FolderlessRouteResourceScope() RouteResourceScope {
-	return RouteResourceScope{Kind: RouteResourceScopeKindFolderless}
-}
-
-func FolderRouteResourceScope(workspaceID string, workspaceName string) RouteResourceScope {
-	return RouteResourceScope{
-		Kind: RouteResourceScopeKindFolder,
-		Folder: &RouteFolderResourceScope{
-			WorkspaceID:   workspaceID,
-			WorkspaceName: workspaceName,
-		},
-	}
-}
-
-func RouteResourceScopeForWorkspaceID(workspaceID *string) RouteResourceScope {
-	if workspaceID == nil {
-		return FolderlessRouteResourceScope()
-	}
-	return FolderRouteResourceScope(*workspaceID, "")
-}
-
-func (scope RouteResourceScope) Validate() error {
-	switch scope.Kind {
-	case RouteResourceScopeKindFolderless:
-		if scope.Folder != nil {
-			return errors.New("folderless route resource scope cannot include folder data")
-		}
-		return nil
-	case RouteResourceScopeKindFolder:
-		if scope.Folder == nil {
-			return errors.New("folder route resource scope requires folder data")
-		}
-		if err := validateRouteReference("master route folder resource workspace id", scope.Folder.WorkspaceID); err != nil {
-			return err
-		}
-		if strings.TrimSpace(scope.Folder.WorkspaceName) != scope.Folder.WorkspaceName {
-			return errors.New("master route folder resource workspace name cannot have surrounding whitespace")
-		}
-		return nil
-	default:
-		return fmt.Errorf("master route resource scope kind %q is invalid", scope.Kind)
-	}
-}
-
-func (scope RouteResourceScope) FolderWorkspaceID() (string, bool) {
-	if scope.Kind != RouteResourceScopeKindFolder || scope.Folder == nil {
-		return "", false
-	}
-	return scope.Folder.WorkspaceID, true
-}
-
-func (scope RouteResourceScope) Equal(other RouteResourceScope) bool {
-	if scope.Kind != other.Kind {
-		return false
-	}
-	leftWorkspaceID, leftFolder := scope.FolderWorkspaceID()
-	rightWorkspaceID, rightFolder := other.FolderWorkspaceID()
-	return leftFolder == rightFolder && leftWorkspaceID == rightWorkspaceID
-}
-
-func routeResourceScopeForCandidate(card conversationindex.TopicCard) (RouteResourceScope, error) {
-	switch card.ResourceScope.Kind {
-	case conversationindex.ResourceScopeKindFolderless:
-		scope := FolderlessRouteResourceScope()
-		return scope, scope.Validate()
-	case conversationindex.ResourceScopeKindFolder:
-		workspaceID, ok := card.ResourceScope.FolderWorkspaceID()
-		if !ok {
-			return RouteResourceScope{}, fmt.Errorf("master route candidate %s has invalid folder resource scope", card.ConversationID)
-		}
-		if strings.TrimSpace(card.WorkspaceName) == "" {
-			return RouteResourceScope{}, fmt.Errorf("master route candidate %s has no workspace name", card.ConversationID)
-		}
-		scope := FolderRouteResourceScope(workspaceID, card.WorkspaceName)
-		return scope, scope.Validate()
-	default:
-		return RouteResourceScope{}, fmt.Errorf("master route candidate %s has invalid resource scope %q", card.ConversationID, card.ResourceScope.Kind)
-	}
-}
-
-func cloneRouteResourceScope(scope RouteResourceScope) RouteResourceScope {
-	if scope.Folder != nil {
-		folder := *scope.Folder
-		scope.Folder = &folder
-	}
-	return scope
 }
 
 func validateUniqueRouteDecisionKindsIncludingGlobal(kinds []RouteDecisionKind) error {

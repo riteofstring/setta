@@ -6,10 +6,7 @@ import type {
   AppearanceMasterVoiceShortcut,
   AppearancePresetList,
   AppearanceSettings,
-  AppPaneLayout,
-  AppPaneLayoutReadResult,
   BackendHealth,
-  BindTopicConversationFolderRequest,
   CancelMasterInputRequest,
   CancelCodexLoginRequest,
   CodexAccountChangeEvent,
@@ -18,14 +15,10 @@ import type {
   ConversationInputRoutingState,
   ConversationPresentationProfile,
   ConversationSnapshot,
+  EnsureHostedAccessIntent,
+  HostedAccessProgress,
   Artifact,
-  ClearDesktopSpeechCredentialRequest,
-  CreateSpeechTranscriptionSessionRequest,
   CreateTopicConversationRequest,
-  DirectorEvent,
-  DirectorIntent,
-  DirectorReceipt,
-  DirectorSnapshot,
   DiscardConversationInputRequest,
   DisposeSideConversationRequest,
   ListTopicConversationsRequest,
@@ -41,28 +34,24 @@ import type {
   ReadConversationArtifactRequest,
   ReadConversationSnapshotRequest,
   ReadMasterInputRoutingStateRequest,
-  ReadMasterTranscriptRequest,
   RefreshCodexAccountRequest,
   ReadConversationRoleConfigurationRequest,
   ReadWorkspaceRoleConfigurationRequest,
   RetryConversationInputRequest,
   RoleConfiguration,
   RoleModelCatalog,
-  RuntimeInfrastructureProvider,
   SendSideConversationTurnRequest,
   ShellInteractionState,
   SpeechAudio,
   SpeechCapabilities,
   SpeechSynthesisRequest,
   SpeechTranscriptionSession,
-  SpeechVoiceCatalog,
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   StopTopicConversationTurnRequest,
   SubmitConversationInputRequest,
   SubmitMasterInputRequest,
   SubmitTopicConversationApprovalRequest,
-  Transcript,
   UpdateAppearanceSettingsRequest,
   UpdateConversationRoleProfilesRequest,
   UpdateGlobalRoleProfilesRequest,
@@ -77,21 +66,10 @@ import type {
   ConversationEventReleaseRequest,
   ConversationEventSubscriptionRequest,
 } from "./conversation-ipc";
-import type { DirectorEventSubscriptionRequest } from "./director-ipc";
 import type {
-  LocalMacOSVoiceCancelCaptureResult,
-  LocalMacOSVoiceFinishCaptureResult,
-  SpeechCredentialProviderRequest,
-  SpeechCredentialSaveRequest,
-  SpeechCredentialSettings,
-  LocalMacOSVoiceModelDownloadStatus,
-  SpeechProviderSelectionSettings,
-  SpeechProviderSelectionUpdateRequest,
-  LocalMacOSVoiceHealth,
-  LocalMacOSVoiceSessionRequest,
-  LocalMacOSVoiceStartCaptureRequest,
-  LocalMacOSVoiceStartCaptureResult,
-} from "./speech-ipc";
+  HostedAccessProgressReleaseRequest,
+  HostedAccessProgressSubscriptionRequest,
+} from "./hosted-access-ipc";
 
 export interface RuntimeVersions {
   app: string;
@@ -247,6 +225,19 @@ export type BackendProcessStatus =
   | { status: "offline"; message: string }
   | { status: "failed"; message: string };
 
+export type BackendEventStreamStatus =
+  | { status: "connecting"; attempt: number; message: string }
+  | { status: "connected"; lastSequence: number; lastStreamId: string; message: string }
+  | {
+      status: "reconnecting";
+      attempt: number;
+      lastSequence: number;
+      lastStreamId: string;
+      message: string;
+    }
+  | { status: "resyncing"; lastSequence: number; lastStreamId: string; message: string }
+  | { status: "stopped"; message: string };
+
 export type RuntimeConnectionStatus =
   | "disconnected"
   | "connecting"
@@ -270,7 +261,6 @@ export interface KnownRuntimeView {
   connectionMessage: string;
   connectionStatus: RuntimeConnectionStatus;
   displayName: string;
-  infrastructureProvider: RuntimeInfrastructureProvider;
   isLocal: boolean;
   lastConnected: string | null;
   runtimeId: string;
@@ -281,6 +271,12 @@ export interface RuntimeRegistrySnapshot {
   connection: RuntimeConnectionState;
   runtimes: KnownRuntimeView[];
   switching: boolean;
+}
+
+export interface RuntimeAccessCredentialView {
+  expiresAt: string;
+  runtimeId: string;
+  token: string;
 }
 
 export interface SettaAPI {
@@ -302,13 +298,16 @@ export interface SettaAPI {
     health: () => Promise<BackendHealth>;
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
   };
-  appLayout: {
-    readPaneLayout: () => Promise<AppPaneLayoutReadResult>;
-    savePaneLayout: (layout: AppPaneLayout) => Promise<AppPaneLayout>;
+  hostedAccess?: {
+    ensure: (intent: EnsureHostedAccessIntent) => Promise<HostedAccessProgress>;
+    onProgress: (listener: (progress: HostedAccessProgress) => void) => () => void;
+    releaseProgress: (request: HostedAccessProgressReleaseRequest) => Promise<void>;
+    subscribeProgress: (request: HostedAccessProgressSubscriptionRequest) => Promise<void>;
   };
   runtimes: {
     addByPairingUrl: (pairingUrl: string) => Promise<RuntimeRegistrySnapshot>;
     current: () => Promise<RuntimeRegistrySnapshot>;
+    currentRuntimeCredential: () => Promise<RuntimeAccessCredentialView>;
     list: () => Promise<KnownRuntimeView[]>;
     onConnectionState: (listener: (snapshot: RuntimeRegistrySnapshot) => void) => () => void;
     remove: (runtimeId: string) => Promise<RuntimeRegistrySnapshot>;
@@ -316,7 +315,6 @@ export interface SettaAPI {
   };
   conversations: {
     archive: (request: ArchiveTopicConversationRequest) => Promise<ConversationSnapshot>;
-    bindFolder: (request: BindTopicConversationFolderRequest) => Promise<ConversationSnapshot>;
     create: (request: CreateTopicConversationRequest) => Promise<ConversationSnapshot>;
     discardInput?: (
       request: DiscardConversationInputRequest,
@@ -345,16 +343,9 @@ export interface SettaAPI {
       request: ReadConversationInputRoutingStateRequest,
     ) => Promise<ConversationInputRoutingState>;
   };
-  director: {
-    dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
-    onEvent: (listener: (event: DirectorEvent) => void) => () => void;
-    readSnapshot: () => Promise<DirectorSnapshot>;
-    subscribe: (request: DirectorEventSubscriptionRequest) => Promise<void>;
-  };
   master?: {
     cancelInput: (request: CancelMasterInputRequest) => Promise<ShellInteractionState>;
     readActiveInteraction: () => Promise<ActiveShellInteraction>;
-    readTranscript: (request: ReadMasterTranscriptRequest) => Promise<Transcript>;
     resolvePresentation: (
       request: PresentationResolutionRequest,
     ) => Promise<PresentationResolution>;
@@ -379,48 +370,13 @@ export interface SettaAPI {
   };
   speech: {
     cancelSynthesis?: (operationId: string) => Promise<void>;
-    cancelLocalMacOSVoiceCapture?: (
-      request: LocalMacOSVoiceSessionRequest,
-    ) => Promise<LocalMacOSVoiceCancelCaptureResult>;
-    createTranscriptionSession: (
-      request: CreateSpeechTranscriptionSessionRequest,
-    ) => Promise<SpeechTranscriptionSession>;
-    finishLocalMacOSVoiceCapture?: (
-      request: LocalMacOSVoiceSessionRequest,
-    ) => Promise<LocalMacOSVoiceFinishCaptureResult>;
-    onCredentialSettingsChanged?: (
-      listener: (settings: SpeechCredentialSettings) => void,
-    ) => () => void;
-    onProviderSelectionChanged?: (
-      listener: (settings: SpeechProviderSelectionSettings) => void,
-    ) => () => void;
-    onLocalMacOSVoiceModelDownloadChanged?: (
-      listener: (status: LocalMacOSVoiceModelDownloadStatus) => void,
-    ) => () => void;
+    createTranscriptionSession: () => Promise<SpeechTranscriptionSession>;
     readCapabilities: () => Promise<SpeechCapabilities>;
-    readCredentialSettings?: (
-      request: SpeechCredentialProviderRequest,
-    ) => Promise<SpeechCredentialSettings>;
-    readLocalMacOSVoiceHealth?: () => Promise<LocalMacOSVoiceHealth>;
-    readLocalMacOSVoiceModelDownload?: () => Promise<LocalMacOSVoiceModelDownloadStatus>;
-    listLocalMacOSVoices?: () => Promise<SpeechVoiceCatalog>;
     readMasterVoiceSelection?: () => Promise<MasterVoiceSelection>;
     readNarratorVoiceDefault?: () => Promise<NarratorVoiceDefault>;
-    readProviderSelection?: () => Promise<SpeechProviderSelectionSettings>;
-    removeCredential?: (
-      request: ClearDesktopSpeechCredentialRequest,
-    ) => Promise<SpeechCredentialSettings>;
-    saveCredential?: (request: SpeechCredentialSaveRequest) => Promise<SpeechCredentialSettings>;
-    startLocalMacOSVoiceCapture?: (
-      request: LocalMacOSVoiceStartCaptureRequest,
-    ) => Promise<LocalMacOSVoiceStartCaptureResult>;
-    startLocalMacOSVoiceModelDownload?: () => Promise<LocalMacOSVoiceModelDownloadStatus>;
     synthesize?: (request: SpeechSynthesisRequest, operationId: string) => Promise<SpeechAudio>;
     updateMasterVoiceSelection?: (request: VoiceSelectionRequest) => Promise<MasterVoiceSelection>;
     updateNarratorVoiceDefault?: (request: VoiceSelectionRequest) => Promise<NarratorVoiceDefault>;
-    updateProviderSelection?: (
-      request: SpeechProviderSelectionUpdateRequest,
-    ) => Promise<SpeechProviderSelectionSettings>;
   };
   appearance: {
     presets: () => Promise<AppearancePresetList>;

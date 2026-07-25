@@ -2,28 +2,28 @@ package httpapi
 
 import (
 	"setta/internal/appearance"
-	"setta/internal/applayout"
 	"setta/internal/conversation"
+	"setta/internal/localcredissuer"
 	"setta/internal/runtimeauth"
-	"setta/internal/speech"
+	"setta/internal/runtimecapability"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 	"setta/internal/workspaceui"
 )
 
-type RuntimeInfoResponse struct {
-	RuntimeID              string                        `json:"runtimeId"`
-	DisplayName            string                        `json:"displayName"`
-	InfrastructureProvider RuntimeInfrastructureProvider `json:"infrastructureProvider"`
-	BackendName            string                        `json:"backendName"`
-	BackendVersion         string                        `json:"backendVersion"`
-	ProtocolVersion        int                           `json:"protocolVersion"`
-}
+type LocalCredentialEnrollRequest = localcredissuer.EnrollRequest
+type LocalCredentialEnrollResponse = localcredissuer.EnrollResponse
+type LocalCredentialRefreshRequest = localcredissuer.RefreshRequest
+type LocalCredentialRefreshResponse = localcredissuer.RuntimeCredentialResponse
 
-type RuntimeInfrastructureProvider struct {
-	ID          string `json:"id"`
-	DisplayName string `json:"displayName"`
-	IconURL     string `json:"iconUrl"`
+type RuntimeInfoResponse struct {
+	RuntimeID       string                               `json:"runtimeId"`
+	DisplayName     string                               `json:"displayName"`
+	BackendName     string                               `json:"backendName"`
+	BackendVersion  string                               `json:"backendVersion"`
+	ProtocolVersion int                                  `json:"protocolVersion"`
+	FeatureSet      runtimecapability.RuntimeFeatureSet  `json:"featureSet"`
+	Diagnostics     runtimecapability.RuntimeDiagnostics `json:"diagnostics"`
 }
 
 type UpdateRuntimeDisplayNameRequest struct {
@@ -40,6 +40,25 @@ type CompletePairingResponse struct {
 	DeviceToken     string `json:"deviceToken"`
 	RuntimeID       string `json:"runtimeId"`
 	ProtocolVersion int    `json:"protocolVersion"`
+}
+
+type SetupAttestationRequest struct {
+	SetupID string `json:"setupId"`
+	Nonce   string `json:"nonce"`
+}
+
+type SetupAttestationResponse struct {
+	Algorithm       string                              `json:"algorithm"`
+	BackendName     string                              `json:"backendName"`
+	RuntimeID       string                              `json:"runtimeId"`
+	RuntimeName     string                              `json:"runtimeName"`
+	SetupID         string                              `json:"setupId"`
+	ReleaseVersion  string                              `json:"releaseVersion"`
+	CredentialEpoch int                                 `json:"credentialEpoch"`
+	FeatureSet      runtimecapability.RuntimeFeatureSet `json:"featureSet"`
+	Nonce           string                              `json:"nonce"`
+	ExpiresAt       string                              `json:"expiresAt"`
+	Attestation     string                              `json:"attestation"`
 }
 
 type ListDevicesRequest struct{}
@@ -102,13 +121,9 @@ type SaveWorkspaceUILayoutRequest struct {
 	Layout workspaceui.WorkspaceUILayout `json:"layout"`
 }
 
-type SaveAppPaneLayoutRequest struct {
-	Layout applayout.AppPaneLayout `json:"layout"`
-}
-
 type ReadConversationSnapshotRequest struct {
-	WorkspaceID    *string `json:"workspaceId"`
-	ConversationID string  `json:"conversationId"`
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
 }
 
 type ReadConversationArtifactRequest struct {
@@ -125,22 +140,11 @@ type ListTopicConversationsRequest struct {
 }
 
 type SubscribeConversationEventsRequest struct {
-	WorkspaceID    *string `json:"workspaceId"`
-	ConversationID string  `json:"conversationId"`
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
 }
 
-type SpeechCredentialRequest struct {
-	Provider speech.SpeechProvider `json:"provider"`
-	APIKey   string                `json:"apiKey"`
-}
-
-type ClearDesktopSpeechCredentialRequest struct {
-	Provider speech.SpeechProvider `json:"provider"`
-}
-
-type CreateSpeechTranscriptionSessionRequest struct {
-	Provider speech.SpeechProvider `json:"provider"`
-}
+type CreateSpeechTranscriptionSessionRequest struct{}
 
 type APIError struct {
 	Code             string `json:"code"`

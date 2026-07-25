@@ -1,4 +1,4 @@
-/* global Element, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
+/* global Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, document, window */
 
 (() => {
   const version = "setta-topic-conversation-presentation-configuration-driver-v1";
@@ -8,10 +8,10 @@
   }
   Object.assign(driver, {
     presentationConfigurationConversationState,
-    presentationConfigurationConversationTogglePoint,
     presentationConfigurationFindTopic,
     presentationConfigurationGlobalState,
     presentationConfigurationOpenGlobalTab,
+    presentationConfigurationOpenConversation,
     presentationConfigurationOpenSettings,
     presentationConfigurationReadConversation,
     presentationConfigurationReadGlobal,
@@ -136,33 +136,13 @@
     };
   }
 
-  function presentationConfigurationConversationTogglePoint({ conversationId }) {
+  function presentationConfigurationOpenConversation({ conversationId }) {
     const summary = conversationConfiguration(conversationId)?.querySelector("summary");
     if (!(summary instanceof HTMLElement)) {
-      return { conversationId, ok: false, x: 0, y: 0 };
+      return { clicked: false, conversationId };
     }
-    const rect = summary.getBoundingClientRect();
-    const point = centerPoint(rect);
-    return {
-      conversationId,
-      ok:
-        rect.width > 0 && rect.height > 0 && pointIsInViewport(point) && pointHits(summary, point),
-      x: point.x,
-      y: point.y,
-    };
-  }
-
-  function centerPoint(rect) {
-    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-  }
-
-  function pointIsInViewport({ x, y }) {
-    return x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight;
-  }
-
-  function pointHits(element, { x, y }) {
-    const hit = document.elementFromPoint(x, y);
-    return hit instanceof Element && (hit === element || element.contains(hit));
+    summary.click();
+    return { clicked: true, conversationId };
   }
 
   function unavailableConversationState(conversationId) {

@@ -480,7 +480,11 @@ export class FrameScheduler {
   }
 
   private startMeasurementAfterWarmup(timestamp: number): void {
-    if (this.measurementStartedAt > 0 || timestamp - this.startedAt < benchmarkWarmupMs) {
+    if (
+      !this.reportWriter ||
+      this.measurementStartedAt > 0 ||
+      timestamp - this.startedAt < benchmarkWarmupMs
+    ) {
       return;
     }
     this.metrics.reset();
