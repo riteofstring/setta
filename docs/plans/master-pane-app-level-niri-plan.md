@@ -500,6 +500,28 @@ resolve or create the appropriate pane directly from the command target and its 
 
 ### 8. Verify End To End
 
+**Status:** In progress.
+
+Completed repository work:
+
+- Extended the focused app pane Electron workflow to run with the scripted topic Codex fixture and
+  verify a resource-bound conversation pane can be focused through the master picker, accept a
+  deterministic in-progress turn, close as a view while the durable turn remains running with the
+  same provider turn id, reopen from the master picker, and then stop the held turn.
+- Extended the same workflow to assert the live and persisted app pane layout keeps exactly one
+  master pane while the resource-bound conversation pane is closed, and that removed project
+  sidebar/selector hooks are absent from the primary pane flow.
+
+Remaining repository work:
+
+- Audit the existing focused deterministic workflows against the required coverage below, then fill
+  any remaining repository-actionable gaps for folder-needed resource requests, folderless
+  conversation reopen, direct folderless master answers, transcript reload coverage, and broader
+  close/focus invariants that are not already covered.
+- Run the phase-audit deterministic workflow selectors once implementation coverage is complete.
+- Run live Codex E2E tests only at phase audit when local ChatGPT-authenticated Codex CLI access is
+  available; otherwise record that external provider verification as a release gate.
+
 Because this touches pane layout, master routing, conversation creation, persistence, keyboard
 shortcuts, and renderer state, verification must include deterministic end-to-end app workflow
 tests through production Electron/main/preload/renderer/HTTP/store paths.

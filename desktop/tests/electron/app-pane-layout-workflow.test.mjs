@@ -2,7 +2,7 @@
 /* global console */
 
 import { realpath } from "node:fs/promises";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import process from "node:process";
 
 import { driverCallExpression } from "./cdp-client.mjs";
@@ -19,7 +19,9 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
-import { backendProbe } from "./electron-workflow-harness.mjs";
+import { backendProbe, waitForBackendState } from "./electron-workflow-harness.mjs";
+import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
+import { assertDriverAction, conversationSurfaces } from "./topic-conversation-fork-workflow.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "app-pane-layout";
@@ -39,12 +41,18 @@ if (!options.skipBuild) {
 const artifactDir = options.artifactDir || timestampedRecordingDir(workflowName);
 await writeLatestRecordingPointer(workflowName, artifactDir);
 const fixture = await createElectronFixture(workflowName);
+const fakeCodex = await installFakeTopicCodex(fixture);
 let context = null;
 
 try {
   context = await launchElectronCdpContext({
     artifactDir,
+    extraEnv: {
+      PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
+      SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
+    },
     fixture,
+    unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
   await context.client.installDriver();
@@ -94,6 +102,13 @@ try {
     appLayoutShellPersisted,
     workflowTimeoutMs,
   );
+  const activeConversationClose = await exerciseActiveConversationCloseAndReopen({
+    backend,
+    client: context.client,
+    conversationId,
+    workspaceId,
+  });
+  const refocusedMaster = await focusMasterPaneFromShortcut(context.client);
   const folderlessConversation = await context.client.driver(
     "appPaneLayoutCreateFolderlessConversationFromMaster",
   );
@@ -105,10 +120,12 @@ try {
 
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
+    activeConversationClose,
     focusedMaster,
     folderlessConversation,
     focusedPaneId: result.readBack.layout.focusedPaneId,
     persistedShell,
+    refocusedMaster,
     restoredShell,
     status: "passed",
     workspaceId,
@@ -143,6 +160,145 @@ async function ensureWorkspaceOpen(client) {
     workflowTimeoutMs,
   );
   return opened.workspaceId;
+}
+
+async function exerciseActiveConversationCloseAndReopen({
+  backend,
+  client,
+  conversationId,
+  workspaceId,
+}) {
+  const holdText = "hold app pane close active work";
+  const openedBeforeClose = await client.driver("appPaneLayoutOpenConversationFromMaster", {
+    conversationId,
+  });
+  assertDriverStatus(openedBeforeClose, "resource-bound conversation focus before close");
+  await waitForConversationSurface(
+    client,
+    conversationId,
+    (surface) => surface.projectionStatus === "ready" && !surface.inputDisabled,
+  );
+  assertDriverAction(
+    await client.driver("topicConversationSubmit", { conversationId, text: holdText }),
+    "submitted",
+  );
+  await waitForConversationSurface(
+    client,
+    conversationId,
+    (surface) => surface.state === "working" && surface.intentText === holdText,
+  );
+  const runningBeforeClose = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    conversationId,
+    (snapshot) =>
+      snapshot.conversation.status === "working" &&
+      turnTextHasStatus(snapshot, holdText, "running") &&
+      snapshotHasAgentText(snapshot, `Streaming ${holdText}`),
+  );
+  const runningTurn = turnByText(runningBeforeClose, holdText);
+  if (!runningTurn?.providerTurnId) {
+    throw new Error(
+      `active close turn lost provider identity: ${JSON.stringify(runningBeforeClose.turns)}`,
+    );
+  }
+
+  const closed = await client.driver("appPaneLayoutCloseConversationPane", { conversationId });
+  assertDriverStatus(closed, "resource-bound active conversation pane close");
+  const runningAfterClose = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    conversationId,
+    (snapshot) => {
+      const turn = turnByText(snapshot, holdText);
+      return (
+        snapshot.conversation.status === "working" &&
+        turn?.status === "running" &&
+        turn.providerTurnId === runningTurn.providerTurnId
+      );
+    },
+  );
+
+  const reopened = await client.driver("appPaneLayoutOpenConversationFromMaster", {
+    conversationId,
+  });
+  assertDriverStatus(reopened, "resource-bound conversation reopen after close");
+  const reopenedSurface = await waitForConversationSurface(
+    client,
+    conversationId,
+    (surface) => surface.state === "working" && surface.intentText === holdText,
+  );
+  assertDriverAction(await client.driver("topicConversationStop", { conversationId }), "stopped");
+  const stopped = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    conversationId,
+    (snapshot) =>
+      snapshot.conversation.status === "idle" && turnTextHasStatus(snapshot, holdText, "cancelled"),
+  );
+
+  return {
+    closedPaneId: closed.paneId,
+    providerTurnId: runningTurn.providerTurnId,
+    reopenedPaneId: reopened.paneId,
+    reopenedProjectionStatus: reopenedSurface.projectionStatus,
+    runningTurnStatusAfterClose: turnByText(runningAfterClose, holdText)?.status ?? "",
+    stoppedTurnStatus: turnByText(stopped, holdText)?.status ?? "",
+  };
+}
+
+async function focusMasterPaneFromShortcut(client) {
+  const shortcut = await client.driver("appPaneLayoutPressMasterFocusShortcut");
+  if (!shortcut.defaultPrevented) {
+    throw new Error(`master pane refocus shortcut was not handled: ${JSON.stringify(shortcut)}`);
+  }
+  return waitForState(
+    client,
+    driverCallExpression("appPaneLayoutMasterFocusState"),
+    masterPaneFocusedByShortcut,
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForConversationSurface(client, conversationId, ready) {
+  const state = await waitForState(
+    client,
+    driverCallExpression("topicConversationSurfaceStates", {}),
+    (current) => {
+      const surface = conversationSurfaces(current.surfaces, conversationId)[0];
+      return Boolean(surface && ready(surface));
+    },
+    workflowTimeoutMs,
+  );
+  return conversationSurfaces(state.surfaces, conversationId)[0];
+}
+
+function waitForConversationSnapshot(backend, workspaceId, conversationId, ready) {
+  return waitForBackendState(
+    async () => backend.post("/conversations/snapshot/read", { conversationId, workspaceId }),
+    ready,
+    workflowTimeoutMs,
+  );
+}
+
+function snapshotHasAgentText(snapshot, expected) {
+  return snapshot.trajectory.events.some((event) =>
+    event.agentPublicTextDelta?.delta.includes(expected),
+  );
+}
+
+function turnTextHasStatus(snapshot, text, status) {
+  return turnByText(snapshot, text)?.status === status;
+}
+
+function turnByText(snapshot, text) {
+  return snapshot.turns.turns.find((turn) => turn.authoredInput.text === text);
+}
+
+function assertDriverStatus(result, label) {
+  if (result?.status !== "passed") {
+    throw new Error(`${label} failed: ${JSON.stringify(result)}`);
+  }
 }
 
 function validWorkspaceId(workspaceId) {

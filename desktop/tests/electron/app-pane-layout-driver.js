@@ -1,7 +1,7 @@
 /* global HTMLButtonElement, HTMLElement, KeyboardEvent, document, window */
 
 (() => {
-  const version = "setta-app-pane-layout-driver-v1";
+  const version = "setta-app-pane-layout-driver-v2";
   let roundTripPromise = null;
 
   function installAppPaneLayoutDriver() {
@@ -11,8 +11,12 @@
     }
     Object.assign(driver, {
       appPaneLayoutClickFocusedMaximize,
+      appPaneLayoutCloseConversationPane,
+      appPaneLayoutConversationPaneState,
       appPaneLayoutCreateFolderlessConversationFromMaster,
       appPaneLayoutMasterFocusState,
+      appPaneLayoutOpenConversationFromMaster,
+      appPaneLayoutPaneInvariantState,
       appPaneLayoutPersistedShellState,
       appPaneLayoutPressMasterFocusShortcut,
       appPaneLayoutRoundTrip,
@@ -37,13 +41,51 @@
         surfaceKind: host.dataset.surfaceKind ?? "",
         visible: host.dataset.visible ?? "",
       }));
+    const visibleHosts = hosts.filter((host) => host.visible === "true");
     return {
       hosts,
+      legacyProjectShellPresent: legacyProjectShellPresent(),
+      masterPaneCount: visibleHosts.filter((host) => host.surfaceKind === "master").length,
       maximizedPaneId: area instanceof HTMLElement ? (area.dataset.maximizedPaneId ?? "") : "",
       paneCount: area instanceof HTMLElement ? (area.dataset.paneCount ?? "") : "",
       ready: area instanceof HTMLElement,
       workspaceId: area instanceof HTMLElement ? (area.dataset.workspaceId ?? "") : "",
     };
+  }
+
+  async function appPaneLayoutPaneInvariantState() {
+    const shell = appPaneLayoutShellState();
+    const api = appLayoutAPI();
+    if (api.status === "failed") {
+      return {
+        ...shell,
+        persistedConversationPaneCount: -1,
+        persistedMasterPaneCount: -1,
+        status: "failed",
+      };
+    }
+    const read = await api.readPaneLayout();
+    const panes = read.layout?.panes ?? [];
+    return {
+      ...shell,
+      persistedConversationPaneCount: panes.filter((pane) => pane.surfaceKind === "conversation")
+        .length,
+      persistedMasterPaneCount: panes.filter((pane) => pane.surfaceKind === "master").length,
+      status: "ready",
+    };
+  }
+
+  function legacyProjectShellPresent() {
+    return Boolean(
+      document.querySelector(
+        [
+          '[data-testid="project-pane"]',
+          '[data-testid="project-sidebar-toggle"]',
+          '[data-testid="workspace-sidebar"]',
+          '[data-testid="workspace-selector"]',
+        ].join(", "),
+      ),
+    );
   }
 
   function appPaneLayoutClickFocusedMaximize() {
@@ -108,6 +150,206 @@
     }
     button.click();
     return waitForFolderlessConversationPane();
+  }
+
+  async function appPaneLayoutOpenConversationFromMaster({ conversationId }) {
+    const topicsButton = document.querySelector(
+      '[data-testid="master-pane-surface"] [data-testid="master-topics-button"]',
+    );
+    if (!(topicsButton instanceof HTMLButtonElement)) {
+      return { reason: "missing-master-topics-button", status: "failed" };
+    }
+    if (topicsButton.getAttribute("aria-expanded") !== "true") {
+      topicsButton.click();
+    }
+    const row = await waitForMasterConversationPickerRow(conversationId);
+    if (!(row instanceof HTMLButtonElement)) {
+      return masterConversationPickerRowState(conversationId, "failed");
+    }
+    row.click();
+    return waitForConversationPaneOpen(conversationId);
+  }
+
+  async function waitForMasterConversationPickerRow(conversationId) {
+    const deadline = Date.now() + 5000;
+    let row = masterConversationPickerRow(conversationId);
+    while (!(row instanceof HTMLButtonElement) && Date.now() < deadline) {
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+      row = masterConversationPickerRow(conversationId);
+    }
+    if (row instanceof HTMLButtonElement && !row.disabled) {
+      return row;
+    }
+    return null;
+  }
+
+  function masterConversationPickerRow(conversationId) {
+    return Array.from(document.querySelectorAll('[data-testid="master-conversation-picker-row"]'))
+      .filter((row) => row instanceof HTMLButtonElement)
+      .find((row) => row.dataset.conversationId === conversationId);
+  }
+
+  function masterConversationPickerRowState(conversationId, status) {
+    const panel = document.querySelector('[data-testid="master-conversation-picker-panel"]');
+    return {
+      conversationId,
+      panelPresent: panel instanceof HTMLElement,
+      rowCount: document.querySelectorAll('[data-testid="master-conversation-picker-row"]').length,
+      status,
+    };
+  }
+
+  async function waitForConversationPaneOpen(conversationId) {
+    const deadline = Date.now() + 5000;
+    let state = await conversationPaneOpenState(conversationId);
+    while (state.status !== "passed" && Date.now() < deadline) {
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+      state = await conversationPaneOpenState(conversationId);
+    }
+    return state.status === "passed" ? state : { ...state, status: "failed" };
+  }
+
+  async function conversationPaneOpenState(conversationId) {
+    const state = appPaneLayoutConversationPaneState({ conversationId });
+    const api = appLayoutAPI();
+    if (api.status === "failed") {
+      return { ...state, ...api };
+    }
+    const read = await api.readPaneLayout();
+    const persistedPane = persistedConversationPane(read.layout, conversationId);
+    if (!state.open || !state.visible || !persistedPane) {
+      return {
+        ...state,
+        persisted: Boolean(persistedPane),
+        reason: "conversation-pane-not-open",
+        status: "pending",
+      };
+    }
+    return {
+      ...state,
+      persisted: true,
+      resourceRoot: persistedConversationPaneResourceRoot(persistedPane),
+      status: "passed",
+    };
+  }
+
+  async function appPaneLayoutCloseConversationPane({ conversationId }) {
+    const host = conversationPaneHost(conversationId);
+    if (!(host instanceof HTMLElement)) {
+      return { conversationId, reason: "missing-conversation-pane-host", status: "failed" };
+    }
+    const button = host.querySelector('[data-workspace-pane-action="close"]');
+    if (!(button instanceof HTMLButtonElement)) {
+      return {
+        conversationId,
+        paneId: host.dataset.paneId ?? "",
+        reason: "missing-close-button",
+        status: "failed",
+      };
+    }
+    if (button.disabled) {
+      return {
+        conversationId,
+        paneId: host.dataset.paneId ?? "",
+        reason: "disabled-close-button",
+        status: "failed",
+      };
+    }
+    const paneId = host.dataset.paneId ?? "";
+    button.click();
+    return waitForConversationPaneClosed({ conversationId, paneId });
+  }
+
+  async function waitForConversationPaneClosed({ conversationId, paneId }) {
+    const deadline = Date.now() + 5000;
+    let state = await conversationPaneClosedState({ conversationId, paneId });
+    while (state.status !== "passed" && Date.now() < deadline) {
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+      state = await conversationPaneClosedState({ conversationId, paneId });
+    }
+    return state.status === "passed" ? state : { ...state, status: "failed" };
+  }
+
+  async function conversationPaneClosedState({ conversationId, paneId }) {
+    const shell = appPaneLayoutShellState();
+    const api = appLayoutAPI();
+    if (api.status === "failed") {
+      return { ...api, conversationId, paneId };
+    }
+    const read = await api.readPaneLayout();
+    const panes = read.layout?.panes ?? [];
+    const persistedConversationPaneCount = panes.filter(
+      (pane) =>
+        pane.surfaceKind === "conversation" &&
+        pane.conversationConfig?.conversationId === conversationId,
+    ).length;
+    const persistedMasterPaneCount = panes.filter((pane) => pane.surfaceKind === "master").length;
+    const liveConversationPaneCount = conversationPaneHosts(conversationId).length;
+    const passed = conversationPaneClosedInvariantPassed({
+      legacyProjectShellPresent: shell.legacyProjectShellPresent,
+      liveConversationPaneCount,
+      masterPaneCount: shell.masterPaneCount,
+      persistedConversationPaneCount,
+      persistedMasterPaneCount,
+    });
+    return {
+      conversationId,
+      legacyProjectShellPresent: shell.legacyProjectShellPresent,
+      liveConversationPaneCount,
+      masterPaneCount: shell.masterPaneCount,
+      paneId,
+      persistedConversationPaneCount,
+      persistedMasterPaneCount,
+      reason: passed ? "closed" : "conversation-pane-still-open",
+      status: passed ? "passed" : "pending",
+    };
+  }
+
+  function conversationPaneClosedInvariantPassed({
+    legacyProjectShellPresent,
+    liveConversationPaneCount,
+    masterPaneCount,
+    persistedConversationPaneCount,
+    persistedMasterPaneCount,
+  }) {
+    return (
+      liveConversationPaneCount === 0 &&
+      persistedConversationPaneCount === 0 &&
+      masterPaneCount === 1 &&
+      persistedMasterPaneCount === 1 &&
+      !legacyProjectShellPresent
+    );
+  }
+
+  function appPaneLayoutConversationPaneState({ conversationId }) {
+    const host = conversationPaneHost(conversationId);
+    const surface =
+      host instanceof HTMLElement
+        ? host.querySelector('[data-testid="easy-button-surface"]')
+        : null;
+    return {
+      conversationId,
+      focused: host instanceof HTMLElement ? host.dataset.focused === "true" : false,
+      open: host instanceof HTMLElement,
+      paneId: host instanceof HTMLElement ? (host.dataset.paneId ?? "") : "",
+      projectionStatus:
+        surface instanceof HTMLElement ? (surface.dataset.easyButtonProjection ?? "") : "",
+      visible: host instanceof HTMLElement ? host.dataset.visible === "true" : false,
+    };
+  }
+
+  function conversationPaneHost(conversationId) {
+    return conversationPaneHosts(conversationId)[0] ?? null;
+  }
+
+  function conversationPaneHosts(conversationId) {
+    return Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
+      .filter((host) => host instanceof HTMLElement && host.dataset.visible === "true")
+      .filter((host) => host.dataset.surfaceKind === "conversation")
+      .filter((host) => {
+        const surface = host.querySelector('[data-testid="easy-button-surface"]');
+        return surface instanceof HTMLElement && surface.dataset.conversationId === conversationId;
+      });
   }
 
   async function waitForFolderlessConversationPane() {
@@ -223,6 +465,21 @@
     if (!pane || pane.surfaceKind !== "conversation") {
       return "";
     }
+    const folderBinding = pane.conversationConfig.resourceBindings.find(
+      (binding) => binding.kind === "folder",
+    );
+    return folderBinding ? folderBinding.folder.rootPath : "";
+  }
+
+  function persistedConversationPane(layout, conversationId) {
+    return layout?.panes.find(
+      (pane) =>
+        pane.surfaceKind === "conversation" &&
+        pane.conversationConfig?.conversationId === conversationId,
+    );
+  }
+
+  function persistedConversationPaneResourceRoot(pane) {
     const folderBinding = pane.conversationConfig.resourceBindings.find(
       (binding) => binding.kind === "folder",
     );
