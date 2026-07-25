@@ -25,12 +25,17 @@ The product should:
 - sustain fluid 120 Hz interaction without hitching
 
 This is a product and architecture cutover, not a skin over the pane system.
+From the first usable Setta 4 shell onward, the product surface is the Director command center, not a
+pane app with a graph added to it. Existing pane code may exist only as temporary internal
+implementation inventory while its responsibilities are replaced, rehomed, or deleted. It must not
+define new user-facing flows, contracts, navigation, or presentation authority.
 
 ## Design Direction
 
 The committed fullscreen conversation mockup
 [`docs/mockups/fullscreen_conversation_concept.html`](../mockups/fullscreen_conversation_concept.html)
-establishes the visual and interaction direction:
+is the visual fidelity target for Setta 4. The implemented shell should be basically this mockup
+backed by real Setta contracts and data:
 
 - one fullscreen living reasoning stream
 - selected workstream navigation with adjacent context
@@ -39,14 +44,40 @@ establishes the visual and interaction direction:
 - a bottom Director composer
 - compact user/final-answer history
 - background workstreams represented without competing for the full screen
+- dark full-canvas visual hierarchy with luminous graph nodes and edges
+- floating labels tied to graph nodes
+- compact top workstream navigation and status dots
+- the same overall motion language for active work, branching, failure, recovery, and completion
 
 The initial renderer should use **WebGL2**, GLSL shaders, buffers, instancing, and GPU timer queries.
-Reimplement the selected concepts against Setta 4 contracts instead of treating prototype-only code
-as production architecture.
+Reimplement the user-visible composition, hierarchy, and motion language against Setta 4 contracts.
+Prototype-only implementation details, fake demo data, dev controls, and scripted sample activity are
+not production architecture.
 
 The mockup was copied from the frozen `setta-3-fullscreen-conversation` branch at commit
-`5d7c56780fc069979651cc2446f6d6b79c77a4fe`. It is design evidence, not production architecture to
-merge wholesale.
+`5d7c56780fc069979651cc2446f6d6b79c77a4fe`. Its production-visible UX is binding; its code and fake
+data are not production contracts to merge wholesale.
+
+### Mockup fidelity gate
+
+Setta 4 is not a loose redesign inspired by the mockup. Before Phase 4 exits, the production shell
+must pass a side-by-side visual and interaction review against the committed mockup at representative
+desktop and phone-sized viewports.
+
+The implementation must preserve:
+
+- fullscreen command-center composition with the graph as the primary surface
+- left Now rail, right Artifacts rail, bottom Director composer, and compact top workstream
+  navigation
+- central living graph with ladder, branching, merge, active, failed, recovered, and completed
+  visual states
+- floating graph labels and compact user/final-answer history
+- background workstreams as lightweight visual context, not independent panes
+- the mockup's dark, luminous, high-motion visual language
+
+Allowed differences must be explicit and narrow: real data availability, accessibility, performance,
+responsive layout, or a documented product correction. The dev bar, seeded demo conversations,
+prototype control toggles, and exact mock text are prototype-only.
 
 ## Existing Foundations To Reuse
 
@@ -104,7 +135,11 @@ This is an unreleased-product cutover.
 - No backward-compatibility shims.
 - No dual Niri/Director product modes.
 - No old-layout migration or pane-state aliases.
+- No pane, tile, split, workspace-strip, resize, drag, reorder, or manual layout affordances in the
+  Setta 4 primary UI.
+- No graph as a decorative overlay on the old pane shell.
 - No semantic nodes inferred from text keywords.
+- No fake progress, fake workers, fake branches, fake struggle, or fake recovery nodes.
 - No exposure or reconstruction of hidden chain-of-thought.
 - No node without durable semantic meaning and provenance.
 - No per-node DOM graph.
@@ -303,6 +338,10 @@ business decisions.
 The command-center graph is a live semantic map of Setta workstreams. It is not a visualization of
 raw provider packets, hidden model reasoning, token deltas, or every stored transcript item.
 
+The mockup's visual vocabulary must survive, but it must map to real typed state. If Setta lacks a
+source fact for a visually dramatic event, the renderer should show quieter activity on an existing
+run or workstream node rather than inventing a new semantic node.
+
 ### Workstream identity
 
 `workstream_id` is a Setta-owned durable identity. For the initial cutover, existing conversation
@@ -317,6 +356,28 @@ A durable child conversation or fork becomes a child workstream connected by a `
 provider subagent without a durable Setta conversation remains a `delegation` node inside the parent
 workstream; it does not become a background workstream until product state gives it a durable
 address.
+
+### Visual state vocabulary
+
+The production renderer should preserve the mockup's visual feel without preserving its fake demo
+semantics:
+
+- listening/user-input visuals map to accepted text or voice input and capture state.
+- active/thinking visuals map to an active run or public reasoning-summary/activity state, not hidden
+  reasoning content.
+- doing visuals map to typed commands, tools, file changes, hooks, searches, or other typed
+  activities.
+- amber/risk visuals map to typed approval waits, resource waits, blocked states, validation
+  failures, retry, recovery, provider unavailability, or other explicit lifecycle facts. Do not add a
+  generic `struggling` semantic node.
+- branch visuals map to durable parallel activities, subagent delegations, forks, or workstream
+  relationships with real causality.
+- merge/synthesis visuals map to explicit plan updates, delegation joins, Director interpretations,
+  public summaries, or final-answer production with provenance.
+- success, failure, cancellation, and recovery visuals map to terminal or recovery lifecycle states.
+
+Animation can express energy, focus, recency, and continuity. It cannot express facts the backend did
+not commit.
 
 ### Initial event mapping
 
@@ -455,6 +516,10 @@ lifecycle events. They are not a reason for the renderer to poll conversation st
 
 Every visible node must represent a real event, state transition, declared intent, result, or
 explicit Director interpretation.
+
+Animations may decorate existing nodes and edges, including active pulses between committed events.
+They must not create extra semantic nodes, imply a specific hidden reasoning step, or turn missing
+provider data into fake work.
 
 ### Evidence classes
 
@@ -675,9 +740,11 @@ deleting Niri; replace its product responsibilities first.
    that should be reused, rehomed, reshaped, or deleted.
 5. Keep the approved fullscreen concept artifact present under `docs/mockups/`, or expand this plan
    into a self-contained visual specification if that artifact is superseded.
-6. Capture the current interaction and rendering performance baseline before changing renderer
+6. Convert the approved mockup into a fidelity checklist that separates required production UX from
+   prototype-only fake data, dev controls, and demo scripts.
+7. Capture the current interaction and rendering performance baseline before changing renderer
    assumptions.
-7. Define the target performance hardware, display, viewport, and device-pixel-ratio matrix.
+8. Define the target performance hardware, display, viewport, and device-pixel-ratio matrix.
 
 Exit gate:
 
@@ -686,6 +753,7 @@ Exit gate:
 - retained/replaced/deleted production responsibilities documented
 - reusable foundation inventory committed
 - fullscreen design direction is present in the branch
+- mockup fidelity checklist is committed
 - baseline performance report committed
 - target performance matrix committed
 
@@ -729,7 +797,7 @@ Exit gate:
 
 ### Phase 2 — Prove the standalone 120 Hz renderer
 
-1. Implement the useful WebGL2 concepts as normal production source files.
+1. Implement the mockup's WebGL2 visual language as normal production source files.
 2. Define the packed immutable GPU snapshot boundary.
 3. Implement the fullscreen graph canvas independently of production state.
 4. Add quality tiers, level of detail, buffer reuse, shader prewarming, and an idle scheduler.
@@ -742,6 +810,8 @@ Exit gate:
 
 Exit gate:
 
+- deterministic renderer fixtures visually match the mockup's graph language, labels, rails, and
+  composer integration points
 - the target hardware sustains the 120 Hz budgets in representative motion
 - p95 and p99 frame time, long tasks, memory, and dropped frames are recorded
 - phone-scale and high-DPI behavior are bounded
@@ -778,7 +848,9 @@ Exit gate:
 
 ### Phase 4 — Build the native fullscreen shell
 
-1. Replace the app shell with the selected workstream, semantic graph, rails, and Director composer.
+1. Replace the app shell with a production implementation of the mockup's fullscreen composition:
+   selected workstream, semantic graph, rails, top workstream navigation, compact history, and
+   Director composer.
 2. Connect speech capture and playback through the same Director intents as text.
 3. Implement previous/next and direct workstream selection.
 4. Render approvals and resource requests as first-class actionable state.
@@ -790,9 +862,14 @@ Exit gate:
 
 Exit gate:
 
+- side-by-side screenshots and screen recordings show the production shell is recognizably the
+  approved mockup, with only documented fidelity differences
 - the fullscreen workflow covers ordinary chat and active agent work
 - the UI remains useful when no folder has been selected
 - semantic facts and Director interpretations are visually distinguishable
+- every mockup-inspired visual state is backed by typed Setta state or explicit view state, not fake
+  semantic nodes
+- no pane, tile, split, resize, reorder, or manual layout affordance is visible in the Setta 4 shell
 - live provider, routing, approval, artifact, and lifecycle events appear without user refresh or
   renderer polling
 - keyboard, pointer, voice, focus, and screen-reader paths are explicit
@@ -851,6 +928,10 @@ The deterministic E2E suite is the product cutover proof. Component tests alone 
 Setta 4 is complete when:
 
 - a user can open the app with no selected folder and start useful work immediately
+- the production UI visibly matches the approved fullscreen mockup in first-screen composition,
+  visual hierarchy, graph language, rails, composer, compact history, and motion feel, except for
+  explicitly documented differences forced by real data, accessibility, responsiveness, or measured
+  performance
 - the Director can route, create, delegate, steer, cancel, clarify, and recover through typed paths
 - invalid model outputs recover or become useful durable state without exposing internal errors
 - approvals, resources, artifacts, and outcomes are durable and actionable
@@ -868,8 +949,9 @@ Setta 4 is complete when:
 
 1. Complete the Niri ownership inventory.
 2. Complete the reusable foundation inventory.
-3. Review the fullscreen mockup and promote any implementation-critical visual details into this
-   plan.
+3. Convert the fullscreen mockup into a committed fidelity checklist: required production UX,
+   prototype-only demo behavior, typed-state requirements for every visual mode, and any known
+   implementation risks to matching the mockup.
 4. Capture the current interaction and rendering performance baseline.
 5. Refresh the Codex app-server protocol snapshot and define the Codex-to-Setta provider notification
    adapter matrix.
