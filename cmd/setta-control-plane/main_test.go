@@ -256,12 +256,15 @@ func newBootstrapFixture(t *testing.T) bootstrapFixture {
 		"--client-credential-file", fixture.clientCredentialFile,
 		"--data-dir", fixture.dataDirectory,
 		"--device-name", "Bootstrap phone",
+		"--hosted-access-intent-id", "hosted-bootstrap-intent",
 		"--idempotency-key", "bootstrap-operation",
+		"--project-id", "project-bootstrap",
 		"--runtime-credential-file", runtimeCredentialFile,
 		"--runtime-name", fixture.runtimeName,
 		"--runtime-secret-ref", "runtime_bootstrap",
 		"--secret-dir", fixture.secretDirectory,
 		"--user-id", "user-bootstrap",
+		"--workstream-id", "workstream-bootstrap",
 	}
 	return fixture
 }
@@ -302,6 +305,16 @@ func verifyBootstrapState(t *testing.T, fixture bootstrapFixture) {
 	}
 	if authorization.Outcome != runtimeaccess.AuthorizationAllowed || authorization.RuntimeName != fixture.runtimeName {
 		t.Fatalf("bootstrap authorization = %+v", authorization)
+	}
+	progress, err := store.HostedAccessProgress(context.Background(), "hosted-bootstrap-intent")
+	if err != nil ||
+		progress.State != controlplane.HostedAccessProgressReadyOnPhone ||
+		progress.Cursor != "3" ||
+		progress.AccessGrant == nil ||
+		progress.AccessGrant.DeviceID != credential.DeviceID ||
+		progress.AccessGrant.ProjectID != "project-bootstrap" ||
+		progress.AccessGrant.WorkstreamID != "workstream-bootstrap" {
+		t.Fatalf("hosted access progress = %+v, %v", progress, err)
 	}
 	secretStore, err := controlplane.OpenFileSecretStore(fixture.secretDirectory)
 	if err != nil {

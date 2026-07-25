@@ -25,13 +25,16 @@ type bootstrapConfig struct {
 	DataDirectory         string
 	DeviceDisplayName     string
 	GrantTTL              time.Duration
+	HostedAccessIntentID  string
 	IdempotencyKey        string
+	ProjectID             string
 	RuntimeCredentialFile string
 	RuntimeName           string
 	RuntimeSecretRef      string
 	RuntimeTarget         string
 	SecretDirectory       string
 	UserID                string
+	WorkstreamID          string
 }
 
 func runBootstrap(
@@ -78,8 +81,43 @@ func bootstrapControlPlane(ctx context.Context, config bootstrapConfig, stdin io
 	if err := secrets.WriteSecret(ctx, config.RuntimeSecretRef, runtimeCredential); err != nil {
 		return err
 	}
-	if _, err := store.UpsertUser(ctx, config.UserID); err != nil {
+	created, err := configureHostedAccess(ctx, store, config, credential)
+	if err != nil {
 		return err
+	}
+	return json.NewEncoder(stdout).Encode(controlplane.BootstrapEvent{
+		DeviceID:    created.Device.ID,
+		Event:       controlplane.BootstrapReadyEvent,
+		RuntimeName: created.Grant.RuntimeName,
+	})
+}
+
+func configureHostedAccess(
+	ctx context.Context,
+	store *controlplane.Store,
+	config bootstrapConfig,
+	credential controlplane.DeviceCredential,
+) (controlplane.CreatedDeviceGrant, error) {
+	if _, err := store.UpsertUser(ctx, config.UserID); err != nil {
+		return controlplane.CreatedDeviceGrant{}, err
+	}
+	if _, err := store.EnsureHostedAccessIntent(ctx, controlplane.EnsureHostedAccessIntent{
+		IdempotencyKey: config.HostedAccessIntentID,
+		UserID:         config.UserID,
+		ProjectID:      config.ProjectID,
+		WorkstreamID:   config.WorkstreamID,
+		Client: controlplane.HostedAccessClient{
+			DeviceID: credential.DeviceID,
+			Kind:     controlplane.HostedAccessClientPhone,
+		},
+		RequestedCapabilities: []controlplane.HostedAccessCapability{
+			controlplane.HostedAccessCapabilityObserve,
+			controlplane.HostedAccessCapabilitySteer,
+			controlplane.HostedAccessCapabilityApprove,
+			controlplane.HostedAccessCapabilityArtifacts,
+		},
+	}); err != nil {
+		return controlplane.CreatedDeviceGrant{}, err
 	}
 	if _, err := store.AssignRuntime(ctx, controlplane.AssignRuntimeRequest{
 		IdempotencyKey:      config.IdempotencyKey,
@@ -91,7 +129,7 @@ func bootstrapControlPlane(ctx context.Context, config bootstrapConfig, stdin io
 		UpstreamAuthority:   config.RuntimeTarget,
 		CredentialSecretRef: config.RuntimeSecretRef,
 	}); err != nil {
-		return err
+		return controlplane.CreatedDeviceGrant{}, err
 	}
 	created, err := store.EnsureDeviceGrant(ctx, controlplane.EnsureDeviceGrantRequest{
 		Credential:  credential,
@@ -101,13 +139,12 @@ func bootstrapControlPlane(ctx context.Context, config bootstrapConfig, stdin io
 		GrantTTL:    config.GrantTTL,
 	})
 	if err != nil {
-		return err
+		return controlplane.CreatedDeviceGrant{}, err
 	}
-	return json.NewEncoder(stdout).Encode(controlplane.BootstrapEvent{
-		DeviceID:    created.Device.ID,
-		Event:       controlplane.BootstrapReadyEvent,
-		RuntimeName: created.Grant.RuntimeName,
-	})
+	if _, err := store.CompleteHostedAccessIntent(ctx, config.HostedAccessIntentID, created); err != nil {
+		return controlplane.CreatedDeviceGrant{}, err
+	}
+	return created, nil
 }
 
 func bootstrapConfigFromArgs(
@@ -130,13 +167,16 @@ func bootstrapConfigFromArgs(
 	flagSet.StringVar(&config.DataDirectory, "data-dir", config.DataDirectory, "absolute durable control-plane database directory")
 	flagSet.StringVar(&config.DeviceDisplayName, "device-name", "", "operator-visible device name")
 	flagSet.DurationVar(&config.GrantTTL, "grant-ttl", config.GrantTTL, "bounded client access grant lifetime")
+	flagSet.StringVar(&config.HostedAccessIntentID, "hosted-access-intent-id", "", "Director hosted-access intent id")
 	flagSet.StringVar(&config.IdempotencyKey, "idempotency-key", "", "unique runtime assignment operation key")
+	flagSet.StringVar(&config.ProjectID, "project-id", "", "trusted Setta project identifier")
 	flagSet.StringVar(&config.RuntimeCredentialFile, "runtime-credential-file", "", "private input file containing the inner runtime credential")
 	flagSet.StringVar(&config.RuntimeName, "runtime-name", "", "Setta-managed runtime name")
 	flagSet.StringVar(&config.RuntimeSecretRef, "runtime-secret-ref", "", "secret-store reference for the runtime credential")
 	flagSet.StringVar(&config.RuntimeTarget, "runtime-target", config.RuntimeTarget, "loopback runtime HTTP target")
 	flagSet.StringVar(&config.SecretDirectory, "secret-dir", config.SecretDirectory, "absolute durable runtime credential directory")
 	flagSet.StringVar(&config.UserID, "user-id", "", "immutable Setta user identifier")
+	flagSet.StringVar(&config.WorkstreamID, "workstream-id", "", "trusted Setta workstream identifier")
 	if err := flagSet.Parse(args); err != nil {
 		return bootstrapConfig{}, err
 	}
@@ -227,9 +267,10 @@ func validateBootstrapPaths(config bootstrapConfig) error {
 }
 
 func validateBootstrapIdentity(config bootstrapConfig) error {
-	if config.UserID == "" || config.RuntimeName == "" || config.RuntimeSecretRef == "" ||
-		config.DeviceDisplayName == "" || config.IdempotencyKey == "" {
-		return errors.New("bootstrap identity, runtime, device, secret reference, and idempotency key are required")
+	if config.UserID == "" || config.ProjectID == "" || config.WorkstreamID == "" ||
+		config.HostedAccessIntentID == "" || config.RuntimeName == "" ||
+		config.RuntimeSecretRef == "" || config.DeviceDisplayName == "" || config.IdempotencyKey == "" {
+		return errors.New("bootstrap hosted intent, identity, project, workstream, runtime, device, secret reference, and idempotency key are required")
 	}
 	return nil
 }

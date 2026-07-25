@@ -73,6 +73,56 @@ func TestHostedAccessIntentRequiresActiveKnownUserAndBoundedCapabilities(t *test
 	}
 }
 
+func TestHostedAccessCompletionPublishesReadyGrantAcrossRestart(t *testing.T) {
+	ctx := context.Background()
+	directory := t.TempDir()
+	store := openTestStore(t, directory, time.Now, RateLimit{})
+	intent := testHostedAccessIntent()
+	credential, err := NewDeviceCredential()
+	if err != nil {
+		t.Fatal(err)
+	}
+	intent.Client.DeviceID = credential.DeviceID
+	if _, err := store.UpsertUser(ctx, intent.UserID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.EnsureHostedAccessIntent(ctx, intent); err != nil {
+		t.Fatal(err)
+	}
+	runtimeName := testRuntimeName(t, "hosted-ready")
+	assignTestRuntime(t, store, "hosted-ready-runtime", intent.UserID, runtimeName, "hosted_secret")
+	created, err := store.EnsureDeviceGrant(ctx, EnsureDeviceGrantRequest{
+		Credential:  credential,
+		UserID:      intent.UserID,
+		RuntimeName: runtimeName,
+		DisplayName: "Hosted phone",
+		GrantTTL:    time.Hour,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	progress, err := store.CompleteHostedAccessIntent(ctx, intent.IdempotencyKey, created)
+	if err != nil {
+		t.Fatalf("CompleteHostedAccessIntent: %v", err)
+	}
+	requireReadyHostedAccess(t, progress, credential.DeviceID)
+	replayed, err := store.CompleteHostedAccessIntent(ctx, intent.IdempotencyKey, created)
+	if err != nil {
+		t.Fatalf("replay CompleteHostedAccessIntent: %v", err)
+	}
+	requireReadyHostedAccess(t, replayed, credential.DeviceID)
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	restarted := openTestStore(t, directory, time.Now, RateLimit{})
+	defer restarted.Close()
+	persisted, err := restarted.HostedAccessProgress(ctx, intent.IdempotencyKey)
+	if err != nil {
+		t.Fatalf("read restarted hosted access progress: %v", err)
+	}
+	requireReadyHostedAccess(t, persisted, credential.DeviceID)
+}
+
 func TestVersionOneControlPlaneDatabaseFailsWithoutCompatibilityMigration(t *testing.T) {
 	directory := t.TempDir()
 	store := openTestStore(t, directory, time.Now, RateLimit{})
@@ -115,5 +165,22 @@ func requirePreparingHostedAccess(t *testing.T, progress HostedAccessProgress) {
 		progress.Retryable ||
 		progress.AccessGrant != nil {
 		t.Fatalf("unexpected hosted access progress: %+v", progress)
+	}
+}
+
+func requireReadyHostedAccess(t *testing.T, progress HostedAccessProgress, deviceID string) {
+	t.Helper()
+	if progress.IntentID != "hosted-intent-1" ||
+		progress.Cursor != "3" ||
+		progress.State != HostedAccessProgressReadyOnPhone ||
+		progress.ReasonCode != "" ||
+		progress.Retryable ||
+		progress.AccessGrant == nil ||
+		progress.AccessGrant.DeviceID != deviceID ||
+		progress.AccessGrant.ProjectID != "project-hosted" ||
+		progress.AccessGrant.WorkstreamID != "workstream-hosted" ||
+		len(progress.AccessGrant.GrantedCapabilities) != 4 ||
+		progress.AccessGrant.ExpiresAt == "" {
+		t.Fatalf("unexpected ready hosted access progress: %+v", progress)
 	}
 }

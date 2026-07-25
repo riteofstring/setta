@@ -213,13 +213,16 @@ func bootstrapCommand(runID string, runtimeName string) string {
 		"--data-dir", "/data/control-plane",
 		"--device-name", "hosted-measurement-gateway",
 		"--grant-ttl", "2h",
+		"--hosted-access-intent-id", "hosted-access-" + runID,
 		"--idempotency-key", "hosted-bootstrap-" + runID,
+		"--project-id", "hosted-project-" + runID,
 		"--runtime-credential-file", "/run/setta/inner-runtime-credential",
 		"--runtime-name", runtimeName,
 		"--runtime-secret-ref", "runtime-" + runID,
 		"--runtime-target", "127.0.0.1:7345",
 		"--secret-dir", "/data/runtime-secrets",
 		"--user-id", "hosted-user-" + runID,
+		"--workstream-id", "hosted-workstream-" + runID,
 	}
 	return strings.Join(parts, " ")
 }

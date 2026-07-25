@@ -100,6 +100,7 @@ func (store *Store) HostedAccessProgress(
 
 type hostedAccessProgressQuerier interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
 }
 
 func readLatestHostedAccessProgress(
@@ -132,7 +133,167 @@ LIMIT 1
 	}
 	progress.Cursor = strconv.Itoa(cursor)
 	progress.Retryable = retryable == 1
+	if progress.State == HostedAccessProgressReadyOnPhone {
+		grant, err := readHostedAccessGrant(ctx, querier, intentID)
+		if err != nil {
+			return HostedAccessProgress{}, err
+		}
+		progress.AccessGrant = &grant
+	}
 	return progress, nil
+}
+
+func (store *Store) CompleteHostedAccessIntent(
+	ctx context.Context,
+	intentID string,
+	created CreatedDeviceGrant,
+) (HostedAccessProgress, error) {
+	if err := validateIdentifier("hosted access intent id", intentID); err != nil {
+		return HostedAccessProgress{}, err
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return HostedAccessProgress{}, fmt.Errorf("begin hosted access completion: %w", err)
+	}
+	defer rollback(tx)
+	now := timestamp(store.clock().UTC())
+	if err := validateHostedAccessCompletion(ctx, tx, intentID, created, now); err != nil {
+		return HostedAccessProgress{}, err
+	}
+	progress, err := readLatestHostedAccessProgress(ctx, tx, intentID)
+	if err != nil {
+		return HostedAccessProgress{}, err
+	}
+	if progress.State != HostedAccessProgressReadyOnPhone {
+		if err := appendHostedAccessReady(ctx, tx, intentID, progress, now); err != nil {
+			return HostedAccessProgress{}, err
+		}
+		progress, err = readLatestHostedAccessProgress(ctx, tx, intentID)
+		if err != nil {
+			return HostedAccessProgress{}, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return HostedAccessProgress{}, fmt.Errorf("commit hosted access completion: %w", err)
+	}
+	return progress, nil
+}
+
+func validateHostedAccessCompletion(
+	ctx context.Context,
+	tx *sql.Tx,
+	intentID string,
+	created CreatedDeviceGrant,
+	now string,
+) error {
+	var currentRuntime sql.NullString
+	err := tx.QueryRowContext(ctx, `
+SELECT i.runtime_name
+FROM hosted_access_intents i
+JOIN users u ON u.id = i.user_id
+JOIN runtimes r ON r.name = ? AND r.user_id = i.user_id
+JOIN devices d ON d.id = ? AND d.user_id = i.user_id
+JOIN runtime_access_grants g ON g.device_id = d.id AND g.runtime_name = r.name
+WHERE i.intent_id = ?
+  AND i.client_device_id = d.id
+  AND u.status = ?
+  AND u.active_runtime_name = r.name
+  AND r.lifecycle = ?
+  AND r.access_state = ?
+  AND d.revoked_at IS NULL
+  AND g.revoked_at IS NULL
+  AND g.expires_at > ?
+`, created.Grant.RuntimeName, created.Device.ID, intentID, UserStatusActive,
+		RuntimeLifecycleReady, RuntimeAccessEnabled, now).Scan(&currentRuntime)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("validate hosted access completion: %w", err)
+	}
+	if currentRuntime.Valid && currentRuntime.String != created.Grant.RuntimeName {
+		return ErrIdempotencyConflict
+	}
+	if !currentRuntime.Valid {
+		if _, err := tx.ExecContext(ctx, `
+UPDATE hosted_access_intents SET runtime_name = ?, updated_at = ? WHERE intent_id = ?
+`, created.Grant.RuntimeName, now, intentID); err != nil {
+			return fmt.Errorf("bind hosted access runtime: %w", err)
+		}
+	}
+	return nil
+}
+
+func appendHostedAccessReady(
+	ctx context.Context,
+	tx *sql.Tx,
+	intentID string,
+	latest HostedAccessProgress,
+	now string,
+) error {
+	if latest.State != HostedAccessProgressPreparingAccess {
+		return fmt.Errorf("hosted access cannot become ready from state %q", latest.State)
+	}
+	cursor, err := strconv.Atoi(latest.Cursor)
+	if err != nil {
+		return fmt.Errorf("parse hosted access cursor: %w", err)
+	}
+	for offset, state := range []HostedAccessProgressState{
+		HostedAccessProgressSyncingProject,
+		HostedAccessProgressReadyOnPhone,
+	} {
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO hosted_access_progress (
+  intent_id, cursor, state, reason_code, retryable, occurred_at
+) VALUES (?, ?, ?, '', 0, ?)
+`, intentID, cursor+offset+1, state, now); err != nil {
+			return fmt.Errorf("append hosted access progress: %w", err)
+		}
+	}
+	return nil
+}
+
+func readHostedAccessGrant(
+	ctx context.Context,
+	querier hostedAccessProgressQuerier,
+	intentID string,
+) (HostedAccessGrant, error) {
+	rows, err := querier.QueryContext(ctx, `
+SELECT i.client_device_id, i.project_id, i.workstream_id, c.capability, g.expires_at
+FROM hosted_access_intents i
+JOIN hosted_access_capabilities c ON c.intent_id = i.intent_id
+JOIN runtime_access_grants g
+  ON g.device_id = i.client_device_id AND g.runtime_name = i.runtime_name
+WHERE i.intent_id = ?
+ORDER BY c.capability
+`, intentID)
+	if err != nil {
+		return HostedAccessGrant{}, fmt.Errorf("read hosted access grant: %w", err)
+	}
+	defer rows.Close()
+	var grant HostedAccessGrant
+	for rows.Next() {
+		var capability HostedAccessCapability
+		if err := rows.Scan(
+			&grant.DeviceID,
+			&grant.ProjectID,
+			&grant.WorkstreamID,
+			&capability,
+			&grant.ExpiresAt,
+		); err != nil {
+			return HostedAccessGrant{}, fmt.Errorf("scan hosted access grant: %w", err)
+		}
+		grant.GrantedCapabilities = append(grant.GrantedCapabilities, capability)
+	}
+	if err := rows.Err(); err != nil {
+		return HostedAccessGrant{}, fmt.Errorf("iterate hosted access grant: %w", err)
+	}
+	if len(grant.GrantedCapabilities) == 0 {
+		return HostedAccessGrant{}, ErrNotFound
+	}
+	return grant, nil
 }
 
 func hostedAccessReplay(
