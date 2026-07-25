@@ -2838,3 +2838,25 @@ Stop and reassess rather than hiding the problem if any of these occur:
   complexity, and dead-code checks. The combined Phase 7 operator checkbox
   remains open for user export, checkpoint, restore, and release-upgrade
   controls. No provider or cloud mutation ran.
+- 2026-07-25 (runtime access operator control): Advanced the Phase 7
+  operator-tool surface with `set-runtime-access` over the private Unix
+  administration boundary. The command accepts only the store-owned enabled,
+  suspended, and export-only states. Suspension and export-only push
+  invalidation to live device authorizations, re-enable restores access through
+  the normal policy checks, and delete-scheduled is rejected because it must
+  use the fenced schedule/cancel deletion transactions. CLI output omits
+  runtime and user identity, routes, provider state, credentials, and
+  repository content; the audit contains only `runtime_access_set`, the target
+  access state, and timestamp. Production admin-client/server tests prove live
+  invalidation, denial, re-enable, deletion-boundary rejection, exact durable
+  state, output redaction, and content-free audit. Both paths passed ten
+  race-instrumented repetitions, both complete Go packages passed, and
+  `./check_quality.sh --git-changes` passed file-length, vet, tests,
+  complexity, and dead-code checks. A companion release-path audit found that
+  the existing desired-release setter creates only a fail-closed policy
+  mismatch; it does not own a signed artifact rollout, concurrency cap, health
+  gate, fenced rollback, or provider install operation. It was therefore not
+  exposed or described as an upgrade command. The combined operator checkbox
+  remains open for credential-epoch rotation, user export, reconciliation,
+  checkpoint, restore, and the real release-upgrade workflow. No provider or
+  cloud mutation ran.
