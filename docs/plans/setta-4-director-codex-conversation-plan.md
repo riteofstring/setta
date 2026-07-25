@@ -293,6 +293,8 @@ needs provider-side state that history replay cannot reproduce.
 
 ### Phase 2 - Setta Meta-Tools
 
+Status: complete.
+
 Phase 1 shipped the tools its own exit criteria need: `list_workspaces`,
 `list_workstreams`, `create_workstream`, `select_workstream`, `submit_work`,
 `steer_work`, and `recover_run`. This phase completes the catalog.
@@ -314,6 +316,35 @@ Exit criteria:
   through Director tool calls
 - ambiguous workspace requests produce authorized choices instead of invented
   paths or passive refusal
+
+#### Resolved: which tool calls commit a Director decision
+
+Only the actions with no durable record of their own do. Creating, selecting,
+sending, steering, and recovering commit `DirectorDecisionCommitted`, because
+that fact is what the graph explains the work with. Stopping a run, retitling a
+workstream, retiring one, answering an approval, and attaching a folder do not:
+the conversation already commits the interruption, the changed record, and the
+approval resolution, so a second Director account of the same event could only
+disagree with it. Every call is durable either way — the Director conversation
+keeps the tool call and the receipt it was given — so the decision catalog did
+not grow with this phase.
+
+#### Resolved: what the Director is not allowed to answer
+
+An approval whose answer is a secret is refused, specifically, and the Director
+is told to ask the user to answer it in the app. The answer is a credential that
+reaches the provider which asked for it and never becomes durable, so a model
+authoring one would be inventing the user's secret rather than relaying it.
+
+Archiving is refused while anything is still outstanding on a workstream — a run
+in flight, queued work, an unanswered approval, or an open resource request —
+and the refusal names what is outstanding. The check is the record rule an
+archived workstream is validated against, so the registry can never be asked to
+fold an archived record it would then reject.
+
+Attaching a folder binds the folder and nothing else. The work that could not
+start was never accepted, so the receipt says to send it again rather than
+implying the app resumed something on its own.
 
 ### Phase 3 - Real Graph Projection
 
@@ -359,6 +390,10 @@ Deliverables:
 
 - delete obsolete Director decision-router code once the tool-thread path owns
   the product behavior
+- delete the child and fork workstream origins unless Phase 3 or Phase 4 gives
+  them a product entry point: no Setta tool creates one, so the origins, the
+  fork points in trusted context, and the delegation projection derived from
+  them are currently unreachable
 - delete superseded generated contracts and renderer assumptions
 - delete stale docs that describe the wrong Director model
 - regenerate Go-owned TypeScript contracts after owner-contract changes

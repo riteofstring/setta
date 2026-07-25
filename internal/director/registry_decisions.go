@@ -164,6 +164,53 @@ func (registry *Registry) workspaceOptions() ([]DecisionWorkspaceOption, error) 
 	return options, nil
 }
 
+// DirectorActivity is what the app is doing right now, beyond the workstreams
+// themselves: the app-wide counts, and the two things that are waiting on
+// somebody. It is bounded the way the snapshot's rails are, because the answer
+// to "what is happening?" must not grow with the profile.
+type DirectorActivity struct {
+	Aggregates           DirectorAggregates
+	PendingApprovals     []ApprovalRequest
+	OpenResourceRequests []ResourceRequest
+}
+
+// Activity reads the app-wide activity under one lock, so the counts and the
+// outstanding requests beside them describe the same moment.
+func (registry *Registry) Activity() (DirectorActivity, error) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	if err := registry.requireAvailableLocked(); err != nil {
+		return DirectorActivity{}, err
+	}
+	state := registry.state
+	activity := DirectorActivity{
+		Aggregates:           state.aggregates,
+		PendingApprovals:     make([]ApprovalRequest, 0, MaxSnapshotApprovals),
+		OpenResourceRequests: make([]ResourceRequest, 0, MaxSnapshotResourceRequests),
+	}
+	for _, approvalID := range state.approvalOrder {
+		record, known := state.approvals[approvalID]
+		if !known || record.Status != ApprovalStatusPending {
+			continue
+		}
+		if len(activity.PendingApprovals) == MaxSnapshotApprovals {
+			break
+		}
+		activity.PendingApprovals = append(activity.PendingApprovals, cloneApprovalRequest(*record))
+	}
+	for _, requestID := range state.resourceOrder {
+		record, known := state.resources[requestID]
+		if !known || record.Status != ResourceRequestStatusRequested {
+			continue
+		}
+		if len(activity.OpenResourceRequests) == MaxSnapshotResourceRequests {
+			break
+		}
+		activity.OpenResourceRequests = append(activity.OpenResourceRequests, cloneResourceRequest(*record))
+	}
+	return activity, nil
+}
+
 func (state *registryState) decisionContext(
 	intent SubmittedIntent,
 	workspaces []DecisionWorkspaceOption,

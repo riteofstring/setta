@@ -12,8 +12,9 @@ import (
 // This is the whole of what the Director needs the rest of the app to do:
 // create the durable substrate a workstream runs on, deliver work to it, steer
 // the run that is carrying work now, stop it, answer what it is waiting on,
-// supply a resource it does not have, and restart work a durable failure
-// interrupted. It is consumer-owned. Every request names Setta identities
+// supply a resource it does not have, restart work a durable failure
+// interrupted, retitle a workstream, and retire one the user is finished with.
+// It is consumer-owned. Every request names Setta identities
 // trusted product code minted before the call — the conversation a workstream
 // executes on, the folder resource it is bound to, the run the work will be —
 // and no provider id, thread, credential, lease, or execution detail appears in
@@ -129,6 +130,21 @@ type ResolveApprovalRequest struct {
 	Answers    []conversation.ConversationApprovalAnswer
 }
 
+// RenameWorkstreamRequest retitles one workstream. It names no folder resource
+// because a title is app-scoped state: a workstream still waiting for a folder
+// has a name the user reads in the command center just like every other one.
+type RenameWorkstreamRequest struct {
+	ConversationID string
+	Title          string
+}
+
+// ArchiveWorkstreamRequest retires one workstream from the active list. It
+// names no folder resource for the same reason a rename does not — work the
+// user no longer wants may never have been given a folder at all.
+type ArchiveWorkstreamRequest struct {
+	ConversationID string
+}
+
 // BindWorkstreamResourceRequest attaches the folder resource the user supplied
 // to the durable substrate a workstream runs on. Setta runs work inside a
 // folder, so this is what turns a workstream that was waiting for one into a
@@ -152,6 +168,10 @@ type WorkstreamExecution interface {
 	CancelRun(ctx context.Context, request CancelRunRequest) error
 	// ResolveApproval answers one approval the named run is waiting on.
 	ResolveApproval(ctx context.Context, request ResolveApprovalRequest) error
+	// RenameWorkstream retitles the workstream.
+	RenameWorkstream(ctx context.Context, request RenameWorkstreamRequest) error
+	// ArchiveWorkstream retires the workstream from the active list.
+	ArchiveWorkstream(ctx context.Context, request ArchiveWorkstreamRequest) error
 	// BindWorkstreamResource attaches a resource the user supplied.
 	BindWorkstreamResource(ctx context.Context, request BindWorkstreamResourceRequest) error
 	// RecoverRun restarts the work a durable failure interrupted.

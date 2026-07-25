@@ -24,8 +24,17 @@ import (
 //  2. authorize the arguments against that context, so a workstream the
 //     Director cannot currently see cannot be targeted and a folder can only be
 //     named by an id the app offered;
-//  3. carry the decision out through the same executor the user's own direct
+//  3. carry the action out through the same executor the user's own direct
 //     commands run through.
+//
+// A tool commits a durable Director decision only when the action it takes has
+// no durable record of its own. Creating, selecting, sending, steering, and
+// recovering do: the decision is what the graph explains that work with.
+// Stopping a run, retitling a workstream, and retiring one do not, because the
+// conversation already commits the interruption and the changed record, and a
+// second Director account of the same event could only disagree with it. Every
+// call is durable either way — the Director conversation keeps the call and the
+// receipt it was given.
 //
 // A receipt says what happened in the app's vocabulary — the action, the ids it
 // touched, and what the user can now see. It is deliberately not an
@@ -35,10 +44,11 @@ import (
 // SettaToolNamespace is the tool namespace the Director controls Setta through.
 const SettaToolNamespace = "setta"
 
-const settaToolNamespaceDescription = "Setta app-control tools. Call these to change what Setta is doing: " +
-	"listing workspaces and workstreams, creating and selecting a workstream, sending or steering work, " +
-	"and recovering failed work. Answer in prose only when the user wants conversation, explanation, or " +
-	"planning; anything that changes the app happens through these tools."
+const settaToolNamespaceDescription = "Setta app-control tools. Call these to see and change what Setta is doing: " +
+	"listing workspaces, workstreams, and current activity; creating, selecting, renaming, and archiving a " +
+	"workstream; sending, steering, and stopping work; answering an approval; attaching a folder work is " +
+	"waiting for; and recovering failed work. Answer in prose only when the user wants conversation, " +
+	"explanation, or planning; anything that changes the app happens through these tools."
 
 // SettaToolNamespaceDescription is what the namespace is for. The provider
 // shows it beside the tool list, so it states the boundary rather than the
@@ -94,6 +104,12 @@ type SettaToolReceipt struct {
 	ResourceRequestID *string                   `json:"resourceRequestId,omitempty"`
 	Workspaces        []DecisionWorkspaceOption `json:"workspaces,omitempty"`
 	Workstreams       []SettaWorkstreamSummary  `json:"workstreams,omitempty"`
+	// Approvals and ResourceRequests are what the app is currently waiting on
+	// somebody to answer or supply.
+	Approvals        []SettaApprovalSummary        `json:"approvals,omitempty"`
+	ResourceRequests []SettaResourceRequestSummary `json:"resourceRequests,omitempty"`
+	// Aggregates are the app-wide counts, which only the activity tool reports.
+	Aggregates *DirectorAggregates `json:"aggregates,omitempty"`
 }
 
 // SettaToolbox builds the tool catalog one Director turn is given. It holds the
@@ -139,6 +155,15 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 			Handler:     box.listWorkstreams(intent),
 		},
 		{
+			Name: "read_activity",
+			Description: "Report what Setta is doing right now: the app-wide counts, every tracked workstream, " +
+				"the approvals waiting for an answer, and the folders work is waiting for. Call this to answer " +
+				"\"what is happening?\" instead of guessing, and to get the ids resolve_approval and " +
+				"resolve_resource_request need.",
+			InputSchema: settaToolSchema(nil, nil),
+			Handler:     box.readActivity(intent),
+		},
+		{
 			Name: "create_workstream",
 			Description: "Create a new workstream and select it. Supply workspaceId from list_workspaces to " +
 				"scope it to a folder, or set it to null for a folderless workstream that will ask the user for one. " +
@@ -159,6 +184,25 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 			Handler: box.selectWorkstream(intent),
 		},
 		{
+			Name:        "rename_workstream",
+			Description: "Give an existing workstream a new title.",
+			InputSchema: settaToolSchema(map[string]any{
+				"workstreamId": settaToolString("The workstream id from list_workstreams.", MaxDecisionReferenceBytes),
+				"title":        settaToolString("The new human title for that workstream.", MaxDecisionTitleBytes),
+			}, []string{"workstreamId", "title"}),
+			Handler: box.renameWorkstream(intent),
+		},
+		{
+			Name: "archive_workstream",
+			Description: "Retire a workstream the user is finished with, so it stops appearing as active work. " +
+				"Its history is kept. Only a workstream with nothing outstanding can be archived: stop its run, " +
+				"answer its approvals, and settle its resource requests first.",
+			InputSchema: settaToolSchema(map[string]any{
+				"workstreamId": settaToolString("The workstream id from list_workstreams.", MaxDecisionReferenceBytes),
+			}, []string{"workstreamId"}),
+			Handler: box.archiveWorkstream(intent),
+		},
+		{
 			Name: "submit_work",
 			Description: "Send an instruction to an existing workstream. Setta starts it immediately when the " +
 				"workstream is idle and queues it behind the active run when it is busy.",
@@ -177,6 +221,43 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 				"input":        settaToolString("The new instruction for the run in flight.", MaxDecisionAuthoredInputBytes),
 			}, []string{"workstreamId", "input"}),
 			Handler: box.steerWork(intent),
+		},
+		{
+			Name: "cancel_run",
+			Description: "Stop the run a workstream is carrying now. Work queued behind it stays queued, so the " +
+				"workstream starts the next item rather than going idle.",
+			InputSchema: settaToolSchema(map[string]any{
+				"workstreamId": settaToolString("The workstream whose run should stop.", MaxDecisionReferenceBytes),
+			}, []string{"workstreamId"}),
+			Handler: box.cancelRun(intent),
+		},
+		{
+			Name: "resolve_approval",
+			Description: "Answer an approval a run is waiting on, using an approvalId from read_activity. " +
+				"Supply answers only for the \"answered\" decision, one entry per question the approval asks. " +
+				"An approval marked secret is the user's to answer: tell them it is waiting instead of calling this.",
+			InputSchema: settaToolSchema(map[string]any{
+				"approvalId": settaToolString("The approval id from read_activity.", MaxDecisionReferenceBytes),
+				"decision": settaToolEnum(
+					"What to answer the approval with.",
+					approvalDecisionValues(),
+				),
+				"answers": settaToolApprovalAnswers(
+					"The structured answers for an \"answered\" decision, or null for every other decision.",
+				),
+			}, []string{"approvalId", "decision", "answers"}),
+			Handler: box.resolveApproval(),
+		},
+		{
+			Name: "resolve_resource_request",
+			Description: "Attach a folder to the workstream one open request is waiting for, using a requestId " +
+				"from read_activity and a workspaceId from list_workspaces. The work that could not start is not " +
+				"queued, so send it again with submit_work afterwards.",
+			InputSchema: settaToolSchema(map[string]any{
+				"requestId":   settaToolString("The resource request id from read_activity.", MaxDecisionReferenceBytes),
+				"workspaceId": settaToolString("The workspace id from list_workspaces.", MaxDecisionReferenceBytes),
+			}, []string{"requestId", "workspaceId"}),
+			Handler: box.resolveResourceRequest(intent),
 		},
 		{
 			Name: "recover_run",
@@ -206,9 +287,37 @@ type settaWorkArguments struct {
 	Input        string `json:"input"`
 }
 
+type settaRenameArguments struct {
+	WorkstreamID string `json:"workstreamId"`
+	Title        string `json:"title"`
+}
+
 type settaRecoverArguments struct {
 	WorkstreamID   string `json:"workstreamId"`
 	FailureEventID string `json:"failureEventId"`
+}
+
+// offeredTarget resolves one workstream the Director may currently act on.
+// Trusted state is materialized at call time, so an id that has since been
+// archived, or was never offered at all, is refused before any effect rather
+// than resolved by the execution port.
+func (box *SettaToolbox) offeredTarget(
+	intent SubmittedIntent,
+	workstreamID string,
+) (WorkstreamDecisionTarget, error) {
+	decisionContext, err := box.registry.DecisionContext(intent)
+	if err != nil {
+		return WorkstreamDecisionTarget{}, err
+	}
+	target, offered := decisionContext.Target(workstreamID)
+	if !offered {
+		return WorkstreamDecisionTarget{}, fmt.Errorf(
+			"%w: workstream %s is not one the Director can currently act on",
+			ErrDirectorIntentRejected,
+			workstreamID,
+		)
+	}
+	return target, nil
 }
 
 func (box *SettaToolbox) listWorkspaces(intent SubmittedIntent) SettaToolHandler {
@@ -362,6 +471,89 @@ func (box *SettaToolbox) steerWork(intent SubmittedIntent) SettaToolHandler {
 			Kind:     DirectorDecisionSteerRun,
 			SteerRun: &SteerRunDecision{WorkstreamID: payload.WorkstreamID, AuthoredInput: payload.Input},
 		})
+	}
+}
+
+// cancelRun stops whatever the workstream is carrying now. The Director names
+// the workstream rather than the run, because it is not looking at a rendered
+// frame: what it means is "stop what that work is doing", and the run that
+// answers to is trusted state resolved at the moment of the call.
+func (box *SettaToolbox) cancelRun(intent SubmittedIntent) SettaToolHandler {
+	return func(ctx context.Context, arguments json.RawMessage) (SettaToolReceipt, error) {
+		var payload settaWorkstreamArguments
+		if err := decodeSettaToolArguments(arguments, &payload); err != nil {
+			return SettaToolReceipt{}, err
+		}
+		target, err := box.offeredTarget(intent, payload.WorkstreamID)
+		if err != nil {
+			return SettaToolReceipt{}, err
+		}
+		if target.ActiveRunID == nil {
+			return SettaToolReceipt{}, fmt.Errorf(
+				"%w: workstream %s has no run in flight to stop",
+				ErrDirectorIntentRejected,
+				payload.WorkstreamID,
+			)
+		}
+		if err := box.executor.CancelRun(ctx, DirectorCancelRunIntent{
+			WorkstreamID: payload.WorkstreamID,
+			RunID:        *target.ActiveRunID,
+		}); err != nil {
+			return SettaToolReceipt{}, err
+		}
+		workstreamID := payload.WorkstreamID
+		return SettaToolReceipt{
+			Tool:         "cancel_run",
+			Summary:      fmt.Sprintf("Stopped the run in %q.", target.Title),
+			WorkstreamID: &workstreamID,
+		}, nil
+	}
+}
+
+func (box *SettaToolbox) renameWorkstream(intent SubmittedIntent) SettaToolHandler {
+	return func(ctx context.Context, arguments json.RawMessage) (SettaToolReceipt, error) {
+		var payload settaRenameArguments
+		if err := decodeSettaToolArguments(arguments, &payload); err != nil {
+			return SettaToolReceipt{}, err
+		}
+		if err := validateDecisionText("workstream title", payload.Title, MaxDecisionTitleBytes); err != nil {
+			return SettaToolReceipt{}, err
+		}
+		target, err := box.offeredTarget(intent, payload.WorkstreamID)
+		if err != nil {
+			return SettaToolReceipt{}, err
+		}
+		if err := box.executor.RenameWorkstream(ctx, payload.WorkstreamID, payload.Title); err != nil {
+			return SettaToolReceipt{}, err
+		}
+		workstreamID := payload.WorkstreamID
+		return SettaToolReceipt{
+			Tool:         "rename_workstream",
+			Summary:      fmt.Sprintf("Renamed %q to %q.", target.Title, payload.Title),
+			WorkstreamID: &workstreamID,
+		}, nil
+	}
+}
+
+func (box *SettaToolbox) archiveWorkstream(intent SubmittedIntent) SettaToolHandler {
+	return func(ctx context.Context, arguments json.RawMessage) (SettaToolReceipt, error) {
+		var payload settaWorkstreamArguments
+		if err := decodeSettaToolArguments(arguments, &payload); err != nil {
+			return SettaToolReceipt{}, err
+		}
+		target, err := box.offeredTarget(intent, payload.WorkstreamID)
+		if err != nil {
+			return SettaToolReceipt{}, err
+		}
+		if err := box.executor.ArchiveWorkstream(ctx, payload.WorkstreamID); err != nil {
+			return SettaToolReceipt{}, err
+		}
+		workstreamID := payload.WorkstreamID
+		return SettaToolReceipt{
+			Tool:         "archive_workstream",
+			Summary:      fmt.Sprintf("Archived %q, so it is no longer active work.", target.Title),
+			WorkstreamID: &workstreamID,
+		}, nil
 	}
 }
 

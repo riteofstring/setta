@@ -7,19 +7,20 @@ import (
 	"setta/internal/conversation"
 )
 
-// Carrying out the commands the user dispatches directly.
+// Carrying out the commands that name what to act on.
 //
 // A submitted request is routed: the Director decides what it means, because the
-// user described work rather than naming it. These three are not. Cancelling a
-// run, answering an approval, and supplying a folder are the user acting on
-// something the command center is already showing them, so there is nothing to
-// decide — only trusted state to resolve and one execution-port operation to
-// run. Putting a model between the user and the thing they pointed at would add
-// a way for the app to do something else.
+// user described work rather than naming it. These are not. Stopping a run,
+// answering an approval, supplying a folder, retitling a workstream, and
+// retiring one are all addressed at something the app is already showing —
+// whether the user pointed at it in the command center or the Director named an
+// id a Setta listing tool handed back. There is nothing to decide, only trusted
+// state to resolve and one execution-port operation to run.
 //
-// Two of the three commit no Director fact. The conversation already commits the
-// interruption and the approval resolution durably, and the registry folds those
-// into the same rails the command came from, so a second Director record of the
+// None of them commits a Director decision fact. The durable change each one
+// makes is the conversation's own — an interruption, an approval resolution, a
+// retitled or archived record — and the registry folds that into the same rails
+// and the same graph the command came from, so a second Director record of the
 // same event could only disagree with it. Supplying a resource is the exception:
 // no conversation event says the app's own request closed.
 
@@ -60,6 +61,47 @@ func (executor *DecisionExecutor) ResolveApproval(
 		ApprovalID:     intent.ApprovalID,
 		Decision:       intent.Decision,
 		Answers:        append([]conversation.ConversationApprovalAnswer{}, intent.Answers...),
+	})
+}
+
+// RenameWorkstream retitles one workstream. The title lives on the durable
+// conversation record, so the registry folds the new one out of the record the
+// conversation republishes rather than out of a Director fact beside it.
+func (executor *DecisionExecutor) RenameWorkstream(
+	ctx context.Context,
+	workstreamID string,
+	title string,
+) error {
+	if err := executor.available(ctx); err != nil {
+		return err
+	}
+	target, err := executor.registry.ExecutionTarget(workstreamID)
+	if err != nil {
+		return err
+	}
+	return executor.execution.RenameWorkstream(ctx, RenameWorkstreamRequest{
+		ConversationID: target.ConversationID,
+		Title:          title,
+	})
+}
+
+// ArchiveWorkstream retires one workstream from the app's active list. The
+// registry decides whether it can be retired at all, because an archived
+// workstream carries no outstanding work and only durable state knows what is
+// still open on it.
+func (executor *DecisionExecutor) ArchiveWorkstream(
+	ctx context.Context,
+	workstreamID string,
+) error {
+	if err := executor.available(ctx); err != nil {
+		return err
+	}
+	target, err := executor.registry.ArchivableWorkstream(workstreamID)
+	if err != nil {
+		return err
+	}
+	return executor.execution.ArchiveWorkstream(ctx, ArchiveWorkstreamRequest{
+		ConversationID: target.ConversationID,
 	})
 }
 

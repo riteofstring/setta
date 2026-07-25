@@ -1,6 +1,9 @@
 package director
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // The trusted execution state a decision is carried out against.
 //
@@ -172,6 +175,103 @@ func (registry *Registry) activeRunTargetLocked(
 		WorkspaceID:    *workspaceID,
 		RunID:          runID,
 	}, nil
+}
+
+// PendingApproval returns one approval that is still waiting for an answer. The
+// record carries the questions and the secret marker, which is what a caller
+// answering on someone else's behalf needs in order to know it must not.
+func (registry *Registry) PendingApproval(approvalID string) (ApprovalRequest, error) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	if err := registry.requireAvailableLocked(); err != nil {
+		return ApprovalRequest{}, err
+	}
+	approval, known := registry.state.approvals[approvalID]
+	if !known {
+		return ApprovalRequest{}, fmt.Errorf(
+			"%w: approval %s is not in the registry",
+			ErrDirectorIntentRejected,
+			approvalID,
+		)
+	}
+	if approval.Status != ApprovalStatusPending {
+		return ApprovalRequest{}, fmt.Errorf(
+			"%w: approval %s is already %s",
+			ErrDirectorIntentRejected,
+			approvalID,
+			approval.Status,
+		)
+	}
+	return cloneApprovalRequest(*approval), nil
+}
+
+// ArchivableWorkstream resolves the substrate of a workstream that can be
+// retired now. An archived workstream keeps its history and stops being
+// something the app offers, so nothing may still be outstanding on it: the
+// check is the record rule an archived workstream is validated against, rather
+// than a second copy of that rule which could drift from it.
+func (registry *Registry) ArchivableWorkstream(workstreamID string) (WorkstreamExecutionTarget, error) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	if err := registry.requireAvailableLocked(); err != nil {
+		return WorkstreamExecutionTarget{}, err
+	}
+	workstream, known := registry.state.workstreams[workstreamID]
+	if !known {
+		return WorkstreamExecutionTarget{}, fmt.Errorf(
+			"%w: workstream %s is not in the registry",
+			ErrDirectorIntentRejected,
+			workstreamID,
+		)
+	}
+	record := workstream.record
+	if workstream.archived || record.Status == WorkstreamStatusArchived {
+		return WorkstreamExecutionTarget{}, fmt.Errorf(
+			"%w: workstream %s is already archived",
+			ErrDirectorIntentRejected,
+			workstreamID,
+		)
+	}
+	if !workstreamStatusRules[WorkstreamStatusArchived].matches(record) {
+		return WorkstreamExecutionTarget{}, fmt.Errorf(
+			"%w: workstream %s still has %s to settle before it can be archived",
+			ErrDirectorIntentRejected,
+			workstreamID,
+			outstandingWorkSummary(record),
+		)
+	}
+	return WorkstreamExecutionTarget{
+		WorkstreamID:   record.ID,
+		ConversationID: workstream.conversationID,
+		WorkspaceID:    workstreamFolderWorkspaceID(record.ResourceScope),
+		ActiveRunID:    copyOptionalString(workstream.activeRunID),
+	}, nil
+}
+
+// outstandingWorkSummary names what is still open on a workstream, so a refusal
+// tells the caller which thing to finish rather than that something is wrong.
+func outstandingWorkSummary(record Workstream) string {
+	outstanding := make([]string, 0, 4)
+	if record.ActiveRunID != nil {
+		outstanding = append(outstanding, "a run in flight")
+	}
+	if record.QueuedRunCount > 0 {
+		outstanding = append(outstanding, pluralCount(record.QueuedRunCount, "queued run"))
+	}
+	if record.UnresolvedApprovalCount > 0 {
+		outstanding = append(outstanding, pluralCount(record.UnresolvedApprovalCount, "unanswered approval"))
+	}
+	if record.UnresolvedResourceRequestCount > 0 {
+		outstanding = append(outstanding, pluralCount(record.UnresolvedResourceRequestCount, "open resource request"))
+	}
+	return strings.Join(outstanding, " and ")
+}
+
+func pluralCount(count int, noun string) string {
+	if count == 1 {
+		return fmt.Sprintf("%d %s", count, noun)
+	}
+	return fmt.Sprintf("%d %ss", count, noun)
 }
 
 // ResourceRequestTarget is the workstream one open resource request is holding

@@ -43,6 +43,8 @@ type directorWorkstreamCommands interface {
 		string,
 		conversation.ConversationApprovalResponse,
 	) (conversation.ConversationSnapshot, error)
+	RenameDirectorWorkstream(context.Context, string, string) error
+	ArchiveDirectorWorkstream(context.Context, string) error
 	BindFolderResource(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	RecoverDirectorTurn(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
 }
@@ -174,6 +176,24 @@ func (execution *directorWorkstreamExecution) ResolveApproval(
 		},
 	)
 	return directorExecutionError(err)
+}
+
+func (execution *directorWorkstreamExecution) RenameWorkstream(
+	ctx context.Context,
+	request director.RenameWorkstreamRequest,
+) error {
+	return directorExecutionError(execution.conversations.RenameDirectorWorkstream(
+		ctx,
+		request.ConversationID,
+		request.Title,
+	))
+}
+
+func (execution *directorWorkstreamExecution) ArchiveWorkstream(
+	ctx context.Context,
+	request director.ArchiveWorkstreamRequest,
+) error {
+	return directorExecutionError(execution.conversations.ArchiveDirectorWorkstream(ctx, request.ConversationID))
 }
 
 func (execution *directorWorkstreamExecution) BindWorkstreamResource(

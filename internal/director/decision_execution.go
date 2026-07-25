@@ -329,7 +329,7 @@ func (executor *DecisionExecutor) startRequest(
 			return start, nil, nil
 		}
 		workspaceID := scope.Folder.WorkspaceID
-		if !offersWorkspace(decisionContext, workspaceID) {
+		if _, offered := offeredWorkspace(decisionContext, workspaceID); !offered {
 			return WorkstreamStartRequest{}, nil, fmt.Errorf(
 				"%w: workspace %s is not an authorized scope",
 				ErrDirectorIntentRejected,
@@ -355,13 +355,19 @@ func (executor *DecisionExecutor) startRequest(
 	return start, &parent.WorkstreamID, nil
 }
 
-func offersWorkspace(decisionContext DirectorDecisionContext, workspaceID string) bool {
+// offeredWorkspace resolves one folder trusted context is currently offering.
+// It is the only way a workspace id reaches an effect, so a folder the app is
+// not offering cannot be scoped to or bound.
+func offeredWorkspace(
+	decisionContext DirectorDecisionContext,
+	workspaceID string,
+) (DecisionWorkspaceOption, bool) {
 	for _, option := range decisionContext.Workspaces {
 		if option.WorkspaceID == workspaceID {
-			return true
+			return option, true
 		}
 	}
-	return false
+	return DecisionWorkspaceOption{}, false
 }
 
 // deliverWork sends, queues, or steers on a workstream that already exists.

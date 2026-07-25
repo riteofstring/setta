@@ -110,6 +110,62 @@ func TestDirectorFolderlessWorkstreamStartsWithoutAFolder(t *testing.T) {
 	}
 }
 
+// TestDirectorRenamesAndArchivesAFolderlessWorkstream proves both operations
+// are addressed by conversation rather than by workspace. Work the user never
+// gave a folder still has a name they read and is still work they can finish
+// with, so requiring a workspace would leave exactly that work unmanageable.
+func TestDirectorRenamesAndArchivesAFolderlessWorkstream(t *testing.T) {
+	store, service, _, _ := newConversationServiceTestHarness(t, t.TempDir())
+	t.Cleanup(func() {
+		shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = service.Shutdown(shutdownContext)
+		_ = store.Close()
+	})
+	ctx := context.Background()
+
+	created, err := service.StartDirectorWorkstream(ctx, DirectorWorkstreamStart{
+		ConversationID: "conversation-director-folderless",
+		Title:          "Untitled",
+	})
+	if err != nil {
+		t.Fatalf("StartDirectorWorkstream: %v", err)
+	}
+
+	if err := service.RenameDirectorWorkstream(ctx, created.Conversation.ID, "Release notes"); err != nil {
+		t.Fatalf("RenameDirectorWorkstream: %v", err)
+	}
+	renamed, err := store.ReadSnapshotByID(ctx, created.Conversation.ID)
+	if err != nil {
+		t.Fatalf("ReadSnapshotByID: %v", err)
+	}
+	if renamed.Conversation.Title != "Release notes" {
+		t.Fatalf("renamed conversation = %+v", renamed.Conversation)
+	}
+	if renamed.Conversation.UpdatedAt <= created.Conversation.UpdatedAt {
+		t.Fatalf("rename did not advance updatedAt: %q", renamed.Conversation.UpdatedAt)
+	}
+
+	if err := service.ArchiveDirectorWorkstream(ctx, created.Conversation.ID); err != nil {
+		t.Fatalf("ArchiveDirectorWorkstream: %v", err)
+	}
+	archived, err := store.ReadSnapshotByID(ctx, created.Conversation.ID)
+	if err != nil {
+		t.Fatalf("ReadSnapshotByID after archive: %v", err)
+	}
+	if archived.Conversation.ArchivedAt == nil {
+		t.Fatalf("archived conversation = %+v", archived.Conversation)
+	}
+	// Archiving twice is the state the caller asked for, so it settles rather
+	// than conflicting.
+	if err := service.ArchiveDirectorWorkstream(ctx, created.Conversation.ID); err != nil {
+		t.Fatalf("archiving an archived workstream: %v", err)
+	}
+	if err := service.RenameDirectorWorkstream(ctx, created.Conversation.ID, "Too late"); err == nil {
+		t.Fatal("an archived workstream accepted a rename")
+	}
+}
+
 // TestDirectorRecoveryRestartsTheFailedTurnsOwnInput proves recovery re-delivers
 // the work that failed rather than work the Director re-authored, and that it
 // refuses a turn that did not fail.

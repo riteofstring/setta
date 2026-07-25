@@ -218,6 +218,94 @@ func (service *Service) RecoverDirectorTurn(
 	return service.sendTurn(ctx, workspaceID, conversationID, failed.AuthoredInput.Text, turnID)
 }
 
+// RenameDirectorWorkstream retitles the conversation one workstream runs on.
+// It is addressed by conversation alone rather than by workspace, because a
+// title belongs to a folderless workstream exactly as much as to a bound one.
+// The new title reaches the app through the republished conversation record,
+// which is also where the registry reads every other title from.
+func (service *Service) RenameDirectorWorkstream(
+	ctx context.Context,
+	conversationID string,
+	title string,
+) error {
+	if err := validateDirectorRequest(service, ctx); err != nil {
+		return err
+	}
+	if err := validateIdentifier("director renamed conversation id", conversationID); err != nil {
+		return err
+	}
+	if err := validateTopicTitle(title); err != nil {
+		return err
+	}
+	lock := service.conversationLock(conversationID)
+	lock.Lock()
+	defer lock.Unlock()
+	snapshot, err := service.store.ReadSnapshotByID(ctx, conversationID)
+	if err != nil {
+		return err
+	}
+	if snapshot.Conversation.ArchivedAt != nil {
+		return stateConflict(
+			"director workstream rename",
+			conversationID,
+			"archived conversations cannot be renamed",
+		)
+	}
+	if snapshot.Conversation.Title == title {
+		return nil
+	}
+	renamed := snapshot.Conversation
+	renamed.Title = title
+	renamed.UpdatedAt = advanceTimestamp(snapshot.Conversation.UpdatedAt, service.timestamp())
+	publications, err := service.publications(
+		conversationID,
+		renamed.UpdatedAt,
+		ConversationUpdatedEventPayload{
+			Type:         ConversationEventTypeConversationUpdated,
+			Conversation: renamed,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	_, err = service.store.Transact(ctx, "rename director workstream", func(transaction *WriteTransaction) error {
+		if err := transaction.UpdateConversation(
+			ConversationExpectation{
+				UpdatedAt:              snapshot.Conversation.UpdatedAt,
+				LastTrajectorySequence: snapshot.Conversation.LastTrajectorySequence,
+			},
+			renamed,
+		); err != nil {
+			return err
+		}
+		return appendPublications(transaction, publications)
+	})
+	return err
+}
+
+// ArchiveDirectorWorkstream retires the conversation one workstream runs on. It
+// is addressed by conversation alone for the same reason a rename is: work the
+// user no longer wants may never have been given a folder at all.
+func (service *Service) ArchiveDirectorWorkstream(
+	ctx context.Context,
+	conversationID string,
+) error {
+	if err := validateDirectorRequest(service, ctx); err != nil {
+		return err
+	}
+	if err := validateIdentifier("director archived conversation id", conversationID); err != nil {
+		return err
+	}
+	lock := service.conversationLock(conversationID)
+	lock.Lock()
+	defer lock.Unlock()
+	snapshot, err := service.store.ReadSnapshotByID(ctx, conversationID)
+	if err != nil {
+		return err
+	}
+	return service.archiveConversationSnapshot(ctx, snapshot)
+}
+
 func validateDirectorRequest(service *Service, ctx context.Context) error {
 	if service == nil {
 		return errors.New("conversation service is required")

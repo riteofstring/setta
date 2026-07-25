@@ -17,6 +17,8 @@ type recordedExecution struct {
 	steers    []SteerRunRequest
 	cancels   []CancelRunRequest
 	approvals []ResolveApprovalRequest
+	renames   []RenameWorkstreamRequest
+	archives  []ArchiveWorkstreamRequest
 	bindings  []BindWorkstreamResourceRequest
 	recovers  []RecoverRunRequest
 	fail      error
@@ -49,6 +51,16 @@ func (execution *recordedExecution) CancelRun(_ context.Context, request CancelR
 
 func (execution *recordedExecution) ResolveApproval(_ context.Context, request ResolveApprovalRequest) error {
 	execution.approvals = append(execution.approvals, request)
+	return execution.fail
+}
+
+func (execution *recordedExecution) RenameWorkstream(_ context.Context, request RenameWorkstreamRequest) error {
+	execution.renames = append(execution.renames, request)
+	return execution.fail
+}
+
+func (execution *recordedExecution) ArchiveWorkstream(_ context.Context, request ArchiveWorkstreamRequest) error {
+	execution.archives = append(execution.archives, request)
 	return execution.fail
 }
 
