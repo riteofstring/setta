@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"setta/internal/applayout"
 	"setta/internal/master"
 )
 
@@ -100,64 +99,6 @@ INSERT INTO pane_bindings (
 	}
 }
 
-func TestStoreReadsFolderlessMasterRouteTarget(t *testing.T) {
-	store := newTestStore(t)
-	conversation := TopicConversation{
-		ID:              "route-target-folderless",
-		Title:           "Folderless target",
-		TopicDescriptor: "Folderless route target coverage",
-		Status:          ConversationStatusIdle,
-		CreatedAt:       "2026-07-11T20:00:00Z",
-		UpdatedAt:       "2026-07-11T20:01:00Z",
-	}
-	_, err := store.Transact(context.Background(), "seed folderless master route target", func(transaction *WriteTransaction) error {
-		if err := transaction.InsertConversation(conversation); err != nil {
-			return err
-		}
-		_, err := transaction.AppendCommittedEvent(transactionTestEventDraft(
-			"seed-folderless-master-route-target",
-			"conversation:"+conversation.ID,
-			conversation,
-		))
-		return err
-	})
-	if err != nil {
-		t.Fatalf("seed folderless route target: %v", err)
-	}
-	if err := store.ReplaceFolderlessPaneBindings(
-		context.Background(),
-		[]FolderlessPaneBinding{{
-			PaneID:         "pane-folderless-route-target",
-			ConversationID: conversation.ID,
-			Focused:        true,
-		}},
-		"2026-07-11T20:02:00Z",
-	); err != nil {
-		t.Fatalf("ReplaceFolderlessPaneBindings: %v", err)
-	}
-
-	targets, err := store.ReadMasterRouteTargets(
-		context.Background(),
-		[]string{conversation.ID},
-		master.MaxRouteForkPointsPerTarget,
-	)
-	if err != nil {
-		t.Fatalf("ReadMasterRouteTargets: %v", err)
-	}
-	if len(targets) != 1 {
-		t.Fatalf("folderless targets = %+v, want one", targets)
-	}
-	target := targets[0]
-	if target.ResourceScope.Kind != master.RouteResourceScopeKindFolderless ||
-		target.ResourceScope.Folder != nil ||
-		!slices.Equal(target.AllowedDecisionKinds, []master.RouteDecisionKind{master.RouteDecisionKindFocusConversation}) ||
-		target.OpenPaneCount != 1 ||
-		len(target.OpenPaneIDs) != 1 ||
-		target.OpenPaneIDs[0] != "pane-folderless-route-target" {
-		t.Fatalf("folderless route target = %+v", target)
-	}
-}
-
 func masterRouteContextTestConversation(
 	id string,
 	status ConversationStatus,
@@ -165,7 +106,7 @@ func masterRouteContextTestConversation(
 ) TopicConversation {
 	return TopicConversation{
 		ID:              id,
-		WorkspaceID:     stringPointer("workspace-route-context"),
+		WorkspaceID:     "workspace-route-context",
 		Title:           id,
 		TopicDescriptor: "Master route context coverage",
 		Status:          status,
@@ -394,56 +335,6 @@ func TestStoreProjectsOnlyRestorableActiveShellInteraction(t *testing.T) {
 	interaction, err = store.ReadActiveMasterShellInteraction(context.Background())
 	if err != nil || interaction.State != nil {
 		t.Fatalf("completed active interaction = %+v err=%v, want empty", interaction, err)
-	}
-}
-
-func TestStorePreservesMasterClarificationTargetsForFollowingInput(t *testing.T) {
-	store := newTestStore(t)
-	ready := seedMasterRouteState(t, store)
-	first := acceptMasterRouteTestInput(t, store, "master-input-clarification-root", "2026-07-11T20:02:00Z")
-	work := claimMasterRouteCommitWork(t, store, first)
-	clarification := masterRouteTestCommit(t, work, ready, master.RouteDecision{
-		Kind:    master.RouteDecisionKindClarify,
-		Clarify: &master.MasterClarifyRouteDecision{Question: "Do you mean the master routing topic?"},
-	})
-	clarificationRecord := commitMasterRouteTestDecision(t, store, clarification, first.Input.ID)
-
-	reply := acceptMasterRouteTestInput(t, store, "master-input-clarification-reply", "2026-07-11T20:05:00Z")
-	replyWork, found, err := store.ClaimNextMasterRouteInput(context.Background(), "2026-07-11T20:05:30Z")
-	if err != nil || !found {
-		t.Fatalf("claim clarification reply = %+v found=%v err=%v", replyWork, found, err)
-	}
-	assertMasterClarificationReplyWork(t, replyWork, reply.Input.ID, clarificationRecord.ID)
-
-	if err := store.RecoverMasterInputRouting(context.Background(), "2026-07-11T20:05:31Z"); err != nil {
-		t.Fatalf("RecoverMasterInputRouting: %v", err)
-	}
-	recoveredWork, found, err := store.ClaimNextMasterRouteInput(context.Background(), "2026-07-11T20:05:32Z")
-	if err != nil || !found {
-		t.Fatalf("claim recovered clarification reply = %+v found=%v err=%v", recoveredWork, found, err)
-	}
-	if recoveredWork.RoutingAttempt != replyWork.RoutingAttempt+1 {
-		t.Fatalf("recovered routing attempt = %d, want %d", recoveredWork.RoutingAttempt, replyWork.RoutingAttempt+1)
-	}
-	assertMasterClarificationReplyWork(t, recoveredWork, reply.Input.ID, clarificationRecord.ID)
-}
-
-func assertMasterClarificationReplyWork(
-	t *testing.T,
-	work master.InputRoutingWork,
-	replyInputID string,
-	clarificationDecisionID string,
-) {
-	t.Helper()
-	if work.Input.Input.ID != replyInputID ||
-		work.PriorClarification == nil ||
-		work.PriorClarification.ID != clarificationDecisionID ||
-		work.PriorClarification.ResultingCommand.Clarify == nil ||
-		!slices.Equal(
-			work.PriorClarification.ResultingCommand.Clarify.CandidateTargetIDs,
-			[]string{"conversation-master-route"},
-		) {
-		t.Fatalf("clarification reply work = %+v", work)
 	}
 }
 
@@ -766,7 +657,7 @@ func seedMasterRouteState(t *testing.T, store *Store) master.Session {
 	t.Helper()
 	conversation := TopicConversation{
 		ID:              "conversation-master-route",
-		WorkspaceID:     stringPointer("workspace-1"),
+		WorkspaceID:     "workspace-1",
 		Title:           "Master routing",
 		TopicDescriptor: "Strict global routing",
 		Status:          ConversationStatusIdle,
@@ -859,14 +750,6 @@ func masterRouteTestCommit(
 	if err != nil {
 		t.Fatalf("NewRouteModelConfigurationAudit: %v", err)
 	}
-	var clarification *master.RouteClarificationAudit
-	if work.PriorClarification != nil {
-		clarification = &master.RouteClarificationAudit{
-			DecisionID:         work.PriorClarification.ID,
-			InputSequence:      work.PriorClarification.Context.InputSequence,
-			CandidateTargetIDs: append([]string{}, work.PriorClarification.ResultingCommand.Clarify.CandidateTargetIDs...),
-		}
-	}
 	return master.RouteDecisionCommit{
 		ID:              "master-route-decision-" + work.Input.Input.ID,
 		MasterSessionID: session.ID,
@@ -880,10 +763,9 @@ func masterRouteTestCommit(
 			ActiveWorkspaceIDs:    []string{"workspace-1"},
 			FocusedWorkspaceID:    cloneStringPointer(work.Input.Input.FocusedWorkspaceID),
 			FocusedConversationID: cloneStringPointer(work.Input.Input.FocusedConversationID),
-			Clarification:         clarification,
 			TargetAuthorities: []master.RouteTargetAuthority{{
 				ConversationID:       "conversation-master-route",
-				ResourceScope:        master.FolderRouteResourceScope("workspace-1", ""),
+				WorkspaceID:          "workspace-1",
 				AllowedDecisionKinds: []master.RouteDecisionKind{master.RouteDecisionKindFocusConversation},
 				CompletedForkTurnIDs: []string{},
 			}},
@@ -904,10 +786,9 @@ func masterRouteTestCommit(
 
 func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {
 	target := master.ConversationPresentationTarget{
-		ConversationID:   "conversation-master-route",
-		ResourceScope:    master.FolderRouteResourceScope("workspace-1", ""),
-		ResourceBindings: masterRouteTestResourceBindings(),
-		Title:            "Master routing",
+		WorkspaceID:    "workspace-1",
+		ConversationID: "conversation-master-route",
+		Title:          "Master routing",
 	}
 	command := master.RouteCommand{Kind: decision.Kind}
 	switch decision.Kind {
@@ -930,21 +811,13 @@ func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {
 	case master.RouteDecisionKindFocusConversation:
 		command.FocusConversation = &master.MasterFocusConversationRouteCommand{Target: target}
 	case master.RouteDecisionKindCreateConversation:
-		resourceBindings := []applayout.ConversationPaneResourceBinding{}
-		if _, folderScoped := decision.CreateConversation.ResourceScope.FolderWorkspaceID(); folderScoped {
-			resourceBindings = masterRouteTestResourceBindings()
-		}
 		command.CreateConversation = &master.MasterCreateConversationRouteCommand{
 			Target: master.ConversationPresentationTarget{
-				ConversationID:   "master-route-created-conversation",
-				ResourceScope:    decision.CreateConversation.ResourceScope,
-				ResourceBindings: resourceBindings,
-				Title:            decision.CreateConversation.ProposedTitle,
+				WorkspaceID:    decision.CreateConversation.WorkspaceID,
+				ConversationID: "master-route-created-conversation",
+				Title:          decision.CreateConversation.ProposedTitle,
 			},
-			InitialInputID:        "master-route-initial-input",
-			InitialInput:          decision.CreateConversation.InitialInput,
-			InitialInputModality:  master.MasterInputModalityText,
-			InitialInputSubmitted: "2026-07-11T20:04:00Z",
+			TurnID: "master-route-turn", InitialInput: decision.CreateConversation.InitialInput,
 		}
 	case master.RouteDecisionKindCreateSideConversation:
 		command.CreateSideConversation = &master.MasterCreateSideConversationRouteCommand{
@@ -954,29 +827,16 @@ func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {
 		command.ForkConversation = &master.MasterForkConversationRouteCommand{
 			ParentConversationID: target.ConversationID,
 			Target: master.ConversationPresentationTarget{
-				ConversationID:   "master-route-fork",
-				ResourceScope:    target.ResourceScope,
-				ResourceBindings: masterRouteTestResourceBindings(),
-				Title:            "Fork of Master routing",
+				WorkspaceID: target.WorkspaceID, ConversationID: "master-route-fork", Title: "Fork of Master routing",
 			},
 			ForkedAtTurnID: decision.ForkConversation.ForkedAtTurnID,
 			TurnID:         "master-route-fork-turn",
 			Input:          decision.ForkConversation.Input,
 		}
 	case master.RouteDecisionKindClarify:
-		command.Clarify = &master.MasterClarifyRouteCommand{
-			Question:           decision.Clarify.Question,
-			CandidateTargetIDs: []string{"conversation-master-route"},
-		}
+		command.Clarify = &master.MasterClarifyRouteCommand{Question: decision.Clarify.Question}
 	case master.RouteDecisionKindAnswerGlobal:
 		command.AnswerGlobal = &master.MasterAnswerGlobalRouteCommand{Text: decision.AnswerGlobal.Text}
 	}
 	return command
-}
-
-func masterRouteTestResourceBindings() []applayout.ConversationPaneResourceBinding {
-	return []applayout.ConversationPaneResourceBinding{{
-		Folder: &applayout.FolderResourceBinding{RootPath: "/tmp/setta-master-route-test"},
-		Kind:   applayout.ConversationPaneResourceBindingKindFolder,
-	}}
 }

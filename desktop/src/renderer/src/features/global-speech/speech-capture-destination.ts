@@ -5,7 +5,7 @@ type SpeechCaptureDestination =
   | Readonly<{
       conversationId: string;
       type: "conversation";
-      workspaceId: string | null;
+      workspaceId: string;
     }>;
 
 export type SpeechCaptureRequest =
@@ -51,11 +51,11 @@ export function masterSpeechCaptureRequest(): MasterSpeechCaptureRequest {
 }
 
 export function conversationSpeechCaptureRequest(
-  workspaceId: string | null,
+  workspaceId: string,
   conversationId: string,
   sourcePaneId: string,
 ): ConversationSpeechCaptureRequest {
-  assertOptionalCaptureWorkspaceIdentifier(workspaceId);
+  assertCaptureIdentifier("workspace", workspaceId);
   assertCaptureIdentifier("conversation", conversationId);
   assertCaptureIdentifier("source pane", sourcePaneId);
   return Object.freeze({
@@ -88,12 +88,6 @@ export function freezeSpeechCaptureRequest(request: SpeechCaptureRequest): Speec
 function assertCaptureIdentifier(label: string, value: string): void {
   if (value.trim() === "" || value.trim() !== value) {
     throw new Error(`speech capture ${label} id must be non-empty and normalized`);
-  }
-}
-
-function assertOptionalCaptureWorkspaceIdentifier(value: string | null): void {
-  if (value !== null) {
-    assertCaptureIdentifier("workspace", value);
   }
 }
 

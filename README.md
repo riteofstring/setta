@@ -36,12 +36,8 @@ passed. Set `SETTA_APP_DATA_DIR` when you want a separate dogfood profile.
 Record a production desktop dogfood session:
 
 ```sh
-./scripts/prod_record_desktop_session.sh --build
+./scripts/prod_record_desktop_session.sh
 ```
-
-Configure OpenAI voice inside the app through Settings -> Voices. Production
-desktop launches use the saved in-app credential rather than shell-provided
-speech credentials.
 
 To reset the default global app state:
 
@@ -154,9 +150,8 @@ node desktop/tests/electron/run-workflows.mjs --workflow instant-voice-capture-p
 
 The live workflow uses temporary app data and exercises production
 Electron/main/preload/renderer/HTTP/store paths through OpenAI synthesis and a
-WebRTC transcription session. The Node test runner resolves `OPENAI_API_KEY`
-from its environment or the ignored repository `.env` file, strips it from the
-Electron child environment, and provisions the app through Settings -> Voices.
+WebRTC transcription session. It requires `OPENAI_API_KEY` in the environment
+or the ignored repository `.env` file.
 
 Codex uses the parallel pinned snapshot at
 `internal/codexapp/protocolschema/UPSTREAM`. Advance its commit, check out the

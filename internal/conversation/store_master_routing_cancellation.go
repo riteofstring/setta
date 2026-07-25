@@ -92,9 +92,6 @@ func cancelMasterInputRoutingTransaction(
 	if err := state.Validate(); err != nil {
 		return master.InputRoutingState{}, fmt.Errorf("validate cancelled master input routing state: %w", err)
 	}
-	if err := appendMasterTranscriptCancellation(transaction, state); err != nil {
-		return master.InputRoutingState{}, err
-	}
 	return state, nil
 }
 

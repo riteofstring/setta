@@ -17,9 +17,10 @@ interface ConversationEventStreamOptions {
   conversationId: string;
   cursor: ConversationEventCursor;
   fetchImpl: BackendFetch;
+  reportDisconnect?: (error: unknown) => void;
   reconnectDelayMs?: number;
   sendEvent: (event: ConversationEvent) => void;
-  workspaceId: string | null;
+  workspaceId: string;
 }
 
 const defaultReconnectDelayMs = 500;
@@ -62,7 +63,7 @@ async function runConversationEventStreamLoop(
       if (options.signal.aborted) {
         return;
       }
-      console.warn("Conversation event stream disconnected", error);
+      options.reportDisconnect?.(error);
     }
     await sleepWithAbort(options.reconnectDelayMs, options.signal);
   }
@@ -76,9 +77,7 @@ async function streamConversationEventsOnce(
   },
 ): Promise<ConversationEventCursor> {
   const url = new URL(backendEndpoints.ConversationEventStream.path, options.baseURL);
-  if (options.workspaceId !== null) {
-    url.searchParams.set("workspaceId", options.workspaceId);
-  }
+  url.searchParams.set("workspaceId", options.workspaceId);
   url.searchParams.set("conversationId", options.conversationId);
   const response = await options.fetchImpl(url, {
     headers: { "Last-Event-ID": encodeConversationEventCursor(options.cursor) },
