@@ -146,6 +146,8 @@
 "use strict";
 const canvas=document.getElementById('c');
 const gl=canvas.getContext('webgl2',{alpha:false,antialias:false});
+const timerExt=gl.getExtension('EXT_disjoint_timer_query_webgl2');   // GPU frame-time (dev perf readout)
+let gpuQuery=null, gpuPending=null, gpuMs=0;
 const errEl=document.getElementById('err'), tip=document.getElementById('tip');
 function fail(m){errEl.textContent=m;throw new Error(m);}
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -661,7 +663,7 @@ function updateHover(){
 rebuild();resize();
 const fpsEl=document.getElementById('fps');let last=performance.now(),acc=0,frames=0;
 function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+=dt;frames++;
-  if(acc>=0.5){fpsEl.textContent=Math.round(frames/acc)+' fps';acc=0;frames=0;}
+  if(acc>=0.5){fpsEl.textContent=Math.round(frames/acc)+' fps'+(gpuMs?' · '+gpuMs.toFixed(2)+'ms gpu':'');acc=0;frames=0;}
   if(growT>g.lastBorn+FAIL_DELAY+10.0){growT=0;autoCam=0;scrollOffset=0;}   // linger on the listening node, then loop
   let maxY=0;for(const n of g.nodes)if(n.born<=growT&&n.worldY>maxY)maxY=n.worldY;
   autoCam+=(maxY-autoCam)*Math.min(1,dt*1.7);          // follow the newest node
@@ -685,6 +687,7 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
   } else { xShift=0; glitchAmt=0; }
 
   resize();const dpr=Math.min(window.devicePixelRatio||1,1.5);
+  if(timerExt && !gpuPending){ gpuQuery=gl.createQuery(); gl.beginQuery(timerExt.TIME_ELAPSED_EXT,gpuQuery); }
   gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);gl.viewport(0,0,fw,fh);
   gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
   gl.useProgram(bgP);gl.uniform1f(BU.time,growT);gl.uniform1f(BU.cam,camWorld);gl.uniform1f(BU.dpr,dpr);
@@ -710,6 +713,10 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,atlasTex);gl.uniform1i(IU.atlas,1);
   gl.bindVertexArray(icVao);gl.drawArrays(gl.TRIANGLES,0,g.icCount);
   gl.disable(gl.BLEND);
+  if(timerExt && gpuQuery){ gl.endQuery(timerExt.TIME_ELAPSED_EXT); gpuPending=gpuQuery; gpuQuery=null; }
+  if(gpuPending && gl.getQueryParameter(gpuPending,gl.QUERY_RESULT_AVAILABLE)){
+    if(!gl.getParameter(timerExt.GPU_DISJOINT_EXT)) gpuMs=gl.getQueryParameter(gpuPending,gl.QUERY_RESULT)/1e6;
+    gl.deleteQuery(gpuPending); gpuPending=null; }
   updateHover();
   reticleActive.style.display='none';        // selected-only for now
   placeReticle(reticleSel, selected);
