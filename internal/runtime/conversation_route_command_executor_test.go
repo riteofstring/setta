@@ -60,37 +60,32 @@ func TestConversationRouteCommandExecutorCompletesPersistedNarratorDegradation(t
 	}
 }
 
-func TestConversationRouteCommandExecutorRejectsMissingAtomicMasterEffect(t *testing.T) {
+func TestConversationRouteCommandExecutorRunsFolderlessNarratorAnswer(t *testing.T) {
 	store := &routeCommandExecutorStore{
-		applied:     []bool{false, false},
-		workspaceID: "workspace_test",
+		applied: []bool{false, true},
 	}
+	narratorService := &routeCommandExecutorNarrator{}
 	executor, err := newConversationRouteCommandExecutor(
 		store,
 		&routeCommandExecutorConversations{},
-		&routeCommandExecutorNarrator{},
+		narratorService,
 	)
 	if err != nil {
 		t.Fatalf("newConversationRouteCommandExecutor: %v", err)
 	}
-	record := routedNarratorStatusDecisionRecord()
-	record.Decision = conversation.ConversationRouteDecision{
-		Kind: conversation.ConversationRouteDecisionKindEscalateToMaster,
-		EscalateToMaster: &conversation.EscalateToMasterConversationRouteDecision{
-			Input: conversation.AuthoredInput{Text: "Escalate this request."},
-		},
-	}
-	record.ResultingCommand = conversation.ConversationRouteCommand{
-		Kind: conversation.ConversationRouteDecisionKindEscalateToMaster,
-		EscalateToMaster: &conversation.EscalateToMasterConversationRouteCommand{
-			MasterInputID: "master_input_test",
-			Input:         conversation.AuthoredInput{Text: "Escalate this request."},
-		},
-	}
 
-	err = executor.ExecuteConversationRouteCommand(context.Background(), record)
-	if err == nil {
-		t.Fatal("ExecuteConversationRouteCommand succeeded without the atomic master effect")
+	if err := executor.ExecuteConversationRouteCommand(
+		context.Background(),
+		routedNarratorStatusDecisionRecord(),
+	); err != nil {
+		t.Fatalf("ExecuteConversationRouteCommand: %v", err)
+	}
+	if narratorService.folderlessCalls != 1 || narratorService.calls != 0 {
+		t.Fatalf(
+			"narrator calls = workspace:%d folderless:%d",
+			narratorService.calls,
+			narratorService.folderlessCalls,
+		)
 	}
 }
 
@@ -103,8 +98,11 @@ func routedNarratorStatusDecisionRecord() conversation.ConversationRouteDecision
 		InputID:        "conversation_input_test",
 		RoutingAttempt: 1,
 		RouterContext: conversation.ConversationRouteContextAudit{
-			InputSequence:        1,
-			AllowedDecisionKinds: []conversation.ConversationRouteDecisionKind{conversation.ConversationRouteDecisionKindAnswerAsNarrator},
+			DecisionAuthority: conversation.ConversationRouteDecisionAuthorityNarratorModel,
+			InputSequence:     1,
+			AllowedDecisionKinds: []conversation.ConversationRouteDecisionKind{
+				conversation.ConversationRouteDecisionKindAnswerAsNarrator,
+			},
 		},
 		ResolvedInvocation: invocation,
 		Decision: conversation.ConversationRouteDecision{
@@ -155,19 +153,11 @@ func routedNarratorInvocation() conversation.ResolvedInvocation {
 }
 
 type routeCommandExecutorStore struct {
-	accepted      conversation.AcceptedConversationInput
 	applied       []bool
 	appliedCalls  int
 	snapshot      conversation.ConversationSnapshot
 	snapshotReads int
 	workspaceID   string
-}
-
-func (store *routeCommandExecutorStore) ReadConversationInput(
-	_ context.Context,
-	_ string,
-) (conversation.AcceptedConversationInput, bool, error) {
-	return store.accepted, store.accepted.Input.ID != "", nil
 }
 
 func (store *routeCommandExecutorStore) ConversationRouteCommandApplied(
@@ -189,9 +179,28 @@ func (store *routeCommandExecutorStore) ReadConversationWorkspaceID(
 	return store.workspaceID, nil
 }
 
+func (store *routeCommandExecutorStore) ReadConversationWorkspaceBindingID(
+	_ context.Context,
+	_ string,
+) (*string, error) {
+	if store.workspaceID == "" {
+		return nil, nil
+	}
+	workspaceID := store.workspaceID
+	return &workspaceID, nil
+}
+
 func (store *routeCommandExecutorStore) ReadSnapshot(
 	_ context.Context,
 	_ string,
+	_ string,
+) (conversation.ConversationSnapshot, error) {
+	store.snapshotReads++
+	return store.snapshot, nil
+}
+
+func (store *routeCommandExecutorStore) ReadSnapshotByID(
+	_ context.Context,
 	_ string,
 ) (conversation.ConversationSnapshot, error) {
 	store.snapshotReads++
@@ -205,15 +214,16 @@ func (*routeCommandExecutorConversations) ExecuteRouteCommand(
 	string,
 	string,
 	string,
-	string,
 	conversation.ConversationRouteCommand,
 ) (conversation.ConversationSnapshot, error) {
 	return conversation.ConversationSnapshot{}, errors.New("unexpected conversation command")
 }
 
 type routeCommandExecutorNarrator struct {
-	calls int
-	err   error
+	calls           int
+	folderlessCalls int
+	notified        []string
+	err             error
 }
 
 func (service *routeCommandExecutorNarrator) AskRoutedStatus(
@@ -225,4 +235,19 @@ func (service *routeCommandExecutorNarrator) AskRoutedStatus(
 ) (conversation.ConversationSnapshot, error) {
 	service.calls++
 	return conversation.ConversationSnapshot{}, service.err
+}
+
+func (service *routeCommandExecutorNarrator) AskRoutedFolderlessStatus(
+	context.Context,
+	string,
+	string,
+	string,
+) (conversation.ConversationSnapshot, error) {
+	service.folderlessCalls++
+	return conversation.ConversationSnapshot{}, service.err
+}
+
+func (service *routeCommandExecutorNarrator) NotifyConversationInput(conversationID string) error {
+	service.notified = append(service.notified, conversationID)
+	return service.err
 }

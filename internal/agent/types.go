@@ -73,6 +73,11 @@ type Thread struct {
 	UpdatedAt      int          `json:"updatedAt"`
 }
 
+type ThreadResumeResult struct {
+	Thread  Thread
+	Resumed bool
+}
+
 type ThreadTurn struct {
 	ID     string              `json:"id"`
 	Status string              `json:"status"`
@@ -147,6 +152,7 @@ type StartThreadRequest struct {
 	Ephemeral             bool          `json:"ephemeral"`
 	DeveloperInstructions string        `json:"developerInstructions,omitempty"`
 	DynamicTools          []DynamicTool `json:"-"`
+	RequireProviderResume bool          `json:"-"`
 }
 
 type ForkThreadRequest struct {

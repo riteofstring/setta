@@ -163,11 +163,6 @@ export function decodeStringRecord(value: unknown, label: string): Record<string
   return decoded;
 }
 
-export function decodeUnknown(value: unknown, _label: string): unknown {
-  void _label;
-  return value;
-}
-
 export async function requestBackend<ResponsePayload, ErrorPayload extends BackendErrorPayload>(
   request: BackendRequest<ResponsePayload, ErrorPayload>,
 ): Promise<ResponsePayload> {

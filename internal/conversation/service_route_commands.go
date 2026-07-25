@@ -15,7 +15,6 @@ func (service *Service) ExecuteRouteCommand(
 	workspaceID string,
 	conversationID string,
 	decisionID string,
-	acceptedAt string,
 	command ConversationRouteCommand,
 ) (ConversationSnapshot, error) {
 	if err := validateRouteCommandExecution(
@@ -49,10 +48,6 @@ func (service *Service) ExecuteRouteCommand(
 		)
 	case ConversationRouteDecisionKindSteerParentTurn:
 		payload := command.SteerParentTurn
-		startedAt, err := validateTimestamp("routed steering input acceptedAt", acceptedAt)
-		if err != nil {
-			return ConversationSnapshot{}, err
-		}
 		return service.steerTurn(
 			ctx,
 			workspaceID,
@@ -60,7 +55,6 @@ func (service *Service) ExecuteRouteCommand(
 			payload.AuthoredInput.Text,
 			payload.TargetTurnID,
 			decisionID,
-			&startedAt,
 		)
 	case ConversationRouteDecisionKindCreateSideConversation:
 		return service.executeRoutedSideConversation(
@@ -77,7 +71,6 @@ func (service *Service) ExecuteRouteCommand(
 			command,
 		)
 	case ConversationRouteDecisionKindAnswerAsNarrator,
-		ConversationRouteDecisionKindEscalateToMaster,
 		ConversationRouteDecisionKindClarify:
 		return ConversationSnapshot{}, fmt.Errorf(
 			"conversation route command %s is not an agent command",
@@ -118,7 +111,6 @@ func (service *Service) executeRoutedSideConversation(
 ) (ConversationSnapshot, error) {
 	payload := command.CreateSideConversation
 	sideConversationID := payload.SideConversationID
-	parentPaneID := payload.ParentPaneID
 	parentSnapshot, err := service.store.ReadSnapshot(ctx, workspaceID, parentConversationID)
 	if err != nil {
 		return ConversationSnapshot{}, err
@@ -129,7 +121,6 @@ func (service *Service) executeRoutedSideConversation(
 			workspaceID,
 			BranchDecisionExecutionScope{
 				ParentConversationID: parentConversationID,
-				ParentPaneID:         &parentPaneID,
 				SideConversationID:   &sideConversationID,
 				Source:               BranchDecisionSourceConversationRouter,
 			},

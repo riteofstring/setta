@@ -162,8 +162,10 @@ func (store *Store) ReadConversationInputRoutingState(
 	if ctx == nil {
 		return ConversationInputRoutingState{}, errors.New("conversation input routing state context is required")
 	}
-	if err := validateConversationInputReference("conversation input routing workspace id", workspaceID); err != nil {
-		return ConversationInputRoutingState{}, err
+	if workspaceID != "" {
+		if err := validateConversationInputReference("conversation input routing workspace id", workspaceID); err != nil {
+			return ConversationInputRoutingState{}, err
+		}
 	}
 	if err := validateConversationInputReference("conversation input routing conversation id", conversationID); err != nil {
 		return ConversationInputRoutingState{}, err
@@ -576,7 +578,6 @@ func decodeConversationRouteJSON(encoded string, target any) error {
 		"answerAsNarrator",
 		"createSideConversation",
 		"forkConversation",
-		"escalateToMaster",
 		"clarify",
 	} {
 		if _, found := fields[field]; !found {
@@ -733,42 +734,17 @@ WHERE id = ? AND conversation_id = ?
 	return nil
 }
 
-func requireConversationRoutePaneBinding(
+func requireConversationRouteSideAvailable(
 	ctx context.Context,
 	tx *sql.Tx,
 	conversationID string,
-	paneID string,
 ) error {
-	var boundConversationID string
-	err := tx.QueryRowContext(ctx, `
-SELECT conversation_id
-FROM pane_bindings
-WHERE pane_id = ?
-`, paneID).Scan(&boundConversationID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return stateConflict("conversation pane", paneID, "originating pane is no longer bound")
-	}
+	exists, err := readOpenSideConversationForParent(ctx, tx, conversationID)
 	if err != nil {
-		return fmt.Errorf("read conversation route pane binding: %w", err)
-	}
-	if boundConversationID != conversationID {
-		return stateConflict("conversation pane", paneID, "originating pane belongs to another conversation")
-	}
-	return nil
-}
-
-func requireConversationRouteSidePaneAvailable(
-	ctx context.Context,
-	tx *sql.Tx,
-	conversationID string,
-	paneID string,
-) error {
-	exists, err := readOpenSideConversationForPane(ctx, tx, conversationID, paneID)
-	if err != nil {
-		return fmt.Errorf("read conversation route side pane state: %w", err)
+		return fmt.Errorf("read conversation route side state: %w", err)
 	}
 	if exists {
-		return stateConflict("conversation pane", paneID, "originating pane already has an open side conversation")
+		return stateConflict("conversation", conversationID, "conversation already has an open side conversation")
 	}
 	return nil
 }
@@ -783,7 +759,6 @@ func requireConversationRouteIdentifierAbsent(
 		"conversation_turns": true,
 		"side_conversations": true,
 		"conversations":      true,
-		"master_inputs":      true,
 		"trajectory_events":  true,
 	}
 	if !allowed[table] {
@@ -847,13 +822,14 @@ func requireConversationInputRoutingOwner(
 	workspaceID string,
 	conversationID string,
 ) error {
-	var storedWorkspaceID string
+	var storedWorkspaceID sql.NullString
 	err := query.QueryRowContext(ctx, `
 SELECT workspace_id
 FROM conversations
 WHERE id = ?
 `, conversationID).Scan(&storedWorkspaceID)
-	if errors.Is(err, sql.ErrNoRows) || (err == nil && storedWorkspaceID != workspaceID) {
+	if errors.Is(err, sql.ErrNoRows) ||
+		(err == nil && workspaceID != "" && (!storedWorkspaceID.Valid || storedWorkspaceID.String != workspaceID)) {
 		return fmt.Errorf("%w: %s", ErrConversationNotFound, conversationID)
 	}
 	if err != nil {

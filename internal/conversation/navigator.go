@@ -30,42 +30,6 @@ func (cursor NavigatorCursor) Validate() error {
 	return validateIdentifier("conversation navigator cursor conversation id", cursor.ConversationID)
 }
 
-func (item NavigatorItem) Validate(workspaceID string) error {
-	if err := validateIdentifier("conversation navigator workspace id", workspaceID); err != nil {
-		return err
-	}
-	if err := item.Conversation.Validate(); err != nil {
-		return err
-	}
-	if item.Conversation.WorkspaceID != workspaceID {
-		return fmt.Errorf(
-			"conversation navigator item %s belongs to workspace %s, want %s",
-			item.Conversation.ID,
-			item.Conversation.WorkspaceID,
-			workspaceID,
-		)
-	}
-	if item.Conversation.ArchivedAt != nil {
-		return fmt.Errorf("conversation navigator item %s is archived", item.Conversation.ID)
-	}
-	if err := item.PresentationProfile.Validate(); err != nil {
-		return err
-	}
-	if item.PresentationProfile.ConversationID != item.Conversation.ID {
-		return fmt.Errorf("conversation navigator item %s presentation profile ownership does not match", item.Conversation.ID)
-	}
-	if item.Branch == nil {
-		return nil
-	}
-	if err := item.Branch.Validate(); err != nil {
-		return err
-	}
-	if item.Branch.ChildConversationID != item.Conversation.ID {
-		return fmt.Errorf("conversation navigator item %s branch ownership does not match", item.Conversation.ID)
-	}
-	return nil
-}
-
 func (page NavigatorPage) Validate(workspaceID string, limit int) error {
 	if limit <= 0 || limit > MaxNavigatorPageLimit {
 		return fmt.Errorf("conversation navigator page limit must be between 1 and %d: %d", MaxNavigatorPageLimit, limit)
@@ -76,17 +40,20 @@ func (page NavigatorPage) Validate(workspaceID string, limit int) error {
 	if len(page.Items) > limit {
 		return fmt.Errorf("conversation navigator page contains %d items, limit is %d", len(page.Items), limit)
 	}
-	if err := validateNavigatorItems(workspaceID, page.Items); err != nil {
+	if err := validateIdentifier("conversation navigator workspace id", workspaceID); err != nil {
+		return err
+	}
+	if err := validateNavigatorPageItems(workspaceID, page.Items); err != nil {
 		return err
 	}
 	return validateNavigatorNextCursor(page)
 }
 
-func validateNavigatorItems(workspaceID string, items []NavigatorItem) error {
+func validateNavigatorPageItems(workspaceID string, items []NavigatorItem) error {
 	seen := make(map[string]bool, len(items))
 	for index, item := range items {
-		if err := item.Validate(workspaceID); err != nil {
-			return fmt.Errorf("conversation navigator item %d: %w", index, err)
+		if err := validateNavigatorPageItem(index, item, workspaceID); err != nil {
+			return err
 		}
 		conversationID := item.Conversation.ID
 		if seen[conversationID] {
@@ -96,6 +63,61 @@ func validateNavigatorItems(workspaceID string, items []NavigatorItem) error {
 		if index > 0 && !navigatorItemBefore(items[index-1], item) {
 			return fmt.Errorf("conversation navigator page is not ordered by recency and id")
 		}
+	}
+	return nil
+}
+
+func validateNavigatorPageItem(index int, item NavigatorItem, workspaceID string) error {
+	if err := validateNavigatorItemConversation(index, item.Conversation, workspaceID); err != nil {
+		return err
+	}
+	if err := validateNavigatorItemPresentation(index, item); err != nil {
+		return err
+	}
+	return validateNavigatorItemBranch(index, item)
+}
+
+func validateNavigatorItemConversation(index int, topic TopicConversation, workspaceID string) error {
+	if err := topic.Validate(); err != nil {
+		return fmt.Errorf("conversation navigator item %d: %w", index, err)
+	}
+	if topic.WorkspaceID == nil || *topic.WorkspaceID != workspaceID {
+		actual := "<none>"
+		if topic.WorkspaceID != nil {
+			actual = *topic.WorkspaceID
+		}
+		return fmt.Errorf(
+			"conversation navigator item %s belongs to workspace %s, want %s",
+			topic.ID,
+			actual,
+			workspaceID,
+		)
+	}
+	if topic.ArchivedAt != nil {
+		return fmt.Errorf("conversation navigator item %s is archived", topic.ID)
+	}
+	return nil
+}
+
+func validateNavigatorItemPresentation(index int, item NavigatorItem) error {
+	if err := item.PresentationProfile.Validate(); err != nil {
+		return fmt.Errorf("conversation navigator item %d: %w", index, err)
+	}
+	if item.PresentationProfile.ConversationID != item.Conversation.ID {
+		return fmt.Errorf("conversation navigator item %s presentation profile ownership does not match", item.Conversation.ID)
+	}
+	return nil
+}
+
+func validateNavigatorItemBranch(index int, item NavigatorItem) error {
+	if item.Branch == nil {
+		return nil
+	}
+	if err := item.Branch.Validate(); err != nil {
+		return fmt.Errorf("conversation navigator item %d: %w", index, err)
+	}
+	if item.Branch.ChildConversationID != item.Conversation.ID {
+		return fmt.Errorf("conversation navigator item %s branch ownership does not match", item.Conversation.ID)
 	}
 	return nil
 }

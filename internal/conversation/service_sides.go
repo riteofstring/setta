@@ -51,7 +51,6 @@ func (service *Service) executeSideConversationDecision(
 	ctx context.Context,
 	workspaceID string,
 	parentConversationID string,
-	parentPaneID string,
 	sideConversationID *string,
 	decisionSource BranchDecisionSource,
 ) (ConversationSnapshot, error) {
@@ -71,7 +70,6 @@ func (service *Service) executeSideConversationDecision(
 		ctx,
 		workspaceID,
 		parentConversationID,
-		parentPaneID,
 		workspaceSummary.RootPath,
 		profile,
 		resolved,
@@ -156,26 +154,21 @@ func (service *Service) startPreparedSideConversation(
 	return nil
 }
 
-func validateSideConversationRequest(parentConversationID string, parentPaneID string) error {
-	if err := validateIdentifier("side parent conversation id", parentConversationID); err != nil {
-		return err
-	}
-	return validateIdentifier("side parent pane id", parentPaneID)
+func validateSideConversationRequest(parentConversationID string) error {
+	return validateIdentifier("side parent conversation id", parentConversationID)
 }
 
-func (store *Store) hasOpenSideConversationForPane(
+func (store *Store) hasOpenSideConversationForParent(
 	ctx context.Context,
 	parentConversationID string,
-	parentPaneID string,
 ) (bool, error) {
 	var exists bool
-	err := store.read(ctx, "read open side conversation for pane", func(ctx context.Context, connection *sql.Conn) error {
+	err := store.read(ctx, "read open side conversation for parent", func(ctx context.Context, connection *sql.Conn) error {
 		var readErr error
-		exists, readErr = readOpenSideConversationForPane(
+		exists, readErr = readOpenSideConversationForParent(
 			ctx,
 			connection,
 			parentConversationID,
-			parentPaneID,
 		)
 		return readErr
 	})
@@ -289,7 +282,6 @@ func (service *Service) persistPreparingSideConversation(
 	ctx context.Context,
 	workspaceID string,
 	parentConversationID string,
-	parentPaneID string,
 	workspaceRoot string,
 	profile RoleProfile,
 	resolved agent.ResolvedInvocation,
@@ -310,16 +302,26 @@ func (service *Service) persistPreparingSideConversation(
 			Reason:         "side conversation requires a linked parent agent thread",
 		}
 	}
-	hasOpenSide, err := service.store.hasOpenSideConversationForPane(ctx, parentConversationID, parentPaneID)
+	hasOpenSide, err := service.store.hasOpenSideConversationForParent(ctx, parentConversationID)
 	if err != nil {
 		return preparedSideConversation{}, err
 	}
 	if hasOpenSide {
 		return preparedSideConversation{}, &CommandConflictError{
 			ConversationID: parentConversationID,
-			Reason:         "originating pane already has an open side conversation",
+			Reason:         "conversation already has an open side conversation",
 		}
 	}
+	binding, err := service.resumeParentAgentThreadForProviderOperationLocked(
+		ctx,
+		workspaceID,
+		workspaceRoot,
+		snapshot,
+	)
+	if err != nil {
+		return preparedSideConversation{}, err
+	}
+	snapshot.ThreadBinding = &binding
 	injectedItems, err := service.materializeSideContext(
 		ctx,
 		parentConversationID,
@@ -345,7 +347,6 @@ func (service *Service) persistPreparingSideConversation(
 	side := SideConversation{
 		ID:                       sideID,
 		ParentConversationID:     parentConversationID,
-		ParentPaneID:             parentPaneID,
 		ParentStatus:             snapshot.Conversation.Status,
 		DecisionSource:           decisionSource,
 		SourceProviderThreadID:   snapshot.ThreadBinding.ThreadID,
