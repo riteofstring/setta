@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"setta/internal/codexapp"
 )
@@ -18,15 +19,26 @@ func (runtime *Runtime) handleProviderEvent(ctx context.Context, providerEvent c
 		}
 		event := base
 		event.Kind = EventKindLifecycleChanged
-		event.Lifecycle = &LifecycleEvent{State: "unavailable", Reason: "provider_lifecycle", Error: &message}
+		event.Lifecycle = &LifecycleEvent{
+			State:  LifecycleStateUnavailable,
+			Reason: LifecycleReasonSessionFailed,
+			Error:  &message,
+		}
 		if err := emitAgentEvent(sink, event); err != nil {
 			return TurnResult{}, false, err
 		}
 		return TurnResult{}, false, fmt.Errorf("agent provider lifecycle failed: %s", message)
 	case codexapp.EventLag:
+		// Dropped provider events mean the durable stream of this run is
+		// incomplete, so the run needs reconciliation rather than more output.
+		lagMessage := "provider event stream fell behind"
 		event := base
 		event.Kind = EventKindLifecycleChanged
-		event.Lifecycle = &LifecycleEvent{State: "degraded", Reason: "provider_event_lag"}
+		event.Lifecycle = &LifecycleEvent{
+			State:  LifecycleStateUnavailable,
+			Reason: LifecycleReasonEventLag,
+			Error:  &lagMessage,
+		}
 		return TurnResult{}, false, emitAgentEvent(sink, event)
 	case codexapp.EventRequest:
 		if providerEvent.Message.Method == codexapp.CodexServerRequestItemToolCall {
@@ -145,7 +157,7 @@ func (runtime *Runtime) dynamicToolForCall(
 }
 
 func (runtime *Runtime) handleProviderNotification(message codexapp.Message, base Event, sink EventSink) (TurnResult, bool, error) {
-	events, terminal, err := normalizedProviderNotification(message, base)
+	events, terminal, err := normalizedProviderNotification(runtime, message, base)
 	if err != nil {
 		return TurnResult{}, false, err
 	}
@@ -165,28 +177,53 @@ func (runtime *Runtime) handleProviderNotification(message codexapp.Message, bas
 	}, true, nil
 }
 
-func normalizedProviderNotification(message codexapp.Message, base Event) ([]Event, *TerminalEvent, error) {
+func normalizedProviderNotification(runtime *Runtime, message codexapp.Message, base Event) ([]Event, *TerminalEvent, error) {
 	handler := providerNotificationHandlers[message.Method]
 	if handler == nil {
 		return nil, nil, nil
 	}
-	return handler(message.Params, base)
+	return handler(runtime, message.Params, base)
 }
 
-type providerNotificationHandler func([]byte, Event) ([]Event, *TerminalEvent, error)
+// providerNotificationHandler takes the runtime because a few notifications
+// report on state only this client holds, such as whether an approval request
+// is still waiting on the user here.
+type providerNotificationHandler func(*Runtime, []byte, Event) ([]Event, *TerminalEvent, error)
 
 var providerNotificationHandlers = map[string]providerNotificationHandler{
-	codexapp.CodexNotificationTurnStarted:                     normalizeTurnStarted,
-	codexapp.CodexNotificationItemAgentMessageDelta:           normalizeAgentTextDelta,
-	codexapp.CodexNotificationItemReasoningSummaryTextDelta:   normalizeReasoningDelta,
-	codexapp.CodexNotificationTurnPlanUpdated:                 normalizePlanUpdated,
-	codexapp.CodexNotificationItemStarted:                     normalizeItemStarted,
-	codexapp.CodexNotificationItemCompleted:                   normalizeItemCompleted,
-	codexapp.CodexNotificationItemCommandExecutionOutputDelta: normalizeCommandOutputDelta,
-	codexapp.CodexNotificationItemFileChangePatchUpdated:      normalizeFilePatchUpdated,
-	codexapp.CodexNotificationModelRerouted:                   normalizeModelRerouted,
-	codexapp.CodexNotificationTurnCompleted:                   normalizeTurnCompleted,
-	codexapp.CodexNotificationError:                           normalizeProviderError,
+	codexapp.CodexNotificationTurnStarted:                             ignoreRuntime(normalizeTurnStarted),
+	codexapp.CodexNotificationItemAgentMessageDelta:                   ignoreRuntime(normalizeAgentTextDelta),
+	codexapp.CodexNotificationItemReasoningSummaryTextDelta:           ignoreRuntime(normalizeReasoningDelta),
+	codexapp.CodexNotificationTurnPlanUpdated:                         ignoreRuntime(normalizePlanUpdated),
+	codexapp.CodexNotificationItemStarted:                             ignoreRuntime(normalizeItemStarted),
+	codexapp.CodexNotificationItemCompleted:                           ignoreRuntime(normalizeItemCompleted),
+	codexapp.CodexNotificationItemCommandExecutionOutputDelta:         ignoreRuntime(normalizeCommandOutputDelta),
+	codexapp.CodexNotificationItemCommandExecutionTerminalInteraction: ignoreRuntime(normalizeTerminalInteraction),
+	codexapp.CodexNotificationItemFileChangePatchUpdated:              ignoreRuntime(normalizeFilePatchUpdated),
+	codexapp.CodexNotificationItemMcpToolCallProgress:                 ignoreRuntime(normalizeMcpToolProgress),
+	codexapp.CodexNotificationHookStarted:                             ignoreRuntime(normalizeHookStarted),
+	codexapp.CodexNotificationHookCompleted:                           ignoreRuntime(normalizeHookCompleted),
+	codexapp.CodexNotificationModelRerouted:                           ignoreRuntime(normalizeModelRerouted),
+	codexapp.CodexNotificationTurnCompleted:                           ignoreRuntime(normalizeTurnCompleted),
+	codexapp.CodexNotificationError:                                   ignoreRuntime(normalizeProviderError),
+	codexapp.CodexNotificationThreadStatusChanged:                     ignoreRuntime(normalizeThreadStatusChanged),
+	codexapp.CodexNotificationThreadEnvironmentConnected:              ignoreRuntime(normalizeEnvironmentConnected),
+	codexapp.CodexNotificationThreadEnvironmentDisconnected:           ignoreRuntime(normalizeEnvironmentDisconnected),
+	codexapp.CodexNotificationThreadClosed:                            ignoreRuntime(normalizeThreadClosed),
+	codexapp.CodexNotificationItemAutoApprovalReviewStarted:           ignoreRuntime(normalizeGuardianReviewStarted),
+	codexapp.CodexNotificationItemAutoApprovalReviewCompleted:         ignoreRuntime(normalizeGuardianReviewCompleted),
+	codexapp.CodexNotificationModelVerification:                       ignoreRuntime(normalizeModelVerification),
+	codexapp.CodexNotificationServerRequestResolved:                   normalizeServerRequestResolved,
+}
+
+// ignoreRuntime adapts a normalizer that reads only the notification and the
+// active turn, which is all but one of them.
+func ignoreRuntime(
+	normalize func([]byte, Event) ([]Event, *TerminalEvent, error),
+) providerNotificationHandler {
+	return func(_ *Runtime, raw []byte, base Event) ([]Event, *TerminalEvent, error) {
+		return normalize(raw, base)
+	}
 }
 
 func normalizeTurnStarted(raw []byte, base Event) ([]Event, *TerminalEvent, error) {
@@ -275,6 +312,95 @@ func normalizeCommandOutputDelta(raw []byte, base Event) ([]Event, *TerminalEven
 	})
 }
 
+func normalizeTerminalInteraction(raw []byte, base Event) ([]Event, *TerminalEvent, error) {
+	notification, err := codexapp.DecodeTerminalInteractionNotification(raw)
+	if err != nil {
+		return nil, nil, err
+	}
+	// The keystrokes sent to an interactive process can carry a passphrase or
+	// another secret the user typed into a prompt, so the durable fact is that
+	// the command was driven, not what was typed into it.
+	return normalizedActivityUpdate(base, notification.ThreadID, notification.TurnID, ActivityEvent{
+		ProviderItemID: notification.ItemId, Kind: ActivityKindCommand,
+		Status: "in_progress", Title: "Terminal input sent",
+	})
+}
+
+func normalizeMcpToolProgress(raw []byte, base Event) ([]Event, *TerminalEvent, error) {
+	notification, err := codexapp.DecodeMcpToolCallProgressNotification(raw)
+	if err != nil {
+		return nil, nil, err
+	}
+	return normalizedActivityUpdate(base, notification.ThreadID, notification.TurnID, ActivityEvent{
+		ProviderItemID: notification.ItemId, Kind: ActivityKindMCPTool,
+		Status: "in_progress", Title: "MCP tool progress", Summary: notification.Message,
+	})
+}
+
+func normalizeHookStarted(raw []byte, base Event) ([]Event, *TerminalEvent, error) {
+	notification, err := codexapp.DecodeHookStartedNotification(raw)
+	if err != nil {
+		return nil, nil, err
+	}
+	return normalizedHookRun(base, notification.ThreadID, notification.TurnID, notification.Run, EventKindActivityStarted)
+}
+
+func normalizeHookCompleted(raw []byte, base Event) ([]Event, *TerminalEvent, error) {
+	notification, err := codexapp.DecodeHookCompletedNotification(raw)
+	if err != nil {
+		return nil, nil, err
+	}
+	return normalizedHookRun(base, notification.ThreadID, notification.TurnID, notification.Run, EventKindActivityCompleted)
+}
+
+// normalizedHookRun makes a hook execution a typed activity of the run that
+// triggered it. A hook that names no turn is thread-scoped provider work, so it
+// produces no event rather than being attributed to whichever run is active.
+func normalizedHookRun(
+	base Event,
+	threadID string,
+	turnID *string,
+	run codexapp.HookRunSummary,
+	kind EventKind,
+) ([]Event, *TerminalEvent, error) {
+	if turnID == nil {
+		return nil, nil, nil
+	}
+	if err := requireProviderScope(base, threadID, *turnID); err != nil {
+		return nil, nil, err
+	}
+	event := base
+	event.Kind = kind
+	event.ProviderEventID = stringPointer(run.ID)
+	event.Activity = &ActivityEvent{
+		ProviderItemID: run.ID,
+		Kind:           ActivityKindHook,
+		Status:         string(run.Status),
+		Title:          string(run.EventName) + " hook",
+		Summary:        hookAttribution(run),
+	}
+	return []Event{event}, nil, nil
+}
+
+// hookAttribution keeps the trusted answer to "whose hook was this" with the
+// activity, so a hook that blocks or fails is attributable to the plugin,
+// project, or user configuration that installed it.
+func hookAttribution(run codexapp.HookRunSummary) string {
+	parts := []string{}
+	if run.Source != nil {
+		parts = append(parts, string(*run.Source))
+	}
+	if trimmed := strings.TrimSpace(run.SourcePath); trimmed != "" {
+		parts = append(parts, trimmed)
+	}
+	if run.StatusMessage != nil {
+		if trimmed := strings.TrimSpace(*run.StatusMessage); trimmed != "" {
+			parts = append(parts, trimmed)
+		}
+	}
+	return strings.Join(parts, " · ")
+}
+
 func normalizeFilePatchUpdated(raw []byte, base Event) ([]Event, *TerminalEvent, error) {
 	notification, err := codexapp.DecodeFileChangePatchUpdatedNotification(raw)
 	if err != nil {
@@ -341,7 +467,11 @@ func normalizeProviderError(raw []byte, base Event) ([]Event, *TerminalEvent, er
 	message := notification.Error.Message
 	event := base
 	event.Kind = EventKindLifecycleChanged
-	event.Lifecycle = &LifecycleEvent{State: "degraded", Reason: "provider_error", Error: &message}
+	event.Lifecycle = &LifecycleEvent{
+		State:  LifecycleStateUnavailable,
+		Reason: LifecycleReasonTurnError,
+		Error:  &message,
+	}
 	return []Event{event}, nil, nil
 }
 

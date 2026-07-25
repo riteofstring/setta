@@ -113,7 +113,11 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 			event.SubagentCompleted = &TrajectorySubagentCompleted{Subagent: completed}
 		}},
 		{TrajectoryEventArtifactEmitted, func(event *TrajectoryEvent) {
-			event.ArtifactEmitted = &TrajectoryArtifactEmitted{ArtifactID: "artifact-1"}
+			event.ArtifactEmitted = &TrajectoryArtifactEmitted{
+				ArtifactID: "artifact-1",
+				Kind:       ArtifactKindMarkdown,
+				Title:      "Focused test summary",
+			}
 		}},
 		{TrajectoryEventAgentLivenessChanged, func(event *TrajectoryEvent) {
 			event.AgentLivenessChanged = &TrajectoryAgentLivenessChanged{Liveness: AgentLiveness{
@@ -125,7 +129,20 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 			}}
 		}},
 		{TrajectoryEventProviderLifecycleChanged, func(event *TrajectoryEvent) {
-			event.ProviderLifecycleChanged = &TrajectoryProviderLifecycleChanged{Lifecycle: ProviderLifecycle{Provider: ProviderCodex, Status: ProviderLifecycleReady}}
+			event.ProviderLifecycleChanged = &TrajectoryProviderLifecycleChanged{Lifecycle: ProviderLifecycle{
+				Provider: ProviderCodex,
+				Status:   ProviderLifecycleReady,
+				Reason:   ProviderLifecycleReasonThreadStatus,
+			}}
+		}},
+		{TrajectoryEventValidationRecorded, func(event *TrajectoryEvent) {
+			event.ValidationRecorded = &TrajectoryValidationRecorded{Validation: TrajectoryValidation{
+				ID:      "review-1",
+				Kind:    TrajectoryValidationGuardianReview,
+				Status:  TrajectoryValidationStatusPassed,
+				Subject: stringPointer("provider-item-file"),
+				Summary: "Automatic approval review allowed the change (risk low)",
+			}}
 		}},
 		{TrajectoryEventModelRerouted, func(event *TrajectoryEvent) {
 			event.ModelRerouted = &TrajectoryModelRerouted{Reroute: InvocationModelReroute{FromModelID: "gpt-heavy", ToModelID: "gpt-safe", Reason: "high_risk_cyber_activity"}}

@@ -19,11 +19,12 @@ func TestRuntimeKeepsSpeechSecretsAndAudioOutOfOutputAndPersistence(t *testing.T
 
 	config := testConfig(t)
 	appDataDir := config.AppDataDir
-	config.Speech = speech.OpenAIClientConfig{
-		APIKey:           runtimeSpeechAPIKey,
+	config.Speech = speech.OpenAIProviderConfig{
 		BaseURL:          provider.URL + "/v1",
 		AllowTestBaseURL: true,
 	}
+	config.SpeechCredentialOwner = SpeechCredentialOwnerServerStartup
+	config.SpeechStartupAPIKey = runtimeSpeechAPIKey
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	config.Stdout = &stdout
@@ -52,7 +53,7 @@ func TestRuntimeKeepsSpeechSecretsAndAudioOutOfOutputAndPersistence(t *testing.T
 		client,
 		baseURL,
 		"/speech/transcription/sessions",
-		httpapi.CreateSpeechTranscriptionSessionRequest{},
+		httpapi.CreateSpeechTranscriptionSessionRequest{Provider: speech.SpeechProviderOpenAI},
 		http.StatusOK,
 	)
 	if session.ClientSecret != runtimeSpeechTranscriptionSecret {

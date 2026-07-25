@@ -18,30 +18,30 @@ export interface PaneRuntimePolicyOptions {
   degradeDuringResize?: boolean;
 }
 
-type LiveHeavyDomSurfaceKind = "easy-button" | "fake-heavy-dom";
+type LiveHeavyDomSurfaceKind = "conversation" | "fake-heavy-dom" | "master";
 type SurfaceRuntimeCategory = "always-live" | "browser" | "heavy-dom" | "snapshot";
 
-const liveHeavyDomSurfaceKinds = new Set<SurfaceKind>(["easy-button", "fake-heavy-dom"]);
+const liveHeavyDomSurfaceKinds = new Set<SurfaceKind>(["conversation", "fake-heavy-dom", "master"]);
 const frozenLiveVisualSurfaceKinds = new Set<SurfaceKind>([
-  "easy-button",
+  "conversation",
   "empty-frame",
   "fake-dom",
   "fake-heavy-dom",
-  "settings-dom",
+  "master",
 ]);
 const movementDegradedSurfaceKinds = new Set<SurfaceKind>([
   "browser",
-  "easy-button",
+  "conversation",
   "fake-heavy-dom",
-  "settings-dom",
+  "master",
 ]);
 const surfaceRuntimeCategories = {
   browser: "browser",
-  "easy-button": "heavy-dom",
+  conversation: "heavy-dom",
   "empty-frame": "always-live",
   "fake-dom": "always-live",
   "fake-heavy-dom": "heavy-dom",
-  "settings-dom": "always-live",
+  master: "heavy-dom",
   snapshot: "snapshot",
 } satisfies Record<SurfaceKind, SurfaceRuntimeCategory>;
 

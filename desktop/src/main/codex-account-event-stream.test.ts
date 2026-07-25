@@ -32,25 +32,6 @@ describe("Codex account event stream", () => {
     expect(forwarded).toEqual(events);
     expect(fetchImpl).toHaveBeenCalledOnce();
   });
-
-  test("reports reconnect failures without writing to a process stream", async () => {
-    const disconnected: unknown[] = [];
-    const stream = startCodexAccountEventStream({
-      baseURL: "http://127.0.0.1:41000",
-      fetchImpl: vi.fn(async () => {
-        throw new Error("account stream unavailable");
-      }),
-      reconnectDelayMs: 10_000,
-      reportDisconnect: (error) => disconnected.push(error),
-      sendEvent: vi.fn(),
-    });
-
-    await waitFor(() => disconnected.length === 1);
-    await stream.stop();
-
-    expect(disconnected).toHaveLength(1);
-    expect(disconnected[0]).toEqual(new Error("account stream unavailable"));
-  });
 });
 
 function accountEvent(

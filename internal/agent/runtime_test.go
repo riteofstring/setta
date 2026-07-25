@@ -29,8 +29,10 @@ func TestInitializeParamsPreservesProductionCapabilities(t *testing.T) {
 		t.Fatal("opt-out notification methods are nil")
 	}
 	methods := *capabilities.OptOutNotificationMethods
-	if len(methods) != 1 || methods[0] != codexapp.CodexNotificationThreadStarted {
-		t.Fatalf("opt-out notification methods = %v, want [%s]", methods, codexapp.CodexNotificationThreadStarted)
+	if len(methods) != 2 ||
+		methods[0] != codexapp.CodexNotificationItemReasoningTextDelta ||
+		methods[1] != codexapp.CodexNotificationThreadStarted {
+		t.Fatalf("opt-out notification methods = %v, want private reasoning deltas and %s", methods, codexapp.CodexNotificationThreadStarted)
 	}
 }
 
@@ -43,6 +45,52 @@ func TestRuntimeThreadPrimitivesAndModelCatalog(t *testing.T) {
 	assertFakeForkAndCleanup(t, ctx, runtime, thread)
 	assertFakeModelResolution(t, ctx, runtime)
 	assertFakeReconciliation(t, ctx, runtime, thread)
+}
+
+func TestRuntimeConfiguredResumeExcludesTurns(t *testing.T) {
+	runtime := newFakeRuntime(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	invocation := testInvocation()
+	invocation.Model = ""
+	invocation.ModelSelectionProviderDefault = true
+	request := StartThreadRequest{
+		WorkspaceRoot: t.TempDir(),
+		Invocation:    invocation,
+	}
+	resumed, err := runtime.ResumeThreadWithConfiguration(ctx, "thread-existing", request)
+	if err != nil {
+		t.Fatalf("ResumeThreadWithConfiguration: %v", err)
+	}
+	if !resumed.Resumed || resumed.Thread.ID != "thread-existing" || resumed.Thread.Model != "gpt-agent-test" {
+		t.Fatalf("resumed thread = %+v", resumed)
+	}
+}
+
+func TestRuntimeConfiguredResumeClassifiesMissingThreadByListProbe(t *testing.T) {
+	runtime := newFakeRuntime(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err := runtime.ResumeThreadWithConfiguration(ctx, "thread-missing-list-confirms", StartThreadRequest{
+		WorkspaceRoot: t.TempDir(),
+		Invocation:    testInvocation(),
+	})
+	if !IsProviderThreadMissing(err) {
+		t.Fatalf("ResumeThreadWithConfiguration error = %T %v, want provider thread missing", err, err)
+	}
+}
+
+func TestRuntimeConfiguredResumeDoesNotTreatLoadErrorAsMissingWhenListFindsThread(t *testing.T) {
+	runtime := newFakeRuntime(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err := runtime.ResumeThreadWithConfiguration(ctx, "thread-load-error-list-present", StartThreadRequest{
+		WorkspaceRoot: t.TempDir(),
+		Invocation:    testInvocation(),
+	})
+	if err == nil || IsProviderThreadMissing(err) {
+		t.Fatalf("ResumeThreadWithConfiguration error = %T %v, want non-missing load failure", err, err)
+	}
 }
 
 func TestRuntimeStartsAndResumesDurableRestrictedThread(t *testing.T) {
