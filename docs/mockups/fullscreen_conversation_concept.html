@@ -50,17 +50,31 @@
   .tb-chip.on { color: var(--fg); border-color: color-mix(in oklch, var(--primary) 55%, transparent); background: color-mix(in oklch, var(--primary) 12%, transparent); }
   .rail { position: fixed; top: 44px; bottom: 92px; width: 300px; z-index: 12; display: flex; flex-direction: column; gap: 12px; padding: 20px; font-family: var(--sans); pointer-events: none; }
   .rail > * { pointer-events: auto; }
-  #railLeft { left: 0; justify-content: flex-end; }
+  #railLeft { left: 0; justify-content: flex-start; }
+  /* floating transcript labels riding the ladder nodes */
+  #nodeLabels { position: fixed; inset: 0; z-index: 8; pointer-events: none; }
+  .nlabel { position: absolute; transform: translateY(-50%); max-width: 300px; font: 12px/1.4 var(--sans); letter-spacing: 0.01em;
+    padding: 3px 9px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    background: color-mix(in oklch, var(--bg) 62%, transparent); backdrop-filter: blur(2px); }
+  .nl-user { color: var(--accent-teal); border: 1px solid color-mix(in oklch, var(--accent-teal) 30%, transparent); }
+  .nl-resp { color: var(--fg); border: 1px solid color-mix(in oklch, var(--accent-green) 30%, transparent); }
   #railRight { right: 0; overflow-y: auto; scrollbar-width: thin;
     -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24px, #000 calc(100% - 24px), transparent);
             mask-image: linear-gradient(to bottom, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
   body.hide-summaries #railLeft, body.hide-artifacts #railRight, body.hide-composer #composer { display: none; }
   .rail-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--faint); font-weight: 600; }
   #highlights { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-  .hl { display: grid; grid-template-columns: 7px 1fr; gap: 9px; font-size: 13px; color: var(--muted); line-height: 1.35; }
+  .hl { display: grid; grid-template-columns: 7px 1fr; gap: 9px; font-size: 13px; color: var(--muted); line-height: 1.35; cursor: pointer; }
   .hl .d { width: 6px; height: 6px; border-radius: 50%; margin-top: 5px; box-shadow: 0 0 6px currentColor; }
   .hl.old { opacity: 0.4; }
-  .hl b { color: var(--fg); font-weight: 600; }
+  .hl.old:hover { opacity: 0.7; }
+  .hl.cur .hl-short { color: var(--fg); font-weight: 600; }
+  .hl-full { display: none; margin-top: 3px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .hl.cur .hl-full, .hl.expanded .hl-full { display: block; }   /* newest + clicked items show the fuller detail */
+  .hl.expanded .hl-short { color: var(--fg); }
+  .rail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .rail-link { background: transparent; border: 0; padding: 0; font: 11px var(--sans); color: var(--faint); cursor: pointer; letter-spacing: 0.02em; }
+  .rail-link:hover { color: var(--accent-teal); }
   #artifacts { display: flex; flex-direction: column; gap: 12px; }
   .artifact { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px 13px 13px; cursor: pointer; transition: border-color 160ms, transform 160ms;
     animation: art-in 420ms cubic-bezier(0.22,1,0.36,1); }
@@ -98,7 +112,7 @@
   .ab-diff { font: 11px var(--mono); white-space: pre; line-height: 1.5; }
   .ab-add { color: var(--accent-green); } .ab-del { color: var(--accent-red); }
   /* main response area */
-  #response { position: fixed; left: 50%; transform: translateX(-50%); bottom: 96px; width: min(680px, calc(100vw - 660px)); z-index: 13; cursor: pointer; font-family: var(--sans);
+  #response-legacy-unused { position: fixed; left: 50%; transform: translateX(-50%); bottom: 96px; width: min(680px, calc(100vw - 660px)); z-index: 13; cursor: pointer; font-family: var(--sans);
     background: color-mix(in oklch, var(--surface) 74%, transparent); border: 1px solid var(--border); border-top-color: color-mix(in oklch, var(--primary) 35%, transparent);
     border-radius: 14px; padding: 13px 16px 9px; backdrop-filter: blur(10px); transition: border-color 160ms; }
   #response:hover { border-color: color-mix(in oklch, var(--primary) 45%, transparent); }
@@ -116,10 +130,9 @@
   .hh { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; color: var(--fg); }
   .hh button { background: transparent; border: 0; color: var(--faint); font-size: 14px; cursor: pointer; }
   .hh-note { font-size: 11px; color: var(--faint); margin: 4px 0 16px; }
-  .turn { margin-bottom: 16px; }
-  .turn .u { font-size: 13px; color: var(--fg); background: color-mix(in oklch, var(--primary) 12%, transparent); border: 1px solid color-mix(in oklch, var(--primary) 30%, transparent); border-radius: 10px; padding: 8px 11px; display: inline-block; max-width: 92%; }
-  .turn .r { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
-  .turn .r .ok { color: var(--accent-green); margin-right: 5px; }
+  .turn { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+  .turn .u { align-self: flex-end; font-size: 13px; color: var(--fg); background: color-mix(in oklch, var(--accent-teal) 14%, transparent); border: 1px solid color-mix(in oklch, var(--accent-teal) 32%, transparent); border-radius: 12px 12px 3px 12px; padding: 8px 12px; max-width: 82%; line-height: 1.4; }
+  .turn .r { align-self: flex-start; font-size: 13px; color: var(--fg); background: color-mix(in oklch, var(--surface) 80%, transparent); border: 1px solid var(--border); border-left: 2px solid var(--accent-green); border-radius: 12px 12px 12px 3px; padding: 8px 12px; max-width: 82%; line-height: 1.5; }
   /* conversation-dot activity */
   .tb-dots i { transition: background 300ms, box-shadow 300ms; }
   .tb-dots i.act { background: var(--accent-teal); box-shadow: 0 0 7px currentColor; color: var(--accent-teal); animation: dotpulse 1.4s ease-in-out infinite; }
@@ -152,21 +165,18 @@
 </header>
 
 <aside id="railLeft" class="rail">
-  <div class="rail-label">Now</div>
+  <div class="rail-head"><span class="rail-label">Now</span><button id="threadHistoryBtn" type="button" class="rail-link">see thread history ›</button></div>
   <ol id="highlights"></ol>
   <button id="summaryToggle" type="button"><span class="caret">▸</span> Summary</button>
   <div id="summaryText" hidden></div>
 </aside>
 
+<div id="nodeLabels"></div>
+
 <aside id="railRight" class="rail">
   <div class="rail-label">Artifacts</div>
   <div id="artifacts"></div>
 </aside>
-
-<div id="response" role="button" tabindex="0" title="Show conversation history">
-  <div id="responseText"></div>
-  <div id="responseFoot"><span class="rf-label" id="responseState">Response</span><span class="rf-hist">history ⌄</span></div>
-</div>
 
 <div id="history" hidden>
   <div id="historyPanel">
@@ -185,6 +195,10 @@
 </div>
 
 <div id="devbar" hidden>
+  <div class="grp"><span>collapse</span>
+    <button data-cm="off">off</button><button data-cm="ladder" class="on">ladder</button><button data-cm="focus">focus</button><button data-cm="implode">implode</button>
+  </div>
+  <div class="grp"><label><input type="checkbox" id="labelsToggle" checked /> labels</label></div>
   <div class="grp"><span>pattern</span>
     <button data-pat="0" class="on">halftone</button><button data-pat="1">bayer</button><button data-pat="2">hatch</button>
   </div>
@@ -235,52 +249,70 @@ const RUN=[
 ];
 
 const STEP=0.20, POP=0.38, FAIL_DELAY=1.1;
+const RESP_H=0.34, TURN_GAP=0.42;      // ladder spacing: user->response gap when folded, and gap between turns
 let INTERVAL=5.5, DEAD_INTERVAL=4.0;   // node dwell (driven by the speed slider, default slowest); animation durations stay fixed
+let collapseMode='ladder', showLabels=true;   // dev-panel variations on the collapse-into-a-ladder idea
 function laneOffsets(K){if(K<=1)return[0];const s=0.30,st=-(K-1)/2*s,o=[];for(let i=0;i<K;i++)o.push(st+i*s);return o;}
 
-function build(seed){
-  const rng=mulberry32(seed);
-  const nodes=[],edges=[],embers=[]; let row=0,clock=0,side=1;
-  const add=(x,label,mode,born,extra)=>{const id=nodes.length; const fails=extra&&extra.fails;
-    nodes.push({id,x,worldY:row*STEP,born,settleAt:born+(fails?FAIL_DELAY:INTERVAL*1.4),
-      mode:M[mode]!==undefined?M[mode]:mode, failAt:fails?FAIL_DELAY:999,
-      label,why:extra&&extra.why,alts:extra&&extra.alts});
-    return id;};
-  const link=(a,b,childBorn,mode,dead)=>{ const md=M[mode]!==undefined?M[mode]:mode;
-    let conf=0.9; if(md===M.struggle) conf=0.45;   // base straightness by mode; failure wobble is added in-shader
-    edges.push({a,b,childBorn,mode:md,dead:!!dead,conf,phase:0}); };
-  let tip=add(0,'listening','listening',0); clock=INTERVAL;   // starts by listening to the user
-  for(const ev of RUN){
-    if(ev.k==='step'){ row++; const b=clock; clock+=INTERVAL;
-      const id=add(0,ev.t,ev.m,b,{alts:ev.alts}); link(tip,id,b,ev.m); tip=id; }
-    else if(ev.k==='dead'){ row++; const b=clock; clock+=DEAD_INTERVAL;
-      const d=add(0.30*side,ev.t,ev.m||'do',b,{why:ev.why,fails:true}); link(tip,d,b,ev.m||'do',true); side*=-1; }
-    else if(ev.k==='fan'){
-      const K=ev.lanes.length, xs=laneOffsets(K);
-      const chains=ev.lanes.map((l,i)=>({x:xs[i],seq:[{m:l.m,t:l.t}].concat(l.steps||[]),dead:!!l.dead}));
-      const maxLen=Math.max(...chains.map(c=>c.seq.length));
-      const prev=chains.map(()=>tip), aliveTip=chains.map(()=>null), startClock=clock;
-      for(let s=0;s<maxLen;s++){ row++;
-        const b=startClock+s*INTERVAL;
-        for(let i=0;i<chains.length;i++){ const c=chains[i]; if(s>=c.seq.length) continue;
-          const spec=c.seq[s], last=s===c.seq.length-1, isDead=c.dead&&last;
-          const id=add(c.x,spec.t,spec.m, b+i*0.12, isDead?{fails:true}:undefined);
-          link(prev[i],id,b+i*0.12,spec.m,isDead); prev[i]=id; aliveTip[i]=(c.dead&&last)?null:id; } }
-      clock=startClock+maxLen*INTERVAL; row++;
-      const mb=clock; clock+=INTERVAL; const mm=add(0,ev.merge||'synthesize','merge',mb);
-      for(let i=0;i<chains.length;i++) if(!chains[i].dead && aliveTip[i]!=null) link(aliveTip[i],mm,mb,'merge');
-      tip=mm;
+// A conversation is a THREAD of turns. Each turn is user-input node -> live reasoning graph -> final
+// response node. Positions are computed dynamically each frame (see layout()) so the reasoning graph can
+// collapse into a clean user/AI ladder once the answer is logged, and re-expand from stored data on click.
+function build(conv){
+  const nodes=[],edges=[],turns=[]; let clock=0;
+  const mk=(role,ti,x,label,mode,born,localY,fails)=>{ const md=M[mode]!==undefined?M[mode]:mode;
+    const id=nodes.length;
+    nodes.push({id,role,turn:ti,x,baseX:x,label,mode:md,born,
+      settleAt:born+(fails?FAIL_DELAY:INTERVAL*1.4), failAt:fails?FAIL_DELAY:999,
+      localY:localY||0, worldY:0, alpha:1});
+    return id; };
+  const link=(a,b,childBorn,mode,dead,spine)=>{ const md=M[mode]!==undefined?M[mode]:mode;
+    let conf=0.9; if(md===M.struggle) conf=0.45;
+    edges.push({a,b,childBorn,mode:md,dead:!!dead,conf,spine:!!spine,turn:nodes[b].turn}); };
+
+  (conv.thread||[]).forEach((T,ti)=>{
+    const turn={index:ti,userId:-1,reasonIds:[],respId:-1,open:0,openTarget:0,manual:null,collapseStart:0,reasonSpan:0,answerAt:0};
+    const uborn=clock; clock+=INTERVAL;
+    turn.userId=mk('user',ti,0,T.u,'listening',uborn,0);        // the listening node carries the user's input
+    let tip=turn.userId, rrow=1, side=1;
+    const raw=(T.reason==='RUN')?RUN:(T.reason||[]);
+    const items=raw.map(s=>s.k?s:{k:'step',m:s.m,t:s.t});   // {m,t} => a plain step; {k:...} passes through (fan/dead)
+    for(const ev of items){
+      if(ev.k==='step'){ const b=clock; clock+=INTERVAL;
+        const id=mk('reason',ti,0,ev.t,ev.m,b,rrow*STEP); turn.reasonIds.push(id); link(tip,id,b,ev.m); tip=id; rrow++; }
+      else if(ev.k==='dead'){ const b=clock; clock+=DEAD_INTERVAL;
+        const id=mk('reason',ti,0.30*side,ev.t,ev.m||'do',b,rrow*STEP,true); turn.reasonIds.push(id); link(tip,id,b,ev.m||'do',true); side*=-1; rrow++; }
+      else if(ev.k==='fan'){
+        const K=ev.lanes.length, xs=laneOffsets(K);
+        const chains=ev.lanes.map((l,i)=>({x:xs[i],seq:[{m:l.m,t:l.t}].concat(l.steps||[]),dead:!!l.dead}));
+        const maxLen=Math.max(...chains.map(c=>c.seq.length));
+        const prev=chains.map(()=>tip), aliveTip=chains.map(()=>null), startRow=rrow, startClock=clock;
+        for(let s=0;s<maxLen;s++){ const b=startClock+s*INTERVAL;
+          for(let i=0;i<chains.length;i++){ const c=chains[i]; if(s>=c.seq.length) continue;
+            const spec=c.seq[s], last=s===c.seq.length-1, isDead=c.dead&&last;
+            const id=mk('reason',ti,c.x,spec.t,spec.m,b+i*0.12,(startRow+s)*STEP,isDead);
+            turn.reasonIds.push(id); link(prev[i],id,b+i*0.12,spec.m,isDead); prev[i]=id; aliveTip[i]=(c.dead&&last)?null:id; } }
+        clock=startClock+maxLen*INTERVAL; rrow=startRow+maxLen;
+        const mb=clock; clock+=INTERVAL; const mm=mk('reason',ti,0,ev.merge||'synthesize','merge',mb,rrow*STEP);
+        turn.reasonIds.push(mm);
+        for(let i=0;i<chains.length;i++) if(!chains[i].dead && aliveTip[i]!=null) link(aliveTip[i],mm,mb,'merge');
+        tip=mm; rrow++;
+      }
     }
-  }
-  // after finishing, return to a fresh listening node (ready for the next turn)
-  row++; { const lb=clock; clock+=INTERVAL; const ln=add(0,'listening','listening',lb); link(tip,ln,lb,'listening'); tip=ln; }
-  // settleAt = when the child forms (node stops "working" once it produced the next thought)
+    const rborn=clock; clock+=INTERVAL;
+    turn.reasonSpan=rrow*STEP;
+    turn.respId=mk('response',ti,0,T.r,'success',rborn,turn.reasonSpan+RESP_H);   // green node = the response
+    link(tip,turn.respId,rborn,'success');
+    link(turn.userId,turn.respId,uborn,'success',false,true);    // spine: shown only when the turn is folded
+    turn.answerAt=rborn; turn.collapseStart=rborn+INTERVAL*1.4+0.9;
+    turns.push(turn);
+    clock+=INTERVAL*2;
+  });
+  // working envelope: a node stops "working" once it has produced its next thought (ignoring the spine)
   const childBorn={};
-  for(const e of edges){ const cb=nodes[e.b].born; if(childBorn[e.a]===undefined||cb<childBorn[e.a]) childBorn[e.a]=cb; }
+  for(const e of edges){ if(e.spine) continue; const cb=nodes[e.b].born; if(childBorn[e.a]===undefined||cb<childBorn[e.a]) childBorn[e.a]=cb; }
   for(const n of nodes){ if(childBorn[n.id]!==undefined) n.settleAt=childBorn[n.id];
-    if(n.failAt<900) n.settleAt=n.born+n.failAt;
-    if(n.mode===M.listening && childBorn[n.id]===undefined) n.settleAt=n.born+99999; }   // final listening node stays listening
-  return {nodes,edges,embers,lastBorn:clock};
+    if(n.failAt<900) n.settleAt=n.born+n.failAt; }
+  return {nodes,edges,turns,lastBorn:clock};
 }
 
 // ---- GL ----
@@ -312,9 +344,11 @@ layout(location=7) in float a_phase;  // per-particle phase 0..1
 layout(location=8) in float a_speed;  // per-particle speed
 layout(location=9) in float a_role;   // 0 core orbiter, 1 emitted spark
 layout(location=10) in float a_failAt; // node age at which it fails (999 = never)
+layout(location=11) in float a_open;    // collapse visibility 0..1 (reason nodes fade as their turn folds)
 uniform float u_cam,u_time,u_dpr,u_hoverX,u_hoverWY,u_hoverOn,u_listen,u_pmode,u_xshift;
 out float v_mode,v_recent,v_alpha,v_active,v_hover,v_fail,v_isCore;
 void main(){
+  if(a_open<0.004){ gl_Position=vec4(2.0,2.0,2.0,1.0); gl_PointSize=0.0; return; }   // folded away
   float age=u_time-a_born;
   float vis=step(a_born - step(0.5,a_role)*step(a_role,1.5)*0.55, u_time);   // sparks appear early to spiral in
   float recent=exp(-max(0.0,u_cam-a_worldY)*0.85);
@@ -396,7 +430,7 @@ void main(){
   }
   float succ=step(2.5,a_mode)*step(a_mode,3.5);
   psize*=(1.0+succ*0.5);                         // success flourish
-  v_mode=a_mode; v_recent=recent; v_active=working; v_hover=hover; v_fail=failP; v_alpha=palpha*vis; v_isCore=step(a_role,0.5);
+  v_mode=a_mode; v_recent=recent; v_active=working; v_hover=hover; v_fail=failP; v_alpha=palpha*vis*a_open; v_isCore=step(a_role,0.5);
   gl_Position=vec4(pos.x+u_xshift, pos.y,0.0,1.0);
   gl_PointSize=psize*u_dpr*vis;
 }`;
@@ -430,9 +464,11 @@ layout(location=7) in float t;      // 0..1 along the path
 layout(location=8) in float conf;   // confidence -> straightness
 layout(location=9) in float phase;
 layout(location=10) in float childFail;   // time the child fails (9999 = never)
+layout(location=11) in float a_open;       // edge visibility 0..1 (reason edges fold, spine edges appear)
 uniform float u_cam,u_time,u_aspect,u_width,u_xshift;
 out float v_mode,v_recent,v_alpha,v_along,v_failP;
 void main(){
+  if(a_open<0.004){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }   // folded away
   float grow=clamp((u_time-(childBorn-0.6))/0.6,0.0,1.0);   // line grows out; tip arrives at childBorn
   float tt=min(t,grow);
   vec2 A=vec2(aX,-0.35+(u_cam-aWY));
@@ -447,7 +483,7 @@ void main(){
   wob*=sin(tt*3.14159);                                     // meet the endpoints cleanly
   vec2 p=mix(A,B,tt)+perpC*wob;
   vec2 e=p+perpC*side*(u_width*(0.85+conf*1.15));   // confident main threads thicker
-  v_mode=mode; v_recent=exp(-max(0.0,u_cam-bWY)*0.9); v_alpha=grow; v_along=t; v_failP=failP;
+  v_mode=mode; v_recent=exp(-max(0.0,u_cam-bWY)*0.9); v_alpha=grow*a_open; v_along=t; v_failP=failP;
   gl_Position=vec4(e.x+u_xshift, e.y,0.0,1.0);
 }`;
 const EDGE_FS=`#version 300 es
@@ -520,9 +556,11 @@ layout(location=5) in float a_failAt;
 layout(location=6) in float a_icon;
 layout(location=7) in float a_cx;
 layout(location=8) in float a_cy;
+layout(location=9) in float a_open;   // collapse visibility 0..1
 uniform float u_cam,u_time,u_aspect,u_nicon,u_xshift;
 out vec2 v_uv; out float v_mode,v_reveal,v_fail;
 void main(){
+  if(a_open<0.004){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }   // folded away
   float age=u_time-a_born; float vis=step(0.0,age);
   float recent=exp(-max(0.0,u_cam-a_worldY)*0.85);
   float working=smoothstep(a_born,a_born+0.45,u_time)*(1.0-smoothstep(a_settle-0.35,a_settle+0.7,u_time));
@@ -533,7 +571,7 @@ void main(){
   if(center.y>1.35||center.y<-1.35){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }   // cull off-viewport icons
   vec2 pos=center+vec2(a_cx*halfX, a_cy*halfY);
   v_uv=vec2((a_icon+(a_cx*0.5+0.5))/u_nicon, 1.0-(a_cy*0.5+0.5));
-  v_mode=a_mode; v_reveal=smoothstep(0.06,0.30,age)*vis;
+  v_mode=a_mode; v_reveal=smoothstep(0.06,0.30,age)*vis*a_open;
   vec2 uvp=pos*0.5+0.5; vec2 cc=uvp-0.5; uvp=0.5+cc/(1.0+dot(cc,cc)*0.14);   // match CRT barrel
   vec2 ndc=uvp*2.0-1.0; gl_Position=vec4(ndc.x+u_xshift, ndc.y,0.0,1.0);
 }`;
@@ -555,8 +593,8 @@ void main(){
 const ptP=prog(PT_VS,PT_FS), edgeP=prog(EDGE_VS,EDGE_FS), postP=prog(POST_VS,POST_FS), iconP=prog(ICON_VS,ICON_FS);
 const NICON=12;
 const icBuf=gl.createBuffer(), icVao=gl.createVertexArray();
-function icVaoSetup(){gl.bindVertexArray(icVao);gl.bindBuffer(gl.ARRAY_BUFFER,icBuf);const st=36;
-  for(let i=0;i<9;i++){gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,1,gl.FLOAT,false,st,i*4);}}
+function icVaoSetup(){gl.bindVertexArray(icVao);gl.bindBuffer(gl.ARRAY_BUFFER,icBuf);const st=40;
+  for(let i=0;i<10;i++){gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,1,gl.FLOAT,false,st,i*4);}}
 const atlasTex=gl.createTexture();
 (function(){ const cw=64,cvs=document.createElement('canvas');cvs.width=cw*NICON;cvs.height=cw;
   const x=cvs.getContext('2d');x.strokeStyle='#fff';x.fillStyle='#fff';x.lineWidth=6;x.lineCap='round';x.lineJoin='round';
@@ -624,10 +662,10 @@ const NBG=2800; const bgBuf=gl.createBuffer(), bgVao=gl.createVertexArray();
 const bu=n=>gl.getUniformLocation(bgP,n); const BU={time:bu('u_time'),cam:bu('u_cam'),dpr:bu('u_dpr'),cyan:bu('u_cyan'),violet:bu('u_violet')};
 const ptBuf=gl.createBuffer(),ptVao=gl.createVertexArray();
 const edBuf=gl.createBuffer(),edVao=gl.createVertexArray();
-function ptVaoSetup(){gl.bindVertexArray(ptVao);gl.bindBuffer(gl.ARRAY_BUFFER,ptBuf);const st=44;
-  for(let i=0;i<11;i++){gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,1,gl.FLOAT,false,st,i*4);}}
-function edVaoSetup(){gl.bindVertexArray(edVao);gl.bindBuffer(gl.ARRAY_BUFFER,edBuf);const st=44;
-  for(let i=0;i<11;i++){gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,1,gl.FLOAT,false,st,i*4);}}
+function ptVaoSetup(){gl.bindVertexArray(ptVao);gl.bindBuffer(gl.ARRAY_BUFFER,ptBuf);const st=48;
+  for(let i=0;i<12;i++){gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,1,gl.FLOAT,false,st,i*4);}}
+function edVaoSetup(){gl.bindVertexArray(edVao);gl.bindBuffer(gl.ARRAY_BUFFER,edBuf);const st=48;
+  for(let i=0;i<12;i++){gl.enableVertexAttribArray(i);gl.vertexAttribPointer(i,1,gl.FLOAT,false,st,i*4);}}
 const EDGE_SEG=12;
 
 let fbo=gl.createFramebuffer(),fboTex=gl.createTexture(),fw=0,fh=0;
@@ -650,37 +688,87 @@ const pu=n=>gl.getUniformLocation(ptP,n); const PU={cam:pu('u_cam'),time:pu('u_t
 const eu=n=>gl.getUniformLocation(edgeP,n); const EU={cam:eu('u_cam'),time:eu('u_time'),aspect:eu('u_aspect'),width:eu('u_width'),xshift:eu('u_xshift')};
 const ou=n=>gl.getUniformLocation(postP,n); const OU={tex:ou('u_tex'),bg:ou('u_bg'),pixel:ou('u_pixel'),scan:ou('u_scan'),pattern:ou('u_pattern'),time:ou('u_time'),glitch:ou('u_glitch')};
 
-let pattern=0,ditherPx=4,scan=false,seed=7,g,growT=0,camWorld=0,hovered=null,hoverAmt=0,hoverX=0,hoverWY=0,selected=null,speedMul=1,listenSim=false,particleMode=0;
+let pattern=0,ditherPx=4,scan=false,seed=7,g,growT=0,camWorld=0,hovered=null,hoverAmt=0,hoverX=0,hoverWY=0,selected=null,speedMul=1,listenSim=false,particleMode=0,sceneDirty=false;
+// bootstrap thread so the first synchronous rebuild() has data before CONVS is defined further down
+const BOOT_CONV={ seed:7, thread:[
+  {u:'the drag and drop feels janky when I reorder panes', reason:[{m:'think',t:'read request'},{m:'do',t:'open layout engine'},{m:'struggle',t:'reproduce jank'}], r:'Reproduced it — the overview pan fires two long tasks on every reorder.'},
+  {u:'ok fix it, but no compat shims', reason:'RUN', r:'Reordering now swaps adjacent panes in place; the two long tasks on overview pan are gone. Committed (+18 −6).'} ] };
+let activeConv=BOOT_CONV;
 function rebuild(){
-  g=build(seed);
-  // each node becomes a small particle system: core orbiters + emitted sparks
-  const rng=mulberry32(seed*911+13); const K=22, parts=[];  // 1 body + 16 orbital-cloud + 5 sparks
+  g=build(activeConv);
+  // each node becomes a small particle system: core orbiters + emitted sparks (fixed randomness, positions animate)
+  const rng=mulberry32((activeConv.seed||seed)*911+13); const K=22; g.parts=[];
   for(const n of g.nodes){ for(let j=0;j<K;j++){
     let role,dx,dy,speed; const phase=rng();
     if(j===0){ role=0; dx=0; dy=0; speed=0.6; }
-    else { const a=rng()*6.2832,mag=0.35+rng()*0.95; role=1; dx=Math.cos(a)*mag; dy=Math.sin(a)*mag; speed=0.5+rng()*1.4; }  // dense emission cloud (orbitals reserved for swarms)
-    parts.push({worldY:n.worldY,x:n.x,born:n.born,settle:n.settleAt,mode:n.mode,
-      dx,dy,phase,speed,role,failAt:(n.failAt!==undefined?n.failAt:999)}); } }
-  const P=new Float32Array(parts.length*11);
-  parts.forEach((p,i)=>{const o=i*11;P[o]=p.worldY;P[o+1]=p.x;P[o+2]=p.born;P[o+3]=p.settle;P[o+4]=p.mode;
-    P[o+5]=p.dx;P[o+6]=p.dy;P[o+7]=p.phase;P[o+8]=p.speed;P[o+9]=p.role;P[o+10]=p.failAt;});
-  gl.bindBuffer(gl.ARRAY_BUFFER,ptBuf);gl.bufferData(gl.ARRAY_BUFFER,P,gl.STATIC_DRAW);ptVaoSetup();
-  g.ptCount=parts.length;
-  const E=new Float32Array(g.edges.length*EDGE_SEG*6*11); let o=0;
-  const vert=(A,B,cb,md,conf,phase,side,t,cft)=>{E[o++]=A.worldY;E[o++]=A.x;E[o++]=B.worldY;E[o++]=B.x;
-    E[o++]=cb;E[o++]=md;E[o++]=side;E[o++]=t;E[o++]=conf;E[o++]=phase;E[o++]=cft;};
-  g.edges.forEach((e,ei)=>{const A=g.nodes[e.a],B=g.nodes[e.b],cb=e.childBorn,md=e.mode,phase=(ei*0.373)%1.0,
-      cft=e.dead?(cb+((B.failAt!==undefined?B.failAt:0))):9999.0;   // edge starts as its base mode, degrades when the child fails
-    for(let s=0;s<EDGE_SEG;s++){ const t0=s/EDGE_SEG, t1=(s+1)/EDGE_SEG;
-      vert(A,B,cb,md,e.conf,phase,+1,t0,cft);vert(A,B,cb,md,e.conf,phase,-1,t0,cft);vert(A,B,cb,md,e.conf,phase,+1,t1,cft);
-      vert(A,B,cb,md,e.conf,phase,-1,t0,cft);vert(A,B,cb,md,e.conf,phase,-1,t1,cft);vert(A,B,cb,md,e.conf,phase,+1,t1,cft); } });
-  gl.bindBuffer(gl.ARRAY_BUFFER,edBuf);gl.bufferData(gl.ARRAY_BUFFER,E,gl.STATIC_DRAW);edVaoSetup();
-  const IC=new Float32Array(g.nodes.length*6*9); let io=0;
-  const iv=(n,ic,cx,cy)=>{IC[io++]=n.worldY;IC[io++]=n.x;IC[io++]=n.born;IC[io++]=n.settleAt;IC[io++]=n.mode;IC[io++]=(n.failAt!==undefined?n.failAt:999);IC[io++]=ic;IC[io++]=cx;IC[io++]=cy;};
-  for(const n of g.nodes){ const ic=iconFor(n); iv(n,ic,-1,-1);iv(n,ic,1,-1);iv(n,ic,-1,1); iv(n,ic,-1,1);iv(n,ic,1,-1);iv(n,ic,1,1); }
-  gl.bindBuffer(gl.ARRAY_BUFFER,icBuf);gl.bufferData(gl.ARRAY_BUFFER,IC,gl.STATIC_DRAW);icVaoSetup();
-  g.icCount=g.nodes.length*6;
+    else { const a=rng()*6.2832,mag=0.35+rng()*0.95; role=1; dx=Math.cos(a)*mag; dy=Math.sin(a)*mag; speed=0.5+rng()*1.4; }
+    g.parts.push({n,dx,dy,phase,speed,role}); } }
+  g._P=new Float32Array(g.parts.length*12); g.ptCount=g.parts.length;
+  g.edges.forEach((e,ei)=>{ e.phase=(ei*0.373)%1.0;
+    e.cft=e.dead?(e.childBorn+(g.nodes[e.b].failAt!==undefined?g.nodes[e.b].failAt:0)):9999.0; });
+  g._E=new Float32Array(g.edges.length*EDGE_SEG*6*12);
+  g.icons=g.nodes.map(n=>({n,icon:iconFor(n)}));
+  g._IC=new Float32Array(g.nodes.length*6*10); g.icCount=g.nodes.length*6;
+  layout(0); updateSceneBuffers(); buildNodeLabels();
 }
+// floating transcript labels riding the user + response nodes (the ladder reads as a chat)
+function buildNodeLabels(){ const c=document.getElementById('nodeLabels'); if(!c) return; c.innerHTML='';
+  for(const T of g.turns){
+    const u=document.createElement('div'); u.className='nlabel nl-user'; u.textContent=g.nodes[T.userId].label;
+    const r=document.createElement('div'); r.className='nlabel nl-resp'; r.textContent=g.nodes[T.respId].label;
+    c.appendChild(u); c.appendChild(r); T.uLabel=u; T.rLabel=r; } }
+function posLabel(el,n){ if(!el) return; if(growT<n.born){ el.style.display='none'; return; }
+  const s=screenOf(n); if(s.y<-40||s.y>innerHeight+40){ el.style.display='none'; return; }
+  el.style.display='block'; const d=nodeCssDiam(n);
+  el.style.left=Math.round(s.x+d*0.6+16)+'px'; el.style.top=Math.round(s.y)+'px'; }
+function updateNodeLabels(){ const c=document.getElementById('nodeLabels'); if(!c||!g.turns) return;
+  c.style.display=showLabels?'block':'none'; if(!showLabels) return;
+  for(const T of g.turns){ posLabel(T.uLabel,g.nodes[T.userId]); posLabel(T.rLabel,g.nodes[T.respId]); } }
+// dynamic layout: reasoning graph compresses into the user/AI ladder as each turn folds (open 1->0)
+function layout(dt){
+  const started=g.turns.filter(T=>growT>=g.nodes[T.userId].born);
+  const focusNewest=started.length?started[started.length-1].index:-1;
+  for(const T of g.turns){
+    let base;
+    if(growT<g.nodes[T.userId].born) base=0;                        // not yet reached this turn
+    else if(collapseMode==='off') base=1;                           // baseline: never fold
+    else if(collapseMode==='focus') base=(T.index===focusNewest)?1:0;// keep only the newest expanded
+    else base=(growT>T.collapseStart)?0:1;                          // ladder / implode: fold once answered
+    const target=(T.manual!=null)?(T.manual?1:0):base;              // click can pin a turn open/closed
+    T.openTarget=target;
+    if(dt>0){ T.open+=(target-T.open)*Math.min(1,dt*7.5); if(Math.abs(target-T.open)<0.0016) T.open=target; }
+    else T.open=target;
+  }
+  let cursor=0;
+  for(const T of g.turns){ const a=T.open;
+    const U=g.nodes[T.userId]; U.worldY=cursor; U.x=U.baseX; U.alpha=1;
+    for(const rid of T.reasonIds){ const rn=g.nodes[rid];
+      rn.worldY=cursor+rn.localY*a;                                 // reason rows compress toward the user node
+      rn.x=(collapseMode==='implode')?rn.baseX*a:rn.baseX;          // implode: also zip x into the spine
+      rn.alpha=a; }
+    const R=g.nodes[T.respId]; R.worldY=cursor+T.reasonSpan*a+RESP_H; R.x=R.baseX; R.alpha=1;
+    cursor=R.worldY+TURN_GAP;
+  }
+}
+function updateSceneBuffers(){
+  const P=g._P; g.parts.forEach((p,i)=>{const o=i*12,n=p.n;
+    P[o]=n.worldY;P[o+1]=n.x;P[o+2]=n.born;P[o+3]=n.settleAt;P[o+4]=n.mode;
+    P[o+5]=p.dx;P[o+6]=p.dy;P[o+7]=p.phase;P[o+8]=p.speed;P[o+9]=p.role;P[o+10]=n.failAt;P[o+11]=n.alpha;});
+  gl.bindBuffer(gl.ARRAY_BUFFER,ptBuf);gl.bufferData(gl.ARRAY_BUFFER,P,gl.DYNAMIC_DRAW);ptVaoSetup();
+  const E=g._E; let o=0;
+  const vert=(A,B,e,side,t,op)=>{E[o++]=A.worldY;E[o++]=A.x;E[o++]=B.worldY;E[o++]=B.x;E[o++]=e.childBorn;E[o++]=e.mode;E[o++]=side;E[o++]=t;E[o++]=e.conf;E[o++]=e.phase;E[o++]=e.cft;E[o++]=op;};
+  for(const e of g.edges){ const A=g.nodes[e.a],B=g.nodes[e.b],T=g.turns[e.turn],to=T?T.open:1, op=e.spine?(1-to):to;
+    for(let s=0;s<EDGE_SEG;s++){ const t0=s/EDGE_SEG,t1=(s+1)/EDGE_SEG;
+      vert(A,B,e,+1,t0,op);vert(A,B,e,-1,t0,op);vert(A,B,e,+1,t1,op);
+      vert(A,B,e,-1,t0,op);vert(A,B,e,-1,t1,op);vert(A,B,e,+1,t1,op); } }
+  gl.bindBuffer(gl.ARRAY_BUFFER,edBuf);gl.bufferData(gl.ARRAY_BUFFER,E,gl.DYNAMIC_DRAW);edVaoSetup();
+  const IC=g._IC; let io=0;
+  const iv=(n,ic,cx,cy)=>{IC[io++]=n.worldY;IC[io++]=n.x;IC[io++]=n.born;IC[io++]=n.settleAt;IC[io++]=n.mode;IC[io++]=n.failAt;IC[io++]=ic;IC[io++]=cx;IC[io++]=cy;IC[io++]=n.alpha;};
+  for(const ico of g.icons){ const n=ico.n,ic=ico.icon; iv(n,ic,-1,-1);iv(n,ic,1,-1);iv(n,ic,-1,1); iv(n,ic,-1,1);iv(n,ic,1,-1);iv(n,ic,1,1); }
+  gl.bindBuffer(gl.ARRAY_BUFFER,icBuf);gl.bufferData(gl.ARRAY_BUFFER,IC,gl.DYNAMIC_DRAW);icVaoSetup();
+}
+document.querySelectorAll('[data-cm]').forEach(b=>b.onclick=()=>{collapseMode=b.dataset.cm;sceneDirty=true;document.querySelectorAll('[data-cm]').forEach(x=>x.classList.toggle('on',x===b));});
+document.getElementById('labelsToggle').onchange=e=>showLabels=e.target.checked;
 document.querySelectorAll('[data-pat]').forEach(b=>b.onclick=()=>{pattern=parseInt(b.dataset.pat);document.querySelectorAll('[data-pat]').forEach(x=>x.classList.toggle('on',x===b));});
 document.querySelectorAll('[data-px]').forEach(b=>b.onclick=()=>{ditherPx=parseFloat(b.dataset.px);document.querySelectorAll('[data-px]').forEach(x=>x.classList.toggle('on',x===b));});
 document.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{particleMode=parseInt(b.dataset.pm);document.querySelectorAll('[data-pm]').forEach(x=>x.classList.toggle('on',x===b));});
@@ -694,7 +782,19 @@ canvas.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;mous
 canvas.addEventListener('mouseleave',()=>{mouse.on=false;});
 function screenOf(n){const clipY=-0.35+(camWorld-n.worldY);return{x:(n.x*0.5+0.5)*innerWidth,y:(1-(clipY*0.5+0.5))*innerHeight};}
 const reticleActive=document.getElementById('reticleActive'), reticleSel=document.getElementById('reticleSel');
-canvas.addEventListener('click',e=>{ let best=null,bd=44;
+function distToSeg(px,py,ax,ay,bx,by){ const dx=bx-ax,dy=by-ay; const l2=dx*dx+dy*dy||1;
+  let t=((px-ax)*dx+(py-ay)*dy)/l2; t=Math.max(0,Math.min(1,t));
+  return Math.hypot(px-(ax+t*dx), py-(ay+t*dy)); }
+canvas.addEventListener('click',e=>{
+  // click a turn's column to expand its stored reasoning graph (or fold an open one back up)
+  let hitTurn=null,hb=54;
+  for(const T of g.turns){ if(growT<g.nodes[T.userId].born) continue;
+    const su=screenOf(g.nodes[T.userId]), sr=screenOf(g.nodes[T.respId]);
+    if(Math.max(su.y,sr.y)<-40||Math.min(su.y,sr.y)>innerHeight+40) continue;
+    const d=distToSeg(e.clientX,e.clientY,su.x,su.y,sr.x,sr.y);
+    if(d<hb){ hb=d; hitTurn=T; } }
+  if(hitTurn && collapseMode!=='off'){ hitTurn.manual = hitTurn.open>0.5 ? false : true; sceneDirty=true; selected=null; return; }
+  let best=null,bd=44;
   for(const n of g.nodes){if(growT<n.born)continue;const s=screenOf(n);if(s.y<-40||s.y>innerHeight+40)continue;
     const d=Math.hypot(s.x-e.clientX,s.y-e.clientY);if(d<bd){bd=d;best=n;}}
   selected = best ? (best===selected?null:best) : null; });
@@ -735,17 +835,20 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
     fpsEl.textContent=Math.round(frames/acc)+' fps'+(gpuMs?' · '+gpuMs.toFixed(2)+'ms gpu':'')+' · '+Math.round(renderScale*100)+'%';
     acc=0;frames=0;minDt=1;
   }
-  if(growT>g.lastBorn+FAIL_DELAY+10.0){growT=0;autoCam=0;scrollOffset=0;}   // linger on the listening node, then loop
-  let maxY=0;for(const n of g.nodes)if(n.born<=growT&&n.worldY>maxY)maxY=n.worldY;
-  autoCam+=(maxY-autoCam)*Math.min(1,dt*1.7);          // follow the newest node
+  if(growT>g.lastBorn+FAIL_DELAY+6.0){ growT=0;autoCam=0;scrollOffset=0; for(const T of g.turns){T.open=0;T.manual=null;} }   // replay the thread
+  layout(dt);
+  if(sceneDirty || g.turns.some(T=>Math.abs(T.open-T.openTarget)>0.0016)){ updateSceneBuffers(); sceneDirty=false; }   // re-upload only while folding
+  let maxY=0;for(const n of g.nodes)if(n.born<=growT&&n.alpha>0.02&&n.worldY>maxY)maxY=n.worldY;
+  autoCam+=(maxY-autoCam)*Math.min(1,dt*2.2);          // follow the active bottom of the ladder
   camWorld=autoCam+scrollOffset;                        // mouse-wheel look-back offset
+  updateNodeLabels();
 
   // ── conversation-switch channel-change transition ──
   if(switching){
     switching.t += dt/0.62;
     if(switching.t>=0.5 && !switching.swapped){
       convIdx=(convIdx+switching.dir+CONVS.length)%CONVS.length;
-      seed=CONVS[convIdx].seed; rebuild(); growT=0; autoCam=0; scrollOffset=0; camWorld=0;
+      seed=CONVS[convIdx].seed; activeConv=CONVS[convIdx]; rebuild(); growT=0; autoCam=0; scrollOffset=0; camWorld=0;
       renderConv(); switching.swapped=true; document.body.classList.remove('switching');
     }
     if(switching.t>=1.0){ switching=null; xShift=0; glitchAmt=0; }
@@ -806,11 +909,23 @@ const REVEAL_INT=3.2;   // seconds between "Now" items as a conversation progres
 function mkConv(o){ o.t=o.t0||0; o.lastReveal=0; return o; }
 const CONVS=[
   mkConv({ title:'Workspace drag-drop', seed:7, director:'on: fixing adjacent-swap in the pane grid', t0:0.5,
-    nows:[{t:'Located the drag-reorder path',mode:0},{t:'Profiled frame timing — found a long task',mode:1},
-          {t:'Drafting an adjacent-swap fix',mode:1},{t:'Re-measuring after the change',mode:2},{t:'Committed the change',mode:3}],
+    nows:[{t:'Located the drag-reorder path',mode:0,full:'The reorder handler lives in pane-drag-reorder.ts and shares slot widths across the niri grid.'},
+          {t:'Profiled frame timing — found a long task',mode:1,full:'Two long tasks over 50 ms fire on the overview-pan path during every reorder.'},
+          {t:'Drafting an adjacent-swap fix',mode:1,full:'Route adjacency through swapPanes(src, dst) instead of adopting the destination width, then re-measure the row.'},
+          {t:'Re-measuring after the change',mode:2,full:'Paint drops back to ~0.8 ms/frame and the two long tasks disappear from the trace.'},
+          {t:'Committed the change',mode:3,full:'Committed to pane-drag-reorder.ts (+18 −6); no compat shim, per the no-backward-compat rule.'}],
     summary:'The reorder path shares slot widths across the niri grid, so an adjacent drop should swap panes rather than adopt the destination width. Profiling traced two long tasks to the overview pan; routing adjacency through the swap path removes them and re-measures clean at ~0.8 ms/frame.',
     response:'Reordering now swaps adjacent panes in place instead of adopting the destination width, and the two long tasks on overview pan are gone — paint is back to ~0.8 ms/frame. Committed to pane-drag-reorder.ts (+18 −6).',
     history:[{u:'the drag and drop feels janky when I reorder panes', r:'Fixed — reordering swaps adjacent panes and paints at ~0.8 ms; the overview-pan hitches are resolved.'}],
+    thread:[
+      {u:'the drag and drop feels janky when I reorder panes',
+       reason:[{m:'think',t:'read request'},{m:'do',t:'open layout engine'},{m:'struggle',t:'reproduce jank'}],
+       r:'Reproduced it — the overview pan fires two long tasks on every reorder.'},
+      {u:'can you profile where the time goes',
+       reason:[{m:'do',t:'profile frame timing'},{m:'think',t:'record baseline'},{m:'do',t:'read overview ghost'}],
+       r:'Profiled: two long tasks > 50 ms sit on the overview-pan path; paint is the hot spot.'},
+      {u:'ok fix it, but no compat shims', reason:'RUN',
+       r:'Reordering now swaps adjacent panes in place instead of adopting the destination width, and the two long tasks on overview pan are gone — paint is back to ~0.8 ms/frame. Committed to pane-drag-reorder.ts (+18 −6).'}],
     arts:[{kicker:'Benchmark',title:'Paint cost per frame',meta:'conic ×3 fastest',
            body:{type:'bars',rows:[['conic ×3',0.8,0.13],['WebGL',1.2,0.20],['canvas 2D',2.4,0.39],['SVG turb.',6.1,1]]}},
           {kicker:'Diff',title:'pane-drag-reorder.ts',meta:'+18 −6',
@@ -818,21 +933,53 @@ const CONVS=[
           {kicker:'Trace',title:'Overview pan cost',meta:'2 long tasks → 0',
            body:{type:'rows',rows:[['before','2 tasks > 50ms'],['after','0 > 16ms']]}}] }),
   mkConv({ title:'Local voice capture', seed:101, director:'on: wiring local macOS voice', t0:7.0,
-    nows:[{t:'Read the speech configuration',mode:0},{t:'Enabled the local provider',mode:1},
-          {t:'Downloaded the local model',mode:1},{t:'Refreshed capture after download',mode:3}],
+    nows:[{t:'Read the speech configuration',mode:0,full:'voice_configuration.go was pinned to the cloud provider, with no on-device model declared.'},
+          {t:'Enabled the local provider',mode:1,full:'Switched provider to "local" and set the model to parakeet-v2.'},
+          {t:'Downloaded the local model',mode:1,full:'Fetched parakeet-v2 (1.1 GB) and verified its checksum before enabling capture.'},
+          {t:'Refreshed capture after download',mode:3,full:'Capture re-initialised on-device automatically once the model landed — no cloud round-trip.'}],
     summary:'Voice was falling back to the cloud provider because the on-device model was absent. Enabling the local provider and fetching the model lets capture run fully on-device; the session refreshes automatically once the download lands.',
     response:'Voice now runs fully on-device — the local provider is enabled and the 1.1 GB model finished downloading, so capture refreshed automatically. No cloud round-trip.',
     history:[{u:'can we do voice locally on my mac instead of the cloud', r:'Done — enabled the on-device provider and pulled the local model; capture is fully local now.'}],
+    thread:[
+      {u:'can we do voice locally on my mac instead of the cloud',
+       reason:[{m:'think',t:'read speech config'},{m:'do',t:'check providers'},{m:'struggle',t:'model missing'}],
+       r:'Voice is falling back to cloud because the on-device model isn’t present yet.'},
+      {u:'get the local model then',
+       reason:[{m:'do',t:'enable local provider'},{m:'do',t:'download model'},{m:'think',t:'verify checksum'}],
+       r:'Pulled parakeet-v2 (1.1 GB) and verified it; the local provider is enabled.'},
+      {u:'make sure capture actually uses it',
+       reason:[{k:'step',m:'think',t:'trace capture path'},
+               {k:'dead',m:'do',t:'restart cloud stream',why:'wrong provider'},
+               {k:'fan',lanes:[{m:'do',t:'warm recognizer',steps:[{m:'struggle',t:'first-run latency'}]},
+                               {m:'do',t:'refresh session',steps:[{m:'do',t:'rebind mic'}]}],merge:'reconnect capture'},
+               {k:'step',m:'success',t:'capture is local'}],
+       r:'Voice now runs fully on-device — capture refreshed automatically once the model landed. No cloud round-trip.'}],
     arts:[{kicker:'Config',title:'voice_configuration.go',meta:'local provider',
            body:{type:'diff',lines:[['-','provider: "cloud"'],['+','provider: "local"'],['+','model: "parakeet-v2"']]}},
           {kicker:'Log',title:'Model download',meta:'ok · 1.1 GB',
            body:{type:'rows',rows:[['parakeet-v2','1.1 GB'],['status','verified']]}}] }),
   mkConv({ title:'Codex run lifecycle', seed:222, director:'on: queueing + steering an active run', t0:12.5,
-    nows:[{t:'Opened the topic conversation',mode:0},{t:'Queued work during an active run',mode:1},
-          {t:'Steered mid-run',mode:2},{t:'Run completed',mode:3}],
+    nows:[{t:'Opened the topic conversation',mode:0,full:'A run was already active on this topic, so new instructions queue rather than interrupt it.'},
+          {t:'Queued work during an active run',mode:1,full:'The test task landed in the queue behind the active run instead of forcing a restart.'},
+          {t:'Steered mid-run',mode:2,full:'A mid-run steer nudged the objective without cancelling — deltas kept streaming.'},
+          {t:'Run completed',mode:3,full:'On completion the queued work promoted cleanly and the 214-delta stream reconciled.'}],
     summary:'A run was already active, so the new instruction queued behind it rather than interrupting; a mid-run steer nudged the objective without a restart, and the queued work promoted cleanly on completion.',
     response:'Your follow-up queued behind the active run and then promoted on completion — no restart. The mid-run steer landed, and the run finished with the queue drained.',
     history:[{u:'add tests for the queue while it’s still running', r:'Queued behind the active run and steered mid-flight; it finished and the queued test work promoted cleanly.'}],
+    thread:[
+      {u:'open the codex run for the queue work',
+       reason:[{m:'think',t:'open topic conversation'},{m:'do',t:'read run state'},{m:'do',t:'a run is active'}],
+       r:'Opened it — there’s already an active run, so a new instruction will queue rather than interrupt.'},
+      {u:'add tests for the queue while it’s still running',
+       reason:[{m:'do',t:'queue behind active run'},{m:'struggle',t:'steer mid-run'},{m:'think',t:'confirm objective'}],
+       r:'Queued behind the active run and nudged the objective mid-flight — no restart.'},
+      {u:'let it finish and promote the queued work',
+       reason:[{k:'step',m:'do',t:'await active run'},
+               {k:'dead',m:'do',t:'force-cancel run',why:'would drop deltas'},
+               {k:'fan',lanes:[{m:'do',t:'drain queue',steps:[{m:'do',t:'promote tests'}]},
+                               {m:'do',t:'flush stream',steps:[{m:'think',t:'reconcile 214 deltas'}]}],merge:'finalize run'},
+               {k:'step',m:'success',t:'run completed'}],
+       r:'Your follow-up queued behind the active run and then promoted on completion — no restart. The mid-run steer landed and the run finished with the queue drained.'}],
     arts:[{kicker:'State',title:'Run queue',meta:'1 active · 2 queued',
            body:{type:'rows',rows:[['active','apply fix'],['queued','add tests'],['queued','re-measure']]}},
           {kicker:'Event',title:'Assistant stream',meta:'214 deltas',
@@ -866,13 +1013,13 @@ function renderConv(){
   $('convTitle').textContent=c.title; $('directorText').textContent=c.director; renderDots();
   const shown=c.nows.slice(0,n);
   $('highlights').innerHTML=shown.map((h,i)=>{
-    const col=MODE_COLORS[h.mode]||'#8aa'; const old=i<shown.length-2?' old':''; const body=i===shown.length-1?`<b>${h.t}</b>`:h.t;
-    return `<li class="hl${old}"><span class="d" style="color:${col};background:${col}"></span><span>${body}</span></li>`;
+    const col=MODE_COLORS[h.mode]||'#8aa'; const newest=i===shown.length-1;
+    const cls='hl'+(i<shown.length-2?' old':'')+(newest?' cur':'')+(h.full?'':' nofull');   // newest shows its full text
+    const full=h.full?`<span class="hl-full">${h.full.replace(/</g,'&lt;')}</span>`:'';
+    return `<li class="${cls}" data-i="${i}"><span class="d" style="color:${col};background:${col}"></span>`+
+      `<span class="hl-body"><span class="hl-short">${h.t.replace(/</g,'&lt;')}</span>${full}</span></li>`;
   }).join('');
   $('summaryText').textContent=c.summary;
-  const rt=$('responseText');
-  if(complete){ rt.classList.remove('working'); rt.textContent=c.response; $('responseState').textContent='Response'; }
-  else { rt.classList.add('working'); rt.textContent=shown[shown.length-1].t; $('responseState').textContent='Working'; }
   const reveal=Math.max(1, Math.ceil(n/c.nows.length*c.arts.length));
   $('artifacts').innerHTML=c.arts.map((a,i)=> (complete||i<reveal)?
     `<div class="artifact" data-i="${i}"><div class="artifact-kicker">${a.kicker}<span class="exp">⤢</span></div>`+
@@ -899,21 +1046,25 @@ $('artifacts').addEventListener('click',e=>{ const card=e.target.closest('.artif
     `<p style="color:oklch(0.522 0.065 264);font-size:12px;margin-top:22px">Expanded view — in the app this is the artifact's own tab / surface, with full history and controls.</p></div>`;
   window.open('data:text/html,'+encodeURIComponent(html),'_blank'); });
 
-// chat input: the director takes the request -> record the prior turn, then re-run from the top
+// chat input: the director takes the request -> append a new turn and jump the stream to it
 const chatInput=$('chatInput');
 chatInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&chatInput.value.trim()){
-  const c=CONVS[convIdx]; c.history.push({u:chatInput.value.trim(), r:c.response});
-  c.t=0.4; c.lastReveal=0; lastN=-1;   // start thinking again on this thread
-  chatInput.value=''; renderConv(); seed=(seed*1664525+1013904223)>>>0; rebuild(); growT=0; autoCam=0; scrollOffset=0;
+  const val=chatInput.value.trim(); activeConv.thread.push({u:val, reason:'RUN', r:CONVS[convIdx].response||'Done.'});
+  CONVS[convIdx].history.push({u:val, r:CONVS[convIdx].response});
+  chatInput.value=''; rebuild();
+  const lastT=g.turns[g.turns.length-1]; growT=g.nodes[lastT.userId].born-0.6; layout(0); updateSceneBuffers();
+  autoCam=g.nodes[lastT.userId].worldY; scrollOffset=0;
 }});
 
-// main response -> reveal the minimal chat history (only your messages + each final response)
+// Now items: click to expand an item's fuller detail (the newest is expanded already)
+$('highlights').addEventListener('click',e=>{ const li=e.target.closest('.hl'); if(li&&!li.classList.contains('nofull')) li.classList.toggle('expanded'); });
+
+// "see thread history" -> a traditional chat transcript (your messages + each final response)
 function renderHistory(){ const c=CONVS[convIdx];
   $('historyLog').innerHTML=c.history.map(t=>`<div class="turn"><div class="u">${t.u}</div><div class="r">${t.r}</div></div>`).join('')||`<div class="turn"><div class="r">No prior turns on this thread yet.</div></div>`; }
 function openHistory(){ renderHistory(); $('history').hidden=false; }
 function closeHistory(){ $('history').hidden=true; }
-$('response').addEventListener('click',openHistory);
-$('response').addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openHistory(); }});
+$('threadHistoryBtn').addEventListener('click',openHistory);
 $('historyClose').addEventListener('click',closeHistory);
 $('history').addEventListener('click',e=>{ if(e.target===$('history')) closeHistory(); });
 addEventListener('keydown',e=>{ if(e.key==='Escape'&&!$('history').hidden) closeHistory(); });
@@ -932,6 +1083,7 @@ document.querySelectorAll('.tb-chip[data-view]').forEach(b=>b.onclick=()=>{
   b.classList.toggle('on'); document.body.classList.toggle('hide-'+b.dataset.view, !b.classList.contains('on')); });
 $('devToggle').onclick=e=>{ const d=$('devbar'); d.hidden=!d.hidden; e.currentTarget.classList.toggle('on',!d.hidden); };
 
+seed=CONVS[convIdx].seed; activeConv=CONVS[convIdx]; rebuild(); growT=0; autoCam=0; scrollOffset=0;
 renderConv();
 </script>
 </body>
