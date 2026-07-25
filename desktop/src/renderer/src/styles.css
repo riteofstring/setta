@@ -12,6 +12,7 @@
 @import "./features/easy-button/easy-button-side-presentation.css";
 @import "./features/director-graph/render/director-graph.css";
 @import "./features/director-command-center/director-command-center.css";
+@import "./features/director-command-center/director-command-center-history.css";
 
 @theme inline {
   --color-background: var(--background);

@@ -3,8 +3,8 @@ import type {
   DirectorIntent,
   DirectorReceipt,
   DirectorSnapshot,
+  DirectorWorkstreamEntry,
   Workstream,
-  WorkstreamGraph,
   WorkstreamStatus,
   WorkspaceSession,
 } from "@generated/backend";
@@ -15,7 +15,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Circle,
+  History,
   LoaderCircle,
+  PanelLeft,
+  PanelRight,
   Settings,
   Square,
   X,
@@ -43,6 +46,11 @@ import { DirectorGraphSurface } from "../director-graph/render/DirectorGraphSurf
 import type { DirectorGraphCanvas } from "../director-graph/render/director-graph-canvas";
 import { DirectorComposer, type DirectorSpeechCaptureBinding } from "./DirectorComposer";
 import {
+  compactDirectorHistory,
+  DirectorHistoryOverlaySlot,
+  type DirectorHistory,
+} from "./DirectorHistoryOverlay";
+import {
   applyDirectorEvent,
   selectedWorkstreamEntry,
   visibleSelectedGraph,
@@ -69,6 +77,39 @@ interface DirectorRuntimeState {
   readonly receiptText: string | null;
   readonly snapshot: DirectorSnapshot | null;
 }
+
+interface DirectorCommandCenterSnapshotView {
+  readonly approvals: readonly DirectorSnapshot["unresolvedApprovals"][number][];
+  readonly artifacts: readonly DirectorSnapshot["artifacts"][number][];
+  readonly history: DirectorHistory;
+  readonly requests: readonly DirectorSnapshot["unresolvedResourceRequests"][number][];
+  readonly selectedWorkstream: Workstream | null;
+}
+
+export interface DirectorRailVisibility {
+  readonly artifacts: boolean;
+  readonly now: boolean;
+}
+
+type DirectorCompactRail = "artifacts" | "now" | null;
+type DirectorKeyboardDirection = "next" | "previous";
+
+interface DirectorKeyboardNavigationInput {
+  readonly altKey: boolean;
+  readonly ctrlKey: boolean;
+  readonly key: string;
+  readonly metaKey: boolean;
+  readonly targetIsEditable: boolean;
+}
+
+const defaultRailVisibility = {
+  artifacts: true,
+  now: true,
+} as const satisfies DirectorRailVisibility;
+
+const compactRailQuery = "(max-width: 760px)";
+const maxVisibleWorkstreamDots = 19;
+const unwindowedWorkstreamLimit = 24;
 
 const graphClock = {
   secondsAt: (timestampMs: number) => timestampMs / 1000,
@@ -114,14 +155,27 @@ export function DirectorCommandCenterShell({
     speechPlayback,
   });
   const workspaceSession = useWorkspaceSession(setta);
-  const selectedEntry = selectedWorkstreamEntry(director.snapshot);
-  const selectedGraph = visibleSelectedGraph(director.snapshot);
-  const selectedWorkstream = selectedEntry?.workstream ?? null;
+  const snapshotView = useMemo(
+    () => directorCommandCenterSnapshotView(director.snapshot),
+    [director.snapshot],
+  );
   const [canvas, setCanvas] = useState<DirectorGraphCanvas | null>(null);
+  const {
+    close: closeHistory,
+    isOpen: historyOpen,
+    open: openHistory,
+  } = useDirectorHistoryDialog();
+  const {
+    closeCompactRail,
+    compactRail,
+    effectiveVisibility: effectiveRailVisibility,
+    toggleRail,
+  } = useDirectorRailDisclosure();
   const packedSnapshot = useMemo(
     () => packDirectorSnapshot(director.snapshot),
     [director.snapshot],
   );
+  const railAttributes = directorRailVisibilityAttributes(effectiveRailVisibility);
   const onGraphReady = useCallback((host: DirectorGraphCanvas | null) => {
     setCanvas(host);
   }, []);
@@ -130,10 +184,20 @@ export function DirectorCommandCenterShell({
     canvas?.setSnapshot(packedSnapshot);
   }, [canvas, packedSnapshot]);
 
+  useDirectorShellKeyboardNavigation({
+    closeCompactRail,
+    closeHistory,
+    compactRail,
+    dispatch: director.dispatch,
+    historyOpen,
+  });
+
   return (
     <main
       className="director-command-center"
+      data-artifacts-rail={railAttributes.artifacts}
       data-desktop-platform={platform}
+      data-now-rail={railAttributes.now}
       data-testid="director-command-center-shell"
     >
       <a className="director-command-center-skip" href="#director-composer-input">
@@ -141,8 +205,10 @@ export function DirectorCommandCenterShell({
       </a>
       <CommandCenterTopBar
         dispatch={director.dispatch}
+        onToggleRail={toggleRail}
         onOpenSettingsPage={onOpenSettingsPage}
         platform={platform}
+        railVisibility={effectiveRailVisibility}
         snapshot={director.snapshot}
       />
       <section className="director-command-center-stage" aria-label="Director command center">
@@ -152,20 +218,21 @@ export function DirectorCommandCenterShell({
           timeSecondsAt={graphClock.secondsAt}
         />
         <NowRail
-          graph={selectedGraph}
+          history={snapshotView.history}
           loadState={director.loadState}
           message={director.message}
+          onOpenHistory={openHistory}
           receiptText={director.receiptText}
           snapshot={director.snapshot}
-          workstream={selectedWorkstream}
+          workstream={snapshotView.selectedWorkstream}
         />
         <ArtifactsRail
-          approvals={director.snapshot?.unresolvedApprovals ?? []}
-          artifacts={director.snapshot?.artifacts ?? []}
+          approvals={snapshotView.approvals}
+          artifacts={snapshotView.artifacts}
           dispatch={director.dispatch}
           dispatching={director.dispatching}
           readArtifact={setta.conversations.readArtifact}
-          requests={director.snapshot?.unresolvedResourceRequests ?? []}
+          requests={snapshotView.requests}
           workspaceSession={workspaceSession}
         />
         <DirectorComposer
@@ -173,6 +240,11 @@ export function DirectorCommandCenterShell({
           dispatching={director.dispatching}
           onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
           speechCapture={speechCapture}
+        />
+        <DirectorHistoryOverlaySlot
+          history={snapshotView.history}
+          isOpen={historyOpen}
+          onClose={closeHistory}
         />
       </section>
     </main>
@@ -313,6 +385,125 @@ function useWorkspaceSession(setta: SettaAPI): WorkspaceSession | null {
   return session;
 }
 
+function directorCommandCenterSnapshotView(
+  snapshot: DirectorSnapshot | null,
+): DirectorCommandCenterSnapshotView {
+  if (snapshot === null) {
+    return emptyCommandCenterSnapshotView();
+  }
+  const selectedGraph = visibleSelectedGraph(snapshot);
+  return {
+    approvals: snapshot.unresolvedApprovals,
+    artifacts: snapshot.artifacts,
+    history: compactDirectorHistory(selectedGraph),
+    requests: snapshot.unresolvedResourceRequests,
+    selectedWorkstream: selectedWorkstreamEntry(snapshot)?.workstream ?? null,
+  };
+}
+
+function emptyCommandCenterSnapshotView(): DirectorCommandCenterSnapshotView {
+  return {
+    approvals: [],
+    artifacts: [],
+    history: [],
+    requests: [],
+    selectedWorkstream: null,
+  };
+}
+
+function directorRailVisibilityAttributes(visibility: DirectorRailVisibility) {
+  return {
+    artifacts: visibility.artifacts ? "shown" : "hidden",
+    now: visibility.now ? "shown" : "hidden",
+  };
+}
+
+function useDirectorHistoryDialog() {
+  const [isOpen, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const open = useCallback((trigger: HTMLButtonElement) => {
+    triggerRef.current = trigger;
+    setOpen(true);
+  }, []);
+  const close = useCallback(() => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  }, []);
+  return { close, isOpen, open };
+}
+
+function useDirectorRailDisclosure() {
+  const [railVisibility, setRailVisibility] =
+    useState<DirectorRailVisibility>(defaultRailVisibility);
+  const [compactRail, setCompactRail] = useState<DirectorCompactRail>(null);
+  const compact = useCompactRailLayout();
+  const effectiveVisibility = effectiveDirectorRailVisibility({
+    compact,
+    compactRail,
+    railVisibility,
+  });
+  const closeCompactRail = useCallback(() => {
+    setCompactRail(null);
+  }, []);
+  const toggleRail = useCallback(
+    (rail: Exclude<DirectorCompactRail, null>) => {
+      if (compact) {
+        setCompactRail((current) => (current === rail ? null : rail));
+        return;
+      }
+      setRailVisibility((current) => ({ ...current, [rail]: !current[rail] }));
+    },
+    [compact],
+  );
+  return { closeCompactRail, compactRail, effectiveVisibility, toggleRail };
+}
+
+function useDirectorShellKeyboardNavigation({
+  closeCompactRail,
+  closeHistory,
+  compactRail,
+  dispatch,
+  historyOpen,
+}: {
+  closeCompactRail: () => void;
+  closeHistory: () => void;
+  compactRail: DirectorCompactRail;
+  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
+  historyOpen: boolean;
+}) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.defaultPrevented) {
+        return;
+      }
+      if (event.key === "Escape") {
+        if (historyOpen || compactRail !== null) {
+          event.preventDefault();
+          closeHistory();
+          closeCompactRail();
+        }
+        return;
+      }
+      const direction = directorWorkstreamKeyboardDirection({
+        altKey: event.altKey,
+        ctrlKey: event.ctrlKey,
+        key: event.key,
+        metaKey: event.metaKey,
+        targetIsEditable: directorKeyboardTargetIsEditable(event.target),
+      });
+      if (direction === null) {
+        return;
+      }
+      event.preventDefault();
+      void dispatch(moveSelectionIntent(direction));
+    };
+    globalThis.window?.addEventListener("keydown", handleKeyDown);
+    return () => {
+      globalThis.window?.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeCompactRail, closeHistory, compactRail, dispatch, historyOpen]);
+}
+
 function useDirectorSpeechCapture({
   dispatch,
   runtimeId,
@@ -361,17 +552,22 @@ function useDirectorSpeechCapture({
 
 function CommandCenterTopBar({
   dispatch,
+  onToggleRail,
   onOpenSettingsPage,
   platform,
+  railVisibility,
   snapshot,
 }: {
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
+  onToggleRail: (rail: Exclude<DirectorCompactRail, null>) => void;
   onOpenSettingsPage: () => void;
   platform: DesktopPlatform;
+  railVisibility: DirectorRailVisibility;
   snapshot: DirectorSnapshot | null;
 }) {
   const windowDragHandlers = useAppWindowDragHandlers();
-  const workstreams = snapshot?.workstreams.slice(0, 8) ?? [];
+  const navigation = directorWorkstreamNavigation(snapshot);
+  const selectedStatus = navigation.selected?.workstream.status ?? "idle";
   return (
     <header
       className="director-command-center-top app-drag"
@@ -391,56 +587,87 @@ function CommandCenterTopBar({
         >
           <ChevronLeft aria-hidden="true" size={16} />
         </IconButton>
-        <div className="director-workstream-strip" role="list">
-          {workstreams.map((entry) => (
-            <button
-              aria-current={
-                entry.workstream.id === snapshot?.selectedWorkstreamId ? "page" : undefined
-              }
-              className="director-workstream-tab"
-              data-status={entry.workstream.status}
-              data-workstream-id={entry.workstream.id}
-              key={entry.workstream.id}
-              onClick={() => dispatch(selectWorkstreamIntent(entry.workstream.id))}
-              type="button"
-            >
-              <StatusGlyph status={entry.workstream.status} />
-              <span>{entry.workstream.title}</span>
-            </button>
-          ))}
+        <div className="director-workstream-selector">
+          <div className="director-workstream-title">
+            <span>{navigation.selected?.workstream.title ?? "Setta"}</span>
+            <span>
+              {statusLabels[selectedStatus]}
+              {navigation.counter ? ` ${navigation.counter}` : ""}
+            </span>
+          </div>
+          <div aria-label="Visible workstreams" className="director-workstream-strip" role="list">
+            {navigation.visibleEntries.map((item) => (
+              <span key={item.entry.workstream.id} role="listitem">
+                <button
+                  aria-current={
+                    item.entry.workstream.id === snapshot?.selectedWorkstreamId ? "page" : undefined
+                  }
+                  aria-label={`Select ${item.entry.workstream.title}, ${
+                    statusLabels[item.entry.workstream.status]
+                  }`}
+                  className="director-workstream-dot"
+                  data-status={item.entry.workstream.status}
+                  data-workstream-id={item.entry.workstream.id}
+                  onClick={() => dispatch(selectWorkstreamIntent(item.entry.workstream.id))}
+                  type="button"
+                >
+                  <StatusGlyph status={item.entry.workstream.status} />
+                </button>
+              </span>
+            ))}
+          </div>
         </div>
         <IconButton label="Next workstream" onClick={() => dispatch(moveSelectionIntent("next"))}>
           <ChevronRight aria-hidden="true" size={16} />
         </IconButton>
       </nav>
-      <IconButton label="Open settings" onClick={onOpenSettingsPage}>
-        <Settings aria-hidden="true" size={16} />
-      </IconButton>
+      <div aria-label="View controls" className="director-command-center-view-controls app-no-drag">
+        <IconButton
+          controls="director-now-rail"
+          expanded={railVisibility.now}
+          label={railVisibility.now ? "Hide Now rail" : "Show Now rail"}
+          onClick={() => onToggleRail("now")}
+        >
+          <PanelLeft aria-hidden="true" size={16} />
+        </IconButton>
+        <IconButton
+          controls="director-artifacts-rail"
+          expanded={railVisibility.artifacts}
+          label={railVisibility.artifacts ? "Hide Artifacts rail" : "Show Artifacts rail"}
+          onClick={() => onToggleRail("artifacts")}
+        >
+          <PanelRight aria-hidden="true" size={16} />
+        </IconButton>
+        <IconButton label="Open settings" onClick={onOpenSettingsPage}>
+          <Settings aria-hidden="true" size={16} />
+        </IconButton>
+      </div>
     </header>
   );
 }
 
 function NowRail({
-  graph,
+  history,
   loadState,
   message,
+  onOpenHistory,
   receiptText,
   snapshot,
   workstream,
 }: {
-  graph: WorkstreamGraph | null;
+  history: DirectorHistory;
   loadState: DirectorLoadState;
   message: string | null;
+  onOpenHistory: (trigger: HTMLButtonElement) => void;
   receiptText: string | null;
   snapshot: DirectorSnapshot | null;
   workstream: Workstream | null;
 }) {
-  const history = useMemo(() => compactHistory(graph), [graph]);
   return (
-    <aside aria-label="Now" className="director-now-rail">
+    <aside aria-label="Now" className="director-now-rail" id="director-now-rail">
       <CurrentWorkstreamSummary workstream={workstream} />
       <AggregateGrid snapshot={snapshot} />
-      <HistoryList history={history} />
+      <HistoryList history={history} onOpenHistory={onOpenHistory} />
       <div aria-live="polite" className="director-live-status" role="status">
         {message ?? receiptText ?? loadStateMessage(loadState)}
       </div>
@@ -476,18 +703,34 @@ function AggregateGrid({ snapshot }: { snapshot: DirectorSnapshot | null }) {
   );
 }
 
-function HistoryList({ history }: { history: ReturnType<typeof compactHistory> }) {
+function HistoryList({
+  history,
+  onOpenHistory,
+}: {
+  history: DirectorHistory;
+  onOpenHistory: (trigger: HTMLButtonElement) => void;
+}) {
   return (
     <section className="director-rail-section" aria-label="Recent work">
       <p className="director-rail-kicker">History</p>
       {history.length > 0 ? (
-        <ol className="director-history-list">
-          {history.map((node) => (
-            <li data-node-kind={node.kind} key={node.id}>
-              <span>{node.publicSummary}</span>
-            </li>
-          ))}
-        </ol>
+        <>
+          <ol className="director-history-list">
+            {history.slice(-3).map((node) => (
+              <li data-node-kind={node.kind} key={node.id}>
+                <span>{node.publicSummary}</span>
+              </li>
+            ))}
+          </ol>
+          <button
+            className="director-history-open"
+            onClick={(event) => onOpenHistory(event.currentTarget)}
+            type="button"
+          >
+            <History aria-hidden="true" size={14} />
+            <span>See thread history</span>
+          </button>
+        </>
       ) : (
         <p className="director-rail-summary">No work has been selected.</p>
       )}
@@ -497,15 +740,27 @@ function HistoryList({ history }: { history: ReturnType<typeof compactHistory> }
 
 function IconButton({
   children,
+  controls,
+  expanded,
   label,
   onClick,
 }: {
   children: ReactNode;
+  controls?: string;
+  expanded?: boolean;
   label: string;
   onClick: () => void;
 }) {
   return (
-    <button aria-label={label} className="director-icon-button" onClick={onClick} type="button">
+    <button
+      aria-controls={controls}
+      aria-expanded={expanded}
+      aria-label={label}
+      className="director-icon-button"
+      onClick={onClick}
+      title={label}
+      type="button"
+    >
       {children}
     </button>
   );
@@ -513,7 +768,15 @@ function IconButton({
 
 function StatusGlyph({ status }: { status: WorkstreamStatus }) {
   const { Icon, size } = statusGlyphs[status];
-  return <Icon aria-hidden="true" className="director-status-icon" size={size} />;
+  return (
+    <Icon
+      aria-hidden="true"
+      className={
+        status === "running" ? "director-status-icon director-spinner" : "director-status-icon"
+      }
+      size={size}
+    />
+  );
 }
 
 function Aggregate({ label, value }: { label: string; value: number }) {
@@ -523,19 +786,6 @@ function Aggregate({ label, value }: { label: string; value: number }) {
       <span>{label}</span>
     </div>
   );
-}
-
-function compactHistory(graph: WorkstreamGraph | null) {
-  if (graph === null) {
-    return [];
-  }
-  return graph.nodes
-    .filter((node) =>
-      ["user_goal", "director_decision", "milestone", "completed", "failed", "cancelled"].includes(
-        node.kind,
-      ),
-    )
-    .slice(-5);
 }
 
 function packDirectorSnapshot(snapshot: DirectorSnapshot | null) {
@@ -585,6 +835,137 @@ function moveSelectionIntent(direction: "previous" | "next"): DirectorIntent {
     selectWorkstream: null,
     submit: null,
   };
+}
+
+export function directorWorkstreamNavigation(snapshot: DirectorSnapshot | null) {
+  if (snapshot === null) {
+    return emptyWorkstreamNavigation();
+  }
+  const entries = snapshot.workstreams;
+  const selectedIndex = selectedWorkstreamIndex(entries, snapshot.selectedWorkstreamId);
+  const windowed = visibleWorkstreamEntries(entries, selectedIndex);
+  const selected = entries[selectedIndex] ?? null;
+  const total = snapshot.aggregates.workstreamCount;
+  const counter = workstreamNavigationCounter(snapshot, selectedIndex, total);
+  return { counter, selected, selectedIndex, total, visibleEntries: windowed };
+}
+
+export function effectiveDirectorRailVisibility({
+  compact,
+  compactRail,
+  railVisibility,
+}: {
+  compact: boolean;
+  compactRail: DirectorCompactRail;
+  railVisibility: DirectorRailVisibility;
+}): DirectorRailVisibility {
+  if (!compact) {
+    return railVisibility;
+  }
+  return {
+    artifacts: compactRail === "artifacts",
+    now: compactRail === "now",
+  };
+}
+
+export function directorWorkstreamKeyboardDirection({
+  altKey,
+  ctrlKey,
+  key,
+  metaKey,
+  targetIsEditable,
+}: DirectorKeyboardNavigationInput): DirectorKeyboardDirection | null {
+  if (key !== "ArrowLeft" && key !== "ArrowRight") {
+    return null;
+  }
+  if (targetIsEditable && !altKey && !ctrlKey && !metaKey) {
+    return null;
+  }
+  return key === "ArrowLeft" ? "previous" : "next";
+}
+
+function windowWorkstreamEntries(
+  entries: readonly DirectorWorkstreamEntry[],
+  selectedIndex: number,
+) {
+  const half = Math.floor(maxVisibleWorkstreamDots / 2);
+  const start = Math.max(
+    0,
+    Math.min(selectedIndex - half, entries.length - maxVisibleWorkstreamDots),
+  );
+  return entries.slice(start, start + maxVisibleWorkstreamDots).map((entry, index) => ({
+    entry,
+    position: start + index + 1,
+  }));
+}
+
+function emptyWorkstreamNavigation() {
+  return {
+    counter: null,
+    selected: null,
+    selectedIndex: 0,
+    total: 0,
+    visibleEntries: [],
+  };
+}
+
+function selectedWorkstreamIndex(
+  entries: readonly DirectorWorkstreamEntry[],
+  selectedWorkstreamId: string | null,
+): number {
+  return Math.max(
+    entries.findIndex((entry) => entry.workstream.id === selectedWorkstreamId),
+    0,
+  );
+}
+
+function visibleWorkstreamEntries(
+  entries: readonly DirectorWorkstreamEntry[],
+  selectedIndex: number,
+) {
+  if (entries.length > unwindowedWorkstreamLimit) {
+    return windowWorkstreamEntries(entries, selectedIndex);
+  }
+  return entries.map((entry, index) => ({ entry, position: index + 1 }));
+}
+
+function workstreamNavigationCounter(
+  snapshot: DirectorSnapshot,
+  selectedIndex: number,
+  total: number,
+): string | null {
+  if (snapshot.workstreams.length <= unwindowedWorkstreamLimit && !snapshot.hasMoreWorkstreams) {
+    return null;
+  }
+  return `${Math.min(selectedIndex + 1, total)}/${total}`;
+}
+
+function useCompactRailLayout(): boolean {
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const matchMedia = globalThis.window?.matchMedia;
+    if (!matchMedia) {
+      return;
+    }
+    const query = matchMedia(compactRailQuery);
+    const update = (): void => {
+      setCompact(query.matches);
+    };
+    update();
+    query.addEventListener("change", update);
+    return () => {
+      query.removeEventListener("change", update);
+    };
+  }, []);
+  return compact;
+}
+
+function directorKeyboardTargetIsEditable(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable ||
+      Boolean(target.closest("input, textarea, select, [contenteditable='true']")))
+  );
 }
 
 function exhaustiveLoadState(state: never): never {

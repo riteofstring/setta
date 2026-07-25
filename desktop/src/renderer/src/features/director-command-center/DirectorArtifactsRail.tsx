@@ -99,7 +99,7 @@ export function ArtifactsRail({
   );
 
   return (
-    <aside aria-label="Artifacts" className="director-artifacts-rail">
+    <aside aria-label="Artifacts" className="director-artifacts-rail" id="director-artifacts-rail">
       <section className="director-rail-section">
         <p className="director-rail-kicker">Approvals</p>
         <div className="director-action-list">

@@ -43,6 +43,8 @@ describe("Director command-center shell", () => {
     expect(html).toContain('aria-label="Director composer"');
     expect(html).toContain('aria-label="Now"');
     expect(html).toContain('aria-label="Artifacts"');
+    expect(html).toContain('aria-label="Hide Now rail"');
+    expect(html).toContain('aria-label="Hide Artifacts rail"');
     expect(html).not.toContain('data-testid="workspace-layout-area"');
     expect(html).not.toContain("data-pane-count=");
     expect(html).not.toContain("Back to panes");

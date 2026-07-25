@@ -1,5 +1,7 @@
 .director-command-center {
   --director-rail-inline: clamp(230px, 22vw, 310px);
+  --director-left-rail-inline: var(--director-rail-inline);
+  --director-right-rail-inline: var(--director-rail-inline);
   background:
     radial-gradient(circle at 50% 10%, oklch(0.25 0.06 230 / 0.42), transparent 34%),
     linear-gradient(180deg, oklch(0.11 0.01 260), oklch(0.07 0.006 260));
@@ -9,6 +11,14 @@
   block-size: 100%;
   inline-size: 100%;
   overflow: hidden;
+}
+
+.director-command-center[data-now-rail="hidden"] {
+  --director-left-rail-inline: 0px;
+}
+
+.director-command-center[data-artifacts-rail="hidden"] {
+  --director-right-rail-inline: 0px;
 }
 
 .director-command-center-skip {
@@ -66,20 +76,65 @@
   min-inline-size: 0;
 }
 
-.director-workstream-strip {
+.director-workstream-selector {
+  align-items: center;
+  display: grid;
+  gap: 5px;
+  justify-items: center;
+  min-inline-size: 0;
+}
+
+.director-workstream-title {
+  align-items: baseline;
   display: flex;
   gap: 8px;
+  justify-content: center;
+  min-inline-size: 0;
+  text-align: center;
+}
+
+.director-workstream-title span:first-child {
+  color: oklch(0.95 0.025 245);
+  font-size: 0.86rem;
+  font-weight: 650;
+  max-inline-size: min(28vw, 260px);
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.director-workstream-title span:last-child {
+  color: oklch(0.68 0.04 240);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.director-workstream-strip {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
   min-inline-size: 0;
   overflow: hidden;
 }
 
-.director-workstream-tab,
+.director-command-center-view-controls {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  justify-content: end;
+  min-inline-size: 0;
+}
+
+.director-workstream-dot,
 .director-icon-button,
 .director-composer button,
 .director-action-controls button,
 .director-resource-options button,
 .director-artifact-item,
-.director-artifact-detail-close {
+.director-artifact-detail-close,
+.director-history-open {
   align-items: center;
   border: 1px solid oklch(0.36 0.03 250 / 0.78);
   border-radius: 7px;
@@ -94,17 +149,18 @@
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
-.director-workstream-tab:active,
+.director-workstream-dot:active,
 .director-icon-button:active,
 .director-composer button:active,
 .director-action-controls button:active,
 .director-resource-options button:active,
 .director-artifact-item:active,
-.director-artifact-detail-close:active {
+.director-artifact-detail-close:active,
+.director-history-open:active {
   transform: scale(0.96);
 }
 
-.director-workstream-tab:focus-visible,
+.director-workstream-dot:focus-visible,
 .director-icon-button:focus-visible,
 .director-composer textarea:focus-visible,
 .director-composer button:focus-visible,
@@ -112,30 +168,26 @@
 .director-resource-options button:focus-visible,
 .director-artifact-item:focus-visible,
 .director-artifact-detail-close:focus-visible,
+.director-history-open:focus-visible,
 .director-approval-question input:focus-visible,
 .director-approval-question select:focus-visible,
-.director-artifact-detail:focus-visible {
+.director-artifact-detail:focus-visible,
+.director-history-dialog:focus-visible {
   outline: 2px solid;
   outline-offset: 2px;
 }
 
-.director-workstream-tab {
+.director-workstream-dot {
   background: oklch(0.13 0.016 252 / 0.72);
-  flex: 0 1 180px;
-  justify-content: flex-start;
-  min-inline-size: 112px;
-  overflow: hidden;
-  padding-inline: 10px;
+  block-size: 24px;
+  border-radius: 999px;
+  justify-content: center;
+  min-block-size: 24px;
+  min-inline-size: 24px;
+  padding: 0;
 }
 
-.director-workstream-tab span:last-child {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.director-workstream-tab[aria-current="page"] {
+.director-workstream-dot[aria-current="page"] {
   background: oklch(0.18 0.04 228 / 0.9);
   border-color: oklch(0.72 0.14 220 / 0.78);
   color: oklch(0.97 0.02 240);
@@ -149,19 +201,22 @@
 }
 
 .director-icon-button:hover,
-.director-workstream-tab:hover,
+.director-workstream-dot:hover,
 .director-composer button:hover,
 .director-action-controls button:hover,
 .director-resource-options button:hover,
 .director-artifact-item:hover,
-.director-artifact-detail-close:hover {
+.director-artifact-detail-close:hover,
+.director-history-open:hover {
   background: oklch(0.2 0.04 225 / 0.82);
   border-color: oklch(0.66 0.12 220 / 0.72);
 }
 
 .director-command-center-stage {
   display: grid;
-  grid-template-columns: var(--director-rail-inline) minmax(0, 1fr) var(--director-rail-inline);
+  grid-template-columns:
+    var(--director-left-rail-inline) minmax(0, 1fr)
+    var(--director-right-rail-inline);
   grid-template-rows: minmax(0, 1fr) auto;
   min-block-size: 0;
   min-inline-size: 0;
@@ -187,6 +242,11 @@
   position: relative;
   scrollbar-width: thin;
   z-index: 18;
+}
+
+.director-command-center[data-now-rail="hidden"] .director-now-rail,
+.director-command-center[data-artifacts-rail="hidden"] .director-artifacts-rail {
+  display: none;
 }
 
 .director-now-rail {
@@ -317,7 +377,8 @@
 
 .director-action-controls button,
 .director-resource-options button,
-.director-artifact-detail-close {
+.director-artifact-detail-close,
+.director-history-open {
   background: oklch(0.16 0.024 245 / 0.8);
   min-block-size: 38px;
   padding-inline: 10px;
@@ -327,7 +388,8 @@
 .director-resource-options button:disabled,
 .director-artifact-item:disabled,
 .director-composer button:disabled,
-.director-composer textarea:disabled {
+.director-composer textarea:disabled,
+.director-history-open:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -738,13 +800,14 @@
 
 @media (prefers-reduced-motion: reduce) {
   .director-command-center-skip,
-  .director-workstream-tab,
+  .director-workstream-dot,
   .director-icon-button,
   .director-composer button,
   .director-action-controls button,
   .director-resource-options button,
   .director-artifact-item,
-  .director-artifact-detail-close {
+  .director-artifact-detail-close,
+  .director-history-open {
     transition-property: opacity, background-color, border-color, color;
   }
 
@@ -752,13 +815,14 @@
     animation: none;
   }
 
-  .director-workstream-tab:active,
+  .director-workstream-dot:active,
   .director-icon-button:active,
   .director-composer button:active,
   .director-action-controls button:active,
   .director-resource-options button:active,
   .director-artifact-item:active,
-  .director-artifact-detail-close:active {
+  .director-artifact-detail-close:active,
+  .director-history-open:active {
     transform: none;
   }
 }
@@ -766,6 +830,8 @@
 @media (max-width: 940px) {
   .director-command-center {
     --director-rail-inline: minmax(0, 1fr);
+    --director-left-rail-inline: minmax(0, 1fr);
+    --director-right-rail-inline: minmax(0, 1fr);
   }
 
   .director-command-center-stage {
@@ -812,8 +878,12 @@
     grid-template-columns: 34px minmax(0, 1fr) 34px;
   }
 
-  .director-workstream-tab {
-    flex-basis: 140px;
+  .director-command-center-view-controls {
+    gap: 5px;
+  }
+
+  .director-workstream-title span:first-child {
+    max-inline-size: min(38vw, 180px);
   }
 
   .director-composer {
@@ -832,5 +902,43 @@
 
   .director-composer button {
     justify-content: center;
+  }
+}
+
+@media (max-width: 760px) {
+  .director-command-center-stage {
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .director-now-rail,
+  .director-artifacts-rail {
+    align-self: start;
+    background: oklch(0.09 0.01 255 / 0.92);
+    border: 1px solid oklch(0.36 0.03 250 / 0.72);
+    border-radius: 8px;
+    box-shadow: 0 18px 50px oklch(0 0 0 / 0.42);
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
+    inline-size: min(330px, calc(100vw - 24px));
+    margin-block-start: 10px;
+    max-block-size: min(64vh, 560px);
+    padding-block: 12px;
+    position: relative;
+  }
+
+  .director-now-rail {
+    justify-self: start;
+    margin-inline-start: 12px;
+    padding-inline: 12px;
+  }
+
+  .director-artifacts-rail {
+    justify-self: end;
+    margin-inline-end: 12px;
+    padding-inline: 12px;
+  }
+
+  .director-composer {
+    grid-row: 2 / 3;
   }
 }
