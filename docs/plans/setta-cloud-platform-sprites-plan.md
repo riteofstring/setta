@@ -1367,7 +1367,11 @@ measured, and independent of provider UI.
   suspension, and orphan adoption. The deterministic provider-protocol suite
   uses the production Sprites SDK adapter, HTTP protocol, durable SQLite store,
   and reconciler rather than an injected provider mock.
-- [ ] Keep the live Sprites test narrow, disposable, and explicitly gated.
+- [x] Keep the live Sprites test narrow, disposable, and explicitly gated.
+  The provider-conformance harness creates one deterministic run-scoped
+  runtime, is bounded to 20 minutes, requires both the broad live-provider
+  authorization and a lifecycle-specific opt-in, registers cleanup before any
+  provider mutation, and verifies the runtime is absent after destroy.
 - [ ] Obtain a preliminary written Fly response before Phase 6. A response may
   bound the beta rather than promise unlimited scale, but silence or a rejected
   customer-per-Sprite model is a stop condition.
@@ -2533,3 +2537,12 @@ Stop and reassess rather than hiding the problem if any of these occur:
   than acquiring a second TypeScript mirror. Existing restart, ownership,
   idempotency, generated-contract, and cursor-replay tests are the
   authoritative evidence. No executable files changed for this audit.
+- 2026-07-25 (narrow disposable live-provider gate): Closed the Phase 5 live
+  Sprites harness checklist without issuing a provider request. The
+  provider-conformance test remains limited to one deterministic run-scoped
+  runtime and a 20-minute context, but now requires the dedicated
+  `SETTA_LIVE_SPRITES_LIFECYCLE=1` opt-in in addition to the broad
+  `SETTA_LIVE_SPRITES=1` authorization. Cleanup is registered before the first
+  possible provider mutation, uses an independent bounded context, and now
+  inspects the deterministic identity after destroy to fail if the runtime is
+  still present.

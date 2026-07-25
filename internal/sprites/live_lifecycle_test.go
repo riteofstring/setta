@@ -63,6 +63,9 @@ func requireLiveLifecycleEnvironment(t *testing.T) liveLifecycleEnvironment {
 	if os.Getenv("SETTA_LIVE_SPRITES") != "1" {
 		t.Skip("set SETTA_LIVE_SPRITES=1 to authorize destructive, billable Sprites lifecycle validation")
 	}
+	if os.Getenv("SETTA_LIVE_SPRITES_LIFECYCLE") != "1" {
+		t.Skip("set SETTA_LIVE_SPRITES_LIFECYCLE=1 to run only the live lifecycle conformance harness")
+	}
 	token := os.Getenv("SPRITE_TOKEN")
 	if token == "" {
 		t.Fatal("SPRITE_TOKEN is required after live Sprites validation is authorized")
@@ -103,6 +106,15 @@ func registerLiveRuntimeCleanup(t *testing.T, adapter *Adapter, runtimeName stri
 		defer cleanupCancel()
 		if cleanupErr := adapter.Destroy(cleanupCtx, runtimeName); cleanupErr != nil {
 			t.Errorf("cleanup Sprite %s: %v", runtimeName, cleanupErr)
+			return
+		}
+		_, found, inspectErr := adapter.Inspect(cleanupCtx, runtimeName)
+		if inspectErr != nil {
+			t.Errorf("verify cleanup Sprite %s: %v", runtimeName, inspectErr)
+			return
+		}
+		if found {
+			t.Errorf("verify cleanup Sprite %s: still present after destroy", runtimeName)
 		}
 	})
 }
