@@ -23,13 +23,13 @@ func TestRuntimeAccountingEventsAreDurableOrderedAndIdempotent(t *testing.T) {
 	}
 	for _, event := range events {
 		if _, err := store.RecordRuntimeAccountingEvent(ctx, RecordRuntimeAccountingEventRequest{
-			RuntimeName: runtimeName, Event: event,
+			RuntimeName: runtimeName, Transition: accountingTransition(event),
 		}); err != nil {
 			t.Fatalf("RecordRuntimeAccountingEvent: %v", err)
 		}
 	}
 	replayed, err := store.RecordRuntimeAccountingEvent(ctx, RecordRuntimeAccountingEventRequest{
-		RuntimeName: runtimeName, Event: events[1],
+		RuntimeName: runtimeName, Transition: accountingTransition(events[1]),
 	})
 	if err != nil || replayed.LastSequence != 2 {
 		t.Fatalf("replayed ledger = %+v, %v", replayed, err)
@@ -53,7 +53,7 @@ func TestRuntimeAccountingEventsAreDurableOrderedAndIdempotent(t *testing.T) {
 	lease.LeaseExpiresAt = start.Add(4 * time.Minute)
 	events = append(events, lease)
 	if _, err := restarted.RecordRuntimeAccountingEvent(ctx, RecordRuntimeAccountingEventRequest{
-		RuntimeName: runtimeName, Event: lease,
+		RuntimeName: runtimeName, Transition: accountingTransition(lease),
 	}); err != nil {
 		t.Fatalf("RecordRuntimeAccountingEvent after restart: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestRuntimeAccountingEventsAreDurableOrderedAndIdempotent(t *testing.T) {
 	}
 }
 
-func TestRuntimeAccountingEventsRejectConflictGapAndForeignRuntimeAtomically(t *testing.T) {
+func TestRuntimeAccountingEventsRejectConflictInvalidTransitionAndForeignRuntimeAtomically(t *testing.T) {
 	ctx := context.Background()
 	store, _, runtimeName, _ := seededControlPlane(t, ctx)
 	defer store.Close()
@@ -79,28 +79,28 @@ func TestRuntimeAccountingEventsRejectConflictGapAndForeignRuntimeAtomically(t *
 		runtimeaccounting.ActivityProvider, runtimeaccounting.EventBegin, "",
 	)
 	if _, err := store.RecordRuntimeAccountingEvent(ctx, RecordRuntimeAccountingEventRequest{
-		RuntimeName: runtimeName, Event: first,
+		RuntimeName: runtimeName, Transition: accountingTransition(first),
 	}); err != nil {
 		t.Fatal(err)
 	}
 	conflict := first
 	conflict.At = conflict.At.Add(time.Second)
 	if _, err := store.RecordRuntimeAccountingEvent(ctx, RecordRuntimeAccountingEventRequest{
-		RuntimeName: runtimeName, Event: conflict,
+		RuntimeName: runtimeName, Transition: accountingTransition(conflict),
 	}); !errors.Is(err, ErrIdempotencyConflict) {
 		t.Fatalf("conflicting replay error = %v", err)
 	}
-	gap := accountingEvent(
-		3, "gap", start.Add(time.Minute),
-		runtimeaccounting.ActivityAttachment, runtimeaccounting.EventBegin, "phone",
+	invalid := accountingEvent(
+		2, "duplicate-provider-begin", start.Add(time.Minute),
+		runtimeaccounting.ActivityProvider, runtimeaccounting.EventBegin, "",
 	)
 	if _, err := store.RecordRuntimeAccountingEvent(ctx, RecordRuntimeAccountingEventRequest{
-		RuntimeName: runtimeName, Event: gap,
+		RuntimeName: runtimeName, Transition: accountingTransition(invalid),
 	}); !errors.Is(err, runtimeaccounting.ErrInvalidEvent) {
-		t.Fatalf("gap error = %v", err)
+		t.Fatalf("invalid transition error = %v", err)
 	}
 	if _, err := store.RecordRuntimeAccountingEvent(ctx, RecordRuntimeAccountingEventRequest{
-		RuntimeName: testRuntimeName(t, "foreign-accounting"), Event: first,
+		RuntimeName: testRuntimeName(t, "foreign-accounting"), Transition: accountingTransition(first),
 	}); err == nil {
 		t.Fatal("foreign runtime accounting event succeeded")
 	}
@@ -111,6 +111,13 @@ func TestRuntimeAccountingEventsRejectConflictGapAndForeignRuntimeAtomically(t *
 	if snapshot.Ledger.LastSequence != 1 ||
 		snapshot.EventsSHA256 != accountingEventsSHA256(t, []runtimeaccounting.ActivityEvent{first}) {
 		t.Fatalf("accounting snapshot after rejected events = %+v", snapshot)
+	}
+}
+
+func accountingTransition(event runtimeaccounting.ActivityEvent) runtimeaccounting.ActivityTransition {
+	return runtimeaccounting.ActivityTransition{
+		EventID: event.EventID, At: event.At, Kind: event.Kind, Action: event.Action,
+		SubjectID: event.SubjectID, LeaseExpiresAt: event.LeaseExpiresAt,
 	}
 }
 

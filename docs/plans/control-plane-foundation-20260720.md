@@ -147,8 +147,9 @@ a complete billable-compute cutoff.
 
 Schema version 9 adds one ordered accounting event stream and restart-safe
 ledger snapshot per runtime. Event sequence and identity are unique within
-that runtime; exact replay is a no-op, conflicting replay and gaps fail, and
-canonical JSONL bytes own the event-stream SHA-256 used by finalized evidence.
+that runtime; the store assigns sequence atomically across producers, exact
+replay is a no-op, conflicting replay fails, and canonical JSONL bytes own the
+event-stream SHA-256 used by finalized evidence.
 
 The reconciler projects committed provisioning and deletion outcomes to the
 shared JSONL observer. These content-free audit records identify only the

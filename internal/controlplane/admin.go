@@ -86,8 +86,8 @@ type AdminRecordUsageRequest struct {
 }
 
 type AdminRecordRuntimeAccountingEventRequest struct {
-	RuntimeName string                          `json:"runtime_name"`
-	Event       runtimeaccounting.ActivityEvent `json:"event"`
+	RuntimeName string                               `json:"runtime_name"`
+	Transition  runtimeaccounting.ActivityTransition `json:"transition"`
 }
 
 type AdminEvent struct {

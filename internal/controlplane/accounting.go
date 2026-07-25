@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"time"
 
 	"setta/internal/runtimeaccounting"
@@ -21,7 +20,7 @@ type runtimeAccountingQuerier interface {
 
 type RecordRuntimeAccountingEventRequest struct {
 	RuntimeName string
-	Event       runtimeaccounting.ActivityEvent
+	Transition  runtimeaccounting.ActivityTransition
 }
 
 type RuntimeAccountingSnapshot struct {
@@ -36,37 +35,36 @@ func (store *Store) RecordRuntimeAccountingEvent(
 	if err := validateRuntimeAccountingEventRequest(request); err != nil {
 		return runtimeaccounting.LedgerState{}, err
 	}
-	canonical, err := runtimeaccounting.CanonicalActivityEventLine(request.Event)
-	if err != nil {
-		return runtimeaccounting.LedgerState{}, err
-	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	return store.recordRuntimeAccountingEventLocked(ctx, request, canonical)
+	return store.recordRuntimeAccountingEventLocked(ctx, request)
 }
 
 func (store *Store) recordRuntimeAccountingEventLocked(
 	ctx context.Context,
 	request RecordRuntimeAccountingEventRequest,
-	canonical []byte,
 ) (runtimeaccounting.LedgerState, error) {
 	tx, err := store.db.BeginTx(ctx, nil)
 	if err != nil {
 		return runtimeaccounting.LedgerState{}, fmt.Errorf("begin runtime accounting event: %w", err)
 	}
 	defer rollback(tx)
-	ledger, replayed, err := prepareRuntimeAccountingLedger(ctx, tx, request, canonical)
+	ledger, event, replayed, err := prepareRuntimeAccountingLedger(ctx, tx, request)
 	if err != nil {
 		return runtimeaccounting.LedgerState{}, err
 	}
 	if replayed {
 		return ledger.Snapshot(), nil
 	}
-	if err := ledger.Apply(request.Event); err != nil {
+	if err := ledger.Apply(event); err != nil {
 		return runtimeaccounting.LedgerState{}, err
 	}
 	state := ledger.Snapshot()
-	if err := persistRuntimeAccountingEvent(ctx, tx, request, canonical, state, store.clock()); err != nil {
+	canonical, err := runtimeaccounting.CanonicalActivityEventLine(event)
+	if err != nil {
+		return runtimeaccounting.LedgerState{}, err
+	}
+	if err := persistRuntimeAccountingEvent(ctx, tx, request.RuntimeName, event, canonical, state, store.clock()); err != nil {
 		return runtimeaccounting.LedgerState{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -79,27 +77,26 @@ func prepareRuntimeAccountingLedger(
 	ctx context.Context,
 	tx *sql.Tx,
 	request RecordRuntimeAccountingEventRequest,
-	canonical []byte,
-) (*runtimeaccounting.Ledger, bool, error) {
+) (*runtimeaccounting.Ledger, runtimeaccounting.ActivityEvent, bool, error) {
 	ledger, found, err := readRuntimeAccountingLedger(ctx, tx, request.RuntimeName)
 	if err != nil {
-		return nil, false, err
+		return nil, runtimeaccounting.ActivityEvent{}, false, err
 	}
-	replayed, err := replayRuntimeAccountingEvent(ctx, tx, request, canonical)
+	replayed, replayedEvent, err := replayRuntimeAccountingEvent(ctx, tx, request)
 	if err != nil {
-		return nil, false, err
+		return nil, runtimeaccounting.ActivityEvent{}, false, err
 	}
 	if replayed {
 		if !found {
-			return nil, false, errors.New("runtime accounting event exists without its ledger")
+			return nil, runtimeaccounting.ActivityEvent{}, false, errors.New("runtime accounting event exists without its ledger")
 		}
-		return ledger, true, nil
+		return ledger, replayedEvent, true, nil
 	}
 	if found {
-		return ledger, false, nil
+		return ledger, request.Transition.Event(ledger.Snapshot().LastSequence + 1), false, nil
 	}
-	ledger, err = runtimeaccounting.NewLedger(request.Event.At)
-	return ledger, false, err
+	ledger, err = runtimeaccounting.NewLedger(request.Transition.At)
+	return ledger, request.Transition.Event(1), false, err
 }
 
 func (store *Store) RuntimeAccountingSnapshot(
@@ -149,8 +146,8 @@ func validateRuntimeAccountingEventRequest(request RecordRuntimeAccountingEventR
 	if err := runtimeprovider.ValidateManagedName(request.RuntimeName); err != nil {
 		return err
 	}
-	if request.Event.Sequence > math.MaxInt64 {
-		return errors.New("runtime accounting sequence exceeds the durable store range")
+	if request.Transition.EventID == "" || request.Transition.At.IsZero() {
+		return errors.New("runtime accounting transition identity is empty")
 	}
 	return nil
 }
@@ -185,29 +182,35 @@ func replayRuntimeAccountingEvent(
 	ctx context.Context,
 	tx *sql.Tx,
 	request RecordRuntimeAccountingEventRequest,
-	canonical []byte,
-) (bool, error) {
+) (bool, runtimeaccounting.ActivityEvent, error) {
+	var sequence uint64
 	var stored []byte
 	err := tx.QueryRowContext(ctx, `
-SELECT event_json FROM runtime_accounting_events
-WHERE runtime_name = ? AND (sequence = ? OR event_id = ?)
-`, request.RuntimeName, request.Event.Sequence, request.Event.EventID).Scan(&stored)
+SELECT sequence, event_json FROM runtime_accounting_events
+WHERE runtime_name = ? AND event_id = ?
+`, request.RuntimeName, request.Transition.EventID).Scan(&sequence, &stored)
 	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
+		return false, runtimeaccounting.ActivityEvent{}, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("read runtime accounting event replay: %w", err)
+		return false, runtimeaccounting.ActivityEvent{}, fmt.Errorf("read runtime accounting event replay: %w", err)
+	}
+	event := request.Transition.Event(sequence)
+	canonical, err := runtimeaccounting.CanonicalActivityEventLine(event)
+	if err != nil {
+		return false, runtimeaccounting.ActivityEvent{}, err
 	}
 	if string(stored) != string(canonical) {
-		return false, ErrIdempotencyConflict
+		return false, runtimeaccounting.ActivityEvent{}, ErrIdempotencyConflict
 	}
-	return true, nil
+	return true, event, nil
 }
 
 func persistRuntimeAccountingEvent(
 	ctx context.Context,
 	tx *sql.Tx,
-	request RecordRuntimeAccountingEventRequest,
+	runtimeName string,
+	event runtimeaccounting.ActivityEvent,
 	canonical []byte,
 	state runtimeaccounting.LedgerState,
 	recordedAt time.Time,
@@ -221,14 +224,14 @@ func persistRuntimeAccountingEvent(
 INSERT INTO runtime_accounting_events (
   runtime_name, sequence, event_id, event_json, recorded_at
 ) VALUES (?, ?, ?, ?, ?)
-`, request.RuntimeName, request.Event.Sequence, request.Event.EventID, canonical, recordedTimestamp); err != nil {
+`, runtimeName, event.Sequence, event.EventID, canonical, recordedTimestamp); err != nil {
 		return fmt.Errorf("insert runtime accounting event: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO runtime_accounting_ledgers (runtime_name, state_json, updated_at)
 VALUES (?, ?, ?)
 ON CONFLICT(runtime_name) DO UPDATE SET state_json = excluded.state_json, updated_at = excluded.updated_at
-`, request.RuntimeName, encodedState, recordedTimestamp); err != nil {
+`, runtimeName, encodedState, recordedTimestamp); err != nil {
 		return fmt.Errorf("write runtime accounting ledger: %w", err)
 	}
 	return nil

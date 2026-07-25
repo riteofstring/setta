@@ -84,7 +84,9 @@ func TestAdminRecordsRuntimeAccountingEventThroughPrivateBoundary(t *testing.T) 
 		runtimeaccounting.ActivityProvider, runtimeaccounting.EventBegin, "",
 	)
 	adminTestRequest(t, adminTestClient(socketPath), "/v1/runtime-accounting/events",
-		AdminRecordRuntimeAccountingEventRequest{RuntimeName: runtimeName, Event: event},
+		AdminRecordRuntimeAccountingEventRequest{
+			RuntimeName: runtimeName, Transition: accountingTransition(event),
+		},
 		"runtime_accounting_event_recorded",
 	)
 	snapshot, err := store.RuntimeAccountingSnapshot(ctx, runtimeName)

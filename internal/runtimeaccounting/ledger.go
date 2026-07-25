@@ -61,6 +61,25 @@ type ActivityEvent struct {
 	LeaseExpiresAt time.Time    `json:"lease_expires_at,omitempty"`
 }
 
+// ActivityTransition is the producer-owned portion of an activity event. The
+// durable ledger owner assigns Sequence atomically across all producers.
+type ActivityTransition struct {
+	EventID        string       `json:"event_id"`
+	At             time.Time    `json:"at"`
+	Kind           ActivityKind `json:"kind"`
+	Action         EventAction  `json:"action"`
+	SubjectID      string       `json:"subject_id,omitempty"`
+	LeaseExpiresAt time.Time    `json:"lease_expires_at,omitempty"`
+}
+
+func (transition ActivityTransition) Event(sequence uint64) ActivityEvent {
+	return ActivityEvent{
+		Sequence: sequence, EventID: transition.EventID, At: transition.At,
+		Kind: transition.Kind, Action: transition.Action,
+		SubjectID: transition.SubjectID, LeaseExpiresAt: transition.LeaseExpiresAt,
+	}
+}
+
 // AppliedEvent authenticates a persisted event identity against its complete
 // canonical body so identical replay is a no-op and conflicting replay fails.
 type AppliedEvent struct {
