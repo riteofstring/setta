@@ -127,7 +127,7 @@ func TestCandidateBGatewayConversationRestartAndReplay(t *testing.T) {
 	if err := secrets.WriteSecret(t.Context(), "hosted_runtime", []byte(runtimeReady.BootstrapToken)); err != nil {
 		t.Fatal(err)
 	}
-	gateway, store, _, client, replayedGrant := restartHostedGateway(
+	gateway, store, _, client = restartHostedGateway(
 		t,
 		controlDirectory,
 		secretDirectory,
@@ -135,9 +135,6 @@ func TestCandidateBGatewayConversationRestartAndReplay(t *testing.T) {
 		grant.Token,
 	)
 	defer shutdownHostedGateway(t, gateway, store)
-	if replayedGrant != grant.Token {
-		t.Fatal("hosted client credential changed across restart")
-	}
 	baseURL = "http://" + gateway.Addr().String()
 	replayedStream := openHostedConversationStream(
 		t,
@@ -247,11 +244,11 @@ func restartHostedGateway(
 	secretDirectory string,
 	dialer *hostedRuntimeDialer,
 	clientCredential string,
-) (*controlplane.Server, *controlplane.Store, *controlplane.FileSecretStore, *http.Client, string) {
+) (*controlplane.Server, *controlplane.Store, *controlplane.FileSecretStore, *http.Client) {
 	t.Helper()
 	store, secrets := openHostedGatewayState(t, controlDirectory, secretDirectory)
 	gateway := startHostedControlPlaneServer(t, store, secrets, dialer)
-	return gateway, store, secrets, authenticatedRuntimeTestClient(clientCredential, 10*time.Second), clientCredential
+	return gateway, store, secrets, authenticatedRuntimeTestClient(clientCredential, 10*time.Second)
 }
 
 func openHostedGatewayState(
