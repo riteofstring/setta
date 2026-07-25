@@ -2,7 +2,6 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { driverCallExpression } from "./cdp-client.mjs";
 import { waitForBackendState } from "./electron-workflow-harness.mjs";
 import {
   captureScreenshot,
@@ -117,22 +116,17 @@ export async function exerciseMasterCancellation({
   await closeMasterOverlay(client, timeoutMs);
   await clickMasterSurfaceEntry(client, "master-sidebar-launcher", timeoutMs);
   await waitForMasterOverlay(client, { draft: "", focused: true }, timeoutMs);
-  const restoredTranscript = await waitForState(
+  const cleared = await waitForState(
     client,
     `(() => ({
-      cancellationPresent: Array.from(
-        document.querySelectorAll('[data-testid="master-transcript-entry"][data-master-transcript-kind="cancellation"]'),
-      ).some((entry) => entry.textContent?.includes("Request cancelled")),
       requestPresent: Boolean(document.querySelector('[data-testid="master-active-request"]')),
-      transcriptEntryCount: document.querySelectorAll('[data-testid="master-transcript-entry"]').length,
+      emptyPresent: Boolean(document.querySelector('.setta-master-overlay-empty')),
     }))()`,
-    (state) => !state.requestPresent && state.cancellationPresent,
+    (state) => !state.requestPresent && state.emptyPresent,
     timeoutMs,
   );
-  if (!restoredTranscript.cancellationPresent) {
-    throw new Error(
-      `cancelled master interaction did not restore as transcript: ${JSON.stringify(restoredTranscript)}`,
-    );
+  if (!cleared.emptyPresent) {
+    throw new Error(`cancelled master interaction did not clear: ${JSON.stringify(cleared)}`);
   }
   await closeMasterOverlay(client, timeoutMs);
   return {
@@ -264,9 +258,9 @@ async function openFromGlobalShortcut(client, text, timeoutMs) {
     modifiers: 2,
     type: "keyUp",
   });
-  const state = await waitForMasterPane(client, { draft: text, focused: true }, timeoutMs);
-  if (state.overlayOpen || !state.maximized || !state.masterHostFocused) {
-    throw new Error(`master shortcut did not focus the master pane: ${JSON.stringify(state)}`);
+  const state = await waitForMasterOverlay(client, { draft: text, focused: true }, timeoutMs);
+  if (!state.shellInert || !state.nativeViewsOccluded) {
+    throw new Error(`master overlay did not isolate shell/native panes: ${JSON.stringify(state)}`);
   }
 }
 
@@ -331,15 +325,6 @@ async function waitForMasterOverlay(client, { draft, focused }, timeoutMs) {
   );
 }
 
-async function waitForMasterPane(client, { draft, focused }, timeoutMs) {
-  return waitForState(
-    client,
-    driverCallExpression("masterPaneState", { draft }),
-    (state) => state.open && state.draft === draft && state.focused === focused,
-    timeoutMs,
-  );
-}
-
 async function waitForMasterOverlayClosed(client, timeoutMs) {
   await waitForState(
     client,
@@ -356,7 +341,14 @@ async function assertActiveMasterInteraction(
 ) {
   return waitForState(
     client,
-    driverCallExpression("topicConversationMasterActiveInteractionState"),
+    `(() => ({
+      open: Boolean(document.querySelector('[data-testid="master-overlay"]')),
+      interactionCount: document.querySelectorAll('[data-testid="master-active-interaction"]').length,
+      legacyHistoryPresent: Boolean(document.querySelector('[aria-label="Recent master exchanges"]')),
+      requestCount: document.querySelectorAll('[data-testid="master-active-request"]').length,
+      requestText: document.querySelector('[data-testid="master-active-request"] p')?.textContent ?? null,
+      resultKind: document.querySelector('[data-master-result-kind]')?.getAttribute('data-master-result-kind') ?? null,
+    }))()`,
     (state) =>
       state.open &&
       state.interactionCount === 1 &&

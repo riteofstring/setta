@@ -12,7 +12,6 @@ import {
   clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
-  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -68,7 +67,7 @@ try {
   const freshSession = await backend.get("/workspace-session");
   assertFreshSession(freshSession);
   await assertFirstRunSurface(context.client);
-  await openFixtureWorkspace(context.client, workflowTimeoutMs);
+  await clickEnabledButtonByAria(context.client, "Choose project folder", workflowTimeoutMs);
 
   const openedSession = await waitForBackendState(
     () => backend.get("/workspace-session"),
@@ -221,14 +220,16 @@ async function assertReadOnlyMissingWorkspace(client, targetConversationId) {
 }
 
 async function waitForPersistedEasyButton(backend, targetWorkspaceId, targetConversationId) {
-  void targetWorkspaceId;
   await waitForBackendState(
-    () => backend.get("/app/panes/layout"),
+    () =>
+      backend.post("/workspaces/ui/layout/read", {
+        workspaceId: targetWorkspaceId,
+      }),
     (result) =>
       result.layout?.panes.some(
         (pane) =>
-          pane.surfaceKind === "conversation" &&
-          pane.conversationConfig?.conversationId === targetConversationId,
+          pane.surfaceKind === "easy-button" &&
+          pane.easyButtonConfig?.conversationId === targetConversationId,
       ) === true,
     workflowTimeoutMs,
   );

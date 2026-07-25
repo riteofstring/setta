@@ -18,7 +18,6 @@ import {
   createFixture,
   failureWithLogs,
   launchContext,
-  openFixtureWorkspace,
   pathTimestamp,
   setInputValue,
   stopLaunchedContext,
@@ -86,7 +85,7 @@ try {
   assertRemoteSessionEmpty(remoteEmptySession);
   await waitForRendererEmptyWorkspace(context.client);
 
-  await openFixtureWorkspace(context.client, workflowTimeoutMs);
+  await clickButtonByAria(context.client, "Open project folder");
   const canonicalWorkspaceRoot = await realpath(fixture.workspaceRoot);
   const remoteSession = await waitForRemoteWorkspace(probe, canonicalWorkspaceRoot);
   await waitForSelectedWorkspaceLayout(context.client, remoteSession.selectedWorkspaceId);
@@ -246,7 +245,7 @@ async function triggerRendererBackendRead(client) {
 }
 
 async function openWorkspaceFromSidebar(client) {
-  await openFixtureWorkspace(client, workflowTimeoutMs);
+  await clickButtonByAria(client, "Open project folder");
   await waitForSelectedWorkspaceLayout(client);
 }
 
@@ -280,16 +279,13 @@ async function waitForRendererEmptyWorkspace(client) {
     client,
     `(() => {
       const area = document.querySelector('[data-testid="workspace-layout-area"]');
-      const masterPane = document.querySelector(
-        '[data-testid="workspace-pane-host"][data-surface-kind="master"][data-visible="true"]',
-      );
       return {
-        masterVisible: Boolean(masterPane),
+        emptyVisible: Boolean(document.querySelector('[data-testid="workspace-empty-state"]')),
         paneCount: area instanceof HTMLElement ? area.dataset.paneCount ?? "" : "",
         workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? null : null,
       };
     })()`,
-    (state) => state.masterVisible && state.workspaceId === "empty" && state.paneCount === "1",
+    (state) => state.emptyVisible && state.workspaceId === "" && state.paneCount === "0",
     workflowTimeoutMs,
   );
 }
@@ -304,7 +300,7 @@ async function waitForSurvivorWorkspacePanes(client, expectedWorkspaceId) {
       snapshot.paneIds.length === snapshot.paneCount &&
       snapshot.paneIds.every((paneId) => paneId !== "") &&
       snapshot.surfaceKinds.every((surfaceKind) =>
-        ["conversation", "empty-frame"].includes(surfaceKind),
+        ["easy-button", "empty-frame"].includes(surfaceKind),
       ),
     workflowTimeoutMs,
   );
@@ -323,7 +319,7 @@ function assertLocalWorkspacePanesSurvivedRuntimeSwitch(before, after) {
   const added = after.panes.filter((pane) => !beforeIds.has(pane.paneId));
   const valid =
     JSON.stringify(afterEmptyFrames) === JSON.stringify(beforeEmptyFrames) &&
-    added.every((pane) => pane.surfaceKind === "conversation");
+    added.every((pane) => pane.surfaceKind === "easy-button");
   if (!valid) {
     throw new Error(
       `local workspace panes changed after runtime switch: ${JSON.stringify({ added, after: after.panes, before: before.panes })}`,

@@ -31,7 +31,6 @@ export interface ConversationProjection {
   workspaceId: string;
 }
 
-type WorkspaceScopedConversationEvent = ConversationEvent & { workspaceId: string };
 type ConversationEventType = ConversationEventPayload["type"];
 type ConversationPayloadOf<Type extends ConversationEventType> = Extract<
   ConversationEventPayload,
@@ -139,9 +138,6 @@ export function applyConversationEvents(
 ): ReadonlyMap<string, ConversationProjection> {
   let next: Map<string, ConversationProjection> | null = null;
   for (const event of events) {
-    if (!isWorkspaceScopedConversationEvent(event)) {
-      continue;
-    }
     const projections = next ?? current;
     const projection = projections.get(event.conversationId);
     const updated = applyConversationEvent(projection, event);
@@ -153,15 +149,9 @@ export function applyConversationEvents(
   return next ?? current;
 }
 
-function isWorkspaceScopedConversationEvent(
-  event: ConversationEvent,
-): event is WorkspaceScopedConversationEvent {
-  return event.workspaceId !== null;
-}
-
 function applyConversationEvent(
   current: ConversationProjection | undefined,
-  event: WorkspaceScopedConversationEvent,
+  event: ConversationEvent,
 ): ConversationProjection {
   assertEventEnvelope(current, event);
   if (!current) {
@@ -201,7 +191,7 @@ function applyConversationEvent(
 
 function applyConversationEventBeforeHydration(
   current: ConversationProjection,
-  event: WorkspaceScopedConversationEvent,
+  event: ConversationEvent,
 ): ConversationProjection {
   if (event.payload.type === "conversation.resync_required") {
     return projectionWithTypedResync(current, serverResyncRequirement(event));
@@ -663,9 +653,7 @@ function serverResyncRequirement(event: ConversationEvent): ConversationResyncRe
   };
 }
 
-function unloadedProjectionForEvent(
-  event: WorkspaceScopedConversationEvent,
-): ConversationProjection {
+function unloadedProjectionForEvent(event: ConversationEvent): ConversationProjection {
   return {
     conversationId: event.conversationId,
     error: null,
@@ -848,7 +836,7 @@ function assertSnapshotIdentity(
 
 function assertEventEnvelope(
   current: ConversationProjection | undefined,
-  event: WorkspaceScopedConversationEvent,
+  event: ConversationEvent,
 ): void {
   if (current) {
     assertOwner("conversation event", event.conversationId, current.conversationId);
@@ -856,7 +844,7 @@ function assertEventEnvelope(
   }
 }
 
-function assertOwner(label: string, actual: string | null, expected: string | null): void {
+function assertOwner(label: string, actual: string, expected: string): void {
   if (actual !== expected) {
     throw new Error(`${label} belongs to ${actual}, expected ${expected}.`);
   }

@@ -2,22 +2,21 @@ import type {
   AcceptedMasterInput,
   ShellInteractionState,
   SubmitMasterInputRequest,
-  Transcript,
 } from "@generated/backend";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { AppShellMasterController } from "./app-shell-master-controller";
-import { AppShellMasterSurface } from "./app-shell-master-surface";
-import { MasterSidebarLauncher } from "./master-sidebar-launcher";
-import { isMasterVoiceShortcut, masterVoiceShortcutLabel } from "./master-shortcuts";
 import {
-  isMasterPaneFocusShortcut,
-  masterPaneFocusShortcutLabel,
-} from "../../workspace-layout/master-pane-focus";
+  AppShellMasterSurface,
+  isMasterOverlayShortcut,
+  masterOverlayShortcutLabel,
+  MasterSidebarLauncher,
+} from "./app-shell-master-surface";
+import { isMasterVoiceShortcut, masterVoiceShortcutLabel } from "./master-shortcuts";
 
 describe("app-shell master surface", () => {
-  test("renders the active routing interaction and then durable transcript history", async () => {
+  test("renders one active routing interaction without completed-request history", async () => {
     const controller = masterController();
     controller.synchronizeRuntime("runtime_alpha");
     await flushPromises();
@@ -41,15 +40,8 @@ describe("app-shell master surface", () => {
     expect(html).toContain('data-master-result-kind="answer_global"');
     expect(html).toContain('data-testid="master-answer-replay"');
     expect(html).toContain("The global router is ready.");
-
-    controller.closeOverlay();
-    controller.openOverlay();
-    await flushPromises();
-    html = renderSurface(controller);
-    expect(html).toContain('data-testid="master-transcript-entry"');
-    expect(html).toContain('data-master-transcript-kind="assistant_reply"');
-    expect(html).toContain("Open the latest narrator conversation");
-    expect(html).toContain("The global router is ready.");
+    expect(html).not.toContain("Recent master exchanges");
+    expect(html).not.toContain("master-overlay-history");
   });
 
   test("renders a restored clarification as the only active result", async () => {
@@ -62,20 +54,6 @@ describe("app-shell master surface", () => {
     expect(html).toContain('data-master-result-kind="clarify"');
     expect(html).toContain("Which topic should Setta focus?");
     expect(html).toContain("Answer Setta’s clarification…");
-  });
-
-  test("renders a durable transcript load failure instead of empty history", async () => {
-    const controller = masterController(null, undefined, async () => {
-      throw new Error("private transcript failure");
-    });
-    controller.synchronizeRuntime("runtime_alpha");
-    await flushPromises();
-    controller.openOverlay();
-
-    const html = renderSurface(controller);
-    expect(html).toContain("Setta could not load the durable master transcript.");
-    expect(html).toContain("Retry transcript");
-    expect(html).not.toContain("What should Setta bring into focus?");
   });
 
   test("renders an explicit cancellation action and its immediate terminal result", async () => {
@@ -110,8 +88,8 @@ describe("app-shell master surface", () => {
     expect(shortcut({ altKey: true, metaKey: true })).toBe(false);
     expect(shortcut({ ctrlKey: true, shiftKey: true })).toBe(false);
     expect(shortcut({ ctrlKey: true, key: "j" })).toBe(false);
-    expect(masterPaneFocusShortcutLabel("darwin")).toBe("⌘K");
-    expect(masterPaneFocusShortcutLabel("win32")).toBe("Ctrl+K");
+    expect(masterOverlayShortcutLabel("darwin")).toBe("⌘K");
+    expect(masterOverlayShortcutLabel("win32")).toBe("Ctrl+K");
   });
 
   test("matches the configured master voice shortcut by platform", () => {
@@ -141,10 +119,8 @@ function renderSurface(controller: AppShellMasterController): string {
 function masterController(
   restored: ShellInteractionState | null = null,
   waitedState?: Promise<ShellInteractionState>,
-  readTranscript?: () => Promise<Transcript>,
 ): AppShellMasterController {
   let inputOrdinal = 0;
-  const requests: SubmitMasterInputRequest[] = [];
   return new AppShellMasterController({
     cancelMasterInput: async ({ inputId }) => ({
       decision: null,
@@ -165,11 +141,7 @@ function masterController(
       ...request,
       resolvedAt: "2026-07-13T20:00:02Z",
     }),
-    readTranscript: readTranscript ?? (async () => transcriptForRequests(requests)),
-    submitMasterInput: async (request) => {
-      requests.push(request);
-      return acceptedInput(request, inputOrdinal);
-    },
+    submitMasterInput: async (request) => acceptedInput(request, inputOrdinal),
     waitShellInteraction: async ({ inputId }) =>
       waitedState ??
       answerState(
@@ -195,44 +167,6 @@ function masterController(
       source: "shell",
     }),
   });
-}
-
-function transcriptForRequests(requests: SubmitMasterInputRequest[]): Transcript {
-  let sequence = 0;
-  const entries: Transcript["entries"] = [];
-  for (const request of requests) {
-    sequence += 1;
-    entries.push({
-      payload: {
-        actionReceipt: null,
-        assistantReply: null,
-        cancellation: null,
-        createdAt: "2026-07-13T20:00:01Z",
-        failure: null,
-        id: `master-transcript:user:${request.input.id}`,
-        inputId: request.input.id,
-        kind: "user_input",
-        userInput: { modality: request.input.modality, text: request.input.text },
-      },
-      sequence,
-    });
-    sequence += 1;
-    entries.push({
-      payload: {
-        actionReceipt: null,
-        assistantReply: { replyKind: "answer", text: "The global router is ready." },
-        cancellation: null,
-        createdAt: "2026-07-13T20:00:02Z",
-        failure: null,
-        id: `master-transcript:decision:${request.input.id}`,
-        inputId: request.input.id,
-        kind: "assistant_reply",
-        userInput: null,
-      },
-      sequence,
-    });
-  }
-  return { entries, lastSequence: sequence };
 }
 
 function acceptedInput(request: SubmitMasterInputRequest, sequence: number): AcceptedMasterInput {
@@ -310,8 +244,8 @@ function decidedState(
   };
 }
 
-function shortcut(overrides: Partial<Parameters<typeof isMasterPaneFocusShortcut>[0]>) {
-  return isMasterPaneFocusShortcut({
+function shortcut(overrides: Partial<Parameters<typeof isMasterOverlayShortcut>[0]>) {
+  return isMasterOverlayShortcut({
     altKey: false,
     ctrlKey: false,
     key: "k",

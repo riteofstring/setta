@@ -7,36 +7,20 @@ import (
 	"fmt"
 )
 
-var ErrConversationHasNoWorkspace = errors.New("topic conversation has no workspace resource")
-
 func (store *Store) ReadConversationWorkspaceID(
 	ctx context.Context,
 	conversationID string,
 ) (string, error) {
-	workspaceID, err := store.ReadConversationWorkspaceBindingID(ctx, conversationID)
-	if err != nil {
-		return "", err
-	}
-	if workspaceID == nil {
-		return "", fmt.Errorf("%w: %s", ErrConversationHasNoWorkspace, conversationID)
-	}
-	return *workspaceID, nil
-}
-
-func (store *Store) ReadConversationWorkspaceBindingID(
-	ctx context.Context,
-	conversationID string,
-) (*string, error) {
 	if store == nil {
-		return nil, errors.New("conversation store is required")
+		return "", errors.New("conversation store is required")
 	}
 	if ctx == nil {
-		return nil, errors.New("conversation workspace read context is required")
+		return "", errors.New("conversation workspace read context is required")
 	}
 	if err := validateIdentifier("conversation workspace read conversation id", conversationID); err != nil {
-		return nil, err
+		return "", err
 	}
-	var workspaceID sql.NullString
+	var workspaceID string
 	err := store.read(ctx, "read conversation workspace", func(ctx context.Context, reader *sql.Conn) error {
 		err := reader.QueryRowContext(ctx, `SELECT workspace_id FROM conversations WHERE id = ?`, conversationID).Scan(&workspaceID)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -44,7 +28,7 @@ func (store *Store) ReadConversationWorkspaceBindingID(
 		}
 		return err
 	})
-	return optionalScannedString(workspaceID), err
+	return workspaceID, err
 }
 
 func (store *Store) ReadConversationRouterContextSource(

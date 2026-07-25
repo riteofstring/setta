@@ -1,5 +1,5 @@
-import { Check, FolderOpen, Sparkles, Square, X } from "lucide-react";
-import { useRef } from "react";
+import { Check, Sparkles, Square, X } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import {
   type ArtifactMetadata,
@@ -16,7 +16,16 @@ import {
 
 import { openVoiceProviderSelectionSettings } from "../../components/settings-navigation";
 import type { ConversationProjection } from "../../stores/conversation-projection";
-import type { PaneSpeechPresentation } from "../global-speech/global-speech-presentation";
+import { useConversationNavigatorStore } from "../../stores/conversation-navigator-store";
+import { usePaneSpeechPresentation } from "../global-speech/app-shell-speech-status";
+import type {
+  GlobalSpeechPresentationSource,
+  PaneSpeechPresentation,
+} from "../global-speech/global-speech-presentation";
+import type { SpeechCaptureRequester } from "../global-speech/speech-capture-destination";
+import { useConversationStore } from "../../stores/conversation-store";
+import { workspaceAvailability, useWorkspaceStore } from "../../stores/workspace-store";
+import { retainConversationProjection } from "../../stores/conversation-projection-runtime";
 import { conversationPaletteStyle } from "./conversation-palette-style";
 import { ConversationApprovalPanel } from "./easy-button-approval-panel";
 import {
@@ -24,7 +33,10 @@ import {
   type PendingConversationApproval,
 } from "./easy-button-approval-projection";
 import { EasyButtonConversationComposer } from "./easy-button-conversation-composer";
-import type { EasyButtonConversationCommands } from "./easy-button-conversation-commands";
+import {
+  type EasyButtonConversationCommands,
+  useEasyButtonConversationCommands,
+} from "./easy-button-conversation-commands";
 import { conversationComposerBindings } from "./easy-button-conversation-composer-bindings";
 import {
   conversationControlAction,
@@ -62,6 +74,13 @@ import {
 type EasyButtonViewState = "idle" | "working" | "complete";
 type EasyButtonStatusTone = "none" | "completed" | "failed" | "stopped";
 type EasyButtonProjectionStatus = "unloaded" | "loading" | "ready" | "error" | "resyncing";
+interface EasyButtonSurfaceProps {
+  conversationId: string;
+  paneId?: string | null;
+  speechCapture?: SpeechCaptureRequester;
+  speechPresentation?: GlobalSpeechPresentationSource;
+  workspaceId?: string | null;
+}
 
 export interface EasyButtonProjectionView {
   activeAgentCount: number;
@@ -93,6 +112,57 @@ export interface EasyButtonProjectionView {
   workspaceId: string | null;
 }
 
+export function EasyButtonSurface({
+  conversationId,
+  paneId = null,
+  speechCapture,
+  speechPresentation,
+  workspaceId,
+}: EasyButtonSurfaceProps) {
+  const workspaceSession = useWorkspaceStore((state) => state.session);
+  const workspaceAvailable =
+    workspaceAvailability(workspaceSession, workspaceId)?.available ?? false;
+  const projection = useConversationStore((state) =>
+    easyButtonConversationProjection(state.conversations, conversationId),
+  );
+  useEffect(() => {
+    if (!workspaceId) {
+      return;
+    }
+    return retainConversationProjection(workspaceId, conversationId);
+  }, [conversationId, workspaceId]);
+  const commands = useEasyButtonConversationCommands({
+    conversationId,
+    paneId,
+    projection,
+    speechCapture,
+    workspaceAvailable,
+    workspaceId: workspaceId ?? null,
+  });
+  const speech = usePaneSpeechPresentation(conversationId, paneId, speechPresentation);
+  const parentTitle = useConversationNavigatorStore((state) => {
+    const parentConversationId = projection?.snapshot?.branch?.parentConversationId;
+    if (!workspaceId || !parentConversationId) {
+      return null;
+    }
+    return (
+      state.workspaces[workspaceId]?.items.find(
+        (item) => item.conversation.id === parentConversationId,
+      )?.conversation.title ?? null
+    );
+  });
+  const projectedView = easyButtonProjectionView(conversationId, projection, paneId, parentTitle);
+  const view = commands.error ? { ...projectedView, error: commands.error } : projectedView;
+  return (
+    <EasyButtonProjectionSurface
+      commands={commands}
+      readOnly={!workspaceAvailable}
+      speech={speech}
+      view={view}
+    />
+  );
+}
+
 export function easyButtonConversationProjection(
   conversations: ReadonlyMap<string, ConversationProjection>,
   conversationId: string,
@@ -104,25 +174,18 @@ function composerPlaceholder(
   view: EasyButtonProjectionView,
   commands: EasyButtonConversationCommands | undefined,
 ): string {
-  if (commands?.folderResourceRequest) {
-    return "Ask this topic agent...";
-  }
   if (!commands?.available) {
-    return unavailableComposerPlaceholder(view);
+    if (view.archived) {
+      return "Conversation archived";
+    }
+    return view.projectionStatus === "loading" || view.projectionStatus === "resyncing"
+      ? "Loading conversation…"
+      : "Conversation commands are unavailable";
   }
   if (commands.clarificationQuestion) {
     return "Answer the narrator’s clarification…";
   }
   return view.viewState === "working" ? "Send another request…" : "Ask this topic agent…";
-}
-
-function unavailableComposerPlaceholder(view: EasyButtonProjectionView): string {
-  if (view.archived) {
-    return "Conversation archived";
-  }
-  return view.projectionStatus === "loading" || view.projectionStatus === "resyncing"
-    ? "Loading conversation…"
-    : "Conversation commands are unavailable";
 }
 
 export function EasyButtonProjectionSurface({
@@ -291,19 +354,29 @@ function ConversationActionSlot({
   commands: EasyButtonConversationCommands | undefined;
   view: EasyButtonProjectionView;
 }) {
-  if (view.archived) {
-    return <EmptyActionSlot />;
-  }
-  if (commands?.folderResourceRequest) {
+  if (!view.archived && commands?.routingFailure) {
     return (
-      <FolderResourceActionSlot
-        chooseFolder={commands.folderResourceRequest.chooseFolder}
-        pending={commands.pending}
-      />
+      <div className="easy-button-action-slot easy-button-routing-recovery">
+        {commands.routingFailure.retryable ? (
+          <button
+            data-testid="easy-button-input-retry"
+            disabled={commands.pending}
+            onClick={commands.retryFailedInput}
+            type="button"
+          >
+            Retry routing
+          </button>
+        ) : null}
+        <button
+          data-testid="easy-button-input-discard"
+          disabled={commands.pending}
+          onClick={commands.discardFailedInput}
+          type="button"
+        >
+          Discard request
+        </button>
+      </div>
     );
-  }
-  if (commands?.routingFailure) {
-    return <RoutingRecoveryActionSlot commands={commands} />;
   }
   if (view.pendingApproval && commands) {
     return (
@@ -324,57 +397,6 @@ function ConversationActionSlot({
       </div>
     );
   }
-  return <EmptyActionSlot />;
-}
-
-function FolderResourceActionSlot({
-  chooseFolder,
-  pending,
-}: {
-  chooseFolder: () => void;
-  pending: boolean;
-}) {
-  return (
-    <div className="easy-button-action-slot easy-button-resource-request">
-      <button
-        data-testid="easy-button-folder-resource"
-        disabled={pending}
-        onClick={chooseFolder}
-        type="button"
-      >
-        <FolderOpen aria-hidden="true" className="h-3.5 w-3.5" />
-        Choose folder
-      </button>
-    </div>
-  );
-}
-
-function RoutingRecoveryActionSlot({ commands }: { commands: EasyButtonConversationCommands }) {
-  return (
-    <div className="easy-button-action-slot easy-button-routing-recovery">
-      {commands.routingFailure?.retryable ? (
-        <button
-          data-testid="easy-button-input-retry"
-          disabled={commands.pending}
-          onClick={commands.retryFailedInput}
-          type="button"
-        >
-          Retry routing
-        </button>
-      ) : null}
-      <button
-        data-testid="easy-button-input-discard"
-        disabled={commands.pending}
-        onClick={commands.discardFailedInput}
-        type="button"
-      >
-        Discard request
-      </button>
-    </div>
-  );
-}
-
-function EmptyActionSlot() {
   return <div className="easy-button-action-slot" />;
 }
 

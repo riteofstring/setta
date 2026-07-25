@@ -1,8 +1,8 @@
 import type { WorkspaceAvailability, WorkspaceSession } from "@generated/backend";
 import { create } from "zustand";
 
-type WorkspaceStatus = "idle" | "loading" | "ready" | "error";
-type WorkspaceOperationKind =
+export type WorkspaceStatus = "idle" | "loading" | "ready" | "error";
+export type WorkspaceOperationKind =
   | "closing"
   | "opening"
   | "relocating"
@@ -10,7 +10,7 @@ type WorkspaceOperationKind =
   | "removingRecent"
   | "reordering"
   | "selecting";
-type WorkspaceOperation = WorkspaceOperationKind | null;
+export type WorkspaceOperation = WorkspaceOperationKind | null;
 
 interface WorkspaceStore {
   clearError: () => void;

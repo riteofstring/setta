@@ -15,7 +15,6 @@ import {
   clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
-  openFixtureWorkspace,
   parseElectronHarnessArgs,
   reloadPage,
   stopElectronCdpContext,
@@ -1154,14 +1153,14 @@ try {
   });
 
   await waitForBackendState(
-    () => backend.get("/app/panes/layout"),
+    () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
     (result) =>
       result.layout?.panes.some(
         (pane) =>
           pane.paneId === alphaRestartSide.parentPaneId &&
-          pane.conversationConfig?.conversationId === alpha.id,
+          pane.easyButtonConfig?.conversationId === alpha.id,
       ) === true &&
-      result.layout.panes.some((pane) => pane.conversationConfig?.conversationId === beta.id),
+      result.layout.panes.some((pane) => pane.easyButtonConfig?.conversationId === beta.id),
     workflowTimeoutMs,
   );
   await captureScreenshot(context.client, join(artifactDir, "commands-complete.png"));
@@ -1324,9 +1323,14 @@ try {
 }
 
 async function openWorkspace(client) {
-  const initial = await client.driver("topicConversationWorkspaceOpenState", { workspaceId: "" });
+  const initial = await waitForState(
+    client,
+    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
+    (state) => state.openButtonReady || validWorkspaceId(state.workspaceId),
+    workflowTimeoutMs,
+  );
   if (!validWorkspaceId(initial.workspaceId)) {
-    await openFixtureWorkspace(client, workflowTimeoutMs);
+    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
   }
   const opened = await waitForState(
     client,
@@ -1385,6 +1389,7 @@ function initialEasyButtonExperienceReady(state) {
   return [
     !state.createControlPresent,
     !state.searchControlPresent,
+    !state.startupPanePresent,
     state.topBarSpeechStatusPresent,
     !state.voiceOffPresent,
     state.actionCount === 5,
