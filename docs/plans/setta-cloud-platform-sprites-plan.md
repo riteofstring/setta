@@ -1396,7 +1396,7 @@ lose mutation intent, suspension, or budget enforcement.
   references. Resolve, provision, wake, bind, and grant access idempotently.
 - [ ] Resolve execution placement automatically from trusted entitlement,
   capability, availability, security, and cost state.
-- [ ] Enforce the initial one-active-agent limit through existing queue
+- [x] Enforce the initial one-active-agent limit through existing queue
   semantics and bounded background-work leases. Keep those limits automatic;
   do not expose a scheduler or runtime-sizing UI.
 - [x] Publish typed Director progress such as preparing access, syncing the
@@ -2779,3 +2779,23 @@ Stop and reassess rather than hiding the problem if any of these occur:
   workload leases; it does not close the broader Phase 4 matrix for idle
   reconnect, warm wake, process/backend loss, and control-plane restart. No
   provider or cloud mutation ran.
+- 2026-07-25 (one-active-agent verification): Closed the Phase 6 beta
+  concurrency-limit item without adding a scheduler or runtime-sizing surface.
+  The installed hosted runtime already constructs one process-wide,
+  capacity-one slot whenever the trusted workload-lease manager and accounting
+  reporter are enabled. Every topic, side, narrator, and master provider turn
+  must take that slot before acquiring the fixed `setta-agent` Task and opening
+  a provider session; context cancellation while waiting is explicit, and
+  every exit returns the slot after bounded lease release/reporting. The new
+  concurrent agent test starts real scripted provider turns on two independent
+  threads. While the first is held, the second emits no provider event and
+  cannot call lease acquire. Cancelling the first records its end and release;
+  only then may the second acquire, run to completion, record its end, and
+  release. Ten race-instrumented repetitions passed. The registered hosted
+  Electron workflow separately proves existing same-conversation queueing,
+  steering, queued promotion, and balanced Sprites Task/reporting lifecycles,
+  so the automatic runtime-wide slot and existing durable queue semantics cover
+  both cross-conversation and in-conversation limits. `./check_quality.sh
+  --git-changes` passed the focused Go vet, test, and dead-code gate. No
+  production behavior, generated contract, dependency, provider, or cloud
+  resource changed.
