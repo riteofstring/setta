@@ -180,6 +180,14 @@ func TestCandidateBGatewayConversationRestartAndReplay(t *testing.T) {
 	if err := replayedStream.body.Close(); err != nil {
 		t.Fatal(err)
 	}
+	exerciseHostedIdleReconnects(
+		t,
+		client,
+		baseURL,
+		opened.Workspace.ID,
+		created.Conversation.ID,
+		snapshot,
+	)
 	shutdownHostedGateway(t, gateway, store)
 	requireHostedGatewayMeasurement(
 		t,
@@ -187,6 +195,7 @@ func TestCandidateBGatewayConversationRestartAndReplay(t *testing.T) {
 		"ConversationEventStream",
 		true,
 	)
+	requireHostedGatewayIdleReconnectMeasurements(t, restartedMeasurements, 3)
 	requireHostedGatewayMeasurementsExclude(
 		t,
 		restartedMeasurements,
@@ -194,7 +203,117 @@ func TestCandidateBGatewayConversationRestartAndReplay(t *testing.T) {
 		created.Conversation.ID,
 		firstEvent.EventID,
 		replayed.EventID,
+		"complete after recurring idle reconnect",
 	)
+}
+
+func requireHostedGatewayIdleReconnectMeasurements(
+	t *testing.T,
+	encoded *bytes.Buffer,
+	minimum int,
+) {
+	t.Helper()
+	decoder := json.NewDecoder(bytes.NewReader(encoded.Bytes()))
+	count := 0
+	for decoder.More() {
+		var measurement controlplane.GatewayMeasurement
+		if err := decoder.Decode(&measurement); err != nil {
+			t.Fatal(err)
+		}
+		if measurement.Operation == "ConversationEventStream" &&
+			measurement.ResumeRequested &&
+			!measurement.FirstResponseObserved &&
+			measurement.ResponseBytes == 0 &&
+			measurement.Result == "runtime_stream_failed" &&
+			measurement.Status == http.StatusOK {
+			count++
+		}
+	}
+	if count < minimum {
+		t.Fatalf(
+			"idle reconnect measurements = %d, want at least %d in %s",
+			count,
+			minimum,
+			encoded.String(),
+		)
+	}
+}
+
+func exerciseHostedIdleReconnects(
+	t *testing.T,
+	client *http.Client,
+	baseURL string,
+	workspaceID string,
+	conversationID string,
+	idleSnapshot conversation.ConversationSnapshot,
+) {
+	t.Helper()
+	cursor := fmt.Sprintf(
+		"%s:%d",
+		idleSnapshot.EventCursor.StreamID,
+		idleSnapshot.EventCursor.Sequence,
+	)
+	for range 3 {
+		stream := openHostedConversationStream(
+			t,
+			client,
+			baseURL,
+			workspaceID,
+			conversationID,
+			cursor,
+		)
+		if err := stream.body.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stream := openHostedConversationStream(
+		t,
+		client,
+		baseURL,
+		workspaceID,
+		conversationID,
+		cursor,
+	)
+	defer stream.body.Close()
+	accepted := submitHostedConversationInput(
+		t,
+		client,
+		baseURL,
+		conversationID,
+		"hosted-recurring-idle-reconnect",
+		"complete after recurring idle reconnect",
+	)
+	requireRuntimeLiveRouteKind(
+		t,
+		waitForRuntimeLiveConversationRoute(
+			t,
+			client,
+			baseURL,
+			workspaceID,
+			conversationID,
+			accepted,
+		),
+		conversation.ConversationRouteDecisionKindSendToParent,
+	)
+	event := readHostedConversationEvent(t, stream.reader)
+	if event.Sequence <= idleSnapshot.EventCursor.Sequence {
+		t.Fatalf(
+			"event after recurring idle reconnect = %d, want > %d",
+			event.Sequence,
+			idleSnapshot.EventCursor.Sequence,
+		)
+	}
+	completed := waitForRuntimeLiveTopicTurns(
+		t,
+		client,
+		baseURL,
+		workspaceID,
+		conversationID,
+		2,
+	)
+	if completed.Turns.Turns[1].Status != conversation.TurnStatusCompleted {
+		t.Fatalf("turn after recurring idle reconnect = %+v", completed.Turns.Turns[1])
+	}
 }
 
 type hostedRuntimeDialer struct {

@@ -3,6 +3,7 @@ package runtimeaccess
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -258,27 +259,31 @@ func TestGatewayInvalidRouteAndUpstreamErrorsFailClosedWithoutSecrets(t *testing
 }
 
 func TestGatewayFlushesEventStreams(t *testing.T) {
-	runtimeName := testRuntimeName(t)
-	gateway := newAllowedTestGateway(t, runtimeName, RuntimeRoute{
-		RuntimeName:       runtimeName,
-		UpstreamAuthority: "localhost:8080",
-		RuntimeCredential: "runtime-secret",
-		Transport: roundTripperFunc(func(*http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Header:     http.Header{"Content-Type": []string{"text/event-stream; charset=utf-8"}},
-				Body:       io.NopCloser(strings.NewReader("data: ready\n\n")),
-			}, nil
-		}),
-	})
-	writer := &flushingRecorder{ResponseRecorder: httptest.NewRecorder()}
-	request := httptest.NewRequest(http.MethodGet, "https://gateway.example/v1/conversations/events", nil)
-	request.Header.Set("Authorization", "Bearer client")
+	for _, body := range []string{"", "data: ready\n\n"} {
+		t.Run(fmt.Sprintf("body_bytes_%d", len(body)), func(t *testing.T) {
+			runtimeName := testRuntimeName(t)
+			gateway := newAllowedTestGateway(t, runtimeName, RuntimeRoute{
+				RuntimeName:       runtimeName,
+				UpstreamAuthority: "localhost:8080",
+				RuntimeCredential: "runtime-secret",
+				Transport: roundTripperFunc(func(*http.Request) (*http.Response, error) {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Header:     http.Header{"Content-Type": []string{"text/event-stream; charset=utf-8"}},
+						Body:       io.NopCloser(strings.NewReader(body)),
+					}, nil
+				}),
+			})
+			writer := &flushingRecorder{ResponseRecorder: httptest.NewRecorder()}
+			request := httptest.NewRequest(http.MethodGet, "https://gateway.example/v1/conversations/events", nil)
+			request.Header.Set("Authorization", "Bearer client")
 
-	gateway.serveHTTP(writer, request)
+			gateway.serveHTTP(writer, request)
 
-	if writer.Code != http.StatusOK || writer.flushes == 0 || writer.Body.String() != "data: ready\n\n" {
-		t.Fatalf("response = %d, flushes = %d, body = %q", writer.Code, writer.flushes, writer.Body.String())
+			if writer.Code != http.StatusOK || writer.flushes == 0 || writer.Body.String() != body {
+				t.Fatalf("response = %d, flushes = %d, body = %q", writer.Code, writer.flushes, writer.Body.String())
+			}
+		})
 	}
 }
 

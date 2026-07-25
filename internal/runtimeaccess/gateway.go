@@ -366,9 +366,17 @@ func forwardGatewayResponse(
 	observation.Status = upstream.StatusCode
 	copyResponseHeaders(response.Header(), upstream.Header)
 	response.WriteHeader(upstream.StatusCode)
+	if isEventStreamResponse(upstream) {
+		response.Flush()
+	}
 	if err := streamResponse(response, upstream); err != nil {
 		observation.Result = GatewayResultRuntimeStreamFailed
 	}
+}
+
+func isEventStreamResponse(response *http.Response) bool {
+	mediaType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
+	return err == nil && mediaType == "text/event-stream"
 }
 
 func gatewayRequestMethod(method string) GatewayRequestMethod {
@@ -544,8 +552,7 @@ func copyResponseHeaders(destination http.Header, source http.Header) {
 }
 
 func streamResponse(writer http.ResponseWriter, response *http.Response) error {
-	mediaType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
-	flushStream := err == nil && mediaType == "text/event-stream"
+	flushStream := isEventStreamResponse(response)
 	buffer := make([]byte, 32*1024)
 	for {
 		read, readErr := response.Body.Read(buffer)
