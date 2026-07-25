@@ -312,6 +312,13 @@ func (fold *narratorTurnFold) applyInstructions(
 			Input:    event.TurnSteered.Input,
 		})
 		return true, nil
+	case TrajectoryEventAgentMessageCompleted:
+		message := NarratorSemanticAssistantMessage{
+			ProviderItemID: event.AgentMessageCompleted.ProviderItemID,
+			Text:           event.AgentMessageCompleted.Text,
+		}
+		projection.LatestAssistantMessage = &message
+		return true, nil
 	case TrajectoryEventPlanChanged:
 		projection.Plan = &NarratorCurrentPlan{Sequence: event.Sequence, Plan: *event.PlanChanged}
 		return true, nil
