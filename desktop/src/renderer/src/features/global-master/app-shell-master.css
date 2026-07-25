@@ -1,68 +1,202 @@
-.setta-master-sidebar-launcher {
-  align-items: center;
-  background: color-mix(in oklch, var(--primary) 7%, transparent);
-  border: 1px solid color-mix(in oklch, var(--primary) 28%, var(--border));
-  border-radius: 7px;
-  color: var(--setta-100);
+.setta-master-pane-surface.easy-button-surface {
+  --easy-button-primary: var(--primary);
+  --easy-button-panel: color-mix(in oklch, var(--setta-875) 88%, var(--primary) 3%);
+  --easy-button-plate: color-mix(in oklch, var(--setta-925) 90%, var(--primary) 3%);
+  --easy-button-border: color-mix(in oklch, var(--setta-700) 82%, var(--primary) 18%);
+  --easy-button-muted: var(--setta-250);
+  --easy-button-faint: var(--setta-450);
+  --easy-button-well: clamp(126px, min(22vw, 22vh), 172px);
+  background: color-mix(in oklch, var(--setta-900) 94%, var(--primary) 3%);
+}
+
+.setta-master-history-rail.easy-button-rail-left {
+  justify-content: flex-start;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.setta-master-history-list {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.setta-master-history-list .setta-master-overlay-user-message,
+.setta-master-history-list .setta-master-overlay-result {
+  animation: easy-button-highlight-arrive 300ms ease-out;
+  background: color-mix(in oklch, var(--easy-button-panel) 78%, transparent);
+  border-color: color-mix(in oklch, var(--easy-button-border) 70%, transparent);
+  border-radius: 8px;
+  box-shadow: none;
+  padding: 9px 10px;
+}
+
+.setta-master-rail-status {
+  align-items: flex-start;
+  background: color-mix(in oklch, var(--easy-button-panel) 74%, transparent);
+  border: 1px solid color-mix(in oklch, var(--easy-button-border) 68%, transparent);
+  border-radius: 8px;
+  color: var(--easy-button-muted);
+  display: grid;
   font-size: 12px;
-  font-weight: 560;
   gap: 8px;
-  height: 36px;
-  padding: 0 9px;
-  transition:
-    background-color 120ms ease,
-    border-color 120ms ease;
-  width: 100%;
+  line-height: 1.45;
+  padding: 10px;
 }
 
-.setta-master-sidebar-launcher:hover:not(:disabled),
-.setta-master-sidebar-launcher:focus-visible {
-  background: color-mix(in oklch, var(--primary) 12%, transparent);
-  border-color: color-mix(in oklch, var(--primary) 52%, var(--border));
-  box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 18%, transparent);
+.setta-master-rail-status.is-failed {
+  background: color-mix(in oklch, var(--status-critical) 8%, var(--easy-button-panel));
+  border-color: color-mix(in oklch, var(--status-critical) 34%, transparent);
+  color: color-mix(in oklch, var(--status-critical) 74%, var(--foreground));
 }
 
-.setta-master-sidebar-launcher:disabled {
-  opacity: 0.48;
-}
-
-.setta-master-sidebar-launcher-icon {
+.setta-master-rail-status button {
   align-items: center;
-  background: color-mix(in oklch, var(--primary) 14%, transparent);
-  border-radius: 5px;
-  color: var(--primary);
+  background: var(--easy-button-plate);
+  border: 1px solid color-mix(in oklch, var(--easy-button-border) 70%, transparent);
+  border-radius: 6px;
+  color: var(--foreground);
   display: inline-flex;
-  height: 22px;
+  font-size: 11px;
+  gap: 6px;
+  height: 28px;
   justify-content: center;
-  width: 22px;
+  justify-self: start;
+  padding: 0 9px;
 }
 
-.setta-master-sidebar-launcher-icon svg {
+.setta-master-rail-status svg,
+.setta-master-rail-status button svg {
   height: 13px;
   width: 13px;
 }
 
-.setta-master-overlay-layer {
-  align-items: flex-start;
-  display: flex;
-  inset: 0;
-  justify-content: center;
-  padding: max(62px, 8vh) 18px 22px;
-  position: fixed;
-  z-index: 240;
+.setta-master-stage.easy-button-stage {
+  padding: 24px 12px;
 }
 
-.setta-master-overlay-backdrop {
-  background:
-    radial-gradient(
-      circle at 50% 20%,
-      color-mix(in oklch, var(--primary) 7%, transparent),
-      transparent 48%
-    ),
-    color-mix(in oklch, var(--setta-975) 72%, transparent);
-  inset: 0;
-  position: absolute;
+.setta-master-center.easy-button-center {
+  max-width: 560px;
+}
+
+.setta-master-agent-chip {
+  opacity: 1;
+}
+
+.setta-master-button-well .easy-button-swirl {
+  opacity: 0.32;
+}
+
+.setta-master-pane-surface[data-easy-button-state="working"]
+  .setta-master-button-well
+  .easy-button-swirl {
+  opacity: 0.92;
+}
+
+.setta-master-control.easy-button-control {
+  color: color-mix(in oklch, var(--easy-button-primary) 72%, var(--foreground));
+}
+
+.setta-master-control.easy-button-control[data-master-voice-state="recording"] {
+  border-color: color-mix(in oklch, var(--accent-green) 42%, var(--easy-button-border));
+  color: var(--accent-green);
+}
+
+.setta-master-control.easy-button-control[data-master-voice-state="failed"],
+.setta-master-control.easy-button-control[data-master-voice-state="unavailable"] {
+  color: color-mix(in oklch, var(--status-critical) 64%, var(--foreground));
+}
+
+.setta-master-control.easy-button-control svg {
+  height: 40px;
+  width: 40px;
+}
+
+.setta-master-caption-slot.easy-button-caption-slot {
+  margin-top: 22px;
+  max-width: 520px;
+  min-height: 106px;
+}
+
+.setta-master-caption-slot .setta-master-overlay-interaction {
+  align-content: center;
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+  overflow: visible;
+  padding: 0;
+  scrollbar-gutter: auto;
+  width: 100%;
+}
+
+.setta-master-caption-slot .setta-master-overlay-empty {
+  max-width: 440px;
+  min-height: 0;
+}
+
+.setta-master-caption-slot .setta-master-overlay-empty-icon {
+  display: none;
+}
+
+.setta-master-caption-slot .setta-master-overlay-user-message {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--foreground);
+  padding: 0;
+  text-align: center;
+}
+
+.setta-master-caption-slot .setta-master-overlay-message-meta {
+  justify-content: center;
+}
+
+.setta-master-caption-slot .setta-master-overlay-user-message p {
+  color: var(--easy-button-muted);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.setta-master-caption-slot .setta-master-overlay-result {
+  background: color-mix(in oklch, var(--easy-button-primary) 7%, transparent);
+  border-color: color-mix(in oklch, var(--easy-button-primary) 23%, var(--easy-button-border));
+  border-radius: 8px;
+  margin: 0 auto;
+  max-width: 480px;
+  text-align: left;
+}
+
+.setta-master-action-rail.easy-button-rail-right {
+  gap: 10px;
+}
+
+.setta-master-footer.easy-button-footer {
+  gap: 7px;
+}
+
+.setta-master-input-wrap.easy-button-input-wrap {
+  max-width: 960px;
+}
+
+.setta-master-input.easy-button-input {
+  line-height: 17px;
+  max-height: 92px;
+  min-height: 17px;
+  overflow-y: auto;
+  resize: none;
+}
+
+.setta-master-submit.easy-button-enter-chip {
+  height: 24px;
+}
+
+.setta-master-footer-status {
+  color: var(--easy-button-faint);
+  font-size: 10px;
+  line-height: 14px;
+  margin: 0;
 }
 
 .setta-master-overlay {
@@ -80,6 +214,24 @@
   overflow: hidden;
   position: relative;
   width: 100%;
+}
+
+.setta-master-pane.setta-master-overlay {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  height: 100%;
+  max-height: none;
+  max-width: none;
+  min-height: 0;
+}
+
+.setta-master-pane .setta-master-overlay-header {
+  padding: 12px 14px;
+}
+
+.setta-master-pane .setta-master-overlay-shortcuts {
+  display: none;
 }
 
 .setta-master-overlay-header {
@@ -341,7 +493,7 @@
   display: grid;
   font-size: 11px;
   gap: 9px;
-  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-columns: 16px minmax(0, 1fr) auto;
   line-height: 16px;
   padding: 10px 11px;
 }
@@ -368,6 +520,33 @@
   width: 14px;
 }
 
+.setta-master-overlay-replay {
+  align-items: center;
+  border-radius: 6px;
+  color: inherit;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  opacity: 0.78;
+  width: 28px;
+}
+
+.setta-master-overlay-replay:hover:not(:disabled),
+.setta-master-overlay-replay:focus-visible {
+  background: color-mix(in oklch, var(--setta-100) 10%, transparent);
+  opacity: 1;
+}
+
+.setta-master-overlay-replay:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.setta-master-overlay-replay svg {
+  height: 14px;
+  width: 14px;
+}
+
 .setta-master-overlay-result strong {
   color: var(--setta-100);
   font-size: 10.5px;
@@ -390,7 +569,212 @@
   padding: 12px 14px 10px;
 }
 
-.setta-master-overlay-voice-status {
+.setta-master-conversation-picker {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.setta-master-conversation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.setta-master-conversation-action {
+  align-items: center;
+  background: color-mix(in oklch, var(--setta-800) 78%, transparent);
+  border: 1px solid color-mix(in oklch, var(--setta-600) 50%, transparent);
+  border-radius: 7px;
+  color: var(--setta-200);
+  display: inline-flex;
+  font-size: 10.5px;
+  gap: 6px;
+  height: 28px;
+  padding: 0 9px;
+}
+
+.setta-master-conversation-action:hover:not(:disabled),
+.setta-master-conversation-action:focus-visible {
+  background: color-mix(in oklch, var(--primary) 14%, var(--setta-800));
+  border-color: color-mix(in oklch, var(--primary) 42%, var(--setta-600));
+  color: var(--setta-50);
+}
+
+.setta-master-conversation-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.setta-master-conversation-action svg {
+  height: 13px;
+  width: 13px;
+}
+
+.setta-master-conversation-error {
+  align-items: center;
+  background: color-mix(in oklch, var(--status-critical) 8%, transparent);
+  border: 1px solid color-mix(in oklch, var(--status-critical) 30%, transparent);
+  border-radius: 8px;
+  color: color-mix(in oklch, var(--status-critical) 74%, var(--setta-100));
+  display: flex;
+  font-size: 10.5px;
+  gap: 7px;
+  line-height: 15px;
+  padding: 7px 9px;
+}
+
+.setta-master-conversation-error svg {
+  flex: 0 0 auto;
+  height: 12px;
+  width: 12px;
+}
+
+.setta-master-conversation-panel {
+  background: color-mix(in oklch, var(--setta-875) 86%, transparent);
+  border: 1px solid color-mix(in oklch, var(--setta-600) 46%, transparent);
+  border-radius: 8px;
+  display: grid;
+  gap: 7px;
+  padding: 8px;
+}
+
+.setta-master-conversation-search {
+  align-items: center;
+  background: color-mix(in oklch, var(--setta-925) 82%, transparent);
+  border: 1px solid color-mix(in oklch, var(--setta-650) 52%, transparent);
+  border-radius: 7px;
+  color: var(--setta-400);
+  display: grid;
+  gap: 7px;
+  grid-template-columns: 14px minmax(0, 1fr);
+  height: 30px;
+  padding: 0 8px;
+}
+
+.setta-master-conversation-search:focus-within {
+  border-color: color-mix(in oklch, var(--primary) 50%, var(--setta-650));
+}
+
+.setta-master-conversation-search svg {
+  height: 13px;
+  width: 13px;
+}
+
+.setta-master-conversation-search input {
+  background: transparent;
+  border: 0;
+  color: var(--setta-100);
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 16px;
+  min-width: 0;
+  outline: 0;
+}
+
+.setta-master-conversation-search input::placeholder {
+  color: var(--setta-450);
+}
+
+.setta-master-conversation-list {
+  display: grid;
+  gap: 4px;
+  max-height: 190px;
+  min-height: 34px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.setta-master-conversation-row {
+  align-items: center;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: minmax(0, 1fr) 28px;
+}
+
+.setta-master-conversation-open {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--setta-200);
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 16px minmax(0, 1fr);
+  min-height: 36px;
+  padding: 5px 7px;
+  text-align: left;
+}
+
+.setta-master-conversation-open:hover:not(:disabled),
+.setta-master-conversation-open:focus-visible,
+.setta-master-conversation-archive:hover:not(:disabled),
+.setta-master-conversation-archive:focus-visible {
+  background: color-mix(in oklch, var(--primary) 9%, var(--setta-850));
+  border-color: color-mix(in oklch, var(--primary) 28%, var(--setta-700));
+  color: var(--setta-50);
+}
+
+.setta-master-conversation-open:disabled,
+.setta-master-conversation-archive:disabled {
+  opacity: 0.56;
+}
+
+.setta-master-conversation-open svg,
+.setta-master-conversation-archive svg {
+  height: 14px;
+  width: 14px;
+}
+
+.setta-master-conversation-archive {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--setta-400);
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.setta-master-conversation-row-main {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.setta-master-conversation-row-title {
+  color: inherit;
+  font-size: 11.5px;
+  font-weight: 560;
+  line-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setta-master-conversation-row-meta,
+.setta-master-conversation-status {
+  color: var(--setta-400);
+  font-size: 9.5px;
+  line-height: 13px;
+}
+
+.setta-master-conversation-status {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 2px;
+}
+
+.setta-master-conversation-status svg {
+  height: 12px;
+  width: 12px;
+}
+
+.setta-master-pane-voice-status {
   align-items: center;
   background: color-mix(in oklch, var(--primary) 6%, transparent);
   border: 1px solid color-mix(in oklch, var(--primary) 20%, var(--setta-700));
@@ -405,26 +789,26 @@
   padding: 7px 9px;
 }
 
-.setta-master-overlay-voice-status[data-master-voice-state="failed"] {
+.setta-master-pane-voice-status[data-master-voice-state="failed"] {
   background: color-mix(in oklch, var(--status-critical) 8%, transparent);
   border-color: color-mix(in oklch, var(--status-critical) 30%, transparent);
   color: color-mix(in oklch, var(--status-critical) 74%, var(--setta-100));
 }
 
-.setta-master-overlay-voice-status svg {
+.setta-master-pane-voice-status svg {
   flex: 0 0 auto;
   height: 12px;
   width: 12px;
 }
 
-.setta-master-overlay-voice-status-text {
+.setta-master-pane-voice-status-text {
   align-items: baseline;
   display: flex;
   gap: 6px;
   min-width: 0;
 }
 
-.setta-master-overlay-voice-status-text,
+.setta-master-pane-voice-status-text,
 .setta-master-overlay-voice-transcript {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -571,16 +955,6 @@
 }
 
 @media (max-width: 720px) {
-  .setta-master-overlay-layer {
-    padding: 12px;
-  }
-
-  .setta-master-overlay {
-    border-radius: 12px;
-    max-height: calc(100vh - 24px);
-    min-height: calc(100vh - 24px);
-  }
-
   .setta-master-overlay-interaction {
     padding: 14px;
   }
@@ -595,10 +969,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .setta-master-sidebar-launcher {
-    transition: none;
-  }
-
   .setta-master-overlay-spinner {
     animation: none;
   }

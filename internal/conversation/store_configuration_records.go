@@ -23,20 +23,7 @@ func (transaction *WriteTransaction) InsertConversationBranch(branch Conversatio
 	if err := transaction.requireForkWorkspaceMatch(branch); err != nil {
 		return err
 	}
-	if err := transaction.requireCompletedTurnBelongs(
-		branch.ForkedAtTurnID,
-		branch.ParentConversationID,
-		"conversation branch",
-		branch.ChildConversationID,
-	); err != nil {
-		return err
-	}
-	if err := transaction.requireConversationCoversSequence(
-		branch.ParentConversationID,
-		branch.SourceTrajectorySequence,
-		"conversation branch",
-		branch.ChildConversationID,
-	); err != nil {
+	if err := transaction.requireBranchSource(branch); err != nil {
 		return err
 	}
 	providerMetadataJSON, err := encodeJSONColumn("conversation branch provider metadata", branch.ProviderMetadata)
@@ -54,7 +41,7 @@ INSERT INTO conversation_branches (
 		branch.ParentConversationID,
 		branch.Kind,
 		branch.DecisionSource,
-		branch.ForkedAtTurnID,
+		optionalBranchForkPoint(branch),
 		branch.SourceTrajectorySequence,
 		providerMetadataJSON,
 		branch.CreatedAt,
@@ -63,6 +50,40 @@ INSERT INTO conversation_branches (
 		return fmt.Errorf("insert conversation branch %s: %w", branch.ChildConversationID, err)
 	}
 	return transaction.recordStateMutation()
+}
+
+// requireBranchSource proves the parent state a branch claims. A fork must name
+// a completed run of its parent and cover the trajectory it carried forward; a
+// child carries neither, so there is nothing about the parent's history to
+// prove.
+func (transaction *WriteTransaction) requireBranchSource(branch ConversationBranch) error {
+	if branch.Kind == BranchKindChild {
+		return nil
+	}
+	if err := transaction.requireCompletedTurnBelongs(
+		branch.ForkedAtTurnID,
+		branch.ParentConversationID,
+		"conversation branch",
+		branch.ChildConversationID,
+	); err != nil {
+		return err
+	}
+	return transaction.requireConversationCoversSequence(
+		branch.ParentConversationID,
+		branch.SourceTrajectorySequence,
+		"conversation branch",
+		branch.ChildConversationID,
+	)
+}
+
+// optionalBranchForkPoint writes the fork point a fork has and NULL for a child,
+// so the column says which branches carried history rather than storing an empty
+// reference that looks like one.
+func optionalBranchForkPoint(branch ConversationBranch) any {
+	if branch.Kind == BranchKindChild {
+		return nil
+	}
+	return branch.ForkedAtTurnID
 }
 
 func (transaction *WriteTransaction) InsertSideConversation(side SideConversation) error {
@@ -338,8 +359,10 @@ SELECT EXISTS(
 }
 
 func (transaction *WriteTransaction) requireForkWorkspaceMatch(branch ConversationBranch) error {
-	var parentWorkspaceID string
-	var childWorkspaceID string
+	// A folderless conversation has no workspace, and a folderless workstream is
+	// first class, so both sides are read as optional and compared as they are.
+	var parentWorkspaceID sql.NullString
+	var childWorkspaceID sql.NullString
 	err := transaction.tx.QueryRowContext(transaction.ctx, `
 SELECT parent.workspace_id, child.workspace_id
 FROM conversations AS parent
@@ -360,7 +383,7 @@ WHERE parent.id = ?
 		return stateConflict(
 			"conversation branch",
 			branch.ChildConversationID,
-			"fork parent and child must belong to the same workspace",
+			"branch parent and child must belong to the same workspace",
 		)
 	}
 	return nil

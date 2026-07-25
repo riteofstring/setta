@@ -5,11 +5,16 @@ import (
 )
 
 type CreateTopicConversationRequest struct {
-	WorkspaceID string `json:"workspaceId"`
-	Title       string `json:"title"`
+	WorkspaceID *string `json:"workspaceId"`
+	Title       string  `json:"title"`
 }
 
 type ArchiveTopicConversationRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
+type BindTopicConversationFolderRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
 }
