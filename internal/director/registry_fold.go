@@ -334,7 +334,7 @@ func (state *registryState) ensureProjected(workstream *registryWorkstream) erro
 		ID:           registrationFactPrefix + workstream.record.ID,
 		EmittedAt:    workstream.record.CreatedAt,
 		Kind:         DirectorFactWorkstreamRegistered,
-		WorkstreamID: workstream.record.ID,
+		WorkstreamID: &workstream.record.ID,
 		Actor:        SemanticActorSystem,
 		WorkstreamRegistered: &DirectorWorkstreamRegistered{
 			Title:          workstream.record.Title,

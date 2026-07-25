@@ -64,7 +64,7 @@ func (builder *fixtureBuilder) director(workstreamID string, kind DirectorSource
 		ID:           fmt.Sprintf("director-%02d", sequence),
 		EmittedAt:    emittedAt,
 		Kind:         kind,
-		WorkstreamID: workstreamID,
+		WorkstreamID: &workstreamID,
 		Actor:        actor,
 	}
 	apply(&fact)

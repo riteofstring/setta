@@ -49,6 +49,10 @@ type registryWorkstream struct {
 	// yet, oldest first. They are what makes recover_path an authorized
 	// decision, so a workstream that never failed cannot be asked to recover.
 	recoverableFailures []DecisionRecoverableFailure
+	// failureRuns maps each recoverable failure to the run it interrupted. The
+	// Director names the failure; the run is trusted state, because recovery
+	// restarts the work that failed rather than work a decision described.
+	failureRuns map[string]string
 }
 
 // registryState is the whole app-scoped fold.
@@ -96,6 +100,7 @@ func newRegistryWorkstream(record Workstream, conversationID string) *registryWo
 		unresolvedApprovals: map[string]bool{},
 		unresolvedResources: map[string]bool{},
 		blockedNodes:        map[string]bool{},
+		failureRuns:         map[string]string{},
 	}
 }
 

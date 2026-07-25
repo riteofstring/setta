@@ -29,8 +29,9 @@ var directorHandlers = map[DirectorSourceFact]directorHandler{
 // workstream is.
 func (projector *DirectorGraphProjector) registerWorkstream(fact DirectorFactEvent) error {
 	payload := fact.WorkstreamRegistered
-	if _, exists := projector.workstreams[fact.WorkstreamID]; exists {
-		return fmt.Errorf("workstream %s is already registered", fact.WorkstreamID)
+	workstreamID := *fact.WorkstreamID
+	if _, exists := projector.workstreams[workstreamID]; exists {
+		return fmt.Errorf("workstream %s is already registered", workstreamID)
 	}
 	if existing, bound := projector.byConversation[payload.ConversationID]; bound {
 		return fmt.Errorf(
@@ -43,28 +44,28 @@ func (projector *DirectorGraphProjector) registerWorkstream(fact DirectorFactEve
 		if _, known := projector.workstreams[*payload.ParentID]; !known {
 			return fmt.Errorf(
 				"workstream %s names parent %s, which is not registered",
-				fact.WorkstreamID,
+				workstreamID,
 				*payload.ParentID,
 			)
 		}
 	}
 	for _, pending := range projector.pendingDelegation {
-		if pending.targetWorkstreamID != fact.WorkstreamID {
+		if pending.targetWorkstreamID != workstreamID {
 			continue
 		}
 		if payload.ParentID == nil || *payload.ParentID != pending.decisionWorkstreamID {
 			return fmt.Errorf(
 				"workstream %s must be a child of %s to satisfy decision %s",
-				fact.WorkstreamID,
+				workstreamID,
 				pending.decisionWorkstreamID,
 				pending.decisionNodeID,
 			)
 		}
 	}
-	projector.workstreams[fact.WorkstreamID] = newProjectedWorkstream(fact.WorkstreamID)
-	projector.workstreamParents[fact.WorkstreamID] = copyOptionalString(payload.ParentID)
-	projector.byConversation[payload.ConversationID] = fact.WorkstreamID
-	projector.order = append(projector.order, fact.WorkstreamID)
+	projector.workstreams[workstreamID] = newProjectedWorkstream(workstreamID)
+	projector.workstreamParents[workstreamID] = copyOptionalString(payload.ParentID)
+	projector.byConversation[payload.ConversationID] = workstreamID
+	projector.order = append(projector.order, workstreamID)
 	return nil
 }
 

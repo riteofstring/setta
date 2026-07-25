@@ -116,13 +116,14 @@ CREATE TABLE conversation_queue (
 CREATE TABLE conversation_branches (
   child_conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
   parent_conversation_id TEXT NOT NULL REFERENCES conversations(id),
-  branch_kind TEXT NOT NULL CHECK (branch_kind = 'fork'),
-  decision_source TEXT NOT NULL CHECK (decision_source IN ('conversation_router', 'master')),
-  forked_at_turn_id TEXT NOT NULL REFERENCES conversation_turns(id),
+  branch_kind TEXT NOT NULL CHECK (branch_kind IN ('fork', 'child')),
+  decision_source TEXT NOT NULL CHECK (decision_source IN ('conversation_router', 'master', 'director')),
+  forked_at_turn_id TEXT REFERENCES conversation_turns(id),
   source_trajectory_sequence INTEGER NOT NULL CHECK (source_trajectory_sequence >= 0),
   provider_metadata_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(provider_metadata_json)),
   created_at TEXT NOT NULL,
-  CHECK (child_conversation_id <> parent_conversation_id)
+  CHECK (child_conversation_id <> parent_conversation_id),
+  CHECK ((branch_kind = 'fork') = (forked_at_turn_id IS NOT NULL))
 ) STRICT;
 
 CREATE INDEX conversation_branches_parent_idx

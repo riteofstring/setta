@@ -27,7 +27,16 @@ the shell talks to, three endpoints carry it, and the desktop forwards the
 app-scoped subscription through typed IPC. The Director contracts are therefore
 reachable in `desktop/src/generated/backend.ts` at protocol version 84, which is
 what Phase 1 item 13's visual gallery was waiting for. Executing a routed
-decision remains item 6.
+decision is committed in `internal/director/execution.go`,
+`decision_execution.go`, and `internal/conversation/service_director_commands.go`
+(item 6's execution half): `WorkstreamExecution` is the consumer-owned execution
+port, and `DecisionExecutor.Execute` is total over a `RoutedIntent` — it commits
+the durable decision, starts or delivers the work through the port, turns work a
+folderless workstream cannot start yet into a durable resource request, and
+commits the Director's own answers and questions as decisions that happened in no
+workstream. The executor is not yet reachable from the shell: the `submit` intent
+lands with the Director's structured decision caller and the local adapter behind
+the port.
 Phase 2 owns the standalone renderer:
 the packed GPU render snapshot, its deterministic fixture generation, and its
 burst/cursor-replay fixtures are committed in
@@ -1274,9 +1283,7 @@ Exit gate:
    `internal/director/FolderResourceBinding` became `WorkstreamFolderResource`:
    the generated TypeScript surface is one namespace, and the pane world's
    `applayout.FolderResourceBinding` still owns that name until Phase 5 deletes
-   it. Executing a routed decision — creating the workstream, sending, queueing,
-   steering, or recovering, and committing `DirectorDecisionCommitted` in the
-   same transaction as that work — is item 6.
+   it. Executing a routed decision is item 6.
 4. Add the app-scoped workstream registry with push subscriptions and durable cursors. **Done —
    `internal/director/registry*.go`.** The registry folds the durable committed log into the
    app-scoped state and publishes what changed. Five decisions are load-bearing:
@@ -1308,7 +1315,61 @@ Exit gate:
    closed.
 6. Move folderless routing, clarification, conversation creation, queueing, steering, cancellation,
    approval, resource requests, model-output recovery, and product-invariant decisions behind the
-   boundary.
+   boundary. **Executing a routed decision is committed** — `internal/director/execution.go`,
+   `decision_execution.go`, `registry_execution.go`, and
+   `internal/conversation/service_director_commands.go`. `WorkstreamExecution` is the
+   consumer-owned execution port: start a workstream, send, queue, steer, recover.
+   Every request names Setta identities trusted code minted before the decision
+   was committed — the conversation a workstream runs on, the folder it is bound
+   to, the run the work becomes — so no provider id, thread, credential, or
+   lease crosses it, and a managed-runtime adapter satisfies the same contract.
+   `DecisionExecutor.Execute` is total over `RoutedIntent`, which covers
+   folderless routing, clarification, conversation creation, queueing, steering,
+   resource requests, and every resolution the model-output recovery ladder and
+   the product invariants produce. Six decisions are load-bearing:
+   - The decision is committed *before* the work it authorizes, not in the same
+     transaction as it. One transaction is not available: starting a run spans
+     several durable writes and a provider launch. Committing first is the
+     honest order anyway — a create decision names a workstream that does not
+     exist until the work runs, the ids it carries are the ids the work is then
+     addressed by, and work that fails to start leaves a decision the app
+     truthfully made plus an error the caller receives.
+   - Work a workstream cannot start yet becomes a durable
+     `DirectorResourceRequestOpened` rather than an error. Setta runs work inside
+     a folder resource, so a folderless workstream is not broken: it exists, it
+     is selectable, and the durable request says what it is waiting for. That is
+     the affordance the pane world could only derive from a routing failure code.
+   - An answer and a clarification are committed as decisions that happened in
+     no workstream. `DirectorFactEvent.WorkstreamID` is now optional for exactly
+     that case: they start work nowhere, so no workstream's graph owns them, and
+     an answer may be given when the app holds no workstream at all. They are
+     still durable, because the answer is what the user was told and the question
+     is what their next request is answering.
+   - `DirectorDecisionCommitted` gained `Answer`, mirroring `Clarification`. It
+     is the one place model text becomes durable; the public summary beside it
+     stays derived, so an answer can be read back to the user without ever
+     labelling the graph.
+   - A root create decision also happens in no workstream, because it was decided
+     before the workstream it created existed. A create decision that does name a
+     workstream delegated from it, which is what the projector draws
+     `delegated_to` from.
+   - Recovery restarts the run a durable failure interrupted. The model names the
+     failure event; the registry resolves which run that was, so a recovery
+     re-delivers the work that failed instead of work the decision re-authored.
+
+   Setta's durable child conversation gained a second shape for this:
+   `BranchKindChild` records parentage with no fork point, because a delegated
+   child starts its own work rather than resuming the parent's, and a fork needs
+   a completed parent run that a running parent does not have.
+   `BranchDecisionSourceDirector` is the app-scoped source. A branch's workspace
+   check now compares two optional folders, so a folderless parent and child are
+   a legitimate pair.
+
+   Still to move behind the boundary: cancellation, approval resolution, and
+   resource-request resolution, which are dispatched intents rather than routed
+   decisions; and the `submit` intent itself, which lands with the Director's
+   structured decision caller so the dispatch that accepts work can also route
+   it.
 7. Replace pane presentation intents with workstream presentation intents. **The
    replacement exists** — `DirectorIntent` moves app-wide selection by workstream
    id or by direction, and no dispatched intent, receipt, or pushed event carries
@@ -1447,14 +1508,14 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Continue Phase 3 at item 6: execute a `RoutedIntent`. `DecisionRouter.Route` already resolves a
-   submitted intent into one authorized decision, and `CommandCenter.Dispatch` is the surface that
-   carries it out — creating the workstream, sending, queueing, steering, or recovering, and
-   committing `DirectorDecisionCommitted` in the same durable transaction as that work. Folderless
-   routing, clarification, cancellation, approvals, resource requests, and product-invariant
-   decisions move behind the boundary with it, and the `submit` intent joins the dispatch catalog
-   there rather than ahead of the execution that answers it. The remaining Master-to-Director
-   renaming in item 2, and retiring the Master presentation intent in item 7, move with that work.
+1. Continue Phase 3 at item 6 by making the executor reachable. `DecisionRouter.Route` resolves a
+   submitted intent into one authorized decision and `DecisionExecutor.Execute` carries it out, so
+   what is left between them and the shell is the Director's structured decision caller, the local
+   adapter behind `WorkstreamExecution`, and the `submit` intent that joins the dispatch catalog with
+   them. Cancellation, approval resolution, and resource-request resolution are dispatched intents
+   rather than routed decisions and move behind the boundary in the same pass. The remaining
+   Master-to-Director renaming in item 2, and retiring the Master presentation intent in item 7, move
+   with that work.
 2. Build the exhaustive node/edge visual gallery. Its dependency is closed: the Director contracts
    are generated into `desktop/src/generated/backend.ts`, and `ProjectionFixtures()` is the
    production-contract source the gallery renders from. The four contract gaps the inventory found

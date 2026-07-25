@@ -34,6 +34,7 @@ func (state *registryState) applyTrajectoryRecords(
 		// failures before it, so offering to recover one would put a stale
 		// action in front of the user.
 		workstream.recoverableFailures = nil
+		clear(workstream.failureRuns)
 		return nil, nil
 	default:
 		return nil, nil
@@ -210,12 +211,19 @@ func (state *registryState) applyDirectorFact(event conversation.CommittedEvent)
 		return nil, fmt.Errorf(
 			"director fact %s registers workstream %s, which the registry derives from the conversation record",
 			fact.ID,
-			fact.WorkstreamID,
+			*fact.WorkstreamID,
 		)
 	}
-	workstream, known := state.workstreams[fact.WorkstreamID]
+	if fact.WorkstreamID == nil {
+		// An app-scoped decision changed no workstream, so it publishes nothing.
+		// It is still folded, because the Director's own dialogue is the
+		// continuity the next decision is materialized against.
+		state.recordCommittedDecision(fact)
+		return nil, nil
+	}
+	workstream, known := state.workstreams[*fact.WorkstreamID]
 	if !known {
-		return nil, fmt.Errorf("director fact %s names unregistered workstream %s", fact.ID, fact.WorkstreamID)
+		return nil, fmt.Errorf("director fact %s names unregistered workstream %s", fact.ID, *fact.WorkstreamID)
 	}
 	if err := state.ensureProjected(workstream); err != nil {
 		return nil, err
@@ -256,7 +264,7 @@ func (state *registryState) applyDirectorFactRecords(
 ) ([]registryEffect, error) {
 	switch fact.Kind {
 	case DirectorFactWorkstreamSelected:
-		selected := fact.WorkstreamID
+		selected := *fact.WorkstreamID
 		state.selected = &selected
 		return []registryEffect{{kind: effectSelection, id: selected}}, nil
 	case DirectorFactWorkstreamResourceBound:

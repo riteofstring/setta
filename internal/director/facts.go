@@ -104,6 +104,18 @@ type DirectorDecisionCommitted struct {
 	TargetWorkstreamID *string `json:"targetWorkstreamId"`
 	// Clarification is populated exactly for a clarification decision.
 	Clarification *DirectorClarificationAsked `json:"clarification"`
+	// Answer is populated exactly for a direct answer.
+	Answer *DirectorAnswerGiven `json:"answer"`
+}
+
+// DirectorAnswerGiven is the answer a direct-answer decision gave the user. It
+// is durable for the same reason a clarification question is: it is the
+// Director's half of the dialogue, and a restart that lost it would leave the
+// user's request looking unanswered. It is deliberately not the decision's
+// public summary, because the summary labels the graph and model-authored text
+// never does.
+type DirectorAnswerGiven struct {
+	Text string `json:"text"`
 }
 
 // DirectorClarificationAsked is the question a clarification decision asked and
@@ -170,10 +182,15 @@ type DirectorRecoveryAttempted struct {
 // populated payload, so an unhandled fact fails at the boundary instead of
 // silently projecting nothing.
 type DirectorFactEvent struct {
-	ID           string             `json:"id"`
-	EmittedAt    string             `json:"emittedAt"`
-	Kind         DirectorSourceFact `json:"kind"`
-	WorkstreamID string             `json:"workstreamId"`
+	ID        string             `json:"id"`
+	EmittedAt string             `json:"emittedAt"`
+	Kind      DirectorSourceFact `json:"kind"`
+	// WorkstreamID is the workstream the fact happened in. It is null only for a
+	// Director decision that happened in none: an answer and a clarification are
+	// the Director talking to the user rather than work inside a workstream, and
+	// a decision that started a root workstream was made before that workstream
+	// existed. Every other fact belongs to a workstream, so omitting it fails.
+	WorkstreamID *string `json:"workstreamId"`
 	// RunID binds the fact to a durable run when one caused it, such as a
 	// resource request opened by work that could not start.
 	RunID                   *string                          `json:"runId"`
@@ -198,9 +215,6 @@ func ValidateDirectorFactEvent(fact DirectorFactEvent) error {
 	if err := validateTimestamp("director fact emitted at", fact.EmittedAt); err != nil {
 		return err
 	}
-	if err := validateIdentifier("director fact workstream id", fact.WorkstreamID); err != nil {
-		return err
-	}
 	if err := validateOptionalRunID("director fact run id", fact.RunID); err != nil {
 		return err
 	}
@@ -210,7 +224,26 @@ func ValidateDirectorFactEvent(fact DirectorFactEvent) error {
 	if err := validateDirectorFactPayloadPresence(fact); err != nil {
 		return err
 	}
+	if err := validateDirectorFactWorkstream(fact); err != nil {
+		return err
+	}
 	return validateDirectorFactPayload(fact)
+}
+
+// validateDirectorFactWorkstream requires the workstream every fact but an
+// app-scoped decision happens in. The payload is checked first, because whether
+// a decision is app-scoped is a property of the decision it committed.
+func validateDirectorFactWorkstream(fact DirectorFactEvent) error {
+	if fact.WorkstreamID != nil {
+		return validateIdentifier("director fact workstream id", *fact.WorkstreamID)
+	}
+	if fact.Kind != DirectorFactDecisionCommitted {
+		return fmt.Errorf("director fact %s of kind %q requires a workstream", fact.ID, fact.Kind)
+	}
+	if fact.RunID != nil {
+		return fmt.Errorf("director fact %s names a run without the workstream that owns it", fact.ID)
+	}
+	return nil
 }
 
 // directorFactPayloads pairs each fact kind with its payload slot, so presence
@@ -279,8 +312,8 @@ func validateRegisteredWorkstream(fact DirectorFactEvent) error {
 	if err := validateOptionalIdentifier("registered workstream parent id", payload.ParentID); err != nil {
 		return err
 	}
-	if payload.ParentID != nil && *payload.ParentID == fact.WorkstreamID {
-		return fmt.Errorf("workstream %s cannot be its own parent", fact.WorkstreamID)
+	if payload.ParentID != nil && *payload.ParentID == *fact.WorkstreamID {
+		return fmt.Errorf("workstream %s cannot be its own parent", *fact.WorkstreamID)
 	}
 	return validateWorkstreamResourceScope(payload.ResourceScope)
 }
@@ -302,6 +335,9 @@ func validateCommittedDecision(fact DirectorFactEvent) error {
 	if err := validateCommittedClarification(fact); err != nil {
 		return err
 	}
+	if err := validateCommittedAnswer(fact); err != nil {
+		return err
+	}
 	if err := validateCommittedDecisionTarget(fact); err != nil {
 		return err
 	}
@@ -309,8 +345,11 @@ func validateCommittedDecision(fact DirectorFactEvent) error {
 }
 
 // validateCommittedDecisionTarget requires the target the decision kind can act
-// on: work and selection name one, an answer and a question name none, and a
-// created workstream is never the workstream that decided to create it.
+// on, and the workstream the decision was made in. Work and selection name a
+// target and happen in a workstream; an answer and a question name neither; a
+// create names the workstream it minted, and happens in the parent it delegated
+// from or — for a root workstream — in none, because it was decided before the
+// workstream it created existed.
 func validateCommittedDecisionTarget(fact DirectorFactEvent) error {
 	payload := fact.DecisionCommitted
 	switch payload.Decision {
@@ -318,7 +357,7 @@ func validateCommittedDecisionTarget(fact DirectorFactEvent) error {
 		if payload.TargetWorkstreamID == nil {
 			return fmt.Errorf("director fact %s decision %q requires a target workstream", fact.ID, payload.Decision)
 		}
-		if *payload.TargetWorkstreamID == fact.WorkstreamID {
+		if fact.WorkstreamID != nil && *payload.TargetWorkstreamID == *fact.WorkstreamID {
 			return fmt.Errorf("director fact %s cannot create its current workstream as a child", fact.ID)
 		}
 		return nil
@@ -329,16 +368,56 @@ func validateCommittedDecisionTarget(fact DirectorFactEvent) error {
 		if payload.TargetWorkstreamID == nil {
 			return fmt.Errorf("director fact %s decision %q requires a target workstream", fact.ID, payload.Decision)
 		}
-		return nil
+		return requireDecisionWorkstream(fact)
 	case DirectorDecisionAnswerDirectly, DirectorDecisionAskClarification:
 		if payload.TargetWorkstreamID != nil {
 			return fmt.Errorf("director fact %s decision %q must not target a workstream", fact.ID, payload.Decision)
 		}
+		if fact.WorkstreamID != nil {
+			return fmt.Errorf("director fact %s decision %q must not happen in a workstream", fact.ID, payload.Decision)
+		}
 		return nil
 	default:
-		// Recovery may address this workstream or an explicitly authorized target.
+		// Recovery addresses a durable failure, so it always happens in the
+		// workstream that failed.
+		return requireDecisionWorkstream(fact)
+	}
+}
+
+func requireDecisionWorkstream(fact DirectorFactEvent) error {
+	if fact.WorkstreamID == nil {
+		return fmt.Errorf(
+			"director fact %s decision %q requires the workstream it happened in",
+			fact.ID,
+			fact.DecisionCommitted.Decision,
+		)
+	}
+	return nil
+}
+
+// validateCommittedAnswer requires the answered text on exactly the decision
+// that answered. Any other decision carrying one would claim to have answered a
+// request it actually routed.
+func validateCommittedAnswer(fact DirectorFactEvent) error {
+	payload := fact.DecisionCommitted
+	answer := payload.Answer
+	if (answer != nil) != (payload.Decision == DirectorDecisionAnswerDirectly) {
+		return fmt.Errorf(
+			"director fact %s must carry an answer exactly for decision %q",
+			fact.ID,
+			DirectorDecisionAnswerDirectly,
+		)
+	}
+	if answer == nil {
 		return nil
 	}
+	if err := validateTrimmedText("committed answer text", answer.Text); err != nil {
+		return err
+	}
+	if len(answer.Text) > MaxDecisionAnswerBytes {
+		return fmt.Errorf("committed answer text exceeds %d bytes", MaxDecisionAnswerBytes)
+	}
+	return nil
 }
 
 // validateCommittedClarification requires the question and its candidates on

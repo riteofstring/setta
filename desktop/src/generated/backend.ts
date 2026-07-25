@@ -1112,23 +1112,25 @@ export function decodeVoiceSelectionMode(value: unknown, label = "VoiceSelection
   }
 }
 
-export type BranchKind = "fork";
+export type BranchKind = "fork" | "child";
 
-export const branchKindValues = ["fork"] as const satisfies readonly BranchKind[];
+export const branchKindValues = ["fork", "child"] as const satisfies readonly BranchKind[];
 
 export function decodeBranchKind(value: unknown, label = "BranchKind"): BranchKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "fork":
       return decoded;
+    case "child":
+      return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
   }
 }
 
-export type BranchDecisionSource = "conversation_router" | "master";
+export type BranchDecisionSource = "conversation_router" | "master" | "director";
 
-export const branchDecisionSourceValues = ["conversation_router", "master"] as const satisfies readonly BranchDecisionSource[];
+export const branchDecisionSourceValues = ["conversation_router", "master", "director"] as const satisfies readonly BranchDecisionSource[];
 
 export function decodeBranchDecisionSource(value: unknown, label = "BranchDecisionSource"): BranchDecisionSource {
   const decoded = decodeString(value, label);
@@ -1136,6 +1138,8 @@ export function decodeBranchDecisionSource(value: unknown, label = "BranchDecisi
     case "conversation_router":
       return decoded;
     case "master":
+      return decoded;
+    case "director":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);

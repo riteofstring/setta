@@ -218,7 +218,7 @@ func TestDecisionContextClosesRecoveryOnceItIsAddressed(t *testing.T) {
 
 	harness.appendFact(DirectorFactEvent{
 		Kind:         DirectorFactRecoveryAttempted,
-		WorkstreamID: recovered,
+		WorkstreamID: &recovered,
 		Actor:        SemanticActorDirector,
 		RecoveryAttempted: &DirectorRecoveryAttempted{
 			RecoveryID:     "recovery-1",
@@ -260,7 +260,7 @@ func TestDecisionContextResumesTheClarificationItAsked(t *testing.T) {
 
 	sent := harness.appendFact(DirectorFactEvent{
 		Kind:         DirectorFactDecisionCommitted,
-		WorkstreamID: first,
+		WorkstreamID: &first,
 		Actor:        SemanticActorDirector,
 		DecisionCommitted: &DirectorDecisionCommitted{
 			Decision:           DirectorDecisionSendToWorkstream,
@@ -269,10 +269,11 @@ func TestDecisionContextResumesTheClarificationItAsked(t *testing.T) {
 			TargetWorkstreamID: &first,
 		},
 	})
+	// A clarification happens in no workstream: it starts work nowhere, and the
+	// workstreams it is choosing between are its candidates rather than its home.
 	asked := harness.appendFact(DirectorFactEvent{
-		Kind:         DirectorFactDecisionCommitted,
-		WorkstreamID: first,
-		Actor:        SemanticActorDirector,
+		Kind:  DirectorFactDecisionCommitted,
+		Actor: SemanticActorDirector,
 		DecisionCommitted: &DirectorDecisionCommitted{
 			Decision:      DirectorDecisionAskClarification,
 			IntentID:      "intent-asked",
@@ -309,7 +310,7 @@ func TestDecisionContextResumesTheClarificationItAsked(t *testing.T) {
 
 	harness.appendFact(DirectorFactEvent{
 		Kind:         DirectorFactDecisionCommitted,
-		WorkstreamID: second,
+		WorkstreamID: &second,
 		Actor:        SemanticActorDirector,
 		DecisionCommitted: &DirectorDecisionCommitted{
 			Decision:           DirectorDecisionSendToWorkstream,
@@ -342,7 +343,7 @@ func TestDecisionContextBoundsTargetsAndKeepsTheSelectedOne(t *testing.T) {
 	archived := harness.archiveConversation(archivedID, "Workstream archived")
 	harness.appendFact(DirectorFactEvent{
 		Kind:               DirectorFactWorkstreamSelected,
-		WorkstreamID:       oldest,
+		WorkstreamID:       &oldest,
 		Actor:              SemanticActorUser,
 		WorkstreamSelected: &DirectorWorkstreamSelected{},
 	})

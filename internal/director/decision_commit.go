@@ -36,7 +36,19 @@ func NewCommittedDecision(
 		PublicSummary:      summary,
 		TargetWorkstreamID: target,
 		Clarification:      committedClarification(context, decision),
+		Answer:             committedAnswer(decision),
 	}, nil
+}
+
+// committedAnswer records what the Director actually told the user. It is the
+// one place model text becomes durable: the public summary beside it is derived
+// from the decision kind, so an answer can be read back to the user without
+// ever labelling the graph.
+func committedAnswer(decision DirectorDecision) *DirectorAnswerGiven {
+	if decision.Kind != DirectorDecisionAnswerDirectly {
+		return nil
+	}
+	return &DirectorAnswerGiven{Text: decision.AnswerDirectly.Text}
 }
 
 // committedClarification records what a clarification was choosing between.

@@ -392,12 +392,13 @@ func optionalSpeechVoiceID(value sql.NullString) *speech.SpeechVoiceID {
 func scanConversationBranch(scanner sqlScanner) (ConversationBranch, error) {
 	var value ConversationBranch
 	var metadataJSON string
+	var forkedAtTurnID sql.NullString
 	err := scanner.Scan(
 		&value.ChildConversationID,
 		&value.ParentConversationID,
 		&value.Kind,
 		&value.DecisionSource,
-		&value.ForkedAtTurnID,
+		&forkedAtTurnID,
 		&value.SourceTrajectorySequence,
 		&metadataJSON,
 		&value.CreatedAt,
@@ -405,6 +406,7 @@ func scanConversationBranch(scanner sqlScanner) (ConversationBranch, error) {
 	if err != nil {
 		return ConversationBranch{}, err
 	}
+	value.ForkedAtTurnID = forkedAtTurnID.String
 	if err := decodeJSON("branch provider metadata", metadataJSON, &value.ProviderMetadata); err != nil {
 		return ConversationBranch{}, err
 	}

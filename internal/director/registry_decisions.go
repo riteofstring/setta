@@ -61,6 +61,12 @@ func (workstream *registryWorkstream) recordRunFailure(event conversation.Trajec
 	if event.TurnFailed == nil {
 		return missingPayload(event)
 	}
+	if event.TurnID == nil {
+		// A failure that interrupted no run has no work to restart, so offering
+		// to recover it would put an action in front of the user that trusted
+		// code could not carry out.
+		return nil
+	}
 	summary := boundDecisionExcerpt(firstText(event.TurnFailed.Failure.Message, failedRunSummary))
 	for _, existing := range workstream.recoverableFailures {
 		if existing.FailureEventID == event.ID {
@@ -72,6 +78,7 @@ func (workstream *registryWorkstream) recordRunFailure(event conversation.Trajec
 		PublicSummary:  summary,
 		OccurredAt:     event.EmittedAt,
 	})
+	workstream.failureRuns[event.ID] = *event.TurnID
 	return nil
 }
 
@@ -85,6 +92,7 @@ func (workstream *registryWorkstream) resolveRunFailure(failureEventID string) {
 		}
 	}
 	workstream.recoverableFailures = remaining
+	delete(workstream.failureRuns, failureEventID)
 }
 
 // recordCommittedDecision folds one durable decision into the continuity the

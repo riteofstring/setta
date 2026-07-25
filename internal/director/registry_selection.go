@@ -85,7 +85,7 @@ func (registry *Registry) commitSelection(
 		ID:                 factID,
 		EmittedAt:          emittedAt,
 		Kind:               DirectorFactWorkstreamSelected,
-		WorkstreamID:       *next,
+		WorkstreamID:       next,
 		Actor:              SemanticActorUser,
 		WorkstreamSelected: &DirectorWorkstreamSelected{PreviousWorkstreamID: previous},
 	}

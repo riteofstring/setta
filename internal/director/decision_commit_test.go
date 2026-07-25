@@ -21,7 +21,7 @@ func TestCommittedDecisionsAreDurableFacts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("commit %q: %v", decision.Kind, err)
 		}
-		fact := decisionFactFixture(committed)
+		fact := decisionFactFixture(committed, decisionFactWorkstream(decision))
 		if err := ValidateDirectorFactEvent(fact); err != nil {
 			t.Fatalf("committed %q is not a durable fact: %v", decision.Kind, err)
 		}
@@ -123,13 +123,28 @@ func TestCommittedDecisionTargetsFollowTheCatalog(t *testing.T) {
 	}
 }
 
-func decisionFactFixture(committed DirectorDecisionCommitted) DirectorFactEvent {
+func decisionFactFixture(committed DirectorDecisionCommitted, workstreamID *string) DirectorFactEvent {
 	return DirectorFactEvent{
 		ID:                "fact-decision-1",
 		EmittedAt:         "2026-07-24T12:00:01Z",
 		Kind:              DirectorFactDecisionCommitted,
-		WorkstreamID:      fixtureIdleWorkstream,
+		WorkstreamID:      workstreamID,
 		Actor:             SemanticActorDirector,
 		DecisionCommitted: &committed,
+	}
+}
+
+// decisionFactWorkstream is where a decision happened, which is what the
+// executor commits the fact against. A reply happened in no workstream, a root
+// workstream was created before one existed, and every other decision happened
+// in the workstream it acted on.
+func decisionFactWorkstream(decision DirectorDecision) *string {
+	switch decision.Kind {
+	case DirectorDecisionAnswerDirectly, DirectorDecisionAskClarification:
+		return nil
+	case DirectorDecisionCreateWorkstream:
+		return DecisionParentWorkstreamID(decision)
+	default:
+		return DecisionTargetWorkstreamID(decision)
 	}
 }

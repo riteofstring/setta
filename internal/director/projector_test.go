@@ -369,7 +369,7 @@ func TestSelectionFactMustNameTheActualPreviousWorkstream(t *testing.T) {
 		ID:                 "director-invalid-selection",
 		EmittedAt:          "2026-07-24T13:00:00Z",
 		Kind:               DirectorFactWorkstreamSelected,
-		WorkstreamID:       "ws-alpha",
+		WorkstreamID:       stringPointer("ws-alpha"),
 		Actor:              SemanticActorUser,
 		WorkstreamSelected: &DirectorWorkstreamSelected{},
 	}
@@ -384,7 +384,8 @@ func TestCreateDecisionCanRegisterOnlyItsOwnChild(t *testing.T) {
 	for _, event := range fixture.Events {
 		if event.Director != nil &&
 			event.Director.Kind == DirectorFactWorkstreamRegistered &&
-			event.Director.WorkstreamID == "ws-child" {
+			event.Director.WorkstreamID != nil &&
+			*event.Director.WorkstreamID == "ws-child" {
 			registration := *event.Director
 			payload := *registration.WorkstreamRegistered
 			payload.ParentID = nil
@@ -416,7 +417,7 @@ func TestInterpretationCannotCiteAnotherWorkstreamsFact(t *testing.T) {
 		ID:           "director-cross-workstream-interpretation",
 		EmittedAt:    "2026-07-24T13:00:00Z",
 		Kind:         DirectorFactInterpretationPublished,
-		WorkstreamID: "ws-child",
+		WorkstreamID: stringPointer("ws-child"),
 		Actor:        SemanticActorDirector,
 		InterpretationPublished: &DirectorInterpretationPublished{
 			InterpretationID:    "interpretation-cross-workstream",
@@ -1012,7 +1013,7 @@ func TestSelectionIsAppScopedAndNeverWritesGraphTruth(t *testing.T) {
 			ID:                 "director-reselect",
 			EmittedAt:          "2026-07-24T13:00:00Z",
 			Kind:               DirectorFactWorkstreamSelected,
-			WorkstreamID:       "ws-child",
+			WorkstreamID:       stringPointer("ws-child"),
 			Actor:              SemanticActorUser,
 			WorkstreamSelected: &DirectorWorkstreamSelected{PreviousWorkstreamID: stringPointer("ws-parent")},
 		},
@@ -1328,7 +1329,7 @@ func TestUnregisteredDirectorFactAndDuplicateRegistrationFailLoudly(t *testing.T
 			ID:           "director-01",
 			EmittedAt:    "2026-07-24T12:00:01Z",
 			Kind:         DirectorFactWorkstreamRegistered,
-			WorkstreamID: "ws-solo",
+			WorkstreamID: stringPointer("ws-solo"),
 			Actor:        SemanticActorSystem,
 			WorkstreamRegistered: &DirectorWorkstreamRegistered{
 				Title:          "Solo",

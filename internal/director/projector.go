@@ -177,8 +177,8 @@ func (projector *DirectorGraphProjector) Apply(event ProjectorEvent) error {
 	projector.sourceEventIDs[sourceEventID] = true
 	if event.Trajectory != nil {
 		projector.sourceEventOwners[sourceEventID] = projector.byConversation[event.Trajectory.ConversationID]
-	} else {
-		projector.sourceEventOwners[sourceEventID] = event.Director.WorkstreamID
+	} else if event.Director.WorkstreamID != nil {
+		projector.sourceEventOwners[sourceEventID] = *event.Director.WorkstreamID
 	}
 	return nil
 }
@@ -312,6 +312,12 @@ func (projector *DirectorGraphProjector) applyDirectorFact(sequence int, fact Di
 	if fact.Kind == DirectorFactWorkstreamRegistered {
 		return projector.registerWorkstream(fact)
 	}
+	if fact.WorkstreamID == nil {
+		// An app-scoped decision happened in no workstream, so there is no graph
+		// for it to advance. The registry still folds it, because the Director's
+		// own dialogue is what the next decision is materialized against.
+		return nil
+	}
 	handler, handled := directorHandlers[fact.Kind]
 	if !handled {
 		return fmt.Errorf("no projector handler for director fact %q", fact.Kind)
@@ -320,12 +326,12 @@ func (projector *DirectorGraphProjector) applyDirectorFact(sequence int, fact Di
 	if err != nil {
 		return err
 	}
-	workstream, known := projector.workstreams[fact.WorkstreamID]
+	workstream, known := projector.workstreams[*fact.WorkstreamID]
 	if !known {
 		return &ReplayError{
 			Reason:   DirectorResyncEventBeforeSnapshot,
 			Sequence: sequence,
-			Detail:   fmt.Sprintf("director fact %s names unregistered workstream %q", fact.ID, fact.WorkstreamID),
+			Detail:   fmt.Sprintf("director fact %s names unregistered workstream %q", fact.ID, *fact.WorkstreamID),
 		}
 	}
 	if fact.RunID != nil {
