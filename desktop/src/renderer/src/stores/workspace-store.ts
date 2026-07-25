@@ -13,6 +13,7 @@ type WorkspaceOperationKind =
 type WorkspaceOperation = WorkspaceOperationKind | null;
 
 interface WorkspaceStore {
+  applySession: (session: WorkspaceSession) => void;
   clearError: () => void;
   error: string | null;
   loadSession: () => Promise<void>;
@@ -72,6 +73,16 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => {
   }
 
   return {
+    applySession: (session: WorkspaceSession) => {
+      operationSequence += 1;
+      currentOperationId = operationSequence;
+      set({
+        error: null,
+        operation: null,
+        session,
+        status: "ready",
+      });
+    },
     clearError: () =>
       set((current) => ({ error: null, status: current.session ? "ready" : "idle" })),
     closeWorkspace: (id: string) =>

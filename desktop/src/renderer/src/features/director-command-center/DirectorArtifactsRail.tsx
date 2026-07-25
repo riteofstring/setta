@@ -11,6 +11,7 @@ import type {
   TrajectoryApprovalQuestion,
   WorkstreamArtifact,
   WorkspaceSession,
+  WorkspaceSummary,
 } from "@generated/backend";
 import { Check, FileText, FolderOpen, X } from "lucide-react";
 import {
@@ -38,6 +39,7 @@ export function ArtifactsRail({
   artifacts,
   dispatch,
   dispatching,
+  openLocalFolder,
   readArtifact,
   requests,
   workspaceSession,
@@ -46,6 +48,7 @@ export function ArtifactsRail({
   artifacts: readonly WorkstreamArtifact[];
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
   dispatching: boolean;
+  openLocalFolder: () => Promise<WorkspaceSummary | null>;
   readArtifact?: (request: ReadConversationArtifactRequest) => Promise<Artifact>;
   requests: readonly ResourceRequest[];
   workspaceSession: WorkspaceSession | null;
@@ -87,10 +90,14 @@ export function ArtifactsRail({
         setArtifactDetail((current) =>
           current?.artifact.id === artifact.id ? { artifact, payload, status: "loaded" } : current,
         );
-      } catch (error) {
+      } catch {
         setArtifactDetail((current) =>
           current?.artifact.id === artifact.id
-            ? { artifact, error: errorMessage(error), status: "failed" }
+            ? {
+                artifact,
+                error: "Setta could not open this artifact. Try again.",
+                status: "failed",
+              }
             : current,
         );
       }
@@ -100,6 +107,9 @@ export function ArtifactsRail({
 
   return (
     <aside aria-label="Artifacts" className="director-artifacts-rail" id="director-artifacts-rail">
+      <span aria-atomic="true" className="sr-only" role="status">
+        {directorRailArrivalAnnouncement(approvals, requests, artifacts)}
+      </span>
       <section className="director-rail-section">
         <p className="director-rail-kicker">Approvals</p>
         <div className="director-action-list">
@@ -128,6 +138,7 @@ export function ArtifactsRail({
                 disabled={dispatching}
                 dispatch={dispatch}
                 key={request.id}
+                openLocalFolder={openLocalFolder}
                 request={request}
                 workspaceSession={workspaceSession}
               />
@@ -180,6 +191,37 @@ export function ArtifactsRail({
   );
 }
 
+function directorRailArrivalAnnouncement(
+  approvals: readonly ApprovalRequest[],
+  requests: readonly ResourceRequest[],
+  artifacts: readonly WorkstreamArtifact[],
+): string {
+  const arrivals = [
+    ...approvals.map((approval) => ({
+      announcedAt: approval.requestedAt,
+      text: `Approval waiting: ${approval.publicSummary}`,
+    })),
+    ...requests.map((request) => ({
+      announcedAt: request.requestedAt,
+      text: `Resource waiting: ${request.publicSummary}`,
+    })),
+    ...artifacts.map((artifact) => ({
+      announcedAt: artifact.createdAt,
+      text: `Artifact available: ${artifact.title}`,
+    })),
+  ];
+  let latest: (typeof arrivals)[number] | null = null;
+  let latestTimestamp = Number.NEGATIVE_INFINITY;
+  for (const arrival of arrivals) {
+    const timestamp = Date.parse(arrival.announcedAt);
+    if (Number.isFinite(timestamp) && timestamp > latestTimestamp) {
+      latest = arrival;
+      latestTimestamp = timestamp;
+    }
+  }
+  return latest?.text ?? "";
+}
+
 function ApprovalItem({
   approval,
   disabled,
@@ -203,7 +245,9 @@ function ApprovalItem({
       <div className="director-action-controls">
         <button
           disabled={disabled}
-          onClick={() => dispatch(resolveApprovalIntent(approval.id, "denied"))}
+          onClick={() =>
+            dispatchDirectorIntent(dispatch, resolveApprovalIntent(approval.id, "denied"))
+          }
           type="button"
         >
           <X aria-hidden="true" size={14} />
@@ -211,7 +255,9 @@ function ApprovalItem({
         </button>
         <button
           disabled={disabled}
-          onClick={() => dispatch(resolveApprovalIntent(approval.id, "approved"))}
+          onClick={() =>
+            dispatchDirectorIntent(dispatch, resolveApprovalIntent(approval.id, "approved"))
+          }
           type="button"
         >
           <Check aria-hidden="true" size={14} />
@@ -252,7 +298,10 @@ function ApprovalQuestionForm({
       return;
     }
     setErrors({});
-    void dispatch(resolveApprovalIntent(approval.id, "answered", result.answers));
+    dispatchDirectorIntent(
+      dispatch,
+      resolveApprovalIntent(approval.id, "answered", result.answers),
+    );
   };
 
   return (
@@ -278,7 +327,9 @@ function ApprovalQuestionForm({
       <div className="director-action-controls">
         <button
           disabled={disabled}
-          onClick={() => dispatch(resolveApprovalIntent(approval.id, "cancelled"))}
+          onClick={() =>
+            dispatchDirectorIntent(dispatch, resolveApprovalIntent(approval.id, "cancelled"))
+          }
           type="button"
         >
           <X aria-hidden="true" size={14} />
@@ -551,32 +602,84 @@ function approvalQuestionFieldId(formId: string, questionId: string): string {
 function ResourceRequestItem({
   disabled,
   dispatch,
+  openLocalFolder,
   request,
   workspaceSession,
 }: {
   disabled: boolean;
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
+  openLocalFolder: () => Promise<WorkspaceSummary | null>;
   request: ResourceRequest;
   workspaceSession: WorkspaceSession | null;
 }) {
+  const errorId = useId();
+  const [resolving, setResolving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const workspaces = workspaceSession?.activeWorkspaces ?? [];
+  const bindWorkspace = async (workspaceId: string): Promise<void> => {
+    setError(null);
+    setResolving(true);
+    try {
+      await dispatch(resolveResourceRequestIntent(request.id, workspaceId));
+    } catch {
+      setError("Setta could not use that folder. Choose another folder.");
+    } finally {
+      setResolving(false);
+    }
+  };
+  const chooseFolder = async (): Promise<void> => {
+    setError(null);
+    setResolving(true);
+    let workspace: WorkspaceSummary | null;
+    try {
+      workspace = await openLocalFolder();
+    } catch {
+      setError("Setta could not open a folder. Try again.");
+      setResolving(false);
+      return;
+    }
+    if (workspace === null) {
+      setResolving(false);
+      return;
+    }
+    await bindWorkspace(workspace.id);
+  };
   return (
     <article className="director-action-item" data-resource-request-id={request.id}>
       <p>{request.publicSummary}</p>
       <div className="director-resource-options">
         {workspaces.map((workspace) => (
           <button
-            disabled={disabled}
+            aria-describedby={error ? errorId : undefined}
+            disabled={disabled || resolving}
             key={workspace.id}
-            onClick={() => dispatch(resolveResourceRequestIntent(request.id, workspace.id))}
+            onClick={() => {
+              void bindWorkspace(workspace.id);
+            }}
             type="button"
           >
             <FolderOpen aria-hidden="true" size={14} />
             <span>{workspace.displayName}</span>
           </button>
         ))}
-        {workspaces.length === 0 ? <span>No active folder</span> : null}
+        <button
+          aria-describedby={error ? errorId : undefined}
+          disabled={disabled || resolving}
+          onClick={() => {
+            void chooseFolder();
+          }}
+          type="button"
+        >
+          <FolderOpen aria-hidden="true" size={14} />
+          <span>{resolving ? "Using folder…" : "Choose folder"}</span>
+        </button>
+        {workspaces.length === 0 ? <span>Choose a folder to continue.</span> : null}
       </div>
+      {error ? (
+        <p className="director-resource-error" id={errorId} role="alert">
+          {error}
+        </p>
+      ) : null}
     </article>
   );
 }
@@ -797,14 +900,17 @@ function resolveResourceRequestIntent(requestId: string, workspaceId: string): D
   };
 }
 
+function dispatchDirectorIntent(
+  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>,
+  intent: DirectorIntent,
+): void {
+  void dispatch(intent).catch(() => {});
+}
+
 function exhaustiveArtifactDetail(state: never): never {
   throw new Error(`unsupported artifact detail state ${JSON.stringify(state)}`);
 }
 
 function exhaustiveArtifactKind(kind: never): never {
   throw new Error(`unsupported artifact kind ${kind}`);
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error && error.message.trim() ? error.message : "unknown failure";
 }

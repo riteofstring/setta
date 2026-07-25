@@ -82,7 +82,7 @@ const driverExtensionScripts = [
   },
   {
     installedExpression:
-      'globalThis.__settaE2EDriver?.directorCommandCenterPerformanceVersion === "setta-director-command-center-performance-driver-v1"',
+      'globalThis.__settaE2EDriver?.directorCommandCenterPerformanceVersion === "setta-director-command-center-performance-driver-v2"',
     path: join(driverScriptDir, "director-command-center-performance-driver.js"),
   },
 ];

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* global console */
 
-import { delimiter, join } from "node:path";
+import { basename, delimiter, join } from "node:path";
 import process from "node:process";
 
 import { backendProbe, waitForBackendState } from "./electron-workflow-harness.mjs";
@@ -51,39 +51,29 @@ let context = null;
 try {
   context = await launchDirectorElectron(firstLaunchDir);
   let backend = await backendProbe(firstLaunchDir);
-  const workspaceId = await openWorkspace(context.client);
   const initial = await subscribeFromRenderer(context.client);
   assertEqual(initial.workstreams.length, 0, "initial Director workstream count");
 
-  const folderlessReceipt = await submitDirector(context.client, "Director create folderless.");
-  assertEqual(folderlessReceipt.submit?.decision, "create_workstream", "folderless decision");
-  const rootWorkstreamId = requiredString(
-    folderlessReceipt.submit?.workstreamId,
-    "folderless receipt workstream",
-  );
-  const resourceRequestId = requiredString(
-    folderlessReceipt.submit?.resourceRequestId,
-    "folderless receipt resource request",
-  );
+  await submitDirectorInComposer(context.client, "Director create folderless.");
   const folderless = await waitForDirectorSnapshot(
     context.client,
     (snapshot) =>
-      snapshot.workstreams.some(
-        (entry) =>
-          entry.workstream.id === rootWorkstreamId &&
-          entry.workstream.resourceScope.kind === "folderless" &&
-          entry.workstream.status === "awaiting_resource",
-      ) &&
-      snapshot.unresolvedResourceRequests.some(
-        (request) => request.id === resourceRequestId && request.workstreamId === rootWorkstreamId,
-      ),
+      snapshot.workstreams.length === 1 &&
+      snapshot.workstreams[0]?.workstream.resourceScope.kind === "folderless" &&
+      snapshot.workstreams[0]?.workstream.status === "awaiting_resource" &&
+      snapshot.unresolvedResourceRequests.length === 1,
+  );
+  const rootWorkstreamId = requiredString(
+    folderless.workstreams[0]?.workstream.id,
+    "folderless workstream",
+  );
+  const resourceRequestId = requiredString(
+    folderless.unresolvedResourceRequests[0]?.id,
+    "folderless resource request",
   );
   assertEqual(folderless.aggregates.awaitingResourceCount, 1, "folderless resource aggregate");
 
-  await dispatchDirector(context.client, {
-    kind: "resolve_resource_request",
-    resolveResourceRequest: { requestId: resourceRequestId, workspaceId },
-  });
+  const workspaceId = await chooseFolderForResourceRequest(context.client, resourceRequestId);
   await waitForDirectorSnapshot(
     context.client,
     (snapshot) =>
@@ -96,12 +86,14 @@ try {
           entry.workstream.resourceBindings.length === 1,
       ),
   );
+  const workspaceSettings = await verifyWorkspaceSettings(context.client, workspaceId);
   await selectWorkstream(context.client, rootWorkstreamId);
 
   await submitDirector(context.client, "Director send hold.");
   await waitForWorkstream(context.client, rootWorkstreamId, (workstream) =>
     Boolean(workstream.activeRunId),
   );
+  await assertRunningSummaryIsCurrent(context.client);
   await submitDirector(context.client, "Director queue next.");
   await waitForWorkstream(
     context.client,
@@ -301,6 +293,9 @@ try {
   if (!artifactDetail.text.includes(openedArtifact.title)) {
     throw new Error(`Director artifact detail omitted title: ${JSON.stringify(artifactDetail)}`);
   }
+  await closeDirectorArtifactDetail(context.client);
+  const history = await readDirectorHistory(context.client);
+  assertHistoryContainsOnlyUserAndTerminalTurns(history);
   const rendererEvents = await readRendererEvents(context.client);
   assertDirectorEventSequence(initial.eventCursor, rendererEvents);
   assertEventKinds(rendererEvents, [
@@ -344,6 +339,7 @@ try {
     eventCount: rendererEvents.length,
     rootWorkstreamId,
     status: "passed",
+    workspaceSettings,
     workspaceId,
   });
   console.log(`Electron Director command-center workflow passed: ${artifactDir}`);
@@ -406,6 +402,26 @@ function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
 }
 
+async function assertRunningSummaryIsCurrent(client) {
+  const state = await waitForState(
+    client,
+    `(() => {
+      const summary = document.querySelector(
+        "#director-now-rail > .director-rail-section:first-child .director-rail-summary"
+      );
+      const status = document.querySelector(".director-selected-status");
+      return {
+        status: status?.textContent?.trim() ?? "",
+        summary: summary?.textContent?.trim() ?? ""
+      };
+    })()`,
+    (candidate) =>
+      candidate.status === "Running" && !candidate.summary.includes("Waiting for a project folder"),
+    workflowTimeoutMs,
+  );
+  assertExcludes(state.summary, "Waiting for a project folder", "running Now summary");
+}
+
 async function subscribeFromRenderer(client) {
   const snapshot = await readDirectorSnapshot(client);
   await client.evaluate(`(async () => {
@@ -445,11 +461,160 @@ function dispatchDirector(client, intent) {
   return client.evaluate(`window.setta.director.dispatch(${JSON.stringify(intent)})`);
 }
 
+async function submitDirectorInComposer(client, text) {
+  await waitForSelector(client, "#director-composer-input");
+  const updated = await client.evaluate(`(() => {
+    const input = document.querySelector("#director-composer-input");
+    if (!(input instanceof HTMLTextAreaElement)) {
+      return { ok: false, reason: "missing-composer" };
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value"
+    );
+    descriptor?.set?.call(input, ${JSON.stringify(text)});
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    return { ok: true };
+  })()`);
+  if (!updated.ok) {
+    throw new Error(`Director composer did not update: ${JSON.stringify(updated)}`);
+  }
+  const submitted = await client.evaluate(`(() => {
+    const input = document.querySelector("#director-composer-input");
+    if (!(input instanceof HTMLTextAreaElement)) {
+      return { ok: false, reason: "missing-composer" };
+    }
+    input.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Enter"
+    }));
+    return { ok: true };
+  })()`);
+  if (!submitted.ok) {
+    throw new Error(`Director composer did not submit: ${JSON.stringify(submitted)}`);
+  }
+}
+
 function submitDirector(client, text) {
   return dispatchDirector(client, {
     kind: "submit",
     submit: { modality: "text", text },
   });
+}
+
+async function chooseFolderForResourceRequest(client, requestId) {
+  const selector = `[data-resource-request-id="${requestId}"]`;
+  await waitForSelector(client, selector);
+  const clicked = await client.evaluate(`(() => {
+    const request = document.querySelector(${JSON.stringify(selector)});
+    const button = request instanceof HTMLElement
+      ? Array.from(request.querySelectorAll("button")).find(
+          (candidate) => candidate.textContent?.trim() === "Choose folder" && !candidate.disabled
+        )
+      : null;
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-choose-folder" };
+    }
+    button.click();
+    return { ok: true };
+  })()`);
+  if (!clicked.ok) {
+    throw new Error(`Director resource rail could not choose a folder: ${JSON.stringify(clicked)}`);
+  }
+  return waitForState(client, selectedWorkspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
+}
+
+async function verifyWorkspaceSettings(client, workspaceId) {
+  const opened = await client.evaluate(`(() => {
+    const button = document.querySelector('button[aria-label="Open settings"]');
+    if (!(button instanceof HTMLButtonElement)) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!opened) {
+    throw new Error("Director command center omitted its Settings action");
+  }
+  await waitForSelector(client, '[data-testid="settings-shell-page"]');
+  await client.evaluate(`document.querySelector("#settings-subtab-roles")?.click()`);
+  await waitForSelector(client, '[data-testid="role-configuration-scope-settings"]');
+  const result = await waitForState(
+    client,
+    `(() => {
+      const select = document.querySelector('select[aria-label="AI role configuration scope"]');
+      if (!(select instanceof HTMLSelectElement)) {
+        return { ready: false };
+      }
+      const workspaceOption = Array.from(select.options).find(
+        (option) => option.value === "workspace"
+      );
+      return {
+        ready: Boolean(workspaceOption),
+        workspaceLabel: workspaceOption?.textContent ?? "",
+        workspaceValue: workspaceOption?.value ?? ""
+      };
+    })()`,
+    (state) => state.ready,
+    workflowTimeoutMs,
+  );
+  assertEqual(result.workspaceValue, "workspace", "workspace role scope option");
+  if (!result.workspaceLabel.includes(basename(fixture.workspaceRoot))) {
+    throw new Error(`workspace role scope omitted the active workspace: ${JSON.stringify(result)}`);
+  }
+  const closed = await client.evaluate(`(() => {
+    const button = document.querySelector(".setta-settings-page-back");
+    if (!(button instanceof HTMLButtonElement)) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!closed) {
+    throw new Error("Settings page omitted Back to command center");
+  }
+  await waitForSelector(client, '[data-testid="director-command-center-shell"]');
+  return { ...result, workspaceId };
+}
+
+async function readDirectorHistory(client) {
+  const opened = await client.evaluate(`(() => {
+    const button = document.querySelector(".director-history-open");
+    if (!(button instanceof HTMLButtonElement)) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!opened) {
+    throw new Error("Director history action was unavailable");
+  }
+  await waitForSelector(client, ".director-history-dialog");
+  const history = await client.evaluate(`(() =>
+    Array.from(document.querySelectorAll(".director-history-dialog-list li")).map((item) => ({
+      kind: item.getAttribute("data-node-kind") ?? "",
+      text: item.textContent?.trim() ?? ""
+    }))
+  )()`);
+  await client.evaluate(
+    `document.querySelector('.director-history-dialog button[aria-label="Close history"]')?.click()`,
+  );
+  return history;
+}
+
+function assertHistoryContainsOnlyUserAndTerminalTurns(history) {
+  if (history.length === 0) {
+    throw new Error("Director history omitted completed work");
+  }
+  const allowed = new Set(["user_goal", "completed", "failed", "cancelled"]);
+  const unexpected = history.filter((item) => !allowed.has(item.kind));
+  if (unexpected.length > 0) {
+    throw new Error(`Director history exposed intermediate activity: ${JSON.stringify(history)}`);
+  }
+  if (!history.some((item) => item.kind === "completed" && item.text !== "Run completed")) {
+    throw new Error(`Director history omitted a final response: ${JSON.stringify(history)}`);
+  }
 }
 
 function selectWorkstream(client, workstreamId) {
@@ -525,6 +690,22 @@ async function openDirectorArtifactDetail(client, artifactId) {
     (detail) => detail.status === "loaded",
     workflowTimeoutMs,
   );
+}
+
+async function closeDirectorArtifactDetail(client) {
+  const closed = await client.evaluate(`(() => {
+    const button = document.querySelector(
+      '.director-artifact-detail button[aria-label="Close artifact details"]'
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!closed) {
+    throw new Error("Director artifact detail did not expose a close action");
+  }
 }
 
 function waitForConversationSnapshot(backend, workspaceId, conversationId, ready) {

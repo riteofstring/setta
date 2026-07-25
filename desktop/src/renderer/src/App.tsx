@@ -9,6 +9,7 @@ import { AppShellSpeechPlaybackProvider } from "./features/global-speech/app-she
 import { resetRuntimeDerivedRendererState } from "./stores/runtime-derived-state";
 import { useRuntimeStore } from "./stores/runtime-store";
 import { useAppearanceStore } from "./stores/appearance-store";
+import { useWorkspaceStore } from "./stores/workspace-store";
 import {
   type SettingsShellRoute,
   useSettingsNavigationStore,
@@ -70,7 +71,11 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
         data-testid="app-director-shell"
         inert={settingsPageOpen || undefined}
       >
-        <AppShellSpeechPlaybackProvider runtimeId={runtime.connectedRuntimeId} setta={setta}>
+        <AppShellSpeechPlaybackProvider
+          conversationNarrationEnabled={false}
+          runtimeId={runtime.connectedRuntimeId}
+          setta={setta}
+        >
           {(speechPlayback) => (
             <DirectorCommandCenterShell
               connectedRuntimeId={runtime.connectedRuntimeId}
@@ -196,6 +201,7 @@ function useRuntimeLifecycle(setta: SettaAPI) {
   const loadRuntimes = useRuntimeStore((state) => state.load);
   const runtimeSnapshot = useRuntimeStore((state) => state.snapshot);
   const setRuntimeSnapshot = useRuntimeStore((state) => state.setSnapshot);
+  const loadWorkspaceSession = useWorkspaceStore((state) => state.loadSession);
   const resetRuntimeStateKeyRef = useRef<string | null | undefined>(undefined);
   const activeConnectedRuntimeId =
     runtimeSnapshot?.connection.status === "connected" ? runtimeSnapshot.activeRuntimeId : null;
@@ -218,6 +224,13 @@ function useRuntimeLifecycle(setta: SettaAPI) {
     resetRuntimeStateKeyRef.current = activeRuntimeId;
     resetRuntimeDerivedRendererState();
   }, [runtimeSnapshot]);
+
+  useEffect(() => {
+    if (!activeConnectedRuntimeId) {
+      return;
+    }
+    void loadWorkspaceSession();
+  }, [activeConnectedRuntimeId, loadWorkspaceSession]);
 
   return { connectedRuntimeId: activeConnectedRuntimeId };
 }

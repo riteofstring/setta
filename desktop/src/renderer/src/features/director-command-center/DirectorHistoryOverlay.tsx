@@ -9,11 +9,7 @@ export function compactDirectorHistory(graph: WorkstreamGraph | null): DirectorH
     return [];
   }
   return graph.nodes
-    .filter((node) =>
-      ["user_goal", "director_decision", "milestone", "completed", "failed", "cancelled"].includes(
-        node.kind,
-      ),
-    )
+    .filter((node) => ["user_goal", "completed", "failed", "cancelled"].includes(node.kind))
     .slice(-5);
 }
 

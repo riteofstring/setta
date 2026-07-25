@@ -18,7 +18,7 @@ const rawProjectionGalleryFixture = {
           runId: "turn-beta-1",
           actor: "user",
           status: "succeeded",
-          publicSummary: "Refactor the importer, but keep the public API",
+          publicSummary: "Refactor the importer",
           evidenceClass: "runtime_fact",
           sourceEventIds: ["trajectory-03", "trajectory-08"],
           artifactIds: [],

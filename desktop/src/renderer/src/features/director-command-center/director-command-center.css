@@ -715,12 +715,20 @@
   border: 0;
   color: oklch(0.94 0.02 250);
   font: inherit;
+  font-size: 1rem;
   line-height: 1.35;
   max-block-size: 120px;
   min-block-size: 40px;
   outline: 0;
   padding: 10px 8px;
   resize: none;
+}
+
+.director-resource-error {
+  color: oklch(0.78 0.11 25);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  margin: 8px 0 0;
 }
 
 .director-composer textarea::placeholder {
@@ -810,6 +818,18 @@
   }
 }
 
+@keyframes director-artifact-arrival {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .director-status-icon {
   flex: none;
 }
@@ -863,6 +883,10 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .director-artifact-item {
+    animation: director-artifact-arrival 420ms cubic-bezier(0.2, 0, 0, 1) both;
+  }
+
   .director-composer-hint[data-active="true"] .director-composer-hint-dot {
     animation: director-composer-hint-pulse 1.6s ease-in-out infinite;
   }

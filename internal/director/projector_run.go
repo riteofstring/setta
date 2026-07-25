@@ -23,6 +23,11 @@ const (
 	planStepFallback    = "Plan step"
 )
 
+type runFinalResponse struct {
+	eventID string
+	text    string
+}
+
 type trajectoryHandler func(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error
 
 // trajectoryHandlers is total over the durable trajectory catalog: a kind with
@@ -85,7 +90,7 @@ func projectUserInputAccepted(projector *DirectorGraphProjector, context factCon
 	}
 	if context.runID != nil {
 		context.workstream.goalNodes[*context.runID] = nodeID
-		context.workstream.runSummaries[*context.runID] = payload.Input.Text
+		context.workstream.runInputs[*context.runID] = payload.Input.Text
 	}
 	return nil
 }
@@ -153,7 +158,7 @@ func projectTurnSteered(projector *DirectorGraphProjector, context factContext, 
 	}
 	// Steering keeps one run node and records the new instruction on it, so the
 	// user sees what changed without the run appearing to restart.
-	context.workstream.runSummaries[runID] = payload.Input.Text
+	context.workstream.runInputs[runID] = payload.Input.Text
 	_, err = projector.commitRunNode(context, runID, SemanticNodeStatusActive, payload.Input.Text)
 	return err
 }
@@ -196,14 +201,33 @@ func projectTurnInterrupted(projector *DirectorGraphProjector, context factConte
 		return nil
 	}
 	summary := fmt.Sprintf("%s (%s)", cancelledRunSummary, payload.Reason)
-	return projector.closeRun(context, event, SemanticNodeCancelled, SemanticNodeStatusCancelled, summary)
+	return projector.closeRun(
+		context,
+		event,
+		SemanticNodeCancelled,
+		SemanticNodeStatusCancelled,
+		summary,
+		"",
+	)
 }
 
 func projectTurnCompleted(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {
 	if event.TurnCompleted == nil {
 		return missingPayload(event)
 	}
-	return projector.closeRun(context, event, SemanticNodeCompleted, SemanticNodeStatusSucceeded, completedRunSummary)
+	runID, err := requireRunID(event)
+	if err != nil {
+		return err
+	}
+	finalResponse := context.workstream.runFinalResponses[runID]
+	return projector.closeRun(
+		context,
+		event,
+		SemanticNodeCompleted,
+		SemanticNodeStatusSucceeded,
+		firstText(finalResponse.text, completedRunSummary),
+		finalResponse.eventID,
+	)
 }
 
 func projectTurnFailed(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {
@@ -214,7 +238,7 @@ func projectTurnFailed(projector *DirectorGraphProjector, context factContext, e
 	// The public failure message is the only failure text that becomes graph
 	// truth. The diagnostic reference stays behind the detail surfaces.
 	summary := firstText(payload.Failure.Message, failedRunSummary)
-	return projector.closeRun(context, event, SemanticNodeFailed, SemanticNodeStatusFailed, summary)
+	return projector.closeRun(context, event, SemanticNodeFailed, SemanticNodeStatusFailed, summary, "")
 }
 
 // closeRun ends the run node, adds the terminal node that closes the causal
@@ -225,6 +249,7 @@ func (projector *DirectorGraphProjector) closeRun(
 	kind SemanticNodeKind,
 	status SemanticNodeStatus,
 	summary string,
+	summaryEventID string,
 ) error {
 	runID, err := requireRunID(event)
 	if err != nil {
@@ -250,20 +275,23 @@ func (projector *DirectorGraphProjector) closeRun(
 		return err
 	}
 	terminalNodeID, err = projector.commitNode(context, nodeSpec{
-		identity:    SemanticNodeIdentityRunTerminal,
-		sourceID:    runID,
-		kind:        kind,
-		status:      status,
-		actor:       context.actor,
-		summary:     summary,
-		evidence:    EvidenceRuntimeFact,
-		artifactIDs: context.workstream.runArtifacts[runID],
-		chain:       true,
+		identity:            SemanticNodeIdentityRunTerminal,
+		sourceID:            runID,
+		kind:                kind,
+		status:              status,
+		actor:               context.actor,
+		summary:             summary,
+		evidence:            EvidenceRuntimeFact,
+		artifactIDs:         context.workstream.runArtifacts[runID],
+		extraSourceEventIDs: optionalSourceEventID(summaryEventID),
+		chain:               true,
 	})
 	if err != nil {
 		return err
 	}
 	projector.nodeBySourceEvent[event.ID] = terminalNodeID
+	delete(context.workstream.runInputs, runID)
+	delete(context.workstream.runFinalResponses, runID)
 	projector.clearSucceededRunRecoveryAnchor(context.workstream, runID, status)
 	return nil
 }
@@ -403,13 +431,11 @@ func (projector *DirectorGraphProjector) closeRunGoal(
 	if !tracked {
 		return nil
 	}
-	summary := context.workstream.runSummaries[runID]
 	_, err := projector.commitNode(context, nodeSpec{
 		nodeID:   goalNodeID,
 		kind:     SemanticNodeUserGoal,
 		status:   status,
 		actor:    SemanticActorUser,
-		summary:  summary,
 		evidence: EvidenceRuntimeFact,
 		runID:    &runID,
 	})
@@ -428,7 +454,7 @@ func (projector *DirectorGraphProjector) commitRunNode(
 	status SemanticNodeStatus,
 	fallbackSummary string,
 ) (string, error) {
-	summary := firstText(context.workstream.runSummaries[runID], fallbackSummary)
+	summary := firstText(context.workstream.runInputs[runID], fallbackSummary)
 	nodeID, err := projector.commitNode(context, nodeSpec{
 		identity: SemanticNodeIdentityRun,
 		sourceID: runID,
@@ -487,24 +513,21 @@ func projectAgentMessageCompleted(projector *DirectorGraphProjector, context fac
 	if err != nil {
 		return err
 	}
-	context.workstream.runSummaries[runID] = payload.Text
-	nodeID, err := SemanticNodeID(SemanticNodeIdentityRun, runID)
-	if err != nil {
-		return err
+	// A completed assistant message is the outcome text, not a replacement for
+	// either the user's goal or the action that carried it out. Hold it until
+	// the typed turn-completed fact authorizes a terminal outcome node.
+	context.workstream.runFinalResponses[runID] = runFinalResponse{
+		eventID: event.ID,
+		text:    payload.Text,
 	}
-	index, exists := context.workstream.nodeIndex[nodeID]
-	if !exists {
-		// The run node lives outside this projection window. The completed
-		// message still owns the final-answer surface; it never invents a node.
+	return nil
+}
+
+func optionalSourceEventID(eventID string) []string {
+	if eventID == "" {
 		return nil
 	}
-	_, err = projector.commitNode(context, nodeSpec{
-		nodeID:  nodeID,
-		status:  context.workstream.nodes[index].Status,
-		summary: payload.Text,
-		runID:   &runID,
-	})
-	return err
+	return []string{eventID}
 }
 
 func projectPlanChanged(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {

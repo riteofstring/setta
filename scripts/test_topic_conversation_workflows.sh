@@ -124,17 +124,9 @@ if [[ "${run_deterministic}" -eq 1 ]]; then
     status=1
   fi
 
-  echo "Deterministic Electron topic-conversation workflow..."
+  echo "Deterministic Electron Director command-center workflows..."
   if run_electron_node "${repo_root}/desktop/tests/electron/run-workflows.mjs" \
-    --workflow topic-conversation-pane-projection \
-    --workflow topic-conversation-creation \
-    --workflow topic-conversation-archive \
-    --workflow topic-conversation-role-configuration \
-    --workflow topic-conversation-presentation-configuration \
-    --workflow topic-conversation-palette-identity \
-    --workflow topic-conversation-crash-recovery \
-    --workflow topic-conversation-speech-arbitration \
-    --workflow director-command-center; then
+    --tier required; then
     passed_workflows+=("deterministic-electron")
   else
     status=1

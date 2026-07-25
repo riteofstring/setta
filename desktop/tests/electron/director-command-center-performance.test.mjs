@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* global console */
 
+import { rm } from "node:fs/promises";
 import { delimiter, join } from "node:path";
 import process from "node:process";
 
@@ -19,12 +20,27 @@ import {
   writeJson,
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
+import {
+  applyDirectorGraphTier,
+  directorGraphTierNames,
+  directorGraphTiers,
+} from "./director-graph-performance-helpers.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
 import { assertSmoothFrameSample, frameBudgetSummary } from "./performance-frame-budget.mjs";
 
 const workflowName = "director-command-center-performance";
-const workflowTimeoutMs = 90_000;
-const scenarioNames = ["lifecycle", "navigate-100-workstreams"];
+const sustainedDurationMs = 10 * 60 * 1_000;
+const workflowTimeoutMs = sustainedDurationMs + 120_000;
+const scenarioNames = [
+  "lifecycle",
+  "viewport-matrix",
+  "text-delta-burst",
+  "occlusion-transitions",
+  "history-compaction-boundary",
+  "navigate-100-workstreams",
+  "sustained-activity",
+  "restart-durable-replay",
+];
 const navigationWorkstreamTarget = 100;
 const navigationMoveCount = 80;
 const secretApprovalAnswer = "director-performance-secret-scope";
@@ -51,11 +67,14 @@ if (!options.skipBuild) {
 }
 
 const artifactDir = options.artifactDir || timestampedRecordingDir(workflowName);
+const initialLaunchDir = join(artifactDir, "initial-launch");
+const restartLaunchDir = join(artifactDir, "restart-launch");
 await writeLatestRecordingPointer(workflowName, artifactDir);
 const fixture = await createElectronFixture(workflowName);
 const fakeCodex = await installFakeTopicCodex(fixture);
 const launchEnvironment = {
   PATH: `${fakeCodex.binDir}${delimiter}${process.env.PATH ?? ""}`,
+  SETTA_E2E_DIRECTOR_SUSTAINED_MS: String(sustainedDurationMs),
   SETTA_E2E_TOPIC_CODEX_STATE_PATH: fakeCodex.statePath,
   SETTA_E2E_WINDOW_HEIGHT: "982",
   SETTA_E2E_WINDOW_WIDTH: "1512",
@@ -64,29 +83,170 @@ let context = null;
 let summary = null;
 
 try {
-  context = await launchDirectorElectron();
-  const backend = await backendProbe(artifactDir);
+  context = await launchDirectorElectron(initialLaunchDir);
+  let backend = await backendProbe(initialLaunchDir);
   const workspaceId = await openWorkspace(context.client);
   const selectedScenarios = selectScenarios(workflowArgs.scenarios);
   const results = [];
+  const rootWorkstreamId = await bootstrapRootWorkstream(context.client, workspaceId);
 
   if (selectedScenarios.includes("lifecycle")) {
     results.push(
       await measureScenario(context.client, "lifecycle", () =>
-        runLifecycleScenario(context.client, workspaceId),
+        runLifecycleScenario(context.client, rootWorkstreamId),
       ),
     );
-    await captureScreenshot(context.client, join(artifactDir, "lifecycle.png"));
+    await captureScreenshot(context.client, join(artifactDir, "lifecycle-laptop.png"));
+  }
+
+  if (selectedScenarios.includes("viewport-matrix")) {
+    results.push(...(await runViewportMatrix(context.client, rootWorkstreamId)));
+  }
+
+  if (selectedScenarios.includes("text-delta-burst")) {
+    for (const tierName of ["laptop", "desktop-4k"]) {
+      const tier = directorTier(tierName);
+      await applyDirectorTier(context.client, tier);
+      results.push(
+        await measureScenario(
+          context.client,
+          "text-delta-burst",
+          () =>
+            runConversationTurnScenario({
+              backend,
+              client: context.client,
+              directorText: "Director text burst.",
+              rootWorkstreamId,
+              workspaceId,
+            }),
+          tier.name,
+        ),
+      );
+      await captureScreenshot(
+        context.client,
+        join(artifactDir, `text-delta-burst-${tier.name}.png`),
+      );
+    }
+  }
+
+  if (selectedScenarios.includes("occlusion-transitions")) {
+    const tier = directorTier("laptop");
+    await applyDirectorTier(context.client, tier);
+    results.push(
+      await measureScenario(
+        context.client,
+        "occlusion-transitions",
+        () =>
+          runOcclusionScenario({
+            backend,
+            client: context.client,
+            rootWorkstreamId,
+            workspaceId,
+          }),
+        tier.name,
+      ),
+    );
+    await captureScreenshot(context.client, join(artifactDir, "occlusion-transitions-laptop.png"));
+  }
+
+  if (selectedScenarios.includes("history-compaction-boundary")) {
+    const tier = directorTier("laptop");
+    await applyDirectorTier(context.client, tier);
+    results.push(
+      await measureScenario(
+        context.client,
+        "history-compaction-boundary",
+        () =>
+          runHistoryCompactionScenario({
+            backend,
+            client: context.client,
+            rootWorkstreamId,
+            workspaceId,
+          }),
+        tier.name,
+      ),
+    );
+    await captureScreenshot(
+      context.client,
+      join(artifactDir, "history-compaction-boundary-laptop.png"),
+    );
   }
 
   if (selectedScenarios.includes("navigate-100-workstreams")) {
     await seedNavigationWorkstreams(context.client, backend, workspaceId);
+    for (const tierName of ["laptop", "desktop-4k"]) {
+      const tier = directorTier(tierName);
+      await applyDirectorTier(context.client, tier);
+      results.push(
+        await measureScenario(
+          context.client,
+          "navigate-100-workstreams",
+          () => runNavigationScenario(context.client),
+          tier.name,
+        ),
+      );
+      await captureScreenshot(
+        context.client,
+        join(artifactDir, `navigate-100-workstreams-${tier.name}.png`),
+      );
+    }
+  }
+
+  if (selectedScenarios.includes("sustained-activity")) {
+    const tier = directorTier("laptop");
+    await applyDirectorTier(context.client, tier);
     results.push(
-      await measureScenario(context.client, "navigate-100-workstreams", () =>
-        runNavigationScenario(context.client),
+      await measureScenario(
+        context.client,
+        "sustained-activity",
+        () =>
+          runConversationTurnScenario({
+            backend,
+            client: context.client,
+            directorText: "Director sustained.",
+            rootWorkstreamId,
+            workspaceId,
+          }),
+        tier.name,
       ),
     );
-    await captureScreenshot(context.client, join(artifactDir, "navigate-100-workstreams.png"));
+  }
+
+  if (selectedScenarios.includes("restart-durable-replay")) {
+    const beforeRestart = comparableDirectorSnapshot(await readDirectorSnapshot(context.client));
+    await stopElectronCdpContext(context);
+    context = null;
+    context = await launchDirectorElectron(restartLaunchDir);
+    backend = await backendProbe(restartLaunchDir);
+    const restoredWorkspaceId = await openWorkspace(context.client);
+    if (restoredWorkspaceId !== workspaceId) {
+      throw new Error(`restart restored workspace ${restoredWorkspaceId}, want ${workspaceId}`);
+    }
+    const restored = comparableDirectorSnapshot(await readDirectorSnapshot(context.client));
+    assertJsonEqual(restored, beforeRestart, "restart Director snapshot");
+    for (const tierName of ["laptop", "harness-standard"]) {
+      const tier = directorTier(tierName);
+      await applyDirectorTier(context.client, tier);
+      results.push(
+        await measureScenario(
+          context.client,
+          "restart-durable-replay",
+          async () => {
+            await waitForFrames(context.client, 48);
+            return {
+              graphCount: restored.graphs.length,
+              selectedWorkstreamId: restored.selectedWorkstreamId,
+              workstreamCount: restored.workstreams.length,
+            };
+          },
+          tier.name,
+        ),
+      );
+      await captureScreenshot(
+        context.client,
+        join(artifactDir, `restart-durable-replay-${tier.name}.png`),
+      );
+    }
   }
 
   summary = {
@@ -99,7 +259,10 @@ try {
     workspaceId,
   };
   await writeJson(join(artifactDir, "summary.json"), summary);
-  await assertRendererStayedQuiet(artifactDir);
+  await assertRendererStayedQuiet(initialLaunchDir);
+  if (selectedScenarios.includes("restart-durable-replay")) {
+    await assertRendererStayedQuiet(restartLaunchDir);
+  }
   summary = { ...summary, status: "passed" };
   await writeJson(join(artifactDir, "summary.json"), summary);
   for (const result of results) {
@@ -119,6 +282,7 @@ try {
   throw error;
 } finally {
   await stopElectronCdpContext(context);
+  await rm(fixture.tempRoot, { force: true, recursive: true });
 }
 
 function splitArgs(argv) {
@@ -151,9 +315,45 @@ function selectScenarios(requested) {
   return requested;
 }
 
-async function launchDirectorElectron() {
+function directorTier(name) {
+  const tier = directorGraphTiers.find((candidate) => candidate.name === name);
+  if (!tier) {
+    throw new Error(
+      `Director performance tier ${name} is missing; known: ${directorGraphTierNames().join(", ")}`,
+    );
+  }
+  return tier;
+}
+
+async function applyDirectorTier(client, tier) {
+  await applyDirectorGraphTier(client, tier);
+  await waitForState(
+    client,
+    `(() => {
+      const canvas = document.querySelector(".director-graph-canvas");
+      const box = canvas?.getBoundingClientRect();
+      return {
+        canvasHeight: Math.round(box?.height ?? 0),
+        canvasWidth: Math.round(box?.width ?? 0),
+        devicePixelRatio: window.devicePixelRatio,
+        height: window.innerHeight,
+        width: window.innerWidth
+      };
+    })()`,
+    (value) =>
+      value.canvasHeight > 0 &&
+      value.canvasWidth > 0 &&
+      value.height === tier.height &&
+      value.width === tier.width &&
+      (!tier.emulated || value.devicePixelRatio === tier.deviceScaleFactor),
+    workflowTimeoutMs,
+  );
+  await waitForFrames(client, 12);
+}
+
+async function launchDirectorElectron(launchArtifactDir) {
   const launched = await launchElectronCdpContext({
-    artifactDir,
+    artifactDir: launchArtifactDir,
     extraEnv: launchEnvironment,
     fixture,
     visible: options.visible,
@@ -164,7 +364,7 @@ async function launchDirectorElectron() {
   return launched;
 }
 
-async function measureScenario(client, scenario, run) {
+async function measureScenario(client, scenario, run, tier = "laptop") {
   const started = await client.driver("directorCommandCenterPerformanceStart");
   if (!started.ok) {
     throw new Error(`Director performance profiler did not start: ${JSON.stringify(started)}`);
@@ -175,10 +375,13 @@ async function measureScenario(client, scenario, run) {
   if (!stopped.ok) {
     throw new Error(`Director performance profiler did not stop: ${JSON.stringify(stopped)}`);
   }
+  stopped.final.canvasPixel = await readDirectorCanvasPixel(client);
   assertSmoothFrameSample(stopped.sample, `Director command-center ${scenario}`, {
     minFrameCount: 30,
   });
   assertDomBudgets(stopped.final, scenario);
+  assertCanvasPixel(stopped.final.canvasPixel, `${tier}/${scenario}`);
+  assertScenarioPerformance(stopped.sample, scenario, tier);
   return {
     final: stopped.final,
     frameBudget: frameBudgetSummary(stopped.sample),
@@ -186,10 +389,12 @@ async function measureScenario(client, scenario, run) {
     outcome,
     sample: stopped.sample,
     scenario,
+    tier,
+    viewport: await viewportState(client),
   };
 }
 
-async function runLifecycleScenario(client, workspaceId) {
+async function bootstrapRootWorkstream(client, workspaceId) {
   const folderlessReceipt = await submitDirector(client, "Director create folderless.");
   const rootWorkstreamId = requiredString(folderlessReceipt.submit?.workstreamId, "workstream");
   const resourceRequestId = requiredString(
@@ -203,7 +408,10 @@ async function runLifecycleScenario(client, workspaceId) {
   });
   await waitForDirectorSnapshot(client, (snapshot) => resourceResolved(snapshot, rootWorkstreamId));
   await selectWorkstream(client, rootWorkstreamId);
+  return rootWorkstreamId;
+}
 
+async function runLifecycleScenario(client, rootWorkstreamId) {
   await submitDirector(client, "Director send hold.");
   await waitForWorkstream(
     client,
@@ -217,6 +425,22 @@ async function runLifecycleScenario(client, workspaceId) {
     (workstream) => workstream.queuedRunCount === 1,
   );
   await submitDirector(client, "Director steer now.");
+  await waitForWorkstream(client, rootWorkstreamId, idleUnqueued);
+
+  await submitDirector(client, "Director send cancel hold.");
+  const cancellable = await waitForWorkstream(
+    client,
+    rootWorkstreamId,
+    (workstream) => workstream.activeRunId !== null,
+  );
+  const cancellableRunId = workstreamById(cancellable, rootWorkstreamId)?.activeRunId;
+  await dispatchDirector(client, {
+    cancelRun: {
+      runId: requiredString(cancellableRunId, "cancellable run"),
+      workstreamId: rootWorkstreamId,
+    },
+    kind: "cancel_run",
+  });
   await waitForWorkstream(client, rootWorkstreamId, idleUnqueued);
 
   await submitDirector(client, "Director request approval.");
@@ -237,6 +461,7 @@ async function runLifecycleScenario(client, workspaceId) {
   const artifact = await waitForFirstArtifact(client, rootWorkstreamId);
   await openArtifact(client, artifact.id);
   await waitForArtifactDetail(client, artifact.id);
+  await closeArtifact(client);
   const snapshot = await readDirectorSnapshot(client);
   assertExcludes(JSON.stringify(snapshot), secretApprovalAnswer, "Director snapshot");
   return {
@@ -245,6 +470,159 @@ async function runLifecycleScenario(client, workspaceId) {
     rootWorkstreamId,
     workstreamCount: snapshot.aggregates.workstreamCount,
   };
+}
+
+async function runViewportMatrix(client, rootWorkstreamId) {
+  await selectWorkstream(client, rootWorkstreamId);
+  await submitDirector(client, "Director send hold.");
+  await waitForWorkstream(
+    client,
+    rootWorkstreamId,
+    (workstream) => workstream.activeRunId !== null,
+  );
+
+  const results = [];
+  for (const tierName of ["laptop", "harness-standard", "desktop-6k", "phone-dpr3", "phone-dpr1"]) {
+    const tier = directorTier(tierName);
+    await applyDirectorTier(client, tier);
+    results.push(
+      await measureScenario(
+        client,
+        "one-active-workstream",
+        async () => {
+          await waitForFrames(client, 48);
+          return viewportState(client);
+        },
+        tier.name,
+      ),
+    );
+    await captureScreenshot(client, join(artifactDir, `one-active-workstream-${tier.name}.png`));
+  }
+
+  for (const tierName of ["laptop", "desktop-4k"]) {
+    const tier = directorTier(tierName);
+    await applyDirectorTier(client, tier);
+    results.push(
+      await measureScenario(
+        client,
+        "director-and-worker-interleaved",
+        async () => {
+          const current = await readDirectorSnapshot(client);
+          if (workstreamById(current, rootWorkstreamId)?.queuedRunCount === 0) {
+            await submitDirector(client, "Director queue next.");
+          }
+          await waitForWorkstream(
+            client,
+            rootWorkstreamId,
+            (workstream) => workstream.activeRunId !== null && workstream.queuedRunCount === 1,
+          );
+          await waitForFrames(client, 48);
+          return { queuedRunCount: 1 };
+        },
+        tier.name,
+      ),
+    );
+    await captureScreenshot(
+      client,
+      join(artifactDir, `director-and-worker-interleaved-${tier.name}.png`),
+    );
+  }
+
+  await applyDirectorTier(client, directorTier("laptop"));
+  await submitDirector(client, "Director steer now.");
+  await waitForWorkstream(client, rootWorkstreamId, idleUnqueued);
+  return results;
+}
+
+async function runConversationTurnScenario({
+  backend,
+  client,
+  directorText,
+  rootWorkstreamId,
+  workspaceId,
+}) {
+  await selectWorkstream(client, rootWorkstreamId);
+  const conversationId = conversationID(rootWorkstreamId);
+  const before = await readConversationSnapshot(backend, workspaceId, conversationId);
+  const beforeCount = before.turns.turns.length;
+  await submitDirector(client, directorText);
+  const completed = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    conversationId,
+    (snapshot) =>
+      snapshot.turns.turns.length === beforeCount + 1 &&
+      snapshot.turns.turns.at(-1)?.status === "completed",
+  );
+  await waitForWorkstream(client, rootWorkstreamId, idleUnqueued);
+  return {
+    authoredInput: completed.turns.turns.at(-1)?.authoredInput.text ?? "",
+    turnCount: completed.turns.turns.length,
+  };
+}
+
+async function runHistoryCompactionScenario({ backend, client, rootWorkstreamId, workspaceId }) {
+  const outcome = await runConversationTurnScenario({
+    backend,
+    client,
+    directorText: "Director graph burst.",
+    rootWorkstreamId,
+    workspaceId,
+  });
+  const snapshot = await waitForDirectorSnapshot(client, (candidate) => {
+    const graph = candidate.graphs.find((item) => item.workstreamId === rootWorkstreamId);
+    return graph?.hasEarlier === true && graph.nodes.length === 400;
+  });
+  const graph = snapshot.graphs.find((item) => item.workstreamId === rootWorkstreamId);
+  return {
+    ...outcome,
+    hasEarlier: graph?.hasEarlier ?? false,
+    nodeCount: graph?.nodes.length ?? 0,
+  };
+}
+
+async function runOcclusionScenario({ backend, client, rootWorkstreamId, workspaceId }) {
+  await selectWorkstream(client, rootWorkstreamId);
+  await setSimulatedDocumentVisibility(client, "hidden");
+  try {
+    await waitForFrames(client, 12);
+    const hiddenBefore = await readDirectorCanvasPixel(client);
+    const outcome = await runConversationTurnScenario({
+      backend,
+      client,
+      directorText: "Director graph burst.",
+      rootWorkstreamId,
+      workspaceId,
+    });
+    await waitForFrames(client, 12);
+    const hiddenAfter = await readDirectorCanvasPixel(client);
+    if (hiddenBefore.ok || hiddenAfter.ok || hiddenAfter.digest !== hiddenBefore.digest) {
+      throw new Error(
+        `Director graph drew while hidden: ${JSON.stringify({
+          after: hiddenAfter,
+          before: hiddenBefore,
+        })}`,
+      );
+    }
+    await setSimulatedDocumentVisibility(client, "visible");
+    await waitForFrames(client, 48);
+    const resumed = await readDirectorCanvasPixel(client);
+    if (!resumed.ok || resumed.digest === hiddenAfter.digest) {
+      throw new Error(
+        `Director graph did not redraw after visibility resumed: ${JSON.stringify({
+          hidden: hiddenAfter,
+          resumed,
+        })}`,
+      );
+    }
+    return {
+      ...outcome,
+      hiddenDigest: hiddenAfter.digest,
+      resumedDigest: resumed.digest,
+    };
+  } finally {
+    await setSimulatedDocumentVisibility(client, "visible");
+  }
 }
 
 async function runNavigationScenario(client) {
@@ -426,8 +804,56 @@ function waitForArtifactDetail(client, artifactId) {
   );
 }
 
+async function closeArtifact(client) {
+  const closed = await client.evaluate(`(() => {
+    const button = document.querySelector(
+      '.director-artifact-detail button[aria-label="Close artifact details"]'
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!closed) {
+    throw new Error("Director artifact detail did not close");
+  }
+}
+
 function waitForFrames(client, count) {
   return client.driver("directorCommandCenterWaitFrames", { count });
+}
+
+function readDirectorCanvasPixel(client) {
+  return client.driver("directorCommandCenterCanvasPixelCheck");
+}
+
+async function setSimulatedDocumentVisibility(client, visibilityState) {
+  const result = await client.evaluate(`(() => {
+    const state = ${JSON.stringify(visibilityState)};
+    if (state !== "hidden" && state !== "visible") {
+      return { ok: false, reason: "invalid-state" };
+    }
+    if (!Object.hasOwn(document, "__settaE2EVisibilityState")) {
+      Object.defineProperty(document, "__settaE2EVisibilityState", {
+        configurable: true,
+        value: document.visibilityState,
+        writable: true
+      });
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        get: () => document.__settaE2EVisibilityState
+      });
+    }
+    document.__settaE2EVisibilityState = state;
+    document.dispatchEvent(new Event("visibilitychange"));
+    return { ok: true, state: document.visibilityState };
+  })()`);
+  if (!result.ok || result.state !== visibilityState) {
+    throw new Error(
+      `Director document visibility did not become ${visibilityState}: ${JSON.stringify(result)}`,
+    );
+  }
 }
 
 function awaitingResource(snapshot, workstreamId) {
@@ -471,6 +897,38 @@ function assertDomBudgets(snapshot, scenario) {
   assertBudget(snapshot.graphLabelCount, domBudgets.graphLabels, `${scenario} graph labels`);
 }
 
+function assertCanvasPixel(pixel, label) {
+  if (pixel?.available && pixel.ok) {
+    return;
+  }
+  throw new Error(`${label} rendered a blank graph canvas: ${JSON.stringify(pixel)}`);
+}
+
+function assertScenarioPerformance(sample, scenario, tier) {
+  if (scenario === "text-delta-burst") {
+    const mutations = sample.mutations;
+    if (
+      mutations.addedNodes > 80 ||
+      mutations.removedNodes > 80 ||
+      mutations.characterDataRecords > 80
+    ) {
+      throw new Error(
+        `${tier}/${scenario} turned best-effort text deltas into visible DOM churn: ${JSON.stringify(
+          mutations,
+        )}`,
+      );
+    }
+  }
+  if (scenario !== "sustained-activity") {
+    return;
+  }
+  const start = sample.heap?.startBytes;
+  const end = sample.heap?.endBytes;
+  if (typeof start === "number" && typeof end === "number" && end - start > 48 * 1024 * 1024) {
+    throw new Error(`${tier}/${scenario} retained more than 48 MB: ${JSON.stringify(sample.heap)}`);
+  }
+}
+
 function assertBudget(actual, budget, label) {
   if (actual <= budget) {
     return;
@@ -494,6 +952,11 @@ async function assertRendererStayedQuiet(directory) {
 
 function compactResult(result) {
   return {
+    canvasPixel: {
+      litPixelRatio: round(result.final.canvasPixel.litPixelRatio),
+      ok: result.final.canvasPixel.ok,
+      peakLuminance: round(result.final.canvasPixel.peakLuminance),
+    },
     dom: {
       activityItems: result.final.activityItems,
       artifactCards: result.final.artifactCards,
@@ -505,10 +968,18 @@ function compactResult(result) {
       rails: result.final.rails,
       visibleWorkstreamDotCount: result.final.visibleWorkstreamDotCount,
     },
+    canvasBacking: result.final.graphCanvasBacking,
     frameBudget: result.frameBudget,
+    heapMb: {
+      end: megabytes(result.sample.heap?.endBytes),
+      peak: megabytes(result.sample.heap?.peakBytes),
+      start: megabytes(result.sample.heap?.startBytes),
+    },
     outcome: result.outcome,
     sample: compactSample(result.sample),
     scenario: result.scenario,
+    tier: result.tier,
+    viewport: result.viewport,
   };
 }
 
@@ -532,7 +1003,7 @@ function compactSample(sample) {
 
 function formatResult(result) {
   return [
-    `  ${result.scenario}`,
+    `  ${result.tier}/${result.scenario}`,
     `frames=${result.sample.frameCount}`,
     `p95=${round(result.sample.p95FrameDeltaMs)}ms`,
     `p99=${round(result.sample.p99FrameDeltaMs)}ms`,
@@ -541,6 +1012,10 @@ function formatResult(result) {
     `dom=${result.final.bodyDescendantCount}`,
     `dots=${result.final.visibleWorkstreamDotCount}`,
   ].join(" ");
+}
+
+function megabytes(bytes) {
+  return typeof bytes === "number" ? round(bytes / 1_048_576) : null;
 }
 
 function round(value) {
@@ -557,5 +1032,42 @@ function requiredString(value, label) {
 function assertExcludes(value, marker, label) {
   if (value.includes(marker)) {
     throw new Error(`${label} leaked marker ${JSON.stringify(marker)}`);
+  }
+}
+
+function readConversationSnapshot(backend, workspaceId, conversationId) {
+  return backend.post("/conversations/snapshot/read", { conversationId, workspaceId });
+}
+
+function waitForConversationSnapshot(backend, workspaceId, conversationId, ready) {
+  return waitForBackendState(
+    () => readConversationSnapshot(backend, workspaceId, conversationId),
+    ready,
+    workflowTimeoutMs,
+  );
+}
+
+function conversationID(workstreamId) {
+  const prefix = "workstream:";
+  if (!workstreamId.startsWith(prefix) || workstreamId.length === prefix.length) {
+    throw new Error(`unexpected workstream identity ${workstreamId}`);
+  }
+  return workstreamId.slice(prefix.length);
+}
+
+function comparableDirectorSnapshot(snapshot) {
+  return {
+    artifacts: snapshot.artifacts,
+    graphs: snapshot.graphs,
+    selectedWorkstreamId: snapshot.selectedWorkstreamId,
+    unresolvedApprovals: snapshot.unresolvedApprovals,
+    unresolvedResourceRequests: snapshot.unresolvedResourceRequests,
+    workstreams: snapshot.workstreams,
+  };
+}
+
+function assertJsonEqual(actual, expected, label) {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`${label} changed: ${JSON.stringify({ actual, expected }, null, 2)}`);
   }
 }

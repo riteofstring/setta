@@ -86,7 +86,8 @@ type projectedWorkstream struct {
 	agentLivenessRecovery map[string]string
 	providerLifecycleNode map[string]string
 	planStepNodes         map[string][]string
-	runSummaries          map[string]string
+	runInputs             map[string]string
+	runFinalResponses     map[string]runFinalResponse
 	goalNodes             map[string]string
 	activityNodes         map[string]string
 	fileChangeNodes       map[string]string
@@ -112,7 +113,8 @@ func newProjectedWorkstream(id string) *projectedWorkstream {
 		agentLivenessRecovery: map[string]string{},
 		providerLifecycleNode: map[string]string{},
 		planStepNodes:         map[string][]string{},
-		runSummaries:          map[string]string{},
+		runInputs:             map[string]string{},
+		runFinalResponses:     map[string]runFinalResponse{},
 		goalNodes:             map[string]string{},
 		activityNodes:         map[string]string{},
 		fileChangeNodes:       map[string]string{},

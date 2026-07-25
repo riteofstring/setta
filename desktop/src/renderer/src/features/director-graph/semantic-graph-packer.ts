@@ -61,12 +61,19 @@ function parseTimestamp(value: string, label: string): number {
   return timestamp / 1000;
 }
 
+export function semanticGraphTimeOriginSeconds(graphs: readonly WorkstreamGraph[]): number | null {
+  let origin = Number.POSITIVE_INFINITY;
+  for (const graph of graphs) {
+    for (const node of graph.nodes) {
+      origin = Math.min(origin, parseTimestamp(node.createdAt, `semantic node ${node.id}`));
+    }
+  }
+  return Number.isFinite(origin) ? origin : null;
+}
+
 function graphNodes(graphs: readonly WorkstreamGraph[]): OrderedNode[] {
   const records: OrderedNode[] = [];
-  const timestamps = graphs.flatMap((graph) =>
-    graph.nodes.map((node) => parseTimestamp(node.createdAt, `semantic node ${node.id}`)),
-  );
-  const base = Math.min(...timestamps);
+  const base = semanticGraphTimeOriginSeconds(graphs) ?? 0;
   graphs.forEach((graph, graphIndex) => {
     graph.nodes.forEach((node, graphOrder) => {
       records.push({

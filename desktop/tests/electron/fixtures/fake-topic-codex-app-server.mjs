@@ -579,6 +579,11 @@ function scriptedDirectorDecision(context, outputSchema) {
         }
       : null;
   }
+  if (text?.startsWith("local transcript for ")) {
+    return context.allowedDecisionKinds.includes("answer_directly")
+      ? { kind: "answer_directly", text: "The Director received the voice request." }
+      : null;
+  }
   const selected = context.workstreams?.find(
     (target) => target.workstreamId === context.selectedWorkstreamId,
   );
@@ -604,6 +609,12 @@ function scriptedDirectorDecision(context, outputSchema) {
     ["Director request approval.", ["send_to_workstream", "director approval"]],
     ["Director fail.", ["send_to_workstream", "director fail"]],
     ["Director artifact.", ["send_to_workstream", "director artifact"]],
+    ["Director graph burst.", ["send_to_workstream", "director graph burst"]],
+    [
+      "Director text burst.",
+      ["send_to_workstream", "Profile exactly 2000 conversation events for pane 1."],
+    ],
+    ["Director sustained.", ["send_to_workstream", "director sustained profile"]],
   ]);
   const workDecision = workDecisions.get(text);
   if (workDecision) {
@@ -1086,6 +1097,14 @@ function isCrashNarratorProjection(context) {
 }
 
 function emitTurnScenario(threadId, turnId, text) {
+  if (text === "director graph burst") {
+    emitDirectorGraphBurst(threadId, turnId);
+    return;
+  }
+  if (text === "director sustained profile") {
+    emitDirectorSustainedProfile(threadId, turnId);
+    return;
+  }
   const profiledEventCount = performanceEventCount(text);
   if (profiledEventCount !== null) {
     emitProfiledTurn(threadId, turnId, text, profiledEventCount, 0);
@@ -1128,6 +1147,56 @@ function emitTurnScenario(threadId, turnId, text) {
   }
   emitAgentMessage(threadId, turnId, `Completed ${text}.`);
   completeTurn(threadId, turnId, "completed");
+}
+
+function emitDirectorGraphBurst(threadId, turnId) {
+  const commandCount = 405;
+  for (let index = 0; index < commandCount; index += 1) {
+    const itemId = `director-burst-command-${turnId}-${String(index + 1).padStart(3, "0")}`;
+    notify("item/started", {
+      item: directorBurstCommand(itemId, "inProgress", null),
+      startedAtMs: Date.now(),
+      threadId,
+      turnId,
+    });
+    notify("item/completed", {
+      completedAtMs: Date.now(),
+      item: directorBurstCommand(itemId, "completed", 0),
+      threadId,
+      turnId,
+    });
+  }
+  emitAgentMessage(threadId, turnId, "Completed the Director graph burst.");
+  completeTurn(threadId, turnId, "completed");
+}
+
+function directorBurstCommand(itemId, status, exitCode) {
+  return {
+    aggregatedOutput: "",
+    command: "printf director-burst",
+    commandActions: [],
+    cwd: "/tmp",
+    exitCode,
+    id: itemId,
+    status,
+    type: "commandExecution",
+  };
+}
+
+function emitDirectorSustainedProfile(threadId, turnId, startedAt = Date.now(), index = 0) {
+  const configuredDuration = Number.parseInt(
+    process.env.SETTA_E2E_DIRECTOR_SUSTAINED_MS ?? "60000",
+    10,
+  );
+  const durationMs =
+    Number.isInteger(configuredDuration) && configuredDuration > 0 ? configuredDuration : 60_000;
+  emitTextDelta(threadId, turnId, `sustained-${String(index + 1).padStart(4, "0")} `);
+  if (Date.now() - startedAt >= durationMs) {
+    emitAgentMessage(threadId, turnId, "Completed the sustained Director profile.");
+    completeTurn(threadId, turnId, "completed");
+    return;
+  }
+  setTimeout(() => emitDirectorSustainedProfile(threadId, turnId, startedAt, index + 1), 50);
 }
 
 function performanceEventCount(text) {

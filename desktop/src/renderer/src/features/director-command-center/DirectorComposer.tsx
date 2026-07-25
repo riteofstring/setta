@@ -1,6 +1,6 @@
 import type { DirectorIntent, DirectorReceipt } from "@generated/backend";
 import { LoaderCircle, Mic, RotateCcw, Send, Square, X } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { voiceProviderSetupActionLabel } from "../global-speech/speech-capture-availability";
 import type {
@@ -30,14 +30,29 @@ export function DirectorComposer({
 }) {
   const [text, setText] = useState("");
   const voice = directorVoiceComposerState(speechCapture.snapshot);
+  const voiceAnnouncement = [voice.status, voice.transcriptPreview].filter(Boolean).join(" ");
+  const submitText = async (submittedText: string): Promise<void> => {
+    setText("");
+    try {
+      await dispatch(submitIntent(submittedText));
+    } catch {
+      setText(submittedText);
+    }
+  };
   const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     const trimmed = text.trim();
     if (trimmed.length === 0) {
       return;
     }
-    setText("");
-    void dispatch(submitIntent(trimmed));
+    void submitText(trimmed);
+  };
+  const submitOnEnter = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) {
+      return;
+    }
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
   };
   return (
     <form
@@ -63,15 +78,20 @@ export function DirectorComposer({
           Ask the Director
         </label>
         <textarea
+          aria-keyshortcuts="Enter"
           disabled={dispatching}
           id="director-composer-input"
           onChange={(event) => setText(event.target.value)}
-          placeholder="Ask the Director..."
+          onKeyDown={submitOnEnter}
+          placeholder="Ask the Director…"
           rows={1}
           value={text}
         />
+        <span aria-atomic="true" className="sr-only" role="status">
+          {voiceAnnouncement}
+        </span>
         {voice.status === null ? null : (
-          <p className="director-composer-voice-status" role="status">
+          <p aria-hidden="true" className="director-composer-voice-status">
             <span>{voice.status}</span>
             {voice.transcriptPreview === null ? null : (
               <span className="director-composer-transcript">{voice.transcriptPreview}</span>

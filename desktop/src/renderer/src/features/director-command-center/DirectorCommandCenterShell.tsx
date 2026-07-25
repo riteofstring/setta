@@ -7,6 +7,7 @@ import type {
   Workstream,
   WorkstreamStatus,
   WorkspaceSession,
+  WorkspaceSummary,
 } from "@generated/backend";
 import type { DesktopPlatform, SettaAPI } from "@shared/types";
 import {
@@ -37,11 +38,15 @@ import {
 import { SettaLogoMark } from "../../components/setta-logo-mark";
 import { useAppWindowDragHandlers } from "../../app-window-drag";
 import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
+import { useWorkspaceStore } from "../../stores/workspace-store";
 import { subscribeSpeechCapabilityRefresh } from "../global-speech/app-shell-speech-capture";
 import type { AppShellSpeechPlaybackController } from "../global-speech/app-shell-speech-playback-controller";
 import { createBrowserVoiceInputProvider } from "../global-speech/browser-voice-input-provider";
 import { emptyPackedGraphSnapshot } from "../director-graph/packed-graph-snapshot";
-import { packSemanticGraphComposition } from "../director-graph/semantic-graph-packer";
+import {
+  packSemanticGraphComposition,
+  semanticGraphTimeOriginSeconds,
+} from "../director-graph/semantic-graph-packer";
 import { DirectorGraphSurface } from "../director-graph/render/DirectorGraphSurface";
 import type { DirectorGraphCanvas } from "../director-graph/render/director-graph-canvas";
 import { DirectorComposer, type DirectorSpeechCaptureBinding } from "./DirectorComposer";
@@ -125,10 +130,6 @@ const compactRailQuery = "(max-width: 760px)";
 const maxVisibleWorkstreamDots = 19;
 const unwindowedWorkstreamLimit = 24;
 
-const graphClock = {
-  secondsAt: (timestampMs: number) => timestampMs / 1000,
-};
-
 const statusGlyphs = {
   archived: { Icon: Circle, size: 12 },
   awaiting_approval: { Icon: AlertTriangle, size: 14 },
@@ -156,7 +157,7 @@ export function DirectorCommandCenterShell({
     setta,
     speechPlayback,
   });
-  const workspaceSession = useWorkspaceSession(setta);
+  const workspaceBinding = useDirectorWorkspaceBinding(setta);
   const snapshotView = useMemo(
     () => directorCommandCenterSnapshotView(director.snapshot),
     [director.snapshot],
@@ -173,9 +174,15 @@ export function DirectorCommandCenterShell({
     effectiveVisibility: effectiveRailVisibility,
     toggleRail,
   } = useDirectorRailDisclosure();
+  const snapshotGraphs = director.snapshot?.graphs;
+  const selectedWorkstreamId = director.snapshot?.selectedWorkstreamId ?? null;
+  const graphTimeSecondsAt = useMemo(
+    () => directorGraphTimeSecondsAt(director.snapshot),
+    [director.snapshot?.connection.lastEventAt, snapshotGraphs],
+  );
   const packedSnapshot = useMemo(
-    () => packDirectorSnapshot(director.snapshot),
-    [director.snapshot],
+    () => packDirectorGraphs(snapshotGraphs, selectedWorkstreamId),
+    [selectedWorkstreamId, snapshotGraphs],
   );
   const railAttributes = directorRailVisibilityAttributes(effectiveRailVisibility);
   const switchTransition = useDirectorWorkstreamSwitchTransition(director.snapshot);
@@ -220,7 +227,7 @@ export function DirectorCommandCenterShell({
         <DirectorGraphSurface
           label="Director semantic graph"
           onReady={onGraphReady}
-          timeSecondsAt={graphClock.secondsAt}
+          timeSecondsAt={graphTimeSecondsAt}
         />
         <WorkstreamSwitchTransition transition={switchTransition} />
         <NowRail
@@ -237,9 +244,10 @@ export function DirectorCommandCenterShell({
           artifacts={snapshotView.artifacts}
           dispatch={director.dispatch}
           dispatching={director.dispatching}
+          openLocalFolder={workspaceBinding.openLocalFolder}
           readArtifact={setta.conversations.readArtifact}
           requests={snapshotView.requests}
-          workspaceSession={workspaceSession}
+          workspaceSession={workspaceBinding.session}
         />
         <DirectorComposer
           commitment={directorComposerCommitment(snapshotView.selectedWorkstream)}
@@ -281,12 +289,29 @@ function useDirectorRuntime(
     let disposed = false;
     let disposeEvents: (() => void) | null = null;
     let refreshInFlight = false;
+    let pendingVisibleFrame: number | null = null;
+
+    const cancelPendingVisibleFrame = (): void => {
+      if (pendingVisibleFrame === null) {
+        return;
+      }
+      window.cancelAnimationFrame(pendingVisibleFrame);
+      pendingVisibleFrame = null;
+    };
+
+    const publishVisibleSnapshot = (): void => {
+      pendingVisibleFrame = null;
+      if (!disposed) {
+        setSnapshotState(snapshotRef.current);
+      }
+    };
 
     const refresh = async (state: DirectorLoadState): Promise<void> => {
       if (refreshInFlight || disposed) {
         return;
       }
       refreshInFlight = true;
+      cancelPendingVisibleFrame();
       setLoadState(state);
       setMessage(state === "resyncing" ? "Resyncing Director state." : null);
       disposeEvents?.();
@@ -325,7 +350,11 @@ function useDirectorRuntime(
         return;
       }
       try {
-        setSnapshot(applyDirectorEvent(current, event));
+        const next = applyDirectorEvent(current, event);
+        snapshotRef.current = next;
+        if (directorEventChangesVisibleState(event) && pendingVisibleFrame === null) {
+          pendingVisibleFrame = window.requestAnimationFrame(publishVisibleSnapshot);
+        }
       } catch {
         void refresh("resyncing");
       }
@@ -335,6 +364,7 @@ function useDirectorRuntime(
     void refresh("loading");
     return () => {
       disposed = true;
+      cancelPendingVisibleFrame();
       refreshRef.current = null;
       disposeEvents?.();
     };
@@ -369,27 +399,21 @@ function useDirectorRuntime(
   return { dispatch, dispatching, loadState, message, receiptText, snapshot };
 }
 
-function useWorkspaceSession(setta: SettaAPI): WorkspaceSession | null {
-  const [session, setSession] = useState<WorkspaceSession | null>(null);
-  useEffect(() => {
-    let disposed = false;
-    void setta.workspace
-      .session()
-      .then((next) => {
-        if (!disposed) {
-          setSession(next);
-        }
-      })
-      .catch(() => {
-        if (!disposed) {
-          setSession(null);
-        }
-      });
-    return () => {
-      disposed = true;
-    };
-  }, [setta]);
-  return session;
+function useDirectorWorkspaceBinding(setta: SettaAPI): {
+  openLocalFolder: () => Promise<WorkspaceSummary | null>;
+  session: WorkspaceSession | null;
+} {
+  const session = useWorkspaceStore((state) => state.session);
+  const applyWorkspaceSession = useWorkspaceStore((state) => state.applySession);
+  const openLocalFolder = useCallback(async (): Promise<WorkspaceSummary | null> => {
+    const response = await setta.workspace.openLocalFolder();
+    if (response === null) {
+      return null;
+    }
+    applyWorkspaceSession(response.session);
+    return response.workspace;
+  }, [applyWorkspaceSession, setta]);
+  return { openLocalFolder, session };
 }
 
 function directorCommandCenterSnapshotView(
@@ -488,7 +512,9 @@ function useDirectorShellKeyboardNavigation({
       if (event.key === "Escape") {
         if (historyOpen || compactRail !== null) {
           event.preventDefault();
-          closeHistory();
+          if (historyOpen) {
+            closeHistory();
+          }
           closeCompactRail();
         }
         return;
@@ -504,7 +530,7 @@ function useDirectorShellKeyboardNavigation({
         return;
       }
       event.preventDefault();
-      void dispatch(moveSelectionIntent(direction));
+      dispatchDirectorIntent(dispatch, moveSelectionIntent(direction));
     };
     globalThis.window?.addEventListener("keydown", handleKeyDown);
     return () => {
@@ -592,7 +618,7 @@ function CommandCenterTopBar({
       <nav aria-label="Workstreams" className="director-workstream-nav app-no-drag">
         <IconButton
           label="Previous workstream"
-          onClick={() => dispatch(moveSelectionIntent("previous"))}
+          onClick={() => dispatchDirectorIntent(dispatch, moveSelectionIntent("previous"))}
         >
           <ChevronLeft aria-hidden="true" size={16} />
         </IconButton>
@@ -617,7 +643,12 @@ function CommandCenterTopBar({
                   className="director-workstream-dot"
                   data-status={item.entry.workstream.status}
                   data-workstream-id={item.entry.workstream.id}
-                  onClick={() => dispatch(selectWorkstreamIntent(item.entry.workstream.id))}
+                  onClick={() =>
+                    dispatchDirectorIntent(
+                      dispatch,
+                      selectWorkstreamIntent(item.entry.workstream.id),
+                    )
+                  }
                   type="button"
                 >
                   <StatusGlyph status={item.entry.workstream.status} />
@@ -626,7 +657,10 @@ function CommandCenterTopBar({
             ))}
           </div>
         </div>
-        <IconButton label="Next workstream" onClick={() => dispatch(moveSelectionIntent("next"))}>
+        <IconButton
+          label="Next workstream"
+          onClick={() => dispatchDirectorIntent(dispatch, moveSelectionIntent("next"))}
+        >
           <ChevronRight aria-hidden="true" size={16} />
         </IconButton>
       </nav>
@@ -686,6 +720,7 @@ function NowRail({
 
 function CurrentWorkstreamSummary({ workstream }: { workstream: Workstream | null }) {
   const status = workstream?.status ?? "idle";
+  const summary = directorCurrentWorkstreamSummary(workstream);
   return (
     <section className="director-rail-section">
       <p className="director-rail-kicker">Now</p>
@@ -694,11 +729,33 @@ function CurrentWorkstreamSummary({ workstream }: { workstream: Workstream | nul
         <StatusGlyph status={status} />
         <span>{directorWorkstreamStatusLabels[status]}</span>
       </div>
-      {workstream?.lastMilestone ? (
-        <p className="director-rail-summary">{workstream.lastMilestone.publicSummary}</p>
-      ) : null}
+      {summary ? <p className="director-rail-summary">{summary}</p> : null}
     </section>
   );
+}
+
+export function directorCurrentWorkstreamSummary(workstream: Workstream | null): string | null {
+  const milestone = workstream?.lastMilestone;
+  if (!workstream || !milestone) {
+    return null;
+  }
+  switch (workstream.status) {
+    case "running":
+    case "queued":
+      return null;
+    case "awaiting_resource":
+      return milestone.kind === "resource_required" ? milestone.publicSummary : null;
+    case "awaiting_approval":
+    case "blocked":
+    case "failed":
+    case "completed":
+    case "archived":
+      return milestone.publicSummary;
+    case "idle":
+      return milestone.kind === "cancelled" ? milestone.publicSummary : null;
+    default:
+      return exhaustiveWorkstreamStatus(workstream.status);
+  }
 }
 
 function HistoryList({
@@ -777,14 +834,81 @@ function StatusGlyph({ status }: { status: WorkstreamStatus }) {
   );
 }
 
-function packDirectorSnapshot(snapshot: DirectorSnapshot | null) {
-  if (snapshot === null || snapshot.graphs.length === 0) {
-    return emptyPackedGraphSnapshot(snapshot?.selectedWorkstreamId ?? "director-empty");
+function packDirectorGraphs(
+  graphs: DirectorSnapshot["graphs"] | undefined,
+  selectedWorkstreamId: string | null,
+) {
+  if (graphs === undefined || graphs.length === 0) {
+    return emptyPackedGraphSnapshot(selectedWorkstreamId ?? "director-empty");
   }
   return packSemanticGraphComposition({
-    graphs: snapshot.graphs,
-    workstreamId: snapshot.selectedWorkstreamId ?? "director",
+    graphs,
+    workstreamId: selectedWorkstreamId ?? "director",
   });
+}
+
+export function directorGraphTimeSecondsAt(
+  snapshot: DirectorSnapshot | null,
+  frameAnchorMs = globalThis.performance?.now() ?? 0,
+): (timestampMs: number) => number {
+  const graphs = snapshot?.graphs ?? [];
+  const origin = semanticGraphTimeOriginSeconds(graphs);
+  if (snapshot === null || origin === null) {
+    return (timestampMs) => Math.max(0, timestampMs - frameAnchorMs) / 1000;
+  }
+  const committedAt = latestDirectorGraphTimeSeconds(snapshot, origin);
+  const relativeAtAnchor = Math.max(0, committedAt - origin);
+  return (timestampMs) => relativeAtAnchor + (timestampMs - frameAnchorMs) / 1000;
+}
+
+function latestDirectorGraphTimeSeconds(snapshot: DirectorSnapshot, fallback: number): number {
+  let latest = timestampSeconds(snapshot.connection.lastEventAt) ?? fallback;
+  for (const graph of snapshot.graphs) {
+    for (const node of graph.nodes) {
+      latest = Math.max(
+        latest,
+        timestampSeconds(node.createdAt) ?? fallback,
+        timestampSeconds(node.updatedAt) ?? fallback,
+        timestampSeconds(node.completedAt) ?? fallback,
+      );
+    }
+  }
+  return latest;
+}
+
+function timestampSeconds(value: string | null): number | null {
+  if (value === null) {
+    return null;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed / 1000 : null;
+}
+
+export function directorEventChangesVisibleState(event: DirectorEvent): boolean {
+  const kind = event.kind;
+  switch (kind) {
+    case "director.text.delta":
+      return false;
+    case "director.aggregates.updated":
+    case "director.approval.updated":
+    case "director.artifact.updated":
+    case "director.graph.updated":
+    case "director.resync_required":
+    case "director.resource_request.updated":
+    case "director.selection.changed":
+    case "director.workstream.removed":
+    case "director.workstream.updated":
+      return true;
+    default:
+      return exhaustiveDirectorEventKind(kind);
+  }
+}
+
+function dispatchDirectorIntent(
+  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>,
+  intent: DirectorIntent,
+): void {
+  void dispatch(intent).catch(() => {});
 }
 
 function loadStateMessage(state: DirectorLoadState): string {
@@ -959,6 +1083,14 @@ function directorKeyboardTargetIsEditable(target: EventTarget | null): boolean {
 
 function exhaustiveLoadState(state: never): never {
   throw new Error(`unsupported Director load state ${state}`);
+}
+
+function exhaustiveDirectorEventKind(kind: never): never {
+  throw new Error(`unsupported Director event kind ${kind}`);
+}
+
+function exhaustiveWorkstreamStatus(status: never): never {
+  throw new Error(`unsupported workstream status ${status}`);
 }
 
 function directorErrorMessage(error: unknown): string {

@@ -246,6 +246,42 @@ func TestStreamingTextAndReasoningSummariesNeverCreateNodes(t *testing.T) {
 	}
 }
 
+func TestCompletedRunPreservesTheUserGoalAndPublishesTheFinalResponse(t *testing.T) {
+	fixture := fixtureByName(t, "folderless_start")
+	projection := projectFixture(t, fixture)
+	graph, err := projection.Graph("ws-alpha", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("graph: %v", err)
+	}
+
+	var goal *SemanticNode
+	var outcome *SemanticNode
+	for index := range graph.Nodes {
+		node := &graph.Nodes[index]
+		switch node.Kind {
+		case SemanticNodeUserGoal:
+			goal = node
+		case SemanticNodeCompleted:
+			outcome = node
+		}
+	}
+	if goal == nil || goal.PublicSummary != "Summarize the release notes" {
+		t.Fatalf("user goal = %+v", goal)
+	}
+	if outcome == nil ||
+		outcome.PublicSummary != "Summarized three release notes into one artifact." {
+		t.Fatalf("completed outcome = %+v", outcome)
+	}
+	messageEventID := firstTrajectoryEventID(
+		t,
+		fixture,
+		conversation.TrajectoryEventAgentMessageCompleted,
+	)
+	if !containsString(outcome.SourceEventIDs, messageEventID) {
+		t.Fatalf("completed outcome does not cite final response %s: %+v", messageEventID, outcome)
+	}
+}
+
 func TestOutOfOrderAndSkippedEventsRequireResync(t *testing.T) {
 	fixture := fixtureByName(t, "folderless_start")
 	cases := []struct {

@@ -40,10 +40,12 @@ export function useAppShellSpeechPlayback(): AppShellSpeechPlaybackContextValue 
 
 export function AppShellSpeechPlaybackProvider({
   children,
+  conversationNarrationEnabled = true,
   runtimeId,
   setta,
 }: {
   children: ReactNode | ((controller: AppShellSpeechPlaybackController) => ReactNode);
+  conversationNarrationEnabled?: boolean;
   runtimeId: string | null;
   setta: SettaAPI;
 }) {
@@ -65,11 +67,14 @@ export function AppShellSpeechPlaybackProvider({
   useLayoutEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
   useLayoutEffect(() => registerRendererPageTeardown(() => controller.dispose()), [controller]);
   useEffect(() => controller.synchronizeRuntime(runtimeId), [controller, runtimeId]);
-  useEffect(
-    () =>
-      setta.conversations.onEvent((event) => handlePlaybackConversationEvent(controller, event)),
-    [controller, setta],
-  );
+  useEffect(() => {
+    if (!conversationNarrationEnabled) {
+      return;
+    }
+    return setta.conversations.onEvent((event) =>
+      handlePlaybackConversationEvent(controller, event),
+    );
+  }, [controller, conversationNarrationEnabled, setta]);
 
   return (
     <AppShellSpeechPlaybackContext.Provider value={context}>

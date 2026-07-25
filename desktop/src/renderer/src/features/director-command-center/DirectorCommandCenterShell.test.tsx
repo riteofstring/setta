@@ -11,10 +11,14 @@ import { describe, expect, test } from "vitest";
 
 import { buildApprovalAnswers } from "./DirectorArtifactsRail";
 import {
+  directorEventChangesVisibleState,
+  directorGraphTimeSecondsAt,
+  directorCurrentWorkstreamSummary,
   directorWorkstreamKeyboardDirection,
   directorWorkstreamNavigation,
   effectiveDirectorRailVisibility,
 } from "./DirectorCommandCenterShell";
+import { compactDirectorHistory } from "./DirectorHistoryOverlay";
 import { currentDirectorActivity } from "./DirectorNowActivityList";
 import { directorWorkstreamSwitchTransition } from "./director-workstream-switch-transition";
 import { directorComposerCommitment } from "./director-workstream-status";
@@ -96,6 +100,97 @@ describe("Director command-center shell view state", () => {
       "node:4",
       "node:3",
     ]);
+  });
+
+  test("keeps compact history to user requests and terminal responses", () => {
+    const history = compactDirectorHistory(
+      graphWithNodes([
+        semanticNode(1, "user_goal", "succeeded"),
+        semanticNode(2, "director_decision", "succeeded"),
+        semanticNode(3, "milestone", "succeeded"),
+        semanticNode(4, "completed", "succeeded"),
+        semanticNode(5, "failed", "failed"),
+        semanticNode(6, "cancelled", "cancelled"),
+      ]),
+    );
+
+    expect(history.map((node) => node.kind)).toEqual([
+      "user_goal",
+      "completed",
+      "failed",
+      "cancelled",
+    ]);
+  });
+
+  test("does not present a resolved blocker as current running work", () => {
+    const running = workstreamEntry(1, "running").workstream;
+    running.lastMilestone = {
+      kind: "resource_required",
+      nodeId: "resource:1",
+      occurredAt: "2026-07-25T17:00:00Z",
+      publicSummary: "Waiting for a project folder before this work can start.",
+    };
+
+    expect(directorCurrentWorkstreamSummary(running)).toBeNull();
+    expect(
+      directorCurrentWorkstreamSummary({
+        ...running,
+        activeRunId: null,
+        status: "awaiting_resource",
+        unresolvedResourceRequestCount: 1,
+      }),
+    ).toBe("Waiting for a project folder before this work can start.");
+  });
+
+  test("anchors graph animation time to durable graph timestamps", () => {
+    const snapshot = snapshotWithWorkstreams(1, 1);
+    snapshot.connection.lastEventAt = "2026-07-25T12:00:06Z";
+    snapshot.graphs = [
+      {
+        ...graphWithNodes([semanticNode(1, "action", "active")]),
+        nodes: [
+          {
+            ...semanticNode(1, "action", "active"),
+            createdAt: "2026-07-25T12:00:02Z",
+            updatedAt: "2026-07-25T12:00:04Z",
+          },
+        ],
+      },
+    ];
+
+    const secondsAt = directorGraphTimeSecondsAt(snapshot, 1_000);
+
+    expect(secondsAt(1_000)).toBe(4);
+    expect(secondsAt(1_500)).toBe(4.5);
+  });
+
+  test("does not rebuild visible state for best-effort text deltas", () => {
+    const snapshot = snapshotWithWorkstreams(1, 1);
+    expect(
+      directorEventChangesVisibleState({
+        aggregatesUpdated: null,
+        approvalUpdated: null,
+        artifactUpdated: null,
+        emittedAt: "2026-07-25T12:00:00Z",
+        eventId: "event:1",
+        graphUpdated: null,
+        kind: "director.text.delta",
+        resourceRequestUpdated: null,
+        resyncRequired: null,
+        schemaVersion: 1,
+        selectionChanged: null,
+        sequence: 1,
+        streamId: snapshot.eventCursor.streamId,
+        textDelta: {
+          runId: null,
+          surface: "assistant_message",
+          text: "delta",
+          workstreamId: "workstream:1",
+        },
+        workstreamRemoved: null,
+        workstreamUpdated: null,
+      }),
+    ).toBe(false);
   });
 
   test("windows large workstream sets around the selected entry", () => {

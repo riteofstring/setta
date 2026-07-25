@@ -1,7 +1,7 @@
-/* global CSS, Event, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, MutationObserver, PerformanceObserver, document, performance, requestAnimationFrame, window */
+/* global CSS, Event, HTMLButtonElement, HTMLCanvasElement, HTMLElement, HTMLInputElement, HTMLSelectElement, MutationObserver, PerformanceObserver, Uint32Array, Uint8Array, WheelEvent, document, performance, requestAnimationFrame, window */
 
 (() => {
-  const version = "setta-director-command-center-performance-driver-v1";
+  const version = "setta-director-command-center-performance-driver-v2";
   let activeProfiler = null;
 
   function installDirectorCommandCenterPerformanceDriver() {
@@ -11,6 +11,7 @@
     }
     Object.assign(driver, {
       directorCommandCenterAnswerApproval,
+      directorCommandCenterCanvasPixelCheck,
       directorCommandCenterOpenArtifact,
       directorCommandCenterPerformanceSnapshot,
       directorCommandCenterPerformanceStart,
@@ -65,6 +66,10 @@
       bodyDescendantCount: document.body.querySelectorAll("*").length,
       composerPresent: Boolean(document.querySelector("#director-composer-input")),
       graph: elementBox(graph),
+      graphCanvasBacking: {
+        height: canvas instanceof HTMLCanvasElement ? canvas.height : 0,
+        width: canvas instanceof HTMLCanvasElement ? canvas.width : 0,
+      },
       graphCanvas: elementBox(canvas),
       graphLabelCount: document.querySelectorAll(".director-graph-label").length,
       historyItems: document.querySelectorAll(".director-history-list li").length,
@@ -120,8 +125,35 @@
     return { ok: true };
   }
 
+  function directorCommandCenterCanvasPixelCheck() {
+    const canvas = document.querySelector(".director-graph-canvas");
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      return { available: false, digest: "", litPixelRatio: 0, ok: false, peakLuminance: 0 };
+    }
+    const gl = canvas.getContext("webgl2");
+    if (!gl || gl.drawingBufferWidth === 0 || gl.drawingBufferHeight === 0) {
+      return { available: false, digest: "", litPixelRatio: 0, ok: false, peakLuminance: 0 };
+    }
+    // The graph host handles wheel input synchronously and schedules its draw
+    // before this callback. Read in that same animation frame because the
+    // production context deliberately does not preserve its drawing buffer.
+    canvas.dispatchEvent(new WheelEvent("wheel", { deltaY: 0 }));
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        const width = gl.drawingBufferWidth;
+        const height = gl.drawingBufferHeight;
+        const pixels = new Uint8Array(width * height * 4);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        resolve(graphPixelSnapshot(pixels, width, height));
+      });
+    });
+  }
+
   function createProfiler() {
     const startedAt = performance.now();
+    const startHeapBytes = usedHeapBytes();
+    let peakHeapBytes = startHeapBytes;
     const frames = [];
     const longTasks = [];
     const mutations = emptyMutationCounts();
@@ -140,6 +172,10 @@
       } else {
         frames.push(timestamp - previousTimestamp);
       }
+      const heapBytes = usedHeapBytes();
+      if (heapBytes !== null) {
+        peakHeapBytes = Math.max(peakHeapBytes ?? 0, heapBytes);
+      }
       previousTimestamp = timestamp;
       requestAnimationFrame(recordFrame);
     }
@@ -148,7 +184,15 @@
       running = false;
       longTaskObserver?.disconnect();
       mutationObserver.disconnect();
-      return frameSample(startedAt, frames, longTasks, mutations);
+      return frameSample(
+        startedAt,
+        frames,
+        longTasks,
+        mutations,
+        startHeapBytes,
+        peakHeapBytes,
+        usedHeapBytes(),
+      );
     }
 
     return { recordFrame, stop };
@@ -193,7 +237,15 @@
     return observer;
   }
 
-  function frameSample(startedAt, frames, longTasks, mutations) {
+  function frameSample(
+    startedAt,
+    frames,
+    longTasks,
+    mutations,
+    startHeapBytes,
+    peakHeapBytes,
+    endHeapBytes,
+  ) {
     const samples = frames.filter((value) => Number.isFinite(value) && value >= 0);
     const sorted = [...samples].sort((left, right) => left - right);
     const averageFrameDeltaMs = average(samples);
@@ -204,6 +256,11 @@
       durationMs: performance.now() - startedAt,
       frameCount: samples.length,
       framesMs: samples.map((value) => Number(value.toFixed(3))),
+      heap: {
+        endBytes: endHeapBytes,
+        peakBytes: peakHeapBytes,
+        startBytes: startHeapBytes,
+      },
       longTaskCount: sampledLongTasks.length,
       longTaskMaxMs: maximum(sampledLongTasks.map((entry) => entry.duration)),
       longTaskTotalMs: sampledLongTasks.reduce((total, entry) => total + entry.duration, 0),
@@ -222,6 +279,66 @@
 
   function elementByDataId(kind, value) {
     return document.querySelector(`[data-${kind}-id="${cssEscape(value)}"]`);
+  }
+
+  function graphPixelSnapshot(pixels, width, height) {
+    const columns = 32;
+    const rows = 32;
+    const cellLuminance = new Array(columns * rows).fill(0);
+    const cellCounts = new Uint32Array(columns * rows);
+    const stride = Math.max(1, Math.floor(Math.sqrt((width * height) / 400_000)));
+    let peakPixelLuminance = 0;
+    let digest = 2_166_136_261;
+    for (let y = 0; y < height; y += stride) {
+      const row = Math.min(rows - 1, Math.floor((y / height) * rows));
+      for (let x = 0; x < width; x += stride) {
+        const column = Math.min(columns - 1, Math.floor((x / width) * columns));
+        const offset = (y * width + x) * 4;
+        const red = pixels[offset] ?? 0;
+        const green = pixels[offset + 1] ?? 0;
+        const blue = pixels[offset + 2] ?? 0;
+        const alpha = pixels[offset + 3] ?? 0;
+        const luminance = (red * 0.2126 + green * 0.7152 + blue * 0.0722) / 255;
+        const cell = row * columns + column;
+        cellLuminance[cell] += luminance;
+        cellCounts[cell] += 1;
+        peakPixelLuminance = Math.max(peakPixelLuminance, luminance);
+        digest = hashPixelByte(digest, red);
+        digest = hashPixelByte(digest, green);
+        digest = hashPixelByte(digest, blue);
+        digest = hashPixelByte(digest, alpha);
+      }
+    }
+    let peakLuminance = 0;
+    for (let index = 0; index < cellLuminance.length; index += 1) {
+      const count = cellCounts[index] ?? 0;
+      cellLuminance[index] = count === 0 ? 0 : (cellLuminance[index] ?? 0) / count;
+      peakLuminance = Math.max(peakLuminance, cellLuminance[index] ?? 0);
+    }
+    const litThreshold = Math.max(0.01, peakLuminance * 0.1);
+    const litPixelRatio =
+      cellLuminance.filter((value) => value >= litThreshold).length / cellLuminance.length;
+    return {
+      available: true,
+      digest: digest.toString(16).padStart(8, "0"),
+      litPixelRatio,
+      // Live command-center graphs can contain one sparse active trajectory;
+      // the dense deterministic gallery's mean-cell threshold is not valid for
+      // them. Peak energy plus occupied cells distinguishes a presented graph
+      // from the cleared non-preserved buffer (both values are zero there).
+      ok: peakPixelLuminance >= 0.1 && litPixelRatio >= 0.005,
+      peakLuminance,
+      peakPixelLuminance,
+    };
+  }
+
+  function hashPixelByte(digest, value) {
+    return Math.imul(digest ^ value, 16_777_619) >>> 0;
+  }
+
+  function usedHeapBytes() {
+    const memory = performance.memory;
+    return typeof memory?.usedJSHeapSize === "number" ? memory.usedJSHeapSize : null;
   }
 
   function enabledButtonByText(root, text) {
