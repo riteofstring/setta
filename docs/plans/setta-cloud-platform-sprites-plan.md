@@ -3123,3 +3123,24 @@ Stop and reassess rather than hiding the problem if any of these occur:
   unchanged. The three affected Go packages, `./scripts/format.sh`, and
   `./check_quality.sh --git-changes` passed. No dependency file changed and no
   provider or cloud mutation ran.
+- 2026-07-25 (snapshot tolerates provisioning Sprites): Stopped a Sprite
+  mid-provision from failing the entire organization snapshot. The completeness
+  check required `Running + Warm + Cold` to equal the whole listing, but the
+  status mapper also recognizes `created` and `provisioning`, which no provider
+  counter represents, so one provisioning Sprite anywhere in the organization —
+  including one Setta did not create — failed the snapshot with
+  `ErrUnexpectedProviderValue`. Because only live-evidence paths reach it, the
+  defect would have surfaced as harness flakiness during an expensive authorized
+  run rather than as a product bug. Each listed Sprite's raw status is now
+  classified through the existing mapper, with no second status table to drift,
+  and each counter is compared against its own observed count while provisioning
+  Sprites are allowed as uncounted extras. Per-activity equality also closes a
+  gap the previous sum could not detect: two counters wrong in opposite
+  directions whose total still matched. An unrecognized status still fails
+  loudly. The cold soak harness carried an inline copy of the same sum check and
+  now relies on the corrected one. Tests prove `created` and `provisioning`
+  Sprites yield a complete snapshot, a compensating per-activity mismatch is
+  rejected, and an unknown status is rejected. The affected package,
+  `./scripts/format.sh`, and `./check_quality.sh --git-changes` passed. No live
+  provider test was run, no dependency file changed, and no provider or cloud
+  mutation ran.
