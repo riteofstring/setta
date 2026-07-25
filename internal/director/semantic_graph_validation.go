@@ -112,6 +112,9 @@ func validateNodeReferences(node SemanticNode, authority GraphAuthority) error {
 }
 
 func validateNodeArtifactIDs(node SemanticNode, authority GraphAuthority) error {
+	if node.ArtifactIDs == nil {
+		return fmt.Errorf("semantic node %s artifact ids must be an array, not null", node.ID)
+	}
 	seen := make(map[string]bool, len(node.ArtifactIDs))
 	for index, artifactID := range node.ArtifactIDs {
 		if err := validateIdentifier(fmt.Sprintf("semantic node %s artifact id %d", node.ID, index), artifactID); err != nil {
@@ -138,12 +141,23 @@ func validateNodeTimestamps(node SemanticNode) error {
 	if err := validateTimestamp("semantic node updated at", node.UpdatedAt); err != nil {
 		return err
 	}
+	if err := validateTimestampOrder("semantic node timestamp", node.CreatedAt, node.UpdatedAt); err != nil {
+		return err
+	}
 	if err := validateOptionalTimestamp("semantic node completed at", node.CompletedAt); err != nil {
 		return err
 	}
 	terminal := IsTerminalSemanticNodeStatus(node.Status)
 	if terminal != (node.CompletedAt != nil) {
 		return fmt.Errorf("semantic node %s completion timestamp does not match status %q", node.ID, node.Status)
+	}
+	if node.CompletedAt != nil {
+		if err := validateTimestampOrder("semantic node completion timestamp", node.CreatedAt, *node.CompletedAt); err != nil {
+			return err
+		}
+		if err := validateTimestampOrder("semantic node post-completion update timestamp", *node.CompletedAt, node.UpdatedAt); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -160,7 +174,14 @@ func validateNodeInterpretation(node SemanticNode) error {
 	if node.Interpretation == nil {
 		return nil
 	}
-	return validateInterpretationMetadata(node.ID, *node.Interpretation)
+	if err := validateInterpretationMetadata(node.ID, *node.Interpretation); err != nil {
+		return err
+	}
+	return validateTimestampOrder(
+		fmt.Sprintf("semantic node %s interpretation timestamp", node.ID),
+		node.Interpretation.InterpretedAt,
+		node.CreatedAt,
+	)
 }
 
 // validateInterpretationMetadata enforces the provenance an interpretation owes
@@ -202,6 +223,9 @@ func ValidateSemanticNodeUpdate(previous SemanticNode, next SemanticNode) error 
 	if previous.WorkstreamID != next.WorkstreamID {
 		return fmt.Errorf("semantic node %s workstream changed from %q to %q", previous.ID, previous.WorkstreamID, next.WorkstreamID)
 	}
+	if previous.Actor != next.Actor {
+		return fmt.Errorf("semantic node %s actor changed from %q to %q", previous.ID, previous.Actor, next.Actor)
+	}
 	if !equalOptionalString(previous.RunID, next.RunID) {
 		return fmt.Errorf("semantic node %s run binding changed", previous.ID)
 	}
@@ -211,10 +235,49 @@ func ValidateSemanticNodeUpdate(previous SemanticNode, next SemanticNode) error 
 	if previous.CreatedAt != next.CreatedAt {
 		return fmt.Errorf("semantic node %s creation timestamp changed", previous.ID)
 	}
+	if !equalInterpretation(previous.Interpretation, next.Interpretation) {
+		return fmt.Errorf("semantic node %s interpretation provenance changed", previous.ID)
+	}
+	if !hasStringPrefix(next.SourceEventIDs, previous.SourceEventIDs) {
+		return fmt.Errorf("semantic node %s source event provenance was removed or reordered", previous.ID)
+	}
+	if !hasStringPrefix(next.ArtifactIDs, previous.ArtifactIDs) {
+		return fmt.Errorf("semantic node %s artifact provenance was removed or reordered", previous.ID)
+	}
+	if previous.CompletedAt != nil && !equalOptionalString(previous.CompletedAt, next.CompletedAt) {
+		return fmt.Errorf("semantic node %s completion timestamp changed", previous.ID)
+	}
 	if err := ValidateSemanticNodeTransition(previous.Status, next.Status); err != nil {
 		return fmt.Errorf("semantic node %s: %w", previous.ID, err)
 	}
 	return validateMonotonicUpdate(previous, next)
+}
+
+func hasStringPrefix(values []string, prefix []string) bool {
+	if len(values) < len(prefix) {
+		return false
+	}
+	for index, value := range prefix {
+		if values[index] != value {
+			return false
+		}
+	}
+	return true
+}
+
+func equalInterpretation(left *InterpretationMetadata, right *InterpretationMetadata) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	if left.InterpretedBy != right.InterpretedBy ||
+		left.Model != right.Model ||
+		left.InterpretedAt != right.InterpretedAt {
+		return false
+	}
+	if left.Confidence == nil || right.Confidence == nil {
+		return left.Confidence == nil && right.Confidence == nil
+	}
+	return *left.Confidence == *right.Confidence
 }
 
 func validateMonotonicUpdate(previous SemanticNode, next SemanticNode) error {
@@ -323,6 +386,9 @@ func ValidateWorkstreamGraph(graph WorkstreamGraph, authority GraphAuthority) er
 	}
 	if !isWorkstreamDetailLevel(graph.DetailLevel) {
 		return fmt.Errorf("workstream graph %s has unknown detail level %q", graph.WorkstreamID, graph.DetailLevel)
+	}
+	if graph.Nodes == nil || graph.Edges == nil {
+		return fmt.Errorf("workstream graph %s nodes and edges must be arrays, not null", graph.WorkstreamID)
 	}
 	if graph.DetailLevel == WorkstreamDetailBackground && (len(graph.Nodes) > 0 || len(graph.Edges) > 0) {
 		return fmt.Errorf("background workstream %s must render aggregate status only", graph.WorkstreamID)

@@ -280,6 +280,27 @@ func validateCommittedDecision(fact DirectorFactEvent) error {
 	if err := validateOptionalIdentifier("committed decision target workstream id", payload.TargetWorkstreamID); err != nil {
 		return err
 	}
+	switch payload.Decision {
+	case DirectorDecisionCreateWorkstream,
+		DirectorDecisionSendToWorkstream,
+		DirectorDecisionQueueBehindRun,
+		DirectorDecisionSteerRun,
+		DirectorDecisionSelectWorkstream:
+		if payload.TargetWorkstreamID == nil {
+			return fmt.Errorf("director fact %s decision %q requires a target workstream", fact.ID, payload.Decision)
+		}
+	case DirectorDecisionAnswerDirectly, DirectorDecisionAskClarification:
+		if payload.TargetWorkstreamID != nil {
+			return fmt.Errorf("director fact %s decision %q must not target a workstream", fact.ID, payload.Decision)
+		}
+	case DirectorDecisionRecoverPath:
+		// Recovery may address this workstream or an explicitly authorized target.
+	}
+	if payload.Decision == DirectorDecisionCreateWorkstream &&
+		payload.TargetWorkstreamID != nil &&
+		*payload.TargetWorkstreamID == fact.WorkstreamID {
+		return fmt.Errorf("director fact %s cannot create its current workstream as a child", fact.ID)
+	}
 	return validateTrimmedText("committed decision public summary", payload.PublicSummary)
 }
 
@@ -330,7 +351,14 @@ func validatePublishedInterpretation(fact DirectorFactEvent) error {
 		return fmt.Errorf("director fact %s attributes its interpretation to %q but is actored by %q",
 			fact.ID, payload.Metadata.InterpretedBy, fact.Actor)
 	}
-	return validateInterpretationMetadata(fact.ID, payload.Metadata)
+	if err := validateInterpretationMetadata(fact.ID, payload.Metadata); err != nil {
+		return err
+	}
+	return validateTimestampOrder(
+		fmt.Sprintf("director fact %s interpretation timestamp", fact.ID),
+		payload.Metadata.InterpretedAt,
+		fact.EmittedAt,
+	)
 }
 
 func validateRecordedValidation(fact DirectorFactEvent) error {

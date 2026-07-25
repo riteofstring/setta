@@ -47,8 +47,9 @@ func ProjectionFixtures() []ProjectionFixture {
 // fixtureBuilder assigns stream positions, event ids, and timestamps so a
 // history reads as the sequence of facts it is rather than as bookkeeping.
 type fixtureBuilder struct {
-	events []ProjectorEvent
-	tick   int
+	events              []ProjectorEvent
+	trajectorySequences map[string]int
+	tick                int
 }
 
 func (builder *fixtureBuilder) next() (int, string) {
@@ -80,11 +81,15 @@ func (builder *fixtureBuilder) trajectory(
 	apply func(*conversation.TrajectoryEvent),
 ) string {
 	sequence, emittedAt := builder.next()
+	if builder.trajectorySequences == nil {
+		builder.trajectorySequences = map[string]int{}
+	}
+	builder.trajectorySequences[conversationID]++
 	event := conversation.TrajectoryEvent{
 		ID:             fmt.Sprintf("trajectory-%02d", sequence),
 		ConversationID: conversationID,
 		TurnID:         turnID,
-		Sequence:       sequence,
+		Sequence:       builder.trajectorySequences[conversationID],
 		EmittedAt:      emittedAt,
 		Kind:           kind,
 		Actor:          actor,
@@ -134,10 +139,41 @@ func (builder *fixtureBuilder) completeTurn(conversationID string, turnID string
 }
 
 func fixtureInvocation(turnID string) conversation.ResolvedInvocation {
+	modelID := "gpt-5.1-codex"
+	permissions := conversation.PermissionProfile{
+		ApprovalPolicy:            conversation.ApprovalPolicyOnRequest,
+		ProviderPermissionProfile: "workspace-write",
+		ToolAccess: conversation.ToolAccessPolicy{
+			Mode:         conversation.ToolAccessAll,
+			AllowedTools: []string{},
+		},
+		WorkspaceMutation: true,
+		Approvals:         true,
+	}
 	return conversation.ResolvedInvocation{
 		ID:       "invocation-" + turnID,
+		Role:     conversation.RoleAgent,
 		Provider: conversation.ProviderCodex,
-		Resolved: conversation.ResolvedInvocationSettings{ModelID: "gpt-5.1-codex"},
+		Requested: conversation.RoleProfile{
+			Role:              conversation.RoleAgent,
+			Provider:          conversation.ProviderCodex,
+			ModelSelection:    conversation.ModelSelection{Mode: conversation.ModelSelectionExact, ModelID: &modelID},
+			ReasoningEffort:   conversation.ReasoningEffortHigh,
+			PermissionProfile: permissions,
+			ContextBudget: conversation.ContextBudget{
+				MaxInputBytes:        64 * 1024,
+				MaxInputTokens:       16 * 1024,
+				ReservedOutputTokens: 1024,
+			},
+		},
+		Resolved: conversation.ResolvedInvocationSettings{
+			ModelID:           modelID,
+			ReasoningEffort:   conversation.ReasoningEffortHigh,
+			PermissionProfile: permissions,
+		},
+		ModelReroutes: []conversation.InvocationModelReroute{},
+		StartedAt:     fixtureEpoch.Format(time.RFC3339Nano),
+		Outcome:       conversation.InvocationOutcomeRunning,
 	}
 }
 
@@ -177,6 +213,7 @@ func folderlessStartFixture() ProjectionFixture {
 		})
 	builder.activity(conversationID, turnID, conversation.TrajectoryActivity{
 		ID: "activity-alpha-1", Kind: conversation.TrajectoryActivityCommand, Title: "rg release notes",
+		Command: stringPointer("rg release notes"), CWD: stringPointer("/tmp"),
 	}, "Found 3 release notes")
 	builder.trajectory(conversationID, stringPointer(turnID), conversation.TrajectoryEventArtifactEmitted, conversation.TrajectoryActorSystem,
 		func(event *conversation.TrajectoryEvent) {
@@ -276,6 +313,7 @@ func approvalAndFileChangeFixture() ProjectionFixture {
 		ID:      "review-gamma-1",
 		Kind:    conversation.TrajectoryValidationGuardianReview,
 		Status:  conversation.TrajectoryValidationStatusFailed,
+		Risk:    validationRiskPointer(conversation.TrajectoryValidationRiskHigh),
 		Subject: stringPointer(itemID),
 		Summary: "Automatic approval review declined the change (risk high)",
 	})
@@ -290,7 +328,8 @@ func approvalAndFileChangeFixture() ProjectionFixture {
 					Body:           "internal/parse/lexer.go contains the deploy token",
 					FilePaths:      []string{"internal/parse/lexer.go"},
 					Questions: []conversation.TrajectoryApprovalQuestion{{
-						ID: "question-1", Header: "Deploy token", Question: "Paste the deploy token", Secret: true,
+						ID: "question-1", Header: "Deploy token", Question: "Paste the deploy token",
+						Options: []string{}, Secret: true,
 					}},
 					RequestedAt: fixtureEpoch.Format(time.RFC3339Nano),
 				},
@@ -379,15 +418,6 @@ func delegationFixture() ProjectionFixture {
 	const parentTurn = "turn-parent-1"
 	const childTurn = "turn-child-1"
 	builder.register(parentID, parentConversation, "Ship the release", folderScope("workspace-parent", "/repo/parent"))
-	builder.director(childID, DirectorFactWorkstreamRegistered, SemanticActorDirector, func(fact *DirectorFactEvent) {
-		parent := parentID
-		fact.WorkstreamRegistered = &DirectorWorkstreamRegistered{
-			Title:          "Update the changelog",
-			ConversationID: childConversation,
-			ParentID:       &parent,
-			ResourceScope:  folderScope("workspace-parent", "/repo/parent"),
-		}
-	})
 	builder.acceptInput(parentConversation, parentTurn, "Ship the release")
 	builder.startTurn(parentConversation, parentTurn)
 	builder.director(parentID, DirectorFactDecisionCommitted, SemanticActorDirector, func(fact *DirectorFactEvent) {
@@ -397,6 +427,15 @@ func delegationFixture() ProjectionFixture {
 			Decision:           DirectorDecisionCreateWorkstream,
 			PublicSummary:      "Delegate the changelog to its own workstream",
 			TargetWorkstreamID: &target,
+		}
+	})
+	builder.director(childID, DirectorFactWorkstreamRegistered, SemanticActorDirector, func(fact *DirectorFactEvent) {
+		parent := parentID
+		fact.WorkstreamRegistered = &DirectorWorkstreamRegistered{
+			Title:          "Update the changelog",
+			ConversationID: childConversation,
+			ParentID:       &parent,
+			ResourceScope:  folderScope("workspace-parent", "/repo/parent"),
 		}
 	})
 	builder.acceptInput(childConversation, childTurn, "Update the changelog")
@@ -440,6 +479,7 @@ func failureAndRecoveryFixture() ProjectionFixture {
 	builder.startTurn(conversationID, failedTurn)
 	activity := conversation.TrajectoryActivity{
 		ID: "activity-epsilon-1", Kind: conversation.TrajectoryActivityCommand, Title: "make installer",
+		Command: stringPointer("make installer"), CWD: stringPointer("/repo/epsilon"),
 	}
 	builder.trajectory(conversationID, stringPointer(failedTurn), conversation.TrajectoryEventActivityStarted, conversation.TrajectoryActorAgent,
 		func(event *conversation.TrajectoryEvent) {
@@ -488,6 +528,14 @@ func failureAndRecoveryFixture() ProjectionFixture {
 		})
 	builder.acceptInput(conversationID, retriedTurn, "Build the installer")
 	builder.startTurn(conversationID, retriedTurn)
+	builder.director(workstreamID, DirectorFactRecoveryAttempted, SemanticActorDirector, func(fact *DirectorFactEvent) {
+		fact.RecoveryAttempted = &DirectorRecoveryAttempted{
+			RecoveryID:     "recovery-epsilon-1",
+			Status:         RecoveryStatusRecovered,
+			FailureEventID: failureEventID,
+			PublicSummary:  "Installer retry recovered",
+		}
+	})
 	builder.completeTurn(conversationID, retriedTurn)
 	return ProjectionFixture{
 		Name:        "failure_and_recovery",
@@ -516,6 +564,7 @@ func resourceRequestFixture() ProjectionFixture {
 		}
 	})
 	builder.director(workstreamID, DirectorFactResourceRequestOpened, SemanticActorDirector, func(fact *DirectorFactEvent) {
+		fact.RunID = stringPointer(turnID)
 		fact.ResourceRequestOpened = &DirectorResourceRequestOpened{
 			RequestID:     requestID,
 			Kind:          WorkstreamResourceKindFolder,
@@ -622,17 +671,20 @@ func blockedAndCancelledFixture() ProjectionFixture {
 		Reason:  conversation.AgentLivenessReasonStreamResync,
 		Message: "Reattaching to the provider run",
 	})
+	builder.liveness(conversationID, turnID, conversation.AgentLiveness{
+		Status:  conversation.AgentLivenessAttached,
+		Reason:  conversation.AgentLivenessReasonProviderTurnLinked,
+		Message: "Provider run reattached",
+	})
 	builder.providerLifecycle(conversationID, turnID, conversation.ProviderLifecycle{
 		Provider: conversation.ProviderCodex,
 		Status:   conversation.ProviderLifecycleUnavailable,
 		Reason:   conversation.ProviderLifecycleReasonEnvironmentDisconnected,
-		Message:  "The execution environment disconnected",
 	})
 	builder.providerLifecycle(conversationID, turnID, conversation.ProviderLifecycle{
 		Provider: conversation.ProviderCodex,
 		Status:   conversation.ProviderLifecycleReady,
 		Reason:   conversation.ProviderLifecycleReasonEnvironmentConnected,
-		Message:  "The execution environment reconnected",
 	})
 	// The provider answered this request somewhere else, so the prompt is
 	// withdrawn without anyone here deciding it.
@@ -644,6 +696,11 @@ func blockedAndCancelledFixture() ProjectionFixture {
 					ProviderItemID: "item-theta-1",
 					Kind:           conversation.TrajectoryApprovalKindCommand,
 					Title:          "Run the preview deploy",
+					Body:           "The preview deploy is ready to run",
+					Command:        stringPointer("deploy preview"),
+					CWD:            stringPointer("/repo/theta"),
+					FilePaths:      []string{},
+					Questions:      []conversation.TrajectoryApprovalQuestion{},
 					RequestedAt:    fixtureEpoch.Format(time.RFC3339Nano),
 				},
 			}
@@ -692,5 +749,9 @@ func (builder *fixtureBuilder) validation(conversationID string, turnID string, 
 }
 
 func stringPointer(value string) *string {
+	return &value
+}
+
+func validationRiskPointer(value conversation.TrajectoryValidationRisk) *conversation.TrajectoryValidationRisk {
 	return &value
 }

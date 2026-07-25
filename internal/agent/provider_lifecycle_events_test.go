@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"errors"
 	"testing"
 
 	"setta/internal/codexapp"
@@ -20,7 +21,7 @@ func TestNormalizedThreadLifecycleNotificationsCarryTypedCauses(t *testing.T) {
 			params: map[string]any{
 				"status": map[string]any{"type": "idle"}, "threadId": base.ProviderThreadID,
 			},
-			lifecycle: LifecycleEvent{State: LifecycleStateReady, Reason: LifecycleReasonThreadStatus},
+			lifecycle: LifecycleEvent{State: LifecycleStateReady, Reason: LifecycleReasonThreadIdle},
 		},
 		{
 			name:   "system error makes the substrate unavailable",
@@ -28,7 +29,7 @@ func TestNormalizedThreadLifecycleNotificationsCarryTypedCauses(t *testing.T) {
 			params: map[string]any{
 				"status": map[string]any{"type": "systemError"}, "threadId": base.ProviderThreadID,
 			},
-			lifecycle: LifecycleEvent{State: LifecycleStateUnavailable, Reason: LifecycleReasonThreadStatus},
+			lifecycle: LifecycleEvent{State: LifecycleStateUnavailable, Reason: LifecycleReasonThreadSystemError},
 		},
 		{
 			name:   "environment connected",
@@ -83,10 +84,6 @@ func TestNormalizedThreadLifecycleNotificationsCarryTypedCauses(t *testing.T) {
 					event.Lifecycle.State, event.Lifecycle.Reason,
 					testCase.lifecycle.State, testCase.lifecycle.Reason)
 			}
-			// The message explains the state; it never has to be parsed to learn it.
-			if event.Lifecycle.Error == nil || *event.Lifecycle.Error == "" {
-				t.Fatalf("%s lifecycle carries no public message", testCase.method)
-			}
 		})
 	}
 }
@@ -109,10 +106,10 @@ func TestNormalizedGuardianReviewRecordsTypedVerdicts(t *testing.T) {
 		want    ValidationStatus
 		summary string
 	}{
-		{name: "approved", status: "approved", want: ValidationStatusPassed, summary: "Command reads repository files (risk low)"},
-		{name: "denied", status: "denied", want: ValidationStatusFailed, summary: "Command reads repository files (risk low)"},
-		{name: "timed out", status: "timedOut", want: ValidationStatusInconclusive, summary: "Command reads repository files (risk low)"},
-		{name: "aborted", status: "aborted", want: ValidationStatusInconclusive, summary: "Command reads repository files (risk low)"},
+		{name: "approved", status: "approved", want: ValidationStatusPassed, summary: "Automatic approval review passed (risk low)"},
+		{name: "denied", status: "denied", want: ValidationStatusFailed, summary: "Automatic approval review failed (risk low)"},
+		{name: "timed out", status: "timedOut", want: ValidationStatusInconclusive, summary: "Automatic approval review ended without a verdict (risk low)"},
+		{name: "aborted", status: "aborted", want: ValidationStatusInconclusive, summary: "Automatic approval review ended without a verdict (risk low)"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			message := providerNotificationMessage(t, codexapp.CodexNotificationItemAutoApprovalReviewCompleted, map[string]any{
@@ -121,7 +118,7 @@ func TestNormalizedGuardianReviewRecordsTypedVerdicts(t *testing.T) {
 				"decisionSource": "agent",
 				"review": map[string]any{
 					"status": testCase.status, "riskLevel": "low",
-					"rationale": "Command reads repository files",
+					"rationale": "DO_NOT_LEAK_PROVIDER_RATIONALE",
 				},
 				"reviewId": "review-1", "startedAtMs": 1, "targetItemId": "item-command",
 				"threadId": base.ProviderThreadID, "turnId": base.ProviderTurnID,
@@ -150,8 +147,57 @@ func TestNormalizedGuardianReviewRecordsTypedVerdicts(t *testing.T) {
 			if validation.Subject == nil || *validation.Subject != "item-command" {
 				t.Fatalf("validation subject = %v, want the reviewed item", validation.Subject)
 			}
+			if validation.Risk == nil || *validation.Risk != ValidationRiskLow {
+				t.Fatalf("validation risk = %v, want %q", validation.Risk, ValidationRiskLow)
+			}
 			if validation.Summary != testCase.summary {
 				t.Fatalf("validation summary = %q, want %q", validation.Summary, testCase.summary)
+			}
+		})
+	}
+}
+
+func TestValidationEventsRejectUntrimmedPublicIdentifiers(t *testing.T) {
+	base := providerNotificationTestBase()
+	valid := ValidationEvent{
+		ID:      "review-1",
+		Kind:    ValidationKindGuardianReview,
+		Status:  ValidationStatusPassed,
+		Subject: stringPointer("item-1"),
+		Summary: "Automatic approval review passed",
+	}
+	for _, testCase := range []struct {
+		name   string
+		mutate func(*ValidationEvent)
+	}{
+		{
+			name: "validation id",
+			mutate: func(validation *ValidationEvent) {
+				validation.ID = " review-1"
+			},
+		},
+		{
+			name: "subject",
+			mutate: func(validation *ValidationEvent) {
+				validation.Subject = stringPointer("item-1 ")
+			},
+		},
+		{
+			name: "summary",
+			mutate: func(validation *ValidationEvent) {
+				validation.Summary = " Automatic approval review passed"
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			validation := valid
+			testCase.mutate(&validation)
+			event := base
+			event.Kind = EventKindValidationRecorded
+			event.ProviderEventID = stringPointer(validation.ID)
+			event.Validation = &validation
+			if err := event.Validate(); err == nil {
+				t.Fatalf("untrimmed %s was accepted", testCase.name)
 			}
 		})
 	}
@@ -219,9 +265,66 @@ func TestServerRequestResolvedSupersedesOnlyRequestsThisAppIsStillWaitingOn(t *t
 	if event.ApprovalSuperseded.ApprovalID != "request-9" {
 		t.Fatalf("superseded approval id = %q", event.ApprovalSuperseded.ApprovalID)
 	}
-	// A request the app server already closed must not be answerable, or the
-	// user's later decision would be sent to a dead request.
-	if _, waiting := runtime.pending["request-9"]; waiting {
-		t.Fatal("a resolved request is still pending in the runtime")
+	// Normalization reserves the request while its durable superseded event is
+	// committed. The sink owner removes it only after that commit succeeds.
+	if pending := runtime.pending["request-9"]; !pending.superseded {
+		t.Fatal("a resolved request was not reserved during durable commit")
 	}
+	if err := runtime.SubmitApproval(ApprovalResponse{
+		RequestID: "request-9",
+		Decision:  ApprovalDecisionDecline,
+	}); err == nil {
+		t.Fatal("a provider-resolved request remained answerable during durable commit")
+	}
+}
+
+func TestServerRequestResolvedRemovesPendingOnlyAfterDurableSinkCommit(t *testing.T) {
+	base := providerNotificationTestBase()
+	message := providerNotificationMessage(t, codexapp.CodexNotificationServerRequestResolved, map[string]any{
+		"requestId": "request-9", "threadId": base.ProviderThreadID,
+	})
+	runtime := newTestRuntime()
+	runtime.pending["request-9"] = pendingApproval{conversationID: base.ConversationID}
+
+	if _, _, err := runtime.handleProviderNotification(message, base, rejectingAgentEventSink{}); err == nil {
+		t.Fatal("a rejected durable supersession event was reported as committed")
+	}
+	pending, waiting := runtime.pending["request-9"]
+	if !waiting || pending.superseded {
+		t.Fatal("a rejected durable supersession event removed or reserved the pending request")
+	}
+
+	if _, _, err := runtime.handleProviderNotification(message, base, &recordingEventSink{}); err != nil {
+		t.Fatalf("commit durable supersession event: %v", err)
+	}
+	if _, waiting := runtime.pending["request-9"]; waiting {
+		t.Fatal("a committed durable supersession event left the request pending")
+	}
+}
+
+func TestInvalidApprovalAnswerLeavesTheRequestPending(t *testing.T) {
+	runtime := newTestRuntime()
+	runtime.pending["request-input"] = pendingApproval{
+		method: codexapp.CodexServerRequestItemToolRequestUserInput,
+		questions: []ApprovalQuestion{{
+			ID:       "scope",
+			Question: "Which scope should be used?",
+		}},
+	}
+	err := runtime.SubmitApproval(ApprovalResponse{
+		RequestID: "request-input",
+		Decision:  ApprovalDecisionAccept,
+	})
+	if err == nil {
+		t.Fatal("an incomplete structured answer was accepted")
+	}
+	if _, pending := runtime.pending["request-input"]; !pending {
+		t.Fatal("an invalid answer removed the request before the user could correct it")
+	}
+}
+
+type rejectingAgentEventSink struct{}
+
+func (rejectingAgentEventSink) HandleAgentEvent(Event) error {
+	return errors.New("durable sink rejected event")
 }

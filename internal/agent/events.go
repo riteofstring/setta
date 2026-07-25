@@ -3,6 +3,7 @@ package agent
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 type EventKind string
@@ -98,23 +99,50 @@ func ActivityKinds() []ActivityKind {
 	return append([]ActivityKind(nil), activityKinds...)
 }
 
+// FileChangeKind is the provider's structured change operation. Diff text is
+// evidence for the file-change detail surface; the kind is what lets the
+// durable trajectory project the change without parsing that text.
+type FileChangeKind string
+
+const (
+	FileChangeKindAdd    FileChangeKind = "add"
+	FileChangeKindDelete FileChangeKind = "delete"
+	FileChangeKindUpdate FileChangeKind = "update"
+)
+
+var fileChangeKinds = []FileChangeKind{
+	FileChangeKindAdd,
+	FileChangeKindDelete,
+	FileChangeKindUpdate,
+}
+
+type FileChange struct {
+	Path     string         `json:"path"`
+	Kind     FileChangeKind `json:"kind"`
+	MovePath *string        `json:"movePath,omitempty"`
+	Diff     string         `json:"diff"`
+}
+
 // ActivityEvent carries the typed identity of one provider activity. The
 // kind-specific fields are the provider's own facts, so the durable record does
 // not have to reconstruct a working directory, a server, or a tool name from a
 // display title.
 type ActivityEvent struct {
-	ProviderItemID string       `json:"providerItemId"`
-	Kind           ActivityKind `json:"kind"`
-	Status         string       `json:"status"`
-	Title          string       `json:"title"`
-	Summary        string       `json:"summary,omitempty"`
-	Command        *string      `json:"command,omitempty"`
-	CWD            *string      `json:"cwd,omitempty"`
-	Server         *string      `json:"server,omitempty"`
-	Tool           *string      `json:"tool,omitempty"`
-	Namespace      *string      `json:"namespace,omitempty"`
-	ProcessID      *string      `json:"processId,omitempty"`
-	ExitCode       *int         `json:"exitCode,omitempty"`
+	ProviderItemID           string       `json:"providerItemId"`
+	Kind                     ActivityKind `json:"kind"`
+	Status                   string       `json:"status"`
+	Title                    string       `json:"title"`
+	Summary                  string       `json:"summary,omitempty"`
+	Command                  *string      `json:"command,omitempty"`
+	CWD                      *string      `json:"cwd,omitempty"`
+	Server                   *string      `json:"server,omitempty"`
+	Tool                     *string      `json:"tool,omitempty"`
+	Namespace                *string      `json:"namespace,omitempty"`
+	ProcessID                *string      `json:"processId,omitempty"`
+	SavedPath                *string      `json:"savedPath,omitempty"`
+	ProviderSubagentThreadID *string      `json:"providerSubagentThreadId,omitempty"`
+	FileChanges              []FileChange `json:"fileChanges,omitempty"`
+	ExitCode                 *int         `json:"exitCode,omitempty"`
 }
 
 type ApprovalKind string
@@ -173,6 +201,17 @@ const (
 	ValidationStatusInconclusive ValidationStatus = "inconclusive"
 )
 
+// ValidationRisk is the Guardian's typed risk classification. It stays
+// structured across the adapter so no consumer has to recover it from prose.
+type ValidationRisk string
+
+const (
+	ValidationRiskLow      ValidationRisk = "low"
+	ValidationRiskMedium   ValidationRisk = "medium"
+	ValidationRiskHigh     ValidationRisk = "high"
+	ValidationRiskCritical ValidationRisk = "critical"
+)
+
 var validationKinds = []ValidationKind{
 	ValidationKindGuardianReview,
 	ValidationKindModelVerification,
@@ -185,12 +224,20 @@ var validationStatuses = []ValidationStatus{
 	ValidationStatusInconclusive,
 }
 
+var validationRisks = []ValidationRisk{
+	ValidationRiskLow,
+	ValidationRiskMedium,
+	ValidationRiskHigh,
+	ValidationRiskCritical,
+}
+
 // ValidationEvent carries one provider check over declared work. Subject names
 // the provider item the check covers when the provider names one.
 type ValidationEvent struct {
 	ID      string           `json:"id"`
 	Kind    ValidationKind   `json:"kind"`
 	Status  ValidationStatus `json:"status"`
+	Risk    *ValidationRisk  `json:"risk,omitempty"`
 	Subject *string          `json:"subject,omitempty"`
 	Summary string           `json:"summary"`
 }
@@ -211,7 +258,6 @@ type TerminalEvent struct {
 type LifecycleState string
 
 const (
-	LifecycleStateStarting    LifecycleState = "starting"
 	LifecycleStateReady       LifecycleState = "ready"
 	LifecycleStateRestarting  LifecycleState = "restarting"
 	LifecycleStateUnavailable LifecycleState = "unavailable"
@@ -224,16 +270,18 @@ type LifecycleReason string
 
 const (
 	LifecycleReasonSessionFailed           LifecycleReason = "session_failed"
-	LifecycleReasonEventLag                LifecycleReason = "event_lag"
-	LifecycleReasonTurnError               LifecycleReason = "turn_error"
-	LifecycleReasonThreadStatus            LifecycleReason = "thread_status"
+	LifecycleReasonTurnRetrying            LifecycleReason = "turn_retrying"
+	LifecycleReasonTurnFailed              LifecycleReason = "turn_failed"
+	LifecycleReasonThreadIdle              LifecycleReason = "thread_idle"
+	LifecycleReasonThreadActive            LifecycleReason = "thread_active"
+	LifecycleReasonThreadNotLoaded         LifecycleReason = "thread_not_loaded"
+	LifecycleReasonThreadSystemError       LifecycleReason = "thread_system_error"
 	LifecycleReasonThreadClosed            LifecycleReason = "thread_closed"
 	LifecycleReasonEnvironmentConnected    LifecycleReason = "environment_connected"
 	LifecycleReasonEnvironmentDisconnected LifecycleReason = "environment_disconnected"
 )
 
 var lifecycleStates = []LifecycleState{
-	LifecycleStateStarting,
 	LifecycleStateReady,
 	LifecycleStateRestarting,
 	LifecycleStateUnavailable,
@@ -242,9 +290,12 @@ var lifecycleStates = []LifecycleState{
 
 var lifecycleReasons = []LifecycleReason{
 	LifecycleReasonSessionFailed,
-	LifecycleReasonEventLag,
-	LifecycleReasonTurnError,
-	LifecycleReasonThreadStatus,
+	LifecycleReasonTurnRetrying,
+	LifecycleReasonTurnFailed,
+	LifecycleReasonThreadIdle,
+	LifecycleReasonThreadActive,
+	LifecycleReasonThreadNotLoaded,
+	LifecycleReasonThreadSystemError,
 	LifecycleReasonThreadClosed,
 	LifecycleReasonEnvironmentConnected,
 	LifecycleReasonEnvironmentDisconnected,
@@ -253,7 +304,6 @@ var lifecycleReasons = []LifecycleReason{
 type LifecycleEvent struct {
 	State  LifecycleState  `json:"state"`
 	Reason LifecycleReason `json:"reason"`
-	Error  *string         `json:"error,omitempty"`
 }
 
 type EventSink interface {
@@ -333,12 +383,68 @@ func validateActivityEvent(event Event) error {
 	if event.Activity == nil {
 		return errors.New("agent activity event requires activity payload")
 	}
-	for _, kind := range activityKinds {
-		if event.Activity.Kind == kind {
-			return nil
+	if strings.TrimSpace(event.Activity.ProviderItemID) == "" ||
+		strings.TrimSpace(event.Activity.ProviderItemID) != event.Activity.ProviderItemID ||
+		strings.TrimSpace(event.Activity.Status) == "" ||
+		strings.TrimSpace(event.Activity.Status) != event.Activity.Status ||
+		strings.TrimSpace(event.Activity.Title) == "" ||
+		strings.TrimSpace(event.Activity.Title) != event.Activity.Title {
+		return errors.New("agent activity event requires item id, status, and title")
+	}
+	if !containsEnumValue(activityKinds, event.Activity.Kind) {
+		return fmt.Errorf("unsupported agent activity kind %q", event.Activity.Kind)
+	}
+	if event.Kind != EventKindActivityUpdated {
+		switch event.Activity.Kind {
+		case ActivityKindCommand:
+			if !nonEmptyStringPointer(event.Activity.Command) || !nonEmptyStringPointer(event.Activity.CWD) {
+				return errors.New("agent command activity requires command and cwd")
+			}
+		case ActivityKindMCPTool:
+			if !nonEmptyStringPointer(event.Activity.Server) || !nonEmptyStringPointer(event.Activity.Tool) {
+				return errors.New("agent MCP activity requires server and tool")
+			}
+		case ActivityKindDynamicTool:
+			if !nonEmptyStringPointer(event.Activity.Tool) {
+				return errors.New("agent dynamic tool activity requires tool")
+			}
 		}
 	}
-	return fmt.Errorf("unsupported agent activity kind %q", event.Activity.Kind)
+	if event.Activity.Kind == ActivityKindSubagent &&
+		!nonEmptyStringPointer(event.Activity.ProviderSubagentThreadID) {
+		return errors.New("agent subagent activity requires provider subagent thread id")
+	}
+	if event.Activity.Kind != ActivityKindSubagent && event.Activity.ProviderSubagentThreadID != nil {
+		return fmt.Errorf("agent activity kind %q must not carry a provider subagent thread id", event.Activity.Kind)
+	}
+	if event.Activity.Kind != ActivityKindFileChange && len(event.Activity.FileChanges) > 0 {
+		return fmt.Errorf("agent activity kind %q must not carry file changes", event.Activity.Kind)
+	}
+	if event.Activity.Kind == ActivityKindImageGeneration {
+		if event.Activity.SavedPath != nil && !nonEmptyStringPointer(event.Activity.SavedPath) {
+			return errors.New("agent image generation saved path must be non-empty without surrounding whitespace")
+		}
+	} else if event.Activity.SavedPath != nil {
+		return fmt.Errorf("agent activity kind %q must not carry a saved path", event.Activity.Kind)
+	}
+	for index, change := range event.Activity.FileChanges {
+		if strings.TrimSpace(change.Path) == "" ||
+			strings.TrimSpace(change.Path) != change.Path ||
+			!containsEnumValue(fileChangeKinds, change.Kind) {
+			return fmt.Errorf("agent file change %d is invalid", index)
+		}
+		if change.Kind != FileChangeKindUpdate && change.MovePath != nil {
+			return fmt.Errorf("agent file change %d kind %q must not carry a move path", index, change.Kind)
+		}
+		if change.MovePath != nil && !nonEmptyStringPointer(change.MovePath) {
+			return fmt.Errorf("agent file change %d move path must be non-empty without surrounding whitespace", index)
+		}
+	}
+	return nil
+}
+
+func nonEmptyStringPointer(value *string) bool {
+	return value != nil && strings.TrimSpace(*value) != "" && strings.TrimSpace(*value) == *value
 }
 
 func validateApprovalEvent(event Event) error {
@@ -349,7 +455,9 @@ func validateApprovalEvent(event Event) error {
 }
 
 func validateApprovalSupersededEvent(event Event) error {
-	if event.ApprovalSuperseded == nil || event.ApprovalSuperseded.ApprovalID == "" {
+	if event.ApprovalSuperseded == nil ||
+		strings.TrimSpace(event.ApprovalSuperseded.ApprovalID) == "" ||
+		strings.TrimSpace(event.ApprovalSuperseded.ApprovalID) != event.ApprovalSuperseded.ApprovalID {
 		return errors.New("agent approval superseded event requires an approval id")
 	}
 	return nil
@@ -359,7 +467,8 @@ func validateValidationEvent(event Event) error {
 	if event.Validation == nil {
 		return errors.New("agent validation event requires validation payload")
 	}
-	if event.Validation.ID == "" {
+	if strings.TrimSpace(event.Validation.ID) == "" ||
+		strings.TrimSpace(event.Validation.ID) != event.Validation.ID {
 		return errors.New("agent validation event requires a validation id")
 	}
 	if !containsEnumValue(validationKinds, event.Validation.Kind) {
@@ -367,6 +476,19 @@ func validateValidationEvent(event Event) error {
 	}
 	if !containsEnumValue(validationStatuses, event.Validation.Status) {
 		return fmt.Errorf("unsupported agent validation status %q", event.Validation.Status)
+	}
+	if event.Validation.Risk != nil && !containsEnumValue(validationRisks, *event.Validation.Risk) {
+		return fmt.Errorf("unsupported agent validation risk %q", *event.Validation.Risk)
+	}
+	if event.Validation.Kind == ValidationKindModelVerification && event.Validation.Risk != nil {
+		return errors.New("model verification must not carry Guardian risk")
+	}
+	if event.Validation.Subject != nil && !nonEmptyStringPointer(event.Validation.Subject) {
+		return errors.New("agent validation subject must be non-empty without surrounding whitespace")
+	}
+	if strings.TrimSpace(event.Validation.Summary) == "" ||
+		strings.TrimSpace(event.Validation.Summary) != event.Validation.Summary {
+		return errors.New("agent validation event requires a trimmed public summary")
 	}
 	return nil
 }
@@ -395,7 +517,35 @@ func validateLifecycleEvent(event Event) error {
 	if !containsEnumValue(lifecycleReasons, event.Lifecycle.Reason) {
 		return fmt.Errorf("unsupported agent lifecycle reason %q", event.Lifecycle.Reason)
 	}
+	if event.Lifecycle.State != lifecycleStateForReason(event.Lifecycle.Reason) {
+		return fmt.Errorf(
+			"agent lifecycle reason %q cannot produce state %q",
+			event.Lifecycle.Reason,
+			event.Lifecycle.State,
+		)
+	}
 	return nil
+}
+
+func lifecycleStateForReason(reason LifecycleReason) LifecycleState {
+	switch reason {
+	case LifecycleReasonThreadIdle,
+		LifecycleReasonThreadActive,
+		LifecycleReasonEnvironmentConnected:
+		return LifecycleStateReady
+	case LifecycleReasonTurnRetrying:
+		return LifecycleStateRestarting
+	case LifecycleReasonSessionFailed,
+		LifecycleReasonTurnFailed,
+		LifecycleReasonThreadNotLoaded,
+		LifecycleReasonThreadSystemError,
+		LifecycleReasonEnvironmentDisconnected:
+		return LifecycleStateUnavailable
+	case LifecycleReasonThreadClosed:
+		return LifecycleStateClosed
+	default:
+		return ""
+	}
 }
 
 func containsEnumValue[T ~string](catalog []T, value T) bool {

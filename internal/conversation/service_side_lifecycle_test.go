@@ -304,7 +304,9 @@ func TestSideConversationUnexpectedRuntimeFailureRetainsProviderCleanupIdentity(
 		return findErr == nil && current.Status == SideConversationStatusFailed
 	})
 	current, _ := findSideConversation(failed, side.ID)
-	if current.Failure == nil || current.Failure.Code != "side_turn_runtime_failed" {
+	if current.Failure == nil ||
+		current.Failure.Code != "side_turn_runtime_failed" ||
+		current.Failure.Message != "This work stopped unexpectedly. Try again." {
 		t.Fatalf("side runtime failure = %+v", current)
 	}
 	if current.ActiveTurnID == nil || current.ActiveProviderTurnID == nil {

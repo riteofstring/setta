@@ -64,13 +64,12 @@ func NodeKindForAgentLiveness(status conversation.AgentLivenessStatus) (Semantic
 // node. Only states the user or Director must act on become nodes.
 func NodeKindForProviderLifecycle(status conversation.ProviderLifecycleStatus) (SemanticNodeKind, error) {
 	switch status {
-	case conversation.ProviderLifecycleStarting,
-		conversation.ProviderLifecycleReady,
-		conversation.ProviderLifecycleClosed:
+	case conversation.ProviderLifecycleReady:
 		return SemanticNodeNone, nil
 	case conversation.ProviderLifecycleRestarting:
 		return SemanticNodeRecovery, nil
-	case conversation.ProviderLifecycleUnavailable:
+	case conversation.ProviderLifecycleUnavailable,
+		conversation.ProviderLifecycleClosed:
 		return SemanticNodeBlocked, nil
 	default:
 		return SemanticNodeNone, fmt.Errorf("unknown provider lifecycle status %q", status)
@@ -375,9 +374,10 @@ func validateResolverCoverage() error {
 func validateSourceFactRule(label string, rule SourceFactRule) error {
 	producesNode := rule.Disposition == SourceFactCreatesNode ||
 		rule.Disposition == SourceFactUpdatesNode ||
+		rule.Disposition == SourceFactUpsertsNode ||
 		rule.Disposition == SourceFactConditionalNode
 	switch rule.Disposition {
-	case SourceFactCreatesNode, SourceFactUpdatesNode, SourceFactConditionalNode,
+	case SourceFactCreatesNode, SourceFactUpdatesNode, SourceFactUpsertsNode, SourceFactConditionalNode,
 		SourceFactUpdatesMetadata, SourceFactDetailSurface:
 	default:
 		return fmt.Errorf("source fact %s has unknown disposition %q", label, rule.Disposition)

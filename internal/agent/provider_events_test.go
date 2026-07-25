@@ -1,11 +1,102 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"strings"
 	"testing"
 
 	"setta/internal/codexapp"
 )
+
+func TestProviderErrorNotificationUsesTypedRetryLifecycleWithoutRawMessage(t *testing.T) {
+	base := providerNotificationTestBase()
+	const providerDiagnostic = "DO_NOT_PERSIST_PROVIDER_DIAGNOSTIC"
+	for _, testCase := range []struct {
+		name      string
+		willRetry bool
+		state     LifecycleState
+		reason    LifecycleReason
+	}{
+		{
+			name:      "provider will retry",
+			willRetry: true,
+			state:     LifecycleStateRestarting,
+			reason:    LifecycleReasonTurnRetrying,
+		},
+		{
+			name:      "provider will not retry",
+			willRetry: false,
+			state:     LifecycleStateUnavailable,
+			reason:    LifecycleReasonTurnFailed,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			events, terminal, err := normalizedProviderNotification(
+				newTestRuntime(),
+				providerNotificationMessage(t, codexapp.CodexNotificationError, map[string]any{
+					"error":     map[string]any{"message": providerDiagnostic},
+					"threadId":  base.ProviderThreadID,
+					"turnId":    base.ProviderTurnID,
+					"willRetry": testCase.willRetry,
+				}),
+				base,
+			)
+			if err != nil || terminal != nil || len(events) != 1 {
+				t.Fatalf("normalize provider error: events=%d terminal=%v err=%v", len(events), terminal, err)
+			}
+			lifecycle := events[0].Lifecycle
+			if lifecycle == nil || lifecycle.State != testCase.state || lifecycle.Reason != testCase.reason {
+				t.Fatalf("lifecycle = %+v, want %s/%s", lifecycle, testCase.state, testCase.reason)
+			}
+			encoded, err := json.Marshal(events[0])
+			if err != nil {
+				t.Fatalf("encode lifecycle event: %v", err)
+			}
+			if strings.Contains(string(encoded), providerDiagnostic) {
+				t.Fatal("raw provider error entered the typed lifecycle event")
+			}
+		})
+	}
+}
+
+func TestBestEffortProviderLagDoesNotCreateLifecycleTruth(t *testing.T) {
+	sink := &recordingEventSink{}
+	_, terminal, err := newTestRuntime().handleProviderEvent(
+		context.Background(),
+		codexapp.Event{Kind: codexapp.EventLag, Lag: &codexapp.LagEvent{SkippedCount: 3}},
+		providerNotificationTestBase(),
+		sink,
+	)
+	if err != nil || terminal || len(sink.snapshot()) != 0 {
+		t.Fatalf("best-effort lag produced terminal=%t events=%d err=%v", terminal, len(sink.snapshot()), err)
+	}
+}
+
+func TestProviderLifecycleFailureKeepsDiagnosticsInternal(t *testing.T) {
+	const providerDiagnostic = "DO_NOT_SURFACE_SESSION_DIAGNOSTIC"
+	sink := &recordingEventSink{}
+	_, terminal, err := newTestRuntime().handleProviderEvent(
+		context.Background(),
+		codexapp.Event{Kind: codexapp.EventLifecycle, Err: errors.New(providerDiagnostic)},
+		providerNotificationTestBase(),
+		sink,
+	)
+	if terminal {
+		t.Fatal("provider lifecycle failure claimed a provider terminal event")
+	}
+	if !IsProviderLifecycleError(err) ||
+		err.Error() != "Provider is temporarily unavailable. Try again." ||
+		strings.Contains(err.Error(), providerDiagnostic) {
+		t.Fatalf("provider lifecycle error = %v", err)
+	}
+	events := sink.snapshot()
+	if len(events) != 1 || events[0].Lifecycle == nil ||
+		events[0].Lifecycle.Reason != LifecycleReasonSessionFailed {
+		t.Fatalf("provider lifecycle event = %+v", events)
+	}
+}
 
 func TestNormalizedProviderNotificationsCarryTypedActivityFacts(t *testing.T) {
 	base := providerNotificationTestBase()
@@ -107,7 +198,7 @@ func TestNormalizedProviderNotificationsCarryTypedActivityFacts(t *testing.T) {
 			if event.Kind != testCase.kind {
 				t.Fatalf("%s event kind = %q, want %q", testCase.method, event.Kind, testCase.kind)
 			}
-			if event.Activity == nil || *event.Activity != testCase.activity {
+			if event.Activity == nil || !equalActivityEvents(*event.Activity, testCase.activity) {
 				t.Fatalf("%s activity = %+v, want %+v", testCase.method, event.Activity, testCase.activity)
 			}
 			if event.ProviderEventID == nil || *event.ProviderEventID != testCase.activity.ProviderItemID {
@@ -211,7 +302,49 @@ func TestNormalizedThreadItemsKeepProviderActivityIdentity(t *testing.T) {
 			item: map[string]any{"id": "item-image", "type": "imageView", "path": "/tmp/mock.png"},
 			activity: ActivityEvent{
 				ProviderItemID: "item-image", Kind: ActivityKindImageView,
-				Status: "completed", Title: "Viewed image", Summary: "/tmp/mock.png",
+				Status: "completed", Title: "Viewed image",
+			},
+		},
+		{
+			name: "generated image keeps its saved path separate from its public label",
+			item: map[string]any{
+				"id": "item-generated-image", "type": "imageGeneration", "result": "created",
+				"savedPath": "/tmp/generated.png", "status": "completed",
+			},
+			activity: ActivityEvent{
+				ProviderItemID: "item-generated-image", Kind: ActivityKindImageGeneration,
+				Status: "completed", Title: "Generated image", SavedPath: stringPointer("/tmp/generated.png"),
+			},
+		},
+		{
+			name: "file change keeps structured changes",
+			item: map[string]any{
+				"id": "item-file", "type": "fileChange", "status": "completed",
+				"changes": []any{map[string]any{
+					"path": "internal/director/projector.go",
+					"kind": map[string]any{"type": "update", "move_path": "internal/director/projector_core.go"},
+					"diff": "@@ -1 +1 @@",
+				}},
+			},
+			activity: ActivityEvent{
+				ProviderItemID: "item-file", Kind: ActivityKindFileChange,
+				Status: "completed", Title: "Changed 1 file(s)",
+				FileChanges: []FileChange{{
+					Path: "internal/director/projector.go", Kind: FileChangeKindUpdate,
+					MovePath: stringPointer("internal/director/projector_core.go"), Diff: "@@ -1 +1 @@",
+				}},
+			},
+		},
+		{
+			name: "subagent keeps its provider thread in a typed field",
+			item: map[string]any{
+				"id": "item-subagent", "type": "subAgentActivity", "kind": "started",
+				"agentPath": "reviewer", "agentThreadId": "provider-subagent-thread",
+			},
+			activity: ActivityEvent{
+				ProviderItemID: "item-subagent", Kind: ActivityKindSubagent,
+				Status: "started", Title: "reviewer",
+				ProviderSubagentThreadID: stringPointer("provider-subagent-thread"),
 			},
 		},
 		{
@@ -264,7 +397,25 @@ func equalActivityEvents(left ActivityEvent, right ActivityEvent) bool {
 		equalStringPointers(left.Tool, right.Tool) &&
 		equalStringPointers(left.Namespace, right.Namespace) &&
 		equalStringPointers(left.ProcessID, right.ProcessID) &&
+		equalStringPointers(left.SavedPath, right.SavedPath) &&
+		equalStringPointers(left.ProviderSubagentThreadID, right.ProviderSubagentThreadID) &&
+		equalFileChanges(left.FileChanges, right.FileChanges) &&
 		equalIntPointers(left.ExitCode, right.ExitCode)
+}
+
+func equalFileChanges(left []FileChange, right []FileChange) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index].Path != right[index].Path ||
+			left[index].Kind != right[index].Kind ||
+			!equalStringPointers(left[index].MovePath, right[index].MovePath) ||
+			left[index].Diff != right[index].Diff {
+			return false
+		}
+	}
+	return true
 }
 
 func equalStringPointers(left *string, right *string) bool {

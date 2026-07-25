@@ -304,12 +304,12 @@ var artifactLifecycle = lifecycleTable[ArtifactStatus]{
 
 var recoveryLifecycle = lifecycleTable[RecoveryStatus]{
 	label:   "recovery",
-	initial: []RecoveryStatus{RecoveryStatusDetected},
+	initial: []RecoveryStatus{RecoveryStatusDetected, RecoveryStatusRetrying},
 	transitions: map[RecoveryStatus][]RecoveryStatus{
 		RecoveryStatusDetected:      {RecoveryStatusRetrying, RecoveryStatusRecovered, RecoveryStatusUnrecoverable},
 		RecoveryStatusRetrying:      {RecoveryStatusRetrying, RecoveryStatusRecovered, RecoveryStatusUnrecoverable},
 		RecoveryStatusRecovered:     {},
-		RecoveryStatusUnrecoverable: {RecoveryStatusRetrying},
+		RecoveryStatusUnrecoverable: {},
 	},
 }
 
@@ -398,14 +398,19 @@ var semanticNodeKindStatuses = map[SemanticNodeKind][]SemanticNodeStatus{
 		SemanticNodeStatusFailed,
 		SemanticNodeStatusCancelled,
 	},
-	SemanticNodeArtifact:   {SemanticNodeStatusSucceeded},
-	SemanticNodeValidation: {SemanticNodeStatusActive, SemanticNodeStatusSucceeded, SemanticNodeStatusFailed},
-	SemanticNodeBlocked:    {SemanticNodeStatusWaiting, SemanticNodeStatusSucceeded, SemanticNodeStatusFailed, SemanticNodeStatusCancelled},
-	SemanticNodeRetry:      {SemanticNodeStatusActive, SemanticNodeStatusSucceeded, SemanticNodeStatusFailed},
-	SemanticNodeRecovery:   {SemanticNodeStatusActive, SemanticNodeStatusSucceeded, SemanticNodeStatusFailed},
-	SemanticNodeCompleted:  {SemanticNodeStatusSucceeded},
-	SemanticNodeFailed:     {SemanticNodeStatusFailed},
-	SemanticNodeCancelled:  {SemanticNodeStatusCancelled},
+	SemanticNodeArtifact: {SemanticNodeStatusSucceeded},
+	SemanticNodeValidation: {
+		SemanticNodeStatusActive,
+		SemanticNodeStatusSucceeded,
+		SemanticNodeStatusFailed,
+		SemanticNodeStatusCancelled,
+	},
+	SemanticNodeBlocked:   {SemanticNodeStatusWaiting, SemanticNodeStatusSucceeded, SemanticNodeStatusFailed, SemanticNodeStatusCancelled},
+	SemanticNodeRetry:     {SemanticNodeStatusActive, SemanticNodeStatusSucceeded, SemanticNodeStatusFailed},
+	SemanticNodeRecovery:  {SemanticNodeStatusActive, SemanticNodeStatusSucceeded, SemanticNodeStatusFailed},
+	SemanticNodeCompleted: {SemanticNodeStatusSucceeded},
+	SemanticNodeFailed:    {SemanticNodeStatusFailed},
+	SemanticNodeCancelled: {SemanticNodeStatusCancelled},
 }
 
 // ValidateWorkstreamTransition rejects an impossible workstream state change.

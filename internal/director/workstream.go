@@ -12,7 +12,7 @@ package director
 
 import (
 	"fmt"
-	"strings"
+	"path/filepath"
 )
 
 // DirectorContractSchemaVersion versions every contract in this package
@@ -187,7 +187,27 @@ func ValidateWorkstream(workstream Workstream) error {
 	if err := validateTimestamp("workstream created at", workstream.CreatedAt); err != nil {
 		return err
 	}
-	return validateTimestamp("workstream updated at", workstream.UpdatedAt)
+	if err := validateTimestamp("workstream updated at", workstream.UpdatedAt); err != nil {
+		return err
+	}
+	if err := validateTimestampOrder("workstream timestamp", workstream.CreatedAt, workstream.UpdatedAt); err != nil {
+		return err
+	}
+	if workstream.LastMilestone != nil {
+		if err := validateTimestampOrder(
+			"workstream milestone creation timestamp",
+			workstream.CreatedAt,
+			workstream.LastMilestone.OccurredAt,
+		); err != nil {
+			return err
+		}
+		return validateTimestampOrder(
+			"workstream milestone update timestamp",
+			workstream.LastMilestone.OccurredAt,
+			workstream.UpdatedAt,
+		)
+	}
+	return nil
 }
 
 func validateWorkstreamIdentity(workstream Workstream) error {
@@ -218,6 +238,9 @@ func validateWorkstreamResources(workstream Workstream) error {
 	if err := validateWorkstreamResourceScope(workstream.ResourceScope); err != nil {
 		return err
 	}
+	if workstream.ResourceBindings == nil {
+		return fmt.Errorf("workstream %s resource bindings must be an array, not null", workstream.ID)
+	}
 	for index, binding := range workstream.ResourceBindings {
 		if err := ValidateWorkstreamResourceBinding(binding); err != nil {
 			return fmt.Errorf("workstream %s resource binding %d: %w", workstream.ID, index, err)
@@ -245,6 +268,63 @@ func validateWorkstreamCounts(workstream Workstream) error {
 		if err := validateCount(count.label, count.value); err != nil {
 			return err
 		}
+	}
+	return validateWorkstreamStatusState(workstream)
+}
+
+func validateWorkstreamStatusState(workstream Workstream) error {
+	switch workstream.Status {
+	case WorkstreamStatusIdle:
+		if workstream.ActiveRunID != nil ||
+			workstream.QueuedRunCount != 0 ||
+			workstream.UnresolvedApprovalCount != 0 ||
+			workstream.UnresolvedResourceRequestCount != 0 {
+			return fmt.Errorf("idle workstream %s carries active or unresolved work", workstream.ID)
+		}
+	case WorkstreamStatusRunning:
+		if workstream.ActiveRunID == nil ||
+			workstream.UnresolvedApprovalCount != 0 ||
+			workstream.UnresolvedResourceRequestCount != 0 {
+			return fmt.Errorf("running workstream %s requires an active run with no unresolved blocker", workstream.ID)
+		}
+	case WorkstreamStatusQueued:
+		if workstream.ActiveRunID != nil ||
+			workstream.QueuedRunCount == 0 ||
+			workstream.UnresolvedApprovalCount != 0 ||
+			workstream.UnresolvedResourceRequestCount != 0 {
+			return fmt.Errorf("queued workstream %s requires only queued work and no active run", workstream.ID)
+		}
+	case WorkstreamStatusAwaitingApproval:
+		if workstream.ActiveRunID == nil || workstream.UnresolvedApprovalCount == 0 {
+			return fmt.Errorf("approval-waiting workstream %s requires an active run and unresolved approval", workstream.ID)
+		}
+	case WorkstreamStatusAwaitingResource:
+		if workstream.UnresolvedResourceRequestCount == 0 {
+			return fmt.Errorf("resource-waiting workstream %s requires an unresolved resource request", workstream.ID)
+		}
+	case WorkstreamStatusFailed:
+		if workstream.ActiveRunID != nil ||
+			workstream.QueuedRunCount != 0 ||
+			workstream.UnresolvedApprovalCount != 0 ||
+			workstream.UnresolvedResourceRequestCount != 0 {
+			return fmt.Errorf("failed workstream %s carries active or unresolved work", workstream.ID)
+		}
+	case WorkstreamStatusCompleted:
+		if workstream.ActiveRunID != nil ||
+			workstream.QueuedRunCount != 0 ||
+			workstream.UnresolvedApprovalCount != 0 ||
+			workstream.UnresolvedResourceRequestCount != 0 {
+			return fmt.Errorf("completed workstream %s carries active or unresolved work", workstream.ID)
+		}
+	case WorkstreamStatusArchived:
+		if workstream.ActiveRunID != nil ||
+			workstream.QueuedRunCount != 0 ||
+			workstream.UnresolvedApprovalCount != 0 ||
+			workstream.UnresolvedResourceRequestCount != 0 {
+			return fmt.Errorf("archived workstream %s carries active or unresolved work", workstream.ID)
+		}
+	case WorkstreamStatusBlocked:
+		// A typed provider, agent, approval, or resource fact owns the block.
 	}
 	return nil
 }
@@ -287,7 +367,7 @@ func validateFolderResourceBinding(folder FolderResourceBinding) error {
 	if err := validateIdentifier("folder resource root path", folder.RootPath); err != nil {
 		return err
 	}
-	if !strings.HasPrefix(folder.RootPath, "/") {
+	if !filepath.IsAbs(folder.RootPath) {
 		return fmt.Errorf("folder resource root path must be absolute: %q", folder.RootPath)
 	}
 	return nil

@@ -48,6 +48,7 @@ type pendingApproval struct {
 	message        codexapp.Message
 	questions      []ApprovalQuestion
 	permissions    map[string]any
+	superseded     bool
 }
 
 var ErrConversationTurnActive = errors.New("conversation already has an active provider turn")

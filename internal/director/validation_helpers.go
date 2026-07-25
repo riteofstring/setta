@@ -20,6 +20,9 @@ func validateTrimmedText(label string, value string) error {
 	if strings.TrimSpace(value) == "" {
 		return fmt.Errorf("%s is required", label)
 	}
+	if strings.TrimSpace(value) != value {
+		return fmt.Errorf("%s must not have surrounding whitespace", label)
+	}
 	return nil
 }
 
@@ -44,6 +47,21 @@ func validateOptionalTimestamp(label string, value *string) error {
 		return nil
 	}
 	return validateTimestamp(label, *value)
+}
+
+func validateTimestampOrder(label string, earlier string, later string) error {
+	earlierTime, err := time.Parse(time.RFC3339Nano, earlier)
+	if err != nil {
+		return fmt.Errorf("%s earlier timestamp must be RFC3339: %w", label, err)
+	}
+	laterTime, err := time.Parse(time.RFC3339Nano, later)
+	if err != nil {
+		return fmt.Errorf("%s later timestamp must be RFC3339: %w", label, err)
+	}
+	if laterTime.Before(earlierTime) {
+		return fmt.Errorf("%s moves backwards from %s to %s", label, earlier, later)
+	}
+	return nil
 }
 
 func validateCount(label string, value int) error {

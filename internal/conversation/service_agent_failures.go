@@ -7,6 +7,12 @@ import (
 	"setta/internal/agent"
 )
 
+const (
+	agentRuntimeFailureMessage          = "The run stopped unexpectedly. Try again."
+	providerUnavailableFailureMessage   = "Provider is temporarily unavailable. Try again."
+	providerThreadMissingFailureMessage = "This run cannot continue because its provider session is no longer available. Start a new run."
+)
+
 func (service *Service) persistUnexpectedTurnEnd(
 	ctx context.Context,
 	active *activeConversationTurn,
@@ -164,11 +170,18 @@ func unexpectedTurnFailure(runErr error) Failure {
 	if agent.IsProviderThreadMissing(runErr) {
 		return Failure{
 			Code:      "provider_thread_missing",
-			Message:   runErr.Error(),
+			Message:   providerThreadMissingFailureMessage,
 			Retryable: false,
 		}
 	}
-	return Failure{Code: "agent_runtime_failed", Message: runErr.Error(), Retryable: true}
+	if agent.IsProviderLifecycleError(runErr) {
+		return Failure{
+			Code:      "provider_unavailable",
+			Message:   providerUnavailableFailureMessage,
+			Retryable: true,
+		}
+	}
+	return Failure{Code: "agent_runtime_failed", Message: agentRuntimeFailureMessage, Retryable: true}
 }
 
 func applyUnexpectedProviderReferences(

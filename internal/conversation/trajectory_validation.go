@@ -17,6 +17,15 @@ func (event TrajectoryEvent) Validate() error {
 	if err := validateTrajectoryPayload(payload); err != nil {
 		return fmt.Errorf("trajectory event %s kind %s: %w", event.ID, event.Kind, err)
 	}
+	if lifecycle, ok := payload.(*TrajectoryProviderLifecycleChanged); ok &&
+		providerLifecycleReasonRequiresTurn(lifecycle.Lifecycle.Reason) &&
+		event.TurnID == nil {
+		return fmt.Errorf(
+			"trajectory event %s provider lifecycle reason %q requires turn id",
+			event.ID,
+			lifecycle.Lifecycle.Reason,
+		)
+	}
 	return nil
 }
 
@@ -792,8 +801,7 @@ func (lifecycle ProviderLifecycle) Validate() error {
 		return fmt.Errorf("unsupported provider lifecycle provider %q", lifecycle.Provider)
 	}
 	switch lifecycle.Status {
-	case ProviderLifecycleStarting,
-		ProviderLifecycleReady,
+	case ProviderLifecycleReady,
 		ProviderLifecycleRestarting,
 		ProviderLifecycleUnavailable,
 		ProviderLifecycleClosed:
@@ -803,10 +811,44 @@ func (lifecycle ProviderLifecycle) Validate() error {
 	if !validProviderLifecycleReason(lifecycle.Reason) {
 		return fmt.Errorf("unsupported provider lifecycle reason %q", lifecycle.Reason)
 	}
-	if lifecycle.Status == ProviderLifecycleUnavailable && strings.TrimSpace(lifecycle.Message) == "" {
-		return fmt.Errorf("unavailable provider lifecycle requires message")
+	if lifecycle.Status != providerLifecycleStatusForReason(lifecycle.Reason) {
+		return fmt.Errorf(
+			"provider lifecycle reason %q cannot produce status %q",
+			lifecycle.Reason,
+			lifecycle.Status,
+		)
 	}
 	return nil
+}
+
+func providerLifecycleStatusForReason(reason ProviderLifecycleReason) ProviderLifecycleStatus {
+	switch reason {
+	case ProviderLifecycleReasonThreadIdle,
+		ProviderLifecycleReasonThreadActive,
+		ProviderLifecycleReasonEnvironmentConnected:
+		return ProviderLifecycleReady
+	case ProviderLifecycleReasonTurnRetrying:
+		return ProviderLifecycleRestarting
+	case ProviderLifecycleReasonSessionFailed,
+		ProviderLifecycleReasonTurnFailed,
+		ProviderLifecycleReasonThreadNotLoaded,
+		ProviderLifecycleReasonThreadSystemError,
+		ProviderLifecycleReasonEnvironmentDisconnected:
+		return ProviderLifecycleUnavailable
+	case ProviderLifecycleReasonThreadClosed:
+		return ProviderLifecycleClosed
+	default:
+		return ""
+	}
+}
+
+func providerLifecycleReasonRequiresTurn(reason ProviderLifecycleReason) bool {
+	switch reason {
+	case ProviderLifecycleReasonTurnRetrying, ProviderLifecycleReasonTurnFailed:
+		return true
+	default:
+		return false
+	}
 }
 
 func validProviderLifecycleReason(reason ProviderLifecycleReason) bool {
@@ -828,6 +870,12 @@ func (validation TrajectoryValidation) Validate() error {
 	if !validTrajectoryValidationStatus(validation.Status) {
 		return fmt.Errorf("unsupported validation status %q", validation.Status)
 	}
+	if validation.Risk != nil && !validTrajectoryValidationRisk(*validation.Risk) {
+		return fmt.Errorf("unsupported validation risk %q", *validation.Risk)
+	}
+	if validation.Kind == TrajectoryValidationModelVerification && validation.Risk != nil {
+		return fmt.Errorf("model verification must not carry Guardian risk")
+	}
 	if err := validateOptionalIdentifier("validation subject", validation.Subject); err != nil {
 		return err
 	}
@@ -835,6 +883,9 @@ func (validation TrajectoryValidation) Validate() error {
 	// the provider always reports enough to say so.
 	if strings.TrimSpace(validation.Summary) == "" {
 		return fmt.Errorf("validation %s requires a summary", validation.ID)
+	}
+	if strings.TrimSpace(validation.Summary) != validation.Summary {
+		return fmt.Errorf("validation %s summary must not have surrounding whitespace", validation.ID)
 	}
 	return nil
 }
@@ -851,6 +902,15 @@ func validTrajectoryValidationKind(kind TrajectoryValidationKind) bool {
 func validTrajectoryValidationStatus(status TrajectoryValidationStatus) bool {
 	for _, candidate := range trajectoryValidationStatuses {
 		if candidate == status {
+			return true
+		}
+	}
+	return false
+}
+
+func validTrajectoryValidationRisk(risk TrajectoryValidationRisk) bool {
+	for _, candidate := range trajectoryValidationRisks {
+		if candidate == risk {
 			return true
 		}
 	}

@@ -560,6 +560,7 @@ function summarizeAgentTrajectoryEvent(event: TrajectoryEvent) {
     turnId: event.turnId,
     turnInterruptionReason: summarizeTurnInterruptionReason(event),
     turnInvocation: summarizeTurnInvocation(event),
+    validation: summarizeTrajectoryValidation(event),
   };
 }
 
@@ -632,7 +633,22 @@ function summarizeProviderLifecycle(event: TrajectoryEvent) {
   }
   return {
     provider: event.providerLifecycleChanged.lifecycle.provider,
+    reason: event.providerLifecycleChanged.lifecycle.reason,
     status: event.providerLifecycleChanged.lifecycle.status,
+  };
+}
+
+function summarizeTrajectoryValidation(event: TrajectoryEvent) {
+  if (event.validationRecorded === null) {
+    return null;
+  }
+  const validation = event.validationRecorded.validation;
+  return {
+    id: validation.id,
+    kind: validation.kind,
+    risk: validation.risk,
+    status: validation.status,
+    subject: validation.subject,
   };
 }
 

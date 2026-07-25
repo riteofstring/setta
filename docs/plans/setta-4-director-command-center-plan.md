@@ -1,8 +1,10 @@
 # Setta 4 Director Command Center — Plan of Record
 
 **Date:** 2026-07-24
-**Status:** Approved direction; Phase 0 repository work is complete and Phase 1 has
-started. The checked-in Codex protocol snapshot is refreshed and the provider
+**Status:** Approved direction; Phase 0 repository work and Phase 1 implementation
+are complete. Phase 1 remains at its audit boundary until the required broad
+verification has a post-fix green result; Phase 2 has not started. The checked-in
+Codex protocol snapshot is refreshed and the provider
 notification adapter matrix is committed in `internal/agent/provider_notification_matrix.go`
 (Phase 1 items 2 and 3). The Go-owned Setta 4 contract layer is committed in
 `internal/director` (Phase 1 items 4 through 7): workstream, semantic node, edge,
@@ -20,16 +22,21 @@ are reachable from live work instead of only from fixtures. Phase 1 item 14 is
 complete: the remaining `normalized` notifications now have durable Setta owners —
 typed provider lifecycle records for thread status, environment connection, and
 thread close; a `validation_recorded` trajectory event for Guardian review and
-model verification; and approval reconciliation for `serverRequest/resolved`. The
-only Phase 1 work left is item 13, the visual gallery, which is blocked on item 9.
+model verification; and approval reconciliation for `serverRequest/resolved`.
+Provider lifecycle failures and retry intent use exact typed reasons, raw provider
+diagnostics stay behind the adapter, and Guardian risk remains a typed field. The
+visual gallery in item 13 is deferred to Phase 3, when the Director endpoints and
+events make the registered contracts reachable to the TypeScript generator. It is
+not a Phase 1 completion blocker, and no parallel TypeScript contract mirror should
+be introduced to build it earlier.
 The ownership, surviving-path, and reusable-foundation inventories are committed in
 [`docs/reports/setta-4-phase0-ownership-inventory-20260724.md`](../reports/setta-4-phase0-ownership-inventory-20260724.md),
 the mockup fidelity checklist in
 [`docs/reports/setta-4-mockup-fidelity-checklist-20260724.md`](../reports/setta-4-mockup-fidelity-checklist-20260724.md),
 and the target performance matrix in
 [`docs/reports/performance/setta-4-target-performance-matrix-20260724.md`](../reports/performance/setta-4-target-performance-matrix-20260724.md).
-The remaining Phase 0 items are verification actions that need an interactive
-desktop session, not repository edits. No source cutover work has started.
+The only remaining Phase 0 action needs an interactive desktop session, not a
+repository edit. No source cutover work has started.
 
 ## Product Decision
 
@@ -809,14 +816,13 @@ The committed inventory is
 Its section 4 lists the contract gaps Phase 1 must close, and its section 5 records the verification
 that needs an interactive desktop session.
 
-Items 1 and 7 are the only Phase 0 work left, and neither is a repository edit. Item 1 is a build
-confirmation that runs when verification begins; item 7 needs an interactive Electron session on the
-target display and is recorded as a release gate in the inventory's section 5 and in section 7 of the
-performance matrix.
+Item 7 is the only Phase 0 work left, and it is not a repository edit. Item 1 was confirmed by the
+Phase 1 audit builds. Item 7 needs an interactive Electron session on the target display and is
+recorded as a release gate in the inventory's section 5 and in section 7 of the performance matrix.
 
 Exit gate:
 
-- reproducible desktop development build — pending verification start
+- reproducible desktop development build — met
 - Niri ownership inventory committed — met
 - retained/replaced/deleted production responsibilities documented — met
 - reusable foundation inventory committed — met
@@ -864,13 +870,17 @@ Exit gate:
    record. The Codex adapter now reports typed provider activities instead of a coarse bucket:
    `agent.ActivityKind` matches `conversation.TrajectoryActivityKind` one to one, commands carry
    their reported directory and process id, MCP and dynamic tool calls carry server, tool, and
-   namespace, and hooks, MCP tool progress, and terminal interaction have normalizers. Before this,
-   the durable record collapsed searches and tool calls into `dynamic_tool`, so `investigation`
-   nodes were unreachable from live work and the run's working directory was assumed to be the
-   workspace root. Remaining normalizer work is item 14.**
-9. Generate TypeScript surfaces. **Director contracts are registered with the generator in
-   `cmd/generate-contracts/contract_registry.go`; they reach `desktop/src/generated/backend.ts` when
-   the Phase 3 endpoints and events make them reachable.**
+   namespace, file changes carry typed operations and diffs, subagents carry their provider thread
+   identity in a dedicated field, and generated media keeps its saved path separate from its public
+   label. Hooks, MCP tool progress, and terminal interaction have normalizers. Before this, the
+   durable record collapsed searches and tool calls into `dynamic_tool`, so `investigation` nodes
+   were unreachable from live work and the run's working directory was assumed to be the workspace
+   root. Remaining normalizer work is item 14.**
+9. Generate TypeScript surfaces. **Done for the Phase 1 boundary. Director contracts are registered
+   with the generator in `cmd/generate-contracts/contract_registry.go`; the generated surfaces
+   materialize from the endpoint registry when the Phase 3 endpoints and events make them reachable.
+   Adding a separate generated-type root or a hand-maintained TypeScript mirror would violate
+   contract ownership.**
 10. Build deterministic event histories covering every node lifecycle and live replay boundary.
     **Done — `internal/director/fixtures.go` commits nine histories built from production contracts:
     folderless start, queueing and steering, approval-gated file change, superseded plan and
@@ -883,8 +893,13 @@ Exit gate:
 12. Add replay, ordering, invalid-transition, provenance, redaction, live resync, and recovery
     boundary tests. **Done — `internal/director/projector_test.go`. Replay is compared across every
     prefix boundary of every fixture, resync conditions surface as typed `ReplayError` reasons rather
-    than internal errors, and the fixtures are asserted to exercise every node kind and edge kind.**
-13. Build the exhaustive node/edge visual gallery from production contract fixtures.
+    than internal errors, app-scoped and per-conversation sequence gaps fail before projection,
+    cross-workstream provenance and delegation authority are validated, and the fixtures are asserted
+    to exercise every node kind and edge kind.**
+13. Build the exhaustive node/edge visual gallery from production contract fixtures. **Deferred to
+    Phase 3 after item 9's endpoint reachability exists. `ProjectionFixtures()` remains the
+    production-contract source. This dependency-bound visual integration is not a Phase 1 contract
+    or projector gap.**
 14. Adapt the remaining notifications the matrix marks `normalized` that still have no normalizer.
     **Done.** `thread/environment/*` and `model/safetyBuffering/updated` are registered in
     `internal/codexapp/protocolschema/supported_protocol.json`, and `ThreadStatus` is generated as a
@@ -892,30 +907,34 @@ Exit gate:
     than stringified. `internal/agent/provider_lifecycle_events.go` holds the new normalizers.
     - Thread status, environment connection and disconnection, and thread close commit provider
       lifecycle records. `agent.LifecycleEvent` now carries typed `LifecycleState` and
-      `LifecycleReason` enums that match `conversation.ProviderLifecycle` one to one, so the loose
-      `degraded` state that had no durable counterpart is gone and every lifecycle node names the
-      provider fact that produced it.
+      `LifecycleReason` enums that match `conversation.ProviderLifecycle` one to one. Retryable and
+      terminal turn errors have distinct reasons, thread statuses keep their exact typed causes, the
+      loose `degraded` state that had no durable counterpart is gone, and raw provider error text
+      never becomes a graph label or durable public failure.
     - Guardian review and model verification commit `conversation.TrajectoryEventValidationRecorded`,
       the durable owner a `validation` node and a `validated_by` edge are derived from.
-    - `serverRequest/resolved` reconciles the durable approval record as `superseded` and drops the
-      request from the adapter's pending table, so a later user answer cannot be sent to a request the
-      app server already closed.
+    - `serverRequest/resolved` reserves the request against a later user answer, reconciles the
+      durable approval record as `superseded`, and removes it from the adapter's pending table only
+      after the lossless durable event commits. A rejected commit restores the pending request.
     - Two matrix dispositions were corrected rather than given normalizers, for the reasons recorded
       in the adapter rules above: `guardianWarning` and `model/safetyBuffering/updated` are
       `evidence`, because each is a second rendering of a fact Setta already commits typed.
 
 Exit gate:
 
-- checked-in Codex protocol inputs are current for the implementation baseline
-- the provider notification adapter matrix is explicit and covered by fixtures
-- every displayed semantic value has a defined owner and provenance
-- replay is deterministic
-- the app-scoped live graph subscription is cursored and push-driven
-- realtime transport deltas stay behind the execution adapter until committed as durable Setta events
-- lifecycle transitions are explicit and validated
-- no graph node depends on keyword heuristics or private reasoning
-- invalid model output resolves through typed recovery policy
-- exhaustive visual mappings compile without a fallback case
+- checked-in Codex protocol inputs are current for the implementation baseline — met
+- the provider notification adapter matrix is explicit and covered by fixtures — met
+- every semantic value in the Phase 1 fixtures has a defined owner and provenance — met
+- replay is deterministic — met
+- the app-scoped live graph contract is cursored and push-driven — met; endpoint integration is
+  Phase 3
+- realtime transport deltas stay behind the execution adapter until committed as durable Setta
+  events — met
+- lifecycle transitions are explicit and validated — met
+- no graph node depends on keyword heuristics or private reasoning — met
+- invalid model output resolves through typed recovery policy — met at the projector boundary;
+  model-driven Director integration is Phase 3
+- exhaustive visual mappings compile without a fallback case — deferred with item 13 to Phase 3
 
 ### Phase 2 — Prove the standalone 120 Hz renderer
 
@@ -1069,15 +1088,13 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Build the exhaustive node/edge visual gallery, Phase 1 item 13. It is blocked on item 9: the
-   Director contracts are registered with the generator
-   but do not reach `desktop/src/generated/backend.ts` until the Phase 3 endpoints and events make
-   them reachable, and a gallery must render generated contract values rather than a hand-maintained
-   TypeScript mirror. `ProjectionFixtures()` is the production-contract fixture source the gallery
-   renders from. The four contract gaps the inventory found are closed as contracts in
-   `internal/director` — durable resource-request records, the app-scoped workstream registry,
-   plan-step identity, and workstream resource bindings. Moving `internal/master` off
-   `internal/applayout` onto `director.WorkstreamResourceBinding` is Phase 3 rewiring, not a
-   remaining contract gap.
-2. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
+1. Clear the Phase 1 audit boundary with one post-fix required broad verification run. Do not start
+   Phase 2 until that gate is green.
+2. After the Phase 1 audit is clear, Phase 2 is the next repository implementation phase.
+3. Build the exhaustive node/edge visual gallery after Phase 3 makes the Director contracts reachable
+   to `desktop/src/generated/backend.ts`. `ProjectionFixtures()` is the production-contract source
+   the gallery renders from. The four contract gaps the inventory found are already closed in
+   `internal/director`; moving `internal/master` onto `director.WorkstreamResourceBinding` is Phase 3
+   rewiring, not a remaining contract gap.
+4. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.

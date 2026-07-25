@@ -45,16 +45,20 @@ func (err *ReplayError) Error() string {
 // incrementally by the live subscription and in bulk by replay; both paths run
 // the same Apply.
 type DirectorGraphProjector struct {
-	lastSequence      int
-	order             []string
-	workstreams       map[string]*projectedWorkstream
-	byConversation    map[string]string
-	workstreamParents map[string]*string
-	runIDs            map[string]bool
-	artifactIDs       map[string]bool
-	nodeBySourceEvent map[string]string
-	selected          *string
-	pendingDelegation []pendingDelegation
+	lastSequence       int
+	order              []string
+	workstreams        map[string]*projectedWorkstream
+	byConversation     map[string]string
+	workstreamParents  map[string]*string
+	runIDs             map[string]bool
+	runOwners          map[string]string
+	artifactIDs        map[string]bool
+	sourceEventIDs     map[string]bool
+	sourceEventOwners  map[string]string
+	nodeBySourceEvent  map[string]string
+	trajectorySequence map[string]int
+	selected           *string
+	pendingDelegation  []pendingDelegation
 }
 
 // pendingDelegation remembers a committed decision until the target workstream
@@ -69,33 +73,41 @@ type pendingDelegation struct {
 // projectedWorkstream is the live graph of one workstream plus the small amount
 // of causal bookkeeping edge derivation needs.
 type projectedWorkstream struct {
-	id             string
-	nodes          []SemanticNode
-	nodeIndex      map[string]int
-	edges          []SemanticEdge
-	edgeIndex      map[string]bool
-	lastNodeID     string
-	lastRunNodeID  map[string]string
-	openRunNodeIDs []string
-	recoveryAnchor string
-	planStepNodes  map[string][]string
-	runSummaries   map[string]string
-	goalNodes      map[string]string
-	fileChangeNode map[string]string
-	runArtifacts   map[string][]string
+	id                    string
+	nodes                 []SemanticNode
+	nodeIndex             map[string]int
+	edges                 []SemanticEdge
+	edgeIndex             map[string]bool
+	lastNodeID            string
+	lastRunNodeID         map[string]string
+	openRunNodeIDs        []string
+	recoveryAnchor        string
+	agentLivenessBlock    map[string]string
+	agentLivenessRecovery map[string]string
+	providerLifecycleNode map[string]string
+	planStepNodes         map[string][]string
+	runSummaries          map[string]string
+	goalNodes             map[string]string
+	fileChangeNode        map[string]string
+	runArtifacts          map[string][]string
+	recoveryStatuses      map[string]RecoveryStatus
 }
 
 func newProjectedWorkstream(id string) *projectedWorkstream {
 	return &projectedWorkstream{
-		id:             id,
-		nodeIndex:      map[string]int{},
-		edgeIndex:      map[string]bool{},
-		lastRunNodeID:  map[string]string{},
-		planStepNodes:  map[string][]string{},
-		runSummaries:   map[string]string{},
-		goalNodes:      map[string]string{},
-		fileChangeNode: map[string]string{},
-		runArtifacts:   map[string][]string{},
+		id:                    id,
+		nodeIndex:             map[string]int{},
+		edgeIndex:             map[string]bool{},
+		lastRunNodeID:         map[string]string{},
+		agentLivenessBlock:    map[string]string{},
+		agentLivenessRecovery: map[string]string{},
+		providerLifecycleNode: map[string]string{},
+		planStepNodes:         map[string][]string{},
+		runSummaries:          map[string]string{},
+		goalNodes:             map[string]string{},
+		fileChangeNode:        map[string]string{},
+		runArtifacts:          map[string][]string{},
+		recoveryStatuses:      map[string]RecoveryStatus{},
 	}
 }
 
@@ -103,12 +115,16 @@ func newProjectedWorkstream(id string) *projectedWorkstream {
 // first event of a stream.
 func NewDirectorGraphProjector() *DirectorGraphProjector {
 	return &DirectorGraphProjector{
-		workstreams:       map[string]*projectedWorkstream{},
-		byConversation:    map[string]string{},
-		workstreamParents: map[string]*string{},
-		runIDs:            map[string]bool{},
-		artifactIDs:       map[string]bool{},
-		nodeBySourceEvent: map[string]string{},
+		workstreams:        map[string]*projectedWorkstream{},
+		byConversation:     map[string]string{},
+		workstreamParents:  map[string]*string{},
+		runIDs:             map[string]bool{},
+		runOwners:          map[string]string{},
+		artifactIDs:        map[string]bool{},
+		sourceEventIDs:     map[string]bool{},
+		sourceEventOwners:  map[string]string{},
+		nodeBySourceEvent:  map[string]string{},
+		trajectorySequence: map[string]int{},
 	}
 }
 
@@ -132,6 +148,15 @@ func (projector *DirectorGraphProjector) Apply(event ProjectorEvent) error {
 	if (event.Trajectory == nil) == (event.Director == nil) {
 		return fmt.Errorf("projector event at sequence %d must carry exactly one durable fact", event.Sequence)
 	}
+	sourceEventID := ""
+	if event.Trajectory != nil {
+		sourceEventID = event.Trajectory.ID
+	} else {
+		sourceEventID = event.Director.ID
+	}
+	if projector.sourceEventIDs[sourceEventID] {
+		return fmt.Errorf("projector event at sequence %d repeats durable fact id %q", event.Sequence, sourceEventID)
+	}
 	var err error
 	if event.Trajectory != nil {
 		err = projector.applyTrajectory(event.Sequence, *event.Trajectory)
@@ -142,6 +167,12 @@ func (projector *DirectorGraphProjector) Apply(event ProjectorEvent) error {
 		return err
 	}
 	projector.lastSequence = event.Sequence
+	projector.sourceEventIDs[sourceEventID] = true
+	if event.Trajectory != nil {
+		projector.sourceEventOwners[sourceEventID] = projector.byConversation[event.Trajectory.ConversationID]
+	} else {
+		projector.sourceEventOwners[sourceEventID] = event.Director.WorkstreamID
+	}
 	return nil
 }
 
@@ -168,6 +199,9 @@ func (projector *DirectorGraphProjector) validateStreamPosition(event ProjectorE
 }
 
 func (projector *DirectorGraphProjector) applyTrajectory(sequence int, event conversation.TrajectoryEvent) error {
+	if err := event.Validate(); err != nil {
+		return fmt.Errorf("invalid trajectory event %s: %w", event.ID, err)
+	}
 	workstream, known := projector.workstreamForConversation(event.ConversationID)
 	if !known {
 		return &ReplayError{
@@ -176,16 +210,48 @@ func (projector *DirectorGraphProjector) applyTrajectory(sequence int, event con
 			Detail:   fmt.Sprintf("conversation %q has no registered workstream", event.ConversationID),
 		}
 	}
+	expectedTrajectorySequence := projector.trajectorySequence[event.ConversationID] + 1
+	if event.Sequence != expectedTrajectorySequence {
+		return &ReplayError{
+			Reason:   DirectorResyncEventSequenceGap,
+			Sequence: sequence,
+			Detail: fmt.Sprintf(
+				"conversation %q expected trajectory sequence %d, got %d",
+				event.ConversationID,
+				expectedTrajectorySequence,
+				event.Sequence,
+			),
+		}
+	}
+	if event.TurnID != nil {
+		terminalNodeID, err := SemanticNodeID(SemanticNodeIdentityRunTerminal, *event.TurnID)
+		if err != nil {
+			return err
+		}
+		if _, terminal := workstream.nodeIndex[terminalNodeID]; terminal {
+			return fmt.Errorf(
+				"run %s already has a terminal fact; trajectory event %s cannot follow it",
+				*event.TurnID,
+				event.ID,
+			)
+		}
+	}
 	handler, handled := trajectoryHandlers[event.Kind]
 	if !handled {
 		return fmt.Errorf("no projector handler for trajectory event kind %q", event.Kind)
+	}
+	rule, err := TrajectoryFactRule(event.Kind)
+	if err != nil {
+		return err
 	}
 	actor, err := SemanticActorForTrajectoryActor(event.Actor)
 	if err != nil {
 		return err
 	}
 	if event.TurnID != nil {
-		projector.runIDs[*event.TurnID] = true
+		if err := projector.claimRunID(*event.TurnID, workstream.id); err != nil {
+			return err
+		}
 	}
 	context := factContext{
 		eventID:    event.ID,
@@ -193,16 +259,19 @@ func (projector *DirectorGraphProjector) applyTrajectory(sequence int, event con
 		workstream: workstream,
 		runID:      event.TurnID,
 		actor:      actor,
+		sourceFact: string(event.Kind),
+		edgeKinds:  rule.EdgeKinds,
 	}
-	return handler(projector, context, event)
+	if err := handler(projector, context, event); err != nil {
+		return err
+	}
+	projector.trajectorySequence[event.ConversationID] = event.Sequence
+	return nil
 }
 
 func (projector *DirectorGraphProjector) applyDirectorFact(sequence int, fact DirectorFactEvent) error {
 	if err := ValidateDirectorFactEvent(fact); err != nil {
 		return err
-	}
-	if fact.RunID != nil {
-		projector.runIDs[*fact.RunID] = true
 	}
 	if fact.Kind == DirectorFactWorkstreamRegistered {
 		return projector.registerWorkstream(fact)
@@ -210,6 +279,10 @@ func (projector *DirectorGraphProjector) applyDirectorFact(sequence int, fact Di
 	handler, handled := directorHandlers[fact.Kind]
 	if !handled {
 		return fmt.Errorf("no projector handler for director fact %q", fact.Kind)
+	}
+	rule, err := DirectorFactRule(fact.Kind)
+	if err != nil {
+		return err
 	}
 	workstream, known := projector.workstreams[fact.WorkstreamID]
 	if !known {
@@ -219,14 +292,35 @@ func (projector *DirectorGraphProjector) applyDirectorFact(sequence int, fact Di
 			Detail:   fmt.Sprintf("director fact %s names unregistered workstream %q", fact.ID, fact.WorkstreamID),
 		}
 	}
+	if fact.RunID != nil {
+		if err := projector.claimRunID(*fact.RunID, workstream.id); err != nil {
+			return err
+		}
+	}
 	context := factContext{
 		eventID:    fact.ID,
 		emittedAt:  fact.EmittedAt,
 		workstream: workstream,
 		runID:      fact.RunID,
 		actor:      fact.Actor,
+		sourceFact: string(fact.Kind),
+		edgeKinds:  rule.EdgeKinds,
 	}
 	return handler(projector, context, fact)
+}
+
+func (projector *DirectorGraphProjector) claimRunID(runID string, workstreamID string) error {
+	if owner, claimed := projector.runOwners[runID]; claimed && owner != workstreamID {
+		return fmt.Errorf(
+			"run %s belongs to workstream %s, not workstream %s",
+			runID,
+			owner,
+			workstreamID,
+		)
+	}
+	projector.runIDs[runID] = true
+	projector.runOwners[runID] = workstreamID
+	return nil
 }
 
 func (projector *DirectorGraphProjector) workstreamForConversation(conversationID string) (*projectedWorkstream, bool) {
@@ -275,8 +369,8 @@ func (projector *DirectorGraphProjector) Projection() GraphProjection {
 		projection.graphs[id] = WorkstreamGraph{
 			WorkstreamID: id,
 			DetailLevel:  WorkstreamDetailSelected,
-			Nodes:        append([]SemanticNode(nil), workstream.nodes...),
-			Edges:        append([]SemanticEdge(nil), workstream.edges...),
+			Nodes:        cloneSemanticNodes(workstream.nodes),
+			Edges:        cloneSemanticEdges(workstream.edges),
 		}
 		if milestone, found := workstream.milestone(); found {
 			projection.milestones[id] = milestone
@@ -354,4 +448,38 @@ func copyIDSet(ids map[string]bool) map[string]bool {
 		copied[id] = present
 	}
 	return copied
+}
+
+func cloneSemanticNodes(nodes []SemanticNode) []SemanticNode {
+	cloned := make([]SemanticNode, len(nodes))
+	for index, node := range nodes {
+		cloned[index] = cloneSemanticNode(node)
+	}
+	return cloned
+}
+
+func cloneSemanticNode(node SemanticNode) SemanticNode {
+	cloned := node
+	cloned.RunID = copyOptionalString(node.RunID)
+	cloned.SourceEventIDs = append([]string{}, node.SourceEventIDs...)
+	cloned.ArtifactIDs = append([]string{}, node.ArtifactIDs...)
+	cloned.CompletedAt = copyOptionalString(node.CompletedAt)
+	if node.Interpretation != nil {
+		interpretation := *node.Interpretation
+		if node.Interpretation.Confidence != nil {
+			confidence := *node.Interpretation.Confidence
+			interpretation.Confidence = &confidence
+		}
+		cloned.Interpretation = &interpretation
+	}
+	return cloned
+}
+
+func cloneSemanticEdges(edges []SemanticEdge) []SemanticEdge {
+	cloned := make([]SemanticEdge, len(edges))
+	for index, edge := range edges {
+		cloned[index] = edge
+		cloned[index].SourceEventIDs = append([]string{}, edge.SourceEventIDs...)
+	}
+	return cloned
 }

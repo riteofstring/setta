@@ -33,6 +33,7 @@ func testNode() SemanticNode {
 		PublicSummary:  "Running the repository test suite",
 		EvidenceClass:  EvidenceRuntimeFact,
 		SourceEventIDs: []string{"event-1"},
+		ArtifactIDs:    []string{},
 		CreatedAt:      "2026-07-24T12:00:00Z",
 		UpdatedAt:      "2026-07-24T12:00:01Z",
 	}
@@ -85,6 +86,7 @@ func TestTerminalNodesCarryCompletionTimestamps(t *testing.T) {
 		t.Fatal("a terminal node must record when it completed")
 	}
 	node.CompletedAt = stringPointer("2026-07-24T12:00:02Z")
+	node.UpdatedAt = "2026-07-24T12:00:02Z"
 	if err := ValidateSemanticNode(node, authority); err != nil {
 		t.Fatalf("a completed node was rejected: %v", err)
 	}
@@ -104,7 +106,7 @@ func TestInterpretationsAreNeverPresentedAsRuntimeFacts(t *testing.T) {
 		InterpretedBy: SemanticActorDirector,
 		Model:         InterpretationModelIdentity{Provider: "codex", Model: "gpt-5.1-codex", RuntimeID: "runtime-1"},
 		Confidence:    &confidence,
-		InterpretedAt: "2026-07-24T12:00:01Z",
+		InterpretedAt: "2026-07-24T12:00:00Z",
 	}
 	if err := ValidateSemanticNode(node, authority); err == nil {
 		t.Fatal("interpretation metadata on a runtime fact must be rejected")
@@ -161,6 +163,25 @@ func TestSemanticNodeUpdatesPreserveIdentity(t *testing.T) {
 		t.Fatal("a node must not move between workstreams")
 	}
 
+	reattributed := next
+	reattributed.Actor = SemanticActorDirector
+	if err := ValidateSemanticNodeUpdate(previous, reattributed); err == nil {
+		t.Fatal("a node must not change actor")
+	}
+
+	replacedSources := next
+	replacedSources.SourceEventIDs = []string{"event-replacement"}
+	if err := ValidateSemanticNodeUpdate(previous, replacedSources); err == nil {
+		t.Fatal("a node must not replace its source provenance")
+	}
+
+	removedArtifact := next
+	previousWithArtifact := previous
+	previousWithArtifact.ArtifactIDs = []string{"artifact-1"}
+	if err := ValidateSemanticNodeUpdate(previousWithArtifact, removedArtifact); err == nil {
+		t.Fatal("a node must not remove artifact provenance")
+	}
+
 	backwards := next
 	backwards.UpdatedAt = "2026-07-24T11:59:00Z"
 	if err := ValidateSemanticNodeUpdate(previous, backwards); err == nil {
@@ -172,6 +193,13 @@ func TestSemanticNodeUpdatesPreserveIdentity(t *testing.T) {
 	resurrected.CompletedAt = nil
 	if err := ValidateSemanticNodeUpdate(next, resurrected); err == nil {
 		t.Fatal("a succeeded node must not reactivate")
+	}
+
+	recompleted := next
+	recompleted.UpdatedAt = "2026-07-24T12:00:06Z"
+	recompleted.CompletedAt = stringPointer("2026-07-24T12:00:06Z")
+	if err := ValidateSemanticNodeUpdate(next, recompleted); err == nil {
+		t.Fatal("a terminal node must not rewrite when it completed")
 	}
 }
 
@@ -222,6 +250,7 @@ func TestWorkstreamGraphRejectsDanglingAndForeignContent(t *testing.T) {
 		WorkstreamID: testParentWorkstream,
 		DetailLevel:  WorkstreamDetailSelected,
 		Nodes:        []SemanticNode{node},
+		Edges:        []SemanticEdge{},
 	}
 	if err := ValidateWorkstreamGraph(graph, authority); err != nil {
 		t.Fatalf("a single-node graph was rejected: %v", err)

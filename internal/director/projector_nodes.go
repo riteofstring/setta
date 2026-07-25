@@ -17,6 +17,8 @@ type factContext struct {
 	workstream *projectedWorkstream
 	runID      *string
 	actor      SemanticActor
+	sourceFact string
+	edgeKinds  []SemanticEdgeKind
 }
 
 // nodeSpec is a handler's request to create or advance one node. The identity
@@ -120,6 +122,7 @@ func (projector *DirectorGraphProjector) advanceNode(context factContext, spec n
 		return err
 	}
 	workstream.nodes[index] = next
+	projector.nodeBySourceEvent[context.eventID] = next.ID
 	projector.observe(workstream, next)
 	return nil
 }
@@ -163,7 +166,24 @@ func (projector *DirectorGraphProjector) addEdge(
 	if fromNodeID == "" || toNodeID == "" || fromNodeID == toNodeID {
 		return nil
 	}
+	if !containsSemanticEdgeKind(context.edgeKinds, kind) {
+		return fmt.Errorf(
+			"source fact %q cannot create undeclared semantic edge %q",
+			context.sourceFact,
+			kind,
+		)
+	}
 	workstream := context.workstream
+	if _, exists := workstream.nodeIndex[fromNodeID]; !exists {
+		return fmt.Errorf("semantic edge %q starts at unknown node %q", kind, fromNodeID)
+	}
+	target, known := projector.workstreams[toWorkstreamID]
+	if !known {
+		return fmt.Errorf("semantic edge %q targets unknown workstream %q", kind, toWorkstreamID)
+	}
+	if _, exists := target.nodeIndex[toNodeID]; !exists {
+		return fmt.Errorf("semantic edge %q ends at unknown node %q", kind, toNodeID)
+	}
 	edgeID := fmt.Sprintf("%s:%s->%s", kind, fromNodeID, toNodeID)
 	if workstream.edgeIndex[edgeID] {
 		return nil
@@ -184,6 +204,15 @@ func (projector *DirectorGraphProjector) addEdge(
 	workstream.edgeIndex[edgeID] = true
 	workstream.edges = append(workstream.edges, edge)
 	return nil
+}
+
+func containsSemanticEdgeKind(kinds []SemanticEdgeKind, candidate SemanticEdgeKind) bool {
+	for _, kind := range kinds {
+		if kind == candidate {
+			return true
+		}
+	}
+	return false
 }
 
 // recoverFrom connects the unresolved failure, cancellation, or blocked state a
@@ -211,6 +240,15 @@ func (projector *DirectorGraphProjector) resolveDelegation(context factContext, 
 		source, known := projector.workstreams[pending.decisionWorkstreamID]
 		if !known {
 			continue
+		}
+		parent := projector.workstreamParents[pending.targetWorkstreamID]
+		if parent == nil || *parent != pending.decisionWorkstreamID {
+			return fmt.Errorf(
+				"decision %s cannot delegate from workstream %s to non-child workstream %s",
+				pending.decisionNodeID,
+				pending.decisionWorkstreamID,
+				pending.targetWorkstreamID,
+			)
 		}
 		sourceContext := context
 		sourceContext.workstream = source
@@ -245,7 +283,8 @@ func boundSummary(summary string) string {
 }
 
 func appendUniqueStrings(existing []string, additions ...string) []string {
-	result := append([]string(nil), existing...)
+	result := make([]string, len(existing), len(existing)+len(additions))
+	copy(result, existing)
 	seen := make(map[string]bool, len(result)+len(additions))
 	for _, value := range result {
 		seen[value] = true

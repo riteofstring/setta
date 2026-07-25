@@ -404,6 +404,44 @@ func TestRenderEmitsObjectDecoderDeclarations(t *testing.T) {
 	}
 }
 
+func TestRenderDecodesPatchChangeKindAsATaggedUnion(t *testing.T) {
+	variant := func(title string, kind string, properties map[string]jsonSchema) jsonSchema {
+		properties["type"] = jsonSchema{Type: "string", Enum: []string{kind}}
+		return jsonSchema{
+			Title:      title,
+			Type:       "object",
+			Properties: properties,
+			Required:   []string{"type"},
+		}
+	}
+	generator := testProtocolGenerator(t)
+	generator.schemas = map[string]jsonSchema{
+		"PatchChangeKind": {
+			OneOf: []jsonSchema{
+				variant("AddPatchChangeKind", "add", map[string]jsonSchema{}),
+				variant("DeletePatchChangeKind", "delete", map[string]jsonSchema{}),
+				variant("UpdatePatchChangeKind", "update", map[string]jsonSchema{
+					"move_path": {Type: []any{"string", "null"}},
+				}),
+			},
+		},
+	}
+
+	output, err := generator.render()
+	if err != nil {
+		t.Fatalf("render protocol: %v", err)
+	}
+	text := string(output)
+	if !strings.Contains(text, "type PatchChangeKind struct") ||
+		!strings.Contains(text, "Update *UpdatePatchChangeKind") ||
+		strings.Contains(text, "type PatchChangeKind = json.RawMessage") {
+		t.Fatalf("patch change union was not rendered as typed variants:\n%s", text)
+	}
+	if _, err := parser.ParseFile(token.NewFileSet(), "protocol_gen.go", output, 0); err != nil {
+		t.Fatalf("parse generated tagged union: %v\n%s", err, output)
+	}
+}
+
 func TestRenderPreservesServiceTierOverrideNullSemantics(t *testing.T) {
 	generator := testProtocolGenerator(t)
 	generator.schemas = map[string]jsonSchema{

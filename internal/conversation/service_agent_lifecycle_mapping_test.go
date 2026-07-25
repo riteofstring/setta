@@ -1,10 +1,53 @@
 package conversation
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
 	"setta/internal/agent"
 )
+
+func TestUnexpectedProviderLifecycleFailureUsesStableProductCopy(t *testing.T) {
+	const providerDiagnostic = "DO_NOT_PERSIST_PROVIDER_LIFECYCLE_ERROR"
+	failure := unexpectedTurnFailure(errors.Join(
+		errors.New("DO_NOT_PERSIST_PROVIDER_ERROR_WRAPPER"),
+		&agent.ProviderLifecycleError{Err: errors.New(providerDiagnostic)},
+	))
+	if failure.Code != "provider_unavailable" ||
+		failure.Message != "Provider is temporarily unavailable. Try again." ||
+		!failure.Retryable ||
+		strings.Contains(failure.Message, providerDiagnostic) ||
+		strings.Contains(failure.Message, "DO_NOT_PERSIST_PROVIDER_ERROR_WRAPPER") {
+		t.Fatalf("provider lifecycle failure = %+v", failure)
+	}
+}
+
+func TestUnexpectedProviderThreadMissingFailureUsesStableProductCopy(t *testing.T) {
+	const providerDiagnostic = "DO_NOT_PERSIST_PROVIDER_THREAD_ID"
+	failure := unexpectedTurnFailure(&agent.ProviderThreadMissingError{
+		Operation: "resume agent thread",
+		ThreadID:  providerDiagnostic,
+		Err:       errors.New("provider returned an internal lookup error"),
+	})
+	if failure.Code != "provider_thread_missing" ||
+		failure.Message != "This run cannot continue because its provider session is no longer available. Start a new run." ||
+		failure.Retryable ||
+		strings.Contains(failure.Message, providerDiagnostic) {
+		t.Fatalf("provider thread failure = %+v", failure)
+	}
+}
+
+func TestUnexpectedRuntimeFailureUsesStableProductCopy(t *testing.T) {
+	const runtimeDiagnostic = "DO_NOT_PERSIST_RUNTIME_ERROR"
+	failure := unexpectedTurnFailure(errors.New(runtimeDiagnostic))
+	if failure.Code != "agent_runtime_failed" ||
+		failure.Message != "The run stopped unexpectedly. Try again." ||
+		!failure.Retryable ||
+		strings.Contains(failure.Message, runtimeDiagnostic) {
+		t.Fatalf("runtime failure = %+v", failure)
+	}
+}
 
 func TestDurableProviderLifecycleKeepsTheTrustedCause(t *testing.T) {
 	service := activityMappingTestService()
@@ -13,40 +56,33 @@ func TestDurableProviderLifecycleKeepsTheTrustedCause(t *testing.T) {
 		lifecycle agent.LifecycleEvent
 		status    ProviderLifecycleStatus
 		reason    ProviderLifecycleReason
-		message   string
 	}{
 		{
 			name: "a disconnected environment blocks the run",
 			lifecycle: agent.LifecycleEvent{
 				State:  agent.LifecycleStateUnavailable,
 				Reason: agent.LifecycleReasonEnvironmentDisconnected,
-				Error:  stringPointer("Execution environment disconnected"),
 			},
-			status:  ProviderLifecycleUnavailable,
-			reason:  ProviderLifecycleReasonEnvironmentDisconnected,
-			message: "Execution environment disconnected",
+			status: ProviderLifecycleUnavailable,
+			reason: ProviderLifecycleReasonEnvironmentDisconnected,
 		},
 		{
 			name: "a closed thread is execution liveness, not a failure",
 			lifecycle: agent.LifecycleEvent{
 				State:  agent.LifecycleStateClosed,
 				Reason: agent.LifecycleReasonThreadClosed,
-				Error:  stringPointer("Provider thread was closed"),
 			},
-			status:  ProviderLifecycleClosed,
-			reason:  ProviderLifecycleReasonThreadClosed,
-			message: "Provider thread was closed",
+			status: ProviderLifecycleClosed,
+			reason: ProviderLifecycleReasonThreadClosed,
 		},
 		{
 			name: "an idle thread stays healthy metadata",
 			lifecycle: agent.LifecycleEvent{
 				State:  agent.LifecycleStateReady,
-				Reason: agent.LifecycleReasonThreadStatus,
-				Error:  stringPointer("Provider thread is idle"),
+				Reason: agent.LifecycleReasonThreadIdle,
 			},
-			status:  ProviderLifecycleReady,
-			reason:  ProviderLifecycleReasonThreadStatus,
-			message: "Provider thread is idle",
+			status: ProviderLifecycleReady,
+			reason: ProviderLifecycleReasonThreadIdle,
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -70,9 +106,6 @@ func TestDurableProviderLifecycleKeepsTheTrustedCause(t *testing.T) {
 				t.Fatalf("durable lifecycle = %s/%s, want %s/%s",
 					lifecycle.Status, lifecycle.Reason, testCase.status, testCase.reason)
 			}
-			if lifecycle.Message != testCase.message {
-				t.Fatalf("durable lifecycle message = %q, want %q", lifecycle.Message, testCase.message)
-			}
 			if err := lifecycle.Validate(); err != nil {
 				t.Fatalf("durable lifecycle is invalid: %v", err)
 			}
@@ -90,6 +123,8 @@ func TestDurableValidationRecordsTheProviderCheck(t *testing.T) {
 		Subject: stringPointer("item-command"),
 		Summary: "Automatic approval review declined the command (risk high)",
 	}
+	risk := agent.ValidationRiskHigh
+	event.Validation.Risk = &risk
 	trajectory, _, err := service.populateAgentTrajectory(
 		activityMappingTrajectory(),
 		lifecycleMappingActiveTurn(),
@@ -110,6 +145,9 @@ func TestDurableValidationRecordsTheProviderCheck(t *testing.T) {
 	if validation.Status != TrajectoryValidationStatusFailed {
 		t.Fatalf("durable validation status = %q", validation.Status)
 	}
+	if validation.Risk == nil || *validation.Risk != TrajectoryValidationRiskHigh {
+		t.Fatalf("durable validation risk = %v, want %q", validation.Risk, TrajectoryValidationRiskHigh)
+	}
 	if validation.Subject == nil || *validation.Subject != "item-command" {
 		t.Fatalf("durable validation subject = %v, want the reviewed item", validation.Subject)
 	}
@@ -122,10 +160,19 @@ func TestSupersededApprovalResolvesWithoutAUserDecision(t *testing.T) {
 	service := activityMappingTestService()
 	event := lifecycleMappingEvent(agent.EventKindApprovalSuperseded)
 	event.ApprovalSuperseded = &agent.ApprovalSupersededEvent{ApprovalID: "request-9"}
+	turnID := "turn-director"
+	snapshot := ConversationSnapshot{Trajectory: ConversationTrajectoryWindow{
+		Events: []TrajectoryEvent{{
+			TurnID: &turnID,
+			ApprovalRequested: &TrajectoryApprovalRequested{Approval: TrajectoryApprovalRequest{
+				ID: "request-9",
+			}},
+		}},
+	}}
 	trajectory, _, err := service.populateAgentTrajectory(
 		activityMappingTrajectory(),
 		lifecycleMappingActiveTurn(),
-		ConversationSnapshot{},
+		snapshot,
 		event,
 		testTimeStarted,
 	)

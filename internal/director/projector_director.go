@@ -48,6 +48,19 @@ func (projector *DirectorGraphProjector) registerWorkstream(fact DirectorFactEve
 			)
 		}
 	}
+	for _, pending := range projector.pendingDelegation {
+		if pending.targetWorkstreamID != fact.WorkstreamID {
+			continue
+		}
+		if payload.ParentID == nil || *payload.ParentID != pending.decisionWorkstreamID {
+			return fmt.Errorf(
+				"workstream %s must be a child of %s to satisfy decision %s",
+				fact.WorkstreamID,
+				pending.decisionWorkstreamID,
+				pending.decisionNodeID,
+			)
+		}
+	}
 	projector.workstreams[fact.WorkstreamID] = newProjectedWorkstream(fact.WorkstreamID)
 	projector.workstreamParents[fact.WorkstreamID] = copyOptionalString(payload.ParentID)
 	projector.byConversation[payload.ConversationID] = fact.WorkstreamID
@@ -57,7 +70,15 @@ func (projector *DirectorGraphProjector) registerWorkstream(fact DirectorFactEve
 
 // projectWorkstreamSelected changes app state and detail level. Selection is
 // view-adjacent product state, so it never writes graph truth.
-func projectWorkstreamSelected(projector *DirectorGraphProjector, context factContext, _ DirectorFactEvent) error {
+func projectWorkstreamSelected(projector *DirectorGraphProjector, context factContext, fact DirectorFactEvent) error {
+	if !equalOptionalString(projector.selected, fact.WorkstreamSelected.PreviousWorkstreamID) {
+		return fmt.Errorf(
+			"workstream selection %s expected previous workstream %v, got %v",
+			fact.ID,
+			projector.selected,
+			fact.WorkstreamSelected.PreviousWorkstreamID,
+		)
+	}
 	selected := context.workstream.id
 	projector.selected = &selected
 	return nil
@@ -72,6 +93,9 @@ func projectWorkstreamMetadataOnly(_ *DirectorGraphProjector, _ factContext, _ D
 
 func projectDecisionCommitted(projector *DirectorGraphProjector, context factContext, fact DirectorFactEvent) error {
 	payload := fact.DecisionCommitted
+	if err := projector.validateDecisionTarget(*payload); err != nil {
+		return err
+	}
 	nodeID, err := projector.commitNode(context, nodeSpec{
 		identity: SemanticNodeIdentityDecision,
 		sourceID: fact.ID,
@@ -85,7 +109,7 @@ func projectDecisionCommitted(projector *DirectorGraphProjector, context factCon
 	if err != nil {
 		return err
 	}
-	if payload.TargetWorkstreamID == nil {
+	if payload.Decision != DirectorDecisionCreateWorkstream {
 		return nil
 	}
 	// The delegated_to edge is drawn when the authorized work exists. A decision
@@ -99,8 +123,35 @@ func projectDecisionCommitted(projector *DirectorGraphProjector, context factCon
 	return nil
 }
 
+func (projector *DirectorGraphProjector) validateDecisionTarget(
+	payload DirectorDecisionCommitted,
+) error {
+	switch payload.Decision {
+	case DirectorDecisionCreateWorkstream:
+		if _, exists := projector.workstreams[*payload.TargetWorkstreamID]; exists {
+			return fmt.Errorf("create-workstream decision targets existing workstream %s", *payload.TargetWorkstreamID)
+		}
+	case DirectorDecisionSendToWorkstream,
+		DirectorDecisionQueueBehindRun,
+		DirectorDecisionSteerRun,
+		DirectorDecisionSelectWorkstream:
+		if _, exists := projector.workstreams[*payload.TargetWorkstreamID]; !exists {
+			return fmt.Errorf("decision %q targets unknown workstream %s", payload.Decision, *payload.TargetWorkstreamID)
+		}
+	case DirectorDecisionRecoverPath:
+		if payload.TargetWorkstreamID != nil {
+			if _, exists := projector.workstreams[*payload.TargetWorkstreamID]; !exists {
+				return fmt.Errorf("recovery decision targets unknown workstream %s", *payload.TargetWorkstreamID)
+			}
+		}
+	case DirectorDecisionAnswerDirectly, DirectorDecisionAskClarification:
+	}
+	return nil
+}
+
 func projectResourceRequestOpened(projector *DirectorGraphProjector, context factContext, fact DirectorFactEvent) error {
 	payload := fact.ResourceRequestOpened
+	blockedNodeID := projector.blockedByResource(context)
 	nodeID, err := projector.commitNode(context, nodeSpec{
 		identity: SemanticNodeIdentityResourceRequest,
 		sourceID: payload.RequestID,
@@ -114,7 +165,7 @@ func projectResourceRequestOpened(projector *DirectorGraphProjector, context fac
 	if err != nil {
 		return err
 	}
-	return projector.addEdge(context, SemanticEdgeBlockedBy, projector.blockedByResource(context), context.workstream.id, nodeID)
+	return projector.addEdge(context, SemanticEdgeBlockedBy, blockedNodeID, context.workstream.id, nodeID)
 }
 
 // blockedByResource names the work a missing resource is holding up. A
@@ -128,6 +179,9 @@ func (projector *DirectorGraphProjector) blockedByResource(context factContext) 
 		return ""
 	}
 	if _, exists := context.workstream.nodeIndex[runNodeID]; !exists {
+		if goalNodeID := context.workstream.goalNodes[*context.runID]; goalNodeID != "" {
+			return goalNodeID
+		}
 		return context.workstream.lastNodeID
 	}
 	return runNodeID
@@ -140,7 +194,7 @@ func projectResourceRequestResolved(projector *DirectorGraphProjector, context f
 		return err
 	}
 	if _, exists := context.workstream.nodeIndex[nodeID]; !exists {
-		return nil
+		return fmt.Errorf("resource request %s resolved before it was opened", payload.RequestID)
 	}
 	status := SemanticNodeStatusSucceeded
 	if payload.Status == ResourceRequestStatusCancelled {
@@ -152,6 +206,11 @@ func projectResourceRequestResolved(projector *DirectorGraphProjector, context f
 
 func projectInterpretationPublished(projector *DirectorGraphProjector, context factContext, fact DirectorFactEvent) error {
 	payload := fact.InterpretationPublished
+	for _, sourceEventID := range payload.InterpretedEventIDs {
+		if err := projector.requirePriorSourceEvent(context.workstream.id, sourceEventID); err != nil {
+			return fmt.Errorf("interpretation %s: %w", payload.InterpretationID, err)
+		}
+	}
 	metadata := payload.Metadata
 	// An interpretation is visibly distinguishable from a runtime fact because it
 	// carries its evidence class, its attributable metadata, and the durable
@@ -173,6 +232,10 @@ func projectInterpretationPublished(projector *DirectorGraphProjector, context f
 
 func projectValidationRecorded(projector *DirectorGraphProjector, context factContext, fact DirectorFactEvent) error {
 	payload := fact.ValidationRecorded
+	subjectNodeID, err := projector.requirePriorSemanticNode(context.workstream.id, payload.SubjectEventID)
+	if err != nil {
+		return fmt.Errorf("validation %s: %w", payload.ValidationID, err)
+	}
 	status := SemanticNodeStatusSucceeded
 	if payload.Outcome == DirectorValidationFailed {
 		status = SemanticNodeStatusFailed
@@ -191,12 +254,26 @@ func projectValidationRecorded(projector *DirectorGraphProjector, context factCo
 	if err != nil {
 		return err
 	}
-	subjectNodeID := projector.nodeBySourceEvent[payload.SubjectEventID]
 	return projector.addEdge(context, SemanticEdgeValidatedBy, subjectNodeID, context.workstream.id, nodeID)
 }
 
 func projectRecoveryAttempted(projector *DirectorGraphProjector, context factContext, fact DirectorFactEvent) error {
 	payload := fact.RecoveryAttempted
+	failedNodeID, err := projector.requireRecoverableSemanticNode(
+		context.workstream.id,
+		payload.FailureEventID,
+	)
+	if err != nil {
+		return fmt.Errorf("recovery %s: %w", payload.RecoveryID, err)
+	}
+	previous, exists := context.workstream.recoveryStatuses[payload.RecoveryID]
+	if exists {
+		if err := ValidateRecoveryTransition(previous, payload.Status); err != nil {
+			return err
+		}
+	} else if err := recoveryLifecycle.validateInitial(payload.Status); err != nil {
+		return err
+	}
 	status, err := recoveryNodeStatus(payload.Status)
 	if err != nil {
 		return err
@@ -215,15 +292,77 @@ func projectRecoveryAttempted(projector *DirectorGraphProjector, context factCon
 	if err != nil {
 		return err
 	}
-	// The named failure is the anchor when the projection still holds it;
-	// otherwise the workstream's unresolved failure is.
-	if failedNodeID, known := projector.nodeBySourceEvent[payload.FailureEventID]; known {
-		if failedNodeID == context.workstream.recoveryAnchor {
-			context.workstream.recoveryAnchor = ""
-		}
-		return projector.addEdge(context, SemanticEdgeRecoveredBy, failedNodeID, context.workstream.id, nodeID)
+	if failedNodeID == context.workstream.recoveryAnchor {
+		context.workstream.recoveryAnchor = ""
 	}
-	return projector.recoverFrom(context, nodeID)
+	if err := projector.addEdge(context, SemanticEdgeRecoveredBy, failedNodeID, context.workstream.id, nodeID); err != nil {
+		return err
+	}
+	context.workstream.recoveryStatuses[payload.RecoveryID] = payload.Status
+	return nil
+}
+
+func (projector *DirectorGraphProjector) requirePriorSourceEvent(
+	workstreamID string,
+	sourceEventID string,
+) error {
+	owner, known := projector.sourceEventOwners[sourceEventID]
+	if !known {
+		return fmt.Errorf("cites unknown prior event %q", sourceEventID)
+	}
+	if owner != workstreamID {
+		return fmt.Errorf(
+			"cites event %q from workstream %q without cross-workstream authority",
+			sourceEventID,
+			owner,
+		)
+	}
+	return nil
+}
+
+func (projector *DirectorGraphProjector) requirePriorSemanticNode(
+	workstreamID string,
+	sourceEventID string,
+) (string, error) {
+	if err := projector.requirePriorSourceEvent(workstreamID, sourceEventID); err != nil {
+		return "", err
+	}
+	nodeID := projector.nodeBySourceEvent[sourceEventID]
+	if nodeID == "" {
+		return "", fmt.Errorf("event %q has no semantic node", sourceEventID)
+	}
+	workstream := projector.workstreams[workstreamID]
+	if workstream == nil {
+		return "", fmt.Errorf("workstream %q is not registered", workstreamID)
+	}
+	if _, exists := workstream.nodeIndex[nodeID]; !exists {
+		return "", fmt.Errorf("event %q resolves to node %q outside workstream %q", sourceEventID, nodeID, workstreamID)
+	}
+	return nodeID, nil
+}
+
+func (projector *DirectorGraphProjector) requireRecoverableSemanticNode(
+	workstreamID string,
+	sourceEventID string,
+) (string, error) {
+	nodeID, err := projector.requirePriorSemanticNode(workstreamID, sourceEventID)
+	if err != nil {
+		return "", err
+	}
+	workstream := projector.workstreams[workstreamID]
+	node := workstream.nodes[workstream.nodeIndex[nodeID]]
+	recoverable := node.Status == SemanticNodeStatusFailed ||
+		node.Status == SemanticNodeStatusCancelled ||
+		(node.Kind == SemanticNodeBlocked && node.Status == SemanticNodeStatusWaiting)
+	if !recoverable {
+		return "", fmt.Errorf(
+			"event %q resolves to healthy node %q with status %q",
+			sourceEventID,
+			nodeID,
+			node.Status,
+		)
+	}
+	return nodeID, nil
 }
 
 func recoveryNodeStatus(status RecoveryStatus) (SemanticNodeStatus, error) {

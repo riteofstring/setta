@@ -18,8 +18,9 @@ type taggedObjectUnionMember struct {
 // a raw alias, because rendering every one of them would generate variant
 // structs for payloads nothing reads.
 var taggedObjectUnionTypeNames = map[string]bool{
-	"ThreadItem":   true,
-	"ThreadStatus": true,
+	"PatchChangeKind": true,
+	"ThreadItem":      true,
+	"ThreadStatus":    true,
 }
 
 func isTaggedObjectUnionSchema(schema jsonSchema) bool {

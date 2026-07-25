@@ -94,6 +94,13 @@ func ValidateApprovalRequest(request ApprovalRequest) error {
 	if resolved != (request.ResolvedAt != nil) {
 		return fmt.Errorf("approval request %s resolution timestamp does not match status %q", request.ID, request.Status)
 	}
+	if request.ResolvedAt != nil {
+		return validateTimestampOrder(
+			fmt.Sprintf("approval request %s resolution timestamp", request.ID),
+			request.RequestedAt,
+			*request.ResolvedAt,
+		)
+	}
 	return nil
 }
 
@@ -148,6 +155,13 @@ func validateResourceRequestResolution(request ResourceRequest) error {
 	if (request.Status != ResourceRequestStatusRequested) != (request.ResolvedAt != nil) {
 		return fmt.Errorf("resource request %s resolution timestamp does not match status %q", request.ID, request.Status)
 	}
+	if request.ResolvedAt != nil {
+		return validateTimestampOrder(
+			fmt.Sprintf("resource request %s resolution timestamp", request.ID),
+			request.RequestedAt,
+			*request.ResolvedAt,
+		)
+	}
 	return nil
 }
 
@@ -178,7 +192,14 @@ func ValidateWorkstreamArtifact(artifact WorkstreamArtifact) error {
 	if err := validateTimestamp("workstream artifact created at", artifact.CreatedAt); err != nil {
 		return err
 	}
-	return validateTimestamp("workstream artifact updated at", artifact.UpdatedAt)
+	if err := validateTimestamp("workstream artifact updated at", artifact.UpdatedAt); err != nil {
+		return err
+	}
+	return validateTimestampOrder(
+		fmt.Sprintf("workstream artifact %s timestamp", artifact.ID),
+		artifact.CreatedAt,
+		artifact.UpdatedAt,
+	)
 }
 
 func validateOptionalRunID(label string, runID *string) error {

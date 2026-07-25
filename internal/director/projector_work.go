@@ -17,7 +17,6 @@ import (
 const (
 	subagentSummaryFallback   = "Delegated subagent"
 	livenessSummaryFallback   = "Agent liveness changed"
-	lifecycleSummaryFallback  = "Provider lifecycle changed"
 	approvalSummaryFallback   = "Approval required"
 	activitySummaryFallback   = "Activity"
 	fileChangeSummaryFallback = "File change"
@@ -29,7 +28,12 @@ func projectActivityStarted(projector *DirectorGraphProjector, context factConte
 	if payload == nil {
 		return missingPayload(event)
 	}
-	return projector.commitActivity(context, payload.Activity, SemanticNodeStatusActive, payload.Activity.Title)
+	return projector.commitActivity(
+		context,
+		payload.Activity,
+		SemanticNodeStatusActive,
+		payload.Activity.Title,
+	)
 }
 
 func projectActivityProgressed(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {
@@ -39,19 +43,28 @@ func projectActivityProgressed(projector *DirectorGraphProjector, context factCo
 	}
 	// Progress advances the node the start created. Process output is a detail
 	// surface, so it never becomes the node's label.
-	nodeID, err := SemanticNodeID(SemanticNodeIdentityActivity, payload.ActivityID)
-	if err != nil {
+	for _, identity := range []SemanticNodeIdentity{
+		SemanticNodeIdentityActivity,
+		SemanticNodeIdentityFileChange,
+	} {
+		nodeID, err := SemanticNodeID(identity, payload.ActivityID)
+		if err != nil {
+			return err
+		}
+		index, exists := context.workstream.nodeIndex[nodeID]
+		if !exists {
+			continue
+		}
+		_, err = projector.commitNode(context, nodeSpec{
+			nodeID: nodeID,
+			status: context.workstream.nodes[index].Status,
+		})
 		return err
 	}
-	index, exists := context.workstream.nodeIndex[nodeID]
-	if !exists {
-		return nil
-	}
-	_, err = projector.commitNode(context, nodeSpec{
-		nodeID: nodeID,
-		status: context.workstream.nodes[index].Status,
-	})
-	return err
+	// The progress payload does not repeat the activity kind. An invisible
+	// `other` activity therefore has no node to advance, while visible kinds
+	// are checked when their typed terminal fact arrives.
+	return nil
 }
 
 func projectActivityCompleted(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {
@@ -251,9 +264,7 @@ func projectApprovalResolved(projector *DirectorGraphProjector, context factCont
 		return err
 	}
 	if _, exists := context.workstream.nodeIndex[nodeID]; !exists {
-		// The request that this resolves is outside the window. Resolving an
-		// approval the graph never showed must not invent a node for it.
-		return nil
+		return fmt.Errorf("approval %s resolved before it was requested", resolution.ApprovalID)
 	}
 	// The decision is the only part of a resolution that becomes graph truth.
 	// Free-text responses and structured answers may carry secrets, so they stay
@@ -358,6 +369,9 @@ func projectArtifactEmitted(projector *DirectorGraphProjector, context factConte
 	if payload == nil {
 		return missingPayload(event)
 	}
+	if projector.artifactIDs[payload.ArtifactID] {
+		return fmt.Errorf("artifact %s was emitted more than once", payload.ArtifactID)
+	}
 	projector.artifactIDs[payload.ArtifactID] = true
 	nodeID, err := projector.commitNode(context, nodeSpec{
 		identity:    SemanticNodeIdentityArtifact,
@@ -371,6 +385,7 @@ func projectArtifactEmitted(projector *DirectorGraphProjector, context factConte
 		chain:       true,
 	})
 	if err != nil {
+		delete(projector.artifactIDs, payload.ArtifactID)
 		return err
 	}
 	if context.runID == nil {
@@ -398,7 +413,68 @@ func projectAgentLivenessChanged(projector *DirectorGraphProjector, context fact
 		return err
 	}
 	summary := firstText(payload.Liveness.Message, livenessSummaryFallback)
-	return projector.commitLifecycleNode(context, event.ID, kind, summary)
+	runID, err := requireRunID(event)
+	if err != nil {
+		return err
+	}
+	switch kind {
+	case SemanticNodeBlocked:
+		nodeID, err := projector.commitTrackedLifecycleNode(
+			context,
+			event.ID,
+			context.workstream.agentLivenessBlock[runID],
+			kind,
+			SemanticNodeStatusWaiting,
+			summary,
+		)
+		if err != nil {
+			return err
+		}
+		context.workstream.agentLivenessBlock[runID] = nodeID
+		return projector.blockActiveRun(context, nodeID)
+	case SemanticNodeRecovery:
+		nodeID, err := projector.commitTrackedLifecycleNode(
+			context,
+			event.ID,
+			context.workstream.agentLivenessRecovery[runID],
+			kind,
+			SemanticNodeStatusActive,
+			summary,
+		)
+		if err != nil {
+			return err
+		}
+		context.workstream.agentLivenessRecovery[runID] = nodeID
+		if blocked := context.workstream.agentLivenessBlock[runID]; blocked != "" {
+			return projector.addEdge(context, SemanticEdgeRecoveredBy, blocked, context.workstream.id, nodeID)
+		}
+		return projector.recoverFrom(context, nodeID)
+	case SemanticNodeNone:
+		if payload.Liveness.Status != conversation.AgentLivenessAttached {
+			return nil
+		}
+		if err := projector.resolveTrackedLifecycleNode(
+			context,
+			context.workstream.agentLivenessBlock[runID],
+			SemanticNodeStatusSucceeded,
+			summary,
+		); err != nil {
+			return err
+		}
+		if err := projector.resolveTrackedLifecycleNode(
+			context,
+			context.workstream.agentLivenessRecovery[runID],
+			SemanticNodeStatusSucceeded,
+			summary,
+		); err != nil {
+			return err
+		}
+		delete(context.workstream.agentLivenessBlock, runID)
+		delete(context.workstream.agentLivenessRecovery, runID)
+		return nil
+	default:
+		return fmt.Errorf("unsupported agent liveness node kind %q", kind)
+	}
 }
 
 func projectProviderLifecycleChanged(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {
@@ -406,12 +482,202 @@ func projectProviderLifecycleChanged(projector *DirectorGraphProjector, context 
 	if payload == nil {
 		return missingPayload(event)
 	}
-	kind, err := NodeKindForProviderLifecycle(payload.Lifecycle.Status)
+	lifecycle := payload.Lifecycle
+	kind, err := NodeKindForProviderLifecycle(lifecycle.Status)
 	if err != nil {
 		return err
 	}
-	summary := firstText(payload.Lifecycle.Message, lifecycleSummaryFallback)
-	return projector.commitLifecycleNode(context, event.ID, kind, summary)
+	category, err := providerLifecycleCategory(lifecycle.Reason)
+	if err != nil {
+		return err
+	}
+	summary, err := providerLifecycleSummary(lifecycle.Reason)
+	if err != nil {
+		return err
+	}
+	if kind == SemanticNodeNone {
+		return projector.resolveProviderLifecycleNode(context, category, summary)
+	}
+	return projector.commitProviderLifecycleNode(context, event.ID, category, kind, summary)
+}
+
+func providerLifecycleCategory(reason conversation.ProviderLifecycleReason) (string, error) {
+	switch reason {
+	case conversation.ProviderLifecycleReasonEnvironmentConnected,
+		conversation.ProviderLifecycleReasonEnvironmentDisconnected:
+		return "environment", nil
+	case conversation.ProviderLifecycleReasonTurnRetrying:
+		return "turn_retry", nil
+	case conversation.ProviderLifecycleReasonTurnFailed:
+		return "turn_failure", nil
+	case conversation.ProviderLifecycleReasonSessionFailed,
+		conversation.ProviderLifecycleReasonThreadIdle,
+		conversation.ProviderLifecycleReasonThreadActive,
+		conversation.ProviderLifecycleReasonThreadNotLoaded,
+		conversation.ProviderLifecycleReasonThreadSystemError,
+		conversation.ProviderLifecycleReasonThreadClosed:
+		return "thread", nil
+	default:
+		return "", fmt.Errorf("unknown provider lifecycle reason %q", reason)
+	}
+}
+
+func providerLifecycleSummary(reason conversation.ProviderLifecycleReason) (string, error) {
+	switch reason {
+	case conversation.ProviderLifecycleReasonSessionFailed:
+		return "Provider session failed", nil
+	case conversation.ProviderLifecycleReasonTurnRetrying:
+		return "Provider turn is retrying", nil
+	case conversation.ProviderLifecycleReasonTurnFailed:
+		return "Provider turn failed", nil
+	case conversation.ProviderLifecycleReasonThreadIdle:
+		return "Provider thread is idle", nil
+	case conversation.ProviderLifecycleReasonThreadActive:
+		return "Provider thread is active", nil
+	case conversation.ProviderLifecycleReasonThreadNotLoaded:
+		return "Provider thread is not loaded", nil
+	case conversation.ProviderLifecycleReasonThreadSystemError:
+		return "Provider thread reported a system error", nil
+	case conversation.ProviderLifecycleReasonThreadClosed:
+		return "Provider thread closed", nil
+	case conversation.ProviderLifecycleReasonEnvironmentConnected:
+		return "Provider environment connected", nil
+	case conversation.ProviderLifecycleReasonEnvironmentDisconnected:
+		return "Provider environment disconnected", nil
+	default:
+		return "", fmt.Errorf("unknown provider lifecycle reason %q", reason)
+	}
+}
+
+func (projector *DirectorGraphProjector) commitProviderLifecycleNode(
+	context factContext,
+	sourceID string,
+	category string,
+	kind SemanticNodeKind,
+	summary string,
+) error {
+	status := SemanticNodeStatusWaiting
+	if kind == SemanticNodeRecovery {
+		status = SemanticNodeStatusActive
+	}
+	key := providerLifecycleTrackingKey(category, context.runID)
+	nodeContext := providerLifecycleNodeContext(context, category)
+	nodeID, err := projector.commitTrackedLifecycleNode(
+		nodeContext,
+		sourceID,
+		context.workstream.providerLifecycleNode[key],
+		kind,
+		status,
+		summary,
+	)
+	if err != nil {
+		return err
+	}
+	context.workstream.providerLifecycleNode[key] = nodeID
+	if kind == SemanticNodeBlocked {
+		return projector.blockActiveRun(context, nodeID)
+	}
+	return projector.recoverFrom(context, nodeID)
+}
+
+func (projector *DirectorGraphProjector) resolveProviderLifecycleNode(
+	context factContext,
+	category string,
+	summary string,
+) error {
+	key := providerLifecycleTrackingKey(category, context.runID)
+	nodeID := context.workstream.providerLifecycleNode[key]
+	if nodeID == "" {
+		return nil
+	}
+	if _, exists := context.workstream.nodeIndex[nodeID]; !exists {
+		delete(context.workstream.providerLifecycleNode, key)
+		return nil
+	}
+	nodeContext := providerLifecycleNodeContext(context, category)
+	if err := projector.resolveTrackedLifecycleNode(
+		nodeContext,
+		nodeID,
+		SemanticNodeStatusSucceeded,
+		summary,
+	); err != nil {
+		return err
+	}
+	delete(context.workstream.providerLifecycleNode, key)
+	if context.workstream.recoveryAnchor == nodeID {
+		context.workstream.recoveryAnchor = ""
+	}
+	return nil
+}
+
+func providerLifecycleNodeContext(context factContext, category string) factContext {
+	if category == "turn_retry" || category == "turn_failure" {
+		return context
+	}
+	context.runID = nil
+	return context
+}
+
+func providerLifecycleTrackingKey(category string, runID *string) string {
+	if category != "turn_retry" && category != "turn_failure" {
+		return category
+	}
+	if runID == nil {
+		return category
+	}
+	return category + ":" + *runID
+}
+
+func (projector *DirectorGraphProjector) commitTrackedLifecycleNode(
+	context factContext,
+	sourceID string,
+	trackedNodeID string,
+	kind SemanticNodeKind,
+	status SemanticNodeStatus,
+	summary string,
+) (string, error) {
+	if trackedNodeID != "" {
+		if _, exists := context.workstream.nodeIndex[trackedNodeID]; exists {
+			return projector.commitNode(context, nodeSpec{
+				nodeID:  trackedNodeID,
+				status:  status,
+				summary: summary,
+			})
+		}
+	}
+	return projector.commitNode(context, nodeSpec{
+		identity: SemanticNodeIdentityLifecycle,
+		sourceID: sourceID,
+		kind:     kind,
+		status:   status,
+		actor:    context.actor,
+		summary:  summary,
+		evidence: EvidenceRuntimeFact,
+		chain:    true,
+	})
+}
+
+func (projector *DirectorGraphProjector) resolveTrackedLifecycleNode(
+	context factContext,
+	nodeID string,
+	status SemanticNodeStatus,
+	summary string,
+) error {
+	if nodeID == "" {
+		return nil
+	}
+	if _, exists := context.workstream.nodeIndex[nodeID]; !exists {
+		return nil
+	}
+	_, err := projector.commitNode(context, nodeSpec{
+		nodeID:  nodeID,
+		status:  status,
+		summary: summary,
+	})
+	if err == nil && context.workstream.recoveryAnchor == nodeID {
+		context.workstream.recoveryAnchor = ""
+	}
+	return err
 }
 
 // projectValidationRecorded makes a provider check visible once it reaches a
@@ -434,6 +700,10 @@ func projectProviderValidationRecorded(projector *DirectorGraphProjector, contex
 	if err != nil {
 		return err
 	}
+	subjectNodeID, err := projector.validationSubject(context, validation.Subject)
+	if err != nil {
+		return err
+	}
 	nodeID, err := projector.commitNode(context, nodeSpec{
 		identity: SemanticNodeIdentityValidation,
 		sourceID: validation.ID,
@@ -450,7 +720,7 @@ func projectProviderValidationRecorded(projector *DirectorGraphProjector, contex
 	return projector.addEdge(
 		context,
 		SemanticEdgeValidatedBy,
-		projector.validationSubject(context, validation.Subject),
+		subjectNodeID,
 		context.workstream.id,
 		nodeID,
 	)
@@ -460,7 +730,10 @@ func projectProviderValidationRecorded(projector *DirectorGraphProjector, contex
 // it reviewed when one exists, so the subject is resolved from that typed id
 // rather than from whatever node happens to be last; a check over the whole run
 // falls back to the run node.
-func (projector *DirectorGraphProjector) validationSubject(context factContext, subject *string) string {
+func (projector *DirectorGraphProjector) validationSubject(
+	context factContext,
+	subject *string,
+) (string, error) {
 	if subject != nil {
 		for _, identity := range []SemanticNodeIdentity{SemanticNodeIdentityActivity, SemanticNodeIdentityFileChange} {
 			nodeID, err := SemanticNodeID(identity, *subject)
@@ -468,21 +741,22 @@ func (projector *DirectorGraphProjector) validationSubject(context factContext, 
 				continue
 			}
 			if _, exists := context.workstream.nodeIndex[nodeID]; exists {
-				return nodeID
+				return nodeID, nil
 			}
 		}
+		return "", fmt.Errorf("validation subject %q has no projected activity", *subject)
 	}
 	if context.runID == nil {
-		return ""
+		return "", fmt.Errorf("run-wide validation has no run id")
 	}
 	runNodeID, err := SemanticNodeID(SemanticNodeIdentityRun, *context.runID)
 	if err != nil {
-		return ""
+		return "", err
 	}
 	if _, exists := context.workstream.nodeIndex[runNodeID]; !exists {
-		return ""
+		return "", fmt.Errorf("run-wide validation references unknown run node %q", runNodeID)
 	}
-	return runNodeID
+	return runNodeID, nil
 }
 
 func projectModelRerouted(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {

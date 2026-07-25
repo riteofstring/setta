@@ -55,11 +55,14 @@ func TestSupportingLifecyclesRejectResurrection(t *testing.T) {
 	if err := ValidateArtifactTransition(ArtifactStatusDeclared, ArtifactStatusUnresolved); err != nil {
 		t.Fatalf("a declared artifact that was never delivered must be unresolvable: %v", err)
 	}
-	if err := ValidateRecoveryTransition(RecoveryStatusUnrecoverable, RecoveryStatusRetrying); err != nil {
-		t.Fatalf("the user must be able to retry an unrecoverable state: %v", err)
+	if err := ValidateRecoveryTransition(RecoveryStatusUnrecoverable, RecoveryStatusRetrying); err == nil {
+		t.Fatal("a new retry after an unrecoverable attempt must use a new recovery id")
 	}
 	if err := ValidateRecoveryTransition(RecoveryStatusRecovered, RecoveryStatusRetrying); err == nil {
 		t.Fatal("a recovered state must not silently retry")
+	}
+	if err := recoveryLifecycle.validateInitial(RecoveryStatusRetrying); err != nil {
+		t.Fatalf("a recovery attempt may begin when the retry starts: %v", err)
 	}
 }
 

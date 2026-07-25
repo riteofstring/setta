@@ -119,6 +119,9 @@ func projectTurnPromoted(projector *DirectorGraphProjector, context factContext,
 	if err != nil {
 		return err
 	}
+	if err := requireRunNodeStatus(context.workstream, runID, SemanticNodeStatusPending); err != nil {
+		return fmt.Errorf("promote run %s: %w", runID, err)
+	}
 	_, err = projector.commitRunNode(context, runID, SemanticNodeStatusActive, activeRunSummary)
 	return err
 }
@@ -147,11 +150,38 @@ func projectTurnSteered(projector *DirectorGraphProjector, context factContext, 
 	if err != nil {
 		return err
 	}
+	if err := requireRunNodeStatus(context.workstream, runID, SemanticNodeStatusActive); err != nil {
+		return fmt.Errorf("steer run %s: %w", runID, err)
+	}
 	// Steering keeps one run node and records the new instruction on it, so the
 	// user sees what changed without the run appearing to restart.
 	context.workstream.runSummaries[runID] = payload.Input.Text
 	_, err = projector.commitRunNode(context, runID, SemanticNodeStatusActive, payload.Input.Text)
 	return err
+}
+
+func requireRunNodeStatus(
+	workstream *projectedWorkstream,
+	runID string,
+	status SemanticNodeStatus,
+) error {
+	nodeID, err := SemanticNodeID(SemanticNodeIdentityRun, runID)
+	if err != nil {
+		return err
+	}
+	index, exists := workstream.nodeIndex[nodeID]
+	if !exists {
+		return fmt.Errorf("run node %s does not exist", nodeID)
+	}
+	if workstream.nodes[index].Status != status {
+		return fmt.Errorf(
+			"run node %s has status %q, want %q",
+			nodeID,
+			workstream.nodes[index].Status,
+			status,
+		)
+	}
+	return nil
 }
 
 func projectTurnInterrupted(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {
@@ -194,10 +224,26 @@ func (projector *DirectorGraphProjector) closeRun(
 	if err != nil {
 		return err
 	}
+	terminalNodeID, err := SemanticNodeID(SemanticNodeIdentityRunTerminal, runID)
+	if err != nil {
+		return err
+	}
+	if _, terminal := context.workstream.nodeIndex[terminalNodeID]; terminal {
+		return fmt.Errorf("run %s already has a terminal fact", runID)
+	}
 	if _, err := projector.commitRunNode(context, runID, status, summary); err != nil {
 		return err
 	}
-	if _, err := projector.commitNode(context, nodeSpec{
+	if err := projector.closeRunGoal(context, runID, status, kind); err != nil {
+		return err
+	}
+	if err := projector.finalizeRunLifecycleNodes(context, runID, status); err != nil {
+		return err
+	}
+	if err := projector.finalizeUnfinishedRunNodes(context, runID, status); err != nil {
+		return err
+	}
+	terminalNodeID, err = projector.commitNode(context, nodeSpec{
 		identity:    SemanticNodeIdentityRunTerminal,
 		sourceID:    runID,
 		kind:        kind,
@@ -207,10 +253,136 @@ func (projector *DirectorGraphProjector) closeRun(
 		evidence:    EvidenceRuntimeFact,
 		artifactIDs: context.workstream.runArtifacts[runID],
 		chain:       true,
-	}); err != nil {
+	})
+	if err != nil {
 		return err
 	}
-	return projector.closeRunGoal(context, runID, status, kind)
+	projector.nodeBySourceEvent[event.ID] = terminalNodeID
+	projector.clearSucceededRunRecoveryAnchor(context.workstream, runID, status)
+	return nil
+}
+
+// finalizeUnfinishedRunNodes prevents a terminal run from leaving declared
+// work visibly active. A missing item-level terminal fact never becomes fake
+// success: unfinished approvals and resources are cancelled, recovery state
+// follows the run outcome, and other work fails or is cancelled with the run.
+func (projector *DirectorGraphProjector) finalizeUnfinishedRunNodes(
+	context factContext,
+	runID string,
+	runStatus SemanticNodeStatus,
+) error {
+	nodeIDs := make([]string, 0)
+	for _, node := range context.workstream.nodes {
+		if node.RunID == nil ||
+			*node.RunID != runID ||
+			IsTerminalSemanticNodeStatus(node.Status) {
+			continue
+		}
+		nodeIDs = append(nodeIDs, node.ID)
+	}
+	for _, nodeID := range nodeIDs {
+		index, exists := context.workstream.nodeIndex[nodeID]
+		if !exists {
+			continue
+		}
+		node := context.workstream.nodes[index]
+		status := unfinishedRunNodeStatus(node.Kind, runStatus)
+		if _, err := projector.commitNode(context, nodeSpec{
+			nodeID: nodeID,
+			status: status,
+		}); err != nil {
+			return fmt.Errorf("finalize unfinished run node %s: %w", nodeID, err)
+		}
+	}
+	return nil
+}
+
+func unfinishedRunNodeStatus(
+	kind SemanticNodeKind,
+	runStatus SemanticNodeStatus,
+) SemanticNodeStatus {
+	switch kind {
+	case SemanticNodeApprovalRequired, SemanticNodeResourceRequired:
+		return SemanticNodeStatusCancelled
+	case SemanticNodeRetry, SemanticNodeRecovery:
+		if runStatus == SemanticNodeStatusSucceeded {
+			return SemanticNodeStatusSucceeded
+		}
+		return SemanticNodeStatusFailed
+	case SemanticNodeBlocked:
+		return runStatus
+	default:
+		if runStatus == SemanticNodeStatusFailed {
+			return SemanticNodeStatusFailed
+		}
+		return SemanticNodeStatusCancelled
+	}
+}
+
+func (projector *DirectorGraphProjector) clearSucceededRunRecoveryAnchor(
+	workstream *projectedWorkstream,
+	runID string,
+	runStatus SemanticNodeStatus,
+) {
+	if runStatus != SemanticNodeStatusSucceeded || workstream.recoveryAnchor == "" {
+		return
+	}
+	index, exists := workstream.nodeIndex[workstream.recoveryAnchor]
+	if !exists {
+		workstream.recoveryAnchor = ""
+		return
+	}
+	anchorRunID := workstream.nodes[index].RunID
+	if anchorRunID != nil && *anchorRunID == runID {
+		workstream.recoveryAnchor = ""
+	}
+}
+
+func (projector *DirectorGraphProjector) finalizeRunLifecycleNodes(
+	context factContext,
+	runID string,
+	runStatus SemanticNodeStatus,
+) error {
+	blockedStatus := runStatus
+	if blockedStatus != SemanticNodeStatusSucceeded &&
+		blockedStatus != SemanticNodeStatusFailed &&
+		blockedStatus != SemanticNodeStatusCancelled {
+		return fmt.Errorf("run %s closed with nonterminal semantic status %q", runID, runStatus)
+	}
+	recoveryStatus := SemanticNodeStatusSucceeded
+	if runStatus != SemanticNodeStatusSucceeded {
+		recoveryStatus = SemanticNodeStatusFailed
+	}
+	for _, tracked := range []struct {
+		nodeID string
+		status SemanticNodeStatus
+	}{
+		{nodeID: context.workstream.agentLivenessBlock[runID], status: blockedStatus},
+		{nodeID: context.workstream.agentLivenessRecovery[runID], status: recoveryStatus},
+		{
+			nodeID: context.workstream.providerLifecycleNode[providerLifecycleTrackingKey("turn_retry", &runID)],
+			status: recoveryStatus,
+		},
+		{
+			nodeID: context.workstream.providerLifecycleNode[providerLifecycleTrackingKey("turn_failure", &runID)],
+			status: blockedStatus,
+		},
+	} {
+		if err := projector.resolveTrackedLifecycleNode(context, tracked.nodeID, tracked.status, ""); err != nil {
+			return err
+		}
+	}
+	delete(context.workstream.agentLivenessBlock, runID)
+	delete(context.workstream.agentLivenessRecovery, runID)
+	delete(
+		context.workstream.providerLifecycleNode,
+		providerLifecycleTrackingKey("turn_retry", &runID),
+	)
+	delete(
+		context.workstream.providerLifecycleNode,
+		providerLifecycleTrackingKey("turn_failure", &runID),
+	)
+	return nil
 }
 
 // closeRunGoal ends the user goal with the run it started, so a goal never sits
@@ -225,7 +397,6 @@ func (projector *DirectorGraphProjector) closeRunGoal(
 	if !tracked {
 		return nil
 	}
-	delete(context.workstream.goalNodes, runID)
 	summary := context.workstream.runSummaries[runID]
 	_, err := projector.commitNode(context, nodeSpec{
 		nodeID:   goalNodeID,
@@ -239,6 +410,7 @@ func (projector *DirectorGraphProjector) closeRunGoal(
 	if err != nil {
 		return fmt.Errorf("closing user goal for %s run %s: %w", kind, runID, err)
 	}
+	delete(context.workstream.goalNodes, runID)
 	return nil
 }
 
@@ -339,11 +511,25 @@ func projectPlanChanged(projector *DirectorGraphProjector, context factContext, 
 		return err
 	}
 	summary := firstText(optionalText(payload.Explanation), planSummaryFallback)
-	planNodeID, err := projector.commitNode(context, nodeSpec{
+	status := planStatus(payload.Steps)
+	planNodeID, err := SemanticNodeID(SemanticNodeIdentityPlan, runID)
+	if err != nil {
+		return err
+	}
+	if index, exists := context.workstream.nodeIndex[planNodeID]; exists &&
+		IsTerminalSemanticNodeStatus(context.workstream.nodes[index].Status) {
+		// A later plan after a terminal plan is a replacement, usually after
+		// steering or a newly declared terminal plan. Retire the old live
+		// projection instead of resurrecting its terminal node and rewriting
+		// its provenance.
+		projector.retirePlanSteps(context.workstream, runID)
+		projector.dropNodes(context.workstream, map[string]bool{planNodeID: true})
+	}
+	planNodeID, err = projector.commitNode(context, nodeSpec{
 		identity: SemanticNodeIdentityPlan,
 		sourceID: runID,
 		kind:     SemanticNodePlan,
-		status:   planStatus(payload.Steps),
+		status:   status,
 		actor:    context.actor,
 		summary:  summary,
 		evidence: EvidenceStructuredDeclaration,

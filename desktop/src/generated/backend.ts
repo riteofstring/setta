@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 81;
-export const backendContractSchemaHash = "sha256:859df9b284ae7b225f890a8f295a9c3baffcb5b0a633b471f890a02de24391ee";
+export const backendProtocolVersion = 82;
+export const backendContractSchemaHash = "sha256:c85b17bcd0d69b59f42f7c8ffad946dc44b5ac040628c2b946d981317a663c98";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -832,15 +832,13 @@ export function decodeAgentLivenessReason(value: unknown, label = "AgentLiveness
   }
 }
 
-export type ProviderLifecycleStatus = "starting" | "ready" | "restarting" | "unavailable" | "closed";
+export type ProviderLifecycleStatus = "ready" | "restarting" | "unavailable" | "closed";
 
-export const providerLifecycleStatusValues = ["starting", "ready", "restarting", "unavailable", "closed"] as const satisfies readonly ProviderLifecycleStatus[];
+export const providerLifecycleStatusValues = ["ready", "restarting", "unavailable", "closed"] as const satisfies readonly ProviderLifecycleStatus[];
 
 export function decodeProviderLifecycleStatus(value: unknown, label = "ProviderLifecycleStatus"): ProviderLifecycleStatus {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "starting":
-      return decoded;
     case "ready":
       return decoded;
     case "restarting":
@@ -854,20 +852,26 @@ export function decodeProviderLifecycleStatus(value: unknown, label = "ProviderL
   }
 }
 
-export type ProviderLifecycleReason = "session_failed" | "event_lag" | "turn_error" | "thread_status" | "thread_closed" | "environment_connected" | "environment_disconnected";
+export type ProviderLifecycleReason = "session_failed" | "turn_retrying" | "turn_failed" | "thread_idle" | "thread_active" | "thread_not_loaded" | "thread_system_error" | "thread_closed" | "environment_connected" | "environment_disconnected";
 
-export const providerLifecycleReasonValues = ["session_failed", "event_lag", "turn_error", "thread_status", "thread_closed", "environment_connected", "environment_disconnected"] as const satisfies readonly ProviderLifecycleReason[];
+export const providerLifecycleReasonValues = ["session_failed", "turn_retrying", "turn_failed", "thread_idle", "thread_active", "thread_not_loaded", "thread_system_error", "thread_closed", "environment_connected", "environment_disconnected"] as const satisfies readonly ProviderLifecycleReason[];
 
 export function decodeProviderLifecycleReason(value: unknown, label = "ProviderLifecycleReason"): ProviderLifecycleReason {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "session_failed":
       return decoded;
-    case "event_lag":
+    case "turn_retrying":
       return decoded;
-    case "turn_error":
+    case "turn_failed":
       return decoded;
-    case "thread_status":
+    case "thread_idle":
+      return decoded;
+    case "thread_active":
+      return decoded;
+    case "thread_not_loaded":
+      return decoded;
+    case "thread_system_error":
       return decoded;
     case "thread_closed":
       return decoded;
@@ -910,6 +914,26 @@ export function decodeTrajectoryValidationStatus(value: unknown, label = "Trajec
     case "failed":
       return decoded;
     case "inconclusive":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type TrajectoryValidationRisk = "low" | "medium" | "high" | "critical";
+
+export const trajectoryValidationRiskValues = ["low", "medium", "high", "critical"] as const satisfies readonly TrajectoryValidationRisk[];
+
+export function decodeTrajectoryValidationRisk(value: unknown, label = "TrajectoryValidationRisk"): TrajectoryValidationRisk {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "low":
+      return decoded;
+    case "medium":
+      return decoded;
+    case "high":
+      return decoded;
+    case "critical":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2393,7 +2417,6 @@ export interface ProviderLifecycle {
   provider: Provider;
   status: ProviderLifecycleStatus;
   reason: ProviderLifecycleReason;
-  message: string;
 }
 
 export interface TrajectoryProviderLifecycleChanged {
@@ -2404,6 +2427,7 @@ export interface TrajectoryValidation {
   id: string;
   kind: TrajectoryValidationKind;
   status: TrajectoryValidationStatus;
+  risk: TrajectoryValidationRisk | null;
   subject: string | null;
   summary: string;
 }
@@ -5304,12 +5328,11 @@ export function decodeTrajectoryAgentLivenessChanged(value: unknown): Trajectory
 
 export function decodeProviderLifecycle(value: unknown): ProviderLifecycle {
   const record = assertRecord(value, "ProviderLifecycle");
-  assertKnownFields(record, "ProviderLifecycle", ["provider", "status", "reason", "message"]);
+  assertKnownFields(record, "ProviderLifecycle", ["provider", "status", "reason"]);
   return {
     provider: decodeProvider(requireField(record, "provider", "ProviderLifecycle"), "ProviderLifecycle.provider"),
     status: decodeProviderLifecycleStatus(requireField(record, "status", "ProviderLifecycle"), "ProviderLifecycle.status"),
     reason: decodeProviderLifecycleReason(requireField(record, "reason", "ProviderLifecycle"), "ProviderLifecycle.reason"),
-    message: decodeString(requireField(record, "message", "ProviderLifecycle"), "ProviderLifecycle.message"),
   };
 }
 
@@ -5323,11 +5346,12 @@ export function decodeTrajectoryProviderLifecycleChanged(value: unknown): Trajec
 
 export function decodeTrajectoryValidation(value: unknown): TrajectoryValidation {
   const record = assertRecord(value, "TrajectoryValidation");
-  assertKnownFields(record, "TrajectoryValidation", ["id", "kind", "status", "subject", "summary"]);
+  assertKnownFields(record, "TrajectoryValidation", ["id", "kind", "status", "risk", "subject", "summary"]);
   return {
     id: decodeString(requireField(record, "id", "TrajectoryValidation"), "TrajectoryValidation.id"),
     kind: decodeTrajectoryValidationKind(requireField(record, "kind", "TrajectoryValidation"), "TrajectoryValidation.kind"),
     status: decodeTrajectoryValidationStatus(requireField(record, "status", "TrajectoryValidation"), "TrajectoryValidation.status"),
+    risk: decodeNullable(requireField(record, "risk", "TrajectoryValidation"), "TrajectoryValidation.risk", (item) => decodeTrajectoryValidationRisk(item, "TrajectoryValidation.risk")),
     subject: decodeNullable(requireField(record, "subject", "TrajectoryValidation"), "TrajectoryValidation.subject", (item) => decodeString(item, "TrajectoryValidation.subject")),
     summary: decodeString(requireField(record, "summary", "TrajectoryValidation"), "TrajectoryValidation.summary"),
   };

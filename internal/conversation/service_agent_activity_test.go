@@ -131,7 +131,7 @@ func TestGeneratedMediaProducesTheArtifactItSaved(t *testing.T) {
 		Kind:           agent.ActivityKindImageGeneration,
 		Status:         "completed",
 		Title:          "Generated image",
-		Summary:        "/tmp/director-graph.png",
+		SavedPath:      stringPointer("/tmp/director-graph.png"),
 	})
 
 	trajectory, artifact, err := service.populateAgentTrajectory(
@@ -150,6 +150,95 @@ func TestGeneratedMediaProducesTheArtifactItSaved(t *testing.T) {
 	}
 	if artifact == nil || artifact.File == nil || artifact.File.Path != "/tmp/director-graph.png" {
 		t.Fatalf("image generation artifact = %+v", artifact)
+	}
+	if trajectory.ActivityCompleted.Summary != "Generated image" {
+		t.Fatalf("saved path leaked into image activity summary %q", trajectory.ActivityCompleted.Summary)
+	}
+}
+
+func TestProviderFileChangesUseTheDedicatedDurableContract(t *testing.T) {
+	service := activityMappingTestService()
+	movePath := "internal/director/projector_core.go"
+	changes := []agent.FileChange{{
+		Path:     "internal/director/projector.go",
+		Kind:     agent.FileChangeKindUpdate,
+		MovePath: &movePath,
+		Diff:     "@@ -1 +1 @@",
+	}}
+	for _, testCase := range []struct {
+		name    string
+		kind    agent.EventKind
+		status  string
+		want    TrajectoryEventKind
+		outcome FileChangeOutcome
+	}{
+		{name: "proposed", kind: agent.EventKindActivityStarted, status: "inProgress", want: TrajectoryEventFileChangeProposed},
+		{name: "completed", kind: agent.EventKindActivityCompleted, status: "completed", want: TrajectoryEventFileChangeCompleted, outcome: FileChangeOutcomeCompleted},
+		{name: "declined", kind: agent.EventKindActivityCompleted, status: "declined", want: TrajectoryEventFileChangeCompleted, outcome: FileChangeOutcomeDeclined},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			event := agentActivityEvent(testCase.kind, agent.ActivityEvent{
+				ProviderItemID: "item-file",
+				Kind:           agent.ActivityKindFileChange,
+				Status:         testCase.status,
+				Title:          "Changed 1 file(s)",
+				FileChanges:    changes,
+			})
+			trajectory, artifact, err := service.populateAgentTrajectory(
+				activityMappingTrajectory(),
+				&activeConversationTurn{},
+				ConversationSnapshot{},
+				event,
+				testTimeStarted,
+			)
+			if err != nil {
+				t.Fatalf("populate file change trajectory: %v", err)
+			}
+			if artifact != nil || trajectory.Kind != testCase.want {
+				t.Fatalf("file change result = kind %q artifact %+v", trajectory.Kind, artifact)
+			}
+			if err := trajectory.Validate(); err != nil {
+				t.Fatalf("dedicated file change trajectory is invalid: %v", err)
+			}
+			switch trajectory.Kind {
+			case TrajectoryEventFileChangeProposed:
+				if got := trajectory.FileChangeProposed.Changes; len(got) != 1 ||
+					got[0].MovePath == nil || *got[0].MovePath != movePath ||
+					got[0].Diff != changes[0].Diff {
+					t.Fatalf("proposed changes = %+v", got)
+				}
+			case TrajectoryEventFileChangeCompleted:
+				if trajectory.FileChangeCompleted.Outcome != testCase.outcome {
+					t.Fatalf("file change outcome = %q, want %q", trajectory.FileChangeCompleted.Outcome, testCase.outcome)
+				}
+			}
+		})
+	}
+}
+
+func TestFileChangeWithoutDeclaredChangesRemainsATypedActivity(t *testing.T) {
+	service := activityMappingTestService()
+	event := agentActivityEvent(agent.EventKindActivityStarted, agent.ActivityEvent{
+		ProviderItemID: "item-file-empty",
+		Kind:           agent.ActivityKindFileChange,
+		Status:         "inProgress",
+		Title:          "Preparing file changes",
+		FileChanges:    []agent.FileChange{},
+	})
+	trajectory, artifact, err := service.populateAgentTrajectory(
+		activityMappingTrajectory(),
+		&activeConversationTurn{},
+		ConversationSnapshot{},
+		event,
+		testTimeStarted,
+	)
+	if err != nil {
+		t.Fatalf("populate empty file change activity: %v", err)
+	}
+	if artifact != nil ||
+		trajectory.Kind != TrajectoryEventActivityStarted ||
+		trajectory.ActivityStarted.Activity.Kind != TrajectoryActivityFileChange {
+		t.Fatalf("empty file change result = %+v artifact=%+v", trajectory, artifact)
 	}
 }
 

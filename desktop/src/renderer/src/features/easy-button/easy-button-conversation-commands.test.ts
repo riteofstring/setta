@@ -80,6 +80,10 @@ describe("Easy Button conversation commands", () => {
 
   test("cancels pane-owned speech capture after pane close is allowed", async () => {
     const snapshot = conversationSnapshot("conversation_close_voice");
+    const mounted = conversationSnapshot(snapshot.conversation.id);
+    mounted.conversation.title = "Mounted title";
+    useConversationStore.getState().hydrateSnapshot(workspaceId, snapshot.conversation.id, mounted);
+    snapshot.conversation.title = "Close-time title";
     const read = vi.fn(async () => snapshot);
     const cancelActiveConversationCapture = vi.fn();
     vi.stubGlobal("window", {
@@ -109,6 +113,10 @@ describe("Easy Button conversation commands", () => {
       },
       sourcePaneId: "pane_close_voice",
     });
+    expect(
+      useConversationStore.getState().conversations.get(snapshot.conversation.id)?.snapshot
+        ?.conversation.title,
+    ).toBe("Mounted title");
   });
 
   test("keeps the pane open when active-side disposal is not confirmed", async () => {
@@ -142,6 +150,9 @@ describe("Easy Button conversation commands", () => {
     expect(read).toHaveBeenCalledOnce();
     expect(disposeSide).not.toHaveBeenCalled();
     expect(cancelActiveConversationCapture).not.toHaveBeenCalled();
+    expect(
+      useConversationStore.getState().conversations.get(snapshot.conversation.id)?.snapshot,
+    ).toEqual(snapshot);
   });
 
   test("binds a folderless conversation to the selected folder and pane", async () => {

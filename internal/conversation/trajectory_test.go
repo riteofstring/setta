@@ -132,7 +132,7 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 			event.ProviderLifecycleChanged = &TrajectoryProviderLifecycleChanged{Lifecycle: ProviderLifecycle{
 				Provider: ProviderCodex,
 				Status:   ProviderLifecycleReady,
-				Reason:   ProviderLifecycleReasonThreadStatus,
+				Reason:   ProviderLifecycleReasonThreadIdle,
 			}}
 		}},
 		{TrajectoryEventValidationRecorded, func(event *TrajectoryEvent) {
@@ -232,6 +232,47 @@ func TestTrajectoryEventRejectsMismatchedAndMultiplePayloadBranches(t *testing.T
 		Outcome:        FileChangeOutcomeFailed,
 	}
 	assertValidationErrorContains(t, event.Validate(), "failed file change requires failure")
+}
+
+func TestTurnLifecycleReasonsCannotBecomeRunlessFacts(t *testing.T) {
+	event := baseTrajectoryEvent(TrajectoryEventProviderLifecycleChanged)
+	event.TurnID = nil
+	event.ProviderTurnID = nil
+	event.Actor = TrajectoryActorProvider
+	event.ProviderLifecycleChanged = &TrajectoryProviderLifecycleChanged{Lifecycle: ProviderLifecycle{
+		Provider: ProviderCodex,
+		Status:   ProviderLifecycleRestarting,
+		Reason:   ProviderLifecycleReasonTurnRetrying,
+	}}
+	assertValidationErrorContains(t, event.Validate(), "requires turn id")
+
+	event.ProviderLifecycleChanged.Lifecycle = ProviderLifecycle{
+		Provider: ProviderCodex,
+		Status:   ProviderLifecycleUnavailable,
+		Reason:   ProviderLifecycleReasonEnvironmentDisconnected,
+	}
+	if err := event.Validate(); err != nil {
+		t.Fatalf("thread-scoped environment lifecycle was rejected: %v", err)
+	}
+}
+
+func TestOnlyGuardianValidationCarriesTypedRisk(t *testing.T) {
+	risk := TrajectoryValidationRiskHigh
+	validation := TrajectoryValidation{
+		ID:      "validation-1",
+		Kind:    TrajectoryValidationModelVerification,
+		Status:  TrajectoryValidationStatusInProgress,
+		Risk:    &risk,
+		Summary: "Extra model safety verification is applied to this run",
+	}
+	assertValidationErrorContains(t, validation.Validate(), "must not carry Guardian risk")
+
+	validation.Kind = TrajectoryValidationGuardianReview
+	if err := validation.Validate(); err != nil {
+		t.Fatalf("Guardian validation with typed risk was rejected: %v", err)
+	}
+	validation.Summary = " Extra model safety verification is applied to this run"
+	assertValidationErrorContains(t, validation.Validate(), "surrounding whitespace")
 }
 
 func TestTrajectoryLargeOutputUsesTypedBoundedReference(t *testing.T) {

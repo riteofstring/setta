@@ -1,6 +1,7 @@
 package director
 
 import (
+	"strings"
 	"testing"
 
 	"setta/internal/conversation"
@@ -9,6 +10,28 @@ import (
 func TestSourceFactMappingIsTotal(t *testing.T) {
 	if err := ValidateSourceFactCoverage(); err != nil {
 		t.Fatalf("source fact mapping is incomplete: %v", err)
+	}
+}
+
+func TestProjectorRejectsAnEdgeOmittedByTheSourceFactRule(t *testing.T) {
+	workstream := newProjectedWorkstream("ws-edge-rule")
+	projector := NewDirectorGraphProjector()
+	projector.workstreams[workstream.id] = workstream
+
+	err := projector.addEdge(
+		factContext{
+			eventID:    "event-edge-rule",
+			emittedAt:  "2026-07-24T12:00:00Z",
+			workstream: workstream,
+			sourceFact: string(conversation.TrajectoryEventTurnPromoted),
+		},
+		SemanticEdgeBlockedBy,
+		"run:from",
+		workstream.id,
+		"blocked:to",
+	)
+	if err == nil || !strings.Contains(err.Error(), "cannot create undeclared semantic edge") {
+		t.Fatalf("undeclared source-fact edge was not rejected: %v", err)
 	}
 }
 
@@ -41,7 +64,6 @@ func TestRunProgressUpdatesOneNode(t *testing.T) {
 	}
 	for _, kind := range []conversation.TrajectoryEventKind{
 		conversation.TrajectoryEventTurnPromoted,
-		conversation.TrajectoryEventTurnStarted,
 		conversation.TrajectoryEventTurnSteered,
 	} {
 		rule, err := TrajectoryFactRule(kind)
@@ -51,6 +73,18 @@ func TestRunProgressUpdatesOneNode(t *testing.T) {
 		if rule.Disposition != SourceFactUpdatesNode || rule.NodeIdentity != SemanticNodeIdentityRun {
 			t.Fatalf("%q must update the single run node, got %q/%q", kind, rule.Disposition, rule.NodeIdentity)
 		}
+	}
+	started, err := TrajectoryFactRule(conversation.TrajectoryEventTurnStarted)
+	if err != nil {
+		t.Fatalf("turn_started has no rule: %v", err)
+	}
+	if started.Disposition != SourceFactUpsertsNode ||
+		started.NodeIdentity != SemanticNodeIdentityRun {
+		t.Fatalf(
+			"turn_started must create or update the single run node, got %q/%q",
+			started.Disposition,
+			started.NodeIdentity,
+		)
 	}
 }
 
@@ -99,10 +133,9 @@ func TestOnlyActionableLifecycleStatesBecomeNodes(t *testing.T) {
 		}
 	}
 	for status, want := range map[conversation.ProviderLifecycleStatus]SemanticNodeKind{
-		conversation.ProviderLifecycleStarting:    SemanticNodeNone,
 		conversation.ProviderLifecycleReady:       SemanticNodeNone,
-		conversation.ProviderLifecycleClosed:      SemanticNodeNone,
 		conversation.ProviderLifecycleRestarting:  SemanticNodeRecovery,
+		conversation.ProviderLifecycleClosed:      SemanticNodeBlocked,
 		conversation.ProviderLifecycleUnavailable: SemanticNodeBlocked,
 	} {
 		got, err := NodeKindForProviderLifecycle(status)

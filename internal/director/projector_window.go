@@ -22,6 +22,8 @@ func (projection GraphProjection) Graph(workstreamID string, level WorkstreamDet
 		return WorkstreamGraph{
 			WorkstreamID: workstreamID,
 			DetailLevel:  level,
+			Nodes:        []SemanticNode{},
+			Edges:        []SemanticEdge{},
 			HasEarlier:   len(full.Nodes) > 0,
 		}, nil
 	case WorkstreamDetailAdjacent:
@@ -73,7 +75,7 @@ func windowGraph(full WorkstreamGraph, level WorkstreamDetailLevel, nodes []Sema
 	return WorkstreamGraph{
 		WorkstreamID: full.WorkstreamID,
 		DetailLevel:  level,
-		Nodes:        append([]SemanticNode(nil), nodes...),
+		Nodes:        cloneSemanticNodes(nodes),
 		Edges:        recentEdges(edges, MaxSnapshotGraphEdges),
 		HasEarlier:   len(nodes) < len(full.Nodes),
 	}
@@ -81,7 +83,7 @@ func windowGraph(full WorkstreamGraph, level WorkstreamDetailLevel, nodes []Sema
 
 func recentEdges(edges []SemanticEdge, limit int) []SemanticEdge {
 	if len(edges) <= limit {
-		return append([]SemanticEdge(nil), edges...)
+		return cloneSemanticEdges(edges)
 	}
-	return append([]SemanticEdge(nil), edges[len(edges)-limit:]...)
+	return cloneSemanticEdges(edges[len(edges)-limit:])
 }

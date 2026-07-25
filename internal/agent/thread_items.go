@@ -109,11 +109,16 @@ func fileChangeActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	if item.FileChange == nil {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
+	changes, err := providerFileChanges(item.FileChange.Changes)
+	if err != nil {
+		return ActivityEvent{}, err
+	}
 	return ActivityEvent{
 		ProviderItemID: item.FileChange.ID,
 		Kind:           ActivityKindFileChange,
 		Status:         string(item.FileChange.Status),
 		Title:          fmt.Sprintf("Changed %d file(s)", len(item.FileChange.Changes)),
+		FileChanges:    changes,
 	}, nil
 }
 
@@ -170,11 +175,11 @@ func subagentActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
 	return ActivityEvent{
-		ProviderItemID: item.SubAgentActivity.ID,
-		Kind:           ActivityKindSubagent,
-		Status:         string(item.SubAgentActivity.Kind),
-		Title:          item.SubAgentActivity.AgentPath,
-		Summary:        item.SubAgentActivity.AgentThreadId,
+		ProviderItemID:           item.SubAgentActivity.ID,
+		Kind:                     ActivityKindSubagent,
+		Status:                   string(item.SubAgentActivity.Kind),
+		Title:                    item.SubAgentActivity.AgentPath,
+		ProviderSubagentThreadID: stringPointer(item.SubAgentActivity.AgentThreadId),
 	}, nil
 }
 
@@ -189,18 +194,25 @@ func imageViewActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	if item.ImageView == nil {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
-	return ActivityEvent{ProviderItemID: item.ImageView.ID, Kind: ActivityKindImageView, Status: "completed", Title: "Viewed image", Summary: item.ImageView.Path}, nil
+	return ActivityEvent{ProviderItemID: item.ImageView.ID, Kind: ActivityKindImageView, Status: "completed", Title: "Viewed image"}, nil
 }
 
 func imageGenerationActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	if item.ImageGeneration == nil {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
-	summary := ""
+	var savedPath *string
 	if item.ImageGeneration.SavedPath != nil {
-		summary = string(*item.ImageGeneration.SavedPath)
+		path := string(*item.ImageGeneration.SavedPath)
+		savedPath = &path
 	}
-	return ActivityEvent{ProviderItemID: item.ImageGeneration.ID, Kind: ActivityKindImageGeneration, Status: item.ImageGeneration.Status, Title: "Generated image", Summary: summary}, nil
+	return ActivityEvent{
+		ProviderItemID: item.ImageGeneration.ID,
+		Kind:           ActivityKindImageGeneration,
+		Status:         item.ImageGeneration.Status,
+		Title:          "Generated image",
+		SavedPath:      savedPath,
+	}, nil
 }
 
 func sleepActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
@@ -242,4 +254,43 @@ func cloneInt(value *int) *int {
 	}
 	copy := *value
 	return &copy
+}
+
+func providerFileChanges(changes []codexapp.FileUpdateChange) ([]FileChange, error) {
+	result := make([]FileChange, 0, len(changes))
+	for index, change := range changes {
+		kind, movePath, err := providerFileChangeKind(change.Kind)
+		if err != nil {
+			return nil, fmt.Errorf("provider file change %d: %w", index, err)
+		}
+		result = append(result, FileChange{
+			Path:     change.Path,
+			Kind:     kind,
+			MovePath: movePath,
+			Diff:     change.Diff,
+		})
+	}
+	return result, nil
+}
+
+func providerFileChangeKind(kind codexapp.PatchChangeKind) (FileChangeKind, *string, error) {
+	switch kind.Type {
+	case codexapp.PatchChangeKindTypeAdd:
+		if kind.Add == nil {
+			return "", nil, fmt.Errorf("provider add change is missing its typed payload")
+		}
+		return FileChangeKindAdd, nil, nil
+	case codexapp.PatchChangeKindTypeDelete:
+		if kind.Delete == nil {
+			return "", nil, fmt.Errorf("provider delete change is missing its typed payload")
+		}
+		return FileChangeKindDelete, nil, nil
+	case codexapp.PatchChangeKindTypeUpdate:
+		if kind.Update == nil {
+			return "", nil, fmt.Errorf("provider update change is missing its typed payload")
+		}
+		return FileChangeKindUpdate, cloneString(kind.Update.MovePath), nil
+	default:
+		return "", nil, fmt.Errorf("unsupported provider file change kind %q", kind.Type)
+	}
 }

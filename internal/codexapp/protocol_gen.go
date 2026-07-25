@@ -3287,7 +3287,159 @@ const (
 	PatchApplyStatusDeclined   PatchApplyStatus = "declined"
 )
 
-type PatchChangeKind = json.RawMessage
+type PatchChangeKindType string
+
+const (
+	PatchChangeKindTypeAdd    PatchChangeKindType = "add"
+	PatchChangeKindTypeDelete PatchChangeKindType = "delete"
+	PatchChangeKindTypeUpdate PatchChangeKindType = "update"
+)
+
+type AddPatchChangeKind struct {
+	Type string `json:"type"`
+}
+
+func validateAddPatchChangeKind(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeAddPatchChangeKind(raw json.RawMessage) (AddPatchChangeKind, error) {
+	var value AddPatchChangeKind
+	err := decodeCodexObject(raw, "AddPatchChangeKind", validateAddPatchChangeKind, &value)
+	return value, err
+}
+
+type DeletePatchChangeKind struct {
+	Type string `json:"type"`
+}
+
+func validateDeletePatchChangeKind(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeDeletePatchChangeKind(raw json.RawMessage) (DeletePatchChangeKind, error) {
+	var value DeletePatchChangeKind
+	err := decodeCodexObject(raw, "DeletePatchChangeKind", validateDeletePatchChangeKind, &value)
+	return value, err
+}
+
+type UpdatePatchChangeKind struct {
+	MovePath *string `json:"move_path,omitempty"`
+	Type     string  `json:"type"`
+}
+
+func validateUpdatePatchChangeKind(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "type"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeUpdatePatchChangeKind(raw json.RawMessage) (UpdatePatchChangeKind, error) {
+	var value UpdatePatchChangeKind
+	err := decodeCodexObject(raw, "UpdatePatchChangeKind", validateUpdatePatchChangeKind, &value)
+	return value, err
+}
+
+type PatchChangeKind struct {
+	Type   PatchChangeKindType    `json:"type"`
+	Raw    json.RawMessage        `json:"-"`
+	Add    *AddPatchChangeKind    `json:"-"`
+	Delete *DeletePatchChangeKind `json:"-"`
+	Update *UpdatePatchChangeKind `json:"-"`
+}
+
+func (item *PatchChangeKind) UnmarshalJSON(raw []byte) error {
+	decoded, err := decodePatchChangeKind(json.RawMessage(raw), "PatchChangeKind")
+	if err != nil {
+		return err
+	}
+	*item = decoded
+	return nil
+}
+
+func (item PatchChangeKind) MarshalJSON() ([]byte, error) {
+	if len(item.Raw) > 0 {
+		return append([]byte{}, item.Raw...), nil
+	}
+	switch item.Type {
+	case PatchChangeKindTypeAdd:
+		if item.Add == nil {
+			return nil, codexUnsupportedStringValue("PatchChangeKind.type", string(item.Type))
+		}
+		return json.Marshal(item.Add)
+	case PatchChangeKindTypeDelete:
+		if item.Delete == nil {
+			return nil, codexUnsupportedStringValue("PatchChangeKind.type", string(item.Type))
+		}
+		return json.Marshal(item.Delete)
+	case PatchChangeKindTypeUpdate:
+		if item.Update == nil {
+			return nil, codexUnsupportedStringValue("PatchChangeKind.type", string(item.Type))
+		}
+		return json.Marshal(item.Update)
+	default:
+		return nil, codexUnsupportedStringValue("PatchChangeKind.type", string(item.Type))
+	}
+}
+
+func DecodePatchChangeKind(raw json.RawMessage) (PatchChangeKind, error) {
+	return decodePatchChangeKind(raw, "PatchChangeKind")
+}
+
+func decodePatchChangeKind(raw json.RawMessage, name string) (PatchChangeKind, error) {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return PatchChangeKind{}, err
+	}
+	typeText, err := codexStringField(fields, "type", name)
+	if err != nil {
+		return PatchChangeKind{}, err
+	}
+	typeValue := PatchChangeKindType(typeText)
+	item := PatchChangeKind{Type: typeValue, Raw: append(json.RawMessage{}, raw...)}
+	switch typeValue {
+	case PatchChangeKindTypeAdd:
+		value, err := DecodeAddPatchChangeKind(raw)
+		if err != nil {
+			return PatchChangeKind{}, err
+		}
+		item.Add = &value
+	case PatchChangeKindTypeDelete:
+		value, err := DecodeDeletePatchChangeKind(raw)
+		if err != nil {
+			return PatchChangeKind{}, err
+		}
+		item.Delete = &value
+	case PatchChangeKindTypeUpdate:
+		value, err := DecodeUpdatePatchChangeKind(raw)
+		if err != nil {
+			return PatchChangeKind{}, err
+		}
+		item.Update = &value
+	default:
+		return PatchChangeKind{}, codexUnsupportedStringValue(name+".type", typeText)
+	}
+	return item, nil
+}
 
 type PermissionsRequestApprovalParams struct {
 	CWD           AbsolutePathBuf          `json:"cwd"`

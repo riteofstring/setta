@@ -3,6 +3,7 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import { reloadPage, waitForSelector, waitForState } from "./electron-cdp-harness.mjs";
 
 const navigatorPageLimit = 80;
+const sideProviderFailureMessage = "The provider could not complete this work. Try again.";
 
 export async function createTopic(
   client,
@@ -454,7 +455,7 @@ async function exerciseSideTurnFailurePresentation({
       surface.sideId !== "" &&
       surface.sideStatus === "active" &&
       surface.sideParentStatus === "working" &&
-      surface.sideTranscriptText.includes("Scripted topic failure"),
+      surface.sideTranscriptText.includes(sideProviderFailureMessage),
     timeoutMs,
   );
   const failed = await waitForConversationSnapshot(
@@ -473,9 +474,14 @@ async function exerciseSideTurnFailurePresentation({
         (event) =>
           event.sideConversationId === failedPresentation.sideId &&
           event.event.kind === "turn_failed" &&
-          event.event.turnFailed?.failure.message === "Scripted topic failure",
+          event.event.turnFailed?.failure.message === sideProviderFailureMessage,
       ),
     timeoutMs,
+  );
+  assertCondition(
+    !failedPresentation.sideTranscriptText.includes("Scripted topic failure"),
+    "raw side-provider diagnostic reached the presentation",
+    { failedPresentation },
   );
   assertEphemeralSideCreation(
     failed,

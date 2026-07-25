@@ -178,6 +178,7 @@ func TestStreamingTextAndReasoningSummariesNeverCreateNodes(t *testing.T) {
 	withDeltas := projectFixture(t, fixture)
 	trimmed := ProjectionFixture{Name: fixture.Name}
 	sequence := 0
+	trajectorySequences := map[string]int{}
 	for _, event := range fixture.Events {
 		if event.Trajectory != nil && event.Trajectory.Kind == conversation.TrajectoryEventAgentPublicTextDelta {
 			continue
@@ -185,6 +186,12 @@ func TestStreamingTextAndReasoningSummariesNeverCreateNodes(t *testing.T) {
 		sequence++
 		resequenced := event
 		resequenced.Sequence = sequence
+		if event.Trajectory != nil {
+			trajectory := *event.Trajectory
+			trajectorySequences[trajectory.ConversationID]++
+			trajectory.Sequence = trajectorySequences[trajectory.ConversationID]
+			resequenced.Trajectory = &trajectory
+		}
 		trimmed.Events = append(trimmed.Events, resequenced)
 	}
 	withoutDeltas := projectFixture(t, trimmed)
@@ -233,6 +240,173 @@ func TestTrajectoryForUnregisteredConversationRequiresResync(t *testing.T) {
 	assertResyncReason(t, projector.Apply(orphan), DirectorResyncEventBeforeSnapshot)
 }
 
+func TestConversationTrajectorySequenceGapRequiresResync(t *testing.T) {
+	fixture := fixtureByName(t, "folderless_start")
+	projector := NewDirectorGraphProjector()
+	for _, event := range fixture.Events[:2] {
+		if err := projector.Apply(event); err != nil {
+			t.Fatalf("apply setup event: %v", err)
+		}
+	}
+	gapped := *fixture.Events[2].Trajectory
+	gapped.Sequence = 2
+	assertResyncReason(
+		t,
+		projector.Apply(ProjectorEvent{Sequence: 3, Trajectory: &gapped}),
+		DirectorResyncEventSequenceGap,
+	)
+}
+
+func TestRunIdentityCannotCrossWorkstreams(t *testing.T) {
+	builder := fixtureBuilder{}
+	builder.register("ws-run-owner-a", "conv-run-owner-a", "Run owner A", folderlessScope())
+	builder.director("ws-run-owner-b", DirectorFactWorkstreamRegistered, SemanticActorSystem, func(fact *DirectorFactEvent) {
+		fact.WorkstreamRegistered = &DirectorWorkstreamRegistered{
+			Title:          "Run owner B",
+			ConversationID: "conv-run-owner-b",
+			ResourceScope:  folderlessScope(),
+		}
+	})
+	builder.acceptInput("conv-run-owner-a", "turn-shared", "Start in A")
+	builder.startTurn("conv-run-owner-a", "turn-shared")
+	builder.acceptInput("conv-run-owner-b", "turn-shared", "Illegally reuse the run in B")
+
+	projector := NewDirectorGraphProjector()
+	for _, event := range builder.events[:len(builder.events)-1] {
+		if err := projector.Apply(event); err != nil {
+			t.Fatalf("apply run owner setup: %v", err)
+		}
+	}
+	err := projector.Apply(builder.events[len(builder.events)-1])
+	if err == nil || !strings.Contains(err.Error(), "belongs to workstream") {
+		t.Fatalf("cross-workstream run identity produced %v", err)
+	}
+}
+
+func TestDuplicateDurableFactIDFailsBeforeProjection(t *testing.T) {
+	fixture := fixtureByName(t, "folderless_start")
+	projector := NewDirectorGraphProjector()
+	for _, event := range fixture.Events[:3] {
+		if err := projector.Apply(event); err != nil {
+			t.Fatalf("apply setup event: %v", err)
+		}
+	}
+	duplicate := *fixture.Events[3].Director
+	duplicate.ID = fixture.Events[0].Director.ID
+	err := projector.Apply(ProjectorEvent{Sequence: 4, Director: &duplicate})
+	if err == nil || !strings.Contains(err.Error(), "repeats durable fact id") {
+		t.Fatalf("duplicate durable fact id produced %v", err)
+	}
+	graph, graphErr := projector.Projection().Graph("ws-alpha", WorkstreamDetailSelected)
+	if graphErr != nil || len(graph.Nodes) != 1 {
+		t.Fatalf("duplicate fact changed graph state: graph=%+v err=%v", graph, graphErr)
+	}
+}
+
+func TestProjectorRejectsMalformedTrajectoryBeforeChangingGraphTruth(t *testing.T) {
+	fixture := fixtureByName(t, "folderless_start")
+	projector := NewDirectorGraphProjector()
+	for _, event := range fixture.Events[:2] {
+		if err := projector.Apply(event); err != nil {
+			t.Fatalf("apply setup event: %v", err)
+		}
+	}
+	malformed := *fixture.Events[2].Trajectory
+	malformed.UserInputAccepted = &conversation.TrajectoryUserInputAccepted{
+		Input:    conversation.AuthoredInput{},
+		Delivery: conversation.TurnDeliveryNormal,
+	}
+	if err := projector.Apply(ProjectorEvent{Sequence: 3, Trajectory: &malformed}); err == nil {
+		t.Fatal("a malformed durable trajectory event changed graph truth")
+	}
+	if graph, err := projector.Projection().Graph("ws-alpha", WorkstreamDetailSelected); err != nil || len(graph.Nodes) != 0 {
+		t.Fatalf("malformed trajectory left graph state: graph=%+v err=%v", graph, err)
+	}
+}
+
+func TestSelectionFactMustNameTheActualPreviousWorkstream(t *testing.T) {
+	fixture := fixtureByName(t, "folderless_start")
+	projector := NewDirectorGraphProjector()
+	for _, event := range fixture.Events[:2] {
+		if err := projector.Apply(event); err != nil {
+			t.Fatalf("apply setup event: %v", err)
+		}
+	}
+	selection := DirectorFactEvent{
+		ID:                 "director-invalid-selection",
+		EmittedAt:          "2026-07-24T13:00:00Z",
+		Kind:               DirectorFactWorkstreamSelected,
+		WorkstreamID:       "ws-alpha",
+		Actor:              SemanticActorUser,
+		WorkstreamSelected: &DirectorWorkstreamSelected{},
+	}
+	if err := projector.Apply(ProjectorEvent{Sequence: 3, Director: &selection}); err == nil {
+		t.Fatal("a stale selection fact was accepted")
+	}
+}
+
+func TestCreateDecisionCanRegisterOnlyItsOwnChild(t *testing.T) {
+	fixture := fixtureByName(t, "delegation")
+	projector := NewDirectorGraphProjector()
+	for _, event := range fixture.Events {
+		if event.Director != nil &&
+			event.Director.Kind == DirectorFactWorkstreamRegistered &&
+			event.Director.WorkstreamID == "ws-child" {
+			registration := *event.Director
+			payload := *registration.WorkstreamRegistered
+			payload.ParentID = nil
+			registration.WorkstreamRegistered = &payload
+			err := projector.Apply(ProjectorEvent{Sequence: event.Sequence, Director: &registration})
+			if err == nil || !strings.Contains(err.Error(), "must be a child") {
+				t.Fatalf("non-child registration produced %v", err)
+			}
+			return
+		}
+		if err := projector.Apply(event); err != nil {
+			t.Fatalf("apply setup event: %v", err)
+		}
+	}
+	t.Fatal("delegation fixture has no child registration")
+}
+
+func TestInterpretationCannotCiteAnotherWorkstreamsFact(t *testing.T) {
+	fixture := fixtureByName(t, "delegation")
+	projector := NewDirectorGraphProjector()
+	for _, event := range fixture.Events {
+		if err := projector.Apply(event); err != nil {
+			t.Fatalf("apply fixture: %v", err)
+		}
+	}
+	parentEventID := fixture.Events[0].Director.ID
+	confidence := 0.8
+	fact := DirectorFactEvent{
+		ID:           "director-cross-workstream-interpretation",
+		EmittedAt:    "2026-07-24T13:00:00Z",
+		Kind:         DirectorFactInterpretationPublished,
+		WorkstreamID: "ws-child",
+		Actor:        SemanticActorDirector,
+		InterpretationPublished: &DirectorInterpretationPublished{
+			InterpretationID:    "interpretation-cross-workstream",
+			PublicSummary:       "This conclusion cites another workstream",
+			InterpretedEventIDs: []string{parentEventID},
+			Metadata: InterpretationMetadata{
+				InterpretedBy: SemanticActorDirector,
+				Model: InterpretationModelIdentity{
+					Provider:  "codex",
+					Model:     "gpt-5.1-codex",
+					RuntimeID: "runtime-cross-workstream",
+				},
+				Confidence:    &confidence,
+				InterpretedAt: "2026-07-24T12:59:59Z",
+			},
+		},
+	}
+	err := projector.Apply(ProjectorEvent{Sequence: len(fixture.Events) + 1, Director: &fact})
+	if err == nil || !strings.Contains(err.Error(), "without cross-workstream authority") {
+		t.Fatalf("cross-workstream interpretation produced %v", err)
+	}
+}
+
 func assertResyncReason(t *testing.T, err error, reason DirectorResyncReason) {
 	t.Helper()
 	var replayErr *ReplayError
@@ -256,14 +430,177 @@ func TestTerminalRunCannotBeReopened(t *testing.T) {
 	restart := *last.Trajectory
 	restart.ID = "trajectory-restart"
 	restart.Kind = conversation.TrajectoryEventTurnStarted
+	restart.Sequence++
 	restart.TurnCompleted = nil
 	restart.TurnStarted = &conversation.TrajectoryTurnStarted{Invocation: fixtureInvocation("turn-alpha-1")}
 	err := projector.Apply(ProjectorEvent{Sequence: last.Sequence + 1, Trajectory: &restart})
 	if err == nil {
 		t.Fatal("expected a completed run to reject being restarted")
 	}
-	if !strings.Contains(err.Error(), "cannot transition") {
-		t.Fatalf("expected a lifecycle transition failure, got %v", err)
+	if !strings.Contains(err.Error(), "already has a terminal fact") {
+		t.Fatalf("expected a terminal-run failure, got %v", err)
+	}
+}
+
+func TestRunCannotCommitTwoTerminalFacts(t *testing.T) {
+	fixture := fixtureByName(t, "folderless_start")
+	projector := NewDirectorGraphProjector()
+	for _, event := range fixture.Events {
+		if err := projector.Apply(event); err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+	}
+	last := fixture.Events[len(fixture.Events)-1]
+	duplicate := *last.Trajectory
+	duplicate.ID = "trajectory-duplicate-terminal"
+	duplicate.Sequence++
+	err := projector.Apply(ProjectorEvent{Sequence: last.Sequence + 1, Trajectory: &duplicate})
+	if err == nil || !strings.Contains(err.Error(), "already has a terminal fact") {
+		t.Fatalf("duplicate terminal fact produced %v", err)
+	}
+}
+
+func TestTerminalRunRejectsFurtherWorkFacts(t *testing.T) {
+	builder := fixtureBuilder{}
+	builder.register("ws-terminal", "conv-terminal", "Terminal run", folderlessScope())
+	builder.acceptInput("conv-terminal", "turn-terminal", "Finish once")
+	builder.startTurn("conv-terminal", "turn-terminal")
+	builder.completeTurn("conv-terminal", "turn-terminal")
+	builder.trajectory(
+		"conv-terminal",
+		stringPointer("turn-terminal"),
+		conversation.TrajectoryEventActivityStarted,
+		conversation.TrajectoryActorAgent,
+		func(event *conversation.TrajectoryEvent) {
+			event.ActivityStarted = &conversation.TrajectoryActivityStarted{
+				Activity: conversation.TrajectoryActivity{
+					ID:    "activity-after-terminal",
+					Kind:  conversation.TrajectoryActivityOther,
+					Title: "Impossible late work",
+				},
+			}
+		},
+	)
+
+	projector := NewDirectorGraphProjector()
+	for _, event := range builder.events[:len(builder.events)-1] {
+		if err := projector.Apply(event); err != nil {
+			t.Fatalf("apply terminal setup: %v", err)
+		}
+	}
+	err := projector.Apply(builder.events[len(builder.events)-1])
+	if err == nil || !strings.Contains(err.Error(), "already has a terminal fact") {
+		t.Fatalf("late work fact produced %v", err)
+	}
+}
+
+func TestRunTerminalClosesTheCausalChainAfterItsGoal(t *testing.T) {
+	projection := projectFixture(t, fixtureByName(t, "folderless_start"))
+	graph, err := projection.Graph("ws-alpha", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("graph: %v", err)
+	}
+	goalID, err := SemanticNodeID(SemanticNodeIdentityInput, "trajectory-03")
+	if err != nil {
+		t.Fatalf("goal node id: %v", err)
+	}
+	terminalID, err := SemanticNodeID(SemanticNodeIdentityRunTerminal, "turn-alpha-1")
+	if err != nil {
+		t.Fatalf("terminal node id: %v", err)
+	}
+	if !hasEdge(graph, SemanticEdgeFollowedBy, goalID, terminalID) {
+		t.Fatalf("run terminal %s does not follow its closed goal %s", terminalID, goalID)
+	}
+	milestone, found := projection.Milestone("ws-alpha")
+	if !found || milestone.NodeID != terminalID {
+		t.Fatalf("last milestone = %+v, want terminal %s", milestone, terminalID)
+	}
+}
+
+func TestTerminalRunsLeaveNoRunBoundNodeActionable(t *testing.T) {
+	for _, fixture := range ProjectionFixtures() {
+		projection := projectFixture(t, fixture)
+		for _, workstreamID := range projection.WorkstreamIDs {
+			graph, err := projection.Graph(workstreamID, WorkstreamDetailSelected)
+			if err != nil {
+				t.Fatalf("%s: graph for %s: %v", fixture.Name, workstreamID, err)
+			}
+			terminalRuns := map[string]bool{}
+			for _, node := range graph.Nodes {
+				if node.RunID == nil {
+					continue
+				}
+				switch node.Kind {
+				case SemanticNodeCompleted, SemanticNodeFailed, SemanticNodeCancelled:
+					terminalRuns[*node.RunID] = true
+				}
+			}
+			for _, node := range graph.Nodes {
+				if node.RunID == nil ||
+					!terminalRuns[*node.RunID] ||
+					IsTerminalSemanticNodeStatus(node.Status) {
+					continue
+				}
+				t.Fatalf(
+					"%s: terminal run %s left node %s actionable at %s",
+					fixture.Name,
+					*node.RunID,
+					node.ID,
+					node.Status,
+				)
+			}
+		}
+	}
+}
+
+func TestAPlanAfterATerminalPlanReplacesItsLiveProjection(t *testing.T) {
+	builder := &fixtureBuilder{}
+	const workstreamID = "ws-replanned"
+	const conversationID = "conv-replanned"
+	const runID = "turn-replanned"
+	builder.register(workstreamID, conversationID, "Replan after steering", folderlessScope())
+	builder.acceptInput(conversationID, runID, "Prepare the release")
+	builder.startTurn(conversationID, runID)
+	firstPlanEventID := builder.planChanged(
+		conversationID,
+		runID,
+		"Initial plan",
+		[]conversation.PlanStep{{
+			Text:   "Prepare the release",
+			Status: conversation.PlanStepStatusCompleted,
+		}},
+	)
+	secondPlanEventID := builder.planChanged(
+		conversationID,
+		runID,
+		"Replacement plan",
+		[]conversation.PlanStep{{
+			Text:   "Revise the release",
+			Status: conversation.PlanStepStatusInProgress,
+		}},
+	)
+	builder.completeTurn(conversationID, runID)
+
+	projection, err := ProjectDirectorGraph(builder.events)
+	if err != nil {
+		t.Fatalf("project replacement plan: %v", err)
+	}
+	graph, err := projection.Graph(workstreamID, WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("replacement plan graph: %v", err)
+	}
+	planNodeID, err := SemanticNodeID(SemanticNodeIdentityPlan, runID)
+	if err != nil {
+		t.Fatalf("plan node id: %v", err)
+	}
+	plan, found := nodeByID(graph, planNodeID)
+	if !found {
+		t.Fatal("replacement plan projected no plan node")
+	}
+	if plan.Status != SemanticNodeStatusCancelled ||
+		containsString(plan.SourceEventIDs, firstPlanEventID) ||
+		!containsString(plan.SourceEventIDs, secondPlanEventID) {
+		t.Fatalf("replacement plan node = %+v", plan)
 	}
 }
 
@@ -316,6 +653,28 @@ func TestQueuedRunDependsOnTheRunItIsQueuedBehind(t *testing.T) {
 	}
 	if runNodes != 2 {
 		t.Fatalf("expected queue, promotion, steering, and completion to advance two run nodes, got %d", runNodes)
+	}
+}
+
+func TestFolderlessResourceRequestBlocksTheGoalThatNeedsIt(t *testing.T) {
+	projection := projectFixture(t, fixtureByName(t, "resource_request"))
+	graph, err := projection.Graph("ws-zeta", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("graph: %v", err)
+	}
+	goalID := ""
+	resourceID := ""
+	for _, node := range graph.Nodes {
+		switch node.Kind {
+		case SemanticNodeUserGoal:
+			goalID = node.ID
+		case SemanticNodeResourceRequired:
+			resourceID = node.ID
+		}
+	}
+	if goalID == "" || resourceID == "" ||
+		!hasEdge(graph, SemanticEdgeBlockedBy, goalID, resourceID) {
+		t.Fatalf("resource request %q does not block folderless goal %q", resourceID, goalID)
 	}
 }
 
@@ -380,6 +739,163 @@ func TestDelegationCrossesOnlyIntoAChildWorkstream(t *testing.T) {
 	}
 	if crossings != 1 {
 		t.Fatalf("expected exactly one delegation across workstreams, got %d", crossings)
+	}
+}
+
+func TestRoutingToTheCurrentWorkstreamDoesNotClaimDelegation(t *testing.T) {
+	projection := projectFixture(t, fixtureByName(t, "folderless_start"))
+	graph, err := projection.Graph("ws-alpha", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("graph: %v", err)
+	}
+	for _, edge := range graph.Edges {
+		if edge.Kind == SemanticEdgeDelegatedTo {
+			t.Fatalf("send-to-workstream decision invented delegation edge %s", edge.ID)
+		}
+	}
+}
+
+func TestProviderReadyStateResolvesItsVisibleBlock(t *testing.T) {
+	projection := projectFixture(t, fixtureByName(t, "blocked_and_cancelled"))
+	graph, err := projection.Graph("ws-theta", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("graph: %v", err)
+	}
+	for _, node := range graph.Nodes {
+		if node.Kind != SemanticNodeBlocked ||
+			!strings.Contains(node.PublicSummary, "Provider environment") {
+			continue
+		}
+		if node.Status != SemanticNodeStatusSucceeded ||
+			node.PublicSummary != "Provider environment connected" {
+			t.Fatalf("provider lifecycle block remained %+v after ready state", node)
+		}
+		return
+	}
+	t.Fatal("the disconnected provider environment projected no visible block")
+}
+
+func TestThreadScopedLifecycleCanResolveAfterRunTerminal(t *testing.T) {
+	builder := fixtureBuilder{}
+	builder.register(
+		"ws-lifecycle",
+		"conversation-lifecycle",
+		"Provider recovery",
+		folderScope("workspace-lifecycle", "/repo/lifecycle"),
+	)
+	builder.acceptInput("conversation-lifecycle", "turn-lifecycle-1", "Start the work")
+	builder.startTurn("conversation-lifecycle", "turn-lifecycle-1")
+	builder.providerLifecycle("conversation-lifecycle", "turn-lifecycle-1", conversation.ProviderLifecycle{
+		Provider: conversation.ProviderCodex,
+		Status:   conversation.ProviderLifecycleUnavailable,
+		Reason:   conversation.ProviderLifecycleReasonEnvironmentDisconnected,
+	})
+	builder.trajectory(
+		"conversation-lifecycle",
+		stringPointer("turn-lifecycle-1"),
+		conversation.TrajectoryEventTurnFailed,
+		conversation.TrajectoryActorSystem,
+		func(event *conversation.TrajectoryEvent) {
+			event.TurnFailed = &conversation.TrajectoryTurnFailed{Failure: conversation.Failure{
+				Code:                "provider_unavailable",
+				Message:             "The provider disconnected",
+				Retryable:           true,
+				DiagnosticReference: "diagnostic-lifecycle-1",
+			}}
+		},
+	)
+	builder.acceptInput("conversation-lifecycle", "turn-lifecycle-2", "Try again")
+	builder.startTurn("conversation-lifecycle", "turn-lifecycle-2")
+	builder.providerLifecycle("conversation-lifecycle", "turn-lifecycle-2", conversation.ProviderLifecycle{
+		Provider: conversation.ProviderCodex,
+		Status:   conversation.ProviderLifecycleReady,
+		Reason:   conversation.ProviderLifecycleReasonEnvironmentConnected,
+	})
+
+	projection := projectFixture(t, ProjectionFixture{
+		Name:   "thread_lifecycle_after_terminal_run",
+		Events: builder.events,
+	})
+	graph, err := projection.Graph("ws-lifecycle", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("graph: %v", err)
+	}
+	for _, node := range graph.Nodes {
+		if node.Kind != SemanticNodeBlocked ||
+			!strings.Contains(node.PublicSummary, "Provider environment") {
+			continue
+		}
+		if node.RunID != nil {
+			t.Fatalf("thread-scoped lifecycle node inherited run %q", *node.RunID)
+		}
+		if node.Status != SemanticNodeStatusSucceeded ||
+			node.PublicSummary != "Provider environment connected" {
+			t.Fatalf("provider lifecycle block remained %+v after a later run recovered it", node)
+		}
+		return
+	}
+	t.Fatal("the disconnected provider environment projected no visible block")
+}
+
+func TestRecoveredLivenessDoesNotLeaveActionableLifecycleNodes(t *testing.T) {
+	projection := projectFixture(t, fixtureByName(t, "blocked_and_cancelled"))
+	graph, err := projection.Graph("ws-theta", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("graph: %v", err)
+	}
+	for _, node := range graph.Nodes {
+		if (node.Kind == SemanticNodeBlocked || node.Kind == SemanticNodeRecovery) &&
+			(node.Status == SemanticNodeStatusWaiting || node.Status == SemanticNodeStatusActive) {
+			t.Fatalf("recovered or terminal liveness left actionable node %+v", node)
+		}
+	}
+}
+
+func TestExplicitRecoveryReachesItsTerminalState(t *testing.T) {
+	projection := projectFixture(t, fixtureByName(t, "failure_and_recovery"))
+	graph, err := projection.Graph("ws-epsilon", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("graph: %v", err)
+	}
+	nodeID, err := SemanticNodeID(SemanticNodeIdentityRecovery, "recovery-epsilon-1")
+	if err != nil {
+		t.Fatalf("recovery node id: %v", err)
+	}
+	node, found := nodeByID(graph, nodeID)
+	if !found {
+		t.Fatal("explicit recovery projected no node")
+	}
+	if node.Status != SemanticNodeStatusSucceeded {
+		t.Fatalf("recovery node status = %q, want %q", node.Status, SemanticNodeStatusSucceeded)
+	}
+}
+
+func TestProjectionSnapshotsDoNotShareMutableNodeEvidence(t *testing.T) {
+	projector := NewDirectorGraphProjector()
+	fixture := fixtureByName(t, "folderless_start")
+	for _, event := range fixture.Events {
+		if err := projector.Apply(event); err != nil {
+			t.Fatalf("apply fixture: %v", err)
+		}
+	}
+	first, err := projector.Projection().Graph("ws-alpha", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("first graph: %v", err)
+	}
+	if len(first.Nodes) == 0 || len(first.Nodes[0].SourceEventIDs) == 0 {
+		t.Fatal("fixture did not produce mutable node evidence")
+	}
+	first.Nodes[0].SourceEventIDs[0] = "mutated-event"
+	if first.Nodes[0].RunID != nil {
+		*first.Nodes[0].RunID = "mutated-run"
+	}
+	second, err := projector.Projection().Graph("ws-alpha", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("second graph: %v", err)
+	}
+	if second.Nodes[0].SourceEventIDs[0] == "mutated-event" ||
+		(second.Nodes[0].RunID != nil && *second.Nodes[0].RunID == "mutated-run") {
+		t.Fatal("a held projection mutated the live projector")
 	}
 }
 
@@ -512,6 +1028,32 @@ func TestArtifactNodesNameTheArtifactTheyStandFor(t *testing.T) {
 	t.Fatal("no artifact node was projected")
 }
 
+func TestArtifactIdentityCannotBeEmittedTwice(t *testing.T) {
+	fixture := fixtureByName(t, "folderless_start")
+	projector := NewDirectorGraphProjector()
+	var original conversation.TrajectoryEvent
+	for _, event := range fixture.Events[:len(fixture.Events)-1] {
+		if event.Trajectory != nil &&
+			event.Trajectory.Kind == conversation.TrajectoryEventArtifactEmitted {
+			original = *event.Trajectory
+		}
+		if err := projector.Apply(event); err != nil {
+			t.Fatalf("apply fixture: %v", err)
+		}
+	}
+	if original.ArtifactEmitted == nil {
+		t.Fatal("folderless fixture has no artifact event")
+	}
+	last := fixture.Events[len(fixture.Events)-1]
+	original.ID = "trajectory-duplicate-artifact"
+	original.Sequence = last.Trajectory.Sequence
+	original.EmittedAt = last.Trajectory.EmittedAt
+	err := projector.Apply(ProjectorEvent{Sequence: last.Sequence, Trajectory: &original})
+	if err == nil || !strings.Contains(err.Error(), "emitted more than once") {
+		t.Fatalf("duplicate artifact produced %v", err)
+	}
+}
+
 func TestProviderValidationIsVisibleOnlyOnceItHasAVerdict(t *testing.T) {
 	fixture := fixtureByName(t, "approval_and_file_change")
 	projection := projectFixture(t, fixture)
@@ -542,8 +1084,16 @@ func TestProviderValidationIsVisibleOnlyOnceItHasAVerdict(t *testing.T) {
 
 	// A check that has started and has no verdict is not a fact the user can act
 	// on, so it must not add a node.
-	events := append([]ProjectorEvent(nil), fixture.Events...)
-	last := events[len(events)-1]
+	events := append([]ProjectorEvent(nil), fixture.Events[:len(fixture.Events)-1]...)
+	last := fixture.Events[len(fixture.Events)-1]
+	baseline, err := ProjectDirectorGraph(events)
+	if err != nil {
+		t.Fatalf("project validation baseline: %v", err)
+	}
+	baselineGraph, err := baseline.Graph("ws-gamma", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("baseline graph: %v", err)
+	}
 	inProgress := *last.Trajectory
 	inProgress.ID = "trajectory-in-progress"
 	inProgress.Kind = conversation.TrajectoryEventValidationRecorded
@@ -556,7 +1106,7 @@ func TestProviderValidationIsVisibleOnlyOnceItHasAVerdict(t *testing.T) {
 			Summary: "Automatic approval review started",
 		},
 	}
-	events = append(events, ProjectorEvent{Sequence: last.Sequence + 1, Trajectory: &inProgress})
+	events = append(events, ProjectorEvent{Sequence: last.Sequence, Trajectory: &inProgress})
 	extended, err := ProjectDirectorGraph(events)
 	if err != nil {
 		t.Fatalf("project in-progress validation: %v", err)
@@ -565,8 +1115,139 @@ func TestProviderValidationIsVisibleOnlyOnceItHasAVerdict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("extended graph: %v", err)
 	}
-	if len(extendedGraph.Nodes) != len(graph.Nodes) {
-		t.Fatalf("an in-progress validation changed the node count from %d to %d", len(graph.Nodes), len(extendedGraph.Nodes))
+	if len(extendedGraph.Nodes) != len(baselineGraph.Nodes) {
+		t.Fatalf(
+			"an in-progress validation changed the node count from %d to %d",
+			len(baselineGraph.Nodes),
+			len(extendedGraph.Nodes),
+		)
+	}
+}
+
+func TestProviderValidationRejectsAnUnknownTypedSubjectBeforeCreatingANode(t *testing.T) {
+	fixture := fixtureByName(t, "approval_and_file_change")
+	projector := NewDirectorGraphProjector()
+	for _, event := range fixture.Events {
+		if event.Trajectory != nil &&
+			event.Trajectory.Kind == conversation.TrajectoryEventValidationRecorded {
+			before, err := projector.Projection().Graph("ws-gamma", WorkstreamDetailSelected)
+			if err != nil {
+				t.Fatalf("graph before invalid validation: %v", err)
+			}
+			invalid := *event.Trajectory
+			payload := *invalid.ValidationRecorded
+			validation := payload.Validation
+			validation.Subject = stringPointer("provider-item-unknown")
+			payload.Validation = validation
+			invalid.ValidationRecorded = &payload
+			err = projector.Apply(ProjectorEvent{Sequence: event.Sequence, Trajectory: &invalid})
+			if err == nil || !strings.Contains(err.Error(), "has no projected activity") {
+				t.Fatalf("unknown validation subject produced %v", err)
+			}
+			after, graphErr := projector.Projection().Graph("ws-gamma", WorkstreamDetailSelected)
+			if graphErr != nil || len(after.Nodes) != len(before.Nodes) {
+				t.Fatalf("invalid validation changed graph state: before=%d after=%d err=%v",
+					len(before.Nodes), len(after.Nodes), graphErr)
+			}
+			return
+		}
+		if err := projector.Apply(event); err != nil {
+			t.Fatalf("apply setup event: %v", err)
+		}
+	}
+	t.Fatal("approval fixture has no validation event")
+}
+
+func TestRecoveryRejectsHealthyWorkBeforeCreatingANode(t *testing.T) {
+	builder := &fixtureBuilder{}
+	const workstreamID = "ws-healthy-recovery"
+	const conversationID = "conv-healthy-recovery"
+	const runID = "turn-healthy-recovery"
+	builder.register(workstreamID, conversationID, "Healthy work", folderlessScope())
+	builder.acceptInput(conversationID, runID, "Keep working")
+	healthyEventID := builder.startTurn(conversationID, runID)
+	builder.director(workstreamID, DirectorFactRecoveryAttempted, SemanticActorDirector, func(fact *DirectorFactEvent) {
+		fact.RunID = stringPointer(runID)
+		fact.RecoveryAttempted = &DirectorRecoveryAttempted{
+			RecoveryID:     "recovery-healthy",
+			Status:         RecoveryStatusRetrying,
+			FailureEventID: healthyEventID,
+			PublicSummary:  "Retry healthy work",
+		}
+	})
+
+	projector := NewDirectorGraphProjector()
+	for _, event := range builder.events[:len(builder.events)-1] {
+		if err := projector.Apply(event); err != nil {
+			t.Fatalf("apply healthy setup: %v", err)
+		}
+	}
+	before, err := projector.Projection().Graph(workstreamID, WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("healthy graph before recovery: %v", err)
+	}
+	err = projector.Apply(builder.events[len(builder.events)-1])
+	if err == nil || !strings.Contains(err.Error(), "healthy node") {
+		t.Fatalf("recovery over healthy work produced %v", err)
+	}
+	after, graphErr := projector.Projection().Graph(workstreamID, WorkstreamDetailSelected)
+	if graphErr != nil || len(after.Nodes) != len(before.Nodes) {
+		t.Fatalf(
+			"invalid recovery changed graph state: before=%d after=%d err=%v",
+			len(before.Nodes),
+			len(after.Nodes),
+			graphErr,
+		)
+	}
+}
+
+func TestRecoveryRejectsAResolvedBlock(t *testing.T) {
+	builder := &fixtureBuilder{}
+	const workstreamID = "ws-resolved-block"
+	const conversationID = "conv-resolved-block"
+	const runID = "turn-resolved-block"
+	builder.register(workstreamID, conversationID, "Resolved provider block", folderlessScope())
+	builder.acceptInput(conversationID, runID, "Keep working")
+	builder.startTurn(conversationID, runID)
+	blockedEventID := builder.trajectory(
+		conversationID,
+		stringPointer(runID),
+		conversation.TrajectoryEventProviderLifecycleChanged,
+		conversation.TrajectoryActorProvider,
+		func(event *conversation.TrajectoryEvent) {
+			event.ProviderLifecycleChanged = &conversation.TrajectoryProviderLifecycleChanged{
+				Lifecycle: conversation.ProviderLifecycle{
+					Provider: conversation.ProviderCodex,
+					Status:   conversation.ProviderLifecycleUnavailable,
+					Reason:   conversation.ProviderLifecycleReasonEnvironmentDisconnected,
+				},
+			}
+		},
+	)
+	builder.providerLifecycle(conversationID, runID, conversation.ProviderLifecycle{
+		Provider: conversation.ProviderCodex,
+		Status:   conversation.ProviderLifecycleReady,
+		Reason:   conversation.ProviderLifecycleReasonEnvironmentConnected,
+	})
+	builder.director(workstreamID, DirectorFactRecoveryAttempted, SemanticActorDirector, func(fact *DirectorFactEvent) {
+		fact.RunID = stringPointer(runID)
+		fact.RecoveryAttempted = &DirectorRecoveryAttempted{
+			RecoveryID:     "recovery-resolved-block",
+			Status:         RecoveryStatusRetrying,
+			FailureEventID: blockedEventID,
+			PublicSummary:  "Retry the resolved provider block",
+		}
+	})
+
+	projector := NewDirectorGraphProjector()
+	for _, event := range builder.events[:len(builder.events)-1] {
+		if err := projector.Apply(event); err != nil {
+			t.Fatalf("apply resolved block setup: %v", err)
+		}
+	}
+	err := projector.Apply(builder.events[len(builder.events)-1])
+	if err == nil || !strings.Contains(err.Error(), "healthy node") {
+		t.Fatalf("recovery over resolved block produced %v", err)
 	}
 }
 
@@ -596,6 +1277,15 @@ func nodeByID(graph WorkstreamGraph, nodeID string) (SemanticNode, bool) {
 		}
 	}
 	return SemanticNode{}, false
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func TestUnregisteredDirectorFactAndDuplicateRegistrationFailLoudly(t *testing.T) {

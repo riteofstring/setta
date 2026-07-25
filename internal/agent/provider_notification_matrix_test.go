@@ -65,6 +65,17 @@ func TestProviderNotificationNormalizersStayInsideMatrixAuthority(t *testing.T) 
 	}
 }
 
+func TestEveryNormalizedProviderNotificationHasAnAdapterPath(t *testing.T) {
+	for _, rule := range providerNotificationMatrix {
+		if rule.Disposition != ProviderNotificationNormalized {
+			continue
+		}
+		if providerNotificationHandlers[rule.Method] == nil {
+			t.Errorf("normalized notification %s has no adapter handler", rule.Method)
+		}
+	}
+}
+
 func TestProviderNotificationMatrixOptsOutOfPrivateReasoning(t *testing.T) {
 	registered := map[string]bool{}
 	for _, method := range codexapp.CodexSupportedNotificationValues {

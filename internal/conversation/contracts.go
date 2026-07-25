@@ -982,6 +982,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "ProviderLifecycleReason", Values: stringValues(providerLifecycleReasons)},
 		{Name: "TrajectoryValidationKind", Values: stringValues(trajectoryValidationKinds)},
 		{Name: "TrajectoryValidationStatus", Values: stringValues(trajectoryValidationStatuses)},
+		{Name: "TrajectoryValidationRisk", Values: stringValues(trajectoryValidationRisks)},
 		contractValueSet("TurnInterruptionReason", TurnInterruptionUserRequested, TurnInterruptionProviderInterrupted, TurnInterruptionRuntimeShutdown, TurnInterruptionReconciliation),
 		{Name: "ConversationEventType", Values: stringValues(conversationEventTypeValues)},
 		{Name: "ConversationPaletteID", Values: stringValues(conversationpalette.IDs())},

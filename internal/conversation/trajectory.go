@@ -15,6 +15,7 @@ type ProviderLifecycleStatus string
 type ProviderLifecycleReason string
 type TrajectoryValidationKind string
 type TrajectoryValidationStatus string
+type TrajectoryValidationRisk string
 type TurnInterruptionReason string
 
 const (
@@ -120,7 +121,6 @@ const (
 	AgentLivenessReasonProviderUnavailable AgentLivenessReason = "provider_unavailable"
 	AgentLivenessReasonTurnNotFound        AgentLivenessReason = "turn_not_found"
 
-	ProviderLifecycleStarting    ProviderLifecycleStatus = "starting"
 	ProviderLifecycleReady       ProviderLifecycleStatus = "ready"
 	ProviderLifecycleRestarting  ProviderLifecycleStatus = "restarting"
 	ProviderLifecycleUnavailable ProviderLifecycleStatus = "unavailable"
@@ -131,9 +131,12 @@ const (
 	// so, so a blocked or recovering node carries provenance instead of a
 	// message a consumer would have to read.
 	ProviderLifecycleReasonSessionFailed           ProviderLifecycleReason = "session_failed"
-	ProviderLifecycleReasonEventLag                ProviderLifecycleReason = "event_lag"
-	ProviderLifecycleReasonTurnError               ProviderLifecycleReason = "turn_error"
-	ProviderLifecycleReasonThreadStatus            ProviderLifecycleReason = "thread_status"
+	ProviderLifecycleReasonTurnRetrying            ProviderLifecycleReason = "turn_retrying"
+	ProviderLifecycleReasonTurnFailed              ProviderLifecycleReason = "turn_failed"
+	ProviderLifecycleReasonThreadIdle              ProviderLifecycleReason = "thread_idle"
+	ProviderLifecycleReasonThreadActive            ProviderLifecycleReason = "thread_active"
+	ProviderLifecycleReasonThreadNotLoaded         ProviderLifecycleReason = "thread_not_loaded"
+	ProviderLifecycleReasonThreadSystemError       ProviderLifecycleReason = "thread_system_error"
 	ProviderLifecycleReasonThreadClosed            ProviderLifecycleReason = "thread_closed"
 	ProviderLifecycleReasonEnvironmentConnected    ProviderLifecycleReason = "environment_connected"
 	ProviderLifecycleReasonEnvironmentDisconnected ProviderLifecycleReason = "environment_disconnected"
@@ -152,6 +155,11 @@ const (
 	// TrajectoryValidationStatusInconclusive ended without a verdict, such as a
 	// review that timed out or was aborted.
 	TrajectoryValidationStatusInconclusive TrajectoryValidationStatus = "inconclusive"
+
+	TrajectoryValidationRiskLow      TrajectoryValidationRisk = "low"
+	TrajectoryValidationRiskMedium   TrajectoryValidationRisk = "medium"
+	TrajectoryValidationRiskHigh     TrajectoryValidationRisk = "high"
+	TrajectoryValidationRiskCritical TrajectoryValidationRisk = "critical"
 
 	TurnInterruptionUserRequested       TurnInterruptionReason = "user_requested"
 	TurnInterruptionProviderInterrupted TurnInterruptionReason = "provider_interrupted"
@@ -234,7 +242,6 @@ func AgentLivenessStatuses() []AgentLivenessStatus {
 }
 
 var providerLifecycleStatuses = []ProviderLifecycleStatus{
-	ProviderLifecycleStarting,
 	ProviderLifecycleReady,
 	ProviderLifecycleRestarting,
 	ProviderLifecycleUnavailable,
@@ -250,9 +257,12 @@ func ProviderLifecycleStatuses() []ProviderLifecycleStatus {
 
 var providerLifecycleReasons = []ProviderLifecycleReason{
 	ProviderLifecycleReasonSessionFailed,
-	ProviderLifecycleReasonEventLag,
-	ProviderLifecycleReasonTurnError,
-	ProviderLifecycleReasonThreadStatus,
+	ProviderLifecycleReasonTurnRetrying,
+	ProviderLifecycleReasonTurnFailed,
+	ProviderLifecycleReasonThreadIdle,
+	ProviderLifecycleReasonThreadActive,
+	ProviderLifecycleReasonThreadNotLoaded,
+	ProviderLifecycleReasonThreadSystemError,
 	ProviderLifecycleReasonThreadClosed,
 	ProviderLifecycleReasonEnvironmentConnected,
 	ProviderLifecycleReasonEnvironmentDisconnected,
@@ -285,6 +295,13 @@ var trajectoryValidationStatuses = []TrajectoryValidationStatus{
 	TrajectoryValidationStatusInconclusive,
 }
 
+var trajectoryValidationRisks = []TrajectoryValidationRisk{
+	TrajectoryValidationRiskLow,
+	TrajectoryValidationRiskMedium,
+	TrajectoryValidationRiskHigh,
+	TrajectoryValidationRiskCritical,
+}
+
 // TrajectoryValidationStatuses is the authoritative validation status catalog.
 // Consumers iterate it so a new status fails their coverage checks instead of
 // falling through to a generic case.
@@ -292,6 +309,11 @@ func TrajectoryValidationStatuses() []TrajectoryValidationStatus {
 	result := make([]TrajectoryValidationStatus, len(trajectoryValidationStatuses))
 	copy(result, trajectoryValidationStatuses)
 	return result
+}
+
+// TrajectoryValidationRisks is the authoritative Guardian risk catalog.
+func TrajectoryValidationRisks() []TrajectoryValidationRisk {
+	return append([]TrajectoryValidationRisk(nil), trajectoryValidationRisks...)
 }
 
 var planStepStatuses = []PlanStepStatus{
@@ -395,7 +417,6 @@ type ProviderLifecycle struct {
 	Provider Provider                `json:"provider"`
 	Status   ProviderLifecycleStatus `json:"status"`
 	Reason   ProviderLifecycleReason `json:"reason"`
-	Message  string                  `json:"message"`
 }
 
 // TrajectoryValidation is one typed provider check over declared work. Subject
@@ -405,6 +426,7 @@ type TrajectoryValidation struct {
 	ID      string                     `json:"id"`
 	Kind    TrajectoryValidationKind   `json:"kind"`
 	Status  TrajectoryValidationStatus `json:"status"`
+	Risk    *TrajectoryValidationRisk  `json:"risk"`
 	Subject *string                    `json:"subject"`
 	Summary string                     `json:"summary"`
 }

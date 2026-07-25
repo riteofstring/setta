@@ -13,9 +13,9 @@ import (
 // that reaches product state without a decision. A rule states the maximum
 // authority the adapter has over that notification: it may do less, never more.
 //
-// The matrix is the authority boundary, not a description of today's normalizers.
-// providerNotificationHandlers is the implemented subset, and it may only contain
-// methods this matrix marks ProviderNotificationNormalized.
+// The matrix is the authority boundary. Every normalized row has an explicit
+// providerNotificationHandlers entry, including scope-validating no-op handlers
+// for boundary notifications that carry no durable fact of their own.
 
 // ProviderNotificationDisposition is the maximum authority the Codex adapter has
 // over one upstream notification.
@@ -144,7 +144,7 @@ var providerNotificationMatrix = []ProviderNotificationRule{
 	{
 		Method:      codexapp.CodexNotificationServerRequestResolved,
 		Disposition: ProviderNotificationNormalized,
-		Note:        "An approval or input request resolved outside this client must reconcile the durable Setta approval record instead of leaving it pending.",
+		Note:        "An approval or input request resolved outside this client reserves the local request, commits a durable superseded resolution, and leaves the pending table only after that lossless commit succeeds.",
 	},
 
 	// Workstream and environment lifecycle. Ready states are metadata; only typed
@@ -175,7 +175,7 @@ var providerNotificationMatrix = []ProviderNotificationRule{
 	{
 		Method:      codexapp.CodexNotificationItemAutoApprovalReviewStarted,
 		Disposition: ProviderNotificationNormalized,
-		Note:        "Guardian review start commits a Setta validation record with no verdict yet. The payload is unstable upstream, so only the review id, the reviewed item, and the typed status cross the adapter.",
+		Note:        "Guardian review start commits a Setta validation record with no verdict yet. The payload is unstable upstream, so only the review id, reviewed item, typed status, and typed risk cross the adapter.",
 	},
 	{
 		Method:      codexapp.CodexNotificationItemAutoApprovalReviewCompleted,

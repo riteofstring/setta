@@ -853,7 +853,7 @@ func (runtime *serviceTestAgentRuntime) emitSideContextScenario(
 		Kind:           agent.ActivityKindImageGeneration,
 		Status:         "completed",
 		Title:          "Side context result",
-		Summary:        "/tmp/side-context-result.md",
+		SavedPath:      stringPointer("/tmp/side-context-result.md"),
 	}
 	if err := sink.HandleAgentEvent(artifact); err != nil {
 		return err
@@ -979,11 +979,11 @@ func (runtime *serviceTestAgentRuntime) emitSubagentLifecycle(
 		event := base
 		event.Kind = agent.EventKindActivityCompleted
 		event.Activity = &agent.ActivityEvent{
-			ProviderItemID: "subagent-item-" + status,
-			Kind:           agent.ActivityKindSubagent,
-			Status:         status,
-			Title:          "reviewer",
-			Summary:        "provider-subagent-thread",
+			ProviderItemID:           "subagent-item-" + status,
+			Kind:                     agent.ActivityKindSubagent,
+			Status:                   status,
+			Title:                    "reviewer",
+			ProviderSubagentThreadID: stringPointer("provider-subagent-thread"),
 		}
 		if err := sink.HandleAgentEvent(event); err != nil {
 			return err
@@ -1010,7 +1010,7 @@ func (runtime *serviceTestAgentRuntime) emitCompletedTurn(
 		Kind:           agent.ActivityKindImageGeneration,
 		Status:         "completed",
 		Title:          "Result file",
-		Summary:        "/tmp/result-" + base.ProviderTurnID + ".md",
+		SavedPath:      stringPointer("/tmp/result-" + base.ProviderTurnID + ".md"),
 	}
 	if err := sink.HandleAgentEvent(artifact); err != nil {
 		return agent.TurnResult{}, err

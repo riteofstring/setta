@@ -560,7 +560,7 @@ func applyProviderTerminalOutcome(
 		trajectory.Kind = TrajectoryEventTurnInterrupted
 		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: interruptionReason}
 	case agent.TurnOutcomeFailed:
-		failure := providerFailure("provider_turn_failed", event.Terminal.Error)
+		failure := providerFailure("provider_turn_failed")
 		turn.Status = TurnStatusFailed
 		turn.Error = &failure
 		turn.ResolvedInvocation = invocationPointerValue(terminalInvocation(*turn.ResolvedInvocation, InvocationOutcomeFailed, now, &failure))
@@ -622,10 +622,10 @@ func invocationPointerValue(value ResolvedInvocation) *ResolvedInvocation {
 	return &value
 }
 
-func providerFailure(code string, message *string) Failure {
-	text := "provider turn failed"
-	if message != nil && *message != "" {
-		text = *message
+func providerFailure(code string) Failure {
+	return Failure{
+		Code:      code,
+		Message:   "The provider could not complete this run. Try again.",
+		Retryable: true,
 	}
-	return Failure{Code: code, Message: text, Retryable: true}
 }

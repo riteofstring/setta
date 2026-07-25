@@ -44,6 +44,13 @@ func ValidateDirectorSnapshot(snapshot DirectorSnapshot) error {
 	if len(snapshot.Workstreams) > MaxSnapshotWorkstreams {
 		return fmt.Errorf("director snapshot holds %d workstreams, max %d", len(snapshot.Workstreams), MaxSnapshotWorkstreams)
 	}
+	if snapshot.Workstreams == nil ||
+		snapshot.Graphs == nil ||
+		snapshot.UnresolvedApprovals == nil ||
+		snapshot.UnresolvedResourceRequests == nil ||
+		snapshot.Artifacts == nil {
+		return fmt.Errorf("director snapshot collection fields must be arrays, not null")
+	}
 	authority, err := validateSnapshotWorkstreams(snapshot)
 	if err != nil {
 		return err
@@ -55,6 +62,9 @@ func ValidateDirectorSnapshot(snapshot DirectorSnapshot) error {
 		return err
 	}
 	if err := validateAggregates(snapshot.Aggregates); err != nil {
+		return err
+	}
+	if err := validateSnapshotAggregateConsistency(snapshot); err != nil {
 		return err
 	}
 	if err := validateConnectionState(snapshot.Connection); err != nil {
@@ -156,14 +166,30 @@ func validateSnapshotGraphs(snapshot DirectorSnapshot, authority GraphAuthority)
 				level,
 			)
 		}
-		if len(graph.Nodes) > MaxSnapshotGraphNodes {
-			return fmt.Errorf("workstream graph %s holds %d nodes, max %d", graph.WorkstreamID, len(graph.Nodes), MaxSnapshotGraphNodes)
+		maxNodes := MaxSnapshotGraphNodes
+		if graph.DetailLevel == WorkstreamDetailAdjacent {
+			maxNodes = MaxSnapshotAdjacentGraphNodes
+		}
+		if len(graph.Nodes) > maxNodes {
+			return fmt.Errorf("workstream graph %s holds %d nodes, max %d", graph.WorkstreamID, len(graph.Nodes), maxNodes)
 		}
 		if len(graph.Edges) > MaxSnapshotGraphEdges {
 			return fmt.Errorf("workstream graph %s holds %d edges, max %d", graph.WorkstreamID, len(graph.Edges), MaxSnapshotGraphEdges)
 		}
 		if err := ValidateWorkstreamGraph(graph, authority); err != nil {
 			return err
+		}
+	}
+	for workstreamID, level := range detailLevels {
+		switch level {
+		case WorkstreamDetailSelected, WorkstreamDetailAdjacent:
+			if !seen[workstreamID] {
+				return fmt.Errorf("director snapshot is missing the %s graph for workstream %q", level, workstreamID)
+			}
+		case WorkstreamDetailBackground:
+			if seen[workstreamID] {
+				return fmt.Errorf("director snapshot includes a graph for background workstream %q", workstreamID)
+			}
 		}
 	}
 	return nil
@@ -183,10 +209,15 @@ func validateSnapshotApprovals(approvals []ApprovalRequest, authority GraphAutho
 	if len(approvals) > MaxSnapshotApprovals {
 		return fmt.Errorf("director snapshot holds %d unresolved approvals, max %d", len(approvals), MaxSnapshotApprovals)
 	}
+	seen := make(map[string]bool, len(approvals))
 	for _, approval := range approvals {
 		if err := ValidateApprovalRequest(approval); err != nil {
 			return err
 		}
+		if seen[approval.ID] {
+			return fmt.Errorf("director snapshot repeats approval %q", approval.ID)
+		}
+		seen[approval.ID] = true
 		if approval.Status != ApprovalStatusPending {
 			return fmt.Errorf("director snapshot lists resolved approval %s as unresolved", approval.ID)
 		}
@@ -205,10 +236,15 @@ func validateSnapshotResourceRequests(requests []ResourceRequest, authority Grap
 			MaxSnapshotResourceRequests,
 		)
 	}
+	seen := make(map[string]bool, len(requests))
 	for _, request := range requests {
 		if err := ValidateResourceRequest(request); err != nil {
 			return err
 		}
+		if seen[request.ID] {
+			return fmt.Errorf("director snapshot repeats resource request %q", request.ID)
+		}
+		seen[request.ID] = true
 		if request.Status != ResourceRequestStatusRequested {
 			return fmt.Errorf("director snapshot lists resolved resource request %s as unresolved", request.ID)
 		}
@@ -223,10 +259,15 @@ func validateSnapshotArtifacts(artifacts []WorkstreamArtifact, authority GraphAu
 	if len(artifacts) > MaxSnapshotArtifacts {
 		return fmt.Errorf("director snapshot holds %d artifacts, max %d", len(artifacts), MaxSnapshotArtifacts)
 	}
+	seen := make(map[string]bool, len(artifacts))
 	for _, artifact := range artifacts {
 		if err := ValidateWorkstreamArtifact(artifact); err != nil {
 			return err
 		}
+		if seen[artifact.ID] {
+			return fmt.Errorf("director snapshot repeats artifact %q", artifact.ID)
+		}
+		seen[artifact.ID] = true
 		if !authority.knowsWorkstream(artifact.WorkstreamID) {
 			return fmt.Errorf("artifact %s references workstream %q outside the window", artifact.ID, artifact.WorkstreamID)
 		}
@@ -250,6 +291,205 @@ func validateAggregates(aggregates DirectorAggregates) error {
 	for label, count := range counts {
 		if err := validateCount(label, count); err != nil {
 			return err
+		}
+	}
+	for label, count := range map[string]int{
+		"running":           aggregates.RunningCount,
+		"queued":            aggregates.QueuedCount,
+		"blocked":           aggregates.BlockedCount,
+		"awaiting approval": aggregates.AwaitingApprovalCount,
+		"awaiting resource": aggregates.AwaitingResourceCount,
+		"failed":            aggregates.FailedCount,
+	} {
+		if count > aggregates.WorkstreamCount {
+			return fmt.Errorf(
+				"director aggregate %s count %d is above workstream count %d",
+				label,
+				count,
+				aggregates.WorkstreamCount,
+			)
+		}
+	}
+	return nil
+}
+
+func validateSnapshotAggregateConsistency(snapshot DirectorSnapshot) error {
+	visibleWorkstreams := len(snapshot.Workstreams)
+	if snapshot.Aggregates.WorkstreamCount < visibleWorkstreams {
+		return fmt.Errorf(
+			"director aggregate workstream count %d is below the %d workstreams in the snapshot",
+			snapshot.Aggregates.WorkstreamCount,
+			visibleWorkstreams,
+		)
+	}
+	hasMore := snapshot.Aggregates.WorkstreamCount > visibleWorkstreams
+	if snapshot.HasMoreWorkstreams != hasMore {
+		return fmt.Errorf(
+			"director snapshot hasMoreWorkstreams is %t with %d visible of %d aggregate workstreams",
+			snapshot.HasMoreWorkstreams,
+			visibleWorkstreams,
+			snapshot.Aggregates.WorkstreamCount,
+		)
+	}
+	if snapshot.Aggregates.UnresolvedApprovalCount < len(snapshot.UnresolvedApprovals) {
+		return fmt.Errorf(
+			"director aggregate unresolved approval count %d is below the %d visible approvals",
+			snapshot.Aggregates.UnresolvedApprovalCount,
+			len(snapshot.UnresolvedApprovals),
+		)
+	}
+	if snapshot.Aggregates.UnresolvedResourceRequestCount < len(snapshot.UnresolvedResourceRequests) {
+		return fmt.Errorf(
+			"director aggregate unresolved resource request count %d is below the %d visible requests",
+			snapshot.Aggregates.UnresolvedResourceRequestCount,
+			len(snapshot.UnresolvedResourceRequests),
+		)
+	}
+	if snapshot.Aggregates.ArtifactCount < len(snapshot.Artifacts) {
+		return fmt.Errorf(
+			"director aggregate artifact count %d is below the %d visible artifacts",
+			snapshot.Aggregates.ArtifactCount,
+			len(snapshot.Artifacts),
+		)
+	}
+	visibleRunningCount := 0
+	visibleQueuedCount := 0
+	visibleBlockedCount := 0
+	visibleAwaitingApprovalCount := 0
+	visibleAwaitingResourceCount := 0
+	visibleFailedCount := 0
+	visibleApprovalCount := 0
+	visibleResourceRequestCount := 0
+	visibleArtifactCount := 0
+	approvalCountsByWorkstream := map[string]int{}
+	resourceRequestCountsByWorkstream := map[string]int{}
+	artifactCountsByWorkstream := map[string]int{}
+	for _, entry := range snapshot.Workstreams {
+		workstream := entry.Workstream
+		if workstream.ActiveRunID != nil {
+			visibleRunningCount++
+		}
+		if workstream.QueuedRunCount > 0 {
+			visibleQueuedCount++
+		}
+		if workstream.Status == WorkstreamStatusBlocked {
+			visibleBlockedCount++
+		}
+		if workstream.UnresolvedApprovalCount > 0 {
+			visibleAwaitingApprovalCount++
+		}
+		if workstream.UnresolvedResourceRequestCount > 0 {
+			visibleAwaitingResourceCount++
+		}
+		if workstream.Status == WorkstreamStatusFailed {
+			visibleFailedCount++
+		}
+		visibleApprovalCount += workstream.UnresolvedApprovalCount
+		visibleResourceRequestCount += workstream.UnresolvedResourceRequestCount
+		visibleArtifactCount += workstream.ArtifactCount
+		approvalCountsByWorkstream[workstream.ID] = workstream.UnresolvedApprovalCount
+		resourceRequestCountsByWorkstream[workstream.ID] = workstream.UnresolvedResourceRequestCount
+		artifactCountsByWorkstream[workstream.ID] = workstream.ArtifactCount
+	}
+	listedApprovalCounts := map[string]int{}
+	for _, approval := range snapshot.UnresolvedApprovals {
+		listedApprovalCounts[approval.WorkstreamID]++
+	}
+	listedResourceRequestCounts := map[string]int{}
+	for _, request := range snapshot.UnresolvedResourceRequests {
+		listedResourceRequestCounts[request.WorkstreamID]++
+	}
+	listedArtifactCounts := map[string]int{}
+	for _, artifact := range snapshot.Artifacts {
+		listedArtifactCounts[artifact.WorkstreamID]++
+	}
+	for _, collection := range []struct {
+		label            string
+		listed           int
+		visible          int
+		maximum          int
+		listedByOwner    map[string]int
+		availableByOwner map[string]int
+	}{
+		{
+			label:            "unresolved approval",
+			listed:           len(snapshot.UnresolvedApprovals),
+			visible:          visibleApprovalCount,
+			maximum:          MaxSnapshotApprovals,
+			listedByOwner:    listedApprovalCounts,
+			availableByOwner: approvalCountsByWorkstream,
+		},
+		{
+			label:            "unresolved resource request",
+			listed:           len(snapshot.UnresolvedResourceRequests),
+			visible:          visibleResourceRequestCount,
+			maximum:          MaxSnapshotResourceRequests,
+			listedByOwner:    listedResourceRequestCounts,
+			availableByOwner: resourceRequestCountsByWorkstream,
+		},
+		{
+			label:            "artifact",
+			listed:           len(snapshot.Artifacts),
+			visible:          visibleArtifactCount,
+			maximum:          MaxSnapshotArtifacts,
+			listedByOwner:    listedArtifactCounts,
+			availableByOwner: artifactCountsByWorkstream,
+		},
+	} {
+		expected := collection.visible
+		if expected > collection.maximum {
+			expected = collection.maximum
+		}
+		if collection.listed != expected {
+			return fmt.Errorf(
+				"director snapshot lists %d %ss, want %d for the visible bounded window",
+				collection.listed,
+				collection.label,
+				expected,
+			)
+		}
+		for workstreamID, listed := range collection.listedByOwner {
+			if available := collection.availableByOwner[workstreamID]; listed > available {
+				return fmt.Errorf(
+					"director snapshot lists %d %ss for workstream %s, which reports %d",
+					listed,
+					collection.label,
+					workstreamID,
+					available,
+				)
+			}
+		}
+	}
+	for _, count := range []struct {
+		label     string
+		aggregate int
+		visible   int
+	}{
+		{"running", snapshot.Aggregates.RunningCount, visibleRunningCount},
+		{"queued", snapshot.Aggregates.QueuedCount, visibleQueuedCount},
+		{"blocked", snapshot.Aggregates.BlockedCount, visibleBlockedCount},
+		{"awaiting approval", snapshot.Aggregates.AwaitingApprovalCount, visibleAwaitingApprovalCount},
+		{"awaiting resource", snapshot.Aggregates.AwaitingResourceCount, visibleAwaitingResourceCount},
+		{"failed", snapshot.Aggregates.FailedCount, visibleFailedCount},
+		{"unresolved approval", snapshot.Aggregates.UnresolvedApprovalCount, visibleApprovalCount},
+		{"unresolved resource request", snapshot.Aggregates.UnresolvedResourceRequestCount, visibleResourceRequestCount},
+		{"artifact", snapshot.Aggregates.ArtifactCount, visibleArtifactCount},
+	} {
+		if count.aggregate < count.visible {
+			return fmt.Errorf(
+				"director aggregate %s count %d is below the visible count %d",
+				count.label,
+				count.aggregate,
+				count.visible,
+			)
+		}
+		if !hasMore && count.aggregate != count.visible {
+			return fmt.Errorf(
+				"director aggregate %s count %d differs from the complete visible count %d",
+				count.label,
+				count.aggregate,
+				count.visible,
+			)
 		}
 	}
 	return nil
@@ -374,16 +614,48 @@ func validateGraphUpdatedPayload(payload DirectorGraphUpdatedPayload) error {
 	if !isWorkstreamDetailLevel(payload.DetailLevel) {
 		return fmt.Errorf("director graph event has unknown detail level %q", payload.DetailLevel)
 	}
-	if payload.DetailLevel == WorkstreamDetailBackground && (len(payload.Nodes) > 0 || len(payload.Edges) > 0) {
+	if payload.Nodes == nil || payload.Edges == nil || payload.RemovedNodeIDs == nil {
+		return fmt.Errorf("director graph event collections must be arrays, not null")
+	}
+	if payload.DetailLevel == WorkstreamDetailBackground &&
+		(len(payload.Nodes) > 0 || len(payload.Edges) > 0 || len(payload.RemovedNodeIDs) > 0) {
 		return fmt.Errorf("background workstream %s must not receive graph content", payload.WorkstreamID)
+	}
+	if payload.DetailLevel == WorkstreamDetailBackground {
+		return fmt.Errorf("background workstream %s must receive aggregate updates instead of graph events", payload.WorkstreamID)
 	}
 	if len(payload.Nodes) == 0 && len(payload.Edges) == 0 && len(payload.RemovedNodeIDs) == 0 {
 		return fmt.Errorf("director graph event for workstream %s changes nothing", payload.WorkstreamID)
 	}
-	return validateGraphDeltaOwnership(payload)
+	maxNodes := MaxSnapshotGraphNodes
+	if payload.DetailLevel == WorkstreamDetailAdjacent {
+		maxNodes = MaxSnapshotAdjacentGraphNodes
+	}
+	if len(payload.Nodes) > maxNodes {
+		return fmt.Errorf("director graph event for workstream %s holds %d nodes, max %d", payload.WorkstreamID, len(payload.Nodes), maxNodes)
+	}
+	if len(payload.RemovedNodeIDs) > maxNodes {
+		return fmt.Errorf(
+			"director graph event for workstream %s removes %d nodes, max %d",
+			payload.WorkstreamID,
+			len(payload.RemovedNodeIDs),
+			maxNodes,
+		)
+	}
+	if len(payload.Edges) > MaxSnapshotGraphEdges {
+		return fmt.Errorf(
+			"director graph event for workstream %s holds %d edges, max %d",
+			payload.WorkstreamID,
+			len(payload.Edges),
+			MaxSnapshotGraphEdges,
+		)
+	}
+	return validateGraphDelta(payload)
 }
 
-func validateGraphDeltaOwnership(payload DirectorGraphUpdatedPayload) error {
+func validateGraphDelta(payload DirectorGraphUpdatedPayload) error {
+	authority := GraphAuthority{WorkstreamParents: map[string]*string{payload.WorkstreamID: nil}}
+	nodeIDs := make(map[string]bool, len(payload.Nodes))
 	for _, node := range payload.Nodes {
 		if node.WorkstreamID != payload.WorkstreamID {
 			return fmt.Errorf(
@@ -393,7 +665,15 @@ func validateGraphDeltaOwnership(payload DirectorGraphUpdatedPayload) error {
 				node.WorkstreamID,
 			)
 		}
+		if nodeIDs[node.ID] {
+			return fmt.Errorf("director graph event for workstream %s repeats node %q", payload.WorkstreamID, node.ID)
+		}
+		nodeIDs[node.ID] = true
+		if err := ValidateSemanticNode(node, authority); err != nil {
+			return err
+		}
 	}
+	edgeIDs := make(map[string]bool, len(payload.Edges))
 	for _, edge := range payload.Edges {
 		if edge.FromWorkstreamID != payload.WorkstreamID {
 			return fmt.Errorf(
@@ -403,10 +683,39 @@ func validateGraphDeltaOwnership(payload DirectorGraphUpdatedPayload) error {
 				edge.FromWorkstreamID,
 			)
 		}
+		if edgeIDs[edge.ID] {
+			return fmt.Errorf("director graph event for workstream %s repeats edge %q", payload.WorkstreamID, edge.ID)
+		}
+		edgeIDs[edge.ID] = true
+		edgeAuthority := authority
+		if edge.ToWorkstreamID != payload.WorkstreamID {
+			parent := payload.WorkstreamID
+			edgeAuthority.WorkstreamParents = map[string]*string{
+				payload.WorkstreamID: nil,
+				edge.ToWorkstreamID:  &parent,
+			}
+		}
+		if err := ValidateSemanticEdge(edge, edgeAuthority); err != nil {
+			return err
+		}
 	}
+	removed := make(map[string]bool, len(payload.RemovedNodeIDs))
 	for index, nodeID := range payload.RemovedNodeIDs {
 		if err := validateIdentifier(fmt.Sprintf("director graph removed node id %d", index), nodeID); err != nil {
 			return err
+		}
+		if removed[nodeID] {
+			return fmt.Errorf("director graph event for workstream %s repeats removed node %q", payload.WorkstreamID, nodeID)
+		}
+		if nodeIDs[nodeID] {
+			return fmt.Errorf("director graph event for workstream %s both updates and removes node %q", payload.WorkstreamID, nodeID)
+		}
+		removed[nodeID] = true
+	}
+	for _, edge := range payload.Edges {
+		if removed[edge.FromNodeID] ||
+			(edge.ToWorkstreamID == payload.WorkstreamID && removed[edge.ToNodeID]) {
+			return fmt.Errorf("director graph event edge %s references a node removed by the same event", edge.ID)
 		}
 	}
 	return nil

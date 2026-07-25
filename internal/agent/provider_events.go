@@ -13,33 +13,22 @@ import (
 func (runtime *Runtime) handleProviderEvent(ctx context.Context, providerEvent codexapp.Event, base Event, sink EventSink) (TurnResult, bool, error) {
 	switch providerEvent.Kind {
 	case codexapp.EventLifecycle:
-		message := "provider lifecycle changed"
-		if providerEvent.Err != nil {
-			message = providerEvent.Err.Error()
-		}
 		event := base
 		event.Kind = EventKindLifecycleChanged
 		event.Lifecycle = &LifecycleEvent{
 			State:  LifecycleStateUnavailable,
 			Reason: LifecycleReasonSessionFailed,
-			Error:  &message,
 		}
 		if err := emitAgentEvent(sink, event); err != nil {
 			return TurnResult{}, false, err
 		}
-		return TurnResult{}, false, fmt.Errorf("agent provider lifecycle failed: %s", message)
+		return TurnResult{}, false, &ProviderLifecycleError{Err: providerEvent.Err}
 	case codexapp.EventLag:
-		// Dropped provider events mean the durable stream of this run is
-		// incomplete, so the run needs reconciliation rather than more output.
-		lagMessage := "provider event stream fell behind"
-		event := base
-		event.Kind = EventKindLifecycleChanged
-		event.Lifecycle = &LifecycleEvent{
-			State:  LifecycleStateUnavailable,
-			Reason: LifecycleReasonEventLag,
-			Error:  &lagMessage,
-		}
-		return TurnResult{}, false, emitAgentEvent(sink, event)
+		// Lag markers only summarize dropped best-effort text or process-output
+		// deltas. Lossless semantic notifications are backpressured by the
+		// session manager, so lag is detail-surface telemetry, not lifecycle
+		// evidence that can block the run.
+		return TurnResult{}, false, nil
 	case codexapp.EventRequest:
 		if providerEvent.Message.Method == codexapp.CodexServerRequestItemToolCall {
 			return runtime.handleDynamicToolCall(ctx, providerEvent.Message, base)
@@ -161,10 +150,23 @@ func (runtime *Runtime) handleProviderNotification(message codexapp.Message, bas
 	if err != nil {
 		return TurnResult{}, false, err
 	}
+	supersededApprovalID := ""
+	for _, event := range events {
+		if event.Kind == EventKindApprovalSuperseded && event.ApprovalSuperseded != nil {
+			supersededApprovalID = event.ApprovalSuperseded.ApprovalID
+			break
+		}
+	}
 	for _, event := range events {
 		if err := emitAgentEvent(sink, event); err != nil {
+			if supersededApprovalID != "" {
+				runtime.finishPendingApprovalSuperseded(supersededApprovalID, false)
+			}
 			return TurnResult{}, false, err
 		}
+	}
+	if supersededApprovalID != "" {
+		runtime.finishPendingApprovalSuperseded(supersededApprovalID, true)
 	}
 	if terminal == nil {
 		return TurnResult{}, false, nil
@@ -193,6 +195,7 @@ type providerNotificationHandler func(*Runtime, []byte, Event) ([]Event, *Termin
 var providerNotificationHandlers = map[string]providerNotificationHandler{
 	codexapp.CodexNotificationTurnStarted:                             ignoreRuntime(normalizeTurnStarted),
 	codexapp.CodexNotificationItemAgentMessageDelta:                   ignoreRuntime(normalizeAgentTextDelta),
+	codexapp.CodexNotificationItemReasoningSummaryPartAdded:           ignoreRuntime(normalizeReasoningSummaryPartAdded),
 	codexapp.CodexNotificationItemReasoningSummaryTextDelta:           ignoreRuntime(normalizeReasoningDelta),
 	codexapp.CodexNotificationTurnPlanUpdated:                         ignoreRuntime(normalizePlanUpdated),
 	codexapp.CodexNotificationItemStarted:                             ignoreRuntime(normalizeItemStarted),
@@ -248,6 +251,20 @@ func normalizeReasoningDelta(raw []byte, base Event) ([]Event, *TerminalEvent, e
 		return nil, nil, err
 	}
 	return normalizedTextDelta(base, notification.ThreadID, notification.TurnID, notification.ItemId, notification.Delta, EventKindReasoningSummary)
+}
+
+// normalizeReasoningSummaryPartAdded validates the boundary and scope of a
+// public reasoning-summary part. The notification carries no text or durable
+// state of its own, so the completed summary and text deltas remain its owners.
+func normalizeReasoningSummaryPartAdded(raw []byte, base Event) ([]Event, *TerminalEvent, error) {
+	notification, err := codexapp.DecodeReasoningSummaryPartAddedNotification(raw)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := requireProviderScope(base, notification.ThreadID, notification.TurnID); err != nil {
+		return nil, nil, err
+	}
+	return nil, nil, nil
 }
 
 func normalizedTextDelta(base Event, threadID string, turnID string, itemID string, text string, kind EventKind) ([]Event, *TerminalEvent, error) {
@@ -406,9 +423,14 @@ func normalizeFilePatchUpdated(raw []byte, base Event) ([]Event, *TerminalEvent,
 	if err != nil {
 		return nil, nil, err
 	}
+	changes, err := providerFileChanges(notification.Changes)
+	if err != nil {
+		return nil, nil, err
+	}
 	return normalizedActivityUpdate(base, notification.ThreadID, notification.TurnID, ActivityEvent{
 		ProviderItemID: notification.ItemId, Kind: ActivityKindFileChange,
 		Status: "in_progress", Title: fmt.Sprintf("Updating %d file(s)", len(notification.Changes)),
+		FileChanges: changes,
 	})
 }
 
@@ -464,14 +486,17 @@ func normalizeProviderError(raw []byte, base Event) ([]Event, *TerminalEvent, er
 	if err := requireProviderScope(base, notification.ThreadID, notification.TurnID); err != nil {
 		return nil, nil, err
 	}
-	message := notification.Error.Message
 	event := base
 	event.Kind = EventKindLifecycleChanged
-	event.Lifecycle = &LifecycleEvent{
+	lifecycle := LifecycleEvent{
 		State:  LifecycleStateUnavailable,
-		Reason: LifecycleReasonTurnError,
-		Error:  &message,
+		Reason: LifecycleReasonTurnFailed,
 	}
+	if notification.WillRetry {
+		lifecycle.State = LifecycleStateRestarting
+		lifecycle.Reason = LifecycleReasonTurnRetrying
+	}
+	event.Lifecycle = &lifecycle
 	return []Event{event}, nil, nil
 }
 

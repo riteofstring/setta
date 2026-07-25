@@ -17,13 +17,6 @@ import (
 // of them reaches the product as raw provider text.
 
 const (
-	threadIdleSummary          = "Provider thread is idle"
-	threadActiveSummary        = "Provider thread is active"
-	threadNotLoadedSummary     = "Provider thread is not loaded"
-	threadSystemErrorSummary   = "Provider thread reported a system error"
-	threadClosedSummary        = "Provider thread was closed"
-	environmentUpSummary       = "Execution environment connected"
-	environmentDownSummary     = "Execution environment disconnected"
 	guardianReviewSummary      = "Automatic approval review"
 	modelVerificationSummary   = "Extra model safety verification is applied to this run"
 	guardianRiskPattern        = "%s (risk %s)"
@@ -39,27 +32,26 @@ func normalizeThreadStatusChanged(raw []byte, base Event) ([]Event, *TerminalEve
 	if err != nil {
 		return nil, nil, err
 	}
-	state, summary, err := threadStatusLifecycle(notification.Status)
+	state, reason, err := threadStatusLifecycle(notification.Status)
 	if err != nil {
 		return nil, nil, err
 	}
 	return normalizedLifecycle(base, notification.ThreadID, LifecycleEvent{
 		State:  state,
-		Reason: LifecycleReasonThreadStatus,
-		Error:  stringPointer(summary),
+		Reason: reason,
 	})
 }
 
-func threadStatusLifecycle(status codexapp.ThreadStatus) (LifecycleState, string, error) {
+func threadStatusLifecycle(status codexapp.ThreadStatus) (LifecycleState, LifecycleReason, error) {
 	switch status.Type {
 	case codexapp.ThreadStatusTypeIdle:
-		return LifecycleStateReady, threadIdleSummary, nil
+		return LifecycleStateReady, LifecycleReasonThreadIdle, nil
 	case codexapp.ThreadStatusTypeActive:
-		return LifecycleStateReady, threadActiveSummary, nil
+		return LifecycleStateReady, LifecycleReasonThreadActive, nil
 	case codexapp.ThreadStatusTypeNotLoaded:
-		return LifecycleStateUnavailable, threadNotLoadedSummary, nil
+		return LifecycleStateUnavailable, LifecycleReasonThreadNotLoaded, nil
 	case codexapp.ThreadStatusTypeSystemError:
-		return LifecycleStateUnavailable, threadSystemErrorSummary, nil
+		return LifecycleStateUnavailable, LifecycleReasonThreadSystemError, nil
 	default:
 		return "", "", fmt.Errorf("unsupported provider thread status %q", status.Type)
 	}
@@ -75,7 +67,6 @@ func normalizeEnvironmentConnected(raw []byte, base Event) ([]Event, *TerminalEv
 	return normalizedLifecycle(base, notification.ThreadID, LifecycleEvent{
 		State:  LifecycleStateReady,
 		Reason: LifecycleReasonEnvironmentConnected,
-		Error:  stringPointer(environmentUpSummary),
 	})
 }
 
@@ -90,7 +81,6 @@ func normalizeEnvironmentDisconnected(raw []byte, base Event) ([]Event, *Termina
 	return normalizedLifecycle(base, notification.ThreadID, LifecycleEvent{
 		State:  LifecycleStateUnavailable,
 		Reason: LifecycleReasonEnvironmentDisconnected,
-		Error:  stringPointer(environmentDownSummary),
 	})
 }
 
@@ -105,7 +95,6 @@ func normalizeThreadClosed(raw []byte, base Event) ([]Event, *TerminalEvent, err
 	return normalizedLifecycle(base, notification.ThreadID, LifecycleEvent{
 		State:  LifecycleStateClosed,
 		Reason: LifecycleReasonThreadClosed,
-		Error:  stringPointer(threadClosedSummary),
 	})
 }
 
@@ -180,12 +169,17 @@ func normalizedGuardianReview(
 	if err != nil {
 		return nil, nil, err
 	}
+	risk, err := guardianReviewRisk(review.RiskLevel)
+	if err != nil {
+		return nil, nil, err
+	}
 	return normalizedValidation(base, ValidationEvent{
 		ID:      reviewID,
 		Kind:    ValidationKindGuardianReview,
 		Status:  status,
+		Risk:    risk,
 		Subject: cloneString(targetItemID),
-		Summary: guardianReviewSummaryText(review),
+		Summary: guardianReviewSummaryText(status, risk),
 	})
 }
 
@@ -206,18 +200,45 @@ func guardianReviewStatus(status codexapp.GuardianApprovalReviewStatus) (Validat
 	}
 }
 
-// guardianReviewSummaryText prefers the provider's own rationale, because it is
-// the only text that says why the review decided what it did. The typed risk
-// level is appended rather than parsed out of that sentence.
-func guardianReviewSummaryText(review codexapp.GuardianApprovalReview) string {
+// guardianReviewSummaryText is built only from typed status and risk. The
+// unstable provider rationale is not a trusted public contract and never
+// crosses the adapter.
+func guardianReviewSummaryText(status ValidationStatus, risk *ValidationRisk) string {
 	summary := guardianReviewSummary
-	if review.Rationale != nil && strings.TrimSpace(*review.Rationale) != "" {
-		summary = strings.TrimSpace(*review.Rationale)
+	switch status {
+	case ValidationStatusInProgress:
+		summary += " is in progress"
+	case ValidationStatusPassed:
+		summary += " passed"
+	case ValidationStatusFailed:
+		summary += " failed"
+	case ValidationStatusInconclusive:
+		summary += " ended without a verdict"
 	}
-	if review.RiskLevel == nil {
+	if risk == nil {
 		return summary
 	}
-	return fmt.Sprintf(guardianRiskPattern, summary, *review.RiskLevel)
+	return fmt.Sprintf(guardianRiskPattern, summary, *risk)
+}
+
+func guardianReviewRisk(risk *codexapp.GuardianRiskLevel) (*ValidationRisk, error) {
+	if risk == nil {
+		return nil, nil
+	}
+	var value ValidationRisk
+	switch *risk {
+	case codexapp.GuardianRiskLevelLow:
+		value = ValidationRiskLow
+	case codexapp.GuardianRiskLevelMedium:
+		value = ValidationRiskMedium
+	case codexapp.GuardianRiskLevelHigh:
+		value = ValidationRiskHigh
+	case codexapp.GuardianRiskLevelCritical:
+		value = ValidationRiskCritical
+	default:
+		return nil, fmt.Errorf("unsupported provider Guardian risk %q", *risk)
+	}
+	return &value, nil
 }
 
 // normalizeModelVerification records the extra safety verification the provider
@@ -276,7 +297,7 @@ func normalizeServerRequestResolved(runtime *Runtime, raw []byte, base Event) ([
 	if err != nil {
 		return nil, nil, err
 	}
-	if !runtime.dropPendingApproval(requestID, base.ConversationID) {
+	if !runtime.markPendingApprovalSuperseded(requestID, base.ConversationID) {
 		return nil, nil, nil
 	}
 	event := base
@@ -297,16 +318,32 @@ func providerRequestIDFromNotification(raw codexapp.RequestId) (string, error) {
 	return providerRequestID(value)
 }
 
-// dropPendingApproval forgets a request the provider already resolved, so a
-// later user answer cannot be sent to a request the app server has closed. It
-// reports whether this app was still waiting on it.
-func (runtime *Runtime) dropPendingApproval(requestID string, conversationID string) bool {
+// markPendingApprovalSuperseded makes a provider-resolved request unanswerable
+// while its durable resolution is committed. The request is removed only after
+// the sink accepts that lossless event.
+func (runtime *Runtime) markPendingApprovalSuperseded(requestID string, conversationID string) bool {
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
 	pending, waiting := runtime.pending[requestID]
-	if !waiting || pending.conversationID != conversationID {
+	if !waiting || pending.conversationID != conversationID || pending.superseded {
 		return false
 	}
-	delete(runtime.pending, requestID)
+	pending.superseded = true
+	runtime.pending[requestID] = pending
 	return true
+}
+
+func (runtime *Runtime) finishPendingApprovalSuperseded(requestID string, committed bool) {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	pending, waiting := runtime.pending[requestID]
+	if !waiting || !pending.superseded {
+		return
+	}
+	if committed {
+		delete(runtime.pending, requestID)
+		return
+	}
+	pending.superseded = false
+	runtime.pending[requestID] = pending
 }

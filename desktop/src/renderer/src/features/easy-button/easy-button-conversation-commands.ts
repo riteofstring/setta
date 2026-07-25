@@ -876,9 +876,10 @@ export async function requestEasyButtonPaneClose({
 }): Promise<{ removePane: boolean }> {
   const creationWasPending = await waitForPendingSideCreation(workspaceId, conversationId, paneId);
   const snapshot = await window.setta.conversations.read({ conversationId, workspaceId });
-  hydrateConversationProjectionSnapshot(snapshot);
   const side = openSideConversationForPane(snapshot, paneId);
   if (!side) {
+    // Do not hydrate a surface that is about to unmount; that render can overtake
+    // projection cleanup and leave its event stream retained without a pane.
     cancelPaneSpeechCapture(speechCapture, workspaceId, conversationId, paneId);
     return { removePane: true };
   }
@@ -887,6 +888,7 @@ export async function requestEasyButtonPaneClose({
     !creationWasPending &&
     !confirm("End the active side conversation and close this pane?")
   ) {
+    hydrateConversationProjectionSnapshot(snapshot);
     return { removePane: false };
   }
   const disposed = await requireConversationCommand("disposeSide")({
