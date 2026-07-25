@@ -57,6 +57,11 @@
     padding: 3px 9px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     background: color-mix(in oklch, var(--bg) 86%, transparent); transition: opacity 0.28s ease; }   /* solid tint (no backdrop-filter); opacity animates the show->fade */
   .nl-reason { color: var(--muted); border: 1px solid var(--border); font-size: 11.5px; max-width: 260px; }
+  .multi-cols .nlabel { font-size: 11px; }
+  .multi-cols .nl-outcome { max-width: 210px; }
+  .nl-coltitle { position: absolute; transform: translateX(-50%); font: 10px var(--sans); text-transform: uppercase;
+    letter-spacing: 0.13em; color: var(--faint); white-space: nowrap; pointer-events: none; }
+  .nl-coltitle.focus { color: var(--accent-teal); }
   .nl-you { border-color: color-mix(in oklch, var(--accent-teal) 34%, transparent); }
   .nl-you .nl-mark { color: var(--accent-teal); }
   .nlabel.nl-sticky { z-index: 9; background: color-mix(in oklch, var(--bg) 90%, transparent); border-color: color-mix(in oklch, var(--accent-teal) 55%, transparent); box-shadow: 0 6px 18px rgba(0,0,0,0.55); transition: top 120ms ease-out; }
@@ -233,6 +238,9 @@
   <div class="grp"><span>threads</span>
     <button data-tc="3" class="on">3</button><button data-tc="24">24</button><button data-tc="100">100</button>
   </div>
+  <div class="grp"><span>parallel</span>
+    <button data-pc="1" class="on">off</button><button data-pc="3">3</button><button data-pc="6">6</button>
+  </div>
   <div class="grp"><span>grid</span>
     <button data-th="1" class="on">off</button><button data-th="16">16</button><button data-th="64">64</button><button data-th="100">100</button>
   </div>
@@ -281,17 +289,17 @@ const STEP=0.20, POP=0.38, FAIL_DELAY=1.1;
 const RESP_H=0.34, TURN_GAP=0.42;          // expanded spacing: reason->response gap, and gap after an open turn
 const COLLAPSE_GAP=0.18;                    // folded gap between outcome nodes (room for the question label under each)
 let INTERVAL=5.5, DEAD_INTERVAL=4.0;   // node dwell (driven by the speed slider, default slowest); animation durations stay fixed
-let collapseMode='ladder', labelMode='auto', bgStyle=1, threadCount=1;   // dev-panel variations; fluid field is the default now
+let collapseMode='ladder', labelMode='auto', bgStyle=1, threadCount=1, parallelCols=1;   // dev-panel variations; fluid field is the default now
 function laneOffsets(K){if(K<=1)return[0];const s=0.30,st=-(K-1)/2*s,o=[];for(let i=0;i<K;i++)o.push(st+i*s);return o;}
 
 // A conversation is a THREAD of turns. Each turn is user-input node -> live reasoning graph -> final
 // response node. Positions are computed dynamically each frame (see layout()) so the reasoning graph can
 // collapse into a clean user/AI ladder once the answer is logged, and re-expand from stored data on click.
-function build(conv){
-  const nodes=[],edges=[],turns=[]; let clock=0;
+function addThread(conv, nodes, edges, turns, col, xOff, xScale, clock0){
+  let clock=clock0;
   const mk=(role,ti,x,label,mode,born,localY,fails)=>{ const md=M[mode]!==undefined?M[mode]:mode;
-    const id=nodes.length;
-    nodes.push({id,role,turn:ti,x,baseX:x,label,mode:md,born,
+    const id=nodes.length; const px=xOff+x*xScale;
+    nodes.push({id,role,turn:ti,col,x:px,baseX:px,label,mode:md,born,
       settleAt:born+(fails?FAIL_DELAY:INTERVAL*1.4), failAt:fails?FAIL_DELAY:999,
       localY:localY||0, worldY:0, alpha:1});
     return id; };
@@ -299,8 +307,9 @@ function build(conv){
     let conf=0.9; if(md===M.struggle) conf=0.45;
     edges.push({a,b,childBorn,mode:md,dead:!!dead,conf,spine:!!spine,turn:nodes[b].turn}); };
 
-  (conv.thread||[]).forEach((T,ti)=>{
-    const turn={index:ti,userId:-1,reasonIds:[],respId:-1,open:0,openTarget:0,manual:null,collapseStart:0,reasonSpan:0,answerAt:0};
+  (conv.thread||[]).forEach((T)=>{
+    const ti=turns.length;                                       // global turn index (columns share one turns array)
+    const turn={index:ti,col,userId:-1,reasonIds:[],respId:-1,open:0,openTarget:0,manual:null,collapseStart:0,reasonSpan:0,answerAt:0};
     const uborn=clock; clock+=INTERVAL;
     turn.userId=mk('user',ti,0,T.u,'listening',uborn,0);        // the listening node carries the user's input
     let tip=turn.userId, rrow=1, side=1;
@@ -337,12 +346,34 @@ function build(conv){
     turns.push(turn);
     clock+=INTERVAL*2;
   });
-  // working envelope: a node stops "working" once it has produced its next thought (ignoring the spine)
+  return clock;
+}
+// working envelope: a node stops "working" once it has produced its next thought (ignoring the spine)
+function settlePass(nodes,edges){
   const childBorn={};
   for(const e of edges){ if(e.spine) continue; const cb=nodes[e.b].born; if(childBorn[e.a]===undefined||cb<childBorn[e.a]) childBorn[e.a]=cb; }
   for(const n of nodes){ if(childBorn[n.id]!==undefined) n.settleAt=childBorn[n.id];
     if(n.failAt<900) n.settleAt=n.born+n.failAt; }
-  return {nodes,edges,turns,lastBorn:clock};
+}
+function build(conv){ const nodes=[],edges=[],turns=[];
+  const last=addThread(conv,nodes,edges,turns,0,0,1,0); settlePass(nodes,edges);
+  return {nodes,edges,turns,lastBorn:last}; }
+
+// Side-by-side view: K real threads (centred on the current one), each a full graph in its own column
+// that scrolls itself so every column's live edge lines up on screen.
+function buildMulti(K){
+  const nodes=[],edges=[],turns=[],cols=[]; const N=CONVS.length, start=convIdx-Math.floor(K/2);
+  const colW=1.3/K, xScale=Math.min(1, colW/0.85); let lastBorn=0;   // 1.3 keeps the columns clear of the side rails
+  for(let i=0;i<K;i++){
+    const conv=CONVS[((start+i)%N+N)%N];
+    const nFrom=nodes.length, tFrom=turns.length;
+    const lb=addThread(conv,nodes,edges,turns,i,(i-(K-1)/2)*colW,xScale,(i*2.7)%11);   // staggered so columns run out of phase
+    cols.push({i,nodeFrom:nFrom,nodeTo:nodes.length,turnFrom:tFrom,turnTo:turns.length,cam:0,title:conv.title,
+      xClip:(i-(K-1)/2)*colW, focus:(((start+i)%N+N)%N)===convIdx});
+    lastBorn=Math.max(lastBorn,lb);
+  }
+  settlePass(nodes,edges);
+  return {nodes,edges,turns,cols,multi:true,lastBorn};
 }
 
 // Parallel-threads view: N independent threads in a grid, each revealing on its own staggered clock.
@@ -798,12 +829,12 @@ const BOOT_CONV={ seed:7, thread:[
   {u:'ok fix it, but no compat shims', reason:'RUN', r:'Reordering now swaps adjacent panes in place; the two long tasks on overview pan are gone. Committed (+18 −6).'} ] };
 let activeConv=BOOT_CONV;
 function rebuild(){
-  const parallel=threadCount>1;
-  EDGE_SEG = parallel ? (threadCount>=64?3:5) : 12;                 // LOD: fewer edge segments with many threads
-  g = parallel ? buildParallel(threadCount) : build(activeConv);
+  const parallel=threadCount>1, multi=!parallel&&parallelCols>1;
+  EDGE_SEG = parallel ? (threadCount>=64?3:5) : (multi ? 7 : 12);    // LOD: fewer edge segments with many threads
+  g = parallel ? buildParallel(threadCount) : (multi ? buildMulti(parallelCols) : build(activeConv));
   // each node becomes a small particle system: core orbiters + emitted sparks (fixed randomness, positions animate)
   const rng=mulberry32((activeConv.seed||seed)*911+13);
-  const K = parallel ? (threadCount>=64?3:6) : 24;                  // LOD: fewer particles per node with many threads
+  const K = parallel ? (threadCount>=64?3:6) : (multi ? (parallelCols>3?8:14) : 24);   // LOD: fewer particles per node
   g.parts=[];
   for(const n of g.nodes){ for(let j=0;j<K;j++){
     let role,dx,dy,speed; const phase=rng();
@@ -817,7 +848,8 @@ function rebuild(){
   g.icons=g.nodes.map(n=>({n,icon:iconFor(n)}));
   g._IC=new Float32Array(g.nodes.length*6*10); g.icCount=g.nodes.length*6;
   layout(0); updateSceneBuffers();
-  if(parallel){ const c=document.getElementById('nodeLabels'); if(c) c.innerHTML=''; } else buildNodeLabels();
+  const lc=document.getElementById('nodeLabels'); if(lc) lc.classList.toggle('multi-cols', multi);
+  if(parallel){ if(lc) lc.innerHTML=''; } else buildNodeLabels();
 }
 // unified node labels: one system for every node — show the text, then fade out to just the icon (configurable)
 function buildNodeLabels(){ const c=document.getElementById('nodeLabels'); if(!c) return; c.innerHTML='';
@@ -833,7 +865,10 @@ function buildNodeLabels(){ const c=document.getElementById('nodeLabels'); if(!c
     const u=g.nodes[T.userId], r=g.nodes[T.respId];
     T.uLabel = pillFor(u,'nl-you','❯');
     for(const rid of T.reasonIds) g.nodes[rid].labelEl = mk('nlabel nl-reason', g.nodes[rid].label);
-    T.rLabel = pillFor(r, T.fail?'nl-fail':'nl-ok', T.fail?'✕':'✓'); } }
+    T.rLabel = pillFor(r, T.fail?'nl-fail':'nl-ok', T.fail?'✕':'✓'); }
+  if(g.multi) for(const C of g.cols){                                  // a heading per column so you know which thread is which
+    const el=document.createElement('div'); el.className='nl-coltitle'+(C.focus?' focus':'');
+    el.textContent=C.title; c.appendChild(el); C.titleEl=el; } }
 const STICKY_TOP=58, FADE_SPAN=0.42;
 function labelOpacity(n){ if(labelMode==='off') return 0; if(labelMode==='show') return 1; if(hovered===n) return 1;
   return Math.max(0, Math.min(1, 1-(autoCam-n.worldY)/FADE_SPAN)); }   // auto: fade to just the icon as the flow moves past
@@ -854,9 +889,13 @@ function placeNodeLabel(n, el, place, opts){ opts=opts||{}; if(!el) return;
 function updateNodeLabels(){ if(!g.turns||g.parallel) return;   // no labels in the parallel-threads view
   let latest=null; for(const T of g.turns){ if(growT>=g.nodes[T.userId].born) latest=T; }   // the active turn's question sticks at the top
   for(const T of g.turns){
-    placeNodeLabel(g.nodes[T.userId], T.uLabel, 'below', {question:true, sticky:T===latest, hideIfFolded:true});
-    for(const rid of T.reasonIds){ const rn=g.nodes[rid]; placeNodeLabel(rn, rn.labelEl, 'below', {hideIfFolded:true}); }   // reason labels only while the turn is expanded
-    placeNodeLabel(g.nodes[T.respId], T.rLabel, T.fail?'below':'over', {delay:0.9}); } }   // success over the node; failure below (eclipse stays visible)
+    placeNodeLabel(g.nodes[T.userId], T.uLabel, 'below', {question:true, sticky:!g.multi&&T===latest, hideIfFolded:true});
+    if(g.multi){ for(const rid of T.reasonIds){ const e=g.nodes[rid].labelEl; if(e) e.style.display='none'; } }   // columns are too tight for step labels
+    else for(const rid of T.reasonIds){ const rn=g.nodes[rid]; placeNodeLabel(rn, rn.labelEl, 'below', {hideIfFolded:true}); }
+    placeNodeLabel(g.nodes[T.respId], T.rLabel, T.fail?'below':'over', {delay:0.9}); }   // success over the node; failure below (eclipse stays visible)
+  if(g.multi) for(const C of g.cols){ if(!C.titleEl) continue;
+    const s=warpToScreen((C.xClip*0.5+0.5)*innerWidth, 96);
+    C.titleEl.style.left=Math.round(s.x)+'px'; C.titleEl.style.top='96px'; } }
 // dynamic layout: reasoning graph compresses into the user/AI ladder as each turn folds (open 1->0)
 function layout(dt){
   if(g.parallel) return;   // parallel view: positions are baked, nothing folds -> no repack, stays smooth
@@ -873,6 +912,18 @@ function layout(dt){
     if(dt>0){ T.open+=(target-T.open)*Math.min(1,dt*7.5); if(Math.abs(target-T.open)<0.0016) T.open=target; }
     else T.open=target;
   }
+  if(g.multi){                                  // each column lays out independently and scrolls itself
+    for(const C of g.cols){
+      let cur=0;
+      for(let ti=C.turnFrom; ti<C.turnTo; ti++){ const T=g.turns[ti], a=T.open, top=cur;
+        const U=g.nodes[T.userId]; U.worldY=top; U.x=U.baseX; U.alpha=a;
+        for(const rid of T.reasonIds){ const rn=g.nodes[rid]; rn.worldY=top+rn.localY*a; rn.x=rn.baseX; rn.alpha=a; }
+        const R=g.nodes[T.respId]; R.worldY=top+(T.reasonSpan+RESP_H)*a; R.x=R.baseX; R.alpha=1;
+        cur=R.worldY+(COLLAPSE_GAP+(TURN_GAP-COLLAPSE_GAP)*a); }
+      let mY=0; for(let i=C.nodeFrom;i<C.nodeTo;i++){ const n=g.nodes[i]; if(n.born<=growT&&n.alpha>0.02&&n.worldY>mY) mY=n.worldY; }
+      C.cam += (mY-C.cam)*Math.min(1,dt*2.2);                                  // follow this column's own live edge
+      for(let i=C.nodeFrom;i<C.nodeTo;i++) g.nodes[i].worldY -= C.cam; }       // so all columns' active rows line up
+    return; }
   let cursor=0;
   for(const T of g.turns){ const a=T.open, topY=cursor;
     const U=g.nodes[T.userId]; U.worldY=topY; U.x=U.baseX; U.alpha=a;   // input node fades into the outcome node as the turn folds
@@ -905,6 +956,7 @@ document.querySelectorAll('[data-cm]').forEach(b=>b.onclick=()=>{collapseMode=b.
 document.querySelectorAll('[data-lm]').forEach(b=>b.onclick=()=>{labelMode=b.dataset.lm;document.querySelectorAll('[data-lm]').forEach(x=>x.classList.toggle('on',x===b));});
 document.querySelectorAll('[data-bg]').forEach(b=>b.onclick=()=>{bgStyle=parseInt(b.dataset.bg);document.querySelectorAll('[data-bg]').forEach(x=>x.classList.toggle('on',x===b));});
 document.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{threadCount=parseInt(b.dataset.th);rebuild();growT=0;sceneDirty=true;document.querySelectorAll('[data-th]').forEach(x=>x.classList.toggle('on',x===b));});
+document.querySelectorAll('[data-pc]').forEach(b=>b.onclick=()=>{parallelCols=parseInt(b.dataset.pc);rebuild();growT=0;sceneDirty=true;document.querySelectorAll('[data-pc]').forEach(x=>x.classList.toggle('on',x===b));});
 document.querySelectorAll('[data-pat]').forEach(b=>b.onclick=()=>{pattern=parseInt(b.dataset.pat);document.querySelectorAll('[data-pat]').forEach(x=>x.classList.toggle('on',x===b));});
 document.querySelectorAll('[data-px]').forEach(b=>b.onclick=()=>{ditherPx=parseFloat(b.dataset.px);document.querySelectorAll('[data-px]').forEach(x=>x.classList.toggle('on',x===b));});
 document.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{particleMode=parseInt(b.dataset.pm);document.querySelectorAll('[data-pm]').forEach(x=>x.classList.toggle('on',x===b));});
@@ -963,15 +1015,17 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
   }
   if(growT>g.lastBorn+FAIL_DELAY+6.0){ growT=0; if(!g.parallel){autoCam=0;viewCam=0;detached=false;} for(const T of g.turns){T.open=g.parallel?1:0;T.manual=null;} }   // replay
   layout(dt);
-  if(sceneDirty || (!g.parallel && g.turns.some(T=>Math.abs(T.open-T.openTarget)>0.0016))){ updateSceneBuffers(); sceneDirty=false; }   // re-upload only while folding
+  if(sceneDirty || g.multi || (!g.parallel && g.turns.some(T=>Math.abs(T.open-T.openTarget)>0.0016))){ updateSceneBuffers(); sceneDirty=false; }   // re-upload while folding / columns scroll
   if(g.parallel){ autoCam=1.25; viewCam=1.25; camWorld=1.25; }     // frame the whole grid; no follow
+  else if(g.multi){ autoCam=0; viewCam=0; detached=false; camWorld=0; }   // columns are pre-shifted by their own cam
   else {
     let maxY=0;for(const n of g.nodes)if(n.born<=growT&&n.alpha>0.02&&n.worldY>maxY)maxY=n.worldY;
     autoCam+=(maxY-autoCam)*Math.min(1,dt*2.2);          // live edge always tracks the newest node
     if(!detached) viewCam=autoCam;                        // follow, unless you've scrolled up to look back
     camWorld=viewCam;
   }
-  const uiScale = g.parallel ? Math.max(0.13, 1.7/Math.ceil(Math.sqrt(threadCount))) : 1;
+  const uiScale = g.parallel ? Math.max(0.13, 1.7/Math.ceil(Math.sqrt(threadCount)))
+                : g.multi ? (parallelCols>3?0.46:0.66) : 1;
   updateNodeLabels();
 
   // ── conversation-switch channel-change transition ──
