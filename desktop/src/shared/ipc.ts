@@ -2,6 +2,8 @@ import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 import type {
   AppearancePresetList,
   AppearanceSettings,
+  AppPaneLayout,
+  AppPaneLayoutReadResult,
   BackendHealth,
   CancelCodexLoginRequest,
   CodexAccountState,
@@ -16,7 +18,7 @@ import type {
   WorkspaceSession,
 } from "@generated/backend";
 import { conversationIpcChannels, type ConversationIpc } from "./conversation-ipc";
-import { hostedAccessIpcChannels, type HostedAccessIpcContract } from "./hosted-access-ipc";
+import { directorIpcChannels, type DirectorIpcContract } from "./director-ipc";
 import { masterIpcChannels, type MasterIpcContract } from "./master-ipc";
 import {
   roleConfigurationIpcChannels,
@@ -29,7 +31,6 @@ import type {
   KnownRuntimeView,
   RendererRegionCaptureRequest,
   RendererRegionSnapshot,
-  RuntimeAccessCredentialView,
   RuntimeRegistrySnapshot,
   RuntimeVersions,
   WorkspaceBrowserViewStats,
@@ -43,6 +44,8 @@ export const ipcChannels = {
   appWindowDragMove: "app:window-drag-move",
   appWindowDragStart: "app:window-drag-start",
   appOpenExternalUrl: "app:open-external-url",
+  appPaneLayoutRead: "app-pane-layout:read",
+  appPaneLayoutSave: "app-pane-layout:save",
   appOpenWorkspaceInEditor: "app:open-workspace-in-editor",
   appVersions: "app:versions",
   appWorkspaceGitInfo: "app:workspace-git-info",
@@ -52,12 +55,11 @@ export const ipcChannels = {
   backendHealth: "backend:health",
   runtimeAddByPairingUrl: "runtimes:add-by-pairing-url",
   runtimeCurrent: "runtimes:current",
-  runtimeCurrentCredential: "runtimes:current-runtime-credential",
   runtimeList: "runtimes:list",
   runtimeRemove: "runtimes:remove",
   runtimeSwitch: "runtimes:switch",
   ...conversationIpcChannels,
-  ...hostedAccessIpcChannels,
+  ...directorIpcChannels,
   ...masterIpcChannels,
   ...roleConfigurationIpcChannels,
   ...speechIpcChannels,
@@ -90,8 +92,11 @@ export const ipcEvents = {
   backendUnexpectedExit: "backend:unexpected-exit",
   codexAccountChange: "codex-account:change",
   conversationEvent: "conversation:event",
-  hostedAccessProgress: "hosted-access:progress",
+  directorEvent: "director:event",
   runtimeConnectionState: "runtimes:connection-state",
+  speechCredentialSettingsChanged: "speech:credential-settings-changed",
+  speechLocalMacOSVoiceModelDownloadChanged: "speech:local-macos-voice-model-download-changed",
+  speechProviderSelectionChanged: "speech:provider-selection-changed",
   workspaceBrowserViewKey: "workspace:browser-view-key",
   workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",
 } as const;
@@ -99,7 +104,7 @@ export const ipcEvents = {
 interface IpcContract
   extends
     ConversationIpc,
-    HostedAccessIpcContract,
+    DirectorIpcContract,
     MasterIpcContract,
     RoleConfigurationIpcContract,
     SpeechIpcContract {
@@ -126,6 +131,14 @@ interface IpcContract
   appOpenExternalUrl: {
     args: [url: string];
     result: void;
+  };
+  appPaneLayoutRead: {
+    args: [];
+    result: AppPaneLayoutReadResult;
+  };
+  appPaneLayoutSave: {
+    args: [layout: AppPaneLayout];
+    result: AppPaneLayout;
   };
   appOpenWorkspaceInEditor: {
     args: [editorId: string, rootPath: string];
@@ -162,10 +175,6 @@ interface IpcContract
   runtimeCurrent: {
     args: [];
     result: RuntimeRegistrySnapshot;
-  };
-  runtimeCurrentCredential: {
-    args: [];
-    result: RuntimeAccessCredentialView;
   };
   runtimeList: {
     args: [];

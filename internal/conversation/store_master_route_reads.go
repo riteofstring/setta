@@ -480,13 +480,16 @@ func equalOptionalStrings(left *string, right *string) bool {
 }
 
 func cloneMasterInputRoutingWork(work master.InputRoutingWork) master.InputRoutingWork {
-	work.Input = master.CloneAcceptedInput(work.Input)
-	return work
+	return master.CloneInputRoutingWork(work)
 }
 
 func cloneMasterRouteTargets(targets []master.RouteConversationTarget) []master.RouteConversationTarget {
 	cloned := append([]master.RouteConversationTarget{}, targets...)
 	for index := range cloned {
+		if cloned[index].ResourceScope.Folder != nil {
+			folder := *cloned[index].ResourceScope.Folder
+			cloned[index].ResourceScope.Folder = &folder
+		}
 		cloned[index].OpenPaneIDs = append([]string{}, cloned[index].OpenPaneIDs...)
 		cloned[index].ActiveTurnID = cloneStringPointer(cloned[index].ActiveTurnID)
 		cloned[index].CompletedForkPoints = append([]master.RouteForkPoint{}, cloned[index].CompletedForkPoints...)

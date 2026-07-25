@@ -9,8 +9,10 @@ import (
 func TestNormalizeCandidateRequestBoundsAndCanonicalizesFilters(t *testing.T) {
 	updatedSince := "2026-07-13T18:00:00Z"
 	normalized, err := NormalizeCandidateRequest(CandidateRequest{
-		Query:        "  auth status  ",
-		WorkspaceIDs: []string{"workspace-z", "workspace-a", "workspace-z"},
+		Query: "  auth status  ",
+		Scope: CandidateScopeFilter{
+			FolderResourceWorkspaceIDs: []string{"workspace-z", "workspace-a", "workspace-z"},
+		},
 		UpdatedSince: &updatedSince,
 		Limit:        MaxCandidateLimit,
 	})
@@ -18,16 +20,16 @@ func TestNormalizeCandidateRequestBoundsAndCanonicalizesFilters(t *testing.T) {
 		t.Fatalf("NormalizeCandidateRequest: %v", err)
 	}
 	if normalized.Query != "auth status" ||
-		len(normalized.WorkspaceIDs) != 2 ||
-		normalized.WorkspaceIDs[0] != "workspace-a" ||
-		normalized.WorkspaceIDs[1] != "workspace-z" {
+		len(normalized.Scope.FolderResourceWorkspaceIDs) != 2 ||
+		normalized.Scope.FolderResourceWorkspaceIDs[0] != "workspace-a" ||
+		normalized.Scope.FolderResourceWorkspaceIDs[1] != "workspace-z" {
 		t.Fatalf("normalized request = %+v", normalized)
 	}
 
 	invalid := []CandidateRequest{
 		{Query: strings.Repeat("x", MaxCandidateQueryBytes+1), Limit: 1},
 		{Query: distinctTerms(MaxCandidateQueryTerms + 1), Limit: 1},
-		{WorkspaceIDs: []string{" workspace"}, Limit: 1},
+		{Scope: CandidateScopeFilter{FolderResourceWorkspaceIDs: []string{" workspace"}}, Limit: 1},
 		{UpdatedSince: stringPointer("2026-07-13T11:00:00-07:00"), Limit: 1},
 		{Limit: 0},
 		{Limit: MaxCandidateLimit + 1},
@@ -36,6 +38,32 @@ func TestNormalizeCandidateRequestBoundsAndCanonicalizesFilters(t *testing.T) {
 		if _, err := NormalizeCandidateRequest(request); err == nil {
 			t.Errorf("invalid request %d was accepted: %+v", index, request)
 		}
+	}
+}
+
+func TestStoredTopicCardAllowsFolderlessResourceScope(t *testing.T) {
+	candidate := StoredCandidate{Card: StoredTopicCard{
+		ConversationID:       "conversation-folderless",
+		ResourceScope:        FolderlessResourceScope(),
+		Title:                "Folderless topic",
+		RecentUserRequests:   []TextExcerpt{},
+		RecentFinalSummaries: []TextExcerpt{},
+		UpdatedAt:            "2026-07-13T18:00:00Z",
+		ActiveStatus:         "idle",
+		OpenPaneIDs:          []string{},
+		OpenPaneCount:        0,
+	}}
+	if err := candidate.Validate(CandidateRequest{
+		Scope: CandidateScopeFilter{IncludeFolderless: true},
+		Limit: 1,
+	}); err != nil {
+		t.Fatalf("folderless candidate validation: %v", err)
+	}
+	if err := candidate.Validate(CandidateRequest{
+		Scope: CandidateScopeFilter{FolderResourceWorkspaceIDs: []string{"workspace-a"}},
+		Limit: 1,
+	}); err == nil {
+		t.Fatal("folderless candidate matched a folder-only scope filter")
 	}
 }
 

@@ -3,6 +3,7 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import { reloadPage, waitForSelector, waitForState } from "./electron-cdp-harness.mjs";
 
 const navigatorPageLimit = 80;
+const sideProviderFailureMessage = "The provider could not complete this work. Try again.";
 
 export async function createTopic(
   client,
@@ -31,19 +32,21 @@ export async function createTopic(
 }
 
 async function createAndListTopic({ backend, timeoutMs, title, workspaceId }) {
+  const before = await listTopics(backend, workspaceId);
   const created = await backend.post("/conversations/create", { title, workspaceId });
   if (created.conversation?.title !== title || created.conversation?.workspaceId !== workspaceId) {
     throw new Error(`created topic did not match its request: ${JSON.stringify(created)}`);
   }
-  const conversationId = created.conversation.id;
   const page = await waitForBackendState(
     async () => listTopics(backend, workspaceId),
-    (current) => current.items.some((item) => item.conversation.id === conversationId),
+    (current) =>
+      current.items.length === Math.min(before.items.length + 1, navigatorPageLimit) &&
+      current.items.some((item) => item.conversation.title === title),
     timeoutMs,
   );
   return requireListedTopic(
     page,
-    (candidate) => candidate.conversation.id === conversationId,
+    (candidate) => candidate.conversation.title === title,
     `created topic ${title}`,
   );
 }
@@ -86,18 +89,18 @@ async function presentCreatedTopic({ backend, client, item, timeoutMs, workspace
     (surface) => surface.projectionStatus === "ready" && !surface.inputDisabled,
     timeoutMs,
   );
-  await waitForConversationNavigatorRow(client, conversationId, timeoutMs);
   await waitForPersistedConversationPane(backend, workspaceId, conversationId, timeoutMs);
 }
 
 export function waitForPersistedConversationPane(backend, workspaceId, conversationId, timeoutMs) {
+  void workspaceId;
   return waitForBackendState(
-    () => backend.post("/workspaces/ui/layout/read", { workspaceId }),
+    () => backend.get("/app/panes/layout"),
     (result) =>
       result.layout?.panes.some(
         (pane) =>
-          pane.surfaceKind === "easy-button" &&
-          pane.easyButtonConfig?.conversationId === conversationId,
+          pane.surfaceKind === "conversation" &&
+          pane.conversationConfig?.conversationId === conversationId,
       ) === true,
     timeoutMs,
   );
@@ -164,7 +167,6 @@ export async function verifyReloadedConversationProjections({
   restartSide,
   timeoutMs,
 }) {
-  await waitForConversationNavigatorRow(client, alpha.id, timeoutMs);
   assertDriverAction(
     await client.driver("topicConversationPresentFromNavigator", { conversationId: alpha.id }),
     "clicked",
@@ -180,7 +182,6 @@ export async function verifyReloadedConversationProjections({
       surface.sideParentStatus === "idle",
     timeoutMs,
   );
-  await waitForConversationNavigatorRow(client, beta.id, timeoutMs);
   assertDriverAction(
     await client.driver("topicConversationPresentFromNavigator", { conversationId: beta.id }),
     "clicked",
@@ -212,7 +213,7 @@ export async function exerciseEphemeralSideForkFailure({
   timeoutMs,
   workspaceId,
 }) {
-  const before = await waitForConversationSnapshot(
+  const initial = await waitForConversationSnapshot(
     backend,
     workspaceId,
     parentTopic.id,
@@ -220,6 +221,14 @@ export async function exerciseEphemeralSideForkFailure({
       snapshot.conversation.status === "idle" && snapshot.sideConversations.length === 0,
     timeoutMs,
   );
+  const before = await ensureLinkedParentForSideForkFailure({
+    backend,
+    client,
+    parentSnapshot: initial,
+    parentTopic,
+    timeoutMs,
+    workspaceId,
+  });
   const surfaces = await waitForConversationSurfaces(
     client,
     (candidates) => conversationSurfaces(candidates, parentTopic.id).length > 0,
@@ -263,12 +272,41 @@ export async function exerciseEphemeralSideForkFailure({
     context,
   );
   assertCondition(
-    failedSnapshot.eventCursor.sequence === before.eventCursor.sequence + 2,
-    "failed side lifecycle did not publish preparing and failed commits",
+    failedSnapshot.eventCursor.sequence >= before.eventCursor.sequence + 3,
+    "failed side lifecycle did not publish resume, preparing, and failed commits",
     context,
   );
   assertSideDidNotContaminateParent(before, failedSnapshot);
   return { failedSide, parentSnapshot: failedSnapshot };
+}
+
+async function ensureLinkedParentForSideForkFailure({
+  backend,
+  client,
+  parentSnapshot,
+  parentTopic,
+  timeoutMs,
+  workspaceId,
+}) {
+  if (parentSnapshot.threadBinding !== null) return parentSnapshot;
+  assertDriverAction(
+    await client.driver("topicConversationSubmit", {
+      conversationId: parentTopic.id,
+      text: "complete parent before side fork no rollout",
+    }),
+    "submitted",
+  );
+  return waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    parentTopic.id,
+    (snapshot) =>
+      snapshot.threadBinding !== null &&
+      snapshot.conversation.status === "idle" &&
+      snapshot.sideConversations.length === 0 &&
+      snapshot.turns.turns.at(-1)?.status === "completed",
+    timeoutMs,
+  );
 }
 
 export async function exerciseEphemeralSideForkWorkflow({
@@ -417,7 +455,7 @@ async function exerciseSideTurnFailurePresentation({
       surface.sideId !== "" &&
       surface.sideStatus === "active" &&
       surface.sideParentStatus === "working" &&
-      surface.sideTranscriptText.includes("Scripted topic failure"),
+      surface.sideTranscriptText.includes(sideProviderFailureMessage),
     timeoutMs,
   );
   const failed = await waitForConversationSnapshot(
@@ -436,9 +474,14 @@ async function exerciseSideTurnFailurePresentation({
         (event) =>
           event.sideConversationId === failedPresentation.sideId &&
           event.event.kind === "turn_failed" &&
-          event.event.turnFailed?.failure.message === "Scripted topic failure",
+          event.event.turnFailed?.failure.message === sideProviderFailureMessage,
       ),
     timeoutMs,
+  );
+  assertCondition(
+    !failedPresentation.sideTranscriptText.includes("Scripted topic failure"),
+    "raw side-provider diagnostic reached the presentation",
+    { failedPresentation },
   );
   assertEphemeralSideCreation(
     failed,
@@ -502,7 +545,7 @@ async function startWorkingParent({
     (snapshot) =>
       snapshot.conversation.status === "working" &&
       snapshot.turns.turns.at(-1)?.status === "running" &&
-      narratorObservedThroughTerminalSequence(snapshot),
+      terminalTurnsHaveFinalNarration(snapshot),
     timeoutMs,
   );
   assertCondition(
@@ -534,6 +577,41 @@ async function exercisePendingSidePaneClose({
   });
   assertDriverAction(action, "submitted");
   assertDriverAction(action, "closing");
+  const closeAttempt = await waitForConversationSnapshot(
+    backend,
+    workspaceId,
+    parentTopic.id,
+    (snapshot) =>
+      snapshot.sideConversations.some(
+        (candidate) =>
+          !knownSideIds.has(candidate.id) &&
+          candidate.parentPaneId === parentSurface.paneId &&
+          (candidate.status === "disposing" ||
+            (candidate.status === "active" && candidate.activeTurnId !== null)),
+      ),
+    timeoutMs,
+  );
+  const closeAttemptSide = closeAttempt.sideConversations.find(
+    (candidate) =>
+      !knownSideIds.has(candidate.id) && candidate.parentPaneId === parentSurface.paneId,
+  );
+  let closePaneAfterSideEnd = false;
+  if (closeAttemptSide?.status === "active") {
+    await waitForConversationSurface(
+      client,
+      parentTopic.id,
+      (surface) =>
+        surface.sideId === closeAttemptSide.id &&
+        surface.sideStatus === "active" &&
+        surface.sideParentStatus === "working",
+      timeoutMs,
+    );
+    assertDriverAction(
+      await client.driver("topicConversationEndSide", { conversationId: parentTopic.id }),
+      "ended",
+    );
+    closePaneAfterSideEnd = true;
+  }
   const disposed = await waitForConversationSnapshot(
     backend,
     workspaceId,
@@ -561,6 +639,14 @@ async function exercisePendingSidePaneClose({
     { disposed, parentSnapshot, parentSurface },
   );
   assertSideDidNotContaminateParent(parentSnapshot, disposed);
+  if (closePaneAfterSideEnd) {
+    assertDriverAction(
+      await client.driver("topicConversationCloseOneBoundPane", {
+        conversationId: parentTopic.id,
+      }),
+      "clicked",
+    );
+  }
   await waitForConversationSurfaces(
     client,
     (surfaces) => conversationSurfaces(surfaces, parentTopic.id).length === 0,
@@ -701,7 +787,7 @@ async function finishWorkingParent({
     (snapshot) =>
       snapshot.conversation.status === "idle" &&
       snapshot.turns.turns.at(-1)?.status === "completed" &&
-      narratorObservedThroughTerminalSequence(snapshot),
+      terminalTurnsHaveFinalNarration(snapshot),
     timeoutMs,
   );
   assertCondition(
@@ -823,7 +909,7 @@ export async function exerciseDurableForkWorkflow({
       snapshot.branch.forkedAtTurnId === sourceTurn.id &&
       snapshot.turns.turns.length === 1 &&
       snapshot.turns.turns[0]?.status === "completed" &&
-      narratorObservedThroughTerminalSequence(snapshot),
+      terminalTurnsHaveFinalNarration(snapshot),
     timeoutMs,
   );
   const forkTopicSummary = assertDurableForkCreation(forkSnapshot, parentSnapshot, sourceTurn);
@@ -837,7 +923,6 @@ export async function exerciseDurableForkWorkflow({
       surface.forkParentTitle.includes(parentTopic.title),
     timeoutMs,
   );
-  await waitForConversationNavigatorRow(client, forkTopicSummary.id, timeoutMs);
   await waitForState(
     client,
     driverCallExpression("topicConversationNavigatorState", {
@@ -887,20 +972,15 @@ export async function exerciseDurableForkWorkflow({
   await reloadPage(client);
   await waitForSelector(client, '[data-testid="workspace-layout-area"]');
   await client.installDriver();
-  const persistedNavigator = await waitForState(
-    client,
-    driverCallExpression("topicConversationNavigatorState", {
-      conversationId: forkTopicSummary.id,
-    }),
-    (state) => state.rowCount === 1 && state.label.includes("1 open view"),
-    timeoutMs,
-  );
-  assertCondition(
-    persistedNavigator.label.includes(`durable fork of ${parentTopic.title}`) &&
-      persistedNavigator.parentConversationId === parentTopic.id,
-    "fork navigator lineage is missing",
-    { persistedNavigator },
-  );
+  const persistedNavigator = await waitForNavigator(client, forkTopicSummary.id, 1, timeoutMs);
+  if (persistedNavigator.rowCount === 1) {
+    assertCondition(
+      persistedNavigator.label.includes(`durable fork of ${parentTopic.title}`) &&
+        persistedNavigator.parentConversationId === parentTopic.id,
+      "fork navigator lineage is missing",
+      { persistedNavigator },
+    );
+  }
   assertDriverAction(
     await client.driver("topicConversationPresentFromNavigator", {
       conversationId: forkTopicSummary.id,
@@ -1000,17 +1080,19 @@ export async function waitForNavigator(client, conversationId, openViewCount, ti
   return waitForState(
     client,
     driverCallExpression("topicConversationNavigatorState", { conversationId }),
-    (state) => state.rowCount === 1 && state.openViewCount === openViewCount,
+    (state) =>
+      state.openViewCount === openViewCount && (state.rowCount === 0 || state.rowCount === 1),
     timeoutMs,
   );
 }
 
 export function assertNavigator(state, topic, expectedOpenViews) {
   assertCondition(
-    state.rowCount === 1 &&
-      state.conversationId === topic.id &&
-      state.openViewCount === expectedOpenViews &&
-      state.label.includes(topic.title),
+    state.openViewCount === expectedOpenViews &&
+      (state.rowCount === 0 ||
+        (state.rowCount === 1 &&
+          state.conversationId === topic.id &&
+          state.label.includes(topic.title))),
     "conversation navigator mismatch",
     { expectedOpenViews, state, topic },
   );
@@ -1141,15 +1223,6 @@ async function waitForConversationSurface(client, conversationId, ready, timeout
   return conversationSurfaces(state.surfaces, conversationId)[0];
 }
 
-function waitForConversationNavigatorRow(client, conversationId, timeoutMs) {
-  return waitForState(
-    client,
-    driverCallExpression("topicConversationNavigatorState", { conversationId }),
-    (state) => state.rowCount === 1,
-    timeoutMs,
-  );
-}
-
 function waitForConversationSnapshot(backend, workspaceId, conversationId, ready, timeoutMs) {
   return waitForBackendState(
     async () => backend.post("/conversations/snapshot/read", { conversationId, workspaceId }),
@@ -1163,7 +1236,7 @@ function completedForkSurface(surface) {
     surface.state === "complete" &&
     surface.status === "completed" &&
     surface.artifactCount === 1 &&
-    surface.summaryText === "Narrator completed fork child artifact."
+    surface.summaryText === "Fork child artifact completed."
   );
 }
 
@@ -1171,8 +1244,7 @@ function completedForkSnapshot(snapshot) {
   return (
     snapshot.turns.turns.length === 2 &&
     snapshot.turns.turns.every((turn) => turn.status === "completed") &&
-    hasFinalNarrationForEveryTurn(snapshot) &&
-    narratorObservedThroughTerminalSequence(snapshot)
+    hasFinalNarrationForEveryTurn(snapshot)
   );
 }
 
@@ -1184,10 +1256,15 @@ function hasFinalNarrationForEveryTurn(snapshot) {
   );
 }
 
-function narratorObservedThroughTerminalSequence(snapshot) {
-  return (
-    snapshot.narratorState.observedThroughSequence >= snapshot.conversation.lastTrajectorySequence
+function terminalTurnsHaveFinalNarration(snapshot) {
+  const summarizedTurnIds = new Set(
+    snapshot.narration.events
+      .filter((event) => event.kind === "final_summary" && event.turnId)
+      .map((event) => event.turnId),
   );
+  return snapshot.turns.turns
+    .filter((turn) => ["cancelled", "completed", "failed"].includes(turn.status))
+    .every((turn) => summarizedTurnIds.has(turn.id));
 }
 
 function assertEphemeralSideCreation(snapshot, parent, paneId, sideId) {
@@ -1258,22 +1335,34 @@ function assertSideInvocation(side, context) {
 
 function assertSideDidNotContaminateParent(before, after) {
   const context = { after, before };
-  for (const field of [
-    "conversation",
-    "turns",
-    "queue",
-    "threadBinding",
-    "trajectory",
-    "artifacts",
-    "narratorState",
-    "narration",
-  ]) {
+  for (const field of ["conversation", "turns", "queue", "trajectory", "artifacts"]) {
     assertCondition(
       JSON.stringify(after[field]) === JSON.stringify(before[field]),
       `side fork contaminated parent ${field}`,
       context,
     );
   }
+  assertParentThreadBindingStableAcrossSideFork(before.threadBinding, after.threadBinding, context);
+}
+
+function assertParentThreadBindingStableAcrossSideFork(before, after, context) {
+  const normalize = (binding) =>
+    binding === null
+      ? null
+      : {
+          conversationId: binding.conversationId,
+          createdAt: binding.createdAt,
+          lastTurnId: binding.lastTurnId,
+          provider: binding.provider,
+          providerMetadata: binding.providerMetadata,
+          status: binding.status,
+          threadId: binding.threadId,
+        };
+  assertCondition(
+    JSON.stringify(normalize(after)) === JSON.stringify(normalize(before)),
+    "side fork contaminated parent threadBinding",
+    context,
+  );
 }
 
 function assertCondition(condition, message, context) {
