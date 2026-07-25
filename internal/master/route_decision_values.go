@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+
+	"setta/internal/applayout"
 )
 
 func validRouteDecisionKind(kind RouteDecisionKind) bool {
@@ -98,7 +100,25 @@ func cloneRouteCommand(command RouteCommand) RouteCommand {
 
 func clonePresentationTarget(target ConversationPresentationTarget) ConversationPresentationTarget {
 	target.PreferredPaneID = cloneString(target.PreferredPaneID)
+	target.ResourceScope = cloneRouteResourceScope(target.ResourceScope)
+	target.ResourceBindings = cloneConversationPaneResourceBindings(target.ResourceBindings)
 	return target
+}
+
+func cloneConversationPaneResourceBindings(
+	bindings []applayout.ConversationPaneResourceBinding,
+) []applayout.ConversationPaneResourceBinding {
+	if bindings == nil {
+		return nil
+	}
+	cloned := append([]applayout.ConversationPaneResourceBinding{}, bindings...)
+	for index := range cloned {
+		if cloned[index].Folder != nil {
+			folder := *cloned[index].Folder
+			cloned[index].Folder = &folder
+		}
+	}
+	return cloned
 }
 
 func ClonePresentationIntent(intent PresentationIntent) PresentationIntent {
@@ -165,6 +185,9 @@ func cloneRoutePayload[T any](value *T) *T {
 func cloneRouteContextAudit(audit RouteContextAudit) RouteContextAudit {
 	audit.RetrievedCandidates = append([]RouteCandidateAudit{}, audit.RetrievedCandidates...)
 	for index := range audit.RetrievedCandidates {
+		audit.RetrievedCandidates[index].ResourceScope = cloneRouteResourceScope(
+			audit.RetrievedCandidates[index].ResourceScope,
+		)
 		if audit.RetrievedCandidates[index].LexicalRank != nil {
 			rank := *audit.RetrievedCandidates[index].LexicalRank
 			audit.RetrievedCandidates[index].LexicalRank = &rank
@@ -177,6 +200,9 @@ func cloneRouteContextAudit(audit RouteContextAudit) RouteContextAudit {
 	audit.OriginatingConversationID = cloneString(audit.OriginatingConversationID)
 	audit.TargetAuthorities = append([]RouteTargetAuthority{}, audit.TargetAuthorities...)
 	for index := range audit.TargetAuthorities {
+		audit.TargetAuthorities[index].ResourceScope = cloneRouteResourceScope(
+			audit.TargetAuthorities[index].ResourceScope,
+		)
 		audit.TargetAuthorities[index].AllowedDecisionKinds = append(
 			[]RouteDecisionKind{},
 			audit.TargetAuthorities[index].AllowedDecisionKinds...,

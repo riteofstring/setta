@@ -207,8 +207,12 @@ func readMasterRouteCreateConversationEffect(
 	reader routeCommandEffectReader,
 	command *master.MasterCreateConversationRouteCommand,
 ) (bool, error) {
+	targetWorkspaceID, err := masterRouteCommandFolderWorkspaceID(command.Target)
+	if err != nil {
+		return false, err
+	}
 	var workspaceID, title string
-	err := reader.QueryRowContext(ctx, `
+	err = reader.QueryRowContext(ctx, `
 SELECT workspace_id, title
 FROM conversations
 WHERE id = ?
@@ -219,7 +223,7 @@ WHERE id = ?
 	if err != nil {
 		return false, err
 	}
-	if workspaceID != command.Target.WorkspaceID || title != command.Target.Title {
+	if workspaceID != targetWorkspaceID || title != command.Target.Title {
 		return false, stateConflict("master route conversation", command.Target.ConversationID, "stored effect does not match its command")
 	}
 	return readConversationRouteTurnEffect(ctx, reader, command.Target.ConversationID, command.TurnID, AuthoredInput{Text: command.InitialInput}, TurnDeliveryNormal)
@@ -301,17 +305,23 @@ func (store *Store) CompleteMasterRouteCommand(
 	if err != nil {
 		return err
 	}
+	appendedEvent := false
 	err = store.write(ctx, "complete master route command", func(ctx context.Context, tx *sql.Tx) error {
-		return completeMasterRouteCommandTransaction(
-			ctx,
-			tx,
+		transaction := &WriteTransaction{ctx: ctx, tx: tx, active: true}
+		defer func() {
+			transaction.active = false
+		}()
+		var completeErr error
+		appendedEvent, completeErr = completeMasterRouteCommandTransaction(
+			transaction,
 			store.dbPath,
 			decisionID,
 			completedAt,
 			completedTime,
 		)
+		return completeErr
 	})
-	if err == nil {
+	if err == nil && appendedEvent {
 		store.notifyCommittedEvents()
 	}
 	return err
@@ -336,35 +346,50 @@ func validateMasterRouteCommandCompletionRequest(
 }
 
 func completeMasterRouteCommandTransaction(
-	ctx context.Context,
-	tx *sql.Tx,
+	transaction *WriteTransaction,
 	dbPath string,
 	decisionID string,
 	completedAt string,
 	completedTime time.Time,
-) error {
-	record, found, err := readMasterRouteDecisionByID(ctx, tx, decisionID, dbPath)
+) (bool, error) {
+	record, found, err := readMasterRouteDecisionByID(
+		transaction.ctx,
+		transaction.tx,
+		decisionID,
+		dbPath,
+	)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if !found {
-		return stateConflict("master route decision", decisionID, "decision was not found")
+		return false, stateConflict("master route decision", decisionID, "decision was not found")
 	}
 	decidedTime, _ := validateTimestamp("master route decision decidedAt", record.DecidedAt)
 	if completedTime.Before(decidedTime) {
-		return errors.New("master route command cannot complete before its decision")
+		return false, errors.New("master route command cannot complete before its decision")
 	}
-	alreadyCompleted, err := readMasterRouteCommandCompletion(ctx, tx, dbPath, decisionID)
+	alreadyCompleted, err := readMasterRouteCommandCompletion(
+		transaction.ctx,
+		transaction.tx,
+		dbPath,
+		decisionID,
+	)
 	if err != nil || alreadyCompleted {
-		return err
+		return false, err
 	}
-	if _, err := tx.ExecContext(ctx, `
+	if _, err := transaction.tx.ExecContext(transaction.ctx, `
 INSERT INTO master_route_command_completions(decision_id, completed_at)
 VALUES (?, ?)
 `, decisionID, completedAt); err != nil {
-		return fmt.Errorf("complete master route command %s: %w", decisionID, err)
+		return false, fmt.Errorf("complete master route command %s: %w", decisionID, err)
 	}
-	return nil
+	if err := transaction.recordStateMutation(); err != nil {
+		return false, err
+	}
+	if err := appendMasterTranscriptRouteCommand(transaction, dbPath, record, completedAt); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func readMasterRouteCommandCompletion(

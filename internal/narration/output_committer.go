@@ -252,7 +252,7 @@ func (committer *OutputCommitter) prepareProjection(
 	result CallResult,
 	invocation conversation.ResolvedInvocation,
 ) (PreparedCommit, error) {
-	output, err := projectionOutputFields(*result.NarratorOutput)
+	output, err := projectionOutputFields(*result.NarratorOutput, bundle)
 	if err != nil {
 		return nil, err
 	}
@@ -488,20 +488,21 @@ func (committer *OutputCommitter) prepareCheckpoint(
 
 func projectionOutputFields(
 	output NarratorCallOutput,
+	bundle ProjectionContextBundle,
 ) (projectionCommitOutput, error) {
 	switch output.Kind {
 	case CallOutputWorkingProjection:
 		value := output.WorkingProjection
 		return projectionCommitOutput{
-			observedThrough: value.ObservedThroughSequence,
+			observedThrough: bundle.RequestedThroughSequence,
 			milestones:      append([]string{}, value.Milestones...),
 		}, nil
 	case CallOutputTerminalProjection:
 		value := output.TerminalProjection
 		finalSummary := value.FinalSummary
 		return projectionCommitOutput{
-			observedThrough: value.ObservedThroughSequence,
-			milestones:      append([]string{}, value.Milestones...),
+			observedThrough: bundle.RequestedThroughSequence,
+			milestones:      []string{},
 			finalSummary:    &finalSummary,
 		}, nil
 	default:

@@ -205,8 +205,9 @@ func (service *Service) persistControlTrajectoryFromSnapshot(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			conversation,
-			turn.ID,
+			turn,
 			events,
+			nil,
 			false,
 		)
 	}

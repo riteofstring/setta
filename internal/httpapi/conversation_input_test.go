@@ -64,7 +64,7 @@ func TestConversationInputEndpointReadsBoundedRoutingState(t *testing.T) {
 		handler,
 		"/conversations/inputs/state/read",
 		ReadConversationInputRoutingStateRequest{
-			WorkspaceID:    "workspace_alpha",
+			WorkspaceID:    httpTestStringPointer("workspace_alpha"),
 			ConversationID: input.ConversationID,
 			InputID:        input.ID,
 		},
@@ -97,7 +97,7 @@ func TestConversationInputEndpointWaitsForRoutingSettlement(t *testing.T) {
 		handler,
 		"/conversations/inputs/state/wait",
 		ReadConversationInputRoutingStateRequest{
-			WorkspaceID:    "workspace_alpha",
+			WorkspaceID:    httpTestStringPointer("workspace_alpha"),
 			ConversationID: input.ConversationID,
 			InputID:        input.ID,
 		},
@@ -129,7 +129,7 @@ func TestConversationInputEndpointRetriesAndDiscardsRoutingState(t *testing.T) {
 			name: "retry",
 			path: "/conversations/inputs/retry",
 			request: RetryConversationInputRequest{
-				WorkspaceID:    "workspace_alpha",
+				WorkspaceID:    httpTestStringPointer("workspace_alpha"),
 				ConversationID: input.ConversationID,
 				InputID:        input.ID,
 			},
@@ -139,7 +139,7 @@ func TestConversationInputEndpointRetriesAndDiscardsRoutingState(t *testing.T) {
 			name: "discard",
 			path: "/conversations/inputs/discard",
 			request: DiscardConversationInputRequest{
-				WorkspaceID:    "workspace_alpha",
+				WorkspaceID:    httpTestStringPointer("workspace_alpha"),
 				ConversationID: input.ConversationID,
 				InputID:        input.ID,
 			},

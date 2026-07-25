@@ -3,8 +3,9 @@ import type { RefObject } from "react";
 import type { WorkspaceRuntime } from "./workspace-runtime";
 import { WorkspaceMobileControls } from "./workspace-mobile-controls";
 import { overviewGhostLabel, type OverviewGhostTarget } from "./workspace-overview-ghost";
-import { WorkspaceToolbar, openPaneActionForSurfaceKind } from "./workspace-toolbar";
-import type { Rect, SurfaceKind, WorkspacePresentationMode } from "./types";
+import { WorkspaceToolbar } from "./workspace-toolbar";
+import { executeWorkspaceFrameAction } from "./workspace-frame-actions";
+import type { Rect, WorkspacePresentationMode } from "./types";
 
 export function WorkspaceOverviewGhostButton({
   onOpen,
@@ -64,7 +65,9 @@ export function WorkspaceToolbarLayer({
   return (
     <WorkspaceToolbar
       onNativeOverlayActiveChange={onNativeOverlayActiveChange}
-      openPane={(request) => runLayoutAction(() => runtime.store.openPane(request))}
+      onFrameAction={(action, placement) => {
+        void executeWorkspaceFrameAction({ action, placement, runLayoutAction, runtime });
+      }}
       overviewActive={overviewActive}
       performanceStatsRef={showPerformanceStats ? debugRef : null}
       runLayoutAction={runLayoutAction}
@@ -75,22 +78,18 @@ export function WorkspaceToolbarLayer({
 }
 
 export function WorkspaceMobileControlsLayer({
-  dismissProjectPaneOverlay,
   mobileLayout,
-  onToggleProjectPane,
+  onOpenSettingsPage,
   overviewActive,
   persistLayout,
-  projectPaneOpen,
   runLayoutAction,
   runtime,
   stageViewport,
 }: {
-  dismissProjectPaneOverlay: () => void;
   mobileLayout: boolean;
-  onToggleProjectPane: () => void;
+  onOpenSettingsPage: () => void;
   overviewActive: boolean;
   persistLayout: () => void;
-  projectPaneOpen: boolean;
   runLayoutAction: (action: () => void) => void;
   runtime: WorkspaceRuntime;
   stageViewport: () => Rect;
@@ -101,47 +100,19 @@ export function WorkspaceMobileControlsLayer({
   return (
     <WorkspaceMobileControls
       moveFocus={(direction) => {
-        dismissProjectPaneOverlay();
         runtime.store.moveFocus(direction, stageViewport());
         persistLayout();
       }}
       onNewPane={() => {
-        dismissProjectPaneOverlay();
         runLayoutAction(() => runtime.store.openEmptyFrame());
       }}
-      onOpenSettingsPane={() => {
-        dismissProjectPaneOverlay();
-        runLayoutAction(() => {
-          focusOrOpenPaneBySurfaceKind(runtime, "settings-dom");
-          runtime.store.ensureFocusedColumnVisible(stageViewport());
-          runtime.store.snapScrollToTarget();
-        });
+      onOpenSettingsPage={() => {
+        onOpenSettingsPage();
       }}
       onToggleOverview={() => {
-        dismissProjectPaneOverlay();
         runLayoutAction(() => runtime.store.toggleOverviewMode());
       }}
-      onToggleProjectPane={onToggleProjectPane}
       overviewActive={overviewActive}
-      projectPaneOpen={projectPaneOpen}
     />
   );
-}
-
-export function focusOrOpenPaneBySurfaceKind(
-  runtime: WorkspaceRuntime,
-  surfaceKind: SurfaceKind,
-): void {
-  const maximizedPaneId = runtime.store.getSnapshot().maximizedPaneId;
-  if (maximizedPaneId !== null) {
-    runtime.store.togglePaneMaximized(maximizedPaneId);
-  }
-  if (runtime.store.focusPaneBySurfaceKind(surfaceKind) !== null) {
-    return;
-  }
-  const action = openPaneActionForSurfaceKind(surfaceKind);
-  if (!action || !runtime.store.canOpenPane(action.request)) {
-    return;
-  }
-  runtime.store.openPane(action.request);
 }
