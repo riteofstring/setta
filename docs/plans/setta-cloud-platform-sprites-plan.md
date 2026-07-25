@@ -3144,3 +3144,23 @@ Stop and reassess rather than hiding the problem if any of these occur:
   `./scripts/format.sh`, and `./check_quality.sh --git-changes` passed. No live
   provider test was run, no dependency file changed, and no provider or cloud
   mutation ran.
+- 2026-07-25 (truthful checkpoint lookup): Stopped checkpoint inspection from
+  denying a checkpoint that genuinely exists. `FindCheckpoint` scanned a listing
+  that excluded auto checkpoints, so `InspectCheckpoint` reported `found=false`
+  for a real auto checkpoint; lookup now includes them. `CreateCheckpoint`
+  continues to exclude auto checkpoints on both sides of its before/after diff,
+  so a racing auto checkpoint cannot be misidentified as the one Setta created —
+  the asymmetry between lookup and create is deliberate. The diff now records
+  its own justification in the code: neither the pinned
+  `sprites-go@v0.0.0-20260706200727` nor the latest published revision carries a
+  checkpoint ID on the create stream message, independently confirmed against
+  the module source, so the created checkpoint cannot be identified from the
+  stream and the three-call diff is the only truthful option. Tests prove an
+  auto checkpoint is findable by ID through the production adapter over HTTP,
+  that a racing auto checkpoint appearing mid-create is excluded from the diff
+  and does not trigger a false ambiguity rejection, and that
+  `singleNewCheckpoint`'s ambiguity rejection is unchanged. The affected
+  package, `./scripts/format.sh`, and `./check_quality.sh --git-changes` passed.
+  No live provider test was run, no dependency file changed, and no provider or
+  cloud mutation ran. Checkpoint retention remains open and out of scope; the
+  pinned SDK still exposes no delete operation.
