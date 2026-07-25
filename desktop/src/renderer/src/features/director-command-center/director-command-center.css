@@ -306,27 +306,6 @@
   overflow-wrap: anywhere;
 }
 
-.director-aggregate-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.director-aggregate {
-  display: grid;
-  gap: 2px;
-}
-
-.director-aggregate span:first-child {
-  color: oklch(0.94 0.035 235);
-  font-size: 1.2rem;
-  font-variant-numeric: tabular-nums;
-  font-weight: 650;
-}
-
-.director-aggregate span:last-child {
-  color: oklch(0.66 0.025 250);
-  font-size: 0.72rem;
-}
-
 .director-history-list {
   display: grid;
   gap: 8px;

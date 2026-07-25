@@ -127,8 +127,11 @@ keyboard handling routes workstream arrows without fighting text editing while
 `Escape` dismisses transient chrome. Workstream switching now carries an
 explicit Phase 4 view-state transition: selected-id changes briefly dim the
 rails and dot strip and render a pointer-transparent signal tear over the graph,
-with a reduced-motion opacity path and no durable graph mutation. The first
-integrated production-shell
+with a reduced-motion opacity path and no durable graph mutation. The Now rail
+now renders the selected workstream's current activity as a bounded,
+newest-first list projected from typed semantic graph nodes, with item
+disclosure, recency emphasis, graph-mode colour, and no aggregate-counter
+substitute for the mockup's activity stream. The first integrated production-shell
 performance guardrail is committed as the `director-command-center-performance`
 Electron workflow, with focused lifecycle and 100-workstream navigation results
 recorded in
@@ -1597,8 +1600,13 @@ Phase 3 audit verification:
    workstream-switch transition as view state over the graph: rails and dots dim
    briefly, a signal tear renders below the rails, reduced-motion users get an
    opacity-only path, and the selected workstream snapshot still advances only
-   from pushed Director state. Phase 5 still owns deleting the old pane modules;
-   they are no longer the primary app mount.
+   from pushed Director state. A third Now-rail fidelity pass replaces the
+   temporary aggregate counter block with a compact activity list derived from
+   the selected `WorkstreamGraph`'s typed semantic nodes, keeps only five current
+   items, expands the newest by default, lets each item disclose contract-backed
+   actor/evidence/source metadata, and colours the activity marker from the same
+   semantic graph mode mapping the WebGL2 canvas uses. Phase 5 still owns
+   deleting the old pane modules; they are no longer the primary app mount.
 2. Connect speech capture and playback through the same Director intents as text. **Done for
    Director receipt playback** — the production shell now owns a Director-specific speech capture
    controller, reuses the existing desktop voice provider/capability/credential paths, preserves a
@@ -1756,7 +1764,9 @@ Setta 4 is complete when:
    main-process IPC, HTTP, and durable store. The initial user-visible fullscreen renderer surface
    now owns those dispatches for text, voice capture, selection, approval, resource, artifact detail,
    and graph updates; a first focused integrated performance workflow now covers lifecycle and
-   100-workstream navigation. The remaining shell work is side-by-side fidelity review, any
-   review-driven polish, and the full integrated performance audit.
+   100-workstream navigation. A follow-up Now-rail fidelity pass now renders the selected graph's
+   current semantic activity directly in the rail instead of aggregate counters. The remaining shell
+   work is side-by-side fidelity review, any review-driven polish, and the full integrated
+   performance audit.
 2. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.

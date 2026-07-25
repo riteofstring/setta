@@ -51,6 +51,11 @@ import {
   type DirectorHistory,
 } from "./DirectorHistoryOverlay";
 import {
+  currentDirectorActivity,
+  DirectorNowActivityList,
+  type DirectorNowActivity,
+} from "./DirectorNowActivityList";
+import {
   applyDirectorEvent,
   selectedWorkstreamEntry,
   visibleSelectedGraph,
@@ -83,6 +88,7 @@ interface DirectorRuntimeState {
 }
 
 interface DirectorCommandCenterSnapshotView {
+  readonly activity: DirectorNowActivity;
   readonly approvals: readonly DirectorSnapshot["unresolvedApprovals"][number][];
   readonly artifacts: readonly DirectorSnapshot["artifacts"][number][];
   readonly history: DirectorHistory;
@@ -226,12 +232,12 @@ export function DirectorCommandCenterShell({
         />
         <WorkstreamSwitchTransition transition={switchTransition} />
         <NowRail
+          activity={snapshotView.activity}
           history={snapshotView.history}
           loadState={director.loadState}
           message={director.message}
           onOpenHistory={openHistory}
           receiptText={director.receiptText}
-          snapshot={director.snapshot}
           workstream={snapshotView.selectedWorkstream}
         />
         <ArtifactsRail
@@ -401,6 +407,7 @@ function directorCommandCenterSnapshotView(
   }
   const selectedGraph = visibleSelectedGraph(snapshot);
   return {
+    activity: currentDirectorActivity(selectedGraph),
     approvals: snapshot.unresolvedApprovals,
     artifacts: snapshot.artifacts,
     history: compactDirectorHistory(selectedGraph),
@@ -411,6 +418,7 @@ function directorCommandCenterSnapshotView(
 
 function emptyCommandCenterSnapshotView(): DirectorCommandCenterSnapshotView {
   return {
+    activity: [],
     approvals: [],
     artifacts: [],
     history: [],
@@ -655,26 +663,26 @@ function CommandCenterTopBar({
 }
 
 function NowRail({
+  activity,
   history,
   loadState,
   message,
   onOpenHistory,
   receiptText,
-  snapshot,
   workstream,
 }: {
+  activity: DirectorNowActivity;
   history: DirectorHistory;
   loadState: DirectorLoadState;
   message: string | null;
   onOpenHistory: (trigger: HTMLButtonElement) => void;
   receiptText: string | null;
-  snapshot: DirectorSnapshot | null;
   workstream: Workstream | null;
 }) {
   return (
     <aside aria-label="Now" className="director-now-rail" id="director-now-rail">
       <CurrentWorkstreamSummary workstream={workstream} />
-      <AggregateGrid snapshot={snapshot} />
+      <DirectorNowActivityList activity={activity} />
       <HistoryList history={history} onOpenHistory={onOpenHistory} />
       <div aria-live="polite" className="director-live-status" role="status">
         {message ?? receiptText ?? loadStateMessage(loadState)}
@@ -696,17 +704,6 @@ function CurrentWorkstreamSummary({ workstream }: { workstream: Workstream | nul
       {workstream?.lastMilestone ? (
         <p className="director-rail-summary">{workstream.lastMilestone.publicSummary}</p>
       ) : null}
-    </section>
-  );
-}
-
-function AggregateGrid({ snapshot }: { snapshot: DirectorSnapshot | null }) {
-  return (
-    <section className="director-rail-section director-aggregate-grid" aria-label="Status totals">
-      <Aggregate label="Running" value={snapshot?.aggregates.runningCount ?? 0} />
-      <Aggregate label="Blocked" value={snapshot?.aggregates.blockedCount ?? 0} />
-      <Aggregate label="Queued" value={snapshot?.aggregates.queuedCount ?? 0} />
-      <Aggregate label="Artifacts" value={snapshot?.aggregates.artifactCount ?? 0} />
     </section>
   );
 }
@@ -784,15 +781,6 @@ function StatusGlyph({ status }: { status: WorkstreamStatus }) {
       }
       size={size}
     />
-  );
-}
-
-function Aggregate({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="director-aggregate">
-      <span>{value}</span>
-      <span>{label}</span>
-    </div>
   );
 }
 

@@ -29,6 +29,7 @@ const navigationWorkstreamTarget = 100;
 const navigationMoveCount = 80;
 const secretApprovalAnswer = "director-performance-secret-scope";
 const domBudgets = {
+  activityItems: 5,
   bodyDescendants: 900,
   graphLabels: 80,
   visibleWorkstreamDots: 19,
@@ -456,6 +457,7 @@ function navigationDirection(snapshot) {
 }
 
 function assertDomBudgets(snapshot, scenario) {
+  assertBudget(snapshot.activityItems, domBudgets.activityItems, `${scenario} activity items`);
   assertBudget(
     snapshot.bodyDescendantCount,
     domBudgets.bodyDescendants,
@@ -493,6 +495,7 @@ async function assertRendererStayedQuiet(directory) {
 function compactResult(result) {
   return {
     dom: {
+      activityItems: result.final.activityItems,
       artifactCards: result.final.artifactCards,
       artifactDetailOpen: result.final.artifactDetailOpen,
       bodyDescendantCount: result.final.bodyDescendantCount,

@@ -59,6 +59,7 @@
     const artifactsRail = document.querySelector("#director-artifacts-rail");
     const dots = Array.from(document.querySelectorAll(".director-workstream-dot"));
     return {
+      activityItems: document.querySelectorAll(".director-activity-item").length,
       artifactCards: document.querySelectorAll("[data-artifact-id]").length,
       artifactDetailOpen: Boolean(document.querySelector(".director-artifact-detail")),
       bodyDescendantCount: document.body.querySelectorAll("*").length,

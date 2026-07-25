@@ -1,6 +1,10 @@
 import type {
   DirectorSnapshot,
   DirectorWorkstreamEntry,
+  SemanticNode,
+  SemanticNodeKind,
+  SemanticNodeStatus,
+  WorkstreamGraph,
   WorkstreamStatus,
 } from "@generated/backend";
 import { describe, expect, test } from "vitest";
@@ -11,6 +15,7 @@ import {
   directorWorkstreamNavigation,
   effectiveDirectorRailVisibility,
 } from "./DirectorCommandCenterShell";
+import { currentDirectorActivity } from "./DirectorNowActivityList";
 import { directorWorkstreamSwitchTransition } from "./director-workstream-switch-transition";
 
 describe("Director command-center approval answers", () => {
@@ -70,6 +75,28 @@ describe("Director command-center approval answers", () => {
 });
 
 describe("Director command-center shell view state", () => {
+  test("builds bounded current activity from typed semantic nodes", () => {
+    const activity = currentDirectorActivity(
+      graphWithNodes([
+        semanticNode(1, "user_goal", "succeeded"),
+        semanticNode(2, "director_decision", "succeeded"),
+        semanticNode(3, "plan", "active"),
+        semanticNode(4, "action", "active"),
+        semanticNode(5, "artifact", "succeeded"),
+        semanticNode(6, "validation", "succeeded"),
+        semanticNode(7, "completed", "succeeded"),
+      ]),
+    );
+
+    expect(activity.map((node) => node.id)).toEqual([
+      "node:7",
+      "node:6",
+      "node:5",
+      "node:4",
+      "node:3",
+    ]);
+  });
+
   test("windows large workstream sets around the selected entry", () => {
     const navigation = directorWorkstreamNavigation(snapshotWithWorkstreams(30, 22));
 
@@ -197,4 +224,44 @@ function workstreamEntry(position: number, status: WorkstreamStatus): DirectorWo
       updatedAt: `2026-07-25T17:${String(position).padStart(2, "0")}:00Z`,
     },
   };
+}
+
+function graphWithNodes(nodes: SemanticNode[]): WorkstreamGraph {
+  return {
+    detailLevel: "selected",
+    edges: [],
+    hasEarlier: false,
+    nodes,
+    workstreamId: "workstream:activity",
+  };
+}
+
+function semanticNode(
+  position: number,
+  kind: SemanticNodeKind,
+  status: SemanticNodeStatus,
+): SemanticNode {
+  return {
+    actor: kind === "director_decision" ? "director" : "worker",
+    artifactIds: kind === "artifact" ? [`artifact:${position}`] : [],
+    completedAt:
+      status === "active" || status === "pending" || status === "waiting"
+        ? null
+        : timestamp(position, 1),
+    createdAt: timestamp(position, 0),
+    evidenceClass: kind === "director_decision" ? "director_interpretation" : "runtime_fact",
+    id: `node:${position}`,
+    interpretation: null,
+    kind,
+    publicSummary: `Activity ${position}`,
+    runId: "run:activity",
+    sourceEventIds: [`event:${position}`],
+    status,
+    updatedAt: timestamp(position, 1),
+    workstreamId: "workstream:activity",
+  };
+}
+
+function timestamp(position: number, offset: number): string {
+  return `2026-07-25T17:${String(position).padStart(2, "0")}:${String(offset).padStart(2, "0")}Z`;
 }
