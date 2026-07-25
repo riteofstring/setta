@@ -319,6 +319,12 @@ type RecordRuntimeHealthRequest struct {
 	ObservedRelease string
 }
 
+type RecordRuntimeHealthResult struct {
+	Runtime       Runtime
+	WakeCompleted bool
+	WakePending   bool
+}
+
 type ScheduleRuntimeDeletionRequest struct {
 	IdempotencyKey string
 	RuntimeName    string

@@ -94,18 +94,18 @@ UPDATE runtimes SET desired_release = ?, updated_at = ? WHERE name = ?
 func (store *Store) RecordRuntimeHealth(
 	ctx context.Context,
 	request RecordRuntimeHealthRequest,
-) (Runtime, error) {
+) (RecordRuntimeHealthResult, error) {
 	if err := runtimeprovider.ValidateManagedName(request.RuntimeName); err != nil {
-		return Runtime{}, err
+		return RecordRuntimeHealthResult{}, err
 	}
 	if !validRuntimeHealthState(request.HealthState) {
-		return Runtime{}, fmt.Errorf("invalid runtime health state %q", request.HealthState)
+		return RecordRuntimeHealthResult{}, fmt.Errorf("invalid runtime health state %q", request.HealthState)
 	}
 	if err := validateRelease("observed release", request.ObservedRelease); err != nil {
-		return Runtime{}, err
+		return RecordRuntimeHealthResult{}, err
 	}
 	if request.HealthState == RuntimeHealthHealthy && request.ObservedRelease == "" {
-		return Runtime{}, errors.New("healthy runtime requires an observed release")
+		return RecordRuntimeHealthResult{}, errors.New("healthy runtime requires an observed release")
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -121,34 +121,42 @@ type runtimeHealthTarget struct {
 func (store *Store) recordRuntimeHealthLocked(
 	ctx context.Context,
 	request RecordRuntimeHealthRequest,
-) (Runtime, error) {
+) (RecordRuntimeHealthResult, error) {
 	now := timestamp(store.clock().UTC())
 	tx, err := store.db.BeginTx(ctx, nil)
 	if err != nil {
-		return Runtime{}, fmt.Errorf("begin runtime health observation: %w", err)
+		return RecordRuntimeHealthResult{}, fmt.Errorf("begin runtime health observation: %w", err)
 	}
 	defer rollback(tx)
 	target, err := readRuntimeHealthTarget(ctx, tx, request.RuntimeName)
 	if err != nil {
-		return Runtime{}, err
+		return RecordRuntimeHealthResult{}, err
 	}
 	wakeCompleted := target.completesWake(request)
 	if err := writeRuntimeHealth(ctx, tx, request, wakeCompleted, now); err != nil {
-		return Runtime{}, err
+		return RecordRuntimeHealthResult{}, err
 	}
 	if wakeCompleted {
 		if err := appendHealthyWakeProgress(ctx, tx, target.wakeOperationIDs, now); err != nil {
-			return Runtime{}, err
+			return RecordRuntimeHealthResult{}, err
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return Runtime{}, fmt.Errorf("commit runtime health observation: %w", err)
+		return RecordRuntimeHealthResult{}, fmt.Errorf("commit runtime health observation: %w", err)
 	}
 	store.invalidateRuntimeLocked(request.RuntimeName)
 	if wakeCompleted {
 		store.notifyRuntimeProgressOperationsLocked(target.wakeOperationIDs)
 	}
-	return store.readRuntimeLocked(ctx, request.RuntimeName)
+	runtime, err := store.readRuntimeLocked(ctx, request.RuntimeName)
+	if err != nil {
+		return RecordRuntimeHealthResult{}, err
+	}
+	return RecordRuntimeHealthResult{
+		Runtime:       runtime,
+		WakeCompleted: wakeCompleted,
+		WakePending:   target.wakeRequestedAt.Valid && len(target.wakeOperationIDs) != 0,
+	}, nil
 }
 
 func (target runtimeHealthTarget) completesWake(request RecordRuntimeHealthRequest) bool {

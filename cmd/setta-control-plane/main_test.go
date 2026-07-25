@@ -279,6 +279,7 @@ func TestAdminCommandsMutateTheLiveControlPlaneWithoutPrintingCredentials(t *tes
 		t.Fatal(err)
 	}
 	socketPath := controlplane.AdminSocketPath(fixture.dataDirectory)
+	requireAdminWakeHealthWorkflow(t, store, socketPath, fixture.runtimeName)
 	accountingTransition, err := json.Marshal(runtimeaccounting.ActivityTransition{
 		EventID: "admin-provider-begin", At: time.Now().UTC(),
 		Kind: runtimeaccounting.ActivityProvider, Action: runtimeaccounting.EventBegin,
@@ -321,6 +322,54 @@ func TestAdminCommandsMutateTheLiveControlPlaneWithoutPrintingCredentials(t *tes
 	authorization, err = store.AuthorizeClient(context.Background(), credential.Token)
 	if err != nil || authorization.Outcome != runtimeaccess.AuthorizationRevoked {
 		t.Fatalf("revoked authorization = %+v, %v", authorization, err)
+	}
+}
+
+func requireAdminWakeHealthWorkflow(
+	t *testing.T,
+	store *controlplane.Store,
+	socketPath string,
+	runtimeName string,
+) {
+	t.Helper()
+	wakeOutput := runAdminTestCommand(t, []string{
+		"request-runtime-wake", "--socket", socketPath,
+		"--idempotency-key", "admin-command-wake",
+		"--runtime-name", runtimeName,
+	}, nil)
+	if bytes.Contains(wakeOutput, []byte(runtimeName)) {
+		t.Fatalf("wake command exposed runtime identity: %s", wakeOutput)
+	}
+	runAdminTestCommand(t, []string{
+		"record-runtime-health", "--socket", socketPath,
+		"--health-state", "degraded",
+		"--observed-release", "bootstrap-test-release",
+		"--runtime-name", runtimeName,
+	}, nil)
+	events, update, err := store.RuntimeProgressAfter(
+		context.Background(),
+		"admin-command-wake",
+		"",
+	)
+	if err != nil || len(events) != 1 ||
+		events[0].State != controlplane.RuntimeProgressWakeRequested {
+		t.Fatalf("wake progress after degraded health = %+v, %v", events, err)
+	}
+	select {
+	case <-update:
+		t.Fatal("degraded administrative health completed wake progress")
+	default:
+	}
+	runAdminTestCommand(t, []string{
+		"record-runtime-health", "--socket", socketPath,
+		"--health-state", "healthy",
+		"--observed-release", "bootstrap-test-release",
+		"--runtime-name", runtimeName,
+	}, nil)
+	select {
+	case <-update:
+	case <-time.After(time.Second):
+		t.Fatal("healthy administrative health did not push wake completion")
 	}
 }
 

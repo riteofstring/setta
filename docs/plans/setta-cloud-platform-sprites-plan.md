@@ -2557,3 +2557,16 @@ Stop and reassess rather than hiding the problem if any of these occur:
   backlog, unexpectedly old Task/session, and approaching-budget thresholds
   remain open, so the combined Phase 5 alert checkbox stays unchecked. No
   provider or cloud mutation ran.
+- 2026-07-25 (production wake and health administration): Added strict private
+  Unix-socket commands for idempotent runtime wake requests and trusted health
+  observations. The store now returns, from the same locked health
+  transaction, whether a wake was pending and whether the observation
+  completed it; degraded health preserves the wake, while healthy
+  desired-release evidence appends and pushes its durable terminal progress.
+  Content-free audits record only wake-requested, typed health-state, and
+  wake-observed outcomes, excluding user, runtime, operation, release, route,
+  and credential identifiers. A production-boundary test exercises CLI,
+  Unix-socket HTTP, store mutation, degraded preservation, healthy completion,
+  and push notification. Suspension/export audits, scheduled accounting, and
+  authenticated workload-lease reporting remain open, so the combined Phase
+  5 item stays unchecked. No provider or cloud mutation ran.

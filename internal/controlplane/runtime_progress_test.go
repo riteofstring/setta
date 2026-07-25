@@ -72,13 +72,14 @@ func TestRuntimeProgressPushesWakeHealthWithoutFalseUnhealthyTransition(t *testi
 	}
 	requireRuntimeProgressStates(t, events, RuntimeProgressWakeRequested)
 	now = now.Add(time.Minute)
-	runtime, err := store.RecordRuntimeHealth(ctx, RecordRuntimeHealthRequest{
+	health, err := store.RecordRuntimeHealth(ctx, RecordRuntimeHealthRequest{
 		RuntimeName:     runtimeName,
 		HealthState:     RuntimeHealthDegraded,
 		ObservedRelease: "test-release",
 	})
-	if err != nil || runtime.WakeRequestedAt == nil {
-		t.Fatalf("degraded wake health = %+v, %v", runtime, err)
+	if err != nil || health.Runtime.WakeRequestedAt == nil ||
+		!health.WakePending || health.WakeCompleted {
+		t.Fatalf("degraded wake health = %+v, %v", health, err)
 	}
 	select {
 	case <-update:
@@ -86,13 +87,14 @@ func TestRuntimeProgressPushesWakeHealthWithoutFalseUnhealthyTransition(t *testi
 	default:
 	}
 	now = now.Add(time.Minute)
-	runtime, err = store.RecordRuntimeHealth(ctx, RecordRuntimeHealthRequest{
+	health, err = store.RecordRuntimeHealth(ctx, RecordRuntimeHealthRequest{
 		RuntimeName:     runtimeName,
 		HealthState:     RuntimeHealthHealthy,
 		ObservedRelease: "test-release",
 	})
-	if err != nil || runtime.WakeRequestedAt != nil {
-		t.Fatalf("healthy wake state = %+v, %v", runtime, err)
+	if err != nil || health.Runtime.WakeRequestedAt != nil ||
+		!health.WakePending || !health.WakeCompleted {
+		t.Fatalf("healthy wake state = %+v, %v", health, err)
 	}
 	requireClosed(t, update, "healthy wake progress")
 	events, _, err = store.RuntimeProgressAfter(ctx, "progress-wake-operation", "1")

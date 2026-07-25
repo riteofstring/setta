@@ -177,6 +177,67 @@ func TestAdminServerMutatesLiveAuthorizationAndPushInvalidation(t *testing.T) {
 	})
 }
 
+func TestAdminServerAuditsRuntimeWakeAndTrustedHealthWithoutContent(t *testing.T) {
+	ctx := context.Background()
+	store, _, runtimeName, _ := seededControlPlane(t, ctx)
+	defer store.Close()
+	socketPath := filepath.Join(filepath.Dir(store.Path()), "admin.sock")
+	var audit bytes.Buffer
+	server, err := StartAdminServer(AdminServerConfig{
+		Observer:      newAdminTestObserver(t, &audit),
+		PriceSchedule: adminTestPriceSchedule(),
+		SocketPath:    socketPath,
+		Store:         store,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer shutdownAdminTestServer(t, server)
+	client := adminTestClient(socketPath)
+	adminTestRequest(t, client, "/v1/runtimes/wake", AdminRequestRuntimeWakeRequest{
+		IdempotencyKey: "admin-wake-operation",
+		RuntimeName:    runtimeName,
+	}, "runtime_wake_requested")
+	adminTestRequest(t, client, "/v1/runtimes/health", AdminRecordRuntimeHealthRequest{
+		HealthState:     RuntimeHealthDegraded,
+		ObservedRelease: "test-release",
+		RuntimeName:     runtimeName,
+	}, "runtime_health_recorded")
+	events, update, err := store.RuntimeProgressAfter(ctx, "admin-wake-operation", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireRuntimeProgressStates(t, events, RuntimeProgressWakeRequested)
+	select {
+	case <-update:
+		t.Fatal("degraded health completed the wake")
+	default:
+	}
+	adminTestRequest(t, client, "/v1/runtimes/health", AdminRecordRuntimeHealthRequest{
+		HealthState:     RuntimeHealthHealthy,
+		ObservedRelease: "test-release",
+		RuntimeName:     runtimeName,
+	}, "runtime_health_recorded")
+	requireClosed(t, update, "administrative wake completion")
+	events, _, err = store.RuntimeProgressAfter(ctx, "admin-wake-operation", "1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireRuntimeProgressStates(t, events, RuntimeProgressHealthy)
+	requireContentFreeControlPlaneAudit(t, audit.Bytes(), []ControlPlaneAuditMeasurement{
+		{Action: ControlPlaneAuditRuntimeWakeRequested, State: "requested"},
+		{Action: ControlPlaneAuditRuntimeHealthRecorded, State: string(RuntimeHealthDegraded)},
+		{Action: ControlPlaneAuditRuntimeWakeObserved, State: string(RuntimeHealthDegraded)},
+		{Action: ControlPlaneAuditRuntimeHealthRecorded, State: string(RuntimeHealthHealthy)},
+		{Action: ControlPlaneAuditRuntimeWakeObserved, State: "completed"},
+	}, []string{
+		"admin-wake-operation",
+		runtimeName,
+		"user-server",
+		"test-release",
+	})
+}
+
 func TestTypedHostedAccessClientStreamsReadyOnPhoneThroughPrivateBoundary(t *testing.T) {
 	directory := t.TempDir()
 	store := openTestStore(t, directory, time.Now, RateLimit{})

@@ -112,11 +112,12 @@ func verifyReleasePolicy(t *testing.T, fixture *runtimePolicyFixture) {
 	if _, err := fixture.store.ResolveRoute(ctx, fixture.runtimeName); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("mismatched release route error = %v, want ErrNotFound", err)
 	}
-	runtimeRecord, err = fixture.store.RecordRuntimeHealth(ctx, RecordRuntimeHealthRequest{
+	health, err := fixture.store.RecordRuntimeHealth(ctx, RecordRuntimeHealthRequest{
 		RuntimeName:     fixture.runtimeName,
 		HealthState:     RuntimeHealthHealthy,
 		ObservedRelease: "release-2",
 	})
+	runtimeRecord = health.Runtime
 	if err != nil || runtimeRecord.ReleaseStatus() != RuntimeReleaseCurrent ||
 		runtimeRecord.LastReadyAt == nil || !runtimeRecord.LastReadyAt.Equal(fixture.now) {
 		t.Fatalf("current release health = %+v, %v", runtimeRecord, err)

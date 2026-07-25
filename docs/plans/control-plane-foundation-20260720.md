@@ -207,6 +207,14 @@ reactivation. They retain only a typed action, resulting state, and timestamp;
 the response may carry the administrator-requested identifier, but the shared
 operational log does not.
 
+The same private Unix-socket boundary owns explicit runtime wake requests and
+trusted runtime health observations. Wake requests reuse the durable
+idempotency and push-progress path; health writes atomically report whether a
+wake was pending and whether the observation completed it. The shared
+operational log records only wake-requested, health-state, and wake-observed
+outcomes. Runtime, user, operation, release, route, and credential identifiers
+remain out of the audit stream.
+
 The installed Sprite runtime starts with explicit workload-lease enforcement.
 The shared agent runtime admits one provider turn at a time, acquires the
 trusted Sprites Tasks lease before opening a provider session, renews it at

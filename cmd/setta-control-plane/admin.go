@@ -25,34 +25,116 @@ type adminClientConfig struct {
 
 func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: setta-control-plane admin <ensure-device|revoke-device|set-user-status|set-user-budget|record-usage|record-accounting-event|finalize-accounting-window> [options]")
+		fmt.Fprintln(stderr, "usage: setta-control-plane admin <ensure-device|revoke-device|set-user-status|set-user-budget|request-runtime-wake|record-runtime-health|record-usage|record-accounting-event|finalize-accounting-window> [options]")
 		return 2
 	}
-	var err error
-	switch args[0] {
-	case "ensure-device":
-		err = adminEnsureDevice(context.Background(), args[1:], stdin, stdout, stderr)
-	case "revoke-device":
-		err = adminRevokeDevice(context.Background(), args[1:], stdout, stderr)
-	case "set-user-status":
-		err = adminSetUserStatus(context.Background(), args[1:], stdout, stderr)
-	case "set-user-budget":
-		err = adminSetUserBudget(context.Background(), args[1:], stdout, stderr)
-	case "record-usage":
-		err = adminRecordUsage(context.Background(), args[1:], stdin, stdout, stderr)
-	case "record-accounting-event":
-		err = adminRecordAccountingEvent(context.Background(), args[1:], stdin, stdout, stderr)
-	case "finalize-accounting-window":
-		err = adminFinalizeAccountingWindow(context.Background(), args[1:], stdout, stderr)
-	default:
+	ctx := context.Background()
+	commandArgs := args[1:]
+	commands := map[string]func() error{
+		"ensure-device": func() error {
+			return adminEnsureDevice(ctx, commandArgs, stdin, stdout, stderr)
+		},
+		"revoke-device": func() error {
+			return adminRevokeDevice(ctx, commandArgs, stdout, stderr)
+		},
+		"set-user-status": func() error {
+			return adminSetUserStatus(ctx, commandArgs, stdout, stderr)
+		},
+		"set-user-budget": func() error {
+			return adminSetUserBudget(ctx, commandArgs, stdout, stderr)
+		},
+		"request-runtime-wake": func() error {
+			return adminRequestRuntimeWake(ctx, commandArgs, stdout, stderr)
+		},
+		"record-runtime-health": func() error {
+			return adminRecordRuntimeHealth(ctx, commandArgs, stdout, stderr)
+		},
+		"record-usage": func() error {
+			return adminRecordUsage(ctx, commandArgs, stdin, stdout, stderr)
+		},
+		"record-accounting-event": func() error {
+			return adminRecordAccountingEvent(ctx, commandArgs, stdin, stdout, stderr)
+		},
+		"finalize-accounting-window": func() error {
+			return adminFinalizeAccountingWindow(ctx, commandArgs, stdout, stderr)
+		},
+	}
+	command, found := commands[args[0]]
+	if !found {
 		fmt.Fprintf(stderr, "unknown control-plane administration command %q\n", args[0])
 		return 2
 	}
+	err := command()
 	if err != nil {
 		fmt.Fprintf(stderr, "control-plane administration failed: %v\n", err)
 		return 1
 	}
 	return 0
+}
+
+func adminRequestRuntimeWake(
+	ctx context.Context,
+	args []string,
+	stdout io.Writer,
+	stderr io.Writer,
+) error {
+	var config adminClientConfig
+	var payload controlplane.AdminRequestRuntimeWakeRequest
+	flagSet := flag.NewFlagSet("setta-control-plane admin request-runtime-wake", flag.ContinueOnError)
+	flagSet.SetOutput(stderr)
+	flagSet.StringVar(&config.SocketPath, "socket", "", "absolute private administration socket path")
+	flagSet.StringVar(&payload.IdempotencyKey, "idempotency-key", "", "globally unique immutable wake request key")
+	flagSet.StringVar(&payload.RuntimeName, "runtime-name", "", "Setta-managed runtime name")
+	if err := flagSet.Parse(args); err != nil {
+		return err
+	}
+	if flagSet.NArg() != 0 {
+		return errors.New("request-runtime-wake accepts no positional arguments")
+	}
+	if err := validateAdminClientConfig(config); err != nil {
+		return err
+	}
+	return executeAdminRequest(
+		ctx,
+		config,
+		"/v1/runtimes/wake",
+		payload,
+		"runtime_wake_requested",
+		stdout,
+	)
+}
+
+func adminRecordRuntimeHealth(
+	ctx context.Context,
+	args []string,
+	stdout io.Writer,
+	stderr io.Writer,
+) error {
+	var config adminClientConfig
+	var payload controlplane.AdminRecordRuntimeHealthRequest
+	flagSet := flag.NewFlagSet("setta-control-plane admin record-runtime-health", flag.ContinueOnError)
+	flagSet.SetOutput(stderr)
+	flagSet.StringVar(&config.SocketPath, "socket", "", "absolute private administration socket path")
+	flagSet.StringVar((*string)(&payload.HealthState), "health-state", "", "unknown, healthy, degraded, or unreachable")
+	flagSet.StringVar(&payload.ObservedRelease, "observed-release", "", "verified installed Setta runtime release")
+	flagSet.StringVar(&payload.RuntimeName, "runtime-name", "", "Setta-managed runtime name")
+	if err := flagSet.Parse(args); err != nil {
+		return err
+	}
+	if flagSet.NArg() != 0 {
+		return errors.New("record-runtime-health accepts no positional arguments")
+	}
+	if err := validateAdminClientConfig(config); err != nil {
+		return err
+	}
+	return executeAdminRequest(
+		ctx,
+		config,
+		"/v1/runtimes/health",
+		payload,
+		"runtime_health_recorded",
+		stdout,
+	)
 }
 
 func adminFinalizeAccountingWindow(
