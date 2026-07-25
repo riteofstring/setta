@@ -4,6 +4,7 @@ import type {
   ConversationApprovalAnswer,
   DirectorEvent,
   DirectorIntent,
+  DirectorReceipt,
   DirectorSnapshot,
   ResourceRequest,
   TrajectoryApprovalDecision,
@@ -23,7 +24,6 @@ import {
   FileText,
   FolderOpen,
   LoaderCircle,
-  Send,
   Settings,
   Square,
   X,
@@ -35,23 +35,30 @@ import {
   useMemo,
   useRef,
   useState,
-  type FormEvent,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
 import { SettaLogoMark } from "../../components/setta-logo-mark";
 import { useAppWindowDragHandlers } from "../../app-window-drag";
+import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
+import { subscribeSpeechCapabilityRefresh } from "../global-speech/app-shell-speech-capture";
+import { createBrowserVoiceInputProvider } from "../global-speech/browser-voice-input-provider";
 import { emptyPackedGraphSnapshot } from "../director-graph/packed-graph-snapshot";
 import { packSemanticGraphComposition } from "../director-graph/semantic-graph-packer";
 import { DirectorGraphSurface } from "../director-graph/render/DirectorGraphSurface";
 import type { DirectorGraphCanvas } from "../director-graph/render/director-graph-canvas";
+import { DirectorComposer, type DirectorSpeechCaptureBinding } from "./DirectorComposer";
 import {
   applyDirectorEvent,
   selectedWorkstreamEntry,
   visibleSelectedGraph,
 } from "./director-command-center-state";
+import { DirectorSpeechCaptureController } from "./director-speech-capture";
 
 interface DirectorCommandCenterShellProps {
+  connectedRuntimeId: string | null;
+  onOpenVoiceCredentialSettings: () => void;
   onOpenSettingsPage: () => void;
   platform: DesktopPlatform;
   setta: SettaAPI;
@@ -103,11 +110,18 @@ const artifactLabels = {
 } as const satisfies Record<ArtifactKind, string>;
 
 export function DirectorCommandCenterShell({
+  connectedRuntimeId,
+  onOpenVoiceCredentialSettings,
   onOpenSettingsPage,
   platform,
   setta,
 }: DirectorCommandCenterShellProps): React.JSX.Element {
   const director = useDirectorRuntime(setta);
+  const speechCapture = useDirectorSpeechCapture({
+    dispatch: director.dispatch,
+    runtimeId: connectedRuntimeId,
+    setta,
+  });
   const workspaceSession = useWorkspaceSession(setta);
   const selectedEntry = selectedWorkstreamEntry(director.snapshot);
   const selectedGraph = visibleSelectedGraph(director.snapshot);
@@ -162,14 +176,19 @@ export function DirectorCommandCenterShell({
           requests={director.snapshot?.unresolvedResourceRequests ?? []}
           workspaceSession={workspaceSession}
         />
-        <DirectorComposer dispatch={director.dispatch} dispatching={director.dispatching} />
+        <DirectorComposer
+          dispatch={director.dispatch}
+          dispatching={director.dispatching}
+          onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
+          speechCapture={speechCapture}
+        />
       </section>
     </main>
   );
 }
 
 function useDirectorRuntime(setta: SettaAPI): DirectorRuntimeState & {
-  dispatch: (intent: DirectorIntent) => Promise<void>;
+  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
 } {
   const [snapshot, setSnapshotState] = useState<DirectorSnapshot | null>(null);
   const [loadState, setLoadState] = useState<DirectorLoadState>("loading");
@@ -248,14 +267,16 @@ function useDirectorRuntime(setta: SettaAPI): DirectorRuntimeState & {
   }, [setSnapshot, setta]);
 
   const dispatch = useCallback(
-    async (intent: DirectorIntent): Promise<void> => {
+    async (intent: DirectorIntent): Promise<DirectorReceipt> => {
       setDispatching(true);
       setMessage(null);
       try {
         const receipt = await setta.director.dispatch(intent);
         setReceiptText(receipt.submit?.publicText || null);
-      } catch {
+        return receipt;
+      } catch (error) {
         setMessage("The Director could not accept that request.");
+        throw error;
       } finally {
         setDispatching(false);
       }
@@ -289,13 +310,57 @@ function useWorkspaceSession(setta: SettaAPI): WorkspaceSession | null {
   return session;
 }
 
+function useDirectorSpeechCapture({
+  dispatch,
+  runtimeId,
+  setta,
+}: {
+  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
+  runtimeId: string | null;
+  setta: SettaAPI;
+}): DirectorSpeechCaptureBinding {
+  const dispatchRef = useRef(dispatch);
+  dispatchRef.current = dispatch;
+  const [controller] = useState(
+    () =>
+      new DirectorSpeechCaptureController({
+        captureProvider: createBrowserVoiceInputProvider(setta),
+        clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
+        createCaptureSessionId: () => globalThis.crypto.randomUUID(),
+        dispatchDirectorIntent: (intent) => dispatchRef.current(intent),
+        onCaptureEnd: () => {},
+        onCaptureStart: () => {},
+        setTimeout: (handler, delayMs) => globalThis.setTimeout(handler, delayMs),
+      }),
+  );
+  const snapshot = useSyncExternalStore(
+    controller.subscribe,
+    controller.getSnapshot,
+    controller.getSnapshot,
+  );
+
+  useEffect(() => {
+    const unregister = registerRendererPageTeardown(() => controller.dispose());
+    return () => {
+      unregister();
+      controller.dispose();
+    };
+  }, [controller]);
+  useEffect(() => {
+    void controller.synchronizeRuntime(runtimeId);
+  }, [controller, runtimeId]);
+  useEffect(() => subscribeSpeechCapabilityRefresh(setta, controller), [controller, setta]);
+
+  return { controller, snapshot };
+}
+
 function CommandCenterTopBar({
   dispatch,
   onOpenSettingsPage,
   platform,
   snapshot,
 }: {
-  dispatch: (intent: DirectorIntent) => Promise<void>;
+  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
   onOpenSettingsPage: () => void;
   platform: DesktopPlatform;
   snapshot: DirectorSnapshot | null;
@@ -435,7 +500,7 @@ function ArtifactsRail({
 }: {
   approvals: readonly ApprovalRequest[];
   artifacts: readonly WorkstreamArtifact[];
-  dispatch: (intent: DirectorIntent) => Promise<void>;
+  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
   dispatching: boolean;
   requests: readonly ResourceRequest[];
   workspaceSession: WorkspaceSession | null;
@@ -510,7 +575,7 @@ function ApprovalItem({
 }: {
   approval: ApprovalRequest;
   disabled: boolean;
-  dispatch: (intent: DirectorIntent) => Promise<void>;
+  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
 }) {
   const structured = approval.kind === "structured_input" || approval.kind === "mcp_elicitation";
   return (
@@ -549,7 +614,7 @@ function ResourceRequestItem({
   workspaceSession,
 }: {
   disabled: boolean;
-  dispatch: (intent: DirectorIntent) => Promise<void>;
+  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
   request: ResourceRequest;
   workspaceSession: WorkspaceSession | null;
 }) {
@@ -572,44 +637,6 @@ function ResourceRequestItem({
         {workspaces.length === 0 ? <span>No active folder</span> : null}
       </div>
     </article>
-  );
-}
-
-function DirectorComposer({
-  dispatch,
-  dispatching,
-}: {
-  dispatch: (intent: DirectorIntent) => Promise<void>;
-  dispatching: boolean;
-}) {
-  const [text, setText] = useState("");
-  const submit = (event: FormEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    const trimmed = text.trim();
-    if (trimmed.length === 0) {
-      return;
-    }
-    setText("");
-    void dispatch(submitIntent(trimmed));
-  };
-  return (
-    <form aria-label="Director composer" className="director-composer" onSubmit={submit}>
-      <label className="sr-only" htmlFor="director-composer-input">
-        Ask the Director
-      </label>
-      <textarea
-        disabled={dispatching}
-        id="director-composer-input"
-        onChange={(event) => setText(event.target.value)}
-        placeholder="Ask the Director..."
-        rows={1}
-        value={text}
-      />
-      <button disabled={dispatching || text.trim().length === 0} type="submit">
-        <Send aria-hidden="true" size={17} />
-        <span>Send</span>
-      </button>
-    </form>
   );
 }
 
@@ -679,18 +706,6 @@ function loadStateMessage(state: DirectorLoadState): string {
     default:
       return exhaustiveLoadState(state);
   }
-}
-
-function submitIntent(text: string): DirectorIntent {
-  return {
-    cancelRun: null,
-    kind: "submit",
-    moveSelection: null,
-    resolveApproval: null,
-    resolveResourceRequest: null,
-    selectWorkstream: null,
-    submit: { modality: "text", text },
-  };
 }
 
 function selectWorkstreamIntent(workstreamId: string): DirectorIntent {

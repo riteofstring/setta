@@ -61,6 +61,35 @@ function minimalSettaApi(platform: string) {
       readSnapshot: async () => emptyDirectorSnapshot(),
       subscribe: async () => undefined,
     },
+    runtimes: {
+      current: async () => runtimeSnapshot(),
+      onConnectionState: () => () => undefined,
+    },
+    speech: {
+      createTranscriptionSession: async () => ({
+        clientSecret: "secret",
+        expiresAt: "2026-07-25T18:00:00Z",
+        maximumRecordingSeconds: 30,
+        maximumTranscriptCharacters: 4000,
+        transcriptionDelay: "low",
+        transcriptionModel: "test-transcription",
+        webRTCURL: "https://example.test/realtime",
+      }),
+      readCapabilities: async () => ({
+        aiVoiceDisclosure: "AI voice.",
+        maximumRecordingSeconds: 30,
+        maximumSynthesisCharacters: 4000,
+        maximumTranscriptCharacters: 4000,
+        providerStatus: "configured",
+        synthesisModel: "test-synthesis",
+        transcriptionModel: "test-transcription",
+        voiceCatalog: {
+          provider: "openai",
+          version: "test",
+          voiceIds: ["marin"],
+        },
+      }),
+    },
     workspace: {
       session: async () => ({
         activeWorkspaces: [],
@@ -69,6 +98,21 @@ function minimalSettaApi(platform: string) {
         workspaceAvailabilities: [],
       }),
     },
+  };
+}
+
+function runtimeSnapshot() {
+  return {
+    activeRuntimeId: "runtime-local",
+    connection: {
+      message: "connected",
+      protocolVersion: 1,
+      runtimeId: "runtime-local",
+      status: "connected",
+      updatedAt: "2026-07-25T17:00:00Z",
+    },
+    runtimes: [],
+    switching: false,
   };
 }
 

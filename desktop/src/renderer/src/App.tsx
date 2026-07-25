@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef } from "react";
 import { SettingsPanel } from "./components/settings-panel";
 import { useAppWindowDragHandlers } from "./app-window-drag";
 import { DirectorCommandCenterShell } from "./features/director-command-center/DirectorCommandCenterShell";
+import { resetRuntimeDerivedRendererState } from "./stores/runtime-derived-state";
+import { useRuntimeStore } from "./stores/runtime-store";
 import { useAppearanceStore } from "./stores/appearance-store";
 import {
   type SettingsShellRoute,
@@ -25,9 +27,13 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
   const settingsRouteWasOpenRef = useRef(false);
   const settingsRoute = useSettingsNavigationStore((state) => state.route);
   const openSettings = useSettingsNavigationStore((state) => state.openSettings);
+  const openVoiceProviderSelection = useSettingsNavigationStore(
+    (state) => state.openVoiceProviderSelection,
+  );
   const closeSettings = useSettingsNavigationStore((state) => state.closeSettings);
   const settingsPageOpen = settingsRoute.page === "settings";
   useAppearanceSettings();
+  const runtime = useRuntimeLifecycle(setta);
 
   const captureSettingsFocusOrigin = useCallback(() => {
     settingsFocusRestoreRef.current = activeFocusableElement();
@@ -36,6 +42,10 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
     captureSettingsFocusOrigin();
     openSettings();
   }, [captureSettingsFocusOrigin, openSettings]);
+  const openVoiceCredentialSettings = useCallback(() => {
+    captureSettingsFocusOrigin();
+    openVoiceProviderSelection();
+  }, [captureSettingsFocusOrigin, openVoiceProviderSelection]);
   const closeSettingsPage = useCallback(() => {
     closeSettings();
   }, [closeSettings]);
@@ -60,6 +70,8 @@ function SettaApp({ setta }: { setta: SettaAPI }) {
         inert={settingsPageOpen || undefined}
       >
         <DirectorCommandCenterShell
+          connectedRuntimeId={runtime.connectedRuntimeId}
+          onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
           onOpenSettingsPage={openSettingsPage}
           platform={platform}
           setta={setta}
@@ -172,6 +184,36 @@ function useAppearanceSettings() {
   useEffect(() => {
     void loadAppearance();
   }, [loadAppearance]);
+}
+
+function useRuntimeLifecycle(setta: SettaAPI) {
+  const loadRuntimes = useRuntimeStore((state) => state.load);
+  const runtimeSnapshot = useRuntimeStore((state) => state.snapshot);
+  const setRuntimeSnapshot = useRuntimeStore((state) => state.setSnapshot);
+  const resetRuntimeStateKeyRef = useRef<string | null | undefined>(undefined);
+  const activeConnectedRuntimeId =
+    runtimeSnapshot?.connection.status === "connected" ? runtimeSnapshot.activeRuntimeId : null;
+
+  useEffect(() => {
+    void loadRuntimes();
+    return setta.runtimes.onConnectionState((snapshot) => {
+      setRuntimeSnapshot(snapshot);
+    });
+  }, [loadRuntimes, setRuntimeSnapshot, setta]);
+
+  useEffect(() => {
+    if (!runtimeSnapshot) {
+      return;
+    }
+    const activeRuntimeId = runtimeSnapshot.activeRuntimeId;
+    if (resetRuntimeStateKeyRef.current === activeRuntimeId) {
+      return;
+    }
+    resetRuntimeStateKeyRef.current = activeRuntimeId;
+    resetRuntimeDerivedRendererState();
+  }, [runtimeSnapshot]);
+
+  return { connectedRuntimeId: activeConnectedRuntimeId };
 }
 
 function activeFocusableElement(): HTMLElement | null {

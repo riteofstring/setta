@@ -355,6 +355,11 @@
   z-index: 28;
 }
 
+.director-composer-input-stack {
+  display: grid;
+  min-inline-size: 0;
+}
+
 .director-composer textarea {
   background: transparent;
   border: 0;
@@ -372,6 +377,12 @@
   color: oklch(0.62 0.03 250);
 }
 
+.director-composer-controls {
+  align-items: end;
+  display: flex;
+  gap: 8px;
+}
+
 .director-composer button {
   background: oklch(0.76 0.13 220);
   border-color: oklch(0.82 0.13 220);
@@ -379,6 +390,61 @@
   font-weight: 650;
   min-block-size: 42px;
   padding-inline: 13px;
+}
+
+.director-composer .director-composer-voice-button,
+.director-composer .director-composer-discard-voice-button {
+  justify-content: center;
+  min-inline-size: 42px;
+  padding: 0;
+}
+
+.director-composer .director-composer-voice-button {
+  background: oklch(0.16 0.03 245 / 0.85);
+  border-color: oklch(0.42 0.05 245 / 0.72);
+  color: oklch(0.87 0.06 225);
+}
+
+.director-composer[data-voice-state="recording"] .director-composer-voice-button {
+  background: oklch(0.66 0.15 28 / 0.9);
+  border-color: oklch(0.78 0.15 28 / 0.85);
+  color: oklch(0.98 0.02 35);
+}
+
+.director-composer .director-composer-discard-voice-button {
+  background: oklch(0.18 0.04 25 / 0.82);
+  border-color: oklch(0.58 0.11 25 / 0.78);
+  color: oklch(0.9 0.05 25);
+}
+
+.director-composer-voice-status {
+  color: oklch(0.74 0.04 220);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  gap: 6px;
+  line-height: 1.35;
+  margin: -2px 8px 5px;
+  min-block-size: 1rem;
+  min-inline-size: 0;
+}
+
+.director-composer-transcript {
+  color: oklch(0.86 0.03 245);
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.director-spinner {
+  animation: director-spin 900ms linear infinite;
+}
+
+@keyframes director-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .director-status-icon {
@@ -412,6 +478,10 @@
   .director-action-controls button,
   .director-resource-options button {
     transition-property: opacity, background-color, border-color, color;
+  }
+
+  .director-spinner {
+    animation: none;
   }
 
   .director-workstream-tab:active,
@@ -478,6 +548,16 @@
 
   .director-composer {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .director-composer[data-voice-discard="true"] .director-composer-controls {
+    display: grid;
+    grid-template-columns: 42px 42px minmax(0, 1fr);
+  }
+
+  .director-composer:not([data-voice-discard="true"]) .director-composer-controls {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
   }
 
   .director-composer button {

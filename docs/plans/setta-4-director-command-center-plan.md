@@ -106,10 +106,12 @@ repository edit. The Phase 4 production-shell cutover has started: the primary
 renderer app now mounts the Director command-center shell instead of the pane
 workspace, drives the WebGL2 graph from the app-scoped Director snapshot and
 pushed event stream, exposes workstream navigation and a text Director composer
-through generated Director intents, and renders the Now, approval/resource, and
-artifact rails from generated Director contracts. Speech, structured approval
-answer collection, rich artifact detail opening, final mockup-fidelity work, and
-live integrated performance reporting remain Phase 4 work.
+through generated Director intents, captures finalized voice transcripts through
+the same submit intent with voice provenance, and renders the Now,
+approval/resource, and artifact rails from generated Director contracts. Director
+speech playback still needs a typed Director speech-source contract; structured
+approval answer collection, rich artifact detail opening, final mockup-fidelity
+work, and live integrated performance reporting remain Phase 4 work.
 Supply-chain release gate: `desktop/package.json` ignores `CVE-2026-14257`
 only because the first patched `brace-expansion` release, `5.0.8`, was published
 on 2026-07-23 and cannot satisfy the checked-in seven-day release-age policy
@@ -357,16 +359,16 @@ type DirectorIntent =
   | { type: "move_selection"; direction: "previous" | "next" }
   | { type: "cancel"; workstreamId: string }
   | {
-      type: "resolve_approval"
-      approvalId: string
-      decision: "approve" | "deny"
+      type: "resolve_approval";
+      approvalId: string;
+      decision: "approve" | "deny";
     }
-  | { type: "open_artifact"; workstreamId: string; artifactId: string }
+  | { type: "open_artifact"; workstreamId: string; artifactId: string };
 
 interface DirectorCommandCenter {
-  dispatch(intent: DirectorIntent): Promise<DirectorReceipt>
-  getSnapshot(): DirectorCommandCenterSnapshot
-  subscribe(listener: () => void): () => void
+  dispatch(intent: DirectorIntent): Promise<DirectorReceipt>;
+  getSnapshot(): DirectorCommandCenterSnapshot;
+  subscribe(listener: () => void): () => void;
 }
 ```
 
@@ -502,26 +504,26 @@ not commit.
 The first graph projector should implement this mapping from Go-owned facts. Missing source facts
 must be added as typed events or records; do not fill gaps by parsing text.
 
-| Source fact | Graph output | Notes |
-| --- | --- | --- |
-| Director/workstream creation, selection, and resource binding records | workstream status and registry membership | Add explicit records where the current conversation model has no app-scoped owner. |
-| `user_input_accepted` | `user_goal` | The input event owns the user-authored summary and starts the visible causal chain. |
-| Validated Director route decision or command | `director_decision` | The model may choose only authorized decision kinds and targets; trusted code attaches ids and capabilities. |
-| `turn_queued`, `turn_promoted`, `turn_started`, `turn_steered` | `action` status updates plus selected-workstream milestones | Queue and run state should update one durable run node rather than create noisy duplicate nodes. |
-| `plan_changed` | `plan` plus step `milestone` nodes | Current provider plan steps do not have stable ids; initial step node ids should be derived from the source event id and step index unless the contract adds step ids. Codex `PlanDelta` is a provisional live text signal only; do not create authoritative plan nodes by concatenating deltas. |
-| `activity_started`, `activity_progressed`, `activity_completed`, `activity_failed` | `action`, `investigation`, or `delegation` | Map by typed activity kind: commands, hooks, MCP tools, dynamic tools, file changes, and generated media are `action`; web search and image view are `investigation`; subagents are `delegation`. Generating media is the action that produces an artifact, not the artifact: the `artifact` node appears when `artifact_emitted` names a durable artifact, because a node claiming to be an artifact without naming one has no provenance to open. Preserve trusted plugin/script attribution as evidence metadata. `other` is not visible until a typed owner assigns a precise semantic kind. The Codex adapter reports the provider's own activity kind, so this resolver reads a reported fact rather than a bucket the adapter chose; a collab-agent call stays `other` until Setta can name the receiver it addresses. |
-| `file_change_proposed`, `file_change_completed` | `action` with file-change evidence | Approval state comes from approval events, not inferred from file diffs. |
-| `approval_requested`, `approval_resolved` | `approval_required` | Secret answers and secret fields stay redacted in public graph state. |
-| Resource request and resolution records | `resource_required` | Add explicit Director/workstream records if the current source only exposes resource needs indirectly. |
-| `artifact_emitted` | `artifact` | Connect from the producing run/action with a `produced` edge. The event carries the artifact's kind and title, so a node never has to resolve a second record — or invent a label — to say what was produced. |
-| `agent_liveness_changed`, `provider_lifecycle_changed` | `blocked`, `recovery`, or status update | Only typed lost/unavailable/reconciling/retryable states become visible nodes. Ready/attached states update metadata. |
-| `model_rerouted` | `recovery` or `milestone` | Use the typed reroute reason/status; do not infer risk from surrounding text. |
-| `turn_completed`, `turn_failed`, provider/system `turn_interrupted` | `completed`, `failed`, or `cancelled` | Terminal run state closes the visible causal chain for that run. A user `turn_interrupted` is the accepted control request and remains metadata until the terminal fact arrives. |
-| `public_reasoning_summary_updated`, `agent_message_completed` | public summaries and detail surfaces | These update accessible text and summaries; they do not create nodes by default. |
-| Normalized Codex `thread/status/changed`, environment connection notifications, and environment status reads | workstream or provider lifecycle status, `blocked`, or `recovery` | Ready, pending, and attached states update metadata. Disconnected, unknown, or unavailable states become visible nodes only when typed lifecycle state says the user or Director needs to act. `ProviderLifecycle` carries a typed reason, so a blocked or recovering node says which provider fact produced it without reading its message. |
-| `validation_recorded` | `validation` | The durable owner of a typed provider check over declared work. A check with a verdict becomes a node connected to what it covered by `validated_by`; a check still running updates metadata, because a node with no verdict tells the user nothing to act on. Normalized Codex Guardian review and model verification notifications commit it. Guardian review payloads are unstable upstream, so only the review id, the reviewed item, the typed status, and the typed risk level cross the adapter. |
-| Codex token usage and raw response completion notifications | accounting, context, and detail-surface telemetry | These are not semantic graph nodes by default. They may update cost/context/detail surfaces with explicit redaction and provenance. |
-| Codex realtime transcript and audio notifications | live voice/transcript UI state | Transcript and audio deltas are transport state. Commit accepted user input, public assistant output, or public reasoning summaries as durable Setta events before changing semantic graph truth. |
+| Source fact                                                                                                  | Graph output                                                      | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Director/workstream creation, selection, and resource binding records                                        | workstream status and registry membership                         | Add explicit records where the current conversation model has no app-scoped owner.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `user_input_accepted`                                                                                        | `user_goal`                                                       | The input event owns the user-authored summary and starts the visible causal chain.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Validated Director route decision or command                                                                 | `director_decision`                                               | The model may choose only authorized decision kinds and targets; trusted code attaches ids and capabilities.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `turn_queued`, `turn_promoted`, `turn_started`, `turn_steered`                                               | `action` status updates plus selected-workstream milestones       | Queue and run state should update one durable run node rather than create noisy duplicate nodes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `plan_changed`                                                                                               | `plan` plus step `milestone` nodes                                | Current provider plan steps do not have stable ids; initial step node ids should be derived from the source event id and step index unless the contract adds step ids. Codex `PlanDelta` is a provisional live text signal only; do not create authoritative plan nodes by concatenating deltas.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `activity_started`, `activity_progressed`, `activity_completed`, `activity_failed`                           | `action`, `investigation`, or `delegation`                        | Map by typed activity kind: commands, hooks, MCP tools, dynamic tools, file changes, and generated media are `action`; web search and image view are `investigation`; subagents are `delegation`. Generating media is the action that produces an artifact, not the artifact: the `artifact` node appears when `artifact_emitted` names a durable artifact, because a node claiming to be an artifact without naming one has no provenance to open. Preserve trusted plugin/script attribution as evidence metadata. `other` is not visible until a typed owner assigns a precise semantic kind. The Codex adapter reports the provider's own activity kind, so this resolver reads a reported fact rather than a bucket the adapter chose; a collab-agent call stays `other` until Setta can name the receiver it addresses. |
+| `file_change_proposed`, `file_change_completed`                                                              | `action` with file-change evidence                                | Approval state comes from approval events, not inferred from file diffs.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `approval_requested`, `approval_resolved`                                                                    | `approval_required`                                               | Secret answers and secret fields stay redacted in public graph state.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Resource request and resolution records                                                                      | `resource_required`                                               | Add explicit Director/workstream records if the current source only exposes resource needs indirectly.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `artifact_emitted`                                                                                           | `artifact`                                                        | Connect from the producing run/action with a `produced` edge. The event carries the artifact's kind and title, so a node never has to resolve a second record — or invent a label — to say what was produced.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `agent_liveness_changed`, `provider_lifecycle_changed`                                                       | `blocked`, `recovery`, or status update                           | Only typed lost/unavailable/reconciling/retryable states become visible nodes. Ready/attached states update metadata.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `model_rerouted`                                                                                             | `recovery` or `milestone`                                         | Use the typed reroute reason/status; do not infer risk from surrounding text.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `turn_completed`, `turn_failed`, provider/system `turn_interrupted`                                          | `completed`, `failed`, or `cancelled`                             | Terminal run state closes the visible causal chain for that run. A user `turn_interrupted` is the accepted control request and remains metadata until the terminal fact arrives.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `public_reasoning_summary_updated`, `agent_message_completed`                                                | public summaries and detail surfaces                              | These update accessible text and summaries; they do not create nodes by default.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Normalized Codex `thread/status/changed`, environment connection notifications, and environment status reads | workstream or provider lifecycle status, `blocked`, or `recovery` | Ready, pending, and attached states update metadata. Disconnected, unknown, or unavailable states become visible nodes only when typed lifecycle state says the user or Director needs to act. `ProviderLifecycle` carries a typed reason, so a blocked or recovering node says which provider fact produced it without reading its message.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `validation_recorded`                                                                                        | `validation`                                                      | The durable owner of a typed provider check over declared work. A check with a verdict becomes a node connected to what it covered by `validated_by`; a check still running updates metadata, because a node with no verdict tells the user nothing to act on. Normalized Codex Guardian review and model verification notifications commit it. Guardian review payloads are unstable upstream, so only the review id, the reviewed item, the typed status, and the typed risk level cross the adapter.                                                                                                                                                                                                                                                                                                                       |
+| Codex token usage and raw response completion notifications                                                  | accounting, context, and detail-surface telemetry                 | These are not semantic graph nodes by default. They may update cost/context/detail surfaces with explicit redaction and provenance.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Codex realtime transcript and audio notifications                                                            | live voice/transcript UI state                                    | Transcript and audio deltas are transport state. Commit accepted user input, public assistant output, or public reasoning summaries as durable Setta events before changing semantic graph truth.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 ### Provider notification adapter rules
 
@@ -1039,7 +1041,7 @@ Exit gate:
    comparison, and `struggle` is gone. Emphasis is a drawn difference, because
    an interpretation has to stay visibly distinguishable from a runtime fact.
    `render/graph-glyph-atlas.ts` rasterises one cell per packed glyph, in
-   vocabulary order, so the atlas index *is* the glyph code.
+   vocabulary order, so the atlas index _is_ the glyph code.
 2. Define the packed immutable GPU snapshot boundary. **Done —
    `desktop/src/renderer/src/features/director-graph/packed-graph-snapshot.ts` and
    `packed-graph-validation.ts`. Columns are typed arrays in durable event order,
@@ -1069,7 +1071,7 @@ Exit gate:
    outcome node and repositions only from the first turn that moved, so a frame's
    work is proportional to what changed rather than to history. Camera follow,
    look-back, hover, selection, and manual fold pins are view state and never
-   write back. Labels are pooled DOM over the canvas — one element per *visible*
+   write back. Labels are pooled DOM over the canvas — one element per _visible_
    label — and the question and outcome pills are focusable buttons, which is the
    keyboard equivalent the fidelity checklist requires for the outcome-node click.
    `DirectorGraphSurface.tsx` is the React mount. Item 8's harness page is its
@@ -1111,9 +1113,9 @@ Exit gate:
    `render/graph-pixel-check.ts`, read back inside the frame that drew them
    through `DirectorGraphCanvas.requestPixelCheck`. Two properties of the picture
    shape that check: the graph floats in a drifting medium whose brightest
-   *pixel* is as bright as a node's, so blankness is judged on concentration
+   _pixel_ is as bright as a node's, so blankness is judged on concentration
    rather than brightness; and the graph is letterboxed rather than stretched, so
-   the grid resolves the *reference frame* instead of the canvas and one set of
+   the grid resolves the _reference frame_ instead of the canvas and one set of
    thresholds holds from a phone to 6K. Framing is then checked against the same
    `graphFitFrame` the shaders use — content centred on the spine, inside the
    letterbox, in the live edge's band — so the check fails when the renderer and
@@ -1127,32 +1129,32 @@ Exit gate:
    resuming from every cursor boundary is asserted to reach the same columns as a
    cold build of the whole stream.**
 8. Run the required scale and viewport scenarios against deterministic fixtures.
-    **Done — `desktop/tests/electron/director-graph-renderer-performance.test.mjs`,
-    registered in the `performance` tier of the Electron workflow manifest.** It
-    opens the committed harness page in the production Electron renderer and
-    runs every scenario in the matrix's section 4 at the tiers in its section 3.
-    The harness page (`features/director-graph/harness/`) is a second renderer
-    entry rather than a mode of the app shell, because the shell would put its
-    own React work and DOM into every frame sample and every pixel check.
-    Scenario plans are data — replay, burst, navigate, restart, sustained,
-    occlusion — and the runner turns them into pushes on real frames through the
-    committed fixtures, so the renderer is measured against the arrival cadence a
-    live subscription produces. Thresholds live with the workflow, not in the
-    renderer bundle: the pass/fail rule is a measurement decision that belongs
-    next to the matrix. The phone DPR-3 tier closes the matrix's first capability
-    gap — no E2E had ever set a device scale factor above 1.
+   **Done — `desktop/tests/electron/director-graph-renderer-performance.test.mjs`,
+   registered in the `performance` tier of the Electron workflow manifest.** It
+   opens the committed harness page in the production Electron renderer and
+   runs every scenario in the matrix's section 4 at the tiers in its section 3.
+   The harness page (`features/director-graph/harness/`) is a second renderer
+   entry rather than a mode of the app shell, because the shell would put its
+   own React work and DOM into every frame sample and every pixel check.
+   Scenario plans are data — replay, burst, navigate, restart, sustained,
+   occlusion — and the runner turns them into pushes on real frames through the
+   committed fixtures, so the renderer is measured against the arrival cadence a
+   live subscription produces. Thresholds live with the workflow, not in the
+   renderer bundle: the pass/fail rule is a measurement decision that belongs
+   next to the matrix. The phone DPR-3 tier closes the matrix's first capability
+   gap — no E2E had ever set a device scale factor above 1.
 9. Profile with browser/Chrome developer tools and GPU timer queries.
-    **Done.** Every run carries GPU timer-query percentiles and the four CPU
-    marks, and the workflow captures a Chromium trace of the 4K interleaved
-    scenario as a separate untimed pass, because tracing costs frame time and a
-    traced run is not an accepted result. Results are in
-    [`docs/reports/performance/setta-4-graph-renderer-scenarios-20260724.md`](../reports/performance/setta-4-graph-renderer-scenarios-20260724.md).
+   **Done.** Every run carries GPU timer-query percentiles and the four CPU
+   marks, and the workflow captures a Chromium trace of the 4K interleaved
+   scenario as a separate untimed pass, because tracing costs frame time and a
+   traced run is not an accepted result. Results are in
+   [`docs/reports/performance/setta-4-graph-renderer-scenarios-20260724.md`](../reports/performance/setta-4-graph-renderer-scenarios-20260724.md).
 10. Fix hitches before integrating live app state. **Done.** No frame-time hitch
     was found on the primary target — every tier holds p95 CPU and GPU inside the
     budgets — and four defects were, none of which frame time alone would have
     shown:
     - `GraphLadderLayout` keyed its incremental turn ranges on the workstream id
-      alone, so a snapshot *replacement* that kept the id — a resync after
+      alone, so a snapshot _replacement_ that kept the id — a resync after
       `resync_required`, a cold replay after restart, a reloaded window — left
       ranges describing the previous snapshot. The soak reproduced it as an
       exception thrown every frame. `setSnapshot` now resets the ladder and the
@@ -1177,26 +1179,26 @@ Exit gate:
       surface pixels, and a cell that samples the scene once with two fragment
       centres across it erases every mid-tone dot. `graphDitherCellPixels` floors
       the cell at its authored size in surface pixels.
-    The shared phase audit then closed the remaining standalone-boundary gaps:
-    empty snapshots keep the valid prewarm texture instead of issuing a
-    zero-texel upload; timer queries return each fresh result once and reset
-    between scenarios; a hidden scheduler retains its pending wake; harness
-    deadlines distinguish failed steps from the sustained scenario's allowed
-    ceiling; reduced-motion mode removes autonomous shader, particle, label,
-    hover, camera, and fold motion; packed snapshots validate vocabulary,
-    ordering, references, and lifecycle invariants at runtime; interactive
-    labels expose a named semantic region, expansion state, and 44 px targets;
-    and edge shaders guard the absent-terminal-time sentinel before arithmetic.
-    The performance workflow now rejects level-2 renderer console entries. The
-    corrective measurement and the invalid earlier console claim are recorded
-    in
-    [`docs/reports/performance/setta-4-graph-renderer-phase2-audit-20260724.md`](../reports/performance/setta-4-graph-renderer-phase2-audit-20260724.md).
-    The renderer's own adaptation budget is deliberately *not* the report's frame
-    budget. It comes from the single shortest frame delta ever observed, which is
-    optimistic by design so a renderer stuck at half rate cannot redefine the
-    target as half rate; on a ProMotion panel that lands about a millisecond
-    under the real period. Reports resolve their budget through the committed
-    `performance-frame-budget.mjs` convention instead.
+      The shared phase audit then closed the remaining standalone-boundary gaps:
+      empty snapshots keep the valid prewarm texture instead of issuing a
+      zero-texel upload; timer queries return each fresh result once and reset
+      between scenarios; a hidden scheduler retains its pending wake; harness
+      deadlines distinguish failed steps from the sustained scenario's allowed
+      ceiling; reduced-motion mode removes autonomous shader, particle, label,
+      hover, camera, and fold motion; packed snapshots validate vocabulary,
+      ordering, references, and lifecycle invariants at runtime; interactive
+      labels expose a named semantic region, expansion state, and 44 px targets;
+      and edge shaders guard the absent-terminal-time sentinel before arithmetic.
+      The performance workflow now rejects level-2 renderer console entries. The
+      corrective measurement and the invalid earlier console claim are recorded
+      in
+      [`docs/reports/performance/setta-4-graph-renderer-phase2-audit-20260724.md`](../reports/performance/setta-4-graph-renderer-phase2-audit-20260724.md).
+      The renderer's own adaptation budget is deliberately _not_ the report's frame
+      budget. It comes from the single shortest frame delta ever observed, which is
+      optimistic by design so a renderer stuck at half rate cannot redefine the
+      target as half rate; on a ProMotion panel that lands about a millisecond
+      under the real period. Reports resolve their budget through the committed
+      `performance-frame-budget.mjs` convention instead.
 
 Exit gate:
 
@@ -1243,6 +1245,7 @@ Exit gate:
    text, and internal error strings never reach a retry prompt or the user. `NewCommittedDecision`
    derives the durable `DirectorDecisionCommitted` public summary from the decision kind plus titles
    and summaries the app already committed, so a decision cannot label the graph with model text.
+
 2. Rename product-facing Master concepts to Director where they represent the new product role. The
    decision catalog half of this is done with item 1; the remaining `internal/master` session, input,
    route-service, and IPC naming moves with item 3, because renaming them before the boundary exists
@@ -1315,16 +1318,17 @@ Exit gate:
    the generated TypeScript surface is one namespace, and the pane world's
    `applayout.FolderResourceBinding` still owns that name until Phase 5 deletes
    it. Executing a routed decision is item 6.
+
 4. Add the app-scoped workstream registry with push subscriptions and durable cursors. **Done —
    `internal/director/registry*.go`.** The registry folds the durable committed log into the
    app-scoped state and publishes what changed. Five decisions are load-bearing:
-   - The app-scoped stream *is* the existing committed log. Director facts are committed to their own
+   - The app-scoped stream _is_ the existing committed log. Director facts are committed to their own
      `director:facts` stream beside conversation events, so the log's commit order is already the
      app-scoped order and the registry needs no second ordering to interleave the two owners.
    - Workstream registration is derived from the durable conversation record rather than written. The
      record already says the workstream exists, and a second durable record of the same fact could
      disagree with it. Registration reaches the graph projector immediately before a workstream's
-     first graph fact, because a fork's parentage is committed *after* the conversation record that
+     first graph fact, because a fork's parentage is committed _after_ the conversation record that
      names it.
    - Selection is the one fact the registry writes. It names the selection it replaces, so the write
      is serialized: two selections must not reach the log in the opposite order to the one they were
@@ -1339,6 +1343,7 @@ Exit gate:
    `DirectorGraphProjector` now reports what each fact touched, so a graph event carries the changed
    nodes and edges instead of a replacement graph. A delta larger than one event's bound is split
    rather than truncated, and a background workstream receives no graph content at all.
+
 5. Include folderless and resource-bound conversations as first-class workstreams. **Done.** A
    folderless conversation is admitted with the folderless scope, and a folder-bound one resolves its
    binding from durable workspace metadata through `workspace.Manager.LookupLocal` rather than from
@@ -1358,7 +1363,7 @@ Exit gate:
    folderless routing, clarification, conversation creation, queueing, steering,
    resource requests, and every resolution the model-output recovery ladder and
    the product invariants produce. Six decisions are load-bearing:
-   - The decision is committed *before* the work it authorizes, not in the same
+   - The decision is committed _before_ the work it authorizes, not in the same
      transaction as it. One transaction is not available: starting a run spans
      several durable writes and a provider launch. Committing first is the
      honest order anyway — a create decision names a workstream that does not
@@ -1485,6 +1490,7 @@ Exit gate:
    message is what starts the work. Closing it is a product decision rather than a
    rewiring — whether the app re-sends the authored text or re-routes the original
    intent through the Director — and it is recorded in the immediate next actions.
+
 7. Replace pane presentation intents with workstream presentation intents. **The
    replacement exists and now carries work, control, and presentation** —
    `DirectorIntent` submits a request, moves app-wide selection by workstream id
@@ -1513,10 +1519,10 @@ Exit gate:
    resolves the durable substrate again before each effect and refuses to steer a successor run
    that replaced the one the authorized context named.
 10. Keep current conversation stores and event streams as canonical inputs where their ownership is
-   already correct. **Done.** The registry reads conversation records, turns, queues, trajectory
-   events, and artifacts from the durable log and adds nothing that duplicates them. It owns only
-   what no conversation can own: workstream identity, selection, resource requests, and the
-   app-scoped aggregates.
+    already correct. **Done.** The registry reads conversation records, turns, queues, trajectory
+    events, and artifacts from the durable log and adds nothing that duplicates them. It owns only
+    what no conversation can own: workstream identity, selection, resource requests, and the
+    app-scoped aggregates.
 
 Exit gate:
 
@@ -1561,7 +1567,14 @@ Phase 3 audit verification:
    rail, right approvals/resources/artifacts rail, bottom text composer, compact semantic-history
    list, and fullscreen `DirectorGraphSurface` against the generated Director snapshot contract.
    Phase 5 still owns deleting the old pane modules; they are no longer the primary app mount.
-2. Connect speech capture and playback through the same Director intents as text.
+2. Connect speech capture and playback through the same Director intents as text. **Capture is
+   partially done** — the production shell now owns a Director-specific speech capture controller,
+   reuses the existing desktop voice provider/capability/credential paths, preserves a finalized
+   transcript for retry if Director dispatch fails, and submits it as `kind: "submit"` with
+   `modality: "voice"` through the same command-center dispatch function used by text. Playback
+   remains repository-actionable: speech synthesis currently resolves only `master` and `narrator`
+   sources, so Director receipt playback needs a first-class Director speech-source contract and
+   source resolver rather than a renderer-only fake source.
 3. Implement previous/next and direct workstream selection. **Done for the initial shell** — the
    top navigation dispatches `move_selection` for previous/next and `select_workstream` for direct
    visible-workstream selection; no pane id crosses the renderer boundary.
@@ -1687,8 +1700,8 @@ Setta 4 is complete when:
    remaining Master-to-Director renaming in item 2 should move with the code Phase 5 does not delete.
    Phase 3 has production-path Electron coverage that dispatches through the renderer preload,
    main-process IPC, HTTP, and durable store. The initial user-visible fullscreen renderer surface
-   now owns those dispatches for text, selection, approval, resource, and graph updates; the remaining
-   shell work is speech parity, structured approval answer collection, rich artifact details,
-   fidelity polish, and integrated performance reporting.
+   now owns those dispatches for text, voice capture, selection, approval, resource, and graph
+   updates; the remaining shell work is Director speech playback, structured approval answer
+   collection, rich artifact details, fidelity polish, and integrated performance reporting.
 2. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.
