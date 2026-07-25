@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/applayout"
 	"setta/internal/master"
 )
 
@@ -106,7 +107,7 @@ func masterRouteContextTestConversation(
 ) TopicConversation {
 	return TopicConversation{
 		ID:              id,
-		WorkspaceID:     "workspace-route-context",
+		WorkspaceID:     stringPointer("workspace-route-context"),
 		Title:           id,
 		TopicDescriptor: "Master route context coverage",
 		Status:          status,
@@ -657,7 +658,7 @@ func seedMasterRouteState(t *testing.T, store *Store) master.Session {
 	t.Helper()
 	conversation := TopicConversation{
 		ID:              "conversation-master-route",
-		WorkspaceID:     "workspace-1",
+		WorkspaceID:     stringPointer("workspace-1"),
 		Title:           "Master routing",
 		TopicDescriptor: "Strict global routing",
 		Status:          ConversationStatusIdle,
@@ -786,9 +787,10 @@ func masterRouteTestCommit(
 
 func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {
 	target := master.ConversationPresentationTarget{
-		WorkspaceID:    "workspace-1",
-		ConversationID: "conversation-master-route",
-		Title:          "Master routing",
+		WorkspaceID:      "workspace-1",
+		ConversationID:   "conversation-master-route",
+		ResourceBindings: masterRouteTestResourceBindings(),
+		Title:            "Master routing",
 	}
 	command := master.RouteCommand{Kind: decision.Kind}
 	switch decision.Kind {
@@ -813,9 +815,10 @@ func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {
 	case master.RouteDecisionKindCreateConversation:
 		command.CreateConversation = &master.MasterCreateConversationRouteCommand{
 			Target: master.ConversationPresentationTarget{
-				WorkspaceID:    decision.CreateConversation.WorkspaceID,
-				ConversationID: "master-route-created-conversation",
-				Title:          decision.CreateConversation.ProposedTitle,
+				WorkspaceID:      decision.CreateConversation.WorkspaceID,
+				ConversationID:   "master-route-created-conversation",
+				ResourceBindings: masterRouteTestResourceBindings(),
+				Title:            decision.CreateConversation.ProposedTitle,
 			},
 			TurnID: "master-route-turn", InitialInput: decision.CreateConversation.InitialInput,
 		}
@@ -827,7 +830,7 @@ func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {
 		command.ForkConversation = &master.MasterForkConversationRouteCommand{
 			ParentConversationID: target.ConversationID,
 			Target: master.ConversationPresentationTarget{
-				WorkspaceID: target.WorkspaceID, ConversationID: "master-route-fork", Title: "Fork of Master routing",
+				WorkspaceID: target.WorkspaceID, ConversationID: "master-route-fork", ResourceBindings: masterRouteTestResourceBindings(), Title: "Fork of Master routing",
 			},
 			ForkedAtTurnID: decision.ForkConversation.ForkedAtTurnID,
 			TurnID:         "master-route-fork-turn",
@@ -839,4 +842,11 @@ func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {
 		command.AnswerGlobal = &master.MasterAnswerGlobalRouteCommand{Text: decision.AnswerGlobal.Text}
 	}
 	return command
+}
+
+func masterRouteTestResourceBindings() []applayout.ConversationPaneResourceBinding {
+	return []applayout.ConversationPaneResourceBinding{{
+		Folder: &applayout.FolderResourceBinding{RootPath: "/tmp/setta-master-route-test"},
+		Kind:   applayout.ConversationPaneResourceBindingKindFolder,
+	}}
 }

@@ -5,13 +5,14 @@ import { basename, join } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
+import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
-  clickEnabledButtonByAria,
   createElectronFixture,
   dispatchMouseDrag,
   launchElectronCdpContext,
+  openFixtureWorkspace,
   parseElectronHarnessArgs,
   reloadPage,
   stopElectronCdpContext,
@@ -61,7 +62,6 @@ try {
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   const workspaceId = await ensureWorkspaceOpen(context.client);
-  await waitForInitialEasyButtonStartupToSettle(context.client);
   await persistTwoColumnLayout(context.client, workspaceId);
   await reloadPage(context.client);
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
@@ -85,10 +85,9 @@ try {
   );
   await captureScreenshot(context.client, join(artifactDir, "horizontal-after.png"));
   await context.client.call("Emulation.setDeviceMetricsOverride", compactViewport);
-  const horizontalCompact = await waitForPaneWidthClamp(
+  const horizontalCompact = await waitForCompactViewportResizeState(
     context.client,
     horizontalAfterSourceHost,
-    40,
   );
   await captureScreenshot(context.client, join(artifactDir, "horizontal-compact.png"));
   await context.client.call("Emulation.setDeviceMetricsOverride", viewport);
@@ -151,7 +150,7 @@ async function ensureWorkspaceOpen(client) {
   if (currentWorkspaceId && currentWorkspaceId !== "empty") {
     return currentWorkspaceId;
   }
-  await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
+  await openFixtureWorkspace(client, workflowTimeoutMs);
   return waitForState(
     client,
     workspaceIdExpression(),
@@ -162,24 +161,15 @@ async function ensureWorkspaceOpen(client) {
 
 async function persistTwoColumnLayout(client, workspaceId) {
   await client.evaluate(`(async () => {
-    await window.setta.workspace.saveUILayout(${JSON.stringify(twoColumnLayout(workspaceId))});
+    await window.setta.appLayout.savePaneLayout(${JSON.stringify(twoColumnAppLayout(workspaceId))});
     return true;
   })()`);
-}
-
-async function waitForInitialEasyButtonStartupToSettle(client) {
-  await waitForState(
-    client,
-    "Boolean(document.querySelector('[data-testid=\"initial-easy-button-pane\"]'))",
-    (present) => !present,
-    workflowTimeoutMs,
-  );
 }
 
 function twoColumnLayout(workspaceId) {
   const panes = [0, 1].map((index) => ({
     columnId: `workspace_column_${index}`,
-    easyButtonConfig: null,
+    conversationConfig: null,
     heat: index * 37,
     paneId: `workspace_pane_${index}`,
     sequence: index,
@@ -208,6 +198,63 @@ function twoColumnLayout(workspaceId) {
   };
 }
 
+function twoColumnAppLayout(workspaceId) {
+  const layout = twoColumnLayout(workspaceId);
+  return {
+    columns: [
+      appMasterColumn(),
+      ...layout.columns.map((column) => ({
+        ...column,
+        index: column.index + 1,
+        slotIndex: column.slotIndex + 1,
+      })),
+    ],
+    focusedPaneId: layout.focusedPaneId,
+    maximizedPaneId: null,
+    panes: [appMasterPane(), ...layout.panes.map(appPaneFromWorkspacePane)],
+    schemaVersion: 1,
+  };
+}
+
+function appPaneFromWorkspacePane({ conversationConfig, ...pane }) {
+  void conversationConfig;
+  return {
+    ...pane,
+    conversationConfig: null,
+    masterConfig: null,
+  };
+}
+
+function appMasterColumn() {
+  return {
+    columnId: "app_column_master",
+    idealWidthSpec: { unit: "px", value: 520 },
+    index: 0,
+    paneIds: ["app_pane_master"],
+    planeIndex: 0,
+    previousProportionWidth: null,
+    slotIndex: 0,
+    widthSpec: { unit: "px", value: 520 },
+  };
+}
+
+function appMasterPane() {
+  return {
+    columnId: "app_column_master",
+    conversationConfig: null,
+    heat: 0,
+    masterConfig: {},
+    paneId: "app_pane_master",
+    sequence: 0,
+    subtitle: "Global coordinator",
+    surfaceId: "app_surface_master",
+    surfaceKind: "master",
+    title: "Setta",
+    tone: "slate",
+    weight: 1,
+  };
+}
+
 async function clickFocusedPaneAction(client, action) {
   const clicked = await client.evaluate(`(() => {
     const focusedHost = document.querySelector('[data-testid="workspace-pane-host"][data-focused="true"]');
@@ -227,6 +274,7 @@ async function clickFocusedPaneAction(client, action) {
 }
 
 async function waitForResizeHandles(client, axis) {
+  await client.installDriver();
   return waitForState(
     client,
     resizeSnapshotExpression(),
@@ -290,7 +338,7 @@ async function waitForPaneSplitResize(client, target, minimumDelta) {
   );
 }
 
-async function waitForPaneWidthClamp(client, originalHost, minimumDelta) {
+async function waitForCompactViewportResizeState(client, originalHost) {
   return waitForState(
     client,
     resizeSnapshotExpression(),
@@ -301,8 +349,9 @@ async function waitForPaneWidthClamp(client, originalHost, minimumDelta) {
       return Boolean(
         host &&
         snapshot.stage &&
-        host.rect.width <= originalHost.rect.width - minimumDelta &&
-        host.rect.width <= snapshot.stage.width - 20 + geometryTolerancePx,
+        snapshot.stage.width <= compactViewport.width + geometryTolerancePx &&
+        host.rect.width >= originalHost.rect.width - geometryTolerancePx &&
+        snapshot.handles.some((handle) => handle.axis === "horizontal"),
       );
     },
     workflowTimeoutMs,
@@ -375,61 +424,5 @@ function workspaceIdExpression() {
 }
 
 function resizeSnapshotExpression() {
-  return `(() => {
-    const area = document.querySelector('[data-testid="workspace-layout-area"]');
-    const stage = document.querySelector('[data-testid="workspace-presentation-engine"]');
-    const rectFor = (element) => {
-      const rect = element.getBoundingClientRect();
-      return {
-        bottom: rect.bottom,
-        height: rect.height,
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        width: rect.width,
-      };
-    };
-    const visibleHosts = Array.from(document.querySelectorAll('[data-testid="workspace-pane-host"]'))
-      .filter((host) => host instanceof HTMLElement && host.dataset.visible === "true")
-      .map((host) => {
-        const rect = rectFor(host);
-        return {
-          focused: host.dataset.focused === "true",
-          paneId: host.dataset.paneId ?? "",
-          rect,
-        };
-      });
-    const handles = Array.from(document.querySelectorAll('.workspace-pane-resize-handle'))
-      .filter((handle) => handle instanceof HTMLElement)
-      .map((handle) => {
-        const rect = rectFor(handle);
-        const center = {
-          x: rect.left + rect.width / 2,
-          y: rect.top + rect.height / 2,
-        };
-        const hit = document.elementFromPoint(center.x, center.y);
-        return {
-          adjacentPaneId: handle.dataset.adjacentPaneId ?? "",
-          axis: handle.dataset.workspacePaneResizeAxis ?? "",
-          center,
-          hit: hit instanceof HTMLElement
-            ? {
-                axis: hit.dataset.workspacePaneResizeAxis ?? "",
-                className: hit.className,
-                paneId: hit.dataset.paneId ?? "",
-                tagName: hit.tagName,
-              }
-            : null,
-          paneId: handle.dataset.paneId ?? "",
-          rect,
-        };
-      });
-    return {
-      handles,
-      mode: area instanceof HTMLElement ? area.dataset.presentationMode ?? "" : "",
-      stage: stage instanceof HTMLElement ? rectFor(stage) : null,
-      visibleHosts,
-      workspaceId: area instanceof HTMLElement ? area.dataset.workspaceId ?? "" : "",
-    };
-  })()`;
+  return driverCallExpression("paneResizeHandlesSnapshot");
 }

@@ -237,7 +237,7 @@ function settingsPageCloseExpression() {
   return `(() => {
     const page = document.querySelector('[data-testid="settings-shell-page"]');
     const button = Array.from(page?.querySelectorAll("button") ?? []).find(
-      (candidate) => candidate.textContent?.trim() === "Back to workspace",
+      (candidate) => candidate.textContent?.trim() === "Back to panes",
     );
     if (!(button instanceof HTMLButtonElement)) {
       return { clicked: false, reason: "missing-settings-back" };

@@ -20,7 +20,7 @@ const (
 	RouteTaskOutputSemantics = "typed_decision_data_without_direct_effect"
 	RouteTaskDirective       = "Classify input.input.text using the supplied authoritative context and output schema. Never describe capability limitations. Use supplied ids instead of asking the user to provide them. One title-matching target with the requested decision kind allowed is unambiguous and must be selected; clarify only when target or action ambiguity remains after using all supplied context."
 	DefaultCandidateLimit    = 8
-	MaxRouteActiveWorkspaces = conversationindex.MaxWorkspaceFilters
+	MaxRouteActiveWorkspaces = conversationindex.MaxFolderResourceWorkspaceFilters
 )
 
 type RouteTaskContext struct {
@@ -157,9 +157,8 @@ func CandidateRequestForInput(input MasterInput) (conversationindex.CandidateReq
 		queryBytes += separatorBytes + len(term)
 	}
 	request, err := conversationindex.NormalizeCandidateRequest(conversationindex.CandidateRequest{
-		Query:        strings.Join(queryTerms, " "),
-		WorkspaceIDs: []string{},
-		Limit:        DefaultCandidateLimit,
+		Query: strings.Join(queryTerms, " "),
+		Limit: DefaultCandidateLimit,
 	})
 	return request, truncated, err
 }
@@ -536,8 +535,12 @@ func routeCandidateContexts(
 	seen := map[string]bool{}
 	for _, candidate := range candidates {
 		card := candidate.Card
+		workspaceID, folderScoped := card.ResourceScope.FolderWorkspaceID()
+		if !folderScoped {
+			return nil, fmt.Errorf("master route candidate %s is not folder-scoped", card.ConversationID)
+		}
 		target, found := targets[card.ConversationID]
-		if !found || target.WorkspaceID != card.WorkspaceID || target.Status != card.ActiveStatus {
+		if !found || target.WorkspaceID != workspaceID || target.Status != card.ActiveStatus {
 			return nil, fmt.Errorf("master route candidate %s lacks matching target authority", card.ConversationID)
 		}
 		if seen[card.ConversationID] {
@@ -546,7 +549,7 @@ func routeCandidateContexts(
 		seen[card.ConversationID] = true
 		contexts = append(contexts, RouteCandidateContext{
 			ConversationID:       card.ConversationID,
-			WorkspaceID:          card.WorkspaceID,
+			WorkspaceID:          workspaceID,
 			WorkspaceName:        card.WorkspaceName,
 			Title:                card.Title,
 			TopicDescriptor:      card.TopicDescriptor,

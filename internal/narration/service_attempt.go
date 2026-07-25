@@ -379,14 +379,18 @@ func (worker *serviceAttemptWorker) contextLimits(
 	workspaceID string,
 	conversationID string,
 ) (ContextLimits, error) {
-	profile, err := worker.profiles.ReadEffectiveRoleProfile(
-		ctx,
-		workspaceID,
-		conversationID,
-		conversation.DefaultNarratorRoleProfile(),
-	)
-	if err != nil {
-		return ContextLimits{}, err
+	profile := conversation.DefaultNarratorRoleProfile()
+	if workspaceID != "" {
+		var err error
+		profile, err = worker.profiles.ReadEffectiveRoleProfile(
+			ctx,
+			workspaceID,
+			conversationID,
+			profile,
+		)
+		if err != nil {
+			return ContextLimits{}, err
+		}
 	}
 	if err := validateNarratorRoleProfile(profile); err != nil {
 		return ContextLimits{}, NewAttemptFailure(FailureKindConfigurationInvalid, err)
@@ -399,6 +403,13 @@ func (worker *serviceAttemptWorker) contextLimits(
 }
 
 func (worker *serviceAttemptWorker) resolveWorkspaceRoot(workspaceID string) (string, error) {
+	if workspaceID == "" {
+		root, err := folderlessRuntimeRoot()
+		if err != nil {
+			return "", NewAttemptFailure(FailureKindStateUnavailable, err)
+		}
+		return root, nil
+	}
 	resolvedWorkspace, err := worker.workspaces.ResolveActiveWorkspace(workspaceID)
 	if err != nil {
 		return "", NewAttemptFailure(FailureKindStateUnavailable, fmt.Errorf(
