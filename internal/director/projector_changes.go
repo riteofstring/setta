@@ -83,11 +83,18 @@ func (workstream *projectedWorkstream) takeChange() GraphChange {
 	return change
 }
 
-// TakeGraphChanges returns the pending change of every workstream that moved,
-// in registry order, and clears them. Taking is destructive because a delta is
+// TakeGraphChanges returns the pending change of every scope that moved, in
+// registry order, and clears them. Taking is destructive because a delta is
 // consumed once: the caller that took it owns delivering it.
+//
+// The Director lane comes first. Its facts are what caused the workstream ones,
+// so a renderer applying the batch in order sees the request before the work it
+// started.
 func (projector *DirectorGraphProjector) TakeGraphChanges() []GraphChange {
-	changes := make([]GraphChange, 0, len(projector.order))
+	changes := make([]GraphChange, 0, len(projector.order)+1)
+	if projector.lane.hasChanges() {
+		changes = append(changes, projector.lane.takeChange())
+	}
 	for _, workstreamID := range projector.order {
 		workstream, known := projector.workstreams[workstreamID]
 		if !known || !workstream.hasChanges() {

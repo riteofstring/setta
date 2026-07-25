@@ -11,9 +11,14 @@ import (
 //
 // Tool calls happen inside the provider turn, so by the time the turn returns
 // the app already changed. The recorder is how the turn reports that honestly:
-// every call and its receipt is captured as it happens, including the ones that
-// failed, because a call the Director made and Setta refused is exactly what the
-// Director needs to see to ask a useful question instead of claiming success.
+// every call is recorded when it is made and every receipt when it comes back,
+// including the ones that failed, because a call the Director made and Setta
+// refused is exactly what the Director needs to see to ask a useful question
+// instead of claiming success.
+//
+// Recording the call before running it is what makes a crash mid-handler
+// readable: the durable conversation says the Director called something and
+// never heard back, which is true, instead of losing the call entirely.
 //
 // A failed handler is not an error the turn aborts on. Setta hands the specific
 // reason back to the Director as the call's own result and lets the same turn
@@ -22,23 +27,22 @@ import (
 
 type recordedDirectorToolCall struct {
 	tool      string
-	arguments json.RawMessage
-	// receipt is the encoded form the Director received, kept verbatim so the
-	// durable conversation replays what the Director was actually told.
-	receipt   json.RawMessage
 	reported  SettaToolReceipt
 	succeeded bool
 }
 
-type persistDirectorToolCall func(
-	context.Context,
-	recordedDirectorToolCall,
-	bool,
-) error
+// directorToolPersistence makes one call durable as it happens.
+type directorToolPersistence struct {
+	// begin records the call and returns the durable entry id its receipt will
+	// answer.
+	begin func(ctx context.Context, tool string, arguments json.RawMessage) (string, error)
+	// finish records what that call reported back.
+	finish func(ctx context.Context, callID string, receipt SettaToolReceipt, succeeded bool) error
+}
 
 type directorToolRecorder struct {
-	recorded []recordedDirectorToolCall
-	persist  persistDirectorToolCall
+	recorded    []recordedDirectorToolCall
+	persistence directorToolPersistence
 }
 
 // instrument wraps each tool so the turn keeps what its handler was asked to do
@@ -58,6 +62,10 @@ func (recorder *directorToolRecorder) instrument(tools []SettaTool) []SettaTool 
 
 func (recorder *directorToolRecorder) record(tool SettaTool) SettaToolHandler {
 	return func(ctx context.Context, arguments json.RawMessage) (SettaToolReceipt, error) {
+		callID, err := recorder.persistence.begin(ctx, tool.Name, normalizedDirectorToolArguments(arguments))
+		if err != nil {
+			return SettaToolReceipt{}, err
+		}
 		receipt, err := tool.Handler(ctx, arguments)
 		if err != nil {
 			// A cancelled turn is the app going away, not a tool the Director
@@ -65,10 +73,10 @@ func (recorder *directorToolRecorder) record(tool SettaTool) SettaToolHandler {
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return SettaToolReceipt{}, ctxErr
 			}
-			return recorder.refuse(ctx, tool.Name, arguments, err)
+			return recorder.refuse(ctx, callID, tool.Name, err)
 		}
 		receipt.Tool = tool.Name
-		return receipt, recorder.append(ctx, tool.Name, arguments, receipt, true)
+		return receipt, recorder.append(ctx, callID, receipt, true)
 	}
 }
 
@@ -77,15 +85,15 @@ func (recorder *directorToolRecorder) record(tool SettaTool) SettaToolHandler {
 // tool or ask the user a real question instead of reporting an internal fault.
 func (recorder *directorToolRecorder) refuse(
 	ctx context.Context,
+	callID string,
 	tool string,
-	arguments json.RawMessage,
 	cause error,
 ) (SettaToolReceipt, error) {
 	receipt := SettaToolReceipt{
 		Tool:    tool,
 		Summary: directorToolRefusal(cause),
 	}
-	if err := recorder.append(ctx, tool, arguments, receipt, false); err != nil {
+	if err := recorder.append(ctx, callID, receipt, false); err != nil {
 		return SettaToolReceipt{}, err
 	}
 	return receipt, nil
@@ -100,28 +108,18 @@ func directorToolRefusal(cause error) string {
 
 func (recorder *directorToolRecorder) append(
 	ctx context.Context,
-	tool string,
-	arguments json.RawMessage,
+	callID string,
 	receipt SettaToolReceipt,
 	succeeded bool,
 ) error {
-	encoded, err := json.Marshal(receipt)
-	if err != nil {
-		return fmt.Errorf("encode setta tool receipt %s: %w", tool, err)
+	if err := recorder.persistence.finish(ctx, callID, receipt, succeeded); err != nil {
+		return err
 	}
-	recorded := recordedDirectorToolCall{
-		tool:      tool,
-		arguments: normalizedDirectorToolArguments(arguments),
-		receipt:   encoded,
+	recorder.recorded = append(recorder.recorded, recordedDirectorToolCall{
+		tool:      receipt.Tool,
 		reported:  receipt,
 		succeeded: succeeded,
-	}
-	if recorder.persist != nil {
-		if err := recorder.persist(ctx, recorded, len(recorder.recorded) == 0); err != nil {
-			return err
-		}
-	}
-	recorder.recorded = append(recorder.recorded, recorded)
+	})
 	return nil
 }
 
@@ -140,7 +138,7 @@ func (recorder *directorToolRecorder) calls() []DirectorToolCall {
 	return calls
 }
 
-// normalizedDirectorToolArguments keeps a durable row valid when a provider
+// normalizedDirectorToolArguments keeps a durable entry valid when a provider
 // calls a no-argument tool with nothing at all.
 func normalizedDirectorToolArguments(arguments json.RawMessage) json.RawMessage {
 	if len(arguments) == 0 || !json.Valid(arguments) {

@@ -23,6 +23,18 @@ import (
 // the provider thread from it, which is also what makes the Director's own
 // turns durable across a restart.
 
+const (
+	// DirectorConversationStreamID is the durable stream the Director's own
+	// conversation is appended to. It is a committed-event stream beside the
+	// conversations and the Director facts, so the app-scoped commit order is
+	// one order over all three and replaying it reproduces the same state.
+	DirectorConversationStreamID = "director:conversation"
+	// DirectorConversationCommittedKind is the committed-event kind carrying one
+	// Director conversation entry. The entry's own kind selects its payload, so
+	// the log needs one kind rather than one per entry kind.
+	DirectorConversationCommittedKind = "director.conversation.appended"
+)
+
 // DirectorThreadRecord binds Setta's durable Director conversation to the
 // provider thread currently carrying it. There is exactly one for the app
 // profile.
@@ -72,9 +84,34 @@ var directorConversationEntryKinds = []DirectorConversationEntryKind{
 	DirectorConversationToolReceipt,
 }
 
+// DirectorConversationModel attributes an assistant reply to the provider
+// thread that produced it. The Director's words are model-authored, so what
+// said them is durable beside them: a reply the app later shows as the
+// Director's own interpretation has to be able to say whose interpretation it
+// is.
+type DirectorConversationModel struct {
+	Provider Provider `json:"provider"`
+	Model    string   `json:"model"`
+	ThreadID string   `json:"threadId"`
+}
+
+// Validate rejects an attribution that names no provider thread.
+func (model DirectorConversationModel) Validate() error {
+	if model.Provider != ProviderCodex {
+		return fmt.Errorf("director conversation model provider %q is unsupported", model.Provider)
+	}
+	if err := validateIdentifier("director conversation model", model.Model); err != nil {
+		return err
+	}
+	return validateIdentifier("director conversation model thread id", model.ThreadID)
+}
+
 // DirectorConversationText is the payload of a user turn or an assistant reply.
 type DirectorConversationText struct {
 	Text string `json:"text"`
+	// Model is populated exactly on an assistant reply. The user's own words
+	// have no model behind them.
+	Model *DirectorConversationModel `json:"model"`
 }
 
 // DirectorConversationToolActivity is the payload of a tool call or its
@@ -87,6 +124,11 @@ type DirectorConversationToolActivity struct {
 	// Succeeded is meaningful for a receipt. A call has not resolved yet, so it
 	// is always false there.
 	Succeeded bool `json:"succeeded"`
+	// CallID is the entry id of the call a receipt answers. It is populated
+	// exactly on a receipt, because one turn may call the same tool more than
+	// once and a receipt that could not say which call it belongs to would let
+	// the app report the wrong one as finished.
+	CallID *string `json:"callId"`
 }
 
 // DirectorConversationEntry is one durable line of the Director conversation.
@@ -130,8 +172,12 @@ func (entry DirectorConversationEntry) validatePayload() error {
 		)
 	}
 	if entry.Text != nil {
-		return validateTrimmedText("director conversation entry text", entry.Text.Text)
+		return entry.validateText()
 	}
+	return entry.validateTool()
+}
+
+func (entry DirectorConversationEntry) validateTool() error {
 	if err := validateIdentifier("director conversation entry tool", entry.Tool.Tool); err != nil {
 		return err
 	}
@@ -141,5 +187,32 @@ func (entry DirectorConversationEntry) validatePayload() error {
 	if entry.Kind == DirectorConversationToolCall && entry.Tool.Succeeded {
 		return fmt.Errorf("director conversation tool call cannot report a result it has not produced")
 	}
-	return nil
+	answers := entry.Kind == DirectorConversationToolReceipt
+	if answers != (entry.Tool.CallID != nil) {
+		return fmt.Errorf(
+			"director conversation entry %q must name the call it answers when, and only when, it is a receipt",
+			entry.Kind,
+		)
+	}
+	if entry.Tool.CallID == nil {
+		return nil
+	}
+	return validateIdentifier("director conversation receipt call id", *entry.Tool.CallID)
+}
+
+func (entry DirectorConversationEntry) validateText() error {
+	if err := validateTrimmedText("director conversation entry text", entry.Text.Text); err != nil {
+		return err
+	}
+	assistant := entry.Kind == DirectorConversationAssistantText
+	if assistant != (entry.Text.Model != nil) {
+		return fmt.Errorf(
+			"director conversation entry %q must attribute a model when, and only when, the Director said it",
+			entry.Kind,
+		)
+	}
+	if entry.Text.Model == nil {
+		return nil
+	}
+	return entry.Text.Model.Validate()
 }

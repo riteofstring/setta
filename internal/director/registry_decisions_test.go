@@ -116,7 +116,6 @@ func TestDecisionContextDerivesTargetAuthorityFromRunState(t *testing.T) {
 	}
 
 	for _, kind := range []DirectorDecisionKind{
-		DirectorDecisionAnswerDirectly,
 		DirectorDecisionCreateWorkstream,
 		DirectorDecisionRecoverPath,
 	} {
@@ -260,7 +259,6 @@ func TestDecisionContextOffersNoActionAuthorityWithoutWorkstreams(t *testing.T) 
 		t.Fatalf("empty registry offers %d workstreams", len(decisionContext.Workstreams))
 	}
 	if !slices.Equal(decisionContext.AllowedDecisionKinds, []DirectorDecisionKind{
-		DirectorDecisionAnswerDirectly,
 		DirectorDecisionCreateWorkstream,
 	}) {
 		t.Fatalf("empty registry allows %v", decisionContext.AllowedDecisionKinds)
@@ -377,7 +375,10 @@ func TestDecisionContextClosesRecoveryOnceItIsAddressed(t *testing.T) {
 func TestDecisionContextResumesTheDecisionsItCommitted(t *testing.T) {
 	harness := newRegistryHarness(t)
 	first := harness.createConversation("conversation-first", "Parser rewrite", nil)
-	second := harness.createConversation("conversation-second", "Release notes", nil)
+	second, err := WorkstreamIDForConversation("conversation-second")
+	if err != nil {
+		t.Fatalf("WorkstreamIDForConversation: %v", err)
+	}
 
 	sent := harness.appendFact(DirectorFactEvent{
 		Kind:         DirectorFactDecisionCommitted,
@@ -390,18 +391,19 @@ func TestDecisionContextResumesTheDecisionsItCommitted(t *testing.T) {
 			TargetWorkstreamID: &first,
 		},
 	})
-	// A reply happens in no workstream: the Director told the user something and
-	// started work nowhere.
+	// Starting a root workstream happens in no workstream: the decision was made
+	// before the work it created existed.
 	harness.appendFact(DirectorFactEvent{
 		Kind:  DirectorFactDecisionCommitted,
 		Actor: SemanticActorDirector,
 		DecisionCommitted: &DirectorDecisionCommitted{
-			Decision:      DirectorDecisionAnswerDirectly,
-			IntentID:      "intent-answered",
-			PublicSummary: "Answered from current app state.",
-			Answer:        &DirectorAnswerGiven{Text: "Two workstreams are idle."},
+			Decision:           DirectorDecisionCreateWorkstream,
+			IntentID:           "intent-created",
+			PublicSummary:      "Started the workstream \"Release notes\".",
+			TargetWorkstreamID: &second,
 		},
 	})
+	harness.createConversation("conversation-second", "Release notes", nil)
 
 	registry := harness.start()
 	resumed := requireDecisionContext(t, registry)
@@ -412,8 +414,9 @@ func TestDecisionContextResumesTheDecisionsItCommitted(t *testing.T) {
 		resumed.RecentDecisions[0].DecidedAt != sent.EmittedAt {
 		t.Fatalf("first recent decision = %+v", resumed.RecentDecisions[0])
 	}
-	if resumed.RecentDecisions[1].TargetWorkstreamID != nil {
-		t.Fatalf("a reply reports target %v", resumed.RecentDecisions[1].TargetWorkstreamID)
+	if resumed.RecentDecisions[1].TargetWorkstreamID == nil ||
+		*resumed.RecentDecisions[1].TargetWorkstreamID != second {
+		t.Fatalf("second recent decision = %+v", resumed.RecentDecisions[1])
 	}
 	if _, found := resumed.Target(second); !found {
 		t.Fatalf("the second workstream is not a routing target")

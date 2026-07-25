@@ -31,8 +31,6 @@ func ValidateDecisionAuthority(context DirectorDecisionContext, decision Directo
 
 func validateAuthorizedDecisionPayload(context DirectorDecisionContext, decision DirectorDecision) error {
 	switch decision.Kind {
-	case DirectorDecisionAnswerDirectly:
-		return nil
 	case DirectorDecisionCreateWorkstream:
 		return validateAuthorizedCreation(context, decision.CreateWorkstream.Origin)
 	case DirectorDecisionSendToWorkstream:

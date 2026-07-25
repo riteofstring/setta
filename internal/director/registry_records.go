@@ -343,23 +343,24 @@ func (state *registryState) applyDirectorFact(event conversation.CommittedEvent)
 			*fact.WorkstreamID,
 		)
 	}
-	if fact.WorkstreamID == nil {
-		// An app-scoped decision changed no workstream, so it publishes nothing.
-		// It is still folded, because the Director's own dialogue is the
-		// continuity the next decision is materialized against.
-		state.recordCommittedDecision(fact)
-		return nil, nil
-	}
-	workstream, known := state.workstreams[*fact.WorkstreamID]
-	if !known {
-		return nil, fmt.Errorf("director fact %s names unregistered workstream %s", fact.ID, *fact.WorkstreamID)
-	}
 	if err := state.applyProjectorEvent(ProjectorEvent{Director: &fact}); err != nil {
 		return nil, err
 	}
 	effects, err := state.collectGraphChanges()
 	if err != nil {
 		return nil, err
+	}
+	if fact.WorkstreamID == nil {
+		// An app-scoped decision changed no workstream row, so it updates none.
+		// It is drawn in the Director's own lane and folded as continuity, because
+		// the Director's dialogue is what the next decision is materialized
+		// against.
+		state.recordCommittedDecision(fact)
+		return effects, nil
+	}
+	workstream, known := state.workstreams[*fact.WorkstreamID]
+	if !known {
+		return nil, fmt.Errorf("director fact %s names unregistered workstream %s", fact.ID, *fact.WorkstreamID)
 	}
 	factEffects, err := state.applyDirectorFactRecords(workstream, fact)
 	if err != nil {

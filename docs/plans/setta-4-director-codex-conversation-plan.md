@@ -348,20 +348,17 @@ implying the app resumed something on its own.
 
 ### Phase 3 - Real Graph Projection
 
-Status: in progress. The workstream anchor, the pushed registration delta, and
-the fixture boundary are done. Projecting the Director's own conversation is the
-remaining deliverable.
+Status: complete.
 
 Deliverables:
 
 - project Director user turns, assistant turns, Setta tool calls, and tool
   receipts into semantic graph state
-- project workstream registration as a real anchor node (done)
+- project workstream registration as a real anchor node
 - project workstream run/activity/provider events from existing trajectory
   records (already true before this phase)
-- push graph updates when Director or workstream state changes (done for
-  workstream state; Director turns land with the deliverable above)
-- keep fixture/demo data out of production graph state (done)
+- push graph updates when Director or workstream state changes
+- keep fixture/demo data out of production graph state
 
 Exit criteria:
 
@@ -385,6 +382,51 @@ the conversation record it describes: a reader that admits work as soon as it
 exists must know where that work came from before it draws it. A create decision
 draws its `delegated_to` edge onto the child's anchor, which is what the decision
 delegated to, rather than onto whichever fact the child happens to produce first.
+
+#### Resolved: the Director is drawn in a lane of its own
+
+The Director's request, tool calls, receipts, and reply happen in no workstream.
+Attaching them to one would have meant inventing a workstream for a conversation
+that has no folder, no run, and no work of its own — the fake production node the
+plan forbids. The Director conversation therefore projects into an app-scoped
+graph scope, `director`, that is a first-class lane on the canvas and not a
+registry row: a row carries a folder, a status, a queue, approvals, and
+artifacts, and the Director has none of them.
+
+The lane also gives the decision that starts a root workstream a home. That
+decision is made before the workstream it creates exists, so it used to project
+nothing at all; it now draws where the Director was, beside the request that
+asked for it. It earns no `delegated_to` edge, because a root workstream answers
+to nobody and claiming delegation would invent a parentage the registry does not
+hold.
+
+The durable conversation moved into the app-scoped committed log for this. One
+log is one order, and one order is what makes a replay of the Director's dialogue
+and the work it started reproduce the same graph. The separate
+`director_conversation_entries` table is gone.
+
+#### Resolved: what a Director turn is worth on the canvas
+
+A request is drawn as the user's goal and stays active until the turn ends —
+resolved by the reply, or by the next request when a turn acted without replying.
+A tool call is drawn when it is made rather than after it returns, labelled by
+the tool, because the arguments are provider text; its receipt resolves it and
+replaces the label with Setta's own account, so a refused call is a failed node
+carrying the specific reason rather than work that appears to have happened.
+
+The reply is the one model-authored label on the canvas, so it carries the
+provider thread that authored it and the evidence class that keeps it visually
+separable from a fact the app observed. The durable reply records which model
+said it for exactly that reason.
+
+#### Resolved: the reply is conversation, not a decision
+
+`answer_directly` is gone. The Director's words were durable twice — as a
+conversation entry the next turn is re-established from, and as a decision fact
+whose only content was the same sentence. The conversation entry is the one that
+has to exist, so it is now also what the graph draws and what the spoken reply is
+read out of. The decision catalog is the app actions the Director can take, and
+answering is not one of them.
 
 #### Resolved: the canvas no longer imports its own demo data
 
@@ -489,9 +531,9 @@ These are implementation questions, not product questions:
   and the fresh structured caller. What remains of `decision_*` is the durable
   fact catalog, the trusted authority context, and the executor, all of which
   the tool layer uses directly.
-- Open: should a Director reply stay a durable `answer_directly` decision fact
-  once Phase 3 projects Director turns into the graph from the conversation
-  entries themselves? Two records of the same reply should not survive Phase 3.
+- Answered in Phase 3: a Director reply is not a decision. `answer_directly` is
+  removed, and the durable conversation entry is the single record the graph, the
+  provider replay, and the spoken reply all read.
 
 None of these questions changes the product model: the Director is a persistent
 Codex conversation with Setta meta-tools, and the UI should match the mockup.

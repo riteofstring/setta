@@ -710,6 +710,11 @@ func (registry *Registry) artifactEvent(artifactID string, emittedAt string) (Di
 // Detail level is a consequence of selection and recency, so an event carries
 // the level the receiving renderer should hold that workstream at.
 func (registry *Registry) detailLevelFor(workstreamID string) WorkstreamDetailLevel {
+	if workstreamID == DirectorLaneID {
+		// The Director lane is never adjacent or background. It is the one place
+		// the user is always looking, because it is where they are talking.
+		return WorkstreamDetailSelected
+	}
 	selected := registry.state.activeSelection()
 	if selected != nil && *selected == workstreamID {
 		return WorkstreamDetailSelected

@@ -303,9 +303,8 @@ func targetDecisionKinds(record Workstream, failures []DecisionRecoverableFailur
 }
 
 // allowedDecisionKinds is the catalog subset this app state authorizes.
-// Answering and creating need no target. Clarification needs one: with nothing
-// to choose between, a question cannot change the outcome, so asking one would
-// stall the request instead of routing it.
+// Creating needs no target, because the workstream it makes does not exist yet.
+// Every other kind acts on work the registry already holds.
 func allowedDecisionKinds(targets []WorkstreamDecisionTarget) []DirectorDecisionKind {
 	offered := map[DirectorDecisionKind]bool{}
 	for _, target := range targets {
@@ -313,7 +312,7 @@ func allowedDecisionKinds(targets []WorkstreamDecisionTarget) []DirectorDecision
 			offered[kind] = true
 		}
 	}
-	kinds := []DirectorDecisionKind{DirectorDecisionAnswerDirectly, DirectorDecisionCreateWorkstream}
+	kinds := []DirectorDecisionKind{DirectorDecisionCreateWorkstream}
 	for _, kind := range workstreamScopedDecisionKinds {
 		if offered[kind] {
 			kinds = append(kinds, kind)

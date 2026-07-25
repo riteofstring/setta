@@ -20,12 +20,43 @@ import (
 const MaxNodePublicSummaryRunes = 240
 
 // ProjectorEvent is one durable fact at its position in the app-scoped stream.
-// Exactly one of the two owners is populated: conversation trajectory events own
-// what happened inside a conversation, and Director facts own app-scoped truth.
+// Exactly one of the three owners is populated: conversation trajectory events
+// own what happened inside a conversation, Director facts own app-scoped truth,
+// and Director conversation entries own the dialogue the user is having with
+// the app itself.
 type ProjectorEvent struct {
-	Sequence   int
-	Trajectory *conversation.TrajectoryEvent
-	Director   *DirectorFactEvent
+	Sequence             int
+	Trajectory           *conversation.TrajectoryEvent
+	Director             *DirectorFactEvent
+	DirectorConversation *conversation.DirectorConversationEntry
+}
+
+// owners reports how many durable facts the event carries. Exactly one is
+// projectable; anything else is a caller that lost track of what it read.
+func (event ProjectorEvent) owners() int {
+	count := 0
+	for _, populated := range []bool{
+		event.Trajectory != nil,
+		event.Director != nil,
+		event.DirectorConversation != nil,
+	} {
+		if populated {
+			count++
+		}
+	}
+	return count
+}
+
+// sourceEventID is the durable id of whichever fact the event carries.
+func (event ProjectorEvent) sourceEventID() string {
+	switch {
+	case event.Trajectory != nil:
+		return event.Trajectory.ID
+	case event.Director != nil:
+		return event.Director.ID
+	default:
+		return event.DirectorConversation.ID
+	}
 }
 
 // ReplayError is a projection failure the live path can answer with a typed
@@ -59,6 +90,12 @@ type DirectorGraphProjector struct {
 	trajectorySequence map[string]int
 	selected           *string
 	pendingDelegation  []pendingDelegation
+	// lane is the Director's own graph scope. It exists from the first frame
+	// because the Director conversation exists from the first frame; what it
+	// holds is only ever what the user and the Director actually did.
+	lane *projectedWorkstream
+	// openTurnNodeID is the Director request the lane has not closed yet.
+	openTurnNodeID string
 }
 
 // pendingDelegation remembers a committed decision until the target workstream
@@ -131,12 +168,15 @@ func newProjectedWorkstream(id string) *projectedWorkstream {
 }
 
 // NewDirectorGraphProjector returns an empty projector positioned before the
-// first event of a stream.
+// first event of a stream. The Director lane is present from the start and
+// carries no nodes: the scope the Director talks in always exists, and nothing
+// has been said in it yet.
 func NewDirectorGraphProjector() *DirectorGraphProjector {
+	lane := newProjectedWorkstream(DirectorLaneID)
 	return &DirectorGraphProjector{
-		workstreams:        map[string]*projectedWorkstream{},
+		workstreams:        map[string]*projectedWorkstream{DirectorLaneID: lane},
 		byConversation:     map[string]string{},
-		workstreamParents:  map[string]*string{},
+		workstreamParents:  map[string]*string{DirectorLaneID: nil},
 		runIDs:             map[string]bool{},
 		runOwners:          map[string]string{},
 		artifactIDs:        map[string]bool{},
@@ -144,6 +184,7 @@ func NewDirectorGraphProjector() *DirectorGraphProjector {
 		sourceEventOwners:  map[string]string{},
 		nodeBySourceEvent:  map[string]string{},
 		trajectorySequence: map[string]int{},
+		lane:               lane,
 	}
 }
 
@@ -164,35 +205,46 @@ func (projector *DirectorGraphProjector) Apply(event ProjectorEvent) error {
 	if err := projector.validateStreamPosition(event); err != nil {
 		return err
 	}
-	if (event.Trajectory == nil) == (event.Director == nil) {
+	if event.owners() != 1 {
 		return fmt.Errorf("projector event at sequence %d must carry exactly one durable fact", event.Sequence)
 	}
-	sourceEventID := ""
-	if event.Trajectory != nil {
-		sourceEventID = event.Trajectory.ID
-	} else {
-		sourceEventID = event.Director.ID
-	}
+	sourceEventID := event.sourceEventID()
 	if projector.sourceEventIDs[sourceEventID] {
 		return fmt.Errorf("projector event at sequence %d repeats durable fact id %q", event.Sequence, sourceEventID)
 	}
 	var err error
-	if event.Trajectory != nil {
+	switch {
+	case event.Trajectory != nil:
 		err = projector.applyTrajectory(event.Sequence, *event.Trajectory)
-	} else {
+	case event.Director != nil:
 		err = projector.applyDirectorFact(event.Sequence, *event.Director)
+	default:
+		err = projector.applyDirectorConversation(*event.DirectorConversation)
 	}
 	if err != nil {
 		return err
 	}
 	projector.lastSequence = event.Sequence
 	projector.sourceEventIDs[sourceEventID] = true
-	if event.Trajectory != nil {
+	switch {
+	case event.Trajectory != nil:
 		projector.sourceEventOwners[sourceEventID] = projector.byConversation[event.Trajectory.ConversationID]
-	} else if event.Director.WorkstreamID != nil {
-		projector.sourceEventOwners[sourceEventID] = *event.Director.WorkstreamID
+	case event.Director != nil:
+		projector.sourceEventOwners[sourceEventID] = projector.directorFactOwner(*event.Director)
+	default:
+		projector.sourceEventOwners[sourceEventID] = DirectorLaneID
 	}
 	return nil
+}
+
+// directorFactOwner names the scope a Director fact was projected into. A fact
+// that happened in no workstream happened in the Director's own lane, which is
+// where the app-scoped half of the dialogue is drawn.
+func (projector *DirectorGraphProjector) directorFactOwner(fact DirectorFactEvent) string {
+	if fact.WorkstreamID != nil {
+		return *fact.WorkstreamID
+	}
+	return DirectorLaneID
 }
 
 // validateStreamPosition keeps the projection honest about gaps. A repeated or
@@ -328,12 +380,6 @@ func (projector *DirectorGraphProjector) applyDirectorFact(sequence int, fact Di
 		}
 		return projector.registerWorkstream(fact, rule.EdgeKinds)
 	}
-	if fact.WorkstreamID == nil {
-		// An app-scoped decision happened in no workstream, so there is no graph
-		// for it to advance. The registry still folds it, because the Director's
-		// own dialogue is what the next decision is materialized against.
-		return nil
-	}
 	handler, handled := directorHandlers[fact.Kind]
 	if !handled {
 		return fmt.Errorf("no projector handler for director fact %q", fact.Kind)
@@ -342,12 +388,18 @@ func (projector *DirectorGraphProjector) applyDirectorFact(sequence int, fact Di
 	if err != nil {
 		return err
 	}
-	workstream, known := projector.workstreams[*fact.WorkstreamID]
-	if !known {
-		return &ReplayError{
-			Reason:   DirectorResyncEventBeforeSnapshot,
-			Sequence: sequence,
-			Detail:   fmt.Sprintf("director fact %s names unregistered workstream %q", fact.ID, *fact.WorkstreamID),
+	// A decision that started a root workstream was made before that workstream
+	// existed, so it happened where the Director was: in its own lane, beside the
+	// request that asked for it.
+	workstream := projector.lane
+	if fact.WorkstreamID != nil {
+		known := false
+		if workstream, known = projector.workstreams[*fact.WorkstreamID]; !known {
+			return &ReplayError{
+				Reason:   DirectorResyncEventBeforeSnapshot,
+				Sequence: sequence,
+				Detail:   fmt.Sprintf("director fact %s names unregistered workstream %q", fact.ID, *fact.WorkstreamID),
+			}
 		}
 	}
 	if fact.RunID != nil {

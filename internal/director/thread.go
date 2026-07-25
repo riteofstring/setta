@@ -2,6 +2,7 @@ package director
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -35,6 +36,11 @@ import (
 // storage one: the Director needs recent continuity, not a transcript that
 // grows with the profile forever.
 const MaxDirectorReplayEntries = 200
+
+// MaxDirectorReplyBytes bounds what the Director says in one turn. The reply is
+// conversation rather than a durable app action, so its bound belongs here
+// beside the turn that produces it.
+const MaxDirectorReplyBytes = 64 * 1024
 
 // DirectorProviderThread is the provider thread now carrying the Director
 // conversation.
@@ -124,8 +130,8 @@ func (receipt DirectorTurnReceipt) Validate() error {
 	if receipt.ReplyText == "" && len(receipt.ToolCalls) == 0 {
 		return fmt.Errorf("director turn %s neither answered nor acted", receipt.IntentID)
 	}
-	if receipt.ReplyText != "" && len(receipt.ReplyText) > MaxDecisionAnswerBytes {
-		return fmt.Errorf("director reply exceeds %d bytes", MaxDecisionAnswerBytes)
+	if receipt.ReplyText != "" && len(receipt.ReplyText) > MaxDirectorReplyBytes {
+		return fmt.Errorf("director reply exceeds %d bytes", MaxDirectorReplyBytes)
 	}
 	for index, call := range receipt.ToolCalls {
 		if err := validateIdentifier("director tool call name", call.Tool); err != nil {
@@ -140,8 +146,6 @@ func (receipt DirectorTurnReceipt) Validate() error {
 
 // DirectorThread runs the Director conversation.
 type DirectorThread struct {
-	registry *Registry
-	executor *DecisionExecutor
 	toolbox  *SettaToolbox
 	store    DirectorConversationStore
 	provider DirectorThreadPort
@@ -200,8 +204,6 @@ func NewDirectorThread(
 		return nil, err
 	}
 	thread := &DirectorThread{
-		registry: registry,
-		executor: executor,
 		toolbox:  toolbox,
 		store:    store,
 		provider: provider,
@@ -240,22 +242,32 @@ func (thread *DirectorThread) Submit(
 		return DirectorTurnReceipt{}, err
 	}
 	recorder := &directorToolRecorder{
-		persist: func(
-			callContext context.Context,
-			recorded recordedDirectorToolCall,
-			first bool,
-		) error {
-			return thread.persistToolCall(
-				context.WithoutCancel(callContext),
-				intent,
-				recorded,
-				first,
-			)
+		persistence: directorToolPersistence{
+			begin: func(callContext context.Context, tool string, arguments json.RawMessage) (string, error) {
+				return thread.persistToolCall(context.WithoutCancel(callContext), intent, tool, arguments)
+			},
+			finish: func(
+				callContext context.Context,
+				callID string,
+				receipt SettaToolReceipt,
+				succeeded bool,
+			) error {
+				return thread.persistToolReceipt(
+					context.WithoutCancel(callContext),
+					intent,
+					callID,
+					receipt,
+					succeeded,
+				)
+			},
 		},
 	}
 	recorded := recorder.instrument(tools)
 	record, err := thread.establish(ctx, recorded)
 	if err != nil {
+		return DirectorTurnReceipt{}, err
+	}
+	if err := thread.persistUserTurn(ctx, intent); err != nil {
 		return DirectorTurnReceipt{}, err
 	}
 	reply, err := thread.provider.RunDirectorTurn(ctx, DirectorTurnRequest{
@@ -267,16 +279,18 @@ func (thread *DirectorThread) Submit(
 	if err != nil {
 		return DirectorTurnReceipt{}, err
 	}
-	return thread.finishTurn(ctx, intent, strings.TrimSpace(reply), recorder)
+	return thread.finishTurn(ctx, intent, record, strings.TrimSpace(reply), recorder)
 }
 
-// finishTurn makes the turn durable and reports it. The Director's own words
-// are committed as a durable decision as well as a conversation entry: the
-// entry is what the next turn is re-established from, and the decision is what
-// the graph and the spoken reply are derived from.
+// finishTurn makes the Director's reply durable and reports the turn. The reply
+// is a conversation entry and nothing else: it is what the next turn is
+// re-established from, what the graph draws as the Director's answer, and what
+// the spoken reply is read out of, so a second durable record of the same
+// sentence could only disagree with it.
 func (thread *DirectorThread) finishTurn(
 	ctx context.Context,
 	intent SubmittedIntent,
+	record conversation.DirectorThreadRecord,
 	reply string,
 	recorder *directorToolRecorder,
 ) (DirectorTurnReceipt, error) {
@@ -288,94 +302,100 @@ func (thread *DirectorThread) finishTurn(
 	if err := receipt.Validate(); err != nil {
 		return DirectorTurnReceipt{}, err
 	}
-	if reply != "" {
-		if err := thread.commitReply(ctx, intent, reply); err != nil {
-			return DirectorTurnReceipt{}, err
-		}
+	if reply == "" {
+		return receipt, nil
 	}
-	entries, err := thread.finalConversationEntries(intent, reply, len(recorder.recorded) > 0)
+	entry, err := thread.textEntry(
+		conversation.DirectorConversationAssistantText,
+		intent.ID,
+		thread.now().UTC().Format(time.RFC3339Nano),
+		reply,
+	)
 	if err != nil {
 		return DirectorTurnReceipt{}, err
 	}
-	if len(entries) > 0 {
-		if err := thread.store.AppendDirectorConversation(ctx, entries); err != nil {
-			return DirectorTurnReceipt{}, err
-		}
+	entry.Text.Model = &conversation.DirectorConversationModel{
+		Provider: record.Provider,
+		Model:    record.Model,
+		ThreadID: record.ThreadID,
+	}
+	if err := thread.store.AppendDirectorConversation(ctx, []conversation.DirectorConversationEntry{entry}); err != nil {
+		return DirectorTurnReceipt{}, err
 	}
 	return receipt, nil
 }
 
-// persistToolCall commits a call and its receipt as soon as its handler
-// returns. The user turn is included with the first call, so a provider failure
-// after an app action cannot erase the conversation that caused it.
-func (thread *DirectorThread) persistToolCall(
-	ctx context.Context,
-	intent SubmittedIntent,
-	recorded recordedDirectorToolCall,
-	first bool,
-) error {
-	recordedAt := thread.now().UTC().Format(time.RFC3339Nano)
-	entries := make([]conversation.DirectorConversationEntry, 0, 3)
-	if first {
-		user, err := thread.textEntry(
-			conversation.DirectorConversationUserTurn,
-			intent.ID,
-			recordedAt,
-			intent.Text,
-		)
-		if err != nil {
-			return err
-		}
-		entries = append(entries, user)
-	}
-	call, err := thread.newEntry(conversation.DirectorConversationToolCall, intent.ID, recordedAt)
-	if err != nil {
-		return err
-	}
-	call.Tool = &conversation.DirectorConversationToolActivity{
-		Tool:    recorded.tool,
-		Payload: recorded.arguments,
-	}
-	toolReceipt, err := thread.newEntry(
-		conversation.DirectorConversationToolReceipt,
+// persistUserTurn records the request before the provider is asked to serve it.
+// The user said it first, so the conversation says so first: a provider failure
+// then leaves a request nothing answered rather than erasing that it was made.
+func (thread *DirectorThread) persistUserTurn(ctx context.Context, intent SubmittedIntent) error {
+	entry, err := thread.textEntry(
+		conversation.DirectorConversationUserTurn,
 		intent.ID,
-		recordedAt,
+		thread.now().UTC().Format(time.RFC3339Nano),
+		intent.Text,
 	)
 	if err != nil {
 		return err
 	}
-	toolReceipt.Tool = &conversation.DirectorConversationToolActivity{
-		Tool:      recorded.tool,
-		Payload:   recorded.receipt,
-		Succeeded: recorded.succeeded,
-	}
-	entries = append(entries, call, toolReceipt)
-	if err := thread.store.AppendDirectorConversation(ctx, entries); err != nil {
-		return err
-	}
-	return nil
+	return thread.store.AppendDirectorConversation(ctx, []conversation.DirectorConversationEntry{entry})
 }
 
-// commitReply records what the Director told the user as a durable app-scoped
-// decision.
-func (thread *DirectorThread) commitReply(
+// persistToolCall commits a call before its handler runs and returns the entry
+// id its receipt answers.
+func (thread *DirectorThread) persistToolCall(
 	ctx context.Context,
 	intent SubmittedIntent,
-	reply string,
+	tool string,
+	arguments json.RawMessage,
+) (string, error) {
+	entry, err := thread.newEntry(
+		conversation.DirectorConversationToolCall,
+		intent.ID,
+		thread.now().UTC().Format(time.RFC3339Nano),
+	)
+	if err != nil {
+		return "", err
+	}
+	entry.Tool = &conversation.DirectorConversationToolActivity{
+		Tool:    tool,
+		Payload: arguments,
+	}
+	if err := thread.store.AppendDirectorConversation(ctx, []conversation.DirectorConversationEntry{entry}); err != nil {
+		return "", err
+	}
+	return entry.ID, nil
+}
+
+// persistToolReceipt commits what the call reported, verbatim. Replaying the
+// conversation reproduces what the Director was actually told rather than a
+// re-rendered summary of it.
+func (thread *DirectorThread) persistToolReceipt(
+	ctx context.Context,
+	intent SubmittedIntent,
+	callID string,
+	receipt SettaToolReceipt,
+	succeeded bool,
 ) error {
-	decisionContext, err := thread.registry.DecisionContext(intent)
+	encoded, err := json.Marshal(receipt)
+	if err != nil {
+		return fmt.Errorf("encode setta tool receipt %s: %w", receipt.Tool, err)
+	}
+	entry, err := thread.newEntry(
+		conversation.DirectorConversationToolReceipt,
+		intent.ID,
+		thread.now().UTC().Format(time.RFC3339Nano),
+	)
 	if err != nil {
 		return err
 	}
-	_, err = thread.executor.Execute(ctx, AuthorizedDecision{
-		Intent:  intent,
-		Context: decisionContext,
-		Decision: DirectorDecision{
-			Kind:           DirectorDecisionAnswerDirectly,
-			AnswerDirectly: &AnswerDirectlyDecision{Text: reply},
-		},
-	})
-	return err
+	entry.Tool = &conversation.DirectorConversationToolActivity{
+		Tool:      receipt.Tool,
+		Payload:   encoded,
+		Succeeded: succeeded,
+		CallID:    &callID,
+	}
+	return thread.store.AppendDirectorConversation(ctx, []conversation.DirectorConversationEntry{entry})
 }
 
 // establish returns the provider thread this app run's Director turns run on,
@@ -457,40 +477,6 @@ func (thread *DirectorThread) replayHistory(
 		}
 	}
 	return history, nil
-}
-
-func (thread *DirectorThread) finalConversationEntries(
-	intent SubmittedIntent,
-	reply string,
-	hasToolCalls bool,
-) ([]conversation.DirectorConversationEntry, error) {
-	recordedAt := thread.now().UTC().Format(time.RFC3339Nano)
-	entries := make([]conversation.DirectorConversationEntry, 0, 2)
-	if !hasToolCalls {
-		user, err := thread.textEntry(
-			conversation.DirectorConversationUserTurn,
-			intent.ID,
-			recordedAt,
-			intent.Text,
-		)
-		if err != nil {
-			return nil, err
-		}
-		entries = append(entries, user)
-	}
-	if reply == "" {
-		return entries, nil
-	}
-	assistant, err := thread.textEntry(
-		conversation.DirectorConversationAssistantText,
-		intent.ID,
-		recordedAt,
-		reply,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return append(entries, assistant), nil
 }
 
 func (thread *DirectorThread) textEntry(

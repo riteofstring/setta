@@ -91,8 +91,16 @@ func (state *registryState) snapshotEntries(
 	return entries, levels, nil
 }
 
+// snapshotGraphs carries the Director lane first. The lane is the conversation
+// the user is having with the app, so a cold start draws what was said before it
+// draws the work that was asked for.
 func (state *registryState) snapshotGraphs(entries []DirectorWorkstreamEntry) ([]WorkstreamGraph, error) {
-	graphs := make([]WorkstreamGraph, 0, len(entries))
+	graphs := make([]WorkstreamGraph, 0, len(entries)+1)
+	lane, err := state.projector.GraphFor(DirectorLaneID, WorkstreamDetailSelected)
+	if err != nil {
+		return nil, err
+	}
+	graphs = append(graphs, lane)
 	for _, entry := range entries {
 		if entry.DetailLevel == WorkstreamDetailBackground {
 			continue

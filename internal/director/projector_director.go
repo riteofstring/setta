@@ -132,6 +132,12 @@ func projectDecisionCommitted(projector *DirectorGraphProjector, context factCon
 	if payload.Decision != DirectorDecisionCreateWorkstream {
 		return nil
 	}
+	if context.workstream.id == DirectorLaneID {
+		// A root workstream has no parent, so the Director did not hand its own
+		// work down: it started work that answers to nobody. Claiming delegation
+		// here would invent a parentage the registry does not hold.
+		return nil
+	}
 	// The delegated_to edge is drawn when the authorized work exists. A decision
 	// that routes to a workstream which is neither itself nor one of its
 	// children is routing, not delegation, and earns no edge.
@@ -164,7 +170,6 @@ func (projector *DirectorGraphProjector) validateDecisionTarget(
 				return fmt.Errorf("recovery decision targets unknown workstream %s", *payload.TargetWorkstreamID)
 			}
 		}
-	case DirectorDecisionAnswerDirectly:
 	}
 	return nil
 }

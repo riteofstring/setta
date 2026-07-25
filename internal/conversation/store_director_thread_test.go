@@ -27,13 +27,29 @@ func directorEntryFixture(
 		RecordedAt: "2026-07-25T12:00:01Z",
 	}
 	switch kind {
-	case DirectorConversationUserTurn, DirectorConversationAssistantText:
+	case DirectorConversationUserTurn:
 		entry.Text = &DirectorConversationText{Text: string(kind) + " text"}
-	default:
+	case DirectorConversationAssistantText:
+		entry.Text = &DirectorConversationText{
+			Text: string(kind) + " text",
+			Model: &DirectorConversationModel{
+				Provider: ProviderCodex,
+				Model:    "gpt-test",
+				ThreadID: "thread-1",
+			},
+		}
+	case DirectorConversationToolReceipt:
+		callID := "entry-call"
 		entry.Tool = &DirectorConversationToolActivity{
 			Tool:      "create_workstream",
-			Payload:   json.RawMessage(`{"title":"Parser rewrite"}`),
-			Succeeded: kind == DirectorConversationToolReceipt,
+			Payload:   json.RawMessage(`{"tool":"create_workstream","summary":"Started it."}`),
+			Succeeded: true,
+			CallID:    &callID,
+		}
+	default:
+		entry.Tool = &DirectorConversationToolActivity{
+			Tool:    "create_workstream",
+			Payload: json.RawMessage(`{"title":"Parser rewrite"}`),
 		}
 	}
 	return entry

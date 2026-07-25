@@ -79,8 +79,11 @@ func validateDirectorSnapshotEnvelope(snapshot DirectorSnapshot) error {
 	return nil
 }
 
+// validateSnapshotWorkstreams derives the id space a snapshot's graphs may
+// reference. The Director lane is in it and has no row: it is the scope the
+// Director's own conversation is drawn in, not work the registry lists.
 func validateSnapshotWorkstreams(snapshot DirectorSnapshot) (GraphAuthority, error) {
-	authority := GraphAuthority{WorkstreamParents: map[string]*string{}}
+	authority := GraphAuthority{WorkstreamParents: map[string]*string{DirectorLaneID: nil}}
 	levelCounts := map[WorkstreamDetailLevel]int{}
 	for _, entry := range snapshot.Workstreams {
 		if err := validateSnapshotWorkstreamEntry(entry, snapshot.SelectedWorkstreamID, authority); err != nil {
@@ -147,7 +150,9 @@ func validateSnapshotDetailCounts(snapshot DirectorSnapshot, levelCounts map[Wor
 }
 
 func validateSnapshotGraphs(snapshot DirectorSnapshot, authority GraphAuthority) error {
-	detailLevels := map[string]WorkstreamDetailLevel{}
+	// The Director lane is always drawn in full. It is where the user is
+	// talking, so there is no state in which it is peripheral.
+	detailLevels := map[string]WorkstreamDetailLevel{DirectorLaneID: WorkstreamDetailSelected}
 	for _, entry := range snapshot.Workstreams {
 		detailLevels[entry.Workstream.ID] = entry.DetailLevel
 	}

@@ -19,8 +19,6 @@ const (
 	// workstream. It matches the intent bound because the Director may pass
 	// the user's request through unchanged.
 	MaxDecisionAuthoredInputBytes = MaxDecisionIntentTextBytes
-	// MaxDecisionAnswerBytes bounds a direct answer.
-	MaxDecisionAnswerBytes = 64 * 1024
 	// MaxDecisionTitleBytes bounds a proposed workstream title.
 	MaxDecisionTitleBytes = 200
 	// MaxDecisionReferenceBytes bounds every id a Director tool may echo back.
@@ -108,11 +106,6 @@ type WorkstreamCreationOrigin struct {
 	Fork  *ForkWorkstreamOrigin        `json:"fork"`
 }
 
-// AnswerDirectlyDecision answers from app-visible state without starting work.
-type AnswerDirectlyDecision struct {
-	Text string `json:"text"`
-}
-
 // CreateWorkstreamDecision starts a workstream. The id, the resource binding,
 // and the registry record are attached by trusted product code afterwards.
 type CreateWorkstreamDecision struct {
@@ -153,11 +146,11 @@ type RecoverPathDecision struct {
 	FailureEventID string `json:"failureEventId"`
 }
 
-// DirectorDecision is one typed app action or answer produced while serving a
-// submitted intent. A tool-using turn may produce several.
+// DirectorDecision is one typed app action produced while serving a submitted
+// intent. A tool-using turn may produce several. Answering is not one of them:
+// what the Director said is its conversation, not an app action.
 type DirectorDecision struct {
 	Kind             DirectorDecisionKind      `json:"kind"`
-	AnswerDirectly   *AnswerDirectlyDecision   `json:"answerDirectly"`
 	CreateWorkstream *CreateWorkstreamDecision `json:"createWorkstream"`
 	SendToWorkstream *SendToWorkstreamDecision `json:"sendToWorkstream"`
 	QueueBehindRun   *QueueBehindRunDecision   `json:"queueBehindRun"`
@@ -171,7 +164,6 @@ type DirectorDecision struct {
 // silently omit a kind.
 func decisionPayloads(decision DirectorDecision) map[DirectorDecisionKind]bool {
 	return map[DirectorDecisionKind]bool{
-		DirectorDecisionAnswerDirectly:   decision.AnswerDirectly != nil,
 		DirectorDecisionCreateWorkstream: decision.CreateWorkstream != nil,
 		DirectorDecisionSendToWorkstream: decision.SendToWorkstream != nil,
 		DirectorDecisionQueueBehindRun:   decision.QueueBehindRun != nil,
@@ -199,8 +191,6 @@ func (decision DirectorDecision) Validate() error {
 
 func (decision DirectorDecision) validatePayload() error {
 	switch decision.Kind {
-	case DirectorDecisionAnswerDirectly:
-		return validateDecisionText("answer", decision.AnswerDirectly.Text, MaxDecisionAnswerBytes)
 	case DirectorDecisionCreateWorkstream:
 		return validateCreateWorkstreamDecision(*decision.CreateWorkstream)
 	case DirectorDecisionSendToWorkstream:

@@ -299,18 +299,6 @@ CREATE TABLE director_thread (
   started_at TEXT NOT NULL
 ) STRICT;
 
-CREATE TABLE director_conversation_entries (
-  sequence INTEGER PRIMARY KEY AUTOINCREMENT,
-  id TEXT NOT NULL UNIQUE,
-  turn_id TEXT NOT NULL,
-  kind TEXT NOT NULL CHECK (kind IN ('user_turn', 'assistant_text', 'tool_call', 'tool_receipt')),
-  recorded_at TEXT NOT NULL,
-  payload_json TEXT NOT NULL CHECK (json_valid(payload_json))
-) STRICT;
-
-CREATE INDEX director_conversation_entries_turn_idx
-  ON director_conversation_entries(turn_id, sequence);
-
 CREATE TABLE director_voice_selection (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
   selection TEXT NOT NULL CHECK (selection IN ('auto_distinct', 'exact')),

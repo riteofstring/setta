@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"setta/internal/conversation"
-	"setta/internal/director"
 	"setta/internal/httpapi"
 	"setta/internal/speech"
 )
@@ -22,7 +21,11 @@ const (
 	runtimeSpeechTranscriptionSecret = "ek_runtime_speech_ephemeral"
 )
 
-func TestRuntimeSpeechSourceResolverResolvesDirectorReplyFacts(t *testing.T) {
+// TestRuntimeSpeechSourceResolverResolvesTheDirectorReply proves the spoken
+// Director text is read out of the Director's own conversation. A turn may call
+// several tools before it answers, and only the reply is speech: the calls
+// beside it are what the app did.
+func TestRuntimeSpeechSourceResolverResolvesTheDirectorReply(t *testing.T) {
 	ctx := context.Background()
 	store, err := conversation.NewStore(t.TempDir())
 	if err != nil {
@@ -33,36 +36,55 @@ func TestRuntimeSpeechSourceResolverResolvesDirectorReplyFacts(t *testing.T) {
 	if _, err := store.EnsureDirectorVoiceSelection(ctx, voice); err != nil {
 		t.Fatalf("EnsureDirectorVoiceSelection: %v", err)
 	}
-	workstreamID := "workstream-created"
-	action := director.DirectorFactEvent{
-		ID:        "director-fact-action",
-		EmittedAt: "2026-07-25T18:00:00.5Z",
-		Kind:      director.DirectorFactDecisionCommitted,
-		Actor:     director.SemanticActorDirector,
-		DecisionCommitted: &director.DirectorDecisionCommitted{
-			Decision:           director.DirectorDecisionCreateWorkstream,
-			IntentID:           "director-intent-answer",
-			PublicSummary:      "Started a workstream.",
-			TargetWorkstreamID: &workstreamID,
+	callID := "director-entry-call"
+	reply := "Nothing is running right now."
+	entries := []conversation.DirectorConversationEntry{
+		{
+			ID:         "director-entry-request",
+			Kind:       conversation.DirectorConversationUserTurn,
+			TurnID:     "director-intent-answer",
+			RecordedAt: "2026-07-25T18:00:00Z",
+			Text:       &conversation.DirectorConversationText{Text: "what is running?"},
+		},
+		{
+			ID:         callID,
+			Kind:       conversation.DirectorConversationToolCall,
+			TurnID:     "director-intent-answer",
+			RecordedAt: "2026-07-25T18:00:00.5Z",
+			Tool: &conversation.DirectorConversationToolActivity{
+				Tool:    "read_activity",
+				Payload: json.RawMessage(`{}`),
+			},
+		},
+		{
+			ID:         "director-entry-receipt",
+			Kind:       conversation.DirectorConversationToolReceipt,
+			TurnID:     "director-intent-answer",
+			RecordedAt: "2026-07-25T18:00:00.8Z",
+			Tool: &conversation.DirectorConversationToolActivity{
+				Tool:      "read_activity",
+				Payload:   json.RawMessage(`{"tool":"read_activity","summary":"Nothing is running."}`),
+				Succeeded: true,
+				CallID:    &callID,
+			},
+		},
+		{
+			ID:         "director-entry-reply",
+			Kind:       conversation.DirectorConversationAssistantText,
+			TurnID:     "director-intent-answer",
+			RecordedAt: "2026-07-25T18:00:01Z",
+			Text: &conversation.DirectorConversationText{
+				Text: reply,
+				Model: &conversation.DirectorConversationModel{
+					Provider: conversation.ProviderCodex,
+					Model:    "gpt-test",
+					ThreadID: "provider-thread-1",
+				},
+			},
 		},
 	}
-	if _, err := director.AppendDirectorFact(ctx, store, action); err != nil {
-		t.Fatalf("AppendDirectorFact action: %v", err)
-	}
-	fact := director.DirectorFactEvent{
-		ID:        "director-fact-answer",
-		EmittedAt: "2026-07-25T18:00:01Z",
-		Kind:      director.DirectorFactDecisionCommitted,
-		Actor:     director.SemanticActorDirector,
-		DecisionCommitted: &director.DirectorDecisionCommitted{
-			Decision:      director.DirectorDecisionAnswerDirectly,
-			IntentID:      "director-intent-answer",
-			PublicSummary: "Answered from app state.",
-			Answer:        &director.DirectorAnswerGiven{Text: "Nothing is running right now."},
-		},
-	}
-	if _, err := director.AppendDirectorFact(ctx, store, fact); err != nil {
-		t.Fatalf("AppendDirectorFact answer: %v", err)
+	if err := store.AppendDirectorConversation(ctx, entries); err != nil {
+		t.Fatalf("AppendDirectorConversation: %v", err)
 	}
 
 	resolver := runtimeSpeechSourceResolver{store: store}
@@ -73,7 +95,7 @@ func TestRuntimeSpeechSourceResolverResolvesDirectorReplyFacts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveSpeechSource: %v", err)
 	}
-	if resolved.Text != fact.DecisionCommitted.Answer.Text ||
+	if resolved.Text != reply ||
 		resolved.ResolvedVoiceID != *voice.ResolvedVoiceID ||
 		resolved.Source.Speaker != speech.SpeechSpeakerDirector {
 		t.Fatalf("resolved Director speech source = %+v", resolved)

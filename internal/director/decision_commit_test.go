@@ -89,8 +89,7 @@ func TestCommittedDecisionTargetsFollowTheCatalog(t *testing.T) {
 	for _, decision := range authorizedDecisionsForFixture() {
 		target := DecisionTargetWorkstreamID(decision)
 		switch decision.Kind {
-		case DirectorDecisionAnswerDirectly,
-			DirectorDecisionCreateWorkstream:
+		case DirectorDecisionCreateWorkstream:
 			if target != nil {
 				t.Fatalf("%q must not carry an existing target, got %q", decision.Kind, *target)
 			}
@@ -134,13 +133,10 @@ func decisionFactFixture(committed DirectorDecisionCommitted, workstreamID *stri
 }
 
 // decisionFactWorkstream is where a decision happened, which is what the
-// executor commits the fact against. A reply happened in no workstream, a root
-// workstream was created before one existed, and every other decision happened
-// in the workstream it acted on.
+// executor commits the fact against. A root workstream was created before one
+// existed, and every other decision happened in the workstream it acted on.
 func decisionFactWorkstream(decision DirectorDecision) *string {
 	switch decision.Kind {
-	case DirectorDecisionAnswerDirectly:
-		return nil
 	case DirectorDecisionCreateWorkstream:
 		return DecisionParentWorkstreamID(decision)
 	default:

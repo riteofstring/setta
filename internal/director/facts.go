@@ -17,9 +17,6 @@ import "fmt"
 type DirectorDecisionKind string
 
 const (
-	// DirectorDecisionAnswerDirectly answers from app-visible state without
-	// starting work.
-	DirectorDecisionAnswerDirectly DirectorDecisionKind = "answer_directly"
 	// DirectorDecisionCreateWorkstream starts a new folderless or resource-bound
 	// workstream.
 	DirectorDecisionCreateWorkstream DirectorDecisionKind = "create_workstream"
@@ -37,7 +34,6 @@ const (
 )
 
 var directorDecisionKinds = []DirectorDecisionKind{
-	DirectorDecisionAnswerDirectly,
 	DirectorDecisionCreateWorkstream,
 	DirectorDecisionSendToWorkstream,
 	DirectorDecisionQueueBehindRun,
@@ -95,19 +91,8 @@ type DirectorDecisionCommitted struct {
 	IntentID      string `json:"intentId"`
 	PublicSummary string `json:"publicSummary"`
 	// TargetWorkstreamID is the authorized target trusted code attached. It is
-	// null for a decision that targets no workstream, such as a reply.
+	// null only for a decision that targets no workstream.
 	TargetWorkstreamID *string `json:"targetWorkstreamId"`
-	// Answer is populated exactly for a direct answer.
-	Answer *DirectorAnswerGiven `json:"answer"`
-}
-
-// DirectorAnswerGiven is what the Director told the user in its own words. It
-// is durable because it is the Director's half of the dialogue, and a restart
-// that lost it would leave the user's request looking unanswered. It is
-// deliberately not the decision's public summary, because the summary labels
-// the graph and model-authored text never does.
-type DirectorAnswerGiven struct {
-	Text string `json:"text"`
 }
 
 // DirectorResourceRequestOpened is the durable request that replaces deriving a
@@ -314,9 +299,6 @@ func validateCommittedDecision(fact DirectorFactEvent) error {
 	if err := validateOptionalIdentifier("committed decision target workstream id", payload.TargetWorkstreamID); err != nil {
 		return err
 	}
-	if err := validateCommittedAnswer(fact); err != nil {
-		return err
-	}
 	if err := validateCommittedDecisionTarget(fact); err != nil {
 		return err
 	}
@@ -325,10 +307,9 @@ func validateCommittedDecision(fact DirectorFactEvent) error {
 
 // validateCommittedDecisionTarget requires the target the decision kind can act
 // on, and the workstream the decision was made in. Work and selection name a
-// target and happen in a workstream; an answer and a question name neither; a
-// create names the workstream it minted, and happens in the parent it delegated
-// from or — for a root workstream — in none, because it was decided before the
-// workstream it created existed.
+// target and happen in a workstream; a create names the workstream it minted,
+// and happens in the parent it delegated from or — for a root workstream — in
+// none, because it was decided before the workstream it created existed.
 func validateCommittedDecisionTarget(fact DirectorFactEvent) error {
 	payload := fact.DecisionCommitted
 	switch payload.Decision {
@@ -348,14 +329,6 @@ func validateCommittedDecisionTarget(fact DirectorFactEvent) error {
 			return fmt.Errorf("director fact %s decision %q requires a target workstream", fact.ID, payload.Decision)
 		}
 		return requireDecisionWorkstream(fact)
-	case DirectorDecisionAnswerDirectly:
-		if payload.TargetWorkstreamID != nil {
-			return fmt.Errorf("director fact %s decision %q must not target a workstream", fact.ID, payload.Decision)
-		}
-		if fact.WorkstreamID != nil {
-			return fmt.Errorf("director fact %s decision %q must not happen in a workstream", fact.ID, payload.Decision)
-		}
-		return nil
 	default:
 		// Recovery addresses a durable failure, so it always happens in the
 		// workstream that failed.
@@ -370,31 +343,6 @@ func requireDecisionWorkstream(fact DirectorFactEvent) error {
 			fact.ID,
 			fact.DecisionCommitted.Decision,
 		)
-	}
-	return nil
-}
-
-// validateCommittedAnswer requires the answered text on exactly the decision
-// that answered. Any other decision carrying one would claim to have answered a
-// request it actually routed.
-func validateCommittedAnswer(fact DirectorFactEvent) error {
-	payload := fact.DecisionCommitted
-	answer := payload.Answer
-	if (answer != nil) != (payload.Decision == DirectorDecisionAnswerDirectly) {
-		return fmt.Errorf(
-			"director fact %s must carry an answer exactly for decision %q",
-			fact.ID,
-			DirectorDecisionAnswerDirectly,
-		)
-	}
-	if answer == nil {
-		return nil
-	}
-	if err := validateTrimmedText("committed answer text", answer.Text); err != nil {
-		return err
-	}
-	if len(answer.Text) > MaxDecisionAnswerBytes {
-		return fmt.Errorf("committed answer text exceeds %d bytes", MaxDecisionAnswerBytes)
 	}
 	return nil
 }

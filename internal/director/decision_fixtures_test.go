@@ -110,7 +110,6 @@ func singleTargetContextFixture() DirectorDecisionContext {
 	context.SelectedID = nil
 	context.Workstreams = []WorkstreamDecisionTarget{idleDecisionTarget()}
 	context.AllowedDecisionKinds = []DirectorDecisionKind{
-		DirectorDecisionAnswerDirectly,
 		DirectorDecisionCreateWorkstream,
 		DirectorDecisionSendToWorkstream,
 		DirectorDecisionSelectWorkstream,

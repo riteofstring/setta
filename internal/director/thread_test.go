@@ -326,8 +326,11 @@ func TestDirectorTurnRequiresAnAnswerOrAnAction(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "neither answered nor acted") {
 		t.Fatalf("empty director turn returned %v", err)
 	}
-	if kinds := store.kinds(); len(kinds) != 0 {
-		t.Fatalf("an empty turn was made durable: %v", kinds)
+	// The request itself stays durable: the user did ask. What the turn produced
+	// — nothing — is what the app refuses to report as a success.
+	kinds := store.kinds()
+	if len(kinds) != 1 || kinds[0] != conversation.DirectorConversationUserTurn {
+		t.Fatalf("an empty turn recorded %v, want only the request", kinds)
 	}
 }
 

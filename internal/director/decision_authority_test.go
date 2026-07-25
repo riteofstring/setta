@@ -35,7 +35,7 @@ func TestDecisionContextRejectsUnbackedAuthority(t *testing.T) {
 		}},
 		{"target allows a kind the context does not", func(context *DirectorDecisionContext) {
 			context.AllowedDecisionKinds = []DirectorDecisionKind{
-				DirectorDecisionAnswerDirectly,
+				DirectorDecisionCreateWorkstream,
 				DirectorDecisionSelectWorkstream,
 			}
 		}},
@@ -114,7 +114,7 @@ func TestDecisionTargetAuthorityMatchesRunState(t *testing.T) {
 			target.AllowedDecisionKinds = []DirectorDecisionKind{DirectorDecisionSendToWorkstream}
 		}},
 		{"global kind offered as target authority", func(target *WorkstreamDecisionTarget) {
-			target.AllowedDecisionKinds = append(target.AllowedDecisionKinds, DirectorDecisionAnswerDirectly)
+			target.AllowedDecisionKinds = append(target.AllowedDecisionKinds, DirectorDecisionCreateWorkstream)
 		}},
 		{"archived workstream offered as a target", func(target *WorkstreamDecisionTarget) {
 			target.Status = WorkstreamStatusArchived
@@ -218,9 +218,12 @@ func TestDecisionAuthorityRejectsUnauthorizedDecisions(t *testing.T) {
 		{
 			name: "two payloads for one kind",
 			decision: DirectorDecision{
-				Kind:             DirectorDecisionAnswerDirectly,
-				AnswerDirectly:   &AnswerDirectlyDecision{Text: "all good"},
+				Kind:             DirectorDecisionSelectWorkstream,
 				SelectWorkstream: &SelectWorkstreamDecision{WorkstreamID: fixtureIdleWorkstream},
+				RecoverPath: &RecoverPathDecision{
+					WorkstreamID:   fixtureFailedWorkstream,
+					FailureEventID: fixtureFailureEventID,
+				},
 			},
 			detail: "must",
 		},
@@ -272,9 +275,6 @@ func TestDecisionAuthorityAcceptsEveryAuthorizedKind(t *testing.T) {
 // authority path.
 func authorizedDecisionsForFixture() []DirectorDecision {
 	return []DirectorDecision{
-		{Kind: DirectorDecisionAnswerDirectly, AnswerDirectly: &AnswerDirectlyDecision{
-			Text: "Two workstreams are running and nothing is blocked.",
-		}},
 		createRootDecisionFixture(folderlessDecisionScope()),
 		sendDecisionFixture(fixtureIdleWorkstream),
 		{Kind: DirectorDecisionQueueBehindRun, QueueBehindRun: &QueueBehindRunDecision{

@@ -28,6 +28,18 @@ func testWorkstream(id string) Workstream {
 	}
 }
 
+// testDirectorLaneGraph is the Director's own lane. Every snapshot carries it,
+// because the conversation the user is having with the app always exists even
+// when nothing has been said in it yet.
+func testDirectorLaneGraph() WorkstreamGraph {
+	return WorkstreamGraph{
+		WorkstreamID: DirectorLaneID,
+		DetailLevel:  WorkstreamDetailSelected,
+		Nodes:        []SemanticNode{},
+		Edges:        []SemanticEdge{},
+	}
+}
+
 func testSnapshot(t *testing.T) DirectorSnapshot {
 	t.Helper()
 	selected := testParentWorkstream
@@ -38,7 +50,7 @@ func testSnapshot(t *testing.T) DirectorSnapshot {
 			{Workstream: testWorkstream(testParentWorkstream), DetailLevel: WorkstreamDetailSelected},
 			{Workstream: testWorkstream(testOtherWorkstream), DetailLevel: WorkstreamDetailBackground},
 		},
-		Graphs: []WorkstreamGraph{{
+		Graphs: []WorkstreamGraph{testDirectorLaneGraph(), {
 			WorkstreamID: testParentWorkstream,
 			DetailLevel:  WorkstreamDetailSelected,
 			Nodes:        []SemanticNode{},

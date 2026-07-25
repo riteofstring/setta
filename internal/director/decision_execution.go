@@ -194,8 +194,6 @@ func (executor *DecisionExecutor) carryOut(
 	authorized AuthorizedDecision,
 ) (ExecutedDecision, error) {
 	switch authorized.Decision.Kind {
-	case DirectorDecisionAnswerDirectly:
-		return executor.reply(ctx, authorized)
 	case DirectorDecisionCreateWorkstream:
 		return executor.createWorkstream(ctx, authorized)
 	case DirectorDecisionSendToWorkstream,
@@ -222,24 +220,6 @@ func validateAuthorizedDecision(authorized AuthorizedDecision) error {
 		return fmt.Errorf("authorized decision %s does not match its context", authorized.Intent.ID)
 	}
 	return ValidateDecisionAuthority(authorized.Context, authorized.Decision)
-}
-
-// reply commits what the Director told the user. The fact happens in no
-// workstream because prose started work in none, and it is durable because the
-// answer is what the user was told and what their next request is answering.
-func (executor *DecisionExecutor) reply(
-	ctx context.Context,
-	authorized AuthorizedDecision,
-) (ExecutedDecision, error) {
-	summary, err := executor.commitDecision(ctx, authorized, nil, nil)
-	if err != nil {
-		return ExecutedDecision{}, err
-	}
-	return ExecutedDecision{
-		IntentID: authorized.Intent.ID,
-		Decision: authorized.Decision.Kind,
-		Summary:  summary.PublicSummary,
-	}, nil
 }
 
 // createWorkstream mints the new workstream, records the decision that created

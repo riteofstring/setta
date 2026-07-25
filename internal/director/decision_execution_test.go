@@ -348,43 +348,6 @@ func TestRecoveringRestartsTheWorkThatFailed(t *testing.T) {
 	}
 }
 
-// TestRepliesAreDurableWithoutAWorkstream proves the Director's own dialogue is
-// committed: the answer is what the user was told, and it survives a restart.
-func TestRepliesAreDurableWithoutAWorkstream(t *testing.T) {
-	harness := newRegistryHarness(t)
-	harness.createConversation("conversation-first", "Parser rewrite", nil)
-	registry := harness.start()
-	execution := &recordedExecution{}
-	executor := newExecutorForTest(t, harness, registry, execution)
-
-	answered, err := executor.Execute(context.Background(), routedFor(t, registry, DirectorDecision{
-		Kind:           DirectorDecisionAnswerDirectly,
-		AnswerDirectly: &AnswerDirectlyDecision{Text: "One workstream is idle and nothing is blocked."},
-	}))
-	if err != nil {
-		t.Fatalf("Execute answer: %v", err)
-	}
-	if answered.WorkstreamID != nil {
-		t.Fatalf("an answer happened in workstream %v", answered.WorkstreamID)
-	}
-	if answered.Summary == "" {
-		t.Fatalf("answer summary = %q", answered.Summary)
-	}
-	if len(execution.sends)+len(execution.starts)+len(execution.steers) != 0 {
-		t.Fatal("a reply reached the execution port")
-	}
-	registry.Close()
-
-	restarted := harness.start()
-	resumed := requireDecisionContext(t, restarted)
-	if len(resumed.RecentDecisions) != 1 {
-		t.Fatalf("recent decisions = %+v", resumed.RecentDecisions)
-	}
-	if resumed.RecentDecisions[0].Decision != DirectorDecisionAnswerDirectly {
-		t.Fatalf("resumed decision = %+v", resumed.RecentDecisions[0])
-	}
-}
-
 func TestExecutionRejectsAuthorizedDecisionDriftBeforeEffects(t *testing.T) {
 	harness := newRegistryHarness(t)
 	workspaceID := registryTestWorkspaceID

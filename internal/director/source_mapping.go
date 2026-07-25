@@ -88,6 +88,9 @@ const (
 	SemanticNodeIdentityInterpretation  SemanticNodeIdentity = "interpretation"
 	SemanticNodeIdentityValidation      SemanticNodeIdentity = "validation"
 	SemanticNodeIdentityRecovery        SemanticNodeIdentity = "recovery"
+	SemanticNodeIdentityDirectorTurn    SemanticNodeIdentity = "director_turn"
+	SemanticNodeIdentityToolCall        SemanticNodeIdentity = "tool_call"
+	SemanticNodeIdentityDirectorReply   SemanticNodeIdentity = "director_reply"
 )
 
 var semanticNodeIdentities = []SemanticNodeIdentity{
@@ -108,6 +111,9 @@ var semanticNodeIdentities = []SemanticNodeIdentity{
 	SemanticNodeIdentityInterpretation,
 	SemanticNodeIdentityValidation,
 	SemanticNodeIdentityRecovery,
+	SemanticNodeIdentityDirectorTurn,
+	SemanticNodeIdentityToolCall,
+	SemanticNodeIdentityDirectorReply,
 }
 
 // SourceFactRule is one row of the mapping.
@@ -463,6 +469,48 @@ var directorFactRules = map[DirectorSourceFact]SourceFactRule{
 	},
 }
 
+// directorConversationFactRules map the Director's own dialogue into the lane.
+// The Director is a conversation with tools, so what it said and what it called
+// are separate visible facts: prose is never evidence that the app changed, and
+// a call is never evidence of what the user was told.
+var directorConversationFactRules = map[conversation.DirectorConversationEntryKind]SourceFactRule{
+	conversation.DirectorConversationUserTurn: {
+		Disposition:   SourceFactCreatesNode,
+		Resolution:    SourceFactResolutionFixed,
+		NodeKind:      SemanticNodeUserGoal,
+		NodeIdentity:  SemanticNodeIdentityDirectorTurn,
+		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy},
+		EvidenceClass: EvidenceRuntimeFact,
+		Note:          "What the user asked the app for owns the user-authored summary and opens the turn the lane resolves.",
+	},
+	conversation.DirectorConversationToolCall: {
+		Disposition:   SourceFactCreatesNode,
+		Resolution:    SourceFactResolutionFixed,
+		NodeKind:      SemanticNodeAction,
+		NodeIdentity:  SemanticNodeIdentityToolCall,
+		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy},
+		EvidenceClass: EvidenceRuntimeFact,
+		Note:          "A Setta tool call is drawn when it is made and labelled by the tool, because its arguments are provider text.",
+	},
+	conversation.DirectorConversationToolReceipt: {
+		Disposition:   SourceFactUpdatesNode,
+		Resolution:    SourceFactResolutionFixed,
+		NodeKind:      SemanticNodeAction,
+		NodeIdentity:  SemanticNodeIdentityToolCall,
+		EvidenceClass: EvidenceRuntimeFact,
+		Note:          "The receipt resolves the call it answers and replaces the label with Setta's own account of what happened.",
+	},
+	conversation.DirectorConversationAssistantText: {
+		Disposition:   SourceFactCreatesNode,
+		Resolution:    SourceFactResolutionFixed,
+		NodeKind:      SemanticNodeMilestone,
+		NodeIdentity:  SemanticNodeIdentityDirectorReply,
+		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy},
+		EvidenceClass: EvidenceDirectorInterpretation,
+		Note:          "The Director's reply is model-authored, so it carries the model that authored it and stays visually separable from an observed fact.",
+	},
+}
+
 // TrajectoryFactRule returns the rule for one durable trajectory event kind.
 func TrajectoryFactRule(kind conversation.TrajectoryEventKind) (SourceFactRule, error) {
 	rule, known := trajectoryFactRules[kind]
@@ -477,6 +525,18 @@ func DirectorFactRule(fact DirectorSourceFact) (SourceFactRule, error) {
 	rule, known := directorFactRules[fact]
 	if !known {
 		return SourceFactRule{}, fmt.Errorf("no source fact rule for director fact %q", fact)
+	}
+	return rule, nil
+}
+
+// DirectorConversationFactRule returns the rule for one durable Director
+// conversation entry kind.
+func DirectorConversationFactRule(
+	kind conversation.DirectorConversationEntryKind,
+) (SourceFactRule, error) {
+	rule, known := directorConversationFactRules[kind]
+	if !known {
+		return SourceFactRule{}, fmt.Errorf("no source fact rule for director conversation entry kind %q", kind)
 	}
 	return rule, nil
 }

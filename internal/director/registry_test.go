@@ -91,11 +91,9 @@ func TestRegistryPushesWorkstreamAndGraphChanges(t *testing.T) {
 	}
 
 	snapshot := requireSnapshot(t, registry)
-	if len(snapshot.Graphs) != 1 {
-		t.Fatalf("snapshot holds %d graphs, want the one adjacent workstream", len(snapshot.Graphs))
-	}
-	if snapshot.Graphs[0].DetailLevel != WorkstreamDetailAdjacent {
-		t.Fatalf("unselected workstream graph detail = %q", snapshot.Graphs[0].DetailLevel)
+	workstreamGraph := requireWorkstreamGraph(t, snapshot, workstreamID)
+	if workstreamGraph.DetailLevel != WorkstreamDetailAdjacent {
+		t.Fatalf("unselected workstream graph detail = %q", workstreamGraph.DetailLevel)
 	}
 }
 
@@ -133,8 +131,8 @@ func TestNewWorkstreamIsAnchoredBeforeItRunsAnything(t *testing.T) {
 	if entry.Workstream.LastMilestone != nil {
 		t.Fatalf("an idle workstream reports milestone %+v", entry.Workstream.LastMilestone)
 	}
-	if len(snapshot.Graphs) != 1 || len(snapshot.Graphs[0].Nodes) != 1 {
-		t.Fatalf("snapshot graphs = %+v, want the anchor", snapshot.Graphs)
+	if anchored := requireWorkstreamGraph(t, snapshot, workstreamID); len(anchored.Nodes) != 1 {
+		t.Fatalf("snapshot workstream graph = %+v, want the anchor", anchored)
 	}
 
 	harness.startTurn("conversation-anchor", "turn-1")
@@ -866,5 +864,90 @@ func TestLiveWindowEvictsTheRowDisplacedByAnOffWindowUpdate(t *testing.T) {
 			afterIDs[oldest],
 			afterIDs[displaced],
 		)
+	}
+}
+
+// TestDirectorConversationIsPushedIntoTheLane proves the Director's own turns
+// reach the canvas the way everything else does: the durable conversation is
+// folded from the same log, and the lane's delta is pushed without a reload and
+// without anything asking for it.
+func TestDirectorConversationIsPushedIntoTheLane(t *testing.T) {
+	harness := newRegistryHarness(t)
+	registry := harness.start()
+	subscription := subscribeFromSnapshot(t, registry)
+	defer subscription.Unsubscribe()
+
+	request := directorLaneEntry("entry-request", conversation.DirectorConversationUserTurn, harness.now())
+	request.Text = &conversation.DirectorConversationText{Text: "what is running?"}
+	if err := harness.store.AppendDirectorConversation(
+		context.Background(),
+		[]conversation.DirectorConversationEntry{request},
+	); err != nil {
+		t.Fatalf("AppendDirectorConversation: %v", err)
+	}
+
+	pushed := awaitEvent(t, subscription, DirectorEventGraphUpdated)
+	if pushed.GraphUpdated.WorkstreamID != DirectorLaneID {
+		t.Fatalf("pushed graph names %q, want the director lane", pushed.GraphUpdated.WorkstreamID)
+	}
+	if len(pushed.GraphUpdated.Nodes) != 1 ||
+		pushed.GraphUpdated.Nodes[0].Kind != SemanticNodeUserGoal ||
+		pushed.GraphUpdated.Nodes[0].PublicSummary != "what is running?" {
+		t.Fatalf("pushed director lane nodes = %+v", pushed.GraphUpdated.Nodes)
+	}
+
+	snapshot := requireSnapshot(t, registry)
+	lane := requireWorkstreamGraph(t, snapshot, DirectorLaneID)
+	if len(lane.Nodes) != 1 || lane.DetailLevel != WorkstreamDetailSelected {
+		t.Fatalf("snapshot director lane = %+v", lane)
+	}
+	if len(snapshot.Workstreams) != 0 {
+		t.Fatalf("the director lane was listed as work: %+v", snapshot.Workstreams)
+	}
+}
+
+// TestRootCreateDecisionIsDrawnInTheDirectorLane proves a decision that started
+// a workstream from nothing has a home. It was made before the work existed, so
+// it belongs where the Director was — in its own lane — rather than nowhere.
+func TestRootCreateDecisionIsDrawnInTheDirectorLane(t *testing.T) {
+	harness := newRegistryHarness(t)
+	registry := harness.start()
+	subscription := subscribeFromSnapshot(t, registry)
+	defer subscription.Unsubscribe()
+
+	created, err := WorkstreamIDForConversation("conversation-created")
+	if err != nil {
+		t.Fatalf("WorkstreamIDForConversation: %v", err)
+	}
+	harness.appendFact(DirectorFactEvent{
+		Kind:  DirectorFactDecisionCommitted,
+		Actor: SemanticActorDirector,
+		DecisionCommitted: &DirectorDecisionCommitted{
+			Decision:           DirectorDecisionCreateWorkstream,
+			IntentID:           "director-intent-1",
+			PublicSummary:      "Started the workstream \"Parser rewrite\".",
+			TargetWorkstreamID: &created,
+		},
+	})
+
+	pushed := awaitEvent(t, subscription, DirectorEventGraphUpdated)
+	if pushed.GraphUpdated.WorkstreamID != DirectorLaneID {
+		t.Fatalf("pushed graph names %q, want the director lane", pushed.GraphUpdated.WorkstreamID)
+	}
+	if len(pushed.GraphUpdated.Nodes) != 1 ||
+		pushed.GraphUpdated.Nodes[0].Kind != SemanticNodeDirectorDecision ||
+		pushed.GraphUpdated.Nodes[0].PublicSummary != "Started the workstream \"Parser rewrite\"." {
+		t.Fatalf("pushed director lane nodes = %+v", pushed.GraphUpdated.Nodes)
+	}
+
+	harness.createConversation("conversation-created", "Parser rewrite", nil)
+	anchor := awaitEvent(t, subscription, DirectorEventGraphUpdated)
+	if anchor.GraphUpdated.WorkstreamID != created {
+		t.Fatalf("the created workstream published %q", anchor.GraphUpdated.WorkstreamID)
+	}
+	snapshot := requireSnapshot(t, registry)
+	lane := requireWorkstreamGraph(t, snapshot, DirectorLaneID)
+	if len(lane.Edges) != 0 {
+		t.Fatalf("a root workstream was drawn as delegated work: %+v", lane.Edges)
 	}
 }

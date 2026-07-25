@@ -35,19 +35,7 @@ func NewCommittedDecision(
 		IntentID:           context.Intent.ID,
 		PublicSummary:      summary,
 		TargetWorkstreamID: target,
-		Answer:             committedAnswer(decision),
 	}, nil
-}
-
-// committedAnswer records what the Director actually told the user. It is the
-// one place model text becomes durable: the public summary beside it is derived
-// from the decision kind, so an answer can be read back to the user without
-// ever labelling the graph.
-func committedAnswer(decision DirectorDecision) *DirectorAnswerGiven {
-	if decision.Kind != DirectorDecisionAnswerDirectly {
-		return nil
-	}
-	return &DirectorAnswerGiven{Text: decision.AnswerDirectly.Text}
 }
 
 func committedDecisionTarget(decision DirectorDecision, createdWorkstreamID *string) (*string, error) {
@@ -80,8 +68,6 @@ func DecisionPublicSummary(context DirectorDecisionContext, decision DirectorDec
 
 func decisionSummaryText(context DirectorDecisionContext, decision DirectorDecision) (string, error) {
 	switch decision.Kind {
-	case DirectorDecisionAnswerDirectly:
-		return "Answered from current app state.", nil
 	case DirectorDecisionCreateWorkstream:
 		return createWorkstreamSummary(context, *decision.CreateWorkstream)
 	case DirectorDecisionSendToWorkstream:

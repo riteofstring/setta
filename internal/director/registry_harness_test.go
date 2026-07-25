@@ -682,6 +682,23 @@ func requireSnapshot(t *testing.T, registry *Registry) DirectorSnapshot {
 	return snapshot
 }
 
+// requireWorkstreamGraph finds one workstream's graph in a snapshot that also
+// carries the Director's own lane.
+func requireWorkstreamGraph(
+	t *testing.T,
+	snapshot DirectorSnapshot,
+	workstreamID string,
+) WorkstreamGraph {
+	t.Helper()
+	for _, graph := range snapshot.Graphs {
+		if graph.WorkstreamID == workstreamID {
+			return graph
+		}
+	}
+	t.Fatalf("snapshot holds no graph for workstream %q: %+v", workstreamID, snapshot.Graphs)
+	return WorkstreamGraph{}
+}
+
 func findEntry(t *testing.T, snapshot DirectorSnapshot, workstreamID string) DirectorWorkstreamEntry {
 	t.Helper()
 	for _, entry := range snapshot.Workstreams {

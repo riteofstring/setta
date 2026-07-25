@@ -83,6 +83,8 @@ func (state *registryState) applyCommitted(
 		effects, err = state.applyArtifactCreated(event)
 	case DirectorFactCommittedKind:
 		effects, err = state.applyDirectorFact(event)
+	case conversation.DirectorConversationCommittedKind:
+		effects, err = state.applyDirectorConversationEntry(event)
 	default:
 		effects = nil
 	}
@@ -363,17 +365,38 @@ func trajectoryTextDelta(
 	return payload, true
 }
 
+// applyDirectorConversationEntry folds one line of the Director's own dialogue.
+// It changes no registry row: the Director is not a workstream, so what it said
+// and what it called are graph facts and nothing else. What its calls actually
+// did reaches the registry as the durable facts those calls committed.
+func (state *registryState) applyDirectorConversationEntry(
+	event conversation.CommittedEvent,
+) ([]registryEffect, error) {
+	entry, err := conversation.DecodeDirectorConversationEntry(event)
+	if err != nil {
+		return nil, err
+	}
+	if err := state.applyProjectorEvent(ProjectorEvent{DirectorConversation: &entry}); err != nil {
+		return nil, err
+	}
+	return state.collectGraphChanges()
+}
+
 // collectGraphChanges turns the projector's pending deltas into effects and
-// keeps each workstream's blocker set in step with its graph.
+// keeps each workstream's blocker set in step with its graph. The Director lane
+// has no registry row to keep in step: nothing in it blocks work, because the
+// work is elsewhere.
 func (state *registryState) collectGraphChanges() ([]registryEffect, error) {
 	changes := state.projector.TakeGraphChanges()
 	effects := make([]registryEffect, 0, len(changes))
 	for _, change := range changes {
-		workstream, known := state.workstreams[change.WorkstreamID]
-		if !known {
-			return nil, fmt.Errorf("graph change names unknown workstream %s", change.WorkstreamID)
+		if change.WorkstreamID != DirectorLaneID {
+			workstream, known := state.workstreams[change.WorkstreamID]
+			if !known {
+				return nil, fmt.Errorf("graph change names unknown workstream %s", change.WorkstreamID)
+			}
+			workstream.trackBlockedNodes(change)
 		}
-		workstream.trackBlockedNodes(change)
 		effects = append(effects, registryEffect{
 			kind:  effectGraph,
 			id:    change.WorkstreamID,

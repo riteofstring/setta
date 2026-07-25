@@ -75,8 +75,14 @@ ON CONFLICT(singleton) DO UPDATE SET
 }
 
 // AppendDirectorConversation records one ordered batch of Director activity in
-// a transaction. A turn may append its tool calls as they happen and its reply
-// afterward, so a provider failure cannot erase an app action that already ran.
+// a transaction. A turn appends what the user said, each tool call as it is
+// made, each receipt as it comes back, and the reply afterward, so a provider
+// failure cannot erase an app action that already ran.
+//
+// The entries go into the app-scoped committed log rather than a table of their
+// own, because the graph projects them beside conversation trajectory events and
+// Director facts. One log is one order, and one order is what makes a replay of
+// the Director's own dialogue reproduce the same graph.
 func (store *Store) AppendDirectorConversation(ctx context.Context, entries []DirectorConversationEntry) error {
 	if store == nil {
 		return errors.New("conversation store is required")
@@ -84,28 +90,26 @@ func (store *Store) AppendDirectorConversation(ctx context.Context, entries []Di
 	if len(entries) == 0 {
 		return errors.New("director conversation append requires at least one entry")
 	}
-	encoded := make([]string, 0, len(entries))
 	for index, entry := range entries {
 		if err := entry.Validate(); err != nil {
 			return fmt.Errorf("director conversation entry[%d]: %w", index, err)
 		}
-		payload, err := json.Marshal(directorConversationPayload(entry))
-		if err != nil {
-			return fmt.Errorf("encode director conversation entry %s: %w", entry.ID, err)
-		}
-		encoded = append(encoded, string(payload))
 	}
-	return store.write(ctx, "append director conversation", func(ctx context.Context, tx *sql.Tx) error {
-		for index, entry := range entries {
-			if _, err := tx.ExecContext(ctx, `
-INSERT INTO director_conversation_entries (id, turn_id, kind, recorded_at, payload_json)
-VALUES (?, ?, ?, ?, ?)
-`, entry.ID, entry.TurnID, entry.Kind, entry.RecordedAt, encoded[index]); err != nil {
+	_, err := store.Transact(ctx, "append director conversation", func(transaction *WriteTransaction) error {
+		for _, entry := range entries {
+			if _, err := transaction.AppendCommittedEvent(CommittedEventDraft{
+				ID:          entry.ID,
+				StreamID:    DirectorConversationStreamID,
+				Kind:        DirectorConversationCommittedKind,
+				Payload:     entry,
+				CommittedAt: entry.RecordedAt,
+			}); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
+	return err
 }
 
 // ReadRecentDirectorConversation returns the newest entries in the order they
@@ -122,81 +126,53 @@ func (store *Store) ReadRecentDirectorConversation(
 	if limit <= 0 {
 		return nil, fmt.Errorf("director conversation limit must be positive, got %d", limit)
 	}
-	entries := make([]DirectorConversationEntry, 0, limit)
-	err := store.read(ctx, "read director conversation", func(ctx context.Context, reader *sql.Conn) error {
-		rows, err := reader.QueryContext(ctx, `
-SELECT id, turn_id, kind, recorded_at, payload_json
-FROM (
-  SELECT sequence, id, turn_id, kind, recorded_at, payload_json
-  FROM director_conversation_entries
-  ORDER BY sequence DESC
-  LIMIT ?
-)
-ORDER BY sequence ASC
-`, limit)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			entry, err := scanDirectorConversationEntry(rows, store.dbPath)
-			if err != nil {
-				return err
-			}
-			entries = append(entries, entry)
-		}
-		return rows.Err()
-	})
+	committed, err := store.ReadRecentCommittedStreamEvents(ctx, DirectorConversationStreamID, limit)
 	if err != nil {
 		return nil, err
+	}
+	entries := make([]DirectorConversationEntry, 0, len(committed))
+	for _, event := range committed {
+		entry, err := DecodeDirectorConversationEntry(event)
+		if err != nil {
+			return nil, &CorruptStateError{Path: store.dbPath, Err: err}
+		}
+		entries = append(entries, entry)
 	}
 	return entries, nil
 }
 
-func scanDirectorConversationEntry(rows *sql.Rows, dbPath string) (DirectorConversationEntry, error) {
-	var entry DirectorConversationEntry
-	var payloadJSON string
-	if err := rows.Scan(&entry.ID, &entry.TurnID, &entry.Kind, &entry.RecordedAt, &payloadJSON); err != nil {
-		return DirectorConversationEntry{}, err
+// DecodeDirectorConversationEntry reads one durable Director conversation entry
+// out of the log.
+func DecodeDirectorConversationEntry(committed CommittedEvent) (DirectorConversationEntry, error) {
+	if committed.Kind != DirectorConversationCommittedKind {
+		return DirectorConversationEntry{}, fmt.Errorf(
+			"committed event %s has kind %q, want %q",
+			committed.ID,
+			committed.Kind,
+			DirectorConversationCommittedKind,
+		)
 	}
-	if err := decodeDirectorConversationPayload(&entry, payloadJSON); err != nil {
-		return DirectorConversationEntry{}, &CorruptStateError{Path: dbPath, Err: err}
+	if committed.StreamID != DirectorConversationStreamID {
+		return DirectorConversationEntry{}, fmt.Errorf(
+			"director conversation entry %s was committed to stream %q, want %q",
+			committed.ID,
+			committed.StreamID,
+			DirectorConversationStreamID,
+		)
+	}
+	var entry DirectorConversationEntry
+	if err := json.Unmarshal(committed.Payload, &entry); err != nil {
+		return DirectorConversationEntry{}, fmt.Errorf("decode director conversation entry %s: %w", committed.ID, err)
+	}
+	if entry.ID != committed.ID {
+		return DirectorConversationEntry{}, fmt.Errorf(
+			"director conversation payload id %q does not match committed event %s",
+			entry.ID,
+			committed.ID,
+		)
 	}
 	if err := entry.Validate(); err != nil {
-		return DirectorConversationEntry{}, &CorruptStateError{
-			Path: dbPath,
-			Err:  fmt.Errorf("decode director conversation entry %s: %w", entry.ID, err),
-		}
+		return DirectorConversationEntry{}, err
 	}
 	return entry, nil
-}
-
-// directorConversationPayload stores only the branch the entry's kind owns, so
-// a row cannot carry a payload the kind never had.
-func directorConversationPayload(entry DirectorConversationEntry) any {
-	if entry.Text != nil {
-		return entry.Text
-	}
-	return entry.Tool
-}
-
-func decodeDirectorConversationPayload(entry *DirectorConversationEntry, payloadJSON string) error {
-	switch entry.Kind {
-	case DirectorConversationUserTurn, DirectorConversationAssistantText:
-		var text DirectorConversationText
-		if err := json.Unmarshal([]byte(payloadJSON), &text); err != nil {
-			return fmt.Errorf("decode director conversation text %s: %w", entry.ID, err)
-		}
-		entry.Text = &text
-		return nil
-	case DirectorConversationToolCall, DirectorConversationToolReceipt:
-		var tool DirectorConversationToolActivity
-		if err := json.Unmarshal([]byte(payloadJSON), &tool); err != nil {
-			return fmt.Errorf("decode director conversation tool activity %s: %w", entry.ID, err)
-		}
-		entry.Tool = &tool
-		return nil
-	default:
-		return fmt.Errorf("unknown director conversation entry kind %q", entry.Kind)
-	}
 }

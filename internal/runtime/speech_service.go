@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"setta/internal/conversation"
-	"setta/internal/director"
 	"setta/internal/speech"
 )
 
@@ -77,6 +76,10 @@ func (resolver runtimeSpeechSourceResolver) resolveDirectorSpeechSource(
 	return resolved, nil
 }
 
+// resolveDirectorSpeechText reads what the Director said out of its own
+// conversation. A turn may act through several tools before it answers, and only
+// the reply is speech: the tool calls beside it are what the app did, which the
+// user watches rather than hears.
 func (resolver runtimeSpeechSourceResolver) resolveDirectorSpeechText(
 	ctx context.Context,
 	intentID string,
@@ -85,7 +88,7 @@ func (resolver runtimeSpeechSourceResolver) resolveDirectorSpeechText(
 	for {
 		events, err := resolver.store.ReadCommittedStreamEvents(
 			ctx,
-			director.DirectorFactStreamID,
+			conversation.DirectorConversationStreamID,
 			afterSequence,
 			conversation.MaxCommittedEventReadLimit,
 		)
@@ -94,36 +97,18 @@ func (resolver runtimeSpeechSourceResolver) resolveDirectorSpeechText(
 		}
 		for _, event := range events {
 			afterSequence = event.StreamSequence
-			fact, err := director.DecodeDirectorFact(event)
+			entry, err := conversation.DecodeDirectorConversationEntry(event)
 			if err != nil {
 				return "", err
 			}
-			decision := fact.DecisionCommitted
-			if decision == nil || decision.IntentID != intentID {
+			if entry.Kind != conversation.DirectorConversationAssistantText || entry.TurnID != intentID {
 				continue
 			}
-			// One Director turn may act through several tools before it
-			// answers. Those action decisions share the turn's intent id,
-			// but only the final answer owns spoken text.
-			if decision.Decision == director.DirectorDecisionAnswerDirectly {
-				return directorDecisionSpeechText(*decision)
-			}
+			return entry.Text.Text, nil
 		}
 		if len(events) < conversation.MaxCommittedEventReadLimit {
 			break
 		}
 	}
 	return "", speech.SourceUnavailable("The requested Director speech event is not available.", nil)
-}
-
-func directorDecisionSpeechText(decision director.DirectorDecisionCommitted) (string, error) {
-	switch decision.Decision {
-	case director.DirectorDecisionAnswerDirectly:
-		return decision.Answer.Text, nil
-	default:
-		return "", speech.SourceUnavailable(
-			"The requested Director speech event has no spoken text.",
-			nil,
-		)
-	}
 }
