@@ -210,7 +210,6 @@ run_agent() {
             --model "${model}" \
             --config "model_reasoning_effort=\"${effort}\"" \
             --sandbox danger-full-access \
-            --ask-for-approval never \
             --dangerously-bypass-approvals-and-sandbox \
             --ephemeral \
             --cd "${ROOT_DIR}" \
