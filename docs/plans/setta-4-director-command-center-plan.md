@@ -2,9 +2,11 @@
 
 **Date:** 2026-07-24
 **Status:** Approved direction; Phase 0 repository work and Phases 1 and 2 are
-complete, and the shared Phase 1/2 audit boundary is closed. The audit reviewed
-the phase across its restarted implementation loop, fixed the findings, and ran
-the required post-fix broad verification without starting Phase 3. Phase 2 owns
+complete, and the shared Phase 1/2 audit boundary is closed. Phase 3 has started:
+the Director decision protocol and its strict trusted-target validation are
+committed in `internal/director/decision_*.go` (items 1 and 9), so the Master
+route decision catalog now has a Director-language replacement with no pane
+presentation authority in the model-facing contract. Phase 2 owns
 the standalone renderer:
 the packed GPU render snapshot, its deterministic fixture generation, and its
 burst/cursor-replay fixtures are committed in
@@ -1155,8 +1157,39 @@ Exit gate:
 
 ### Phase 3 — Introduce the Director Command Center
 
-1. Adapt the existing Master route decision catalog into the Director decision protocol.
-2. Rename product-facing Master concepts to Director where they represent the new product role.
+1. Adapt the existing Master route decision catalog into the Director decision protocol. **Done —
+   `internal/director/decision_protocol.go`, `decision_authority.go`, `decision_schema.go`,
+   `decision_output.go`, `decision_validation.go`, `decision_recovery.go`, and `decision_commit.go`.**
+   The trusted context (`DirectorDecisionContext`) generates the strict output schema, and the
+   returned decision is validated against that same context again, so a provider that ignores its own
+   schema cannot widen authority. Five catalog changes are product requirements rather than renames:
+   - Targets are workstreams. No pane id, provider id, execution lease, approval id, artifact id, or
+     filesystem path appears anywhere in the context, the schema, or a decision. A folder resource is
+     chosen as a `workspaceId` from an authorized enum; trusted code resolves the absolute path into a
+     `WorkstreamResourceBinding`.
+   - `focus_conversation` became `select_workstream`, which moves app-wide selection. The old kind
+     had to state in its own schema description that it was not a renderer command, which is the
+     shape of a contract holding the wrong authority.
+   - `create_conversation`, `create_side_conversation`, and `fork_conversation` collapsed into
+     `create_workstream` with a typed `root`/`child`/`fork` origin, because the product difference
+     between them is the new workstream's parentage and the graph already derives `delegated_to`
+     from parentage. Only a root origin chooses a scope; a child or fork inherits the parent's, so
+     the model cannot rescope existing work.
+   - `ask_narrator` is gone. The Director holds the app-scoped snapshot and the selected workstream's
+     semantic trajectory, so a status question is `answer_directly`. Delegating it to a
+     per-conversation narrator was a consequence of the router only knowing pane-visible state.
+   - `recover_path` is new, and it names the durable failure event it is acting on.
+
+   `NextDecisionRecovery` implements the plan's model-output recovery policy as a typed ladder —
+   retry with a public-safe diagnostic, rematerialize and retry, product invariant, clarify, blocked.
+   The diagnostic is a fixed sentence keyed by the typed rejection reason, so provider text, user
+   text, and internal error strings never reach a retry prompt or the user. `NewCommittedDecision`
+   derives the durable `DirectorDecisionCommitted` public summary from the decision kind plus titles
+   and summaries the app already committed, so a decision cannot label the graph with model text.
+2. Rename product-facing Master concepts to Director where they represent the new product role. The
+   decision catalog half of this is done with item 1; the remaining `internal/master` session, input,
+   route-service, and IPC naming moves with item 3, because renaming them before the boundary exists
+   would churn call sites that are about to be replaced.
 3. Implement the deep `DirectorCommandCenter` boundary.
 4. Add the app-scoped workstream registry with push subscriptions and durable cursors.
 5. Include folderless and resource-bound conversations as first-class workstreams.
@@ -1166,7 +1199,15 @@ Exit gate:
 7. Replace pane presentation intents with workstream presentation intents.
 8. Fan in current conversation and Master event streams through the Director registry without adding
    UI polling.
-9. Preserve strict trusted-target validation.
+9. Preserve strict trusted-target validation. **Done for the decision protocol —
+   `internal/director/decision_validation.go` and the target invariants in `decision_authority.go`.**
+   A target may offer `send_to_workstream` only with no active run, `queue_behind_run` and `steer_run`
+   only with one, and `recover_path` exactly when it carries a recoverable failure, so an authority
+   set that contradicts its own run state fails at the boundary instead of producing an unexecutable
+   decision. Every workstream the Director can see is selectable. Fork points and recoverable
+   failures are per target, and the schema emits one branch per parent, so a run id or failure id
+   cannot be paired with the wrong workstream. Wiring this validation to live registry state is item
+   4.
 10. Keep current conversation stores and event streams as canonical inputs where their ownership is
    already correct.
 
@@ -1281,10 +1322,12 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Start Phase 3 at items 1 through 4: adapt the Master route decision catalog into the Director
-   decision protocol, rename the product-facing Master concepts, implement the deep
-   `DirectorCommandCenter` boundary, and stand up the app-scoped workstream registry with push
-   subscriptions and durable cursors. The renderer is proven standalone and needs only packed
+1. Continue Phase 3 at items 3 and 4: implement the deep `DirectorCommandCenter` boundary and stand
+   up the app-scoped workstream registry with push subscriptions and durable cursors. The decision
+   protocol (items 1 and 9) is committed and needs a registry to materialize a
+   `DirectorDecisionContext` from, a route service to call it, and a durable owner for its
+   `DirectorDecisionCommitted` fact. The remaining Master-to-Director renaming in item 2 moves with
+   that boundary rather than ahead of it. The renderer is proven standalone and needs only packed
    snapshots, so the boundary work is what the graph is now waiting on.
 2. Build the exhaustive node/edge visual gallery after Phase 3 makes the Director contracts reachable
    to `desktop/src/generated/backend.ts`. `ProjectionFixtures()` is the production-contract source
