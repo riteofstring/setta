@@ -80,18 +80,8 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
-    file: "folderless-conversation-local-voice-workflow.test.mjs",
-    name: "folderless-conversation-local-voice",
-    tiers: ["required"],
-  },
-  {
     file: "topic-conversation-speech-arbitration.test.mjs",
     name: "topic-conversation-speech-arbitration",
-    tiers: ["required"],
-  },
-  {
-    file: "master-folderless-routing-workflow.test.mjs",
-    name: "master-folderless-routing",
     tiers: ["required"],
   },
   {

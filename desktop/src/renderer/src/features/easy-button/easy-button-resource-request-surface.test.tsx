@@ -21,6 +21,7 @@ describe("Easy Button folder resource request surface", () => {
 
 function folderResourceRequestCommands(): EasyButtonConversationCommands {
   return {
+    available: false,
     canSubmit: false,
     clarificationQuestion: null,
     discardFailedInput: vi.fn(),
@@ -40,6 +41,5 @@ function folderResourceRequestCommands(): EasyButtonConversationCommands {
     stop: vi.fn(),
     submit: vi.fn(),
     submitApproval: vi.fn(),
-    workspaceCommandsAvailable: false,
   };
 }

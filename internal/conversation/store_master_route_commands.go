@@ -116,7 +116,7 @@ func readMasterRouteCommandEffect(
 		master.RouteDecisionKindAnswerGlobal:
 		return true, nil
 	case master.RouteDecisionKindCreateConversation:
-		return readMasterRouteCreateConversationEffect(ctx, reader, dbPath, command.CreateConversation)
+		return readMasterRouteCreateConversationEffect(ctx, reader, command.CreateConversation)
 	case master.RouteDecisionKindCreateSideConversation:
 		return readMasterRouteSideEffect(ctx, reader, dbPath, record)
 	case master.RouteDecisionKindForkConversation:
@@ -205,16 +205,10 @@ LIMIT 1
 func readMasterRouteCreateConversationEffect(
 	ctx context.Context,
 	reader routeCommandEffectReader,
-	dbPath string,
 	command *master.MasterCreateConversationRouteCommand,
 ) (bool, error) {
-	targetWorkspaceID, folderScoped, err := masterRouteCommandFolderWorkspaceScope(command.Target)
-	if err != nil {
-		return false, err
-	}
-	var workspaceID sql.NullString
-	var title string
-	err = reader.QueryRowContext(ctx, `
+	var workspaceID, title string
+	err := reader.QueryRowContext(ctx, `
 SELECT workspace_id, title
 FROM conversations
 WHERE id = ?
@@ -225,32 +219,10 @@ WHERE id = ?
 	if err != nil {
 		return false, err
 	}
-	if title != command.Target.Title ||
-		(folderScoped && (!workspaceID.Valid || workspaceID.String != targetWorkspaceID)) ||
-		(!folderScoped && workspaceID.Valid) {
+	if workspaceID != command.Target.WorkspaceID || title != command.Target.Title {
 		return false, stateConflict("master route conversation", command.Target.ConversationID, "stored effect does not match its command")
 	}
-	return readMasterRouteInitialInputEffect(ctx, reader, dbPath, command)
-}
-
-func readMasterRouteInitialInputEffect(
-	ctx context.Context,
-	reader routeCommandEffectReader,
-	dbPath string,
-	command *master.MasterCreateConversationRouteCommand,
-) (bool, error) {
-	input, err := masterRouteInitialConversationInput(command)
-	if err != nil {
-		return false, err
-	}
-	accepted, found, err := readConversationInputRow(ctx, reader, input.ID, dbPath)
-	if err != nil || !found {
-		return false, err
-	}
-	if !EqualConversationInputs(accepted.Input, input) {
-		return false, stateConflict("master route conversation input", input.ID, "stored effect does not match its command")
-	}
-	return true, nil
+	return readConversationRouteTurnEffect(ctx, reader, command.Target.ConversationID, command.TurnID, AuthoredInput{Text: command.InitialInput}, TurnDeliveryNormal)
 }
 
 func readMasterRouteSideEffect(

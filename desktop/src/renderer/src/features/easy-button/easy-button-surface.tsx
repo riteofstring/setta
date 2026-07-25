@@ -110,7 +110,7 @@ function composerPlaceholder(
   if (commands.folderResourceRequest || folderlessInputAvailable(commands)) {
     return "Ask this topic agent...";
   }
-  if (!commands.workspaceCommandsAvailable) {
+  if (!commands.available) {
     return unavailableComposerPlaceholder(view);
   }
   if (commands.clarificationQuestion) {
@@ -120,7 +120,7 @@ function composerPlaceholder(
 }
 
 function folderlessInputAvailable(commands: EasyButtonConversationCommands): boolean {
-  return commands.inputAvailable && !commands.workspaceCommandsAvailable;
+  return commands.inputAvailable && !commands.available;
 }
 
 function unavailableComposerPlaceholder(view: EasyButtonProjectionView): string {
@@ -401,7 +401,7 @@ function ConversationComposer({
   const onStop = !readOnly && commands && !commands.pending ? commands.stop : undefined;
   return (
     <EasyButtonConversationComposer
-      available={bindings.inputAvailable}
+      available={bindings.available}
       canSubmit={bindings.canSubmit}
       clarificationQuestion={commands?.clarificationQuestion ?? null}
       input={bindings.input}

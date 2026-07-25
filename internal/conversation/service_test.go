@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"setta/internal/agent"
-	"setta/internal/applayout"
-	"setta/internal/master"
 	"setta/internal/speech"
 	"setta/internal/workspace"
 	"setta/internal/workspaceui/conversationpalette"
@@ -140,52 +138,6 @@ func TestServiceCreatesFolderlessTopicAndRequiresFolderForTurns(t *testing.T) {
 	}
 	if _, err := service.acceptTurn(ctx, bound, "continue with the selected folder", TurnDeliveryNormal, 0, "turn-bound"); err != nil {
 		t.Fatalf("bound acceptTurn: %v", err)
-	}
-}
-
-func TestServiceExecutesMasterFolderlessCreateAsConversationInput(t *testing.T) {
-	store, service, _, _ := newConversationServiceTestHarness(t, t.TempDir())
-	t.Cleanup(func() {
-		shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		_ = service.Shutdown(shutdownContext)
-		_ = store.Close()
-	})
-	ctx := context.Background()
-
-	command := master.RouteCommand{
-		Kind: master.RouteDecisionKindCreateConversation,
-		CreateConversation: &master.MasterCreateConversationRouteCommand{
-			Target: master.ConversationPresentationTarget{
-				ConversationID:   "conversation-master-folderless",
-				ResourceScope:    master.FolderlessRouteResourceScope(),
-				ResourceBindings: []applayout.ConversationPaneResourceBinding{},
-				Title:            "Folderless master topic",
-			},
-			InitialInputID:        "input-master-folderless",
-			InitialInput:          "What folder am I in?",
-			InitialInputModality:  master.MasterInputModalityVoice,
-			InitialInputSubmitted: "2026-07-14T18:00:00Z",
-		},
-	}
-	snapshot, err := service.ExecuteMasterRouteCommand(ctx, "decision-master-folderless", command, nil)
-	if err != nil {
-		t.Fatalf("ExecuteMasterRouteCommand: %v", err)
-	}
-	if snapshot.Conversation.WorkspaceID != nil ||
-		snapshot.Conversation.ID != "conversation-master-folderless" ||
-		snapshot.Conversation.Title != "Folderless master topic" {
-		t.Fatalf("master folderless snapshot = %+v", snapshot.Conversation)
-	}
-	accepted, found, err := store.ReadConversationInput(ctx, "input-master-folderless")
-	if err != nil || !found {
-		t.Fatalf("ReadConversationInput = found:%t err:%v", found, err)
-	}
-	if accepted.Input.ConversationID != snapshot.Conversation.ID ||
-		accepted.Input.Text != "What folder am I in?" ||
-		accepted.Input.Modality != ConversationInputModalityVoice ||
-		accepted.Status != ConversationInputStatusAccepted {
-		t.Fatalf("master folderless input = %+v", accepted)
 	}
 }
 

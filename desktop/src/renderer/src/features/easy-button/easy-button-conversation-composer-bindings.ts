@@ -1,8 +1,8 @@
 import type { EasyButtonConversationCommands } from "./easy-button-conversation-commands";
 
 interface ConversationComposerBindings {
+  available: boolean;
   canSubmit: boolean;
-  inputAvailable: boolean;
   input: string;
   onInput: EasyButtonConversationCommands["setInput"] | undefined;
   onSubmit: EasyButtonConversationCommands["submit"] | undefined;
@@ -10,8 +10,8 @@ interface ConversationComposerBindings {
 }
 
 const unavailableConversationComposerBindings: ConversationComposerBindings = {
+  available: false,
   canSubmit: false,
-  inputAvailable: false,
   input: "",
   onInput: undefined,
   onSubmit: undefined,
@@ -25,12 +25,10 @@ export function conversationComposerBindings(
     return unavailableConversationComposerBindings;
   }
   const bindings: ConversationComposerBindings = {
-    canSubmit: commands.canSubmit,
-    inputAvailable:
-      (commands.inputAvailable ||
-        commands.workspaceCommandsAvailable ||
-        commands.folderResourceRequest !== null) &&
+    available:
+      (commands.inputAvailable || commands.available || commands.folderResourceRequest !== null) &&
       !commands.pending,
+    canSubmit: commands.canSubmit,
     input: commands.input,
     onInput: commands.setInput,
     onSubmit: commands.submit,

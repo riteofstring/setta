@@ -26,7 +26,6 @@ import type {
   MasterInteractionState,
 } from "./app-shell-master-controller";
 import {
-  activeTerminalInteractionHasDurableTranscript,
   MasterTranscriptEntries,
   visibleTranscriptEntries,
 } from "./app-shell-master-transcript-view";
@@ -428,7 +427,6 @@ function ActiveMasterInteraction({
   speechPlayback: AppShellSpeechPlaybackController | null;
   state: ShellInteractionState;
 }) {
-  const showRequest = !activeTerminalInteractionHasDurableTranscript(snapshot);
   return (
     <div
       className="setta-master-overlay-interaction"
@@ -436,7 +434,7 @@ function ActiveMasterInteraction({
       data-master-routing-status={state.status}
       data-testid="master-active-interaction"
     >
-      {showRequest ? <MasterRequest input={state.input} /> : null}
+      <MasterRequest input={state.input} />
       <MasterRoutingResult
         controller={controller}
         snapshot={snapshot}

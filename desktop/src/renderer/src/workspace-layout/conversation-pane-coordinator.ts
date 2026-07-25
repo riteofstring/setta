@@ -1,11 +1,6 @@
-import type {
-  ConversationPaneResourceBinding,
-  ConversationPresentationTarget,
-  PresentationIntent,
-} from "@generated/backend";
+import type { ConversationPaneResourceBinding, PresentationIntent } from "@generated/backend";
 
 import type { WorkspaceLayoutStore } from "./layout-store";
-import { emptyWorkspaceRuntimeId } from "./workspace-layout-area-runtime";
 
 export const conversationPaneNavigationRequestEvent = "setta:conversation-pane-navigation-request";
 
@@ -74,8 +69,8 @@ function presentationTargetRequest(payload: {
     conversationId: string;
     preferredPaneId: string | null;
     resourceBindings: ConversationPaneResourceBinding[];
-    resourceScope: ConversationPresentationTarget["resourceScope"];
     title: string;
+    workspaceId: string;
   };
 }): ConversationPanePresentationRequest {
   return {
@@ -83,24 +78,8 @@ function presentationTargetRequest(payload: {
     preferredPaneId: payload.target.preferredPaneId,
     resourceBindings: [...payload.target.resourceBindings],
     title: payload.target.title,
-    workspaceId: presentationTargetWorkspaceId(payload.target.resourceScope),
+    workspaceId: payload.target.workspaceId,
   };
-}
-
-function presentationTargetWorkspaceId(
-  resourceScope: ConversationPresentationTarget["resourceScope"],
-): string {
-  switch (resourceScope.kind) {
-    case "folderless":
-      return emptyWorkspaceRuntimeId;
-    case "folder":
-      if (resourceScope.folder === null) {
-        throw new Error("Folder presentation target is missing its resource scope.");
-      }
-      return resourceScope.folder.workspaceId;
-    default:
-      return assertNever(resourceScope.kind);
-  }
 }
 
 function requiredPayload<Payload>(payload: Payload | null, intent: PresentationIntent): Payload {

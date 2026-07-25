@@ -3,7 +3,6 @@ package master
 import (
 	"errors"
 	"fmt"
-	"slices"
 
 	"setta/internal/applayout"
 )
@@ -24,19 +23,13 @@ func (service *RouteService) buildRouteCommand(
 	case RouteDecisionKindFocusConversation:
 		return service.buildFocusConversationCommand(decision, bundle)
 	case RouteDecisionKindCreateConversation:
-		return service.buildCreateConversationCommand(decision, bundle)
+		return service.buildCreateConversationCommand(decision)
 	case RouteDecisionKindCreateSideConversation:
 		return service.buildCreateSideConversationCommand(decision, bundle)
 	case RouteDecisionKindForkConversation:
 		return service.buildForkConversationCommand(decision, bundle)
 	case RouteDecisionKindClarify:
-		return RouteCommand{
-			Kind: decision.Kind,
-			Clarify: &MasterClarifyRouteCommand{
-				Question:           decision.Clarify.Question,
-				CandidateTargetIDs: routeClarificationCandidateTargetIDs(bundle),
-			},
-		}, nil
+		return RouteCommand{Kind: decision.Kind, Clarify: &MasterClarifyRouteCommand{Question: decision.Clarify.Question}}, nil
 	case RouteDecisionKindAnswerGlobal:
 		return RouteCommand{Kind: decision.Kind, AnswerGlobal: &MasterAnswerGlobalRouteCommand{Text: decision.AnswerGlobal.Text}}, nil
 	default:
@@ -45,16 +38,6 @@ func (service *RouteService) buildRouteCommand(
 			fmt.Errorf("unsupported master route command kind %q", decision.Kind),
 		)
 	}
-}
-
-func routeClarificationCandidateTargetIDs(bundle RouteContextBundle) []string {
-	ids := make([]string, 0, len(bundle.Candidates))
-	for _, candidate := range bundle.Candidates {
-		if !slices.Contains(ids, candidate.ConversationID) {
-			ids = append(ids, candidate.ConversationID)
-		}
-	}
-	return ids
 }
 
 func (service *RouteService) buildSendToAgentCommand(decision RouteDecision, bundle RouteContextBundle) (RouteCommand, error) {
@@ -149,32 +132,23 @@ func (service *RouteService) buildFocusConversationCommand(decision RouteDecisio
 	}, nil
 }
 
-func (service *RouteService) buildCreateConversationCommand(
-	decision RouteDecision,
-	bundle RouteContextBundle,
-) (RouteCommand, error) {
+func (service *RouteService) buildCreateConversationCommand(decision RouteDecision) (RouteCommand, error) {
 	conversationID, err := service.routeCommandID("conversation")
 	if err != nil {
 		return RouteCommand{}, err
 	}
-	resourceBindings, err := service.presentationResourceBindingsForScope(decision.CreateConversation.ResourceScope)
+	resourceBindings, err := service.presentationResourceBindingsForWorkspace(decision.CreateConversation.WorkspaceID)
 	if err != nil {
 		return RouteCommand{}, err
 	}
-	inputID, err := service.routeCommandID("conversation_input")
+	turnID, err := service.routeCommandID("conversation_turn")
 	return RouteCommand{
 		Kind: decision.Kind,
 		CreateConversation: &MasterCreateConversationRouteCommand{
 			Target: ConversationPresentationTarget{
-				ConversationID:   conversationID,
-				ResourceScope:    cloneRouteResourceScope(decision.CreateConversation.ResourceScope),
-				ResourceBindings: resourceBindings,
-				Title:            decision.CreateConversation.ProposedTitle,
+				WorkspaceID: decision.CreateConversation.WorkspaceID, ConversationID: conversationID, ResourceBindings: resourceBindings, Title: decision.CreateConversation.ProposedTitle,
 			},
-			InitialInputID:        inputID,
-			InitialInput:          decision.CreateConversation.InitialInput,
-			InitialInputModality:  bundle.Input.Input.Modality,
-			InitialInputSubmitted: bundle.Input.Input.SubmittedAt,
+			TurnID: turnID, InitialInput: decision.CreateConversation.InitialInput,
 		},
 	}, err
 }
@@ -206,18 +180,11 @@ func (service *RouteService) buildForkConversationCommand(decision RouteDecision
 	if err != nil {
 		return RouteCommand{}, err
 	}
-	workspaceID, folderScoped := parent.ResourceScope.FolderWorkspaceID()
-	if !folderScoped {
-		return RouteCommand{}, NewRouteAttemptFailure(
-			RouteFailureKindStateUnavailable,
-			fmt.Errorf("master route fork parent %s has no folder resource", parent.ConversationID),
-		)
-	}
 	childID, err := service.routeCommandID("conversation")
 	if err != nil {
 		return RouteCommand{}, err
 	}
-	resourceBindings, err := service.presentationResourceBindingsForWorkspace(workspaceID)
+	resourceBindings, err := service.presentationResourceBindingsForWorkspace(parent.WorkspaceID)
 	if err != nil {
 		return RouteCommand{}, err
 	}
@@ -227,10 +194,7 @@ func (service *RouteService) buildForkConversationCommand(decision RouteDecision
 		ForkConversation: &MasterForkConversationRouteCommand{
 			ParentConversationID: parent.ConversationID,
 			Target: ConversationPresentationTarget{
-				ConversationID:   childID,
-				ResourceScope:    FolderRouteResourceScope(workspaceID, ""),
-				ResourceBindings: resourceBindings,
-				Title:            masterForkTitle(parent.Title),
+				WorkspaceID: parent.WorkspaceID, ConversationID: childID, ResourceBindings: resourceBindings, Title: masterForkTitle(parent.Title),
 			},
 			ForkedAtTurnID: decision.ForkConversation.ForkedAtTurnID, TurnID: turnID, Input: decision.ForkConversation.Input,
 		},
@@ -250,7 +214,7 @@ func routeCommandTargetFor(bundle RouteContextBundle, conversationID string) (Ro
 }
 
 func (service *RouteService) presentationTargetFor(target RouteConversationTarget) (ConversationPresentationTarget, error) {
-	resourceBindings, err := service.presentationResourceBindingsForScope(target.ResourceScope)
+	resourceBindings, err := service.presentationResourceBindingsForWorkspace(target.WorkspaceID)
 	if err != nil {
 		return ConversationPresentationTarget{}, err
 	}
@@ -260,25 +224,12 @@ func (service *RouteService) presentationTargetFor(target RouteConversationTarge
 		preferredPaneID = &paneID
 	}
 	return ConversationPresentationTarget{
+		WorkspaceID:      target.WorkspaceID,
 		ConversationID:   target.ConversationID,
-		ResourceScope:    cloneRouteResourceScope(target.ResourceScope),
 		ResourceBindings: resourceBindings,
 		Title:            target.Title,
 		PreferredPaneID:  preferredPaneID,
 	}, nil
-}
-
-func (service *RouteService) presentationResourceBindingsForScope(
-	scope RouteResourceScope,
-) ([]applayout.ConversationPaneResourceBinding, error) {
-	if err := scope.Validate(); err != nil {
-		return nil, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
-	}
-	workspaceID, folderScoped := scope.FolderWorkspaceID()
-	if !folderScoped {
-		return []applayout.ConversationPaneResourceBinding{}, nil
-	}
-	return service.presentationResourceBindingsForWorkspace(workspaceID)
 }
 
 func (service *RouteService) presentationResourceBindingsForWorkspace(

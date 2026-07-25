@@ -1,15 +1,11 @@
 import type { ConversationPaneResourceBinding, WorkspaceSession } from "@generated/backend";
-import { useLayoutEffect } from "react";
+import { useEffect } from "react";
 
 import type { ConversationProjection } from "../../stores/conversation-projection";
-import {
-  retainConversationProjection,
-  useConversationProjectionRuntimeGeneration,
-} from "../../stores/conversation-projection-runtime";
+import { retainConversationProjection } from "../../stores/conversation-projection-runtime";
 import { useConversationNavigatorStore } from "../../stores/conversation-navigator-store";
 import { useConversationStore } from "../../stores/conversation-store";
 import { useWorkspaceStore, workspaceAvailability } from "../../stores/workspace-store";
-import { emptyWorkspaceRuntimeId } from "../../workspace-layout/workspace-layout-area-runtime";
 import { usePaneSpeechPresentation } from "../global-speech/app-shell-speech-status";
 import type { GlobalSpeechPresentationSource } from "../global-speech/global-speech-presentation";
 import type { SpeechCaptureRequester } from "../global-speech/speech-capture-destination";
@@ -41,30 +37,23 @@ export function EasyButtonSurface({
   const projection = useConversationStore((state) =>
     easyButtonConversationProjection(state.conversations, conversationId),
   );
-  const projectionRuntimeGeneration = useConversationProjectionRuntimeGeneration();
   const effectiveWorkspaceId = conversationSurfaceWorkspaceId({
     projection,
     resourceBindings,
     workspaceSession,
     workspaceId: workspaceId ?? null,
   });
-  const workspaceScopeResolved = effectiveWorkspaceId !== undefined;
   const workspaceAvailable =
-    workspaceScopeResolved &&
-    (workspaceAvailability(workspaceSession, effectiveWorkspaceId)?.available ?? false);
-  useLayoutEffect(() => {
-    if (effectiveWorkspaceId === undefined) {
-      return;
-    }
+    workspaceAvailability(workspaceSession, effectiveWorkspaceId)?.available ?? false;
+  useEffect(() => {
     return retainConversationProjection(effectiveWorkspaceId, conversationId);
-  }, [conversationId, effectiveWorkspaceId, projectionRuntimeGeneration]);
+  }, [conversationId, effectiveWorkspaceId]);
   const commands = useEasyButtonConversationCommands({
     conversationId,
     paneId,
     projection,
     speechCapture,
     workspaceAvailable,
-    workspaceScopeResolved,
     workspaceId: effectiveWorkspaceId,
   });
   const speech = usePaneSpeechPresentation(conversationId, paneId, speechPresentation);
@@ -92,7 +81,7 @@ export function EasyButtonSurface({
   );
 }
 
-export function conversationSurfaceWorkspaceId({
+function conversationSurfaceWorkspaceId({
   projection,
   resourceBindings,
   workspaceSession,
@@ -102,28 +91,20 @@ export function conversationSurfaceWorkspaceId({
   resourceBindings: ConversationPaneResourceBinding[] | undefined;
   workspaceSession: WorkspaceSession | null;
   workspaceId: string | null;
-}): string | null | undefined {
+}): string | null {
   const projectedWorkspaceId = projectionWorkspaceId(projection);
   if (resourceBindings === undefined) {
-    return projectedWorkspaceId !== undefined
-      ? projectedWorkspaceId
-      : mountedWorkspaceId(workspaceId);
+    return projectedWorkspaceId ?? workspaceId;
   }
   const folderRootPath = folderBindingRootPath(resourceBindings);
   if (folderRootPath === null) {
     return null;
   }
-  const activeWorkspaceId = activeWorkspaceIdForRootPath(workspaceSession, folderRootPath);
-  if (activeWorkspaceId !== null) {
-    return activeWorkspaceId;
-  }
-  return projectedWorkspaceId;
+  return activeWorkspaceIdForRootPath(workspaceSession, folderRootPath) ?? projectedWorkspaceId;
 }
 
-function projectionWorkspaceId(
-  projection: ConversationProjection | undefined,
-): string | null | undefined {
-  return projection?.snapshot?.conversation.workspaceId;
+function projectionWorkspaceId(projection: ConversationProjection | undefined): string | null {
+  return projection?.snapshot?.conversation.workspaceId ?? null;
 }
 
 function folderBindingRootPath(resourceBindings: ConversationPaneResourceBinding[]): string | null {
@@ -138,11 +119,4 @@ function activeWorkspaceIdForRootPath(
     workspaceSession?.activeWorkspaces.find((workspace) => workspace.rootPath === rootPath)?.id ??
     null
   );
-}
-
-function mountedWorkspaceId(workspaceId: string | null): string | undefined {
-  if (!workspaceId || workspaceId === emptyWorkspaceRuntimeId) {
-    return undefined;
-  }
-  return workspaceId;
 }

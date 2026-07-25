@@ -78,43 +78,6 @@ describe("conversation projection runtime", () => {
     expect(useConversationStore.getState().conversations.size).toBe(0);
   });
 
-  test("stops retained streams when the runtime generation resets", async () => {
-    const release = vi.fn().mockResolvedValue(undefined);
-    const subscribe = vi.fn().mockResolvedValue(undefined);
-    installConversationAPI(
-      vi.fn().mockResolvedValue(conversationSnapshot(0)),
-      {},
-      {
-        release,
-        subscribe,
-      },
-    );
-    const releaseProjection = retainConversationProjection(workspaceId, conversationId);
-    await vi.waitFor(() => expect(subscribe).toHaveBeenCalledOnce());
-
-    resetConversationProjectionRuntime();
-    expect(release).toHaveBeenCalledTimes(1);
-    expect(release).toHaveBeenCalledWith({
-      conversationId,
-      keepAlive: false,
-      workspaceId,
-    });
-
-    const releaseProjectionAfterReset = retainConversationProjection(workspaceId, conversationId);
-    await vi.waitFor(() => expect(subscribe).toHaveBeenCalledTimes(2));
-    releaseProjection();
-    expect(release).toHaveBeenCalledTimes(1);
-
-    releaseProjectionAfterReset();
-
-    expect(release).toHaveBeenCalledTimes(2);
-    expect(release).toHaveBeenLastCalledWith({
-      conversationId,
-      keepAlive: false,
-      workspaceId,
-    });
-  });
-
   test("applies at most one bounded event batch per animation frame", () => {
     useConversationStore
       .getState()

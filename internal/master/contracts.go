@@ -83,13 +83,6 @@ func ContractValueSets() []ContractValueSet {
 			},
 		},
 		{
-			Name: "RouteResourceScopeKind",
-			Values: []string{
-				string(RouteResourceScopeKindFolderless),
-				string(RouteResourceScopeKindFolder),
-			},
-		},
-		{
 			Name: "InputRoutingStatus",
 			Values: []string{
 				string(InputRoutingStatusAccepted),

@@ -37,6 +37,7 @@ import {
 } from "./conversation-routing-presentation";
 
 export interface EasyButtonConversationCommands {
+  available: boolean;
   canSubmit: boolean;
   clarificationQuestion: string | null;
   disposeSide: (sideConversationId: string) => void;
@@ -61,7 +62,6 @@ export interface EasyButtonConversationCommands {
     decision: TrajectoryApprovalDecision,
     answers: ConversationApprovalAnswer[],
   ) => void;
-  workspaceCommandsAvailable: boolean;
 }
 
 interface PendingSideCreation {
@@ -110,8 +110,7 @@ interface EasyButtonConversationCommandOptions {
   projection: ConversationProjection | undefined;
   speechCapture: SpeechCaptureRequester | undefined;
   workspaceAvailable: boolean;
-  workspaceId: string | null | undefined;
-  workspaceScopeResolved: boolean;
+  workspaceId: string | null;
 }
 
 export function useEasyButtonConversationCommands({
@@ -120,10 +119,8 @@ export function useEasyButtonConversationCommands({
   projection,
   speechCapture,
   workspaceAvailable,
-  workspaceId: unresolvedWorkspaceId,
-  workspaceScopeResolved,
+  workspaceId,
 }: EasyButtonConversationCommandOptions): EasyButtonConversationCommands {
-  const workspaceId = workspaceScopeResolved ? (unresolvedWorkspaceId ?? null) : null;
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [pendingAcceptedInput, setPendingAcceptedInput] = useState<string | null>(null);
@@ -146,14 +143,12 @@ export function useEasyButtonConversationCommands({
       setError(value);
     }
   };
-  const workspaceCommandsAvailable =
-    workspaceAvailable && conversationWorkspaceCommandsAvailable(workspaceId, projection);
+  const available = workspaceAvailable && conversationCommandsAvailable(workspaceId, projection);
   const inputAvailable = conversationInputAvailable({
-    workspaceCommandsAvailable,
+    available,
     paneId,
     projection,
     workspaceId,
-    workspaceScopeResolved,
   });
   const canSubmit = conversationInputCanSubmit(inputAvailable, pending, input) && !failedInput;
   const applySettledRoutingState = useCallback(
@@ -260,7 +255,7 @@ export function useEasyButtonConversationCommands({
   }
 
   function requireTarget(): { conversationId: string; workspaceId: string } {
-    if (!workspaceCommandsAvailable || !conversationId || !workspaceId) {
+    if (!available || !conversationId || !workspaceId) {
       throw new Error("Conversation commands require a ready topic conversation.");
     }
     return { conversationId, workspaceId };
@@ -323,11 +318,12 @@ export function useEasyButtonConversationCommands({
   }
 
   return {
+    available,
     canSubmit,
     clarificationQuestion: clarification?.question ?? null,
     discardFailedInput: () => void discardFailedInput(),
     disposeSide: (sideConversationId) => {
-      if (!workspaceCommandsAvailable || pending || !paneId) {
+      if (!available || pending || !paneId) {
         return;
       }
       const target = requireTarget();
@@ -366,7 +362,7 @@ export function useEasyButtonConversationCommands({
       void presentRelatedConversation(workspaceId, targetConversationId, title, setScopedError);
     },
     requestVoiceCapture: createVoiceCaptureCommand({
-      available: conversationVoiceCaptureAvailable(inputAvailable, clarification),
+      available: conversationVoiceCaptureAvailable(available, clarification),
       conversationId,
       paneId,
       setError: setScopedError,
@@ -376,7 +372,7 @@ export function useEasyButtonConversationCommands({
     retryFailedInput: () => void retryFailedInput(),
     routingFailure: conversationRoutingFailurePresentation(failedInput),
     sendSide: async (sideConversationId, text) => {
-      if (!workspaceCommandsAvailable || pending) {
+      if (!available || pending) {
         return false;
       }
       const target = requireTarget();
@@ -393,7 +389,7 @@ export function useEasyButtonConversationCommands({
     },
     setInput: setConversationInput,
     stop: () => {
-      if (!workspaceCommandsAvailable || pending) {
+      if (!available || pending) {
         return;
       }
       const target = requireTarget();
@@ -407,7 +403,7 @@ export function useEasyButtonConversationCommands({
       void runInput();
     },
     submitApproval: (approval, decision, answers) => {
-      if (!workspaceCommandsAvailable || pending) {
+      if (!available || pending) {
         return;
       }
       const target = requireTarget();
@@ -425,7 +421,6 @@ export function useEasyButtonConversationCommands({
         false,
       );
     },
-    workspaceCommandsAvailable,
   };
 
   async function runFolderBindingForFailure(inputId: string): Promise<void> {
@@ -611,7 +606,7 @@ function conversationFolderResourceFailure(
   return { inputId: failure.inputId };
 }
 
-function conversationWorkspaceCommandsAvailable(
+function conversationCommandsAvailable(
   workspaceId: string | null,
   projection: ConversationProjection | undefined,
 ): boolean {
@@ -626,23 +621,18 @@ function conversationWorkspaceCommandsAvailable(
 }
 
 function conversationInputAvailable({
-  workspaceCommandsAvailable,
+  available,
   paneId,
   projection,
   workspaceId,
-  workspaceScopeResolved,
 }: {
-  workspaceCommandsAvailable: boolean;
+  available: boolean;
   paneId: string | null;
   projection: ConversationProjection | undefined;
   workspaceId: string | null;
-  workspaceScopeResolved: boolean;
 }): boolean {
-  if (!workspaceScopeResolved) {
-    return false;
-  }
   if (workspaceId !== null) {
-    return workspaceCommandsAvailable;
+    return available;
   }
   return paneId !== null && (projection?.snapshot?.conversation.archivedAt ?? null) === null;
 }
@@ -913,7 +903,7 @@ function cancelPaneSpeechCapture(
 
 export function requestEasyButtonSpeechCapture(
   speechCapture: SpeechCaptureRequester,
-  workspaceId: string | null,
+  workspaceId: string,
   conversationId: string,
   paneId: string,
 ): Promise<void> {
@@ -935,7 +925,7 @@ function createVoiceCaptureCommand({
   speechCapture: SpeechCaptureRequester | undefined;
   workspaceId: string | null;
 }): (() => void) | undefined {
-  if (!available || !paneId || !speechCapture) {
+  if (!available || !workspaceId || !paneId || !speechCapture) {
     return undefined;
   }
   return () => {

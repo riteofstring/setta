@@ -323,50 +323,6 @@ describe("app-shell speech capture controller", () => {
     expect(harness.mediaConstraints).toHaveLength(1);
   });
 
-  test("settles folderless pane voice capture through the null workspace route", async () => {
-    const settleConversationInput = vi.fn(async () => {});
-    const harness = createHarness({ settleConversationInput });
-    await harness.connect();
-
-    const start = harness.controller.start(
-      conversationSpeechCaptureRequest(null, "conversation_folderless", "pane_folderless"),
-    );
-    await harness.waitForTransport();
-    harness.transport.resolveReady();
-    await flushPromises();
-    await start;
-    harness.controller.commit();
-    await flushPromises();
-    harness.transport.complete("what can you help with?");
-    await harness.waitForConversationSubmission("accepted");
-
-    expect(harness.masterInputRequests).toEqual([]);
-    expect(harness.conversationInputRequests).toEqual([
-      {
-        input: expect.objectContaining({
-          conversationId: "conversation_folderless",
-          id: "capture_1",
-          modality: "voice",
-          sourcePaneId: "pane_folderless",
-          text: "what can you help with?",
-        }),
-      },
-    ]);
-    expect(settleConversationInput).toHaveBeenCalledWith(
-      expect.objectContaining({
-        input: expect.objectContaining({
-          conversationId: "conversation_folderless",
-          id: "capture_1",
-        }),
-      }),
-      expect.objectContaining({
-        request: expect.objectContaining({
-          destination: expect.objectContaining({ workspaceId: null }),
-        }),
-      }),
-    );
-  });
-
   test("cancels only the active conversation capture for a closing source pane", async () => {
     const harness = createHarness();
     await harness.connect();
