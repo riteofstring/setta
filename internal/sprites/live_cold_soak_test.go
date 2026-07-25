@@ -808,14 +808,6 @@ func (harness *coldSoakHarness) organizationSnapshot(ctx context.Context) (coldS
 		},
 		runtimes: make(map[string]runtimeprovider.RuntimeObservation, len(snapshot.Runtimes)),
 	}
-	if snapshot.Info.Running+snapshot.Info.Warm+snapshot.Info.Cold != len(snapshot.Runtimes) {
-		return coldSoakOrgSnapshot{}, fmt.Errorf(
-			"%w: organization counters total %d but listing contains %d Sprites",
-			ErrUnexpectedProviderValue,
-			snapshot.Info.Running+snapshot.Info.Warm+snapshot.Info.Cold,
-			len(snapshot.Runtimes),
-		)
-	}
 	for index := range snapshot.Runtimes {
 		runtime := &snapshot.Runtimes[index]
 		activity, err := mapRuntimeActivity(runtime.Status)

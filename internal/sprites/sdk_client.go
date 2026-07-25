@@ -371,8 +371,14 @@ func (client *sdkClient) OrganizationSnapshot(ctx context.Context) (*sdkOrganiza
 		if !page.HasMore {
 			return requireCompleteOrganizationSnapshot(&snapshot)
 		}
-		if page.NextContinuationToken == "" && organizationSnapshotCountMatches(&snapshot) {
-			return &snapshot, nil
+		if page.NextContinuationToken == "" {
+			matches, err := organizationSnapshotCountMatches(&snapshot)
+			if err != nil {
+				return nil, err
+			}
+			if matches {
+				return &snapshot, nil
+			}
 		}
 		if err := rememberContinuationToken(page.NextContinuationToken, seenTokens); err != nil {
 			return nil, err
@@ -384,14 +390,42 @@ func (client *sdkClient) OrganizationSnapshot(ctx context.Context) (*sdkOrganiza
 func requireCompleteOrganizationSnapshot(
 	snapshot *sdkOrganizationSnapshot,
 ) (*sdkOrganizationSnapshot, error) {
-	if !organizationSnapshotCountMatches(snapshot) {
+	matches, err := organizationSnapshotCountMatches(snapshot)
+	if err != nil {
+		return nil, err
+	}
+	if !matches {
 		return nil, fmt.Errorf("%w: organization counters do not match the complete Sprite list", ErrUnexpectedProviderValue)
 	}
 	return snapshot, nil
 }
 
-func organizationSnapshotCountMatches(snapshot *sdkOrganizationSnapshot) bool {
-	return snapshot.Info.Running+snapshot.Info.Warm+snapshot.Info.Cold == len(snapshot.Runtimes)
+func organizationSnapshotCountMatches(snapshot *sdkOrganizationSnapshot) (bool, error) {
+	var running, warm, cold int
+	for _, runtime := range snapshot.Runtimes {
+		activity, err := mapRuntimeActivity(runtime.Status)
+		if err != nil {
+			return false, err
+		}
+		switch activity {
+		case runtimeprovider.RuntimeActivityProvisioning:
+		case runtimeprovider.RuntimeActivityActive:
+			running++
+		case runtimeprovider.RuntimeActivityWarm:
+			warm++
+		case runtimeprovider.RuntimeActivityCold:
+			cold++
+		default:
+			return false, fmt.Errorf(
+				"%w: mapped runtime activity %q",
+				ErrUnexpectedProviderValue,
+				activity,
+			)
+		}
+	}
+	return snapshot.Info.Running == running &&
+		snapshot.Info.Warm == warm &&
+		snapshot.Info.Cold == cold, nil
 }
 
 func (client *sdkClient) organizationPage(

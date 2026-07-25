@@ -3,6 +3,7 @@ package sprites
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -81,11 +82,11 @@ func TestSDKClientPaginatesOrganizationSnapshot(t *testing.T) {
 		switch request.URL.Query().Get("continuation_token") {
 		case "":
 			_, _ = response.Write([]byte(
-				`{"name":"setta-test","running":0,"warm":1,"cold":1,"running_limit":10,"warm_limit":10,"sprites":[{"name":"first"}],"has_more":true,"next_continuation_token":"page-2"}`,
+				`{"name":"setta-test","running":0,"warm":1,"cold":1,"running_limit":10,"warm_limit":10,"sprites":[{"name":"first","status":"warm"}],"has_more":true,"next_continuation_token":"page-2"}`,
 			))
 		case "page-2":
 			_, _ = response.Write([]byte(
-				`{"name":"setta-test","running":0,"warm":1,"cold":1,"running_limit":10,"warm_limit":10,"sprites":[{"name":"second"}],"has_more":false}`,
+				`{"name":"setta-test","running":0,"warm":1,"cold":1,"running_limit":10,"warm_limit":10,"sprites":[{"name":"second","status":"cold"}],"has_more":false}`,
 			))
 		default:
 			t.Fatalf("unexpected continuation token %q", request.URL.Query().Get("continuation_token"))
@@ -104,6 +105,74 @@ func TestSDKClientPaginatesOrganizationSnapshot(t *testing.T) {
 	}
 	if requests != 2 || !slices.Equal(names, []string{"first", "second"}) {
 		t.Fatalf("requests=%d runtime names=%v", requests, names)
+	}
+}
+
+func TestSDKClientAcceptsUncountedProvisioningOrganizationSprites(t *testing.T) {
+	tests := map[string]string{
+		"created":      "created",
+		"provisioning": "provisioning",
+	}
+	for name, status := range tests {
+		t.Run(name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+				response.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(response).Encode(map[string]any{
+					"name":          "setta-test",
+					"running":       1,
+					"warm":          1,
+					"cold":          1,
+					"running_limit": 10,
+					"warm_limit":    10,
+					"sprites": []map[string]string{
+						{"name": "active", "status": "running"},
+						{"name": "warm", "status": "warm"},
+						{"name": "cold", "status": "cold"},
+						{"name": name, "status": status},
+					},
+				})
+			}))
+			t.Cleanup(server.Close)
+
+			client := newSDKClientWithBaseURL("phase1b-token", server.URL)
+			snapshot, err := client.OrganizationSnapshot(context.Background())
+			if err != nil {
+				t.Fatalf("OrganizationSnapshot: %v", err)
+			}
+			if len(snapshot.Runtimes) != 4 {
+				t.Fatalf("runtime count = %d, want 4", len(snapshot.Runtimes))
+			}
+		})
+	}
+}
+
+func TestSDKClientRejectsPerActivityOrganizationCounterMismatch(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		_, _ = response.Write([]byte(
+			`{"name":"setta-test","running":2,"warm":0,"cold":1,"running_limit":10,"warm_limit":10,"sprites":[{"name":"active","status":"running"},{"name":"warm","status":"warm"},{"name":"cold","status":"cold"}]}`,
+		))
+	}))
+	t.Cleanup(server.Close)
+
+	client := newSDKClientWithBaseURL("phase1b-token", server.URL)
+	if _, err := client.OrganizationSnapshot(context.Background()); !errors.Is(err, ErrUnexpectedProviderValue) {
+		t.Fatalf("OrganizationSnapshot error = %v, want ErrUnexpectedProviderValue", err)
+	}
+}
+
+func TestSDKClientRejectsUnknownOrganizationSpriteStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		_, _ = response.Write([]byte(
+			`{"name":"setta-test","running":1,"warm":0,"cold":0,"running_limit":10,"warm_limit":10,"sprites":[{"name":"unknown","status":"mystery"}]}`,
+		))
+	}))
+	t.Cleanup(server.Close)
+
+	client := newSDKClientWithBaseURL("phase1b-token", server.URL)
+	if _, err := client.OrganizationSnapshot(context.Background()); !errors.Is(err, ErrUnexpectedProviderValue) {
+		t.Fatalf("OrganizationSnapshot error = %v, want ErrUnexpectedProviderValue", err)
 	}
 }
 
