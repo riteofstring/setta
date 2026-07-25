@@ -10,7 +10,7 @@ import (
 	"setta/internal/workspaceui"
 )
 
-func TestWorkspaceUILayoutPaneBindingObserverProjectsConversationPanes(t *testing.T) {
+func TestWorkspaceUILayoutPaneBindingObserverProjectsEasyButtonPanes(t *testing.T) {
 	store := &recordingWorkspacePaneBindingStore{}
 	observer, err := newWorkspaceUILayoutPaneBindingObserver(store)
 	if err != nil {
@@ -24,13 +24,13 @@ func TestWorkspaceUILayoutPaneBindingObserverProjectsConversationPanes(t *testin
 		FocusedPaneID: "pane_beta",
 		Panes: []workspaceui.WorkspaceUIPane{
 			{
-				PaneID:             "pane_alpha",
-				ConversationConfig: &workspaceui.WorkspaceConversationPaneConfig{ConversationID: "conversation_alpha"},
+				PaneID:           "pane_alpha",
+				EasyButtonConfig: &workspaceui.EasyButtonPaneConfig{ConversationID: "conversation_alpha"},
 			},
 			{PaneID: "pane_chat"},
 			{
-				PaneID:             "pane_beta",
-				ConversationConfig: &workspaceui.WorkspaceConversationPaneConfig{ConversationID: "conversation_beta"},
+				PaneID:           "pane_beta",
+				EasyButtonConfig: &workspaceui.EasyButtonPaneConfig{ConversationID: "conversation_beta"},
 			},
 		},
 	}

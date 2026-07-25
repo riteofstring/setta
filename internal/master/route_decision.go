@@ -79,9 +79,9 @@ type MasterFocusConversationRouteDecision struct {
 }
 
 type MasterCreateConversationRouteDecision struct {
-	ResourceScope RouteResourceScope `json:"resourceScope"`
-	InitialInput  string             `json:"initialInput"`
-	ProposedTitle string             `json:"proposedTitle"`
+	WorkspaceID   string `json:"workspaceId"`
+	InitialInput  string `json:"initialInput"`
+	ProposedTitle string `json:"proposedTitle"`
 }
 
 type MasterCreateSideConversationRouteDecision struct {
@@ -145,37 +145,30 @@ type RouteModelConfigurationAudit struct {
 }
 
 type RouteCandidateAudit struct {
-	ConversationID string             `json:"conversationId"`
-	ResourceScope  RouteResourceScope `json:"resourceScope"`
-	LexicalRank    *float64           `json:"lexicalRank"`
+	ConversationID string   `json:"conversationId"`
+	WorkspaceID    string   `json:"workspaceId"`
+	LexicalRank    *float64 `json:"lexicalRank"`
 }
 
 type RouteTargetAuthority struct {
 	ConversationID       string              `json:"conversationId"`
-	ResourceScope        RouteResourceScope  `json:"resourceScope"`
+	WorkspaceID          string              `json:"workspaceId"`
 	AllowedDecisionKinds []RouteDecisionKind `json:"allowedDecisionKinds"`
 	CompletedForkTurnIDs []string            `json:"completedForkTurnIds"`
 }
 
-type RouteClarificationAudit struct {
-	DecisionID         string   `json:"decisionId"`
-	InputSequence      int      `json:"inputSequence"`
-	CandidateTargetIDs []string `json:"candidateTargetIds"`
-}
-
 type RouteContextAudit struct {
-	InputSequence             int                      `json:"inputSequence"`
-	CandidateQuery            string                   `json:"candidateQuery"`
-	CandidateQueryTruncated   bool                     `json:"candidateQueryTruncated"`
-	RetrievedCandidates       []RouteCandidateAudit    `json:"retrievedCandidates"`
-	IncludedCandidateIDs      []string                 `json:"includedCandidateIds"`
-	ActiveWorkspaceIDs        []string                 `json:"activeWorkspaceIds"`
-	FocusedWorkspaceID        *string                  `json:"focusedWorkspaceId"`
-	FocusedConversationID     *string                  `json:"focusedConversationId"`
-	OriginatingConversationID *string                  `json:"originatingConversationId"`
-	Clarification             *RouteClarificationAudit `json:"clarification"`
-	TargetAuthorities         []RouteTargetAuthority   `json:"targetAuthorities"`
-	PriorDecisionCount        int                      `json:"priorDecisionCount"`
+	InputSequence             int                    `json:"inputSequence"`
+	CandidateQuery            string                 `json:"candidateQuery"`
+	CandidateQueryTruncated   bool                   `json:"candidateQueryTruncated"`
+	RetrievedCandidates       []RouteCandidateAudit  `json:"retrievedCandidates"`
+	IncludedCandidateIDs      []string               `json:"includedCandidateIds"`
+	ActiveWorkspaceIDs        []string               `json:"activeWorkspaceIds"`
+	FocusedWorkspaceID        *string                `json:"focusedWorkspaceId"`
+	FocusedConversationID     *string                `json:"focusedConversationId"`
+	OriginatingConversationID *string                `json:"originatingConversationId"`
+	TargetAuthorities         []RouteTargetAuthority `json:"targetAuthorities"`
+	PriorDecisionCount        int                    `json:"priorDecisionCount"`
 }
 
 type RouteDecisionCommit struct {
@@ -224,10 +217,9 @@ type InputRoutingRecovery struct {
 }
 
 type InputRoutingWork struct {
-	Input              AcceptedMasterInput  `json:"input"`
-	RoutingAttempt     int                  `json:"routingAttempt"`
-	RoutingStartedAt   string               `json:"routingStartedAt"`
-	PriorClarification *RouteDecisionRecord `json:"priorClarification"`
+	Input            AcceptedMasterInput `json:"input"`
+	RoutingAttempt   int                 `json:"routingAttempt"`
+	RoutingStartedAt string              `json:"routingStartedAt"`
 }
 
 type InputRoutingState struct {
@@ -356,7 +348,7 @@ func validateCreateConversationDecision(payload *MasterCreateConversationRouteDe
 	if payload == nil {
 		return errors.New("create-conversation decision requires createConversation")
 	}
-	if err := payload.ResourceScope.Validate(); err != nil {
+	if err := validateRouteReference("master route create workspace id", payload.WorkspaceID); err != nil {
 		return err
 	}
 	if err := validateRouteText("master route initial input", payload.InitialInput, MaxRouteAuthoredInputBytes); err != nil {
@@ -603,14 +595,6 @@ func validateRouteContextAuditReferences(audit RouteContextAudit) error {
 	if err := validateRouteTargetAuthorities(audit.TargetAuthorities); err != nil {
 		return err
 	}
-	if audit.Clarification != nil {
-		if err := audit.Clarification.Validate(); err != nil {
-			return err
-		}
-		if audit.Clarification.InputSequence >= audit.InputSequence {
-			return errors.New("master route clarification input sequence must precede the routed input")
-		}
-	}
 	if len(audit.RetrievedCandidates) != len(audit.IncludedCandidateIDs) {
 		return errors.New("master route retrieved and included candidate counts differ")
 	}
@@ -618,9 +602,9 @@ func validateRouteContextAuditReferences(audit RouteContextAudit) error {
 }
 
 func validateRouteCandidateAudits(audit RouteContextAudit) error {
-	targetScopes := make(map[string]RouteResourceScope, len(audit.TargetAuthorities))
+	targetWorkspaces := make(map[string]string, len(audit.TargetAuthorities))
 	for _, authority := range audit.TargetAuthorities {
-		targetScopes[authority.ConversationID] = authority.ResourceScope
+		targetWorkspaces[authority.ConversationID] = authority.WorkspaceID
 	}
 	seenCandidates := map[string]bool{}
 	for index, candidate := range audit.RetrievedCandidates {
@@ -628,7 +612,7 @@ func validateRouteCandidateAudits(audit RouteContextAudit) error {
 			audit,
 			index,
 			candidate,
-			targetScopes,
+			targetWorkspaces,
 			seenCandidates,
 		); err != nil {
 			return err
@@ -642,18 +626,18 @@ func validateRouteCandidateAudit(
 	audit RouteContextAudit,
 	index int,
 	candidate RouteCandidateAudit,
-	targetScopes map[string]RouteResourceScope,
+	targetWorkspaces map[string]string,
 	seenCandidates map[string]bool,
 ) error {
 	if err := validateRouteReference("master route candidate conversation id", candidate.ConversationID); err != nil {
 		return err
 	}
-	if err := candidate.ResourceScope.Validate(); err != nil {
+	if err := validateRouteReference("master route candidate workspace id", candidate.WorkspaceID); err != nil {
 		return err
 	}
 	if seenCandidates[candidate.ConversationID] ||
 		audit.IncludedCandidateIDs[index] != candidate.ConversationID ||
-		!targetScopes[candidate.ConversationID].Equal(candidate.ResourceScope) {
+		targetWorkspaces[candidate.ConversationID] != candidate.WorkspaceID {
 		return errors.New("master route candidate audit is duplicated, reordered, or unauthorized")
 	}
 	return validateRouteCandidateRank(audit.CandidateQuery, candidate.LexicalRank)
@@ -682,7 +666,7 @@ func validateRouteTargetAuthorities(authorities []RouteTargetAuthority) error {
 			return fmt.Errorf("master route context repeats target %s", authority.ConversationID)
 		}
 		seen[authority.ConversationID] = true
-		if err := authority.ResourceScope.Validate(); err != nil {
+		if err := validateRouteReference("master route authority workspace id", authority.WorkspaceID); err != nil {
 			return err
 		}
 		if authority.AllowedDecisionKinds == nil || len(authority.AllowedDecisionKinds) == 0 {
@@ -821,6 +805,25 @@ func (recovery InputRoutingRecovery) Validate() error {
 	return nil
 }
 
+func (work InputRoutingWork) Validate() error {
+	if err := work.Input.Validate(); err != nil {
+		return err
+	}
+	if work.RoutingAttempt <= 0 {
+		return errors.New("master input routing work attempt must be positive")
+	}
+	startedAt, err := normalizeTimestamp("master input routing startedAt", work.RoutingStartedAt)
+	if err != nil || startedAt != work.RoutingStartedAt {
+		return errors.New("master input routing startedAt must be normalized")
+	}
+	started, _ := time.Parse(time.RFC3339Nano, startedAt)
+	accepted, _ := time.Parse(time.RFC3339Nano, work.Input.AcceptedAt)
+	if started.Before(accepted) {
+		return errors.New("master input routing starts before input acceptance")
+	}
+	return nil
+}
+
 func (state InputRoutingState) Validate() error {
 	if err := state.Input.Validate(); err != nil {
 		return err
@@ -886,12 +889,15 @@ func (audit RouteContextAudit) ValidateDecision(decision RouteDecision) error {
 	if err := decision.Validate(); err != nil {
 		return err
 	}
-	kind, conversationID, createScope, forkTurnID := decisionAuthorityReferences(decision)
+	kind, conversationID, workspaceID, forkTurnID := decisionAuthorityReferences(decision)
 	switch kind {
 	case RouteDecisionKindClarify, RouteDecisionKindAnswerGlobal:
 		return nil
 	case RouteDecisionKindCreateConversation:
-		return audit.validateCreateConversationScope(createScope)
+		if !slices.Contains(audit.ActiveWorkspaceIDs, workspaceID) {
+			return fmt.Errorf("master route create workspace %s is not active", workspaceID)
+		}
+		return nil
 	}
 	for _, authority := range audit.TargetAuthorities {
 		if authority.ConversationID != conversationID {
@@ -909,40 +915,26 @@ func (audit RouteContextAudit) ValidateDecision(decision RouteDecision) error {
 	return fmt.Errorf("master route target %s was not supplied by authoritative context", conversationID)
 }
 
-func (audit RouteContextAudit) validateCreateConversationScope(scope RouteResourceScope) error {
-	if err := scope.Validate(); err != nil {
-		return err
-	}
-	workspaceID, folderScoped := scope.FolderWorkspaceID()
-	if !folderScoped {
-		return nil
-	}
-	if !slices.Contains(audit.ActiveWorkspaceIDs, workspaceID) {
-		return fmt.Errorf("master route create workspace %s is not active", workspaceID)
-	}
-	return nil
-}
-
-func decisionAuthorityReferences(decision RouteDecision) (RouteDecisionKind, string, RouteResourceScope, string) {
+func decisionAuthorityReferences(decision RouteDecision) (RouteDecisionKind, string, string, string) {
 	switch decision.Kind {
 	case RouteDecisionKindSendToAgent:
-		return decision.Kind, decision.SendToAgent.ConversationID, RouteResourceScope{}, ""
+		return decision.Kind, decision.SendToAgent.ConversationID, "", ""
 	case RouteDecisionKindQueueAgentTurn:
-		return decision.Kind, decision.QueueAgentTurn.ConversationID, RouteResourceScope{}, ""
+		return decision.Kind, decision.QueueAgentTurn.ConversationID, "", ""
 	case RouteDecisionKindSteerActiveTurn:
-		return decision.Kind, decision.SteerActiveTurn.ConversationID, RouteResourceScope{}, ""
+		return decision.Kind, decision.SteerActiveTurn.ConversationID, "", ""
 	case RouteDecisionKindAskNarrator:
-		return decision.Kind, decision.AskNarrator.ConversationID, RouteResourceScope{}, ""
+		return decision.Kind, decision.AskNarrator.ConversationID, "", ""
 	case RouteDecisionKindFocusConversation:
-		return decision.Kind, decision.FocusConversation.ConversationID, RouteResourceScope{}, ""
+		return decision.Kind, decision.FocusConversation.ConversationID, "", ""
 	case RouteDecisionKindCreateConversation:
-		return decision.Kind, "", decision.CreateConversation.ResourceScope, ""
+		return decision.Kind, "", decision.CreateConversation.WorkspaceID, ""
 	case RouteDecisionKindCreateSideConversation:
-		return decision.Kind, decision.CreateSideConversation.ParentConversationID, RouteResourceScope{}, ""
+		return decision.Kind, decision.CreateSideConversation.ParentConversationID, "", ""
 	case RouteDecisionKindForkConversation:
-		return decision.Kind, decision.ForkConversation.ParentConversationID, RouteResourceScope{}, decision.ForkConversation.ForkedAtTurnID
+		return decision.Kind, decision.ForkConversation.ParentConversationID, "", decision.ForkConversation.ForkedAtTurnID
 	default:
-		return decision.Kind, "", RouteResourceScope{}, ""
+		return decision.Kind, "", "", ""
 	}
 }
 

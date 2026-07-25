@@ -1,7 +1,3 @@
-import type { DesktopPlatform } from "@shared/types";
-import type { AppShellMasterController } from "../features/global-master/app-shell-master-controller";
-import type { AppShellSpeechCaptureController } from "../features/global-speech/app-shell-speech-capture-controller";
-import type { AppShellSpeechPlaybackController } from "../features/global-speech/app-shell-speech-playback-controller";
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
 import type { SpeechCaptureRequester } from "../features/global-speech/speech-capture-destination";
 import {
@@ -43,11 +39,6 @@ export interface SnapshotSurfaceAdapterOptions {
 }
 
 export interface DefaultSurfaceAdapterOptions {
-  masterController?: AppShellMasterController;
-  onOpenVoiceCredentialSettings?: () => void;
-  masterSpeechCapture?: AppShellSpeechCaptureController;
-  masterSpeechPlayback?: AppShellSpeechPlaybackController;
-  platform?: DesktopPlatform;
   speechCapture?: SpeechCaptureRequester;
   speechPresentation?: GlobalSpeechPresentationSource;
   workspaceId?: string;
@@ -417,15 +408,15 @@ export class SnapshotSurfaceAdapter implements SurfaceAdapter {
 function conversationPaletteIdentitySourceMatchesPane(
   pane: WorkspacePane,
   sourceHost: HTMLElement,
-): pane is Extract<WorkspacePane, { surfaceKind: "conversation" }> {
-  return pane.surfaceKind === "conversation" && sourceHost.dataset.surfaceId === pane.surfaceId;
+): pane is Extract<WorkspacePane, { surfaceKind: "easy-button" }> {
+  return pane.surfaceKind === "easy-button" && sourceHost.dataset.surfaceId === pane.surfaceId;
 }
 
 function ensureConversationPaletteIdentityMatchesPane(
-  pane: Extract<WorkspacePane, { surfaceKind: "conversation" }>,
+  pane: Extract<WorkspacePane, { surfaceKind: "easy-button" }>,
   identity: ConversationPaletteIdentity | null,
 ): void {
-  const expectedConversationId = pane.conversationConfig.conversationId;
+  const expectedConversationId = pane.easyButtonConfig.conversationId;
   if (!identity || identity.conversationId === expectedConversationId) {
     return;
   }
@@ -593,13 +584,8 @@ type DefaultSurfaceAdapterFactory = (
 
 const defaultSurfaceAdapterFactories: Partial<Record<SurfaceKind, DefaultSurfaceAdapterFactory>> = {
   browser: (pane) => new BrowserSurfaceProxyAdapter(pane, noopBrowserViewQueue),
-  conversation: (pane, options) =>
+  "easy-button": (pane, options) =>
     createReactDomSurfaceAdapter(pane, undefined, {
-      masterController: options.masterController,
-      onOpenVoiceCredentialSettings: options.onOpenVoiceCredentialSettings,
-      masterSpeechCapture: options.masterSpeechCapture,
-      masterSpeechPlayback: options.masterSpeechPlayback,
-      platform: options.platform,
       speechCapture: options.speechCapture,
       speechPresentation: options.speechPresentation,
       workspaceId: options.workspaceId,
@@ -607,17 +593,7 @@ const defaultSurfaceAdapterFactories: Partial<Record<SurfaceKind, DefaultSurface
   "empty-frame": (pane) => new EmptyFrameSurfaceAdapter(pane),
   "fake-dom": (pane) => new FakeDomSurfaceAdapter(pane),
   "fake-heavy-dom": (pane) => new FakeHeavyDomSurfaceAdapter(pane),
-  master: (pane, options) =>
-    createReactDomSurfaceAdapter(pane, undefined, {
-      masterController: options.masterController,
-      onOpenVoiceCredentialSettings: options.onOpenVoiceCredentialSettings,
-      masterSpeechCapture: options.masterSpeechCapture,
-      masterSpeechPlayback: options.masterSpeechPlayback,
-      platform: options.platform,
-      speechCapture: options.speechCapture,
-      speechPresentation: options.speechPresentation,
-      workspaceId: options.workspaceId,
-    }),
+  "settings-dom": (pane) => createReactDomSurfaceAdapter(pane),
   snapshot: (pane) => new SnapshotSurfaceAdapter(pane),
 };
 

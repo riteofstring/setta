@@ -427,8 +427,6 @@ func (service *Service) sideTrajectoryFromAgentEvent(
 		agent.EventKindActivityUpdated,
 		agent.EventKindActivityCompleted,
 		agent.EventKindApprovalRequested,
-		agent.EventKindApprovalSuperseded,
-		agent.EventKindValidationRecorded,
 		agent.EventKindModelRerouted,
 		agent.EventKindLifecycleChanged:
 		mapped, _, err := service.populateAgentTrajectory(

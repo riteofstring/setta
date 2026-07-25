@@ -88,7 +88,6 @@ func (event TrajectoryEvent) trajectoryPayload() (any, error) {
 		{kind: TrajectoryEventArtifactEmitted, payload: event.ArtifactEmitted},
 		{kind: TrajectoryEventAgentLivenessChanged, payload: event.AgentLivenessChanged},
 		{kind: TrajectoryEventProviderLifecycleChanged, payload: event.ProviderLifecycleChanged},
-		{kind: TrajectoryEventValidationRecorded, payload: event.ValidationRecorded},
 		{kind: TrajectoryEventModelRerouted, payload: event.ModelRerouted},
 	}
 	populated := 0
@@ -217,13 +216,11 @@ func validateSubagentTrajectoryPayload(payload any) (error, bool) {
 func validateSystemTrajectoryPayload(payload any) (error, bool) {
 	switch value := payload.(type) {
 	case *TrajectoryArtifactEmitted:
-		return validateEmittedArtifact(value), true
+		return validateIdentifier("emitted artifact id", value.ArtifactID), true
 	case *TrajectoryAgentLivenessChanged:
 		return value.Liveness.Validate(), true
 	case *TrajectoryProviderLifecycleChanged:
 		return value.Lifecycle.Validate(), true
-	case *TrajectoryValidationRecorded:
-		return value.Validation.Validate(), true
 	case *TrajectoryModelRerouted:
 		return value.Reroute.Validate(), true
 	default:
@@ -377,16 +374,6 @@ func validateFileChangeOutcome(payload *TrajectoryFileChangeCompleted) error {
 		return fmt.Errorf("unsupported file change outcome %q", payload.Outcome)
 	}
 	return nil
-}
-
-func validateEmittedArtifact(payload *TrajectoryArtifactEmitted) error {
-	if err := validateIdentifier("emitted artifact id", payload.ArtifactID); err != nil {
-		return err
-	}
-	if !validArtifactKind(payload.Kind) {
-		return fmt.Errorf("emitted artifact %s has unsupported kind %q", payload.ArtifactID, payload.Kind)
-	}
-	return validateTrimmedText("emitted artifact title", payload.Title)
 }
 
 func validateStartedSubagent(payload *TrajectorySubagentStarted) error {
@@ -697,8 +684,7 @@ func validateApprovalResolutionDecision(resolution TrajectoryApprovalResolution)
 	case TrajectoryApprovalDecisionApproved,
 		TrajectoryApprovalDecisionApprovedForSession,
 		TrajectoryApprovalDecisionDenied,
-		TrajectoryApprovalDecisionCancelled,
-		TrajectoryApprovalDecisionSuperseded:
+		TrajectoryApprovalDecisionCancelled:
 		return validateApprovalResolutionWithoutAnswer(resolution)
 	case TrajectoryApprovalDecisionAnswered:
 		return validateAnsweredApprovalResolution(resolution)
@@ -800,61 +786,10 @@ func (lifecycle ProviderLifecycle) Validate() error {
 	default:
 		return fmt.Errorf("unsupported provider lifecycle status %q", lifecycle.Status)
 	}
-	if !validProviderLifecycleReason(lifecycle.Reason) {
-		return fmt.Errorf("unsupported provider lifecycle reason %q", lifecycle.Reason)
-	}
 	if lifecycle.Status == ProviderLifecycleUnavailable && strings.TrimSpace(lifecycle.Message) == "" {
 		return fmt.Errorf("unavailable provider lifecycle requires message")
 	}
 	return nil
-}
-
-func validProviderLifecycleReason(reason ProviderLifecycleReason) bool {
-	for _, candidate := range providerLifecycleReasons {
-		if candidate == reason {
-			return true
-		}
-	}
-	return false
-}
-
-func (validation TrajectoryValidation) Validate() error {
-	if err := validateIdentifier("validation id", validation.ID); err != nil {
-		return err
-	}
-	if !validTrajectoryValidationKind(validation.Kind) {
-		return fmt.Errorf("unsupported validation kind %q", validation.Kind)
-	}
-	if !validTrajectoryValidationStatus(validation.Status) {
-		return fmt.Errorf("unsupported validation status %q", validation.Status)
-	}
-	if err := validateOptionalIdentifier("validation subject", validation.Subject); err != nil {
-		return err
-	}
-	// A validation with no summary cannot tell the user what was checked, and
-	// the provider always reports enough to say so.
-	if strings.TrimSpace(validation.Summary) == "" {
-		return fmt.Errorf("validation %s requires a summary", validation.ID)
-	}
-	return nil
-}
-
-func validTrajectoryValidationKind(kind TrajectoryValidationKind) bool {
-	for _, candidate := range trajectoryValidationKinds {
-		if candidate == kind {
-			return true
-		}
-	}
-	return false
-}
-
-func validTrajectoryValidationStatus(status TrajectoryValidationStatus) bool {
-	for _, candidate := range trajectoryValidationStatuses {
-		if candidate == status {
-			return true
-		}
-	}
-	return false
 }
 
 func trajectoryKindRequiresTurn(kind TrajectoryEventKind) bool {
@@ -886,7 +821,6 @@ func trajectoryKindRequiresTurn(kind TrajectoryEventKind) bool {
 		TrajectoryEventSubagentCompleted,
 		TrajectoryEventArtifactEmitted,
 		TrajectoryEventAgentLivenessChanged,
-		TrajectoryEventValidationRecorded,
 		TrajectoryEventModelRerouted:
 		return true
 	default:

@@ -357,7 +357,7 @@ func (runtime *Runtime) waitForStructuredTurn(
 			if !ok {
 				return nil, errors.New("fresh structured call provider session closed before completion")
 			}
-			terminal, err := runtime.handleFreshStructuredProviderEvent(providerEvent, base, &completedMessages)
+			terminal, err := handleFreshStructuredProviderEvent(providerEvent, base, &completedMessages)
 			if err != nil {
 				return nil, err
 			}
@@ -383,7 +383,7 @@ func (runtime *Runtime) waitForStructuredTurn(
 	}
 }
 
-func (runtime *Runtime) handleFreshStructuredProviderEvent(
+func handleFreshStructuredProviderEvent(
 	providerEvent codexapp.Event,
 	base Event,
 	completedMessages *[]string,
@@ -402,7 +402,7 @@ func (runtime *Runtime) handleFreshStructuredProviderEvent(
 	case codexapp.EventLag:
 		return nil, errors.New("fresh structured call provider event stream lagged")
 	case codexapp.EventNotification:
-		events, terminal, err := normalizedProviderNotification(runtime, providerEvent.Message, base)
+		events, terminal, err := normalizedProviderNotification(providerEvent.Message, base)
 		if err != nil {
 			return nil, err
 		}
