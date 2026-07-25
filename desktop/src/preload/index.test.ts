@@ -70,26 +70,6 @@ describe("preload workspace API", () => {
     ]);
   });
 
-  test("exposes typed app layout methods through IPC", async () => {
-    const { api, invoke } = await exposePreloadAPI();
-    expect(Object.keys(api.appLayout).sort()).toEqual(["readPaneLayout", "savePaneLayout"]);
-
-    const layout = {
-      columns: [],
-      focusedPaneId: "app_pane_master",
-      maximizedPaneId: null,
-      panes: [],
-      schemaVersion: 1,
-    };
-    await api.appLayout.readPaneLayout();
-    await api.appLayout.savePaneLayout(layout);
-
-    expectInvokeCalls(invoke, [
-      [ipcChannels.appPaneLayoutRead],
-      [ipcChannels.appPaneLayoutSave, layout],
-    ]);
-  });
-
   test("exposes typed workspace methods through IPC", async () => {
     const { api, invoke } = await exposePreloadAPI();
     expect(Object.keys(api.workspace).sort()).toEqual([

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"setta/internal/appearance"
-	"setta/internal/applayout"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
 	"setta/internal/master"
@@ -38,16 +37,9 @@ type WorkspaceUIService interface {
 	SaveLayout(layout workspaceui.WorkspaceUILayout) (workspaceui.WorkspaceUILayout, error)
 }
 
-type AppPaneLayoutService interface {
-	ReadLayout() (applayout.AppPaneLayoutReadResult, error)
-	SaveLayout(layout applayout.AppPaneLayout) (applayout.AppPaneLayout, error)
-}
-
 type ConversationService interface {
 	CreateTopic(context.Context, string, string) (conversation.ConversationSnapshot, error)
-	CreateTopicWithOptionalWorkspace(context.Context, *string, string) (conversation.ConversationSnapshot, error)
 	ArchiveTopic(context.Context, string, string) (conversation.ConversationSnapshot, error)
-	BindFolderResource(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	SendSideConversationTurn(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
 	DisposeSideConversation(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
 	StopTurn(context.Context, string, string) (conversation.ConversationSnapshot, error)
@@ -116,7 +108,6 @@ type MasterInputService interface {
 	CancelInput(context.Context, string) (master.ShellInteractionState, error)
 	ReadActiveShellInteraction(context.Context) (master.ActiveShellInteraction, error)
 	ReadInputState(context.Context, string) (master.InputRoutingState, error)
-	ReadTranscript(context.Context, int) (master.Transcript, error)
 	SubmitInput(context.Context, master.MasterInput) (master.AcceptedMasterInput, error)
 	WaitPresentationIntent(context.Context, string) (master.PresentationIntent, error)
 	ResolvePresentationIntent(context.Context, master.PresentationResolutionRequest) (master.PresentationResolution, error)
@@ -182,7 +173,6 @@ type RuntimeIdentityService interface {
 
 type HandlerConfig struct {
 	AppearanceService            AppearanceService
-	AppPaneLayoutService         AppPaneLayoutService
 	Metadata                     BackendMetadata
 	ConversationInputService     ConversationInputService
 	ConversationNavigatorService ConversationNavigatorService
@@ -202,7 +192,6 @@ type HandlerConfig struct {
 
 type handler struct {
 	appearanceService            AppearanceService
-	appPaneLayoutService         AppPaneLayoutService
 	metadata                     BackendMetadata
 	conversationInputService     ConversationInputService
 	conversationNavigatorService ConversationNavigatorService
@@ -231,7 +220,6 @@ func NewHandler(config HandlerConfig) http.Handler {
 	}
 	apiHandler := handler{
 		appearanceService:            config.AppearanceService,
-		appPaneLayoutService:         config.AppPaneLayoutService,
 		metadata:                     config.Metadata,
 		conversationInputService:     config.ConversationInputService,
 		conversationNavigatorService: config.ConversationNavigatorService,

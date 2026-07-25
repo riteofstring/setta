@@ -52,7 +52,7 @@ describe("workspace toolbar", () => {
       expect.objectContaining({
         action: expect.objectContaining({
           kind: "surface",
-          request: expect.objectContaining({ surfaceKind: "conversation" }),
+          request: expect.objectContaining({ surfaceKind: "easy-button" }),
         }),
       }),
     );

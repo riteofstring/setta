@@ -104,20 +104,6 @@ func IsCommandConflict(err error) bool {
 	return errors.As(err, &conflict) || IsStateConflict(err)
 }
 
-type ResourceRequiredError struct {
-	ConversationID string
-	ResourceKind   string
-}
-
-func (err *ResourceRequiredError) Error() string {
-	return fmt.Sprintf("conversation %s requires a %s resource", err.ConversationID, err.ResourceKind)
-}
-
-func IsResourceRequired(err error) bool {
-	var resourceRequired *ResourceRequiredError
-	return errors.As(err, &resourceRequired)
-}
-
 func WithServiceIDGenerator(generator func(string) (string, error)) ServiceOption {
 	return func(config *serviceConfig) error {
 		if generator == nil {
@@ -222,14 +208,6 @@ func (service *Service) CreateTopic(
 	workspaceID string,
 	title string,
 ) (ConversationSnapshot, error) {
-	return service.CreateTopicWithOptionalWorkspace(ctx, &workspaceID, title)
-}
-
-func (service *Service) CreateTopicWithOptionalWorkspace(
-	ctx context.Context,
-	workspaceID *string,
-	title string,
-) (ConversationSnapshot, error) {
 	conversationID, err := service.newID("conversation")
 	if err != nil {
 		return ConversationSnapshot{}, err
@@ -246,12 +224,12 @@ func (service *Service) CreateRoutedTopic(
 	if err := validateIdentifier("routed topic conversation id", conversationID); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	return service.createTopic(ctx, &workspaceID, title, conversationID)
+	return service.createTopic(ctx, workspaceID, title, conversationID)
 }
 
 func (service *Service) createTopic(
 	ctx context.Context,
-	workspaceID *string,
+	workspaceID string,
 	title string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
@@ -261,15 +239,13 @@ func (service *Service) createTopic(
 	if err := validateTopicTitle(title); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	if workspaceID != nil {
-		if _, err := service.workspaces.ResolveActiveWorkspace(*workspaceID); err != nil {
-			return ConversationSnapshot{}, err
-		}
+	if _, err := service.workspaces.ResolveActiveWorkspace(workspaceID); err != nil {
+		return ConversationSnapshot{}, err
 	}
 	now := service.timestamp()
 	conversation := TopicConversation{
 		ID:              conversationID,
-		WorkspaceID:     cloneStringPointer(workspaceID),
+		WorkspaceID:     workspaceID,
 		Title:           title,
 		TopicDescriptor: title,
 		Status:          ConversationStatusIdle,
@@ -297,7 +273,7 @@ func (service *Service) createTopic(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	return service.store.ReadSnapshotByID(ctx, conversationID)
+	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
 }
 
 func (service *Service) persistCreatedConversation(

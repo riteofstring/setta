@@ -49,31 +49,6 @@ export async function clickButtonByAria(client, label) {
   await clickWorkflowButton(client, "aria-label", label, `button was not clickable: ${label}`);
 }
 
-export async function openFixtureWorkspace(client, timeoutMs = workflowTimeoutMs) {
-  const currentWorkspaceId = await client
-    .evaluate(
-      `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`,
-    )
-    .catch(() => "");
-  if (currentWorkspaceId && currentWorkspaceId !== "empty") {
-    return currentWorkspaceId;
-  }
-  const opened = await client.evaluate(`(async () => {
-    const response = await window.setta?.workspace?.openLocalFolder?.();
-    return response?.session?.selectedWorkspaceId ?? "";
-  })()`);
-  if (!opened) {
-    throw new Error("fixture workspace did not open through preload IPC");
-  }
-  await client.evaluate("window.location.reload()");
-  return waitForState(
-    client,
-    `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`,
-    (workspaceId) => workspaceId === opened,
-    timeoutMs,
-  );
-}
-
 async function clickWorkflowButton(client, kind, value, errorMessage) {
   await waitForState(client, buttonClickExpression(kind, value), (state) => state.clicked).catch(
     (error) => {

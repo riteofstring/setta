@@ -1077,7 +1077,6 @@ function createHarness(overrides: HarnessOverrides = {}) {
       focusedPaneId: null,
       focusedWorkspaceId: "workspace_capture",
     }),
-    readTranscript: async () => ({ entries: [], lastSequence: 0 }),
     resolvePresentationIntent: async (request) => ({
       ...request,
       resolvedAt: "2026-07-12T18:00:02Z",

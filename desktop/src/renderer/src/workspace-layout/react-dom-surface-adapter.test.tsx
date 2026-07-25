@@ -1,9 +1,7 @@
 import { isValidElement, type ReactNode } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { EasyButtonSurface } from "../features/easy-button/easy-button-conversation-surface";
-import type { AppShellMasterController } from "../features/global-master/app-shell-master-controller";
-import { AppShellMasterPaneSurface } from "../features/global-master/app-shell-master-pane-surface";
+import { EasyButtonSurface } from "../features/easy-button/easy-button-surface";
 import type { GlobalSpeechPresentationSource } from "../features/global-speech/global-speech-presentation";
 import { reactDomSurfaceHostChangedEvent } from "./react-dom-surface-events";
 import {
@@ -91,8 +89,8 @@ describe("workspace React DOM surface adapter", () => {
     const firstHost = createFakeHost();
     const secondHost = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
-      fakePane("conversation"),
-      () => "conversation surface",
+      fakePane("easy-button"),
+      () => "easy button surface",
       rootFactory,
     );
 
@@ -119,7 +117,7 @@ describe("workspace React DOM surface adapter", () => {
     };
     const host = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
-      fakePane("conversation"),
+      fakePane("easy-button"),
       () => "conversation surface",
       rootFactory,
     );
@@ -146,7 +144,7 @@ describe("workspace React DOM surface adapter", () => {
     };
     const host = createFakeHost();
     const adapter = new ReactDomSurfaceAdapter(
-      fakePane("conversation"),
+      fakePane("easy-button"),
       () => "conversation surface",
       rootFactory,
     );
@@ -229,7 +227,7 @@ describe("workspace React DOM surface adapter", () => {
     ]);
   });
 
-  test("mounts the conversation pane as an idle React DOM surface", () => {
+  test("mounts the easy button as an idle React DOM surface", () => {
     const root = new RecordingRoot([]);
     const rootFactory: ReactSurfaceRootFactory = {
       createRoot() {
@@ -239,7 +237,7 @@ describe("workspace React DOM surface adapter", () => {
     const host = createFakeHost();
     const speechCapture = { start: vi.fn(async () => {}) };
     const speechPresentation = {} as GlobalSpeechPresentationSource;
-    const adapter = createReactDomSurfaceAdapter(fakePane("conversation"), rootFactory, {
+    const adapter = createReactDomSurfaceAdapter(fakePane("easy-button"), rootFactory, {
       speechCapture,
       speechPresentation,
       workspaceId: "workspace_test",
@@ -257,107 +255,15 @@ describe("workspace React DOM surface adapter", () => {
         workspaceId: string;
       }>(renderedNode)
     ) {
-      throw new Error("conversation surface did not render a React element");
+      throw new Error("easy button surface did not render a React element");
     }
-    expect(host.dataset.surfaceKind).toBe("conversation");
+    expect(host.dataset.surfaceKind).toBe("easy-button");
     expect(renderedNode.type).toBe(EasyButtonSurface);
     expect(renderedNode.props.conversationId).toBe("conversation_test");
     expect(renderedNode.props.paneId).toBe("pane");
     expect(renderedNode.props.speechCapture).toBe(speechCapture);
     expect(renderedNode.props.speechPresentation).toBe(speechPresentation);
     expect(renderedNode.props.workspaceId).toBe("workspace_test");
-  });
-
-  test("keeps explicitly folderless conversation panes folderless in a selected workspace", () => {
-    const root = new RecordingRoot([]);
-    const rootFactory: ReactSurfaceRootFactory = {
-      createRoot() {
-        return root;
-      },
-    };
-    const host = createFakeHost();
-    const adapter = createReactDomSurfaceAdapter(
-      fakeConversationPane({ resourceBindings: [] }),
-      rootFactory,
-      { workspaceId: "workspace_selected" },
-    );
-
-    adapter.mount(host);
-
-    const renderedNode = root.renderedNodes.at(-1);
-    if (
-      !isValidElement<{
-        resourceBindings: [];
-        workspaceId: string | null;
-      }>(renderedNode)
-    ) {
-      throw new Error("conversation surface did not render a React element");
-    }
-    expect(renderedNode.type).toBe(EasyButtonSurface);
-    expect(renderedNode.props.resourceBindings).toEqual([]);
-    expect(renderedNode.props.workspaceId).toBe("workspace_selected");
-  });
-
-  test("keeps minimal live conversation panes bound to the selected workspace", () => {
-    const root = new RecordingRoot([]);
-    const rootFactory: ReactSurfaceRootFactory = {
-      createRoot() {
-        return root;
-      },
-    };
-    const host = createFakeHost();
-    const adapter = createReactDomSurfaceAdapter(fakeConversationPane(), rootFactory, {
-      workspaceId: "workspace_selected",
-    });
-
-    adapter.mount(host);
-
-    const renderedNode = root.renderedNodes.at(-1);
-    if (
-      !isValidElement<{
-        resourceBindings?: unknown;
-        workspaceId: string | null;
-      }>(renderedNode)
-    ) {
-      throw new Error("conversation surface did not render a React element");
-    }
-    expect(renderedNode.type).toBe(EasyButtonSurface);
-    expect(renderedNode.props.resourceBindings).toBeUndefined();
-    expect(renderedNode.props.workspaceId).toBe("workspace_selected");
-  });
-
-  test("mounts the master pane as a focused React DOM surface that cannot be removed", async () => {
-    const root = new RecordingRoot([]);
-    const rootFactory: ReactSurfaceRootFactory = {
-      createRoot() {
-        return root;
-      },
-    };
-    const host = createFakeHost();
-    const masterController = {} as AppShellMasterController;
-    const adapter = createReactDomSurfaceAdapter(fakePane("master"), rootFactory, {
-      masterController,
-      platform: "linux",
-    });
-
-    adapter.mount(host);
-    adapter.setFocused(true);
-    const closeResult = await adapter.requestPaneClose({ confirm: () => true });
-
-    const renderedNode = root.renderedNodes.at(-1);
-    if (
-      !isValidElement<{
-        controller: AppShellMasterController;
-        focused: boolean;
-      }>(renderedNode)
-    ) {
-      throw new Error("master surface did not render a React element");
-    }
-    expect(host.dataset.surfaceKind).toBe("master");
-    expect(renderedNode.type).toBe(AppShellMasterPaneSurface);
-    expect(renderedNode.props.controller).toBe(masterController);
-    expect(renderedNode.props.focused).toBe(true);
-    expect(closeResult).toEqual({ removePane: false });
   });
 });
 
@@ -383,9 +289,6 @@ function waitForMicrotask(): Promise<void> {
 }
 
 function fakePane(surfaceKind: WorkspacePane["surfaceKind"]): WorkspacePane {
-  if (surfaceKind === "conversation") {
-    return fakeConversationPane();
-  }
   const fields = {
     columnId: "column",
     heat: 42,
@@ -397,35 +300,13 @@ function fakePane(surfaceKind: WorkspacePane["surfaceKind"]): WorkspacePane {
     tone: "cyan" as const,
     weight: 1,
   };
-  return { ...fields, surfaceKind };
-}
-
-function fakeConversationPane(
-  options: {
-    resourceBindings?: Extract<
-      WorkspacePane,
-      { surfaceKind: "conversation" }
-    >["conversationConfig"]["resourceBindings"];
-  } = {},
-): Extract<WorkspacePane, { surfaceKind: "conversation" }> {
-  return {
-    columnId: "column",
-    conversationConfig: {
-      conversationId: "conversation_test",
-      ...(options.resourceBindings === undefined
-        ? {}
-        : { resourceBindings: options.resourceBindings }),
-    },
-    heat: 42,
-    paneId: "pane",
-    sequence: 0,
-    subtitle: "test",
-    surfaceId: "surface",
-    surfaceKind: "conversation",
-    title: "Pane",
-    tone: "cyan",
-    weight: 1,
-  };
+  return surfaceKind === "easy-button"
+    ? {
+        ...fields,
+        easyButtonConfig: { conversationId: "conversation_test" },
+        surfaceKind,
+      }
+    : { ...fields, surfaceKind };
 }
 
 interface FakeChildNode {
