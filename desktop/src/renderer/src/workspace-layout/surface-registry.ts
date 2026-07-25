@@ -483,7 +483,7 @@ function resizeDefersSurfaceViewport(kind: SurfaceKind): boolean {
 }
 
 function bitmapSnapshotSurfaceKind(kind: SurfaceKind): boolean {
-  return kind === "conversation" || kind === "fake-heavy-dom";
+  return kind === "easy-button" || kind === "fake-heavy-dom";
 }
 
 function workspacePaneDragSourceActive(host: HTMLElement): boolean {

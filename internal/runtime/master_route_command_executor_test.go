@@ -6,7 +6,6 @@ import (
 	"errors"
 	"testing"
 
-	"setta/internal/applayout"
 	"setta/internal/conversation"
 	"setta/internal/master"
 	"setta/internal/narration"
@@ -84,7 +83,7 @@ func masterRoutedNarratorStatusDecisionRecord() master.RouteDecisionRecord {
 			ActiveWorkspaceIDs:   []string{"workspace_test"},
 			TargetAuthorities: []master.RouteTargetAuthority{{
 				ConversationID:       "conversation_test",
-				ResourceScope:        master.FolderRouteResourceScope("workspace_test", ""),
+				WorkspaceID:          "workspace_test",
 				AllowedDecisionKinds: []master.RouteDecisionKind{master.RouteDecisionKindAskNarrator},
 				CompletedForkTurnIDs: []string{},
 			}},
@@ -113,10 +112,9 @@ func masterRoutedNarratorStatusDecisionRecord() master.RouteDecisionRecord {
 			Kind: master.RouteDecisionKindAskNarrator,
 			AskNarrator: &master.MasterAskNarratorRouteCommand{
 				Target: master.ConversationPresentationTarget{
-					ConversationID:   "conversation_test",
-					ResourceScope:    master.FolderRouteResourceScope("workspace_test", ""),
-					ResourceBindings: masterRouteExecutorTestResourceBindings(),
-					Title:            "Test conversation",
+					WorkspaceID:    "workspace_test",
+					ConversationID: "conversation_test",
+					Title:          "Test conversation",
 				},
 				RequestID: "master_narrator_status_test",
 				Question:  "What is the current status?",
@@ -124,13 +122,6 @@ func masterRoutedNarratorStatusDecisionRecord() master.RouteDecisionRecord {
 		},
 		DecidedAt: "2026-07-14T20:00:00Z",
 	}
-}
-
-func masterRouteExecutorTestResourceBindings() []applayout.ConversationPaneResourceBinding {
-	return []applayout.ConversationPaneResourceBinding{{
-		Folder: &applayout.FolderResourceBinding{RootPath: "/tmp/setta-master-route-executor-test"},
-		Kind:   applayout.ConversationPaneResourceBindingKindFolder,
-	}}
 }
 
 type masterRouteCommandExecutorStore struct {

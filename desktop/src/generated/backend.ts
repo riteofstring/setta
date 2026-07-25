@@ -18,12 +18,10 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 77;
-export const backendContractSchemaHash = "sha256:9b293842fa5faaa439fd73034c647ee5c5be762d530b6b7004e880235c2a68e0";
+export const backendProtocolVersion = 64;
+export const backendContractSchemaHash = "sha256:1e85b939c2801a417bd8a0e3a291092400d9df7190bedbe49de595517d10bc5b";
 
 export const workspaceUILayoutSchemaVersion = 1;
-
-export const appPaneLayoutSchemaVersion = 1;
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -36,10 +34,24 @@ export const conversationSnapshotLimits = {
   turns: 51,
 } as const;
 
-export type SpeechVoiceID = string;
+export type DiagnosticStatus = "ok" | "failing" | "unavailable" | "unknown";
 
-export function decodeSpeechVoiceID(value: unknown, label = "SpeechVoiceID"): SpeechVoiceID {
-  return decodeString(value, label);
+export const diagnosticStatusValues = ["ok", "failing", "unavailable", "unknown"] as const satisfies readonly DiagnosticStatus[];
+
+export function decodeDiagnosticStatus(value: unknown, label = "DiagnosticStatus"): DiagnosticStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "ok":
+      return decoded;
+    case "failing":
+      return decoded;
+    case "unavailable":
+      return decoded;
+    case "unknown":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
 }
 
 export type DeviceScope = "full";
@@ -188,18 +200,20 @@ export function decodeColumnWidthUnit(value: unknown, label = "ColumnWidthUnit")
   }
 }
 
-export type SurfaceKind = "browser" | "conversation" | "empty-frame";
+export type SurfaceKind = "browser" | "easy-button" | "empty-frame" | "settings-dom";
 
-export const surfaceKindValues = ["browser", "conversation", "empty-frame"] as const satisfies readonly SurfaceKind[];
+export const surfaceKindValues = ["browser", "easy-button", "empty-frame", "settings-dom"] as const satisfies readonly SurfaceKind[];
 
 export function decodeSurfaceKind(value: unknown, label = "SurfaceKind"): SurfaceKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "browser":
       return decoded;
-    case "conversation":
+    case "easy-button":
       return decoded;
     case "empty-frame":
+      return decoded;
+    case "settings-dom":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -222,78 +236,6 @@ export function decodePaneTone(value: unknown, label = "PaneTone"): PaneTone {
     case "pink":
       return decoded;
     case "slate":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type AppPaneColumnWidthUnit = "proportion" | "px";
-
-export const appPaneColumnWidthUnitValues = ["proportion", "px"] as const satisfies readonly AppPaneColumnWidthUnit[];
-
-export function decodeAppPaneColumnWidthUnit(value: unknown, label = "AppPaneColumnWidthUnit"): AppPaneColumnWidthUnit {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "proportion":
-      return decoded;
-    case "px":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type AppPaneTone = "cyan" | "green" | "orange" | "pink" | "slate";
-
-export const appPaneToneValues = ["cyan", "green", "orange", "pink", "slate"] as const satisfies readonly AppPaneTone[];
-
-export function decodeAppPaneTone(value: unknown, label = "AppPaneTone"): AppPaneTone {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "cyan":
-      return decoded;
-    case "green":
-      return decoded;
-    case "orange":
-      return decoded;
-    case "pink":
-      return decoded;
-    case "slate":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type ConversationPaneResourceBindingKind = "folder";
-
-export const conversationPaneResourceBindingKindValues = ["folder"] as const satisfies readonly ConversationPaneResourceBindingKind[];
-
-export function decodeConversationPaneResourceBindingKind(value: unknown, label = "ConversationPaneResourceBindingKind"): ConversationPaneResourceBindingKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "folder":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type AppPaneSurfaceKind = "master" | "conversation" | "browser" | "empty-frame";
-
-export const appPaneSurfaceKindValues = ["master", "conversation", "browser", "empty-frame"] as const satisfies readonly AppPaneSurfaceKind[];
-
-export function decodeAppPaneSurfaceKind(value: unknown, label = "AppPaneSurfaceKind"): AppPaneSurfaceKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "master":
-      return decoded;
-    case "conversation":
-      return decoded;
-    case "browser":
-      return decoded;
-    case "empty-frame":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1008,6 +950,44 @@ export function decodeVoiceSelectionMode(value: unknown, label = "VoiceSelection
   }
 }
 
+export type SpeechVoiceID = "alloy" | "ash" | "ballad" | "coral" | "echo" | "fable" | "onyx" | "nova" | "sage" | "shimmer" | "verse" | "marin" | "cedar";
+
+export const speechVoiceIDValues = ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse", "marin", "cedar"] as const satisfies readonly SpeechVoiceID[];
+
+export function decodeSpeechVoiceID(value: unknown, label = "SpeechVoiceID"): SpeechVoiceID {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "alloy":
+      return decoded;
+    case "ash":
+      return decoded;
+    case "ballad":
+      return decoded;
+    case "coral":
+      return decoded;
+    case "echo":
+      return decoded;
+    case "fable":
+      return decoded;
+    case "onyx":
+      return decoded;
+    case "nova":
+      return decoded;
+    case "sage":
+      return decoded;
+    case "shimmer":
+      return decoded;
+    case "verse":
+      return decoded;
+    case "marin":
+      return decoded;
+    case "cedar":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export type BranchKind = "fork";
 
 export const branchKindValues = ["fork"] as const satisfies readonly BranchKind[];
@@ -1132,22 +1112,6 @@ export function decodeConversationInputStatus(value: unknown, label = "Conversat
     case "dispatched":
       return decoded;
     case "failed":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type ConversationRouteDecisionAuthority = "narrator_model" | "product_invariant";
-
-export const conversationRouteDecisionAuthorityValues = ["narrator_model", "product_invariant"] as const satisfies readonly ConversationRouteDecisionAuthority[];
-
-export function decodeConversationRouteDecisionAuthority(value: unknown, label = "ConversationRouteDecisionAuthority"): ConversationRouteDecisionAuthority {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "narrator_model":
-      return decoded;
-    case "product_invariant":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1288,38 +1252,20 @@ export function decodeRouteDecisionKind(value: unknown, label = "RouteDecisionKi
   }
 }
 
-export type RouteResourceScopeKind = "folderless" | "folder";
+export type PresentationIntentKind = "focus_existing_conversation_pane" | "open_conversation_pane" | "open_side_conversation_in_parent_pane" | "show_master_reply";
 
-export const routeResourceScopeKindValues = ["folderless", "folder"] as const satisfies readonly RouteResourceScopeKind[];
+export const presentationIntentKindValues = ["focus_existing_conversation_pane", "open_conversation_pane", "open_side_conversation_in_parent_pane", "show_master_reply"] as const satisfies readonly PresentationIntentKind[];
 
-export function decodeRouteResourceScopeKind(value: unknown, label = "RouteResourceScopeKind"): RouteResourceScopeKind {
+export function decodePresentationIntentKind(value: unknown, label = "PresentationIntentKind"): PresentationIntentKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "folderless":
+    case "focus_existing_conversation_pane":
       return decoded;
-    case "folder":
+    case "open_conversation_pane":
       return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type TranscriptEntryKind = "user_input" | "assistant_reply" | "action_receipt" | "cancellation" | "failure";
-
-export const transcriptEntryKindValues = ["user_input", "assistant_reply", "action_receipt", "cancellation", "failure"] as const satisfies readonly TranscriptEntryKind[];
-
-export function decodeTranscriptEntryKind(value: unknown, label = "TranscriptEntryKind"): TranscriptEntryKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "user_input":
+    case "open_side_conversation_in_parent_pane":
       return decoded;
-    case "assistant_reply":
-      return decoded;
-    case "action_receipt":
-      return decoded;
-    case "cancellation":
-      return decoded;
-    case "failure":
+    case "show_master_reply":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1342,26 +1288,6 @@ export function decodeMasterReplyKind(value: unknown, label = "MasterReplyKind")
   }
 }
 
-export type PresentationIntentKind = "focus_existing_conversation_pane" | "open_conversation_pane" | "open_side_conversation_in_parent_pane" | "show_master_reply";
-
-export const presentationIntentKindValues = ["focus_existing_conversation_pane", "open_conversation_pane", "open_side_conversation_in_parent_pane", "show_master_reply"] as const satisfies readonly PresentationIntentKind[];
-
-export function decodePresentationIntentKind(value: unknown, label = "PresentationIntentKind"): PresentationIntentKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "focus_existing_conversation_pane":
-      return decoded;
-    case "open_conversation_pane":
-      return decoded;
-    case "open_side_conversation_in_parent_pane":
-      return decoded;
-    case "show_master_reply":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
 export type SpeechProviderStatus = "configured" | "not_configured";
 
 export const speechProviderStatusValues = ["configured", "not_configured"] as const satisfies readonly SpeechProviderStatus[];
@@ -1378,16 +1304,14 @@ export function decodeSpeechProviderStatus(value: unknown, label = "SpeechProvid
   }
 }
 
-export type SpeechProvider = "openai" | "local_macos";
+export type SpeechProvider = "openai";
 
-export const speechProviderValues = ["openai", "local_macos"] as const satisfies readonly SpeechProvider[];
+export const speechProviderValues = ["openai"] as const satisfies readonly SpeechProvider[];
 
 export function decodeSpeechProvider(value: unknown, label = "SpeechProvider"): SpeechProvider {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "openai":
-      return decoded;
-    case "local_macos":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1586,6 +1510,86 @@ export interface RuntimeInfrastructureProvider {
   iconUrl: string;
 }
 
+export interface RuntimeFeatureSet {
+  version: number;
+  features: string[];
+}
+
+export interface SettaReleaseDiagnostic {
+  status: DiagnosticStatus;
+  runtimeVersion: string;
+  metadataPresent: boolean;
+  metadataValid: boolean;
+  installedVersion: string;
+  reasonCode: string;
+}
+
+export interface CodexBinaryDiagnostic {
+  status: DiagnosticStatus;
+  command: string;
+  present: boolean;
+  reasonCode: string;
+}
+
+export interface CodexAuthenticationDiagnostic {
+  status: DiagnosticStatus;
+  accountStatus: string;
+  accountType: string;
+  requiresOpenaiAuth: boolean;
+  loginStatus: string;
+  reasonCode: string;
+}
+
+export interface CodexDiagnostic {
+  status: DiagnosticStatus;
+  binary: CodexBinaryDiagnostic;
+  authentication: CodexAuthenticationDiagnostic;
+}
+
+export interface WorkloadLeaseDiagnostic {
+  status: DiagnosticStatus;
+  configured: boolean;
+  leaseName: string;
+  active: boolean;
+  startedAt: string;
+  expiresAt: string;
+  reasonCode: string;
+}
+
+export interface PolicyDiagnostic {
+  status: DiagnosticStatus;
+  configured: boolean;
+  present: boolean;
+  schemaVersion: number;
+  ruleCount: number;
+  reasonCode: string;
+}
+
+export interface DiskSpaceDiagnostic {
+  status: DiagnosticStatus;
+  availableMib: number;
+  totalMib: number;
+  minimumFreeMib: number;
+  reasonCode: string;
+}
+
+export interface ProtectedStateDiagnostic {
+  status: DiagnosticStatus;
+  present: boolean;
+  directory: boolean;
+  ownerOnlyWritable: boolean;
+  reasonCode: string;
+}
+
+export interface RuntimeDiagnostics {
+  settaRelease: SettaReleaseDiagnostic;
+  codex: CodexDiagnostic;
+  workloadLease: WorkloadLeaseDiagnostic;
+  policy: PolicyDiagnostic;
+  diskSpace: DiskSpaceDiagnostic;
+  protectedState: ProtectedStateDiagnostic;
+}
+
 export interface RuntimeInfoResponse {
   runtimeId: string;
   displayName: string;
@@ -1593,6 +1597,8 @@ export interface RuntimeInfoResponse {
   backendName: string;
   backendVersion: string;
   protocolVersion: number;
+  featureSet: RuntimeFeatureSet;
+  diagnostics: RuntimeDiagnostics;
 }
 
 export interface CompletePairingRequest {
@@ -1605,6 +1611,52 @@ export interface CompletePairingResponse {
   deviceToken: string;
   runtimeId: string;
   protocolVersion: number;
+}
+
+export interface EnrollRequest {
+  pairingToken: string;
+  clientDisplayName: string;
+}
+
+export interface RuntimeCredentialResponse {
+  deviceId: string;
+  runtimeId: string;
+  token: string;
+  expiresAt: string;
+}
+
+export interface EnrollResponse {
+  userId: string;
+  deviceId: string;
+  deviceSecret: string;
+  runtimeId: string;
+  protocolVersion: number;
+  runtimeCredential: RuntimeCredentialResponse;
+}
+
+export interface RefreshRequest {
+  deviceId: string;
+  deviceSecret: string;
+  runtimeId: string;
+}
+
+export interface SetupAttestationRequest {
+  setupId: string;
+  nonce: string;
+}
+
+export interface SetupAttestationResponse {
+  algorithm: string;
+  backendName: string;
+  runtimeId: string;
+  runtimeName: string;
+  setupId: string;
+  releaseVersion: string;
+  credentialEpoch: number;
+  featureSet: RuntimeFeatureSet;
+  nonce: string;
+  expiresAt: string;
+  attestation: string;
 }
 
 export interface UpdateRuntimeDisplayNameRequest {
@@ -1844,7 +1896,7 @@ export interface WorkspaceUIColumn {
   widthSpec: ColumnWidthSpec;
 }
 
-export interface WorkspaceConversationPaneConfig {
+export interface EasyButtonPaneConfig {
   conversationId: string;
 }
 
@@ -1861,15 +1913,19 @@ export type WorkspaceUIPane = {
 } & (
   | {
       surfaceKind: "browser";
-      conversationConfig: null;
+      easyButtonConfig: null;
     }
   | {
-      surfaceKind: "conversation";
-      conversationConfig: WorkspaceConversationPaneConfig;
+      surfaceKind: "easy-button";
+      easyButtonConfig: EasyButtonPaneConfig;
     }
   | {
       surfaceKind: "empty-frame";
-      conversationConfig: null;
+      easyButtonConfig: null;
+    }
+  | {
+      surfaceKind: "settings-dom";
+      easyButtonConfig: null;
     }
 );
 
@@ -1890,106 +1946,14 @@ export interface SaveWorkspaceUILayoutRequest {
   layout: WorkspaceUILayout;
 }
 
-export interface AppPaneColumnWidthSpec {
-  unit: AppPaneColumnWidthUnit;
-  value: number;
-}
-
-export interface AppPaneColumn {
-  columnId: string;
-  idealWidthSpec: AppPaneColumnWidthSpec;
-  index: number;
-  paneIds: string[];
-  planeIndex: number;
-  previousProportionWidth: number | null;
-  slotIndex: number;
-  widthSpec: AppPaneColumnWidthSpec;
-}
-
-export interface ConversationPanePresentationIdentity {
-  subtitle: string;
-  title: string;
-  tone: AppPaneTone;
-}
-
-export interface FolderResourceBinding {
-  rootPath: string;
-}
-
-export type ConversationPaneResourceBinding = {
-} & (
-  | {
-      kind: "folder";
-      folder: FolderResourceBinding;
-    }
-);
-
-export interface ConversationPaneConfig {
-  conversationId: string;
-  presentationIdentity: ConversationPanePresentationIdentity;
-  resourceBindings: ConversationPaneResourceBinding[];
-}
-
-export interface MasterPaneConfig {
-}
-
-export type AppPane = {
-  columnId: string;
-  heat: number;
-  paneId: string;
-  sequence: number;
-  subtitle: string;
-  surfaceId: string;
-  title: string;
-  tone: AppPaneTone;
-  weight: number;
-} & (
-  | {
-      surfaceKind: "master";
-      masterConfig: MasterPaneConfig;
-      conversationConfig: null;
-    }
-  | {
-      surfaceKind: "conversation";
-      masterConfig: null;
-      conversationConfig: ConversationPaneConfig;
-    }
-  | {
-      surfaceKind: "browser";
-      masterConfig: null;
-      conversationConfig: null;
-    }
-  | {
-      surfaceKind: "empty-frame";
-      masterConfig: null;
-      conversationConfig: null;
-    }
-);
-
-export interface AppPaneLayout {
-  schemaVersion: number;
-  focusedPaneId: string;
-  maximizedPaneId: string | null;
-  columns: AppPaneColumn[];
-  panes: AppPane[];
-}
-
-export interface AppPaneLayoutReadResult {
-  layout: AppPaneLayout | null;
-}
-
-export interface SaveAppPaneLayoutRequest {
-  layout: AppPaneLayout;
-}
-
 export interface CreateTopicConversationRequest {
-  workspaceId: string | null;
+  workspaceId: string;
   title: string;
 }
 
 export interface TopicConversation {
   id: string;
-  workspaceId: string | null;
+  workspaceId: string;
   title: string;
   topicDescriptor: string;
   status: ConversationStatus;
@@ -2557,11 +2521,6 @@ export interface ArchiveTopicConversationRequest {
   conversationId: string;
 }
 
-export interface BindTopicConversationFolderRequest {
-  workspaceId: string;
-  conversationId: string;
-}
-
 export interface SendSideConversationTurnRequest {
   workspaceId: string;
   parentConversationId: string;
@@ -2577,7 +2536,7 @@ export interface DisposeSideConversationRequest {
 }
 
 export interface ReadConversationSnapshotRequest {
-  workspaceId: string | null;
+  workspaceId: string;
   conversationId: string;
 }
 
@@ -2694,7 +2653,7 @@ export interface UpdateTopicConversationPresentationRequest {
 }
 
 export interface SubscribeConversationEventsRequest {
-  workspaceId: string | null;
+  workspaceId: string;
   conversationId: string;
 }
 
@@ -2783,7 +2742,7 @@ export interface ConversationEvent {
   sequence: number;
   eventId: string;
   emittedAt: string;
-  workspaceId: string | null;
+  workspaceId: string;
   conversationId: string;
   payload: ConversationEventPayload;
 }
@@ -2810,7 +2769,7 @@ export interface AcceptedConversationInput {
 }
 
 export interface ReadConversationInputRoutingStateRequest {
-  workspaceId: string | null;
+  workspaceId: string;
   conversationId: string;
   inputId: string;
 }
@@ -2831,7 +2790,6 @@ export interface TrajectorySequenceRange {
 }
 
 export interface ConversationRouteContextAudit {
-  decisionAuthority: ConversationRouteDecisionAuthority;
   inputSequence: number;
   clarificationInputSequence: number | null;
   latestTrajectorySequence: number;
@@ -2966,13 +2924,13 @@ export interface ConversationInputRoutingState {
 }
 
 export interface RetryConversationInputRequest {
-  workspaceId: string | null;
+  workspaceId: string;
   conversationId: string;
   inputId: string;
 }
 
 export interface DiscardConversationInputRequest {
-  workspaceId: string | null;
+  workspaceId: string;
   conversationId: string;
   inputId: string;
 }
@@ -3173,25 +3131,15 @@ export interface ReadMasterInputRoutingStateRequest {
   inputId: string;
 }
 
-export interface RouteFolderResourceScope {
-  workspaceId: string;
-  workspaceName: string;
-}
-
-export interface RouteResourceScope {
-  kind: RouteResourceScopeKind;
-  folder: RouteFolderResourceScope | null;
-}
-
 export interface RouteCandidateAudit {
   conversationId: string;
-  resourceScope: RouteResourceScope;
+  workspaceId: string;
   lexicalRank: number | null;
 }
 
 export interface RouteTargetAuthority {
   conversationId: string;
-  resourceScope: RouteResourceScope;
+  workspaceId: string;
   allowedDecisionKinds: RouteDecisionKind[];
   completedForkTurnIds: string[];
 }
@@ -3235,9 +3183,8 @@ export interface RouteInvocationAudit {
 }
 
 export interface ConversationPresentationTarget {
+  workspaceId: string;
   conversationId: string;
-  resourceScope: RouteResourceScope;
-  resourceBindings: ConversationPaneResourceBinding[];
   title: string;
   preferredPaneId: string | null;
 }
@@ -3349,57 +3296,6 @@ export interface InputRoutingState {
   failure: RouteFailure | null;
 }
 
-export interface ReadMasterTranscriptRequest {
-  limit: number;
-}
-
-export interface TranscriptUserInput {
-  text: string;
-  modality: MasterInputModality;
-}
-
-export interface TranscriptAssistantReply {
-  replyKind: MasterReplyKind;
-  text: string;
-}
-
-export interface TranscriptActionReceipt {
-  decisionKind: RouteDecisionKind;
-  text: string;
-}
-
-export interface TranscriptCancellation {
-  message: string;
-}
-
-export interface TranscriptFailure {
-  code: string;
-  message: string;
-  retryable: boolean;
-}
-
-export interface TranscriptEntryPayload {
-  id: string;
-  inputId: string;
-  kind: TranscriptEntryKind;
-  createdAt: string;
-  userInput: TranscriptUserInput | null;
-  assistantReply: TranscriptAssistantReply | null;
-  actionReceipt: TranscriptActionReceipt | null;
-  cancellation: TranscriptCancellation | null;
-  failure: TranscriptFailure | null;
-}
-
-export interface TranscriptEntry {
-  sequence: number;
-  payload: TranscriptEntryPayload;
-}
-
-export interface Transcript {
-  entries: TranscriptEntry[];
-  lastSequence: number;
-}
-
 export interface FocusExistingConversationPaneIntent {
   target: ConversationPresentationTarget;
 }
@@ -3482,27 +3378,7 @@ export interface NarratorVoiceDefault {
   updatedAt: string;
 }
 
-export interface SpeechCredentialRequest {
-  provider: SpeechProvider;
-  apiKey: string;
-}
-
-export interface SpeechCredentialValidationResult {
-  provider: SpeechProvider;
-  valid: boolean;
-}
-
-export interface SpeechCredentialStatus {
-  provider: SpeechProvider;
-  providerStatus: SpeechProviderStatus;
-}
-
-export interface ClearDesktopSpeechCredentialRequest {
-  provider: SpeechProvider;
-}
-
 export interface CreateSpeechTranscriptionSessionRequest {
-  provider: SpeechProvider;
 }
 
 export interface SpeechTranscriptionSession {
@@ -3522,17 +3398,8 @@ export interface SpeechSource {
 }
 
 export interface SpeechSynthesisRequest {
-  provider: SpeechProvider;
   source: SpeechSource;
   resolvedVoiceId: SpeechVoiceID;
-}
-
-export interface SpeechSynthesisInput {
-  provider: SpeechProvider;
-  source: SpeechSource;
-  text: string;
-  resolvedVoiceId: SpeechVoiceID;
-  rate: number;
 }
 
 export interface SpeechAudio {
@@ -3636,6 +3503,21 @@ export const backendEndpoints = {
     path: "/pairing/complete",
     requestBodyLimitBytes: 4194304,
   },
+  LocalCredentialEnroll: {
+    method: "POST",
+    path: "/local-credentials/enroll",
+    requestBodyLimitBytes: 4194304,
+  },
+  LocalCredentialRefresh: {
+    method: "POST",
+    path: "/local-credentials/refresh",
+    requestBodyLimitBytes: 4194304,
+  },
+  SetupAttestation: {
+    method: "POST",
+    path: "/setup/attestation",
+    requestBodyLimitBytes: 4194304,
+  },
   UpdateRuntimeDisplayName: {
     method: "POST",
     path: "/runtime/display-name/update",
@@ -3713,15 +3595,6 @@ export const backendEndpoints = {
     path: "/workspaces/ui/layout/save",
     requestBodyLimitBytes: 4194304,
   },
-  ReadAppPaneLayout: {
-    method: "GET",
-    path: "/app/panes/layout",
-  },
-  SaveAppPaneLayout: {
-    method: "POST",
-    path: "/app/panes/layout/save",
-    requestBodyLimitBytes: 4194304,
-  },
   CreateTopicConversation: {
     method: "POST",
     path: "/conversations/create",
@@ -3730,11 +3603,6 @@ export const backendEndpoints = {
   ArchiveTopicConversation: {
     method: "POST",
     path: "/conversations/archive",
-    requestBodyLimitBytes: 4194304,
-  },
-  BindTopicConversationFolder: {
-    method: "POST",
-    path: "/conversations/resources/folder/bind",
     requestBodyLimitBytes: 4194304,
   },
   SendSideConversationTurn: {
@@ -3858,11 +3726,6 @@ export const backendEndpoints = {
     path: "/master/inputs/state/read",
     requestBodyLimitBytes: 4194304,
   },
-  ReadMasterTranscript: {
-    method: "POST",
-    path: "/master/transcript/read",
-    requestBodyLimitBytes: 4194304,
-  },
   WaitMasterShellInteraction: {
     method: "POST",
     path: "/master/interaction/wait",
@@ -3900,29 +3763,9 @@ export const backendEndpoints = {
     path: "/speech/voices/narrator-default/update",
     requestBodyLimitBytes: 4194304,
   },
-  ValidateDesktopSpeechCredential: {
-    method: "POST",
-    path: "/speech/credentials/desktop/validate",
-    requestBodyLimitBytes: 16384,
-  },
-  LoadDesktopSpeechCredential: {
-    method: "POST",
-    path: "/speech/credentials/desktop/load",
-    requestBodyLimitBytes: 16384,
-  },
-  ClearDesktopSpeechCredential: {
-    method: "POST",
-    path: "/speech/credentials/desktop/clear",
-    requestBodyLimitBytes: 16384,
-  },
   CreateSpeechTranscriptionSession: {
     method: "POST",
     path: "/speech/transcription/sessions",
-    requestBodyLimitBytes: 16384,
-  },
-  ResolveSpeechSynthesisInput: {
-    method: "POST",
-    path: "/speech/synthesis/resolve",
     requestBodyLimitBytes: 16384,
   },
   SynthesizeSpeech: {
@@ -3981,9 +3824,129 @@ export function decodeRuntimeInfrastructureProvider(value: unknown): RuntimeInfr
   };
 }
 
+export function decodeRuntimeFeatureSet(value: unknown): RuntimeFeatureSet {
+  const record = assertRecord(value, "RuntimeFeatureSet");
+  assertKnownFields(record, "RuntimeFeatureSet", ["version", "features"]);
+  return {
+    version: decodeInteger(requireField(record, "version", "RuntimeFeatureSet"), "RuntimeFeatureSet.version"),
+    features: decodeArray(requireField(record, "features", "RuntimeFeatureSet"), "RuntimeFeatureSet.features", (item) => decodeString(item, "RuntimeFeatureSet.features item")),
+  };
+}
+
+export function decodeSettaReleaseDiagnostic(value: unknown): SettaReleaseDiagnostic {
+  const record = assertRecord(value, "SettaReleaseDiagnostic");
+  assertKnownFields(record, "SettaReleaseDiagnostic", ["status", "runtimeVersion", "metadataPresent", "metadataValid", "installedVersion", "reasonCode"]);
+  return {
+    status: decodeDiagnosticStatus(requireField(record, "status", "SettaReleaseDiagnostic"), "SettaReleaseDiagnostic.status"),
+    runtimeVersion: decodeString(requireField(record, "runtimeVersion", "SettaReleaseDiagnostic"), "SettaReleaseDiagnostic.runtimeVersion"),
+    metadataPresent: decodeBoolean(requireField(record, "metadataPresent", "SettaReleaseDiagnostic"), "SettaReleaseDiagnostic.metadataPresent"),
+    metadataValid: decodeBoolean(requireField(record, "metadataValid", "SettaReleaseDiagnostic"), "SettaReleaseDiagnostic.metadataValid"),
+    installedVersion: decodeString(requireField(record, "installedVersion", "SettaReleaseDiagnostic"), "SettaReleaseDiagnostic.installedVersion"),
+    reasonCode: decodeString(requireField(record, "reasonCode", "SettaReleaseDiagnostic"), "SettaReleaseDiagnostic.reasonCode"),
+  };
+}
+
+export function decodeCodexBinaryDiagnostic(value: unknown): CodexBinaryDiagnostic {
+  const record = assertRecord(value, "CodexBinaryDiagnostic");
+  assertKnownFields(record, "CodexBinaryDiagnostic", ["status", "command", "present", "reasonCode"]);
+  return {
+    status: decodeDiagnosticStatus(requireField(record, "status", "CodexBinaryDiagnostic"), "CodexBinaryDiagnostic.status"),
+    command: decodeString(requireField(record, "command", "CodexBinaryDiagnostic"), "CodexBinaryDiagnostic.command"),
+    present: decodeBoolean(requireField(record, "present", "CodexBinaryDiagnostic"), "CodexBinaryDiagnostic.present"),
+    reasonCode: decodeString(requireField(record, "reasonCode", "CodexBinaryDiagnostic"), "CodexBinaryDiagnostic.reasonCode"),
+  };
+}
+
+export function decodeCodexAuthenticationDiagnostic(value: unknown): CodexAuthenticationDiagnostic {
+  const record = assertRecord(value, "CodexAuthenticationDiagnostic");
+  assertKnownFields(record, "CodexAuthenticationDiagnostic", ["status", "accountStatus", "accountType", "requiresOpenaiAuth", "loginStatus", "reasonCode"]);
+  return {
+    status: decodeDiagnosticStatus(requireField(record, "status", "CodexAuthenticationDiagnostic"), "CodexAuthenticationDiagnostic.status"),
+    accountStatus: decodeString(requireField(record, "accountStatus", "CodexAuthenticationDiagnostic"), "CodexAuthenticationDiagnostic.accountStatus"),
+    accountType: decodeString(requireField(record, "accountType", "CodexAuthenticationDiagnostic"), "CodexAuthenticationDiagnostic.accountType"),
+    requiresOpenaiAuth: decodeBoolean(requireField(record, "requiresOpenaiAuth", "CodexAuthenticationDiagnostic"), "CodexAuthenticationDiagnostic.requiresOpenaiAuth"),
+    loginStatus: decodeString(requireField(record, "loginStatus", "CodexAuthenticationDiagnostic"), "CodexAuthenticationDiagnostic.loginStatus"),
+    reasonCode: decodeString(requireField(record, "reasonCode", "CodexAuthenticationDiagnostic"), "CodexAuthenticationDiagnostic.reasonCode"),
+  };
+}
+
+export function decodeCodexDiagnostic(value: unknown): CodexDiagnostic {
+  const record = assertRecord(value, "CodexDiagnostic");
+  assertKnownFields(record, "CodexDiagnostic", ["status", "binary", "authentication"]);
+  return {
+    status: decodeDiagnosticStatus(requireField(record, "status", "CodexDiagnostic"), "CodexDiagnostic.status"),
+    binary: decodeCodexBinaryDiagnostic(requireField(record, "binary", "CodexDiagnostic")),
+    authentication: decodeCodexAuthenticationDiagnostic(requireField(record, "authentication", "CodexDiagnostic")),
+  };
+}
+
+export function decodeWorkloadLeaseDiagnostic(value: unknown): WorkloadLeaseDiagnostic {
+  const record = assertRecord(value, "WorkloadLeaseDiagnostic");
+  assertKnownFields(record, "WorkloadLeaseDiagnostic", ["status", "configured", "leaseName", "active", "startedAt", "expiresAt", "reasonCode"]);
+  return {
+    status: decodeDiagnosticStatus(requireField(record, "status", "WorkloadLeaseDiagnostic"), "WorkloadLeaseDiagnostic.status"),
+    configured: decodeBoolean(requireField(record, "configured", "WorkloadLeaseDiagnostic"), "WorkloadLeaseDiagnostic.configured"),
+    leaseName: decodeString(requireField(record, "leaseName", "WorkloadLeaseDiagnostic"), "WorkloadLeaseDiagnostic.leaseName"),
+    active: decodeBoolean(requireField(record, "active", "WorkloadLeaseDiagnostic"), "WorkloadLeaseDiagnostic.active"),
+    startedAt: decodeString(requireField(record, "startedAt", "WorkloadLeaseDiagnostic"), "WorkloadLeaseDiagnostic.startedAt"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "WorkloadLeaseDiagnostic"), "WorkloadLeaseDiagnostic.expiresAt"),
+    reasonCode: decodeString(requireField(record, "reasonCode", "WorkloadLeaseDiagnostic"), "WorkloadLeaseDiagnostic.reasonCode"),
+  };
+}
+
+export function decodePolicyDiagnostic(value: unknown): PolicyDiagnostic {
+  const record = assertRecord(value, "PolicyDiagnostic");
+  assertKnownFields(record, "PolicyDiagnostic", ["status", "configured", "present", "schemaVersion", "ruleCount", "reasonCode"]);
+  return {
+    status: decodeDiagnosticStatus(requireField(record, "status", "PolicyDiagnostic"), "PolicyDiagnostic.status"),
+    configured: decodeBoolean(requireField(record, "configured", "PolicyDiagnostic"), "PolicyDiagnostic.configured"),
+    present: decodeBoolean(requireField(record, "present", "PolicyDiagnostic"), "PolicyDiagnostic.present"),
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "PolicyDiagnostic"), "PolicyDiagnostic.schemaVersion"),
+    ruleCount: decodeInteger(requireField(record, "ruleCount", "PolicyDiagnostic"), "PolicyDiagnostic.ruleCount"),
+    reasonCode: decodeString(requireField(record, "reasonCode", "PolicyDiagnostic"), "PolicyDiagnostic.reasonCode"),
+  };
+}
+
+export function decodeDiskSpaceDiagnostic(value: unknown): DiskSpaceDiagnostic {
+  const record = assertRecord(value, "DiskSpaceDiagnostic");
+  assertKnownFields(record, "DiskSpaceDiagnostic", ["status", "availableMib", "totalMib", "minimumFreeMib", "reasonCode"]);
+  return {
+    status: decodeDiagnosticStatus(requireField(record, "status", "DiskSpaceDiagnostic"), "DiskSpaceDiagnostic.status"),
+    availableMib: decodeInteger(requireField(record, "availableMib", "DiskSpaceDiagnostic"), "DiskSpaceDiagnostic.availableMib"),
+    totalMib: decodeInteger(requireField(record, "totalMib", "DiskSpaceDiagnostic"), "DiskSpaceDiagnostic.totalMib"),
+    minimumFreeMib: decodeInteger(requireField(record, "minimumFreeMib", "DiskSpaceDiagnostic"), "DiskSpaceDiagnostic.minimumFreeMib"),
+    reasonCode: decodeString(requireField(record, "reasonCode", "DiskSpaceDiagnostic"), "DiskSpaceDiagnostic.reasonCode"),
+  };
+}
+
+export function decodeProtectedStateDiagnostic(value: unknown): ProtectedStateDiagnostic {
+  const record = assertRecord(value, "ProtectedStateDiagnostic");
+  assertKnownFields(record, "ProtectedStateDiagnostic", ["status", "present", "directory", "ownerOnlyWritable", "reasonCode"]);
+  return {
+    status: decodeDiagnosticStatus(requireField(record, "status", "ProtectedStateDiagnostic"), "ProtectedStateDiagnostic.status"),
+    present: decodeBoolean(requireField(record, "present", "ProtectedStateDiagnostic"), "ProtectedStateDiagnostic.present"),
+    directory: decodeBoolean(requireField(record, "directory", "ProtectedStateDiagnostic"), "ProtectedStateDiagnostic.directory"),
+    ownerOnlyWritable: decodeBoolean(requireField(record, "ownerOnlyWritable", "ProtectedStateDiagnostic"), "ProtectedStateDiagnostic.ownerOnlyWritable"),
+    reasonCode: decodeString(requireField(record, "reasonCode", "ProtectedStateDiagnostic"), "ProtectedStateDiagnostic.reasonCode"),
+  };
+}
+
+export function decodeRuntimeDiagnostics(value: unknown): RuntimeDiagnostics {
+  const record = assertRecord(value, "RuntimeDiagnostics");
+  assertKnownFields(record, "RuntimeDiagnostics", ["settaRelease", "codex", "workloadLease", "policy", "diskSpace", "protectedState"]);
+  return {
+    settaRelease: decodeSettaReleaseDiagnostic(requireField(record, "settaRelease", "RuntimeDiagnostics")),
+    codex: decodeCodexDiagnostic(requireField(record, "codex", "RuntimeDiagnostics")),
+    workloadLease: decodeWorkloadLeaseDiagnostic(requireField(record, "workloadLease", "RuntimeDiagnostics")),
+    policy: decodePolicyDiagnostic(requireField(record, "policy", "RuntimeDiagnostics")),
+    diskSpace: decodeDiskSpaceDiagnostic(requireField(record, "diskSpace", "RuntimeDiagnostics")),
+    protectedState: decodeProtectedStateDiagnostic(requireField(record, "protectedState", "RuntimeDiagnostics")),
+  };
+}
+
 export function decodeRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
   const record = assertRecord(value, "RuntimeInfoResponse");
-  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "infrastructureProvider", "backendName", "backendVersion", "protocolVersion"]);
+  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "infrastructureProvider", "backendName", "backendVersion", "protocolVersion", "featureSet", "diagnostics"]);
   return {
     runtimeId: decodeString(requireField(record, "runtimeId", "RuntimeInfoResponse"), "RuntimeInfoResponse.runtimeId"),
     displayName: decodeString(requireField(record, "displayName", "RuntimeInfoResponse"), "RuntimeInfoResponse.displayName"),
@@ -3991,6 +3954,8 @@ export function decodeRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
     backendName: decodeString(requireField(record, "backendName", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendName"),
     backendVersion: decodeString(requireField(record, "backendVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendVersion"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.protocolVersion"),
+    featureSet: decodeRuntimeFeatureSet(requireField(record, "featureSet", "RuntimeInfoResponse")),
+    diagnostics: decodeRuntimeDiagnostics(requireField(record, "diagnostics", "RuntimeInfoResponse")),
   };
 }
 
@@ -4011,6 +3976,76 @@ export function decodeCompletePairingResponse(value: unknown): CompletePairingRe
     deviceToken: decodeString(requireField(record, "deviceToken", "CompletePairingResponse"), "CompletePairingResponse.deviceToken"),
     runtimeId: decodeString(requireField(record, "runtimeId", "CompletePairingResponse"), "CompletePairingResponse.runtimeId"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "CompletePairingResponse"), "CompletePairingResponse.protocolVersion"),
+  };
+}
+
+export function decodeEnrollRequest(value: unknown): EnrollRequest {
+  const record = assertRecord(value, "EnrollRequest");
+  assertKnownFields(record, "EnrollRequest", ["pairingToken", "clientDisplayName"]);
+  return {
+    pairingToken: decodeString(requireField(record, "pairingToken", "EnrollRequest"), "EnrollRequest.pairingToken"),
+    clientDisplayName: decodeString(requireField(record, "clientDisplayName", "EnrollRequest"), "EnrollRequest.clientDisplayName"),
+  };
+}
+
+export function decodeRuntimeCredentialResponse(value: unknown): RuntimeCredentialResponse {
+  const record = assertRecord(value, "RuntimeCredentialResponse");
+  assertKnownFields(record, "RuntimeCredentialResponse", ["deviceId", "runtimeId", "token", "expiresAt"]);
+  return {
+    deviceId: decodeString(requireField(record, "deviceId", "RuntimeCredentialResponse"), "RuntimeCredentialResponse.deviceId"),
+    runtimeId: decodeString(requireField(record, "runtimeId", "RuntimeCredentialResponse"), "RuntimeCredentialResponse.runtimeId"),
+    token: decodeString(requireField(record, "token", "RuntimeCredentialResponse"), "RuntimeCredentialResponse.token"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "RuntimeCredentialResponse"), "RuntimeCredentialResponse.expiresAt"),
+  };
+}
+
+export function decodeEnrollResponse(value: unknown): EnrollResponse {
+  const record = assertRecord(value, "EnrollResponse");
+  assertKnownFields(record, "EnrollResponse", ["userId", "deviceId", "deviceSecret", "runtimeId", "protocolVersion", "runtimeCredential"]);
+  return {
+    userId: decodeString(requireField(record, "userId", "EnrollResponse"), "EnrollResponse.userId"),
+    deviceId: decodeString(requireField(record, "deviceId", "EnrollResponse"), "EnrollResponse.deviceId"),
+    deviceSecret: decodeString(requireField(record, "deviceSecret", "EnrollResponse"), "EnrollResponse.deviceSecret"),
+    runtimeId: decodeString(requireField(record, "runtimeId", "EnrollResponse"), "EnrollResponse.runtimeId"),
+    protocolVersion: decodeInteger(requireField(record, "protocolVersion", "EnrollResponse"), "EnrollResponse.protocolVersion"),
+    runtimeCredential: decodeRuntimeCredentialResponse(requireField(record, "runtimeCredential", "EnrollResponse")),
+  };
+}
+
+export function decodeRefreshRequest(value: unknown): RefreshRequest {
+  const record = assertRecord(value, "RefreshRequest");
+  assertKnownFields(record, "RefreshRequest", ["deviceId", "deviceSecret", "runtimeId"]);
+  return {
+    deviceId: decodeString(requireField(record, "deviceId", "RefreshRequest"), "RefreshRequest.deviceId"),
+    deviceSecret: decodeString(requireField(record, "deviceSecret", "RefreshRequest"), "RefreshRequest.deviceSecret"),
+    runtimeId: decodeString(requireField(record, "runtimeId", "RefreshRequest"), "RefreshRequest.runtimeId"),
+  };
+}
+
+export function decodeSetupAttestationRequest(value: unknown): SetupAttestationRequest {
+  const record = assertRecord(value, "SetupAttestationRequest");
+  assertKnownFields(record, "SetupAttestationRequest", ["setupId", "nonce"]);
+  return {
+    setupId: decodeString(requireField(record, "setupId", "SetupAttestationRequest"), "SetupAttestationRequest.setupId"),
+    nonce: decodeString(requireField(record, "nonce", "SetupAttestationRequest"), "SetupAttestationRequest.nonce"),
+  };
+}
+
+export function decodeSetupAttestationResponse(value: unknown): SetupAttestationResponse {
+  const record = assertRecord(value, "SetupAttestationResponse");
+  assertKnownFields(record, "SetupAttestationResponse", ["algorithm", "backendName", "runtimeId", "runtimeName", "setupId", "releaseVersion", "credentialEpoch", "featureSet", "nonce", "expiresAt", "attestation"]);
+  return {
+    algorithm: decodeString(requireField(record, "algorithm", "SetupAttestationResponse"), "SetupAttestationResponse.algorithm"),
+    backendName: decodeString(requireField(record, "backendName", "SetupAttestationResponse"), "SetupAttestationResponse.backendName"),
+    runtimeId: decodeString(requireField(record, "runtimeId", "SetupAttestationResponse"), "SetupAttestationResponse.runtimeId"),
+    runtimeName: decodeString(requireField(record, "runtimeName", "SetupAttestationResponse"), "SetupAttestationResponse.runtimeName"),
+    setupId: decodeString(requireField(record, "setupId", "SetupAttestationResponse"), "SetupAttestationResponse.setupId"),
+    releaseVersion: decodeString(requireField(record, "releaseVersion", "SetupAttestationResponse"), "SetupAttestationResponse.releaseVersion"),
+    credentialEpoch: decodeInteger(requireField(record, "credentialEpoch", "SetupAttestationResponse"), "SetupAttestationResponse.credentialEpoch"),
+    featureSet: decodeRuntimeFeatureSet(requireField(record, "featureSet", "SetupAttestationResponse")),
+    nonce: decodeString(requireField(record, "nonce", "SetupAttestationResponse"), "SetupAttestationResponse.nonce"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "SetupAttestationResponse"), "SetupAttestationResponse.expiresAt"),
+    attestation: decodeString(requireField(record, "attestation", "SetupAttestationResponse"), "SetupAttestationResponse.attestation"),
   };
 }
 
@@ -4383,20 +4418,20 @@ export function decodeWorkspaceUIColumn(value: unknown): WorkspaceUIColumn {
   };
 }
 
-export function decodeWorkspaceConversationPaneConfig(value: unknown): WorkspaceConversationPaneConfig {
-  const record = assertRecord(value, "WorkspaceConversationPaneConfig");
-  assertKnownFields(record, "WorkspaceConversationPaneConfig", ["conversationId"]);
+export function decodeEasyButtonPaneConfig(value: unknown): EasyButtonPaneConfig {
+  const record = assertRecord(value, "EasyButtonPaneConfig");
+  assertKnownFields(record, "EasyButtonPaneConfig", ["conversationId"]);
   return {
-    conversationId: decodeString(requireField(record, "conversationId", "WorkspaceConversationPaneConfig"), "WorkspaceConversationPaneConfig.conversationId"),
+    conversationId: decodeString(requireField(record, "conversationId", "EasyButtonPaneConfig"), "EasyButtonPaneConfig.conversationId"),
   };
 }
 
 export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
   const record = assertRecord(value, "WorkspaceUIPane");
-  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "conversationConfig", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "title", "tone", "weight"]);
+  assertKnownFields(record, "WorkspaceUIPane", ["columnId", "easyButtonConfig", "heat", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "title", "tone", "weight"]);
   const result = {
     columnId: decodeString(requireField(record, "columnId", "WorkspaceUIPane"), "WorkspaceUIPane.columnId"),
-    conversationConfig: decodeNullable(requireField(record, "conversationConfig", "WorkspaceUIPane"), "WorkspaceUIPane.conversationConfig", (item) => decodeWorkspaceConversationPaneConfig(item)),
+    easyButtonConfig: decodeNullable(requireField(record, "easyButtonConfig", "WorkspaceUIPane"), "WorkspaceUIPane.easyButtonConfig", (item) => decodeEasyButtonPaneConfig(item)),
     heat: decodeInteger(requireField(record, "heat", "WorkspaceUIPane"), "WorkspaceUIPane.heat"),
     paneId: decodeString(requireField(record, "paneId", "WorkspaceUIPane"), "WorkspaceUIPane.paneId"),
     sequence: decodeInteger(requireField(record, "sequence", "WorkspaceUIPane"), "WorkspaceUIPane.sequence"),
@@ -4409,33 +4444,43 @@ export function decodeWorkspaceUIPane(value: unknown): WorkspaceUIPane {
   };
   switch (result.surfaceKind) {
     case "browser": {
-      if (result.conversationConfig !== null) {
-        throw new Error("WorkspaceUIPane.conversationConfig must be null when surfaceKind is browser");
+      if (result.easyButtonConfig !== null) {
+        throw new Error("WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is browser");
       }
       return {
         ...result,
         surfaceKind: "browser",
-        conversationConfig: null,
+        easyButtonConfig: null,
       };
     }
-    case "conversation": {
-      if (result.conversationConfig === null) {
-        throw new Error("WorkspaceUIPane.conversationConfig is required when surfaceKind is conversation");
+    case "easy-button": {
+      if (result.easyButtonConfig === null) {
+        throw new Error("WorkspaceUIPane.easyButtonConfig is required when surfaceKind is easy-button");
       }
       return {
         ...result,
-        surfaceKind: "conversation",
-        conversationConfig: result.conversationConfig,
+        surfaceKind: "easy-button",
+        easyButtonConfig: result.easyButtonConfig,
       };
     }
     case "empty-frame": {
-      if (result.conversationConfig !== null) {
-        throw new Error("WorkspaceUIPane.conversationConfig must be null when surfaceKind is empty-frame");
+      if (result.easyButtonConfig !== null) {
+        throw new Error("WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is empty-frame");
       }
       return {
         ...result,
         surfaceKind: "empty-frame",
-        conversationConfig: null,
+        easyButtonConfig: null,
+      };
+    }
+    case "settings-dom": {
+      if (result.easyButtonConfig !== null) {
+        throw new Error("WorkspaceUIPane.easyButtonConfig must be null when surfaceKind is settings-dom");
+      }
+      return {
+        ...result,
+        surfaceKind: "settings-dom",
+        easyButtonConfig: null,
       };
     }
     default:
@@ -4472,200 +4517,11 @@ export function decodeSaveWorkspaceUILayoutRequest(value: unknown): SaveWorkspac
   };
 }
 
-export function decodeAppPaneColumnWidthSpec(value: unknown): AppPaneColumnWidthSpec {
-  const record = assertRecord(value, "AppPaneColumnWidthSpec");
-  assertKnownFields(record, "AppPaneColumnWidthSpec", ["unit", "value"]);
-  return {
-    unit: decodeAppPaneColumnWidthUnit(requireField(record, "unit", "AppPaneColumnWidthSpec"), "AppPaneColumnWidthSpec.unit"),
-    value: decodeNumber(requireField(record, "value", "AppPaneColumnWidthSpec"), "AppPaneColumnWidthSpec.value"),
-  };
-}
-
-export function decodeAppPaneColumn(value: unknown): AppPaneColumn {
-  const record = assertRecord(value, "AppPaneColumn");
-  assertKnownFields(record, "AppPaneColumn", ["columnId", "idealWidthSpec", "index", "paneIds", "planeIndex", "previousProportionWidth", "slotIndex", "widthSpec"]);
-  return {
-    columnId: decodeString(requireField(record, "columnId", "AppPaneColumn"), "AppPaneColumn.columnId"),
-    idealWidthSpec: decodeAppPaneColumnWidthSpec(requireField(record, "idealWidthSpec", "AppPaneColumn")),
-    index: decodeInteger(requireField(record, "index", "AppPaneColumn"), "AppPaneColumn.index"),
-    paneIds: decodeArray(requireField(record, "paneIds", "AppPaneColumn"), "AppPaneColumn.paneIds", (item) => decodeString(item, "AppPaneColumn.paneIds item")),
-    planeIndex: decodeInteger(requireField(record, "planeIndex", "AppPaneColumn"), "AppPaneColumn.planeIndex"),
-    previousProportionWidth: decodeNullable(requireField(record, "previousProportionWidth", "AppPaneColumn"), "AppPaneColumn.previousProportionWidth", (item) => decodeNumber(item, "AppPaneColumn.previousProportionWidth")),
-    slotIndex: decodeInteger(requireField(record, "slotIndex", "AppPaneColumn"), "AppPaneColumn.slotIndex"),
-    widthSpec: decodeAppPaneColumnWidthSpec(requireField(record, "widthSpec", "AppPaneColumn")),
-  };
-}
-
-export function decodeConversationPanePresentationIdentity(value: unknown): ConversationPanePresentationIdentity {
-  const record = assertRecord(value, "ConversationPanePresentationIdentity");
-  assertKnownFields(record, "ConversationPanePresentationIdentity", ["subtitle", "title", "tone"]);
-  return {
-    subtitle: decodeString(requireField(record, "subtitle", "ConversationPanePresentationIdentity"), "ConversationPanePresentationIdentity.subtitle"),
-    title: decodeString(requireField(record, "title", "ConversationPanePresentationIdentity"), "ConversationPanePresentationIdentity.title"),
-    tone: decodeAppPaneTone(requireField(record, "tone", "ConversationPanePresentationIdentity"), "ConversationPanePresentationIdentity.tone"),
-  };
-}
-
-export function decodeFolderResourceBinding(value: unknown): FolderResourceBinding {
-  const record = assertRecord(value, "FolderResourceBinding");
-  assertKnownFields(record, "FolderResourceBinding", ["rootPath"]);
-  return {
-    rootPath: decodeString(requireField(record, "rootPath", "FolderResourceBinding"), "FolderResourceBinding.rootPath"),
-  };
-}
-
-export function decodeConversationPaneResourceBinding(value: unknown): ConversationPaneResourceBinding {
-  const record = assertRecord(value, "ConversationPaneResourceBinding");
-  assertKnownFields(record, "ConversationPaneResourceBinding", ["folder", "kind"]);
-  const result = {
-    folder: decodeNullable(requireField(record, "folder", "ConversationPaneResourceBinding"), "ConversationPaneResourceBinding.folder", (item) => decodeFolderResourceBinding(item)),
-    kind: decodeConversationPaneResourceBindingKind(requireField(record, "kind", "ConversationPaneResourceBinding"), "ConversationPaneResourceBinding.kind"),
-  };
-  switch (result.kind) {
-    case "folder": {
-      if (result.folder === null) {
-        throw new Error("ConversationPaneResourceBinding.folder is required when kind is folder");
-      }
-      return {
-        ...result,
-        kind: "folder",
-        folder: result.folder,
-      };
-    }
-    default:
-      throw new Error("ConversationPaneResourceBinding.kind is unsupported: " + result.kind);
-  }
-}
-
-export function decodeConversationPaneConfig(value: unknown): ConversationPaneConfig {
-  const record = assertRecord(value, "ConversationPaneConfig");
-  assertKnownFields(record, "ConversationPaneConfig", ["conversationId", "presentationIdentity", "resourceBindings"]);
-  return {
-    conversationId: decodeString(requireField(record, "conversationId", "ConversationPaneConfig"), "ConversationPaneConfig.conversationId"),
-    presentationIdentity: decodeConversationPanePresentationIdentity(requireField(record, "presentationIdentity", "ConversationPaneConfig")),
-    resourceBindings: decodeArray(requireField(record, "resourceBindings", "ConversationPaneConfig"), "ConversationPaneConfig.resourceBindings", (item) => decodeConversationPaneResourceBinding(item)),
-  };
-}
-
-export function decodeMasterPaneConfig(value: unknown): MasterPaneConfig {
-  const record = assertRecord(value, "MasterPaneConfig");
-  assertKnownFields(record, "MasterPaneConfig", []);
-  return {
-  };
-}
-
-export function decodeAppPane(value: unknown): AppPane {
-  const record = assertRecord(value, "AppPane");
-  assertKnownFields(record, "AppPane", ["columnId", "conversationConfig", "heat", "masterConfig", "paneId", "sequence", "subtitle", "surfaceId", "surfaceKind", "title", "tone", "weight"]);
-  const result = {
-    columnId: decodeString(requireField(record, "columnId", "AppPane"), "AppPane.columnId"),
-    conversationConfig: decodeNullable(requireField(record, "conversationConfig", "AppPane"), "AppPane.conversationConfig", (item) => decodeConversationPaneConfig(item)),
-    heat: decodeInteger(requireField(record, "heat", "AppPane"), "AppPane.heat"),
-    masterConfig: decodeNullable(requireField(record, "masterConfig", "AppPane"), "AppPane.masterConfig", (item) => decodeMasterPaneConfig(item)),
-    paneId: decodeString(requireField(record, "paneId", "AppPane"), "AppPane.paneId"),
-    sequence: decodeInteger(requireField(record, "sequence", "AppPane"), "AppPane.sequence"),
-    subtitle: decodeString(requireField(record, "subtitle", "AppPane"), "AppPane.subtitle"),
-    surfaceId: decodeString(requireField(record, "surfaceId", "AppPane"), "AppPane.surfaceId"),
-    surfaceKind: decodeAppPaneSurfaceKind(requireField(record, "surfaceKind", "AppPane"), "AppPane.surfaceKind"),
-    title: decodeString(requireField(record, "title", "AppPane"), "AppPane.title"),
-    tone: decodeAppPaneTone(requireField(record, "tone", "AppPane"), "AppPane.tone"),
-    weight: decodeNumber(requireField(record, "weight", "AppPane"), "AppPane.weight"),
-  };
-  switch (result.surfaceKind) {
-    case "master": {
-      if (result.masterConfig === null) {
-        throw new Error("AppPane.masterConfig is required when surfaceKind is master");
-      }
-      if (result.conversationConfig !== null) {
-        throw new Error("AppPane.conversationConfig must be null when surfaceKind is master");
-      }
-      return {
-        ...result,
-        surfaceKind: "master",
-        masterConfig: result.masterConfig,
-        conversationConfig: null,
-      };
-    }
-    case "conversation": {
-      if (result.masterConfig !== null) {
-        throw new Error("AppPane.masterConfig must be null when surfaceKind is conversation");
-      }
-      if (result.conversationConfig === null) {
-        throw new Error("AppPane.conversationConfig is required when surfaceKind is conversation");
-      }
-      return {
-        ...result,
-        surfaceKind: "conversation",
-        masterConfig: null,
-        conversationConfig: result.conversationConfig,
-      };
-    }
-    case "browser": {
-      if (result.masterConfig !== null) {
-        throw new Error("AppPane.masterConfig must be null when surfaceKind is browser");
-      }
-      if (result.conversationConfig !== null) {
-        throw new Error("AppPane.conversationConfig must be null when surfaceKind is browser");
-      }
-      return {
-        ...result,
-        surfaceKind: "browser",
-        masterConfig: null,
-        conversationConfig: null,
-      };
-    }
-    case "empty-frame": {
-      if (result.masterConfig !== null) {
-        throw new Error("AppPane.masterConfig must be null when surfaceKind is empty-frame");
-      }
-      if (result.conversationConfig !== null) {
-        throw new Error("AppPane.conversationConfig must be null when surfaceKind is empty-frame");
-      }
-      return {
-        ...result,
-        surfaceKind: "empty-frame",
-        masterConfig: null,
-        conversationConfig: null,
-      };
-    }
-    default:
-      throw new Error("AppPane.surfaceKind is unsupported: " + result.surfaceKind);
-  }
-}
-
-export function decodeAppPaneLayout(value: unknown): AppPaneLayout {
-  const record = assertRecord(value, "AppPaneLayout");
-  assertKnownFields(record, "AppPaneLayout", ["schemaVersion", "focusedPaneId", "maximizedPaneId", "columns", "panes"]);
-  return {
-    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "AppPaneLayout"), "AppPaneLayout.schemaVersion"),
-    focusedPaneId: decodeString(requireField(record, "focusedPaneId", "AppPaneLayout"), "AppPaneLayout.focusedPaneId"),
-    maximizedPaneId: decodeNullable(requireField(record, "maximizedPaneId", "AppPaneLayout"), "AppPaneLayout.maximizedPaneId", (item) => decodeString(item, "AppPaneLayout.maximizedPaneId")),
-    columns: decodeArray(requireField(record, "columns", "AppPaneLayout"), "AppPaneLayout.columns", (item) => decodeAppPaneColumn(item)),
-    panes: decodeArray(requireField(record, "panes", "AppPaneLayout"), "AppPaneLayout.panes", (item) => decodeAppPane(item)),
-  };
-}
-
-export function decodeAppPaneLayoutReadResult(value: unknown): AppPaneLayoutReadResult {
-  const record = assertRecord(value, "AppPaneLayoutReadResult");
-  assertKnownFields(record, "AppPaneLayoutReadResult", ["layout"]);
-  return {
-    layout: decodeNullable(requireField(record, "layout", "AppPaneLayoutReadResult"), "AppPaneLayoutReadResult.layout", (item) => decodeAppPaneLayout(item)),
-  };
-}
-
-export function decodeSaveAppPaneLayoutRequest(value: unknown): SaveAppPaneLayoutRequest {
-  const record = assertRecord(value, "SaveAppPaneLayoutRequest");
-  assertKnownFields(record, "SaveAppPaneLayoutRequest", ["layout"]);
-  return {
-    layout: decodeAppPaneLayout(requireField(record, "layout", "SaveAppPaneLayoutRequest")),
-  };
-}
-
 export function decodeCreateTopicConversationRequest(value: unknown): CreateTopicConversationRequest {
   const record = assertRecord(value, "CreateTopicConversationRequest");
   assertKnownFields(record, "CreateTopicConversationRequest", ["workspaceId", "title"]);
   return {
-    workspaceId: decodeNullable(requireField(record, "workspaceId", "CreateTopicConversationRequest"), "CreateTopicConversationRequest.workspaceId", (item) => decodeString(item, "CreateTopicConversationRequest.workspaceId")),
+    workspaceId: decodeString(requireField(record, "workspaceId", "CreateTopicConversationRequest"), "CreateTopicConversationRequest.workspaceId"),
     title: decodeString(requireField(record, "title", "CreateTopicConversationRequest"), "CreateTopicConversationRequest.title"),
   };
 }
@@ -4675,7 +4531,7 @@ export function decodeTopicConversation(value: unknown): TopicConversation {
   assertKnownFields(record, "TopicConversation", ["id", "workspaceId", "title", "topicDescriptor", "status", "createdAt", "updatedAt", "archivedAt", "lastTrajectorySequence"]);
   return {
     id: decodeString(requireField(record, "id", "TopicConversation"), "TopicConversation.id"),
-    workspaceId: decodeNullable(requireField(record, "workspaceId", "TopicConversation"), "TopicConversation.workspaceId", (item) => decodeString(item, "TopicConversation.workspaceId")),
+    workspaceId: decodeString(requireField(record, "workspaceId", "TopicConversation"), "TopicConversation.workspaceId"),
     title: decodeString(requireField(record, "title", "TopicConversation"), "TopicConversation.title"),
     topicDescriptor: decodeString(requireField(record, "topicDescriptor", "TopicConversation"), "TopicConversation.topicDescriptor"),
     status: decodeConversationStatus(requireField(record, "status", "TopicConversation"), "TopicConversation.status"),
@@ -5581,15 +5437,6 @@ export function decodeArchiveTopicConversationRequest(value: unknown): ArchiveTo
   };
 }
 
-export function decodeBindTopicConversationFolderRequest(value: unknown): BindTopicConversationFolderRequest {
-  const record = assertRecord(value, "BindTopicConversationFolderRequest");
-  assertKnownFields(record, "BindTopicConversationFolderRequest", ["workspaceId", "conversationId"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "BindTopicConversationFolderRequest"), "BindTopicConversationFolderRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "BindTopicConversationFolderRequest"), "BindTopicConversationFolderRequest.conversationId"),
-  };
-}
-
 export function decodeSendSideConversationTurnRequest(value: unknown): SendSideConversationTurnRequest {
   const record = assertRecord(value, "SendSideConversationTurnRequest");
   assertKnownFields(record, "SendSideConversationTurnRequest", ["workspaceId", "parentConversationId", "sideConversationId", "text"]);
@@ -5616,7 +5463,7 @@ export function decodeReadConversationSnapshotRequest(value: unknown): ReadConve
   const record = assertRecord(value, "ReadConversationSnapshotRequest");
   assertKnownFields(record, "ReadConversationSnapshotRequest", ["workspaceId", "conversationId"]);
   return {
-    workspaceId: decodeNullable(requireField(record, "workspaceId", "ReadConversationSnapshotRequest"), "ReadConversationSnapshotRequest.workspaceId", (item) => decodeString(item, "ReadConversationSnapshotRequest.workspaceId")),
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadConversationSnapshotRequest"), "ReadConversationSnapshotRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "ReadConversationSnapshotRequest"), "ReadConversationSnapshotRequest.conversationId"),
   };
 }
@@ -5820,7 +5667,7 @@ export function decodeSubscribeConversationEventsRequest(value: unknown): Subscr
   const record = assertRecord(value, "SubscribeConversationEventsRequest");
   assertKnownFields(record, "SubscribeConversationEventsRequest", ["workspaceId", "conversationId"]);
   return {
-    workspaceId: decodeNullable(requireField(record, "workspaceId", "SubscribeConversationEventsRequest"), "SubscribeConversationEventsRequest.workspaceId", (item) => decodeString(item, "SubscribeConversationEventsRequest.workspaceId")),
+    workspaceId: decodeString(requireField(record, "workspaceId", "SubscribeConversationEventsRequest"), "SubscribeConversationEventsRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "SubscribeConversationEventsRequest"), "SubscribeConversationEventsRequest.conversationId"),
   };
 }
@@ -5973,7 +5820,7 @@ export function decodeConversationEvent(value: unknown): ConversationEvent {
     sequence: decodeInteger(requireField(record, "sequence", "ConversationEvent"), "ConversationEvent.sequence"),
     eventId: decodeString(requireField(record, "eventId", "ConversationEvent"), "ConversationEvent.eventId"),
     emittedAt: decodeString(requireField(record, "emittedAt", "ConversationEvent"), "ConversationEvent.emittedAt"),
-    workspaceId: decodeNullable(requireField(record, "workspaceId", "ConversationEvent"), "ConversationEvent.workspaceId", (item) => decodeString(item, "ConversationEvent.workspaceId")),
+    workspaceId: decodeString(requireField(record, "workspaceId", "ConversationEvent"), "ConversationEvent.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "ConversationEvent"), "ConversationEvent.conversationId"),
     payload: decodeConversationEventPayload(requireField(record, "payload", "ConversationEvent")),
   };
@@ -6016,7 +5863,7 @@ export function decodeReadConversationInputRoutingStateRequest(value: unknown): 
   const record = assertRecord(value, "ReadConversationInputRoutingStateRequest");
   assertKnownFields(record, "ReadConversationInputRoutingStateRequest", ["workspaceId", "conversationId", "inputId"]);
   return {
-    workspaceId: decodeNullable(requireField(record, "workspaceId", "ReadConversationInputRoutingStateRequest"), "ReadConversationInputRoutingStateRequest.workspaceId", (item) => decodeString(item, "ReadConversationInputRoutingStateRequest.workspaceId")),
+    workspaceId: decodeString(requireField(record, "workspaceId", "ReadConversationInputRoutingStateRequest"), "ReadConversationInputRoutingStateRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "ReadConversationInputRoutingStateRequest"), "ReadConversationInputRoutingStateRequest.conversationId"),
     inputId: decodeString(requireField(record, "inputId", "ReadConversationInputRoutingStateRequest"), "ReadConversationInputRoutingStateRequest.inputId"),
   };
@@ -6047,9 +5894,8 @@ export function decodeTrajectorySequenceRange(value: unknown): TrajectorySequenc
 
 export function decodeConversationRouteContextAudit(value: unknown): ConversationRouteContextAudit {
   const record = assertRecord(value, "ConversationRouteContextAudit");
-  assertKnownFields(record, "ConversationRouteContextAudit", ["decisionAuthority", "inputSequence", "clarificationInputSequence", "latestTrajectorySequence", "availableTrajectoryRange", "includedTrajectoryRange", "priorNarrationCount", "priorRouteDecisionCount", "validCompletedForkPointCount", "allowedDecisionKinds"]);
+  assertKnownFields(record, "ConversationRouteContextAudit", ["inputSequence", "clarificationInputSequence", "latestTrajectorySequence", "availableTrajectoryRange", "includedTrajectoryRange", "priorNarrationCount", "priorRouteDecisionCount", "validCompletedForkPointCount", "allowedDecisionKinds"]);
   return {
-    decisionAuthority: decodeConversationRouteDecisionAuthority(requireField(record, "decisionAuthority", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.decisionAuthority"),
     inputSequence: decodeInteger(requireField(record, "inputSequence", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.inputSequence"),
     clarificationInputSequence: decodeNullable(requireField(record, "clarificationInputSequence", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.clarificationInputSequence", (item) => decodeInteger(item, "ConversationRouteContextAudit.clarificationInputSequence")),
     latestTrajectorySequence: decodeInteger(requireField(record, "latestTrajectorySequence", "ConversationRouteContextAudit"), "ConversationRouteContextAudit.latestTrajectorySequence"),
@@ -6290,7 +6136,7 @@ export function decodeRetryConversationInputRequest(value: unknown): RetryConver
   const record = assertRecord(value, "RetryConversationInputRequest");
   assertKnownFields(record, "RetryConversationInputRequest", ["workspaceId", "conversationId", "inputId"]);
   return {
-    workspaceId: decodeNullable(requireField(record, "workspaceId", "RetryConversationInputRequest"), "RetryConversationInputRequest.workspaceId", (item) => decodeString(item, "RetryConversationInputRequest.workspaceId")),
+    workspaceId: decodeString(requireField(record, "workspaceId", "RetryConversationInputRequest"), "RetryConversationInputRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "RetryConversationInputRequest"), "RetryConversationInputRequest.conversationId"),
     inputId: decodeString(requireField(record, "inputId", "RetryConversationInputRequest"), "RetryConversationInputRequest.inputId"),
   };
@@ -6300,7 +6146,7 @@ export function decodeDiscardConversationInputRequest(value: unknown): DiscardCo
   const record = assertRecord(value, "DiscardConversationInputRequest");
   assertKnownFields(record, "DiscardConversationInputRequest", ["workspaceId", "conversationId", "inputId"]);
   return {
-    workspaceId: decodeNullable(requireField(record, "workspaceId", "DiscardConversationInputRequest"), "DiscardConversationInputRequest.workspaceId", (item) => decodeString(item, "DiscardConversationInputRequest.workspaceId")),
+    workspaceId: decodeString(requireField(record, "workspaceId", "DiscardConversationInputRequest"), "DiscardConversationInputRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "DiscardConversationInputRequest"), "DiscardConversationInputRequest.conversationId"),
     inputId: decodeString(requireField(record, "inputId", "DiscardConversationInputRequest"), "DiscardConversationInputRequest.inputId"),
   };
@@ -6643,40 +6489,22 @@ export function decodeReadMasterInputRoutingStateRequest(value: unknown): ReadMa
   };
 }
 
-export function decodeRouteFolderResourceScope(value: unknown): RouteFolderResourceScope {
-  const record = assertRecord(value, "RouteFolderResourceScope");
-  assertKnownFields(record, "RouteFolderResourceScope", ["workspaceId", "workspaceName"]);
-  return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "RouteFolderResourceScope"), "RouteFolderResourceScope.workspaceId"),
-    workspaceName: decodeString(requireField(record, "workspaceName", "RouteFolderResourceScope"), "RouteFolderResourceScope.workspaceName"),
-  };
-}
-
-export function decodeRouteResourceScope(value: unknown): RouteResourceScope {
-  const record = assertRecord(value, "RouteResourceScope");
-  assertKnownFields(record, "RouteResourceScope", ["kind", "folder"]);
-  return {
-    kind: decodeRouteResourceScopeKind(requireField(record, "kind", "RouteResourceScope"), "RouteResourceScope.kind"),
-    folder: decodeNullable(requireField(record, "folder", "RouteResourceScope"), "RouteResourceScope.folder", (item) => decodeRouteFolderResourceScope(item)),
-  };
-}
-
 export function decodeRouteCandidateAudit(value: unknown): RouteCandidateAudit {
   const record = assertRecord(value, "RouteCandidateAudit");
-  assertKnownFields(record, "RouteCandidateAudit", ["conversationId", "resourceScope", "lexicalRank"]);
+  assertKnownFields(record, "RouteCandidateAudit", ["conversationId", "workspaceId", "lexicalRank"]);
   return {
     conversationId: decodeString(requireField(record, "conversationId", "RouteCandidateAudit"), "RouteCandidateAudit.conversationId"),
-    resourceScope: decodeRouteResourceScope(requireField(record, "resourceScope", "RouteCandidateAudit")),
+    workspaceId: decodeString(requireField(record, "workspaceId", "RouteCandidateAudit"), "RouteCandidateAudit.workspaceId"),
     lexicalRank: decodeNullable(requireField(record, "lexicalRank", "RouteCandidateAudit"), "RouteCandidateAudit.lexicalRank", (item) => decodeNumber(item, "RouteCandidateAudit.lexicalRank")),
   };
 }
 
 export function decodeRouteTargetAuthority(value: unknown): RouteTargetAuthority {
   const record = assertRecord(value, "RouteTargetAuthority");
-  assertKnownFields(record, "RouteTargetAuthority", ["conversationId", "resourceScope", "allowedDecisionKinds", "completedForkTurnIds"]);
+  assertKnownFields(record, "RouteTargetAuthority", ["conversationId", "workspaceId", "allowedDecisionKinds", "completedForkTurnIds"]);
   return {
     conversationId: decodeString(requireField(record, "conversationId", "RouteTargetAuthority"), "RouteTargetAuthority.conversationId"),
-    resourceScope: decodeRouteResourceScope(requireField(record, "resourceScope", "RouteTargetAuthority")),
+    workspaceId: decodeString(requireField(record, "workspaceId", "RouteTargetAuthority"), "RouteTargetAuthority.workspaceId"),
     allowedDecisionKinds: decodeArray(requireField(record, "allowedDecisionKinds", "RouteTargetAuthority"), "RouteTargetAuthority.allowedDecisionKinds", (item) => decodeRouteDecisionKind(item, "RouteTargetAuthority.allowedDecisionKinds item")),
     completedForkTurnIds: decodeArray(requireField(record, "completedForkTurnIds", "RouteTargetAuthority"), "RouteTargetAuthority.completedForkTurnIds", (item) => decodeString(item, "RouteTargetAuthority.completedForkTurnIds item")),
   };
@@ -6734,11 +6562,10 @@ export function decodeRouteInvocationAudit(value: unknown): RouteInvocationAudit
 
 export function decodeConversationPresentationTarget(value: unknown): ConversationPresentationTarget {
   const record = assertRecord(value, "ConversationPresentationTarget");
-  assertKnownFields(record, "ConversationPresentationTarget", ["conversationId", "resourceScope", "resourceBindings", "title", "preferredPaneId"]);
+  assertKnownFields(record, "ConversationPresentationTarget", ["workspaceId", "conversationId", "title", "preferredPaneId"]);
   return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ConversationPresentationTarget"), "ConversationPresentationTarget.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "ConversationPresentationTarget"), "ConversationPresentationTarget.conversationId"),
-    resourceScope: decodeRouteResourceScope(requireField(record, "resourceScope", "ConversationPresentationTarget")),
-    resourceBindings: decodeArray(requireField(record, "resourceBindings", "ConversationPresentationTarget"), "ConversationPresentationTarget.resourceBindings", (item) => decodeConversationPaneResourceBinding(item)),
     title: decodeString(requireField(record, "title", "ConversationPresentationTarget"), "ConversationPresentationTarget.title"),
     preferredPaneId: decodeNullable(requireField(record, "preferredPaneId", "ConversationPresentationTarget"), "ConversationPresentationTarget.preferredPaneId", (item) => decodeString(item, "ConversationPresentationTarget.preferredPaneId")),
   };
@@ -6924,93 +6751,6 @@ export function decodeInputRoutingState(value: unknown): InputRoutingState {
   };
 }
 
-export function decodeReadMasterTranscriptRequest(value: unknown): ReadMasterTranscriptRequest {
-  const record = assertRecord(value, "ReadMasterTranscriptRequest");
-  assertKnownFields(record, "ReadMasterTranscriptRequest", ["limit"]);
-  return {
-    limit: decodeInteger(requireField(record, "limit", "ReadMasterTranscriptRequest"), "ReadMasterTranscriptRequest.limit"),
-  };
-}
-
-export function decodeTranscriptUserInput(value: unknown): TranscriptUserInput {
-  const record = assertRecord(value, "TranscriptUserInput");
-  assertKnownFields(record, "TranscriptUserInput", ["text", "modality"]);
-  return {
-    text: decodeString(requireField(record, "text", "TranscriptUserInput"), "TranscriptUserInput.text"),
-    modality: decodeMasterInputModality(requireField(record, "modality", "TranscriptUserInput"), "TranscriptUserInput.modality"),
-  };
-}
-
-export function decodeTranscriptAssistantReply(value: unknown): TranscriptAssistantReply {
-  const record = assertRecord(value, "TranscriptAssistantReply");
-  assertKnownFields(record, "TranscriptAssistantReply", ["replyKind", "text"]);
-  return {
-    replyKind: decodeMasterReplyKind(requireField(record, "replyKind", "TranscriptAssistantReply"), "TranscriptAssistantReply.replyKind"),
-    text: decodeString(requireField(record, "text", "TranscriptAssistantReply"), "TranscriptAssistantReply.text"),
-  };
-}
-
-export function decodeTranscriptActionReceipt(value: unknown): TranscriptActionReceipt {
-  const record = assertRecord(value, "TranscriptActionReceipt");
-  assertKnownFields(record, "TranscriptActionReceipt", ["decisionKind", "text"]);
-  return {
-    decisionKind: decodeRouteDecisionKind(requireField(record, "decisionKind", "TranscriptActionReceipt"), "TranscriptActionReceipt.decisionKind"),
-    text: decodeString(requireField(record, "text", "TranscriptActionReceipt"), "TranscriptActionReceipt.text"),
-  };
-}
-
-export function decodeTranscriptCancellation(value: unknown): TranscriptCancellation {
-  const record = assertRecord(value, "TranscriptCancellation");
-  assertKnownFields(record, "TranscriptCancellation", ["message"]);
-  return {
-    message: decodeString(requireField(record, "message", "TranscriptCancellation"), "TranscriptCancellation.message"),
-  };
-}
-
-export function decodeTranscriptFailure(value: unknown): TranscriptFailure {
-  const record = assertRecord(value, "TranscriptFailure");
-  assertKnownFields(record, "TranscriptFailure", ["code", "message", "retryable"]);
-  return {
-    code: decodeString(requireField(record, "code", "TranscriptFailure"), "TranscriptFailure.code"),
-    message: decodeString(requireField(record, "message", "TranscriptFailure"), "TranscriptFailure.message"),
-    retryable: decodeBoolean(requireField(record, "retryable", "TranscriptFailure"), "TranscriptFailure.retryable"),
-  };
-}
-
-export function decodeTranscriptEntryPayload(value: unknown): TranscriptEntryPayload {
-  const record = assertRecord(value, "TranscriptEntryPayload");
-  assertKnownFields(record, "TranscriptEntryPayload", ["id", "inputId", "kind", "createdAt", "userInput", "assistantReply", "actionReceipt", "cancellation", "failure"]);
-  return {
-    id: decodeString(requireField(record, "id", "TranscriptEntryPayload"), "TranscriptEntryPayload.id"),
-    inputId: decodeString(requireField(record, "inputId", "TranscriptEntryPayload"), "TranscriptEntryPayload.inputId"),
-    kind: decodeTranscriptEntryKind(requireField(record, "kind", "TranscriptEntryPayload"), "TranscriptEntryPayload.kind"),
-    createdAt: decodeString(requireField(record, "createdAt", "TranscriptEntryPayload"), "TranscriptEntryPayload.createdAt"),
-    userInput: decodeNullable(requireField(record, "userInput", "TranscriptEntryPayload"), "TranscriptEntryPayload.userInput", (item) => decodeTranscriptUserInput(item)),
-    assistantReply: decodeNullable(requireField(record, "assistantReply", "TranscriptEntryPayload"), "TranscriptEntryPayload.assistantReply", (item) => decodeTranscriptAssistantReply(item)),
-    actionReceipt: decodeNullable(requireField(record, "actionReceipt", "TranscriptEntryPayload"), "TranscriptEntryPayload.actionReceipt", (item) => decodeTranscriptActionReceipt(item)),
-    cancellation: decodeNullable(requireField(record, "cancellation", "TranscriptEntryPayload"), "TranscriptEntryPayload.cancellation", (item) => decodeTranscriptCancellation(item)),
-    failure: decodeNullable(requireField(record, "failure", "TranscriptEntryPayload"), "TranscriptEntryPayload.failure", (item) => decodeTranscriptFailure(item)),
-  };
-}
-
-export function decodeTranscriptEntry(value: unknown): TranscriptEntry {
-  const record = assertRecord(value, "TranscriptEntry");
-  assertKnownFields(record, "TranscriptEntry", ["sequence", "payload"]);
-  return {
-    sequence: decodeInteger(requireField(record, "sequence", "TranscriptEntry"), "TranscriptEntry.sequence"),
-    payload: decodeTranscriptEntryPayload(requireField(record, "payload", "TranscriptEntry")),
-  };
-}
-
-export function decodeTranscript(value: unknown): Transcript {
-  const record = assertRecord(value, "Transcript");
-  assertKnownFields(record, "Transcript", ["entries", "lastSequence"]);
-  return {
-    entries: decodeArray(requireField(record, "entries", "Transcript"), "Transcript.entries", (item) => decodeTranscriptEntry(item)),
-    lastSequence: decodeInteger(requireField(record, "lastSequence", "Transcript"), "Transcript.lastSequence"),
-  };
-}
-
 export function decodeFocusExistingConversationPaneIntent(value: unknown): FocusExistingConversationPaneIntent {
   const record = assertRecord(value, "FocusExistingConversationPaneIntent");
   assertKnownFields(record, "FocusExistingConversationPaneIntent", ["target"]);
@@ -7148,46 +6888,10 @@ export function decodeNarratorVoiceDefault(value: unknown): NarratorVoiceDefault
   };
 }
 
-export function decodeSpeechCredentialRequest(value: unknown): SpeechCredentialRequest {
-  const record = assertRecord(value, "SpeechCredentialRequest");
-  assertKnownFields(record, "SpeechCredentialRequest", ["provider", "apiKey"]);
-  return {
-    provider: decodeSpeechProvider(requireField(record, "provider", "SpeechCredentialRequest"), "SpeechCredentialRequest.provider"),
-    apiKey: decodeString(requireField(record, "apiKey", "SpeechCredentialRequest"), "SpeechCredentialRequest.apiKey"),
-  };
-}
-
-export function decodeSpeechCredentialValidationResult(value: unknown): SpeechCredentialValidationResult {
-  const record = assertRecord(value, "SpeechCredentialValidationResult");
-  assertKnownFields(record, "SpeechCredentialValidationResult", ["provider", "valid"]);
-  return {
-    provider: decodeSpeechProvider(requireField(record, "provider", "SpeechCredentialValidationResult"), "SpeechCredentialValidationResult.provider"),
-    valid: decodeBoolean(requireField(record, "valid", "SpeechCredentialValidationResult"), "SpeechCredentialValidationResult.valid"),
-  };
-}
-
-export function decodeSpeechCredentialStatus(value: unknown): SpeechCredentialStatus {
-  const record = assertRecord(value, "SpeechCredentialStatus");
-  assertKnownFields(record, "SpeechCredentialStatus", ["provider", "providerStatus"]);
-  return {
-    provider: decodeSpeechProvider(requireField(record, "provider", "SpeechCredentialStatus"), "SpeechCredentialStatus.provider"),
-    providerStatus: decodeSpeechProviderStatus(requireField(record, "providerStatus", "SpeechCredentialStatus"), "SpeechCredentialStatus.providerStatus"),
-  };
-}
-
-export function decodeClearDesktopSpeechCredentialRequest(value: unknown): ClearDesktopSpeechCredentialRequest {
-  const record = assertRecord(value, "ClearDesktopSpeechCredentialRequest");
-  assertKnownFields(record, "ClearDesktopSpeechCredentialRequest", ["provider"]);
-  return {
-    provider: decodeSpeechProvider(requireField(record, "provider", "ClearDesktopSpeechCredentialRequest"), "ClearDesktopSpeechCredentialRequest.provider"),
-  };
-}
-
 export function decodeCreateSpeechTranscriptionSessionRequest(value: unknown): CreateSpeechTranscriptionSessionRequest {
   const record = assertRecord(value, "CreateSpeechTranscriptionSessionRequest");
-  assertKnownFields(record, "CreateSpeechTranscriptionSessionRequest", ["provider"]);
+  assertKnownFields(record, "CreateSpeechTranscriptionSessionRequest", []);
   return {
-    provider: decodeSpeechProvider(requireField(record, "provider", "CreateSpeechTranscriptionSessionRequest"), "CreateSpeechTranscriptionSessionRequest.provider"),
   };
 }
 
@@ -7217,23 +6921,10 @@ export function decodeSpeechSource(value: unknown): SpeechSource {
 
 export function decodeSpeechSynthesisRequest(value: unknown): SpeechSynthesisRequest {
   const record = assertRecord(value, "SpeechSynthesisRequest");
-  assertKnownFields(record, "SpeechSynthesisRequest", ["provider", "source", "resolvedVoiceId"]);
+  assertKnownFields(record, "SpeechSynthesisRequest", ["source", "resolvedVoiceId"]);
   return {
-    provider: decodeSpeechProvider(requireField(record, "provider", "SpeechSynthesisRequest"), "SpeechSynthesisRequest.provider"),
     source: decodeSpeechSource(requireField(record, "source", "SpeechSynthesisRequest")),
     resolvedVoiceId: decodeSpeechVoiceID(requireField(record, "resolvedVoiceId", "SpeechSynthesisRequest"), "SpeechSynthesisRequest.resolvedVoiceId"),
-  };
-}
-
-export function decodeSpeechSynthesisInput(value: unknown): SpeechSynthesisInput {
-  const record = assertRecord(value, "SpeechSynthesisInput");
-  assertKnownFields(record, "SpeechSynthesisInput", ["provider", "source", "text", "resolvedVoiceId", "rate"]);
-  return {
-    provider: decodeSpeechProvider(requireField(record, "provider", "SpeechSynthesisInput"), "SpeechSynthesisInput.provider"),
-    source: decodeSpeechSource(requireField(record, "source", "SpeechSynthesisInput")),
-    text: decodeString(requireField(record, "text", "SpeechSynthesisInput"), "SpeechSynthesisInput.text"),
-    resolvedVoiceId: decodeSpeechVoiceID(requireField(record, "resolvedVoiceId", "SpeechSynthesisInput"), "SpeechSynthesisInput.resolvedVoiceId"),
-    rate: decodeNumber(requireField(record, "rate", "SpeechSynthesisInput"), "SpeechSynthesisInput.rate"),
   };
 }
 
@@ -7397,6 +7088,9 @@ export interface BackendClient {
   backendHealth: (options?: BackendRequestOptions) => Promise<BackendHealth>;
   runtimeInfo: (options?: BackendRequestOptions) => Promise<RuntimeInfoResponse>;
   completePairing: (request: CompletePairingRequest, options?: BackendRequestOptions) => Promise<CompletePairingResponse>;
+  localCredentialEnroll: (request: EnrollRequest, options?: BackendRequestOptions) => Promise<EnrollResponse>;
+  localCredentialRefresh: (request: RefreshRequest, options?: BackendRequestOptions) => Promise<RuntimeCredentialResponse>;
+  setupAttestation: (request: SetupAttestationRequest, options?: BackendRequestOptions) => Promise<SetupAttestationResponse>;
   updateRuntimeDisplayName: (request: UpdateRuntimeDisplayNameRequest, options?: BackendRequestOptions) => Promise<RuntimeInfoResponse>;
   listDevices: (request: ListDevicesRequest, options?: BackendRequestOptions) => Promise<ListDevicesResponse>;
   revokeDevice: (request: RevokeDeviceRequest, options?: BackendRequestOptions) => Promise<RevokeDeviceResponse>;
@@ -7413,11 +7107,8 @@ export interface BackendClient {
   removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest, options?: BackendRequestOptions) => Promise<WorkspaceSession>;
   readWorkspaceUILayout: (request: ReadWorkspaceUILayoutRequest, options?: BackendRequestOptions) => Promise<WorkspaceUILayoutReadResult>;
   saveWorkspaceUILayout: (request: SaveWorkspaceUILayoutRequest, options?: BackendRequestOptions) => Promise<WorkspaceUILayout>;
-  readAppPaneLayout: (options?: BackendRequestOptions) => Promise<AppPaneLayoutReadResult>;
-  saveAppPaneLayout: (request: SaveAppPaneLayoutRequest, options?: BackendRequestOptions) => Promise<AppPaneLayout>;
   createTopicConversation: (request: CreateTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   archiveTopicConversation: (request: ArchiveTopicConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
-  bindTopicConversationFolder: (request: BindTopicConversationFolderRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   sendSideConversationTurn: (request: SendSideConversationTurnRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   disposeSideConversation: (request: DisposeSideConversationRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
   readConversationSnapshot: (request: ReadConversationSnapshotRequest, options?: BackendRequestOptions) => Promise<ConversationSnapshot>;
@@ -7442,7 +7133,6 @@ export interface BackendClient {
   submitMasterInput: (request: SubmitMasterInputRequest, options?: BackendRequestOptions) => Promise<AcceptedMasterInput>;
   cancelMasterInput: (request: CancelMasterInputRequest, options?: BackendRequestOptions) => Promise<ShellInteractionState>;
   readMasterInputRoutingState: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<InputRoutingState>;
-  readMasterTranscript: (request: ReadMasterTranscriptRequest, options?: BackendRequestOptions) => Promise<Transcript>;
   waitMasterShellInteraction: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<ShellInteractionState>;
   waitMasterPresentationIntent: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<PresentationIntent>;
   resolveMasterPresentationIntent: (request: PresentationResolutionRequest, options?: BackendRequestOptions) => Promise<PresentationResolution>;
@@ -7451,11 +7141,7 @@ export interface BackendClient {
   updateMasterVoiceSelection: (request: VoiceSelectionRequest, options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
   readNarratorVoiceDefault: (options?: BackendRequestOptions) => Promise<NarratorVoiceDefault>;
   updateNarratorVoiceDefault: (request: VoiceSelectionRequest, options?: BackendRequestOptions) => Promise<NarratorVoiceDefault>;
-  validateDesktopSpeechCredential: (request: SpeechCredentialRequest, options?: BackendRequestOptions) => Promise<SpeechCredentialValidationResult>;
-  loadDesktopSpeechCredential: (request: SpeechCredentialRequest, options?: BackendRequestOptions) => Promise<SpeechCredentialStatus>;
-  clearDesktopSpeechCredential: (request: ClearDesktopSpeechCredentialRequest, options?: BackendRequestOptions) => Promise<SpeechCredentialStatus>;
   createSpeechTranscriptionSession: (request: CreateSpeechTranscriptionSessionRequest, options?: BackendRequestOptions) => Promise<SpeechTranscriptionSession>;
-  resolveSpeechSynthesisInput: (request: SpeechSynthesisRequest, options?: BackendRequestOptions) => Promise<SpeechSynthesisInput>;
   synthesizeSpeech: (request: SpeechSynthesisRequest, options?: BackendRequestOptions) => Promise<SpeechAudio>;
   readCodexAccount: (options?: BackendRequestOptions) => Promise<CodexAccountState>;
   refreshCodexAccount: (request: RefreshCodexAccountRequest, options?: BackendRequestOptions) => Promise<CodexAccountState>;
@@ -7489,6 +7175,33 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCompletePairingResponse,
       endpoint: backendEndpoints.CompletePairing,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    localCredentialEnroll: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeEnrollResponse,
+      endpoint: backendEndpoints.LocalCredentialEnroll,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    localCredentialRefresh: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRuntimeCredentialResponse,
+      endpoint: backendEndpoints.LocalCredentialRefresh,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    setupAttestation: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSetupAttestationResponse,
+      endpoint: backendEndpoints.SetupAttestation,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,
@@ -7637,24 +7350,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
       signal: options?.signal,
     }),
-    readAppPaneLayout: (options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeAppPaneLayoutReadResult,
-      endpoint: backendEndpoints.ReadAppPaneLayout,
-      fetchImpl,
-      requestPayload: undefined,
-      signal: options?.signal,
-    }),
-    saveAppPaneLayout: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeAppPaneLayout,
-      endpoint: backendEndpoints.SaveAppPaneLayout,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
     createTopicConversation: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -7669,15 +7364,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeConversationSnapshot,
       endpoint: backendEndpoints.ArchiveTopicConversation,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    bindTopicConversationFolder: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeConversationSnapshot,
-      endpoint: backendEndpoints.BindTopicConversationFolder,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,
@@ -7898,15 +7584,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
       signal: options?.signal,
     }),
-    readMasterTranscript: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeTranscript,
-      endpoint: backendEndpoints.ReadMasterTranscript,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
     waitMasterShellInteraction: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -7979,47 +7656,11 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       requestPayload: request,
       signal: options?.signal,
     }),
-    validateDesktopSpeechCredential: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeSpeechCredentialValidationResult,
-      endpoint: backendEndpoints.ValidateDesktopSpeechCredential,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    loadDesktopSpeechCredential: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeSpeechCredentialStatus,
-      endpoint: backendEndpoints.LoadDesktopSpeechCredential,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    clearDesktopSpeechCredential: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeSpeechCredentialStatus,
-      endpoint: backendEndpoints.ClearDesktopSpeechCredential,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
     createSpeechTranscriptionSession: (request, options) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeSpeechTranscriptionSession,
       endpoint: backendEndpoints.CreateSpeechTranscriptionSession,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    resolveSpeechSynthesisInput: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodeSpeechSynthesisInput,
-      endpoint: backendEndpoints.ResolveSpeechSynthesisInput,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

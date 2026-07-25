@@ -2,7 +2,6 @@ package conversation
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -59,7 +58,29 @@ func TestServiceAllocatesStableDistinctVisibleConversationPalettes(t *testing.T)
 	assertExhaustedPaletteProfile(t, exhausted.PresentationProfile, created[0].Conversation.ID)
 
 	alpha := created[0]
-	remainingBindings := make([]WorkspacePaneBinding, 0, len(bindings)-1)
+	bindings = append(bindings, WorkspacePaneBinding{
+		PaneID:         "pane-alpha-duplicate",
+		ConversationID: alpha.Conversation.ID,
+	})
+	replacePaletteTestPaneBindings(t, store, workspaceID, bindings)
+	alphaWithDuplicateViews, err := service.ReadSnapshot(ctx, workspaceID, alpha.Conversation.ID)
+	if err != nil {
+		t.Fatalf("read alpha with duplicate views: %v", err)
+	}
+	if alphaWithDuplicateViews.PresentationProfile.PaletteSelection !=
+		alpha.PresentationProfile.PaletteSelection ||
+		alphaWithDuplicateViews.PresentationProfile.RequestedPaletteID != nil ||
+		alphaWithDuplicateViews.PresentationProfile.ResolvedPaletteID !=
+			alpha.PresentationProfile.ResolvedPaletteID ||
+		alphaWithDuplicateViews.PresentationProfile.PaletteReuse != nil {
+		t.Fatalf(
+			"duplicate views changed presentation: got %+v want %+v",
+			alphaWithDuplicateViews.PresentationProfile,
+			alpha.PresentationProfile,
+		)
+	}
+
+	remainingBindings := make([]WorkspacePaneBinding, 0, len(bindings)-2)
 	for _, binding := range bindings {
 		if binding.ConversationID != alpha.Conversation.ID {
 			remainingBindings = append(remainingBindings, binding)
@@ -76,68 +97,6 @@ func TestServiceAllocatesStableDistinctVisibleConversationPalettes(t *testing.T)
 	if relieved.PresentationProfile.ResolvedPaletteID != conversationpalette.ConversationPaletteSky ||
 		relieved.PresentationProfile.PaletteReuse != nil {
 		t.Fatalf("palette reuse did not clear after visible pressure left: %+v", relieved.PresentationProfile)
-	}
-}
-
-func TestServiceCreatesFolderlessTopicAndRequiresFolderForTurns(t *testing.T) {
-	store, service, _, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
-	t.Cleanup(func() {
-		shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		_ = service.Shutdown(shutdownContext)
-		_ = store.Close()
-	})
-	ctx := context.Background()
-
-	created, err := service.CreateTopicWithOptionalWorkspace(ctx, nil, "App-level request")
-	if err != nil {
-		t.Fatalf("CreateTopicWithOptionalWorkspace: %v", err)
-	}
-	if created.Conversation.WorkspaceID != nil {
-		t.Fatalf("folderless conversation workspace = %q, want nil", *created.Conversation.WorkspaceID)
-	}
-	reloaded, err := store.ReadSnapshotByID(ctx, created.Conversation.ID)
-	if err != nil {
-		t.Fatalf("ReadSnapshotByID: %v", err)
-	}
-	if reloaded.Conversation.WorkspaceID != nil {
-		t.Fatalf("reloaded folderless conversation workspace = %q, want nil", *reloaded.Conversation.WorkspaceID)
-	}
-	if _, err := store.ReadSnapshot(ctx, workspaceID, created.Conversation.ID); !IsConversationNotFound(err) {
-		t.Fatalf("workspace-scoped ReadSnapshot error = %T %v, want conversation not found", err, err)
-	}
-
-	_, err = service.acceptTurn(ctx, created, "needs the project folder", TurnDeliveryNormal, 0, "turn-folderless")
-	var resourceRequired *ResourceRequiredError
-	if !errors.As(err, &resourceRequired) ||
-		resourceRequired.ConversationID != created.Conversation.ID ||
-		resourceRequired.ResourceKind != "folder" {
-		t.Fatalf("folderless turn error = %T %v, want folder ResourceRequiredError", err, err)
-	}
-
-	bound, err := service.BindFolderResource(ctx, workspaceID, created.Conversation.ID)
-	if err != nil {
-		t.Fatalf("BindFolderResource: %v", err)
-	}
-	if bound.Conversation.WorkspaceID == nil || *bound.Conversation.WorkspaceID != workspaceID {
-		t.Fatalf("bound conversation workspace = %+v, want %q", bound.Conversation.WorkspaceID, workspaceID)
-	}
-	reloadedBound, err := store.ReadSnapshot(ctx, workspaceID, created.Conversation.ID)
-	if err != nil {
-		t.Fatalf("workspace-scoped ReadSnapshot after bind: %v", err)
-	}
-	if reloadedBound.Conversation.WorkspaceID == nil || *reloadedBound.Conversation.WorkspaceID != workspaceID {
-		t.Fatalf("reloaded bound workspace = %+v, want %q", reloadedBound.Conversation.WorkspaceID, workspaceID)
-	}
-	page, err := service.ListNavigatorPage(ctx, workspaceID, "", nil, 10)
-	if err != nil {
-		t.Fatalf("ListNavigatorPage after bind: %v", err)
-	}
-	if len(page.Items) != 1 || page.Items[0].Conversation.ID != created.Conversation.ID {
-		t.Fatalf("navigator after bind = %+v, want bound conversation", page.Items)
-	}
-	if _, err := service.acceptTurn(ctx, bound, "continue with the selected folder", TurnDeliveryNormal, 0, "turn-bound"); err != nil {
-		t.Fatalf("bound acceptTurn: %v", err)
 	}
 }
 
@@ -492,10 +451,7 @@ type serviceTestAgentRuntime struct {
 	injectErr            error
 	injections           []serviceTestInjection
 	lastApproval         *agent.ApprovalResponse
-	operationLog         []string
 	resolveRequests      []agent.Invocation
-	resumeRequests       []serviceTestResume
-	runProviderMissing   int
 	runRequests          []agent.TurnRequest
 	startRequests        []agent.StartThreadRequest
 	started              chan string
@@ -510,11 +466,6 @@ type serviceTestAgentRuntime struct {
 type serviceTestInjection struct {
 	threadID string
 	items    []agent.InjectedTextItem
-}
-
-type serviceTestResume struct {
-	threadID string
-	request  agent.StartThreadRequest
 }
 
 func newServiceTestAgentRuntime() *serviceTestAgentRuntime {
@@ -553,40 +504,10 @@ func (runtime *serviceTestAgentRuntime) StartThread(
 	thread := agent.Thread{
 		ID:        fmt.Sprintf("provider-thread-%d", runtime.threads),
 		SessionID: fmt.Sprintf("session-%d", runtime.threads),
-		CWD:       request.WorkspaceRoot,
-		Model:     request.Invocation.Model,
-		Ephemeral: request.Ephemeral,
+		Model:     "gpt-5.6-sol",
 	}
 	runtime.providerThreads[thread.ID] = thread
-	runtime.operationLog = append(runtime.operationLog, "thread/start:"+thread.ID)
 	return thread, nil
-}
-
-func (runtime *serviceTestAgentRuntime) ResumeThreadWithConfiguration(
-	_ context.Context,
-	threadID string,
-	request agent.StartThreadRequest,
-) (agent.ThreadResumeResult, error) {
-	runtime.mu.Lock()
-	defer runtime.mu.Unlock()
-	runtime.resumeRequests = append(runtime.resumeRequests, serviceTestResume{
-		threadID: threadID,
-		request:  request,
-	})
-	runtime.operationLog = append(runtime.operationLog, "thread/resume:"+threadID)
-	thread, ok := runtime.providerThreads[threadID]
-	if !ok {
-		return agent.ThreadResumeResult{}, &agent.ProviderThreadMissingError{
-			Operation: "resume agent thread",
-			ThreadID:  threadID,
-			Err:       fmt.Errorf("scripted provider thread %s missing", threadID),
-		}
-	}
-	thread.CWD = request.WorkspaceRoot
-	thread.Model = request.Invocation.Model
-	thread.Ephemeral = request.Ephemeral
-	runtime.providerThreads[threadID] = thread
-	return agent.ThreadResumeResult{Thread: thread, Resumed: true}, nil
 }
 
 func (runtime *serviceTestAgentRuntime) ForkThread(
@@ -628,20 +549,6 @@ func (runtime *serviceTestAgentRuntime) InjectItems(
 	return runtime.injectErr
 }
 
-func (runtime *serviceTestAgentRuntime) MaterializeThread(
-	_ context.Context,
-	threadID string,
-	marker string,
-) error {
-	runtime.mu.Lock()
-	runtime.operationLog = append(runtime.operationLog, "thread/materialize:"+threadID)
-	runtime.mu.Unlock()
-	return runtime.InjectItems(context.Background(), threadID, []agent.InjectedTextItem{{
-		Role: "user",
-		Text: marker,
-	}})
-}
-
 func (runtime *serviceTestAgentRuntime) RunTurn(
 	ctx context.Context,
 	request agent.TurnRequest,
@@ -650,29 +557,10 @@ func (runtime *serviceTestAgentRuntime) RunTurn(
 	runtime.mu.Lock()
 	runtime.turns++
 	runtime.runRequests = append(runtime.runRequests, request)
-	runtime.operationLog = append(runtime.operationLog, "turn/start:"+request.ProviderThreadID+":"+request.Text)
-	if runtime.runProviderMissing > 0 {
-		runtime.runProviderMissing--
-		delete(runtime.providerThreads, request.ProviderThreadID)
-		runtime.mu.Unlock()
-		return agent.TurnResult{}, &agent.ProviderThreadMissingError{
-			Operation: "start agent turn",
-			ThreadID:  request.ProviderThreadID,
-			Err:       fmt.Errorf("scripted provider thread %s missing before turn start", request.ProviderThreadID),
-		}
-	}
 	providerTurnID := fmt.Sprintf("provider-turn-%d", runtime.turns)
 	control := make(chan string, 1)
 	runtime.controls[providerTurnID] = control
-	thread, ok := runtime.providerThreads[request.ProviderThreadID]
-	if !ok {
-		runtime.mu.Unlock()
-		return agent.TurnResult{}, &agent.ProviderThreadMissingError{
-			Operation: "start agent turn",
-			ThreadID:  request.ProviderThreadID,
-			Err:       fmt.Errorf("scripted provider thread %s missing before turn start", request.ProviderThreadID),
-		}
-	}
+	thread := runtime.providerThreads[request.ProviderThreadID]
 	thread.Turns = append(thread.Turns, agent.ThreadTurn{ID: providerTurnID, Status: "inProgress", Items: []agent.ThreadItemSummary{}})
 	thread.TurnCount = len(thread.Turns)
 	runtime.providerThreads[request.ProviderThreadID] = thread
@@ -1133,12 +1021,6 @@ func (runtime *serviceTestAgentRuntime) startThreadRequests() []agent.StartThrea
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
 	return append([]agent.StartThreadRequest{}, runtime.startRequests...)
-}
-
-func (runtime *serviceTestAgentRuntime) operations() []string {
-	runtime.mu.Lock()
-	defer runtime.mu.Unlock()
-	return append([]string{}, runtime.operationLog...)
 }
 
 func (runtime *serviceTestAgentRuntime) unsubscribedThreads() []string {

@@ -89,75 +89,8 @@ describe("conversation routing presentation", () => {
         "conversation_alpha",
       )?.routingFailure,
     ).toEqual({
-      code: "routing_failed",
       inputId: "input_failed",
       message: "The narrator route failed.",
-      retryable: true,
-    });
-  });
-
-  test("settles folderless narrator answers without creating a resource failure", async () => {
-    const state = routingState(
-      conversationInputState({ id: "input_folderless_hi", sequence: 12, status: "dispatched" }),
-      routeCommand({
-        answerAsNarrator: {
-          question: "hi",
-          requestId: "narrator_status_folderless",
-        },
-        kind: "answer_as_narrator",
-      }),
-    );
-
-    await expect(applyConversationRoutingPresentation(null, state)).resolves.toBeUndefined();
-    expect(
-      conversationRoutingPresentation(
-        useConversationRoutingStore.getState().presentations,
-        null,
-        "conversation_alpha",
-      ),
-    ).toMatchObject({
-      inputId: "input_folderless_hi",
-      routingFailure: null,
-      sequence: 12,
-    });
-  });
-
-  test("records folder resource failures only when routing reports resource required", async () => {
-    const failed = routingState(
-      conversationInputState({
-        id: "input_folderless_folder_required",
-        sequence: 13,
-        status: "failed",
-      }),
-      routeCommand({
-        kind: "send_to_parent",
-        sendToParent: {
-          authoredInput: { text: "Inspect repository files" },
-          turnId: "turn_failed",
-        },
-      }),
-    );
-    failed.input.failure = {
-      code: "conversation_resource_required",
-      diagnosticReference: "conversation_resource:input_folderless_folder_required:1",
-      message: "conversation conversation_alpha requires a folder resource",
-      retryable: true,
-    };
-
-    const result = applyConversationRoutingPresentation(null, failed);
-    await expect(result).rejects.toThrow(
-      "conversation conversation_alpha requires a folder resource",
-    );
-    expect(
-      conversationRoutingPresentation(
-        useConversationRoutingStore.getState().presentations,
-        null,
-        "conversation_alpha",
-      )?.routingFailure,
-    ).toEqual({
-      code: "conversation_resource_required",
-      inputId: "input_folderless_folder_required",
-      message: "conversation conversation_alpha requires a folder resource",
       retryable: true,
     });
   });

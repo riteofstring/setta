@@ -185,25 +185,10 @@ async function waitForConversationSurface(client, conversationId, ready, timeout
 
 function waitForConversationSnapshot(backend, workspaceId, conversationId, ready, timeoutMs) {
   return waitForBackendState(
-    async () => readConversationSnapshotForWait(backend, workspaceId, conversationId),
-    (value) => value !== null && ready(value),
+    async () => backend.post("/conversations/snapshot/read", { conversationId, workspaceId }),
+    ready,
     timeoutMs,
   );
-}
-
-async function readConversationSnapshotForWait(backend, workspaceId, conversationId) {
-  const response = await backend.request("POST", "/conversations/snapshot/read", {
-    conversationId,
-    workspaceId,
-  });
-  if (response.status === 404) {
-    return null;
-  }
-  const body = await response.text();
-  if (!response.ok) {
-    throw new Error(`POST /conversations/snapshot/read returned ${response.status}: ${body}`);
-  }
-  return JSON.parse(body);
 }
 
 async function closeConversationPane(client, conversationId) {

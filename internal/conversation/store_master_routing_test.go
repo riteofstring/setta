@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"setta/internal/applayout"
 	"setta/internal/master"
 )
 
@@ -100,64 +99,6 @@ INSERT INTO pane_bindings (
 	}
 }
 
-func TestStoreReadsFolderlessMasterRouteTarget(t *testing.T) {
-	store := newTestStore(t)
-	conversation := TopicConversation{
-		ID:              "route-target-folderless",
-		Title:           "Folderless target",
-		TopicDescriptor: "Folderless route target coverage",
-		Status:          ConversationStatusIdle,
-		CreatedAt:       "2026-07-11T20:00:00Z",
-		UpdatedAt:       "2026-07-11T20:01:00Z",
-	}
-	_, err := store.Transact(context.Background(), "seed folderless master route target", func(transaction *WriteTransaction) error {
-		if err := transaction.InsertConversation(conversation); err != nil {
-			return err
-		}
-		_, err := transaction.AppendCommittedEvent(transactionTestEventDraft(
-			"seed-folderless-master-route-target",
-			"conversation:"+conversation.ID,
-			conversation,
-		))
-		return err
-	})
-	if err != nil {
-		t.Fatalf("seed folderless route target: %v", err)
-	}
-	if err := store.ReplaceFolderlessPaneBindings(
-		context.Background(),
-		[]FolderlessPaneBinding{{
-			PaneID:         "pane-folderless-route-target",
-			ConversationID: conversation.ID,
-			Focused:        true,
-		}},
-		"2026-07-11T20:02:00Z",
-	); err != nil {
-		t.Fatalf("ReplaceFolderlessPaneBindings: %v", err)
-	}
-
-	targets, err := store.ReadMasterRouteTargets(
-		context.Background(),
-		[]string{conversation.ID},
-		master.MaxRouteForkPointsPerTarget,
-	)
-	if err != nil {
-		t.Fatalf("ReadMasterRouteTargets: %v", err)
-	}
-	if len(targets) != 1 {
-		t.Fatalf("folderless targets = %+v, want one", targets)
-	}
-	target := targets[0]
-	if target.ResourceScope.Kind != master.RouteResourceScopeKindFolderless ||
-		target.ResourceScope.Folder != nil ||
-		!slices.Equal(target.AllowedDecisionKinds, []master.RouteDecisionKind{master.RouteDecisionKindFocusConversation}) ||
-		target.OpenPaneCount != 1 ||
-		len(target.OpenPaneIDs) != 1 ||
-		target.OpenPaneIDs[0] != "pane-folderless-route-target" {
-		t.Fatalf("folderless route target = %+v", target)
-	}
-}
-
 func masterRouteContextTestConversation(
 	id string,
 	status ConversationStatus,
@@ -165,7 +106,7 @@ func masterRouteContextTestConversation(
 ) TopicConversation {
 	return TopicConversation{
 		ID:              id,
-		WorkspaceID:     stringPointer("workspace-route-context"),
+		WorkspaceID:     "workspace-route-context",
 		Title:           id,
 		TopicDescriptor: "Master route context coverage",
 		Status:          status,
@@ -716,7 +657,7 @@ func seedMasterRouteState(t *testing.T, store *Store) master.Session {
 	t.Helper()
 	conversation := TopicConversation{
 		ID:              "conversation-master-route",
-		WorkspaceID:     stringPointer("workspace-1"),
+		WorkspaceID:     "workspace-1",
 		Title:           "Master routing",
 		TopicDescriptor: "Strict global routing",
 		Status:          ConversationStatusIdle,
@@ -824,7 +765,7 @@ func masterRouteTestCommit(
 			FocusedConversationID: cloneStringPointer(work.Input.Input.FocusedConversationID),
 			TargetAuthorities: []master.RouteTargetAuthority{{
 				ConversationID:       "conversation-master-route",
-				ResourceScope:        master.FolderRouteResourceScope("workspace-1", ""),
+				WorkspaceID:          "workspace-1",
 				AllowedDecisionKinds: []master.RouteDecisionKind{master.RouteDecisionKindFocusConversation},
 				CompletedForkTurnIDs: []string{},
 			}},
@@ -845,10 +786,9 @@ func masterRouteTestCommit(
 
 func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {
 	target := master.ConversationPresentationTarget{
-		ConversationID:   "conversation-master-route",
-		ResourceScope:    master.FolderRouteResourceScope("workspace-1", ""),
-		ResourceBindings: masterRouteTestResourceBindings(),
-		Title:            "Master routing",
+		WorkspaceID:    "workspace-1",
+		ConversationID: "conversation-master-route",
+		Title:          "Master routing",
 	}
 	command := master.RouteCommand{Kind: decision.Kind}
 	switch decision.Kind {
@@ -873,10 +813,9 @@ func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {
 	case master.RouteDecisionKindCreateConversation:
 		command.CreateConversation = &master.MasterCreateConversationRouteCommand{
 			Target: master.ConversationPresentationTarget{
-				ConversationID:   "master-route-created-conversation",
-				ResourceScope:    master.FolderRouteResourceScope(decision.CreateConversation.WorkspaceID, ""),
-				ResourceBindings: masterRouteTestResourceBindings(),
-				Title:            decision.CreateConversation.ProposedTitle,
+				WorkspaceID:    decision.CreateConversation.WorkspaceID,
+				ConversationID: "master-route-created-conversation",
+				Title:          decision.CreateConversation.ProposedTitle,
 			},
 			TurnID: "master-route-turn", InitialInput: decision.CreateConversation.InitialInput,
 		}
@@ -888,10 +827,7 @@ func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {
 		command.ForkConversation = &master.MasterForkConversationRouteCommand{
 			ParentConversationID: target.ConversationID,
 			Target: master.ConversationPresentationTarget{
-				ConversationID:   "master-route-fork",
-				ResourceScope:    target.ResourceScope,
-				ResourceBindings: masterRouteTestResourceBindings(),
-				Title:            "Fork of Master routing",
+				WorkspaceID: target.WorkspaceID, ConversationID: "master-route-fork", Title: "Fork of Master routing",
 			},
 			ForkedAtTurnID: decision.ForkConversation.ForkedAtTurnID,
 			TurnID:         "master-route-fork-turn",
@@ -903,11 +839,4 @@ func masterRouteTestCommand(decision master.RouteDecision) master.RouteCommand {
 		command.AnswerGlobal = &master.MasterAnswerGlobalRouteCommand{Text: decision.AnswerGlobal.Text}
 	}
 	return command
-}
-
-func masterRouteTestResourceBindings() []applayout.ConversationPaneResourceBinding {
-	return []applayout.ConversationPaneResourceBinding{{
-		Folder: &applayout.FolderResourceBinding{RootPath: "/tmp/setta-master-route-test"},
-		Kind:   applayout.ConversationPaneResourceBindingKindFolder,
-	}}
 }

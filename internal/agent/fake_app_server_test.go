@@ -67,51 +67,45 @@ func handleFakeAgentMethod(state *fakeAgentServerState, message map[string]any) 
 	if handleFakeAgentBootstrapMethod(method, message) {
 		return
 	}
-	if handleFakeAgentThreadMethod(state, method, message) {
-		return
-	}
-	if handleFakeAgentTurnMethod(state, method, message) {
-		return
-	}
-	writeFakeAgentError(message["id"], -32601, "unsupported fake method "+method)
-}
-
-func handleFakeAgentThreadMethod(
-	state *fakeAgentServerState,
-	method string,
-	message map[string]any,
-) bool {
 	switch method {
 	case "thread/start":
 		handleFakeAgentThreadStart(state, message)
 	case "thread/resume":
 		handleFakeAgentThreadResume(state, message)
 	case "thread/read":
-		handleFakeAgentThreadRead(message)
+		threadID := fakeAgentStringParam(message, "threadId")
+		thread := fakeAgentThread(threadID)
+		thread["turns"] = []any{fakeAgentTurn("turn-history", "completed")}
+		writeFakeAgentResponse(message["id"], map[string]any{"thread": thread})
 	case "thread/list":
-		handleFakeAgentThreadList(state, message)
+		data := make([]any, 0, len(state.threads))
+		for _, threadID := range state.threads {
+			data = append(data, fakeAgentThread(threadID))
+		}
+		writeFakeAgentResponse(message["id"], map[string]any{"data": data, "nextCursor": nil, "backwardsCursor": nil})
 	case "thread/search":
-		handleFakeAgentThreadSearch(state, message)
+		threadID := "thread-search"
+		if len(state.threads) > 0 {
+			threadID = state.threads[0]
+		}
+		writeFakeAgentResponse(message["id"], map[string]any{
+			"data":            []any{map[string]any{"thread": fakeAgentThread(threadID), "snippet": "matching topic"}},
+			"nextCursor":      nil,
+			"backwardsCursor": nil,
+		})
 	case "thread/fork":
 		handleFakeAgentThreadFork(state, message)
 	case "thread/inject_items":
-		handleFakeAgentThreadInjectItems(message)
+		params := fakeAgentParams(message)
+		items, ok := params["items"].([]any)
+		if !ok || len(items) == 0 {
+			panic("thread/inject_items missing items")
+		}
+		writeFakeAgentResponse(message["id"], map[string]any{})
 	case "thread/unsubscribe":
 		handleFakeAgentThreadUnsubscribe(state, message)
 	case "thread/backgroundTerminals/terminate":
 		writeFakeAgentResponse(message["id"], map[string]any{"terminated": true})
-	default:
-		return false
-	}
-	return true
-}
-
-func handleFakeAgentTurnMethod(
-	state *fakeAgentServerState,
-	method string,
-	message map[string]any,
-) bool {
-	switch method {
 	case "turn/start":
 		handleFakeAgentTurnStart(state, message)
 	case "turn/steer":
@@ -119,49 +113,8 @@ func handleFakeAgentTurnMethod(
 	case "turn/interrupt":
 		handleFakeAgentTurnInterrupt(state, message)
 	default:
-		return false
+		writeFakeAgentError(message["id"], -32601, "unsupported fake method "+method)
 	}
-	return true
-}
-
-func handleFakeAgentThreadRead(message map[string]any) {
-	threadID := fakeAgentStringParam(message, "threadId")
-	thread := fakeAgentThread(threadID)
-	if fakeAgentBoolParam(message, "includeTurns") {
-		thread["turns"] = []any{fakeAgentTurn("turn-history", "completed")}
-	}
-	writeFakeAgentResponse(message["id"], map[string]any{"thread": thread})
-}
-
-func handleFakeAgentThreadList(state *fakeAgentServerState, message map[string]any) {
-	threadIDs := append([]string{}, state.threads...)
-	threadIDs = append(threadIDs, "thread-load-error-list-present")
-	data := make([]any, 0, len(threadIDs))
-	for _, threadID := range threadIDs {
-		data = append(data, fakeAgentThread(threadID))
-	}
-	writeFakeAgentResponse(message["id"], map[string]any{"data": data, "nextCursor": nil, "backwardsCursor": nil})
-}
-
-func handleFakeAgentThreadSearch(state *fakeAgentServerState, message map[string]any) {
-	threadID := "thread-search"
-	if len(state.threads) > 0 {
-		threadID = state.threads[0]
-	}
-	writeFakeAgentResponse(message["id"], map[string]any{
-		"data":            []any{map[string]any{"thread": fakeAgentThread(threadID), "snippet": "matching topic"}},
-		"nextCursor":      nil,
-		"backwardsCursor": nil,
-	})
-}
-
-func handleFakeAgentThreadInjectItems(message map[string]any) {
-	params := fakeAgentParams(message)
-	items, ok := params["items"].([]any)
-	if !ok || len(items) == 0 {
-		panic("thread/inject_items missing items")
-	}
-	writeFakeAgentResponse(message["id"], map[string]any{})
 }
 
 func handleFakeAgentThreadUnsubscribe(state *fakeAgentServerState, message map[string]any) {
@@ -268,13 +221,6 @@ func handleFakeAgentThreadStart(state *fakeAgentServerState, message map[string]
 func handleFakeAgentThreadResume(state *fakeAgentServerState, message map[string]any) {
 	params := fakeAgentParams(message)
 	threadID := fakeAgentRequiredString(params, "threadId")
-	if params["excludeTurns"] != true {
-		panic("thread/resume must exclude turns")
-	}
-	if threadID == "thread-missing-list-confirms" || threadID == "thread-load-error-list-present" {
-		writeFakeAgentError(message["id"], -32600, "thread not loaded: "+threadID)
-		return
-	}
 	thread := fakeAgentThread(threadID)
 	if cwd, ok := params["cwd"].(string); ok {
 		thread["cwd"] = cwd
@@ -714,7 +660,7 @@ func fakeAgentThreadOperationResponse(
 	params map[string]any,
 	model string,
 ) map[string]any {
-	approvalPolicy := any("never")
+	approvalPolicy := any("on-request")
 	if requested, ok := params["approvalPolicy"]; ok {
 		approvalPolicy = requested
 	}
@@ -848,11 +794,6 @@ func fakeAgentParams(message map[string]any) map[string]any {
 
 func fakeAgentStringParam(message map[string]any, field string) string {
 	return fakeAgentRequiredString(fakeAgentParams(message), field)
-}
-
-func fakeAgentBoolParam(message map[string]any, field string) bool {
-	value, _ := fakeAgentParams(message)[field].(bool)
-	return value
 }
 
 func fakeAgentRequiredString(value map[string]any, field string) string {
