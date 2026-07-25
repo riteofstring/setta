@@ -650,6 +650,13 @@ type fakeSDKAPI struct {
 	destroy       func(context.Context, string) error
 	serverVersion func(context.Context, string) (string, error)
 	orgSnapshot   func(context.Context) (*sdkOrganizationSnapshot, error)
+	calls         map[string]int
+}
+
+func (client *fakeSDKAPI) recordCall(method string) {
+	if client.calls != nil {
+		client.calls[method]++
+	}
 }
 
 func (client *fakeSDKAPI) Create(
@@ -658,6 +665,7 @@ func (client *fakeSDKAPI) Create(
 	labels []string,
 	resources runtimeprovider.RuntimeResources,
 ) error {
+	client.recordCall("Create")
 	if client.create == nil {
 		return errors.New("unexpected Create call")
 	}
@@ -665,6 +673,7 @@ func (client *fakeSDKAPI) Create(
 }
 
 func (client *fakeSDKAPI) FindRuntime(ctx context.Context, name string) (*spritessdk.SpriteInfo, bool, error) {
+	client.recordCall("FindRuntime")
 	if client.findRuntime == nil {
 		return nil, false, errors.New("unexpected FindRuntime call")
 	}
@@ -675,6 +684,7 @@ func (client *fakeSDKAPI) Exec(
 	ctx context.Context,
 	request runtimeprovider.ExecRequest,
 ) (runtimeprovider.ExecResult, error) {
+	client.recordCall("Exec")
 	if client.exec == nil {
 		return runtimeprovider.ExecResult{}, errors.New("unexpected Exec call")
 	}
@@ -682,6 +692,7 @@ func (client *fakeSDKAPI) Exec(
 }
 
 func (client *fakeSDKAPI) ConfigureURL(ctx context.Context, name string, auth string) error {
+	client.recordCall("ConfigureURL")
 	if client.configureURL == nil {
 		return errors.New("unexpected ConfigureURL call")
 	}
@@ -694,6 +705,7 @@ func (client *fakeSDKAPI) ProxySocket(
 	name string,
 	address string,
 ) (net.Conn, error) {
+	client.recordCall("ProxySocket")
 	if client.proxySocket == nil {
 		return nil, errors.New("unexpected ProxySocket call")
 	}
@@ -705,6 +717,7 @@ func (client *fakeSDKAPI) EnsureService(
 	name string,
 	spec runtimeprovider.ServiceSpec,
 ) (*spritessdk.ServiceWithState, error) {
+	client.recordCall("EnsureService")
 	if client.ensureService == nil {
 		return nil, errors.New("unexpected EnsureService call")
 	}
@@ -716,6 +729,7 @@ func (client *fakeSDKAPI) FindService(
 	runtimeName string,
 	serviceName string,
 ) (*spritessdk.ServiceWithState, bool, error) {
+	client.recordCall("FindService")
 	if client.findService == nil {
 		return nil, false, errors.New("unexpected FindService call")
 	}
@@ -727,6 +741,7 @@ func (client *fakeSDKAPI) ApplyNetworkPolicy(
 	name string,
 	policy *spritessdk.NetworkPolicy,
 ) error {
+	client.recordCall("ApplyNetworkPolicy")
 	if client.applyPolicy == nil {
 		return errors.New("unexpected ApplyNetworkPolicy call")
 	}
@@ -737,6 +752,7 @@ func (client *fakeSDKAPI) InspectNetworkPolicy(
 	ctx context.Context,
 	name string,
 ) (*spritessdk.NetworkPolicy, error) {
+	client.recordCall("InspectNetworkPolicy")
 	if client.inspectPolicy == nil {
 		return nil, errors.New("unexpected InspectNetworkPolicy call")
 	}
@@ -748,6 +764,7 @@ func (client *fakeSDKAPI) CreateCheckpoint(
 	name string,
 	comment string,
 ) (*spritessdk.Checkpoint, error) {
+	client.recordCall("CreateCheckpoint")
 	if client.createCP == nil {
 		return nil, errors.New("unexpected CreateCheckpoint call")
 	}
@@ -759,6 +776,7 @@ func (client *fakeSDKAPI) FindCheckpoint(
 	name string,
 	checkpointID string,
 ) (*spritessdk.Checkpoint, bool, error) {
+	client.recordCall("FindCheckpoint")
 	if client.findCP == nil {
 		return nil, false, errors.New("unexpected FindCheckpoint call")
 	}
@@ -766,6 +784,7 @@ func (client *fakeSDKAPI) FindCheckpoint(
 }
 
 func (client *fakeSDKAPI) RestoreCheckpoint(ctx context.Context, name string, checkpointID string) error {
+	client.recordCall("RestoreCheckpoint")
 	if client.restoreCP == nil {
 		return errors.New("unexpected RestoreCheckpoint call")
 	}
@@ -773,6 +792,7 @@ func (client *fakeSDKAPI) RestoreCheckpoint(ctx context.Context, name string, ch
 }
 
 func (client *fakeSDKAPI) Suspend(ctx context.Context, name string) error {
+	client.recordCall("Suspend")
 	if client.suspend == nil {
 		return errors.New("unexpected Suspend call")
 	}
@@ -780,6 +800,7 @@ func (client *fakeSDKAPI) Suspend(ctx context.Context, name string) error {
 }
 
 func (client *fakeSDKAPI) Destroy(ctx context.Context, name string) error {
+	client.recordCall("Destroy")
 	if client.destroy == nil {
 		return errors.New("unexpected Destroy call")
 	}
@@ -787,6 +808,7 @@ func (client *fakeSDKAPI) Destroy(ctx context.Context, name string) error {
 }
 
 func (client *fakeSDKAPI) ServerVersion(ctx context.Context, name string) (string, error) {
+	client.recordCall("ServerVersion")
 	if client.serverVersion == nil {
 		return "", errors.New("unexpected ServerVersion call")
 	}
@@ -794,6 +816,7 @@ func (client *fakeSDKAPI) ServerVersion(ctx context.Context, name string) (strin
 }
 
 func (client *fakeSDKAPI) OrganizationSnapshot(ctx context.Context) (*sdkOrganizationSnapshot, error) {
+	client.recordCall("OrganizationSnapshot")
 	if client.orgSnapshot == nil {
 		return nil, errors.New("unexpected OrganizationSnapshot call")
 	}
