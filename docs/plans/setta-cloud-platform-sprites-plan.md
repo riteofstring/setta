@@ -1356,7 +1356,7 @@ measured, and independent of provider UI.
   progress. Do not add a polling watch.
 - [x] Add content-free audit events, typed measurement intervals, workload
   lease enforcement, and per-user hard budget enforcement.
-- [ ] Add a minimal alert path for provisioning and wake failure spikes,
+- [x] Add a minimal alert path for provisioning and wake failure spikes,
   reconciliation backlog, provider errors, unexpectedly old Tasks or active
   sessions, approaching hard budgets, and failed cutoff actions. Reuse the
   existing operational stack if one exists; do not introduce a second platform
@@ -2715,3 +2715,20 @@ Stop and reassess rather than hiding the problem if any of these occur:
   lockfile, and release-age policies; the pre-existing transitive ESLint
   `brace-expansion <=5.0.7` advisory remains. Failure-spike aggregation is the
   only local alert category still open. No provider or cloud mutation ran.
+- 2026-07-25 (operational-alert boundary audit): Closed the combined Phase 5
+  alert-path item after verifying every listed source reaches the existing
+  content-free `operational_alert` JSONL stream. Each retryable or permanent
+  provider protocol error is emitted; terminal provisioning, wake, and cutoff
+  failures add their stronger typed critical signal; durable backlog,
+  approaching-budget, expired-Task, and restart-orphaned-session warnings cover
+  the remaining categories. A failure spike therefore remains visible as the
+  underlying sequence of typed alerts for the deployment's operational stack
+  to group, page, or rate-limit. The control plane does not add a second
+  count/window aggregator: the plan explicitly says to reuse the operational
+  stack, no owner-defined aggregation policy exists, and choosing a count or
+  window here would be the prohibited heuristic fallback. The stable signal,
+  reason, severity, and timestamp are sufficient downstream inputs without
+  user, runtime, operation, route, provider-resource, Task, session, or
+  credential identifiers. This was a documentation-only boundary audit after
+  the clean schema-v15 full gate; no automated check was repeated and no
+  provider or cloud mutation ran.
