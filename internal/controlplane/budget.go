@@ -72,6 +72,7 @@ type UsageInterval struct {
 	CoveredCostUSDMicros    int64
 	CumulativeCostUSDMicros int64
 	EnforcedBudgetUSDMicros int64
+	ApproachingBudget       bool
 	CutoffRequired          bool
 	RecordedAt              time.Time
 	BudgetPeriodStart       time.Time
@@ -451,10 +452,23 @@ func buildUsageInterval(
 		CoveredCostUSDMicros:    request.CoveredCostUSDMicros,
 		CumulativeCostUSDMicros: cumulative,
 		EnforcedBudgetUSDMicros: enforcedBudget,
+		ApproachingBudget:       approachingBudgetCrossed(policy, cumulative),
 		CutoffRequired:          cumulative >= enforcedBudget,
 		RecordedAt:              recordedAt,
 		BudgetPeriodStart:       policy.PeriodStart,
 	}, nil
+}
+
+func approachingBudgetCrossed(policy UserBudgetPolicy, cumulative int64) bool {
+	enforcedBudget := policy.EnforcedBudgetUSDMicros()
+	if cumulative >= enforcedBudget {
+		return false
+	}
+	threshold := enforcedBudget - policy.CutoffExposureUSDMicros
+	if threshold <= 0 {
+		return policy.AccruedUSDMicros == 0 && cumulative > 0
+	}
+	return policy.AccruedUSDMicros < threshold && cumulative >= threshold
 }
 
 func validateUserBudgetPolicyRequest(request SetUserBudgetPolicyRequest) error {

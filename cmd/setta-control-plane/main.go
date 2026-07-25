@@ -176,6 +176,7 @@ func startControlPlaneServices(
 	reconciler, err := controlplane.NewReconciler(controlplane.ReconcilerConfig{
 		AccountingObserver: alertingObserver,
 		AccountingWindow:   defaultAccountingWindow,
+		AlertObserver:      alertingObserver,
 		LeaseDuration:      defaultReconcilerLease,
 		MaxAttempts:        defaultReconcilerAttempts,
 		OperationTimeout:   defaultReconcilerOperation,

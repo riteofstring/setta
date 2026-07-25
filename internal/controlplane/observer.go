@@ -130,6 +130,7 @@ const (
 	OperationalAlertWakeFailed         OperationalAlertSignal = "wake_failed"
 	OperationalAlertProviderError      OperationalAlertSignal = "provider_error"
 	OperationalAlertBudgetCutoffFailed OperationalAlertSignal = "budget_cutoff_failed"
+	OperationalAlertBudgetApproaching  OperationalAlertSignal = "budget_approaching"
 )
 
 type OperationalAlertSeverity string
@@ -178,6 +179,7 @@ type OperationalAlertObserver interface {
 type ControlPlaneObserver interface {
 	ControlPlaneAuditObserver
 	HostedAccessObserver
+	OperationalAlertObserver
 	RuntimeAuditObserver
 	RuntimeWakeObserver
 }
@@ -224,6 +226,27 @@ func (observer *AlertingObserver) ObserveRuntimeAudit(observation RuntimeAuditOb
 
 func (observer *AlertingObserver) ObserveRuntimeWakeTiming(timing RuntimeWakeTiming) {
 	observer.downstream.ObserveRuntimeWakeTiming(timing)
+}
+
+func (observer *AlertingObserver) ObserveOperationalAlert(
+	observation OperationalAlertObservation,
+) {
+	observer.alerts.ObserveOperationalAlert(observation)
+}
+
+func observeApproachingBudget(
+	observer OperationalAlertObserver,
+	interval UsageInterval,
+) {
+	if !interval.ApproachingBudget {
+		return
+	}
+	observer.ObserveOperationalAlert(OperationalAlertObservation{
+		ErrorCode:  "budget_cutoff_exposure_remaining",
+		OccurredAt: interval.RecordedAt,
+		Severity:   OperationalAlertWarning,
+		Signal:     OperationalAlertBudgetApproaching,
+	})
 }
 
 func runtimeAuditAlerts(observation RuntimeAuditObservation) []OperationalAlertObservation {

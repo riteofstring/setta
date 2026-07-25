@@ -133,6 +133,7 @@ func newObservedTestReconciler(
 	reconciler, err := NewReconciler(ReconcilerConfig{
 		AccountingObserver: accountingObserver,
 		AccountingWindow:   time.Minute,
+		AlertObserver:      accountingObserver,
 		LeaseDuration:      time.Minute,
 		MaxAttempts:        maximumAttempts,
 		OperationTimeout:   30 * time.Second,

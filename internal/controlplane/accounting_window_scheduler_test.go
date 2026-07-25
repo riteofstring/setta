@@ -154,6 +154,7 @@ func TestAccountingWindowSchedulerRunWakesOnLateAccountingEvent(t *testing.T) {
 	reconciler, err := NewReconciler(ReconcilerConfig{
 		AccountingObserver: observer,
 		AccountingWindow:   time.Minute,
+		AlertObserver:      observer,
 		LeaseDuration:      time.Minute,
 		MaxAttempts:        3,
 		OperationTimeout:   30 * time.Second,
@@ -249,6 +250,8 @@ func (observer *accountingSchedulerTestObserver) ObserveControlPlaneAudit(
 
 func (*accountingSchedulerTestObserver) ObserveRuntimeAudit(RuntimeAuditObservation) {}
 
+func (*accountingSchedulerTestObserver) ObserveOperationalAlert(OperationalAlertObservation) {}
+
 func seedScheduledAccountingRuntime(
 	t *testing.T,
 	ctx context.Context,
@@ -289,6 +292,7 @@ func newAccountingSchedulerTestReconciler(
 	reconciler, err := NewReconciler(ReconcilerConfig{
 		AccountingObserver: observer,
 		AccountingWindow:   time.Minute,
+		AlertObserver:      observer,
 		LeaseDuration:      time.Minute,
 		MaxAttempts:        3,
 		OperationTimeout:   30 * time.Second,

@@ -248,6 +248,7 @@ func newTimedProtocolReconciler(
 	reconciler, err := NewReconciler(ReconcilerConfig{
 		AccountingObserver: observer,
 		AccountingWindow:   time.Minute,
+		AlertObserver:      observer,
 		LeaseDuration:      2 * time.Second,
 		MaxAttempts:        3,
 		OperationTimeout:   500 * time.Millisecond,

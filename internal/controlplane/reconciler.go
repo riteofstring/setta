@@ -21,6 +21,7 @@ type RuntimeReconcilerProvider interface {
 type ReconcilerConfig struct {
 	AccountingObserver ControlPlaneAuditObserver
 	AccountingWindow   time.Duration
+	AlertObserver      OperationalAlertObserver
 	LeaseDuration      time.Duration
 	MaxAttempts        int
 	OperationTimeout   time.Duration
@@ -35,6 +36,7 @@ type ReconcilerConfig struct {
 type Reconciler struct {
 	accountingObserver ControlPlaneAuditObserver
 	accountingWindow   time.Duration
+	alertObserver      OperationalAlertObserver
 	leaseDuration      time.Duration
 	maxAttempts        int
 	operationTimeout   time.Duration
@@ -53,6 +55,7 @@ func NewReconciler(config ReconcilerConfig) (*Reconciler, error) {
 	return &Reconciler{
 		accountingObserver: config.AccountingObserver,
 		accountingWindow:   config.AccountingWindow,
+		alertObserver:      config.AlertObserver,
 		leaseDuration:      config.LeaseDuration,
 		maxAttempts:        config.MaxAttempts,
 		operationTimeout:   config.OperationTimeout,
@@ -83,9 +86,9 @@ func validateReconcilerConfig(config ReconcilerConfig) error {
 
 func validateReconcilerDependencies(config ReconcilerConfig) error {
 	if config.Store == nil || config.Provider == nil || config.Observer == nil ||
-		config.AccountingObserver == nil {
+		config.AccountingObserver == nil || config.AlertObserver == nil {
 		return errors.New(
-			"runtime reconciler requires a store, provider, and accounting observers",
+			"runtime reconciler requires a store, provider, runtime, accounting, and alert observers",
 		)
 	}
 	return nil
@@ -174,6 +177,7 @@ func (reconciler *Reconciler) finalizeScheduledAccountingWindow(
 		OccurredAt: finalized.FinalizedAt,
 		State:      state,
 	})
+	observeApproachingBudget(reconciler.alertObserver, finalized.Interval)
 	return nil
 }
 

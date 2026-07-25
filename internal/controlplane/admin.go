@@ -234,7 +234,7 @@ func adminHandler(
 
 func handleRuntimeAccountingAdminRoute(
 	store *Store,
-	observer ControlPlaneAuditObserver,
+	observer ControlPlaneObserver,
 	priceSchedule runtimecost.PriceSchedule,
 	response http.ResponseWriter,
 	request *http.Request,
@@ -269,7 +269,7 @@ func handleRuntimeAccountingAdminRoute(
 
 func handleAdminFinalizeRuntimeAccountingWindow(
 	store *Store,
-	observer ControlPlaneAuditObserver,
+	observer ControlPlaneObserver,
 	priceSchedule runtimecost.PriceSchedule,
 	response http.ResponseWriter,
 	request *http.Request,
@@ -301,6 +301,7 @@ func handleAdminFinalizeRuntimeAccountingWindow(
 		OccurredAt: finalized.FinalizedAt,
 		State:      state,
 	})
+	observeApproachingBudget(observer, finalized.Interval)
 	writeAdminJSON(response, AdminEvent{
 		Event:  "runtime_accounting_window_finalized",
 		Status: state,
@@ -358,7 +359,7 @@ func handleAdminSetUserBudget(
 
 func handleAdminRecordUsage(
 	store *Store,
-	observer ControlPlaneAuditObserver,
+	observer ControlPlaneObserver,
 	priceSchedule runtimecost.PriceSchedule,
 	response http.ResponseWriter,
 	request *http.Request,
@@ -385,6 +386,7 @@ func handleAdminRecordUsage(
 		OccurredAt: interval.RecordedAt,
 		State:      state,
 	})
+	observeApproachingBudget(observer, interval)
 	writeAdminJSON(response, AdminEvent{Event: "usage_recorded", Status: state, UserID: payload.UserID})
 }
 

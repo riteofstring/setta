@@ -69,6 +69,66 @@ func TestAdminBudgetUsageCutsOffLiveAuthorizationAndAuditsWithoutContent(t *test
 	})
 }
 
+func TestAdminUsageEmitsApproachingBudgetAlertAtCutoffExposureBoundary(t *testing.T) {
+	ctx := context.Background()
+	store, _, runtimeName, _ := seededControlPlane(t, ctx)
+	defer store.Close()
+	start := time.Date(2026, 7, 24, 22, 0, 0, 0, time.UTC)
+	evidence := testAdminUsageEvidence(t, runtimeName, start)
+	cost, err := runtimecost.Estimate(adminTestPriceSchedule(), evidence.Usage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exposure := int64(evidence.Cutoff.CutoffExposureUSDMicros)
+	enforcedBudget := int64(cost.CoveredTotal) + exposure
+	coveredLimit := enforcedBudget + testEvidenceSafetyReserve + exposure
+	evidence = testAdminUsageEvidenceForBudget(
+		t,
+		runtimeName,
+		start,
+		coveredLimit,
+		testEvidenceSafetyReserve,
+	)
+	if _, err := store.SetUserBudgetPolicy(ctx, SetUserBudgetPolicyRequest{
+		UserID: "user-server", PeriodStart: start, PeriodEnd: start.Add(time.Hour),
+		CoveredLimitUSDMicros:   coveredLimit,
+		SafetyReserveUSDMicros:  testEvidenceSafetyReserve,
+		CutoffExposureUSDMicros: exposure,
+		MaximumCutoffLag:        time.Minute,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	socketPath := filepath.Join(filepath.Dir(store.Path()), "admin.sock")
+	server, err := StartAdminServer(AdminServerConfig{
+		Observer: newAdminTestObserver(t, &output), PriceSchedule: adminTestPriceSchedule(),
+		SocketPath: socketPath, Store: store,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer shutdownAdminTestServer(t, server)
+	client := adminTestClient(socketPath)
+	request := AdminRecordUsageRequest{
+		IdempotencyKey: "approaching-budget-usage",
+		UserID:         "user-server",
+		Evidence:       evidence,
+	}
+	adminTestRequest(t, client, "/v1/usage/record", request, "usage_recorded")
+	adminTestRequest(t, client, "/v1/usage/record", request, "usage_recorded")
+	persisted, found, err := readUsageIntervalByID(ctx, store.db, "approaching-budget-usage")
+	if err != nil || !found {
+		t.Fatalf("read approaching usage interval = %t, %v", found, err)
+	}
+	requireOperationalAlertStream(t, output.Bytes(), []OperationalAlertMeasurement{{
+		ErrorCode:  "budget_cutoff_exposure_remaining",
+		Event:      "operational_alert",
+		OccurredAt: persisted.interval.RecordedAt,
+		Severity:   OperationalAlertWarning,
+		Signal:     OperationalAlertBudgetApproaching,
+	}})
+}
+
 func TestAdminRecordsRuntimeAccountingEventThroughPrivateBoundary(t *testing.T) {
 	ctx := context.Background()
 	store, _, runtimeName, _ := seededControlPlane(t, ctx)
@@ -446,6 +506,23 @@ func testAdminUsageEvidence(
 	start time.Time,
 ) runtimeaccounting.Evidence {
 	t.Helper()
+	return testAdminUsageEvidenceForBudget(
+		t,
+		runtimeName,
+		start,
+		testEvidenceCoveredLimit,
+		testEvidenceSafetyReserve,
+	)
+}
+
+func testAdminUsageEvidenceForBudget(
+	t *testing.T,
+	runtimeName string,
+	start time.Time,
+	coveredLimit int64,
+	safetyReserve int64,
+) runtimeaccounting.Evidence {
+	t.Helper()
 	end := start.Add(time.Minute)
 	configuration := runtimeaccounting.EvidenceConfiguration{
 		Version:  runtimeaccounting.EvidenceConfigurationVersion,
@@ -453,8 +530,8 @@ func testAdminUsageEvidence(
 		RuntimeName: runtimeName, WindowStart: start, WindowEnd: end, ObservedAt: end,
 		Ceilings: accountingCeilings(testRuntimeResources()),
 		Budget: runtimeaccounting.EvidenceBudgetConfiguration{
-			CoveredLimitUSDMicros:  uint64(testEvidenceCoveredLimit),
-			SafetyReserveUSDMicros: uint64(testEvidenceSafetyReserve),
+			CoveredLimitUSDMicros:  uint64(coveredLimit),
+			SafetyReserveUSDMicros: uint64(safetyReserve),
 			MaximumCutoffLag:       time.Minute.String(),
 			RequiredDimensions:     append([]runtimeprovider.UsageDimension(nil), hardBudgetDimensions...),
 		},
