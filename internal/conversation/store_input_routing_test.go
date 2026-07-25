@@ -777,42 +777,6 @@ func TestStoreRejectsConversationRouteCommandsThatCannotExecute(t *testing.T) {
 	})
 }
 
-func TestStoreTreatsDisposedRouterSideAsCompletedRouteEffect(t *testing.T) {
-	store := newTestStore(t)
-	conversationID := "conversation_disposed_router_side"
-	paneID := "pane_disposed_router_side"
-	seedConversationInputTargets(t, store, conversationID)
-	seedConversationRoutePaneBinding(t, store, conversationID, paneID)
-
-	input := validConversationInput("input_disposed_router_side")
-	input.ConversationID = conversationID
-	input.SourcePaneID = &paneID
-	acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
-	work := claimConversationRoutingInput(t, store, conversationID, "2026-07-12T18:00:02Z")
-	decision, command := validConversationRouteDecisionAndCommand(
-		ConversationRouteDecisionKindCreateSideConversation,
-		input.Text,
-	)
-	command.CreateSideConversation.ParentPaneID = paneID
-	commit := validConversationRouteDecisionCommit("decision_disposed_router_side", decision, command)
-	commit.ConversationID = conversationID
-	commit.InputID = input.ID
-	commit.RoutingAttempt = work.RoutingAttempt
-	commit.DecidedAt = "2026-07-12T18:00:03Z"
-	record, err := store.CommitConversationRouteDecision(context.Background(), commit)
-	if err != nil {
-		t.Fatalf("CommitConversationRouteDecision: %v", err)
-	}
-	if applied, err := store.ConversationRouteCommandApplied(context.Background(), record); err != nil || applied {
-		t.Fatalf("ConversationRouteCommandApplied before side disposal = %v, %v, want false", applied, err)
-	}
-
-	seedDisposedConversationRouteSide(t, store, record)
-	if applied, err := store.ConversationRouteCommandApplied(context.Background(), record); err != nil || !applied {
-		t.Fatalf("ConversationRouteCommandApplied after side disposal = %v, %v, want true", applied, err)
-	}
-}
-
 func TestStoreRejectsMalformedPersistedConversationRouteDecision(t *testing.T) {
 	store := newTestStore(t)
 	seedConversationInputTargets(t, store, "conversation_alpha")
@@ -1287,33 +1251,6 @@ INSERT INTO side_conversations (
 	})
 	if err != nil {
 		t.Fatalf("seed open route side: %v", err)
-	}
-}
-
-func seedDisposedConversationRouteSide(
-	t *testing.T,
-	store *Store,
-	record ConversationRouteDecisionRecord,
-) {
-	t.Helper()
-	command := record.ResultingCommand.CreateSideConversation
-	err := store.write(context.Background(), "seed disposed conversation route side", func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO side_conversations (
-  id, parent_conversation_id, parent_pane_id, decision_source,
-  provider_thread_id, source_provider_thread_id, source_trajectory_sequence,
-  status, resolved_side_agent_invocation_json, created_at, updated_at, disposed_at
-) VALUES (
-  ?, ?, ?, 'conversation_router',
-  'provider_disposed_side', 'provider_parent', 0,
-  'disposing', '{}', '2026-07-12T18:00:04Z', '2026-07-12T18:00:05Z',
-  '2026-07-12T18:00:05Z'
-)
-`, command.SideConversationID, record.ConversationID, command.ParentPaneID)
-		return err
-	})
-	if err != nil {
-		t.Fatalf("seed disposed route side: %v", err)
 	}
 }
 

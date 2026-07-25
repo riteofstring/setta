@@ -30,7 +30,7 @@ func testPrepareFocusOutputCommit(t *testing.T) {
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"focus_projection",
 		"sourceThroughSequence":1,
-		"currentFocus":"Saving the narrator focus for the current objective.",
+		"currentFocus":"Committing the stable narrator focus.",
 		"topicDescriptor":"Narrator focus persistence"
 	}`)}
 	caller := newTimedTestCaller(t, provider)
@@ -56,7 +56,7 @@ func testPrepareFocusOutputCommit(t *testing.T) {
 	}
 	request := store.focuses[0]
 	if request.SourceThroughSequence != 1 ||
-		request.CurrentFocus != "Saving the narrator focus for the current objective." ||
+		request.CurrentFocus != "Committing the stable narrator focus." ||
 		request.TopicDescriptor == nil || request.TopicDescriptor.Text != "Narrator focus persistence" ||
 		request.ConversationCommittedID != nil {
 		t.Fatalf("focus output commit = %+v", request)
@@ -69,7 +69,8 @@ func testPrepareWorkingOutputCommit(t *testing.T) {
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
-		"milestones":["The milestone is saved with the current turn."]
+		"observedThroughSequence":3,
+		"milestones":["The narrator output boundary is durable."]
 	}`)}
 	caller := newTimedTestCaller(t, provider)
 	callRequest := CallRequest{
@@ -102,7 +103,7 @@ func testPrepareWorkingOutputCommit(t *testing.T) {
 		request.Expected.ObservedThroughSequence != 0 || request.Expected.UpdatedAt != narratorContextTestTime {
 		t.Fatalf("working projection commit = %+v", request)
 	}
-	if len(request.Milestones) != 1 || request.Milestones[0].Text != "The milestone is saved with the current turn." {
+	if len(request.Milestones) != 1 || request.Milestones[0].Text != "The narrator output boundary is durable." {
 		t.Fatalf("working milestone commits = %+v", request.Milestones)
 	}
 	assertCommittedNarratorInvocation(t, request.ResolvedInvocation, result)
@@ -114,7 +115,9 @@ func testPrepareTerminalOutputCommit(t *testing.T) {
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerTurnTerminal)
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"terminal_projection",
-		"finalSummary":"The final summary is saved with the turn and remains available after restart."
+		"observedThroughSequence":3,
+		"milestones":[],
+		"finalSummary":"The terminal narrator projection is ready for atomic persistence."
 	}`)}
 	caller := newTimedTestCaller(t, provider)
 	callRequest := CallRequest{
@@ -135,7 +138,7 @@ func testPrepareTerminalOutputCommit(t *testing.T) {
 	}
 	request := store.projections[0]
 	if request.Trigger != conversation.NarrationTriggerTurnTerminal || request.FinalSummary == nil ||
-		request.FinalSummary.Text != "The final summary is saved with the turn and remains available after restart." {
+		request.FinalSummary.Text != "The terminal narrator projection is ready for atomic persistence." {
 		t.Fatalf("terminal projection commit = %+v", request)
 	}
 	if request.Milestones == nil {
@@ -158,7 +161,7 @@ func testPrepareStatusOutputCommit(t *testing.T) {
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"status_reply",
 		"sourceThroughSequence":3,
-		"statusReply":"The primary turn is still running, and the latest narrator reply is ready to save."
+		"statusReply":"The primary agent continues while validated narrator output is persisted."
 	}`)}
 	caller := newTimedTestCaller(t, provider)
 	callRequest := CallRequest{
@@ -191,7 +194,7 @@ func testPrepareStatusOutputCommit(t *testing.T) {
 	if request.Expected.ObservedThroughSequence != 0 || request.Expected.CurrentFocusRevision != 0 ||
 		request.SourceSequenceStart != 1 || request.SourceThroughSequence != 3 ||
 		request.Question != "What is happening now?" ||
-		request.Reply.Text != "The primary turn is still running, and the latest narrator reply is ready to save." {
+		request.Reply.Text != "The primary agent continues while validated narrator output is persisted." {
 		t.Fatalf("status output commit = %+v", request)
 	}
 	if request.TurnID == nil || *request.TurnID != source.turn.ID {
@@ -248,6 +251,7 @@ func TestOutputCommitterRejectsMismatchedMutatedOrInvalidSuccessfulResults(t *te
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
+		"observedThroughSequence":2,
 		"milestones":[]
 	}`)}
 	caller := newTimedTestCaller(t, provider)
@@ -322,6 +326,7 @@ func TestOutputCommitterValidatesConstructionAndCommitErrors(t *testing.T) {
 	bundle := materializeCallerProjection(t, source, conversation.NarrationTriggerPlanChanged)
 	provider := &recordingFreshStructuredProvider{output: json.RawMessage(`{
 		"kind":"working_projection",
+		"observedThroughSequence":1,
 		"milestones":[]
 	}`)}
 	caller := newTimedTestCaller(t, provider)

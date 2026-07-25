@@ -29,6 +29,33 @@ type NarratorContextReadRequest struct {
 	MaxFinalSummaries         int
 }
 
+// NarratorRecoveryTarget identifies durable trajectory that survived without
+// a matching projector cursor advance. Terminal targets are replayed in
+// sequence order; a running tail follows them as working projection recovery.
+type NarratorRecoveryTarget struct {
+	WorkspaceID     string
+	ConversationID  string
+	TurnID          string
+	ThroughSequence int
+	Terminal        bool
+}
+
+func (target NarratorRecoveryTarget) Validate() error {
+	if err := validateIdentifier("narrator recovery workspace id", target.WorkspaceID); err != nil {
+		return err
+	}
+	if err := validateIdentifier("narrator recovery conversation id", target.ConversationID); err != nil {
+		return err
+	}
+	if err := validateIdentifier("narrator recovery turn id", target.TurnID); err != nil {
+		return err
+	}
+	if target.ThroughSequence <= 0 {
+		return fmt.Errorf("narrator recovery trajectory sequence must be positive")
+	}
+	return nil
+}
+
 type NarratorAcceptedSteering struct {
 	Sequence int           `json:"sequence"`
 	Input    AuthoredInput `json:"input"`
@@ -59,14 +86,13 @@ type NarratorActiveSubagent struct {
 }
 
 type NarratorCurrentTurnProjection struct {
-	Turn                   *ConversationTurn                 `json:"turn"`
-	AcceptedSteering       []NarratorAcceptedSteering        `json:"acceptedSteering"`
-	LatestAssistantMessage *NarratorSemanticAssistantMessage `json:"latestAssistantMessage"`
-	Plan                   *NarratorCurrentPlan              `json:"plan"`
-	ActiveActivities       []NarratorActiveActivity          `json:"activeActivities"`
-	PendingApprovals       []NarratorPendingApproval         `json:"pendingApprovals"`
-	ActiveSubagents        []NarratorActiveSubagent          `json:"activeSubagents"`
-	Artifacts              []Artifact                        `json:"artifacts"`
+	Turn             *ConversationTurn          `json:"turn"`
+	AcceptedSteering []NarratorAcceptedSteering `json:"acceptedSteering"`
+	Plan             *NarratorCurrentPlan       `json:"plan"`
+	ActiveActivities []NarratorActiveActivity   `json:"activeActivities"`
+	PendingApprovals []NarratorPendingApproval  `json:"pendingApprovals"`
+	ActiveSubagents  []NarratorActiveSubagent   `json:"activeSubagents"`
+	Artifacts        []Artifact                 `json:"artifacts"`
 }
 
 type NarratorTrajectoryWindow struct {

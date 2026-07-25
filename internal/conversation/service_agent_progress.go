@@ -182,15 +182,10 @@ func (service *Service) commitAgentProgress(
 		return appendPublications(transaction, publications)
 	})
 	if err == nil {
-		artifacts := []ArtifactMetadata(nil)
-		if mutation.artifact != nil {
-			artifacts = []ArtifactMetadata{mutation.artifact.Metadata()}
-		}
 		service.observeCommittedTrajectory(
-			mutation.conversation,
-			mutation.turn,
+			mutation.snapshot.Conversation,
+			mutation.turn.ID,
 			mutation.trajectories,
-			artifacts,
 			false,
 		)
 	}

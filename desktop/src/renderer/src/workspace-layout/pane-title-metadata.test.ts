@@ -33,9 +33,13 @@ describe("pane chrome title metadata", () => {
   });
 
   test("keeps pane icons and titles driven by surviving surface kinds", () => {
-    expect(paneChromeTitleModel(fakePane("conversation", "Topic Conversation"))).toMatchObject({
+    expect(paneChromeTitleModel(fakePane("settings-dom", "Settings"))).toMatchObject({
+      icon: "settings",
+      title: "Settings",
+    });
+    expect(paneChromeTitleModel(fakePane("easy-button", "Easy Button"))).toMatchObject({
       icon: "sparkles",
-      title: "Topic Conversation",
+      title: "Easy Button",
     });
     expect(paneChromeTitleModel(fakePane("browser", "Browser"))).toMatchObject({
       icon: "document",
@@ -56,10 +60,10 @@ function fakePane(surfaceKind: WorkspacePane["surfaceKind"], title: string): Wor
     tone: "slate" as const,
     weight: 1,
   };
-  return surfaceKind === "conversation"
+  return surfaceKind === "easy-button"
     ? {
         ...fields,
-        conversationConfig: { conversationId: "conversation_test" },
+        easyButtonConfig: { conversationId: "conversation_test" },
         surfaceKind,
       }
     : { ...fields, surfaceKind };
