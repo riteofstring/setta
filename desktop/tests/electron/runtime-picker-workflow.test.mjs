@@ -105,15 +105,11 @@ try {
   context = await launchContext(fixture, join(recordingDir, "restart"));
   await waitForRuntimeStatus(context.client, "connected", { runtimeId: remote.runtimeId });
   await waitForSelectedWorkspaceLayout(context.client, remoteSession.selectedWorkspaceId);
-  const restartedRemotePanes = await waitForSurvivorWorkspacePanes(
+  const restartedRemotePanes = await waitForExactWorkspacePanes(
     context.client,
     remoteSession.selectedWorkspaceId,
+    remotePanes.paneIds,
   );
-  if (JSON.stringify(restartedRemotePanes.paneIds) !== JSON.stringify(remotePanes.paneIds)) {
-    throw new Error(
-      `remote workspace panes changed after desktop restart: ${JSON.stringify({ after: restartedRemotePanes.paneIds, before: remotePanes.paneIds })}`,
-    );
-  }
   await appendSummary("remote-credential-recovered-after-restart", {
     paneCount: restartedRemotePanes.paneIds.length,
     remoteRuntimeId: remote.runtimeId,
@@ -127,15 +123,11 @@ try {
   await clickButtonByAria(context.client, `Switch to ${local.displayName}`);
   await waitForRuntimeStatus(context.client, "connected", { runtimeId: local.runtimeId });
   await waitForSelectedWorkspaceLayout(context.client, localWorkspace.selectedWorkspaceId);
-  const returnedLocalPanes = await waitForSurvivorWorkspacePanes(
+  await waitForExactWorkspacePanes(
     context.client,
     localWorkspace.selectedWorkspaceId,
+    localPanes.paneIds,
   );
-  if (JSON.stringify(returnedLocalPanes.paneIds) !== JSON.stringify(localPanes.paneIds)) {
-    throw new Error(
-      `local workspace panes changed after runtime switch: ${JSON.stringify({ after: returnedLocalPanes.paneIds, before: localPanes.paneIds })}`,
-    );
-  }
 
   await stopProcess(remoteServe.child);
   await waitForRemoteRuntimeStopped(remote.baseUrl);
@@ -324,6 +316,19 @@ async function waitForSurvivorWorkspacePanes(client, expectedWorkspaceId) {
       snapshot.surfaceKinds.every((surfaceKind) =>
         ["easy-button", "empty-frame", "settings-dom"].includes(surfaceKind),
       ),
+    workflowTimeoutMs,
+  );
+}
+
+async function waitForExactWorkspacePanes(client, expectedWorkspaceId, expectedPaneIds) {
+  const expected = JSON.stringify(expectedPaneIds);
+  return waitForState(
+    client,
+    driverCallExpression("runtimePickerWorkspacePaneSnapshot"),
+    (snapshot) =>
+      snapshot.workspaceId === expectedWorkspaceId &&
+      JSON.stringify(snapshot.paneIds) === expected &&
+      snapshot.paneIds.length === snapshot.paneCount,
     workflowTimeoutMs,
   );
 }

@@ -11,7 +11,6 @@ import {
   captureScreenshot,
   clickEnabledButtonByAria,
   createElectronFixture,
-  dispatchMouseClick,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
@@ -429,13 +428,12 @@ async function openConversationConfiguration(client, conversationId) {
   if (state.open) {
     return;
   }
-  const point = await client.driver("presentationConfigurationConversationTogglePoint", {
+  const result = await client.driver("presentationConfigurationOpenConversation", {
     conversationId,
   });
-  if (!point.ok) {
+  if (!result.clicked) {
     throw new Error(`Conversation ${conversationId} presentation controls were unavailable`);
   }
-  await dispatchMouseClick(client, point);
   await waitForState(
     client,
     driverCallExpression("presentationConfigurationConversationState", { conversationId }),

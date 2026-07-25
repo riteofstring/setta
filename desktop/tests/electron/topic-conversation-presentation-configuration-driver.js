@@ -8,10 +8,10 @@
   }
   Object.assign(driver, {
     presentationConfigurationConversationState,
-    presentationConfigurationConversationTogglePoint,
     presentationConfigurationFindTopic,
     presentationConfigurationGlobalState,
     presentationConfigurationOpenGlobalTab,
+    presentationConfigurationOpenConversation,
     presentationConfigurationOpenSettings,
     presentationConfigurationReadConversation,
     presentationConfigurationReadGlobal,
@@ -136,18 +136,13 @@
     };
   }
 
-  function presentationConfigurationConversationTogglePoint({ conversationId }) {
+  function presentationConfigurationOpenConversation({ conversationId }) {
     const summary = conversationConfiguration(conversationId)?.querySelector("summary");
     if (!(summary instanceof HTMLElement)) {
-      return { conversationId, ok: false, x: 0, y: 0 };
+      return { clicked: false, conversationId };
     }
-    const rect = summary.getBoundingClientRect();
-    return {
-      conversationId,
-      ok: rect.width > 0 && rect.height > 0,
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-    };
+    summary.click();
+    return { clicked: true, conversationId };
   }
 
   function unavailableConversationState(conversationId) {
