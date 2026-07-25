@@ -40,6 +40,8 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer
 		err = adminSetUserBudget(context.Background(), args[1:], stdout, stderr)
 	case "record-usage":
 		err = adminRecordUsage(context.Background(), args[1:], stdin, stdout, stderr)
+	case "record-accounting-event":
+		err = adminRecordAccountingEvent(context.Background(), args[1:], stdin, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "unknown control-plane administration command %q\n", args[0])
 		return 2
@@ -49,6 +51,41 @@ func runAdmin(args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer
 		return 1
 	}
 	return 0
+}
+
+func adminRecordAccountingEvent(
+	ctx context.Context,
+	args []string,
+	stdin io.Reader,
+	stdout io.Writer,
+	stderr io.Writer,
+) error {
+	var config adminClientConfig
+	var payload controlplane.AdminRecordRuntimeAccountingEventRequest
+	flagSet := flag.NewFlagSet("setta-control-plane admin record-accounting-event", flag.ContinueOnError)
+	flagSet.SetOutput(stderr)
+	flagSet.StringVar(&config.SocketPath, "socket", "", "absolute private administration socket path")
+	flagSet.StringVar(&payload.RuntimeName, "runtime-name", "", "Setta-managed runtime name")
+	if err := flagSet.Parse(args); err != nil {
+		return err
+	}
+	if flagSet.NArg() != 0 {
+		return errors.New("record-accounting-event accepts no positional arguments")
+	}
+	if err := validateAdminClientConfig(config); err != nil {
+		return err
+	}
+	if err := decodeAdminStdin(stdin, &payload.Transition, "runtime accounting transition"); err != nil {
+		return err
+	}
+	return executeAdminRequest(
+		ctx,
+		config,
+		"/v1/runtime-accounting/events",
+		payload,
+		"runtime_accounting_event_recorded",
+		stdout,
+	)
 }
 
 func adminSetUserBudget(
@@ -125,10 +162,14 @@ func decodeRuntimeAccountingEvidence(
 	reader io.Reader,
 	target *runtimeaccounting.Evidence,
 ) error {
+	return decodeAdminStdin(reader, target, "runtime accounting evidence")
+}
+
+func decodeAdminStdin(reader io.Reader, target any, label string) error {
 	decoder := json.NewDecoder(io.LimitReader(reader, maximumBootstrapCredentialBytes+1))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil || decoder.Decode(&struct{}{}) != io.EOF {
-		return errors.New("decode runtime accounting evidence failed")
+		return fmt.Errorf("decode %s failed", label)
 	}
 	return nil
 }

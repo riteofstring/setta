@@ -170,6 +170,20 @@ func TestAdminCommandsMutateTheLiveControlPlaneWithoutPrintingCredentials(t *tes
 		t.Fatal(err)
 	}
 	socketPath := controlplane.AdminSocketPath(fixture.dataDirectory)
+	accountingTransition, err := json.Marshal(runtimeaccounting.ActivityTransition{
+		EventID: "admin-provider-begin", At: time.Now().UTC(),
+		Kind: runtimeaccounting.ActivityProvider, Action: runtimeaccounting.EventBegin,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runAdminTestCommand(t, []string{
+		"record-accounting-event", "--socket", socketPath, "--runtime-name", fixture.runtimeName,
+	}, accountingTransition)
+	accounting, err := store.RuntimeAccountingSnapshot(context.Background(), fixture.runtimeName)
+	if err != nil || accounting.Ledger.LastSequence != 1 {
+		t.Fatalf("accounting after administration command = %+v, %v", accounting, err)
+	}
 	ensureOutput := runAdminTestCommand(t, []string{
 		"ensure-device", "--socket", socketPath, "--device-name", "Hosted replacement",
 		"--runtime-name", fixture.runtimeName, "--user-id", "user-bootstrap",
@@ -221,6 +235,35 @@ func TestDecodeRuntimeAccountingEvidenceIsStrict(t *testing.T) {
 		if err := decodeRuntimeAccountingEvidence(bytes.NewReader(input), &decoded); err == nil {
 			t.Fatalf("strict decoder accepted %q", input)
 		}
+	}
+}
+
+func TestDecodeRuntimeAccountingTransitionIsStrict(t *testing.T) {
+	expected := runtimeaccounting.ActivityTransition{
+		EventID:        "lease-begin",
+		At:             time.Date(2026, 7, 24, 20, 0, 0, 0, time.UTC),
+		Kind:           runtimeaccounting.ActivityWorkloadLease,
+		Action:         runtimeaccounting.EventBegin,
+		SubjectID:      "setta-agent",
+		LeaseExpiresAt: time.Date(2026, 7, 24, 20, 2, 0, 0, time.UTC),
+	}
+	encoded, err := json.Marshal(expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded runtimeaccounting.ActivityTransition
+	if err := decodeAdminStdin(bytes.NewReader(encoded), &decoded, "runtime accounting transition"); err != nil {
+		t.Fatalf("decode transition: %v", err)
+	}
+	if decoded.EventID != expected.EventID || !decoded.LeaseExpiresAt.Equal(expected.LeaseExpiresAt) {
+		t.Fatalf("decoded transition = %+v", decoded)
+	}
+	if err := decodeAdminStdin(
+		bytes.NewReader([]byte(`{"event_id":"event","unknown":true}`)),
+		&decoded,
+		"runtime accounting transition",
+	); err == nil {
+		t.Fatal("strict decoder accepted an unknown transition field")
 	}
 }
 

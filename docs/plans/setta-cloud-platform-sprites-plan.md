@@ -2421,3 +2421,13 @@ Stop and reassess rather than hiding the problem if any of these occur:
   single-mutation guarantees. Normal warm/wake observations, gateway
   attachments, workload-lease production, window closure, and automatic
   evidence submission remain open. No provider or cloud mutation ran.
+- 2026-07-24 (typed accounting transition submission): Added a strict
+  `setta-control-plane admin record-accounting-event` command over the private
+  Unix administration socket. Producers submit one Go-owned transition
+  document on stdin plus the managed runtime name; unknown fields, trailing
+  documents, positional arguments, invalid runtimes, conflicting transition
+  IDs, and impossible state changes fail. The caller never supplies sequence:
+  the control plane assigns it transactionally and exact command replay is
+  harmless. A production-boundary test exercises the actual CLI, Unix HTTP
+  server, strict decoder, durable store, and snapshot reader. Runtime service
+  and gateway producer wiring remain open. No provider or cloud mutation ran.
