@@ -166,8 +166,7 @@ describe("startSpawnedBackend", () => {
           readyTimeoutMs: 2000,
         });
         void start.catch(() => {});
-        await waitForFile(pidPath);
-        childPid = Number.parseInt(readFileSync(pidPath, "utf8"), 10);
+        childPid = await waitForProcessID(pidPath);
 
         await expect(start).rejects.toThrow("backend readiness timed out after 2000ms");
         expect(existsSync(markerPath)).toBe(true);
@@ -269,6 +268,20 @@ async function waitForFile(path: string): Promise<void> {
     await delay(10);
   }
   throw new Error(`timed out waiting for file: ${path}`);
+}
+
+async function waitForProcessID(path: string): Promise<number> {
+  const deadline = Date.now() + 4000;
+  while (Date.now() < deadline) {
+    if (existsSync(path)) {
+      const processID = Number.parseInt(readFileSync(path, "utf8"), 10);
+      if (Number.isSafeInteger(processID) && processID > 0) {
+        return processID;
+      }
+    }
+    await delay(10);
+  }
+  throw new Error(`timed out waiting for process ID: ${path}`);
 }
 
 function isMissingProcessError(error: unknown): error is NodeJS.ErrnoException {
