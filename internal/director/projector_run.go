@@ -2,10 +2,9 @@ package director
 
 import (
 	"fmt"
+	"strconv"
 
 	"setta/internal/conversation"
-
-	"strconv"
 )
 
 // Run, plan, and public-text projection.
@@ -15,14 +14,13 @@ import (
 // chain of near-duplicates.
 
 const (
-	queuedRunSummary      = "Queued run"
-	activeRunSummary      = "Active run"
-	completedRunSummary   = "Run completed"
-	failedRunSummary      = "Run failed"
-	cancelledRunSummary   = "Run cancelled"
-	planSummaryFallback   = "Plan updated"
-	planStepFallback      = "Plan step"
-	rerouteSummaryPattern = "Model rerouted from %s to %s"
+	queuedRunSummary    = "Queued run"
+	activeRunSummary    = "Active run"
+	completedRunSummary = "Run completed"
+	failedRunSummary    = "Run failed"
+	cancelledRunSummary = "Run cancelled"
+	planSummaryFallback = "Plan updated"
+	planStepFallback    = "Plan step"
 )
 
 type trajectoryHandler func(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error

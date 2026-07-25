@@ -131,4 +131,23 @@ describe("graph shaders", () => {
     }
     expect(vertexShaders.field).not.toContain("u_nodeState");
   });
+
+  it("guards the non-terminal edge sentinel before animating failure", () => {
+    expect(graphEdgeVertexShader).toContain("if(a_edge.y<1e17)");
+    expect(graphEdgeVertexShader).not.toContain(
+      "float failP=smoothstep(a_edge.y,a_edge.y+0.35,u_time)",
+    );
+  });
+
+  it("uses the motion uniform to snap or freeze every autonomous vertex effect", () => {
+    expect(graphFieldVertexShader).toContain("float motionTime=u_time*u_flow");
+    expect(graphEdgeVertexShader).toContain(
+      "float grow=mix(step(a_edge.x,u_time),animatedGrow,u_motion)",
+    );
+    expect(graphNodeVertexShader).toContain("float motionTime=mix(born,u_time,u_motion)");
+    expect(graphNodeVertexShader).toContain("else if(u_motion<0.5)");
+    expect(graphGlyphVertexShader).toContain(
+      "float rise=mix(step(0.0,age),smoothstep(0.0,0.10,age),u_motion)",
+    );
+  });
 });

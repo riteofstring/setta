@@ -271,6 +271,35 @@ describe("packed graph batch validation", () => {
       message: "outside 0..1",
     },
     {
+      name: "an unknown visual vocabulary value",
+      batch: firstBatch({
+        nodes: [
+          makeNode("input", 0, 0, { role: "input" }),
+          makeNode("step-1", 1, 1, {
+            mode: "provider-invented-mode" as PackedGraphNodeInput["mode"],
+          }),
+        ],
+      }),
+      message: "unsupported value",
+    },
+    {
+      name: "a non-finite settle time",
+      batch: firstBatch({
+        nodes: [
+          makeNode("input", 0, 0, { role: "input" }),
+          makeNode("step-1", 1, 1, { settleAt: Number.POSITIVE_INFINITY }),
+        ],
+      }),
+      message: "settleAt must be finite",
+    },
+    {
+      name: "an edge whose terminal flag disagrees with its child",
+      batch: firstBatch({
+        edges: [makeEdge("input", "step-1", { terminated: true })],
+      }),
+      message: "terminated flag does not match",
+    },
+    {
       name: "a turn that runs and names an outcome",
       batch: firstBatch({
         turns: [{ ...runningTurn(2), outcomeNodeId: "step-1" }],
@@ -315,6 +344,7 @@ describe("packed graph batch validation", () => {
           makeNode("input", 0, 0, { role: "input" }),
           makeNode("step-1", 1, 1, { terminalAt: 2 }),
         ],
+        edges: [makeEdge("input", "step-1", { terminated: true })],
       }),
     );
     expect(() =>
@@ -326,5 +356,93 @@ describe("packed graph batch validation", () => {
         turns: [runningTurn(3)],
       }),
     ).toThrow("terminated branch");
+  });
+
+  it("rejects an existing turn whose row span regresses", () => {
+    expect(() =>
+      extendPackedGraphSnapshot(started(), {
+        cursorSequence: 4,
+        hasEarlier: false,
+        nodes: [],
+        edges: [],
+        turns: [runningTurn(1)],
+      }),
+    ).toThrow("row span regresses");
+  });
+
+  it("rejects an existing turn whose input identity changes", () => {
+    expect(() =>
+      extendPackedGraphSnapshot(started(), {
+        cursorSequence: 4,
+        hasEarlier: false,
+        nodes: [
+          makeNode("replacement-input", 0, 2, {
+            role: "input",
+            mode: "listening",
+            glyph: "microphone",
+          }),
+        ],
+        edges: [],
+        turns: [{ ...runningTurn(2), inputNodeId: "replacement-input" }],
+      }),
+    ).toThrow("changes its input node");
+  });
+
+  it("rejects changes after a turn reaches a terminal outcome", () => {
+    const closed = extendPackedGraphSnapshot(started(), {
+      cursorSequence: 6,
+      hasEarlier: false,
+      nodes: [
+        makeNode("done", 2, 4, {
+          role: "outcome",
+          mode: "success",
+          glyph: "check",
+          labelPlacement: "over",
+        }),
+      ],
+      edges: [makeEdge("step-1", "done")],
+      turns: [
+        {
+          index: 0,
+          inputNodeId: "input",
+          outcomeNodeId: "done",
+          rowSpan: 3,
+          outcome: "succeeded",
+          answerAt: 4,
+          compactAt: 6,
+        },
+      ],
+    });
+    expect(() =>
+      extendPackedGraphSnapshot(closed, {
+        cursorSequence: 7,
+        hasEarlier: false,
+        nodes: [],
+        edges: [],
+        turns: [
+          {
+            index: 0,
+            inputNodeId: "input",
+            outcomeNodeId: "done",
+            rowSpan: 3,
+            outcome: "failed",
+            answerAt: 4,
+            compactAt: 6,
+          },
+        ],
+      }),
+    ).toThrow("changes after reaching terminal outcome");
+  });
+
+  it("rejects edges that are not ordered by their target node", () => {
+    expect(() =>
+      extendPackedGraphSnapshot(started(), {
+        cursorSequence: 7,
+        hasEarlier: false,
+        nodes: [makeNode("step-2", 2, 2), makeNode("step-3", 3, 3)],
+        edges: [makeEdge("step-1", "step-3"), makeEdge("step-1", "step-2")],
+        turns: [runningTurn(4)],
+      }),
+    ).toThrow("out of target order");
   });
 });

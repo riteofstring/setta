@@ -94,10 +94,11 @@ out float v_alpha,v_seed;
 void main(){
   float depth=0.35+a_field.w*0.65;
   vec2 p=a_field.xy;
-  p.y+=(u_cam*0.16+u_time*0.004)*depth;
-  p.x+=0.028*depth*sin(u_time*0.13+a_field.z*31.0+a_field.y*7.0);
-  p.y+=0.014*depth*sin(u_time*0.10+a_field.z*19.0);
-  float t=u_time*0.07;
+  float motionTime=u_time*u_flow;
+  p.y+=(u_cam*0.16+motionTime*0.004)*depth;
+  p.x+=0.028*depth*sin(motionTime*0.13+a_field.z*31.0+a_field.y*7.0);
+  p.y+=0.014*depth*sin(motionTime*0.10+a_field.z*19.0);
+  float t=motionTime*0.07;
   vec2 flow=vec2(sin(p.y*3.1+t)+0.5*sin(p.y*6.7-t*1.3+p.x*2.2),
                  cos(p.x*3.0-t*0.8)+0.5*cos(p.x*5.9+t+p.y*2.1));
   p+=flow*(0.035*depth*u_flow);
@@ -112,7 +113,7 @@ void main(){
   }
   gl_Position=vec4(clip.x+u_shiftX*(0.35+depth*0.55),clip.y,0.0,1.0);
   gl_PointSize=(7.0+a_field.w*5.5)*u_pointScale;
-  v_alpha=(0.46+a_field.w*0.52)*(0.8+0.2*sin(u_time*1.1+a_field.z*44.0))*0.72*(1.0-near*0.55);
+  v_alpha=(0.46+a_field.w*0.52)*(0.8+0.2*sin(motionTime*1.1+a_field.z*44.0))*0.72*(1.0-near*0.55);
   v_seed=a_field.z;
 }
 `;
@@ -153,7 +154,8 @@ void main(){
   vec2 stateB=nodeState(int(a_ends.y));
   float open=min(stateA.y,stateB.y);
   if(open<0.004){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }
-  float grow=clamp((u_time-(a_edge.x-${edgeGrow}))/${edgeGrow},0.0,1.0);
+  float animatedGrow=clamp((u_time-(a_edge.x-${edgeGrow}))/${edgeGrow},0.0,1.0);
+  float grow=mix(step(a_edge.x,u_time),animatedGrow,u_motion);
   float tt=min(a_seg.x,grow);
   vec2 A=vec2(a_lane.x,${liveEdgeY}+(u_cam-stateA.x));
   vec2 B=vec2(a_lane.y,${liveEdgeY}+(u_cam-stateB.x));
@@ -161,7 +163,11 @@ void main(){
   vec2 dS=normalize((B-A)*vec2(u_aspect,1.0)+vec2(1e-6));
   vec2 perpS=vec2(-dS.y,dS.x);
   vec2 perpC=vec2(perpS.x/u_aspect,perpS.y);
-  float failP=smoothstep(a_edge.y,a_edge.y+0.35,u_time);
+  float failP=0.0;
+  if(a_edge.y<1e17){
+    float animatedFail=smoothstep(a_edge.y,a_edge.y+0.35,u_time);
+    failP=mix(step(a_edge.y,u_time),animatedFail,u_motion);
+  }
   float unc=clamp((1.0-a_edge.z)+failP*0.85,0.0,1.0)*u_motion;
   float succ=step(${successMode}-0.5,a_style.x)*step(a_style.x,${successMode}+0.5);
   float arrive=exp(-max(0.0,u_time-a_edge.x)*4.2)*succ*u_motion;
@@ -245,20 +251,27 @@ void main(){
   }
   float born=a_node.y, settle=a_node.z, terminal=a_node.w;
   float age=u_time-born;
+  float visualAge=mix(step(0.0,age),age,u_motion);
+  float motionTime=mix(born,u_time,u_motion);
   float jitter=hash11(float(nodeIndex)*0.373+0.11);
   float phase=fract(a_particle.z+jitter);
-  float vis=step(born-step(0.5,a_particleRole)*step(a_particleRole,1.5)*0.55,u_time);
+  float animatedVis=step(born-step(0.5,a_particleRole)*step(a_particleRole,1.5)*0.55,u_time);
+  float vis=mix(step(born,u_time),animatedVis,u_motion);
   float recent=exp(-max(0.0,u_cam-state.x)*0.85);
   float working=smoothstep(born,born+0.45,u_time)*(1.0-smoothstep(settle-0.35,settle+0.7,u_time))*u_motion;
-  float rise=smoothstep(0.0,0.10,age);
+  float rise=mix(step(0.0,age),smoothstep(0.0,0.10,age),u_motion);
   float settlePop=exp(-max(age-0.10,0.0)*6.0)*u_motion;
   float pop=rise*(1.0+0.55*settlePop);
   vec2 center=vec2(a_node.x,${liveEdgeY}+(u_cam-state.x));
   if(center.y>1.3||center.y<-1.3){ gl_Position=vec4(2.0,2.0,2.0,1.0); gl_PointSize=0.0; return; }
   float hover=exp(-distance(vec2(a_node.x,state.x),vec2(u_hoverX,u_hoverY))*20.0)*u_hoverAmount;
   float failing=step(terminal,1e17);
-  float failAge=u_time-terminal;
-  float failP=failing>0.5?smoothstep(0.0,0.35,failAge):0.0;
+  float failAge=0.0;
+  float failP=0.0;
+  if(failing>0.5){
+    failAge=mix(step(terminal,u_time),u_time-terminal,u_motion);
+    failP=mix(step(0.0,failAge),smoothstep(0.0,0.35,failAge),u_motion);
+  }
   vec2 dir=vec2(a_particle.x,a_particle.y);
   vec2 perp=vec2(-dir.y,dir.x);
   float bodySize=(${f(40)}+recent*${f(20)}+working*${f(58)}+hover*${f(38)}+role.x)*detail.x;
@@ -266,6 +279,8 @@ void main(){
   if(failing>0.5&&failAge>0.0){
     if(a_particleRole<0.5){
       pos=center; psize=bodySize*pop*0.72; palpha=1.0;
+    } else if(u_motion<0.5){
+      pos=center; psize=0.0; palpha=0.0;
     } else {
       float burst=exp(-failAge*2.2);
       vec2 burstPos=center+dir*(0.02+failAge*0.16);
@@ -291,11 +306,11 @@ void main(){
       palpha=(1.0-suck)*0.9+0.08;
       psize=(2.5+recent*3.0)*(0.45+(1.0-suck)*0.8);
     } else {
-      float et=-toBirth;
+      float et=visualAge;
       float flash=16.0*et*exp(-et*13.0)*u_motion;
-      float pt=fract(u_time*a_particle.w*(0.18+act*0.18)+phase);
+      float pt=fract(motionTime*a_particle.w*(0.18+act*0.18)+phase);
       float cloudFade=smoothstep(0.25,0.70,et);
-      vec2 cloudOff=dir*(0.35+pt*0.65)+perp*0.30*sin(u_time*0.7+phase*20.0);
+      vec2 cloudOff=dir*(0.35+pt*0.65)+perp*0.30*sin(motionTime*0.7+phase*20.0);
       float cloudR=0.020+act*0.070+recent*0.020+hover*0.02;
       vec2 restPos=center+cloudOff*cloudR*pop*cloudFade;
       float restAlpha=(1.0-pt)*(0.15+act*0.9*cloudFade+recent*0.25+hover*0.4);
@@ -308,7 +323,7 @@ void main(){
     }
   } else {
     float on=clamp(working+hover,0.0,1.0);
-    float ang=u_time*a_particle.w*1.5+phase*6.2832;
+    float ang=motionTime*a_particle.w*1.5+phase*6.2832;
     vec2 ell=vec2(cos(ang),sin(ang)*(0.3+0.5*fract(phase*7.0)));
     float ca=cos(a_particle.x*3.1416), sa=sin(a_particle.x*3.1416);
     vec2 rot=vec2(ell.x*ca-ell.y*sa,ell.x*sa+ell.y*ca);
@@ -323,7 +338,9 @@ void main(){
   v_recent=recent; v_active=working; v_hover=hover; v_fail=failP;
   v_alpha=palpha*vis*open;
   v_isCore=step(a_particleRole,0.5);
-  v_eclipse=max(step(${failMode}-0.5,a_style.x)*step(a_style.x,${failMode}+0.5)*smoothstep(0.0,1.1,age),failP)*step(a_particleRole,0.5);
+  float animatedEclipse=smoothstep(0.0,1.1,age);
+  float eclipse=mix(step(0.0,age),animatedEclipse,u_motion);
+  v_eclipse=max(step(${failMode}-0.5,a_style.x)*step(a_style.x,${failMode}+0.5)*eclipse,failP)*step(a_particleRole,0.5);
   v_ring=emphasis.x; v_dashes=emphasis.y; v_bodyAlpha=emphasis.z;
   gl_Position=vec4(pos.x*u_fitX+u_shiftX,pos.y*u_fitY,0.0,1.0);
   gl_PointSize=min(u_maxPoint,psize*u_pointScale*vis*u_scale);
@@ -392,13 +409,19 @@ void main(){
   if(state.y<0.004){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }
   float born=a_node.y, settle=a_node.z, terminal=a_node.w;
   float age=u_time-born;
+  float visualAge=mix(step(0.0,age),age,u_motion);
   float vis=step(0.0,age);
   float recent=exp(-max(0.0,u_cam-state.x)*0.85);
   float working=smoothstep(born,born+0.45,u_time)*(1.0-smoothstep(settle-0.35,settle+0.7,u_time))*u_motion;
-  float rise=smoothstep(0.0,0.10,age);
+  float rise=mix(step(0.0,age),smoothstep(0.0,0.10,age),u_motion);
   float pop=rise*(1.0+0.55*exp(-max(age-0.10,0.0)*6.0)*u_motion);
   float failing=step(terminal,1e17);
-  v_fail=failing>0.5?smoothstep(0.0,0.35,u_time-terminal):0.0;
+  float failAge=0.0;
+  v_fail=0.0;
+  if(failing>0.5){
+    failAge=mix(step(terminal,u_time),u_time-terminal,u_motion);
+    v_fail=mix(step(0.0,failAge),smoothstep(0.0,0.35,failAge),u_motion);
+  }
   vec3 role=u_role[int(a_style.z)];
   vec3 detail=u_detail[int(a_detail)];
   float halfY=(0.020+recent*0.006+working*0.017)*pop*u_glyphY*role.y*detail.x;
@@ -408,7 +431,7 @@ void main(){
   vec2 pos=center+vec2(a_corner.x*halfX,a_corner.y*halfY);
   v_uv=vec2((a_style.y+(a_corner.x*0.5+0.5))/u_glyphCount,1.0-(a_corner.y*0.5+0.5));
   v_color=u_modeColor[int(a_style.x)]*detail.y;
-  v_reveal=smoothstep(0.06,0.30,age)*vis*state.y;
+  v_reveal=mix(step(0.0,visualAge),smoothstep(0.06,0.30,visualAge),u_motion)*vis*state.y;
   vec2 warped=barrelClip(pos);
   gl_Position=vec4(warped.x+u_shiftX,warped.y,0.0,1.0);
 }

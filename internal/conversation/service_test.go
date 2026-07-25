@@ -809,7 +809,7 @@ func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
 		rerouted.ModelReroute = &agent.ModelRerouteEvent{
 			FromModel: "gpt-5.6-luna",
 			ToModel:   "gpt-5.4-mini",
-			Reason:    "provider_reroute",
+			Reason:    agent.ModelRerouteReasonHighRiskCyberActivity,
 		}
 		if err := sink.HandleAgentEvent(rerouted); err != nil {
 			return agent.TurnResult{}, err

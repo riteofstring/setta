@@ -243,9 +243,21 @@ type ValidationEvent struct {
 }
 
 type ModelRerouteEvent struct {
-	FromModel string `json:"fromModel"`
-	ToModel   string `json:"toModel"`
-	Reason    string `json:"reason"`
+	FromModel string             `json:"fromModel"`
+	ToModel   string             `json:"toModel"`
+	Reason    ModelRerouteReason `json:"reason"`
+}
+
+// ModelRerouteReason is Setta's durable interpretation of the provider's
+// closed reroute-reason catalog. Provider spellings stay behind the adapter.
+type ModelRerouteReason string
+
+const (
+	ModelRerouteReasonHighRiskCyberActivity ModelRerouteReason = "high_risk_cyber_activity"
+)
+
+var modelRerouteReasons = []ModelRerouteReason{
+	ModelRerouteReasonHighRiskCyberActivity,
 }
 
 type TerminalEvent struct {
@@ -496,6 +508,20 @@ func validateValidationEvent(event Event) error {
 func validateModelRerouteEvent(event Event) error {
 	if event.ModelReroute == nil {
 		return errors.New("agent model-reroute event requires payload")
+	}
+	if strings.TrimSpace(event.ModelReroute.FromModel) == "" ||
+		strings.TrimSpace(event.ModelReroute.FromModel) != event.ModelReroute.FromModel {
+		return errors.New("agent model-reroute event requires a trimmed source model")
+	}
+	if strings.TrimSpace(event.ModelReroute.ToModel) == "" ||
+		strings.TrimSpace(event.ModelReroute.ToModel) != event.ModelReroute.ToModel {
+		return errors.New("agent model-reroute event requires a trimmed target model")
+	}
+	if event.ModelReroute.FromModel == event.ModelReroute.ToModel {
+		return errors.New("agent model-reroute event must change model")
+	}
+	if !containsEnumValue(modelRerouteReasons, event.ModelReroute.Reason) {
+		return fmt.Errorf("unsupported agent model-reroute reason %q", event.ModelReroute.Reason)
 	}
 	return nil
 }

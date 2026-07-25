@@ -118,6 +118,20 @@ describe("graph frame scheduler", () => {
     expect(seen[0]?.deltaSeconds).toBe(0);
   });
 
+  it("resumes an active frame after hiding even when nothing changes while hidden", () => {
+    const { source, instance, seen } = scheduler(["continue", "idle"]);
+    instance.requestFrame();
+    source.fire(0);
+    expect(source.pendingFrame()).toBe(true);
+    instance.setVisible(false);
+    expect(source.pendingFrame()).toBe(false);
+    instance.setVisible(true);
+    expect(source.pendingFrame()).toBe(true);
+    source.fire(10_000);
+    expect(seen).toHaveLength(2);
+    expect(seen[1]?.deltaSeconds).toBe(0);
+  });
+
   it("reports the shortest observed delta as the refresh period", () => {
     const { source, instance } = scheduler(["continue", "continue", "continue", "idle"]);
     instance.requestFrame();

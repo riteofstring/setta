@@ -165,17 +165,22 @@ describe("graph view controller", () => {
   });
 
   it("eases the hover flare in and out", () => {
-    let amount = advanceHoverAmount(0, true, 1 / 120, 7);
+    let amount = advanceHoverAmount(0, true, 1 / 120, 7, false);
     expect(amount).toBeGreaterThan(0);
     expect(amount).toBeLessThan(1);
     for (let step = 0; step < 400; step += 1) {
-      amount = advanceHoverAmount(amount, true, 1 / 120, 7);
+      amount = advanceHoverAmount(amount, true, 1 / 120, 7, false);
     }
     expect(amount).toBe(1);
     for (let step = 0; step < 400; step += 1) {
-      amount = advanceHoverAmount(amount, false, 1 / 120, 7);
+      amount = advanceHoverAmount(amount, false, 1 / 120, 7, false);
     }
     expect(amount).toBe(0);
+  });
+
+  it("snaps the hover flare under reduced motion", () => {
+    expect(advanceHoverAmount(0.25, true, 1 / 120, 7, true)).toBe(1);
+    expect(advanceHoverAmount(0.75, false, 1 / 120, 7, true)).toBe(0);
   });
 });
 
@@ -197,6 +202,7 @@ describe("graph label placement", () => {
         visibleFrom: 0,
         visibleTo: scene.snapshot.nodeCount,
         activeTurn: graphActiveTurn(scene.snapshot, scene.timeSeconds),
+        reducedMotion: false,
       },
       out,
     );
@@ -262,5 +268,25 @@ describe("graph label placement", () => {
     const snapshot = packedGraphFixture("director-and-worker-interleaved");
     expect(graphActiveTurn(snapshot, -1)).toBe(-1);
     expect(graphActiveTurn(snapshot, 1e6)).toBe(snapshot.turnCount - 1);
+  });
+
+  it("exposes each pill's fold state for aria-expanded", () => {
+    const active = sceneFor("single-active-turn", 1e6);
+    const activePlacements = placementsFor(active.scene);
+    const input = packedValueAt(active.snapshot.turns.inputNode, 0);
+    expect(
+      activePlacements.out
+        .slice(0, activePlacements.count)
+        .find((placement) => placement.nodeIndex === input)?.expanded,
+    ).toBe(true);
+
+    const history = sceneFor("failure-recovery-and-cancellation", 1e6);
+    const historyPlacements = placementsFor(history.scene);
+    const oldOutcome = outcomeNodeOf(history.snapshot, history.snapshot.turnCount - 1);
+    expect(
+      historyPlacements.out
+        .slice(0, historyPlacements.count)
+        .find((placement) => placement.nodeIndex === oldOutcome)?.expanded,
+    ).toBe(false);
   });
 });

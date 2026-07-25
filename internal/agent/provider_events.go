@@ -453,10 +453,27 @@ func normalizeModelRerouted(raw []byte, base Event) ([]Event, *TerminalEvent, er
 	if err := requireProviderScope(base, notification.ThreadID, notification.TurnID); err != nil {
 		return nil, nil, err
 	}
+	reason, err := normalizedModelRerouteReason(notification.Reason)
+	if err != nil {
+		return nil, nil, err
+	}
 	event := base
 	event.Kind = EventKindModelRerouted
-	event.ModelReroute = &ModelRerouteEvent{FromModel: notification.FromModel, ToModel: notification.ToModel, Reason: string(notification.Reason)}
+	event.ModelReroute = &ModelRerouteEvent{
+		FromModel: notification.FromModel,
+		ToModel:   notification.ToModel,
+		Reason:    reason,
+	}
 	return []Event{event}, nil, nil
+}
+
+func normalizedModelRerouteReason(reason codexapp.ModelRerouteReason) (ModelRerouteReason, error) {
+	switch reason {
+	case codexapp.ModelRerouteReasonHighRiskCyberActivity:
+		return ModelRerouteReasonHighRiskCyberActivity, nil
+	default:
+		return "", fmt.Errorf("unsupported provider model-reroute reason %q", reason)
+	}
 }
 
 func normalizeTurnCompleted(raw []byte, base Event) ([]Event, *TerminalEvent, error) {

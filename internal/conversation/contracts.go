@@ -958,6 +958,7 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet("ApprovalPolicy", ApprovalPolicyUnlessTrusted, ApprovalPolicyOnRequest, ApprovalPolicyNever),
 		contractValueSet("ToolAccessMode", ToolAccessAll, ToolAccessAllowlist, ToolAccessNone),
 		contractValueSet("InvocationOutcome", InvocationOutcomeRunning, InvocationOutcomeSucceeded, InvocationOutcomeFailed, InvocationOutcomeCancelled),
+		{Name: "InvocationModelRerouteReason", Values: stringValues(invocationModelRerouteReasons)},
 		contractValueSet("BranchKind", BranchKindFork),
 		contractValueSet("BranchDecisionKind", BranchDecisionKindCreateSideConversation, BranchDecisionKindForkConversation),
 		contractValueSet("BranchDecisionSource", BranchDecisionSourceConversationRouter, BranchDecisionSourceMaster),

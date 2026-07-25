@@ -302,7 +302,9 @@ async function captureProfile(client, tiers, requestedScenarios) {
  */
 async function assertRendererStayedQuiet(directory) {
   const entries = await readJsonLinesOptional(join(directory, "renderer-console.jsonl"));
-  const errors = entries.filter((entry) => entry.level >= 3);
+  // Chromium records WebGL INVALID_* diagnostics at level 2. They still mean
+  // the GPU command failed and must invalidate the measurement.
+  const errors = entries.filter((entry) => entry.level >= 2);
   if (errors.length === 0) {
     return;
   }

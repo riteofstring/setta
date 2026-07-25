@@ -472,7 +472,7 @@ function unlinkedAgentFailedAfterRestart(snapshot, turnId) {
     turn.providerTurnId === null,
     error.code === "agent_runtime_failed",
     error.retryable === true,
-    String(error.message).includes("provider identity was not committed before restart"),
+    error.message === "The run stopped unexpectedly. Try again.",
   ].every(Boolean);
 }
 

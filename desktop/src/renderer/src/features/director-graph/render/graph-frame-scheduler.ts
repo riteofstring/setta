@@ -71,6 +71,9 @@ export class GraphFrameScheduler {
     }
     this.visible = visible;
     if (!visible) {
+      // A scheduled frame represented unfinished visible work. Preserve that
+      // wake across cancellation even when no new batch arrives while hidden.
+      this.pendingRequest = this.pendingRequest || this.handle !== null;
       this.cancel();
       return;
     }

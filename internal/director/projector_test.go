@@ -70,6 +70,39 @@ func TestReplayIsDeterministicAcrossEveryPrefixBoundary(t *testing.T) {
 	}
 }
 
+func TestActivityAndRerouteLabelsUseTypedPublicVocabulary(t *testing.T) {
+	projection := projectFixture(t, fixtureByName(t, "failure_and_recovery"))
+	graph, err := projection.Graph("ws-epsilon", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("graph: %v", err)
+	}
+	activityID, err := SemanticNodeID(SemanticNodeIdentityActivity, "activity-epsilon-1")
+	if err != nil {
+		t.Fatalf("activity node id: %v", err)
+	}
+	activity, found := nodeByID(graph, activityID)
+	if !found {
+		t.Fatalf("activity node %s is missing", activityID)
+	}
+	if activity.PublicSummary != "Command" ||
+		strings.Contains(activity.PublicSummary, "make installer") {
+		t.Fatalf("command activity leaked provider detail: %+v", activity)
+	}
+	foundReroute := false
+	for _, node := range graph.Nodes {
+		if !strings.HasPrefix(node.PublicSummary, "Model rerouted") {
+			continue
+		}
+		foundReroute = true
+		if !strings.Contains(node.PublicSummary, "for high-risk cyber activity") {
+			t.Fatalf("model reroute did not use its typed reason: %q", node.PublicSummary)
+		}
+	}
+	if !foundReroute {
+		t.Fatal("typed model-reroute node is missing")
+	}
+}
+
 func TestFixturesCoverEveryNodeAndEdgeKind(t *testing.T) {
 	seenNodes := map[SemanticNodeKind]bool{}
 	seenEdges := map[SemanticEdgeKind]bool{}

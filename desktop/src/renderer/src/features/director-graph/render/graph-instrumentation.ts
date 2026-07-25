@@ -271,7 +271,6 @@ export class GraphGpuTimer {
   } | null;
   private active: WebGLQuery | null = null;
   private pending: WebGLQuery | null = null;
-  private lastMs: number | null = null;
 
   constructor(private readonly gl: WebGL2RenderingContext) {
     this.extension = gl.getExtension("EXT_disjoint_timer_query_webgl2") as {
@@ -305,29 +304,31 @@ export class GraphGpuTimer {
     this.active = null;
   }
 
-  /** The most recent completed GPU frame time, or null while none is ready. */
+  /** One newly completed GPU frame time, or null while none is ready. */
   poll(): number | null {
     if (this.extension === null || this.pending === null) {
-      return this.lastMs;
+      return null;
     }
     const available = this.gl.getQueryParameter(
       this.pending,
       this.gl.QUERY_RESULT_AVAILABLE,
     ) as boolean;
     if (!available) {
-      return this.lastMs;
+      return null;
     }
     const disjoint = this.gl.getParameter(this.extension.GPU_DISJOINT_EXT) as boolean;
+    let result: number | null = null;
     if (!disjoint) {
       const nanoseconds = this.gl.getQueryParameter(this.pending, this.gl.QUERY_RESULT) as number;
-      this.lastMs = nanoseconds / 1e6;
+      result = nanoseconds / 1e6;
     }
     this.gl.deleteQuery(this.pending);
     this.pending = null;
-    return this.lastMs;
+    return result;
   }
 
-  dispose(): void {
+  /** Drops any cross-scenario query so a fresh sample window starts clean. */
+  reset(): void {
     if (this.active !== null && this.extension !== null) {
       this.gl.endQuery(this.extension.TIME_ELAPSED_EXT);
       this.gl.deleteQuery(this.active);
@@ -337,6 +338,10 @@ export class GraphGpuTimer {
       this.gl.deleteQuery(this.pending);
       this.pending = null;
     }
+  }
+
+  dispose(): void {
+    this.reset();
   }
 }
 

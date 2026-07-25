@@ -125,8 +125,14 @@ export function DirectorGraphSurface({ timeSecondsAt, onReady, label }: Director
   }, []);
 
   return (
-    <div className="director-graph-surface" ref={rootRef} tabIndex={0} aria-label={label}>
-      <canvas className="director-graph-canvas" ref={canvasRef} />
+    <div
+      aria-label={label}
+      className="director-graph-surface"
+      ref={rootRef}
+      role="region"
+      tabIndex={0}
+    >
+      <canvas aria-hidden="true" className="director-graph-canvas" ref={canvasRef} />
       <div className="director-graph-labels" ref={labelRef} />
     </div>
   );

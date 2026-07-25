@@ -41,6 +41,7 @@ interface PooledLabel {
   top: string;
   opacity: string;
   className: string;
+  expanded: boolean | null;
   hidden: boolean;
   nodeIndex: number;
 }
@@ -78,6 +79,14 @@ function assignOpacity(label: PooledLabel, value: string): void {
   label.opacity = value;
 }
 
+function assignExpanded(label: PooledLabel, expanded: boolean): void {
+  if (label.expanded === expanded) {
+    return;
+  }
+  label.element.setAttribute("aria-expanded", String(expanded));
+  label.expanded = expanded;
+}
+
 function className(isPill: boolean, variant: PillVariant, sticky: boolean): string {
   return [
     isPill ? "director-graph-pill" : "director-graph-label",
@@ -104,8 +113,8 @@ function assignStyle(label: PooledLabel, left: string, top: string, transform: s
 }
 
 export interface GraphLabelLayerCallbacks {
-  /** The user activated an outcome pill: fold or unfold its turn. */
-  onOutcomeActivated(nodeIndex: number): void;
+  /** The user activated a question or outcome pill: fold or unfold its turn. */
+  onPillActivated(nodeIndex: number): void;
 }
 
 export class GraphLabelLayer {
@@ -168,6 +177,7 @@ export class GraphLabelLayer {
     assignText(label, snapshot.nodes.labels[placement.nodeIndex] ?? "");
     if (isPill) {
       assignMark(label, pillMarks[variant]);
+      assignExpanded(label, placement.expanded);
     }
     assignClassName(label, className(isPill, variant, placement.sticky));
     assignOpacity(label, placement.opacity.toFixed(3));
@@ -216,7 +226,7 @@ export class GraphLabelLayer {
     const label = newPooled(element, summary, mark);
     element.addEventListener("click", (event) => {
       event.stopPropagation();
-      this.callbacks.onOutcomeActivated(label.nodeIndex);
+      this.callbacks.onPillActivated(label.nodeIndex);
     });
     this.pills.push(label);
     this.root.append(element);
@@ -252,6 +262,7 @@ function newPooled(
     top: "",
     opacity: "",
     className: "",
+    expanded: null,
     hidden: true,
     nodeIndex: -1,
   };

@@ -264,6 +264,9 @@ export class GraphLadderLayout {
       return pinned ? 1 : 0;
     }
     const compactAt = packedValueAt(snapshot.turns.compactAt, turn);
+    if (input.reducedMotion && Number.isFinite(compactAt)) {
+      return 0;
+    }
     return input.timeSeconds > compactAt ? 0 : 1;
   }
 
@@ -347,6 +350,9 @@ export class GraphLadderLayout {
    * sleep until the next pushed batch.
    */
   private quietUntil(snapshot: PackedGraphSnapshot, input: GraphLadderInput): number {
+    if (input.reducedMotion) {
+      return input.timeSeconds;
+    }
     let quiet = input.timeSeconds;
     const firstTurn = Math.max(0, snapshot.turnCount - 2);
     for (let turn = firstTurn; turn < snapshot.turnCount; turn += 1) {

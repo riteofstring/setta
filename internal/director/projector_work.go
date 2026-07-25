@@ -18,7 +18,6 @@ const (
 	subagentSummaryFallback   = "Delegated subagent"
 	livenessSummaryFallback   = "Agent liveness changed"
 	approvalSummaryFallback   = "Approval required"
-	activitySummaryFallback   = "Activity"
 	fileChangeSummaryFallback = "File change"
 	validationSummaryFallback = "Validation recorded"
 )
@@ -32,7 +31,6 @@ func projectActivityStarted(projector *DirectorGraphProjector, context factConte
 		context,
 		payload.Activity,
 		SemanticNodeStatusActive,
-		payload.Activity.Title,
 	)
 }
 
@@ -72,8 +70,7 @@ func projectActivityCompleted(projector *DirectorGraphProjector, context factCon
 	if payload == nil {
 		return missingPayload(event)
 	}
-	summary := firstText(payload.Summary, payload.Activity.Title)
-	return projector.commitActivity(context, payload.Activity, SemanticNodeStatusSucceeded, summary)
+	return projector.commitActivity(context, payload.Activity, SemanticNodeStatusSucceeded)
 }
 
 func projectActivityFailed(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {
@@ -81,8 +78,7 @@ func projectActivityFailed(projector *DirectorGraphProjector, context factContex
 	if payload == nil {
 		return missingPayload(event)
 	}
-	summary := firstText(payload.Failure.Message, payload.Activity.Title)
-	return projector.commitActivity(context, payload.Activity, SemanticNodeStatusFailed, summary)
+	return projector.commitActivity(context, payload.Activity, SemanticNodeStatusFailed)
 }
 
 // commitActivity resolves the node kind from the typed activity kind. An
@@ -92,7 +88,6 @@ func (projector *DirectorGraphProjector) commitActivity(
 	context factContext,
 	activity conversation.TrajectoryActivity,
 	status SemanticNodeStatus,
-	summary string,
 ) error {
 	kind, err := NodeKindForActivity(activity.Kind)
 	if err != nil {
@@ -101,17 +96,53 @@ func (projector *DirectorGraphProjector) commitActivity(
 	if kind == SemanticNodeNone {
 		return nil
 	}
+	publicSummary, err := activityPublicSummary(activity.Kind)
+	if err != nil {
+		return err
+	}
 	_, err = projector.commitNode(context, nodeSpec{
 		identity: SemanticNodeIdentityActivity,
 		sourceID: activity.ID,
 		kind:     kind,
 		status:   status,
 		actor:    context.actor,
-		summary:  firstText(summary, activity.Title, activitySummaryFallback),
+		// Provider activity titles and summaries can contain full commands,
+		// arguments, paths, or tool output. The semantic graph names the typed
+		// activity and leaves those private details on their owning surface.
+		summary:  publicSummary,
 		evidence: EvidenceRuntimeFact,
 		chain:    true,
 	})
 	return err
+}
+
+func activityPublicSummary(kind conversation.TrajectoryActivityKind) (string, error) {
+	switch kind {
+	case conversation.TrajectoryActivityCommand:
+		return "Command", nil
+	case conversation.TrajectoryActivityMCPTool:
+		return "MCP tool", nil
+	case conversation.TrajectoryActivityDynamicTool:
+		return "Tool", nil
+	case conversation.TrajectoryActivityWebSearch:
+		return "Web search", nil
+	case conversation.TrajectoryActivityImageView:
+		return "Image inspection", nil
+	case conversation.TrajectoryActivityImageGeneration:
+		return "Image generation", nil
+	case conversation.TrajectoryActivitySleep:
+		return "Wait", nil
+	case conversation.TrajectoryActivityHook:
+		return "Hook", nil
+	case conversation.TrajectoryActivityFileChange:
+		return fileChangeSummaryFallback, nil
+	case conversation.TrajectoryActivitySubagent:
+		return subagentSummaryFallback, nil
+	case conversation.TrajectoryActivityOther:
+		return "", nil
+	default:
+		return "", fmt.Errorf("unsupported trajectory activity kind %q", kind)
+	}
 }
 
 func projectFileChangeProposed(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {
@@ -766,11 +797,24 @@ func projectModelRerouted(projector *DirectorGraphProjector, context factContext
 	}
 	// The typed reroute reason owns the meaning. Risk is never inferred from the
 	// surrounding text.
-	summary := firstText(
-		payload.Reroute.Reason,
-		fmt.Sprintf(rerouteSummaryPattern, payload.Reroute.FromModelID, payload.Reroute.ToModelID),
-	)
+	summary, err := modelRerouteSummary(payload.Reroute)
+	if err != nil {
+		return err
+	}
 	return projector.commitLifecycleNode(context, event.ID, SemanticNodeRecovery, summary)
+}
+
+func modelRerouteSummary(reroute conversation.InvocationModelReroute) (string, error) {
+	switch reroute.Reason {
+	case conversation.InvocationModelRerouteReasonHighRiskCyberActivity:
+		return fmt.Sprintf(
+			"Model rerouted from %s to %s for high-risk cyber activity",
+			reroute.FromModelID,
+			reroute.ToModelID,
+		), nil
+	default:
+		return "", fmt.Errorf("unsupported model-reroute reason %q", reroute.Reason)
+	}
 }
 
 // commitLifecycleNode makes a lifecycle fact visible only when the typed state

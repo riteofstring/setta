@@ -2,8 +2,10 @@
 
 **Date:** 2026-07-24
 **Status:** Approved direction; Phase 0 repository work and Phases 1 and 2 are
-complete. Both remain at their audit boundary until the required broad
-verification has a post-fix green result. Phase 2 owns the standalone renderer:
+complete, and the shared Phase 1/2 audit boundary is closed. The audit reviewed
+the phase across its restarted implementation loop, fixed the findings, and ran
+the required post-fix broad verification without starting Phase 3. Phase 2 owns
+the standalone renderer:
 the packed GPU render snapshot, its deterministic fixture generation, and its
 burst/cursor-replay fixtures are committed in
 `desktop/src/renderer/src/features/director-graph/` (items 2 and 7); the WebGL2
@@ -14,6 +16,8 @@ fixture harness page in `features/director-graph/harness/`, and the workflow
 `desktop/tests/electron/director-graph-renderer-performance.test.mjs` (items 6,
 8, 9, and 10). Measured results for every scenario and tier are in
 [`docs/reports/performance/setta-4-graph-renderer-scenarios-20260724.md`](../reports/performance/setta-4-graph-renderer-scenarios-20260724.md).
+The corrective audit measurement is in
+[`docs/reports/performance/setta-4-graph-renderer-phase2-audit-20260724.md`](../reports/performance/setta-4-graph-renderer-phase2-audit-20260724.md).
 Real 4K, 6K, and phone hardware stays a release gate: those tiers are emulated.
 The checked-in
 Codex protocol snapshot is refreshed and the provider
@@ -41,6 +45,13 @@ visual gallery in item 13 is deferred to Phase 3, when the Director endpoints an
 events make the registered contracts reachable to the TypeScript generator. It is
 not a Phase 1 completion blocker, and no parallel TypeScript contract mirror should
 be introduced to build it earlier.
+The shared audit's final production-path evidence is green: all eight deterministic
+topic-conversation Electron workflows passed; the single live-provider attempt
+passed the agent protocol, conversation side-isolation, and runtime
+topic-conversation suites with local ChatGPT auth and no `OPENAI_API_KEY`; and
+all 19 standalone graph-renderer scenario runs passed with an empty renderer
+console. The audit did not retry unavailable physical-device, interactive
+baseline, or extended-soak release gates.
 The ownership, surviving-path, and reusable-foundation inventories are committed in
 [`docs/reports/setta-4-phase0-ownership-inventory-20260724.md`](../reports/setta-4-phase0-ownership-inventory-20260724.md),
 the mockup fidelity checklist in
@@ -932,6 +943,13 @@ Exit gate:
       in the adapter rules above: `guardianWarning` and `model/safetyBuffering/updated` are
       `evidence`, because each is a second rendering of a fact Setta already commits typed.
 
+The Phase 1 side of the shared audit additionally replaced the model-reroute
+reason string with a Go-owned `high_risk_cyber_activity` enum across the agent,
+conversation, Director, HTTP, and generated TypeScript boundaries; regenerated
+protocol version 83; and made the Director projection use explicit semantic
+activity summaries so raw commands, provider titles, and tool output cannot
+become public graph labels.
+
 Exit gate:
 
 - checked-in Codex protocol inputs are current for the implementation baseline — met
@@ -1100,6 +1118,20 @@ Exit gate:
       surface pixels, and a cell that samples the scene once with two fragment
       centres across it erases every mid-tone dot. `graphDitherCellPixels` floors
       the cell at its authored size in surface pixels.
+    The shared phase audit then closed the remaining standalone-boundary gaps:
+    empty snapshots keep the valid prewarm texture instead of issuing a
+    zero-texel upload; timer queries return each fresh result once and reset
+    between scenarios; a hidden scheduler retains its pending wake; harness
+    deadlines distinguish failed steps from the sustained scenario's allowed
+    ceiling; reduced-motion mode removes autonomous shader, particle, label,
+    hover, camera, and fold motion; packed snapshots validate vocabulary,
+    ordering, references, and lifecycle invariants at runtime; interactive
+    labels expose a named semantic region, expansion state, and 44 px targets;
+    and edge shaders guard the absent-terminal-time sentinel before arithmetic.
+    The performance workflow now rejects level-2 renderer console entries. The
+    corrective measurement and the invalid earlier console claim are recorded
+    in
+    [`docs/reports/performance/setta-4-graph-renderer-phase2-audit-20260724.md`](../reports/performance/setta-4-graph-renderer-phase2-audit-20260724.md).
     The renderer's own adaptation budget is deliberately *not* the report's frame
     budget. It comes from the single shortest frame delta ever observed, which is
     optimistic by design so a renderer stuck at half rate cannot redefine the
@@ -1249,16 +1281,15 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Clear the Phase 1 and Phase 2 audit boundary with one post-fix required broad verification run.
-2. Start Phase 3 at items 1 through 4: adapt the Master route decision catalog into the Director
+1. Start Phase 3 at items 1 through 4: adapt the Master route decision catalog into the Director
    decision protocol, rename the product-facing Master concepts, implement the deep
    `DirectorCommandCenter` boundary, and stand up the app-scoped workstream registry with push
    subscriptions and durable cursors. The renderer is proven standalone and needs only packed
    snapshots, so the boundary work is what the graph is now waiting on.
-3. Build the exhaustive node/edge visual gallery after Phase 3 makes the Director contracts reachable
+2. Build the exhaustive node/edge visual gallery after Phase 3 makes the Director contracts reachable
    to `desktop/src/generated/backend.ts`. `ProjectionFixtures()` is the production-contract source
    the gallery renders from. The four contract gaps the inventory found are already closed in
    `internal/director`; moving `internal/master` onto `director.WorkstreamResourceBinding` is Phase 3
    rewiring, not a remaining contract gap.
-4. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
+3. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.

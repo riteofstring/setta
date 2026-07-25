@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type {
   ConversationEvent,
+  InvocationModelRerouteReason,
   ResolvedInvocation,
   Role,
   RoleProfile,
@@ -155,7 +156,7 @@ describe("session recording privacy", () => {
     const authoredInput = "private authored objective";
     const finalSummary = "private narrator final summary";
     const failureMessage = "private provider failure detail";
-    const rerouteReason = "private provider reroute detail";
+    const rerouteReason: InvocationModelRerouteReason = "high_risk_cyber_activity";
     const invocation = resolvedInvocation("agent", failureMessage, rerouteReason);
     const turn = conversationRecordingEvents(
       conversationEvent({
@@ -221,9 +222,10 @@ describe("session recording privacy", () => {
       },
     ]);
     const serialized = JSON.stringify(recorded);
-    for (const secret of [authoredInput, finalSummary, failureMessage, rerouteReason]) {
+    for (const secret of [authoredInput, finalSummary, failureMessage]) {
       expect(serialized).not.toContain(secret);
     }
+    expect(serialized).not.toContain(rerouteReason);
   });
 
   test("projects typed lifecycle, validation, and thread metadata without context text", () => {
@@ -456,7 +458,7 @@ function conversationEvent(payload: ConversationEvent["payload"], sequence = 1):
 function resolvedInvocation(
   role: Role,
   failureMessage: string,
-  rerouteReason: string,
+  rerouteReason: InvocationModelRerouteReason,
 ): ResolvedInvocation {
   const requested = roleProfile(role);
   return {

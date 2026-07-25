@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 82;
-export const backendContractSchemaHash = "sha256:c85b17bcd0d69b59f42f7c8ffad946dc44b5ac040628c2b946d981317a663c98";
+export const backendProtocolVersion = 83;
+export const backendContractSchemaHash = "sha256:a52f57f01f4e65c693f031910af4cc3f222b6a99098f2eac68c914cd125caa16";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -440,6 +440,20 @@ export function decodeToolAccessMode(value: unknown, label = "ToolAccessMode"): 
     case "allowlist":
       return decoded;
     case "none":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type InvocationModelRerouteReason = "high_risk_cyber_activity";
+
+export const invocationModelRerouteReasonValues = ["high_risk_cyber_activity"] as const satisfies readonly InvocationModelRerouteReason[];
+
+export function decodeInvocationModelRerouteReason(value: unknown, label = "InvocationModelRerouteReason"): InvocationModelRerouteReason {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "high_risk_cyber_activity":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2144,7 +2158,7 @@ export interface InvocationProviderReferences {
 export interface InvocationModelReroute {
   fromModelId: string;
   toModelId: string;
-  reason: string;
+  reason: InvocationModelRerouteReason;
 }
 
 export interface Failure {
@@ -4892,7 +4906,7 @@ export function decodeInvocationModelReroute(value: unknown): InvocationModelRer
   return {
     fromModelId: decodeString(requireField(record, "fromModelId", "InvocationModelReroute"), "InvocationModelReroute.fromModelId"),
     toModelId: decodeString(requireField(record, "toModelId", "InvocationModelReroute"), "InvocationModelReroute.toModelId"),
-    reason: decodeString(requireField(record, "reason", "InvocationModelReroute"), "InvocationModelReroute.reason"),
+    reason: decodeInvocationModelRerouteReason(requireField(record, "reason", "InvocationModelReroute"), "InvocationModelReroute.reason"),
   };
 }
 

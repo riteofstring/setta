@@ -167,6 +167,18 @@ class FakeCanvas implements DirectorGraphCanvasPort {
   }
 }
 
+class NeverIdleCanvas extends FakeCanvas {
+  override isAwake(): boolean {
+    return true;
+  }
+}
+
+class ThrowingCanvas extends FakeCanvas {
+  override isAwake(): boolean {
+    throw new Error("canvas wake check failed");
+  }
+}
+
 const fakePixelCheck: GraphCanvasPixelCheck = {
   ok: true,
   failures: [],
@@ -195,12 +207,19 @@ async function runScenario(
   host: FakeHost,
   name: (typeof directorGraphScenarioNames)[number],
   maximumFrames = 20_000,
+  scenarioCeilingMs?: number,
 ): Promise<DirectorGraphHarnessRun> {
-  const harness = new DirectorGraphHarness(canvas, host, new GraphReplayClock(), () => ({
-    width: 1512,
-    height: 982,
-    devicePixelRatio: 2,
-  }));
+  const harness = new DirectorGraphHarness(
+    canvas,
+    host,
+    new GraphReplayClock(),
+    () => ({
+      width: 1512,
+      height: 982,
+      devicePixelRatio: 2,
+    }),
+    scenarioCeilingMs,
+  );
   let result: DirectorGraphHarnessRun | null = null;
   let failure: unknown = null;
   harness.run(name).then(
@@ -276,5 +295,17 @@ describe("director graph harness", () => {
     expect(run.details.framesWhileHidden).toBe(0);
     expect(run.details.awakeWhileHidden).toBe(false);
     expect(canvas.visible).toBe(true);
+  });
+
+  it("fails a scenario that reaches its deadline before the canvas settles", async () => {
+    await expect(
+      runScenario(new NeverIdleCanvas(), new FakeHost(), "one-active-workstream", 100, frameMs * 4),
+    ).rejects.toThrow("timed out");
+  });
+
+  it("rejects an exception thrown by a frame step", async () => {
+    await expect(
+      runScenario(new ThrowingCanvas(), new FakeHost(), "burst-cursor-replay", 100),
+    ).rejects.toThrow("canvas wake check failed");
   });
 });

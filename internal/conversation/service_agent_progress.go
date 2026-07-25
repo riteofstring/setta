@@ -428,14 +428,30 @@ func conversationModelRerouteTrajectory(
 	if snapshot.Turns.Turns == nil {
 		return TrajectoryEvent{}, nil, fmt.Errorf("conversation snapshot turns are unavailable")
 	}
+	if event.ModelReroute == nil {
+		return TrajectoryEvent{}, nil, fmt.Errorf("agent model-reroute payload is required")
+	}
+	reason, err := conversationModelRerouteReason(event.ModelReroute.Reason)
+	if err != nil {
+		return TrajectoryEvent{}, nil, err
+	}
 	trajectory.Kind = TrajectoryEventModelRerouted
 	trajectory.Actor = TrajectoryActorProvider
 	trajectory.ModelRerouted = &TrajectoryModelRerouted{Reroute: InvocationModelReroute{
 		FromModelID: event.ModelReroute.FromModel,
 		ToModelID:   event.ModelReroute.ToModel,
-		Reason:      event.ModelReroute.Reason,
+		Reason:      reason,
 	}}
 	return trajectory, nil, nil
+}
+
+func conversationModelRerouteReason(reason agent.ModelRerouteReason) (InvocationModelRerouteReason, error) {
+	switch reason {
+	case agent.ModelRerouteReasonHighRiskCyberActivity:
+		return InvocationModelRerouteReasonHighRiskCyberActivity, nil
+	default:
+		return "", fmt.Errorf("unsupported agent model-reroute reason %q", reason)
+	}
 }
 
 func conversationLifecycleTrajectory(

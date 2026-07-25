@@ -98,6 +98,31 @@ func TestProviderLifecycleFailureKeepsDiagnosticsInternal(t *testing.T) {
 	}
 }
 
+func TestModelRerouteNotificationMapsToSettaTypedReason(t *testing.T) {
+	base := providerNotificationTestBase()
+	events, terminal, err := normalizedProviderNotification(
+		newTestRuntime(),
+		providerNotificationMessage(t, codexapp.CodexNotificationModelRerouted, map[string]any{
+			"fromModel": "gpt-source",
+			"toModel":   "gpt-safe",
+			"reason":    "highRiskCyberActivity",
+			"threadId":  base.ProviderThreadID,
+			"turnId":    base.ProviderTurnID,
+		}),
+		base,
+	)
+	if err != nil || terminal != nil || len(events) != 1 {
+		t.Fatalf("normalize model reroute: events=%d terminal=%v err=%v", len(events), terminal, err)
+	}
+	if err := events[0].Validate(); err != nil {
+		t.Fatalf("validate model reroute: %v", err)
+	}
+	reroute := events[0].ModelReroute
+	if reroute == nil || reroute.Reason != ModelRerouteReasonHighRiskCyberActivity {
+		t.Fatalf("model reroute = %+v", reroute)
+	}
+}
+
 func TestNormalizedProviderNotificationsCarryTypedActivityFacts(t *testing.T) {
 	base := providerNotificationTestBase()
 	for _, testCase := range []struct {

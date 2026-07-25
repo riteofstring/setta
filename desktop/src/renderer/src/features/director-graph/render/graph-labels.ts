@@ -46,6 +46,8 @@ export interface GraphLabelPlacement {
   opacity: number;
   anchor: GraphLabelAnchor;
   sticky: boolean;
+  /** Both question and outcome pills fold this turn when activated. */
+  expanded: boolean;
 }
 
 export interface GraphLabelScene {
@@ -61,6 +63,7 @@ export interface GraphLabelScene {
   readonly visibleTo: number;
   /** The turn whose question sticks to the top of the viewport. */
   readonly activeTurn: number;
+  readonly reducedMotion: boolean;
 }
 
 function labelOpacity(scene: GraphLabelScene, index: number, worldY: number): number {
@@ -89,7 +92,7 @@ function labelReady(
   isOutcome: boolean,
 ): boolean {
   if (isOutcome) {
-    return bornAt + outcomeRevealSeconds <= scene.timeSeconds;
+    return scene.reducedMotion || bornAt + outcomeRevealSeconds <= scene.timeSeconds;
   }
   return packedValueAt(scene.open, index) >= foldedLabelCutoff;
 }
@@ -160,11 +163,15 @@ function placementFor(
   target.opacity = opacity;
   target.anchor = anchor;
   target.sticky = false;
+  const turn = packedValueAt(scene.snapshot.nodes.turn, index);
+  const input = packedValueAt(scene.snapshot.turns.inputNode, turn);
+  target.expanded = packedValueAt(scene.open, input) >= 0.5;
   if (anchor === "over") {
     target.y = warped.y;
     return true;
   }
   const working =
+    !scene.reducedMotion &&
     scene.timeSeconds < packedValueAt(scene.snapshot.nodes.settleAt, index) &&
     scene.timeSeconds >= bornAt;
   const diameter = graphNodeCssDiameter(worldY, scene.cameraWorldY, working, fit);
@@ -179,7 +186,15 @@ function placementFor(
 }
 
 function emptyPlacement(): GraphLabelPlacement {
-  return { nodeIndex: -1, x: 0, y: 0, opacity: 0, anchor: "below", sticky: false };
+  return {
+    nodeIndex: -1,
+    x: 0,
+    y: 0,
+    opacity: 0,
+    anchor: "below",
+    sticky: false,
+    expanded: false,
+  };
 }
 
 /**

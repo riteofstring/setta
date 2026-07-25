@@ -37,7 +37,7 @@ import {
 const idleFramesToFinish = 3;
 
 /** Nothing runs longer than this, however the fixture behaves. */
-const scenarioCeilingMs = 240_000;
+const defaultScenarioCeilingMs = 240_000;
 
 export interface DirectorGraphHarnessHost {
   requestFrame(callback: (timestampMs: number) => void): number;
@@ -238,7 +238,12 @@ export class DirectorGraphHarness {
     private readonly host: DirectorGraphHarnessHost,
     private readonly clock: GraphReplayClock,
     private readonly viewportOf: () => DirectorGraphViewportReport,
-  ) {}
+    private readonly scenarioCeilingMs: number = defaultScenarioCeilingMs,
+  ) {
+    if (!Number.isFinite(scenarioCeilingMs) || scenarioCeilingMs <= 0) {
+      throw new Error(`scenario ceiling must be a positive number: ${String(scenarioCeilingMs)}`);
+    }
+  }
 
   async run(
     name: DirectorGraphScenarioName,
@@ -299,7 +304,11 @@ export class DirectorGraphHarness {
   ): Promise<ScenarioOutcome> {
     const stream = this.loadFixture(plan.fixture, plan.rate);
     this.canvas.resetPerformanceSampling();
-    const delivered = await this.playStream(stream, scenarioCeilingMs);
+    const delivered = await this.playStream(
+      stream,
+      this.scenarioCeilingMs,
+      `replay ${plan.fixture}`,
+    );
     return {
       deliveries: delivered,
       summary: this.canvas.performanceSummary(),
@@ -319,10 +328,14 @@ export class DirectorGraphHarness {
     // from a durable cursor, not a live turn.
     this.clock.start(this.host.now(), lastTime + 1, 1);
     let quiet = 0;
-    await this.drive(() => {
-      quiet += 1;
-      return quiet >= plan.silentFrames;
-    }, scenarioCeilingMs);
+    await this.drive(
+      () => {
+        quiet += 1;
+        return quiet >= plan.silentFrames;
+      },
+      this.scenarioCeilingMs,
+      "burst prelude",
+    );
 
     const expected = batches.reduce((total, batch) => total + batch.nodes.length, 0);
     this.canvas.resetPerformanceSampling();
@@ -330,14 +343,18 @@ export class DirectorGraphHarness {
       this.canvas.pushBatch(batch);
     }
     let framesToApply = 0;
-    await this.drive(() => {
-      if (this.canvas.currentSnapshot().nodeCount < expected) {
-        return false;
-      }
-      framesToApply = this.canvas.performanceSummary().frames;
-      return true;
-    }, scenarioCeilingMs);
-    await this.settle(scenarioCeilingMs);
+    await this.drive(
+      () => {
+        if (this.canvas.currentSnapshot().nodeCount < expected) {
+          return false;
+        }
+        framesToApply = this.canvas.performanceSummary().frames;
+        return true;
+      },
+      this.scenarioCeilingMs,
+      "burst backlog application",
+    );
+    await this.settle(this.scenarioCeilingMs, "burst settle");
     return {
       deliveries: batches.length,
       summary: this.canvas.performanceSummary(),
@@ -355,23 +372,27 @@ export class DirectorGraphHarness {
     }
     this.clock.start(this.host.now(), 0, 1);
     this.canvas.setSnapshot(first);
-    await this.settle(scenarioCeilingMs);
+    await this.settle(this.scenarioCeilingMs, "navigation initial settle");
     this.canvas.resetPerformanceSampling();
     let switched = 0;
     let frames = 0;
-    await this.drive(() => {
-      frames += 1;
-      if (frames % plan.framesPerSwitch !== 0) {
-        return false;
-      }
-      const next = workstreams[(switched + 1) % workstreams.length];
-      if (next === undefined) {
-        throw new Error("navigation scenario lost a workstream");
-      }
-      this.canvas.setSnapshot(next);
-      switched += 1;
-      return switched >= plan.switches;
-    }, scenarioCeilingMs);
+    await this.drive(
+      () => {
+        frames += 1;
+        if (frames % plan.framesPerSwitch !== 0) {
+          return false;
+        }
+        const next = workstreams[(switched + 1) % workstreams.length];
+        if (next === undefined) {
+          throw new Error("navigation scenario lost a workstream");
+        }
+        this.canvas.setSnapshot(next);
+        switched += 1;
+        return switched >= plan.switches;
+      },
+      this.scenarioCeilingMs,
+      "workstream navigation",
+    );
     return {
       deliveries: switched,
       summary: this.canvas.performanceSummary(),
@@ -386,19 +407,27 @@ export class DirectorGraphHarness {
     // Run to a durable cursor mid-stream, which is where a restart happens: the
     // app comes back, loads the snapshot at that cursor, and live work resumes.
     const cursor = Math.max(1, Math.floor(stream.batches.length / 2));
-    const delivered = await this.playStream({ ...stream, limit: cursor }, scenarioCeilingMs);
+    const delivered = await this.playStream(
+      { ...stream, limit: cursor },
+      this.scenarioCeilingMs,
+      "restart live prefix",
+    );
     const livePixel = await this.canvas.requestPixelCheck();
     const liveDigest = packedGraphColumnDigest(this.canvas.currentSnapshot());
 
     const restored = buildPackedGraphSnapshot(stream.workstreamId, stream.batches.slice(0, cursor));
     this.canvas.setSnapshot(restored);
-    await this.settle(scenarioCeilingMs);
+    await this.settle(this.scenarioCeilingMs, "restart restored snapshot settle");
     const replayPixel = await this.canvas.requestPixelCheck();
     const replayDigest = packedGraphColumnDigest(this.canvas.currentSnapshot());
 
     // The rest of the stream arrives after the restart, from that cursor.
     this.canvas.resetPerformanceSampling();
-    const resumed = await this.playStream({ ...stream, from: cursor }, scenarioCeilingMs);
+    const resumed = await this.playStream(
+      { ...stream, from: cursor },
+      this.scenarioCeilingMs,
+      "restart resumed stream",
+    );
     return {
       deliveries: delivered + resumed,
       summary: this.canvas.performanceSummary(),
@@ -430,6 +459,8 @@ export class DirectorGraphHarness {
       delivered += await this.playStream(
         stream,
         Math.max(0, plan.durationMs - (this.host.now() - startedAt)),
+        "sustained stream",
+        true,
       );
       cycles += 1;
     }
@@ -446,7 +477,11 @@ export class DirectorGraphHarness {
     const stream = this.loadFixture(plan.fixture, plan.rate);
     const half = Math.max(1, Math.floor(stream.batches.length / 2));
     this.canvas.resetPerformanceSampling();
-    const beforeHidden = await this.playStream({ ...stream, limit: half }, scenarioCeilingMs);
+    const beforeHidden = await this.playStream(
+      { ...stream, limit: half },
+      this.scenarioCeilingMs,
+      "occlusion visible prefix",
+    );
     const framesBeforeHidden = this.canvas.performanceSummary().frames;
 
     this.canvas.setVisible(false);
@@ -459,17 +494,25 @@ export class DirectorGraphHarness {
         this.canvas.pushBatch(batch);
       }
     }
-    await this.drive(() => this.host.now() - hiddenStart >= plan.hiddenMs, scenarioCeilingMs);
+    await this.drive(
+      () => this.host.now() - hiddenStart >= plan.hiddenMs,
+      this.scenarioCeilingMs,
+      "occlusion hidden interval",
+    );
     const framesWhileHidden = this.canvas.performanceSummary().frames;
     const awakeWhileHidden = this.canvas.isAwake();
 
     this.canvas.resetPerformanceSampling();
     const resumeStart = this.host.now();
     this.canvas.setVisible(true);
-    await this.drive(() => this.host.now() - resumeStart >= plan.resumeMs, scenarioCeilingMs);
+    await this.drive(
+      () => this.host.now() - resumeStart >= plan.resumeMs,
+      this.scenarioCeilingMs,
+      "occlusion resume interval",
+    );
     const resumeSummary = this.canvas.performanceSummary();
     const resumeMs = this.host.now() - resumeStart;
-    await this.settle(scenarioCeilingMs);
+    await this.settle(this.scenarioCeilingMs, "occlusion settle");
     return {
       deliveries: stream.batches.length,
       summary: resumeSummary,
@@ -495,28 +538,38 @@ export class DirectorGraphHarness {
   }
 
   /** Pushes each batch when the replay clock reaches its committed time. */
-  private async playStream(stream: FixtureStream, budgetMs: number): Promise<number> {
+  private async playStream(
+    stream: FixtureStream,
+    budgetMs: number,
+    label: string,
+    allowDeadline: boolean = false,
+  ): Promise<number> {
     const limit = Math.min(stream.limit, stream.batches.length);
     const from = stream.from ?? 0;
     let index = from;
     let idle = 0;
-    await this.drive((timestampMs) => {
-      const sceneSeconds = this.clock.secondsAt(timestampMs);
-      while (index < limit) {
-        const due = stream.times[index] ?? 0;
-        const batch = stream.batches[index];
-        if (batch === undefined || due > sceneSeconds) {
-          break;
+    await this.drive(
+      (timestampMs) => {
+        const sceneSeconds = this.clock.secondsAt(timestampMs);
+        while (index < limit) {
+          const due = stream.times[index] ?? 0;
+          const batch = stream.batches[index];
+          if (batch === undefined || due > sceneSeconds) {
+            break;
+          }
+          this.canvas.pushBatch(batch);
+          index += 1;
         }
-        this.canvas.pushBatch(batch);
-        index += 1;
-      }
-      if (index < limit) {
-        return false;
-      }
-      idle = this.canvas.isAwake() ? 0 : idle + 1;
-      return idle >= idleFramesToFinish;
-    }, budgetMs);
+        if (index < limit) {
+          return false;
+        }
+        idle = this.canvas.isAwake() ? 0 : idle + 1;
+        return idle >= idleFramesToFinish;
+      },
+      budgetMs,
+      label,
+      allowDeadline,
+    );
     return index - from;
   }
 
@@ -529,25 +582,47 @@ export class DirectorGraphHarness {
   }
 
   /** Waits for the graph to stop moving. */
-  private async settle(budgetMs: number): Promise<void> {
+  private async settle(budgetMs: number, label: string): Promise<void> {
     let idle = 0;
-    await this.drive(() => {
-      idle = this.canvas.isAwake() ? 0 : idle + 1;
-      return idle >= idleFramesToFinish;
-    }, budgetMs);
+    await this.drive(
+      () => {
+        idle = this.canvas.isAwake() ? 0 : idle + 1;
+        return idle >= idleFramesToFinish;
+      },
+      budgetMs,
+      label,
+    );
   }
 
-  /** Runs `step` on every animation frame until it returns true or time runs out. */
-  private drive(step: (timestampMs: number) => boolean, budgetMs: number): Promise<void> {
-    const deadline = this.host.now() + Math.min(budgetMs, scenarioCeilingMs);
-    return new Promise((resolve) => {
+  /** Runs `step` on every animation frame until it succeeds or its deadline fails. */
+  private drive(
+    step: (timestampMs: number) => boolean,
+    budgetMs: number,
+    label: string,
+    allowDeadline: boolean = false,
+  ): Promise<void> {
+    const boundedBudgetMs = Math.min(budgetMs, this.scenarioCeilingMs);
+    const deadline = this.host.now() + boundedBudgetMs;
+    return new Promise((resolve, reject) => {
       const tick = (timestampMs: number): void => {
-        this.sampleHeap();
-        if (step(timestampMs) || this.host.now() >= deadline) {
-          resolve();
-          return;
+        try {
+          this.sampleHeap();
+          if (step(timestampMs)) {
+            resolve();
+            return;
+          }
+          if (this.host.now() >= deadline) {
+            if (allowDeadline) {
+              resolve();
+            } else {
+              reject(new Error(`${label} timed out after ${Math.round(boundedBudgetMs)} ms`));
+            }
+            return;
+          }
+          this.host.requestFrame(tick);
+        } catch (error) {
+          reject(error);
         }
-        this.host.requestFrame(tick);
       };
       this.host.requestFrame(tick);
     });

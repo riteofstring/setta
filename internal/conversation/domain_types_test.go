@@ -145,8 +145,8 @@ func TestRoleProfilesKeepSelectionsPermissionsAndAuditIndependent(t *testing.T) 
 
 	invocation := validInvocation(RoleAgent, InvocationOutcomeSucceeded)
 	invocation.ModelReroutes = []InvocationModelReroute{
-		{FromModelID: invocation.Resolved.ModelID, ToModelID: "gpt-fallback", Reason: "high_risk_cyber_activity"},
-		{FromModelID: "gpt-fallback", ToModelID: "gpt-safe", Reason: "provider_policy"},
+		{FromModelID: invocation.Resolved.ModelID, ToModelID: "gpt-fallback", Reason: InvocationModelRerouteReasonHighRiskCyberActivity},
+		{FromModelID: "gpt-fallback", ToModelID: "gpt-safe", Reason: InvocationModelRerouteReasonHighRiskCyberActivity},
 	}
 	if err := invocation.Validate(); err != nil {
 		t.Fatalf("valid invocation audit: %v", err)

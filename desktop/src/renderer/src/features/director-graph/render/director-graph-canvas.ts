@@ -106,6 +106,15 @@ const defaultFrameHost: GraphFrameSchedulerHost = {
   cancelFrame: (handle) => cancelAnimationFrame(handle),
 };
 
+/** Hover animates only in the normal-motion profile; reduced motion snaps once. */
+export function graphHoverNeedsAnimation(
+  reducedMotion: boolean,
+  hovering: boolean,
+  hoverAmount: number,
+): boolean {
+  return !reducedMotion && (hovering || hoverAmount > 0);
+}
+
 export class DirectorGraphCanvas {
   private readonly renderer: DirectorGraphRenderer;
   private readonly scheduler: GraphFrameScheduler;
@@ -148,7 +157,7 @@ export class DirectorGraphCanvas {
     );
     this.renderer.prewarm();
     this.labels = new GraphLabelLayer(options.labelRoot, options.ownerDocument, {
-      onOutcomeActivated: (nodeIndex) => this.toggleTurnAt(nodeIndex),
+      onPillActivated: (nodeIndex) => this.toggleTurnAt(nodeIndex),
     });
     this.stopwatch = new GraphFrameStopwatch(this.now);
     this.gpuTimer = new GraphGpuTimer(
@@ -303,6 +312,7 @@ export class DirectorGraphCanvas {
   }
 
   resetPerformanceSampling(): void {
+    this.gpuTimer.reset();
     this.sampler.reset();
   }
 
@@ -408,6 +418,7 @@ export class DirectorGraphCanvas {
       hovering,
       timing.deltaSeconds,
       graphMotionRates.hover,
+      this.reducedMotion,
     );
 
     this.stopwatch.begin("packing");
@@ -536,6 +547,7 @@ export class DirectorGraphCanvas {
         visibleFrom: nodes.from,
         visibleTo: nodes.to,
         activeTurn: graphActiveTurn(this.snapshot, timeSeconds),
+        reducedMotion: this.reducedMotion,
       },
       this.placements,
     );
@@ -575,7 +587,7 @@ export class DirectorGraphCanvas {
     if (timeSeconds < ladder.quietUntilSeconds) {
       return "continue";
     }
-    if (hovering || this.hoverAmount > 0) {
+    if (graphHoverNeedsAnimation(this.reducedMotion, hovering, this.hoverAmount)) {
       return "continue";
     }
     if (this.view.camera() !== this.layout.liveEdge() && !this.view.isDetached()) {

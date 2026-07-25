@@ -182,6 +182,31 @@ describe("graph ladder layout", () => {
     expect(layout.turnOpenness(0)).toBe(0);
   });
 
+  it("does not keep an autonomous animation tail under reduced motion", () => {
+    const snapshot = packedGraphFixture("single-active-turn");
+    const timeSeconds = packedValueAt(snapshot.nodes.bornAt, 0);
+    const frame = new GraphLadderLayout().advance(snapshot, {
+      timeSeconds,
+      deltaSeconds: 1 / 120,
+      pinnedTurns: noPins,
+      reducedMotion: true,
+    });
+    expect(frame.quietUntilSeconds).toBe(timeSeconds);
+  });
+
+  it("applies a terminal fold immediately under reduced motion", () => {
+    const snapshot = packedGraphFixture("approval-and-artifact-arrival");
+    const answerAt = packedValueAt(snapshot.turns.answerAt, 0);
+    const layout = new GraphLadderLayout();
+    layout.advance(snapshot, {
+      timeSeconds: answerAt,
+      deltaSeconds: 0,
+      pinnedTurns: noPins,
+      reducedMotion: true,
+    });
+    expect(layout.turnOpenness(0)).toBe(0);
+  });
+
   it("rejects a snapshot whose turns are not contiguous", () => {
     const snapshot = packedGraphFixture("director-and-worker-interleaved");
     const scrambled: PackedGraphSnapshot = {

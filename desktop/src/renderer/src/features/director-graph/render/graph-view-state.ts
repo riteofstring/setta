@@ -306,8 +306,12 @@ export function advanceHoverAmount(
   hovering: boolean,
   deltaSeconds: number,
   rate: number,
+  reducedMotion: boolean,
 ): number {
   const target = hovering ? 1 : 0;
+  if (reducedMotion) {
+    return target;
+  }
   const next = current + (target - current) * Math.min(1, Math.max(0, deltaSeconds) * rate);
   return Math.abs(target - next) < 0.002 ? target : next;
 }

@@ -522,7 +522,7 @@ func failureAndRecoveryFixture() ProjectionFixture {
 				Reroute: conversation.InvocationModelReroute{
 					FromModelID: "gpt-5.1-codex",
 					ToModelID:   "gpt-5.1-codex-mini",
-					Reason:      "Rerouted after a capacity error",
+					Reason:      conversation.InvocationModelRerouteReasonHighRiskCyberActivity,
 				},
 			}
 		})

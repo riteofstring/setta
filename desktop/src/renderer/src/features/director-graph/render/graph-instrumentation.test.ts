@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   GraphFrameSampler,
   GraphFrameStopwatch,
+  GraphGpuTimer,
   graphCpuMarks,
   type GraphFrameSample,
 } from "./graph-instrumentation";
@@ -120,5 +121,77 @@ describe("graph frame stopwatch", () => {
     stopwatch.marks();
     stopwatch.beginFrame();
     expect(stopwatch.marks()).toEqual({ projection: 0, packing: 0, upload: 0, draw: 0 });
+  });
+});
+
+class FakeGpuTimerContext {
+  readonly QUERY_RESULT_AVAILABLE = 1;
+  readonly QUERY_RESULT = 2;
+  available = false;
+  disjoint = false;
+  nanoseconds = 4_000_000;
+  deleted = 0;
+  ended = 0;
+  private readonly query = {} as WebGLQuery;
+
+  getExtension(name: string): object | null {
+    return name === "EXT_disjoint_timer_query_webgl2"
+      ? { TIME_ELAPSED_EXT: 3, GPU_DISJOINT_EXT: 4 }
+      : null;
+  }
+
+  createQuery(): WebGLQuery {
+    return this.query;
+  }
+
+  beginQuery(): void {}
+
+  endQuery(): void {
+    this.ended += 1;
+  }
+
+  getQueryParameter(_query: WebGLQuery, field: number): boolean | number {
+    return field === this.QUERY_RESULT_AVAILABLE ? this.available : this.nanoseconds;
+  }
+
+  getParameter(): boolean {
+    return this.disjoint;
+  }
+
+  deleteQuery(): void {
+    this.deleted += 1;
+  }
+
+  context(): WebGL2RenderingContext {
+    return this as unknown as WebGL2RenderingContext;
+  }
+}
+
+describe("graph GPU timer", () => {
+  it("reports a completed query once instead of repeating a stale sample", () => {
+    const context = new FakeGpuTimerContext();
+    const timer = new GraphGpuTimer(context.context());
+    timer.beginFrame();
+    timer.endFrame();
+    expect(timer.poll()).toBeNull();
+    context.available = true;
+    expect(timer.poll()).toBe(4);
+    expect(timer.poll()).toBeNull();
+    expect(context.deleted).toBe(1);
+  });
+
+  it("drops disjoint and reset queries", () => {
+    const context = new FakeGpuTimerContext();
+    const timer = new GraphGpuTimer(context.context());
+    timer.beginFrame();
+    timer.endFrame();
+    context.available = true;
+    context.disjoint = true;
+    expect(timer.poll()).toBeNull();
+    timer.beginFrame();
+    timer.reset();
+    expect(context.ended).toBe(2);
+    expect(context.deleted).toBe(2);
+    expect(timer.poll()).toBeNull();
   });
 });

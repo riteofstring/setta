@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DirectorGraphCanvas } from "./director-graph-canvas";
+import { DirectorGraphCanvas, graphHoverNeedsAnimation } from "./director-graph-canvas";
 import { DirectorGraphRenderer } from "./director-graph-renderer";
 import { graphSeededRandom } from "./graph-gl-programs";
 import { graphQualityProfiles } from "./graph-quality";
@@ -41,6 +41,13 @@ describe("director graph canvas host", () => {
           reducedMotion: false,
         }),
     ).toThrow(/WebGL2/u);
+  });
+
+  it("does not keep the frame loop awake for a snapped reduced-motion hover", () => {
+    expect(graphHoverNeedsAnimation(false, true, 1)).toBe(true);
+    expect(graphHoverNeedsAnimation(false, false, 0.25)).toBe(true);
+    expect(graphHoverNeedsAnimation(true, true, 1)).toBe(false);
+    expect(graphHoverNeedsAnimation(true, false, 0)).toBe(false);
   });
 });
 

@@ -770,6 +770,12 @@ export class DirectorGraphRenderer {
   private uploadNodeState(scene: GraphPackedScene): void {
     const gl = this.gl;
     const texels = scene.nodeState.length / graphNodeStateStride;
+    // Prewarm allocates one valid row. Keep it when the workstream is empty:
+    // WebGL requires enough source data for the full texImage2D rectangle, and
+    // an empty Float32Array cannot initialize even that minimum row.
+    if (texels === 0) {
+      return;
+    }
     const rows = Math.max(1, Math.ceil(texels / graphNodeStateTextureWidth));
     gl.bindTexture(gl.TEXTURE_2D, this.stateTexture);
     if (texels !== this.stateTexelCapacity) {
@@ -999,6 +1005,7 @@ export class DirectorGraphRenderer {
         continue;
       }
       const working =
+        !frame.view.reducedMotion &&
         frame.view.timeSeconds >= packedValueAt(frame.snapshot.nodes.bornAt, index) &&
         frame.view.timeSeconds < packedValueAt(frame.snapshot.nodes.settleAt, index);
       const diameter =

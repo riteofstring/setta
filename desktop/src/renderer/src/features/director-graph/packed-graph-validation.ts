@@ -11,7 +11,19 @@
  * - a turn is running exactly when it has no outcome node
  */
 
-import { packedGraphLimits, packedGraphRoleCode, packedValueAt } from "./packed-graph-vocabulary";
+import {
+  packedGraphDetailCode,
+  packedGraphEdgeChannelCode,
+  packedGraphEmphasisCode,
+  packedGraphGlyphCode,
+  packedGraphLabelPlacementCode,
+  packedGraphLimits,
+  packedGraphModeCode,
+  packedGraphOutcomeCode,
+  packedGraphOutcomes,
+  packedGraphRoleCode,
+  packedValueAt,
+} from "./packed-graph-vocabulary";
 import type {
   PackedGraphBatch,
   PackedGraphEdgeInput,
@@ -36,10 +48,21 @@ function requireIntegerInRange(value: number, maxExclusive: number, label: strin
   requireTrue(value < maxExclusive, `${label} must be below ${maxExclusive}, got ${value}`);
 }
 
+function requireVocabularyValue(table: object, value: string, label: string): void {
+  requireTrue(
+    Object.prototype.hasOwnProperty.call(table, value),
+    `${label} has unsupported value ${JSON.stringify(value)}`,
+  );
+}
+
 interface BatchNodeView {
   readonly count: number;
   indexOf(nodeId: string): number;
+  id(index: number): string;
   role(index: number): number;
+  turn(index: number): number;
+  row(index: number): number;
+  bornAt(index: number): number;
   isTerminal(index: number): boolean;
 }
 
@@ -62,12 +85,30 @@ function createBatchNodeView(
       requireTrue(index !== undefined, `packed graph batch references unknown node ${nodeId}`);
       return index ?? 0;
     },
+    id: (index) => {
+      const node = appended(index);
+      const id = node === undefined ? previous.nodes.ids[index] : node.id;
+      requireTrue(id !== undefined, `packed graph node index ${index} has no id`);
+      return id ?? "";
+    },
     role: (index) => {
       const node = appended(index);
       if (node === undefined) {
         return packedValueAt(previous.nodes.role, index);
       }
       return packedGraphRoleCode[node.role];
+    },
+    turn: (index) => {
+      const node = appended(index);
+      return node === undefined ? packedValueAt(previous.nodes.turn, index) : node.turn;
+    },
+    row: (index) => {
+      const node = appended(index);
+      return node === undefined ? packedValueAt(previous.nodes.row, index) : node.row;
+    },
+    bornAt: (index) => {
+      const node = appended(index);
+      return node === undefined ? packedValueAt(previous.nodes.bornAt, index) : node.bornAt;
     },
     isTerminal: (index) => {
       const node = appended(index);
@@ -81,10 +122,33 @@ function createBatchNodeView(
 
 function validateNodeShape(node: PackedGraphNodeInput): void {
   const label = `packed graph node ${node.id}`;
+  requireTrue(
+    typeof node.id === "string" && node.id.trim().length > 0 && node.id.trim() === node.id,
+    "packed graph node id must be non-empty without surrounding whitespace",
+  );
+  requireVocabularyValue(packedGraphRoleCode, node.role, `${label} role`);
+  requireVocabularyValue(packedGraphModeCode, node.mode, `${label} mode`);
+  requireVocabularyValue(packedGraphGlyphCode, node.glyph, `${label} glyph`);
+  requireVocabularyValue(packedGraphEmphasisCode, node.emphasis, `${label} emphasis`);
+  requireVocabularyValue(packedGraphDetailCode, node.detail, `${label} detail`);
+  requireVocabularyValue(
+    packedGraphLabelPlacementCode,
+    node.labelPlacement,
+    `${label} label placement`,
+  );
+  requireTrue(typeof node.label === "string", `${label} label must be a string`);
   requireIntegerInRange(node.turn, packedGraphLimits.maxTurns, `${label} turn`);
   requireIntegerInRange(node.row, packedGraphLimits.maxRowsPerTurn, `${label} row`);
+  requireTrue(
+    node.role === "input" ? node.row === 0 : node.row > 0,
+    `${label} role ${node.role} cannot occupy row ${node.row}`,
+  );
   requireFinite(node.lane, `${label} lane`);
   requireFinite(node.bornAt, `${label} bornAt`);
+  requireFinite(node.settleAt, `${label} settleAt`);
+  if (node.terminalAt !== null) {
+    requireFinite(node.terminalAt, `${label} terminalAt`);
+  }
   requireTrue(node.bornAt >= 0, `${label} bornAt must not be negative`);
   requireTrue(
     node.settleAt >= node.bornAt,
@@ -102,21 +166,32 @@ function validateNodeShape(node: PackedGraphNodeInput): void {
  * compared against a live push.
  */
 function validateNodeOrder(previous: PackedGraphSnapshot, batch: PackedGraphBatch): void {
-  let last =
+  let lastBorn =
     previous.nodeCount === 0
       ? Number.NEGATIVE_INFINITY
       : packedValueAt(previous.nodes.bornAt, previous.nodeCount - 1);
+  let lastTurn =
+    previous.nodeCount === 0
+      ? Number.NEGATIVE_INFINITY
+      : packedValueAt(previous.nodes.turn, previous.nodeCount - 1);
   for (const node of batch.nodes) {
     requireTrue(
-      node.bornAt >= last,
-      `packed graph node ${node.id} is born at ${node.bornAt}, before the previous node at ${last}`,
+      node.bornAt >= lastBorn,
+      `packed graph node ${node.id} is born at ${node.bornAt}, before the previous node at ${lastBorn}`,
     );
-    last = node.bornAt;
+    requireTrue(
+      node.turn >= lastTurn,
+      `packed graph node ${node.id} returns to turn ${node.turn} after turn ${lastTurn}`,
+    );
+    lastBorn = node.bornAt;
+    lastTurn = node.turn;
   }
 }
 
 function validateTurnShape(turn: PackedGraphTurnInput): void {
   const label = `packed graph turn ${turn.index}`;
+  requireIntegerInRange(turn.index, packedGraphLimits.maxTurns, `${label} index`);
+  requireVocabularyValue(packedGraphOutcomeCode, turn.outcome, `${label} outcome`);
   requireIntegerInRange(turn.rowSpan, packedGraphLimits.maxRowsPerTurn + 1, `${label} rowSpan`);
   requireTrue(turn.rowSpan >= 1, `${label} rowSpan must cover its input row`);
   const running = turn.outcome === "running";
@@ -128,6 +203,12 @@ function validateTurnShape(turn: PackedGraphTurnInput): void {
     running === (turn.answerAt === null),
     `${label} is ${turn.outcome} but ${running ? "carries" : "carries no"} an answer time`,
   );
+  if (turn.answerAt !== null) {
+    requireFinite(turn.answerAt, `${label} answerAt`);
+  }
+  if (turn.compactAt !== null) {
+    requireFinite(turn.compactAt, `${label} compactAt`);
+  }
   requireTrue(
     turn.compactAt === null || (turn.answerAt !== null && turn.compactAt >= turn.answerAt),
     `${label} folds at ${turn.compactAt} before it is answered`,
@@ -141,6 +222,11 @@ function validateTurnReferences(turn: PackedGraphTurnInput, view: BatchNodeView)
     view.role(input) === packedGraphRoleCode.input,
     `${label} input node ${turn.inputNodeId} is not an input node`,
   );
+  requireTrue(
+    view.turn(input) === turn.index,
+    `${label} input node ${turn.inputNodeId} belongs to turn ${view.turn(input)}`,
+  );
+  requireTrue(view.row(input) === 0, `${label} input node ${turn.inputNodeId} is not on row 0`);
   if (turn.outcomeNodeId === null) {
     return;
   }
@@ -148,6 +234,55 @@ function validateTurnReferences(turn: PackedGraphTurnInput, view: BatchNodeView)
   requireTrue(
     view.role(outcome) === packedGraphRoleCode.outcome,
     `${label} outcome node ${turn.outcomeNodeId} is not an outcome node`,
+  );
+  requireTrue(
+    view.turn(outcome) === turn.index,
+    `${label} outcome node ${turn.outcomeNodeId} belongs to turn ${view.turn(outcome)}`,
+  );
+  requireTrue(
+    turn.answerAt !== null && turn.answerAt >= view.bornAt(outcome),
+    `${label} answer time ${turn.answerAt} precedes outcome node ${turn.outcomeNodeId}`,
+  );
+}
+
+function nullablePackedTime(value: number): number | null {
+  return Number.isFinite(value) ? value : null;
+}
+
+function validateExistingTurnUpdate(
+  previous: PackedGraphSnapshot,
+  turn: PackedGraphTurnInput,
+  view: BatchNodeView,
+): void {
+  if (turn.index >= previous.turnCount) {
+    return;
+  }
+  const label = `packed graph turn ${turn.index}`;
+  const previousInput = packedValueAt(previous.turns.inputNode, turn.index);
+  requireTrue(
+    turn.inputNodeId === view.id(previousInput),
+    `${label} changes its input node from ${view.id(previousInput)} to ${turn.inputNodeId}`,
+  );
+  const previousRowSpan = packedValueAt(previous.turns.rowSpan, turn.index);
+  requireTrue(
+    turn.rowSpan >= previousRowSpan,
+    `${label} row span regresses from ${previousRowSpan} to ${turn.rowSpan}`,
+  );
+  const previousOutcomeCode = packedValueAt(previous.turns.outcome, turn.index);
+  const previousOutcome = packedGraphOutcomes[previousOutcomeCode];
+  requireTrue(previousOutcome !== undefined, `${label} has unknown prior outcome code`);
+  if (previousOutcome === "running") {
+    return;
+  }
+  const previousOutcomeNode = packedValueAt(previous.turns.outcomeNode, turn.index);
+  const previousAnswerAt = nullablePackedTime(packedValueAt(previous.turns.answerAt, turn.index));
+  const previousCompactAt = nullablePackedTime(packedValueAt(previous.turns.compactAt, turn.index));
+  requireTrue(
+    turn.outcome === previousOutcome &&
+      turn.outcomeNodeId === view.id(previousOutcomeNode) &&
+      (turn.answerAt === null ? null : Math.fround(turn.answerAt)) === previousAnswerAt &&
+      (turn.compactAt === null ? null : Math.fround(turn.compactAt)) === previousCompactAt,
+    `${label} changes after reaching terminal outcome ${previousOutcome}`,
   );
 }
 
@@ -178,6 +313,7 @@ function validateTurns(
     );
     validateTurnShape(turn);
     validateTurnReferences(turn, view);
+    validateExistingTurnUpdate(previous, turn, view);
     rowSpans.set(turn.index, turn.rowSpan);
     lowestAllowed = turn.index + 1;
     nextNew = Math.max(nextNew, turn.index + 1);
@@ -186,10 +322,18 @@ function validateTurns(
 }
 
 function validateNodePlacement(
+  previous: PackedGraphSnapshot,
   batch: PackedGraphBatch,
   rowSpans: ReadonlyMap<number, number>,
 ): void {
+  const updatedTurns = new Map(batch.turns.map((turn) => [turn.index, turn]));
   for (const node of batch.nodes) {
+    if (
+      node.turn < previous.turnCount &&
+      packedValueAt(previous.turns.outcome, node.turn) !== packedGraphOutcomeCode.running
+    ) {
+      throw new Error(`packed graph node ${node.id} appends to terminal turn ${node.turn}`);
+    }
     const rowSpan = rowSpans.get(node.turn);
     requireTrue(
       rowSpan !== undefined,
@@ -199,20 +343,68 @@ function validateNodePlacement(
       node.row < (rowSpan ?? 0),
       `packed graph node ${node.id} sits at row ${node.row}, outside its turn's ${rowSpan} rows`,
     );
+    const updated = updatedTurns.get(node.turn);
+    const inputNodeId =
+      updated?.inputNodeId ??
+      (node.turn < previous.turnCount
+        ? previous.nodes.ids[packedValueAt(previous.turns.inputNode, node.turn)]
+        : undefined);
+    if (node.role === "input") {
+      requireTrue(
+        node.id === inputNodeId,
+        `packed graph input node ${node.id} is not turn ${node.turn}'s input`,
+      );
+    }
+    const previousOutcome =
+      node.turn < previous.turnCount ? packedValueAt(previous.turns.outcomeNode, node.turn) : -1;
+    const outcomeNodeId =
+      updated?.outcomeNodeId ?? (previousOutcome < 0 ? null : previous.nodes.ids[previousOutcome]);
+    if (node.role === "outcome") {
+      requireTrue(
+        node.id === outcomeNodeId,
+        `packed graph outcome node ${node.id} is not turn ${node.turn}'s outcome`,
+      );
+    }
   }
 }
 
 function validateEdge(edge: PackedGraphEdgeInput, view: BatchNodeView): void {
   const label = `packed graph edge ${edge.fromNodeId} -> ${edge.toNodeId}`;
+  requireVocabularyValue(packedGraphModeCode, edge.mode, `${label} mode`);
+  requireVocabularyValue(packedGraphEdgeChannelCode, edge.channel, `${label} channel`);
+  requireTrue(typeof edge.terminated === "boolean", `${label} terminated must be a boolean`);
   const from = view.indexOf(edge.fromNodeId);
   const to = view.indexOf(edge.toNodeId);
   requireTrue(from < to, `${label} runs backwards through durable order (${from} -> ${to})`);
   requireTrue(!view.isTerminal(from), `${label} continues from a terminated branch`);
+  requireTrue(
+    edge.terminated === view.isTerminal(to),
+    `${label} terminated flag does not match its child`,
+  );
   requireFinite(edge.confidence, `${label} confidence`);
   requireTrue(
     edge.confidence >= 0 && edge.confidence <= 1,
     `${label} confidence ${edge.confidence} is outside 0..1`,
   );
+}
+
+function validateEdgeOrder(
+  previous: PackedGraphSnapshot,
+  batch: PackedGraphBatch,
+  view: BatchNodeView,
+): void {
+  let lastTarget =
+    previous.edgeCount === 0
+      ? Number.NEGATIVE_INFINITY
+      : packedValueAt(previous.edges.to, previous.edgeCount - 1);
+  for (const edge of batch.edges) {
+    const target = view.indexOf(edge.toNodeId);
+    requireTrue(
+      target >= lastTarget,
+      `packed graph edge to ${edge.toNodeId} is out of target order after node ${lastTarget}`,
+    );
+    lastTarget = target;
+  }
 }
 
 function validateLimits(
@@ -239,17 +431,26 @@ export function validatePackedGraphBatch(
   batch: PackedGraphBatch,
 ): void {
   requireTrue(
+    Number.isInteger(batch.cursorSequence),
+    `packed graph batch cursor ${batch.cursorSequence} must be an integer`,
+  );
+  requireTrue(
     batch.cursorSequence > previous.cursorSequence,
     `packed graph batch cursor ${batch.cursorSequence} does not advance past ${previous.cursorSequence}`,
   );
-  const view = createBatchNodeView(previous, batch);
-  validateLimits(previous, batch, view);
+  requireTrue(
+    typeof batch.hasEarlier === "boolean",
+    "packed graph batch hasEarlier must be a boolean",
+  );
   for (const node of batch.nodes) {
     validateNodeShape(node);
   }
+  const view = createBatchNodeView(previous, batch);
+  validateLimits(previous, batch, view);
   validateNodeOrder(previous, batch);
   const rowSpans = validateTurns(previous, batch, view);
-  validateNodePlacement(batch, rowSpans);
+  validateNodePlacement(previous, batch, rowSpans);
+  validateEdgeOrder(previous, batch, view);
   for (const edge of batch.edges) {
     validateEdge(edge, view);
   }

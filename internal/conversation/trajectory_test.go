@@ -145,7 +145,7 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 			}}
 		}},
 		{TrajectoryEventModelRerouted, func(event *TrajectoryEvent) {
-			event.ModelRerouted = &TrajectoryModelRerouted{Reroute: InvocationModelReroute{FromModelID: "gpt-heavy", ToModelID: "gpt-safe", Reason: "high_risk_cyber_activity"}}
+			event.ModelRerouted = &TrajectoryModelRerouted{Reroute: InvocationModelReroute{FromModelID: "gpt-heavy", ToModelID: "gpt-safe", Reason: InvocationModelRerouteReasonHighRiskCyberActivity}}
 		}},
 	}
 
