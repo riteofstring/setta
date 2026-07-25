@@ -1,40 +1,42 @@
-import type { WorkspaceUILayout } from "@generated/backend";
 import type { DesktopPlatform } from "@shared/types";
-import { LoaderCircle, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { InitialEasyButtonPaneStartup } from "../features/easy-button/initial-easy-button-pane";
+import {
+  appPaneLayoutFromWorkspaceScene,
+  appPaneLayoutToWorkspaceUILayout,
+} from "./app-pane-layout-adapter";
 import type { WorkspaceSceneMode } from "./runtime-mode-options";
-import { workspaceUILayoutFromScene } from "./workspace-scene";
 import type { WorkspaceRuntime } from "./workspace-runtime";
+import type { RealWorkspaceStoredLayout } from "./workspace-scene";
 
 export type WorkspaceUILayoutLoad =
   | {
       error: null;
       key: string;
-      layout: WorkspaceUILayout | null;
+      layout: RealWorkspaceStoredLayout | null;
+      maximizedPaneId: string | null;
       status: "loaded";
     }
   | {
       error: string;
       key: string;
       layout: null;
+      maximizedPaneId: null;
       status: "failed";
     }
   | {
       error: null;
       key: string;
       layout: null;
+      maximizedPaneId: null;
       status: "loading";
     };
 
 export function WorkspaceLayoutLoading({
-  initialEasyButtonPaneStartup,
   mode,
   platform,
   workspaceId,
 }: {
-  initialEasyButtonPaneStartup: InitialEasyButtonPaneStartup;
   mode: WorkspaceSceneMode;
   platform: DesktopPlatform;
   workspaceId: string;
@@ -51,64 +53,20 @@ export function WorkspaceLayoutLoading({
       data-workspace-mode={mode}
       data-workspace-id={workspaceId}
       data-testid="workspace-layout-area"
-    >
-      <WorkspaceInitialEasyButtonPane startup={initialEasyButtonPaneStartup} />
-    </section>
+    />
   );
-}
-
-export function WorkspaceInitialEasyButtonPane({
-  startup,
-}: {
-  startup: InitialEasyButtonPaneStartup;
-}) {
-  if (startup === null) {
-    return null;
-  }
-  return (
-    <article
-      aria-busy="true"
-      aria-label="Easy Button conversation is starting"
-      className="app-no-drag absolute inset-2 z-40 grid min-h-0 grid-rows-[42px_minmax(0,1fr)] overflow-hidden rounded-[20px] border border-cyan-400/50 bg-background shadow-2xl"
-      data-startup-state={startup}
-      data-testid="initial-easy-button-pane"
-    >
-      <header className="flex items-center gap-2 border-b border-cyan-400/30 px-4 text-sm text-foreground">
-        <Sparkles aria-hidden="true" className="h-4 w-4 text-cyan-300" />
-        <span>Easy Button</span>
-      </header>
-      <main className="grid place-items-center">
-        <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-          <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" />
-          {initialEasyButtonStartupLabel(startup)}
-        </p>
-      </main>
-    </article>
-  );
-}
-
-function initialEasyButtonStartupLabel(startup: Exclude<InitialEasyButtonPaneStartup, null>) {
-  switch (startup) {
-    case "creating":
-      return "Starting conversation…";
-    case "loading":
-      return "Preparing Easy Button…";
-    case "opening":
-      return "Opening conversation…";
-    default:
-      return assertNever(startup);
-  }
 }
 
 export function useWorkspaceUILayoutLoad(
   workspaceId: string,
+  workspaceRootPath: string | null,
   mode: WorkspaceSceneMode,
 ): WorkspaceUILayoutLoad {
   const key = `${mode}:${workspaceId}`;
   const [state, setState] = useState<WorkspaceUILayoutLoad>(() =>
     initialWorkspaceUILayoutLoadState(workspaceId, mode),
   );
-  const shouldLoad = shouldLoadWorkspaceUILayout(workspaceId, mode);
+  const shouldLoad = shouldLoadWorkspaceUILayout(mode);
 
   useEffect(() => {
     if (!shouldLoad) {
@@ -116,6 +74,7 @@ export function useWorkspaceUILayoutLoad(
         error: null,
         key,
         layout: null,
+        maximizedPaneId: null,
         status: "loaded",
       });
       return;
@@ -126,18 +85,25 @@ export function useWorkspaceUILayoutLoad(
       error: null,
       key,
       layout: null,
+      maximizedPaneId: null,
       status: "loading",
     });
-    window.setta.workspace
-      .readUILayout(workspaceId)
+    window.setta.appLayout
+      .readPaneLayout()
       .then((result) => {
         if (cancelled) {
           return;
         }
+        const loaded = appPaneLayoutToWorkspaceUILayout({
+          layout: result.layout,
+          workspaceId,
+          workspaceRootPath,
+        });
         setState({
           error: null,
           key,
-          layout: result.layout,
+          layout: loaded.layout,
+          maximizedPaneId: loaded.maximizedPaneId,
           status: "loaded",
         });
       })
@@ -145,23 +111,34 @@ export function useWorkspaceUILayoutLoad(
         if (cancelled) {
           return;
         }
-        setState({
-          error: `Workspace UI state could not be loaded: ${layoutOperationErrorMessage(error)}`,
-          key,
+        const fallback = appPaneLayoutToWorkspaceUILayout({
           layout: null,
-          status: "failed",
+          workspaceId,
+          workspaceRootPath,
+        });
+        console.warn(
+          "App pane layout state could not be loaded; using default master layout",
+          layoutOperationErrorMessage(error),
+        );
+        setState({
+          error: null,
+          key,
+          layout: fallback.layout,
+          maximizedPaneId: fallback.maximizedPaneId,
+          status: "loaded",
         });
       });
     return () => {
       cancelled = true;
     };
-  }, [key, shouldLoad, workspaceId]);
+  }, [key, shouldLoad, workspaceId, workspaceRootPath]);
 
   if (!shouldLoad) {
     return {
       error: null,
       key,
       layout: null,
+      maximizedPaneId: null,
       status: "loaded",
     };
   }
@@ -170,6 +147,7 @@ export function useWorkspaceUILayoutLoad(
       error: null,
       key,
       layout: null,
+      maximizedPaneId: null,
       status: "loading",
     };
   }
@@ -181,11 +159,12 @@ export function initialWorkspaceUILayoutLoadState(
   mode: WorkspaceSceneMode,
 ): WorkspaceUILayoutLoad {
   const key = `${mode}:${workspaceId}`;
-  if (shouldLoadWorkspaceUILayout(workspaceId, mode)) {
+  if (shouldLoadWorkspaceUILayout(mode)) {
     return {
       error: null,
       key,
       layout: null,
+      maximizedPaneId: null,
       status: "loading",
     };
   }
@@ -193,11 +172,15 @@ export function initialWorkspaceUILayoutLoadState(
     error: null,
     key,
     layout: null,
+    maximizedPaneId: null,
     status: "loaded",
   };
 }
 
-export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, workspaceId: string) {
+export function useWorkspaceUILayoutPersistence(
+  runtime: WorkspaceRuntime,
+  workspaceRootPath: string | null,
+) {
   const pendingLayoutSaveRef = useRef<Promise<unknown>>(Promise.resolve());
   const [layoutPersistenceError, setLayoutPersistenceError] = useState<string | null>(null);
 
@@ -206,15 +189,17 @@ export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, works
     if (runtime.mode !== "workspace") {
       return Promise.resolve(true);
     }
-    const layout = workspaceUILayoutFromScene(
-      workspaceId,
-      runtime.store.toScene(),
-      runtime.store.focusedPaneId(),
-    );
+    const snapshot = runtime.store.getSnapshot();
+    const layout = appPaneLayoutFromWorkspaceScene({
+      focusedPaneId: snapshot.focusedPaneId,
+      maximizedPaneId: snapshot.maximizedPaneId,
+      scene: runtime.store.toScene(),
+      workspaceRootPath,
+    });
     let persisted = true;
     pendingLayoutSaveRef.current = pendingLayoutSaveRef.current
       .catch(() => {})
-      .then(() => window.setta.workspace.saveUILayout(layout))
+      .then(() => window.setta.appLayout.savePaneLayout(layout))
       .then(() => {
         setLayoutPersistenceError(null);
       })
@@ -223,7 +208,7 @@ export function useWorkspaceUILayoutPersistence(runtime: WorkspaceRuntime, works
         setLayoutPersistenceError(layoutOperationErrorMessage(error));
       });
     return pendingLayoutSaveRef.current.then(() => persisted);
-  }, [runtime, workspaceId]);
+  }, [runtime, workspaceRootPath]);
   const resetLayoutPersistenceError = useCallback(() => {
     setLayoutPersistenceError(null);
   }, []);
@@ -249,22 +234,17 @@ export function workspaceLayoutRecoveryMessage({
 }
 
 export function workspaceLayoutAreaLabel(mode: WorkspaceSceneMode): string {
-  return mode === "benchmark" ? "Workspace benchmark workspace" : "Workspace workspace";
+  return mode === "benchmark" ? "Pane layout benchmark" : "Pane layout";
 }
 
-function shouldLoadWorkspaceUILayout(workspaceId: string, mode: WorkspaceSceneMode): boolean {
+function shouldLoadWorkspaceUILayout(mode: WorkspaceSceneMode): boolean {
   return (
     mode === "workspace" &&
-    workspaceId !== "empty" &&
     typeof window !== "undefined" &&
-    Boolean(window.setta?.workspace?.readUILayout)
+    Boolean(window.setta?.appLayout?.readPaneLayout)
   );
 }
 
 function layoutOperationErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Workspace layout operation failed";
-}
-
-function assertNever(value: never): never {
-  throw new Error(`Unhandled Easy Button startup state: ${String(value)}`);
+  return error instanceof Error ? error.message : "App pane layout operation failed";
 }

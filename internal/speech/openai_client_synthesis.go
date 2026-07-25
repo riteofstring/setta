@@ -19,24 +19,22 @@ type speechSynthesisRequest struct {
 	Input          string        `json:"input"`
 	Voice          SpeechVoiceID `json:"voice"`
 	ResponseFormat string        `json:"response_format"`
+	Speed          float64       `json:"speed"`
 }
 
 func (client *OpenAIClient) SynthesizeSpeech(
 	ctx context.Context,
-	text string,
-	voiceID SpeechVoiceID,
+	input ProviderSynthesisInput,
 ) (SynthesizedAudio, error) {
-	if err := validateSynthesisText(text); err != nil {
+	if err := input.Validate(); err != nil {
 		return SynthesizedAudio{}, err
-	}
-	if !LookupVoice(voiceID) {
-		return SynthesizedAudio{}, unavailableVoiceError(voiceID)
 	}
 	payload := speechSynthesisRequest{
 		Model:          SynthesisModel,
-		Input:          text,
-		Voice:          voiceID,
+		Input:          input.Text,
+		Voice:          input.VoiceID,
 		ResponseFormat: OpenAISynthesisResponseFormat,
+		Speed:          input.Rate,
 	}
 	response, err := client.postJSON(
 		ctx,

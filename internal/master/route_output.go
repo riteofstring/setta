@@ -36,10 +36,10 @@ type routeWireConversation struct {
 }
 
 type routeWireCreateConversation struct {
-	Kind          RouteDecisionKind `json:"kind"`
-	WorkspaceID   string            `json:"workspaceId"`
-	InitialInput  string            `json:"initialInput"`
-	ProposedTitle string            `json:"proposedTitle"`
+	Kind          RouteDecisionKind  `json:"kind"`
+	ResourceScope RouteResourceScope `json:"resourceScope"`
+	InitialInput  string             `json:"initialInput"`
+	ProposedTitle string             `json:"proposedTitle"`
 }
 
 type routeWireParentInput struct {
@@ -71,6 +71,14 @@ func routeOutputSchema(context RouteContextBundle) (json.RawMessage, error) {
 	}
 	variants := make([]any, 0, len(context.AllowedDecisionKinds))
 	for _, kind := range context.AllowedDecisionKinds {
+		if kind == RouteDecisionKindCreateConversation {
+			createVariants, err := routeCreateConversationOutputSchemas(context.OpenWorkspaces)
+			if err != nil {
+				return nil, err
+			}
+			variants = append(variants, createVariants...)
+			continue
+		}
 		if kind == RouteDecisionKindForkConversation {
 			forkVariants, err := routeForkDecisionOutputSchemas(context.ConversationTargets)
 			if err != nil {
@@ -158,14 +166,7 @@ func populateGlobalRouteOutputProperties(
 ) error {
 	switch kind {
 	case RouteDecisionKindCreateConversation:
-		workspaceIDs := make([]string, len(context.OpenWorkspaces))
-		for index, workspace := range context.OpenWorkspaces {
-			workspaceIDs[index] = workspace.WorkspaceID
-		}
-		if len(workspaceIDs) == 0 {
-			return errors.New("master route create output has no active workspace")
-		}
-		properties["workspaceId"] = routeStringEnumSchema(workspaceIDs)
+		properties["resourceScope"] = routeResourceScopeOutputSchema(FolderlessRouteResourceScope())
 		properties["initialInput"] = routeBoundedStringSchema(MaxRouteAuthoredInputBytes)
 		properties["proposedTitle"] = routeBoundedStringSchema(MaxRouteConversationTitle)
 	case RouteDecisionKindCreateSideConversation:
@@ -183,6 +184,48 @@ func populateGlobalRouteOutputProperties(
 		return fmt.Errorf("unsupported master route output kind %q", kind)
 	}
 	return nil
+}
+
+func routeCreateConversationOutputSchemas(workspaces []RouteWorkspaceContext) ([]any, error) {
+	scopes := make([]RouteResourceScope, 0, len(workspaces)+1)
+	scopes = append(scopes, FolderlessRouteResourceScope())
+	for _, workspace := range workspaces {
+		scopes = append(scopes, FolderRouteResourceScope(workspace.WorkspaceID, workspace.WorkspaceName))
+	}
+	variants := make([]any, 0, len(scopes))
+	for _, scope := range scopes {
+		if err := scope.Validate(); err != nil {
+			return nil, err
+		}
+		variant := routeStrictObject(map[string]any{
+			"kind":          routeEnumSchema(string(RouteDecisionKindCreateConversation)),
+			"resourceScope": routeResourceScopeOutputSchema(scope),
+			"initialInput":  routeBoundedStringSchema(MaxRouteAuthoredInputBytes),
+			"proposedTitle": routeBoundedStringSchema(MaxRouteConversationTitle),
+		})
+		variant["description"] = routeDecisionSchemaDescription(RouteDecisionKindCreateConversation)
+		variants = append(variants, variant)
+	}
+	return variants, nil
+}
+
+func routeResourceScopeOutputSchema(scope RouteResourceScope) map[string]any {
+	switch scope.Kind {
+	case RouteResourceScopeKindFolderless:
+		return routeStrictObject(map[string]any{
+			"kind": routeEnumSchema(string(RouteResourceScopeKindFolderless)),
+		})
+	case RouteResourceScopeKindFolder:
+		return routeStrictObject(map[string]any{
+			"kind": routeEnumSchema(string(RouteResourceScopeKindFolder)),
+			"folder": routeStrictObject(map[string]any{
+				"workspaceId":   routeEnumSchema(scope.Folder.WorkspaceID),
+				"workspaceName": routeEnumSchema(scope.Folder.WorkspaceName),
+			}),
+		})
+	default:
+		panic(fmt.Sprintf("unsupported master route resource scope kind %q", scope.Kind))
+	}
 }
 
 func routeForkDecisionOutputSchemas(targets []RouteConversationTarget) ([]any, error) {
@@ -226,7 +269,7 @@ func routeDecisionSchemaDescription(kind RouteDecisionKind) string {
 	case RouteDecisionKindFocusConversation:
 		return "Classify intent to focus, show, open, or bring up one supplied existing conversation; selecting this label does not manipulate renderer state."
 	case RouteDecisionKindCreateConversation:
-		return "Classify intent to create a new durable topic conversation in one supplied active workspace."
+		return "Classify intent to create a new durable topic conversation with folderless scope or one supplied active folder resource scope."
 	case RouteDecisionKindCreateSideConversation:
 		return "Classify intent to create an ephemeral tangent under one supplied parent conversation."
 	case RouteDecisionKindForkConversation:
@@ -328,7 +371,7 @@ func decodeCreationRouteDecision(raw json.RawMessage, kind RouteDecisionKind) (R
 			return RouteDecision{}, err
 		}
 		return RouteDecision{Kind: kind, CreateConversation: &MasterCreateConversationRouteDecision{
-			WorkspaceID: wire.WorkspaceID, InitialInput: wire.InitialInput, ProposedTitle: wire.ProposedTitle,
+			ResourceScope: wire.ResourceScope, InitialInput: wire.InitialInput, ProposedTitle: wire.ProposedTitle,
 		}}, nil
 	case RouteDecisionKindCreateSideConversation:
 		var wire routeWireParentInput
@@ -456,9 +499,9 @@ func routeBoundedStringSchema(maximum int) map[string]any {
 func routeInstructions() string {
 	return `Use only the supplied master_route JSON and return exactly one decision matching the output schema.
 
-Treat focused and originating ids as hints only. Candidate cards and conversationTargets are the bounded authoritative routing set. Use only allowedDecisionKinds and the exact target, workspace, and completed fork ids supplied. Never invent ids, provider references, endpoint names, renderer commands, tool calls, or filesystem operations.
+Treat focused and originating ids as hints only. Candidate cards and conversationTargets are the bounded authoritative routing set. Use only allowedDecisionKinds and the exact target, resource scope, and completed fork ids supplied. Never invent ids, resource bindings, provider references, endpoint names, renderer commands, tool calls, or filesystem operations.
 
 Classify the user's requested intent; the returned decision is typed data and is not itself an application action or proposal. Do not refuse a valid classification merely because you cannot execute its possible later effect. In particular, focus_conversation labels intent to focus an existing supplied conversation and is not a renderer command. Choose it when the user explicitly asks to focus, show, open, or bring up one matching authorized conversation. Never use answer_global as a refusal or apology for an authorized classification; choose clarify if no supplied capability can resolve the request.
 
-Choose send_to_agent only for an available non-active target. queue_agent_turn preserves an active turn; steer_active_turn changes it. If that distinction or the intended target is genuinely ambiguous, choose clarify. Use answer_global only for an app-global conversational answer that requires no topic operation.`
+Choose send_to_agent only for an available non-active target. queue_agent_turn preserves an active turn; steer_active_turn changes it. Choose create_conversation with folderless resourceScope for a new app-level topic unless the user explicitly asks to bind the new topic to one supplied open folder. If that distinction or the intended target is genuinely ambiguous, choose clarify. Use answer_global only for an app-global conversational answer that requires no topic operation.`
 }

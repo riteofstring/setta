@@ -8,6 +8,8 @@ import (
 	"setta/internal/agent"
 )
 
+const sideTurnRuntimeFailureMessage = "This work stopped unexpectedly. Try again."
+
 type sideConversationAgentEventSink struct {
 	active  *activeSideConversationTurn
 	service *Service
@@ -427,6 +429,8 @@ func (service *Service) sideTrajectoryFromAgentEvent(
 		agent.EventKindActivityUpdated,
 		agent.EventKindActivityCompleted,
 		agent.EventKindApprovalRequested,
+		agent.EventKindApprovalSuperseded,
+		agent.EventKindValidationRecorded,
 		agent.EventKindModelRerouted,
 		agent.EventKindLifecycleChanged:
 		mapped, _, err := service.populateAgentTrajectory(
@@ -458,10 +462,6 @@ func (service *Service) sideTerminalTrajectory(
 		trajectory.Kind = TrajectoryEventTurnInterrupted
 		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: TurnInterruptionProviderInterrupted}
 	case agent.TurnOutcomeFailed:
-		message := "side agent turn failed"
-		if event.Terminal.Error != nil && *event.Terminal.Error != "" {
-			message = *event.Terminal.Error
-		}
 		diagnosticID, err := service.newID("side_diagnostic")
 		if err != nil {
 			return TrajectoryEvent{}, err
@@ -469,7 +469,7 @@ func (service *Service) sideTerminalTrajectory(
 		trajectory.Kind = TrajectoryEventTurnFailed
 		trajectory.TurnFailed = &TrajectoryTurnFailed{Failure: Failure{
 			Code:                "side_turn_failed",
-			Message:             message,
+			Message:             "The provider could not complete this work. Try again.",
 			Retryable:           true,
 			DiagnosticReference: diagnosticID,
 		}}
@@ -515,7 +515,7 @@ func (service *Service) persistUnexpectedSideTurnEnd(
 	}
 	failure := Failure{
 		Code:                "side_turn_runtime_failed",
-		Message:             runErr.Error(),
+		Message:             sideTurnRuntimeFailureMessage,
 		Retryable:           true,
 		DiagnosticReference: diagnosticID,
 	}

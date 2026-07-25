@@ -1,4 +1,4 @@
-import { Globe, Plus, Settings, ZoomIn, ZoomOut } from "lucide-react";
+import { Globe, MessageSquarePlus, Plus, ZoomIn, ZoomOut } from "lucide-react";
 import {
   type ComponentType,
   type ReactNode,
@@ -12,19 +12,28 @@ import { FloatingMenu } from "../components/floating-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import type { WorkspaceLayoutStore } from "./layout-store";
 import type { EmptyFrameOption } from "./surface-adapters";
-import type { WorkspacePane, NonEasyButtonSurfaceKind, OpenPaneRequest } from "./types";
+import type {
+  SurfaceFrameActionRequest,
+  WorkspaceFrameAction,
+  WorkspaceFrameActionPlacement,
+} from "./workspace-frame-actions";
+import {
+  workspaceFrameActionAllowed,
+  workspaceFrameActionLimitState,
+} from "./workspace-frame-actions";
+import type { WorkspacePane, NonConversationSurfaceKind } from "./types";
 
 export function WorkspaceToolbar({
+  onFrameAction,
   onNativeOverlayActiveChange,
-  openPane,
   overviewActive,
   performanceStatsRef,
   runLayoutAction,
   showPerformanceStats,
   store,
 }: {
+  onFrameAction: (action: WorkspaceFrameAction, placement: WorkspaceFrameActionPlacement) => void;
   onNativeOverlayActiveChange?: (active: boolean) => void;
-  openPane: (request: OpenPaneRequest) => void;
   overviewActive: boolean;
   performanceStatsRef: RefObject<HTMLDivElement | null> | null;
   runLayoutAction: (action: () => void) => void;
@@ -32,19 +41,20 @@ export function WorkspaceToolbar({
   store: WorkspaceLayoutStore;
 }) {
   const OverviewIcon = overviewActive ? ZoomIn : ZoomOut;
-  const newFrameItems = openPaneActions.map(({ Icon, label, request }) => {
-    const limitState = store.paneLimitState(request);
-    const capped = limitState.limit !== null;
-    const shortcutText = shortcutLabelForAction(label);
-    const meta = [capped ? `${limitState.count}/${limitState.limit}` : null, shortcutText].filter(
-      (value): value is string => value !== null,
-    );
+  const newFrameItems = workspaceFrameActions.map(({ Icon, action, id, label }) => {
+    const limitState = workspaceFrameActionLimitState(store, action);
+    const limitMeta =
+      limitState !== null && limitState.limit !== null
+        ? `${limitState.count}/${limitState.limit}`
+        : null;
+    const shortcutText = shortcutLabelForAction(id);
+    const meta = [limitMeta, shortcutText].filter((value): value is string => value !== null);
     return {
       Icon,
-      disabled: !limitState.allowed,
+      disabled: !workspaceFrameActionAllowed(store, action),
       label,
       meta: meta.length > 0 ? meta.join(" ") : undefined,
-      onSelect: () => openPane(request),
+      onSelect: () => onFrameAction(action, { kind: "new-pane" }),
     };
   });
   return (
@@ -83,43 +93,52 @@ export function WorkspaceToolbar({
   );
 }
 
-export const openPaneActions = [
+export interface WorkspaceFrameActionDefinition {
+  Icon: ComponentType<{ className?: string }>;
+  action: WorkspaceFrameAction;
+  id: string;
+  label: string;
+  shortcutKey: string | null;
+}
+
+export const workspaceFrameActions: readonly WorkspaceFrameActionDefinition[] = [
+  {
+    Icon: MessageSquarePlus,
+    action: { kind: "conversation" },
+    id: "conversation",
+    label: "Conversation",
+    shortcutKey: "c",
+  },
   {
     Icon: Globe,
+    action: {
+      kind: "surface",
+      request: openPaneRequest("Browser", "browser surface", "browser", "green"),
+    },
+    id: "browser",
     label: "Browser",
-    request: openPaneRequest("Browser", "browser surface", "browser", "green"),
     shortcutKey: "b",
   },
-  {
-    Icon: Settings,
-    label: "Settings",
-    request: openPaneRequest("Settings", "workspace settings", "settings-dom", "slate"),
-    shortcutKey: "s",
-  },
-] satisfies Array<{
-  Icon: ComponentType<{ className?: string }>;
-  label: string;
-  request: OpenPaneRequest;
-  shortcutKey: string;
-}>;
+];
 
-export function openPaneActionForSurfaceKind(surfaceKind: string) {
-  return openPaneActions.find((action) => action.request.surfaceKind === surfaceKind) ?? null;
+export function workspaceFrameActionById(actionId: string): WorkspaceFrameActionDefinition | null {
+  return workspaceFrameActions.find((action) => action.id === actionId) ?? null;
 }
 
 export function emptyFrameOptionsForStore(store: WorkspaceLayoutStore): EmptyFrameOption[] {
-  return openPaneActions.map(({ label, request }) => {
-    const limitState = store.paneLimitState(request);
-    const capped = limitState.limit !== null;
-    const shortcut = shortcutLabelForAction(label);
-    const meta = [capped ? `${limitState.count}/${limitState.limit}` : null, shortcut].filter(
-      (value): value is string => value !== null,
-    );
+  return workspaceFrameActions.map(({ action, id, label }) => {
+    const limitState = workspaceFrameActionLimitState(store, action);
+    const limitMeta =
+      limitState !== null && limitState.limit !== null
+        ? `${limitState.count}/${limitState.limit}`
+        : null;
+    const shortcut = shortcutLabelForAction(id);
+    const meta = [limitMeta, shortcut].filter((value): value is string => value !== null);
     return {
-      disabled: !limitState.allowed,
+      actionId: id,
       label,
       meta: meta.length > 0 ? meta.join(" ") : undefined,
-      surfaceKind: request.surfaceKind ?? "empty-frame",
+      disabled: !workspaceFrameActionAllowed(store, action),
     };
   });
 }
@@ -265,17 +284,17 @@ function WorkspaceToolbarMenu({
   );
 }
 
-function shortcutLabelForAction(label: string): string | null {
-  const action = openPaneActions.find((candidate) => candidate.label === label);
-  return action ? `Mod+Alt+${action.shortcutKey.toUpperCase()}` : null;
+function shortcutLabelForAction(actionId: string): string | null {
+  const action = workspaceFrameActionById(actionId);
+  return action?.shortcutKey ? `Mod+Alt+${action.shortcutKey.toUpperCase()}` : null;
 }
 
 function openPaneRequest(
   title: string,
   subtitle: string,
-  surfaceKind: NonEasyButtonSurfaceKind,
+  surfaceKind: NonConversationSurfaceKind,
   tone: WorkspacePane["tone"],
-): OpenPaneRequest {
+): SurfaceFrameActionRequest {
   return {
     subtitle,
     surfaceKind,

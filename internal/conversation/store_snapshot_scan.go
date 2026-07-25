@@ -15,10 +15,10 @@ type sqlScanner interface {
 
 func scanTopicConversation(scanner sqlScanner) (TopicConversation, error) {
 	var value TopicConversation
-	var archivedAt sql.NullString
+	var workspaceID, archivedAt sql.NullString
 	err := scanner.Scan(
 		&value.ID,
-		&value.WorkspaceID,
+		&workspaceID,
 		&value.Title,
 		&value.TopicDescriptor,
 		&value.Status,
@@ -27,6 +27,7 @@ func scanTopicConversation(scanner sqlScanner) (TopicConversation, error) {
 		&archivedAt,
 		&value.LastTrajectorySequence,
 	)
+	value.WorkspaceID = optionalScannedString(workspaceID)
 	value.ArchivedAt = optionalScannedString(archivedAt)
 	return value, err
 }
@@ -161,6 +162,7 @@ var trajectoryPayloadTargets = map[TrajectoryEventKind]func(*TrajectoryEvent) an
 	TrajectoryEventArtifactEmitted:               func(event *TrajectoryEvent) any { return &event.ArtifactEmitted },
 	TrajectoryEventAgentLivenessChanged:          func(event *TrajectoryEvent) any { return &event.AgentLivenessChanged },
 	TrajectoryEventProviderLifecycleChanged:      func(event *TrajectoryEvent) any { return &event.ProviderLifecycleChanged },
+	TrajectoryEventValidationRecorded:            func(event *TrajectoryEvent) any { return &event.ValidationRecorded },
 	TrajectoryEventModelRerouted:                 func(event *TrajectoryEvent) any { return &event.ModelRerouted },
 }
 
@@ -390,12 +392,13 @@ func optionalSpeechVoiceID(value sql.NullString) *speech.SpeechVoiceID {
 func scanConversationBranch(scanner sqlScanner) (ConversationBranch, error) {
 	var value ConversationBranch
 	var metadataJSON string
+	var forkedAtTurnID sql.NullString
 	err := scanner.Scan(
 		&value.ChildConversationID,
 		&value.ParentConversationID,
 		&value.Kind,
 		&value.DecisionSource,
-		&value.ForkedAtTurnID,
+		&forkedAtTurnID,
 		&value.SourceTrajectorySequence,
 		&metadataJSON,
 		&value.CreatedAt,
@@ -403,6 +406,7 @@ func scanConversationBranch(scanner sqlScanner) (ConversationBranch, error) {
 	if err != nil {
 		return ConversationBranch{}, err
 	}
+	value.ForkedAtTurnID = forkedAtTurnID.String
 	if err := decodeJSON("branch provider metadata", metadataJSON, &value.ProviderMetadata); err != nil {
 		return ConversationBranch{}, err
 	}
