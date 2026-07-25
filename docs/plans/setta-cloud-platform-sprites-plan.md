@@ -3016,3 +3016,20 @@ Stop and reassess rather than hiding the problem if any of these occur:
   remains; no dependency file changed. The combined Phase 7 checkbox remains
   open for checkpoint retention, cache cleanup, destructive full-disk
   recovery, and user-facing quota behavior. No provider or cloud mutation ran.
+- 2026-07-25 (checkpoint-retention capability audit): Kept checkpoint
+  retention open after reconciling the pinned provider surface with the current
+  public documentation. The pinned `sprites-go` revision and the latest
+  published revision both expose typed create, list, get/inspect, and restore
+  operations but no checkpoint deletion method. The current Checkpoints API
+  page likewise documents create, list, get, and restore only, while the
+  separate CLI reference advertises `sprite checkpoint delete`; the installed
+  CLI does not yet contain that command. Setta will not guess an undocumented
+  HTTP delete contract or claim retention from whole-runtime destruction.
+  Follow-up requires a provider-supported, testable delete operation plus an
+  explicit retention policy; count- or age-based defaults would otherwise be
+  forbidden heuristics. Cache cleanup also remains open because the installed
+  runtime currently defines no dedicated disposable cache boundary: protected
+  runtime state and user workspaces must not be swept as if they were caches.
+  This was a read-only source, pinned-module, latest-module, installed-CLI, and
+  official-documentation audit; no automated gate applied and no provider or
+  cloud mutation ran.
