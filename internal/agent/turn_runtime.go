@@ -14,6 +14,39 @@ func (runtime *Runtime) RunTurn(ctx context.Context, request TurnRequest, sink E
 	if err := validateRunTurn(runtime, request, sink); err != nil {
 		return TurnResult{}, err
 	}
+	if runtime.workloadLease == nil {
+		if err := runtime.admitTurn(ctx); err != nil {
+			return TurnResult{}, err
+		}
+		return runtime.runTurn(ctx, request, sink)
+	}
+	select {
+	case <-ctx.Done():
+		return TurnResult{}, ctx.Err()
+	case <-runtime.workloadSlot:
+	}
+	defer func() {
+		runtime.workloadSlot <- struct{}{}
+	}()
+	if err := runtime.admitTurn(ctx); err != nil {
+		return TurnResult{}, err
+	}
+	return runtime.workloadLease.run(ctx, func(leaseCtx context.Context) (TurnResult, error) {
+		return runtime.runTurn(leaseCtx, request, sink)
+	})
+}
+
+func (runtime *Runtime) admitTurn(ctx context.Context) error {
+	if runtime.admit == nil {
+		return nil
+	}
+	if err := runtime.admit.AdmitTurn(ctx); err != nil {
+		return fmt.Errorf("admit agent turn: %w", err)
+	}
+	return nil
+}
+
+func (runtime *Runtime) runTurn(ctx context.Context, request TurnRequest, sink EventSink) (TurnResult, error) {
 	session, err := runtime.openTurnSession(ctx, request)
 	if err != nil {
 		return TurnResult{}, err
@@ -60,7 +93,7 @@ func (runtime *Runtime) startProviderTurn(ctx context.Context, request TurnReque
 	}
 	raw, err := session.Call(ctx, codexapp.CodexMethodTurnStart, params)
 	if err != nil {
-		return Event{}, providerThreadOperationError("start agent turn", request.ProviderThreadID, err)
+		return Event{}, fmt.Errorf("start agent turn: %w", err)
 	}
 	response, err := codexapp.DecodeTurnStartResponse(raw)
 	if err != nil {

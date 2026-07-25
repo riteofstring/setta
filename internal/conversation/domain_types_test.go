@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
+	"setta/internal/workspaceui/conversationpalette"
 )
 
 const (
@@ -17,7 +17,7 @@ func TestTopicConversationAndChildRecordsValidateOwnedInvariants(t *testing.T) {
 	archivedAt := testTimeEnded
 	conversation := TopicConversation{
 		ID:                     "conversation-1",
-		WorkspaceID:            stringPointer("workspace-1"),
+		WorkspaceID:            "workspace-1",
 		Title:                  "Topic conversations",
 		TopicDescriptor:        "Implement the new aggregate.",
 		Status:                 ConversationStatusIdle,
@@ -145,8 +145,8 @@ func TestRoleProfilesKeepSelectionsPermissionsAndAuditIndependent(t *testing.T) 
 
 	invocation := validInvocation(RoleAgent, InvocationOutcomeSucceeded)
 	invocation.ModelReroutes = []InvocationModelReroute{
-		{FromModelID: invocation.Resolved.ModelID, ToModelID: "gpt-fallback", Reason: InvocationModelRerouteReasonHighRiskCyberActivity},
-		{FromModelID: "gpt-fallback", ToModelID: "gpt-safe", Reason: InvocationModelRerouteReasonHighRiskCyberActivity},
+		{FromModelID: invocation.Resolved.ModelID, ToModelID: "gpt-fallback", Reason: "high_risk_cyber_activity"},
+		{FromModelID: "gpt-fallback", ToModelID: "gpt-safe", Reason: "provider_policy"},
 	}
 	if err := invocation.Validate(); err != nil {
 		t.Fatalf("valid invocation audit: %v", err)
@@ -236,6 +236,7 @@ func TestBranchTypesKeepDurableForksAndEphemeralSidesDistinct(t *testing.T) {
 	side := SideConversation{
 		ID:                          "side-1",
 		ParentConversationID:        "conversation-parent",
+		ParentPaneID:                "pane-1",
 		ParentStatus:                ConversationStatusWorking,
 		DecisionSource:              BranchDecisionSourceConversationRouter,
 		ProviderThreadID:            stringPointer("thread-side"),

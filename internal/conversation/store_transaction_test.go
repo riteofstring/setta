@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
+	"setta/internal/workspaceui/conversationpalette"
 )
 
 const testTimeLater = "2026-07-11T20:02:00Z"
@@ -428,7 +428,7 @@ func TestTransactionComposesDurableForkAndBindingAtomically(t *testing.T) {
 		ChildConversationID:      child.ID,
 		ParentConversationID:     seed.conversation.ID,
 		Kind:                     BranchKindFork,
-		DecisionSource:           BranchDecisionSourceDirector,
+		DecisionSource:           BranchDecisionSourceMaster,
 		ForkedAtTurnID:           seed.forkSourceTurn.ID,
 		SourceTrajectorySequence: 1,
 		ProviderMetadata:         map[string]string{"providerForkThreadId": binding.ThreadID},
@@ -582,7 +582,7 @@ func appendTestOutboxEvents(t *testing.T, store *Store, drafts []CommittedEventD
 func transactionTestConversation(id string) TopicConversation {
 	return TopicConversation{
 		ID:          id,
-		WorkspaceID: stringPointer("workspace-1"),
+		WorkspaceID: "workspace-1",
 		Title:       "Transaction helpers",
 		Status:      ConversationStatusIdle,
 		CreatedAt:   testTimeStarted,

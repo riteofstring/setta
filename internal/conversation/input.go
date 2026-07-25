@@ -38,6 +38,7 @@ const (
 type ConversationInput struct {
 	ID             string                    `json:"id"`
 	ConversationID string                    `json:"conversationId"`
+	SourcePaneID   *string                   `json:"sourcePaneId"`
 	ReplyToInputID *string                   `json:"replyToInputId"`
 	Text           string                    `json:"text"`
 	Modality       ConversationInputModality `json:"modality"`
@@ -85,6 +86,9 @@ func validateConversationInputIdentity(input ConversationInput) error {
 		return err
 	}
 	if err := validateConversationInputReference("conversation input conversation id", input.ConversationID); err != nil {
+		return err
+	}
+	if err := validateOptionalConversationInputReference("conversation input source pane id", input.SourcePaneID); err != nil {
 		return err
 	}
 	if input.ReplyToInputID != nil {
@@ -157,6 +161,7 @@ func (accepted AcceptedConversationInput) Validate() error {
 func EqualConversationInputs(left ConversationInput, right ConversationInput) bool {
 	return left.ID == right.ID &&
 		left.ConversationID == right.ConversationID &&
+		equalOptionalString(left.SourcePaneID, right.SourcePaneID) &&
 		equalOptionalString(left.ReplyToInputID, right.ReplyToInputID) &&
 		left.Text == right.Text &&
 		left.Modality == right.Modality &&
@@ -208,6 +213,13 @@ func validateConversationInputReference(label string, value string) error {
 	return validateBoundedConversationInputIdentifier(label, value, MaxConversationInputReferenceBytes)
 }
 
+func validateOptionalConversationInputReference(label string, value *string) error {
+	if value == nil {
+		return nil
+	}
+	return validateConversationInputReference(label, *value)
+}
+
 func validateBoundedConversationInputIdentifier(label string, value string, maximumBytes int) error {
 	if err := validateIdentifier(label, value); err != nil {
 		return err
@@ -234,6 +246,7 @@ func normalizeConversationInputTimestamp(label string, value string) (string, er
 }
 
 func cloneConversationInput(input ConversationInput) ConversationInput {
+	input.SourcePaneID = cloneStringPointer(input.SourcePaneID)
 	input.ReplyToInputID = cloneStringPointer(input.ReplyToInputID)
 	return input
 }
