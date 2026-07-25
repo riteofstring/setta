@@ -14,7 +14,6 @@ describe("preload topic conversation API", () => {
     const { api, invoke, on, removeListener } = await exposeConversationAPI();
     expect(Object.keys(api.conversations).sort()).toEqual([
       "archive",
-      "bindFolder",
       "create",
       "discardInput",
       "disposeSide",
@@ -40,7 +39,6 @@ describe("preload topic conversation API", () => {
       workspaceId: "workspace_api",
     };
     const target = { conversationId: "conversation_api", workspaceId: "workspace_api" };
-    const folderBindingRequest = target;
     const artifactRequest = {
       ...target,
       artifactId: "artifact_api",
@@ -102,7 +100,6 @@ describe("preload topic conversation API", () => {
     };
     await invokeConversationCommands(api, {
       approval,
-      folderBindingRequest,
       inputRequest,
       inputStateRequest,
       listRequest,
@@ -126,7 +123,6 @@ describe("preload topic conversation API", () => {
       [ipcChannels.conversationDisposeSide, sideDisposeRequest],
       [ipcChannels.conversationCreateTopic, { title: "API topic", workspaceId: "workspace_api" }],
       [ipcChannels.conversationArchiveTopic, target],
-      [ipcChannels.conversationBindFolder, folderBindingRequest],
       [ipcChannels.conversationListTopicConversations, listRequest],
       [ipcChannels.conversationReadSnapshot, target],
       [ipcChannels.conversationReadArtifact, artifactRequest],
@@ -175,7 +171,6 @@ async function invokeConversationCommands(
   api: SettaAPI,
   requests: {
     approval: Parameters<SettaAPI["conversations"]["submitApproval"]>[0];
-    folderBindingRequest: Parameters<SettaAPI["conversations"]["bindFolder"]>[0];
     inputRequest: Parameters<NonNullable<SettaAPI["conversations"]["submitInput"]>>[0];
     inputStateRequest: Parameters<NonNullable<SettaAPI["conversations"]["readInputState"]>>[0];
     listRequest: Parameters<SettaAPI["conversations"]["list"]>[0];
@@ -197,7 +192,6 @@ async function invokeConversationCommands(
   await disposeSide(requests.sideDisposeRequest);
   await api.conversations.create({ title: "API topic", workspaceId: "workspace_api" });
   await api.conversations.archive(requests.target);
-  await api.conversations.bindFolder(requests.folderBindingRequest);
   await api.conversations.list(requests.listRequest);
   await api.conversations.read(requests.target);
   const readArtifact = requireConversationCommand(

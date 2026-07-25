@@ -271,7 +271,7 @@ func seedStatusServiceConversation(t *testing.T, store *conversation.Store, conv
 	t.Helper()
 	record := conversation.TopicConversation{
 		ID:              conversationID,
-		WorkspaceID:     stringPointerForServiceTest("workspace-status-service"),
+		WorkspaceID:     "workspace-status-service",
 		Title:           "Status service topic",
 		TopicDescriptor: "Status service topic",
 		Status:          conversation.ConversationStatusWorking,
@@ -337,7 +337,7 @@ func seedBlankStatusServiceConversation(
 	t.Helper()
 	record := conversation.TopicConversation{
 		ID:              conversationID,
-		WorkspaceID:     stringPointerForServiceTest("workspace-status-service"),
+		WorkspaceID:     "workspace-status-service",
 		Title:           "New conversation",
 		TopicDescriptor: "New conversation",
 		Status:          conversation.ConversationStatusIdle,
@@ -381,10 +381,6 @@ func seedBlankStatusServiceConversation(
 	if err != nil {
 		t.Fatalf("seed blank conversation: %v", err)
 	}
-}
-
-func stringPointerForServiceTest(value string) *string {
-	return &value
 }
 
 func narrationTestVoiceIDPointer(value speech.SpeechVoiceID) *speech.SpeechVoiceID {

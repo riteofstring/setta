@@ -37,12 +37,12 @@ func (observer *workspaceUILayoutPaneBindingObserver) ObserveWorkspaceUILayout(
 ) error {
 	bindings := make([]conversation.WorkspacePaneBinding, 0, len(layout.Panes))
 	for _, pane := range layout.Panes {
-		if pane.ConversationConfig == nil {
+		if pane.EasyButtonConfig == nil {
 			continue
 		}
 		bindings = append(bindings, conversation.WorkspacePaneBinding{
 			PaneID:         pane.PaneID,
-			ConversationID: pane.ConversationConfig.ConversationID,
+			ConversationID: pane.EasyButtonConfig.ConversationID,
 			Focused:        pane.PaneID == layout.FocusedPaneID,
 		})
 	}

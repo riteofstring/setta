@@ -66,7 +66,7 @@ function assertRemovedLayoutFieldsAbsent(layouts) {
 
 function validRecordedConversationPane(pane, conversation) {
   return [
-    pane.surfaceKind === "conversation",
+    pane.surfaceKind === "easy-button",
     nonEmptyString(pane.paneId),
     typeof pane.focused === "boolean",
     typeof pane.visible === "boolean",

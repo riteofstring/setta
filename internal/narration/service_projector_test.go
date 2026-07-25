@@ -52,10 +52,6 @@ func TestServiceSubmitsTerminalProjectionBeforeRawBacklogCheckpoint(t *testing.T
 	assertTerminalBypassesBacklogCheckpoint(t, provider.snapshotCalls(), terminal.Sequence)
 }
 
-func stringPointerForProjectorTest(value string) *string {
-	return &value
-}
-
 func TestServiceRecoversInterruptedRunningTerminalProjection(t *testing.T) {
 	store := newProjectorTestStore(t)
 	conversationID, turnID, terminal := seedTerminalProjectorConversation(t, store)
@@ -994,7 +990,7 @@ func seedTerminalProjectorConversation(
 	trajectory = append(trajectory, terminal)
 	record := conversation.TopicConversation{
 		ID:              conversationID,
-		WorkspaceID:     stringPointerForProjectorTest("workspace-status-service"),
+		WorkspaceID:     "workspace-status-service",
 		Title:           "Terminal projector topic",
 		TopicDescriptor: "Terminal projector topic",
 		Status:          conversation.ConversationStatusIdle,
@@ -1105,7 +1101,7 @@ func seedFailedTerminalProjectorConversation(
 	trajectory = append(trajectory, terminal)
 	record := conversation.TopicConversation{
 		ID:              conversationID,
-		WorkspaceID:     stringPointerForProjectorTest("workspace-status-service"),
+		WorkspaceID:     "workspace-status-service",
 		Title:           "Failed terminal projector topic",
 		TopicDescriptor: "Failed terminal projector topic",
 		Status:          conversation.ConversationStatusIdle,

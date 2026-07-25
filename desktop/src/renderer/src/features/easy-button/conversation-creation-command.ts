@@ -125,7 +125,6 @@ export async function createAndPresentConversation({
     title: newConversationTitle,
     workspaceId: request.workspaceId,
   });
-  const workspaceId = createdConversationWorkspaceID(snapshot, request.workspaceId);
   hydrateSnapshot(snapshot);
   assertCurrent?.();
   try {
@@ -133,28 +132,18 @@ export async function createAndPresentConversation({
       conversationId: snapshot.conversation.id,
       destination: request.destination,
       title: snapshot.conversation.title,
-      workspaceId,
+      workspaceId: snapshot.conversation.workspaceId,
     });
     return {
       conversationId: snapshot.conversation.id,
       paneId: presentation.paneId,
-      workspaceId,
+      workspaceId: snapshot.conversation.workspaceId,
     };
   } catch (error) {
     throw new Error(createdConversationPresentationFailureMessage(errorMessage(error)), {
       cause: error,
     });
   }
-}
-
-function createdConversationWorkspaceID(
-  snapshot: ConversationSnapshot,
-  requestedWorkspaceId: string,
-): string {
-  if (snapshot.conversation.workspaceId !== requestedWorkspaceId) {
-    throw new Error("The created conversation was not linked to the selected workspace.");
-  }
-  return snapshot.conversation.workspaceId;
 }
 
 export function conversationCreationRequestKey(request: ConversationCreationRequest): string {

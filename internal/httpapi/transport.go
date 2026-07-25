@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"setta/internal/appearance"
-	"setta/internal/applayout"
 	"setta/internal/appstate"
 	"setta/internal/conversation"
 	"setta/internal/jsonio"
@@ -28,14 +27,6 @@ func requireWorkspaceService(response http.ResponseWriter, service WorkspaceServ
 func requireWorkspaceUIService(response http.ResponseWriter, service WorkspaceUIService) WorkspaceUIService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "workspace_ui_service_unavailable", "workspace UI service is not available")
-		return nil
-	}
-	return service
-}
-
-func requireAppPaneLayoutService(response http.ResponseWriter, service AppPaneLayoutService) AppPaneLayoutService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "app_pane_layout_service_unavailable", "app pane layout service is not available")
 		return nil
 	}
 	return service
@@ -191,18 +182,6 @@ func writeWorkspaceUIError(response http.ResponseWriter, code string, err error)
 	writeError(response, status, code, err.Error())
 }
 
-func writeAppPaneLayoutError(response http.ResponseWriter, code string, err error) {
-	status := http.StatusBadRequest
-	if applayout.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_app_pane_layout_state", err.Error())
-		return
-	}
-	if applayout.IsPersistenceError(err) {
-		status = http.StatusInternalServerError
-	}
-	writeError(response, status, code, err.Error())
-}
-
 func writeAppearanceError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
 	if appearance.IsCorruptSettingsError(err) {
@@ -227,10 +206,6 @@ func writeConversationError(response http.ResponseWriter, code string, err error
 	}
 	if conversation.IsCommandConflict(err) {
 		status = http.StatusConflict
-	}
-	if conversation.IsResourceRequired(err) {
-		writeError(response, http.StatusConflict, "conversation_resource_required", err.Error())
-		return
 	}
 	if conversation.IsCorruptStateError(err) {
 		writeError(response, http.StatusInternalServerError, "corrupt_conversation_state", err.Error())
@@ -332,22 +307,6 @@ func writeMasterInputStateError(response http.ResponseWriter, err error) {
 		return
 	}
 	writeError(response, http.StatusBadRequest, "invalid_master_input_state_request", err.Error())
-}
-
-func writeMasterTranscriptError(response http.ResponseWriter, err error) {
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_master_transcript_state", err.Error())
-		return
-	}
-	if errors.Is(err, conversation.ErrStoreClosed) {
-		writeError(response, http.StatusServiceUnavailable, "master_input_store_unavailable", err.Error())
-		return
-	}
-	if conversation.IsPersistenceError(err) {
-		writeError(response, http.StatusInternalServerError, "read_master_transcript_failed", err.Error())
-		return
-	}
-	writeError(response, http.StatusBadRequest, "invalid_master_transcript_request", err.Error())
 }
 
 func writeSpeechError(response http.ResponseWriter, fallbackCode string, err error) {

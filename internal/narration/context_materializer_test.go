@@ -98,7 +98,7 @@ func TestContextMaterializerReadsOneAuthoritativeStoreSnapshot(t *testing.T) {
 	turnID := "turn-store-context"
 	topic := conversation.TopicConversation{
 		ID:              conversationID,
-		WorkspaceID:     stringPointerForContextTest("workspace-store-context"),
+		WorkspaceID:     "workspace-store-context",
 		Title:           "Store-backed narrator context",
 		TopicDescriptor: "Read context from the durable aggregate",
 		Status:          conversation.ConversationStatusIdle,
@@ -565,7 +565,7 @@ func newFakeNarratorContextSource(eventCount int) *fakeNarratorContextSource {
 	return &fakeNarratorContextSource{
 		conversation: conversation.TopicConversation{
 			ID:                     conversationID,
-			WorkspaceID:            stringPointerForContextTest("workspace-context"),
+			WorkspaceID:            "workspace-context",
 			Title:                  "Narrator context",
 			TopicDescriptor:        "Durable narrator materialization",
 			Status:                 conversation.ConversationStatusWorking,
