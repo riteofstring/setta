@@ -184,15 +184,11 @@
   white-space: nowrap;
 }
 
-@media (max-width: 940px) {
-  .director-composer {
-    grid-column: 1 / 2;
-    grid-row: 3 / 4;
-    inline-size: min(620px, calc(100% - 32px));
-    margin-block: 12px calc(env(safe-area-inset-bottom) + 14px);
-  }
-}
-
+/*
+ * The composer keeps its row on the canvas at every width; only the pill's own
+ * controls change shape, because a 42px button row and a text field stop
+ * sharing a line before the window stops holding the layout.
+ */
 @media (max-width: 640px) {
   .director-composer-pill {
     align-items: stretch;
@@ -219,11 +215,5 @@
 
   .director-composer button {
     justify-content: center;
-  }
-}
-
-@media (max-width: 760px) {
-  .director-composer {
-    grid-row: 2 / 3;
   }
 }

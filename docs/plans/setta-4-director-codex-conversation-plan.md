@@ -440,12 +440,14 @@ imports the fixtures.
 
 ### Phase 4 - Mockup-Faithful Command Center UI
 
-Status: in progress. The command center now names who the user is talking to,
-shows the folder the focused work runs in, labels the workstream dots, and keeps
-the composer live as the app's front door. The star field is carried by the
-graph's ambient field, which holds the frame loop awake with no input; its
-side-by-side confirmation belongs to this phase's exit criteria. Shell/mockup
-fidelity and responsive tuning remain.
+Status: implemented; awaiting the side-by-side recording. The command center
+names who the user is talking to, shows the folder the focused work runs in,
+labels the workstream dots, keeps the composer live as the app's front door, and
+holds one canvas with rails beside it at every window size. The star field is
+carried by the graph's ambient field, which holds the frame loop awake with no
+input. What remains is this phase's own evidence: the side-by-side recording
+against the mockup needs a desktop capture that is not available here, so it is a
+release gate rather than implementation work.
 
 Deliverables:
 
@@ -524,6 +526,28 @@ work was live, and the composer's dot is the Director's.
 Dots became meaningful the same way: each names the workstream it selects, what
 that workstream is doing, and the folder it does it in, both as its accessible
 name and as its tooltip.
+
+#### Resolved: a narrow window is still one canvas
+
+The shell had three rail breakpoints. Under 940px the rails became full-width
+bars stacked down the screen, each with its own opaque background, and together
+with the composer they covered the graph — the pane workspace this plan removed,
+rebuilt out of rails. Under 760px they became floating cards again, so the
+stacked layout only ever existed in the band between the two, which is the width
+a small desktop window actually opens at.
+
+There is now one breakpoint, and it is the width the disclosure state machine
+already watched. Above it the rails flank the canvas and give inline size back as
+the window narrows, so narrowing changes their width and never their shape.
+Below it a rail is a card the top-bar disclosure opens over the graph, one at a
+time; the card takes its own pointer events, because a surface a finger can drag
+must not pan the canvas behind it.
+
+The rails' bottom inset was also counting the composer twice. The composer is a
+row of the stage rather than something floating over it, so a rail already ends
+where the composer begins, and the inset was the mockup's rail padding plus the
+composer's whole height again — it stopped rail content about a composer above
+where the mockup ends it.
 
 ### Phase 5 - Cleanup
 

@@ -123,6 +123,13 @@ const defaultRailVisibility = {
   now: true,
 } as const satisfies DirectorRailVisibility;
 
+/*
+ * The width at which a rail stops flanking the canvas and becomes a card laid
+ * over it. Below it the two rails would cover each other, so opening one closes
+ * the other. The same breakpoint draws the compact layout in
+ * `director-command-center.css`; the state machine and the layout have to agree
+ * on when a rail floats.
+ */
 const compactRailQuery = "(max-width: 760px)";
 const directorGraphCompositionId = "director-command-center";
 const directorEventVisibility = {

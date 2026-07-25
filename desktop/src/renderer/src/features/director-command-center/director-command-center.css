@@ -1,5 +1,11 @@
 .director-command-center {
-  --director-rail-inline: 300px;
+  /*
+   * The rails flank the canvas rather than displacing it, so they give width
+   * back as the window narrows instead of forcing a different layout. 300px is
+   * the width the mockup is drawn at, and the floor is where a rail card still
+   * reads as a column beside the graph.
+   */
+  --director-rail-inline: clamp(232px, 27vw, 300px);
   --director-left-rail-inline: var(--director-rail-inline);
   --director-right-rail-inline: var(--director-rail-inline);
   /* The Director's role accent. Workstreams keep the status palette. */
@@ -161,6 +167,13 @@
   grid-row: 1 / -1;
 }
 
+/*
+ * A rail is a column of content laid over the canvas, not a panel cut out of
+ * it: the graph spans the whole stage underneath, and the composer owns the row
+ * below. The block padding is the gap to the top bar and to the composer row,
+ * which is why the bottom inset is the mockup's rail padding and not the height
+ * of the composer as well.
+ */
 .director-now-rail,
 .director-artifacts-rail {
   align-self: stretch;
@@ -170,7 +183,7 @@
   grid-row: 1 / 2;
   min-block-size: 0;
   overflow: hidden auto;
-  padding-block: 64px 112px;
+  padding-block: 64px 20px;
   position: relative;
   scrollbar-width: thin;
   z-index: 18;
@@ -831,46 +844,20 @@
   }
 }
 
-@media (max-width: 940px) {
-  .director-command-center {
-    --director-rail-inline: minmax(0, 1fr);
-    --director-left-rail-inline: minmax(0, 1fr);
-    --director-right-rail-inline: minmax(0, 1fr);
-  }
-
-  .director-command-center-stage {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto auto;
-  }
-
-  .director-now-rail,
-  .director-artifacts-rail {
-    background: oklch(0.09 0.01 255 / 0.78);
-    grid-column: 1 / 2;
-    max-block-size: 34vh;
-    padding-inline: 16px;
-  }
-
-  .director-now-rail {
-    grid-row: 1 / 2;
-    padding-block: 58px 12px;
-  }
-
-  .director-artifacts-rail {
-    grid-row: 2 / 3;
-    padding-block: 12px;
-  }
-}
-
-@media (max-width: 640px) {
-  .director-command-center {
-    grid-template-rows: minmax(0, 1fr);
-  }
-}
-
+/*
+ * The phone breakpoint, and the only place the command center changes shape.
+ * Two rails no longer fit beside the canvas here, so a rail becomes a card the
+ * top-bar disclosure opens over the graph, one at a time. The canvas is still
+ * the app's surface and the composer is still on it: nothing stacks into
+ * panels, at any width.
+ *
+ * `compactRailQuery` in DirectorCommandCenterShell.tsx watches this same width.
+ * The disclosure state machine and this layout have to agree on when a rail
+ * floats, because only one of them can be open once it does.
+ */
 @media (max-width: 760px) {
   .director-command-center-stage {
-    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .director-now-rail,
@@ -886,6 +873,8 @@
     margin-block-start: 54px;
     max-block-size: min(64vh, 560px);
     padding-block: 12px;
+    /* An opened rail is a surface, so a drag on it must not pan the canvas. */
+    pointer-events: auto;
     position: relative;
   }
 

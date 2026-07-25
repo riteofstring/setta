@@ -411,6 +411,7 @@ try {
   await closeDirectorArtifactDetail(context.client);
   const history = await readDirectorHistory(context.client);
   assertHistoryContainsOnlyUserAndTerminalTurns(history);
+  await verifyRailsFlankTheCanvas(context.client);
   await verifyCompactRailFocusRestoration(context.client);
   const rendererEvents = await readRendererEvents(context.client);
   assertDirectorEventSequence(initial.eventCursor, rendererEvents);
@@ -815,6 +816,72 @@ async function readDirectorHistory(client) {
   return history;
 }
 
+/*
+ * Above the phone breakpoint both rails sit beside the canvas and the canvas is
+ * still the whole window. A narrow desktop window used to stack the rails into
+ * full-width bars that covered the graph, which is the pane workspace the
+ * command center replaced.
+ */
+async function verifyRailsFlankTheCanvas(client) {
+  await client.call("Emulation.setDeviceMetricsOverride", {
+    deviceScaleFactor: 1,
+    height: 720,
+    mobile: false,
+    width: 900,
+  });
+  try {
+    const layout = await waitForState(
+      client,
+      `(() => {
+        const box = (selector) => {
+          const node = document.querySelector(selector);
+          if (!(node instanceof HTMLElement)) {
+            return null;
+          }
+          const rect = node.getBoundingClientRect();
+          return {
+            bottom: rect.bottom,
+            left: rect.left,
+            right: rect.right,
+            top: rect.top,
+            width: rect.width
+          };
+        };
+        return {
+          artifacts: box("#director-artifacts-rail"),
+          canvas: box(".director-graph-canvas"),
+          compact: matchMedia("(max-width: 760px)").matches,
+          composer: box(".director-composer"),
+          now: box("#director-now-rail"),
+          viewportWidth: window.innerWidth
+        };
+      })()`,
+      (state) =>
+        state.compact === false &&
+        state.artifacts !== null &&
+        state.canvas !== null &&
+        state.composer !== null &&
+        state.now !== null,
+      workflowTimeoutMs,
+    );
+    const described = JSON.stringify(layout);
+    if (layout.now.right > layout.artifacts.left) {
+      throw new Error(`Director rails stacked instead of flanking the canvas: ${described}`);
+    }
+    if (layout.now.width < 200 || layout.artifacts.width < 200) {
+      throw new Error(`Director rails collapsed beside the canvas: ${described}`);
+    }
+    if (layout.canvas.width < layout.viewportWidth - 1) {
+      throw new Error(`Director canvas was cut down to fit the rails: ${described}`);
+    }
+    if (layout.composer.top < layout.now.bottom - 1) {
+      throw new Error(`Director composer overlapped the Now rail: ${described}`);
+    }
+  } finally {
+    await client.call("Emulation.clearDeviceMetricsOverride");
+  }
+}
+
 async function verifyCompactRailFocusRestoration(client) {
   await client.call("Emulation.setDeviceMetricsOverride", {
     deviceScaleFactor: 1,
@@ -907,13 +974,6 @@ function assertHistoryContainsOnlyUserAndTerminalTurns(history) {
   if (!history.some((item) => item.kind === "completed" && item.text !== "Run completed")) {
     throw new Error(`Director history omitted a final response: ${JSON.stringify(history)}`);
   }
-}
-
-function selectWorkstream(client, workstreamId) {
-  return dispatchDirector(client, {
-    kind: "select_workstream",
-    selectWorkstream: { workstreamId },
-  });
 }
 
 async function answerDirectorApprovalInRail(client, approvalId, questionId, answer) {
