@@ -2186,3 +2186,15 @@ Stop and reassess rather than hiding the problem if any of these occur:
   field allowlist and rejects any accidental identifier or request-content
   field. Broader audit coverage for provisioning, wake, suspension, export,
   deletion, and budget cutoff remains open.
+- 2026-07-24 (durable hosted suspension progress): Integrated the existing
+  user-status policy boundary with hosted access. Suspending a user now
+  atomically updates the user and appends `suspended` to every latest hosted
+  intent before revoking live authorization, then pushes each waiting stream.
+  Repeated suspension is idempotent, suspension survives store restart, and
+  the private SSE boundary treats it as terminal. Replay after a ready event
+  now retains the bounded access grant on that historical ready event before
+  delivering suspension. Focused store and private HTTP tests cover
+  preparation-time suspension, ready-time suspension, notification, replay,
+  terminal EOF, idempotency, and restart. Reactivation deliberately requires a
+  fresh hosted-access intent; export progress and frontend projection remain
+  open.

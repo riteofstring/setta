@@ -420,6 +420,7 @@ func writeHostedAccessEvents(
 
 func hostedAccessProgressTerminal(progress HostedAccessProgress) bool {
 	return progress.State == HostedAccessProgressReadyOnPhone ||
+		progress.State == HostedAccessProgressSuspended ||
 		(progress.State == HostedAccessProgressNeedsAttention && !progress.Retryable)
 }
 

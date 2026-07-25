@@ -209,6 +209,86 @@ func TestHostedAccessFailurePersistsTypedReasonAcrossRestart(t *testing.T) {
 	requireHostedAccessFailure(t, persisted, HostedAccessReasonDeviceGrantRejected)
 }
 
+func TestUserSuspensionPublishesAndPersistsHostedAccessProgress(t *testing.T) {
+	ctx := context.Background()
+	directory := t.TempDir()
+	store := openTestStore(t, directory, time.Now, RateLimit{})
+	intent := testHostedAccessIntent()
+	if _, err := store.UpsertUser(ctx, intent.UserID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.EnsureHostedAccessIntent(ctx, intent); err != nil {
+		t.Fatal(err)
+	}
+	_, update, err := store.HostedAccessProgressAfter(ctx, intent.IdempotencyKey, "1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SetUserStatus(ctx, intent.UserID, UserStatusSuspended); err != nil {
+		t.Fatal(err)
+	}
+	requireClosed(t, update, "hosted access suspension")
+	suspended, err := store.HostedAccessProgress(ctx, intent.IdempotencyKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireSuspendedHostedAccess(t, suspended, "2")
+	if err := store.SetUserStatus(ctx, intent.UserID, UserStatusSuspended); err != nil {
+		t.Fatal(err)
+	}
+	replayed, err := store.HostedAccessProgress(ctx, intent.IdempotencyKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireSuspendedHostedAccess(t, replayed, "2")
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	restarted := openTestStore(t, directory, time.Now, RateLimit{})
+	defer restarted.Close()
+	persisted, err := restarted.HostedAccessProgress(ctx, intent.IdempotencyKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireSuspendedHostedAccess(t, persisted, "2")
+}
+
+func TestHostedAccessReplayRetainsReadyGrantBeforeSuspension(t *testing.T) {
+	ctx := context.Background()
+	store := openTestStore(t, t.TempDir(), time.Now, RateLimit{})
+	defer store.Close()
+	intent, created := prepareTimedHostedAccess(t, ctx, store)
+	if _, err := store.BeginHostedAccessSync(ctx, intent.IdempotencyKey); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.CompleteHostedAccessIntent(ctx, intent.IdempotencyKey, created); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SetUserStatus(ctx, intent.UserID, UserStatusSuspended); err != nil {
+		t.Fatal(err)
+	}
+	events, _, err := store.HostedAccessProgressAfter(ctx, intent.IdempotencyKey, "2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("hosted access replay events = %+v", events)
+	}
+	requireReadyHostedAccess(t, events[0], intent.Client.DeviceID)
+	requireSuspendedHostedAccess(t, events[1], "4")
+}
+
+func requireSuspendedHostedAccess(t *testing.T, progress HostedAccessProgress, cursor string) {
+	t.Helper()
+	if progress.Cursor != cursor ||
+		progress.State != HostedAccessProgressSuspended ||
+		progress.ReasonCode != nil ||
+		progress.Retryable ||
+		progress.AccessGrant != nil {
+		t.Fatalf("suspended hosted access = %+v", progress)
+	}
+}
+
 func prepareTimedHostedAccess(
 	t *testing.T,
 	ctx context.Context,

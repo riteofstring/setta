@@ -192,6 +192,34 @@ func TestTypedHostedAccessClientReceivesDurableAssignmentFailure(t *testing.T) {
 	requireContentFreeHostedAccessFailureMeasurement(t, measurements.Bytes())
 }
 
+func TestTypedHostedAccessClientReceivesTerminalUserSuspension(t *testing.T) {
+	directory := t.TempDir()
+	store := openTestStore(t, directory, time.Now, RateLimit{})
+	defer store.Close()
+	socketPath := filepath.Join(directory, "admin.sock")
+	server, err := StartAdminServer(AdminServerConfig{
+		Observer: newAdminTestObserver(t, io.Discard), SocketPath: socketPath, Store: store,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer shutdownAdminTestServer(t, server)
+	client := adminTestClient(socketPath)
+	intent := testHostedAccessIntent()
+	requirePreparingHostedAccess(t, ensureHostedAccessFromTypedClient(t, client, intent))
+	stream := openHostedAccessTestStream(t, client, intent.IdempotencyKey, "")
+	defer stream.Close()
+	requirePreparingHostedAccess(t, readHostedAccessTestEvent(t, stream))
+	adminTestRequest(t, client, "/v1/users/status", AdminSetUserStatusRequest{
+		Status: UserStatusSuspended,
+		UserID: intent.UserID,
+	}, "user_status_set")
+	requireSuspendedHostedAccess(t, readHostedAccessTestEvent(t, stream), "2")
+	if _, err := readHostedAccessEvent(stream); !errors.Is(err, io.EOF) {
+		t.Fatalf("suspended progress stream read error = %v, want EOF", err)
+	}
+}
+
 func postHostedAccessCompletion(
 	t *testing.T,
 	client *http.Client,

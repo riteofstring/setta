@@ -542,14 +542,29 @@ ORDER BY cursor
 		}
 		return nil, nil
 	}
-	if events[len(events)-1].State == HostedAccessProgressReadyOnPhone {
-		grant, err := readHostedAccessGrant(ctx, querier, intentID)
-		if err != nil {
-			return nil, err
-		}
-		events[len(events)-1].AccessGrant = &grant
+	if err := attachHostedAccessGrants(ctx, querier, intentID, events); err != nil {
+		return nil, err
 	}
 	return events, nil
+}
+
+func attachHostedAccessGrants(
+	ctx context.Context,
+	querier hostedAccessProgressQuerier,
+	intentID string,
+	events []HostedAccessProgress,
+) error {
+	for index := range events {
+		if events[index].State != HostedAccessProgressReadyOnPhone {
+			continue
+		}
+		grant, err := readHostedAccessGrant(ctx, querier, intentID)
+		if err != nil {
+			return err
+		}
+		events[index].AccessGrant = &grant
+	}
+	return nil
 }
 
 func validateHostedAccessCursor(
@@ -692,6 +707,98 @@ func hostedAccessReasonCode(value string) *HostedAccessReasonCode {
 	}
 	reason := HostedAccessReasonCode(value)
 	return &reason
+}
+
+func appendHostedAccessSuspensions(
+	ctx context.Context,
+	tx *sql.Tx,
+	userID string,
+	now string,
+) ([]string, error) {
+	targets, err := readHostedAccessSuspensionTargets(ctx, tx, userID)
+	if err != nil {
+		return nil, err
+	}
+	intentIDs := make([]string, 0, len(targets))
+	for _, target := range targets {
+		if target.State == HostedAccessProgressSuspended {
+			continue
+		}
+		if err := appendHostedAccessProgress(
+			ctx,
+			tx,
+			target.IntentID,
+			target,
+			HostedAccessProgressSuspended,
+			HostedAccessReasonNone,
+			false,
+			now,
+		); err != nil {
+			return nil, err
+		}
+		intentIDs = append(intentIDs, target.IntentID)
+	}
+	return intentIDs, nil
+}
+
+func readHostedAccessSuspensionTargets(
+	ctx context.Context,
+	tx *sql.Tx,
+	userID string,
+) ([]HostedAccessProgress, error) {
+	rows, err := tx.QueryContext(ctx, `
+SELECT p.intent_id, p.cursor, p.state, p.reason_code, p.retryable, p.occurred_at
+FROM hosted_access_intents i
+JOIN hosted_access_progress p ON p.intent_id = i.intent_id
+WHERE i.user_id = ?
+  AND NOT EXISTS (
+    SELECT 1
+    FROM hosted_access_progress newer
+    WHERE newer.intent_id = p.intent_id AND newer.cursor > p.cursor
+  )
+ORDER BY p.intent_id
+`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("read hosted access suspension targets: %w", err)
+	}
+	defer rows.Close()
+	var targets []HostedAccessProgress
+	for rows.Next() {
+		target, err := scanHostedAccessProgress(rows)
+		if err != nil {
+			return nil, err
+		}
+		targets = append(targets, target)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate hosted access suspension targets: %w", err)
+	}
+	return targets, nil
+}
+
+type hostedAccessProgressScanner interface {
+	Scan(...any) error
+}
+
+func scanHostedAccessProgress(scanner hostedAccessProgressScanner) (HostedAccessProgress, error) {
+	var progress HostedAccessProgress
+	var cursor int
+	var reasonCode string
+	var retryable int
+	if err := scanner.Scan(
+		&progress.IntentID,
+		&cursor,
+		&progress.State,
+		&reasonCode,
+		&retryable,
+		&progress.OccurredAt,
+	); err != nil {
+		return HostedAccessProgress{}, fmt.Errorf("scan hosted access progress: %w", err)
+	}
+	progress.Cursor = strconv.Itoa(cursor)
+	progress.ReasonCode = hostedAccessReasonCode(reasonCode)
+	progress.Retryable = retryable == 1
+	return progress, nil
 }
 
 func readHostedAccessGrant(

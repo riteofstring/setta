@@ -451,23 +451,54 @@ func (store *Store) SetUserStatus(ctx context.Context, userID string, status Use
 	if err != nil {
 		return err
 	}
-	result, err := store.db.ExecContext(ctx, `
-UPDATE users SET status = ?, updated_at = ? WHERE id = ?
-`, status, timestamp(store.clock().UTC()), userID)
+	hostedIntentIDs, err := store.setUserStatusLocked(ctx, userID, status)
 	if err != nil {
-		return fmt.Errorf("set control-plane user status: %w", err)
-	}
-	if err := requireOneRow(result, "set control-plane user status"); err != nil {
 		return err
 	}
 	if status == UserStatusSuspended {
 		for _, deviceID := range deviceIDs {
 			store.invalidateDeviceLocked(deviceID)
 		}
+		for _, intentID := range hostedIntentIDs {
+			store.notifyHostedAccessLocked(intentID)
+		}
 	} else {
 		store.notifyOperationWakeLocked()
 	}
 	return nil
+}
+
+func (store *Store) setUserStatusLocked(
+	ctx context.Context,
+	userID string,
+	status UserStatus,
+) ([]string, error) {
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin control-plane user status: %w", err)
+	}
+	defer rollback(tx)
+	now := timestamp(store.clock().UTC())
+	result, err := tx.ExecContext(ctx, `
+UPDATE users SET status = ?, updated_at = ? WHERE id = ?
+`, status, now, userID)
+	if err != nil {
+		return nil, fmt.Errorf("set control-plane user status: %w", err)
+	}
+	if err := requireOneRow(result, "set control-plane user status"); err != nil {
+		return nil, err
+	}
+	var hostedIntentIDs []string
+	if status == UserStatusSuspended {
+		hostedIntentIDs, err = appendHostedAccessSuspensions(ctx, tx, userID, now)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit control-plane user status: %w", err)
+	}
+	return hostedIntentIDs, nil
 }
 
 func (store *Store) SetRuntimeAccessState(
