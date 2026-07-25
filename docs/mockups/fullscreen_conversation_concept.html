@@ -33,6 +33,7 @@
     --bg: oklch(0.128 0.007 261); --surface: oklch(0.147 0.009 264); --panel: oklch(0.165 0.010 264);
     --fg: oklch(0.908 0.013 263); --muted: oklch(0.717 0.044 264); --faint: oklch(0.522 0.065 264);
     --border: oklch(0.290 0.032 262); --primary: oklch(0.76 0.115 250); --sans: ui-sans-serif, system-ui, sans-serif;
+    --mono: ui-monospace, Menlo, monospace; --accent-green: oklch(0.79 0.145 152); --accent-red: oklch(0.62 0.14 25.331); --accent-teal: oklch(0.82 0.125 185);
   }
   #topbar { position: fixed; top: 0; left: 0; right: 0; height: 44px; z-index: 14; font-family: var(--sans);
     display: flex; align-items: center; justify-content: space-between; padding: 0 14px;
@@ -81,6 +82,49 @@
   #devbar { position: fixed; top: 52px; left: 14px; z-index: 14; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; max-width: 62vw;
     background: rgba(8,10,16,0.62); border: 1px solid rgba(120,140,180,0.18); padding: 8px 10px; border-radius: 10px; backdrop-filter: blur(8px); }
   #devbar[hidden] { display: none; }
+  /* longer-form summary in the Now rail */
+  #summaryToggle { align-self: flex-start; margin-top: 4px; font: 11px var(--sans); color: var(--faint); background: transparent; border: 0; padding: 2px 0; cursor: pointer; letter-spacing: 0.03em; }
+  #summaryToggle:hover { color: var(--muted); }
+  #summaryToggle .caret { display: inline-block; transition: transform 160ms; }
+  #summaryToggle.open .caret { transform: rotate(90deg); }
+  #summaryText { font: 12.5px/1.5 var(--sans); color: var(--muted); max-width: 300px; }
+  #summaryText[hidden] { display: none; }
+  /* artifact body preview */
+  .artifact-body { margin-top: 9px; display: flex; flex-direction: column; gap: 4px; }
+  .ab-row { display: grid; grid-template-columns: 62px 1fr auto; gap: 8px; align-items: center; font: 11px var(--mono); color: var(--muted); }
+  .ab-track { height: 5px; border-radius: 3px; background: color-mix(in oklch, var(--border) 60%, transparent); overflow: hidden; }
+  .ab-bar { height: 100%; border-radius: 3px; background: color-mix(in oklch, var(--primary) 60%, transparent); }
+  .ab-num { font-variant-numeric: tabular-nums; }
+  .ab-diff { font: 11px var(--mono); white-space: pre; line-height: 1.5; }
+  .ab-add { color: var(--accent-green); } .ab-del { color: var(--accent-red); }
+  /* main response area */
+  #response { position: fixed; left: 50%; transform: translateX(-50%); bottom: 96px; width: min(680px, calc(100vw - 660px)); z-index: 13; cursor: pointer; font-family: var(--sans);
+    background: color-mix(in oklch, var(--surface) 74%, transparent); border: 1px solid var(--border); border-top-color: color-mix(in oklch, var(--primary) 35%, transparent);
+    border-radius: 14px; padding: 13px 16px 9px; backdrop-filter: blur(10px); transition: border-color 160ms; }
+  #response:hover { border-color: color-mix(in oklch, var(--primary) 45%, transparent); }
+  body.hide-composer #response { bottom: 22px; }
+  #responseText { font: 14px/1.5 var(--sans); color: var(--fg); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  #responseText.working { color: var(--muted); }
+  #responseText.working::after { content: '▍'; color: var(--primary); animation: caret 1s steps(1) infinite; }
+  @keyframes caret { 50% { opacity: 0; } }
+  #responseFoot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font: 10px var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
+  .rf-hist { opacity: 0.8; }
+  /* history overlay */
+  #history { position: fixed; inset: 0; z-index: 20; background: rgba(4,6,10,0.6); backdrop-filter: blur(3px); display: grid; place-items: center; font-family: var(--sans); }
+  #history[hidden] { display: none; }
+  #historyPanel { width: min(560px, calc(100vw - 40px)); max-height: 74vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px 20px; animation: art-in 260ms cubic-bezier(0.22,1,0.36,1); }
+  .hh { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; color: var(--fg); }
+  .hh button { background: transparent; border: 0; color: var(--faint); font-size: 14px; cursor: pointer; }
+  .hh-note { font-size: 11px; color: var(--faint); margin: 4px 0 16px; }
+  .turn { margin-bottom: 16px; }
+  .turn .u { font-size: 13px; color: var(--fg); background: color-mix(in oklch, var(--primary) 12%, transparent); border: 1px solid color-mix(in oklch, var(--primary) 30%, transparent); border-radius: 10px; padding: 8px 11px; display: inline-block; max-width: 92%; }
+  .turn .r { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  .turn .r .ok { color: var(--accent-green); margin-right: 5px; }
+  /* conversation-dot activity */
+  .tb-dots i { transition: background 300ms, box-shadow 300ms; }
+  .tb-dots i.act { background: var(--accent-teal); box-shadow: 0 0 7px currentColor; color: var(--accent-teal); animation: dotpulse 1.4s ease-in-out infinite; }
+  .tb-dots i.done { background: var(--accent-green); opacity: 0.65; }
+  @keyframes dotpulse { 50% { opacity: 0.4; } }
   #railLeft, #railRight, #directorHint, .tb-conv, #convDots { transition: opacity 0.28s ease; }
   body.switching #railLeft, body.switching #railRight, body.switching #directorHint { opacity: 0; }
   body.switching .tb-conv, body.switching #convDots { opacity: 0.35; }
@@ -110,12 +154,27 @@
 <aside id="railLeft" class="rail">
   <div class="rail-label">Now</div>
   <ol id="highlights"></ol>
+  <button id="summaryToggle" type="button"><span class="caret">▸</span> Summary</button>
+  <div id="summaryText" hidden></div>
 </aside>
 
 <aside id="railRight" class="rail">
   <div class="rail-label">Artifacts</div>
   <div id="artifacts"></div>
 </aside>
+
+<div id="response" role="button" tabindex="0" title="Show conversation history">
+  <div id="responseText"></div>
+  <div id="responseFoot"><span class="rf-label" id="responseState">Response</span><span class="rf-hist">history ⌄</span></div>
+</div>
+
+<div id="history" hidden>
+  <div id="historyPanel">
+    <div class="hh"><span>History</span><button id="historyClose" aria-label="Close">✕</button></div>
+    <div class="hh-note">Only your messages and each final response — nothing in between.</div>
+    <div id="historyLog"></div>
+  </div>
+</div>
 
 <div id="composer">
   <div id="directorHint"><i></i><span id="directorText"></span></div>
@@ -665,6 +724,7 @@ function updateHover(){
 rebuild();resize();
 const fpsEl=document.getElementById('fps');let last=performance.now(),acc=0,frames=0;
 function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+=dt;frames++;
+  tickConversations(dt);                                          // every conversation advances, focused or not
   if(dt>0.003&&dt<minDt)minDt=dt;                                  // shortest interval ≈ display refresh period
   if(acc>=0.5){
     const refreshMs=Math.max(6,Math.min(20,minDt*1000));           // frame budget from the actual refresh rate
@@ -742,63 +802,124 @@ let autoCam=0, scrollOffset=0, switching=null, xShift=0, glitchAmt=0;
 addEventListener('wheel', e=>{ scrollOffset=Math.max(-3.0, Math.min(0.35, scrollOffset + e.deltaY*0.0011)); }, {passive:true});
 
 // a few demo conversations the director could be juggling
+const REVEAL_INT=3.2;   // seconds between "Now" items as a conversation progresses
+function mkConv(o){ o.t=o.t0||0; o.lastReveal=0; return o; }
 const CONVS=[
-  { title:'Workspace drag-drop', seed:7, director:'on: fixing adjacent-swap in the pane grid',
-    highlights:[{t:'Located the drag-reorder path',mode:0},{t:'Profiled frame timing — found a long task',mode:1},
-                {t:'Drafting an adjacent-swap fix',mode:1},{t:'Re-measuring after the change',mode:2}],
-    artifacts:[{kicker:'Benchmark',title:'Paint cost per frame',meta:'conic ×3 fastest · 0.8 ms'},
-               {kicker:'Diff',title:'pane-drag-reorder.ts',meta:'+18 −6 · adjacency swap'},
-               {kicker:'Trace',title:'Overview pan cost',meta:'2 long tasks > 50 ms'}] },
-  { title:'Local voice capture', seed:101, director:'on: wiring local macOS voice',
-    highlights:[{t:'Read the speech configuration',mode:0},{t:'Downloaded the local model',mode:1},
-                {t:'Refreshed capture after download',mode:3}],
-    artifacts:[{kicker:'Config',title:'voice_configuration.go',meta:'local provider enabled'},
-               {kicker:'Log',title:'Model download',meta:'ok · 1.1 GB'}] },
-  { title:'Codex run lifecycle', seed:222, director:'on: queueing + steering an active run',
-    highlights:[{t:'Opened the topic conversation',mode:0},{t:'Queued work during an active run',mode:1},
-                {t:'Steering mid-run',mode:2},{t:'Run completed',mode:3}],
-    artifacts:[{kicker:'State',title:'Run queue',meta:'1 active · 2 queued'},
-               {kicker:'Event',title:'Assistant stream',meta:'214 deltas'}] },
+  mkConv({ title:'Workspace drag-drop', seed:7, director:'on: fixing adjacent-swap in the pane grid', t0:0.5,
+    nows:[{t:'Located the drag-reorder path',mode:0},{t:'Profiled frame timing — found a long task',mode:1},
+          {t:'Drafting an adjacent-swap fix',mode:1},{t:'Re-measuring after the change',mode:2},{t:'Committed the change',mode:3}],
+    summary:'The reorder path shares slot widths across the niri grid, so an adjacent drop should swap panes rather than adopt the destination width. Profiling traced two long tasks to the overview pan; routing adjacency through the swap path removes them and re-measures clean at ~0.8 ms/frame.',
+    response:'Reordering now swaps adjacent panes in place instead of adopting the destination width, and the two long tasks on overview pan are gone — paint is back to ~0.8 ms/frame. Committed to pane-drag-reorder.ts (+18 −6).',
+    history:[{u:'the drag and drop feels janky when I reorder panes', r:'Fixed — reordering swaps adjacent panes and paints at ~0.8 ms; the overview-pan hitches are resolved.'}],
+    arts:[{kicker:'Benchmark',title:'Paint cost per frame',meta:'conic ×3 fastest',
+           body:{type:'bars',rows:[['conic ×3',0.8,0.13],['WebGL',1.2,0.20],['canvas 2D',2.4,0.39],['SVG turb.',6.1,1]]}},
+          {kicker:'Diff',title:'pane-drag-reorder.ts',meta:'+18 −6',
+           body:{type:'diff',lines:[['-','if (dropIsAdjacent) adoptWidth(dst)'],['+','if (dropIsAdjacent) swapPanes(src, dst)'],['+','remeasureRow(row)']]}},
+          {kicker:'Trace',title:'Overview pan cost',meta:'2 long tasks → 0',
+           body:{type:'rows',rows:[['before','2 tasks > 50ms'],['after','0 > 16ms']]}}] }),
+  mkConv({ title:'Local voice capture', seed:101, director:'on: wiring local macOS voice', t0:7.0,
+    nows:[{t:'Read the speech configuration',mode:0},{t:'Enabled the local provider',mode:1},
+          {t:'Downloaded the local model',mode:1},{t:'Refreshed capture after download',mode:3}],
+    summary:'Voice was falling back to the cloud provider because the on-device model was absent. Enabling the local provider and fetching the model lets capture run fully on-device; the session refreshes automatically once the download lands.',
+    response:'Voice now runs fully on-device — the local provider is enabled and the 1.1 GB model finished downloading, so capture refreshed automatically. No cloud round-trip.',
+    history:[{u:'can we do voice locally on my mac instead of the cloud', r:'Done — enabled the on-device provider and pulled the local model; capture is fully local now.'}],
+    arts:[{kicker:'Config',title:'voice_configuration.go',meta:'local provider',
+           body:{type:'diff',lines:[['-','provider: "cloud"'],['+','provider: "local"'],['+','model: "parakeet-v2"']]}},
+          {kicker:'Log',title:'Model download',meta:'ok · 1.1 GB',
+           body:{type:'rows',rows:[['parakeet-v2','1.1 GB'],['status','verified']]}}] }),
+  mkConv({ title:'Codex run lifecycle', seed:222, director:'on: queueing + steering an active run', t0:12.5,
+    nows:[{t:'Opened the topic conversation',mode:0},{t:'Queued work during an active run',mode:1},
+          {t:'Steered mid-run',mode:2},{t:'Run completed',mode:3}],
+    summary:'A run was already active, so the new instruction queued behind it rather than interrupting; a mid-run steer nudged the objective without a restart, and the queued work promoted cleanly on completion.',
+    response:'Your follow-up queued behind the active run and then promoted on completion — no restart. The mid-run steer landed, and the run finished with the queue drained.',
+    history:[{u:'add tests for the queue while it’s still running', r:'Queued behind the active run and steered mid-flight; it finished and the queued test work promoted cleanly.'}],
+    arts:[{kicker:'State',title:'Run queue',meta:'1 active · 2 queued',
+           body:{type:'rows',rows:[['active','apply fix'],['queued','add tests'],['queued','re-measure']]}},
+          {kicker:'Event',title:'Assistant stream',meta:'214 deltas',
+           body:{type:'rows',rows:[['deltas','214'],['tools','6']]}}] }),
 ];
-let convIdx=0;
+let convIdx=0, lastIdx=-1, lastN=-1, lastComplete=false, dotAcc=0;
 const $=id=>document.getElementById(id);
 
+function revealCount(c){ return Math.min(c.nows.length, Math.max(1, Math.floor(c.t/REVEAL_INT)+1)); }
+function isComplete(c){ return c.t >= c.nows.length*REVEAL_INT + 0.8; }
+
+// background progression — every conversation advances on its own clock
+function tickConversations(dt){
+  for(const c of CONVS){ if(isComplete(c)) continue; const b=revealCount(c); c.t+=dt; if(revealCount(c)>b) c.lastReveal=c.t; }
+  const c=CONVS[convIdx], n=revealCount(c), comp=isComplete(c);
+  if(convIdx!==lastIdx||n!==lastN||comp!==lastComplete){ lastIdx=convIdx; lastN=n; lastComplete=comp; renderConv(); }
+  dotAcc+=dt; if(dotAcc>0.3){ dotAcc=0; renderDots(); }
+}
+function renderDots(){ $('convDots').innerHTML=CONVS.map((c,i)=>{
+  let cls=i===convIdx?'on':''; if(isComplete(c)) cls+=' done'; else if(c.t-c.lastReveal<2.6) cls+=' act';
+  return `<i class="${cls.trim()}"></i>`; }).join(''); }
+
+function artifactBody(b){ if(!b) return '';
+  if(b.type==='bars') return `<div class="artifact-body">`+b.rows.map(r=>`<div class="ab-row"><span>${r[0]}</span><span class="ab-track"><span class="ab-bar" style="width:${Math.round(r[2]*100)}%"></span></span><span class="ab-num">${r[1].toFixed(1)}</span></div>`).join('')+`</div>`;
+  if(b.type==='diff') return `<div class="artifact-body"><div class="ab-diff">`+b.lines.map(l=>`<span class="ab-${l[0]==='+'?'add':'del'}">${l[0]} ${l[1].replace(/</g,'&lt;')}</span>`).join('\n')+`</div></div>`;
+  if(b.type==='rows') return `<div class="artifact-body">`+b.rows.map(r=>`<div class="ab-row" style="grid-template-columns:1fr auto"><span>${r[0]}</span><span class="ab-num">${r[1]}</span></div>`).join('')+`</div>`;
+  return ''; }
+
 function renderConv(){
-  const c=CONVS[convIdx];
-  $('convTitle').textContent=c.title;
-  $('directorText').textContent=c.director;
-  $('convDots').innerHTML=CONVS.map((_,i)=>`<i class="${i===convIdx?'on':''}"></i>`).join('');
-  $('highlights').innerHTML=c.highlights.map((h,i)=>{
-    const col=MODE_COLORS[h.mode]||'#8aa'; const old=i<c.highlights.length-2?' old':'';
-    const body=i===c.highlights.length-1?`<b>${h.t}</b>`:h.t;
+  const c=CONVS[convIdx], n=revealCount(c), complete=isComplete(c);
+  $('convTitle').textContent=c.title; $('directorText').textContent=c.director; renderDots();
+  const shown=c.nows.slice(0,n);
+  $('highlights').innerHTML=shown.map((h,i)=>{
+    const col=MODE_COLORS[h.mode]||'#8aa'; const old=i<shown.length-2?' old':''; const body=i===shown.length-1?`<b>${h.t}</b>`:h.t;
     return `<li class="hl${old}"><span class="d" style="color:${col};background:${col}"></span><span>${body}</span></li>`;
   }).join('');
-  $('artifacts').innerHTML=c.artifacts.map((a,i)=>
+  $('summaryText').textContent=c.summary;
+  const rt=$('responseText');
+  if(complete){ rt.classList.remove('working'); rt.textContent=c.response; $('responseState').textContent='Response'; }
+  else { rt.classList.add('working'); rt.textContent=shown[shown.length-1].t; $('responseState').textContent='Working'; }
+  const reveal=Math.max(1, Math.ceil(n/c.nows.length*c.arts.length));
+  $('artifacts').innerHTML=c.arts.map((a,i)=> (complete||i<reveal)?
     `<div class="artifact" data-i="${i}"><div class="artifact-kicker">${a.kicker}<span class="exp">⤢</span></div>`+
-    `<div class="artifact-title">${a.title}</div><div class="artifact-meta">${a.meta}</div></div>`).join('');
+    `<div class="artifact-title">${a.title}</div><div class="artifact-meta">${a.meta}</div>`+artifactBody(a.body)+`</div>`:'').join('');
 }
 function switchConv(dir){ if(switching) return;   // start a channel-change transition (swap happens mid-slide)
   switching={dir, t:0, swapped:false}; selected=null; document.body.classList.add('switching'); }
 $('convPrev').onclick=()=>switchConv(-1);
 $('convNext').onclick=()=>switchConv(1);
 
-// artifact expand -> open in a new tab (concept)
+// artifact expand -> open the fuller content in a new tab (concept: its own surface)
+function expandBodyHTML(b){ if(!b) return '';
+  if(b.type==='bars') return b.rows.map(r=>`<div style="display:grid;grid-template-columns:110px 1fr 46px;gap:10px;align-items:center;margin:7px 0;font:13px ui-monospace"><span style="color:oklch(0.717 0.044 264)">${r[0]}</span><span style="height:9px;background:oklch(0.22 0.02 264);border-radius:5px;overflow:hidden"><span style="display:block;height:100%;width:${Math.round(r[2]*100)}%;background:oklch(0.72 0.13 210)"></span></span><span style="text-align:right;color:oklch(0.908 0.013 263)">${r[1].toFixed(1)}</span></div>`).join('');
+  if(b.type==='diff') return `<pre style="margin:0;font:13px/1.7 ui-monospace;white-space:pre-wrap">`+b.lines.map(l=>`<span style="color:${l[0]==='+'?'oklch(0.78 0.16 150)':'oklch(0.68 0.17 20)'}">${l[0]} ${l[1].replace(/</g,'&lt;')}</span>`).join('\n')+`</pre>`;
+  if(b.type==='rows') return b.rows.map(r=>`<div style="display:flex;justify-content:space-between;border-bottom:1px solid oklch(0.24 0.01 264);padding:8px 0;font:13px ui-monospace"><span style="color:oklch(0.717 0.044 264)">${r[0]}</span><span style="color:oklch(0.908 0.013 263)">${r[1]}</span></div>`).join('');
+  return ''; }
 $('artifacts').addEventListener('click',e=>{ const card=e.target.closest('.artifact'); if(!card) return;
-  const a=CONVS[convIdx].artifacts[+card.dataset.i];
+  const a=CONVS[convIdx].arts[+card.dataset.i];
   const html=`<!doctype html><meta charset=utf-8><title>${a.title}</title>`+
-    `<body style="margin:0;background:oklch(0.128 0.007 261);color:oklch(0.908 0.013 263);font:15px/1.5 system-ui;display:grid;place-items:center;height:100vh">`+
-    `<div style="max-width:640px;padding:40px"><div style="font:11px system-ui;letter-spacing:.14em;text-transform:uppercase;color:oklch(0.522 0.065 264)">${a.kicker}</div>`+
-    `<h1 style="font-size:26px;margin:6px 0 10px">${a.title}</h1><p style="color:oklch(0.717 0.044 264)">${a.meta}</p>`+
-    `<p style="color:oklch(0.522 0.065 264);font-size:13px;margin-top:24px">Expanded artifact view — in the app this opens the full artifact (its own tab / surface).</p></div>`;
+    `<body style="margin:0;background:oklch(0.128 0.007 261);color:oklch(0.908 0.013 263);font:15px/1.5 system-ui;display:grid;place-items:center;min-height:100vh">`+
+    `<div style="max-width:640px;width:100%;padding:40px"><div style="font:11px system-ui;letter-spacing:.14em;text-transform:uppercase;color:oklch(0.522 0.065 264)">${a.kicker}</div>`+
+    `<h1 style="font-size:26px;margin:6px 0 4px">${a.title}</h1><p style="color:oklch(0.717 0.044 264);margin:0 0 22px">${a.meta}</p>`+
+    `<div style="background:oklch(0.16 0.008 261);border:1px solid oklch(0.24 0.01 264);border-radius:12px;padding:18px 20px">${expandBodyHTML(a.body)}</div>`+
+    `<p style="color:oklch(0.522 0.065 264);font-size:12px;margin-top:22px">Expanded view — in the app this is the artifact's own tab / surface, with full history and controls.</p></div>`;
   window.open('data:text/html,'+encodeURIComponent(html),'_blank'); });
 
-// chat input: the director takes the request -> new highlight + fresh reasoning
+// chat input: the director takes the request -> record the prior turn, then re-run from the top
 const chatInput=$('chatInput');
 chatInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&chatInput.value.trim()){
-  const c=CONVS[convIdx]; c.highlights.push({t:chatInput.value.trim(),mode:0});
-  while(c.highlights.length>6) c.highlights.shift();
+  const c=CONVS[convIdx]; c.history.push({u:chatInput.value.trim(), r:c.response});
+  c.t=0.4; c.lastReveal=0; lastN=-1;   // start thinking again on this thread
   chatInput.value=''; renderConv(); seed=(seed*1664525+1013904223)>>>0; rebuild(); growT=0; autoCam=0; scrollOffset=0;
 }});
+
+// main response -> reveal the minimal chat history (only your messages + each final response)
+function renderHistory(){ const c=CONVS[convIdx];
+  $('historyLog').innerHTML=c.history.map(t=>`<div class="turn"><div class="u">${t.u}</div><div class="r">${t.r}</div></div>`).join('')||`<div class="turn"><div class="r">No prior turns on this thread yet.</div></div>`; }
+function openHistory(){ renderHistory(); $('history').hidden=false; }
+function closeHistory(){ $('history').hidden=true; }
+$('response').addEventListener('click',openHistory);
+$('response').addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openHistory(); }});
+$('historyClose').addEventListener('click',closeHistory);
+$('history').addEventListener('click',e=>{ if(e.target===$('history')) closeHistory(); });
+addEventListener('keydown',e=>{ if(e.key==='Escape'&&!$('history').hidden) closeHistory(); });
+
+// longer-form summary toggle (setta-3 keeps these; hidden until asked for)
+$('summaryToggle').addEventListener('click',()=>{ const st=$('summaryText'); st.hidden=!st.hidden; $('summaryToggle').classList.toggle('open',!st.hidden); });
 
 // ← / → switch conversations (mod key required while typing)
 addEventListener('keydown',e=>{ if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
