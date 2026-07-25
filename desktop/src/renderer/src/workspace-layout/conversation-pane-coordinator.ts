@@ -1,11 +1,6 @@
-import type {
-  ConversationPaneResourceBinding,
-  ConversationPresentationTarget,
-  PresentationIntent,
-} from "@generated/backend";
+import type { PresentationIntent } from "@generated/backend";
 
 import type { WorkspaceLayoutStore } from "./layout-store";
-import { emptyWorkspaceRuntimeId } from "./workspace-layout-area-runtime";
 
 export const conversationPaneNavigationRequestEvent = "setta:conversation-pane-navigation-request";
 
@@ -13,7 +8,6 @@ export interface ConversationPanePresentationRequest {
   conversationId: string;
   destination?: ConversationPanePlacementDestination;
   preferredPaneId?: string | null;
-  resourceBindings?: ConversationPaneResourceBinding[];
   title: string;
   workspaceId: string;
 }
@@ -73,34 +67,16 @@ function presentationTargetRequest(payload: {
   target: {
     conversationId: string;
     preferredPaneId: string | null;
-    resourceBindings: ConversationPaneResourceBinding[];
-    resourceScope: ConversationPresentationTarget["resourceScope"];
     title: string;
+    workspaceId: string;
   };
 }): ConversationPanePresentationRequest {
   return {
     conversationId: payload.target.conversationId,
     preferredPaneId: payload.target.preferredPaneId,
-    resourceBindings: [...payload.target.resourceBindings],
     title: payload.target.title,
-    workspaceId: presentationTargetWorkspaceId(payload.target.resourceScope),
+    workspaceId: payload.target.workspaceId,
   };
-}
-
-function presentationTargetWorkspaceId(
-  resourceScope: ConversationPresentationTarget["resourceScope"],
-): string {
-  switch (resourceScope.kind) {
-    case "folderless":
-      return emptyWorkspaceRuntimeId;
-    case "folder":
-      if (resourceScope.folder === null) {
-        throw new Error("Folder presentation target is missing its resource scope.");
-      }
-      return resourceScope.folder.workspaceId;
-    default:
-      return assertNever(resourceScope.kind);
-  }
 }
 
 function requiredPayload<Payload>(payload: Payload | null, intent: PresentationIntent): Payload {
@@ -156,7 +132,14 @@ export function presentConversationPane(
     store.focusPane(existingPane.paneId);
     return { kind: "focused", paneId: existingPane.paneId };
   }
-  const paneRequest = conversationPaneRequest(request);
+  const paneRequest = {
+    easyButtonConfig: { conversationId: request.conversationId },
+    subtitle: "Topic conversation",
+    surfaceKind: "easy-button",
+    title: request.title,
+    tone: "cyan",
+    widthSpec: { unit: "proportion", value: 1 },
+  } as const;
   const onlyPane = store.toScene().panes.length === 1 ? store.toScene().panes[0] : undefined;
   if (onlyPane?.surfaceKind === "empty-frame") {
     clearMaximizedPane(store);
@@ -201,7 +184,7 @@ function presentNewConversationPane(
       reason: "This conversation already has an open pane.",
     };
   }
-  const paneRequest = conversationPaneRequest(request);
+  const paneRequest = conversationPaneRequest(request.conversationId, request.title);
   switch (destination.kind) {
     case "new-pane":
       clearMaximizedPane(store);
@@ -233,17 +216,12 @@ function emptyFramePlacementPreflight(
   return { kind: "ready" };
 }
 
-function conversationPaneRequest(request: ConversationPanePresentationRequest) {
+function conversationPaneRequest(conversationId: string, title: string) {
   return {
-    conversationConfig: {
-      conversationId: request.conversationId,
-      ...(request.resourceBindings === undefined
-        ? {}
-        : { resourceBindings: request.resourceBindings }),
-    },
+    easyButtonConfig: { conversationId },
     subtitle: "Topic conversation",
-    surfaceKind: "conversation",
-    title: request.title,
+    surfaceKind: "easy-button",
+    title,
     tone: "cyan",
     widthSpec: { unit: "proportion", value: 1 },
   } as const;
@@ -257,8 +235,8 @@ function matchingConversationPane(
     .toScene()
     .panes.filter(
       (pane) =>
-        pane.surfaceKind === "conversation" &&
-        pane.conversationConfig.conversationId === request.conversationId,
+        pane.surfaceKind === "easy-button" &&
+        pane.easyButtonConfig.conversationId === request.conversationId,
     )
     .map((pane) => pane.paneId);
   if (matchingPaneIds.length > 1) {

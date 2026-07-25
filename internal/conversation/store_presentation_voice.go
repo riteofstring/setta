@@ -96,12 +96,11 @@ ORDER BY conversations.created_at ASC, conversations.id ASC
 	presentations := make([]activeConversationPresentation, 0)
 	for rows.Next() {
 		var value activeConversationPresentation
-		var workspaceID sql.NullString
 		var archivedAt sql.NullString
 		var narratorConversationID sql.NullString
 		var state presentationProfileScanState
 		targets := []any{
-			&workspaceID,
+			&value.WorkspaceID,
 			&value.CreatedAt,
 			&value.ConversationStatus,
 			&archivedAt,
@@ -126,9 +125,6 @@ ORDER BY conversations.created_at ASC, conversations.id ASC
 		}
 		if err := state.finish(&value.Profile); err != nil {
 			return nil, err
-		}
-		if workspaceID.Valid {
-			value.WorkspaceID = workspaceID.String
 		}
 		if err := value.Profile.Validate(); err != nil {
 			return nil, &CorruptStateError{

@@ -291,7 +291,7 @@ func (service *RouteService) materializeClaimedInput(
 	if err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
-	targets = routeTargetsForCandidateScope(targets, retrieval.Scope)
+	targets = routeTargetsForWorkspaces(targets, retrieval.WorkspaceIDs)
 	if err := validateRequiredRouteTargets(work.Input.Input, candidates, targets); err != nil {
 		return RouteContextMaterialization{}, NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
@@ -340,14 +340,9 @@ func (service *RouteService) retrieveAvailableCandidates(
 		return workspaceSession, retrieval, queryTruncated, nil,
 			NewRouteAttemptFailure(RouteFailureKindStateUnavailable, err)
 	}
-	retrieval.Scope = conversationindex.CandidateScopeFilter{
-		IncludeFolderless:          true,
-		FolderResourceWorkspaceIDs: availableWorkspaceIDs,
-	}
-	retrieval, err = conversationindex.NormalizeCandidateRequest(retrieval)
-	if err != nil {
-		return workspaceSession, retrieval, queryTruncated, nil,
-			NewRouteAttemptFailure(RouteFailureKindInternal, err)
+	retrieval.WorkspaceIDs = availableWorkspaceIDs
+	if len(availableWorkspaceIDs) == 0 {
+		return workspaceSession, retrieval, queryTruncated, []conversationindex.Candidate{}, nil
 	}
 	candidates, err := service.candidates.RetrieveCandidates(ctx, retrieval)
 	if err != nil {
@@ -357,18 +352,17 @@ func (service *RouteService) retrieveAvailableCandidates(
 	return workspaceSession, retrieval, queryTruncated, candidates, nil
 }
 
-func routeTargetsForCandidateScope(
+func routeTargetsForWorkspaces(
 	targets []RouteConversationTarget,
-	scope conversationindex.CandidateScopeFilter,
+	workspaceIDs []string,
 ) []RouteConversationTarget {
-	available := make(map[string]bool, len(scope.FolderResourceWorkspaceIDs))
-	for _, workspaceID := range scope.FolderResourceWorkspaceIDs {
+	available := make(map[string]bool, len(workspaceIDs))
+	for _, workspaceID := range workspaceIDs {
 		available[workspaceID] = true
 	}
 	filtered := make([]RouteConversationTarget, 0, len(targets))
 	for _, target := range targets {
-		workspaceID, folderScoped := target.ResourceScope.FolderWorkspaceID()
-		if (!folderScoped && scope.IncludeFolderless) || (folderScoped && available[workspaceID]) {
+		if available[target.WorkspaceID] {
 			filtered = append(filtered, target)
 		}
 	}

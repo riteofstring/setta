@@ -160,13 +160,9 @@ func (service *Service) acceptTurn(
 	queueOrdinal int,
 	turnID string,
 ) (ConversationTurn, error) {
-	workspaceID, err := requiredSnapshotWorkspaceID(snapshot)
-	if err != nil {
-		return ConversationTurn{}, err
-	}
 	profile, err := service.store.ReadEffectiveRoleProfile(
 		ctx,
-		workspaceID,
+		snapshot.Conversation.WorkspaceID,
 		snapshot.Conversation.ID,
 		DefaultAgentRoleProfile(),
 	)
@@ -200,16 +196,6 @@ func (service *Service) acceptTurn(
 	}
 	err = service.commitAcceptedTurn(ctx, mutation, publications)
 	return mutation.turn, err
-}
-
-func requiredSnapshotWorkspaceID(snapshot ConversationSnapshot) (string, error) {
-	if snapshot.Conversation.WorkspaceID == nil {
-		return "", &ResourceRequiredError{
-			ConversationID: snapshot.Conversation.ID,
-			ResourceKind:   "folder",
-		}
-	}
-	return *snapshot.Conversation.WorkspaceID, nil
 }
 
 type acceptedTurnIDs struct {

@@ -28,7 +28,7 @@ export interface ConversationProjection {
   resync: ConversationResyncRequirement | null;
   snapshot: ConversationSnapshot | null;
   status: ConversationProjectionStatus;
-  workspaceId: string | null;
+  workspaceId: string;
 }
 
 type ConversationEventType = ConversationEventPayload["type"];
@@ -73,7 +73,7 @@ type EventCursorDisposition = "duplicate" | "next" | "sequence_gap" | "stream_ch
 
 export function loadingConversationProjection(
   current: ConversationProjection | undefined,
-  workspaceId: string | null,
+  workspaceId: string,
   conversationId: string,
 ): ConversationProjection {
   assertProjectionIdentity(current, workspaceId, conversationId);
@@ -89,7 +89,7 @@ export function loadingConversationProjection(
 
 export function failedConversationProjection(
   current: ConversationProjection | undefined,
-  workspaceId: string | null,
+  workspaceId: string,
   conversationId: string,
   error: unknown,
 ): ConversationProjection {
@@ -106,7 +106,7 @@ export function failedConversationProjection(
 
 export function hydratedConversationProjection(
   current: ConversationProjection | undefined,
-  workspaceId: string | null,
+  workspaceId: string,
   conversationId: string,
   snapshot: ConversationSnapshot,
 ): ConversationProjection {
@@ -812,7 +812,7 @@ function projectionAfterStaleSnapshot(current: ConversationProjection): Conversa
 
 function assertProjectionIdentity(
   current: ConversationProjection | undefined,
-  workspaceId: string | null,
+  workspaceId: string,
   conversationId: string,
 ): void {
   if (
@@ -827,7 +827,7 @@ function assertProjectionIdentity(
 
 function assertSnapshotIdentity(
   snapshot: ConversationSnapshot,
-  workspaceId: string | null,
+  workspaceId: string,
   conversationId: string,
 ): void {
   assertOwner("conversation snapshot", snapshot.conversation.id, conversationId);
@@ -844,7 +844,7 @@ function assertEventEnvelope(
   }
 }
 
-function assertOwner(label: string, actual: string | null, expected: string | null): void {
+function assertOwner(label: string, actual: string, expected: string): void {
   if (actual !== expected) {
     throw new Error(`${label} belongs to ${actual}, expected ${expected}.`);
   }

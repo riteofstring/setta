@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"strings"
 
-	"setta/internal/applayout"
 	"setta/internal/conversation"
 	"setta/internal/httpapi"
 	"setta/internal/workspaceui"
@@ -29,7 +28,6 @@ type contractSpec struct {
 	Unions                         []unionSpec
 	ValueSets                      []valueSetSpec
 	WorkspaceUILayoutSchemaVersion int
-	AppPaneLayoutSchemaVersion     int
 }
 
 type conversationSnapshotLimitSpec struct {
@@ -191,7 +189,6 @@ func contractSpecs(schema httpapi.ContractSchema) (contractSpec, error) {
 		Unions:                         collector.unions,
 		ValueSets:                      collector.usedValueSets,
 		WorkspaceUILayoutSchemaVersion: workspaceui.SchemaVersion,
-		AppPaneLayoutSchemaVersion:     applayout.SchemaVersion,
 	}, nil
 }
 func endpointSpecs(endpoints []httpapi.ContractEndpoint, collector *contractCollector) ([]endpointSpec, error) {
@@ -502,7 +499,6 @@ func render(buffer *bytes.Buffer, specs contractSpec) error {
 	renderRuntimeImports(buffer, specs)
 	renderProtocolMetadata(buffer, specs)
 	renderWorkspaceUILayoutMetadata(buffer, specs.WorkspaceUILayoutSchemaVersion)
-	renderAppPaneLayoutMetadata(buffer, specs.AppPaneLayoutSchemaVersion)
 	renderConversationSnapshotLimits(buffer, specs.ConversationSnapshotLimits)
 	renderStringAliases(buffer, specs.StringAliases)
 	renderValueSets(buffer, specs.ValueSets)
@@ -536,10 +532,6 @@ func renderConversationSnapshotLimits(buffer *bytes.Buffer, limits conversationS
 
 func renderWorkspaceUILayoutMetadata(buffer *bytes.Buffer, schemaVersion int) {
 	fmt.Fprintf(buffer, "export const workspaceUILayoutSchemaVersion = %d;\n\n", schemaVersion)
-}
-
-func renderAppPaneLayoutMetadata(buffer *bytes.Buffer, schemaVersion int) {
-	fmt.Fprintf(buffer, "export const appPaneLayoutSchemaVersion = %d;\n\n", schemaVersion)
 }
 
 func renderProtocolMetadata(buffer *bytes.Buffer, specs contractSpec) {

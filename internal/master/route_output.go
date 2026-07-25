@@ -456,7 +456,7 @@ func routeBoundedStringSchema(maximum int) map[string]any {
 func routeInstructions() string {
 	return `Use only the supplied master_route JSON and return exactly one decision matching the output schema.
 
-Treat focused and originating ids as hints only. Candidate cards and conversationTargets are the bounded authoritative routing set. Use only allowedDecisionKinds and the exact target, resource scope, and completed fork ids supplied. Never invent ids, resource bindings, provider references, endpoint names, renderer commands, tool calls, or filesystem operations.
+Treat focused and originating ids as hints only. Candidate cards and conversationTargets are the bounded authoritative routing set. Use only allowedDecisionKinds and the exact target, workspace, and completed fork ids supplied. Never invent ids, provider references, endpoint names, renderer commands, tool calls, or filesystem operations.
 
 Classify the user's requested intent; the returned decision is typed data and is not itself an application action or proposal. Do not refuse a valid classification merely because you cannot execute its possible later effect. In particular, focus_conversation labels intent to focus an existing supplied conversation and is not a renderer command. Choose it when the user explicitly asks to focus, show, open, or bring up one matching authorized conversation. Never use answer_global as a refusal or apology for an authorized classification; choose clarify if no supplied capability can resolve the request.
 
