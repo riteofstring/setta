@@ -227,7 +227,7 @@
     <button data-pat="0" class="on">halftone</button><button data-pat="1">bayer</button><button data-pat="2">hatch</button>
   </div>
   <div class="grp"><span>size</span>
-    <button data-px="4" class="on">S</button><button data-px="6">M</button><button data-px="9">L</button>
+    <button data-px="2">XS</button><button data-px="3" class="on">S</button><button data-px="4">M</button><button data-px="6">L</button>
   </div>
   <div class="grp"><span>particles</span>
     <button data-pm="0" class="on">emit</button><button data-pm="1">orbit</button>
@@ -271,6 +271,18 @@ const MODE_NAME=['thinking','doing','struggling','success','failed','synthesis',
 const MODE_COLORS=['#4dcbf0','#9e73ff','#ffcb42','#5cf5a0','#ff495e','#c7edff','#b8e6ff'];
 const CYAN=[0.30,0.80,0.95], VIOLET=[0.62,0.45,1.0];   // particle-field tints
 const BARREL=0.21;   // CRT barrel curvature — shared by post pass, icon warp, and overlay/label warp so they stay aligned
+// ── graph fit frame ──────────────────────────────────────────────────────────
+// The reasoning graph is authored in a fixed PORTRAIT reference frame and letterboxed
+// into the window, so its shape (aspect) and on-screen scale stay put no matter the
+// window size — instead of the whole thing stretching + the nodes ballooning.
+const REF_W=800, REF_H=1024, MAX_FIT=1.1;   // design frame (aspect + size the layout is tuned for); MAX_FIT caps growth on big displays
+let VIEW={fitX:1,fitY:1,size:1};            // per-frame: authored graph-clip -> window-clip, plus a size multiplier for nodes/icons
+function computeView(useFit){
+  const W=Math.max(1,innerWidth), H=Math.max(1,innerHeight);
+  if(!useFit){ VIEW.fitX=1; VIEW.fitY=1; VIEW.size=1; return; }   // grid views fill the window as before
+  const fit=Math.min(MAX_FIT, W/REF_W, H/REF_H);                  // "contain" the reference frame, but never scale past MAX_FIT
+  VIEW.fitX=(REF_W*fit)/W; VIEW.fitY=(REF_H*fit)/H; VIEW.size=fit;
+}
 
 const RUN=[
   {k:'step',m:'think',t:'read request'},
@@ -441,7 +453,7 @@ layout(location=8) in float a_speed;  // per-particle speed
 layout(location=9) in float a_role;   // 0 core orbiter, 1 emitted spark
 layout(location=10) in float a_failAt; // node age at which it fails (999 = never)
 layout(location=11) in float a_open;    // collapse visibility 0..1 (reason nodes fade as their turn folds)
-uniform float u_cam,u_time,u_dpr,u_hoverX,u_hoverWY,u_hoverOn,u_listen,u_pmode,u_xshift,u_scale;
+uniform float u_cam,u_time,u_dpr,u_hoverX,u_hoverWY,u_hoverOn,u_listen,u_pmode,u_xshift,u_scale,u_fitX,u_fitY;
 out float v_mode,v_recent,v_alpha,v_active,v_hover,v_fail,v_isCore,v_ecl;
 void main(){
   if(a_open<0.004){ gl_Position=vec4(2.0,2.0,2.0,1.0); gl_PointSize=0.0; return; }   // folded away
@@ -541,8 +553,8 @@ void main(){
   psize*=(1.0+succF*0.5);                         // success flourish
   v_mode=a_mode; v_recent=recent; v_active=working; v_hover=hover; v_fail=failP; v_alpha=palpha*vis*a_open; v_isCore=step(a_role,0.5);
   v_ecl=max(step(3.5,a_mode)*step(a_mode,4.5)*smoothstep(0.0,1.1,age), failP)*step(a_role,0.5);   // eclipse: outcome failures AND failed side nodes
-  gl_Position=vec4(pos.x+u_xshift, pos.y,0.0,1.0);
-  gl_PointSize=psize*u_dpr*vis*u_scale;
+  gl_Position=vec4(pos.x*u_fitX+u_xshift, pos.y*u_fitY,0.0,1.0);   // letterbox into the window (u_xshift is a full-window slide)
+  gl_PointSize=psize*u_dpr*vis*u_scale;                            // u_dpr = scene-px-per-css-px so nodes stay a constant css size
 }`;
 const PT_FS=`#version 300 es
 precision highp float;
@@ -584,7 +596,7 @@ layout(location=8) in float conf;   // confidence -> straightness
 layout(location=9) in float phase;
 layout(location=10) in float childFail;   // time the child fails (9999 = never)
 layout(location=11) in float a_open;       // edge visibility 0..1 (reason edges fold, spine edges appear)
-uniform float u_cam,u_time,u_aspect,u_width,u_xshift;
+uniform float u_cam,u_time,u_aspect,u_width,u_xshift,u_fitX,u_fitY;   // u_aspect is the graph's ON-SCREEN aspect (fitX*W)/(fitY*H)
 out float v_mode,v_recent,v_alpha,v_along,v_failP,v_arrive;
 float hash11(float p){ p=fract(p*0.1031); p*=p+33.33; p*=p+p; return fract(p); }
 void main(){
@@ -610,7 +622,7 @@ void main(){
   vec2 p=mix(A,B,tt)+perpC*wob;
   vec2 e=p+perpC*side*(u_width*(0.85+conf*1.15));   // confident main threads thicker
   v_mode=mode; v_recent=exp(-max(0.0,u_cam-bWY)*0.9); v_alpha=grow*a_open; v_along=t; v_failP=failP; v_arrive=arrive;
-  gl_Position=vec4(e.x+u_xshift, e.y,0.0,1.0);
+  gl_Position=vec4(e.x*u_fitX+u_xshift, e.y*u_fitY,0.0,1.0);   // letterbox (thickness scales with the frame; u_aspect keeps the perp true)
 }`;
 const EDGE_FS=`#version 300 es
 precision highp float;
@@ -689,7 +701,7 @@ layout(location=6) in float a_icon;
 layout(location=7) in float a_cx;
 layout(location=8) in float a_cy;
 layout(location=9) in float a_open;   // collapse visibility 0..1
-uniform float u_cam,u_time,u_aspect,u_nicon,u_xshift,u_scale;
+uniform float u_cam,u_time,u_aspect,u_nicon,u_xshift,u_iconY,u_fitX,u_fitY;   // u_aspect = window W/H (keeps the glyph square); u_iconY sizes it in window clip-Y
 out vec2 v_uv; out float v_mode,v_reveal,v_fail;
 void main(){
   if(a_open<0.004){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }   // folded away
@@ -698,8 +710,8 @@ void main(){
   float working=smoothstep(a_born,a_born+0.45,u_time)*(1.0-smoothstep(a_settle-0.35,a_settle+0.7,u_time));
   float rise=smoothstep(0.0,0.10,age); float settle=exp(-max(age-0.10,0.0)*6.0); float pop=rise*(1.0+0.55*settle);
   float failing=step(a_failAt,998.0); float failAge=age-a_failAt; v_fail=failing>0.5?smoothstep(0.0,0.35,failAge):0.0;
-  float halfY=(0.020+recent*0.006+working*0.017)*pop*u_scale; float halfX=halfY/u_aspect;   // sits inside the ring with margin
-  vec2 center=vec2(a_x, -0.35+(u_cam-a_worldY));
+  float halfY=(0.020+recent*0.006+working*0.017)*pop*u_iconY; float halfX=halfY/u_aspect;   // sits inside the ring with margin (window clip; square via W/H)
+  vec2 center=vec2(a_x*u_fitX, (-0.35+(u_cam-a_worldY))*u_fitY);                             // letterbox the glyph onto the fit node
   if(center.y>1.35||center.y<-1.35){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }   // cull off-viewport icons
   vec2 pos=center+vec2(a_cx*halfX, a_cy*halfY);
   v_uv=vec2((a_icon+(a_cx*0.5+0.5))/u_nicon, 1.0-(a_cy*0.5+0.5));
@@ -748,7 +760,7 @@ const atlasTex=gl.createTexture();
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
 })();
-const iu=n=>gl.getUniformLocation(iconP,n); const IU={cam:iu('u_cam'),time:iu('u_time'),aspect:iu('u_aspect'),nicon:iu('u_nicon'),atlas:iu('u_atlas'),pixel:iu('u_pixel'),xshift:iu('u_xshift'),scale:iu('u_scale')};
+const iu=n=>gl.getUniformLocation(iconP,n); const IU={cam:iu('u_cam'),time:iu('u_time'),aspect:iu('u_aspect'),nicon:iu('u_nicon'),atlas:iu('u_atlas'),pixel:iu('u_pixel'),xshift:iu('u_xshift'),iconY:iu('u_iconY'),fitX:iu('u_fitX'),fitY:iu('u_fitY')};
 function iconFor(n){ const t=n.label.toLowerCase();
   if(n.mode===M.listening) return 11;
   if(n.mode===M.merge) return 7; if(n.mode===M.struggle) return 4; if(n.mode===M.success) return 5; if(n.mode===M.fail) return 6;
@@ -835,11 +847,11 @@ function resize(){const dpr=Math.min(window.devicePixelRatio||1,1.5);
     gl.bindFramebuffer(gl.FRAMEBUFFER,null);}}
 window.addEventListener('resize',resize);
 
-const pu=n=>gl.getUniformLocation(ptP,n); const PU={cam:pu('u_cam'),time:pu('u_time'),dpr:pu('u_dpr'),hoverX:pu('u_hoverX'),hoverWY:pu('u_hoverWY'),hoverOn:pu('u_hoverOn'),listen:pu('u_listen'),pmode:pu('u_pmode'),xshift:pu('u_xshift'),scale:pu('u_scale')};
-const eu=n=>gl.getUniformLocation(edgeP,n); const EU={cam:eu('u_cam'),time:eu('u_time'),aspect:eu('u_aspect'),width:eu('u_width'),xshift:eu('u_xshift')};
+const pu=n=>gl.getUniformLocation(ptP,n); const PU={cam:pu('u_cam'),time:pu('u_time'),dpr:pu('u_dpr'),hoverX:pu('u_hoverX'),hoverWY:pu('u_hoverWY'),hoverOn:pu('u_hoverOn'),listen:pu('u_listen'),pmode:pu('u_pmode'),xshift:pu('u_xshift'),scale:pu('u_scale'),fitX:pu('u_fitX'),fitY:pu('u_fitY')};
+const eu=n=>gl.getUniformLocation(edgeP,n); const EU={cam:eu('u_cam'),time:eu('u_time'),aspect:eu('u_aspect'),width:eu('u_width'),xshift:eu('u_xshift'),fitX:eu('u_fitX'),fitY:eu('u_fitY')};
 const ou=n=>gl.getUniformLocation(postP,n); const OU={tex:ou('u_tex'),bg:ou('u_bg'),pixel:ou('u_pixel'),scan:ou('u_scan'),pattern:ou('u_pattern'),time:ou('u_time'),glitch:ou('u_glitch'),res:ou('u_res')};
 
-let pattern=0,ditherPx=4,scan=false,seed=7,g,growT=0,camWorld=0,hovered=null,hoverAmt=0,hoverX=0,hoverWY=0,selected=null,speedMul=1,listenSim=false,particleMode=0,sceneDirty=false;
+let pattern=0,ditherPx=3,scan=false,seed=7,g,growT=0,camWorld=0,hovered=null,hoverAmt=0,hoverX=0,hoverWY=0,selected=null,speedMul=1,listenSim=false,particleMode=0,sceneDirty=false;   // finer dot-matrix by default (XS/S/M/L in the dev panel)
 // bootstrap thread so the first synchronous rebuild() has data before CONVS is defined further down
 const BOOT_CONV={ seed:7, thread:[
   {u:'the drag and drop feels janky when I reorder panes', reason:[{m:'think',t:'read request'},{m:'do',t:'open layout engine'},{m:'struggle',t:'reproduce jank'}], r:'Reproduced it — the overview pan fires two long tasks on every reorder.'},
@@ -986,7 +998,8 @@ document.getElementById('restart').onclick=()=>{growT=0;if(activeConv)activeConv
 let mouse={x:-1,y:-1,on:false};
 canvas.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;mouse.on=true;});
 canvas.addEventListener('mouseleave',()=>{mouse.on=false;});
-function screenOf(n){const clipY=-0.35+(camWorld-n.worldY);return{x:(n.x*0.5+0.5)*innerWidth,y:(1-(clipY*0.5+0.5))*innerHeight};}
+function screenOf(n){const clipY=(-0.35+(camWorld-n.worldY))*VIEW.fitY, clipX=n.x*VIEW.fitX;   // match the shader letterbox so labels/hit-tests land on the node
+  return{x:(clipX*0.5+0.5)*innerWidth,y:(1-(clipY*0.5+0.5))*innerHeight};}
 const reticleActive=document.getElementById('reticleActive'), reticleSel=document.getElementById('reticleSel');
 canvas.addEventListener('click',e=>{
   // expand/collapse is limited to the outcome node (✓/✗); a stray click on the graph no longer folds everything
@@ -1001,7 +1014,7 @@ canvas.addEventListener('click',e=>{
     const d=Math.hypot(s.x-e.clientX,s.y-e.clientY);if(d<bd){bd=d;best=n;}}
   selected = best ? (best===selected?null:best) : null; });
 function nodeCssDiam(n){ const recent=Math.exp(-Math.max(0,camWorld-n.worldY)*0.85);
-  const active=(growT>=n.born&&growT<n.settleAt)?1:0; return (40+recent*20+active*58)*0.55; }
+  const active=(growT>=n.born&&growT<n.settleAt)?1:0; return (40+recent*20+active*58)*0.55*VIEW.size; }
 function warpToScreen(sx,sy){ const cx=sx/innerWidth-0.5, cy=sy/innerHeight-0.5; const f=1/(1+(cx*cx+cy*cy)*BARREL);
   return { x:(cx*f+0.5)*innerWidth, y:(cy*f+0.5)*innerHeight }; }   // match CRT barrel so overlays line up
 function placeReticle(el,n){ if(!n||growT<n.born){el.style.display='none';return;} const s0=screenOf(n);
@@ -1047,6 +1060,8 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
   }
   const uiScale = g.parallel ? Math.max(0.13, 1.7/Math.ceil(Math.sqrt(threadCount)))
                 : g.multi ? (parallelCols>3?0.46:0.66) : 1;
+  const useFit = !g.parallel && !g.multi;      // only the single reasoning graph is letterboxed; the grid views fill the window
+  computeView(useFit);
   updateNodeLabels();
 
   // ── conversation-switch channel-change transition ──
@@ -1067,23 +1082,28 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
   } else { xShift=0; glitchAmt=0; }
 
   resize();const dpr=Math.min(window.devicePixelRatio||1,1.5);
+  const sceneScale=fw/Math.max(1,innerWidth);   // scene-buffer px per css px — sizes points in css so nodes/field don't balloon when the buffer is capped
+  const sizeK=uiScale*VIEW.size;                 // node/icon size multiplier (fit for the single view, LOD shrink for the grids)
+  const iconY=sizeK*REF_H/Math.max(1,innerHeight);   // icon half-height in window clip-Y (constant css, scales with the frame)
   if(timerExt && !gpuPending){ gpuQuery=gl.createQuery(); gl.beginQuery(timerExt.TIME_ELAPSED_EXT,gpuQuery); }
   gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);gl.viewport(0,0,fw,fh);
   gl.clearColor(0,0,0,1);gl.clear(gl.COLOR_BUFFER_BIT);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);
   let nc=0; for(const n of g.nodes){ if(nc>=24) break; if(growT<n.born||n.alpha<0.12) continue;   // dim the field only around visible nodes
     const yy=-0.35+(camWorld-n.worldY); if(yy<-1.35||yy>1.35) continue;
-    bgNodes[nc*3]=n.x; bgNodes[nc*3+1]=yy; bgNodes[nc*3+2]=Math.max(0.012, nodeCssDiam(n)/innerHeight); nc++; }   // node's own clip radius; the shader rings just outside it
-  gl.useProgram(bgP);gl.uniform1f(BU.time,growT);gl.uniform1f(BU.cam,camWorld);gl.uniform1f(BU.dpr,dpr);gl.uniform1f(BU.xshift,xShift);gl.uniform1f(BU.bgstyle,bgStyle);
+    bgNodes[nc*3]=n.x*VIEW.fitX; bgNodes[nc*3+1]=yy*VIEW.fitY; bgNodes[nc*3+2]=Math.max(0.012, nodeCssDiam(n)/innerHeight); nc++; }   // fit onto the letterboxed node; ring just outside its edge
+  gl.useProgram(bgP);gl.uniform1f(BU.time,growT);gl.uniform1f(BU.cam,camWorld);gl.uniform1f(BU.dpr,sceneScale);gl.uniform1f(BU.xshift,xShift);gl.uniform1f(BU.bgstyle,bgStyle);
   gl.uniform1f(BU.aspect,canvas.width/canvas.height);gl.uniform3fv(BU.nodes,bgNodes);gl.uniform1i(BU.nodeCount,nc);
   gl.uniform3fv(BU.cyan,CYAN);gl.uniform3fv(BU.violet,VIOLET);
   gl.bindVertexArray(bgVao);gl.drawArrays(gl.POINTS,0,NBG);
   gl.useProgram(edgeP);gl.uniform1f(EU.cam,camWorld);gl.uniform1f(EU.time,growT);
-  gl.uniform1f(EU.aspect,canvas.width/canvas.height);gl.uniform1f(EU.width,0.0035*uiScale);gl.uniform1f(EU.xshift,xShift);
+  gl.uniform1f(EU.aspect,(VIEW.fitX*innerWidth)/(VIEW.fitY*innerHeight));gl.uniform1f(EU.width,0.0035*uiScale);gl.uniform1f(EU.xshift,xShift);
+  gl.uniform1f(EU.fitX,VIEW.fitX);gl.uniform1f(EU.fitY,VIEW.fitY);
   gl.bindVertexArray(edVao);gl.drawArrays(gl.TRIANGLES,0,g.edges.length*EDGE_SEG*6);
-  gl.useProgram(ptP);gl.uniform1f(PU.cam,camWorld);gl.uniform1f(PU.time,growT);gl.uniform1f(PU.dpr,dpr);gl.uniform1f(PU.xshift,xShift);
+  gl.useProgram(ptP);gl.uniform1f(PU.cam,camWorld);gl.uniform1f(PU.time,growT);gl.uniform1f(PU.dpr,sceneScale);gl.uniform1f(PU.xshift,xShift);
+  gl.uniform1f(PU.fitX,VIEW.fitX);gl.uniform1f(PU.fitY,VIEW.fitY);
   hoverAmt+=((hovered?1:0)-hoverAmt)*Math.min(1,dt*7);   // ease the hover flare in/out
   if(hovered){hoverX=hovered.x;hoverWY=hovered.worldY;}
-  gl.uniform1f(PU.hoverX,hoverX);gl.uniform1f(PU.hoverWY,hoverWY);gl.uniform1f(PU.hoverOn,hoverAmt);gl.uniform1f(PU.listen,listenSim?1:0);gl.uniform1f(PU.pmode,particleMode);gl.uniform1f(PU.scale,uiScale);
+  gl.uniform1f(PU.hoverX,hoverX);gl.uniform1f(PU.hoverWY,hoverWY);gl.uniform1f(PU.hoverOn,hoverAmt);gl.uniform1f(PU.listen,listenSim?1:0);gl.uniform1f(PU.pmode,particleMode);gl.uniform1f(PU.scale,sizeK);
   gl.bindVertexArray(ptVao);gl.drawArrays(gl.POINTS,0,g.ptCount);
 
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,canvas.width,canvas.height);gl.disable(gl.BLEND);
@@ -1095,7 +1115,7 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
   // crisp icons on top (legible), barrel-aligned to the warped nodes
   gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
   gl.useProgram(iconP);
-  gl.uniform1f(IU.cam,camWorld);gl.uniform1f(IU.time,growT);gl.uniform1f(IU.aspect,canvas.width/canvas.height);gl.uniform1f(IU.nicon,NICON);gl.uniform1f(IU.pixel,ditherPx);gl.uniform1f(IU.xshift,xShift);gl.uniform1f(IU.scale,uiScale);
+  gl.uniform1f(IU.cam,camWorld);gl.uniform1f(IU.time,growT);gl.uniform1f(IU.aspect,innerWidth/Math.max(1,innerHeight));gl.uniform1f(IU.nicon,NICON);gl.uniform1f(IU.xshift,xShift);gl.uniform1f(IU.iconY,iconY);gl.uniform1f(IU.fitX,VIEW.fitX);gl.uniform1f(IU.fitY,VIEW.fitY);
   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,atlasTex);gl.uniform1i(IU.atlas,1);
   gl.bindVertexArray(icVao);gl.drawArrays(gl.TRIANGLES,0,g.icCount);
   gl.disable(gl.BLEND);
