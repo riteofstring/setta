@@ -161,6 +161,14 @@ adapter converts only exact whole-CPU, decimal-megabyte, and decimal-gigabyte
 values to its pinned SDK configuration and maps the provider response back to
 the same provider-neutral units before adoption.
 
+Usage-evidence ingestion derives conservative CPU, memory, and hot-storage
+ceilings from that persisted shape. It rejects quantities above those ceilings,
+recomputes the cutoff decision from the control-plane price schedule and
+durable budget policy, and requires the durable cutoff-exposure reserve to
+equal the recomputed result. A finalized artifact therefore cannot substitute
+a larger resource shape, forge its cutoff decision, or rely on an
+operator-supplied reserve that understates the enforced runtime.
+
 The reconciler projects committed provisioning and deletion outcomes to the
 shared JSONL observer. These content-free audit records identify only the
 operation kind, typed outcome, stable error classification, retryability,

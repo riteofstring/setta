@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"setta/internal/runtimeaccess"
 	"setta/internal/runtimeaccounting"
+	"setta/internal/runtimecost"
 	"setta/internal/runtimeprovider"
 )
 
@@ -147,8 +149,7 @@ func TestUsageEvidenceRecomputesCostAndBindsReplayToTheFinalizedArtifact(t *test
 	now := time.Date(2026, 7, 24, 20, 0, 0, 0, time.UTC)
 	store := openTestStore(t, t.TempDir(), func() time.Time { return now }, RateLimit{})
 	defer store.Close()
-	runtimeName, _ := seedBudgetCutoffTest(t, ctx, store, now)
-	evidence := testAdminUsageEvidence(t, runtimeName, now)
+	_, evidence := seedBudgetEvidenceTest(t, ctx, store, now)
 
 	tamperedCost := evidence
 	tamperedCost.Cost.CoveredTotal++
@@ -174,7 +175,7 @@ func TestUsageEvidenceRecomputesCostAndBindsReplayToTheFinalizedArtifact(t *test
 		t.Fatalf("replayed evidence = %+v, %v", replayed, err)
 	}
 	conflict := request
-	conflict.Evidence.Cutoff.Action = runtimeaccounting.CutoffSuspend
+	conflict.Evidence.Cutoff.Action = runtimeaccounting.CutoffContinue
 	if _, err := store.RecordUsageEvidence(ctx, conflict, adminTestPriceSchedule()); !errors.Is(err, ErrIdempotencyConflict) {
 		t.Fatalf("conflicting evidence replay error = %v", err)
 	}
@@ -185,8 +186,7 @@ func TestUsageEvidenceRejectsUntrustedIdentityAndMeasurementBasis(t *testing.T) 
 	now := time.Date(2026, 7, 24, 20, 0, 0, 0, time.UTC)
 	store := openTestStore(t, t.TempDir(), func() time.Time { return now }, RateLimit{})
 	defer store.Close()
-	runtimeName, _ := seedBudgetCutoffTest(t, ctx, store, now)
-	valid := testAdminUsageEvidence(t, runtimeName, now)
+	_, valid := seedBudgetEvidenceTest(t, ctx, store, now)
 	tests := []struct {
 		name   string
 		mutate func(*runtimeaccounting.Evidence)
@@ -211,6 +211,88 @@ func TestUsageEvidenceRejectsUntrustedIdentityAndMeasurementBasis(t *testing.T) 
 			}
 		})
 	}
+}
+
+func TestUsageEvidenceRejectsForgedCutoffAndOversizedRuntimeUsage(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 24, 20, 0, 0, 0, time.UTC)
+	store := openTestStore(t, t.TempDir(), func() time.Time { return now }, RateLimit{})
+	defer store.Close()
+	_, valid := seedBudgetEvidenceTest(t, ctx, store, now)
+
+	forgedCutoff := valid
+	forgedCutoff.Cutoff.CutoffExposureUSDMicros++
+	if _, err := store.RecordUsageEvidence(ctx, RecordUsageEvidenceRequest{
+		IdempotencyKey: "forged-cutoff", UserID: "user-budget", Evidence: forgedCutoff,
+	}, adminTestPriceSchedule()); err == nil || !strings.Contains(err.Error(), "control-plane authority") {
+		t.Fatalf("forged cutoff error = %v", err)
+	}
+
+	oversized := valid
+	oversized.Usage.Quantities.CPUCoreMicroseconds *= 2
+	cost, err := runtimecost.Estimate(adminTestPriceSchedule(), oversized.Usage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oversized.Cost = cost
+	resources := testRuntimeResources()
+	resources.CPUCoreMillionths *= 2
+	policy, err := store.UserBudgetPolicy(ctx, "user-budget")
+	if err != nil {
+		t.Fatal(err)
+	}
+	oversized.Cutoff, err = runtimeaccounting.EvaluateCutoff(
+		adminTestPriceSchedule(),
+		oversized.Usage,
+		accountingCeilings(resources),
+		accountingBudgetPolicy(policy),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.RecordUsageEvidence(ctx, RecordUsageEvidenceRequest{
+		IdempotencyKey: "oversized-usage", UserID: "user-budget", Evidence: oversized,
+	}, adminTestPriceSchedule()); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("oversized usage error = %v", err)
+	}
+
+	if _, err := store.db.ExecContext(ctx, `
+UPDATE user_budget_policies
+SET cutoff_exposure_usd_micros = cutoff_exposure_usd_micros + 1
+WHERE user_id = 'user-budget'
+`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.RecordUsageEvidence(ctx, RecordUsageEvidenceRequest{
+		IdempotencyKey: "mismatched-budget-exposure", UserID: "user-budget", Evidence: valid,
+	}, adminTestPriceSchedule()); err == nil || !strings.Contains(err.Error(), "budget cutoff exposure") {
+		t.Fatalf("mismatched budget exposure error = %v", err)
+	}
+}
+
+func seedBudgetEvidenceTest(
+	t *testing.T,
+	ctx context.Context,
+	store *Store,
+	now time.Time,
+) (string, runtimeaccounting.Evidence) {
+	t.Helper()
+	runtimeName := testRuntimeName(t, "budget-evidence")
+	if _, err := store.UpsertUser(ctx, "user-budget"); err != nil {
+		t.Fatal(err)
+	}
+	assignTestRuntime(t, store, "assign-budget-evidence", "user-budget", runtimeName, "budget-evidence-secret")
+	evidence := testAdminUsageEvidence(t, runtimeName, now)
+	if _, err := store.SetUserBudgetPolicy(ctx, SetUserBudgetPolicyRequest{
+		UserID: "user-budget", PeriodStart: now, PeriodEnd: now.Add(time.Hour),
+		CoveredLimitUSDMicros:   testEvidenceCoveredLimit,
+		SafetyReserveUSDMicros:  testEvidenceSafetyReserve,
+		CutoffExposureUSDMicros: int64(evidence.Cutoff.CutoffExposureUSDMicros),
+		MaximumCutoffLag:        time.Minute,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return runtimeName, evidence
 }
 
 func TestBudgetPolicyPersistsAcrossRestartAndCannotResetActivePeriod(t *testing.T) {

@@ -2476,3 +2476,15 @@ Stop and reassess rather than hiding the problem if any of these occur:
   cross-machine runtime-reporting credential, authenticated workload-lease
   transition endpoint, fixed-window closure, and automatic evidence submission
   remain open. No provider or cloud mutation ran.
+- 2026-07-25 (authoritative evidence resource validation): Tightened the
+  private evidence ingestion boundary around the newly persisted shape. Before
+  an interval can accrue budget, the control plane now reconstructs enforced
+  CPU, memory, and conservative hot-storage ceilings from the managed runtime,
+  rejects usage quantities above those bounds, recomputes the complete cutoff
+  decision from its own price schedule and durable user policy, and requires
+  the reserved cutoff exposure to equal that recomputation. Exact finalized
+  artifact replay remains harmless and a mutated replay still conflicts before
+  authority validation. Tests cover forged cutoff output, internally
+  self-consistent evidence built for a larger runtime, and a mismatched durable
+  exposure reserve. Event-stream/window authenticity and automatic submission
+  remain the next boundary; no provider or cloud mutation ran.

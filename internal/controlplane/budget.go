@@ -142,6 +142,14 @@ func (store *Store) recordUsageInterval(
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
+	return store.applyUsageIntervalLocked(ctx, request, fingerprint)
+}
+
+func (store *Store) applyUsageIntervalLocked(
+	ctx context.Context,
+	request recordUsageIntervalRequest,
+	fingerprint string,
+) (UsageInterval, error) {
 	deviceIDs, err := store.readUserDeviceIDsLocked(ctx, request.UserID)
 	if err != nil {
 		return UsageInterval{}, err
@@ -186,7 +194,7 @@ func (store *Store) RecordUsageEvidence(
 	if err != nil {
 		return UsageInterval{}, err
 	}
-	return store.recordUsageInterval(ctx, recordUsageIntervalRequest{
+	intervalRequest := recordUsageIntervalRequest{
 		IdempotencyKey:        request.IdempotencyKey,
 		UserID:                request.UserID,
 		RuntimeName:           request.Evidence.Usage.RuntimeName,
@@ -195,7 +203,23 @@ func (store *Store) RecordUsageEvidence(
 		MeasurementSource:     request.Evidence.Usage.Basis,
 		CoveredCostUSDMicros:  int64(cost.CoveredTotal),
 		SubmissionFingerprint: fingerprint,
-	})
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	replayed, found, err := readUsageIntervalByID(ctx, store.db, request.IdempotencyKey)
+	if err != nil {
+		return UsageInterval{}, err
+	}
+	if found {
+		if replayed.fingerprint != fingerprint {
+			return UsageInterval{}, ErrIdempotencyConflict
+		}
+		return replayed.interval, nil
+	}
+	if err := store.validateUsageEvidenceAuthorityLocked(ctx, request, schedule); err != nil {
+		return UsageInterval{}, err
+	}
+	return store.applyUsageIntervalLocked(ctx, intervalRequest, fingerprint)
 }
 
 func validateUsageEvidenceRequest(

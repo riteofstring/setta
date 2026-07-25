@@ -42,15 +42,18 @@ func TestAdminBudgetUsageCutsOffLiveAuthorizationAndAuditsWithoutContent(t *test
 		t.Fatalf("authorization before budget = %+v, %v", authorization, err)
 	}
 	start := time.Date(2026, 7, 24, 21, 0, 0, 0, time.UTC)
+	evidence := testAdminUsageEvidence(t, runtimeName, start)
 	adminTestRequest(t, client, "/v1/users/budget", AdminSetUserBudgetRequest{
 		UserID: "user-server", PeriodStart: start, PeriodEnd: start.Add(time.Hour),
-		CoveredLimitUSDMicros: 1_000, SafetyReserveUSDMicros: 100, CutoffExposureUSDMicros: 200,
-		MaximumCutoffLag: time.Minute,
+		CoveredLimitUSDMicros:   testEvidenceCoveredLimit,
+		SafetyReserveUSDMicros:  testEvidenceSafetyReserve,
+		CutoffExposureUSDMicros: int64(evidence.Cutoff.CutoffExposureUSDMicros),
+		MaximumCutoffLag:        time.Minute,
 	}, "user_budget_set")
 	adminTestRequest(t, client, "/v1/usage/record", AdminRecordUsageRequest{
 		IdempotencyKey: "private-usage-key",
 		UserID:         "user-server",
-		Evidence:       testAdminUsageEvidence(t, runtimeName, start),
+		Evidence:       evidence,
 	}, "usage_recorded")
 	requireClosed(t, authorization.Invalidated, "budget cutoff")
 	requireAuthorizationOutcome(t, store, grant.Token, runtimeaccess.AuthorizationSuspended)
@@ -321,38 +324,43 @@ func adminTestPriceSchedule() runtimecost.PriceSchedule {
 	return spritescost.PublishedRates20260714()
 }
 
+const (
+	testEvidenceCoveredLimit  = int64(3_500)
+	testEvidenceSafetyReserve = int64(500)
+)
+
 func testAdminUsageEvidence(
 	t *testing.T,
 	runtimeName string,
 	start time.Time,
 ) runtimeaccounting.Evidence {
 	t.Helper()
-	usage := runtimeprovider.UsageObservation{
-		Provider: spritescost.Provider, RuntimeName: runtimeName,
-		Window:     runtimeprovider.UsageWindow{Start: start, End: start.Add(time.Minute)},
-		ObservedAt: start.Add(time.Minute), Basis: runtimeprovider.UsageBasisSettaConservative,
-		Coverage: []runtimeprovider.UsageDimension{
-			runtimeprovider.UsageDimensionProviderActive,
-			runtimeprovider.UsageDimensionCPU,
-			runtimeprovider.UsageDimensionMemory,
-		},
-		Quantities: runtimeprovider.UsageQuantities{
-			ProviderActive:      time.Minute,
-			CPUCoreMicroseconds: 120_000_000,
-			MemoryByteSeconds:   60_000_000_000,
+	end := start.Add(time.Minute)
+	configuration := runtimeaccounting.EvidenceConfiguration{
+		Version:  runtimeaccounting.EvidenceConfigurationVersion,
+		Provider: spritescost.Provider, RateCard: adminTestPriceSchedule().Version,
+		RuntimeName: runtimeName, WindowStart: start, WindowEnd: end, ObservedAt: end,
+		Ceilings: accountingCeilings(testRuntimeResources()),
+		Budget: runtimeaccounting.EvidenceBudgetConfiguration{
+			CoveredLimitUSDMicros:  uint64(testEvidenceCoveredLimit),
+			SafetyReserveUSDMicros: uint64(testEvidenceSafetyReserve),
+			MaximumCutoffLag:       time.Minute.String(),
+			RequiredDimensions:     append([]runtimeprovider.UsageDimension(nil), hardBudgetDimensions...),
 		},
 	}
-	cost, err := runtimecost.Estimate(adminTestPriceSchedule(), usage)
+	evidence, err := runtimeaccounting.FinalizeEvidence(
+		configuration,
+		strings.Repeat("1", 64),
+		adminTestPriceSchedule(),
+		runtimeaccounting.ClosedWindow{
+			Window:         runtimeprovider.UsageWindow{Start: start, End: end},
+			ProviderActive: time.Minute,
+		},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return runtimeaccounting.Evidence{
-		Version: 1, ConfigSHA256: strings.Repeat("0", 64),
-		EventsSHA256:    strings.Repeat("1", 64),
-		RateCardVersion: adminTestPriceSchedule().Version,
-		Usage:           usage, Cost: cost,
-		Cutoff: runtimeaccounting.CutoffDecision{CurrentCoveredUSDMicros: cost.CoveredTotal},
-	}
+	return evidence
 }
 
 func postHostedAccessCompletion(
