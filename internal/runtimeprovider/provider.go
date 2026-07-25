@@ -127,9 +127,9 @@ type CreateRequest struct {
 // storage use bytes. Values fit the signed integer domain used by durable
 // provisioning contracts.
 type RuntimeResources struct {
-	CPUCoreMillionths uint64
-	MemoryBytes       uint64
-	StorageBytes      uint64
+	CPUCoreMillionths uint64 `json:"cpu_core_millionths"`
+	MemoryBytes       uint64 `json:"memory_bytes"`
+	StorageBytes      uint64 `json:"storage_bytes"`
 }
 
 func (resources RuntimeResources) Validate() error {

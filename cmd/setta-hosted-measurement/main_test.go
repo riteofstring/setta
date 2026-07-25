@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"setta/internal/hostedmeasurement"
+	"setta/internal/runtimeprovider"
 )
 
 func TestDryRunRendersCompletePlanWithoutCredentialsOrStateMutation(t *testing.T) {
@@ -32,6 +33,7 @@ func TestDryRunRendersCompletePlanWithoutCredentialsOrStateMutation(t *testing.T
 		FlyRegion:           "yyz",
 		FlyAppName:          "setta-gateway-dry-run",
 		ResourcePrefix:      "setta-gateway-dry-run",
+		SpriteResources:     commandTestSpriteResources(),
 		AuthorizedWorkload: []string{
 			"hosted-candidate-b-http-sse",
 			"controlled-unauthenticated-wake",
@@ -73,6 +75,14 @@ func TestDryRunRendersCompletePlanWithoutCredentialsOrStateMutation(t *testing.T
 	}
 	if _, err := os.Stat(filepath.Join(directory, "state.json")); !os.IsNotExist(err) {
 		t.Fatalf("dry-run created state: %v", err)
+	}
+}
+
+func commandTestSpriteResources() runtimeprovider.RuntimeResources {
+	return runtimeprovider.RuntimeResources{
+		CPUCoreMillionths: 1_000_000,
+		MemoryBytes:       512_000_000,
+		StorageBytes:      10_000_000_000,
 	}
 }
 
@@ -191,6 +201,7 @@ func writeCommandTestManifest(
 		FlyRegion:           "yyz",
 		FlyAppName:          "setta-gateway-" + runID,
 		ResourcePrefix:      "setta-gateway-" + runID,
+		SpriteResources:     commandTestSpriteResources(),
 		AuthorizedWorkload: []string{
 			"hosted-candidate-b-http-sse",
 			"controlled-unauthenticated-wake",

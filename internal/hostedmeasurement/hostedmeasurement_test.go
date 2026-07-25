@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"setta/internal/runtimeprovider"
 )
 
 var testAuthorizedAt = time.Date(2026, 7, 20, 1, 0, 0, 0, time.UTC)
@@ -98,6 +100,13 @@ func TestLoadManifestRejectsExpandedWorkloadDurationAndReserve(t *testing.T) {
 			name: "over two hours",
 			mutate: func(manifest *Manifest) {
 				manifest.CleanupDeadline = testAuthorizedAt.Add(2*time.Hour + time.Second).Format(time.RFC3339)
+			},
+			now: testAuthorizedAt.Add(time.Minute),
+		},
+		{
+			name: "missing Sprite resource shape",
+			mutate: func(manifest *Manifest) {
+				manifest.SpriteResources = runtimeprovider.RuntimeResources{}
 			},
 			now: testAuthorizedAt.Add(time.Minute),
 		},
@@ -696,10 +705,19 @@ func validManifest() Manifest {
 		FlyRegion:           "yyz",
 		FlyAppName:          "setta-gateway-" + runID,
 		ResourcePrefix:      "setta-gateway-" + runID,
+		SpriteResources:     testSpriteResources(),
 		AuthorizedWorkload:  append([]string(nil), authorizedWorkload...),
 		ExcludedWorkload:    append([]string(nil), excludedWorkload...),
 		CleanupAuthority:    CleanupAuthority,
 		BillingObserver:     BillingObserver,
+	}
+}
+
+func testSpriteResources() runtimeprovider.RuntimeResources {
+	return runtimeprovider.RuntimeResources{
+		CPUCoreMillionths: 1_000_000,
+		MemoryBytes:       512_000_000,
+		StorageBytes:      10_000_000_000,
 	}
 }
 

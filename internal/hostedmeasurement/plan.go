@@ -1,5 +1,7 @@
 package hostedmeasurement
 
+import "setta/internal/runtimeprovider"
+
 const (
 	BaseImage = "gcr.io/distroless/static-debian12@sha256:597c2b4bc7f353100af9b8b06bb4f126c4a45f9d8175e25d4f01f965d5d94396"
 )
@@ -35,18 +37,19 @@ type PlanAction struct {
 }
 
 type Plan struct {
-	SchemaVersion       int             `json:"schema_version"`
-	RunID               string          `json:"run_id"`
-	ManifestDigest      string          `json:"manifest_digest"`
-	FlyOrganization     string          `json:"fly_organization"`
-	FlyRegion           string          `json:"fly_region"`
-	FlyAppName          string          `json:"fly_app_name"`
-	SpritesOrganization string          `json:"sprites_organization"`
-	MaximumSpendUSD     string          `json:"maximum_spend_usd"`
-	CleanupDeadline     string          `json:"cleanup_deadline"`
-	BaseImage           string          `json:"base_image"`
-	Shape               DeploymentShape `json:"shape"`
-	Actions             []PlanAction    `json:"actions"`
+	SchemaVersion       int                              `json:"schema_version"`
+	RunID               string                           `json:"run_id"`
+	ManifestDigest      string                           `json:"manifest_digest"`
+	FlyOrganization     string                           `json:"fly_organization"`
+	FlyRegion           string                           `json:"fly_region"`
+	FlyAppName          string                           `json:"fly_app_name"`
+	SpritesOrganization string                           `json:"sprites_organization"`
+	MaximumSpendUSD     string                           `json:"maximum_spend_usd"`
+	CleanupDeadline     string                           `json:"cleanup_deadline"`
+	BaseImage           string                           `json:"base_image"`
+	SpriteResources     runtimeprovider.RuntimeResources `json:"sprite_resources"`
+	Shape               DeploymentShape                  `json:"shape"`
+	Actions             []PlanAction                     `json:"actions"`
 }
 
 func BuildPlan(authorization Authorization) Plan {
@@ -86,6 +89,7 @@ func BuildPlan(authorization Authorization) Plan {
 		MaximumSpendUSD:     authorization.Manifest.MaximumSpendUSD,
 		CleanupDeadline:     authorization.Manifest.CleanupDeadline,
 		BaseImage:           BaseImage,
+		SpriteResources:     authorization.Manifest.SpriteResources,
 		Shape: DeploymentShape{
 			AppCount:               1,
 			MachineCount:           1,

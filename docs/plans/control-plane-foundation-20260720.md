@@ -58,7 +58,7 @@ gateway.
 
 ## Persistence and schema ownership
 
-The `internal/controlplane` package owns schema version 9. SQLite uses foreign
+The `internal/controlplane` package owns schema version 10. SQLite uses foreign
 keys, WAL journaling, one process-local connection, a five-second busy timeout,
 and a private database file. A deferred composite foreign key makes an active
 runtime assignment refer to a runtime owned by the same user. Replacement may
@@ -67,17 +67,19 @@ runtime; only the pointed-to runtime can authorize or resolve traffic.
 
 Assignment idempotency binds the complete request fingerprint. Reusing a key
 with different lifecycle, access, health, desired or observed release, epoch,
-authority, or secret-reference data fails rather than silently changing the
-operation.
+authority, secret-reference, CPU, memory, or persistent-storage data fails
+rather than silently changing the operation.
 
 Ensure-runtime idempotency is global with assignment idempotency and binds the
 user, deterministic managed runtime name, desired release, credential epoch,
-runtime target, and future credential-secret reference. Concurrent requests
-create one intent. Replacement atomically points the user at the new
+runtime target, future credential-secret reference, and exact provider-neutral
+CPU/memory/storage shape. Concurrent requests create one intent. Replacement atomically points the user at the new
 provisioning runtime and cancels unfinished intent for the old runtime without
 deleting its durable record.
 
-The reconciler inspects the deterministic managed identity before create. If a
+The reconciler inspects the deterministic managed identity before create. It
+passes the persisted shape to the provider and refuses to adopt any existing or
+newly created resource whose observed shape differs. If a
 create response is ambiguous, the durable operation enters retry wait; a new
 worker inspects and adopts the owned provider resource before considering
 another create. Claims have an expiry and monotonically increasing fencing
@@ -99,7 +101,7 @@ release equality. Wake requests are globally idempotent durable desired state;
 health observations clear them. Suspension, export-only access, exact grace
 expiry, release mismatch, and scheduled deletion invalidate live grants
 without overwriting lifecycle. The signed bootstrap supplies its verified
-installed release explicitly. Schema version 9 is a deliberate clean break;
+installed release explicitly. Schema version 10 is a deliberate clean break;
 older databases fail rather than receiving an implicit migration.
 
 The deletion executor uses its own durable operation table rather than
@@ -150,6 +152,14 @@ ledger snapshot per runtime. Event sequence and identity are unique within
 that runtime; the store assigns sequence atomically across producers, exact
 replay is a no-op, conflicting replay fails, and canonical JSONL bytes own the
 event-stream SHA-256 used by finalized evidence.
+
+Schema version 10 persists the requested CPU, memory, and persistent-storage
+shape with each runtime and the independently observed shape with each provider
+observation. Operator and authorized-live-run inputs must supply all three
+explicitly; there is no SDK-default or billing-minimum fallback. The Sprites
+adapter converts only exact whole-CPU, decimal-megabyte, and decimal-gigabyte
+values to its pinned SDK configuration and maps the provider response back to
+the same provider-neutral units before adoption.
 
 The reconciler projects committed provisioning and deletion outcomes to the
 shared JSONL observer. These content-free audit records identify only the

@@ -14,10 +14,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"setta/internal/runtimeprovider"
 )
 
 const (
-	ManifestSchemaVersion = 1
+	ManifestSchemaVersion = 2
 	maximumManifestBytes  = 32 * 1024
 	maximumRunDuration    = 2 * time.Hour
 	cleanupReserve        = 15 * time.Minute
@@ -41,21 +43,22 @@ var authorizedWorkload = []string{
 var excludedWorkload = []string{"websocket", "phase1c"}
 
 type Manifest struct {
-	SchemaVersion       int      `json:"schema_version"`
-	RunID               string   `json:"run_id"`
-	OwnerAuthorizedAt   string   `json:"owner_authorized_at"`
-	StartDeadline       string   `json:"start_deadline"`
-	CleanupDeadline     string   `json:"cleanup_deadline"`
-	MaximumSpendUSD     string   `json:"maximum_spend_usd"`
-	SpritesOrganization string   `json:"sprites_organization"`
-	FlyOrganization     string   `json:"fly_organization"`
-	FlyRegion           string   `json:"fly_region"`
-	FlyAppName          string   `json:"fly_app_name"`
-	ResourcePrefix      string   `json:"resource_prefix"`
-	AuthorizedWorkload  []string `json:"authorized_workload"`
-	ExcludedWorkload    []string `json:"excluded_workload"`
-	CleanupAuthority    string   `json:"cleanup_authority"`
-	BillingObserver     string   `json:"billing_observer"`
+	SchemaVersion       int                              `json:"schema_version"`
+	RunID               string                           `json:"run_id"`
+	OwnerAuthorizedAt   string                           `json:"owner_authorized_at"`
+	StartDeadline       string                           `json:"start_deadline"`
+	CleanupDeadline     string                           `json:"cleanup_deadline"`
+	MaximumSpendUSD     string                           `json:"maximum_spend_usd"`
+	SpritesOrganization string                           `json:"sprites_organization"`
+	FlyOrganization     string                           `json:"fly_organization"`
+	FlyRegion           string                           `json:"fly_region"`
+	FlyAppName          string                           `json:"fly_app_name"`
+	ResourcePrefix      string                           `json:"resource_prefix"`
+	SpriteResources     runtimeprovider.RuntimeResources `json:"sprite_resources"`
+	AuthorizedWorkload  []string                         `json:"authorized_workload"`
+	ExcludedWorkload    []string                         `json:"excluded_workload"`
+	CleanupAuthority    string                           `json:"cleanup_authority"`
+	BillingObserver     string                           `json:"billing_observer"`
 }
 
 type Authorization struct {
@@ -143,6 +146,9 @@ func validateManifest(manifest Manifest, now time.Time, mode ValidationMode) (Au
 func validateManifestIdentity(manifest Manifest) error {
 	if err := validateManifestNames(manifest); err != nil {
 		return err
+	}
+	if err := manifest.SpriteResources.Validate(); err != nil {
+		return fmt.Errorf("validate manifest Sprite resources: %w", err)
 	}
 	return validateManifestWorkloads(manifest)
 }

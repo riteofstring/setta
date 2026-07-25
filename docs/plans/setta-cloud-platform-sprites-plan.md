@@ -2461,3 +2461,18 @@ Stop and reassess rather than hiding the problem if any of these occur:
   on adoption, plus a separately scoped runtime-reporting credential and
   authenticated endpoint. Until both land, fixed-window closure, in-runtime
   workload-lease reporting, and fully automatic budget intervals stay open.
+- 2026-07-25 (explicit runtime resource contract): Closed the resource-shape
+  half of that prerequisite without selecting a product default. The
+  provider-neutral create contract now requires exact CPU core-millionths,
+  memory bytes, and persistent-storage bytes; the Sprites adapter sends only
+  shapes exactly representable as whole CPUs, decimal megabytes, and decimal
+  gigabytes, observes the provider-returned configuration, and refuses
+  mismatched adoption. Control-plane schema version 10 persists the shape with
+  the assignment and provisioning intent, binds it into idempotency, carries it
+  through fenced claims and restart, records the observed shape, and fails
+  permanently on mismatch. The hosted live authorization manifest is version 2
+  and must explicitly authorize the same shape. These durable verified values
+  can now own conservative CPU, memory, and storage ceilings; the scoped
+  cross-machine runtime-reporting credential, authenticated workload-lease
+  transition endpoint, fixed-window closure, and automatic evidence submission
+  remain open. No provider or cloud mutation ran.
