@@ -96,10 +96,45 @@ describe("master voice controls", () => {
     expect(topic.startMasterCapture).toHaveBeenCalledOnce();
     expect(topic.commit).not.toHaveBeenCalled();
   });
+
+  test("routes unavailable master voice setup when credentials are missing", () => {
+    const openVoiceCredentialSettings = vi.fn();
+    const { context, controller, startMasterCapture } = captureContext(
+      { type: "idle" },
+      {
+        message: "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.",
+        provider: "openai",
+        setupAction: "open_voice_credential_settings",
+        type: "not_configured",
+      },
+    );
+    const model = createMasterVoiceModel(context, "linux", "ctrl_shift_k");
+
+    expect(model).toMatchObject({
+      action: "open_voice_credential_settings",
+      controlLabel: "Open voice settings",
+      state: "unavailable",
+      statusLabel: "OpenAI voice is not connected. Add an OpenAI API key in Settings -> Voices.",
+    });
+    const button = renderToString(
+      <MasterVoiceButton
+        model={model}
+        onOpenVoiceCredentialSettings={openVoiceCredentialSettings}
+      />,
+    );
+    expect(button).toContain('aria-label="Open voice settings"');
+
+    executeMasterVoiceCommand(controller, openVoiceCredentialSettings);
+    expect(openVoiceCredentialSettings).toHaveBeenCalledOnce();
+    expect(startMasterCapture).not.toHaveBeenCalled();
+  });
 });
 
-function captureContext(capture: SpeechCaptureState) {
-  const snapshot = captureSnapshot(capture);
+function captureContext(
+  capture: SpeechCaptureState,
+  availability: AppShellSpeechCaptureSnapshot["availability"] = { type: "loading" },
+) {
+  const snapshot = captureSnapshot(capture, availability);
   const commit = vi.fn();
   const startMasterCapture = vi.fn(async () => {});
   const controller = {
@@ -111,9 +146,12 @@ function captureContext(capture: SpeechCaptureState) {
   return { commit, context, controller, startMasterCapture };
 }
 
-function captureSnapshot(capture: SpeechCaptureState): AppShellSpeechCaptureSnapshot {
+function captureSnapshot(
+  capture: SpeechCaptureState,
+  availability: AppShellSpeechCaptureSnapshot["availability"],
+): AppShellSpeechCaptureSnapshot {
   return {
-    availability: { type: "loading" },
+    availability,
     capture,
     completedConversationTranscript: null,
     completedTranscript: null,
