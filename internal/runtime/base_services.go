@@ -9,7 +9,6 @@ import (
 
 	"setta/internal/agent"
 	"setta/internal/appearance"
-	"setta/internal/applayout"
 	"setta/internal/codexapp"
 	"setta/internal/conversation"
 	"setta/internal/conversationindex"
@@ -24,7 +23,6 @@ const masterRuntimeDirectoryName = "master"
 
 type runtimeBaseServices struct {
 	appearanceService        *appearance.Service
-	appPaneLayoutService     *applayout.Service
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
 	conversationInputService *conversation.InputService
@@ -51,18 +49,13 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 			shutdownRuntimeFoundation(foundation, config.ShutdownTimeout)
 		}
 	}()
-	speechService, err := newSpeechService(
-		config.Speech,
-		config.SpeechStartupAPIKey,
-		foundation.conversationStore,
-	)
+	speechService, err := newSpeechService(config.Speech, foundation.conversationStore)
 	if err != nil {
 		return runtimeBaseServices{}, err
 	}
 	closeFoundationOnFailure = false
 	return runtimeBaseServices{
 		appearanceService:        foundation.appearanceService,
-		appPaneLayoutService:     foundation.appPaneLayoutService,
 		codexManager:             foundation.codexManager,
 		conversationService:      foundation.conversationService,
 		conversationInputService: foundation.conversationInputService,
@@ -95,7 +88,6 @@ func shutdownRuntimeFoundation(foundation runtimeFoundation, timeout time.Durati
 
 type runtimeFoundation struct {
 	appearanceService        *appearance.Service
-	appPaneLayoutService     *applayout.Service
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
 	conversationInputService *conversation.InputService
@@ -134,11 +126,6 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	conversationStore, err := conversation.NewStore(config.AppDataDir)
 	if err != nil {
 		return runtimeFoundation{}, fmt.Errorf("create conversation store: %w", err)
-	}
-	appPaneLayoutService, err := newAppPaneLayoutService(config.AppDataDir, conversationStore)
-	if err != nil {
-		_ = conversationStore.Close()
-		return runtimeFoundation{}, err
 	}
 	workspaceUIService, err := newWorkspaceUIService(
 		config.AppDataDir,
@@ -184,7 +171,6 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	conversationInputService := conversationServices.conversationInputService
 	foundation := runtimeFoundation{
 		appearanceService:        appearanceService,
-		appPaneLayoutService:     appPaneLayoutService,
 		codexManager:             codexManager,
 		conversationService:      conversationService,
 		conversationInputService: conversationInputService,
@@ -304,6 +290,7 @@ func newRuntimeAgentServices(
 	workspaceService *workspacesession.Service,
 ) (runtimeAgentServices, error) {
 	agentRuntime := agent.NewRuntime(agent.Config{
+		Command:     config.CodexCommand,
 		ExcludedEnv: []string{speech.APIKeyEnvironmentVariable},
 		Version:     config.Version,
 	})
@@ -354,11 +341,11 @@ func recoverRuntimeConversationServices(
 	if err := conversationService.RecoverSideConversations(context.Background()); err != nil {
 		return fmt.Errorf("recover side conversations: %w", err)
 	}
+	if err := narratorService.RecoverCommittedTrajectory(context.Background()); err != nil {
+		return fmt.Errorf("recover narrator trajectory: %w", err)
+	}
 	if err := narratorService.RecoverConversationInputs(context.Background()); err != nil {
 		return fmt.Errorf("recover conversation input routing: %w", err)
-	}
-	if err := narratorService.RecoverTerminalProjections(context.Background()); err != nil {
-		return fmt.Errorf("recover terminal narrator projections: %w", err)
 	}
 	return nil
 }

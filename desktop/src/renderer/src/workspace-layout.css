@@ -759,7 +759,8 @@
   overflow: hidden;
 }
 
-/* Mobile-width bottom pane control bar. */
+/* Mobile-width bottom control bar. The height variable is shared with the
+   full-screen project pane overlay so the overlay stops above the bar. */
 :root {
   --workspace-mobile-bar-height: 48px;
 }

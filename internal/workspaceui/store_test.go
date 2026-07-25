@@ -108,57 +108,57 @@ func TestStoreRejectsInvalidLayoutRelationships(t *testing.T) {
 	}
 }
 
-func TestStorePersistsWorkspaceConversationPaneConfig(t *testing.T) {
+func TestStorePersistsEasyButtonPaneConfig(t *testing.T) {
 	store := newTestStore(t, t.TempDir())
 	layout := testLayout("workspace_api")
-	layout.Panes[0].SurfaceKind = SurfaceKindConversation
-	layout.Panes[0].ConversationConfig = &WorkspaceConversationPaneConfig{ConversationID: "conversation-1"}
+	layout.Panes[0].SurfaceKind = SurfaceKindEasyButton
+	layout.Panes[0].EasyButtonConfig = &EasyButtonPaneConfig{ConversationID: "conversation-1"}
 
 	if _, err := store.SaveLayout(layout); err != nil {
-		t.Fatalf("save layout with conversation config: %v", err)
+		t.Fatalf("save layout with easy button config: %v", err)
 	}
 	loaded, err := store.LoadLayout(layout.WorkspaceID)
 	if err != nil {
 		t.Fatalf("load layout: %v", err)
 	}
-	if loaded.Layout == nil || loaded.Layout.Panes[0].ConversationConfig == nil {
-		t.Fatalf("loaded conversation config = %+v", loaded.Layout)
+	if loaded.Layout == nil || loaded.Layout.Panes[0].EasyButtonConfig == nil {
+		t.Fatalf("loaded easy button config = %+v", loaded.Layout)
 	}
-	if loaded.Layout.Panes[0].ConversationConfig.ConversationID != "conversation-1" {
-		t.Fatalf("loaded conversation id = %q, want conversation-1", loaded.Layout.Panes[0].ConversationConfig.ConversationID)
+	if loaded.Layout.Panes[0].EasyButtonConfig.ConversationID != "conversation-1" {
+		t.Fatalf("loaded conversation id = %q, want conversation-1", loaded.Layout.Panes[0].EasyButtonConfig.ConversationID)
 	}
 }
 
-func TestStoreRejectsInvalidWorkspaceConversationPaneConfig(t *testing.T) {
+func TestStoreRejectsInvalidEasyButtonPaneConfig(t *testing.T) {
 	tests := []struct {
 		name        string
 		surfaceKind SurfaceKind
-		config      *WorkspaceConversationPaneConfig
+		config      *EasyButtonPaneConfig
 		want        string
 	}{
 		{
 			name:        "missing config",
-			surfaceKind: SurfaceKindConversation,
+			surfaceKind: SurfaceKindEasyButton,
 			config:      nil,
-			want:        "conversationConfig is required for conversation panes",
+			want:        "easyButtonConfig is required for easy-button panes",
 		},
 		{
 			name:        "missing conversation",
-			surfaceKind: SurfaceKindConversation,
-			config:      &WorkspaceConversationPaneConfig{},
+			surfaceKind: SurfaceKindEasyButton,
+			config:      &EasyButtonPaneConfig{},
 			want:        "conversationId is required",
 		},
 		{
 			name:        "surrounding whitespace",
-			surfaceKind: SurfaceKindConversation,
-			config:      &WorkspaceConversationPaneConfig{ConversationID: " conversation-1"},
+			surfaceKind: SurfaceKindEasyButton,
+			config:      &EasyButtonPaneConfig{ConversationID: " conversation-1"},
 			want:        "must not have surrounding whitespace",
 		},
 		{
 			name:        "wrong surface",
 			surfaceKind: SurfaceKindEmptyFrame,
-			config:      &WorkspaceConversationPaneConfig{ConversationID: "conversation-1"},
-			want:        "only valid for conversation panes",
+			config:      &EasyButtonPaneConfig{ConversationID: "conversation-1"},
+			want:        "only valid for easy-button panes",
 		},
 	}
 
@@ -167,11 +167,11 @@ func TestStoreRejectsInvalidWorkspaceConversationPaneConfig(t *testing.T) {
 			store := newTestStore(t, t.TempDir())
 			layout := testLayout("workspace_api")
 			layout.Panes[0].SurfaceKind = test.surfaceKind
-			layout.Panes[0].ConversationConfig = test.config
+			layout.Panes[0].EasyButtonConfig = test.config
 
 			_, err := store.SaveLayout(layout)
 			if err == nil {
-				t.Fatal("save succeeded, want invalid conversation config error")
+				t.Fatal("save succeeded, want invalid easy button config error")
 			}
 			if !IsCorruptStateError(err) || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %T %v, want corrupt state containing %q", err, err, test.want)
@@ -180,11 +180,11 @@ func TestStoreRejectsInvalidWorkspaceConversationPaneConfig(t *testing.T) {
 	}
 }
 
-func TestStoreRejectsPersistedConversationPaneWithoutConversationBinding(t *testing.T) {
+func TestStoreRejectsPersistedEasyButtonPaneWithoutConversationBinding(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := newTestStore(t, appDataDir)
 	layout := testLayout("workspace_api")
-	layout.Panes[0].ConversationConfig = nil
+	layout.Panes[0].EasyButtonConfig = nil
 	payload, err := json.Marshal(layout)
 	if err != nil {
 		t.Fatalf("marshal invalid layout fixture: %v", err)
@@ -199,25 +199,10 @@ func TestStoreRejectsPersistedConversationPaneWithoutConversationBinding(t *test
 
 	_, err = store.LoadLayout(layout.WorkspaceID)
 	if err == nil {
-		t.Fatal("load succeeded, want missing conversation binding error")
+		t.Fatal("load succeeded, want missing Easy Button binding error")
 	}
-	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "conversationConfig is required for conversation panes") {
-		t.Fatalf("error = %T %v, want missing conversation binding corrupt state", err, err)
-	}
-}
-
-func TestStoreRejectsDuplicateConversationPaneBindings(t *testing.T) {
-	store := newTestStore(t, t.TempDir())
-	layout := testLayout("workspace_api")
-	layout.Panes[1].SurfaceKind = SurfaceKindConversation
-	layout.Panes[1].ConversationConfig = &WorkspaceConversationPaneConfig{ConversationID: "conversation_test"}
-
-	_, err := store.SaveLayout(layout)
-	if err == nil {
-		t.Fatal("save succeeded, want duplicate conversation binding error")
-	}
-	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "bound to multiple conversation panes") {
-		t.Fatalf("error = %T %v, want duplicate conversation binding corrupt state", err, err)
+	if !IsCorruptStateError(err) || !strings.Contains(err.Error(), "easyButtonConfig is required for easy-button panes") {
+		t.Fatalf("error = %T %v, want missing Easy Button binding corrupt state", err, err)
 	}
 }
 
@@ -350,27 +335,27 @@ func testLayout(workspaceID string) WorkspaceUILayout {
 		},
 		Panes: []WorkspaceUIPane{
 			{
-				ColumnID:           "workspace_column_0",
-				ConversationConfig: &WorkspaceConversationPaneConfig{ConversationID: "conversation_test"},
-				Heat:               0,
-				PaneID:             "workspace_pane_0",
-				Sequence:           0,
-				Subtitle:           "topic",
-				SurfaceID:          "workspace_surface_0",
-				SurfaceKind:        SurfaceKindConversation,
-				Title:              "Topic",
-				Tone:               PaneToneCyan,
-				Weight:             1.6,
+				ColumnID:         "workspace_column_0",
+				EasyButtonConfig: &EasyButtonPaneConfig{ConversationID: "conversation_test"},
+				Heat:             0,
+				PaneID:           "workspace_pane_0",
+				Sequence:         0,
+				Subtitle:         "topic",
+				SurfaceID:        "workspace_surface_0",
+				SurfaceKind:      SurfaceKindEasyButton,
+				Title:            "Topic",
+				Tone:             PaneToneCyan,
+				Weight:           1.6,
 			},
 			{
 				ColumnID:    "workspace_column_0",
 				Heat:        37,
 				PaneID:      "workspace_pane_1",
 				Sequence:    1,
-				Subtitle:    "browser",
+				Subtitle:    "settings",
 				SurfaceID:   "workspace_surface_1",
-				SurfaceKind: SurfaceKindBrowser,
-				Title:       "Browser",
+				SurfaceKind: SurfaceKindSettingsDOM,
+				Title:       "Settings",
 				Tone:        PaneToneGreen,
 				Weight:      1,
 			},
