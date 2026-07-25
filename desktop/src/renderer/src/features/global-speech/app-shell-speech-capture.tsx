@@ -13,10 +13,7 @@ import {
 
 import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
 import type { AppShellMasterController } from "../global-master/app-shell-master-controller";
-import {
-  applyConversationRoutingPresentation,
-  isConversationRoutingFailure,
-} from "../easy-button/conversation-routing-presentation";
+import { applyConversationRoutingPresentation } from "../easy-button/conversation-routing-presentation";
 import {
   AppShellSpeechCaptureController,
   type AppShellSpeechCaptureControllerDependencies,
@@ -231,13 +228,7 @@ function browserControllerDependencies(
         inputId: accepted.input.id,
         workspaceId,
       });
-      try {
-        await applyConversationRoutingPresentation(workspaceId, state);
-      } catch (error) {
-        if (!isConversationRoutingFailure(error)) {
-          throw error;
-        }
-      }
+      await applyConversationRoutingPresentation(workspaceId, state);
     },
     setTimeout: (handler, delayMs) => globalThis.setTimeout(handler, delayMs),
     submitConversationInput: (request) => {

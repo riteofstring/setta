@@ -13,7 +13,6 @@ import type { BackendFetch } from "@shared/backend-runtime";
 import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
 import type { BackendProcessStatus, RuntimeRegistrySnapshot } from "@shared/types";
-import { registerAppPaneLayoutIpcHandlers } from "./app-pane-layout-ipc";
 import { registerAppIpcHandlers } from "./app-ipc";
 import { authenticatedBackendFetch } from "./backend-auth-fetch";
 import { attachBackendObservers } from "./backend-main-observers";
@@ -440,7 +439,6 @@ function registerIpc() {
     ipcObserver,
     windowFromEvent: (event) => BrowserWindow.fromWebContents(event.sender),
   });
-  registerAppPaneLayoutIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
     "backendHealth",

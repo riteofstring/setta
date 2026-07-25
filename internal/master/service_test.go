@@ -262,49 +262,6 @@ func TestServiceReadsAndClonesMasterInputRoutingState(t *testing.T) {
 	}
 }
 
-func TestServiceReadsAndClonesValidatedTranscript(t *testing.T) {
-	input := MasterInput{
-		ID:          "input_transcript",
-		Text:        "Read the durable transcript.",
-		Modality:    MasterInputModalityText,
-		Source:      MasterInputSourceShell,
-		SubmittedAt: "2026-07-12T18:00:00Z",
-	}
-	store := &recordingInputStore{transcript: Transcript{
-		Entries: []TranscriptEntry{{
-			Sequence: 1,
-			Payload: TranscriptEntryPayload{
-				ID:        "master-transcript:user:input_transcript",
-				InputID:   input.ID,
-				Kind:      TranscriptEntryKindUserInput,
-				CreatedAt: "2026-07-12T18:00:01Z",
-				UserInput: &TranscriptUserInput{Text: input.Text, Modality: input.Modality},
-			},
-		}},
-		LastSequence: 1,
-	}}
-	service, err := newService(store, time.Now)
-	if err != nil {
-		t.Fatalf("newService: %v", err)
-	}
-	transcript, err := service.ReadTranscript(context.Background(), 20)
-	if err != nil {
-		t.Fatalf("ReadTranscript: %v", err)
-	}
-	transcript.Entries[0].Payload.UserInput.Text = "mutated"
-	if store.transcript.Entries[0].Payload.UserInput.Text != input.Text {
-		t.Fatal("transcript aliases store")
-	}
-	if store.transcriptLimit != 20 {
-		t.Fatalf("transcript limit = %d, want 20", store.transcriptLimit)
-	}
-
-	store.transcript.LastSequence = 0
-	if _, err := service.ReadTranscript(context.Background(), 20); err == nil {
-		t.Fatal("ReadTranscript accepted invalid store transcript")
-	}
-}
-
 type recordingInputStore struct {
 	acceptedAt       string
 	err              error
@@ -314,8 +271,6 @@ type recordingInputStore struct {
 	resolution       PresentationResolution
 	invalid          bool
 	state            InputRoutingState
-	transcript       Transcript
-	transcriptLimit  int
 	cancelledAt      string
 	cancelledInputID string
 }
@@ -358,14 +313,6 @@ func (store *recordingInputStore) ReadMasterInputRoutingState(
 	_ string,
 ) (InputRoutingState, error) {
 	return CloneInputRoutingState(store.state), store.err
-}
-
-func (store *recordingInputStore) ReadMasterTranscript(
-	_ context.Context,
-	limit int,
-) (Transcript, error) {
-	store.transcriptLimit = limit
-	return CloneTranscript(store.transcript), store.err
 }
 
 func (store *recordingInputStore) WaitForMasterInputRoutingState(

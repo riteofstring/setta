@@ -28,12 +28,6 @@ export function registerMasterIpcHandlers({
   );
   handleIpc(
     ipcMain,
-    "masterReadTranscript",
-    async (_event, request) => requireBackendClient().readMasterTranscript(request),
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
     "masterResolvePresentation",
     async (_event, request) => requireBackendClient().resolveMasterPresentationIntent(request),
     ipcObserver,

@@ -277,35 +277,6 @@ export async function clickEnabledButtonByAria(client, label, timeoutMs = stateW
   }
 }
 
-export async function openFixtureWorkspace(client, timeoutMs = stateWaitTimeoutMs) {
-  const currentWorkspaceId = await workspaceLayoutAreaId(client).catch(() => "");
-  if (currentWorkspaceId && currentWorkspaceId !== "empty") {
-    return currentWorkspaceId;
-  }
-  const opened = await client.evaluate(`(async () => {
-    const response = await window.setta?.workspace?.openLocalFolder?.();
-    return response?.session?.selectedWorkspaceId ?? "";
-  })()`);
-  if (!opened) {
-    throw new Error("fixture workspace did not open through preload IPC");
-  }
-  await reloadPage(client);
-  await waitForSelector(client, '[data-testid="workspace-layout-area"]', timeoutMs);
-  await client.installDriver();
-  return waitForState(
-    client,
-    `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`,
-    (workspaceId) => workspaceId === opened,
-    timeoutMs,
-  );
-}
-
-async function workspaceLayoutAreaId(client) {
-  return client.evaluate(
-    `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`,
-  );
-}
-
 function enabledButtonByAriaExpression(label) {
   return `(() => {
     const buttons = Array.from(document.querySelectorAll("button")).filter(

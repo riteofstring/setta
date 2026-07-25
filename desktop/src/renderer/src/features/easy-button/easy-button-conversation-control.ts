@@ -75,9 +75,7 @@ function talkControlAction(
 ): EasyButtonControlAction {
   return {
     disabled:
-      !bindings.onVoiceCapture ||
-      !bindings.inputAvailable ||
-      (speech?.voiceControlDisabled ?? false),
+      !bindings.onVoiceCapture || !bindings.available || (speech?.voiceControlDisabled ?? false),
     label: speech?.voiceControlLabel ?? "Start a voice request for this conversation",
     mode: "talk",
     onClick: bindings.onVoiceCapture,

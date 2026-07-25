@@ -266,7 +266,7 @@ func assertNarratorDegradationPublication(
 	if last.ID != eventID || last.Kind != string(ConversationEventTypeNarratorStateUpdated) {
 		t.Fatalf("degradation publication = %+v", last)
 	}
-	decoded, err := conversationEventFromCommitted(last, stringPointer("workspace-1"), conversationID)
+	decoded, err := conversationEventFromCommitted(last, "workspace-1", conversationID)
 	if err != nil {
 		t.Fatalf("decode degradation publication: %v", err)
 	}

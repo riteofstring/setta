@@ -193,18 +193,6 @@ func (service *Service) AskRoutedStatus(
 	return service.askStatus(ctx, workspaceID, conversationID, requestID, question)
 }
 
-func (service *Service) AskRoutedFolderlessStatus(
-	ctx context.Context,
-	conversationID string,
-	requestID string,
-	question string,
-) (conversation.ConversationSnapshot, error) {
-	if err := validateIdentifier("routed narrator status request id", requestID); err != nil {
-		return conversation.ConversationSnapshot{}, err
-	}
-	return service.askStatus(ctx, "", conversationID, requestID, question)
-}
-
 func (service *Service) askStatus(
 	ctx context.Context,
 	workspaceID string,
@@ -212,14 +200,17 @@ func (service *Service) askStatus(
 	requestID string,
 	question string,
 ) (conversation.ConversationSnapshot, error) {
-	if err := service.validateStatusRequest(ctx); err != nil {
-		return conversation.ConversationSnapshot{}, err
+	if service == nil || service.store == nil || service.registry == nil || service.newID == nil {
+		return conversation.ConversationSnapshot{}, errors.New("narrator service is required")
+	}
+	if ctx == nil {
+		return conversation.ConversationSnapshot{}, errors.New("narrator status context is required")
 	}
 	operation := StatusOperation{WorkspaceID: workspaceID, Question: question}
 	if err := operation.Validate(); err != nil {
 		return conversation.ConversationSnapshot{}, err
 	}
-	if _, err := service.readStatusSnapshot(ctx, workspaceID, conversationID); err != nil {
+	if _, err := service.store.ReadSnapshot(ctx, workspaceID, conversationID); err != nil {
 		return conversation.ConversationSnapshot{}, err
 	}
 	receipt, err := service.registry.Submit(ctx, Request{
@@ -234,27 +225,6 @@ func (service *Service) askStatus(
 	}
 	if err := receipt.Wait(ctx); err != nil {
 		return conversation.ConversationSnapshot{}, err
-	}
-	return service.readStatusSnapshot(ctx, workspaceID, conversationID)
-}
-
-func (service *Service) validateStatusRequest(ctx context.Context) error {
-	if service == nil || service.store == nil || service.registry == nil || service.newID == nil {
-		return errors.New("narrator service is required")
-	}
-	if ctx == nil {
-		return errors.New("narrator status context is required")
-	}
-	return nil
-}
-
-func (service *Service) readStatusSnapshot(
-	ctx context.Context,
-	workspaceID string,
-	conversationID string,
-) (conversation.ConversationSnapshot, error) {
-	if workspaceID == "" {
-		return service.store.ReadSnapshotByID(ctx, conversationID)
 	}
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
 }
