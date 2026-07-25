@@ -581,7 +581,7 @@ func resolvePaletteUpdates(
 		workspaceID,
 		current.ConversationID,
 		request,
-		currentPresentation.PaletteVisible,
+		currentPresentation.Visible,
 	)
 	usage := paletteUsage(presentations, workspaceID, excluded)
 	selected, err := resolveRequestedPalette(current, request, usage, updatedAt)
@@ -589,7 +589,7 @@ func resolvePaletteUpdates(
 		return nil, err
 	}
 	updates := []ConversationPresentationProfile{selected}
-	if currentPresentation.PaletteVisible {
+	if currentPresentation.Visible {
 		addPaletteUsage(usage, selected)
 	}
 	for _, profile := range affected {
@@ -655,7 +655,7 @@ func paletteConflictsWithExact(
 	requestedPaletteID conversationpalette.ConversationPaletteID,
 ) bool {
 	profile := presentation.Profile
-	return presentation.PaletteVisible &&
+	return presentation.Visible &&
 		presentation.WorkspaceID == workspaceID &&
 		profile.ConversationID != currentConversationID &&
 		profile.PaletteSelection == PresentationSelectionAutoDistinct &&
@@ -697,7 +697,7 @@ func paletteUsage(
 	usage := map[conversationpalette.ConversationPaletteID][]string{}
 	for _, presentation := range presentations {
 		profile := presentation.Profile
-		if !presentation.PaletteVisible ||
+		if !presentation.Visible ||
 			presentation.WorkspaceID != workspaceID ||
 			excluded[profile.ConversationID] {
 			continue

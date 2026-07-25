@@ -10,17 +10,15 @@ import (
 	"setta/internal/conversation"
 )
 
-func TestConversationInputEndpointAcceptsTypedPaneSubmission(t *testing.T) {
+func TestConversationInputEndpointAcceptsTypedSubmission(t *testing.T) {
 	service := &fakeHTTPConversationInputService{}
 	handler := newAuthenticatedTestHandler(t, HandlerConfig{
 		ConversationInputService: service,
 		Metadata:                 BackendMetadata{Name: BackendName, Version: "test"},
 	})
-	paneID := "pane_alpha"
 	input := conversation.ConversationInput{
 		ID:             "input_alpha",
 		ConversationID: "conversation_alpha",
-		SourcePaneID:   &paneID,
 		Text:           "  Keep the finalized transcript exact.  ",
 		Modality:       conversation.ConversationInputModalityVoice,
 		SubmittedAt:    "2026-07-12T18:00:00Z",
@@ -305,7 +303,7 @@ func TestConversationInputEndpointRejectsUnknownAndOversizedPayloads(t *testing.
 		t,
 		handler,
 		"/conversations/inputs/submit",
-		`{"input":{"id":"input","conversationId":"conversation","sourcePaneId":null,"replyToInputId":null,"text":"request","modality":"voice","submittedAt":"2026-07-12T18:00:00Z","workspaceId":"removed"}}`,
+		`{"input":{"id":"input","conversationId":"conversation","replyToInputId":null,"text":"request","modality":"voice","submittedAt":"2026-07-12T18:00:00Z","workspaceId":"removed"}}`,
 		http.StatusBadRequest,
 	)
 	if unknown.Error.Code != "invalid_json" || service.calls != 0 {

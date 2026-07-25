@@ -11,15 +11,14 @@ import {
   emitSimultaneousAudioHoldProgress,
   listCursorOffset,
   listLimit,
+  nonEmptyString,
   optionalNonNegativeIntegerEnvironment,
-  scriptedMasterClarificationConfirmationDecision,
-  scriptedMasterFocusDecision,
-  scriptedMasterFolderlessClarificationDecision,
-  scriptedMasterFolderlessRecentFocusDecision,
+  scriptedMasterRouteDecision,
   validSideBoundary,
   validSideContextFrame,
   validStructuredMasterRouteContext,
 } from "./fake-topic-codex-app-server-helpers.mjs";
+import { scriptedDirectorDecision } from "./fake-topic-codex-director-decisions.mjs";
 import { createExactStructuredInputRoutes } from "./fake-topic-codex-input-routes.mjs";
 import * as restrictedThread from "./fake-topic-codex-restricted-thread.mjs";
 const persistedStatePath = process.env.SETTA_E2E_TOPIC_CODEX_STATE_PATH ?? "";
@@ -547,96 +546,6 @@ function emitStructuredDirectorDecision(threadId, turnId, context, outputSchema)
   return true;
 }
 
-function scriptedDirectorDecision(context, outputSchema) {
-  const text = context.intent?.text;
-  const schema = JSON.stringify(outputSchema);
-  const serialized = JSON.stringify(context);
-  if (
-    !Array.isArray(context.allowedDecisionKinds) ||
-    serialized.includes('"rootPath"') ||
-    !schema.includes('"decision"')
-  ) {
-    return null;
-  }
-  if (text === "Director repair malformed." && context.validationDiagnostic === null) {
-    return { kind: "not_a_director_decision" };
-  }
-  if (text === "Director repair malformed.") {
-    return context.validationDiagnostic && context.allowedDecisionKinds.includes("answer_directly")
-      ? { kind: "answer_directly", text: "The malformed decision was repaired." }
-      : null;
-  }
-  if (text === "Director create folderless.") {
-    return context.allowedDecisionKinds.includes("create_workstream")
-      ? {
-          initialInput: "director folderless first work",
-          kind: "create_workstream",
-          origin: {
-            kind: "root",
-            root: { resourceScope: { kind: "folderless" } },
-          },
-          proposedTitle: "Director root",
-        }
-      : null;
-  }
-  if (text?.startsWith("local transcript for ")) {
-    return context.allowedDecisionKinds.includes("answer_directly")
-      ? { kind: "answer_directly", text: "The Director received the voice request." }
-      : null;
-  }
-  const selected = context.workstreams?.find(
-    (target) => target.workstreamId === context.selectedWorkstreamId,
-  );
-  if (text === "Director create child.") {
-    return selected?.allowsChildWorkstream &&
-      context.allowedDecisionKinds.includes("create_workstream")
-      ? {
-          initialInput: "director child work",
-          kind: "create_workstream",
-          origin: {
-            child: { parentWorkstreamId: selected.workstreamId },
-            kind: "child",
-          },
-          proposedTitle: "Director child",
-        }
-      : null;
-  }
-  const workDecisions = new Map([
-    ["Director send hold.", ["send_to_workstream", "director hold"]],
-    ["Director queue next.", ["queue_behind_run", "director queued"]],
-    ["Director steer now.", ["steer_run", "finish director hold"]],
-    ["Director send cancel hold.", ["send_to_workstream", "director hold cancel"]],
-    ["Director request approval.", ["send_to_workstream", "director approval"]],
-    ["Director fail.", ["send_to_workstream", "director fail"]],
-    ["Director artifact.", ["send_to_workstream", "director artifact"]],
-    ["Director graph burst.", ["send_to_workstream", "director graph burst"]],
-    [
-      "Director text burst.",
-      ["send_to_workstream", "Profile exactly 2000 conversation events for pane 1."],
-    ],
-    ["Director sustained.", ["send_to_workstream", "director sustained profile"]],
-  ]);
-  const workDecision = workDecisions.get(text);
-  if (workDecision) {
-    const [kind, authoredInput] = workDecision;
-    return selected?.allowedDecisionKinds?.includes(kind)
-      ? { authoredInput, kind, workstreamId: selected.workstreamId }
-      : null;
-  }
-  if (text === "Director recover.") {
-    const failure = selected?.recoverableFailures?.[0];
-    return selected?.allowedDecisionKinds?.includes("recover_path") &&
-      nonEmptyString(failure?.failureEventId)
-      ? {
-          failureEventId: failure.failureEventId,
-          kind: "recover_path",
-          workstreamId: selected.workstreamId,
-        }
-      : null;
-  }
-  return null;
-}
-
 function emitStructuredStatus(threadId, turnId, context) {
   if (context.trigger !== "explicit_status_requested") {
     return false;
@@ -691,10 +600,6 @@ function emitStructuredMasterRoute(threadId, turnId, context, outputSchema) {
   return true;
 }
 
-function nonEmptyString(value) {
-  return typeof value === "string" && value !== "";
-}
-
 function validMasterEscalationInput(input) {
   if (input?.source !== "conversation_escalation") {
     return true;
@@ -703,147 +608,6 @@ function validMasterEscalationInput(input) {
     input.text === "route unrelated request through global master",
     nonEmptyString(input.originatingConversationId),
   ].every(Boolean);
-}
-
-const scriptedMasterRouteDecisionByText = new Map([
-  ["Cancel active master route.", scriptedMasterCancellationDecision],
-  ["Crash master route.", scriptedMasterCrashDecision],
-  ["Focus Alpha topic.", scriptedMasterFocusDecision],
-  ["Create Gamma topic.", scriptedMasterCreateDecision],
-  [
-    "Open the recent conversation where I asked what folder I was in.",
-    scriptedMasterFolderlessRecentFocusDecision,
-  ],
-  [
-    "Clarify the recent folder question conversation.",
-    scriptedMasterFolderlessClarificationDecision,
-  ],
-  ["Open an Alpha side.", scriptedMasterSideDecision],
-  ["Fork Alpha topic.", scriptedMasterForkDecision],
-]);
-
-function scriptedMasterCancellationDecision(context, schema) {
-  const valid = [
-    context.allowedDecisionKinds.includes("answer_global"),
-    schema.includes('"answer_global"'),
-  ].every(Boolean);
-  return valid
-    ? { kind: "answer_global", text: "A cancelled master route must never commit this answer." }
-    : null;
-}
-
-function scriptedMasterCrashDecision(context, schema) {
-  const valid = [
-    context.allowedDecisionKinds.includes("answer_global"),
-    schema.includes('"answer_global"'),
-  ].every(Boolean);
-  return valid
-    ? { kind: "answer_global", text: "The crashed master route recovered exactly once." }
-    : null;
-}
-function scriptedMasterRouteDecision(context, schema) {
-  const input = context.input?.input;
-  const scriptedDecision = scriptedMasterRouteDecisionByText.get(input?.text);
-  if (scriptedDecision) {
-    return scriptedDecision(context, schema, input);
-  }
-  const clarificationDecision = scriptedMasterClarificationConfirmationDecision(
-    context,
-    schema,
-    input,
-  );
-  if (clarificationDecision) {
-    return clarificationDecision;
-  }
-  if (masterInputNeedsClarification(input)) {
-    return scriptedMasterClarificationDecision(context, schema);
-  }
-  if (isShellVoiceMasterInput(input)) {
-    return scriptedMasterVoiceDecision(context, schema);
-  }
-  return null;
-}
-
-function scriptedMasterCreateDecision(context, schema) {
-  const valid = [
-    context.allowedDecisionKinds.includes("create_conversation"),
-    schema.includes('"resourceScope"'),
-    schema.includes('"folderless"'),
-  ].every(Boolean);
-  return valid
-    ? {
-        initialInput: "Start the Gamma topic from the global master.",
-        kind: "create_conversation",
-        proposedTitle: "Gamma topic",
-        resourceScope: { kind: "folderless" },
-      }
-    : null;
-}
-
-function scriptedMasterSideDecision(context, schema) {
-  const target = masterTargetByTitle(context, "Alpha topic");
-  const valid = [
-    target?.allowedDecisionKinds?.includes("create_side_conversation"),
-    schema.includes(`"${target?.conversationId}"`),
-  ].every(Boolean);
-  return valid
-    ? {
-        input: "Answer this short Alpha tangent.",
-        kind: "create_side_conversation",
-        parentConversationId: target.conversationId,
-      }
-    : null;
-}
-
-function scriptedMasterForkDecision(context, schema) {
-  const target = masterTargetByTitle(context, "Alpha topic");
-  const forkPoint = target?.completedForkPoints?.at(-1);
-  const valid = [
-    target?.allowedDecisionKinds?.includes("fork_conversation"),
-    nonEmptyString(forkPoint?.turnId),
-    schema.includes(`"${target?.conversationId}"`),
-    schema.includes(`"${forkPoint?.turnId}"`),
-  ].every(Boolean);
-  return valid
-    ? {
-        forkedAtTurnId: forkPoint.turnId,
-        input: "Continue this Alpha work as a durable master fork.",
-        kind: "fork_conversation",
-        parentConversationId: target.conversationId,
-      }
-    : null;
-}
-
-function masterTargetByTitle(context, title) {
-  return context.conversationTargets?.find((target) => target.title === title);
-}
-
-function masterInputNeedsClarification(input) {
-  return input?.text === "Clarify Alpha." || input?.source === "conversation_escalation";
-}
-function isShellVoiceMasterInput(input) {
-  return (
-    input?.source === "shell" &&
-    (input?.modality === "voice" || input?.text === "Answer from folderless master.")
-  );
-}
-
-function scriptedMasterClarificationDecision(context, schema) {
-  const valid = [
-    context.allowedDecisionKinds.includes("clarify"),
-    schema.includes('"clarify"'),
-  ].every(Boolean);
-  return valid
-    ? { kind: "clarify", question: "Which topic should handle this unrelated request?" }
-    : null;
-}
-
-function scriptedMasterVoiceDecision(context, schema) {
-  const valid = [
-    context.allowedDecisionKinds.includes("answer_global"),
-    schema.includes('"answer_global"'),
-  ].every(Boolean);
-  return valid ? { kind: "answer_global", text: "The shell voice request was received." } : null;
 }
 
 function emitStructuredInputRoute(threadId, turnId, context) {
@@ -887,7 +651,7 @@ function structuredInputRouteDecision(context, routeKind, authoredInput) {
       decision.question = authoredInput;
       return decision;
     case "clarify":
-      decision.question = "Which exact pane request should I send?";
+      decision.question = "Which exact request should I send?";
       return decision;
     case "fork_conversation": {
       const forkPoint = context.validCompletedForkPoints.at(-1);
@@ -936,7 +700,7 @@ function structuredInputRouteText(context) {
 }
 
 function structuredInputClarificationRouteKind(context, allowed) {
-  return context.input?.input?.text === "clarify pane request" &&
+  return context.input?.input?.text === "clarify routing request" &&
     !context.input?.clarificationReply &&
     allowed.includes("clarify")
     ? "clarify"
@@ -976,16 +740,8 @@ function validStructuredRouteInput(context, input, routeKind) {
   return (
     typeof input?.text === "string" &&
     ["text", "voice"].includes(input.modality) &&
-    validStructuredRouteInputSource(context, input) &&
     routeKind !== null
   );
-}
-
-function validStructuredRouteInputSource(context, input) {
-  if (input?.hasSourcePane === true) {
-    return true;
-  }
-  return input?.hasSourcePane === false && context.authoritative?.conversation?.workspaceId === "";
 }
 
 function validStructuredRouteHistory(context, routeKind) {
@@ -1097,17 +853,7 @@ function isCrashNarratorProjection(context) {
 }
 
 function emitTurnScenario(threadId, turnId, text) {
-  if (text === "director graph burst") {
-    emitDirectorGraphBurst(threadId, turnId);
-    return;
-  }
-  if (text === "director sustained profile") {
-    emitDirectorSustainedProfile(threadId, turnId);
-    return;
-  }
-  const profiledEventCount = performanceEventCount(text);
-  if (profiledEventCount !== null) {
-    emitProfiledTurn(threadId, turnId, text, profiledEventCount, 0);
+  if (emitProfilingTurnScenario(threadId, turnId, text)) {
     return;
   }
   emitTextDelta(threadId, turnId, `Streaming ${text}. `);
@@ -1116,37 +862,68 @@ function emitTurnScenario(threadId, turnId, text) {
       emitTextDelta(threadId, turnId, `backlog-${index.toString().padStart(2, "0")} `.repeat(600));
     }
   }
-  if (text.includes("hold")) {
-    emitSimultaneousAudioHoldProgress(emitAgentMessage, threadId, turnId, text);
-    heldTurns.set(turnId, { threadId, text });
-    return;
-  }
-  if (text.includes("command approval")) {
-    requestCommandApproval(threadId, turnId);
-    return;
-  }
-  if (text.includes("approval")) {
-    requestApproval(threadId, turnId);
+  if (emitInterruptingTurnScenario(threadId, turnId, text)) {
     return;
   }
   if (emitArtifactToolScenario(threadId, turnId, text)) {
     return;
   }
   emitLegacyArtifactIfRequested(threadId, turnId, text);
-  if (text === "director fail" && failedDirectorInputs.has(text)) {
-    emitAgentMessage(threadId, turnId, "Recovered director fail.");
-    completeTurn(threadId, turnId, "completed");
-    return;
-  }
-  if (text.includes("fail")) {
-    if (text === "director fail") {
-      failedDirectorInputs.add(text);
-    }
-    completeTurn(threadId, turnId, "failed", "Scripted topic failure");
+  if (emitFailingTurnScenario(threadId, turnId, text)) {
     return;
   }
   emitAgentMessage(threadId, turnId, `Completed ${text}.`);
   completeTurn(threadId, turnId, "completed");
+}
+
+function emitProfilingTurnScenario(threadId, turnId, text) {
+  if (text === "director graph burst") {
+    emitDirectorGraphBurst(threadId, turnId);
+    return true;
+  }
+  if (text === "director sustained profile") {
+    emitDirectorSustainedProfile(threadId, turnId);
+    return true;
+  }
+  const profiledEventCount = performanceEventCount(text);
+  if (profiledEventCount === null) {
+    return false;
+  }
+  emitProfiledTurn(threadId, turnId, text, profiledEventCount, 0);
+  return true;
+}
+
+function emitInterruptingTurnScenario(threadId, turnId, text) {
+  if (text.includes("hold")) {
+    emitSimultaneousAudioHoldProgress(emitAgentMessage, threadId, turnId, text);
+    heldTurns.set(turnId, { threadId, text });
+    return true;
+  }
+  if (text.includes("command approval")) {
+    requestCommandApproval(threadId, turnId);
+    return true;
+  }
+  if (text.includes("approval")) {
+    requestApproval(threadId, turnId);
+    return true;
+  }
+  return false;
+}
+
+function emitFailingTurnScenario(threadId, turnId, text) {
+  if (text === "director fail" && failedDirectorInputs.has(text)) {
+    emitAgentMessage(threadId, turnId, "Recovered director fail.");
+    completeTurn(threadId, turnId, "completed");
+    return true;
+  }
+  if (!text.includes("fail")) {
+    return false;
+  }
+  if (text === "director fail") {
+    failedDirectorInputs.add(text);
+  }
+  completeTurn(threadId, turnId, "failed", "Scripted topic failure");
+  return true;
 }
 
 function emitDirectorGraphBurst(threadId, turnId) {
@@ -1200,7 +977,7 @@ function emitDirectorSustainedProfile(threadId, turnId, startedAt = Date.now(), 
 }
 
 function performanceEventCount(text) {
-  const match = /^Profile exactly (\d+) conversation events for pane \d+\.$/.exec(text);
+  const match = /^Profile exactly (\d+) conversation events for workstream \d+\.$/.exec(text);
   if (!match) {
     return null;
   }

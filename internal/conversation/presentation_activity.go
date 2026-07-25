@@ -9,7 +9,7 @@ import (
 )
 
 type presentationActivityState struct {
-	paletteVisible bool
+	visible        bool
 	narratorActive bool
 }
 
@@ -19,7 +19,7 @@ func presentationActivityStates(
 	states := make(map[string]presentationActivityState, len(presentations))
 	for _, presentation := range presentations {
 		states[presentation.Profile.ConversationID] = presentationActivityState{
-			paletteVisible: presentation.PaletteVisible,
+			visible:        presentation.Visible,
 			narratorActive: presentation.NarratorActive,
 		}
 	}
@@ -94,13 +94,13 @@ func reconcileAutomaticPalettes(
 	for _, presentation := range presentations {
 		profile := presentation.Profile
 		if profile.PaletteSelection == PresentationSelectionAutoDistinct &&
-			!presentation.PaletteVisible && profile.PaletteReuse != nil {
+			!presentation.Visible && profile.PaletteReuse != nil {
 			profile.PaletteReuse = nil
 			profile.UpdatedAt = advanceTimestamp(profile.UpdatedAt, updatedAt)
 			updates = append(updates, profile)
 			presentation = presentation.withProfile(profile)
 		}
-		if presentation.PaletteVisible {
+		if presentation.Visible {
 			workspaces[presentation.WorkspaceID] = append(
 				workspaces[presentation.WorkspaceID],
 				presentation,
@@ -306,10 +306,10 @@ func presentationWasActive(
 ) bool {
 	state, ok := previous[presentation.Profile.ConversationID]
 	if !ok {
-		return presentation.PaletteVisible && palette || presentation.NarratorActive && !palette
+		return presentation.Visible && palette || presentation.NarratorActive && !palette
 	}
 	if palette {
-		return state.paletteVisible
+		return state.visible
 	}
 	return state.narratorActive
 }

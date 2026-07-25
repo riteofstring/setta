@@ -13,7 +13,7 @@ import (
 
 // ListMasterRouteContextConversationIDs returns the bounded app-global state
 // the master needs in addition to lexical candidates: attention-requiring
-// conversations followed by idle conversations that still have an open pane.
+// conversations followed by the most recently updated idle conversations.
 func (store *Store) ListMasterRouteContextConversationIDs(
 	ctx context.Context,
 	limit int,
@@ -57,14 +57,6 @@ WITH contextual_conversations AS (
       ) AS updated_sort_key
   FROM conversations AS conversation
   WHERE conversation.archived_at IS NULL
-    AND (
-      conversation.status <> ?
-      OR EXISTS (
-        SELECT 1
-        FROM pane_bindings AS pane
-        WHERE pane.conversation_id = conversation.id
-      )
-    )
 )
 SELECT id
 FROM contextual_conversations
@@ -79,7 +71,6 @@ ORDER BY
   id
 LIMIT ?
 `,
-			ConversationStatusIdle,
 			ConversationStatusWaitingForApproval,
 			ConversationStatusWorking,
 			ConversationStatusFailed,
@@ -134,16 +125,8 @@ SELECT EXISTS(
     FROM master_route_command_completions AS completion
     WHERE completion.decision_id = decision.id
   )
-    AND (
-      json_extract(decision.resulting_command_json, '$.kind') <> ?
-      OR EXISTS (
-        SELECT 1
-        FROM master_presentation_resolutions AS resolution
-        WHERE resolution.decision_id = decision.id
-      )
-    )
 )
-`, master.InputRoutingStatusAccepted, master.RouteDecisionKindCreateSideConversation).Scan(&value); err != nil {
+`, master.InputRoutingStatusAccepted).Scan(&value); err != nil {
 				return err
 			}
 			pending = value == 1
@@ -313,14 +296,8 @@ func masterShellInteractionIsRestorable(
 	if !masterShellInteractionRequiresResolution(projected) {
 		return true, nil
 	}
-	_, resolved, err := readMasterPresentationResolution(
-		ctx,
-		reader,
-		dbPath,
-		state.Decision.ID,
-		state.Input.Input.ID,
-	)
-	return !resolved, err
+	completed, err := readMasterRouteCommandCompletion(ctx, reader, dbPath, state.Decision.ID)
+	return !completed, err
 }
 
 func masterShellInteractionRequiresResolution(state master.ShellInteractionState) bool {
@@ -490,7 +467,6 @@ func cloneMasterRouteTargets(targets []master.RouteConversationTarget) []master.
 			folder := *cloned[index].ResourceScope.Folder
 			cloned[index].ResourceScope.Folder = &folder
 		}
-		cloned[index].OpenPaneIDs = append([]string{}, cloned[index].OpenPaneIDs...)
 		cloned[index].ActiveTurnID = cloneStringPointer(cloned[index].ActiveTurnID)
 		cloned[index].CompletedForkPoints = append([]master.RouteForkPoint{}, cloned[index].CompletedForkPoints...)
 		cloned[index].AllowedDecisionKinds = append(

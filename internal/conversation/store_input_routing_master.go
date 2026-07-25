@@ -40,7 +40,6 @@ func applyConversationRouteDecisionCommand(
 		SubmittedAt:                    commit.DecidedAt,
 		OriginatingWorkspaceID:         &workspaceID,
 		OriginatingConversationID:      &conversationID,
-		OriginatingPaneID:              cloneStringPointer(root.Accepted.Input.SourcePaneID),
 		OriginatingConversationInputID: &inputID,
 	}
 	accepted, appended, err := acceptMasterInputTransaction(

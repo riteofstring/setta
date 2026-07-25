@@ -35,10 +35,9 @@ type ConversationRouterContextSource interface {
 }
 
 type ConversationRouteInput struct {
-	Sequence      int                                    `json:"sequence"`
-	Text          string                                 `json:"text"`
-	Modality      conversation.ConversationInputModality `json:"modality"`
-	HasSourcePane bool                                   `json:"hasSourcePane"`
+	Sequence int                                    `json:"sequence"`
+	Text     string                                 `json:"text"`
+	Modality conversation.ConversationInputModality `json:"modality"`
 }
 
 type ConversationRouteInputExchange struct {
@@ -233,10 +232,9 @@ func conversationRouteInputExchange(
 
 func conversationRouteInput(input conversation.AcceptedConversationInput) ConversationRouteInput {
 	return ConversationRouteInput{
-		Sequence:      input.Sequence,
-		Text:          input.Input.Text,
-		Modality:      input.Input.Modality,
-		HasSourcePane: input.Input.SourcePaneID != nil,
+		Sequence: input.Sequence,
+		Text:     input.Input.Text,
+		Modality: input.Input.Modality,
 	}
 }
 

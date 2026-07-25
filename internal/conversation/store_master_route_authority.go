@@ -28,9 +28,6 @@ func requireCurrentMasterRouteCommandAuthority(
 	if current.Title != target.Title {
 		return masterRouteCommandStateConflict(command, "presentation title changed before commit")
 	}
-	if !equalOptionalStrings(masterRoutePreferredPaneID(current), target.PreferredPaneID) {
-		return masterRouteCommandStateConflict(command, "preferred pane changed before commit")
-	}
 	if !masterRouteActiveTurnMatches(current.ActiveTurnID, activeTurnID) {
 		return masterRouteCommandStateConflict(command, "active turn changed before commit")
 	}
@@ -41,13 +38,6 @@ func masterRouteCommandHasNoConversationAuthority(kind master.RouteDecisionKind)
 	return kind == master.RouteDecisionKindCreateConversation ||
 		kind == master.RouteDecisionKindClarify ||
 		kind == master.RouteDecisionKindAnswerGlobal
-}
-
-func masterRoutePreferredPaneID(target master.RouteConversationTarget) *string {
-	if len(target.OpenPaneIDs) == 0 {
-		return nil
-	}
-	return &target.OpenPaneIDs[0]
 }
 
 func masterRouteActiveTurnMatches(current *string, expected *string) bool {

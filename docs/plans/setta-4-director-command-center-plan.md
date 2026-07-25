@@ -1808,12 +1808,19 @@ Remove:
 
 - `desktop/src/renderer/src/workspace-layout/` **Done for the production renderer — the directory
   and its tests are removed.**
-- pane layout stores, coordinators, camera/navigation machinery, and persisted layout. **Done for
-  the renderer-side store/coordinator/camera/navigation owners and backend
-  app-pane/workspace-UI layout persistence; remaining conversation pane-binding
-  persistence is tied to Master presentation cleanup below.**
-- pane-bound conversation routing and presentation resolution. **Done for the renderer pane
-  surfaces; backend Master presentation and pane-bound helper cleanup remains.**
+- pane layout stores, coordinators, camera/navigation machinery, and persisted layout. **Done. The
+  renderer-side store/coordinator/camera/navigation owners, backend app-pane/workspace-UI layout
+  persistence, and the conversation `pane_bindings` table with its replacement API are removed.**
+- pane-bound conversation routing and presentation resolution. **Done. The Master presentation
+  intent/resolution surface is removed end to end (Go contracts, store, service, HTTP endpoints,
+  Electron IPC/preload, generated contracts, and the `master_presentation_resolutions` table), and
+  pane identity is gone from master inputs, route context, conversation inputs, and side
+  conversations. Two Setta 4 semantics replace pane-derived state: a master route command stays
+  restorable in the shell interaction until the command completes instead of until a renderer
+  resolves a pane, and a conversation may hold one open side conversation instead of one per pane.
+  Conversation presentation identity — palette and narrator voice — is now held by every live
+  (non-archived) workstream instead of by pane-visible conversations, and it reconciles when a
+  conversation is created.**
 - pane drag, resize, reorder, overview, and manual layout controls. **Done for the renderer UI and
   manifest-owned Electron workflows.**
 - Niri-specific shortcuts, toolbar, mobile pane controls, and CSS. **Done for visible renderer

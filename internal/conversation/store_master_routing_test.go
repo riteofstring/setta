@@ -38,14 +38,14 @@ func TestStoreClaimsMasterRoutingInDurableInputSequence(t *testing.T) {
 	}
 }
 
-func TestStoreListsActiveAndOpenMasterRouteContextConversations(t *testing.T) {
+func TestStoreListsAttentionThenRecentMasterRouteContextConversations(t *testing.T) {
 	store := newTestStore(t)
 	conversations := []TopicConversation{
 		masterRouteContextTestConversation("route-context-waiting", ConversationStatusWaitingForApproval, "2026-07-11T20:05:00Z"),
 		masterRouteContextTestConversation("route-context-working", ConversationStatusWorking, "2026-07-11T20:06:00Z"),
 		masterRouteContextTestConversation("route-context-failed", ConversationStatusFailed, "2026-07-11T20:07:00Z"),
-		masterRouteContextTestConversation("route-context-open-idle", ConversationStatusIdle, "2026-07-11T20:08:00Z"),
-		masterRouteContextTestConversation("route-context-closed-idle", ConversationStatusIdle, "2026-07-11T20:09:00Z"),
+		masterRouteContextTestConversation("route-context-older-idle", ConversationStatusIdle, "2026-07-11T20:08:00Z"),
+		masterRouteContextTestConversation("route-context-newer-idle", ConversationStatusIdle, "2026-07-11T20:09:00Z"),
 	}
 	_, err := store.Transact(context.Background(), "seed master route context conversations", func(transaction *WriteTransaction) error {
 		for _, conversation := range conversations {
@@ -53,22 +53,7 @@ func TestStoreListsActiveAndOpenMasterRouteContextConversations(t *testing.T) {
 				return err
 			}
 		}
-		_, err := transaction.tx.ExecContext(transaction.ctx, `
-INSERT INTO pane_bindings (
-  pane_id, workspace_id, conversation_id, created_at, updated_at, last_focused_at
-) VALUES (?, ?, ?, ?, ?, ?)
-`,
-			"route-context-pane",
-			"workspace-route-context",
-			"route-context-open-idle",
-			"2026-07-11T20:00:00Z",
-			"2026-07-11T20:08:00Z",
-			"2026-07-11T20:08:00Z",
-		)
-		if err != nil {
-			return err
-		}
-		_, err = transaction.AppendCommittedEvent(transactionTestEventDraft(
+		_, err := transaction.AppendCommittedEvent(transactionTestEventDraft(
 			"seed-master-route-context-conversations",
 			"master-route-context-test",
 			conversations,
@@ -87,7 +72,8 @@ INSERT INTO pane_bindings (
 		"route-context-waiting",
 		"route-context-working",
 		"route-context-failed",
-		"route-context-open-idle",
+		"route-context-newer-idle",
+		"route-context-older-idle",
 	}
 	if !slices.Equal(conversationIDs, want) {
 		t.Fatalf("master route context conversations = %v, want %v", conversationIDs, want)
@@ -122,18 +108,6 @@ func TestStoreReadsFolderlessMasterRouteTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("seed folderless route target: %v", err)
 	}
-	if err := store.ReplaceFolderlessPaneBindings(
-		context.Background(),
-		[]FolderlessPaneBinding{{
-			PaneID:         "pane-folderless-route-target",
-			ConversationID: conversation.ID,
-			Focused:        true,
-		}},
-		"2026-07-11T20:02:00Z",
-	); err != nil {
-		t.Fatalf("ReplaceFolderlessPaneBindings: %v", err)
-	}
-
 	targets, err := store.ReadMasterRouteTargets(
 		context.Background(),
 		[]string{conversation.ID},
@@ -148,10 +122,7 @@ func TestStoreReadsFolderlessMasterRouteTarget(t *testing.T) {
 	target := targets[0]
 	if target.ResourceScope.Kind != master.RouteResourceScopeKindFolderless ||
 		target.ResourceScope.Folder != nil ||
-		!slices.Equal(target.AllowedDecisionKinds, []master.RouteDecisionKind{master.RouteDecisionKindFocusConversation}) ||
-		target.OpenPaneCount != 1 ||
-		len(target.OpenPaneIDs) != 1 ||
-		target.OpenPaneIDs[0] != "pane-folderless-route-target" {
+		!slices.Equal(target.AllowedDecisionKinds, []master.RouteDecisionKind{master.RouteDecisionKindFocusConversation}) {
 		t.Fatalf("folderless route target = %+v", target)
 	}
 }
@@ -190,7 +161,7 @@ func TestStoreCommitsMasterRouteDecisionAtomicallyAndIdempotently(t *testing.T) 
 	assertCommittedMasterRouteEvents(t, store)
 }
 
-func TestStoreCompletesMasterCommandBeforePublishingPresentationIntent(t *testing.T) {
+func TestStoreKeepsMasterRouteCommandRestorableUntilCompletion(t *testing.T) {
 	store := newTestStore(t)
 	ready := seedMasterRouteState(t, store)
 	accepted := acceptMasterRouteTestInput(t, store, "master-input-presentation", "2026-07-11T20:02:00Z")
@@ -202,13 +173,11 @@ func TestStoreCompletesMasterCommandBeforePublishingPresentationIntent(t *testin
 		},
 	})
 	record := commitMasterRouteTestDecision(t, store, commit, accepted.Input.ID)
-	pending, resolvedPaneID, found, err := store.ReadPendingMasterRouteCommand(context.Background())
+	pending, found, err := store.ReadPendingMasterRouteCommand(context.Background())
 	if err != nil || !found || pending.ID != record.ID {
 		t.Fatalf("ReadPendingMasterRouteCommand = %+v found=%t err=%v", pending, found, err)
 	}
-	if resolvedPaneID != nil {
-		t.Fatalf("focus command resolved pane = %q, want nil", *resolvedPaneID)
-	}
+	assertActiveMasterShellInput(t, store, accepted.Input.ID)
 	if err := store.CompleteMasterRouteCommand(
 		context.Background(),
 		record.ID,
@@ -223,21 +192,11 @@ func TestStoreCompletesMasterCommandBeforePublishingPresentationIntent(t *testin
 	); err != nil {
 		t.Fatalf("idempotent CompleteMasterRouteCommand: %v", err)
 	}
-	if pending, _, found, err := store.ReadPendingMasterRouteCommand(context.Background()); err != nil || found {
-		t.Fatalf("completed pending command = %+v found=%t err=%v", pending, found, err)
-	}
-	intent, err := store.WaitForMasterPresentationIntent(context.Background(), accepted.Input.ID)
-	if err != nil {
-		t.Fatalf("WaitForMasterPresentationIntent: %v", err)
-	}
-	if intent.Kind != master.PresentationIntentKindOpenConversationPane ||
-		intent.OpenConversationPane == nil ||
-		intent.OpenConversationPane.Target.ConversationID != "conversation-master-route" {
-		t.Fatalf("presentation intent = %+v", intent)
-	}
+	assertNoPendingMasterRouteCommand(t, store)
+	assertNoActiveMasterShellInteraction(t, store)
 }
 
-func TestStoreWaitsForRendererPaneResolutionBeforeExecutingMasterSideCommand(t *testing.T) {
+func TestStoreExecutesMasterSideCommandWithoutRendererResolution(t *testing.T) {
 	store := newTestStore(t)
 	ready := seedMasterRouteState(t, store)
 	accepted := acceptMasterRouteTestInput(t, store, "master-input-side-presentation", "2026-07-11T20:02:00Z")
@@ -253,83 +212,35 @@ func TestStoreWaitsForRendererPaneResolutionBeforeExecutingMasterSideCommand(t *
 		master.RouteDecisionKindCreateSideConversation,
 	}
 	record := commitMasterRouteTestDecision(t, store, commit, accepted.Input.ID)
-	assertNoPendingMasterRouteCommand(t, store)
-	intent := waitForMasterSidePresentationIntent(t, store, accepted.Input.ID)
+	pending, found, err := store.ReadPendingMasterRouteCommand(context.Background())
+	if err != nil || !found || pending.ID != record.ID {
+		t.Fatalf("pending side command = %+v found=%t err=%v", pending, found, err)
+	}
 	assertActiveMasterShellInput(t, store, accepted.Input.ID)
-	bindMasterRouteTestPane(t, store)
-	resolveMasterRouteTestPresentation(t, store, intent, accepted.Input.ID)
-	assertResolvedMasterRouteCommand(t, store, record.ID)
+	if err := store.CompleteMasterRouteCommand(
+		context.Background(),
+		record.ID,
+		"2026-07-11T20:04:05Z",
+	); err != nil {
+		t.Fatalf("CompleteMasterRouteCommand: %v", err)
+	}
+	assertNoPendingMasterRouteCommand(t, store)
 	assertNoActiveMasterShellInteraction(t, store)
 }
 
 func assertNoPendingMasterRouteCommand(t *testing.T, store *Store) {
 	t.Helper()
-	pending, _, found, err := store.ReadPendingMasterRouteCommand(context.Background())
+	pending, found, err := store.ReadPendingMasterRouteCommand(context.Background())
 	if err != nil || found {
-		t.Fatalf("unresolved side command = %+v found=%t err=%v", pending, found, err)
+		t.Fatalf("unexpected pending command = %+v found=%t err=%v", pending, found, err)
 	}
-}
-
-func waitForMasterSidePresentationIntent(t *testing.T, store *Store, inputID string) master.PresentationIntent {
-	t.Helper()
-	intent, err := store.WaitForMasterPresentationIntent(context.Background(), inputID)
-	if err != nil || intent.Kind != master.PresentationIntentKindOpenSideConversation ||
-		intent.OpenSideConversation == nil ||
-		intent.OpenSideConversation.Target.ConversationID != "conversation-master-route" {
-		t.Fatalf("side presentation intent = %+v err=%v", intent, err)
-	}
-	return intent
 }
 
 func assertActiveMasterShellInput(t *testing.T, store *Store, inputID string) {
 	t.Helper()
 	interaction, err := store.ReadActiveMasterShellInteraction(context.Background())
 	if err != nil || interaction.State == nil || interaction.State.Input.ID != inputID {
-		t.Fatalf("unresolved side active interaction = %+v err=%v", interaction, err)
-	}
-}
-
-func bindMasterRouteTestPane(t *testing.T, store *Store) {
-	t.Helper()
-	if err := store.ReplaceWorkspacePaneBindings(
-		context.Background(),
-		"workspace-1",
-		[]WorkspacePaneBinding{{
-			PaneID: "master-route-resolved-pane", ConversationID: "conversation-master-route", Focused: true,
-		}},
-		"2026-07-11T20:04:04Z",
-	); err != nil {
-		t.Fatalf("bind resolved master side pane: %v", err)
-	}
-}
-
-func resolveMasterRouteTestPresentation(
-	t *testing.T,
-	store *Store,
-	intent master.PresentationIntent,
-	inputID string,
-) {
-	t.Helper()
-	resolution, err := store.ResolveMasterPresentationIntent(
-		context.Background(),
-		master.PresentationResolutionRequest{
-			IntentID: intent.ID,
-			InputID:  inputID,
-			PaneID:   "master-route-resolved-pane",
-		},
-		"2026-07-11T20:04:05Z",
-	)
-	if err != nil || resolution.PaneID != "master-route-resolved-pane" {
-		t.Fatalf("ResolveMasterPresentationIntent = %+v err=%v", resolution, err)
-	}
-}
-
-func assertResolvedMasterRouteCommand(t *testing.T, store *Store, recordID string) {
-	t.Helper()
-	pending, resolvedPaneID, found, err := store.ReadPendingMasterRouteCommand(context.Background())
-	if err != nil || !found || pending.ID != recordID || resolvedPaneID == nil ||
-		*resolvedPaneID != "master-route-resolved-pane" {
-		t.Fatalf("resolved side command = %+v pane=%v found=%t err=%v", pending, resolvedPaneID, found, err)
+		t.Fatalf("incomplete command active interaction = %+v err=%v", interaction, err)
 	}
 }
 

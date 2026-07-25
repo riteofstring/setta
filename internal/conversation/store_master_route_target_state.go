@@ -26,57 +26,6 @@ func validateMasterRouteTargetIDs(conversationIDs []string) error {
 	return nil
 }
 
-func readMasterRouteTargetPanes(
-	ctx context.Context,
-	reader masterRouteReader,
-	conversationID string,
-) ([]string, int, error) {
-	rows, err := reader.QueryContext(ctx, `
-WITH pane_activity AS (
-  SELECT pane_id, COALESCE(last_focused_at, updated_at) AS focused_at
-  FROM pane_bindings
-  WHERE conversation_id = ?
-), normalized_pane_activity AS (
-  SELECT
-    pane_id,
-    substr(focused_at, 1, 19) || '.' ||
-      substr(
-        CASE
-          WHEN instr(focused_at, '.') = 20
-            THEN substr(focused_at, 21, length(focused_at) - 21)
-          ELSE ''
-        END || '000000000',
-        1,
-        9
-      ) AS focused_sort_key
-  FROM pane_activity
-)
-SELECT pane_id
-FROM normalized_pane_activity
-ORDER BY focused_sort_key DESC, pane_id
-`, conversationID)
-	if err != nil {
-		return nil, 0, fmt.Errorf("read master route target panes: %w", err)
-	}
-	defer rows.Close()
-	ids := []string{}
-	count := 0
-	for rows.Next() {
-		var paneID string
-		if err := rows.Scan(&paneID); err != nil {
-			return nil, 0, err
-		}
-		count++
-		if len(ids) < conversationindex.MaxOpenPaneIDs {
-			ids = append(ids, paneID)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, 0, err
-	}
-	return ids, count, nil
-}
-
 func readMasterRouteActiveTurn(
 	ctx context.Context,
 	reader masterRouteReader,

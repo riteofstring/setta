@@ -110,6 +110,7 @@ func writeRuntimeMasterCodexHelper(t *testing.T, binDir string) {
 		"fake-topic-artifact-tool.mjs",
 		"fake-topic-artifact-turns.mjs",
 		"fake-topic-codex-app-server-helpers.mjs",
+		"fake-topic-codex-director-decisions.mjs",
 		"fake-topic-codex-input-routes.mjs",
 		"fake-topic-codex-restricted-thread.mjs",
 	} {

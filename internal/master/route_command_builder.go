@@ -252,17 +252,11 @@ func (service *RouteService) presentationTargetFor(target RouteConversationTarge
 	if err != nil {
 		return ConversationPresentationTarget{}, err
 	}
-	var preferredPaneID *string
-	if len(target.OpenPaneIDs) > 0 {
-		paneID := target.OpenPaneIDs[0]
-		preferredPaneID = &paneID
-	}
 	return ConversationPresentationTarget{
 		ConversationID:   target.ConversationID,
 		ResourceScope:    cloneRouteResourceScope(target.ResourceScope),
 		ResourceBindings: resourceBindings,
 		Title:            target.Title,
-		PreferredPaneID:  preferredPaneID,
 	}, nil
 }
 

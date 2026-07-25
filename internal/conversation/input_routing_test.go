@@ -106,7 +106,7 @@ func TestConversationRouteDecisionRejectsUnsafeOrIncompleteRouterInvocationAudit
 	}
 }
 
-func TestConversationRouteDecisionJSONContainsNoProviderPaneOrGlobalAuthority(t *testing.T) {
+func TestConversationRouteDecisionJSONContainsNoProviderOrGlobalAuthority(t *testing.T) {
 	decision, _ := validConversationRouteDecisionAndCommand(
 		ConversationRouteDecisionKindForkConversation,
 		"Make this a durable topic.",
@@ -234,7 +234,6 @@ func validConversationRouteDecisionAndCommand(
 				Kind: kind,
 				CreateSideConversation: &CreateSideConversationRouteCommand{
 					SideConversationID: "side_routed",
-					ParentPaneID:       "pane_origin",
 					TurnID:             "side_turn_routed",
 					Input:              input,
 				},

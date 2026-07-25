@@ -112,7 +112,6 @@ func (service *Service) executeRoutedSideConversation(
 ) (ConversationSnapshot, error) {
 	payload := command.CreateSideConversation
 	sideConversationID := payload.SideConversationID
-	parentPaneID := payload.ParentPaneID
 	parentSnapshot, err := service.store.ReadSnapshot(ctx, workspaceID, parentConversationID)
 	if err != nil {
 		return ConversationSnapshot{}, err
@@ -123,7 +122,6 @@ func (service *Service) executeRoutedSideConversation(
 			workspaceID,
 			BranchDecisionExecutionScope{
 				ParentConversationID: parentConversationID,
-				ParentPaneID:         &parentPaneID,
 				SideConversationID:   &sideConversationID,
 				Source:               BranchDecisionSourceConversationRouter,
 			},

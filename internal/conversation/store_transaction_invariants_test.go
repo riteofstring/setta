@@ -185,7 +185,6 @@ func TestTransactionRejectsFailedSideConversationResurrection(t *testing.T) {
 	failed := SideConversation{
 		ID:                          "side-failed",
 		ParentConversationID:        seed.conversation.ID,
-		ParentPaneID:                "pane-1",
 		ParentStatus:                seed.conversation.Status,
 		DecisionSource:              BranchDecisionSourceConversationRouter,
 		SourceProviderThreadID:      "provider-thread-parent",

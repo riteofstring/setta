@@ -40,8 +40,8 @@ func TestServiceReconcilesAndResolvesWorkspaceNamesOncePerCandidateSet(t *testin
 	if resolver.resolveCalls != 1 {
 		t.Fatalf("workspace resolve calls = %d, want 1", resolver.resolveCalls)
 	}
-	store.candidates[0].Card.OpenPaneIDs[0] = "mutated"
-	if candidates[0].Card.OpenPaneIDs[0] != "pane-a" {
+	store.candidates[0].Card.RecentUserRequests[0] = NewTextExcerpt("mutated")
+	if candidates[0].Card.RecentUserRequests[0].Text != "first request" {
 		t.Fatal("service result aliases candidate store state")
 	}
 }
@@ -99,12 +99,10 @@ func storedCandidate(conversationID string, updatedAt string) StoredCandidate {
 		ConversationID:       conversationID,
 		ResourceScope:        FolderResourceScopeForWorkspaceID("workspace-a"),
 		Title:                "Topic " + conversationID,
-		RecentUserRequests:   []TextExcerpt{},
+		RecentUserRequests:   []TextExcerpt{NewTextExcerpt("first request")},
 		RecentFinalSummaries: []TextExcerpt{},
 		UpdatedAt:            updatedAt,
 		ActiveStatus:         "idle",
-		OpenPaneIDs:          []string{"pane-a"},
-		OpenPaneCount:        1,
 	}}
 }
 
@@ -117,7 +115,5 @@ func storedFolderlessCandidate(conversationID string, updatedAt string) StoredCa
 		RecentFinalSummaries: []TextExcerpt{},
 		UpdatedAt:            updatedAt,
 		ActiveStatus:         "idle",
-		OpenPaneIDs:          []string{},
-		OpenPaneCount:        0,
 	}}
 }

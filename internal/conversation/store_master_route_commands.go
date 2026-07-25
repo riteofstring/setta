@@ -12,15 +12,14 @@ import (
 
 func (store *Store) ReadPendingMasterRouteCommand(
 	ctx context.Context,
-) (master.RouteDecisionRecord, *string, bool, error) {
+) (master.RouteDecisionRecord, bool, error) {
 	if store == nil {
-		return master.RouteDecisionRecord{}, nil, false, errors.New("conversation store is required")
+		return master.RouteDecisionRecord{}, false, errors.New("conversation store is required")
 	}
 	if ctx == nil {
-		return master.RouteDecisionRecord{}, nil, false, errors.New("master route command context is required")
+		return master.RouteDecisionRecord{}, false, errors.New("master route command context is required")
 	}
 	var record master.RouteDecisionRecord
-	var resolvedPaneID *string
 	found := false
 	err := store.read(ctx, "read pending master route command", func(ctx context.Context, reader *sql.Conn) error {
 		var scanErr error
@@ -30,44 +29,19 @@ WHERE NOT EXISTS (
   FROM master_route_command_completions AS completion
   WHERE completion.decision_id = master_route_decisions.id
 )
-AND (
-  json_extract(resulting_command_json, '$.kind') <> ?
-  OR EXISTS (
-    SELECT 1
-    FROM master_presentation_resolutions AS resolution
-    WHERE resolution.decision_id = master_route_decisions.id
-  )
-)
 ORDER BY stream_sequence
 LIMIT 1
-`, master.RouteDecisionKindCreateSideConversation), store.dbPath)
+`), store.dbPath)
 		if errors.Is(scanErr, sql.ErrNoRows) {
 			return nil
 		}
 		if scanErr != nil {
 			return scanErr
 		}
-		if record.ResultingCommand.Kind == master.RouteDecisionKindCreateSideConversation {
-			resolution, resolved, readErr := readMasterPresentationResolution(
-				ctx,
-				reader,
-				store.dbPath,
-				record.ID,
-				record.InputID,
-			)
-			if readErr != nil {
-				return readErr
-			}
-			if !resolved {
-				return &CorruptStateError{Path: store.dbPath, Err: errors.New("executable master side command has no presentation resolution")}
-			}
-			paneID := resolution.PaneID
-			resolvedPaneID = &paneID
-		}
 		found = true
 		return nil
 	})
-	return master.CloneRouteDecisionRecord(record), cloneStringPointer(resolvedPaneID), found, err
+	return master.CloneRouteDecisionRecord(record), found, err
 }
 
 func (store *Store) MasterRouteCommandApplied(
@@ -260,21 +234,11 @@ func readMasterRouteSideEffect(
 	record master.RouteDecisionRecord,
 ) (bool, error) {
 	command := record.ResultingCommand.CreateSideConversation
-	resolution, found, err := readMasterPresentationResolution(
-		ctx,
-		reader,
-		dbPath,
-		record.ID,
-		record.InputID,
-	)
-	if err != nil || !found {
-		return false, err
-	}
 	metadata, found, err := readConversationRouteSideMetadata(ctx, reader, command.SideConversationID)
 	if err != nil || !found {
 		return false, err
 	}
-	if metadata.parentConversationID != command.Target.ConversationID || metadata.parentPaneID != resolution.PaneID || metadata.source != BranchDecisionSourceMaster {
+	if metadata.parentConversationID != command.Target.ConversationID || metadata.source != BranchDecisionSourceMaster {
 		return false, stateConflict("master route side conversation", command.SideConversationID, "stored effect does not match its command")
 	}
 	if metadata.status == SideConversationStatusFailed {
@@ -289,7 +253,6 @@ func readMasterRouteSideEffect(
 	}
 	return true, validateConversationRouteSideTurnEffect(event, &CreateSideConversationRouteCommand{
 		SideConversationID: command.SideConversationID,
-		ParentPaneID:       resolution.PaneID,
 		TurnID:             command.TurnID,
 		Input:              AuthoredInput{Text: command.Input},
 	})
@@ -441,77 +404,4 @@ WHERE decision_id = ?
 		return false, &CorruptStateError{Path: dbPath, Err: err}
 	}
 	return true, nil
-}
-
-func (store *Store) WaitForMasterPresentationIntent(
-	ctx context.Context,
-	inputID string,
-) (master.PresentationIntent, error) {
-	if store == nil {
-		return master.PresentationIntent{}, errors.New("conversation store is required")
-	}
-	if ctx == nil {
-		return master.PresentationIntent{}, errors.New("master presentation wait context is required")
-	}
-	if err := master.ValidateInputID(inputID); err != nil {
-		return master.PresentationIntent{}, err
-	}
-	for {
-		wake := store.committedEventWakeChannel()
-		intent, ready, err := store.readMasterPresentationIntent(ctx, inputID)
-		if err != nil {
-			return master.PresentationIntent{}, err
-		}
-		if ready {
-			return intent, nil
-		}
-		select {
-		case <-ctx.Done():
-			return master.PresentationIntent{}, ctx.Err()
-		case <-store.closing:
-			return master.PresentationIntent{}, ErrStoreClosed
-		case <-wake:
-		}
-	}
-}
-
-func (store *Store) readMasterPresentationIntent(
-	ctx context.Context,
-	inputID string,
-) (master.PresentationIntent, bool, error) {
-	var intent master.PresentationIntent
-	ready := false
-	err := store.read(ctx, "read master presentation intent", func(ctx context.Context, connection *sql.Conn) error {
-		reader, err := connection.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-		if err != nil {
-			return err
-		}
-		defer func() { _ = reader.Rollback() }()
-		state, err := readMasterInputRoutingStateTransaction(ctx, reader, inputID, store.dbPath)
-		if err != nil {
-			return err
-		}
-		if state.Status == master.InputRoutingStatusFailed {
-			return fmt.Errorf("master input %s failed before producing a presentation intent", inputID)
-		}
-		if state.Status == master.InputRoutingStatusCancelled {
-			return fmt.Errorf("master input %s was cancelled before producing a presentation intent", inputID)
-		}
-		if state.Decision == nil {
-			return nil
-		}
-		intent, err = master.PresentationIntentForCommand(state.Input.Input, state.Decision.ResultingCommand)
-		if err != nil {
-			return &CorruptStateError{Path: store.dbPath, Err: err}
-		}
-		if intent.Kind != master.PresentationIntentKindOpenSideConversation {
-			completed, err := readMasterRouteCommandCompletion(ctx, reader, store.dbPath, state.Decision.ID)
-			if err != nil || !completed {
-				return err
-			}
-		}
-		ready = true
-		return reader.Commit()
-	})
-	return intent, ready, err
 }

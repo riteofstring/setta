@@ -108,14 +108,6 @@ func TestStoreValidatesAndCommitsEveryConversationRouteCommandFamily(t *testing.
 			seedConversationInputTargets(t, store, conversationID)
 			input := validConversationInput("input_" + string(kind))
 			input.ConversationID = conversationID
-			paneID := "pane_origin"
-			if kind == ConversationRouteDecisionKindCreateSideConversation ||
-				kind == ConversationRouteDecisionKindEscalateToMaster {
-				input.SourcePaneID = &paneID
-			}
-			if kind == ConversationRouteDecisionKindCreateSideConversation {
-				seedConversationRoutePaneBinding(t, store, conversationID, paneID)
-			}
 			switch kind {
 			case ConversationRouteDecisionKindQueueParentTurn, ConversationRouteDecisionKindSteerParentTurn:
 				seedConversationRouteRunningTurn(t, store, conversationID)
@@ -216,8 +208,6 @@ func assertRoutedMasterInput(
 		*accepted.Input.OriginatingWorkspaceID != "workspace" ||
 		accepted.Input.OriginatingConversationID == nil ||
 		*accepted.Input.OriginatingConversationID != input.ConversationID ||
-		accepted.Input.OriginatingPaneID == nil ||
-		*accepted.Input.OriginatingPaneID != *input.SourcePaneID ||
 		accepted.Input.OriginatingConversationInputID == nil ||
 		*accepted.Input.OriginatingConversationInputID != input.ID ||
 		!master.EqualReplyDeliveries(
@@ -556,9 +546,7 @@ func TestStoreRollsBackConversationRouteDecisionAndStatusTogether(t *testing.T) 
 func TestStoreRollsBackMasterEscalationAndDecisionTogether(t *testing.T) {
 	store := newTestStore(t)
 	seedConversationInputTargets(t, store, "conversation_alpha")
-	paneID := "pane_origin"
 	input := validConversationInput("input_atomic_master")
-	input.SourcePaneID = &paneID
 	acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
 	claimConversationRoutingInput(t, store, input.ConversationID, "2026-07-12T18:00:02Z")
 	decision, command := validConversationRouteDecisionAndCommand(
@@ -748,30 +736,26 @@ func TestStoreRejectsConversationRouteCommandsThatCannotExecute(t *testing.T) {
 		assertConversationInputStatus(t, store, input.ID, ConversationInputStatusRouting)
 	})
 
-	t.Run("occupied side pane", func(t *testing.T) {
+	t.Run("occupied side conversation", func(t *testing.T) {
 		store := newTestStore(t)
-		conversationID := "conversation_occupied_side_pane"
-		paneID := "pane_occupied_side"
+		conversationID := "conversation_occupied_side"
 		seedConversationInputTargets(t, store, conversationID)
-		seedConversationRoutePaneBinding(t, store, conversationID, paneID)
-		seedOpenConversationRouteSide(t, store, conversationID, paneID)
-		input := validConversationInput("input_occupied_side_pane")
+		seedOpenConversationRouteSide(t, store, conversationID)
+		input := validConversationInput("input_occupied_side")
 		input.ConversationID = conversationID
-		input.SourcePaneID = &paneID
 		acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
 		work := claimConversationRoutingInput(t, store, conversationID, "2026-07-12T18:00:02Z")
 		decision, command := validConversationRouteDecisionAndCommand(
 			ConversationRouteDecisionKindCreateSideConversation,
 			input.Text,
 		)
-		command.CreateSideConversation.ParentPaneID = paneID
-		commit := validConversationRouteDecisionCommit("decision_occupied_side_pane", decision, command)
+		commit := validConversationRouteDecisionCommit("decision_occupied_side", decision, command)
 		commit.ConversationID = conversationID
 		commit.InputID = input.ID
 		commit.RoutingAttempt = work.RoutingAttempt
 		commit.DecidedAt = "2026-07-12T18:00:03Z"
 		if _, err := store.CommitConversationRouteDecision(context.Background(), commit); !IsStateConflict(err) {
-			t.Fatalf("occupied side pane decision error = %T %v, want state conflict", err, err)
+			t.Fatalf("occupied side decision error = %T %v, want state conflict", err, err)
 		}
 		assertConversationInputStatus(t, store, input.ID, ConversationInputStatusRouting)
 	})
@@ -780,20 +764,16 @@ func TestStoreRejectsConversationRouteCommandsThatCannotExecute(t *testing.T) {
 func TestStoreTreatsDisposedRouterSideAsCompletedRouteEffect(t *testing.T) {
 	store := newTestStore(t)
 	conversationID := "conversation_disposed_router_side"
-	paneID := "pane_disposed_router_side"
 	seedConversationInputTargets(t, store, conversationID)
-	seedConversationRoutePaneBinding(t, store, conversationID, paneID)
 
 	input := validConversationInput("input_disposed_router_side")
 	input.ConversationID = conversationID
-	input.SourcePaneID = &paneID
 	acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
 	work := claimConversationRoutingInput(t, store, conversationID, "2026-07-12T18:00:02Z")
 	decision, command := validConversationRouteDecisionAndCommand(
 		ConversationRouteDecisionKindCreateSideConversation,
 		input.Text,
 	)
-	command.CreateSideConversation.ParentPaneID = paneID
 	commit := validConversationRouteDecisionCommit("decision_disposed_router_side", decision, command)
 	commit.ConversationID = conversationID
 	commit.InputID = input.ID
@@ -1224,25 +1204,6 @@ func seedConversationRouteCompletedTurn(t *testing.T, store *Store, conversation
 	}
 }
 
-func seedConversationRoutePaneBinding(
-	t *testing.T,
-	store *Store,
-	conversationID string,
-	paneID string,
-) {
-	t.Helper()
-	err := store.write(context.Background(), "seed conversation route pane binding", func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO pane_bindings(pane_id, workspace_id, conversation_id, created_at, updated_at)
-VALUES (?, 'workspace', ?, '2026-07-12T18:00:00Z', '2026-07-12T18:00:00Z')
-`, paneID, conversationID)
-		return err
-	})
-	if err != nil {
-		t.Fatalf("seed pane binding: %v", err)
-	}
-}
-
 func seedFullConversationRouteQueue(t *testing.T, store *Store, conversationID string) {
 	t.Helper()
 	err := store.write(context.Background(), "seed full conversation route queue", func(ctx context.Context, tx *sql.Tx) error {
@@ -1270,19 +1231,19 @@ VALUES (?, ?, ?, '2026-07-12T18:00:00Z')
 	}
 }
 
-func seedOpenConversationRouteSide(t *testing.T, store *Store, conversationID string, paneID string) {
+func seedOpenConversationRouteSide(t *testing.T, store *Store, conversationID string) {
 	t.Helper()
 	err := store.write(context.Background(), "seed open conversation route side", func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO side_conversations (
-  id, parent_conversation_id, parent_pane_id, decision_source,
+  id, parent_conversation_id, decision_source,
   source_provider_thread_id, source_trajectory_sequence, status,
   resolved_side_agent_invocation_json, created_at, updated_at
 ) VALUES (
-  'side_existing', ?, ?, 'conversation_router', 'provider_parent', 0, 'preparing',
+  'side_existing', ?, 'conversation_router', 'provider_parent', 0, 'preparing',
   '{}', '2026-07-12T18:00:00Z', '2026-07-12T18:00:00Z'
 )
-`, conversationID, paneID)
+`, conversationID)
 		return err
 	})
 	if err != nil {
@@ -1300,16 +1261,16 @@ func seedDisposedConversationRouteSide(
 	err := store.write(context.Background(), "seed disposed conversation route side", func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO side_conversations (
-  id, parent_conversation_id, parent_pane_id, decision_source,
+  id, parent_conversation_id, decision_source,
   provider_thread_id, source_provider_thread_id, source_trajectory_sequence,
   status, resolved_side_agent_invocation_json, created_at, updated_at, disposed_at
 ) VALUES (
-  ?, ?, ?, 'conversation_router',
+  ?, ?, 'conversation_router',
   'provider_disposed_side', 'provider_parent', 0,
   'disposing', '{}', '2026-07-12T18:00:04Z', '2026-07-12T18:00:05Z',
   '2026-07-12T18:00:05Z'
 )
-`, command.SideConversationID, record.ConversationID, command.ParentPaneID)
+`, command.SideConversationID, record.ConversationID)
 		return err
 	})
 	if err != nil {

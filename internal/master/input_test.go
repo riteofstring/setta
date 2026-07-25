@@ -8,7 +8,6 @@ import (
 func TestNormalizeInputPreservesTextAndNormalizesUTCMetadata(t *testing.T) {
 	workspaceID := "workspace_alpha"
 	conversationID := "conversation_alpha"
-	paneID := "pane_alpha"
 	input := MasterInput{
 		ID:                    "input_alpha",
 		Text:                  "  Keep the provider transcript exact.  ",
@@ -17,7 +16,6 @@ func TestNormalizeInputPreservesTextAndNormalizesUTCMetadata(t *testing.T) {
 		SubmittedAt:           "2026-07-12T18:00:00.000Z",
 		FocusedWorkspaceID:    &workspaceID,
 		FocusedConversationID: &conversationID,
-		FocusedPaneID:         &paneID,
 	}
 
 	normalized, err := NormalizeInput(input)
@@ -56,8 +54,8 @@ func TestNormalizeInputRejectsInvalidContracts(t *testing.T) {
 		{name: "unknown source", mutate: func(input *MasterInput) { input.Source = "sidebar" }},
 		{name: "non UTC timestamp", mutate: func(input *MasterInput) { input.SubmittedAt = "2026-07-12T11:00:00-07:00" }},
 		{name: "invalid timestamp", mutate: func(input *MasterInput) { input.SubmittedAt = "today" }},
-		{name: "empty focus hint", mutate: func(input *MasterInput) { empty := ""; input.FocusedPaneID = &empty }},
-		{name: "spaced focus hint", mutate: func(input *MasterInput) { spaced := " pane "; input.FocusedPaneID = &spaced }},
+		{name: "empty focus hint", mutate: func(input *MasterInput) { empty := ""; input.FocusedConversationID = &empty }},
+		{name: "spaced focus hint", mutate: func(input *MasterInput) { spaced := " conversation "; input.FocusedConversationID = &spaced }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -95,7 +93,6 @@ func TestAcceptedInputRequiresNormalizedDurableRecord(t *testing.T) {
 func TestMasterInputSourceLinkageDerivesReplyDelivery(t *testing.T) {
 	workspaceID := "workspace_alpha"
 	conversationID := "conversation_alpha"
-	paneID := "pane_alpha"
 	conversationInputID := "conversation_input_alpha"
 	escalation := MasterInput{
 		ID:                             "master_input_escalation",
@@ -105,7 +102,6 @@ func TestMasterInputSourceLinkageDerivesReplyDelivery(t *testing.T) {
 		SubmittedAt:                    "2026-07-12T18:00:00Z",
 		OriginatingWorkspaceID:         &workspaceID,
 		OriginatingConversationID:      &conversationID,
-		OriginatingPaneID:              &paneID,
 		OriginatingConversationInputID: &conversationInputID,
 	}
 	if _, err := NormalizeInput(escalation); err != nil {
@@ -114,8 +110,6 @@ func TestMasterInputSourceLinkageDerivesReplyDelivery(t *testing.T) {
 	delivery := ReplyDeliveryForInput(escalation)
 	if delivery.OriginatingConversationID == nil ||
 		*delivery.OriginatingConversationID != conversationID ||
-		delivery.OriginatingPaneID == nil ||
-		*delivery.OriginatingPaneID != paneID ||
 		delivery.OriginatingConversationInputID == nil ||
 		*delivery.OriginatingConversationInputID != conversationInputID {
 		t.Fatalf("reply delivery = %+v", delivery)

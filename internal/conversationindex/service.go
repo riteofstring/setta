@@ -92,7 +92,6 @@ func (service *Service) resolveWorkspaceNames(stored []StoredCandidate) ([]Candi
 func cloneStoredTopicCard(card StoredTopicCard) StoredTopicCard {
 	card.RecentUserRequests = append([]TextExcerpt{}, card.RecentUserRequests...)
 	card.RecentFinalSummaries = append([]TextExcerpt{}, card.RecentFinalSummaries...)
-	card.OpenPaneIDs = append([]string{}, card.OpenPaneIDs...)
 	return card
 }
 

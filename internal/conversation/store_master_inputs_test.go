@@ -13,7 +13,6 @@ func TestStoreAcceptsMasterInputIdempotentlyWithCommittedEvent(t *testing.T) {
 	store := newTestStore(t)
 	workspaceID := "workspace_alpha"
 	conversationID := "conversation_alpha"
-	paneID := "pane_alpha"
 	input := master.MasterInput{
 		ID:                    "input_alpha",
 		Text:                  "  Route this exact voice transcript.  ",
@@ -22,7 +21,6 @@ func TestStoreAcceptsMasterInputIdempotentlyWithCommittedEvent(t *testing.T) {
 		SubmittedAt:           "2026-07-12T18:00:00Z",
 		FocusedWorkspaceID:    &workspaceID,
 		FocusedConversationID: &conversationID,
-		FocusedPaneID:         &paneID,
 	}
 
 	accepted, err := store.AcceptMasterInput(

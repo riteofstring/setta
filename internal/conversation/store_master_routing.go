@@ -230,10 +230,6 @@ WHERE id = ? AND archived_at IS NULL
 	if err != nil {
 		return master.RouteConversationTarget{}, false, fmt.Errorf("read master route target %s: %w", conversationID, err)
 	}
-	openPaneIDs, openPaneCount, err := readMasterRouteTargetPanes(ctx, reader, conversationID)
-	if err != nil {
-		return master.RouteConversationTarget{}, false, err
-	}
 	activeTurnID, err := readMasterRouteActiveTurn(ctx, reader, conversationID)
 	if err != nil {
 		return master.RouteConversationTarget{}, false, err
@@ -257,8 +253,6 @@ WHERE id = ? AND archived_at IS NULL
 		ResourceScope:        master.RouteResourceScopeForWorkspaceID(conversation.WorkspaceID),
 		Title:                conversation.Title,
 		Status:               string(conversation.Status),
-		OpenPaneIDs:          openPaneIDs,
-		OpenPaneCount:        openPaneCount,
 		ActiveTurnID:         activeTurnID,
 		CompletedForkPoints:  forkPoints,
 		AllowedDecisionKinds: allowed,

@@ -31,9 +31,6 @@ import type {
   NarratorVoiceDefault,
   NavigatorPage,
   OpenWorkspaceResponse,
-  PresentationIntent,
-  PresentationResolution,
-  PresentationResolutionRequest,
   ReadConversationInputRoutingStateRequest,
   ReadConversationArtifactRequest,
   ReadConversationSnapshotRequest,
@@ -250,14 +247,10 @@ export interface SettaAPI {
     cancelInput: (request: CancelMasterInputRequest) => Promise<ShellInteractionState>;
     readActiveInteraction: () => Promise<ActiveShellInteraction>;
     readTranscript: (request: ReadMasterTranscriptRequest) => Promise<Transcript>;
-    resolvePresentation: (
-      request: PresentationResolutionRequest,
-    ) => Promise<PresentationResolution>;
     submitInput: (request: SubmitMasterInputRequest) => Promise<AcceptedMasterInput>;
     waitInteraction: (
       request: ReadMasterInputRoutingStateRequest,
     ) => Promise<ShellInteractionState>;
-    waitPresentation: (request: ReadMasterInputRoutingStateRequest) => Promise<PresentationIntent>;
   };
   roles?: {
     readConversation: (

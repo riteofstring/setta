@@ -47,7 +47,6 @@ func TestMasterRouteCommandExecutorCompletesPersistedNarratorDegradation(t *test
 	if err := executor.ExecuteMasterRouteCommand(
 		context.Background(),
 		masterRoutedNarratorStatusDecisionRecord(),
-		nil,
 	); err != nil {
 		t.Fatalf("ExecuteMasterRouteCommand: %v", err)
 	}
@@ -76,7 +75,6 @@ func TestMasterRouteCommandExecutorNotifiesAppliedCreateConversationInput(t *tes
 	if err := executor.ExecuteMasterRouteCommand(
 		context.Background(),
 		masterRoutedFolderlessCreateDecisionRecord(),
-		nil,
 	); err != nil {
 		t.Fatalf("ExecuteMasterRouteCommand: %v", err)
 	}
@@ -256,7 +254,6 @@ func (*masterRouteCommandExecutorConversations) ExecuteMasterRouteCommand(
 	context.Context,
 	string,
 	master.RouteCommand,
-	*string,
 ) (conversation.ConversationSnapshot, error) {
 	return conversation.ConversationSnapshot{}, errors.New("unexpected master conversation command")
 }

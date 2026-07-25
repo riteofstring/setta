@@ -55,15 +55,6 @@ func ContractTaggedUnions() []ContractTaggedUnion {
 		Discriminator: "kind",
 		Type:          reflect.TypeFor[RouteCommand](),
 		Branches:      decisionBranches,
-	}, {
-		Discriminator: "kind",
-		Type:          reflect.TypeFor[PresentationIntent](),
-		Branches: []ContractTaggedUnionBranch{
-			{Field: "focusExistingConversationPane", KindValue: string(PresentationIntentKindFocusExistingConversationPane)},
-			{Field: "openConversationPane", KindValue: string(PresentationIntentKindOpenConversationPane)},
-			{Field: "openSideConversation", KindValue: string(PresentationIntentKindOpenSideConversation)},
-			{Field: "showMasterReply", KindValue: string(PresentationIntentKindShowMasterReply)},
-		},
 	}}
 }
 
@@ -124,15 +115,6 @@ func ContractValueSets() []ContractValueSet {
 				string(InputRoutingStatusDecided),
 				string(InputRoutingStatusCancelled),
 				string(InputRoutingStatusFailed),
-			},
-		},
-		{
-			Name: "PresentationIntentKind",
-			Values: []string{
-				string(PresentationIntentKindFocusExistingConversationPane),
-				string(PresentationIntentKindOpenConversationPane),
-				string(PresentationIntentKindOpenSideConversation),
-				string(PresentationIntentKindShowMasterReply),
 			},
 		},
 		{

@@ -290,7 +290,6 @@ func readConversationRouteSideEffect(
 
 type conversationRouteSideMetadata struct {
 	parentConversationID string
-	parentPaneID         string
 	source               BranchDecisionSource
 	status               SideConversationStatus
 	activeTurnID         *string
@@ -305,13 +304,12 @@ func readConversationRouteSideMetadata(
 	var metadata conversationRouteSideMetadata
 	var activeTurnID, disposedAt sql.NullString
 	err := reader.QueryRowContext(ctx, `
-SELECT parent_conversation_id, parent_pane_id, decision_source, status,
+SELECT parent_conversation_id, decision_source, status,
        active_turn_id, disposed_at
 FROM side_conversations
 WHERE id = ?
 `, sideConversationID).Scan(
 		&metadata.parentConversationID,
-		&metadata.parentPaneID,
 		&metadata.source,
 		&metadata.status,
 		&activeTurnID,
@@ -331,7 +329,6 @@ func validateConversationRouteSideMetadata(
 	command *CreateSideConversationRouteCommand,
 ) error {
 	if metadata.parentConversationID != record.ConversationID ||
-		metadata.parentPaneID != command.ParentPaneID ||
 		metadata.source != BranchDecisionSourceConversationRouter {
 		return stateConflict(
 			"conversation route side conversation",

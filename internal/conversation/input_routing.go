@@ -71,8 +71,8 @@ type ClarifyConversationRouteDecision struct {
 }
 
 // ConversationRouteDecision is the complete authority an AI-authored local
-// routing result may carry. The bound conversation, originating pane, provider
-// references, and executable command ids remain trusted application state.
+// routing result may carry. The bound conversation, provider references, and
+// executable command ids remain trusted application state.
 type ConversationRouteDecision struct {
 	Kind                   ConversationRouteDecisionKind              `json:"kind"`
 	SendToParent           *SendToParentConversationRouteDecision     `json:"sendToParent"`
@@ -107,7 +107,6 @@ type AnswerAsNarratorConversationRouteCommand struct {
 
 type CreateSideConversationRouteCommand struct {
 	SideConversationID string        `json:"sideConversationId"`
-	ParentPaneID       string        `json:"parentPaneId"`
 	TurnID             string        `json:"turnId"`
 	Input              AuthoredInput `json:"input"`
 }
@@ -434,9 +433,6 @@ func validateCreateSideConversationCommand(payload *CreateSideConversationRouteC
 		return errors.New("create-side command requires createSideConversation")
 	}
 	if err := validateIdentifier("conversation route side conversation id", payload.SideConversationID); err != nil {
-		return err
-	}
-	if err := validateIdentifier("conversation route parent pane id", payload.ParentPaneID); err != nil {
 		return err
 	}
 	if err := validateIdentifier("conversation route side turn id", payload.TurnID); err != nil {

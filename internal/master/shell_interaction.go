@@ -25,8 +25,7 @@ type ShellInteractionState struct {
 
 // ActiveShellInteraction contains only shell state that may be restored into
 // the action overlay. Completed answers remain durable for routing context and
-// audit but are deliberately absent; navigation remains restorable until a
-// renderer durably resolves its destination pane.
+// audit but are deliberately absent.
 type ActiveShellInteraction struct {
 	State *ShellInteractionState `json:"state"`
 }

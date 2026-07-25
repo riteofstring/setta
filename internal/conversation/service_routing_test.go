@@ -32,15 +32,12 @@ func (service *Service) steerTestTurn(
 func (service *Service) createRouterSideConversationForTest(
 	ctx context.Context,
 	workspaceID string,
-	parentConversationID string,
-	parentPaneID string,
-) (ConversationSnapshot, error) {
+	parentConversationID string) (ConversationSnapshot, error) {
 	return service.ExecuteBranchDecision(
 		ctx,
 		workspaceID,
 		BranchDecisionExecutionScope{
 			ParentConversationID: parentConversationID,
-			ParentPaneID:         &parentPaneID,
 			Source:               BranchDecisionSourceConversationRouter,
 		},
 		BranchDecision{

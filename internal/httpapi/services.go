@@ -38,7 +38,7 @@ type ConversationService interface {
 	ArchiveTopic(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	BindFolderResource(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	SendSideConversationTurn(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
-	DisposeSideConversation(context.Context, string, string, string, string) (conversation.ConversationSnapshot, error)
+	DisposeSideConversation(context.Context, string, string, string) (conversation.ConversationSnapshot, error)
 	StopTurn(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	SubmitApproval(
 		context.Context,
@@ -122,8 +122,6 @@ type MasterInputService interface {
 	ReadInputState(context.Context, string) (master.InputRoutingState, error)
 	ReadTranscript(context.Context, int) (master.Transcript, error)
 	SubmitInput(context.Context, master.MasterInput) (master.AcceptedMasterInput, error)
-	WaitPresentationIntent(context.Context, string) (master.PresentationIntent, error)
-	ResolvePresentationIntent(context.Context, master.PresentationResolutionRequest) (master.PresentationResolution, error)
 	WaitShellInteraction(context.Context, string) (master.ShellInteractionState, error)
 }
 

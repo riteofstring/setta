@@ -197,28 +197,6 @@ func TestServicePreservesTypedStoreConflict(t *testing.T) {
 	}
 }
 
-func TestServiceResolvesValidatedPresentationWithBackendTimestamp(t *testing.T) {
-	request := PresentationResolutionRequest{
-		IntentID: PresentationIntentID("input-presentation"),
-		InputID:  "input-presentation",
-		PaneID:   "pane-presentation",
-	}
-	service, err := newService(&recordingInputStore{}, func() time.Time {
-		return time.Date(2026, 7, 12, 18, 0, 2, 0, time.UTC)
-	})
-	if err != nil {
-		t.Fatalf("newService: %v", err)
-	}
-	resolution, err := service.ResolvePresentationIntent(context.Background(), request)
-	if err != nil {
-		t.Fatalf("ResolvePresentationIntent: %v", err)
-	}
-	if resolution.IntentID != request.IntentID || resolution.InputID != request.InputID ||
-		resolution.PaneID != request.PaneID || resolution.ResolvedAt != "2026-07-12T18:00:02Z" {
-		t.Fatalf("presentation resolution = %+v", resolution)
-	}
-}
-
 func TestServiceReadsAndClonesMasterInputRoutingState(t *testing.T) {
 	input := MasterInput{
 		ID:          "input_state",
@@ -310,8 +288,6 @@ type recordingInputStore struct {
 	err              error
 	interaction      ActiveShellInteraction
 	input            MasterInput
-	intent           PresentationIntent
-	resolution       PresentationResolution
 	invalid          bool
 	state            InputRoutingState
 	transcript       Transcript
@@ -328,29 +304,6 @@ func (store *recordingInputStore) CancelMasterInputRouting(
 	store.cancelledInputID = inputID
 	store.cancelledAt = cancelledAt
 	return CloneInputRoutingState(store.state), store.err
-}
-
-func (store *recordingInputStore) ResolveMasterPresentationIntent(
-	_ context.Context,
-	request PresentationResolutionRequest,
-	resolvedAt string,
-) (PresentationResolution, error) {
-	if store.err != nil {
-		return PresentationResolution{}, store.err
-	}
-	if store.resolution.IntentID != "" {
-		return store.resolution, nil
-	}
-	return PresentationResolution{
-		IntentID: request.IntentID, InputID: request.InputID, PaneID: request.PaneID, ResolvedAt: resolvedAt,
-	}, nil
-}
-
-func (store *recordingInputStore) WaitForMasterPresentationIntent(
-	_ context.Context,
-	_ string,
-) (PresentationIntent, error) {
-	return ClonePresentationIntent(store.intent), store.err
 }
 
 func (store *recordingInputStore) ReadMasterInputRoutingState(

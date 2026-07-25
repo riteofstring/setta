@@ -2,6 +2,10 @@ import process from "node:process";
 
 const simultaneousAudioHoldPrefix = "hold simultaneous audio ";
 
+export function nonEmptyString(value) {
+  return typeof value === "string" && value !== "";
+}
+
 export function emitSimultaneousAudioHoldProgress(emitAgentMessage, threadId, turnId, text) {
   if (!text.startsWith(simultaneousAudioHoldPrefix)) return;
   emitAgentMessage(threadId, turnId, `Visible progress for ${text}.`, `agent-progress-${turnId}`);
@@ -138,10 +142,6 @@ function validStructuredMasterClarificationContext(clarification) {
   );
 }
 
-function nonEmptyString(value) {
-  return typeof value === "string" && value !== "";
-}
-
 function masterInputConfirmsClarification(input) {
   return input?.source === "shell" && input?.text === "Yes, that one.";
 }
@@ -226,4 +226,145 @@ export function listLimit(limit) {
     throw new Error(`invalid fake thread/list limit: ${limit}`);
   }
   return value;
+}
+
+const scriptedMasterRouteDecisionByText = new Map([
+  ["Cancel active master route.", scriptedMasterCancellationDecision],
+  ["Crash master route.", scriptedMasterCrashDecision],
+  ["Focus Alpha topic.", scriptedMasterFocusDecision],
+  ["Create Gamma topic.", scriptedMasterCreateDecision],
+  [
+    "Open the recent conversation where I asked what folder I was in.",
+    scriptedMasterFolderlessRecentFocusDecision,
+  ],
+  [
+    "Clarify the recent folder question conversation.",
+    scriptedMasterFolderlessClarificationDecision,
+  ],
+  ["Open an Alpha side.", scriptedMasterSideDecision],
+  ["Fork Alpha topic.", scriptedMasterForkDecision],
+]);
+
+function scriptedMasterCancellationDecision(context, schema) {
+  const valid = [
+    context.allowedDecisionKinds.includes("answer_global"),
+    schema.includes('"answer_global"'),
+  ].every(Boolean);
+  return valid
+    ? { kind: "answer_global", text: "A cancelled master route must never commit this answer." }
+    : null;
+}
+
+function scriptedMasterCrashDecision(context, schema) {
+  const valid = [
+    context.allowedDecisionKinds.includes("answer_global"),
+    schema.includes('"answer_global"'),
+  ].every(Boolean);
+  return valid
+    ? { kind: "answer_global", text: "The crashed master route recovered exactly once." }
+    : null;
+}
+export function scriptedMasterRouteDecision(context, schema) {
+  const input = context.input?.input;
+  const scriptedDecision = scriptedMasterRouteDecisionByText.get(input?.text);
+  if (scriptedDecision) {
+    return scriptedDecision(context, schema, input);
+  }
+  const clarificationDecision = scriptedMasterClarificationConfirmationDecision(
+    context,
+    schema,
+    input,
+  );
+  if (clarificationDecision) {
+    return clarificationDecision;
+  }
+  if (masterInputNeedsClarification(input)) {
+    return scriptedMasterClarificationDecision(context, schema);
+  }
+  if (isShellVoiceMasterInput(input)) {
+    return scriptedMasterVoiceDecision(context, schema);
+  }
+  return null;
+}
+
+function scriptedMasterCreateDecision(context, schema) {
+  const valid = [
+    context.allowedDecisionKinds.includes("create_conversation"),
+    schema.includes('"resourceScope"'),
+    schema.includes('"folderless"'),
+  ].every(Boolean);
+  return valid
+    ? {
+        initialInput: "Start the Gamma topic from the global master.",
+        kind: "create_conversation",
+        proposedTitle: "Gamma topic",
+        resourceScope: { kind: "folderless" },
+      }
+    : null;
+}
+
+function scriptedMasterSideDecision(context, schema) {
+  const target = masterTargetByTitle(context, "Alpha topic");
+  const valid = [
+    target?.allowedDecisionKinds?.includes("create_side_conversation"),
+    schema.includes(`"${target?.conversationId}"`),
+  ].every(Boolean);
+  return valid
+    ? {
+        input: "Answer this short Alpha tangent.",
+        kind: "create_side_conversation",
+        parentConversationId: target.conversationId,
+      }
+    : null;
+}
+
+function scriptedMasterForkDecision(context, schema) {
+  const target = masterTargetByTitle(context, "Alpha topic");
+  const forkPoint = target?.completedForkPoints?.at(-1);
+  const valid = [
+    target?.allowedDecisionKinds?.includes("fork_conversation"),
+    nonEmptyString(forkPoint?.turnId),
+    schema.includes(`"${target?.conversationId}"`),
+    schema.includes(`"${forkPoint?.turnId}"`),
+  ].every(Boolean);
+  return valid
+    ? {
+        forkedAtTurnId: forkPoint.turnId,
+        input: "Continue this Alpha work as a durable master fork.",
+        kind: "fork_conversation",
+        parentConversationId: target.conversationId,
+      }
+    : null;
+}
+
+function masterTargetByTitle(context, title) {
+  return context.conversationTargets?.find((target) => target.title === title);
+}
+
+function masterInputNeedsClarification(input) {
+  return input?.text === "Clarify Alpha." || input?.source === "conversation_escalation";
+}
+function isShellVoiceMasterInput(input) {
+  return (
+    input?.source === "shell" &&
+    (input?.modality === "voice" || input?.text === "Answer from folderless master.")
+  );
+}
+
+function scriptedMasterClarificationDecision(context, schema) {
+  const valid = [
+    context.allowedDecisionKinds.includes("clarify"),
+    schema.includes('"clarify"'),
+  ].every(Boolean);
+  return valid
+    ? { kind: "clarify", question: "Which topic should handle this unrelated request?" }
+    : null;
+}
+
+function scriptedMasterVoiceDecision(context, schema) {
+  const valid = [
+    context.allowedDecisionKinds.includes("answer_global"),
+    schema.includes('"answer_global"'),
+  ].every(Boolean);
+  return valid ? { kind: "answer_global", text: "The shell voice request was received." } : null;
 }

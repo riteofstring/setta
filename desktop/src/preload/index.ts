@@ -113,10 +113,8 @@ const api: SettaAPI = {
     cancelInput: (request) => invoke("masterCancelInput", request),
     readActiveInteraction: () => invoke("masterReadActiveInteraction"),
     readTranscript: (request) => invoke("masterReadTranscript", request),
-    resolvePresentation: (request) => invoke("masterResolvePresentation", request),
     submitInput: (request) => invoke("masterSubmitInput", request),
     waitInteraction: (request) => invoke("masterWaitInteraction", request),
-    waitPresentation: (request) => invoke("masterWaitPresentation", request),
   },
   roles: {
     readConversation: (request) => invoke("roleConfigurationReadConversation", request),

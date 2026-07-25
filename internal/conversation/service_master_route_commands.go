@@ -15,9 +15,8 @@ func (service *Service) ExecuteMasterRouteCommand(
 	ctx context.Context,
 	decisionID string,
 	command master.RouteCommand,
-	resolvedPaneID *string,
 ) (ConversationSnapshot, error) {
-	if err := validateMasterRouteCommandRequest(service, ctx, decisionID, command, resolvedPaneID); err != nil {
+	if err := validateMasterRouteCommandRequest(service, ctx, decisionID, command); err != nil {
 		return ConversationSnapshot{}, err
 	}
 
@@ -31,7 +30,7 @@ func (service *Service) ExecuteMasterRouteCommand(
 	case master.RouteDecisionKindCreateConversation:
 		return service.executeMasterCreateConversation(ctx, command.CreateConversation)
 	case master.RouteDecisionKindCreateSideConversation:
-		return service.executeMasterSideConversation(ctx, command.CreateSideConversation, *resolvedPaneID)
+		return service.executeMasterSideConversation(ctx, command.CreateSideConversation)
 	case master.RouteDecisionKindForkConversation:
 		return service.executeMasterForkConversation(ctx, command.ForkConversation)
 	case master.RouteDecisionKindAskNarrator,
@@ -83,7 +82,6 @@ func validateMasterRouteCommandRequest(
 	ctx context.Context,
 	decisionID string,
 	command master.RouteCommand,
-	resolvedPaneID *string,
 ) error {
 	if service == nil {
 		return errors.New("conversation service is required")
@@ -94,23 +92,7 @@ func validateMasterRouteCommandRequest(
 	if err := validateIdentifier("master route command decision id", decisionID); err != nil {
 		return err
 	}
-	if err := command.Validate(); err != nil {
-		return err
-	}
-	if command.Kind == master.RouteDecisionKindCreateSideConversation {
-		return validateMasterSideRoutePane(resolvedPaneID)
-	}
-	if resolvedPaneID != nil {
-		return errors.New("non-side master route command cannot have a resolved pane")
-	}
-	return nil
-}
-
-func validateMasterSideRoutePane(resolvedPaneID *string) error {
-	if resolvedPaneID == nil {
-		return errors.New("master side route requires a resolved parent pane")
-	}
-	return validateIdentifier("master side route resolved pane id", *resolvedPaneID)
+	return command.Validate()
 }
 
 func (service *Service) executeMasterCreateConversation(
@@ -149,7 +131,6 @@ func (service *Service) executeMasterCreateConversation(
 func (service *Service) executeMasterSideConversation(
 	ctx context.Context,
 	command *master.MasterCreateSideConversationRouteCommand,
-	parentPaneID string,
 ) (ConversationSnapshot, error) {
 	workspaceID, err := masterRouteCommandFolderWorkspaceID(command.Target)
 	if err != nil {
@@ -165,7 +146,6 @@ func (service *Service) executeMasterSideConversation(
 			workspaceID,
 			BranchDecisionExecutionScope{
 				ParentConversationID: command.Target.ConversationID,
-				ParentPaneID:         &parentPaneID,
 				SideConversationID:   &command.SideConversationID,
 				Source:               BranchDecisionSourceMaster,
 			},

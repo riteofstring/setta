@@ -680,12 +680,6 @@ func conversationRouteSideCommand(
 	work conversation.ConversationInputRoutingWork,
 	decision conversation.ConversationRouteDecision,
 ) (conversation.ConversationRouteCommand, error) {
-	if work.Input.Input.SourcePaneID == nil {
-		return conversation.ConversationRouteCommand{}, NewAttemptFailure(
-			FailureKindStateUnavailable,
-			errors.New("conversation router side decision has no source pane"),
-		)
-	}
 	sideID, err := conversationRouteCommandID(newID, "side_conversation")
 	if err != nil {
 		return conversation.ConversationRouteCommand{}, err
@@ -695,7 +689,6 @@ func conversationRouteSideCommand(
 		Kind: decision.Kind,
 		CreateSideConversation: &conversation.CreateSideConversationRouteCommand{
 			SideConversationID: sideID,
-			ParentPaneID:       *work.Input.Input.SourcePaneID,
 			TurnID:             turnID,
 			Input:              decision.CreateSideConversation.Input,
 		},

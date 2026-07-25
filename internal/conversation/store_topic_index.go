@@ -412,11 +412,6 @@ func readTopicIndexCandidateSnapshot(
 	if err != nil {
 		return nil, err
 	}
-	for index := range candidates {
-		if err := readTopicIndexOpenPanes(ctx, reader, &candidates[index].Card); err != nil {
-			return nil, err
-		}
-	}
 	if err := conversationindex.ValidateStoredCandidates(candidates, request); err != nil {
 		return nil, &CorruptStateError{Path: dbPath, Err: err}
 	}
@@ -596,7 +591,6 @@ func scanTopicIndexCandidates(
 		if err := decodeTopicIndexExcerpts(summariesJSON, &candidate.Card.RecentFinalSummaries); err != nil {
 			return nil, &CorruptStateError{Path: dbPath, Err: fmt.Errorf("topic card %s final summaries: %w", candidate.Card.ConversationID, err)}
 		}
-		candidate.Card.OpenPaneIDs = []string{}
 		if lexicalRank.Valid {
 			candidate.LexicalRank = &lexicalRank.Float64
 		}
@@ -624,58 +618,6 @@ func decodeTopicIndexExcerpts(raw string, target *[]conversationindex.TextExcerp
 	return nil
 }
 
-func readTopicIndexOpenPanes(
-	ctx context.Context,
-	reader *sql.Tx,
-	card *conversationindex.StoredTopicCard,
-) error {
-	if err := reader.QueryRowContext(ctx, `
-SELECT COUNT(*)
-FROM pane_bindings
-WHERE conversation_id = ?
-`, card.ConversationID).Scan(&card.OpenPaneCount); err != nil {
-		return fmt.Errorf("count topic card pane bindings for %s: %w", card.ConversationID, err)
-	}
-	rows, err := reader.QueryContext(ctx, `
-WITH pane_activity AS (
-  SELECT pane_id, COALESCE(last_focused_at, updated_at) AS focused_at
-  FROM pane_bindings
-  WHERE conversation_id = ?
-), normalized_pane_activity AS (
-  SELECT
-    pane_id,
-    substr(focused_at, 1, 19) || '.' ||
-      substr(
-        CASE
-          WHEN instr(focused_at, '.') = 20
-            THEN substr(focused_at, 21, length(focused_at) - 21)
-          ELSE ''
-        END || '000000000',
-        1,
-        9
-      ) AS focused_sort_key
-  FROM pane_activity
-)
-SELECT pane_id
-FROM normalized_pane_activity
-ORDER BY focused_sort_key DESC, pane_id ASC
-LIMIT ?
-`, card.ConversationID, conversationindex.MaxOpenPaneIDs)
-	if err != nil {
-		return fmt.Errorf("read topic card pane bindings for %s: %w", card.ConversationID, err)
-	}
-	defer rows.Close()
-	card.OpenPaneIDs = []string{}
-	for rows.Next() {
-		var paneID string
-		if err := rows.Scan(&paneID); err != nil {
-			return fmt.Errorf("decode topic card pane binding for %s: %w", card.ConversationID, err)
-		}
-		card.OpenPaneIDs = append(card.OpenPaneIDs, paneID)
-	}
-	return rows.Err()
-}
-
 func cloneTopicIndexCandidates(
 	candidates []conversationindex.StoredCandidate,
 ) []conversationindex.StoredCandidate {
@@ -683,7 +625,6 @@ func cloneTopicIndexCandidates(
 	for index, candidate := range candidates {
 		candidate.Card.RecentUserRequests = append([]conversationindex.TextExcerpt{}, candidate.Card.RecentUserRequests...)
 		candidate.Card.RecentFinalSummaries = append([]conversationindex.TextExcerpt{}, candidate.Card.RecentFinalSummaries...)
-		candidate.Card.OpenPaneIDs = append([]string{}, candidate.Card.OpenPaneIDs...)
 		if candidate.LexicalRank != nil {
 			rank := *candidate.LexicalRank
 			candidate.LexicalRank = &rank

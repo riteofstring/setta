@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 90;
-export const backendContractSchemaHash = "sha256:4c6c4ffb2f86b68152c3d56c705c0ec7f574765d80c2cd2fdd0a6360f22b7cdc";
+export const backendProtocolVersion = 91;
+export const backendContractSchemaHash = "sha256:29c0a8d3f1ab85425e54a893cbbaa9fb07eb85d7467dc2f739e5e2e1dd76a2d6";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -1770,26 +1770,6 @@ export function decodeMasterReplyKind(value: unknown, label = "MasterReplyKind")
   }
 }
 
-export type PresentationIntentKind = "focus_existing_conversation_pane" | "open_conversation_pane" | "open_side_conversation_in_parent_pane" | "show_master_reply";
-
-export const presentationIntentKindValues = ["focus_existing_conversation_pane", "open_conversation_pane", "open_side_conversation_in_parent_pane", "show_master_reply"] as const satisfies readonly PresentationIntentKind[];
-
-export function decodePresentationIntentKind(value: unknown, label = "PresentationIntentKind"): PresentationIntentKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "focus_existing_conversation_pane":
-      return decoded;
-    case "open_conversation_pane":
-      return decoded;
-    case "open_side_conversation_in_parent_pane":
-      return decoded;
-    case "show_master_reply":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
 export type SpeechProviderStatus = "configured" | "not_configured";
 
 export const speechProviderStatusValues = ["configured", "not_configured"] as const satisfies readonly SpeechProviderStatus[];
@@ -2766,7 +2746,6 @@ export interface ConversationBranch {
 export interface SideConversation {
   id: string;
   parentConversationId: string;
-  parentPaneId: string;
   parentStatus: ConversationStatus;
   decisionSource: BranchDecisionSource;
   providerThreadId: string | null;
@@ -2840,7 +2819,6 @@ export interface SendSideConversationTurnRequest {
 export interface DisposeSideConversationRequest {
   workspaceId: string;
   parentConversationId: string;
-  parentPaneId: string;
   sideConversationId: string;
 }
 
@@ -3059,7 +3037,6 @@ export interface ConversationEvent {
 export interface ConversationInput {
   id: string;
   conversationId: string;
-  sourcePaneId: string | null;
   replyToInputId: string | null;
   text: string;
   modality: ConversationInputModality;
@@ -3179,7 +3156,6 @@ export interface AnswerAsNarratorConversationRouteCommand {
 
 export interface CreateSideConversationRouteCommand {
   sideConversationId: string;
-  parentPaneId: string;
   turnId: string;
   input: AuthoredInput;
 }
@@ -3685,10 +3661,8 @@ export interface MasterInput {
   submittedAt: string;
   focusedWorkspaceId: string | null;
   focusedConversationId: string | null;
-  focusedPaneId: string | null;
   originatingWorkspaceId: string | null;
   originatingConversationId: string | null;
-  originatingPaneId: string | null;
   originatingConversationInputId: string | null;
 }
 
@@ -3789,7 +3763,6 @@ export interface SubmitMasterInputRequest {
 export interface MasterReplyDelivery {
   originatingWorkspaceId: string | null;
   originatingConversationId: string | null;
-  originatingPaneId: string | null;
   originatingConversationInputId: string | null;
 }
 
@@ -3883,7 +3856,6 @@ export interface ConversationPresentationTarget {
   resourceScope: RouteResourceScope;
   resourceBindings: PresentationResourceBinding[];
   title: string;
-  preferredPaneId: string | null;
 }
 
 export interface MasterSendToAgentRouteCommand {
@@ -4045,51 +4017,6 @@ export interface TranscriptEntry {
 export interface Transcript {
   entries: TranscriptEntry[];
   lastSequence: number;
-}
-
-export interface FocusExistingConversationPaneIntent {
-  target: ConversationPresentationTarget;
-}
-
-export interface OpenConversationPaneIntent {
-  target: ConversationPresentationTarget;
-}
-
-export interface OpenSideConversationInParentPaneIntent {
-  target: ConversationPresentationTarget;
-}
-
-export interface ShowMasterReplyIntent {
-  replyKind: MasterReplyKind;
-  text: string;
-}
-
-export interface PresentationIntent {
-  id: string;
-  inputId: string;
-  source: MasterInputSource;
-  originatingWorkspaceId: string | null;
-  originatingConversationId: string | null;
-  originatingPaneId: string | null;
-  originatingConversationInputId: string | null;
-  kind: PresentationIntentKind;
-  focusExistingConversationPane: FocusExistingConversationPaneIntent | null;
-  openConversationPane: OpenConversationPaneIntent | null;
-  openSideConversation: OpenSideConversationInParentPaneIntent | null;
-  showMasterReply: ShowMasterReplyIntent | null;
-}
-
-export interface PresentationResolutionRequest {
-  intentId: string;
-  inputId: string;
-  paneId: string;
-}
-
-export interface PresentationResolution {
-  intentId: string;
-  inputId: string;
-  paneId: string;
-  resolvedAt: string;
 }
 
 export interface SpeechVoiceCatalog {
@@ -4507,16 +4434,6 @@ export const backendEndpoints = {
   WaitMasterShellInteraction: {
     method: "POST",
     path: "/master/interaction/wait",
-    requestBodyLimitBytes: 4194304,
-  },
-  WaitMasterPresentationIntent: {
-    method: "POST",
-    path: "/master/presentation/wait",
-    requestBodyLimitBytes: 4194304,
-  },
-  ResolveMasterPresentationIntent: {
-    method: "POST",
-    path: "/master/presentation/resolve",
     requestBodyLimitBytes: 4194304,
   },
   ReadSpeechCapabilities: {
@@ -5825,11 +5742,10 @@ export function decodeConversationBranch(value: unknown): ConversationBranch {
 
 export function decodeSideConversation(value: unknown): SideConversation {
   const record = assertRecord(value, "SideConversation");
-  assertKnownFields(record, "SideConversation", ["id", "parentConversationId", "parentPaneId", "parentStatus", "decisionSource", "providerThreadId", "sourceProviderThreadId", "sourceProviderTurnId", "sourceTrajectorySequence", "lastEventSequence", "activeTurnId", "activeProviderTurnId", "status", "resolvedSideAgentInvocation", "createdAt", "updatedAt", "disposedAt", "failure"]);
+  assertKnownFields(record, "SideConversation", ["id", "parentConversationId", "parentStatus", "decisionSource", "providerThreadId", "sourceProviderThreadId", "sourceProviderTurnId", "sourceTrajectorySequence", "lastEventSequence", "activeTurnId", "activeProviderTurnId", "status", "resolvedSideAgentInvocation", "createdAt", "updatedAt", "disposedAt", "failure"]);
   return {
     id: decodeString(requireField(record, "id", "SideConversation"), "SideConversation.id"),
     parentConversationId: decodeString(requireField(record, "parentConversationId", "SideConversation"), "SideConversation.parentConversationId"),
-    parentPaneId: decodeString(requireField(record, "parentPaneId", "SideConversation"), "SideConversation.parentPaneId"),
     parentStatus: decodeConversationStatus(requireField(record, "parentStatus", "SideConversation"), "SideConversation.parentStatus"),
     decisionSource: decodeBranchDecisionSource(requireField(record, "decisionSource", "SideConversation"), "SideConversation.decisionSource"),
     providerThreadId: decodeNullable(requireField(record, "providerThreadId", "SideConversation"), "SideConversation.providerThreadId", (item) => decodeString(item, "SideConversation.providerThreadId")),
@@ -5931,11 +5847,10 @@ export function decodeSendSideConversationTurnRequest(value: unknown): SendSideC
 
 export function decodeDisposeSideConversationRequest(value: unknown): DisposeSideConversationRequest {
   const record = assertRecord(value, "DisposeSideConversationRequest");
-  assertKnownFields(record, "DisposeSideConversationRequest", ["workspaceId", "parentConversationId", "parentPaneId", "sideConversationId"]);
+  assertKnownFields(record, "DisposeSideConversationRequest", ["workspaceId", "parentConversationId", "sideConversationId"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "DisposeSideConversationRequest"), "DisposeSideConversationRequest.workspaceId"),
     parentConversationId: decodeString(requireField(record, "parentConversationId", "DisposeSideConversationRequest"), "DisposeSideConversationRequest.parentConversationId"),
-    parentPaneId: decodeString(requireField(record, "parentPaneId", "DisposeSideConversationRequest"), "DisposeSideConversationRequest.parentPaneId"),
     sideConversationId: decodeString(requireField(record, "sideConversationId", "DisposeSideConversationRequest"), "DisposeSideConversationRequest.sideConversationId"),
   };
 }
@@ -6309,11 +6224,10 @@ export function decodeConversationEvent(value: unknown): ConversationEvent {
 
 export function decodeConversationInput(value: unknown): ConversationInput {
   const record = assertRecord(value, "ConversationInput");
-  assertKnownFields(record, "ConversationInput", ["id", "conversationId", "sourcePaneId", "replyToInputId", "text", "modality", "submittedAt"]);
+  assertKnownFields(record, "ConversationInput", ["id", "conversationId", "replyToInputId", "text", "modality", "submittedAt"]);
   return {
     id: decodeString(requireField(record, "id", "ConversationInput"), "ConversationInput.id"),
     conversationId: decodeString(requireField(record, "conversationId", "ConversationInput"), "ConversationInput.conversationId"),
-    sourcePaneId: decodeNullable(requireField(record, "sourcePaneId", "ConversationInput"), "ConversationInput.sourcePaneId", (item) => decodeString(item, "ConversationInput.sourcePaneId")),
     replyToInputId: decodeNullable(requireField(record, "replyToInputId", "ConversationInput"), "ConversationInput.replyToInputId", (item) => decodeString(item, "ConversationInput.replyToInputId")),
     text: decodeString(requireField(record, "text", "ConversationInput"), "ConversationInput.text"),
     modality: decodeConversationInputModality(requireField(record, "modality", "ConversationInput"), "ConversationInput.modality"),
@@ -6521,10 +6435,9 @@ export function decodeAnswerAsNarratorConversationRouteCommand(value: unknown): 
 
 export function decodeCreateSideConversationRouteCommand(value: unknown): CreateSideConversationRouteCommand {
   const record = assertRecord(value, "CreateSideConversationRouteCommand");
-  assertKnownFields(record, "CreateSideConversationRouteCommand", ["sideConversationId", "parentPaneId", "turnId", "input"]);
+  assertKnownFields(record, "CreateSideConversationRouteCommand", ["sideConversationId", "turnId", "input"]);
   return {
     sideConversationId: decodeString(requireField(record, "sideConversationId", "CreateSideConversationRouteCommand"), "CreateSideConversationRouteCommand.sideConversationId"),
-    parentPaneId: decodeString(requireField(record, "parentPaneId", "CreateSideConversationRouteCommand"), "CreateSideConversationRouteCommand.parentPaneId"),
     turnId: decodeString(requireField(record, "turnId", "CreateSideConversationRouteCommand"), "CreateSideConversationRouteCommand.turnId"),
     input: decodeAuthoredInput(requireField(record, "input", "CreateSideConversationRouteCommand")),
   };
@@ -7449,7 +7362,7 @@ export function decodeDirectorEvent(value: unknown): DirectorEvent {
 
 export function decodeMasterInput(value: unknown): MasterInput {
   const record = assertRecord(value, "MasterInput");
-  assertKnownFields(record, "MasterInput", ["id", "text", "modality", "source", "submittedAt", "focusedWorkspaceId", "focusedConversationId", "focusedPaneId", "originatingWorkspaceId", "originatingConversationId", "originatingPaneId", "originatingConversationInputId"]);
+  assertKnownFields(record, "MasterInput", ["id", "text", "modality", "source", "submittedAt", "focusedWorkspaceId", "focusedConversationId", "originatingWorkspaceId", "originatingConversationId", "originatingConversationInputId"]);
   return {
     id: decodeString(requireField(record, "id", "MasterInput"), "MasterInput.id"),
     text: decodeString(requireField(record, "text", "MasterInput"), "MasterInput.text"),
@@ -7458,10 +7371,8 @@ export function decodeMasterInput(value: unknown): MasterInput {
     submittedAt: decodeString(requireField(record, "submittedAt", "MasterInput"), "MasterInput.submittedAt"),
     focusedWorkspaceId: decodeNullable(requireField(record, "focusedWorkspaceId", "MasterInput"), "MasterInput.focusedWorkspaceId", (item) => decodeString(item, "MasterInput.focusedWorkspaceId")),
     focusedConversationId: decodeNullable(requireField(record, "focusedConversationId", "MasterInput"), "MasterInput.focusedConversationId", (item) => decodeString(item, "MasterInput.focusedConversationId")),
-    focusedPaneId: decodeNullable(requireField(record, "focusedPaneId", "MasterInput"), "MasterInput.focusedPaneId", (item) => decodeString(item, "MasterInput.focusedPaneId")),
     originatingWorkspaceId: decodeNullable(requireField(record, "originatingWorkspaceId", "MasterInput"), "MasterInput.originatingWorkspaceId", (item) => decodeString(item, "MasterInput.originatingWorkspaceId")),
     originatingConversationId: decodeNullable(requireField(record, "originatingConversationId", "MasterInput"), "MasterInput.originatingConversationId", (item) => decodeString(item, "MasterInput.originatingConversationId")),
-    originatingPaneId: decodeNullable(requireField(record, "originatingPaneId", "MasterInput"), "MasterInput.originatingPaneId", (item) => decodeString(item, "MasterInput.originatingPaneId")),
     originatingConversationInputId: decodeNullable(requireField(record, "originatingConversationInputId", "MasterInput"), "MasterInput.originatingConversationInputId", (item) => decodeString(item, "MasterInput.originatingConversationInputId")),
   };
 }
@@ -7643,11 +7554,10 @@ export function decodeSubmitMasterInputRequest(value: unknown): SubmitMasterInpu
 
 export function decodeMasterReplyDelivery(value: unknown): MasterReplyDelivery {
   const record = assertRecord(value, "MasterReplyDelivery");
-  assertKnownFields(record, "MasterReplyDelivery", ["originatingWorkspaceId", "originatingConversationId", "originatingPaneId", "originatingConversationInputId"]);
+  assertKnownFields(record, "MasterReplyDelivery", ["originatingWorkspaceId", "originatingConversationId", "originatingConversationInputId"]);
   return {
     originatingWorkspaceId: decodeNullable(requireField(record, "originatingWorkspaceId", "MasterReplyDelivery"), "MasterReplyDelivery.originatingWorkspaceId", (item) => decodeString(item, "MasterReplyDelivery.originatingWorkspaceId")),
     originatingConversationId: decodeNullable(requireField(record, "originatingConversationId", "MasterReplyDelivery"), "MasterReplyDelivery.originatingConversationId", (item) => decodeString(item, "MasterReplyDelivery.originatingConversationId")),
-    originatingPaneId: decodeNullable(requireField(record, "originatingPaneId", "MasterReplyDelivery"), "MasterReplyDelivery.originatingPaneId", (item) => decodeString(item, "MasterReplyDelivery.originatingPaneId")),
     originatingConversationInputId: decodeNullable(requireField(record, "originatingConversationInputId", "MasterReplyDelivery"), "MasterReplyDelivery.originatingConversationInputId", (item) => decodeString(item, "MasterReplyDelivery.originatingConversationInputId")),
   };
 }
@@ -7794,13 +7704,12 @@ export function decodePresentationResourceBinding(value: unknown): PresentationR
 
 export function decodeConversationPresentationTarget(value: unknown): ConversationPresentationTarget {
   const record = assertRecord(value, "ConversationPresentationTarget");
-  assertKnownFields(record, "ConversationPresentationTarget", ["conversationId", "resourceScope", "resourceBindings", "title", "preferredPaneId"]);
+  assertKnownFields(record, "ConversationPresentationTarget", ["conversationId", "resourceScope", "resourceBindings", "title"]);
   return {
     conversationId: decodeString(requireField(record, "conversationId", "ConversationPresentationTarget"), "ConversationPresentationTarget.conversationId"),
     resourceScope: decodeRouteResourceScope(requireField(record, "resourceScope", "ConversationPresentationTarget")),
     resourceBindings: decodeArray(requireField(record, "resourceBindings", "ConversationPresentationTarget"), "ConversationPresentationTarget.resourceBindings", (item) => decodePresentationResourceBinding(item)),
     title: decodeString(requireField(record, "title", "ConversationPresentationTarget"), "ConversationPresentationTarget.title"),
-    preferredPaneId: decodeNullable(requireField(record, "preferredPaneId", "ConversationPresentationTarget"), "ConversationPresentationTarget.preferredPaneId", (item) => decodeString(item, "ConversationPresentationTarget.preferredPaneId")),
   };
 }
 
@@ -8071,86 +7980,6 @@ export function decodeTranscript(value: unknown): Transcript {
   return {
     entries: decodeArray(requireField(record, "entries", "Transcript"), "Transcript.entries", (item) => decodeTranscriptEntry(item)),
     lastSequence: decodeInteger(requireField(record, "lastSequence", "Transcript"), "Transcript.lastSequence"),
-  };
-}
-
-export function decodeFocusExistingConversationPaneIntent(value: unknown): FocusExistingConversationPaneIntent {
-  const record = assertRecord(value, "FocusExistingConversationPaneIntent");
-  assertKnownFields(record, "FocusExistingConversationPaneIntent", ["target"]);
-  return {
-    target: decodeConversationPresentationTarget(requireField(record, "target", "FocusExistingConversationPaneIntent")),
-  };
-}
-
-export function decodeOpenConversationPaneIntent(value: unknown): OpenConversationPaneIntent {
-  const record = assertRecord(value, "OpenConversationPaneIntent");
-  assertKnownFields(record, "OpenConversationPaneIntent", ["target"]);
-  return {
-    target: decodeConversationPresentationTarget(requireField(record, "target", "OpenConversationPaneIntent")),
-  };
-}
-
-export function decodeOpenSideConversationInParentPaneIntent(value: unknown): OpenSideConversationInParentPaneIntent {
-  const record = assertRecord(value, "OpenSideConversationInParentPaneIntent");
-  assertKnownFields(record, "OpenSideConversationInParentPaneIntent", ["target"]);
-  return {
-    target: decodeConversationPresentationTarget(requireField(record, "target", "OpenSideConversationInParentPaneIntent")),
-  };
-}
-
-export function decodeShowMasterReplyIntent(value: unknown): ShowMasterReplyIntent {
-  const record = assertRecord(value, "ShowMasterReplyIntent");
-  assertKnownFields(record, "ShowMasterReplyIntent", ["replyKind", "text"]);
-  return {
-    replyKind: decodeMasterReplyKind(requireField(record, "replyKind", "ShowMasterReplyIntent"), "ShowMasterReplyIntent.replyKind"),
-    text: decodeString(requireField(record, "text", "ShowMasterReplyIntent"), "ShowMasterReplyIntent.text"),
-  };
-}
-
-export function decodePresentationIntent(value: unknown): PresentationIntent {
-  const record = assertRecord(value, "PresentationIntent");
-  assertKnownFields(record, "PresentationIntent", ["id", "inputId", "source", "originatingWorkspaceId", "originatingConversationId", "originatingPaneId", "originatingConversationInputId", "kind", "focusExistingConversationPane", "openConversationPane", "openSideConversation", "showMasterReply"]);
-  const result: PresentationIntent = {
-    id: decodeString(requireField(record, "id", "PresentationIntent"), "PresentationIntent.id"),
-    inputId: decodeString(requireField(record, "inputId", "PresentationIntent"), "PresentationIntent.inputId"),
-    source: decodeMasterInputSource(requireField(record, "source", "PresentationIntent"), "PresentationIntent.source"),
-    originatingWorkspaceId: decodeNullable(requireField(record, "originatingWorkspaceId", "PresentationIntent"), "PresentationIntent.originatingWorkspaceId", (item) => decodeString(item, "PresentationIntent.originatingWorkspaceId")),
-    originatingConversationId: decodeNullable(requireField(record, "originatingConversationId", "PresentationIntent"), "PresentationIntent.originatingConversationId", (item) => decodeString(item, "PresentationIntent.originatingConversationId")),
-    originatingPaneId: decodeNullable(requireField(record, "originatingPaneId", "PresentationIntent"), "PresentationIntent.originatingPaneId", (item) => decodeString(item, "PresentationIntent.originatingPaneId")),
-    originatingConversationInputId: decodeNullable(requireField(record, "originatingConversationInputId", "PresentationIntent"), "PresentationIntent.originatingConversationInputId", (item) => decodeString(item, "PresentationIntent.originatingConversationInputId")),
-    kind: decodePresentationIntentKind(requireField(record, "kind", "PresentationIntent"), "PresentationIntent.kind"),
-    focusExistingConversationPane: decodeNullable(requireField(record, "focusExistingConversationPane", "PresentationIntent"), "PresentationIntent.focusExistingConversationPane", (item) => decodeFocusExistingConversationPaneIntent(item)),
-    openConversationPane: decodeNullable(requireField(record, "openConversationPane", "PresentationIntent"), "PresentationIntent.openConversationPane", (item) => decodeOpenConversationPaneIntent(item)),
-    openSideConversation: decodeNullable(requireField(record, "openSideConversation", "PresentationIntent"), "PresentationIntent.openSideConversation", (item) => decodeOpenSideConversationInParentPaneIntent(item)),
-    showMasterReply: decodeNullable(requireField(record, "showMasterReply", "PresentationIntent"), "PresentationIntent.showMasterReply", (item) => decodeShowMasterReplyIntent(item)),
-  };
-  assertTaggedUnionBranch("PresentationIntent", result.kind, {
-    "focus_existing_conversation_pane": result.focusExistingConversationPane,
-    "open_conversation_pane": result.openConversationPane,
-    "open_side_conversation_in_parent_pane": result.openSideConversation,
-    "show_master_reply": result.showMasterReply,
-  });
-  return result;
-}
-
-export function decodePresentationResolutionRequest(value: unknown): PresentationResolutionRequest {
-  const record = assertRecord(value, "PresentationResolutionRequest");
-  assertKnownFields(record, "PresentationResolutionRequest", ["intentId", "inputId", "paneId"]);
-  return {
-    intentId: decodeString(requireField(record, "intentId", "PresentationResolutionRequest"), "PresentationResolutionRequest.intentId"),
-    inputId: decodeString(requireField(record, "inputId", "PresentationResolutionRequest"), "PresentationResolutionRequest.inputId"),
-    paneId: decodeString(requireField(record, "paneId", "PresentationResolutionRequest"), "PresentationResolutionRequest.paneId"),
-  };
-}
-
-export function decodePresentationResolution(value: unknown): PresentationResolution {
-  const record = assertRecord(value, "PresentationResolution");
-  assertKnownFields(record, "PresentationResolution", ["intentId", "inputId", "paneId", "resolvedAt"]);
-  return {
-    intentId: decodeString(requireField(record, "intentId", "PresentationResolution"), "PresentationResolution.intentId"),
-    inputId: decodeString(requireField(record, "inputId", "PresentationResolution"), "PresentationResolution.inputId"),
-    paneId: decodeString(requireField(record, "paneId", "PresentationResolution"), "PresentationResolution.paneId"),
-    resolvedAt: decodeString(requireField(record, "resolvedAt", "PresentationResolution"), "PresentationResolution.resolvedAt"),
   };
 }
 
@@ -8505,8 +8334,6 @@ export interface BackendClient {
   readMasterInputRoutingState: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<InputRoutingState>;
   readMasterTranscript: (request: ReadMasterTranscriptRequest, options?: BackendRequestOptions) => Promise<Transcript>;
   waitMasterShellInteraction: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<ShellInteractionState>;
-  waitMasterPresentationIntent: (request: ReadMasterInputRoutingStateRequest, options?: BackendRequestOptions) => Promise<PresentationIntent>;
-  resolveMasterPresentationIntent: (request: PresentationResolutionRequest, options?: BackendRequestOptions) => Promise<PresentationResolution>;
   readSpeechCapabilities: (options?: BackendRequestOptions) => Promise<SpeechCapabilities>;
   readMasterVoiceSelection: (options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
   updateMasterVoiceSelection: (request: VoiceSelectionRequest, options?: BackendRequestOptions) => Promise<MasterVoiceSelection>;
@@ -8955,24 +8782,6 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeShellInteractionState,
       endpoint: backendEndpoints.WaitMasterShellInteraction,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    waitMasterPresentationIntent: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodePresentationIntent,
-      endpoint: backendEndpoints.WaitMasterPresentationIntent,
-      fetchImpl,
-      requestPayload: request,
-      signal: options?.signal,
-    }),
-    resolveMasterPresentationIntent: (request, options) => requestBackend({
-      baseURL,
-      decodeErrorResponse: decodeErrorResponse,
-      decodeResponse: decodePresentationResolution,
-      endpoint: backendEndpoints.ResolveMasterPresentationIntent,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

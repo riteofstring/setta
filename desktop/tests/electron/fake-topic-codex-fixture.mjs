@@ -28,6 +28,11 @@ const fakeTopicAppServerHelpersFixture = join(
   "fixtures",
   "fake-topic-codex-app-server-helpers.mjs",
 );
+const fakeTopicDirectorDecisionsFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-topic-codex-director-decisions.mjs",
+);
 const fakeTopicInputRoutesFixture = join(
   dirname(fileURLToPath(import.meta.url)),
   "fixtures",
@@ -45,6 +50,10 @@ export async function installFakeTopicCodex(fixture) {
   await copyFile(
     fakeTopicAppServerHelpersFixture,
     join(binDir, "fake-topic-codex-app-server-helpers.mjs"),
+  );
+  await copyFile(
+    fakeTopicDirectorDecisionsFixture,
+    join(binDir, "fake-topic-codex-director-decisions.mjs"),
   );
   await copyFile(fakeTopicInputRoutesFixture, join(binDir, "fake-topic-codex-input-routes.mjs"));
   await copyFile(

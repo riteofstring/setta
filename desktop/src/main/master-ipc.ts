@@ -34,12 +34,6 @@ export function registerMasterIpcHandlers({
   );
   handleIpc(
     ipcMain,
-    "masterResolvePresentation",
-    async (_event, request) => requireBackendClient().resolveMasterPresentationIntent(request),
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
     "masterSubmitInput",
     async (_event, request) => requireBackendClient().submitMasterInput(request),
     ipcObserver,
@@ -48,12 +42,6 @@ export function registerMasterIpcHandlers({
     ipcMain,
     "masterWaitInteraction",
     async (_event, request) => requireBackendClient().waitMasterShellInteraction(request),
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "masterWaitPresentation",
-    async (_event, request) => requireBackendClient().waitMasterPresentationIntent(request),
     ipcObserver,
   );
 }

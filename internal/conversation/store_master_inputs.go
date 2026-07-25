@@ -89,10 +89,10 @@ func acceptMasterInputTransaction(
 	if err := tx.QueryRowContext(ctx, `
 INSERT INTO master_inputs (
   id, input_text, input_modality, input_source, submitted_at, accepted_at,
-  focused_workspace_id, focused_conversation_id, focused_pane_id,
-  originating_workspace_id, originating_conversation_id, originating_pane_id,
+  focused_workspace_id, focused_conversation_id,
+  originating_workspace_id, originating_conversation_id,
   originating_conversation_input_id
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING sequence
 `,
 		input.ID,
@@ -103,10 +103,8 @@ RETURNING sequence
 		acceptedAt,
 		nullableString(input.FocusedWorkspaceID),
 		nullableString(input.FocusedConversationID),
-		nullableString(input.FocusedPaneID),
 		nullableString(input.OriginatingWorkspaceID),
 		nullableString(input.OriginatingConversationID),
-		nullableString(input.OriginatingPaneID),
 		nullableString(input.OriginatingConversationInputID),
 	).Scan(&accepted.Sequence); err != nil {
 		return master.AcceptedMasterInput{}, false, fmt.Errorf("insert master input %s: %w", input.ID, err)
@@ -187,8 +185,8 @@ func readMasterInputRow(
 ) (master.AcceptedMasterInput, bool, error) {
 	accepted, err := scanMasterInputRow(query.QueryRowContext(ctx, `
 SELECT sequence, id, input_text, input_modality, input_source, submitted_at, accepted_at,
-       focused_workspace_id, focused_conversation_id, focused_pane_id,
-       originating_workspace_id, originating_conversation_id, originating_pane_id,
+       focused_workspace_id, focused_conversation_id,
+       originating_workspace_id, originating_conversation_id,
        originating_conversation_input_id
 FROM master_inputs
 WHERE id = ?
@@ -209,10 +207,8 @@ func scanMasterInputRow(
 	var accepted master.AcceptedMasterInput
 	var focusedWorkspaceID sql.NullString
 	var focusedConversationID sql.NullString
-	var focusedPaneID sql.NullString
 	var originatingWorkspaceID sql.NullString
 	var originatingConversationID sql.NullString
-	var originatingPaneID sql.NullString
 	var originatingConversationInputID sql.NullString
 	err := scanner.Scan(
 		&accepted.Sequence,
@@ -224,10 +220,8 @@ func scanMasterInputRow(
 		&accepted.AcceptedAt,
 		&focusedWorkspaceID,
 		&focusedConversationID,
-		&focusedPaneID,
 		&originatingWorkspaceID,
 		&originatingConversationID,
-		&originatingPaneID,
 		&originatingConversationInputID,
 	)
 	if err != nil {
@@ -235,10 +229,8 @@ func scanMasterInputRow(
 	}
 	accepted.Input.FocusedWorkspaceID = optionalMasterInputString(focusedWorkspaceID)
 	accepted.Input.FocusedConversationID = optionalMasterInputString(focusedConversationID)
-	accepted.Input.FocusedPaneID = optionalMasterInputString(focusedPaneID)
 	accepted.Input.OriginatingWorkspaceID = optionalMasterInputString(originatingWorkspaceID)
 	accepted.Input.OriginatingConversationID = optionalMasterInputString(originatingConversationID)
-	accepted.Input.OriginatingPaneID = optionalMasterInputString(originatingPaneID)
 	accepted.Input.OriginatingConversationInputID = optionalMasterInputString(originatingConversationInputID)
 	accepted.ReplyDelivery = master.ReplyDeliveryForInput(accepted.Input)
 	if err := accepted.Validate(); err != nil {

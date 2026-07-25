@@ -15,11 +15,9 @@ func TestInputServiceNormalizesAndSubmitsToDurableBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newInputService: %v", err)
 	}
-	paneID := "pane_alpha"
 	input := ConversationInput{
 		ID:             "input_alpha",
 		ConversationID: "conversation_alpha",
-		SourcePaneID:   &paneID,
 		Text:           "  Keep exact text.  ",
 		Modality:       ConversationInputModalityVoice,
 		SubmittedAt:    "2026-07-12T18:00:00.000Z",
@@ -35,8 +33,7 @@ func TestInputServiceNormalizesAndSubmitsToDurableBoundary(t *testing.T) {
 	if store.input.SubmittedAt != "2026-07-12T18:00:00Z" || store.input.Text != input.Text {
 		t.Fatalf("stored input = %+v", store.input)
 	}
-	paneID = "mutated"
-	if *accepted.Input.SourcePaneID != "pane_alpha" {
+	if accepted.Input.Text == "" {
 		t.Fatalf("accepted input aliases caller: %+v", accepted)
 	}
 }

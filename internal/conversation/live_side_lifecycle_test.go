@@ -23,7 +23,6 @@ const (
 	liveSideContextFailed   = "SETTA_LIVE_SIDE_CONTEXT_MISMATCH"
 	liveSideIsolationOK     = "SETTA_LIVE_SIDE_HISTORY_ISOLATED"
 	liveSideIsolationFailed = "SETTA_LIVE_SIDE_HISTORY_LEAKED"
-	liveSideParentPaneID    = "pane-live-side"
 )
 
 func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
@@ -78,7 +77,7 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 		t.Fatalf("active parent turn has no provider identity: %+v", activeTurn)
 	}
 
-	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID, liveSideParentPaneID)
+	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID)
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
@@ -207,7 +206,6 @@ func disposeLiveSideConversation(
 		ctx,
 		workspaceID,
 		parentID,
-		liveSideParentPaneID,
 		side.ID,
 	)
 	if err != nil {
@@ -522,7 +520,6 @@ func assertLiveSideCreatedDuringParentTurn(
 		latestSnapshotTurn(created).ID != activeTurn.ID ||
 		latestSnapshotTurn(created).Status != TurnStatusRunning ||
 		side.ParentConversationID != created.Conversation.ID ||
-		side.ParentPaneID != liveSideParentPaneID ||
 		side.DecisionSource != BranchDecisionSourceConversationRouter ||
 		side.Status != SideConversationStatusActive ||
 		side.ParentStatus != ConversationStatusWorking ||

@@ -614,13 +614,11 @@ function masterAnswerState(): ShellInteractionState {
     failure: null,
     input: {
       focusedConversationId: null,
-      focusedPaneId: null,
       focusedWorkspaceId: null,
       id: "master-input-answer",
       modality: "voice",
       originatingConversationId: null,
       originatingConversationInputId: null,
-      originatingPaneId: null,
       originatingWorkspaceId: null,
       source: "shell",
       submittedAt: "2026-07-12T18:00:00Z",

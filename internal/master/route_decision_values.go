@@ -100,7 +100,6 @@ func cloneRouteCommand(command RouteCommand) RouteCommand {
 }
 
 func clonePresentationTarget(target ConversationPresentationTarget) ConversationPresentationTarget {
-	target.PreferredPaneID = cloneString(target.PreferredPaneID)
 	target.ResourceScope = cloneRouteResourceScope(target.ResourceScope)
 	target.ResourceBindings = clonePresentationResourceBindings(target.ResourceBindings)
 	return target
@@ -120,27 +119,6 @@ func clonePresentationResourceBindings(
 		}
 	}
 	return cloned
-}
-
-func ClonePresentationIntent(intent PresentationIntent) PresentationIntent {
-	intent.OriginatingWorkspaceID = cloneString(intent.OriginatingWorkspaceID)
-	intent.OriginatingConversationID = cloneString(intent.OriginatingConversationID)
-	intent.OriginatingPaneID = cloneString(intent.OriginatingPaneID)
-	intent.OriginatingConversationInputID = cloneString(intent.OriginatingConversationInputID)
-	intent.FocusExistingConversationPane = cloneRoutePayload(intent.FocusExistingConversationPane)
-	intent.OpenConversationPane = cloneRoutePayload(intent.OpenConversationPane)
-	intent.OpenSideConversation = cloneRoutePayload(intent.OpenSideConversation)
-	intent.ShowMasterReply = cloneRoutePayload(intent.ShowMasterReply)
-	if intent.FocusExistingConversationPane != nil {
-		intent.FocusExistingConversationPane.Target = clonePresentationTarget(intent.FocusExistingConversationPane.Target)
-	}
-	if intent.OpenConversationPane != nil {
-		intent.OpenConversationPane.Target = clonePresentationTarget(intent.OpenConversationPane.Target)
-	}
-	if intent.OpenSideConversation != nil {
-		intent.OpenSideConversation.Target = clonePresentationTarget(intent.OpenSideConversation.Target)
-	}
-	return intent
 }
 
 func CloneInputRoutingState(state InputRoutingState) InputRoutingState {

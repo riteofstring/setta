@@ -36,21 +36,18 @@ type MasterInput struct {
 	SubmittedAt                    string              `json:"submittedAt"`
 	FocusedWorkspaceID             *string             `json:"focusedWorkspaceId"`
 	FocusedConversationID          *string             `json:"focusedConversationId"`
-	FocusedPaneID                  *string             `json:"focusedPaneId"`
 	OriginatingWorkspaceID         *string             `json:"originatingWorkspaceId"`
 	OriginatingConversationID      *string             `json:"originatingConversationId"`
-	OriginatingPaneID              *string             `json:"originatingPaneId"`
 	OriginatingConversationInputID *string             `json:"originatingConversationInputId"`
 }
 
 // MasterReplyDelivery is derived from the trusted source linkage on a master
 // input. Shell replies have no originating target and use the active shell
-// interaction. Conversation escalations carry the exact pane/input target and
-// never populate the shell interaction.
+// interaction. Conversation escalations carry the exact conversation/input
+// target and never populate the shell interaction.
 type MasterReplyDelivery struct {
 	OriginatingWorkspaceID         *string `json:"originatingWorkspaceId"`
 	OriginatingConversationID      *string `json:"originatingConversationId"`
-	OriginatingPaneID              *string `json:"originatingPaneId"`
 	OriginatingConversationInputID *string `json:"originatingConversationInputId"`
 }
 
@@ -143,14 +140,12 @@ func equalMasterInputCore(left MasterInput, right MasterInput) bool {
 
 func equalMasterInputFocus(left MasterInput, right MasterInput) bool {
 	return equalOptionalString(left.FocusedWorkspaceID, right.FocusedWorkspaceID) &&
-		equalOptionalString(left.FocusedConversationID, right.FocusedConversationID) &&
-		equalOptionalString(left.FocusedPaneID, right.FocusedPaneID)
+		equalOptionalString(left.FocusedConversationID, right.FocusedConversationID)
 }
 
 func equalMasterInputOrigin(left MasterInput, right MasterInput) bool {
 	return equalOptionalString(left.OriginatingWorkspaceID, right.OriginatingWorkspaceID) &&
 		equalOptionalString(left.OriginatingConversationID, right.OriginatingConversationID) &&
-		equalOptionalString(left.OriginatingPaneID, right.OriginatingPaneID) &&
 		equalOptionalString(left.OriginatingConversationInputID, right.OriginatingConversationInputID)
 }
 
@@ -167,7 +162,6 @@ func ReplyDeliveryForInput(input MasterInput) MasterReplyDelivery {
 	}
 	delivery.OriginatingWorkspaceID = cloneString(input.OriginatingWorkspaceID)
 	delivery.OriginatingConversationID = cloneString(input.OriginatingConversationID)
-	delivery.OriginatingPaneID = cloneString(input.OriginatingPaneID)
 	delivery.OriginatingConversationInputID = cloneString(input.OriginatingConversationInputID)
 	return delivery
 }
@@ -175,7 +169,6 @@ func ReplyDeliveryForInput(input MasterInput) MasterReplyDelivery {
 func EqualReplyDeliveries(left MasterReplyDelivery, right MasterReplyDelivery) bool {
 	return equalOptionalString(left.OriginatingWorkspaceID, right.OriginatingWorkspaceID) &&
 		equalOptionalString(left.OriginatingConversationID, right.OriginatingConversationID) &&
-		equalOptionalString(left.OriginatingPaneID, right.OriginatingPaneID) &&
 		equalOptionalString(left.OriginatingConversationInputID, right.OriginatingConversationInputID)
 }
 
@@ -220,10 +213,8 @@ func validateMasterInputReferences(input MasterInput) error {
 	}{
 		{label: "master input focused workspace id", value: input.FocusedWorkspaceID},
 		{label: "master input focused conversation id", value: input.FocusedConversationID},
-		{label: "master input focused pane id", value: input.FocusedPaneID},
 		{label: "master input originating workspace id", value: input.OriginatingWorkspaceID},
 		{label: "master input originating conversation id", value: input.OriginatingConversationID},
-		{label: "master input originating pane id", value: input.OriginatingPaneID},
 		{label: "master input originating conversation input id", value: input.OriginatingConversationInputID},
 	}
 	for _, reference := range references {
@@ -238,7 +229,6 @@ func validateMasterInputSourceLinkage(input MasterInput) error {
 	originating := []*string{
 		input.OriginatingWorkspaceID,
 		input.OriginatingConversationID,
-		input.OriginatingPaneID,
 		input.OriginatingConversationInputID,
 	}
 	switch input.Source {
@@ -292,10 +282,8 @@ func normalizeTimestamp(label string, value string) (string, error) {
 func cloneInput(input MasterInput) MasterInput {
 	input.FocusedWorkspaceID = cloneString(input.FocusedWorkspaceID)
 	input.FocusedConversationID = cloneString(input.FocusedConversationID)
-	input.FocusedPaneID = cloneString(input.FocusedPaneID)
 	input.OriginatingWorkspaceID = cloneString(input.OriginatingWorkspaceID)
 	input.OriginatingConversationID = cloneString(input.OriginatingConversationID)
-	input.OriginatingPaneID = cloneString(input.OriginatingPaneID)
 	input.OriginatingConversationInputID = cloneString(input.OriginatingConversationInputID)
 	return input
 }
@@ -303,7 +291,6 @@ func cloneInput(input MasterInput) MasterInput {
 func cloneReplyDelivery(delivery MasterReplyDelivery) MasterReplyDelivery {
 	delivery.OriginatingWorkspaceID = cloneString(delivery.OriginatingWorkspaceID)
 	delivery.OriginatingConversationID = cloneString(delivery.OriginatingConversationID)
-	delivery.OriginatingPaneID = cloneString(delivery.OriginatingPaneID)
 	delivery.OriginatingConversationInputID = cloneString(delivery.OriginatingConversationInputID)
 	return delivery
 }

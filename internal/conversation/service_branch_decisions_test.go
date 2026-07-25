@@ -42,13 +42,11 @@ func TestServiceExecutesAIAuthoredSideAndForkThroughOneValidatedBoundary(t *test
 		t.Fatalf("master fork audit = %+v", forked.Branch)
 	}
 
-	paneID := "pane-local-router"
 	sided, err := service.ExecuteBranchDecision(
 		ctx,
 		workspaceID,
 		BranchDecisionExecutionScope{
 			ParentConversationID: parent.Conversation.ID,
-			ParentPaneID:         &paneID,
 			Source:               BranchDecisionSourceConversationRouter,
 		},
 		BranchDecision{
@@ -60,14 +58,13 @@ func TestServiceExecutesAIAuthoredSideAndForkThroughOneValidatedBoundary(t *test
 		t.Fatalf("ExecuteBranchDecision side: %v", err)
 	}
 	side := requireOnlySideConversation(t, sided)
-	if side.ParentPaneID != paneID || side.DecisionSource != BranchDecisionSourceConversationRouter {
+	if side.DecisionSource != BranchDecisionSourceConversationRouter {
 		t.Fatalf("local side audit = %+v", side)
 	}
 	if _, err := service.DisposeSideConversation(
 		ctx,
 		workspaceID,
 		parent.Conversation.ID,
-		paneID,
 		side.ID,
 	); err != nil {
 		t.Fatalf("DisposeSideConversation: %v", err)

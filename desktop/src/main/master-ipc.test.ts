@@ -23,7 +23,6 @@ describe("master IPC handlers", () => {
       replyDelivery: {
         originatingConversationId: null,
         originatingConversationInputId: null,
-        originatingPaneId: null,
         originatingWorkspaceId: null,
       },
       sequence: 7,
@@ -36,26 +35,6 @@ describe("master IPC handlers", () => {
     };
     const interaction = { state };
     const cancelled = { ...state, status: "cancelled" as const };
-    const presentation = {
-      focusExistingConversationPane: null,
-      id: `master-presentation:${request.input.id}`,
-      inputId: request.input.id,
-      kind: "show_master_reply" as const,
-      openConversationPane: null,
-      openSideConversation: null,
-      originatingConversationId: null,
-      originatingConversationInputId: null,
-      originatingPaneId: null,
-      originatingWorkspaceId: null,
-      showMasterReply: { replyKind: "answer" as const, text: "Done." },
-      source: "shell" as const,
-    };
-    const resolutionRequest = {
-      inputId: request.input.id,
-      intentId: presentation.id,
-      paneId: "pane_alpha",
-    };
-    const resolution = { ...resolutionRequest, resolvedAt: "2026-07-12T18:00:02Z" };
     const transcriptRequest = { limit: 20 };
     const transcript = {
       entries: [
@@ -80,10 +59,8 @@ describe("master IPC handlers", () => {
       cancelMasterInput: vi.fn(async () => cancelled),
       readActiveMasterShellInteraction: vi.fn(async () => interaction),
       readMasterTranscript: vi.fn(async () => transcript),
-      resolveMasterPresentationIntent: vi.fn(async () => resolution),
       submitMasterInput: vi.fn(async () => accepted),
       waitMasterShellInteraction: vi.fn(async () => state),
-      waitMasterPresentationIntent: vi.fn(async () => presentation),
     } as unknown as BackendClient;
     const observer = observerSpies();
     registerMasterIpcHandlers({
@@ -98,29 +75,19 @@ describe("master IPC handlers", () => {
       ipcChannels.masterReadTranscript,
       transcriptRequest,
     );
-    const resolved = await invoke(
-      handlers,
-      ipcChannels.masterResolvePresentation,
-      resolutionRequest,
-    );
     const submitted = await invoke(handlers, ipcChannels.masterSubmitInput, request);
     const waitRequest = { inputId: request.input.id };
     const waited = await invoke(handlers, ipcChannels.masterWaitInteraction, waitRequest);
-    const presented = await invoke(handlers, ipcChannels.masterWaitPresentation, waitRequest);
     const cancellation = await invoke(handlers, ipcChannels.masterCancelInput, waitRequest);
 
     expect(backend.readActiveMasterShellInteraction).toHaveBeenCalledOnce();
     expect(loaded).toEqual(interaction);
     expect(backend.readMasterTranscript).toHaveBeenCalledWith(transcriptRequest);
     expect(transcriptRead).toEqual(transcript);
-    expect(backend.resolveMasterPresentationIntent).toHaveBeenCalledWith(resolutionRequest);
-    expect(resolved).toEqual(resolution);
     expect(backend.submitMasterInput).toHaveBeenCalledWith(request);
     expect(submitted).toEqual(accepted);
     expect(backend.waitMasterShellInteraction).toHaveBeenCalledWith(waitRequest);
     expect(waited).toEqual(state);
-    expect(backend.waitMasterPresentationIntent).toHaveBeenCalledWith(waitRequest);
-    expect(presented).toEqual(presentation);
     expect(backend.cancelMasterInput).toHaveBeenCalledWith(waitRequest);
     expect(cancellation).toEqual(cancelled);
     expect(observer.finished).toHaveBeenCalledWith(expect.objectContaining({ result: accepted }));
@@ -131,13 +98,11 @@ function masterInputRequest(): SubmitMasterInputRequest {
   return {
     input: {
       focusedConversationId: "conversation_alpha",
-      focusedPaneId: "pane_alpha",
       focusedWorkspaceId: "workspace_alpha",
       id: "input_alpha",
       modality: "voice",
       originatingConversationId: null,
       originatingConversationInputId: null,
-      originatingPaneId: null,
       originatingWorkspaceId: null,
       source: "shell",
       submittedAt: "2026-07-12T18:00:00Z",

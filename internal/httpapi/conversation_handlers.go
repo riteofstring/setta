@@ -125,23 +125,15 @@ func (handler handler) disposeSideConversation(response http.ResponseWriter, req
 		writeError(response, http.StatusBadRequest, "invalid_side_conversation_dispose_request", err.Error())
 		return
 	}
-	for _, field := range []struct {
-		label string
-		value string
-	}{
-		{label: "parent pane id", value: payload.ParentPaneID},
-		{label: "side conversation id", value: payload.SideConversationID},
-	} {
-		if strings.TrimSpace(field.value) == "" || field.value != strings.TrimSpace(field.value) {
-			writeError(response, http.StatusBadRequest, "invalid_side_conversation_dispose_request", field.label+" is required without surrounding whitespace")
-			return
-		}
+	if strings.TrimSpace(payload.SideConversationID) == "" ||
+		payload.SideConversationID != strings.TrimSpace(payload.SideConversationID) {
+		writeError(response, http.StatusBadRequest, "invalid_side_conversation_dispose_request", "side conversation id is required without surrounding whitespace")
+		return
 	}
 	snapshot, err := service.DisposeSideConversation(
 		request.Context(),
 		payload.WorkspaceID,
 		payload.ParentConversationID,
-		payload.ParentPaneID,
 		payload.SideConversationID,
 	)
 	if err != nil {

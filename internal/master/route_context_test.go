@@ -37,8 +37,6 @@ func TestMaterializeRouteContextIncludesPriorClarification(t *testing.T) {
 		ResourceScope:       FolderlessRouteResourceScope(),
 		Title:               "Folderless topic",
 		Status:              "idle",
-		OpenPaneIDs:         []string{},
-		OpenPaneCount:       0,
 		CompletedForkPoints: []RouteForkPoint{},
 		AllowedDecisionKinds: []RouteDecisionKind{
 			RouteDecisionKindFocusConversation,

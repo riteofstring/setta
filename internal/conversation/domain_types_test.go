@@ -236,7 +236,6 @@ func TestBranchTypesKeepDurableForksAndEphemeralSidesDistinct(t *testing.T) {
 	side := SideConversation{
 		ID:                          "side-1",
 		ParentConversationID:        "conversation-parent",
-		ParentPaneID:                "pane-1",
 		ParentStatus:                ConversationStatusWorking,
 		DecisionSource:              BranchDecisionSourceConversationRouter,
 		ProviderThreadID:            stringPointer("thread-side"),

@@ -411,30 +411,10 @@ func conversationRouterSideAllowed(
 	reader *sql.Tx,
 	work ConversationInputRoutingWork,
 ) (bool, error) {
-	paneID := work.Input.Input.SourcePaneID
-	if paneID == nil {
-		return false, nil
-	}
-	var boundConversationID string
-	err := reader.QueryRowContext(ctx, `
-SELECT conversation_id
-FROM pane_bindings
-WHERE pane_id = ?
-`, *paneID).Scan(&boundConversationID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
-	}
-	if err != nil {
-		return false, fmt.Errorf("read conversation router pane binding: %w", err)
-	}
-	if boundConversationID != work.Input.Input.ConversationID {
-		return false, nil
-	}
-	open, err := readOpenSideConversationForPane(
+	open, err := readOpenSideConversationForParent(
 		ctx,
 		reader,
 		work.Input.Input.ConversationID,
-		*paneID,
 	)
 	if err != nil {
 		return false, fmt.Errorf("read conversation router side state: %w", err)

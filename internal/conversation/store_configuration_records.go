@@ -111,16 +111,15 @@ func (transaction *WriteTransaction) InsertSideConversation(side SideConversatio
 	}
 	_, err = transaction.tx.ExecContext(transaction.ctx, `
 INSERT INTO side_conversations (
-  id, parent_conversation_id, parent_pane_id, decision_source, provider_thread_id,
+  id, parent_conversation_id, decision_source, provider_thread_id,
   source_provider_thread_id, source_provider_turn_id, source_trajectory_sequence,
   last_event_sequence, active_turn_id, active_provider_turn_id, status,
   resolved_side_agent_invocation_json, created_at, updated_at, disposed_at,
   failure_json
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		side.ID,
 		side.ParentConversationID,
-		side.ParentPaneID,
 		side.DecisionSource,
 		nullableString(side.ProviderThreadID),
 		side.SourceProviderThreadID,
@@ -168,7 +167,6 @@ SET provider_thread_id = ?, source_provider_turn_id = ?, last_event_sequence = ?
     failure_json = ?
 WHERE id = ?
   AND parent_conversation_id = ?
-  AND parent_pane_id = ?
   AND decision_source = ?
   AND source_provider_thread_id = ?
   AND source_trajectory_sequence = ?
@@ -188,7 +186,6 @@ WHERE id = ?
 		failureJSON,
 		side.ID,
 		side.ParentConversationID,
-		side.ParentPaneID,
 		side.DecisionSource,
 		side.SourceProviderThreadID,
 		side.SourceTrajectorySequence,

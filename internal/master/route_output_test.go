@@ -64,7 +64,7 @@ func TestRouteOutputRejectsInventedAuthorityAndMalformedJSON(t *testing.T) {
 		},
 		{
 			name: "unknown command field",
-			raw:  `{"decision":{"kind":"focus_conversation","conversationId":"conversation-alpha","rendererCommand":"open-pane"}}`,
+			raw:  `{"decision":{"kind":"focus_conversation","conversationId":"conversation-alpha","rendererCommand":"focus"}}`,
 			want: "unknown field",
 		},
 		{
@@ -228,7 +228,7 @@ func fullTestRouteContext() RouteContextBundle {
 		OpenWorkspaces:       []RouteWorkspaceContext{{WorkspaceID: "workspace-alpha", WorkspaceName: "Alpha"}},
 		Focus:                RouteFocusContext{},
 		Candidates:           []RouteCandidateContext{},
-		ConversationTargets:  []RouteConversationTarget{{ConversationID: "conversation-alpha", ResourceScope: FolderRouteResourceScope("workspace-alpha", ""), Title: "Alpha", Status: "working", OpenPaneIDs: []string{"pane-alpha"}, OpenPaneCount: 1, CompletedForkPoints: []RouteForkPoint{{TurnID: "turn-completed", InputExcerpt: "Initial work", CompletedAt: "2026-07-13T18:00:02Z"}}, AllowedDecisionKinds: targetKinds}},
+		ConversationTargets:  []RouteConversationTarget{{ConversationID: "conversation-alpha", ResourceScope: FolderRouteResourceScope("workspace-alpha", ""), Title: "Alpha", Status: "working", CompletedForkPoints: []RouteForkPoint{{TurnID: "turn-completed", InputExcerpt: "Initial work", CompletedAt: "2026-07-13T18:00:02Z"}}, AllowedDecisionKinds: targetKinds}},
 		RecentRouteDecisions: []RouteDecisionSummary{},
 		AllowedDecisionKinds: []RouteDecisionKind{},
 	}
@@ -246,7 +246,6 @@ func routeContextWithTwoForkTargets() RouteContextBundle {
 		ResourceScope:       FolderRouteResourceScope("workspace-alpha", ""),
 		Title:               "Beta",
 		Status:              "idle",
-		OpenPaneIDs:         []string{},
 		CompletedForkPoints: []RouteForkPoint{{TurnID: "turn-beta", InputExcerpt: "Beta work", CompletedAt: "2026-07-13T18:00:03Z"}},
 		AllowedDecisionKinds: []RouteDecisionKind{
 			RouteDecisionKindFocusConversation,

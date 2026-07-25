@@ -10,17 +10,12 @@ import (
 )
 
 type activeConversationPresentation struct {
-	WorkspaceID              string
-	CreatedAt                string
-	ConversationStatus       ConversationStatus
-	Archived                 bool
-	OpenPaneCount            int
-	NarratorStatus           NarratorStatus
-	LatestTrajectorySequence int
-	ObservedThroughSequence  int
-	PaletteVisible           bool
-	NarratorActive           bool
-	Profile                  ConversationPresentationProfile
+	WorkspaceID    string
+	CreatedAt      string
+	Archived       bool
+	Visible        bool
+	NarratorActive bool
+	Profile        ConversationPresentationProfile
 }
 
 func (store *Store) withPresentationConfigurationLock(run func() error) error {
@@ -72,12 +67,8 @@ func readConversationPresentations(
 ) ([]activeConversationPresentation, error) {
 	rows, err := query.QueryContext(ctx, `
 SELECT conversations.workspace_id, conversations.created_at,
-       conversations.status, conversations.archived_at,
-       (SELECT COUNT(*) FROM pane_bindings
-        WHERE pane_bindings.conversation_id = conversations.id),
-       narrator_state.conversation_id, COALESCE(narrator_state.status, ''),
-       conversations.last_trajectory_sequence,
-       COALESCE(narrator_state.observed_through_sequence, 0),
+       conversations.archived_at,
+       narrator_state.conversation_id,
        profiles.conversation_id, profiles.palette_selection,
        profiles.requested_palette_id, profiles.resolved_palette_id,
        profiles.palette_reuse_json, profiles.narrator_voice_selection,
@@ -103,13 +94,8 @@ ORDER BY conversations.created_at ASC, conversations.id ASC
 		targets := []any{
 			&workspaceID,
 			&value.CreatedAt,
-			&value.ConversationStatus,
 			&archivedAt,
-			&value.OpenPaneCount,
 			&narratorConversationID,
-			&value.NarratorStatus,
-			&value.LatestTrajectorySequence,
-			&value.ObservedThroughSequence,
 		}
 		targets = append(targets, state.targets(&value.Profile)...)
 		if err := rows.Scan(targets...); err != nil {
@@ -146,14 +132,13 @@ ORDER BY conversations.created_at ASC, conversations.id ASC
 	return presentations, nil
 }
 
+// refreshActivity derives the Setta 4 presentation state of one conversation.
+// Every conversation the user has not archived is a live workstream in the
+// command center, so it holds a distinguishable palette, and it holds a
+// distinguishable narrator voice whenever narrator speech is enabled.
 func (presentation *activeConversationPresentation) refreshActivity() {
-	presentation.PaletteVisible = presentation.OpenPaneCount > 0
-	presentation.NarratorActive = presentation.Profile.NarratorSpeechEnabled &&
-		!presentation.Archived &&
-		(presentation.PaletteVisible ||
-			presentation.ConversationStatus == ConversationStatusWorking ||
-			presentation.ConversationStatus == ConversationStatusWaitingForApproval ||
-			presentation.NarratorStatus == NarratorStatusRunning)
+	presentation.Visible = !presentation.Archived
+	presentation.NarratorActive = presentation.Visible && presentation.Profile.NarratorSpeechEnabled
 }
 
 func (presentation activeConversationPresentation) withProfile(

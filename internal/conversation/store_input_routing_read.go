@@ -735,42 +735,17 @@ WHERE id = ? AND conversation_id = ?
 	return nil
 }
 
-func requireConversationRoutePaneBinding(
+func requireConversationRouteSideAvailable(
 	ctx context.Context,
 	tx *sql.Tx,
 	conversationID string,
-	paneID string,
 ) error {
-	var boundConversationID string
-	err := tx.QueryRowContext(ctx, `
-SELECT conversation_id
-FROM pane_bindings
-WHERE pane_id = ?
-`, paneID).Scan(&boundConversationID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return stateConflict("conversation pane", paneID, "originating pane is no longer bound")
-	}
+	exists, err := readOpenSideConversationForParent(ctx, tx, conversationID)
 	if err != nil {
-		return fmt.Errorf("read conversation route pane binding: %w", err)
-	}
-	if boundConversationID != conversationID {
-		return stateConflict("conversation pane", paneID, "originating pane belongs to another conversation")
-	}
-	return nil
-}
-
-func requireConversationRouteSidePaneAvailable(
-	ctx context.Context,
-	tx *sql.Tx,
-	conversationID string,
-	paneID string,
-) error {
-	exists, err := readOpenSideConversationForPane(ctx, tx, conversationID, paneID)
-	if err != nil {
-		return fmt.Errorf("read conversation route side pane state: %w", err)
+		return fmt.Errorf("read conversation route side state: %w", err)
 	}
 	if exists {
-		return stateConflict("conversation pane", paneID, "originating pane already has an open side conversation")
+		return stateConflict("conversation", conversationID, "conversation already has an open side conversation")
 	}
 	return nil
 }

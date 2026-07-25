@@ -19,7 +19,6 @@ const (
 	MaxWorkspaceIDBytes               = 512
 	MaxRecentUserRequests             = 3
 	MaxRecentFinalSummaries           = 3
-	MaxOpenPaneIDs                    = 8
 	MaxTopicCardExcerptCharacters     = 512
 )
 
@@ -65,8 +64,6 @@ type StoredTopicCard struct {
 	RecentFinalSummaries []TextExcerpt `json:"recentFinalSummaries"`
 	UpdatedAt            string        `json:"updatedAt"`
 	ActiveStatus         string        `json:"activeStatus"`
-	OpenPaneIDs          []string      `json:"openPaneIds"`
-	OpenPaneCount        int           `json:"openPaneCount"`
 }
 
 type StoredCandidate struct {
@@ -278,10 +275,7 @@ func (card StoredTopicCard) Validate() error {
 	if err := validateExcerpts("recent user requests", card.RecentUserRequests, MaxRecentUserRequests); err != nil {
 		return err
 	}
-	if err := validateExcerpts("recent final summaries", card.RecentFinalSummaries, MaxRecentFinalSummaries); err != nil {
-		return err
-	}
-	return validateTopicCardOpenPanes(card)
+	return validateExcerpts("recent final summaries", card.RecentFinalSummaries, MaxRecentFinalSummaries)
 }
 
 func validateTopicCardIdentity(card StoredTopicCard) error {
@@ -293,29 +287,6 @@ func validateTopicCardIdentity(card StoredTopicCard) error {
 		if strings.TrimSpace(value) == "" {
 			return fmt.Errorf("topic card %s is required", label)
 		}
-	}
-	return nil
-}
-
-func validateTopicCardOpenPanes(card StoredTopicCard) error {
-	if card.OpenPaneIDs == nil {
-		return errors.New("topic card open pane ids must be an array")
-	}
-	if len(card.OpenPaneIDs) > MaxOpenPaneIDs {
-		return fmt.Errorf("topic card open pane ids exceed %d", MaxOpenPaneIDs)
-	}
-	if card.OpenPaneCount < len(card.OpenPaneIDs) {
-		return errors.New("topic card open pane count is smaller than its bounded pane id list")
-	}
-	seenPaneIDs := make(map[string]bool, len(card.OpenPaneIDs))
-	for _, paneID := range card.OpenPaneIDs {
-		if strings.TrimSpace(paneID) == "" {
-			return errors.New("topic card open pane id is required")
-		}
-		if seenPaneIDs[paneID] {
-			return fmt.Errorf("topic card open pane id %s is duplicated", paneID)
-		}
-		seenPaneIDs[paneID] = true
 	}
 	return nil
 }

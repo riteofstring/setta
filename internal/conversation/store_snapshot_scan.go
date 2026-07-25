@@ -420,7 +420,6 @@ func scanSideConversation(scanner sqlScanner) (SideConversation, error) {
 	err := scanner.Scan(
 		&value.ID,
 		&value.ParentConversationID,
-		&value.ParentPaneID,
 		&value.DecisionSource,
 		&providerThreadID,
 		&value.SourceProviderThreadID,

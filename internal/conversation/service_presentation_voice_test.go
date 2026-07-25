@@ -62,7 +62,7 @@ func TestServiceAppliesPersistedNarratorVoiceDefaultToNewConversations(t *testin
 		t,
 		existingAfter.PresentationProfile,
 		speech.VoiceSelectionAutoDistinct,
-		speech.SpeechVoiceAlloy,
+		speech.SpeechVoiceAsh,
 		nil,
 	)
 	if _, err := store.UpdateNarratorVoiceDefault(
@@ -80,7 +80,7 @@ func TestServiceAppliesPersistedNarratorVoiceDefaultToNewConversations(t *testin
 		t,
 		automatic.PresentationProfile,
 		speech.VoiceSelectionAutoDistinct,
-		speech.SpeechVoiceAlloy,
+		speech.SpeechVoiceBallad,
 		nil,
 	)
 }
@@ -128,18 +128,9 @@ func TestServiceKeepsAutomaticMasterDistinctFromExactNarratorDefaultAtCreation(t
 	}
 	if master.Selection != speech.VoiceSelectionAutoDistinct ||
 		master.ResolvedVoiceID == nil ||
-		*master.ResolvedVoiceID != speech.SpeechVoiceAlloy ||
+		*master.ResolvedVoiceID != speech.SpeechVoiceAsh ||
 		master.Reuse != nil {
-		t.Fatalf("dormant exact narrator changed automatic master selection = %+v", master)
-	}
-	bindPresentationTopics(t, store, workspaceID, created)
-	master, err = store.ReadMasterVoiceSelection(ctx)
-	if err != nil {
-		t.Fatalf("read active narrator master selection: %v", err)
-	}
-	if master.ResolvedVoiceID == nil || *master.ResolvedVoiceID != speech.SpeechVoiceAsh ||
-		master.Reuse != nil {
-		t.Fatalf("active exact narrator did not reassign automatic master = %+v", master)
+		t.Fatalf("live exact narrator did not reassign automatic master = %+v", master)
 	}
 }
 
@@ -169,24 +160,12 @@ func TestServiceUpdatesPaletteAndNarratorSpeechAsOnePersistedPresentation(t *tes
 	assertExactBluePresentation(t, restored.PresentationProfile)
 }
 
-func TestVisiblePresentationIdentitySurvivesPaneBindingsAndRestart(t *testing.T) {
+func TestVisiblePresentationIdentitySurvivesRestart(t *testing.T) {
 	appDataDir := t.TempDir()
 	store, service, _, workspaceID := newConversationServiceTestHarness(t, appDataDir)
 	ctx := context.Background()
 	alpha := createPresentationTestTopic(t, ctx, service, workspaceID, "Restart identity alpha")
 	beta := createPresentationTestTopic(t, ctx, service, workspaceID, "Restart identity beta")
-	bindings := []WorkspacePaneBinding{
-		{PaneID: "pane-alpha-primary", ConversationID: alpha.Conversation.ID},
-		{PaneID: "pane-beta", ConversationID: beta.Conversation.ID},
-	}
-	if err := store.ReplaceWorkspacePaneBindings(
-		ctx,
-		workspaceID,
-		bindings,
-		"2026-07-11T21:00:00Z",
-	); err != nil {
-		t.Fatalf("bind visible restart topics: %v", err)
-	}
 	alphaBefore := readPresentationTestSnapshot(t, ctx, service, workspaceID, alpha.Conversation.ID)
 	betaBefore := readPresentationTestSnapshot(t, ctx, service, workspaceID, beta.Conversation.ID)
 	if alphaBefore.PresentationProfile.ResolvedPaletteID == betaBefore.PresentationProfile.ResolvedPaletteID ||
@@ -196,21 +175,13 @@ func TestVisiblePresentationIdentitySurvivesPaneBindingsAndRestart(t *testing.T)
 	}
 
 	reopened := restartPresentationTestStore(t, appDataDir, service, store)
-	if err := reopened.ReplaceWorkspacePaneBindings(
-		ctx,
-		workspaceID,
-		bindings,
-		"2026-07-11T22:00:00Z",
-	); err != nil {
-		t.Fatalf("restore pane bindings: %v", err)
-	}
 	alphaAfter := readPresentationTestSnapshot(t, ctx, reopened, workspaceID, alpha.Conversation.ID)
 	betaAfter := readPresentationTestSnapshot(t, ctx, reopened, workspaceID, beta.Conversation.ID)
 	assertStablePresentationIdentity(t, alphaBefore.PresentationProfile, alphaAfter.PresentationProfile)
 	assertStablePresentationIdentity(t, betaBefore.PresentationProfile, betaAfter.PresentationProfile)
 }
 
-func TestDormantExactPresentationOverridesDoNotConsumeActiveIdentityCapacity(t *testing.T) {
+func TestExactPresentationOverrideReassignsConflictingAutomaticIdentities(t *testing.T) {
 	store, service, _, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
 	t.Cleanup(func() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -219,12 +190,9 @@ func TestDormantExactPresentationOverridesDoNotConsumeActiveIdentityCapacity(t *
 		_ = store.Close()
 	})
 	ctx := context.Background()
-	alpha := createPresentationTestTopic(t, ctx, service, workspaceID, "Active automatic alpha")
-	beta := createPresentationTestTopic(t, ctx, service, workspaceID, "Active automatic beta")
-	gamma := createPresentationTestTopic(t, ctx, service, workspaceID, "Dormant exact gamma")
-	bindPresentationTopics(t, store, workspaceID, alpha, beta)
-	alpha = readPresentationTestSnapshot(t, ctx, service, workspaceID, alpha.Conversation.ID)
-	beta = readPresentationTestSnapshot(t, ctx, service, workspaceID, beta.Conversation.ID)
+	alpha := createPresentationTestTopic(t, ctx, service, workspaceID, "Automatic alpha")
+	beta := createPresentationTestTopic(t, ctx, service, workspaceID, "Automatic beta")
+	gamma := createPresentationTestTopic(t, ctx, service, workspaceID, "Exact gamma")
 	alphaBefore := alpha.PresentationProfile
 	betaBefore := beta.PresentationProfile
 
@@ -245,73 +213,30 @@ func TestDormantExactPresentationOverridesDoNotConsumeActiveIdentityCapacity(t *
 		gamma.Conversation.ID,
 		settings,
 	)
-	alphaAfterDormantOverride := readPresentationTestSnapshot(
-		t,
-		ctx,
-		service,
-		workspaceID,
-		alpha.Conversation.ID,
-	)
-	betaAfterDormantOverride := readPresentationTestSnapshot(
-		t,
-		ctx,
-		service,
-		workspaceID,
-		beta.Conversation.ID,
-	)
-	assertStablePresentationIdentity(t, alphaBefore, alphaAfterDormantOverride.PresentationProfile)
-	assertStablePresentationIdentity(t, betaBefore, betaAfterDormantOverride.PresentationProfile)
 	if gammaProfile.PaletteSelection != PresentationSelectionExact ||
 		gammaProfile.ResolvedPaletteID != alphaBefore.ResolvedPaletteID ||
 		gammaProfile.NarratorVoiceSelection != speech.VoiceSelectionExact ||
 		gammaProfile.ResolvedNarratorVoiceID == nil ||
 		*gammaProfile.ResolvedNarratorVoiceID != *alphaBefore.ResolvedNarratorVoiceID {
-		t.Fatalf("dormant exact identity = %+v", gammaProfile)
+		t.Fatalf("exact identity = %+v", gammaProfile)
 	}
 
-	bindPresentationTopics(t, store, workspaceID, alpha, beta, gamma)
-	alphaAfterActivation := readPresentationTestSnapshot(
-		t,
-		ctx,
-		service,
-		workspaceID,
-		alpha.Conversation.ID,
-	)
-	betaAfterActivation := readPresentationTestSnapshot(
-		t,
-		ctx,
-		service,
-		workspaceID,
-		beta.Conversation.ID,
-	)
-	gammaAfterActivation := readPresentationTestSnapshot(
-		t,
-		ctx,
-		service,
-		workspaceID,
-		gamma.Conversation.ID,
-	)
-	assertStablePresentationIdentity(t, betaBefore, betaAfterActivation.PresentationProfile)
-	if gammaAfterActivation.PresentationProfile.ResolvedPaletteID != alphaBefore.ResolvedPaletteID ||
-		gammaAfterActivation.PresentationProfile.ResolvedNarratorVoiceID == nil ||
-		*gammaAfterActivation.PresentationProfile.ResolvedNarratorVoiceID !=
-			*alphaBefore.ResolvedNarratorVoiceID {
-		t.Fatalf("active exact identity moved = %+v", gammaAfterActivation.PresentationProfile)
-	}
-	if alphaAfterActivation.PresentationProfile.ResolvedPaletteID ==
-		gammaAfterActivation.PresentationProfile.ResolvedPaletteID ||
-		alphaAfterActivation.PresentationProfile.ResolvedPaletteID ==
-			betaAfterActivation.PresentationProfile.ResolvedPaletteID ||
-		alphaAfterActivation.PresentationProfile.ResolvedNarratorVoiceID == nil ||
-		*alphaAfterActivation.PresentationProfile.ResolvedNarratorVoiceID ==
-			*gammaAfterActivation.PresentationProfile.ResolvedNarratorVoiceID ||
-		*alphaAfterActivation.PresentationProfile.ResolvedNarratorVoiceID ==
-			*betaAfterActivation.PresentationProfile.ResolvedNarratorVoiceID {
+	alphaAfter := readPresentationTestSnapshot(t, ctx, service, workspaceID, alpha.Conversation.ID)
+	betaAfter := readPresentationTestSnapshot(t, ctx, service, workspaceID, beta.Conversation.ID)
+	assertStablePresentationIdentity(t, betaBefore, betaAfter.PresentationProfile)
+	if alphaAfter.PresentationProfile.ResolvedPaletteID == gammaProfile.ResolvedPaletteID ||
+		alphaAfter.PresentationProfile.ResolvedPaletteID ==
+			betaAfter.PresentationProfile.ResolvedPaletteID ||
+		alphaAfter.PresentationProfile.ResolvedNarratorVoiceID == nil ||
+		*alphaAfter.PresentationProfile.ResolvedNarratorVoiceID ==
+			*gammaProfile.ResolvedNarratorVoiceID ||
+		*alphaAfter.PresentationProfile.ResolvedNarratorVoiceID ==
+			*betaAfter.PresentationProfile.ResolvedNarratorVoiceID {
 		t.Fatalf(
-			"automatic identity did not resolve exact activation deterministically: alpha=%+v beta=%+v gamma=%+v",
-			alphaAfterActivation.PresentationProfile,
-			betaAfterActivation.PresentationProfile,
-			gammaAfterActivation.PresentationProfile,
+			"automatic identity did not move off the exact override: alpha=%+v beta=%+v gamma=%+v",
+			alphaAfter.PresentationProfile,
+			betaAfter.PresentationProfile,
+			gammaProfile,
 		)
 	}
 }
@@ -443,8 +368,7 @@ func TestServiceAllocatesStableDistinctNarratorVoicesAndAppliesExactOverrides(t 
 		t.Fatalf("create beta: %v", err)
 	}
 	assertNarratorVoice(t, alpha.PresentationProfile, speech.VoiceSelectionAutoDistinct, speech.SpeechVoiceAlloy, nil)
-	assertNarratorVoice(t, beta.PresentationProfile, speech.VoiceSelectionAutoDistinct, speech.SpeechVoiceAlloy, nil)
-	bindPresentationTopics(t, store, workspaceID, alpha, beta)
+	assertNarratorVoice(t, beta.PresentationProfile, speech.VoiceSelectionAutoDistinct, speech.SpeechVoiceAsh, nil)
 	alpha = readPresentationTestSnapshot(t, ctx, service, workspaceID, alpha.Conversation.ID)
 	beta = readPresentationTestSnapshot(t, ctx, service, workspaceID, beta.Conversation.ID)
 	assertNarratorVoice(t, alpha.PresentationProfile, speech.VoiceSelectionAutoDistinct, speech.SpeechVoiceAlloy, nil)
@@ -545,10 +469,6 @@ func TestServiceRecordsFiniteNarratorVoiceCatalogReuse(t *testing.T) {
 		allTopics = append(allTopics, created)
 		exhausted = created
 	}
-	if exhausted.PresentationProfile.NarratorVoiceReuse != nil {
-		t.Fatalf("dormant narrator reported false catalog exhaustion: %+v", exhausted.PresentationProfile)
-	}
-	bindPresentationTopics(t, store, workspaceID, allTopics...)
 	exhausted = readPresentationTestSnapshot(t, ctx, service, workspaceID, exhausted.Conversation.ID)
 	assertNarratorVoice(
 		t,
@@ -561,7 +481,7 @@ func TestServiceRecordsFiniteNarratorVoiceCatalogReuse(t *testing.T) {
 		*exhausted.PresentationProfile.ResolvedNarratorVoiceID == speech.SpeechVoiceMarin {
 		t.Fatalf("exhausted narrator reused reserved master voice: %+v", exhausted.PresentationProfile)
 	}
-	bindPresentationTopics(t, store, workspaceID, allTopics[1:]...)
+	archivePresentationTopics(t, service, workspaceID, allTopics[0])
 	relieved := readPresentationTestSnapshot(t, ctx, service, workspaceID, exhausted.Conversation.ID)
 	assertNarratorVoice(
 		t,
@@ -597,7 +517,6 @@ func TestServiceReleasesDormantNarratorVoiceReuseWithUnobservedTerminalBacklog(t
 		)
 	}
 	exhausted := allTopics[len(allTopics)-1]
-	bindPresentationTopics(t, store, workspaceID, allTopics...)
 	exhausted = readPresentationTestSnapshot(t, ctx, service, workspaceID, exhausted.Conversation.ID)
 	if exhausted.PresentationProfile.NarratorVoiceReuse == nil {
 		t.Fatalf("active narrator catalog pressure did not create reuse: %+v", exhausted.PresentationProfile)
@@ -628,7 +547,7 @@ func TestServiceReleasesDormantNarratorVoiceReuseWithUnobservedTerminalBacklog(t
 		)
 	}
 
-	bindPresentationTopics(t, store, workspaceID, allTopics[:len(allTopics)-1]...)
+	archivePresentationTopics(t, service, workspaceID, allTopics[len(allTopics)-1])
 	relieved := readPresentationTestSnapshot(t, ctx, service, workspaceID, exhausted.Conversation.ID)
 	if relieved.NarratorState.ObservedThroughSequence >= relieved.Conversation.LastTrajectorySequence {
 		t.Fatalf(
@@ -646,77 +565,6 @@ func TestServiceReleasesDormantNarratorVoiceReuseWithUnobservedTerminalBacklog(t
 	)
 }
 
-func TestServiceAllocatesVoicesOnlyToActivePaneFreeNarrators(t *testing.T) {
-	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
-	t.Cleanup(func() {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		_ = service.Shutdown(shutdownCtx)
-		_ = store.Close()
-	})
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	alpha := createPresentationTestTopic(t, ctx, service, workspaceID, "Pane-free active alpha")
-	beta := createPresentationTestTopic(t, ctx, service, workspaceID, "Pane-free active beta")
-	for index := 0; index < len(speech.SynthesisVoiceCatalog().VoiceIDs)+2; index++ {
-		created := createPresentationTestTopic(
-			t,
-			ctx,
-			service,
-			workspaceID,
-			fmt.Sprintf("Dormant voice pressure %02d", index+1),
-		)
-		assertNarratorVoice(
-			t,
-			created.PresentationProfile,
-			speech.VoiceSelectionAutoDistinct,
-			speech.SpeechVoiceAlloy,
-			nil,
-		)
-	}
-	if _, err := service.sendTestTurn(ctx, workspaceID, alpha.Conversation.ID, "hold"); err != nil {
-		t.Fatalf("start pane-free alpha: %v", err)
-	}
-	runtime.waitForStart(t, "hold")
-	if _, err := service.sendTestTurn(ctx, workspaceID, beta.Conversation.ID, "hold"); err != nil {
-		t.Fatalf("start pane-free beta: %v", err)
-	}
-	runtime.waitForStart(t, "hold")
-	alpha = readPresentationTestSnapshot(t, ctx, service, workspaceID, alpha.Conversation.ID)
-	beta = readPresentationTestSnapshot(t, ctx, service, workspaceID, beta.Conversation.ID)
-	assertNarratorVoice(
-		t,
-		alpha.PresentationProfile,
-		speech.VoiceSelectionAutoDistinct,
-		speech.SpeechVoiceAlloy,
-		nil,
-	)
-	assertNarratorVoice(
-		t,
-		beta.PresentationProfile,
-		speech.VoiceSelectionAutoDistinct,
-		speech.SpeechVoiceAsh,
-		nil,
-	)
-	if _, err := service.StopTurn(ctx, workspaceID, alpha.Conversation.ID); err != nil {
-		t.Fatalf("stop pane-free alpha: %v", err)
-	}
-	assertServiceSnapshot(t, service, workspaceID, alpha.Conversation.ID, func(snapshot ConversationSnapshot) bool {
-		return snapshot.Conversation.Status == ConversationStatusIdle
-	})
-	beta = readPresentationTestSnapshot(t, ctx, service, workspaceID, beta.Conversation.ID)
-	assertNarratorVoice(
-		t,
-		beta.PresentationProfile,
-		speech.VoiceSelectionAutoDistinct,
-		speech.SpeechVoiceAsh,
-		nil,
-	)
-	if _, err := service.StopTurn(ctx, workspaceID, beta.Conversation.ID); err != nil {
-		t.Fatalf("stop pane-free beta: %v", err)
-	}
-}
-
 func TestMasterVoiceOverrideReassignsConflictingAutomaticNarratorAndPersists(t *testing.T) {
 	appDataDir := t.TempDir()
 	store, service, _, workspaceID := newConversationServiceTestHarness(t, appDataDir)
@@ -729,7 +577,6 @@ func TestMasterVoiceOverrideReassignsConflictingAutomaticNarratorAndPersists(t *
 	if err != nil {
 		t.Fatalf("create beta: %v", err)
 	}
-	bindPresentationTopics(t, store, workspaceID, alpha, beta)
 	updated, err := store.UpdateMasterVoiceSelection(
 		ctx,
 		speech.VoiceSelectionRequest{
@@ -798,11 +645,9 @@ func TestExactNarratorOverrideReassignsAutomaticMasterAndPersists(t *testing.T) 
 	if err != nil {
 		t.Fatalf("create alpha: %v", err)
 	}
-	beta, err := service.CreateTopic(ctx, workspaceID, "Beta keeps narrator voice")
-	if err != nil {
+	if _, err := service.CreateTopic(ctx, workspaceID, "Beta keeps narrator voice"); err != nil {
 		t.Fatalf("create beta: %v", err)
 	}
-	bindPresentationTopics(t, store, workspaceID, alpha, beta)
 	automaticMaster, err := store.UpdateMasterVoiceSelection(
 		ctx,
 		speech.VoiceSelectionRequest{Selection: speech.VoiceSelectionAutoDistinct},
@@ -916,7 +761,6 @@ func TestAutomaticMasterVoiceRecordsAndPersistsFiniteCatalogReuse(t *testing.T) 
 		}
 		conversations = append(conversations, created)
 	}
-	bindPresentationTopics(t, store, workspaceID, conversations...)
 	for index, voiceID := range catalog {
 		if _, err := updateTestNarratorVoiceSelection(
 			t,
@@ -1014,27 +858,21 @@ func updateTestNarratorVoiceSelection(
 	return service.UpdatePresentationProfile(ctx, workspaceID, conversationID, settings)
 }
 
-func bindPresentationTopics(
+func archivePresentationTopics(
 	t *testing.T,
-	store *Store,
+	service *Service,
 	workspaceID string,
 	topics ...ConversationSnapshot,
 ) {
 	t.Helper()
-	bindings := make([]WorkspacePaneBinding, 0, len(topics))
-	for index, topic := range topics {
-		bindings = append(bindings, WorkspacePaneBinding{
-			PaneID:         fmt.Sprintf("pane-presentation-%02d", index+1),
-			ConversationID: topic.Conversation.ID,
-		})
-	}
-	if err := store.ReplaceWorkspacePaneBindings(
-		context.Background(),
-		workspaceID,
-		bindings,
-		"2026-07-11T23:00:00Z",
-	); err != nil {
-		t.Fatalf("bind presentation topics: %v", err)
+	for _, topic := range topics {
+		if _, err := service.ArchiveTopic(
+			context.Background(),
+			workspaceID,
+			topic.Conversation.ID,
+		); err != nil {
+			t.Fatalf("archive presentation topic %s: %v", topic.Conversation.ID, err)
+		}
 	}
 }
 

@@ -945,7 +945,6 @@ function sideConversation(conversationId: string): SideConversation {
     failure: null,
     id: "side_a",
     parentConversationId: conversationId,
-    parentPaneId: "pane_a",
     parentStatus: "working",
     providerThreadId: "thread_side",
     resolvedSideAgentInvocation: resolvedInvocation("side_agent"),

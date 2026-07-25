@@ -220,24 +220,20 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 	)
 	masterRoute := waitForRuntimeLiveMasterRoute(t, client, baseURL, acceptedMaster.Input.ID)
 	assertRuntimeLiveMasterRoute(t, masterRoute, opened.Workspace.ID, created.Conversation.ID)
-	presentation := postRuntimeJSON[master.PresentationIntent](
+	transcript := postRuntimeJSON[master.Transcript](
 		t,
 		client,
 		baseURL,
-		"/master/presentation/wait",
-		httpapi.ReadMasterInputRoutingStateRequest{InputID: acceptedMaster.Input.ID},
+		"/master/transcript/read",
+		httpapi.ReadMasterTranscriptRequest{Limit: master.MaxTranscriptReadEntries},
 		http.StatusOK,
 	)
-	if presentation.InputID != acceptedMaster.Input.ID ||
-		presentation.Kind != master.PresentationIntentKindShowMasterReply ||
-		presentation.ShowMasterReply == nil ||
-		presentation.ShowMasterReply.ReplyKind != master.MasterReplyKindAnswer ||
-		strings.TrimSpace(presentation.ShowMasterReply.Text) != "GLOBAL_ROUTE_OK" {
-		encoded, err := json.MarshalIndent(presentation, "", "  ")
+	if !runtimeLiveMasterAnswerRecorded(transcript, acceptedMaster.Input.ID, "GLOBAL_ROUTE_OK") {
+		encoded, err := json.MarshalIndent(transcript, "", "  ")
 		if err != nil {
-			t.Fatalf("encode invalid live master presentation: %v", err)
+			t.Fatalf("encode invalid live master transcript: %v", err)
 		}
-		t.Fatalf("live master presentation = %s", encoded)
+		t.Fatalf("live master transcript = %s", encoded)
 	}
 }
 
@@ -301,6 +297,24 @@ func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
 		http.StatusOK,
 	)
 	assertRuntimeLiveTableArtifact(t, latestTurn.ID, expectedTableTitle, metadata, artifact)
+}
+
+func runtimeLiveMasterAnswerRecorded(
+	transcript master.Transcript,
+	inputID string,
+	text string,
+) bool {
+	for _, entry := range transcript.Entries {
+		reply := entry.Payload.AssistantReply
+		if entry.Payload.InputID != inputID || reply == nil {
+			continue
+		}
+		if reply.ReplyKind == master.MasterReplyKindAnswer &&
+			strings.TrimSpace(reply.Text) == text {
+			return true
+		}
+	}
+	return false
 }
 
 func waitForRuntimeLiveMasterRoute(

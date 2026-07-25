@@ -261,13 +261,12 @@ func assertSideConversationCommands(t *testing.T, handler http.Handler, service 
 		DisposeSideConversationRequest{
 			WorkspaceID:          "workspace-api",
 			ParentConversationID: "conversation-api",
-			ParentPaneID:         "pane-api",
 			SideConversationID:   "side-api",
 		},
 		http.StatusOK,
 	)
-	if service.command != "dispose_side" || service.commandConversationID != "side-api" || service.commandParentPaneID != "pane-api" {
-		t.Fatalf("dispose side command = %q side = %q pane = %q", service.command, service.commandConversationID, service.commandParentPaneID)
+	if service.command != "dispose_side" || service.commandConversationID != "side-api" {
+		t.Fatalf("dispose side command = %q side = %q", service.command, service.commandConversationID)
 	}
 }
 
@@ -533,7 +532,6 @@ type httpTestConversationService struct {
 	command                 string
 	commandWorkspaceID      string
 	commandConversationID   string
-	commandParentPaneID     string
 	commandText             string
 	approval                conversation.ConversationApprovalResponse
 	presentationSettings    conversation.ConversationPresentationSettings
@@ -608,11 +606,9 @@ func (service *httpTestConversationService) DisposeSideConversation(
 	_ context.Context,
 	workspaceID string,
 	parentConversationID string,
-	parentPaneID string,
 	sideConversationID string,
 ) (conversation.ConversationSnapshot, error) {
 	service.recordCommand("dispose_side", workspaceID, sideConversationID, "")
-	service.commandParentPaneID = parentPaneID
 	return service.snapshot, nil
 }
 

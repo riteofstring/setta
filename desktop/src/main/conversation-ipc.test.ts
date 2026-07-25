@@ -218,9 +218,8 @@ function conversationInputRequest(): SubmitConversationInputRequest {
       id: "input_api",
       modality: "voice",
       replyToInputId: null,
-      sourcePaneId: "pane_api",
       submittedAt: "2026-07-12T18:00:00Z",
-      text: "Route this pane input",
+      text: "Route this conversation input",
     },
   };
 }

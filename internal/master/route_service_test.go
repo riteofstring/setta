@@ -117,8 +117,6 @@ func TestRouteServiceRetrievesFolderlessCandidatesWithoutActiveWorkspaces(t *tes
 					RecentFinalSummaries: []conversationindex.TextExcerpt{},
 					UpdatedAt:            "2026-07-13T18:00:00Z",
 					ActiveStatus:         "idle",
-					OpenPaneIDs:          []string{"pane-folderless"},
-					OpenPaneCount:        1,
 				},
 			},
 		}},
@@ -177,8 +175,6 @@ func TestRouteServiceBuildsStableSideAndForkPresentationCommands(t *testing.T) {
 		ConversationID:      "conversation-alpha",
 		ResourceScope:       FolderRouteResourceScope("workspace-alpha", ""),
 		Title:               "Alpha topic",
-		OpenPaneIDs:         []string{"pane-alpha"},
-		OpenPaneCount:       1,
 		ActiveTurnID:        &activeTurnID,
 		CompletedForkPoints: []RouteForkPoint{{TurnID: "turn-fork"}},
 	}}}
@@ -192,18 +188,8 @@ func TestRouteServiceBuildsStableSideAndForkPresentationCommands(t *testing.T) {
 	side, err := service.buildRouteCommand(sideDecision, bundle)
 	if err != nil || side.ValidateDecision(sideDecision) != nil ||
 		side.CreateSideConversation == nil ||
-		side.CreateSideConversation.Target.PreferredPaneID == nil {
+		side.CreateSideConversation.Target.ConversationID != "conversation-alpha" {
 		t.Fatalf("side route command = %+v err=%v", side, err)
-	}
-	bundle.ConversationTargets[0].OpenPaneIDs = []string{}
-	bundle.ConversationTargets[0].OpenPaneCount = 0
-	ordinalBeforePaneLessSide := ordinal
-	withoutPane, err := service.buildRouteCommand(sideDecision, bundle)
-	ordinal = ordinalBeforePaneLessSide
-	if err != nil || withoutPane.ValidateDecision(sideDecision) != nil ||
-		withoutPane.CreateSideConversation == nil ||
-		withoutPane.CreateSideConversation.Target.PreferredPaneID != nil {
-		t.Fatalf("side route command without pane = %+v err=%v", withoutPane, err)
 	}
 
 	forkDecision := RouteDecision{

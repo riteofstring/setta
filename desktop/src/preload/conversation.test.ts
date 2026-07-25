@@ -77,9 +77,8 @@ describe("preload topic conversation API", () => {
         id: "input_api",
         modality: "voice" as const,
         replyToInputId: null,
-        sourcePaneId: "pane_api",
         submittedAt: "2026-07-12T18:00:00Z",
-        text: "Route this pane input",
+        text: "Route this conversation input",
       },
     };
     const inputStateRequest = {

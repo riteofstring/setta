@@ -19,7 +19,6 @@ func TestMasterInputEndpointAcceptsTypedGlobalVoiceSubmission(t *testing.T) {
 	})
 	workspaceID := "workspace_alpha"
 	conversationID := "conversation_alpha"
-	paneID := "pane_alpha"
 	input := master.MasterInput{
 		ID:                    "input_alpha",
 		Text:                  "  Keep the finalized transcript exact.  ",
@@ -28,7 +27,6 @@ func TestMasterInputEndpointAcceptsTypedGlobalVoiceSubmission(t *testing.T) {
 		SubmittedAt:           "2026-07-12T18:00:00Z",
 		FocusedWorkspaceID:    &workspaceID,
 		FocusedConversationID: &conversationID,
-		FocusedPaneID:         &paneID,
 	}
 
 	accepted := postJSON[master.AcceptedMasterInput](
@@ -183,67 +181,6 @@ func TestMasterInputCancellationEndpointCancelsOneDurableShellInteraction(t *tes
 	}
 }
 
-func TestMasterPresentationIntentEndpointWaitsForValidatedIntent(t *testing.T) {
-	input := validSubmitMasterInputRequest().Input
-	intent, err := master.PresentationIntentForCommand(input, master.RouteCommand{
-		Kind: master.RouteDecisionKindAnswerGlobal,
-		AnswerGlobal: &master.MasterAnswerGlobalRouteCommand{
-			Text: "The global answer.",
-		},
-	})
-	if err != nil {
-		t.Fatalf("build presentation intent: %v", err)
-	}
-	service := &fakeHTTPMasterInputService{intent: intent}
-	handler := newAuthenticatedTestHandler(t, HandlerConfig{
-		MasterInputService: service,
-		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
-	})
-
-	waited := postJSON[master.PresentationIntent](
-		t,
-		handler,
-		"/master/presentation/wait",
-		ReadMasterInputRoutingStateRequest{InputID: input.ID},
-		http.StatusOK,
-	)
-	if service.waitInputID != input.ID || waited.ID != intent.ID ||
-		waited.ShowMasterReply == nil || waited.ShowMasterReply.Text != "The global answer." {
-		t.Fatalf("presentation intent=%+v inputID=%q", waited, service.waitInputID)
-	}
-}
-
-func TestMasterPresentationResolutionEndpointAppliesValidatedPane(t *testing.T) {
-	input := validSubmitMasterInputRequest().Input
-	request := master.PresentationResolutionRequest{
-		IntentID: master.PresentationIntentID(input.ID),
-		InputID:  input.ID,
-		PaneID:   "pane-alpha",
-	}
-	service := &fakeHTTPMasterInputService{resolution: master.PresentationResolution{
-		IntentID:   request.IntentID,
-		InputID:    request.InputID,
-		PaneID:     request.PaneID,
-		ResolvedAt: "2026-07-12T18:00:02Z",
-	}}
-	handler := newAuthenticatedTestHandler(t, HandlerConfig{
-		MasterInputService: service,
-		Metadata:           BackendMetadata{Name: BackendName, Version: "test"},
-	})
-
-	resolved := postJSON[master.PresentationResolution](
-		t,
-		handler,
-		"/master/presentation/resolve",
-		request,
-		http.StatusOK,
-	)
-	if service.waitInputID != input.ID || resolved.PaneID != request.PaneID ||
-		resolved.IntentID != request.IntentID {
-		t.Fatalf("presentation resolution=%+v inputID=%q", resolved, service.waitInputID)
-	}
-}
-
 func TestActiveMasterShellInteractionEndpointMapsReadAndValidationFailures(t *testing.T) {
 	tests := []struct {
 		err         error
@@ -360,7 +297,7 @@ func TestMasterInputEndpointRejectsUnknownAndOversizedPayloads(t *testing.T) {
 		t,
 		handler,
 		"/master/inputs/submit",
-		`{"input":{"id":"input","text":"request","modality":"voice","source":"shell","submittedAt":"2026-07-12T18:00:00Z","focusedWorkspaceId":null,"focusedConversationId":null,"focusedPaneId":null,"originatingWorkspaceId":null,"originatingConversationId":null,"originatingPaneId":null,"originatingConversationInputId":null,"workspaceId":"removed"}}`,
+		`{"input":{"id":"input","text":"request","modality":"voice","source":"shell","submittedAt":"2026-07-12T18:00:00Z","focusedWorkspaceId":null,"focusedConversationId":null,"originatingWorkspaceId":null,"originatingConversationId":null,"originatingConversationInputId":null,"workspaceId":"removed"}}`,
 		http.StatusBadRequest,
 	)
 	if unknown.Error.Code != "invalid_json" || service.calls != 0 {
@@ -395,8 +332,6 @@ type fakeHTTPMasterInputService struct {
 	transcript       master.Transcript
 	transcriptLimit  int
 	waitInputID      string
-	intent           master.PresentationIntent
-	resolution       master.PresentationResolution
 	cancelInputID    string
 }
 
@@ -409,25 +344,6 @@ func (service *fakeHTTPMasterInputService) CancelInput(
 		return master.ShellInteractionState{}, service.err
 	}
 	return master.ProjectShellInteractionState(service.state)
-}
-
-func (service *fakeHTTPMasterInputService) ResolvePresentationIntent(
-	_ context.Context,
-	request master.PresentationResolutionRequest,
-) (master.PresentationResolution, error) {
-	service.waitInputID = request.InputID
-	if service.err != nil {
-		return master.PresentationResolution{}, service.err
-	}
-	return service.resolution, nil
-}
-
-func (service *fakeHTTPMasterInputService) WaitPresentationIntent(
-	_ context.Context,
-	inputID string,
-) (master.PresentationIntent, error) {
-	service.waitInputID = inputID
-	return master.ClonePresentationIntent(service.intent), service.err
 }
 
 func (service *fakeHTTPMasterInputService) ReadInputState(

@@ -16,7 +16,7 @@ import (
 )
 
 type RouteStore interface {
-	ReadPendingMasterRouteCommand(context.Context) (RouteDecisionRecord, *string, bool, error)
+	ReadPendingMasterRouteCommand(context.Context) (RouteDecisionRecord, bool, error)
 	ClaimNextMasterRouteInput(context.Context, string) (InputRoutingWork, bool, error)
 	CancelMasterInputRouting(context.Context, string, string) (InputRoutingState, error)
 	ListMasterRouteContextConversationIDs(context.Context, int) ([]string, error)
@@ -30,7 +30,7 @@ type RouteStore interface {
 }
 
 type RouteCommandExecutor interface {
-	ExecuteMasterRouteCommand(context.Context, RouteDecisionRecord, *string) error
+	ExecuteMasterRouteCommand(context.Context, RouteDecisionRecord) error
 }
 
 type CandidateRetriever interface {
@@ -124,14 +124,14 @@ func (service *RouteService) ProcessNext(ctx context.Context) (bool, error) {
 }
 
 func (service *RouteService) executePendingRouteCommand(ctx context.Context) (bool, error) {
-	pending, resolvedPaneID, found, err := service.store.ReadPendingMasterRouteCommand(ctx)
+	pending, found, err := service.store.ReadPendingMasterRouteCommand(ctx)
 	if err != nil {
 		return false, err
 	}
 	if !found {
 		return false, nil
 	}
-	if err := service.executor.ExecuteMasterRouteCommand(ctx, pending, resolvedPaneID); err != nil {
+	if err := service.executor.ExecuteMasterRouteCommand(ctx, pending); err != nil {
 		return true, fmt.Errorf("execute committed master route command: %w", err)
 	}
 	completedAt, err := service.timestampAfter(pending.DecidedAt)

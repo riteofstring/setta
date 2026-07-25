@@ -20,7 +20,6 @@ type masterRouteConversationService interface {
 		context.Context,
 		string,
 		master.RouteCommand,
-		*string,
 	) (conversation.ConversationSnapshot, error)
 }
 
@@ -59,9 +58,8 @@ func newMasterRouteCommandExecutor(
 func (executor *masterRouteCommandExecutor) ExecuteMasterRouteCommand(
 	ctx context.Context,
 	record master.RouteDecisionRecord,
-	resolvedPaneID *string,
 ) error {
-	if err := validateMasterRouteCommandExecution(executor, ctx, record, resolvedPaneID); err != nil {
+	if err := validateMasterRouteCommandExecution(executor, ctx, record); err != nil {
 		return err
 	}
 	applied, err := executor.store.MasterRouteCommandApplied(ctx, record)
@@ -69,7 +67,7 @@ func (executor *masterRouteCommandExecutor) ExecuteMasterRouteCommand(
 		return err
 	}
 	if !applied {
-		executeErr := executor.execute(ctx, record, resolvedPaneID)
+		executeErr := executor.execute(ctx, record)
 		if err := executor.verifyEffect(ctx, record, executeErr); err != nil {
 			return err
 		}
@@ -81,7 +79,6 @@ func validateMasterRouteCommandExecution(
 	executor *masterRouteCommandExecutor,
 	ctx context.Context,
 	record master.RouteDecisionRecord,
-	resolvedPaneID *string,
 ) error {
 	if executor == nil || executor.store == nil || executor.conversations == nil || executor.narrator == nil {
 		return errors.New("master route command executor is required")
@@ -91,16 +88,6 @@ func validateMasterRouteCommandExecution(
 	}
 	if err := record.Validate(); err != nil {
 		return fmt.Errorf("validate master route decision: %w", err)
-	}
-	return validateMasterRouteCommandPane(record.ResultingCommand.Kind, resolvedPaneID)
-}
-
-func validateMasterRouteCommandPane(kind master.RouteDecisionKind, resolvedPaneID *string) error {
-	if kind == master.RouteDecisionKindCreateSideConversation && resolvedPaneID == nil {
-		return errors.New("master side route command requires a resolved pane")
-	}
-	if kind != master.RouteDecisionKindCreateSideConversation && resolvedPaneID != nil {
-		return errors.New("non-side master route command cannot have a resolved pane")
 	}
 	return nil
 }
@@ -134,7 +121,6 @@ func (executor *masterRouteCommandExecutor) verifyEffect(
 func (executor *masterRouteCommandExecutor) execute(
 	ctx context.Context,
 	record master.RouteDecisionRecord,
-	resolvedPaneID *string,
 ) error {
 	command := record.ResultingCommand
 	switch command.Kind {
@@ -155,12 +141,9 @@ func (executor *masterRouteCommandExecutor) execute(
 	case master.RouteDecisionKindFocusConversation,
 		master.RouteDecisionKindClarify,
 		master.RouteDecisionKindAnswerGlobal:
-		if resolvedPaneID != nil {
-			return errors.New("non-side master route command cannot have a resolved pane")
-		}
 		return nil
 	default:
-		_, err := executor.conversations.ExecuteMasterRouteCommand(ctx, record.ID, command, resolvedPaneID)
+		_, err := executor.conversations.ExecuteMasterRouteCommand(ctx, record.ID, command)
 		return err
 	}
 }

@@ -29,7 +29,6 @@ type SendSideConversationTurnRequest struct {
 type DisposeSideConversationRequest struct {
 	WorkspaceID          string `json:"workspaceId"`
 	ParentConversationID string `json:"parentConversationId"`
-	ParentPaneID         string `json:"parentPaneId"`
 	SideConversationID   string `json:"sideConversationId"`
 }
 

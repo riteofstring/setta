@@ -42,14 +42,10 @@ func TestServiceAllocatesStableDistinctVisibleConversationPalettes(t *testing.T)
 	ctx := context.Background()
 
 	paletteIDs := conversationpalette.IDs()
-	created := createDormantPaletteTestTopics(t, ctx, service, workspaceID, len(paletteIDs))
+	created := createPaletteTestTopics(t, ctx, service, workspaceID, len(paletteIDs))
+	assertDistinctVisiblePaletteProfiles(t, ctx, service, workspaceID, created, paletteIDs)
 
 	exhausted := createPaletteTestTopic(t, ctx, service, workspaceID, "Palette exhausted")
-	created = append(created, exhausted)
-	assertDormantPaletteProfile(t, exhausted.PresentationProfile, "dormant exhausted topic")
-	bindings := paletteTestPaneBindings(created)
-	replacePaletteTestPaneBindings(t, store, workspaceID, bindings)
-	assertDistinctVisiblePaletteProfiles(t, ctx, service, workspaceID, created, paletteIDs)
 	exhausted = readPresentationTestSnapshot(
 		t,
 		ctx,
@@ -59,14 +55,9 @@ func TestServiceAllocatesStableDistinctVisibleConversationPalettes(t *testing.T)
 	)
 	assertExhaustedPaletteProfile(t, exhausted.PresentationProfile, created[0].Conversation.ID)
 
-	alpha := created[0]
-	remainingBindings := make([]WorkspacePaneBinding, 0, len(bindings)-1)
-	for _, binding := range bindings {
-		if binding.ConversationID != alpha.Conversation.ID {
-			remainingBindings = append(remainingBindings, binding)
-		}
+	if _, err := service.ArchiveTopic(ctx, workspaceID, created[0].Conversation.ID); err != nil {
+		t.Fatalf("ArchiveTopic: %v", err)
 	}
-	replacePaletteTestPaneBindings(t, store, workspaceID, remainingBindings)
 	relieved := readPresentationTestSnapshot(
 		t,
 		ctx,
@@ -167,7 +158,7 @@ func TestServiceExecutesMasterFolderlessCreateAsConversationInput(t *testing.T) 
 			InitialInputSubmitted: "2026-07-14T18:00:00Z",
 		},
 	}
-	snapshot, err := service.ExecuteMasterRouteCommand(ctx, "decision-master-folderless", command, nil)
+	snapshot, err := service.ExecuteMasterRouteCommand(ctx, "decision-master-folderless", command)
 	if err != nil {
 		t.Fatalf("ExecuteMasterRouteCommand: %v", err)
 	}
@@ -188,7 +179,7 @@ func TestServiceExecutesMasterFolderlessCreateAsConversationInput(t *testing.T) 
 	}
 }
 
-func createDormantPaletteTestTopics(
+func createPaletteTestTopics(
 	t *testing.T,
 	ctx context.Context,
 	service *Service,
@@ -198,40 +189,15 @@ func createDormantPaletteTestTopics(
 	t.Helper()
 	created := make([]ConversationSnapshot, 0, count)
 	for index := 0; index < count; index++ {
-		snapshot := createPaletteTestTopic(
+		created = append(created, createPaletteTestTopic(
 			t,
 			ctx,
 			service,
 			workspaceID,
 			fmt.Sprintf("Palette %d", index+1),
-		)
-		assertDormantPaletteProfile(t, snapshot.PresentationProfile, fmt.Sprintf("dormant topic %d", index+1))
-		created = append(created, snapshot)
+		))
 	}
 	return created
-}
-
-func assertDormantPaletteProfile(
-	t *testing.T,
-	profile ConversationPresentationProfile,
-	label string,
-) {
-	t.Helper()
-	if profile.ResolvedPaletteID != conversationpalette.ConversationPaletteSky ||
-		profile.PaletteReuse != nil {
-		t.Fatalf("%s presentation = %+v, want stable sky without reuse", label, profile)
-	}
-}
-
-func paletteTestPaneBindings(topics []ConversationSnapshot) []WorkspacePaneBinding {
-	bindings := make([]WorkspacePaneBinding, 0, len(topics)+1)
-	for index, snapshot := range topics {
-		bindings = append(bindings, WorkspacePaneBinding{
-			PaneID:         fmt.Sprintf("pane-palette-%02d", index+1),
-			ConversationID: snapshot.Conversation.ID,
-		})
-	}
-	return bindings
 }
 
 func assertDistinctVisiblePaletteProfiles(
@@ -293,23 +259,6 @@ func createPaletteTestTopic(
 		t.Fatalf("create %s topic: %v", title, err)
 	}
 	return snapshot
-}
-
-func replacePaletteTestPaneBindings(
-	t *testing.T,
-	store *Store,
-	workspaceID string,
-	bindings []WorkspacePaneBinding,
-) {
-	t.Helper()
-	if err := store.ReplaceWorkspacePaneBindings(
-		context.Background(),
-		workspaceID,
-		bindings,
-		"2026-07-14T20:00:00Z",
-	); err != nil {
-		t.Fatalf("replace palette test pane bindings: %v", err)
-	}
 }
 
 func createSubscribedServiceTopic(

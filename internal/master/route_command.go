@@ -6,18 +6,10 @@ import (
 	"path/filepath"
 )
 
-type PresentationIntentKind string
 type MasterReplyKind string
 type PresentationResourceBindingKind string
 
 const (
-	MaxPresentationIntentIDBytes = MaxInputIDBytes + 32
-
-	PresentationIntentKindFocusExistingConversationPane PresentationIntentKind = "focus_existing_conversation_pane"
-	PresentationIntentKindOpenConversationPane          PresentationIntentKind = "open_conversation_pane"
-	PresentationIntentKindOpenSideConversation          PresentationIntentKind = "open_side_conversation_in_parent_pane"
-	PresentationIntentKindShowMasterReply               PresentationIntentKind = "show_master_reply"
-
 	MasterReplyKindClarification MasterReplyKind = "clarification"
 	MasterReplyKindAnswer        MasterReplyKind = "answer"
 
@@ -34,14 +26,13 @@ type PresentationResourceBinding struct {
 }
 
 // ConversationPresentationTarget is trusted application state captured when a
-// master decision is validated. The model never authors workspace, pane, or
+// master decision is validated. The model never authors workspace or
 // presentation metadata beyond the conversation id selected by its decision.
 type ConversationPresentationTarget struct {
 	ConversationID   string                        `json:"conversationId"`
 	ResourceScope    RouteResourceScope            `json:"resourceScope"`
 	ResourceBindings []PresentationResourceBinding `json:"resourceBindings"`
 	Title            string                        `json:"title"`
-	PreferredPaneID  *string                       `json:"preferredPaneId"`
 }
 
 type MasterSendToAgentRouteCommand struct {
@@ -121,57 +112,6 @@ type RouteCommand struct {
 	AnswerGlobal           *MasterAnswerGlobalRouteCommand           `json:"answerGlobal"`
 }
 
-type FocusExistingConversationPaneIntent struct {
-	Target ConversationPresentationTarget `json:"target"`
-}
-
-type OpenConversationPaneIntent struct {
-	Target ConversationPresentationTarget `json:"target"`
-}
-
-type OpenSideConversationInParentPaneIntent struct {
-	Target ConversationPresentationTarget `json:"target"`
-}
-
-type ShowMasterReplyIntent struct {
-	ReplyKind MasterReplyKind `json:"replyKind"`
-	Text      string          `json:"text"`
-}
-
-// PresentationIntent is renderer-safe typed data derived from one committed
-// command. Side creation is presented before execution so the renderer can
-// resolve its owning pane; other effects are presented after completion.
-type PresentationIntent struct {
-	ID                             string                                  `json:"id"`
-	InputID                        string                                  `json:"inputId"`
-	Source                         MasterInputSource                       `json:"source"`
-	OriginatingWorkspaceID         *string                                 `json:"originatingWorkspaceId"`
-	OriginatingConversationID      *string                                 `json:"originatingConversationId"`
-	OriginatingPaneID              *string                                 `json:"originatingPaneId"`
-	OriginatingConversationInputID *string                                 `json:"originatingConversationInputId"`
-	Kind                           PresentationIntentKind                  `json:"kind"`
-	FocusExistingConversationPane  *FocusExistingConversationPaneIntent    `json:"focusExistingConversationPane"`
-	OpenConversationPane           *OpenConversationPaneIntent             `json:"openConversationPane"`
-	OpenSideConversation           *OpenSideConversationInParentPaneIntent `json:"openSideConversation"`
-	ShowMasterReply                *ShowMasterReplyIntent                  `json:"showMasterReply"`
-}
-
-// PresentationResolutionRequest acknowledges the exact pane selected by the
-// renderer for a navigation intent. The backend validates the live pane
-// binding before accepting it; provider output never supplies this value.
-type PresentationResolutionRequest struct {
-	IntentID string `json:"intentId"`
-	InputID  string `json:"inputId"`
-	PaneID   string `json:"paneId"`
-}
-
-type PresentationResolution struct {
-	IntentID   string `json:"intentId"`
-	InputID    string `json:"inputId"`
-	PaneID     string `json:"paneId"`
-	ResolvedAt string `json:"resolvedAt"`
-}
-
 func (target ConversationPresentationTarget) Validate() error {
 	if err := validateRouteReference("master presentation conversation id", target.ConversationID); err != nil {
 		return err
@@ -182,13 +122,7 @@ func (target ConversationPresentationTarget) Validate() error {
 	if err := validatePresentationResourceBindings(target.ResourceBindings); err != nil {
 		return err
 	}
-	if err := validateRouteText("master presentation conversation title", target.Title, MaxRouteConversationTitle); err != nil {
-		return err
-	}
-	if target.PreferredPaneID != nil {
-		return validateRouteReference("master presentation preferred pane id", *target.PreferredPaneID)
-	}
-	return nil
+	return validateRouteText("master presentation conversation title", target.Title, MaxRouteConversationTitle)
 }
 
 func validatePresentationResourceBindings(bindings []PresentationResourceBinding) error {
@@ -345,9 +279,6 @@ func validateMasterCreateConversationCommand(command *MasterCreateConversationRo
 	if command == nil {
 		return errors.New("create-conversation command requires createConversation")
 	}
-	if command.Target.PreferredPaneID != nil {
-		return errors.New("create-conversation command cannot prefer an existing pane")
-	}
 	if err := command.Target.Validate(); err != nil {
 		return err
 	}
@@ -470,9 +401,6 @@ func validateMasterForkCommand(command *MasterForkConversationRouteCommand) erro
 	if err := command.Target.Validate(); err != nil {
 		return err
 	}
-	if command.Target.PreferredPaneID != nil {
-		return errors.New("fork-conversation command cannot prefer an existing child pane")
-	}
 	for label, value := range map[string]string{
 		"parent conversation id": command.ParentConversationID,
 		"fork turn id":           command.ForkedAtTurnID,
@@ -514,244 +442,4 @@ func (command RouteCommand) payloadCount() int {
 		}
 	}
 	return count
-}
-
-func PresentationIntentForCommand(input MasterInput, command RouteCommand) (PresentationIntent, error) {
-	normalized, err := NormalizeInput(input)
-	if err != nil {
-		return PresentationIntent{}, err
-	}
-	if !EqualInputs(normalized, input) {
-		return PresentationIntent{}, errors.New("master presentation input is not normalized")
-	}
-	if err := command.Validate(); err != nil {
-		return PresentationIntent{}, err
-	}
-	intent := PresentationIntent{
-		ID:                             PresentationIntentID(input.ID),
-		InputID:                        input.ID,
-		Source:                         input.Source,
-		OriginatingWorkspaceID:         cloneString(input.OriginatingWorkspaceID),
-		OriginatingConversationID:      cloneString(input.OriginatingConversationID),
-		OriginatingPaneID:              cloneString(input.OriginatingPaneID),
-		OriginatingConversationInputID: cloneString(input.OriginatingConversationInputID),
-	}
-	switch command.Kind {
-	case RouteDecisionKindCreateSideConversation:
-		payload := command.CreateSideConversation
-		intent.Kind = PresentationIntentKindOpenSideConversation
-		intent.OpenSideConversation = &OpenSideConversationInParentPaneIntent{
-			Target: payload.Target,
-		}
-	case RouteDecisionKindClarify:
-		intent.Kind = PresentationIntentKindShowMasterReply
-		intent.ShowMasterReply = &ShowMasterReplyIntent{ReplyKind: MasterReplyKindClarification, Text: command.Clarify.Question}
-	case RouteDecisionKindAnswerGlobal:
-		intent.Kind = PresentationIntentKindShowMasterReply
-		intent.ShowMasterReply = &ShowMasterReplyIntent{ReplyKind: MasterReplyKindAnswer, Text: command.AnswerGlobal.Text}
-	default:
-		target, targetErr := command.presentationTarget()
-		if targetErr != nil {
-			return PresentationIntent{}, targetErr
-		}
-		if target.PreferredPaneID != nil {
-			intent.Kind = PresentationIntentKindFocusExistingConversationPane
-			intent.FocusExistingConversationPane = &FocusExistingConversationPaneIntent{Target: target}
-		} else {
-			intent.Kind = PresentationIntentKindOpenConversationPane
-			intent.OpenConversationPane = &OpenConversationPaneIntent{Target: target}
-		}
-	}
-	if err := intent.Validate(); err != nil {
-		return PresentationIntent{}, err
-	}
-	return intent, nil
-}
-
-func (command RouteCommand) presentationTarget() (ConversationPresentationTarget, error) {
-	switch command.Kind {
-	case RouteDecisionKindSendToAgent:
-		return command.SendToAgent.Target, nil
-	case RouteDecisionKindQueueAgentTurn:
-		return command.QueueAgentTurn.Target, nil
-	case RouteDecisionKindSteerActiveTurn:
-		return command.SteerActiveTurn.Target, nil
-	case RouteDecisionKindAskNarrator:
-		return command.AskNarrator.Target, nil
-	case RouteDecisionKindFocusConversation:
-		return command.FocusConversation.Target, nil
-	case RouteDecisionKindCreateConversation:
-		return command.CreateConversation.Target, nil
-	case RouteDecisionKindForkConversation:
-		return command.ForkConversation.Target, nil
-	default:
-		return ConversationPresentationTarget{}, fmt.Errorf("master route command %s has no conversation presentation target", command.Kind)
-	}
-}
-
-func (intent PresentationIntent) Validate() error {
-	if err := intent.validateIdentity(); err != nil {
-		return err
-	}
-	if err := validatePresentationIntentSource(intent); err != nil {
-		return err
-	}
-	if intent.payloadCount() != 1 {
-		return errors.New("master presentation intent requires exactly one payload")
-	}
-	return intent.validatePayload()
-}
-
-func (intent PresentationIntent) validateIdentity() error {
-	if err := validateBoundedIdentifier("master presentation intent id", intent.ID, MaxPresentationIntentIDBytes); err != nil {
-		return err
-	}
-	if err := ValidateInputID(intent.InputID); err != nil {
-		return err
-	}
-	if intent.ID != PresentationIntentID(intent.InputID) {
-		return errors.New("master presentation intent id does not match its input")
-	}
-	for label, value := range map[string]*string{
-		"originating workspace id":          intent.OriginatingWorkspaceID,
-		"originating conversation id":       intent.OriginatingConversationID,
-		"originating pane id":               intent.OriginatingPaneID,
-		"originating conversation input id": intent.OriginatingConversationInputID,
-	} {
-		if value != nil {
-			if err := validateRouteReference("master presentation "+label, *value); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (intent PresentationIntent) validatePayload() error {
-	switch intent.Kind {
-	case PresentationIntentKindFocusExistingConversationPane:
-		return validateFocusExistingConversationPaneIntent(intent.FocusExistingConversationPane)
-	case PresentationIntentKindOpenConversationPane:
-		return validateOpenConversationPaneIntent(intent.OpenConversationPane)
-	case PresentationIntentKindOpenSideConversation:
-		return validateOpenSideConversationIntent(intent.OpenSideConversation)
-	case PresentationIntentKindShowMasterReply:
-		return validateShowMasterReplyIntent(intent.ShowMasterReply)
-	default:
-		return fmt.Errorf("unsupported master presentation intent kind %q", intent.Kind)
-	}
-}
-
-func validateFocusExistingConversationPaneIntent(intent *FocusExistingConversationPaneIntent) error {
-	if intent == nil || intent.Target.PreferredPaneID == nil {
-		return errors.New("focus-existing presentation intent requires a preferred pane")
-	}
-	return intent.Target.Validate()
-}
-
-func validateOpenConversationPaneIntent(intent *OpenConversationPaneIntent) error {
-	if intent == nil {
-		return errors.New("open-conversation presentation intent requires a target")
-	}
-	return intent.Target.Validate()
-}
-
-func validateOpenSideConversationIntent(intent *OpenSideConversationInParentPaneIntent) error {
-	if intent == nil {
-		return errors.New("open-side presentation intent requires a parent target")
-	}
-	return intent.Target.Validate()
-}
-
-func validateShowMasterReplyIntent(intent *ShowMasterReplyIntent) error {
-	if intent == nil {
-		return errors.New("show-master-reply presentation intent requires a reply")
-	}
-	switch intent.ReplyKind {
-	case MasterReplyKindClarification:
-		return validateRouteText("master presentation clarification", intent.Text, MaxRouteQuestionBytes)
-	case MasterReplyKindAnswer:
-		return validateRouteText("master presentation answer", intent.Text, MaxRouteAnswerBytes)
-	default:
-		return fmt.Errorf("unsupported master reply kind %q", intent.ReplyKind)
-	}
-}
-
-func (intent PresentationIntent) NavigationTarget() (ConversationPresentationTarget, error) {
-	if err := intent.Validate(); err != nil {
-		return ConversationPresentationTarget{}, err
-	}
-	switch intent.Kind {
-	case PresentationIntentKindFocusExistingConversationPane:
-		return intent.FocusExistingConversationPane.Target, nil
-	case PresentationIntentKindOpenConversationPane:
-		return intent.OpenConversationPane.Target, nil
-	case PresentationIntentKindOpenSideConversation:
-		return intent.OpenSideConversation.Target, nil
-	case PresentationIntentKindShowMasterReply:
-		return ConversationPresentationTarget{}, errors.New("master reply intent has no navigation target")
-	default:
-		return ConversationPresentationTarget{}, fmt.Errorf("unsupported master presentation intent kind %q", intent.Kind)
-	}
-}
-
-func (request PresentationResolutionRequest) Validate() error {
-	if err := ValidateInputID(request.InputID); err != nil {
-		return err
-	}
-	if request.IntentID != PresentationIntentID(request.InputID) {
-		return errors.New("master presentation resolution intent does not match its input")
-	}
-	return validateRouteReference("master presentation resolution pane id", request.PaneID)
-}
-
-func (resolution PresentationResolution) Validate() error {
-	request := PresentationResolutionRequest{
-		IntentID: resolution.IntentID,
-		InputID:  resolution.InputID,
-		PaneID:   resolution.PaneID,
-	}
-	if err := request.Validate(); err != nil {
-		return err
-	}
-	resolvedAt, err := normalizeTimestamp("master presentation resolvedAt", resolution.ResolvedAt)
-	if err != nil || resolvedAt != resolution.ResolvedAt {
-		return errors.New("master presentation resolvedAt must be normalized")
-	}
-	return nil
-}
-
-func validatePresentationIntentSource(intent PresentationIntent) error {
-	switch intent.Source {
-	case MasterInputSourceShell:
-		if intent.OriginatingWorkspaceID != nil || intent.OriginatingConversationID != nil || intent.OriginatingPaneID != nil || intent.OriginatingConversationInputID != nil {
-			return errors.New("shell master presentation intent cannot contain an originating pane")
-		}
-	case MasterInputSourceConversationEscalation:
-		if intent.OriginatingWorkspaceID == nil || intent.OriginatingConversationID == nil || intent.OriginatingConversationInputID == nil {
-			return errors.New("conversation master presentation intent requires originating linkage")
-		}
-	default:
-		return fmt.Errorf("unsupported master presentation input source %q", intent.Source)
-	}
-	return nil
-}
-
-func (intent PresentationIntent) payloadCount() int {
-	count := 0
-	for _, present := range []bool{
-		intent.FocusExistingConversationPane != nil,
-		intent.OpenConversationPane != nil,
-		intent.OpenSideConversation != nil,
-		intent.ShowMasterReply != nil,
-	} {
-		if present {
-			count++
-		}
-	}
-	return count
-}
-
-func PresentationIntentID(inputID string) string {
-	return "master-presentation:" + inputID
 }

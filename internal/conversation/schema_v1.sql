@@ -17,7 +17,6 @@ CREATE TABLE conversation_inputs (
   sequence INTEGER PRIMARY KEY AUTOINCREMENT,
   id TEXT NOT NULL UNIQUE,
   conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  source_pane_id TEXT,
   reply_to_input_id TEXT,
   input_text TEXT NOT NULL,
   input_modality TEXT NOT NULL CHECK (input_modality IN ('text', 'voice')),
@@ -132,7 +131,6 @@ CREATE INDEX conversation_branches_parent_idx
 CREATE TABLE side_conversations (
   id TEXT PRIMARY KEY,
   parent_conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  parent_pane_id TEXT NOT NULL,
   decision_source TEXT NOT NULL CHECK (decision_source IN ('conversation_router', 'master')),
   provider_thread_id TEXT,
   source_provider_thread_id TEXT NOT NULL,
@@ -374,10 +372,8 @@ CREATE TABLE master_inputs (
   routing_failure_json TEXT CHECK (routing_failure_json IS NULL OR json_valid(routing_failure_json)),
   focused_workspace_id TEXT,
   focused_conversation_id TEXT,
-  focused_pane_id TEXT,
   originating_workspace_id TEXT,
   originating_conversation_id TEXT,
-  originating_pane_id TEXT,
   originating_conversation_input_id TEXT,
   UNIQUE(originating_conversation_input_id),
   FOREIGN KEY (originating_conversation_id, originating_conversation_input_id)
@@ -386,7 +382,6 @@ CREATE TABLE master_inputs (
     (input_source = 'shell'
       AND originating_workspace_id IS NULL
       AND originating_conversation_id IS NULL
-      AND originating_pane_id IS NULL
       AND originating_conversation_input_id IS NULL)
     OR (input_source = 'conversation_escalation'
       AND originating_workspace_id IS NOT NULL
@@ -428,13 +423,6 @@ CREATE TABLE master_route_decisions (
 CREATE INDEX master_route_decisions_session_stream_idx
   ON master_route_decisions(master_session_id, stream_sequence);
 
-CREATE TABLE master_presentation_resolutions (
-  decision_id TEXT PRIMARY KEY REFERENCES master_route_decisions(id) ON DELETE CASCADE,
-  intent_id TEXT NOT NULL UNIQUE,
-  pane_id TEXT NOT NULL,
-  resolved_at TEXT NOT NULL
-) STRICT;
-
 CREATE TABLE master_route_command_completions (
   decision_id TEXT PRIMARY KEY REFERENCES master_route_decisions(id) ON DELETE CASCADE,
   completed_at TEXT NOT NULL
@@ -447,21 +435,6 @@ CREATE TABLE master_route_clarification_replies (
 
 CREATE INDEX master_route_clarification_replies_decision_idx
   ON master_route_clarification_replies(clarification_decision_id);
-
-CREATE TABLE pane_bindings (
-  pane_id TEXT PRIMARY KEY,
-  workspace_id TEXT,
-  conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  last_focused_at TEXT
-) STRICT;
-
-CREATE INDEX pane_bindings_conversation_focus_idx
-  ON pane_bindings(conversation_id, last_focused_at DESC, pane_id);
-
-CREATE UNIQUE INDEX pane_bindings_conversation_unique_idx
-  ON pane_bindings(conversation_id);
 
 CREATE TABLE committed_events (
   commit_sequence INTEGER PRIMARY KEY AUTOINCREMENT,

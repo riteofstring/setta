@@ -108,7 +108,6 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 	side := SideConversation{
 		ID:                          "side-1",
 		ParentConversationID:        conversationID,
-		ParentPaneID:                "pane-1",
 		ParentStatus:                snapshot.Conversation.Status,
 		DecisionSource:              BranchDecisionSourceConversationRouter,
 		ProviderThreadID:            stringPointer("provider-side-thread"),

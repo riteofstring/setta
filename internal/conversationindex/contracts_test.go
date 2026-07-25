@@ -50,8 +50,6 @@ func TestStoredTopicCardAllowsFolderlessResourceScope(t *testing.T) {
 		RecentFinalSummaries: []TextExcerpt{},
 		UpdatedAt:            "2026-07-13T18:00:00Z",
 		ActiveStatus:         "idle",
-		OpenPaneIDs:          []string{},
-		OpenPaneCount:        0,
 	}}
 	if err := candidate.Validate(CandidateRequest{
 		Scope: CandidateScopeFilter{IncludeFolderless: true},

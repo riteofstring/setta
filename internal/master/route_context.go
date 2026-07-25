@@ -55,11 +55,9 @@ type RouteWorkspaceContext struct {
 type RouteFocusContext struct {
 	WorkspaceID                    *string `json:"workspaceId"`
 	ConversationID                 *string `json:"conversationId"`
-	PaneID                         *string `json:"paneId"`
 	ConversationAvailable          bool    `json:"conversationAvailable"`
 	OriginatingWorkspaceID         *string `json:"originatingWorkspaceId"`
 	OriginatingConversationID      *string `json:"originatingConversationId"`
-	OriginatingPaneID              *string `json:"originatingPaneId"`
 	OriginatingConversationInputID *string `json:"originatingConversationInputId"`
 }
 
@@ -77,8 +75,6 @@ type RouteConversationTarget struct {
 	ResourceScope        RouteResourceScope  `json:"resourceScope"`
 	Title                string              `json:"title"`
 	Status               string              `json:"status"`
-	OpenPaneIDs          []string            `json:"openPaneIds"`
-	OpenPaneCount        int                 `json:"openPaneCount"`
 	ActiveTurnID         *string             `json:"activeTurnId"`
 	CompletedForkPoints  []RouteForkPoint    `json:"completedForkPoints"`
 	AllowedDecisionKinds []RouteDecisionKind `json:"allowedDecisionKinds"`
@@ -93,8 +89,6 @@ type RouteCandidateContext struct {
 	RecentFinalSummaries []conversationindex.TextExcerpt `json:"recentFinalSummaries"`
 	UpdatedAt            string                          `json:"updatedAt"`
 	Status               string                          `json:"status"`
-	OpenPaneIDs          []string                        `json:"openPaneIds"`
-	OpenPaneCount        int                             `json:"openPaneCount"`
 	LexicalRank          *float64                        `json:"lexicalRank"`
 }
 
@@ -443,19 +437,16 @@ func validateRouteConversationTargetIdentity(target RouteConversationTarget) err
 	if strings.TrimSpace(target.Title) == "" || strings.TrimSpace(target.Status) == "" {
 		return errors.New("master route target title and status are required")
 	}
-	if target.OpenPaneIDs == nil || target.CompletedForkPoints == nil || target.AllowedDecisionKinds == nil {
+	if target.CompletedForkPoints == nil || target.AllowedDecisionKinds == nil {
 		return errors.New("master route target collections must be arrays")
 	}
-	if target.OpenPaneCount < len(target.OpenPaneIDs) || len(target.CompletedForkPoints) > MaxRouteForkPointsPerTarget {
-		return errors.New("master route target pane or fork bounds are invalid")
+	if len(target.CompletedForkPoints) > MaxRouteForkPointsPerTarget {
+		return errors.New("master route target fork bounds are invalid")
 	}
 	return nil
 }
 
 func validateRouteConversationTargetState(target RouteConversationTarget) error {
-	if err := validateUniqueRouteReferences("target open pane", target.OpenPaneIDs); err != nil {
-		return err
-	}
 	if target.ActiveTurnID != nil {
 		if err := validateRouteReference("master route target active turn id", *target.ActiveTurnID); err != nil {
 			return err
@@ -649,8 +640,6 @@ func routeCandidateContexts(
 			RecentFinalSummaries: append([]conversationindex.TextExcerpt{}, card.RecentFinalSummaries...),
 			UpdatedAt:            card.UpdatedAt,
 			Status:               card.ActiveStatus,
-			OpenPaneIDs:          append([]string{}, card.OpenPaneIDs...),
-			OpenPaneCount:        card.OpenPaneCount,
 			LexicalRank:          cloneFloat(candidate.LexicalRank),
 		})
 	}
@@ -661,10 +650,8 @@ func routeFocusContext(input MasterInput, targets map[string]RouteConversationTa
 	focus := RouteFocusContext{
 		WorkspaceID:                    cloneString(input.FocusedWorkspaceID),
 		ConversationID:                 cloneString(input.FocusedConversationID),
-		PaneID:                         cloneString(input.FocusedPaneID),
 		OriginatingWorkspaceID:         cloneString(input.OriginatingWorkspaceID),
 		OriginatingConversationID:      cloneString(input.OriginatingConversationID),
-		OriginatingPaneID:              cloneString(input.OriginatingPaneID),
 		OriginatingConversationInputID: cloneString(input.OriginatingConversationInputID),
 	}
 	if input.FocusedConversationID != nil {
@@ -731,7 +718,6 @@ func cloneRouteConversationTargets(targets []RouteConversationTarget) []RouteCon
 	cloned := append([]RouteConversationTarget{}, targets...)
 	for index := range cloned {
 		cloned[index].ResourceScope = cloneRouteResourceScope(cloned[index].ResourceScope)
-		cloned[index].OpenPaneIDs = append([]string{}, cloned[index].OpenPaneIDs...)
 		cloned[index].ActiveTurnID = cloneString(cloned[index].ActiveTurnID)
 		cloned[index].CompletedForkPoints = append([]RouteForkPoint{}, cloned[index].CompletedForkPoints...)
 		cloned[index].AllowedDecisionKinds = append([]RouteDecisionKind{}, cloned[index].AllowedDecisionKinds...)

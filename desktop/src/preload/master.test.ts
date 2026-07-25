@@ -24,13 +24,11 @@ describe("preload master API", () => {
     const request = {
       input: {
         focusedConversationId: null,
-        focusedPaneId: null,
         focusedWorkspaceId: "workspace_alpha",
         id: "input_alpha",
         modality: "voice" as const,
         originatingConversationId: null,
         originatingConversationInputId: null,
-        originatingPaneId: null,
         originatingWorkspaceId: null,
         source: "shell" as const,
         submittedAt: "2026-07-12T18:00:00Z",
@@ -40,26 +38,17 @@ describe("preload master API", () => {
     const waitRequest = { inputId: request.input.id };
     const cancelRequest = { inputId: request.input.id };
     const transcriptRequest = { limit: 20 };
-    const resolutionRequest = {
-      inputId: request.input.id,
-      intentId: `master-presentation:${request.input.id}`,
-      paneId: "pane_alpha",
-    };
 
     await api.master!.cancelInput(cancelRequest);
     await api.master!.readActiveInteraction();
     await api.master!.readTranscript(transcriptRequest);
-    await api.master!.resolvePresentation(resolutionRequest);
     await api.master!.submitInput(request);
     await api.master!.waitInteraction(waitRequest);
-    await api.master!.waitPresentation(waitRequest);
 
     expect(invoke).toHaveBeenCalledWith(ipcChannels.masterCancelInput, cancelRequest);
     expect(invoke).toHaveBeenCalledWith(ipcChannels.masterReadActiveInteraction);
     expect(invoke).toHaveBeenCalledWith(ipcChannels.masterReadTranscript, transcriptRequest);
-    expect(invoke).toHaveBeenCalledWith(ipcChannels.masterResolvePresentation, resolutionRequest);
     expect(invoke).toHaveBeenCalledWith(ipcChannels.masterSubmitInput, request);
     expect(invoke).toHaveBeenCalledWith(ipcChannels.masterWaitInteraction, waitRequest);
-    expect(invoke).toHaveBeenCalledWith(ipcChannels.masterWaitPresentation, waitRequest);
   });
 });

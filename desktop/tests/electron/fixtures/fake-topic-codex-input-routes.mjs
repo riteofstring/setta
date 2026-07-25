@@ -1,8 +1,6 @@
 export function createExactStructuredInputRoutes({ simultaneousCompletionInput }) {
   const sideConversationInputs = new Set([
-    "fail side presentation",
     "hold close while side creation is pending",
-    "hold pane-close side",
     "hold restart side",
     "side lifecycle answer",
     "side provider failure",

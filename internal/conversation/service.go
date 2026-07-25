@@ -356,12 +356,22 @@ func (service *Service) persistCreatedConversation(
 		return err
 	}
 	_, err = service.store.Transact(ctx, "create topic conversation", func(transaction *WriteTransaction) error {
+		// A new conversation is immediately a visible workstream, so its
+		// presentation identity reconciles against the conversations it now
+		// has to stay distinguishable from.
+		if err := transaction.capturePresentationActivity(); err != nil {
+			return err
+		}
 		if err := persistCreatedConversationRecords(transaction, conversation, binding, narrator, branch); err != nil {
 			return err
 		}
 		if err := transaction.UpsertConversationPresentationProfile(presentation); err != nil {
 			return err
 		}
+		transaction.presentationActivityUpdatedAt = advanceTimestamp(
+			transaction.presentationActivityUpdatedAt,
+			conversation.UpdatedAt,
+		)
 		return appendPublications(transaction, publications)
 	})
 	return err
