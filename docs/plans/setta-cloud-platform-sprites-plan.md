@@ -3033,3 +3033,25 @@ Stop and reassess rather than hiding the problem if any of these occur:
   This was a read-only source, pinned-module, latest-module, installed-CLI, and
   official-documentation audit; no automated gate applied and no provider or
   cloud mutation ran.
+- 2026-07-25 (socket-path test determinism): Made the unix-socket test harness
+  independent of the operator's `TMPDIR`, so the quality gate means the same
+  thing on every machine. Nineteen tests — thirteen in `internal/controlplane`
+  and six in `cmd/setta-control-plane` — failed on a stock macOS `TMPDIR`
+  because socket paths built from `t.TempDir()` reached roughly 134 bytes
+  against the 104-byte `sun_path` limit. The new `internal/unixsockettest`
+  helper returns a private, auto-cleaned directory sized against the caller's
+  socket name and fails loudly naming the limit when it cannot, following the
+  `internal/runtimeprovider/runtimetest` precedent for shared test helpers.
+  Socket-bearing sites route through it, including `seededControlPlane`, whose
+  store directory determines the derived socket path, and the pre-existing
+  ad-hoc short-directory workaround in `workload_lease_test.go` is now the
+  shared helper. `TMPDIR` was deliberately not pinned in
+  `scripts/run_go_tests.sh`, which would have hidden the limit from anyone
+  running `go test` directly and papered over the same failure in future tests.
+  The nineteen failures were reproduced before the change and the four affected
+  packages then passed under the OS default `TMPDIR`, under a deliberately
+  109-byte `TMPDIR` longer than the entire limit, and under a short `TMPDIR`.
+  No helper directory survived the run, and `./scripts/format.sh` and
+  `./check_quality.sh --git-changes` passed. This was a test-harness change
+  only; no production path, dependency file, provider, or cloud resource was
+  touched.
