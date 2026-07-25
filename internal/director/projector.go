@@ -91,6 +91,10 @@ type projectedWorkstream struct {
 	fileChangeNode        map[string]string
 	runArtifacts          map[string][]string
 	recoveryStatuses      map[string]RecoveryStatus
+	changedNodeIDs        map[string]bool
+	changedEdgeIDs        map[string]bool
+	removedNodeIDs        map[string]bool
+	removedNodeOrder      []string
 }
 
 func newProjectedWorkstream(id string) *projectedWorkstream {
@@ -108,6 +112,9 @@ func newProjectedWorkstream(id string) *projectedWorkstream {
 		fileChangeNode:        map[string]string{},
 		runArtifacts:          map[string][]string{},
 		recoveryStatuses:      map[string]RecoveryStatus{},
+		changedNodeIDs:        map[string]bool{},
+		changedEdgeIDs:        map[string]bool{},
+		removedNodeIDs:        map[string]bool{},
 	}
 }
 
@@ -202,51 +209,24 @@ func (projector *DirectorGraphProjector) applyTrajectory(sequence int, event con
 	if err := event.Validate(); err != nil {
 		return fmt.Errorf("invalid trajectory event %s: %w", event.ID, err)
 	}
-	workstream, known := projector.workstreamForConversation(event.ConversationID)
-	if !known {
-		return &ReplayError{
-			Reason:   DirectorResyncEventBeforeSnapshot,
-			Sequence: sequence,
-			Detail:   fmt.Sprintf("conversation %q has no registered workstream", event.ConversationID),
-		}
+	workstream, err := projector.trajectoryOwner(sequence, event)
+	if err != nil {
+		return err
 	}
-	expectedTrajectorySequence := projector.trajectorySequence[event.ConversationID] + 1
-	if event.Sequence != expectedTrajectorySequence {
-		return &ReplayError{
-			Reason:   DirectorResyncEventSequenceGap,
-			Sequence: sequence,
-			Detail: fmt.Sprintf(
-				"conversation %q expected trajectory sequence %d, got %d",
-				event.ConversationID,
-				expectedTrajectorySequence,
-				event.Sequence,
-			),
-		}
-	}
-	if event.TurnID != nil {
-		terminalNodeID, err := SemanticNodeID(SemanticNodeIdentityRunTerminal, *event.TurnID)
-		if err != nil {
-			return err
-		}
-		if _, terminal := workstream.nodeIndex[terminalNodeID]; terminal {
-			return fmt.Errorf(
-				"run %s already has a terminal fact; trajectory event %s cannot follow it",
-				*event.TurnID,
-				event.ID,
-			)
-		}
+	if err := projector.checkRunIsOpen(workstream, event); err != nil {
+		return err
 	}
 	handler, handled := trajectoryHandlers[event.Kind]
 	if !handled {
 		return fmt.Errorf("no projector handler for trajectory event kind %q", event.Kind)
 	}
-	rule, err := TrajectoryFactRule(event.Kind)
-	if err != nil {
-		return err
+	rule, ruleErr := TrajectoryFactRule(event.Kind)
+	if ruleErr != nil {
+		return ruleErr
 	}
-	actor, err := SemanticActorForTrajectoryActor(event.Actor)
-	if err != nil {
-		return err
+	actor, actorErr := SemanticActorForTrajectoryActor(event.Actor)
+	if actorErr != nil {
+		return actorErr
 	}
 	if event.TurnID != nil {
 		if err := projector.claimRunID(*event.TurnID, workstream.id); err != nil {
@@ -266,6 +246,62 @@ func (projector *DirectorGraphProjector) applyTrajectory(sequence int, event con
 		return err
 	}
 	projector.trajectorySequence[event.ConversationID] = event.Sequence
+	return nil
+}
+
+// trajectoryOwner resolves the workstream a conversation's fact belongs to and
+// keeps that conversation's own ordering honest. A missing owner or a skipped
+// per-conversation sequence means the caller replayed from the wrong place, so
+// both are typed resync conditions rather than internal errors.
+func (projector *DirectorGraphProjector) trajectoryOwner(
+	sequence int,
+	event conversation.TrajectoryEvent,
+) (*projectedWorkstream, error) {
+	workstream, known := projector.workstreamForConversation(event.ConversationID)
+	if !known {
+		return nil, &ReplayError{
+			Reason:   DirectorResyncEventBeforeSnapshot,
+			Sequence: sequence,
+			Detail:   fmt.Sprintf("conversation %q has no registered workstream", event.ConversationID),
+		}
+	}
+	expected := projector.trajectorySequence[event.ConversationID] + 1
+	if event.Sequence != expected {
+		return nil, &ReplayError{
+			Reason:   DirectorResyncEventSequenceGap,
+			Sequence: sequence,
+			Detail: fmt.Sprintf(
+				"conversation %q expected trajectory sequence %d, got %d",
+				event.ConversationID,
+				expected,
+				event.Sequence,
+			),
+		}
+	}
+	return workstream, nil
+}
+
+// checkRunIsOpen rejects a fact that arrives after its run already ended. A
+// terminal run closes the visible causal chain, so a later fact on it would
+// describe work the graph already said was over.
+func (projector *DirectorGraphProjector) checkRunIsOpen(
+	workstream *projectedWorkstream,
+	event conversation.TrajectoryEvent,
+) error {
+	if event.TurnID == nil {
+		return nil
+	}
+	terminalNodeID, err := SemanticNodeID(SemanticNodeIdentityRunTerminal, *event.TurnID)
+	if err != nil {
+		return err
+	}
+	if _, terminal := workstream.nodeIndex[terminalNodeID]; terminal {
+		return fmt.Errorf(
+			"run %s already has a terminal fact; trajectory event %s cannot follow it",
+			*event.TurnID,
+			event.ID,
+		)
+	}
 	return nil
 }
 

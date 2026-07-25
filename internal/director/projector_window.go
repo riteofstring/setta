@@ -35,6 +35,38 @@ func (projection GraphProjection) Graph(workstreamID string, level WorkstreamDet
 	}
 }
 
+// GraphFor windows one live workstream's graph without copying the projection.
+// A snapshot renders the selected workstream and a bounded set of adjacent ones,
+// so cloning every other workstream's history to answer for one of them would
+// make the cost of a cold start proportional to the whole app instead of to what
+// is drawn.
+func (projector *DirectorGraphProjector) GraphFor(
+	workstreamID string,
+	level WorkstreamDetailLevel,
+) (WorkstreamGraph, error) {
+	workstream, known := projector.workstreams[workstreamID]
+	if !known {
+		return WorkstreamGraph{}, fmt.Errorf("no projected graph for workstream %q", workstreamID)
+	}
+	live := WorkstreamGraph{
+		WorkstreamID: workstreamID,
+		DetailLevel:  WorkstreamDetailSelected,
+		Nodes:        workstream.nodes,
+		Edges:        workstream.edges,
+	}
+	return GraphProjection{graphs: map[string]WorkstreamGraph{workstreamID: live}}.Graph(workstreamID, level)
+}
+
+// MilestoneFor returns one live workstream's last meaningful public fact. It is
+// what a background workstream renders instead of a trajectory.
+func (projector *DirectorGraphProjector) MilestoneFor(workstreamID string) (WorkstreamMilestone, bool) {
+	workstream, known := projector.workstreams[workstreamID]
+	if !known {
+		return WorkstreamMilestone{}, false
+	}
+	return workstream.milestone()
+}
+
 // adjacentNodes keeps what an adjacent workstream must answer with: unresolved
 // blockers, produced artifacts, and its most recent milestone.
 func adjacentNodes(nodes []SemanticNode) []SemanticNode {

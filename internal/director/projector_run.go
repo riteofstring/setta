@@ -562,15 +562,18 @@ func (projector *DirectorGraphProjector) retirePlanSteps(workstream *projectedWo
 func (projector *DirectorGraphProjector) dropNodes(workstream *projectedWorkstream, dropped map[string]bool) {
 	remainingNodes := make([]SemanticNode, 0, len(workstream.nodes))
 	for _, node := range workstream.nodes {
-		if !dropped[node.ID] {
-			remainingNodes = append(remainingNodes, node)
+		if dropped[node.ID] {
+			workstream.removedNodeOrder = append(workstream.removedNodeOrder, node.ID)
+			continue
 		}
+		remainingNodes = append(remainingNodes, node)
 	}
 	workstream.nodes = remainingNodes
 	workstream.nodeIndex = make(map[string]int, len(workstream.nodes))
 	for index, node := range workstream.nodes {
 		workstream.nodeIndex[node.ID] = index
 	}
+	workstream.markNodesRemoved(dropped)
 	workstream.dropEdgesTouching(dropped)
 	workstream.repairAnchors(dropped)
 	for eventID, nodeID := range projector.nodeBySourceEvent {
@@ -583,8 +586,10 @@ func (projector *DirectorGraphProjector) dropNodes(workstream *projectedWorkstre
 func (workstream *projectedWorkstream) dropEdgesTouching(dropped map[string]bool) {
 	remaining := make([]SemanticEdge, 0, len(workstream.edges))
 	index := make(map[string]bool, len(workstream.edges))
+	droppedEdges := map[string]bool{}
 	for _, edge := range workstream.edges {
 		if dropped[edge.FromNodeID] || dropped[edge.ToNodeID] {
+			droppedEdges[edge.ID] = true
 			continue
 		}
 		remaining = append(remaining, edge)
@@ -592,6 +597,7 @@ func (workstream *projectedWorkstream) dropEdgesTouching(dropped map[string]bool
 	}
 	workstream.edges = remaining
 	workstream.edgeIndex = index
+	workstream.markEdgesDropped(droppedEdges)
 }
 
 func (workstream *projectedWorkstream) repairAnchors(dropped map[string]bool) {

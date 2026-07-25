@@ -91,6 +91,7 @@ func (projector *DirectorGraphProjector) createNode(context factContext, spec no
 	workstream := context.workstream
 	workstream.nodeIndex[nodeID] = len(workstream.nodes)
 	workstream.nodes = append(workstream.nodes, node)
+	workstream.markNodeChanged(nodeID)
 	if _, recorded := projector.nodeBySourceEvent[context.eventID]; !recorded {
 		projector.nodeBySourceEvent[context.eventID] = nodeID
 	}
@@ -122,6 +123,7 @@ func (projector *DirectorGraphProjector) advanceNode(context factContext, spec n
 		return err
 	}
 	workstream.nodes[index] = next
+	workstream.markNodeChanged(next.ID)
 	projector.nodeBySourceEvent[context.eventID] = next.ID
 	projector.observe(workstream, next)
 	return nil
@@ -203,6 +205,7 @@ func (projector *DirectorGraphProjector) addEdge(
 	}
 	workstream.edgeIndex[edgeID] = true
 	workstream.edges = append(workstream.edges, edge)
+	workstream.markEdgeChanged(edgeID)
 	return nil
 }
 

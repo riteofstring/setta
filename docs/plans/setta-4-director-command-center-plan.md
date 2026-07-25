@@ -6,8 +6,15 @@ complete, and the shared Phase 1/2 audit boundary is closed. Phase 3 has started
 the Director decision protocol and its strict trusted-target validation are
 committed in `internal/director/decision_*.go` (items 1 and 9), so the Master
 route decision catalog now has a Director-language replacement with no pane
-presentation authority in the model-facing contract. Phase 2 owns
-the standalone renderer:
+presentation authority in the model-facing contract. The app-scoped workstream
+registry is committed in `internal/director/registry*.go` (items 4, 5, 8's
+conversation half, and 10): it folds the durable committed log — conversation
+records, turns, queues, trajectory events, and artifacts, plus Director facts
+committed to their own `director:facts` stream — into workstreams, aggregates,
+approvals, resource requests, artifacts, selection, and graphs, and publishes the
+change on an epoch-scoped push stream with typed resync. Pane identity no longer
+has an application-level owner to be replaced by; it has a replacement.
+Phase 2 owns the standalone renderer:
 the packed GPU render snapshot, its deterministic fixture generation, and its
 burst/cursor-replay fixtures are committed in
 `desktop/src/renderer/src/features/director-graph/` (items 2 and 7); the WebGL2
@@ -1191,14 +1198,44 @@ Exit gate:
    route-service, and IPC naming moves with item 3, because renaming them before the boundary exists
    would churn call sites that are about to be replaced.
 3. Implement the deep `DirectorCommandCenter` boundary.
-4. Add the app-scoped workstream registry with push subscriptions and durable cursors.
-5. Include folderless and resource-bound conversations as first-class workstreams.
+4. Add the app-scoped workstream registry with push subscriptions and durable cursors. **Done —
+   `internal/director/registry*.go`.** The registry folds the durable committed log into the
+   app-scoped state and publishes what changed. Five decisions are load-bearing:
+   - The app-scoped stream *is* the existing committed log. Director facts are committed to their own
+     `director:facts` stream beside conversation events, so the log's commit order is already the
+     app-scoped order and the registry needs no second ordering to interleave the two owners.
+   - Workstream registration is derived from the durable conversation record rather than written. The
+     record already says the workstream exists, and a second durable record of the same fact could
+     disagree with it. Registration reaches the graph projector immediately before a workstream's
+     first graph fact, because a fork's parentage is committed *after* the conversation record that
+     names it.
+   - Selection is the one fact the registry writes. It names the selection it replaces, so the write
+     is serialized: two selections must not reach the log in the opposite order to the one they were
+     decided in.
+   - Status is computed from durable inputs, not claimed. The workstream lifecycle table validates a
+     transition a caller asserts; a projection asserts nothing, because its status is a function of
+     what is durably true right now.
+   - The pushed stream is scoped to a materialization epoch — the durable commit position it started
+     from — with a retained replay window. A cursor from an earlier epoch or older than the window
+     receives the typed resync it needs to take a fresh snapshot, which is why nothing polls.
+
+   `DirectorGraphProjector` now reports what each fact touched, so a graph event carries the changed
+   nodes and edges instead of a replacement graph. A delta larger than one event's bound is split
+   rather than truncated, and a background workstream receives no graph content at all.
+5. Include folderless and resource-bound conversations as first-class workstreams. **Done.** A
+   folderless conversation is admitted with the folderless scope, and a folder-bound one resolves its
+   binding from durable workspace metadata through `workspace.Manager.LookupLocal` rather than from
+   the session's open list, because a workstream keeps its folder resource after the folder is
+   closed.
 6. Move folderless routing, clarification, conversation creation, queueing, steering, cancellation,
    approval, resource requests, model-output recovery, and product-invariant decisions behind the
    boundary.
 7. Replace pane presentation intents with workstream presentation intents.
 8. Fan in current conversation and Master event streams through the Director registry without adding
-   UI polling.
+   UI polling. **Done for the conversation side.** Every conversation's durable events reach the
+   registry through one app-scoped follower that blocks on the store's committed-event wake, so
+   adding a workstream adds no subscription and no timer. The Master streams move with items 2, 3,
+   and 6, when the routing they carry moves behind the boundary.
 9. Preserve strict trusted-target validation. **Done for the decision protocol —
    `internal/director/decision_validation.go` and the target invariants in `decision_authority.go`.**
    A target may offer `send_to_workstream` only with no active run, `queue_behind_run` and `steer_run`
@@ -1206,10 +1243,14 @@ Exit gate:
    set that contradicts its own run state fails at the boundary instead of producing an unexecutable
    decision. Every workstream the Director can see is selectable. Fork points and recoverable
    failures are per target, and the schema emits one branch per parent, so a run id or failure id
-   cannot be paired with the wrong workstream. Wiring this validation to live registry state is item
-   4.
+   cannot be paired with the wrong workstream. The registry in item 4 now holds the live state a
+   `DirectorDecisionContext` is materialized from; building that context and calling the protocol
+   with it is the route service in items 3 and 6.
 10. Keep current conversation stores and event streams as canonical inputs where their ownership is
-   already correct.
+   already correct. **Done.** The registry reads conversation records, turns, queues, trajectory
+   events, and artifacts from the durable log and adds nothing that duplicates them. It owns only
+   what no conversation can own: workstream identity, selection, resource requests, and the
+   app-scoped aggregates.
 
 Exit gate:
 
@@ -1322,13 +1363,15 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Continue Phase 3 at items 3 and 4: implement the deep `DirectorCommandCenter` boundary and stand
-   up the app-scoped workstream registry with push subscriptions and durable cursors. The decision
-   protocol (items 1 and 9) is committed and needs a registry to materialize a
-   `DirectorDecisionContext` from, a route service to call it, and a durable owner for its
-   `DirectorDecisionCommitted` fact. The remaining Master-to-Director renaming in item 2 moves with
-   that boundary rather than ahead of it. The renderer is proven standalone and needs only packed
-   snapshots, so the boundary work is what the graph is now waiting on.
+1. Continue Phase 3 at item 3: implement the deep `DirectorCommandCenter` boundary over the committed
+   registry. `Registry.Snapshot`, `Registry.Subscribe`, and `Registry.SelectWorkstream` are the
+   registry half of `getSnapshot`, `subscribe`, and one intent; the boundary still needs the dispatch
+   surface, the HTTP endpoints and IPC that make the registered Director contracts reachable to
+   `desktop/src/generated/backend.ts`, and a route service that materializes a
+   `DirectorDecisionContext` from registry state and commits the resulting
+   `DirectorDecisionCommitted` fact. Item 6 moves folderless routing, conversation creation,
+   queueing, steering, cancellation, approvals, and resource requests behind it, and the remaining
+   Master-to-Director renaming in item 2 moves with that work rather than ahead of it.
 2. Build the exhaustive node/edge visual gallery after Phase 3 makes the Director contracts reachable
    to `desktop/src/generated/backend.ts`. `ProjectionFixtures()` is the production-contract source
    the gallery renders from. The four contract gaps the inventory found are already closed in

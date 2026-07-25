@@ -3,7 +3,6 @@ package conversation
 import (
 	"fmt"
 	"reflect"
-	"strconv"
 
 	"setta/internal/workspaceui/conversationpalette"
 )
@@ -205,23 +204,6 @@ type ConversationResyncRequiredEventPayload struct {
 	RequestedSequence int                   `json:"requestedSequence"`
 	CurrentStreamID   string                `json:"currentStreamId"`
 	CurrentSequence   int                   `json:"currentSequence"`
-}
-
-func ConversationStreamID(conversationID string) (string, error) {
-	if err := validateIdentifier("conversation event stream conversation id", conversationID); err != nil {
-		return "", err
-	}
-	return "conversation:" + conversationID, nil
-}
-
-func ConversationEventID(streamID string, sequence int) (string, error) {
-	if err := validateIdentifier("conversation event stream id", streamID); err != nil {
-		return "", err
-	}
-	if sequence <= 0 {
-		return "", fmt.Errorf("conversation event sequence must be positive: %d", sequence)
-	}
-	return streamID + ":" + strconv.Itoa(sequence), nil
 }
 
 func (cursor ConversationEventCursor) Validate(conversationID string) error {
