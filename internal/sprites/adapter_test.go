@@ -49,6 +49,32 @@ func TestAdapterCreateConvergesOnOwnedRuntime(t *testing.T) {
 	}
 }
 
+func TestAdapterBaseURLRequiresEncryptedOrLoopbackOrigin(t *testing.T) {
+	for _, value := range []string{
+		"https://api.sprites.dev",
+		"https://sprites.internal:8443",
+		"http://127.0.0.1:8080",
+		"http://[::1]:8080",
+		"http://localhost:8080",
+	} {
+		if _, err := NewAdapterWithBaseURL("provider-token", value); err != nil {
+			t.Fatalf("NewAdapterWithBaseURL(%q): %v", value, err)
+		}
+	}
+	for _, value := range []string{
+		"",
+		"api.sprites.dev",
+		"http://api.sprites.dev",
+		"https://user@example.com",
+		"https://api.sprites.dev/v1",
+		"https://api.sprites.dev?token=value",
+	} {
+		if _, err := NewAdapterWithBaseURL("provider-token", value); err == nil {
+			t.Fatalf("NewAdapterWithBaseURL(%q) succeeded", value)
+		}
+	}
+}
+
 func TestAdapterCreateReusesExistingOwnedRuntime(t *testing.T) {
 	identity := testManagedIdentity(t)
 	createCalls := 0

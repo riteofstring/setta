@@ -29,7 +29,8 @@ func TestConfigFromArgsRequiresDurableBoundariesAndProviderSecret(t *testing.T) 
 	}
 	if config.Host != "127.0.0.1" || config.Port != 8080 ||
 		config.MaxConcurrentRequest != 64 || config.MaxRequestBytes != 1<<20 ||
-		config.RuntimeTarget != "127.0.0.1:7345" {
+		config.RuntimeTarget != "127.0.0.1:7345" ||
+		config.ProviderBaseURL != "https://api.sprites.dev" {
 		t.Fatalf("default config = %+v", config)
 	}
 
@@ -60,6 +61,7 @@ func TestConfigFromArgsAcceptsExplicitHostedCeilings(t *testing.T) {
 		"--port", "9090",
 		"--max-concurrent-requests", "8",
 		"--max-request-bytes", "65536",
+		"--sprites-api-base-url", "http://127.0.0.1:8099",
 		"--shutdown-timeout", "20s",
 	}, &bytes.Buffer{}, mapEnvironment(environment))
 	if err != nil {
@@ -67,6 +69,7 @@ func TestConfigFromArgsAcceptsExplicitHostedCeilings(t *testing.T) {
 	}
 	if config.Host != "0.0.0.0" || config.Port != 9090 ||
 		config.MaxConcurrentRequest != 8 || config.MaxRequestBytes != 65536 ||
+		config.ProviderBaseURL != "http://127.0.0.1:8099" ||
 		config.ShutdownTimeout.String() != "20s" {
 		t.Fatalf("explicit config = %+v", config)
 	}

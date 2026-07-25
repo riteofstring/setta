@@ -23,9 +23,11 @@ import (
 
 const (
 	serviceOperationObservationDuration = 3 * time.Second
-	spritesAPIBaseURL                   = "https://api.sprites.dev"
 	spritesAPIRequestTimeout            = 30 * time.Second
 )
+
+// DefaultAPIBaseURL is the pinned production Sprites API origin.
+const DefaultAPIBaseURL = "https://api.sprites.dev"
 
 type sdkAPI interface {
 	Create(context.Context, string, []string, runtimeprovider.RuntimeResources) error
@@ -54,7 +56,7 @@ type sdkClient struct {
 }
 
 func newSDKClient(token string) *sdkClient {
-	return newSDKClientWithBaseURL(token, spritesAPIBaseURL)
+	return newSDKClientWithBaseURL(token, DefaultAPIBaseURL)
 
 }
 

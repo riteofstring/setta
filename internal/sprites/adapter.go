@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -69,10 +70,64 @@ type Adapter struct {
 
 // NewAdapter constructs a production Sprites lifecycle adapter.
 func NewAdapter(token string) (*Adapter, error) {
+	return NewAdapterWithBaseURL(token, DefaultAPIBaseURL)
+}
+
+// NewAdapterWithBaseURL constructs the same production adapter against an
+// explicitly configured API origin. Plain HTTP is restricted to loopback so a
+// provider credential cannot cross an unencrypted network boundary.
+func NewAdapterWithBaseURL(token string, baseURL string) (*Adapter, error) {
 	if token == "" {
 		return nil, fmt.Errorf("%w: Sprites token is empty", runtimeprovider.ErrInvalidContract)
 	}
-	return &Adapter{client: newSDKClient(token)}, nil
+	normalized, err := validateAPIBaseURL(baseURL)
+	if err != nil {
+		return nil, err
+	}
+	return &Adapter{client: newSDKClientWithBaseURL(token, normalized)}, nil
+}
+
+func validateAPIBaseURL(baseURL string) (string, error) {
+	parsed, err := url.Parse(baseURL)
+	if err != nil {
+		return "", invalidAPIBaseURLError()
+	}
+	if !parsed.IsAbs() || parsed.Host == "" {
+		return "", invalidAPIBaseURLError()
+	}
+	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", invalidAPIBaseURLError()
+	}
+	if parsed.Path != "" && parsed.Path != "/" {
+		return "", invalidAPIBaseURLError()
+	}
+	if !isSecureAPIOrigin(parsed) {
+		return "", fmt.Errorf("%w: Sprites API base URL must use HTTPS or loopback HTTP", runtimeprovider.ErrInvalidContract)
+	}
+	parsed.Path = ""
+	return strings.TrimRight(parsed.String(), "/"), nil
+}
+
+func invalidAPIBaseURLError() error {
+	return fmt.Errorf("%w: Sprites API base URL is invalid", runtimeprovider.ErrInvalidContract)
+}
+
+func isSecureAPIOrigin(parsed *url.URL) bool {
+	if parsed.Scheme == "https" {
+		return true
+	}
+	if parsed.Scheme != "http" {
+		return false
+	}
+	return isLoopbackAPIHost(parsed.Hostname())
+}
+
+func isLoopbackAPIHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	address := net.ParseIP(host)
+	return address != nil && address.IsLoopback()
 }
 
 func (adapter *Adapter) Create(

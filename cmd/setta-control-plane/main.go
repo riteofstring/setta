@@ -40,6 +40,7 @@ type commandConfig struct {
 	MaxConcurrentRequest int
 	MaxRequestBytes      int64
 	Port                 int
+	ProviderBaseURL      string
 	ProviderToken        string
 	RuntimeTarget        string
 	SecretDirectory      string
@@ -136,7 +137,7 @@ func startControlPlaneServices(
 	if err != nil {
 		return controlPlaneServices{}, fmt.Errorf("open control-plane secret store: %w", err)
 	}
-	provider, err := sprites.NewAdapter(config.ProviderToken)
+	provider, err := sprites.NewAdapterWithBaseURL(config.ProviderToken, config.ProviderBaseURL)
 	if err != nil {
 		return controlPlaneServices{}, fmt.Errorf("configure Sprites provider: %w", err)
 	}
@@ -259,6 +260,7 @@ func configFromArgs(
 		MaxConcurrentRequest: defaultMaxConcurrentRequests,
 		MaxRequestBytes:      defaultMaxRequestBytes,
 		Port:                 8080,
+		ProviderBaseURL:      environmentOrDefault(getenv, "SETTA_SPRITES_API_BASE_URL", sprites.DefaultAPIBaseURL),
 		ProviderToken:        getenv("SPRITE_TOKEN"),
 		RuntimeTarget:        environmentOrDefault(getenv, "SETTA_CONTROL_PLANE_RUNTIME_TARGET", defaultRuntimeTarget),
 		SecretDirectory:      getenv("SETTA_CONTROL_PLANE_SECRET_DIR"),
@@ -271,6 +273,7 @@ func configFromArgs(
 	flagSet.IntVar(&config.MaxConcurrentRequest, "max-concurrent-requests", config.MaxConcurrentRequest, "maximum concurrent gateway requests including SSE streams")
 	flagSet.Int64Var(&config.MaxRequestBytes, "max-request-bytes", config.MaxRequestBytes, "maximum relayed request body bytes")
 	flagSet.IntVar(&config.Port, "port", config.Port, "gateway port, or 0 for an ephemeral port")
+	flagSet.StringVar(&config.ProviderBaseURL, "sprites-api-base-url", config.ProviderBaseURL, "Sprites API origin; HTTP is restricted to loopback")
 	flagSet.StringVar(&config.RuntimeTarget, "runtime-target", config.RuntimeTarget, "loopback runtime HTTP target reached through provider private access")
 	flagSet.StringVar(&config.SecretDirectory, "secret-dir", config.SecretDirectory, "absolute durable runtime credential directory")
 	flagSet.DurationVar(&config.ShutdownTimeout, "shutdown-timeout", config.ShutdownTimeout, "maximum graceful gateway shutdown time")
@@ -295,6 +298,9 @@ func validateCommandConfig(config commandConfig) error {
 	}
 	if config.ProviderToken == "" {
 		return errors.New("SPRITE_TOKEN is required from the hosting secret store")
+	}
+	if _, err := sprites.NewAdapterWithBaseURL(config.ProviderToken, config.ProviderBaseURL); err != nil {
+		return fmt.Errorf("Sprites provider configuration: %w", err)
 	}
 	return validateCommandCeilings(config)
 }
