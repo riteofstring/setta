@@ -3055,3 +3055,31 @@ Stop and reassess rather than hiding the problem if any of these occur:
   `./check_quality.sh --git-changes` passed. This was a test-harness change
   only; no production path, dependency file, provider, or cloud resource was
   touched.
+- 2026-07-25 (provisioning ceiling at the request boundary): Separated product
+  policy from contract validation so the 100 GB ceiling can never make an
+  existing resource unobservable. `RuntimeResources.Validate()` had enforced the
+  ceiling while also validating provider responses in the Sprites observation
+  mapper, so a Sprite observed above 100 GB failed `mapRuntime`; because
+  `Adapter.Destroy`, `requireOwnedRuntime`, and `SpritesCleanupClient` all route
+  through `Inspect`, such a Sprite was un-inspectable and un-destroyable through
+  Setta — a billable orphan the cleanup path structurally could not see, against
+  the working-state gate that independent final inventories prove every
+  run-owned Sprite absent. `Validate()` now covers contract validity only, and
+  the new `ValidateProvisioningRequest` composes it with the ceiling at the
+  request boundary: signed hosted manifests, control-plane assignment
+  validation, bootstrap and ensure-runtime commands, `Adapter.Create`, and the
+  Sprites `spriteConfig`. Every site that reads an already-existing resource
+  keeps plain `Validate()` — the observation mapper, stored runtime reads,
+  accounting reads, and operator metadata inspection — so a ceiling can never
+  strand a live runtime. `MaximumPersistentStorageBytes` remains a single owned
+  constant with no cross-boundary duplication. A new regression drives a 200 GB
+  Sprite through the production adapter over a fake provider HTTP endpoint and
+  proves it stays inspectable and destroyable through both `Adapter.Destroy` and
+  `SpritesCleanupClient`. The boundary-value and one-byte-overflow assertions
+  moved to the request validator, exactly 100 decimal GB is still accepted and
+  one byte more still refused, and `requireOwnedObservation`'s exact
+  resource-shape equality is unchanged so an unauthorized shape is still refused
+  at create time. Six affected Go packages, the deterministic Candidate B hosted
+  lifecycle suites, `./scripts/format.sh`, and
+  `./check_quality.sh --git-changes` passed. No dependency file changed and no
+  provider or cloud mutation ran.
