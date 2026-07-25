@@ -111,6 +111,20 @@ func TestLoadManifestRejectsExpandedWorkloadDurationAndReserve(t *testing.T) {
 			now: testAuthorizedAt.Add(time.Minute),
 		},
 		{
+			name: "missing disk reserve",
+			mutate: func(manifest *Manifest) {
+				manifest.MinimumDiskFreeMiB = 0
+			},
+			now: testAuthorizedAt.Add(time.Minute),
+		},
+		{
+			name: "disk reserve consumes storage",
+			mutate: func(manifest *Manifest) {
+				manifest.MinimumDiskFreeMiB = 10_000
+			},
+			now: testAuthorizedAt.Add(time.Minute),
+		},
+		{
 			name:   "cleanup reserve",
 			mutate: func(*Manifest) {},
 			now:    testAuthorizedAt.Add(105 * time.Minute),
@@ -706,6 +720,7 @@ func validManifest() Manifest {
 		FlyAppName:          "setta-gateway-" + runID,
 		ResourcePrefix:      "setta-gateway-" + runID,
 		SpriteResources:     testSpriteResources(),
+		MinimumDiskFreeMiB:  1_024,
 		AuthorizedWorkload:  append([]string(nil), authorizedWorkload...),
 		ExcludedWorkload:    append([]string(nil), excludedWorkload...),
 		CleanupAuthority:    CleanupAuthority,

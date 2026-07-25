@@ -45,6 +45,7 @@ func TestServeOptionsDefaultsAndExplicitPort(t *testing.T) {
 
 	options, err := serveOptionsFromArgs(context.Background(), []string{
 		"--app-data-dir", appDataDir,
+		"--minimum-disk-free-mib", "1024",
 		"--port", "0",
 	}, deps)
 	if err != nil {
@@ -55,6 +56,9 @@ func TestServeOptionsDefaultsAndExplicitPort(t *testing.T) {
 	}
 	if options.Port != 0 {
 		t.Fatalf("port = %d, want 0", options.Port)
+	}
+	if options.MinimumDiskFreeMiB != 1_024 {
+		t.Fatalf("minimum free disk = %d MiB, want 1024", options.MinimumDiskFreeMiB)
 	}
 	if options.Host != "127.0.0.1" {
 		t.Fatalf("host = %q, want loopback", options.Host)

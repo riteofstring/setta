@@ -21,6 +21,7 @@ type serveOptions struct {
 	Host                             string
 	Port                             int
 	LocalCredentialIssuer            bool
+	MinimumDiskFreeMiB               int
 	SpritesWorkloadLeases            bool
 	WorkloadAccountingCredentialFile string
 	WorkloadAccountingURL            string
@@ -70,6 +71,7 @@ func serveOptionsFromArgs(_ context.Context, args []string, deps cliDeps) (serve
 	flagSet.StringVar(&options.DisplayName, "display-name", deps.getenv("SETTA_RUNTIME_DISPLAY_NAME"), "runtime display name to persist for this Setta instance")
 	flagSet.IntVar(&options.Port, "port", options.Port, "port to bind, or 0 for an ephemeral port")
 	flagSet.BoolVar(&options.LocalCredentialIssuer, "local-credential-issuer", false, "host the local development credential issuer")
+	flagSet.IntVar(&options.MinimumDiskFreeMiB, "minimum-disk-free-mib", 0, "reject new agent turns below this free-storage threshold")
 	flagSet.BoolVar(&options.SpritesWorkloadLeases, "sprites-workload-leases", false, "enforce renewable agent workload leases through the Sprites management socket")
 	flagSet.StringVar(&options.WorkloadAccountingCredentialFile, "workload-accounting-credential-file", "", "private runtime reporting credential file")
 	flagSet.StringVar(&options.WorkloadAccountingURL, "workload-accounting-url", "", "Setta control-plane origin for workload accounting")
@@ -155,6 +157,7 @@ func serveRuntimeConfig(
 	config.RuntimeDisplayName = options.DisplayName
 	config.SkipBootstrapDeviceSession = true
 	config.EnableLocalCredentialIssuer = options.LocalCredentialIssuer
+	config.MinimumDiskFreeMiB = options.MinimumDiskFreeMiB
 	config.Stderr = deps.stderr
 	config.Stdout = readyWriter
 	config.Version = version

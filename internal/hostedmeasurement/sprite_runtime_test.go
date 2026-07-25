@@ -43,7 +43,9 @@ func TestSpriteRuntimePreparerRunsDurableSignedInstallInOrder(t *testing.T) {
 		t.Fatalf("verifier request = %+v", verifierRequest)
 	}
 	if installRequest.RuntimeName != observation.Name || installRequest.Desired.Version != release.Artifact.Version ||
-		installRequest.HealthAttempts != 60 || installRequest.HealthInterval != 2*time.Second {
+		installRequest.HealthAttempts != 60 || installRequest.HealthInterval != 2*time.Second ||
+		installRequest.StoragePolicy == nil ||
+		installRequest.StoragePolicy.MinimumFreeMiB != authorization.Manifest.MinimumDiskFreeMiB {
 		t.Fatalf("install request = %+v", installRequest)
 	}
 }

@@ -292,8 +292,13 @@ func newRuntimeAgentServices(
 	workspaceService *workspacesession.Service,
 ) (runtimeAgentServices, error) {
 	agentRuntime := agent.NewRuntime(agent.Config{
-		Command:               config.CodexCommand,
-		ExcludedEnv:           []string{speech.APIKeyEnvironmentVariable},
+		Command:     config.CodexCommand,
+		ExcludedEnv: []string{speech.APIKeyEnvironmentVariable},
+		TurnAdmissionGate: newRuntimeDiskAdmissionGate(
+			config.AppDataDir,
+			config.DiskSpacePath,
+			config.MinimumDiskFreeMiB,
+		),
 		Version:               config.Version,
 		WorkloadLeaseManager:  config.WorkloadLeaseManager,
 		WorkloadLeaseName:     config.WorkloadLeaseDiagnosticName,

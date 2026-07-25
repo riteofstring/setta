@@ -92,6 +92,7 @@ type InstallRequest struct {
 	Desired            ReleaseArtifact
 	Rollback           *ReleaseArtifact
 	SetupSeed          *runtimesetup.Seed
+	StoragePolicy      *StoragePolicy
 	WorkloadAccounting *WorkloadAccountingConfig
 	Layout             Layout
 	HealthAttempts     int
@@ -195,6 +196,7 @@ func (loop Loop) Install(ctx context.Context, request InstallRequest) (InstallRe
 		request.RuntimeName,
 		layout,
 		installed,
+		request.StoragePolicy,
 		request.WorkloadAccounting,
 		healthAttempts,
 		healthInterval,
@@ -213,6 +215,7 @@ func (loop Loop) Install(ctx context.Context, request InstallRequest) (InstallRe
 		layout,
 		installed,
 		*rollback,
+		request.StoragePolicy,
 		request.WorkloadAccounting,
 		result,
 		healthAttempts,
@@ -249,6 +252,9 @@ func (loop Loop) prepareInstall(
 	if err == nil {
 		err = validateWorkloadAccounting(request.WorkloadAccounting)
 	}
+	if err == nil {
+		err = validateStoragePolicy(request.StoragePolicy)
+	}
 	return layout, desired, rollback, healthAttempts, healthInterval, err
 }
 
@@ -283,6 +289,7 @@ func (loop Loop) finishAlreadyCurrent(
 		request.RuntimeName,
 		layout,
 		current,
+		request.StoragePolicy,
 		request.WorkloadAccounting,
 		healthAttempts,
 		healthInterval,
@@ -306,6 +313,7 @@ func (loop Loop) rollbackFailedInstall(
 	layout Layout,
 	installed InstalledRelease,
 	rollback verifiedArtifact,
+	storagePolicy *StoragePolicy,
 	workloadAccounting *WorkloadAccountingConfig,
 	result InstallResult,
 	healthAttempts int,
@@ -320,6 +328,7 @@ func (loop Loop) rollbackFailedInstall(
 		runtimeName,
 		layout,
 		rollbackRelease,
+		storagePolicy,
 		workloadAccounting,
 		healthAttempts,
 		healthInterval,
@@ -466,6 +475,7 @@ func (loop Loop) ensureAndVerifyHealth(
 	runtimeName string,
 	layout Layout,
 	release InstalledRelease,
+	storagePolicy *StoragePolicy,
 	workloadAccounting *WorkloadAccountingConfig,
 	attempts int,
 	interval time.Duration,
@@ -478,7 +488,7 @@ func (loop Loop) ensureAndVerifyHealth(
 	service, err := loop.Provider.EnsureService(ctx, runtimeName, runtimeprovider.ServiceSpec{
 		Name:      layout.ServiceName,
 		Path:      release.BinaryPath,
-		Arguments: runtimeServiceArguments(layout, workloadAccounting),
+		Arguments: runtimeServiceArguments(layout, storagePolicy, workloadAccounting),
 		HTTPPort:  &port,
 		RunAs:     layout.TrustedRuntimeIdentity,
 	})

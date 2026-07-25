@@ -15,6 +15,9 @@ func (runtime *Runtime) RunTurn(ctx context.Context, request TurnRequest, sink E
 		return TurnResult{}, err
 	}
 	if runtime.workloadLease == nil {
+		if err := runtime.admitTurn(ctx); err != nil {
+			return TurnResult{}, err
+		}
 		return runtime.runTurn(ctx, request, sink)
 	}
 	select {
@@ -25,9 +28,22 @@ func (runtime *Runtime) RunTurn(ctx context.Context, request TurnRequest, sink E
 	defer func() {
 		runtime.workloadSlot <- struct{}{}
 	}()
+	if err := runtime.admitTurn(ctx); err != nil {
+		return TurnResult{}, err
+	}
 	return runtime.workloadLease.run(ctx, func(leaseCtx context.Context) (TurnResult, error) {
 		return runtime.runTurn(leaseCtx, request, sink)
 	})
+}
+
+func (runtime *Runtime) admitTurn(ctx context.Context) error {
+	if runtime.admit == nil {
+		return nil
+	}
+	if err := runtime.admit.AdmitTurn(ctx); err != nil {
+		return fmt.Errorf("admit agent turn: %w", err)
+	}
+	return nil
 }
 
 func (runtime *Runtime) runTurn(ctx context.Context, request TurnRequest, sink EventSink) (TurnResult, error) {

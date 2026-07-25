@@ -19,7 +19,12 @@ func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
 
 	appDataDir := t.TempDir()
 
-	config, err := configFromArgs([]string{"--app-data-dir", appDataDir, "--port", "0", "--version", "test"}, &stdout, &stderr, emptyEnv, ignoreUnsetenv)
+	config, err := configFromArgs([]string{
+		"--app-data-dir", appDataDir,
+		"--minimum-disk-free-mib", "1024",
+		"--port", "0",
+		"--version", "test",
+	}, &stdout, &stderr, emptyEnv, ignoreUnsetenv)
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
 	}
@@ -31,6 +36,9 @@ func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
 	}
 	if config.AppDataDir != appDataDir {
 		t.Fatalf("app data dir = %q, want %q", config.AppDataDir, appDataDir)
+	}
+	if config.MinimumDiskFreeMiB != 1_024 {
+		t.Fatalf("minimum free disk = %d MiB, want 1024", config.MinimumDiskFreeMiB)
 	}
 }
 

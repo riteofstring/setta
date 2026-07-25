@@ -321,15 +321,33 @@ func validateRuntimePolicySnapshot(policy runtimePolicySnapshot) error {
 }
 
 func (service *runtimeDiagnosticsService) diskSpaceDiagnostic() runtimecapability.DiskSpaceDiagnostic {
+	return runtimeDiskSpaceDiagnostic(
+		service.config.DiskSpacePath,
+		service.config.MinimumDiskFreeMiB,
+	)
+}
+
+func runtimeDiskSpaceDiagnostic(
+	path string,
+	minimumFreeMiB int,
+) runtimecapability.DiskSpaceDiagnostic {
+	return runtimeDiskSpaceDiagnosticWithReader(path, minimumFreeMiB, runtimeDiskStats)
+}
+
+func runtimeDiskSpaceDiagnosticWithReader(
+	path string,
+	minimumFreeMiB int,
+	readStats func(string) (runtimeDiskStatsResult, error),
+) runtimecapability.DiskSpaceDiagnostic {
 	diagnostic := runtimecapability.DiskSpaceDiagnostic{
 		Status:         runtimecapability.DiagnosticStatusUnavailable,
-		MinimumFreeMiB: service.config.MinimumDiskFreeMiB,
+		MinimumFreeMiB: minimumFreeMiB,
 	}
-	if service.config.DiskSpacePath == "" {
+	if path == "" {
 		diagnostic.ReasonCode = "disk_space_path_not_configured"
 		return diagnostic
 	}
-	stats, err := runtimeDiskStats(service.config.DiskSpacePath)
+	stats, err := readStats(path)
 	if err != nil {
 		diagnostic.Status = runtimecapability.DiagnosticStatusFailing
 		diagnostic.ReasonCode = "disk_space_unavailable"
@@ -337,7 +355,7 @@ func (service *runtimeDiagnosticsService) diskSpaceDiagnostic() runtimecapabilit
 	}
 	diagnostic.AvailableMiB = bytesToMiB(stats.AvailableBytes)
 	diagnostic.TotalMiB = bytesToMiB(stats.TotalBytes)
-	if service.config.MinimumDiskFreeMiB > 0 && diagnostic.AvailableMiB < service.config.MinimumDiskFreeMiB {
+	if minimumFreeMiB > 0 && diagnostic.AvailableMiB < minimumFreeMiB {
 		diagnostic.Status = runtimecapability.DiagnosticStatusFailing
 		diagnostic.ReasonCode = "disk_space_below_minimum"
 		return diagnostic

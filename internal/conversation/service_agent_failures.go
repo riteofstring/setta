@@ -3,6 +3,8 @@ package conversation
 import (
 	"context"
 	"errors"
+
+	"setta/internal/agent"
 )
 
 func (service *Service) persistUnexpectedTurnEnd(
@@ -132,7 +134,8 @@ func applyUnexpectedTurnOutcome(
 		turn.EndedAt = &now
 		return ConversationStatusIdle
 	}
-	failure := Failure{Code: "agent_runtime_failed", Message: runErr.Error(), Retryable: true}
+	code, retryable := classifyAgentRuntimeFailure(runErr, "agent_runtime_failed")
+	failure := Failure{Code: code, Message: runErr.Error(), Retryable: retryable}
 	turn.Status = TurnStatusFailed
 	turn.Error = &failure
 	trajectory.Kind = TrajectoryEventTurnFailed
@@ -144,6 +147,13 @@ func applyUnexpectedTurnOutcome(
 	}
 	turn.EndedAt = &now
 	return ConversationStatusFailed
+}
+
+func classifyAgentRuntimeFailure(runErr error, fallbackCode string) (string, bool) {
+	if code, retryable, ok := agent.TurnAdmissionFailure(runErr); ok {
+		return code, retryable
+	}
+	return fallbackCode, true
 }
 
 func applyUnexpectedProviderReferences(

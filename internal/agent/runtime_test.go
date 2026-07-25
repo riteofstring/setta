@@ -451,6 +451,61 @@ func TestRuntimeSerializesConcurrentTurnsWhenWorkloadLeasesAreEnabled(t *testing
 	)
 }
 
+func TestRuntimeAdmissionFailurePreventsWorkloadLeaseAndRecovers(t *testing.T) {
+	manager := &testWorkloadLeaseManager{}
+	reporter := &testWorkloadLeaseReporter{}
+	gate := &testTurnAdmissionGate{err: testTurnAdmissionError{}}
+	runtime := newFakeRuntimeWithConfig(t, Config{
+		TurnAdmissionGate:     gate,
+		WorkloadLeaseManager:  manager,
+		WorkloadLeaseReporter: reporter,
+		WorkloadLeaseTTL:      2 * time.Minute,
+	})
+	workspace := t.TempDir()
+	thread, err := runtime.StartThread(t.Context(), StartThreadRequest{
+		WorkspaceRoot: workspace,
+		Invocation:    testInvocation(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := testTurnRequest(0, thread.ID, workspace, "normal")
+
+	_, err = runtime.RunTurn(t.Context(), request, &recordingEventSink{})
+	code, retryable, admissionFailure := TurnAdmissionFailure(err)
+	if !admissionFailure || code != "test_admission_denied" || !retryable {
+		t.Fatalf("turn admission failure = %q, %t, %t from %v", code, retryable, admissionFailure, err)
+	}
+	manager.requireCalls(t, 0, 0, 0)
+	reporter.requireActions(t)
+
+	gate.err = nil
+	result, err := runtime.RunTurn(t.Context(), request, &recordingEventSink{})
+	if err != nil || result.Outcome != TurnOutcomeCompleted {
+		t.Fatalf("recovered turn = %+v, %v", result, err)
+	}
+	manager.requireCalls(t, 1, 0, 1)
+	reporter.requireActions(t, runtimeaccounting.EventBegin, runtimeaccounting.EventEnd)
+}
+
+type testTurnAdmissionGate struct {
+	err error
+}
+
+func (gate *testTurnAdmissionGate) AdmitTurn(context.Context) error {
+	return gate.err
+}
+
+type testTurnAdmissionError struct{}
+
+func (testTurnAdmissionError) Error() string {
+	return "test admission denied"
+}
+
+func (testTurnAdmissionError) TurnAdmissionFailure() (string, bool) {
+	return "test_admission_denied", true
+}
+
 func TestRuntimeHandlesDynamicToolCalls(t *testing.T) {
 	runtime := newFakeRuntime(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

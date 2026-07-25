@@ -100,6 +100,35 @@ func TestRecoverAgentTurnsPersistsProviderLookupFailure(t *testing.T) {
 	}
 }
 
+func TestUnexpectedTurnEndPersistsTypedAdmissionFailure(t *testing.T) {
+	turn := ConversationTurn{Status: TurnStatusRunning}
+	trajectory := TrajectoryEvent{}
+
+	status := applyUnexpectedTurnOutcome(
+		&turn,
+		&trajectory,
+		testConversationTurnAdmissionFailure{},
+		"2026-07-25T12:00:00Z",
+	)
+
+	if status != ConversationStatusFailed || turn.Error == nil ||
+		turn.Error.Code != "runtime_disk_pressure" || !turn.Error.Retryable ||
+		trajectory.TurnFailed == nil ||
+		trajectory.TurnFailed.Failure.Code != "runtime_disk_pressure" {
+		t.Fatalf("typed admission failure = status %s, turn %+v, trajectory %+v", status, turn, trajectory)
+	}
+}
+
+type testConversationTurnAdmissionFailure struct{}
+
+func (testConversationTurnAdmissionFailure) Error() string {
+	return "runtime storage is full"
+}
+
+func (testConversationTurnAdmissionFailure) TurnAdmissionFailure() (string, bool) {
+	return "runtime_disk_pressure", true
+}
+
 func TestRecoverAgentTurnsFailsAcceptedTurnWithoutProviderIdentity(t *testing.T) {
 	store, original, originalRuntime, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

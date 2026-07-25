@@ -82,6 +82,7 @@ func TestInstallProvisionsPrivateRuntimeAccountingCredentialAndServiceArguments(
 	result, err := testLoop(provider).Install(context.Background(), InstallRequest{
 		RuntimeName:        testRuntimeIdentity(t, "reporting-install").Name,
 		Desired:            artifact,
+		StoragePolicy:      &StoragePolicy{MinimumFreeMiB: 1_024},
 		WorkloadAccounting: accounting,
 	})
 	if err != nil {
@@ -104,6 +105,7 @@ func TestInstallProvisionsPrivateRuntimeAccountingCredentialAndServiceArguments(
 		"serve",
 		"--app-data-dir", DefaultLayout().RuntimeStateDir,
 		"--port", strconv.Itoa(DefaultLayout().HealthPort),
+		"--minimum-disk-free-mib", "1024",
 		"--sprites-workload-leases",
 		"--workload-accounting-url", accounting.BaseURL,
 		"--workload-accounting-credential-file", credentialPath,
@@ -111,6 +113,25 @@ func TestInstallProvisionsPrivateRuntimeAccountingCredentialAndServiceArguments(
 	if service := provider.LastService(); service.Spec.Path != result.Installed.BinaryPath ||
 		!slices.Equal(service.Spec.Arguments, wantArguments) {
 		t.Fatalf("runtime reporting service = %+v, want arguments %q", service.Spec, wantArguments)
+	}
+}
+
+func TestInstallRejectsInvalidStoragePolicyBeforeProviderCalls(t *testing.T) {
+	provider := newFakeProvider(t)
+	_, err := testLoop(provider).Install(context.Background(), InstallRequest{
+		RuntimeName:   testRuntimeIdentity(t, "invalid-storage-policy").Name,
+		Desired:       makeTestReleaseArtifact(t, t.TempDir(), "v1.0.0-storage"),
+		StoragePolicy: &StoragePolicy{},
+	})
+	if !errors.Is(err, runtimeprovider.ErrInvalidContract) {
+		t.Fatalf("storage policy error = %v, want ErrInvalidContract", err)
+	}
+	if provider.ExecCalls() != 0 || provider.EnsureServiceCalls() != 0 {
+		t.Fatalf(
+			"provider calls after invalid storage policy = exec %d ensure %d",
+			provider.ExecCalls(),
+			provider.EnsureServiceCalls(),
+		)
 	}
 }
 

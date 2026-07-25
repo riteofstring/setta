@@ -100,6 +100,7 @@ func configFromArgs(
 	flagSet.StringVar(&config.Host, "host", envOrDefault(getenv, "SETTA_BACKEND_HOST", config.Host), "loopback host to bind")
 	flagSet.IntVar(&config.Port, "port", port, "port to bind, or 0 for an ephemeral port")
 	flagSet.BoolVar(&localCredentialIssuer, "local-credential-issuer", false, "host the local development credential issuer")
+	flagSet.IntVar(&config.MinimumDiskFreeMiB, "minimum-disk-free-mib", config.MinimumDiskFreeMiB, "reject new agent turns below this free-storage threshold")
 	flagSet.BoolVar(&config.SkipBootstrapDeviceSession, "skip-bootstrap-device-session", config.SkipBootstrapDeviceSession, "do not mint a bootstrap device token on startup")
 	flagSet.StringVar(&config.Version, "version", envOrDefault(getenv, "SETTA_BACKEND_VERSION", config.Version), "backend version metadata")
 	if err := flagSet.Parse(args); err != nil {

@@ -36,7 +36,7 @@ state directory and validate all fields before the first provider call:
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "run_id": "lowercase-visible-ascii-id",
   "owner_authorized_at": "RFC3339 timestamp",
   "start_deadline": "RFC3339 timestamp",
@@ -52,6 +52,7 @@ state directory and validate all fields before the first provider call:
     "memory_bytes": "<explicit positive integer>",
     "storage_bytes": "<explicit positive integer>"
   },
+  "minimum_disk_free_mib": 1024,
   "authorized_workload": [
     "hosted-candidate-b-http-sse",
     "controlled-unauthenticated-wake",
@@ -74,6 +75,8 @@ Fail closed if:
 - either organization or the region differs from the manifest;
 - the Sprite resource shape is absent, zero, outside the durable signed-integer
   range, or differs from the provider observation;
+- the minimum free-disk reserve is absent, non-positive, or does not leave
+  usable space within the authorized Sprite storage allocation;
 - the deterministic app name does not exactly match the run ID; or
 - an inventory already contains a resource with the run prefix.
 

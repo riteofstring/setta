@@ -93,6 +93,7 @@ func workloadAccountingCredentialPath(layout Layout) string {
 
 func runtimeServiceArguments(
 	layout Layout,
+	storagePolicy *StoragePolicy,
 	workloadAccounting *WorkloadAccountingConfig,
 ) []string {
 	arguments := []string{
@@ -100,6 +101,7 @@ func runtimeServiceArguments(
 		"--app-data-dir", layout.RuntimeStateDir,
 		"--port", strconv.Itoa(layout.HealthPort),
 	}
+	arguments = appendStoragePolicyArguments(arguments, storagePolicy)
 	if workloadAccounting != nil {
 		arguments = append(
 			arguments,

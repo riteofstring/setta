@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	ManifestSchemaVersion = 2
+	ManifestSchemaVersion = 3
 	maximumManifestBytes  = 32 * 1024
 	maximumRunDuration    = 2 * time.Hour
 	cleanupReserve        = 15 * time.Minute
@@ -55,6 +55,7 @@ type Manifest struct {
 	FlyAppName          string                           `json:"fly_app_name"`
 	ResourcePrefix      string                           `json:"resource_prefix"`
 	SpriteResources     runtimeprovider.RuntimeResources `json:"sprite_resources"`
+	MinimumDiskFreeMiB  int                              `json:"minimum_disk_free_mib"`
 	AuthorizedWorkload  []string                         `json:"authorized_workload"`
 	ExcludedWorkload    []string                         `json:"excluded_workload"`
 	CleanupAuthority    string                           `json:"cleanup_authority"`
@@ -149,6 +150,13 @@ func validateManifestIdentity(manifest Manifest) error {
 	}
 	if err := manifest.SpriteResources.Validate(); err != nil {
 		return fmt.Errorf("validate manifest Sprite resources: %w", err)
+	}
+	if manifest.MinimumDiskFreeMiB <= 0 {
+		return errors.New("manifest minimum_disk_free_mib must be positive")
+	}
+	storageMiB := manifest.SpriteResources.StorageBytes / (1024 * 1024)
+	if uint64(manifest.MinimumDiskFreeMiB) >= storageMiB {
+		return errors.New("manifest minimum_disk_free_mib must leave usable persistent storage")
 	}
 	return validateManifestWorkloads(manifest)
 }

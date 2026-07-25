@@ -48,6 +48,7 @@ type Plan struct {
 	CleanupDeadline     string                           `json:"cleanup_deadline"`
 	BaseImage           string                           `json:"base_image"`
 	SpriteResources     runtimeprovider.RuntimeResources `json:"sprite_resources"`
+	MinimumDiskFreeMiB  int                              `json:"minimum_disk_free_mib"`
 	Shape               DeploymentShape                  `json:"shape"`
 	Actions             []PlanAction                     `json:"actions"`
 }
@@ -90,6 +91,7 @@ func BuildPlan(authorization Authorization) Plan {
 		CleanupDeadline:     authorization.Manifest.CleanupDeadline,
 		BaseImage:           BaseImage,
 		SpriteResources:     authorization.Manifest.SpriteResources,
+		MinimumDiskFreeMiB:  authorization.Manifest.MinimumDiskFreeMiB,
 		Shape: DeploymentShape{
 			AppCount:               1,
 			MachineCount:           1,

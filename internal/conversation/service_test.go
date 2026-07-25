@@ -667,6 +667,8 @@ func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
 			ProviderTurnID:   base.ProviderTurnID,
 			Outcome:          agent.TurnOutcomeCompleted,
 		}, nil
+	case "admission failure":
+		return agent.TurnResult{}, testConversationTurnAdmissionFailure{}
 	case "mismatched provider scope":
 		mismatched := base
 		mismatched.ProviderThreadID = "provider-thread-other"

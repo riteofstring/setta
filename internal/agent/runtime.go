@@ -17,6 +17,7 @@ type Config struct {
 	Env                   []string
 	ExcludedEnv           []string
 	Manager               *codexapp.Manager
+	TurnAdmissionGate     TurnAdmissionGate
 	Version               string
 	WorkloadLeaseManager  runtimeprovider.WorkloadLeaseManager
 	WorkloadLeaseName     string
@@ -26,6 +27,7 @@ type Config struct {
 
 type Runtime struct {
 	manager *codexapp.Manager
+	admit   TurnAdmissionGate
 
 	mu      sync.Mutex
 	active  map[string]*activeTurn
@@ -81,6 +83,7 @@ func NewRuntime(config Config) *Runtime {
 	}
 	runtime := &Runtime{
 		manager: manager,
+		admit:   config.TurnAdmissionGate,
 		active:  map[string]*activeTurn{},
 		pending: map[string]pendingApproval{},
 	}

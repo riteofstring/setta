@@ -104,9 +104,12 @@ func (preparer SpriteRuntimePreparer) Prepare(ctx context.Context, authorization
 		return PreparedSprite{}, err
 	}
 	result, err := preparer.Installer.Install(ctx, runtimeinstall.InstallRequest{
-		RuntimeName:    observation.Name,
-		Desired:        preparer.Release.Artifact,
-		Layout:         preparer.Layout,
+		RuntimeName: observation.Name,
+		Desired:     preparer.Release.Artifact,
+		Layout:      preparer.Layout,
+		StoragePolicy: &runtimeinstall.StoragePolicy{
+			MinimumFreeMiB: authorization.Manifest.MinimumDiskFreeMiB,
+		},
 		HealthAttempts: preparer.HealthAttempts,
 		HealthInterval: preparer.HealthInterval,
 	})

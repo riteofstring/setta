@@ -513,10 +513,11 @@ func (service *Service) persistUnexpectedSideTurnEnd(
 	if err != nil {
 		return err
 	}
+	code, retryable := classifyAgentRuntimeFailure(runErr, "side_turn_runtime_failed")
 	failure := Failure{
-		Code:                "side_turn_runtime_failed",
+		Code:                code,
 		Message:             runErr.Error(),
-		Retryable:           true,
+		Retryable:           retryable,
 		DiagnosticReference: diagnosticID,
 	}
 	expected := SideConversationExpectation{Status: side.Status, UpdatedAt: side.UpdatedAt}

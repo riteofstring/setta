@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math"
 	"net/http"
 	"strings"
 	"sync"
@@ -18,6 +19,93 @@ import (
 	"setta/internal/runtimeprovider"
 	"setta/internal/runtimeprovider/runtimetest"
 )
+
+func TestCandidateBGatewayDiskPressureFailsBeforeWorkloadLease(t *testing.T) {
+	installRuntimeMasterCodexFixture(t)
+	leases := newHostedSynchronizedWorkloadLeaseManager()
+	reports := newHostedObservedWorkloadLeaseReporter()
+	config := testConfig(t)
+	config.Version = "hosted-gateway-disk-pressure"
+	config.MinimumDiskFreeMiB = math.MaxInt
+	config.WorkloadLeaseManager = leases
+	config.WorkloadLeaseReporter = reports
+	runtimeServer, runtimeReady := startRuntimeTestServer(t, config)
+	defer shutdownServer(t, runtimeServer)
+
+	dialer := &hostedRuntimeDialer{}
+	dialer.SetAddress(runtimeServer.Addr())
+	gateway, store, _, client, _, _ := startHostedGateway(
+		t,
+		t.TempDir(),
+		t.TempDir(),
+		dialer,
+		runtimeReady.BootstrapToken,
+	)
+	defer shutdownHostedGateway(t, gateway, store)
+	baseURL := "http://" + gateway.Addr().String()
+	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](
+		t,
+		client,
+		baseURL,
+		"/workspaces/open",
+		httpapi.OpenWorkspaceRequest{RootPath: t.TempDir()},
+		http.StatusOK,
+	)
+	created := postRuntimeJSON[conversation.ConversationSnapshot](
+		t,
+		client,
+		baseURL,
+		"/conversations/create",
+		httpapi.CreateTopicConversationRequest{
+			WorkspaceID: opened.Workspace.ID,
+			Title:       "Hosted disk pressure",
+		},
+		http.StatusOK,
+	)
+	accepted := submitHostedConversationInput(
+		t,
+		client,
+		baseURL,
+		created.Conversation.ID,
+		"hosted-disk-pressure",
+		"do not start under disk pressure",
+	)
+	requireRuntimeLiveRouteKind(
+		t,
+		waitForRuntimeLiveConversationRoute(
+			t,
+			client,
+			baseURL,
+			opened.Workspace.ID,
+			created.Conversation.ID,
+			accepted,
+		),
+		conversation.ConversationRouteDecisionKindSendToParent,
+	)
+	failed := waitForRuntimeLiveConversationSnapshot(
+		t,
+		client,
+		baseURL,
+		opened.Workspace.ID,
+		created.Conversation.ID,
+		"disk-pressure turn failure",
+		func(snapshot conversation.ConversationSnapshot) bool {
+			return len(snapshot.Turns.Turns) == 1 &&
+				snapshot.Turns.Turns[0].Status == conversation.TurnStatusFailed
+		},
+	)
+	turn := failed.Turns.Turns[0]
+	if turn.Error == nil || turn.Error.Code != runtimeDiskPressureFailureCode ||
+		!turn.Error.Retryable || turn.ProviderTurnID != nil {
+		t.Fatalf("disk-pressure turn = %+v", turn)
+	}
+	if actions := reports.snapshot(); len(actions) != 0 {
+		t.Fatalf("disk-pressure workload accounting actions = %v, want none", actions)
+	}
+	if hostedWorkloadLeaseActive(t, leases) {
+		t.Fatal("disk-pressure turn acquired a workload lease")
+	}
+}
 
 func TestCandidateBGatewayWorkContinuesAfterGatewayDisconnect(t *testing.T) {
 	t.Setenv("SETTA_E2E_TOPIC_CODEX_TURN_DELAY_MS", "1500")
