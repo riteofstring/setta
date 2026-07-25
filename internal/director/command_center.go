@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 )
 
 // The Director command center boundary.
@@ -19,9 +20,17 @@ import (
 //
 // The registry owns what is durably true. The command center owns what the user
 // asked for.
+//
+// Submitting work is the front door: one text or voice request reaches the
+// router, which resolves it into the single decision trusted state authorizes,
+// and the executor carries that decision out. The shell supplies what the user
+// said and how they said it; the intent's identity and the moment it was
+// accepted are minted here, because an id a caller chose is an id product code
+// did not.
 
 // ErrDirectorUnavailable reports that the command center cannot serve a request
-// because the app-scoped registry is not running. It is a runtime condition
+// because the app-scoped registry is not running, or because the Director could
+// not be reached to decide what a request meant. It is a runtime condition
 // rather than something the caller asked for wrongly.
 var ErrDirectorUnavailable = errors.New("director command center is unavailable")
 
@@ -34,6 +43,8 @@ var ErrDirectorIntentRejected = errors.New("director intent rejected")
 type DirectorIntentKind string
 
 const (
+	// DirectorIntentSubmit hands one text or voice request to the Director.
+	DirectorIntentSubmit DirectorIntentKind = "submit"
 	// DirectorIntentSelectWorkstream moves app-wide selection to a named
 	// workstream.
 	DirectorIntentSelectWorkstream DirectorIntentKind = "select_workstream"
@@ -43,6 +54,7 @@ const (
 )
 
 var directorIntentKinds = []DirectorIntentKind{
+	DirectorIntentSubmit,
 	DirectorIntentSelectWorkstream,
 	DirectorIntentMoveSelection,
 }
@@ -58,6 +70,16 @@ const (
 var directorSelectionDirections = []DirectorSelectionDirection{
 	DirectorSelectionPrevious,
 	DirectorSelectionNext,
+}
+
+// DirectorSubmitIntent is one request the user made. Text and modality are the
+// whole of it: voice and typing reach the Director through the same intent, so
+// the modality is provenance rather than a second path, and nothing about which
+// workstream the request is for is supplied — deciding that is the Director's
+// job.
+type DirectorSubmitIntent struct {
+	Text     string                 `json:"text"`
+	Modality DecisionIntentModality `json:"modality"`
 }
 
 // DirectorSelectWorkstreamIntent names the workstream to select. It carries a
@@ -77,6 +99,7 @@ type DirectorMoveSelectionIntent struct {
 // populated payload.
 type DirectorIntent struct {
 	Kind             DirectorIntentKind              `json:"kind"`
+	Submit           *DirectorSubmitIntent           `json:"submit"`
 	SelectWorkstream *DirectorSelectWorkstreamIntent `json:"selectWorkstream"`
 	MoveSelection    *DirectorMoveSelectionIntent    `json:"moveSelection"`
 }
@@ -84,30 +107,73 @@ type DirectorIntent struct {
 // DirectorReceipt is what a dispatch reports back. The durable change reaches
 // the shell through the pushed stream like every other change, so the receipt
 // says only what the app decided the intent meant: which workstream is selected
-// now. A move with nowhere to go returns the selection it kept.
+// now, or what carrying out a submitted request produced. A move with nowhere to
+// go returns the selection it kept.
+//
+// The receipt is not registered as a discriminated wire shape, because a
+// selection receipt's workstream is legitimately null when the registry holds
+// nothing to select. ValidateDirectorReceipt is what proves exactly one payload
+// belongs to the dispatched kind.
 type DirectorReceipt struct {
 	Kind DirectorIntentKind `json:"kind"`
-	// SelectedWorkstreamID is the app-wide selection after the dispatch. It is
-	// null only when the registry holds no workstream to select.
+	// SelectedWorkstreamID is the app-wide selection after a selection dispatch.
+	// It is null when the registry holds no workstream to select, and always null
+	// for a submitted request, whose own selection change arrives on the pushed
+	// stream.
 	SelectedWorkstreamID *string `json:"selectedWorkstreamId"`
+	// Submit is what the app did with a submitted request. It is populated
+	// exactly for a submit dispatch.
+	Submit *ExecutedDecision `json:"submit"`
 }
 
 // ValidateDirectorIntent rejects an intent before it reaches durable state.
 func ValidateDirectorIntent(intent DirectorIntent) error {
+	if err := validateIntentPayloadPresence(intent); err != nil {
+		return err
+	}
 	switch intent.Kind {
+	case DirectorIntentSubmit:
+		return validateSubmitIntent(*intent.Submit)
 	case DirectorIntentSelectWorkstream:
-		if intent.SelectWorkstream == nil || intent.MoveSelection != nil {
-			return fmt.Errorf("director intent %q requires exactly its own payload", intent.Kind)
-		}
 		return validateIdentifier("director select workstream id", intent.SelectWorkstream.WorkstreamID)
 	case DirectorIntentMoveSelection:
-		if intent.MoveSelection == nil || intent.SelectWorkstream != nil {
-			return fmt.Errorf("director intent %q requires exactly its own payload", intent.Kind)
-		}
 		return validateSelectionDirection(intent.MoveSelection.Direction)
 	default:
 		return fmt.Errorf("unknown director intent kind %q", intent.Kind)
 	}
+}
+
+// validateIntentPayloadPresence proves the dispatched kind carries exactly its
+// own payload. One loop over the whole catalog is what keeps adding an intent
+// from silently accepting a second populated payload beside it.
+func validateIntentPayloadPresence(intent DirectorIntent) error {
+	present := map[DirectorIntentKind]bool{
+		DirectorIntentSubmit:           intent.Submit != nil,
+		DirectorIntentSelectWorkstream: intent.SelectWorkstream != nil,
+		DirectorIntentMoveSelection:    intent.MoveSelection != nil,
+	}
+	if _, known := present[intent.Kind]; !known {
+		return fmt.Errorf("unknown director intent kind %q", intent.Kind)
+	}
+	for kind, populated := range present {
+		if populated != (kind == intent.Kind) {
+			return fmt.Errorf("director intent %q requires exactly its own payload", intent.Kind)
+		}
+	}
+	return nil
+}
+
+func validateSubmitIntent(submit DirectorSubmitIntent) error {
+	if err := validateTrimmedText("director submitted text", submit.Text); err != nil {
+		return err
+	}
+	if len(submit.Text) > MaxDecisionIntentTextBytes {
+		return fmt.Errorf("director submitted text exceeds %d bytes", MaxDecisionIntentTextBytes)
+	}
+	if !isDecisionIntentModality(submit.Modality) {
+		return fmt.Errorf("unknown director submitted modality %q", submit.Modality)
+	}
+	return nil
 }
 
 func validateSelectionDirection(direction DirectorSelectionDirection) error {
@@ -117,10 +183,20 @@ func validateSelectionDirection(direction DirectorSelectionDirection) error {
 	return nil
 }
 
-// ValidateDirectorReceipt proves a receipt names a real selection.
+// ValidateDirectorReceipt proves a receipt names a real selection or a real
+// outcome, and that it names only the one its dispatched kind produces.
 func ValidateDirectorReceipt(receipt DirectorReceipt) error {
 	if !slices.Contains(directorIntentKinds, receipt.Kind) {
 		return fmt.Errorf("unknown director intent kind %q", receipt.Kind)
+	}
+	if receipt.Kind == DirectorIntentSubmit {
+		if receipt.Submit == nil || receipt.SelectedWorkstreamID != nil {
+			return fmt.Errorf("director receipt %q requires exactly its own outcome", receipt.Kind)
+		}
+		return receipt.Submit.Validate()
+	}
+	if receipt.Submit != nil {
+		return fmt.Errorf("director receipt %q must not carry a submitted outcome", receipt.Kind)
 	}
 	if receipt.SelectedWorkstreamID == nil {
 		return nil
@@ -131,18 +207,70 @@ func ValidateDirectorReceipt(receipt DirectorReceipt) error {
 // CommandCenter is the application boundary the shell dispatches through.
 type CommandCenter struct {
 	registry *Registry
+	router   *DecisionRouter
+	executor *DecisionExecutor
+	now      func() time.Time
+	newID    func(string) (string, error)
 }
 
-// NewCommandCenter builds the boundary over the app-scoped registry.
-func NewCommandCenter(registry *Registry) (*CommandCenter, error) {
-	if registry == nil {
-		return nil, errors.New("director command center requires the app-scoped registry")
+// CommandCenterOption configures the boundary.
+type CommandCenterOption func(*CommandCenter) error
+
+// WithCommandCenterClock replaces the clock a submitted intent is stamped with.
+func WithCommandCenterClock(now func() time.Time) CommandCenterOption {
+	return func(center *CommandCenter) error {
+		if now == nil {
+			return errors.New("director command center clock must not be nil")
+		}
+		center.now = now
+		return nil
 	}
-	return &CommandCenter{registry: registry}, nil
+}
+
+// WithCommandCenterIdentity replaces the generator that mints intent ids.
+func WithCommandCenterIdentity(newID func(string) (string, error)) CommandCenterOption {
+	return func(center *CommandCenter) error {
+		if newID == nil {
+			return errors.New("director command center identity generator must not be nil")
+		}
+		center.newID = newID
+		return nil
+	}
+}
+
+// NewCommandCenter builds the boundary over the app-scoped registry, the router
+// that decides what a request means, and the executor that carries the decision
+// out. All three are required: a dispatch that accepted work it could not route
+// or perform would be a stub in the product's front door.
+func NewCommandCenter(
+	registry *Registry,
+	router *DecisionRouter,
+	executor *DecisionExecutor,
+	options ...CommandCenterOption,
+) (*CommandCenter, error) {
+	if registry == nil || router == nil || executor == nil {
+		return nil, errors.New("director command center requires the registry, the decision router, and the executor")
+	}
+	center := &CommandCenter{
+		registry: registry,
+		router:   router,
+		executor: executor,
+		now:      time.Now,
+		newID:    randomDirectorFactID,
+	}
+	for _, option := range options {
+		if option == nil {
+			return nil, errors.New("director command center option must not be nil")
+		}
+		if err := option(center); err != nil {
+			return nil, err
+		}
+	}
+	return center, nil
 }
 
 func (center *CommandCenter) available() error {
-	if center == nil || center.registry == nil {
+	if center == nil || center.registry == nil || center.router == nil || center.executor == nil {
 		return ErrDirectorUnavailable
 	}
 	return nil
@@ -178,27 +306,104 @@ func (center *CommandCenter) Dispatch(ctx context.Context, intent DirectorIntent
 	if err := ValidateDirectorIntent(intent); err != nil {
 		return DirectorReceipt{}, fmt.Errorf("%w: %w", ErrDirectorIntentRejected, err)
 	}
-	selected, err := center.dispatchSelection(ctx, intent)
+	receipt, err := center.carryOut(ctx, intent)
 	if err != nil {
 		return DirectorReceipt{}, err
 	}
-	receipt := DirectorReceipt{Kind: intent.Kind, SelectedWorkstreamID: selected}
 	if err := ValidateDirectorReceipt(receipt); err != nil {
 		return DirectorReceipt{}, err
 	}
 	return receipt, nil
 }
 
-func (center *CommandCenter) dispatchSelection(
+func (center *CommandCenter) carryOut(
 	ctx context.Context,
 	intent DirectorIntent,
-) (*string, error) {
+) (DirectorReceipt, error) {
+	receipt := DirectorReceipt{Kind: intent.Kind}
 	switch intent.Kind {
+	case DirectorIntentSubmit:
+		executed, err := center.submit(ctx, *intent.Submit)
+		if err != nil {
+			return DirectorReceipt{}, err
+		}
+		receipt.Submit = &executed
+		return receipt, nil
 	case DirectorIntentSelectWorkstream:
-		return center.registry.SelectWorkstream(ctx, intent.SelectWorkstream.WorkstreamID)
+		selected, err := center.registry.SelectWorkstream(ctx, intent.SelectWorkstream.WorkstreamID)
+		if err != nil {
+			return DirectorReceipt{}, err
+		}
+		receipt.SelectedWorkstreamID = selected
+		return receipt, nil
 	case DirectorIntentMoveSelection:
-		return center.registry.MoveSelection(ctx, intent.MoveSelection.Direction)
+		selected, err := center.registry.MoveSelection(ctx, intent.MoveSelection.Direction)
+		if err != nil {
+			return DirectorReceipt{}, err
+		}
+		receipt.SelectedWorkstreamID = selected
+		return receipt, nil
 	default:
-		return nil, fmt.Errorf("unknown director intent kind %q", intent.Kind)
+		return DirectorReceipt{}, fmt.Errorf("unknown director intent kind %q", intent.Kind)
 	}
+}
+
+// submit carries one request from the user's words to the work they produce:
+// accept the intent, route it against trusted state, and execute the decision
+// that came back.
+func (center *CommandCenter) submit(
+	ctx context.Context,
+	payload DirectorSubmitIntent,
+) (ExecutedDecision, error) {
+	intent, err := center.acceptIntent(payload)
+	if err != nil {
+		return ExecutedDecision{}, err
+	}
+	routed, err := center.route(ctx, intent)
+	if err != nil {
+		return ExecutedDecision{}, err
+	}
+	// Execution failures are returned as they are. A rejected target is the
+	// caller's mistake and already typed; anything else is a durable-write or
+	// provider condition the shell reports, and calling it an unavailable command
+	// center would name the wrong thing.
+	return center.executor.Execute(ctx, routed)
+}
+
+// acceptIntent mints the durable identity of one submitted request. The id and
+// the accepted-at stamp are product state: a caller that could choose them could
+// replay another request's identity.
+func (center *CommandCenter) acceptIntent(payload DirectorSubmitIntent) (SubmittedIntent, error) {
+	intentID, err := center.newID("director-intent")
+	if err != nil {
+		return SubmittedIntent{}, err
+	}
+	intent := SubmittedIntent{
+		ID:          intentID,
+		Text:        payload.Text,
+		Modality:    payload.Modality,
+		SubmittedAt: center.now().UTC().Format(time.RFC3339Nano),
+	}
+	if err := validateSubmittedIntent(intent); err != nil {
+		return SubmittedIntent{}, fmt.Errorf("%w: %w", ErrDirectorIntentRejected, err)
+	}
+	return intent, nil
+}
+
+// route resolves what the request meant. Invalid model output never reaches
+// here, because the recovery ladder inside the router resolves it; what can
+// reach here is a Director the app could not reach at all, which is a runtime
+// condition rather than the caller's mistake.
+func (center *CommandCenter) route(
+	ctx context.Context,
+	intent SubmittedIntent,
+) (RoutedIntent, error) {
+	routed, err := center.router.Route(ctx, intent)
+	if err == nil {
+		return routed, nil
+	}
+	if errors.Is(err, ErrDirectorIntentRejected) || errors.Is(err, ErrDirectorUnavailable) {
+		return RoutedIntent{}, err
+	}
+	return RoutedIntent{}, fmt.Errorf("%w: %w", ErrDirectorUnavailable, err)
 }

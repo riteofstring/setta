@@ -46,21 +46,83 @@ var resourceRequestSummaries = map[WorkstreamResourceKind]string{
 // receipt, not state: every durable change reaches the shell through the same
 // pushed stream as every other change.
 type ExecutedDecision struct {
-	IntentID   string
-	Resolution DecisionResolution
+	IntentID   string             `json:"intentId"`
+	Resolution DecisionResolution `json:"resolution"`
 	// Decision is the decision that was carried out. It is nil exactly for a
 	// blocked resolution, which produced no decision to carry out.
-	Decision *DirectorDecisionKind
+	Decision *DirectorDecisionKind `json:"decision"`
 	// WorkstreamID is the workstream the request ended up in, when it ended up
 	// in one. An answer, a question, and a blocked request name none.
-	WorkstreamID *string
+	WorkstreamID *string `json:"workstreamId"`
 	// PublicText is the Director's own words for the user: the answer, the
 	// question, or why the request could not be routed. It is empty for a
 	// decision that started work, because the work is the answer.
-	PublicText string
+	PublicText string `json:"publicText"`
 	// ResourceRequestID names the durable request the work is waiting on, when
 	// the workstream could not start it yet.
-	ResourceRequestID *string
+	ResourceRequestID *string `json:"resourceRequestId"`
+}
+
+// Validate proves the receipt describes something the app could actually have
+// done. It is checked before the receipt crosses the boundary, so a resolution
+// with no decision, or a reply with nothing to say, fails here rather than
+// reaching the shell as an outcome it cannot render.
+func (executed ExecutedDecision) Validate() error {
+	if err := validateIdentifier("executed decision intent id", executed.IntentID); err != nil {
+		return err
+	}
+	if !isDecisionResolution(executed.Resolution) {
+		return fmt.Errorf("unknown director decision resolution %q", executed.Resolution)
+	}
+	if err := executed.validateDecision(); err != nil {
+		return err
+	}
+	if err := validateOptionalIdentifier("executed decision workstream id", executed.WorkstreamID); err != nil {
+		return err
+	}
+	if err := validateOptionalIdentifier(
+		"executed decision resource request id",
+		executed.ResourceRequestID,
+	); err != nil {
+		return err
+	}
+	return executed.validatePublicText()
+}
+
+func (executed ExecutedDecision) validateDecision() error {
+	if executed.Resolution == DecisionResolvedAsBlocked {
+		if executed.Decision != nil {
+			return fmt.Errorf("blocked executed decision %s carries a decision", executed.IntentID)
+		}
+		return nil
+	}
+	if executed.Decision == nil {
+		return fmt.Errorf("executed decision %s resolved as %q without a decision", executed.IntentID, executed.Resolution)
+	}
+	if !isDirectorDecisionKind(*executed.Decision) {
+		return fmt.Errorf("unknown director decision kind %q", *executed.Decision)
+	}
+	return nil
+}
+
+// validatePublicText requires the Director's own words exactly where they are
+// the outcome: a blocked request, an answer, and a question are what the user
+// receives, so an empty one would leave the shell nothing to show.
+func (executed ExecutedDecision) validatePublicText() error {
+	required := executed.Resolution == DecisionResolvedAsBlocked ||
+		(executed.Decision != nil &&
+			(*executed.Decision == DirectorDecisionAnswerDirectly ||
+				*executed.Decision == DirectorDecisionAskClarification))
+	if !required && executed.PublicText == "" {
+		return nil
+	}
+	if err := validateTrimmedText("executed decision public text", executed.PublicText); err != nil {
+		return err
+	}
+	if len(executed.PublicText) > MaxDecisionAnswerBytes {
+		return fmt.Errorf("executed decision public text exceeds %d bytes", MaxDecisionAnswerBytes)
+	}
+	return nil
 }
 
 // DecisionExecutor carries out routed decisions.
@@ -142,7 +204,17 @@ func (executor *DecisionExecutor) Execute(ctx context.Context, routed RoutedInte
 			PublicText: routed.PublicSummary,
 		}, nil
 	}
-	decision := *routed.Decision
+	return executor.carryOut(ctx, routed, *routed.Decision)
+}
+
+// carryOut dispatches one validated decision to the effect it names. It is
+// total over the catalog, so a decision kind with no effect here fails loudly
+// instead of being silently accepted as routed.
+func (executor *DecisionExecutor) carryOut(
+	ctx context.Context,
+	routed RoutedIntent,
+	decision DirectorDecision,
+) (ExecutedDecision, error) {
 	switch decision.Kind {
 	case DirectorDecisionAnswerDirectly, DirectorDecisionAskClarification:
 		return executor.reply(ctx, routed, decision)

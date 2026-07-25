@@ -25,7 +25,7 @@ belong in one durable transaction. Item 3's dispatch surface is committed in
 and `desktop/src/main/director-*.ts`: `DirectorCommandCenter` is the one boundary
 the shell talks to, three endpoints carry it, and the desktop forwards the
 app-scoped subscription through typed IPC. The Director contracts are therefore
-reachable in `desktop/src/generated/backend.ts` at protocol version 84, which is
+reachable in `desktop/src/generated/backend.ts` at protocol version 85, which is
 what Phase 1 item 13's visual gallery was waiting for. Executing a routed
 decision is committed in `internal/director/execution.go`,
 `decision_execution.go`, and `internal/conversation/service_director_commands.go`
@@ -34,9 +34,13 @@ port, and `DecisionExecutor.Execute` is total over a `RoutedIntent` — it commi
 the durable decision, starts or delivers the work through the port, turns work a
 folderless workstream cannot start yet into a durable resource request, and
 commits the Director's own answers and questions as decisions that happened in no
-workstream. The executor is not yet reachable from the shell: the `submit` intent
-lands with the Director's structured decision caller and the local adapter behind
-the port.
+workstream. The executor is now reachable: the `submit` intent is in the dispatch
+catalog, `internal/director/decision_call.go` owns the bytes the Director is sent,
+`internal/runtime/director_decision_caller.go` runs one isolated structured turn
+per decision, and `internal/runtime/director_workstream_execution.go` is the local
+adapter behind the port. One typed text or voice request therefore travels from
+the shell's front door to a durable run. Cancellation, approval resolution, and
+resource-request resolution are the dispatched intents still outside the boundary.
 Phase 2 owns the standalone renderer:
 the packed GPU render snapshot, its deterministic fixture generation, and its
 burst/cursor-replay fixtures are committed in
@@ -1258,10 +1262,10 @@ Exit gate:
    three endpoints carry the whole boundary: read one bounded snapshot with its
    cursor, subscribe from that cursor, dispatch one intent. Five decisions are
    load-bearing:
-   - The intent catalog is what the app can carry out today: `select_workstream`
-     and `move_selection`. Submitting work is not in it, because executing a
-     routed decision is item 6, and a dispatch that accepted work it could not
-     perform would be a stub in the product's front door.
+   - The intent catalog is what the app can carry out: `submit`,
+     `select_workstream`, and `move_selection`. `submit` joined it once item 6's
+     executor became reachable, because a dispatch that accepted work it could
+     not perform would be a stub in the product's front door.
    - `move_selection` is resolved by the app, not the caller. The renderer sends
      a direction; the registry resolves it over the same bounded, recency-ordered
      window the snapshot draws, so selection can only land on something the user
@@ -1365,16 +1369,56 @@ Exit gate:
    check now compares two optional folders, so a folderless parent and child are
    a legitimate pair.
 
+   **The routed path is now reachable from the shell.** `submit` joined the
+   dispatch catalog, and the two pieces between the router and the app are
+   committed: `internal/runtime/director_decision_caller.go` is the structured
+   decision caller, and `internal/runtime/director_workstream_execution.go` is the
+   local adapter behind `WorkstreamExecution`. `internal/director/decision_call.go`
+   owns what the Director is sent, and `DirectorReceipt` carries the
+   `ExecutedDecision` back. Six decisions are load-bearing:
+   - The intent's identity and its accepted-at stamp are minted by the command
+     center. The shell supplies the words and the modality only, because a caller
+     that could choose an intent id could replay another request's identity.
+   - Every decision runs on a fresh, read-only, tool-less provider thread with no
+     durable Director session. The protocol supplies the model's entire authority
+     in one context bundle and re-supplies it on a retry, so thread history is not
+     merely unnecessary: a decision influenced by a previous request's history
+     would be authorized by something the app never validated. This is also why
+     the Director does not share the Master session's durable thread, whose
+     developer instructions carry the Master route catalog.
+   - The Director decides under the same durable app-global role profile the
+     Master session resolves, so a model, effort, permission, or budget change
+     reaches both without a second source of truth. The runtime now builds that
+     resolver once and shares it.
+   - That role's input budget is enforced rather than worked around. A request
+     whose routing context does not fit is rejected as too large, because a
+     decision made from a clipped context would be authorized against something
+     the app never showed the Director.
+   - The retry diagnostic travels as one `validationDiagnostic` field beside the
+     context in the same payload, and the task directive states what it means. The
+     context stays the top-level object, because the frozen directive addresses it
+     by path.
+   - A Director the app could not reach is `ErrDirectorUnavailable`; a target
+     trusted state does not hold is `ErrDirectorIntentRejected`. Execution
+     failures pass through as themselves, because calling a durable-write conflict
+     an unavailable command center would name the wrong thing.
+
+   The local adapter maps the authorized origin kind onto durable parentage rather
+   than inferring it from which field is populated, and it translates exactly one
+   error class: work that cannot run until the user supplies a resource crosses as
+   the typed resource error the executor turns into a durable request. Everything
+   else crosses unchanged, because the Director does not interpret execution
+   failures.
+
    Still to move behind the boundary: cancellation, approval resolution, and
    resource-request resolution, which are dispatched intents rather than routed
-   decisions; and the `submit` intent itself, which lands with the Director's
-   structured decision caller so the dispatch that accepts work can also route
-   it.
+   decisions.
 7. Replace pane presentation intents with workstream presentation intents. **The
-   replacement exists** — `DirectorIntent` moves app-wide selection by workstream
+   replacement exists and now carries work as well as presentation** —
+   `DirectorIntent` submits a request and moves app-wide selection by workstream
    id or by direction, and no dispatched intent, receipt, or pushed event carries
    a pane id. The Master presentation intent the pane shell still resolves leaves
-   with item 6's routing.
+   when the shell stops dispatching Master input, which is Phase 4's cutover.
 8. Fan in current conversation and Master event streams through the Director registry without adding
    UI polling. **Done for the conversation side.** Every conversation's durable events reach the
    registry through one app-scoped follower that blocks on the store's committed-event wake, so
@@ -1508,14 +1552,18 @@ Setta 4 is complete when:
 
 ## Immediate Next Actions
 
-1. Continue Phase 3 at item 6 by making the executor reachable. `DecisionRouter.Route` resolves a
-   submitted intent into one authorized decision and `DecisionExecutor.Execute` carries it out, so
-   what is left between them and the shell is the Director's structured decision caller, the local
-   adapter behind `WorkstreamExecution`, and the `submit` intent that joins the dispatch catalog with
-   them. Cancellation, approval resolution, and resource-request resolution are dispatched intents
-   rather than routed decisions and move behind the boundary in the same pass. The remaining
-   Master-to-Director renaming in item 2, and retiring the Master presentation intent in item 7, move
-   with that work.
+1. Finish Phase 3 item 6 with the three dispatched intents the routed path does not cover:
+   cancellation, approval resolution, and resource-request resolution. Each is a direct dispatch
+   rather than a model decision, so each needs trusted state to resolve what it names — the active run
+   of a workstream, the workstream and run one pending approval belongs to, and the folder that closes
+   one open resource request — plus its own execution-port operation. Two design questions belong to
+   that pass: whether cancelling names the run the user saw (the conversation service currently
+   interrupts whichever run is active), and whether resolving an approval carries structured answers,
+   which is where the plan's secret-answer boundary applies. Retiring the Master presentation intent in
+   item 7 waits for Phase 4's shell cutover, and the remaining Master-to-Director renaming in item 2
+   should move with the code Phase 5 does not delete.
+   A submitted request has no shell-facing end-to-end coverage yet, because no renderer surface
+   dispatches one until Phase 4 items 1 and 2.
 2. Build the exhaustive node/edge visual gallery. Its dependency is closed: the Director contracts
    are generated into `desktop/src/generated/backend.ts`, and `ProjectionFixtures()` is the
    production-contract source the gallery renders from. The four contract gaps the inventory found

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 )
 
 // Routing one submitted intent into one decision the app can carry out.
@@ -68,6 +69,17 @@ const (
 	// routed, and the public summary is what the user is told.
 	DecisionResolvedAsBlocked DecisionResolution = "blocked"
 )
+
+var decisionResolutions = []DecisionResolution{
+	DecisionResolvedByModel,
+	DecisionResolvedByProductInvariant,
+	DecisionResolvedByClarification,
+	DecisionResolvedAsBlocked,
+}
+
+func isDecisionResolution(resolution DecisionResolution) bool {
+	return slices.Contains(decisionResolutions, resolution)
+}
 
 // RoutedIntent is one submitted intent resolved into the decision trusted code
 // should carry out.

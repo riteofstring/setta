@@ -39,6 +39,8 @@ const decisionTaskDirective = "Classify intent.text using the supplied authorita
 	"Never describe capability limitations. Use supplied ids instead of asking the user to provide them. " +
 	"One title-matching workstream whose allowedDecisionKinds contain the requested action is unambiguous and must be selected. " +
 	"If clarification is present, treat intent.text as the user's answer to that prior question. " +
+	"If validationDiagnostic is present, a previous attempt at this same request was rejected for that reason; " +
+	"return a decision that satisfies the schema and the authority supplied here. " +
 	"Ask for clarification only when target or action ambiguity remains after using all supplied context."
 
 // DecisionTaskContext states what the model is being asked to produce, so the

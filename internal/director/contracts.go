@@ -59,6 +59,9 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "RecoveryStatus", Values: stringValues(recoveryStatuses)},
 		{Name: "DirectorIntentKind", Values: stringValues(directorIntentKinds)},
 		{Name: "DirectorSelectionDirection", Values: stringValues(directorSelectionDirections)},
+		{Name: "DecisionIntentModality", Values: stringValues(decisionIntentModalities)},
+		{Name: "DirectorDecisionKind", Values: stringValues(directorDecisionKinds)},
+		{Name: "DecisionResolution", Values: stringValues(decisionResolutions)},
 		{Name: "DirectorEventKind", Values: stringValues(directorEventKinds)},
 		{Name: "DirectorResyncReason", Values: stringValues(directorResyncReasons)},
 		{Name: "DirectorConnectionStatus", Values: stringValues(directorConnectionStatuses)},
@@ -97,8 +100,17 @@ func ContractDiscriminatedStructs() []ContractDiscriminatedStruct {
 			Discriminator: "kind",
 			Variants: []ContractDiscriminatedStructVariant{
 				{
+					DiscriminatorValue: string(DirectorIntentSubmit),
+					Fields: []ContractDiscriminatedStructField{
+						{Name: "submit", NonNull: true},
+						{Name: "selectWorkstream"},
+						{Name: "moveSelection"},
+					},
+				},
+				{
 					DiscriminatorValue: string(DirectorIntentSelectWorkstream),
 					Fields: []ContractDiscriminatedStructField{
+						{Name: "submit"},
 						{Name: "selectWorkstream", NonNull: true},
 						{Name: "moveSelection"},
 					},
@@ -106,6 +118,7 @@ func ContractDiscriminatedStructs() []ContractDiscriminatedStruct {
 				{
 					DiscriminatorValue: string(DirectorIntentMoveSelection),
 					Fields: []ContractDiscriminatedStructField{
+						{Name: "submit"},
 						{Name: "selectWorkstream"},
 						{Name: "moveSelection", NonNull: true},
 					},

@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 84;
-export const backendContractSchemaHash = "sha256:212e4287c258326cea94f021a736adc2480d2db7c1724d067d63cc09beeed717";
+export const backendProtocolVersion = 85;
+export const backendContractSchemaHash = "sha256:fe42cfc69d9f34a245e19015d80e9c9c08b7314a66965db93a7566a122bff922";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -1604,16 +1604,34 @@ export function decodeDirectorConnectionStatus(value: unknown, label = "Director
   }
 }
 
-export type DirectorIntentKind = "select_workstream" | "move_selection";
+export type DirectorIntentKind = "submit" | "select_workstream" | "move_selection";
 
-export const directorIntentKindValues = ["select_workstream", "move_selection"] as const satisfies readonly DirectorIntentKind[];
+export const directorIntentKindValues = ["submit", "select_workstream", "move_selection"] as const satisfies readonly DirectorIntentKind[];
 
 export function decodeDirectorIntentKind(value: unknown, label = "DirectorIntentKind"): DirectorIntentKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
+    case "submit":
+      return decoded;
     case "select_workstream":
       return decoded;
     case "move_selection":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DecisionIntentModality = "text" | "voice";
+
+export const decisionIntentModalityValues = ["text", "voice"] as const satisfies readonly DecisionIntentModality[];
+
+export function decodeDecisionIntentModality(value: unknown, label = "DecisionIntentModality"): DecisionIntentModality {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "text":
+      return decoded;
+    case "voice":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1630,6 +1648,54 @@ export function decodeDirectorSelectionDirection(value: unknown, label = "Direct
     case "previous":
       return decoded;
     case "next":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DecisionResolution = "model" | "product_invariant" | "clarification" | "blocked";
+
+export const decisionResolutionValues = ["model", "product_invariant", "clarification", "blocked"] as const satisfies readonly DecisionResolution[];
+
+export function decodeDecisionResolution(value: unknown, label = "DecisionResolution"): DecisionResolution {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "model":
+      return decoded;
+    case "product_invariant":
+      return decoded;
+    case "clarification":
+      return decoded;
+    case "blocked":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DirectorDecisionKind = "answer_directly" | "create_workstream" | "send_to_workstream" | "queue_behind_run" | "steer_run" | "ask_clarification" | "select_workstream" | "recover_path";
+
+export const directorDecisionKindValues = ["answer_directly", "create_workstream", "send_to_workstream", "queue_behind_run", "steer_run", "ask_clarification", "select_workstream", "recover_path"] as const satisfies readonly DirectorDecisionKind[];
+
+export function decodeDirectorDecisionKind(value: unknown, label = "DirectorDecisionKind"): DirectorDecisionKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "answer_directly":
+      return decoded;
+    case "create_workstream":
+      return decoded;
+    case "send_to_workstream":
+      return decoded;
+    case "queue_behind_run":
+      return decoded;
+    case "steer_run":
+      return decoded;
+    case "ask_clarification":
+      return decoded;
+    case "select_workstream":
+      return decoded;
+    case "recover_path":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -3755,6 +3821,11 @@ export interface DirectorSnapshot {
   eventCursor: DirectorEventCursor;
 }
 
+export interface DirectorSubmitIntent {
+  text: string;
+  modality: DecisionIntentModality;
+}
+
 export interface DirectorSelectWorkstreamIntent {
   workstreamId: string;
 }
@@ -3766,12 +3837,20 @@ export interface DirectorMoveSelectionIntent {
 export type DirectorIntent = {
 } & (
   | {
+      kind: "submit";
+      submit: DirectorSubmitIntent;
+      selectWorkstream: null;
+      moveSelection: null;
+    }
+  | {
       kind: "select_workstream";
+      submit: null;
       selectWorkstream: DirectorSelectWorkstreamIntent;
       moveSelection: null;
     }
   | {
       kind: "move_selection";
+      submit: null;
       selectWorkstream: null;
       moveSelection: DirectorMoveSelectionIntent;
     }
@@ -3781,9 +3860,19 @@ export interface DispatchDirectorIntentRequest {
   intent: DirectorIntent;
 }
 
+export interface ExecutedDecision {
+  intentId: string;
+  resolution: DecisionResolution;
+  decision: DirectorDecisionKind | null;
+  workstreamId: string | null;
+  publicText: string;
+  resourceRequestId: string | null;
+}
+
 export interface DirectorReceipt {
   kind: DirectorIntentKind;
   selectedWorkstreamId: string | null;
+  submit: ExecutedDecision | null;
 }
 
 export interface DirectorWorkstreamUpdatedPayload {
@@ -7560,6 +7649,15 @@ export function decodeDirectorSnapshot(value: unknown): DirectorSnapshot {
   };
 }
 
+export function decodeDirectorSubmitIntent(value: unknown): DirectorSubmitIntent {
+  const record = assertRecord(value, "DirectorSubmitIntent");
+  assertKnownFields(record, "DirectorSubmitIntent", ["text", "modality"]);
+  return {
+    text: decodeString(requireField(record, "text", "DirectorSubmitIntent"), "DirectorSubmitIntent.text"),
+    modality: decodeDecisionIntentModality(requireField(record, "modality", "DirectorSubmitIntent"), "DirectorSubmitIntent.modality"),
+  };
+}
+
 export function decodeDirectorSelectWorkstreamIntent(value: unknown): DirectorSelectWorkstreamIntent {
   const record = assertRecord(value, "DirectorSelectWorkstreamIntent");
   assertKnownFields(record, "DirectorSelectWorkstreamIntent", ["workstreamId"]);
@@ -7578,14 +7676,36 @@ export function decodeDirectorMoveSelectionIntent(value: unknown): DirectorMoveS
 
 export function decodeDirectorIntent(value: unknown): DirectorIntent {
   const record = assertRecord(value, "DirectorIntent");
-  assertKnownFields(record, "DirectorIntent", ["kind", "selectWorkstream", "moveSelection"]);
+  assertKnownFields(record, "DirectorIntent", ["kind", "submit", "selectWorkstream", "moveSelection"]);
   const result = {
     kind: decodeDirectorIntentKind(requireField(record, "kind", "DirectorIntent"), "DirectorIntent.kind"),
+    submit: decodeNullable(requireField(record, "submit", "DirectorIntent"), "DirectorIntent.submit", (item) => decodeDirectorSubmitIntent(item)),
     selectWorkstream: decodeNullable(requireField(record, "selectWorkstream", "DirectorIntent"), "DirectorIntent.selectWorkstream", (item) => decodeDirectorSelectWorkstreamIntent(item)),
     moveSelection: decodeNullable(requireField(record, "moveSelection", "DirectorIntent"), "DirectorIntent.moveSelection", (item) => decodeDirectorMoveSelectionIntent(item)),
   };
   switch (result.kind) {
+    case "submit": {
+      if (result.submit === null) {
+        throw new Error("DirectorIntent.submit is required when kind is submit");
+      }
+      if (result.selectWorkstream !== null) {
+        throw new Error("DirectorIntent.selectWorkstream must be null when kind is submit");
+      }
+      if (result.moveSelection !== null) {
+        throw new Error("DirectorIntent.moveSelection must be null when kind is submit");
+      }
+      return {
+        ...result,
+        kind: "submit",
+        submit: result.submit,
+        selectWorkstream: null,
+        moveSelection: null,
+      };
+    }
     case "select_workstream": {
+      if (result.submit !== null) {
+        throw new Error("DirectorIntent.submit must be null when kind is select_workstream");
+      }
       if (result.selectWorkstream === null) {
         throw new Error("DirectorIntent.selectWorkstream is required when kind is select_workstream");
       }
@@ -7595,11 +7715,15 @@ export function decodeDirectorIntent(value: unknown): DirectorIntent {
       return {
         ...result,
         kind: "select_workstream",
+        submit: null,
         selectWorkstream: result.selectWorkstream,
         moveSelection: null,
       };
     }
     case "move_selection": {
+      if (result.submit !== null) {
+        throw new Error("DirectorIntent.submit must be null when kind is move_selection");
+      }
       if (result.selectWorkstream !== null) {
         throw new Error("DirectorIntent.selectWorkstream must be null when kind is move_selection");
       }
@@ -7609,6 +7733,7 @@ export function decodeDirectorIntent(value: unknown): DirectorIntent {
       return {
         ...result,
         kind: "move_selection",
+        submit: null,
         selectWorkstream: null,
         moveSelection: result.moveSelection,
       };
@@ -7626,12 +7751,26 @@ export function decodeDispatchDirectorIntentRequest(value: unknown): DispatchDir
   };
 }
 
+export function decodeExecutedDecision(value: unknown): ExecutedDecision {
+  const record = assertRecord(value, "ExecutedDecision");
+  assertKnownFields(record, "ExecutedDecision", ["intentId", "resolution", "decision", "workstreamId", "publicText", "resourceRequestId"]);
+  return {
+    intentId: decodeString(requireField(record, "intentId", "ExecutedDecision"), "ExecutedDecision.intentId"),
+    resolution: decodeDecisionResolution(requireField(record, "resolution", "ExecutedDecision"), "ExecutedDecision.resolution"),
+    decision: decodeNullable(requireField(record, "decision", "ExecutedDecision"), "ExecutedDecision.decision", (item) => decodeDirectorDecisionKind(item, "ExecutedDecision.decision")),
+    workstreamId: decodeNullable(requireField(record, "workstreamId", "ExecutedDecision"), "ExecutedDecision.workstreamId", (item) => decodeString(item, "ExecutedDecision.workstreamId")),
+    publicText: decodeString(requireField(record, "publicText", "ExecutedDecision"), "ExecutedDecision.publicText"),
+    resourceRequestId: decodeNullable(requireField(record, "resourceRequestId", "ExecutedDecision"), "ExecutedDecision.resourceRequestId", (item) => decodeString(item, "ExecutedDecision.resourceRequestId")),
+  };
+}
+
 export function decodeDirectorReceipt(value: unknown): DirectorReceipt {
   const record = assertRecord(value, "DirectorReceipt");
-  assertKnownFields(record, "DirectorReceipt", ["kind", "selectedWorkstreamId"]);
+  assertKnownFields(record, "DirectorReceipt", ["kind", "selectedWorkstreamId", "submit"]);
   return {
     kind: decodeDirectorIntentKind(requireField(record, "kind", "DirectorReceipt"), "DirectorReceipt.kind"),
     selectedWorkstreamId: decodeNullable(requireField(record, "selectedWorkstreamId", "DirectorReceipt"), "DirectorReceipt.selectedWorkstreamId", (item) => decodeString(item, "DirectorReceipt.selectedWorkstreamId")),
+    submit: decodeNullable(requireField(record, "submit", "DirectorReceipt"), "DirectorReceipt.submit", (item) => decodeExecutedDecision(item)),
   };
 }
 

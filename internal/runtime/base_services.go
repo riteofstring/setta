@@ -117,6 +117,7 @@ type runtimeFoundation struct {
 type runtimeAgentServices struct {
 	codexManager         *codexapp.Manager
 	agentRuntime         *agent.Runtime
+	globalRoleResolver   *conversation.MasterRoleConfigurationResolver
 	masterSessionService *master.SessionService
 	narratorService      *narration.Service
 }
@@ -186,7 +187,14 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 	}
 	conversationService := conversationServices.conversationService
 	conversationInputService := conversationServices.conversationInputService
-	directorRuntime, err := newDirectorServices(conversationStore, workspaceService)
+	directorRuntime, err := newDirectorServices(
+		config.AppDataDir,
+		conversationStore,
+		workspaceService,
+		conversationService,
+		agentServices.globalRoleResolver,
+		agentServices.agentRuntime,
+	)
 	if err != nil {
 		shutdownRuntimeConversationServices(config, conversationStore, conversationService, narratorService)
 		return runtimeFoundation{}, err
@@ -318,7 +326,19 @@ func newRuntimeAgentServices(
 		Version:     config.Version,
 	})
 	codexManager := agentRuntime.Manager()
-	masterSessionService, err := newMasterSessionService(config.AppDataDir, conversationStore, agentRuntime)
+	// The app-global routing role is resolved once and shared. The Director
+	// decides under the same durable role profile, so a model, effort, or
+	// permission change reaches both without a second source of truth.
+	globalRoleResolver, err := conversation.NewMasterRoleConfigurationResolver(conversationStore, agentRuntime)
+	if err != nil {
+		return runtimeAgentServices{}, fmt.Errorf("create global routing role resolver: %w", err)
+	}
+	masterSessionService, err := newMasterSessionService(
+		config.AppDataDir,
+		conversationStore,
+		globalRoleResolver,
+		agentRuntime,
+	)
 	if err != nil {
 		return runtimeAgentServices{}, err
 	}
@@ -329,6 +349,7 @@ func newRuntimeAgentServices(
 	return runtimeAgentServices{
 		codexManager:         codexManager,
 		agentRuntime:         agentRuntime,
+		globalRoleResolver:   globalRoleResolver,
 		masterSessionService: masterSessionService,
 		narratorService:      narratorService,
 	}, nil
@@ -337,15 +358,12 @@ func newRuntimeAgentServices(
 func newMasterSessionService(
 	appDataDir string,
 	store *conversation.Store,
+	roles master.RoleConfigurationResolver,
 	agentRuntime *agent.Runtime,
 ) (*master.SessionService, error) {
 	workspaceRoot := filepath.Join(filepath.Clean(appDataDir), masterRuntimeDirectoryName)
 	if err := os.MkdirAll(workspaceRoot, 0o700); err != nil {
 		return nil, fmt.Errorf("create master runtime directory: %w", err)
-	}
-	roles, err := conversation.NewMasterRoleConfigurationResolver(store, agentRuntime)
-	if err != nil {
-		return nil, fmt.Errorf("create master role configuration resolver: %w", err)
 	}
 	service, err := master.NewSessionService(store, roles, agentRuntime, workspaceRoot)
 	if err != nil {
