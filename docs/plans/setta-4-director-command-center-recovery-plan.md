@@ -79,6 +79,10 @@ thread in the same conversation list.
 - Do not add fake agent nodes.
 - Do not use decorative graph activity as a substitute for durable Setta state.
 - Do not restore panes or pane-era concepts.
+- Do not preserve backward compatibility. Setta is unreleased; change contracts, data shapes, and
+  implementations directly to the target design. Do not add migrations, compatibility shims,
+  transitional adapters, dual-read/write paths, old-field aliases, silent compatibility fallbacks, or
+  support for superseded behavior.
 - Do not rely on polling for "live" updates.
 - Do not let the Director answer "I can't do that" when a supported typed action exists.
 - Do not make the user understand internal routing, projection, or model failures.
