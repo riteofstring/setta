@@ -342,13 +342,17 @@ func (reconciler *Reconciler) observeRuntimeAudit(
 	errorCode string,
 	retryable bool,
 ) {
+	completedAt := reconciler.store.clock().UTC()
 	reconciler.observer.ObserveRuntimeAudit(RuntimeAuditObservation{
-		AttemptCount: operation.AttemptCount,
-		ErrorCode:    errorCode,
-		Kind:         kind,
-		Retryable:    retryable,
-		StartedAt:    operation.UpdatedAt,
-		State:        state,
+		AttemptCount:      operation.AttemptCount,
+		AttemptDuration:   completedAt.Sub(operation.UpdatedAt),
+		CompletedAt:       completedAt,
+		ErrorCode:         errorCode,
+		Kind:              kind,
+		OperationDuration: completedAt.Sub(operation.CreatedAt),
+		Retryable:         retryable,
+		StartedAt:         operation.UpdatedAt,
+		State:             state,
 	})
 }
 

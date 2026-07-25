@@ -106,27 +106,37 @@ func requireRuntimeAuditOutput(t *testing.T, payload []byte, request EnsureRunti
 			State:        RuntimeProgressRetrying,
 		},
 		{
-			AttemptCount: 2,
-			Event:        "runtime_reconciliation",
-			Kind:         RuntimeProgressEnsureRuntime,
-			State:        RuntimeProgressProvisioned,
+			AttemptCount:                  2,
+			Event:                         "runtime_reconciliation",
+			Kind:                          RuntimeProgressEnsureRuntime,
+			OperationDurationMilliseconds: float64(time.Minute / time.Millisecond),
+			State:                         RuntimeProgressProvisioned,
 		},
 		{
-			AttemptCount: 1,
-			Event:        "runtime_reconciliation",
-			Kind:         RuntimeProgressDeleteRuntime,
-			State:        RuntimeProgressDeleted,
+			AttemptCount:                  1,
+			Event:                         "runtime_reconciliation",
+			Kind:                          RuntimeProgressDeleteRuntime,
+			OperationDurationMilliseconds: float64(time.Minute / time.Millisecond),
+			State:                         RuntimeProgressDeleted,
 		},
 	}
 	for index, expected := range want {
+		var encoded json.RawMessage
+		if err := decoder.Decode(&encoded); err != nil {
+			t.Fatalf("decode runtime audit payload %d: %v", index, err)
+		}
+		requireRuntimeAuditFields(t, index, encoded)
 		var measurement RuntimeAuditMeasurement
-		if err := decoder.Decode(&measurement); err != nil {
+		if err := json.Unmarshal(encoded, &measurement); err != nil {
 			t.Fatalf("decode runtime audit %d: %v", index, err)
 		}
 		if measurement.AttemptCount != expected.AttemptCount ||
+			measurement.AttemptDurationMilliseconds != expected.AttemptDurationMilliseconds ||
+			measurement.CompletedAt.IsZero() ||
 			measurement.ErrorCode != expected.ErrorCode ||
 			measurement.Event != expected.Event ||
 			measurement.Kind != expected.Kind ||
+			measurement.OperationDurationMilliseconds != expected.OperationDurationMilliseconds ||
 			measurement.Retryable != expected.Retryable ||
 			measurement.State != expected.State ||
 			measurement.StartedAt.IsZero() {
@@ -136,5 +146,46 @@ func requireRuntimeAuditOutput(t *testing.T, payload []byte, request EnsureRunti
 	var extra RuntimeAuditMeasurement
 	if err := decoder.Decode(&extra); err != io.EOF {
 		t.Fatalf("runtime audit trailing data = %+v, %v", extra, err)
+	}
+}
+
+func requireRuntimeAuditFields(t *testing.T, index int, encoded json.RawMessage) {
+	t.Helper()
+	var fields map[string]any
+	if err := json.Unmarshal(encoded, &fields); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]bool{
+		"attempt_count":         true,
+		"attempt_duration_ms":   true,
+		"completed_at":          true,
+		"error_code":            true,
+		"event":                 true,
+		"kind":                  true,
+		"operation_duration_ms": true,
+		"retryable":             true,
+		"started_at":            true,
+		"state":                 true,
+	}
+	if len(fields) != len(want) {
+		t.Fatalf("runtime audit %d fields = %v", index, fields)
+	}
+	for field := range fields {
+		if !want[field] {
+			t.Fatalf("runtime audit %d contains content-bearing field %q", index, field)
+		}
+	}
+}
+
+func TestRuntimeAuditRejectsNegativeMeasuredIntervals(t *testing.T) {
+	observer, err := NewJSONLinesObserver(&bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	observer.ObserveRuntimeAudit(RuntimeAuditObservation{
+		AttemptDuration: -time.Nanosecond,
+	})
+	if observer.Err() == nil {
+		t.Fatal("runtime audit accepted a negative measured interval")
 	}
 }

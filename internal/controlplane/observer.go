@@ -2,6 +2,7 @@ package controlplane
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -56,22 +57,28 @@ type HostedAccessFailureMeasurement struct {
 }
 
 type RuntimeAuditObservation struct {
-	AttemptCount int
-	ErrorCode    string
-	Kind         RuntimeProgressKind
-	Retryable    bool
-	StartedAt    time.Time
-	State        RuntimeProgressState
+	AttemptCount      int
+	AttemptDuration   time.Duration
+	CompletedAt       time.Time
+	ErrorCode         string
+	Kind              RuntimeProgressKind
+	OperationDuration time.Duration
+	Retryable         bool
+	StartedAt         time.Time
+	State             RuntimeProgressState
 }
 
 type RuntimeAuditMeasurement struct {
-	AttemptCount int                  `json:"attempt_count"`
-	ErrorCode    string               `json:"error_code"`
-	Event        string               `json:"event"`
-	Kind         RuntimeProgressKind  `json:"kind"`
-	Retryable    bool                 `json:"retryable"`
-	StartedAt    time.Time            `json:"started_at"`
-	State        RuntimeProgressState `json:"state"`
+	AttemptCount                  int                  `json:"attempt_count"`
+	AttemptDurationMilliseconds   float64              `json:"attempt_duration_ms"`
+	CompletedAt                   time.Time            `json:"completed_at"`
+	ErrorCode                     string               `json:"error_code"`
+	Event                         string               `json:"event"`
+	Kind                          RuntimeProgressKind  `json:"kind"`
+	OperationDurationMilliseconds float64              `json:"operation_duration_ms"`
+	Retryable                     bool                 `json:"retryable"`
+	StartedAt                     time.Time            `json:"started_at"`
+	State                         RuntimeProgressState `json:"state"`
 }
 
 type ControlPlaneAuditAction string
@@ -186,14 +193,21 @@ func (observer *JSONLinesObserver) ObserveRuntimeAudit(observation RuntimeAuditO
 	if observer.err != nil {
 		return
 	}
+	if observation.AttemptDuration < 0 || observation.OperationDuration < 0 {
+		observer.err = errors.New("runtime reconciliation timing cannot be negative")
+		return
+	}
 	observer.err = observer.encoder.Encode(RuntimeAuditMeasurement{
-		AttemptCount: observation.AttemptCount,
-		ErrorCode:    observation.ErrorCode,
-		Event:        "runtime_reconciliation",
-		Kind:         observation.Kind,
-		Retryable:    observation.Retryable,
-		StartedAt:    observation.StartedAt.UTC(),
-		State:        observation.State,
+		AttemptCount:                  observation.AttemptCount,
+		AttemptDurationMilliseconds:   milliseconds(observation.AttemptDuration),
+		CompletedAt:                   observation.CompletedAt.UTC(),
+		ErrorCode:                     observation.ErrorCode,
+		Event:                         "runtime_reconciliation",
+		Kind:                          observation.Kind,
+		OperationDurationMilliseconds: milliseconds(observation.OperationDuration),
+		Retryable:                     observation.Retryable,
+		StartedAt:                     observation.StartedAt.UTC(),
+		State:                         observation.State,
 	})
 }
 

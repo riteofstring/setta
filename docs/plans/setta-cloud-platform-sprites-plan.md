@@ -2303,3 +2303,13 @@ Stop and reassess rather than hiding the problem if any of these occur:
   method yet; inventing a test-only or hidden production path would not prove
   the requirement. Budget-cutoff audit and the rest of the combined Phase 5
   checklist item remain open. No provider or cloud mutation ran.
+- 2026-07-24 (typed reconciliation intervals): Extended each content-free
+  reconciliation outcome with deterministic attempt start/completion times,
+  measured attempt duration, and measured total duration from durable queue
+  creation to outcome. Measurements use the control-plane store clock that
+  owns the operation timestamps; negative intervals fail the observer rather
+  than being clamped or replaced with an estimate. Tests prove exact zero- and
+  one-minute retry/adoption/deletion intervals, exact output fields, rejection
+  of negative measurements, and continued exclusion of identifiers. Broader
+  provider ensure-to-ready/wake attribution and the live identical-workload
+  latency matrix remain open. No provider or cloud mutation ran.

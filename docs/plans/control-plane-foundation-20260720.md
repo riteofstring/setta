@@ -125,7 +125,9 @@ and timestamps, but no user, runtime, provider, or Sprite identifiers.
 The reconciler projects committed provisioning and deletion outcomes to the
 shared JSONL observer. These content-free audit records identify only the
 operation kind, typed outcome, stable error classification, retryability,
-attempt number, and attempt start time. User, runtime, operation, route,
+attempt number, attempt start/completion times, measured attempt duration, and
+measured total queued-operation duration. Negative intervals fail the observer
+instead of being clamped or estimated. User, runtime, operation, route,
 credential, and provider-resource identifiers remain exclusively in durable
 control-plane state and are not copied into operational output.
 
