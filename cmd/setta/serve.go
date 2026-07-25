@@ -10,18 +10,21 @@ import (
 	"io"
 
 	"setta/internal/runtime"
+	"setta/internal/runtimereporting"
 	"setta/internal/speech"
 	"setta/internal/sprites"
 )
 
 type serveOptions struct {
-	AppDataDir            string
-	DisplayName           string
-	Host                  string
-	Port                  int
-	LocalCredentialIssuer bool
-	SpritesWorkloadLeases bool
-	Speech                speech.OpenAIClientConfig
+	AppDataDir                       string
+	DisplayName                      string
+	Host                             string
+	Port                             int
+	LocalCredentialIssuer            bool
+	SpritesWorkloadLeases            bool
+	WorkloadAccountingCredentialFile string
+	WorkloadAccountingURL            string
+	Speech                           speech.OpenAIClientConfig
 }
 
 type serveInstance struct {
@@ -68,6 +71,8 @@ func serveOptionsFromArgs(_ context.Context, args []string, deps cliDeps) (serve
 	flagSet.IntVar(&options.Port, "port", options.Port, "port to bind, or 0 for an ephemeral port")
 	flagSet.BoolVar(&options.LocalCredentialIssuer, "local-credential-issuer", false, "host the local development credential issuer")
 	flagSet.BoolVar(&options.SpritesWorkloadLeases, "sprites-workload-leases", false, "enforce renewable agent workload leases through the Sprites management socket")
+	flagSet.StringVar(&options.WorkloadAccountingCredentialFile, "workload-accounting-credential-file", "", "private runtime reporting credential file")
+	flagSet.StringVar(&options.WorkloadAccountingURL, "workload-accounting-url", "", "Setta control-plane origin for workload accounting")
 	if err := flagSet.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return serveOptions{}, usageError{err: err}
@@ -77,12 +82,21 @@ func serveOptionsFromArgs(_ context.Context, args []string, deps cliDeps) (serve
 	if flagSet.NArg() != 0 {
 		return serveOptions{}, usageError{err: fmt.Errorf("setta serve does not accept positional arguments")}
 	}
+	if options.SpritesWorkloadLeases !=
+		(options.WorkloadAccountingCredentialFile != "" && options.WorkloadAccountingURL != "") {
+		return serveOptions{}, usageError{err: errors.New(
+			"Sprites workload leases require an accounting URL and credential file",
+		)}
+	}
 	return options, nil
 }
 
 func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serveInstance, error) {
 	var readyBuffer bytes.Buffer
-	config := serveRuntimeConfig(options, deps, &readyBuffer)
+	config, err := serveRuntimeConfig(options, deps, &readyBuffer)
+	if err != nil {
+		return nil, err
+	}
 
 	server, err := runtime.Start(ctx, config)
 	if err != nil {
@@ -129,7 +143,11 @@ func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serve
 	}, nil
 }
 
-func serveRuntimeConfig(options serveOptions, deps cliDeps, readyWriter io.Writer) runtime.Config {
+func serveRuntimeConfig(
+	options serveOptions,
+	deps cliDeps,
+	readyWriter io.Writer,
+) (runtime.Config, error) {
 	config := runtime.DefaultConfig()
 	config.AppDataDir = options.AppDataDir
 	config.Host = options.Host
@@ -142,9 +160,23 @@ func serveRuntimeConfig(options serveOptions, deps cliDeps, readyWriter io.Write
 	config.Version = version
 	config.Speech = options.Speech
 	if options.SpritesWorkloadLeases {
+		credential, err := runtimereporting.ReadCredentialFile(
+			options.WorkloadAccountingCredentialFile,
+		)
+		if err != nil {
+			return runtime.Config{}, fmt.Errorf("read workload accounting credential: %w", err)
+		}
+		reporter, err := runtimereporting.NewClient(runtimereporting.ClientConfig{
+			BaseURL:    options.WorkloadAccountingURL,
+			Credential: credential,
+		})
+		if err != nil {
+			return runtime.Config{}, fmt.Errorf("configure workload accounting: %w", err)
+		}
 		config.WorkloadLeaseManager = sprites.NewWorkloadLeaseClient()
+		config.WorkloadLeaseReporter = reporter
 	}
-	return config
+	return config, nil
 }
 
 func decodeReadyEvent(reader io.Reader) (runtime.ReadyEvent, error) {

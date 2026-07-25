@@ -290,12 +290,13 @@ func newRuntimeAgentServices(
 	workspaceService *workspacesession.Service,
 ) (runtimeAgentServices, error) {
 	agentRuntime := agent.NewRuntime(agent.Config{
-		Command:              config.CodexCommand,
-		ExcludedEnv:          []string{speech.APIKeyEnvironmentVariable},
-		Version:              config.Version,
-		WorkloadLeaseManager: config.WorkloadLeaseManager,
-		WorkloadLeaseName:    config.WorkloadLeaseDiagnosticName,
-		WorkloadLeaseTTL:     config.WorkloadLeaseTTL,
+		Command:               config.CodexCommand,
+		ExcludedEnv:           []string{speech.APIKeyEnvironmentVariable},
+		Version:               config.Version,
+		WorkloadLeaseManager:  config.WorkloadLeaseManager,
+		WorkloadLeaseName:     config.WorkloadLeaseDiagnosticName,
+		WorkloadLeaseReporter: config.WorkloadLeaseReporter,
+		WorkloadLeaseTTL:      config.WorkloadLeaseTTL,
 	})
 	codexManager := agentRuntime.Manager()
 	masterSessionService, err := newMasterSessionService(config.AppDataDir, conversationStore, agentRuntime)

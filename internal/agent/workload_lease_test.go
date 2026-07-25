@@ -3,16 +3,19 @@ package agent
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 	"time"
 
+	"setta/internal/runtimeaccounting"
 	"setta/internal/runtimeprovider"
 )
 
 func TestWorkloadLeaseControllerRenewsAndReleasesCompletedTurn(t *testing.T) {
 	manager := &testWorkloadLeaseManager{renewed: make(chan struct{}, 1)}
-	controller := newWorkloadLeaseController(manager, "setta-agent", 2*time.Minute)
+	reporter := &testWorkloadLeaseReporter{}
+	controller := newWorkloadLeaseController(manager, reporter, "setta-agent", 2*time.Minute)
 	controller.wait = immediateFirstRenewal()
 	want := TurnResult{Outcome: TurnOutcomeCompleted}
 	result, err := controller.run(t.Context(), func(context.Context) (TurnResult, error) {
@@ -23,6 +26,7 @@ func TestWorkloadLeaseControllerRenewsAndReleasesCompletedTurn(t *testing.T) {
 		t.Fatalf("leased turn = %+v, %v", result, err)
 	}
 	manager.requireCalls(t, 1, 1, 1)
+	reporter.requireActions(t, runtimeaccounting.EventBegin, runtimeaccounting.EventRenew, runtimeaccounting.EventEnd)
 }
 
 func TestWorkloadLeaseControllerCancelsTurnAfterRenewalFailure(t *testing.T) {
@@ -31,7 +35,8 @@ func TestWorkloadLeaseControllerCancelsTurnAfterRenewalFailure(t *testing.T) {
 		renewErr: renewErr,
 		renewed:  make(chan struct{}, 1),
 	}
-	controller := newWorkloadLeaseController(manager, "setta-agent", 2*time.Minute)
+	reporter := &testWorkloadLeaseReporter{}
+	controller := newWorkloadLeaseController(manager, reporter, "setta-agent", 2*time.Minute)
 	controller.wait = immediateFirstRenewal()
 	_, err := controller.run(t.Context(), func(ctx context.Context) (TurnResult, error) {
 		<-ctx.Done()
@@ -41,12 +46,14 @@ func TestWorkloadLeaseControllerCancelsTurnAfterRenewalFailure(t *testing.T) {
 		t.Fatalf("renewal failure = %v", err)
 	}
 	manager.requireCalls(t, 1, 1, 1)
+	reporter.requireActions(t, runtimeaccounting.EventBegin, runtimeaccounting.EventEnd)
 }
 
 func TestWorkloadLeaseControllerDoesNotRunAfterAcquireFailure(t *testing.T) {
 	acquireErr := errors.New("acquire failed")
 	manager := &testWorkloadLeaseManager{acquireErr: acquireErr}
-	controller := newWorkloadLeaseController(manager, "setta-agent", 2*time.Minute)
+	reporter := &testWorkloadLeaseReporter{}
+	controller := newWorkloadLeaseController(manager, reporter, "setta-agent", 2*time.Minute)
 	ran := false
 	_, err := controller.run(t.Context(), func(context.Context) (TurnResult, error) {
 		ran = true
@@ -56,11 +63,13 @@ func TestWorkloadLeaseControllerDoesNotRunAfterAcquireFailure(t *testing.T) {
 		t.Fatalf("acquire failure = %v, ran = %t", err, ran)
 	}
 	manager.requireCalls(t, 1, 0, 0)
+	reporter.requireActions(t)
 }
 
 func TestWorkloadLeaseControllerReleasesInvalidAcquireObservation(t *testing.T) {
 	manager := &testWorkloadLeaseManager{invalidAcquire: true}
-	controller := newWorkloadLeaseController(manager, "setta-agent", 2*time.Minute)
+	reporter := &testWorkloadLeaseReporter{}
+	controller := newWorkloadLeaseController(manager, reporter, "setta-agent", 2*time.Minute)
 	ran := false
 	_, err := controller.run(t.Context(), func(context.Context) (TurnResult, error) {
 		ran = true
@@ -70,6 +79,41 @@ func TestWorkloadLeaseControllerReleasesInvalidAcquireObservation(t *testing.T) 
 		t.Fatalf("invalid acquire observation error = %v, ran = %t", err, ran)
 	}
 	manager.requireCalls(t, 1, 0, 1)
+	reporter.requireActions(t)
+}
+
+func TestWorkloadLeaseControllerDoesNotRunWhenAcquireReportFails(t *testing.T) {
+	reportErr := errors.New("report failed")
+	manager := &testWorkloadLeaseManager{}
+	reporter := &testWorkloadLeaseReporter{failAction: runtimeaccounting.EventBegin, err: reportErr}
+	controller := newWorkloadLeaseController(manager, reporter, "setta-agent", 2*time.Minute)
+	ran := false
+	_, err := controller.run(t.Context(), func(context.Context) (TurnResult, error) {
+		ran = true
+		return TurnResult{}, nil
+	})
+	if !errors.Is(err, reportErr) || ran {
+		t.Fatalf("acquire reporting failure = %v, ran = %t", err, ran)
+	}
+	manager.requireCalls(t, 1, 0, 1)
+	reporter.requireActions(t, runtimeaccounting.EventBegin, runtimeaccounting.EventEnd)
+}
+
+func TestWorkloadLeaseControllerCancelsTurnWhenRenewReportFails(t *testing.T) {
+	reportErr := errors.New("report failed")
+	manager := &testWorkloadLeaseManager{renewed: make(chan struct{}, 1)}
+	reporter := &testWorkloadLeaseReporter{failAction: runtimeaccounting.EventRenew, err: reportErr}
+	controller := newWorkloadLeaseController(manager, reporter, "setta-agent", 2*time.Minute)
+	controller.wait = immediateFirstRenewal()
+	_, err := controller.run(t.Context(), func(ctx context.Context) (TurnResult, error) {
+		<-ctx.Done()
+		return TurnResult{}, ctx.Err()
+	})
+	if !errors.Is(err, reportErr) || !errors.Is(err, context.Canceled) {
+		t.Fatalf("renew reporting failure = %v", err)
+	}
+	manager.requireCalls(t, 1, 1, 1)
+	reporter.requireActions(t, runtimeaccounting.EventBegin, runtimeaccounting.EventRenew, runtimeaccounting.EventEnd)
 }
 
 func immediateFirstRenewal() func(context.Context, time.Duration) error {
@@ -93,6 +137,38 @@ type testWorkloadLeaseManager struct {
 	acquires       int
 	renews         int
 	releases       int
+}
+
+type testWorkloadLeaseReporter struct {
+	mu         sync.Mutex
+	actions    []runtimeaccounting.EventAction
+	failAction runtimeaccounting.EventAction
+	err        error
+}
+
+func (reporter *testWorkloadLeaseReporter) RecordTransition(
+	_ context.Context,
+	transition runtimeaccounting.ActivityTransition,
+) error {
+	reporter.mu.Lock()
+	defer reporter.mu.Unlock()
+	reporter.actions = append(reporter.actions, transition.Action)
+	if transition.Action == reporter.failAction {
+		return reporter.err
+	}
+	return nil
+}
+
+func (reporter *testWorkloadLeaseReporter) requireActions(
+	t *testing.T,
+	want ...runtimeaccounting.EventAction,
+) {
+	t.Helper()
+	reporter.mu.Lock()
+	defer reporter.mu.Unlock()
+	if !slices.Equal(reporter.actions, want) {
+		t.Fatalf("workload lease report actions = %v, want %v", reporter.actions, want)
+	}
 }
 
 func (manager *testWorkloadLeaseManager) Acquire(

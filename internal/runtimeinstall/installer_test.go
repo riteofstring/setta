@@ -13,10 +13,12 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"setta/internal/controlplane"
 	"setta/internal/credissuer"
 	"setta/internal/httpapi"
 	"setta/internal/runtimecapability"
@@ -55,11 +57,60 @@ func TestInstallFreshReleaseUploadsInstallsAndVerifiesHealth(t *testing.T) {
 	if service.Spec.RunAs != DefaultLayout().TrustedRuntimeIdentity {
 		t.Fatalf("service identity = %#v, want %#v", service.Spec.RunAs, DefaultLayout().TrustedRuntimeIdentity)
 	}
+	if slices.Contains(service.Spec.Arguments, "--sprites-workload-leases") {
+		t.Fatalf("unconfigured runtime service enabled workload leases: %q", service.Spec.Arguments)
+	}
 	if !provider.hasFile("/var/lib/setta/runtime-install/releases/.incoming-v1.0.0-" + result.Installed.ArchiveSHA256[:16] + "/SHA256SUMS.minisig") {
 		t.Fatal("signature file was not uploaded with the release candidate")
 	}
 	if !slices.Equal(provider.installedVersions, []string{"v1.0.0"}) {
 		t.Fatalf("installed versions = %v", provider.installedVersions)
+	}
+}
+
+func TestInstallProvisionsPrivateRuntimeAccountingCredentialAndServiceArguments(t *testing.T) {
+	artifact := makeTestReleaseArtifact(t, t.TempDir(), "v1.0.0-reporting")
+	provider := newFakeProvider(t)
+	credential, err := controlplane.NewRuntimeReportingCredential()
+	if err != nil {
+		t.Fatal(err)
+	}
+	accounting := &WorkloadAccountingConfig{
+		BaseURL:    "https://control.setta.example",
+		Credential: credential,
+	}
+	result, err := testLoop(provider).Install(context.Background(), InstallRequest{
+		RuntimeName:        testRuntimeIdentity(t, "reporting-install").Name,
+		Desired:            artifact,
+		WorkloadAccounting: accounting,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	credentialPath := workloadAccountingCredentialPath(DefaultLayout())
+	stored, found := provider.File(credentialPath)
+	if !found {
+		t.Fatal("runtime reporting credential was not provisioned")
+	}
+	var storedCredential controlplane.RuntimeReportingCredential
+	if err := json.Unmarshal(stored, &storedCredential); err != nil ||
+		storedCredential != credential {
+		t.Fatalf("stored runtime reporting credential = %+v, %v", storedCredential, err)
+	}
+	if provider.identityCanWrite(credentialPath, DefaultLayout().WorkloadIdentity) {
+		t.Fatal("ordinary workload identity can write the runtime reporting credential")
+	}
+	wantArguments := []string{
+		"serve",
+		"--app-data-dir", DefaultLayout().RuntimeStateDir,
+		"--port", strconv.Itoa(DefaultLayout().HealthPort),
+		"--sprites-workload-leases",
+		"--workload-accounting-url", accounting.BaseURL,
+		"--workload-accounting-credential-file", credentialPath,
+	}
+	if service := provider.LastService(); service.Spec.Path != result.Installed.BinaryPath ||
+		!slices.Equal(service.Spec.Arguments, wantArguments) {
+		t.Fatalf("runtime reporting service = %+v, want arguments %q", service.Spec, wantArguments)
 	}
 }
 

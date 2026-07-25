@@ -88,13 +88,14 @@ type Loop struct {
 }
 
 type InstallRequest struct {
-	RuntimeName    string
-	Desired        ReleaseArtifact
-	Rollback       *ReleaseArtifact
-	SetupSeed      *runtimesetup.Seed
-	Layout         Layout
-	HealthAttempts int
-	HealthInterval time.Duration
+	RuntimeName        string
+	Desired            ReleaseArtifact
+	Rollback           *ReleaseArtifact
+	SetupSeed          *runtimesetup.Seed
+	WorkloadAccounting *WorkloadAccountingConfig
+	Layout             Layout
+	HealthAttempts     int
+	HealthInterval     time.Duration
 }
 
 type InstallStatus string
@@ -185,12 +186,16 @@ func (loop Loop) Install(ctx context.Context, request InstallRequest) (InstallRe
 	if err := loop.writeOptionalSetupSeed(ctx, request, layout, installed.Version); err != nil {
 		return result, err
 	}
+	if err := loop.writeOptionalWorkloadAccounting(ctx, request, layout); err != nil {
+		return result, err
+	}
 
 	health, err := loop.ensureAndVerifyHealth(
 		ctx,
 		request.RuntimeName,
 		layout,
 		installed,
+		request.WorkloadAccounting,
 		healthAttempts,
 		healthInterval,
 	)
@@ -202,7 +207,17 @@ func (loop Loop) Install(ctx context.Context, request InstallRequest) (InstallRe
 		return result, err
 	}
 
-	return loop.rollbackFailedInstall(ctx, request.RuntimeName, layout, installed, *rollback, result, healthAttempts, healthInterval)
+	return loop.rollbackFailedInstall(
+		ctx,
+		request.RuntimeName,
+		layout,
+		installed,
+		*rollback,
+		request.WorkloadAccounting,
+		result,
+		healthAttempts,
+		healthInterval,
+	)
 }
 
 func (loop Loop) prepareInstall(
@@ -231,6 +246,9 @@ func (loop Loop) prepareInstall(
 		return Layout{}, verifiedArtifact{}, nil, 0, 0, err
 	}
 	rollback, err := verifyOptionalRollback(ctx, request.Rollback, loop.Verifier)
+	if err == nil {
+		err = validateWorkloadAccounting(request.WorkloadAccounting)
+	}
 	return layout, desired, rollback, healthAttempts, healthInterval, err
 }
 
@@ -257,7 +275,18 @@ func (loop Loop) finishAlreadyCurrent(
 	if err := loop.writeOptionalSetupSeed(ctx, request, layout, current.Version); err != nil {
 		return result, err
 	}
-	health, err := loop.ensureAndVerifyHealth(ctx, request.RuntimeName, layout, current, healthAttempts, healthInterval)
+	if err := loop.writeOptionalWorkloadAccounting(ctx, request, layout); err != nil {
+		return result, err
+	}
+	health, err := loop.ensureAndVerifyHealth(
+		ctx,
+		request.RuntimeName,
+		layout,
+		current,
+		request.WorkloadAccounting,
+		healthAttempts,
+		healthInterval,
+	)
 	result.Status = InstallStatusAlreadyCurrent
 	result.Installed = current
 	result.Health = health
@@ -277,6 +306,7 @@ func (loop Loop) rollbackFailedInstall(
 	layout Layout,
 	installed InstalledRelease,
 	rollback verifiedArtifact,
+	workloadAccounting *WorkloadAccountingConfig,
 	result InstallResult,
 	healthAttempts int,
 	healthInterval time.Duration,
@@ -290,6 +320,7 @@ func (loop Loop) rollbackFailedInstall(
 		runtimeName,
 		layout,
 		rollbackRelease,
+		workloadAccounting,
 		healthAttempts,
 		healthInterval,
 	)
@@ -435,6 +466,7 @@ func (loop Loop) ensureAndVerifyHealth(
 	runtimeName string,
 	layout Layout,
 	release InstalledRelease,
+	workloadAccounting *WorkloadAccountingConfig,
 	attempts int,
 	interval time.Duration,
 ) (HealthCheck, error) {
@@ -444,16 +476,11 @@ func (loop Loop) ensureAndVerifyHealth(
 	}
 	port := layout.HealthPort
 	service, err := loop.Provider.EnsureService(ctx, runtimeName, runtimeprovider.ServiceSpec{
-		Name: layout.ServiceName,
-		Path: release.BinaryPath,
-		Arguments: []string{
-			"serve",
-			"--app-data-dir", layout.RuntimeStateDir,
-			"--port", strconv.Itoa(layout.HealthPort),
-			"--sprites-workload-leases",
-		},
-		HTTPPort: &port,
-		RunAs:    layout.TrustedRuntimeIdentity,
+		Name:      layout.ServiceName,
+		Path:      release.BinaryPath,
+		Arguments: runtimeServiceArguments(layout, workloadAccounting),
+		HTTPPort:  &port,
+		RunAs:     layout.TrustedRuntimeIdentity,
 	})
 	health.Service = service
 	if err != nil {

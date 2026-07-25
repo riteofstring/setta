@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"setta/internal/runtimeaccounting"
 	"setta/internal/runtimeprovider"
 )
 
@@ -13,17 +14,25 @@ const (
 	defaultWorkloadLeaseName = "setta-agent"
 	defaultWorkloadLeaseTTL  = 2 * time.Minute
 	workloadReleaseTimeout   = 10 * time.Second
+	workloadReportTimeout    = 10 * time.Second
 )
 
 type workloadLeaseController struct {
-	manager runtimeprovider.WorkloadLeaseManager
-	name    string
-	ttl     time.Duration
-	wait    func(context.Context, time.Duration) error
+	manager  runtimeprovider.WorkloadLeaseManager
+	reporter WorkloadLeaseReporter
+	name     string
+	ttl      time.Duration
+	clock    func() time.Time
+	wait     func(context.Context, time.Duration) error
+}
+
+type WorkloadLeaseReporter interface {
+	RecordTransition(context.Context, runtimeaccounting.ActivityTransition) error
 }
 
 func newWorkloadLeaseController(
 	manager runtimeprovider.WorkloadLeaseManager,
+	reporter WorkloadLeaseReporter,
 	name string,
 	ttl time.Duration,
 ) *workloadLeaseController {
@@ -34,10 +43,12 @@ func newWorkloadLeaseController(
 		ttl = defaultWorkloadLeaseTTL
 	}
 	return &workloadLeaseController{
-		manager: manager,
-		name:    name,
-		ttl:     ttl,
-		wait:    waitForWorkloadLeaseRenewal,
+		manager:  manager,
+		reporter: reporter,
+		name:     name,
+		ttl:      ttl,
+		clock:    time.Now,
+		wait:     waitForWorkloadLeaseRenewal,
 	}
 }
 
@@ -53,7 +64,19 @@ func (controller *workloadLeaseController) run(
 		return TurnResult{}, fmt.Errorf("acquire agent workload lease: %w", err)
 	}
 	if err := validateObservedWorkloadLease(lease, controller.name); err != nil {
-		return TurnResult{}, errors.Join(err, controller.release())
+		return TurnResult{}, errors.Join(err, controller.releaseProvider())
+	}
+	if err := controller.report(runtimeaccounting.EventBegin, lease); err != nil {
+		releaseErr := controller.releaseProvider()
+		var endErr error
+		if releaseErr == nil {
+			endErr = controller.report(runtimeaccounting.EventEnd, lease)
+		}
+		return TurnResult{}, errors.Join(
+			fmt.Errorf("record acquired agent workload lease: %w", err),
+			releaseErr,
+			endErr,
+		)
 	}
 	leaseCtx, cancel := context.WithCancel(ctx)
 	renewed := make(chan error, 1)
@@ -70,11 +93,21 @@ func (controller *workloadLeaseController) run(
 	return result, errors.Join(
 		runErr,
 		wrapWorkloadLeaseError("renew agent workload lease", renewErr),
-		controller.release(),
+		controller.release(lease),
 	)
 }
 
-func (controller *workloadLeaseController) release() error {
+func (controller *workloadLeaseController) release(lease runtimeprovider.WorkloadLease) error {
+	if err := controller.releaseProvider(); err != nil {
+		return err
+	}
+	return wrapWorkloadLeaseError(
+		"record released agent workload lease",
+		controller.report(runtimeaccounting.EventEnd, lease),
+	)
+}
+
+func (controller *workloadLeaseController) releaseProvider() error {
 	releaseCtx, releaseCancel := context.WithTimeout(context.Background(), workloadReleaseTimeout)
 	releaseErr := controller.manager.Release(releaseCtx, controller.name)
 	releaseCancel()
@@ -96,7 +129,27 @@ func (controller *workloadLeaseController) renew(ctx context.Context) error {
 		if err := validateObservedWorkloadLease(lease, controller.name); err != nil {
 			return err
 		}
+		if err := controller.report(runtimeaccounting.EventRenew, lease); err != nil {
+			return fmt.Errorf("record renewed agent workload lease: %w", err)
+		}
 	}
+}
+
+func (controller *workloadLeaseController) report(
+	action runtimeaccounting.EventAction,
+	lease runtimeprovider.WorkloadLease,
+) error {
+	transition, err := runtimeaccounting.NewWorkloadLeaseTransition(
+		action,
+		lease,
+		controller.clock().UTC(),
+	)
+	if err != nil {
+		return err
+	}
+	reportCtx, cancel := context.WithTimeout(context.Background(), workloadReportTimeout)
+	defer cancel()
+	return controller.reporter.RecordTransition(reportCtx, transition)
 }
 
 func waitForWorkloadLeaseRenewal(ctx context.Context, interval time.Duration) error {

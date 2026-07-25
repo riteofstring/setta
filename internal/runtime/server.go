@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/agent"
 	"setta/internal/appearance"
 	"setta/internal/appstate"
 	"setta/internal/codexaccount"
@@ -58,6 +59,7 @@ type Config struct {
 	Version                     string
 	WorkloadLeaseDiagnosticName string
 	WorkloadLeaseManager        runtimeprovider.WorkloadLeaseManager
+	WorkloadLeaseReporter       agent.WorkloadLeaseReporter
 	WorkloadLeaseTTL            time.Duration
 	Stdout                      io.Writer
 	Stderr                      io.Writer
@@ -159,6 +161,9 @@ func (config Config) Validate() error {
 	if err := validateBootstrapConfig(config); err != nil {
 		return err
 	}
+	if err := validateWorkloadLeaseConfig(config); err != nil {
+		return err
+	}
 	if err := config.validateHostBinding(); err != nil {
 		return err
 	}
@@ -168,6 +173,10 @@ func (config Config) Validate() error {
 	if err := validateRuntimeDisplayNameOverride(config.RuntimeDisplayName); err != nil {
 		return err
 	}
+	return validateRuntimeProcessConfig(config)
+}
+
+func validateRuntimeProcessConfig(config Config) error {
 	if config.Version == "" {
 		return errors.New("version is required")
 	}
@@ -175,6 +184,13 @@ func (config Config) Validate() error {
 		return errors.New("shutdown timeout must be positive")
 	}
 	return validateSpeechConfig(config.Speech)
+}
+
+func validateWorkloadLeaseConfig(config Config) error {
+	if (config.WorkloadLeaseManager == nil) != (config.WorkloadLeaseReporter == nil) {
+		return errors.New("workload lease manager and reporter must be configured together")
+	}
+	return nil
 }
 
 func validateRuntimeDiagnosticsConfig(config Config) error {

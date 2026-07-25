@@ -140,7 +140,10 @@ func TestServeOptionsMapsSpeechEnvironment(t *testing.T) {
 		t.Fatalf("speech provider config = %+v, want guarded E2E URL", options.Speech)
 	}
 
-	config := serveRuntimeConfig(options, deps, io.Discard)
+	config, err := serveRuntimeConfig(options, deps, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !reflect.DeepEqual(config.Speech, options.Speech) {
 		t.Fatalf("runtime speech config = %+v, want %+v", config.Speech, options.Speech)
 	}

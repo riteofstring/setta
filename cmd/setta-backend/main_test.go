@@ -2,11 +2,14 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"setta/internal/controlplane"
 	"setta/internal/speech"
 )
 
@@ -79,14 +82,32 @@ func TestConfigFromArgsCanSkipBootstrapDeviceSession(t *testing.T) {
 }
 
 func TestConfigFromArgsConfiguresExplicitSpritesWorkloadLeaseSocket(t *testing.T) {
-	socketPath := filepath.Join(t.TempDir(), "sprites.sock")
+	directory := t.TempDir()
+	socketPath := filepath.Join(directory, "sprites.sock")
+	credentialPath := filepath.Join(directory, "reporter.json")
+	credential, err := controlplane.NewRuntimeReportingCredential()
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := json.Marshal(credential)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(credentialPath, encoded, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	config, err := configFromArgs(
 		[]string{"--app-data-dir", t.TempDir()},
 		&bytes.Buffer{},
 		&bytes.Buffer{},
 		func(name string) string {
-			if name == "SETTA_SPRITES_WORKLOAD_LEASE_SOCKET" {
+			switch name {
+			case "SETTA_SPRITES_WORKLOAD_LEASE_SOCKET":
 				return socketPath
+			case "SETTA_WORKLOAD_ACCOUNTING_URL":
+				return "https://control.setta.example"
+			case "SETTA_WORKLOAD_ACCOUNTING_CREDENTIAL_FILE":
+				return credentialPath
 			}
 			return ""
 		},
@@ -95,8 +116,8 @@ func TestConfigFromArgsConfiguresExplicitSpritesWorkloadLeaseSocket(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if config.WorkloadLeaseManager == nil {
-		t.Fatal("explicit Sprites workload lease socket did not configure a manager")
+	if config.WorkloadLeaseManager == nil || config.WorkloadLeaseReporter == nil {
+		t.Fatal("explicit Sprites workload accounting did not configure both dependencies")
 	}
 }
 

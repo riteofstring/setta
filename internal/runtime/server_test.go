@@ -12,6 +12,7 @@ import (
 
 	"setta/internal/conversation"
 	"setta/internal/httpapi"
+	"setta/internal/runtimeaccounting"
 	"setta/internal/runtimeauth"
 	"setta/internal/runtimecapability"
 	"setta/internal/runtimeprovider"
@@ -417,6 +418,7 @@ func TestStartColdWakeKeepsDurableReleaseAndDropsMemoryOnlyLease(t *testing.T) {
 		},
 		found: true,
 	}
+	config.WorkloadLeaseReporter = noOpWorkloadLeaseReporter{}
 
 	server, ready := startRuntimeTestServer(t, config)
 	firstInfo := getRuntimeJSON[httpapi.RuntimeInfoResponse](t, http.DefaultClient, "http://"+ready.Addr, "/runtime/info")
@@ -439,6 +441,15 @@ func TestStartColdWakeKeepsDurableReleaseAndDropsMemoryOnlyLease(t *testing.T) {
 	if secondInfo.Diagnostics.WorkloadLease.Active {
 		t.Fatalf("workload lease after cold wake = %+v, want in-memory lease gone", secondInfo.Diagnostics.WorkloadLease)
 	}
+}
+
+type noOpWorkloadLeaseReporter struct{}
+
+func (noOpWorkloadLeaseReporter) RecordTransition(
+	context.Context,
+	runtimeaccounting.ActivityTransition,
+) error {
+	return nil
 }
 
 func TestGracefulShutdownStopsServing(t *testing.T) {

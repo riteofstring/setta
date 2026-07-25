@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"syscall"
 
 	"setta/internal/runtime"
+	"setta/internal/runtimereporting"
 	"setta/internal/speech"
 	"setta/internal/sprites"
 )
@@ -85,12 +87,8 @@ func configFromArgs(
 		return config, err
 	}
 	config.Speech = speechConfig
-	if socketPath := getenv("SETTA_SPRITES_WORKLOAD_LEASE_SOCKET"); socketPath != "" {
-		manager, managerErr := sprites.NewWorkloadLeaseClientForSocket(socketPath)
-		if managerErr != nil {
-			return config, fmt.Errorf("configure Sprites workload leases: %w", managerErr)
-		}
-		config.WorkloadLeaseManager = manager
+	if err := configureWorkloadAccounting(&config, getenv); err != nil {
+		return config, err
 	}
 
 	flagSet := flag.NewFlagSet("setta-backend", flag.ContinueOnError)
@@ -112,6 +110,40 @@ func configFromArgs(
 		config.SkipBootstrapDeviceSession = true
 	}
 	return validatedConfig(config)
+}
+
+func configureWorkloadAccounting(
+	config *runtime.Config,
+	getenv func(string) string,
+) error {
+	socketPath := getenv("SETTA_SPRITES_WORKLOAD_LEASE_SOCKET")
+	accountingURL := getenv("SETTA_WORKLOAD_ACCOUNTING_URL")
+	accountingCredentialFile := getenv("SETTA_WORKLOAD_ACCOUNTING_CREDENTIAL_FILE")
+	if socketPath != "" || accountingURL != "" || accountingCredentialFile != "" {
+		if socketPath == "" || accountingURL == "" || accountingCredentialFile == "" {
+			return errors.New(
+				"Sprites workload lease socket, accounting URL, and accounting credential file must be configured together",
+			)
+		}
+		manager, managerErr := sprites.NewWorkloadLeaseClientForSocket(socketPath)
+		if managerErr != nil {
+			return fmt.Errorf("configure Sprites workload leases: %w", managerErr)
+		}
+		credential, credentialErr := runtimereporting.ReadCredentialFile(accountingCredentialFile)
+		if credentialErr != nil {
+			return fmt.Errorf("read workload accounting credential: %w", credentialErr)
+		}
+		reporter, reporterErr := runtimereporting.NewClient(runtimereporting.ClientConfig{
+			BaseURL:    accountingURL,
+			Credential: credential,
+		})
+		if reporterErr != nil {
+			return fmt.Errorf("configure workload accounting: %w", reporterErr)
+		}
+		config.WorkloadLeaseManager = manager
+		config.WorkloadLeaseReporter = reporter
+	}
+	return nil
 }
 
 func validatedConfig(config runtime.Config) (runtime.Config, error) {

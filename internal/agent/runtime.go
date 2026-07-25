@@ -12,15 +12,16 @@ import (
 )
 
 type Config struct {
-	Command              string
-	Args                 []string
-	Env                  []string
-	ExcludedEnv          []string
-	Manager              *codexapp.Manager
-	Version              string
-	WorkloadLeaseManager runtimeprovider.WorkloadLeaseManager
-	WorkloadLeaseName    string
-	WorkloadLeaseTTL     time.Duration
+	Command               string
+	Args                  []string
+	Env                   []string
+	ExcludedEnv           []string
+	Manager               *codexapp.Manager
+	Version               string
+	WorkloadLeaseManager  runtimeprovider.WorkloadLeaseManager
+	WorkloadLeaseName     string
+	WorkloadLeaseReporter WorkloadLeaseReporter
+	WorkloadLeaseTTL      time.Duration
 }
 
 type Runtime struct {
@@ -86,6 +87,7 @@ func NewRuntime(config Config) *Runtime {
 	if config.WorkloadLeaseManager != nil {
 		runtime.workloadLease = newWorkloadLeaseController(
 			config.WorkloadLeaseManager,
+			config.WorkloadLeaseReporter,
 			config.WorkloadLeaseName,
 			config.WorkloadLeaseTTL,
 		)
