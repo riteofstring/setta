@@ -422,6 +422,7 @@ func (service *Service) StopTurn(
 	workspaceID string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
+	startedAt := service.now().UTC()
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -447,6 +448,7 @@ func (service *Service) StopTurn(
 	); err != nil {
 		return ConversationSnapshot{}, err
 	}
+	service.observeOutcomeTiming(OutcomeTimingCancellation, startedAt)
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
 }
 
@@ -456,6 +458,7 @@ func (service *Service) SubmitApproval(
 	conversationID string,
 	response ConversationApprovalResponse,
 ) (ConversationSnapshot, error) {
+	startedAt := service.now().UTC()
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -497,6 +500,7 @@ func (service *Service) SubmitApproval(
 	); err != nil {
 		return ConversationSnapshot{}, err
 	}
+	service.observeOutcomeTiming(OutcomeTimingApproval, startedAt)
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
 }
 

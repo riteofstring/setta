@@ -1,8 +1,13 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -145,6 +150,8 @@ func TestCandidateBGatewayConversationControls(t *testing.T) {
 	installRuntimeMasterCodexFixture(t)
 	config := testConfig(t)
 	config.Version = "hosted-gateway-controls"
+	var runtimeLogs bytes.Buffer
+	config.Stderr = &runtimeLogs
 	runtimeServer, runtimeReady := startRuntimeTestServer(t, config)
 
 	dialer := &hostedRuntimeDialer{}
@@ -468,6 +475,16 @@ func TestCandidateBGatewayConversationControls(t *testing.T) {
 		"steer alpha now",
 		"command approval denial",
 	)
+	requireConversationOutcomeMeasurements(
+		t,
+		runtimeLogs.Bytes(),
+		opened.Workspace.ID,
+		created.Conversation.ID,
+		artifact.ID,
+		"artifact hosted queued",
+		"command approval denial",
+		"hold hosted cancellation",
+	)
 	gateway = nil
 	store = nil
 	shutdownServer(t, runtimeServer)
@@ -498,6 +515,44 @@ func TestCandidateBGatewayConversationControls(t *testing.T) {
 		http.StatusOK,
 	)
 	requireHostedLifecycleRestartState(t, restarted)
+}
+
+func requireConversationOutcomeMeasurements(t *testing.T, encoded []byte, forbidden ...string) {
+	t.Helper()
+	text := string(encoded)
+	for _, value := range forbidden {
+		if strings.Contains(text, value) {
+			t.Fatalf("conversation outcome measurement exposed %q: %s", value, text)
+		}
+	}
+	found := map[conversation.OutcomeTimingKind]bool{}
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	for {
+		var measurement conversationOutcomeMeasurement
+		err := decoder.Decode(&measurement)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if measurement.Event != "conversation_outcome_timing" ||
+			measurement.StartedAt.IsZero() ||
+			measurement.CompletedAt.IsZero() ||
+			measurement.DurationMilliseconds < 0 {
+			t.Fatalf("conversation outcome measurement = %+v", measurement)
+		}
+		found[measurement.Kind] = true
+	}
+	for _, kind := range []conversation.OutcomeTimingKind{
+		conversation.OutcomeTimingArtifactAvailable,
+		conversation.OutcomeTimingApproval,
+		conversation.OutcomeTimingCancellation,
+	} {
+		if !found[kind] {
+			t.Fatalf("conversation outcome measurements omit %q: %s", kind, text)
+		}
+	}
 }
 
 type hostedSynchronizedWorkloadLeaseManager struct {

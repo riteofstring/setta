@@ -192,11 +192,13 @@ func newRuntimeConversationServices(
 	agentRuntime *agent.Runtime,
 	narrator *narration.Service,
 ) (runtimeConversationServices, error) {
+	outcomeObserver := newConversationOutcomeObserver(config.Stderr)
 	service, err := conversation.NewService(
 		store,
 		workspaces,
 		agentRuntime,
 		conversation.WithNarrationTrajectoryObserver(narrator),
+		conversation.WithOutcomeTimingObserver(outcomeObserver),
 	)
 	if err != nil {
 		shutdownRuntimeConversationServices(config, store, nil, narrator)
