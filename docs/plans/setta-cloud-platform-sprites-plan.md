@@ -2883,3 +2883,26 @@ Stop and reassess rather than hiding the problem if any of these occur:
   durable `AcceptedAt`, and for the remaining ensure/wake attribution and
   identical authorized live-Sprite workload. No provider or cloud mutation
   ran.
+- 2026-07-25 (authoritative routed steering timing): Closed the remaining
+  local steering-attribution gap without endpoint, text, or status heuristics.
+  The production route executor now resolves the exact accepted input through
+  the committed decision's Go-owned `InputID` and passes that record's durable
+  `AcceptedAt` into the conversation command. The steering measurement begins
+  at that timestamp, therefore includes narration/routing and command delay,
+  and ends only after provider acceptance plus the durable accepted-input,
+  turn-steered, conversation-update, and public-event transaction. Missing or
+  malformed accepted input fails specifically rather than substituting the
+  decision time or command-execution time. The Candidate B authenticated
+  control workflow proves the emitted start equals the submitted steering
+  input's exact `AcceptedAt`, observes the committed outcome, and rejects its
+  workspace, conversation, artifact, and authored-content values from the
+  runtime log. Ten race-instrumented repetitions passed, both complete
+  affected Go packages passed, the required `hosted-cloud-chat` Electron
+  workflow passed, and `./check_quality.sh --git-changes` passed file-length,
+  vet, tests, complexity, and dead-code checks. With `OPENAI_API_KEY` removed,
+  all four ChatGPT-authenticated live Codex gates passed again: Electron, agent
+  protocol, side isolation, and topic conversation. The Phase 4 checkbox
+  remains open only for the remaining ensure/wake attribution and identical
+  authorized live-Sprite workload; the local first-event, reconnect, replay,
+  steering, cancellation, approval, and artifact-availability paths now have
+  content-free timing. No provider or cloud mutation ran.
