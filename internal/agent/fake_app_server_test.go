@@ -67,45 +67,51 @@ func handleFakeAgentMethod(state *fakeAgentServerState, message map[string]any) 
 	if handleFakeAgentBootstrapMethod(method, message) {
 		return
 	}
+	if handleFakeAgentThreadMethod(state, method, message) {
+		return
+	}
+	if handleFakeAgentTurnMethod(state, method, message) {
+		return
+	}
+	writeFakeAgentError(message["id"], -32601, "unsupported fake method "+method)
+}
+
+func handleFakeAgentThreadMethod(
+	state *fakeAgentServerState,
+	method string,
+	message map[string]any,
+) bool {
 	switch method {
 	case "thread/start":
 		handleFakeAgentThreadStart(state, message)
 	case "thread/resume":
 		handleFakeAgentThreadResume(state, message)
 	case "thread/read":
-		threadID := fakeAgentStringParam(message, "threadId")
-		thread := fakeAgentThread(threadID)
-		thread["turns"] = []any{fakeAgentTurn("turn-history", "completed")}
-		writeFakeAgentResponse(message["id"], map[string]any{"thread": thread})
+		handleFakeAgentThreadRead(message)
 	case "thread/list":
-		data := make([]any, 0, len(state.threads))
-		for _, threadID := range state.threads {
-			data = append(data, fakeAgentThread(threadID))
-		}
-		writeFakeAgentResponse(message["id"], map[string]any{"data": data, "nextCursor": nil, "backwardsCursor": nil})
+		handleFakeAgentThreadList(state, message)
 	case "thread/search":
-		threadID := "thread-search"
-		if len(state.threads) > 0 {
-			threadID = state.threads[0]
-		}
-		writeFakeAgentResponse(message["id"], map[string]any{
-			"data":            []any{map[string]any{"thread": fakeAgentThread(threadID), "snippet": "matching topic"}},
-			"nextCursor":      nil,
-			"backwardsCursor": nil,
-		})
+		handleFakeAgentThreadSearch(state, message)
 	case "thread/fork":
 		handleFakeAgentThreadFork(state, message)
 	case "thread/inject_items":
-		params := fakeAgentParams(message)
-		items, ok := params["items"].([]any)
-		if !ok || len(items) == 0 {
-			panic("thread/inject_items missing items")
-		}
-		writeFakeAgentResponse(message["id"], map[string]any{})
+		handleFakeAgentThreadInjectItems(message)
 	case "thread/unsubscribe":
 		handleFakeAgentThreadUnsubscribe(state, message)
 	case "thread/backgroundTerminals/terminate":
 		writeFakeAgentResponse(message["id"], map[string]any{"terminated": true})
+	default:
+		return false
+	}
+	return true
+}
+
+func handleFakeAgentTurnMethod(
+	state *fakeAgentServerState,
+	method string,
+	message map[string]any,
+) bool {
+	switch method {
 	case "turn/start":
 		handleFakeAgentTurnStart(state, message)
 	case "turn/steer":
@@ -113,8 +119,49 @@ func handleFakeAgentMethod(state *fakeAgentServerState, message map[string]any) 
 	case "turn/interrupt":
 		handleFakeAgentTurnInterrupt(state, message)
 	default:
-		writeFakeAgentError(message["id"], -32601, "unsupported fake method "+method)
+		return false
 	}
+	return true
+}
+
+func handleFakeAgentThreadRead(message map[string]any) {
+	threadID := fakeAgentStringParam(message, "threadId")
+	thread := fakeAgentThread(threadID)
+	if fakeAgentBoolParam(message, "includeTurns") {
+		thread["turns"] = []any{fakeAgentTurn("turn-history", "completed")}
+	}
+	writeFakeAgentResponse(message["id"], map[string]any{"thread": thread})
+}
+
+func handleFakeAgentThreadList(state *fakeAgentServerState, message map[string]any) {
+	threadIDs := append([]string{}, state.threads...)
+	threadIDs = append(threadIDs, "thread-load-error-list-present")
+	data := make([]any, 0, len(threadIDs))
+	for _, threadID := range threadIDs {
+		data = append(data, fakeAgentThread(threadID))
+	}
+	writeFakeAgentResponse(message["id"], map[string]any{"data": data, "nextCursor": nil, "backwardsCursor": nil})
+}
+
+func handleFakeAgentThreadSearch(state *fakeAgentServerState, message map[string]any) {
+	threadID := "thread-search"
+	if len(state.threads) > 0 {
+		threadID = state.threads[0]
+	}
+	writeFakeAgentResponse(message["id"], map[string]any{
+		"data":            []any{map[string]any{"thread": fakeAgentThread(threadID), "snippet": "matching topic"}},
+		"nextCursor":      nil,
+		"backwardsCursor": nil,
+	})
+}
+
+func handleFakeAgentThreadInjectItems(message map[string]any) {
+	params := fakeAgentParams(message)
+	items, ok := params["items"].([]any)
+	if !ok || len(items) == 0 {
+		panic("thread/inject_items missing items")
+	}
+	writeFakeAgentResponse(message["id"], map[string]any{})
 }
 
 func handleFakeAgentThreadUnsubscribe(state *fakeAgentServerState, message map[string]any) {
@@ -202,16 +249,13 @@ func handleFakeAgentThreadStart(state *fakeAgentServerState, message map[string]
 		assertFakeFreshStructuredThreadStart(params)
 		state.structured[threadID] = true
 	}
-	if params["allowProviderModelFallback"] == false && !ephemeral {
-		assertFakeRestrictedDurableThreadStart(params)
-	}
 	if !ephemeral {
 		state.threads = append(state.threads, threadID)
 	}
 	response := fakeAgentThreadOperationResponse(thread, params, model)
 	if structured && strings.Contains(
 		fakeAgentRequiredString(params, "developerInstructions"),
-		"SIMULATE_RESTRICTED_RESPONSE_DRIFT",
+		"SIMULATE_STRUCTURED_RESPONSE_DRIFT",
 	) {
 		response["runtimeWorkspaceRoots"] = []any{"/tmp/unexpected-runtime-root"}
 	}
@@ -221,6 +265,13 @@ func handleFakeAgentThreadStart(state *fakeAgentServerState, message map[string]
 func handleFakeAgentThreadResume(state *fakeAgentServerState, message map[string]any) {
 	params := fakeAgentParams(message)
 	threadID := fakeAgentRequiredString(params, "threadId")
+	if params["excludeTurns"] != true {
+		panic("thread/resume must exclude turns")
+	}
+	if threadID == "thread-missing-list-confirms" || threadID == "thread-load-error-list-present" {
+		writeFakeAgentError(message["id"], -32600, "thread not loaded: "+threadID)
+		return
+	}
 	thread := fakeAgentThread(threadID)
 	if cwd, ok := params["cwd"].(string); ok {
 		thread["cwd"] = cwd
@@ -228,12 +279,8 @@ func handleFakeAgentThreadResume(state *fakeAgentServerState, message map[string
 	model := "gpt-agent-test"
 	if requestedModel, ok := params["model"].(string); ok && requestedModel != "" {
 		model = requestedModel
-		assertFakeRestrictedDurableThreadResume(params)
 	}
 	response := fakeAgentThreadOperationResponse(thread, params, model)
-	if threadID == "thread-restricted-response-drift" {
-		response["sandbox"] = fakeAgentSandboxPolicy("workspace-write")
-	}
 	delete(state.unsubscribed, threadID)
 	writeFakeAgentResponse(message["id"], response)
 }
@@ -269,69 +316,30 @@ func assertFakeFreshStructuredThreadStart(params map[string]any) {
 		features["tool_call_mcp_elicitation"] != false || features["unified_exec"] != false {
 		panic("fresh structured thread must disable external capability features")
 	}
-	assertFakeRestrictedConfig(params, config)
+	assertFakeStructuredConfig(params, config)
 }
 
-func assertFakeRestrictedDurableThreadStart(params map[string]any) {
-	if params["ephemeral"] != false {
-		panic("restricted durable thread must not be ephemeral")
-	}
-	if _, ok := params["historyMode"]; ok {
-		panic("restricted durable thread must use the provider's current history mode")
-	}
-	assertFakeRestrictedThreadPolicy(params)
-	assertFakeEmptyArray(params, "dynamicTools")
-	assertFakeEmptyArray(params, "environments")
-	assertFakeEmptyArray(params, "runtimeWorkspaceRoots")
-	assertFakeEmptyArray(params, "selectedCapabilityRoots")
-}
-
-func assertFakeRestrictedDurableThreadResume(params map[string]any) {
-	assertFakeRestrictedThreadPolicy(params)
-	assertFakeEmptyArray(params, "runtimeWorkspaceRoots")
-}
-
-func assertFakeRestrictedThreadPolicy(params map[string]any) {
-	if params["approvalPolicy"] != "never" || params["sandbox"] != "read-only" {
-		panic("restricted durable thread must be read-only with approvals disabled")
-	}
-	if _, ok := params["serviceTier"]; !ok {
-		panic("restricted durable thread must explicitly pin or clear service tier")
-	}
-	if developer, _ := params["developerInstructions"].(string); !strings.Contains(developer, "Setta") {
-		panic("restricted durable thread is missing Setta developer instructions")
-	}
-	config, ok := params["config"].(map[string]any)
-	if !ok || config["web_search"] != "disabled" || config["project_doc_max_bytes"] != float64(0) {
-		panic("restricted durable thread must disable external and project context")
-	}
-	if effort, ok := config["model_reasoning_effort"].(string); !ok || effort == "" {
-		panic("restricted durable thread must pin reasoning effort")
-	}
-	assertFakeRestrictedConfig(params, config)
-}
-
-func assertFakeRestrictedConfig(params map[string]any, config map[string]any) {
-	if base, _ := params["baseInstructions"].(string); base != restrictedThreadBaseInstructions {
-		panic("restricted thread must replace configured base instructions")
+func assertFakeStructuredConfig(params map[string]any, config map[string]any) {
+	if base, _ := params["baseInstructions"].(string); base != structuredCallBaseInstructions {
+		panic("structured-call thread must replace configured base instructions")
 	}
 	orchestrator, ok := config["orchestrator"].(map[string]any)
 	if !ok {
-		panic("restricted thread must configure the Codex orchestrator")
+		panic("structured-call thread must configure the Codex orchestrator")
 	}
 	for _, key := range []string{"mcp", "skills"} {
 		value, ok := orchestrator[key].(map[string]any)
 		if !ok || value["enabled"] != false {
-			panic("restricted thread must disable orchestrator " + key)
+			panic("structured-call thread must disable orchestrator " + key)
 		}
 	}
 	servers, ok := config["mcp_servers"].(map[string]any)
 	if !ok {
-		panic("restricted thread must configure effective MCP servers")
+		panic("structured-call thread must configure effective MCP servers")
 	}
 	server, ok := servers["configured-test-server"].(map[string]any)
 	if !ok || server["enabled"] != false {
-		panic("restricted thread must disable every effective MCP server")
+		panic("structured-call thread must disable every effective MCP server")
 	}
 }
 
@@ -660,7 +668,7 @@ func fakeAgentThreadOperationResponse(
 	params map[string]any,
 	model string,
 ) map[string]any {
-	approvalPolicy := any("on-request")
+	approvalPolicy := any("never")
 	if requested, ok := params["approvalPolicy"]; ok {
 		approvalPolicy = requested
 	}
@@ -794,6 +802,11 @@ func fakeAgentParams(message map[string]any) map[string]any {
 
 func fakeAgentStringParam(message map[string]any, field string) string {
 	return fakeAgentRequiredString(fakeAgentParams(message), field)
+}
+
+func fakeAgentBoolParam(message map[string]any, field string) bool {
+	value, _ := fakeAgentParams(message)[field].(bool)
+	return value
 }
 
 func fakeAgentRequiredString(value map[string]any, field string) string {

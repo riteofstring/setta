@@ -18,6 +18,26 @@ const fakeTopicArtifactTurnsFixture = join(
   "fixtures",
   "fake-topic-artifact-turns.mjs",
 );
+const fakeTopicStructuredCallFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-topic-codex-structured-call.mjs",
+);
+const fakeTopicAppServerHelpersFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-topic-codex-app-server-helpers.mjs",
+);
+const fakeTopicDirectorDecisionsFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-topic-codex-director-decisions.mjs",
+);
+const fakeTopicInputRoutesFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-topic-codex-input-routes.mjs",
+);
 
 export async function installFakeTopicCodex(fixture) {
   const binDir = join(fixture.tempRoot, "fake-topic-bin");
@@ -27,6 +47,19 @@ export async function installFakeTopicCodex(fixture) {
   await copyFile(fakeTopicCodexFixture, scriptPath);
   await copyFile(fakeTopicArtifactToolFixture, join(binDir, "fake-topic-artifact-tool.mjs"));
   await copyFile(fakeTopicArtifactTurnsFixture, join(binDir, "fake-topic-artifact-turns.mjs"));
+  await copyFile(
+    fakeTopicAppServerHelpersFixture,
+    join(binDir, "fake-topic-codex-app-server-helpers.mjs"),
+  );
+  await copyFile(
+    fakeTopicDirectorDecisionsFixture,
+    join(binDir, "fake-topic-codex-director-decisions.mjs"),
+  );
+  await copyFile(fakeTopicInputRoutesFixture, join(binDir, "fake-topic-codex-input-routes.mjs"));
+  await copyFile(
+    fakeTopicStructuredCallFixture,
+    join(binDir, "fake-topic-codex-structured-call.mjs"),
+  );
   if (process.platform === "win32") {
     await writeFile(join(binDir, "codex.cmd"), `@echo off\r\nnode "${scriptPath}" %*\r\n`, "utf8");
   } else {

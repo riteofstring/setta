@@ -156,7 +156,7 @@ func (router *ConversationInputRouter) routeClaimedInput(
 	ctx context.Context,
 	work conversation.ConversationInputRoutingWork,
 ) (conversation.ConversationRouteDecisionRecord, error) {
-	workspaceID, limits, err := router.contextLimits(ctx, work.Input.Input.ConversationID)
+	workspaceID, profile, limits, err := router.contextLimits(ctx, work.Input.Input.ConversationID)
 	if err != nil {
 		return conversation.ConversationRouteDecisionRecord{}, err
 	}
@@ -167,7 +167,31 @@ func (router *ConversationInputRouter) routeClaimedInput(
 	if err != nil {
 		return conversation.ConversationRouteDecisionRecord{}, classifyConversationRouteContextError(err)
 	}
-	workspaceRoot, err := router.resolveWorkspaceRoot(workspaceID)
+	if decision, ok, err := productInvariantConversationRouteDecision(work, bundle); err != nil {
+		return conversation.ConversationRouteDecisionRecord{}, err
+	} else if ok {
+		audit.DecisionAuthority = conversation.ConversationRouteDecisionAuthorityProductInvariant
+		invocation, err := router.productInvariantInvocation(profile, work.RoutingStartedAt)
+		if err != nil {
+			return conversation.ConversationRouteDecisionRecord{}, err
+		}
+		if invocation.EndedAt == nil {
+			return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(
+				FailureKindInternal,
+				errors.New("conversation router product invariant invocation has no end time"),
+			)
+		}
+		return router.commitConversationRouteDecision(
+			ctx,
+			work,
+			bundle,
+			audit,
+			decision,
+			invocation,
+			*invocation.EndedAt,
+		)
+	}
+	workspaceRoot, err := router.resolveConversationRouteWorkspaceRoot(workspaceID)
 	if err != nil {
 		return conversation.ConversationRouteDecisionRecord{}, err
 	}
@@ -177,9 +201,177 @@ func (router *ConversationInputRouter) routeClaimedInput(
 	}
 	call, err := router.caller.Call(ctx, requestID, workspaceRoot, bundle)
 	if err != nil {
+		if conversationRouteProviderOutputInvalid(err) {
+			return router.commitProductInvariantRecovery(ctx, work, bundle, audit, profile)
+		}
 		return conversation.ConversationRouteDecisionRecord{}, err
 	}
 	return router.commitConversationRouteCall(ctx, work, bundle, audit, call)
+}
+
+func productInvariantConversationRouteDecision(
+	work conversation.ConversationInputRoutingWork,
+	bundle ConversationRouteContextBundle,
+) (conversation.ConversationRouteDecision, bool, error) {
+	if !productInvariantInitialParentRoute(work, bundle) {
+		return conversation.ConversationRouteDecision{}, false, nil
+	}
+	decision, err := conversationRouteAuthoredDecision(
+		conversation.ConversationRouteDecisionKindSendToParent,
+		conversation.AuthoredInput{Text: work.Input.Input.Text},
+	)
+	if err != nil {
+		return conversation.ConversationRouteDecision{}, false, NewAttemptFailure(FailureKindInternal, err)
+	}
+	return decision, true, nil
+}
+
+func productInvariantInitialParentRoute(
+	work conversation.ConversationInputRoutingWork,
+	bundle ConversationRouteContextBundle,
+) bool {
+	return bundle.Authoritative.Conversation.WorkspaceID != "" &&
+		productInvariantInitialInput(work) &&
+		productInvariantBlankParentRouteContext(bundle)
+}
+
+func productInvariantInitialInput(work conversation.ConversationInputRoutingWork) bool {
+	return work.ClarificationReply == nil && work.PriorClarification == nil
+}
+
+func productInvariantBlankParentRouteContext(bundle ConversationRouteContextBundle) bool {
+	return conversationRouteDecisionKindIncluded(
+		bundle.AllowedDecisionKinds,
+		conversation.ConversationRouteDecisionKindSendToParent,
+	) &&
+		productInvariantBlankAuthoritativeContext(bundle.Authoritative) &&
+		productInvariantBlankRouteHistory(bundle)
+}
+
+func productInvariantBlankAuthoritativeContext(
+	authoritative ConversationRouteAuthoritativeContext,
+) bool {
+	identity := authoritative.Conversation
+	return identity.Status == conversation.ConversationStatusIdle &&
+		identity.LatestTrajectorySequence == 0 &&
+		authoritative.CurrentInstructions == nil &&
+		authoritative.CurrentPlan == nil &&
+		len(authoritative.ActiveActivities) == 0 &&
+		len(authoritative.PendingApprovals) == 0 &&
+		len(authoritative.ActiveSubagents) == 0 &&
+		len(authoritative.Artifacts) == 0 &&
+		authoritative.CurrentFocus == ""
+}
+
+func productInvariantBlankRouteHistory(bundle ConversationRouteContextBundle) bool {
+	return len(bundle.Trajectory) == 0 &&
+		bundle.AvailableTrajectoryRange == nil &&
+		bundle.IncludedTrajectoryRange == nil &&
+		len(bundle.PriorNarration) == 0 &&
+		len(bundle.PriorRouteDecisions) == 0 &&
+		len(bundle.ValidCompletedForkPoints) == 0
+}
+
+func (router *ConversationInputRouter) commitProductInvariantRecovery(
+	ctx context.Context,
+	work conversation.ConversationInputRoutingWork,
+	bundle ConversationRouteContextBundle,
+	audit conversation.ConversationRouteContextAudit,
+	profile conversation.RoleProfile,
+) (conversation.ConversationRouteDecisionRecord, error) {
+	decision, ok, err := productInvariantRecoveryRouteDecision(work, bundle)
+	if err != nil {
+		return conversation.ConversationRouteDecisionRecord{}, err
+	}
+	if !ok {
+		return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(
+			FailureKindProviderOutputInvalid,
+			errors.New("conversation router provider output could not be repaired and no product invariant route was available"),
+		)
+	}
+	audit.DecisionAuthority = conversation.ConversationRouteDecisionAuthorityProductInvariant
+	invocation, err := router.productInvariantInvocation(profile, work.RoutingStartedAt)
+	if err != nil {
+		return conversation.ConversationRouteDecisionRecord{}, err
+	}
+	if invocation.EndedAt == nil {
+		return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(
+			FailureKindInternal,
+			errors.New("conversation router product invariant recovery invocation has no end time"),
+		)
+	}
+	return router.commitConversationRouteDecision(
+		ctx,
+		work,
+		bundle,
+		audit,
+		decision,
+		invocation,
+		*invocation.EndedAt,
+	)
+}
+
+func productInvariantRecoveryRouteDecision(
+	work conversation.ConversationInputRoutingWork,
+	bundle ConversationRouteContextBundle,
+) (conversation.ConversationRouteDecision, bool, error) {
+	if work.ClarificationReply != nil || work.PriorClarification != nil {
+		return conversation.ConversationRouteDecision{}, false, nil
+	}
+	input := conversation.AuthoredInput{Text: work.Input.Input.Text}
+	allowed := bundle.AllowedDecisionKinds
+	if conversationRouteDecisionKindIncluded(
+		allowed,
+		conversation.ConversationRouteDecisionKindSendToParent,
+	) {
+		return productInvariantAuthoredRouteDecision(
+			conversation.ConversationRouteDecisionKindSendToParent,
+			input,
+		)
+	}
+	queueAllowed := conversationRouteDecisionKindIncluded(
+		allowed,
+		conversation.ConversationRouteDecisionKindQueueParentTurn,
+	)
+	steerAllowed := conversationRouteDecisionKindIncluded(
+		allowed,
+		conversation.ConversationRouteDecisionKindSteerParentTurn,
+	)
+	switch {
+	case queueAllowed && !steerAllowed:
+		return productInvariantAuthoredRouteDecision(
+			conversation.ConversationRouteDecisionKindQueueParentTurn,
+			input,
+		)
+	case steerAllowed && !queueAllowed:
+		return productInvariantAuthoredRouteDecision(
+			conversation.ConversationRouteDecisionKindSteerParentTurn,
+			input,
+		)
+	case queueAllowed && steerAllowed && conversationRouteDecisionKindIncluded(
+		allowed,
+		conversation.ConversationRouteDecisionKindClarify,
+	):
+		return conversation.ConversationRouteDecision{
+			Kind: conversation.ConversationRouteDecisionKindClarify,
+			Clarify: &conversation.ClarifyConversationRouteDecision{
+				Question: "Should I change the current run or queue this as the next task?",
+			},
+		}, true, nil
+	default:
+		return conversation.ConversationRouteDecision{}, false, nil
+	}
+}
+
+func productInvariantAuthoredRouteDecision(
+	kind conversation.ConversationRouteDecisionKind,
+	input conversation.AuthoredInput,
+) (conversation.ConversationRouteDecision, bool, error) {
+	decision, err := conversationRouteAuthoredDecision(kind, input)
+	if err != nil {
+		return conversation.ConversationRouteDecision{}, false, NewAttemptFailure(FailureKindInternal, err)
+	}
+	return decision, true, nil
 }
 
 func (router *ConversationInputRouter) commitConversationRouteCall(
@@ -189,7 +381,38 @@ func (router *ConversationInputRouter) commitConversationRouteCall(
 	audit conversation.ConversationRouteContextAudit,
 	call ConversationRouteCallResult,
 ) (conversation.ConversationRouteDecisionRecord, error) {
-	command, err := router.buildCommand(work, bundle, call.Decision)
+	invocation, err := router.successfulInvocation(call)
+	if err != nil {
+		return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(FailureKindInternal, err)
+	}
+	return router.commitConversationRouteDecision(
+		ctx,
+		work,
+		bundle,
+		audit,
+		call.Decision,
+		invocation,
+		call.EndedAt,
+	)
+}
+
+func (router *ConversationInputRouter) commitConversationRouteDecision(
+	ctx context.Context,
+	work conversation.ConversationInputRoutingWork,
+	bundle ConversationRouteContextBundle,
+	audit conversation.ConversationRouteContextAudit,
+	decision conversation.ConversationRouteDecision,
+	invocation conversation.ResolvedInvocation,
+	after string,
+) (conversation.ConversationRouteDecisionRecord, error) {
+	if conversationRouteDecisionRequiresWorkspace(decision.Kind) &&
+		bundle.Authoritative.Conversation.WorkspaceID == "" {
+		return conversation.ConversationRouteDecisionRecord{}, &conversation.ResourceRequiredError{
+			ConversationID: work.Input.Input.ConversationID,
+			ResourceKind:   "folder",
+		}
+	}
+	command, err := router.buildCommand(work, bundle, decision)
 	if err != nil {
 		return conversation.ConversationRouteDecisionRecord{}, err
 	}
@@ -197,11 +420,7 @@ func (router *ConversationInputRouter) commitConversationRouteCall(
 	if err != nil {
 		return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(FailureKindInternal, err)
 	}
-	invocation, err := router.successfulInvocation(call)
-	if err != nil {
-		return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(FailureKindInternal, err)
-	}
-	decidedAt, err := router.timestampAfter(call.EndedAt)
+	decidedAt, err := router.timestampAfter(after)
 	if err != nil {
 		return conversation.ConversationRouteDecisionRecord{}, NewAttemptFailure(FailureKindInternal, err)
 	}
@@ -213,7 +432,7 @@ func (router *ConversationInputRouter) commitConversationRouteCall(
 		RoutingAttempt:       work.RoutingAttempt,
 		RouterContext:        audit,
 		ResolvedInvocation:   invocation,
-		Decision:             call.Decision,
+		Decision:             decision,
 		ResultingCommand:     command,
 		DecidedAt:            decidedAt,
 	}
@@ -227,27 +446,77 @@ func (router *ConversationInputRouter) commitConversationRouteCall(
 	return record, nil
 }
 
+func (router *ConversationInputRouter) productInvariantInvocation(
+	profile conversation.RoleProfile,
+	after string,
+) (conversation.ResolvedInvocation, error) {
+	id, err := router.newID("conversation_router_invariant")
+	if err != nil {
+		return conversation.ResolvedInvocation{}, NewAttemptFailure(FailureKindInternal, err)
+	}
+	startedAt, err := router.timestampAfter(after)
+	if err != nil {
+		return conversation.ResolvedInvocation{}, NewAttemptFailure(FailureKindInternal, err)
+	}
+	endedAt, err := router.timestampAfter(startedAt)
+	if err != nil {
+		return conversation.ResolvedInvocation{}, NewAttemptFailure(FailureKindInternal, err)
+	}
+	invocation := conversation.ResolvedInvocation{
+		ID:                 id,
+		Role:               conversation.RoleNarrator,
+		Provider:           conversation.ProviderCodex,
+		Requested:          profile,
+		Resolved:           productInvariantResolvedSettings(profile),
+		ProviderReferences: conversation.InvocationProviderReferences{},
+		ModelReroutes:      []conversation.InvocationModelReroute{},
+		StartedAt:          startedAt,
+		EndedAt:            &endedAt,
+		Outcome:            conversation.InvocationOutcomeSucceeded,
+	}
+	if err := invocation.Validate(); err != nil {
+		return conversation.ResolvedInvocation{}, NewAttemptFailure(FailureKindInternal, err)
+	}
+	return invocation, nil
+}
+
+func productInvariantResolvedSettings(
+	profile conversation.RoleProfile,
+) conversation.ResolvedInvocationSettings {
+	return conversation.ResolvedInvocationSettings{
+		ModelID:           "product-invariant",
+		ReasoningEffort:   profile.ReasoningEffort,
+		ServiceTier:       cloneOptionalString(profile.ServiceTier),
+		PermissionProfile: profile.PermissionProfile,
+	}
+}
+
 func (router *ConversationInputRouter) contextLimits(
 	ctx context.Context,
 	conversationID string,
-) (string, ContextLimits, error) {
-	workspaceID, err := router.store.ReadConversationWorkspaceID(ctx, conversationID)
+) (string, conversation.RoleProfile, ContextLimits, error) {
+	workspaceBindingID, err := router.store.ReadConversationWorkspaceBindingID(ctx, conversationID)
 	if err != nil {
-		return "", ContextLimits{}, NewAttemptFailure(FailureKindStateUnavailable, err)
+		return "", conversation.RoleProfile{}, ContextLimits{}, NewAttemptFailure(FailureKindStateUnavailable, err)
 	}
-	profile, err := router.profiles.ReadEffectiveRoleProfile(
-		ctx,
-		workspaceID,
-		conversationID,
-		conversation.DefaultNarratorRoleProfile(),
-	)
-	if err != nil {
-		return "", ContextLimits{}, NewAttemptFailure(FailureKindConfigurationInvalid, err)
+	workspaceID := ""
+	profile := conversation.DefaultNarratorRoleProfile()
+	if workspaceBindingID != nil {
+		workspaceID = *workspaceBindingID
+		profile, err = router.profiles.ReadEffectiveRoleProfile(
+			ctx,
+			workspaceID,
+			conversationID,
+			profile,
+		)
+		if err != nil {
+			return "", conversation.RoleProfile{}, ContextLimits{}, NewAttemptFailure(FailureKindConfigurationInvalid, err)
+		}
 	}
 	if err := validateNarratorRoleProfile(profile); err != nil {
-		return "", ContextLimits{}, NewAttemptFailure(FailureKindConfigurationInvalid, err)
+		return "", conversation.RoleProfile{}, ContextLimits{}, NewAttemptFailure(FailureKindConfigurationInvalid, err)
 	}
-	return workspaceID, ContextLimits{
+	return workspaceID, profile, ContextLimits{
 		MaxInputBytes:        profile.ContextBudget.MaxInputBytes,
 		MaxTrajectoryEvents:  conversation.MaxConversationRouterTrajectoryEvents,
 		RecentFinalSummaries: 0,
@@ -266,6 +535,37 @@ func (router *ConversationInputRouter) resolveWorkspaceRoot(workspaceID string) 
 		)
 	}
 	return resolved.RootPath, nil
+}
+
+func (router *ConversationInputRouter) resolveConversationRouteWorkspaceRoot(
+	workspaceID string,
+) (string, error) {
+	if workspaceID == "" {
+		root, err := folderlessRuntimeRoot()
+		if err != nil {
+			return "", NewAttemptFailure(FailureKindStateUnavailable, err)
+		}
+		return root, nil
+	}
+	return router.resolveWorkspaceRoot(workspaceID)
+}
+
+func conversationRouteDecisionRequiresWorkspace(
+	kind conversation.ConversationRouteDecisionKind,
+) bool {
+	switch kind {
+	case conversation.ConversationRouteDecisionKindSendToParent,
+		conversation.ConversationRouteDecisionKindQueueParentTurn,
+		conversation.ConversationRouteDecisionKindSteerParentTurn,
+		conversation.ConversationRouteDecisionKindCreateSideConversation,
+		conversation.ConversationRouteDecisionKindForkConversation:
+		return true
+	case conversation.ConversationRouteDecisionKindAnswerAsNarrator,
+		conversation.ConversationRouteDecisionKindClarify:
+		return false
+	default:
+		return true
+	}
 }
 
 func (router *ConversationInputRouter) buildCommand(
@@ -319,15 +619,6 @@ func (router *ConversationInputRouter) buildCommand(
 				ProposedTitle:       decision.ForkConversation.ProposedTitle,
 			},
 		}, err
-	case conversation.ConversationRouteDecisionKindEscalateToMaster:
-		masterInputID, err := conversationRouteCommandID(newID, "master_input")
-		return conversation.ConversationRouteCommand{
-			Kind: decision.Kind,
-			EscalateToMaster: &conversation.EscalateToMasterConversationRouteCommand{
-				MasterInputID: masterInputID,
-				Input:         decision.EscalateToMaster.Input,
-			},
-		}, err
 	case conversation.ConversationRouteDecisionKindClarify:
 		return conversation.ConversationRouteCommand{
 			Kind:    decision.Kind,
@@ -379,12 +670,6 @@ func conversationRouteSideCommand(
 	work conversation.ConversationInputRoutingWork,
 	decision conversation.ConversationRouteDecision,
 ) (conversation.ConversationRouteCommand, error) {
-	if work.Input.Input.SourcePaneID == nil {
-		return conversation.ConversationRouteCommand{}, NewAttemptFailure(
-			FailureKindStateUnavailable,
-			errors.New("conversation router side decision has no source pane"),
-		)
-	}
 	sideID, err := conversationRouteCommandID(newID, "side_conversation")
 	if err != nil {
 		return conversation.ConversationRouteCommand{}, err
@@ -394,7 +679,6 @@ func conversationRouteSideCommand(
 		Kind: decision.Kind,
 		CreateSideConversation: &conversation.CreateSideConversationRouteCommand{
 			SideConversationID: sideID,
-			ParentPaneID:       *work.Input.Input.SourcePaneID,
 			TurnID:             turnID,
 			Input:              decision.CreateSideConversation.Input,
 		},
@@ -439,6 +723,15 @@ func (router *ConversationInputRouter) failClaimedInput(
 	work conversation.ConversationInputRoutingWork,
 	cause error,
 ) error {
+	var resourceRequired *conversation.ResourceRequiredError
+	if errors.As(cause, &resourceRequired) {
+		return router.failClaimedInputWithFailure(ctx, work, conversation.Failure{
+			Code:                "conversation_resource_required",
+			Message:             resourceRequired.Error(),
+			Retryable:           true,
+			DiagnosticReference: fmt.Sprintf("conversation_resource:%s:%d", conversationRouteActiveInputID(work), work.RoutingAttempt),
+		})
+	}
 	kind, classified, classificationErr := classifyTypedFailure(cause)
 	if classificationErr != nil {
 		return classificationErr
@@ -451,24 +744,31 @@ func (router *ConversationInputRouter) failClaimedInput(
 		conversationRouteActiveInputID(work),
 		work.RoutingAttempt,
 	)
+	return router.failClaimedInputWithFailure(ctx, work, conversation.Failure{
+		Code:                "conversation_router_" + string(kind),
+		Message:             conversationRouteFailureMessage(kind),
+		Retryable:           true,
+		DiagnosticReference: diagnosticReference,
+	})
+}
+
+func (router *ConversationInputRouter) failClaimedInputWithFailure(
+	ctx context.Context,
+	work conversation.ConversationInputRoutingWork,
+	reason conversation.Failure,
+) error {
 	failedAt, err := router.timestampAfter(work.RoutingStartedAt)
 	if err != nil {
 		return err
 	}
-	failure := conversation.ConversationInputRoutingFailure{
+	return router.store.FailConversationInputRouting(ctx, conversation.ConversationInputRoutingFailure{
 		ConversationID:       work.Input.Input.ConversationID,
 		InputID:              work.Input.Input.ID,
 		ClarificationInputID: conversationRouteClarificationInputID(work),
 		RoutingAttempt:       work.RoutingAttempt,
-		Failure: conversation.Failure{
-			Code:                "conversation_router_" + string(kind),
-			Message:             conversationRouteFailureMessage(kind),
-			Retryable:           true,
-			DiagnosticReference: diagnosticReference,
-		},
-		FailedAt: failedAt,
-	}
-	return router.store.FailConversationInputRouting(ctx, failure)
+		Failure:              reason,
+		FailedAt:             failedAt,
+	})
 }
 
 func classifyConversationRouteContextError(err error) error {
@@ -490,7 +790,7 @@ func conversationRouteFailureMessage(kind FailureKind) string {
 	case FailureKindProviderUnavailable:
 		return "Conversation routing is temporarily unavailable because the narrator model could not be reached."
 	case FailureKindProviderOutputInvalid:
-		return "Conversation routing is temporarily unavailable because the narrator model returned an invalid decision."
+		return "Conversation routing is temporarily unavailable."
 	case FailureKindConfigurationInvalid:
 		return "Conversation routing is unavailable because the narrator model configuration is invalid."
 	case FailureKindContextBudgetExceeded:

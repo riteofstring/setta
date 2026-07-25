@@ -13,8 +13,14 @@ func focusOutputSchema(context FocusContextBundle) (json.RawMessage, error) {
 	return marshalOutputSchema(strictObjectSchema(map[string]any{
 		"kind":                  enumStringSchema(string(CallOutputFocusProjection)),
 		"sourceThroughSequence": boundedIntegerSchema(context.SourceThroughSequence, context.SourceThroughSequence),
-		"currentFocus":          boundedStringSchema(MaxNarratorCurrentFocusCharacters),
-		"topicDescriptor":       nullableBoundedStringSchema(MaxNarratorTopicDescriptorCharacters),
+		"currentFocus": describedBoundedStringSchema(
+			MaxNarratorCurrentFocusCharacters,
+			"Current user objective. Write one complete sentence or phrase, usually 12-30 words.",
+		),
+		"topicDescriptor": nullableBoundedStringSchema(
+			MaxNarratorTopicDescriptorCharacters,
+			"Stable navigator description. Write a clear noun phrase, usually 6-12 words, or null when unchanged.",
+		),
 	}))
 }
 
@@ -26,19 +32,18 @@ func projectionOutputSchema(context ProjectionContextBundle) (json.RawMessage, e
 		return nil, err
 	}
 	properties := map[string]any{
-		"observedThroughSequence": boundedIntegerSchema(context.EvaluationRange.Start, context.EvaluationRange.End),
-		"milestones":              milestoneArraySchema(),
+		"milestones": milestoneArraySchema(),
 	}
 	switch context.RequestedChannel {
 	case ProjectionChannelWorking:
 		properties["kind"] = enumStringSchema(string(CallOutputWorkingProjection))
 	case ProjectionChannelTerminal:
 		properties["kind"] = enumStringSchema(string(CallOutputTerminalProjection))
-		properties["observedThroughSequence"] = boundedIntegerSchema(
-			context.EvaluationRange.End,
-			context.EvaluationRange.End,
+		delete(properties, "milestones")
+		properties["finalSummary"] = describedBoundedStringSchema(
+			MaxNarratorFinalSummaryCharacters,
+			"One short outcome sentence. If an artifact has the detailed result, do not repeat its contents.",
 		)
-		properties["finalSummary"] = boundedStringSchema(MaxNarratorFinalSummaryCharacters)
 	default:
 		return nil, fmt.Errorf("narrator projection schema received channel %q", context.RequestedChannel)
 	}
@@ -52,7 +57,10 @@ func statusOutputSchema(context StatusContextBundle) (json.RawMessage, error) {
 	return marshalOutputSchema(strictObjectSchema(map[string]any{
 		"kind":                  enumStringSchema(string(CallOutputStatusReply)),
 		"sourceThroughSequence": boundedIntegerSchema(context.SourceThroughSequence, context.SourceThroughSequence),
-		"statusReply":           boundedStringSchema(MaxNarratorStatusReplyCharacters),
+		"statusReply": describedBoundedStringSchema(
+			MaxNarratorStatusReplyCharacters,
+			"Current state, evidence, and blocker or next step when relevant. Write one or two complete sentences.",
+		),
 	}))
 }
 
@@ -95,8 +103,15 @@ func boundedStringSchema(maximumCharacters int) map[string]any {
 	}
 }
 
-func nullableBoundedStringSchema(maximumCharacters int) map[string]any {
+func describedBoundedStringSchema(maximumCharacters int, description string) map[string]any {
+	schema := boundedStringSchema(maximumCharacters)
+	schema["description"] = description
+	return schema
+}
+
+func nullableBoundedStringSchema(maximumCharacters int, description string) map[string]any {
 	return map[string]any{
+		"description": description,
 		"anyOf": []any{
 			boundedStringSchema(maximumCharacters),
 			map[string]any{"type": "null"},
@@ -114,8 +129,12 @@ func boundedIntegerSchema(minimum int, maximum int) map[string]any {
 
 func milestoneArraySchema() map[string]any {
 	return map[string]any{
-		"type":     "array",
-		"items":    boundedStringSchema(MaxNarratorMilestoneCharacters),
+		"type":        "array",
+		"description": "Audible user-facing results, blockers needing user action, or material phase changes. Return an empty array for normal progress or repeated blocked states.",
+		"items": describedBoundedStringSchema(
+			MaxNarratorMilestoneCharacters,
+			"One complete sentence, usually 12-24 words, describing a new result, action-needed blocker, or material phase change.",
+		),
 		"maxItems": MaxNarratorMilestonesPerCall,
 	}
 }

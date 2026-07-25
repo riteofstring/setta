@@ -6,7 +6,13 @@ type BranchKind string
 type SideConversationStatus string
 
 const (
+	// BranchKindFork carries one completed run of the parent forward, so the
+	// child continues the parent's provider history.
 	BranchKindFork BranchKind = "fork"
+	// BranchKindChild records durable parentage with no carried history. It is
+	// how the Director delegates: the child is a workstream under its parent,
+	// and it starts its own work rather than resuming the parent's.
+	BranchKindChild BranchKind = "child"
 
 	SideConversationStatusPreparing SideConversationStatus = "preparing"
 	SideConversationStatusActive    SideConversationStatus = "active"
@@ -28,7 +34,6 @@ type ConversationBranch struct {
 type SideConversation struct {
 	ID                          string                 `json:"id"`
 	ParentConversationID        string                 `json:"parentConversationId"`
-	ParentPaneID                string                 `json:"parentPaneId"`
 	ParentStatus                ConversationStatus     `json:"parentStatus"`
 	DecisionSource              BranchDecisionSource   `json:"decisionSource"`
 	ProviderThreadID            *string                `json:"providerThreadId"`
@@ -47,6 +52,26 @@ type SideConversation struct {
 }
 
 func (branch ConversationBranch) Validate() error {
+	if err := validateBranchIdentity(branch); err != nil {
+		return err
+	}
+	if err := validateBranchForkPoint(branch); err != nil {
+		return err
+	}
+	if branch.SourceTrajectorySequence < 0 {
+		return fmt.Errorf("branch %s source trajectory sequence must be non-negative", branch.ChildConversationID)
+	}
+	if err := validateStringMap("branch provider metadata", branch.ProviderMetadata); err != nil {
+		return err
+	}
+	if err := validateChildBranchDelegation(branch); err != nil {
+		return err
+	}
+	_, err := validateTimestamp("branch createdAt", branch.CreatedAt)
+	return err
+}
+
+func validateBranchIdentity(branch ConversationBranch) error {
 	if err := validateIdentifier("branch child conversation id", branch.ChildConversationID); err != nil {
 		return err
 	}
@@ -56,23 +81,50 @@ func (branch ConversationBranch) Validate() error {
 	if branch.ChildConversationID == branch.ParentConversationID {
 		return fmt.Errorf("branch child and parent conversation ids must differ")
 	}
-	if branch.Kind != BranchKindFork {
+	if branch.Kind != BranchKindFork && branch.Kind != BranchKindChild {
 		return fmt.Errorf("branch %s has unsupported kind %q", branch.ChildConversationID, branch.Kind)
 	}
 	if !validBranchDecisionSource(branch.DecisionSource) {
 		return fmt.Errorf("branch %s has unsupported decision source %q", branch.ChildConversationID, branch.DecisionSource)
 	}
-	if err := validateIdentifier("branch forked-at turn id", branch.ForkedAtTurnID); err != nil {
-		return err
+	return nil
+}
+
+// validateChildBranchDelegation keeps child parentage a Director-only record
+// with no carried provider history.
+func validateChildBranchDelegation(branch ConversationBranch) error {
+	if branch.Kind != BranchKindChild {
+		return nil
 	}
-	if branch.SourceTrajectorySequence < 0 {
-		return fmt.Errorf("branch %s source trajectory sequence must be non-negative", branch.ChildConversationID)
+	if branch.DecisionSource != BranchDecisionSourceDirector {
+		return fmt.Errorf(
+			"child branch %s must be a Director delegation",
+			branch.ChildConversationID,
+		)
 	}
-	if err := validateStringMap("branch provider metadata", branch.ProviderMetadata); err != nil {
-		return err
+	if len(branch.ProviderMetadata) != 0 {
+		return fmt.Errorf(
+			"child branch %s must not carry provider metadata",
+			branch.ChildConversationID,
+		)
 	}
-	_, err := validateTimestamp("branch createdAt", branch.CreatedAt)
-	return err
+	return nil
+}
+
+// validateBranchForkPoint requires the fork point on exactly the branch that
+// has one. A child carries no history, so a fork turn on it would claim the
+// child resumed work it never saw.
+func validateBranchForkPoint(branch ConversationBranch) error {
+	if branch.Kind == BranchKindChild {
+		if branch.ForkedAtTurnID != "" {
+			return fmt.Errorf("child branch %s must not carry a fork point", branch.ChildConversationID)
+		}
+		if branch.SourceTrajectorySequence != 0 {
+			return fmt.Errorf("child branch %s must not carry a source trajectory sequence", branch.ChildConversationID)
+		}
+		return nil
+	}
+	return validateIdentifier("branch forked-at turn id", branch.ForkedAtTurnID)
 }
 
 func (side SideConversation) Validate() error {
@@ -115,9 +167,6 @@ func validateSideConversationIdentifiers(side SideConversation) error {
 		return err
 	}
 	if err := validateIdentifier("side conversation parent id", side.ParentConversationID); err != nil {
-		return err
-	}
-	if err := validateIdentifier("side conversation parent pane id", side.ParentPaneID); err != nil {
 		return err
 	}
 	if err := validateOptionalIdentifier("side conversation provider thread id", side.ProviderThreadID); err != nil {

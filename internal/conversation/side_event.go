@@ -105,7 +105,7 @@ func (payload ConversationSideEventAppendedEventPayload) conversationEventType()
 	return ConversationEventTypeSideEventAppended
 }
 
-func (payload ConversationSideEventAppendedEventPayload) validateConversationEventPayload(_ string, conversationID string) error {
+func (payload ConversationSideEventAppendedEventPayload) validateConversationEventPayload(_ *string, conversationID string) error {
 	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
 		return err
 	}

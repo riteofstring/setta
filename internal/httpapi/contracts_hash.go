@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"setta/internal/conversation"
-	"setta/internal/workspaceui"
+	"setta/internal/director"
 )
 
 type contractSchemaHashInput struct {
@@ -291,15 +291,55 @@ func discriminatedStructHashInput(
 	return contract.Discriminator, variants
 }
 
+type contractDiscriminatedStructMetadata struct {
+	Type          reflect.Type
+	Discriminator string
+	Variants      []contractDiscriminatedStructVariantMetadata
+}
+
+type contractDiscriminatedStructVariantMetadata struct {
+	DiscriminatorValue string
+	Fields             []contractDiscriminatedStructFieldMetadata
+}
+
+type contractDiscriminatedStructFieldMetadata struct {
+	Name    string
+	NonNull bool
+}
+
 func contractDiscriminatedStructForType(
 	goType reflect.Type,
-) (workspaceui.ContractDiscriminatedStruct, bool) {
-	for _, contract := range workspaceui.ContractDiscriminatedStructs() {
+) (contractDiscriminatedStructMetadata, bool) {
+	for _, contract := range director.ContractDiscriminatedStructs() {
 		if contract.Type == goType {
-			return contract, true
+			return contractDiscriminatedStructFromDirector(contract), true
 		}
 	}
-	return workspaceui.ContractDiscriminatedStruct{}, false
+	return contractDiscriminatedStructMetadata{}, false
+}
+
+func contractDiscriminatedStructFromDirector(
+	contract director.ContractDiscriminatedStruct,
+) contractDiscriminatedStructMetadata {
+	variants := make([]contractDiscriminatedStructVariantMetadata, 0, len(contract.Variants))
+	for _, variant := range contract.Variants {
+		fields := make([]contractDiscriminatedStructFieldMetadata, 0, len(variant.Fields))
+		for _, field := range variant.Fields {
+			fields = append(fields, contractDiscriminatedStructFieldMetadata{
+				Name:    field.Name,
+				NonNull: field.NonNull,
+			})
+		}
+		variants = append(variants, contractDiscriminatedStructVariantMetadata{
+			DiscriminatorValue: variant.DiscriminatorValue,
+			Fields:             fields,
+		})
+	}
+	return contractDiscriminatedStructMetadata{
+		Type:          contract.Type,
+		Discriminator: contract.Discriminator,
+		Variants:      variants,
+	}
 }
 
 func contractFieldHashInputs(
