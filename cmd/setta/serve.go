@@ -10,16 +10,21 @@ import (
 	"io"
 
 	"setta/internal/runtime"
+	"setta/internal/runtimereporting"
 	"setta/internal/speech"
+	"setta/internal/sprites"
 )
 
 type serveOptions struct {
-	AppDataDir  string
-	DisplayName string
-	Host        string
-	Port        int
-	Speech      speech.OpenAIStartupConfig
-	Tailnet     bool
+	AppDataDir                       string
+	DisplayName                      string
+	Host                             string
+	Port                             int
+	LocalCredentialIssuer            bool
+	SpritesWorkloadLeases            bool
+	WorkloadAccountingCredentialFile string
+	WorkloadAccountingURL            string
+	Speech                           speech.OpenAIClientConfig
 }
 
 type serveInstance struct {
@@ -45,12 +50,12 @@ func runServe(args []string, deps cliDeps) error {
 	return instance.Shutdown(shutdownCtx)
 }
 
-func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (serveOptions, error) {
+func serveOptionsFromArgs(_ context.Context, args []string, deps cliDeps) (serveOptions, error) {
 	appDataDir, err := defaultAppDataDir(deps.getenv)
 	if err != nil {
 		return serveOptions{}, err
 	}
-	speechConfig, err := speech.OpenAIStartupConfigFromServerEnvironment(deps.getenv, deps.unsetenv)
+	speechConfig, err := speech.OpenAIClientConfigFromEnvironment(deps.getenv, deps.unsetenv)
 	if err != nil {
 		return serveOptions{}, err
 	}
@@ -64,7 +69,10 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 	flagSet.StringVar(&options.AppDataDir, "app-data-dir", options.AppDataDir, "directory for persisted Setta app state")
 	flagSet.StringVar(&options.DisplayName, "display-name", deps.getenv("SETTA_RUNTIME_DISPLAY_NAME"), "runtime display name to persist for this Setta instance")
 	flagSet.IntVar(&options.Port, "port", options.Port, "port to bind, or 0 for an ephemeral port")
-	flagSet.BoolVar(&options.Tailnet, "tailnet", false, "bind this runtime to this machine's Tailscale IPv4 address")
+	flagSet.BoolVar(&options.LocalCredentialIssuer, "local-credential-issuer", false, "host the local development credential issuer")
+	flagSet.BoolVar(&options.SpritesWorkloadLeases, "sprites-workload-leases", false, "enforce renewable agent workload leases through the Sprites management socket")
+	flagSet.StringVar(&options.WorkloadAccountingCredentialFile, "workload-accounting-credential-file", "", "private runtime reporting credential file")
+	flagSet.StringVar(&options.WorkloadAccountingURL, "workload-accounting-url", "", "Setta control-plane origin for workload accounting")
 	if err := flagSet.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return serveOptions{}, usageError{err: err}
@@ -74,19 +82,21 @@ func serveOptionsFromArgs(ctx context.Context, args []string, deps cliDeps) (ser
 	if flagSet.NArg() != 0 {
 		return serveOptions{}, usageError{err: fmt.Errorf("setta serve does not accept positional arguments")}
 	}
-	if options.Tailnet {
-		host, err := resolveTailnetIPv4(ctx, deps.commandRunner)
-		if err != nil {
-			return serveOptions{}, err
-		}
-		options.Host = host
+	if options.SpritesWorkloadLeases !=
+		(options.WorkloadAccountingCredentialFile != "" && options.WorkloadAccountingURL != "") {
+		return serveOptions{}, usageError{err: errors.New(
+			"Sprites workload leases require an accounting URL and credential file",
+		)}
 	}
 	return options, nil
 }
 
 func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serveInstance, error) {
 	var readyBuffer bytes.Buffer
-	config := serveRuntimeConfig(options, deps, &readyBuffer)
+	config, err := serveRuntimeConfig(options, deps, &readyBuffer)
+	if err != nil {
+		return nil, err
+	}
 
 	server, err := runtime.Start(ctx, config)
 	if err != nil {
@@ -124,7 +134,7 @@ func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serve
 		_ = removeServeStateIfMatches(options.AppDataDir, state)
 		return nil, err
 	}
-	printServeStarted(deps.stdout, state, pairing, options.Tailnet, deps)
+	printServeStarted(deps.stdout, state, pairing, deps)
 	closeOnFailure = false
 	return &serveInstance{
 		appDataDir: options.AppDataDir,
@@ -133,21 +143,40 @@ func startServe(ctx context.Context, options serveOptions, deps cliDeps) (*serve
 	}, nil
 }
 
-func serveRuntimeConfig(options serveOptions, deps cliDeps, readyWriter io.Writer) runtime.Config {
+func serveRuntimeConfig(
+	options serveOptions,
+	deps cliDeps,
+	readyWriter io.Writer,
+) (runtime.Config, error) {
 	config := runtime.DefaultConfig()
-	config.AllowRemote = options.Tailnet
 	config.AppDataDir = options.AppDataDir
 	config.Host = options.Host
 	config.Port = options.Port
 	config.RuntimeDisplayName = options.DisplayName
 	config.SkipBootstrapDeviceSession = true
+	config.EnableLocalCredentialIssuer = options.LocalCredentialIssuer
 	config.Stderr = deps.stderr
 	config.Stdout = readyWriter
 	config.Version = version
-	config.Speech = options.Speech.Provider
-	config.SpeechCredentialOwner = runtime.SpeechCredentialOwnerServerStartup
-	config.SpeechStartupAPIKey = options.Speech.APIKey
-	return config
+	config.Speech = options.Speech
+	if options.SpritesWorkloadLeases {
+		credential, err := runtimereporting.ReadCredentialFile(
+			options.WorkloadAccountingCredentialFile,
+		)
+		if err != nil {
+			return runtime.Config{}, fmt.Errorf("read workload accounting credential: %w", err)
+		}
+		reporter, err := runtimereporting.NewClient(runtimereporting.ClientConfig{
+			BaseURL:    options.WorkloadAccountingURL,
+			Credential: credential,
+		})
+		if err != nil {
+			return runtime.Config{}, fmt.Errorf("configure workload accounting: %w", err)
+		}
+		config.WorkloadLeaseManager = sprites.NewWorkloadLeaseClient()
+		config.WorkloadLeaseReporter = reporter
+	}
+	return config, nil
 }
 
 func decodeReadyEvent(reader io.Reader) (runtime.ReadyEvent, error) {
@@ -164,7 +193,7 @@ func decodeReadyEvent(reader io.Reader) (runtime.ReadyEvent, error) {
 	return ready, nil
 }
 
-func printServeStarted(output io.Writer, state serveState, pairing pairingResult, tailnet bool, deps cliDeps) {
+func printServeStarted(output io.Writer, state serveState, pairing pairingResult, deps cliDeps) {
 	fmt.Fprintln(output, "Setta runtime is ready.")
 	fmt.Fprintf(output, "  Name: %s\n", state.DisplayName)
 	fmt.Fprintf(output, "  ID: %s\n", state.RuntimeID)
@@ -174,10 +203,6 @@ func printServeStarted(output io.Writer, state serveState, pairing pairingResult
 	fmt.Fprintln(output, "QR:")
 	deps.renderQR(output, pairing.URL)
 	fmt.Fprintln(output)
-	if tailnet {
-		fmt.Fprintln(output, "Tailscale HTTPS:")
-		fmt.Fprintf(output, "  %s\n\n", tailscaleServeCommand(state.Addr))
-	}
 }
 
 func (instance *serveInstance) Shutdown(ctx context.Context) error {

@@ -9,10 +9,9 @@ import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
   captureScreenshot,
+  clickEnabledButtonByAria,
   createElectronFixture,
-  dispatchMouseClick,
   launchElectronCdpContext,
-  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -22,11 +21,7 @@ import {
   writeLatestRecordingPointer,
 } from "./electron-cdp-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
-import {
-  assertDriverAction,
-  createTopic,
-  listTopics,
-} from "./topic-conversation-fork-workflow.mjs";
+import { createTopic, listTopics } from "./topic-conversation-fork-workflow.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "topic-conversation-presentation-configuration";
@@ -63,12 +58,8 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  let backend = await backendProbe(firstLaunchDir);
+  let backend = await backendProbe(firstLaunchDir, context.client);
   const workspaceId = await openWorkspace(context.client);
-  assertDriverAction(
-    await context.client.driver("topicConversationClickNewFrameConversation"),
-    "clicked",
-  );
   const alpha = await waitForInitialTopic(backend, workspaceId);
   const beta = await createTopic(
     context.client,
@@ -86,7 +77,6 @@ try {
 
   await configureGlobalVoices(context.client, "cedar", "ash");
   const configuredGlobal = await waitForGlobalConfiguration(context.client, "cedar", "ash");
-  await closeSettingsShell(context.client);
 
   await presentConversation(context.client, alpha.id);
   await openConversationConfiguration(context.client, alpha.id);
@@ -140,13 +130,12 @@ try {
   });
   await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
   await context.client.installDriver();
-  backend = await backendProbe(secondLaunchDir);
+  backend = await backendProbe(secondLaunchDir, context.client);
   const restoredWorkspaceId = await openWorkspace(context.client);
   assertEqual(restoredWorkspaceId, workspaceId, "restored presentation workspace");
   await openVoiceSettings(context.client);
   const restoredGlobalSettings = await waitForGlobalSettings(context.client, "cedar", "ash");
   const restoredGlobal = await waitForGlobalConfiguration(context.client, "cedar", "ash");
-  await closeSettingsShell(context.client);
   const restoredAlpha = await waitForConversationProfile(context.client, workspaceId, alpha.id, {
     narratorSpeechEnabled: false,
     narratorVoiceSelection: "exact",
@@ -278,19 +267,26 @@ try {
 }
 
 async function openWorkspace(client) {
-  const current = await client.evaluate(workspaceIdExpression());
-  if (!validWorkspaceId(current)) {
-    await openFixtureWorkspace(client, workflowTimeoutMs);
+  const initial = await waitForState(
+    client,
+    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
+    (state) => state.openButtonReady || validWorkspaceId(state.workspaceId),
+    workflowTimeoutMs,
+  );
+  if (!validWorkspaceId(initial.workspaceId)) {
+    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
   }
-  return waitForState(client, workspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
+  const opened = await waitForState(
+    client,
+    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
+    (state) => validWorkspaceId(state.workspaceId),
+    workflowTimeoutMs,
+  );
+  return opened.workspaceId;
 }
 
 function validWorkspaceId(workspaceId) {
   return workspaceId !== "" && workspaceId !== "empty";
-}
-
-function workspaceIdExpression() {
-  return `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`;
 }
 
 async function waitForInitialTopic(backend, workspaceId) {
@@ -313,7 +309,7 @@ async function waitForInitialTopic(backend, workspaceId) {
 async function openVoiceSettings(client) {
   const opened = await client.driver("presentationConfigurationOpenSettings");
   if (!opened.ready && !opened.opened) {
-    throw new Error("Settings page was unavailable for voice configuration");
+    throw new Error("Settings pane was unavailable for voice configuration");
   }
   await waitForSelector(client, "#settings-subtab-speech", workflowTimeoutMs);
   const tab = await client.driver("presentationConfigurationOpenGlobalTab");
@@ -323,35 +319,6 @@ async function openVoiceSettings(client) {
   await waitForSelector(
     client,
     '[data-testid="presentation-configuration-settings"]',
-    workflowTimeoutMs,
-  );
-}
-
-async function closeSettingsShell(client) {
-  const clicked = await client.evaluate(`(() => {
-    const page = document.querySelector('[data-testid="settings-shell-page"]');
-    if (!page) {
-      return { clicked: false, closed: true };
-    }
-    const button = Array.from(page.querySelectorAll("button")).find(
-      (candidate) => candidate.textContent?.trim() === "Back to panes",
-    );
-    if (!(button instanceof HTMLButtonElement) || button.disabled) {
-      return { clicked: false, closed: false };
-    }
-    button.click();
-    return { clicked: true, closed: false };
-  })()`);
-  if (!clicked.closed && !clicked.clicked) {
-    throw new Error("Back to panes button was not clickable");
-  }
-  await waitForState(
-    client,
-    `(() => ({
-      settingsClosed: !document.querySelector('[data-testid="settings-shell-page"]'),
-      workspaceReady: Boolean(document.querySelector('[data-testid="workspace-layout-area"]')),
-    }))()`,
-    (state) => state.settingsClosed && state.workspaceReady,
     workflowTimeoutMs,
   );
 }
@@ -439,6 +406,12 @@ function waitForGlobalConfiguration(client, masterVoiceId, narratorDefaultVoiceI
 }
 
 async function presentConversation(client, conversationId) {
+  await waitForState(
+    client,
+    driverCallExpression("topicConversationNavigatorState", { conversationId }),
+    (state) => state.rowCount === 1,
+    workflowTimeoutMs,
+  );
   const result = await client.driver("topicConversationPresentFromNavigator", { conversationId });
   if (!result.clicked) {
     throw new Error(`Conversation ${conversationId} could not be presented from the navigator`);
@@ -455,19 +428,12 @@ async function openConversationConfiguration(client, conversationId) {
   if (state.open) {
     return;
   }
-  await waitForState(
-    client,
-    driverCallExpression("presentationConfigurationConversationTogglePoint", { conversationId }),
-    (candidate) => candidate.ok,
-    workflowTimeoutMs,
-  );
-  const readyPoint = await client.driver("presentationConfigurationConversationTogglePoint", {
+  const result = await client.driver("presentationConfigurationOpenConversation", {
     conversationId,
   });
-  if (!readyPoint.ok) {
-    throw new Error(`Conversation ${conversationId} presentation controls were obstructed`);
+  if (!result.clicked) {
+    throw new Error(`Conversation ${conversationId} presentation controls were unavailable`);
   }
-  await dispatchMouseClick(client, readyPoint);
   await waitForState(
     client,
     driverCallExpression("presentationConfigurationConversationState", { conversationId }),

@@ -1,5 +1,5 @@
-import { Check, FolderOpen, Sparkles, Square, X } from "lucide-react";
-import { useRef } from "react";
+import { Check, Sparkles, Square, X } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import {
   type ArtifactMetadata,
@@ -14,9 +14,17 @@ import {
   type TrajectoryEvent,
 } from "@generated/backend";
 
-import { openVoiceProviderSelectionSettings } from "../../components/settings-navigation";
 import type { ConversationProjection } from "../../stores/conversation-projection";
-import type { PaneSpeechPresentation } from "../global-speech/global-speech-presentation";
+import { useConversationNavigatorStore } from "../../stores/conversation-navigator-store";
+import { usePaneSpeechPresentation } from "../global-speech/app-shell-speech-status";
+import type {
+  GlobalSpeechPresentationSource,
+  PaneSpeechPresentation,
+} from "../global-speech/global-speech-presentation";
+import type { SpeechCaptureRequester } from "../global-speech/speech-capture-destination";
+import { useConversationStore } from "../../stores/conversation-store";
+import { workspaceAvailability, useWorkspaceStore } from "../../stores/workspace-store";
+import { retainConversationProjection } from "../../stores/conversation-projection-runtime";
 import { conversationPaletteStyle } from "./conversation-palette-style";
 import { ConversationApprovalPanel } from "./easy-button-approval-panel";
 import {
@@ -24,7 +32,10 @@ import {
   type PendingConversationApproval,
 } from "./easy-button-approval-projection";
 import { EasyButtonConversationComposer } from "./easy-button-conversation-composer";
-import type { EasyButtonConversationCommands } from "./easy-button-conversation-commands";
+import {
+  type EasyButtonConversationCommands,
+  useEasyButtonConversationCommands,
+} from "./easy-button-conversation-commands";
 import { conversationComposerBindings } from "./easy-button-conversation-composer-bindings";
 import {
   conversationControlAction,
@@ -37,9 +48,9 @@ import {
   narratorDegradationMessage,
 } from "./easy-button-narrator-status";
 import {
-  conversationLineage,
-  EasyButtonLineageBanner,
-  type EasyButtonLineage,
+  EasyButtonForkLineageBanner,
+  forkLineage,
+  type EasyButtonForkLineage,
 } from "./easy-button-lineage";
 import {
   acceptedInputIntentSlot,
@@ -62,6 +73,13 @@ import {
 type EasyButtonViewState = "idle" | "working" | "complete";
 type EasyButtonStatusTone = "none" | "completed" | "failed" | "stopped";
 type EasyButtonProjectionStatus = "unloaded" | "loading" | "ready" | "error" | "resyncing";
+interface EasyButtonSurfaceProps {
+  conversationId: string;
+  paneId?: string | null;
+  speechCapture?: SpeechCaptureRequester;
+  speechPresentation?: GlobalSpeechPresentationSource;
+  workspaceId?: string | null;
+}
 
 export interface EasyButtonProjectionView {
   activeAgentCount: number;
@@ -74,7 +92,7 @@ export interface EasyButtonProjectionView {
   focusStatus: EasyButtonFocusStatus;
   helperCopy: string;
   intentSlot: EasyButtonIntentSlot;
-  lineage: EasyButtonLineage | null;
+  lineage: EasyButtonForkLineage | null;
   milestones: EasyButtonMilestone[];
   narratorDegradation: string | null;
   paletteId: ConversationPaletteID | null;
@@ -93,6 +111,57 @@ export interface EasyButtonProjectionView {
   workspaceId: string | null;
 }
 
+export function EasyButtonSurface({
+  conversationId,
+  paneId = null,
+  speechCapture,
+  speechPresentation,
+  workspaceId,
+}: EasyButtonSurfaceProps) {
+  const workspaceSession = useWorkspaceStore((state) => state.session);
+  const workspaceAvailable =
+    workspaceAvailability(workspaceSession, workspaceId)?.available ?? false;
+  const projection = useConversationStore((state) =>
+    easyButtonConversationProjection(state.conversations, conversationId),
+  );
+  useEffect(() => {
+    if (!workspaceId) {
+      return;
+    }
+    return retainConversationProjection(workspaceId, conversationId);
+  }, [conversationId, workspaceId]);
+  const commands = useEasyButtonConversationCommands({
+    conversationId,
+    paneId,
+    projection,
+    speechCapture,
+    workspaceAvailable,
+    workspaceId: workspaceId ?? null,
+  });
+  const speech = usePaneSpeechPresentation(conversationId, paneId, speechPresentation);
+  const parentTitle = useConversationNavigatorStore((state) => {
+    const parentConversationId = projection?.snapshot?.branch?.parentConversationId;
+    if (!workspaceId || !parentConversationId) {
+      return null;
+    }
+    return (
+      state.workspaces[workspaceId]?.items.find(
+        (item) => item.conversation.id === parentConversationId,
+      )?.conversation.title ?? null
+    );
+  });
+  const projectedView = easyButtonProjectionView(conversationId, projection, paneId, parentTitle);
+  const view = commands.error ? { ...projectedView, error: commands.error } : projectedView;
+  return (
+    <EasyButtonProjectionSurface
+      commands={commands}
+      readOnly={!workspaceAvailable}
+      speech={speech}
+      view={view}
+    />
+  );
+}
+
 export function easyButtonConversationProjection(
   conversations: ReadonlyMap<string, ConversationProjection>,
   conversationId: string,
@@ -104,32 +173,18 @@ function composerPlaceholder(
   view: EasyButtonProjectionView,
   commands: EasyButtonConversationCommands | undefined,
 ): string {
-  if (!commands) {
-    return unavailableComposerPlaceholder(view);
-  }
-  if (commands.folderResourceRequest || folderlessInputAvailable(commands)) {
-    return "Ask this topic agent...";
-  }
-  if (!commands.workspaceCommandsAvailable) {
-    return unavailableComposerPlaceholder(view);
+  if (!commands?.available) {
+    if (view.archived) {
+      return "Conversation archived";
+    }
+    return view.projectionStatus === "loading" || view.projectionStatus === "resyncing"
+      ? "Loading conversation…"
+      : "Conversation commands are unavailable";
   }
   if (commands.clarificationQuestion) {
     return "Answer the narrator’s clarification…";
   }
   return view.viewState === "working" ? "Send another request…" : "Ask this topic agent…";
-}
-
-function folderlessInputAvailable(commands: EasyButtonConversationCommands): boolean {
-  return commands.inputAvailable && !commands.workspaceCommandsAvailable;
-}
-
-function unavailableComposerPlaceholder(view: EasyButtonProjectionView): string {
-  if (view.archived) {
-    return "Conversation archived";
-  }
-  return view.projectionStatus === "loading" || view.projectionStatus === "resyncing"
-    ? "Loading conversation…"
-    : "Conversation commands are unavailable";
 }
 
 export function EasyButtonProjectionSurface({
@@ -234,7 +289,7 @@ function EasyButtonProjectionContent({
       <main className="easy-button-stage">
         <div className="easy-button-center">
           {view.lineage ? (
-            <EasyButtonLineageBanner commands={commands} lineage={view.lineage} />
+            <EasyButtonForkLineageBanner commands={commands} lineage={view.lineage} />
           ) : null}
           <div className="easy-button-agent-chip-slot">
             <AgentChip activeAgentCount={view.activeAgentCount} viewState={view.viewState} />
@@ -270,9 +325,7 @@ function ConversationControl({
   speech: PaneSpeechPresentation | null | undefined;
   view: EasyButtonProjectionView;
 }) {
-  const action = conversationControlAction(commands, readOnly, speech, {
-    onOpenVoiceCredentialSettings: openVoiceProviderSelectionSettings,
-  });
+  const action = conversationControlAction(commands, readOnly, speech);
   return (
     <div className="easy-button-button-well">
       <SwirlField />
@@ -298,19 +351,29 @@ function ConversationActionSlot({
   commands: EasyButtonConversationCommands | undefined;
   view: EasyButtonProjectionView;
 }) {
-  if (view.archived) {
-    return <EmptyActionSlot />;
-  }
-  if (commands?.folderResourceRequest) {
+  if (!view.archived && commands?.routingFailure) {
     return (
-      <FolderResourceActionSlot
-        chooseFolder={commands.folderResourceRequest.chooseFolder}
-        pending={commands.pending}
-      />
+      <div className="easy-button-action-slot easy-button-routing-recovery">
+        {commands.routingFailure.retryable ? (
+          <button
+            data-testid="easy-button-input-retry"
+            disabled={commands.pending}
+            onClick={commands.retryFailedInput}
+            type="button"
+          >
+            Retry routing
+          </button>
+        ) : null}
+        <button
+          data-testid="easy-button-input-discard"
+          disabled={commands.pending}
+          onClick={commands.discardFailedInput}
+          type="button"
+        >
+          Discard request
+        </button>
+      </div>
     );
-  }
-  if (commands?.routingFailure) {
-    return <RoutingRecoveryActionSlot commands={commands} />;
   }
   if (view.pendingApproval && commands) {
     return (
@@ -331,57 +394,6 @@ function ConversationActionSlot({
       </div>
     );
   }
-  return <EmptyActionSlot />;
-}
-
-function FolderResourceActionSlot({
-  chooseFolder,
-  pending,
-}: {
-  chooseFolder: () => void;
-  pending: boolean;
-}) {
-  return (
-    <div className="easy-button-action-slot easy-button-resource-request">
-      <button
-        data-testid="easy-button-folder-resource"
-        disabled={pending}
-        onClick={chooseFolder}
-        type="button"
-      >
-        <FolderOpen aria-hidden="true" className="h-3.5 w-3.5" />
-        Choose folder
-      </button>
-    </div>
-  );
-}
-
-function RoutingRecoveryActionSlot({ commands }: { commands: EasyButtonConversationCommands }) {
-  return (
-    <div className="easy-button-action-slot easy-button-routing-recovery">
-      {commands.routingFailure?.retryable ? (
-        <button
-          data-testid="easy-button-input-retry"
-          disabled={commands.pending}
-          onClick={commands.retryFailedInput}
-          type="button"
-        >
-          Retry routing
-        </button>
-      ) : null}
-      <button
-        data-testid="easy-button-input-discard"
-        disabled={commands.pending}
-        onClick={commands.discardFailedInput}
-        type="button"
-      >
-        Discard request
-      </button>
-    </div>
-  );
-}
-
-function EmptyActionSlot() {
   return <div className="easy-button-action-slot" />;
 }
 
@@ -401,7 +413,7 @@ function ConversationComposer({
   const onStop = !readOnly && commands && !commands.pending ? commands.stop : undefined;
   return (
     <EasyButtonConversationComposer
-      available={bindings.inputAvailable}
+      available={bindings.available}
       canSubmit={bindings.canSubmit}
       clarificationQuestion={commands?.clarificationQuestion ?? null}
       input={bindings.input}
@@ -475,7 +487,7 @@ function projectConversationSnapshot(
     focusStatus,
     helperCopy: conversationHelperCopy(snapshot.conversation, latestTurn, projectionStatus),
     intentSlot: conversationIntentSlot(snapshot, focusStatus),
-    lineage: conversationLineage(snapshot.branch, parentTitle),
+    lineage: forkLineage(snapshot.branch, parentTitle),
     milestones: milestoneViews(snapshot.narration.events, snapshot.turns.turns),
     narratorDegradation: narratorDegradationMessage(snapshot.narratorState),
     paletteId: snapshot.presentationProfile.resolvedPaletteId,
@@ -492,7 +504,12 @@ function projectConversationSnapshot(
       snapshot.conversation.lastTrajectorySequence,
     ),
     side: easyButtonSideView(snapshot, paneId),
-    terminalSummary: terminalSummary(snapshot.narration.events, latestTurn, viewState),
+    terminalSummary: terminalSummary(
+      snapshot.narration.events,
+      snapshot.trajectory.events,
+      latestTurn,
+      viewState,
+    ),
     title: snapshot.conversation.title,
     trajectoryEventCount: snapshot.trajectory.events.length,
     trajectoryHasEarlier: snapshot.trajectory.hasEarlier,
@@ -711,6 +728,7 @@ function milestoneViews(
 
 function terminalSummary(
   narration: readonly NarrationEvent[],
+  trajectory: readonly TrajectoryEvent[],
   latestTurn: ConversationTurn | null,
   viewState: EasyButtonViewState,
 ): EasyButtonTerminalSummaryRecord | null {
@@ -720,6 +738,10 @@ function terminalSummary(
   const narrated = narratedTerminalSummary(narration, latestTurn);
   if (narrated) {
     return narrated;
+  }
+  const agentMessage = agentTerminalSummary(trajectory, latestTurn);
+  if (agentMessage) {
+    return agentMessage;
   }
   return {
     id: `turn:${latestTurn.id}`,
@@ -747,6 +769,31 @@ function narratedTerminalSummary(
         id: event.id,
         status: latestTurn.status,
         text: event.finalSummary.text,
+        turnId: latestTurn.id,
+      };
+    }
+  }
+  return null;
+}
+
+function agentTerminalSummary(
+  trajectory: readonly TrajectoryEvent[],
+  latestTurn: ConversationTurn & {
+    status: Extract<ConversationTurn["status"], "completed" | "cancelled" | "failed">;
+  },
+): EasyButtonTerminalSummaryRecord | null {
+  for (let index = trajectory.length - 1; index >= 0; index -= 1) {
+    const event = trajectory[index];
+    if (
+      event &&
+      event.turnId === latestTurn.id &&
+      event.agentMessageCompleted &&
+      event.agentMessageCompleted.text.trim()
+    ) {
+      return {
+        id: event.id,
+        status: latestTurn.status,
+        text: event.agentMessageCompleted.text,
         turnId: latestTurn.id,
       };
     }

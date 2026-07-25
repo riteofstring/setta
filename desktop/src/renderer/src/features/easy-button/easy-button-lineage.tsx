@@ -1,60 +1,55 @@
-import { GitBranch, GitFork, Undo2 } from "lucide-react";
+import { GitFork, Undo2 } from "lucide-react";
 
-import type { BranchDecisionSource, BranchKind, ConversationBranch } from "@generated/backend";
+import type { BranchDecisionSource, ConversationBranch } from "@generated/backend";
 
 import type { EasyButtonConversationCommands } from "./easy-button-conversation-commands";
 
-export interface EasyButtonLineage {
+export interface EasyButtonForkLineage {
   decisionSource: BranchDecisionSource;
   forkedAtTurnId: string;
-  kind: BranchKind;
   parentConversationId: string;
   parentTitle: string | null;
 }
 
-export function conversationLineage(
+export function forkLineage(
   branch: ConversationBranch | null,
   parentTitle: string | null,
-): EasyButtonLineage | null {
+): EasyButtonForkLineage | null {
   if (!branch) {
     return null;
   }
   return {
     decisionSource: branch.decisionSource,
     forkedAtTurnId: branch.forkedAtTurnId,
-    kind: branch.kind,
     parentConversationId: branch.parentConversationId,
     parentTitle,
   };
 }
 
-export function EasyButtonLineageBanner({
+export function EasyButtonForkLineageBanner({
   commands,
   lineage,
 }: {
   commands: EasyButtonConversationCommands | undefined;
-  lineage: EasyButtonLineage;
+  lineage: EasyButtonForkLineage;
 }) {
   const parentLabel = lineage.parentTitle ?? "parent conversation";
-  const delegated = lineage.kind === "child";
-  const relationship = delegated ? "Delegated from" : "Durable fork of";
   return (
     <aside
-      aria-label={`${relationship} ${parentLabel}`}
+      aria-label={`Durable fork of ${parentLabel}`}
       className="easy-button-lineage"
-      data-lineage-decision-source={lineage.decisionSource}
-      data-lineage-kind={lineage.kind}
-      data-lineage-parent-conversation-id={lineage.parentConversationId}
-      data-lineage-source-turn-id={lineage.forkedAtTurnId || undefined}
-      data-testid="easy-button-lineage"
+      data-fork-decision-source={lineage.decisionSource}
+      data-fork-parent-conversation-id={lineage.parentConversationId}
+      data-fork-source-turn-id={lineage.forkedAtTurnId}
+      data-testid="easy-button-fork-lineage"
     >
-      {delegated ? <GitBranch aria-hidden="true" /> : <GitFork aria-hidden="true" />}
+      <GitFork aria-hidden="true" />
       <span>
-        {relationship} <strong>{parentLabel}</strong>
+        Durable fork of <strong>{parentLabel}</strong>
       </span>
       <button
         data-testid="easy-button-open-parent"
-        disabled={!commands?.workspaceCommandsAvailable || commands.pending}
+        disabled={!commands?.available || commands.pending}
         onClick={() =>
           commands?.presentRelatedConversation(lineage.parentConversationId, lineage.parentTitle)
         }

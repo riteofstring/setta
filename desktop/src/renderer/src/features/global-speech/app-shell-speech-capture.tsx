@@ -1,5 +1,4 @@
 import type { SettaAPI } from "@shared/types";
-import type { LocalMacOSVoiceModelDownloadStatus } from "@shared/speech-ipc";
 import {
   createContext,
   type ReactNode,
@@ -13,18 +12,17 @@ import {
 
 import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
 import type { AppShellMasterController } from "../global-master/app-shell-master-controller";
-import {
-  applyConversationRoutingPresentation,
-  isConversationRoutingFailure,
-} from "../easy-button/conversation-routing-presentation";
+import { applyConversationRoutingPresentation } from "../easy-button/conversation-routing-presentation";
 import {
   AppShellSpeechCaptureController,
   type AppShellSpeechCaptureControllerDependencies,
   type AppShellSpeechCaptureSnapshot,
+  browserSpeechCaptureSupport,
 } from "./app-shell-speech-capture-controller";
 import type { AppShellSpeechPlaybackController } from "./app-shell-speech-playback-controller";
 import type { GlobalSpeechPresentationSource } from "./global-speech-presentation";
-import { createBrowserVoiceInputProvider } from "./browser-voice-input-provider";
+import { createBufferedMicrophoneCapture } from "./buffered-microphone-capture";
+import { createRealtimeTranscriptionTransport } from "./realtime-transcription-transport";
 
 export interface AppShellSpeechCaptureContextValue {
   controller: AppShellSpeechCaptureController;
@@ -84,44 +82,12 @@ export function AppShellSpeechCaptureProvider({
   useEffect(() => {
     void controller.synchronizeRuntime(runtimeId);
   }, [controller, runtimeId]);
-  useEffect(() => subscribeSpeechCapabilityRefresh(setta, controller), [controller, setta]);
 
   return (
     <AppShellSpeechCaptureContext.Provider value={context}>
       {content}
     </AppShellSpeechCaptureContext.Provider>
   );
-}
-
-export function subscribeSpeechCapabilityRefresh(
-  setta: SettaAPI,
-  controller: Pick<AppShellSpeechCaptureController, "refreshCapabilities">,
-): () => void {
-  const unsubscribeCredential =
-    setta.speech.onCredentialSettingsChanged?.(() => {
-      void controller.refreshCapabilities();
-    }) ?? (() => {});
-  const unsubscribeProvider =
-    setta.speech.onProviderSelectionChanged?.(() => {
-      void controller.refreshCapabilities();
-    }) ?? (() => {});
-  const unsubscribeLocalMacOSDownload =
-    setta.speech.onLocalMacOSVoiceModelDownloadChanged?.((status) => {
-      if (localMacOSDownloadChangesCaptureReadiness(status)) {
-        void controller.refreshCapabilities();
-      }
-    }) ?? (() => {});
-  return () => {
-    unsubscribeCredential();
-    unsubscribeLocalMacOSDownload();
-    unsubscribeProvider();
-  };
-}
-
-function localMacOSDownloadChangesCaptureReadiness(
-  status: LocalMacOSVoiceModelDownloadStatus,
-): boolean {
-  return status.status === "ready";
 }
 
 interface SpeechCaptureControllerDisposable {
@@ -169,12 +135,21 @@ function browserControllerDependencies(
   onCaptureEnd: (() => void) | undefined,
 ): AppShellSpeechCaptureControllerDependencies {
   return {
-    captureProvider: createBrowserVoiceInputProvider(setta),
     clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
+    createBufferedCapture: createBufferedMicrophoneCapture,
     createCaptureSessionId: () => globalThis.crypto.randomUUID(),
+    createTranscriptionSession: () => setta.speech.createTranscriptionSession(),
+    createTransport: createRealtimeTranscriptionTransport,
+    deferProviderConnection: (handler) => {
+      globalThis.requestAnimationFrame(() => {
+        globalThis.setTimeout(handler, 0);
+      });
+    },
+    getUserMedia: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
     now: () => new Date(),
     onCaptureEnd: onCaptureEnd ?? (() => {}),
     onCaptureStart: onCaptureStart ?? (() => {}),
+    readCapabilities: () => setta.speech.readCapabilities(),
     settleConversationInput: async (accepted, completed) => {
       if (!setta.conversations.waitInputState) {
         throw new Error("the desktop conversation routing boundary is unavailable");
@@ -185,15 +160,10 @@ function browserControllerDependencies(
         inputId: accepted.input.id,
         workspaceId,
       });
-      try {
-        await applyConversationRoutingPresentation(workspaceId, state);
-      } catch (error) {
-        if (!isConversationRoutingFailure(error)) {
-          throw error;
-        }
-      }
+      await applyConversationRoutingPresentation(workspaceId, state);
     },
     setTimeout: (handler, delayMs) => globalThis.setTimeout(handler, delayMs),
+    support: browserSpeechCaptureSupport,
     submitConversationInput: (request) => {
       if (!setta.conversations.submitInput) {
         return Promise.reject(new Error("the desktop conversation input boundary is unavailable"));

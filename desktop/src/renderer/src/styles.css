@@ -10,12 +10,6 @@
 @import "./features/easy-button/easy-button-motion-layout.css";
 @import "./features/easy-button/easy-button-conversation-controls.css";
 @import "./features/easy-button/easy-button-side-presentation.css";
-@import "./features/director-graph/render/director-graph.css";
-@import "./features/director-command-center/director-command-center.css";
-@import "./features/director-command-center/director-command-center-composer.css";
-@import "./features/director-command-center/director-command-center-activity.css";
-@import "./features/director-command-center/director-workstream-switch-transition.css";
-@import "./features/director-command-center/director-command-center-history.css";
 
 @theme inline {
   --color-background: var(--background);
@@ -262,6 +256,35 @@ h3 {
   font-family: var(--setta-font-heading);
 }
 
+.setta-sidebar-surface {
+  --setta-sidebar-content-x: 4px;
+  --setta-sidebar-logo-x: 16px;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  background: color-mix(in oklch, var(--setta-niri-pane-title-bar-surface) 58%, transparent);
+  border-right: 1px solid color-mix(in oklch, var(--foreground) 7%, transparent);
+}
+
+[data-color-mode="light"] .setta-sidebar-surface {
+  background: color-mix(in oklch, var(--setta-niri-pane-title-bar-surface) 68%, transparent);
+}
+
+.setta-sidebar-logo-shell {
+  padding-left: var(--setta-sidebar-logo-x);
+  padding-right: var(--setta-sidebar-logo-x);
+}
+
+.setta-sidebar-content-shell,
+.setta-sidebar-scroll-shell,
+.setta-sidebar-footer {
+  padding-left: var(--setta-sidebar-content-x);
+  padding-right: var(--setta-sidebar-content-x);
+}
+
+.setta-sidebar-content-shell {
+  padding-top: 8px;
+}
+
 .setta-shell-top-bar {
   --setta-shell-top-bar-chrome-inset: 0px;
   align-items: center;
@@ -491,99 +514,6 @@ h3 {
 
 .setta-shell-top-bar-button:disabled {
   opacity: 0.38;
-}
-
-.setta-settings-page {
-  display: flex;
-  flex-direction: column;
-  inset: 0;
-  min-height: 0;
-  overflow: hidden;
-  position: fixed;
-  z-index: 230;
-}
-
-.setta-settings-page-header {
-  --setta-settings-page-chrome-inset: 0px;
-  align-items: center;
-  background: var(--setta-shell-top-bar-surface);
-  border-bottom: 1px solid color-mix(in oklch, var(--setta-700) 34%, transparent);
-  color: var(--setta-150);
-  display: grid;
-  flex: 0 0 var(--setta-shell-top-bar-height);
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  height: var(--setta-shell-top-bar-height);
-  min-height: var(--setta-shell-top-bar-height);
-  position: relative;
-}
-
-.setta-settings-page[data-desktop-platform="darwin"] .setta-settings-page-header {
-  --setta-settings-page-chrome-inset: 80px;
-}
-
-[data-color-mode="light"] .setta-settings-page-header {
-  background: color-mix(in oklch, var(--setta-900) 90%, var(--setta-950));
-  border-color: color-mix(in oklch, var(--setta-400) 36%, transparent);
-  color: var(--setta-100);
-}
-
-.setta-settings-page-chrome-shield {
-  bottom: 0;
-  left: 0;
-  position: absolute;
-  top: 0;
-  width: var(--setta-settings-page-chrome-inset);
-}
-
-.setta-settings-page-back {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 7px;
-  color: color-mix(in oklch, currentColor 86%, transparent);
-  display: inline-flex;
-  font-size: 12px;
-  font-weight: 600;
-  gap: 6px;
-  grid-column: 1;
-  justify-self: start;
-  margin-left: calc(
-    var(--setta-settings-page-chrome-inset) + var(--setta-shell-top-bar-content-gap)
-  );
-  min-width: 0;
-  padding: 5px 8px;
-}
-
-.setta-settings-page-back:hover,
-.setta-settings-page-back:focus-visible {
-  color: var(--setta-50);
-  outline: none;
-}
-
-.setta-settings-page-back:focus-visible {
-  box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 62%, transparent);
-}
-
-.setta-settings-page-header h1 {
-  color: var(--setta-100);
-  font-size: 13px;
-  font-weight: 700;
-  grid-column: 2;
-  line-height: 1;
-  margin: 0;
-  min-width: 0;
-}
-
-.setta-settings-page-header h1:focus-visible {
-  border-radius: 4px;
-  box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 62%, transparent);
-  outline: none;
-}
-
-.setta-settings-page-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
 }
 
 button:not(:disabled),
