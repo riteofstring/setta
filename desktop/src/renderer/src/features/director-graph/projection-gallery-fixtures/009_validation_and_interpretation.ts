@@ -12,6 +12,22 @@ const rawProjectionGalleryFixture = {
       detailLevel: "selected",
       nodes: [
         {
+          id: "workstream:ws-eta",
+          kind: "workstream",
+          workstreamId: "ws-eta",
+          runId: null,
+          actor: "system",
+          status: "active",
+          publicSummary: "Audit the dependencies",
+          evidenceClass: "runtime_fact",
+          sourceEventIds: ["director-01"],
+          artifactIds: [],
+          createdAt: "2026-07-24T12:00:01Z",
+          updatedAt: "2026-07-24T12:00:01Z",
+          completedAt: null,
+          interpretation: null,
+        },
+        {
           id: "input:trajectory-03",
           kind: "user_goal",
           workstreamId: "ws-eta",
@@ -118,6 +134,16 @@ const rawProjectionGalleryFixture = {
         },
       ],
       edges: [
+        {
+          id: "followed_by:workstream:ws-eta-\u003einput:trajectory-03",
+          kind: "followed_by",
+          fromWorkstreamId: "ws-eta",
+          fromNodeId: "workstream:ws-eta",
+          toWorkstreamId: "ws-eta",
+          toNodeId: "input:trajectory-03",
+          sourceEventIds: ["trajectory-03"],
+          createdAt: "2026-07-24T12:00:03Z",
+        },
         {
           id: "followed_by:input:trajectory-03-\u003edecision:director-04",
           kind: "followed_by",

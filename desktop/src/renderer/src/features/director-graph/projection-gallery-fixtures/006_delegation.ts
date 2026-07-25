@@ -12,6 +12,22 @@ const rawProjectionGalleryFixture = {
       detailLevel: "selected",
       nodes: [
         {
+          id: "workstream:ws-parent",
+          kind: "workstream",
+          workstreamId: "ws-parent",
+          runId: null,
+          actor: "system",
+          status: "active",
+          publicSummary: "Ship the release",
+          evidenceClass: "runtime_fact",
+          sourceEventIds: ["director-01"],
+          artifactIds: [],
+          createdAt: "2026-07-24T12:00:01Z",
+          updatedAt: "2026-07-24T12:00:01Z",
+          completedAt: null,
+          interpretation: null,
+        },
+        {
           id: "input:trajectory-03",
           kind: "user_goal",
           workstreamId: "ws-parent",
@@ -94,6 +110,16 @@ const rawProjectionGalleryFixture = {
       ],
       edges: [
         {
+          id: "followed_by:workstream:ws-parent-\u003einput:trajectory-03",
+          kind: "followed_by",
+          fromWorkstreamId: "ws-parent",
+          fromNodeId: "workstream:ws-parent",
+          toWorkstreamId: "ws-parent",
+          toNodeId: "input:trajectory-03",
+          sourceEventIds: ["trajectory-03"],
+          createdAt: "2026-07-24T12:00:03Z",
+        },
+        {
           id: "followed_by:input:trajectory-03-\u003erun:turn-parent-1",
           kind: "followed_by",
           fromWorkstreamId: "ws-parent",
@@ -114,14 +140,14 @@ const rawProjectionGalleryFixture = {
           createdAt: "2026-07-24T12:00:05Z",
         },
         {
-          id: "delegated_to:decision:director-05-\u003erun:turn-child-1",
+          id: "delegated_to:decision:director-05-\u003eworkstream:ws-child",
           kind: "delegated_to",
           fromWorkstreamId: "ws-parent",
           fromNodeId: "decision:director-05",
           toWorkstreamId: "ws-child",
-          toNodeId: "run:turn-child-1",
-          sourceEventIds: ["trajectory-08"],
-          createdAt: "2026-07-24T12:00:08Z",
+          toNodeId: "workstream:ws-child",
+          sourceEventIds: ["director-06"],
+          createdAt: "2026-07-24T12:00:06Z",
         },
         {
           id: "followed_by:decision:director-05-\u003esubagent:trajectory-09",
@@ -160,6 +186,22 @@ const rawProjectionGalleryFixture = {
       workstreamId: "ws-child",
       detailLevel: "selected",
       nodes: [
+        {
+          id: "workstream:ws-child",
+          kind: "workstream",
+          workstreamId: "ws-child",
+          runId: null,
+          actor: "director",
+          status: "active",
+          publicSummary: "Update the changelog",
+          evidenceClass: "runtime_fact",
+          sourceEventIds: ["director-06"],
+          artifactIds: [],
+          createdAt: "2026-07-24T12:00:06Z",
+          updatedAt: "2026-07-24T12:00:06Z",
+          completedAt: null,
+          interpretation: null,
+        },
         {
           id: "input:trajectory-07",
           kind: "user_goal",
@@ -210,6 +252,16 @@ const rawProjectionGalleryFixture = {
         },
       ],
       edges: [
+        {
+          id: "followed_by:workstream:ws-child-\u003einput:trajectory-07",
+          kind: "followed_by",
+          fromWorkstreamId: "ws-child",
+          fromNodeId: "workstream:ws-child",
+          toWorkstreamId: "ws-child",
+          toNodeId: "input:trajectory-07",
+          sourceEventIds: ["trajectory-07"],
+          createdAt: "2026-07-24T12:00:07Z",
+        },
         {
           id: "followed_by:input:trajectory-07-\u003erun:turn-child-1",
           kind: "followed_by",

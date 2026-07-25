@@ -348,21 +348,50 @@ implying the app resumed something on its own.
 
 ### Phase 3 - Real Graph Projection
 
+Status: in progress. The workstream anchor, the pushed registration delta, and
+the fixture boundary are done. Projecting the Director's own conversation is the
+remaining deliverable.
+
 Deliverables:
 
 - project Director user turns, assistant turns, Setta tool calls, and tool
   receipts into semantic graph state
-- project workstream registration as a real anchor node
+- project workstream registration as a real anchor node (done)
 - project workstream run/activity/provider events from existing trajectory
-  records
-- push graph updates when Director or workstream state changes
-- keep fixture/demo data out of production graph state
+  records (already true before this phase)
+- push graph updates when Director or workstream state changes (done for
+  workstream state; Director turns land with the deliverable above)
+- keep fixture/demo data out of production graph state (done)
 
 Exit criteria:
 
 - the graph appears after the first real Director/workstream action
 - a newly created idle workstream is visible as a real anchor
 - active Codex/tool activity appears without reload or polling
+
+#### Resolved: a workstream is a node, and it exists from the moment it does
+
+Registration projects a `workstream` anchor node instead of being metadata the
+graph ignores. It is the only node kind whose status never resolves: the
+workstream's own work is what succeeds or fails, and the registry row already
+reports whether it is running, blocked, or retired. Every later fact in the
+workstream chains from the anchor, so a created workstream is on the canvas, and
+is drawn as itself, before anything has been asked of it.
+
+The registry projects it when it admits the workstream rather than when the
+workstream produces its first graph fact, so the anchor and its pushed delta
+arrive with the conversation record. Parentage is therefore published ahead of
+the conversation record it describes: a reader that admits work as soon as it
+exists must know where that work came from before it draws it. A create decision
+draws its `delegated_to` edge onto the child's anchor, which is what the decision
+delegated to, rather than onto whichever fact the child happens to produce first.
+
+#### Resolved: the canvas no longer imports its own demo data
+
+The frame's coalescing rule lived in the burst-fixture module, so the production
+canvas reached demo batches to find the rule it runs every frame. The rule moved
+to `packed-graph-coalescing`; the fixtures import it, and nothing in production
+imports the fixtures.
 
 ### Phase 4 - Mockup-Faithful Command Center UI
 

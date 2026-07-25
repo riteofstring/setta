@@ -12,6 +12,22 @@ const rawProjectionGalleryFixture = {
       detailLevel: "selected",
       nodes: [
         {
+          id: "workstream:ws-theta",
+          kind: "workstream",
+          workstreamId: "ws-theta",
+          runId: null,
+          actor: "system",
+          status: "active",
+          publicSummary: "Deploy the preview",
+          evidenceClass: "runtime_fact",
+          sourceEventIds: ["director-01"],
+          artifactIds: [],
+          createdAt: "2026-07-24T12:00:01Z",
+          updatedAt: "2026-07-24T12:00:01Z",
+          completedAt: null,
+          interpretation: null,
+        },
+        {
           id: "input:trajectory-03",
           kind: "user_goal",
           workstreamId: "ws-theta",
@@ -125,6 +141,16 @@ const rawProjectionGalleryFixture = {
         },
       ],
       edges: [
+        {
+          id: "followed_by:workstream:ws-theta-\u003einput:trajectory-03",
+          kind: "followed_by",
+          fromWorkstreamId: "ws-theta",
+          fromNodeId: "workstream:ws-theta",
+          toWorkstreamId: "ws-theta",
+          toNodeId: "input:trajectory-03",
+          sourceEventIds: ["trajectory-03"],
+          createdAt: "2026-07-24T12:00:03Z",
+        },
         {
           id: "followed_by:input:trajectory-03-\u003erun:turn-theta-1",
           kind: "followed_by",

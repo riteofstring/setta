@@ -581,8 +581,9 @@ func (harness *registryHarness) appendFact(fact DirectorFactEvent) DirectorFactE
 	return fact
 }
 
-// publishBranch records a fork's parentage. The durable log commits it after the
-// child conversation record, which is the ordering the registry has to survive.
+// publishBranch records a fork's parentage. The durable log commits it ahead of
+// the child conversation record, so the registry knows where a workstream came
+// from before it admits and anchors it.
 func (harness *registryHarness) publishBranch(childConversationID string, parentConversationID string) {
 	harness.t.Helper()
 	at := harness.now()

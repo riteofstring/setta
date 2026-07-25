@@ -20,7 +20,7 @@ import {
   type PackedGraphBatch,
   type PackedGraphSnapshot,
 } from "../packed-graph-snapshot";
-import { coalescePackedGraphBatches } from "../packed-graph-burst";
+import { coalescePackedGraphBatches } from "../packed-graph-coalescing";
 import { DirectorGraphRenderer, type GraphRenderView } from "./director-graph-renderer";
 import {
   GraphFrameScheduler,

@@ -384,21 +384,25 @@ func (service *Service) prepareCreatedConversationPublications(
 	presentation ConversationPresentationProfile,
 	branch *ConversationBranch,
 ) ([]preparedPublication, error) {
-	payloads := []ConversationEventPayload{
+	payloads := make([]ConversationEventPayload, 0, 5)
+	if branch != nil {
+		// Parentage is published ahead of the conversation record it describes.
+		// A reader that registers the conversation as app-scoped work would
+		// otherwise admit it, and draw it, before knowing where it came from.
+		payloads = append(payloads, ConversationBranchCreatedEventPayload{
+			Type:   ConversationEventTypeBranchCreated,
+			Branch: *branch,
+		})
+	}
+	payloads = append(payloads,
 		ConversationUpdatedEventPayload{Type: ConversationEventTypeConversationUpdated, Conversation: conversation},
 		ConversationNarratorStateUpdatedEventPayload{Type: ConversationEventTypeNarratorStateUpdated, State: narrator},
 		ConversationPresentationProfileUpdatedEventPayload{Type: ConversationEventTypePresentationProfileUpdated, Profile: presentation},
-	}
+	)
 	if binding != nil {
 		payloads = append(payloads, ConversationThreadBindingUpdatedEventPayload{
 			Type:    ConversationEventTypeThreadBindingUpdated,
 			Binding: *binding,
-		})
-	}
-	if branch != nil {
-		payloads = append(payloads, ConversationBranchCreatedEventPayload{
-			Type:   ConversationEventTypeBranchCreated,
-			Branch: *branch,
 		})
 	}
 	return service.publications(conversation.ID, conversation.UpdatedAt, payloads...)

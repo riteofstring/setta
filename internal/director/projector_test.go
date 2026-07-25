@@ -370,8 +370,10 @@ func TestDuplicateDurableFactIDFailsBeforeProjection(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "repeats durable fact id") {
 		t.Fatalf("duplicate durable fact id produced %v", err)
 	}
+	// The anchor and the accepted input are what the three applied facts
+	// projected; a rejected duplicate adds nothing to them.
 	graph, graphErr := projector.Projection().Graph("ws-alpha", WorkstreamDetailSelected)
-	if graphErr != nil || len(graph.Nodes) != 1 {
+	if graphErr != nil || len(graph.Nodes) != 2 {
 		t.Fatalf("duplicate fact changed graph state: graph=%+v err=%v", graph, graphErr)
 	}
 }
@@ -392,7 +394,8 @@ func TestProjectorRejectsMalformedTrajectoryBeforeChangingGraphTruth(t *testing.
 	if err := projector.Apply(ProjectorEvent{Sequence: 3, Trajectory: &malformed}); err == nil {
 		t.Fatal("a malformed durable trajectory event changed graph truth")
 	}
-	if graph, err := projector.Projection().Graph("ws-alpha", WorkstreamDetailSelected); err != nil || len(graph.Nodes) != 0 {
+	// Registration anchored the workstream; the malformed input added nothing.
+	if graph, err := projector.Projection().Graph("ws-alpha", WorkstreamDetailSelected); err != nil || len(graph.Nodes) != 1 {
 		t.Fatalf("malformed trajectory left graph state: graph=%+v err=%v", graph, err)
 	}
 }
@@ -431,7 +434,7 @@ func TestCreateDecisionCanRegisterOnlyItsOwnChild(t *testing.T) {
 			payload.ParentID = nil
 			registration.WorkstreamRegistered = &payload
 			err := projector.Apply(ProjectorEvent{Sequence: event.Sequence, Director: &registration})
-			if err == nil || !strings.Contains(err.Error(), "must be a child") {
+			if err == nil || !strings.Contains(err.Error(), "non-child workstream") {
 				t.Fatalf("non-child registration produced %v", err)
 			}
 			return

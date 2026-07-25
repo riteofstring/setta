@@ -24,10 +24,18 @@ var directorHandlers = map[DirectorSourceFact]directorHandler{
 	DirectorFactRecoveryAttempted:       projectRecoveryAttempted,
 }
 
-// registerWorkstream admits a workstream to the projection. Identity is
-// app-scoped: the conversation it names is where the work executes, not what the
-// workstream is.
-func (projector *DirectorGraphProjector) registerWorkstream(fact DirectorFactEvent) error {
+// registerWorkstream admits a workstream to the projection and gives it its
+// anchor node. Identity is app-scoped: the conversation it names is where the
+// work executes, not what the workstream is.
+//
+// The anchor is what makes an idle workstream visible as itself. Registration is
+// durable state the user acted to create, so the workstream the app just made is
+// on the canvas before anything has been asked of it, and every later fact in it
+// chains from the anchor rather than from nothing.
+func (projector *DirectorGraphProjector) registerWorkstream(
+	fact DirectorFactEvent,
+	edgeKinds []SemanticEdgeKind,
+) error {
 	payload := fact.WorkstreamRegistered
 	workstreamID := *fact.WorkstreamID
 	if _, exists := projector.workstreams[workstreamID]; exists {
@@ -49,24 +57,35 @@ func (projector *DirectorGraphProjector) registerWorkstream(fact DirectorFactEve
 			)
 		}
 	}
-	for _, pending := range projector.pendingDelegation {
-		if pending.targetWorkstreamID != workstreamID {
-			continue
-		}
-		if payload.ParentID == nil || *payload.ParentID != pending.decisionWorkstreamID {
-			return fmt.Errorf(
-				"workstream %s must be a child of %s to satisfy decision %s",
-				workstreamID,
-				pending.decisionWorkstreamID,
-				pending.decisionNodeID,
-			)
-		}
-	}
-	projector.workstreams[workstreamID] = newProjectedWorkstream(workstreamID)
+	workstream := newProjectedWorkstream(workstreamID)
+	projector.workstreams[workstreamID] = workstream
 	projector.workstreamParents[workstreamID] = copyOptionalString(payload.ParentID)
 	projector.byConversation[payload.ConversationID] = workstreamID
 	projector.order = append(projector.order, workstreamID)
-	return nil
+	context := factContext{
+		eventID:    fact.ID,
+		emittedAt:  fact.EmittedAt,
+		workstream: workstream,
+		actor:      fact.Actor,
+		sourceFact: string(fact.Kind),
+		edgeKinds:  edgeKinds,
+	}
+	nodeID, err := projector.commitNode(context, nodeSpec{
+		identity: SemanticNodeIdentityWorkstream,
+		sourceID: workstreamID,
+		kind:     SemanticNodeWorkstream,
+		status:   SemanticNodeStatusActive,
+		actor:    fact.Actor,
+		summary:  payload.Title,
+		evidence: EvidenceRuntimeFact,
+	})
+	if err != nil {
+		return err
+	}
+	// The work a decision delegated now exists, so the edge it earned lands on
+	// the anchor: the delegation is to the workstream, not to whichever fact it
+	// happens to produce first.
+	return projector.resolveDelegation(context, nodeID)
 }
 
 // projectWorkstreamSelected changes app state and detail level. Selection is

@@ -113,9 +113,19 @@ func (state *registryState) applyConversationUpdated(
 	if err := record.Validate(); err != nil {
 		return nil, err
 	}
+	var effects []registryEffect
 	workstream, known := state.workstreams[state.byConversation[record.ID]]
 	if !known {
 		workstream, err = state.registerConversation(record, workspaces)
+		if err != nil {
+			return nil, err
+		}
+		// A registered workstream is graph state immediately: the user made it,
+		// so it is on the canvas before it has been asked for anything.
+		if err := state.projectWorkstream(workstream); err != nil {
+			return nil, err
+		}
+		effects, err = state.collectGraphChanges()
 		if err != nil {
 			return nil, err
 		}
@@ -132,7 +142,7 @@ func (state *registryState) applyConversationUpdated(
 	if err := state.refreshWorkstream(workstream, event.CommittedAt); err != nil {
 		return nil, err
 	}
-	return []registryEffect{{kind: effectWorkstream, id: workstream.record.ID}}, nil
+	return append(effects, registryEffect{kind: effectWorkstream, id: workstream.record.ID}), nil
 }
 
 // registerConversation admits a conversation to the app-scoped registry. A
@@ -150,10 +160,13 @@ func (state *registryState) registerConversation(
 	if err != nil {
 		return nil, err
 	}
+	parentID := state.pendingParents[record.ID]
+	delete(state.pendingParents, record.ID)
 	return state.registerWorkstreamRecord(Workstream{
 		ID:               workstreamID,
 		Title:            record.Title,
 		Status:           WorkstreamStatusIdle,
+		ParentID:         parentID,
 		ResourceScope:    scope,
 		ResourceBindings: bindings,
 		CreatedAt:        record.CreatedAt,
@@ -189,35 +202,29 @@ func resolveWorkstreamScope(
 		nil
 }
 
-// applyBranchCreated attaches a fork or child conversation to its parent
-// workstream. The branch record is committed after the conversation record it
-// describes, which is why graph registration waits for a workstream's first
-// graph fact instead of happening when its row appears.
+// applyBranchCreated remembers a fork or child conversation's parentage. The
+// branch record is committed ahead of the conversation record it describes, so
+// the workstream is registered — and anchored in the graph — already knowing
+// where it came from.
 func (state *registryState) applyBranchCreated(event conversation.CommittedEvent) ([]registryEffect, error) {
 	payload, err := decodeCommittedPayload[conversation.ConversationBranchCreatedEventPayload](event)
 	if err != nil {
 		return nil, err
 	}
-	child, err := state.workstreamForConversation(payload.Branch.ChildConversationID)
-	if err != nil {
-		return nil, err
+	childConversationID := payload.Branch.ChildConversationID
+	if workstreamID, registered := state.byConversation[childConversationID]; registered {
+		return nil, fmt.Errorf(
+			"workstream %s was registered before its parentage was durable",
+			workstreamID,
+		)
 	}
 	parent, err := state.workstreamForConversation(payload.Branch.ParentConversationID)
 	if err != nil {
 		return nil, err
 	}
-	if child.projected {
-		return nil, fmt.Errorf(
-			"workstream %s was projected before its parentage was durable",
-			child.record.ID,
-		)
-	}
 	parentID := parent.record.ID
-	child.record.ParentID = &parentID
-	if err := state.refreshWorkstream(child, event.CommittedAt); err != nil {
-		return nil, err
-	}
-	return []registryEffect{{kind: effectWorkstream, id: child.record.ID}}, nil
+	state.pendingParents[childConversationID] = &parentID
+	return nil, nil
 }
 
 func (state *registryState) applyTurnUpdated(event conversation.CommittedEvent) ([]registryEffect, error) {
@@ -299,9 +306,6 @@ func (state *registryState) applyTrajectoryAppended(event conversation.Committed
 	if err != nil {
 		return nil, err
 	}
-	if err := state.ensureProjected(workstream); err != nil {
-		return nil, err
-	}
 	if err := state.applyProjectorEvent(ProjectorEvent{Trajectory: &trajectory}); err != nil {
 		return nil, err
 	}
@@ -379,27 +383,11 @@ func (state *registryState) collectGraphChanges() ([]registryEffect, error) {
 	return effects, nil
 }
 
-// ensureProjected registers a workstream in the graph projector immediately
-// before its first graph fact. Deferring it is what lets a fork's parentage —
-// committed after the conversation record — reach the projection that derives
-// delegation from it.
-func (state *registryState) ensureProjected(workstream *registryWorkstream) error {
-	if workstream.projected {
-		return nil
-	}
-	if parentID := workstream.record.ParentID; parentID != nil {
-		parent, known := state.workstreams[*parentID]
-		if !known {
-			return fmt.Errorf(
-				"workstream %s names parent %s, which is not registered",
-				workstream.record.ID,
-				*parentID,
-			)
-		}
-		if err := state.ensureProjected(parent); err != nil {
-			return err
-		}
-	}
+// projectWorkstream registers a workstream in the graph projector as soon as
+// the registry admits it. Registration is derived rather than written: the
+// durable conversation record already says the workstream exists, and a second
+// durable record of the same fact could disagree with it.
+func (state *registryState) projectWorkstream(workstream *registryWorkstream) error {
 	fact := DirectorFactEvent{
 		ID:           registrationFactPrefix + workstream.record.ID,
 		EmittedAt:    workstream.record.CreatedAt,
@@ -413,6 +401,5 @@ func (state *registryState) ensureProjected(workstream *registryWorkstream) erro
 			ResourceScope:  workstream.record.ResourceScope,
 		},
 	}
-	workstream.projected = true
 	return state.applyProjectorEvent(ProjectorEvent{Director: &fact})
 }

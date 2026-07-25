@@ -5,27 +5,22 @@
  * together, a reconnect replays a backlog from a durable cursor, and a fast
  * provider can push a dozen batches inside a single 120 Hz frame. These
  * fixtures reproduce those arrival patterns so the renderer can be measured
- * against them before it is wired to a live subscription.
+ * against them.
  *
- * Coalescing is the rule the boundary enforces: a frame applies at most one
- * batch, and applying the coalesced batch must land on the same columns that
- * applying its parts one at a time would.
+ * The rule they measure — coalescing a frame's arrivals — is production graph
+ * state and lives in `packed-graph-coalescing`. Nothing in production reaches
+ * this module.
  */
 
 import {
   buildPackedGraphSnapshot,
   extendPackedGraphSnapshot,
   type PackedGraphBatch,
-  type PackedGraphEdgeInput,
-  type PackedGraphNodeInput,
   type PackedGraphSnapshot,
-  type PackedGraphTurnInput,
 } from "./packed-graph-snapshot";
+import { coalescePackedGraphBatches, packedGraphFrameBudgetMs } from "./packed-graph-coalescing";
 import { packedGraphFixtureBatches } from "./packed-graph-fixtures";
 import { packedGraphScene, type PackedGraphFixtureName } from "./packed-graph-scenes";
-
-/** One frame at the 120 Hz target. */
-export const packedGraphFrameBudgetMs = 1000 / 120;
 
 export interface PackedGraphDelivery {
   readonly deliveredAtMs: number;
@@ -80,39 +75,6 @@ export function packedGraphBurst(
       deliveredAtMs: deliveryTime(profile, index, batches.length),
       batch,
     })),
-  };
-}
-
-/**
- * Merges a group of pushed batches into the single batch a frame applies.
- * Turn records are keyed by index, so a turn updated twice inside one frame
- * lands once, in its final state.
- */
-export function coalescePackedGraphBatches(batches: readonly PackedGraphBatch[]): PackedGraphBatch {
-  const last = batches[batches.length - 1];
-  if (last === undefined) {
-    throw new Error("cannot coalesce an empty batch group");
-  }
-  const nodes: PackedGraphNodeInput[] = [];
-  const edges: PackedGraphEdgeInput[] = [];
-  const turns = new Map<number, PackedGraphTurnInput>();
-  for (const batch of batches) {
-    for (const node of batch.nodes) {
-      nodes.push(node);
-    }
-    for (const edge of batch.edges) {
-      edges.push(edge);
-    }
-    for (const turn of batch.turns) {
-      turns.set(turn.index, turn);
-    }
-  }
-  return {
-    cursorSequence: last.cursorSequence,
-    hasEarlier: last.hasEarlier,
-    nodes,
-    edges,
-    turns: [...turns.values()].sort((left, right) => left.index - right.index),
   };
 }
 

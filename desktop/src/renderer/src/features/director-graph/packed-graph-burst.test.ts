@@ -2,14 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   coalesceDeliveriesByFrame,
-  coalescePackedGraphBatches,
   packedGraphBatchesAfter,
   packedGraphBurst,
   packedGraphBurstProfiles,
-  packedGraphFrameBudgetMs,
   packedGraphSnapshotAtCursor,
   resumePackedGraphBurst,
 } from "./packed-graph-burst";
+import { coalescePackedGraphBatches, packedGraphFrameBudgetMs } from "./packed-graph-coalescing";
 import {
   buildPackedGraphSnapshot,
   emptyPackedGraphSnapshot,

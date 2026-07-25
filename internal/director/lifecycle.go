@@ -345,6 +345,10 @@ var semanticNodeLifecycle = lifecycleTable[SemanticNodeStatus]{
 // A terminal kind exists to close a causal chain, so it carries exactly the
 // status it names.
 var semanticNodeKindStatuses = map[SemanticNodeKind][]SemanticNodeStatus{
+	// A workstream anchor carries one status because registration happens once
+	// and never resolves: the workstream's own work is what succeeds or fails,
+	// and the row already reports whether it is running, blocked, or retired.
+	SemanticNodeWorkstream: {SemanticNodeStatusActive},
 	SemanticNodeUserGoal: {
 		SemanticNodeStatusActive,
 		SemanticNodeStatusSucceeded,

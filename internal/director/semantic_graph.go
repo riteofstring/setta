@@ -10,6 +10,10 @@ import "fmt"
 type SemanticNodeKind string
 
 const (
+	// SemanticNodeWorkstream is the anchor durable workstream registration
+	// projects. It is what an idle workstream is: work that exists, is
+	// selectable, and has not been asked for anything yet.
+	SemanticNodeWorkstream       SemanticNodeKind = "workstream"
 	SemanticNodeUserGoal         SemanticNodeKind = "user_goal"
 	SemanticNodeDirectorDecision SemanticNodeKind = "director_decision"
 	SemanticNodePlan             SemanticNodeKind = "plan"
@@ -30,6 +34,7 @@ const (
 )
 
 var semanticNodeKinds = []SemanticNodeKind{
+	SemanticNodeWorkstream,
 	SemanticNodeUserGoal,
 	SemanticNodeDirectorDecision,
 	SemanticNodePlan,

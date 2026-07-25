@@ -67,12 +67,16 @@ func (projector *DirectorGraphProjector) MilestoneFor(workstreamID string) (Work
 	return workstream.milestone()
 }
 
-// adjacentNodes keeps what an adjacent workstream must answer with: unresolved
-// blockers, produced artifacts, and its most recent milestone.
+// adjacentNodes keeps what an adjacent workstream must answer with: the anchor
+// that says it exists, unresolved blockers, produced artifacts, and its most
+// recent milestone. The anchor is kept because an idle workstream has nothing
+// else, and drawing nothing for it would say it is not there.
 func adjacentNodes(nodes []SemanticNode) []SemanticNode {
 	kept := make([]SemanticNode, 0, len(nodes))
 	for _, node := range nodes {
-		if node.Status == SemanticNodeStatusWaiting || milestoneKinds[node.Kind] {
+		if node.Kind == SemanticNodeWorkstream ||
+			node.Status == SemanticNodeStatusWaiting ||
+			milestoneKinds[node.Kind] {
 			kept = append(kept, node)
 		}
 	}

@@ -12,6 +12,22 @@ const rawProjectionGalleryFixture = {
       detailLevel: "selected",
       nodes: [
         {
+          id: "workstream:ws-epsilon",
+          kind: "workstream",
+          workstreamId: "ws-epsilon",
+          runId: null,
+          actor: "system",
+          status: "active",
+          publicSummary: "Build the installer",
+          evidenceClass: "runtime_fact",
+          sourceEventIds: ["director-01"],
+          artifactIds: [],
+          createdAt: "2026-07-24T12:00:01Z",
+          updatedAt: "2026-07-24T12:00:01Z",
+          completedAt: null,
+          interpretation: null,
+        },
+        {
           id: "input:trajectory-03",
           kind: "user_goal",
           workstreamId: "ws-epsilon",
@@ -158,6 +174,16 @@ const rawProjectionGalleryFixture = {
         },
       ],
       edges: [
+        {
+          id: "followed_by:workstream:ws-epsilon-\u003einput:trajectory-03",
+          kind: "followed_by",
+          fromWorkstreamId: "ws-epsilon",
+          fromNodeId: "workstream:ws-epsilon",
+          toWorkstreamId: "ws-epsilon",
+          toNodeId: "input:trajectory-03",
+          sourceEventIds: ["trajectory-03"],
+          createdAt: "2026-07-24T12:00:03Z",
+        },
         {
           id: "followed_by:input:trajectory-03-\u003erun:turn-epsilon-1",
           kind: "followed_by",

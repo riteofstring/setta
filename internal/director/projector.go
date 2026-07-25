@@ -322,7 +322,11 @@ func (projector *DirectorGraphProjector) applyDirectorFact(sequence int, fact Di
 		return err
 	}
 	if fact.Kind == DirectorFactWorkstreamRegistered {
-		return projector.registerWorkstream(fact)
+		rule, err := DirectorFactRule(fact.Kind)
+		if err != nil {
+			return err
+		}
+		return projector.registerWorkstream(fact, rule.EdgeKinds)
 	}
 	if fact.WorkstreamID == nil {
 		// An app-scoped decision happened in no workstream, so there is no graph
@@ -448,16 +452,23 @@ func (workstream *projectedWorkstream) milestone() (WorkstreamMilestone, bool) {
 			OccurredAt:    node.UpdatedAt,
 		}, true
 	}
-	if len(workstream.nodes) == 0 {
-		return WorkstreamMilestone{}, false
+	// The anchor is the workstream's identity, not something that happened in
+	// it. A row already shows its title, so reporting the anchor as the last
+	// milestone would tell the user the same thing twice and would claim an idle
+	// workstream had produced something.
+	for index := len(workstream.nodes) - 1; index >= 0; index-- {
+		last := workstream.nodes[index]
+		if last.Kind == SemanticNodeWorkstream {
+			continue
+		}
+		return WorkstreamMilestone{
+			NodeID:        last.ID,
+			Kind:          last.Kind,
+			PublicSummary: last.PublicSummary,
+			OccurredAt:    last.UpdatedAt,
+		}, true
 	}
-	last := workstream.nodes[len(workstream.nodes)-1]
-	return WorkstreamMilestone{
-		NodeID:        last.ID,
-		Kind:          last.Kind,
-		PublicSummary: last.PublicSummary,
-		OccurredAt:    last.UpdatedAt,
-	}, true
+	return WorkstreamMilestone{}, false
 }
 
 // milestoneKinds are the node kinds worth showing when a workstream is reduced

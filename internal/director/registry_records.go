@@ -354,9 +354,6 @@ func (state *registryState) applyDirectorFact(event conversation.CommittedEvent)
 	if !known {
 		return nil, fmt.Errorf("director fact %s names unregistered workstream %s", fact.ID, *fact.WorkstreamID)
 	}
-	if err := state.ensureProjected(workstream); err != nil {
-		return nil, err
-	}
 	if err := state.applyProjectorEvent(ProjectorEvent{Director: &fact}); err != nil {
 		return nil, err
 	}

@@ -12,6 +12,22 @@ const rawProjectionGalleryFixture = {
       detailLevel: "selected",
       nodes: [
         {
+          id: "workstream:ws-alpha",
+          kind: "workstream",
+          workstreamId: "ws-alpha",
+          runId: null,
+          actor: "system",
+          status: "active",
+          publicSummary: "Summarize the release notes",
+          evidenceClass: "runtime_fact",
+          sourceEventIds: ["director-01"],
+          artifactIds: [],
+          createdAt: "2026-07-24T12:00:01Z",
+          updatedAt: "2026-07-24T12:00:01Z",
+          completedAt: null,
+          interpretation: null,
+        },
+        {
           id: "input:trajectory-03",
           kind: "user_goal",
           workstreamId: "ws-alpha",
@@ -109,6 +125,16 @@ const rawProjectionGalleryFixture = {
         },
       ],
       edges: [
+        {
+          id: "followed_by:workstream:ws-alpha-\u003einput:trajectory-03",
+          kind: "followed_by",
+          fromWorkstreamId: "ws-alpha",
+          fromNodeId: "workstream:ws-alpha",
+          toWorkstreamId: "ws-alpha",
+          toNodeId: "input:trajectory-03",
+          sourceEventIds: ["trajectory-03"],
+          createdAt: "2026-07-24T12:00:03Z",
+        },
         {
           id: "followed_by:input:trajectory-03-\u003edecision:director-04",
           kind: "followed_by",

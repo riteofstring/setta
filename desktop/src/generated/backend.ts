@@ -1197,13 +1197,15 @@ export function decodeWorkstreamResourceKind(value: unknown, label = "Workstream
   }
 }
 
-export type SemanticNodeKind = "user_goal" | "director_decision" | "plan" | "milestone" | "delegation" | "investigation" | "action" | "resource_required" | "approval_required" | "artifact" | "validation" | "blocked" | "retry" | "recovery" | "completed" | "failed" | "cancelled";
+export type SemanticNodeKind = "workstream" | "user_goal" | "director_decision" | "plan" | "milestone" | "delegation" | "investigation" | "action" | "resource_required" | "approval_required" | "artifact" | "validation" | "blocked" | "retry" | "recovery" | "completed" | "failed" | "cancelled";
 
-export const semanticNodeKindValues = ["user_goal", "director_decision", "plan", "milestone", "delegation", "investigation", "action", "resource_required", "approval_required", "artifact", "validation", "blocked", "retry", "recovery", "completed", "failed", "cancelled"] as const satisfies readonly SemanticNodeKind[];
+export const semanticNodeKindValues = ["workstream", "user_goal", "director_decision", "plan", "milestone", "delegation", "investigation", "action", "resource_required", "approval_required", "artifact", "validation", "blocked", "retry", "recovery", "completed", "failed", "cancelled"] as const satisfies readonly SemanticNodeKind[];
 
 export function decodeSemanticNodeKind(value: unknown, label = "SemanticNodeKind"): SemanticNodeKind {
   const decoded = decodeString(value, label);
   switch (decoded) {
+    case "workstream":
+      return decoded;
     case "user_goal":
       return decoded;
     case "director_decision":

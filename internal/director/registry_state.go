@@ -22,13 +22,8 @@ import (
 // registryWorkstream is one registry row plus the inputs its public record is
 // derived from.
 type registryWorkstream struct {
-	record         Workstream
-	conversationID string
-	// projected reports that the workstream is registered in the graph
-	// projector. Registration is deferred until the workstream produces its
-	// first graph fact, because a fork's parentage is committed after the
-	// conversation record that names it.
-	projected           bool
+	record              Workstream
+	conversationID      string
 	archived            bool
 	activeRunID         *string
 	queuedRunCount      int
@@ -73,6 +68,11 @@ type registryState struct {
 	lastEventAt       *string
 	cursor            conversation.CommittedEventCursor
 	streamSequences   map[string]int
+	// pendingParents holds the parentage a branch record committed for a
+	// conversation whose own record has not arrived yet. Parentage is durable
+	// before the conversation it belongs to, so a workstream is never registered
+	// without knowing where it came from.
+	pendingParents map[string]*string
 	// decisions is the recent committed-decision history, oldest first. It is
 	// bounded here rather than at materialization, because the Director only
 	// ever receives the most recent few as continuity context.
@@ -88,6 +88,7 @@ func newRegistryState() *registryState {
 		resources:       map[string]*ResourceRequest{},
 		artifacts:       map[string]*WorkstreamArtifact{},
 		streamSequences: map[string]int{},
+		pendingParents:  map[string]*string{},
 	}
 }
 

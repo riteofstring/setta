@@ -106,25 +106,15 @@ func (state *registryState) snapshotGraphs(entries []DirectorWorkstreamEntry) ([
 	return graphs, nil
 }
 
-// workstreamGraph answers for a workstream that has produced no graph fact yet
-// with an empty graph rather than an error: a registered workstream with no
-// trajectory is a real product state, and it is what a new conversation looks
-// like before its first turn.
+// workstreamGraph answers with the projection of a registry row. Every
+// registered workstream has one, because registration itself is the anchor a
+// workstream with no trajectory yet is drawn as.
 func (state *registryState) workstreamGraph(
 	workstreamID string,
 	level WorkstreamDetailLevel,
 ) (WorkstreamGraph, error) {
-	workstream, known := state.workstreams[workstreamID]
-	if !known {
+	if _, known := state.workstreams[workstreamID]; !known {
 		return WorkstreamGraph{}, fmt.Errorf("workstream %s is not in the registry", workstreamID)
-	}
-	if !workstream.projected {
-		return WorkstreamGraph{
-			WorkstreamID: workstreamID,
-			DetailLevel:  level,
-			Nodes:        []SemanticNode{},
-			Edges:        []SemanticEdge{},
-		}, nil
 	}
 	return state.projector.GraphFor(workstreamID, level)
 }

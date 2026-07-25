@@ -108,10 +108,7 @@ func projectTurnQueued(projector *DirectorGraphProjector, context factContext, e
 	if err != nil {
 		return err
 	}
-	if err := projector.addEdge(context, SemanticEdgeDependsOn, nodeID, context.workstream.id, blockedBehind); err != nil {
-		return err
-	}
-	return projector.resolveDelegation(context, nodeID)
+	return projector.addEdge(context, SemanticEdgeDependsOn, nodeID, context.workstream.id, blockedBehind)
 }
 
 func projectTurnPromoted(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {
@@ -137,11 +134,8 @@ func projectTurnStarted(projector *DirectorGraphProjector, context factContext, 
 	if err != nil {
 		return err
 	}
-	nodeID, err := projector.commitRunNode(context, runID, SemanticNodeStatusActive, activeRunSummary)
-	if err != nil {
-		return err
-	}
-	return projector.resolveDelegation(context, nodeID)
+	_, err = projector.commitRunNode(context, runID, SemanticNodeStatusActive, activeRunSummary)
+	return err
 }
 
 func projectTurnSteered(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {

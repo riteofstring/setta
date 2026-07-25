@@ -31,6 +31,12 @@ interface SemanticNodeKindVisual {
 }
 
 export const semanticNodeKindVisuals = {
+  workstream: {
+    mode: "think",
+    glyph: "dot",
+    role: "input",
+    labelPlacement: "below",
+  },
   user_goal: {
     mode: "listening",
     glyph: "microphone",
@@ -179,6 +185,13 @@ const semanticEdgeModes = {
   recovered_by: "risk",
 } satisfies Record<SemanticEdgeKind, PackedGraphMode>;
 
+/**
+ * Kinds whose active status is structural rather than work in flight: a
+ * workstream exists, a goal was stated, a decision was made. Painting them as
+ * running work would say the app is busy when nothing is running.
+ */
+const structuralKinds = new Set<SemanticNodeKind>(["workstream", "user_goal", "director_decision"]);
+
 export function semanticNodeMode(
   kind: SemanticNodeKind,
   status: SemanticNodeStatus,
@@ -186,7 +199,7 @@ export function semanticNodeMode(
   if (status === "waiting" || status === "failed" || status === "cancelled") {
     return semanticStatusModes[status];
   }
-  if (status === "active" && kind !== "user_goal" && kind !== "director_decision") {
+  if (status === "active" && !structuralKinds.has(kind)) {
     return semanticStatusModes[status];
   }
   return semanticNodeKindVisuals[kind].mode;

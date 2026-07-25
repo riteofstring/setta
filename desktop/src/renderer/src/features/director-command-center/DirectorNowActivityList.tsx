@@ -33,6 +33,7 @@ const semanticNodeKindLabels = {
   retry: "Retry",
   user_goal: "User",
   validation: "Validation",
+  workstream: "Workstream",
 } as const satisfies Record<SemanticNodeKind, string>;
 
 const semanticNodeStatusLabels = {
@@ -157,6 +158,9 @@ function directorActivityMetadata(node: SemanticNode): string[] {
   return metadata;
 }
 
+// The Now rail lists what is happening. A workstream anchor and a user goal are
+// what the happening belongs to, and both are already named elsewhere in the
+// shell, so neither is an activity row.
 function isDirectorActivityNode(node: SemanticNode): boolean {
-  return node.kind !== "user_goal";
+  return node.kind !== "user_goal" && node.kind !== "workstream";
 }

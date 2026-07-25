@@ -99,6 +99,65 @@ func TestRegistryPushesWorkstreamAndGraphChanges(t *testing.T) {
 	}
 }
 
+// TestNewWorkstreamIsAnchoredBeforeItRunsAnything proves the graph starts at the
+// workstream: creating one is durable state the user acted to produce, so it is
+// drawn as itself — pushed, without a reload — before anything is asked of it,
+// and its first goal follows the anchor rather than starting from nothing.
+func TestNewWorkstreamIsAnchoredBeforeItRunsAnything(t *testing.T) {
+	harness := newRegistryHarness(t)
+	registry := harness.start()
+	subscription := subscribeFromSnapshot(t, registry)
+	defer subscription.Unsubscribe()
+
+	workstreamID := harness.createConversation("conversation-anchor", "Plan the migration", nil)
+	graph := awaitEvent(t, subscription, DirectorEventGraphUpdated)
+	if graph.GraphUpdated.WorkstreamID != workstreamID {
+		t.Fatalf("graph event names workstream %q, want %q", graph.GraphUpdated.WorkstreamID, workstreamID)
+	}
+	if len(graph.GraphUpdated.Nodes) != 1 {
+		t.Fatalf("registration published %d nodes, want the anchor", len(graph.GraphUpdated.Nodes))
+	}
+	anchor := graph.GraphUpdated.Nodes[0]
+	if anchor.Kind != SemanticNodeWorkstream || anchor.Status != SemanticNodeStatusActive {
+		t.Fatalf("anchor node = %q/%q", anchor.Kind, anchor.Status)
+	}
+	if anchor.PublicSummary != "Plan the migration" {
+		t.Fatalf("anchor summary = %q, want the workstream title", anchor.PublicSummary)
+	}
+
+	snapshot := requireSnapshot(t, registry)
+	entry := findEntry(t, snapshot, workstreamID)
+	if entry.Workstream.Status != WorkstreamStatusIdle {
+		t.Fatalf("anchored workstream status = %q, want idle", entry.Workstream.Status)
+	}
+	if entry.Workstream.LastMilestone != nil {
+		t.Fatalf("an idle workstream reports milestone %+v", entry.Workstream.LastMilestone)
+	}
+	if len(snapshot.Graphs) != 1 || len(snapshot.Graphs[0].Nodes) != 1 {
+		t.Fatalf("snapshot graphs = %+v, want the anchor", snapshot.Graphs)
+	}
+
+	harness.startTurn("conversation-anchor", "turn-1")
+	accepted := harness.acceptInput("conversation-anchor", "turn-1", "plan the migration")
+	goal := awaitEvent(t, subscription, DirectorEventGraphUpdated)
+	if len(goal.GraphUpdated.Nodes) != 1 || goal.GraphUpdated.Nodes[0].Kind != SemanticNodeUserGoal {
+		t.Fatalf("accepted input published %+v", goal.GraphUpdated.Nodes)
+	}
+	// Nodes and edges are chunked into their own events, so the chain arrives
+	// in the delta after the node it connects.
+	chain := awaitEvent(t, subscription, DirectorEventGraphUpdated)
+	if len(chain.GraphUpdated.Edges) != 1 {
+		t.Fatalf("accepted input published %d edges, want the chain from the anchor", len(chain.GraphUpdated.Edges))
+	}
+	chained := chain.GraphUpdated.Edges[0]
+	if chained.Kind != SemanticEdgeFollowedBy || chained.FromNodeID != anchor.ID {
+		t.Fatalf("goal edge = %q from %q, want followed_by from the anchor", chained.Kind, chained.FromNodeID)
+	}
+	if chained.SourceEventIDs[0] != accepted.ID {
+		t.Fatalf("goal edge provenance = %v, want the accepted input event", chained.SourceEventIDs)
+	}
+}
+
 func TestAwaitRunTerminalDoesNotReturnForTheInterruptionRequest(t *testing.T) {
 	harness := newRegistryHarness(t)
 	conversationID := "conversation-terminal-wait"
@@ -633,14 +692,14 @@ func TestRegistryResyncsCursorsItCannotReplay(t *testing.T) {
 	}
 }
 
-// TestRegistryProjectsForksAsChildWorkstreams proves parentage survives the
-// ordering the durable log commits it in: the branch record lands after the
-// conversation record it describes, and the child is still projected as a child.
+// TestRegistryProjectsForksAsChildWorkstreams proves parentage reaches the
+// projection: the branch record lands before the conversation record it
+// describes, and the child is registered and anchored as a child.
 func TestRegistryProjectsForksAsChildWorkstreams(t *testing.T) {
 	harness := newRegistryHarness(t)
 	parent := harness.createConversation("conversation-parent", "Parent", nil)
-	child := harness.createConversation("conversation-child", "Child", nil)
 	harness.publishBranch("conversation-child", "conversation-parent")
+	child := harness.createConversation("conversation-child", "Child", nil)
 
 	registry := harness.start()
 	subscription := subscribeFromSnapshot(t, registry)
@@ -727,7 +786,12 @@ func TestBackgroundUpdateDoesNotRerenderUnrelatedWorkstreams(t *testing.T) {
 				t.Fatalf("unrelated workstream %s rerendered", workstreamID)
 			}
 		case DirectorEventGraphUpdated:
-			t.Fatalf("title-only background update published graph work: %+v", event.GraphUpdated)
+			// A row entering the visible window receives the graph its new level
+			// promises, which for work that has never run is its anchor. Any
+			// other workstream's graph would be a rerender.
+			if !changedLevels[event.GraphUpdated.WorkstreamID] {
+				t.Fatalf("title-only background update published graph work: %+v", event.GraphUpdated)
+			}
 		case DirectorEventSelectionChanged:
 			t.Fatal("background update republished selection")
 		}

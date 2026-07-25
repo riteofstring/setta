@@ -71,6 +71,7 @@ type SemanticNodeIdentity string
 
 const (
 	SemanticNodeIdentityNone            SemanticNodeIdentity = ""
+	SemanticNodeIdentityWorkstream      SemanticNodeIdentity = "workstream"
 	SemanticNodeIdentityInput           SemanticNodeIdentity = "input"
 	SemanticNodeIdentityDecision        SemanticNodeIdentity = "decision"
 	SemanticNodeIdentityRun             SemanticNodeIdentity = "run"
@@ -90,6 +91,7 @@ const (
 )
 
 var semanticNodeIdentities = []SemanticNodeIdentity{
+	SemanticNodeIdentityWorkstream,
 	SemanticNodeIdentityInput,
 	SemanticNodeIdentityDecision,
 	SemanticNodeIdentityRun,
@@ -164,7 +166,7 @@ var trajectoryFactRules = map[conversation.TrajectoryEventKind]SourceFactRule{
 		Resolution:    SourceFactResolutionFixed,
 		NodeKind:      SemanticNodeAction,
 		NodeIdentity:  SemanticNodeIdentityRun,
-		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy, SemanticEdgeDependsOn, SemanticEdgeDelegatedTo},
+		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy, SemanticEdgeDependsOn},
 		EvidenceClass: EvidenceRuntimeFact,
 		Note:          "Queueing creates the one durable run node; it depends on the run it is queued behind.",
 	},
@@ -181,7 +183,7 @@ var trajectoryFactRules = map[conversation.TrajectoryEventKind]SourceFactRule{
 		Resolution:    SourceFactResolutionFixed,
 		NodeKind:      SemanticNodeAction,
 		NodeIdentity:  SemanticNodeIdentityRun,
-		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy, SemanticEdgeDelegatedTo},
+		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy},
 		EvidenceClass: EvidenceRuntimeFact,
 		Note:          "A run that was never queued is created here; otherwise the queued run node becomes active.",
 	},
@@ -386,10 +388,13 @@ var trajectoryFactRules = map[conversation.TrajectoryEventKind]SourceFactRule{
 
 var directorFactRules = map[DirectorSourceFact]SourceFactRule{
 	DirectorFactWorkstreamRegistered: {
-		Disposition:   SourceFactUpdatesMetadata,
-		Resolution:    SourceFactResolutionNone,
+		Disposition:   SourceFactCreatesNode,
+		Resolution:    SourceFactResolutionFixed,
+		NodeKind:      SemanticNodeWorkstream,
+		NodeIdentity:  SemanticNodeIdentityWorkstream,
+		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeDelegatedTo},
 		EvidenceClass: EvidenceRuntimeFact,
-		Note:          "Registry membership is workstream state, not a node in a workstream's trajectory.",
+		Note:          "A registered workstream is the anchor its own facts follow, so work with nothing in it yet is still visible as itself.",
 	},
 	DirectorFactWorkstreamSelected: {
 		Disposition:   SourceFactUpdatesMetadata,
