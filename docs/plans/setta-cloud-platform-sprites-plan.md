@@ -3238,3 +3238,25 @@ Stop and reassess rather than hiding the problem if any of these occur:
   are classifiable rather than opaque. The affected packages,
   `./scripts/format.sh`, and `./check_quality.sh --git-changes` passed. No
   dependency file changed and no provider or cloud mutation ran.
+- 2026-07-25 (Electron fixture socket determinism): Closed the environmental
+  caveat recorded with the desktop disk-admission reserve, so the required
+  `hosted-cloud-chat` gate no longer depends on the operator's `TMPDIR`. The
+  Electron harnesses built their run root under the OS temporary directory, so
+  on a stock macOS `TMPDIR` the fixture's control-plane admin socket reached
+  roughly 116 bytes against the 104-byte `sun_path` limit and the control plane
+  exited before signalling ready, surfacing only as "control-plane fixture
+  exited before ready". The workflow passed only where `TMPDIR` was already
+  short. Both the workflow and CDP harnesses now take their run root from a
+  shared helper that returns a private, unique directory short enough for the
+  deepest fixture socket and fails loudly naming the limit when it cannot,
+  mirroring `internal/unixsockettest`; the earlier slice had covered only the Go
+  call sites, leaving the Electron gate exposed to the same defect class.
+  `TMPDIR` was again deliberately not pinned in the workflow runner, and the
+  workflow name remains in the recording pointer so artifacts stay identifiable.
+  The failure was reproduced under a long `TMPDIR` before the change, and after
+  it the workflow passed under the OS default `TMPDIR` and under a short
+  `TMPDIR`, with no fixture run root left behind. `./scripts/format.sh` and
+  `./check_quality.sh --git-changes` passed, including desktop typecheck, build,
+  dead-code checks, and the full 833-test desktop suite. This was a test-harness
+  change only; no product behavior, dependency file, provider, or cloud resource
+  was touched.
