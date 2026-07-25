@@ -11,7 +11,6 @@ import {
   captureScreenshot,
   createElectronFixture,
   launchElectronCdpContext,
-  openFixtureWorkspace,
   parseElectronHarnessArgs,
   stopElectronCdpContext,
   timestampedRecordingDir,
@@ -363,21 +362,34 @@ async function launchDirectorElectron(launchArtifactDir) {
     fixture,
     visible: options.visible,
   });
-  await waitForSelector(launched.client, '[data-testid="workspace-layout-area"]');
+  await waitForSelector(launched.client, '[data-testid="director-command-center-shell"]');
   await launched.client.installDriver();
   return launched;
 }
 
 async function openWorkspace(client) {
-  const current = await client.evaluate(workspaceIdExpression());
+  const current = await selectedWorkspaceId(client);
   if (!validWorkspaceId(current)) {
-    await openFixtureWorkspace(client, workflowTimeoutMs);
+    const opened = await client.evaluate(`(async () => {
+      const response = await window.setta?.workspace?.openLocalFolder?.();
+      return response?.session?.selectedWorkspaceId ?? "";
+    })()`);
+    if (!validWorkspaceId(opened)) {
+      throw new Error("fixture workspace did not open through preload IPC");
+    }
   }
-  return waitForState(client, workspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
+  return waitForState(client, selectedWorkspaceIdExpression(), validWorkspaceId, workflowTimeoutMs);
 }
 
-function workspaceIdExpression() {
-  return `(() => document.querySelector('[data-testid="workspace-layout-area"]')?.getAttribute("data-workspace-id") ?? "")()`;
+function selectedWorkspaceId(client) {
+  return client.evaluate(selectedWorkspaceIdExpression());
+}
+
+function selectedWorkspaceIdExpression() {
+  return `(async () => {
+    const session = await window.setta?.workspace?.session?.();
+    return session?.selectedWorkspaceId ?? "";
+  })()`;
 }
 
 function validWorkspaceId(workspaceId) {

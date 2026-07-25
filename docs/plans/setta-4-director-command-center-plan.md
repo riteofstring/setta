@@ -102,7 +102,19 @@ the mockup fidelity checklist in
 and the target performance matrix in
 [`docs/reports/performance/setta-4-target-performance-matrix-20260724.md`](../reports/performance/setta-4-target-performance-matrix-20260724.md).
 The only remaining Phase 0 action needs an interactive desktop session, not a
-repository edit. The Phase 4 production-shell cutover has not started.
+repository edit. The Phase 4 production-shell cutover has started: the primary
+renderer app now mounts the Director command-center shell instead of the pane
+workspace, drives the WebGL2 graph from the app-scoped Director snapshot and
+pushed event stream, exposes workstream navigation and a text Director composer
+through generated Director intents, and renders the Now, approval/resource, and
+artifact rails from generated Director contracts. Speech, structured approval
+answer collection, rich artifact detail opening, final mockup-fidelity work, and
+live integrated performance reporting remain Phase 4 work.
+Supply-chain release gate: `desktop/package.json` ignores `CVE-2026-14257`
+only because the first patched `brace-expansion` release, `5.0.8`, was published
+on 2026-07-23 and cannot satisfy the checked-in seven-day release-age policy
+until 2026-07-30. Remove that audit ignore and update the override once the
+patched release is eligible.
 
 ## Product Decision
 
@@ -1542,14 +1554,37 @@ Phase 3 audit verification:
 
 1. Replace the app shell with a production implementation of the mockup's fullscreen composition:
    selected workstream, semantic graph, rails, top workstream navigation, compact history, and
-   Director composer.
+   Director composer. **Initial production shell committed** —
+   `desktop/src/renderer/src/App.tsx` now mounts
+   `features/director-command-center/DirectorCommandCenterShell.tsx` as the primary product
+   surface instead of `WorkspaceLayoutArea`. The shell draws the top workstream navigation, left Now
+   rail, right approvals/resources/artifacts rail, bottom text composer, compact semantic-history
+   list, and fullscreen `DirectorGraphSurface` against the generated Director snapshot contract.
+   Phase 5 still owns deleting the old pane modules; they are no longer the primary app mount.
 2. Connect speech capture and playback through the same Director intents as text.
-3. Implement previous/next and direct workstream selection.
-4. Render approvals and resource requests as first-class actionable state.
-5. Render artifacts as typed outputs; open rich details in accessible DOM/native surfaces.
-6. Integrate the WebGL2 canvas through packed snapshots, not component-level node state.
+3. Implement previous/next and direct workstream selection. **Done for the initial shell** — the
+   top navigation dispatches `move_selection` for previous/next and `select_workstream` for direct
+   visible-workstream selection; no pane id crosses the renderer boundary.
+4. Render approvals and resource requests as first-class actionable state. **Partially done** — the
+   right rail renders generated `ApprovalRequest` and `ResourceRequest` records, dispatches
+   `resolve_approval` for approve/deny/cancel actions that do not require hidden question fields,
+   and dispatches `resolve_resource_request` against active workspace ids from the preload workspace
+   session. Structured approval answer collection remains because the app-scoped approval record
+   intentionally does not yet carry the question catalog needed to answer it.
+5. Render artifacts as typed outputs; open rich details in accessible DOM/native surfaces. **Partially
+   done** — typed artifact metadata is rendered in the rail from generated `WorkstreamArtifact`
+   records. Opening rich payload details remains, because the rail still needs a trusted
+   workstream-to-conversation/workspace resolution path before it can call the conversation artifact
+   reader.
+6. Integrate the WebGL2 canvas through packed snapshots, not component-level node state. **Done for
+   the initial shell** — the shell packs generated `WorkstreamGraph` snapshots through
+   `semantic-graph-packer.ts` and hands immutable packed snapshots to `DirectorGraphCanvas`; React
+   owns mount lifecycle and semantic-event state, not per-node frame state.
 7. Connect the live Director subscription to graph projection, packing, buffer updates, and frame
-   scheduling.
+   scheduling. **Done for the initial shell** —
+   `director-command-center-state.ts` applies the app-scoped pushed event catalog to the snapshot,
+   treats graph updates as semantic deltas, advances the durable cursor, and triggers a fresh
+   snapshot/subscription on `resync_required` or sequence drift.
 8. Reprofile all required live scenarios and record a second append-only report.
 
 Exit gate:
@@ -1651,7 +1686,9 @@ Setta 4 is complete when:
    Retiring the Master presentation intent in item 7 waits for Phase 4's shell cutover, and the
    remaining Master-to-Director renaming in item 2 should move with the code Phase 5 does not delete.
    Phase 3 has production-path Electron coverage that dispatches through the renderer preload,
-   main-process IPC, HTTP, and durable store. The user-visible fullscreen renderer surface that owns
-   those dispatches remains Phase 4 items 1 through 4.
+   main-process IPC, HTTP, and durable store. The initial user-visible fullscreen renderer surface
+   now owns those dispatches for text, selection, approval, resource, and graph updates; the remaining
+   shell work is speech parity, structured approval answer collection, rich artifact details,
+   fidelity polish, and integrated performance reporting.
 2. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.
