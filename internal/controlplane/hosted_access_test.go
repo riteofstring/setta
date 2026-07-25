@@ -73,6 +73,29 @@ func TestHostedAccessIntentRequiresActiveKnownUserAndBoundedCapabilities(t *test
 	}
 }
 
+func TestHostedAccessProgressRejectsInvalidOrAheadCursors(t *testing.T) {
+	ctx := context.Background()
+	store := openTestStore(t, t.TempDir(), time.Now, RateLimit{})
+	defer store.Close()
+	intent := testHostedAccessIntent()
+	if _, err := store.UpsertUser(ctx, intent.UserID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.EnsureHostedAccessIntent(ctx, intent); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := store.HostedAccessProgressAfter(ctx, intent.IdempotencyKey, "not-a-cursor"); err == nil {
+		t.Fatal("non-numeric hosted access cursor was accepted")
+	}
+	if _, _, err := store.HostedAccessProgressAfter(ctx, intent.IdempotencyKey, "2"); err == nil {
+		t.Fatal("cursor ahead of durable hosted access progress was accepted")
+	}
+	events, _, err := store.HostedAccessProgressAfter(ctx, intent.IdempotencyKey, "1")
+	if err != nil || len(events) != 0 {
+		t.Fatalf("current hosted access cursor = %+v, %v", events, err)
+	}
+}
+
 func TestHostedAccessCompletionPublishesReadyGrantAcrossRestart(t *testing.T) {
 	ctx := context.Background()
 	directory := t.TempDir()

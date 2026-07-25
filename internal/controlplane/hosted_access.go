@@ -259,14 +259,8 @@ ORDER BY cursor
 		return nil, fmt.Errorf("close hosted access progress events: %w", err)
 	}
 	if len(events) == 0 {
-		var count int
-		if err := querier.QueryRowContext(ctx, `
-SELECT COUNT(*) FROM hosted_access_intents WHERE intent_id = ?
-`, intentID).Scan(&count); err != nil {
-			return nil, fmt.Errorf("validate hosted access progress intent: %w", err)
-		}
-		if count != 1 {
-			return nil, ErrNotFound
+		if err := validateHostedAccessCursor(ctx, querier, intentID, afterCursor); err != nil {
+			return nil, err
 		}
 		return nil, nil
 	}
@@ -278,6 +272,31 @@ SELECT COUNT(*) FROM hosted_access_intents WHERE intent_id = ?
 		events[len(events)-1].AccessGrant = &grant
 	}
 	return events, nil
+}
+
+func validateHostedAccessCursor(
+	ctx context.Context,
+	querier hostedAccessProgressQuerier,
+	intentID string,
+	afterCursor int,
+) error {
+	var count int
+	var latestCursor int
+	if err := querier.QueryRowContext(ctx, `
+SELECT COUNT(DISTINCT i.intent_id), COALESCE(MAX(p.cursor), 0)
+FROM hosted_access_intents i
+LEFT JOIN hosted_access_progress p ON p.intent_id = i.intent_id
+WHERE i.intent_id = ?
+`, intentID).Scan(&count, &latestCursor); err != nil {
+		return fmt.Errorf("validate hosted access progress intent: %w", err)
+	}
+	if count != 1 {
+		return ErrNotFound
+	}
+	if afterCursor > latestCursor {
+		return errors.New("hosted access cursor is ahead of durable progress")
+	}
+	return nil
 }
 
 func (store *Store) hostedAccessUpdateLocked(intentID string) <-chan struct{} {
