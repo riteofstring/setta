@@ -50,6 +50,10 @@ const api: SettaAPI = {
       };
     },
   },
+  appLayout: {
+    readPaneLayout: () => invoke("appPaneLayoutRead"),
+    savePaneLayout: (layout) => invoke("appPaneLayoutSave", layout),
+  },
   runtimes: {
     addByPairingUrl: (pairingUrl) => invoke("runtimeAddByPairingUrl", pairingUrl),
     current: () => invoke("runtimeCurrent"),
@@ -68,6 +72,7 @@ const api: SettaAPI = {
   },
   conversations: {
     archive: (request) => invoke("conversationArchiveTopic", request),
+    bindFolder: (request) => invoke("conversationBindFolder", request),
     disposeSide: (request) => invoke("conversationDisposeSide", request),
     discardInput: (request) => invoke("conversationDiscardInput", request),
     create: (request) => invoke("conversationCreateTopic", request),
@@ -97,6 +102,7 @@ const api: SettaAPI = {
   master: {
     cancelInput: (request) => invoke("masterCancelInput", request),
     readActiveInteraction: () => invoke("masterReadActiveInteraction"),
+    readTranscript: (request) => invoke("masterReadTranscript", request),
     resolvePresentation: (request) => invoke("masterResolvePresentation", request),
     submitInput: (request) => invoke("masterSubmitInput", request),
     waitInteraction: (request) => invoke("masterWaitInteraction", request),

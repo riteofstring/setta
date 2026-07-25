@@ -143,7 +143,7 @@ describe("workspace layout store", () => {
     });
   });
 
-  test("close or clear turns the final Easy Button pane into an empty frame", () => {
+  test("close or clear turns the final conversation pane into an empty frame", () => {
     const store = createStore();
     for (const paneId of ["workspace_pane_0", "workspace_pane_1", "workspace_pane_3"]) {
       expect(store.focusPane(paneId)).toBe(true);
@@ -152,8 +152,8 @@ describe("workspace layout store", () => {
 
     expect(store.toScene().totalPanes).toBe(1);
     expect(store.toScene().paneById.get("workspace_pane_2")).toMatchObject({
-      easyButtonConfig: { conversationId: "conversation_layout_test" },
-      surfaceKind: "easy-button",
+      conversationConfig: { conversationId: "conversation_layout_test" },
+      surfaceKind: "conversation",
     });
 
     expect(store.closeFocusedPaneOrClearLastPane()).toBe("workspace_pane_2");
@@ -165,7 +165,7 @@ describe("workspace layout store", () => {
       surfaceKind: "empty-frame",
       title: "New frame",
     });
-    expect(clearedPane && "easyButtonConfig" in clearedPane).toBe(false);
+    expect(clearedPane && "conversationConfig" in clearedPane).toBe(false);
   });
 
   test("keeps snapshots stable until layout state changes", () => {
@@ -197,28 +197,28 @@ describe("workspace layout store", () => {
     );
   });
 
-  test("does not impose a pane limit on Easy Button conversations", () => {
+  test("does not impose a pane limit on conversation panes", () => {
     const store = createStore({ browser: 1 });
 
     for (let index = 0; index < 11; index += 1) {
       expect(
         store.canOpenPane({
-          easyButtonConfig: { conversationId: `conversation_${index}` },
-          surfaceKind: "easy-button",
+          conversationConfig: { conversationId: `conversation_${index}` },
+          surfaceKind: "conversation",
         }),
       ).toBe(true);
       store.openPane({
-        easyButtonConfig: { conversationId: `conversation_${index}` },
-        surfaceKind: "easy-button",
+        conversationConfig: { conversationId: `conversation_${index}` },
+        surfaceKind: "conversation",
         title: `Topic ${index}`,
       });
     }
 
-    expect(store.paneLimitState({ surfaceKind: "easy-button" })).toEqual({
+    expect(store.paneLimitState({ surfaceKind: "conversation" })).toEqual({
       allowed: true,
       count: 12,
       limit: null,
-      surfaceKind: "easy-button",
+      surfaceKind: "conversation",
     });
   });
 
@@ -363,37 +363,37 @@ describe("workspace layout store", () => {
     expect(configured?.surfaceId).not.toBe(before?.surfaceId);
   });
 
-  test("preserves an easy button binding only while the pane remains an easy button", () => {
+  test("preserves a conversation binding only while the pane remains a conversation pane", () => {
     const store = createStore();
-    const easyButtonConfig = { conversationId: "conversation-1" };
+    const conversationConfig = { conversationId: "conversation-1" };
     const paneId = store.openPane({
-      easyButtonConfig,
-      surfaceKind: "easy-button",
+      conversationConfig,
+      surfaceKind: "conversation",
       title: "Topic",
     });
 
     store.configurePane(paneId, { title: "Renamed topic" });
-    expect(store.toScene().paneById.get(paneId)?.easyButtonConfig).toEqual(easyButtonConfig);
+    expect(store.toScene().paneById.get(paneId)?.conversationConfig).toEqual(conversationConfig);
 
     store.configurePane(paneId, {
       surfaceKind: "browser",
       title: "Browser",
     });
-    expect(store.toScene().paneById.get(paneId)?.easyButtonConfig).toBeUndefined();
+    expect(store.toScene().paneById.get(paneId)?.conversationConfig).toBeUndefined();
   });
 
-  test("rejects duplicate easy button conversation bindings before layout mutation", () => {
+  test("rejects duplicate conversation pane bindings before layout mutation", () => {
     const store = createStore();
     const firstPaneId = store.openPane({
-      easyButtonConfig: { conversationId: "conversation-1" },
-      surfaceKind: "easy-button",
+      conversationConfig: { conversationId: "conversation-1" },
+      surfaceKind: "conversation",
       title: "Topic",
     });
     const emptyPaneId = store.openEmptyFrame();
     const before = store.toScene();
     const duplicateRequest = {
-      easyButtonConfig: { conversationId: "conversation-1" },
-      surfaceKind: "easy-button",
+      conversationConfig: { conversationId: "conversation-1" },
+      surfaceKind: "conversation",
       title: "Topic copy",
     } as const;
 
@@ -407,21 +407,21 @@ describe("workspace layout store", () => {
     expect(store.toScene()).toEqual(before);
   });
 
-  test("rejects invalid easy button bindings before pane creation mutates layout", () => {
+  test("rejects invalid conversation bindings before pane creation mutates layout", () => {
     const invalidRequests = [
-      { surfaceKind: "easy-button", title: "Missing binding" },
+      { surfaceKind: "conversation", title: "Missing binding" },
       {
-        easyButtonConfig: { conversationId: "" },
-        surfaceKind: "easy-button",
+        conversationConfig: { conversationId: "" },
+        surfaceKind: "conversation",
         title: "Empty binding",
       },
       {
-        easyButtonConfig: { conversationId: " conversation_1" },
-        surfaceKind: "easy-button",
+        conversationConfig: { conversationId: " conversation_1" },
+        surfaceKind: "conversation",
         title: "Whitespace binding",
       },
       {
-        easyButtonConfig: { conversationId: "conversation_1" },
+        conversationConfig: { conversationId: "conversation_1" },
         surfaceKind: "empty-frame",
       },
     ] as unknown as OpenPaneRequest[];
@@ -436,17 +436,17 @@ describe("workspace layout store", () => {
     expect(store.toScene().columns).toEqual(before.columns);
   });
 
-  test("rejects an invalid easy button configuration without replacing the pane", () => {
+  test("rejects an invalid conversation configuration without replacing the pane", () => {
     const store = createStore();
     const emptyPaneId = store.openEmptyFrame();
     const before = store.toScene().paneById.get(emptyPaneId);
     const invalidRequest = {
-      surfaceKind: "easy-button",
+      surfaceKind: "conversation",
       title: "Missing binding",
     } as unknown as OpenPaneRequest;
 
     expect(() => store.configurePane(emptyPaneId, invalidRequest)).toThrow(
-      "easy-button panes require an easyButtonConfig conversation binding",
+      "conversation panes require a conversationConfig conversation binding",
     );
     expect(store.toScene().paneById.get(emptyPaneId)).toEqual(before);
   });
@@ -1231,6 +1231,29 @@ describe("workspace layout store", () => {
     expect(store.getSnapshot()).toMatchObject({
       focusedColumnIndex: 2,
       focusedPaneId: "workspace_pane_2",
+      maximizedPaneId: "workspace_pane_1",
+    });
+  });
+
+  test("restores initial maximized pane state", () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {},
+    });
+    const { focusedPaneId, scene } = createLayoutStoreTestScene(
+      "setta:workspace-layout:store-test",
+    );
+    const store = new WorkspaceLayoutStore(
+      new WorkspaceLikeLayoutEngine(scene),
+      scene,
+      focusedPaneId,
+      {
+        initialMaximizedPaneId: "workspace_pane_1",
+      },
+    );
+
+    expect(store.getSnapshot()).toMatchObject({
+      focusedPaneId,
       maximizedPaneId: "workspace_pane_1",
     });
   });

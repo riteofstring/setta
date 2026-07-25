@@ -5,6 +5,7 @@ import type {
   CompletedGlobalSpeechTranscript,
   MasterInputSubmissionState,
 } from "../global-master/app-shell-master-controller";
+import { requestMasterPaneFocus } from "../../workspace-layout/master-pane-focus";
 import {
   type ConversationInputSubmissionState,
   GlobalSpeechConversationSubmissionController,
@@ -180,7 +181,7 @@ export class AppShellSpeechCaptureController {
   start = async (requestedCapture: SpeechCaptureRequest): Promise<void> => {
     this.assertUsable();
     const request = freezeSpeechCaptureRequest(requestedCapture);
-    openMasterOverlayForCapture(this.masterSubmission, request);
+    focusMasterPaneForCapture(request);
     if (this.captureRequestBlocked(request)) {
       return;
     }
@@ -659,12 +660,9 @@ export class AppShellSpeechCaptureController {
   }
 }
 
-function openMasterOverlayForCapture(
-  masterSubmission: AppShellMasterController,
-  request: SpeechCaptureRequest,
-): void {
+function focusMasterPaneForCapture(request: SpeechCaptureRequest): void {
   if (request.destination.type === "master") {
-    masterSubmission.openOverlay();
+    requestMasterPaneFocus("chrome");
   }
 }
 
