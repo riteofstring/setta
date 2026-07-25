@@ -76,6 +76,8 @@ func (executor *DecisionExecutor) ResolveResourceRequest(
 	ctx context.Context,
 	intent DirectorResolveResourceRequestIntent,
 ) error {
+	executor.resourceMutex.Lock()
+	defer executor.resourceMutex.Unlock()
 	if err := executor.available(ctx); err != nil {
 		return err
 	}

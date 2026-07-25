@@ -313,7 +313,7 @@ function assertNavigatorPageOwnership(page: NavigatorPage, workspaceId: string) 
       );
     }
     if (item.branch && item.branch.childConversationId !== item.conversation.id) {
-      throw new Error(`Conversation ${item.conversation.id} has mismatched fork lineage.`);
+      throw new Error(`Conversation ${item.conversation.id} has mismatched branch lineage.`);
     }
   }
 }

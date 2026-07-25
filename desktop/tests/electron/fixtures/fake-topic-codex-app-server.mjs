@@ -45,6 +45,7 @@ const heldTurns = new Map();
 const pendingApprovals = new Map();
 const pendingToolCalls = new Map();
 const crashAfterCompletedTurns = new Set();
+const failedDirectorInputs = new Set();
 const simultaneousCompletionInput = "complete simultaneous audio now";
 const pendingSimultaneousCompletions = [];
 const heldStructuredKeys = new Set(persistedState.heldStructuredKeys);
@@ -527,12 +528,103 @@ function emitKnownStructuredTurn(threadId, turnId, context, outputSchema) {
 
 const structuredTurnEmitters = {
   checkpoint: emitStructuredCheckpoint,
+  director_decision: emitStructuredDirectorDecision,
   focus: emitStructuredFocus,
   input_route: emitStructuredInputRoute,
   master_route: emitStructuredMasterRoute,
   projection: emitStructuredProjection,
   status: emitStructuredStatus,
 };
+
+function emitStructuredDirectorDecision(threadId, turnId, context, outputSchema) {
+  const decision = scriptedDirectorDecision(context, outputSchema);
+  if (decision === null) {
+    completeTurn(threadId, turnId, "failed", "director decision context or schema drifted");
+    return true;
+  }
+  emitAgentMessage(threadId, turnId, JSON.stringify({ decision }));
+  completeTurn(threadId, turnId, "completed");
+  return true;
+}
+
+function scriptedDirectorDecision(context, outputSchema) {
+  const text = context.intent?.text;
+  const schema = JSON.stringify(outputSchema);
+  const serialized = JSON.stringify(context);
+  if (
+    !Array.isArray(context.allowedDecisionKinds) ||
+    serialized.includes('"rootPath"') ||
+    !schema.includes('"decision"')
+  ) {
+    return null;
+  }
+  if (text === "Director repair malformed." && context.validationDiagnostic === null) {
+    return { kind: "not_a_director_decision" };
+  }
+  if (text === "Director repair malformed.") {
+    return context.validationDiagnostic && context.allowedDecisionKinds.includes("answer_directly")
+      ? { kind: "answer_directly", text: "The malformed decision was repaired." }
+      : null;
+  }
+  if (text === "Director create folderless.") {
+    return context.allowedDecisionKinds.includes("create_workstream")
+      ? {
+          initialInput: "director folderless first work",
+          kind: "create_workstream",
+          origin: {
+            kind: "root",
+            root: { resourceScope: { kind: "folderless" } },
+          },
+          proposedTitle: "Director root",
+        }
+      : null;
+  }
+  const selected = context.workstreams?.find(
+    (target) => target.workstreamId === context.selectedWorkstreamId,
+  );
+  if (text === "Director create child.") {
+    return selected?.allowsChildWorkstream &&
+      context.allowedDecisionKinds.includes("create_workstream")
+      ? {
+          initialInput: "director child work",
+          kind: "create_workstream",
+          origin: {
+            child: { parentWorkstreamId: selected.workstreamId },
+            kind: "child",
+          },
+          proposedTitle: "Director child",
+        }
+      : null;
+  }
+  const workDecisions = new Map([
+    ["Director send hold.", ["send_to_workstream", "director hold"]],
+    ["Director queue next.", ["queue_behind_run", "director queued"]],
+    ["Director steer now.", ["steer_run", "finish director hold"]],
+    ["Director send cancel hold.", ["send_to_workstream", "director hold cancel"]],
+    ["Director request approval.", ["send_to_workstream", "director approval"]],
+    ["Director fail.", ["send_to_workstream", "director fail"]],
+    ["Director artifact.", ["send_to_workstream", "director artifact"]],
+  ]);
+  const workDecision = workDecisions.get(text);
+  if (workDecision) {
+    const [kind, authoredInput] = workDecision;
+    return selected?.allowedDecisionKinds?.includes(kind)
+      ? { authoredInput, kind, workstreamId: selected.workstreamId }
+      : null;
+  }
+  if (text === "Director recover.") {
+    const failure = selected?.recoverableFailures?.[0];
+    return selected?.allowedDecisionKinds?.includes("recover_path") &&
+      nonEmptyString(failure?.failureEventId)
+      ? {
+          failureEventId: failure.failureEventId,
+          kind: "recover_path",
+          workstreamId: selected.workstreamId,
+        }
+      : null;
+  }
+  return null;
+}
 
 function emitStructuredStatus(threadId, turnId, context) {
   if (context.trigger !== "explicit_status_requested") {
@@ -1022,7 +1114,15 @@ function emitTurnScenario(threadId, turnId, text) {
     return;
   }
   emitLegacyArtifactIfRequested(threadId, turnId, text);
+  if (text === "director fail" && failedDirectorInputs.has(text)) {
+    emitAgentMessage(threadId, turnId, "Recovered director fail.");
+    completeTurn(threadId, turnId, "completed");
+    return;
+  }
   if (text.includes("fail")) {
+    if (text === "director fail") {
+      failedDirectorInputs.add(text);
+    }
     completeTurn(threadId, turnId, "failed", "Scripted topic failure");
     return;
   }

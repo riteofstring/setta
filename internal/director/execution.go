@@ -19,9 +19,9 @@ import (
 // and no provider id, thread, credential, lease, or execution detail appears in
 // either direction.
 //
-// Ids are supplied rather than returned, so a decision and the effect it
-// authorizes address the same run across a crash: replaying the decision
-// addresses the run it already named instead of minting a second one.
+// Ids are supplied rather than returned so the Director keeps authority over
+// Setta identity. Run ids are minted immediately before the execution call;
+// provider identities never cross this boundary.
 //
 // A managed runtime adapter satisfies exactly this contract. That is the point
 // of stating it here rather than depending on the conversation service: the

@@ -247,10 +247,10 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	if err != nil {
 		return runtimeServices{}, err
 	}
-	closeConversationStoreOnFailure := true
+	closeBaseServicesOnFailure := true
 	defer func() {
-		if closeConversationStoreOnFailure {
-			_ = baseServices.conversationStore.Close()
+		if closeBaseServicesOnFailure {
+			shutdownRuntimeBaseServices(baseServices, config.ShutdownTimeout)
 		}
 	}()
 	codexAccountService, err := codexaccount.NewService(baseServices.codexManager)
@@ -259,7 +259,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 	}
 
 	closeAuthOnFailure = false
-	closeConversationStoreOnFailure = false
+	closeBaseServicesOnFailure = false
 	return runtimeServices{
 		appearanceService:        baseServices.appearanceService,
 		appPaneLayoutService:     baseServices.appPaneLayoutService,
@@ -323,6 +323,7 @@ func newRuntimeAuthBootstrap(config Config) (runtimeAuthBootstrap, error) {
 func closeRuntimeServicesAfterReadyFailure(config Config, server *Server) {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
 	defer cancel()
+	_ = server.shutdownConversationTurns(shutdownCtx)
 	_ = server.shutdownNarration(shutdownCtx)
 	_ = server.shutdownMasterRouting(shutdownCtx)
 	_ = server.shutdownSpeech(shutdownCtx)

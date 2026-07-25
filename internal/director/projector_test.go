@@ -71,12 +71,16 @@ func TestReplayIsDeterministicAcrossEveryPrefixBoundary(t *testing.T) {
 }
 
 func TestActivityAndRerouteLabelsUseTypedPublicVocabulary(t *testing.T) {
-	projection := projectFixture(t, fixtureByName(t, "failure_and_recovery"))
+	fixture := fixtureByName(t, "failure_and_recovery")
+	projection := projectFixture(t, fixture)
 	graph, err := projection.Graph("ws-epsilon", WorkstreamDetailSelected)
 	if err != nil {
 		t.Fatalf("graph: %v", err)
 	}
-	activityID, err := SemanticNodeID(SemanticNodeIdentityActivity, "activity-epsilon-1")
+	activityID, err := SemanticNodeID(
+		SemanticNodeIdentityActivity,
+		firstTrajectoryEventID(t, fixture, conversation.TrajectoryEventActivityStarted),
+	)
 	if err != nil {
 		t.Fatalf("activity node id: %v", err)
 	}
@@ -494,6 +498,76 @@ func TestRunCannotCommitTwoTerminalFacts(t *testing.T) {
 	}
 }
 
+func TestUserInterruptionRequestPrecedesProviderTerminalFact(t *testing.T) {
+	builder := fixtureBuilder{}
+	builder.register("ws-interruption", "conv-interruption", "Interrupt safely", folderlessScope())
+	builder.acceptInput("conv-interruption", "turn-interruption", "Hold until cancelled")
+	builder.startTurn("conv-interruption", "turn-interruption")
+	builder.trajectory(
+		"conv-interruption",
+		stringPointer("turn-interruption"),
+		conversation.TrajectoryEventTurnInterrupted,
+		conversation.TrajectoryActorUser,
+		func(event *conversation.TrajectoryEvent) {
+			event.TurnInterrupted = &conversation.TrajectoryTurnInterrupted{
+				Reason: conversation.TurnInterruptionUserRequested,
+			}
+		},
+	)
+	requestIndex := len(builder.events) - 1
+	builder.trajectory(
+		"conv-interruption",
+		stringPointer("turn-interruption"),
+		conversation.TrajectoryEventTurnInterrupted,
+		conversation.TrajectoryActorProvider,
+		func(event *conversation.TrajectoryEvent) {
+			event.TurnInterrupted = &conversation.TrajectoryTurnInterrupted{
+				Reason: conversation.TurnInterruptionProviderInterrupted,
+			}
+		},
+	)
+
+	projector := NewDirectorGraphProjector()
+	for _, event := range builder.events[:requestIndex+1] {
+		if err := projector.Apply(event); err != nil {
+			t.Fatalf("apply through interruption request: %v", err)
+		}
+	}
+	beforeTerminal, err := projector.Projection().Graph("ws-interruption", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("graph before provider terminal: %v", err)
+	}
+	runID, err := SemanticNodeID(SemanticNodeIdentityRun, "turn-interruption")
+	if err != nil {
+		t.Fatalf("run node id: %v", err)
+	}
+	run, found := nodeByID(beforeTerminal, runID)
+	if !found || run.Status != SemanticNodeStatusActive {
+		t.Fatalf("interruption request changed the active run: %+v", run)
+	}
+	terminalID, err := SemanticNodeID(SemanticNodeIdentityRunTerminal, "turn-interruption")
+	if err != nil {
+		t.Fatalf("terminal node id: %v", err)
+	}
+	if _, found := nodeByID(beforeTerminal, terminalID); found {
+		t.Fatal("the user's interruption request projected a terminal fact")
+	}
+
+	if err := projector.Apply(builder.events[len(builder.events)-1]); err != nil {
+		t.Fatalf("apply provider terminal after interruption request: %v", err)
+	}
+	afterTerminal, err := projector.Projection().Graph("ws-interruption", WorkstreamDetailSelected)
+	if err != nil {
+		t.Fatalf("graph after provider terminal: %v", err)
+	}
+	terminal, found := nodeByID(afterTerminal, terminalID)
+	if !found ||
+		terminal.Status != SemanticNodeStatusCancelled ||
+		terminal.Actor != SemanticActorProvider {
+		t.Fatalf("provider interruption terminal = %+v", terminal)
+	}
+}
+
 func TestTerminalRunRejectsFurtherWorkFacts(t *testing.T) {
 	builder := fixtureBuilder{}
 	builder.register("ws-terminal", "conv-terminal", "Terminal run", folderlessScope())
@@ -756,10 +830,21 @@ func TestSupersededPlanStepsLeaveTheLiveWindow(t *testing.T) {
 }
 
 func TestDelegationCrossesOnlyIntoAChildWorkstream(t *testing.T) {
-	projection := projectFixture(t, fixtureByName(t, "delegation"))
+	fixture := fixtureByName(t, "delegation")
+	projection := projectFixture(t, fixture)
 	graph, err := projection.Graph("ws-parent", WorkstreamDetailSelected)
 	if err != nil {
 		t.Fatalf("graph: %v", err)
+	}
+	subagentNodeID, err := SemanticNodeID(
+		SemanticNodeIdentitySubagent,
+		firstTrajectoryEventID(t, fixture, conversation.TrajectoryEventSubagentStarted),
+	)
+	if err != nil {
+		t.Fatalf("subagent node id: %v", err)
+	}
+	if _, found := nodeByID(graph, subagentNodeID); !found {
+		t.Fatalf("provider-backed subagent has no Setta event identity %q", subagentNodeID)
 	}
 	crossings := 0
 	for _, edge := range graph.Edges {
@@ -972,7 +1057,7 @@ func TestMilestoneKeepsBackgroundWorkstreamsActionable(t *testing.T) {
 		summary      string
 	}{
 		"resource_request":         {"ws-zeta", SemanticNodeCompleted, completedRunSummary},
-		"blocked_and_cancelled":    {"ws-theta", SemanticNodeCancelled, "Run cancelled (user_requested)"},
+		"blocked_and_cancelled":    {"ws-theta", SemanticNodeCancelled, "Run cancelled (provider_interrupted)"},
 		"failure_and_recovery":     {"ws-epsilon", SemanticNodeCompleted, completedRunSummary},
 		"approval_and_file_change": {"ws-gamma", SemanticNodeCompleted, completedRunSummary},
 	}
@@ -1095,7 +1180,10 @@ func TestProviderValidationIsVisibleOnlyOnceItHasAVerdict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("graph: %v", err)
 	}
-	validationNodeID, err := SemanticNodeID(SemanticNodeIdentityValidation, "review-gamma-1")
+	validationNodeID, err := SemanticNodeID(
+		SemanticNodeIdentityValidation,
+		firstTrajectoryEventID(t, fixture, conversation.TrajectoryEventValidationRecorded),
+	)
 	if err != nil {
 		t.Fatalf("validation node id: %v", err)
 	}
@@ -1106,7 +1194,10 @@ func TestProviderValidationIsVisibleOnlyOnceItHasAVerdict(t *testing.T) {
 	if node.Kind != SemanticNodeValidation || node.Status != SemanticNodeStatusFailed {
 		t.Fatalf("validation node = %s/%s, want %s/%s", node.Kind, node.Status, SemanticNodeValidation, SemanticNodeStatusFailed)
 	}
-	fileChangeNodeID, err := SemanticNodeID(SemanticNodeIdentityFileChange, "item-gamma-1")
+	fileChangeNodeID, err := SemanticNodeID(
+		SemanticNodeIdentityFileChange,
+		firstTrajectoryEventID(t, fixture, conversation.TrajectoryEventFileChangeProposed),
+	)
 	if err != nil {
 		t.Fatalf("file change node id: %v", err)
 	}
@@ -1286,12 +1377,16 @@ func TestRecoveryRejectsAResolvedBlock(t *testing.T) {
 }
 
 func TestSupersededApprovalEndsWithoutAUserDecision(t *testing.T) {
-	projection := projectFixture(t, fixtureByName(t, "blocked_and_cancelled"))
+	fixture := fixtureByName(t, "blocked_and_cancelled")
+	projection := projectFixture(t, fixture)
 	graph, err := projection.Graph("ws-theta", WorkstreamDetailSelected)
 	if err != nil {
 		t.Fatalf("graph: %v", err)
 	}
-	nodeID, err := SemanticNodeID(SemanticNodeIdentityApproval, "approval-theta-1")
+	nodeID, err := SemanticNodeID(
+		SemanticNodeIdentityApproval,
+		firstTrajectoryEventID(t, fixture, conversation.TrajectoryEventApprovalRequested),
+	)
 	if err != nil {
 		t.Fatalf("approval node id: %v", err)
 	}
@@ -1311,6 +1406,21 @@ func nodeByID(graph WorkstreamGraph, nodeID string) (SemanticNode, bool) {
 		}
 	}
 	return SemanticNode{}, false
+}
+
+func firstTrajectoryEventID(
+	t *testing.T,
+	fixture ProjectionFixture,
+	kind conversation.TrajectoryEventKind,
+) string {
+	t.Helper()
+	for _, event := range fixture.Events {
+		if event.Trajectory != nil && event.Trajectory.Kind == kind {
+			return event.Trajectory.ID
+		}
+	}
+	t.Fatalf("fixture %s has no %s trajectory event", fixture.Name, kind)
+	return ""
 }
 
 func containsString(values []string, target string) bool {

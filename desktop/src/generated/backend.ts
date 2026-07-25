@@ -18,8 +18,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 86;
-export const backendContractSchemaHash = "sha256:3faa49c32d48592ebbef4c040963e72dfdfc2cba3878662cdafdcc3417922843";
+export const backendProtocolVersion = 87;
+export const backendContractSchemaHash = "sha256:2d9ee171f7cf3baace556cf6e958354f2539e33b6f6747dade0a77bfa4c05860";
 
 export const workspaceUILayoutSchemaVersion = 1;
 
@@ -3685,7 +3685,6 @@ export interface Workstream {
   title: string;
   status: WorkstreamStatus;
   parentId: string | null;
-  conversationId: string;
   resourceScope: WorkstreamResourceScope;
   resourceBindings: WorkstreamResourceBinding[];
   activeRunId: string | null;
@@ -7506,13 +7505,12 @@ export function decodeWorkstreamMilestone(value: unknown): WorkstreamMilestone {
 
 export function decodeWorkstream(value: unknown): Workstream {
   const record = assertRecord(value, "Workstream");
-  assertKnownFields(record, "Workstream", ["id", "title", "status", "parentId", "conversationId", "resourceScope", "resourceBindings", "activeRunId", "queuedRunCount", "unresolvedApprovalCount", "unresolvedResourceRequestCount", "artifactCount", "lastMilestone", "createdAt", "updatedAt"]);
+  assertKnownFields(record, "Workstream", ["id", "title", "status", "parentId", "resourceScope", "resourceBindings", "activeRunId", "queuedRunCount", "unresolvedApprovalCount", "unresolvedResourceRequestCount", "artifactCount", "lastMilestone", "createdAt", "updatedAt"]);
   return {
     id: decodeString(requireField(record, "id", "Workstream"), "Workstream.id"),
     title: decodeString(requireField(record, "title", "Workstream"), "Workstream.title"),
     status: decodeWorkstreamStatus(requireField(record, "status", "Workstream"), "Workstream.status"),
     parentId: decodeNullable(requireField(record, "parentId", "Workstream"), "Workstream.parentId", (item) => decodeString(item, "Workstream.parentId")),
-    conversationId: decodeString(requireField(record, "conversationId", "Workstream"), "Workstream.conversationId"),
     resourceScope: decodeWorkstreamResourceScope(requireField(record, "resourceScope", "Workstream")),
     resourceBindings: decodeArray(requireField(record, "resourceBindings", "Workstream"), "Workstream.resourceBindings", (item) => decodeWorkstreamResourceBinding(item)),
     activeRunId: decodeNullable(requireField(record, "activeRunId", "Workstream"), "Workstream.activeRunId", (item) => decodeString(item, "Workstream.activeRunId")),

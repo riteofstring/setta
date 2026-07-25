@@ -41,6 +41,7 @@ button {
 }
 
 .director-graph-gallery-heading {
+  margin: 0;
   padding-inline: 4px;
   color: oklch(0.94 0.04 210);
   font-size: 0.78rem;
@@ -61,7 +62,7 @@ button {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  min-block-size: 38px;
+  min-block-size: 44px;
   padding: 8px 10px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -93,8 +94,13 @@ button {
 }
 
 .director-graph-gallery-tab:focus-visible {
-  outline: 2px solid rgb(125 211 252 / 0.9);
+  outline: 2px solid currentcolor;
   outline-offset: 2px;
+}
+
+.director-graph-gallery-stage:focus-visible {
+  outline: 2px solid currentcolor;
+  outline-offset: -3px;
 }
 
 .director-graph-gallery-stage {

@@ -37,9 +37,9 @@ import {
   narratorDegradationMessage,
 } from "./easy-button-narrator-status";
 import {
-  EasyButtonForkLineageBanner,
-  forkLineage,
-  type EasyButtonForkLineage,
+  conversationLineage,
+  EasyButtonLineageBanner,
+  type EasyButtonLineage,
 } from "./easy-button-lineage";
 import {
   acceptedInputIntentSlot,
@@ -74,7 +74,7 @@ export interface EasyButtonProjectionView {
   focusStatus: EasyButtonFocusStatus;
   helperCopy: string;
   intentSlot: EasyButtonIntentSlot;
-  lineage: EasyButtonForkLineage | null;
+  lineage: EasyButtonLineage | null;
   milestones: EasyButtonMilestone[];
   narratorDegradation: string | null;
   paletteId: ConversationPaletteID | null;
@@ -234,7 +234,7 @@ function EasyButtonProjectionContent({
       <main className="easy-button-stage">
         <div className="easy-button-center">
           {view.lineage ? (
-            <EasyButtonForkLineageBanner commands={commands} lineage={view.lineage} />
+            <EasyButtonLineageBanner commands={commands} lineage={view.lineage} />
           ) : null}
           <div className="easy-button-agent-chip-slot">
             <AgentChip activeAgentCount={view.activeAgentCount} viewState={view.viewState} />
@@ -475,7 +475,7 @@ function projectConversationSnapshot(
     focusStatus,
     helperCopy: conversationHelperCopy(snapshot.conversation, latestTurn, projectionStatus),
     intentSlot: conversationIntentSlot(snapshot, focusStatus),
-    lineage: forkLineage(snapshot.branch, parentTitle),
+    lineage: conversationLineage(snapshot.branch, parentTitle),
     milestones: milestoneViews(snapshot.narration.events, snapshot.turns.turns),
     narratorDegradation: narratorDegradationMessage(snapshot.narratorState),
     paletteId: snapshot.presentationProfile.resolvedPaletteId,

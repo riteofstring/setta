@@ -12,9 +12,10 @@ usage() {
   cat <<'EOF'
 Usage: ./scripts/test_topic_conversation_workflows.sh [--skip-build] [--visible] [--deterministic-only] [--live-only] [--keep-artifacts]
 
-Build and run the topic-conversation workflow gate:
-  - hidden deterministic Electron topic-conversation workflow with temp app data
-  - complete live Codex agent, side/fork, and production topic-conversation matrix
+Build and run the conversation and Director workflow gate:
+  - deterministic Director/conversation contract suites
+  - hidden deterministic Electron workflows with temp app data
+  - complete live Codex agent, side/fork, topic-conversation, and Director matrix
     when Codex ChatGPT auth is available
 EOF
 }
@@ -101,6 +102,28 @@ if [[ "${keep_artifacts}" -eq 1 ]]; then
 fi
 
 if [[ "${run_deterministic}" -eq 1 ]]; then
+  echo "Deterministic Director and conversation Go contract suite..."
+  if (
+    cd "${repo_root}" &&
+      "${repo_root}/scripts/go.sh" test \
+        ./internal/director \
+        ./internal/conversation \
+        ./internal/httpapi \
+        ./internal/runtime \
+        -count=1
+  ); then
+    passed_workflows+=("deterministic-go-contracts")
+  else
+    status=1
+  fi
+
+  echo "Deterministic desktop contract suite..."
+  if pnpm -C "${repo_root}/desktop" test; then
+    passed_workflows+=("deterministic-desktop-contracts")
+  else
+    status=1
+  fi
+
   echo "Deterministic Electron topic-conversation workflow..."
   if run_electron_node "${repo_root}/desktop/tests/electron/run-workflows.mjs" \
     --workflow topic-conversation-pane-projection \
@@ -110,7 +133,8 @@ if [[ "${run_deterministic}" -eq 1 ]]; then
     --workflow topic-conversation-presentation-configuration \
     --workflow topic-conversation-palette-identity \
     --workflow topic-conversation-crash-recovery \
-    --workflow topic-conversation-speech-arbitration; then
+    --workflow topic-conversation-speech-arbitration \
+    --workflow director-command-center; then
     passed_workflows+=("deterministic-electron")
   else
     status=1
@@ -131,6 +155,10 @@ if [[ "${run_live}" -eq 1 ]]; then
       "topic-conversation" \
       "./internal/runtime" \
       '^TestBackendTopicConversation(Workflow|ControlsAndRestart|Artifact)WithLiveCodex$'
+    run_live_go_test \
+      "director-command-center" \
+      "./internal/runtime" \
+      '^TestBackendDirectorCommandCenterWithLiveCodex$'
   else
     live_skip_reason="${live_skip_reason:-Codex ChatGPT auth is unavailable}"
     skipped_workflows+=("live-codex-matrix (${live_skip_reason})")

@@ -77,6 +77,20 @@ func (branch ConversationBranch) Validate() error {
 	if err := validateStringMap("branch provider metadata", branch.ProviderMetadata); err != nil {
 		return err
 	}
+	if branch.Kind == BranchKindChild {
+		if branch.DecisionSource != BranchDecisionSourceDirector {
+			return fmt.Errorf(
+				"child branch %s must be a Director delegation",
+				branch.ChildConversationID,
+			)
+		}
+		if len(branch.ProviderMetadata) != 0 {
+			return fmt.Errorf(
+				"child branch %s must not carry provider metadata",
+				branch.ChildConversationID,
+			)
+		}
+	}
 	_, err := validateTimestamp("branch createdAt", branch.CreatedAt)
 	return err
 }

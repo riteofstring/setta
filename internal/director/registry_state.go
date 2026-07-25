@@ -110,6 +110,8 @@ func newRegistryWorkstream(record Workstream, conversationID string) *registryWo
 // the row could say.
 func (workstream *registryWorkstream) deriveStatus() WorkstreamStatus {
 	switch {
+	case workstream.archived:
+		return WorkstreamStatusArchived
 	case len(workstream.unresolvedResources) > 0:
 		return WorkstreamStatusAwaitingResource
 	case len(workstream.unresolvedApprovals) > 0 && workstream.activeRunID != nil:
@@ -120,8 +122,6 @@ func (workstream *registryWorkstream) deriveStatus() WorkstreamStatus {
 		return WorkstreamStatusRunning
 	case workstream.queuedRunCount > 0:
 		return WorkstreamStatusQueued
-	case workstream.archived:
-		return WorkstreamStatusArchived
 	case workstream.lastTerminalRun == conversation.TurnStatusFailed:
 		return WorkstreamStatusFailed
 	case workstream.lastTerminalRun == conversation.TurnStatusCompleted:
@@ -160,23 +160,29 @@ func (state *registryState) refreshWorkstream(workstream *registryWorkstream, at
 // registerWorkstreamRecord admits a conversation to the registry. Conversation
 // identity is the execution substrate; the workstream id is the app-scoped
 // identity the renderer receives.
-func (state *registryState) registerWorkstreamRecord(record Workstream) (*registryWorkstream, error) {
+func (state *registryState) registerWorkstreamRecord(
+	record Workstream,
+	conversationID string,
+) (*registryWorkstream, error) {
+	if err := validateIdentifier("workstream conversation id", conversationID); err != nil {
+		return nil, err
+	}
 	if _, exists := state.workstreams[record.ID]; exists {
 		return nil, fmt.Errorf("workstream %s is already registered", record.ID)
 	}
-	if owner, bound := state.byConversation[record.ConversationID]; bound {
+	if owner, bound := state.byConversation[conversationID]; bound {
 		return nil, fmt.Errorf(
 			"conversation %s already belongs to workstream %s",
-			record.ConversationID,
+			conversationID,
 			owner,
 		)
 	}
 	if err := ValidateWorkstream(record); err != nil {
 		return nil, err
 	}
-	workstream := newRegistryWorkstream(record, record.ConversationID)
+	workstream := newRegistryWorkstream(record, conversationID)
 	state.workstreams[record.ID] = workstream
-	state.byConversation[record.ConversationID] = record.ID
+	state.byConversation[conversationID] = record.ID
 	state.order = append(state.order, record.ID)
 	state.aggregates.WorkstreamCount++
 	state.applyAggregateDelta(record, 1)

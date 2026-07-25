@@ -87,6 +87,14 @@ func (state *registryState) resolveApproval(
 	if !exists {
 		return nil, fmt.Errorf("approval %s resolved before it was requested", resolution.ApprovalID)
 	}
+	if record.WorkstreamID != workstream.record.ID {
+		return nil, fmt.Errorf(
+			"approval %s belongs to workstream %s, not %s",
+			resolution.ApprovalID,
+			record.WorkstreamID,
+			workstream.record.ID,
+		)
+	}
 	status, err := ApprovalStatusForDecision(resolution.Decision)
 	if err != nil {
 		return nil, err
@@ -118,6 +126,15 @@ func (state *registryState) declareArtifact(
 	}
 	emitted := event.ArtifactEmitted
 	if record, exists := state.artifacts[emitted.ArtifactID]; exists {
+		if record.WorkstreamID != workstream.record.ID ||
+			!equalOptionalString(record.RunID, event.TurnID) ||
+			record.Kind != emitted.Kind ||
+			record.Title != emitted.Title {
+			return nil, fmt.Errorf(
+				"artifact %s was declared with conflicting ownership or identity",
+				emitted.ArtifactID,
+			)
+		}
 		next := *record
 		next.SourceEventIDs = appendUniqueStrings(record.SourceEventIDs, event.ID)
 		next.UpdatedAt = laterTimestamp(record.UpdatedAt, event.EmittedAt)
@@ -169,6 +186,14 @@ func (state *registryState) applyArtifactCreated(event conversation.CommittedEve
 			CreatedAt:    metadata.CreatedAt,
 			UpdatedAt:    metadata.CreatedAt,
 		}
+	} else if record.WorkstreamID != workstream.record.ID ||
+		!equalOptionalString(record.RunID, metadata.TurnID) ||
+		record.Kind != metadata.Kind ||
+		record.Title != metadata.Title {
+		return nil, fmt.Errorf(
+			"artifact %s was created with conflicting ownership or identity",
+			metadata.ID,
+		)
 	}
 	next := *record
 	next.Status = ArtifactStatusAvailable
@@ -295,11 +320,32 @@ func (state *registryState) bindWorkstreamResource(
 	if binding.Kind != WorkstreamResourceKindFolder {
 		return nil, fmt.Errorf("director fact %s binds an unknown resource kind %q", fact.ID, binding.Kind)
 	}
+	folder := *binding.Folder
+	switch workstream.record.ResourceScope.Kind {
+	case WorkstreamResourceScopeFolderless:
+	case WorkstreamResourceScopeFolder:
+		if workstream.record.ResourceScope.Folder == nil ||
+			*workstream.record.ResourceScope.Folder != folder {
+			return nil, fmt.Errorf(
+				"workstream %s is already bound to a different folder resource",
+				workstream.record.ID,
+			)
+		}
+	default:
+		return nil, fmt.Errorf(
+			"workstream %s has unknown resource scope %q",
+			workstream.record.ID,
+			workstream.record.ResourceScope.Kind,
+		)
+	}
 	workstream.record.ResourceScope = WorkstreamResourceScope{
 		Kind:   WorkstreamResourceScopeFolder,
-		Folder: binding.Folder,
+		Folder: &folder,
 	}
-	workstream.record.ResourceBindings = append(workstream.record.ResourceBindings, binding)
+	workstream.record.ResourceBindings = []WorkstreamResourceBinding{{
+		Kind:   WorkstreamResourceKindFolder,
+		Folder: &folder,
+	}}
 	return nil, nil
 }
 
@@ -338,6 +384,14 @@ func (state *registryState) resolveResourceRequest(
 	record, exists := state.resources[payload.RequestID]
 	if !exists {
 		return nil, fmt.Errorf("resource request %s resolved before it was opened", payload.RequestID)
+	}
+	if record.WorkstreamID != workstream.record.ID {
+		return nil, fmt.Errorf(
+			"resource request %s belongs to workstream %s, not %s",
+			payload.RequestID,
+			record.WorkstreamID,
+			workstream.record.ID,
+		)
 	}
 	if err := resourceRequestLifecycle.validateTransition(record.Status, payload.Status); err != nil {
 		return nil, err

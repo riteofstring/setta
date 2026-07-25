@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-24
 **Status:** Approved direction; Phase 0 repository work and Phases 1 and 2 are
-complete, and the shared Phase 1/2 audit boundary is closed. Phase 3 has started:
+complete, the shared Phase 1/2 audit boundary is closed, and Phase 3 is complete:
 the Director decision protocol and its strict trusted-target validation are
 committed in `internal/director/decision_*.go` (items 1 and 9), so the Master
 route decision catalog now has a Director-language replacement with no pane
@@ -19,8 +19,9 @@ decision half of item 3 is committed in `registry_decisions.go` and
 the same durable fold the command center renders, and the router turns one
 submitted intent into one authorized decision, repairing invalid model output
 through the typed ladder instead of surfacing it. The router deliberately does
-not commit the decision, because a decision fact and the work it describes
-belong in one durable transaction. Item 3's dispatch surface is committed in
+not commit the decision; the executor commits it before execution, because the
+work it authorizes spans additional durable writes and a provider launch and
+cannot share the decision transaction. Item 3's dispatch surface is committed in
 `internal/director/command_center.go`, `internal/httpapi/director_handlers.go`,
 and `desktop/src/main/director-*.ts`: `DirectorCommandCenter` is the one boundary
 the shell talks to, three endpoints carry it, and the desktop forwards the
@@ -101,7 +102,7 @@ the mockup fidelity checklist in
 and the target performance matrix in
 [`docs/reports/performance/setta-4-target-performance-matrix-20260724.md`](../reports/performance/setta-4-target-performance-matrix-20260724.md).
 The only remaining Phase 0 action needs an interactive desktop session, not a
-repository edit. No source cutover work has started.
+repository edit. The Phase 4 production-shell cutover has not started.
 
 ## Product Decision
 
@@ -503,7 +504,7 @@ must be added as typed events or records; do not fill gaps by parsing text.
 | `artifact_emitted` | `artifact` | Connect from the producing run/action with a `produced` edge. The event carries the artifact's kind and title, so a node never has to resolve a second record — or invent a label — to say what was produced. |
 | `agent_liveness_changed`, `provider_lifecycle_changed` | `blocked`, `recovery`, or status update | Only typed lost/unavailable/reconciling/retryable states become visible nodes. Ready/attached states update metadata. |
 | `model_rerouted` | `recovery` or `milestone` | Use the typed reroute reason/status; do not infer risk from surrounding text. |
-| `turn_completed`, `turn_failed`, `turn_interrupted` | `completed`, `failed`, or `cancelled` | Terminal run state closes the visible causal chain for that run. |
+| `turn_completed`, `turn_failed`, provider/system `turn_interrupted` | `completed`, `failed`, or `cancelled` | Terminal run state closes the visible causal chain for that run. A user `turn_interrupted` is the accepted control request and remains metadata until the terminal fact arrives. |
 | `public_reasoning_summary_updated`, `agent_message_completed` | public summaries and detail surfaces | These update accessible text and summaries; they do not create nodes by default. |
 | Normalized Codex `thread/status/changed`, environment connection notifications, and environment status reads | workstream or provider lifecycle status, `blocked`, or `recovery` | Ready, pending, and attached states update metadata. Disconnected, unknown, or unavailable states become visible nodes only when typed lifecycle state says the user or Director needs to act. `ProviderLifecycle` carries a typed reason, so a blocked or recovering node says which provider fact produced it without reading its message. |
 | `validation_recorded` | `validation` | The durable owner of a typed provider check over declared work. A check with a verdict becomes a node connected to what it covered by `validated_by`; a check still running updates metadata, because a node with no verdict tells the user nothing to act on. Normalized Codex Guardian review and model verification notifications commit it. Guardian review payloads are unstable upstream, so only the review id, the reviewed item, the typed status, and the typed risk level cross the adapter. |
@@ -1234,8 +1235,9 @@ Exit gate:
    decision catalog half of this is done with item 1; the remaining `internal/master` session, input,
    route-service, and IPC naming moves with item 3, because renaming them before the boundary exists
    would churn call sites that are about to be replaced.
-3. Implement the deep `DirectorCommandCenter` boundary. **The decision half is
-   committed — `internal/director/registry_decisions.go` and `decision_router.go`.**
+3. Implement the deep `DirectorCommandCenter` boundary. **Done —
+   `internal/director/registry_decisions.go`, `decision_router.go`,
+   `command_center.go`, and the transport and runtime adapters listed below.**
    The registry materializes a `DirectorDecisionContext` from durable state, and
    the router runs one intent through the protocol: generate the schema from
    that context, decode and authorize the output against the same context, and
@@ -1252,10 +1254,11 @@ Exit gate:
      take work. With nothing to choose between, a question cannot change the
      outcome, so asking one would stall the request instead of routing it.
    - The router does not commit the decision. `DirectorDecisionCommitted` is a
-     public claim that the app decided something, so it is written in the same
-     durable transaction as the work it describes; committing it here would
-     leave a decision node in the graph for work a crash or a rejected write
-     meant never happened.
+     public claim that the app decided something, so the executor commits it
+     before asking the execution port to carry it out. Starting work spans
+     several durable writes and a provider launch, so it cannot share that
+     transaction; a later execution failure leaves the decision the app
+     truthfully made and returns the execution error.
 
    `DirectorDecisionCommitted` gained the intent it answered and, for a
    clarification, the question and the candidates it offered. Without them a
@@ -1335,9 +1338,9 @@ Exit gate:
    `decision_execution.go`, `registry_execution.go`, and
    `internal/conversation/service_director_commands.go`. `WorkstreamExecution` is the
    consumer-owned execution port: start a workstream, send, queue, steer, recover.
-   Every request names Setta identities trusted code minted before the decision
-   was committed — the conversation a workstream runs on, the folder it is bound
-   to, the run the work becomes — so no provider id, thread, credential, or
+   Every request names Setta identities minted by trusted code — the conversation
+   a workstream runs on, the folder it is bound to, and the run the work becomes
+   immediately before execution — so no provider id, thread, credential, or
    lease crosses it, and a managed-runtime adapter satisfies the same contract.
    `DecisionExecutor.Execute` is total over `RoutedIntent`, which covers
    folderless routing, clarification, conversation creation, queueing, steering,
@@ -1484,8 +1487,9 @@ Exit gate:
    behind the boundary, so those streams are retired by the same trigger as item 7: the shell stops
    dispatching Master input at Phase 4's cutover, and what is left of them is deleted with the pane
    code in Phase 5.
-9. Preserve strict trusted-target validation. **Done for the decision protocol —
-   `internal/director/decision_validation.go` and the target invariants in `decision_authority.go`.**
+9. Preserve strict trusted-target validation. **Done —
+   `internal/director/decision_validation.go`, the target invariants in
+   `decision_authority.go`, and the executor's live target resolution.**
    A target may offer `send_to_workstream` only with no active run, `queue_behind_run` and `steer_run`
    only with one, and `recover_path` exactly when it carries a recoverable failure, so an authority
    set that contradicts its own run state fails at the boundary instead of producing an unexecutable
@@ -1493,8 +1497,9 @@ Exit gate:
    failures are per target, and the schema emits one branch per parent, so a run id or failure id
    cannot be paired with the wrong workstream. `Registry.DecisionContext` in item 3 now materializes
    that context from the live registry, so the ids the schema offers and the ids validation accepts
-   come from one durable fold rather than from two derivations that could disagree. Executing the
-   validated decision is item 6.
+   come from one durable fold rather than from two derivations that could disagree. The executor
+   resolves the durable substrate again before each effect and refuses to steer a successor run
+   that replaced the one the authorized context named.
 10. Keep current conversation stores and event streams as canonical inputs where their ownership is
    already correct. **Done.** The registry reads conversation records, turns, queues, trajectory
    events, and artifacts from the durable log and adds nothing that duplicates them. It owns only
@@ -1503,13 +1508,35 @@ Exit gate:
 
 Exit gate:
 
-- all primary user intents can be expressed without pane identity
-- folderless workstreams appear in the app-scoped registry
-- the Director registry delivers app-scoped live updates from durable cursors without polling
-- 100 background workstreams do not cause unrelated renderer rerenders
-- reload reconstructs the same selected workstream and semantic graph
+- all primary user intents can be expressed without pane identity — met by the
+  generated command-center contract and production Electron dispatch workflow
+- folderless workstreams appear in the app-scoped registry — met by deterministic
+  registry coverage and the production Electron resource-binding workflow
+- the Director registry delivers app-scoped live updates from durable cursors
+  without polling — met, including lossless overload resync, bounded collection
+  windows, and renderer cursor handoff
+- 100 background workstreams do not cause unrelated renderer rerenders — met by
+  the deterministic registry isolation case
+- reload reconstructs the same selected workstream and semantic graph — met by
+  the production Electron restart comparison and the live-provider restart suite
 - malformed Director output does not surface as an internal routing/schema error
-- local execution passes the Director execution contract suite
+  — met by typed recovery coverage and the production Electron repair path
+- local execution passes the Director execution contract suite — met
+
+Phase 3 audit verification:
+
+- `./scripts/test_topic_conversation_workflows.sh` completed the production
+  build/typecheck, all 1,199 desktop contract tests, all nine deterministic
+  Electron workflows, and all four available live Codex workflows, including
+  the Director command center and restart/reload paths.
+- The final broad run's only non-green assertion was a stale fixture expectation
+  that still called the user's cancellation request terminal. The executable
+  replay fix had already passed the exact restart workflow and the complete
+  Electron/live matrices; after aligning that test-only expectation with the
+  provider-confirmed terminal fact,
+  `./scripts/go.sh test ./internal/director -run '^TestMilestoneKeepsBackgroundWorkstreamsActionable$' -count=1`
+  passed. No executable code changed after the broad run, so its already-green
+  gates were not duplicated.
 
 ### Phase 4 — Build the native fullscreen shell
 
@@ -1598,7 +1625,8 @@ Setta 4 is complete when:
   explicitly documented differences forced by real data, accessibility, responsiveness, or measured
   performance
 - the Director can route, create, delegate, steer, cancel, clarify, and recover through typed paths
-- invalid model outputs recover or become useful durable state without exposing internal errors
+- invalid model outputs recover, ask a useful durable clarification, or return a public-safe blocked
+  receipt without exposing internal errors
 - approvals, resources, artifacts, and outcomes are durable and actionable
 - public semantic state respects credential, secret, and private-reasoning boundaries
 - every semantic node and edge has real meaning, provenance, and deterministic replay
@@ -1622,7 +1650,8 @@ Setta 4 is complete when:
    brought to the user before either contract changes.
    Retiring the Master presentation intent in item 7 waits for Phase 4's shell cutover, and the
    remaining Master-to-Director renaming in item 2 should move with the code Phase 5 does not delete.
-   No dispatched intent has shell-facing end-to-end coverage yet, because no renderer surface
-   dispatches one until Phase 4 items 1 through 4.
+   Phase 3 has production-path Electron coverage that dispatches through the renderer preload,
+   main-process IPC, HTTP, and durable store. The user-visible fullscreen renderer surface that owns
+   those dispatches remains Phase 4 items 1 through 4.
 2. Capture the pre-cutover interaction and rendering performance baseline when an interactive desktop
    session is available, using the tiers and required report fields in the performance matrix.

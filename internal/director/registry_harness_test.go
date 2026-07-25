@@ -29,6 +29,7 @@ type registryHarness struct {
 	// on the accepted record, so ending a turn has to name the one that started.
 	accepted   map[string]string
 	workspaces map[string]workspace.WorkspaceSummary
+	records    map[string]conversation.TopicConversation
 }
 
 func newRegistryHarness(t *testing.T) *registryHarness {
@@ -47,6 +48,7 @@ func newRegistryHarness(t *testing.T) *registryHarness {
 		store:     store,
 		sequences: map[string]int{},
 		accepted:  map[string]string{},
+		records:   map[string]conversation.TopicConversation{},
 		workspaces: map[string]workspace.WorkspaceSummary{
 			registryTestWorkspaceID: {
 				ID:          registryTestWorkspaceID,
@@ -169,6 +171,7 @@ func (harness *registryHarness) createConversation(id string, title string, work
 		CreatedAt:   at,
 		UpdatedAt:   at,
 	}
+	harness.records[id] = record
 	harness.publish(
 		id,
 		conversation.ConversationUpdatedEventPayload{
@@ -194,14 +197,14 @@ func (harness *registryHarness) archiveConversation(id string, title string) str
 	harness.t.Helper()
 	at := harness.now()
 	archivedAt := at
-	record := conversation.TopicConversation{
-		ID:         id,
-		Title:      title,
-		Status:     conversation.ConversationStatusIdle,
-		CreatedAt:  at,
-		UpdatedAt:  at,
-		ArchivedAt: &archivedAt,
+	record, known := harness.records[id]
+	if !known {
+		harness.t.Fatalf("archive unknown conversation %s", id)
 	}
+	record.Title = title
+	record.UpdatedAt = at
+	record.ArchivedAt = &archivedAt
+	harness.records[id] = record
 	harness.publish(
 		id,
 		conversation.ConversationUpdatedEventPayload{
@@ -217,6 +220,56 @@ func (harness *registryHarness) archiveConversation(id string, title string) str
 		harness.t.Fatalf("WorkstreamIDForConversation: %v", err)
 	}
 	return workstreamID
+}
+
+func (harness *registryHarness) updateConversationTitle(id string, title string) string {
+	harness.t.Helper()
+	record, known := harness.records[id]
+	if !known {
+		harness.t.Fatalf("update unknown conversation %s", id)
+	}
+	record.Title = title
+	record.UpdatedAt = harness.now()
+	harness.records[id] = record
+	harness.publish(
+		id,
+		conversation.ConversationUpdatedEventPayload{
+			Type:         conversation.ConversationEventTypeConversationUpdated,
+			Conversation: record,
+		},
+		conversation.ConversationEventTypeConversationUpdated,
+		record.UpdatedAt,
+		nil,
+	)
+	workstreamID, err := WorkstreamIDForConversation(id)
+	if err != nil {
+		harness.t.Fatalf("WorkstreamIDForConversation: %v", err)
+	}
+	return workstreamID
+}
+
+func (harness *registryHarness) publishQueue(conversationID string, turnIDs ...string) {
+	harness.t.Helper()
+	at := harness.now()
+	queue := make([]conversation.QueuedConversationTurn, 0, len(turnIDs))
+	for index, turnID := range turnIDs {
+		queue = append(queue, conversation.QueuedConversationTurn{
+			TurnID:         turnID,
+			ConversationID: conversationID,
+			Ordinal:        index + 1,
+			QueuedAt:       at,
+		})
+	}
+	harness.publish(
+		conversationID,
+		conversation.ConversationQueueUpdatedEventPayload{
+			Type:  conversation.ConversationEventTypeQueueUpdated,
+			Queue: queue,
+		},
+		conversation.ConversationEventTypeQueueUpdated,
+		at,
+		nil,
+	)
 }
 
 func (harness *registryHarness) startTurn(conversationID string, turnID string) {
@@ -522,7 +575,7 @@ func (harness *registryHarness) appendFact(fact DirectorFactEvent) DirectorFactE
 	}
 	fact.ID = factID
 	fact.EmittedAt = harness.now()
-	if err := AppendDirectorFact(context.Background(), harness.store, fact); err != nil {
+	if _, err := AppendDirectorFact(context.Background(), harness.store, fact); err != nil {
 		harness.t.Fatalf("AppendDirectorFact: %v", err)
 	}
 	return fact

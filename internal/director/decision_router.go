@@ -19,11 +19,10 @@ import (
 // registry what is true and a caller to produce structured output.
 //
 // It deliberately does not commit the decision. A committed decision is a
-// durable public claim that the app decided something, and the work that claim
-// describes is created in the same durable transaction by the command center
-// that executes it. Committing here would leave a decision node in the graph
-// for work that a crash, a rejected write, or an unavailable execution target
-// meant never happened.
+// durable public claim that the app decided something, so the command center
+// commits it before it asks the execution port to carry out the work. The
+// execution spans additional durable writes and a provider launch and therefore
+// cannot share the decision's transaction.
 
 // DecisionSource is the trusted state a decision is bounded by. The app-scoped
 // registry implements it; the router never reads the durable log itself.
@@ -92,7 +91,8 @@ type RoutedIntent struct {
 	Resolution DecisionResolution
 	// Decision is set for every resolution except blocked.
 	Decision *DirectorDecision
-	// PublicSummary is the durable public sentence for a blocked resolution.
+	// PublicSummary is the public sentence for a blocked resolution. Blocked
+	// routing produces no decision fact, so the receipt is its only owner.
 	PublicSummary string
 }
 
@@ -129,7 +129,12 @@ func (router *DecisionRouter) Route(ctx context.Context, intent SubmittedIntent)
 		if err != nil {
 			return RoutedIntent{}, err
 		}
-		if rejection == nil {
+		current, err := router.source.DecisionContext(intent)
+		if err != nil {
+			return RoutedIntent{}, err
+		}
+		contextChanged := !reflect.DeepEqual(decisionContext, current)
+		if rejection == nil && !contextChanged {
 			return RoutedIntent{
 				Intent:     intent,
 				Context:    decisionContext,
@@ -137,7 +142,19 @@ func (router *DecisionRouter) Route(ctx context.Context, intent SubmittedIntent)
 				Decision:   &decision,
 			}, nil
 		}
-		recovery, err := router.nextRecovery(intent, decisionContext, rejection, &ladder)
+		if rejection == nil {
+			rejection = newDecisionRejection(
+				DecisionRejectedStaleContext,
+				"trusted decision context changed during the provider call",
+			)
+		}
+		recovery, err := router.nextRecovery(
+			decisionContext,
+			current,
+			contextChanged,
+			rejection,
+			&ladder,
+		)
 		if err != nil {
 			return RoutedIntent{}, err
 		}
@@ -161,21 +178,18 @@ func validateRouteRequest(router *DecisionRouter, ctx context.Context, intent Su
 }
 
 // nextRecovery applies the recovery policy against trusted state as it stands
-// now rather than the state the rejected attempt saw. A model that answered a
-// question the app no longer asks is re-asked, not retried.
+// now rather than the state the attempt saw. A model that answered a question
+// the app no longer asks is re-asked even when its old answer was valid.
 func (router *DecisionRouter) nextRecovery(
-	intent SubmittedIntent,
 	called DirectorDecisionContext,
+	current DirectorDecisionContext,
+	contextChanged bool,
 	rejection *DecisionRejection,
 	attempt *DecisionRecoveryRequest,
 ) (DecisionRecovery, error) {
-	current, err := router.source.DecisionContext(intent)
-	if err != nil {
-		return DecisionRecovery{}, err
-	}
 	attempt.Context = current
 	attempt.Rejection = rejection
-	attempt.ContextChanged = !reflect.DeepEqual(called, current)
+	attempt.ContextChanged = contextChanged || !reflect.DeepEqual(called, current)
 	return NextDecisionRecovery(*attempt)
 }
 

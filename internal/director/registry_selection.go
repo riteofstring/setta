@@ -60,9 +60,9 @@ func (registry *Registry) commitSelection(
 	resolve func(state *registryState, pending *string) (*string, error),
 ) (*string, error) {
 	registry.mutex.Lock()
-	if !registry.started {
+	if err := registry.requireAvailableLocked(); err != nil {
 		registry.mutex.Unlock()
-		return nil, fmt.Errorf("%w: the app-scoped registry is not started", ErrDirectorUnavailable)
+		return nil, err
 	}
 	previous := copyOptionalString(registry.pendingSelection)
 	next, err := resolve(registry.state, previous)
@@ -89,12 +89,26 @@ func (registry *Registry) commitSelection(
 		Actor:              SemanticActorUser,
 		WorkstreamSelected: &DirectorWorkstreamSelected{PreviousWorkstreamID: previous},
 	}
-	if err := AppendDirectorFact(ctx, registry.facts, fact); err != nil {
+	committed, err := AppendDirectorFact(ctx, registry.facts, fact)
+	if err != nil {
 		return nil, err
 	}
+	// The durable append, not the caller's wait, advances the pending chain. A
+	// request context may be cancelled after commit but before the follower
+	// folds it; leaving the old predecessor here would make the next selection
+	// commit a fact that contradicts the durable one already in the log.
 	registry.mutex.Lock()
 	registry.pendingSelection = copyOptionalString(next)
 	registry.mutex.Unlock()
+	if err := registry.awaitCommit(ctx, committed.CommitSequence); err != nil {
+		return nil, err
+	}
+	registry.mutex.Lock()
+	availabilityErr := registry.requireAvailableLocked()
+	registry.mutex.Unlock()
+	if availabilityErr != nil {
+		return nil, availabilityErr
+	}
 	return next, nil
 }
 

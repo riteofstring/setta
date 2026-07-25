@@ -201,6 +201,53 @@ func TestDecisionRouterRematerializesWhenTrustedStateMoved(t *testing.T) {
 	}
 }
 
+// TestDecisionRouterRejectsAValidDecisionWhenTrustedStateMoved proves a
+// schema-valid answer does not get a stale-state exemption. The provider is
+// re-asked against the current authority before any decision can be committed.
+func TestDecisionRouterRejectsAValidDecisionWhenTrustedStateMoved(t *testing.T) {
+	moved := decisionContextFixture()
+	moved.Workstreams = []WorkstreamDecisionTarget{idleDecisionTarget(), activeDecisionTarget()}
+	moved.AllowedDecisionKinds = []DirectorDecisionKind{
+		DirectorDecisionAnswerDirectly,
+		DirectorDecisionCreateWorkstream,
+		DirectorDecisionSendToWorkstream,
+		DirectorDecisionQueueBehindRun,
+		DirectorDecisionSteerRun,
+		DirectorDecisionAskClarification,
+		DirectorDecisionSelectWorkstream,
+	}
+	source := &scriptedDecisionSource{contexts: []DirectorDecisionContext{decisionContextFixture(), moved}}
+	caller := &scriptedDecisionCaller{outputs: []json.RawMessage{
+		decisionOutput(t, map[string]any{
+			"failureEventId": fixtureFailureEventID,
+			"kind":           string(DirectorDecisionRecoverPath),
+			"workstreamId":   fixtureFailedWorkstream,
+		}),
+		decisionOutput(t, map[string]any{
+			"authoredInput": "keep going on the parser",
+			"kind":          string(DirectorDecisionSendToWorkstream),
+			"workstreamId":  fixtureIdleWorkstream,
+		}),
+	}}
+
+	routed := routeIntent(t, source, caller)
+
+	if routed.Resolution != DecisionResolvedByModel ||
+		routed.Decision == nil ||
+		routed.Decision.Kind != DirectorDecisionSendToWorkstream {
+		t.Fatalf("routed stale decision = %+v", routed)
+	}
+	if len(caller.calls) != 2 {
+		t.Fatalf("router made %d calls, want 2", len(caller.calls))
+	}
+	if caller.calls[1].Diagnostic != decisionRejectionDiagnostics[DecisionRejectedStaleContext] {
+		t.Fatalf("stale-context diagnostic = %q", caller.calls[1].Diagnostic)
+	}
+	if _, offered := caller.calls[1].Context.Target(fixtureFailedWorkstream); offered {
+		t.Fatal("the retry retained a target that left trusted context")
+	}
+}
+
 // TestDecisionRouterResolvesTheOnlyAuthorizedOutcome proves the product
 // invariant: when exactly one way to put the request into work exists, no model
 // judgment is needed and the user is never asked to retry routing.

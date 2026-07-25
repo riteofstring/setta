@@ -128,13 +128,10 @@ type WorkstreamMilestone struct {
 // Workstream is one registry record. Counts are aggregated by the registry so
 // background workstreams never need their trajectory loaded to be actionable.
 type Workstream struct {
-	ID       string           `json:"id"`
-	Title    string           `json:"title"`
-	Status   WorkstreamStatus `json:"status"`
-	ParentID *string          `json:"parentId"`
-	// ConversationID is the durable execution substrate for this workstream.
-	// The initial cutover maps one conversation to one workstream.
-	ConversationID                 string                      `json:"conversationId"`
+	ID                             string                      `json:"id"`
+	Title                          string                      `json:"title"`
+	Status                         WorkstreamStatus            `json:"status"`
+	ParentID                       *string                     `json:"parentId"`
 	ResourceScope                  WorkstreamResourceScope     `json:"resourceScope"`
 	ResourceBindings               []WorkstreamResourceBinding `json:"resourceBindings"`
 	ActiveRunID                    *string                     `json:"activeRunId"`
@@ -214,9 +211,6 @@ func validateWorkstreamIdentity(workstream Workstream) error {
 	if err := validateIdentifier("workstream id", workstream.ID); err != nil {
 		return err
 	}
-	if err := validateIdentifier("workstream conversation id", workstream.ConversationID); err != nil {
-		return err
-	}
 	if workstream.ParentID != nil {
 		if err := validateIdentifier("workstream parent id", *workstream.ParentID); err != nil {
 			return err
@@ -246,7 +240,26 @@ func validateWorkstreamResources(workstream Workstream) error {
 			return fmt.Errorf("workstream %s resource binding %d: %w", workstream.ID, index, err)
 		}
 	}
-	return nil
+	switch workstream.ResourceScope.Kind {
+	case WorkstreamResourceScopeFolderless:
+		if len(workstream.ResourceBindings) != 0 {
+			return fmt.Errorf("folderless workstream %s must not carry resource bindings", workstream.ID)
+		}
+		return nil
+	case WorkstreamResourceScopeFolder:
+		if len(workstream.ResourceBindings) != 1 ||
+			workstream.ResourceBindings[0].Kind != WorkstreamResourceKindFolder ||
+			workstream.ResourceBindings[0].Folder == nil ||
+			*workstream.ResourceBindings[0].Folder != *workstream.ResourceScope.Folder {
+			return fmt.Errorf(
+				"folder workstream %s must carry exactly its scoped folder binding",
+				workstream.ID,
+			)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unknown workstream resource scope kind %q", workstream.ResourceScope.Kind)
+	}
 }
 
 func validateWorkstreamCounts(workstream Workstream) error {

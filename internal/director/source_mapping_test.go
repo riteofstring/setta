@@ -88,6 +88,23 @@ func TestRunProgressUpdatesOneNode(t *testing.T) {
 	}
 }
 
+func TestInterruptionRequestIsConditionalOnTerminalAuthority(t *testing.T) {
+	rule, err := TrajectoryFactRule(conversation.TrajectoryEventTurnInterrupted)
+	if err != nil {
+		t.Fatalf("turn_interrupted has no rule: %v", err)
+	}
+	if rule.Disposition != SourceFactConditionalNode ||
+		rule.NodeIdentity != SemanticNodeIdentityRunTerminal ||
+		rule.NodeKind != SemanticNodeCancelled {
+		t.Fatalf(
+			"turn_interrupted must conditionally close the run, got %q/%q/%q",
+			rule.Disposition,
+			rule.NodeIdentity,
+			rule.NodeKind,
+		)
+	}
+}
+
 func TestActivityKindsMapToPreciseNodes(t *testing.T) {
 	expected := map[conversation.TrajectoryActivityKind]SemanticNodeKind{
 		conversation.TrajectoryActivityCommand:         SemanticNodeAction,

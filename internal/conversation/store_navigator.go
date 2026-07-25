@@ -348,7 +348,7 @@ func navigatorBranch(row navigatorRow) (*ConversationBranch, error) {
 	}
 	if !row.branchParentConversationID.Valid || !row.branchKind.Valid ||
 		!row.branchDecisionSource.Valid ||
-		!row.branchForkedAtTurnID.Valid || !row.branchSourceTrajectorySequence.Valid ||
+		!row.branchSourceTrajectorySequence.Valid ||
 		!row.branchProviderMetadataJSON.Valid || !row.branchCreatedAt.Valid {
 		return nil, errors.New("branch contains null required fields")
 	}

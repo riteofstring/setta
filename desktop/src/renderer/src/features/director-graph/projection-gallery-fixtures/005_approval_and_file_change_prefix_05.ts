@@ -44,7 +44,7 @@ const rawProjectionGalleryFixture = {
           interpretation: null,
         },
         {
-          id: "file_change:item-gamma-1",
+          id: "file_change:trajectory-05",
           kind: "action",
           workstreamId: "ws-gamma",
           runId: "turn-gamma-1",
@@ -72,12 +72,12 @@ const rawProjectionGalleryFixture = {
           createdAt: "2026-07-24T12:00:04Z",
         },
         {
-          id: "followed_by:run:turn-gamma-1-\u003efile_change:item-gamma-1",
+          id: "followed_by:run:turn-gamma-1-\u003efile_change:trajectory-05",
           kind: "followed_by",
           fromWorkstreamId: "ws-gamma",
           fromNodeId: "run:turn-gamma-1",
           toWorkstreamId: "ws-gamma",
-          toNodeId: "file_change:item-gamma-1",
+          toNodeId: "file_change:trajectory-05",
           sourceEventIds: ["trajectory-05"],
           createdAt: "2026-07-24T12:00:05Z",
         },

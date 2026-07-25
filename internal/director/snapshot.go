@@ -234,7 +234,9 @@ type DirectorTextDeltaPayload struct {
 	WorkstreamID string              `json:"workstreamId"`
 	RunID        *string             `json:"runId"`
 	Surface      DirectorTextSurface `json:"surface"`
-	Text         string              `json:"text"`
+	// Text appends for assistant messages and process output. A public
+	// reasoning-summary update replaces that run's current reasoning summary.
+	Text string `json:"text"`
 }
 
 type DirectorResyncRequiredPayload struct {

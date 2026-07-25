@@ -3,6 +3,7 @@ package director
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"setta/internal/conversation"
 	"setta/internal/workspace"
@@ -43,13 +44,16 @@ const (
 	effectApproval   registryEffectKind = "approval"
 	effectResource   registryEffectKind = "resource"
 	effectArtifact   registryEffectKind = "artifact"
+	effectText       registryEffectKind = "text"
 	effectSelection  registryEffectKind = "selection"
+	effectRemoval    registryEffectKind = "removal"
 )
 
 type registryEffect struct {
 	kind  registryEffectKind
 	id    string
 	graph GraphChange
+	text  *DirectorTextDeltaPayload
 }
 
 // applyCommitted folds one durable committed event. Kinds with no app-scoped
@@ -108,6 +112,13 @@ func (state *registryState) applyConversationUpdated(
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		scope, bindings, err := resolveWorkstreamScope(record.WorkspaceID, workspaces)
+		if err != nil {
+			return nil, err
+		}
+		workstream.record.ResourceScope = scope
+		workstream.record.ResourceBindings = bindings
 	}
 	workstream.record.Title = record.Title
 	workstream.archived = record.ArchivedAt != nil
@@ -136,12 +147,11 @@ func (state *registryState) registerConversation(
 		ID:               workstreamID,
 		Title:            record.Title,
 		Status:           WorkstreamStatusIdle,
-		ConversationID:   record.ID,
 		ResourceScope:    scope,
 		ResourceBindings: bindings,
 		CreatedAt:        record.CreatedAt,
 		UpdatedAt:        record.UpdatedAt,
-	})
+	}, record.ID)
 }
 
 func resolveWorkstreamScope(
@@ -241,10 +251,24 @@ func (state *registryState) applyQueueUpdated(event conversation.CommittedEvent)
 	if err != nil {
 		return nil, err
 	}
-	if len(payload.Queue) == 0 {
-		return nil, nil
+	conversationID, err := conversation.ConversationIDFromStreamID(event.StreamID)
+	if err != nil {
+		return nil, err
 	}
-	workstream, err := state.workstreamForConversation(payload.Queue[0].ConversationID)
+	if len(payload.Queue) > 0 {
+		conversationID = payload.Queue[0].ConversationID
+		for _, queued := range payload.Queue[1:] {
+			if queued.ConversationID != conversationID {
+				return nil, fmt.Errorf(
+					"queue event %s mixes conversations %s and %s",
+					event.ID,
+					conversationID,
+					queued.ConversationID,
+				)
+			}
+		}
+	}
+	workstream, err := state.workstreamForConversation(conversationID)
 	if err != nil {
 		return nil, err
 	}
@@ -283,10 +307,49 @@ func (state *registryState) applyTrajectoryAppended(event conversation.Committed
 		return nil, err
 	}
 	effects = append(effects, recordEffects...)
+	if text, visible := trajectoryTextDelta(workstream.record.ID, trajectory); visible {
+		effects = append(effects, registryEffect{
+			kind: effectText,
+			id:   workstream.record.ID,
+			text: &text,
+		})
+	}
 	if err := state.refreshWorkstream(workstream, trajectory.EmittedAt); err != nil {
 		return nil, err
 	}
 	return append(effects, registryEffect{kind: effectWorkstream, id: workstream.record.ID}), nil
+}
+
+// trajectoryTextDelta fans durable public detail-surface updates into the
+// app-scoped stream. Assistant text is append-only. A public reasoning update
+// replaces that run's current summary, and process progress appends to its
+// detail surface; the surface tag is what lets the renderer apply those
+// semantics without turning any of the text into graph truth.
+func trajectoryTextDelta(
+	workstreamID string,
+	event conversation.TrajectoryEvent,
+) (DirectorTextDeltaPayload, bool) {
+	payload := DirectorTextDeltaPayload{
+		WorkstreamID: workstreamID,
+		RunID:        copyOptionalString(event.TurnID),
+	}
+	switch event.Kind {
+	case conversation.TrajectoryEventAgentPublicTextDelta:
+		payload.Surface = DirectorTextSurfaceAssistantMessage
+		payload.Text = event.AgentPublicTextDelta.Delta
+	case conversation.TrajectoryEventPublicReasoningSummaryUpdated:
+		payload.Surface = DirectorTextSurfaceReasoningSummary
+		payload.Text = strings.Join(event.PublicReasoningSummaryUpdated.Summary, "\n\n")
+	case conversation.TrajectoryEventActivityProgressed:
+		if strings.TrimSpace(event.ActivityProgressed.Progress) == "" {
+			return DirectorTextDeltaPayload{}, false
+		}
+		payload.Surface = DirectorTextSurfaceProcessOutput
+		payload.Text = event.ActivityProgressed.Progress
+	default:
+		return DirectorTextDeltaPayload{}, false
+	}
+	return payload, true
 }
 
 // collectGraphChanges turns the projector's pending deltas into effects and

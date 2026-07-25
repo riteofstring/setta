@@ -281,6 +281,64 @@ func TestSupplyingAFolderClosesTheRequestAndBindsTheWorkstream(t *testing.T) {
 	}
 }
 
+func TestConcurrentResourceResolutionCannotDuplicateLifecycleFacts(t *testing.T) {
+	harness := newRegistryHarness(t)
+	folderless := harness.createConversation("conversation-concurrent-folder", "Run the tests", nil)
+	registry := harness.start()
+	execution := &recordedExecution{}
+	executor := newExecutorForTest(t, harness, registry, execution)
+	center := newSubmittingCommandCenter(t, harness, registry, unreachableDecisionCaller{}, execution)
+
+	executed, err := executor.Execute(context.Background(), routedFor(t, registry, DirectorDecision{
+		Kind:             DirectorDecisionSendToWorkstream,
+		SendToWorkstream: &SendToWorkstreamDecision{WorkstreamID: folderless, AuthoredInput: "run the tests"},
+	}))
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	requestID := *executed.ResourceRequestID
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	for range 2 {
+		go func() {
+			<-start
+			_, dispatchErr := center.Dispatch(
+				context.Background(),
+				resolveResourceRequest(requestID, registryTestWorkspaceID),
+			)
+			results <- dispatchErr
+		}()
+	}
+	close(start)
+
+	succeeded := 0
+	rejected := 0
+	for range 2 {
+		dispatchErr := <-results
+		switch {
+		case dispatchErr == nil:
+			succeeded++
+		case errors.Is(dispatchErr, ErrDirectorIntentRejected):
+			rejected++
+		default:
+			t.Fatalf("concurrent resource resolution returned %v", dispatchErr)
+		}
+	}
+	if succeeded != 1 || rejected != 1 {
+		t.Fatalf("concurrent resolutions = %d succeeded, %d rejected", succeeded, rejected)
+	}
+	if len(execution.bindings) != 1 {
+		t.Fatalf("concurrent resolutions reached execution %+v", execution.bindings)
+	}
+	if err := registry.Err(); err != nil {
+		t.Fatalf("duplicate resolution stopped the registry: %v", err)
+	}
+	snapshot := requireSnapshot(t, registry)
+	if len(snapshot.UnresolvedResourceRequests) != 0 {
+		t.Fatalf("resolved request remained outstanding: %+v", snapshot.UnresolvedResourceRequests)
+	}
+}
+
 // TestSupplyingAnUnofferedFolderIsRejected proves the folder is authorized the
 // same way a Director decision's scope is: against the folders the app can reach
 // right now. A workspace id nothing is offering never becomes a binding.

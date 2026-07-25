@@ -37,12 +37,15 @@ type registrySubscription struct {
 	closed    bool
 	terminal  bool
 	unsubOnce sync.Once
+	abortOnce sync.Once
+	aborted   chan struct{}
 }
 
 func newRegistrySubscription(registry *Registry) *registrySubscription {
 	subscription := &registrySubscription{
 		registry: registry,
 		events:   make(chan DirectorEvent, directorSubscriptionBuffer),
+		aborted:  make(chan struct{}),
 	}
 	subscription.signal = sync.NewCond(&subscription.mutex)
 	go subscription.deliver()
@@ -56,7 +59,7 @@ func (subscription *registrySubscription) Events() <-chan DirectorEvent {
 func (subscription *registrySubscription) Unsubscribe() {
 	subscription.unsubOnce.Do(func() {
 		subscription.registry.removeSubscription(subscription)
-		subscription.close()
+		subscription.abort()
 	})
 }
 
@@ -65,6 +68,17 @@ func (subscription *registrySubscription) close() {
 	subscription.closed = true
 	subscription.mutex.Unlock()
 	subscription.signal.Broadcast()
+}
+
+func (subscription *registrySubscription) abort() {
+	subscription.abortOnce.Do(func() {
+		subscription.mutex.Lock()
+		subscription.closed = true
+		subscription.pending = nil
+		subscription.mutex.Unlock()
+		close(subscription.aborted)
+		subscription.signal.Broadcast()
+	})
 }
 
 func (subscription *registrySubscription) deliver() {
@@ -81,12 +95,19 @@ func (subscription *registrySubscription) deliver() {
 		event := subscription.pending[0]
 		subscription.pending = subscription.pending[1:]
 		subscription.mutex.Unlock()
-		subscription.events <- event
+		select {
+		case subscription.events <- event:
+		case <-subscription.aborted:
+			return
+		}
 	}
 }
 
 // enqueue queues one event. A subscriber past its backlog bound is replaced with
-// a single resync, because a lossless stream cannot skip an event to make room.
+// a single resync. Best-effort text shares the stream's cursor with semantic
+// events, so silently dropping even one text event would create an
+// indistinguishable sequence gap at the renderer; resync is the only bounded
+// overload response that keeps the cursor honest.
 func (subscription *registrySubscription) enqueue(event DirectorEvent) {
 	subscription.mutex.Lock()
 	defer subscription.mutex.Unlock()
@@ -94,21 +115,19 @@ func (subscription *registrySubscription) enqueue(event DirectorEvent) {
 		return
 	}
 	if len(subscription.pending) >= maxPendingDirectorEvents {
-		delivery, err := DirectorEventDeliveryFor(event.Kind)
-		if err == nil && delivery == DirectorEventDeliveryBestEffort {
-			return
-		}
 		subscription.pending = []DirectorEvent{subscription.registry.resyncEvent(
 			DirectorResyncServerRequired,
 			DirectorEventCursor{StreamID: event.StreamID, Sequence: event.Sequence},
 		)}
 		subscription.terminal = true
+		subscription.closed = true
 		subscription.signal.Broadcast()
 		return
 	}
 	subscription.pending = append(subscription.pending, event)
 	if event.Kind == DirectorEventResyncRequired {
 		subscription.terminal = true
+		subscription.closed = true
 	}
 	subscription.signal.Broadcast()
 }
@@ -141,6 +160,20 @@ func (registry *Registry) retain(event DirectorEvent) {
 		return
 	}
 	registry.retained = registry.retained[len(registry.retained)-retainedDirectorEvents:]
+}
+
+// resyncSubscribers ends the current live views without changing the durable
+// stream position. Collection windows have no per-record eviction event, so a
+// boundary shift is the typed point where each renderer takes a fresh bounded
+// snapshot. A later subscriber starts from that snapshot and is not forced
+// through a resync that belonged to an earlier view.
+func (registry *Registry) resyncSubscribers(reason DirectorResyncReason) {
+	requested := DirectorEventCursor{StreamID: registry.streamID, Sequence: registry.sequence}
+	event := registry.resyncEvent(reason, requested)
+	for subscription := range registry.subscribers {
+		subscription.enqueue(event)
+		delete(registry.subscribers, subscription)
+	}
 }
 
 func (registry *Registry) retainedFrom() int {
@@ -214,12 +247,22 @@ func (registry *Registry) eventForEffect(effect registryEffect) ([]DirectorEvent
 			Kind:             DirectorEventSelectionChanged,
 			SelectionChanged: &DirectorSelectionChangedPayload{SelectedWorkstreamID: copyOptionalString(registry.state.selected)},
 		}}, nil
+	case effectRemoval:
+		return []DirectorEvent{{
+			EmittedAt: emittedAt,
+			Kind:      DirectorEventWorkstreamRemoved,
+			WorkstreamRemoved: &DirectorWorkstreamRemovedPayload{
+				WorkstreamID: effect.id,
+			},
+		}}, nil
 	case effectApproval:
 		return registry.singleEvent(registry.approvalEvent(effect.id, emittedAt))
 	case effectResource:
 		return registry.singleEvent(registry.resourceEvent(effect.id, emittedAt))
 	case effectArtifact:
 		return registry.singleEvent(registry.artifactEvent(effect.id, emittedAt))
+	case effectText:
+		return registry.singleEvent(registry.textEvent(effect, emittedAt))
 	default:
 		return nil, fmt.Errorf("unknown registry effect kind %q", effect.kind)
 	}
@@ -232,35 +275,99 @@ func (registry *Registry) singleEvent(event DirectorEvent, emit bool, err error)
 	return []DirectorEvent{event}, nil
 }
 
-// levelChangeEffects reports the workstreams whose detail level moved. A
-// workstream that just became selected or adjacent must receive the graph its
-// new level promises, because the renderer was holding nothing for it.
-func (registry *Registry) levelChangeEffects() ([]registryEffect, error) {
+// textEvent publishes full text surfaces only for the selected workstream.
+// Adjacent workstreams receive compact semantic summaries and background
+// workstreams receive aggregate status, so streaming their transcript content
+// would violate the same detail-level boundary the snapshot applies.
+func (registry *Registry) textEvent(
+	effect registryEffect,
+	emittedAt string,
+) (DirectorEvent, bool, error) {
+	if registry.publishedLevels[effect.id] != WorkstreamDetailSelected {
+		return DirectorEvent{}, false, nil
+	}
+	if effect.text == nil {
+		return DirectorEvent{}, false, fmt.Errorf(
+			"director text effect for workstream %s has no payload",
+			effect.id,
+		)
+	}
+	payload := *effect.text
+	payload.RunID = copyOptionalString(effect.text.RunID)
+	return DirectorEvent{
+		EmittedAt: emittedAt,
+		Kind:      DirectorEventTextDelta,
+		TextDelta: &payload,
+	}, true, nil
+}
+
+// levelChangeEffects reports rows entering or leaving the bounded live window
+// and rows whose detail level moved. A row entering or becoming visible receives
+// the full graph its new level promises; a row leaving receives the removal
+// event that keeps the renderer's collection bounded.
+func (registry *Registry) levelChangeEffects(
+	applied []registryEffect,
+) ([]registryEffect, map[string]bool, error) {
 	effects := make([]registryEffect, 0)
+	replacedGraphs := map[string]bool{}
+	nextWindow := map[string]bool{}
+	for _, workstream := range registry.state.snapshotWindow() {
+		nextWindow[workstream.record.ID] = true
+	}
+	appliedGraphChanges := graphChangesByWorkstream(applied)
 	for _, workstreamID := range registry.state.order {
+		wasWindowed := registry.publishedWindow[workstreamID]
+		isWindowed := nextWindow[workstreamID]
+		if wasWindowed && !isWindowed {
+			delete(registry.publishedLevels, workstreamID)
+			effects = append(effects, registryEffect{kind: effectRemoval, id: workstreamID})
+			replacedGraphs[workstreamID] = true
+			continue
+		}
+		if !isWindowed {
+			delete(registry.publishedLevels, workstreamID)
+			continue
+		}
 		level := registry.detailLevelFor(workstreamID)
-		if registry.publishedLevels[workstreamID] == level {
+		previousLevel, hadLevel := registry.publishedLevels[workstreamID]
+		if wasWindowed && hadLevel && previousLevel == level {
 			continue
 		}
 		registry.publishedLevels[workstreamID] = level
 		effects = append(effects, registryEffect{kind: effectWorkstream, id: workstreamID})
+		replacedGraphs[workstreamID] = true
 		if level == WorkstreamDetailBackground {
 			continue
 		}
 		graph, err := registry.state.workstreamGraph(workstreamID, level)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		if len(graph.Nodes) == 0 && len(graph.Edges) == 0 {
+		removed := append([]string{}, appliedGraphChanges[workstreamID].RemovedNodeIDs...)
+		if wasWindowed && hadLevel && previousLevel != WorkstreamDetailBackground {
+			previous, err := registry.state.workstreamGraph(workstreamID, previousLevel)
+			if err != nil {
+				return nil, nil, err
+			}
+			removed = append(removed, nodesMissingFromGraph(previous.Nodes, graph.Nodes)...)
+		}
+		removed = uniqueStrings(removed)
+		if len(graph.Nodes) == 0 && len(graph.Edges) == 0 && len(removed) == 0 {
 			continue
 		}
 		effects = append(effects, registryEffect{
-			kind:  effectGraph,
-			id:    workstreamID,
-			graph: GraphChange{WorkstreamID: workstreamID, Nodes: graph.Nodes, Edges: graph.Edges},
+			kind: effectGraph,
+			id:   workstreamID,
+			graph: GraphChange{
+				WorkstreamID:   workstreamID,
+				Nodes:          graph.Nodes,
+				Edges:          graph.Edges,
+				RemovedNodeIDs: removed,
+			},
 		})
 	}
-	return effects, nil
+	registry.publishedWindow = nextWindow
+	return effects, replacedGraphs, nil
 }
 
 // needsLevelRefresh answers whether the adjacency set can have moved. It changes
@@ -272,7 +379,16 @@ func (registry *Registry) needsLevelRefresh(effects []registryEffect) bool {
 		if effect.kind == effectSelection {
 			return true
 		}
-		if effect.kind == effectWorkstream && registry.detailLevelFor(effect.id) == WorkstreamDetailBackground {
+		if effect.kind != effectWorkstream {
+			continue
+		}
+		if !registry.publishedWindow[effect.id] ||
+			registry.detailLevelFor(effect.id) == WorkstreamDetailBackground {
+			return true
+		}
+		if registry.state.selected != nil &&
+			*registry.state.selected == effect.id &&
+			registry.state.aggregates.WorkstreamCount > MaxSnapshotWorkstreams {
 			return true
 		}
 	}
@@ -280,14 +396,94 @@ func (registry *Registry) needsLevelRefresh(effects []registryEffect) bool {
 }
 
 func (registry *Registry) recordPublishedLevels() {
-	levels := make(map[string]WorkstreamDetailLevel, len(registry.state.order))
-	for _, workstreamID := range registry.state.order {
+	window := registry.state.snapshotWindow()
+	levels := make(map[string]WorkstreamDetailLevel, len(window))
+	publishedWindow := make(map[string]bool, len(window))
+	for _, workstream := range window {
+		workstreamID := workstream.record.ID
+		publishedWindow[workstreamID] = true
 		levels[workstreamID] = registry.detailLevelFor(workstreamID)
 	}
 	registry.publishedLevels = levels
+	registry.publishedWindow = publishedWindow
+}
+
+func (registry *Registry) recordPublishedCollections() {
+	registry.publishedApprovals = approvalIDs(
+		registry.state.snapshotApprovals(registry.publishedLevels),
+	)
+	registry.publishedResources = resourceRequestIDs(
+		registry.state.snapshotResourceRequests(registry.publishedLevels),
+	)
+	registry.publishedArtifacts = artifactIDs(
+		registry.state.snapshotArtifacts(registry.publishedLevels),
+	)
+}
+
+// prepareCollectionEffects keeps incremental rails aligned with the same
+// bounded collections a snapshot returns. Direct record effects can add,
+// update, or resolve one published record. When a cap or workstream-window
+// shift admits or evicts some other record, the event contract has no honest
+// single-record delta for that change, so subscribers receive a typed resync.
+func (registry *Registry) prepareCollectionEffects(
+	effects []registryEffect,
+) ([]registryEffect, bool) {
+	nextApprovals := approvalIDs(registry.state.snapshotApprovals(registry.publishedLevels))
+	nextResources := resourceRequestIDs(
+		registry.state.snapshotResourceRequests(registry.publishedLevels),
+	)
+	nextArtifacts := artifactIDs(registry.state.snapshotArtifacts(registry.publishedLevels))
+
+	expectedApprovals := applyCollectionEffects(
+		registry.publishedApprovals,
+		nextApprovals,
+		effects,
+		effectApproval,
+	)
+	expectedResources := applyCollectionEffects(
+		registry.publishedResources,
+		nextResources,
+		effects,
+		effectResource,
+	)
+	expectedArtifacts := applyCollectionEffects(
+		registry.publishedArtifacts,
+		nextArtifacts,
+		effects,
+		effectArtifact,
+	)
+	resync := !equalStringSets(expectedApprovals, nextApprovals) ||
+		!equalStringSets(expectedResources, nextResources) ||
+		!equalStringSets(expectedArtifacts, nextArtifacts)
+
+	filtered := make([]registryEffect, 0, len(effects))
+	for _, effect := range effects {
+		switch effect.kind {
+		case effectApproval:
+			if !registry.publishedApprovals[effect.id] && !nextApprovals[effect.id] {
+				continue
+			}
+		case effectResource:
+			if !registry.publishedResources[effect.id] && !nextResources[effect.id] {
+				continue
+			}
+		case effectArtifact:
+			if !registry.publishedArtifacts[effect.id] && !nextArtifacts[effect.id] {
+				continue
+			}
+		}
+		filtered = append(filtered, effect)
+	}
+	registry.publishedApprovals = nextApprovals
+	registry.publishedResources = nextResources
+	registry.publishedArtifacts = nextArtifacts
+	return filtered, resync
 }
 
 func (registry *Registry) workstreamEvent(workstreamID string, emittedAt string) (DirectorEvent, bool, error) {
+	if !registry.publishedWindow[workstreamID] {
+		return DirectorEvent{}, false, nil
+	}
 	workstream, known := registry.state.workstreams[workstreamID]
 	if !known {
 		return DirectorEvent{}, false, fmt.Errorf("workstream %s left the registry while it was being reported", workstreamID)
@@ -445,4 +641,125 @@ func (registry *Registry) refreshDetailLevels() {
 		count++
 	}
 	registry.adjacent = adjacent
+}
+
+func withoutGraphEffects(effects []registryEffect, replaced map[string]bool) []registryEffect {
+	if len(replaced) == 0 {
+		return effects
+	}
+	filtered := make([]registryEffect, 0, len(effects))
+	for _, effect := range effects {
+		if effect.kind == effectGraph && replaced[effect.id] {
+			continue
+		}
+		filtered = append(filtered, effect)
+	}
+	return filtered
+}
+
+func graphChangesByWorkstream(effects []registryEffect) map[string]GraphChange {
+	changes := map[string]GraphChange{}
+	for _, effect := range effects {
+		if effect.kind != effectGraph {
+			continue
+		}
+		change := changes[effect.id]
+		change.WorkstreamID = effect.id
+		change.Nodes = append(change.Nodes, effect.graph.Nodes...)
+		change.Edges = append(change.Edges, effect.graph.Edges...)
+		change.RemovedNodeIDs = append(change.RemovedNodeIDs, effect.graph.RemovedNodeIDs...)
+		changes[effect.id] = change
+	}
+	return changes
+}
+
+func nodesMissingFromGraph(previous []SemanticNode, next []SemanticNode) []string {
+	retained := make(map[string]bool, len(next))
+	for _, node := range next {
+		retained[node.ID] = true
+	}
+	removed := make([]string, 0)
+	for _, node := range previous {
+		if !retained[node.ID] {
+			removed = append(removed, node.ID)
+		}
+	}
+	return removed
+}
+
+func uniqueStrings(values []string) []string {
+	seen := make(map[string]bool, len(values))
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if seen[value] {
+			continue
+		}
+		seen[value] = true
+		result = append(result, value)
+	}
+	return result
+}
+
+func applyCollectionEffects(
+	previous map[string]bool,
+	current map[string]bool,
+	effects []registryEffect,
+	kind registryEffectKind,
+) map[string]bool {
+	expected := cloneStringSet(previous)
+	for _, effect := range effects {
+		if effect.kind != kind {
+			continue
+		}
+		if current[effect.id] {
+			expected[effect.id] = true
+		} else {
+			delete(expected, effect.id)
+		}
+	}
+	return expected
+}
+
+func cloneStringSet(source map[string]bool) map[string]bool {
+	cloned := make(map[string]bool, len(source))
+	for value := range source {
+		cloned[value] = true
+	}
+	return cloned
+}
+
+func equalStringSets(left map[string]bool, right map[string]bool) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for value := range left {
+		if !right[value] {
+			return false
+		}
+	}
+	return true
+}
+
+func approvalIDs(records []ApprovalRequest) map[string]bool {
+	ids := make(map[string]bool, len(records))
+	for _, record := range records {
+		ids[record.ID] = true
+	}
+	return ids
+}
+
+func resourceRequestIDs(records []ResourceRequest) map[string]bool {
+	ids := make(map[string]bool, len(records))
+	for _, record := range records {
+		ids[record.ID] = true
+	}
+	return ids
+}
+
+func artifactIDs(records []WorkstreamArtifact) map[string]bool {
+	ids := make(map[string]bool, len(records))
+	for _, record := range records {
+		ids[record.ID] = true
+	}
+	return ids
 }

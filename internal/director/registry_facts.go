@@ -65,17 +65,22 @@ func WorkstreamIDForConversation(conversationID string) (string, error) {
 	return workstreamIDPrefix + conversationID, nil
 }
 
-// AppendDirectorFact commits one Director fact durably. The fact is validated
-// before it reaches the log, because a fact that cannot be projected would stop
-// the app-scoped fold at the point it was written.
-func AppendDirectorFact(ctx context.Context, store DirectorFactStore, fact DirectorFactEvent) error {
+// AppendDirectorFact commits one Director fact durably and returns its position
+// in the app-wide log. The fact is validated before it reaches the log, because
+// a fact that cannot be projected would stop the app-scoped fold at the point it
+// was written.
+func AppendDirectorFact(
+	ctx context.Context,
+	store DirectorFactStore,
+	fact DirectorFactEvent,
+) (conversation.CommittedEvent, error) {
 	if store == nil {
-		return fmt.Errorf("director fact store is required")
+		return conversation.CommittedEvent{}, fmt.Errorf("director fact store is required")
 	}
 	if err := ValidateDirectorFactEvent(fact); err != nil {
-		return err
+		return conversation.CommittedEvent{}, err
 	}
-	_, err := store.Transact(ctx, "commit director fact", func(transaction *conversation.WriteTransaction) error {
+	events, err := store.Transact(ctx, "commit director fact", func(transaction *conversation.WriteTransaction) error {
 		_, appendErr := transaction.AppendCommittedEvent(conversation.CommittedEventDraft{
 			ID:          fact.ID,
 			StreamID:    DirectorFactStreamID,
@@ -85,7 +90,17 @@ func AppendDirectorFact(ctx context.Context, store DirectorFactStore, fact Direc
 		})
 		return appendErr
 	})
-	return err
+	if err != nil {
+		return conversation.CommittedEvent{}, err
+	}
+	if len(events) != 1 {
+		return conversation.CommittedEvent{}, fmt.Errorf(
+			"commit director fact %s returned %d events, want 1",
+			fact.ID,
+			len(events),
+		)
+	}
+	return events[0], nil
 }
 
 // DecodeDirectorFact reads one durable Director fact out of the log.

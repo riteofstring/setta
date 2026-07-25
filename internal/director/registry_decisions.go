@@ -131,6 +131,9 @@ func (registry *Registry) DecisionContext(intent SubmittedIntent) (DirectorDecis
 	if err := validateSubmittedIntent(intent); err != nil {
 		return DirectorDecisionContext{}, err
 	}
+	if err := registry.requireAvailable(); err != nil {
+		return DirectorDecisionContext{}, err
+	}
 	// The offerable folders come from outside the durable log, so they are read
 	// before the fold is locked rather than while it is held.
 	workspaces, err := registry.workspaceOptions()
@@ -139,8 +142,8 @@ func (registry *Registry) DecisionContext(intent SubmittedIntent) (DirectorDecis
 	}
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
-	if !registry.started {
-		return DirectorDecisionContext{}, fmt.Errorf("%w: the app-scoped registry is not started", ErrDirectorUnavailable)
+	if err := registry.requireAvailableLocked(); err != nil {
+		return DirectorDecisionContext{}, err
 	}
 	return registry.state.decisionContext(intent, workspaces)
 }
@@ -212,7 +215,7 @@ func (state *registryState) decisionContext(
 func (state *registryState) decisionWindow() []*registryWorkstream {
 	ordered := make([]*registryWorkstream, 0, len(state.order))
 	for _, workstream := range state.recencyOrdered() {
-		if workstream.record.Status != WorkstreamStatusArchived {
+		if !workstream.archived && workstream.record.Status != WorkstreamStatusArchived {
 			ordered = append(ordered, workstream)
 		}
 	}
@@ -255,12 +258,15 @@ func (workstream *registryWorkstream) decisionTarget() (WorkstreamDecisionTarget
 // is one the user can be shown.
 func targetDecisionKinds(record Workstream, failures []DecisionRecoverableFailure) []DirectorDecisionKind {
 	kinds := []DirectorDecisionKind{DirectorDecisionSelectWorkstream}
-	if record.ActiveRunID == nil {
+	idleForDelivery := record.ActiveRunID == nil &&
+		record.QueuedRunCount == 0 &&
+		record.UnresolvedResourceRequestCount == 0
+	if idleForDelivery {
 		kinds = append(kinds, DirectorDecisionSendToWorkstream)
-	} else {
+	} else if record.ActiveRunID != nil {
 		kinds = append(kinds, DirectorDecisionQueueBehindRun, DirectorDecisionSteerRun)
 	}
-	if len(failures) > 0 {
+	if idleForDelivery && len(failures) > 0 {
 		kinds = append(kinds, DirectorDecisionRecoverPath)
 	}
 	return kinds

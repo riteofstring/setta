@@ -27,8 +27,8 @@ type WorkstreamExecutionTarget struct {
 func (registry *Registry) ExecutionTarget(workstreamID string) (WorkstreamExecutionTarget, error) {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
-	if !registry.started {
-		return WorkstreamExecutionTarget{}, fmt.Errorf("%w: the app-scoped registry is not started", ErrDirectorUnavailable)
+	if err := registry.requireAvailableLocked(); err != nil {
+		return WorkstreamExecutionTarget{}, err
 	}
 	workstream, known := registry.state.workstreams[workstreamID]
 	if !known {
@@ -53,8 +53,8 @@ func (registry *Registry) ExecutionTarget(workstreamID string) (WorkstreamExecut
 func (registry *Registry) RecoverableRun(workstreamID string, failureEventID string) (string, error) {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
-	if !registry.started {
-		return "", fmt.Errorf("%w: the app-scoped registry is not started", ErrDirectorUnavailable)
+	if err := registry.requireAvailableLocked(); err != nil {
+		return "", err
 	}
 	workstream, known := registry.state.workstreams[workstreamID]
 	if !known {
@@ -103,8 +103,8 @@ func (registry *Registry) ActiveRunTarget(workstreamID string, runID string) (Wo
 func (registry *Registry) PendingApprovalTarget(approvalID string) (WorkstreamRunTarget, error) {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
-	if !registry.started {
-		return WorkstreamRunTarget{}, fmt.Errorf("%w: the app-scoped registry is not started", ErrDirectorUnavailable)
+	if err := registry.requireAvailableLocked(); err != nil {
+		return WorkstreamRunTarget{}, err
 	}
 	approval, known := registry.state.approvals[approvalID]
 	if !known {
@@ -140,8 +140,8 @@ func (registry *Registry) activeRunTargetLocked(
 	workstreamID string,
 	runID string,
 ) (WorkstreamRunTarget, error) {
-	if !registry.started {
-		return WorkstreamRunTarget{}, fmt.Errorf("%w: the app-scoped registry is not started", ErrDirectorUnavailable)
+	if err := registry.requireAvailableLocked(); err != nil {
+		return WorkstreamRunTarget{}, err
 	}
 	workstream, known := registry.state.workstreams[workstreamID]
 	if !known {
@@ -190,8 +190,8 @@ type ResourceRequestTarget struct {
 func (registry *Registry) OpenResourceRequestTarget(requestID string) (ResourceRequestTarget, error) {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
-	if !registry.started {
-		return ResourceRequestTarget{}, fmt.Errorf("%w: the app-scoped registry is not started", ErrDirectorUnavailable)
+	if err := registry.requireAvailableLocked(); err != nil {
+		return ResourceRequestTarget{}, err
 	}
 	request, known := registry.state.resources[requestID]
 	if !known {
@@ -237,8 +237,14 @@ func (registry *Registry) OfferedFolderResource(workspaceID string) (WorkstreamF
 			ErrDirectorUnavailable,
 		)
 	}
+	if err := registry.requireAvailable(); err != nil {
+		return WorkstreamFolderResource{}, err
+	}
 	summaries, err := registry.workspaces.AvailableWorkspaces()
 	if err != nil {
+		return WorkstreamFolderResource{}, err
+	}
+	if err := registry.requireAvailable(); err != nil {
 		return WorkstreamFolderResource{}, err
 	}
 	for _, summary := range summaries {

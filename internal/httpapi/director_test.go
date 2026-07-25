@@ -150,6 +150,7 @@ func TestDirectorEventStreamRequiresACursor(t *testing.T) {
 
 	readDirectorEventStream(t, server.URL, "", http.StatusBadRequest)
 	readDirectorEventStream(t, server.URL, "director:m12", http.StatusBadRequest)
+	readDirectorEventStream(t, server.URL, "conversation:abc:0", http.StatusBadRequest)
 	if service.subscribed {
 		t.Fatal("a subscription without a usable cursor reached the command center")
 	}

@@ -2,7 +2,13 @@ package director
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"sync"
 	"testing"
+	"time"
+
+	"setta/internal/conversation"
 )
 
 // TestRegistryAdmitsFolderlessAndFolderBoundConversations proves the product
@@ -30,9 +36,6 @@ func TestRegistryAdmitsFolderlessAndFolderBoundConversations(t *testing.T) {
 	}
 	if folderlessEntry.Workstream.Status != WorkstreamStatusIdle {
 		t.Fatalf("new workstream status = %q, want idle", folderlessEntry.Workstream.Status)
-	}
-	if folderlessEntry.Workstream.ConversationID != "conversation-folderless" {
-		t.Fatalf("workstream names conversation %q", folderlessEntry.Workstream.ConversationID)
 	}
 	boundEntry := findEntry(t, snapshot, bound)
 	if boundEntry.Workstream.ResourceScope.Kind != WorkstreamResourceScopeFolder {
@@ -96,6 +99,117 @@ func TestRegistryPushesWorkstreamAndGraphChanges(t *testing.T) {
 	}
 }
 
+func TestRegistryPushesSelectedWorkstreamDetailText(t *testing.T) {
+	harness := newRegistryHarness(t)
+	workstreamID := harness.createConversation("conversation-text", "Explain the result", nil)
+	registry := harness.start()
+	if _, err := registry.SelectWorkstream(context.Background(), workstreamID); err != nil {
+		t.Fatalf("SelectWorkstream: %v", err)
+	}
+	subscription := subscribeFromSnapshot(t, registry)
+	defer subscription.Unsubscribe()
+
+	harness.startTurn("conversation-text", "turn-text")
+	harness.appendTrajectory(
+		"conversation-text",
+		stringPointer("turn-text"),
+		conversation.TrajectoryEventAgentPublicTextDelta,
+		conversation.TrajectoryActorAgent,
+		func(event *conversation.TrajectoryEvent) {
+			event.AgentPublicTextDelta = &conversation.TrajectoryAgentPublicTextDelta{
+				ProviderItemID: "provider-message-text",
+				Delta:          "The result is ready.",
+			}
+		},
+	)
+	assistant := awaitEvent(t, subscription, DirectorEventTextDelta)
+	if assistant.TextDelta.WorkstreamID != workstreamID ||
+		assistant.TextDelta.RunID == nil ||
+		*assistant.TextDelta.RunID != "turn-text" ||
+		assistant.TextDelta.Surface != DirectorTextSurfaceAssistantMessage ||
+		assistant.TextDelta.Text != "The result is ready." {
+		t.Fatalf("assistant text event = %+v", assistant.TextDelta)
+	}
+
+	harness.appendTrajectory(
+		"conversation-text",
+		stringPointer("turn-text"),
+		conversation.TrajectoryEventPublicReasoningSummaryUpdated,
+		conversation.TrajectoryActorAgent,
+		func(event *conversation.TrajectoryEvent) {
+			event.PublicReasoningSummaryUpdated =
+				&conversation.TrajectoryPublicReasoningSummaryUpdated{
+					ProviderItemID: "provider-reasoning-text",
+					Summary:        []string{"Checked the inputs.", "Compared the outputs."},
+				}
+		},
+	)
+	reasoning := awaitEvent(t, subscription, DirectorEventTextDelta)
+	if reasoning.TextDelta.Surface != DirectorTextSurfaceReasoningSummary ||
+		reasoning.TextDelta.Text != "Checked the inputs.\n\nCompared the outputs." {
+		t.Fatalf("reasoning text event = %+v", reasoning.TextDelta)
+	}
+
+	harness.appendTrajectory(
+		"conversation-text",
+		stringPointer("turn-text"),
+		conversation.TrajectoryEventActivityProgressed,
+		conversation.TrajectoryActorAgent,
+		func(event *conversation.TrajectoryEvent) {
+			event.ActivityProgressed = &conversation.TrajectoryActivityProgressed{
+				ActivityID: "provider-activity-text",
+				Progress:   "Compiled 12 files.",
+			}
+		},
+	)
+	progress := awaitEvent(t, subscription, DirectorEventTextDelta)
+	if progress.TextDelta.Surface != DirectorTextSurfaceProcessOutput ||
+		progress.TextDelta.Text != "Compiled 12 files." {
+		t.Fatalf("process text event = %+v", progress.TextDelta)
+	}
+}
+
+func TestBestEffortOverflowResyncsInsteadOfCreatingACursorGap(t *testing.T) {
+	const streamID = "director:m-overflow"
+	registry := &Registry{
+		streamID: streamID,
+		sequence: maxPendingDirectorEvents,
+		now: func() time.Time {
+			return registryTestEpoch
+		},
+	}
+	subscription := &registrySubscription{
+		registry: registry,
+		events:   make(chan DirectorEvent),
+		aborted:  make(chan struct{}),
+	}
+	subscription.signal = sync.NewCond(&subscription.mutex)
+	for sequence := 1; sequence <= maxPendingDirectorEvents; sequence++ {
+		subscription.enqueue(DirectorEvent{
+			Kind:     DirectorEventWorkstreamUpdated,
+			StreamID: streamID,
+			Sequence: sequence,
+		})
+	}
+	subscription.enqueue(DirectorEvent{
+		Kind:     DirectorEventTextDelta,
+		StreamID: streamID,
+		Sequence: maxPendingDirectorEvents + 1,
+	})
+
+	if len(subscription.pending) != 1 ||
+		subscription.pending[0].Kind != DirectorEventResyncRequired ||
+		!subscription.terminal ||
+		!subscription.closed {
+		t.Fatalf(
+			"overflowed subscription = pending:%+v terminal:%t closed:%t",
+			subscription.pending,
+			subscription.terminal,
+			subscription.closed,
+		)
+	}
+}
+
 // TestRegistryTracksApprovalsAsActionableState proves an approval is app-scoped
 // state the rails can act on from anywhere, and that resolving it returns the
 // workstream to running without anyone recomputing it.
@@ -150,6 +264,53 @@ func TestRegistryTracksApprovalsAsActionableState(t *testing.T) {
 	}
 }
 
+func TestApprovalWindowShiftRequiresTypedResync(t *testing.T) {
+	harness := newRegistryHarness(t)
+	harness.createConversation("conversation-approval-window", "Many approvals", nil)
+	harness.startTurn("conversation-approval-window", "turn-approval-window")
+	harness.acceptInput(
+		"conversation-approval-window",
+		"turn-approval-window",
+		"request many approvals",
+	)
+	for index := 0; index < MaxSnapshotApprovals+1; index++ {
+		harness.requestApproval(
+			"conversation-approval-window",
+			"turn-approval-window",
+			fmt.Sprintf("approval-window-%03d", index),
+		)
+	}
+	registry := harness.start()
+	snapshot := requireSnapshot(t, registry)
+	if len(snapshot.UnresolvedApprovals) != MaxSnapshotApprovals {
+		t.Fatalf(
+			"bounded approval window = %d, want %d",
+			len(snapshot.UnresolvedApprovals),
+			MaxSnapshotApprovals,
+		)
+	}
+	subscription, err := registry.Subscribe(snapshot.EventCursor)
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	harness.resolveApproval(
+		"conversation-approval-window",
+		"turn-approval-window",
+		"approval-window-000",
+	)
+	resolved := awaitEvent(t, subscription, DirectorEventApprovalUpdated)
+	if resolved.ApprovalUpdated.Approval.ID != "approval-window-000" ||
+		resolved.ApprovalUpdated.Approval.Status != ApprovalStatusApproved {
+		t.Fatalf("resolved approval event = %+v", resolved.ApprovalUpdated.Approval)
+	}
+	resync := awaitEvent(t, subscription, DirectorEventResyncRequired)
+	if resync.ResyncRequired.Reason != DirectorResyncCollectionWindowOverflow {
+		t.Fatalf("approval window resync reason = %q", resync.ResyncRequired.Reason)
+	}
+}
+
 // TestRegistrySelectionIsDurable proves selection is app state rather than pane
 // state: it is committed as a durable fact, and a restart that only has the log
 // lands on the same selected workstream.
@@ -192,6 +353,92 @@ func TestRegistrySelectionIsDurable(t *testing.T) {
 	if restartedSnapshot.SelectedWorkstreamID == nil || *restartedSnapshot.SelectedWorkstreamID != second {
 		t.Fatalf("restarted selection = %v", restartedSnapshot.SelectedWorkstreamID)
 	}
+}
+
+func TestCancelledSelectionWaitKeepsTheDurablePredecessorChain(t *testing.T) {
+	harness := newRegistryHarness(t)
+	first := harness.createConversation("conversation-selection-first", "First", nil)
+	second := harness.createConversation("conversation-selection-second", "Second", nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	store := &selectionWaitGateStore{
+		DirectorFactStore: harness.store,
+		cancelCommitWait:  cancel,
+		followerWaiting:   make(chan struct{}),
+		releaseFollower:   make(chan struct{}),
+	}
+	registry, err := NewRegistry(
+		store,
+		harness,
+		WithRegistryClock(harness.clock),
+		WithRegistryIdentity(harness.identity),
+	)
+	if err != nil {
+		t.Fatalf("NewRegistry: %v", err)
+	}
+	if err := registry.Start(context.Background()); err != nil {
+		t.Fatalf("Start registry: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := registry.Close(); err != nil {
+			t.Errorf("close registry: %v", err)
+		}
+	})
+	<-store.followerWaiting
+
+	if _, err := registry.SelectWorkstream(ctx, second); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled selection error = %v, want context cancellation", err)
+	}
+	close(store.releaseFollower)
+	subscription := subscribeFromSnapshot(t, registry)
+	defer subscription.Unsubscribe()
+	selected, err := registry.SelectWorkstream(context.Background(), first)
+	if err != nil {
+		t.Fatalf("selection after a cancelled commit wait: %v", err)
+	}
+	if selected == nil || *selected != first {
+		t.Fatalf("selection after cancellation = %v, want %s", selected, first)
+	}
+	snapshot := requireSnapshot(t, registry)
+	if snapshot.SelectedWorkstreamID == nil || *snapshot.SelectedWorkstreamID != first {
+		t.Fatalf("durable selection after cancellation = %v, want %s", snapshot.SelectedWorkstreamID, first)
+	}
+}
+
+type selectionWaitGateStore struct {
+	DirectorFactStore
+	cancelCommitWait context.CancelFunc
+	cancelOnce       sync.Once
+	waitOnce         sync.Once
+	followerWaiting  chan struct{}
+	releaseFollower  chan struct{}
+}
+
+func (store *selectionWaitGateStore) Transact(
+	ctx context.Context,
+	operation string,
+	run func(*conversation.WriteTransaction) error,
+) ([]conversation.CommittedEvent, error) {
+	events, err := store.DirectorFactStore.Transact(ctx, operation, run)
+	if err == nil {
+		store.cancelOnce.Do(store.cancelCommitWait)
+	}
+	return events, err
+}
+
+func (store *selectionWaitGateStore) WaitForCommittedEvents(
+	ctx context.Context,
+	cursor conversation.CommittedEventCursor,
+	limit int,
+) ([]conversation.CommittedEvent, error) {
+	store.waitOnce.Do(func() {
+		close(store.followerWaiting)
+	})
+	select {
+	case <-store.releaseFollower:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	return store.DirectorFactStore.WaitForCommittedEvents(ctx, cursor, limit)
 }
 
 // TestRegistryResumesASubscriptionFromItsCursor proves a subscriber that
@@ -292,5 +539,150 @@ func TestRegistryProjectsForksAsChildWorkstreams(t *testing.T) {
 	childEntry := findEntry(t, snapshot, child)
 	if childEntry.Workstream.ParentID == nil || *childEntry.Workstream.ParentID != parent {
 		t.Fatalf("child workstream parent = %v, want %q", childEntry.Workstream.ParentID, parent)
+	}
+}
+
+func TestBackgroundUpdateDoesNotRerenderUnrelatedWorkstreams(t *testing.T) {
+	harness := newRegistryHarness(t)
+	var oldest string
+	var selected string
+	for index := 0; index < 100; index++ {
+		workstreamID := harness.createConversation(
+			fmt.Sprintf("conversation-background-%03d", index),
+			fmt.Sprintf("Background work %03d", index),
+			nil,
+		)
+		if index == 0 {
+			oldest = workstreamID
+		}
+		selected = workstreamID
+	}
+	harness.appendFact(DirectorFactEvent{
+		Kind:               DirectorFactWorkstreamSelected,
+		WorkstreamID:       &selected,
+		Actor:              SemanticActorUser,
+		WorkstreamSelected: &DirectorWorkstreamSelected{},
+	})
+	registry := harness.start()
+	before := requireSnapshot(t, registry)
+	if len(before.Workstreams) != 100 {
+		t.Fatalf("snapshot workstreams = %d, want 100", len(before.Workstreams))
+	}
+	if findEntry(t, before, oldest).DetailLevel != WorkstreamDetailBackground {
+		t.Fatalf("oldest workstream is not background before its update")
+	}
+	subscription, err := registry.Subscribe(before.EventCursor)
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	harness.updateConversationTitle("conversation-background-000", "Background work updated")
+	updated := awaitEvent(t, subscription, DirectorEventWorkstreamUpdated)
+	if updated.WorkstreamUpdated.Entry.Workstream.ID != oldest {
+		t.Fatalf("first update names %s, want %s",
+			updated.WorkstreamUpdated.Entry.Workstream.ID, oldest)
+	}
+	after := requireSnapshot(t, registry)
+	changedLevels := map[string]bool{}
+	beforeLevels := map[string]WorkstreamDetailLevel{}
+	for _, entry := range before.Workstreams {
+		beforeLevels[entry.Workstream.ID] = entry.DetailLevel
+	}
+	for _, entry := range after.Workstreams {
+		if beforeLevels[entry.Workstream.ID] != entry.DetailLevel {
+			changedLevels[entry.Workstream.ID] = true
+		}
+	}
+	if !changedLevels[oldest] || len(changedLevels) != 2 {
+		t.Fatalf("detail-level changes = %v, want updated background plus one displaced adjacent", changedLevels)
+	}
+
+	registry.mutex.Lock()
+	published := append([]DirectorEvent{}, registry.retained...)
+	registry.mutex.Unlock()
+	for _, event := range published {
+		switch event.Kind {
+		case DirectorEventWorkstreamUpdated:
+			workstreamID := event.WorkstreamUpdated.Entry.Workstream.ID
+			if !changedLevels[workstreamID] {
+				t.Fatalf("unrelated workstream %s rerendered", workstreamID)
+			}
+		case DirectorEventGraphUpdated:
+			t.Fatalf("title-only background update published graph work: %+v", event.GraphUpdated)
+		case DirectorEventSelectionChanged:
+			t.Fatal("background update republished selection")
+		}
+	}
+}
+
+func TestLiveWindowEvictsTheRowDisplacedByAnOffWindowUpdate(t *testing.T) {
+	harness := newRegistryHarness(t)
+	var oldest string
+	for index := 0; index < MaxSnapshotWorkstreams+1; index++ {
+		workstreamID := harness.createConversation(
+			fmt.Sprintf("conversation-window-%03d", index),
+			fmt.Sprintf("Windowed work %03d", index),
+			nil,
+		)
+		if index == 0 {
+			oldest = workstreamID
+		}
+	}
+	registry := harness.start()
+	before := requireSnapshot(t, registry)
+	if len(before.Workstreams) != MaxSnapshotWorkstreams || !before.HasMoreWorkstreams {
+		t.Fatalf(
+			"bounded snapshot = %d workstreams hasMore=%t",
+			len(before.Workstreams),
+			before.HasMoreWorkstreams,
+		)
+	}
+	beforeIDs := map[string]bool{}
+	for _, entry := range before.Workstreams {
+		beforeIDs[entry.Workstream.ID] = true
+	}
+	if beforeIDs[oldest] {
+		t.Fatalf("oldest workstream %s unexpectedly started inside the live window", oldest)
+	}
+	subscription, err := registry.Subscribe(before.EventCursor)
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	harness.updateConversationTitle("conversation-window-000", "Newest windowed work")
+	updated := awaitEvent(t, subscription, DirectorEventWorkstreamUpdated)
+	if updated.WorkstreamUpdated.Entry.Workstream.ID != oldest {
+		t.Fatalf(
+			"live-window entrant = %s, want %s",
+			updated.WorkstreamUpdated.Entry.Workstream.ID,
+			oldest,
+		)
+	}
+	removed := awaitEvent(t, subscription, DirectorEventWorkstreamRemoved)
+	displaced := removed.WorkstreamRemoved.WorkstreamID
+	if !beforeIDs[displaced] || displaced == oldest {
+		t.Fatalf("live-window removal = %s, want one prior window member", displaced)
+	}
+
+	after := requireSnapshot(t, registry)
+	if len(after.Workstreams) != MaxSnapshotWorkstreams || !after.HasMoreWorkstreams {
+		t.Fatalf(
+			"updated bounded snapshot = %d workstreams hasMore=%t",
+			len(after.Workstreams),
+			after.HasMoreWorkstreams,
+		)
+	}
+	afterIDs := map[string]bool{}
+	for _, entry := range after.Workstreams {
+		afterIDs[entry.Workstream.ID] = true
+	}
+	if !afterIDs[oldest] || afterIDs[displaced] {
+		t.Fatalf(
+			"updated live window retained entrant=%t displaced=%t",
+			afterIDs[oldest],
+			afterIDs[displaced],
+		)
 	}
 }

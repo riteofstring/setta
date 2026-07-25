@@ -11,9 +11,8 @@ import (
 //
 // The Director owns its own execution port; this is the conversation service's
 // side of it, stated in the conversation's own vocabulary so the dependency
-// runs one way. Every operation takes the ids trusted product code minted
-// before the decision was committed, which is what makes a decision and the
-// effect it authorized address the same turn after a crash.
+// runs one way. Every operation takes identities minted by trusted product
+// code, so provider output can only address durable records the app owns.
 
 // DirectorWorkstreamStart creates the durable conversation one workstream runs
 // on. Parentage is optional and independent of history: a root workstream has
@@ -195,36 +194,28 @@ func (service *Service) RecoverDirectorTurn(
 	if err := validateDirectorRequest(service, ctx); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	snapshot, err := service.store.ReadSnapshot(ctx, workspaceID, conversationID)
+	if err := validateIdentifier("director recovered turn id", failedTurnID); err != nil {
+		return ConversationSnapshot{}, err
+	}
+	failed, _, found, err := service.store.readConversationTurn(ctx, conversationID, failedTurnID)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	failed, err := failedDirectorTurn(snapshot, failedTurnID)
-	if err != nil {
-		return ConversationSnapshot{}, err
+	if !found {
+		return ConversationSnapshot{}, stateConflict(
+			"director recovery",
+			failedTurnID,
+			"recovered turn does not exist in the conversation",
+		)
+	}
+	if failed.Status != TurnStatusFailed {
+		return ConversationSnapshot{}, stateConflict(
+			"director recovery",
+			failedTurnID,
+			"recovered turn is not failed",
+		)
 	}
 	return service.sendTurn(ctx, workspaceID, conversationID, failed.AuthoredInput.Text, turnID)
-}
-
-func failedDirectorTurn(snapshot ConversationSnapshot, failedTurnID string) (ConversationTurn, error) {
-	for _, turn := range snapshot.Turns.Turns {
-		if turn.ID != failedTurnID {
-			continue
-		}
-		if turn.Status != TurnStatusFailed {
-			return ConversationTurn{}, stateConflict(
-				"director recovery",
-				failedTurnID,
-				"recovered turn is not failed",
-			)
-		}
-		return turn, nil
-	}
-	return ConversationTurn{}, stateConflict(
-		"director recovery",
-		failedTurnID,
-		"recovered turn is outside the durable window",
-	)
 }
 
 func validateDirectorRequest(service *Service, ctx context.Context) error {

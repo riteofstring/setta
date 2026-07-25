@@ -13,9 +13,8 @@ import (
 //
 // The Director states what it needs done in workstream language; this says it
 // in the conversation service's own vocabulary and nothing more. Every id in a
-// request was minted by trusted product code before the decision was committed,
-// so this adapter resolves nothing and decides nothing: it translates one call
-// and translates one error class back.
+// request was minted by trusted product code, so this adapter resolves nothing
+// and decides nothing: it translates one call and one error class back.
 //
 // A managed-runtime adapter replaces exactly this file. That is why the port
 // carries Setta identities rather than provider ones — nothing here is the

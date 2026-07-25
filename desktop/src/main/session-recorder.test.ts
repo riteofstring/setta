@@ -80,6 +80,16 @@ describe("session recording privacy", () => {
       { response: { answers: ["private-approval-answer"] } },
     ],
     [
+      ipcChannels.directorDispatchIntent,
+      "director_intent_submission",
+      {
+        kind: "resolve_approval",
+        resolveApproval: {
+          answers: [{ answers: ["private-approval-answer"], questionId: "scope" }],
+        },
+      },
+    ],
+    [
       ipcChannels.runtimeAddByPairingUrl,
       "runtime_pairing_url",
       "setta://pair?tok=private-pairing-token",

@@ -16,9 +16,56 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
 	"setta/internal/conversation"
+	"setta/internal/director"
 	"setta/internal/httpapi"
 	"setta/internal/master"
 )
+
+func TestBackendDirectorCommandCenterWithLiveCodex(t *testing.T) {
+	unsetRuntimeEnv(t, "OPENAI_API_KEY")
+	requireRuntimeLiveCodexChatGPTAuth(t)
+
+	config := testConfig(t)
+	config.Version = "test"
+	server, ready := startRuntimeTestServer(t, config)
+	defer shutdownServer(t, server)
+
+	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 3*time.Minute)
+	baseURL := "http://" + server.Addr()
+	postRuntimeJSON[httpapi.OpenWorkspaceResponse](
+		t,
+		client,
+		baseURL,
+		"/workspaces/open",
+		httpapi.OpenWorkspaceRequest{RootPath: t.TempDir()},
+		http.StatusOK,
+	)
+	receipt := postRuntimeJSON[director.DirectorReceipt](
+		t,
+		client,
+		baseURL,
+		"/director/intents/dispatch",
+		httpapi.DispatchDirectorIntentRequest{Intent: director.DirectorIntent{
+			Kind: director.DirectorIntentSubmit,
+			Submit: &director.DirectorSubmitIntent{
+				Text: "Answer this request directly with exactly DIRECTOR_LIVE_OK and no other text. " +
+					"Do not create or select a workstream and do not start work.",
+				Modality: director.DecisionIntentModalityText,
+			},
+		}},
+		http.StatusOK,
+	)
+	if receipt.Submit == nil ||
+		receipt.Submit.Decision == nil ||
+		*receipt.Submit.Decision != director.DirectorDecisionAnswerDirectly ||
+		strings.TrimSpace(receipt.Submit.PublicText) != "DIRECTOR_LIVE_OK" {
+		encoded, err := json.MarshalIndent(receipt, "", "  ")
+		if err != nil {
+			t.Fatalf("encode invalid live Director receipt: %v", err)
+		}
+		t.Fatalf("live Director receipt = %s", encoded)
+	}
+}
 
 func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 	unsetRuntimeEnv(t, "OPENAI_API_KEY")

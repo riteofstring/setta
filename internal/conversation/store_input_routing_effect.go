@@ -394,7 +394,7 @@ func readConversationRouteForkEffect(
 	command := record.ResultingCommand.ForkConversation
 	var parentConversationID string
 	var source BranchDecisionSource
-	var forkedAtTurnID string
+	var forkedAtTurnID sql.NullString
 	err := reader.QueryRowContext(ctx, `
 SELECT parent_conversation_id, decision_source, forked_at_turn_id
 FROM conversation_branches
@@ -408,7 +408,8 @@ WHERE child_conversation_id = ?
 	}
 	if parentConversationID != record.ConversationID ||
 		source != BranchDecisionSourceConversationRouter ||
-		forkedAtTurnID != command.ForkedAtTurnID {
+		!forkedAtTurnID.Valid ||
+		forkedAtTurnID.String != command.ForkedAtTurnID {
 		return false, stateConflict("conversation route fork", command.ChildConversationID, "stored effect does not match its command")
 	}
 	return readConversationRouteTurnEffect(

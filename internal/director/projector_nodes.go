@@ -27,8 +27,9 @@ type factContext struct {
 type nodeSpec struct {
 	identity SemanticNodeIdentity
 	sourceID string
-	// nodeID overrides the derived id for nodes whose identity needs more than
-	// one component, such as plan steps.
+	// nodeID overrides the derived id for nodes whose identity needs a trusted
+	// source other than sourceID, such as plan steps or provider-backed nodes
+	// addressed locally by provider metadata but identified by a Setta event.
 	nodeID         string
 	kind           SemanticNodeKind
 	status         SemanticNodeStatus

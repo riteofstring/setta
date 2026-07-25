@@ -2,6 +2,7 @@ package director
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -87,6 +88,22 @@ func TestDecisionTargetAuthorityMatchesRunState(t *testing.T) {
 		}},
 		{"queue offered with no active run", func(target *WorkstreamDecisionTarget) {
 			target.AllowedDecisionKinds = append(target.AllowedDecisionKinds, DirectorDecisionQueueBehindRun)
+		}},
+		{"queue withheld while a run is active", func(target *WorkstreamDecisionTarget) {
+			runID := fixtureActiveRunID
+			target.ActiveRunID = &runID
+			target.AllowedDecisionKinds = []DirectorDecisionKind{
+				DirectorDecisionSelectWorkstream,
+				DirectorDecisionSteerRun,
+			}
+		}},
+		{"steer withheld while a run is active", func(target *WorkstreamDecisionTarget) {
+			runID := fixtureActiveRunID
+			target.ActiveRunID = &runID
+			target.AllowedDecisionKinds = []DirectorDecisionKind{
+				DirectorDecisionSelectWorkstream,
+				DirectorDecisionQueueBehindRun,
+			}
 		}},
 		{"recovery offered with no recoverable failure", func(target *WorkstreamDecisionTarget) {
 			target.AllowedDecisionKinds = append(target.AllowedDecisionKinds, DirectorDecisionRecoverPath)
@@ -299,6 +316,18 @@ func TestDecisionCatalogIsFullyCovered(t *testing.T) {
 	if len(covered) != len(DirectorDecisionKinds()) {
 		t.Fatalf("the fixture set covers %d kinds but the catalog has %d",
 			len(covered), len(DirectorDecisionKinds()))
+	}
+}
+
+func TestDecisionContextRejectsClarificationWithoutWorkAuthority(t *testing.T) {
+	context := selectionOnlyContextFixture()
+	context.AllowedDecisionKinds = append(
+		context.AllowedDecisionKinds,
+		DirectorDecisionAskClarification,
+	)
+	if err := context.Validate(); err == nil ||
+		!strings.Contains(err.Error(), "no work outcome") {
+		t.Fatalf("clarification-only context error = %v", err)
 	}
 }
 

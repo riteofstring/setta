@@ -108,9 +108,10 @@ async function streamDirectorEventsOnce(
       options.sendEvent(event);
       return true;
     }
-    cursor = advanceDirectorCursor(cursor, event);
-    options.updateCursor(cursor);
+    const nextCursor = advanceDirectorCursor(cursor, event);
     options.sendEvent(event);
+    cursor = nextCursor;
+    options.updateCursor(cursor);
   }
   return false;
 }
@@ -142,14 +143,12 @@ function sleepWithAbort(ms: number, signal: AbortSignal): Promise<void> {
     return Promise.resolve();
   }
   return new Promise((resolve) => {
-    const timeout = setTimeout(resolve, ms);
-    signal.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timeout);
-        resolve();
-      },
-      { once: true },
-    );
+    const finish = () => {
+      clearTimeout(timeout);
+      signal.removeEventListener("abort", finish);
+      resolve();
+    };
+    const timeout = setTimeout(finish, ms);
+    signal.addEventListener("abort", finish, { once: true });
   });
 }

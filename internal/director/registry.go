@@ -39,8 +39,12 @@ type Registry struct {
 	retained            []DirectorEvent
 	subscribers         map[*registrySubscription]bool
 	adjacent            map[string]bool
+	publishedApprovals  map[string]bool
+	publishedArtifacts  map[string]bool
 	publishedAggregates DirectorAggregates
 	publishedLevels     map[string]WorkstreamDetailLevel
+	publishedResources  map[string]bool
+	publishedWindow     map[string]bool
 	started             bool
 	stopped             bool
 	failure             error
@@ -51,8 +55,9 @@ type Registry struct {
 	selectMutex      sync.Mutex
 	pendingSelection *string
 
-	cancel context.CancelFunc
-	done   chan struct{}
+	cancel  context.CancelFunc
+	done    chan struct{}
+	applied chan struct{}
 }
 
 // RegistryOption configures a registry.
@@ -91,15 +96,20 @@ func NewRegistry(facts DirectorFactStore, workspaces WorkspaceResources, options
 		return nil, errors.New("director registry requires a durable fact store")
 	}
 	registry := &Registry{
-		facts:           facts,
-		workspaces:      workspaces,
-		now:             time.Now,
-		newID:           randomDirectorFactID,
-		state:           newRegistryState(),
-		subscribers:     map[*registrySubscription]bool{},
-		adjacent:        map[string]bool{},
-		publishedLevels: map[string]WorkstreamDetailLevel{},
-		done:            make(chan struct{}),
+		facts:              facts,
+		workspaces:         workspaces,
+		now:                time.Now,
+		newID:              randomDirectorFactID,
+		state:              newRegistryState(),
+		subscribers:        map[*registrySubscription]bool{},
+		adjacent:           map[string]bool{},
+		publishedApprovals: map[string]bool{},
+		publishedArtifacts: map[string]bool{},
+		publishedLevels:    map[string]WorkstreamDetailLevel{},
+		publishedResources: map[string]bool{},
+		publishedWindow:    map[string]bool{},
+		done:               make(chan struct{}),
+		applied:            make(chan struct{}),
 	}
 	for _, option := range options {
 		if option == nil {
@@ -116,6 +126,9 @@ func NewRegistry(facts DirectorFactStore, workspaces WorkspaceResources, options
 // Materialization is a replay of the same fold the live path runs, so the state
 // a restart lands on is the state the app was in.
 func (registry *Registry) Start(ctx context.Context) error {
+	if ctx == nil {
+		return errors.New("director registry start context is required")
+	}
 	registry.mutex.Lock()
 	if registry.started {
 		registry.mutex.Unlock()
@@ -125,6 +138,10 @@ func (registry *Registry) Start(ctx context.Context) error {
 	registry.mutex.Unlock()
 
 	if err := registry.materialize(ctx); err != nil {
+		registry.mutex.Lock()
+		registry.stopped = true
+		registry.failure = err
+		registry.mutex.Unlock()
 		return err
 	}
 
@@ -170,6 +187,7 @@ func (registry *Registry) materialize(ctx context.Context) error {
 	registry.publishedAggregates = registry.state.aggregates
 	registry.refreshDetailLevels()
 	registry.recordPublishedLevels()
+	registry.recordPublishedCollections()
 	return nil
 }
 
@@ -205,16 +223,19 @@ func (registry *Registry) applyBatch(events []conversation.CommittedEvent) error
 			return fmt.Errorf("apply director fact at commit %d: %w", event.CommitSequence, err)
 		}
 		if len(effects) == 0 {
+			registry.signalAppliedLocked()
 			continue
 		}
 		if registry.needsLevelRefresh(effects) {
 			registry.refreshDetailLevels()
-			levelEffects, err := registry.levelChangeEffects()
+			levelEffects, replacedGraphs, err := registry.levelChangeEffects(effects)
 			if err != nil {
 				return err
 			}
+			effects = withoutGraphEffects(effects, replacedGraphs)
 			effects = append(effects, levelEffects...)
 		}
+		effects, collectionResync := registry.prepareCollectionEffects(effects)
 		published, err := registry.eventsForEffects(effects)
 		if err != nil {
 			return err
@@ -224,6 +245,10 @@ func (registry *Registry) applyBatch(events []conversation.CommittedEvent) error
 				return err
 			}
 		}
+		if collectionResync {
+			registry.resyncSubscribers(DirectorResyncCollectionWindowOverflow)
+		}
+		registry.signalAppliedLocked()
 	}
 	return nil
 }
@@ -253,6 +278,7 @@ func (registry *Registry) stop(cause error) {
 		subscription.close()
 	}
 	registry.subscribers = map[*registrySubscription]bool{}
+	registry.signalAppliedLocked()
 }
 
 // Close stops following the durable log and ends every subscription.
@@ -277,6 +303,57 @@ func (registry *Registry) Err() error {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
 	return registry.failure
+}
+
+func (registry *Registry) requireAvailable() error {
+	if registry == nil {
+		return ErrDirectorUnavailable
+	}
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	return registry.requireAvailableLocked()
+}
+
+func (registry *Registry) requireAvailableLocked() error {
+	if !registry.started {
+		return fmt.Errorf("%w: the app-scoped registry is not started", ErrDirectorUnavailable)
+	}
+	if registry.stopped {
+		return fmt.Errorf("%w: the app-scoped registry is stopped", ErrDirectorUnavailable)
+	}
+	return nil
+}
+
+// awaitCommit waits for the live fold to observe a Director fact the caller
+// just appended. A dispatch that returned before its own fact reached the
+// registry could race a repeated command against stale lifecycle state.
+func (registry *Registry) awaitCommit(ctx context.Context, commitSequence int64) error {
+	if ctx == nil {
+		return errors.New("director commit wait context is required")
+	}
+	for {
+		registry.mutex.Lock()
+		if registry.state.cursor.CommitSequence >= commitSequence {
+			registry.mutex.Unlock()
+			return nil
+		}
+		if err := registry.requireAvailableLocked(); err != nil {
+			registry.mutex.Unlock()
+			return err
+		}
+		applied := registry.applied
+		registry.mutex.Unlock()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-applied:
+		}
+	}
+}
+
+func (registry *Registry) signalAppliedLocked() {
+	close(registry.applied)
+	registry.applied = make(chan struct{})
 }
 
 // Snapshot returns the bounded app-scoped projection and the cursor its
@@ -309,6 +386,9 @@ func (registry *Registry) Subscribe(cursor DirectorEventCursor) (DirectorEventSu
 	defer registry.mutex.Unlock()
 	if !registry.started {
 		return nil, fmt.Errorf("%w: the app-scoped registry is not started", ErrDirectorUnavailable)
+	}
+	if err := cursor.Validate(cursor.StreamID); err != nil {
+		return nil, err
 	}
 	subscription := newRegistrySubscription(registry)
 	if reason, required := registry.resyncReasonFor(cursor); required {

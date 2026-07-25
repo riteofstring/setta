@@ -724,9 +724,13 @@ func blockedAndCancelledFixture() ProjectionFixture {
 		func(event *conversation.TrajectoryEvent) {
 			event.TurnInterrupted = &conversation.TrajectoryTurnInterrupted{Reason: conversation.TurnInterruptionUserRequested}
 		})
+	builder.trajectory(conversationID, stringPointer(turnID), conversation.TrajectoryEventTurnInterrupted, conversation.TrajectoryActorProvider,
+		func(event *conversation.TrajectoryEvent) {
+			event.TurnInterrupted = &conversation.TrajectoryTurnInterrupted{Reason: conversation.TurnInterruptionProviderInterrupted}
+		})
 	return ProjectionFixture{
 		Name:        "blocked_and_cancelled",
-		Description: "A lost agent, a reconciliation, a disconnected then reconnected environment, an approval superseded by the provider, and a user cancellation.",
+		Description: "A lost agent, a reconciliation, a disconnected then reconnected environment, an approval superseded by the provider, and a user cancellation confirmed by the provider.",
 		Events:      builder.events,
 	}
 }

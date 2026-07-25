@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"setta/internal/conversation"
 )
 
 // The decision context is the only authority a Director decision has, so these
@@ -122,6 +124,123 @@ func TestDecisionContextDerivesTargetAuthorityFromRunState(t *testing.T) {
 		if !slices.Contains(decisionContext.AllowedDecisionKinds, kind) {
 			t.Fatalf("context allows %v, missing %q", decisionContext.AllowedDecisionKinds, kind)
 		}
+	}
+}
+
+func TestDecisionContextWithholdsWorkThatCannotExecuteYet(t *testing.T) {
+	harness := newRegistryHarness(t)
+	queued := harness.createConversation("conversation-queued", "Queued work", nil)
+	failedRunning := harness.createConversation("conversation-retrying", "Retrying import", nil)
+	awaitingResource := harness.createConversation("conversation-folderless", "Needs a folder", nil)
+
+	harness.startTurn("conversation-queued", "turn-queued-failed")
+	harness.failTurn("conversation-queued", "turn-queued-failed", "Queued path failed")
+	harness.publishQueue("conversation-queued", "turn-waiting")
+
+	harness.startTurn("conversation-retrying", "turn-retrying-failed")
+	harness.failTurn("conversation-retrying", "turn-retrying-failed", "Retrying path failed")
+	harness.startTurn("conversation-retrying", "turn-retrying-active")
+
+	harness.appendFact(DirectorFactEvent{
+		Kind:         DirectorFactResourceRequestOpened,
+		WorkstreamID: &awaitingResource,
+		Actor:        SemanticActorDirector,
+		ResourceRequestOpened: &DirectorResourceRequestOpened{
+			RequestID:     "resource-folderless",
+			Kind:          WorkstreamResourceKindFolder,
+			PublicSummary: "Waiting for a project folder before this work can start.",
+		},
+	})
+
+	context := requireDecisionContext(t, harness.start())
+	queuedTarget := requireDecisionTarget(t, context, queued)
+	if len(queuedTarget.RecoverableFailures) != 1 ||
+		!slices.Equal(queuedTarget.AllowedDecisionKinds, []DirectorDecisionKind{
+			DirectorDecisionSelectWorkstream,
+		}) {
+		t.Fatalf("queued failed target authority = %+v", queuedTarget)
+	}
+	runningTarget := requireDecisionTarget(t, context, failedRunning)
+	if len(runningTarget.RecoverableFailures) != 1 ||
+		slices.Contains(runningTarget.AllowedDecisionKinds, DirectorDecisionRecoverPath) {
+		t.Fatalf("running failed target authority = %+v", runningTarget)
+	}
+	resourceTarget := requireDecisionTarget(t, context, awaitingResource)
+	if !slices.Equal(resourceTarget.AllowedDecisionKinds, []DirectorDecisionKind{
+		DirectorDecisionSelectWorkstream,
+	}) {
+		t.Fatalf("awaiting-resource target authority = %+v", resourceTarget)
+	}
+}
+
+func TestQueueDrainClearsQueuedAuthority(t *testing.T) {
+	harness := newRegistryHarness(t)
+	workstreamID := harness.createConversation("conversation-queue", "Queued work", nil)
+	harness.publishQueue("conversation-queue", "turn-waiting")
+	registry := harness.start()
+
+	queued := requireDecisionTarget(t, requireDecisionContext(t, registry), workstreamID)
+	if queued.QueuedRunCount != 1 ||
+		slices.Contains(queued.AllowedDecisionKinds, DirectorDecisionSendToWorkstream) {
+		t.Fatalf("queued target = %+v", queued)
+	}
+	snapshot := requireSnapshot(t, registry)
+	subscription, err := registry.Subscribe(snapshot.EventCursor)
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	defer subscription.Unsubscribe()
+
+	harness.publishQueue("conversation-queue")
+	drained := awaitWorkstreamStatus(
+		t,
+		subscription,
+		workstreamID,
+		WorkstreamStatusIdle,
+	)
+	if drained.QueuedRunCount != 0 {
+		t.Fatalf("drained queue count = %d", drained.QueuedRunCount)
+	}
+	target := requireDecisionTarget(t, requireDecisionContext(t, registry), workstreamID)
+	if !slices.Contains(target.AllowedDecisionKinds, DirectorDecisionSendToWorkstream) {
+		t.Fatalf("drained target allows %v", target.AllowedDecisionKinds)
+	}
+}
+
+func TestArchivedWorkstreamOutranksStaleBlockers(t *testing.T) {
+	harness := newRegistryHarness(t)
+	workstreamID := harness.createConversation("conversation-archived", "Old work", nil)
+	harness.startTurn("conversation-archived", "turn-before-archive")
+	harness.appendTrajectory(
+		"conversation-archived",
+		stringPointer("turn-before-archive"),
+		conversation.TrajectoryEventProviderLifecycleChanged,
+		conversation.TrajectoryActorProvider,
+		func(event *conversation.TrajectoryEvent) {
+			event.ProviderLifecycleChanged = &conversation.TrajectoryProviderLifecycleChanged{
+				Lifecycle: conversation.ProviderLifecycle{
+					Provider: conversation.ProviderCodex,
+					Status:   conversation.ProviderLifecycleUnavailable,
+					Reason:   conversation.ProviderLifecycleReasonEnvironmentDisconnected,
+				},
+			}
+		},
+	)
+	harness.endTurn(
+		"conversation-archived",
+		"turn-before-archive",
+		conversation.TurnStatusCancelled,
+		nil,
+	)
+	harness.archiveConversation("conversation-archived", "Old work")
+
+	registry := harness.start()
+	entry := findEntry(t, requireSnapshot(t, registry), workstreamID)
+	if entry.Workstream.Status != WorkstreamStatusArchived {
+		t.Fatalf("archived blocked workstream status = %q", entry.Workstream.Status)
+	}
+	if _, found := requireDecisionContext(t, registry).Target(workstreamID); found {
+		t.Fatal("archived blocked workstream remained a routing target")
 	}
 }
 

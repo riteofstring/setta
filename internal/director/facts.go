@@ -90,8 +90,8 @@ type DirectorWorkstreamResourceBound struct {
 }
 
 // DirectorDecisionCommitted is a Director decision that already passed trusted
-// validation. Nothing here is model-authored except the decision kind and the
-// public summary.
+// validation. Trusted code derives its ids and public summary. The decision
+// kind and any answer or clarification text may originate from model output.
 type DirectorDecisionCommitted struct {
 	Decision DirectorDecisionKind `json:"decision"`
 	// IntentID is the submitted intent this decision answered. One intent

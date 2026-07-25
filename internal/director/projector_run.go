@@ -187,6 +187,14 @@ func projectTurnInterrupted(projector *DirectorGraphProjector, context factConte
 	if payload == nil {
 		return missingPayload(event)
 	}
+	// The conversation owns two durable moments with this event kind: the user's
+	// accepted control request and the later provider/system terminal outcome.
+	// Only the latter proves the run stopped. Closing the graph on the request
+	// would disagree with the still-running conversation and reject the valid
+	// terminal event during cold replay.
+	if event.Actor == conversation.TrajectoryActorUser {
+		return nil
+	}
 	summary := fmt.Sprintf("%s (%s)", cancelledRunSummary, payload.Reason)
 	return projector.closeRun(context, event, SemanticNodeCancelled, SemanticNodeStatusCancelled, summary)
 }

@@ -136,7 +136,11 @@ func directorEventStreamCursor(request *http.Request) (director.DirectorEventCur
 	if err != nil || sequence < 0 {
 		return director.DirectorEventCursor{}, fmt.Errorf("director event cursor sequence must be a non-negative integer: %s", value)
 	}
-	return director.DirectorEventCursor{StreamID: value[:separator], Sequence: sequence}, nil
+	cursor := director.DirectorEventCursor{StreamID: value[:separator], Sequence: sequence}
+	if err := cursor.Validate(cursor.StreamID); err != nil {
+		return director.DirectorEventCursor{}, err
+	}
+	return cursor, nil
 }
 
 func writeDirectorServerSentEvent(response http.ResponseWriter, event director.DirectorEvent) error {

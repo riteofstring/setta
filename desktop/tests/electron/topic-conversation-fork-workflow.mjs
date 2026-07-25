@@ -919,8 +919,9 @@ export async function exerciseDurableForkWorkflow({
     forkTopicSummary.id,
     (surface) =>
       surface.projectionStatus === "ready" &&
-      surface.forkParentConversationId === parentTopic.id &&
-      surface.forkParentTitle.includes(parentTopic.title),
+      surface.lineageKind === "fork" &&
+      surface.lineageParentConversationId === parentTopic.id &&
+      surface.lineageParentTitle.includes(parentTopic.title),
     timeoutMs,
   );
   await waitForState(
@@ -994,8 +995,9 @@ export async function exerciseDurableForkWorkflow({
     forkTopicSummary.id,
     (surface) =>
       surface.projectionStatus === "ready" &&
-      surface.forkParentConversationId === parentTopic.id &&
-      surface.forkParentTitle.includes(parentTopic.title),
+      surface.lineageKind === "fork" &&
+      surface.lineageParentConversationId === parentTopic.id &&
+      surface.lineageParentTitle.includes(parentTopic.title),
     timeoutMs,
   );
   assertDriverAction(

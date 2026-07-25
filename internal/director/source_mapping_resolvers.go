@@ -184,8 +184,9 @@ func ApprovalStatusForDecision(decision conversation.TrajectoryApprovalDecision)
 }
 
 // SemanticNodeID derives the deterministic node id for one node identity and
-// the durable id it is addressed by. Replaying the same events must address the
-// same node, so ids are derived rather than generated.
+// its Setta-owned durable source. Replaying the same events must address the
+// same node, so ids are derived rather than generated. Provider-backed updates
+// resolve through projector-local maps and never use provider ids here.
 func SemanticNodeID(identity SemanticNodeIdentity, sourceID string) (string, error) {
 	if !isSemanticNodeIdentity(identity) {
 		return "", fmt.Errorf("unknown semantic node identity %q", identity)

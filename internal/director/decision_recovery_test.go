@@ -105,7 +105,7 @@ func TestDecisionRecoveryBlocksWhenNothingAuthorizedRemains(t *testing.T) {
 		t.Fatalf("terminal recovery: %v", err)
 	}
 	if blocked.Step != DecisionRecoveryBlocked {
-		t.Fatalf("an unusable context must end in a durable blocked state, got %q", blocked.Step)
+		t.Fatalf("an unusable context must end in a blocked receipt, got %q", blocked.Step)
 	}
 	if strings.TrimSpace(blocked.PublicSummary) == "" {
 		t.Fatal("a blocked state must carry a public summary")
@@ -162,6 +162,7 @@ func TestDecisionRecoveryRequiresARejection(t *testing.T) {
 func selectionOnlyContextFixture() DirectorDecisionContext {
 	context := decisionContextFixture()
 	target := idleDecisionTarget()
+	target.Status = WorkstreamStatusAwaitingResource
 	target.AllowedDecisionKinds = []DirectorDecisionKind{DirectorDecisionSelectWorkstream}
 	target.AllowsChildWorkstream = false
 	target.ForkPoints = []DecisionForkPoint{}
@@ -170,7 +171,6 @@ func selectionOnlyContextFixture() DirectorDecisionContext {
 	context.Workstreams = []WorkstreamDecisionTarget{target}
 	context.AllowedDecisionKinds = []DirectorDecisionKind{
 		DirectorDecisionAnswerDirectly,
-		DirectorDecisionAskClarification,
 		DirectorDecisionSelectWorkstream,
 	}
 	return context

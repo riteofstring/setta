@@ -41,19 +41,16 @@ func projectActivityProgressed(projector *DirectorGraphProjector, context factCo
 	}
 	// Progress advances the node the start created. Process output is a detail
 	// surface, so it never becomes the node's label.
-	for _, identity := range []SemanticNodeIdentity{
-		SemanticNodeIdentityActivity,
-		SemanticNodeIdentityFileChange,
+	for _, nodes := range []map[string]string{
+		context.workstream.activityNodes,
+		context.workstream.fileChangeNodes,
 	} {
-		nodeID, err := SemanticNodeID(identity, payload.ActivityID)
-		if err != nil {
-			return err
-		}
+		nodeID := nodes[payload.ActivityID]
 		index, exists := context.workstream.nodeIndex[nodeID]
 		if !exists {
 			continue
 		}
-		_, err = projector.commitNode(context, nodeSpec{
+		_, err := projector.commitNode(context, nodeSpec{
 			nodeID: nodeID,
 			status: context.workstream.nodes[index].Status,
 		})
@@ -96,16 +93,24 @@ func (projector *DirectorGraphProjector) commitActivity(
 	if kind == SemanticNodeNone {
 		return nil
 	}
+	nodeID, tracked, err := providerBackedNodeID(
+		context,
+		context.workstream.activityNodes,
+		activity.ID,
+		SemanticNodeIdentityActivity,
+	)
+	if err != nil {
+		return err
+	}
 	publicSummary, err := activityPublicSummary(activity.Kind)
 	if err != nil {
 		return err
 	}
 	_, err = projector.commitNode(context, nodeSpec{
-		identity: SemanticNodeIdentityActivity,
-		sourceID: activity.ID,
-		kind:     kind,
-		status:   status,
-		actor:    context.actor,
+		nodeID: nodeID,
+		kind:   kind,
+		status: status,
+		actor:  context.actor,
 		// Provider activity titles and summaries can contain full commands,
 		// arguments, paths, or tool output. The semantic graph names the typed
 		// activity and leaves those private details on their owning surface.
@@ -113,6 +118,9 @@ func (projector *DirectorGraphProjector) commitActivity(
 		evidence: EvidenceRuntimeFact,
 		chain:    true,
 	})
+	if err == nil && !tracked {
+		context.workstream.activityNodes[activity.ID] = nodeID
+	}
 	return err
 }
 
@@ -150,10 +158,18 @@ func projectFileChangeProposed(projector *DirectorGraphProjector, context factCo
 	if payload == nil {
 		return missingPayload(event)
 	}
-	nodeID, err := projector.commitNode(context, nodeSpec{
-		identity: SemanticNodeIdentityFileChange,
-		sourceID: payload.ProviderItemID,
-		kind:     SemanticNodeAction,
+	nodeID, tracked, err := providerBackedNodeID(
+		context,
+		context.workstream.fileChangeNodes,
+		payload.ProviderItemID,
+		SemanticNodeIdentityFileChange,
+	)
+	if err != nil {
+		return err
+	}
+	_, err = projector.commitNode(context, nodeSpec{
+		nodeID: nodeID,
+		kind:   SemanticNodeAction,
 		// A proposed change cannot progress until something decides to apply it,
 		// whether that is the user answering an approval or the permission
 		// profile allowing it outright.
@@ -166,8 +182,11 @@ func projectFileChangeProposed(projector *DirectorGraphProjector, context factCo
 	if err != nil {
 		return err
 	}
+	if !tracked {
+		context.workstream.fileChangeNodes[payload.ProviderItemID] = nodeID
+	}
 	if context.runID != nil {
-		context.workstream.fileChangeNode[*context.runID] = nodeID
+		context.workstream.pendingFileChangeNode[*context.runID] = nodeID
 	}
 	return nil
 }
@@ -181,13 +200,21 @@ func projectFileChangeCompleted(projector *DirectorGraphProjector, context factC
 	if err != nil {
 		return err
 	}
+	nodeID, tracked, err := providerBackedNodeID(
+		context,
+		context.workstream.fileChangeNodes,
+		payload.ProviderItemID,
+		SemanticNodeIdentityFileChange,
+	)
+	if err != nil {
+		return err
+	}
 	summary := fileChangeSummary(payload.Changes)
 	if payload.Failure != nil {
 		summary = firstText(payload.Failure.Message, summary)
 	}
 	_, err = projector.commitNode(context, nodeSpec{
-		identity: SemanticNodeIdentityFileChange,
-		sourceID: payload.ProviderItemID,
+		nodeID:   nodeID,
 		kind:     SemanticNodeAction,
 		status:   status,
 		actor:    context.actor,
@@ -195,8 +222,13 @@ func projectFileChangeCompleted(projector *DirectorGraphProjector, context factC
 		evidence: EvidenceRuntimeFact,
 		chain:    true,
 	})
-	if err == nil && context.runID != nil {
-		delete(context.workstream.fileChangeNode, *context.runID)
+	if err == nil {
+		if !tracked {
+			context.workstream.fileChangeNodes[payload.ProviderItemID] = nodeID
+		}
+		if context.runID != nil {
+			delete(context.workstream.pendingFileChangeNode, *context.runID)
+		}
 	}
 	return err
 }
@@ -239,9 +271,17 @@ func projectApprovalRequested(projector *DirectorGraphProjector, context factCon
 	// Only the approval's public title becomes graph truth. Bodies, commands,
 	// questions, and secret fields stay with the approval surface that can
 	// redact them.
-	nodeID, err := projector.commitNode(context, nodeSpec{
-		identity: SemanticNodeIdentityApproval,
-		sourceID: approval.ID,
+	nodeID, tracked, err := providerBackedNodeID(
+		context,
+		context.workstream.approvalNodes,
+		approval.ID,
+		SemanticNodeIdentityApproval,
+	)
+	if err != nil {
+		return err
+	}
+	_, err = projector.commitNode(context, nodeSpec{
+		nodeID:   nodeID,
 		kind:     SemanticNodeApprovalRequired,
 		status:   SemanticNodeStatusWaiting,
 		actor:    SemanticActorSystem,
@@ -251,6 +291,9 @@ func projectApprovalRequested(projector *DirectorGraphProjector, context factCon
 	})
 	if err != nil {
 		return err
+	}
+	if !tracked {
+		context.workstream.approvalNodes[approval.ID] = nodeID
 	}
 	return projector.addEdge(context, SemanticEdgeBlockedBy, projector.approvalBlocked(context, approval.Kind), context.workstream.id, nodeID)
 }
@@ -262,7 +305,7 @@ func (projector *DirectorGraphProjector) approvalBlocked(context factContext, ki
 		return context.workstream.lastNodeID
 	}
 	if kind == conversation.TrajectoryApprovalKindFileChange {
-		if fileChangeNodeID, waiting := context.workstream.fileChangeNode[*context.runID]; waiting {
+		if fileChangeNodeID, waiting := context.workstream.pendingFileChangeNode[*context.runID]; waiting {
 			return fileChangeNodeID
 		}
 	}
@@ -290,11 +333,8 @@ func projectApprovalResolved(projector *DirectorGraphProjector, context factCont
 	if err != nil {
 		return err
 	}
-	nodeID, err := SemanticNodeID(SemanticNodeIdentityApproval, resolution.ApprovalID)
-	if err != nil {
-		return err
-	}
-	if _, exists := context.workstream.nodeIndex[nodeID]; !exists {
+	nodeID, exists := context.workstream.approvalNodes[resolution.ApprovalID]
+	if !exists {
 		return fmt.Errorf("approval %s resolved before it was requested", resolution.ApprovalID)
 	}
 	// The decision is the only part of a resolution that becomes graph truth.
@@ -352,9 +392,17 @@ func (projector *DirectorGraphProjector) commitSubagent(context factContext, sub
 	if err != nil {
 		return err
 	}
-	nodeID, err := projector.commitNode(context, nodeSpec{
-		identity: SemanticNodeIdentitySubagent,
-		sourceID: subagent.ID,
+	nodeID, tracked, err := providerBackedNodeID(
+		context,
+		context.workstream.subagentNodes,
+		subagent.ID,
+		SemanticNodeIdentitySubagent,
+	)
+	if err != nil {
+		return err
+	}
+	_, err = projector.commitNode(context, nodeSpec{
+		nodeID:   nodeID,
 		kind:     SemanticNodeDelegation,
 		status:   status,
 		actor:    SemanticActorWorker,
@@ -364,6 +412,9 @@ func (projector *DirectorGraphProjector) commitSubagent(context factContext, sub
 	})
 	if err != nil {
 		return err
+	}
+	if !tracked {
+		context.workstream.subagentNodes[subagent.ID] = nodeID
 	}
 	if context.runID == nil {
 		return nil
@@ -735,9 +786,17 @@ func projectProviderValidationRecorded(projector *DirectorGraphProjector, contex
 	if err != nil {
 		return err
 	}
-	nodeID, err := projector.commitNode(context, nodeSpec{
-		identity: SemanticNodeIdentityValidation,
-		sourceID: validation.ID,
+	nodeID, tracked, err := providerBackedNodeID(
+		context,
+		context.workstream.validationNodes,
+		validation.ID,
+		SemanticNodeIdentityValidation,
+	)
+	if err != nil {
+		return err
+	}
+	_, err = projector.commitNode(context, nodeSpec{
+		nodeID:   nodeID,
 		kind:     kind,
 		status:   status,
 		actor:    SemanticActorProvider,
@@ -747,6 +806,9 @@ func projectProviderValidationRecorded(projector *DirectorGraphProjector, contex
 	})
 	if err != nil {
 		return err
+	}
+	if !tracked {
+		context.workstream.validationNodes[validation.ID] = nodeID
 	}
 	return projector.addEdge(
 		context,
@@ -766,11 +828,11 @@ func (projector *DirectorGraphProjector) validationSubject(
 	subject *string,
 ) (string, error) {
 	if subject != nil {
-		for _, identity := range []SemanticNodeIdentity{SemanticNodeIdentityActivity, SemanticNodeIdentityFileChange} {
-			nodeID, err := SemanticNodeID(identity, *subject)
-			if err != nil {
-				continue
-			}
+		for _, nodes := range []map[string]string{
+			context.workstream.activityNodes,
+			context.workstream.fileChangeNodes,
+		} {
+			nodeID := nodes[*subject]
 			if _, exists := context.workstream.nodeIndex[nodeID]; exists {
 				return nodeID, nil
 			}
@@ -788,6 +850,22 @@ func (projector *DirectorGraphProjector) validationSubject(
 		return "", fmt.Errorf("run-wide validation references unknown run node %q", runNodeID)
 	}
 	return runNodeID, nil
+}
+
+// providerBackedNodeID keeps execution metadata behind the projector boundary.
+// A provider id may address a later update locally, but the graph id itself is
+// derived from the first durable Setta event that makes the node visible.
+func providerBackedNodeID(
+	context factContext,
+	nodes map[string]string,
+	providerID string,
+	identity SemanticNodeIdentity,
+) (string, bool, error) {
+	if nodeID, tracked := nodes[providerID]; tracked {
+		return nodeID, true, nil
+	}
+	nodeID, err := SemanticNodeID(identity, context.eventID)
+	return nodeID, false, err
 }
 
 func projectModelRerouted(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {

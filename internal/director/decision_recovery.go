@@ -44,8 +44,9 @@ const (
 	// DecisionRejectedUnauthorizedResourceScope named a folder resource the
 	// app has not offered.
 	DecisionRejectedUnauthorizedResourceScope DecisionRejectionReason = "unauthorized_resource_scope"
-	// DecisionRejectedStaleContext means the authoritative context itself no
-	// longer validates, so retrying against it cannot succeed.
+	// DecisionRejectedStaleContext means authoritative state changed while the
+	// provider was deciding, so its answer no longer addresses the current
+	// context.
 	DecisionRejectedStaleContext DecisionRejectionReason = "stale_context"
 )
 
@@ -132,8 +133,8 @@ const (
 	// DecisionRecoveryClarify asks the user the one question whose answer
 	// changes the outcome.
 	DecisionRecoveryClarify DecisionRecoveryStep = "clarify"
-	// DecisionRecoveryBlocked commits a durable blocked state with a public
-	// summary.
+	// DecisionRecoveryBlocked returns a public-safe blocked receipt when no
+	// authorized decision remains.
 	DecisionRecoveryBlocked DecisionRecoveryStep = "blocked"
 )
 
@@ -195,8 +196,8 @@ func NextDecisionRecovery(request DecisionRecoveryRequest) (DecisionRecovery, er
 	}
 	if !contextValid {
 		// The context is still not usable after a rebuild, so there is no
-		// authorized outcome left to derive. A durable blocked state is the
-		// honest end of the policy.
+		// authorized outcome left to derive. A public-safe blocked receipt is
+		// the honest end of the policy.
 		return DecisionRecovery{Step: DecisionRecoveryBlocked, PublicSummary: blockedDecisionSummary}, nil
 	}
 	return resolveDecisionWithoutModel(request.Context)
@@ -239,10 +240,10 @@ func clarifyOrBlock(context DirectorDecisionContext, candidates []workCandidate)
 	if len(candidates) == 0 || !context.allowsKind(DirectorDecisionAskClarification) {
 		return DecisionRecovery{Step: DecisionRecoveryBlocked, PublicSummary: blockedDecisionSummary}, nil
 	}
-	ids, titles := candidateWorkstreams(candidates)
+	ids, _ := candidateWorkstreams(candidates)
 	decision := DirectorDecision{
 		Kind:             DirectorDecisionAskClarification,
-		AskClarification: &AskClarificationDecision{Question: clarificationQuestion(titles)},
+		AskClarification: &AskClarificationDecision{Question: clarificationQuestion(candidates)},
 	}
 	if err := ValidateDecisionAuthority(context, decision); err != nil {
 		return DecisionRecovery{}, fmt.Errorf("derived clarification is unauthorized: %w", err)
@@ -254,7 +255,14 @@ func clarifyOrBlock(context DirectorDecisionContext, candidates []workCandidate)
 	}, nil
 }
 
-func clarificationQuestion(titles []string) string {
+func clarificationQuestion(candidates []workCandidate) string {
+	_, titles := candidateWorkstreams(candidates)
+	if len(titles) == 1 {
+		return fmt.Sprintf(
+			"Should I update the active run in %q now, or queue this request behind it?",
+			titles[0],
+		)
+	}
 	quoted := make([]string, 0, len(titles))
 	for _, title := range titles {
 		quoted = append(quoted, fmt.Sprintf("%q", title))

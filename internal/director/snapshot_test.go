@@ -21,7 +21,6 @@ func testWorkstream(id string) Workstream {
 		ID:               id,
 		Title:            "Refresh the release notes",
 		Status:           WorkstreamStatusIdle,
-		ConversationID:   "conversation-" + id,
 		ResourceScope:    WorkstreamResourceScope{Kind: WorkstreamResourceScopeFolderless},
 		ResourceBindings: []WorkstreamResourceBinding{},
 		CreatedAt:        "2026-07-24T12:00:00Z",
@@ -71,6 +70,10 @@ func TestFolderlessWorkstreamsAreFirstClass(t *testing.T) {
 		Kind:   WorkstreamResourceScopeFolder,
 		Folder: &WorkstreamFolderResource{WorkspaceID: "workspace-1", RootPath: "/tmp/setta-project"},
 	}
+	bound.ResourceBindings = []WorkstreamResourceBinding{{
+		Kind:   WorkstreamResourceKindFolder,
+		Folder: &WorkstreamFolderResource{WorkspaceID: "workspace-1", RootPath: "/tmp/setta-project"},
+	}}
 	if err := ValidateWorkstream(bound); err != nil {
 		t.Fatalf("a folder-bound workstream was rejected: %v", err)
 	}

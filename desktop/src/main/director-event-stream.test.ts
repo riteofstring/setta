@@ -89,6 +89,37 @@ describe("director event stream", () => {
     expect(cursors[0]).toBe(`${streamId}:7`);
     expect(cursors[1]).toBe(`${streamId}:8`);
   });
+
+  test("replays an event when forwarding it fails before delivery", async () => {
+    const event = selectionEvent(8, "workstream:conversation-alpha");
+    const cursors: string[] = [];
+    const forwarded: DirectorEvent[] = [];
+    let forwardingAttempts = 0;
+    const fetchImpl: BackendFetch = vi.fn(async (_input, init) => {
+      cursors.push((init.headers as Record<string, string>)["Last-Event-ID"] ?? "");
+      return new Response(textStreamUntilAbort(sseFrame(event), init.signal), { status: 200 });
+    });
+
+    const stream = startDirectorEventStream({
+      baseURL: "http://127.0.0.1:41000",
+      cursor: { sequence: 7, streamId },
+      fetchImpl,
+      reconnectDelayMs: 0,
+      sendEvent: (received) => {
+        forwardingAttempts += 1;
+        if (forwardingAttempts === 1) {
+          throw new Error("renderer was destroyed before delivery");
+        }
+        forwarded.push(received);
+      },
+    });
+
+    await waitFor(() => forwarded.length === 1);
+    await stream.stop();
+
+    expect(cursors.slice(0, 2)).toEqual([`${streamId}:7`, `${streamId}:7`]);
+    expect(forwarded).toEqual([event]);
+  });
 });
 
 function directorEvent(sequence: number): DirectorEvent {

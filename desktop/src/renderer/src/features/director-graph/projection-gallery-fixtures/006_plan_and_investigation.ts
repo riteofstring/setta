@@ -60,7 +60,7 @@ const rawProjectionGalleryFixture = {
           interpretation: null,
         },
         {
-          id: "activity:activity-delta-1",
+          id: "activity:trajectory-06",
           kind: "investigation",
           workstreamId: "ws-delta",
           runId: "turn-delta-1",

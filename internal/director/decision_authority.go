@@ -226,6 +226,9 @@ func (context DirectorDecisionContext) validateAllowedKinds() error {
 			return fmt.Errorf("director decision context allows %q with no authorized workstream", kind)
 		}
 	}
+	if seen[DirectorDecisionAskClarification] && len(workCandidates(context)) == 0 {
+		return fmt.Errorf("director decision context allows clarification with no work outcome to clarify")
+	}
 	return context.validateTargetKindsAreAllowed(seen)
 }
 
@@ -381,16 +384,30 @@ func (target WorkstreamDecisionTarget) validateAllowedKinds() error {
 
 func (target WorkstreamDecisionTarget) validateRunStateAuthority(allowed map[DirectorDecisionKind]bool) error {
 	running := target.ActiveRunID != nil
-	if allowed[DirectorDecisionSendToWorkstream] && running {
-		return fmt.Errorf("decision target %s offers send while a run is active", target.WorkstreamID)
+	idleForDelivery := !running &&
+		target.QueuedRunCount == 0 &&
+		target.Status != WorkstreamStatusAwaitingResource
+	if allowed[DirectorDecisionSendToWorkstream] != idleForDelivery {
+		return fmt.Errorf(
+			"decision target %s must offer send exactly when it is idle and deliverable",
+			target.WorkstreamID,
+		)
 	}
 	for _, kind := range []DirectorDecisionKind{DirectorDecisionQueueBehindRun, DirectorDecisionSteerRun} {
-		if allowed[kind] && !running {
-			return fmt.Errorf("decision target %s offers %q with no active run", target.WorkstreamID, kind)
+		if allowed[kind] != running {
+			return fmt.Errorf(
+				"decision target %s must offer %q exactly while a run is active",
+				target.WorkstreamID,
+				kind,
+			)
 		}
 	}
-	if allowed[DirectorDecisionRecoverPath] != (len(target.RecoverableFailures) > 0) {
-		return fmt.Errorf("decision target %s must offer recovery exactly when a failure is recoverable", target.WorkstreamID)
+	if allowed[DirectorDecisionRecoverPath] !=
+		(idleForDelivery && len(target.RecoverableFailures) > 0) {
+		return fmt.Errorf(
+			"decision target %s must offer recovery exactly when a failure is recoverable and no work is active or queued",
+			target.WorkstreamID,
+		)
 	}
 	return nil
 }

@@ -176,6 +176,35 @@ func TestSteeringNamesTheActiveRunTheAppKnowsAbout(t *testing.T) {
 	}
 }
 
+func TestSteeringRejectsARunPromotedAfterTheDecisionContext(t *testing.T) {
+	harness := newRegistryHarness(t)
+	workspaceID := registryTestWorkspaceID
+	active := harness.createConversation("conversation-active", "Release notes", &workspaceID)
+	harness.startTurn("conversation-active", "turn-active-1")
+	registry := harness.start()
+	execution := &recordedExecution{}
+	executor := newExecutorForTest(t, harness, registry, execution)
+	routed := routedFor(t, registry, DirectorDecision{
+		Kind:     DirectorDecisionSteerRun,
+		SteerRun: &SteerRunDecision{WorkstreamID: active, AuthoredInput: "shorter, please"},
+	})
+	subscription := subscribeFromSnapshot(t, registry)
+	defer subscription.Unsubscribe()
+
+	harness.completeTurn("conversation-active", "turn-active-1")
+	awaitWorkstreamStatus(t, subscription, active, WorkstreamStatusCompleted)
+	harness.startTurn("conversation-active", "turn-active-2")
+	awaitWorkstreamStatus(t, subscription, active, WorkstreamStatusRunning)
+
+	if _, err := executor.Execute(context.Background(), routed); err == nil ||
+		!errors.Is(err, ErrDirectorIntentRejected) {
+		t.Fatalf("stale steer produced %v, want ErrDirectorIntentRejected", err)
+	}
+	if len(execution.steers) != 0 {
+		t.Fatalf("stale steer reached execution: %+v", execution.steers)
+	}
+}
+
 // TestCreatingARootWorkstreamHappensInNoWorkstream proves a create decision is
 // committed before the workstream it names exists, and that the workstream's
 // app-scoped identity is derived from the conversation it runs on.
@@ -368,7 +397,8 @@ func TestBlockedRoutingCommitsNoDecision(t *testing.T) {
 	executor := newExecutorForTest(t, harness, registry, execution)
 
 	executed, err := executor.Execute(context.Background(), RoutedIntent{
-		Intent:        decisionIntentFixture(),
+		Intent:        selectionOnlyContextFixture().Intent,
+		Context:       selectionOnlyContextFixture(),
 		Resolution:    DecisionResolvedAsBlocked,
 		PublicSummary: "This request could not be routed to any workstream.",
 	})
@@ -383,6 +413,94 @@ func TestBlockedRoutingCommitsNoDecision(t *testing.T) {
 	restarted := harness.start()
 	if decisions := requireDecisionContext(t, restarted).RecentDecisions; len(decisions) != 0 {
 		t.Fatalf("blocked routing committed decisions %+v", decisions)
+	}
+}
+
+func TestExecutionRejectsRoutedIntentContractDriftBeforeEffects(t *testing.T) {
+	harness := newRegistryHarness(t)
+	workspaceID := registryTestWorkspaceID
+	workstreamID := harness.createConversation("conversation-idle", "Parser rewrite", &workspaceID)
+	registry := harness.start()
+	execution := &recordedExecution{}
+	executor := newExecutorForTest(t, harness, registry, execution)
+	base := routedFor(t, registry, DirectorDecision{
+		Kind: DirectorDecisionSendToWorkstream,
+		SendToWorkstream: &SendToWorkstreamDecision{
+			WorkstreamID:  workstreamID,
+			AuthoredInput: "rewrite the parser",
+		},
+	})
+
+	mismatched := base
+	mismatched.Intent.Text = "different request"
+	falseInvariant := base
+	falseInvariant.Resolution = DecisionResolvedByProductInvariant
+	falseClarification := base
+	falseClarification.Resolution = DecisionResolvedByClarification
+	unauthorized := base
+	unauthorized.Decision = &DirectorDecision{
+		Kind: DirectorDecisionSteerRun,
+		SteerRun: &SteerRunDecision{
+			WorkstreamID:  workstreamID,
+			AuthoredInput: "change course",
+		},
+	}
+	malformed := base
+	malformed.Decision = &DirectorDecision{Kind: DirectorDecisionCreateWorkstream}
+
+	for name, routed := range map[string]RoutedIntent{
+		"context mismatch":          mismatched,
+		"false product invariant":   falseInvariant,
+		"false clarification":       falseClarification,
+		"unauthorized target state": unauthorized,
+		"malformed decision":        malformed,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := executor.Execute(context.Background(), routed); err == nil {
+				t.Fatal("invalid routed contract was executed")
+			}
+		})
+	}
+	if len(execution.sends)+len(execution.queues)+len(execution.steers)+len(execution.starts) != 0 {
+		t.Fatalf("invalid routed contracts reached execution: %+v", execution)
+	}
+}
+
+func TestExecutionRejectsCommandsAfterRegistryStops(t *testing.T) {
+	harness := newRegistryHarness(t)
+	workspaceID := registryTestWorkspaceID
+	workstreamID := harness.createConversation("conversation-idle", "Parser rewrite", &workspaceID)
+	registry := harness.start()
+	execution := &recordedExecution{}
+	executor := newExecutorForTest(t, harness, registry, execution)
+	routed := routedFor(t, registry, DirectorDecision{
+		Kind: DirectorDecisionSendToWorkstream,
+		SendToWorkstream: &SendToWorkstreamDecision{
+			WorkstreamID:  workstreamID,
+			AuthoredInput: "rewrite the parser",
+		},
+	})
+	if err := registry.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	if _, err := registry.DecisionContext(decisionIntentFixture()); !errors.Is(err, ErrDirectorUnavailable) {
+		t.Fatalf("DecisionContext after close error = %v", err)
+	}
+	if _, err := registry.ExecutionTarget(workstreamID); !errors.Is(err, ErrDirectorUnavailable) {
+		t.Fatalf("ExecutionTarget after close error = %v", err)
+	}
+	if _, err := registry.SelectWorkstream(context.Background(), workstreamID); !errors.Is(err, ErrDirectorUnavailable) {
+		t.Fatalf("SelectWorkstream after close error = %v", err)
+	}
+	if _, err := registry.OfferedFolderResource(workspaceID); !errors.Is(err, ErrDirectorUnavailable) {
+		t.Fatalf("OfferedFolderResource after close error = %v", err)
+	}
+	if _, err := executor.Execute(context.Background(), routed); !errors.Is(err, ErrDirectorUnavailable) {
+		t.Fatalf("Execute after close error = %v", err)
+	}
+	if len(execution.sends) != 0 {
+		t.Fatalf("stopped registry reached execution: %+v", execution.sends)
 	}
 }
 

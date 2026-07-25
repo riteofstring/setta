@@ -65,6 +65,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "director-command-center-workflow.test.mjs",
+    name: "director-command-center",
+    tiers: ["required"],
+  },
+  {
     file: "microphone-permissions-workflow.test.mjs",
     name: "microphone-permissions",
     tiers: ["required"],

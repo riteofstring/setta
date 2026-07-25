@@ -20,7 +20,7 @@ func (transaction *WriteTransaction) InsertConversationBranch(branch Conversatio
 	if err := branch.Validate(); err != nil {
 		return err
 	}
-	if err := transaction.requireForkWorkspaceMatch(branch); err != nil {
+	if err := transaction.requireBranchWorkspaceMatch(branch); err != nil {
 		return err
 	}
 	if err := transaction.requireBranchSource(branch); err != nil {
@@ -358,7 +358,7 @@ SELECT EXISTS(
 	return nil
 }
 
-func (transaction *WriteTransaction) requireForkWorkspaceMatch(branch ConversationBranch) error {
+func (transaction *WriteTransaction) requireBranchWorkspaceMatch(branch ConversationBranch) error {
 	// A folderless conversation has no workspace, and a folderless workstream is
 	// first class, so both sides are read as optional and compared as they are.
 	var parentWorkspaceID sql.NullString

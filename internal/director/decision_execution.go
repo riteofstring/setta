@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
+	"sync"
 	"time"
 )
 
@@ -17,10 +19,8 @@ import (
 // Two orderings are load-bearing:
 //
 //   - The decision is committed before the work it authorizes. It is the fact
-//     the graph explains that work with, a create decision names a workstream
-//     that does not exist until the work runs, and the ids it carries are the
-//     ids the work is then addressed by — so replaying a decision after a crash
-//     addresses the same run instead of minting a second one. Work that then
+//     the graph explains that work with, and a create decision names a
+//     workstream that does not exist until execution starts it. Work that then
 //     fails to start leaves a decision the app truthfully made and an error the
 //     caller receives, rather than a silent gap.
 //   - Work a workstream cannot start yet becomes a durable resource request
@@ -128,10 +128,11 @@ func (executed ExecutedDecision) validatePublicText() error {
 // DecisionExecutor carries out what the command center resolved: the decision a
 // routed request produced, and the commands the user dispatches directly.
 type DecisionExecutor struct {
-	registry  *Registry
-	execution WorkstreamExecution
-	now       func() time.Time
-	newID     func(string) (string, error)
+	registry      *Registry
+	execution     WorkstreamExecution
+	now           func() time.Time
+	newID         func(string) (string, error)
+	resourceMutex sync.Mutex
 }
 
 // DecisionExecutorOption configures an executor.
@@ -197,7 +198,7 @@ func (executor *DecisionExecutor) available(ctx context.Context) error {
 	if ctx == nil {
 		return errors.New("director command execution context is required")
 	}
-	return nil
+	return executor.registry.requireAvailable()
 }
 
 // Execute carries out one routed intent.
@@ -248,10 +249,41 @@ func validateRoutedIntent(routed RoutedIntent) error {
 	if err := validateSubmittedIntent(routed.Intent); err != nil {
 		return err
 	}
+	if err := routed.Context.Validate(); err != nil {
+		return fmt.Errorf("routed intent %s carries invalid decision context: %w", routed.Intent.ID, err)
+	}
+	if routed.Context.Intent != routed.Intent {
+		return fmt.Errorf("routed intent %s does not match its decision context", routed.Intent.ID)
+	}
 	switch routed.Resolution {
 	case DecisionResolvedByModel, DecisionResolvedByProductInvariant, DecisionResolvedByClarification:
 		if routed.Decision == nil {
 			return fmt.Errorf("routed intent %s resolved as %q without a decision", routed.Intent.ID, routed.Resolution)
+		}
+		if routed.PublicSummary != "" {
+			return fmt.Errorf("routed intent %s carries blocked text with a decision", routed.Intent.ID)
+		}
+		if err := ValidateDecisionAuthority(routed.Context, *routed.Decision); err != nil {
+			return err
+		}
+		switch routed.Resolution {
+		case DecisionResolvedByProductInvariant:
+			expected, resolved := ProductInvariantDecision(routed.Context)
+			if !resolved || !reflect.DeepEqual(expected, *routed.Decision) {
+				return fmt.Errorf(
+					"routed intent %s claims a decision that no product invariant resolved",
+					routed.Intent.ID,
+				)
+			}
+		case DecisionResolvedByClarification:
+			if routed.Decision.Kind != DirectorDecisionAskClarification ||
+				routed.Decision.AskClarification.Question !=
+					clarificationQuestion(workCandidates(routed.Context)) {
+				return fmt.Errorf(
+					"routed intent %s claims a clarification trusted context did not derive",
+					routed.Intent.ID,
+				)
+			}
 		}
 		return nil
 	case DecisionResolvedAsBlocked:
@@ -404,6 +436,24 @@ func (executor *DecisionExecutor) deliverWork(
 	if err != nil {
 		return ExecutedDecision{}, err
 	}
+	if decision.Kind == DirectorDecisionSteerRun {
+		expected, offered := routed.Context.Target(workstreamID)
+		if !offered || expected.ActiveRunID == nil {
+			return ExecutedDecision{}, fmt.Errorf(
+				"%w: workstream %s has no authorized run to steer",
+				ErrDirectorIntentRejected,
+				workstreamID,
+			)
+		}
+		if target.ActiveRunID == nil || *target.ActiveRunID != *expected.ActiveRunID {
+			return ExecutedDecision{}, fmt.Errorf(
+				"%w: run %s is no longer active on workstream %s",
+				ErrDirectorIntentRejected,
+				*expected.ActiveRunID,
+				workstreamID,
+			)
+		}
+	}
 	factID, err := executor.commitDecision(ctx, routed, decision, &workstreamID, nil)
 	if err != nil {
 		return ExecutedDecision{}, err
@@ -444,13 +494,6 @@ func (executor *DecisionExecutor) callWorkPort(
 			Text:           decision.QueueBehindRun.AuthoredInput,
 		})
 	case DirectorDecisionSteerRun:
-		if target.ActiveRunID == nil {
-			return fmt.Errorf(
-				"%w: workstream %s has no active run to steer",
-				ErrDirectorIntentRejected,
-				target.WorkstreamID,
-			)
-		}
 		return executor.execution.SteerRun(ctx, SteerRunRequest{
 			ConversationID: target.ConversationID,
 			WorkspaceID:    workspaceID,
@@ -644,13 +687,20 @@ func (executor *DecisionExecutor) commitDecision(
 // the caller so every durable fact this executor writes is stamped by the same
 // clock the registry folds it with.
 func (executor *DecisionExecutor) appendFact(ctx context.Context, fact DirectorFactEvent) (string, error) {
+	if err := executor.registry.requireAvailable(); err != nil {
+		return "", err
+	}
 	factID, err := executor.newID("director-fact")
 	if err != nil {
 		return "", err
 	}
 	fact.ID = factID
 	fact.EmittedAt = executor.now().UTC().Format(time.RFC3339Nano)
-	if err := AppendDirectorFact(ctx, executor.registry.facts, fact); err != nil {
+	committed, err := AppendDirectorFact(ctx, executor.registry.facts, fact)
+	if err != nil {
+		return "", err
+	}
+	if err := executor.registry.awaitCommit(ctx, committed.CommitSequence); err != nil {
 		return "", err
 	}
 	return factID, nil

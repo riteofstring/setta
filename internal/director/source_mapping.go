@@ -29,9 +29,10 @@ const (
 	// complete durable description of it, or advances the same identity when
 	// earlier lifecycle facts already projected it.
 	SourceFactUpsertsNode SourceFactDisposition = "upserts_node"
-	// SourceFactConditionalNode creates a node only when a typed resolver
-	// yields a precise semantic kind, and otherwise updates metadata. Ready
-	// provider states and untyped activities take the metadata path.
+	// SourceFactConditionalNode creates a node only when typed state says the
+	// fact is a visible semantic transition, and otherwise updates metadata.
+	// Ready provider states, untyped activities, and a user's interruption
+	// request take the metadata path.
 	SourceFactConditionalNode SourceFactDisposition = "conditional_node"
 	// SourceFactUpdatesMetadata changes workstream, run, or provider metadata
 	// without producing a visible node.
@@ -193,13 +194,13 @@ var trajectoryFactRules = map[conversation.TrajectoryEventKind]SourceFactRule{
 		Note:          "Steering keeps one run node and records the new instruction as a milestone on it.",
 	},
 	conversation.TrajectoryEventTurnInterrupted: {
-		Disposition:   SourceFactCreatesNode,
+		Disposition:   SourceFactConditionalNode,
 		Resolution:    SourceFactResolutionFixed,
 		NodeKind:      SemanticNodeCancelled,
 		NodeIdentity:  SemanticNodeIdentityRunTerminal,
 		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy},
 		EvidenceClass: EvidenceRuntimeFact,
-		Note:          "Terminal run state closes the visible causal chain for that run.",
+		Note:          "A user interruption request remains metadata while the run is active; the provider or system terminal fact closes the visible causal chain.",
 	},
 	conversation.TrajectoryEventTurnCompleted: {
 		Disposition:   SourceFactCreatesNode,

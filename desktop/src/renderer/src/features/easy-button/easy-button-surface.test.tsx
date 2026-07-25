@@ -594,10 +594,35 @@ describe("Easy Button topic conversation projection", () => {
       parentConversationId: "conversation_parent",
       parentTitle: "Parent topic",
     });
-    expect(html).toContain('data-testid="easy-button-fork-lineage"');
-    expect(html).toContain('data-fork-parent-conversation-id="conversation_parent"');
+    expect(html).toContain('data-testid="easy-button-lineage"');
+    expect(html).toContain('data-lineage-parent-conversation-id="conversation_parent"');
     expect(html).toContain("Durable fork of");
     expect(html).toContain("Parent topic");
+  });
+
+  test("renders delegated-child lineage without calling it a fork", () => {
+    const snapshot = completedSnapshot("conversation_child", "Child topic", "amber");
+    snapshot.branch = {
+      childConversationId: snapshot.conversation.id,
+      createdAt: timestamp,
+      decisionSource: "director",
+      forkedAtTurnId: "",
+      kind: "child",
+      parentConversationId: "conversation_parent",
+      providerMetadata: {},
+      sourceTrajectorySequence: 0,
+    };
+    const view = easyButtonProjectionView(
+      snapshot.conversation.id,
+      readyProjection(snapshot),
+      null,
+      "Parent topic",
+    );
+    const html = renderToString(<EasyButtonProjectionSurface view={view} />);
+
+    expect(html).toContain('data-lineage-kind="child"');
+    expect(html).toContain("Delegated from");
+    expect(html).not.toContain("Durable fork of");
   });
 
   test("renders source-attributed global speech state in the bound pane", () => {

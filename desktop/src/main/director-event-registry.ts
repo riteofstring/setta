@@ -27,6 +27,7 @@ interface DirectorEventRegistryOptions {
 }
 
 interface RegisteredDirectorStream {
+  generation: object;
   sender: DirectorEventSender;
   stream: DirectorEventStream;
 }
@@ -42,19 +43,21 @@ interface RegisteredDirectorStream {
 export class DirectorEventRegistry {
   private readonly streams = new Map<number, RegisteredDirectorStream>();
   private readonly navigationListeners = new Map<number, NavigationListener>();
+  private readonly destructionObserved = new Set<number>();
 
   constructor(private readonly options: DirectorEventRegistryOptions) {}
 
   subscribe(sender: DirectorEventSender, cursor: DirectorEventCursor): void {
     void this.stop(sender.id);
     const { baseURL, fetchImpl } = this.options.backendConnection();
+    const generation = {};
     const stream = (this.options.startEventStream ?? startDirectorEventStream)({
       baseURL,
       cursor,
       fetchImpl,
-      sendEvent: (event) => this.forwardEvent(sender.id, event),
+      sendEvent: (event) => this.forwardEvent(sender.id, generation, event),
     });
-    this.streams.set(sender.id, { sender, stream });
+    this.streams.set(sender.id, { generation, sender, stream });
     this.observeSender(sender);
   }
 
@@ -62,9 +65,12 @@ export class DirectorEventRegistry {
     await Promise.all([...this.streams.keys()].map((senderId) => this.stop(senderId)));
   }
 
-  private forwardEvent(senderId: number, event: DirectorEvent): void {
+  private forwardEvent(senderId: number, generation: object, event: DirectorEvent): void {
     const current = this.streams.get(senderId);
-    if (!current || current.sender.isDestroyed()) {
+    if (!current || current.generation !== generation) {
+      return;
+    }
+    if (current.sender.isDestroyed()) {
       void this.stop(senderId);
       return;
     }
@@ -86,8 +92,13 @@ export class DirectorEventRegistry {
     };
     this.navigationListeners.set(sender.id, navigationListener);
     sender.on("did-start-navigation", navigationListener);
+    if (this.destructionObserved.has(sender.id)) {
+      return;
+    }
+    this.destructionObserved.add(sender.id);
     sender.once("destroyed", () => {
       this.navigationListeners.delete(sender.id);
+      this.destructionObserved.delete(sender.id);
       void this.stop(sender.id);
     });
   }

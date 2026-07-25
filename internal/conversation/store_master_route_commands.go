@@ -302,7 +302,7 @@ func readMasterRouteForkEffect(
 ) (bool, error) {
 	var parentConversationID string
 	var source BranchDecisionSource
-	var forkedAtTurnID string
+	var forkedAtTurnID sql.NullString
 	err := reader.QueryRowContext(ctx, `
 SELECT parent_conversation_id, decision_source, forked_at_turn_id
 FROM conversation_branches
@@ -314,7 +314,10 @@ WHERE child_conversation_id = ?
 	if err != nil {
 		return false, err
 	}
-	if parentConversationID != command.ParentConversationID || source != BranchDecisionSourceMaster || forkedAtTurnID != command.ForkedAtTurnID {
+	if parentConversationID != command.ParentConversationID ||
+		source != BranchDecisionSourceMaster ||
+		!forkedAtTurnID.Valid ||
+		forkedAtTurnID.String != command.ForkedAtTurnID {
 		return false, stateConflict("master route fork", command.Target.ConversationID, "stored effect does not match its command")
 	}
 	return readConversationRouteTurnEffect(ctx, reader, command.Target.ConversationID, command.TurnID, AuthoredInput{Text: command.Input}, TurnDeliveryNormal)

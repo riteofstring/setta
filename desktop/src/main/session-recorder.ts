@@ -81,6 +81,7 @@ const sensitiveIpcStartTypes = new Map<string, string>([
   [ipcChannels.appOpenExternalUrl, "external_url"],
   [ipcChannels.codexAccountStartLogin, "codex_account_login_request"],
   [ipcChannels.conversationSubmitApproval, "conversation_approval_submission"],
+  [ipcChannels.directorDispatchIntent, "director_intent_submission"],
   [ipcChannels.runtimeAddByPairingUrl, "runtime_pairing_url"],
   [ipcChannels.speechSaveCredential, "speech_credential_save"],
 ]);

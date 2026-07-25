@@ -118,5 +118,25 @@ func (resources directorWorkspaceResources) LookupWorkspace(
 }
 
 func (resources directorWorkspaceResources) AvailableWorkspaces() ([]workspace.WorkspaceSummary, error) {
-	return resources.workspaces.Session().ActiveWorkspaces, nil
+	return availableDirectorWorkspaces(resources.workspaces.Session())
+}
+
+func availableDirectorWorkspaces(
+	session workspacesession.WorkspaceSession,
+) ([]workspace.WorkspaceSummary, error) {
+	availableIDs, err := session.AvailableActiveWorkspaceIDs()
+	if err != nil {
+		return nil, err
+	}
+	available := make(map[string]bool, len(availableIDs))
+	for _, workspaceID := range availableIDs {
+		available[workspaceID] = true
+	}
+	summaries := make([]workspace.WorkspaceSummary, 0, len(availableIDs))
+	for _, summary := range session.ActiveWorkspaces {
+		if available[summary.ID] {
+			summaries = append(summaries, summary)
+		}
+	}
+	return summaries, nil
 }
