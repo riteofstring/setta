@@ -104,6 +104,8 @@ export class GraphLadderLayout {
   private turnFirstNode = new Int32Array(0);
   private turnNodeEnd = new Int32Array(0);
   private lastLiveEdge = 0;
+  /** Whether the next advance arrives at its resting state instead of easing. */
+  private settleNextAdvance = false;
 
   /**
    * Advances fold animation and repositions everything below the first turn
@@ -118,7 +120,11 @@ export class GraphLadderLayout {
     this.reallocate(snapshot);
     const appendedFrom = this.syncedNodeCount;
     this.indexAppendedNodes(snapshot);
-    const firstAnimating = this.advanceOpenness(snapshot, input);
+    // A settling frame takes every fold target at once, so the turns it moved
+    // are dirty but none of them needs another frame.
+    const settling = this.settleNextAdvance;
+    this.settleNextAdvance = false;
+    const firstAnimating = this.advanceOpenness(snapshot, input, settling);
     const firstDirtyTurn = Math.min(firstAnimating, this.firstTurnOf(appendedFrom, snapshot));
     const dirtyFrom =
       firstDirtyTurn >= snapshot.turnCount
@@ -135,7 +141,7 @@ export class GraphLadderLayout {
       dirtyFrom: Math.min(dirtyFrom, snapshot.nodeCount),
       dirtyTo: snapshot.nodeCount,
       liveEdgeWorldY: this.lastLiveEdge,
-      foldAnimating: firstAnimating < snapshot.turnCount,
+      foldAnimating: !settling && firstAnimating < snapshot.turnCount,
       quietUntilSeconds: this.quietUntil(snapshot, input),
     };
   }
@@ -175,6 +181,7 @@ export class GraphLadderLayout {
    */
   reset(): void {
     this.clear("");
+    this.settleNextAdvance = true;
   }
 
   private clear(workstreamId: string): void {
@@ -240,10 +247,24 @@ export class GraphLadderLayout {
   }
 
   /** Eases every turn toward its fold target and returns the first that moved. */
-  private advanceOpenness(snapshot: PackedGraphSnapshot, input: GraphLadderInput): number {
-    const rate = input.reducedMotion
-      ? 1
-      : Math.min(1, Math.max(0, input.deltaSeconds) * graphMotionRates.fold);
+  /*
+   * How far each turn moves toward its fold target this frame.
+   *
+   * A frame that follows a reset settles: every turn takes its target at once
+   * rather than easing from zero. Easing is how a fold reads while the reader
+   * is watching it happen; replaying it for a graph they have just arrived at
+   * is showing them history they did not ask for, and on a long conversation
+   * that is seconds of it.
+   */
+  private advanceOpenness(
+    snapshot: PackedGraphSnapshot,
+    input: GraphLadderInput,
+    settling: boolean,
+  ): number {
+    const rate =
+      settling || input.reducedMotion
+        ? 1
+        : Math.min(1, Math.max(0, input.deltaSeconds) * graphMotionRates.fold);
     let firstAnimating = snapshot.turnCount;
     for (let turn = 0; turn < snapshot.turnCount; turn += 1) {
       const target = this.foldTarget(snapshot, turn, input);

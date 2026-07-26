@@ -243,6 +243,38 @@ describe("graph ladder layout", () => {
     );
     expect(healed.liveEdgeWorldY).toBe(cold.liveEdgeWorldY);
   });
+  /*
+   * Arriving at a graph is not the same as watching one unfold.
+   *
+   * The fold eases while the reader is watching it happen. Replaying it for a
+   * graph they have just switched to shows them history they did not ask for,
+   * and on a long conversation that is seconds of it before the present
+   * appears.
+   */
+  it("arrives at the settled fold in one frame after a reset", () => {
+    const full = packedGraphFixture("director-and-worker-interleaved");
+    const arriving = new GraphLadderLayout();
+    arriving.reset();
+    const first = advance(arriving, full, 60);
+
+    expect(first.foldAnimating).toBe(false);
+
+    const settled = settle(new GraphLadderLayout(), full, 60);
+    expect(Array.from(first.worldY.subarray(0, full.nodeCount))).toStrictEqual(
+      Array.from(settled.worldY.subarray(0, full.nodeCount)),
+    );
+    expect(first.liveEdgeWorldY).toBe(settled.liveEdgeWorldY);
+  });
+
+  it("keeps easing the fold on frames that are not an arrival", () => {
+    const full = packedGraphFixture("director-and-worker-interleaved");
+    const watching = new GraphLadderLayout();
+    // The first advance settles, so a later fold change is what has to ease.
+    advance(watching, full, 0);
+    const changing = advance(watching, full, 60);
+
+    expect(changing.foldAnimating).toBe(true);
+  });
 });
 
 describe("graph camera", () => {

@@ -132,7 +132,11 @@ Director; `director-command-center` workflow; Go director suite.
 
 ## Phase 2 — The canvas follows the view
 
-**Done.** The graph performance workflow passed 19 scenario runs, so the composed
+**Done.** Arriving at a view shows its current state rather than replaying how
+it got there: the fold settles in one frame and the camera takes the live edge
+outright, instead of easing across the whole conversation. Easing is how live
+work reads — a new turn nudges the view rather than jumping it — and it was
+wrong for arrival. The graph performance workflow passed 19 scenario runs, so the composed
 view did not get slower on its way to becoming one view among several. A
 workstream with no graph draws nothing rather than falling back to the
 composition.
@@ -226,20 +230,6 @@ views, which is what the mockup's dots always were.
 
 **Verification.** The bar driven at one, two, and many workstreams, read
 against `docs/mockups/fullscreen_conversation_concept.html`.
-
-## Known rough edge
-
-**Switching views replays the graph from the beginning.** The canvas resets its
-camera and its growth animation when what it is drawing changes, which is
-correct — a camera should follow new content rather than stay pointed where the
-last content was, and packing every view under one constant name is what made
-the Director's view arrive empty. But the reset also restarts the reveal, so
-arriving at a large composition spends several seconds redrawing history the
-reader has already seen.
-
-This is pre-existing behaviour that selection now reaches far more often rather
-than something this plan introduced. Arriving at a view should show its current
-state, not replay how it got there.
 
 ## Open questions
 

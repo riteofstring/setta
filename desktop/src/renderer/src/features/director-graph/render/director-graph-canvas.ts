@@ -148,6 +148,15 @@ export class DirectorGraphCanvas {
   private pendingPixelChecks: ((check: GraphCanvasPixelCheck) => void)[] = [];
   private reducedMotion: boolean;
   private hoverAmount = 0;
+  /*
+   * Whether the next frame puts the camera at the live edge outright.
+   *
+   * The camera eases toward the live edge, which is how live work reads: a new
+   * turn nudges the view rather than jumping it. Arriving at a different graph
+   * is not live work — easing there pans across the whole conversation, which
+   * on a long one is seconds of replay before the reader sees the present.
+   */
+  private arriveAtLiveEdge = false;
   private lastSurfaceKey = "";
   private lastFrameTimestampMs = 0;
   private disposed = false;
@@ -194,6 +203,7 @@ export class DirectorGraphCanvas {
     if (snapshot.workstreamId !== this.snapshot.workstreamId) {
       this.view.reset();
       this.hoverAmount = 0;
+      this.arriveAtLiveEdge = true;
     } else {
       this.view.clearNodeFocus();
     }
@@ -414,13 +424,16 @@ export class DirectorGraphCanvas {
       reducedMotion: this.reducedMotion,
     });
     this.view.followLiveEdge(
-      advanceGraphCamera(
-        this.view.camera(),
-        ladder.liveEdgeWorldY,
-        timing.deltaSeconds,
-        this.reducedMotion,
-      ),
+      this.arriveAtLiveEdge
+        ? ladder.liveEdgeWorldY
+        : advanceGraphCamera(
+            this.view.camera(),
+            ladder.liveEdgeWorldY,
+            timing.deltaSeconds,
+            this.reducedMotion,
+          ),
     );
+    this.arriveAtLiveEdge = false;
     const hovering = this.view.hovered() !== null;
     this.hoverAmount = advanceHoverAmount(
       this.hoverAmount,
