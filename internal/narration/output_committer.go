@@ -223,6 +223,7 @@ func (committer *OutputCommitter) successfulInvocation(
 	}
 	endedAt := result.EndedAt
 	requestID := result.RequestID
+	threadID := result.ProviderThreadID
 	turnID := result.ProviderTurnID
 	invocation := conversation.ResolvedInvocation{
 		ID:        id,
@@ -231,6 +232,7 @@ func (committer *OutputCommitter) successfulInvocation(
 		Requested: result.Model.RequestedProfile,
 		Resolved:  result.Model.Settings,
 		ProviderReferences: conversation.InvocationProviderReferences{
+			ThreadID:  &threadID,
 			TurnID:    &turnID,
 			RequestID: &requestID,
 		},
@@ -250,7 +252,7 @@ func (committer *OutputCommitter) prepareProjection(
 	result CallResult,
 	invocation conversation.ResolvedInvocation,
 ) (PreparedCommit, error) {
-	output, err := projectionOutputFields(*result.NarratorOutput, bundle)
+	output, err := projectionOutputFields(*result.NarratorOutput)
 	if err != nil {
 		return nil, err
 	}
@@ -486,21 +488,20 @@ func (committer *OutputCommitter) prepareCheckpoint(
 
 func projectionOutputFields(
 	output NarratorCallOutput,
-	bundle ProjectionContextBundle,
 ) (projectionCommitOutput, error) {
 	switch output.Kind {
 	case CallOutputWorkingProjection:
 		value := output.WorkingProjection
 		return projectionCommitOutput{
-			observedThrough: bundle.RequestedThroughSequence,
+			observedThrough: value.ObservedThroughSequence,
 			milestones:      append([]string{}, value.Milestones...),
 		}, nil
 	case CallOutputTerminalProjection:
 		value := output.TerminalProjection
 		finalSummary := value.FinalSummary
 		return projectionCommitOutput{
-			observedThrough: bundle.RequestedThroughSequence,
-			milestones:      []string{},
+			observedThrough: value.ObservedThroughSequence,
+			milestones:      append([]string{}, value.Milestones...),
 			finalSummary:    &finalSummary,
 		}, nil
 	default:
@@ -619,6 +620,7 @@ func cloneResolvedInvocation(value conversation.ResolvedInvocation) conversation
 		[]string{},
 		value.Resolved.PermissionProfile.ToolAccess.AllowedTools...,
 	)
+	cloned.ProviderReferences.ThreadID = cloneOptionalString(value.ProviderReferences.ThreadID)
 	cloned.ProviderReferences.TurnID = cloneOptionalString(value.ProviderReferences.TurnID)
 	cloned.ProviderReferences.RequestID = cloneOptionalString(value.ProviderReferences.RequestID)
 	cloned.ProviderReferences.ResponseID = cloneOptionalString(value.ProviderReferences.ResponseID)

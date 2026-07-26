@@ -6,8 +6,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"setta/internal/codexapp"
 )
 
 func TestRuntimeRunsFreshRestrictedStructuredCall(t *testing.T) {
@@ -32,6 +30,44 @@ func TestRuntimeRunsFreshRestrictedStructuredCall(t *testing.T) {
 	}
 	if threadPageContains(listed, result.ProviderThreadID) {
 		t.Fatalf("ephemeral fresh structured thread %s appeared in durable thread list", result.ProviderThreadID)
+	}
+}
+
+func TestRuntimeRunsStructuredTurnsOnOneDurableRestrictedThread(t *testing.T) {
+	runtime := newFakeRuntime(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	fresh := fakeFreshStructuredCallRequest(t, `{"mode":"success"}`)
+	thread, err := runtime.StartRestrictedThread(ctx, RestrictedThreadRequest{
+		WorkspaceRoot:         fresh.WorkspaceRoot,
+		Invocation:            fresh.Invocation,
+		DeveloperInstructions: "You are Setta's restricted global master.",
+	})
+	if err != nil {
+		t.Fatalf("StartRestrictedThread: %v", err)
+	}
+	request := RestrictedStructuredTurnRequest{
+		ID:               "restricted-structured-first",
+		ProviderThreadID: thread.ID,
+		WorkspaceRoot:    fresh.WorkspaceRoot,
+		Invocation:       fresh.Invocation,
+		Input:            fresh.Input,
+		OutputSchema:     fresh.OutputSchema,
+	}
+	first, err := runtime.RunRestrictedStructuredTurn(ctx, request)
+	if err != nil {
+		t.Fatalf("RunRestrictedStructuredTurn: %v", err)
+	}
+	request.ID = "restricted-structured-second"
+	second, err := runtime.RunRestrictedStructuredTurn(ctx, request)
+	if err != nil {
+		t.Fatalf("second RunRestrictedStructuredTurn: %v", err)
+	}
+	if first.ProviderThreadID != thread.ID || second.ProviderThreadID != thread.ID ||
+		first.ProviderTurnID == second.ProviderTurnID ||
+		string(first.Output) != `{"answer":"STRUCTURED_OK"}` ||
+		string(second.Output) != `{"answer":"STRUCTURED_OK"}` {
+		t.Fatalf("durable structured results first=%+v second=%+v", first, second)
 	}
 }
 
@@ -132,100 +168,7 @@ func TestFreshStructuredCleanupReturnsTypedInterruptionFailure(t *testing.T) {
 	}
 }
 
-func TestFreshStructuredCallIgnoresBestEffortLagMarkers(t *testing.T) {
-	runtime := newFakeRuntime(t)
-	base := Event{
-		ConversationID:   "conversation-structured",
-		TurnID:           "turn-structured",
-		ProviderThreadID: "thread-structured",
-		ProviderTurnID:   "provider-turn-structured",
-	}
-	lag := codexapp.Event{
-		Kind: codexapp.EventLag,
-		Lag:  &codexapp.LagEvent{SkippedCount: 3},
-	}
-
-	terminal, err := runtime.handleFreshStructuredProviderEvent(lag, base, &[]string{})
-	if err != nil || terminal != nil {
-		t.Fatalf("structured lag marker produced terminal=%+v error=%v", terminal, err)
-	}
-	matched, err := freshStructuredTerminalNotification(
-		lag,
-		base.ProviderThreadID,
-		base.ProviderTurnID,
-	)
-	if err != nil || matched {
-		t.Fatalf("cleanup lag marker produced matched=%v error=%v", matched, err)
-	}
-}
-
-func TestFreshStructuredCallAcceptsNormalizedExecutionMetadata(t *testing.T) {
-	runtime := newTestRuntime()
-	base := providerNotificationTestBase()
-	for _, testCase := range []struct {
-		name    string
-		message codexapp.Message
-	}{
-		{
-			name: "healthy thread lifecycle",
-			message: providerNotificationMessage(
-				t,
-				codexapp.CodexNotificationThreadStatusChanged,
-				map[string]any{
-					"status":   map[string]any{"type": "active", "activeFlags": []string{}},
-					"threadId": base.ProviderThreadID,
-				},
-			),
-		},
-		{
-			name: "provider validation evidence",
-			message: providerNotificationMessage(
-				t,
-				codexapp.CodexNotificationModelVerification,
-				map[string]any{
-					"threadId":      base.ProviderThreadID,
-					"turnId":        base.ProviderTurnID,
-					"verifications": []string{"trustedAccessForCyber"},
-				},
-			),
-		},
-	} {
-		t.Run(testCase.name, func(t *testing.T) {
-			terminal, err := runtime.handleFreshStructuredProviderEvent(
-				codexapp.Event{Kind: codexapp.EventNotification, Message: testCase.message},
-				base,
-				&[]string{},
-			)
-			if err != nil || terminal != nil {
-				t.Fatalf("normalized metadata produced terminal=%+v error=%v", terminal, err)
-			}
-		})
-	}
-}
-
-func TestFreshStructuredCallRejectsUnavailableNormalizedLifecycle(t *testing.T) {
-	runtime := newTestRuntime()
-	base := providerNotificationTestBase()
-	message := providerNotificationMessage(
-		t,
-		codexapp.CodexNotificationThreadStatusChanged,
-		map[string]any{
-			"status":   map[string]any{"type": "systemError"},
-			"threadId": base.ProviderThreadID,
-		},
-	)
-
-	terminal, err := runtime.handleFreshStructuredProviderEvent(
-		codexapp.Event{Kind: codexapp.EventNotification, Message: message},
-		base,
-		&[]string{},
-	)
-	if terminal != nil || !IsProviderLifecycleError(err) {
-		t.Fatalf("unavailable lifecycle produced terminal=%+v error=%v", terminal, err)
-	}
-}
-
-func TestFreshStructuredCallRequiresStrictIsolationContract(t *testing.T) {
+func TestFreshStructuredCallRequiresStrictRestrictedContract(t *testing.T) {
 	request := fakeFreshStructuredCallRequest(t, `{"mode":"success"}`)
 	request.Invocation.PermissionMode = PermissionModeWorkspaceWrite
 	if err := request.Validate(); err == nil || !strings.Contains(err.Error(), "read-only") {
@@ -262,7 +205,7 @@ func TestFreshStructuredCallRejectsAndUnsubscribesProviderIsolationDrift(t *test
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	request := fakeFreshStructuredCallRequest(t, `{"mode":"success"}`)
-	request.DeveloperInstructions = "SIMULATE_STRUCTURED_RESPONSE_DRIFT"
+	request.DeveloperInstructions = "SIMULATE_RESTRICTED_RESPONSE_DRIFT"
 
 	if _, err := runtime.RunFreshStructuredCall(ctx, request); err == nil ||
 		!strings.Contains(err.Error(), "runtime workspace roots") {

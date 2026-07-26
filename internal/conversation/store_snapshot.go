@@ -23,38 +23,20 @@ func (store *Store) ReadSnapshot(
 	workspaceID string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
-	return store.readSnapshot(ctx, &workspaceID, conversationID, "read conversation snapshot")
-}
-
-func (store *Store) ReadSnapshotByID(
-	ctx context.Context,
-	conversationID string,
-) (ConversationSnapshot, error) {
-	return store.readSnapshot(ctx, nil, conversationID, "read conversation snapshot by id")
-}
-
-func (store *Store) readSnapshot(
-	ctx context.Context,
-	workspaceID *string,
-	conversationID string,
-	operation string,
-) (ConversationSnapshot, error) {
 	if store == nil {
 		return ConversationSnapshot{}, errors.New("conversation store is required")
 	}
 	if ctx == nil {
 		return ConversationSnapshot{}, errors.New("conversation snapshot context is required")
 	}
-	if workspaceID != nil {
-		if err := validateIdentifier("conversation snapshot workspace id", *workspaceID); err != nil {
-			return ConversationSnapshot{}, err
-		}
+	if err := validateIdentifier("conversation snapshot workspace id", workspaceID); err != nil {
+		return ConversationSnapshot{}, err
 	}
 	if err := validateIdentifier("conversation snapshot conversation id", conversationID); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	var snapshot ConversationSnapshot
-	err := store.read(ctx, operation, func(ctx context.Context, connection *sql.Conn) error {
+	err := store.read(ctx, "read conversation snapshot", func(ctx context.Context, connection *sql.Conn) error {
 		reader, err := connection.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 		if err != nil {
 			return err
@@ -83,7 +65,7 @@ type snapshotReader interface {
 func readConversationSnapshot(
 	ctx context.Context,
 	reader snapshotReader,
-	workspaceID *string,
+	workspaceID string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
 	snapshot, err := readConversationSnapshotCore(ctx, reader, workspaceID, conversationID)
@@ -99,7 +81,7 @@ func readConversationSnapshot(
 func readConversationSnapshotCore(
 	ctx context.Context,
 	reader snapshotReader,
-	workspaceID *string,
+	workspaceID string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
 	conversation, err := readSnapshotConversation(ctx, reader, workspaceID, conversationID)
@@ -111,6 +93,10 @@ func readConversationSnapshotCore(
 		return ConversationSnapshot{}, err
 	}
 	queue, err := readSnapshotQueue(ctx, reader, conversationID)
+	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	binding, err := readSnapshotBinding(ctx, reader, conversationID)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -127,6 +113,7 @@ func readConversationSnapshotCore(
 		Conversation:  conversation,
 		Turns:         turns,
 		Queue:         queue,
+		ThreadBinding: binding,
 		Trajectory:    trajectory,
 		Artifacts:     artifacts,
 	}, nil
@@ -174,31 +161,18 @@ func readConversationSnapshotExtended(
 func readSnapshotConversation(
 	ctx context.Context,
 	reader snapshotReader,
-	workspaceID *string,
+	workspaceID string,
 	conversationID string,
 ) (TopicConversation, error) {
-	var row *sql.Row
-	if workspaceID == nil {
-		row = reader.QueryRowContext(ctx, `
-SELECT id, workspace_id, title, topic_descriptor, status, created_at, updated_at,
-       archived_at, last_trajectory_sequence
-FROM conversations
-WHERE id = ?
-`, conversationID)
-	} else {
-		row = reader.QueryRowContext(ctx, `
+	row := reader.QueryRowContext(ctx, `
 SELECT id, workspace_id, title, topic_descriptor, status, created_at, updated_at,
        archived_at, last_trajectory_sequence
 FROM conversations
 WHERE id = ? AND workspace_id = ?
-`, conversationID, *workspaceID)
-	}
+`, conversationID, workspaceID)
 	conversation, err := scanTopicConversation(row)
 	if errors.Is(err, sql.ErrNoRows) {
-		if workspaceID == nil {
-			return TopicConversation{}, fmt.Errorf("%w: %s", ErrConversationNotFound, conversationID)
-		}
-		return TopicConversation{}, fmt.Errorf("%w: %s/%s", ErrConversationNotFound, *workspaceID, conversationID)
+		return TopicConversation{}, fmt.Errorf("%w: %s/%s", ErrConversationNotFound, workspaceID, conversationID)
 	}
 	return conversation, err
 }
@@ -257,6 +231,23 @@ LIMIT ?
 		queue = append(queue, item)
 	}
 	return queue, rows.Err()
+}
+
+func readSnapshotBinding(ctx context.Context, reader snapshotReader, conversationID string) (*AgentThreadBinding, error) {
+	row := reader.QueryRowContext(ctx, `
+SELECT conversation_id, provider, thread_id, status, created_at, last_resumed_at,
+       last_turn_id, provider_metadata_json
+FROM agent_thread_bindings
+WHERE conversation_id = ?
+`, conversationID)
+	binding, err := scanAgentThreadBinding(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &binding, nil
 }
 
 func readSnapshotEventCursor(ctx context.Context, reader snapshotReader, conversationID string) (ConversationEventCursor, error) {

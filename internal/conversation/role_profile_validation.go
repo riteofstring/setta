@@ -14,8 +14,8 @@ func validateConfigurableRoleProfile(profile RoleProfile) error {
 		return validateAgentRoleProfile(profile)
 	case RoleNarrator:
 		return validateNarratorRoleProfile(profile)
-	case RoleDirector:
-		return validateDirectorRoleProfile(profile)
+	case RoleMaster:
+		return validateMasterRoleProfile(profile)
 	case RoleSideAgent:
 		return validateSideAgentRoleProfile(profile)
 	default:

@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"sort"
 
-	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
+	"setta/internal/workspaceui/conversationpalette"
 )
 
 type presentationActivityState struct {
-	visible        bool
+	paletteVisible bool
 	narratorActive bool
 }
 
@@ -19,7 +19,7 @@ func presentationActivityStates(
 	states := make(map[string]presentationActivityState, len(presentations))
 	for _, presentation := range presentations {
 		states[presentation.Profile.ConversationID] = presentationActivityState{
-			visible:        presentation.Visible,
+			paletteVisible: presentation.PaletteVisible,
 			narratorActive: presentation.NarratorActive,
 		}
 	}
@@ -29,11 +29,11 @@ func presentationActivityStates(
 func reconcileAutomaticPresentationIdentities(
 	presentations []activeConversationPresentation,
 	previous map[string]presentationActivityState,
-	director speech.DirectorVoiceSelection,
+	master speech.MasterVoiceSelection,
 	updatedAt string,
-) ([]ConversationPresentationProfile, *speech.DirectorVoiceSelection, error) {
-	if director.ResolvedVoiceID == nil {
-		return nil, nil, fmt.Errorf("director voice selection has no resolved voice")
+) ([]ConversationPresentationProfile, *speech.MasterVoiceSelection, error) {
+	if master.ResolvedVoiceID == nil {
+		return nil, nil, fmt.Errorf("master voice selection has no resolved voice")
 	}
 	paletteUpdates, err := reconcileAutomaticPalettes(presentations, previous, updatedAt)
 	if err != nil {
@@ -43,7 +43,7 @@ func reconcileAutomaticPresentationIdentities(
 	voiceUpdates, err := reconcileAutomaticNarratorVoices(
 		afterPalette,
 		previous,
-		*director.ResolvedVoiceID,
+		*master.ResolvedVoiceID,
 		updatedAt,
 	)
 	if err != nil {
@@ -51,14 +51,14 @@ func reconcileAutomaticPresentationIdentities(
 	}
 	updates := mergePresentationProfileUpdates(paletteUpdates, voiceUpdates)
 	afterVoice := applyPresentationProfileUpdates(presentations, updates)
-	if director.Selection != speech.VoiceSelectionAutoDistinct {
+	if master.Selection != speech.VoiceSelectionAutoDistinct {
 		return updates, nil, nil
 	}
 
-	refreshed, changed, err := speech.RefreshAutomaticDirectorVoiceSelection(
-		director,
+	refreshed, changed, err := speech.RefreshAutomaticMasterVoiceSelection(
+		master,
 		narratorVoiceAssignments(afterVoice, nil),
-		advanceTimestamp(director.UpdatedAt, updatedAt),
+		advanceTimestamp(master.UpdatedAt, updatedAt),
 	)
 	if err != nil || !changed {
 		return updates, nil, err
@@ -94,13 +94,13 @@ func reconcileAutomaticPalettes(
 	for _, presentation := range presentations {
 		profile := presentation.Profile
 		if profile.PaletteSelection == PresentationSelectionAutoDistinct &&
-			!presentation.Visible && profile.PaletteReuse != nil {
+			!presentation.PaletteVisible && profile.PaletteReuse != nil {
 			profile.PaletteReuse = nil
 			profile.UpdatedAt = advanceTimestamp(profile.UpdatedAt, updatedAt)
 			updates = append(updates, profile)
 			presentation = presentation.withProfile(profile)
 		}
-		if presentation.Visible {
+		if presentation.PaletteVisible {
 			workspaces[presentation.WorkspaceID] = append(
 				workspaces[presentation.WorkspaceID],
 				presentation,
@@ -171,7 +171,7 @@ func reconcileWorkspaceAutomaticPalettes(
 func reconcileAutomaticNarratorVoices(
 	presentations []activeConversationPresentation,
 	previous map[string]presentationActivityState,
-	directorVoiceID speech.SpeechVoiceID,
+	masterVoiceID speech.SpeechVoiceID,
 	updatedAt string,
 ) ([]ConversationPresentationProfile, error) {
 	updates, assignments, automatic := narratorVoiceReconciliationInputs(
@@ -183,13 +183,13 @@ func reconcileAutomaticNarratorVoices(
 		previous,
 		false,
 		func(presentation activeConversationPresentation) bool {
-			return narratorVoicePreferenceUnclaimed(presentation, directorVoiceID, assignments)
+			return narratorVoicePreferenceUnclaimed(presentation, masterVoiceID, assignments)
 		},
 	)
 	for _, presentation := range automatic {
 		profile := presentation.Profile
 		allocation, err := speech.AllocateNarratorVoicePreferring(
-			directorVoiceID,
+			masterVoiceID,
 			assignments,
 			profile.ResolvedNarratorVoiceID,
 		)
@@ -256,11 +256,11 @@ func clearInactiveNarratorVoiceReuse(
 
 func narratorVoicePreferenceUnclaimed(
 	presentation activeConversationPresentation,
-	directorVoiceID speech.SpeechVoiceID,
+	masterVoiceID speech.SpeechVoiceID,
 	assignments []speech.NarratorVoiceAssignment,
 ) bool {
 	voiceID := presentation.Profile.ResolvedNarratorVoiceID
-	return voiceID != nil && *voiceID != directorVoiceID &&
+	return voiceID != nil && *voiceID != masterVoiceID &&
 		speech.VoiceReuseForAssignments(*voiceID, assignments) == nil
 }
 
@@ -306,10 +306,10 @@ func presentationWasActive(
 ) bool {
 	state, ok := previous[presentation.Profile.ConversationID]
 	if !ok {
-		return presentation.Visible && palette || presentation.NarratorActive && !palette
+		return presentation.PaletteVisible && palette || presentation.NarratorActive && !palette
 	}
 	if palette {
-		return state.visible
+		return state.paletteVisible
 	}
 	return state.narratorActive
 }
