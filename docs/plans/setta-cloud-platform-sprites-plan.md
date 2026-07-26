@@ -3430,3 +3430,27 @@ Stop and reassess rather than hiding the problem if any of these occur:
   The rate cards are deliberately immutable and versioned, so the correct fix is
   a new dated schedule reflecting one storage rate rather than an edit to the
   2026-07-14 card. No code was changed for either finding.
+- 2026-07-27 (Sprites storage priced from the single published rate): Replaced
+  the 2026-07-14 Sprites rate card with a 2026-07-27 card. The public card at
+  `https://fly.io/sprites/yolo-mode/#billing` states one storage price,
+  "$0.50 /GB/month", with no hot and cold tiers, while the previous card priced
+  `ColdStorageGBHour` at 27 micro-dollars against 683 for hot — roughly
+  twenty-five times too low, since 683 micro-dollars per GB-hour is exactly
+  $0.50 over the 732-hour month the other rates divide into. Because
+  `UsageDimensionColdStorage` is a live dimension in the estimator rather than
+  dead configuration, this was a latent under-recovery rather than a harmless
+  stale constant; no usage has been recorded against it yet, so no money was
+  lost. Rate cards are immutable and versioned by design, so the fix is a new
+  dated card rather than an edit, and evidence already recorded keeps its own
+  `RateCardVersion` string. CPU at 70,000 and memory at 43,750 micro-dollars
+  per hour, and the 0.0625-core and 250,000,000-byte billing minimums, are
+  unchanged and still match the published card. One ambiguity was deliberately
+  left alone rather than resolved by guess: the card states a "Minimum 256MB
+  RAM while running" while our minimum encodes 250,000,000 bytes, and whether
+  Fly means 256 decimal MB, 256 MiB, or a quarter of their GB unit is not
+  stated. The published-session example test now covers cold storage at the
+  corrected rate. The affected packages, `./scripts/format.sh`, and
+  `./check_quality.sh --git-changes` passed. Separately,
+  `TestCandidateBGatewayWorkContinuesAfterGatewayDisconnect` was observed
+  failing once in three runs both with and without this change, so it is
+  pre-existing flakiness rather than a regression from it.
