@@ -14,9 +14,7 @@ import type { ArtifactComponentProps } from "../generated/artifact-catalog-props
  */
 export function ArtifactDocument({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-w-0 flex-col gap-6 text-sm text-foreground select-text">
-      {children}
-    </div>
+    <div className="setta-artifact flex min-w-0 flex-col gap-6 text-sm select-text">{children}</div>
   );
 }
 

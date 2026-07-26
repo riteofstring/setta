@@ -527,24 +527,19 @@
  * viewport clips instead of growing and fades its last line out.
  */
 /*
- * The summary keeps its own themed surface, without a border around it.
+ * The summary sits on the card, with no ground of its own.
  *
- * The background is not decoration: the preview blocks are drawn with the
- * artifact catalog's theme tokens, so they need a matching ground to stay
- * readable when the appearance mode is light and the card around them is not.
- * That coupling is the real problem, and it belongs to the artifact catalog
- * rather than to this card — until it is fixed, dropping the ground here would
- * put dark text on a dark card. The border is what made it read as a box inside
- * a box, so only the border goes.
+ * It used to paint a themed background because the preview blocks were drawn
+ * with the artifact catalog's theme tokens, which followed an appearance mode
+ * the command center never did — without that ground the text rendered dark on
+ * a dark card. Light mode is gone and the catalog now reads the Director's
+ * palette, so the coupling that forced the box is gone with it.
  */
 .director-artifact-preview-viewport {
-  background: var(--card);
-  border-radius: 6px;
   block-size: var(--director-artifact-preview-block);
-  color: var(--card-foreground);
+  color: var(--director-muted);
   min-inline-size: 0;
   overflow: hidden;
-  padding: 8px;
   pointer-events: none;
 }
 

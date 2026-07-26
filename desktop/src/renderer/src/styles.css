@@ -3,6 +3,7 @@
 @import "./components/ui/shadcn-nova.css" layer(base);
 @import "./features/director-graph/render/director-graph.css";
 @import "./features/director-command-center/director-palette.css";
+@import "./features/artifacts/artifact-surface.css";
 @import "./features/director-command-center/director-command-center.css";
 @import "./features/director-command-center/director-command-center-navigation.css";
 @import "./features/director-command-center/director-command-center-composer.css";

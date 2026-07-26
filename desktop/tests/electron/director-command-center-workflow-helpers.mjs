@@ -554,6 +554,15 @@ export async function assertDirectorGraphCanvasPreserved(client) {
   }
 }
 
+/**
+ * The preview is readable against whatever it actually sits on.
+ *
+ * It used to paint its own background, and this asserted that background was
+ * present. It no longer has one — the card behind it is the ground — so the
+ * check walks up to the first ancestor that paints, and compares the text
+ * against that. The risk is unchanged and is the one that matters: text and
+ * ground resolving to the same colour makes a preview invisible.
+ */
 export async function assertDirectorArtifactPreviewTheme(client, artifactId) {
   const theme = await client.evaluate(`(() => {
     const viewport = document.querySelector(
@@ -561,19 +570,25 @@ export async function assertDirectorArtifactPreviewTheme(client, artifactId) {
         `.director-artifact-preview[data-artifact-id="${artifactId}"] .director-artifact-preview-viewport`,
       )}
     );
-    const style = viewport instanceof HTMLElement ? getComputedStyle(viewport) : null;
-    return {
-      backgroundColor: style?.backgroundColor ?? "",
-      color: style?.color ?? ""
-    };
+    if (!(viewport instanceof HTMLElement)) {
+      return { color: "", ground: "", groundFrom: "" };
+    }
+    let node = viewport;
+    let ground = "";
+    let groundFrom = "";
+    while (node instanceof HTMLElement) {
+      const painted = getComputedStyle(node).backgroundColor;
+      if (painted !== "" && painted !== "rgba(0, 0, 0, 0)") {
+        ground = painted;
+        groundFrom = typeof node.className === "string" ? node.className : node.tagName;
+        break;
+      }
+      node = node.parentElement;
+    }
+    return { color: getComputedStyle(viewport).color, ground, groundFrom };
   })()`);
-  if (
-    theme.backgroundColor === "" ||
-    theme.backgroundColor === "rgba(0, 0, 0, 0)" ||
-    theme.color === "" ||
-    theme.color === theme.backgroundColor
-  ) {
-    throw new Error(`Director artifact preview theme was unreadable: ${JSON.stringify(theme)}`);
+  if (theme.color === "" || theme.ground === "" || theme.color === theme.ground) {
+    throw new Error(`Director artifact preview was unreadable: ${JSON.stringify(theme)}`);
   }
 }
 

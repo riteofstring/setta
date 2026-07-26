@@ -1,0 +1,34 @@
+/*
+ * The artifact surface, on the Director's palette.
+ *
+ * The catalog is official shadcn/ui component source and may not be edited for
+ * Setta behaviour (see components/ui/PROVENANCE.md), so it is written in shadcn
+ * token names — `bg-card`, `text-foreground`, `border-border`. Those names are
+ * the contract; what they resolve to is not.
+ *
+ * This maps them onto the Director's palette inside an artifact, so a document
+ * reads as part of the command center rather than as an embedded app with its
+ * own ground. It is not a second palette: every value here is a Director token
+ * or the Go-owned Setta scale those tokens were drawn from.
+ *
+ * Both are ultimately the same ramp. The mockup's colours turned out to be the
+ * Setta scale rounded — ground is Setta950, surface is Setta925, border is
+ * Setta750, muted is Setta300 — which is why an artifact could be moved onto it
+ * by renaming rather than by re-picking colours.
+ */
+.setta-artifact {
+  --background: var(--director-ground);
+  --foreground: var(--director-foreground);
+  --card: var(--director-surface);
+  --card-foreground: var(--director-foreground);
+  --popover: var(--director-surface);
+  --popover-foreground: var(--director-foreground);
+  --muted: var(--director-surface);
+  --muted-foreground: var(--director-muted);
+  --border: var(--director-border);
+  --input: var(--director-border);
+  --ring: var(--director-primary);
+  --primary: var(--director-primary);
+
+  color: var(--director-foreground);
+}

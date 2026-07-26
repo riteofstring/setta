@@ -20,7 +20,7 @@ import type {
  */
 export function ArtifactPreviewSurface({ blocks }: { blocks: readonly ArtifactPreviewBlock[] }) {
   return (
-    <div className="flex flex-col gap-2 text-xs leading-snug text-foreground">
+    <div className="setta-artifact flex flex-col gap-2 text-xs leading-snug">
       {blocks.map((block, index) => (
         <ArtifactPreviewBlockView block={block} key={index} />
       ))}

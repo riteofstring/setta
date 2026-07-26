@@ -140,6 +140,32 @@ the Electron `director-command-center` workflow.
 
 ## Phase 2 — Artifacts adopt the palette
 
+**Done.** Not by rewriting the catalog's components, which may not be edited for
+Setta behaviour: `artifact-surface.css` maps the shadcn token *names* the
+vendored source is written in — `--background`, `--card`, `--muted`, `--border`,
+`--foreground` — onto the Director's palette inside `.setta-artifact`. The names
+are the contract; what they resolve to is not.
+
+**The two palettes were never two systems.** The mockup's colours turned out to
+be the Go-owned Setta scale, rounded: ground is `--setta-950`
+(`0.128 0.007 261` against `0.1281 0.0070 261.32`), surface is `--setta-925`,
+border is `--setta-750`, muted is `--setta-300`. That is why an artifact could be
+moved onto the Director's palette by renaming rather than by re-picking colours,
+and it is the reason the seam was always narrower than it looked — what read
+as two products was mostly ground level, typography, and boxes rather than hue.
+
+The theme island is deleted, as the phase promised. Its readability assertion is
+rewritten rather than removed: it now walks up to the first ancestor that
+actually paints and compares the preview's text against that, so it still fails
+if text and ground resolve to the same colour — with no assumption that the
+preview owns a background.
+
+**Verification.** `director-command-center` Electron workflow, the gallery
+driven and read at the data-display fixture, 691 renderer unit tests, typecheck,
+eslint, knip, production build.
+
+### Original phase text
+
 Replace theme tokens in `artifact-layout.tsx`, `artifact-content.tsx`,
 `artifact-data.tsx`, `artifact-table.tsx`, `artifact-chart.tsx`, and
 `ArtifactPreviewSurface.tsx` with the Phase 1 properties.
