@@ -1,7 +1,7 @@
 # Artifact Composition Plan
 
 **Date:** 2026-07-27
-**Status:** Phases 1 and 3 done. Phases 2 and 4 not started.
+**Status:** Complete. Phases 1–4 landed 2026-07-27.
 
 ## Outcome
 
@@ -60,6 +60,15 @@ the command-center workflow.
 
 ## Phase 2 — Primitives that compose
 
+**Done.** `Section` is a band — a tracked label over a rule — rather than
+another bold line; rendering it as a heading is what made a document a flat run
+of same-weight text. `Card` is a margin note: a rule and a tracked label, no
+box, because the box was never the informative part. `Metric` grows to a 26 px
+tabular figure with a 12 px note. `Table` and `Alert` were already at the
+mockup's treatment from the previous plan.
+
+### Original phase text
+
 - `Section`: a tracked label above its content, with the hairline the mockup
   uses, instead of a plain heading.
 - `Card`: a rule and a label — the mockup's margin note — rather than a box.
@@ -90,6 +99,14 @@ touched.
 **Verification.** The gallery's chart, maximum-chart, and maximum-pie fixtures.
 
 ## Phase 4 — The rail card
+
+**Done.** The card carries its kind as a kicker, now that `emit_artifact`
+supplies one. The fixed preview reserve becomes a floor: it still keeps an
+arriving preview from moving the card under the reader, but a card is otherwise
+as tall as what it has to say. Reserving a block every card had to fill is what
+made the rail a column of half-empty boxes.
+
+### Original phase text
 
 Kind, title, one line, and the most telling figure — or a sparkline where the
 artifact has a series. The fixed preview reserve goes: a card is as tall as what

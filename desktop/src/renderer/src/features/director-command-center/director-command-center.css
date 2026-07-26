@@ -9,13 +9,14 @@
   --director-left-rail-inline: var(--director-rail-inline);
   --director-right-rail-inline: var(--director-rail-inline);
   /*
-   * The artifact summary's reserve. Every card holds exactly this, so the rail's
-   * height is decided by how many artifacts there are and never by what any of
-   * them contain — an arriving preview cannot move the card under the reader.
-   * It is smaller than it was because a card now shows a chosen summary rather
-   * than a replay of the document's opening.
+   * The artifact summary's reserve.
+   *
+   * A card is as tall as what it has to say. The reserve is the floor that
+   * keeps an arriving preview from moving the card under the reader, not a
+   * block of space every card must fill — that block is what made the rail a
+   * column of half-empty boxes.
    */
-  --director-artifact-preview-block: 96px;
+  --director-artifact-preview-block: 34px;
   background:
     radial-gradient(circle at 50% 10%, oklch(0.25 0.06 230 / 0.42), transparent 34%),
     linear-gradient(180deg, oklch(0.11 0.01 260), oklch(0.07 0.006 260));
@@ -482,7 +483,6 @@
   background: var(--director-card);
   display: grid;
   gap: 8px;
-  grid-template-rows: auto var(--director-artifact-preview-block);
   inline-size: 100%;
   padding: 10px;
   text-align: start;
@@ -536,8 +536,8 @@
  * palette, so the coupling that forced the box is gone with it.
  */
 .director-artifact-preview-viewport {
-  block-size: var(--director-artifact-preview-block);
   color: var(--director-muted);
+  min-block-size: var(--director-artifact-preview-block);
   min-inline-size: 0;
   overflow: hidden;
   pointer-events: none;

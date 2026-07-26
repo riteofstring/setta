@@ -20,11 +20,19 @@ export function ArtifactDocument({ children }: { children: ReactNode }) {
   );
 }
 
-/** A titled group of blocks. */
+/**
+ * A titled group of blocks.
+ *
+ * A section is a band, not a heading: a tracked label over a rule, which is how
+ * the mockup separates one from a title written inside it. Rendering it as
+ * another bold line made every document a flat run of same-weight text.
+ */
 export function ArtifactSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="flex flex-col gap-[10px]">
-      <h2 className="text-[14px] leading-snug font-semibold text-foreground">{title}</h2>
+    <section className="flex flex-col gap-[12px] border-t border-border pt-[14px]">
+      <h2 className="text-[10px] leading-none font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+        {title}
+      </h2>
       {children}
     </section>
   );

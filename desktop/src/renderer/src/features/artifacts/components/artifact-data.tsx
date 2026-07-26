@@ -34,11 +34,11 @@ export function ArtifactMetric({
   const presentation = metricTonePresentation[tone];
   const Icon = presentation.icon;
   return (
-    <dl className="flex flex-col gap-0.5" data-tone={tone}>
+    <dl className="flex flex-col gap-[5px]" data-tone={tone}>
       <dt className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
         {label}
       </dt>
-      <dd className="m-0 flex items-center gap-1.5 text-[20px] leading-tight font-semibold text-foreground tabular-nums">
+      <dd className="m-0 flex items-center gap-1.5 text-[26px] leading-[1.1] font-semibold text-foreground tabular-nums">
         {Icon === null ? null : <Icon aria-hidden className="size-4 shrink-0" />}
         {presentation.label === null ? null : (
           <span className="sr-only">{presentation.label}: </span>
@@ -46,7 +46,7 @@ export function ArtifactMetric({
         {value}
       </dd>
       {caption === undefined ? null : (
-        <dd className="m-0 text-[11px] text-muted-foreground">{caption}</dd>
+        <dd className="m-0 text-[12px] text-muted-foreground">{caption}</dd>
       )}
     </dl>
   );
