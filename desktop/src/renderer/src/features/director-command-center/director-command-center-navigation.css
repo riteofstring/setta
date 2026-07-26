@@ -13,7 +13,12 @@
   background: linear-gradient(to bottom, oklch(0.08 0.012 255 / 0.84), oklch(0.08 0.012 255 / 0));
   display: grid;
   gap: 12px;
-  grid-template-columns: auto auto minmax(44px, 1fr);
+  /*
+   * Three tracks, so the identity is centred on the window rather than parked
+   * wherever the brand happens to end. The outer tracks are equal, which is
+   * what makes the centre actually the centre.
+   */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   inset-block-start: 0;
   inset-inline: 0;
   min-block-size: 44px;
@@ -32,25 +37,32 @@
 .director-command-center-brand {
   align-items: center;
   display: inline-flex;
+  justify-self: start;
   min-block-size: 34px;
 }
 
 .director-workstream-nav {
   align-items: center;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 40px minmax(190px, 1fr) 40px;
-  inline-size: clamp(300px, calc(100vw - 390px), 642px);
-  justify-self: start;
-  min-inline-size: 300px;
+  display: flex;
+  gap: 4px;
+  justify-self: center;
+  min-inline-size: 0;
 }
 
+/*
+ * One row.
+ *
+ * The title and the strip used to be stacked, which put a second row inside a
+ * 44px bar: the brand centred against the taller row, the chevrons against
+ * their own, and the dots hung below the title with nothing beside them. A bar
+ * is a line of things on one baseline.
+ */
 .director-workstream-selector {
   align-items: center;
-  display: grid;
-  gap: 5px;
-  justify-items: center;
+  display: flex;
+  gap: 10px;
   min-inline-size: 0;
+  padding-inline: 4px;
 }
 
 .director-workstream-title {
@@ -131,10 +143,10 @@
 
 .director-workstream-strip {
   display: flex;
-  gap: 5px;
-  inline-size: 100%;
+  flex: none;
+  gap: 2px;
   justify-content: safe center;
-  max-inline-size: 100%;
+  max-inline-size: min(30vw, 260px);
   min-inline-size: 0;
   overflow-x: auto;
   overflow-y: hidden;
@@ -162,8 +174,7 @@
   }
 
   .director-workstream-nav {
-    grid-template-columns: 36px minmax(0, 1fr) 36px;
-    inline-size: 100%;
+    gap: 2px;
     min-inline-size: 0;
   }
 

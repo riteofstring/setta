@@ -829,13 +829,20 @@
   margin: 0;
 }
 
-.director-spinner {
-  animation: director-spin 900ms linear infinite;
+/*
+ * Work in progress, in the shell's own language: a filled dot that breathes.
+ * The glow is `currentColor`, so a pulse takes the status colour of whatever
+ * it marks rather than carrying one of its own.
+ */
+.director-pulse {
+  animation: director-pulse 1.4s ease-in-out infinite;
+  fill: currentColor;
+  filter: drop-shadow(0 0 6px currentColor);
 }
 
-@keyframes director-spin {
-  to {
-    transform: rotate(360deg);
+@keyframes director-pulse {
+  50% {
+    opacity: 0.4;
   }
 }
 
@@ -898,7 +905,7 @@
     transition-property: opacity, background-color, border-color, color;
   }
 
-  .director-spinner {
+  .director-pulse {
     animation: none;
   }
 }

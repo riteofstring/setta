@@ -1,5 +1,5 @@
 import type { DirectorIntent, DirectorReceipt } from "@generated/backend";
-import { LoaderCircle, Mic, RotateCcw, Send, Square, X } from "lucide-react";
+import { Circle, Mic, RotateCcw, Send, Square, X } from "lucide-react";
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { voiceProviderSetupActionLabel } from "../global-speech/speech-capture-availability";
@@ -485,8 +485,9 @@ function DirectorVoiceGlyph({ state }: { state: DirectorVoiceComposerState["stat
   switch (directorVoiceGlyphKinds[state]) {
     case "failed":
       return <RotateCcw aria-hidden="true" size={17} />;
+    // Waiting is a pulse, like every other in-progress mark in the shell.
     case "loading":
-      return <LoaderCircle aria-hidden="true" className="director-spinner" size={17} />;
+      return <Circle aria-hidden="true" className="director-pulse" size={13} />;
     case "microphone":
       return <Mic aria-hidden="true" size={17} />;
     case "stop":

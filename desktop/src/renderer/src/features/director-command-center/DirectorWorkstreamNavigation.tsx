@@ -15,7 +15,6 @@ import {
   Circle,
   Folder,
   FolderPlus,
-  LoaderCircle,
   PanelLeft,
   PanelRight,
   Settings,
@@ -54,6 +53,14 @@ interface DirectorKeyboardNavigationInput {
 const maxVisibleWorkstreamDots = 19;
 const unwindowedWorkstreamLimit = 24;
 
+/*
+ * Running is a pulse, not a spinner.
+ *
+ * A rotating loader is a busy indicator from a different design language — it
+ * says "wait" — and the command center's language is luminous dots that
+ * breathe. The mockup has no spinner anywhere; work in progress is a filled
+ * dot that fades and glows.
+ */
 const statusGlyphs = {
   archived: { Icon: Circle, size: 12 },
   awaiting_approval: { Icon: AlertTriangle, size: 14 },
@@ -63,7 +70,7 @@ const statusGlyphs = {
   failed: { Icon: X, size: 14 },
   idle: { Icon: Circle, size: 12 },
   queued: { Icon: Square, size: 13 },
-  running: { Icon: LoaderCircle, size: 14 },
+  running: { Icon: Circle, size: 12 },
 } as const satisfies Record<WorkstreamStatus, { Icon: LucideIcon; size: number }>;
 
 export function CommandCenterTopBar({
@@ -132,21 +139,29 @@ function WorkstreamNavigation({
       </IconButton>
       <div className="director-workstream-selector">
         <WorkstreamNavigationTitle counter={navigation.counter} focus={focus} />
-        <div
-          aria-label="Visible workstreams"
-          className="director-workstream-strip"
-          ref={workstreamStripRef}
-          role="list"
-        >
-          {navigation.visibleEntries.map((item) => (
-            <WorkstreamDot
-              dispatch={dispatch}
-              entry={item.entry}
-              key={item.entry.workstream.id}
-              selectedWorkstreamId={selectedWorkstreamID(snapshot)}
-            />
-          ))}
-        </div>
+        {/*
+         * A strip of one is not a navigator. With a single workstream the dot
+         * has nothing to switch between, and it read as an unexplained glyph
+         * floating under the title — the status it carries is already the
+         * word beside the title.
+         */}
+        {navigation.visibleEntries.length > 1 ? (
+          <div
+            aria-label="Visible workstreams"
+            className="director-workstream-strip"
+            ref={workstreamStripRef}
+            role="list"
+          >
+            {navigation.visibleEntries.map((item) => (
+              <WorkstreamDot
+                dispatch={dispatch}
+                entry={item.entry}
+                key={item.entry.workstream.id}
+                selectedWorkstreamId={selectedWorkstreamID(snapshot)}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
       <IconButton
         disabled={!canMoveSelection}
@@ -313,7 +328,7 @@ function StatusGlyph({ status }: { status: WorkstreamStatus }) {
     <Icon
       aria-hidden="true"
       className={
-        status === "running" ? "director-status-icon director-spinner" : "director-status-icon"
+        status === "running" ? "director-status-icon director-pulse" : "director-status-icon"
       }
       size={size}
     />
