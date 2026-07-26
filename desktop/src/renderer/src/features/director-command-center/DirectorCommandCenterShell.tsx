@@ -351,6 +351,7 @@ export function DirectorCommandCenterShell({
              * not in a rail about a workstream.
              */}
             <DirectorReply
+              answering={director.pending.answering}
               loadState={director.loadState}
               message={director.message}
               receiptText={director.receiptText}
