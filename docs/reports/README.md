@@ -9,4 +9,4 @@ measurements from performance-relevant refactors.
 
 Historical reports may reference plan documents that have since been removed.
 The current plan of record is
-`docs/plans/setta-4-director-codex-conversation-plan.md`.
+`docs/plans/openui-artifact-system-plan.md`.

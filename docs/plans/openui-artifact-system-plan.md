@@ -1,0 +1,898 @@
+# OpenUI Artifact System Plan
+
+**Date:** 2026-07-26
+**Status:** Active plan of record.
+
+## Executive Summary
+
+Replace Setta's fixed markdown, table, bar-chart, and file artifact types with
+one composable OpenUI document format.
+
+OpenUI owns the document language and React rendering protocol. Setta continues
+to own artifact identity, generation policy, validation, durable publication,
+conversation and trajectory provenance, persistence, lifecycle projection,
+security, and the Director artifact experience.
+
+Artifacts render through a Setta OpenUI component catalog backed by selected
+official shadcn/ui component source. Setta will not use
+`@openuidev/react-ui`, imitate shadcn styling with custom substitutes, or invoke
+the shadcn CLI.
+
+The cutover is direct:
+
+- delete the old artifact kinds and payloads
+- replace the current database schema in place
+- replace the old tool contract
+- replace the renderer switch
+- regenerate Go-owned TypeScript contracts
+- discard incompatible local development data
+
+There will be no migration, compatibility layer, dual path, old-field alias,
+legacy reader, legacy renderer, or transitional artifact format.
+
+## Product Decision
+
+Adopt OpenUI Lang as the composition format only if Setta can validate the
+supported language profile authoritatively before persistence.
+
+The intended product model is:
+
+```text
+Codex composes a Setta OpenUI document
+                  |
+                  v
+Setta validates the complete document and catalog contract
+                  |
+                  v
+Setta atomically stores the artifact and trajectory event
+                  |
+                  v
+OpenUI parses the stored document in the renderer
+                  |
+                  v
+Official shadcn/ui components render with Setta theme tokens
+```
+
+The AI controls content and composition. Setta controls the component catalog,
+data limits, actions, security, styling, and publication.
+
+## Goals
+
+- Let the AI compose useful reports, comparisons, dashboards, code summaries,
+  file references, charts, and mixed-content documents without adding a new
+  backend artifact kind for every combination.
+- Make artifacts look native to Setta by rendering through actual shadcn/ui
+  component implementations and Setta's existing theme tokens.
+- Preserve durable artifact delivery, model retry, provenance, lifecycle,
+  event-stream, and reload guarantees.
+- Reject malformed or unsafe documents before they become durable user-visible
+  state.
+- Keep artifact rendering responsive and bounded for large conversation
+  histories and large artifact documents.
+- Keep the OpenUI dependency behind Setta-owned contracts so upstream changes
+  do not become Setta's persisted public contract accidentally.
+
+## Non-Goals
+
+- Replacing Setta's conversation UI with OpenUI AgentInterface.
+- Using OpenUI Cloud for storage, model routing, correction, or rendering.
+- Using `@openuidev/react-ui` as Setta's design system.
+- Allowing arbitrary HTML, JSX, JavaScript, CSS, Tailwind classes, or component
+  imports in model output.
+- Allowing OpenUI `Query`, `Mutation`, tool providers, MCP calls, or arbitrary
+  actions in the first catalog.
+- Rendering external images or loading other remote resources from artifacts.
+- Streaming a partially generated artifact in the first release. Setta's
+  current dynamic-tool boundary receives complete JSON arguments.
+- Preserving artifacts created with the superseded artifact schema.
+- Installing or running the shadcn CLI, including temporary, global, `npx`, or
+  `pnpm dlx` installation.
+
+## Current System
+
+The current artifact contract is a Go-owned union in
+[`internal/conversation/domain.go`](../../internal/conversation/domain.go):
+
+- `markdown`
+- `table`
+- `bar_chart`
+- `file`
+
+That closed list is repeated in:
+
+- the `setta.emit_artifact` dynamic-tool schema and developer instructions
+- domain validation and tool failure handling
+- four nullable SQLite payload columns
+- generated TypeScript contracts
+- Director artifact labels, icons, and renderer branches
+- fixtures and deterministic/live workflow coverage
+
+The following behavior is valuable and must survive:
+
+- a retryable tool failure can be corrected in the same provider turn
+- an artifact is considered emitted only after durable publication
+- artifact and trajectory state commit atomically
+- artifact metadata carries conversation, turn, and trajectory provenance
+- conversation snapshots bound artifact history
+- Director lifecycle projection distinguishes declared, available, and
+  unresolved artifacts
+- the desktop reads artifacts through production HTTP, main, preload, IPC, and
+  renderer paths
+
+The implementation changes the payload model, not those guarantees.
+
+## Hard Cutover Rule
+
+Setta is unreleased. Implement this plan as a replacement, never as a
+transition.
+
+The implementation must:
+
+- remove `ArtifactKind`, `MarkdownArtifactPayload`, `TableArtifactPayload`,
+  `BarChartArtifactPayload`, and `FileArtifactPayload`
+- remove the `kind`, `markdown`, `table`, `barChart`, and `file` fields from the
+  current artifact contract
+- remove old tool branches and their validation
+- remove the four artifact payload columns and their database checks from
+  `schema_v1.sql`
+- remove kind-specific renderer components, labels, and icons
+- update existing fixtures and tests to the new contract instead of adding new
+  fixtures alongside old ones
+- change the current schema and contracts directly
+
+The implementation must not:
+
+- detect or read an old artifact row
+- transform an old artifact row into an OpenUI document
+- introduce a schema migration
+- retain old JSON fields as optional
+- support both old and new `setta.emit_artifact` inputs
+- retain a fallback renderer for old kinds
+- add a feature flag for the old artifact implementation
+- preserve incompatible local development databases
+
+Developers will delete and recreate local app data once the schema changes. No
+runtime code should recognize the old schema.
+
+## Target Artifact Contract
+
+The Go-owned domain contract should have one document payload:
+
+```go
+type ArtifactDocumentLanguage string
+type ArtifactCatalogID string
+
+const (
+    ArtifactDocumentLanguageOpenUI ArtifactDocumentLanguage = "openui_lang"
+    ArtifactCatalogSettaV1         ArtifactCatalogID          = "setta.artifacts.v1"
+)
+
+type ArtifactDocument struct {
+    Language  ArtifactDocumentLanguage `json:"language"`
+    CatalogID ArtifactCatalogID         `json:"catalogId"`
+    Source    string                    `json:"source"`
+}
+
+type Artifact struct {
+    ID                 string           `json:"id"`
+    ConversationID     string           `json:"conversationId"`
+    TurnID             *string          `json:"turnId"`
+    TrajectorySequence *int             `json:"trajectorySequence"`
+    Title              string           `json:"title"`
+    Document           ArtifactDocument `json:"document"`
+    CreatedAt          string           `json:"createdAt"`
+}
+```
+
+`ArtifactMetadata` keeps identity, title, provenance, and time. It does not
+carry a synthetic replacement for `kind`.
+
+The model-facing `setta.emit_artifact` input is:
+
+```json
+{
+  "title": "Quarterly support review",
+  "source": "root = Document([...])"
+}
+```
+
+The model does not choose `language` or `catalogId`. The backend attaches the
+only supported values after successful validation.
+
+The SQLite artifact table should store one `language`, one `catalog_id`, and
+one `source` value with the existing identity and provenance fields. It must not
+retain generic nullable payload columns or an old `kind`.
+
+## Setta OpenUI Static Profile
+
+Setta will support a deliberately small, static subset of OpenUI Lang in the
+first catalog.
+
+Supported syntax:
+
+- one assignment statement per line
+- one required `root` document assignment
+- registered component calls
+- string, finite number, boolean, and null literals
+- arrays and objects with bounded size
+- inline registered components
+- references to uniquely named document statements
+
+Unsupported syntax:
+
+- `Query` and `Mutation`
+- `Action` and tool invocation
+- state variables and bindings
+- edit patches
+- conditionals, arithmetic, and other runtime expressions
+- unknown built-ins
+- executable or raw markup
+
+The backend owns a strict parser and compiler for this static profile. It does
+not port the entire OpenUI parser. It only accepts the grammar above, resolves
+all references, maps positional arguments through the active catalog, validates
+every value, and returns structured field errors.
+
+The renderer uses the pinned upstream OpenUI parser. Phase 0 must establish a
+conformance corpus proving that every document accepted by Setta's compiler is
+interpreted equivalently by the pinned OpenUI renderer. If that boundary cannot
+be made deterministic without a JavaScript runtime or a second service in the
+backend, stop the cutover. Do not weaken pre-persistence validation.
+
+Initial safety limits should be Go-owned constants and should start with:
+
+- 64 KiB maximum UTF-8 source
+- 256 maximum statements and rendered component nodes
+- 12 maximum component nesting depth
+- 100 maximum entries in any data array
+- 12 maximum table columns
+- 100 maximum table rows
+- 8 maximum chart series
+- 200 maximum chart points across all series
+- finite numeric values only
+
+Phase 0 may lower these limits based on prompt, payload, and rendering
+measurements. Raising them requires measured evidence.
+
+## Catalog Ownership And Generation
+
+Go owns the catalog identity, component names, ordered properties, property
+types, enum values, required fields, limits, and model-facing descriptions.
+These definitions belong at the conversation artifact boundary, not in a
+global constants file.
+
+A dedicated generator should derive:
+
+- TypeScript component-name and property contracts
+- Zod schemas required by `@openuidev/react-lang`
+- the model-facing catalog signatures and generation instructions
+- typed fixtures used by the renderer's production-path gallery
+
+Generated outputs must be marked generated and must never be edited manually.
+The handwritten React renderer map must use a generated component-name union
+with `satisfies` so a missing renderer is a compile-time error.
+
+The normal HTTP contract generator remains owned by the
+`internal/httpapi` endpoint registry. After the Go artifact contract changes,
+regenerate `desktop/src/generated/backend.ts` with:
+
+```bash
+./scripts/go.sh run ./cmd/generate-contracts
+```
+
+The artifact catalog generator must not maintain a separate list of HTTP
+request or response types.
+
+## Official shadcn/ui Boundary
+
+In this plan, "use shadcn" means using selected official shadcn/ui component
+source, not recreating its visual style.
+
+shadcn/ui is source-distributed. Without the CLI, Setta will check selected
+official component source into
+`desktop/src/renderer/src/components/ui/` manually from a pinned upstream
+shadcn/ui revision.
+
+No shadcn CLI package may appear in a package manifest or lockfile. Do not use
+`npx shadcn`, `pnpm dlx shadcn`, a global shadcn installation, or any equivalent
+temporary CLI installation. Retrieve the official component source directly
+from the pinned upstream repository or registry files.
+
+The existing local `button.tsx`, `badge.tsx`, and `input.tsx` implementations
+are not considered official shadcn/ui source by this plan. All three must be
+replaced directly with their official shadcn/ui implementations as part of
+Phase 1, whether or not the artifact catalog exposes them to the model.
+
+This replacement applies to their existing consumers across settings, runtime
+selection, speech, and account UI. It is an application primitive cleanup
+inside this plan, not an artifact-only copy of shadcn.
+
+Do not preserve the current local component APIs:
+
+- remove the current Button `primary` and `secondary` variant API; update
+  callers to the official shadcn variant API or a clearly named Setta-domain
+  wrapper
+- remove the current Badge `neutral`, `success`, and `danger` variant API; use
+  the official Badge plus a separate Setta status component when domain status
+  semantics are required
+- remove the current Input implementation and update callers to the official
+  Input, using an explicitly named Setta-domain wrapper only when a product
+  surface needs stable compact sizing
+
+No wrapper may duplicate the official primitive or retain an old API merely to
+avoid updating callers.
+
+Requirements:
+
+- record the upstream shadcn/ui revision and registry source for every imported
+  component in a small provenance manifest
+- keep the official component structure and accessibility primitives
+- make only the changes required for Setta import aliases, exact dependency
+  versions, and existing CSS variable names
+- place Setta-specific behavior in wrappers outside the copied shadcn
+  primitives
+- do not label a custom approximation as a shadcn component
+- do not keep an old custom component beside a new official component with the
+  same responsibility
+- when an existing `components/ui` file conflicts, replace it directly and
+  update all consumers in the same phase
+
+The initial official shadcn/ui set should cover:
+
+- Accordion
+- Alert
+- Badge
+- Button
+- Card
+- Chart
+- Dialog
+- Input
+- Scroll Area
+- Separator
+- Table
+- Tabs
+- Tooltip
+
+Use the shadcn Chart implementation with its Recharts dependency. Dependencies
+introduced by official components must be direct, exactly pinned dependencies
+and must be added through `./update_dependencies.sh`.
+
+Some required artifact concepts do not exist in shadcn/ui. These should be
+clearly named Setta components rather than shadcn substitutes:
+
+- `ArtifactDocument`
+- `ArtifactSection`
+- `ArtifactStack`
+- `ArtifactGrid`
+- `ArtifactHeading`
+- `ArtifactText`
+- `ArtifactMarkdown`
+- `ArtifactCodeBlock`
+- `ArtifactFileReference`
+- Setta status and compact-control wrappers required by existing application
+  surfaces
+- chart and table adapters that enforce Setta data limits
+
+These components may compose official shadcn primitives internally where
+appropriate.
+
+## Initial Model-Visible Catalog
+
+The first catalog should be expressive enough to replace the current system and
+build useful mixed documents without exposing application actions.
+
+Content:
+
+- `Document`
+- `Section`
+- `Heading`
+- `Text`
+- `Markdown`
+- `CodeBlock`
+- `FileReference`
+
+Layout:
+
+- `Stack`
+- `Grid`
+- `Card`
+- `Separator`
+- `Tabs`
+- `Tab`
+- `Accordion`
+- `AccordionItem`
+
+Data display:
+
+- `Metric`
+- `Badge`
+- `Alert`
+- `Table`
+- `BarChart`
+- `LineChart`
+- `AreaChart`
+- `PieChart`
+
+The catalog must not expose `className`, `style`, raw colors, arbitrary icon
+names, event handlers, URLs, React props, or DOM attributes. Limited semantic
+props such as `tone`, `size`, `density`, and chart intent may be enums owned by
+the catalog.
+
+The root `Document` component is unframed. Cards are optional content-grouping
+components, not a mandatory wrapper around the artifact or every section.
+
+## Styling Model
+
+OpenUI selects registered components and supplies validated content. It does not
+control arbitrary visual styling.
+
+Official shadcn/ui primitives use Setta's existing Tailwind v4 setup and
+shadcn-compatible CSS variables. Artifact wrappers must use the same tokens as
+the command center:
+
+- background and foreground
+- card and popover
+- muted and accent
+- primary and status colors
+- border, input, and focus ring
+- Setta font families
+
+Artifact appearance must follow the active Setta appearance settings and work
+in light and dark modes without a separate artifact theme.
+
+The AI cannot choose fonts, pixel dimensions, arbitrary colors, shadows,
+border radii, or CSS utilities. Responsive layout comes from the component
+implementation, not generated source.
+
+## Validation And Repair
+
+Validation happens before artifact IDs are published and before the artifact
+transaction begins.
+
+The compiler must reject:
+
+- invalid UTF-8 or oversized source
+- invalid statements or trailing unparsed text
+- missing or duplicate `root`
+- duplicate statement names
+- missing or cyclic references
+- unknown components or unsupported OpenUI features
+- missing, extra, or incorrectly typed component arguments
+- non-finite numbers
+- source that exceeds node, depth, table, chart, or array limits
+- forbidden URL, HTML, style, action, or tool values
+- unsafe file references
+
+Failures return the existing typed dynamic-tool failure shape with:
+
+- a stable failure code
+- `retryable: true` for model-correctable documents
+- line, statement, component, and property information
+- a concise correction instruction
+- no parser stack trace or internal OpenUI error shown to the user
+
+Codex must correct and retry `setta.emit_artifact` in the same turn. A failed
+attempt remains a trajectory fact, but no artifact row or artifact-created
+event is committed.
+
+The renderer's OpenUI `onError` callback is telemetry and defense only. It is
+not a substitute for backend validation.
+
+## Persistence And Replay
+
+Store the validated source exactly as accepted, together with its language and
+catalog ID.
+
+On read:
+
+1. HTTP returns the Go-owned artifact contract.
+2. Electron main and preload decode the generated contract.
+3. The renderer selects the catalog by exact `catalogId`.
+4. OpenUI parses the stored source.
+5. The Setta renderer map produces official shadcn/ui and Setta domain
+   components.
+
+Within this unreleased plan, `setta.artifacts.v1` may be changed in place and
+development data discarded. Do not add a catalog compatibility registry for
+superseded development documents.
+
+The renderer may memoize parsed results by artifact ID and source identity. It
+must not persist a second renderer-owned artifact representation.
+
+## File And Link Security
+
+`FileReference` receives a workspace-relative path only.
+
+The backend must:
+
+- reject absolute paths
+- reject traversal outside the conversation workspace
+- reject references when the conversation has no authorized workspace
+- normalize and validate the path against the workspace root
+
+The renderer must not use `file://` URLs or open a path directly. File actions
+go through typed Setta IPC and revalidate authorization at the owning process.
+
+Markdown and text components must:
+
+- disable raw HTML
+- reject embedded images
+- allow only explicitly supported link protocols
+- route any allowed external navigation through a typed host action
+
+The first implementation may render external links as inert text. It must not
+load remote artifact resources.
+
+## Renderer Integration
+
+Replace the kind switch in `DirectorArtifactsRail.tsx` with one
+`SettaArtifactRenderer`.
+
+The artifact rail remains the compact artifact index. Selecting an artifact
+must replace the current narrow in-rail detail panel with a large
+`ArtifactWorkspaceOverlay` rendered as normal React DOM above the WebGL command
+center.
+
+The overlay must:
+
+- use the official shadcn/ui Dialog primitive for modal semantics, focus
+  containment, Escape handling, and focus restoration
+- leave the WebGL graph mounted behind a simple dim layer so closing the
+  artifact returns to the same graph state
+- disable graph, rail, top-bar, and composer interaction while open
+- provide a large, scrollable, unframed document surface on desktop
+- become a safe-area-aware full-screen document surface on mobile
+- restore focus to the artifact rail item that opened it
+- use an icon close control and a stable title association
+- avoid nesting the artifact document inside an additional decorative card
+- keep OpenUI and chart code out of the initial command-center bundle
+
+The WebGL renderer does not render OpenUI or shadcn content and does not receive
+artifact component state. The browser composites the DOM overlay above the
+canvas.
+
+The renderer must:
+
+- lazy-load OpenUI and chart code when artifact details open
+- preserve the artifact rail as the entry point while deleting the existing
+  in-rail detail presentation
+- use a generic artifact identity treatment instead of guessing a type from the
+  document
+- render semantic headings, lists, tables, code, and status content
+- preserve visible focus, keyboard navigation, and screen-reader naming
+- respect reduced-motion preferences
+- constrain wide tables and charts without resizing the command-center shell
+- avoid nested card defaults and decorative section cards
+- keep presentational state such as the selected tab local and ephemeral
+- contain an unexpected component failure without crashing the command center
+
+Large collections must remain bounded by backend limits. Tables at the maximum
+row count must avoid unnecessary duplicate DOM trees, and chart components must
+not mount while their tab or collapsed section is hidden.
+
+## Frontend State Ownership
+
+Do not introduce an artifact Zustand store.
+
+State ownership remains:
+
+- Go and SQLite own durable artifacts, workstreams, approvals, selection, and
+  lifecycle facts
+- the existing runtime, workspace, appearance, and settings-navigation Zustand
+  stores own only their current app-wide responsibilities
+- `DirectorCommandCenterShell` owns the open artifact ID and overlay lifecycle
+  as local React state
+- the artifact loader owns local loading and failure state and reads the
+  document through the existing production Setta API
+- OpenUI tabs, accordions, scroll position, and other presentation-only state
+  remain local to their rendered components
+- `DirectorGraphCanvas` continues to own camera, buffers, pointer state, and
+  animation outside React and Zustand
+
+Reset the open artifact when the connected runtime changes or when the selected
+artifact is no longer present in the authoritative Director snapshot. Do not
+persist overlay-open state or presentation state in Go, SQLite, or Zustand.
+
+A bounded in-memory parse cache may be keyed by artifact ID, catalog ID, and
+source identity. It must not become a second durable artifact representation
+and must clear on runtime change.
+
+## Interaction Boundary
+
+The first catalog is display-only. Tabs, accordions, scrolling, code copy, and
+chart hover are local presentation interactions.
+
+There are no model-defined mutations, network calls, MCP calls, shell commands,
+or arbitrary host actions.
+
+If interactive artifacts are proposed later, they require a separate plan.
+Every action must go through a Setta-owned capability broker with typed
+arguments, authorization, approvals where applicable, trajectory recording,
+and explicit results. OpenUI's direct tool-provider path must not bypass those
+boundaries.
+
+## Dependency Policy
+
+Use only the narrow OpenUI packages needed for the language and React renderer.
+Do not add `@openuidev/react-ui`.
+
+Expected direct dependencies include:
+
+- `@openuidev/react-lang`
+- its required OpenUI core package if it is not bundled
+- Zod 4
+- exact dependencies required by the selected official shadcn/ui components
+- Recharts for the official shadcn Chart component
+- Radix primitives required by the selected official shadcn components
+
+All checked-in direct versions must be exact. Use:
+
+```bash
+./update_dependencies.sh
+```
+
+Pin the OpenUI package versions. An OpenUI upgrade is an explicit catalog and
+compiler change, not an incidental dependency refresh.
+
+## Performance Requirements
+
+This is a performance-relevant renderer change.
+
+Before changing production rendering, record a baseline under
+`docs/reports/performance/` for:
+
+- command-center initial bundle and load
+- artifact rail open and close latency
+- current markdown, table, chart, and file artifact detail latency
+- memory and DOM counts with 100 artifact metadata entries
+- a maximum-size table artifact
+
+After the cutover, append a comparable report covering:
+
+- lazy chunk size and load latency
+- first and repeat artifact open latency
+- artifact workspace overlay open and close latency
+- parse and render duration for representative and maximum-size documents
+- DOM counts for large tables and hidden tabs/accordions
+- memory after repeatedly opening and closing artifacts
+- command-center frame behavior while an artifact is open
+
+The OpenUI and chart bundle must not move into the initial command-center chunk.
+Performance regressions require correction before merge verification.
+
+## Implementation Phases
+
+### Phase 0 - Static Profile Feasibility And Baseline
+
+**Status:** Pending.
+
+Deliverables:
+
+- pin the candidate OpenUI revision and package versions for the spike
+- define the static-profile grammar and initial Go-owned catalog manifest
+- build a narrow backend compiler spike for representative documents
+- build the equivalent generated React library with no production cutover
+- create accepted and rejected conformance fixtures
+- confirm accepted source parses to the same component tree in OpenUI
+- measure prompt size, tool argument size, parse time, and representative model
+  output quality
+- capture the required pre-change performance baseline
+- record the selected official shadcn/ui upstream revision
+
+Gate:
+
+- proceed only if the Go backend can validate the complete supported profile
+  without renderer assistance, a JavaScript runtime, or a network service
+- proceed only if the pinned OpenUI renderer interprets every accepted fixture
+  equivalently
+- stop if upstream parser behavior cannot be constrained deterministically
+- stop if the catalog prompt or JSON string escaping makes generation
+  materially less reliable than the current tool
+
+Once the Phase 0 spike is branch-ready, pause for explicit user authorization
+before running its automated conformance checks. Do not begin the production
+cutover until that user-authorized gate passes.
+
+No production contract, schema, or renderer changes land before this gate is
+satisfied.
+
+### Phase 1 - Catalog Generation And Official shadcn Primitives
+
+**Status:** Pending.
+
+Deliverables:
+
+- add the Go-owned catalog definition and generator
+- generate TypeScript names, schemas, and catalog signatures
+- add exact OpenUI, Zod, Radix, and Recharts dependencies through the repository
+  dependency script
+- check in the selected official shadcn/ui component source manually
+- add the shadcn provenance manifest
+- directly replace the current local Button, Badge, and Input implementations
+- update every existing Button, Badge, and Input consumer in the same change
+- remove old variants and props instead of aliasing them through the official
+  primitives
+- audit the rest of the renderer for anything described as shadcn-style and
+  either replace it with official source or name it as a Setta-domain component
+- implement Setta-specific artifact content and layout components
+- create the exhaustive OpenUI-to-React renderer map
+
+Gate:
+
+- every generated component name has exactly one renderer
+- every shadcn-labeled primitive is traceable to official source
+- Button, Badge, and Input no longer contain Setta's prior local
+  implementations or compatibility variants
+- no OpenUI default UI package or shadcn CLI dependency exists
+- no arbitrary styling or action property is present in the model catalog
+
+### Phase 2 - Artifact Contract And Storage Replacement
+
+**Status:** Pending.
+
+Deliverables:
+
+- replace the Go artifact union with `ArtifactDocument`
+- remove `ArtifactKind` and every old payload type
+- replace `schema_v1.sql` artifact columns directly
+- replace store scans, writes, snapshot records, and validation
+- remove kind-specific metadata
+- update HTTP endpoint responses from their Go owners
+- regenerate `desktop/src/generated/backend.ts`
+- update Electron main, preload, IPC, Director, narrator, and recording contracts
+- delete all old artifact fixtures and assumptions
+
+Gate:
+
+- repository search finds no old artifact kinds, payload fields, or SQL columns
+  outside historical reports
+- a clean app-data directory is the only supported database state
+- no migration or compatibility code exists
+
+### Phase 3 - Generation, Validation, Repair, And Durable Publication
+
+**Status:** Pending.
+
+Deliverables:
+
+- replace the dynamic-tool input with `title` and `source`
+- generate developer instructions from the Go-owned catalog
+- complete the strict static-profile compiler and limits
+- validate source before durable publication
+- map compiler failures into structured retryable field errors
+- preserve atomic artifact and trajectory publication
+- preserve artifact delivery attempt reduction and unresolved-delivery handling
+- update provider receipts and narration context for the generic document
+- keep the existing per-turn and snapshot artifact bounds
+
+Gate:
+
+- invalid source cannot create an artifact row or artifact-created event
+- a retryable failure gives Codex enough information to correct the document
+- successful emission has the same provenance and lifecycle guarantees as the
+  current system
+- no renderer or desktop process participates in backend acceptance
+
+### Phase 4 - Director Renderer Cutover
+
+**Status:** Pending.
+
+Deliverables:
+
+- replace the artifact-kind switch with `SettaArtifactRenderer`
+- render through the generated OpenUI library and official shadcn primitives
+- implement safe Markdown, code, table, chart, and file-reference behavior
+- lazy-load OpenUI and chart dependencies
+- replace the in-rail detail panel with the shadcn Dialog-backed
+  `ArtifactWorkspaceOverlay`
+- keep open-artifact and overlay state local to `DirectorCommandCenterShell`
+- add responsive, theme, keyboard, screen-reader, and reduced-motion handling
+- add renderer telemetry for impossible post-validation parse failures
+- update the artifact rail to use generic artifact identity treatment
+- remove all old renderer branches and styles
+
+Gate:
+
+- all current artifact capabilities are expressible in the new catalog
+- mixed documents render coherently in the large artifact workspace overlay
+- light and dark appearance settings apply without a separate artifact theme
+- no artifact can load remote content or invoke an unbrokered action
+- opening an artifact cannot destabilize the command-center layout
+- opening and closing an artifact preserves the mounted WebGL graph state,
+  contains focus, and restores focus to the originating rail item
+- no new Zustand store owns artifact content or artifact-view state
+
+### Phase 5 - Cleanup And Performance Remeasurement
+
+**Status:** Pending.
+
+Deliverables:
+
+- remove superseded constants, helpers, styles, imports, tests, and fixtures
+- regenerate every affected generated output
+- format changed files with `./scripts/format.sh`
+- record the post-change append-only performance report
+- inspect dependency and bundle impact
+- inspect the complete diff for compatibility or transitional code
+- update this plan's phase status and final decisions
+
+Gate:
+
+- no old artifact implementation remains
+- generated outputs match the new Go-owned contracts
+- the OpenUI renderer remains lazy
+- measured performance is acceptable on the repository's target matrix
+- the worktree contains only intentional implementation and evidence
+
+### Phase 6 - User-Authorized Merge Verification
+
+**Status:** Pending until the branch is ready and the user explicitly requests
+verification.
+
+Do not run automated tests during implementation. When the branch is ready to
+merge and the user authorizes verification, start with the narrowest relevant
+checks and broaden only after they are stable.
+
+Required focused coverage:
+
+- static-profile lexer, parser, reference resolution, limits, and failures
+- Go catalog generation and TypeScript consumption
+- artifact domain and storage behavior
+- dynamic-tool correction and durable publication
+- OpenUI parser conformance corpus
+- shadcn-backed renderer semantics and accessibility
+- safe Markdown, links, files, tables, and charts
+- generated HTTP, main, preload, and IPC contracts
+
+Required deterministic production-path workflow coverage:
+
+- open a temporary workspace
+- create and open a conversation
+- submit input and receive streamed assistant output
+- emit and open a mixed OpenUI artifact
+- close the artifact overlay and confirm focus and graph state are restored
+- reject malformed output and repair it within the same provider turn
+- queue and steer while a run is active
+- complete, cancel, and fail relevant runs
+- preserve or promote queued work
+- reload and restart against temporary app data
+- replay the artifact through Go HTTP, Electron main, preload, renderer, and
+  Director projection
+
+When locally signed in to Codex with ChatGPT auth, run the relevant live Codex
+end-to-end artifact workflow. Do not use `OPENAI_API_KEY`. If ChatGPT auth is
+unavailable, record the live-provider skip and do not treat deterministic
+coverage as proof of provider integration.
+
+Run broader quality or supply-chain gates only when the user explicitly asks
+for merge verification.
+
+## Definition Of Done
+
+This plan is complete only when:
+
+- AI-generated artifacts use one validated OpenUI document contract
+- actual official shadcn/ui component source renders the supported UI
+  primitives
+- rich artifacts open in the large DOM workspace above the WebGL canvas rather
+  than inside the narrow artifact rail
+- the existing local Button, Badge, and Input implementations have been
+  replaced with official shadcn/ui source and all consumers use the new
+  contracts directly
+- Setta's theme, accessibility, security, and performance constraints apply
+- invalid model output is repaired before persistence
+- artifact identity, provenance, lifecycle, and replay remain durable
+- old artifact kinds, payloads, SQL columns, renderers, and tests are deleted
+- there is no compatibility, migration, legacy, transitional, or dual-path
+  code
+- user-authorized deterministic and live verification has completed or any
+  unavailable live-provider gate is recorded accurately
+
+## Reference Material
+
+- [OpenUI Lang overview](https://www.openui.com/docs/openui-lang/overview)
+- [How OpenUI Lang works](https://www.openui.com/docs/openui-lang/how-it-works)
+- [Defining OpenUI components](https://www.openui.com/docs/openui-lang/defining-components)
+- [OpenUI custom artifacts](https://www.openui.com/docs/agent/guides/custom-artifacts)
+- [OpenUI open-ended HTML guidance](https://www.openui.com/docs/agent/guides/open-ended-html)
+- [shadcn/ui documentation](https://ui.shadcn.com/docs)
