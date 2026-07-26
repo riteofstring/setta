@@ -99,6 +99,8 @@ interface PlannedNode {
   /** Row within that turn, so every column starts at its own top. */
   readonly row: number;
   readonly role: "input" | "step" | "outcome";
+  /** Lateral offset when this node is one branch of a concurrent fan. */
+  readonly fanLane: number;
   readonly mode: PackedGraphMode;
   /**
    * When this outcome failed, or null. `terminalAt` is the renderer's failure
@@ -333,6 +335,7 @@ function semanticLane(node: SemanticNode): number {
  */
 function planNodes(nodes: readonly OrderedNode[], edges: readonly SemanticEdge[]): PlannedNode[] {
   const outgoing = outgoingNodeIDs(edges);
+  const fanOffsets = fanLaneOffsets(edges);
   const planned: PlannedNode[] = [];
   for (const group of groupedByGraph(nodes)) {
     const outcomeId = outcomeNodeID(group.nodes, outgoing);
@@ -343,6 +346,7 @@ function planNodes(nodes: readonly OrderedNode[], edges: readonly SemanticEdge[]
         turn: group.turn,
         row,
         role,
+        fanLane: fanOffsets.get(ordered.packedId) ?? 0,
         mode: semanticNodeMode(ordered.node.kind, ordered.node.status),
         failedAt:
           role === "outcome" && semanticStatusOutcomes[ordered.node.status] === "failed"
@@ -352,6 +356,46 @@ function planNodes(nodes: readonly OrderedNode[], edges: readonly SemanticEdge[]
     });
   }
   return planned;
+}
+
+/*
+ * Where a fan's branches sit. Concurrent work — parallel commands, spun-off
+ * subagents — arrives as siblings whose flow edges leave one fork node, and
+ * the merge that reconverges them has several flow edges in. Siblings spread
+ * across lanes centred on the spine, the mockup's fan spacing, so parallel
+ * work reads as parallel instead of stacking on one line.
+ */
+function fanLaneOffsets(edges: readonly SemanticEdge[]): ReadonlyMap<string, number> {
+  const spacing = 0.3;
+  const siblingsBySource = new Map<string, string[]>();
+  const flowSourceCount = new Map<string, number>();
+  for (const edge of edges) {
+    if (semanticEdgeChannels[edge.kind] !== "flow") {
+      continue;
+    }
+    const target = `${edge.workstreamId}:${edge.toNodeId}`;
+    flowSourceCount.set(target, (flowSourceCount.get(target) ?? 0) + 1);
+    const source = `${edge.workstreamId}:${edge.fromNodeId}`;
+    const members = siblingsBySource.get(source);
+    if (members === undefined) {
+      siblingsBySource.set(source, [target]);
+    } else {
+      members.push(target);
+    }
+  }
+  const offsets = new Map<string, number>();
+  for (const members of siblingsBySource.values()) {
+    if (members.length < 2) {
+      continue;
+    }
+    members.forEach((member, index) => {
+      // A merge node with several parents is not itself a branch.
+      if ((flowSourceCount.get(member) ?? 0) <= 1) {
+        offsets.set(member, (index - (members.length - 1) / 2) * spacing);
+      }
+    });
+  }
+  return offsets;
 }
 
 interface PlannedGroup {
@@ -392,7 +436,9 @@ function packedNodeInput(planned: PlannedNode, placement: ColumnPlacement): Pack
     glyph: visual.glyph,
     emphasis: semanticEvidenceEmphases[planned.ordered.node.evidenceClass],
     detail: planned.ordered.node.kind === "milestone" ? "compacted" : "detailed",
-    lane: placement.lane + semanticLane(planned.ordered.node),
+    lane:
+      placement.lane +
+      (planned.fanLane === 0 ? semanticLane(planned.ordered.node) : planned.fanLane),
     row: planned.row,
     bornAt: planned.ordered.bornAt,
     settleAt: planned.ordered.bornAt + settleWindowSeconds,

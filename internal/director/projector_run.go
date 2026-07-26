@@ -596,6 +596,7 @@ func (projector *DirectorGraphProjector) dropNodes(workstream *projectedWorkstre
 	workstream.markNodesRemoved(dropped)
 	workstream.dropEdgesTouching(dropped)
 	workstream.repairAnchors(dropped)
+	workstream.dropChainBookkeeping(dropped)
 	for eventID, nodeID := range projector.nodeBySourceEvent {
 		if dropped[nodeID] {
 			delete(projector.nodeBySourceEvent, eventID)
@@ -618,6 +619,28 @@ func (workstream *projectedWorkstream) dropEdgesTouching(dropped map[string]bool
 	workstream.edges = remaining
 	workstream.edgeIndex = index
 	workstream.markEdgesDropped(droppedEdges)
+}
+
+// dropChainBookkeeping forgets fan state that pointed at dropped nodes, so a
+// retired plan step can never anchor a future branch or receive a merge edge.
+func (workstream *projectedWorkstream) dropChainBookkeeping(dropped map[string]bool) {
+	for nodeID := range dropped {
+		delete(workstream.chainParent, nodeID)
+	}
+	for runID, tips := range workstream.parallelTips {
+		remaining := tips[:0]
+		for _, tip := range tips {
+			if !dropped[tip] {
+				remaining = append(remaining, tip)
+			}
+		}
+		if len(remaining) == 0 || dropped[workstream.forkParent[runID]] {
+			delete(workstream.parallelTips, runID)
+			delete(workstream.forkParent, runID)
+			continue
+		}
+		workstream.parallelTips[runID] = remaining
+	}
 }
 
 func (workstream *projectedWorkstream) repairAnchors(dropped map[string]bool) {
