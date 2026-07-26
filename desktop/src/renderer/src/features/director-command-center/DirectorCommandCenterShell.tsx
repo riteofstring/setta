@@ -329,7 +329,10 @@ export function DirectorCommandCenterShell({
           />
           <WorkstreamSwitchTransition transition={switchTransition} />
           {packedSnapshot.nodeCount === 0 ? <GraphEmptyState focus={focus} /> : null}
-          <NowRail narration={snapshotView.narration} />
+          <NowRail
+            narration={snapshotView.narration}
+            workstreamStatus={snapshotView.selectedWorkstream?.status ?? null}
+          />
           <ArtifactsRail
             approvals={snapshotView.approvals}
             artifactBrowser={artifactBrowser}

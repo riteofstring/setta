@@ -39,9 +39,10 @@
 }
 
 /*
- * The mark. A final summary is the end of something and takes the graph's
- * success colour; a milestone is work still moving and takes its own. The glow
- * is the mockup's: a luminous dot on the void, not a flat disc.
+ * The mark. The glow is the mockup's: a luminous dot on the void, not a flat
+ * disc. Green is reserved for the whole task succeeding, so only the latest
+ * final summary of a completed workstream takes it — the outcome is computed
+ * where the workstream status is known, never inferred from the words.
  */
 .director-narration-mark {
   background: currentColor;
@@ -53,8 +54,12 @@
   margin-block-start: 7px;
 }
 
-.director-narration-item[data-narration-kind="final_summary"] .director-narration-mark {
+.director-narration-item[data-narration-outcome="succeeded"] .director-narration-mark {
   color: var(--graph-mode-success);
+}
+
+.director-narration-item[data-narration-outcome="failed"] .director-narration-mark {
+  color: var(--graph-mode-fail);
 }
 
 .director-narration-text {
