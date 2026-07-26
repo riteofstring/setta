@@ -153,7 +153,7 @@ judge the semantic completeness of the agent's chosen outputs.
 
 ### Phase 1 - Contracts And Director Semantics
 
-**Status:** Pending.
+**Status:** Complete.
 
 - Add the workspace requirement at its Go ownership boundary.
 - Carry it through create, send, queue, recovery, persistence, replay, and
@@ -163,6 +163,21 @@ judge the semantic completeness of the agent's chosen outputs.
 - Regenerate all affected generated contracts.
 - Remove the old "folderless means waiting for a folder" descriptions and
   fixtures.
+
+`WorkspaceRequirement` is owned by the Director decision protocol, because a
+delivery is what declares it. `create_workstream` and `submit_work` supply it;
+`steer_work` does not, because steering changes a run already carrying work
+under the scope its workstream already has. Recovery does not declare it either:
+it restarts a run the workstream already carried, so it is `optional` by
+construction. The declaration reaches the durable `DirectorDecisionCommitted`
+fact and the Setta tool receipt, so replay and the Director both see what the
+app recorded. No generated TypeScript surface carries it, because no renderer
+shape does.
+
+Phase 2 is what honors the declaration: the executor gate that turns a missing
+workspace into a folder request is still unconditional, and removing
+`requireFolderResource` belongs with the execution change that lets an unbound
+turn run.
 
 ### Phase 2 - Workspace-Independent Agent Execution
 

@@ -31,11 +31,31 @@ func NewCommittedDecision(
 		return DirectorDecisionCommitted{}, err
 	}
 	return DirectorDecisionCommitted{
-		Decision:           decision.Kind,
-		IntentID:           context.Intent.ID,
-		PublicSummary:      summary,
-		TargetWorkstreamID: target,
+		Decision:             decision.Kind,
+		IntentID:             context.Intent.ID,
+		PublicSummary:        summary,
+		TargetWorkstreamID:   target,
+		WorkspaceRequirement: committedWorkspaceRequirement(decision),
 	}, nil
+}
+
+// committedWorkspaceRequirement reports what the work a decision delivers needs
+// from the user's files. Recovery is the one delivery the Director does not
+// declare: it restarts a run the workstream already carried, so it needs
+// nothing the workstream does not already have.
+func committedWorkspaceRequirement(decision DirectorDecision) *WorkspaceRequirement {
+	switch decision.Kind {
+	case DirectorDecisionCreateWorkstream:
+		return &decision.CreateWorkstream.WorkspaceRequirement
+	case DirectorDecisionSendToWorkstream:
+		return &decision.SendToWorkstream.WorkspaceRequirement
+	case DirectorDecisionQueueBehindRun:
+		return &decision.QueueBehindRun.WorkspaceRequirement
+	case DirectorDecisionRecoverPath:
+		return workspaceRequirementPointer(WorkspaceOptional)
+	default:
+		return nil
+	}
 }
 
 func committedDecisionTarget(decision DirectorDecision, createdWorkstreamID *string) (*string, error) {

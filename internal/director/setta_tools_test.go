@@ -228,8 +228,12 @@ func TestDirectorAttachesTheFolderBlockedWorkIsWaitingFor(t *testing.T) {
 	execution := &recordedExecution{}
 
 	blocked := callSettaTool(t, harness, registry, execution, scriptedDirectorToolCall{
-		tool:      "submit_work",
-		arguments: map[string]any{"workstreamId": folderless, "input": "run the tests"},
+		tool: "submit_work",
+		arguments: map[string]any{
+			"workstreamId":         folderless,
+			"input":                "run the tests",
+			"workspaceRequirement": string(WorkspaceRequired),
+		},
 	})
 	if !blocked.succeeded || blocked.receipt.ResourceRequestID == nil {
 		t.Fatalf("work in a folderless workstream did not open a resource request: %+v", blocked.receipt)
@@ -266,8 +270,12 @@ func TestDirectorRefusesAFolderTheAppIsNotOffering(t *testing.T) {
 	execution := &recordedExecution{}
 
 	blocked := callSettaTool(t, harness, registry, execution, scriptedDirectorToolCall{
-		tool:      "submit_work",
-		arguments: map[string]any{"workstreamId": folderless, "input": "run the tests"},
+		tool: "submit_work",
+		arguments: map[string]any{
+			"workstreamId":         folderless,
+			"input":                "run the tests",
+			"workspaceRequirement": string(WorkspaceRequired),
+		},
 	})
 	if blocked.receipt.ResourceRequestID == nil {
 		t.Fatalf("work in a folderless workstream did not open a resource request: %+v", blocked.receipt)

@@ -228,8 +228,12 @@ func TestSupplyingAFolderClosesTheRequestAndBindsTheWorkstream(t *testing.T) {
 	defer subscription.Unsubscribe()
 
 	executed, err := executor.Execute(context.Background(), routedFor(t, registry, DirectorDecision{
-		Kind:             DirectorDecisionSendToWorkstream,
-		SendToWorkstream: &SendToWorkstreamDecision{WorkstreamID: folderless, AuthoredInput: "run the tests"},
+		Kind: DirectorDecisionSendToWorkstream,
+		SendToWorkstream: &SendToWorkstreamDecision{
+			WorkstreamID:         folderless,
+			AuthoredInput:        "run the tests",
+			WorkspaceRequirement: WorkspaceRequired,
+		},
 	}))
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -290,8 +294,12 @@ func TestConcurrentResourceResolutionCannotDuplicateLifecycleFacts(t *testing.T)
 	center := newSubmittingCommandCenter(t, harness, registry, silentDirectorProvider{}, execution)
 
 	executed, err := executor.Execute(context.Background(), routedFor(t, registry, DirectorDecision{
-		Kind:             DirectorDecisionSendToWorkstream,
-		SendToWorkstream: &SendToWorkstreamDecision{WorkstreamID: folderless, AuthoredInput: "run the tests"},
+		Kind: DirectorDecisionSendToWorkstream,
+		SendToWorkstream: &SendToWorkstreamDecision{
+			WorkstreamID:         folderless,
+			AuthoredInput:        "run the tests",
+			WorkspaceRequirement: WorkspaceRequired,
+		},
 	}))
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -353,8 +361,12 @@ func TestSupplyingAnUnofferedFolderIsRejected(t *testing.T) {
 	defer subscription.Unsubscribe()
 
 	executed, err := executor.Execute(context.Background(), routedFor(t, registry, DirectorDecision{
-		Kind:             DirectorDecisionSendToWorkstream,
-		SendToWorkstream: &SendToWorkstreamDecision{WorkstreamID: folderless, AuthoredInput: "run the tests"},
+		Kind: DirectorDecisionSendToWorkstream,
+		SendToWorkstream: &SendToWorkstreamDecision{
+			WorkstreamID:         folderless,
+			AuthoredInput:        "run the tests",
+			WorkspaceRequirement: WorkspaceRequired,
+		},
 	}))
 	if err != nil {
 		t.Fatalf("Execute: %v", err)

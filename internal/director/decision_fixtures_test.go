@@ -113,8 +113,9 @@ func sendDecisionFixture(workstreamID string) DirectorDecision {
 	return DirectorDecision{
 		Kind: DirectorDecisionSendToWorkstream,
 		SendToWorkstream: &SendToWorkstreamDecision{
-			WorkstreamID:  workstreamID,
-			AuthoredInput: "keep going on the parser",
+			WorkstreamID:         workstreamID,
+			AuthoredInput:        "keep going on the parser",
+			WorkspaceRequirement: WorkspaceRequired,
 		},
 	}
 }
@@ -123,9 +124,10 @@ func createRootDecisionFixture(scope DecisionResourceScope) DirectorDecision {
 	return DirectorDecision{
 		Kind: DirectorDecisionCreateWorkstream,
 		CreateWorkstream: &CreateWorkstreamDecision{
-			ResourceScope: scope,
-			InitialInput:  "draft the migration",
-			ProposedTitle: "Migration draft",
+			ResourceScope:        scope,
+			WorkspaceRequirement: WorkspaceRequired,
+			InitialInput:         "draft the migration",
+			ProposedTitle:        "Migration draft",
 		},
 	}
 }

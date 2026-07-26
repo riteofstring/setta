@@ -252,7 +252,8 @@ func fixtureInvocation(turnID string) conversation.ResolvedInvocation {
 }
 
 // folderlessStartFixture is the product's first promise: open the app with no
-// folder chosen and get useful work immediately.
+// folder chosen and get useful work immediately. The work declares that it
+// needs none of the user's files, which is what lets it start at all.
 func folderlessStartFixture() ProjectionFixture {
 	builder := &fixtureBuilder{}
 	const conversationID = "conv-alpha"
@@ -263,10 +264,11 @@ func folderlessStartFixture() ProjectionFixture {
 		target := workstreamID
 		fact.RunID = stringPointer(turnID)
 		fact.DecisionCommitted = &DirectorDecisionCommitted{
-			Decision:           DirectorDecisionSendToWorkstream,
-			IntentID:           "intent-alpha-1",
-			PublicSummary:      "Send the summary request to this workstream",
-			TargetWorkstreamID: &target,
+			Decision:             DirectorDecisionSendToWorkstream,
+			IntentID:             "intent-alpha-1",
+			PublicSummary:        "Send the summary request to this workstream",
+			TargetWorkstreamID:   &target,
+			WorkspaceRequirement: workspaceRequirementPointer(WorkspaceOptional),
 		}
 	})
 	builder.startTurn(conversationID, turnID)
@@ -576,9 +578,9 @@ func failureAndRecoveryFixture() ProjectionFixture {
 	}
 }
 
-// resourceRequestFixture covers work that cannot start until the user supplies a
-// resource, which is the case the old routing-failure affordance could not
-// render without a pane.
+// resourceRequestFixture covers work that genuinely needs the user's own files
+// and so cannot start until they supply the folder, which is the case the old
+// routing-failure affordance could not render without a pane.
 func resourceRequestFixture() ProjectionFixture {
 	builder := &fixtureBuilder{}
 	const conversationID = "conv-zeta"
@@ -589,10 +591,11 @@ func resourceRequestFixture() ProjectionFixture {
 	builder.director(workstreamID, DirectorFactDecisionCommitted, SemanticActorDirector, func(fact *DirectorFactEvent) {
 		target := workstreamID
 		fact.DecisionCommitted = &DirectorDecisionCommitted{
-			Decision:           DirectorDecisionSendToWorkstream,
-			IntentID:           "intent-zeta-1",
-			PublicSummary:      "Run the tests in this workstream",
-			TargetWorkstreamID: &target,
+			Decision:             DirectorDecisionSendToWorkstream,
+			IntentID:             "intent-zeta-1",
+			PublicSummary:        "Run the tests in this workstream",
+			TargetWorkstreamID:   &target,
+			WorkspaceRequirement: workspaceRequirementPointer(WorkspaceRequired),
 		}
 	})
 	builder.director(workstreamID, DirectorFactResourceRequestOpened, SemanticActorDirector, func(fact *DirectorFactEvent) {
@@ -621,7 +624,7 @@ func resourceRequestFixture() ProjectionFixture {
 	builder.completeTurn(conversationID, turnID)
 	return ProjectionFixture{
 		Name:        "resource_request",
-		Description: "Folderless work blocked on a durable resource request, then unblocked by the folder the user chose.",
+		Description: "Work that needs the user's files blocked on a durable resource request, then unblocked by the folder they chose.",
 		Events:      builder.events,
 	}
 }
@@ -640,8 +643,11 @@ func directorConversationFixture() ProjectionFixture {
 	})
 	callID := builder.directorConversation(turnID, conversation.DirectorConversationToolCall, func(entry *conversation.DirectorConversationEntry) {
 		entry.Tool = &conversation.DirectorConversationToolActivity{
-			Tool:    "create_workstream",
-			Payload: json.RawMessage(`{"title":"Audit the dependencies","workspaceId":"workspace-eta"}`),
+			Tool: "create_workstream",
+			Payload: json.RawMessage(
+				`{"title":"Audit the dependencies","workspaceId":"workspace-eta",` +
+					`"workspaceRequirement":"required","initialInput":null}`,
+			),
 		}
 	})
 	// The decision is committed before the workstream it authorized exists, which
@@ -650,10 +656,11 @@ func directorConversationFixture() ProjectionFixture {
 	builder.directorApp(DirectorFactDecisionCommitted, SemanticActorDirector, func(fact *DirectorFactEvent) {
 		target := workstreamID
 		fact.DecisionCommitted = &DirectorDecisionCommitted{
-			Decision:           DirectorDecisionCreateWorkstream,
-			IntentID:           "intent-eta-1",
-			PublicSummary:      "Create a workstream for the dependency audit",
-			TargetWorkstreamID: &target,
+			Decision:             DirectorDecisionCreateWorkstream,
+			IntentID:             "intent-eta-1",
+			PublicSummary:        "Create a workstream for the dependency audit",
+			TargetWorkstreamID:   &target,
+			WorkspaceRequirement: workspaceRequirementPointer(WorkspaceRequired),
 		}
 	})
 	builder.register(conversationID, "Audit the dependencies")
@@ -663,6 +670,7 @@ func directorConversationFixture() ProjectionFixture {
 			Summary:              "Created “Audit the dependencies” and selected it.",
 			WorkstreamID:         &workstreamID,
 			SelectedWorkstreamID: &workstreamID,
+			WorkspaceRequirement: workspaceRequirementPointer(WorkspaceRequired),
 		}
 		entry.Tool = &conversation.DirectorConversationToolActivity{
 			Tool:      receipt.Tool,

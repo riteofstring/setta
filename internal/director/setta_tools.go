@@ -86,8 +86,9 @@ type SettaWorkstreamSummary struct {
 	HasActiveRun        bool                         `json:"hasActiveRun"`
 	QueuedRunCount      int                          `json:"queuedRunCount"`
 	RecoverableFailures []DecisionRecoverableFailure `json:"recoverableFailures"`
-	// WorkspaceID is the folder the workstream is scoped to, null when it is a
-	// folderless workstream waiting for one.
+	// WorkspaceID is the folder the workstream is scoped to, null when the
+	// workstream has no folder. A workstream without one still runs work that
+	// needs none of the user's files.
 	WorkspaceID *string `json:"workspaceId"`
 }
 
@@ -103,9 +104,12 @@ type SettaToolReceipt struct {
 	SelectedWorkstreamID *string `json:"selectedWorkstreamId,omitempty"`
 	// ResourceRequestID names the durable request work is waiting on when the
 	// workstream could not start it yet.
-	ResourceRequestID *string                   `json:"resourceRequestId,omitempty"`
-	Workspaces        []DecisionWorkspaceOption `json:"workspaces,omitempty"`
-	Workstreams       []SettaWorkstreamSummary  `json:"workstreams,omitempty"`
+	ResourceRequestID *string `json:"resourceRequestId,omitempty"`
+	// WorkspaceRequirement is what the app recorded the delivered work needs
+	// from the user's files, populated exactly when the call delivered work.
+	WorkspaceRequirement *WorkspaceRequirement     `json:"workspaceRequirement,omitempty"`
+	Workspaces           []DecisionWorkspaceOption `json:"workspaces,omitempty"`
+	Workstreams          []SettaWorkstreamSummary  `json:"workstreams,omitempty"`
 	// Approvals and ResourceRequests are what the app is currently waiting on
 	// somebody to answer or supply.
 	Approvals        []SettaApprovalSummary        `json:"approvals,omitempty"`
@@ -167,14 +171,18 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 		},
 		{
 			Name: "create_workstream",
-			Description: "Create a new workstream and select it. Supply workspaceId from list_workspaces to " +
-				"scope it to a folder, or set it to null for a folderless workstream that will ask the user for one. " +
-				"Supply initialInput to start work immediately, or set it to null to create the workstream idle.",
+			Description: "Create a new workstream and select it. Supply workspaceId from list_workspaces when the " +
+				"work is about the files in that folder, or set it to null when it is not. Supply initialInput to " +
+				"start work immediately, or set it to null to create the workstream idle.",
 			InputSchema: settaToolSchema(map[string]any{
-				"title":        settaToolString("A short human title for the new workstream.", MaxDecisionTitleBytes),
-				"workspaceId":  settaToolNullableString("The workspace id from list_workspaces, or null for a folderless workstream.", MaxDecisionReferenceBytes),
+				"title":       settaToolString("A short human title for the new workstream.", MaxDecisionTitleBytes),
+				"workspaceId": settaToolNullableString("The workspace id from list_workspaces, or null to create the workstream with no folder.", MaxDecisionReferenceBytes),
+				"workspaceRequirement": settaToolEnum(
+					workspaceRequirementDescription,
+					workspaceRequirementValues(),
+				),
 				"initialInput": settaToolNullableString("The first instruction to run in the new workstream, or null to create it idle.", MaxDecisionAuthoredInputBytes),
-			}, []string{"title", "workspaceId", "initialInput"}),
+			}, []string{"title", "workspaceId", "workspaceRequirement", "initialInput"}),
 			Handler: box.createWorkstream(intent),
 		},
 		{
@@ -211,7 +219,11 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 			InputSchema: settaToolSchema(map[string]any{
 				"workstreamId": settaToolString("The workstream id from list_workstreams.", MaxDecisionReferenceBytes),
 				"input":        settaToolString("The instruction to run in that workstream.", MaxDecisionAuthoredInputBytes),
-			}, []string{"workstreamId", "input"}),
+				"workspaceRequirement": settaToolEnum(
+					workspaceRequirementDescription,
+					workspaceRequirementValues(),
+				),
+			}, []string{"workstreamId", "input", "workspaceRequirement"}),
 			Handler: box.submitWork(intent),
 		},
 		{
@@ -275,16 +287,26 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 }
 
 type settaCreateWorkstreamArguments struct {
-	Title        string  `json:"title"`
-	WorkspaceID  *string `json:"workspaceId"`
-	InitialInput *string `json:"initialInput"`
+	Title                string               `json:"title"`
+	WorkspaceID          *string              `json:"workspaceId"`
+	WorkspaceRequirement WorkspaceRequirement `json:"workspaceRequirement"`
+	InitialInput         *string              `json:"initialInput"`
 }
 
 type settaWorkstreamArguments struct {
 	WorkstreamID string `json:"workstreamId"`
 }
 
+// settaWorkArguments delivers new work, so it declares what that work needs
+// from the user's files. Steering has its own arguments: it changes a run that
+// is already carrying work under a scope the workstream already has.
 type settaWorkArguments struct {
+	WorkstreamID         string               `json:"workstreamId"`
+	Input                string               `json:"input"`
+	WorkspaceRequirement WorkspaceRequirement `json:"workspaceRequirement"`
+}
+
+type settaSteerArguments struct {
 	WorkstreamID string `json:"workstreamId"`
 	Input        string `json:"input"`
 }
@@ -402,9 +424,10 @@ func (box *SettaToolbox) createWorkstream(intent SubmittedIntent) SettaToolHandl
 		decision := DirectorDecision{
 			Kind: DirectorDecisionCreateWorkstream,
 			CreateWorkstream: &CreateWorkstreamDecision{
-				ResourceScope: scope,
-				InitialInput:  optionalSettaText(payload.InitialInput),
-				ProposedTitle: payload.Title,
+				ResourceScope:        scope,
+				WorkspaceRequirement: payload.WorkspaceRequirement,
+				InitialInput:         optionalSettaText(payload.InitialInput),
+				ProposedTitle:        payload.Title,
 			},
 		}
 		return box.execute(ctx, intent, "create_workstream", decision)
@@ -447,13 +470,21 @@ func (box *SettaToolbox) submitWork(intent SubmittedIntent) SettaToolHandler {
 			)
 		}
 		decision := DirectorDecision{
-			Kind:             DirectorDecisionSendToWorkstream,
-			SendToWorkstream: &SendToWorkstreamDecision{WorkstreamID: payload.WorkstreamID, AuthoredInput: payload.Input},
+			Kind: DirectorDecisionSendToWorkstream,
+			SendToWorkstream: &SendToWorkstreamDecision{
+				WorkstreamID:         payload.WorkstreamID,
+				AuthoredInput:        payload.Input,
+				WorkspaceRequirement: payload.WorkspaceRequirement,
+			},
 		}
 		if target.ActiveRunID != nil {
 			decision = DirectorDecision{
-				Kind:           DirectorDecisionQueueBehindRun,
-				QueueBehindRun: &QueueBehindRunDecision{WorkstreamID: payload.WorkstreamID, AuthoredInput: payload.Input},
+				Kind: DirectorDecisionQueueBehindRun,
+				QueueBehindRun: &QueueBehindRunDecision{
+					WorkstreamID:         payload.WorkstreamID,
+					AuthoredInput:        payload.Input,
+					WorkspaceRequirement: payload.WorkspaceRequirement,
+				},
 			}
 		}
 		return box.executeWithContext(ctx, intent, decisionContext, "submit_work", decision)
@@ -462,7 +493,7 @@ func (box *SettaToolbox) submitWork(intent SubmittedIntent) SettaToolHandler {
 
 func (box *SettaToolbox) steerWork(intent SubmittedIntent) SettaToolHandler {
 	return func(ctx context.Context, arguments json.RawMessage) (SettaToolReceipt, error) {
-		var payload settaWorkArguments
+		var payload settaSteerArguments
 		if err := decodeSettaToolArguments(arguments, &payload); err != nil {
 			return SettaToolReceipt{}, err
 		}
@@ -616,7 +647,15 @@ func (box *SettaToolbox) executeWithContext(
 		WorkstreamID:         copyOptionalString(executed.WorkstreamID),
 		SelectedWorkstreamID: copyOptionalString(executed.SelectedWorkstreamID),
 		ResourceRequestID:    copyOptionalString(executed.ResourceRequestID),
+		WorkspaceRequirement: copyWorkspaceRequirement(executed.WorkspaceRequirement),
 	}, nil
+}
+
+func copyWorkspaceRequirement(requirement *WorkspaceRequirement) *WorkspaceRequirement {
+	if requirement == nil {
+		return nil
+	}
+	return workspaceRequirementPointer(*requirement)
 }
 
 // decodeSettaToolArguments rejects anything the tool's schema did not declare.
@@ -658,6 +697,28 @@ func settaToolSchema(properties map[string]any, required []string) json.RawMessa
 		panic("encode setta tool schema: " + err.Error())
 	}
 	return raw
+}
+
+// workspaceRequirementDescription is what the Director is choosing between when
+// it delivers work. It states the product rule rather than the mechanism: a
+// folder is context the work may need, and asking for one the work does not
+// need is what stops useful work from starting.
+const workspaceRequirementDescription = "What this work needs from the user's own files. Use \"optional\" for " +
+	"work the worker can do from the request and the conversation, including writing, planning, research, and " +
+	"publishing Setta artifacts; it runs immediately whether or not a folder is attached. Use \"required\" only " +
+	"when the work must read or change files in the user's project, which makes Setta ask for a folder first when " +
+	"the workstream has none."
+
+// workspaceRequirementValues is the catalog the tool offers, taken from the
+// same Go values the durable fact accepts, so the Director cannot be shown a
+// choice its call would then be refused for making.
+func workspaceRequirementValues() []string {
+	requirements := WorkspaceRequirements()
+	values := make([]string, 0, len(requirements))
+	for _, requirement := range requirements {
+		values = append(values, string(requirement))
+	}
+	return values
 }
 
 func settaToolString(description string, maximum int) map[string]any {

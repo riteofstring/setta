@@ -121,8 +121,12 @@ func TestSendingWorkAddressesTheDurableSubstrate(t *testing.T) {
 	executor := newExecutorForTest(t, harness, registry, execution)
 
 	executed, err := executor.Execute(context.Background(), routedFor(t, registry, DirectorDecision{
-		Kind:             DirectorDecisionSendToWorkstream,
-		SendToWorkstream: &SendToWorkstreamDecision{WorkstreamID: idle, AuthoredInput: "rewrite the parser"},
+		Kind: DirectorDecisionSendToWorkstream,
+		SendToWorkstream: &SendToWorkstreamDecision{
+			WorkstreamID:         idle,
+			AuthoredInput:        "rewrite the parser",
+			WorkspaceRequirement: WorkspaceRequired,
+		},
 	}))
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -177,8 +181,12 @@ func TestSteeringNamesTheActiveRunTheAppKnowsAbout(t *testing.T) {
 	}
 
 	if _, err := executor.Execute(context.Background(), routedFor(t, registry, DirectorDecision{
-		Kind:           DirectorDecisionQueueBehindRun,
-		QueueBehindRun: &QueueBehindRunDecision{WorkstreamID: active, AuthoredInput: "then publish it"},
+		Kind: DirectorDecisionQueueBehindRun,
+		QueueBehindRun: &QueueBehindRunDecision{
+			WorkstreamID:         active,
+			AuthoredInput:        "then publish it",
+			WorkspaceRequirement: WorkspaceRequired,
+		},
 	})); err != nil {
 		t.Fatalf("Execute queue: %v", err)
 	}
@@ -283,8 +291,12 @@ func TestFolderlessWorkOpensADurableResourceRequest(t *testing.T) {
 	executor := newExecutorForTest(t, harness, registry, execution)
 
 	executed, err := executor.Execute(context.Background(), routedFor(t, registry, DirectorDecision{
-		Kind:             DirectorDecisionSendToWorkstream,
-		SendToWorkstream: &SendToWorkstreamDecision{WorkstreamID: folderless, AuthoredInput: "run the tests"},
+		Kind: DirectorDecisionSendToWorkstream,
+		SendToWorkstream: &SendToWorkstreamDecision{
+			WorkstreamID:         folderless,
+			AuthoredInput:        "run the tests",
+			WorkspaceRequirement: WorkspaceRequired,
+		},
 	}))
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -356,8 +368,9 @@ func TestExecutionRejectsAuthorizedDecisionDriftBeforeEffects(t *testing.T) {
 	base := routedFor(t, registry, DirectorDecision{
 		Kind: DirectorDecisionSendToWorkstream,
 		SendToWorkstream: &SendToWorkstreamDecision{
-			WorkstreamID:  workstreamID,
-			AuthoredInput: "rewrite the parser",
+			WorkstreamID:         workstreamID,
+			AuthoredInput:        "rewrite the parser",
+			WorkspaceRequirement: WorkspaceRequired,
 		},
 	})
 
@@ -400,8 +413,9 @@ func TestExecutionRejectsCommandsAfterRegistryStops(t *testing.T) {
 	routed := routedFor(t, registry, DirectorDecision{
 		Kind: DirectorDecisionSendToWorkstream,
 		SendToWorkstream: &SendToWorkstreamDecision{
-			WorkstreamID:  workstreamID,
-			AuthoredInput: "rewrite the parser",
+			WorkstreamID:         workstreamID,
+			AuthoredInput:        "rewrite the parser",
+			WorkspaceRequirement: WorkspaceRequired,
 		},
 	})
 	if err := registry.Close(); err != nil {
@@ -440,8 +454,12 @@ func TestExecutionFailuresSurfaceRatherThanBecomeProductState(t *testing.T) {
 	executor := newExecutorForTest(t, harness, registry, execution)
 
 	_, err := executor.Execute(context.Background(), routedFor(t, registry, DirectorDecision{
-		Kind:             DirectorDecisionSendToWorkstream,
-		SendToWorkstream: &SendToWorkstreamDecision{WorkstreamID: idle, AuthoredInput: "rewrite the parser"},
+		Kind: DirectorDecisionSendToWorkstream,
+		SendToWorkstream: &SendToWorkstreamDecision{
+			WorkstreamID:         idle,
+			AuthoredInput:        "rewrite the parser",
+			WorkspaceRequirement: WorkspaceRequired,
+		},
 	}))
 	if err == nil || !strings.Contains(err.Error(), "provider is unreachable") {
 		t.Fatalf("execution failure = %v", err)

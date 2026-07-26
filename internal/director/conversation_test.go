@@ -37,9 +37,10 @@ func TestDirectorToolCallCreatesAndSelectsAWorkstream(t *testing.T) {
 		calls: []scriptedDirectorToolCall{{
 			tool: "create_workstream",
 			arguments: map[string]any{
-				"title":        "Parser rewrite",
-				"workspaceId":  registryTestWorkspaceID,
-				"initialInput": nil,
+				"title":                "Parser rewrite",
+				"workspaceId":          registryTestWorkspaceID,
+				"workspaceRequirement": string(WorkspaceRequired),
+				"initialInput":         nil,
 			},
 		}},
 	}
@@ -96,9 +97,10 @@ func TestDirectorRepairsAProseOnlyAppControlAnswerInTheSameConversation(t *testi
 				calls: []scriptedDirectorToolCall{{
 					tool: "create_workstream",
 					arguments: map[string]any{
-						"title":        "Parser rewrite",
-						"workspaceId":  registryTestWorkspaceID,
-						"initialInput": nil,
+						"title":                "Parser rewrite",
+						"workspaceId":          registryTestWorkspaceID,
+						"workspaceRequirement": string(WorkspaceRequired),
+						"initialInput":         nil,
 					},
 				}},
 			},
@@ -143,9 +145,10 @@ func TestDirectorTurnIsDurableInOrder(t *testing.T) {
 		calls: []scriptedDirectorToolCall{{
 			tool: "create_workstream",
 			arguments: map[string]any{
-				"title":        "Parser rewrite",
-				"workspaceId":  registryTestWorkspaceID,
-				"initialInput": nil,
+				"title":                "Parser rewrite",
+				"workspaceId":          registryTestWorkspaceID,
+				"workspaceRequirement": string(WorkspaceRequired),
+				"initialInput":         nil,
 			},
 		}},
 	}
@@ -184,9 +187,10 @@ func TestDirectorToolCallSurvivesAProviderTurnFailure(t *testing.T) {
 		calls: []scriptedDirectorToolCall{{
 			tool: "create_workstream",
 			arguments: map[string]any{
-				"title":        "Durable parser work",
-				"workspaceId":  registryTestWorkspaceID,
-				"initialInput": nil,
+				"title":                "Durable parser work",
+				"workspaceId":          registryTestWorkspaceID,
+				"workspaceRequirement": string(WorkspaceRequired),
+				"initialInput":         nil,
 			},
 		}},
 		turnErr: errors.New("provider failed after tool execution"),
@@ -336,8 +340,9 @@ func TestDirectorToolRefusalStaysInsideTheConversation(t *testing.T) {
 		calls: []scriptedDirectorToolCall{{
 			tool: "submit_work",
 			arguments: map[string]any{
-				"workstreamId": "workstream-missing",
-				"input":        "rewrite the parser",
+				"workstreamId":         "workstream-missing",
+				"input":                "rewrite the parser",
+				"workspaceRequirement": string(WorkspaceRequired),
 			},
 		}},
 	}
@@ -372,8 +377,9 @@ func TestDirectorToolsRejectUndeclaredArguments(t *testing.T) {
 	provider := &scriptedDirectorProvider{
 		reply: "Let me try that again.",
 		calls: []scriptedDirectorToolCall{{
-			tool:         "create_workstream",
-			rawArguments: json.RawMessage(`{"title":"Parser rewrite","workspaceId":null,"initialInput":null,"folderPath":"/tmp/setta"}`),
+			tool: "create_workstream",
+			rawArguments: json.RawMessage(`{"title":"Parser rewrite","workspaceId":null,"workspaceRequirement":"optional",` +
+				`"initialInput":null,"folderPath":"/tmp/setta"}`),
 		}},
 	}
 	store := newDirectorConversationStoreForTest()

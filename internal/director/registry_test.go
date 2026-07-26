@@ -1047,10 +1047,11 @@ func TestRootCreateDecisionIsDrawnInTheDirectorLane(t *testing.T) {
 		Kind:  DirectorFactDecisionCommitted,
 		Actor: SemanticActorDirector,
 		DecisionCommitted: &DirectorDecisionCommitted{
-			Decision:           DirectorDecisionCreateWorkstream,
-			IntentID:           "director-intent-1",
-			PublicSummary:      "Started the workstream \"Parser rewrite\".",
-			TargetWorkstreamID: &created,
+			Decision:             DirectorDecisionCreateWorkstream,
+			IntentID:             "director-intent-1",
+			PublicSummary:        "Started the workstream \"Parser rewrite\".",
+			TargetWorkstreamID:   &created,
+			WorkspaceRequirement: workspaceRequirementPointer(WorkspaceRequired),
 		},
 	})
 

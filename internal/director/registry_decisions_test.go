@@ -373,10 +373,11 @@ func TestDecisionContextResumesTheDecisionsItCommitted(t *testing.T) {
 		WorkstreamID: &first,
 		Actor:        SemanticActorDirector,
 		DecisionCommitted: &DirectorDecisionCommitted{
-			Decision:           DirectorDecisionSendToWorkstream,
-			IntentID:           "intent-sent",
-			PublicSummary:      "Sent new work to \"Parser rewrite\".",
-			TargetWorkstreamID: &first,
+			Decision:             DirectorDecisionSendToWorkstream,
+			IntentID:             "intent-sent",
+			PublicSummary:        "Sent new work to \"Parser rewrite\".",
+			TargetWorkstreamID:   &first,
+			WorkspaceRequirement: workspaceRequirementPointer(WorkspaceRequired),
 		},
 	})
 	// Starting a root workstream happens in no workstream: the decision was made
@@ -385,10 +386,11 @@ func TestDecisionContextResumesTheDecisionsItCommitted(t *testing.T) {
 		Kind:  DirectorFactDecisionCommitted,
 		Actor: SemanticActorDirector,
 		DecisionCommitted: &DirectorDecisionCommitted{
-			Decision:           DirectorDecisionCreateWorkstream,
-			IntentID:           "intent-created",
-			PublicSummary:      "Started the workstream \"Release notes\".",
-			TargetWorkstreamID: &second,
+			Decision:             DirectorDecisionCreateWorkstream,
+			IntentID:             "intent-created",
+			PublicSummary:        "Started the workstream \"Release notes\".",
+			TargetWorkstreamID:   &second,
+			WorkspaceRequirement: workspaceRequirementPointer(WorkspaceOptional),
 		},
 	})
 	harness.createConversation("conversation-second", "Release notes", nil)

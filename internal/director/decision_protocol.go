@@ -65,26 +65,77 @@ type DecisionResourceScope struct {
 	Folder *DecisionFolderResource     `json:"folder"`
 }
 
+// WorkspaceRequirement is what one work delivery needs from the user's own
+// files. It is declared per delivery rather than per workstream, because the
+// same workstream can be asked both for work that reads the user's project and
+// for work that needs nothing but the conversation it already has.
+//
+// A workspace is context, not a precondition for running. Producing durable
+// Setta artifacts, writing, planning, and answering from the conversation are
+// all work the app can start with no folder chosen at all.
+type WorkspaceRequirement string
+
+const (
+	// WorkspaceOptional needs none of the user's files. It runs inside the
+	// workstream's authorized workspace when the workstream has one, and runs
+	// without one when it does not.
+	WorkspaceOptional WorkspaceRequirement = "optional"
+	// WorkspaceRequired needs access to the user's files, so a workstream with
+	// no folder asks the user for one instead of starting the work.
+	WorkspaceRequired WorkspaceRequirement = "required"
+)
+
+var workspaceRequirements = []WorkspaceRequirement{
+	WorkspaceOptional,
+	WorkspaceRequired,
+}
+
+// WorkspaceRequirements returns the ordered requirement catalog.
+func WorkspaceRequirements() []WorkspaceRequirement {
+	return append([]WorkspaceRequirement(nil), workspaceRequirements...)
+}
+
+// workspaceRequirementPointer is how a declared requirement reaches the durable
+// fact and the receipt, both of which leave it null for a decision that
+// delivers no work.
+func workspaceRequirementPointer(requirement WorkspaceRequirement) *WorkspaceRequirement {
+	return &requirement
+}
+
+func isWorkspaceRequirement(requirement WorkspaceRequirement) bool {
+	for _, candidate := range workspaceRequirements {
+		if candidate == requirement {
+			return true
+		}
+	}
+	return false
+}
+
 // CreateWorkstreamDecision starts a workstream. Every workstream the Director
 // creates is independent and chooses its own scope from the authorized
 // workspace set. The id, the resource binding, and the registry record are
 // attached by trusted product code afterwards.
 type CreateWorkstreamDecision struct {
 	ResourceScope DecisionResourceScope `json:"resourceScope"`
-	InitialInput  string                `json:"initialInput"`
-	ProposedTitle string                `json:"proposedTitle"`
+	// WorkspaceRequirement is what the work this workstream is being created for
+	// needs from the user's files.
+	WorkspaceRequirement WorkspaceRequirement `json:"workspaceRequirement"`
+	InitialInput         string               `json:"initialInput"`
+	ProposedTitle        string               `json:"proposedTitle"`
 }
 
 // SendToWorkstreamDecision sends work to an idle existing workstream.
 type SendToWorkstreamDecision struct {
-	WorkstreamID  string `json:"workstreamId"`
-	AuthoredInput string `json:"authoredInput"`
+	WorkstreamID         string               `json:"workstreamId"`
+	AuthoredInput        string               `json:"authoredInput"`
+	WorkspaceRequirement WorkspaceRequirement `json:"workspaceRequirement"`
 }
 
 // QueueBehindRunDecision preserves an active run and queues work after it.
 type QueueBehindRunDecision struct {
-	WorkstreamID  string `json:"workstreamId"`
-	AuthoredInput string `json:"authoredInput"`
+	WorkstreamID         string               `json:"workstreamId"`
+	AuthoredInput        string               `json:"authoredInput"`
+	WorkspaceRequirement WorkspaceRequirement `json:"workspaceRequirement"`
 }
 
 // SteerRunDecision changes the instruction of an active run.
@@ -155,8 +206,14 @@ func (decision DirectorDecision) validatePayload() error {
 	case DirectorDecisionCreateWorkstream:
 		return validateCreateWorkstreamDecision(*decision.CreateWorkstream)
 	case DirectorDecisionSendToWorkstream:
+		if err := validateWorkspaceRequirement("send", decision.SendToWorkstream.WorkspaceRequirement); err != nil {
+			return err
+		}
 		return validateWorkstreamWork("send", decision.SendToWorkstream.WorkstreamID, decision.SendToWorkstream.AuthoredInput)
 	case DirectorDecisionQueueBehindRun:
+		if err := validateWorkspaceRequirement("queue", decision.QueueBehindRun.WorkspaceRequirement); err != nil {
+			return err
+		}
 		return validateWorkstreamWork("queue", decision.QueueBehindRun.WorkstreamID, decision.QueueBehindRun.AuthoredInput)
 	case DirectorDecisionSteerRun:
 		return validateWorkstreamWork("steer", decision.SteerRun.WorkstreamID, decision.SteerRun.AuthoredInput)
@@ -174,6 +231,9 @@ func (decision DirectorDecision) validatePayload() error {
 // requiring first words here would force the Director to invent them.
 func validateCreateWorkstreamDecision(payload CreateWorkstreamDecision) error {
 	if err := validateDecisionResourceScope(payload.ResourceScope); err != nil {
+		return err
+	}
+	if err := validateWorkspaceRequirement("create", payload.WorkspaceRequirement); err != nil {
 		return err
 	}
 	if payload.InitialInput != "" {
@@ -206,6 +266,13 @@ func validateRecoverPathDecision(payload RecoverPathDecision) error {
 		return err
 	}
 	return validateDecisionReference("recovered failure event id", payload.FailureEventID)
+}
+
+func validateWorkspaceRequirement(label string, requirement WorkspaceRequirement) error {
+	if !isWorkspaceRequirement(requirement) {
+		return rejectedDecision(fmt.Sprintf("%s workspace requirement %q is unknown", label, requirement))
+	}
+	return nil
 }
 
 func validateWorkstreamWork(label string, workstreamID string, authoredInput string) error {

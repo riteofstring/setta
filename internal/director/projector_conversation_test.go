@@ -254,10 +254,11 @@ func TestDirectorToolReceiptDoesNotRewindTheLane(t *testing.T) {
 		Kind:      DirectorFactDecisionCommitted,
 		Actor:     SemanticActorDirector,
 		DecisionCommitted: &DirectorDecisionCommitted{
-			Decision:           DirectorDecisionCreateWorkstream,
-			IntentID:           "director-intent-1",
-			PublicSummary:      "Started the workstream \"Parser rewrite\".",
-			TargetWorkstreamID: &target,
+			Decision:             DirectorDecisionCreateWorkstream,
+			IntentID:             "director-intent-1",
+			PublicSummary:        "Started the workstream \"Parser rewrite\".",
+			TargetWorkstreamID:   &target,
+			WorkspaceRequirement: workspaceRequirementPointer(WorkspaceRequired),
 		},
 	}
 	if err := projector.Apply(ProjectorEvent{Sequence: 3, Director: &decision}); err != nil {

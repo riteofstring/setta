@@ -29,8 +29,14 @@ const selectedWorkScenarios = new Map([
     { input: "director command approval", tool: "submit_work" },
   ],
   ["Director fail.", { input: "director fail", tool: "submit_work" }],
-  ["Director artifact.", { input: "director artifact", tool: "submit_work" }],
-  ["Director mixed artifact.", { input: "supplied mixed document", tool: "submit_work" }],
+  [
+    "Director artifact.",
+    { input: "director artifact", tool: "submit_work", workspaceRequirement: "optional" },
+  ],
+  [
+    "Director mixed artifact.",
+    { input: "supplied mixed document", tool: "submit_work", workspaceRequirement: "optional" },
+  ],
   ["Director graph burst.", { input: "director graph burst", tool: "submit_work" }],
   [
     "Director text burst.",
@@ -185,6 +191,7 @@ export function directorToolCallForStep(scenarioValue, index, receipts) {
         initialInput: null,
         title: "Director root",
         workspaceId: requiredWorkspace(receipts).workspaceId,
+        workspaceRequirement: "required",
       },
       tool: "create_workstream",
     };
@@ -195,6 +202,7 @@ export function directorToolCallForStep(scenarioValue, index, receipts) {
         initialInput: "director folderless first work",
         title: "Director root",
         workspaceId: null,
+        workspaceRequirement: "required",
       },
       tool: "create_workstream",
     };
@@ -313,13 +321,16 @@ export function directorToolCallForStep(scenarioValue, index, receipts) {
   }
   if (step?.kind === "selected_work") {
     const workstream = requiredSelectedWorkstream(receipts);
-    return {
-      arguments: {
-        input: step.input,
-        workstreamId: workstream.workstreamId,
-      },
-      tool: step.tool,
+    const workArguments = {
+      input: step.input,
+      workstreamId: workstream.workstreamId,
     };
+    // Steering changes a run already carrying work, so only a delivery declares
+    // what the work needs from the user's files.
+    if (step.tool === "submit_work") {
+      workArguments.workspaceRequirement = step.workspaceRequirement ?? "required";
+    }
+    return { arguments: workArguments, tool: step.tool };
   }
   throw new Error(`unsupported Director tool scenario step ${JSON.stringify(step)}`);
 }

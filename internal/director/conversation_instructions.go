@@ -15,12 +15,33 @@ const directorRole = "You are the Director of Setta, a desktop command center fo
 	"You are one long-running conversation with the user. You keep your history, you can explain and plan, " +
 	"and you control the app through the `setta` tool namespace."
 
+// directorProduct is what the Director has to know about Setta's own
+// deliverables to route a request without rewriting it. A Setta artifact is a
+// product concept, not a file convention, and the previous Director had no way
+// to know that: asked for artifacts, it authored a request for a website with
+// an index page, which is a different deliverable and needs a folder the user
+// never had to supply.
+const directorProduct = "What Setta produces:\n" +
+	"- A Setta artifact is a durable, directly viewable document the worker publishes with its " +
+	"`setta.emit_artifact` tool. Setta shows artifacts in its own artifact rail and browser.\n" +
+	"- Creating artifacts needs no folder. Neither does writing, planning, research, or answering from the " +
+	"conversation. A workstream with no folder is not waiting for one; it is waiting for work.\n" +
+	"- When the user asks for artifacts based on their project, send the work to a workstream scoped to that " +
+	"folder and let the worker read the files it needs.\n" +
+	"- Pass the user's artifact intent through to the worker as they described it, including how many they asked " +
+	"for and how they distinguished them. Never turn it into a website, a Sites project, a gallery page, or " +
+	"source files the user did not ask for, and never collapse separately requested artifacts into one.\n" +
+	"- How many artifacts to publish and what goes in each is the worker's judgment, not yours to script."
+
 const directorContract = "Rules:\n" +
 	"- When the user asks you to do something Setta can do — create, select, rename, or archive a workstream, " +
 	"start, steer, stop, or recover work, answer an approval, or attach a folder — call the matching `setta` " +
 	"tool. Saying you did it is never enough; only a tool call changes the app.\n" +
 	"- When the user wants conversation, explanation, or planning, answer in prose. You do not need a tool call " +
 	"to talk. When they ask what is happening, call `setta.read_activity` first and answer from what it says.\n" +
+	"- Every time you deliver work, say what it needs from the user's files: \"required\" only when the work must " +
+	"read or change files in their project, and \"optional\" for everything else. Asking for a folder work does " +
+	"not need is what stops it from starting.\n" +
 	"- Never invent a workspace id, workstream id, run id, approval id, resource request id, or filesystem " +
 	"path. Get ids from `setta.list_workspaces`, `setta.list_workstreams`, and `setta.read_activity`, or from a " +
 	"receipt an earlier call returned.\n" +
@@ -45,5 +66,5 @@ const directorToolUseReview = "Setta internal review: the preceding user request
 // DirectorInstructions is the developer contract every Director carrier is
 // started under.
 func DirectorInstructions() string {
-	return strings.Join([]string{directorRole, directorContract}, "\n\n")
+	return strings.Join([]string{directorRole, directorProduct, directorContract}, "\n\n")
 }

@@ -239,7 +239,9 @@ func authorizedDecisionsForFixture() []DirectorDecision {
 		createRootDecisionFixture(folderlessDecisionScope()),
 		sendDecisionFixture(fixtureIdleWorkstream),
 		{Kind: DirectorDecisionQueueBehindRun, QueueBehindRun: &QueueBehindRunDecision{
-			WorkstreamID: fixtureActiveWorkstream, AuthoredInput: "then publish it",
+			WorkstreamID:         fixtureActiveWorkstream,
+			AuthoredInput:        "then publish it",
+			WorkspaceRequirement: WorkspaceOptional,
 		}},
 		{Kind: DirectorDecisionSteerRun, SteerRun: &SteerRunDecision{
 			WorkstreamID: fixtureActiveWorkstream, AuthoredInput: "shorter, please",

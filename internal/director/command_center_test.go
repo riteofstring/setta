@@ -373,8 +373,9 @@ func TestCommandCenterSubmitCarriesOneRequestIntoWork(t *testing.T) {
 		calls: []scriptedDirectorToolCall{{
 			tool: "submit_work",
 			arguments: map[string]any{
-				"workstreamId": idle,
-				"input":        "rewrite the parser",
+				"workstreamId":         idle,
+				"input":                "rewrite the parser",
+				"workspaceRequirement": string(WorkspaceRequired),
 			},
 		}},
 	}

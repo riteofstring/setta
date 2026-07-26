@@ -70,6 +70,11 @@ type DirectorDecisionCommitted struct {
 	// TargetWorkstreamID is the authorized target trusted code attached. It is
 	// null only for a decision that targets no workstream.
 	TargetWorkstreamID *string `json:"targetWorkstreamId"`
+	// WorkspaceRequirement is what the delivered work needs from the user's
+	// files. It is null exactly for a decision that delivers no work, because
+	// selecting a workstream and steering a run in flight change what the app is
+	// already doing rather than asking it to do something new.
+	WorkspaceRequirement *WorkspaceRequirement `json:"workspaceRequirement"`
 }
 
 // DirectorResourceRequestOpened is the durable request that replaces deriving a
@@ -227,7 +232,57 @@ func validateCommittedDecision(fact DirectorFactEvent) error {
 	if err := validateCommittedDecisionTarget(fact); err != nil {
 		return err
 	}
+	if err := validateCommittedDecisionWorkspaceRequirement(fact); err != nil {
+		return err
+	}
 	return validateTrimmedText("committed decision public summary", payload.PublicSummary)
+}
+
+// validateCommittedDecisionWorkspaceRequirement requires the declared
+// requirement on exactly the decisions that deliver work. A fact that recorded
+// work without saying what it needed from the user's files could not explain
+// why the app started it or why it asked for a folder first.
+func validateCommittedDecisionWorkspaceRequirement(fact DirectorFactEvent) error {
+	payload := fact.DecisionCommitted
+	if payload.WorkspaceRequirement == nil {
+		if decisionDeliversWork(payload.Decision) {
+			return fmt.Errorf(
+				"director fact %s decision %q requires a workspace requirement",
+				fact.ID,
+				payload.Decision,
+			)
+		}
+		return nil
+	}
+	if !decisionDeliversWork(payload.Decision) {
+		return fmt.Errorf(
+			"director fact %s decision %q delivers no work and must not declare a workspace requirement",
+			fact.ID,
+			payload.Decision,
+		)
+	}
+	if !isWorkspaceRequirement(*payload.WorkspaceRequirement) {
+		return fmt.Errorf(
+			"director fact %s declares unknown workspace requirement %q",
+			fact.ID,
+			*payload.WorkspaceRequirement,
+		)
+	}
+	return nil
+}
+
+// decisionDeliversWork reports whether the decision asks a workstream to run
+// something new. A recovery does: it restarts the work the failure interrupted.
+func decisionDeliversWork(decision DirectorDecisionKind) bool {
+	switch decision {
+	case DirectorDecisionCreateWorkstream,
+		DirectorDecisionSendToWorkstream,
+		DirectorDecisionQueueBehindRun,
+		DirectorDecisionRecoverPath:
+		return true
+	default:
+		return false
+	}
 }
 
 // validateCommittedDecisionTarget requires the target the decision kind can act

@@ -67,6 +67,9 @@ type ExecutedDecision struct {
 	// ResourceRequestID names the durable request the work is waiting on, when
 	// the workstream could not start it yet.
 	ResourceRequestID *string `json:"resourceRequestId"`
+	// WorkspaceRequirement is what the delivered work declared it needs from the
+	// user's files, populated exactly when the call delivered work.
+	WorkspaceRequirement *WorkspaceRequirement `json:"workspaceRequirement"`
 }
 
 // Validate proves the receipt describes something the app could actually have
@@ -89,6 +92,12 @@ func (executed ExecutedDecision) Validate() error {
 		executed.SelectedWorkstreamID,
 	); err != nil {
 		return err
+	}
+	if executed.WorkspaceRequirement != nil && !isWorkspaceRequirement(*executed.WorkspaceRequirement) {
+		return fmt.Errorf(
+			"executed decision declares unknown workspace requirement %q",
+			*executed.WorkspaceRequirement,
+		)
 	}
 	return validateOptionalIdentifier(
 		"executed decision resource request id",
@@ -267,6 +276,7 @@ func (executor *DecisionExecutor) createWorkstream(
 		Summary:              committed.PublicSummary,
 		WorkstreamID:         &workstreamID,
 		SelectedWorkstreamID: selected,
+		WorkspaceRequirement: committed.WorkspaceRequirement,
 	}
 	if payload.InitialInput == "" {
 		return executed, nil
@@ -369,10 +379,11 @@ func (executor *DecisionExecutor) deliverWork(
 		return ExecutedDecision{}, err
 	}
 	return executor.finishWork(ctx, ExecutedDecision{
-		IntentID:     authorized.Intent.ID,
-		Decision:     decision.Kind,
-		Summary:      committed.PublicSummary,
-		WorkstreamID: &workstreamID,
+		IntentID:             authorized.Intent.ID,
+		Decision:             decision.Kind,
+		Summary:              committed.PublicSummary,
+		WorkstreamID:         &workstreamID,
+		WorkspaceRequirement: committed.WorkspaceRequirement,
 	}, workstreamID, func() error {
 		return executor.callWorkPort(ctx, decision, target, runID, committed.FactID)
 	})
@@ -485,10 +496,11 @@ func (executor *DecisionExecutor) recoverPath(
 		return ExecutedDecision{}, err
 	}
 	return executor.finishWork(ctx, ExecutedDecision{
-		IntentID:     authorized.Intent.ID,
-		Decision:     authorized.Decision.Kind,
-		Summary:      summary,
-		WorkstreamID: &payload.WorkstreamID,
+		IntentID:             authorized.Intent.ID,
+		Decision:             authorized.Decision.Kind,
+		Summary:              summary,
+		WorkstreamID:         &payload.WorkstreamID,
+		WorkspaceRequirement: committed.WorkspaceRequirement,
 	}, payload.WorkstreamID, func() error {
 		workspaceID, err := requireFolderResource(target.WorkspaceID)
 		if err != nil {
@@ -574,6 +586,10 @@ func (executor *DecisionExecutor) openResourceRequest(
 type committedDecision struct {
 	FactID        string
 	PublicSummary string
+	// WorkspaceRequirement is what the durable fact recorded the delivered work
+	// needs from the user's files, so the receipt reports what was committed
+	// rather than what the call asked for.
+	WorkspaceRequirement *WorkspaceRequirement
 }
 
 // commitDecision writes the durable decision.
@@ -596,7 +612,11 @@ func (executor *DecisionExecutor) commitDecision(
 	if err != nil {
 		return committedDecision{}, err
 	}
-	return committedDecision{FactID: factID, PublicSummary: committed.PublicSummary}, nil
+	return committedDecision{
+		FactID:               factID,
+		PublicSummary:        committed.PublicSummary,
+		WorkspaceRequirement: committed.WorkspaceRequirement,
+	}, nil
 }
 
 // appendFact stamps and commits one Director fact and reports the durable id it
