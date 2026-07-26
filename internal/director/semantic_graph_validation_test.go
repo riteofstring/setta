@@ -100,7 +100,7 @@ func TestInterpretationsAreNeverPresentedAsRuntimeFacts(t *testing.T) {
 	node.Actor = SemanticActorDirector
 	node.Interpretation = &InterpretationMetadata{
 		InterpretedBy: SemanticActorDirector,
-		Model:         InterpretationModelIdentity{Provider: "codex", Model: "gpt-5.1-codex", RuntimeID: "runtime-1"},
+		Model:         InterpretationModelIdentity{Provider: "codex", Model: "gpt-5.1-codex"},
 		InterpretedAt: "2026-07-24T12:00:00Z",
 	}
 	if err := ValidateSemanticNode(node, authority); err == nil {
@@ -120,10 +120,10 @@ func TestInterpretationsAreNeverPresentedAsRuntimeFacts(t *testing.T) {
 
 	unattributed := node
 	metadata := *node.Interpretation
-	metadata.Model.RuntimeID = ""
+	metadata.Model.Model = ""
 	unattributed.Interpretation = &metadata
 	if err := ValidateSemanticNode(unattributed, authority); err == nil {
-		t.Fatal("an interpretation without runtime identity must be rejected")
+		t.Fatal("an interpretation that names no model must be rejected")
 	}
 }
 

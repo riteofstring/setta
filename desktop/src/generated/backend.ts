@@ -17,8 +17,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 97;
-export const backendContractSchemaHash = "sha256:69bdc868cd9fb2d8b5d5e301903970a5e17111d30043bac9f008a2cf66b63864";
+export const backendProtocolVersion = 98;
+export const backendContractSchemaHash = "sha256:2699444311b073a92dec93862e2d0930880c2149df04d83cddbdb07e819f4865";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -3102,7 +3102,6 @@ export interface DirectorWorkstreamEntry {
 export interface InterpretationModelIdentity {
   provider: string;
   model: string;
-  runtimeId: string;
 }
 
 export interface InterpretationMetadata {
@@ -6086,11 +6085,10 @@ export function decodeDirectorWorkstreamEntry(value: unknown): DirectorWorkstrea
 
 export function decodeInterpretationModelIdentity(value: unknown): InterpretationModelIdentity {
   const record = assertRecord(value, "InterpretationModelIdentity");
-  assertKnownFields(record, "InterpretationModelIdentity", ["provider", "model", "runtimeId"]);
+  assertKnownFields(record, "InterpretationModelIdentity", ["provider", "model"]);
   return {
     provider: decodeString(requireField(record, "provider", "InterpretationModelIdentity"), "InterpretationModelIdentity.provider"),
     model: decodeString(requireField(record, "model", "InterpretationModelIdentity"), "InterpretationModelIdentity.model"),
-    runtimeId: decodeString(requireField(record, "runtimeId", "InterpretationModelIdentity"), "InterpretationModelIdentity.runtimeId"),
   };
 }
 

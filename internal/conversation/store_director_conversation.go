@@ -2,7 +2,6 @@ package conversation
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,69 +9,13 @@ import (
 
 // The durable home of the Director conversation.
 //
-// Two writes and two reads is the whole surface: the app-scoped binding that
-// says which provider thread is carrying the Director right now, and the
-// append-only conversation the Director is re-established from. Nothing here
-// interprets an entry — what a Director turn meant belongs to the Director, and
-// this only has to keep it.
-
-// ReadDirectorThread returns the provider thread currently bound to the
-// Director conversation. A missing binding is reported as absent rather than as
-// an error: before the first Director turn there is nothing to bind.
-func (store *Store) ReadDirectorThread(ctx context.Context) (DirectorThreadRecord, bool, error) {
-	if store == nil {
-		return DirectorThreadRecord{}, false, errors.New("conversation store is required")
-	}
-	var record DirectorThreadRecord
-	found := false
-	err := store.read(ctx, "read director thread", func(ctx context.Context, reader *sql.Conn) error {
-		row := reader.QueryRowContext(ctx, `
-SELECT provider, thread_id, model, started_at
-FROM director_thread
-WHERE singleton = 1
-`)
-		if err := row.Scan(&record.Provider, &record.ThreadID, &record.Model, &record.StartedAt); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil
-			}
-			return err
-		}
-		if err := record.Validate(); err != nil {
-			return &CorruptStateError{Path: store.dbPath, Err: fmt.Errorf("decode director thread: %w", err)}
-		}
-		found = true
-		return nil
-	})
-	if err != nil {
-		return DirectorThreadRecord{}, false, err
-	}
-	return record, found, nil
-}
-
-// BindDirectorThread makes one provider thread the Director conversation's
-// current carrier. It replaces whatever was bound before, because the Director
-// conversation is Setta's and the provider thread is only what is carrying it
-// now.
-func (store *Store) BindDirectorThread(ctx context.Context, record DirectorThreadRecord) error {
-	if store == nil {
-		return errors.New("conversation store is required")
-	}
-	if err := record.Validate(); err != nil {
-		return err
-	}
-	return store.write(ctx, "bind director thread", func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO director_thread (singleton, provider, thread_id, model, started_at)
-VALUES (1, ?, ?, ?, ?)
-ON CONFLICT(singleton) DO UPDATE SET
-  provider = excluded.provider,
-  thread_id = excluded.thread_id,
-  model = excluded.model,
-  started_at = excluded.started_at
-`, record.Provider, record.ThreadID, record.Model, record.StartedAt)
-		return err
-	})
-}
+// One write and one read is the whole surface: the append-only conversation the
+// Director is re-established from. Nothing here interprets an entry — what a
+// Director turn meant belongs to the Director, and this only has to keep it.
+//
+// Which provider thread is carrying the Director is not stored at all. The
+// carrier is ephemeral, so a durable row naming it could only describe a thread
+// that no longer exists.
 
 // AppendDirectorConversation records one ordered batch of Director activity in
 // a transaction. A turn appends what the user said, each tool call as it is

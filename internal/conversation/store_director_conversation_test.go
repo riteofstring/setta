@@ -6,15 +6,6 @@ import (
 	"testing"
 )
 
-func directorThreadRecordFixture(threadID string) DirectorThreadRecord {
-	return DirectorThreadRecord{
-		Provider:  ProviderCodex,
-		ThreadID:  threadID,
-		Model:     "gpt-test",
-		StartedAt: "2026-07-25T12:00:00Z",
-	}
-}
-
 func directorEntryFixture(
 	id string,
 	kind DirectorConversationEntryKind,
@@ -35,7 +26,6 @@ func directorEntryFixture(
 			Model: &DirectorConversationModel{
 				Provider: ProviderCodex,
 				Model:    "gpt-test",
-				ThreadID: "thread-1",
 			},
 		}
 	case DirectorConversationToolReceipt:
@@ -53,35 +43,6 @@ func directorEntryFixture(
 		}
 	}
 	return entry
-}
-
-// TestDirectorThreadBindingIsReplacedNotAccumulated proves the app profile has
-// exactly one Director conversation: rebinding names the provider thread
-// carrying it now rather than adding a second one.
-func TestDirectorThreadBindingIsReplacedNotAccumulated(t *testing.T) {
-	store := newTestStore(t)
-	ctx := context.Background()
-
-	if _, found, err := store.ReadDirectorThread(ctx); err != nil || found {
-		t.Fatalf("ReadDirectorThread before binding = %v, %v", found, err)
-	}
-	if err := store.BindDirectorThread(ctx, directorThreadRecordFixture("thread-1")); err != nil {
-		t.Fatalf("BindDirectorThread: %v", err)
-	}
-	if err := store.BindDirectorThread(ctx, directorThreadRecordFixture("thread-2")); err != nil {
-		t.Fatalf("BindDirectorThread again: %v", err)
-	}
-
-	record, found, err := store.ReadDirectorThread(ctx)
-	if err != nil || !found {
-		t.Fatalf("ReadDirectorThread = %v, %v", found, err)
-	}
-	if record.ThreadID != "thread-2" {
-		t.Fatalf("director thread binding = %+v", record)
-	}
-	if got := countRows(t, store, "director_thread"); got != 1 {
-		t.Fatalf("director_thread rows = %d, want 1", got)
-	}
 }
 
 // TestDirectorConversationReadsTheMostRecentEntriesInOrder proves the history a

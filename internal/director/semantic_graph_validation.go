@@ -179,7 +179,7 @@ func validateNodeInterpretation(node SemanticNode) error {
 }
 
 // validateInterpretationMetadata enforces the provenance an interpretation owes
-// the user: who concluded it, on which runtime, and when.
+// the user: who concluded it, which model authored it, and when.
 func validateInterpretationMetadata(label string, metadata InterpretationMetadata) error {
 	switch metadata.InterpretedBy {
 	case SemanticActorDirector, SemanticActorWorker:
@@ -190,9 +190,6 @@ func validateInterpretationMetadata(label string, metadata InterpretationMetadat
 		return err
 	}
 	if err := validateTrimmedText("interpretation model", metadata.Model.Model); err != nil {
-		return err
-	}
-	if err := validateIdentifier("interpretation runtime id", metadata.Model.RuntimeID); err != nil {
 		return err
 	}
 	return validateTimestamp("interpretation interpreted at", metadata.InterpretedAt)

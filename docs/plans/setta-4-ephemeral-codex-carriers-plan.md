@@ -1,6 +1,7 @@
 # Setta-Owned Conversations With Ephemeral Codex Carriers
 
-Status: draft plan. Not implemented.
+Status: in progress. Phase 1 partially implemented — the Director's durable
+carrier identity is gone; the `agent_thread_bindings` axis remains.
 
 ## Executive Summary
 
@@ -274,12 +275,26 @@ runtime-active Setta run events, not provider history.
 - Remove `AgentThreadBinding` from domain contracts and snapshots.
 - Remove thread-binding event payloads and generated TypeScript surfaces.
 - Remove `agent_thread_bindings` from `schema_v1.sql`.
-- Remove `director_thread` from `schema_v1.sql`.
+- DONE: Remove `director_thread` from `schema_v1.sql`.
 - Regenerate affected TypeScript and protocol surfaces.
 - Update frontend code to use conversation/run status instead of thread binding.
 
 Expected result: no public or durable Setta contract treats provider thread
 identity as app state.
+
+The Director slice of this phase is done. `director_thread`,
+`DirectorThreadRecord`, and its store read/write are gone; the carrier the
+Director runs on is held only in `DirectorThread.carrier` for the app run.
+`DirectorConversationModel` and `InterpretationModelIdentity` now attribute a
+reply to provider and model alone, so no provider thread id reaches the durable
+Director conversation log or the semantic graph. This also completes the first
+bullet of Phase 5.
+
+The `agent_thread_bindings` axis is still open, and it is not independently
+landable: `ConversationSnapshot.ThreadBinding` is the only source of the
+provider thread id the workstream launch path uses, so removing it requires the
+Phase 2 carrier registry and the Phase 3 launch and recovery replacement in the
+same change.
 
 ### Phase 2: Add The Carrier Runtime
 
@@ -317,7 +332,7 @@ Expected result: branch and side behavior no longer requires provider history.
 
 ### Phase 5: Unify Director Carrier Handling
 
-- Delete durable Director provider binding.
+- DONE: Delete durable Director provider binding.
 - Move Director carrier lifecycle onto the same carrier registry.
 - Keep Director conversation history in the committed Setta log.
 - Keep Director-specific tools and styling.
@@ -357,7 +372,12 @@ limited to low-level provider characterization tests:
 - `ReconcileTurn`
 - `providerForkThreadId`
 - `sourceProviderThreadId`
-- `director_thread`
+- `director_thread` — no durable table, record, or store call remains. What is
+  left is the runtime adapter that starts the carrier
+  (`internal/runtime/director_thread_caller.go`) and the `DirectorThread` /
+  `DirectorThreadPort` type names it implements. Renaming those to carrier
+  vocabulary belongs with the remaining Phase 5 bullet, which moves the Director
+  onto the shared carrier registry.
 - `DeleteDurableThreadsOnShutdown`
 - `live_codex_cleanup`
 

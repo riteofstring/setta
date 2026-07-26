@@ -42,8 +42,9 @@ const MaxDirectorReplayEntries = 200
 // beside the turn that produces it.
 const MaxDirectorReplyBytes = 64 * 1024
 
-// DirectorProviderThread is the provider thread now carrying the Director
-// conversation.
+// DirectorProviderThread is the ephemeral carrier now running the Director
+// conversation. It is process-local runtime state: the thread id is a live
+// correlation handle for this app run and nothing durable records it.
 type DirectorProviderThread struct {
 	ThreadID string
 	Model    string
@@ -79,9 +80,9 @@ type DirectorTurnRequest struct {
 }
 
 // DirectorProviderTurn is the provider-authored result of one turn. Model is
-// returned per turn rather than read from the thread binding: the user can
-// change the Director role while the provider thread remains alive, and graph
-// provenance must name the model that authored this reply.
+// returned per turn rather than read from the carrier: the user can change the
+// Director role while the carrier remains alive, and graph provenance must name
+// the model that authored this reply.
 type DirectorProviderTurn struct {
 	ReplyText string
 	Model     string
@@ -100,9 +101,8 @@ type DirectorThreadPort interface {
 }
 
 // DirectorConversationStore is the durable home of the Director conversation.
+// It keeps the conversation and nothing about the carrier running it.
 type DirectorConversationStore interface {
-	ReadDirectorThread(context.Context) (conversation.DirectorThreadRecord, bool, error)
-	BindDirectorThread(context.Context, conversation.DirectorThreadRecord) error
 	AppendDirectorConversation(context.Context, []conversation.DirectorConversationEntry) error
 	ReadRecentDirectorConversation(context.Context, int) ([]conversation.DirectorConversationEntry, error)
 }
@@ -162,10 +162,10 @@ type DirectorThread struct {
 	now      func() time.Time
 	newID    func(string) (string, error)
 
-	// turnMutex serializes Director turns. established is written under it, so
-	// the provider thread is established exactly once per app run.
-	turnMutex   sync.Mutex
-	established *conversation.DirectorThreadRecord
+	// turnMutex serializes Director turns. carrier is written under it, so the
+	// provider carrier is started exactly once per app run.
+	turnMutex sync.Mutex
+	carrier   *DirectorProviderThread
 }
 
 // DirectorThreadOption configures the Director conversation.
@@ -273,7 +273,7 @@ func (thread *DirectorThread) Submit(
 		},
 	}
 	recorded := recorder.instrument(tools)
-	record, err := thread.establish(ctx, recorded)
+	carrier, err := thread.establish(ctx, recorded)
 	if err != nil {
 		return DirectorTurnReceipt{}, err
 	}
@@ -281,7 +281,7 @@ func (thread *DirectorThread) Submit(
 		return DirectorTurnReceipt{}, err
 	}
 	providerTurn, err := thread.provider.RunDirectorTurn(ctx, DirectorTurnRequest{
-		ThreadID: record.ThreadID,
+		ThreadID: carrier.ThreadID,
 		TurnID:   intent.ID,
 		Text:     intent.Text,
 		Tools:    recorded,
@@ -296,7 +296,7 @@ func (thread *DirectorThread) Submit(
 	// required, or repeat the conversational answer when it was not.
 	if len(recorder.recorded) == 0 {
 		providerTurn, err = thread.provider.RunDirectorTurn(ctx, DirectorTurnRequest{
-			ThreadID: record.ThreadID,
+			ThreadID: carrier.ThreadID,
 			TurnID:   intent.ID,
 			Text:     directorToolUseReview,
 			Tools:    recorded,
@@ -308,7 +308,6 @@ func (thread *DirectorThread) Submit(
 	return thread.finishTurn(
 		ctx,
 		intent,
-		record,
 		strings.TrimSpace(providerTurn.ReplyText),
 		providerTurn.Model,
 		recorder,
@@ -323,7 +322,6 @@ func (thread *DirectorThread) Submit(
 func (thread *DirectorThread) finishTurn(
 	ctx context.Context,
 	intent SubmittedIntent,
-	record conversation.DirectorThreadRecord,
 	reply string,
 	model string,
 	recorder *directorToolRecorder,
@@ -352,9 +350,8 @@ func (thread *DirectorThread) finishTurn(
 		return DirectorTurnReceipt{}, err
 	}
 	entry.Text.Model = &conversation.DirectorConversationModel{
-		Provider: record.Provider,
+		Provider: conversation.ProviderCodex,
 		Model:    model,
-		ThreadID: record.ThreadID,
 	}
 	if err := thread.store.AppendDirectorConversation(ctx, []conversation.DirectorConversationEntry{entry}); err != nil {
 		return DirectorTurnReceipt{}, err
@@ -451,18 +448,20 @@ func (thread *DirectorThread) persistToolReceipt(
 	return thread.store.AppendDirectorConversation(ctx, []conversation.DirectorConversationEntry{entry})
 }
 
-// establish returns the provider thread this app run's Director turns run on,
-// starting it from the durable conversation the first time it is needed.
+// establish returns the ephemeral carrier this app run's Director turns run on,
+// starting it from the durable conversation the first time it is needed. The
+// carrier is held in memory only: the next app run starts a fresh one and
+// replays the same Setta-owned history into it.
 func (thread *DirectorThread) establish(
 	ctx context.Context,
 	tools []SettaTool,
-) (conversation.DirectorThreadRecord, error) {
-	if thread.established != nil {
-		return *thread.established, nil
+) (DirectorProviderThread, error) {
+	if thread.carrier != nil {
+		return *thread.carrier, nil
 	}
 	history, err := thread.replayHistory(ctx)
 	if err != nil {
-		return conversation.DirectorThreadRecord{}, err
+		return DirectorProviderThread{}, err
 	}
 	started, err := thread.provider.StartDirectorThread(ctx, DirectorThreadStart{
 		Instructions: DirectorThreadInstructions(),
@@ -470,19 +469,16 @@ func (thread *DirectorThread) establish(
 		History:      history,
 	})
 	if err != nil {
-		return conversation.DirectorThreadRecord{}, err
+		return DirectorProviderThread{}, err
 	}
-	record := conversation.DirectorThreadRecord{
-		Provider:  conversation.ProviderCodex,
-		ThreadID:  started.ThreadID,
-		Model:     started.Model,
-		StartedAt: thread.now().UTC().Format(time.RFC3339Nano),
+	if err := validateIdentifier("director carrier thread id", started.ThreadID); err != nil {
+		return DirectorProviderThread{}, err
 	}
-	if err := thread.store.BindDirectorThread(ctx, record); err != nil {
-		return conversation.DirectorThreadRecord{}, err
+	if err := validateIdentifier("director carrier model", started.Model); err != nil {
+		return DirectorProviderThread{}, err
 	}
-	thread.established = &record
-	return record, nil
+	thread.carrier = &started
+	return started, nil
 }
 
 // replayHistory turns the durable Director conversation back into the turns a

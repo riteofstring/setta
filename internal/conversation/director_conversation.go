@@ -22,6 +22,10 @@ import (
 // can no longer act. Setta therefore keeps the conversation and re-establishes
 // the provider thread from it, which is also what makes the Director's own
 // turns durable across a restart.
+//
+// The provider thread carrying the Director is an ephemeral execution carrier,
+// so nothing here records its identity. Which thread is running right now is
+// process-local runtime state; what the Director said is what survives.
 
 const (
 	// DirectorConversationStreamID is the durable stream the Director's own
@@ -34,31 +38,6 @@ const (
 	// the log needs one kind rather than one per entry kind.
 	DirectorConversationCommittedKind = "director.conversation.appended"
 )
-
-// DirectorThreadRecord binds Setta's durable Director conversation to the
-// provider thread currently carrying it. There is exactly one for the app
-// profile.
-type DirectorThreadRecord struct {
-	Provider  Provider `json:"provider"`
-	ThreadID  string   `json:"threadId"`
-	Model     string   `json:"model"`
-	StartedAt string   `json:"startedAt"`
-}
-
-// Validate rejects a binding that names no provider thread.
-func (record DirectorThreadRecord) Validate() error {
-	if record.Provider != ProviderCodex {
-		return fmt.Errorf("director thread provider %q is unsupported", record.Provider)
-	}
-	if err := validateIdentifier("director thread id", record.ThreadID); err != nil {
-		return err
-	}
-	if err := validateIdentifier("director thread model", record.Model); err != nil {
-		return err
-	}
-	_, err := validateTimestamp("director thread started at", record.StartedAt)
-	return err
-}
 
 // DirectorConversationEntryKind is the catalog of things one Director turn
 // produces. Assistant text and tool activity are separate kinds because they
@@ -91,26 +70,25 @@ func DirectorConversationEntryKinds() []DirectorConversationEntryKind {
 	return append([]DirectorConversationEntryKind(nil), directorConversationEntryKinds...)
 }
 
-// DirectorConversationModel attributes an assistant reply to the provider
-// thread that produced it. The Director's words are model-authored, so what
-// said them is durable beside them: a reply the app later shows as the
-// Director's own interpretation has to be able to say whose interpretation it
-// is.
+// DirectorConversationModel attributes an assistant reply to the model that
+// produced it. The Director's words are model-authored, so what said them is
+// durable beside them: a reply the app later shows as the Director's own
+// interpretation has to be able to say whose interpretation it is.
+//
+// The carrier thread that ran the turn is deliberately absent. It is gone by the
+// next app run, so recording it would date the attribution rather than explain
+// it.
 type DirectorConversationModel struct {
 	Provider Provider `json:"provider"`
 	Model    string   `json:"model"`
-	ThreadID string   `json:"threadId"`
 }
 
-// Validate rejects an attribution that names no provider thread.
+// Validate rejects an attribution that names no model.
 func (model DirectorConversationModel) Validate() error {
 	if model.Provider != ProviderCodex {
 		return fmt.Errorf("director conversation model provider %q is unsupported", model.Provider)
 	}
-	if err := validateIdentifier("director conversation model", model.Model); err != nil {
-		return err
-	}
-	return validateIdentifier("director conversation model thread id", model.ThreadID)
+	return validateIdentifier("director conversation model", model.Model)
 }
 
 // DirectorConversationText is the payload of a user turn or an assistant reply.

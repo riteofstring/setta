@@ -174,12 +174,13 @@ func SemanticEdgeKinds() []SemanticEdgeKind {
 	return append([]SemanticEdgeKind(nil), semanticEdgeKinds...)
 }
 
-// InterpretationModelIdentity attributes an interpretation to the runtime that
-// produced it. It carries no credential, lease, or provider session id.
+// InterpretationModelIdentity attributes an interpretation to the model that
+// produced it. It carries no credential, lease, or provider session id: the
+// carrier thread that ran the turn is ephemeral, so naming it here would put a
+// dead provider id in durable graph state.
 type InterpretationModelIdentity struct {
-	Provider  string `json:"provider"`
-	Model     string `json:"model"`
-	RuntimeID string `json:"runtimeId"`
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
 }
 
 // InterpretationMetadata is required on every director_interpretation node. The

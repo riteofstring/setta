@@ -250,9 +250,8 @@ func projectDirectorReply(
 	metadata := InterpretationMetadata{
 		InterpretedBy: SemanticActorDirector,
 		Model: InterpretationModelIdentity{
-			Provider:  string(entry.Text.Model.Provider),
-			Model:     entry.Text.Model.Model,
-			RuntimeID: entry.Text.Model.ThreadID,
+			Provider: string(entry.Text.Model.Provider),
+			Model:    entry.Text.Model.Model,
 		},
 		InterpretedAt: entry.RecordedAt,
 	}

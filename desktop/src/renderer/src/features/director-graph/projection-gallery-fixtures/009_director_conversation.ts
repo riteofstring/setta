@@ -79,7 +79,6 @@ const rawProjectionGalleryFixture = {
             model: {
               provider: "codex",
               model: "gpt-5.1-codex",
-              runtimeId: "thread-eta-1",
             },
             interpretedAt: "2026-07-24T12:00:07Z",
           },

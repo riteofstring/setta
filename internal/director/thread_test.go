@@ -220,6 +220,10 @@ func TestDirectorToolCallSurvivesAProviderTurnFailure(t *testing.T) {
 // its conversation across an app restart, and that the rebuilt provider thread
 // still carries the `setta` tools. Codex does not reattach dynamic tools to a
 // resumed thread, so a Director rebuilt without them could talk and not act.
+//
+// It also proves the restart replays Setta's own history rather than resuming
+// the carrier: the rebuilt Director starts a new thread with no memory of which
+// thread ran before it, because nothing durable recorded one.
 func TestDirectorThreadIsReEstablishedFromDurableHistory(t *testing.T) {
 	harness := newRegistryHarness(t)
 	registry := harness.start()
@@ -254,12 +258,14 @@ func TestDirectorThreadIsReEstablishedFromDurableHistory(t *testing.T) {
 	if len(established.Tools) == 0 {
 		t.Fatal("the rebuilt director thread carries no setta tools")
 	}
-	bound, found, err := store.ReadDirectorThread(context.Background())
-	if err != nil || !found {
-		t.Fatalf("ReadDirectorThread = %+v, %v, %v", bound, found, err)
-	}
-	if bound.ThreadID != "provider-thread-1" || bound.Provider != conversation.ProviderCodex {
-		t.Fatalf("durable director thread binding = %+v", bound)
+	for _, entry := range store.snapshotEntries() {
+		if entry.Text == nil || entry.Text.Model == nil {
+			continue
+		}
+		if entry.Text.Model.Provider != conversation.ProviderCodex ||
+			entry.Text.Model.Model == "" {
+			t.Fatalf("durable director reply attribution = %+v", entry.Text.Model)
+		}
 	}
 }
 

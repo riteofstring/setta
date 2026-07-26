@@ -679,7 +679,6 @@ func directorConversationFixture() ProjectionFixture {
 			Model: &conversation.DirectorConversationModel{
 				Provider: conversation.ProviderCodex,
 				Model:    "gpt-5.1-codex",
-				ThreadID: "thread-eta-1",
 			},
 		}
 	})

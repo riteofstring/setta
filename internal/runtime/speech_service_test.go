@@ -78,7 +78,6 @@ func TestRuntimeSpeechSourceResolverResolvesTheDirectorReply(t *testing.T) {
 				Model: &conversation.DirectorConversationModel{
 					Provider: conversation.ProviderCodex,
 					Model:    "gpt-test",
-					ThreadID: "provider-thread-1",
 				},
 			},
 		},

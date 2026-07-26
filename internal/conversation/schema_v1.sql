@@ -291,14 +291,6 @@ CREATE TABLE conversation_presentation_profiles (
   CHECK ((narrator_voice_selection = 'exact' AND requested_narrator_voice_id IS NOT NULL) OR narrator_voice_selection = 'auto_distinct')
 ) STRICT;
 
-CREATE TABLE director_thread (
-  singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-  provider TEXT NOT NULL CHECK (provider = 'codex'),
-  thread_id TEXT NOT NULL,
-  model TEXT NOT NULL,
-  started_at TEXT NOT NULL
-) STRICT;
-
 CREATE TABLE director_voice_selection (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
   selection TEXT NOT NULL CHECK (selection IN ('auto_distinct', 'exact')),

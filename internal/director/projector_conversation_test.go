@@ -51,7 +51,6 @@ func directorLaneTurn(callSucceeded bool) []conversation.DirectorConversationEnt
 		Model: &conversation.DirectorConversationModel{
 			Provider: conversation.ProviderCodex,
 			Model:    "gpt-test",
-			ThreadID: "provider-thread-1",
 		},
 	}
 	return []conversation.DirectorConversationEntry{request, call, receipt, reply}
@@ -168,7 +167,7 @@ func TestDirectorTurnIsProjectedIntoItsOwnLane(t *testing.T) {
 		t.Fatalf("the Director's reply is not attributable: %+v", reply)
 	}
 	if reply.Interpretation.Model.Model != "gpt-test" ||
-		reply.Interpretation.Model.RuntimeID != "provider-thread-1" {
+		reply.Interpretation.Model.Provider != string(conversation.ProviderCodex) {
 		t.Fatalf("reply attribution = %+v", reply.Interpretation.Model)
 	}
 	if err := ValidateWorkstreamGraph(graph, projector.liveAuthority()); err != nil {

@@ -128,39 +128,16 @@ func (provider *scriptedDirectorProvider) dispatch(
 }
 
 // memoryDirectorConversationStore keeps the Director conversation in memory so
-// a test can assert what one turn made durable without a database.
+// a test can assert what one turn made durable without a database. It holds the
+// conversation and nothing else, which is the whole durable surface: the carrier
+// running the Director is process-local.
 type memoryDirectorConversationStore struct {
 	mutex   sync.Mutex
-	thread  *conversation.DirectorThreadRecord
 	entries []conversation.DirectorConversationEntry
 }
 
 func newDirectorConversationStoreForTest() *memoryDirectorConversationStore {
 	return &memoryDirectorConversationStore{}
-}
-
-func (store *memoryDirectorConversationStore) ReadDirectorThread(
-	context.Context,
-) (conversation.DirectorThreadRecord, bool, error) {
-	store.mutex.Lock()
-	defer store.mutex.Unlock()
-	if store.thread == nil {
-		return conversation.DirectorThreadRecord{}, false, nil
-	}
-	return *store.thread, true, nil
-}
-
-func (store *memoryDirectorConversationStore) BindDirectorThread(
-	_ context.Context,
-	record conversation.DirectorThreadRecord,
-) error {
-	if err := record.Validate(); err != nil {
-		return err
-	}
-	store.mutex.Lock()
-	defer store.mutex.Unlock()
-	store.thread = &record
-	return nil
 }
 
 func (store *memoryDirectorConversationStore) AppendDirectorConversation(
