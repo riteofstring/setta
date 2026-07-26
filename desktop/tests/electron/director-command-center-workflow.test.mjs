@@ -933,7 +933,7 @@ async function verifyComposerQueuesWhileDirectorAnswers(client, statePath) {
     `(() => {
       const hint = document.querySelector(".director-composer-hint");
       const input = document.querySelector("#director-composer-input");
-      const status = document.querySelector(".director-live-status");
+      const status = document.querySelector(".director-reply");
       return {
         answering: hint?.getAttribute("data-answering") === "true",
         status: status?.textContent?.trim() ?? "",

@@ -251,3 +251,24 @@
   border-color: oklch(0.4 0.03 255);
   color: oklch(0.72 0.04 245);
 }
+
+/*
+ * The Director's last word, above the composer that asked for it.
+ *
+ * It reads as speech over the canvas rather than as a panel: no box, no fill,
+ * centred on the dock so it belongs to the composer under it. An empty reply
+ * takes no space at all, so a quiet app is quiet rather than reserving a line
+ * for something that has not been said.
+ */
+.director-reply {
+  color: var(--director-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0;
+  text-align: center;
+  text-wrap: pretty;
+}
+
+.director-reply[data-empty="true"] {
+  display: none;
+}

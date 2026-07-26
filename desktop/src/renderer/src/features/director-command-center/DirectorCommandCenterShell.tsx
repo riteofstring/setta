@@ -51,18 +51,15 @@ import {
   PendingActions,
   workspaceWorkstreamTitle,
 } from "./DirectorPendingActions";
-import { NowRail, type DirectorLoadState } from "./DirectorNowRail";
+import { NowRail } from "./DirectorNowRail";
+import { DirectorReply, type DirectorLoadState } from "./DirectorReply";
 import { useDirectorArtifactBrowser } from "./director-artifact-browser";
 import {
   useDirectorWorkstreamSwitchTransition,
   WorkstreamSwitchTransition,
 } from "./director-workstream-switch-transition";
 import { directorFocus, type DirectorFocus } from "./director-focus";
-import {
-  directorConversationInputId,
-  directorSubmitIntent,
-  submitToWorkstreamConversation,
-} from "./director-view-submit";
+import { directorSubmitIntent } from "./director-view-submit";
 import {
   CommandCenterTopBar,
   directorWorkstreamKeyboardDirection,
@@ -249,23 +246,10 @@ export function DirectorCommandCenterShell({
    */
   const submitTranscriptToCurrentView = useCallback(
     async (text: string): Promise<string | null> => {
-      const selected = snapshotView.selectedWorkstream;
-      if (selected === null) {
-        const receipt = await director.dispatch(directorSubmitIntent(text));
-        return receipt.submit?.replyText ?? null;
-      }
-      const result = await submitToWorkstreamConversation({
-        conversationId: selected.conversationId,
-        newInputId: directorConversationInputId,
-        now: () => new Date().toISOString(),
-        setta,
-        text,
-        workstreamTitle: selected.title,
-      });
-      director.reportReceipt(result.receiptText);
-      return result.receiptText;
+      const receipt = await director.dispatch(directorSubmitIntent(text));
+      return receipt.submit?.replyText ?? null;
     },
-    [director.dispatch, director.reportReceipt, setta, snapshotView.selectedWorkstream],
+    [director.dispatch],
   );
   const submitToCurrentView = useCallback(
     async (text: string): Promise<void> => {
@@ -343,12 +327,7 @@ export function DirectorCommandCenterShell({
           />
           <WorkstreamSwitchTransition transition={switchTransition} />
           {packedSnapshot.nodeCount === 0 ? <GraphEmptyState focus={focus} /> : null}
-          <NowRail
-            narration={snapshotView.narration}
-            loadState={director.loadState}
-            message={director.message}
-            receiptText={director.receiptText}
-          />
+          <NowRail narration={snapshotView.narration} />
           <ArtifactsRail
             approvals={snapshotView.approvals}
             artifactBrowser={artifactBrowser}
@@ -362,6 +341,19 @@ export function DirectorCommandCenterShell({
            * dropped by the parser, which silently kills the approval's submit.
            */}
           <div className="director-composer-dock">
+            {/*
+             * What the Director just said, above the composer that asked.
+             *
+             * It used to live in the Now rail, which the Director's own view
+             * hides — so the app's primary interaction completed with no
+             * readable answer. A reply belongs beside the thing you typed into,
+             * not in a rail about a workstream.
+             */}
+            <DirectorReply
+              loadState={director.loadState}
+              message={director.message}
+              receiptText={director.receiptText}
+            />
             <PendingActions
               approvals={snapshotView.approvals}
               dispatch={director.dispatch}
@@ -415,7 +407,6 @@ function useDirectorRuntime(
   runtimeId: string | null,
 ): DirectorRuntimeState & {
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
-  reportReceipt: (text: string) => void;
 } {
   const [snapshot, setSnapshotState] = useState<DirectorSnapshot | null>(null);
   const [loadState, setLoadState] = useState<DirectorLoadState>("loading");
@@ -597,15 +588,7 @@ function useDirectorRuntime(
     [finishPendingDispatch, handleDirectorReceipt, runtimeEpoch, setta, speechPlayback],
   );
 
-  /*
-   * A receipt the shell wrote rather than the Director. Input sent to a
-   * workstream's conversation is routed by the conversation router, so what
-   * happened to it is reported here rather than arriving in a Director receipt.
-   */
-  const reportReceipt = useCallback((text: string) => {
-    setReceiptText(text);
-  }, []);
-  return { dispatch, loadState, message, pending, receiptText, reportReceipt, snapshot };
+  return { dispatch, loadState, message, pending, receiptText, snapshot };
 }
 
 function useDirectorWorkspaceBinding(setta: SettaAPI): {

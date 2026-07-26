@@ -1,8 +1,5 @@
 import type { WorkstreamNarration } from "@generated/backend";
 
-/** What the shell is waiting on before the Now rail can speak for itself. */
-export type DirectorLoadState = "loading" | "ready" | "resyncing" | "error";
-
 /**
  * The Now rail: what the narrator has said about the work in focus.
  *
@@ -21,24 +18,11 @@ export type DirectorLoadState = "loading" | "ready" | "resyncing" | "error";
  * second header stacked on the first. Nothing in it is a card — narration reads
  * as text over the canvas, so the rail stays a heads-up layer.
  */
-export function NowRail({
-  loadState,
-  message,
-  narration,
-  receiptText,
-}: {
-  loadState: DirectorLoadState;
-  message: string | null;
-  narration: readonly WorkstreamNarration[];
-  receiptText: string | null;
-}) {
+export function NowRail({ narration }: { narration: readonly WorkstreamNarration[] }) {
   return (
     <aside aria-label="Now" className="director-now-rail" id="director-now-rail">
       <p className="director-rail-kicker">Now</p>
       <DirectorNarrationList narration={narration} />
-      <div aria-live="polite" className="director-live-status" role="status">
-        {message ?? receiptText ?? loadStateMessage(loadState)}
-      </div>
     </aside>
   );
 }
@@ -67,23 +51,4 @@ function DirectorNarrationList({ narration }: { narration: readonly WorkstreamNa
       ))}
     </ol>
   );
-}
-
-function loadStateMessage(state: DirectorLoadState): string {
-  switch (state) {
-    case "loading":
-      return "Loading Director state.";
-    case "resyncing":
-      return "Resyncing Director state.";
-    case "error":
-      return "The Director command center is unavailable.";
-    case "ready":
-      return "";
-    default:
-      return exhaustiveLoadState(state);
-  }
-}
-
-function exhaustiveLoadState(state: never): never {
-  throw new Error(`unsupported Director load state ${state}`);
 }

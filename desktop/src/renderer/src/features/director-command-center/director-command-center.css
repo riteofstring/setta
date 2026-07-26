@@ -322,12 +322,6 @@
  * box around either. Its 44 px target is the row height, not a drawn button.
  */
 
-.director-live-status {
-  color: oklch(0.66 0.045 220);
-  font-size: 11px;
-  min-block-size: 1rem;
-}
-
 .director-artifact-gallery {
   display: grid;
   gap: 9px;
