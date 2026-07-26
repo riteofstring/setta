@@ -304,14 +304,28 @@
  * rather than reserving a line for something that has not been said.
  */
 .director-reply {
-  background: oklch(from var(--director-surface) l c h / 0.78);
-  border: 1px solid var(--director-border);
-  border-block-start-color: oklch(from var(--director-primary) l c h / 0.35);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 14px;
   display: grid;
   gap: 5px;
   justify-items: start;
+  overflow: hidden;
   padding: 12px 16px 10px;
+  transition-duration: 220ms;
+  transition-property: background-color, border-color;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/*
+ * Disclosed, the same element becomes the card: ground and border fade in
+ * while the component animates the height, so the enclosure arrives as the
+ * text grows rather than as a panel snapping around it.
+ */
+.director-reply[data-expanded="true"] {
+  background: oklch(from var(--director-surface) l c h / 0.82);
+  border-color: var(--director-border);
+  border-block-start-color: oklch(from var(--director-primary) l c h / 0.35);
 }
 
 .director-reply[data-empty="true"] {

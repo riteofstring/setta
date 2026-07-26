@@ -211,19 +211,27 @@
   }
 }
 
+/*
+ * Every carried status is a luminous mark, not a flat disc: the strip's whole
+ * language is dots that glow on the void, and a matte dot beside a glowing
+ * one reads as a dead pixel rather than a state.
+ */
 .director-workstream-dot[data-status="completed"]::before {
   background: oklch(0.79 0.145 152);
-  opacity: 0.65;
+  box-shadow: 0 0 6px oklch(0.79 0.145 152 / 0.7);
+  opacity: 0.75;
 }
 
 .director-workstream-dot[data-status="awaiting_approval"]::before,
 .director-workstream-dot[data-status="awaiting_resource"]::before,
 .director-workstream-dot[data-status="blocked"]::before {
   background: oklch(0.84 0.14 78);
+  box-shadow: 0 0 6px oklch(0.84 0.14 78 / 0.6);
 }
 
 .director-workstream-dot[data-status="failed"]::before {
   background: oklch(0.7 0.16 25);
+  box-shadow: 0 0 6px oklch(0.7 0.16 25 / 0.6);
 }
 
 .director-workstream-dot[data-status="archived"]::before {
@@ -269,7 +277,7 @@
   align-items: center;
   display: flex;
   flex: none;
-  gap: 2px;
+  gap: 0;
   justify-content: safe center;
   margin-inline-start: 6px;
   max-inline-size: min(30vw, 260px);
@@ -277,6 +285,16 @@
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
+}
+
+/*
+ * The list-item wrappers exist for the accessibility tree only. As inline
+ * spans they were flex items with baseline quirks of their own, which is what
+ * knocked the dots off one centreline; `contents` hands the buttons straight
+ * to the strip's own alignment.
+ */
+.director-workstream-strip [role="listitem"] {
+  display: contents;
 }
 
 .director-workstream-strip::-webkit-scrollbar {

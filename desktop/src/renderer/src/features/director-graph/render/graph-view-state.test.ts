@@ -117,7 +117,7 @@ describe("graph pointer projection", () => {
       fit,
       viewport,
     );
-    // Clip Y of the live edge is -0.35, which sits below centre on screen.
+    // The live edge clip Y is negative, which sits below centre on screen.
     expect(position.y).toBeGreaterThan(viewport.height / 2);
     expect(position.x).toBeCloseTo(viewport.width / 2, 3);
   });

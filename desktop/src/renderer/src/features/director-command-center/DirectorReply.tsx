@@ -18,10 +18,10 @@ export type DirectorLoadState = "loading" | "ready" | "resyncing" | "error";
  * next. The durable account of what happened is the narration in the rail, and
  * of what was produced, the artifacts.
  *
- * It draws as the mockup's response card: start-aligned reading text, clamped
- * to a few lines so a long answer never floods the canvas, with its full text
- * one disclosure away. The disclosure is a separate button rather than the card
- * itself so the reply stays selectable text.
+ * Folded, it is bare text over the canvas — the same layer the graph's own
+ * labels live on, so it needs no box. Disclosing it grows the same element
+ * into an enclosed card: the height animates and the ground fades in, so the
+ * card reads as the text expanding rather than a panel replacing it.
  */
 export function DirectorReply({
   answering,
@@ -37,7 +37,10 @@ export function DirectorReply({
   const text = stripInlineMarkdown(message ?? receiptText ?? loadStateMessage(loadState));
   const [expanded, setExpanded] = useState(false);
   const [clamped, setClamped] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const textRef = useRef<HTMLParagraphElement | null>(null);
+  /** Height captured in the click, before React re-lays the disclosure out. */
+  const morphFromHeightRef = useRef<number | null>(null);
 
   // A new reply starts folded; the previous reply's disclosure state is about
   // text that is no longer on screen.
@@ -61,12 +64,39 @@ export function DirectorReply({
     };
   }, [text, expanded]);
 
+  /*
+   * The disclosure morph. The clamp switch is discrete, so the fluid motion is
+   * a first/last height animation over the same element; the enclosure itself
+   * fades in through the CSS transition on the container's ground and border.
+   */
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const fromHeight = morphFromHeightRef.current;
+    morphFromHeightRef.current = null;
+    if (container === null || fromHeight === null) {
+      return;
+    }
+    if (globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+    const toHeight = container.offsetHeight;
+    if (fromHeight === toHeight) {
+      return;
+    }
+    container.animate([{ height: `${fromHeight}px` }, { height: `${toHeight}px` }], {
+      duration: 240,
+      easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+    });
+  }, [expanded]);
+
   return (
     <div
       aria-live="polite"
       className="director-reply"
       data-answering={answering ? "true" : "false"}
       data-empty={text === "" && !answering ? "true" : "false"}
+      data-expanded={expanded ? "true" : "false"}
+      ref={containerRef}
       role="status"
     >
       <p className="director-reply-text" data-expanded={expanded ? "true" : "false"} ref={textRef}>
@@ -76,6 +106,7 @@ export function DirectorReply({
         <button
           className="director-reply-toggle"
           onClick={() => {
+            morphFromHeightRef.current = containerRef.current?.offsetHeight ?? null;
             setExpanded((current) => !current);
           }}
           type="button"
