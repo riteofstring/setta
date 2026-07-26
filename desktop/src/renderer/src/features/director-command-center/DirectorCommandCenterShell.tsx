@@ -131,7 +131,21 @@ const defaultRailVisibility = {
  * on when a rail floats.
  */
 const compactRailQuery = "(max-width: 760px)";
-const directorGraphCompositionId = "director-command-center";
+/*
+ * What the canvas is currently drawing, named.
+ *
+ * The canvas resets its camera when this changes and keeps it when it does not,
+ * which is right: a camera should follow new content rather than stay pointed
+ * where the last content was. Every view used to pack under one constant name,
+ * which was harmless while the composition never changed — and wrong the moment
+ * it started following selection, because switching views left the camera
+ * framing a region the new view has nothing in.
+ */
+function directorGraphCompositionId(selectedWorkstreamId: string | null): string {
+  return selectedWorkstreamId === null
+    ? "director-command-center"
+    : `director-command-center:${selectedWorkstreamId}`;
+}
 const directorEventVisibility = {
   "director.aggregates.updated": true,
   "director.approval.updated": true,
@@ -848,12 +862,13 @@ export function packDirectorGraphs(
     selectedWorkstreamId === null
       ? composed
       : composed.filter((graph) => graph.workstreamId === selectedWorkstreamId);
+  const compositionId = directorGraphCompositionId(selectedWorkstreamId);
   if (visible.length === 0) {
-    return emptyPackedGraphSnapshot(directorGraphCompositionId);
+    return emptyPackedGraphSnapshot(compositionId);
   }
   return packSemanticGraphComposition({
     graphs: visible,
-    workstreamId: directorGraphCompositionId,
+    workstreamId: compositionId,
   });
 }
 
