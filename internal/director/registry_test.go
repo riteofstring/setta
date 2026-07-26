@@ -157,10 +157,13 @@ func TestRegistryPushesWorkstreamAndGraphChanges(t *testing.T) {
 		t.Fatalf("goal node provenance = %v, want the accepted input event", node.SourceEventIDs)
 	}
 
+	// Nothing is selected here, so this is the Director's own view and the
+	// workstream is drawn whole. It compacts to "adjacent" only once some other
+	// workstream is the one being read.
 	snapshot := requireSnapshot(t, registry)
 	workstreamGraph := requireWorkstreamGraph(t, snapshot, workstreamID)
-	if workstreamGraph.DetailLevel != WorkstreamDetailAdjacent {
-		t.Fatalf("unselected workstream graph detail = %q", workstreamGraph.DetailLevel)
+	if workstreamGraph.DetailLevel != WorkstreamDetailSelected {
+		t.Fatalf("director-view workstream graph detail = %q", workstreamGraph.DetailLevel)
 	}
 }
 
@@ -1141,5 +1144,62 @@ func TestRootCreateDecisionIsDrawnInTheDirectorLane(t *testing.T) {
 	lane := requireWorkstreamGraph(t, snapshot, DirectorLaneID)
 	if len(lane.Edges) != 0 {
 		t.Fatalf("a root workstream was drawn as delegated work: %+v", lane.Edges)
+	}
+}
+
+// TestDirectorViewDrawsEveryWorkstreamWhole is the difference between the two
+// views. Selecting a workstream makes it the subject and the rest context, so
+// the rest carry the compact graph that answers "does this need me?". The
+// Director's own view has no subject, so that question has no one to ask about
+// — every workstream is what the user came to see, and a summary of each is a
+// view with the work left out.
+func TestDirectorViewDrawsEveryWorkstreamWhole(t *testing.T) {
+	harness := newRegistryHarness(t)
+	first := harness.createConversation("conversation-whole-1", "First work", nil)
+	second := harness.createConversation("conversation-whole-2", "Second work", nil)
+	for index, conversationID := range []string{"conversation-whole-1", "conversation-whole-2"} {
+		turnID := fmt.Sprintf("turn-whole-%d", index+1)
+		harness.startTurn(conversationID, turnID)
+		harness.acceptInput(conversationID, turnID, "do the work")
+		harness.completeTurnTrajectory(conversationID, turnID)
+		harness.completeTurn(conversationID, turnID)
+	}
+	registry := harness.start()
+
+	unselected := requireSnapshot(t, registry)
+	if unselected.SelectedWorkstreamID != nil {
+		t.Fatalf("director view began with a selection: %v", unselected.SelectedWorkstreamID)
+	}
+	firstWhole := requireWorkstreamGraph(t, unselected, first)
+	secondWhole := requireWorkstreamGraph(t, unselected, second)
+	if firstWhole.DetailLevel != WorkstreamDetailSelected ||
+		secondWhole.DetailLevel != WorkstreamDetailSelected {
+		t.Fatalf(
+			"director view detail levels = %q and %q, want both whole",
+			firstWhole.DetailLevel,
+			secondWhole.DetailLevel,
+		)
+	}
+
+	// Selecting one puts the other back to the compact graph, which is what
+	// makes the whole-graph rule above about the view rather than about a
+	// workstream that happens to be busy.
+	if _, err := registry.SelectWorkstream(context.Background(), first); err != nil {
+		t.Fatalf("SelectWorkstream: %v (registry failure: %v)", err, registry.Err())
+	}
+	selected := requireSnapshot(t, registry)
+	if requireWorkstreamGraph(t, selected, first).DetailLevel != WorkstreamDetailSelected {
+		t.Fatalf("selected workstream is not whole")
+	}
+	compact := requireWorkstreamGraph(t, selected, second)
+	if compact.DetailLevel != WorkstreamDetailAdjacent {
+		t.Fatalf("unselected workstream detail = %q, want adjacent", compact.DetailLevel)
+	}
+	if len(compact.Nodes) >= len(secondWhole.Nodes) {
+		t.Fatalf(
+			"compact graph kept %d of %d nodes, so the levels do not differ",
+			len(compact.Nodes),
+			len(secondWhole.Nodes),
+		)
 	}
 }

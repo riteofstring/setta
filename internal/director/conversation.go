@@ -214,14 +214,16 @@ func NewDirectorConversation(
 	store DirectorConversationStore,
 	carriers *conversation.CarrierRegistry,
 	provider DirectorCarrierPort,
+	narrator DirectorNarratorPort,
 	options ...DirectorConversationOption,
 ) (*DirectorConversation, error) {
-	if registry == nil || executor == nil || store == nil || carriers == nil || provider == nil {
+	if registry == nil || executor == nil || store == nil || carriers == nil || provider == nil ||
+		narrator == nil {
 		return nil, errors.New(
-			"director conversation requires the registry, the executor, the durable store, the carrier registry, and the provider port",
+			"director conversation requires the registry, the executor, the durable store, the carrier registry, the provider port, and the narrator port",
 		)
 	}
-	toolbox, err := NewSettaToolbox(registry, executor)
+	toolbox, err := NewSettaToolbox(registry, executor, narrator)
 	if err != nil {
 		return nil, err
 	}

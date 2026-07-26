@@ -13,14 +13,8 @@ func TestDefaultSettingsValidate(t *testing.T) {
 	if err := Validate(settings); err != nil {
 		t.Fatalf("default appearance settings are invalid: %v", err)
 	}
-	if settings.Mode != ColorModeDark {
-		t.Fatalf("default mode = %q, want dark", settings.Mode)
-	}
 	if settings.Dark.Tailwind.Setta900 != "oklch(0.1631 0.0125 264.14)" {
 		t.Fatalf("dark setta 900 = %q, want original Setta dark scale", settings.Dark.Tailwind.Setta900)
-	}
-	if settings.Light.Shadcn.Primary != settings.Light.Tailwind.Setta600 {
-		t.Fatalf("light primary = %q, want darker Setta logo color", settings.Light.Shadcn.Primary)
 	}
 	if settings.Dark.Shadcn.Primary != settaLogoCyan {
 		t.Fatalf("dark primary = %q, want Setta logo cyan", settings.Dark.Shadcn.Primary)
@@ -40,8 +34,8 @@ func TestDefaultSettingsValidate(t *testing.T) {
 	if settings.Dark.Status.Success != settings.Dark.Accent.Green {
 		t.Fatalf("dark status success = %q, want accent green %q", settings.Dark.Status.Success, settings.Dark.Accent.Green)
 	}
-	if settings.Light.Status.Alert != settings.Light.Accent.Magenta {
-		t.Fatalf("light status alert = %q, want accent magenta %q", settings.Light.Status.Alert, settings.Light.Accent.Magenta)
+	if settings.Dark.Status.Alert != settings.Dark.Accent.Magenta {
+		t.Fatalf("dark status alert = %q, want accent magenta %q", settings.Dark.Status.Alert, settings.Dark.Accent.Magenta)
 	}
 }
 
@@ -89,16 +83,12 @@ func TestDefaultPresetListTranslatesPalettesOntoSettaLightnessRamp(t *testing.T)
 				t.Fatalf("preset %q %s lightness = %.4f, want Setta ramp %.4f", preset.ID, name, actual[name], expectedLightness)
 			}
 		}
-		if preset.Settings.Light.Tailwind != preset.Settings.Dark.Tailwind {
-			t.Fatalf("preset %q light and dark tailwind palettes diverged", preset.ID)
-		}
 	}
 }
 
 func TestStorePersistsAppearanceSettings(t *testing.T) {
 	store := newTestStore(t)
 	settings := DefaultSettings()
-	settings.Mode = ColorModeLight
 	settings.Fonts.Sans = `"Aptos", ui-sans-serif, sans-serif`
 
 	if err := store.Save(settings); err != nil {
@@ -109,9 +99,6 @@ func TestStorePersistsAppearanceSettings(t *testing.T) {
 		t.Fatalf("load appearance settings: %v", err)
 	}
 
-	if loaded.Mode != ColorModeLight {
-		t.Fatalf("mode = %q, want light", loaded.Mode)
-	}
 	if loaded.Fonts.Sans != settings.Fonts.Sans {
 		t.Fatalf("font = %q, want %q", loaded.Fonts.Sans, settings.Fonts.Sans)
 	}
@@ -163,13 +150,13 @@ func TestStoreRejectsUnknownAppearanceFields(t *testing.T) {
 func TestStoreRejectsInvalidColor(t *testing.T) {
 	store := newTestStore(t)
 	settings := DefaultSettings()
-	settings.Light.Shadcn.Background = "#ffffff"
+	settings.Dark.Shadcn.Background = "#ffffff"
 
 	err := store.Save(settings)
 	if err == nil {
 		t.Fatal("save succeeded, want invalid color error")
 	}
-	if !IsCorruptSettingsError(err) || !strings.Contains(err.Error(), "light.shadcn.background") {
+	if !IsCorruptSettingsError(err) || !strings.Contains(err.Error(), "dark.shadcn.background") {
 		t.Fatalf("error = %T %v, want corrupt settings color path", err, err)
 	}
 }
@@ -177,7 +164,7 @@ func TestStoreRejectsInvalidColor(t *testing.T) {
 func TestStoreRejectsLowContrastColorPair(t *testing.T) {
 	store := newTestStore(t)
 	settings := DefaultSettings()
-	settings.Light.Shadcn.Foreground = settings.Light.Shadcn.Background
+	settings.Dark.Shadcn.Foreground = settings.Dark.Shadcn.Background
 
 	err := store.Save(settings)
 	if err == nil {

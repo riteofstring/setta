@@ -27,6 +27,8 @@ export interface DirectorGraphSurfaceProps {
   label: string;
   /** Keeps the background field moving after semantic graph motion settles. */
   ambientMotion?: boolean;
+  /** Opens the thread a click landed on, on the views where one is a destination. */
+  onOpenWorkstream?: (workstreamId: string) => void;
 }
 
 function prefersReducedMotion(view: Window): boolean {
@@ -36,6 +38,7 @@ function prefersReducedMotion(view: Window): boolean {
 export function DirectorGraphSurface({
   ambientMotion = false,
   timeSecondsAt,
+  onOpenWorkstream,
   onReady,
   label,
 }: DirectorGraphSurfaceProps) {
@@ -44,8 +47,10 @@ export function DirectorGraphSurface({
   const labelRef = useRef<HTMLDivElement>(null);
   const timeRef = useRef(timeSecondsAt);
   const readyRef = useRef(onReady);
+  const openRef = useRef(onOpenWorkstream);
   timeRef.current = timeSecondsAt;
   readyRef.current = onReady;
+  openRef.current = onOpenWorkstream;
 
   useEffect(() => {
     const root = rootRef.current;
@@ -70,6 +75,7 @@ export function DirectorGraphSurface({
       timeSecondsAt: (timestampMs) => timeRef.current(timestampMs),
       reducedMotion: prefersReducedMotion(view),
       ambientMotion,
+      onOpenWorkstream: (workstreamId) => openRef.current?.(workstreamId),
     });
     readyRef.current(host);
 

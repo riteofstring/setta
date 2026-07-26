@@ -129,6 +129,9 @@ function emitBatch(
 function runningTurn(state: CompilerState): PackedGraphTurnInput {
   return {
     index: state.turnIndex,
+    column: 0,
+    columnTop: 0,
+    workstreamId: "fixture",
     inputNodeId: state.inputId,
     outcomeNodeId: null,
     rowSpan: state.row,
@@ -402,6 +405,9 @@ function finishTurn(state: CompilerState, turn: FixtureTurn): void {
   state.row += 1;
   emitBatch(state, [node], [edge], {
     index: state.turnIndex,
+    column: 0,
+    columnTop: 0,
+    workstreamId: "fixture",
     inputNodeId: state.inputId,
     outcomeNodeId: id,
     rowSpan: state.row,

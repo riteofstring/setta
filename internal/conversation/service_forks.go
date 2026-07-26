@@ -17,7 +17,7 @@ import (
 // this process.
 func (service *Service) executeBranchDecision(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	parentConversationID string,
 	forkedAtTurnID string,
 	title string,
@@ -36,7 +36,7 @@ func (service *Service) executeBranchDecision(
 	childConversationID, err := service.branchConversationID(
 		requestedChildConversationID,
 		"conversation",
-		"routed child conversation id",
+		"director child conversation id",
 	)
 	if err != nil {
 		return ConversationSnapshot{}, err
@@ -45,7 +45,7 @@ func (service *Service) executeBranchDecision(
 	now := service.timestamp()
 	conversation := TopicConversation{
 		ID:              childConversationID,
-		WorkspaceID:     &workspaceID,
+		WorkspaceID:     cloneOptionalStringValue(workspaceID),
 		Title:           title,
 		TopicDescriptor: title,
 		Status:          ConversationStatusIdle,
@@ -92,7 +92,22 @@ func (service *Service) executeBranchDecision(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	return service.store.ReadSnapshot(ctx, workspaceID, childConversationID)
+	return service.readBranchSnapshot(ctx, workspaceID, childConversationID)
+}
+
+// readBranchSnapshot reads the child back through whichever scope it was created
+// in. A folder-bound child is read through its workspace so the read is checked
+// against the same scope it was written under; a folderless one has no workspace
+// to check it against.
+func (service *Service) readBranchSnapshot(
+	ctx context.Context,
+	workspaceID *string,
+	childConversationID string,
+) (ConversationSnapshot, error) {
+	if workspaceID == nil {
+		return service.store.ReadSnapshotByID(ctx, childConversationID)
+	}
+	return service.store.ReadSnapshot(ctx, *workspaceID, childConversationID)
 }
 
 // branchSourceTrajectorySequence proves the branch point is a completed turn of
@@ -100,7 +115,7 @@ func (service *Service) executeBranchDecision(
 // to.
 func (service *Service) branchSourceTrajectorySequence(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	parentConversationID string,
 	forkedAtTurnID string,
 ) (int, error) {
@@ -108,7 +123,7 @@ func (service *Service) branchSourceTrajectorySequence(
 	lock.Lock()
 	defer lock.Unlock()
 
-	if _, err := service.snapshotLocked(ctx, &workspaceID, parentConversationID); err != nil {
+	if _, err := service.snapshotLocked(ctx, workspaceID, parentConversationID); err != nil {
 		return 0, err
 	}
 	turn, sourceTrajectorySequence, found, err := service.store.readConversationTurn(

@@ -3,8 +3,19 @@ import { Fragment, memo, type ReactNode } from "react";
 type MarkdownBlock =
   | { kind: "heading"; level: 1 | 2 | 3 | 4; text: string }
   | { kind: "paragraph"; text: string }
-  | { kind: "list"; ordered: boolean; items: string[] }
+  | { kind: "list"; ordered: boolean; items: MarkdownListItem[] }
   | { kind: "code"; text: string };
+
+/**
+ * A list item, and whether it was written as a task.
+ *
+ * `- [ ] thing` is how a model writes a checklist, and rendering the brackets
+ * literally is the single most common way generated prose looks broken.
+ */
+interface MarkdownListItem {
+  checked: boolean | null;
+  text: string;
+}
 
 type ParsedMarkdownBlock = {
   block: MarkdownBlock;
@@ -47,7 +58,17 @@ function MarkdownBlockView({
       return (
         <Tag>
           {block.items.map((item, index) => (
-            <li key={index}>{renderInlineMarkdown(item)}</li>
+            <li data-task={item.checked === null ? undefined : String(item.checked)} key={index}>
+              {item.checked === null ? null : (
+                <span aria-hidden="true" className="markdown-task-mark">
+                  {item.checked ? "✓" : "○"}
+                </span>
+              )}
+              {item.checked === null ? null : (
+                <span className="sr-only">{item.checked ? "Done: " : "To do: "}</span>
+              )}
+              {renderInlineMarkdown(item.text)}
+            </li>
           ))}
         </Tag>
       );
@@ -145,14 +166,14 @@ function parseListBlock(
   if (!expression.test(lines[index] ?? "")) {
     return null;
   }
-  const items: string[] = [];
+  const items: MarkdownListItem[] = [];
   let nextIndex = index;
   while (nextIndex < lines.length) {
     const match = expression.exec(lines[nextIndex] ?? "");
     if (!match) {
       break;
     }
-    items.push(match[1] ?? "");
+    items.push(parseMarkdownListItem(match[1] ?? ""));
     nextIndex += 1;
   }
   return { block: { kind: "list", ordered, items }, nextIndex };
@@ -186,11 +207,51 @@ function lineStartsParagraph(line: string): boolean {
   );
 }
 
-function renderInlineMarkdown(text: string): ReactNode {
+const taskItemExpression = /^\[([ xX])\]\s+/;
+
+function parseMarkdownListItem(text: string): MarkdownListItem {
+  const match = taskItemExpression.exec(text);
+  if (match === null) {
+    return { checked: null, text };
+  }
+  return {
+    checked: (match[1] ?? " ").toLowerCase() === "x",
+    text: text.slice(match[0].length),
+  };
+}
+
+/**
+ * Inline spans: code first, then emphasis.
+ *
+ * Code is split off first because its content is verbatim — an asterisk inside
+ * backticks is an asterisk. Emphasis is then applied only to the remainder, so
+ * `**bold**` cannot eat a code span's markers.
+ */
+export function renderInlineMarkdown(text: string): ReactNode {
   const parts = text.split(/(`[^`]+`)/g);
   return parts.map((part, index) => {
     if (part.startsWith("`") && part.endsWith("`") && part.length > 1) {
       return <code key={index}>{part.slice(1, -1)}</code>;
+    }
+    return <Fragment key={index}>{renderInlineEmphasis(part)}</Fragment>;
+  });
+}
+
+// `**` before `*` so a bold run is not read as two italics, and `_` only at a
+// word boundary so snake_case identifiers survive.
+const emphasisExpression = /(\*\*[^*]+\*\*|\*[^*]+\*|\b_[^_]+_\b)/g;
+
+function renderInlineEmphasis(text: string): ReactNode {
+  const parts = text.split(emphasisExpression);
+  return parts.map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+      return <em key={index}>{part.slice(1, -1)}</em>;
+    }
+    if (part.startsWith("_") && part.endsWith("_") && part.length > 2) {
+      return <em key={index}>{part.slice(1, -1)}</em>;
     }
     return <Fragment key={index}>{part}</Fragment>;
   });

@@ -22,32 +22,32 @@ func TestServiceExecutesAIAuthoredSideAndForkThroughOneValidatedBoundary(t *test
 
 	forked, err := service.ExecuteBranchDecision(
 		ctx,
-		workspaceID,
+		&workspaceID,
 		BranchDecisionExecutionScope{
 			ParentConversationID: parent.Conversation.ID,
-			Source:               BranchDecisionSourceConversationRouter,
+			Source:               BranchDecisionSourceDirector,
 		},
 		BranchDecision{
 			Kind: BranchDecisionKindForkConversation,
 			ForkConversation: &ForkConversationBranchDecision{
 				ForkedAtTurnID: latestSnapshotTurn(completed).ID,
-				ProposedTitle:  "Router-authored fork",
+				ProposedTitle:  "Director-authored fork",
 			},
 		},
 	)
 	if err != nil {
 		t.Fatalf("ExecuteBranchDecision fork: %v", err)
 	}
-	if forked.Branch == nil || forked.Branch.DecisionSource != BranchDecisionSourceConversationRouter {
+	if forked.Branch == nil || forked.Branch.DecisionSource != BranchDecisionSourceDirector {
 		t.Fatalf("routed fork audit = %+v", forked.Branch)
 	}
 
 	sided, err := service.ExecuteBranchDecision(
 		ctx,
-		workspaceID,
+		&workspaceID,
 		BranchDecisionExecutionScope{
 			ParentConversationID: parent.Conversation.ID,
-			Source:               BranchDecisionSourceConversationRouter,
+			Source:               BranchDecisionSourceDirector,
 		},
 		BranchDecision{
 			Kind:                   BranchDecisionKindCreateSideConversation,
@@ -58,7 +58,7 @@ func TestServiceExecutesAIAuthoredSideAndForkThroughOneValidatedBoundary(t *test
 		t.Fatalf("ExecuteBranchDecision side: %v", err)
 	}
 	side := requireOnlySideConversation(t, sided)
-	if side.DecisionSource != BranchDecisionSourceConversationRouter {
+	if side.DecisionSource != BranchDecisionSourceDirector {
 		t.Fatalf("local side audit = %+v", side)
 	}
 	if _, err := service.DisposeSideConversation(
@@ -75,10 +75,10 @@ func TestServiceRejectsMalformedBranchDecisionBeforeProviderExecution(t *testing
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	_, err := service.ExecuteBranchDecision(
 		context.Background(),
-		workspaceID,
+		&workspaceID,
 		BranchDecisionExecutionScope{
 			ParentConversationID: "conversation-missing",
-			Source:               BranchDecisionSourceConversationRouter,
+			Source:               BranchDecisionSourceDirector,
 		},
 		BranchDecision{Kind: BranchDecisionKindCreateSideConversation},
 	)

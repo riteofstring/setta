@@ -50,6 +50,27 @@ import { SpeechProviderSelectionStore } from "./speech-provider-selection-store"
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { registerAppWindowDragIpcHandlers } from "./window-drag";
 
+/*
+ * Losing the log pipe is not a crash.
+ *
+ * Whoever launched this app owns its stdout and stderr, and they can go away
+ * while the app is still running — a terminal closes, a test harness exits, a
+ * parent process dies. The next write then fails with EPIPE, and because it is
+ * thrown from the stream rather than from anything the app called, it surfaces
+ * as an uncaught exception dialog in front of the user. Nothing they were doing
+ * has actually gone wrong: only the destination of a log line has.
+ *
+ * So a dead pipe silences logging and the app carries on. Any other stream
+ * error is left to fail, because it is not this condition.
+ */
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on("error", (error: NodeJS.ErrnoException) => {
+    if (error.code !== "EPIPE") {
+      throw error;
+    }
+  });
+}
+
 let backend: BackendHandle | null = null;
 let codexAccountEventStream: CodexAccountEventStream | null = null;
 let backendStartupError: string | null = null;
@@ -90,7 +111,15 @@ const directorEvents = new DirectorEventRegistry({
   },
 });
 const compactWindowMinHeight = 320;
-const compactWindowMinWidth = 320;
+/*
+ * The narrowest useful window, per platform.
+ *
+ * macOS draws its window buttons inside the renderer's own top bar, and the
+ * bar reserves 80px for them. At 320px there is not enough left for the
+ * workstream identity and the view controls, so the floor on darwin is that
+ * 80px higher — the constraint is the platform's, not the layout's.
+ */
+const compactWindowMinWidth = process.platform === "darwin" ? 400 : 320;
 const backendRequestDrainTimeoutMs = 1_500;
 function desktopRoot() {
   return process.cwd();

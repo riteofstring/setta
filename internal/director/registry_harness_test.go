@@ -485,6 +485,8 @@ func (harness *registryHarness) emitArtifact(
 		TurnID:             &turnID,
 		TrajectorySequence: &sequence,
 		Title:              title,
+		Kind:               "Report",
+		Summary:            "What this registry fixture artifact claims.",
 		CreatedAt:          at,
 		Document: conversation.ArtifactDocument{
 			Language:  conversation.ArtifactDocumentLanguageOpenUI,
@@ -665,14 +667,22 @@ func (harness *registryHarness) appendFact(fact DirectorFactEvent) DirectorFactE
 // the child conversation record, so the registry knows where a workstream came
 // from before it admits and anchors it.
 func (harness *registryHarness) publishBranch(childConversationID string, parentConversationID string) {
+	harness.publishBranchFrom(childConversationID, parentConversationID, "turn-parent")
+}
+
+func (harness *registryHarness) publishBranchFrom(
+	childConversationID string,
+	parentConversationID string,
+	forkedAtTurnID string,
+) {
 	harness.t.Helper()
 	at := harness.now()
 	branch := conversation.ConversationBranch{
 		ChildConversationID:      childConversationID,
 		ParentConversationID:     parentConversationID,
 		Kind:                     conversation.BranchKindFork,
-		DecisionSource:           conversation.BranchDecisionSourceConversationRouter,
-		ForkedAtTurnID:           "turn-parent",
+		DecisionSource:           conversation.BranchDecisionSourceDirector,
+		ForkedAtTurnID:           forkedAtTurnID,
 		SourceTrajectorySequence: 1,
 		CreatedAt:                at,
 	}
@@ -686,6 +696,21 @@ func (harness *registryHarness) publishBranch(childConversationID string, parent
 		at,
 		nil,
 	)
+}
+
+// forkConversation publishes a branch the way the conversation service does:
+// the parentage first, then the child conversation the registry anchors under
+// it.
+func (harness *registryHarness) forkConversation(
+	parentConversationID string,
+	childConversationID string,
+	title string,
+	forkedAtRunID string,
+	workspaceID *string,
+) string {
+	harness.t.Helper()
+	harness.publishBranchFrom(childConversationID, parentConversationID, forkedAtRunID)
+	return harness.createConversation(childConversationID, title, workspaceID)
 }
 
 // subscribeFromSnapshot starts a subscription at the cursor a fresh snapshot

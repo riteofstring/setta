@@ -1,4 +1,4 @@
-import type { DirectorIntent, DirectorReceipt, SpeechCapabilities } from "@generated/backend";
+import type { SpeechCapabilities } from "@generated/backend";
 import { describe, expect, test, vi } from "vitest";
 
 import {
@@ -33,16 +33,9 @@ describe("Director speech capture controller", () => {
     });
     await flushPromises();
 
-    expect(harness.dispatch).toHaveBeenCalledWith({
-      cancelRun: null,
-      createWorkstream: null,
-      kind: "submit",
-      moveSelection: null,
-      resolveApproval: null,
-      resolveResourceRequest: null,
-      selectWorkstream: null,
-      submit: { modality: "voice", text: "Find the failing workflow" },
-    });
+    // Voice hands the transcript to the shell's own submit, so it routes to
+    // whatever view is current rather than always to the Director.
+    expect(harness.submit).toHaveBeenCalledWith("Find the failing workflow");
     expect(harness.controller.getSnapshot().capture).toMatchObject({
       receiptText: "Started.",
       transcript: "Find the failing workflow",
@@ -52,12 +45,9 @@ describe("Director speech capture controller", () => {
     expect(harness.onCaptureEnd).toHaveBeenCalledOnce();
   });
 
-  test("keeps the finalized transcript retryable when Director dispatch fails", async () => {
+  test("keeps the finalized transcript retryable when submission fails", async () => {
     const harness = createHarness({
-      dispatch: vi
-        .fn()
-        .mockRejectedValueOnce(new Error("offline"))
-        .mockResolvedValueOnce(receipt("Retried.")),
+      submit: vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce("Retried."),
     });
     await harness.controller.synchronizeRuntime("runtime-alpha");
     await harness.controller.start();
@@ -83,11 +73,8 @@ describe("Director speech capture controller", () => {
     harness.controller.retrySubmission();
     await flushPromises();
 
-    expect(harness.dispatch).toHaveBeenCalledTimes(2);
-    expect(harness.dispatch.mock.calls[1]?.[0]).toMatchObject({
-      kind: "submit",
-      submit: { modality: "voice", text: "Retry this exact request" },
-    });
+    expect(harness.submit).toHaveBeenCalledTimes(2);
+    expect(harness.submit.mock.calls[1]?.[0]).toBe("Retry this exact request");
     expect(harness.controller.getSnapshot().capture).toMatchObject({
       receiptText: "Retried.",
       type: "submitted",
@@ -108,7 +95,7 @@ describe("Director speech capture controller", () => {
     await flushPromises();
 
     expect(harness.session.cancel).toHaveBeenCalledOnce();
-    expect(harness.dispatch).not.toHaveBeenCalled();
+    expect(harness.submit).not.toHaveBeenCalled();
     expect(harness.controller.getSnapshot()).toMatchObject({
       capture: { type: "idle" },
       runtimeId: "runtime-beta",
@@ -118,25 +105,25 @@ describe("Director speech capture controller", () => {
 
 function createHarness(
   overrides: Partial<{
-    dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
+    submit: (text: string) => Promise<string | null>;
   }> = {},
 ) {
   const session = new FakeVoiceCaptureSession();
-  const dispatch = vi.fn(overrides.dispatch ?? (async () => receipt("Started.")));
+  const submit = vi.fn(overrides.submit ?? (async () => "Started."));
   const onCaptureEnd = vi.fn();
   const onCaptureStart = vi.fn();
   const dependencies: DirectorSpeechCaptureControllerDependencies = {
     captureProvider: new FakeVoiceInputProvider(session),
     clearTimeout: vi.fn(),
     createCaptureSessionId: () => "capture-1",
-    dispatchDirectorIntent: dispatch,
+    submitTranscript: submit,
     onCaptureEnd,
     onCaptureStart,
     setTimeout: vi.fn(() => "timer"),
   };
   return {
     controller: new DirectorSpeechCaptureController(dependencies),
-    dispatch,
+    submit,
     onCaptureEnd,
     onCaptureStart,
     session,
@@ -186,18 +173,6 @@ function capabilities(): SpeechCapabilities {
       provider: "openai",
       version: "test",
       voiceIds: ["marin"],
-    },
-  };
-}
-
-function receipt(replyText: string): DirectorReceipt {
-  return {
-    kind: "submit",
-    selectedWorkstreamId: "workstream-alpha",
-    submit: {
-      intentId: "intent-alpha",
-      replyText,
-      toolCalls: [],
     },
   };
 }

@@ -145,7 +145,7 @@ func TestListNavigatorPageReturnsForkLineageAndPresentationIdentity(t *testing.T
 		ChildConversationID:      child.ID,
 		ParentConversationID:     parent.ID,
 		Kind:                     BranchKindFork,
-		DecisionSource:           BranchDecisionSourceConversationRouter,
+		DecisionSource:           BranchDecisionSourceDirector,
 		ForkedAtTurnID:           sourceTurn.ID,
 		SourceTrajectorySequence: 0,
 		CreatedAt:                child.CreatedAt,
@@ -189,7 +189,7 @@ func TestListNavigatorPageReturnsForkLineageAndPresentationIdentity(t *testing.T
 	item := page.Items[0]
 	if item.Branch == nil ||
 		item.Branch.ParentConversationID != parent.ID ||
-		item.Branch.DecisionSource != BranchDecisionSourceConversationRouter {
+		item.Branch.DecisionSource != BranchDecisionSourceDirector {
 		t.Fatalf("navigator branch = %+v, want parent %s", item.Branch, parent.ID)
 	}
 	if item.PresentationProfile.ResolvedPaletteID != conversationpalette.ConversationPaletteSky {

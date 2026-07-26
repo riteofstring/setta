@@ -1,4 +1,4 @@
-/* global CSS, Element, HTMLButtonElement, HTMLDialogElement, HTMLElement, KeyboardEvent, MutationObserver, clearTimeout, document, getComputedStyle, matchMedia, queueMicrotask, setTimeout, window */
+/* global CSS, Element, HTMLButtonElement, HTMLDialogElement, HTMLElement, MutationObserver, clearTimeout, document, getComputedStyle, matchMedia, queueMicrotask, setTimeout, window */
 
 (() => {
   const version = "setta-director-command-center-workflow-driver-v1";
@@ -10,50 +10,11 @@
     }
     Object.assign(driver, {
       directorCommandCenterWorkflowArtifactBrowserState,
-      directorCommandCenterWorkflowHistoryModalState,
       directorCommandCenterWorkflowMinimumCompactLayout,
       directorCommandCenterWorkflowOpenArtifact,
       directorCommandCenterWorkflowRailLayout,
       directorCommandCenterWorkflowVersion: version,
     });
-  }
-
-  function directorCommandCenterWorkflowHistoryModalState() {
-    const background = document.querySelector(".director-command-center-content");
-    const close = document.querySelector(
-      '.director-history-dialog button[aria-label="Close history"]',
-    );
-    const dialog = document.querySelector('[role="dialog"].director-history-overlay');
-    if (
-      !(background instanceof HTMLElement) ||
-      !(close instanceof HTMLButtonElement) ||
-      !(dialog instanceof HTMLElement)
-    ) {
-      return { ready: false };
-    }
-    const focusedInitially = document.activeElement === close;
-    dispatchTab(close, false);
-    const focusedAfterTab = document.activeElement === close;
-    dispatchTab(close, true);
-    return {
-      backgroundHidden: background.getAttribute("aria-hidden") === "true",
-      backgroundInert: background.inert,
-      focusedAfterShiftTab: document.activeElement === close,
-      focusedAfterTab,
-      focusedInitially,
-      ready: true,
-    };
-  }
-
-  function dispatchTab(target, shiftKey) {
-    target.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        bubbles: true,
-        cancelable: true,
-        key: "Tab",
-        shiftKey,
-      }),
-    );
   }
 
   function directorCommandCenterWorkflowRailLayout() {
@@ -72,13 +33,14 @@
     if (!(node instanceof HTMLElement)) {
       return null;
     }
-    const rect = node.getBoundingClientRect();
+    const box = node.getBoundingClientRect();
     return {
-      bottom: rect.bottom,
-      left: rect.left,
-      right: rect.right,
-      top: rect.top,
-      width: rect.width,
+      bottom: box.bottom,
+      height: box.height,
+      left: box.left,
+      right: box.right,
+      top: box.top,
+      width: box.width,
     };
   }
 

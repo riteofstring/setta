@@ -116,10 +116,13 @@ func validateSnapshotWorkstreamEntry(
 	if authority.KnownWorkstreams[entry.Workstream.ID] {
 		return fmt.Errorf("director snapshot repeats workstream %q", entry.Workstream.ID)
 	}
-	if entry.DetailLevel != WorkstreamDetailSelected {
+	// Full detail is how much of a workstream is carried, not which one the
+	// user picked. With nothing selected the Director's own view carries every
+	// windowed workstream whole, so there is no selection for it to agree with.
+	if entry.DetailLevel != WorkstreamDetailSelected || selectedWorkstreamID == nil {
 		return nil
 	}
-	if selectedWorkstreamID == nil || *selectedWorkstreamID != entry.Workstream.ID {
+	if *selectedWorkstreamID != entry.Workstream.ID {
 		return fmt.Errorf(
 			"director snapshot marks workstream %s selected but selection points elsewhere",
 			entry.Workstream.ID,
@@ -129,21 +132,44 @@ func validateSnapshotWorkstreamEntry(
 }
 
 func validateSnapshotDetailCounts(snapshot DirectorSnapshot, levelCounts map[WorkstreamDetailLevel]int) error {
+	/*
+	 * Full detail is how much of a workstream the snapshot carries, not which
+	 * one the user picked. Those coincide while something is selected — the one
+	 * you are reading is the one drawn whole — and come apart on the Director's
+	 * own view, where nothing is selected and every workstream is drawn.
+	 */
 	selectedCount := levelCounts[WorkstreamDetailSelected]
-	if selectedCount > 1 {
-		return fmt.Errorf("director snapshot marks %d workstreams selected", selectedCount)
+	if snapshot.SelectedWorkstreamID == nil {
+		if selectedCount > MaxSnapshotAdjacentGraphs {
+			return fmt.Errorf(
+				"director snapshot draws %d workstreams whole with none selected, max %d",
+				selectedCount,
+				MaxSnapshotAdjacentGraphs,
+			)
+		}
+	} else {
+		if selectedCount > 1 {
+			return fmt.Errorf("director snapshot marks %d workstreams selected", selectedCount)
+		}
+		if selectedCount == 0 {
+			return fmt.Errorf(
+				"director snapshot selects workstream %q that is not in the window",
+				*snapshot.SelectedWorkstreamID,
+			)
+		}
 	}
-	if snapshot.SelectedWorkstreamID != nil && selectedCount == 0 {
-		return fmt.Errorf(
-			"director snapshot selects workstream %q that is not in the window",
-			*snapshot.SelectedWorkstreamID,
-		)
+	// Compact graphs are context beside a selected workstream and tiles on the
+	// Director's own view, which is why the two have different budgets: a
+	// handful of neighbours against a grid of everything running.
+	compactBudget := MaxSnapshotAdjacentGraphs
+	if snapshot.SelectedWorkstreamID == nil {
+		compactBudget = MaxDirectorTiledGraphs
 	}
-	if adjacentCount := levelCounts[WorkstreamDetailAdjacent]; adjacentCount > MaxSnapshotAdjacentGraphs {
+	if adjacentCount := levelCounts[WorkstreamDetailAdjacent]; adjacentCount > compactBudget {
 		return fmt.Errorf(
-			"director snapshot holds %d adjacent workstreams, max %d",
+			"director snapshot holds %d compact workstreams, max %d",
 			adjacentCount,
-			MaxSnapshotAdjacentGraphs,
+			compactBudget,
 		)
 	}
 	return nil

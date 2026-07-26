@@ -86,6 +86,10 @@ type SettaWorkstreamSummary struct {
 	HasActiveRun        bool                         `json:"hasActiveRun"`
 	QueuedRunCount      int                          `json:"queuedRunCount"`
 	RecoverableFailures []DecisionRecoverableFailure `json:"recoverableFailures"`
+	// Narration is what the narrator has said about this workstream, newest
+	// last. It rides every listing rather than needing a call, so the Director
+	// always has an account of every workstream and spends nothing to get one.
+	Narration []WorkstreamNarration `json:"narration"`
 	// WorkspaceID is the folder the workstream is scoped to, null when the
 	// workstream has no folder. A workstream without one still runs work that
 	// needs none of the user's files.
@@ -122,24 +126,44 @@ type SettaToolReceipt struct {
 // registry the calls are authorized against and the executor they run through,
 // and no provider identity at all: what a tool call is worth is a product
 // question, not a Codex one.
+/*
+ * DirectorNarratorPort answers a question about one conversation.
+ *
+ * The narrator already holds that conversation's context and answers the
+ * question that was asked, which is why the Director gets this rather than the
+ * raw trajectory: handing it a transcript would make it re-derive, worse and at
+ * length, what the narrator derives well.
+ */
+type DirectorNarratorPort interface {
+	AskConversationStatus(ctx context.Context, conversationID string, question string) (string, error)
+}
+
 type SettaToolbox struct {
 	registry *Registry
 	executor *DecisionExecutor
+	narrator DirectorNarratorPort
 }
 
-// NewSettaToolbox builds the catalog over trusted state and the execution port.
-func NewSettaToolbox(registry *Registry, executor *DecisionExecutor) (*SettaToolbox, error) {
-	if registry == nil || executor == nil {
-		return nil, errors.New("setta toolbox requires the registry and the decision executor")
+// NewSettaToolbox builds the catalog over trusted state, the execution port,
+// and the narrator the Director asks when a listing's account is not enough.
+func NewSettaToolbox(
+	registry *Registry,
+	executor *DecisionExecutor,
+	narrator DirectorNarratorPort,
+) (*SettaToolbox, error) {
+	if registry == nil || executor == nil || narrator == nil {
+		return nil, errors.New(
+			"setta toolbox requires the registry, the decision executor, and the narrator port",
+		)
 	}
-	return &SettaToolbox{registry: registry, executor: executor}, nil
+	return &SettaToolbox{registry: registry, executor: executor, narrator: narrator}, nil
 }
 
 // Tools returns the catalog bound to one submitted intent. The intent is what
 // the durable decision each call commits is recorded against, so the Director's
 // tool calls stay attributable to the request that produced them.
 func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
-	if box == nil || box.registry == nil || box.executor == nil {
+	if box == nil || box.registry == nil || box.executor == nil || box.narrator == nil {
 		return nil, ErrDirectorUnavailable
 	}
 	if err := validateSubmittedIntent(intent); err != nil {
@@ -162,12 +186,33 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 		},
 		{
 			Name: "read_activity",
-			Description: "Report what Setta is doing right now: the app-wide counts, every tracked workstream, " +
-				"the approvals waiting for an answer, and the folders work is waiting for. Call this to answer " +
-				"\"what is happening?\" instead of guessing, and to get the ids resolve_approval and " +
-				"resolve_resource_request need.",
+			Description: "Report what Setta is doing right now: the app-wide counts, every tracked workstream " +
+				"with the narrator's own account of what it has come to, the approvals waiting for an answer, " +
+				"and the folders work is waiting for. Call this to answer \"what is happening?\" instead of " +
+				"guessing, and to get the ids resolve_approval and resolve_resource_request need.",
 			InputSchema: settaToolSchema(nil, nil),
 			Handler:     box.readActivity(intent),
+		},
+		{
+			Name: "ask_conversation",
+			Description: "Ask one workstream's conversation a specific question and get its narrator's " +
+				"answer: current state, the evidence for it, and the blocker or next step when there is " +
+				"one. Every listing already carries what the narrator has said, so call this only when a " +
+				"question needs more than that — why something failed, or what a run is waiting on.",
+			InputSchema: settaToolSchema(
+				map[string]any{
+					"workstreamId": map[string]any{
+						"type":        "string",
+						"description": "The workstream to ask about, from list_workstreams or read_activity.",
+					},
+					"question": map[string]any{
+						"type":        "string",
+						"description": "One specific question about that conversation, in the user's terms.",
+					},
+				},
+				[]string{"workstreamId", "question"},
+			),
+			Handler: box.askConversation(),
 		},
 		{
 			Name: "create_workstream",
@@ -184,6 +229,19 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 				"initialInput": settaToolNullableString("The first instruction to run in the new workstream, or null to create it idle.", MaxDecisionAuthoredInputBytes),
 			}, []string{"title", "workspaceId", "workspaceRequirement", "initialInput"}),
 			Handler: box.createWorkstream(intent),
+		},
+		{
+			Name: "fork_workstream",
+			Description: "Branch an existing workstream into a new one that inherits its history, and select " +
+				"the branch. Use this when the user wants to try a different direction without losing or " +
+				"disturbing what the original workstream already did. The branch starts idle from the " +
+				"workstream's latest completed run: send it the new direction with submit_work afterwards. " +
+				"Only a workstream that has completed a run can be forked.",
+			InputSchema: settaToolSchema(map[string]any{
+				"workstreamId": settaToolString("The workstream to branch, from list_workstreams.", MaxDecisionReferenceBytes),
+				"title":        settaToolString("A short human title for the branch.", MaxDecisionTitleBytes),
+			}, []string{"workstreamId", "title"}),
+			Handler: box.forkWorkstream(intent),
 		},
 		{
 			Name:        "select_workstream",
@@ -316,6 +374,14 @@ type settaRenameArguments struct {
 	Title        string `json:"title"`
 }
 
+// settaForkArguments names the workstream to branch and what to call the
+// branch. It does not name where the branch is taken from: that is the
+// parent's latest completed run, which trusted state resolves.
+type settaForkArguments struct {
+	WorkstreamID string `json:"workstreamId"`
+	Title        string `json:"title"`
+}
+
 type settaRecoverArguments struct {
 	WorkstreamID   string `json:"workstreamId"`
 	FailureEventID string `json:"failureEventId"`
@@ -398,6 +464,7 @@ func settaWorkstreamSummaries(decisionContext DirectorDecisionContext) []SettaWo
 				[]DecisionRecoverableFailure{},
 				target.RecoverableFailures...,
 			),
+			Narration: append([]WorkstreamNarration{}, target.Narration...),
 		}
 		if target.ResourceScope.Kind == WorkstreamResourceScopeFolder {
 			workspaceID := target.ResourceScope.Folder.WorkspaceID
@@ -431,6 +498,22 @@ func (box *SettaToolbox) createWorkstream(intent SubmittedIntent) SettaToolHandl
 			},
 		}
 		return box.execute(ctx, intent, "create_workstream", decision)
+	}
+}
+
+func (box *SettaToolbox) forkWorkstream(intent SubmittedIntent) SettaToolHandler {
+	return func(ctx context.Context, arguments json.RawMessage) (SettaToolReceipt, error) {
+		var payload settaForkArguments
+		if err := decodeSettaToolArguments(arguments, &payload); err != nil {
+			return SettaToolReceipt{}, err
+		}
+		return box.execute(ctx, intent, "fork_workstream", DirectorDecision{
+			Kind: DirectorDecisionForkWorkstream,
+			ForkWorkstream: &ForkWorkstreamDecision{
+				WorkstreamID:  payload.WorkstreamID,
+				ProposedTitle: payload.Title,
+			},
+		})
 	}
 }
 

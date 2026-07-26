@@ -8,14 +8,15 @@
   --director-rail-inline: clamp(232px, 27vw, 300px);
   --director-left-rail-inline: var(--director-rail-inline);
   --director-right-rail-inline: var(--director-rail-inline);
-  /* The Director's role accent. Workstreams keep the status palette. */
-  --director-role-accent: oklch(0.84 0.12 195);
   /*
-   * The artifact preview's content viewport. Every card reserves exactly this,
-   * so the rail's height is decided by how many artifacts there are and never
-   * by what any of them contain.
+   * The artifact summary's reserve.
+   *
+   * A card is as tall as what it has to say. The reserve is the floor that
+   * keeps an arriving preview from moving the card under the reader, not a
+   * block of space every card must fill — that block is what made the rail a
+   * column of half-empty boxes.
    */
-  --director-artifact-preview-block: 108px;
+  --director-artifact-preview-block: 34px;
   background:
     radial-gradient(circle at 50% 10%, oklch(0.25 0.06 230 / 0.42), transparent 34%),
     linear-gradient(180deg, oklch(0.11 0.01 260), oklch(0.07 0.006 260));
@@ -68,85 +69,83 @@
   transform: translateY(0);
 }
 
+/*
+ * A control is drawn at its own weight and touched at a common one.
+ *
+ * The drawn box is hairline and transparent, at the mockup's padding. The 44 px
+ * pointer target is a centred overlay on top of it, so meeting the target costs
+ * nothing visually — which is the whole point. A 40 px filled box everywhere is
+ * how an interface that should float over a canvas turns into a toolbar.
+ */
 .director-workstream-dot,
 .director-icon-button,
 .director-composer button,
 .director-action-controls button,
 .director-resource-options button,
-.director-history-close,
-.director-history-open {
+.director-history-close {
   align-items: center;
-  border: 1px solid oklch(0.36 0.03 250 / 0.78);
+  background: transparent;
+  border: 1px solid var(--director-border);
   border-radius: 7px;
-  color: inherit;
+  color: var(--director-muted);
   cursor: pointer;
   display: inline-flex;
   font: inherit;
+  font-size: 11px;
   gap: 7px;
-  min-block-size: 40px;
+  letter-spacing: 0.02em;
+  min-block-size: 30px;
+  position: relative;
   transition-duration: 140ms;
-  transition-property: background-color, border-color, color, opacity, transform;
+  transition-property: background-color, border-color, color;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
-.director-workstream-dot:active,
-.director-icon-button:active,
-.director-composer button:active,
-.director-action-controls button:active,
-.director-resource-options button:active,
-.director-history-close:active,
-.director-history-open:active {
-  transform: scale(0.96);
+.director-icon-button::after,
+.director-composer button::after,
+.director-action-controls button::after,
+.director-resource-options button::after,
+.director-history-close::after {
+  block-size: 100%;
+  content: "";
+  inline-size: 100%;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  min-block-size: 44px;
+  min-inline-size: 44px;
+  position: absolute;
+  translate: -50% -50%;
 }
 
+/*
+ * The composer's textarea is deliberately absent here. The pill around it
+ * already lights its border and ring on `:focus-within`, so a second outline
+ * drew a hard rectangle inside a rounded pill — two focus indicators for one
+ * focus, and the uglier of the two on top.
+ */
 .director-workstream-dot:focus-visible,
 .director-icon-button:focus-visible,
-.director-summary-disclosure summary:focus-visible,
-.director-composer textarea:focus-visible,
-.director-composer button:focus-visible,
-.director-action-controls button:focus-visible,
-.director-resource-options button:focus-visible,
-.director-history-close:focus-visible,
-.director-history-open:focus-visible,
-.director-approval-question input:focus-visible,
-.director-approval-question select:focus-visible,
-.director-history-overlay:focus-visible {
-  outline: 2px solid;
-  outline-offset: 2px;
-}
 
-.director-workstream-dot {
-  background: oklch(0.13 0.016 252 / 0.72);
-  block-size: 24px;
-  border-radius: 999px;
-  justify-content: center;
-  min-block-size: 24px;
-  min-inline-size: 24px;
-  padding: 0;
-}
 
-.director-workstream-dot[aria-current="page"] {
-  background: oklch(0.18 0.04 228 / 0.9);
-  border-color: oklch(0.72 0.14 220 / 0.78);
-  color: oklch(0.97 0.02 240);
-}
-
+/* Top-bar navigation is borderless, as the mockup's `.tb-nav` is. */
 .director-icon-button {
-  background: oklch(0.12 0.014 252 / 0.66);
+  border-color: transparent;
   justify-content: center;
-  min-inline-size: 36px;
+  min-inline-size: 32px;
   padding: 0;
 }
 
-.director-icon-button:hover,
-.director-workstream-dot:hover,
+.director-icon-button:hover {
+  background: oklch(1 0 0 / 0.05);
+  color: var(--director-foreground);
+}
+
 .director-composer button:hover,
 .director-action-controls button:hover,
 .director-resource-options button:hover,
-.director-history-close:hover,
-.director-history-open:hover {
-  background: oklch(0.2 0.04 225 / 0.82);
-  border-color: oklch(0.66 0.12 220 / 0.72);
+.director-history-close:hover {
+  border-color: oklch(from var(--director-primary) l c h / 0.55);
+  color: var(--director-foreground);
 }
 
 .director-command-center-stage {
@@ -229,140 +228,107 @@
   gap: 10px;
 }
 
+/*
+ * A kicker names a rail's contents at the weight the mockup uses: small, upper
+ * case, widely tracked, and quiet enough that the content under it is what the
+ * eye lands on.
+ */
 .director-rail-kicker {
-  color: oklch(0.72 0.08 220);
-  font-size: 0.72rem;
-  font-weight: 700;
+  color: var(--director-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   margin: 0;
   text-transform: uppercase;
 }
 
-.director-rail-section h2 {
-  font-size: clamp(1.35rem, 2vw, 2.1rem);
-  font-weight: 650;
-  line-height: 1.05;
-  margin: 0;
-  overflow-wrap: anywhere;
-}
+/* The kicker and the rail's one link share a baseline row. */
 
-.director-selected-status,
-.director-history-list li,
-.director-artifact-preview,
-.director-action-item {
-  background: oklch(0.12 0.012 252 / 0.74);
-  border: 1px solid oklch(0.34 0.026 250 / 0.7);
-  border-radius: 8px;
-}
-
-.director-selected-status {
+/*
+ * A rail link is text that acts, so it is drawn as text. The 44 px pointer
+ * target is an invisible overlay centred on the line rather than a 44 px box,
+ * which is what keeps the head row as tall as its own type. The overlay stays
+ * inside the rail's row gap, so it cannot swallow a click meant for the list.
+ */
+.director-history-open {
   align-items: center;
-  display: inline-flex;
-  gap: 8px;
-  justify-self: start;
-  min-block-size: 32px;
-  padding-inline: 10px;
-}
-
-.director-focus-facts {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  min-inline-size: 0;
-}
-
-.director-selected-folder {
-  font-size: 0.82rem;
-  max-inline-size: 100%;
-}
-
-.director-rail-summary {
-  color: oklch(0.78 0.025 250);
-  font-size: 0.88rem;
-  line-height: 1.45;
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.director-summary-disclosure {
-  background: oklch(0.1 0.012 252 / 0.66);
-  border: 1px solid oklch(0.3 0.026 250 / 0.62);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.director-summary-disclosure summary {
-  align-items: center;
-  color: oklch(0.78 0.05 225);
+  background: transparent;
+  border: 0;
+  color: var(--director-faint);
   cursor: pointer;
-  display: flex;
-  font-size: 0.76rem;
-  font-weight: 700;
-  gap: 8px;
-  justify-content: space-between;
-  line-height: 1.2;
-  list-style: none;
-  min-block-size: 38px;
-  padding-inline: 10px;
-  text-transform: uppercase;
-}
-
-.director-summary-disclosure summary::-webkit-details-marker {
-  display: none;
-}
-
-.director-summary-disclosure summary svg {
-  color: oklch(0.66 0.04 240);
+  display: inline-flex;
   flex: none;
+  font: inherit;
+  font-size: 11px;
+  gap: 6px;
+  letter-spacing: 0.02em;
+  padding: 0;
+  position: relative;
   transition-duration: 140ms;
-  transition-property: transform;
+  transition-property: color;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
-.director-summary-disclosure[open] summary svg {
-  transform: rotate(180deg);
+.director-history-open:hover {
+  color: oklch(0.82 0.125 185);
 }
 
-.director-summary-disclosure .director-rail-summary {
-  border-block-start: 1px solid oklch(0.28 0.025 250 / 0.54);
-  padding: 9px 10px 10px;
+.director-history-open::after {
+  block-size: 44px;
+  content: "";
+  inset-block-start: 50%;
+  inset-inline: -6px;
+  position: absolute;
+  translate: 0 -50%;
 }
 
-.director-history-list {
-  display: grid;
-  gap: 8px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/*
+ * A card is for a thing with edges: a produced artifact, or a question the user
+ * has to answer. Activity, history, and identity are text, so a card around
+ * them reads as a panel the rail is not.
+ */
+.director-artifact-preview,
+.director-action-item,
+.director-workspace-start {
+  background: var(--director-card);
+  border: 1px solid var(--director-card-border);
+  border-radius: 8px;
 }
 
-.director-history-list li {
-  color: oklch(0.84 0.025 250);
-  font-size: 0.82rem;
-  line-height: 1.35;
-  padding: 9px 10px;
-}
+/*
+ * The longer narrative is available and is never the default reading surface,
+ * so its toggle is the quietest thing in the rail: a word and a caret, with no
+ * box around either. Its 44 px target is the row height, not a drawn button.
+ */
 
-.director-live-status {
-  color: oklch(0.74 0.04 220);
-  font-size: 0.78rem;
-  min-block-size: 1rem;
-}
-
-.director-action-list,
 .director-artifact-gallery {
   display: grid;
   gap: 9px;
 }
 
+/*
+ * Waiting-on-you sits between the canvas and the composer. It is bounded and
+ * scrolls internally, because a run that stacks up approvals must not push the
+ * input off the bottom of the window.
+ */
+.director-pending-actions {
+  display: grid;
+  gap: 8px;
+  inline-size: 100%;
+  max-block-size: min(42vh, 360px);
+  overflow: hidden auto;
+  scrollbar-width: thin;
+}
+
 .director-workspace-start {
   display: grid;
   gap: 8px;
+  padding: 10px;
 }
 
 .director-resource-subtitle {
   color: oklch(0.76 0.04 235);
-  font-size: 0.78rem;
+  font-size: 12px;
   font-weight: 650;
   line-height: 1.25;
   margin: 0;
@@ -377,7 +343,7 @@
 .director-action-item p,
 .director-artifact-preview-title {
   display: block;
-  font-size: 0.84rem;
+  font-size: 13px;
   line-height: 1.35;
   margin: 0;
   overflow-wrap: anywhere;
@@ -392,11 +358,8 @@
 
 .director-action-controls button,
 .director-resource-options button,
-.director-history-close,
-.director-history-open {
-  background: oklch(0.16 0.024 245 / 0.8);
-  min-block-size: 38px;
-  padding-inline: 10px;
+.director-history-close {
+  padding-inline: 11px;
 }
 
 .director-workspace-start-options button[data-source="recent"] {
@@ -406,15 +369,14 @@
 .director-action-controls button:disabled,
 .director-resource-options button:disabled,
 .director-composer button:disabled,
-.director-icon-button:disabled,
-.director-history-open:disabled {
+.director-icon-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 
 .director-resource-options > span {
   color: oklch(0.68 0.03 250);
-  font-size: 0.78rem;
+  font-size: 12px;
 }
 
 /*
@@ -424,10 +386,9 @@
  * in its header is the only thing in it that takes focus.
  */
 .director-artifact-preview {
-  background: oklch(0.12 0.012 252 / 0.74);
+  background: var(--director-card);
   display: grid;
   gap: 8px;
-  grid-template-rows: auto var(--director-artifact-preview-block);
   inline-size: 100%;
   padding: 10px;
   text-align: start;
@@ -451,19 +412,12 @@
 }
 
 .director-artifact-preview-title {
-  color: oklch(0.9 0.025 245);
+  color: var(--director-bright);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   font-weight: 600;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.director-artifact-preview-meta {
-  color: oklch(0.68 0.04 250);
-  display: block;
-  font-size: 0.72rem;
-  line-height: 1.25;
-  margin: 0;
 }
 
 /*
@@ -471,28 +425,87 @@
  * word or a wide table must not be able to change the card's size, so the
  * viewport clips instead of growing and fades its last line out.
  */
+/*
+ * The summary sits on the card, with no ground of its own.
+ *
+ * It used to paint a themed background because the preview blocks were drawn
+ * with the artifact catalog's theme tokens, which followed an appearance mode
+ * the command center never did — without that ground the text rendered dark on
+ * a dark card. Light mode is gone and the catalog now reads the Director's
+ * palette, so the coupling that forced the box is gone with it.
+ */
+/*
+ * The card's body: a line, then whatever evidence the document offers.
+ *
+ * The reserve is a floor rather than a block every card must fill. It keeps an
+ * arriving figure from moving the card under the reader; reserving a fixed
+ * block is what made the rail a column of half-empty boxes.
+ */
 .director-artifact-preview-viewport {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  block-size: var(--director-artifact-preview-block);
-  color: var(--card-foreground);
+  color: var(--director-muted);
+  display: grid;
+  gap: 9px;
+  min-block-size: var(--director-artifact-preview-block);
   min-inline-size: 0;
-  overflow: hidden;
-  padding: 8px;
   pointer-events: none;
 }
 
-.director-artifact-preview-viewport > * {
-  block-size: 100%;
-  mask-image: linear-gradient(to bottom, black calc(100% - 18px), transparent);
+.director-artifact-preview-line {
+  color: var(--director-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.director-artifact-figures {
+  display: grid;
+  gap: 7px;
+}
+
+/*
+ * The single most telling number, at the weight a number earns. The value
+ * leads and the label follows it as a tracked caption, because the figure is
+ * what the eye lands on and the label is what explains it afterwards.
+ */
+.director-artifact-figure {
+  align-items: baseline;
+  display: flex;
+  gap: 7px;
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.director-artifact-figure b {
+  color: var(--director-bright);
+  flex: none;
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.director-artifact-figure span {
+  color: var(--director-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 18px), transparent);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.director-artifact-spark {
+  block-size: 22px;
+  color: oklch(from var(--director-primary) l c h / 0.7);
+  inline-size: 100%;
 }
 
 .director-artifact-preview-status {
   color: var(--muted-foreground);
-  font-size: 0.76rem;
+  font-size: 12px;
   line-height: 1.35;
   margin: 0;
 }
@@ -514,13 +527,13 @@
 
 .director-approval-question label span:first-child {
   color: oklch(0.82 0.05 232);
-  font-size: 0.75rem;
+  font-size: 12px;
   font-weight: 650;
 }
 
 .director-approval-question label span:last-child {
   color: oklch(0.74 0.025 250);
-  font-size: 0.78rem;
+  font-size: 12px;
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
@@ -532,7 +545,7 @@
   border-radius: 7px;
   color: oklch(0.94 0.02 250);
   font: inherit;
-  font-size: 0.86rem;
+  font-size: 13px;
   min-block-size: 40px;
   min-inline-size: 0;
   padding-inline: 10px;
@@ -544,7 +557,7 @@
 
 .director-approval-error {
   color: oklch(0.82 0.14 28);
-  font-size: 0.76rem;
+  font-size: 12px;
   line-height: 1.35;
   margin: 0;
 }
@@ -555,7 +568,28 @@
  * focus containment; these rules only give it the size the command center wants
  * and set the header apart from the document.
  */
+/*
+ * The reading surface is the void, not a panel raised out of it.
+ *
+ * The dialog paints `bg-popover`, which is a lighter slate — that single fill
+ * is why an artifact read as a settings panel floating over the app rather than
+ * a page in the same room as the canvas. It takes the Director's ground and the
+ * canvas texture instead, so opening an artifact feels like the graph resolving
+ * into a document rather than a modal appearing on top of one.
+ */
 .director-artifact-browser {
+  background:
+    radial-gradient(120% 60% at 50% -10%, oklch(0.2 0.03 250 / 0.3), transparent 60%),
+    repeating-conic-gradient(
+      from 0deg at 50% 50%,
+      oklch(0.3 0.04 250 / 0.05) 0% 25%,
+      transparent 0% 50%
+    ),
+    var(--director-ground);
+  background-size:
+    auto,
+    3px 3px,
+    auto;
   block-size: min(840px, calc(100dvh - 64px));
   gap: 0;
   grid-template-rows: auto minmax(0, 1fr);
@@ -566,7 +600,7 @@
 
 .director-artifact-browser-header {
   align-items: start;
-  border-block-end: 1px solid var(--border);
+  border-block-end: 1px solid color-mix(in oklch, var(--director-border) 60%, transparent);
   display: grid;
   gap: 12px;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -579,13 +613,9 @@
   min-inline-size: 0;
 }
 
-.director-artifact-browser-title {
-  overflow-wrap: anywhere;
-}
-
 .director-artifact-browser-position {
   color: var(--muted-foreground);
-  font-size: 0.78rem;
+  font-size: 12px;
   line-height: 1.2;
   margin: 0;
 }
@@ -604,20 +634,54 @@
   min-block-size: 0;
 }
 
-/* The document renders through the Setta OpenUI catalog components, which carry
-   their own styling. The browser owns only the surface they sit on, and adds no
-   card around a document that already frames itself where it wants to. */
+/*
+ * The document renders through the Setta OpenUI catalog components, which carry
+ * their own styling. The browser owns only the surface they sit on, and adds no
+ * card around a document that already frames itself where it wants to.
+ *
+ * The width here is the outer bound for figures — tables, charts, grids. Prose
+ * is bounded far tighter by the catalog itself, because a 78ch line of reading
+ * text is not a line anyone finishes.
+ */
 .director-artifact-browser-document {
   margin-inline: auto;
-  max-inline-size: 78ch;
+  max-inline-size: 60rem;
   min-inline-size: 0;
   overflow-wrap: anywhere;
-  padding: 18px 20px 28px;
+  padding: 26px 24px 120px;
+}
+
+/*
+ * The title block. The overlay bar keeps position and controls; this is where
+ * the artifact is named, once, at the top of its own page.
+ */
+.director-artifact-title-block {
+  margin-block-end: 30px;
+  padding-block-end: 26px;
+  border-block-end: 1px solid color-mix(in oklch, var(--director-border) 70%, transparent);
+}
+
+.director-artifact-title-block h1 {
+  color: var(--director-bright);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.14;
+  margin: 0;
+  max-inline-size: 26ch;
+}
+
+.director-artifact-standfirst {
+  color: var(--director-muted);
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 12px 0 0;
+  max-inline-size: 32rem;
 }
 
 .director-artifact-browser-status {
   color: var(--muted-foreground);
-  font-size: 0.86rem;
+  font-size: 13px;
   line-height: 1.4;
   margin: 0;
 }
@@ -642,7 +706,7 @@
 
 .director-artifact-browser-fallback h2 {
   font-family: var(--setta-font-heading);
-  font-size: 1.05rem;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.3;
   margin: 0;
@@ -662,7 +726,7 @@
 
 .director-resource-error {
   color: oklch(0.78 0.11 25);
-  font-size: 0.78rem;
+  font-size: 12px;
   line-height: 1.4;
   margin: 8px 0 0;
 }
@@ -671,13 +735,20 @@
   margin: 0;
 }
 
-.director-spinner {
-  animation: director-spin 900ms linear infinite;
+/*
+ * Work in progress, in the shell's own language: a filled dot that breathes.
+ * The glow is `currentColor`, so a pulse takes the status colour of whatever
+ * it marks rather than carrying one of its own.
+ */
+.director-pulse {
+  animation: director-pulse 1.4s ease-in-out infinite;
+  fill: currentColor;
+  filter: drop-shadow(0 0 6px currentColor);
 }
 
-@keyframes director-spin {
-  to {
-    transform: rotate(360deg);
+@keyframes director-pulse {
+  50% {
+    opacity: 0.4;
   }
 }
 
@@ -732,27 +803,14 @@
   .director-command-center-skip,
   .director-workstream-dot,
   .director-icon-button,
-  .director-summary-disclosure summary svg,
   .director-composer button,
   .director-action-controls button,
-  .director-resource-options button,
-  .director-history-close,
-  .director-history-open {
+  .director-resource-options button {
     transition-property: opacity, background-color, border-color, color;
   }
 
-  .director-spinner {
+  .director-pulse {
     animation: none;
-  }
-
-  .director-workstream-dot:active,
-  .director-icon-button:active,
-  .director-composer button:active,
-  .director-action-controls button:active,
-  .director-resource-options button:active,
-  .director-history-close:active,
-  .director-history-open:active {
-    transform: none;
   }
 }
 
@@ -825,4 +883,87 @@
   .director-artifact-browser-document {
     padding: 14px 14px 24px;
   }
+}
+
+/*
+ * The empty canvas.
+ *
+ * It sits on the live edge, where the first node would appear, so the answer
+ * shows up where the work will. Pointer-transparent: the canvas underneath
+ * still pans and zooms, because an empty graph is still a graph.
+ */
+.director-graph-empty {
+  display: grid;
+  gap: 5px;
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  justify-items: center;
+  align-content: center;
+  padding-block-end: 12vh;
+  pointer-events: none;
+  text-align: center;
+  z-index: 10;
+}
+
+.director-graph-empty-line {
+  color: oklch(0.78 0.03 250);
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.director-graph-empty-hint {
+  color: oklch(0.58 0.05 250);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  margin: 0;
+}
+
+/*
+ * The kicker: what kind of document this is, above its title.
+ *
+ * It is the model's own word, displayed verbatim — nothing maps it to a colour
+ * or a behaviour, because that would be reading meaning out of free text.
+ */
+.director-artifact-kicker,
+.director-artifact-preview-kind {
+  color: var(--director-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+/*
+ * The kind, with the accent tick that names it at a glance.
+ *
+ * The tick is the artifact's one piece of colour and the only thing in the
+ * title block that is not type: without it the block is three greys stacked,
+ * and the kind reads as a caption rather than as a classification.
+ */
+.director-artifact-kicker {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  margin-block-end: 14px;
+}
+
+.director-artifact-kicker::before {
+  background: var(--director-primary);
+  block-size: 2px;
+  border-radius: 2px;
+  box-shadow: 0 0 10px var(--director-primary);
+  content: "";
+  inline-size: 14px;
+}
+
+/*
+ * On a card the kind carries the artifact's one piece of colour, where the
+ * title block spends it on the tick instead. A rail of cards is scanned rather
+ * than read, and the kind is what distinguishes one from the next.
+ */
+.director-artifact-preview-kind {
+  color: var(--director-primary);
+  margin-block-end: 3px;
 }

@@ -35,19 +35,47 @@
   color: oklch(0.88 0.02 240);
 }
 
+/*
+ * A label is a chip, not floating text.
+ *
+ * The canvas underneath is a halftone-dithered field, so unbacked text has no
+ * consistent ground to sit on and reads as mush wherever the dither is bright.
+ * The tinted background and hairline border are what make it legible; they are
+ * the label's substance, not decoration.
+ *
+ * Two lines is the bound. The mockup ellipses at one because mock text is
+ * short, and the fidelity checklist's section 5 item 7 allows the second line a
+ * real public summary needs — but the budget stays bounded, so the chip can
+ * never grow into a paragraph.
+ */
 .director-graph-label {
   position: absolute;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   max-inline-size: 260px;
-  padding-block-start: 2px;
+  padding: 3px 9px;
+  overflow: hidden;
+  border: 1px solid var(--director-border);
+  border-radius: 8px;
+  background: oklch(from var(--director-ground) l c h / 0.86);
+  color: var(--director-muted);
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
   text-align: center;
-  text-wrap: balance;
-  overflow-wrap: anywhere;
-  text-shadow: 0 1px 6px #05060a;
   will-change: transform, opacity;
 }
 
+/*
+ * The question driving current work. It stays on screen while its turn is open,
+ * so it is the one label that outranks the graph behind it.
+ */
 .director-graph-label-sticky {
-  color: oklch(0.94 0.02 240);
+  z-index: 9;
+  border-color: oklch(0.82 0.125 185 / 0.55);
+  background: oklch(from var(--director-ground) l c h / 0.9);
+  box-shadow: 0 6px 18px oklch(0 0 0 / 0.55);
+  color: var(--director-foreground);
 }
 
 .director-graph-pill {
@@ -60,9 +88,9 @@
   max-inline-size: 320px;
   margin: 0;
   padding: 4px 10px;
-  border: 1px solid oklch(0.34 0.02 250);
+  border: 1px solid var(--director-border);
   border-radius: 999px;
-  background: oklch(0.16 0.01 250 / 0.82);
+  background: oklch(from var(--director-ground) l c h / 0.9);
   color: oklch(0.92 0.02 240);
   font: inherit;
   text-align: start;

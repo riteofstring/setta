@@ -31,14 +31,6 @@ export function selectedWorkstreamEntry(
   );
 }
 
-export function visibleSelectedGraph(snapshot: DirectorSnapshot | null): WorkstreamGraph | null {
-  const selected = selectedWorkstreamEntry(snapshot);
-  if (selected === null) {
-    return null;
-  }
-  return snapshot?.graphs.find((graph) => graph.workstreamId === selected.workstream.id) ?? null;
-}
-
 function required<T>(value: T | null, kind: DirectorEvent["kind"]): T {
   if (value === null) {
     throw new Error(`${kind} event omitted its payload`);

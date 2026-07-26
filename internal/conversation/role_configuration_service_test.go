@@ -417,9 +417,9 @@ func TestPrimaryAgentRoleProfileUsesGlobalWorkspaceConversationPrecedence(t *tes
 	// A branch inherits the workspace role by resolving it when its own first
 	// turn runs. Creating the branch touches no provider at all, so the profile
 	// that matters is the one the child's carrier is started with.
-	fork, err := service.forkRouterTopicForTest(
+	fork, err := service.forkDirectorTopicForTest(
 		ctx,
-		workspaceID,
+		&workspaceID,
 		second.Conversation.ID,
 		turn.ID,
 		"Workspace agent precedence fork",

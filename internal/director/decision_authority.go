@@ -65,7 +65,16 @@ type WorkstreamDecisionTarget struct {
 	ResourceScope  DecisionResourceScope `json:"resourceScope"`
 	ActiveRunID    *string               `json:"activeRunId"`
 	QueuedRunCount int                   `json:"queuedRunCount"`
-	LastMilestone  *DecisionMilestone    `json:"lastMilestone"`
+	// ForkPointRunID is the completed run a fork of this workstream would
+	// branch from, or null when it has completed none. It is the evidence that
+	// makes fork_workstream an authorized decision, the same way a recoverable
+	// failure is what makes recover_path one.
+	ForkPointRunID *string            `json:"forkPointRunId"`
+	LastMilestone  *DecisionMilestone `json:"lastMilestone"`
+	// Narration is the narrator's own account of this workstream's work,
+	// newest last. It is what lets the Director answer a question about a
+	// conversation with something other than its status.
+	Narration []WorkstreamNarration `json:"narration"`
 	// AllowedDecisionKinds is the only action authority this target carries. It
 	// holds workstream-scoped kinds only: creating a workstream is app-scoped
 	// authority, because every workstream the Director creates is independent.
@@ -100,6 +109,7 @@ var workstreamScopedDecisionKinds = []DirectorDecisionKind{
 	DirectorDecisionSendToWorkstream,
 	DirectorDecisionQueueBehindRun,
 	DirectorDecisionSteerRun,
+	DirectorDecisionForkWorkstream,
 	DirectorDecisionSelectWorkstream,
 	DirectorDecisionRecoverPath,
 }
@@ -271,6 +281,11 @@ func (target WorkstreamDecisionTarget) validateIdentity() error {
 			return err
 		}
 	}
+	if target.ForkPointRunID != nil {
+		if err := validateIdentifier("decision target fork point run id", *target.ForkPointRunID); err != nil {
+			return err
+		}
+	}
 	if err := validateCount("decision target queued run count", target.QueuedRunCount); err != nil {
 		return err
 	}
@@ -329,6 +344,12 @@ func (target WorkstreamDecisionTarget) validateRunStateAuthority(allowed map[Dir
 				kind,
 			)
 		}
+	}
+	if allowed[DirectorDecisionForkWorkstream] != (target.ForkPointRunID != nil) {
+		return fmt.Errorf(
+			"decision target %s must offer forking exactly when it has a completed run to branch from",
+			target.WorkstreamID,
+		)
 	}
 	if allowed[DirectorDecisionRecoverPath] !=
 		(idleForDelivery && len(target.RecoverableFailures) > 0) {

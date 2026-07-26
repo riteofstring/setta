@@ -188,6 +188,8 @@ type artifactRecordIdentity struct {
 	workspaceID    *string
 	runID          *string
 	title          string
+	kind           string
+	summary        string
 }
 
 func emittedArtifactIdentity(
@@ -203,6 +205,8 @@ func emittedArtifactIdentity(
 		workspaceID:    workspaceID,
 		runID:          runID,
 		title:          emitted.Title,
+		kind:           emitted.Kind,
+		summary:        emitted.Summary,
 	}
 }
 
@@ -218,6 +222,8 @@ func createdArtifactIdentity(
 		workspaceID:    workspaceID,
 		runID:          metadata.TurnID,
 		title:          metadata.Title,
+		kind:           metadata.Kind,
+		summary:        metadata.Summary,
 	}
 }
 
@@ -251,6 +257,8 @@ func newDeclaredArtifact(
 		RunID:          copyOptionalString(identity.runID),
 		Status:         ArtifactStatusDeclared,
 		Title:          identity.title,
+		Kind:           identity.kind,
+		Summary:        identity.summary,
 		SourceEventIDs: []string{event.ID},
 		CreatedAt:      event.EmittedAt,
 		UpdatedAt:      event.EmittedAt,
@@ -283,6 +291,8 @@ func newAvailableArtifact(
 		RunID:          copyOptionalString(identity.runID),
 		Status:         ArtifactStatusAvailable,
 		Title:          identity.title,
+		Kind:           identity.kind,
+		Summary:        identity.summary,
 		CreatedAt:      metadata.CreatedAt,
 		UpdatedAt:      metadata.CreatedAt,
 	}
@@ -332,6 +342,12 @@ func (state *registryState) applyDirectorFact(event conversation.CommittedEvent)
 		return nil, err
 	}
 	if fact.WorkstreamID == nil {
+		// A selection that named no workstream landed on the Director's own
+		// view, which is a destination rather than the absence of one.
+		if fact.Kind == DirectorFactWorkstreamSelected {
+			state.selected = nil
+			return append(effects, registryEffect{kind: effectSelection}), nil
+		}
 		// An app-scoped decision changed no workstream row, so it updates none.
 		// It is drawn in the Director's own lane and folded as continuity, because
 		// the Director's dialogue is what the next decision is materialized
@@ -500,4 +516,80 @@ func hasSecretQuestion(questions []conversation.TrajectoryApprovalQuestion) bool
 		}
 	}
 	return false
+}
+
+/*
+ * applyNarrationCreated records what the narrator said about one workstream's
+ * work.
+ *
+ * Narration arrives for every conversation Setta runs, including the
+ * Director's own, and only some of those are workstreams. A conversation with
+ * no workstream is not an error here — it is narration about work this
+ * registry does not track — so it is ignored rather than rejected.
+ */
+func (state *registryState) applyNarrationCreated(
+	event conversation.CommittedEvent,
+) ([]registryEffect, error) {
+	payload, err := decodeCommittedPayload[conversation.ConversationNarrationCreatedEventPayload](event)
+	if err != nil {
+		return nil, err
+	}
+	text, reports := workstreamNarrationText(payload.Event)
+	if !reports {
+		return nil, nil
+	}
+	workstreamID, known := state.byConversation[payload.Event.ConversationID]
+	if !known {
+		return nil, nil
+	}
+	workstream, exists := state.workstreams[workstreamID]
+	if !exists {
+		return nil, nil
+	}
+	next := workstream.record
+	next.Narration = appendWorkstreamNarration(next.Narration, WorkstreamNarration{
+		ID:        payload.Event.ID,
+		Kind:      payload.Event.Kind,
+		Text:      text,
+		CreatedAt: payload.Event.CreatedAt,
+	})
+	if err := ValidateWorkstream(next); err != nil {
+		return nil, err
+	}
+	workstream.record = next
+	if err := state.refreshWorkstream(workstream, event.CommittedAt); err != nil {
+		return nil, err
+	}
+	return []registryEffect{{kind: effectWorkstream, id: workstream.record.ID}}, nil
+}
+
+// workstreamNarrationText is the sentence a narration event contributes, and
+// whether it reports on the work at all.
+func workstreamNarrationText(event conversation.NarrationEvent) (string, bool) {
+	switch {
+	case event.Kind == conversation.NarrationEventKindMilestone && event.Milestone != nil:
+		return event.Milestone.Text, true
+	case event.Kind == conversation.NarrationEventKindFinalSummary && event.FinalSummary != nil:
+		return event.FinalSummary.Text, true
+	default:
+		return "", false
+	}
+}
+
+// appendWorkstreamNarration keeps the newest entries and drops the oldest, so
+// a long conversation does not grow the record it is attached to.
+func appendWorkstreamNarration(
+	existing []WorkstreamNarration,
+	next WorkstreamNarration,
+) []WorkstreamNarration {
+	for _, entry := range existing {
+		if entry.ID == next.ID {
+			return existing
+		}
+	}
+	appended := append(append([]WorkstreamNarration{}, existing...), next)
+	if len(appended) <= MaxWorkstreamNarration {
+		return appended
+	}
+	return appended[len(appended)-MaxWorkstreamNarration:]
 }

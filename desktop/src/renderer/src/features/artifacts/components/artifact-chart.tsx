@@ -6,6 +6,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   Line,
   LineChart,
   Pie,
@@ -13,6 +14,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+
+import { cn } from "@renderer/lib/utils";
 
 import {
   ChartContainer,
@@ -83,7 +86,7 @@ export function ArtifactCategoryChart({
 }) {
   const config = categoryChartConfig(series);
   return (
-    <ArtifactChartFigure caption={caption} config={config}>
+    <ArtifactChartFigure caption={caption} config={config} height="h-[196px]">
       {categoryPlot(kind, series, caption)}
     </ArtifactChartFigure>
   );
@@ -109,7 +112,7 @@ export function ArtifactPieChart({
     value: slice.value,
   }));
   return (
-    <ArtifactChartFigure caption={caption} config={config}>
+    <ArtifactChartFigure caption={caption} config={config} height="h-[240px]">
       <PieChart accessibilityLayer aria-label={caption ?? "Pie chart"}>
         <ChartTooltip content={<ChartTooltipContent nameKey="key" />} />
         <Pie data={data} dataKey="value" isAnimationActive={false} nameKey="key">
@@ -123,25 +126,42 @@ export function ArtifactPieChart({
   );
 }
 
+/*
+ * A chart is a figure, so it takes the wider bound rather than the measure —
+ * and a fixed height rather than an aspect ratio, because a plot that grows
+ * with the document's width turns five data points into a wall.
+ */
 function ArtifactChartFigure({
   caption,
   children,
   config,
+  height,
 }: {
   caption: string | undefined;
   children: ReactElement;
   config: ChartConfig;
+  height: string;
 }) {
   return (
-    <figure className="flex flex-col gap-1.5">
+    <figure className="setta-artifact-figure flex flex-col gap-[10px]">
       <ChartContainer
-        className="max-h-64 w-full [&_.recharts-surface:focus-visible]:outline-2 [&_.recharts-surface:focus-visible]:outline-offset-2"
+        /*
+         * `aspect-auto` is load-bearing: the vendored container is `aspect-video`,
+         * so a plot grows with the document's width and turns a handful of data
+         * points into a wall. A chart in a document is a fixed band.
+         */
+        className={cn(
+          "aspect-auto w-full [&_.recharts-surface:focus-visible]:outline-2 [&_.recharts-surface:focus-visible]:outline-offset-2",
+          height,
+        )}
         config={config}
       >
         {children}
       </ChartContainer>
       {caption === undefined ? null : (
-        <figcaption className="text-xs text-muted-foreground">{caption}</figcaption>
+        <figcaption className="setta-artifact-faint text-[12px] leading-[1.4]">
+          {caption}
+        </figcaption>
       )}
     </figure>
   );
@@ -185,24 +205,75 @@ function categoryPlot(
   caption: string | undefined,
 ): ReactElement {
   const rows = categoryRows(series);
-  const legend = series.length > 1 ? <ChartLegend content={<ChartLegendContent />} /> : null;
+  const single = series.length === 1;
+  const legend = single ? null : <ChartLegend content={<ChartLegendContent />} />;
   const label = caption ?? categoryChartLabel(kind);
   switch (kind) {
     case "bar":
+      /*
+       * A bar is a stroke, not a slab.
+       *
+       * Recharts sizes bars to fill their band, which on a wide artifact turns
+       * three data points into three saturated blocks — the loudest thing on
+       * the page by a wide margin, and louder than the graph it sits next to.
+       * A capped width and a falloff toward the baseline make it read as the
+       * same luminous material as the canvas.
+       */
       return (
-        <BarChart accessibilityLayer aria-label={label} data={rows}>
-          <CartesianGrid vertical={false} />
-          <XAxis axisLine={false} dataKey="label" tickLine={false} tickMargin={8} />
-          <YAxis axisLine={false} tickLine={false} tickMargin={8} width={44} />
+        <BarChart accessibilityLayer aria-label={label} data={rows} margin={barMargin(single)}>
+          <defs>
+            {series.map((entry, index) => (
+              <linearGradient
+                id={`${seriesKey(index)}-fill`}
+                key={entry.name}
+                x1="0"
+                x2="0"
+                y1="0"
+                y2="1"
+              >
+                <stop
+                  offset="0%"
+                  stopColor={`var(--color-${seriesKey(index)})`}
+                  stopOpacity={0.95}
+                />
+                <stop
+                  offset="100%"
+                  stopColor={`var(--color-${seriesKey(index)})`}
+                  stopOpacity={0.22}
+                />
+              </linearGradient>
+            ))}
+          </defs>
+          {single ? null : (
+            <CartesianGrid stroke="var(--director-border)" strokeOpacity={0.5} vertical={false} />
+          )}
+          <XAxis
+            axisLine={{ stroke: "var(--director-border)" }}
+            dataKey="label"
+            tickLine={false}
+            tickMargin={9}
+          />
+          {single ? null : <YAxis axisLine={false} tickLine={false} tickMargin={10} width={44} />}
           <ChartTooltip content={<ChartTooltipContent />} />
           {series.map((entry, index) => (
             <Bar
               dataKey={seriesKey(index)}
-              fill={`var(--color-${seriesKey(index)})`}
+              fill={`url(#${seriesKey(index)}-fill)`}
               isAnimationActive={false}
               key={entry.name}
-              radius={2}
-            />
+              maxBarSize={26}
+              radius={[2, 2, 0, 0]}
+            >
+              {single ? (
+                <LabelList
+                  className="fill-[var(--director-muted)] tabular-nums"
+                  dataKey={seriesKey(index)}
+                  fontSize={11}
+                  offset={8}
+                  position="top"
+                />
+              ) : null}
+            </Bar>
           ))}
           {legend}
         </BarChart>
@@ -210,9 +281,9 @@ function categoryPlot(
     case "line":
       return (
         <LineChart accessibilityLayer aria-label={label} data={rows}>
-          <CartesianGrid vertical={false} />
-          <XAxis axisLine={false} dataKey="label" tickLine={false} tickMargin={8} />
-          <YAxis axisLine={false} tickLine={false} tickMargin={8} width={44} />
+          <CartesianGrid stroke="var(--director-border)" strokeOpacity={0.5} vertical={false} />
+          <XAxis axisLine={false} dataKey="label" tickLine={false} tickMargin={10} />
+          <YAxis axisLine={false} tickLine={false} tickMargin={10} width={44} />
           <ChartTooltip content={<ChartTooltipContent />} />
           {series.map((entry, index) => (
             <Line
@@ -230,9 +301,9 @@ function categoryPlot(
     case "area":
       return (
         <AreaChart accessibilityLayer aria-label={label} data={rows}>
-          <CartesianGrid vertical={false} />
-          <XAxis axisLine={false} dataKey="label" tickLine={false} tickMargin={8} />
-          <YAxis axisLine={false} tickLine={false} tickMargin={8} width={44} />
+          <CartesianGrid stroke="var(--director-border)" strokeOpacity={0.5} vertical={false} />
+          <XAxis axisLine={false} dataKey="label" tickLine={false} tickMargin={10} />
+          <YAxis axisLine={false} tickLine={false} tickMargin={10} width={44} />
           <ChartTooltip content={<ChartTooltipContent />} />
           {series.map((entry, index) => (
             <Area
@@ -249,6 +320,17 @@ function categoryPlot(
         </AreaChart>
       );
   }
+}
+
+/*
+ * A single series carries its values above its bars and needs no scale beside
+ * them, which is the mockup's chart: bars on a hairline baseline and nothing
+ * else. More than one series cannot be labelled that way without the numbers
+ * colliding, so it keeps an axis and grid lines to read against. The top
+ * margin is the room the value labels need.
+ */
+function barMargin(single: boolean): { top: number } {
+  return { top: single ? 22 : 8 };
 }
 
 function categoryChartLabel(kind: ArtifactCategoryChartKind): string {

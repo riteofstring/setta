@@ -26,14 +26,63 @@ import {
 } from "./packed-graph-snapshot";
 import type { PackedGraphMode, PackedGraphOutcome } from "./packed-graph-vocabulary";
 
+/*
+ * What the canvas is being asked to show.
+ *
+ * The three are genuinely different presentations, not one with settings. A
+ * conversation is a trajectory you read, and folding old turns out of the way is
+ * how it stays readable. The Director's columns are work you are watching, so
+ * nothing may fold itself away — a conversation that quietly collapsed to a dot
+ * because it finished is the view losing the thing it exists to show. The grid
+ * is already a reduction: each tile is the latest activity and there is nothing
+ * further to fold.
+ */
+export type SemanticGraphPresentation = "conversation" | "columns" | "grid";
+
 export interface SemanticGraphComposition {
   readonly workstreamId: string;
   readonly graphs: readonly WorkstreamGraph[];
+  readonly presentation: SemanticGraphPresentation;
+}
+
+/*
+ * The presentation a set of Director graphs should be drawn in.
+ *
+ * How many conversations is too many for columns is the backend's decision —
+ * it is the same judgement that decides how much of each graph to send, and
+ * two copies of one threshold in two languages would drift. So this reads what
+ * the backend already said: a graph it compacted is one it does not expect to
+ * be read as a column.
+ */
+export function directorPresentationFor(
+  graphs: readonly WorkstreamGraph[],
+  selectedWorkstreamId: string | null,
+): SemanticGraphPresentation {
+  if (selectedWorkstreamId !== null) {
+    return "conversation";
+  }
+  return graphs.some((graph) => graph.detailLevel !== "selected") ? "grid" : "columns";
 }
 
 const settleWindowSeconds = 1.45;
 const compactDelaySeconds = 2.5;
 const workstreamLaneSpacing = 0.42;
+/*
+ * Where the Director's view stops being columns and becomes a grid.
+ *
+ * Past a handful of conversations, side-by-side columns are slivers: each one
+ * loses the width its labels need and the view stops being readable at exactly
+ * the moment it has the most to say. So the lane keeps its full column and the
+ * conversations become tiles — each one its own cell, showing what it is doing
+ * now rather than how it got there.
+ */
+const directorGridWidth = 1.45;
+const directorGridBias = -0.36;
+/** A tile's own vertical room, before its rows are laid inside it. */
+const directorTileHeight = 0.62;
+const directorLeadLane = -0.86;
+/** How much of a conversation a tile shows: its latest activity, and no more. */
+const maxTileNodes = 3;
 
 interface OrderedNode {
   readonly node: SemanticNode;
@@ -47,6 +96,9 @@ interface OrderedNode {
 
 interface PlannedNode {
   readonly ordered: OrderedNode;
+  /** Turn index, which for a composition is the workstream's own column. */
+  readonly turn: number;
+  /** Row within that turn, so every column starts at its own top. */
   readonly row: number;
   readonly role: "input" | "step" | "outcome";
   readonly mode: PackedGraphMode;
@@ -90,16 +142,53 @@ function graphNodes(graphs: readonly WorkstreamGraph[]): OrderedNode[] {
       });
     });
   });
+  /*
+   * Grouped by workstream, then in time within it.
+   *
+   * Ordering by time across the whole composition interleaved the workstreams,
+   * which is the wrong shape for a set of columns: a column has to own one
+   * contiguous run of nodes to be placed and folded as a unit. Time still
+   * orders what happens inside a column, which is the only place it means
+   * anything — two conversations do not share a clock the reader cares about.
+   */
   records.sort((left, right) => {
-    if (left.bornAt !== right.bornAt) {
-      return left.bornAt - right.bornAt;
-    }
     if (left.graphIndex !== right.graphIndex) {
       return left.graphIndex - right.graphIndex;
+    }
+    if (left.bornAt !== right.bornAt) {
+      return left.bornAt - right.bornAt;
     }
     return left.graphOrder - right.graphOrder;
   });
   return records;
+}
+
+/*
+ * A tile is the latest activity, not the trajectory behind it.
+ *
+ * The grid exists because there is no room to read every conversation at once,
+ * so it answers what each one is doing now. Reducing here rather than folding
+ * later keeps the reduction a property of the view: nothing has to animate
+ * closed, and nothing can quietly re-open.
+ */
+function tiledGraphs(composition: SemanticGraphComposition): readonly WorkstreamGraph[] {
+  if (composition.presentation !== "grid") {
+    return composition.graphs;
+  }
+  return composition.graphs.map((graph, index) => {
+    if (index === 0) {
+      return graph;
+    }
+    const kept = graph.nodes.slice(-maxTileNodes);
+    const keptIds = new Set(kept.map((node) => node.id));
+    return {
+      ...graph,
+      nodes: kept,
+      edges: graph.edges.filter(
+        (edge) => keptIds.has(edge.fromNodeId) && keptIds.has(edge.toNodeId),
+      ),
+    };
+  });
 }
 
 function graphEdges(graphs: readonly WorkstreamGraph[]): SemanticEdge[] {
@@ -161,6 +250,43 @@ function workstreamLane(graphIndex: number, graphCount: number): number {
   return (graphIndex - (graphCount - 1) / 2) * workstreamLaneSpacing;
 }
 
+interface ColumnPlacement {
+  readonly lane: number;
+  readonly top: number;
+}
+
+/*
+ * Where each column sits.
+ *
+ * Few enough conversations and they are columns across the view, all starting
+ * at the top. Too many and the first graph — the Director's own lane — keeps a
+ * column on the left while the rest tile into a square-ish grid beside it, in
+ * reading order: oldest top-left, newest bottom-right.
+ */
+function columnPlacements(
+  graphCount: number,
+  presentation: SemanticGraphPresentation,
+): ColumnPlacement[] {
+  if (presentation !== "grid") {
+    return Array.from({ length: graphCount }, (_unused, index) => ({
+      lane: workstreamLane(index, graphCount),
+      top: 0,
+    }));
+  }
+  const tiles = graphCount - 1;
+  const across = Math.ceil(Math.sqrt(tiles));
+  const down = Math.ceil(tiles / across);
+  const cellWidth = directorGridWidth / across;
+  const placements: ColumnPlacement[] = [{ lane: directorLeadLane, top: 0 }];
+  for (let tile = 0; tile < tiles; tile += 1) {
+    placements.push({
+      lane: 0.24 + ((tile % across) - (across - 1) / 2) * cellWidth,
+      top: (Math.floor(tile / across) - (down - 1) / 2) * directorTileHeight + directorGridBias,
+    });
+  }
+  return placements;
+}
+
 function semanticLane(node: SemanticNode): number {
   switch (node.kind) {
     case "delegation":
@@ -180,33 +306,77 @@ function semanticLane(node: SemanticNode): number {
   }
 }
 
+/*
+ * Plans each workstream on its own.
+ *
+ * Rows are local to a column, because a column is a conversation read from its
+ * own beginning: numbering rows across the whole composition put the second
+ * conversation below the end of the first instead of beside its start. One turn
+ * per workstream then makes folding mean what a reader expects — collapse this
+ * conversation — rather than collapsing the view.
+ *
+ * Nodes arrive grouped by workstream and ordered within it, which is what lets
+ * a turn own one contiguous run of nodes.
+ */
 function planNodes(nodes: readonly OrderedNode[], edges: readonly SemanticEdge[]): PlannedNode[] {
   const outgoing = outgoingNodeIDs(edges);
-  const outcomeId = outcomeNodeID(nodes, outgoing);
-  return nodes.map((ordered, row) => {
-    const role = plannedRole(ordered, row, outcomeId);
-    return {
-      ordered,
-      row,
-      role,
-      mode: semanticNodeMode(ordered.node.kind, ordered.node.status),
-      terminalAt: role === "outcome" ? terminalSeconds(ordered) : null,
-    };
-  });
+  const planned: PlannedNode[] = [];
+  for (const group of groupedByGraph(nodes)) {
+    const outcomeId = outcomeNodeID(group.nodes, outgoing);
+    group.nodes.forEach((ordered, row) => {
+      const role = plannedRole(ordered, row, outcomeId);
+      planned.push({
+        ordered,
+        turn: group.turn,
+        row,
+        role,
+        mode: semanticNodeMode(ordered.node.kind, ordered.node.status),
+        terminalAt: role === "outcome" ? terminalSeconds(ordered) : null,
+      });
+    });
+  }
+  return planned;
 }
 
-function packedNodeInput(planned: PlannedNode, graphCount: number): PackedGraphNodeInput {
+interface PlannedGroup {
+  readonly turn: number;
+  readonly nodes: readonly OrderedNode[];
+}
+
+/**
+ * Splits the ordered nodes into one run per workstream. Turn indices count the
+ * workstreams that actually have nodes, so they stay dense even when a graph in
+ * the composition is empty.
+ */
+function groupedByGraph(nodes: readonly OrderedNode[]): PlannedGroup[] {
+  const groups: PlannedGroup[] = [];
+  let current: OrderedNode[] = [];
+  let graphIndex = -1;
+  for (const ordered of nodes) {
+    if (ordered.graphIndex !== graphIndex && current.length > 0) {
+      groups.push({ turn: groups.length, nodes: current });
+      current = [];
+    }
+    graphIndex = ordered.graphIndex;
+    current.push(ordered);
+  }
+  if (current.length > 0) {
+    groups.push({ turn: groups.length, nodes: current });
+  }
+  return groups;
+}
+
+function packedNodeInput(planned: PlannedNode, placement: ColumnPlacement): PackedGraphNodeInput {
   const visual = semanticNodeKindVisuals[planned.ordered.node.kind];
   return {
     id: planned.ordered.packedId,
-    turn: 0,
+    turn: planned.turn,
     role: planned.role,
     mode: planned.mode,
     glyph: visual.glyph,
     emphasis: semanticEvidenceEmphases[planned.ordered.node.evidenceClass],
     detail: planned.ordered.node.kind === "milestone" ? "compacted" : "detailed",
-    lane:
-      workstreamLane(planned.ordered.graphIndex, graphCount) + semanticLane(planned.ordered.node),
+    lane: placement.lane + semanticLane(planned.ordered.node),
     row: planned.row,
     bornAt: planned.ordered.bornAt,
     settleAt: planned.ordered.bornAt + settleWindowSeconds,
@@ -235,23 +405,46 @@ function graphOutcome(planned: readonly PlannedNode[]): {
   return { outcome: "running", outcomeNodeId: null, answerAt: null };
 }
 
-function turnInputs(planned: readonly PlannedNode[]): PackedGraphTurnInput[] {
-  const input = planned[0];
-  if (input === undefined) {
-    return [];
+/** One turn per column, each describing only its own workstream. */
+function turnInputs(
+  planned: readonly PlannedNode[],
+  placementFor: (graphIndex: number) => ColumnPlacement,
+  presentation: SemanticGraphPresentation,
+): PackedGraphTurnInput[] {
+  const byTurn = new Map<number, PlannedNode[]>();
+  for (const node of planned) {
+    const existing = byTurn.get(node.turn);
+    if (existing === undefined) {
+      byTurn.set(node.turn, [node]);
+    } else {
+      existing.push(node);
+    }
   }
-  const outcome = graphOutcome(planned);
-  return [
-    {
-      index: 0,
+  const turns: PackedGraphTurnInput[] = [];
+  for (const [index, nodes] of [...byTurn.entries()].sort(([left], [right]) => left - right)) {
+    const input = nodes[0];
+    if (input === undefined) {
+      continue;
+    }
+    const outcome = graphOutcome(nodes);
+    turns.push({
+      index,
+      column: index,
+      columnTop: placementFor(input.ordered.graphIndex).top,
       inputNodeId: input.ordered.packedId,
       outcomeNodeId: outcome.outcomeNodeId,
-      rowSpan: planned.length,
+      rowSpan: nodes.length,
       outcome: outcome.outcome,
       answerAt: outcome.answerAt,
-      compactAt: outcome.answerAt === null ? null : outcome.answerAt + compactDelaySeconds,
-    },
-  ];
+      // Only a conversation folds itself. See SemanticGraphPresentation.
+      compactAt:
+        presentation !== "conversation" || outcome.answerAt === null
+          ? null
+          : outcome.answerAt + compactDelaySeconds,
+      workstreamId: input.ordered.node.workstreamId,
+    });
+  }
+  return turns;
 }
 
 function edgeInputs(
@@ -306,13 +499,22 @@ function compileSemanticGraphComposition(
   if (composition.graphs.length === 0) {
     return [];
   }
-  const nodes = graphNodes(composition.graphs);
+  // One reduced set for both. Reading edges from the full graphs while nodes
+  // came from the tiles let a dropped edge still decide which node is the
+  // outcome, so a tile could be classified by history it is not showing.
+  const graphs = tiledGraphs(composition);
+  const nodes = graphNodes(graphs);
   if (nodes.length === 0) {
     return [];
   }
-  const edges = graphEdges(composition.graphs);
+  const edges = graphEdges(graphs);
   const planned = planNodes(nodes, edges);
-  const packedNodes = planned.map((node) => packedNodeInput(node, composition.graphs.length));
+  const placements = columnPlacements(graphs.length, composition.presentation);
+  const placementFor = (graphIndex: number): ColumnPlacement =>
+    placements[graphIndex] ?? { lane: 0, top: 0 };
+  const packedNodes = planned.map((node) =>
+    packedNodeInput(node, placementFor(node.ordered.graphIndex)),
+  );
   const nodeIndexByID = new Map(packedNodes.map((node, index) => [node.id, index]));
   const nodeModeByID = new Map(planned.map((node) => [node.ordered.packedId, node.mode]));
   const terminalByID = new Map(
@@ -325,7 +527,7 @@ function compileSemanticGraphComposition(
       hasEarlier: composition.graphs.some((graph) => graph.hasEarlier),
       nodes: packedNodes,
       edges: packedEdges,
-      turns: turnInputs(planned),
+      turns: turnInputs(planned, placementFor, composition.presentation),
     },
   ];
 }

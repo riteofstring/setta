@@ -78,6 +78,34 @@ func (registry *Registry) RecoverableRun(workstreamID string, failureEventID str
 	return runID, nil
 }
 
+// ForkPoint resolves the run a fork branches from. The Director names the
+// workstream; where the branch is taken is trusted state, so a fork always
+// inherits history the parent actually completed rather than a boundary the
+// decision claimed.
+func (registry *Registry) ForkPoint(workstreamID string) (string, error) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	if err := registry.requireAvailableLocked(); err != nil {
+		return "", err
+	}
+	workstream, known := registry.state.workstreams[workstreamID]
+	if !known {
+		return "", fmt.Errorf(
+			"%w: workstream %s is not in the registry",
+			ErrDirectorIntentRejected,
+			workstreamID,
+		)
+	}
+	if workstream.lastCompletedRunID == nil {
+		return "", fmt.Errorf(
+			"%w: workstream %s has completed no run to fork from",
+			ErrDirectorIntentRejected,
+			workstreamID,
+		)
+	}
+	return *workstream.lastCompletedRunID, nil
+}
+
 // WorkstreamRunTarget is the durable substrate one named run executes on. A
 // dispatched command addresses the run the user was shown, so the run is part of
 // the target rather than something resolved at the last moment from whatever is

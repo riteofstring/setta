@@ -51,8 +51,12 @@ type registryEffect struct {
 }
 
 // applyCommitted folds one durable committed event. Kinds with no app-scoped
-// meaning — narration, presentation, and side conversations — are not registry
-// inputs and change nothing.
+// meaning — presentation and side conversations — are not registry inputs and
+// change nothing.
+//
+// Narration is an input. It changes no workstream lifecycle, which is why it
+// was excluded, but the command center and the Director both read what the
+// narrator said, and neither can reach a conversation-scoped stream.
 func (state *registryState) applyCommitted(
 	event conversation.CommittedEvent,
 	workspaces WorkspaceResources,
@@ -75,6 +79,8 @@ func (state *registryState) applyCommitted(
 		effects, err = state.applyTrajectoryAppended(event)
 	case string(conversation.ConversationEventTypeArtifactCreated):
 		effects, err = state.applyArtifactCreated(event)
+	case string(conversation.ConversationEventTypeNarrationCreated):
+		effects, err = state.applyNarrationCreated(event)
 	case DirectorFactCommittedKind:
 		effects, err = state.applyDirectorFact(event)
 	case conversation.DirectorConversationCommittedKind:
@@ -166,6 +172,7 @@ func (state *registryState) registerConversation(
 	delete(state.pendingParents, record.ID)
 	return state.registerWorkstreamRecord(Workstream{
 		ID:               workstreamID,
+		ConversationID:   record.ID,
 		Title:            record.Title,
 		Status:           WorkstreamStatusIdle,
 		ParentID:         parentID,
@@ -248,6 +255,10 @@ func (state *registryState) applyTurnUpdated(event conversation.CommittedEvent) 
 			workstream.activeRunID = nil
 		}
 		workstream.lastTerminalRun = turn.Status
+		if turn.Status == conversation.TurnStatusCompleted {
+			completedRunID := turn.ID
+			workstream.lastCompletedRunID = &completedRunID
+		}
 	case conversation.TurnStatusQueued:
 		// The durable queue owns how much work is waiting.
 	default:

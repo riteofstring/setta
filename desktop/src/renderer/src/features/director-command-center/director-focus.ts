@@ -47,7 +47,6 @@ export type DirectorFocus =
     }
   | {
       readonly kind: "workstream";
-      readonly folder: DirectorFocusFolder;
       readonly status: WorkstreamStatus;
       readonly statusLabel: string;
       /** The milestone that still explains this status, when one does. */
@@ -64,7 +63,6 @@ export function directorFocus(workstream: Workstream | null): DirectorFocus {
     return { kind: "director", roleLabel: directorNoWorkstreamLabel, title: directorTitle };
   }
   return {
-    folder: directorFocusFolder(workstream.resourceScope),
     kind: "workstream",
     status: workstream.status,
     statusLabel: directorWorkstreamStatusLabels[workstream.status],

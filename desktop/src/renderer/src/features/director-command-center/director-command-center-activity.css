@@ -1,165 +1,79 @@
-.director-activity-list {
+/*
+ * The Now rail's narration: lines of text, not a stack of cards.
+ *
+ * Each entry is one sentence the narrator wrote, with a mark on its leading
+ * edge and nothing else — no fill, no border, no chevron, no disclosure. It
+ * replaced a list of graph nodes that had all of those plus a provenance line,
+ * and none of it was information the reader wanted.
+ *
+ * There is no expand: a sentence bounded to 24 words has nothing folded behind
+ * it. Recency is opacity, so the newest reads at full strength and the ones
+ * behind it recede, which is the whole emphasis model.
+ */
+.director-narration-list {
   display: grid;
-  gap: 8px;
+  gap: 14px;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.director-activity-list li {
+.director-narration-item {
+  align-items: start;
   display: grid;
-}
-
-.director-activity-item {
-  background: oklch(0.12 0.012 252 / 0.74);
-  border: 1px solid oklch(0.34 0.026 250 / 0.7);
-  border-radius: 8px;
-  display: grid;
-  min-inline-size: 0;
-  opacity: 0.46;
-  overflow: hidden;
-  transition-duration: 140ms;
-  transition-property: border-color, opacity;
+  gap: 9px;
+  grid-template-columns: auto minmax(0, 1fr);
+  opacity: 0.6;
+  transition-duration: 220ms;
+  transition-property: opacity;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
-.director-activity-list li:nth-child(-n + 2) .director-activity-item,
-.director-activity-item[data-expanded="true"] {
+.director-narration-item[data-narration-latest="true"] {
   opacity: 1;
 }
 
-.director-activity-toggle {
-  align-items: start;
-  background: transparent;
-  border: 0;
-  color: inherit;
-  cursor: pointer;
-  display: grid;
-  font: inherit;
-  gap: 8px;
-  grid-template-columns: 10px minmax(0, 1fr) 16px;
-  inline-size: 100%;
-  min-block-size: 44px;
-  padding: 10px;
-  text-align: start;
-  transition-duration: 140ms;
-  transition-property: transform;
-  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
-}
-
-.director-activity-toggle:active {
-  transform: scale(0.96);
-}
-
-.director-activity-toggle:focus-visible {
-  outline: 2px solid;
-  outline-offset: 2px;
-}
-
-.director-activity-dot {
-  background: oklch(0.72 0.12 220);
-  block-size: 8px;
+/*
+ * The mark. A final summary is the end of something and takes the graph's
+ * success colour; a milestone is work still moving and takes its own.
+ */
+.director-narration-mark {
+  background: var(--graph-mode-think);
+  block-size: 7px;
   border-radius: 999px;
-  box-shadow: 0 0 14px currentColor;
-  color: oklch(0.72 0.12 220);
-  inline-size: 8px;
+  inline-size: 7px;
   margin-block-start: 6px;
 }
 
-.director-activity-item[data-activity-tone="think"] .director-activity-dot {
-  background: oklch(0.72 0.13 220);
-  color: oklch(0.72 0.13 220);
+.director-narration-item[data-narration-kind="final_summary"] .director-narration-mark {
+  background: var(--graph-mode-success);
 }
 
-.director-activity-item[data-activity-tone="do"] .director-activity-dot {
-  background: oklch(0.72 0.12 292);
-  color: oklch(0.72 0.12 292);
-}
-
-.director-activity-item[data-activity-tone="listening"] .director-activity-dot {
-  background: oklch(0.82 0.08 210);
-  color: oklch(0.82 0.08 210);
-}
-
-.director-activity-item[data-activity-tone="merge"] .director-activity-dot {
-  background: oklch(0.86 0.04 250);
-  color: oklch(0.86 0.04 250);
-}
-
-.director-activity-item[data-activity-tone="risk"] .director-activity-dot {
-  background: oklch(0.84 0.14 78);
-  color: oklch(0.84 0.14 78);
-}
-
-.director-activity-item[data-activity-tone="success"] .director-activity-dot {
-  background: oklch(0.8 0.15 152);
-  color: oklch(0.8 0.15 152);
-}
-
-.director-activity-item[data-activity-tone="fail"] .director-activity-dot {
-  background: oklch(0.7 0.16 25);
-  color: oklch(0.7 0.16 25);
-}
-
-.director-activity-copy {
-  display: grid;
-  gap: 3px;
-  min-inline-size: 0;
-}
-
-.director-activity-title {
-  color: oklch(0.9 0.025 245);
-  font-size: 0.84rem;
-  line-height: 1.28;
+.director-narration-text {
+  color: var(--director-foreground);
+  font-size: 13px;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
-.director-activity-meta {
-  color: oklch(0.66 0.03 250);
-  font-size: 0.7rem;
-  line-height: 1.2;
+.director-narration-item[data-narration-latest="true"] .director-narration-text {
+  color: var(--director-bright);
 }
 
-.director-activity-disclosure {
-  color: oklch(0.66 0.04 240);
-  margin-block-start: 2px;
-  transition-duration: 140ms;
-  transition-property: transform;
-  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
-}
-
-.director-activity-item[data-expanded="true"] .director-activity-disclosure {
-  transform: rotate(180deg);
-}
-
-.director-activity-detail {
-  color: oklch(0.68 0.03 250);
-  display: flex;
-  flex-wrap: wrap;
-  font-size: 0.72rem;
-  gap: 6px;
-  padding: 0 10px 10px 28px;
-}
-
-.director-activity-detail[hidden] {
-  display: none;
-}
-
-.director-activity-detail span {
-  background: oklch(0.08 0.01 255 / 0.62);
-  border: 1px solid oklch(0.3 0.025 250 / 0.55);
-  border-radius: 999px;
-  padding: 2px 7px;
+/*
+ * Nothing to report is something the rail says, not something it hides. It
+ * never falls back to what the graph happens to contain — that fallback is the
+ * defect this rail replaced.
+ */
+.director-rail-quiet {
+  color: var(--director-faint);
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .director-activity-item,
-  .director-activity-toggle,
-  .director-activity-disclosure {
-    transition-property: opacity, background-color, border-color, color;
-  }
-
-  .director-activity-toggle:active {
-    transform: none;
+  .director-narration-item {
+    transition-property: none;
   }
 }

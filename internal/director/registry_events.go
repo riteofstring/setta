@@ -781,10 +781,29 @@ func (registry *Registry) detailLevelFor(workstreamID string) WorkstreamDetailLe
 	if selected != nil && *selected == workstreamID {
 		return WorkstreamDetailSelected
 	}
-	if _, adjacent := registry.adjacent[workstreamID]; adjacent {
-		return WorkstreamDetailAdjacent
+	if registry.carried[workstreamID] {
+		return graphDetailWithoutSelection(selected, len(registry.carried))
 	}
 	return WorkstreamDetailBackground
+}
+
+/*
+ * How much of a workstream a snapshot carries when it is not the selected one.
+ *
+ * The compact level answers "does this need me?" — blockers, results, the last
+ * milestone — which is the right answer for a workstream sitting beside the one
+ * you are reading. It is the wrong answer when there is no one you are reading:
+ * on the Director's own view every workstream is what you came to see, and a
+ * summary of each is a view with the work left out.
+ */
+func graphDetailWithoutSelection(selected *string, carried int) WorkstreamDetailLevel {
+	if selected != nil {
+		return WorkstreamDetailAdjacent
+	}
+	if carried <= MaxDirectorColumnGraphs {
+		return WorkstreamDetailSelected
+	}
+	return WorkstreamDetailAdjacent
 }
 
 // refreshDetailLevels recomputes which workstreams are adjacent. It runs after a
@@ -793,19 +812,30 @@ func (registry *Registry) detailLevelFor(workstreamID string) WorkstreamDetailLe
 func (registry *Registry) refreshDetailLevels() {
 	window := registry.state.snapshotWindow()
 	selected := registry.state.activeSelection()
-	adjacent := make(map[string]bool, MaxSnapshotAdjacentGraphs)
-	count := 0
+	/*
+	 * How many graphs one snapshot carries.
+	 *
+	 * Beside a selected workstream a handful of compact neighbours is context.
+	 * On the Director's own view the graphs are the view, so it carries every
+	 * conversation it can and reduces them to tiles rather than dropping them:
+	 * a conversation that vanishes from the canvas because a ninth one started
+	 * is the app losing work in front of the user.
+	 */
+	budget := MaxSnapshotAdjacentGraphs
+	if selected == nil {
+		budget = MaxDirectorTiledGraphs
+	}
+	carried := make(map[string]bool, budget)
 	for _, workstream := range window {
 		if selected != nil && *selected == workstream.record.ID {
 			continue
 		}
-		if count == MaxSnapshotAdjacentGraphs {
+		if len(carried) == budget {
 			break
 		}
-		adjacent[workstream.record.ID] = true
-		count++
+		carried[workstream.record.ID] = true
 	}
-	registry.adjacent = adjacent
+	registry.carried = carried
 }
 
 func withoutGraphEffects(effects []registryEffect, replaced map[string]bool) []registryEffect {

@@ -1,49 +1,11 @@
-import type {
-  AppearanceColorMode,
-  AppearanceColorScheme,
-  AppearanceTailwindPalette,
-} from "@generated/backend";
-import { ChevronDown, Moon, SlidersHorizontal, Sun } from "lucide-react";
+import type { AppearanceColorScheme, AppearanceTailwindPalette } from "@generated/backend";
+import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { type ReactNode, useMemo } from "react";
 
 import { SettaCompactInput } from "./setta-compact-input";
-import { cn } from "../lib/utils";
 import type { AppearanceColorGroup } from "../stores/appearance-store";
 
 type AppearanceColorValues = AppearanceColorScheme[AppearanceColorGroup];
-
-export function ModeSwitch({
-  mode,
-  onChange,
-}: {
-  mode: AppearanceColorMode;
-  onChange: (mode: AppearanceColorMode) => void;
-}) {
-  return (
-    <div
-      aria-label="Color scheme"
-      className="grid grid-cols-2 gap-1 rounded-sm border border-border bg-muted p-1"
-      role="group"
-    >
-      {colorModes.map(({ Icon, label, value }) => (
-        <button
-          aria-pressed={mode === value}
-          className={cn(
-            "flex h-7 min-w-16 items-center justify-center gap-1.5 rounded-sm px-2 text-xs font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:bg-accent",
-            mode === value && "bg-card text-card-foreground shadow-sm",
-          )}
-          key={value}
-          onClick={() => onChange(value)}
-          title={`${label} mode`}
-          type="button"
-        >
-          <Icon className="h-3.5 w-3.5" />
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 export function OKLCHSeedPicker({
   onChange,
@@ -60,18 +22,11 @@ export function OKLCHSeedPicker({
 }
 
 export function StatusColorSection({
-  mode,
   onChange,
   status,
   tailwind,
 }: {
-  mode: AppearanceColorMode;
-  onChange: (
-    mode: AppearanceColorMode,
-    group: AppearanceColorGroup,
-    name: string,
-    value: string,
-  ) => void;
+  onChange: (group: AppearanceColorGroup, name: string, value: string) => void;
   status: AppearanceColorScheme["status"];
   tailwind: AppearanceTailwindPalette;
 }) {
@@ -83,23 +38,16 @@ export function StatusColorSection({
           {Object.keys(status).length} values
         </span>
       </div>
-      <StatusColorFields mode={mode} onChange={onChange} status={status} tailwind={tailwind} />
+      <StatusColorFields onChange={onChange} status={status} tailwind={tailwind} />
     </section>
   );
 }
 
 export function ColorSchemeFields({
-  mode,
   onChange,
   scheme,
 }: {
-  mode: AppearanceColorMode;
-  onChange: (
-    mode: AppearanceColorMode,
-    group: AppearanceColorGroup,
-    name: string,
-    value: string,
-  ) => void;
+  onChange: (group: AppearanceColorGroup, name: string, value: string) => void;
   scheme: AppearanceColorScheme;
 }) {
   const advancedColorCount =
@@ -120,7 +68,6 @@ export function ColorSchemeFields({
             >
               <ColorFieldGrid
                 group={group}
-                mode={mode}
                 onChange={onChange}
                 tailwind={scheme.tailwind}
                 values={values}
@@ -162,47 +109,25 @@ export function AccordionSection({
 }
 
 function StatusColorFields({
-  mode,
   onChange,
   status,
   tailwind,
 }: {
-  mode: AppearanceColorMode;
-  onChange: (
-    mode: AppearanceColorMode,
-    group: AppearanceColorGroup,
-    name: string,
-    value: string,
-  ) => void;
+  onChange: (group: AppearanceColorGroup, name: string, value: string) => void;
   status: AppearanceColorScheme["status"];
   tailwind: AppearanceTailwindPalette;
 }) {
-  return (
-    <ColorFieldGrid
-      group="status"
-      mode={mode}
-      onChange={onChange}
-      tailwind={tailwind}
-      values={status}
-    />
-  );
+  return <ColorFieldGrid group="status" onChange={onChange} tailwind={tailwind} values={status} />;
 }
 
 function ColorFieldGrid({
   group,
-  mode,
   onChange,
   tailwind,
   values,
 }: {
   group: AppearanceColorGroup;
-  mode: AppearanceColorMode;
-  onChange: (
-    mode: AppearanceColorMode,
-    group: AppearanceColorGroup,
-    name: string,
-    value: string,
-  ) => void;
+  onChange: (group: AppearanceColorGroup, name: string, value: string) => void;
   tailwind: AppearanceTailwindPalette;
   values: AppearanceColorValues;
 }) {
@@ -221,7 +146,7 @@ function ColorFieldGrid({
           </span>
           <ColorValueControls
             label={fieldLabel(name)}
-            onChange={(nextValue) => onChange(mode, group, name, nextValue)}
+            onChange={(nextValue) => onChange(group, name, nextValue)}
             settaOptions={settaOptions}
             value={value}
           />
@@ -371,15 +296,6 @@ function OKLCHSlider({
     </label>
   );
 }
-
-const colorModes = [
-  { Icon: Moon, label: "Dark", value: "dark" },
-  { Icon: Sun, label: "Light", value: "light" },
-] as const satisfies Array<{
-  Icon: typeof Moon;
-  label: string;
-  value: AppearanceColorMode;
-}>;
 
 const colorGroupLabels = {
   accent: "Accent Colors",

@@ -162,6 +162,8 @@ func semanticTestArtifact(turnID string, sequence int) ArtifactMetadata {
 		TurnID:             &turnID,
 		TrajectorySequence: &sequence,
 		Title:              "Result file",
+		Kind:               "Report",
+		Summary:            "What the semantic fixture artifact claims.",
 		CreatedAt:          testTimeStarted,
 	}
 }

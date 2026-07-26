@@ -114,7 +114,10 @@ type DirectorCreateWorkstreamIntent struct {
 // DirectorSelectWorkstreamIntent names the workstream to select. It carries a
 // workstream id and nothing else: there is no pane to open, focus, or resolve.
 type DirectorSelectWorkstreamIntent struct {
-	WorkstreamID string `json:"workstreamId"`
+	// WorkstreamID is the view to select, and null is the Director's own.
+	// Selection names a view rather than only a workstream, so the Director is
+	// reachable by naming it and not only by arrowing back to it.
+	WorkstreamID *string `json:"workstreamId"`
 }
 
 // DirectorMoveSelectionIntent moves selection relative to the current one. The
@@ -206,7 +209,10 @@ func ValidateDirectorIntent(intent DirectorIntent) error {
 	case DirectorIntentCreateWorkstream:
 		return validateCreateWorkstreamIntent(*intent.CreateWorkstream)
 	case DirectorIntentSelectWorkstream:
-		return validateIdentifier("director select workstream id", intent.SelectWorkstream.WorkstreamID)
+		if intent.SelectWorkstream.WorkstreamID == nil {
+			return nil
+		}
+		return validateIdentifier("director select workstream id", *intent.SelectWorkstream.WorkstreamID)
 	case DirectorIntentMoveSelection:
 		return validateSelectionDirection(intent.MoveSelection.Direction)
 	case DirectorIntentCancelRun:
@@ -476,7 +482,7 @@ func (center *CommandCenter) carryOut(
 		receipt.SelectedWorkstreamID = selected
 		return receipt, nil
 	case DirectorIntentSelectWorkstream:
-		selected, err := center.registry.SelectWorkstream(ctx, intent.SelectWorkstream.WorkstreamID)
+		selected, err := center.registry.SelectView(ctx, intent.SelectWorkstream.WorkstreamID)
 		if err != nil {
 			return DirectorReceipt{}, err
 		}

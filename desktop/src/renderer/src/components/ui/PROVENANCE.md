@@ -150,7 +150,7 @@ imported primitive's responsibility:
   them — `director-artifact-preview*`, `director-artifact-browser*` — is
   Setta-domain chrome around the official Dialog, Scroll Area, Tooltip, and
   Button, not a restyling of them.
-- the rail preview's own blocks in `../../features/artifacts/ArtifactPreviewSurface.tsx`
-  are deliberately not the catalog's components: a preview must not mount
-  Recharts or a shadcn Table for a card the reader has not opened, so it draws
-  a bounded projection with the same tokens instead.
+- the rail card's figures in `../../features/artifacts/ArtifactCardFigures.tsx`
+  are deliberately not the catalog's components: a card must not mount Recharts
+  for an artifact the reader has not opened, so it draws one static sparkline
+  with the same tokens instead.

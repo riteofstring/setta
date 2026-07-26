@@ -59,64 +59,6 @@ export async function verifyWorkspaceSettings(client, workspaceId, workspaceRoot
   return { ...result, workspaceId };
 }
 
-export async function readDirectorHistory(client) {
-  const opened = await client.evaluate(`(() => {
-    const button = document.querySelector(".director-history-open");
-    if (!(button instanceof HTMLButtonElement)) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!opened) {
-    throw new Error("Director history action was unavailable");
-  }
-  await waitForSelector(client, ".director-history-dialog");
-  const modal = await client.driver("directorCommandCenterWorkflowHistoryModalState");
-  assertDeepEqual(
-    modal,
-    {
-      backgroundHidden: true,
-      backgroundInert: true,
-      focusedAfterShiftTab: true,
-      focusedAfterTab: true,
-      focusedInitially: true,
-      ready: true,
-    },
-    "Director history focus isolation",
-  );
-  const history = await client.evaluate(`(() =>
-    Array.from(document.querySelectorAll(".director-history-dialog-list li")).map((item) => ({
-      kind: item.getAttribute("data-node-kind") ?? "",
-      text: item.textContent?.trim() ?? ""
-    }))
-  )()`);
-  await client.evaluate(
-    `document.querySelector('.director-history-dialog button[aria-label="Close history"]')?.click()`,
-  );
-  await waitForState(
-    client,
-    `(() => {
-      const background = document.querySelector(".director-command-center-content");
-      const trigger = document.querySelector(".director-history-open");
-      return {
-        backgroundInert: background instanceof HTMLElement && background.inert,
-        focusedTrigger: document.activeElement === trigger,
-        overlayOpen: Boolean(document.querySelector(".director-history-overlay"))
-      };
-    })()`,
-    (state) => !state.backgroundInert && state.focusedTrigger && !state.overlayOpen,
-    workflowTimeoutMs,
-  );
-  return history;
-}
-
-/*
- * Above the phone breakpoint both rails sit beside the canvas and the canvas is
- * still the whole window. A narrow desktop window used to stack the rails into
- * full-width bars that covered the graph, which is the pane workspace the
- * command center replaced.
- */
 export async function verifyRailsFlankTheCanvas(client) {
   await client.call("Emulation.setDeviceMetricsOverride", {
     deviceScaleFactor: 1,
@@ -199,22 +141,20 @@ export async function verifyCompactRailFocusRestoration(client) {
       (state) => state.expanded && state.visible,
       workflowTimeoutMs,
     );
-    const escaped = await client.evaluate(`(() => {
-      const railAction = document.querySelector("#director-now-rail .director-history-open");
-      if (!(railAction instanceof HTMLButtonElement)) {
-        return false;
-      }
-      railAction.focus();
-      railAction.dispatchEvent(new KeyboardEvent("keydown", {
-        bubbles: true,
-        cancelable: true,
-        key: "Escape"
-      }));
-      return true;
-    })()`);
-    if (!escaped) {
-      throw new Error("compact Now rail did not contain a focusable history action");
-    }
+    /*
+     * Escape, as the shell actually hears it.
+     *
+     * This used to focus the rail's history button and press Escape on it. The
+     * rail has no controls now — it is narration and nothing else — and the
+     * shell listens on the window anyway, so the real user action is pressing
+     * Escape while the compact rail is open. The guarantee is unchanged: the
+     * rail collapses and focus returns to the trigger that opened it.
+     */
+    await client.evaluate(`document.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Escape"
+    }))`);
     await waitForState(
       client,
       `(() => {
@@ -235,12 +175,24 @@ export async function verifyCompactRailFocusRestoration(client) {
   }
 }
 
+/*
+ * The narrowest window the platform actually allows.
+ *
+ * macOS draws its window buttons inside the renderer's top bar, and the bar
+ * reserves 80px for them, so the floor there is 80px higher than elsewhere
+ * (`compactWindowMinWidth` in the main process). Emulating 320px on darwin
+ * would assert a layout for a window macOS will not let the user make.
+ */
 async function verifyMinimumCompactWidth(client) {
+  const platform = await client.evaluate(
+    `document.querySelector("[data-desktop-platform]")?.getAttribute("data-desktop-platform") ?? ""`,
+  );
+  const width = platform === "darwin" ? 400 : 320;
   await client.call("Emulation.setDeviceMetricsOverride", {
     deviceScaleFactor: 1,
     height: 720,
     mobile: true,
-    width: 320,
+    width,
   });
   const layout = await waitForState(
     client,
@@ -252,7 +204,7 @@ async function verifyMinimumCompactWidth(client) {
       state.metaHidden &&
       state.navigation !== null &&
       !state.titleClipped &&
-      state.viewportWidth === 320,
+      state.viewportWidth === width,
     workflowTimeoutMs,
   );
   const described = JSON.stringify(layout);
@@ -261,20 +213,6 @@ async function verifyMinimumCompactWidth(client) {
   }
   if (layout.composer.left < 0 || layout.composer.right > layout.viewportWidth) {
     throw new Error(`Director compact composer escaped the viewport: ${described}`);
-  }
-}
-
-export function assertHistoryContainsOnlyUserAndTerminalTurns(history) {
-  if (history.length === 0) {
-    throw new Error("Director history omitted completed work");
-  }
-  const allowed = new Set(["user_goal", "completed", "failed", "cancelled"]);
-  const unexpected = history.filter((item) => !allowed.has(item.kind));
-  if (unexpected.length > 0) {
-    throw new Error(`Director history exposed intermediate activity: ${JSON.stringify(history)}`);
-  }
-  if (!history.some((item) => item.kind === "completed" && item.text !== "Run completed")) {
-    throw new Error(`Director history omitted a final response: ${JSON.stringify(history)}`);
   }
 }
 
@@ -554,80 +492,41 @@ export async function assertDirectorGraphCanvasPreserved(client) {
   }
 }
 
-export function directorAppearanceMode(client) {
-  return client.evaluate(`document.documentElement.dataset.colorMode ?? "dark"`);
-}
-
-export async function setDirectorAppearanceMode(client, mode) {
-  const opened = await client.evaluate(`(() => {
-    const trigger = document.querySelector('button[aria-label="Open settings"]');
-    if (!(trigger instanceof HTMLButtonElement)) {
-      return false;
-    }
-    trigger.click();
-    return true;
-  })()`);
-  if (!opened) {
-    throw new Error("Director appearance check could not open settings");
-  }
-  await waitForSelector(client, '[data-testid="settings-shell-page"]');
-  await client.evaluate(`document.querySelector("#settings-subtab-theme")?.click()`);
-  await waitForSelector(client, '[data-testid="appearance-settings"]');
-  const changed = await client.evaluate(`(() => {
-    const button = document.querySelector(
-      ${JSON.stringify(`[data-testid="appearance-settings"] button[title="${mode === "light" ? "Light" : "Dark"} mode"]`)}
-    );
-    if (!(button instanceof HTMLButtonElement)) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!changed) {
-    throw new Error(`Director appearance check could not select ${mode} mode`);
-  }
-  await waitForState(
-    client,
-    `document.documentElement.dataset.colorMode ?? ""`,
-    (current) => current === mode,
-    workflowTimeoutMs,
-  );
-  const closed = await client.evaluate(`(() => {
-    const button = document.querySelector(".setta-settings-page-back");
-    if (!(button instanceof HTMLButtonElement)) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!closed) {
-    throw new Error("Director appearance check could not return to the command center");
-  }
-  await waitForSelector(client, '[data-testid="director-command-center-shell"]');
-}
-
-export async function assertDirectorArtifactPreviewTheme(client, artifactId, mode) {
+/**
+ * The preview is readable against whatever it actually sits on.
+ *
+ * It used to paint its own background, and this asserted that background was
+ * present. It no longer has one — the card behind it is the ground — so the
+ * check walks up to the first ancestor that paints, and compares the text
+ * against that. The risk is unchanged and is the one that matters: text and
+ * ground resolving to the same colour makes a preview invisible.
+ */
+export async function assertDirectorArtifactPreviewTheme(client, artifactId) {
   const theme = await client.evaluate(`(() => {
     const viewport = document.querySelector(
       ${JSON.stringify(
         `.director-artifact-preview[data-artifact-id="${artifactId}"] .director-artifact-preview-viewport`,
       )}
     );
-    const style = viewport instanceof HTMLElement ? getComputedStyle(viewport) : null;
-    return {
-      backgroundColor: style?.backgroundColor ?? "",
-      color: style?.color ?? "",
-      mode: document.documentElement.dataset.colorMode ?? ""
-    };
+    if (!(viewport instanceof HTMLElement)) {
+      return { color: "", ground: "", groundFrom: "" };
+    }
+    let node = viewport;
+    let ground = "";
+    let groundFrom = "";
+    while (node instanceof HTMLElement) {
+      const painted = getComputedStyle(node).backgroundColor;
+      if (painted !== "" && painted !== "rgba(0, 0, 0, 0)") {
+        ground = painted;
+        groundFrom = typeof node.className === "string" ? node.className : node.tagName;
+        break;
+      }
+      node = node.parentElement;
+    }
+    return { color: getComputedStyle(viewport).color, ground, groundFrom };
   })()`);
-  assertEqual(theme.mode, mode, `Director artifact preview ${mode} appearance`);
-  if (
-    theme.backgroundColor === "" ||
-    theme.backgroundColor === "rgba(0, 0, 0, 0)" ||
-    theme.color === "" ||
-    theme.color === theme.backgroundColor
-  ) {
-    throw new Error(`Director artifact preview theme was unreadable: ${JSON.stringify(theme)}`);
+  if (theme.color === "" || theme.ground === "" || theme.color === theme.ground) {
+    throw new Error(`Director artifact preview was unreadable: ${JSON.stringify(theme)}`);
   }
 }
 

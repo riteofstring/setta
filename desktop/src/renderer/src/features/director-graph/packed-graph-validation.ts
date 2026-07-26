@@ -176,12 +176,18 @@ function validateNodeOrder(previous: PackedGraphSnapshot, batch: PackedGraphBatc
       : packedValueAt(previous.nodes.turn, previous.nodeCount - 1);
   for (const node of batch.nodes) {
     requireTrue(
-      node.bornAt >= lastBorn,
-      `packed graph node ${node.id} is born at ${node.bornAt}, before the previous node at ${lastBorn}`,
-    );
-    requireTrue(
       node.turn >= lastTurn,
       `packed graph node ${node.id} returns to turn ${node.turn} after turn ${lastTurn}`,
+    );
+    // Time orders a turn's own facts. Across turns it does not: a composition
+    // packs one column after another, and the next column starts at its own
+    // beginning rather than after the previous column's end.
+    if (node.turn !== lastTurn) {
+      lastBorn = Number.NEGATIVE_INFINITY;
+    }
+    requireTrue(
+      node.bornAt >= lastBorn,
+      `packed graph node ${node.id} is born at ${node.bornAt}, before the previous node at ${lastBorn}`,
     );
     lastBorn = node.bornAt;
     lastTurn = node.turn;
