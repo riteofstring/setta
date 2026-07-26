@@ -3378,3 +3378,28 @@ Stop and reassess rather than hiding the problem if any of these occur:
   was correct for Sprites but would need reversing for a provider that does
   honor and report a requested shape; re-adding the field and its verification
   is small, and the decision should be made deliberately rather than discovered.
+- 2026-07-26 (correction: Sprites has no per-Sprite sizing by design, and memory
+  autoscales): The Sprites documentation at
+  `https://docs.sprites.dev/concepts/lifecycle/#resources` corrects two claims
+  recorded above. Each Sprite runs with 8 vCPUs and a 100 GB storage ceiling
+  that, in the documentation's words, "You don't set or resize these yourself",
+  while memory is "sized per Sprite and able to scale up under pressure". The
+  earlier conclusion that 8 GiB is a hard ceiling is therefore wrong: the probe
+  observed the current allocation of an idle Sprite, not a limit. The
+  conclusion that the provider "ignores" the requested shape is also
+  misleading — there is no per-Sprite sizing to request, so `config` was never
+  going to be honored and its disappearance from API responses is the product
+  working as documented rather than a regression. Two design consequences
+  follow, both against the capacity plan written earlier today. First, the
+  documentation states that "The figure a Sprite reports from inside is adjusted
+  to reflect usable memory, so it isn't a ceiling to build hard limits against",
+  which directly rules out reading `/proc/meminfo` as a memory capacity, the
+  approach Slice 3 proposed. Second, the plan's principle that capacity is fixed
+  for a runtime's life and can be reported once per start is false for memory.
+  The provider's own billing is usage-shaped rather than size-shaped: compute is
+  billed only while active and stops in warm and cold, and storage is billed for
+  bytes actually written. Setta already meters usage over the runtime reporting
+  channel, so the billing question raised earlier resolves toward metering usage
+  rather than deriving ceilings from a requested shape. Removing
+  `RuntimeObservation.Resources` in Slice 1 is confirmed correct for this
+  provider. Slices 3 to 7 of the capacity plan should not be built as written.
