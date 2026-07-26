@@ -3478,3 +3478,21 @@ Stop and reassess rather than hiding the problem if any of these occur:
   lease-renewal failure is presented to the user as a runtime shutdown with no
   explanation. That is a diagnosability gap of exactly the kind the typed
   hosted-lifecycle failure codes were introduced to close.
+- 2026-07-27 (Stage 4a passes live against rc46): Ran
+  `./scripts/test_sprites_lifecycle.sh` end to end. `TestLiveLifecycle` passed
+  in 187.71 seconds and all six conformance checks passed with no skips:
+  `create_identity_label_round_trip`, `filesystem_service_warm_preservation`,
+  `service_restart_detection`, `checkpoint_restore_rollback`,
+  `workload_lease_lifecycle`, and `destroy_verified_absence`. The organization
+  inventory was empty afterwards. This is the first live pass since 2026-07-13
+  and the first ever through the fixed wrapper, which previously exited zero
+  while skipping, so it is the first evidence that the Slice 1 change actually
+  unblocked live create rather than merely being correct in principle. Two
+  observations. The live server now reports `0.0.1-rc46`, up from the
+  `0.0.1-rc45` recorded in the Phase 1b evidence, which is consistent with the
+  resource configuration disappearing from API responses between those two
+  dates. Placement is still unavailable from the API and the harness logged it
+  as such rather than failing, so `RuntimeObservation.Placement` remains an
+  observable that no provider populates — the same shape as the resources field
+  removed in Slice 1, and still a candidate for the same treatment once Fly
+  answers. The runbook's Stage 4a is now verified rather than assumed.
