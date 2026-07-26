@@ -7,7 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 export interface BackendReadyEvent {
   event: "ready";
   addr: string;
-  bootstrapToken: string;
+  localPairingToken: string;
   protocolVersion: number;
 }
 
@@ -35,8 +35,8 @@ type BackendStdoutEvents = EventEmitter<{
 }>;
 
 export interface BackendHandle {
-  bootstrapToken: string;
   events: BackendEvents;
+  localPairingToken: string;
   mode: "external" | "spawned";
   protocolVersion: number;
   recentLogs: () => string[];
@@ -58,7 +58,7 @@ function resolveBackendLaunchOptions(
     defaultSpawnedBackendReadyTimeoutMs,
   );
   return {
-    args: ["run", "./cmd/setta-backend", "--app-data-dir", appDataDir],
+    args: ["run", "./cmd/setta-backend", "--app-data-dir", appDataDir, "--local-credential-issuer"],
     command: `${repoRoot}/scripts/go.sh`,
     cwd: repoRoot,
     env: {
@@ -69,14 +69,17 @@ function resolveBackendLaunchOptions(
   };
 }
 
-function externalBackendHandle(rawURL: string, bootstrapToken: string | undefined): BackendHandle {
+function externalBackendHandle(
+  rawURL: string,
+  localPairingToken: string | undefined,
+): BackendHandle {
   const url = validateExternalURL(rawURL);
-  if (!bootstrapToken) {
-    throw new Error("SETTA_BACKEND_URL requires SETTA_BACKEND_TOKEN");
+  if (!localPairingToken) {
+    throw new Error("SETTA_BACKEND_URL requires SETTA_BACKEND_PAIRING_TOKEN");
   }
   return {
-    bootstrapToken,
     events: new EventEmitter(),
+    localPairingToken,
     mode: "external",
     protocolVersion: 0,
     recentLogs: () => [],
@@ -114,8 +117,8 @@ export async function startSpawnedBackend(options: BackendLaunchOptions): Promis
   }
 
   return {
-    bootstrapToken: ready.bootstrapToken,
     events,
+    localPairingToken: ready.localPairingToken,
     mode: "spawned",
     protocolVersion: ready.protocolVersion,
     recentLogs: () => [...logs],
@@ -130,7 +133,7 @@ export async function startBackend(
   env: NodeJS.ProcessEnv,
 ): Promise<BackendHandle> {
   if (env.SETTA_BACKEND_URL) {
-    return externalBackendHandle(env.SETTA_BACKEND_URL, env.SETTA_BACKEND_TOKEN);
+    return externalBackendHandle(env.SETTA_BACKEND_URL, env.SETTA_BACKEND_PAIRING_TOKEN);
   }
   return startSpawnedBackend(resolveBackendLaunchOptions(repoRoot, appDataDir, env));
 }
@@ -153,15 +156,15 @@ function parseReadyRecord(value: Record<string, unknown>): BackendReadyEvent | n
     return null;
   }
   const addr = readNonEmptyString(value.addr);
-  const bootstrapToken = readNonEmptyString(value.bootstrapToken);
+  const localPairingToken = readNonEmptyString(value.localPairingToken);
   const protocolVersion = readPositiveInteger(value.protocolVersion);
-  if (addr === null || bootstrapToken === null || protocolVersion === null) {
+  if (addr === null || localPairingToken === null || protocolVersion === null) {
     return null;
   }
   return {
     addr,
-    bootstrapToken,
     event: "ready",
+    localPairingToken,
     protocolVersion,
   };
 }
@@ -330,10 +333,18 @@ function sanitizeBackendLogLine(line: string): string {
   } catch {
     return line;
   }
-  if (!isRecord(value) || typeof value.bootstrapToken !== "string") {
+  if (!isRecord(value)) {
     return line;
   }
-  return JSON.stringify({ ...value, bootstrapToken: "<redacted>" });
+  const sanitized = { ...value };
+  let changed = false;
+  for (const field of ["bootstrapToken", "localPairingToken"] as const) {
+    if (typeof sanitized[field] === "string") {
+      sanitized[field] = "<redacted>";
+      changed = true;
+    }
+  }
+  return changed ? JSON.stringify(sanitized) : line;
 }
 
 function appendLog(logs: string[], line: string) {

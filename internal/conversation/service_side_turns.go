@@ -8,8 +8,6 @@ import (
 	"setta/internal/agent"
 )
 
-const sideTurnRuntimeFailureMessage = "This work stopped unexpectedly. Try again."
-
 type sideConversationAgentEventSink struct {
 	active  *activeSideConversationTurn
 	service *Service
@@ -134,13 +132,6 @@ func (service *Service) prepareSideTurnLocked(
 	if err := validateSideTurnAdmission(side); err != nil {
 		return sideTurnPreparation{}, err
 	}
-	carrier, ok := service.carriers.lookup(side.ID)
-	if !ok {
-		// A side conversation only ever runs on the carrier this process started
-		// for it. Restart recovery disposes sides it can no longer talk to, so a
-		// missing carrier here is a real inconsistency, not a resumable state.
-		return sideTurnPreparation{}, fmt.Errorf("side conversation %s has no live carrier", side.ID)
-	}
 	invocation, err := sideProviderInvocation(side)
 	if err != nil {
 		return sideTurnPreparation{}, err
@@ -148,7 +139,6 @@ func (service *Service) prepareSideTurnLocked(
 	return service.buildSideTurnPreparation(
 		snapshot,
 		side,
-		carrier,
 		workspaceID,
 		workspaceRoot,
 		turnID,
@@ -171,13 +161,15 @@ func validateSideTurnAdmission(side SideConversation) error {
 			Reason:         fmt.Sprintf("side conversation %s already has an active turn", side.ID),
 		}
 	}
+	if side.ProviderThreadID == nil {
+		return fmt.Errorf("active side conversation %s has no provider thread", side.ID)
+	}
 	return nil
 }
 
 func (service *Service) buildSideTurnPreparation(
 	snapshot ConversationSnapshot,
 	side SideConversation,
-	carrier conversationCarrier,
 	workspaceID string,
 	workspaceRoot string,
 	turnID string,
@@ -189,6 +181,7 @@ func (service *Service) buildSideTurnPreparation(
 	expected := SideConversationExpectation{Status: side.Status, UpdatedAt: side.UpdatedAt}
 	side.ParentStatus = snapshot.Conversation.Status
 	side.ActiveTurnID = &turnID
+	side.ActiveProviderTurnID = nil
 	side.LastEventSequence++
 	side.UpdatedAt = now
 	event := TrajectoryEvent{
@@ -213,7 +206,7 @@ func (service *Service) buildSideTurnPreparation(
 		request: agent.TurnRequest{
 			ConversationID:   side.ID,
 			TurnID:           turnID,
-			ProviderThreadID: carrier.threadID,
+			ProviderThreadID: *side.ProviderThreadID,
 			ClientInputID:    turnID,
 			Text:             text,
 			WorkspaceRoot:    workspaceRoot,
@@ -301,36 +294,7 @@ func (service *Service) handleSideAgentEvent(
 		return err
 	}
 	expected, side, trajectory := applySideAgentEvent(snapshot, side, event, trajectory, now)
-	if err := service.persistSideConversationEvent(ctx, expected, side, trajectory); err != nil {
-		return err
-	}
-	switch event.Kind {
-	case agent.EventKindTurnStarted:
-		service.setActiveSideProviderTurn(active, event.ProviderTurnID)
-	case agent.EventKindTurnTerminal:
-		service.setActiveSideProviderTurn(active, "")
-	}
-	return nil
-}
-
-// setActiveSideProviderTurn records the provider's name for the run this
-// attachment is carrying. Disposal reads it from another goroutine, so it is
-// guarded by the same lock that owns the active-side map.
-func (service *Service) setActiveSideProviderTurn(
-	active *activeSideConversationTurn,
-	providerTurnID string,
-) {
-	service.activeMu.Lock()
-	if current := service.activeSides[active.sideConversationID]; current == active {
-		current.providerTurnID = providerTurnID
-	}
-	service.activeMu.Unlock()
-}
-
-func (service *Service) activeSideProviderTurn(active *activeSideConversationTurn) string {
-	service.activeMu.Lock()
-	defer service.activeMu.Unlock()
-	return active.providerTurnID
+	return service.persistSideConversationEvent(ctx, expected, side, trajectory)
 }
 
 func validateSideAgentEventScope(active *activeSideConversationTurn, event agent.Event) error {
@@ -359,12 +323,7 @@ func (service *Service) sideAgentEventState(
 	if err != nil {
 		return ConversationSnapshot{}, SideConversation{}, err
 	}
-	if err := validateSideAgentEventState(
-		side,
-		active.turnID,
-		service.activeSideProviderTurn(active),
-		event,
-	); err != nil {
+	if err := validateSideAgentEventState(side, active, event); err != nil {
 		return ConversationSnapshot{}, SideConversation{}, err
 	}
 	return snapshot, side, nil
@@ -372,24 +331,23 @@ func (service *Service) sideAgentEventState(
 
 func validateSideAgentEventState(
 	side SideConversation,
-	turnID string,
-	activeProviderTurnID string,
+	active *activeSideConversationTurn,
 	event agent.Event,
 ) error {
 	if side.DisposedAt != nil || (side.Status != SideConversationStatusActive && side.Status != SideConversationStatusDisposing) {
 		return fmt.Errorf("side conversation %s cannot accept provider events while %s", side.ID, side.Status)
 	}
-	if side.ActiveTurnID == nil || *side.ActiveTurnID != turnID {
-		return fmt.Errorf("side agent event turn %s is no longer active", turnID)
+	if side.ActiveTurnID == nil || *side.ActiveTurnID != active.turnID {
+		return fmt.Errorf("side agent event turn %s is no longer active", active.turnID)
 	}
 	if event.Kind == agent.EventKindTurnStarted {
-		if activeProviderTurnID != "" {
+		if side.ActiveProviderTurnID != nil {
 			return fmt.Errorf("side conversation %s provider turn already started", side.ID)
 		}
 		return nil
 	}
-	if activeProviderTurnID != event.ProviderTurnID {
-		return fmt.Errorf("side agent progress turn %s does not match the active provider turn", event.ProviderTurnID)
+	if side.ActiveProviderTurnID == nil || *side.ActiveProviderTurnID != event.ProviderTurnID {
+		return fmt.Errorf("side agent progress turn %s does not match durable provider turn", event.ProviderTurnID)
 	}
 	return nil
 }
@@ -406,6 +364,9 @@ func applySideAgentEvent(
 	side.LastEventSequence++
 	side.UpdatedAt = now
 	trajectory.Sequence = side.LastEventSequence
+	if event.Kind == agent.EventKindTurnStarted {
+		side.ActiveProviderTurnID = &event.ProviderTurnID
+	}
 	if event.Kind == agent.EventKindModelRerouted {
 		side.ResolvedSideAgentInvocation.ModelReroutes = append(
 			side.ResolvedSideAgentInvocation.ModelReroutes,
@@ -414,6 +375,7 @@ func applySideAgentEvent(
 	}
 	if event.Kind == agent.EventKindTurnTerminal {
 		side.ActiveTurnID = nil
+		side.ActiveProviderTurnID = nil
 	}
 	return expected, side, trajectory
 }
@@ -438,16 +400,18 @@ func (service *Service) sideTrajectoryFromAgentEvent(
 		return TrajectoryEvent{}, err
 	}
 	trajectory := TrajectoryEvent{
-		ID:              eventID,
-		ConversationID:  side.ID,
-		TurnID:          &active.turnID,
-		EmittedAt:       now,
-		ProviderEventID: cloneStringPointer(event.ProviderEventID),
-		ProviderTurnID:  &event.ProviderTurnID,
+		ID:               eventID,
+		ConversationID:   side.ID,
+		TurnID:           &active.turnID,
+		EmittedAt:        now,
+		ProviderEventID:  cloneStringPointer(event.ProviderEventID),
+		ProviderThreadID: &event.ProviderThreadID,
+		ProviderTurnID:   &event.ProviderTurnID,
 	}
 	switch event.Kind {
 	case agent.EventKindTurnStarted:
 		invocation := side.ResolvedSideAgentInvocation
+		invocation.ProviderReferences.ThreadID = &event.ProviderThreadID
 		invocation.ProviderReferences.TurnID = &event.ProviderTurnID
 		trajectory.Kind = TrajectoryEventTurnStarted
 		trajectory.Actor = TrajectoryActorAgent
@@ -463,8 +427,6 @@ func (service *Service) sideTrajectoryFromAgentEvent(
 		agent.EventKindActivityUpdated,
 		agent.EventKindActivityCompleted,
 		agent.EventKindApprovalRequested,
-		agent.EventKindApprovalSuperseded,
-		agent.EventKindValidationRecorded,
 		agent.EventKindModelRerouted,
 		agent.EventKindLifecycleChanged:
 		mapped, _, err := service.populateAgentTrajectory(
@@ -496,6 +458,10 @@ func (service *Service) sideTerminalTrajectory(
 		trajectory.Kind = TrajectoryEventTurnInterrupted
 		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: TurnInterruptionProviderInterrupted}
 	case agent.TurnOutcomeFailed:
+		message := "side agent turn failed"
+		if event.Terminal.Error != nil && *event.Terminal.Error != "" {
+			message = *event.Terminal.Error
+		}
 		diagnosticID, err := service.newID("side_diagnostic")
 		if err != nil {
 			return TrajectoryEvent{}, err
@@ -503,7 +469,7 @@ func (service *Service) sideTerminalTrajectory(
 		trajectory.Kind = TrajectoryEventTurnFailed
 		trajectory.TurnFailed = &TrajectoryTurnFailed{Failure: Failure{
 			Code:                "side_turn_failed",
-			Message:             "The provider could not complete this work. Try again.",
+			Message:             message,
 			Retryable:           true,
 			DiagnosticReference: diagnosticID,
 		}}
@@ -524,12 +490,6 @@ func (service *Service) finishSideRunTurn(active *activeSideConversationTurn, ru
 		}
 	}
 	lock.Unlock()
-	if agent.IsProviderThreadMissing(runErr) {
-		// A side that has lost its carrier owes no provider cleanup. Dropping the
-		// registration keeps "registered" meaning "a live thread is still out
-		// there", which is what disposal reads it for.
-		service.carriers.forget(active.sideConversationID)
-	}
 	service.releaseReservedSideTurn(active)
 }
 
@@ -541,8 +501,8 @@ func (service *Service) persistUnexpectedSideTurnEnd(
 ) error {
 	if errors.Is(runErr, context.Canceled) || active.ctx.Err() != nil {
 		// Cancelling the local attachment does not prove that Codex stopped the
-		// provider turn. Disposal cancelled it and is still holding the carrier,
-		// so leave the outcome to the caller that can confirm it.
+		// provider turn. Preserve its durable identity so disposal or startup
+		// recovery can target the exact turn and record a confirmed outcome.
 		return nil
 	}
 	if runErr == nil {
@@ -553,10 +513,11 @@ func (service *Service) persistUnexpectedSideTurnEnd(
 	if err != nil {
 		return err
 	}
+	code, retryable := classifyAgentRuntimeFailure(runErr, "side_turn_runtime_failed")
 	failure := Failure{
-		Code:                "side_turn_runtime_failed",
-		Message:             sideTurnRuntimeFailureMessage,
-		Retryable:           true,
+		Code:                code,
+		Message:             runErr.Error(),
+		Retryable:           retryable,
 		DiagnosticReference: diagnosticID,
 	}
 	expected := SideConversationExpectation{Status: side.Status, UpdatedAt: side.UpdatedAt}

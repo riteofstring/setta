@@ -410,7 +410,7 @@ func builtInRoleProfiles(scope RoleProfileScopeKind) []RoleProfile {
 	profiles := map[Role]RoleProfile{
 		RoleAgent:     DefaultAgentRoleProfile(),
 		RoleNarrator:  DefaultNarratorRoleProfile(),
-		RoleDirector:  DefaultDirectorRoleProfile(),
+		RoleMaster:    DefaultMasterRoleProfile(),
 		RoleSideAgent: DefaultSideAgentRoleProfile(),
 	}
 	roles := configurableRoles(scope)

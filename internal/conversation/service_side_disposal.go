@@ -18,19 +18,20 @@ func (service *Service) DisposeSideConversation(
 	ctx context.Context,
 	workspaceID string,
 	parentConversationID string,
+	parentPaneID string,
 	sideConversationID string,
 ) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	if err := validateSideDisposalRequest(parentConversationID, sideConversationID); err != nil {
+	if err := validateSideDisposalRequest(parentConversationID, parentPaneID, sideConversationID); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	if _, err := service.workspaces.ResolveActiveWorkspace(workspaceID); err != nil {
 		return ConversationSnapshot{}, err
 	}
 
-	side, err := service.prepareSideDisposal(ctx, workspaceID, parentConversationID, sideConversationID)
+	side, err := service.prepareSideDisposal(ctx, workspaceID, parentConversationID, parentPaneID, sideConversationID)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -43,8 +44,8 @@ func (service *Service) DisposeSideConversation(
 	return service.store.ReadSnapshot(ctx, workspaceID, parentConversationID)
 }
 
-func validateSideDisposalRequest(parentConversationID string, sideConversationID string) error {
-	if err := validateSideConversationRequest(parentConversationID); err != nil {
+func validateSideDisposalRequest(parentConversationID string, parentPaneID string, sideConversationID string) error {
+	if err := validateSideConversationRequest(parentConversationID, parentPaneID); err != nil {
 		return err
 	}
 	return validateIdentifier("side disposal side conversation id", sideConversationID)
@@ -55,11 +56,10 @@ func (service *Service) disposePreparedSide(
 	workspaceID string,
 	side SideConversation,
 ) error {
-	carrier, live := service.carriers.lookup(side.ID)
-	if !live {
+	if side.ProviderThreadID == nil {
 		return service.finalizeSideDisposal(ctx, workspaceID, side, TurnInterruptionUserRequested)
 	}
-	hadLocalTurn, activeProviderTurnID, localErr := service.stopLocalSideTurn(ctx, side, carrier)
+	hadLocalTurn, localErr := service.stopLocalSideTurn(ctx, side)
 	cleanupSide := side
 	if hadLocalTurn {
 		current, refreshErr := service.readSideAfterLocalTurn(workspaceID, side)
@@ -71,19 +71,17 @@ func (service *Service) disposePreparedSide(
 			return nil
 		}
 		cleanupSide = current
-		if current.ActiveTurnID == nil {
+		if current.ActiveTurnID == nil && current.ActiveProviderTurnID == nil {
 			// A durable terminal event is stronger evidence than an interrupt
 			// rejection racing that terminal transition.
 			localErr = nil
-			activeProviderTurnID = ""
 		}
 	}
-	cleanupErr := service.cleanupSideCarrier(ctx, cleanupSide, carrier, activeProviderTurnID)
+	cleanupErr := service.cleanupSideProviderThread(ctx, cleanupSide)
 	if cleanupErr != nil {
 		cause := errors.Join(localErr, cleanupErr)
 		return service.persistSideCleanupFailure(workspaceID, side, cause)
 	}
-	service.carriers.forget(side.ID)
 	return service.finalizeSideDisposal(ctx, workspaceID, side, TurnInterruptionUserRequested)
 }
 
@@ -130,6 +128,7 @@ func (service *Service) prepareSideDisposal(
 	ctx context.Context,
 	workspaceID string,
 	parentConversationID string,
+	parentPaneID string,
 	sideConversationID string,
 ) (SideConversation, error) {
 	lock := service.conversationLock(parentConversationID)
@@ -142,6 +141,12 @@ func (service *Service) prepareSideDisposal(
 	side, err := service.readSideConversation(ctx, snapshot, sideConversationID)
 	if err != nil {
 		return SideConversation{}, err
+	}
+	if side.ParentPaneID != parentPaneID {
+		return SideConversation{}, &CommandConflictError{
+			ConversationID: parentConversationID,
+			Reason:         fmt.Sprintf("side conversation %s belongs to pane %s", side.ID, side.ParentPaneID),
+		}
 	}
 	if side.DisposedAt != nil {
 		return side, nil
@@ -168,66 +173,61 @@ func (service *Service) prepareSideDisposal(
 	return side, nil
 }
 
-// stopLocalSideTurn ends the attachment this process holds for a side turn. It
-// reports whether there was one and, if the provider had already named the run,
-// which provider turn is still outstanding for carrier cleanup.
 func (service *Service) stopLocalSideTurn(
 	ctx context.Context,
 	side SideConversation,
-	carrier conversationCarrier,
-) (bool, string, error) {
+) (bool, error) {
 	service.activeMu.Lock()
 	active := service.activeSides[side.ID]
-	providerTurnID := ""
-	if active != nil {
-		providerTurnID = active.providerTurnID
-	}
 	service.activeMu.Unlock()
 	if active == nil {
-		return false, "", nil
+		return false, nil
 	}
 	var interruptErr error
-	if providerTurnID != "" {
-		interruptErr = service.agent.InterruptTurn(ctx, agent.TurnControlRequest{
-			ConversationID:   side.ID,
-			ProviderThreadID: carrier.threadID,
-			ProviderTurnID:   providerTurnID,
-			ClientInputID:    active.turnID,
-		})
+	if side.ActiveProviderTurnID != nil && side.ProviderThreadID != nil {
+		interruptErr = service.agent.InterruptTurn(ctx, agentTurnControl(side, active.turnID))
 	}
-	if interruptErr != nil || providerTurnID == "" {
+	if interruptErr != nil || side.ActiveProviderTurnID == nil {
 		active.cancel()
 	}
 	select {
 	case <-active.done:
-		return true, providerTurnID, interruptErr
+		return true, interruptErr
 	case <-ctx.Done():
 		active.cancel()
-		return true, providerTurnID, errors.Join(interruptErr, ctx.Err())
+		return true, errors.Join(interruptErr, ctx.Err())
 	}
 }
 
-func (service *Service) cleanupSideCarrier(
-	ctx context.Context,
-	side SideConversation,
-	carrier conversationCarrier,
-	activeProviderTurnID string,
-) error {
+func agentTurnControl(side SideConversation, turnID string) agent.TurnControlRequest {
+	return agent.TurnControlRequest{
+		ConversationID:   side.ID,
+		ProviderThreadID: *side.ProviderThreadID,
+		ProviderTurnID:   *side.ActiveProviderTurnID,
+		ClientInputID:    turnID,
+	}
+}
+
+func (service *Service) cleanupSideProviderThread(ctx context.Context, side SideConversation) error {
+	if side.ProviderThreadID == nil {
+		return nil
+	}
+	threadID := *side.ProviderThreadID
 	if side.Status == SideConversationStatusFailed &&
 		side.Failure != nil &&
-		side.Failure.Code == "side_carrier_start_failed" {
-		if err := service.agent.UnsubscribeThread(ctx, carrier.threadID); err != nil {
-			return fmt.Errorf("unsubscribe rejected side carrier %s: %w", carrier.threadID, err)
+		side.Failure.Code == "side_thread_fork_failed" {
+		if err := service.agent.UnsubscribeThread(ctx, threadID); err != nil {
+			return fmt.Errorf("unsubscribe rejected side provider thread %s: %w", threadID, err)
 		}
 		return nil
 	}
 	var interruptErr error
-	if activeProviderTurnID != "" {
-		interruptErr = service.agent.InterruptProviderTurn(ctx, carrier.threadID, activeProviderTurnID)
+	if side.ActiveProviderTurnID != nil {
+		interruptErr = service.agent.InterruptProviderTurn(ctx, threadID, *side.ActiveProviderTurnID)
 	}
-	unsubscribeStatus, unsubscribeErr := service.agent.UnsubscribeThreadWithStatus(ctx, carrier.threadID)
+	unsubscribeStatus, unsubscribeErr := service.agent.UnsubscribeThreadWithStatus(ctx, threadID)
 	if unsubscribeErr != nil {
-		return errors.Join(interruptErr, fmt.Errorf("unsubscribe side carrier %s: %w", carrier.threadID, unsubscribeErr))
+		return errors.Join(interruptErr, fmt.Errorf("unsubscribe side provider thread %s: %w", threadID, unsubscribeErr))
 	}
 	if interruptErr != nil && unsubscribeStatus != agent.ThreadUnsubscribeStatusNotLoaded {
 		return interruptErr
@@ -260,6 +260,7 @@ func (service *Service) finalizeSideDisposal(
 	activeTurnID := cloneStringPointer(side.ActiveTurnID)
 	side.ParentStatus = snapshot.Conversation.Status
 	side.ActiveTurnID = nil
+	side.ActiveProviderTurnID = nil
 	side.UpdatedAt = now
 	side.DisposedAt = &now
 	if side.ResolvedSideAgentInvocation.Outcome == InvocationOutcomeRunning {
@@ -279,14 +280,15 @@ func (service *Service) finalizeSideDisposal(
 	}
 	side.LastEventSequence++
 	event := TrajectoryEvent{
-		ID:              eventID,
-		ConversationID:  side.ID,
-		TurnID:          activeTurnID,
-		Sequence:        side.LastEventSequence,
-		EmittedAt:       now,
-		Kind:            TrajectoryEventTurnInterrupted,
-		Actor:           TrajectoryActorSystem,
-		TurnInterrupted: &TrajectoryTurnInterrupted{Reason: reason},
+		ID:               eventID,
+		ConversationID:   side.ID,
+		TurnID:           activeTurnID,
+		Sequence:         side.LastEventSequence,
+		EmittedAt:        now,
+		Kind:             TrajectoryEventTurnInterrupted,
+		Actor:            TrajectoryActorSystem,
+		ProviderThreadID: side.ProviderThreadID,
+		TurnInterrupted:  &TrajectoryTurnInterrupted{Reason: reason},
 	}
 	return service.persistSideConversationEvent(ctx, expected, side, event)
 }
@@ -334,19 +336,15 @@ func (service *Service) failSideDisposal(
 		now,
 		&failure,
 	)
-	// Leave the side undisposed while its carrier is still registered. A local
-	// cleanup error is not evidence that the provider turn stopped; restart
-	// recovery settles the Setta record without contacting the expired carrier.
+	// Keep the exact active provider identity until cleanup succeeds. A local
+	// cleanup error is not evidence that the provider turn stopped, and the
+	// durable ids are what make the failure genuinely retryable after restart.
 	return service.persistSideConversation(context.Background(), &expected, side)
 }
 
-// RecoverSideConversations settles side work that outlived the previous Setta
-// process.
-//
-// A side conversation runs on an ephemeral carrier, so the restart already took
-// its provider thread with it. There is nothing to interrupt and nothing to
-// unsubscribe: what is left is the Setta record, which is closed here so a side
-// nobody can talk to stops presenting itself as open.
+// RecoverSideConversations disposes every interrupted ephemeral child before
+// normal app workflows resume. Provider cleanup failures are made durable and
+// retryable; only failures to record that state abort startup.
 func (service *Service) RecoverSideConversations(ctx context.Context) error {
 	recoverable, err := service.store.readRecoverableSideConversations(ctx)
 	if err != nil {
@@ -355,7 +353,7 @@ func (service *Service) RecoverSideConversations(ctx context.Context) error {
 	var persistenceErrors []error
 	for _, record := range recoverable {
 		side := record.Side
-		if side.Status == SideConversationStatusPreparing {
+		if side.Status == SideConversationStatusPreparing && side.ProviderThreadID == nil {
 			cause := errors.New("side conversation preparation was interrupted by restart")
 			if err := service.failSideDisposal(record.WorkspaceID, side.ParentConversationID, side.ID, "side_restart_interrupted", cause); err != nil {
 				persistenceErrors = append(persistenceErrors, err)
@@ -367,6 +365,7 @@ func (service *Service) RecoverSideConversations(ctx context.Context) error {
 				ctx,
 				record.WorkspaceID,
 				side.ParentConversationID,
+				side.ParentPaneID,
 				side.ID,
 			)
 			if err != nil {
@@ -375,7 +374,20 @@ func (service *Service) RecoverSideConversations(ctx context.Context) error {
 			}
 			side = prepared
 		}
-		if err := service.finalizeSideDisposal(ctx, record.WorkspaceID, side, TurnInterruptionRuntimeRestarted); err != nil {
+		cleanupErr := service.cleanupSideProviderThread(ctx, side)
+		if cleanupErr != nil {
+			if err := service.failSideDisposal(
+				record.WorkspaceID,
+				side.ParentConversationID,
+				side.ID,
+				"side_restart_cleanup_failed",
+				cleanupErr,
+			); err != nil {
+				persistenceErrors = append(persistenceErrors, errors.Join(cleanupErr, err))
+			}
+			continue
+		}
+		if err := service.finalizeSideDisposal(ctx, record.WorkspaceID, side, TurnInterruptionReconciliation); err != nil {
 			persistenceErrors = append(persistenceErrors, err)
 		}
 	}
@@ -387,15 +399,19 @@ func (store *Store) readRecoverableSideConversations(ctx context.Context) ([]rec
 	err := store.read(ctx, "read recoverable side conversations", func(ctx context.Context, connection *sql.Conn) error {
 		rows, err := connection.QueryContext(ctx, `
 SELECT parent.workspace_id, parent.status,
-       side.id, side.parent_conversation_id,
-       side.decision_source, side.source_turn_id,
-       side.source_trajectory_sequence, side.last_event_sequence,
-       side.active_turn_id, side.status,
-       side.resolved_side_agent_invocation_json,
+       side.id, side.parent_conversation_id, side.parent_pane_id,
+       side.decision_source, side.provider_thread_id, side.source_provider_thread_id,
+       side.source_provider_turn_id, side.source_trajectory_sequence,
+       side.last_event_sequence, side.active_turn_id, side.active_provider_turn_id,
+       side.status, side.resolved_side_agent_invocation_json,
        side.created_at, side.updated_at, side.disposed_at, side.failure_json
 FROM side_conversations AS side
 JOIN conversations AS parent ON parent.id = side.parent_conversation_id
 WHERE side.disposed_at IS NULL
+  AND (
+    side.status IN ('preparing', 'active', 'disposing')
+    OR (side.status = 'failed' AND side.provider_thread_id IS NOT NULL)
+  )
 ORDER BY side.created_at, side.id
 `)
 		if err != nil {
@@ -404,7 +420,7 @@ ORDER BY side.created_at, side.id
 		defer rows.Close()
 		for rows.Next() {
 			var record recoverableSideConversation
-			var sourceTurnID, activeTurnID sql.NullString
+			var providerThreadID, sourceProviderTurnID, activeTurnID, activeProviderTurnID sql.NullString
 			var disposedAt, failureJSON sql.NullString
 			var invocationJSON string
 			if err := rows.Scan(
@@ -412,11 +428,15 @@ ORDER BY side.created_at, side.id
 				&record.Side.ParentStatus,
 				&record.Side.ID,
 				&record.Side.ParentConversationID,
+				&record.Side.ParentPaneID,
 				&record.Side.DecisionSource,
-				&sourceTurnID,
+				&providerThreadID,
+				&record.Side.SourceProviderThreadID,
+				&sourceProviderTurnID,
 				&record.Side.SourceTrajectorySequence,
 				&record.Side.LastEventSequence,
 				&activeTurnID,
+				&activeProviderTurnID,
 				&record.Side.Status,
 				&invocationJSON,
 				&record.Side.CreatedAt,
@@ -426,8 +446,10 @@ ORDER BY side.created_at, side.id
 			); err != nil {
 				return err
 			}
-			record.Side.SourceTurnID = optionalScannedString(sourceTurnID)
+			record.Side.ProviderThreadID = optionalScannedString(providerThreadID)
+			record.Side.SourceProviderTurnID = optionalScannedString(sourceProviderTurnID)
 			record.Side.ActiveTurnID = optionalScannedString(activeTurnID)
+			record.Side.ActiveProviderTurnID = optionalScannedString(activeProviderTurnID)
 			record.Side.DisposedAt = optionalScannedString(disposedAt)
 			if err := decodeJSON("recoverable side invocation", invocationJSON, &record.Side.ResolvedSideAgentInvocation); err != nil {
 				return err

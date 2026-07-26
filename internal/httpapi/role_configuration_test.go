@@ -258,7 +258,7 @@ func validHTTPRoleConfiguration(
 	roles := []conversation.Role{
 		conversation.RoleAgent,
 		conversation.RoleNarrator,
-		conversation.RoleDirector,
+		conversation.RoleMaster,
 		conversation.RoleSideAgent,
 	}
 	switch scopeKind {
@@ -336,8 +336,8 @@ func defaultHTTPRoleProfile(role conversation.Role) conversation.RoleProfile {
 		return conversation.DefaultAgentRoleProfile()
 	case conversation.RoleNarrator:
 		return conversation.DefaultNarratorRoleProfile()
-	case conversation.RoleDirector:
-		return conversation.DefaultDirectorRoleProfile()
+	case conversation.RoleMaster:
+		return conversation.DefaultMasterRoleProfile()
 	case conversation.RoleSideAgent:
 		return conversation.DefaultSideAgentRoleProfile()
 	default:

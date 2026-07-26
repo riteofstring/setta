@@ -1,0 +1,216 @@
+.workspace-pane-host {
+  --workspace-pane-top-bar-height: 30px;
+}
+
+.workspace-pane-content,
+.workspace-react-dom-surface {
+  height: calc(100% - var(--workspace-pane-top-bar-height));
+  margin-top: var(--workspace-pane-top-bar-height);
+  width: 100%;
+}
+
+.workspace-pane-top-bar {
+  align-items: center;
+  background: var(--workspace-pane-title-bar-surface);
+  border-bottom: 1px solid color-mix(in oklch, var(--foreground) 12%, transparent);
+  color: color-mix(in oklch, var(--foreground) 72%, transparent);
+  cursor: grab;
+  display: flex;
+  gap: 4px;
+  height: var(--workspace-pane-top-bar-height);
+  inset: 0 0 auto;
+  min-width: 0;
+  padding: 4px 7px;
+  pointer-events: auto;
+  position: absolute;
+  width: 100%;
+  z-index: 6;
+}
+
+.workspace-pane-title-slot {
+  align-items: center;
+  display: inline-flex;
+  flex: 1 1 auto;
+  gap: 6px;
+  min-width: 0;
+}
+
+.workspace-pane-title-icon {
+  color: color-mix(in oklch, var(--foreground) 76%, transparent);
+  flex: 0 0 auto;
+  height: 14px;
+  width: 14px;
+}
+
+.workspace-pane-title {
+  color: color-mix(in oklch, var(--foreground) 84%, transparent);
+  display: block;
+  font-family: var(--setta-font-mono);
+  font-size: 11px;
+  font-weight: 520;
+  letter-spacing: 0;
+  line-height: 16px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-pane-title[data-workspace-pane-title-truncation="start"] {
+  direction: rtl;
+  text-align: left;
+  unicode-bidi: plaintext;
+}
+
+.workspace-pane-action-strip {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  margin-left: auto;
+}
+
+/* Mobile-width layout pages between full-screen panes; pane management moves
+   to the bottom control bar, so the per-pane action buttons disappear, the
+   reorder grip makes no sense outside overview, and the bar grows into an
+   easier touch target. */
+.workspace-layout-area[data-compact-layout="true"] .workspace-pane-host {
+  --workspace-pane-top-bar-height: 44px;
+}
+
+.workspace-layout-area[data-compact-layout="true"] .workspace-pane-action-strip {
+  display: none;
+}
+
+.workspace-pane-action-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: color-mix(in oklch, var(--foreground) 68%, transparent);
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 22px;
+  justify-content: center;
+  opacity: 0.72;
+  padding: 0;
+  transition:
+    background 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease;
+  width: 22px;
+}
+
+.workspace-pane-action-button {
+  cursor: pointer;
+  position: relative;
+}
+
+.workspace-pane-action-button::before,
+.workspace-pane-action-button::after {
+  box-sizing: border-box;
+  content: "";
+  position: absolute;
+}
+
+.workspace-pane-action-split-down::before {
+  border: 1.4px solid currentColor;
+  border-radius: 2px;
+  height: 12px;
+  width: 12px;
+}
+
+.workspace-pane-action-split-down::after {
+  background: currentColor;
+  height: 1.5px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+}
+
+.workspace-pane-action-add-above::before,
+.workspace-pane-action-add-below::before {
+  border: 1.3px solid currentColor;
+  border-radius: 2px;
+  height: 12px;
+  opacity: 0.76;
+  width: 12px;
+}
+
+.workspace-pane-action-add-above::after,
+.workspace-pane-action-add-below::after {
+  background:
+    linear-gradient(currentColor, currentColor) center / 8px 1.5px no-repeat,
+    linear-gradient(currentColor, currentColor) center / 1.5px 8px no-repeat;
+  height: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+}
+
+.workspace-pane-action-add-above::after {
+  top: 4px;
+}
+
+.workspace-pane-action-add-below::after {
+  bottom: 4px;
+}
+
+.workspace-pane-maximize-button::before,
+.workspace-pane-maximize-button::after {
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  content: "";
+  height: 9px;
+  position: absolute;
+  width: 9px;
+}
+
+.workspace-pane-maximize-button::after {
+  display: none;
+}
+
+.workspace-pane-action-close::before,
+.workspace-pane-action-close::after {
+  background: currentColor;
+  height: 1.5px;
+  left: 50%;
+  top: 50%;
+  width: 11px;
+}
+
+.workspace-pane-action-close::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.workspace-pane-action-close::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.workspace-pane-action-button:hover,
+.workspace-pane-action-button:focus-visible {
+  background: color-mix(in oklch, var(--accent) 82%, transparent);
+  color: var(--foreground);
+  opacity: 1;
+  outline: none;
+}
+
+.workspace-pane-top-bar:active,
+.workspace-pane-host[data-drag-source="true"] .workspace-pane-top-bar {
+  cursor: grabbing;
+}
+
+.workspace-pane-host[data-maximized="true"] .workspace-pane-maximize-button {
+  background: color-mix(in oklch, var(--primary) 24%, var(--background));
+  color: var(--foreground);
+}
+
+.workspace-pane-host[data-maximized="true"] .workspace-pane-maximize-button::before {
+  transform: translate(2px, -2px);
+}
+
+.workspace-pane-host[data-maximized="true"] .workspace-pane-maximize-button::after {
+  display: block;
+  transform: translate(-2px, 2px);
+}

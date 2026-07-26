@@ -67,12 +67,6 @@ func (service *Service) finishRunTurn(active *activeConversationTurn, runErr err
 	}
 	service.activeMu.Unlock()
 	lock.Unlock()
-	if agent.IsProviderThreadMissing(runErr) {
-		// The carrier is gone, not the conversation. Dropping it means the next
-		// turn replays Setta's record into a fresh one instead of addressing a
-		// thread the provider no longer has.
-		service.carriers.forget(active.conversationID)
-	}
 	if persisted {
 		service.promoteNextTurn(active.workspaceID, active.conversationID)
 	}
@@ -121,7 +115,7 @@ func (service *Service) promoteNextTurnWithResult(
 		}
 		return nil
 	}
-	if err := service.launchTurnLocked(ctx, workspaceSummary.RootPath, workspaceID, turn, queued.Ordinal); err != nil {
+	if err := service.launchTurnLocked(workspaceSummary.RootPath, workspaceID, turn, queued.Ordinal); err != nil {
 		persistErr := service.persistUnexpectedTurnEnd(ctx, &activeConversationTurn{
 			conversationID: conversationID,
 			queueOrdinal:   queued.Ordinal,
@@ -183,8 +177,6 @@ func (service *Service) handleAgentEvent(
 		agent.EventKindActivityUpdated,
 		agent.EventKindActivityCompleted,
 		agent.EventKindApprovalRequested,
-		agent.EventKindApprovalSuperseded,
-		agent.EventKindValidationRecorded,
 		agent.EventKindModelRerouted,
 		agent.EventKindLifecycleChanged:
 		return service.persistAgentProgress(ctx, active, event)
@@ -220,6 +212,7 @@ func (service *Service) persistTurnStarted(
 }
 
 type turnStartMutation struct {
+	binding      AgentThreadBinding
 	events       []TrajectoryEvent
 	now          string
 	queue        []QueuedConversationTurn
@@ -251,6 +244,7 @@ func (service *Service) prepareTurnStart(
 		invocationID,
 		active.roleProfile,
 		resolved,
+		event.ProviderThreadID,
 		event.ProviderTurnID,
 		now,
 	)
@@ -258,6 +252,9 @@ func (service *Service) prepareTurnStart(
 	turn.StartedAt = &now
 	turn.ResolvedInvocation = &invocation
 	turn.ProviderTurnID = &event.ProviderTurnID
+	binding := *snapshot.ThreadBinding
+	binding.LastResumedAt = &now
+	binding.LastTurnID = &turn.ID
 	events, err := service.turnStartTrajectories(active, snapshot, turn, invocation, event, now)
 	if err != nil {
 		return turnStartMutation{}, err
@@ -267,6 +264,7 @@ func (service *Service) prepareTurnStart(
 		return turnStartMutation{}, err
 	}
 	return turnStartMutation{
+		binding:      binding,
 		events:       events,
 		now:          now,
 		queue:        queue,
@@ -312,6 +310,7 @@ func (service *Service) turnStartTrajectories(
 		events[index].TurnID = &turn.ID
 		events[index].Sequence = snapshot.Conversation.LastTrajectorySequence + index + 1
 		events[index].EmittedAt = now
+		events[index].ProviderThreadID = &event.ProviderThreadID
 		events[index].ProviderTurnID = &event.ProviderTurnID
 	}
 	return events, nil
@@ -332,6 +331,7 @@ func queueAfterTurnStart(
 func turnStartPayloads(mutation turnStartMutation) []ConversationEventPayload {
 	payloads := []ConversationEventPayload{
 		ConversationTurnUpdatedEventPayload{Type: ConversationEventTypeTurnUpdated, Turn: mutation.turn},
+		ConversationThreadBindingUpdatedEventPayload{Type: ConversationEventTypeThreadBindingUpdated, Binding: mutation.binding},
 	}
 	if mutation.queueOrdinal > 0 {
 		payloads = append(payloads, ConversationQueueUpdatedEventPayload{Type: ConversationEventTypeQueueUpdated, Queue: mutation.queue})
@@ -354,6 +354,9 @@ func (service *Service) commitTurnStart(
 		if err := applyTurnStartQueueMutation(transaction, mutation); err != nil {
 			return err
 		}
+		if err := transaction.UpsertAgentThreadBinding(mutation.binding); err != nil {
+			return err
+		}
 		for _, trajectory := range mutation.events {
 			if err := transaction.AppendTrajectoryEvent(trajectory); err != nil {
 				return err
@@ -364,9 +367,8 @@ func (service *Service) commitTurnStart(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			mutation.snapshot.Conversation,
-			mutation.turn,
+			mutation.turn.ID,
 			mutation.events,
-			nil,
 			false,
 		)
 	}
@@ -468,13 +470,14 @@ func (service *Service) prepareTurnTerminal(
 		return turnTerminalMutation{}, err
 	}
 	trajectory := TrajectoryEvent{
-		ID:             trajectoryID,
-		ConversationID: active.conversationID,
-		TurnID:         &turn.ID,
-		Sequence:       snapshot.Conversation.LastTrajectorySequence + 1,
-		EmittedAt:      now,
-		Actor:          TrajectoryActorProvider,
-		ProviderTurnID: &event.ProviderTurnID,
+		ID:               trajectoryID,
+		ConversationID:   active.conversationID,
+		TurnID:           &turn.ID,
+		Sequence:         snapshot.Conversation.LastTrajectorySequence + 1,
+		EmittedAt:        now,
+		Actor:            TrajectoryActorProvider,
+		ProviderThreadID: &event.ProviderThreadID,
+		ProviderTurnID:   &event.ProviderTurnID,
 	}
 	conversationStatus := ConversationStatusIdle
 	if len(snapshot.Queue) > 0 {
@@ -544,7 +547,7 @@ func applyProviderTerminalOutcome(
 		trajectory.Kind = TrajectoryEventTurnInterrupted
 		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: interruptionReason}
 	case agent.TurnOutcomeFailed:
-		failure := providerFailure("provider_turn_failed")
+		failure := providerFailure("provider_turn_failed", event.Terminal.Error)
 		turn.Status = TurnStatusFailed
 		turn.Error = &failure
 		turn.ResolvedInvocation = invocationPointerValue(terminalInvocation(*turn.ResolvedInvocation, InvocationOutcomeFailed, now, &failure))
@@ -593,9 +596,8 @@ func (service *Service) commitTurnTerminal(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			mutation.conversation,
-			mutation.turn,
+			mutation.turn.ID,
 			[]TrajectoryEvent{mutation.trajectory},
-			artifactMetadataForTurn(mutation.snapshot.Artifacts.Artifacts, mutation.turn.ID),
 			true,
 		)
 	}
@@ -606,10 +608,10 @@ func invocationPointerValue(value ResolvedInvocation) *ResolvedInvocation {
 	return &value
 }
 
-func providerFailure(code string) Failure {
-	return Failure{
-		Code:      code,
-		Message:   "The provider could not complete this run. Try again.",
-		Retryable: true,
+func providerFailure(code string, message *string) Failure {
+	text := "provider turn failed"
+	if message != nil && *message != "" {
+		text = *message
 	}
+	return Failure{Code: code, Message: text, Retryable: true}
 }
