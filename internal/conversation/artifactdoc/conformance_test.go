@@ -159,6 +159,7 @@ func TestAcceptedFixturesReachGlobalBoundaries(t *testing.T) {
 	assertComponentStringLength(t, stringDocument.Root, ComponentHeading, "text", MaxLabelBytes)
 	assertComponentStringLength(t, stringDocument.Root, ComponentText, "text", MaxTextBytes)
 	assertComponentStringLength(t, stringDocument.Root, ComponentMarkdown, "source", MaxMarkdownBytes)
+	assertComponentStringLength(t, stringDocument.Root, ComponentCodeBlock, "code", MaxCodeBytes)
 	assertComponentStringLength(t, stringDocument.Root, ComponentFileReference, "path", MaxPathBytes)
 	stringTable, ok := findComponent(stringDocument.Root, ComponentTable)
 	if !ok {
@@ -341,6 +342,11 @@ func assertSchemaIsComplete(t *testing.T, componentNames map[ComponentName]bool,
 			}
 			seen[value] = true
 		}
+	case ValueKindNumber:
+		if schema.Minimum != nil && schema.Maximum != nil && *schema.Minimum > *schema.Maximum {
+			t.Errorf("%s has minimum %v above maximum %v", path, *schema.Minimum, *schema.Maximum)
+		}
+	case ValueKindBoolean:
 	case ValueKindComponent:
 		if len(schema.Components) == 0 {
 			t.Errorf("%s accepts a component but names none", path)
@@ -353,6 +359,17 @@ func assertSchemaIsComplete(t *testing.T, componentNames map[ComponentName]bool,
 	case ValueKindList:
 		if schema.Element == nil {
 			t.Fatalf("%s is a list with no element schema", path)
+		}
+		if schema.MinItems < 0 ||
+			schema.MaxItems < 1 ||
+			schema.MaxItems > MaxArrayEntries ||
+			schema.MinItems > schema.MaxItems {
+			t.Errorf(
+				"%s has invalid list bounds %d..%d",
+				path,
+				schema.MinItems,
+				schema.MaxItems,
+			)
 		}
 		assertSchemaIsComplete(t, componentNames, path+"[]", *schema.Element)
 	case ValueKindObject:
@@ -370,6 +387,8 @@ func assertSchemaIsComplete(t *testing.T, componentNames map[ComponentName]bool,
 			}
 			assertSchemaIsComplete(t, componentNames, path+"."+field.Name, field.Schema)
 		}
+	default:
+		t.Errorf("%s has unknown value kind %q", path, schema.Kind)
 	}
 }
 

@@ -4,16 +4,42 @@ import type { ArtifactConformanceFixture } from "./types";
 
 export const artifactConformanceFixture: ArtifactConformanceFixture = {
   "name": "syntax_edges",
-  "description": "JSON number syntax, quoted object keys, trailing commas, and safely escaped Markdown markup.",
-  "source": "root = Document([\n  Markdown(\"\\\\\u003cscript\u003e is literal text, not markup.\"),\n  PieChart([\n    {\"label\": \"Measured\", \"value\": 1.2e+3,},\n  ],),\n])",
+  "description": "CRLF wrapping, JSON strings and numbers, quoted object keys, trailing commas, and safely escaped Markdown markup.",
+  "source": "root = Document([\r\n  Text(\"Quoted: \\\"ready\\\"; caf\\u00e9 \\ud83d\\ude80\"),\r\n  Markdown(\"\\\\\u003cscript\u003e is literal text, not markup.\"),\r\n  LineChart([\r\n    {name: \"Delta\", points: [{label: \"Before\", value: -3.5}, {label: \"After\", value: 0}]}\r\n  ]),\r\n  PieChart([\r\n    {\"label\": \"Measured\", \"value\": 1.2e+3,},\r\n  ],),\r\n])",
   "root": {
     "component": "Document",
     "props": {
       "blocks": [
         {
+          "component": "Text",
+          "props": {
+            "text": "Quoted: \"ready\"; café 🚀"
+          }
+        },
+        {
           "component": "Markdown",
           "props": {
             "source": "\\\u003cscript\u003e is literal text, not markup."
+          }
+        },
+        {
+          "component": "LineChart",
+          "props": {
+            "series": [
+              {
+                "name": "Delta",
+                "points": [
+                  {
+                    "label": "Before",
+                    "value": -3.5
+                  },
+                  {
+                    "label": "After",
+                    "value": 0
+                  }
+                ]
+              }
+            ]
           }
         },
         {

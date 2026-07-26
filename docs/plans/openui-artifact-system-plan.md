@@ -782,7 +782,7 @@ half is implemented in
 [`desktop/src/renderer/src/features/artifacts`](../../desktop/src/renderer/src/features/artifacts):
 the generated catalog schema, the generated accepted corpus, and the parser
 conformance suite. Nothing in production imports either half. The audit and
-local verification evidence for the backend spike is recorded in
+local verification evidence for the coherent Phase 0 spike is recorded in
 [`docs/reports/openui-artifact-phase0-audit-20260726.md`](../reports/openui-artifact-phase0-audit-20260726.md).
 
 Landed:
@@ -801,13 +801,17 @@ Landed:
   component, property, and correction instruction
 - a delimiter guard before recursive parsing, matching-bracket validation,
   JSON-strict number syntax, and expanded path, Markdown, and Unicode safety
-- 16 accepted fixtures covering every catalog component, reference reuse, and
-  semantic limit boundaries; 60 rejected fixtures covering every failure code
-  plus the affected syntax, safety, and limit variants
-- one green deterministic compiler and corpus matrix, including prompt, tool
-  argument, representative compile, and maximum-source compile measurements
+- 16 accepted fixtures covering every catalog component, scalar, object, array,
+  alias, forward, and shared component references, CRLF and JSON syntax edges,
+  optional `null` normalization, and semantic limit boundaries; 60 rejected
+  fixtures covering every failure code plus the affected syntax, safety, and
+  limit variants
+- one green deterministic compiler, generated-corpus, upstream-parser, and
+  typecheck matrix, including prompt, tool argument, representative and
+  maximum-source compile measurements
 - one green ChatGPT-authenticated live output-quality check using the
-  catalog-owned instructions, with `OPENAI_API_KEY` excluded
+  catalog-owned instructions, with `OPENAI_API_KEY` excluded, that verifies the
+  requested metrics, chart points, table rows, link, command, and file reference
 - the official shadcn/ui Base UI source decision pinned to upstream revision
   `7774cd7dcee1e98d0815aa6e829f33a7fc952fdf` and `@base-ui/react` `1.6.0`
 - the pinned OpenUI dependency: `@openuidev/react-lang` `0.2.8` and its required
@@ -824,13 +828,15 @@ Landed:
 - one green desktop conformance suite proving the pinned upstream parser reads
   every accepted fixture into the tree Setta's compiler accepted, with no parse
   error, no incomplete input, and no unresolved or orphaned statement
+- reproducible upstream-parser measurements: 0.0298 ms mean for the
+  representative document and 0.8123 ms mean for a 64 KiB maximum source
 
 Two interpretation rules came out of that conformance work and constrain the
 later phases:
 
-- a skipped optional argument is absent in Setta's compiled tree and present as
-  `null` in the parser's, so the renderer map must read a `null` property as
-  absent
+- a skipped optional argument or object field is absent in Setta's compiled
+  tree and present as `null` in the parser's, so the renderer map must read a
+  `null` property as absent at every object depth
 - the generated catalog schema must never carry a JSON Schema `default`,
   because the upstream parser substitutes a declared default where Setta's
   compiler leaves the property absent
@@ -862,15 +868,18 @@ Gate:
 - stop if the catalog prompt or JSON string escaping makes generation
   materially less reliable than the current tool
 
-Every gate above is satisfied except the pre-change performance baseline, which
-needs a driven Electron session and is a release gate for the phase audit.
+The compiler, parser-equivalence, prompt, escaping, and output-quality gates
+above are satisfied. Phase 0 is still incomplete because the pre-change
+performance baseline needs a driven Electron session and remains a release
+gate.
 
-Once the Phase 0 spike is branch-ready, pause for explicit user authorization
-before running its automated conformance checks. Do not begin the production
-cutover until that user-authorized gate passes.
+The automated conformance checks ran with explicit user authorization and
+passed after the last relevant changes. Do not duplicate them without another
+relevant change, and do not begin the production cutover until the remaining
+performance gate passes.
 
-No production contract, schema, or renderer changes land before this gate is
-satisfied.
+No production contract, schema, or renderer changes land before Phase 0 is
+complete.
 
 ### Phase 1 - Catalog Generation And Official shadcn Base UI Primitives
 

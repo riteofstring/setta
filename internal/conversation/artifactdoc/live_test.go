@@ -119,21 +119,25 @@ The file reference must be docs/plans/openui-artifact-system-plan.md.`,
 			t.Errorf("live artifact omitted required component %s", name)
 		}
 	}
+	assertLiveMetrics(t, document.Root, map[string]string{
+		"resolved":  "412",
+		"escalated": "17",
+	})
+	assertLiveChartPoints(t, document.Root, map[string]float64{
+		"W1": 118,
+		"W2": 137,
+		"W3": 157,
+	})
+	assertLiveTableRows(t, document.Root, map[string]string{
+		"Platform": "142",
+		"Desktop":  "131",
+		"Runtime":  "139",
+	})
 	treeJSON, err := json.Marshal(document.Root)
 	if err != nil {
 		t.Fatalf("encode live compiled tree: %v", err)
 	}
 	for _, fact := range []string{
-		"412",
-		"17",
-		"W1",
-		"118",
-		"W3",
-		"157",
-		"Platform",
-		"142",
-		"Runtime",
-		"139",
 		"https://example.com/support",
 		"./scripts/go.sh test ./internal/conversation/artifactdoc",
 		"docs/plans/openui-artifact-system-plan.md",
@@ -150,6 +154,139 @@ The file reference must be docs/plans/openui-artifact-system-plan.md.`,
 		len(output.Source),
 		compileDuration,
 	)
+}
+
+func assertLiveMetrics(t *testing.T, root Node, want map[string]string) {
+	t.Helper()
+	metrics := liveComponents(root, ComponentMetric)
+	for labelFragment, valueFragment := range want {
+		found := false
+		for _, metric := range metrics {
+			label, labelOK := metric.Props["label"].(string)
+			value, valueOK := metric.Props["value"].(string)
+			if labelOK &&
+				valueOK &&
+				strings.Contains(strings.ToLower(label), labelFragment) &&
+				strings.Contains(value, valueFragment) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf(
+				"live Metrics have no value pairing a %q label with %q; metrics=%v",
+				labelFragment,
+				valueFragment,
+				metrics,
+			)
+		}
+	}
+}
+
+func assertLiveChartPoints(t *testing.T, root Node, want map[string]float64) {
+	t.Helper()
+	got := make(map[string]float64, len(want))
+	for _, chart := range liveComponents(root, ComponentBarChart) {
+		series, seriesOK := listProperty(chart, "series")
+		if !seriesOK {
+			continue
+		}
+		for _, entry := range series {
+			points, pointsOK := listField(entry, "points")
+			if !pointsOK {
+				continue
+			}
+			for _, point := range points {
+				record, recordOK := point.(map[string]any)
+				if !recordOK {
+					continue
+				}
+				label, labelOK := record["label"].(string)
+				value, valueOK := record["value"].(float64)
+				if labelOK && valueOK {
+					got[label] = value
+				}
+			}
+		}
+	}
+	for label, value := range want {
+		actual, present := got[label]
+		if !present || actual != value {
+			t.Errorf("live BarChart point %s = %v, want %v; points=%v", label, actual, value, got)
+		}
+	}
+}
+
+func assertLiveTableRows(t *testing.T, root Node, want map[string]string) {
+	t.Helper()
+	var allRows [][]string
+	for _, table := range liveComponents(root, ComponentTable) {
+		rows, rowsOK := listProperty(table, "rows")
+		if !rowsOK {
+			continue
+		}
+		for _, entry := range rows {
+			cells, cellsOK := entry.([]any)
+			if !cellsOK {
+				continue
+			}
+			rowValues := make([]string, 0, len(cells))
+			for _, cell := range cells {
+				if value, valueOK := cell.(string); valueOK {
+					rowValues = append(rowValues, value)
+				}
+			}
+			allRows = append(allRows, rowValues)
+		}
+	}
+	for team, value := range want {
+		found := false
+		for _, row := range allRows {
+			hasTeam := false
+			hasValue := false
+			for _, cell := range row {
+				hasTeam = hasTeam || strings.Contains(strings.ToLower(cell), strings.ToLower(team))
+				hasValue = hasValue || strings.Contains(cell, value)
+			}
+			if hasTeam && hasValue {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("live Table has no row pairing %s with %s; rows=%v", team, value, allRows)
+		}
+	}
+}
+
+func liveComponents(root Node, name ComponentName) []Node {
+	var matches []Node
+	var visitValue func(any)
+	var visitNode func(Node)
+	visitNode = func(node Node) {
+		if node.Component == name {
+			matches = append(matches, node)
+		}
+		for _, value := range node.Props {
+			visitValue(value)
+		}
+	}
+	visitValue = func(value any) {
+		switch typed := value.(type) {
+		case Node:
+			visitNode(typed)
+		case []any:
+			for _, entry := range typed {
+				visitValue(entry)
+			}
+		case map[string]any:
+			for _, entry := range typed {
+				visitValue(entry)
+			}
+		}
+	}
+	visitNode(root)
+	return matches
 }
 
 func liveArtifactDocAuthUnavailable(err error) bool {

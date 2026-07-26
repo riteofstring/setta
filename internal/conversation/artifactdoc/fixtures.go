@@ -88,7 +88,7 @@ root = Document([
 		},
 		{
 			Name:        "data_display",
-			Description: "Metrics, badges, an alert, and a table, with an optional argument skipped by null.",
+			Description: "Metrics, badges, an alert, and a table, with optional component and object fields skipped by null.",
 			Source: `root = Document([
   Grid([
     Metric("Resolved", "412", "best week this quarter", "positive"),
@@ -99,7 +99,7 @@ root = Document([
   Alert("Migration required", "Delete local app data before the next run.", "warning"),
   Table(
     [
-      {key: "team", label: "Team"},
+      {key: "team", label: "Team", align: null},
       {key: "open", label: "Open", align: "end"}
     ],
     [
@@ -112,12 +112,13 @@ root = Document([
 		},
 		{
 			Name:        "charts",
-			Description: "Every chart component, with one series statement shared by three charts.",
-			Source: `revenue = [
+			Description: "Every chart component, with scalar, object, and array statements resolved into three shared charts.",
+			Source: `first_direct_point = {label: "Q1", value: first_direct_value}
+revenue = [
   {
     name: "Direct",
     points: [
-      {label: "Q1", value: 12.5},
+      first_direct_point,
       {label: "Q2", value: 18},
       {label: "Q3", value: 21.25}
     ]
@@ -131,6 +132,7 @@ root = Document([
     ]
   }
 ]
+first_direct_value = 12.5
 root = Document([
   BarChart(revenue, "Revenue by channel"),
   LineChart(revenue),
@@ -143,12 +145,14 @@ root = Document([
 		},
 		{
 			Name:        "forward_and_shared_references",
-			Description: "Statements defined after root, and one statement rendered in two places.",
+			Description: "Statements defined after root, a scalar alias chain, and one component rendered in two places.",
 			Source: `root = Document([
   Section("Summary", [summary]),
   Section("Appendix", [summary, footnote])
 ])
-summary = Markdown("The rollout is on schedule.")
+summary = Markdown(summary_source)
+summary_source = summary_alias
+summary_alias = "The rollout is on schedule."
 footnote = Text("Generated from durable trajectory facts.", "muted")`,
 		},
 		{
@@ -191,13 +195,8 @@ footnote = Text("Generated from durable trajectory facts.", "muted")`,
 		},
 		{
 			Name:        "syntax_edges",
-			Description: "JSON number syntax, quoted object keys, trailing commas, and safely escaped Markdown markup.",
-			Source: `root = Document([
-  Markdown("\\<script> is literal text, not markup."),
-  PieChart([
-    {"label": "Measured", "value": 1.2e+3,},
-  ],),
-])`,
+			Description: "CRLF wrapping, JSON strings and numbers, quoted object keys, trailing commas, and safely escaped Markdown markup.",
+			Source:      syntaxEdgesSource(),
 		},
 		{
 			Name:        "maximum_table",
@@ -236,6 +235,20 @@ footnote = Text("Generated from durable trajectory facts.", "muted")`,
 		},
 	}
 	return fixtures
+}
+
+func syntaxEdgesSource() string {
+	source := `root = Document([
+  Text("Quoted: \"ready\"; caf\u00e9 \ud83d\ude80"),
+  Markdown("\\<script> is literal text, not markup."),
+  LineChart([
+    {name: "Delta", points: [{label: "Before", value: -3.5}, {label: "After", value: 0}]}
+  ]),
+  PieChart([
+    {"label": "Measured", "value": 1.2e+3,},
+  ],),
+])`
+	return strings.ReplaceAll(source, "\n", "\r\n")
 }
 
 // RejectedFixtures returns the rejected corpus in stable order.
@@ -743,10 +756,11 @@ func maximumStatementsAndNodesSource() string {
 func maximumStringValuesSource() string {
 	path := strings.Repeat("a/", (MaxPathBytes-2)/2) + "aa"
 	return fmt.Sprintf(
-		"root = Document([Heading(%q), Text(%q), Markdown(%q), FileReference(%q), Table([{key: \"c\", label: \"Cell\"}], [[%q]])])",
+		"root = Document([Heading(%q), Text(%q), Markdown(%q), CodeBlock(%q), FileReference(%q), Table([{key: \"c\", label: \"Cell\"}], [[%q]])])",
 		strings.Repeat("h", MaxLabelBytes),
 		strings.Repeat("t", MaxTextBytes),
 		strings.Repeat("m", MaxMarkdownBytes),
+		strings.Repeat("c", MaxCodeBytes),
 		path,
 		strings.Repeat("c", MaxCellBytes),
 	)

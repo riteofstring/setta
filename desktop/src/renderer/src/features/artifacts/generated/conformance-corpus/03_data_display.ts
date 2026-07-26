@@ -4,8 +4,8 @@ import type { ArtifactConformanceFixture } from "./types";
 
 export const artifactConformanceFixture: ArtifactConformanceFixture = {
   "name": "data_display",
-  "description": "Metrics, badges, an alert, and a table, with an optional argument skipped by null.",
-  "source": "root = Document([\n  Grid([\n    Metric(\"Resolved\", \"412\", \"best week this quarter\", \"positive\"),\n    Metric(\"Escalated\", \"17\", null, \"negative\")\n  ], 2),\n  Badge(\"Stable\", \"success\"),\n  Badge(\"Draft\"),\n  Alert(\"Migration required\", \"Delete local app data before the next run.\", \"warning\"),\n  Table(\n    [\n      {key: \"team\", label: \"Team\"},\n      {key: \"open\", label: \"Open\", align: \"end\"}\n    ],\n    [\n      [\"Platform\", \"42\"],\n      [\"Desktop\", \"18\"]\n    ],\n    \"Open tickets by team\"\n  )\n])",
+  "description": "Metrics, badges, an alert, and a table, with optional component and object fields skipped by null.",
+  "source": "root = Document([\n  Grid([\n    Metric(\"Resolved\", \"412\", \"best week this quarter\", \"positive\"),\n    Metric(\"Escalated\", \"17\", null, \"negative\")\n  ], 2),\n  Badge(\"Stable\", \"success\"),\n  Badge(\"Draft\"),\n  Alert(\"Migration required\", \"Delete local app data before the next run.\", \"warning\"),\n  Table(\n    [\n      {key: \"team\", label: \"Team\", align: null},\n      {key: \"open\", label: \"Open\", align: \"end\"}\n    ],\n    [\n      [\"Platform\", \"42\"],\n      [\"Desktop\", \"18\"]\n    ],\n    \"Open tickets by team\"\n  )\n])",
   "root": {
     "component": "Document",
     "props": {

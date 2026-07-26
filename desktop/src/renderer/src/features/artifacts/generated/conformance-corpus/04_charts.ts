@@ -4,8 +4,8 @@ import type { ArtifactConformanceFixture } from "./types";
 
 export const artifactConformanceFixture: ArtifactConformanceFixture = {
   "name": "charts",
-  "description": "Every chart component, with one series statement shared by three charts.",
-  "source": "revenue = [\n  {\n    name: \"Direct\",\n    points: [\n      {label: \"Q1\", value: 12.5},\n      {label: \"Q2\", value: 18},\n      {label: \"Q3\", value: 21.25}\n    ]\n  },\n  {\n    name: \"Partner\",\n    points: [\n      {label: \"Q1\", value: 4},\n      {label: \"Q2\", value: 6.5},\n      {label: \"Q3\", value: 9}\n    ]\n  }\n]\nroot = Document([\n  BarChart(revenue, \"Revenue by channel\"),\n  LineChart(revenue),\n  AreaChart(revenue, \"Cumulative view\"),\n  PieChart([\n    {label: \"Direct\", value: 62},\n    {label: \"Partner\", value: 38}\n  ], \"Share of revenue\")\n])",
+  "description": "Every chart component, with scalar, object, and array statements resolved into three shared charts.",
+  "source": "first_direct_point = {label: \"Q1\", value: first_direct_value}\nrevenue = [\n  {\n    name: \"Direct\",\n    points: [\n      first_direct_point,\n      {label: \"Q2\", value: 18},\n      {label: \"Q3\", value: 21.25}\n    ]\n  },\n  {\n    name: \"Partner\",\n    points: [\n      {label: \"Q1\", value: 4},\n      {label: \"Q2\", value: 6.5},\n      {label: \"Q3\", value: 9}\n    ]\n  }\n]\nfirst_direct_value = 12.5\nroot = Document([\n  BarChart(revenue, \"Revenue by channel\"),\n  LineChart(revenue),\n  AreaChart(revenue, \"Cumulative view\"),\n  PieChart([\n    {label: \"Direct\", value: 62},\n    {label: \"Partner\", value: 38}\n  ], \"Share of revenue\")\n])",
   "root": {
     "component": "Document",
     "props": {

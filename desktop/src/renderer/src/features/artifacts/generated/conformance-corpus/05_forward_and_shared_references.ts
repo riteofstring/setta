@@ -4,8 +4,8 @@ import type { ArtifactConformanceFixture } from "./types";
 
 export const artifactConformanceFixture: ArtifactConformanceFixture = {
   "name": "forward_and_shared_references",
-  "description": "Statements defined after root, and one statement rendered in two places.",
-  "source": "root = Document([\n  Section(\"Summary\", [summary]),\n  Section(\"Appendix\", [summary, footnote])\n])\nsummary = Markdown(\"The rollout is on schedule.\")\nfootnote = Text(\"Generated from durable trajectory facts.\", \"muted\")",
+  "description": "Statements defined after root, a scalar alias chain, and one component rendered in two places.",
+  "source": "root = Document([\n  Section(\"Summary\", [summary]),\n  Section(\"Appendix\", [summary, footnote])\n])\nsummary = Markdown(summary_source)\nsummary_source = summary_alias\nsummary_alias = \"The rollout is on schedule.\"\nfootnote = Text(\"Generated from durable trajectory facts.\", \"muted\")",
   "root": {
     "component": "Document",
     "props": {

@@ -41,14 +41,39 @@ describe("setta.artifacts.v1 conformance", () => {
 
   // The one interpretation difference the projection reconciles. Pinning it
   // here keeps it a known boundary rather than something the projection hides.
-  it("records a skipped optional argument as null where Setta's compiler leaves it absent", () => {
-    const result = parser.parse('root = Document([CodeBlock("SELECT 1", null, "Smoke query")])');
+  it("records skipped optional fields as null where Setta's compiler leaves them absent", () => {
+    const result = parser.parse(`root = Document([
+  CodeBlock("SELECT 1", null, "Smoke query"),
+  Table([{key: "team", label: "Team", align: null}], [["Platform"]])
+])`);
 
     const blocks = result.root?.props.blocks as ElementNode[];
     expect(blocks[0]?.props).toEqual({ code: "SELECT 1", language: null, caption: "Smoke query" });
-    expect(toArtifactDocumentNode(blocks[0]!).props).toEqual({
-      code: "SELECT 1",
-      caption: "Smoke query",
+    expect((blocks[1]?.props.columns as Record<string, unknown>[])[0]).toEqual({
+      key: "team",
+      label: "Team",
+      align: null,
+    });
+    expect(toArtifactDocumentNode(result.root!)).toEqual({
+      component: "Document",
+      props: {
+        blocks: [
+          {
+            component: "CodeBlock",
+            props: {
+              code: "SELECT 1",
+              caption: "Smoke query",
+            },
+          },
+          {
+            component: "Table",
+            props: {
+              columns: [{ key: "team", label: "Team" }],
+              rows: [["Platform"]],
+            },
+          },
+        ],
+      },
     });
   });
 
