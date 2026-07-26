@@ -138,6 +138,78 @@ export function installRendererRecorder(ipcRenderer: Pick<IpcRenderer, "send">) 
   });
   window.addEventListener("beforeunload", () => layoutRecorder.capture("before_unload"));
   layoutRecorder.observe();
+  observeInteractionLatency(ipcRenderer);
+  observeLongTasks(ipcRenderer);
+}
+
+/*
+ * Below this an interaction is indistinguishable from an immediate one at any
+ * refresh rate, so recording it would bury the slow ones it exists to find.
+ */
+const slowInteractionMs = 24;
+const longTaskMs = 50;
+
+/**
+ * The browser's own account of how long an interaction took to reach a paint.
+ *
+ * `durationThreshold` is what keeps this cheap: the observer is not told about
+ * fast interactions at all, so ordinary typing costs nothing and only the
+ * keystrokes that actually lagged reach the recording.
+ */
+function observeInteractionLatency(ipcRenderer: Pick<IpcRenderer, "send">): void {
+  const observer = new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) {
+      const timing = entry as PerformanceEventTiming;
+      record(ipcRenderer, {
+        at: timestamp(),
+        delayMs: round(timing.processingStart - timing.startTime),
+        durationMs: round(timing.duration),
+        interactionId: timing.interactionId ?? 0,
+        name: timing.name,
+        processingMs: round(timing.processingEnd - timing.processingStart),
+        target: summarizeTarget(timing.target ?? null),
+        type: "interaction_latency",
+        url: window.location.href,
+      });
+    }
+  });
+  // `durationThreshold` is not in every lib.dom; the option is what makes this
+  // affordable, so it is passed explicitly rather than dropped for the typing.
+  observer.observe({
+    durationThreshold: slowInteractionMs,
+    type: "event",
+  } as PerformanceObserverInit);
+}
+
+/** The slice of `PerformanceLongTaskTiming` used here; it is not in lib.dom. */
+interface LongTaskAttribution {
+  containerType: string;
+  name: string;
+}
+
+/** What the main thread was doing instead of responding. */
+function observeLongTasks(ipcRenderer: Pick<IpcRenderer, "send">): void {
+  const observer = new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) {
+      if (entry.duration < longTaskMs) {
+        continue;
+      }
+      const attribution: LongTaskAttribution[] =
+        (entry as unknown as { attribution?: LongTaskAttribution[] }).attribution ?? [];
+      record(ipcRenderer, {
+        at: timestamp(),
+        attribution: attribution
+          .map((item) => `${item.name}:${item.containerType}`)
+          .join(",")
+          .slice(0, maxTextLength),
+        durationMs: round(entry.duration),
+        startedAtMs: round(entry.startTime),
+        type: "long_task",
+        url: window.location.href,
+      });
+    }
+  });
+  observer.observe({ entryTypes: ["longtask"] });
 }
 
 function markDocumentRecordingEnabled() {
