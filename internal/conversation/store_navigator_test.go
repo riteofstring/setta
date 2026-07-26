@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 func TestListNavigatorPageUsesStableKeysetPaginationAndSearch(t *testing.T) {
@@ -148,7 +148,6 @@ func TestListNavigatorPageReturnsForkLineageAndPresentationIdentity(t *testing.T
 		DecisionSource:           BranchDecisionSourceConversationRouter,
 		ForkedAtTurnID:           sourceTurn.ID,
 		SourceTrajectorySequence: 0,
-		ProviderMetadata:         map[string]string{"provider": "codex"},
 		CreatedAt:                child.CreatedAt,
 	}
 
@@ -246,7 +245,7 @@ func insertNavigatorConversation(
 func navigatorTestConversation(id string, title string, descriptor string, updatedAt string) TopicConversation {
 	return TopicConversation{
 		ID:              id,
-		WorkspaceID:     "workspace-1",
+		WorkspaceID:     stringPointer("workspace-1"),
 		Title:           title,
 		TopicDescriptor: descriptor,
 		Status:          ConversationStatusIdle,

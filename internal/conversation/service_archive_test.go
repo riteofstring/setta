@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 	"time"
-
-	"setta/internal/conversationindex"
 )
 
 func TestServiceArchivesSettledTopicDurablyAndIdempotently(t *testing.T) {
@@ -50,17 +48,6 @@ func TestServiceArchivesSettledTopicDurablyAndIdempotently(t *testing.T) {
 	if len(page.Items) != 0 {
 		t.Fatalf("archived navigator page = %+v, want empty", page)
 	}
-	candidates, err := store.RetrieveTopicCandidates(ctx, conversationindex.CandidateRequest{
-		WorkspaceIDs: []string{workspaceID},
-		Limit:        10,
-	})
-	if err != nil {
-		t.Fatalf("RetrieveTopicCandidates: %v", err)
-	}
-	if len(candidates) != 0 {
-		t.Fatalf("archived topic candidates = %+v, want empty", candidates)
-	}
-
 	repeated, err := service.ArchiveTopic(ctx, workspaceID, created.Conversation.ID)
 	if err != nil {
 		t.Fatalf("repeat ArchiveTopic: %v", err)

@@ -52,7 +52,7 @@
     processedTrackObserverCount: 0,
     requireProcessedAudioMarker: true,
     stoppedTrackCount: 0,
-    transcript: "Keep this pane transcript exact.",
+    transcript: "Keep this conversation transcript exact.",
   };
   markTiming("fixture_installed");
 

@@ -202,10 +202,8 @@ function createLayoutRecorder(ipcRenderer: Pick<IpcRenderer, "send">) {
 }
 
 function layoutSnapshot(trigger: string): RendererRecordedEvent {
-  const workspace = document.querySelector<HTMLElement>('[data-testid="workspace-layout-area"]');
   return {
     at: timestamp(),
-    panes: workspacePaneSnapshots(),
     trigger,
     type: "layout_snapshot",
     url: window.location.href,
@@ -213,86 +211,7 @@ function layoutSnapshot(trigger: string): RendererRecordedEvent {
       height: window.innerHeight,
       width: window.innerWidth,
     },
-    workspace: workspaceSnapshot(workspace),
   };
-}
-
-function workspaceSnapshot(workspace: HTMLElement | null) {
-  if (!workspace) {
-    return null;
-  }
-  return {
-    mode: truncate(workspace.dataset.workspaceMode ?? ""),
-    paneCount: nonNegativeInteger(workspace.dataset.paneCount),
-    presentationMode: truncate(workspace.dataset.presentationMode ?? ""),
-    rect: elementRect(workspace),
-    workspaceId: truncate(workspace.dataset.workspaceId ?? ""),
-  };
-}
-
-function workspacePaneSnapshots() {
-  return Array.from(
-    document.querySelectorAll<HTMLElement>('[data-testid="workspace-pane-host"]'),
-  ).flatMap((host) => {
-    const paneId = host.dataset.paneId ?? "";
-    if (paneId === "") {
-      return [];
-    }
-    const conversation = host.querySelector<HTMLElement>('[data-testid="easy-button-surface"]');
-    return [
-      {
-        conversation: conversationPaneSnapshot(conversation),
-        focused: host.dataset.focused === "true",
-        paneId: truncate(paneId),
-        rect: elementRect(host),
-        runtimeState: truncate(host.dataset.runtimeState ?? ""),
-        surfaceKind: truncate(host.dataset.surfaceKind ?? ""),
-        visible: host.dataset.visible === "true",
-      },
-    ];
-  });
-}
-
-function conversationPaneSnapshot(conversation: HTMLElement | null) {
-  if (!conversation) {
-    return null;
-  }
-  return {
-    captureScope: recordedDataValue(conversation, "easyButtonCaptureScope"),
-    captureState: recordedDataValue(conversation, "easyButtonCapture"),
-    focusStatus: recordedDataValue(conversation, "easyButtonFocus"),
-    id: recordedDataValue(conversation, "conversationId"),
-    paletteId: recordedDataValue(conversation, "conversationPalette"),
-    playbackScope: recordedDataValue(conversation, "easyButtonPlaybackScope"),
-    playbackState: recordedDataValue(conversation, "easyButtonPlayback"),
-    projectionStatus: recordedDataValue(conversation, "easyButtonProjection"),
-    queueCount: nonNegativeInteger(conversation.dataset.easyButtonQueueCount),
-    sideConversationId: recordedDataValue(conversation, "easyButtonSideId"),
-    sideStatus: recordedDataValue(conversation, "easyButtonSideStatus"),
-    statusTone: recordedDataValue(conversation, "easyButtonStatus"),
-    viewState: recordedDataValue(conversation, "easyButtonState"),
-  };
-}
-
-function recordedDataValue(element: HTMLElement, name: string): string {
-  return truncate(element.dataset[name] ?? "");
-}
-
-function elementRect(element: Element) {
-  const rect = element.getBoundingClientRect();
-  return {
-    bottom: round(rect.bottom),
-    height: round(rect.height),
-    left: round(rect.left),
-    right: round(rect.right),
-    top: round(rect.top),
-    width: round(rect.width),
-  };
-}
-
-function nonNegativeInteger(value: string | undefined): number {
-  const parsed = Number(value ?? 0);
-  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 function summarizeTarget(target: EventTarget | null) {

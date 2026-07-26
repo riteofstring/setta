@@ -64,16 +64,12 @@ const sensitiveRecordingKeys = new Set([
   "client_secret",
   "deviceToken",
   "device_token",
-  "deviceSecret",
-  "device_secret",
   "iconDataUrl",
   "icon_data_url",
   "imageDataUrl",
   "image_data_url",
   "loginId",
   "login_id",
-  "localPairingToken",
-  "local_pairing_token",
   "pairingToken",
   "pairing_token",
   "userCode",
@@ -85,7 +81,9 @@ const sensitiveIpcStartTypes = new Map<string, string>([
   [ipcChannels.appOpenExternalUrl, "external_url"],
   [ipcChannels.codexAccountStartLogin, "codex_account_login_request"],
   [ipcChannels.conversationSubmitApproval, "conversation_approval_submission"],
+  [ipcChannels.directorDispatchIntent, "director_intent_submission"],
   [ipcChannels.runtimeAddByPairingUrl, "runtime_pairing_url"],
+  [ipcChannels.speechSaveCredential, "speech_credential_save"],
 ]);
 const sensitiveRecordingEventTypes = new Map<string, string>([
   ["external_url_open_blocked", "external_url"],
@@ -418,8 +416,6 @@ export function conversationRecordingEvents(
       return recordedAgentInvocation(event.payload.turn, envelope);
     case "conversation.narration.created":
       return recordedNarratorOutput(event.payload.event, envelope);
-    case "conversation.thread_binding.updated":
-      return recordedThreadBinding(event.payload.binding, envelope);
     case "conversation.trajectory.appended":
       return recordedAgentTrajectory(event.payload.event, envelope);
     default:
@@ -487,30 +483,6 @@ function recordedNarratorOutput(
   ];
 }
 
-function recordedThreadBinding(
-  binding: Extract<
-    ConversationEvent["payload"],
-    { type: "conversation.thread_binding.updated" }
-  >["binding"],
-  envelope: ConversationRecordingEnvelope,
-): ConversationRecordingEvent[] {
-  return [
-    {
-      type: "agent_thread_binding_observed",
-      payload: {
-        ...envelope,
-        bindingStatus: binding.status,
-        createdAt: binding.createdAt,
-        lastResumedAt: binding.lastResumedAt,
-        lastTurnId: binding.lastTurnId,
-        metadataKeys: Object.keys(binding.providerMetadata).sort(),
-        provider: binding.provider,
-        providerThreadId: binding.threadId,
-      },
-    },
-  ];
-}
-
 function recordedAgentTrajectory(
   trajectory: TrajectoryEvent,
   envelope: ConversationRecordingEnvelope,
@@ -549,20 +521,19 @@ function summarizeAgentTrajectoryEvent(event: TrajectoryEvent) {
   return {
     actor: event.actor,
     activity: summarizeTrajectoryActivity(event),
-    agentLiveness: summarizeAgentLiveness(event),
     emittedAt: event.emittedAt,
     eventKind: event.kind,
     failure: summarizeTrajectoryFailure(event),
     modelReroute: summarizeTrajectoryModelReroute(event),
     providerEventId: event.providerEventId,
     providerLifecycle: summarizeProviderLifecycle(event),
-    providerThreadId: event.providerThreadId,
     providerTurnId: event.providerTurnId,
     trajectoryEventId: event.id,
     trajectorySequence: event.sequence,
     turnId: event.turnId,
     turnInterruptionReason: summarizeTurnInterruptionReason(event),
     turnInvocation: summarizeTurnInvocation(event),
+    validation: summarizeTrajectoryValidation(event),
   };
 }
 
@@ -593,22 +564,6 @@ function summarizeTrajectoryActivity(event: TrajectoryEvent) {
   };
 }
 
-function summarizeAgentLiveness(event: TrajectoryEvent) {
-  const changed = event.agentLivenessChanged;
-  if (changed === null) {
-    return null;
-  }
-  return {
-    cancellable: changed.liveness.cancellable,
-    lastProviderEventAt: changed.liveness.lastProviderEventAt,
-    lastReconciledAt: changed.liveness.lastReconciledAt,
-    reason: changed.liveness.reason,
-    retryable: changed.liveness.retryable,
-    status: changed.liveness.status,
-    steerable: changed.liveness.steerable,
-  };
-}
-
 function summarizeTrajectoryFailure(event: TrajectoryEvent) {
   if (event.turnFailed !== null) {
     return summarizeRecordedFailure(event.turnFailed.failure);
@@ -635,7 +590,22 @@ function summarizeProviderLifecycle(event: TrajectoryEvent) {
   }
   return {
     provider: event.providerLifecycleChanged.lifecycle.provider,
+    reason: event.providerLifecycleChanged.lifecycle.reason,
     status: event.providerLifecycleChanged.lifecycle.status,
+  };
+}
+
+function summarizeTrajectoryValidation(event: TrajectoryEvent) {
+  if (event.validationRecorded === null) {
+    return null;
+  }
+  const validation = event.validationRecorded.validation;
+  return {
+    id: validation.id,
+    kind: validation.kind,
+    risk: validation.risk,
+    status: validation.status,
+    subject: validation.subject,
   };
 }
 

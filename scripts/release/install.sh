@@ -157,3 +157,10 @@ case ":${PATH:-}:" in
     echo "Warning: ${install_dir} is not on PATH." >&2
     ;;
 esac
+
+cat <<EOF
+
+Next steps:
+  1. Install and start Tailscale on this Linux box.
+  2. setta serve --tailnet
+EOF
