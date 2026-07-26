@@ -140,7 +140,16 @@ inspect, and destroy without error. The reconciler and hosted provisioner accept
 that same observation. A live Stage 4a run reaches the conformance harness
 instead of failing at create.
 
-### Slice 2 — Determine the authoritative capacity source on a live Sprite
+### Slice 2 — Determine the authoritative capacity source on a live Sprite — **answered 2026-07-26**
+
+**Answer.** `/proc` and `statfs`, not cgroup. A live probe requesting
+`cpus=1, ram_mb=512, storage_gb=10` produced a machine reporting 8 processors,
+8 GiB of memory, and a 105.5 GB overlay root, with cgroup v2 `cpu.max` set to
+`max 100000`, `memory.max` set to `max`, and no cgroup v1 hierarchy. An
+implementation reads `/proc/cpuinfo`, `/proc/meminfo`, and `statfs`, and fails
+loudly if a cgroup limit ever appears, because that would mean the answer
+changed. The same probe showed the provider ignores the requested shape
+entirely, which is the open question below.
 
 **Problem.** Inside a Fly-hosted Sprite, `nproc` and `/proc/meminfo` may report
 the host rather than the machine's allocation, and a cgroup v2 limit may or may
@@ -259,6 +268,21 @@ shape, and the final inventory check.
   in-runtime measurement remains the stronger evidence.
 
 ## Open questions
+
+- **The requested shape is fiction, and billing depends on it.** The 2026-07-26
+  probe asked for 1 CPU and 512 MB and got 8 CPUs and 8 GiB; the observed disk
+  also exceeds Setta's own 100 GB product ceiling. Slice 1 kept the authorized
+  shape as the billing input on the reasoning that Setta bills what the user
+  authorized. That reasoning assumed the provider honored the request. It does
+  not. Budget ceilings therefore describe a machine sixteen times smaller than
+  the one running, so usage evidence and cutoffs are computed against a number
+  that matches nothing. Three ways out, and the choice is a product and pricing
+  decision rather than a technical one: bill from measured capacity and accept
+  that a runtime reports its own bill; keep billing from the authorized shape
+  and treat Sprites as a fixed-size product whose price is set per Sprite rather
+  than per resource; or stop requesting a shape at all on this provider and
+  price the one size it sells. Slices 3 to 7 should not proceed until this is
+  settled, because what capacity means is exactly what they encode.
 
 - If Fly answers that the dropped `config` is a regression rather than an
   intended contract change, Slice 1 still stands on its own merits — Setta
