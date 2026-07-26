@@ -368,6 +368,5 @@ type ProviderObservation struct {
 	Activity           runtimeprovider.RuntimeActivity
 	URLAccess          runtimeprovider.URLAccess
 	Placement          string
-	Resources          runtimeprovider.RuntimeResources
 	ObservedAt         time.Time
 }

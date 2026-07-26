@@ -453,9 +453,6 @@ func (reconciler *Reconciler) inspectOrCreateRuntime(
 	if err := validateManagedObservation(claim.Identity, observation); err != nil {
 		return &providerReconcileFailure{code: "provider_identity_mismatch", permanent: true}
 	}
-	if observation.Resources != claim.Resources {
-		return &providerReconcileFailure{code: "provider_resources_mismatch", permanent: true}
-	}
 	return nil
 }
 
@@ -472,11 +469,6 @@ func (reconciler *Reconciler) verifyRuntime(
 	}
 	if err := validateManagedObservation(claim.Identity, verified); err != nil {
 		return runtimeprovider.RuntimeObservation{}, &providerReconcileFailure{code: "provider_identity_mismatch", permanent: true}
-	}
-	if verified.Resources != claim.Resources {
-		return runtimeprovider.RuntimeObservation{}, &providerReconcileFailure{
-			code: "provider_resources_mismatch", permanent: true,
-		}
 	}
 	if verified.URLAccess != runtimeprovider.URLAccessAuthenticated {
 		return runtimeprovider.RuntimeObservation{}, &providerReconcileFailure{code: "provider_access_unconfirmed"}
@@ -759,7 +751,7 @@ func validateManagedObservation(
 	observation runtimeprovider.RuntimeObservation,
 ) error {
 	if observation.ProviderResourceID == "" || observation.Name != identity.Name ||
-		!equalLabels(observation.Labels, identity.Labels) {
+		!identity.OwnsObservedLabels(observation.Labels) {
 		return fmt.Errorf("provider observation does not match managed identity %s", identity.Name)
 	}
 	return nil

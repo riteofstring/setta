@@ -10,7 +10,6 @@ const (
 	hostedLifecycleProviderRequestFailureCode         = "hosted_lifecycle_provider_request_failed"
 	hostedLifecycleOwnershipMismatchFailureCode       = "hosted_lifecycle_ownership_mismatch"
 	hostedLifecycleProviderIdentityInvalidFailureCode = "hosted_lifecycle_provider_identity_invalid"
-	hostedLifecycleResourceShapeMismatchFailureCode   = "hosted_lifecycle_resource_shape_mismatch"
 	hostedLifecycleRecordedResourceMissingFailureCode = "hosted_lifecycle_recorded_resource_missing"
 )
 

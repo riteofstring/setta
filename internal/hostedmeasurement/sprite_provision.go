@@ -59,13 +59,13 @@ func (provisioner SpriteProvisioner) ensureObserved(
 ) (runtimeprovider.RuntimeObservation, error) {
 	state := provisioner.State.Snapshot()
 	if recorded, ok := resourceByKind(state, ResourceSprite); ok {
-		return requireRecordedSprite(identity, resources, recorded, observation, found)
+		return requireRecordedSprite(identity, recorded, observation, found)
 	}
 	if _, hasIntent := intentByKind(state, ResourceSprite); found && !hasIntent {
 		return runtimeprovider.RuntimeObservation{}, ErrAmbiguousInventory
 	}
 	if found {
-		return provisioner.adopt(identity, resources, observation)
+		return provisioner.adopt(identity, observation)
 	}
 	return provisioner.create(ctx, identity, resources)
 }
@@ -82,15 +82,14 @@ func (provisioner SpriteProvisioner) create(
 		Identity: identity, Resources: resources,
 	})
 	if err != nil {
-		return provisioner.reconcileCreate(ctx, identity, resources, err)
+		return provisioner.reconcileCreate(ctx, identity, err)
 	}
-	return provisioner.record(identity, resources, observation, OperationCreateAccepted)
+	return provisioner.record(identity, observation, OperationCreateAccepted)
 }
 
 func (provisioner SpriteProvisioner) reconcileCreate(
 	ctx context.Context,
 	identity runtimeprovider.ManagedIdentity,
-	resources runtimeprovider.RuntimeResources,
 	_ error,
 ) (runtimeprovider.RuntimeObservation, error) {
 	observation, found, err := provisioner.Provider.Inspect(ctx, identity.Name)
@@ -101,24 +100,22 @@ func (provisioner SpriteProvisioner) reconcileCreate(
 			"create hosted Sprite failed and reconciliation did not confirm the identity",
 		)
 	}
-	return provisioner.record(identity, resources, observation, OperationCreateAdopted)
+	return provisioner.record(identity, observation, OperationCreateAdopted)
 }
 
 func (provisioner SpriteProvisioner) adopt(
 	identity runtimeprovider.ManagedIdentity,
-	resources runtimeprovider.RuntimeResources,
 	observation runtimeprovider.RuntimeObservation,
 ) (runtimeprovider.RuntimeObservation, error) {
-	return provisioner.record(identity, resources, observation, OperationCreateAdopted)
+	return provisioner.record(identity, observation, OperationCreateAdopted)
 }
 
 func (provisioner SpriteProvisioner) record(
 	identity runtimeprovider.ManagedIdentity,
-	resources runtimeprovider.RuntimeResources,
 	observation runtimeprovider.RuntimeObservation,
 	code OperationCode,
 ) (runtimeprovider.RuntimeObservation, error) {
-	if err := validateSpriteObservation(identity, resources, observation); err != nil {
+	if err := validateSpriteObservation(identity, observation); err != nil {
 		return runtimeprovider.RuntimeObservation{}, err
 	}
 	if err := provisioner.State.RecordResource(ResourceState{
@@ -131,7 +128,6 @@ func (provisioner SpriteProvisioner) record(
 
 func requireRecordedSprite(
 	identity runtimeprovider.ManagedIdentity,
-	resources runtimeprovider.RuntimeResources,
 	recorded ResourceState,
 	observation runtimeprovider.RuntimeObservation,
 	found bool,
@@ -143,7 +139,7 @@ func requireRecordedSprite(
 			"recorded hosted Sprite is not independently present",
 		)
 	}
-	if err := validateSpriteObservation(identity, resources, observation); err != nil {
+	if err := validateSpriteObservation(identity, observation); err != nil {
 		return runtimeprovider.RuntimeObservation{}, err
 	}
 	if recorded.ID != observation.ProviderResourceID || recorded.Name != observation.Name ||
@@ -155,7 +151,6 @@ func requireRecordedSprite(
 
 func validateSpriteObservation(
 	identity runtimeprovider.ManagedIdentity,
-	resources runtimeprovider.RuntimeResources,
 	observation runtimeprovider.RuntimeObservation,
 ) error {
 	if observation.ProviderResourceID == "" || observation.Name != identity.Name ||
@@ -164,13 +159,6 @@ func validateSpriteObservation(
 			hostedLifecycleOwnershipMismatchFailureCode,
 			false,
 			"hosted Sprite observation differs from the deterministic owned identity",
-		)
-	}
-	if observation.Resources != resources {
-		return newHostedLifecycleFailure(
-			hostedLifecycleResourceShapeMismatchFailureCode,
-			false,
-			"hosted Sprite observation differs from the authorized resource shape",
 		)
 	}
 	if observation.Placement != "" && !regionPattern.MatchString(observation.Placement) {

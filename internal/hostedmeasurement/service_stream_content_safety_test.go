@@ -41,7 +41,6 @@ func TestFailedHostedInstallKeepsServiceStreamDetailOutOfDurableEvidence(t *test
 		ProviderResourceID: "sprite-service-stream-test",
 		Name:               identity.Name,
 		Labels:             identity.Labels,
-		Resources:          testSpriteResources(),
 		Activity:           runtimeprovider.RuntimeActivityActive,
 		URL:                "https://" + identity.Name + ".invalid",
 		URLAccess:          runtimeprovider.URLAccessAuthenticated,

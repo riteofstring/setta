@@ -293,9 +293,6 @@ CREATE TABLE IF NOT EXISTS provider_observations (
   activity TEXT NOT NULL,
   url_access TEXT NOT NULL,
   placement TEXT NOT NULL,
-  cpu_core_millionths INTEGER NOT NULL CHECK(cpu_core_millionths > 0),
-  memory_bytes INTEGER NOT NULL CHECK(memory_bytes > 0),
-  storage_bytes INTEGER NOT NULL CHECK(storage_bytes > 0),
   observed_at TEXT NOT NULL
 );
 

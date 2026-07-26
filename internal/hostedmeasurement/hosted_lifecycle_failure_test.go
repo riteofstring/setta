@@ -164,8 +164,7 @@ func TestSpriteProvisionFailuresExposeHostedLifecycleClassification(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	resources := authorization.Manifest.SpriteResources
-	validObservation := spriteObservation(identity, resources)
+	validObservation := spriteObservation(identity)
 
 	tests := []struct {
 		name      string
@@ -236,25 +235,16 @@ func TestSpriteProvisionFailuresExposeHostedLifecycleClassification(t *testing.T
 			failure: func(*testing.T) error {
 				observation := validObservation
 				observation.Labels = []string{"foreign"}
-				return validateSpriteObservation(identity, resources, observation)
+				return validateSpriteObservation(identity, observation)
 			},
 			wantCode: hostedLifecycleOwnershipMismatchFailureCode,
-		},
-		{
-			name: "authorized resource shape mismatch",
-			failure: func(*testing.T) error {
-				observation := validObservation
-				observation.Resources.MemoryBytes++
-				return validateSpriteObservation(identity, resources, observation)
-			},
-			wantCode: hostedLifecycleResourceShapeMismatchFailureCode,
 		},
 		{
 			name: "invalid placement",
 			failure: func(*testing.T) error {
 				observation := validObservation
 				observation.Placement = "invalid_placement"
-				return validateSpriteObservation(identity, resources, observation)
+				return validateSpriteObservation(identity, observation)
 			},
 			wantCode: hostedLifecycleProviderIdentityInvalidFailureCode,
 		},

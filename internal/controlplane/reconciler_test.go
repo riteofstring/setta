@@ -71,8 +71,7 @@ func requireReconciledRuntimeResources(
 	}
 	observation, err := store.ProviderObservation(ctx, request.RuntimeName)
 	if err != nil || observation.ProviderResourceID == "" ||
-		observation.URLAccess != runtimeprovider.URLAccessAuthenticated ||
-		observation.Resources != request.Resources {
+		observation.URLAccess != runtimeprovider.URLAccessAuthenticated {
 		t.Fatalf("ProviderObservation = %+v, %v", observation, err)
 	}
 	accounting, err := store.RuntimeAccountingSnapshot(ctx, request.RuntimeName)
@@ -80,35 +79,6 @@ func requireReconciledRuntimeResources(
 		!accounting.Ledger.WindowStart.Equal(operation.CreatedAt) ||
 		accounting.Ledger.LastSequence != 1 {
 		t.Fatalf("provider accounting = %+v, %v", accounting, err)
-	}
-}
-
-func TestReconcilerRejectsProviderResourceShapeMismatch(t *testing.T) {
-	ctx := context.Background()
-	now := time.Date(2026, 7, 20, 18, 5, 0, 0, time.UTC)
-	store := openTestStore(t, t.TempDir(), func() time.Time { return now }, RateLimit{})
-	defer store.Close()
-	if _, err := store.UpsertUser(ctx, "user-resource-mismatch"); err != nil {
-		t.Fatal(err)
-	}
-	request := testEnsureRuntimeRequest(t, "ensure-resource-mismatch", "user-resource-mismatch", "resource-mismatch")
-	request.Resources.MemoryBytes = 768_000_000
-	if _, err := store.EnsureRuntimeIntent(ctx, request); err != nil {
-		t.Fatal(err)
-	}
-	provider := newTestReconcilerProvider(request.RuntimeName)
-	reconciler := newTestReconciler(t, store, provider, 3)
-	if processed, err := reconciler.ReconcileOnce(ctx); err != nil || !processed {
-		t.Fatalf("ReconcileOnce = %t, %v", processed, err)
-	}
-	operation, err := store.RuntimeOperation(ctx, request.IdempotencyKey)
-	if err != nil ||
-		operation.Status != RuntimeOperationFailed ||
-		operation.LastErrorCode != "provider_resources_mismatch" {
-		t.Fatalf("resource mismatch operation = %+v, %v", operation, err)
-	}
-	if provider.createCalls != 1 || provider.lastCreateRequest.Resources != request.Resources {
-		t.Fatalf("provider create = %d %+v", provider.createCalls, provider.lastCreateRequest)
 	}
 }
 
@@ -317,7 +287,6 @@ func newTestReconcilerProvider(runtimeName string) *testReconcilerProvider {
 			ProviderResourceID: "provider-resource",
 			Name:               runtimeName,
 			Labels:             identity.Labels,
-			Resources:          testRuntimeResources(),
 			Activity:           runtimeprovider.RuntimeActivityWarm,
 			URLAccess:          runtimeprovider.URLAccessPublic,
 		},
@@ -449,7 +418,6 @@ func authenticatedTestObservation(t *testing.T, runtimeName string) runtimeprovi
 		ProviderResourceID: "provider-resource",
 		Name:               identity.Name,
 		Labels:             identity.Labels,
-		Resources:          testRuntimeResources(),
 		Activity:           runtimeprovider.RuntimeActivityWarm,
 		URLAccess:          runtimeprovider.URLAccessAuthenticated,
 	}

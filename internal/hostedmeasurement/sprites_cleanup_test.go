@@ -14,32 +14,29 @@ import (
 	"setta/internal/sprites"
 )
 
-func TestObservedRuntimeAboveProvisioningCeilingRemainsInspectableAndDestroyable(t *testing.T) {
+// The body below is the response the live Sprites API returned on 2026-07-26
+// for the exact request the adapter sends, with identifiers replaced. It has no
+// config object and no primary_region. Setta must map, own, and destroy it.
+func TestLiveProviderResponseShapeMapsThroughTheAdapter(t *testing.T) {
 	name := testManagedRuntimeName()
 	identity, err := runtimeprovider.ManagedIdentityFromName(name)
 	if err != nil {
 		t.Fatal(err)
 	}
+	body := `{"id":"sprite-1f8be69f-0e31-4f76-ab24-905539648098","name":"` + name +
+		`","status":"warm","version":null,"url":"https://` + name +
+		`-bwjff.sprites.app","labels":["setta-managed","setta-owner-` +
+		name[len("setta-u-"):] + `"],"url_settings":{"auth":"sprite","private_access":"admins"},` +
+		`"created_at":"2026-07-26T21:17:52.291659Z","organization":"personal","last_running_at":null,` +
+		`"last_warming_at":"2026-07-26T21:17:52Z","updated_at":"2026-07-26T21:17:52.291659Z",` +
+		`"environment_version":null}`
 	destroyCalls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.URL.Path != "/v1/sprites/"+name {
-			t.Fatalf("request path = %q", request.URL.Path)
-		}
 		switch request.Method {
 		case http.MethodGet:
 			response.Header().Set("Content-Type", "application/json")
-			if err := json.NewEncoder(response).Encode(map[string]any{
-				"id":             "sprite_200",
-				"name":           name,
-				"status":         "running",
-				"labels":         identity.Labels,
-				"primary_region": "yyz",
-				"config": map[string]any{
-					"cpus": 1, "ram_mb": 512, "storage_gb": 200,
-				},
-				"url_settings": map[string]any{"auth": "sprite"},
-			}); err != nil {
-				t.Errorf("encode runtime response: %v", err)
+			if _, err := response.Write([]byte(body)); err != nil {
+				t.Errorf("write runtime response: %v", err)
 			}
 		case http.MethodDelete:
 			destroyCalls++
@@ -58,34 +55,29 @@ func TestObservedRuntimeAboveProvisioningCeilingRemainsInspectableAndDestroyable
 	if err != nil || !found {
 		t.Fatalf("Adapter.Inspect found = %t, error = %v", found, err)
 	}
-	if observation.Resources.StorageBytes != 200_000_000_000 {
-		t.Fatalf("Adapter.Inspect storage = %d", observation.Resources.StorageBytes)
+	if observation.Name != name || !identity.OwnsObservedLabels(observation.Labels) {
+		t.Fatalf("observation = %+v", observation)
+	}
+	if observation.Activity != runtimeprovider.RuntimeActivityWarm ||
+		observation.URLAccess != runtimeprovider.URLAccessAuthenticated {
+		t.Fatalf("observation activity = %q, access = %q", observation.Activity, observation.URLAccess)
+	}
+	if observation.Placement != "" {
+		t.Fatalf("observation placement = %q, want empty because the API stopped reporting it", observation.Placement)
 	}
 	if err := adapter.Destroy(context.Background(), name); err != nil {
 		t.Fatalf("Adapter.Destroy: %v", err)
 	}
-
-	cleanup := newSpritesCleanupClient(adapter, "setta-100", name)
-	resources, err := cleanup.List(context.Background(), "setta-100")
-	if err != nil {
-		t.Fatalf("SpritesCleanupClient.List: %v", err)
-	}
-	want := []ProviderResource{{ID: "sprite_200", Name: name, Region: "yyz"}}
-	if !reflect.DeepEqual(resources, want) {
-		t.Fatalf("SpritesCleanupClient.List resources = %+v, want %+v", resources, want)
-	}
-	if err := cleanup.Destroy(context.Background(), "setta-100", "sprite_200"); err != nil {
-		t.Fatalf("SpritesCleanupClient.Destroy: %v", err)
-	}
-	if destroyCalls != 2 {
-		t.Fatalf("provider destroy calls = %d, want 2", destroyCalls)
+	if destroyCalls != 1 {
+		t.Fatalf("provider destroy calls = %d, want 1", destroyCalls)
 	}
 }
 
-// A live Sprite whose response omits the resource configuration is billable
-// even though Setta cannot map its fuller observation. Cleanup must still see
-// and delete it, or the run strands a machine nobody is watching.
-func TestRuntimeWithUnmappableResourcesRemainsListableAndDestroyable(t *testing.T) {
+// A live Sprite that Setta cannot fully observe is billable all the same. Here
+// the provider omits URL settings, so the fuller observation cannot be mapped.
+// Cleanup must still see and delete it, or the run strands a machine nobody is
+// watching.
+func TestRuntimeWithUnmappableObservationRemainsListableAndDestroyable(t *testing.T) {
 	name := testManagedRuntimeName()
 	identity, err := runtimeprovider.ManagedIdentityFromName(name)
 	if err != nil {
@@ -122,7 +114,7 @@ func TestRuntimeWithUnmappableResourcesRemainsListableAndDestroyable(t *testing.
 		t.Fatalf("NewAdapterWithBaseURL: %v", err)
 	}
 	if _, _, err := adapter.Inspect(context.Background(), name); err == nil {
-		t.Fatal("Adapter.Inspect accepted a runtime with no resource configuration")
+		t.Fatal("Adapter.Inspect accepted a runtime with no URL settings")
 	}
 	if err := adapter.Destroy(context.Background(), name); err != nil {
 		t.Fatalf("Adapter.Destroy: %v", err)
@@ -178,11 +170,6 @@ func TestReorderedProviderLabelsAreAcceptedAcrossOwnershipChecks(t *testing.T) {
 		t.Fatal(err)
 	}
 	reorderedLabels := []string{identity.Labels[1], identity.Labels[0]}
-	resources := runtimeprovider.RuntimeResources{
-		CPUCoreMillionths: 1_000_000,
-		MemoryBytes:       512_000_000,
-		StorageBytes:      10_000_000_000,
-	}
 
 	tests := []struct {
 		name  string
@@ -237,11 +224,10 @@ func TestReorderedProviderLabelsAreAcceptedAcrossOwnershipChecks(t *testing.T) {
 		{
 			name: "provisioner",
 			check: func(*testing.T) error {
-				return validateSpriteObservation(identity, resources, runtimeprovider.RuntimeObservation{
+				return validateSpriteObservation(identity, runtimeprovider.RuntimeObservation{
 					ProviderResourceID: "sprite_123",
 					Name:               name,
 					Labels:             reorderedLabels,
-					Resources:          resources,
 					Placement:          "yyz",
 				})
 			},

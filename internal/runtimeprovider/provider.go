@@ -191,11 +191,17 @@ const (
 
 // RuntimeObservation contains provider observations without exposing provider
 // SDK response types to control-plane code.
+//
+// It deliberately carries no resource shape. Setta requests an exact shape and
+// records it as the authoritative claim, but providers are not required to
+// report what a runtime actually has, and the Sprites API stopped doing so on
+// 2026-07-26. A field no adapter can populate would only invite a zero value
+// that silently passes a comparison. Measured capacity is reported by the Setta
+// runtime from inside the runtime instead.
 type RuntimeObservation struct {
 	ProviderResourceID string
 	Name               string
 	Labels             []string
-	Resources          RuntimeResources
 	Activity           RuntimeActivity
 	URL                string
 	URLAccess          URLAccess

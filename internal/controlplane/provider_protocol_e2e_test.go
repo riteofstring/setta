@@ -286,8 +286,7 @@ func requireProtocolOperationSucceeded(
 		t.Fatalf("runtime operation = %+v, %v", operation, err)
 	}
 	observation, err := store.ProviderObservation(ctx, request.RuntimeName)
-	if err != nil || observation.Resources != request.Resources ||
-		observation.URLAccess != runtimeprovider.URLAccessAuthenticated {
+	if err != nil || observation.URLAccess != runtimeprovider.URLAccessAuthenticated {
 		t.Fatalf("provider observation = %+v, %v", observation, err)
 	}
 }

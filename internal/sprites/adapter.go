@@ -146,19 +146,18 @@ func (adapter *Adapter) Create(
 		return runtimeprovider.RuntimeObservation{}, operationError("inspect before create", err)
 	}
 	if found {
-		return requireOwnedObservation(request.Identity, request.Resources, existing)
+		return requireOwnedObservation(request.Identity, existing)
 	}
 
 	if err := adapter.client.Create(ctx, request.Identity.Name, request.Identity.Labels, request.Resources); err != nil {
-		return adapter.reconcileFailedCreate(ctx, request.Identity, request.Resources, err)
+		return adapter.reconcileFailedCreate(ctx, request.Identity, err)
 	}
-	return adapter.inspectCreatedRuntime(ctx, request.Identity, request.Resources)
+	return adapter.inspectCreatedRuntime(ctx, request.Identity)
 }
 
 func (adapter *Adapter) inspectCreatedRuntime(
 	ctx context.Context,
 	identity runtimeprovider.ManagedIdentity,
-	resources runtimeprovider.RuntimeResources,
 ) (runtimeprovider.RuntimeObservation, error) {
 	created, found, err := adapter.inspect(ctx, identity.Name)
 	if err != nil {
@@ -167,20 +166,19 @@ func (adapter *Adapter) inspectCreatedRuntime(
 	if !found {
 		return runtimeprovider.RuntimeObservation{}, operationError("inspect after create", ErrIncompleteProviderStream)
 	}
-	return requireOwnedObservation(identity, resources, created)
+	return requireOwnedObservation(identity, created)
 }
 
 func (adapter *Adapter) reconcileFailedCreate(
 	ctx context.Context,
 	identity runtimeprovider.ManagedIdentity,
-	resources runtimeprovider.RuntimeResources,
 	createErr error,
 ) (runtimeprovider.RuntimeObservation, error) {
 	adopted, found, inspectErr := adapter.inspect(ctx, identity.Name)
 	if inspectErr != nil || !found {
 		return runtimeprovider.RuntimeObservation{}, operationError("create", createErr)
 	}
-	return requireOwnedObservation(identity, resources, adopted)
+	return requireOwnedObservation(identity, adopted)
 }
 
 func (adapter *Adapter) Inspect(
@@ -566,10 +564,6 @@ func mapRuntime(runtime *spritessdk.SpriteInfo) (runtimeprovider.RuntimeObservat
 	if err != nil {
 		return runtimeprovider.RuntimeObservation{}, err
 	}
-	resources, err := mapRuntimeResources(runtime.Config)
-	if err != nil {
-		return runtimeprovider.RuntimeObservation{}, err
-	}
 	activity, err := mapRuntimeActivity(runtime.Status)
 	if err != nil {
 		return runtimeprovider.RuntimeObservation{}, err
@@ -597,7 +591,6 @@ func mapRuntime(runtime *spritessdk.SpriteInfo) (runtimeprovider.RuntimeObservat
 		ProviderResourceID: observed.ProviderResourceID,
 		Name:               observed.Name,
 		Labels:             observed.Labels,
-		Resources:          resources,
 		Activity:           activity,
 		URL:                runtime.URL,
 		URLAccess:          access,
@@ -605,58 +598,6 @@ func mapRuntime(runtime *spritessdk.SpriteInfo) (runtimeprovider.RuntimeObservat
 		CreatedAt:          runtime.CreatedAt,
 		UpdatedAt:          runtime.UpdatedAt,
 	}, nil
-}
-
-func mapRuntimeResources(config *spritessdk.SpriteConfig) (runtimeprovider.RuntimeResources, error) {
-	if config == nil {
-		return runtimeprovider.RuntimeResources{}, fmt.Errorf(
-			"%w: runtime response carries no resource configuration",
-			ErrUnexpectedProviderValue,
-		)
-	}
-	if config.CPUs <= 0 {
-		return runtimeprovider.RuntimeResources{}, invalidRuntimeConfigField("cpus", config.CPUs)
-	}
-	if config.RamMB <= 0 {
-		return runtimeprovider.RuntimeResources{}, invalidRuntimeConfigField("ram_mb", config.RamMB)
-	}
-	if config.StorageGB <= 0 {
-		return runtimeprovider.RuntimeResources{}, invalidRuntimeConfigField("storage_gb", config.StorageGB)
-	}
-	const (
-		cpuUnit     = uint64(1_000_000)
-		memoryUnit  = uint64(1_000_000)
-		storageUnit = uint64(1_000_000_000)
-	)
-	if uint64(config.CPUs) > ^uint64(0)/cpuUnit ||
-		uint64(config.RamMB) > ^uint64(0)/memoryUnit ||
-		uint64(config.StorageGB) > ^uint64(0)/storageUnit {
-		return runtimeprovider.RuntimeResources{}, fmt.Errorf(
-			"%w: runtime resource configuration overflows provider-neutral units",
-			ErrUnexpectedProviderValue,
-		)
-	}
-	resources := runtimeprovider.RuntimeResources{
-		CPUCoreMillionths: uint64(config.CPUs) * cpuUnit,
-		MemoryBytes:       uint64(config.RamMB) * memoryUnit,
-		StorageBytes:      uint64(config.StorageGB) * storageUnit,
-	}
-	if err := resources.Validate(); err != nil {
-		return runtimeprovider.RuntimeResources{}, fmt.Errorf("%w: %v", ErrUnexpectedProviderValue, err)
-	}
-	return resources, nil
-}
-
-// invalidRuntimeConfigField names the exact provider field that put a runtime
-// outside the pinned contract, so a live failure identifies which part of the
-// response changed instead of reporting the whole configuration as unusable.
-func invalidRuntimeConfigField(field string, value int) error {
-	return fmt.Errorf(
-		"%w: runtime resource configuration field %s is %d",
-		ErrUnexpectedProviderValue,
-		field,
-		value,
-	)
 }
 
 func mapRuntimeActivity(status string) (runtimeprovider.RuntimeActivity, error) {
@@ -786,17 +727,10 @@ func requireLabels(identity runtimeprovider.ManagedIdentity, actual []string) er
 
 func requireOwnedObservation(
 	identity runtimeprovider.ManagedIdentity,
-	resources runtimeprovider.RuntimeResources,
 	observation runtimeprovider.RuntimeObservation,
 ) (runtimeprovider.RuntimeObservation, error) {
 	if err := requireLabels(identity, observation.Labels); err != nil {
 		return runtimeprovider.RuntimeObservation{}, err
-	}
-	if observation.Resources != resources {
-		return runtimeprovider.RuntimeObservation{}, fmt.Errorf(
-			"%w: runtime resources differ from the requested shape",
-			ErrOwnershipMismatch,
-		)
 	}
 	return observation, nil
 }

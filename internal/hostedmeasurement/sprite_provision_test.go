@@ -40,7 +40,7 @@ func TestSpriteProvisionerRejectsUnjournaledAndMismatchedIdentity(t *testing.T) 
 	}
 	identity, _ := runtimeprovider.NewManagedIdentity("hosted-measurement:" + authorization.Manifest.RunID)
 	provider := &fakeSpriteLifecycleProvider{
-		observation: spriteObservation(identity, authorization.Manifest.SpriteResources),
+		observation: spriteObservation(identity),
 	}
 	provisioner := SpriteProvisioner{Provider: provider, State: store, Now: func() time.Time { return testAuthorizedAt }}
 	if _, err := provisioner.Ensure(context.Background(), authorization); !errors.Is(err, ErrAmbiguousInventory) {
@@ -74,32 +74,6 @@ func TestSpriteProvisionerDoesNotCreateInsideCleanupReserve(t *testing.T) {
 	}
 }
 
-func TestSpriteProvisionerRejectsObservedResourceMismatch(t *testing.T) {
-	authorization, directory := loadTestAuthorization(t)
-	store, err := OpenStateStore(directory, authorization, testAuthorizedAt)
-	if err != nil {
-		t.Fatal(err)
-	}
-	identity, _ := runtimeprovider.NewManagedIdentity("hosted-measurement:" + authorization.Manifest.RunID)
-	resources := authorization.Manifest.SpriteResources
-	resources.MemoryBytes++
-	provider := &fakeSpriteLifecycleProvider{
-		observation: spriteObservation(identity, resources),
-	}
-	if err := store.RecordIntent(
-		ResourceIntent{Kind: ResourceSprite, Name: identity.Name},
-		testAuthorizedAt,
-	); err != nil {
-		t.Fatal(err)
-	}
-	provisioner := SpriteProvisioner{
-		Provider: provider, State: store, Now: func() time.Time { return testAuthorizedAt },
-	}
-	if _, err := provisioner.Ensure(context.Background(), authorization); err == nil {
-		t.Fatal("Sprite provisioner adopted a mismatched resource shape")
-	}
-}
-
 type fakeSpriteLifecycleProvider struct {
 	observation runtimeprovider.RuntimeObservation
 	createCalls int
@@ -111,16 +85,13 @@ func (provider *fakeSpriteLifecycleProvider) Inspect(_ context.Context, _ string
 
 func (provider *fakeSpriteLifecycleProvider) Create(_ context.Context, request runtimeprovider.CreateRequest) (runtimeprovider.RuntimeObservation, error) {
 	provider.createCalls++
-	provider.observation = spriteObservation(request.Identity, request.Resources)
+	provider.observation = spriteObservation(request.Identity)
 	return provider.observation, nil
 }
 
-func spriteObservation(
-	identity runtimeprovider.ManagedIdentity,
-	resources runtimeprovider.RuntimeResources,
-) runtimeprovider.RuntimeObservation {
+func spriteObservation(identity runtimeprovider.ManagedIdentity) runtimeprovider.RuntimeObservation {
 	return runtimeprovider.RuntimeObservation{
 		ProviderResourceID: "sprite_123", Name: identity.Name, Labels: identity.Labels,
-		Resources: resources, Placement: "yyz",
+		Placement: "yyz",
 	}
 }

@@ -101,22 +101,6 @@ func TestAdapterCreateReusesExistingOwnedRuntime(t *testing.T) {
 	}
 }
 
-func TestAdapterCreateRejectsExistingRuntimeWithDifferentResources(t *testing.T) {
-	identity := testManagedIdentity(t)
-	runtime := testRuntimeInfo(identity, "warm")
-	runtime.Config.RamMB++
-	adapter := &Adapter{client: &fakeSDKAPI{
-		findRuntime: func(context.Context, string) (*spritessdk.SpriteInfo, bool, error) {
-			return runtime, true, nil
-		},
-	}}
-
-	_, err := adapter.Create(context.Background(), testCreateRequest(identity))
-	if !errors.Is(err, ErrOwnershipMismatch) {
-		t.Fatalf("Create error = %v, want ErrOwnershipMismatch", err)
-	}
-}
-
 func TestAdapterNeverAdoptsForeignLabels(t *testing.T) {
 	identity := testManagedIdentity(t)
 	foreign := testRuntimeInfo(identity, "running")
@@ -218,10 +202,9 @@ func TestAdapterDestroyIsIdempotentAndOwnershipChecked(t *testing.T) {
 func TestAdapterDestroysRuntimeItCannotFullyObserve(t *testing.T) {
 	identity := testManagedIdentity(t)
 	unmappable := map[string]func(*spritessdk.SpriteInfo){
-		"absent configuration": func(runtime *spritessdk.SpriteInfo) { runtime.Config = nil },
-		"absent storage":       func(runtime *spritessdk.SpriteInfo) { runtime.Config.StorageGB = 0 },
-		"unknown status":       func(runtime *spritessdk.SpriteInfo) { runtime.Status = "hibernating" },
-		"absent URL settings":  func(runtime *spritessdk.SpriteInfo) { runtime.URLSettings = nil },
+		"unknown status":      func(runtime *spritessdk.SpriteInfo) { runtime.Status = "hibernating" },
+		"absent URL settings": func(runtime *spritessdk.SpriteInfo) { runtime.URLSettings = nil },
+		"unknown URL auth":    func(runtime *spritessdk.SpriteInfo) { runtime.URLSettings.Auth = "everyone" },
 	}
 	for name, breakRuntime := range unmappable {
 		t.Run(name, func(t *testing.T) {
@@ -281,24 +264,6 @@ func TestAdapterInspectIdentityStillRefusesForeignAndUnnamedRuntimes(t *testing.
 			t.Fatalf("InspectIdentity error = %v, want ErrUnexpectedProviderValue", err)
 		}
 	})
-}
-
-func TestRuntimeResourceMappingNamesTheOffendingProviderField(t *testing.T) {
-	tests := []struct {
-		config *spritessdk.SpriteConfig
-		want   string
-	}{
-		{config: nil, want: "carries no resource configuration"},
-		{config: &spritessdk.SpriteConfig{CPUs: 0, RamMB: 512, StorageGB: 10}, want: "field cpus is 0"},
-		{config: &spritessdk.SpriteConfig{CPUs: 1, RamMB: 0, StorageGB: 10}, want: "field ram_mb is 0"},
-		{config: &spritessdk.SpriteConfig{CPUs: 1, RamMB: 512, StorageGB: -1}, want: "field storage_gb is -1"},
-	}
-	for _, test := range tests {
-		_, err := mapRuntimeResources(test.config)
-		if !errors.Is(err, ErrUnexpectedProviderValue) || !strings.Contains(err.Error(), test.want) {
-			t.Fatalf("mapRuntimeResources(%+v) error = %v, want %q", test.config, err, test.want)
-		}
-	}
 }
 
 func TestAdapterConfigureURLMapsOnlyProvenModes(t *testing.T) {
@@ -964,7 +929,6 @@ func testRuntimeInfo(identity runtimeprovider.ManagedIdentity, status string) *s
 		Name:          identity.Name,
 		Status:        status,
 		Labels:        slices.Clone(identity.Labels),
-		Config:        &spritessdk.SpriteConfig{CPUs: 1, RamMB: 512, StorageGB: 10},
 		URL:           "https://runtime.example",
 		URLSettings:   &spritessdk.URLSettings{Auth: "sprite"},
 		PrimaryRegion: "yyz",
