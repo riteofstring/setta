@@ -1,7 +1,32 @@
 # Sprites Runtime Capacity Observation — 2026-07-26
 
-**Status:** Proposed. Derived from the 2026-07-26 live capture showing that the
+**Status:** Slice 1 landed. Slices 2 to 7 are **superseded** — see the
+correction below. Derived from the 2026-07-26 live capture showing that the
 Sprites API no longer reports per-Sprite resource configuration.
+
+> **Correction, 2026-07-26.** The Sprites documentation
+> (`https://docs.sprites.dev/concepts/lifecycle/#resources`) invalidates the
+> premise of Slices 2 to 7. A Sprite has 8 vCPUs and a 100 GB storage ceiling
+> that "You don't set or resize these yourself", and memory that is "sized per
+> Sprite and able to scale up under pressure". So there is no per-Sprite sizing
+> to request, and `config` disappearing from responses is the documented product
+> rather than a regression.
+>
+> The plan's central idea — the runtime knows its true fixed size, so let it
+> report that size — is wrong for memory and unnecessary for CPU and storage.
+> The documentation is explicit that "The figure a Sprite reports from inside is
+> adjusted to reflect usable memory, so it isn't a ceiling to build hard limits
+> against", which rules out Slice 3's `/proc/meminfo` reading. CPU and storage
+> are documented constants that need no measurement at all. The principle below
+> that capacity is fixed for a runtime's life is false for memory.
+>
+> Slice 1 stands and is confirmed correct: a provider that has no per-runtime
+> resource shape cannot report one. What replaces Slices 2 to 7 is a billing
+> question, not a measurement one. The provider bills compute only while active
+> and storage by bytes actually written, and Setta already meters usage over the
+> runtime reporting channel, so the successor work is metering usage rather than
+> deriving ceilings from a requested shape. A new plan should be written for
+> that; do not resume the slices below as written.
 
 **Scope:** `internal/runtimeprovider`, `internal/sprites`, `internal/runtime`,
 `internal/runtimecapability`, `internal/runtimereporting`, `internal/httpapi`
