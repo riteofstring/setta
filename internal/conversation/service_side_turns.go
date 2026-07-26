@@ -564,11 +564,6 @@ func (service *Service) persistUnexpectedSideTurnEnd(
 		Retryable:           true,
 		DiagnosticReference: diagnosticID,
 	}
-	if code, retryable, admissionFailure := agent.TurnAdmissionFailure(runErr); admissionFailure {
-		failure.Code = code
-		failure.Message = runErr.Error()
-		failure.Retryable = retryable
-	}
 	expected := SideConversationExpectation{Status: side.Status, UpdatedAt: side.UpdatedAt}
 	side.ParentStatus = snapshot.Conversation.Status
 	side.Status = SideConversationStatusFailed

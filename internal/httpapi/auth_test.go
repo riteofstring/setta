@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"setta/internal/conversation"
-	"setta/internal/credissuer"
 )
 
 func TestAuthMiddlewareRejectsMissingBadAndRevokedToken(t *testing.T) {
@@ -34,18 +33,6 @@ func TestAuthMiddlewareRejectsMissingBadAndRevokedToken(t *testing.T) {
 		t.Fatalf("revoke test session ok=%v err=%v", ok, err)
 	}
 	assertUnauthorized(t, handler, "Bearer "+token)
-}
-
-func TestRuntimeAccessAuthorityDoesNotRetryDeviceTokens(t *testing.T) {
-	store, deviceToken := newTestRuntimeAuthStore(t)
-	handler := NewHandler(HandlerConfig{
-		Metadata:             BackendMetadata{Name: BackendName, Version: "test"},
-		RuntimeAccessService: rejectingRuntimeAccessService{},
-		RuntimeAuthService:   store,
-		RuntimeMetadata:      RuntimeMetadata{ID: "runtime_test", DisplayName: "Test Runtime"},
-	})
-
-	assertUnauthorized(t, handler, "Bearer "+deviceToken)
 }
 
 func TestUnauthenticatedRuntimeRoutesAreReachable(t *testing.T) {
@@ -249,22 +236,6 @@ func assertUnauthorized(t *testing.T, handler http.Handler, authorization string
 	if payload.Error.Code != "unauthorized" {
 		t.Fatalf("error code = %q, want unauthorized", payload.Error.Code)
 	}
-}
-
-type rejectingRuntimeAccessService struct{}
-
-func (rejectingRuntimeAccessService) VerifyRuntimeAccessCredential(
-	context.Context,
-	string,
-) (credissuer.VerifiedCredential, bool, error) {
-	return credissuer.VerifiedCredential{}, false, nil
-}
-
-func (rejectingRuntimeAccessService) RevalidateRuntimeAccessCredential(
-	context.Context,
-	credissuer.VerifiedCredential,
-) (bool, error) {
-	return false, nil
 }
 
 func postJSONWithToken[T any](t *testing.T, handler http.Handler, path string, payload any, token string, wantStatus int) T {

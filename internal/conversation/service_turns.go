@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"setta/internal/agent"
 )
@@ -376,7 +375,6 @@ func (service *Service) steerTurn(
 	text string,
 	expectedTurnID string,
 	clientInputID string,
-	outcomeStartedAt *time.Time,
 ) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
@@ -419,9 +417,6 @@ func (service *Service) steerTurn(
 		text,
 	); err != nil {
 		return ConversationSnapshot{}, err
-	}
-	if outcomeStartedAt != nil {
-		service.observeOutcomeTiming(OutcomeTimingSteering, *outcomeStartedAt)
 	}
 	return service.readScopedSnapshot(ctx, workspaceID, conversationID)
 }

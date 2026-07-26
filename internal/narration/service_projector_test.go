@@ -1310,7 +1310,7 @@ func waitForProjectorSnapshot(
 	ready func(conversation.ConversationSnapshot) bool,
 ) conversation.ConversationSnapshot {
 	t.Helper()
-	deadline := time.Now().Add(15 * time.Second)
+	deadline := time.Now().Add(5 * time.Second)
 	for {
 		snapshot, err := store.ReadSnapshot(context.Background(), "workspace-status-service", conversationID)
 		if err != nil {

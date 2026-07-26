@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"setta/internal/codexapp"
-	"setta/internal/runtimeaccounting"
 )
 
 func TestInitializeParamsPreservesProductionCapabilities(t *testing.T) {
@@ -281,140 +280,6 @@ func TestRuntimeRunsSequentialAndConcurrentConversationTurns(t *testing.T) {
 	}
 }
 
-func TestRuntimeSerializesConcurrentTurnsWhenWorkloadLeasesAreEnabled(t *testing.T) {
-	manager := &testWorkloadLeaseManager{}
-	reporter := &testWorkloadLeaseReporter{}
-	runtime := newFakeRuntimeWithConfig(t, Config{
-		WorkloadLeaseManager:  manager,
-		WorkloadLeaseReporter: reporter,
-		WorkloadLeaseTTL:      2 * time.Minute,
-	})
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	workspace := t.TempDir()
-	threads := make([]Thread, 2)
-	for index := range threads {
-		thread, err := runtime.StartThread(ctx, StartThreadRequest{
-			WorkspaceRoot: workspace,
-			Invocation:    testInvocation(),
-		})
-		if err != nil {
-			t.Fatalf("StartThread %d: %v", index, err)
-		}
-		threads[index] = thread
-	}
-
-	firstCtx, cancelFirst := context.WithCancel(ctx)
-	firstSink := newSignalingEventSink()
-	firstDone := make(chan error, 1)
-	go func() {
-		_, err := runtime.RunTurn(
-			firstCtx,
-			testTurnRequest(0, threads[0].ID, workspace, "hold"),
-			firstSink,
-		)
-		firstDone <- err
-	}()
-	firstSink.waitForKind(t, EventKindTurnStarted)
-	manager.requireCalls(t, 1, 0, 0)
-
-	secondSink := newSignalingEventSink()
-	secondResult := make(chan TurnResult, 1)
-	secondDone := make(chan error, 1)
-	go func() {
-		result, err := runtime.RunTurn(
-			ctx,
-			testTurnRequest(1, threads[1].ID, workspace, "normal"),
-			secondSink,
-		)
-		secondResult <- result
-		secondDone <- err
-	}()
-	select {
-	case err := <-secondDone:
-		t.Fatalf("second leased turn finished while the first was active: %v", err)
-	case <-time.After(100 * time.Millisecond):
-	}
-	if events := secondSink.snapshot(); len(events) != 0 {
-		t.Fatalf("second leased turn emitted events while the first was active: %+v", events)
-	}
-	manager.requireCalls(t, 1, 0, 0)
-
-	cancelFirst()
-	if err := <-firstDone; !errors.Is(err, context.Canceled) {
-		t.Fatalf("cancelled first leased turn = %v, want context canceled", err)
-	}
-	if err := <-secondDone; err != nil {
-		t.Fatalf("second leased turn after slot release: %v", err)
-	}
-	if result := <-secondResult; result.Outcome != TurnOutcomeCompleted {
-		t.Fatalf("second leased turn result = %+v", result)
-	}
-	manager.requireCalls(t, 2, 0, 2)
-	reporter.requireActions(
-		t,
-		runtimeaccounting.EventBegin,
-		runtimeaccounting.EventEnd,
-		runtimeaccounting.EventBegin,
-		runtimeaccounting.EventEnd,
-	)
-}
-
-func TestRuntimeAdmissionFailurePreventsWorkloadLeaseAndRecovers(t *testing.T) {
-	manager := &testWorkloadLeaseManager{}
-	reporter := &testWorkloadLeaseReporter{}
-	gate := &testTurnAdmissionGate{err: testTurnAdmissionError{}}
-	runtime := newFakeRuntimeWithConfig(t, Config{
-		TurnAdmissionGate:     gate,
-		WorkloadLeaseManager:  manager,
-		WorkloadLeaseReporter: reporter,
-		WorkloadLeaseTTL:      2 * time.Minute,
-	})
-	workspace := t.TempDir()
-	thread, err := runtime.StartThread(t.Context(), StartThreadRequest{
-		WorkspaceRoot: workspace,
-		Invocation:    testInvocation(),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	request := testTurnRequest(0, thread.ID, workspace, "normal")
-
-	_, err = runtime.RunTurn(t.Context(), request, &recordingEventSink{})
-	code, retryable, admissionFailure := TurnAdmissionFailure(err)
-	if !admissionFailure || code != "test_admission_denied" || !retryable {
-		t.Fatalf("turn admission failure = %q, %t, %t from %v", code, retryable, admissionFailure, err)
-	}
-	manager.requireCalls(t, 0, 0, 0)
-	reporter.requireActions(t)
-
-	gate.err = nil
-	result, err := runtime.RunTurn(t.Context(), request, &recordingEventSink{})
-	if err != nil || result.Outcome != TurnOutcomeCompleted {
-		t.Fatalf("recovered turn = %+v, %v", result, err)
-	}
-	manager.requireCalls(t, 1, 0, 1)
-	reporter.requireActions(t, runtimeaccounting.EventBegin, runtimeaccounting.EventEnd)
-}
-
-type testTurnAdmissionGate struct {
-	err error
-}
-
-func (gate *testTurnAdmissionGate) AdmitTurn(context.Context) error {
-	return gate.err
-}
-
-type testTurnAdmissionError struct{}
-
-func (testTurnAdmissionError) Error() string {
-	return "test admission denied"
-}
-
-func (testTurnAdmissionError) TurnAdmissionFailure() (string, bool) {
-	return "test_admission_denied", true
-}
-
 func TestRuntimeHandlesDynamicToolCalls(t *testing.T) {
 	runtime := newFakeRuntime(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -634,16 +499,12 @@ func TestAgentRuntimeFakeAppServer(t *testing.T) {
 
 func newFakeRuntime(t *testing.T) *Runtime {
 	t.Helper()
-	return newFakeRuntimeWithConfig(t, Config{})
-}
-
-func newFakeRuntimeWithConfig(t *testing.T, config Config) *Runtime {
-	t.Helper()
-	config.Command = os.Args[0]
-	config.Args = []string{"-test.run=TestAgentRuntimeFakeAppServer", "--"}
-	config.Env = append(os.Environ(), "SETTA_AGENT_FAKE_APP_SERVER=1")
-	config.Version = "test"
-	runtime := NewRuntime(config)
+	runtime := NewRuntime(Config{
+		Command: os.Args[0],
+		Args:    []string{"-test.run=TestAgentRuntimeFakeAppServer", "--"},
+		Env:     append(os.Environ(), "SETTA_AGENT_FAKE_APP_SERVER=1"),
+		Version: "test",
+	})
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

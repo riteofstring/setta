@@ -26,7 +26,7 @@ func (service *Service) steerTestTurn(
 	conversationID string,
 	text string,
 ) (ConversationSnapshot, error) {
-	return service.steerTurn(ctx, &workspaceID, conversationID, text, "", "", nil)
+	return service.steerTurn(ctx, &workspaceID, conversationID, text, "", "")
 }
 
 func (service *Service) createDirectorSideConversationForTest(
