@@ -25,6 +25,7 @@ func TestBackendDirectorCommandCenterWithLiveCodex(t *testing.T) {
 
 	config := testConfig(t)
 	config.Version = "test"
+	registerRuntimeLiveCodexThreadCleanup(t, config.AppDataDir)
 	server, ready := startRuntimeTestServer(t, config)
 	defer func() {
 		if server != nil {
@@ -173,6 +174,7 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 
 	config := testConfig(t)
 	config.Version = "test"
+	registerRuntimeLiveCodexThreadCleanup(t, config.AppDataDir)
 	server, ready := startRuntimeTestServer(t, config)
 	defer shutdownServer(t, server)
 
@@ -311,6 +313,7 @@ func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
 
 	config := testConfig(t)
 	config.Version = "test"
+	registerRuntimeLiveCodexThreadCleanup(t, config.AppDataDir)
 	server, ready := startRuntimeTestServer(t, config)
 	defer shutdownServer(t, server)
 

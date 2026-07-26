@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"setta/internal/codexapp"
@@ -196,6 +197,50 @@ func (runtime *Runtime) forgetAttachedThread(threadID string) {
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
 	delete(runtime.attachedThreads, threadID)
+}
+
+func (runtime *Runtime) rememberCreatedDurableThread(thread Thread) {
+	if runtime == nil || !runtime.deleteDurableThreadsOnShutdown || thread.Ephemeral || strings.TrimSpace(thread.ID) == "" {
+		return
+	}
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	runtime.createdDurableThreads[thread.ID] = struct{}{}
+}
+
+func (runtime *Runtime) forgetCreatedDurableThread(threadID string) {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	delete(runtime.createdDurableThreads, threadID)
+}
+
+func (runtime *Runtime) createdDurableThreadIDs() []string {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	threadIDs := make([]string, 0, len(runtime.createdDurableThreads))
+	for threadID := range runtime.createdDurableThreads {
+		threadIDs = append(threadIDs, threadID)
+	}
+	sort.Strings(threadIDs)
+	return threadIDs
+}
+
+func (runtime *Runtime) deleteCreatedDurableThreads(ctx context.Context) error {
+	var cleanupErrors []error
+	for _, threadID := range runtime.createdDurableThreadIDs() {
+		if err := runtime.DeleteThread(ctx, threadID); err != nil {
+			if IsProviderThreadMissing(err) {
+				continue
+			}
+			if archiveErr := runtime.ArchiveThread(ctx, threadID); archiveErr != nil {
+				cleanupErrors = append(cleanupErrors, errors.Join(err, archiveErr))
+				continue
+			}
+			runtime.forgetAttachedThread(threadID)
+			runtime.forgetCreatedDurableThread(threadID)
+		}
+	}
+	return errors.Join(cleanupErrors...)
 }
 
 func attachedThreadFingerprint(params codexapp.ThreadResumeParams) (string, error) {

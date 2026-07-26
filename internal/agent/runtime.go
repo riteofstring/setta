@@ -10,21 +10,24 @@ import (
 )
 
 type Config struct {
-	Command     string
-	Args        []string
-	Env         []string
-	ExcludedEnv []string
-	Manager     *codexapp.Manager
-	Version     string
+	Command                        string
+	Args                           []string
+	Env                            []string
+	ExcludedEnv                    []string
+	Manager                        *codexapp.Manager
+	DeleteDurableThreadsOnShutdown bool
+	Version                        string
 }
 
 type Runtime struct {
-	manager *codexapp.Manager
+	manager                        *codexapp.Manager
+	deleteDurableThreadsOnShutdown bool
 
-	mu              sync.Mutex
-	active          map[string]*activeTurn
-	attachedThreads map[string]threadAttachment
-	pending         map[string]pendingApproval
+	mu                    sync.Mutex
+	active                map[string]*activeTurn
+	attachedThreads       map[string]threadAttachment
+	createdDurableThreads map[string]struct{}
+	pending               map[string]pendingApproval
 }
 
 type threadAttachment struct {
@@ -79,10 +82,12 @@ func NewRuntime(config Config) *Runtime {
 		})
 	}
 	return &Runtime{
-		manager:         manager,
-		active:          map[string]*activeTurn{},
-		attachedThreads: map[string]threadAttachment{},
-		pending:         map[string]pendingApproval{},
+		manager:                        manager,
+		deleteDurableThreadsOnShutdown: config.DeleteDurableThreadsOnShutdown,
+		active:                         map[string]*activeTurn{},
+		attachedThreads:                map[string]threadAttachment{},
+		createdDurableThreads:          map[string]struct{}{},
+		pending:                        map[string]pendingApproval{},
 	}
 }
 
@@ -109,7 +114,11 @@ func (runtime *Runtime) Shutdown(ctx context.Context) error {
 	if runtime == nil || runtime.manager == nil {
 		return nil
 	}
-	return runtime.manager.Shutdown(ctx)
+	var cleanupErr error
+	if runtime.deleteDurableThreadsOnShutdown {
+		cleanupErr = runtime.deleteCreatedDurableThreads(ctx)
+	}
+	return errors.Join(cleanupErr, runtime.manager.Shutdown(ctx))
 }
 
 func (runtime *Runtime) reserveTurn(request TurnRequest, session *codexapp.Session) error {

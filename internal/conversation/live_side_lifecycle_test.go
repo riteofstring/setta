@@ -31,7 +31,7 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 	defer cancel()
 	runtime := newObservedLiveSideRuntime()
 	t.Cleanup(func() {
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), time.Minute)
 		defer shutdownCancel()
 		if err := runtime.Shutdown(shutdownCtx); err != nil {
 			t.Errorf("shutdown live agent runtime: %v", err)
@@ -249,8 +249,9 @@ type observedLiveUnsubscription struct {
 func newObservedLiveSideRuntime() *observedLiveSideRuntime {
 	return &observedLiveSideRuntime{
 		Runtime: agent.NewRuntime(agent.Config{
-			ExcludedEnv: []string{"OPENAI_API_KEY"},
-			Version:     "live-conversation-side-lifecycle-test",
+			ExcludedEnv:                    []string{"OPENAI_API_KEY"},
+			DeleteDurableThreadsOnShutdown: true,
+			Version:                        "live-conversation-side-lifecycle-test",
 		}),
 	}
 }

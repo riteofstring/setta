@@ -15,9 +15,13 @@ import (
 
 func TestLiveCodexRuntimeFreshStructuredCall(t *testing.T) {
 	requireLiveCodex(t)
-	runtime := NewRuntime(Config{ExcludedEnv: []string{"OPENAI_API_KEY"}, Version: "live-structured-test"})
+	runtime := NewRuntime(Config{
+		ExcludedEnv:                    []string{"OPENAI_API_KEY"},
+		DeleteDurableThreadsOnShutdown: true,
+		Version:                        "live-structured-test",
+	})
 	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
 		if err := runtime.Shutdown(ctx); err != nil {
 			t.Errorf("Shutdown: %v", err)
@@ -98,9 +102,13 @@ func requireLiveCodex(t *testing.T) {
 
 func newLiveFixture(t *testing.T) liveFixture {
 	t.Helper()
-	runtime := NewRuntime(Config{ExcludedEnv: []string{"OPENAI_API_KEY"}, Version: "live-test"})
+	runtime := NewRuntime(Config{
+		ExcludedEnv:                    []string{"OPENAI_API_KEY"},
+		DeleteDurableThreadsOnShutdown: true,
+		Version:                        "live-test",
+	})
 	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
 		if err := runtime.Shutdown(ctx); err != nil {
 			t.Errorf("Shutdown: %v", err)

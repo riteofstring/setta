@@ -33,6 +33,7 @@ func TestBackendTopicConversationControlsAndRestartWithLiveCodex(t *testing.T) {
 	requireRuntimeLiveCodexChatGPTAuth(t)
 
 	appDataDir := t.TempDir()
+	registerRuntimeLiveCodexThreadCleanup(t, appDataDir)
 	backend := startRuntimeLiveCodexBackendProcess(t, appDataDir)
 	client, baseURL := runtimeLiveCodexBackendClient(backend)
 	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](

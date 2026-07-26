@@ -9,7 +9,9 @@ const (
 	CodexMethodConfigRead                         = "config/read"
 	CodexMethodInitialize                         = "initialize"
 	CodexMethodModelList                          = "model/list"
+	CodexMethodThreadArchive                      = "thread/archive"
 	CodexMethodThreadBackgroundTerminalsTerminate = "thread/backgroundTerminals/terminate"
+	CodexMethodThreadDelete                       = "thread/delete"
 	CodexMethodThreadFork                         = "thread/fork"
 	CodexMethodThreadGoalClear                    = "thread/goal/clear"
 	CodexMethodThreadGoalGet                      = "thread/goal/get"
@@ -31,7 +33,9 @@ var CodexMethodValues = []string{
 	CodexMethodConfigRead,
 	CodexMethodInitialize,
 	CodexMethodModelList,
+	CodexMethodThreadArchive,
 	CodexMethodThreadBackgroundTerminalsTerminate,
+	CodexMethodThreadDelete,
 	CodexMethodThreadFork,
 	CodexMethodThreadGoalClear,
 	CodexMethodThreadGoalGet,
@@ -142,7 +146,9 @@ var CodexSupportedMethodValues = []string{
 	CodexMethodConfigRead,
 	CodexMethodInitialize,
 	CodexMethodModelList,
+	CodexMethodThreadArchive,
 	CodexMethodThreadBackgroundTerminalsTerminate,
+	CodexMethodThreadDelete,
 	CodexMethodThreadFork,
 	CodexMethodThreadGoalClear,
 	CodexMethodThreadGoalGet,
@@ -4159,6 +4165,47 @@ const (
 	ThreadActiveFlagWaitingOnUserInput ThreadActiveFlag = "waitingOnUserInput"
 )
 
+type ThreadArchiveParams struct {
+	ThreadID string `json:"threadId"`
+}
+
+func validateThreadArchiveParams(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "threadId"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeThreadArchiveParams(raw json.RawMessage) (ThreadArchiveParams, error) {
+	var value ThreadArchiveParams
+	err := decodeCodexObject(raw, "ThreadArchiveParams", validateThreadArchiveParams, &value)
+	return value, err
+}
+
+type ThreadArchiveResponse struct {
+}
+
+func validateThreadArchiveResponse(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, nil); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeThreadArchiveResponse(raw json.RawMessage) (ThreadArchiveResponse, error) {
+	var value ThreadArchiveResponse
+	err := decodeCodexObject(raw, "ThreadArchiveResponse", validateThreadArchiveResponse, &value)
+	return value, err
+}
+
 type ThreadArchivedNotification struct {
 	ThreadID string `json:"threadId"`
 }
@@ -4241,6 +4288,47 @@ func validateThreadClosedNotification(raw json.RawMessage, name string) error {
 func DecodeThreadClosedNotification(raw json.RawMessage) (ThreadClosedNotification, error) {
 	var value ThreadClosedNotification
 	err := decodeCodexObject(raw, "ThreadClosedNotification", validateThreadClosedNotification, &value)
+	return value, err
+}
+
+type ThreadDeleteParams struct {
+	ThreadID string `json:"threadId"`
+}
+
+func validateThreadDeleteParams(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "threadId"}}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeThreadDeleteParams(raw json.RawMessage) (ThreadDeleteParams, error) {
+	var value ThreadDeleteParams
+	err := decodeCodexObject(raw, "ThreadDeleteParams", validateThreadDeleteParams, &value)
+	return value, err
+}
+
+type ThreadDeleteResponse struct {
+}
+
+func validateThreadDeleteResponse(raw json.RawMessage, name string) error {
+	fields, err := codexObjectFields(raw, name)
+	if err != nil {
+		return err
+	}
+	if err := requireCodexFields(fields, name, nil); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecodeThreadDeleteResponse(raw json.RawMessage) (ThreadDeleteResponse, error) {
+	var value ThreadDeleteResponse
+	err := decodeCodexObject(raw, "ThreadDeleteResponse", validateThreadDeleteResponse, &value)
 	return value, err
 }
 
