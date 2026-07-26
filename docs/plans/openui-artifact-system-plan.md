@@ -747,7 +747,39 @@ Performance regressions require correction before merge verification.
 
 ### Phase 0 - Static Profile Feasibility And Baseline
 
-**Status:** Pending.
+**Status:** In progress. The backend half of the spike is implemented in
+[`internal/conversation/artifactdoc`](../../internal/conversation/artifactdoc):
+the grammar, the Go-owned catalog manifest and model-facing signatures, the
+strict compiler, and the accepted and rejected conformance corpus. Nothing in
+production imports it.
+
+Landed:
+
+- static-profile grammar, stated as EBNF plus the profile decisions the grammar
+  cannot carry, in the package documentation
+- Go-owned limits, catalog identity, and the 23-component
+  `setta.artifacts.v1` manifest with ordered properties, enums, object shapes,
+  and model-facing descriptions
+- catalog signature rendering, which is the text prompt-size measurement and the
+  generated developer instructions are both taken from
+- lexer, parser, reference resolution, positional argument mapping, value
+  validation, Markdown and file-path safety rules, cross-property invariants,
+  and structured diagnostics carrying a stable code, position, statement,
+  component, property, and correction instruction
+- 10 accepted fixtures covering every catalog component, reference reuse, and
+  the limit boundaries; 43 rejected fixtures covering every failure code
+- conformance checks over that corpus, written but not executed
+
+Blocked on evidence this repository cannot produce:
+
+- pinning the candidate OpenUI revision and package versions, and recording the
+  selected official shadcn/ui upstream revision, both of which need registry
+  access
+- the equivalent generated React library, which needs those packages installed
+- confirming the pinned OpenUI renderer interprets every accepted fixture
+  equivalently, which needs that library
+- representative model output quality, which needs a live provider turn
+- the pre-change performance baseline, which needs a driven Electron session
 
 Deliverables:
 
