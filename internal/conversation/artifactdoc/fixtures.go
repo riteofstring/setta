@@ -11,7 +11,7 @@ import (
 // they exercise every catalog component, every catalog-used value shape,
 // reference reuse, semantic limit boundaries, and parser guard rejection. They
 // are also the corpus the pinned upstream OpenUI parser has to interpret
-// identically before the production cutover may begin.
+// identically so backend acceptance and renderer parsing cannot diverge.
 //
 // Rejected fixtures are the documents the profile promises to refuse, one per
 // stable failure code. A code with no rejected fixture is a code no one has

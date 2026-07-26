@@ -1388,8 +1388,10 @@ latency half of "measured performance" is the release gate above.
 
 ### Phase 6 - User-Authorized Merge Verification
 
-**Status:** Pending until the branch is ready and the user explicitly requests
-verification.
+**Status:** Complete. The final whole-plan audit, corrections, deterministic
+verification, prior-live-evidence decision, and retained release gates are
+recorded in
+`docs/reports/openui-artifact-phase6-final-audit-20260726.md`.
 
 Do not run automated tests during implementation. When the branch is ready to
 merge and the user authorizes verification, start with the narrowest relevant

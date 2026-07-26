@@ -2,11 +2,9 @@
 // backend accepts, the component catalog the model may compose from, and the
 // compiler that turns accepted source into a rendered component tree.
 //
-// This is the Phase 0 feasibility spike for the OpenUI artifact system plan.
-// Nothing in the production artifact contract, schema, tool, or renderer imports
-// it yet. The point of the spike is to prove the gate the plan sets: that Go can
-// validate the complete supported profile on its own, with no renderer, no
-// JavaScript runtime, and no network service.
+// This package is the production acceptance authority for artifact documents.
+// It validates the complete supported profile on its own, with no renderer,
+// JavaScript runtime, or network service.
 //
 // # Grammar
 //

@@ -237,3 +237,31 @@ readback here, not the artifact cutover, is what stops it.
 
 No credential, privilege, GUI application, background service, or remote access
 was sought for any of the above.
+
+## Final Whole-Plan Audit Addendum
+
+The final audit found that the lazy overlay boundary made the shell inert before
+its Dialog chunk mounted, leaving the expand control focused inside the inert
+subtree during a slow chunk read. The boundary now renders a lightweight native
+modal for that handoff, retries the overlay import once, and contains a permanent
+chunk or overlay failure behind the same generic modal surface. The official
+shadcn/Base UI Dialog and Scroll Area remain in the lazy overlay chunk.
+
+The production build after that correction measured:
+
+| Chunk                    |     Phase 5 | Final audit |     Delta |
+| ------------------------ | ----------: | ----------: | --------: |
+| `index` (command center) |   820.85 kB |   823.51 kB |  +2.66 kB |
+| `index` CSS              |   154.54 kB |   155.29 kB |  +0.75 kB |
+| `ArtifactBrowserOverlay` |   110.42 kB |   110.42 kB | unchanged |
+| `SettaArtifactRenderer`  | 1,012.56 kB | 1,012.56 kB | unchanged |
+
+The small first-paint increase is the accessible loading/failure surface and its
+boundary. The full browser, parser/catalog, and renderer remain lazy. The
+focused production Electron workflow passed with an assertion at the first
+commit that makes the shell inert: a modal was already open and contained
+focus. It also retained the Phase 4 browser, focus-restoration, graph, restart,
+and replay coverage. Artifact:
+`.recordings/director-command-center/20260727T071221721Z/`.
+
+The driven-session release-gate rows above were not retried or estimated.

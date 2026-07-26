@@ -1,4 +1,5 @@
 import type {
+  ApprovalRequest,
   DirectorSnapshot,
   DirectorWorkstreamEntry,
   SemanticNode,
@@ -10,7 +11,7 @@ import type {
 } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
-import { buildApprovalAnswers } from "./DirectorArtifactsRail";
+import { buildApprovalAnswers, directorRailArrivalAnnouncement } from "./DirectorArtifactsRail";
 import { directorArtifactCardMetadata } from "./DirectorArtifactPreviewCard";
 import {
   DirectorRefreshCoordinator,
@@ -106,6 +107,41 @@ describe("Director command-center shell view state", () => {
         status: "unresolved",
       }),
     ).toBe("Pending / 2 sources");
+  });
+
+  test("announces typed artifact lifecycle changes at their update time", () => {
+    const artifact = workstreamArtifact();
+    const approval = {
+      id: "approval:1",
+      kind: "command",
+      publicSummary: "Approve the build.",
+      questions: [],
+      requestedAt: "2026-07-25T17:00:00.500Z",
+      resolvedAt: null,
+      runId: "run:1",
+      secret: false,
+      sourceEventIds: ["event:approval"],
+      status: "pending",
+      workstreamId: "workstream:1",
+    } satisfies ApprovalRequest;
+
+    expect(directorRailArrivalAnnouncement([approval], [], [artifact])).toBe(
+      "Artifact declared: Generated artifact",
+    );
+    expect(
+      directorRailArrivalAnnouncement(
+        [],
+        [],
+        [{ ...artifact, status: "unresolved", updatedAt: "2026-07-25T17:00:02Z" }],
+      ),
+    ).toBe("Artifact pending: Generated artifact");
+    expect(
+      directorRailArrivalAnnouncement(
+        [],
+        [],
+        [{ ...artifact, status: "available", updatedAt: "2026-07-25T17:00:03Z" }],
+      ),
+    ).toBe("Artifact ready: Generated artifact");
   });
 
   test("builds bounded current activity from typed semantic nodes", () => {

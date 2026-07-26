@@ -5,7 +5,7 @@ import type { ArtifactDocumentNode } from "../artifact-catalog";
 /**
  * One document Setta's compiler accepted, carried with the tree it produced.
  * The pinned upstream OpenUI parser has to reach the same tree from the same
- * source before the production cutover may begin.
+ * source so backend acceptance and renderer parsing cannot diverge.
  */
 export interface ArtifactConformanceFixture {
   readonly name: string;

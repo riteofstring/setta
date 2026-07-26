@@ -6,13 +6,12 @@ import (
 )
 
 // blockAlias names the shared content set once instead of repeating twenty
-// component names in every container signature. Prompt size is a Phase 0 gate,
-// and this is most of the difference.
+// component names in every container signature. This is most of the difference
+// in the generated instruction size.
 const blockAlias = "block"
 
 // GenerationInstructions renders the complete model-facing static-profile
-// reference used by the Phase 0 output-quality spike. The production tool will
-// generate its developer instructions from the same catalog-owned text.
+// reference the production artifact tool uses for its developer instructions.
 func (catalog Catalog) GenerationInstructions() string {
 	return strings.TrimSpace(fmt.Sprintf(`Compose one Setta artifact document in the source field.
 

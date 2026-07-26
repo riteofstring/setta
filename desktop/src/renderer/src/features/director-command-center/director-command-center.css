@@ -622,6 +622,44 @@
   margin: 0;
 }
 
+/*
+ * The browser's initial chunk owns only this native modal. It bridges the lazy
+ * Dialog handoff and contains a failed overlay chunk without pulling the
+ * shadcn/Base UI browser primitives back onto first paint.
+ */
+.director-artifact-browser-fallback {
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--popover-foreground);
+  inline-size: min(420px, calc(100vw - 32px));
+  padding: 20px;
+}
+
+.director-artifact-browser-fallback::backdrop {
+  background: oklch(0 0 0 / 0.74);
+}
+
+.director-artifact-browser-fallback h2 {
+  font-family: var(--setta-font-heading);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.director-artifact-browser-fallback p {
+  color: var(--muted-foreground);
+  line-height: 1.45;
+  margin: 8px 0 0;
+}
+
+.director-artifact-browser-fallback-actions {
+  display: flex;
+  justify-content: end;
+  margin-block-start: 18px;
+}
+
 .director-resource-error {
   color: oklch(0.78 0.11 25);
   font-size: 0.78rem;

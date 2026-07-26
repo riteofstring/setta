@@ -1,5 +1,6 @@
 import type {
   ApprovalRequest,
+  ArtifactStatus,
   ConversationApprovalAnswer,
   DirectorIntent,
   DirectorReceipt,
@@ -17,6 +18,12 @@ import { TooltipProvider } from "@renderer/components/ui/tooltip";
 
 import { DirectorArtifactPreviewCard } from "./DirectorArtifactPreviewCard";
 import { directorRailArtifacts, type DirectorArtifactBrowser } from "./director-artifact-browser";
+
+const artifactArrivalLabels = {
+  available: "Artifact ready",
+  declared: "Artifact declared",
+  unresolved: "Artifact pending",
+} as const satisfies Record<ArtifactStatus, string>;
 
 export function ArtifactsRail({
   approvals,
@@ -110,7 +117,7 @@ export function ArtifactsRail({
   );
 }
 
-function directorRailArrivalAnnouncement(
+export function directorRailArrivalAnnouncement(
   approvals: readonly ApprovalRequest[],
   requests: readonly ResourceRequest[],
   artifacts: readonly WorkstreamArtifact[],
@@ -125,8 +132,8 @@ function directorRailArrivalAnnouncement(
       text: `Resource waiting: ${request.publicSummary}`,
     })),
     ...artifacts.map((artifact) => ({
-      announcedAt: artifact.createdAt,
-      text: `Artifact available: ${artifact.title}`,
+      announcedAt: artifact.updatedAt,
+      text: `${artifactArrivalLabels[artifact.status]}: ${artifact.title}`,
     })),
   ];
   let latest: (typeof arrivals)[number] | null = null;

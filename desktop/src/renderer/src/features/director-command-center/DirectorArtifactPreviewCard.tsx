@@ -73,11 +73,10 @@ export function DirectorArtifactPreviewCard({
           ref={expandRef}
         />
       </header>
-      {/* The preview is a picture of the artifact, not a copy of it: inert
-          keeps every projected block out of the tab order, off the pointer, and
-          out of the accessibility tree, so the expand control above is the only
-          way into the document. */}
-      <div className="director-artifact-preview-viewport" inert>
+      {/* Preview blocks are noninteractive and ignore pointer input, so the
+          expand control above remains the only way into the full document.
+          Their readable content stays in the accessibility tree. */}
+      <div className="director-artifact-preview-viewport">
         <DirectorArtifactPreviewBody artifact={artifact} document={document} />
       </div>
     </article>

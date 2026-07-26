@@ -15,8 +15,8 @@ import type {
  * The surface deliberately does not mount the catalog's components: a preview
  * carries no tab, accordion, link, copy control, chart tooltip, or file action,
  * and it must not pull Recharts or the OpenUI renderer into the command
- * center's chunk. Its caller owns the fixed content viewport and marks the
- * whole thing inert, so nothing here is focusable or interactive.
+ * center's chunk. Its caller owns the fixed content viewport and ignores
+ * pointer input, while nothing here is focusable or interactive.
  */
 export function ArtifactPreviewSurface({ blocks }: { blocks: readonly ArtifactPreviewBlock[] }) {
   return (

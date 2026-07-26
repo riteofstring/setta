@@ -15,9 +15,9 @@
 //   - the accepted conformance corpus, each fixture carried with the component
 //     tree Setta's own compiler produced for it
 //
-// Together they let the desktop conformance suite prove the Phase 0 gate of the
-// OpenUI artifact system plan: that every document Setta's backend accepts is
-// interpreted the same way by the pinned upstream OpenUI parser.
+// Together they let the desktop conformance suite enforce that every document
+// Setta's backend accepts is interpreted the same way by the pinned upstream
+// OpenUI parser.
 package main
 
 import (
@@ -364,7 +364,7 @@ func renderCorpusTypes() []byte {
 	output.WriteString("/**\n")
 	output.WriteString(" * One document Setta's compiler accepted, carried with the tree it produced.\n")
 	output.WriteString(" * The pinned upstream OpenUI parser has to reach the same tree from the same\n")
-	output.WriteString(" * source before the production cutover may begin.\n")
+	output.WriteString(" * source so backend acceptance and renderer parsing cannot diverge.\n")
 	output.WriteString(" */\n")
 	output.WriteString("export interface ArtifactConformanceFixture {\n")
 	output.WriteString("  readonly name: string;\n")

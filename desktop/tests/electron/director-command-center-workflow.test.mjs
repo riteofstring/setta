@@ -446,6 +446,11 @@ try {
       `Newest Director artifact preview omitted its projected document: ${JSON.stringify(newestArtifactPreview)}`,
     );
   }
+  if (artifactPreview.previewInert) {
+    throw new Error(
+      `Director artifact preview hid its readable content: ${JSON.stringify(artifactPreview)}`,
+    );
+  }
   assertEqual(
     newestArtifactPreview.height,
     artifactPreview.height,
@@ -466,6 +471,7 @@ try {
   assertEqual(artifactDetail.position, "2 of 2", "Director artifact browser position");
   assertEqual(artifactDetail.colorMode, "light", "Director artifact browser light appearance");
   assertArtifactBrowserTheme(artifactDetail);
+  assertArtifactBrowserModalIsolation(artifactDetail);
   assertArtifactBrowserBoundaries(artifactDetail, {
     nextDisabled: true,
     previousDisabled: false,
@@ -1448,6 +1454,7 @@ async function waitForDirectorArtifactPreview(client, artifactId) {
       return {
         expandDisabled: card?.querySelector(".director-artifact-expand")?.disabled ?? true,
         height: card ? Math.round(card.getBoundingClientRect().height) : 0,
+        previewInert: viewport instanceof HTMLElement ? viewport.inert : null,
         previewText: viewport?.textContent ?? "",
         state: card?.getAttribute("data-preview-state") ?? ""
       };
@@ -1495,7 +1502,7 @@ async function assertArtifactExpandControlRegainedFocus(client, artifactId) {
 }
 
 async function openDirectorArtifactBrowser(client, artifactId, documentMarker) {
-  const opened = await client.evaluate(`(() => {
+  const opened = await client.evaluate(`(async () => {
     const card = document.querySelector(
       ${JSON.stringify(`.director-artifact-preview[data-artifact-id="${artifactId}"]`)}
     );
@@ -1506,11 +1513,58 @@ async function openDirectorArtifactBrowser(client, artifactId, documentMarker) {
     if (expand.disabled) {
       return { ok: false, reason: "disabled-artifact" };
     }
-    expand.click();
-    return { ok: true };
+    const background = document.querySelector(".director-command-center-content");
+    if (!(background instanceof HTMLElement)) {
+      return { ok: false, reason: "missing-background" };
+    }
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled || !background.inert) {
+          return;
+        }
+        settled = true;
+        observer.disconnect();
+        clearTimeout(timeout);
+        const modal = document.querySelector(
+          ".director-artifact-browser, .director-artifact-browser-fallback"
+        );
+        resolve({
+          backgroundHidden: background.getAttribute("aria-hidden") === "true",
+          backgroundInert: background.inert,
+          focusInsideModal: modal instanceof HTMLElement && modal.contains(document.activeElement),
+          modalOpen:
+            modal instanceof HTMLDialogElement ? modal.open : modal instanceof HTMLElement,
+          ok: true
+        });
+      };
+      const observer = new MutationObserver(finish);
+      observer.observe(background, {
+        attributeFilter: ["aria-hidden", "inert"],
+        attributes: true
+      });
+      const timeout = setTimeout(() => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        observer.disconnect();
+        resolve({ ok: false, reason: "modal-handoff-timeout" });
+      }, 1000);
+      expand.click();
+      queueMicrotask(finish);
+    });
   })()`);
   if (!opened.ok) {
     throw new Error(`Director artifact did not open: ${JSON.stringify(opened)}`);
+  }
+  if (
+    !opened.backgroundHidden ||
+    !opened.backgroundInert ||
+    !opened.focusInsideModal ||
+    !opened.modalOpen
+  ) {
+    throw new Error(`Director artifact modal handoff was inaccessible: ${JSON.stringify(opened)}`);
   }
   return waitForOpenDirectorArtifact(client, artifactId, documentMarker);
 }
@@ -1543,8 +1597,13 @@ function waitForOpenDirectorArtifact(client, artifactId, documentMarker) {
       const previous = browser?.querySelector('button[aria-label="Previous artifact"]');
       const next = browser?.querySelector('button[aria-label="Next artifact"]');
       const popupStyle = browser instanceof HTMLElement ? getComputedStyle(browser) : null;
+      const background = document.querySelector(".director-command-center-content");
       return {
         activeDocumentId: artifactDocument?.getAttribute("data-artifact-document") ?? "",
+        backgroundHidden:
+          background instanceof HTMLElement &&
+          background.getAttribute("aria-hidden") === "true",
+        backgroundInert: background instanceof HTMLElement && background.inert,
         backgroundColor: popupStyle?.backgroundColor ?? "",
         color: popupStyle?.color ?? "",
         colorMode: document.documentElement.dataset.colorMode ?? "",
@@ -1646,6 +1705,14 @@ function assertArtifactBrowserTheme(detail) {
     detail.color === detail.backgroundColor
   ) {
     throw new Error(`Director artifact browser theme was unreadable: ${JSON.stringify(detail)}`);
+  }
+}
+
+function assertArtifactBrowserModalIsolation(detail) {
+  if (!detail.backgroundHidden || !detail.backgroundInert) {
+    throw new Error(
+      `Director artifact browser did not isolate its background: ${JSON.stringify(detail)}`,
+    );
   }
 }
 
