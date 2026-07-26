@@ -1,11 +1,16 @@
 // Command generate-artifact-catalog renders the TypeScript half of the
 // setta.artifacts.v1 artifact catalog from its Go owner.
 //
-// It emits two things:
+// It emits four things:
 //
 //   - the catalog identity, the component-name union, and the OpenUI library
 //     JSON Schema the pinned upstream parser compiles into its
 //     positional-argument map
+//   - the Zod props schemas @openuidev/react-lang defines components with,
+//     which the library compiles into that same argument map and which type
+//     the props every Setta renderer receives
+//   - the model-facing signatures, catalog reference, and generation
+//     instructions the backend sends with the artifact tool
 //   - the accepted conformance corpus, each fixture carried with the component
 //     tree Setta's own compiler produced for it
 //
@@ -39,6 +44,12 @@ func main() {
 	catalog := artifactdoc.SettaCatalogV1()
 	if err := writeCatalog(*outputDir, catalog); err != nil {
 		fatalf("write artifact catalog: %v", err)
+	}
+	if err := writePropsSchemas(*outputDir, catalog); err != nil {
+		fatalf("write artifact catalog props schemas: %v", err)
+	}
+	if err := writeSignatures(*outputDir, catalog); err != nil {
+		fatalf("write artifact catalog signatures: %v", err)
 	}
 	if err := writeCorpus(filepath.Join(*outputDir, "conformance-corpus"), catalog); err != nil {
 		fatalf("write artifact conformance corpus: %v", err)

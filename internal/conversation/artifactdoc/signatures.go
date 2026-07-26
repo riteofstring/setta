@@ -59,6 +59,12 @@ func (catalog Catalog) Signatures() string {
 	return builder.String()
 }
 
+// Signature is the component's model-facing call shape: its name, then its
+// properties in the positional order arguments are mapped through.
+func (component Component) Signature() string {
+	return typedSignature(component)
+}
+
 func writePropertyLines(builder *strings.Builder, component Component) {
 	for _, property := range component.Properties {
 		fmt.Fprintf(builder, "  - %s: %s\n", property.Name, property.Description)

@@ -272,8 +272,8 @@ A dedicated generator, `cmd/generate-artifact-catalog`, derives:
 - the model-facing catalog signatures and generation instructions
 - typed fixtures used by the renderer's production-path gallery
 
-Phase 0 landed the first and last of those. Later phases extend that one
-generator rather than adding a second.
+Phase 0 landed the first and last of those, and Phase 1 landed the other two.
+Later phases extend that one generator rather than adding a second.
 
 Generated outputs must be marked generated and must never be edited manually.
 The handwritten React renderer map must use a generated component-name union
@@ -888,8 +888,9 @@ bundle and load figures must be captured from a revision at or before
 
 ### Phase 1 - Catalog Generation And Official shadcn Base UI Primitives
 
-**Status:** In progress. The official shadcn Base UI primitive foundation is in
-place. The catalog generation and artifact component halves have not started.
+**Status:** In progress. The official shadcn Base UI primitive foundation and
+the catalog generator are in place. The artifact component half has not
+started.
 
 Landed:
 
@@ -913,16 +914,39 @@ Landed:
   dense settings and runtime controls, and `SettaStatusBadge` for connection,
   account, and provider status. The audit's hand-rolled badge spans and raw
   API-key input now render through them, dropping their raw palette colours.
+- `cmd/generate-artifact-catalog` extended to the two outputs it still owed:
+  the Zod props schemas `defineComponent` takes, and the model-facing
+  signatures, catalog reference, and generation instructions. Both are rendered
+  from the same Go catalog as the JSON Schema and the corpus, so the generator
+  is now the whole TypeScript half.
+- the desktop conformance suite holding those outputs to one
+  positional-argument map: the library the Zod schemas build registers exactly
+  the catalog's components, its `toJSONSchema()` property order and required
+  set match both the Go-rendered schema and the signatures the model is given,
+  neither half declares a JSON Schema `default`, and a parser built from the
+  library reads the accepted corpus into the same trees Setta's compiler
+  produced.
+
+Two upstream behaviours came out of that work and constrain the renderer map:
+
+- a component slot must be a fresh schema instance at every use. Zod lifts a
+  schema it visits twice into an anonymous `$defs` entry, and the parser reads
+  every `$defs` key as a component name, so a shared slot would put a component
+  the catalog never registered into the argument map.
+- a slot's schema is the child's props object, which is what makes
+  `toJSONSchema()` emit `$ref: "#/$defs/<Component>"`, while the value a parent
+  renderer receives is the child's `ElementNode`. The generated slot declares
+  the node type, matching `defineComponent().ref`.
 
 Remaining:
 
 - the official Base UI components the artifact catalog needs - Accordion,
   Alert, Card, Chart, Dialog, Scroll Area, Separator, Table, Tabs, Tooltip -
   and Recharts, imported alongside the components that consume them
-- extending `cmd/generate-artifact-catalog` to the Zod schemas
-  `@openuidev/react-lang` requires and to the model-facing catalog signatures
 - the Setta artifact content and layout components
-- the exhaustive OpenUI-to-React renderer map
+- the exhaustive OpenUI-to-React renderer map, typed by the generated
+  `ArtifactComponentProps` map and made exhaustive by the generated
+  component-name union
 
 Deliverables:
 

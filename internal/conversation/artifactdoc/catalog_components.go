@@ -34,6 +34,14 @@ func SettaCatalogV1() Catalog {
 	return newCatalog(CatalogSettaV1, ComponentDocument, settaComponentsV1())
 }
 
+// BlockComponents is the content set every container property accepts, which
+// the model-facing catalog names once as the block alias. The generator names
+// it once too, rather than repeating twenty component references at every
+// container slot.
+func BlockComponents() []ComponentName {
+	return blockComponents()
+}
+
 // blockComponents is the content set a document, section, or container accepts.
 // Document is absent because it is only ever the root, and Tab and
 // AccordionItem are absent because they only exist inside their container.
