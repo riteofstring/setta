@@ -19,11 +19,11 @@ func (handler handler) createTopicConversation(response http.ResponseWriter, req
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	if payload.WorkspaceID != nil && *payload.WorkspaceID != strings.TrimSpace(*payload.WorkspaceID) {
-		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_create_request", "workspace id must not have surrounding whitespace")
+	if strings.TrimSpace(payload.WorkspaceID) == "" || payload.WorkspaceID != strings.TrimSpace(payload.WorkspaceID) {
+		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_create_request", "workspace id is required without surrounding whitespace")
 		return
 	}
-	snapshot, err := service.CreateTopicWithOptionalWorkspace(request.Context(), payload.WorkspaceID, payload.Title)
+	snapshot, err := service.CreateTopic(request.Context(), payload.WorkspaceID, payload.Title)
 	if err != nil {
 		writeConversationError(response, "create_topic_conversation_failed", err)
 		return
@@ -51,31 +51,6 @@ func (handler handler) archiveTopicConversation(response http.ResponseWriter, re
 	)
 	if err != nil {
 		writeConversationError(response, "archive_topic_conversation_failed", err)
-		return
-	}
-	writeConversationSnapshot(response, snapshot)
-}
-
-func (handler handler) bindTopicConversationFolder(response http.ResponseWriter, request *http.Request) {
-	service := requireConversationService(response, handler.conversationService)
-	if service == nil {
-		return
-	}
-	var payload BindTopicConversationFolderRequest
-	if !decodeRequest(response, request, &payload) {
-		return
-	}
-	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
-		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_folder_bind_request", err.Error())
-		return
-	}
-	snapshot, err := service.BindFolderResource(
-		request.Context(),
-		payload.WorkspaceID,
-		payload.ConversationID,
-	)
-	if err != nil {
-		writeConversationError(response, "bind_topic_conversation_folder_failed", err)
 		return
 	}
 	writeConversationSnapshot(response, snapshot)
@@ -125,15 +100,23 @@ func (handler handler) disposeSideConversation(response http.ResponseWriter, req
 		writeError(response, http.StatusBadRequest, "invalid_side_conversation_dispose_request", err.Error())
 		return
 	}
-	if strings.TrimSpace(payload.SideConversationID) == "" ||
-		payload.SideConversationID != strings.TrimSpace(payload.SideConversationID) {
-		writeError(response, http.StatusBadRequest, "invalid_side_conversation_dispose_request", "side conversation id is required without surrounding whitespace")
-		return
+	for _, field := range []struct {
+		label string
+		value string
+	}{
+		{label: "parent pane id", value: payload.ParentPaneID},
+		{label: "side conversation id", value: payload.SideConversationID},
+	} {
+		if strings.TrimSpace(field.value) == "" || field.value != strings.TrimSpace(field.value) {
+			writeError(response, http.StatusBadRequest, "invalid_side_conversation_dispose_request", field.label+" is required without surrounding whitespace")
+			return
+		}
 	}
 	snapshot, err := service.DisposeSideConversation(
 		request.Context(),
 		payload.WorkspaceID,
 		payload.ParentConversationID,
+		payload.ParentPaneID,
 		payload.SideConversationID,
 	)
 	if err != nil {
@@ -188,6 +171,39 @@ func (handler handler) submitTopicConversationApproval(response http.ResponseWri
 		return
 	}
 	writeConversationSnapshot(response, snapshot)
+}
+
+func (handler handler) updateTopicConversationPresentation(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	service := requireConversationService(response, handler.conversationService)
+	if service == nil {
+		return
+	}
+	var payload UpdateTopicConversationPresentationRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_topic_conversation_presentation_request", err.Error())
+		return
+	}
+	profile, err := service.UpdatePresentationProfile(
+		request.Context(),
+		payload.WorkspaceID,
+		payload.ConversationID,
+		payload.Settings,
+	)
+	if err != nil {
+		writeConversationPresentationConfigurationError(response, err)
+		return
+	}
+	if err := profile.Validate(); err != nil {
+		writeError(response, http.StatusInternalServerError, "invalid_conversation_presentation_profile", err.Error())
+		return
+	}
+	writeJSON(response, http.StatusOK, profile)
 }
 
 func writeConversationSnapshot(response http.ResponseWriter, snapshot conversation.ConversationSnapshot) {
@@ -259,17 +275,11 @@ func (handler handler) readConversationSnapshot(response http.ResponseWriter, re
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	if err := validateOptionalConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
+	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
 		writeError(response, http.StatusBadRequest, "invalid_conversation_snapshot_request", err.Error())
 		return
 	}
-	var snapshot conversation.ConversationSnapshot
-	var err error
-	if payload.WorkspaceID == nil {
-		snapshot, err = service.ReadSnapshotByID(request.Context(), payload.ConversationID)
-	} else {
-		snapshot, err = service.ReadSnapshot(request.Context(), *payload.WorkspaceID, payload.ConversationID)
-	}
+	snapshot, err := service.ReadSnapshot(request.Context(), payload.WorkspaceID, payload.ConversationID)
 	if err != nil {
 		writeConversationError(response, "read_conversation_snapshot_failed", err)
 		return
@@ -312,10 +322,10 @@ func (handler handler) conversationEventStream(response http.ResponseWriter, req
 		return
 	}
 	payload := SubscribeConversationEventsRequest{
-		WorkspaceID:    optionalQueryString(request, "workspaceId"),
+		WorkspaceID:    request.URL.Query().Get("workspaceId"),
 		ConversationID: request.URL.Query().Get("conversationId"),
 	}
-	if err := validateOptionalConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
+	if err := validateConversationRequestIdentity(payload.WorkspaceID, payload.ConversationID); err != nil {
 		writeError(response, http.StatusBadRequest, "invalid_conversation_event_request", err.Error())
 		return
 	}
@@ -329,12 +339,7 @@ func (handler handler) conversationEventStream(response http.ResponseWriter, req
 		writeError(response, http.StatusInternalServerError, "conversation_event_stream_unavailable", "response writer does not support streaming")
 		return
 	}
-	var subscription conversation.ConversationEventSubscription
-	if payload.WorkspaceID == nil {
-		subscription, err = service.SubscribeEventsByID(cursor, payload.ConversationID)
-	} else {
-		subscription, err = service.SubscribeEvents(cursor, *payload.WorkspaceID, payload.ConversationID)
-	}
+	subscription, err := service.SubscribeEvents(cursor, payload.WorkspaceID, payload.ConversationID)
 	if err != nil {
 		writeConversationError(response, "subscribe_conversation_events_failed", err)
 		return
@@ -431,32 +436,4 @@ func validateConversationRequestIdentity(workspaceID string, conversationID stri
 		return fmt.Errorf("workspace and conversation ids must not have surrounding whitespace")
 	}
 	return nil
-}
-
-func validateOptionalConversationRequestIdentity(workspaceID *string, conversationID string) error {
-	if strings.TrimSpace(conversationID) == "" {
-		return fmt.Errorf("conversation id is required")
-	}
-	if conversationID != strings.TrimSpace(conversationID) {
-		return fmt.Errorf("conversation id must not have surrounding whitespace")
-	}
-	if workspaceID == nil {
-		return nil
-	}
-	if strings.TrimSpace(*workspaceID) == "" {
-		return fmt.Errorf("workspace id must be null or non-empty")
-	}
-	if *workspaceID != strings.TrimSpace(*workspaceID) {
-		return fmt.Errorf("workspace id must not have surrounding whitespace")
-	}
-	return nil
-}
-
-func optionalQueryString(request *http.Request, key string) *string {
-	values, ok := request.URL.Query()[key]
-	if !ok || len(values) == 0 {
-		return nil
-	}
-	value := values[0]
-	return &value
 }

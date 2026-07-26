@@ -12,6 +12,7 @@ import (
 type ConversationStatus string
 type TurnDelivery string
 type TurnStatus string
+type ThreadBindingStatus string
 type ArtifactKind string
 
 const (
@@ -30,6 +31,10 @@ const (
 	TurnStatusCancelled TurnStatus = "cancelled"
 	TurnStatusFailed    TurnStatus = "failed"
 
+	ThreadBindingStatusLinked      ThreadBindingStatus = "linked"
+	ThreadBindingStatusMissing     ThreadBindingStatus = "missing"
+	ThreadBindingStatusUnavailable ThreadBindingStatus = "unavailable"
+
 	ArtifactKindMarkdown ArtifactKind = "markdown"
 	ArtifactKindTable    ArtifactKind = "table"
 	ArtifactKindBarChart ArtifactKind = "bar_chart"
@@ -38,7 +43,7 @@ const (
 
 type TopicConversation struct {
 	ID                     string             `json:"id"`
-	WorkspaceID            *string            `json:"workspaceId"`
+	WorkspaceID            string             `json:"workspaceId"`
 	Title                  string             `json:"title"`
 	TopicDescriptor        string             `json:"topicDescriptor"`
 	Status                 ConversationStatus `json:"status"`
@@ -72,6 +77,17 @@ type QueuedConversationTurn struct {
 	ConversationID string `json:"conversationId"`
 	Ordinal        int    `json:"ordinal"`
 	QueuedAt       string `json:"queuedAt"`
+}
+
+type AgentThreadBinding struct {
+	ConversationID   string              `json:"conversationId"`
+	Provider         Provider            `json:"provider"`
+	ThreadID         string              `json:"threadId"`
+	Status           ThreadBindingStatus `json:"status"`
+	CreatedAt        string              `json:"createdAt"`
+	LastResumedAt    *string             `json:"lastResumedAt"`
+	LastTurnID       *string             `json:"lastTurnId"`
+	ProviderMetadata map[string]string   `json:"providerMetadata"`
 }
 
 type Artifact struct {
@@ -138,10 +154,8 @@ func (conversation TopicConversation) Validate() error {
 	if err := validateIdentifier("conversation id", conversation.ID); err != nil {
 		return err
 	}
-	if conversation.WorkspaceID != nil {
-		if err := validateIdentifier("conversation workspace id", *conversation.WorkspaceID); err != nil {
-			return err
-		}
+	if err := validateIdentifier("conversation workspace id", conversation.WorkspaceID); err != nil {
+		return err
 	}
 	if err := validateTrimmedText("conversation title", conversation.Title); err != nil {
 		return err
@@ -391,6 +405,38 @@ func (queued QueuedConversationTurn) Validate() error {
 	return err
 }
 
+func (binding AgentThreadBinding) Validate() error {
+	if err := validateIdentifier("thread binding conversation id", binding.ConversationID); err != nil {
+		return err
+	}
+	if binding.Provider != ProviderCodex {
+		return fmt.Errorf("thread binding %s has unsupported provider %q", binding.ConversationID, binding.Provider)
+	}
+	if err := validateIdentifier("thread binding thread id", binding.ThreadID); err != nil {
+		return err
+	}
+	if !validThreadBindingStatus(binding.Status) {
+		return fmt.Errorf("thread binding %s has unsupported status %q", binding.ConversationID, binding.Status)
+	}
+	createdAt, err := validateTimestamp("thread binding createdAt", binding.CreatedAt)
+	if err != nil {
+		return err
+	}
+	if binding.LastResumedAt != nil {
+		lastResumedAt, err := validateTimestampPointer("thread binding lastResumedAt", binding.LastResumedAt)
+		if err != nil {
+			return err
+		}
+		if lastResumedAt.Before(createdAt) {
+			return fmt.Errorf("thread binding %s lastResumedAt precedes createdAt", binding.ConversationID)
+		}
+	}
+	if err := validateOptionalIdentifier("thread binding last turn id", binding.LastTurnID); err != nil {
+		return err
+	}
+	return validateStringMap("thread binding provider metadata", binding.ProviderMetadata)
+}
+
 func (artifact Artifact) Metadata() ArtifactMetadata {
 	return ArtifactMetadata{
 		ID:                 artifact.ID,
@@ -466,6 +512,15 @@ func validTurnDelivery(delivery TurnDelivery) bool {
 func validTurnStatus(status TurnStatus) bool {
 	switch status {
 	case TurnStatusQueued, TurnStatusRunning, TurnStatusCompleted, TurnStatusCancelled, TurnStatusFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+func validThreadBindingStatus(status ThreadBindingStatus) bool {
+	switch status {
+	case ThreadBindingStatusLinked, ThreadBindingStatusMissing, ThreadBindingStatusUnavailable:
 		return true
 	default:
 		return false
@@ -673,6 +728,18 @@ func optionalTimestamp(label string, value *string) (time.Time, bool, error) {
 	}
 	parsed, err := validateTimestamp(label, *value)
 	return parsed, true, err
+}
+
+func validateStringMap(label string, values map[string]string) error {
+	if values == nil {
+		return fmt.Errorf("%s must be an object, not null", label)
+	}
+	for key := range values {
+		if err := validateIdentifier(label+" key", key); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func equalOptionalString(left *string, right *string) bool {
