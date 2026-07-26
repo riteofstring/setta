@@ -715,7 +715,7 @@ export class DirectorGraphCanvas {
       this.labels.apply(this.snapshot, this.placements, 0, this.presentation === "conversation");
       return;
     }
-    const count = computeGraphLabelPlacements(
+    let count = computeGraphLabelPlacements(
       {
         snapshot: this.snapshot,
         worldY: this.layout.worldYColumn(),
@@ -731,6 +731,24 @@ export class DirectorGraphCanvas {
       },
       this.placements,
     );
+    /*
+     * Threads side by side read as shapes, not sentences: labels stay off so
+     * the constellation is legible, and hovering a node speaks for that node
+     * alone. Selection is untouched — clicks hit-test the canvas, not the
+     * labels — so a thread opens exactly as it did with every label drawn.
+     */
+    if (this.presentation !== "conversation") {
+      const hovered = this.view.hovered();
+      let kept = 0;
+      for (let index = 0; index < count; index += 1) {
+        const placement = this.placements[index];
+        if (placement !== undefined && placement.nodeIndex === hovered) {
+          this.placements[kept] = placement;
+          kept += 1;
+        }
+      }
+      count = kept;
+    }
     this.labels.apply(this.snapshot, this.placements, count, this.presentation === "conversation");
   }
 
