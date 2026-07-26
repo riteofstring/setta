@@ -154,13 +154,14 @@ func (service *Service) CancelDirectorTurn(
 	conversationID string,
 	targetTurnID string,
 ) (ConversationSnapshot, error) {
+	startedAt := service.now().UTC()
 	if err := validateDirectorRequest(service, ctx); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	if err := validateIdentifier("director cancelled turn id", targetTurnID); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	return service.stopTurn(ctx, workspaceID, conversationID, targetTurnID)
+	return service.stopTurn(ctx, workspaceID, conversationID, targetTurnID, &startedAt)
 }
 
 // SubmitDirectorApproval answers one approval the named turn is waiting on.
@@ -173,13 +174,14 @@ func (service *Service) SubmitDirectorApproval(
 	targetTurnID string,
 	response ConversationApprovalResponse,
 ) (ConversationSnapshot, error) {
+	startedAt := service.now().UTC()
 	if err := validateDirectorRequest(service, ctx); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	if err := validateIdentifier("director approved turn id", targetTurnID); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	return service.submitApproval(ctx, workspaceID, conversationID, targetTurnID, response)
+	return service.submitApproval(ctx, workspaceID, conversationID, targetTurnID, response, &startedAt)
 }
 
 // RecoverDirectorTurn restarts the work a failed turn was carrying. The failed

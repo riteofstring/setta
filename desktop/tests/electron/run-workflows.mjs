@@ -29,10 +29,18 @@ if (selectedWorkflows.length === 0) {
 let status = 0;
 const passed = [];
 const failed = [];
+const skipped = [];
 for (const workflow of selectedWorkflows) {
   const result = await runWorkflow(workflow, options);
   if (result === 0) {
     passed.push(workflow.name);
+    continue;
+  }
+  if (result === 77) {
+    skipped.push(workflow.name);
+    if (status === 0) {
+      status = result;
+    }
     continue;
   }
   failed.push(workflow.name);
@@ -48,6 +56,9 @@ for (const name of passed) {
 }
 for (const name of failed) {
   process.stdout.write(`  failed: ${name}\n`);
+}
+for (const name of skipped) {
+  process.stdout.write(`  skipped: ${name}\n`);
 }
 
 process.exitCode = status;
@@ -151,7 +162,7 @@ function printUsage() {
   process.stdout.write(`Usage: node desktop/tests/electron/run-workflows.mjs [options]
 
 Options:
-  --tier <required|performance|recovery|live|all>
+  --tier <required|performance|recovery|live|live-codex|all>
                                            Run workflows in a manifest tier.
   --workflow <name>                       Run one named workflow; repeatable.
   --visible                               Show Electron windows for workflows that support it.

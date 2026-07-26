@@ -334,11 +334,19 @@ func TestSideConversationUnexpectedRuntimeFailureRetainsProviderCleanupIdentity(
 func TestSideConversationPersistsTypedAdmissionFailure(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Side admission failure")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
-	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-side-admission")
+	parent := createLinkedParentForSideTest(
+		t,
+		ctx,
+		service,
+		runtime,
+		workspaceID,
+		"Side admission failure",
+	)
+	created, err := service.createDirectorSideConversationForTest(
+		ctx,
+		workspaceID,
+		parent.Conversation.ID,
+	)
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}

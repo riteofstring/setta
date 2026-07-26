@@ -281,7 +281,7 @@ func TestRuntimeRunsSequentialAndConcurrentConversationTurns(t *testing.T) {
 	}
 }
 
-func TestRuntimeSerializesConcurrentTurnsWhenWorkloadLeasesAreEnabled(t *testing.T) {
+func TestRuntimeSharesWorkloadLeaseAcrossConcurrentTurns(t *testing.T) {
 	manager := &testWorkloadLeaseManager{}
 	reporter := &testWorkloadLeaseReporter{}
 	runtime := newFakeRuntimeWithConfig(t, Config{
@@ -332,11 +332,14 @@ func TestRuntimeSerializesConcurrentTurnsWhenWorkloadLeasesAreEnabled(t *testing
 	}()
 	select {
 	case err := <-secondDone:
-		t.Fatalf("second leased turn finished while the first was active: %v", err)
-	case <-time.After(100 * time.Millisecond):
+		if err != nil {
+			t.Fatalf("concurrent leased turn: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatalf("concurrent leased turn did not finish: %v", ctx.Err())
 	}
-	if events := secondSink.snapshot(); len(events) != 0 {
-		t.Fatalf("second leased turn emitted events while the first was active: %+v", events)
+	if result := <-secondResult; result.Outcome != TurnOutcomeCompleted {
+		t.Fatalf("concurrent leased turn result = %+v", result)
 	}
 	manager.requireCalls(t, 1, 0, 0)
 
@@ -344,17 +347,9 @@ func TestRuntimeSerializesConcurrentTurnsWhenWorkloadLeasesAreEnabled(t *testing
 	if err := <-firstDone; !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled first leased turn = %v, want context canceled", err)
 	}
-	if err := <-secondDone; err != nil {
-		t.Fatalf("second leased turn after slot release: %v", err)
-	}
-	if result := <-secondResult; result.Outcome != TurnOutcomeCompleted {
-		t.Fatalf("second leased turn result = %+v", result)
-	}
-	manager.requireCalls(t, 2, 0, 2)
+	manager.requireCalls(t, 1, 0, 1)
 	reporter.requireActions(
 		t,
-		runtimeaccounting.EventBegin,
-		runtimeaccounting.EventEnd,
 		runtimeaccounting.EventBegin,
 		runtimeaccounting.EventEnd,
 	)

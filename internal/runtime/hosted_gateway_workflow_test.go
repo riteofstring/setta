@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -15,17 +16,22 @@ import (
 
 	"setta/internal/controlplane"
 	"setta/internal/conversation"
+	"setta/internal/director"
 	"setta/internal/httpapi"
 	"setta/internal/runtimeprovider"
 )
 
-func TestCandidateBGatewayConversationRestartAndReplay(t *testing.T) {
-	installRuntimeMasterCodexFixture(t)
+// The hosted gateway follows Setta's current product contracts. Work is
+// dispatched through the Director, so this workflow intentionally does not
+// restore the removed Setta 3 conversation-input router just to drive a test.
+// It proves that the gateway carries current Director and conversation state,
+// preserves durable state across both process boundaries, replays the event
+// stream from a cursor, and does not put user data into gateway measurements.
+func TestHostedGatewayCurrentContractsSurviveRuntimeAndGatewayRestart(t *testing.T) {
 	config := testConfig(t)
-	config.Version = "hosted-gateway-workflow"
-	var runtimeLogs bytes.Buffer
-	config.Stderr = &runtimeLogs
+	config.Version = "hosted-gateway-current-contracts"
 	runtimeServer, runtimeReady := startRuntimeTestServer(t, config)
+
 	dialer := &hostedRuntimeDialer{}
 	dialer.SetAddress(runtimeServer.Addr())
 	controlDirectory := t.TempDir()
@@ -39,6 +45,15 @@ func TestCandidateBGatewayConversationRestartAndReplay(t *testing.T) {
 	)
 
 	baseURL := "http://" + gateway.Addr().String()
+	initialDirector := getRuntimeJSON[director.DirectorSnapshot](
+		t,
+		client,
+		baseURL,
+		"/director/snapshot",
+	)
+	if initialDirector.EventCursor.StreamID == "" {
+		t.Fatal("hosted Director snapshot has an empty event stream")
+	}
 	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](
 		t,
 		client,
@@ -47,98 +62,53 @@ func TestCandidateBGatewayConversationRestartAndReplay(t *testing.T) {
 		httpapi.OpenWorkspaceRequest{RootPath: t.TempDir()},
 		http.StatusOK,
 	)
+	workspaceID := opened.Workspace.ID
 	created := postRuntimeJSON[conversation.ConversationSnapshot](
 		t,
 		client,
 		baseURL,
 		"/conversations/create",
 		httpapi.CreateTopicConversationRequest{
-			WorkspaceID: opened.Workspace.ID,
-			Title:       "Hosted gateway topic",
+			WorkspaceID: &workspaceID,
+			Title:       "Hosted gateway current contracts",
 		},
 		http.StatusOK,
 	)
-	firstStream := openHostedConversationStream(
+	stream := openHostedConversationStream(
 		t,
 		client,
 		baseURL,
-		opened.Workspace.ID,
+		workspaceID,
 		created.Conversation.ID,
 		"",
 	)
-	firstEvent := readHostedConversationEvent(t, firstStream.reader)
-	_ = firstStream.body.Close()
-
-	sourcePaneID := "hosted-gateway-pane"
-	accepted := postRuntimeJSON[conversation.AcceptedConversationInput](
-		t,
-		client,
-		baseURL,
-		"/conversations/inputs/submit",
-		httpapi.SubmitConversationInputRequest{Input: conversation.ConversationInput{
-			ID:             "hosted-gateway-turn",
-			ConversationID: created.Conversation.ID,
-			SourcePaneID:   &sourcePaneID,
-			Text:           "complete hosted gateway turn",
-			Modality:       conversation.ConversationInputModalityText,
-			SubmittedAt:    time.Now().UTC().Format(time.RFC3339Nano),
-		}},
-		http.StatusAccepted,
-	)
-	routed := postRuntimeJSON[conversation.ConversationInputRoutingState](
-		t,
-		client,
-		baseURL,
-		"/conversations/inputs/state/wait",
-		httpapi.ReadConversationInputRoutingStateRequest{
-			WorkspaceID:    opened.Workspace.ID,
-			ConversationID: created.Conversation.ID,
-			InputID:        accepted.Input.ID,
-		},
-		http.StatusOK,
-	)
-	if routed.Input.Status != conversation.ConversationInputStatusDispatched {
-		managerState, managerErr := runtimeServer.codexManager.State()
-		t.Fatalf(
-			"hosted conversation route = %+v\ncodex manager=%s err=%v\nruntime logs:\n%s",
-			routed,
-			managerState,
-			managerErr,
-			runtimeLogs.String(),
-		)
-	}
-	completed := waitForRuntimeLiveTopicTurns(
-		t,
-		client,
-		baseURL,
-		opened.Workspace.ID,
-		created.Conversation.ID,
-		1,
-	)
-	if completed.Turns.Turns[0].Status != conversation.TurnStatusCompleted {
-		t.Fatalf("hosted gateway turn status = %s", completed.Turns.Turns[0].Status)
+	firstEvent := readHostedConversationEvent(t, stream.reader)
+	if err := stream.body.Close(); err != nil {
+		t.Fatal(err)
 	}
 
 	shutdownHostedGateway(t, gateway, store)
-	requireHostedGatewayMeasurement(
-		t,
-		initialMeasurements,
-		"ConversationEventStream",
-		false,
-	)
+	requireHostedGatewayMeasurement(t, initialMeasurements, "ReadDirectorSnapshot", false)
+	requireHostedGatewayMeasurement(t, initialMeasurements, "OpenWorkspace", false)
+	requireHostedGatewayMeasurement(t, initialMeasurements, "CreateTopicConversation", false)
+	requireHostedGatewayMeasurement(t, initialMeasurements, "ConversationEventStream", false)
 	requireHostedGatewayMeasurementsExclude(
 		t,
 		initialMeasurements,
-		opened.Workspace.ID,
+		workspaceID,
 		created.Conversation.ID,
-		firstEvent.EventID,
-		"complete hosted gateway turn",
+		created.Conversation.Title,
 	)
 	shutdownServer(t, runtimeServer)
+
 	runtimeServer, runtimeReady = startRuntimeTestServer(t, config)
 	defer shutdownServer(t, runtimeServer)
 	dialer.SetAddress(runtimeServer.Addr())
-	if err := secrets.WriteSecret(t.Context(), "hosted_runtime", []byte(runtimeReady.BootstrapToken)); err != nil {
+	if err := secrets.WriteSecret(
+		t.Context(),
+		hostedRuntimeSecretReference,
+		[]byte(runtimeReady.BootstrapToken),
+	); err != nil {
 		t.Fatal(err)
 	}
 	var restartedMeasurements *bytes.Buffer
@@ -149,172 +119,95 @@ func TestCandidateBGatewayConversationRestartAndReplay(t *testing.T) {
 		dialer,
 		grant.Token,
 	)
+	defer shutdownHostedGateway(t, gateway, store)
 	baseURL = "http://" + gateway.Addr().String()
-	replayedStream := openHostedConversationStream(
-		t,
-		client,
-		baseURL,
-		opened.Workspace.ID,
-		created.Conversation.ID,
-		firstEvent.EventID,
-	)
-	replayed := readHostedConversationEvent(t, replayedStream.reader)
-	if replayed.Sequence <= firstEvent.Sequence {
-		t.Fatalf("replayed conversation sequence = %d, want > %d", replayed.Sequence, firstEvent.Sequence)
-	}
-	snapshot := postRuntimeJSON[conversation.ConversationSnapshot](
+
+	restarted := postRuntimeJSON[conversation.ConversationSnapshot](
 		t,
 		client,
 		baseURL,
 		"/conversations/snapshot/read",
 		httpapi.ReadConversationSnapshotRequest{
-			WorkspaceID:    opened.Workspace.ID,
+			WorkspaceID:    &workspaceID,
 			ConversationID: created.Conversation.ID,
 		},
 		http.StatusOK,
 	)
-	if len(snapshot.Turns.Turns) != 1 ||
-		snapshot.Turns.Turns[0].Status != conversation.TurnStatusCompleted {
-		t.Fatalf("restarted hosted snapshot = %+v", snapshot.Turns.Turns)
+	if restarted.Conversation.ID != created.Conversation.ID ||
+		restarted.Conversation.WorkspaceID == nil ||
+		*restarted.Conversation.WorkspaceID != workspaceID ||
+		restarted.Conversation.ArchivedAt != nil {
+		t.Fatalf("restarted hosted conversation = %+v", restarted.Conversation)
 	}
+	archived := postRuntimeJSON[conversation.ConversationSnapshot](
+		t,
+		client,
+		baseURL,
+		"/conversations/archive",
+		httpapi.ArchiveTopicConversationRequest{
+			WorkspaceID:    workspaceID,
+			ConversationID: created.Conversation.ID,
+		},
+		http.StatusOK,
+	)
+	if archived.Conversation.ArchivedAt == nil {
+		t.Fatalf("hosted archived conversation = %+v", archived.Conversation)
+	}
+	replayedStream := openHostedConversationStream(
+		t,
+		client,
+		baseURL,
+		workspaceID,
+		created.Conversation.ID,
+		firstEvent.EventID,
+	)
+	replayed := readHostedConversationEvent(t, replayedStream.reader)
 	if err := replayedStream.body.Close(); err != nil {
 		t.Fatal(err)
 	}
-	exerciseHostedIdleReconnects(
+	if replayed.Sequence <= firstEvent.Sequence {
+		t.Fatalf(
+			"replayed hosted event sequence = %d, want > %d",
+			replayed.Sequence,
+			firstEvent.Sequence,
+		)
+	}
+	restartedDirector := getRuntimeJSON[director.DirectorSnapshot](
 		t,
 		client,
 		baseURL,
-		opened.Workspace.ID,
-		created.Conversation.ID,
-		snapshot,
+		"/director/snapshot",
 	)
+	if !strings.HasPrefix(
+		restartedDirector.EventCursor.StreamID,
+		director.DirectorEventStreamPrefix,
+	) {
+		t.Fatalf(
+			"restarted Director stream = %q, want prefix %q",
+			restartedDirector.EventCursor.StreamID,
+			director.DirectorEventStreamPrefix,
+		)
+	}
+
 	shutdownHostedGateway(t, gateway, store)
-	requireHostedGatewayMeasurement(
-		t,
-		restartedMeasurements,
-		"ConversationEventStream",
-		true,
-	)
-	requireHostedGatewayIdleReconnectMeasurements(t, restartedMeasurements, 3)
+	gateway = nil
+	store = nil
+	requireHostedGatewayMeasurement(t, restartedMeasurements, "ReadConversationSnapshot", false)
+	requireHostedGatewayMeasurement(t, restartedMeasurements, "ArchiveTopicConversation", false)
+	requireHostedGatewayMeasurement(t, restartedMeasurements, "ConversationEventStream", true)
+	requireHostedGatewayMeasurement(t, restartedMeasurements, "ReadDirectorSnapshot", false)
 	requireHostedGatewayMeasurementsExclude(
 		t,
 		restartedMeasurements,
-		opened.Workspace.ID,
+		workspaceID,
 		created.Conversation.ID,
+		created.Conversation.Title,
 		firstEvent.EventID,
 		replayed.EventID,
-		"complete after recurring idle reconnect",
 	)
 }
 
-func requireHostedGatewayIdleReconnectMeasurements(
-	t *testing.T,
-	encoded *bytes.Buffer,
-	minimum int,
-) {
-	t.Helper()
-	decoder := json.NewDecoder(bytes.NewReader(encoded.Bytes()))
-	count := 0
-	for decoder.More() {
-		var measurement controlplane.GatewayMeasurement
-		if err := decoder.Decode(&measurement); err != nil {
-			t.Fatal(err)
-		}
-		if measurement.Operation == "ConversationEventStream" &&
-			measurement.ResumeRequested &&
-			!measurement.FirstResponseObserved &&
-			measurement.ResponseBytes == 0 &&
-			measurement.Result == "runtime_stream_failed" &&
-			measurement.Status == http.StatusOK {
-			count++
-		}
-	}
-	if count < minimum {
-		t.Fatalf(
-			"idle reconnect measurements = %d, want at least %d in %s",
-			count,
-			minimum,
-			encoded.String(),
-		)
-	}
-}
-
-func exerciseHostedIdleReconnects(
-	t *testing.T,
-	client *http.Client,
-	baseURL string,
-	workspaceID string,
-	conversationID string,
-	idleSnapshot conversation.ConversationSnapshot,
-) {
-	t.Helper()
-	cursor := fmt.Sprintf(
-		"%s:%d",
-		idleSnapshot.EventCursor.StreamID,
-		idleSnapshot.EventCursor.Sequence,
-	)
-	for range 3 {
-		stream := openHostedConversationStream(
-			t,
-			client,
-			baseURL,
-			workspaceID,
-			conversationID,
-			cursor,
-		)
-		if err := stream.body.Close(); err != nil {
-			t.Fatal(err)
-		}
-	}
-	stream := openHostedConversationStream(
-		t,
-		client,
-		baseURL,
-		workspaceID,
-		conversationID,
-		cursor,
-	)
-	defer stream.body.Close()
-	accepted := submitHostedConversationInput(
-		t,
-		client,
-		baseURL,
-		conversationID,
-		"hosted-recurring-idle-reconnect",
-		"complete after recurring idle reconnect",
-	)
-	requireRuntimeLiveRouteKind(
-		t,
-		waitForRuntimeLiveConversationRoute(
-			t,
-			client,
-			baseURL,
-			workspaceID,
-			conversationID,
-			accepted,
-		),
-		conversation.ConversationRouteDecisionKindSendToParent,
-	)
-	event := readHostedConversationEvent(t, stream.reader)
-	if event.Sequence <= idleSnapshot.EventCursor.Sequence {
-		t.Fatalf(
-			"event after recurring idle reconnect = %d, want > %d",
-			event.Sequence,
-			idleSnapshot.EventCursor.Sequence,
-		)
-	}
-	completed := waitForRuntimeLiveTopicTurns(
-		t,
-		client,
-		baseURL,
-		workspaceID,
-		conversationID,
-		2,
-	)
-	if completed.Turns.Turns[1].Status != conversation.TurnStatusCompleted {
-		t.Fatalf("turn after recurring idle reconnect = %+v", completed.Turns.Turns[1])
-	}
-}
+const hostedRuntimeSecretReference = "hosted_runtime"
 
 type hostedRuntimeDialer struct {
 	mu      sync.RWMutex
@@ -360,7 +253,11 @@ func startHostedGateway(
 ) {
 	t.Helper()
 	store, secrets := openHostedGatewayState(t, controlDirectory, secretDirectory)
-	if err := secrets.WriteSecret(t.Context(), "hosted_runtime", []byte(runtimeCredential)); err != nil {
+	if err := secrets.WriteSecret(
+		t.Context(),
+		hostedRuntimeSecretReference,
+		[]byte(runtimeCredential),
+	); err != nil {
 		t.Fatal(err)
 	}
 	identity, err := runtimeprovider.NewManagedIdentity("hosted-gateway-user")
@@ -379,7 +276,7 @@ func startHostedGateway(
 		HealthState:         controlplane.RuntimeHealthHealthy,
 		CredentialEpoch:     1,
 		UpstreamAuthority:   "127.0.0.1:7345",
-		CredentialSecretRef: "hosted_runtime",
+		CredentialSecretRef: hostedRuntimeSecretReference,
 		DesiredRelease:      "hosted-test-release",
 		ObservedRelease:     "hosted-test-release",
 		Resources: runtimeprovider.RuntimeResources{
@@ -516,6 +413,9 @@ func requireHostedGatewayMeasurementsExclude(
 
 func shutdownHostedGateway(t *testing.T, gateway *controlplane.Server, store *controlplane.Store) {
 	t.Helper()
+	if gateway == nil || store == nil {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	if err := gateway.Shutdown(ctx); err != nil {
@@ -538,13 +438,14 @@ func openHostedConversationStream(
 	cursor string,
 ) hostedConversationStream {
 	t.Helper()
-	url := fmt.Sprintf(
-		"%s/conversations/events?workspaceId=%s&conversationId=%s",
-		baseURL,
-		workspaceID,
-		conversationID,
+	query := url.Values{}
+	query.Set("workspaceId", workspaceID)
+	query.Set("conversationId", conversationID)
+	request, err := http.NewRequest(
+		http.MethodGet,
+		fmt.Sprintf("%s/conversations/events?%s", baseURL, query.Encode()),
+		nil,
 	)
-	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -558,7 +459,11 @@ func openHostedConversationStream(
 	if response.StatusCode != http.StatusOK ||
 		!strings.HasPrefix(response.Header.Get("Content-Type"), "text/event-stream") {
 		_ = response.Body.Close()
-		t.Fatalf("hosted conversation stream = %d %q", response.StatusCode, response.Header.Get("Content-Type"))
+		t.Fatalf(
+			"hosted conversation stream = %d %q",
+			response.StatusCode,
+			response.Header.Get("Content-Type"),
+		)
 	}
 	return hostedConversationStream{body: response.Body, reader: bufio.NewReader(response.Body)}
 }
@@ -567,12 +472,15 @@ type hostedConversationEventEnvelope struct {
 	SchemaVersion  int             `json:"schemaVersion"`
 	Sequence       int             `json:"sequence"`
 	EventID        string          `json:"eventId"`
-	WorkspaceID    string          `json:"workspaceId"`
+	WorkspaceID    *string         `json:"workspaceId"`
 	ConversationID string          `json:"conversationId"`
 	Payload        json.RawMessage `json:"payload"`
 }
 
-func readHostedConversationEvent(t *testing.T, reader *bufio.Reader) hostedConversationEventEnvelope {
+func readHostedConversationEvent(
+	t *testing.T,
+	reader *bufio.Reader,
+) hostedConversationEventEnvelope {
 	t.Helper()
 	for {
 		line, err := reader.ReadString('\n')
@@ -583,11 +491,19 @@ func readHostedConversationEvent(t *testing.T, reader *bufio.Reader) hostedConve
 			continue
 		}
 		var event hostedConversationEventEnvelope
-		if err := json.Unmarshal([]byte(strings.TrimSpace(strings.TrimPrefix(line, "data: "))), &event); err != nil {
+		if err := json.Unmarshal(
+			[]byte(strings.TrimSpace(strings.TrimPrefix(line, "data: "))),
+			&event,
+		); err != nil {
 			t.Fatal(err)
 		}
-		if event.SchemaVersion <= 0 || event.Sequence <= 0 || event.EventID == "" ||
-			event.WorkspaceID == "" || event.ConversationID == "" || len(event.Payload) == 0 {
+		if event.SchemaVersion <= 0 ||
+			event.Sequence <= 0 ||
+			event.EventID == "" ||
+			event.WorkspaceID == nil ||
+			*event.WorkspaceID == "" ||
+			event.ConversationID == "" ||
+			len(event.Payload) == 0 {
 			t.Fatalf("invalid hosted conversation event: %+v", event)
 		}
 		return event

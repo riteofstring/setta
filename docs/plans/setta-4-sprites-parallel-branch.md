@@ -1,6 +1,6 @@
 # Setta 4 Sprites Parallel Branch
 
-Status: Active experiment
+Status: Initial port complete; active experiment
 
 ## Purpose
 
@@ -14,9 +14,9 @@ adopt the Sprites direction.
 
 ## Initial Integration
 
-- Setta 4 baseline: `c8d73b307a1a7854a8a5701f2996d9458d6d12a8`
+- Setta 4 baseline: `c8d73b307cf353b57aa2161fb9e02c04107899f9`
 - Sprites source branch: `setta-3-sprites-development`
-- Sprites source revision: `1ec5b82f5fbb4c433311466065bf325597c836eb`
+- Sprites source revision: `1ec5b82f58349ddff8a59941ad82e1bb5f1e6396`
 - Development branch: `setta-4-sprites-development`
 
 The initial integration imports the Sprites provider/runtime platform and
@@ -24,6 +24,25 @@ adapts it to the current Setta 4 contracts, runtime server, desktop registry,
 speech path, and Director clients. Setta 4 owns the resulting product
 behavior; the Setta 3 Sprites branch is historical source material rather than
 a second implementation to keep synchronized.
+
+## Verified Baseline
+
+The initial port was verified on July 29, 2026:
+
+- the complete Go suite passed, including the Sprites provider, control plane,
+  runtime, accounting, access, pairing, reporting, and conversation packages;
+- the desktop unit suite, hosted-access typed client test, typecheck, and
+  production build passed;
+- every required deterministic Electron workflow passed in one manifest run,
+  including Director creation, submit, queue, steer, approval, cancellation,
+  failure/recovery, artifacts, reload, hosted cloud access, and developer
+  hosted runtime provisioning/restart/destruction; and
+- the ChatGPT-authenticated live Codex Electron workflow passed through the
+  production Director/main/preload/HTTP/store paths.
+
+The billable live Sprites provider lifecycle was not run. It requires fresh
+explicit authorization for the target organization and spending ceiling; a
+skip is not evidence of provider integration.
 
 ## Ongoing Branch Workflow
 

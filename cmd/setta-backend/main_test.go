@@ -45,7 +45,7 @@ func TestConfigFromArgsAllowsExplicitDiskAdmissionOptOut(t *testing.T) {
 	config, err := configFromArgs([]string{
 		"--app-data-dir", t.TempDir(),
 		"--minimum-disk-free-mib", "0",
-	}, &stdout, &stderr, emptyEnv, ignoreUnsetenv)
+	}, &stdout, &stderr, emptyEnv)
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestConfigFromArgsEnablesLocalCredentialIssuerOnlyWithExplicitFlag(t *testi
 	config, err := configFromArgs([]string{
 		"--app-data-dir", t.TempDir(),
 		"--local-credential-issuer",
-	}, &stdout, &stderr, emptyEnv, ignoreUnsetenv)
+	}, &stdout, &stderr, emptyEnv)
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
 	}

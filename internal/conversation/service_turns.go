@@ -431,7 +431,8 @@ func (service *Service) StopTurn(
 	workspaceID string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
-	return service.stopTurn(ctx, &workspaceID, conversationID, "")
+	startedAt := service.now().UTC()
+	return service.stopTurn(ctx, &workspaceID, conversationID, "", &startedAt)
 }
 
 // stopTurn interrupts the active turn, optionally requiring it to be the one the
@@ -443,6 +444,7 @@ func (service *Service) stopTurn(
 	workspaceID *string,
 	conversationID string,
 	expectedTurnID string,
+	outcomeStartedAt *time.Time,
 ) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
@@ -472,6 +474,9 @@ func (service *Service) stopTurn(
 	); err != nil {
 		return ConversationSnapshot{}, err
 	}
+	if outcomeStartedAt != nil {
+		service.observeOutcomeTiming(OutcomeTimingCancellation, *outcomeStartedAt)
+	}
 	return service.readScopedSnapshot(ctx, workspaceID, conversationID)
 }
 
@@ -481,7 +486,8 @@ func (service *Service) SubmitApproval(
 	conversationID string,
 	response ConversationApprovalResponse,
 ) (ConversationSnapshot, error) {
-	return service.submitApproval(ctx, &workspaceID, conversationID, "", response)
+	startedAt := service.now().UTC()
+	return service.submitApproval(ctx, &workspaceID, conversationID, "", response, &startedAt)
 }
 
 // submitApproval answers one pending approval, optionally requiring it to belong
@@ -494,6 +500,7 @@ func (service *Service) submitApproval(
 	conversationID string,
 	expectedTurnID string,
 	response ConversationApprovalResponse,
+	outcomeStartedAt *time.Time,
 ) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
@@ -538,6 +545,9 @@ func (service *Service) submitApproval(
 		len(pending) > 1,
 	); err != nil {
 		return ConversationSnapshot{}, err
+	}
+	if outcomeStartedAt != nil {
+		service.observeOutcomeTiming(OutcomeTimingApproval, *outcomeStartedAt)
 	}
 	return service.readScopedSnapshot(ctx, workspaceID, conversationID)
 }

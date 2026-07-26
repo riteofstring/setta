@@ -9,10 +9,8 @@ import { createServer } from "node:http";
 import { delimiter, dirname, join, resolve } from "node:path";
 import process from "node:process";
 
-import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertBuildExists,
-  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
@@ -21,13 +19,13 @@ import {
   waitForSelector,
   waitForState,
 } from "./electron-cdp-harness.mjs";
-import { backendProbe, waitForBackendState } from "./electron-workflow-harness.mjs";
+import { backendProbe, openFixtureWorkspace } from "./electron-workflow-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
 import {
-  assertDriverAction,
-  conversationSurfaces,
-  createTopic,
-} from "./topic-conversation-fork-workflow.mjs";
+  createDeterministicHostedWorkstream,
+  exerciseDeterministicHostedDirector,
+  waitForRestoredHostedDirector,
+} from "./hosted-director-workflow-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const workflowName = "hosted-cloud-chat";
@@ -66,8 +64,7 @@ try {
     unsetEnv: ["OPENAI_API_KEY"],
     visible: options.visible,
   });
-  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  await context.client.installDriver();
+  await waitForSelector(context.client, '[data-testid="director-command-center-shell"]');
   const backend = await backendProbe(artifactDir, context.client);
 
   const hosted = await ensureHostedPhoneAccess({
@@ -79,37 +76,32 @@ try {
     reportingCredentialFile: controlPlane.reportingCredentialFile,
     secretDirectory: controlPlane.secretDirectory,
   });
-  const workspaceId = await openWorkspace(context.client);
-  const topic = await createTopic(
+  const workspaceId = await openFixtureWorkspace(context.client, workflowTimeoutMs);
+  await waitForSelector(context.client, '[data-testid="director-command-center-shell"]');
+  const workstream = await createDeterministicHostedWorkstream(
     context.client,
-    backend,
     workspaceId,
-    "Hosted cloud chat",
     workflowTimeoutMs,
   );
 
-  await exerciseHostedConversation({
+  await exerciseDeterministicHostedDirector({
     backend,
     client: context.client,
-    conversationId: topic.id,
+    conversationId: workstream.conversationId,
     workspaceId,
+    workstreamId: workstream.workstreamId,
+    timeoutMs: workflowTimeoutMs,
   });
   await reloadPage(context.client);
-  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
-  await context.client.installDriver();
-  const restored = await waitForConversationSurface(
-    context.client,
-    topic.id,
-    (surface) =>
-      surface.projectionStatus === "ready" &&
-      surface.status === "failed" &&
-      surface.artifactCount === 1,
-  );
-  if (restored.paletteId !== topic.paletteId) {
-    throw new Error(
-      `hosted conversation palette changed after reload: ${JSON.stringify(restored)}`,
-    );
-  }
+  await waitForSelector(context.client, '[data-testid="director-command-center-shell"]');
+  await waitForRestoredHostedDirector({
+    backend,
+    client: context.client,
+    conversationId: workstream.conversationId,
+    workspaceId,
+    workstreamId: workstream.workstreamId,
+    timeoutMs: workflowTimeoutMs,
+  });
 
   const replayed = await replayHostedProgress(context.client, hosted.intent.idempotencyKey);
   if (replayed.map((progress) => progress.state).join(",") !== "syncing_project,ready_on_phone") {
@@ -121,10 +113,11 @@ try {
     join(artifactDir, "summary.json"),
     JSON.stringify(
       {
-        conversationId: topic.id,
+        conversationId: workstream.conversationId,
         hostedProgressStates: hosted.progress.map((progress) => progress.state),
         status: "passed",
         workspaceId,
+        workstreamId: workstream.workstreamId,
       },
       null,
       2,
@@ -373,128 +366,6 @@ async function ensureHostedPhoneAccess({
   return { intent, progress: [preparing, ...progress] };
 }
 
-async function exerciseHostedConversation({ backend, client, conversationId, workspaceId }) {
-  await submitAndRequire(client, conversationId, "hold hosted Electron parent");
-  await waitForConversationSurface(
-    client,
-    conversationId,
-    (surface) => surface.state === "working",
-  );
-  await submitAndRequire(client, conversationId, "artifact hosted Electron queued");
-  await waitForConversationSurface(client, conversationId, (surface) => surface.queueCount === 1);
-  await submitAndRequire(client, conversationId, "steer alpha now");
-  await waitForConversationSurface(
-    client,
-    conversationId,
-    (surface) =>
-      surface.state === "complete" &&
-      surface.status === "completed" &&
-      surface.queueCount === 0 &&
-      surface.artifactCount === 1,
-  );
-
-  await submitAndRequire(client, conversationId, "command approval denial");
-  await waitForConversationSurface(
-    client,
-    conversationId,
-    (surface) => surface.approvalId !== "" && surface.helperText === "Waiting for approval",
-  );
-  assertDriverAction(
-    await client.driver("topicConversationDenyApproval", { conversationId }),
-    "denied",
-  );
-  await waitForConversationSurface(
-    client,
-    conversationId,
-    (surface) =>
-      surface.state === "complete" && surface.status === "completed" && surface.approvalId === "",
-  );
-
-  await submitAndRequire(client, conversationId, "hold hosted Electron cancellation");
-  await waitForConversationSurface(
-    client,
-    conversationId,
-    (surface) => surface.state === "working",
-  );
-  assertDriverAction(await client.driver("topicConversationStop", { conversationId }), "stopped");
-  await waitForConversationSnapshot(
-    backend,
-    workspaceId,
-    conversationId,
-    (snapshot) => snapshot.turns.turns.at(-1)?.status === "cancelled",
-  );
-
-  await submitAndRequire(client, conversationId, "fail hosted Electron parent");
-  await waitForConversationSurface(
-    client,
-    conversationId,
-    (surface) => surface.state === "complete" && surface.status === "failed",
-  );
-  const terminal = await waitForConversationSnapshot(
-    backend,
-    workspaceId,
-    conversationId,
-    (snapshot) =>
-      snapshot.turns.turns.length === 5 &&
-      snapshot.turns.turns.at(-1)?.status === "failed" &&
-      snapshot.queue.length === 0,
-  );
-  if (
-    terminal.turns.turns.map((turn) => turn.status).join(",") !==
-    "completed,completed,completed,cancelled,failed"
-  ) {
-    throw new Error(
-      `hosted lifecycle turn statuses drifted: ${JSON.stringify(terminal.turns.turns)}`,
-    );
-  }
-}
-
-async function submitAndRequire(client, conversationId, text) {
-  assertDriverAction(
-    await client.driver("topicConversationSubmit", { conversationId, text }),
-    "submitted",
-  );
-}
-
-async function openWorkspace(client) {
-  const initial = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => state.openButtonReady || validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
-  if (!validWorkspaceId(initial.workspaceId)) {
-    await clickEnabledButtonByAria(client, "Open project folder", workflowTimeoutMs);
-  }
-  const opened = await waitForState(
-    client,
-    driverCallExpression("topicConversationWorkspaceOpenState", { workspaceId: "" }),
-    (state) => validWorkspaceId(state.workspaceId),
-    workflowTimeoutMs,
-  );
-  return opened.workspaceId;
-}
-
-function waitForConversationSurface(client, conversationId, ready) {
-  return waitForState(
-    client,
-    driverCallExpression("topicConversationSurfaceStates", {}),
-    (state) => {
-      const surface = conversationSurfaces(state.surfaces, conversationId)[0];
-      return Boolean(surface && ready(surface));
-    },
-    workflowTimeoutMs,
-  ).then((state) => conversationSurfaces(state.surfaces, conversationId)[0]);
-}
-
-function waitForConversationSnapshot(backend, workspaceId, conversationId, ready) {
-  return waitForBackendState(
-    () => backend.post("/conversations/snapshot/read", { conversationId, workspaceId }),
-    ready,
-    workflowTimeoutMs,
-  );
-}
-
 async function replayHostedProgress(client, intentId) {
   await client.evaluate(`(() => {
     globalThis.__settaHostedReplay = [];
@@ -605,8 +476,4 @@ async function stopProcess(child) {
   const exited = once(child, "exit");
   child.kill("SIGTERM");
   await exited;
-}
-
-function validWorkspaceId(value) {
-  return typeof value === "string" && value !== "";
 }

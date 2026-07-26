@@ -20,6 +20,21 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "hosted-cloud-chat-workflow.test.mjs",
+    name: "hosted-cloud-chat",
+    tiers: ["required"],
+  },
+  {
+    file: "developer-hosted-runtime-workflow.test.mjs",
+    name: "developer-hosted-runtime",
+    tiers: ["required"],
+  },
+  {
+    file: "live-codex-electron-workflow.test.mjs",
+    name: "live-codex-electron",
+    tiers: ["live-codex"],
+  },
+  {
     file: "instant-voice-capture-phase0-audioworklet.test.mjs",
     name: "instant-voice-capture-phase0-audioworklet",
     tiers: ["performance"],

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"setta/internal/runtimeaccounting"
@@ -24,6 +25,19 @@ type workloadLeaseController struct {
 	ttl      time.Duration
 	clock    func() time.Time
 	wait     func(context.Context, time.Duration) error
+
+	mu     sync.Mutex
+	active *sharedWorkloadLease
+}
+
+type sharedWorkloadLease struct {
+	lease runtimeprovider.WorkloadLease
+	ctx   context.Context
+	stop  context.CancelFunc
+	refs  int
+
+	renewDone chan struct{}
+	renewErr  error
 }
 
 type WorkloadLeaseReporter interface {
@@ -56,15 +70,48 @@ func (controller *workloadLeaseController) run(
 	ctx context.Context,
 	run func(context.Context) (TurnResult, error),
 ) (TurnResult, error) {
+	shared, err := controller.join(ctx)
+	if err != nil {
+		return TurnResult{}, err
+	}
+	runCtx, cancelRun := context.WithCancel(ctx)
+	stopSharedCancellation := context.AfterFunc(shared.ctx, cancelRun)
+	result, runErr := run(runCtx)
+	stopSharedCancellation()
+	cancelRun()
+	return result, errors.Join(runErr, controller.leave(shared))
+}
+
+func (controller *workloadLeaseController) join(ctx context.Context) (*sharedWorkloadLease, error) {
+	controller.mu.Lock()
+	defer controller.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if controller.active != nil {
+		select {
+		case <-controller.active.renewDone:
+			if controller.active.renewErr == nil {
+				return nil, errors.New("agent workload lease stopped before release")
+			}
+			return nil, fmt.Errorf(
+				"renew agent workload lease: %w",
+				controller.active.renewErr,
+			)
+		default:
+			controller.active.refs++
+			return controller.active, nil
+		}
+	}
 	lease, err := controller.manager.Acquire(ctx, runtimeprovider.WorkloadLeaseRequest{
 		Name: controller.name,
 		TTL:  controller.ttl,
 	})
 	if err != nil {
-		return TurnResult{}, fmt.Errorf("acquire agent workload lease: %w", err)
+		return nil, fmt.Errorf("acquire agent workload lease: %w", err)
 	}
 	if err := validateObservedWorkloadLease(lease, controller.name); err != nil {
-		return TurnResult{}, errors.Join(err, controller.releaseProvider())
+		return nil, errors.Join(err, controller.releaseProvider())
 	}
 	if err := controller.report(runtimeaccounting.EventBegin, lease); err != nil {
 		releaseErr := controller.releaseProvider()
@@ -72,28 +119,55 @@ func (controller *workloadLeaseController) run(
 		if releaseErr == nil {
 			endErr = controller.report(runtimeaccounting.EventEnd, lease)
 		}
-		return TurnResult{}, errors.Join(
+		return nil, errors.Join(
 			fmt.Errorf("record acquired agent workload lease: %w", err),
 			releaseErr,
 			endErr,
 		)
 	}
-	leaseCtx, cancel := context.WithCancel(ctx)
-	renewed := make(chan error, 1)
+	leaseCtx, stopLease := context.WithCancel(context.Background())
+	shared := &sharedWorkloadLease{
+		lease:     lease,
+		ctx:       leaseCtx,
+		stop:      stopLease,
+		refs:      1,
+		renewDone: make(chan struct{}),
+	}
+	controller.active = shared
 	go func() {
-		err := controller.renew(leaseCtx)
-		if err != nil {
-			cancel()
+		shared.renewErr = controller.renew(leaseCtx)
+		close(shared.renewDone)
+		if shared.renewErr != nil {
+			stopLease()
 		}
-		renewed <- err
 	}()
-	result, runErr := run(leaseCtx)
-	cancel()
-	renewErr := <-renewed
-	return result, errors.Join(
-		runErr,
-		wrapWorkloadLeaseError("renew agent workload lease", renewErr),
-		controller.release(lease),
+	return shared, nil
+}
+
+func (controller *workloadLeaseController) leave(shared *sharedWorkloadLease) error {
+	controller.mu.Lock()
+	defer controller.mu.Unlock()
+	if controller.active != shared || shared.refs <= 0 {
+		return errors.New("agent workload lease participation is inconsistent")
+	}
+	shared.refs--
+	if shared.refs > 0 {
+		select {
+		case <-shared.renewDone:
+			return wrapWorkloadLeaseError(
+				"renew agent workload lease",
+				shared.renewErr,
+			)
+		default:
+			return nil
+		}
+	}
+	shared.stop()
+	<-shared.renewDone
+	controller.active = nil
+	return errors.Join(
+		wrapWorkloadLeaseError("renew agent workload lease", shared.renewErr),
+		controller.release(shared.lease),
 	)
 }
 

@@ -20,14 +20,6 @@ func (runtime *Runtime) RunTurn(ctx context.Context, request TurnRequest, sink E
 		}
 		return runtime.runTurn(ctx, request, sink)
 	}
-	select {
-	case <-ctx.Done():
-		return TurnResult{}, ctx.Err()
-	case <-runtime.workloadSlot:
-	}
-	defer func() {
-		runtime.workloadSlot <- struct{}{}
-	}()
 	if err := runtime.admitTurn(ctx); err != nil {
 		return TurnResult{}, err
 	}

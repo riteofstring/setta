@@ -9,10 +9,10 @@ import { delimiter, join, resolve } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { driverCallExpression } from "./cdp-client.mjs";
 import {
   assertArtifactsExcludeMarkers,
   assertBuildExists,
+  clickEnabledButtonByAria,
   createElectronFixture,
   launchElectronCdpContext,
   parseElectronHarnessArgs,
@@ -20,13 +20,12 @@ import {
   waitForSelector,
   waitForState,
 } from "./electron-cdp-harness.mjs";
-import { waitForBackendState } from "./electron-workflow-harness.mjs";
 import { installFakeTopicCodex } from "./fake-topic-codex-fixture.mjs";
 import {
-  assertDriverAction,
-  conversationSurfaces,
-  createTopic,
-} from "./topic-conversation-fork-workflow.mjs";
+  createDeterministicHostedWorkstream,
+  exerciseDeterministicHostedDirector,
+  waitForRestoredHostedDirector,
+} from "./hosted-director-workflow-helpers.mjs";
 
 const options = parseElectronHarnessArgs(process.argv.slice(2));
 const repositoryRoot = resolve(import.meta.dirname, "../../..");
@@ -62,8 +61,9 @@ let context = null;
 
 try {
   context = await launchDeveloperDesktop(join(artifactDir, "first"));
+  await waitForSelector(context.client, '[data-testid="app-director-shell"]');
+  await clickEnabledButtonByAria(context.client, "Open settings");
   await waitForSelector(context.client, '[data-testid="runtime-picker"]');
-  await context.client.installDriver();
   await context.client.evaluate(`(() => {
     globalThis.__developerHostedStatuses = [];
     globalThis.__releaseDeveloperHostedStatuses =
@@ -98,19 +98,21 @@ try {
       ),
     workflowTimeoutMs,
   );
+  await clickButtonByText(context.client, "Back to command center");
   const backend = runtimeBackend(bootstrap.baseUrl, bootstrap.token);
-  const topic = await createTopic(
+  await waitForSelector(context.client, '[data-testid="director-command-center-shell"]');
+  const workstream = await createDeterministicHostedWorkstream(
     context.client,
-    backend,
     workspace.selectedWorkspaceId,
-    "Hosted developer runtime",
     workflowTimeoutMs,
   );
-  await exerciseHostedConversation({
+  await exerciseDeterministicHostedDirector({
     backend,
     client: context.client,
-    conversationId: topic.id,
+    conversationId: workstream.conversationId,
     workspaceId: workspace.selectedWorkspaceId,
+    workstreamId: workstream.workstreamId,
+    timeoutMs: workflowTimeoutMs,
   });
   const rendererSurface = JSON.stringify({
     connected,
@@ -121,8 +123,9 @@ try {
 
   await stopElectronCdpContext(context);
   context = await launchDeveloperDesktop(join(artifactDir, "restart"));
+  await waitForSelector(context.client, '[data-testid="app-director-shell"]');
+  await clickEnabledButtonByAria(context.client, "Open settings");
   await waitForSelector(context.client, '[data-testid="runtime-picker"]');
-  await context.client.installDriver();
   await waitForDeveloperStatus(context.client, "connected");
   await waitForState(
     context.client,
@@ -138,14 +141,16 @@ try {
       `hosted workspace was not recovered after restart: ${JSON.stringify(restartedWorkspace)}`,
     );
   }
-  await waitForConversationSurface(
-    context.client,
-    topic.id,
-    (surface) =>
-      surface.projectionStatus === "ready" &&
-      surface.status === "failed" &&
-      surface.artifactCount === 1,
-  );
+  await clickButtonByText(context.client, "Back to command center");
+  await waitForSelector(context.client, '[data-testid="director-command-center-shell"]');
+  await waitForRestoredHostedDirector({
+    backend,
+    client: context.client,
+    conversationId: workstream.conversationId,
+    workspaceId: workspace.selectedWorkspaceId,
+    workstreamId: workstream.workstreamId,
+    timeoutMs: workflowTimeoutMs,
+  });
 
   await context.client.evaluate(
     `window.setta.developerHostedRuntime.destroy({ operationId: "electron-destroy-hosted" })`,
@@ -195,7 +200,8 @@ try {
         restartRecovered: true,
         runtimeId: bootstrap.runtimeId,
         status: "passed",
-        conversationId: topic.id,
+        conversationId: workstream.conversationId,
+        workstreamId: workstream.workstreamId,
         workspaceId: workspace.selectedWorkspaceId,
       },
       null,
@@ -217,86 +223,6 @@ try {
   if (!options.keepArtifacts) {
     await executeTrash(fixture.tempRoot);
   }
-}
-
-async function exerciseHostedConversation({ backend, client, conversationId, workspaceId }) {
-  await submitAndRequire(client, conversationId, "hold hosted Electron parent");
-  await waitForConversationSurface(
-    client,
-    conversationId,
-    (surface) => surface.state === "working",
-  );
-  await submitAndRequire(client, conversationId, "artifact hosted Electron queued");
-  await waitForConversationSurface(client, conversationId, (surface) => surface.queueCount === 1);
-  await submitAndRequire(client, conversationId, "steer alpha now");
-  await waitForConversationSurface(
-    client,
-    conversationId,
-    (surface) =>
-      surface.state === "complete" &&
-      surface.status === "completed" &&
-      surface.queueCount === 0 &&
-      surface.artifactCount === 1,
-  );
-  await submitAndRequire(client, conversationId, "hold hosted Electron cancellation");
-  await waitForConversationSurface(
-    client,
-    conversationId,
-    (surface) => surface.state === "working",
-  );
-  assertDriverAction(await client.driver("topicConversationStop", { conversationId }), "stopped");
-  await waitForConversationSnapshot(
-    backend,
-    workspaceId,
-    conversationId,
-    (snapshot) => snapshot.turns.turns.at(-1)?.status === "cancelled",
-  );
-  await submitAndRequire(client, conversationId, "fail hosted Electron parent");
-  await waitForConversationSurface(
-    client,
-    conversationId,
-    (surface) => surface.state === "complete" && surface.status === "failed",
-  );
-  const terminal = await waitForConversationSnapshot(
-    backend,
-    workspaceId,
-    conversationId,
-    (snapshot) =>
-      snapshot.turns.turns.length === 4 &&
-      snapshot.turns.turns.at(-1)?.status === "failed" &&
-      snapshot.queue.length === 0,
-  );
-  const statuses = terminal.turns.turns.map((turn) => turn.status).join(",");
-  if (statuses !== "completed,completed,cancelled,failed") {
-    throw new Error(`hosted lifecycle turn statuses drifted: ${JSON.stringify(statuses)}`);
-  }
-}
-
-async function submitAndRequire(client, conversationId, text) {
-  assertDriverAction(
-    await client.driver("topicConversationSubmit", { conversationId, text }),
-    "submitted",
-  );
-}
-
-function waitForConversationSurface(client, conversationId, ready) {
-  return waitForState(
-    client,
-    driverCallExpression("topicConversationSurfaceStates", {}),
-    (state) => {
-      const surface = conversationSurfaces(state.surfaces, conversationId)[0];
-      return Boolean(surface && ready(surface));
-    },
-    workflowTimeoutMs,
-  ).then((state) => conversationSurfaces(state.surfaces, conversationId)[0]);
-}
-
-function waitForConversationSnapshot(backend, workspaceId, conversationId, ready) {
-  return waitForBackendState(
-    () => backend.post("/conversations/snapshot/read", { conversationId, workspaceId }),
-    ready,
-    workflowTimeoutMs,
-  );
 }
 
 function runtimeBackend(baseUrl, token) {

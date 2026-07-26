@@ -88,7 +88,7 @@ let summary = null;
 
 try {
   context = await launchDirectorElectron(initialLaunchDir);
-  let backend = await backendProbe(initialLaunchDir);
+  let backend = await backendProbe(initialLaunchDir, context.client);
   const workspaceId = await openFixtureWorkspace(context.client, workflowTimeoutMs);
   const selectedScenarios = selectScenarios(workflowArgs.scenarios);
   const results = [];
@@ -221,7 +221,7 @@ try {
     await stopElectronCdpContext(context);
     context = null;
     context = await launchDirectorElectron(restartLaunchDir);
-    backend = await backendProbe(restartLaunchDir);
+    backend = await backendProbe(restartLaunchDir, context.client);
     const restoredWorkspaceId = await openFixtureWorkspace(context.client, workflowTimeoutMs);
     if (restoredWorkspaceId !== workspaceId) {
       throw new Error(`restart restored workspace ${restoredWorkspaceId}, want ${workspaceId}`);

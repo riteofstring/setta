@@ -163,7 +163,10 @@ func TestServeOptionsMapsSpeechEnvironment(t *testing.T) {
 		t.Fatalf("speech provider config = %+v, want guarded E2E URL", options.Speech.Provider)
 	}
 
-	config := serveRuntimeConfig(options, deps, io.Discard)
+	config, err := serveRuntimeConfig(options, deps, io.Discard)
+	if err != nil {
+		t.Fatalf("runtime config: %v", err)
+	}
 	if !reflect.DeepEqual(config.Speech, options.Speech.Provider) ||
 		config.SpeechCredentialOwner != runtime.SpeechCredentialOwnerServerStartup ||
 		config.SpeechStartupAPIKey != options.Speech.APIKey {

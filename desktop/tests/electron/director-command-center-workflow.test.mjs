@@ -93,7 +93,7 @@ let context = null;
 
 try {
   context = await launchDirectorElectron(firstLaunchDir);
-  let backend = await backendProbe(firstLaunchDir);
+  let backend = await backendProbe(firstLaunchDir, context.client);
   const workspaceId = await openFixtureWorkspace(context.client, workflowTimeoutMs);
   await waitForSelector(context.client, '[data-testid="director-command-center-shell"]');
   const initial = await subscribeFromRenderer(context.client);
@@ -722,7 +722,7 @@ try {
   );
 
   context = await launchDirectorElectron(secondLaunchDir);
-  backend = await backendProbe(secondLaunchDir);
+  backend = await backendProbe(secondLaunchDir, context.client);
   const restoredWorkspaceId = await openFixtureWorkspace(context.client, workflowTimeoutMs);
   assertEqual(restoredWorkspaceId, workspaceId, "restored Director workspace");
   const restored = await readDirectorSnapshot(context.client);

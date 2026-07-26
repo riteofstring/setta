@@ -49,6 +49,82 @@ func TestWorkloadLeaseControllerCancelsTurnAfterRenewalFailure(t *testing.T) {
 	reporter.requireActions(t, runtimeaccounting.EventBegin, runtimeaccounting.EventEnd)
 }
 
+func TestWorkloadLeaseControllerCancelsAllSharedTurnsAfterRenewalFailure(t *testing.T) {
+	renewErr := errors.New("renewal failed")
+	manager := &testWorkloadLeaseManager{renewErr: renewErr}
+	reporter := &testWorkloadLeaseReporter{}
+	controller := newWorkloadLeaseController(manager, reporter, "setta-agent", 2*time.Minute)
+	allowRenewal := make(chan struct{})
+	controller.wait = func(ctx context.Context, _ time.Duration) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-allowRenewal:
+			return nil
+		}
+	}
+	started := make(chan struct{}, 2)
+	finished := make(chan error, 2)
+	for range 2 {
+		go func() {
+			_, err := controller.run(t.Context(), func(ctx context.Context) (TurnResult, error) {
+				started <- struct{}{}
+				<-ctx.Done()
+				return TurnResult{}, ctx.Err()
+			})
+			finished <- err
+		}()
+	}
+	<-started
+	<-started
+	close(allowRenewal)
+	for range 2 {
+		err := <-finished
+		if !errors.Is(err, renewErr) || !errors.Is(err, context.Canceled) {
+			t.Fatalf("shared renewal failure = %v", err)
+		}
+	}
+	manager.requireCalls(t, 1, 1, 1)
+	reporter.requireActions(t, runtimeaccounting.EventBegin, runtimeaccounting.EventEnd)
+}
+
+func TestWorkloadLeaseControllerDoesNotJoinWithCanceledContext(t *testing.T) {
+	manager := &testWorkloadLeaseManager{}
+	reporter := &testWorkloadLeaseReporter{}
+	controller := newWorkloadLeaseController(manager, reporter, "setta-agent", 2*time.Minute)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	finished := make(chan error, 1)
+	go func() {
+		_, err := controller.run(t.Context(), func(context.Context) (TurnResult, error) {
+			close(started)
+			<-release
+			return TurnResult{Outcome: TurnOutcomeCompleted}, nil
+		})
+		finished <- err
+	}()
+	<-started
+
+	canceledCtx, cancel := context.WithCancel(t.Context())
+	cancel()
+	ran := false
+	_, err := controller.run(canceledCtx, func(context.Context) (TurnResult, error) {
+		ran = true
+		return TurnResult{}, nil
+	})
+	if !errors.Is(err, context.Canceled) || ran {
+		t.Fatalf("canceled shared turn = %v, ran = %t", err, ran)
+	}
+	manager.requireCalls(t, 1, 0, 0)
+
+	close(release)
+	if err := <-finished; err != nil {
+		t.Fatalf("active shared turn: %v", err)
+	}
+	manager.requireCalls(t, 1, 0, 1)
+	reporter.requireActions(t, runtimeaccounting.EventBegin, runtimeaccounting.EventEnd)
+}
+
 func TestWorkloadLeaseControllerDoesNotRunAfterAcquireFailure(t *testing.T) {
 	acquireErr := errors.New("acquire failed")
 	manager := &testWorkloadLeaseManager{acquireErr: acquireErr}

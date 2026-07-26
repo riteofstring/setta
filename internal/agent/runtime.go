@@ -34,7 +34,6 @@ type Runtime struct {
 	pending map[string]pendingApproval
 
 	workloadLease *workloadLeaseController
-	workloadSlot  chan struct{}
 }
 
 type activeTurn struct {
@@ -95,8 +94,6 @@ func NewRuntime(config Config) *Runtime {
 			config.WorkloadLeaseName,
 			config.WorkloadLeaseTTL,
 		)
-		runtime.workloadSlot = make(chan struct{}, 1)
-		runtime.workloadSlot <- struct{}{}
 	}
 	return runtime
 }

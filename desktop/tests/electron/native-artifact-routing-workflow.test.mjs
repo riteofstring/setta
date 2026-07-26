@@ -68,7 +68,7 @@ let context = null;
 
 try {
   context = await launchWorkflowElectron(firstLaunchDir);
-  let backend = await backendProbe(firstLaunchDir);
+  let backend = await backendProbe(firstLaunchDir, context.client);
   await assertNoWorkspaceIsOpen(context.client);
   const initial = await readDirectorSnapshot(context.client);
   assertEqual(initial.workstreams.length, 0, "initial workstream count");
@@ -324,7 +324,7 @@ try {
   await stopElectronCdpContext(context);
   context = null;
   context = await launchWorkflowElectron(secondLaunchDir);
-  backend = await backendProbe(secondLaunchDir);
+  backend = await backendProbe(secondLaunchDir, context.client);
   const restoredWorkspaceId = await openFixtureWorkspace(context.client, workflowTimeoutMs);
   assertEqual(restoredWorkspaceId, workspaceId, "restored workspace");
   await waitForSelector(context.client, '[data-testid="director-command-center-shell"]');
