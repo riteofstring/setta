@@ -1,8 +1,8 @@
 # Command Center Mockup Fidelity Plan
 
 **Date:** 2026-07-27
-**Status:** Phase 1 implemented; its measurement gate is not yet run. Phases 2–5
-not started.
+**Status:** Phase 1 implemented and partially measured (see its Verification).
+Phases 2–5 not started.
 
 ## Outcome
 
@@ -24,7 +24,7 @@ DOM chrome layered over the canvas.
 
 Five causes, in the order they cost the most visible fidelity.
 
-### 1. `full` quality is unreachable on a retina display
+### 1. `full` quality is never the starting tier on a retina display
 
 `graphQualityForViewport` (`graph-quality.ts:116`) clamps the device pixel ratio
 to 1.5 and then tiers on `cssArea × 2.25`:
@@ -33,8 +33,8 @@ to 1.5 and then tiers on `cssArea × 2.25`:
 - `reduced` starts at `cssArea > 2,888,889` css px² — a maximized window on a
   large external display.
 
-Every ordinary window on a retina Mac therefore renders at `balanced`, and a
-large external display renders at `reduced`. Against the mockup that is:
+Every ordinary window on a retina Mac therefore *starts* at `balanced`, and a
+large external display starts at `reduced`. Against the mockup that is:
 
 | | mockup | `balanced` | `reduced` |
 | --- | --- | --- | --- |
@@ -53,6 +53,17 @@ top of the reduced profile.
 `reduced` also clears `fieldFlow` (`graph-quality.ts:95`), which replaces the
 drifting fluid medium with static points. Checklist section 1.2 names that field
 as product identity, and section 5 does not list it as an allowed difference.
+
+**Corrected 2026-07-27 by measurement.** "Starts at" is the load-bearing word,
+and this section originally said "renders at". `GraphQualityController` steps
+the tier back *up* once GPU time stays under 30 % of the refresh period, so a
+fast GPU climbs out of the starting tier almost immediately: on an M1 Pro the
+baseline was measured at the `full` post surface. The predictor's real cost is a
+startup ramp, a reset to the starting tier on every viewport change, and a
+permanent downgrade only on hardware too slow to climb. See
+`docs/reports/performance/command-center-quality-tier-removal-20260727.md`.
+The change stands; its expected visible effect on a fast machine is smaller than
+this section first claimed.
 
 ### 2. Graph labels lost their background
 
@@ -155,19 +166,28 @@ through.
 **Files.** `graph-quality.ts`, `graph-quality.test.ts`,
 `director-graph-canvas.ts`.
 
-**Verification — owed, not done.** This is a performance-relevant change and its
-gate has not been run. Baseline the parent revision and re-measure this one with
-`node desktop/tests/electron/director-command-center-performance.test.mjs`
-at the viewports in
-`docs/reports/performance/setta-4-target-performance-matrix-20260724.md`, and
-record both in a new append-only report under `docs/reports/performance/`.
+**Verification — run 2026-07-27, partial.**
+`docs/reports/performance/command-center-quality-tier-removal-20260727.md`.
 
-What the measurement decides: whether `full` holds the observed refresh period
-on the primary display and at the emulated 4K and 6K tiers. If it does not, the
-answer is a lower `full` profile or a faster path — not the return of a
-viewport-area predictor, which the evidence above already rules out. Also
-confirm the graph settles at a stable tier instead of oscillating, since a
-resize no longer resets it.
+Measured, baseline versus change, on the primary display:
+
+- Laptop tier holds the 120 Hz budget at `full` with zero long tasks and is
+  equal or slightly better than the baseline (p95 9.0 ms vs 9.3 ms, max 10.1 ms
+  vs 16.0 ms, identical 3.34 MP post surface).
+- At `desktop-6k` the change cleared the frame, DOM, and layout assertions
+  before reaching a pre-existing pixel check, exactly as the baseline does.
+  Running 6K at `full` did not break the frame budget.
+
+Still owed: the 4K tier, the 10-minute sustained-activity scenario, and any
+hardware slow enough to exercise the case this change most affects.
+
+**The workflow does not pass, and did not pass on the baseline.** Four
+assertions are red before the change — two blank-canvas pixel checks
+(`desktop-6k`, `laptop/navigate-100-workstreams`), a 4K text-delta DOM-churn
+budget, and one 79 ms long task in `occlusion-transitions`. Each is reproduced
+on the baseline in the report. They block the 4K and 6K rows of this gate and
+need their own fix; they are not this plan's scope and must not be folded into
+it silently.
 
 ## Phase 2 — Give graph labels their chip back
 
