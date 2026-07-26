@@ -131,9 +131,6 @@ Established:
   `reduced` did not break the frame budget.
 
 Not established, and still owed:
-
-- **The 4K tier.** Its scenarios are gated behind the pre-existing
-  `text-delta-burst` and `navigate-100-workstreams` failures.
 - **Sustained activity.** The 10-minute GC/thermal scenario was not run; this
   change raises steady-state load on machines that were not already climbing to
   `full`.
@@ -144,3 +141,49 @@ Not established, and still owed:
   not surface them. Surfacing them would have made the climb directly
   observable instead of inferred from the post surface size, and is the
   cheapest next instrument to add.
+
+## Addendum — the 4K tier, 2026-07-27
+
+The 4K row was owed because its scenarios sat behind two failures. One of those
+(`text-delta-burst`) went green when phase 3 removed the activity cards, so the
+tier is measurable now.
+
+```sh
+node desktop/tests/electron/director-command-center-performance.test.mjs \
+  --skip-build --keep-artifacts --scenario text-delta-burst
+```
+
+Artifact: `.recordings/director-command-center-performance/20260727T222818168Z`.
+Revision `d29ab018d`. Same machine and environment as section 1.
+
+| Metric | Laptop 1512×982 @2 | Desktop 4K 3840×2160 @1 |
+| --- | ---: | ---: |
+| Post surface | 2268 × 1473 (3.34 MP) | 2529 × 1423 (3.60 MP) |
+| Frame delta p50 | 8.3 ms | 8.3 ms |
+| Frame delta p95 | 9.1 ms | 9.1 ms |
+| Frame delta p99 | 9.3 ms | 9.3 ms |
+| Frame delta max | 9.4 ms | 9.6 ms |
+| Long tasks | 0 | 0 |
+| Frames over 50 ms | 0 | 0 |
+| Canvas pixel check | pass | pass |
+
+Observed budget 8.33 ms at both. The harness thresholds are p95 ≤ 11.2 ms and
+p99 ≤ 16.7 ms, so both tiers hold 120 Hz at `full` with margin.
+
+**This is the empirical confirmation phase 1 was reasoning from.** The change
+removed the viewport predictor on the argument that the profile's own ceilings
+already equalise GPU cost above the laptop tier, so viewport area could not
+predict load. 4K lands on the 3.60 MP post ceiling rather than its native
+8.29 MP, and its frame timing is identical to the laptop's to within 0.2 ms at
+the maximum. Cost did not move with the viewport, exactly as
+`setta-4-target-performance-matrix-20260724.md` section 3.1 said it would not.
+
+A parent-revision A/B is no longer isolable at this tier: phases 2–5 landed on
+top of the phase 1 commit, so a rebuild of `fb4c5c203` would measure five
+changes rather than one. The question the gate owed — does `full` hold the
+observed refresh period at 4K — is answered by this run alone.
+
+Still owed after this addendum: the 6K tier as a *timing* measurement (its
+scenario passes but was not sampled for frame stats here), the 10-minute
+sustained-activity scenario, and hardware slow enough to exercise the case the
+change most affects.
