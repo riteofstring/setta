@@ -28,27 +28,27 @@ type StatusTonePresentation = {
 
 const statusTonePresentation = {
   danger: {
-    className: "border-status-critical/40 bg-card text-card-foreground",
+    className: "border-[var(--graph-mode-fail)]/45 bg-transparent text-foreground",
     icon: CircleAlertIcon,
     label: "Danger",
   },
   info: {
-    className: "border-status-info/40 bg-card text-card-foreground",
+    className: "border-[var(--graph-mode-think)]/45 bg-transparent text-foreground",
     icon: InfoIcon,
     label: "Information",
   },
   neutral: {
-    className: "border-border bg-card text-card-foreground",
+    className: "border-border bg-transparent text-muted-foreground",
     icon: null,
     label: null,
   },
   success: {
-    className: "border-status-success/40 bg-card text-card-foreground",
+    className: "border-[var(--graph-mode-success)]/45 bg-transparent text-foreground",
     icon: CircleCheckIcon,
     label: "Success",
   },
   warning: {
-    className: "border-status-warning/40 bg-card text-card-foreground",
+    className: "border-[var(--graph-mode-risk)]/45 bg-transparent text-foreground",
     icon: TriangleAlertIcon,
     label: "Warning",
   },

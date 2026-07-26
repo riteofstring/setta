@@ -200,9 +200,11 @@ describe("setta.artifacts.v1 renderer map", () => {
     expect(markup).toContain('data-tone="danger"');
     expect(markup).toContain('data-tone="warning"');
     expect(markup).toContain('data-tone="negative"');
-    expect(markup).toContain("border-status-critical/40");
-    expect(markup).toContain("border-status-warning/40");
-    expect(markup).toContain("text-card-foreground");
+    // Status reads the graph's own mode colours, so a failing artifact and a
+    // failing node are the same red. The non-colour semantics below are what
+    // actually carry severity; the colour only agrees with the canvas.
+    expect(markup).toContain("--graph-mode-fail");
+    expect(markup).toContain("--graph-mode-risk");
     expect(markup).toContain('<span class="sr-only">Danger: </span>Blocked');
     expect(markup).toContain('<span class="sr-only">Warning: </span>Two runs failed');
     expect(markup).toContain('<span class="sr-only">Negative: </span>2');

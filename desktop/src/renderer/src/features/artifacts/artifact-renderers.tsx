@@ -74,11 +74,16 @@ export const artifactRenderers = {
     <ArtifactGrid columns={props.columns ?? 2}>{renderNode(props.blocks)}</ArtifactGrid>
   ),
   Card: ({ props, renderNode }) => (
-    <Card size="sm">
+    /*
+     * A card is a hairline, not a filled slab. The document already sits on the
+     * Director's ground; giving every card its own lighter fill is what turned
+     * an artifact into a page of boxes stacked on boxes.
+     */
+    <Card className="gap-[10px] border-border bg-transparent py-3" size="sm">
       <CardHeader>
-        <CardTitle>{props.title}</CardTitle>
+        <CardTitle className="text-[13px] font-semibold">{props.title}</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">{renderNode(props.blocks)}</CardContent>
+      <CardContent className="flex flex-col gap-[10px]">{renderNode(props.blocks)}</CardContent>
     </Card>
   ),
   Separator: () => <Separator />,

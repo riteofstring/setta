@@ -56,31 +56,38 @@ export function ArtifactMetric({
  * The tone treatment for the official Alert.
  *
  * shadcn ships emphasis variants — default and destructive — not the four
- * severities the catalog exposes. Artifact text stays on the validated card
- * colour pair; Setta status tokens mark the border, while distinct icons and
- * screen-reader copy carry severity without relying on colour. The icon is
- * chosen here rather than named by the model: the catalog deliberately has no
+ * severities the catalog exposes, so severity is carried here. Distinct icons
+ * and screen-reader copy do that without relying on colour; the icon is chosen
+ * here rather than named by the model, because the catalog deliberately has no
  * icon property.
+ *
+ * A callout is a rule and a tint, not a panel. A full border around every
+ * severity turned a document into a stack of framed boxes, and the frame is the
+ * least informative thing about a callout — the mark on its leading edge says
+ * the same thing at a fraction of the weight.
+ *
+ * The colours are the graph's mode colours, so a failing artifact and a failing
+ * node are the same red.
  */
 const alertTones = {
   info: {
     icon: InfoIcon,
-    className: "border-status-info/40",
+    className: "border-s-[var(--graph-mode-think)] bg-[var(--graph-mode-think)]/6",
     label: "Information",
   },
   success: {
     icon: CircleCheckIcon,
-    className: "border-status-success/40",
+    className: "border-s-[var(--graph-mode-success)] bg-[var(--graph-mode-success)]/6",
     label: "Success",
   },
   warning: {
     icon: TriangleAlertIcon,
-    className: "border-status-warning/40",
+    className: "border-s-[var(--graph-mode-risk)] bg-[var(--graph-mode-risk)]/6",
     label: "Warning",
   },
   danger: {
     icon: CircleAlertIcon,
-    className: "border-status-critical/40",
+    className: "border-s-[var(--graph-mode-fail)] bg-[var(--graph-mode-fail)]/6",
     label: "Danger",
   },
 } satisfies Record<AlertTone, { icon: LucideIcon; className: string; label: string }>;
@@ -98,7 +105,11 @@ export function ArtifactAlert({
   const treatment = alertTones[tone];
   const Icon = treatment.icon;
   return (
-    <Alert className={treatment.className} data-tone={tone} variant="default">
+    <Alert
+      className={`rounded-none border-0 border-s-2 px-3 py-2 ${treatment.className}`}
+      data-tone={tone}
+      variant="default"
+    >
       <Icon aria-hidden />
       <AlertTitle>
         <span className="sr-only">{treatment.label}: </span>

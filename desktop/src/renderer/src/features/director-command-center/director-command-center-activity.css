@@ -56,49 +56,54 @@
   outline-offset: 2px;
 }
 
+/*
+ * A dot means what the node of the same mode means, so it reads the graph's own
+ * colour rather than a hand-matched approximation of it. The approximations
+ * were out by as much as 32 degrees of hue.
+ */
 .director-activity-dot {
-  background: oklch(0.72 0.12 220);
+  background: var(--graph-mode-think);
   block-size: 6px;
   border-radius: 999px;
   box-shadow: 0 0 6px currentColor;
-  color: oklch(0.72 0.12 220);
+  color: var(--graph-mode-think);
   inline-size: 6px;
   margin-block-start: 5px;
 }
 
 .director-activity-item[data-activity-tone="think"] .director-activity-dot {
-  background: oklch(0.72 0.13 220);
-  color: oklch(0.72 0.13 220);
+  background: var(--graph-mode-think);
+  color: var(--graph-mode-think);
 }
 
 .director-activity-item[data-activity-tone="do"] .director-activity-dot {
-  background: oklch(0.72 0.12 292);
-  color: oklch(0.72 0.12 292);
+  background: var(--graph-mode-do);
+  color: var(--graph-mode-do);
 }
 
 .director-activity-item[data-activity-tone="listening"] .director-activity-dot {
-  background: oklch(0.82 0.08 210);
-  color: oklch(0.82 0.08 210);
+  background: var(--graph-mode-listening);
+  color: var(--graph-mode-listening);
 }
 
 .director-activity-item[data-activity-tone="merge"] .director-activity-dot {
-  background: oklch(0.86 0.04 250);
-  color: oklch(0.86 0.04 250);
+  background: var(--graph-mode-merge);
+  color: var(--graph-mode-merge);
 }
 
 .director-activity-item[data-activity-tone="risk"] .director-activity-dot {
-  background: oklch(0.84 0.14 78);
-  color: oklch(0.84 0.14 78);
+  background: var(--graph-mode-risk);
+  color: var(--graph-mode-risk);
 }
 
 .director-activity-item[data-activity-tone="success"] .director-activity-dot {
-  background: oklch(0.8 0.15 152);
-  color: oklch(0.8 0.15 152);
+  background: var(--graph-mode-success);
+  color: var(--graph-mode-success);
 }
 
 .director-activity-item[data-activity-tone="fail"] .director-activity-dot {
-  background: oklch(0.7 0.16 25);
-  color: oklch(0.7 0.16 25);
+  background: var(--graph-mode-fail);
+  color: var(--graph-mode-fail);
 }
 
 .director-activity-copy {

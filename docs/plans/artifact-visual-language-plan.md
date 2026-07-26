@@ -1,7 +1,7 @@
 # Artifact Visual Language Plan
 
 **Date:** 2026-07-27
-**Status:** Not started.
+**Status:** Complete. Phases 0–4 landed 2026-07-27.
 
 ## Outcome
 
@@ -228,6 +228,26 @@ the document body starts at its first real content.
 review of the resulting scale.
 
 ## Phase 4 — What gets a box
+
+**Done.** `Alert` is a leading rule and a tint instead of a bordered panel — the
+frame was the least informative thing about a callout. `Card` keeps a hairline
+and loses its fill, because the document already sits on the Director's ground
+and a fill per card is what stacked boxes on boxes. `Badge` is a hairline chip at
+the shell's weight. `Metric` needed nothing: it already had no container.
+
+**Status now reads the graph.** `graph-mode-css.ts` derives CSS custom
+properties from `graphModeColor`, the same table the shaders paint from, and the
+app and both galleries publish them on the document root. The artifact tones and
+the Now rail's activity dots read those variables, so a failing artifact and a
+failing node are the same red rather than two hand-matched approximations — the
+old ones were out by up to 0.08 lightness and 32 degrees of hue. A unit test
+pins the conversion, which is what keeps them from drifting again.
+
+**Verification.** `director-command-center` Electron workflow, the gallery driven
+and read at the data-display fixture, 693 renderer unit tests, typecheck, eslint,
+knip, production build.
+
+### Original phase text
 
 Apply the command center's rule: a card is for a thing with edges — a produced
 artifact, a question the user must answer. Prose, headings, metrics, and list
