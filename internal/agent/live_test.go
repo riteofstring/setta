@@ -83,7 +83,6 @@ type liveFixture struct {
 	invocation    Invocation
 	thread        Thread
 	otherThreadID string
-	uniqueTerm    string
 }
 
 func requireLiveCodex(t *testing.T) {
@@ -129,6 +128,9 @@ func newLiveFixture(t *testing.T) liveFixture {
 		t.Fatalf("StartThread: %v", err)
 	}
 	uniqueTerm := fmt.Sprintf("setta-live-topic-%d", time.Now().UnixNano())
+	t.Cleanup(func() {
+		verifyLivePromptDiscoveryIsolation(t, runtime, uniqueTerm)
+	})
 	first := runLiveTurn(t, runtime, ctx, liveTurnRequest(
 		"live-conversation-a",
 		"live-turn-a1",
@@ -157,7 +159,6 @@ func newLiveFixture(t *testing.T) liveFixture {
 		workspace:  workspace,
 		invocation: invocation,
 		thread:     thread,
-		uniqueTerm: uniqueTerm,
 	}
 }
 
@@ -258,31 +259,37 @@ func verifyLiveEphemeralDiscoveryIsolation(t *testing.T, fixture liveFixture) {
 			t.Fatalf("ListThreads contains ephemeral thread %s: %+v", threadID, listed)
 		}
 	}
-	tokenListed, err := fixture.runtime.ListThreads(
-		fixture.ctx,
+}
+
+func verifyLivePromptDiscoveryIsolation(t *testing.T, runtime *Runtime, token string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	tokenListed, err := runtime.ListThreads(
+		ctx,
 		ListThreadsRequest{
 			Limit:      MaxThreadPageSize,
-			SearchTerm: &fixture.uniqueTerm,
+			SearchTerm: &token,
 		},
 	)
 	if err != nil {
 		t.Fatalf("ListThreads by prompt token: %v", err)
 	}
 	if len(tokenListed.Data) != 0 {
-		t.Fatalf("ListThreads found ephemeral prompt token %q: %+v", fixture.uniqueTerm, tokenListed)
+		t.Fatalf("ListThreads found ephemeral prompt token %q: %+v", token, tokenListed)
 	}
-	searched, err := fixture.runtime.SearchThreads(
-		fixture.ctx,
+	searched, err := runtime.SearchThreads(
+		ctx,
 		SearchThreadsRequest{
 			Limit:      MaxThreadPageSize,
-			SearchTerm: fixture.uniqueTerm,
+			SearchTerm: token,
 		},
 	)
 	if err != nil {
 		t.Fatalf("SearchThreads: %v", err)
 	}
 	if len(searched.Data) != 0 {
-		t.Fatalf("SearchThreads found ephemeral prompt token %q: %+v", fixture.uniqueTerm, searched)
+		t.Fatalf("SearchThreads found ephemeral prompt token %q: %+v", token, searched)
 	}
 }
 

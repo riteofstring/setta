@@ -9,6 +9,11 @@ import (
 	"setta/internal/agent"
 )
 
+const (
+	sideDisposalFailureMessage            = "Unable to close this side conversation. Try again."
+	sideRestartInterruptionFailureMessage = "This side conversation was interrupted when Setta restarted."
+)
+
 type recoverableSideConversation struct {
 	Side        SideConversation
 	WorkspaceID string
@@ -298,6 +303,10 @@ func (service *Service) failSideDisposal(
 	code string,
 	cause error,
 ) error {
+	message, err := sideDisposalUserMessage(code)
+	if err != nil {
+		return errors.Join(cause, err)
+	}
 	lock := service.conversationLock(parentConversationID)
 	lock.Lock()
 	defer lock.Unlock()
@@ -320,7 +329,7 @@ func (service *Service) failSideDisposal(
 	expected := SideConversationExpectation{Status: side.Status, UpdatedAt: side.UpdatedAt}
 	failure := Failure{
 		Code:                code,
-		Message:             cause.Error(),
+		Message:             message,
 		Retryable:           true,
 		DiagnosticReference: diagnosticID,
 	}
@@ -338,6 +347,17 @@ func (service *Service) failSideDisposal(
 	// cleanup error is not evidence that the provider turn stopped; restart
 	// recovery settles the Setta record without contacting the expired carrier.
 	return service.persistSideConversation(context.Background(), &expected, side)
+}
+
+func sideDisposalUserMessage(code string) (string, error) {
+	switch code {
+	case "side_disposal_failed":
+		return sideDisposalFailureMessage, nil
+	case "side_restart_interrupted":
+		return sideRestartInterruptionFailureMessage, nil
+	default:
+		return "", fmt.Errorf("unsupported side disposal failure code %q", code)
+	}
 }
 
 // RecoverSideConversations settles side work that outlived the previous Setta

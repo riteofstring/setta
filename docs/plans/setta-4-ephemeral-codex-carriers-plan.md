@@ -1,8 +1,7 @@
 # Setta-Owned Conversations With Ephemeral Codex Carriers
 
-Status: in progress. Phases 1 through 5 are implemented. Phase 6's deterministic
-and live Codex targets are written; running the live suite against ChatGPT auth
-is the remaining release gate.
+Status: complete. Phases 1 through 6 are implemented. The final whole-plan gate
+passed against ChatGPT auth on 2026-07-26.
 
 ## Executive Summary
 
@@ -435,6 +434,11 @@ When verification is requested, update the deterministic tests first:
 - DONE: Director and workstreams both use ephemeral carriers. The Director's
   carrier start is asserted directly — ephemeral, its own tools, seeded with the
   durable Director history, or the inert marker when there is none.
+- DONE: bounded replay drops an oldest turn when the trajectory window begins
+  inside it, so partial receipts or replies never masquerade as a complete turn.
+- DONE: side preparation and disposal failures persist stable product copy and
+  a diagnostic reference, never provider error text that can contain an
+  ephemeral carrier id.
 
 Then update live Codex tests:
 
@@ -456,14 +460,15 @@ provider ids its carriers used — that is the point of the phase. The prompt is
 the only thing the test and the provider both know about, so it is what the
 test asks the provider to forget.
 
-Release gate: these live assertions have not been run against ChatGPT auth yet.
-`SETTA_LIVE_CODEX=1` runs of `TestBackendDirectorCommandCenterWithLiveCodex`,
+Release gate: passed against ChatGPT auth on 2026-07-26 through one
+`./scripts/test_topic_conversation_workflows.sh` run. Its `SETTA_LIVE_CODEX=1`
+runs of `TestBackendDirectorCommandCenterWithLiveCodex`,
 `TestBackendTopicConversationWorkflowWithLiveCodex`,
 `TestBackendTopicConversationArtifactWithLiveCodex`,
 `TestBackendTopicConversationControlsAndRestartWithLiveCodex`,
 `TestLiveConversationServiceActiveSideLifecycle`, and
-`TestLiveCodexRuntimeEphemeralThreadLifecycleAndDiscoveryIsolation` are the
-remaining evidence for this phase.
+`TestLiveCodexRuntimeEphemeralThreadLifecycleAndDiscoveryIsolation` all passed,
+including cleanup-time list/search isolation checks.
 
 ## Code Deletion Checklist
 

@@ -285,6 +285,71 @@ func TestCarrierReplayPreservesSettaHistoryFactsInOrder(t *testing.T) {
 	}
 }
 
+func TestCarrierReplayDropsPartialOldestTrajectoryTurn(t *testing.T) {
+	partialTurnID := "turn-partial"
+	completeTurnID := "turn-complete"
+	snapshot := ConversationSnapshot{
+		Turns: ConversationTurnWindow{Turns: []ConversationTurn{
+			{
+				ID:            partialTurnID,
+				AuthoredInput: AuthoredInput{Text: "Old request"},
+				Status:        TurnStatusCompleted,
+			},
+			{
+				ID:            completeTurnID,
+				AuthoredInput: AuthoredInput{Text: "Recent request"},
+				Status:        TurnStatusCompleted,
+			},
+		}},
+		Trajectory: ConversationTrajectoryWindow{
+			HasEarlier: true,
+			Events: []TrajectoryEvent{
+				{
+					TurnID: &partialTurnID,
+					Kind:   TrajectoryEventAgentMessageCompleted,
+					AgentMessageCompleted: &TrajectoryAgentMessageCompleted{
+						Text: "Partial old reply",
+					},
+				},
+				{
+					TurnID:        &partialTurnID,
+					Kind:          TrajectoryEventTurnCompleted,
+					TurnCompleted: &TrajectoryTurnCompleted{},
+				},
+				{
+					TurnID: &completeTurnID,
+					Kind:   TrajectoryEventUserInputAccepted,
+					UserInputAccepted: &TrajectoryUserInputAccepted{
+						Input:    AuthoredInput{Text: "Recent request"},
+						Delivery: TurnDeliveryNormal,
+					},
+				},
+				{
+					TurnID: &completeTurnID,
+					Kind:   TrajectoryEventAgentMessageCompleted,
+					AgentMessageCompleted: &TrajectoryAgentMessageCompleted{
+						Text: "Complete recent reply",
+					},
+				},
+				{
+					TurnID:        &completeTurnID,
+					Kind:          TrajectoryEventTurnCompleted,
+					TurnCompleted: &TrajectoryTurnCompleted{},
+				},
+			},
+		},
+	}
+
+	turns := replayedConversationTurns(snapshot)
+	if len(turns) != 1 ||
+		!carrierReplayItemsContain(turns[0].items, "Recent request") ||
+		!carrierReplayItemsContain(turns[0].items, "Complete recent reply") ||
+		carrierReplayItemsContain(turns[0].items, "Old request") ||
+		carrierReplayItemsContain(turns[0].items, "Partial old reply") {
+		t.Fatalf("bounded carrier replay kept a partial turn: %+v", turns)
+	}
+}
+
 func TestCarrierReplayHeaderIncludesSettaCurrentFocus(t *testing.T) {
 	header := carrierReplayHeaderItem(ConversationSnapshot{
 		Conversation: TopicConversation{

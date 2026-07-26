@@ -157,6 +157,10 @@ func TestServiceFailsSideWhenContextInjectionIsRejected(t *testing.T) {
 		side.DisposedAt == nil {
 		t.Fatalf("failed side injection audit = %+v", side)
 	}
+	if side.Failure.Message != sidePreparationFailureMessage ||
+		strings.Contains(side.Failure.Message, "scripted side context rejection") {
+		t.Fatalf("failed side injection exposed provider diagnostics: %+v", side.Failure)
+	}
 	// The carrier was unsubscribed, so nothing is owed cleanup and the registry
 	// keeps no entry for a side that never became usable.
 	if _, live := service.carriers.Lookup(side.ID); live {
@@ -190,6 +194,10 @@ func TestServicePersistsFailedSideWhenProviderRejectsCarrier(t *testing.T) {
 		side.Failure.Code != "side_carrier_start_failed" ||
 		side.ResolvedSideAgentInvocation.Outcome != InvocationOutcomeFailed {
 		t.Fatalf("failed side state = %+v", side)
+	}
+	if side.Failure.Message != sidePreparationFailureMessage ||
+		strings.Contains(side.Failure.Message, "scripted side carrier failure") {
+		t.Fatalf("failed side start exposed provider diagnostics: %+v", side.Failure)
 	}
 }
 

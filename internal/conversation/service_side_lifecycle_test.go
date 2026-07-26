@@ -3,6 +3,7 @@ package conversation
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -226,6 +227,10 @@ func TestSideConversationDisposalFailureIsDurableAndRetryable(t *testing.T) {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
 	side := requireOnlySideConversation(t, created)
+	carrier, live := service.carriers.Lookup(side.ID)
+	if !live {
+		t.Fatalf("active side has no carrier: %+v", side)
+	}
 	runtime.mu.Lock()
 	runtime.unsubscribeErr = errors.New("scripted unsubscribe failure")
 	runtime.mu.Unlock()
@@ -244,6 +249,11 @@ func TestSideConversationDisposalFailureIsDurableAndRetryable(t *testing.T) {
 	current, _ := findSideConversation(failed, side.ID)
 	if current.Failure == nil || current.Failure.Code != "side_disposal_failed" || current.DisposedAt != nil {
 		t.Fatalf("failed side cleanup = %+v", current)
+	}
+	if current.Failure.Message != sideDisposalFailureMessage ||
+		strings.Contains(current.Failure.Message, carrier.ThreadID) ||
+		strings.Contains(current.Failure.Message, "scripted unsubscribe failure") {
+		t.Fatalf("failed side cleanup exposed provider diagnostics: %+v", current.Failure)
 	}
 
 	runtime.mu.Lock()
@@ -578,6 +588,7 @@ func TestRecoverSideConversationsDisposesPreparationInterruptedByRestart(t *test
 	if current.Status != SideConversationStatusFailed ||
 		current.Failure == nil ||
 		current.Failure.Code != "side_restart_interrupted" ||
+		current.Failure.Message != sideRestartInterruptionFailureMessage ||
 		current.ResolvedSideAgentInvocation.Outcome != InvocationOutcomeFailed {
 		t.Fatalf("recovered preparing side = %+v", current)
 	}

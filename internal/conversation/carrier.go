@@ -277,10 +277,10 @@ func replayedConversationTurns(snapshot ConversationSnapshot) []carrierReplayTur
 			continue
 		}
 		events := eventsByTurn[turn.ID]
-		// If the trajectory window begins after this turn, drop the turn whole.
-		// Replaying only its request would turn bounded history into a new,
-		// unanswered instruction.
-		if len(events) == 0 && snapshot.Trajectory.HasEarlier {
+		// If the trajectory window begins within this turn, drop the turn whole.
+		// Replaying a suffix beside the request would present partial receipts
+		// and replies as the complete record of that work.
+		if snapshot.Trajectory.HasEarlier && !carrierReplayIncludesAcceptedInput(events) {
 			continue
 		}
 		replayed := carrierReplayTurn{items: []agent.InjectedTextItem{{
@@ -301,6 +301,15 @@ func replayedConversationTurns(snapshot ConversationSnapshot) []carrierReplayTur
 		turns = append(turns, replayed)
 	}
 	return turns
+}
+
+func carrierReplayIncludesAcceptedInput(events []TrajectoryEvent) bool {
+	for _, event := range events {
+		if event.Kind == TrajectoryEventUserInputAccepted {
+			return true
+		}
+	}
+	return false
 }
 
 func carrierReplayEventItem(event TrajectoryEvent) (agent.InjectedTextItem, bool) {
