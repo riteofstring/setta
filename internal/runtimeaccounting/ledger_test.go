@@ -296,7 +296,7 @@ func TestEvaluateCutoffBuildsWorstCaseEnforcementExposure(t *testing.T) {
 			runtimeprovider.UsageDimensionMemory,
 		},
 	}
-	decision, err := EvaluateCutoff(spritescost.PublishedRates20260714(), current, ceilings, policy)
+	decision, err := EvaluateCutoff(spritescost.PublishedRates20260727(), current, ceilings, policy)
 	if err != nil {
 		t.Fatalf("EvaluateCutoff: %v", err)
 	}
@@ -306,16 +306,16 @@ func TestEvaluateCutoffBuildsWorstCaseEnforcementExposure(t *testing.T) {
 	}
 
 	policy.RequiredDimensions = append(policy.RequiredDimensions, runtimeprovider.UsageDimensionColdStorage)
-	if _, err := EvaluateCutoff(spritescost.PublishedRates20260714(), current, ceilings, policy); !errors.Is(err, ErrMissingBound) {
+	if _, err := EvaluateCutoff(spritescost.PublishedRates20260727(), current, ceilings, policy); !errors.Is(err, ErrMissingBound) {
 		t.Fatalf("missing bound error = %v, want ErrMissingBound", err)
 	}
 
 	policy.RequiredDimensions = []runtimeprovider.UsageDimension{runtimeprovider.UsageDimensionProviderActive}
-	if _, err := EvaluateCutoff(spritescost.PublishedRates20260714(), current, ceilings, policy); !errors.Is(err, runtimeprovider.ErrInvalidContract) {
+	if _, err := EvaluateCutoff(spritescost.PublishedRates20260727(), current, ceilings, policy); !errors.Is(err, runtimeprovider.ErrInvalidContract) {
 		t.Fatalf("activity dimension error = %v, want ErrInvalidContract", err)
 	}
 
-	missingRate := spritescost.PublishedRates20260714()
+	missingRate := spritescost.PublishedRates20260727()
 	missingRate.MemoryGBHour.Available = false
 	missingRate.MemoryGBHour.USDMicros = 0
 	policy.RequiredDimensions = []runtimeprovider.UsageDimension{runtimeprovider.UsageDimensionCPU, runtimeprovider.UsageDimensionMemory}

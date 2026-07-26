@@ -737,7 +737,7 @@ func TestTypedHostedAccessClientReceivesTerminalUserSuspension(t *testing.T) {
 }
 
 func adminTestPriceSchedule() runtimecost.PriceSchedule {
-	return spritescost.PublishedRates20260714()
+	return spritescost.PublishedRates20260727()
 }
 
 const (

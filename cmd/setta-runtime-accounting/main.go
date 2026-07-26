@@ -22,7 +22,7 @@ import (
 
 const (
 	stateVersion      = 1
-	spritesRateCard   = "sprites-public-2026-07-14"
+	spritesRateCard   = "sprites-public-2026-07-27"
 	maximumEventBytes = 1 << 20
 )
 
@@ -274,7 +274,7 @@ func loadConfiguration(name string) (config, string, runtimecost.PriceSchedule, 
 	if err != nil {
 		return config{}, "", runtimecost.PriceSchedule{}, runtimeaccounting.BudgetPolicy{}, err
 	}
-	return configuration, configHash, spritescost.PublishedRates20260714(), policy, nil
+	return configuration, configHash, spritescost.PublishedRates20260727(), policy, nil
 }
 
 func validateConfiguration(configuration config) error {

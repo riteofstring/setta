@@ -120,7 +120,7 @@ func newLiveMeasurementManifest(runID string, createdAt time.Time, prefix string
 		BetaConcurrency: concurrency,
 		Authorization: liveMeasurementAuthorization{
 			RuntimePrefix: prefix,
-			RateCard:      "sprites-public-2026-07-14",
+			RateCard:      "sprites-public-2026-07-27",
 		},
 		Billing: []liveMeasurementBillingPlaceholder{
 			{Stage: "before"}, {Stage: "first-visible"}, {Stage: "final-settled"},
@@ -228,7 +228,7 @@ func (manifest *liveMeasurementManifest) validateAuthorization(now time.Time) er
 	if now.After(a.StartDeadline) {
 		return errors.New("authorization start deadline has passed")
 	}
-	if a.RateCard != "sprites-public-2026-07-14" {
+	if a.RateCard != "sprites-public-2026-07-27" {
 		return fmt.Errorf("unsupported Phase 1c rate card %q", a.RateCard)
 	}
 	if !slices.Equal(a.StopConditions, liveMeasurementRequiredStopConditions) {

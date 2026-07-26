@@ -228,7 +228,7 @@ func startControlPlaneServices(
 }
 
 func controlPlanePriceSchedule() runtimecost.PriceSchedule {
-	return spritescost.PublishedRates20260714()
+	return spritescost.PublishedRates20260727()
 }
 
 func (services controlPlaneServices) run(ctx context.Context, shutdownTimeout time.Duration) error {

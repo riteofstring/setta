@@ -28,7 +28,7 @@ func TestFinalizeEvidenceOwnsTheSharedConfigurationAndCalculationContract(t *tes
 	evidence, err := FinalizeEvidence(
 		configuration,
 		strings.Repeat("a", 64),
-		spritescost.PublishedRates20260714(),
+		spritescost.PublishedRates20260727(),
 		closed,
 	)
 	if err != nil {
@@ -40,11 +40,11 @@ func TestFinalizeEvidenceOwnsTheSharedConfigurationAndCalculationContract(t *tes
 	}
 	if evidence.Version != EvidenceVersion ||
 		evidence.ConfigSHA256 != expectedConfigHash ||
-		evidence.RateCardVersion != spritescost.PublishedRates20260714().Version ||
+		evidence.RateCardVersion != spritescost.PublishedRates20260727().Version ||
 		evidence.Cost.CoveredTotal != evidence.Cutoff.CurrentCoveredUSDMicros {
 		t.Fatalf("evidence = %+v", evidence)
 	}
-	if err := ValidateEvidenceIdentity(evidence, spritescost.PublishedRates20260714().Version); err != nil {
+	if err := ValidateEvidenceIdentity(evidence, spritescost.PublishedRates20260727().Version); err != nil {
 		t.Fatalf("ValidateEvidenceIdentity: %v", err)
 	}
 }
@@ -59,7 +59,7 @@ func TestFinalizeEvidenceRejectsForeignWindowAndEventHash(t *testing.T) {
 	if _, err := FinalizeEvidence(
 		configuration,
 		"invalid",
-		spritescost.PublishedRates20260714(),
+		spritescost.PublishedRates20260727(),
 		closed,
 	); err == nil {
 		t.Fatal("FinalizeEvidence accepted an invalid event hash")
@@ -68,7 +68,7 @@ func TestFinalizeEvidenceRejectsForeignWindowAndEventHash(t *testing.T) {
 	if _, err := FinalizeEvidence(
 		configuration,
 		strings.Repeat("b", 64),
-		spritescost.PublishedRates20260714(),
+		spritescost.PublishedRates20260727(),
 		closed,
 	); err == nil {
 		t.Fatal("FinalizeEvidence accepted a foreign window")
@@ -83,7 +83,7 @@ func testEvidenceConfiguration(t *testing.T, start time.Time) EvidenceConfigurat
 	}
 	return EvidenceConfiguration{
 		Version: EvidenceConfigurationVersion, Provider: spritescost.Provider,
-		RateCard: "sprites-public-2026-07-14", RuntimeName: identity.Name,
+		RateCard: "sprites-public-2026-07-27", RuntimeName: identity.Name,
 		WindowStart: start, WindowEnd: start.Add(time.Hour), ObservedAt: start.Add(time.Hour),
 		Ceilings: ResourceCeilings{
 			CPUCoreMillionths: EnforcedBound{Enforced: true, Value: 1_000_000},

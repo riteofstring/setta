@@ -27,13 +27,13 @@ func TestSpritesPublishedRatesReproducePublishedSessionExample(t *testing.T) {
 	})
 	observation.Window.Start = observation.Window.End.Add(-4 * time.Hour)
 
-	breakdown, err := runtimecost.Estimate(spritescost.PublishedRates20260714(), observation)
+	breakdown, err := runtimecost.Estimate(spritescost.PublishedRates20260727(), observation)
 	if err != nil {
 		t.Fatalf("Estimate: %v", err)
 	}
 	if breakdown.CPU != 168_000 || breakdown.Memory != 262_500 ||
-		breakdown.HotStorage != 13_660 || breakdown.ColdStorage != 1_080 ||
-		breakdown.CoveredTotal != 445_240 {
+		breakdown.HotStorage != 13_660 || breakdown.ColdStorage != 27_320 ||
+		breakdown.CoveredTotal != 471_480 {
 		t.Fatalf("Breakdown = %#v", breakdown)
 	}
 }
@@ -51,7 +51,7 @@ func TestSpritesPublishedRatesReproduceContinuousMinimumFloor(t *testing.T) {
 	})
 	observation.Window.Start = observation.Window.End.Add(-hours * time.Hour)
 
-	breakdown, err := runtimecost.Estimate(spritescost.PublishedRates20260714(), observation)
+	breakdown, err := runtimecost.Estimate(spritescost.PublishedRates20260727(), observation)
 	if err != nil {
 		t.Fatalf("Estimate: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestEstimateRequiresProviderActiveCoverageForConservativeBillingFloors(t *t
 	observation := usageObservation(t, runtimeprovider.UsageQuantities{
 		CPUCoreMicroseconds: 1,
 	}, []runtimeprovider.UsageDimension{runtimeprovider.UsageDimensionCPU})
-	if _, err := runtimecost.Estimate(spritescost.PublishedRates20260714(), observation); !errors.Is(err, runtimeprovider.ErrInvalidContract) {
+	if _, err := runtimecost.Estimate(spritescost.PublishedRates20260727(), observation); !errors.Is(err, runtimeprovider.ErrInvalidContract) {
 		t.Fatalf("Estimate error = %v, want ErrInvalidContract", err)
 	}
 }
@@ -76,7 +76,7 @@ func TestEstimateRejectsConservativeComputeWithZeroProviderActive(t *testing.T) 
 		runtimeprovider.UsageDimensionProviderActive,
 		runtimeprovider.UsageDimensionCPU,
 	})
-	if _, err := runtimecost.Estimate(spritescost.PublishedRates20260714(), observation); !errors.Is(err, runtimeprovider.ErrInvalidContract) {
+	if _, err := runtimecost.Estimate(spritescost.PublishedRates20260727(), observation); !errors.Is(err, runtimeprovider.ErrInvalidContract) {
 		t.Fatalf("Estimate error = %v, want ErrInvalidContract", err)
 	}
 }
@@ -93,7 +93,7 @@ func TestEstimateRejectsActiveBillingFloorsWithoutComputeCoverage(t *testing.T) 
 			observation := usageObservation(t, runtimeprovider.UsageQuantities{
 				ProviderActive: time.Hour,
 			}, coverage)
-			if _, err := runtimecost.Estimate(spritescost.PublishedRates20260714(), observation); !errors.Is(err, runtimeprovider.ErrInvalidContract) {
+			if _, err := runtimecost.Estimate(spritescost.PublishedRates20260727(), observation); !errors.Is(err, runtimeprovider.ErrInvalidContract) {
 				t.Fatalf("Estimate error = %v, want ErrInvalidContract", err)
 			}
 		})
@@ -111,7 +111,7 @@ func TestSpritesBillingMinimumsFloorConservativeUsage(t *testing.T) {
 		runtimeprovider.UsageDimensionMemory,
 	})
 
-	breakdown, err := runtimecost.Estimate(spritescost.PublishedRates20260714(), observation)
+	breakdown, err := runtimecost.Estimate(spritescost.PublishedRates20260727(), observation)
 	if err != nil {
 		t.Fatalf("Estimate: %v", err)
 	}
@@ -125,7 +125,7 @@ func TestEstimateRefusesUnpublishedCoveredRate(t *testing.T) {
 		runtimeprovider.UsageDimensionCheckpointStorage,
 	})
 
-	_, err := runtimecost.Estimate(spritescost.PublishedRates20260714(), observation)
+	_, err := runtimecost.Estimate(spritescost.PublishedRates20260727(), observation)
 	if !errors.Is(err, runtimecost.ErrRateUnavailable) {
 		t.Fatalf("Estimate error = %v, want ErrRateUnavailable", err)
 	}
@@ -135,13 +135,13 @@ func TestEstimateRejectsProviderMismatchAndAmbiguousRate(t *testing.T) {
 	observation := usageObservation(t, runtimeprovider.UsageQuantities{}, []runtimeprovider.UsageDimension{
 		runtimeprovider.UsageDimensionCPU,
 	})
-	schedule := spritescost.PublishedRates20260714()
+	schedule := spritescost.PublishedRates20260727()
 	schedule.Provider = "different-provider"
 	if _, err := runtimecost.Estimate(schedule, observation); !errors.Is(err, runtimeprovider.ErrInvalidContract) {
 		t.Fatalf("provider mismatch error = %v, want ErrInvalidContract", err)
 	}
 
-	schedule = spritescost.PublishedRates20260714()
+	schedule = spritescost.PublishedRates20260727()
 	schedule.EgressGB.USDMicros = 1
 	if _, err := runtimecost.Estimate(schedule, observation); !errors.Is(err, runtimeprovider.ErrInvalidContract) {
 		t.Fatalf("ambiguous rate error = %v, want ErrInvalidContract", err)
@@ -156,7 +156,7 @@ func TestEstimateRoundsUpAndDetectsOverflow(t *testing.T) {
 		runtimeprovider.UsageDimensionProviderActive,
 		runtimeprovider.UsageDimensionCPU,
 	})
-	schedule := spritescost.PublishedRates20260714()
+	schedule := spritescost.PublishedRates20260727()
 	schedule.BillingMinimums = runtimecost.BillingMinimums{}
 	breakdown, err := runtimecost.Estimate(schedule, observation)
 	if err != nil {
