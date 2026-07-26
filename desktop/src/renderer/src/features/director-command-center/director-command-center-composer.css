@@ -236,3 +236,18 @@
     justify-content: center;
   }
 }
+
+/*
+ * Voice that cannot run reads as a dimmed control, not as an error in the
+ * field. The reason is on the button's label and tooltip, where the thing it
+ * describes is.
+ */
+.director-composer[data-voice-state="unavailable"] .director-composer-voice-button {
+  border-color: oklch(0.26 0.02 262);
+  color: oklch(0.52 0.03 250);
+}
+
+.director-composer[data-voice-state="unavailable"] .director-composer-voice-button:hover {
+  border-color: oklch(0.4 0.03 255);
+  color: oklch(0.72 0.04 245);
+}

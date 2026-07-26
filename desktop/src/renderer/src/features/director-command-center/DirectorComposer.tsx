@@ -135,7 +135,25 @@ export function DirectorComposer({
 }) {
   const [text, setText] = useState("");
   const voice = directorVoiceComposerState(speechCapture.snapshot);
-  const voiceAnnouncement = [voice.status, voice.transcriptPreview].filter(Boolean).join(" ");
+  /*
+   * "Voice is not set up" is a standing fact about a control, not news about
+   * the request being written. It used to occupy a line inside the composer,
+   * where it pushed on the field the user came to type in and read as an error
+   * about their input. It now lives on the control it describes: the mic button
+   * dims and carries the reason.
+   *
+   * What stays in the composer is only what is happening right now — recording,
+   * transcribing, a transcript preview, a failed submission to retry.
+   */
+  const voiceUnavailable = voice.state === "unavailable";
+  const voiceStatusInComposer = voiceUnavailable ? null : voice.status;
+  const voiceAnnouncement = [voiceStatusInComposer, voice.transcriptPreview]
+    .filter(Boolean)
+    .join(" ");
+  const voiceControlLabel =
+    voiceUnavailable && voice.status !== null
+      ? `${voice.controlLabel}. ${voice.status}`
+      : voice.controlLabel;
   const submitText = async (submittedText: string): Promise<void> => {
     setText("");
     try {
@@ -185,9 +203,9 @@ export function DirectorComposer({
           <span aria-atomic="true" className="sr-only" role="status">
             {voiceAnnouncement}
           </span>
-          {voice.status === null ? null : (
+          {voiceStatusInComposer === null ? null : (
             <p aria-hidden="true" className="director-composer-voice-status">
-              <span>{voice.status}</span>
+              <span>{voiceStatusInComposer}</span>
               {voice.transcriptPreview === null ? null : (
                 <span className="director-composer-transcript">{voice.transcriptPreview}</span>
               )}
@@ -196,7 +214,7 @@ export function DirectorComposer({
         </div>
         <div className="director-composer-controls">
           <button
-            aria-label={voice.controlLabel}
+            aria-label={voiceControlLabel}
             className="director-composer-voice-button"
             disabled={voice.action === null}
             onClick={() =>
@@ -206,7 +224,7 @@ export function DirectorComposer({
                 onOpenVoiceCredentialSettings,
               )
             }
-            title={voice.controlLabel}
+            title={voiceControlLabel}
             type="button"
           >
             <DirectorVoiceGlyph state={voice.state} />
