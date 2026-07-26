@@ -20,6 +20,7 @@ import {
   directorGraphTimeSecondsAt,
   directorPendingWork,
   effectiveDirectorRailVisibility,
+  packDirectorGraphs,
 } from "./DirectorCommandCenterShell";
 import {
   directorComposerHint,
@@ -144,6 +145,28 @@ describe("Director command-center shell view state", () => {
         [{ ...artifact, status: "available", updatedAt: "2026-07-25T17:00:03Z" }],
       ),
     ).toBe("Artifact ready: Generated artifact");
+  });
+
+  /*
+   * The canvas draws the view, which is the whole reason selection means
+   * something now. The Director's view is every workstream at once; a
+   * workstream's view is that workstream alone.
+   */
+  test("packs the whole constellation for the Director and one workstream otherwise", () => {
+    const graphs = [
+      graphWithNodes([semanticNode(1, "action", "active")], "workstream:1"),
+      graphWithNodes(
+        [semanticNode(2, "action", "active"), semanticNode(3, "artifact", "succeeded")],
+        "workstream:2",
+      ),
+    ];
+
+    expect(packDirectorGraphs(graphs, null).nodeCount).toBe(3);
+    expect(packDirectorGraphs(graphs, "workstream:2").nodeCount).toBe(2);
+    expect(packDirectorGraphs(graphs, "workstream:1").nodeCount).toBe(1);
+    // A workstream with no graph yet draws nothing rather than the composition.
+    expect(packDirectorGraphs(graphs, "workstream:absent").nodeCount).toBe(0);
+    expect(packDirectorGraphs(undefined, null).nodeCount).toBe(0);
   });
 
   test("does not present a resolved blocker as current running work", () => {
@@ -521,13 +544,16 @@ function workstreamArtifact(): WorkstreamArtifact {
   };
 }
 
-function graphWithNodes(nodes: SemanticNode[]): WorkstreamGraph {
+function graphWithNodes(
+  nodes: SemanticNode[],
+  workstreamId = "workstream:activity",
+): WorkstreamGraph {
   return {
     detailLevel: "selected",
     edges: [],
     hasEarlier: false,
     nodes,
-    workstreamId: "workstream:activity",
+    workstreamId,
   };
 }
 

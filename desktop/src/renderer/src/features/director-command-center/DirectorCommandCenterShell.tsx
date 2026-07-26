@@ -212,7 +212,10 @@ export function DirectorCommandCenterShell({
     () => directorGraphTimeSecondsAt(director.snapshot),
     [director.snapshot?.connection.lastEventAt, snapshotGraphs],
   );
-  const packedSnapshot = useMemo(() => packDirectorGraphs(snapshotGraphs), [snapshotGraphs]);
+  const packedSnapshot = useMemo(
+    () => packDirectorGraphs(snapshotGraphs, director.snapshot?.selectedWorkstreamId ?? null),
+    [snapshotGraphs, director.snapshot?.selectedWorkstreamId],
+  );
   const railAttributes = directorRailVisibilityAttributes(effectiveRailVisibility);
   const focus = directorFocus(snapshotView.selectedWorkstream);
   const switchTransition = useDirectorWorkstreamSwitchTransition(director.snapshot);
@@ -760,12 +763,31 @@ function useDirectorSpeechCapture({
   return { controller, snapshot };
 }
 
-function packDirectorGraphs(graphs: DirectorSnapshot["graphs"] | undefined) {
-  if (graphs === undefined || graphs.length === 0) {
+/*
+ * The canvas draws the view you are on.
+ *
+ * The Director's view is the whole constellation — every workstream at once,
+ * and its own lane with them — because that is what the Director sees. A
+ * workstream's view is that workstream alone.
+ *
+ * The composition used to be permanent, which is why selection had no visible
+ * consequence here and why the canvas failing to follow it had no agreed fix:
+ * there was no answer to what it should show.
+ */
+export function packDirectorGraphs(
+  graphs: DirectorSnapshot["graphs"] | undefined,
+  selectedWorkstreamId: string | null,
+) {
+  const composed = graphs ?? [];
+  const visible =
+    selectedWorkstreamId === null
+      ? composed
+      : composed.filter((graph) => graph.workstreamId === selectedWorkstreamId);
+  if (visible.length === 0) {
     return emptyPackedGraphSnapshot(directorGraphCompositionId);
   }
   return packSemanticGraphComposition({
-    graphs,
+    graphs: visible,
     workstreamId: directorGraphCompositionId,
   });
 }
