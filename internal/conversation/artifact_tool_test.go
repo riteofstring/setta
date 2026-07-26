@@ -3,35 +3,12 @@ package conversation
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"setta/internal/agent"
-	"setta/internal/conversation/artifactdoc"
 )
-
-// artifactToolTestSource is one accepted document exercising a heading, a
-// table, and a chart, so the emission tests cover a mixed document rather than
-// the smallest one the compiler accepts.
-const artifactToolTestSource = `root = Document([
-  Heading("Language line counts"),
-  Table(
-    [{key: "language", label: "Language"}, {key: "lines", label: "Lines"}],
-    [["Go", "34"], ["TypeScript", "21"], ["CSS", "8"]]
-  ),
-  BarChart([{name: "Lines", points: [{label: "Go", value: 34}, {label: "CSS", value: 8}]}])
-])`
-
-func artifactToolArguments(t *testing.T, title string, source string) []byte {
-	t.Helper()
-	arguments, err := json.Marshal(map[string]string{"title": title, "source": source})
-	if err != nil {
-		t.Fatalf("encode emit_artifact arguments: %v", err)
-	}
-	return arguments
-}
 
 func TestEmitArtifactToolCommitsTypedArtifact(t *testing.T) {
 	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
@@ -49,10 +26,10 @@ func TestEmitArtifactToolCommitsTypedArtifact(t *testing.T) {
 	active := startHeldArtifactToolTurn(t, ctx, service, runtime, workspaceID, conversationID)
 	requireArtifactToolRequest(t, runtime)
 
-	artifact := emitTestDocumentArtifact(t, ctx, service, workspaceID, conversationID, active)
-	requireDocumentArtifact(t, artifact)
+	artifact := emitTestTableArtifact(t, ctx, service, workspaceID, conversationID, active)
+	requireTableArtifact(t, artifact)
 	read := readTestArtifact(t, ctx, service, workspaceID, conversationID, artifact.ID)
-	requireReadDocumentArtifact(t, read, artifact.ID)
+	requireReadTableArtifact(t, read, artifact.ID)
 	snapshot := readTestSnapshot(t, ctx, service, workspaceID, conversationID)
 	requireSnapshotArtifact(t, snapshot, artifact.ID)
 	requireArtifactTrajectory(t, snapshot, artifact.ID)
@@ -85,13 +62,13 @@ func TestEmitArtifactToolReturnsStructuredFailureAndAllowsRetry(t *testing.T) {
 		ProviderTurnID:   active.providerTurnID,
 		Namespace:        artifactToolNamespace,
 		Tool:             artifactToolName,
-		Arguments:        []byte(`{"title":"Language line counts"}`),
+		Arguments:        []byte(`{"kind":"table"}`),
 	})
 	if err != nil {
 		t.Fatalf("failed artifact handler returned error: %v", err)
 	}
 	failure := requireArtifactToolFailureResult(t, failed, artifactToolFailureMissingRequiredFields)
-	requireDynamicToolFieldErrors(t, failure.FieldErrors, []string{"source"})
+	requireDynamicToolFieldErrors(t, failure.FieldErrors, []string{"title", "columns", "rows"})
 
 	afterFailure := readTestSnapshot(t, ctx, service, workspaceID, conversationID)
 	requireArtifactToolFailureTrajectory(t, afterFailure, failure.DiagnosticReference)
@@ -107,7 +84,12 @@ func TestEmitArtifactToolReturnsStructuredFailureAndAllowsRetry(t *testing.T) {
 		ProviderTurnID:   active.providerTurnID,
 		Namespace:        artifactToolNamespace,
 		Tool:             artifactToolName,
-		Arguments:        artifactToolArguments(t, "Language line counts", artifactToolTestSource),
+		Arguments: []byte(`{
+			"kind":"table",
+			"title":"Language line counts",
+			"columns":[{"key":"language","label":"Language"},{"key":"lines","label":"Lines"}],
+			"rows":[["Go","34"],["TypeScript","21"],["CSS","8"]]
+		}`),
 	})
 	if err != nil {
 		t.Fatalf("retry artifact handler returned error: %v", err)
@@ -117,7 +99,7 @@ func TestEmitArtifactToolReturnsStructuredFailureAndAllowsRetry(t *testing.T) {
 	}
 	afterRetry := readTestSnapshot(t, ctx, service, workspaceID, conversationID)
 	if len(afterRetry.Artifacts.Artifacts) != 1 ||
-		afterRetry.Artifacts.Artifacts[0].Title != "Language line counts" {
+		afterRetry.Artifacts.Artifacts[0].Kind != ArtifactKindTable {
 		t.Fatalf("retry artifacts = %+v", afterRetry.Artifacts)
 	}
 	completed := completeActiveArtifactToolTurn(t, ctx, service, workspaceID, conversationID, active, "")
@@ -152,7 +134,7 @@ func TestFailedArtifactAttemptMakesProviderCompletionUnresolved(t *testing.T) {
 		ProviderTurnID:   active.providerTurnID,
 		Namespace:        artifactToolNamespace,
 		Tool:             artifactToolName,
-		Arguments:        []byte(`{"title":"Language line counts"}`),
+		Arguments:        []byte(`{"kind":"table"}`),
 	})
 	if err != nil {
 		t.Fatalf("failed artifact handler returned error: %v", err)
@@ -177,29 +159,47 @@ func TestFailedArtifactAttemptMakesProviderCompletionUnresolved(t *testing.T) {
 	requireSystemTurnFailedTrajectory(t, unresolved, artifactDeliveryUnresolvedFailureCode)
 }
 
-func TestEmitArtifactToolSchemaDeclaresTitleAndSource(t *testing.T) {
+func TestEmitArtifactToolSchemaDeclaresStrictBranches(t *testing.T) {
 	var schema struct {
-		Type                 string   `json:"type"`
-		AdditionalProperties *bool    `json:"additionalProperties"`
-		Required             []string `json:"required"`
-		Properties           map[string]struct {
-			Type      string `json:"type"`
-			MaxLength int    `json:"maxLength"`
-		} `json:"properties"`
+		OneOf []struct {
+			AdditionalProperties *bool                      `json:"additionalProperties"`
+			Required             []string                   `json:"required"`
+			Properties           map[string]json.RawMessage `json:"properties"`
+		} `json:"oneOf"`
+		Properties map[string]json.RawMessage `json:"properties"`
 	}
 	if err := json.Unmarshal(emitArtifactInputSchemaJSON, &schema); err != nil {
 		t.Fatalf("decode emit artifact schema: %v", err)
 	}
-	if schema.Type != "object" || schema.AdditionalProperties == nil || *schema.AdditionalProperties {
-		t.Fatalf("emit artifact schema = %+v, want a strict object", schema)
+	requireSchemaKindEnum(t, schema.Properties["kind"])
+	wantBranches := map[string]struct {
+		required []string
+		allowed  []string
+	}{
+		"markdown":  {required: []string{"kind", "title", "markdown"}, allowed: []string{"kind", "title", "markdown"}},
+		"table":     {required: []string{"kind", "title", "columns", "rows"}, allowed: []string{"kind", "title", "columns", "rows"}},
+		"bar_chart": {required: []string{"kind", "title", "items"}, allowed: []string{"kind", "title", "items"}},
+		"file":      {required: []string{"kind", "title", "path"}, allowed: []string{"kind", "title", "path", "description"}},
 	}
-	requireStringSet(t, "emit artifact required fields", schema.Required, []string{"title", "source"})
-	requireStringSet(t, "emit artifact properties", mapKeys(schema.Properties), []string{"title", "source"})
-	if schema.Properties["title"].Type != "string" || schema.Properties["source"].Type != "string" {
-		t.Fatalf("emit artifact property types = %+v", schema.Properties)
+	if len(schema.OneOf) != len(wantBranches) {
+		t.Fatalf("schema branches = %d, want %d", len(schema.OneOf), len(wantBranches))
 	}
-	if schema.Properties["source"].MaxLength != artifactdoc.MaxSourceBytes {
-		t.Fatalf("emit artifact source maxLength = %d, want %d", schema.Properties["source"].MaxLength, artifactdoc.MaxSourceBytes)
+	seen := map[string]bool{}
+	for index, branch := range schema.OneOf {
+		if branch.AdditionalProperties == nil || *branch.AdditionalProperties {
+			t.Fatalf("schema branch[%d] does not reject additional properties", index)
+		}
+		kind := requireSchemaKindConst(t, branch.Properties["kind"])
+		want, ok := wantBranches[kind]
+		if !ok {
+			t.Fatalf("schema branch[%d] kind = %q", index, kind)
+		}
+		if seen[kind] {
+			t.Fatalf("schema kind %q is duplicated", kind)
+		}
+		seen[kind] = true
+		requireStringSet(t, kind+" required fields", branch.Required, want.required)
+		requireStringSet(t, kind+" allowed fields", mapKeys(branch.Properties), want.allowed)
 	}
 }
 
@@ -279,6 +279,28 @@ func requireArtifactToolFailureTrajectory(
 		failure.DiagnosticReference != diagnosticReference {
 		t.Fatalf("artifact tool failure trajectory = %+v", event)
 	}
+}
+
+func requireSchemaKindEnum(t *testing.T, raw json.RawMessage) {
+	t.Helper()
+	var property struct {
+		Enum []string `json:"enum"`
+	}
+	if err := json.Unmarshal(raw, &property); err != nil {
+		t.Fatalf("decode schema kind enum: %v", err)
+	}
+	requireStringSet(t, "schema kind enum", property.Enum, []string{"markdown", "table", "bar_chart", "file"})
+}
+
+func requireSchemaKindConst(t *testing.T, raw json.RawMessage) string {
+	t.Helper()
+	var property struct {
+		Const string `json:"const"`
+	}
+	if err := json.Unmarshal(raw, &property); err != nil {
+		t.Fatalf("decode schema branch kind: %v", err)
+	}
+	return property.Const
 }
 
 func requireStringSet(t *testing.T, label string, got []string, want []string) {
@@ -361,8 +383,6 @@ func requireArtifactRecoveryInstructions(t *testing.T, instructions string) {
 		"fieldErrors",
 		"retry setta.emit_artifact",
 		"before completing the turn",
-		"Assign root exactly once",
-		"Document(blocks",
 	} {
 		if !strings.Contains(instructions, fragment) {
 			t.Fatalf("topic agent developer instructions missing %q: %q", fragment, instructions)
@@ -370,7 +390,7 @@ func requireArtifactRecoveryInstructions(t *testing.T, instructions string) {
 	}
 }
 
-func emitTestDocumentArtifact(
+func emitTestTableArtifact(
 	t *testing.T,
 	ctx context.Context,
 	service *Service,
@@ -387,7 +407,12 @@ func emitTestDocumentArtifact(
 		ProviderTurnID:   active.providerTurnID,
 		Namespace:        artifactToolNamespace,
 		Tool:             artifactToolName,
-		Arguments:        artifactToolArguments(t, "Language line counts", artifactToolTestSource),
+		Arguments: []byte(`{
+			"kind":"table",
+			"title":"Language line counts",
+			"columns":[{"key":"language","label":"Language"},{"key":"lines","label":"Lines"}],
+			"rows":[["Go","34"],["TypeScript","21"],["CSS","8"]]
+		}`),
 	})
 	if err != nil {
 		t.Fatalf("emitArtifactFromTool: %v", err)
@@ -395,11 +420,9 @@ func emitTestDocumentArtifact(
 	return artifact
 }
 
-func requireDocumentArtifact(t *testing.T, artifact Artifact) {
+func requireTableArtifact(t *testing.T, artifact Artifact) {
 	t.Helper()
-	if artifact.Document.Language != ArtifactDocumentLanguageOpenUI ||
-		artifact.Document.CatalogID != ArtifactCatalogSettaV1 ||
-		artifact.Document.Source != artifactToolTestSource {
+	if artifact.Kind != ArtifactKindTable || artifact.Table == nil || len(artifact.Table.Rows) != 3 {
 		t.Fatalf("artifact = %+v", artifact)
 	}
 }
@@ -420,9 +443,9 @@ func readTestArtifact(
 	return read
 }
 
-func requireReadDocumentArtifact(t *testing.T, read Artifact, artifactID string) {
+func requireReadTableArtifact(t *testing.T, read Artifact, artifactID string) {
 	t.Helper()
-	if read.ID != artifactID || read.Document.Source != artifactToolTestSource {
+	if read.ID != artifactID || read.Table == nil || read.Table.Rows[0][0] != "Go" {
 		t.Fatalf("read artifact = %+v", read)
 	}
 }
@@ -445,7 +468,8 @@ func readTestSnapshot(
 func requireSnapshotArtifact(t *testing.T, snapshot ConversationSnapshot, artifactID string) {
 	t.Helper()
 	if len(snapshot.Artifacts.Artifacts) != 1 ||
-		snapshot.Artifacts.Artifacts[0].ID != artifactID {
+		snapshot.Artifacts.Artifacts[0].ID != artifactID ||
+		snapshot.Artifacts.Artifacts[0].Kind != ArtifactKindTable {
 		t.Fatalf("snapshot artifacts = %+v", snapshot.Artifacts)
 	}
 }
@@ -540,95 +564,82 @@ func requireSystemTurnFailedTrajectory(t *testing.T, snapshot ConversationSnapsh
 	t.Fatalf("snapshot missing system turn_failed %s: %+v", code, snapshot.Trajectory)
 }
 
-func TestDecodeEmitArtifactInputRejectsInvalidDocuments(t *testing.T) {
+func TestDecodeEmitArtifactInputRejectsInvalidBranches(t *testing.T) {
 	tests := []struct {
 		name      string
 		argument  string
-		wantCode  string
-		wantField string
+		wantError string
 	}{
 		{
 			name:      "unknown field",
-			argument:  `{"title":"Report","source":"root = Document([Text(\"Done\")])","kind":"markdown"}`,
-			wantCode:  artifactToolFailureInvalidArguments,
-			wantField: "kind",
+			argument:  `{"kind":"markdown","title":"Report","markdown":"Done","uri":"setta://old"}`,
+			wantError: "unknown field",
 		},
 		{
 			name:      "missing title",
-			argument:  `{"source":"root = Document([Text(\"Done\")])"}`,
-			wantCode:  artifactToolFailureMissingRequiredFields,
-			wantField: "title",
+			argument:  `{"kind":"markdown","markdown":"Done"}`,
+			wantError: "artifact title is required",
 		},
 		{
-			name:      "missing source",
-			argument:  `{"title":"Report"}`,
-			wantCode:  artifactToolFailureMissingRequiredFields,
-			wantField: "source",
+			name:      "missing table columns",
+			argument:  `{"kind":"table","title":"Counts","rows":[]}`,
+			wantError: "table artifact requires columns",
 		},
 		{
-			name:      "source is not a string",
-			argument:  `{"title":"Report","source":{"root":"Document"}}`,
-			wantCode:  artifactToolFailureInvalidField,
-			wantField: "source",
-		},
-		{
-			name:      "empty source",
-			argument:  `{"title":"Report","source":""}`,
-			wantCode:  string(artifactdoc.CodeSourceEmpty),
-			wantField: "source",
-		},
-		{
-			name:      "missing root",
-			argument:  `{"title":"Report","source":"body = Document([Text(\"Done\")])"}`,
-			wantCode:  string(artifactdoc.CodeMissingRoot),
-			wantField: "source",
-		},
-		{
-			name:      "unknown component",
-			argument:  `{"title":"Report","source":"root = Document([Marquee(\"Done\")])"}`,
-			wantCode:  string(artifactdoc.CodeUnknownComponent),
-			wantField: "source.root.blocks",
+			name:      "mixed branch",
+			argument:  `{"kind":"markdown","title":"Report","markdown":"Done","rows":[]}`,
+			wantError: "rows is not valid",
 		},
 		{
 			name:      "table row width",
-			argument:  `{"title":"Counts","source":"root = Document([Table([{key: \"language\", label: \"Language\"}], [[\"Go\", \"34\"]])])"}`,
-			wantCode:  string(artifactdoc.CodeRowWidthMismatch),
-			wantField: "source.root.rows",
+			argument:  `{"kind":"table","title":"Counts","columns":[{"key":"language","label":"Language"}],"rows":[["Go","34"]]}`,
+			wantError: "table artifact row[0] has 2 cells",
 		},
 		{
-			name:      "unsafe file reference",
-			argument:  `{"title":"Report","source":"root = Document([FileReference(\"/etc/passwd\")])"}`,
-			wantCode:  string(artifactdoc.CodeUnsafeValue),
-			wantField: "source.root.path",
+			name:      "table column unknown field",
+			argument:  `{"kind":"table","title":"Counts","columns":[{"key":"language","label":"Language","secret":"ignored"}],"rows":[["Go"]]}`,
+			wantError: "unknown field columns[0].secret",
+		},
+		{
+			name:      "table row null cell",
+			argument:  `{"kind":"table","title":"Counts","columns":[{"key":"language","label":"Language"}],"rows":[[null]]}`,
+			wantError: "table artifact row[0] cell[0] must be a string",
+		},
+		{
+			name:      "bar chart missing value",
+			argument:  `{"kind":"bar_chart","title":"Counts","items":[{"label":"Go"}]}`,
+			wantError: "bar_chart artifact requires items[0].value",
+		},
+		{
+			name:      "bar chart null value",
+			argument:  `{"kind":"bar_chart","title":"Counts","items":[{"label":"Go","value":null}]}`,
+			wantError: "bar chart artifact item[0].value must be a number",
+		},
+		{
+			name:      "empty optional file description",
+			argument:  `{"kind":"file","title":"Report file","path":"report.md","description":""}`,
+			wantError: "file artifact description must not be empty",
+		},
+		{
+			name:      "oversized markdown",
+			argument:  `{"kind":"markdown","title":"Report","markdown":"` + strings.Repeat("x", MaxMarkdownArtifactBytes+1) + `"}`,
+			wantError: "markdown artifact exceeds",
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := decodeEmitArtifactInput([]byte(test.argument))
-			var failure *artifactToolFailureError
-			if !errors.As(err, &failure) {
-				t.Fatalf("decode error = %v, want a typed artifact tool failure", err)
+			input, err := decodeEmitArtifactInput([]byte(test.argument))
+			if err != nil {
+				if !strings.Contains(err.Error(), test.wantError) {
+					t.Fatalf("decode error = %v, want %q", err, test.wantError)
+				}
+				return
 			}
-			if failure.code != test.wantCode || !failure.retryable {
-				t.Fatalf("decode failure = %+v, want retryable %s", failure, test.wantCode)
+			artifact := input.artifact("artifact-test", "conversation-test", "turn-test", "2026-07-11T20:00:00Z")
+			err = artifact.Validate()
+			if err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Fatalf("validation error = %v, want %q for %+v", err, test.wantError, artifact)
 			}
-			requireDynamicToolFieldErrors(t, failure.fieldErrors, []string{test.wantField})
 		})
-	}
-}
-
-func TestDecodeEmitArtifactInputAcceptsDocument(t *testing.T) {
-	input, err := decodeEmitArtifactInput(artifactToolArguments(t, "Language line counts", artifactToolTestSource))
-	if err != nil {
-		t.Fatalf("decodeEmitArtifactInput: %v", err)
-	}
-	artifact := input.artifact("artifact-test", "conversation-test", "turn-test", "2026-07-11T20:00:00Z")
-	if err := artifact.Validate(); err != nil {
-		t.Fatalf("artifact.Validate: %v", err)
-	}
-	if artifact.Document.Language != ArtifactDocumentLanguageOpenUI ||
-		artifact.Document.CatalogID != ArtifactCatalogSettaV1 ||
-		artifact.Document.Source != artifactToolTestSource {
-		t.Fatalf("artifact document = %+v", artifact.Document)
 	}
 }

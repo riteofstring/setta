@@ -110,26 +110,6 @@ func StateFilePath(appDataDir string, workspaceID string) string {
 	return filepath.Join(appDataDir, stateDirName, workspaceID, stateFileName)
 }
 
-// LookupLocal reads the durable metadata of one workspace without opening it.
-// A workstream keeps its folder resource after the folder is closed or dropped
-// from the recent list, so callers that must resolve a durable binding read the
-// workspace's own state instead of the session's active list.
-func (manager *Manager) LookupLocal(id string) (WorkspaceSummary, bool, error) {
-	if id == "" {
-		return WorkspaceSummary{}, false, errors.New("workspace id is required")
-	}
-	state, exists, err := loadState(StateFilePath(manager.appDataDir, id))
-	if err != nil || !exists {
-		return WorkspaceSummary{}, false, err
-	}
-	return WorkspaceSummary{
-		ID:           state.ID,
-		RootPath:     state.RootPath,
-		DisplayName:  state.DisplayName,
-		LastOpenedAt: state.UpdatedAt,
-	}, true, nil
-}
-
 func (manager *Manager) OpenLocal(rootPath string) (WorkspaceSummary, WorkspaceState, error) {
 	rootPath, err := validateRootPath(rootPath)
 	if err != nil {

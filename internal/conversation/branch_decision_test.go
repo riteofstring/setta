@@ -56,24 +56,24 @@ func TestBranchDecisionAcceptsOnlyMatchingRestrictedPayload(t *testing.T) {
 	}
 }
 
-func TestBranchDecisionScopeKeepsExecutionAuthorityOutsideModelDecision(t *testing.T) {
-	childConversationID := "conversation-child"
+func TestBranchDecisionScopeKeepsPaneAuthorityOutsideModelDecision(t *testing.T) {
+	paneID := "pane-origin"
 	side := BranchDecision{
 		Kind:                   BranchDecisionKindCreateSideConversation,
 		CreateSideConversation: &CreateSideConversationBranchDecision{},
 	}
 	if err := (BranchDecisionExecutionScope{
 		ParentConversationID: "conversation-parent",
+		ParentPaneID:         &paneID,
 		Source:               BranchDecisionSourceConversationRouter,
 	}).Validate(side); err != nil {
 		t.Fatalf("valid local side scope: %v", err)
 	}
 	if err := (BranchDecisionExecutionScope{
 		ParentConversationID: "conversation-parent",
-		ChildConversationID:  &childConversationID,
-		Source:               BranchDecisionSourceConversationRouter,
+		Source:               BranchDecisionSourceMaster,
 	}).Validate(side); err == nil {
-		t.Fatal("side decision accepted a child conversation id")
+		t.Fatal("side decision accepted without a coordinator-resolved pane")
 	}
 
 	fork := BranchDecision{
@@ -83,13 +83,12 @@ func TestBranchDecisionScopeKeepsExecutionAuthorityOutsideModelDecision(t *testi
 			ProposedTitle:  "Durable tangent",
 		},
 	}
-	sideConversationID := "side-conversation"
 	if err := (BranchDecisionExecutionScope{
 		ParentConversationID: "conversation-parent",
-		SideConversationID:   &sideConversationID,
+		ParentPaneID:         &paneID,
 		Source:               BranchDecisionSourceConversationRouter,
 	}).Validate(fork); err == nil {
-		t.Fatal("fork decision accepted side-conversation scope")
+		t.Fatal("fork decision accepted an arbitrary pane command")
 	}
 	if err := (BranchDecisionExecutionScope{
 		ParentConversationID: "conversation-parent",
@@ -99,7 +98,7 @@ func TestBranchDecisionScopeKeepsExecutionAuthorityOutsideModelDecision(t *testi
 	}
 }
 
-func TestBranchDecisionJSONContainsNoProviderOrRendererAuthority(t *testing.T) {
+func TestBranchDecisionJSONContainsNoProviderOrPaneAuthority(t *testing.T) {
 	decision := BranchDecision{
 		Kind: BranchDecisionKindForkConversation,
 		ForkConversation: &ForkConversationBranchDecision{

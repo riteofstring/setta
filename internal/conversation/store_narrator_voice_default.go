@@ -160,7 +160,7 @@ func narratorVoiceDefaultMatchesRequest(
 
 func inspectNarratorVoiceDefaultState(
 	ctx context.Context,
-	query directorVoiceSelectionQuery,
+	query masterVoiceSelectionQuery,
 	dbPath string,
 ) (speech.NarratorVoiceDefault, bool, bool, error) {
 	value, valueFound, err := findNarratorVoiceDefaultRow(ctx, query, dbPath)
@@ -194,7 +194,7 @@ func resolveNarratorVoiceDefaultState(
 
 func findNarratorVoiceDefaultRow(
 	ctx context.Context,
-	query directorVoiceSelectionQuery,
+	query masterVoiceSelectionQuery,
 	dbPath string,
 ) (speech.NarratorVoiceDefault, bool, error) {
 	var value speech.NarratorVoiceDefault
@@ -222,7 +222,7 @@ WHERE singleton = 1
 
 func findNarratorVoiceDefaultInitialization(
 	ctx context.Context,
-	query directorVoiceSelectionQuery,
+	query masterVoiceSelectionQuery,
 	dbPath string,
 ) (bool, error) {
 	var event CommittedEvent

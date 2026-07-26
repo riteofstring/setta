@@ -6,7 +6,7 @@ import type {
 import { ChevronDown, Moon, SlidersHorizontal, Sun } from "lucide-react";
 import { type ReactNode, useMemo } from "react";
 
-import { SettaCompactInput } from "./setta-compact-input";
+import { Input } from "./ui/input";
 import { cn } from "../lib/utils";
 import type { AppearanceColorGroup } from "../stores/appearance-store";
 
@@ -105,12 +105,13 @@ export function ColorSchemeFields({
   const advancedColorCount =
     Object.keys(scheme.tailwind).length +
     Object.keys(scheme.shadcn).length +
-    Object.keys(scheme.accent).length;
+    Object.keys(scheme.accent).length +
+    Object.keys(scheme.workspace).length;
 
   return (
     <AccordionSection count={advancedColorCount} title="Advanced Color Tokens">
       <section className="grid gap-2">
-        {(["tailwind", "shadcn", "accent"] as const).map((group) => {
+        {(["workspace", "tailwind", "shadcn", "accent"] as const).map((group) => {
           const values = scheme[group];
           return (
             <AccordionSection
@@ -252,7 +253,7 @@ function ColorValueControls({
           className="h-5 w-5 rounded-sm border border-border"
           style={{ backgroundColor: value }}
         />
-        <SettaCompactInput
+        <Input
           aria-label={`${label} OKLCH value`}
           className="font-mono"
           onChange={(event) => onChange(event.target.value)}
@@ -386,6 +387,7 @@ const colorGroupLabels = {
   shadcn: "shadcn/ui Tokens",
   status: "Status Colors",
   tailwind: "Palette Scale",
+  workspace: "Niri Workspace",
 } as const satisfies Record<AppearanceColorGroup, string>;
 
 const customColorOptionValue = "__custom_oklch__";

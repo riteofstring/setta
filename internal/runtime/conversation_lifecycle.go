@@ -16,11 +16,11 @@ func (server *Server) shutdownNarration(ctx context.Context) error {
 	return server.drainNarration(ctx)
 }
 
-func (server *Server) shutdownSpeech(ctx context.Context) error {
-	if server.drainSpeech == nil {
+func (server *Server) shutdownMasterRouting(ctx context.Context) error {
+	if server.drainMasterRouting == nil {
 		return nil
 	}
-	return server.drainSpeech(ctx)
+	return server.drainMasterRouting(ctx)
 }
 
 func (server *Server) shutdownConversationStore() error {

@@ -2,7 +2,6 @@ import type {
   AcceptedConversationInput,
   Artifact,
   ArchiveTopicConversationRequest,
-  BindTopicConversationFolderRequest,
   ConversationEventCursor,
   ConversationSnapshot,
   DiscardConversationInputRequest,
@@ -19,11 +18,11 @@ import type {
   StopTopicConversationTurnRequest,
   SubmitConversationInputRequest,
   SubmitTopicConversationApprovalRequest,
+  UpdateTopicConversationPresentationRequest,
 } from "@generated/backend";
 
 export const conversationIpcChannels = {
   conversationArchiveTopic: "conversation:archive-topic",
-  conversationBindFolder: "conversation:bind-folder",
   conversationDiscardInput: "conversation:discard-input",
   conversationDisposeSide: "conversation:dispose-side",
   conversationCreateTopic: "conversation:create-topic",
@@ -39,27 +38,24 @@ export const conversationIpcChannels = {
   conversationSubmitInput: "conversation:submit-input",
   conversationSubmitApproval: "conversation:submit-approval",
   conversationSubscribeEvents: "conversation:subscribe-events",
+  conversationUpdatePresentation: "conversation:update-presentation",
 } as const;
 
 export interface ConversationEventSubscriptionRequest {
   conversationId: string;
   cursor: ConversationEventCursor;
-  workspaceId: string | null;
+  workspaceId: string;
 }
 
 export interface ConversationEventReleaseRequest {
   conversationId: string;
   keepAlive: boolean;
-  workspaceId: string | null;
+  workspaceId: string;
 }
 
 export interface ConversationIpc {
   conversationArchiveTopic: {
     args: [request: ArchiveTopicConversationRequest];
-    result: ConversationSnapshot;
-  };
-  conversationBindFolder: {
-    args: [request: BindTopicConversationFolderRequest];
     result: ConversationSnapshot;
   };
   conversationDisposeSide: {
@@ -121,5 +117,9 @@ export interface ConversationIpc {
   conversationSubscribeEvents: {
     args: [request: ConversationEventSubscriptionRequest];
     result: void;
+  };
+  conversationUpdatePresentation: {
+    args: [request: UpdateTopicConversationPresentationRequest];
+    result: ConversationSnapshot["presentationProfile"];
   };
 }

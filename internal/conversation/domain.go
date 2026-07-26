@@ -3,25 +3,17 @@ package conversation
 import (
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"time"
-
-	"setta/internal/conversation/artifactdoc"
 )
 
 type ConversationStatus string
 type TurnDelivery string
 type TurnStatus string
-
-// ArtifactDocumentLanguage names the composition language a stored artifact
-// document is written in. The model never chooses it; the backend attaches the
-// only supported value after the document compiles.
-type ArtifactDocumentLanguage string
-
-// ArtifactCatalogID names the component catalog a stored artifact document was
-// compiled against, so the renderer can select the catalog by exact identity.
-type ArtifactCatalogID string
+type ThreadBindingStatus string
+type ArtifactKind string
 
 const (
 	ConversationStatusIdle               ConversationStatus = "idle"
@@ -39,13 +31,19 @@ const (
 	TurnStatusCancelled TurnStatus = "cancelled"
 	TurnStatusFailed    TurnStatus = "failed"
 
-	ArtifactDocumentLanguageOpenUI ArtifactDocumentLanguage = ArtifactDocumentLanguage(artifactdoc.DocumentLanguageOpenUI)
-	ArtifactCatalogSettaV1         ArtifactCatalogID        = ArtifactCatalogID(artifactdoc.CatalogSettaV1)
+	ThreadBindingStatusLinked      ThreadBindingStatus = "linked"
+	ThreadBindingStatusMissing     ThreadBindingStatus = "missing"
+	ThreadBindingStatusUnavailable ThreadBindingStatus = "unavailable"
+
+	ArtifactKindMarkdown ArtifactKind = "markdown"
+	ArtifactKindTable    ArtifactKind = "table"
+	ArtifactKindBarChart ArtifactKind = "bar_chart"
+	ArtifactKindFile     ArtifactKind = "file"
 )
 
 type TopicConversation struct {
 	ID                     string             `json:"id"`
-	WorkspaceID            *string            `json:"workspaceId"`
+	WorkspaceID            string             `json:"workspaceId"`
 	Title                  string             `json:"title"`
 	TopicDescriptor        string             `json:"topicDescriptor"`
 	Status                 ConversationStatus `json:"status"`
@@ -81,32 +79,68 @@ type QueuedConversationTurn struct {
 	QueuedAt       string `json:"queuedAt"`
 }
 
-// ArtifactDocument is the single composable payload every artifact carries.
-// Setta stores the source exactly as the compiler accepted it, so the renderer
-// parses the same bytes the backend validated.
-type ArtifactDocument struct {
-	Language  ArtifactDocumentLanguage `json:"language"`
-	CatalogID ArtifactCatalogID        `json:"catalogId"`
-	Source    string                   `json:"source"`
+type AgentThreadBinding struct {
+	ConversationID   string              `json:"conversationId"`
+	Provider         Provider            `json:"provider"`
+	ThreadID         string              `json:"threadId"`
+	Status           ThreadBindingStatus `json:"status"`
+	CreatedAt        string              `json:"createdAt"`
+	LastResumedAt    *string             `json:"lastResumedAt"`
+	LastTurnID       *string             `json:"lastTurnId"`
+	ProviderMetadata map[string]string   `json:"providerMetadata"`
 }
 
 type Artifact struct {
-	ID                 string           `json:"id"`
-	ConversationID     string           `json:"conversationId"`
-	TurnID             *string          `json:"turnId"`
-	TrajectorySequence *int             `json:"trajectorySequence"`
-	Title              string           `json:"title"`
-	CreatedAt          string           `json:"createdAt"`
-	Document           ArtifactDocument `json:"document"`
+	ID                 string                   `json:"id"`
+	ConversationID     string                   `json:"conversationId"`
+	TurnID             *string                  `json:"turnId"`
+	TrajectorySequence *int                     `json:"trajectorySequence"`
+	Kind               ArtifactKind             `json:"kind"`
+	Title              string                   `json:"title"`
+	CreatedAt          string                   `json:"createdAt"`
+	Markdown           *MarkdownArtifactPayload `json:"markdown"`
+	Table              *TableArtifactPayload    `json:"table"`
+	BarChart           *BarChartArtifactPayload `json:"barChart"`
+	File               *FileArtifactPayload     `json:"file"`
 }
 
 type ArtifactMetadata struct {
-	ID                 string  `json:"id"`
-	ConversationID     string  `json:"conversationId"`
-	TurnID             *string `json:"turnId"`
-	TrajectorySequence *int    `json:"trajectorySequence"`
-	Title              string  `json:"title"`
-	CreatedAt          string  `json:"createdAt"`
+	ID                 string       `json:"id"`
+	ConversationID     string       `json:"conversationId"`
+	TurnID             *string      `json:"turnId"`
+	TrajectorySequence *int         `json:"trajectorySequence"`
+	Kind               ArtifactKind `json:"kind"`
+	Title              string       `json:"title"`
+	CreatedAt          string       `json:"createdAt"`
+}
+
+type MarkdownArtifactPayload struct {
+	Markdown string `json:"markdown"`
+}
+
+type TableArtifactPayload struct {
+	Columns []ArtifactTableColumn `json:"columns"`
+	Rows    [][]string            `json:"rows"`
+}
+
+type ArtifactTableColumn struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
+}
+
+type BarChartArtifactPayload struct {
+	Items []BarChartArtifactItem `json:"items"`
+}
+
+type BarChartArtifactItem struct {
+	Label string  `json:"label"`
+	Value float64 `json:"value"`
+	Unit  *string `json:"unit"`
+}
+
+type FileArtifactPayload struct {
+	Path        string  `json:"path"`
+	Description *string `json:"description"`
 }
 
 type Failure struct {
@@ -120,10 +154,8 @@ func (conversation TopicConversation) Validate() error {
 	if err := validateIdentifier("conversation id", conversation.ID); err != nil {
 		return err
 	}
-	if conversation.WorkspaceID != nil {
-		if err := validateIdentifier("conversation workspace id", *conversation.WorkspaceID); err != nil {
-			return err
-		}
+	if err := validateIdentifier("conversation workspace id", conversation.WorkspaceID); err != nil {
+		return err
 	}
 	if err := validateTrimmedText("conversation title", conversation.Title); err != nil {
 		return err
@@ -373,12 +405,45 @@ func (queued QueuedConversationTurn) Validate() error {
 	return err
 }
 
+func (binding AgentThreadBinding) Validate() error {
+	if err := validateIdentifier("thread binding conversation id", binding.ConversationID); err != nil {
+		return err
+	}
+	if binding.Provider != ProviderCodex {
+		return fmt.Errorf("thread binding %s has unsupported provider %q", binding.ConversationID, binding.Provider)
+	}
+	if err := validateIdentifier("thread binding thread id", binding.ThreadID); err != nil {
+		return err
+	}
+	if !validThreadBindingStatus(binding.Status) {
+		return fmt.Errorf("thread binding %s has unsupported status %q", binding.ConversationID, binding.Status)
+	}
+	createdAt, err := validateTimestamp("thread binding createdAt", binding.CreatedAt)
+	if err != nil {
+		return err
+	}
+	if binding.LastResumedAt != nil {
+		lastResumedAt, err := validateTimestampPointer("thread binding lastResumedAt", binding.LastResumedAt)
+		if err != nil {
+			return err
+		}
+		if lastResumedAt.Before(createdAt) {
+			return fmt.Errorf("thread binding %s lastResumedAt precedes createdAt", binding.ConversationID)
+		}
+	}
+	if err := validateOptionalIdentifier("thread binding last turn id", binding.LastTurnID); err != nil {
+		return err
+	}
+	return validateStringMap("thread binding provider metadata", binding.ProviderMetadata)
+}
+
 func (artifact Artifact) Metadata() ArtifactMetadata {
 	return ArtifactMetadata{
 		ID:                 artifact.ID,
 		ConversationID:     artifact.ConversationID,
 		TurnID:             cloneStringPointer(artifact.TurnID),
 		TrajectorySequence: cloneIntPointer(artifact.TrajectorySequence),
+		Kind:               artifact.Kind,
 		Title:              artifact.Title,
 		CreatedAt:          artifact.CreatedAt,
 	}
@@ -388,21 +453,10 @@ func (artifact Artifact) Validate() error {
 	if err := artifact.Metadata().Validate(); err != nil {
 		return err
 	}
-	return artifact.Document.Validate()
-}
-
-// Validate compiles the stored document against the only supported language and
-// catalog. Compilation is the acceptance authority, so an artifact that cannot
-// be rendered can never be written or read back.
-func (document ArtifactDocument) Validate() error {
-	if document.Language != ArtifactDocumentLanguageOpenUI {
-		return fmt.Errorf("artifact document language %q is not supported", document.Language)
+	if err := validateArtifactBranchCount(artifact); err != nil {
+		return err
 	}
-	if document.CatalogID != ArtifactCatalogSettaV1 {
-		return fmt.Errorf("artifact document catalog %q is not supported", document.CatalogID)
-	}
-	_, err := artifactdoc.Compile(artifactdoc.SettaCatalogV1(), document.Source)
-	return err
+	return validateArtifactPayload(artifact)
 }
 
 func (artifact ArtifactMetadata) Validate() error {
@@ -417,6 +471,9 @@ func (artifact ArtifactMetadata) Validate() error {
 	}
 	if artifact.TrajectorySequence != nil && *artifact.TrajectorySequence <= 0 {
 		return fmt.Errorf("artifact %s trajectory sequence must be positive", artifact.ID)
+	}
+	if !validArtifactKind(artifact.Kind) {
+		return fmt.Errorf("artifact %s has unsupported kind %q", artifact.ID, artifact.Kind)
 	}
 	if err := validateRequiredArtifactText("artifact title", artifact.Title); err != nil {
 		return err
@@ -461,6 +518,141 @@ func validTurnStatus(status TurnStatus) bool {
 	}
 }
 
+func validThreadBindingStatus(status ThreadBindingStatus) bool {
+	switch status {
+	case ThreadBindingStatusLinked, ThreadBindingStatusMissing, ThreadBindingStatusUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+func validArtifactKind(kind ArtifactKind) bool {
+	switch kind {
+	case ArtifactKindMarkdown, ArtifactKindTable, ArtifactKindBarChart, ArtifactKindFile:
+		return true
+	default:
+		return false
+	}
+}
+
+func validateArtifactBranchCount(artifact Artifact) error {
+	populated := 0
+	for _, present := range []bool{
+		artifact.Markdown != nil,
+		artifact.Table != nil,
+		artifact.BarChart != nil,
+		artifact.File != nil,
+	} {
+		if present {
+			populated++
+		}
+	}
+	if populated != 1 {
+		return fmt.Errorf("artifact %s must populate exactly one payload branch, found %d", artifact.ID, populated)
+	}
+	return nil
+}
+
+func validateArtifactPayload(artifact Artifact) error {
+	switch artifact.Kind {
+	case ArtifactKindMarkdown:
+		if artifact.Markdown == nil {
+			return fmt.Errorf("artifact %s markdown payload is required", artifact.ID)
+		}
+		return validateMarkdownArtifactPayload(*artifact.Markdown)
+	case ArtifactKindTable:
+		if artifact.Table == nil {
+			return fmt.Errorf("artifact %s table payload is required", artifact.ID)
+		}
+		return validateTableArtifactPayload(*artifact.Table)
+	case ArtifactKindBarChart:
+		if artifact.BarChart == nil {
+			return fmt.Errorf("artifact %s bar chart payload is required", artifact.ID)
+		}
+		return validateBarChartArtifactPayload(*artifact.BarChart)
+	case ArtifactKindFile:
+		if artifact.File == nil {
+			return fmt.Errorf("artifact %s file payload is required", artifact.ID)
+		}
+		return validateFileArtifactPayload(*artifact.File)
+	default:
+		return fmt.Errorf("artifact %s has unsupported kind %q", artifact.ID, artifact.Kind)
+	}
+}
+
+func validateMarkdownArtifactPayload(payload MarkdownArtifactPayload) error {
+	if err := validateRequiredArtifactText("markdown artifact markdown", payload.Markdown); err != nil {
+		return err
+	}
+	if len([]byte(payload.Markdown)) > MaxMarkdownArtifactBytes {
+		return fmt.Errorf("markdown artifact exceeds %d bytes", MaxMarkdownArtifactBytes)
+	}
+	return nil
+}
+
+func validateTableArtifactPayload(payload TableArtifactPayload) error {
+	if len(payload.Columns) == 0 {
+		return errors.New("table artifact requires at least one column")
+	}
+	if len(payload.Columns) > MaxTableArtifactColumns {
+		return fmt.Errorf("table artifact has %d columns, cap is %d", len(payload.Columns), MaxTableArtifactColumns)
+	}
+	if len(payload.Rows) > MaxTableArtifactRows {
+		return fmt.Errorf("table artifact has %d rows, cap is %d", len(payload.Rows), MaxTableArtifactRows)
+	}
+	keys := map[string]struct{}{}
+	for index, column := range payload.Columns {
+		if err := validateRequiredArtifactText(fmt.Sprintf("table artifact column[%d].key", index), column.Key); err != nil {
+			return err
+		}
+		if err := validateRequiredArtifactText(fmt.Sprintf("table artifact column[%d].label", index), column.Label); err != nil {
+			return err
+		}
+		if _, exists := keys[column.Key]; exists {
+			return fmt.Errorf("table artifact duplicate column key %s", column.Key)
+		}
+		keys[column.Key] = struct{}{}
+	}
+	for index, row := range payload.Rows {
+		if len(row) != len(payload.Columns) {
+			return fmt.Errorf("table artifact row[%d] has %d cells, want %d", index, len(row), len(payload.Columns))
+		}
+	}
+	return nil
+}
+
+func validateBarChartArtifactPayload(payload BarChartArtifactPayload) error {
+	if len(payload.Items) == 0 {
+		return errors.New("bar chart artifact requires at least one item")
+	}
+	if len(payload.Items) > MaxBarChartArtifactItems {
+		return fmt.Errorf("bar chart artifact has %d items, cap is %d", len(payload.Items), MaxBarChartArtifactItems)
+	}
+	for index, item := range payload.Items {
+		if err := validateRequiredArtifactText(fmt.Sprintf("bar chart artifact item[%d].label", index), item.Label); err != nil {
+			return err
+		}
+		if math.IsNaN(item.Value) || math.IsInf(item.Value, 0) {
+			return fmt.Errorf("bar chart artifact item[%d].value must be finite", index)
+		}
+		if item.Value < 0 {
+			return fmt.Errorf("bar chart artifact item[%d].value must be non-negative", index)
+		}
+		if err := validateOptionalTrimmedText(fmt.Sprintf("bar chart artifact item[%d].unit", index), item.Unit); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateFileArtifactPayload(payload FileArtifactPayload) error {
+	if err := validateRequiredArtifactText("file artifact path", payload.Path); err != nil {
+		return err
+	}
+	return validateOptionalTrimmedText("file artifact description", payload.Description)
+}
+
 func validateIdentifier(label string, value string) error {
 	if value == "" {
 		return fmt.Errorf("%s is required", label)
@@ -495,6 +687,19 @@ func validateRequiredArtifactText(label string, value string) error {
 	return nil
 }
 
+func validateOptionalTrimmedText(label string, value *string) error {
+	if value == nil {
+		return nil
+	}
+	if strings.TrimSpace(*value) == "" {
+		return fmt.Errorf("%s must not be empty", label)
+	}
+	if strings.TrimSpace(*value) != *value {
+		return fmt.Errorf("%s must not have surrounding whitespace", label)
+	}
+	return nil
+}
+
 func validateTimestamp(label string, value string) (time.Time, error) {
 	if value == "" {
 		return time.Time{}, fmt.Errorf("%s is required", label)
@@ -523,6 +728,18 @@ func optionalTimestamp(label string, value *string) (time.Time, bool, error) {
 	}
 	parsed, err := validateTimestamp(label, *value)
 	return parsed, true, err
+}
+
+func validateStringMap(label string, values map[string]string) error {
+	if values == nil {
+		return fmt.Errorf("%s must be an object, not null", label)
+	}
+	for key := range values {
+		if err := validateIdentifier(label+" key", key); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func equalOptionalString(left *string, right *string) bool {

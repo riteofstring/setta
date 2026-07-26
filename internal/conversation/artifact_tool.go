@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"setta/internal/agent"
-	"setta/internal/conversation/artifactdoc"
 )
 
 const (
@@ -15,25 +14,41 @@ const (
 	artifactToolName      = "emit_artifact"
 
 	artifactToolFailureInvalidArguments      = "invalid_arguments"
-	artifactToolFailureInvalidDocument       = "invalid_document"
+	artifactToolFailureInvalidBranch         = "invalid_branch"
 	artifactToolFailureInvalidField          = "invalid_field"
 	artifactToolFailureMissingRequiredFields = "missing_required_fields"
+	artifactToolFailurePayloadLimitExceeded  = "payload_limit_exceeded"
 	artifactToolFailurePersistenceFailure    = "persistence_failure"
+	artifactToolFailureRowWidthMismatch      = "row_width_mismatch"
 	artifactToolFailureStaleTurn             = "stale_turn"
 )
-
-// artifactCatalog is the one catalog every emitted document compiles against.
-// It is built per call so no caller can mutate the manifest the compiler and
-// the model-facing instructions share.
-func artifactCatalog() artifactdoc.Catalog {
-	return artifactdoc.SettaCatalogV1()
-}
 
 var emitArtifactInputSchemaJSON = mustEmitArtifactInputSchemaJSON()
 
 type emitArtifactInput struct {
-	Title  string `json:"title"`
-	Source string `json:"source"`
+	Kind        ArtifactKind            `json:"kind"`
+	Title       string                  `json:"title"`
+	Markdown    *string                 `json:"markdown"`
+	Columns     *[]ArtifactTableColumn  `json:"columns"`
+	Rows        *[][]string             `json:"rows"`
+	Items       *[]BarChartArtifactItem `json:"items"`
+	Path        *string                 `json:"path"`
+	Description *string                 `json:"description"`
+}
+
+type emitArtifactBranchSpec struct {
+	Kind     ArtifactKind
+	Required []string
+	Optional []string
+}
+
+func emitArtifactBranchSpecs() []emitArtifactBranchSpec {
+	return []emitArtifactBranchSpec{
+		{Kind: ArtifactKindMarkdown, Required: []string{"markdown"}},
+		{Kind: ArtifactKindTable, Required: []string{"columns", "rows"}},
+		{Kind: ArtifactKindBarChart, Required: []string{"items"}},
+		{Kind: ArtifactKindFile, Required: []string{"path"}, Optional: []string{"description"}},
+	}
 }
 
 func mustEmitArtifactInputSchemaJSON() json.RawMessage {
@@ -45,38 +60,131 @@ func mustEmitArtifactInputSchemaJSON() json.RawMessage {
 }
 
 func emitArtifactInputSchema() map[string]any {
+	properties := emitArtifactInputPropertySchemas()
+	branches := emitArtifactBranchSpecs()
+	oneOf := make([]map[string]any, 0, len(branches))
+	for _, branch := range branches {
+		oneOf = append(oneOf, emitArtifactInputBranchSchema(branch, properties))
+	}
 	return map[string]any{
 		"type":                 "object",
 		"additionalProperties": false,
-		"description":          "Publish one finished Setta conversation artifact as a Setta artifact document.",
-		"required":             []string{"title", "source"},
-		"properties": map[string]any{
-			"title": map[string]any{
-				"type":        "string",
-				"description": "Short artifact title, rendered above the document.",
+		"description":          "Publish one finished Setta conversation artifact. Pick exactly one kind and provide only that kind's payload fields.",
+		"required":             []string{"kind", "title"},
+		"properties":           properties,
+		"oneOf":                oneOf,
+	}
+}
+
+func emitArtifactInputBranchSchema(
+	branch emitArtifactBranchSpec,
+	allProperties map[string]any,
+) map[string]any {
+	properties := map[string]any{
+		"kind": map[string]any{
+			"type":  "string",
+			"const": string(branch.Kind),
+		},
+		"title": allProperties["title"],
+	}
+	required := []string{"kind", "title"}
+	for _, name := range branch.Required {
+		properties[name] = allProperties[name]
+		required = append(required, name)
+	}
+	for _, name := range branch.Optional {
+		properties[name] = allProperties[name]
+	}
+	return map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             required,
+		"properties":           properties,
+	}
+}
+
+func emitArtifactInputPropertySchemas() map[string]any {
+	return map[string]any{
+		"kind": map[string]any{
+			"type": "string",
+			"enum": []string{
+				string(ArtifactKindMarkdown),
+				string(ArtifactKindTable),
+				string(ArtifactKindBarChart),
+				string(ArtifactKindFile),
 			},
-			"source": map[string]any{
-				"type":        "string",
-				"description": "Setta artifact document source. Assign root exactly once to a " + string(artifactdoc.ComponentDocument) + " call.",
-				"maxLength":   artifactdoc.MaxSourceBytes,
+		},
+		"title": map[string]any{
+			"type":        "string",
+			"description": "Short artifact title.",
+		},
+		"markdown": map[string]any{
+			"type":        "string",
+			"description": "Markdown payload for markdown artifacts.",
+			"maxLength":   MaxMarkdownArtifactBytes,
+		},
+		"columns": map[string]any{
+			"type":        "array",
+			"description": "Table columns for table artifacts.",
+			"minItems":    1,
+			"maxItems":    MaxTableArtifactColumns,
+			"items": map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"required":             []string{"key", "label"},
+				"properties": map[string]any{
+					"key":   map[string]any{"type": "string"},
+					"label": map[string]any{"type": "string"},
+				},
 			},
+		},
+		"rows": map[string]any{
+			"type":        "array",
+			"description": "Table rows for table artifacts; each row must match the column count.",
+			"maxItems":    MaxTableArtifactRows,
+			"items": map[string]any{
+				"type":  "array",
+				"items": map[string]any{"type": "string"},
+			},
+		},
+		"items": map[string]any{
+			"type":        "array",
+			"description": "Bar chart items for bar_chart artifacts.",
+			"minItems":    1,
+			"maxItems":    MaxBarChartArtifactItems,
+			"items": map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"required":             []string{"label", "value"},
+				"properties": map[string]any{
+					"label": map[string]any{"type": "string"},
+					"value": map[string]any{"type": "number", "minimum": 0},
+					"unit":  map[string]any{"type": "string"},
+				},
+			},
+		},
+		"path": map[string]any{
+			"type":        "string",
+			"description": "File path for file artifacts.",
+		},
+		"description": map[string]any{
+			"type":        "string",
+			"description": "Optional file description.",
 		},
 	}
 }
 
-// topicAgentDeveloperInstructions states the artifact policy, then hands the
-// model the catalog's own generation reference. The reference is rendered from
-// the same Go catalog the compiler accepts against, so the two cannot drift.
 func topicAgentDeveloperInstructions() string {
 	return `Act as the durable primary agent for this Setta topic conversation.
 
 Durable user-facing deliverables are emitted through setta.emit_artifact.
-Compose the deliverable as one artifact document: prose, tables, charts, code, metrics, and file references all belong in the same document rather than in separate artifacts.
+Use the table artifact branch for naturally tabular deliverables.
+Use the bar_chart artifact branch for quantitative comparisons where magnitude matters.
+Use the markdown artifact branch for durable narrative deliverables.
+Use the file artifact branch when the deliverable is a concrete file path or reference.
 Do not emit an artifact for short conversational answers, exact-text confirmations, acknowledgements, or status replies that do not create standalone durable content.
 If setta.emit_artifact returns a failure with retryable true, correct the listed fieldErrors and retry setta.emit_artifact before completing the turn.
-Final prose summarizes the outcome but is not a substitute for emitting a durable artifact when the response creates a deliverable.
-
-` + artifactCatalog().GenerationInstructions()
+Final prose summarizes the outcome but is not a substitute for emitting a durable artifact when the response creates a deliverable.`
 }
 
 func (service *Service) topicAgentArtifactTools(
@@ -215,21 +323,20 @@ func (service *Service) persistArtifactToolEmission(
 		)
 	}
 	callID := call.CallID
+	providerThreadID := call.ProviderThreadID
 	providerTurnID := call.ProviderTurnID
 	trajectory := TrajectoryEvent{
-		ID:              trajectoryID,
-		ConversationID:  conversationID,
-		TurnID:          &turn.ID,
-		Sequence:        sequence,
-		EmittedAt:       now,
-		Kind:            TrajectoryEventArtifactEmitted,
-		Actor:           TrajectoryActorSystem,
-		ProviderEventID: &callID,
-		ProviderTurnID:  &providerTurnID,
-		ArtifactEmitted: &TrajectoryArtifactEmitted{
-			ArtifactID: artifact.ID,
-			Title:      artifact.Title,
-		},
+		ID:               trajectoryID,
+		ConversationID:   conversationID,
+		TurnID:           &turn.ID,
+		Sequence:         sequence,
+		EmittedAt:        now,
+		Kind:             TrajectoryEventArtifactEmitted,
+		Actor:            TrajectoryActorSystem,
+		ProviderEventID:  &callID,
+		ProviderThreadID: &providerThreadID,
+		ProviderTurnID:   &providerTurnID,
+		ArtifactEmitted:  &TrajectoryArtifactEmitted{ArtifactID: artifact.ID},
 	}
 	publications, err := service.publications(
 		conversationID,
@@ -246,7 +353,7 @@ func (service *Service) persistArtifactToolEmission(
 			err,
 		)
 	}
-	if err := service.commitArtifactToolEmission(ctx, snapshot, turn, trajectory, artifact, publications); err != nil {
+	if err := service.commitArtifactToolEmission(ctx, snapshot, turn.ID, trajectory, artifact, publications); err != nil {
 		return Artifact{}, newArtifactToolFailureError(
 			artifactToolFailurePersistenceFailure,
 			"artifact persistence failed before the artifact could be stored",
@@ -280,7 +387,7 @@ func (service *Service) requireActiveArtifactToolTurn(
 func (service *Service) commitArtifactToolEmission(
 	ctx context.Context,
 	snapshot ConversationSnapshot,
-	turn ConversationTurn,
+	turnID string,
 	trajectory TrajectoryEvent,
 	artifact Artifact,
 	publications []preparedPublication,
@@ -295,15 +402,32 @@ func (service *Service) commitArtifactToolEmission(
 		return appendPublications(transaction, publications)
 	})
 	if err == nil {
-		service.observeCommittedTrajectory(
-			snapshot.Conversation,
-			turn,
-			[]TrajectoryEvent{trajectory},
-			[]ArtifactMetadata{artifact.Metadata()},
-			false,
-		)
+		service.observeCommittedTrajectory(snapshot.Conversation, turnID, []TrajectoryEvent{trajectory}, false)
 	}
 	return err
+}
+
+func emitArtifactBranchSpecForKind(kind ArtifactKind) (emitArtifactBranchSpec, bool) {
+	for _, branch := range emitArtifactBranchSpecs() {
+		if branch.Kind == kind {
+			return branch, true
+		}
+	}
+	return emitArtifactBranchSpec{}, false
+}
+
+func emitArtifactInputPayloadFields() []string {
+	seen := map[string]bool{}
+	fields := make([]string, 0)
+	for _, branch := range emitArtifactBranchSpecs() {
+		for _, name := range append(append([]string{}, branch.Required...), branch.Optional...) {
+			if !seen[name] {
+				fields = append(fields, name)
+				seen[name] = true
+			}
+		}
+	}
+	return fields
 }
 
 func (input emitArtifactInput) artifact(
@@ -312,23 +436,47 @@ func (input emitArtifactInput) artifact(
 	turnID string,
 	createdAt string,
 ) Artifact {
-	return Artifact{
+	artifact := Artifact{
 		ID:             id,
 		ConversationID: conversationID,
 		TurnID:         &turnID,
+		Kind:           input.Kind,
 		Title:          input.Title,
 		CreatedAt:      createdAt,
-		Document: ArtifactDocument{
-			Language:  ArtifactDocumentLanguageOpenUI,
-			CatalogID: ArtifactCatalogSettaV1,
-			Source:    input.Source,
-		},
 	}
+	switch input.Kind {
+	case ArtifactKindMarkdown:
+		artifact.Markdown = &MarkdownArtifactPayload{Markdown: *input.Markdown}
+	case ArtifactKindTable:
+		artifact.Table = &TableArtifactPayload{
+			Columns: append([]ArtifactTableColumn{}, (*input.Columns)...),
+			Rows:    cloneArtifactRows(*input.Rows),
+		}
+	case ArtifactKindBarChart:
+		artifact.BarChart = &BarChartArtifactPayload{
+			Items: append([]BarChartArtifactItem{}, (*input.Items)...),
+		}
+	case ArtifactKindFile:
+		artifact.File = &FileArtifactPayload{
+			Path:        *input.Path,
+			Description: cloneStringPointer(input.Description),
+		}
+	}
+	return artifact
+}
+
+func cloneArtifactRows(rows [][]string) [][]string {
+	cloned := make([][]string, 0, len(rows))
+	for _, row := range rows {
+		cloned = append(cloned, append([]string{}, row...))
+	}
+	return cloned
 }
 
 func artifactToolResult(artifact Artifact) (agent.DynamicToolResult, error) {
 	payload := map[string]any{
 		"artifactId": artifact.ID,
+		"kind":       artifact.Kind,
 		"title":      artifact.Title,
 	}
 	data, err := json.Marshal(payload)

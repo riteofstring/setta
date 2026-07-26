@@ -18,7 +18,7 @@ func TestReadNarratorContextSourceBuildsConsistentTypedWindows(t *testing.T) {
 		ConversationID:            seed.conversationID,
 		TurnID:                    &seed.turnID,
 		Kind:                      NarratorContextReadProjection,
-		ProjectionThroughSequence: 11,
+		ProjectionThroughSequence: 10,
 		MaxTrajectoryEvents:       4,
 		MaxFinalSummaries:         2,
 	})
@@ -53,7 +53,7 @@ func TestReadNarratorContextSourceBuildsConsistentTypedWindows(t *testing.T) {
 		ConversationID:            seed.conversationID,
 		TurnID:                    &seed.turnID,
 		Kind:                      NarratorContextReadProjection,
-		ProjectionThroughSequence: 11,
+		ProjectionThroughSequence: 10,
 		MaxTrajectoryEvents:       4,
 		MaxFinalSummaries:         2,
 	})
@@ -88,17 +88,12 @@ func TestReadNarratorContextSourceBuildsConsistentTypedWindows(t *testing.T) {
 
 func assertProjectionNarratorSource(t *testing.T, source NarratorContextSource) {
 	t.Helper()
-	assertNarratorSourceRange(t, source.Trajectory, TrajectorySequenceRange{Start: 3, End: 11}, 3, 6, false, true)
+	assertNarratorSourceRange(t, source.Trajectory, TrajectorySequenceRange{Start: 3, End: 10}, 3, 6, false, true)
 	if source.CurrentTurn.Turn == nil || source.CurrentTurn.Turn.AuthoredInput.Text != "Implement durable narrator context." {
 		t.Fatalf("projection objective = %+v", source.CurrentTurn.Turn)
 	}
 	if got := source.CurrentTurn.AcceptedSteering; len(got) != 1 || got[0].Sequence != 3 || got[0].Input.Text != "Keep the current constraint authoritative." {
 		t.Fatalf("accepted steering = %+v", got)
-	}
-	if got := source.CurrentTurn.LatestAssistantMessage; got == nil ||
-		got.ProviderItemID != "provider-message-1" ||
-		got.Text != "The narrator context now includes the final assistant message." {
-		t.Fatalf("latest assistant message = %+v", got)
 	}
 	if source.CurrentTurn.Plan == nil || source.CurrentTurn.Plan.Sequence != 4 {
 		t.Fatalf("current plan = %+v", source.CurrentTurn.Plan)
@@ -135,7 +130,7 @@ func assertProjectionNarratorOutputs(t *testing.T, source NarratorContextSource)
 
 func assertStatusNarratorSource(t *testing.T, source NarratorContextSource, turnID string) {
 	t.Helper()
-	assertNarratorSourceRange(t, source.Trajectory, TrajectorySequenceRange{Start: 3, End: 11}, 9, 11, true, false)
+	assertNarratorSourceRange(t, source.Trajectory, TrajectorySequenceRange{Start: 3, End: 10}, 8, 10, true, false)
 	if source.CurrentTurn.Turn == nil || source.CurrentTurn.Turn.ID != turnID {
 		t.Fatalf("status target turn = %+v", source.CurrentTurn.Turn)
 	}
@@ -313,9 +308,10 @@ func seedNarratorContext(t *testing.T, store *Store) narratorContextSeed {
 		ConversationID:     conversationRecord.ID,
 		TurnID:             &turn.ID,
 		TrajectorySequence: &artifactSequence,
+		Kind:               ArtifactKindMarkdown,
 		Title:              "Narrator context report",
 		CreatedAt:          testTimeEnded,
-		Document:           testArtifactDocument(),
+		Markdown:           &MarkdownArtifactPayload{Markdown: "Narrator context report"},
 	}
 	milestone := narratorContextNarration(
 		"narration-milestone-context",
@@ -409,7 +405,6 @@ func narratorContextTrajectory(conversationID string, turn ConversationTurn) []T
 		contextTrajectoryEvent(conversationID, turn.ID, 8, TrajectoryEventSubagentStarted),
 		contextTrajectoryEvent(conversationID, turn.ID, 9, TrajectoryEventArtifactEmitted),
 		contextTrajectoryEvent(conversationID, turn.ID, 10, TrajectoryEventAgentPublicTextDelta),
-		contextTrajectoryEvent(conversationID, turn.ID, 11, TrajectoryEventAgentMessageCompleted),
 	}
 	events[0].Actor = TrajectoryActorUser
 	events[0].UserInputAccepted = &TrajectoryUserInputAccepted{Input: turn.AuthoredInput, Delivery: turn.Delivery}
@@ -427,20 +422,14 @@ func narratorContextTrajectory(conversationID string, turn ConversationTurn) []T
 	events[5].ActivityProgressed = &TrajectoryActivityProgressed{ActivityID: activity.ID, Progress: "Halfway complete."}
 	events[6].ApprovalRequested = &TrajectoryApprovalRequested{Approval: approval}
 	events[7].SubagentStarted = &TrajectorySubagentStarted{Subagent: Subagent{
-		ID:     "subagent-1",
-		Status: SubagentStatusRunning,
+		ID:               "subagent-1",
+		ProviderThreadID: "provider-subagent-1",
+		Status:           SubagentStatusRunning,
 	}}
-	events[8].ArtifactEmitted = &TrajectoryArtifactEmitted{
-		ArtifactID: "artifact-1",
-		Title:      "Narrator context artifact",
-	}
+	events[8].ArtifactEmitted = &TrajectoryArtifactEmitted{ArtifactID: "artifact-1"}
 	events[9].AgentPublicTextDelta = &TrajectoryAgentPublicTextDelta{
 		ProviderItemID: "provider-message-1",
 		Delta:          "Materializing context.",
-	}
-	events[10].AgentMessageCompleted = &TrajectoryAgentMessageCompleted{
-		ProviderItemID: "provider-message-1",
-		Text:           "The narrator context now includes the final assistant message.",
 	}
 	return events
 }
