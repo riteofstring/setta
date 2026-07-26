@@ -3363,3 +3363,18 @@ Stop and reassess rather than hiding the problem if any of these occur:
   usage evidence and cutoffs are measured against a fiction. No code was changed
   for this finding. The billing decision it forces is recorded as an open
   question in the capacity plan and needs an owner before Slices 3 to 7 proceed.
+- 2026-07-26 (Sprites is one fixed size): A second short-lived probe requested
+  `cpus=4, ram_mb=32768, storage_gb=50` and received exactly the same machine as
+  the request for `cpus=1, ram_mb=512, storage_gb=10`: `MemTotal: 8388608 kB`
+  (8 GiB) and a 105,542,934,528-byte overlay root, with no cgroup limit. The
+  Sprite was destroyed and the inventory confirmed empty. The provider therefore
+  ignores the requested shape in both directions, not merely upward, which means
+  Sprites currently sells one size and 8 GiB is a hard ceiling. Any Setta user
+  needing 16, 32, or 64 GB cannot be served by this provider today, and that is
+  a provider-selection question rather than a billing one. `runtimeprovider` is
+  already provider-neutral and `internal/hostedmeasurement` already carries a
+  Fly Machines client, so a second, sizable provider is architecturally
+  anticipated. Note that removing `RuntimeObservation.Resources` earlier today
+  was correct for Sprites but would need reversing for a provider that does
+  honor and report a requested shape; re-adding the field and its verification
+  is small, and the decision should be made deliberately rather than discovered.
