@@ -1,16 +1,11 @@
 import type { UpdateAppearanceSettingsRequest } from "@generated/backend";
-import { ipcChannels, ipcEvents, ipcMessages } from "@shared/ipc";
-import type { SettaAPI, WorkspaceBrowserViewBatch } from "@shared/types";
+import { ipcChannels, ipcEvents } from "@shared/ipc";
+import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { codexAccountChangeEvent } from "./index.test.fixtures";
 
-async function exposePreloadAPI({
-  invoke = vi.fn(),
-  on = vi.fn(),
-  removeListener = vi.fn(),
-  send = vi.fn(),
-} = {}) {
+async function exposePreloadAPI({ invoke = vi.fn(), on = vi.fn(), removeListener = vi.fn() } = {}) {
   const exposed: Record<string, unknown> = {};
   vi.doMock("electron", () => ({
     contextBridge: {
@@ -18,12 +13,12 @@ async function exposePreloadAPI({
         exposed[name] = api;
       },
     },
-    ipcRenderer: { invoke, on, removeListener, send },
+    ipcRenderer: { invoke, on, removeListener, send: vi.fn() },
   }));
 
   await import("./index");
 
-  return { api: exposed.setta as SettaAPI, invoke, on, removeListener, send };
+  return { api: exposed.setta as SettaAPI, invoke, on, removeListener };
 }
 
 describe("preload workspace API", () => {
@@ -76,30 +71,19 @@ describe("preload workspace API", () => {
       "close",
       "openLocalFolder",
       "openPath",
-      "readUILayout",
       "refreshAvailability",
       "relocateLocalFolder",
       "removeRecent",
       "reorder",
-      "saveUILayout",
       "select",
       "session",
     ]);
 
-    const layout = {
-      columns: [],
-      focusedPaneId: "workspace_pane_0",
-      panes: [],
-      schemaVersion: 1,
-      workspaceId: "workspace_api",
-    };
     await api.workspace.session();
     await api.workspace.openLocalFolder();
     await api.workspace.openPath("/tmp/recent");
-    await api.workspace.readUILayout("workspace_api");
     await api.workspace.refreshAvailability("workspace_api");
     await api.workspace.relocateLocalFolder("workspace_api");
-    await api.workspace.saveUILayout(layout);
     await api.workspace.select("workspace_api");
     await api.workspace.close("workspace_api");
     await api.workspace.reorder(["workspace_web", "workspace_api"]);
@@ -109,62 +93,13 @@ describe("preload workspace API", () => {
       [ipcChannels.workspaceSession],
       [ipcChannels.workspaceOpenLocalFolder],
       [ipcChannels.workspaceOpenPath, "/tmp/recent"],
-      [ipcChannels.workspaceReadUILayout, "workspace_api"],
       [ipcChannels.workspaceRefreshAvailability, "workspace_api"],
       [ipcChannels.workspaceRelocateLocalFolder, "workspace_api"],
-      [ipcChannels.workspaceSaveUILayout, layout],
       [ipcChannels.workspaceSelect, "workspace_api"],
       [ipcChannels.workspaceClose, "workspace_api"],
       [ipcChannels.workspaceReorder, ["workspace_web", "workspace_api"]],
       [ipcChannels.workspaceRemoveRecent, "workspace_web"],
     ]);
-  });
-
-  test("exposes typed workspace native view methods through IPC", async () => {
-    const { api, invoke, on, removeListener, send } = await exposePreloadAPI();
-    await api.app.captureRendererRegion({ height: 40, width: 80, x: 12, y: 24 });
-    const nativeViews = api.workspaceNativeViews;
-    if (!nativeViews) {
-      throw new Error("workspace native view API was not exposed");
-    }
-    const batch: WorkspaceBrowserViewBatch = {
-      focusedSurfaceId: "surface_browser",
-      masterVoiceShortcut: "mod_shift_k",
-      totalBrowserPanes: 24,
-      updates: [],
-      visibleBrowserPanes: 6,
-      workspaceId: "workspace_api",
-    };
-    nativeViews.batchBrowserViewUpdates(batch);
-    await nativeViews.readBrowserViewStats();
-    await nativeViews.teardownBrowserViews("workspace_api");
-
-    const keyListener = vi.fn();
-    const unsubscribeKey = nativeViews.onBrowserViewKey(keyListener);
-    const keyHandler = eventHandler(on, ipcEvents.workspaceBrowserViewKey);
-    keyHandler({}, browserKeyEvent());
-    unsubscribeKey();
-
-    const snapshotListener = vi.fn();
-    const unsubscribeSnapshot = nativeViews.onBrowserViewSnapshot(snapshotListener);
-    const snapshotHandler = eventHandler(on, ipcEvents.workspaceBrowserViewSnapshot);
-    const snapshot = browserSnapshot();
-    snapshotHandler({}, snapshot);
-    unsubscribeSnapshot();
-
-    expect(send).toHaveBeenCalledWith(ipcMessages.workspaceBrowserViewBatch, batch);
-    expectInvokeCalls(invoke, [
-      [ipcChannels.appCaptureRendererRegion, { height: 40, width: 80, x: 12, y: 24 }],
-      [ipcChannels.workspaceBrowserViewStats],
-      [ipcChannels.workspaceBrowserViewsTeardown, "workspace_api"],
-    ]);
-    expect(keyListener).toHaveBeenCalledWith(browserKeyEvent());
-    expect(snapshotListener).toHaveBeenCalledWith(snapshot);
-    expect(removeListener).toHaveBeenCalledWith(ipcEvents.workspaceBrowserViewKey, keyHandler);
-    expect(removeListener).toHaveBeenCalledWith(
-      ipcEvents.workspaceBrowserViewSnapshot,
-      snapshotHandler,
-    );
   });
 
   test("exposes typed appearance and account methods through IPC", async () => {
@@ -203,51 +138,6 @@ describe("preload workspace API", () => {
     expect(accountListener).toHaveBeenCalledWith(accountEvent);
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.codexAccountChange, accountHandler);
   });
-
-  test("exposes typed hosted access commands and progress through IPC", async () => {
-    const { api, invoke, on, removeListener } = await exposePreloadAPI();
-    const hostedAccess = api.hostedAccess;
-    if (!hostedAccess) {
-      throw new Error("hosted access API was not exposed");
-    }
-    const intent = {
-      client: { deviceId: "phone-hosted", kind: "phone" as const },
-      idempotencyKey: "intent-hosted",
-      projectId: "project-hosted",
-      requestedCapabilities: ["observe", "steer"] as ("observe" | "steer")[],
-      userId: "user-hosted",
-      workstreamId: "workstream-hosted",
-    };
-    const progress = {
-      accessGrant: null,
-      cursor: "1",
-      intentId: "intent-hosted",
-      occurredAt: "2026-07-24T15:00:00Z",
-      reasonCode: null,
-      retryable: false,
-      state: "preparing_access" as const,
-    };
-
-    await hostedAccess.ensure(intent);
-    await hostedAccess.subscribeProgress({ intentId: intent.idempotencyKey, lastEventId: "" });
-    const listener = vi.fn();
-    const unsubscribe = hostedAccess.onProgress(listener);
-    const handler = eventHandler(on, ipcEvents.hostedAccessProgress);
-    handler({}, progress);
-    unsubscribe();
-    await hostedAccess.releaseProgress({ intentId: intent.idempotencyKey });
-
-    expectInvokeCalls(invoke, [
-      [ipcChannels.hostedAccessEnsure, intent],
-      [
-        ipcChannels.hostedAccessSubscribeProgress,
-        { intentId: intent.idempotencyKey, lastEventId: "" },
-      ],
-      [ipcChannels.hostedAccessReleaseProgress, { intentId: intent.idempotencyKey }],
-    ]);
-    expect(listener).toHaveBeenCalledWith(progress);
-    expect(removeListener).toHaveBeenCalledWith(ipcEvents.hostedAccessProgress, handler);
-  });
 });
 
 function eventHandler(on: ReturnType<typeof vi.fn>, channel: string) {
@@ -256,31 +146,6 @@ function eventHandler(on: ReturnType<typeof vi.fn>, channel: string) {
     throw new Error(`event handler was not registered for ${channel}`);
   }
   return handler;
-}
-
-function browserKeyEvent() {
-  return {
-    altKey: false,
-    ctrlKey: true,
-    key: "k",
-    metaKey: false,
-    shiftKey: false,
-    surfaceId: "surface_browser",
-    workspaceId: "workspace_api",
-  };
-}
-
-function browserSnapshot() {
-  return {
-    capturedAt: 99,
-    height: 120,
-    imageDataUrl: "data:image/png;base64,AAAA",
-    paneId: "pane_browser",
-    surfaceId: "surface_browser",
-    title: "Browser",
-    width: 240,
-    workspaceId: "workspace_api",
-  };
 }
 
 function expectInvokeCalls(invoke: ReturnType<typeof vi.fn>, calls: unknown[][]) {

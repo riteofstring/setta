@@ -17,6 +17,15 @@ func (event TrajectoryEvent) Validate() error {
 	if err := validateTrajectoryPayload(payload); err != nil {
 		return fmt.Errorf("trajectory event %s kind %s: %w", event.ID, event.Kind, err)
 	}
+	if lifecycle, ok := payload.(*TrajectoryProviderLifecycleChanged); ok &&
+		providerLifecycleReasonRequiresTurn(lifecycle.Lifecycle.Reason) &&
+		event.TurnID == nil {
+		return fmt.Errorf(
+			"trajectory event %s provider lifecycle reason %q requires turn id",
+			event.ID,
+			lifecycle.Lifecycle.Reason,
+		)
+	}
 	return nil
 }
 
@@ -44,7 +53,6 @@ func validateTrajectoryEventEnvelope(event TrajectoryEvent) error {
 		value *string
 	}{
 		{label: "trajectory provider event id", value: event.ProviderEventID},
-		{label: "trajectory provider thread id", value: event.ProviderThreadID},
 		{label: "trajectory provider turn id", value: event.ProviderTurnID},
 	} {
 		if err := validateOptionalIdentifier(field.label, field.value); err != nil {
@@ -88,6 +96,7 @@ func (event TrajectoryEvent) trajectoryPayload() (any, error) {
 		{kind: TrajectoryEventArtifactEmitted, payload: event.ArtifactEmitted},
 		{kind: TrajectoryEventAgentLivenessChanged, payload: event.AgentLivenessChanged},
 		{kind: TrajectoryEventProviderLifecycleChanged, payload: event.ProviderLifecycleChanged},
+		{kind: TrajectoryEventValidationRecorded, payload: event.ValidationRecorded},
 		{kind: TrajectoryEventModelRerouted, payload: event.ModelRerouted},
 	}
 	populated := 0
@@ -216,11 +225,13 @@ func validateSubagentTrajectoryPayload(payload any) (error, bool) {
 func validateSystemTrajectoryPayload(payload any) (error, bool) {
 	switch value := payload.(type) {
 	case *TrajectoryArtifactEmitted:
-		return validateIdentifier("emitted artifact id", value.ArtifactID), true
+		return validateEmittedArtifact(value), true
 	case *TrajectoryAgentLivenessChanged:
 		return value.Liveness.Validate(), true
 	case *TrajectoryProviderLifecycleChanged:
 		return value.Lifecycle.Validate(), true
+	case *TrajectoryValidationRecorded:
+		return value.Validation.Validate(), true
 	case *TrajectoryModelRerouted:
 		return value.Reroute.Validate(), true
 	default:
@@ -374,6 +385,16 @@ func validateFileChangeOutcome(payload *TrajectoryFileChangeCompleted) error {
 		return fmt.Errorf("unsupported file change outcome %q", payload.Outcome)
 	}
 	return nil
+}
+
+func validateEmittedArtifact(payload *TrajectoryArtifactEmitted) error {
+	if err := validateIdentifier("emitted artifact id", payload.ArtifactID); err != nil {
+		return err
+	}
+	if !validArtifactKind(payload.Kind) {
+		return fmt.Errorf("emitted artifact %s has unsupported kind %q", payload.ArtifactID, payload.Kind)
+	}
+	return validateTrimmedText("emitted artifact title", payload.Title)
 }
 
 func validateStartedSubagent(payload *TrajectorySubagentStarted) error {
@@ -684,7 +705,8 @@ func validateApprovalResolutionDecision(resolution TrajectoryApprovalResolution)
 	case TrajectoryApprovalDecisionApproved,
 		TrajectoryApprovalDecisionApprovedForSession,
 		TrajectoryApprovalDecisionDenied,
-		TrajectoryApprovalDecisionCancelled:
+		TrajectoryApprovalDecisionCancelled,
+		TrajectoryApprovalDecisionSuperseded:
 		return validateApprovalResolutionWithoutAnswer(resolution)
 	case TrajectoryApprovalDecisionAnswered:
 		return validateAnsweredApprovalResolution(resolution)
@@ -778,106 +800,43 @@ func (lifecycle ProviderLifecycle) Validate() error {
 		return fmt.Errorf("unsupported provider lifecycle provider %q", lifecycle.Provider)
 	}
 	switch lifecycle.Status {
-	case ProviderLifecycleStarting,
-		ProviderLifecycleReady,
+	case ProviderLifecycleReady,
 		ProviderLifecycleRestarting,
 		ProviderLifecycleUnavailable,
 		ProviderLifecycleClosed:
 	default:
 		return fmt.Errorf("unsupported provider lifecycle status %q", lifecycle.Status)
 	}
-	if lifecycle.Status == ProviderLifecycleUnavailable && strings.TrimSpace(lifecycle.Message) == "" {
-		return fmt.Errorf("unavailable provider lifecycle requires message")
+	if !validProviderLifecycleReason(lifecycle.Reason) {
+		return fmt.Errorf("unsupported provider lifecycle reason %q", lifecycle.Reason)
+	}
+	if lifecycle.Status != providerLifecycleStatusForReason(lifecycle.Reason) {
+		return fmt.Errorf(
+			"provider lifecycle reason %q cannot produce status %q",
+			lifecycle.Reason,
+			lifecycle.Status,
+		)
 	}
 	return nil
 }
 
-func trajectoryKindRequiresTurn(kind TrajectoryEventKind) bool {
-	switch kind {
-	case TrajectoryEventProviderLifecycleChanged:
-		return false
-	case TrajectoryEventUserInputAccepted,
-		TrajectoryEventTurnQueued,
-		TrajectoryEventTurnPromoted,
-		TrajectoryEventTurnStarted,
-		TrajectoryEventTurnSteered,
-		TrajectoryEventTurnInterrupted,
-		TrajectoryEventTurnCompleted,
-		TrajectoryEventTurnFailed,
-		TrajectoryEventAgentPublicTextDelta,
-		TrajectoryEventAgentMessageCompleted,
-		TrajectoryEventPublicReasoningSummaryUpdated,
-		TrajectoryEventPlanChanged,
-		TrajectoryEventActivityStarted,
-		TrajectoryEventActivityProgressed,
-		TrajectoryEventActivityCompleted,
-		TrajectoryEventActivityFailed,
-		TrajectoryEventFileChangeProposed,
-		TrajectoryEventFileChangeCompleted,
-		TrajectoryEventApprovalRequested,
-		TrajectoryEventApprovalResolved,
-		TrajectoryEventSubagentStarted,
-		TrajectoryEventSubagentUpdated,
-		TrajectoryEventSubagentCompleted,
-		TrajectoryEventArtifactEmitted,
-		TrajectoryEventAgentLivenessChanged,
-		TrajectoryEventModelRerouted:
-		return true
-	default:
-		return false
-	}
-}
-
-func validTrajectoryActor(actor TrajectoryActor) bool {
-	switch actor {
-	case TrajectoryActorUser, TrajectoryActorAgent, TrajectoryActorProvider, TrajectoryActorSystem, TrajectoryActorMaster:
-		return true
-	default:
-		return false
-	}
-}
-
-func validTurnInterruptionReason(reason TurnInterruptionReason) bool {
+func providerLifecycleStatusForReason(reason ProviderLifecycleReason) ProviderLifecycleStatus {
 	switch reason {
-	case TurnInterruptionUserRequested,
-		TurnInterruptionProviderInterrupted,
-		TurnInterruptionRuntimeShutdown,
-		TurnInterruptionReconciliation:
-		return true
+	case ProviderLifecycleReasonThreadIdle,
+		ProviderLifecycleReasonThreadActive,
+		ProviderLifecycleReasonEnvironmentConnected:
+		return ProviderLifecycleReady
+	case ProviderLifecycleReasonTurnRetrying:
+		return ProviderLifecycleRestarting
+	case ProviderLifecycleReasonSessionFailed,
+		ProviderLifecycleReasonTurnFailed,
+		ProviderLifecycleReasonThreadNotLoaded,
+		ProviderLifecycleReasonThreadSystemError,
+		ProviderLifecycleReasonEnvironmentDisconnected:
+		return ProviderLifecycleUnavailable
+	case ProviderLifecycleReasonThreadClosed:
+		return ProviderLifecycleClosed
 	default:
-		return false
-	}
-}
-
-func validAgentLivenessReason(reason AgentLivenessReason) bool {
-	switch reason {
-	case AgentLivenessReasonProviderRefPending,
-		AgentLivenessReasonProviderTurnLinked,
-		AgentLivenessReasonProviderInactive,
-		AgentLivenessReasonAttachmentMissing,
-		AgentLivenessReasonTurnTerminal,
-		AgentLivenessReasonWakeRecheck,
-		AgentLivenessReasonSnapshotLoad,
-		AgentLivenessReasonStreamResync,
-		AgentLivenessReasonUserRetry,
-		AgentLivenessReasonProviderRestarted,
-		AgentLivenessReasonProviderUnavailable,
-		AgentLivenessReasonTurnNotFound:
-		return true
-	default:
-		return false
-	}
-}
-
-func subagentStatusTerminal(status SubagentStatus) bool {
-	switch status {
-	case SubagentStatusInterrupted,
-		SubagentStatusCompleted,
-		SubagentStatusErrored,
-		SubagentStatusShutdown,
-		SubagentStatusNotFound:
-		return true
-	default:
-		return false
+		return ""
 	}
 }

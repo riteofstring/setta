@@ -35,10 +35,9 @@ type ConversationRouterContextSource interface {
 }
 
 type ConversationRouteInput struct {
-	Sequence      int                                    `json:"sequence"`
-	Text          string                                 `json:"text"`
-	Modality      conversation.ConversationInputModality `json:"modality"`
-	HasSourcePane bool                                   `json:"hasSourcePane"`
+	Sequence int                                    `json:"sequence"`
+	Text     string                                 `json:"text"`
+	Modality conversation.ConversationInputModality `json:"modality"`
 }
 
 type ConversationRouteInputExchange struct {
@@ -233,10 +232,9 @@ func conversationRouteInputExchange(
 
 func conversationRouteInput(input conversation.AcceptedConversationInput) ConversationRouteInput {
 	return ConversationRouteInput{
-		Sequence:      input.Sequence,
-		Text:          input.Input.Text,
-		Modality:      input.Input.Modality,
-		HasSourcePane: input.Input.SourcePaneID != nil,
+		Sequence: input.Sequence,
+		Text:     input.Input.Text,
+		Modality: input.Input.Modality,
 	}
 }
 
@@ -244,6 +242,10 @@ func conversationRouteAuthoritativeContext(
 	source conversation.ConversationRouterContextSource,
 ) ConversationRouteAuthoritativeContext {
 	current := source.CurrentTurn
+	workspaceID := ""
+	if source.Conversation.WorkspaceID != nil {
+		workspaceID = *source.Conversation.WorkspaceID
+	}
 	var instructions *CurrentInstructions
 	if current.Turn != nil {
 		instructions = &CurrentInstructions{
@@ -257,7 +259,7 @@ func conversationRouteAuthoritativeContext(
 	return ConversationRouteAuthoritativeContext{
 		Conversation: ConversationIdentity{
 			ConversationID:           source.Conversation.ID,
-			WorkspaceID:              source.Conversation.WorkspaceID,
+			WorkspaceID:              workspaceID,
 			Title:                    source.Conversation.Title,
 			TopicDescriptor:          source.Conversation.TopicDescriptor,
 			NarratorTopicDescriptor:  source.NarratorState.TopicDescriptor,
@@ -489,7 +491,6 @@ func sanitizeConversationRouteTrajectory(
 	event conversation.TrajectoryEvent,
 ) conversation.TrajectoryEvent {
 	event.ProviderEventID = nil
-	event.ProviderThreadID = nil
 	event.ProviderTurnID = nil
 	if event.TurnStarted != nil {
 		payload := *event.TurnStarted
@@ -606,6 +607,7 @@ func conversationRouteContextAudit(
 	source conversation.ConversationRouterContextSource,
 ) conversation.ConversationRouteContextAudit {
 	audit := conversation.ConversationRouteContextAudit{
+		DecisionAuthority:            conversation.ConversationRouteDecisionAuthorityNarratorModel,
 		InputSequence:                source.Work.Input.Sequence,
 		LatestTrajectorySequence:     source.Conversation.LastTrajectorySequence,
 		AvailableTrajectoryRange:     cloneRouteRange(bundle.AvailableTrajectoryRange),

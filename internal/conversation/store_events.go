@@ -32,13 +32,33 @@ func (store *Store) SubscribeEvents(
 	workspaceID string,
 	conversationID string,
 ) (ConversationEventSubscription, error) {
+	return store.subscribeEvents(cursor, &workspaceID, conversationID)
+}
+
+func (store *Store) SubscribeEventsByID(
+	cursor ConversationEventCursor,
+	conversationID string,
+) (ConversationEventSubscription, error) {
+	return store.subscribeEvents(cursor, nil, conversationID)
+}
+
+func (store *Store) subscribeEvents(
+	cursor ConversationEventCursor,
+	workspaceID *string,
+	conversationID string,
+) (ConversationEventSubscription, error) {
 	if store == nil {
 		return nil, errors.New("conversation store is required")
 	}
 	if err := cursor.Validate(conversationID); err != nil {
 		return nil, err
 	}
-	snapshot, err := store.ReadSnapshot(context.Background(), workspaceID, conversationID)
+	snapshot, err := store.readSnapshot(
+		context.Background(),
+		workspaceID,
+		conversationID,
+		"subscribe conversation events",
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +189,7 @@ func conversationResyncEvent(
 
 func conversationEventFromCommitted(
 	committed CommittedEvent,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 ) (ConversationEvent, error) {
 	payload, err := decodeConversationEventPayload(ConversationEventType(committed.Kind), committed.Payload)
@@ -212,7 +232,6 @@ var conversationEventPayloadConstructors = map[ConversationEventType]func() Conv
 	ConversationEventTypeConversationUpdated:        func() ConversationEventPayload { return &ConversationUpdatedEventPayload{} },
 	ConversationEventTypeTurnUpdated:                func() ConversationEventPayload { return &ConversationTurnUpdatedEventPayload{} },
 	ConversationEventTypeQueueUpdated:               func() ConversationEventPayload { return &ConversationQueueUpdatedEventPayload{} },
-	ConversationEventTypeThreadBindingUpdated:       func() ConversationEventPayload { return &ConversationThreadBindingUpdatedEventPayload{} },
 	ConversationEventTypeTrajectoryAppended:         func() ConversationEventPayload { return &ConversationTrajectoryAppendedEventPayload{} },
 	ConversationEventTypeArtifactCreated:            func() ConversationEventPayload { return &ConversationArtifactCreatedEventPayload{} },
 	ConversationEventTypeNarratorStateUpdated:       func() ConversationEventPayload { return &ConversationNarratorStateUpdatedEventPayload{} },

@@ -16,6 +16,7 @@ describe("conversation IPC handlers", () => {
     const snapshot = { conversation: { id: "conversation_api" } };
     const backendMethods = {
       archiveTopicConversation: vi.fn(async () => snapshot),
+      bindTopicConversationFolder: vi.fn(async () => snapshot),
       disposeSideConversation: vi.fn(async () => snapshot),
       discardConversationInput: vi.fn(async () => ({
         clarificationReply: null,
@@ -86,19 +87,6 @@ describe("conversation IPC handlers", () => {
         status: "accepted" as const,
       })),
       submitTopicConversationApproval: vi.fn(async () => snapshot),
-      updateTopicConversationPresentation: vi.fn(async () => ({
-        conversationId: "conversation_api",
-        narratorSpeechEnabled: true,
-        narratorVoiceReuse: null,
-        narratorVoiceSelection: "exact" as const,
-        paletteReuse: null,
-        paletteSelection: "auto_distinct" as const,
-        requestedNarratorVoiceId: "cedar" as const,
-        requestedPaletteId: null,
-        resolvedNarratorVoiceId: "cedar" as const,
-        resolvedPaletteId: "sky" as const,
-        updatedAt: "2026-07-12T18:00:00Z",
-      })),
     };
     const backend = backendMethods as unknown as BackendClient;
     const conversationEvents = {
@@ -126,7 +114,6 @@ describe("conversation IPC handlers", () => {
     };
     const sideDisposeRequest = {
       parentConversationId: "conversation_api",
-      parentPaneId: "pane_api",
       sideConversationId: "side_api",
       workspaceId: "workspace_api",
     };
@@ -137,6 +124,7 @@ describe("conversation IPC handlers", () => {
       workspaceId: "workspace_api",
     });
     await invokeHandler(handlers, ipcChannels.conversationArchiveTopic, target);
+    await invokeHandler(handlers, ipcChannels.conversationBindFolder, target);
     await invokeHandler(handlers, ipcChannels.conversationReadSnapshot, target);
     await invokeHandler(handlers, ipcChannels.conversationStopTurn, target);
     const inputRequest = conversationInputRequest();
@@ -153,18 +141,6 @@ describe("conversation IPC handlers", () => {
       ...target,
       response: { answers: [], approvalId: "approval", decision: "approved", response: "" },
     });
-    const presentationRequest = {
-      ...target,
-      settings: {
-        narratorSpeechEnabled: false,
-        narratorVoiceSelection: {
-          requestedVoiceId: "cedar" as const,
-          selection: "exact" as const,
-        },
-        paletteSelection: { requestedPaletteId: "violet" as const, selection: "exact" as const },
-      },
-    };
-    await invokeHandler(handlers, ipcChannels.conversationUpdatePresentation, presentationRequest);
     const subscription = {
       ...target,
       cursor: { sequence: 4, streamId: "conversation:conversation_api" },
@@ -185,6 +161,7 @@ describe("conversation IPC handlers", () => {
       workspaceId: "workspace_api",
     });
     expect(backendMethods.archiveTopicConversation).toHaveBeenCalledWith(target);
+    expect(backendMethods.bindTopicConversationFolder).toHaveBeenCalledWith(target);
     expect(backendMethods.readConversationSnapshot).toHaveBeenCalledWith(target);
     expect(backendMethods.stopTopicConversationTurn).toHaveBeenCalledWith(target);
     expect(backendMethods.submitConversationInput).toHaveBeenCalledWith(inputRequest);
@@ -196,9 +173,6 @@ describe("conversation IPC handlers", () => {
     );
     expect(backendMethods.retryConversationInput).toHaveBeenCalledWith(inputStateRequest);
     expect(backendMethods.discardConversationInput).toHaveBeenCalledWith(inputStateRequest);
-    expect(backendMethods.updateTopicConversationPresentation).toHaveBeenCalledWith(
-      presentationRequest,
-    );
     expect(conversationEvents.subscribe).toHaveBeenCalledWith(
       sender,
       subscription,
@@ -215,9 +189,8 @@ function conversationInputRequest(): SubmitConversationInputRequest {
       id: "input_api",
       modality: "voice",
       replyToInputId: null,
-      sourcePaneId: "pane_api",
       submittedAt: "2026-07-12T18:00:00Z",
-      text: "Route this pane input",
+      text: "Route this conversation input",
     },
   };
 }
