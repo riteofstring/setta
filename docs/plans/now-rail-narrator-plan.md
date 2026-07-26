@@ -192,21 +192,34 @@ Director snapshot; Go director and conversation suites.
 
 ## Phase 5 — The Director reads what the narrator wrote
 
-`read_activity` and `list_workstreams` return each workstream's recent narrator
-milestones alongside its status, so the Director can answer a question about a
-conversation from the same sentences the user is reading in the rail.
+Inspection has two levels, because a glance and a question are different needs
+and cost different amounts.
 
-This is the second half of Phase 4's contract change and lands with it, because
-the milestones are already on the workstream record by then; only the tool
-receipt has to carry them.
+**Always, free: milestones in the receipts.** `read_activity` and
+`list_workstreams` return each workstream's recent narrator milestones
+alongside its status. The milestones are already on the workstream record after
+Phase 4, so only the tool receipt has to carry them, and every Director turn
+gets an account of every workstream without a single extra model call.
 
-Nothing else about the toolbox changes. The Director does not gain a transcript
-reader: a transcript is what the narrator was built to compress, and handing the
-Director the raw trajectory would recreate the graph dump one layer down.
+**On demand, one call: ask the narrator.** A new `ask_conversation` tool takes
+a workstream and a question and returns the narrator's status reply — "current
+state, evidence, and blocker or next step when relevant". The entrypoint
+already exists: `narration/service.go:183` exposes `AskRoutedStatus`, with
+`AskRoutedFolderlessStatus` beside it, and the trigger it raises is named
+`explicit_status_requested`. Only the conversation router calls it today; the
+Director has no tool that does.
+
+**The Director does not get the raw trajectory.** Not because it should not
+inspect — it should, and this phase is how — but because the narrator has that
+conversation's context already materialized and answers *the question that was
+asked*. "Why did the deploy fail?" gets an answer about the failure. A
+transcript would make the Director re-derive, worse and at length, what the
+narrator derives well, and would put the graph dump back one layer down.
 
 **Verification.** A driven session where the Director is asked what a running
-workstream is doing and answers with the milestone rather than with its status;
-Go director suite.
+workstream is doing and answers from the milestone without a tool call, then
+asked something the milestone does not cover and answers from
+`ask_conversation`; Go director and narration suites.
 
 ## Phase 6 — The rail is only what the narrator said
 
