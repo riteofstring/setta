@@ -341,11 +341,7 @@ function SpeechPlaybackMuteToggle({
       pressed={muted}
       testId="director-speech-mute-toggle"
     >
-      {muted ? (
-        <VolumeX aria-hidden="true" size={16} />
-      ) : (
-        <Volume2 aria-hidden="true" size={16} />
-      )}
+      {muted ? <VolumeX aria-hidden="true" size={16} /> : <Volume2 aria-hidden="true" size={16} />}
     </IconButton>
   );
 }

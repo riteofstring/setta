@@ -69,11 +69,7 @@ export function DirectorReply({
       data-empty={text === "" && !answering ? "true" : "false"}
       role="status"
     >
-      <p
-        className="director-reply-text"
-        data-expanded={expanded ? "true" : "false"}
-        ref={textRef}
-      >
+      <p className="director-reply-text" data-expanded={expanded ? "true" : "false"} ref={textRef}>
         {text}
       </p>
       {expanded || clamped ? (
