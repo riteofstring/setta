@@ -292,6 +292,13 @@ export function graphFitFrame(viewportWidth: number, viewportHeight: number): Gr
  * Applies the shader's barrel curvature to a screen point. Labels, reticles,
  * and pointer hit-tests all go through this so they land on the warped node
  * rather than on where an unwarped projection would have put it.
+ *
+ * The post pass warps by sampling the scene at `t·(1 + |t|²·barrel)` for the
+ * output position `t`, so the screen position of a scene point is that map's
+ * inverse. Approximating the inverse with the scene radius — the mockup's
+ * shortcut — was off by up to sixteen pixels in the corners, which is why
+ * labels drifted from their nodes toward the edges; three fixed-point
+ * iterations solve it to under a tenth of a pixel.
  */
 export function graphWarpToScreen(
   x: number,
@@ -301,9 +308,13 @@ export function graphWarpToScreen(
 ): { readonly x: number; readonly y: number } {
   const centeredX = x / Math.max(1, viewportWidth) - 0.5;
   const centeredY = y / Math.max(1, viewportHeight) - 0.5;
-  const factor = 1 / (1 + (centeredX * centeredX + centeredY * centeredY) * graphBarrel);
+  const radiusSquared = centeredX * centeredX + centeredY * centeredY;
+  let factor = 1 + graphBarrel * radiusSquared;
+  factor = 1 + (graphBarrel * radiusSquared) / (factor * factor);
+  factor = 1 + (graphBarrel * radiusSquared) / (factor * factor);
+  factor = 1 + (graphBarrel * radiusSquared) / (factor * factor);
   return {
-    x: (centeredX * factor + 0.5) * viewportWidth,
-    y: (centeredY * factor + 0.5) * viewportHeight,
+    x: (centeredX / factor + 0.5) * viewportWidth,
+    y: (centeredY / factor + 0.5) * viewportHeight,
   };
 }

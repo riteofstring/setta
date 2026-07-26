@@ -75,11 +75,21 @@ vec2 nodeState(int index){
 }
 `;
 
-/** Applies the same CRT barrel the post pass uses, in clip space. */
+/**
+ * Applies the same CRT barrel the post pass uses, in clip space. The glyph
+ * pass draws onto the already-warped output, so this is the post map's exact
+ * inverse — the same fixed-point solve as graphWarpToScreen, because an
+ * approximate inverse put glyphs off their node bodies toward the edges.
+ */
 const barrelChunk = glsl`
 vec2 barrelClip(vec2 clip){
   vec2 c=clip*0.5;
-  return (c/(1.0+dot(c,c)*${barrel}))*2.0;
+  float r2=dot(c,c);
+  float k=1.0+${barrel}*r2;
+  k=1.0+${barrel}*r2/(k*k);
+  k=1.0+${barrel}*r2/(k*k);
+  k=1.0+${barrel}*r2/(k*k);
+  return (c/k)*2.0;
 }
 `;
 
@@ -502,7 +512,10 @@ void main(){
   vec2 fromCenter=uvw-0.5;
   vec2 cell=floor(fc/px);
   vec2 base=(cell*px+px*0.5)/u_res;
-  vec2 ab=fromCenter*(0.012+u_glitch*0.03);
+  // Gentler than the mockup's 0.012: the fringe grows with distance from
+  // centre, and at the mockup's strength the grid's outer tiles — which live
+  // exactly there — smeared into unreadable rainbows.
+  vec2 ab=fromCenter*(0.0045+u_glitch*0.03);
   vec3 s;
   s.r=texture(u_tex,base+ab).r;
   s.g=texture(u_tex,base).g;
