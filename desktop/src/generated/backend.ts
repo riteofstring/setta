@@ -16,8 +16,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 107;
-export const backendContractSchemaHash = "sha256:c5956a412bb328de6995b11716457bb56b7bbcffc50f33e3b2ebf9b1052e6886";
+export const backendProtocolVersion = 108;
+export const backendContractSchemaHash = "sha256:245b1356f6328d544d5591e2a622a71ce51bad50178dac1c22e3f8f094409064";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -2925,6 +2925,13 @@ export interface WorkstreamMilestone {
   occurredAt: string;
 }
 
+export interface WorkstreamNarration {
+  id: string;
+  kind: NarrationEventKind;
+  text: string;
+  createdAt: string;
+}
+
 export interface Workstream {
   id: string;
   title: string;
@@ -2938,6 +2945,7 @@ export interface Workstream {
   unresolvedResourceRequestCount: number;
   artifactCount: number;
   lastMilestone: WorkstreamMilestone | null;
+  narration: WorkstreamNarration[];
   createdAt: string;
   updatedAt: string;
 }
@@ -5792,9 +5800,20 @@ export function decodeWorkstreamMilestone(value: unknown): WorkstreamMilestone {
   };
 }
 
+export function decodeWorkstreamNarration(value: unknown): WorkstreamNarration {
+  const record = assertRecord(value, "WorkstreamNarration");
+  assertKnownFields(record, "WorkstreamNarration", ["id", "kind", "text", "createdAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "WorkstreamNarration"), "WorkstreamNarration.id"),
+    kind: decodeNarrationEventKind(requireField(record, "kind", "WorkstreamNarration"), "WorkstreamNarration.kind"),
+    text: decodeString(requireField(record, "text", "WorkstreamNarration"), "WorkstreamNarration.text"),
+    createdAt: decodeString(requireField(record, "createdAt", "WorkstreamNarration"), "WorkstreamNarration.createdAt"),
+  };
+}
+
 export function decodeWorkstream(value: unknown): Workstream {
   const record = assertRecord(value, "Workstream");
-  assertKnownFields(record, "Workstream", ["id", "title", "status", "parentId", "resourceScope", "resourceBindings", "activeRunId", "queuedRunCount", "unresolvedApprovalCount", "unresolvedResourceRequestCount", "artifactCount", "lastMilestone", "createdAt", "updatedAt"]);
+  assertKnownFields(record, "Workstream", ["id", "title", "status", "parentId", "resourceScope", "resourceBindings", "activeRunId", "queuedRunCount", "unresolvedApprovalCount", "unresolvedResourceRequestCount", "artifactCount", "lastMilestone", "narration", "createdAt", "updatedAt"]);
   return {
     id: decodeString(requireField(record, "id", "Workstream"), "Workstream.id"),
     title: decodeString(requireField(record, "title", "Workstream"), "Workstream.title"),
@@ -5808,6 +5827,7 @@ export function decodeWorkstream(value: unknown): Workstream {
     unresolvedResourceRequestCount: decodeInteger(requireField(record, "unresolvedResourceRequestCount", "Workstream"), "Workstream.unresolvedResourceRequestCount"),
     artifactCount: decodeInteger(requireField(record, "artifactCount", "Workstream"), "Workstream.artifactCount"),
     lastMilestone: decodeNullable(requireField(record, "lastMilestone", "Workstream"), "Workstream.lastMilestone", (item) => decodeWorkstreamMilestone(item)),
+    narration: decodeArray(requireField(record, "narration", "Workstream"), "Workstream.narration", (item) => decodeWorkstreamNarration(item)),
     createdAt: decodeString(requireField(record, "createdAt", "Workstream"), "Workstream.createdAt"),
     updatedAt: decodeString(requireField(record, "updatedAt", "Workstream"), "Workstream.updatedAt"),
   };

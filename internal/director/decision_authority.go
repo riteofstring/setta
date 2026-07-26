@@ -66,6 +66,10 @@ type WorkstreamDecisionTarget struct {
 	ActiveRunID    *string               `json:"activeRunId"`
 	QueuedRunCount int                   `json:"queuedRunCount"`
 	LastMilestone  *DecisionMilestone    `json:"lastMilestone"`
+	// Narration is the narrator's own account of this workstream's work,
+	// newest last. It is what lets the Director answer a question about a
+	// conversation with something other than its status.
+	Narration []WorkstreamNarration `json:"narration"`
 	// AllowedDecisionKinds is the only action authority this target carries. It
 	// holds workstream-scoped kinds only: creating a workstream is app-scoped
 	// authority, because every workstream the Director creates is independent.

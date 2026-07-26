@@ -222,6 +222,7 @@ func newDirectorConversationOnCarriers(
 		store,
 		carriers,
 		provider,
+		stubDirectorNarrator{},
 		WithDirectorConversationClock(harness.clock),
 		WithDirectorConversationIdentity(harness.identity),
 	)

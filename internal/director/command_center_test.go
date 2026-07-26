@@ -55,6 +55,7 @@ func newSubmittingCommandCenter(
 		newDirectorConversationStoreForTest(),
 		conversation.NewCarrierRegistry(),
 		provider,
+		stubDirectorNarrator{},
 		WithDirectorConversationClock(harness.clock),
 		WithDirectorConversationIdentity(harness.identity),
 	)

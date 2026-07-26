@@ -214,6 +214,21 @@ func (state *registryState) applyAggregateDelta(record Workstream, sign int) {
 	state.aggregates.ArtifactCount += sign * record.ArtifactCount
 }
 
+// conversationForWorkstream is the inverse of the conversation index: which
+// conversation a workstream's work runs in. The record does not carry it,
+// because the renderer has never needed it; the Director does, to ask that
+// conversation a question.
+func (state *registryState) conversationForWorkstream(workstreamID string) (string, error) {
+	workstream, exists := state.workstreams[workstreamID]
+	if !exists {
+		return "", fmt.Errorf("workstream %s is not tracked", workstreamID)
+	}
+	if workstream.conversationID == "" {
+		return "", fmt.Errorf("workstream %s has no conversation", workstreamID)
+	}
+	return workstream.conversationID, nil
+}
+
 func (state *registryState) workstreamForConversation(conversationID string) (*registryWorkstream, error) {
 	workstreamID, known := state.byConversation[conversationID]
 	if !known {

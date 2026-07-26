@@ -179,6 +179,7 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		conversationService,
 		agentServices.globalRoleResolver,
 		agentServices.agentRuntime,
+		narratorService,
 	)
 	if err != nil {
 		shutdownRuntimeConversationServices(

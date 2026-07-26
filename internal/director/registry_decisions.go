@@ -143,6 +143,17 @@ type DirectorActivity struct {
 
 // Activity reads the app-wide activity under one lock, so the counts and the
 // outstanding requests beside them describe the same moment.
+// ConversationForWorkstream names the conversation one workstream's work runs
+// in, so a caller can address that conversation directly.
+func (registry *Registry) ConversationForWorkstream(workstreamID string) (string, error) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	if err := registry.requireAvailableLocked(); err != nil {
+		return "", err
+	}
+	return registry.state.conversationForWorkstream(workstreamID)
+}
+
 func (registry *Registry) Activity() (DirectorActivity, error) {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
@@ -238,6 +249,7 @@ func (workstream *registryWorkstream) decisionTarget() (WorkstreamDecisionTarget
 		ActiveRunID:          copyOptionalString(record.ActiveRunID),
 		QueuedRunCount:       record.QueuedRunCount,
 		LastMilestone:        decisionMilestoneFor(record.LastMilestone),
+		Narration:            append([]WorkstreamNarration{}, record.Narration...),
 		AllowedDecisionKinds: targetDecisionKinds(record, failures),
 		RecoverableFailures:  failures,
 	}

@@ -13,6 +13,8 @@ package director
 import (
 	"fmt"
 	"path/filepath"
+
+	"setta/internal/conversation"
 )
 
 // DirectorContractSchemaVersion versions every contract in this package
@@ -140,9 +142,34 @@ type Workstream struct {
 	UnresolvedResourceRequestCount int                         `json:"unresolvedResourceRequestCount"`
 	ArtifactCount                  int                         `json:"artifactCount"`
 	LastMilestone                  *WorkstreamMilestone        `json:"lastMilestone"`
+	// Narration is what the narrator has said about this workstream's work,
+	// newest last and bounded. It is not LastMilestone: that belongs to the
+	// Director's decision authority and answers a different question — what the
+	// Director decided, rather than what the work has come to.
+	Narration []WorkstreamNarration `json:"narration"`
 	CreatedAt                      string                      `json:"createdAt"`
 	UpdatedAt                      string                      `json:"updatedAt"`
 }
+
+/*
+ * One thing the narrator said, in its own sentence.
+ *
+ * Only the kinds that speak about the work land here. A topic descriptor names
+ * the conversation rather than reporting on it, and a status reply answers a
+ * question somebody asked, so it belongs to whoever asked rather than to every
+ * reader of the rail.
+ */
+type WorkstreamNarration struct {
+	ID        string                          `json:"id"`
+	Kind      conversation.NarrationEventKind `json:"kind"`
+	Text      string                          `json:"text"`
+	CreatedAt string                          `json:"createdAt"`
+}
+
+// MaxWorkstreamNarration bounds what one workstream carries. The rail shows a
+// few sentences; a record that grew without bound would be a transcript, which
+// is the thing narration exists to compress.
+const MaxWorkstreamNarration = 3
 
 // WorkstreamDetailLevel is the projection depth the registry assigned to one
 // workstream. It is derived from selection and recency, never persisted as

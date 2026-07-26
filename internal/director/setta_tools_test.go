@@ -62,7 +62,7 @@ func TestDirectorDeliveryToolsExposeWorkspaceRequirements(t *testing.T) {
 	harness := newRegistryHarness(t)
 	registry := harness.start()
 	executor := newExecutorForTest(t, harness, registry, &recordedExecution{})
-	toolbox, err := NewSettaToolbox(registry, executor)
+	toolbox, err := NewSettaToolbox(registry, executor, stubDirectorNarrator{})
 	if err != nil {
 		t.Fatalf("NewSettaToolbox: %v", err)
 	}
@@ -453,4 +453,17 @@ func TestDirectorArchivesOnlySettledWork(t *testing.T) {
 	if len(execution.archives) != 1 || execution.archives[0].ConversationID != "conversation-parser" {
 		t.Fatalf("execution archives = %+v", execution.archives)
 	}
+}
+
+
+// stubDirectorNarrator stands in for the narrator the toolbox asks. These tests
+// are about the authority a tool call carries, not about what a narrator says.
+type stubDirectorNarrator struct{}
+
+func (stubDirectorNarrator) AskConversationStatus(
+	_ context.Context,
+	_ string,
+	_ string,
+) (string, error) {
+	return "The run is waiting on an approval before it can push.", nil
 }
