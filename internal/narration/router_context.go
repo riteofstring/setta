@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"setta/internal/conversation"
+	"setta/internal/conversation/artifactdoc"
 )
 
 const (
@@ -35,10 +37,9 @@ type ConversationRouterContextSource interface {
 }
 
 type ConversationRouteInput struct {
-	Sequence      int                                    `json:"sequence"`
-	Text          string                                 `json:"text"`
-	Modality      conversation.ConversationInputModality `json:"modality"`
-	HasSourcePane bool                                   `json:"hasSourcePane"`
+	Sequence int                                    `json:"sequence"`
+	Text     string                                 `json:"text"`
+	Modality conversation.ConversationInputModality `json:"modality"`
 }
 
 type ConversationRouteInputExchange struct {
@@ -67,10 +68,9 @@ type ConversationRouteSubagent struct {
 }
 
 type ConversationRouteArtifact struct {
-	ID      string                    `json:"id"`
-	Kind    conversation.ArtifactKind `json:"kind"`
-	Title   string                    `json:"title"`
-	Summary string                    `json:"summary"`
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Summary string `json:"summary"`
 }
 
 type ConversationRouteAuthoritativeContext struct {
@@ -233,10 +233,9 @@ func conversationRouteInputExchange(
 
 func conversationRouteInput(input conversation.AcceptedConversationInput) ConversationRouteInput {
 	return ConversationRouteInput{
-		Sequence:      input.Sequence,
-		Text:          input.Input.Text,
-		Modality:      input.Input.Modality,
-		HasSourcePane: input.Input.SourcePaneID != nil,
+		Sequence: input.Sequence,
+		Text:     input.Input.Text,
+		Modality: input.Input.Modality,
 	}
 }
 
@@ -244,6 +243,10 @@ func conversationRouteAuthoritativeContext(
 	source conversation.ConversationRouterContextSource,
 ) ConversationRouteAuthoritativeContext {
 	current := source.CurrentTurn
+	workspaceID := ""
+	if source.Conversation.WorkspaceID != nil {
+		workspaceID = *source.Conversation.WorkspaceID
+	}
 	var instructions *CurrentInstructions
 	if current.Turn != nil {
 		instructions = &CurrentInstructions{
@@ -257,7 +260,7 @@ func conversationRouteAuthoritativeContext(
 	return ConversationRouteAuthoritativeContext{
 		Conversation: ConversationIdentity{
 			ConversationID:           source.Conversation.ID,
-			WorkspaceID:              source.Conversation.WorkspaceID,
+			WorkspaceID:              workspaceID,
 			Title:                    source.Conversation.Title,
 			TopicDescriptor:          source.Conversation.TopicDescriptor,
 			NarratorTopicDescriptor:  source.NarratorState.TopicDescriptor,
@@ -322,7 +325,6 @@ func conversationRouteArtifacts(artifacts []conversation.Artifact) []Conversatio
 	for _, artifact := range artifacts {
 		result = append(result, ConversationRouteArtifact{
 			ID:      artifact.ID,
-			Kind:    artifact.Kind,
 			Title:   artifact.Title,
 			Summary: conversationRouteArtifactSummary(artifact),
 		})
@@ -330,31 +332,21 @@ func conversationRouteArtifacts(artifacts []conversation.Artifact) []Conversatio
 	return result
 }
 
+// conversationRouteArtifactSummary says what the document is made of, which is
+// the part of an artifact the router can act on without reading its content.
+// The document already compiled before it was stored, so a compile failure here
+// is a corrupt row rather than model output.
 func conversationRouteArtifactSummary(artifact conversation.Artifact) string {
-	switch artifact.Kind {
-	case conversation.ArtifactKindMarkdown:
-		if artifact.Markdown == nil {
-			return "missing markdown payload"
-		}
-		return fmt.Sprintf("%d byte markdown payload", len(artifact.Markdown.Markdown))
-	case conversation.ArtifactKindTable:
-		if artifact.Table == nil {
-			return "missing table payload"
-		}
-		return fmt.Sprintf("%d column, %d row table payload", len(artifact.Table.Columns), len(artifact.Table.Rows))
-	case conversation.ArtifactKindBarChart:
-		if artifact.BarChart == nil {
-			return "missing bar chart payload"
-		}
-		return fmt.Sprintf("%d item bar chart payload", len(artifact.BarChart.Items))
-	case conversation.ArtifactKindFile:
-		if artifact.File == nil {
-			return "missing file payload"
-		}
-		return artifact.File.Path
-	default:
-		return "unsupported artifact payload"
+	document, err := artifactdoc.Compile(artifactdoc.SettaCatalogV1(), artifact.Document.Source)
+	if err != nil {
+		return "unreadable artifact document"
 	}
+	names := document.ComponentNames()
+	labels := make([]string, 0, len(names))
+	for _, name := range names {
+		labels = append(labels, string(name))
+	}
+	return fmt.Sprintf("%d byte document using %s", len(artifact.Document.Source), strings.Join(labels, ", "))
 }
 
 func fitConversationRouteContext(
@@ -489,7 +481,6 @@ func sanitizeConversationRouteTrajectory(
 	event conversation.TrajectoryEvent,
 ) conversation.TrajectoryEvent {
 	event.ProviderEventID = nil
-	event.ProviderThreadID = nil
 	event.ProviderTurnID = nil
 	if event.TurnStarted != nil {
 		payload := *event.TurnStarted
@@ -529,9 +520,6 @@ func sanitizeConversationRouteTrajectory(
 	event.ActivityStarted = sanitizeRouteStartedActivity(event.ActivityStarted)
 	event.ActivityCompleted = sanitizeRouteCompletedActivity(event.ActivityCompleted)
 	event.ActivityFailed = sanitizeRouteFailedActivity(event.ActivityFailed)
-	event.SubagentStarted = sanitizeRouteStartedSubagent(event.SubagentStarted)
-	event.SubagentUpdated = sanitizeRouteUpdatedSubagent(event.SubagentUpdated)
-	event.SubagentCompleted = sanitizeRouteCompletedSubagent(event.SubagentCompleted)
 	return event
 }
 
@@ -568,44 +556,12 @@ func sanitizeRouteFailedActivity(
 	return &cloned
 }
 
-func sanitizeRouteStartedSubagent(
-	payload *conversation.TrajectorySubagentStarted,
-) *conversation.TrajectorySubagentStarted {
-	if payload == nil {
-		return nil
-	}
-	cloned := *payload
-	cloned.Subagent.ProviderThreadID = ""
-	return &cloned
-}
-
-func sanitizeRouteUpdatedSubagent(
-	payload *conversation.TrajectorySubagentUpdated,
-) *conversation.TrajectorySubagentUpdated {
-	if payload == nil {
-		return nil
-	}
-	cloned := *payload
-	cloned.Subagent.ProviderThreadID = ""
-	return &cloned
-}
-
-func sanitizeRouteCompletedSubagent(
-	payload *conversation.TrajectorySubagentCompleted,
-) *conversation.TrajectorySubagentCompleted {
-	if payload == nil {
-		return nil
-	}
-	cloned := *payload
-	cloned.Subagent.ProviderThreadID = ""
-	return &cloned
-}
-
 func conversationRouteContextAudit(
 	bundle ConversationRouteContextBundle,
 	source conversation.ConversationRouterContextSource,
 ) conversation.ConversationRouteContextAudit {
 	audit := conversation.ConversationRouteContextAudit{
+		DecisionAuthority:            conversation.ConversationRouteDecisionAuthorityNarratorModel,
 		InputSequence:                source.Work.Input.Sequence,
 		LatestTrajectorySequence:     source.Conversation.LastTrajectorySequence,
 		AvailableTrajectoryRange:     cloneRouteRange(bundle.AvailableTrajectoryRange),

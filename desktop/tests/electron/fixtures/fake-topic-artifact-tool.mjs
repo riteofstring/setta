@@ -1,53 +1,58 @@
 export const languageCountTableArtifactArguments = {
-  columns: [
-    { key: "language", label: "Language" },
-    { key: "lines", label: "Lines" },
-  ],
-  kind: "table",
-  rows: [
-    ["Go", "34"],
-    ["TypeScript", "21"],
-    ["CSS", "8"],
-  ],
+  source: [
+    "root = Document([",
+    '  Heading("Language line counts"),',
+    '  Table([{key: "language", label: "Language"}, {key: "lines", label: "Lines"}], [["Go", "34"], ["TypeScript", "21"], ["CSS", "8"]])',
+    "])",
+  ].join("\n"),
   title: "Language line counts",
 };
 
 export const languageCountBarChartArtifactArguments = {
-  items: [
-    { label: "Go", value: 34, unit: "lines" },
-    { label: "TypeScript", value: 21, unit: "lines" },
-    { label: "CSS", value: 8, unit: "lines" },
-  ],
-  kind: "bar_chart",
+  source: [
+    "root = Document([",
+    '  BarChart([{name: "Lines", points: [{label: "Go", value: 34}, {label: "TypeScript", value: 21}, {label: "CSS", value: 8}]}], "Lines by language")',
+    "])",
+  ].join("\n"),
   title: "Language line count chart",
 };
 
 export const qualitativeMarkdownArtifactArguments = {
-  kind: "markdown",
-  markdown:
-    "## Release themes\n\n- Reliability work is complete.\n- Interface polish is ready for review.",
+  source: [
+    "root = Document([",
+    '  Markdown("## Release themes\\n\\n- Reliability work is complete.\\n- Interface polish is ready for review.")',
+    "])",
+  ].join("\n"),
   title: "Qualitative release notes",
 };
 
 export const numericComparisonArtifactArguments = {
-  items: [
-    { label: "North", value: 12, unit: "cases" },
-    { label: "South", value: 18, unit: "cases" },
-    { label: "West", value: 7, unit: "cases" },
-  ],
-  kind: "bar_chart",
+  source: [
+    "root = Document([",
+    '  BarChart([{name: "Cases", points: [{label: "North", value: 12}, {label: "South", value: 18}, {label: "West", value: 7}]}], "Cases by region")',
+    "])",
+  ].join("\n"),
   title: "Regional case comparison",
 };
 
-export const generatedFileArtifactArguments = {
-  description: "Generated policy memo",
-  kind: "file",
-  path: "/tmp/setta-artifact-policy-memo.md",
-  title: "Policy memo file",
+// A mixed document is the point of the composable format: one artifact carries
+// prose, a metric, a table, and a file reference rather than four artifacts.
+export const mixedDocumentArtifactArguments = {
+  source: [
+    "root = Document([",
+    '  Section("Summary", [',
+    '    Text("The policy memo is ready for review."),',
+    '    Metric("Sections", "4", "one per policy area", "neutral")',
+    "  ]),",
+    '  Table([{key: "area", label: "Area"}, {key: "owner", label: "Owner"}], [["Retention", "Platform"], ["Access", "Security"]], "Owners by policy area"),',
+    '  FileReference("docs/setta-artifact-policy-memo.md", "Generated policy memo")',
+    "])",
+  ].join("\n"),
+  title: "Policy memo",
 };
 
-export const incompleteTableArtifactArguments = {
-  kind: "table",
+export const incompleteArtifactArguments = {
+  title: "Language line counts",
 };
 
 export const artifactPolicyScenarios = [
@@ -67,9 +72,9 @@ export const artifactPolicyScenarios = [
     trigger: "supplied numeric comparison",
   },
   {
-    artifacts: [generatedFileArtifactArguments],
-    completion: "Completed supplied generated file.",
-    trigger: "supplied generated file",
+    artifacts: [mixedDocumentArtifactArguments],
+    completion: "Completed supplied mixed document.",
+    trigger: "supplied mixed document",
   },
   {
     artifacts: [],
@@ -77,9 +82,9 @@ export const artifactPolicyScenarios = [
     trigger: "supplied conversational answer",
   },
   {
-    artifacts: [incompleteTableArtifactArguments],
+    artifacts: [incompleteArtifactArguments],
     completion: "Completed supplied incomplete artifact after prose fallback.",
-    expectedFailureFields: ["title", "columns", "rows"],
+    expectedFailureFields: ["source"],
     trigger: "supplied incomplete artifact without retry",
     unresolvedFailure: true,
   },
@@ -112,8 +117,6 @@ export function validateArtifactToolFailureResult(requestId, result, expectedFie
   }
 }
 
-const requiredArtifactKinds = ["markdown", "table", "bar_chart", "file"];
-
 export function threadHasArtifactTool(thread) {
   return (thread?.dynamicTools ?? []).some((tool) => {
     if (tool?.type !== "namespace" || tool.name !== "setta" || !Array.isArray(tool.tools)) {
@@ -123,18 +126,26 @@ export function threadHasArtifactTool(thread) {
       (child) =>
         child?.type === "function" &&
         child.name === "emit_artifact" &&
-        hasRequiredArtifactKindBranches(child.inputSchema),
+        hasDocumentInputSchema(child.inputSchema),
     );
   });
 }
 
-function hasRequiredArtifactKindBranches(schema) {
-  const branches = Array.isArray(schema?.oneOf) ? schema.oneOf : [];
-  return requiredArtifactKinds.every((kind) =>
-    branches.some(
-      (branch) =>
-        branch?.additionalProperties === false && branch?.properties?.kind?.const === kind,
-    ),
+// The tool takes one document, so its schema is a strict two-field object. A
+// branch union here would mean the backend still models artifact kinds.
+function hasDocumentInputSchema(schema) {
+  if (schema?.type !== "object" || schema.additionalProperties !== false) {
+    return false;
+  }
+  if (schema.oneOf !== undefined) {
+    return false;
+  }
+  const required = Array.isArray(schema.required) ? schema.required : [];
+  return (
+    required.includes("title") &&
+    required.includes("source") &&
+    schema.properties?.title?.type === "string" &&
+    schema.properties?.source?.type === "string"
   );
 }
 
@@ -161,7 +172,6 @@ function validToolCallFailureTextItem(result) {
 function validArtifactToolAcknowledgement(acknowledgement, expectedArguments) {
   return (
     typeof acknowledgement.artifactId === "string" &&
-    acknowledgement.kind === expectedArguments.kind &&
     acknowledgement.title === expectedArguments.title
   );
 }

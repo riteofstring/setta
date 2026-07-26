@@ -10,42 +10,42 @@ import (
 	"setta/internal/speech"
 )
 
-func TestStoreInitializesMasterVoiceSelectionOnceAndPreservesItAcrossRestart(t *testing.T) {
+func TestStoreInitializesDirectorVoiceSelectionOnceAndPreservesItAcrossRestart(t *testing.T) {
 	appDataDir := t.TempDir()
 	store, err := NewStore(appDataDir)
 	if err != nil {
 		t.Fatalf("NewStore: %v", err)
 	}
-	initial := speech.DefaultMasterVoiceSelection("2026-07-12T18:00:00Z")
-	selection, err := store.EnsureMasterVoiceSelection(context.Background(), initial)
+	initial := speech.DefaultDirectorVoiceSelection("2026-07-12T18:00:00Z")
+	selection, err := store.EnsureDirectorVoiceSelection(context.Background(), initial)
 	if err != nil {
-		t.Fatalf("EnsureMasterVoiceSelection: %v", err)
+		t.Fatalf("EnsureDirectorVoiceSelection: %v", err)
 	}
 	if selection.Selection != speech.VoiceSelectionExact ||
 		selection.ResolvedVoiceID == nil || *selection.ResolvedVoiceID != speech.SpeechVoiceMarin {
 		t.Fatalf("initial selection = %+v", selection)
 	}
-	assertMasterVoiceInitializationEvent(t, store, initial)
+	assertDirectorVoiceInitializationEvent(t, store, initial)
 
 	cedar := speech.SpeechVoiceCedar
-	differentDefault := speech.MasterVoiceSelection{
+	differentDefault := speech.DirectorVoiceSelection{
 		Selection:        speech.VoiceSelectionExact,
 		RequestedVoiceID: &cedar,
 		ResolvedVoiceID:  &cedar,
 		UpdatedAt:        "2026-07-12T19:00:00Z",
 	}
-	preserved, err := store.EnsureMasterVoiceSelection(context.Background(), differentDefault)
+	preserved, err := store.EnsureDirectorVoiceSelection(context.Background(), differentDefault)
 	if err != nil {
-		t.Fatalf("repeat EnsureMasterVoiceSelection: %v", err)
+		t.Fatalf("repeat EnsureDirectorVoiceSelection: %v", err)
 	}
 	if preserved.ResolvedVoiceID == nil || *preserved.ResolvedVoiceID != speech.SpeechVoiceMarin ||
 		preserved.UpdatedAt != initial.UpdatedAt {
 		t.Fatalf("preserved selection = %+v, want original %+v", preserved, initial)
 	}
-	if got := countRows(t, store, "master_voice_selection"); got != 1 {
-		t.Fatalf("master voice selection rows = %d, want 1", got)
+	if got := countRows(t, store, "director_voice_selection"); got != 1 {
+		t.Fatalf("director voice selection rows = %d, want 1", got)
 	}
-	assertMasterVoiceInitializationEvent(t, store, initial)
+	assertDirectorVoiceInitializationEvent(t, store, initial)
 	if err := store.Close(); err != nil {
 		t.Fatalf("close store: %v", err)
 	}
@@ -55,100 +55,100 @@ func TestStoreInitializesMasterVoiceSelectionOnceAndPreservesItAcrossRestart(t *
 		t.Fatalf("reopen store: %v", err)
 	}
 	t.Cleanup(func() { _ = reopened.Close() })
-	restored, err := reopened.ReadMasterVoiceSelection(context.Background())
+	restored, err := reopened.ReadDirectorVoiceSelection(context.Background())
 	if err != nil {
-		t.Fatalf("ReadMasterVoiceSelection after restart: %v", err)
+		t.Fatalf("ReadDirectorVoiceSelection after restart: %v", err)
 	}
 	if restored.ResolvedVoiceID == nil || *restored.ResolvedVoiceID != speech.SpeechVoiceMarin ||
 		restored.UpdatedAt != initial.UpdatedAt {
 		t.Fatalf("restored selection = %+v, want original %+v", restored, initial)
 	}
-	assertMasterVoiceInitializationEvent(t, reopened, initial)
+	assertDirectorVoiceInitializationEvent(t, reopened, initial)
 }
 
-func TestStoreDoesNotSilentlyRecreateMissingInitializedMasterVoiceSelection(t *testing.T) {
+func TestStoreDoesNotSilentlyRecreateMissingInitializedDirectorVoiceSelection(t *testing.T) {
 	store := newTestStore(t)
-	initial := speech.DefaultMasterVoiceSelection("2026-07-12T18:00:00Z")
-	if _, err := store.EnsureMasterVoiceSelection(context.Background(), initial); err != nil {
-		t.Fatalf("EnsureMasterVoiceSelection: %v", err)
+	initial := speech.DefaultDirectorVoiceSelection("2026-07-12T18:00:00Z")
+	if _, err := store.EnsureDirectorVoiceSelection(context.Background(), initial); err != nil {
+		t.Fatalf("EnsureDirectorVoiceSelection: %v", err)
 	}
-	if err := store.write(context.Background(), "delete initialized master voice selection", func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, "DELETE FROM master_voice_selection WHERE singleton = 1")
+	if err := store.write(context.Background(), "delete initialized director voice selection", func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "DELETE FROM director_voice_selection WHERE singleton = 1")
 		return err
 	}); err != nil {
-		t.Fatalf("delete initialized master voice selection: %v", err)
+		t.Fatalf("delete initialized director voice selection: %v", err)
 	}
 
-	if _, err := store.EnsureMasterVoiceSelection(context.Background(), initial); !IsCorruptStateError(err) ||
+	if _, err := store.EnsureDirectorVoiceSelection(context.Background(), initial); !IsCorruptStateError(err) ||
 		!strings.Contains(err.Error(), "missing after initialization") {
 		t.Fatalf("ensure error = %T %v, want missing initialized state", err, err)
 	}
-	if got := countRows(t, store, "master_voice_selection"); got != 0 {
-		t.Fatalf("master voice selection rows after rejected recreation = %d, want 0", got)
+	if got := countRows(t, store, "director_voice_selection"); got != 0 {
+		t.Fatalf("director voice selection rows after rejected recreation = %d, want 0", got)
 	}
 }
 
-func TestStoreRejectsMasterVoiceSelectionWithoutInitializationEvent(t *testing.T) {
+func TestStoreRejectsDirectorVoiceSelectionWithoutInitializationEvent(t *testing.T) {
 	store := newTestStore(t)
-	selection := speech.DefaultMasterVoiceSelection("2026-07-12T18:00:00Z")
-	if err := store.write(context.Background(), "seed unpublished master voice selection", func(ctx context.Context, tx *sql.Tx) error {
+	selection := speech.DefaultDirectorVoiceSelection("2026-07-12T18:00:00Z")
+	if err := store.write(context.Background(), "seed unpublished director voice selection", func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO master_voice_selection (
+INSERT INTO director_voice_selection (
   singleton, selection, requested_voice_id, resolved_voice_id, reuse_json, updated_at
 ) VALUES (1, 'exact', 'marin', 'marin', NULL, ?)
 `, selection.UpdatedAt)
 		return err
 	}); err != nil {
-		t.Fatalf("seed unpublished master voice selection: %v", err)
+		t.Fatalf("seed unpublished director voice selection: %v", err)
 	}
 
-	if _, err := store.ReadMasterVoiceSelection(context.Background()); !IsCorruptStateError(err) ||
+	if _, err := store.ReadDirectorVoiceSelection(context.Background()); !IsCorruptStateError(err) ||
 		!strings.Contains(err.Error(), "initialization event is missing") {
 		t.Fatalf("read error = %T %v, want unpublished configuration error", err, err)
 	}
 }
 
-func TestStoreRejectsMalformedMasterVoiceInitializationEvent(t *testing.T) {
+func TestStoreRejectsMalformedDirectorVoiceInitializationEvent(t *testing.T) {
 	store := newTestStore(t)
-	initial := speech.DefaultMasterVoiceSelection("2026-07-12T18:00:00Z")
-	if _, err := store.EnsureMasterVoiceSelection(context.Background(), initial); err != nil {
-		t.Fatalf("EnsureMasterVoiceSelection: %v", err)
+	initial := speech.DefaultDirectorVoiceSelection("2026-07-12T18:00:00Z")
+	if _, err := store.EnsureDirectorVoiceSelection(context.Background(), initial); err != nil {
+		t.Fatalf("EnsureDirectorVoiceSelection: %v", err)
 	}
-	if err := store.write(context.Background(), "corrupt master voice initialization", func(ctx context.Context, tx *sql.Tx) error {
+	if err := store.write(context.Background(), "corrupt director voice initialization", func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 UPDATE committed_events
 SET payload_json = '{"catalog":{},"selection":{},"unknown":true}'
 WHERE id = ?
-`, speech.MasterVoiceSelectionInitializedEventID)
+`, speech.DirectorVoiceSelectionInitializedEventID)
 		return err
 	}); err != nil {
-		t.Fatalf("corrupt master voice initialization: %v", err)
+		t.Fatalf("corrupt director voice initialization: %v", err)
 	}
 
-	if _, err := store.ReadMasterVoiceSelection(context.Background()); !IsCorruptStateError(err) ||
+	if _, err := store.ReadDirectorVoiceSelection(context.Background()); !IsCorruptStateError(err) ||
 		!strings.Contains(err.Error(), "initialization event") {
 		t.Fatalf("read error = %T %v, want malformed initialization event", err, err)
 	}
 }
 
-func TestStoreReportsInvalidMasterVoiceSelectionAsCorruptState(t *testing.T) {
+func TestStoreReportsInvalidDirectorVoiceSelectionAsCorruptState(t *testing.T) {
 	store := newTestStore(t)
-	initial := speech.DefaultMasterVoiceSelection("2026-07-12T18:00:00Z")
-	if _, err := store.EnsureMasterVoiceSelection(context.Background(), initial); err != nil {
-		t.Fatalf("EnsureMasterVoiceSelection: %v", err)
+	initial := speech.DefaultDirectorVoiceSelection("2026-07-12T18:00:00Z")
+	if _, err := store.EnsureDirectorVoiceSelection(context.Background(), initial); err != nil {
+		t.Fatalf("EnsureDirectorVoiceSelection: %v", err)
 	}
-	err := store.write(context.Background(), "seed invalid master voice selection", func(ctx context.Context, tx *sql.Tx) error {
+	err := store.write(context.Background(), "seed invalid director voice selection", func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-UPDATE master_voice_selection
+UPDATE director_voice_selection
 SET requested_voice_id = 'missing', resolved_voice_id = 'missing'
 WHERE singleton = 1
 `)
 		return err
 	})
 	if err != nil {
-		t.Fatalf("seed invalid master voice selection: %v", err)
+		t.Fatalf("seed invalid director voice selection: %v", err)
 	}
-	if _, err := store.ReadMasterVoiceSelection(context.Background()); !IsCorruptStateError(err) {
+	if _, err := store.ReadDirectorVoiceSelection(context.Background()); !IsCorruptStateError(err) {
 		t.Fatalf("read error = %T %v, want CorruptStateError", err, err)
 	}
 }
@@ -202,28 +202,28 @@ func TestStorePersistsAndUpdatesNarratorVoiceDefaultAcrossRestart(t *testing.T) 
 	}
 }
 
-func assertMasterVoiceInitializationEvent(
+func assertDirectorVoiceInitializationEvent(
 	t *testing.T,
 	store *Store,
-	want speech.MasterVoiceSelection,
+	want speech.DirectorVoiceSelection,
 ) {
 	t.Helper()
 	events, err := store.ReadCommittedStreamEvents(
 		context.Background(),
-		speech.MasterVoiceSelectionStreamID,
+		speech.DirectorVoiceSelectionStreamID,
 		0,
 		10,
 	)
 	if err != nil {
-		t.Fatalf("read master voice selection events: %v", err)
+		t.Fatalf("read director voice selection events: %v", err)
 	}
-	if len(events) != 1 || events[0].ID != speech.MasterVoiceSelectionInitializedEventID ||
-		events[0].Kind != speech.MasterVoiceSelectionInitializedEventKind {
-		t.Fatalf("master voice initialization events = %+v", events)
+	if len(events) != 1 || events[0].ID != speech.DirectorVoiceSelectionInitializedEventID ||
+		events[0].Kind != speech.DirectorVoiceSelectionInitializedEventKind {
+		t.Fatalf("director voice initialization events = %+v", events)
 	}
-	var initialization speech.MasterVoiceSelectionInitialization
+	var initialization speech.DirectorVoiceSelectionInitialization
 	if err := json.Unmarshal(events[0].Payload, &initialization); err != nil {
-		t.Fatalf("decode master voice initialization: %v", err)
+		t.Fatalf("decode director voice initialization: %v", err)
 	}
 	if initialization.Catalog.Provider != speech.SpeechProviderOpenAI ||
 		initialization.Catalog.Version == "" ||
@@ -234,6 +234,6 @@ func assertMasterVoiceInitializationEvent(
 		*initialization.Selection.RequestedVoiceID != *want.RequestedVoiceID ||
 		*initialization.Selection.ResolvedVoiceID != *want.ResolvedVoiceID ||
 		initialization.Selection.UpdatedAt != want.UpdatedAt {
-		t.Fatalf("master voice initialization = %+v, want selection %+v", initialization, want)
+		t.Fatalf("director voice initialization = %+v, want selection %+v", initialization, want)
 	}
 }

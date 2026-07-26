@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"testing"
-
-	"setta/internal/master"
 )
 
 func TestStoreClaimsAndDispatchesConversationInputsInConversationOrder(t *testing.T) {
@@ -98,7 +96,6 @@ func TestStoreValidatesAndCommitsEveryConversationRouteCommandFamily(t *testing.
 		ConversationRouteDecisionKindAnswerAsNarrator,
 		ConversationRouteDecisionKindCreateSideConversation,
 		ConversationRouteDecisionKindForkConversation,
-		ConversationRouteDecisionKindEscalateToMaster,
 		ConversationRouteDecisionKindClarify,
 	}
 	for _, kind := range kinds {
@@ -108,14 +105,6 @@ func TestStoreValidatesAndCommitsEveryConversationRouteCommandFamily(t *testing.
 			seedConversationInputTargets(t, store, conversationID)
 			input := validConversationInput("input_" + string(kind))
 			input.ConversationID = conversationID
-			paneID := "pane_origin"
-			if kind == ConversationRouteDecisionKindCreateSideConversation ||
-				kind == ConversationRouteDecisionKindEscalateToMaster {
-				input.SourcePaneID = &paneID
-			}
-			if kind == ConversationRouteDecisionKindCreateSideConversation {
-				seedConversationRoutePaneBinding(t, store, conversationID, paneID)
-			}
 			switch kind {
 			case ConversationRouteDecisionKindQueueParentTurn, ConversationRouteDecisionKindSteerParentTurn:
 				seedConversationRouteRunningTurn(t, store, conversationID)
@@ -141,8 +130,7 @@ func TestStoreValidatesAndCommitsEveryConversationRouteCommandFamily(t *testing.
 			if err != nil {
 				t.Fatalf("ConversationRouteCommandApplied(%s): %v", kind, err)
 			}
-			wantApplied := kind == ConversationRouteDecisionKindEscalateToMaster ||
-				kind == ConversationRouteDecisionKindClarify
+			wantApplied := kind == ConversationRouteDecisionKindClarify
 			if applied != wantApplied {
 				t.Fatalf("ConversationRouteCommandApplied(%s) = %v, want %v", kind, applied, wantApplied)
 			}
@@ -151,9 +139,6 @@ func TestStoreValidatesAndCommitsEveryConversationRouteCommandFamily(t *testing.
 				wantStatus = ConversationInputStatusAwaitingClarification
 			}
 			assertConversationInputStatus(t, store, input.ID, wantStatus)
-			if kind == ConversationRouteDecisionKindEscalateToMaster {
-				assertRoutedMasterInput(t, store, input, commit)
-			}
 		})
 	}
 }
@@ -194,46 +179,6 @@ func TestStoreRecognizesDurableRoutedTurnEffect(t *testing.T) {
 	applied, err := store.ConversationRouteCommandApplied(context.Background(), record)
 	if err != nil || !applied {
 		t.Fatalf("ConversationRouteCommandApplied = %v, %v, want true", applied, err)
-	}
-}
-
-func assertRoutedMasterInput(
-	t *testing.T,
-	store *Store,
-	input ConversationInput,
-	commit ConversationRouteDecisionCommit,
-) {
-	t.Helper()
-	masterInputID := commit.ResultingCommand.EscalateToMaster.MasterInputID
-	accepted, found, err := store.ReadMasterInput(context.Background(), masterInputID)
-	if err != nil {
-		t.Fatalf("ReadMasterInput(%s): %v", masterInputID, err)
-	}
-	if !found || accepted.Input.Source != master.MasterInputSourceConversationEscalation ||
-		accepted.Input.Text != commit.ResultingCommand.EscalateToMaster.Input.Text ||
-		accepted.Input.Modality != master.MasterInputModalityText ||
-		accepted.Input.OriginatingWorkspaceID == nil ||
-		*accepted.Input.OriginatingWorkspaceID != "workspace" ||
-		accepted.Input.OriginatingConversationID == nil ||
-		*accepted.Input.OriginatingConversationID != input.ConversationID ||
-		accepted.Input.OriginatingPaneID == nil ||
-		*accepted.Input.OriginatingPaneID != *input.SourcePaneID ||
-		accepted.Input.OriginatingConversationInputID == nil ||
-		*accepted.Input.OriginatingConversationInputID != input.ID ||
-		!master.EqualReplyDeliveries(
-			accepted.ReplyDelivery,
-			master.ReplyDeliveryForInput(accepted.Input),
-		) {
-		t.Fatalf("routed master input = %+v found=%v", accepted, found)
-	}
-	events, err := store.ReadCommittedStreamEvents(
-		context.Background(),
-		master.InputStreamID,
-		0,
-		10,
-	)
-	if err != nil || len(events) != 1 || events[0].Kind != master.InputAcceptedEventKind {
-		t.Fatalf("routed master input events = %+v err=%v", events, err)
 	}
 }
 
@@ -553,41 +498,6 @@ func TestStoreRollsBackConversationRouteDecisionAndStatusTogether(t *testing.T) 
 	assertConversationInputStatus(t, store, input.ID, ConversationInputStatusRouting)
 }
 
-func TestStoreRollsBackMasterEscalationAndDecisionTogether(t *testing.T) {
-	store := newTestStore(t)
-	seedConversationInputTargets(t, store, "conversation_alpha")
-	paneID := "pane_origin"
-	input := validConversationInput("input_atomic_master")
-	input.SourcePaneID = &paneID
-	acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
-	claimConversationRoutingInput(t, store, input.ConversationID, "2026-07-12T18:00:02Z")
-	decision, command := validConversationRouteDecisionAndCommand(
-		ConversationRouteDecisionKindEscalateToMaster,
-		input.Text,
-	)
-	commit := validConversationRouteDecisionCommit("decision_atomic_master", decision, command)
-	commit.InputID = input.ID
-	commit.DecidedAt = "2026-07-12T18:00:03Z"
-	appendTestOutboxEvents(t, store, []CommittedEventDraft{
-		transactionTestEventDraft(
-			master.AcceptedInputEventID(command.EscalateToMaster.MasterInputID),
-			"test:master-input-collision",
-			map[string]string{"state": "existing"},
-		),
-	})
-
-	if _, err := store.CommitConversationRouteDecision(context.Background(), commit); err == nil {
-		t.Fatal("CommitConversationRouteDecision succeeded despite master input event collision")
-	}
-	if got := countRows(t, store, "conversation_route_decisions"); got != 0 {
-		t.Fatalf("route decisions after rollback = %d, want 0", got)
-	}
-	if got := countRows(t, store, "master_inputs"); got != 0 {
-		t.Fatalf("master inputs after rollback = %d, want 0", got)
-	}
-	assertConversationInputStatus(t, store, input.ID, ConversationInputStatusRouting)
-}
-
 func TestStoreRecoversInFlightConversationInputAfterRestart(t *testing.T) {
 	appDataDir := t.TempDir()
 	store, err := NewStore(appDataDir)
@@ -748,33 +658,61 @@ func TestStoreRejectsConversationRouteCommandsThatCannotExecute(t *testing.T) {
 		assertConversationInputStatus(t, store, input.ID, ConversationInputStatusRouting)
 	})
 
-	t.Run("occupied side pane", func(t *testing.T) {
+	t.Run("occupied side conversation", func(t *testing.T) {
 		store := newTestStore(t)
-		conversationID := "conversation_occupied_side_pane"
-		paneID := "pane_occupied_side"
+		conversationID := "conversation_occupied_side"
 		seedConversationInputTargets(t, store, conversationID)
-		seedConversationRoutePaneBinding(t, store, conversationID, paneID)
-		seedOpenConversationRouteSide(t, store, conversationID, paneID)
-		input := validConversationInput("input_occupied_side_pane")
+		seedOpenConversationRouteSide(t, store, conversationID)
+		input := validConversationInput("input_occupied_side")
 		input.ConversationID = conversationID
-		input.SourcePaneID = &paneID
 		acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
 		work := claimConversationRoutingInput(t, store, conversationID, "2026-07-12T18:00:02Z")
 		decision, command := validConversationRouteDecisionAndCommand(
 			ConversationRouteDecisionKindCreateSideConversation,
 			input.Text,
 		)
-		command.CreateSideConversation.ParentPaneID = paneID
-		commit := validConversationRouteDecisionCommit("decision_occupied_side_pane", decision, command)
+		commit := validConversationRouteDecisionCommit("decision_occupied_side", decision, command)
 		commit.ConversationID = conversationID
 		commit.InputID = input.ID
 		commit.RoutingAttempt = work.RoutingAttempt
 		commit.DecidedAt = "2026-07-12T18:00:03Z"
 		if _, err := store.CommitConversationRouteDecision(context.Background(), commit); !IsStateConflict(err) {
-			t.Fatalf("occupied side pane decision error = %T %v, want state conflict", err, err)
+			t.Fatalf("occupied side decision error = %T %v, want state conflict", err, err)
 		}
 		assertConversationInputStatus(t, store, input.ID, ConversationInputStatusRouting)
 	})
+}
+
+func TestStoreTreatsDisposedRouterSideAsCompletedRouteEffect(t *testing.T) {
+	store := newTestStore(t)
+	conversationID := "conversation_disposed_router_side"
+	seedConversationInputTargets(t, store, conversationID)
+
+	input := validConversationInput("input_disposed_router_side")
+	input.ConversationID = conversationID
+	acceptConversationRoutingInput(t, store, input, "2026-07-12T18:00:01Z")
+	work := claimConversationRoutingInput(t, store, conversationID, "2026-07-12T18:00:02Z")
+	decision, command := validConversationRouteDecisionAndCommand(
+		ConversationRouteDecisionKindCreateSideConversation,
+		input.Text,
+	)
+	commit := validConversationRouteDecisionCommit("decision_disposed_router_side", decision, command)
+	commit.ConversationID = conversationID
+	commit.InputID = input.ID
+	commit.RoutingAttempt = work.RoutingAttempt
+	commit.DecidedAt = "2026-07-12T18:00:03Z"
+	record, err := store.CommitConversationRouteDecision(context.Background(), commit)
+	if err != nil {
+		t.Fatalf("CommitConversationRouteDecision: %v", err)
+	}
+	if applied, err := store.ConversationRouteCommandApplied(context.Background(), record); err != nil || applied {
+		t.Fatalf("ConversationRouteCommandApplied before side disposal = %v, %v, want false", applied, err)
+	}
+
+	seedDisposedConversationRouteSide(t, store, record)
+	if applied, err := store.ConversationRouteCommandApplied(context.Background(), record); err != nil || !applied {
+		t.Fatalf("ConversationRouteCommandApplied after side disposal = %v, %v, want true", applied, err)
+	}
 }
 
 func TestStoreRejectsMalformedPersistedConversationRouteDecision(t *testing.T) {
@@ -1159,7 +1097,6 @@ func seedConversationRouteRunningTurn(t *testing.T, store *Store, conversationID
 	turn.ID = "turn_running"
 	turn.ConversationID = conversationID
 	turn.ResolvedInvocation.ID = "invocation_running"
-	turn.ResolvedInvocation.ProviderReferences.ThreadID = stringPointer("provider_thread")
 	turn.ResolvedInvocation.ProviderReferences.TurnID = turn.ProviderTurnID
 	err := store.write(context.Background(), "seed conversation route running turn", func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `UPDATE conversations SET status = ? WHERE id = ?`, ConversationStatusWorking, conversationID); err != nil {
@@ -1178,32 +1115,12 @@ func seedConversationRouteCompletedTurn(t *testing.T, store *Store, conversation
 	turn.ID = "turn_completed"
 	turn.ConversationID = conversationID
 	turn.ResolvedInvocation.ID = "invocation_completed"
-	turn.ResolvedInvocation.ProviderReferences.ThreadID = stringPointer("provider_thread")
 	turn.ResolvedInvocation.ProviderReferences.TurnID = turn.ProviderTurnID
 	err := store.write(context.Background(), "seed conversation route completed turn", func(ctx context.Context, tx *sql.Tx) error {
 		return insertConversationRouteTestTurn(ctx, tx, turn)
 	})
 	if err != nil {
 		t.Fatalf("seed completed turn: %v", err)
-	}
-}
-
-func seedConversationRoutePaneBinding(
-	t *testing.T,
-	store *Store,
-	conversationID string,
-	paneID string,
-) {
-	t.Helper()
-	err := store.write(context.Background(), "seed conversation route pane binding", func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO pane_bindings(pane_id, workspace_id, conversation_id, created_at, updated_at)
-VALUES (?, 'workspace', ?, '2026-07-12T18:00:00Z', '2026-07-12T18:00:00Z')
-`, paneID, conversationID)
-		return err
-	})
-	if err != nil {
-		t.Fatalf("seed pane binding: %v", err)
 	}
 }
 
@@ -1234,23 +1151,50 @@ VALUES (?, ?, ?, '2026-07-12T18:00:00Z')
 	}
 }
 
-func seedOpenConversationRouteSide(t *testing.T, store *Store, conversationID string, paneID string) {
+func seedOpenConversationRouteSide(t *testing.T, store *Store, conversationID string) {
 	t.Helper()
 	err := store.write(context.Background(), "seed open conversation route side", func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO side_conversations (
-  id, parent_conversation_id, parent_pane_id, decision_source,
-  source_provider_thread_id, source_trajectory_sequence, status,
+  id, parent_conversation_id, decision_source,
+  source_trajectory_sequence, status,
   resolved_side_agent_invocation_json, created_at, updated_at
 ) VALUES (
-  'side_existing', ?, ?, 'conversation_router', 'provider_parent', 0, 'preparing',
+  'side_existing', ?, 'conversation_router', 0, 'preparing',
   '{}', '2026-07-12T18:00:00Z', '2026-07-12T18:00:00Z'
 )
-`, conversationID, paneID)
+`, conversationID)
 		return err
 	})
 	if err != nil {
 		t.Fatalf("seed open route side: %v", err)
+	}
+}
+
+func seedDisposedConversationRouteSide(
+	t *testing.T,
+	store *Store,
+	record ConversationRouteDecisionRecord,
+) {
+	t.Helper()
+	command := record.ResultingCommand.CreateSideConversation
+	err := store.write(context.Background(), "seed disposed conversation route side", func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO side_conversations (
+  id, parent_conversation_id, decision_source,
+  source_turn_id, source_trajectory_sequence,
+  status, resolved_side_agent_invocation_json, created_at, updated_at, disposed_at
+) VALUES (
+  ?, ?, 'conversation_router',
+  'turn_running', 0,
+  'disposing', '{}', '2026-07-12T18:00:04Z', '2026-07-12T18:00:05Z',
+  '2026-07-12T18:00:05Z'
+)
+`, command.SideConversationID, record.ConversationID)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("seed disposed route side: %v", err)
 	}
 }
 

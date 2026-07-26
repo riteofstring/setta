@@ -52,6 +52,7 @@ describe("runtime picker", () => {
     expect(buttonTagByAriaLabel(html, "Open options for Local")).not.toBeNull();
     expect(buttonTagByAriaLabel(html, "Open options for Remote Runtime")).not.toBeNull();
     expect(buttonTagByAriaLabel(html, "Remove Remote Runtime")).toBeNull();
+    expect(html).toContain('src="https://aws.amazon.com/favicon.ico"');
   });
 
   test("clears stale picker operations when a terminal runtime snapshot arrives", () => {
@@ -89,6 +90,11 @@ function runtimeSnapshot(
         baseUrl: "http://100.64.0.8:8080",
         connectionStatus: status,
         displayName: "Remote Runtime",
+        infrastructureProvider: {
+          displayName: "AWS",
+          iconUrl: "https://aws.amazon.com/favicon.ico",
+          id: "aws",
+        },
         isLocal: false,
         runtimeId: "remote-runtime",
       }),
@@ -101,10 +107,16 @@ function runtimeView(
   overrides: Pick<
     KnownRuntimeView,
     "active" | "baseUrl" | "connectionStatus" | "displayName" | "isLocal" | "runtimeId"
-  >,
+  > &
+    Partial<Pick<KnownRuntimeView, "infrastructureProvider">>,
 ): KnownRuntimeView {
   return {
     connectionMessage: "",
+    infrastructureProvider: {
+      displayName: "Unknown provider",
+      iconUrl: "",
+      id: "unknown",
+    },
     lastConnected: null,
     ...overrides,
   };

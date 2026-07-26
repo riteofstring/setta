@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"setta/internal/conversation"
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 func TestReadConversationSnapshotUsesTypedServiceBoundary(t *testing.T) {
@@ -24,7 +24,10 @@ func TestReadConversationSnapshotUsesTypedServiceBoundary(t *testing.T) {
 		t,
 		handler,
 		"/conversations/snapshot/read",
-		ReadConversationSnapshotRequest{WorkspaceID: "workspace-api", ConversationID: "conversation-api"},
+		ReadConversationSnapshotRequest{
+			WorkspaceID:    httpTestStringPointer("workspace-api"),
+			ConversationID: "conversation-api",
+		},
 		http.StatusOK,
 	)
 	if response.Conversation.ID != "conversation-api" || response.EventCursor.StreamID != "conversation:conversation-api" {
@@ -53,7 +56,7 @@ func TestReadConversationArtifactUsesTypedServiceBoundary(t *testing.T) {
 		},
 		http.StatusOK,
 	)
-	if response.ID != "artifact-api" || response.Table == nil || len(response.Table.Rows) != 1 {
+	if response.ID != "artifact-api" || response.Document.Source != httpConversationTestArtifactSource {
 		t.Fatalf("artifact response = %+v", response)
 	}
 	if service.readWorkspaceID != "workspace-api" ||
@@ -74,7 +77,7 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 		t,
 		handler,
 		"/conversations/create",
-		CreateTopicConversationRequest{WorkspaceID: "workspace-api", Title: "Created topic"},
+		CreateTopicConversationRequest{WorkspaceID: httpTestStringPointer("workspace-api"), Title: "Created topic"},
 		http.StatusOK,
 	)
 	if service.command != "create" || created.Conversation.Title != "Created topic" {
@@ -95,6 +98,7 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 		t.Fatalf("archive command = %q snapshot = %+v", service.command, archived.Conversation)
 	}
 
+	assertBindFolderConversationCommand(t, handler, service)
 	assertSideConversationCommands(t, handler, service)
 
 	postJSON[conversation.ConversationSnapshot](
@@ -131,37 +135,72 @@ func TestTopicConversationCommandsUseTypedServiceBoundary(t *testing.T) {
 		t.Fatalf("last command scope = %q/%q", service.commandWorkspaceID, service.commandConversationID)
 	}
 
-	alloy := speech.SpeechVoiceAlloy
-	violet := conversationpalette.ConversationPaletteViolet
-	profile := postJSON[conversation.ConversationPresentationProfile](
+}
+
+func assertBindFolderConversationCommand(t *testing.T, handler http.Handler, service *httpTestConversationService) {
+	t.Helper()
+	bound := postJSON[conversation.ConversationSnapshot](
 		t,
 		handler,
-		"/conversations/presentation/update",
-		UpdateTopicConversationPresentationRequest{
+		"/conversations/resources/folder/bind",
+		BindTopicConversationFolderRequest{
 			WorkspaceID:    "workspace-api",
 			ConversationID: "conversation-api",
-			Settings: conversation.ConversationPresentationSettings{
-				PaletteSelection: conversation.PresentationSelectionRequest{
-					Selection:          conversation.PresentationSelectionExact,
-					RequestedPaletteID: &violet,
-				},
-				NarratorVoiceSelection: speech.VoiceSelectionRequest{
-					Selection:        speech.VoiceSelectionExact,
-					RequestedVoiceID: &alloy,
-				},
-				NarratorSpeechEnabled: false,
-			},
 		},
 		http.StatusOK,
 	)
-	if service.command != "update_presentation" ||
-		service.presentationSettings.NarratorVoiceSelection.RequestedVoiceID == nil ||
-		*service.presentationSettings.NarratorVoiceSelection.RequestedVoiceID != alloy ||
-		service.presentationSettings.PaletteSelection.RequestedPaletteID == nil ||
-		*service.presentationSettings.PaletteSelection.RequestedPaletteID != violet ||
-		service.presentationSettings.NarratorSpeechEnabled ||
-		profile.ResolvedNarratorVoiceID == nil {
-		t.Fatalf("presentation command=%q settings=%+v profile=%+v", service.command, service.presentationSettings, profile)
+	if service.command != "bind_folder" ||
+		bound.Conversation.WorkspaceID == nil ||
+		*bound.Conversation.WorkspaceID != "workspace-api" {
+		t.Fatalf("bind folder command = %q snapshot = %+v", service.command, bound.Conversation)
+	}
+}
+
+func TestCreateTopicConversationAllowsFolderlessRequest(t *testing.T) {
+	service := newHTTPTestConversationService(t)
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		ConversationService: service,
+		Metadata:            BackendMetadata{Name: BackendName, Version: "test"},
+	})
+
+	created := postJSON[conversation.ConversationSnapshot](
+		t,
+		handler,
+		"/conversations/create",
+		CreateTopicConversationRequest{Title: "App-level request"},
+		http.StatusOK,
+	)
+	if service.command != "create" || service.commandWorkspaceID != "" {
+		t.Fatalf("folderless create service command = %q workspace %q", service.command, service.commandWorkspaceID)
+	}
+	if created.Conversation.WorkspaceID != nil || created.Conversation.Title != "App-level request" {
+		t.Fatalf("folderless create snapshot = %+v", created.Conversation)
+	}
+}
+
+func TestConversationResourceRequiredErrorsUseStableAPICode(t *testing.T) {
+	service := newHTTPTestConversationService(t)
+	service.archiveErr = &conversation.ResourceRequiredError{
+		ConversationID: "conversation-api",
+		ResourceKind:   "folder",
+	}
+	handler := newAuthenticatedTestHandler(t, HandlerConfig{
+		ConversationService: service,
+		Metadata:            BackendMetadata{Name: BackendName, Version: "test"},
+	})
+
+	response := postJSON[ErrorResponse](
+		t,
+		handler,
+		"/conversations/archive",
+		ArchiveTopicConversationRequest{
+			WorkspaceID:    "workspace-api",
+			ConversationID: "conversation-api",
+		},
+		http.StatusConflict,
+	)
+	if response.Error.Code != "conversation_resource_required" {
+		t.Fatalf("resource required error code = %q", response.Error.Code)
 	}
 }
 
@@ -190,49 +229,12 @@ func assertSideConversationCommands(t *testing.T, handler http.Handler, service 
 		DisposeSideConversationRequest{
 			WorkspaceID:          "workspace-api",
 			ParentConversationID: "conversation-api",
-			ParentPaneID:         "pane-api",
 			SideConversationID:   "side-api",
 		},
 		http.StatusOK,
 	)
-	if service.command != "dispose_side" || service.commandConversationID != "side-api" || service.commandParentPaneID != "pane-api" {
-		t.Fatalf("dispose side command = %q side = %q pane = %q", service.command, service.commandConversationID, service.commandParentPaneID)
-	}
-}
-
-func TestTopicConversationPresentationMapsUnavailableExactVoiceSelection(t *testing.T) {
-	service := newHTTPTestConversationService(t)
-	missing := speech.SpeechVoiceID("retired")
-	service.presentationSettingsErr = &speech.Error{
-		Code:    speech.ErrorVoiceUnavailable,
-		Message: "Speech voice retired is unavailable.",
-	}
-	handler := newAuthenticatedTestHandler(t, HandlerConfig{
-		ConversationService: service,
-		Metadata:            BackendMetadata{Name: BackendName, Version: "test"},
-	})
-	response := postJSON[ErrorResponse](
-		t,
-		handler,
-		"/conversations/presentation/update",
-		UpdateTopicConversationPresentationRequest{
-			WorkspaceID:    "workspace-api",
-			ConversationID: "conversation-api",
-			Settings: conversation.ConversationPresentationSettings{
-				PaletteSelection: conversation.PresentationSelectionRequest{
-					Selection: conversation.PresentationSelectionAutoDistinct,
-				},
-				NarratorVoiceSelection: speech.VoiceSelectionRequest{
-					Selection:        speech.VoiceSelectionExact,
-					RequestedVoiceID: &missing,
-				},
-				NarratorSpeechEnabled: true,
-			},
-		},
-		http.StatusUnprocessableEntity,
-	)
-	if response.Error.Code != string(speech.ErrorVoiceUnavailable) {
-		t.Fatalf("narrator voice error = %+v", response.Error)
+	if service.command != "dispose_side" || service.commandConversationID != "side-api" {
+		t.Fatalf("dispose side command = %q side = %q", service.command, service.commandConversationID)
 	}
 }
 
@@ -273,7 +275,7 @@ func TestReadConversationSnapshotRejectsMissingIdentityBeforeService(t *testing.
 		t,
 		handler,
 		"/conversations/snapshot/read",
-		ReadConversationSnapshotRequest{WorkspaceID: "workspace-api"},
+		ReadConversationSnapshotRequest{WorkspaceID: httpTestStringPointer("workspace-api")},
 		http.StatusBadRequest,
 	)
 	if response.Error.Code != "invalid_conversation_snapshot_request" {
@@ -361,7 +363,7 @@ func TestConversationEventStreamUsesConversationScopedCursorAndTypedEvent(t *tes
 		Sequence:       3,
 		EventID:        eventID,
 		EmittedAt:      httpConversationTestTime,
-		WorkspaceID:    "workspace-api",
+		WorkspaceID:    httpTestStringPointer("workspace-api"),
 		ConversationID: "conversation-api",
 		Payload: conversation.ConversationUpdatedEventPayload{
 			Type:         conversation.ConversationEventTypeConversationUpdated,
@@ -439,7 +441,10 @@ func TestConversationEventStreamRejectsAnotherConversationCursor(t *testing.T) {
 	}
 }
 
-const httpConversationTestTime = "2026-07-11T20:00:00Z"
+const (
+	httpConversationTestTime           = "2026-07-11T20:00:00Z"
+	httpConversationTestArtifactSource = `root = Document([Table([{key: "metric", label: "Metric"}], [["Rows"]])])`
+)
 
 type httpTestConversationService struct {
 	snapshot                conversation.ConversationSnapshot
@@ -462,11 +467,8 @@ type httpTestConversationService struct {
 	command                 string
 	commandWorkspaceID      string
 	commandConversationID   string
-	commandParentPaneID     string
 	commandText             string
 	approval                conversation.ConversationApprovalResponse
-	presentationSettings    conversation.ConversationPresentationSettings
-	presentationSettingsErr error
 }
 
 func (service *httpTestConversationService) CreateTopic(
@@ -474,9 +476,23 @@ func (service *httpTestConversationService) CreateTopic(
 	workspaceID string,
 	title string,
 ) (conversation.ConversationSnapshot, error) {
+	return service.CreateTopicWithOptionalWorkspace(context.Background(), &workspaceID, title)
+}
+
+func (service *httpTestConversationService) CreateTopicWithOptionalWorkspace(
+	_ context.Context,
+	workspaceID *string,
+	title string,
+) (conversation.ConversationSnapshot, error) {
 	service.command = "create"
-	service.commandWorkspaceID = workspaceID
-	service.snapshot.Conversation.WorkspaceID = workspaceID
+	if workspaceID != nil {
+		service.commandWorkspaceID = *workspaceID
+		copied := *workspaceID
+		service.snapshot.Conversation.WorkspaceID = &copied
+	} else {
+		service.commandWorkspaceID = ""
+		service.snapshot.Conversation.WorkspaceID = nil
+	}
 	service.snapshot.Conversation.Title = title
 	return service.snapshot, nil
 }
@@ -496,6 +512,18 @@ func (service *httpTestConversationService) ArchiveTopic(
 	return snapshot, nil
 }
 
+func (service *httpTestConversationService) BindFolderResource(
+	_ context.Context,
+	workspaceID string,
+	conversationID string,
+) (conversation.ConversationSnapshot, error) {
+	service.recordCommand("bind_folder", workspaceID, conversationID, "")
+	snapshot := service.snapshot
+	workspace := workspaceID
+	snapshot.Conversation.WorkspaceID = &workspace
+	return snapshot, nil
+}
+
 func (service *httpTestConversationService) SendSideConversationTurn(
 	_ context.Context,
 	workspaceID string,
@@ -511,23 +539,10 @@ func (service *httpTestConversationService) DisposeSideConversation(
 	_ context.Context,
 	workspaceID string,
 	parentConversationID string,
-	parentPaneID string,
 	sideConversationID string,
 ) (conversation.ConversationSnapshot, error) {
 	service.recordCommand("dispose_side", workspaceID, sideConversationID, "")
-	service.commandParentPaneID = parentPaneID
 	return service.snapshot, nil
-}
-
-func (service *httpTestConversationService) UpdatePresentationProfile(
-	_ context.Context,
-	workspaceID string,
-	conversationID string,
-	settings conversation.ConversationPresentationSettings,
-) (conversation.ConversationPresentationProfile, error) {
-	service.recordCommand("update_presentation", workspaceID, conversationID, "")
-	service.presentationSettings = settings
-	return service.snapshot.PresentationProfile, service.presentationSettingsErr
 }
 
 func (service *httpTestConversationService) StopTurn(
@@ -572,7 +587,7 @@ func newHTTPTestConversationService(t *testing.T) *httpTestConversationService {
 		SchemaVersion: conversation.ConversationContractSchemaVersion,
 		Conversation: conversation.TopicConversation{
 			ID:          "conversation-api",
-			WorkspaceID: "workspace-api",
+			WorkspaceID: httpTestStringPointer("workspace-api"),
 			Title:       "HTTP conversation contracts",
 			Status:      conversation.ConversationStatusIdle,
 			CreatedAt:   httpConversationTestTime,
@@ -607,12 +622,25 @@ func voiceIDPointerForHTTPTest(value speech.SpeechVoiceID) *speech.SpeechVoiceID
 	return &value
 }
 
+func httpTestStringPointer(value string) *string {
+	return &value
+}
+
 func (service *httpTestConversationService) ReadSnapshot(
 	_ context.Context,
 	workspaceID string,
 	conversationID string,
 ) (conversation.ConversationSnapshot, error) {
 	service.readWorkspaceID = workspaceID
+	service.readConversationID = conversationID
+	return service.snapshot, nil
+}
+
+func (service *httpTestConversationService) ReadSnapshotByID(
+	_ context.Context,
+	conversationID string,
+) (conversation.ConversationSnapshot, error) {
+	service.readWorkspaceID = ""
 	service.readConversationID = conversationID
 	return service.snapshot, nil
 }
@@ -630,17 +658,14 @@ func (service *httpTestConversationService) ReadArtifact(
 		ID:                 artifactID,
 		ConversationID:     conversationID,
 		TurnID:             nil,
-		Kind:               conversation.ArtifactKindTable,
 		Title:              "HTTP artifact",
 		CreatedAt:          httpConversationTestTime,
 		TrajectorySequence: nil,
-		Markdown:           nil,
-		Table: &conversation.TableArtifactPayload{
-			Columns: []conversation.ArtifactTableColumn{{Key: "metric", Label: "Metric"}},
-			Rows:    [][]string{{"Rows"}},
+		Document: conversation.ArtifactDocument{
+			Language:  conversation.ArtifactDocumentLanguageOpenUI,
+			CatalogID: conversation.ArtifactCatalogSettaV1,
+			Source:    httpConversationTestArtifactSource,
 		},
-		BarChart: nil,
-		File:     nil,
 	}, nil
 }
 
@@ -660,6 +685,21 @@ func (service *httpTestConversationService) ListNavigatorPage(
 }
 
 func (service *httpTestConversationService) SubscribeEvents(
+	cursor conversation.ConversationEventCursor,
+	workspaceID string,
+	conversationID string,
+) (conversation.ConversationEventSubscription, error) {
+	return service.subscribeEvents(cursor, workspaceID, conversationID)
+}
+
+func (service *httpTestConversationService) SubscribeEventsByID(
+	cursor conversation.ConversationEventCursor,
+	conversationID string,
+) (conversation.ConversationEventSubscription, error) {
+	return service.subscribeEvents(cursor, "", conversationID)
+}
+
+func (service *httpTestConversationService) subscribeEvents(
 	cursor conversation.ConversationEventCursor,
 	workspaceID string,
 	conversationID string,

@@ -14,6 +14,7 @@ describe("preload topic conversation API", () => {
     const { api, invoke, on, removeListener } = await exposeConversationAPI();
     expect(Object.keys(api.conversations).sort()).toEqual([
       "archive",
+      "bindFolder",
       "create",
       "discardInput",
       "disposeSide",
@@ -29,7 +30,6 @@ describe("preload topic conversation API", () => {
       "submitApproval",
       "submitInput",
       "subscribe",
-      "updatePresentation",
       "waitInputState",
     ]);
     const listRequest = {
@@ -39,6 +39,7 @@ describe("preload topic conversation API", () => {
       workspaceId: "workspace_api",
     };
     const target = { conversationId: "conversation_api", workspaceId: "workspace_api" };
+    const folderBindingRequest = target;
     const artifactRequest = {
       ...target,
       artifactId: "artifact_api",
@@ -51,7 +52,6 @@ describe("preload topic conversation API", () => {
     };
     const sideDisposeRequest = {
       parentConversationId: target.conversationId,
-      parentPaneId: "pane_api",
       sideConversationId: sideTurnRequest.sideConversationId,
       workspaceId: target.workspaceId,
     };
@@ -75,31 +75,17 @@ describe("preload topic conversation API", () => {
         id: "input_api",
         modality: "voice" as const,
         replyToInputId: null,
-        sourcePaneId: "pane_api",
         submittedAt: "2026-07-12T18:00:00Z",
-        text: "Route this pane input",
+        text: "Route this conversation input",
       },
     };
     const inputStateRequest = {
       ...target,
       inputId: inputRequest.input.id,
     };
-    const presentationRequest = {
-      ...target,
-      settings: {
-        narratorSpeechEnabled: false,
-        narratorVoiceSelection: {
-          requestedVoiceId: "cedar" as const,
-          selection: "exact" as const,
-        },
-        paletteSelection: {
-          requestedPaletteId: "violet" as const,
-          selection: "exact" as const,
-        },
-      },
-    };
     await invokeConversationCommands(api, {
       approval,
+      folderBindingRequest,
       inputRequest,
       inputStateRequest,
       listRequest,
@@ -109,7 +95,6 @@ describe("preload topic conversation API", () => {
       subscription,
       target,
       artifactRequest,
-      presentationRequest,
     });
     const listener = vi.fn();
     const unsubscribe = api.conversations.onEvent(listener);
@@ -123,6 +108,7 @@ describe("preload topic conversation API", () => {
       [ipcChannels.conversationDisposeSide, sideDisposeRequest],
       [ipcChannels.conversationCreateTopic, { title: "API topic", workspaceId: "workspace_api" }],
       [ipcChannels.conversationArchiveTopic, target],
+      [ipcChannels.conversationBindFolder, folderBindingRequest],
       [ipcChannels.conversationListTopicConversations, listRequest],
       [ipcChannels.conversationReadSnapshot, target],
       [ipcChannels.conversationReadArtifact, artifactRequest],
@@ -135,7 +121,6 @@ describe("preload topic conversation API", () => {
       [ipcChannels.conversationSubmitApproval, approval],
       [ipcChannels.conversationSubscribeEvents, subscription],
       [ipcChannels.conversationReleaseEvents, release],
-      [ipcChannels.conversationUpdatePresentation, presentationRequest],
     ]);
     expect(listener).toHaveBeenCalledWith(event);
     expect(removeListener).toHaveBeenCalledWith(ipcEvents.conversationEvent, handler);
@@ -171,6 +156,7 @@ async function invokeConversationCommands(
   api: SettaAPI,
   requests: {
     approval: Parameters<SettaAPI["conversations"]["submitApproval"]>[0];
+    folderBindingRequest: Parameters<SettaAPI["conversations"]["bindFolder"]>[0];
     inputRequest: Parameters<NonNullable<SettaAPI["conversations"]["submitInput"]>>[0];
     inputStateRequest: Parameters<NonNullable<SettaAPI["conversations"]["readInputState"]>>[0];
     listRequest: Parameters<SettaAPI["conversations"]["list"]>[0];
@@ -178,9 +164,8 @@ async function invokeConversationCommands(
     sideDisposeRequest: Parameters<NonNullable<SettaAPI["conversations"]["disposeSide"]>>[0];
     sideTurnRequest: Parameters<NonNullable<SettaAPI["conversations"]["sendSide"]>>[0];
     subscription: Parameters<SettaAPI["conversations"]["subscribe"]>[0];
-    target: Parameters<SettaAPI["conversations"]["read"]>[0];
+    target: { conversationId: string; workspaceId: string };
     artifactRequest: Parameters<NonNullable<SettaAPI["conversations"]["readArtifact"]>>[0];
-    presentationRequest: Parameters<SettaAPI["conversations"]["updatePresentation"]>[0];
   },
 ) {
   const sendSide = requireConversationCommand(api.conversations.sendSide, "side conversation send");
@@ -192,6 +177,7 @@ async function invokeConversationCommands(
   await disposeSide(requests.sideDisposeRequest);
   await api.conversations.create({ title: "API topic", workspaceId: "workspace_api" });
   await api.conversations.archive(requests.target);
+  await api.conversations.bindFolder(requests.folderBindingRequest);
   await api.conversations.list(requests.listRequest);
   await api.conversations.read(requests.target);
   const readArtifact = requireConversationCommand(
@@ -228,7 +214,6 @@ async function invokeConversationCommands(
   await api.conversations.submitApproval(requests.approval);
   await api.conversations.subscribe(requests.subscription);
   await api.conversations.release(requests.release);
-  await api.conversations.updatePresentation(requests.presentationRequest);
 }
 
 function requireConversationCommand<Command>(command: Command | undefined, label: string): Command {

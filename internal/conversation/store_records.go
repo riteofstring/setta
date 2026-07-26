@@ -33,7 +33,7 @@ INSERT INTO conversations (
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		conversation.ID,
-		conversation.WorkspaceID,
+		nullableString(conversation.WorkspaceID),
 		conversation.Title,
 		conversation.TopicDescriptor,
 		conversation.Status,
@@ -44,9 +44,6 @@ INSERT INTO conversations (
 	)
 	if err != nil {
 		return fmt.Errorf("insert conversation %s: %w", conversation.ID, err)
-	}
-	if err := rebuildTopicIndexDocument(transaction.ctx, transaction.tx, conversation.ID); err != nil {
-		return fmt.Errorf("index inserted conversation %s: %w", conversation.ID, err)
 	}
 	return transaction.recordStateMutation()
 }
@@ -93,7 +90,7 @@ WHERE id = ?
 UPDATE conversations
 SET title = ?, topic_descriptor = ?, status = ?, updated_at = ?, archived_at = ?
 WHERE id = ?
-  AND workspace_id = ?
+  AND ((workspace_id IS NULL AND ? IS NULL) OR workspace_id = ?)
   AND created_at = ?
   AND updated_at = ?
   AND last_trajectory_sequence = ?
@@ -104,7 +101,8 @@ WHERE id = ?
 		conversation.UpdatedAt,
 		nullableString(conversation.ArchivedAt),
 		conversation.ID,
-		conversation.WorkspaceID,
+		nullableString(conversation.WorkspaceID),
+		nullableString(conversation.WorkspaceID),
 		conversation.CreatedAt,
 		expected.UpdatedAt,
 		expected.LastTrajectorySequence,
@@ -115,8 +113,43 @@ WHERE id = ?
 	if err := requireOneRow(result, "conversation", conversation.ID, "projection expectation did not match"); err != nil {
 		return err
 	}
-	if err := rebuildTopicIndexDocument(transaction.ctx, transaction.tx, conversation.ID); err != nil {
-		return fmt.Errorf("index updated conversation %s: %w", conversation.ID, err)
+	return transaction.recordStateMutation()
+}
+
+func (transaction *WriteTransaction) BindConversationWorkspace(
+	expected ConversationExpectation,
+	conversation TopicConversation,
+) error {
+	if err := transaction.ensureActive(); err != nil {
+		return err
+	}
+	if conversation.WorkspaceID == nil {
+		return errors.New("conversation folder binding requires a workspace id")
+	}
+	if err := validateConversationExpectation(expected, conversation); err != nil {
+		return err
+	}
+	result, err := transaction.tx.ExecContext(transaction.ctx, `
+UPDATE conversations
+SET workspace_id = ?, updated_at = ?
+WHERE id = ?
+  AND workspace_id IS NULL
+  AND created_at = ?
+  AND updated_at = ?
+  AND last_trajectory_sequence = ?
+`,
+		*conversation.WorkspaceID,
+		conversation.UpdatedAt,
+		conversation.ID,
+		conversation.CreatedAt,
+		expected.UpdatedAt,
+		expected.LastTrajectorySequence,
+	)
+	if err != nil {
+		return fmt.Errorf("bind conversation %s workspace: %w", conversation.ID, err)
+	}
+	if err := requireOneRow(result, "conversation", conversation.ID, "folder binding expectation did not match"); err != nil {
+		return err
 	}
 	return transaction.recordStateMutation()
 }
@@ -166,9 +199,6 @@ INSERT INTO conversation_turns (
 	)
 	if err != nil {
 		return fmt.Errorf("insert conversation turn %s: %w", turn.ID, err)
-	}
-	if err := rebuildTopicIndexDocument(transaction.ctx, transaction.tx, turn.ConversationID); err != nil {
-		return fmt.Errorf("index conversation turn %s: %w", turn.ID, err)
 	}
 	return transaction.recordStateMutation()
 }
@@ -365,65 +395,11 @@ ORDER BY ordinal ASC
 	return nil
 }
 
-func (transaction *WriteTransaction) UpsertAgentThreadBinding(binding AgentThreadBinding) error {
-	if err := transaction.ensureActive(); err != nil {
-		return err
-	}
-	if err := binding.Validate(); err != nil {
-		return err
-	}
-	if binding.LastTurnID != nil {
-		if err := transaction.requireTurnBelongs(
-			*binding.LastTurnID,
-			binding.ConversationID,
-			"agent thread binding",
-			binding.ConversationID,
-		); err != nil {
-			return err
-		}
-	}
-	providerMetadataJSON, err := encodeJSONColumn("thread binding provider metadata", binding.ProviderMetadata)
-	if err != nil {
-		return err
-	}
-	_, err = transaction.tx.ExecContext(transaction.ctx, `
-INSERT INTO agent_thread_bindings (
-  conversation_id, provider, thread_id, status, created_at, last_resumed_at,
-  last_turn_id, provider_metadata_json
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(conversation_id) DO UPDATE SET
-  provider = excluded.provider,
-  thread_id = excluded.thread_id,
-  status = excluded.status,
-  created_at = excluded.created_at,
-  last_resumed_at = excluded.last_resumed_at,
-  last_turn_id = excluded.last_turn_id,
-  provider_metadata_json = excluded.provider_metadata_json
-`,
-		binding.ConversationID,
-		binding.Provider,
-		binding.ThreadID,
-		binding.Status,
-		binding.CreatedAt,
-		nullableString(binding.LastResumedAt),
-		nullableString(binding.LastTurnID),
-		providerMetadataJSON,
-	)
-	if err != nil {
-		return fmt.Errorf("upsert agent thread binding for %s: %w", binding.ConversationID, err)
-	}
-	return transaction.recordStateMutation()
-}
-
 func (transaction *WriteTransaction) InsertArtifact(artifact Artifact) error {
 	if err := transaction.ensureActive(); err != nil {
 		return err
 	}
 	if err := artifact.Validate(); err != nil {
-		return err
-	}
-	branchColumns, err := artifactPayloadColumns(artifact)
-	if err != nil {
 		return err
 	}
 	if artifact.TurnID != nil {
@@ -444,68 +420,26 @@ func (transaction *WriteTransaction) InsertArtifact(artifact Artifact) error {
 			return err
 		}
 	}
-	_, err = transaction.tx.ExecContext(transaction.ctx, `
+	_, err := transaction.tx.ExecContext(transaction.ctx, `
 INSERT INTO artifacts (
-  id, conversation_id, turn_id, trajectory_sequence, kind, title,
-  markdown_json, table_json, bar_chart_json, file_json, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  id, conversation_id, turn_id, trajectory_sequence, title,
+  language, catalog_id, source, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		artifact.ID,
 		artifact.ConversationID,
 		nullableString(artifact.TurnID),
 		nullableInt(artifact.TrajectorySequence),
-		artifact.Kind,
 		artifact.Title,
-		branchColumns.markdownJSON,
-		branchColumns.tableJSON,
-		branchColumns.barChartJSON,
-		branchColumns.fileJSON,
+		artifact.Document.Language,
+		artifact.Document.CatalogID,
+		artifact.Document.Source,
 		artifact.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("insert artifact %s: %w", artifact.ID, err)
 	}
 	return transaction.recordStateMutation()
-}
-
-type artifactPayloadColumnValues struct {
-	markdownJSON sql.NullString
-	tableJSON    sql.NullString
-	barChartJSON sql.NullString
-	fileJSON     sql.NullString
-}
-
-func artifactPayloadColumns(artifact Artifact) (artifactPayloadColumnValues, error) {
-	var columns artifactPayloadColumnValues
-	switch artifact.Kind {
-	case ArtifactKindMarkdown:
-		encoded, err := encodeJSONColumn("markdown artifact payload", artifact.Markdown)
-		if err != nil {
-			return columns, err
-		}
-		columns.markdownJSON = sql.NullString{String: encoded, Valid: true}
-	case ArtifactKindTable:
-		encoded, err := encodeJSONColumn("table artifact payload", artifact.Table)
-		if err != nil {
-			return columns, err
-		}
-		columns.tableJSON = sql.NullString{String: encoded, Valid: true}
-	case ArtifactKindBarChart:
-		encoded, err := encodeJSONColumn("bar chart artifact payload", artifact.BarChart)
-		if err != nil {
-			return columns, err
-		}
-		columns.barChartJSON = sql.NullString{String: encoded, Valid: true}
-	case ArtifactKindFile:
-		encoded, err := encodeJSONColumn("file artifact payload", artifact.File)
-		if err != nil {
-			return columns, err
-		}
-		columns.fileJSON = sql.NullString{String: encoded, Valid: true}
-	default:
-		return columns, fmt.Errorf("artifact %s has unsupported kind %q", artifact.ID, artifact.Kind)
-	}
-	return columns, nil
 }
 
 func (transaction *WriteTransaction) requireArtifactTurnCapacity(conversationID string, turnID string) error {

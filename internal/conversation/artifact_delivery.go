@@ -57,7 +57,7 @@ func readArtifactDeliveryAttempt(
 ) (artifactDeliveryAttempt, error) {
 	rows, err := reader.QueryContext(ctx, `
 SELECT id, conversation_id, turn_id, sequence, emitted_at, kind, actor,
-       provider_event_id, provider_thread_id, provider_turn_id, payload_json
+       provider_event_id, provider_turn_id, payload_json
 FROM trajectory_events
 WHERE conversation_id = ?
   AND turn_id = ?
@@ -99,8 +99,14 @@ func reduceArtifactDeliveryAttempt(
 	return attempt
 }
 
+// artifactToolFailureEvent reads the artifact delivery outcome from Setta's own
+// record of the tool call. The provider also reports the failed tool item, but
+// that report only says the call failed; the Setta record carries the typed
+// failure the retry decision depends on.
 func artifactToolFailureEvent(event TrajectoryEvent) (Failure, bool) {
-	if event.Kind != TrajectoryEventActivityFailed || event.ActivityFailed == nil {
+	if event.Kind != TrajectoryEventActivityFailed ||
+		event.ActivityFailed == nil ||
+		event.Actor != TrajectoryActorSystem {
 		return Failure{}, false
 	}
 	activity := event.ActivityFailed.Activity
