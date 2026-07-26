@@ -3260,3 +3260,32 @@ Stop and reassess rather than hiding the problem if any of these occur:
   dead-code checks, and the full 833-test desktop suite. This was a test-harness
   change only; no product behavior, dependency file, provider, or cloud resource
   was touched.
+- 2026-07-26 (destroy what cannot be observed, and a live gate that runs):
+  A live Stage 4a run exposed two defects that together strand billable
+  Sprites. First, `Adapter.Destroy` and `SpritesCleanupClient.List` both
+  routed through `Inspect`, so a provider response outside the pinned
+  observation contract made a running Sprite simultaneously un-inspectable and
+  un-deletable through Setta. The run hit this for real: creation failed while
+  mapping the resource configuration, the registered cleanup failed the same
+  way, and the Sprite had to be destroyed with the provider CLI. Slice 2 had
+  removed one cause of unmappable observations; the structural coupling
+  remained. Deleting a runtime depends only on its identity and ownership
+  labels, so `Adapter.InspectIdentity` now maps just the provider ID, name,
+  labels, and placement, and both destroy paths read that. `Inspect` keeps its
+  full strictness, and unrecognized resource fields now name the exact
+  offending provider field instead of reporting the whole configuration as
+  unusable, so the next live failure identifies what changed. Second,
+  `scripts/test_sprites_lifecycle.sh` never set the
+  `SETTA_LIVE_SPRITES_LIFECYCLE=1` opt-in that the test gained, so the runbook's
+  first live stage exited zero while skipping; the script now sets it and
+  requires a passing result rather than trusting the exit status. Separately,
+  `TestColdSoakServiceProbePersistsStartsAndResetsHeartbeat` compared two
+  heartbeats sampled moments after their own starts with a two-beat margin and
+  failed intermittently under suite load; the restart assertion is now
+  independent of read latency. The three affected Go packages passed, including
+  twelve concurrent race runs of `./internal/sprites`, and
+  `./scripts/format.sh` and `./check_quality.sh --git-changes` passed. No
+  dependency file changed and no provider or cloud mutation ran. The live
+  provider parse failure itself is not yet diagnosed: no Sprite exists to
+  inspect, and the response shape that broke the mapping is unknown until a
+  live run captures it.
