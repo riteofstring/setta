@@ -730,6 +730,46 @@ func EvaluateCutoff(
 	return buildCutoffDecision(currentCost, exposureCost, policy)
 }
 
+// MaximumCutoffExposureUSDMicros prices the enforced resource ceilings over
+// the longest permitted provider cutoff lag. Configuration owners use this to
+// persist the same exposure that EvaluateCutoff will later recompute.
+func MaximumCutoffExposureUSDMicros(
+	schedule runtimecost.PriceSchedule,
+	runtimeName string,
+	ceilings ResourceCeilings,
+	maximumCutoffLag time.Duration,
+	requiredDimensions []runtimeprovider.UsageDimension,
+) (uint64, error) {
+	if maximumCutoffLag <= 0 {
+		return 0, fmt.Errorf("%w: invalid maximum cutoff lag", runtimeprovider.ErrInvalidContract)
+	}
+	start := time.Unix(0, 0).UTC()
+	exposure, err := ConservativeObservation(
+		schedule.Provider,
+		runtimeName,
+		ClosedWindow{
+			Window: runtimeprovider.UsageWindow{
+				Start: start,
+				End:   start.Add(maximumCutoffLag),
+			},
+			ProviderActive: maximumCutoffLag,
+		},
+		start.Add(maximumCutoffLag),
+		ceilings,
+	)
+	if err != nil {
+		return 0, err
+	}
+	if err := validateRequiredDimensions(requiredDimensions, exposure, exposure); err != nil {
+		return 0, err
+	}
+	cost, err := runtimecost.Estimate(schedule, exposure)
+	if err != nil {
+		return 0, err
+	}
+	return cost.CoveredTotal, nil
+}
+
 func validateCutoffInputs(current runtimeprovider.UsageObservation, policy BudgetPolicy) error {
 	if policy.CoveredLimitUSDMicros == 0 || policy.SafetyReserveUSDMicros >= policy.CoveredLimitUSDMicros ||
 		policy.MaximumCutoffLag <= 0 {

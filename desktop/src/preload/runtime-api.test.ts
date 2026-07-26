@@ -98,6 +98,7 @@ function runtimeSnapshot() {
         displayName: "Remote",
         isLocal: false,
         lastConnected: "2026-07-02T12:00:00Z",
+        managedHosted: false,
         runtimeId: "runtime_remote",
       },
     ],

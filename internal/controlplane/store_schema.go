@@ -54,6 +54,7 @@ func (store *Store) configureDatabase(ctx context.Context) error {
 			"hosted_access_intents",
 			"hosted_access_capabilities",
 			"hosted_access_progress",
+			"developer_hosted_runtime_state",
 			"user_budget_policies",
 			"usage_intervals",
 			"usage_intervals_runtime_window_idx",
@@ -170,7 +171,7 @@ CREATE TABLE IF NOT EXISTS runtimes (
   last_ready_at TEXT,
   deletion_scheduled_at TEXT,
   updated_at TEXT NOT NULL,
-  CHECK((access_state = 'delete_scheduled') = (deletion_scheduled_at IS NOT NULL)),
+  CHECK(access_state <> 'delete_scheduled' OR deletion_scheduled_at IS NOT NULL),
   UNIQUE(name, user_id)
 );
 
@@ -269,7 +270,8 @@ CREATE TABLE IF NOT EXISTS runtime_progress (
   cursor INTEGER NOT NULL CHECK(cursor > 0),
   kind TEXT NOT NULL CHECK(kind IN ('ensure_runtime', 'wake_runtime', 'delete_runtime')),
   state TEXT NOT NULL CHECK(state IN (
-    'queued', 'reconciling', 'retrying', 'provisioned', 'wake_requested',
+    'queued', 'reconciling', 'retrying', 'provisioned', 'installing',
+    'pairing', 'connecting', 'connected', 'wake_requested',
     'healthy', 'deletion_scheduled', 'deleted', 'failed', 'canceled'
   )),
   error_code TEXT NOT NULL,
@@ -277,7 +279,8 @@ CREATE TABLE IF NOT EXISTS runtime_progress (
   occurred_at TEXT NOT NULL,
   CHECK(
     (kind = 'ensure_runtime' AND state IN (
-      'queued', 'reconciling', 'retrying', 'provisioned', 'failed', 'canceled'
+      'queued', 'reconciling', 'retrying', 'provisioned', 'installing',
+      'pairing', 'connecting', 'connected', 'failed', 'canceled'
     )) OR
     (kind = 'wake_runtime' AND state IN ('wake_requested', 'healthy', 'failed')) OR
     (kind = 'delete_runtime' AND state IN (
@@ -306,6 +309,19 @@ CREATE TABLE IF NOT EXISTS hosted_access_intents (
   client_kind TEXT NOT NULL CHECK(client_kind IN ('desktop', 'phone')),
   runtime_name TEXT REFERENCES runtimes(name),
   created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS developer_hosted_runtime_state (
+  environment_id TEXT PRIMARY KEY,
+  runtime_name TEXT NOT NULL REFERENCES runtimes(name),
+  ensure_operation_id TEXT NOT NULL REFERENCES runtime_operations(idempotency_key),
+  destroy_operation_id TEXT REFERENCES runtime_deletion_operations(idempotency_key),
+  runtime_registry_id TEXT,
+  bootstrap_secret_ref TEXT,
+  desktop_device_id TEXT,
+  desktop_refresh_token_hash BLOB,
+  last_connected_at TEXT,
   updated_at TEXT NOT NULL
 );
 

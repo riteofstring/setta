@@ -9,6 +9,7 @@ export interface RuntimeCredentialTarget {
   baseUrl: string;
   deviceIdentity: DesktopDeviceIdentity;
   isLocal: boolean;
+  managedHosted: boolean;
   runtimeId: string;
 }
 
@@ -16,6 +17,7 @@ export interface RefreshRuntimeCredentialRequest {
   baseUrl: string;
   deviceIdentity: DesktopDeviceIdentity;
   isLocal: boolean;
+  managedHosted: boolean;
   runtimeId: string;
 }
 
@@ -125,6 +127,7 @@ export class RuntimeCredentialManager {
       baseUrl: target.baseUrl,
       deviceIdentity: target.deviceIdentity,
       isLocal: target.isLocal,
+      managedHosted: target.managedHosted,
       runtimeId: target.runtimeId,
     });
     await this.cacheRuntimeCredential(target, credential);

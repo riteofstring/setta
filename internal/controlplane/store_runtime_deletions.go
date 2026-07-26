@@ -107,9 +107,9 @@ INSERT INTO runtime_deletion_operations (
 	}
 	result, err := tx.ExecContext(ctx, `
 UPDATE runtimes
-SET access_state = ?, deletion_scheduled_at = ?, updated_at = ?
+SET deletion_scheduled_at = ?, updated_at = ?
 WHERE name = ?
-`, RuntimeAccessDeleteScheduled, timestamp(request.ScheduledAt), now, request.RuntimeName)
+`, timestamp(request.ScheduledAt), now, request.RuntimeName)
 	if err != nil {
 		return false, fmt.Errorf("record runtime deletion schedule: %w", err)
 	}
@@ -159,8 +159,8 @@ func (store *Store) cancelRuntimeDeletionLocked(
 	result, err := tx.ExecContext(ctx, `
 UPDATE runtimes
 SET access_state = ?, deletion_scheduled_at = NULL, updated_at = ?
-WHERE name = ? AND access_state = ?
-`, accessState, now, runtimeName, RuntimeAccessDeleteScheduled)
+WHERE name = ? AND deletion_scheduled_at IS NOT NULL
+`, accessState, now, runtimeName)
 	if err != nil {
 		return Runtime{}, fmt.Errorf("clear runtime deletion schedule: %w", err)
 	}
@@ -383,13 +383,13 @@ func (store *Store) claimRuntimeDeletionOperationLocked(
 SELECT o.idempotency_key
 FROM runtime_deletion_operations o
 JOIN runtimes r ON r.name = o.runtime_name AND r.user_id = o.user_id
-WHERE r.access_state = ? AND r.deletion_scheduled_at IS NOT NULL AND (
+WHERE r.deletion_scheduled_at IS NOT NULL AND (
   (o.status IN (?, ?) AND o.next_attempt_at <= ?) OR
   (o.status = ? AND o.lease_expires_at <= ?)
 )
 ORDER BY o.next_attempt_at, o.created_at, o.idempotency_key
 LIMIT 1
-`, RuntimeAccessDeleteScheduled, RuntimeOperationPending, RuntimeOperationRetryWait,
+`, RuntimeOperationPending, RuntimeOperationRetryWait,
 		timestamp(now), RuntimeOperationRunning, timestamp(now)).Scan(&idempotencyKey)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ClaimedRuntimeDeletionOperation{}, false, nil
@@ -408,6 +408,19 @@ WHERE idempotency_key = ?
 	}
 	if err := requireOneRow(result, "claim runtime deletion"); err != nil {
 		return ClaimedRuntimeDeletionOperation{}, false, err
+	}
+	if _, err := tx.ExecContext(ctx, `
+UPDATE runtimes
+SET lifecycle = ?, access_state = ?, health_state = ?, updated_at = ?
+WHERE name = (
+  SELECT runtime_name FROM runtime_deletion_operations WHERE idempotency_key = ?
+) AND deletion_scheduled_at IS NOT NULL
+`, RuntimeLifecycleDeleting, RuntimeAccessDeleteScheduled, RuntimeHealthUnreachable,
+		timestamp(now), idempotencyKey); err != nil {
+		return ClaimedRuntimeDeletionOperation{}, false, fmt.Errorf(
+			"mark claimed runtime deleting: %w",
+			err,
+		)
 	}
 	if err := appendRuntimeProgress(
 		ctx,

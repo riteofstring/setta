@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -265,6 +266,60 @@ func TestReconcilerPermanentlyRejectsMalformedProviderIdentity(t *testing.T) {
 	}
 }
 
+func TestReconcilerRunsHostedPreparationBeforeConnecting(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 7, 27, 16, 0, 0, 0, time.UTC)
+	store := openTestStore(t, t.TempDir(), func() time.Time { return now }, RateLimit{})
+	defer store.Close()
+	if _, err := store.UpsertUser(ctx, "user-hosted-prepare"); err != nil {
+		t.Fatalf("UpsertUser: %v", err)
+	}
+	request := testEnsureRuntimeRequest(
+		t,
+		"ensure-hosted-prepare",
+		"user-hosted-prepare",
+		"hosted-prepare",
+	)
+	if _, err := store.EnsureRuntimeIntent(ctx, request); err != nil {
+		t.Fatalf("EnsureRuntimeIntent: %v", err)
+	}
+	provider := newTestReconcilerProvider(request.RuntimeName)
+	preparer := &testRuntimePreparer{store: store}
+	reconciler := newTestReconcilerWithPreparer(t, store, provider, preparer, 3)
+
+	processed, err := reconciler.ReconcileOnce(ctx)
+	if err != nil || !processed {
+		t.Fatalf("ReconcileOnce = %t, %v", processed, err)
+	}
+	if preparer.calls != 1 {
+		t.Fatalf("preparer calls = %d, want 1", preparer.calls)
+	}
+	progress, _, err := store.RuntimeProgressAfter(ctx, request.IdempotencyKey, "")
+	if err != nil {
+		t.Fatalf("RuntimeProgressAfter: %v", err)
+	}
+	var states []RuntimeProgressState
+	for _, event := range progress {
+		states = append(states, event.State)
+	}
+	want := []RuntimeProgressState{
+		RuntimeProgressQueued,
+		RuntimeProgressReconciling,
+		RuntimeProgressInstalling,
+		RuntimeProgressPairing,
+		RuntimeProgressConnecting,
+	}
+	if !reflect.DeepEqual(states, want) {
+		t.Fatalf("progress states = %v, want %v", states, want)
+	}
+	runtime, err := store.Runtime(ctx, request.RuntimeName)
+	if err != nil || runtime.Lifecycle != RuntimeLifecycleReady ||
+		runtime.HealthState != RuntimeHealthHealthy ||
+		runtime.ObservedRelease != runtime.DesiredRelease {
+		t.Fatalf("prepared runtime = %+v, %v", runtime, err)
+	}
+}
+
 type testReconcilerProvider struct {
 	runtimeName       string
 	observation       runtimeprovider.RuntimeObservation
@@ -277,6 +332,37 @@ type testReconcilerProvider struct {
 	ambiguousSuspend  bool
 	malformedIdentity bool
 	lastCreateRequest runtimeprovider.CreateRequest
+}
+
+type testRuntimePreparer struct {
+	calls int
+	store *Store
+}
+
+func (preparer *testRuntimePreparer) Prepare(
+	ctx context.Context,
+	preparation RuntimeProvisioningPreparation,
+) error {
+	preparer.calls++
+	if err := preparation.ReportProgress(RuntimeProgressPairing); err != nil {
+		return err
+	}
+	claim := preparation.Claim
+	_, err := preparer.store.AssignRuntime(ctx, AssignRuntimeRequest{
+		IdempotencyKey:      "activate-" + claim.IdempotencyKey,
+		UserID:              claim.UserID,
+		RuntimeName:         claim.RuntimeName,
+		Lifecycle:           RuntimeLifecycleReady,
+		AccessState:         RuntimeAccessEnabled,
+		HealthState:         RuntimeHealthHealthy,
+		CredentialEpoch:     1,
+		UpstreamAuthority:   "127.0.0.1:7345",
+		CredentialSecretRef: "runtime_credential",
+		DesiredRelease:      "reconciler-test-release",
+		ObservedRelease:     "reconciler-test-release",
+		Resources:           claim.Resources,
+	})
+	return err
 }
 
 func newTestReconcilerProvider(runtimeName string) *testReconcilerProvider {
@@ -382,6 +468,16 @@ func newTestReconciler(
 	provider RuntimeReconcilerProvider,
 	maximumAttempts int,
 ) *Reconciler {
+	return newTestReconcilerWithPreparer(t, store, provider, nil, maximumAttempts)
+}
+
+func newTestReconcilerWithPreparer(
+	t *testing.T,
+	store *Store,
+	provider RuntimeReconcilerProvider,
+	preparer RuntimeProvisioningPreparer,
+	maximumAttempts int,
+) *Reconciler {
 	t.Helper()
 	observer, err := NewJSONLinesObserver(io.Discard)
 	if err != nil {
@@ -399,6 +495,7 @@ func newTestReconciler(
 		PriceSchedule:      adminTestPriceSchedule(),
 		Provider:           provider,
 		RetryDelay:         time.Minute,
+		RuntimePreparer:    preparer,
 		Store:              store,
 		WorkerID:           "test-worker",
 	})

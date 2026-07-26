@@ -166,19 +166,24 @@ func verifyDeletionPolicy(t *testing.T, fixture *runtimePolicyFixture) {
 		RuntimeName:    fixture.runtimeName,
 		ScheduledAt:    deletionAt,
 	})
-	if err != nil || runtimeRecord.AccessState != RuntimeAccessDeleteScheduled ||
+	if err != nil || runtimeRecord.AccessState != RuntimeAccessEnabled ||
 		runtimeRecord.DeletionScheduledAt == nil ||
 		!runtimeRecord.DeletionScheduledAt.Equal(deletionAt) ||
 		runtimeRecord.Lifecycle != RuntimeLifecycleReady {
 		t.Fatalf("deletion schedule state = %+v, %v", runtimeRecord, err)
 	}
-	requireAuthorizationOutcome(t, fixture.store, fixture.grant.Token, runtimeaccess.AuthorizationSuspended)
+	requireAuthorizationOutcome(t, fixture.store, fixture.grant.Token, runtimeaccess.AuthorizationAllowed)
 	if err := fixture.store.SetRuntimeAccessState(
 		ctx,
 		fixture.runtimeName,
 		RuntimeAccessEnabled,
-	); err == nil {
-		t.Fatal("generic access transition cleared a deletion schedule")
+	); err != nil {
+		t.Fatalf("preserve enabled access during scheduled deletion: %v", err)
+	}
+	runtimeRecord, err = fixture.store.Runtime(ctx, fixture.runtimeName)
+	if err != nil || runtimeRecord.DeletionScheduledAt == nil ||
+		!runtimeRecord.DeletionScheduledAt.Equal(deletionAt) {
+		t.Fatalf("generic access transition changed deletion schedule = %+v, %v", runtimeRecord, err)
 	}
 	runtimeRecord, err = fixture.store.CancelRuntimeDeletion(
 		ctx,

@@ -355,7 +355,7 @@ func TestAdminServerSchedulesAndCancelsRuntimeDeletionWithoutContent(t *testing.
 	}, "runtime_deletion_scheduled")
 	scheduled, err := store.Runtime(ctx, runtimeName)
 	if err != nil ||
-		scheduled.AccessState != RuntimeAccessDeleteScheduled ||
+		scheduled.AccessState != RuntimeAccessEnabled ||
 		scheduled.DeletionScheduledAt == nil ||
 		!scheduled.DeletionScheduledAt.Equal(scheduledAt) {
 		t.Fatalf("administratively scheduled runtime = %+v, %v", scheduled, err)

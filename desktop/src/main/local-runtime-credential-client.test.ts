@@ -49,6 +49,7 @@ describe("local runtime credential client", () => {
       baseUrl: "http://127.0.0.1:41000/",
       deviceIdentity: enrollment.deviceIdentity,
       isLocal: true,
+      managedHosted: false,
       runtimeId: enrollment.runtimeId,
     });
 

@@ -69,6 +69,9 @@ func TestContractSpecsCollectsEndpointGraph(t *testing.T) {
 		"EnsureHostedAccessIntent",
 		"HostedAccessGrant",
 		"HostedAccessProgress",
+		"EnsureDeveloperHostedRuntimeRequest",
+		"DestroyDeveloperHostedRuntimeRequest",
+		"DeveloperHostedRuntimeStatus",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("spec names = %#v, want %#v", got, want)

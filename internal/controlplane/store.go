@@ -26,7 +26,7 @@ import (
 
 const (
 	controlPlaneDatabaseName = "control-plane.sqlite"
-	controlPlaneStoreVersion = 15
+	controlPlaneStoreVersion = 16
 	sqliteDriverName         = "sqlite"
 	defaultGrantTTL          = 24 * time.Hour
 )
@@ -282,7 +282,7 @@ ON CONFLICT(name) DO UPDATE SET
   storage_bytes = excluded.storage_bytes,
   wake_requested_at = NULL,
   last_ready_at = excluded.last_ready_at,
-  deletion_scheduled_at = NULL,
+  deletion_scheduled_at = runtimes.deletion_scheduled_at,
   updated_at = excluded.updated_at
 WHERE runtimes.user_id = excluded.user_id
 `, request.RuntimeName, request.UserID, request.Lifecycle, request.AccessState,

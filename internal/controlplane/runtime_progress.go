@@ -198,6 +198,7 @@ WHERE operation_id = ? AND cursor = ?
 func runtimeProgressTerminal(state RuntimeProgressState) bool {
 	switch state {
 	case RuntimeProgressProvisioned,
+		RuntimeProgressConnected,
 		RuntimeProgressHealthy,
 		RuntimeProgressDeleted,
 		RuntimeProgressFailed,
@@ -223,6 +224,10 @@ func validRuntimeProgressState(state RuntimeProgressState) bool {
 		RuntimeProgressReconciling,
 		RuntimeProgressRetrying,
 		RuntimeProgressProvisioned,
+		RuntimeProgressInstalling,
+		RuntimeProgressPairing,
+		RuntimeProgressConnecting,
+		RuntimeProgressConnected,
 		RuntimeProgressWakeRequested,
 		RuntimeProgressHealthy,
 		RuntimeProgressDeletionScheduled,

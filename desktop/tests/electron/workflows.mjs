@@ -20,6 +20,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "developer-hosted-runtime-workflow.test.mjs",
+    name: "developer-hosted-runtime",
+    tiers: ["required"],
+  },
+  {
     file: "live-codex-electron-workflow.test.mjs",
     name: "live-codex-electron",
     tiers: ["live-codex"],

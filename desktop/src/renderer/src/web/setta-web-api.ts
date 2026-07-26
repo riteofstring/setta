@@ -124,6 +124,17 @@ export function createWebSettaAPI(
       read: () => requireClient().readAppearanceSettings(),
       update: (request) => requireClient().updateAppearanceSettings(request),
     },
+    developerHostedRuntime: {
+      available: async () => false,
+      destroy: async () => {
+        throw new Error("developer hosted runtime is available only in the desktop app");
+      },
+      ensure: async () => {
+        throw new Error("developer hosted runtime is available only in the desktop app");
+      },
+      onStatus: () => () => {},
+      status: async () => null,
+    },
     backend: {
       health: () => publicClient().backendHealth(),
       onProcessStatus: (listener) => {
@@ -457,6 +468,7 @@ export function createWebSettaAPI(
           displayName: info.displayName,
           isLocal: false,
           lastConnected: status === "connected" ? updatedAt : null,
+          managedHosted: false,
           runtimeId: info.runtimeId,
         },
       ],

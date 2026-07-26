@@ -370,6 +370,7 @@ function useRuntimeLifecycle(setta: SettaAPI) {
   const loadRuntimes = useRuntimeStore((state) => state.load);
   const runtimeSnapshot = useRuntimeStore((state) => state.snapshot);
   const setRuntimeSnapshot = useRuntimeStore((state) => state.setSnapshot);
+  const setDeveloperHostedStatus = useRuntimeStore((state) => state.setDeveloperHostedStatus);
   const loadWorkspaceSession = useWorkspaceStore((state) => state.loadSession);
   const resetRuntimeStateKeyRef = useRef<string | null | undefined>(undefined);
   const activeConnectedRuntimeId =
@@ -381,6 +382,11 @@ function useRuntimeLifecycle(setta: SettaAPI) {
       setRuntimeSnapshot(snapshot);
     });
   }, [loadRuntimes, setRuntimeSnapshot, setta]);
+
+  useEffect(
+    () => setta.developerHostedRuntime.onStatus(setDeveloperHostedStatus),
+    [setDeveloperHostedStatus, setta],
+  );
 
   useEffect(() => {
     if (!runtimeSnapshot) {

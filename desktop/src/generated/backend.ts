@@ -1554,6 +1554,106 @@ export function decodeHostedAccessReasonCode(value: unknown, label = "HostedAcce
   }
 }
 
+export type DeveloperHostedRuntimeOperationKind = "ensure" | "destroy";
+
+export const developerHostedRuntimeOperationKindValues = ["ensure", "destroy"] as const satisfies readonly DeveloperHostedRuntimeOperationKind[];
+
+export function decodeDeveloperHostedRuntimeOperationKind(value: unknown, label = "DeveloperHostedRuntimeOperationKind"): DeveloperHostedRuntimeOperationKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "ensure":
+      return decoded;
+    case "destroy":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DeveloperHostedRuntimePhase = "preparing" | "provisioning" | "installing" | "pairing" | "connecting" | "connected" | "retrying" | "needs_attention" | "destroying" | "removed";
+
+export const developerHostedRuntimePhaseValues = ["preparing", "provisioning", "installing", "pairing", "connecting", "connected", "retrying", "needs_attention", "destroying", "removed"] as const satisfies readonly DeveloperHostedRuntimePhase[];
+
+export function decodeDeveloperHostedRuntimePhase(value: unknown, label = "DeveloperHostedRuntimePhase"): DeveloperHostedRuntimePhase {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "preparing":
+      return decoded;
+    case "provisioning":
+      return decoded;
+    case "installing":
+      return decoded;
+    case "pairing":
+      return decoded;
+    case "connecting":
+      return decoded;
+    case "connected":
+      return decoded;
+    case "retrying":
+      return decoded;
+    case "needs_attention":
+      return decoded;
+    case "destroying":
+      return decoded;
+    case "removed":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DeveloperHostedRuntimeReasonCode = "provider_unavailable" | "provider_identity_mismatch" | "release_verification_failed" | "health_check_failed" | "pairing_failed" | "connection_failed" | "budget_cutoff" | "cleanup_pending" | "developer_feature_disabled" | "provisioning_canceled";
+
+export const developerHostedRuntimeReasonCodeValues = ["provider_unavailable", "provider_identity_mismatch", "release_verification_failed", "health_check_failed", "pairing_failed", "connection_failed", "budget_cutoff", "cleanup_pending", "developer_feature_disabled", "provisioning_canceled"] as const satisfies readonly DeveloperHostedRuntimeReasonCode[];
+
+export function decodeDeveloperHostedRuntimeReasonCode(value: unknown, label = "DeveloperHostedRuntimeReasonCode"): DeveloperHostedRuntimeReasonCode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "provider_unavailable":
+      return decoded;
+    case "provider_identity_mismatch":
+      return decoded;
+    case "release_verification_failed":
+      return decoded;
+    case "health_check_failed":
+      return decoded;
+    case "pairing_failed":
+      return decoded;
+    case "connection_failed":
+      return decoded;
+    case "budget_cutoff":
+      return decoded;
+    case "cleanup_pending":
+      return decoded;
+    case "developer_feature_disabled":
+      return decoded;
+    case "provisioning_canceled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DeveloperHostedRuntimeTerminalOutcome = "connected" | "removed" | "failed" | "canceled";
+
+export const developerHostedRuntimeTerminalOutcomeValues = ["connected", "removed", "failed", "canceled"] as const satisfies readonly DeveloperHostedRuntimeTerminalOutcome[];
+
+export function decodeDeveloperHostedRuntimeTerminalOutcome(value: unknown, label = "DeveloperHostedRuntimeTerminalOutcome"): DeveloperHostedRuntimeTerminalOutcome {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "connected":
+      return decoded;
+    case "removed":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "canceled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export const conversationPaletteCatalog = {
   "sky": {"id":"sky","dark":{"conversationAccent":"oklch(0.846 0.1292 213.38)","conversationAccentForeground":"oklch(0.0697 0.0051 260.18)","conversationFocusRing":"oklch(0.846 0.1292 213.38)"},"light":{"conversationAccent":"oklch(0.48 0.13 213.38)","conversationAccentForeground":"oklch(0.9574 0.0071 267.38)","conversationFocusRing":"oklch(0.48 0.13 213.38)"}},
   "blue": {"id":"blue","dark":{"conversationAccent":"oklch(0.76 0.115 250)","conversationAccentForeground":"oklch(0.0697 0.0051 260.18)","conversationFocusRing":"oklch(0.76 0.115 250)"},"light":{"conversationAccent":"oklch(0.48 0.13 250)","conversationAccentForeground":"oklch(0.9574 0.0071 267.38)","conversationFocusRing":"oklch(0.48 0.13 250)"}},
@@ -3568,6 +3668,31 @@ export interface HostedAccessProgress {
   retryable: boolean;
   occurredAt: string;
   accessGrant: HostedAccessGrant | null;
+}
+
+export interface EnsureDeveloperHostedRuntimeRequest {
+  operationId: string;
+}
+
+export interface DestroyDeveloperHostedRuntimeRequest {
+  operationId: string;
+}
+
+export interface DeveloperHostedRuntimeStatus {
+  operationId: string;
+  cursor: string;
+  runtimeRegistryId: string | null;
+  operationKind: DeveloperHostedRuntimeOperationKind;
+  phase: DeveloperHostedRuntimePhase;
+  retryable: boolean;
+  reasonCode: DeveloperHostedRuntimeReasonCode | null;
+  occurredAt: string;
+  lastConnectedAt: string | null;
+  enforcedBudgetUsdMicros: number;
+  reportedUsageUsdMicros: number | null;
+  deletionScheduledAt: string;
+  automaticDeletionWhileOffline: boolean;
+  terminalOutcome: DeveloperHostedRuntimeTerminalOutcome | null;
 }
 
 export type ConversationEventPayload =
@@ -7178,6 +7303,43 @@ export function decodeHostedAccessProgress(value: unknown): HostedAccessProgress
     retryable: decodeBoolean(requireField(record, "retryable", "HostedAccessProgress"), "HostedAccessProgress.retryable"),
     occurredAt: decodeString(requireField(record, "occurredAt", "HostedAccessProgress"), "HostedAccessProgress.occurredAt"),
     accessGrant: decodeNullable(requireField(record, "accessGrant", "HostedAccessProgress"), "HostedAccessProgress.accessGrant", (item) => decodeHostedAccessGrant(item)),
+  };
+}
+
+export function decodeEnsureDeveloperHostedRuntimeRequest(value: unknown): EnsureDeveloperHostedRuntimeRequest {
+  const record = assertRecord(value, "EnsureDeveloperHostedRuntimeRequest");
+  assertKnownFields(record, "EnsureDeveloperHostedRuntimeRequest", ["operationId"]);
+  return {
+    operationId: decodeString(requireField(record, "operationId", "EnsureDeveloperHostedRuntimeRequest"), "EnsureDeveloperHostedRuntimeRequest.operationId"),
+  };
+}
+
+export function decodeDestroyDeveloperHostedRuntimeRequest(value: unknown): DestroyDeveloperHostedRuntimeRequest {
+  const record = assertRecord(value, "DestroyDeveloperHostedRuntimeRequest");
+  assertKnownFields(record, "DestroyDeveloperHostedRuntimeRequest", ["operationId"]);
+  return {
+    operationId: decodeString(requireField(record, "operationId", "DestroyDeveloperHostedRuntimeRequest"), "DestroyDeveloperHostedRuntimeRequest.operationId"),
+  };
+}
+
+export function decodeDeveloperHostedRuntimeStatus(value: unknown): DeveloperHostedRuntimeStatus {
+  const record = assertRecord(value, "DeveloperHostedRuntimeStatus");
+  assertKnownFields(record, "DeveloperHostedRuntimeStatus", ["operationId", "cursor", "runtimeRegistryId", "operationKind", "phase", "retryable", "reasonCode", "occurredAt", "lastConnectedAt", "enforcedBudgetUsdMicros", "reportedUsageUsdMicros", "deletionScheduledAt", "automaticDeletionWhileOffline", "terminalOutcome"]);
+  return {
+    operationId: decodeString(requireField(record, "operationId", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.operationId"),
+    cursor: decodeString(requireField(record, "cursor", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.cursor"),
+    runtimeRegistryId: decodeNullable(requireField(record, "runtimeRegistryId", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.runtimeRegistryId", (item) => decodeString(item, "DeveloperHostedRuntimeStatus.runtimeRegistryId")),
+    operationKind: decodeDeveloperHostedRuntimeOperationKind(requireField(record, "operationKind", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.operationKind"),
+    phase: decodeDeveloperHostedRuntimePhase(requireField(record, "phase", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.phase"),
+    retryable: decodeBoolean(requireField(record, "retryable", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.retryable"),
+    reasonCode: decodeNullable(requireField(record, "reasonCode", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.reasonCode", (item) => decodeDeveloperHostedRuntimeReasonCode(item, "DeveloperHostedRuntimeStatus.reasonCode")),
+    occurredAt: decodeString(requireField(record, "occurredAt", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.occurredAt"),
+    lastConnectedAt: decodeNullable(requireField(record, "lastConnectedAt", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.lastConnectedAt", (item) => decodeString(item, "DeveloperHostedRuntimeStatus.lastConnectedAt")),
+    enforcedBudgetUsdMicros: decodeInteger(requireField(record, "enforcedBudgetUsdMicros", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.enforcedBudgetUsdMicros"),
+    reportedUsageUsdMicros: decodeNullable(requireField(record, "reportedUsageUsdMicros", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.reportedUsageUsdMicros", (item) => decodeInteger(item, "DeveloperHostedRuntimeStatus.reportedUsageUsdMicros")),
+    deletionScheduledAt: decodeString(requireField(record, "deletionScheduledAt", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.deletionScheduledAt"),
+    automaticDeletionWhileOffline: decodeBoolean(requireField(record, "automaticDeletionWhileOffline", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.automaticDeletionWhileOffline"),
+    terminalOutcome: decodeNullable(requireField(record, "terminalOutcome", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.terminalOutcome", (item) => decodeDeveloperHostedRuntimeTerminalOutcome(item, "DeveloperHostedRuntimeStatus.terminalOutcome")),
   };
 }
 

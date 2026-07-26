@@ -11,11 +11,14 @@ import type {
   CancelCodexLoginRequest,
   CodexAccountChangeEvent,
   CodexAccountState,
+  DestroyDeveloperHostedRuntimeRequest,
+  DeveloperHostedRuntimeStatus,
   ConversationEvent,
   ConversationInputRoutingState,
   ConversationPresentationProfile,
   ConversationSnapshot,
   EnsureHostedAccessIntent,
+  EnsureDeveloperHostedRuntimeRequest,
   HostedAccessProgress,
   Artifact,
   CreateTopicConversationRequest,
@@ -263,6 +266,7 @@ export interface KnownRuntimeView {
   displayName: string;
   isLocal: boolean;
   lastConnected: string | null;
+  managedHosted: boolean;
   runtimeId: string;
 }
 
@@ -303,6 +307,15 @@ export interface SettaAPI {
     onProgress: (listener: (progress: HostedAccessProgress) => void) => () => void;
     releaseProgress: (request: HostedAccessProgressReleaseRequest) => Promise<void>;
     subscribeProgress: (request: HostedAccessProgressSubscriptionRequest) => Promise<void>;
+  };
+  developerHostedRuntime: {
+    available: () => Promise<boolean>;
+    destroy: (
+      request: DestroyDeveloperHostedRuntimeRequest,
+    ) => Promise<DeveloperHostedRuntimeStatus>;
+    ensure: (request: EnsureDeveloperHostedRuntimeRequest) => Promise<DeveloperHostedRuntimeStatus>;
+    onStatus: (listener: (status: DeveloperHostedRuntimeStatus) => void) => () => void;
+    status: () => Promise<DeveloperHostedRuntimeStatus | null>;
   };
   runtimes: {
     addByPairingUrl: (pairingUrl: string) => Promise<RuntimeRegistrySnapshot>;

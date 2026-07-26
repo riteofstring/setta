@@ -14,6 +14,7 @@ export interface KnownRuntimeRecord {
   deviceIdentity: DesktopDeviceIdentity;
   isLocal: boolean;
   lastConnected: string | null;
+  managedHosted: boolean;
   protocolVersion: number;
 }
 
@@ -29,17 +30,18 @@ interface StoredKnownRuntime {
   device_identity_ref: string;
   is_local: boolean;
   last_connected: string | null;
+  managed_hosted: boolean;
   protocol_version: number;
 }
 
 interface StoredKnownRuntimeRegistry {
-  schema_version: 2;
+  schema_version: 3;
   active_runtime_id: string | null;
   runtimes: StoredKnownRuntime[];
 }
 
 const registryFileName = "known-runtimes.json";
-const registrySchemaVersion = 2;
+const registrySchemaVersion = 3;
 
 export class KnownRuntimeStore {
   constructor(
@@ -129,6 +131,7 @@ export class KnownRuntimeStore {
       displayName: stringField(record, "display_name", label),
       isLocal: booleanField(record, "is_local", label),
       lastConnected: nullableStringField(record, "last_connected", label),
+      managedHosted: booleanField(record, "managed_hosted", label),
       protocolVersion: integerField(record, "protocol_version", label),
       runtimeId,
     };
@@ -220,6 +223,7 @@ function encodeKnownRuntimeRegistry(registry: KnownRuntimeRegistry): StoredKnown
       display_name: runtime.displayName,
       is_local: runtime.isLocal,
       last_connected: runtime.lastConnected,
+      managed_hosted: runtime.managedHosted,
       protocol_version: runtime.protocolVersion,
       runtime_id: runtime.runtimeId,
     })),

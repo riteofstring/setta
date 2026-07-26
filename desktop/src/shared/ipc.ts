@@ -16,6 +16,10 @@ import type {
   WorkspaceSession,
 } from "@generated/backend";
 import { conversationIpcChannels, type ConversationIpc } from "./conversation-ipc";
+import {
+  developerHostedRuntimeIpcChannels,
+  type DeveloperHostedRuntimeIpcContract,
+} from "./developer-hosted-runtime-ipc";
 import { hostedAccessIpcChannels, type HostedAccessIpcContract } from "./hosted-access-ipc";
 import { masterIpcChannels, type MasterIpcContract } from "./master-ipc";
 import {
@@ -57,6 +61,7 @@ export const ipcChannels = {
   runtimeRemove: "runtimes:remove",
   runtimeSwitch: "runtimes:switch",
   ...conversationIpcChannels,
+  ...developerHostedRuntimeIpcChannels,
   ...hostedAccessIpcChannels,
   ...masterIpcChannels,
   ...roleConfigurationIpcChannels,
@@ -90,6 +95,7 @@ export const ipcEvents = {
   backendUnexpectedExit: "backend:unexpected-exit",
   codexAccountChange: "codex-account:change",
   conversationEvent: "conversation:event",
+  developerHostedRuntimeStatus: "developer-hosted-runtime:status",
   hostedAccessProgress: "hosted-access:progress",
   runtimeConnectionState: "runtimes:connection-state",
   workspaceBrowserViewKey: "workspace:browser-view-key",
@@ -99,6 +105,7 @@ export const ipcEvents = {
 interface IpcContract
   extends
     ConversationIpc,
+    DeveloperHostedRuntimeIpcContract,
     HostedAccessIpcContract,
     MasterIpcContract,
     RoleConfigurationIpcContract,

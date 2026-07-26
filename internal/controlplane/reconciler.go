@@ -18,6 +18,25 @@ type RuntimeReconcilerProvider interface {
 	Destroy(context.Context, string) error
 }
 
+type RuntimeProvisioningPreparer interface {
+	Prepare(context.Context, RuntimeProvisioningPreparation) error
+}
+
+type RuntimeProvisioningPreparation struct {
+	Claim               ClaimedRuntimeOperation
+	ProviderObservation runtimeprovider.RuntimeObservation
+	ReportProgress      func(RuntimeProgressState) error
+}
+
+type RuntimePreparationError struct {
+	Code      string
+	Permanent bool
+}
+
+func (err *RuntimePreparationError) Error() string {
+	return err.Code
+}
+
 type ReconcilerConfig struct {
 	AccountingObserver ControlPlaneAuditObserver
 	AccountingWindow   time.Duration
@@ -28,6 +47,7 @@ type ReconcilerConfig struct {
 	OperationTimeout   time.Duration
 	Observer           RuntimeAuditObserver
 	PriceSchedule      runtimecost.PriceSchedule
+	RuntimePreparer    RuntimeProvisioningPreparer
 	Provider           RuntimeReconcilerProvider
 	RetryDelay         time.Duration
 	Store              *Store
@@ -44,6 +64,7 @@ type Reconciler struct {
 	operationTimeout   time.Duration
 	observer           RuntimeAuditObserver
 	priceSchedule      runtimecost.PriceSchedule
+	runtimePreparer    RuntimeProvisioningPreparer
 	provider           RuntimeReconcilerProvider
 	retryDelay         time.Duration
 	store              *Store
@@ -64,6 +85,7 @@ func NewReconciler(config ReconcilerConfig) (*Reconciler, error) {
 		operationTimeout:   config.OperationTimeout,
 		observer:           config.Observer,
 		priceSchedule:      config.PriceSchedule,
+		runtimePreparer:    config.RuntimePreparer,
 		provider:           config.Provider,
 		retryDelay:         config.RetryDelay,
 		store:              config.Store,
@@ -406,14 +428,68 @@ func (reconciler *Reconciler) reconcileProvisioningClaim(
 		}
 		return reconciler.deferProviderFailure(parentCtx, operationCtx, claim, failure.code)
 	}
-	if err := reconciler.store.CompleteRuntimeOperation(operationCtx, claim, verified); err != nil {
+	completionState := RuntimeProgressProvisioned
+	if reconciler.runtimePreparer != nil {
+		if failure := reconciler.prepareRuntime(operationCtx, claim, verified); failure != nil {
+			if failure.permanent {
+				err := reconciler.failOperation(operationCtx, claim, failure.code)
+				return normalizeOperationError(parentCtx, operationCtx, err)
+			}
+			return reconciler.deferProviderFailure(parentCtx, operationCtx, claim, failure.code)
+		}
+		completionState = RuntimeProgressConnecting
+	}
+	if err := reconciler.store.completeRuntimeOperation(
+		operationCtx,
+		claim,
+		verified,
+		completionState,
+	); err != nil {
 		if errors.Is(err, ErrFenceLost) {
 			return nil
 		}
 		return normalizeOperationError(parentCtx, operationCtx, err)
 	}
-	reconciler.observeRuntimeAudit(claim.RuntimeOperation, RuntimeProgressEnsureRuntime, RuntimeProgressProvisioned, "", false)
+	reconciler.observeRuntimeAudit(
+		claim.RuntimeOperation,
+		RuntimeProgressEnsureRuntime,
+		completionState,
+		"",
+		false,
+	)
 	return nil
+}
+
+func (reconciler *Reconciler) prepareRuntime(
+	ctx context.Context,
+	claim ClaimedRuntimeOperation,
+	observation runtimeprovider.RuntimeObservation,
+) *providerReconcileFailure {
+	if err := reconciler.store.appendClaimedRuntimeProgress(
+		ctx,
+		claim,
+		RuntimeProgressInstalling,
+	); err != nil {
+		return &providerReconcileFailure{code: "runtime_install_progress"}
+	}
+	err := reconciler.runtimePreparer.Prepare(ctx, RuntimeProvisioningPreparation{
+		Claim:               claim,
+		ProviderObservation: observation,
+		ReportProgress: func(state RuntimeProgressState) error {
+			return reconciler.store.appendClaimedRuntimeProgress(ctx, claim, state)
+		},
+	})
+	if err == nil {
+		return nil
+	}
+	var preparationError *RuntimePreparationError
+	if errors.As(err, &preparationError) {
+		return &providerReconcileFailure{
+			code:      preparationError.Code,
+			permanent: preparationError.Permanent,
+		}
+	}
+	return &providerReconcileFailure{code: "runtime_prepare"}
 }
 
 type providerReconcileFailure struct {

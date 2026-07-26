@@ -31,6 +31,7 @@ export interface ActiveRuntime {
   deviceIdentity: DesktopDeviceIdentity;
   displayName: string;
   isLocal: boolean;
+  managedHosted: boolean;
   protocolVersion: number;
   runtimeId: string;
 }
@@ -59,6 +60,15 @@ export interface RuntimeRegistryOptions {
 interface LocalRuntimeInput {
   baseUrl: string;
   pairingToken: string;
+}
+
+export interface ManagedHostedRuntimeInput {
+  baseUrl: string;
+  deviceIdentity: DesktopDeviceIdentity;
+  expiresAt: string;
+  protocolVersion: number;
+  runtimeId: string;
+  token: string;
 }
 
 const initialConnectionState: RuntimeConnectionState = {
@@ -99,6 +109,7 @@ export class RuntimeRegistryController {
         baseUrl: input.baseUrl,
         deviceIdentity: enrollment.deviceIdentity,
         isLocal: true,
+        managedHosted: false,
         runtimeId: info.runtimeId,
       },
       enrollment.runtimeCredential,
@@ -109,6 +120,7 @@ export class RuntimeRegistryController {
       displayName: info.displayName,
       isLocal: true,
       lastConnected: null,
+      managedHosted: false,
       protocolVersion: enrollment.protocolVersion,
       runtimeId: info.runtimeId,
     };
@@ -154,6 +166,7 @@ export class RuntimeRegistryController {
           baseUrl: parsed.baseUrl,
           deviceIdentity: enrollment.deviceIdentity,
           isLocal: false,
+          managedHosted: false,
           runtimeId: parsed.runtimeId,
         },
         enrollment.runtimeCredential,
@@ -164,6 +177,7 @@ export class RuntimeRegistryController {
         displayName: info.displayName,
         isLocal: false,
         lastConnected: null,
+        managedHosted: false,
         protocolVersion: enrollment.protocolVersion,
         runtimeId: parsed.runtimeId,
       });
@@ -176,13 +190,72 @@ export class RuntimeRegistryController {
     return this.runExclusive(() => this.connectRuntime(runtimeId, { operationAlreadyHeld: true }));
   }
 
+  async registerManagedHostedRuntime(
+    input: ManagedHostedRuntimeInput,
+  ): Promise<RuntimeRegistrySnapshot> {
+    return this.runExclusive(async () => {
+      await this.options.runtimeCredentials.cacheRuntimeCredential(
+        {
+          baseUrl: input.baseUrl,
+          deviceIdentity: input.deviceIdentity,
+          isLocal: false,
+          managedHosted: true,
+          runtimeId: input.runtimeId,
+        },
+        {
+          deviceId: input.deviceIdentity.deviceId,
+          expiresAt: input.expiresAt,
+          runtimeId: input.runtimeId,
+          token: input.token,
+        },
+      );
+      this.registry = upsertKnownRuntime(this.registry, {
+        baseUrl: input.baseUrl,
+        deviceIdentity: input.deviceIdentity,
+        displayName: "Hosted developer runtime",
+        isLocal: false,
+        lastConnected: null,
+        managedHosted: true,
+        protocolVersion: input.protocolVersion,
+        runtimeId: input.runtimeId,
+      });
+      await this.persist();
+      return this.connectRuntime(input.runtimeId, { operationAlreadyHeld: true });
+    });
+  }
+
   async removeRuntime(runtimeId: string): Promise<RuntimeRegistrySnapshot> {
+    return this.removeRemoteRuntime(runtimeId, false);
+  }
+
+  async removeManagedHostedRuntime(runtimeId: string): Promise<RuntimeRegistrySnapshot> {
+    return this.removeRemoteRuntime(runtimeId, true);
+  }
+
+  private async removeRemoteRuntime(
+    runtimeId: string,
+    managedHosted: boolean,
+  ): Promise<RuntimeRegistrySnapshot> {
     return this.runExclusive(async () => {
       const runtime = this.requireKnownRuntime(runtimeId);
       if (runtime.isLocal) {
         throw new Error("Local runtime cannot be removed");
       }
+      if (runtime.managedHosted !== managedHosted) {
+        throw new Error(
+          runtime.managedHosted
+            ? "Managed hosted runtime must be destroyed"
+            : "Runtime is not the managed hosted runtime",
+        );
+      }
       const wasActive = this.registry.activeRuntimeId === runtimeId;
+      await this.options.runtimeCredentials.clearRuntimeCredential({
+        baseUrl: runtime.baseUrl,
+        deviceIdentity: runtime.deviceIdentity,
+        isLocal: runtime.isLocal,
+        managedHosted: runtime.managedHosted,
+        runtimeId: runtime.runtimeId,
+      });
       this.registry = removeKnownRuntime(this.registry, runtimeId);
       await this.persist();
       if (wasActive) {
@@ -284,6 +357,7 @@ export class RuntimeRegistryController {
               baseUrl: target.baseUrl,
               deviceIdentity: target.deviceIdentity,
               isLocal: target.isLocal,
+              managedHosted: target.managedHosted,
               runtimeId: target.runtimeId,
             })
           ).token,
@@ -352,6 +426,7 @@ export class RuntimeRegistryController {
       deviceIdentity: runtime.deviceIdentity,
       displayName,
       isLocal: runtime.isLocal,
+      managedHosted: runtime.managedHosted,
       protocolVersion: info.protocolVersion,
       runtimeId: runtime.runtimeId,
     };
@@ -402,6 +477,7 @@ export class RuntimeRegistryController {
       displayName: runtimePresentationName(runtime),
       isLocal: runtime.isLocal,
       lastConnected: runtime.lastConnected,
+      managedHosted: runtime.managedHosted,
       runtimeId: runtime.runtimeId,
     };
   }

@@ -37,16 +37,23 @@ const (
 )
 
 type commandConfig struct {
-	DataDirectory        string
-	Host                 string
-	MaxConcurrentRequest int
-	MaxRequestBytes      int64
-	Port                 int
-	ProviderBaseURL      string
-	ProviderToken        string
-	RuntimeTarget        string
-	SecretDirectory      string
-	ShutdownTimeout      time.Duration
+	DataDirectory                        string
+	DeveloperHostedEnvironmentID         string
+	DeveloperHostedGatewayBaseURL        string
+	DeveloperHostedIndependentController bool
+	DeveloperHostedMinisign              string
+	DeveloperHostedReleaseManifest       string
+	DeveloperHostedRuntime               bool
+	DeveloperHostedUserID                string
+	Host                                 string
+	MaxConcurrentRequest                 int
+	MaxRequestBytes                      int64
+	Port                                 int
+	ProviderBaseURL                      string
+	ProviderToken                        string
+	RuntimeTarget                        string
+	SecretDirectory                      string
+	ShutdownTimeout                      time.Duration
 }
 
 type readyEvent struct {
@@ -162,6 +169,16 @@ func startControlPlaneServices(
 	if err != nil {
 		return controlPlaneServices{}, fmt.Errorf("configure Sprites provider: %w", err)
 	}
+	developerHosted, err := configureDeveloperHostedRuntime(
+		context.Background(),
+		config,
+		store,
+		secrets,
+		provider,
+	)
+	if err != nil {
+		return controlPlaneServices{}, fmt.Errorf("configure developer hosted runtime: %w", err)
+	}
 	observer, err := controlplane.NewJSONLinesObserver(stdout)
 	if err != nil {
 		return controlPlaneServices{}, err
@@ -174,17 +191,24 @@ func startControlPlaneServices(
 	if err != nil {
 		return controlPlaneServices{}, err
 	}
+	reconcilerLease := defaultReconcilerLease
+	reconcilerOperation := defaultReconcilerOperation
+	if config.DeveloperHostedRuntime {
+		reconcilerLease = 20 * time.Minute
+		reconcilerOperation = 15 * time.Minute
+	}
 	reconciler, err := controlplane.NewReconciler(controlplane.ReconcilerConfig{
 		AccountingObserver: alertingObserver,
 		AccountingWindow:   defaultAccountingWindow,
 		AlertObserver:      alertingObserver,
 		BacklogAlertAfter:  defaultReconciliationBacklog,
-		LeaseDuration:      defaultReconcilerLease,
+		LeaseDuration:      reconcilerLease,
 		MaxAttempts:        defaultReconcilerAttempts,
-		OperationTimeout:   defaultReconcilerOperation,
+		OperationTimeout:   reconcilerOperation,
 		Observer:           alertingObserver,
 		PriceSchedule:      controlPlanePriceSchedule(),
 		Provider:           provider,
+		RuntimePreparer:    developerHosted.preparer,
 		RetryDelay:         defaultReconcilerRetry,
 		Store:              store,
 		WorkerID:           workerID,
@@ -210,10 +234,11 @@ func startControlPlaneServices(
 		return controlPlaneServices{}, fmt.Errorf("start control-plane gateway: %w", err)
 	}
 	admin, err := controlplane.StartAdminServer(controlplane.AdminServerConfig{
-		Observer:      alertingObserver,
-		PriceSchedule: controlPlanePriceSchedule(),
-		SocketPath:    controlplane.AdminSocketPath(config.DataDirectory),
-		Store:         store,
+		DeveloperHostedRuntime: developerHosted.coordinator,
+		Observer:               alertingObserver,
+		PriceSchedule:          controlPlanePriceSchedule(),
+		SocketPath:             controlplane.AdminSocketPath(config.DataDirectory),
+		Store:                  store,
 	})
 	if err != nil {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
@@ -287,7 +312,16 @@ func configFromArgs(
 	getenv func(string) string,
 ) (commandConfig, error) {
 	config := commandConfig{
-		DataDirectory:        getenv("SETTA_CONTROL_PLANE_DATA_DIR"),
+		DataDirectory:                  getenv("SETTA_CONTROL_PLANE_DATA_DIR"),
+		DeveloperHostedEnvironmentID:   getenv("SETTA_DEVELOPER_HOSTED_ENVIRONMENT_ID"),
+		DeveloperHostedGatewayBaseURL:  getenv("SETTA_DEVELOPER_HOSTED_GATEWAY_BASE_URL"),
+		DeveloperHostedMinisign:        getenv("SETTA_DEVELOPER_HOSTED_MINISIGN"),
+		DeveloperHostedReleaseManifest: getenv("SETTA_DEVELOPER_HOSTED_RELEASE_MANIFEST"),
+		DeveloperHostedUserID: environmentOrDefault(
+			getenv,
+			"SETTA_DEVELOPER_HOSTED_USER_ID",
+			"developer-hosted-user",
+		),
 		Host:                 environmentOrDefault(getenv, "SETTA_CONTROL_PLANE_HOST", "127.0.0.1"),
 		MaxConcurrentRequest: defaultMaxConcurrentRequests,
 		MaxRequestBytes:      defaultMaxRequestBytes,
@@ -301,6 +335,13 @@ func configFromArgs(
 	flagSet := flag.NewFlagSet("setta-control-plane", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)
 	flagSet.StringVar(&config.DataDirectory, "data-dir", config.DataDirectory, "absolute durable control-plane database directory")
+	flagSet.BoolVar(&config.DeveloperHostedRuntime, "developer-hosted-runtime", false, "enable the temporary developer hosted runtime controller")
+	flagSet.StringVar(&config.DeveloperHostedEnvironmentID, "developer-hosted-environment-id", config.DeveloperHostedEnvironmentID, "stable developer hosted environment id")
+	flagSet.StringVar(&config.DeveloperHostedGatewayBaseURL, "developer-hosted-gateway-base-url", config.DeveloperHostedGatewayBaseURL, "desktop-visible control-plane gateway base URL")
+	flagSet.BoolVar(&config.DeveloperHostedIndependentController, "developer-hosted-independent-controller", false, "assert that this controller keeps running while the desktop is offline")
+	flagSet.StringVar(&config.DeveloperHostedMinisign, "developer-hosted-minisign", config.DeveloperHostedMinisign, "absolute Minisign client path")
+	flagSet.StringVar(&config.DeveloperHostedReleaseManifest, "developer-hosted-release-manifest", config.DeveloperHostedReleaseManifest, "absolute private signed runtime release manifest")
+	flagSet.StringVar(&config.DeveloperHostedUserID, "developer-hosted-user-id", config.DeveloperHostedUserID, "stable developer hosted control-plane user id")
 	flagSet.StringVar(&config.Host, "host", config.Host, "numeric IP address to bind behind the hosting TLS edge")
 	flagSet.IntVar(&config.MaxConcurrentRequest, "max-concurrent-requests", config.MaxConcurrentRequest, "maximum concurrent gateway requests including SSE streams")
 	flagSet.Int64Var(&config.MaxRequestBytes, "max-request-bytes", config.MaxRequestBytes, "maximum relayed request body bytes")
@@ -334,7 +375,29 @@ func validateCommandConfig(config commandConfig) error {
 	if _, err := sprites.NewAdapterWithBaseURL(config.ProviderToken, config.ProviderBaseURL); err != nil {
 		return fmt.Errorf("Sprites provider configuration: %w", err)
 	}
+	if err := validateDeveloperHostedCommandConfig(config); err != nil {
+		return err
+	}
 	return validateCommandCeilings(config)
+}
+
+func validateDeveloperHostedCommandConfig(config commandConfig) error {
+	if !config.DeveloperHostedRuntime {
+		return nil
+	}
+	missingIdentity := config.DeveloperHostedEnvironmentID == "" ||
+		config.DeveloperHostedGatewayBaseURL == "" ||
+		config.DeveloperHostedUserID == ""
+	missingRelease := config.DeveloperHostedMinisign == "" ||
+		config.DeveloperHostedReleaseManifest == ""
+	nonAbsoluteRelease := !filepath.IsAbs(config.DeveloperHostedMinisign) ||
+		!filepath.IsAbs(config.DeveloperHostedReleaseManifest)
+	if missingIdentity || missingRelease || nonAbsoluteRelease {
+		return errors.New(
+			"developer hosted runtime requires environment, user, gateway, Minisign, and signed release configuration",
+		)
+	}
+	return nil
 }
 
 func validateCommandDirectories(config commandConfig) error {

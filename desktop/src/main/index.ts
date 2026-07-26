@@ -26,6 +26,9 @@ import {
 import { registerConversationIpcHandlers } from "./conversation-ipc";
 import { ConversationEventRegistry } from "./conversation-event-registry";
 import { DesktopCredentialStore, type RuntimeAccessCredential } from "./desktop-credential-store";
+import { DeveloperHostedRuntimeController } from "./developer-hosted-runtime-controller";
+import { DeveloperHostedRuntimeCredentialClient } from "./developer-hosted-runtime-client";
+import { registerDeveloperHostedRuntimeIpcHandlers } from "./developer-hosted-runtime-ipc";
 import { createElectronCredentialSecretStore } from "./electron-credential-secret-store";
 import { KnownRuntimeStore } from "./known-runtime-store";
 import {
@@ -39,10 +42,7 @@ import { configureMainRendererMicrophonePermissions } from "./microphone-permiss
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
 import { registerRoleConfigurationIpcHandlers } from "./role-configuration-ipc";
 import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registry";
-import {
-  RuntimeCredentialManager,
-  UnconfiguredControlPlaneRuntimeCredentialClient,
-} from "./runtime-credential-manager";
+import { RuntimeCredentialManager } from "./runtime-credential-manager";
 import { registerSpeechIpcHandlers } from "./speech-ipc";
 import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
@@ -80,6 +80,19 @@ const hostedAccessProgress = new HostedAccessProgressRegistry({
   },
   socketPath: hostedAccessSocketPath,
 });
+const developerHostedRuntime = new DeveloperHostedRuntimeController({
+  enabled: process.env.SETTA_DEVELOPER_HOSTED_RUNTIME === "1",
+  hostedWorkspacePath:
+    process.env.SETTA_E2E === "1"
+      ? process.env.SETTA_E2E_DEVELOPER_HOSTED_WORKSPACE_PATH
+      : undefined,
+  openHostedTestWorkspace: async (rootPath) => {
+    await requireBackendClient().openWorkspace({ rootPath });
+  },
+  runtimeRegistry: requireRuntimeRegistry,
+  senders: () => BrowserWindow.getAllWindows().map((window) => window.webContents),
+  socketPath: hostedAccessSocketPath,
+});
 const compactWindowMinHeight = 320;
 const compactWindowMinWidth = 320;
 const backendRequestDrainTimeoutMs = 1_500;
@@ -110,6 +123,7 @@ async function prepareBackend(appDataDir: string) {
       pairingToken: backend.localPairingToken,
     });
     await runtimeRegistry.connectStoredOrLocal(localRuntime.runtimeId);
+    await developerHostedRuntime.load();
   } catch (error) {
     backend = null;
     backendStartupError = error instanceof Error ? error.message : "backend failed to start";
@@ -140,7 +154,10 @@ function createRuntimeRegistry() {
     onSnapshot: broadcastRuntimeSnapshot,
     runtimeCredentials: new RuntimeCredentialManager(
       credentials,
-      new UnconfiguredControlPlaneRuntimeCredentialClient(),
+      new DeveloperHostedRuntimeCredentialClient(
+        () => process.env.SETTA_DEVELOPER_HOSTED_RUNTIME === "1",
+        hostedAccessSocketPath,
+      ),
       {
         localRuntimeCredentialClient: new LocalRuntimeCredentialClient(fetch),
       },
@@ -596,6 +613,11 @@ function registerIpc() {
     ipcObserver,
     socketPath: hostedAccessSocketPath,
   });
+  registerDeveloperHostedRuntimeIpcHandlers({
+    controller: developerHostedRuntime,
+    ipcMain,
+    ipcObserver,
+  });
   registerRoleConfigurationIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
@@ -711,6 +733,7 @@ async function stopBackend() {
   emitBackendProcessStatus({ message: "Backend is stopping", status: "offline" });
   await stopBackendEventStreams();
   hostedAccessProgress.stopAll();
+  developerHostedRuntime.stop();
   await backendRequests.waitForIdle(backendRequestDrainTimeoutMs);
   await backend?.stop();
   backend = null;

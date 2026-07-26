@@ -488,7 +488,7 @@ func requireAdminRuntimeDeletionWorkflow(
 	}
 	scheduled, err := store.Runtime(context.Background(), runtimeName)
 	if err != nil ||
-		scheduled.AccessState != controlplane.RuntimeAccessDeleteScheduled ||
+		scheduled.AccessState != controlplane.RuntimeAccessEnabled ||
 		scheduled.DeletionScheduledAt == nil ||
 		!scheduled.DeletionScheduledAt.Equal(scheduledAt) {
 		t.Fatalf("runtime after deletion command = %+v, %v", scheduled, err)

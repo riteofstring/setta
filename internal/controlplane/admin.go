@@ -23,10 +23,11 @@ const maximumAdminRequestBytes = 16 * 1024
 const adminSocketFileName = "admin.sock"
 
 type AdminServerConfig struct {
-	Observer      ControlPlaneObserver
-	PriceSchedule runtimecost.PriceSchedule
-	SocketPath    string
-	Store         *Store
+	DeveloperHostedRuntime *DeveloperHostedRuntimeCoordinator
+	Observer               ControlPlaneObserver
+	PriceSchedule          runtimecost.PriceSchedule
+	SocketPath             string
+	Store                  *Store
 }
 
 type AdminServer struct {
@@ -157,8 +158,8 @@ func (metadata AdminRuntimeMetadata) Validate() error {
 	if metadata.UpdatedAt.IsZero() {
 		return errors.New("runtime metadata update time is required")
 	}
-	if (metadata.AccessState == RuntimeAccessDeleteScheduled) !=
-		(metadata.DeletionScheduledAt != nil) {
+	if metadata.AccessState == RuntimeAccessDeleteScheduled &&
+		metadata.DeletionScheduledAt == nil {
 		return errors.New("runtime metadata deletion schedule is inconsistent")
 	}
 	return nil
@@ -206,7 +207,12 @@ func StartAdminServer(config AdminServerConfig) (*AdminServer, error) {
 		return nil, fmt.Errorf("protect control-plane administration socket: %w", err)
 	}
 	httpServer := &http.Server{
-		Handler:           adminHandler(config.Store, config.Observer, config.PriceSchedule),
+		Handler: adminHandler(
+			config.Store,
+			config.Observer,
+			config.PriceSchedule,
+			config.DeveloperHostedRuntime,
+		),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	server := &AdminServer{httpServer: httpServer, listener: listener, done: make(chan error, 1)}
@@ -260,43 +266,80 @@ func adminHandler(
 	store *Store,
 	observer ControlPlaneObserver,
 	priceSchedule runtimecost.PriceSchedule,
+	developerHostedRuntime *DeveloperHostedRuntimeCoordinator,
 ) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if handleHostedAccessAdminRoute(store, observer, response, request) {
+		if handleDeveloperHostedRuntimeAdminRoute(
+			developerHostedRuntime,
+			response,
+			request,
+		) {
 			return
 		}
-		if handleRuntimeAdminRoute(store, observer, response, request) {
-			return
-		}
-		if handleRuntimeAccountingAdminRoute(store, observer, priceSchedule, response, request) {
-			return
-		}
-		if handleBudgetAdminRoute(store, observer, priceSchedule, response, request) {
-			return
-		}
-		switch request.URL.Path {
-		case "/v1/devices/ensure":
-			if !requireAdminMethod(response, request, http.MethodPost) {
-				return
-			}
-			response.Header().Set("Content-Type", "application/json")
-			handleAdminEnsureDevice(store, observer, response, request)
-		case "/v1/devices/revoke":
-			if !requireAdminMethod(response, request, http.MethodPost) {
-				return
-			}
-			response.Header().Set("Content-Type", "application/json")
-			handleAdminRevokeDevice(store, observer, response, request)
-		case "/v1/users/status":
-			if !requireAdminMethod(response, request, http.MethodPost) {
-				return
-			}
+		handleCoreAdminRoute(store, observer, priceSchedule, response, request)
+	})
+}
+
+func handleCoreAdminRoute(
+	store *Store,
+	observer ControlPlaneObserver,
+	priceSchedule runtimecost.PriceSchedule,
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if handleKnownAdminRoute(store, observer, priceSchedule, response, request) {
+		return
+	}
+	switch request.URL.Path {
+	case "/v1/devices/ensure":
+		handleDeviceAdminRoute(store, observer, response, request, false)
+	case "/v1/devices/revoke":
+		handleDeviceAdminRoute(store, observer, response, request, true)
+	case "/v1/users/status":
+		if requireAdminMethod(response, request, http.MethodPost) {
 			response.Header().Set("Content-Type", "application/json")
 			handleAdminSetUserStatus(store, observer, response, request)
-		default:
-			response.WriteHeader(http.StatusNotFound)
 		}
-	})
+	default:
+		response.WriteHeader(http.StatusNotFound)
+	}
+}
+
+func handleKnownAdminRoute(
+	store *Store,
+	observer ControlPlaneObserver,
+	priceSchedule runtimecost.PriceSchedule,
+	response http.ResponseWriter,
+	request *http.Request,
+) bool {
+	if handleHostedAccessAdminRoute(store, observer, response, request) {
+		return true
+	}
+	if handleRuntimeAdminRoute(store, observer, response, request) {
+		return true
+	}
+	if handleRuntimeAccountingAdminRoute(store, observer, priceSchedule, response, request) {
+		return true
+	}
+	return handleBudgetAdminRoute(store, observer, priceSchedule, response, request)
+}
+
+func handleDeviceAdminRoute(
+	store *Store,
+	observer ControlPlaneObserver,
+	response http.ResponseWriter,
+	request *http.Request,
+	revoke bool,
+) {
+	if !requireAdminMethod(response, request, http.MethodPost) {
+		return
+	}
+	response.Header().Set("Content-Type", "application/json")
+	if revoke {
+		handleAdminRevokeDevice(store, observer, response, request)
+		return
+	}
+	handleAdminEnsureDevice(store, observer, response, request)
 }
 
 func handleRuntimeAccountingAdminRoute(

@@ -47,7 +47,7 @@ describe("KnownRuntimeStore", () => {
     const raw = JSON.parse(await readFile(knownRuntimeStoragePath(userDataDir), "utf8"));
     expect(raw).toMatchObject({
       active_runtime_id: "runtime_remote",
-      schema_version: 2,
+      schema_version: 3,
     });
     expect(raw.runtimes[0]).toHaveProperty(
       "device_identity_ref",
@@ -128,6 +128,7 @@ function runtimeRecord(overrides: Partial<KnownRuntimeRecord>): KnownRuntimeReco
     displayName: "Runtime",
     isLocal: false,
     lastConnected: null,
+    managedHosted: false,
     protocolVersion: backendProtocolVersion,
     runtimeId: "runtime_test",
     ...overrides,

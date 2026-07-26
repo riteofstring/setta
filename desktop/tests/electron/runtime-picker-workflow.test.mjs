@@ -608,7 +608,7 @@ async function assertEncryptedDesktopCredentialFiles(appDataDir, remoteRuntimeId
 }
 
 function assertKnownRuntimeRegistry(knownRaw, known, remoteRuntimeId) {
-  if (known.schema_version !== 2 || known.active_runtime_id !== remoteRuntimeId) {
+  if (known.schema_version !== 3 || known.active_runtime_id !== remoteRuntimeId) {
     throw new Error(`known runtime registry does not identify the active remote: ${knownRaw}`);
   }
   for (const runtime of known.runtimes ?? []) {
@@ -626,6 +626,7 @@ function assertKnownRuntimeRecord(runtime) {
     "display_name",
     "is_local",
     "last_connected",
+    "managed_hosted",
     "protocol_version",
     "runtime_id",
   ];

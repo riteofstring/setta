@@ -47,6 +47,9 @@ func TestControlPlaneContractRegistryOwnsHostedAccessTypes(t *testing.T) {
 	want := []reflect.Type{
 		reflect.TypeFor[EnsureHostedAccessIntent](),
 		reflect.TypeFor[HostedAccessProgress](),
+		reflect.TypeFor[EnsureDeveloperHostedRuntimeRequest](),
+		reflect.TypeFor[DestroyDeveloperHostedRuntimeRequest](),
+		reflect.TypeFor[DeveloperHostedRuntimeStatus](),
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("ContractTypes() = %v, want %v", got, want)

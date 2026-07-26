@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import {
   decodeCodexAccountChangeEvent,
   decodeConversationEvent,
+  decodeDeveloperHostedRuntimeStatus,
   decodeHostedAccessProgress,
 } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents, ipcMessages } from "@shared/ipc";
@@ -62,6 +63,21 @@ const api: SettaAPI = {
     },
     releaseProgress: (request) => invoke("hostedAccessReleaseProgress", request),
     subscribeProgress: (request) => invoke("hostedAccessSubscribeProgress", request),
+  },
+  developerHostedRuntime: {
+    available: () => invoke("developerHostedRuntimeAvailable"),
+    destroy: (request) => invoke("developerHostedRuntimeDestroy", request),
+    ensure: (request) => invoke("developerHostedRuntimeEnsure", request),
+    onStatus: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeDeveloperHostedRuntimeStatus(payload));
+      };
+      ipcRenderer.on(ipcEvents.developerHostedRuntimeStatus, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.developerHostedRuntimeStatus, handler);
+      };
+    },
+    status: () => invoke("developerHostedRuntimeStatus"),
   },
   runtimes: {
     addByPairingUrl: (pairingUrl) => invoke("runtimeAddByPairingUrl", pairingUrl),
@@ -253,6 +269,7 @@ function decodeKnownRuntimeView(value: unknown, label: string): KnownRuntimeView
     displayName: stringField(record, "displayName", label),
     isLocal: booleanField(record, "isLocal", label),
     lastConnected: nullableStringField(record, "lastConnected", label),
+    managedHosted: booleanField(record, "managedHosted", label),
     runtimeId: stringField(record, "runtimeId", label),
   };
 }

@@ -324,6 +324,34 @@ func TestEvaluateCutoffBuildsWorstCaseEnforcementExposure(t *testing.T) {
 	}
 }
 
+func TestMaximumCutoffExposurePricesEnforcedResources(t *testing.T) {
+	identity, err := runtimeprovider.NewManagedIdentity("accounting-maximum-cutoff")
+	if err != nil {
+		t.Fatalf("NewManagedIdentity: %v", err)
+	}
+	exposure, err := MaximumCutoffExposureUSDMicros(
+		spritescost.PublishedRates20260727(),
+		identity.Name,
+		ResourceCeilings{
+			CPUCoreMillionths: EnforcedBound{Enforced: true, Value: 1_000_000},
+			MemoryBytes:       EnforcedBound{Enforced: true, Value: 512_000_000},
+			HotStorageBytes:   EnforcedBound{Enforced: true, Value: 10_000_000_000},
+		},
+		time.Minute,
+		[]runtimeprovider.UsageDimension{
+			runtimeprovider.UsageDimensionCPU,
+			runtimeprovider.UsageDimensionMemory,
+			runtimeprovider.UsageDimensionHotStorage,
+		},
+	)
+	if err != nil {
+		t.Fatalf("MaximumCutoffExposureUSDMicros: %v", err)
+	}
+	if exposure != 1_655 {
+		t.Fatalf("exposure = %d, want 1655", exposure)
+	}
+}
+
 func TestConservativeObservationRoundsUpSubUnitExposure(t *testing.T) {
 	identity, err := runtimeprovider.NewManagedIdentity("accounting-rounding")
 	if err != nil {

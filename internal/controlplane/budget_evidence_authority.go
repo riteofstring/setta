@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
+	"time"
 
 	"setta/internal/runtimeaccounting"
 	"setta/internal/runtimecost"
@@ -14,6 +16,28 @@ var hardBudgetDimensions = []runtimeprovider.UsageDimension{
 	runtimeprovider.UsageDimensionCPU,
 	runtimeprovider.UsageDimensionMemory,
 	runtimeprovider.UsageDimensionHotStorage,
+}
+
+func CalculateHardBudgetCutoffExposureUSDMicros(
+	schedule runtimecost.PriceSchedule,
+	runtimeName string,
+	resources runtimeprovider.RuntimeResources,
+	maximumCutoffLag time.Duration,
+) (int64, error) {
+	exposure, err := runtimeaccounting.MaximumCutoffExposureUSDMicros(
+		schedule,
+		runtimeName,
+		accountingCeilings(resources),
+		maximumCutoffLag,
+		hardBudgetDimensions,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("calculate hard-budget cutoff exposure: %w", err)
+	}
+	if exposure > math.MaxInt64 {
+		return 0, errors.New("hard-budget cutoff exposure exceeds supported range")
+	}
+	return int64(exposure), nil
 }
 
 func (store *Store) validateUsageEvidenceAuthorityLocked(

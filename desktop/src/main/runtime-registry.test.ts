@@ -227,6 +227,49 @@ describe("RuntimeRegistryController", () => {
     expect(JSON.stringify(credential)).not.toContain("remote_secret");
     expect(controlPlane.requests[0]?.deviceIdentity.secret).toBe("remote_secret");
   });
+
+  test("keeps managed hosted credentials private and requires the destroy path", async () => {
+    const store = await newRuntimeStore();
+    const controller = new RuntimeRegistryController({
+      clientDisplayName: () => "Setta Desktop",
+      enrollRuntime,
+      fetchImpl: runtimeFetch(),
+      hooks: lifecycleHooks([]),
+      onSnapshot: () => {},
+      runtimeCredentials: newRuntimeCredentials(),
+      store,
+    });
+    await controller.load();
+
+    const snapshot = await controller.registerManagedHostedRuntime({
+      baseUrl: "http://100.64.0.12:7345/",
+      deviceIdentity: deviceIdentity({
+        deviceId: "device_managed",
+        secret: "managed_device_secret",
+      }),
+      expiresAt: "2026-07-16T12:05:00.000Z",
+      protocolVersion: backendProtocolVersion,
+      runtimeId: "runtime_remote",
+      token: "managed_runtime_token",
+    });
+
+    expect(snapshot.connection.status).toBe("connected");
+    expect(controller.list()).toEqual([
+      expect.objectContaining({
+        managedHosted: true,
+        runtimeId: "runtime_remote",
+      }),
+    ]);
+    expect(JSON.stringify(controller.list())).not.toContain("managed_device_secret");
+    expect(JSON.stringify(controller.list())).not.toContain("managed_runtime_token");
+    await expect(controller.removeRuntime("runtime_remote")).rejects.toThrow(
+      "Managed hosted runtime must be destroyed",
+    );
+    await expect(controller.removeManagedHostedRuntime("runtime_remote")).resolves.toMatchObject({
+      activeRuntimeId: null,
+      runtimes: [],
+    });
+  });
 });
 
 function lifecycleHooks(events: string[]): RuntimeRegistryHooks {
@@ -327,6 +370,7 @@ function runtimeRecord(overrides: Partial<KnownRuntimeRecord>): KnownRuntimeReco
     displayName: "Runtime",
     isLocal: false,
     lastConnected: null,
+    managedHosted: false,
     protocolVersion: backendProtocolVersion,
     runtimeId: "runtime_test",
     ...overrides,

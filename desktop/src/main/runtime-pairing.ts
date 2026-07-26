@@ -86,9 +86,18 @@ export async function fetchRuntimeInfo(
   baseUrl: string,
   fetchImpl: BackendFetch,
 ): Promise<RuntimeInfoResponse> {
+  return fetchRuntimeInfoRequest(baseUrl, fetchImpl);
+}
+
+async function fetchRuntimeInfoRequest(
+  baseUrl: string,
+  fetchImpl: BackendFetch,
+  authToken?: string,
+): Promise<RuntimeInfoResponse> {
   try {
     return decodeRuntimeInfoResponse(
       await requestRuntimeJSON({
+        authToken,
         baseUrl,
         endpoint: backendEndpoints.RuntimeInfo,
         fetchImpl,
@@ -112,7 +121,7 @@ export async function verifyRuntimeConnection(options: {
   expectedRuntimeId: string;
   fetchImpl: BackendFetch;
 }): Promise<RuntimeInfoResponse> {
-  const info = await fetchRuntimeInfo(options.baseUrl, options.fetchImpl);
+  const info = await fetchRuntimeInfoRequest(options.baseUrl, options.fetchImpl, options.authToken);
   if (info.runtimeId !== options.expectedRuntimeId) {
     throw new RuntimeConnectionError(
       "mismatched",

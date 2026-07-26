@@ -54,8 +54,10 @@ describe("runtime connection verification", () => {
 
   test("verifies runtime id and authenticated runtime credential", async () => {
     const calls: string[] = [];
-    const fetchImpl: BackendFetch = async (input) => {
+    const authorizations: string[] = [];
+    const fetchImpl: BackendFetch = async (input, init) => {
       calls.push(input.toString());
+      authorizations.push(new Headers(init.headers).get("Authorization") ?? "");
       if (input.pathname === "/runtime/info") {
         return jsonResponse(runtimeInfo("runtime_expected", backendProtocolVersion));
       }
@@ -75,6 +77,7 @@ describe("runtime connection verification", () => {
       "http://100.64.0.12:7345/runtime/info",
       "http://100.64.0.12:7345/devices/list",
     ]);
+    expect(authorizations).toEqual(["Bearer runtime_credential", "Bearer runtime_credential"]);
   });
 
   test("marks older protocol versions incompatible", async () => {

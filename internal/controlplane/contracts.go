@@ -22,6 +22,10 @@ type HostedAccessCapability string
 type HostedAccessClientKind string
 type HostedAccessProgressState string
 type HostedAccessReasonCode string
+type DeveloperHostedRuntimeOperationKind string
+type DeveloperHostedRuntimePhase string
+type DeveloperHostedRuntimeReasonCode string
+type DeveloperHostedRuntimeTerminalOutcome string
 
 const (
 	UserStatusActive    UserStatus = "active"
@@ -63,6 +67,10 @@ const (
 	RuntimeProgressReconciling       RuntimeProgressState = "reconciling"
 	RuntimeProgressRetrying          RuntimeProgressState = "retrying"
 	RuntimeProgressProvisioned       RuntimeProgressState = "provisioned"
+	RuntimeProgressInstalling        RuntimeProgressState = "installing"
+	RuntimeProgressPairing           RuntimeProgressState = "pairing"
+	RuntimeProgressConnecting        RuntimeProgressState = "connecting"
+	RuntimeProgressConnected         RuntimeProgressState = "connected"
 	RuntimeProgressWakeRequested     RuntimeProgressState = "wake_requested"
 	RuntimeProgressHealthy           RuntimeProgressState = "healthy"
 	RuntimeProgressDeletionScheduled RuntimeProgressState = "deletion_scheduled"
@@ -93,6 +101,36 @@ const (
 	HostedAccessReasonNone                      HostedAccessReasonCode = ""
 	HostedAccessReasonRuntimeAssignmentRejected HostedAccessReasonCode = "runtime_assignment_rejected"
 	HostedAccessReasonDeviceGrantRejected       HostedAccessReasonCode = "device_grant_rejected"
+
+	DeveloperHostedRuntimeEnsure  DeveloperHostedRuntimeOperationKind = "ensure"
+	DeveloperHostedRuntimeDestroy DeveloperHostedRuntimeOperationKind = "destroy"
+
+	DeveloperHostedRuntimePreparing      DeveloperHostedRuntimePhase = "preparing"
+	DeveloperHostedRuntimeProvisioning   DeveloperHostedRuntimePhase = "provisioning"
+	DeveloperHostedRuntimeInstalling     DeveloperHostedRuntimePhase = "installing"
+	DeveloperHostedRuntimePairing        DeveloperHostedRuntimePhase = "pairing"
+	DeveloperHostedRuntimeConnecting     DeveloperHostedRuntimePhase = "connecting"
+	DeveloperHostedRuntimeConnected      DeveloperHostedRuntimePhase = "connected"
+	DeveloperHostedRuntimeRetrying       DeveloperHostedRuntimePhase = "retrying"
+	DeveloperHostedRuntimeNeedsAttention DeveloperHostedRuntimePhase = "needs_attention"
+	DeveloperHostedRuntimeDestroying     DeveloperHostedRuntimePhase = "destroying"
+	DeveloperHostedRuntimeRemoved        DeveloperHostedRuntimePhase = "removed"
+
+	DeveloperHostedRuntimeReasonProviderUnavailable       DeveloperHostedRuntimeReasonCode = "provider_unavailable"
+	DeveloperHostedRuntimeReasonProviderIdentityMismatch  DeveloperHostedRuntimeReasonCode = "provider_identity_mismatch"
+	DeveloperHostedRuntimeReasonReleaseVerificationFailed DeveloperHostedRuntimeReasonCode = "release_verification_failed"
+	DeveloperHostedRuntimeReasonHealthCheckFailed         DeveloperHostedRuntimeReasonCode = "health_check_failed"
+	DeveloperHostedRuntimeReasonPairingFailed             DeveloperHostedRuntimeReasonCode = "pairing_failed"
+	DeveloperHostedRuntimeReasonConnectionFailed          DeveloperHostedRuntimeReasonCode = "connection_failed"
+	DeveloperHostedRuntimeReasonBudgetCutoff              DeveloperHostedRuntimeReasonCode = "budget_cutoff"
+	DeveloperHostedRuntimeReasonCleanupPending            DeveloperHostedRuntimeReasonCode = "cleanup_pending"
+	DeveloperHostedRuntimeReasonDeveloperFeatureDisabled  DeveloperHostedRuntimeReasonCode = "developer_feature_disabled"
+	DeveloperHostedRuntimeReasonProvisioningCanceled      DeveloperHostedRuntimeReasonCode = "provisioning_canceled"
+
+	DeveloperHostedRuntimeTerminalConnected DeveloperHostedRuntimeTerminalOutcome = "connected"
+	DeveloperHostedRuntimeTerminalRemoved   DeveloperHostedRuntimeTerminalOutcome = "removed"
+	DeveloperHostedRuntimeTerminalFailed    DeveloperHostedRuntimeTerminalOutcome = "failed"
+	DeveloperHostedRuntimeTerminalCanceled  DeveloperHostedRuntimeTerminalOutcome = "canceled"
 )
 
 var (
@@ -116,6 +154,40 @@ var (
 	hostedAccessReasonCodeValues = []HostedAccessReasonCode{
 		HostedAccessReasonRuntimeAssignmentRejected,
 		HostedAccessReasonDeviceGrantRejected,
+	}
+	developerHostedRuntimeOperationKindValues = []DeveloperHostedRuntimeOperationKind{
+		DeveloperHostedRuntimeEnsure,
+		DeveloperHostedRuntimeDestroy,
+	}
+	developerHostedRuntimePhaseValues = []DeveloperHostedRuntimePhase{
+		DeveloperHostedRuntimePreparing,
+		DeveloperHostedRuntimeProvisioning,
+		DeveloperHostedRuntimeInstalling,
+		DeveloperHostedRuntimePairing,
+		DeveloperHostedRuntimeConnecting,
+		DeveloperHostedRuntimeConnected,
+		DeveloperHostedRuntimeRetrying,
+		DeveloperHostedRuntimeNeedsAttention,
+		DeveloperHostedRuntimeDestroying,
+		DeveloperHostedRuntimeRemoved,
+	}
+	developerHostedRuntimeReasonCodeValues = []DeveloperHostedRuntimeReasonCode{
+		DeveloperHostedRuntimeReasonProviderUnavailable,
+		DeveloperHostedRuntimeReasonProviderIdentityMismatch,
+		DeveloperHostedRuntimeReasonReleaseVerificationFailed,
+		DeveloperHostedRuntimeReasonHealthCheckFailed,
+		DeveloperHostedRuntimeReasonPairingFailed,
+		DeveloperHostedRuntimeReasonConnectionFailed,
+		DeveloperHostedRuntimeReasonBudgetCutoff,
+		DeveloperHostedRuntimeReasonCleanupPending,
+		DeveloperHostedRuntimeReasonDeveloperFeatureDisabled,
+		DeveloperHostedRuntimeReasonProvisioningCanceled,
+	}
+	developerHostedRuntimeTerminalOutcomeValues = []DeveloperHostedRuntimeTerminalOutcome{
+		DeveloperHostedRuntimeTerminalConnected,
+		DeveloperHostedRuntimeTerminalRemoved,
+		DeveloperHostedRuntimeTerminalFailed,
+		DeveloperHostedRuntimeTerminalCanceled,
 	}
 )
 
@@ -156,10 +228,38 @@ type HostedAccessGrant struct {
 	ExpiresAt           string                   `json:"expiresAt"`
 }
 
+type EnsureDeveloperHostedRuntimeRequest struct {
+	OperationID string `json:"operationId"`
+}
+
+type DestroyDeveloperHostedRuntimeRequest struct {
+	OperationID string `json:"operationId"`
+}
+
+type DeveloperHostedRuntimeStatus struct {
+	OperationID                   string                                 `json:"operationId"`
+	Cursor                        string                                 `json:"cursor"`
+	RuntimeRegistryID             *string                                `json:"runtimeRegistryId"`
+	OperationKind                 DeveloperHostedRuntimeOperationKind    `json:"operationKind"`
+	Phase                         DeveloperHostedRuntimePhase            `json:"phase"`
+	Retryable                     bool                                   `json:"retryable"`
+	ReasonCode                    *DeveloperHostedRuntimeReasonCode      `json:"reasonCode"`
+	OccurredAt                    string                                 `json:"occurredAt"`
+	LastConnectedAt               *string                                `json:"lastConnectedAt"`
+	EnforcedBudgetUSDMicros       int                                    `json:"enforcedBudgetUsdMicros"`
+	ReportedUsageUSDMicros        *int                                   `json:"reportedUsageUsdMicros"`
+	DeletionScheduledAt           string                                 `json:"deletionScheduledAt"`
+	AutomaticDeletionWhileOffline bool                                   `json:"automaticDeletionWhileOffline"`
+	TerminalOutcome               *DeveloperHostedRuntimeTerminalOutcome `json:"terminalOutcome"`
+}
+
 func ContractTypes() []reflect.Type {
 	return []reflect.Type{
 		reflect.TypeFor[EnsureHostedAccessIntent](),
 		reflect.TypeFor[HostedAccessProgress](),
+		reflect.TypeFor[EnsureDeveloperHostedRuntimeRequest](),
+		reflect.TypeFor[DestroyDeveloperHostedRuntimeRequest](),
+		reflect.TypeFor[DeveloperHostedRuntimeStatus](),
 	}
 }
 
@@ -169,6 +269,10 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "HostedAccessClientKind", Values: controlPlaneStringValues(hostedAccessClientKindValues)},
 		{Name: "HostedAccessProgressState", Values: controlPlaneStringValues(hostedAccessProgressStateValues)},
 		{Name: "HostedAccessReasonCode", Values: controlPlaneStringValues(hostedAccessReasonCodeValues)},
+		{Name: "DeveloperHostedRuntimeOperationKind", Values: controlPlaneStringValues(developerHostedRuntimeOperationKindValues)},
+		{Name: "DeveloperHostedRuntimePhase", Values: controlPlaneStringValues(developerHostedRuntimePhaseValues)},
+		{Name: "DeveloperHostedRuntimeReasonCode", Values: controlPlaneStringValues(developerHostedRuntimeReasonCodeValues)},
+		{Name: "DeveloperHostedRuntimeTerminalOutcome", Values: controlPlaneStringValues(developerHostedRuntimeTerminalOutcomeValues)},
 	}
 }
 

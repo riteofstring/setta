@@ -105,6 +105,7 @@ function runtimeTarget() {
     baseUrl: "https://runtime.setta.test/",
     deviceIdentity: deviceIdentity(),
     isLocal: false,
+    managedHosted: true,
     runtimeId: "runtime_test",
   };
 }

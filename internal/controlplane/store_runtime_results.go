@@ -95,8 +95,20 @@ func (store *Store) CompleteRuntimeOperation(
 	claim ClaimedRuntimeOperation,
 	observation runtimeprovider.RuntimeObservation,
 ) error {
+	return store.completeRuntimeOperation(ctx, claim, observation, RuntimeProgressProvisioned)
+}
+
+func (store *Store) completeRuntimeOperation(
+	ctx context.Context,
+	claim ClaimedRuntimeOperation,
+	observation runtimeprovider.RuntimeObservation,
+	progressState RuntimeProgressState,
+) error {
 	if err := validateProviderObservation(claim.Identity, observation); err != nil {
 		return err
+	}
+	if progressState != RuntimeProgressProvisioned && progressState != RuntimeProgressConnecting {
+		return errors.New("runtime operation completion state is invalid")
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -106,6 +118,52 @@ func (store *Store) CompleteRuntimeOperation(
 	}
 	defer rollback(tx)
 	now := store.clock().UTC()
+	if err := recordCompletedRuntimeObservation(
+		ctx,
+		tx,
+		claim,
+		observation,
+		progressState,
+		now,
+	); err != nil {
+		return err
+	}
+	if err := store.recordCompletedRuntimeAccounting(
+		ctx,
+		tx,
+		claim,
+		observation,
+		now,
+	); err != nil {
+		return err
+	}
+	if err := appendRuntimeProgress(
+		ctx,
+		tx,
+		claim.IdempotencyKey,
+		RuntimeProgressEnsureRuntime,
+		progressState,
+		"",
+		false,
+		timestamp(now),
+	); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit runtime operation completion: %w", err)
+	}
+	store.notifyRuntimeProgressLocked(claim.IdempotencyKey)
+	return nil
+}
+
+func recordCompletedRuntimeObservation(
+	ctx context.Context,
+	tx *sql.Tx,
+	claim ClaimedRuntimeOperation,
+	observation runtimeprovider.RuntimeObservation,
+	progressState RuntimeProgressState,
+	now time.Time,
+) error {
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO provider_observations (
   runtime_name, provider_resource_id, activity, url_access, placement, observed_at
@@ -130,18 +188,35 @@ WHERE idempotency_key = ? AND status = ? AND lease_owner = ? AND fence_token = ?
     SELECT 1 FROM users u
     JOIN runtimes r ON r.name = u.active_runtime_name AND r.user_id = u.id
     WHERE u.id = runtime_operations.user_id AND u.status = ?
-      AND r.name = runtime_operations.runtime_name AND r.lifecycle = ?
+      AND r.name = runtime_operations.runtime_name
+      AND (
+        (? = ? AND r.lifecycle = ?) OR
+        (? = ? AND r.lifecycle = ? AND r.health_state = ?
+          AND r.observed_release = r.desired_release)
+      )
   )
 `, RuntimeOperationSucceeded, timestamp(now), timestamp(now), claim.IdempotencyKey,
 		RuntimeOperationRunning, claim.LeaseOwner, claim.FenceToken,
 		timestamp(now),
-		UserStatusActive, RuntimeLifecycleProvisioning)
+		UserStatusActive,
+		progressState, RuntimeProgressProvisioned, RuntimeLifecycleProvisioning,
+		progressState, RuntimeProgressConnecting, RuntimeLifecycleReady, RuntimeHealthHealthy)
 	if err != nil {
 		return fmt.Errorf("complete runtime operation: %w", err)
 	}
 	if err := requireFenceRow(result); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (store *Store) recordCompletedRuntimeAccounting(
+	ctx context.Context,
+	tx *sql.Tx,
+	claim ClaimedRuntimeOperation,
+	observation runtimeprovider.RuntimeObservation,
+	now time.Time,
+) error {
 	if err := store.recordProviderAccountingBeginTx(
 		ctx,
 		tx,
@@ -163,12 +238,44 @@ WHERE idempotency_key = ? AND status = ? AND lease_owner = ? AND fence_token = ?
 			return err
 		}
 	}
+	return nil
+}
+
+func (store *Store) appendClaimedRuntimeProgress(
+	ctx context.Context,
+	claim ClaimedRuntimeOperation,
+	state RuntimeProgressState,
+) error {
+	if state != RuntimeProgressInstalling && state != RuntimeProgressPairing {
+		return errors.New("claimed runtime progress state is invalid")
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin claimed runtime progress: %w", err)
+	}
+	defer rollback(tx)
+	now := store.clock().UTC()
+	var count int
+	if err := tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM runtime_operations
+WHERE idempotency_key = ? AND status = ? AND lease_owner = ? AND fence_token = ?
+  AND lease_expires_at > ?
+`, claim.IdempotencyKey, RuntimeOperationRunning, claim.LeaseOwner, claim.FenceToken,
+		timestamp(now)).Scan(&count); err != nil {
+		return fmt.Errorf("validate claimed runtime progress fence: %w", err)
+	}
+	if count != 1 {
+		return ErrFenceLost
+	}
 	if err := appendRuntimeProgress(
 		ctx,
 		tx,
 		claim.IdempotencyKey,
 		RuntimeProgressEnsureRuntime,
-		RuntimeProgressProvisioned,
+		state,
 		"",
 		false,
 		timestamp(now),
@@ -176,7 +283,7 @@ WHERE idempotency_key = ? AND status = ? AND lease_owner = ? AND fence_token = ?
 		return err
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit runtime operation completion: %w", err)
+		return fmt.Errorf("commit claimed runtime progress: %w", err)
 	}
 	store.notifyRuntimeProgressLocked(claim.IdempotencyKey)
 	return nil
@@ -264,13 +371,13 @@ const actionableRuntimeOperationsSQL = `
   SELECT 'runtime_deletion_operation', o.idempotency_key, o.next_attempt_at
   FROM runtime_deletion_operations o
   JOIN runtimes r ON r.name = o.runtime_name AND r.user_id = o.user_id
-  WHERE r.access_state = ? AND r.deletion_scheduled_at IS NOT NULL
+  WHERE r.deletion_scheduled_at IS NOT NULL
     AND o.status IN (?, ?)
   UNION ALL
   SELECT 'runtime_deletion_operation', o.idempotency_key, o.lease_expires_at
   FROM runtime_deletion_operations o
   JOIN runtimes r ON r.name = o.runtime_name AND r.user_id = o.user_id
-  WHERE r.access_state = ? AND r.deletion_scheduled_at IS NOT NULL
+  WHERE r.deletion_scheduled_at IS NOT NULL
     AND o.status = ?
   UNION ALL
   SELECT 'budget_cutoff_operation', o.idempotency_key, o.next_attempt_at
@@ -295,8 +402,8 @@ func actionableRuntimeOperationArgs() []any {
 		UserStatusActive, RuntimeLifecycleProvisioning,
 		RuntimeOperationPending, RuntimeOperationRetryWait,
 		UserStatusActive, RuntimeLifecycleProvisioning, RuntimeOperationRunning,
-		RuntimeAccessDeleteScheduled, RuntimeOperationPending, RuntimeOperationRetryWait,
-		RuntimeAccessDeleteScheduled, RuntimeOperationRunning,
+		RuntimeOperationPending, RuntimeOperationRetryWait,
+		RuntimeOperationRunning,
 		UserStatusSuspended, RuntimeAccessSuspended, RuntimeOperationPending, RuntimeOperationRetryWait,
 		UserStatusSuspended, RuntimeAccessSuspended, RuntimeOperationRunning,
 	}
