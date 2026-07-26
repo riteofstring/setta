@@ -23,7 +23,6 @@ import {
   assertEventKinds,
   assertExcludes,
   assertGraphUpdates,
-  assertHistoryContainsOnlyUserAndTerminalTurns,
   assertProjectedDirectorCreation,
   closeDirectorArtifactBrowser,
   comparableDirectorSnapshot,
@@ -33,7 +32,6 @@ import {
   navigateArtifactBrowserWithArrow,
   openDirectorArtifactBrowser,
   openDirectorArtifactBrowserByDoubleClick,
-  readDirectorHistory,
   rememberDirectorGraphCanvas,
   requiredString,
   verifyCompactRailFocusRestoration,
@@ -633,8 +631,6 @@ try {
   await assertArtifactExpandControlRegainedFocus(context.client, openedArtifactId);
   await assertDirectorGraphCanvasPreserved(context.client);
 
-  const history = await readDirectorHistory(context.client);
-  assertHistoryContainsOnlyUserAndTerminalTurns(history);
   await verifyRailsFlankTheCanvas(context.client);
   await verifyCompactRailFocusRestoration(context.client);
   const rendererEvents = await readRendererEvents(context.client);
@@ -747,24 +743,30 @@ async function launchDirectorElectron(launchArtifactDir) {
   return launched;
 }
 
+/*
+ * A running workstream's rail must not still be showing the blocker it cleared.
+ *
+ * The rail renders narrator sentences now, and a workstream that has just
+ * started running has not been narrated yet — so the guarantee is the same one
+ * stated the other way round: whatever the rail says, it is not the resolved
+ * folder request.
+ */
 async function assertRunningSummaryIsCurrent(client) {
   const state = await waitForState(
     client,
     `(() => {
-      const summary = document.querySelector(
-        "#director-now-rail .director-summary-disclosure .director-rail-summary"
-      );
+      const rail = document.querySelector("#director-now-rail");
       const status = document.querySelector(".director-focus-status");
       return {
         status: status?.textContent?.trim() ?? "",
-        summary: summary?.textContent?.trim() ?? ""
+        rail: rail?.textContent?.trim() ?? ""
       };
     })()`,
     (candidate) =>
-      candidate.status === "Running" && !candidate.summary.includes("Waiting for a project folder"),
+      candidate.status === "Running" && !candidate.rail.includes("Waiting for a project folder"),
     workflowTimeoutMs,
   );
-  assertExcludes(state.summary, "Waiting for a project folder", "running Now summary");
+  assertExcludes(state.rail, "Waiting for a project folder", "running Now rail");
 }
 
 async function subscribeFromRenderer(client) {

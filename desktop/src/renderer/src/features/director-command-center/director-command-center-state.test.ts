@@ -134,6 +134,7 @@ function workstreamEntry(status: DirectorWorkstreamEntry["workstream"]["status"]
       createdAt: "2026-07-25T17:00:00Z",
       id: "workstream:alpha",
       lastMilestone: null,
+      narration: [],
       parentId: null,
       queuedRunCount: 0,
       resourceBindings: [],

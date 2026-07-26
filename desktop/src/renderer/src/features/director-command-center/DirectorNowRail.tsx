@@ -1,59 +1,41 @@
-import { ChevronDown, History } from "lucide-react";
-
-import { DirectorNowActivityList, type DirectorNowActivity } from "./DirectorNowActivityList";
-import type { DirectorFocus } from "./director-focus";
+import type { WorkstreamNarration } from "@generated/backend";
 
 /** What the shell is waiting on before the Now rail can speak for itself. */
 export type DirectorLoadState = "loading" | "ready" | "resyncing" | "error";
 
 /**
- * The Now rail: what is happening, and the longer story behind it.
+ * The Now rail: what the narrator has said about the work in focus.
  *
- * It does not name the selected workstream, its status, or its folder. The top
- * bar already renders all three, and restating them here is what turned the
- * rail into a second header stacked on the first. The rail owns current
- * activity, the way into thread history, and the summary disclosure — nothing
- * that another surface already says.
+ * It renders narration and nothing else. It used to render the last five
+ * semantic graph nodes, which were hardcoded constants — a row reading
+ * "Tool / Action / Done" carries no information — raw provider text with its
+ * markdown unrendered, and a provenance line of actor, evidence class, and
+ * source-event counts that exists to debug a projector.
  *
- * Nothing in it is a card. Activity reads as text over the canvas, with recency
- * carried by opacity, so the rail stays a heads-up layer rather than a panel.
+ * There is deliberately no fallback. If the narrator has said nothing, the rail
+ * says so in one line. A rail that degrades into a node dump is the defect this
+ * replaced, and a fallback would reintroduce it under a different name.
+ *
+ * It does not name the selected workstream, its status, or its folder: the top
+ * bar renders those, and restating them here is what turned the rail into a
+ * second header stacked on the first. Nothing in it is a card — narration reads
+ * as text over the canvas, so the rail stays a heads-up layer.
  */
 export function NowRail({
-  activity,
-  focus,
   loadState,
   message,
-  onOpenHistory,
+  narration,
   receiptText,
 }: {
-  activity: DirectorNowActivity;
-  focus: DirectorFocus;
   loadState: DirectorLoadState;
   message: string | null;
-  onOpenHistory: (trigger: HTMLButtonElement) => void;
+  narration: readonly WorkstreamNarration[];
   receiptText: string | null;
 }) {
-  const summary = focus.kind === "workstream" ? focus.summary : null;
   return (
     <aside aria-label="Now" className="director-now-rail" id="director-now-rail">
-      <div className="director-rail-head">
-        <p className="director-rail-kicker">Now</p>
-        {/*
-         * The compact transcript stays one click away, as the mockup's
-         * "see thread history ›" link does. It is always reachable: an empty
-         * thread is something the overlay says, not something the rail hides.
-         */}
-        <button
-          className="director-history-open"
-          onClick={(event) => onOpenHistory(event.currentTarget)}
-          type="button"
-        >
-          <History aria-hidden="true" size={13} />
-          <span>See thread history</span>
-        </button>
-      </div>
-      <DirectorNowActivityList activity={activity} />
-      {summary === null ? null : <CurrentWorkstreamSummaryDisclosure summary={summary} />}
+      <p className="director-rail-kicker">Now</p>
+      <DirectorNarrationList narration={narration} />
       <div aria-live="polite" className="director-live-status" role="status">
         {message ?? receiptText ?? loadStateMessage(loadState)}
       </div>
@@ -61,15 +43,29 @@ export function NowRail({
   );
 }
 
-function CurrentWorkstreamSummaryDisclosure({ summary }: { summary: string }) {
+function DirectorNarrationList({ narration }: { narration: readonly WorkstreamNarration[] }) {
+  if (narration.length === 0) {
+    return <p className="director-rail-quiet">Nothing to report yet.</p>;
+  }
+  /*
+   * Newest first. The backend keeps narration in the order it was written, and
+   * the newest sentence is the one a glance is for.
+   */
+  const newestFirst = [...narration].reverse();
   return (
-    <details className="director-summary-disclosure">
-      <summary>
-        <span>Summary</span>
-        <ChevronDown aria-hidden="true" size={14} />
-      </summary>
-      <p className="director-rail-summary">{summary}</p>
-    </details>
+    <ol aria-label="What the narrator has reported" className="director-narration-list">
+      {newestFirst.map((entry, index) => (
+        <li
+          className="director-narration-item"
+          data-narration-kind={entry.kind}
+          data-narration-latest={index === 0 ? "true" : "false"}
+          key={entry.id}
+        >
+          <span aria-hidden="true" className="director-narration-mark" />
+          <span className="director-narration-text">{entry.text}</span>
+        </li>
+      ))}
+    </ol>
   );
 }
 

@@ -125,18 +125,6 @@
  */
 .director-workstream-dot:focus-visible,
 .director-icon-button:focus-visible,
-.director-summary-disclosure summary:focus-visible,
-.director-composer button:focus-visible,
-.director-action-controls button:focus-visible,
-.director-resource-options button:focus-visible,
-.director-history-close:focus-visible,
-.director-history-open:focus-visible,
-.director-approval-question input:focus-visible,
-.director-approval-question select:focus-visible,
-.director-history-overlay:focus-visible {
-  outline: 2px solid;
-  outline-offset: 2px;
-}
 
 /*
  * A dot is the one control that keeps its own box as its target. A 44 px
@@ -276,12 +264,6 @@
 }
 
 /* The kicker and the rail's one link share a baseline row. */
-.director-rail-head {
-  align-items: baseline;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-}
 
 /*
  * A rail link is text that acts, so it is drawn as text. The 44 px pointer
@@ -334,60 +316,11 @@
   border-radius: 8px;
 }
 
-.director-rail-summary {
-  color: oklch(0.74 0.03 250);
-  font-size: 12.5px;
-  line-height: 1.5;
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
 /*
  * The longer narrative is available and is never the default reading surface,
  * so its toggle is the quietest thing in the rail: a word and a caret, with no
  * box around either. Its 44 px target is the row height, not a drawn button.
  */
-.director-summary-disclosure {
-  justify-self: start;
-  max-inline-size: 100%;
-}
-
-.director-summary-disclosure summary {
-  align-items: center;
-  color: var(--director-faint);
-  cursor: pointer;
-  display: flex;
-  font-size: 11px;
-  gap: 6px;
-  letter-spacing: 0.03em;
-  line-height: 1.2;
-  list-style: none;
-  min-block-size: 44px;
-}
-
-.director-summary-disclosure summary:hover {
-  color: oklch(0.78 0.05 225);
-}
-
-.director-summary-disclosure summary::-webkit-details-marker {
-  display: none;
-}
-
-.director-summary-disclosure summary svg {
-  color: inherit;
-  flex: none;
-  transition-duration: 160ms;
-  transition-property: transform;
-  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
-}
-
-.director-summary-disclosure[open] summary svg {
-  transform: rotate(180deg);
-}
-
-.director-summary-disclosure .director-rail-summary {
-  padding-block-end: 4px;
-}
 
 .director-live-status {
   color: oklch(0.66 0.045 220);
@@ -897,11 +830,9 @@
   .director-command-center-skip,
   .director-workstream-dot,
   .director-icon-button,
-  .director-summary-disclosure summary svg,
   .director-composer button,
   .director-action-controls button,
-  .director-resource-options button,
-  .director-history-close {
+  .director-resource-options button {
     transition-property: opacity, background-color, border-color, color;
   }
 

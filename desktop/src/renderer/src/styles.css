@@ -9,7 +9,6 @@
 @import "./features/director-command-center/director-command-center-composer.css";
 @import "./features/director-command-center/director-command-center-activity.css";
 @import "./features/director-command-center/director-workstream-switch-transition.css";
-@import "./features/director-command-center/director-command-center-history.css";
 
 /* Official shadcn/ui component source expects `dark:` to follow the app's own
    colour mode rather than the OS preference. Setta has one: its surfaces are

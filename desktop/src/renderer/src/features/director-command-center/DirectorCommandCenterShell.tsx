@@ -4,6 +4,7 @@ import type {
   DirectorReceipt,
   DirectorSnapshot,
   Workstream,
+  WorkstreamNarration,
   WorkspaceSession,
   WorkspaceSummary,
 } from "@generated/backend";
@@ -40,17 +41,7 @@ import {
   focusDirectorComposer,
   type DirectorSpeechCaptureBinding,
 } from "./DirectorComposer";
-import {
-  compactDirectorHistory,
-  DirectorHistoryOverlaySlot,
-  type DirectorHistory,
-} from "./DirectorHistoryOverlay";
-import { currentDirectorActivity, type DirectorNowActivity } from "./DirectorNowActivityList";
-import {
-  applyDirectorEvent,
-  selectedWorkstreamEntry,
-  visibleSelectedGraph,
-} from "./director-command-center-state";
+import { applyDirectorEvent, selectedWorkstreamEntry } from "./director-command-center-state";
 import { enqueueDirectorSpeechPlayback } from "./director-speech-playback";
 import { DirectorSpeechCaptureController } from "./director-speech-capture";
 import { ArtifactBrowserOverlaySlot } from "./ArtifactBrowserOverlaySlot";
@@ -113,10 +104,9 @@ interface DirectorRuntimeState {
 }
 
 interface DirectorCommandCenterSnapshotView {
-  readonly activity: DirectorNowActivity;
+  readonly narration: readonly WorkstreamNarration[];
   readonly approvals: readonly DirectorSnapshot["unresolvedApprovals"][number][];
   readonly artifacts: readonly DirectorSnapshot["artifacts"][number][];
-  readonly history: DirectorHistory;
   readonly requests: readonly DirectorSnapshot["unresolvedResourceRequests"][number][];
   readonly selectedWorkstream: Workstream | null;
 }
@@ -212,11 +202,6 @@ export function DirectorCommandCenterShell({
   });
   const [canvas, setCanvas] = useState<DirectorGraphCanvas | null>(null);
   const {
-    close: closeHistory,
-    isOpen: historyOpen,
-    open: openHistory,
-  } = useDirectorHistoryDialog();
-  const {
     closeCompactRail,
     compactRail,
     effectiveVisibility: effectiveRailVisibility,
@@ -231,7 +216,7 @@ export function DirectorCommandCenterShell({
   const railAttributes = directorRailVisibilityAttributes(effectiveRailVisibility);
   const focus = directorFocus(snapshotView.selectedWorkstream);
   const switchTransition = useDirectorWorkstreamSwitchTransition(director.snapshot);
-  const contentInert = historyOpen || artifactBrowser.activeArtifact !== null;
+  const contentInert = artifactBrowser.activeArtifact !== null;
   const onGraphReady = useCallback((host: DirectorGraphCanvas | null) => {
     setCanvas(host);
   }, []);
@@ -254,10 +239,8 @@ export function DirectorCommandCenterShell({
   useDirectorShellKeyboardNavigation({
     artifactBrowserOpen: artifactBrowser.activeArtifact !== null,
     closeCompactRail,
-    closeHistory,
     compactRail,
     dispatch: director.dispatch,
-    historyOpen,
   });
 
   return (
@@ -297,11 +280,9 @@ export function DirectorCommandCenterShell({
           <WorkstreamSwitchTransition transition={switchTransition} />
           {packedSnapshot.nodeCount === 0 ? <GraphEmptyState focus={focus} /> : null}
           <NowRail
-            activity={snapshotView.activity}
-            focus={focus}
+            narration={snapshotView.narration}
             loadState={director.loadState}
             message={director.message}
-            onOpenHistory={openHistory}
             receiptText={director.receiptText}
           />
           <ArtifactsRail
@@ -335,11 +316,6 @@ export function DirectorCommandCenterShell({
           </div>
         </section>
       </div>
-      <DirectorHistoryOverlaySlot
-        history={snapshotView.history}
-        isOpen={historyOpen}
-        onClose={closeHistory}
-      />
       <ArtifactBrowserOverlaySlot browser={artifactBrowser} />
     </main>
   );
@@ -582,23 +558,21 @@ function directorCommandCenterSnapshotView(
   if (snapshot === null) {
     return emptyCommandCenterSnapshotView();
   }
-  const selectedGraph = visibleSelectedGraph(snapshot);
+  const selected = selectedWorkstreamEntry(snapshot)?.workstream ?? null;
   return {
-    activity: currentDirectorActivity(selectedGraph),
     approvals: snapshot.unresolvedApprovals,
     artifacts: snapshot.artifacts,
-    history: compactDirectorHistory(selectedGraph),
+    narration: selected?.narration ?? [],
     requests: snapshot.unresolvedResourceRequests,
-    selectedWorkstream: selectedWorkstreamEntry(snapshot)?.workstream ?? null,
+    selectedWorkstream: selected,
   };
 }
 
 function emptyCommandCenterSnapshotView(): DirectorCommandCenterSnapshotView {
   return {
-    activity: [],
+    narration: [],
     approvals: [],
     artifacts: [],
-    history: [],
     requests: [],
     selectedWorkstream: null,
   };
@@ -609,30 +583,6 @@ function directorRailVisibilityAttributes(visibility: DirectorRailVisibility) {
     artifacts: visibility.artifacts ? "shown" : "hidden",
     now: visibility.now ? "shown" : "hidden",
   };
-}
-
-function useDirectorHistoryDialog() {
-  const [isOpen, setOpen] = useState(false);
-  const wasOpenRef = useRef(false);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const open = useCallback((trigger: HTMLButtonElement) => {
-    triggerRef.current = trigger;
-    setOpen(true);
-  }, []);
-  const close = useCallback(() => {
-    setOpen(false);
-  }, []);
-  useLayoutEffect(() => {
-    if (wasOpenRef.current && !isOpen) {
-      const trigger = triggerRef.current;
-      if (trigger !== null && document.contains(trigger)) {
-        trigger.focus({ preventScroll: true });
-      }
-      triggerRef.current = null;
-    }
-    wasOpenRef.current = isOpen;
-  }, [isOpen]);
-  return { close, isOpen, open };
 }
 
 function useDirectorRailDisclosure() {
@@ -684,17 +634,14 @@ function useDirectorRailDisclosure() {
 function useDirectorShellKeyboardNavigation({
   artifactBrowserOpen,
   closeCompactRail,
-  closeHistory,
   compactRail,
   dispatch,
-  historyOpen,
 }: {
   artifactBrowserOpen: boolean;
   closeCompactRail: () => void;
-  closeHistory: () => void;
+
   compactRail: DirectorCompactRail;
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
-  historyOpen: boolean;
 }) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
@@ -708,16 +655,7 @@ function useDirectorShellKeyboardNavigation({
         return;
       }
       if (event.key === "Escape") {
-        closeDirectorShellLayers({
-          closeCompactRail,
-          closeHistory,
-          compactRail,
-          event,
-          historyOpen,
-        });
-        return;
-      }
-      if (historyOpen) {
+        closeDirectorShellLayers({ closeCompactRail, compactRail, event });
         return;
       }
       const targetIsEditable = directorKeyboardTargetIsEditable(event.target);
@@ -752,36 +690,31 @@ function useDirectorShellKeyboardNavigation({
     return () => {
       globalThis.window?.removeEventListener("keydown", handleKeyDown);
     };
-  }, [artifactBrowserOpen, closeCompactRail, closeHistory, compactRail, dispatch, historyOpen]);
+  }, [artifactBrowserOpen, closeCompactRail, compactRail, dispatch]);
 }
 
 /**
- * Escape's whole meaning in the shell: dismiss the topmost dismissable layer.
+ * Escape's whole meaning in the shell: dismiss the compact rail.
  *
- * The compact rail can sit under the history overlay, so both close together
- * rather than making the reader press Escape twice. With neither open, Escape
- * belongs to whatever holds focus and the shell leaves the default alone.
+ * It used to close the history overlay too, and both together so the reader
+ * never pressed Escape twice. The overlay is gone — it showed the reader their
+ * own prompt back — so the compact rail is the only dismissable layer the shell
+ * owns. With it closed, Escape belongs to whatever holds focus and the shell
+ * leaves the default alone.
  */
 function closeDirectorShellLayers({
   closeCompactRail,
-  closeHistory,
   compactRail,
   event,
-  historyOpen,
 }: {
   closeCompactRail: () => void;
-  closeHistory: () => void;
   compactRail: DirectorCompactRail;
   event: KeyboardEvent;
-  historyOpen: boolean;
 }): void {
-  if (!historyOpen && compactRail === null) {
+  if (compactRail === null) {
     return;
   }
   event.preventDefault();
-  if (historyOpen) {
-    closeHistory();
-  }
   closeCompactRail();
 }
 

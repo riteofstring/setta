@@ -4,6 +4,7 @@ export const directorInventedSecretApprovalAnswer = "invented-secret";
 
 const directorToolNames = [
   "archive_workstream",
+  "ask_conversation",
   "cancel_run",
   "create_workstream",
   "list_workspaces",

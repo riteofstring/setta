@@ -61,7 +61,7 @@
     const workstreamStrip = document.querySelector(".director-workstream-strip");
     const dots = Array.from(document.querySelectorAll(".director-workstream-dot"));
     return {
-      activityItems: document.querySelectorAll(".director-activity-item").length,
+      narrationItems: document.querySelectorAll(".director-narration-item").length,
       artifactCards: document.querySelectorAll(".director-artifact-preview").length,
       artifactDetailOpen: Boolean(document.querySelector(".director-artifact-browser")),
       bodyDescendantCount: document.body.querySelectorAll("*").length,
@@ -77,7 +77,6 @@
       // meaningful when there is a graph to have drawn.
       graphEmptyState: Boolean(document.querySelector(".director-graph-empty")),
       graphLabelCount: document.querySelectorAll(".director-graph-label").length,
-      historyItems: document.querySelectorAll(".director-history-list li").length,
       pendingApprovals: document.querySelectorAll("[data-approval-id]").length,
       pendingResourceRequests: document.querySelectorAll("[data-resource-request-id]").length,
       rails: {

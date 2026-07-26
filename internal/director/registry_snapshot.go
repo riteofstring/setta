@@ -250,6 +250,10 @@ func cloneWorkstream(record Workstream) Workstream {
 		milestone := *record.LastMilestone
 		cloned.LastMilestone = &milestone
 	}
+	// Always a list, never null: a workstream nobody has narrated yet has an
+	// empty account rather than a missing one, and the renderer's decoder is
+	// right to insist on the difference.
+	cloned.Narration = append([]WorkstreamNarration{}, record.Narration...)
 	return cloned
 }
 

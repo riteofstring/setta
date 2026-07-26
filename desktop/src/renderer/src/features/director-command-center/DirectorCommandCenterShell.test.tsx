@@ -30,8 +30,6 @@ import {
   directorWorkstreamKeyboardDirection,
   directorWorkstreamNavigation,
 } from "./DirectorWorkstreamNavigation";
-import { compactDirectorHistory } from "./DirectorHistoryOverlay";
-import { currentDirectorActivity } from "./DirectorNowActivityList";
 import { directorWorkstreamSwitchTransition } from "./director-workstream-switch-transition";
 import { directorFocus, directorFocusFolder, directorWorkstreamSummary } from "./director-focus";
 
@@ -146,48 +144,6 @@ describe("Director command-center shell view state", () => {
         [{ ...artifact, status: "available", updatedAt: "2026-07-25T17:00:03Z" }],
       ),
     ).toBe("Artifact ready: Generated artifact");
-  });
-
-  test("builds bounded current activity from typed semantic nodes", () => {
-    const activity = currentDirectorActivity(
-      graphWithNodes([
-        semanticNode(1, "user_goal", "succeeded"),
-        semanticNode(2, "director_decision", "succeeded"),
-        semanticNode(3, "plan", "active"),
-        semanticNode(4, "action", "active"),
-        semanticNode(5, "artifact", "succeeded"),
-        semanticNode(6, "validation", "succeeded"),
-        semanticNode(7, "completed", "succeeded"),
-      ]),
-    );
-
-    expect(activity.map((node) => node.id)).toEqual([
-      "node:7",
-      "node:6",
-      "node:5",
-      "node:4",
-      "node:3",
-    ]);
-  });
-
-  test("keeps compact history to user requests and terminal responses", () => {
-    const history = compactDirectorHistory(
-      graphWithNodes([
-        semanticNode(1, "user_goal", "succeeded"),
-        semanticNode(2, "director_decision", "succeeded"),
-        semanticNode(3, "milestone", "succeeded"),
-        semanticNode(4, "completed", "succeeded"),
-        semanticNode(5, "failed", "failed"),
-        semanticNode(6, "cancelled", "cancelled"),
-      ]),
-    );
-
-    expect(history.map((node) => node.kind)).toEqual([
-      "user_goal",
-      "completed",
-      "failed",
-      "cancelled",
-    ]);
   });
 
   test("does not present a resolved blocker as current running work", () => {
@@ -534,6 +490,7 @@ function workstreamEntry(position: number, status: WorkstreamStatus): DirectorWo
       createdAt: "2026-07-25T17:00:00Z",
       id: `workstream:${position}`,
       lastMilestone: null,
+      narration: [],
       parentId: null,
       queuedRunCount: 0,
       resourceBindings: [],

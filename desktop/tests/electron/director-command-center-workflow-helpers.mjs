@@ -59,64 +59,6 @@ export async function verifyWorkspaceSettings(client, workspaceId, workspaceRoot
   return { ...result, workspaceId };
 }
 
-export async function readDirectorHistory(client) {
-  const opened = await client.evaluate(`(() => {
-    const button = document.querySelector(".director-history-open");
-    if (!(button instanceof HTMLButtonElement)) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!opened) {
-    throw new Error("Director history action was unavailable");
-  }
-  await waitForSelector(client, ".director-history-dialog");
-  const modal = await client.driver("directorCommandCenterWorkflowHistoryModalState");
-  assertDeepEqual(
-    modal,
-    {
-      backgroundHidden: true,
-      backgroundInert: true,
-      focusedAfterShiftTab: true,
-      focusedAfterTab: true,
-      focusedInitially: true,
-      ready: true,
-    },
-    "Director history focus isolation",
-  );
-  const history = await client.evaluate(`(() =>
-    Array.from(document.querySelectorAll(".director-history-dialog-list li")).map((item) => ({
-      kind: item.getAttribute("data-node-kind") ?? "",
-      text: item.textContent?.trim() ?? ""
-    }))
-  )()`);
-  await client.evaluate(
-    `document.querySelector('.director-history-dialog button[aria-label="Close history"]')?.click()`,
-  );
-  await waitForState(
-    client,
-    `(() => {
-      const background = document.querySelector(".director-command-center-content");
-      const trigger = document.querySelector(".director-history-open");
-      return {
-        backgroundInert: background instanceof HTMLElement && background.inert,
-        focusedTrigger: document.activeElement === trigger,
-        overlayOpen: Boolean(document.querySelector(".director-history-overlay"))
-      };
-    })()`,
-    (state) => !state.backgroundInert && state.focusedTrigger && !state.overlayOpen,
-    workflowTimeoutMs,
-  );
-  return history;
-}
-
-/*
- * Above the phone breakpoint both rails sit beside the canvas and the canvas is
- * still the whole window. A narrow desktop window used to stack the rails into
- * full-width bars that covered the graph, which is the pane workspace the
- * command center replaced.
- */
 export async function verifyRailsFlankTheCanvas(client) {
   await client.call("Emulation.setDeviceMetricsOverride", {
     deviceScaleFactor: 1,
@@ -199,22 +141,20 @@ export async function verifyCompactRailFocusRestoration(client) {
       (state) => state.expanded && state.visible,
       workflowTimeoutMs,
     );
-    const escaped = await client.evaluate(`(() => {
-      const railAction = document.querySelector("#director-now-rail .director-history-open");
-      if (!(railAction instanceof HTMLButtonElement)) {
-        return false;
-      }
-      railAction.focus();
-      railAction.dispatchEvent(new KeyboardEvent("keydown", {
-        bubbles: true,
-        cancelable: true,
-        key: "Escape"
-      }));
-      return true;
-    })()`);
-    if (!escaped) {
-      throw new Error("compact Now rail did not contain a focusable history action");
-    }
+    /*
+     * Escape, as the shell actually hears it.
+     *
+     * This used to focus the rail's history button and press Escape on it. The
+     * rail has no controls now — it is narration and nothing else — and the
+     * shell listens on the window anyway, so the real user action is pressing
+     * Escape while the compact rail is open. The guarantee is unchanged: the
+     * rail collapses and focus returns to the trigger that opened it.
+     */
+    await client.evaluate(`document.dispatchEvent(new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Escape"
+    }))`);
     await waitForState(
       client,
       `(() => {
@@ -273,20 +213,6 @@ async function verifyMinimumCompactWidth(client) {
   }
   if (layout.composer.left < 0 || layout.composer.right > layout.viewportWidth) {
     throw new Error(`Director compact composer escaped the viewport: ${described}`);
-  }
-}
-
-export function assertHistoryContainsOnlyUserAndTerminalTurns(history) {
-  if (history.length === 0) {
-    throw new Error("Director history omitted completed work");
-  }
-  const allowed = new Set(["user_goal", "completed", "failed", "cancelled"]);
-  const unexpected = history.filter((item) => !allowed.has(item.kind));
-  if (unexpected.length > 0) {
-    throw new Error(`Director history exposed intermediate activity: ${JSON.stringify(history)}`);
-  }
-  if (!history.some((item) => item.kind === "completed" && item.text !== "Run completed")) {
-    throw new Error(`Director history omitted a final response: ${JSON.stringify(history)}`);
   }
 }
 

@@ -1,159 +1,79 @@
 /*
- * Current activity is a list of lines, not a stack of cards.
+ * The Now rail's narration: lines of text, not a stack of cards.
  *
- * A row has a mode-colored dot and its text, and nothing else: no fill, no
- * border, no chevron. Recency is opacity — the newest two read at full
- * strength and everything behind them recedes — which is the whole of the
- * emphasis model and needs no chrome to express.
+ * Each entry is one sentence the narrator wrote, with a mark on its leading
+ * edge and nothing else — no fill, no border, no chevron, no disclosure. It
+ * replaced a list of graph nodes that had all of those plus a provenance line,
+ * and none of it was information the reader wanted.
  *
- * The row is still a disclosure button. Its 44 px target comes from padding
- * around the text rather than from a drawn box, so the hit area is real
- * without anything being outlined.
+ * There is no expand: a sentence bounded to 24 words has nothing folded behind
+ * it. Recency is opacity, so the newest reads at full strength and the ones
+ * behind it recede, which is the whole emphasis model.
  */
-.director-activity-list {
+.director-narration-list {
   display: grid;
-  gap: 10px;
+  gap: 14px;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.director-activity-item {
+.director-narration-item {
+  align-items: start;
   display: grid;
-  min-inline-size: 0;
-  opacity: 0.4;
-  transition-duration: 140ms;
+  gap: 9px;
+  grid-template-columns: auto minmax(0, 1fr);
+  opacity: 0.6;
+  transition-duration: 220ms;
   transition-property: opacity;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
-.director-activity-item:nth-child(-n + 2),
-.director-activity-item[data-expanded="true"],
-.director-activity-item:hover,
-.director-activity-item:focus-within {
+.director-narration-item[data-narration-latest="true"] {
   opacity: 1;
 }
 
-.director-activity-toggle {
-  align-content: center;
-  align-items: start;
-  background: transparent;
-  border: 0;
-  color: inherit;
-  cursor: pointer;
-  display: grid;
-  font: inherit;
-  gap: 9px;
-  grid-template-columns: 7px minmax(0, 1fr);
-  inline-size: 100%;
-  min-block-size: 44px;
-  padding-block: 4px;
-  text-align: start;
-}
-
-.director-activity-toggle:focus-visible {
-  outline: 2px solid;
-  outline-offset: 2px;
-}
-
 /*
- * A dot means what the node of the same mode means, so it reads the graph's own
- * colour rather than a hand-matched approximation of it. The approximations
- * were out by as much as 32 degrees of hue.
+ * The mark. A final summary is the end of something and takes the graph's
+ * success colour; a milestone is work still moving and takes its own.
  */
-.director-activity-dot {
+.director-narration-mark {
   background: var(--graph-mode-think);
-  block-size: 6px;
+  block-size: 7px;
   border-radius: 999px;
-  box-shadow: 0 0 6px currentColor;
-  color: var(--graph-mode-think);
-  inline-size: 6px;
-  margin-block-start: 5px;
+  inline-size: 7px;
+  margin-block-start: 6px;
 }
 
-.director-activity-item[data-activity-tone="think"] .director-activity-dot {
-  background: var(--graph-mode-think);
-  color: var(--graph-mode-think);
-}
-
-.director-activity-item[data-activity-tone="do"] .director-activity-dot {
-  background: var(--graph-mode-do);
-  color: var(--graph-mode-do);
-}
-
-.director-activity-item[data-activity-tone="listening"] .director-activity-dot {
-  background: var(--graph-mode-listening);
-  color: var(--graph-mode-listening);
-}
-
-.director-activity-item[data-activity-tone="merge"] .director-activity-dot {
-  background: var(--graph-mode-merge);
-  color: var(--graph-mode-merge);
-}
-
-.director-activity-item[data-activity-tone="risk"] .director-activity-dot {
-  background: var(--graph-mode-risk);
-  color: var(--graph-mode-risk);
-}
-
-.director-activity-item[data-activity-tone="success"] .director-activity-dot {
+.director-narration-item[data-narration-kind="final_summary"] .director-narration-mark {
   background: var(--graph-mode-success);
-  color: var(--graph-mode-success);
 }
 
-.director-activity-item[data-activity-tone="fail"] .director-activity-dot {
-  background: var(--graph-mode-fail);
-  color: var(--graph-mode-fail);
-}
-
-.director-activity-copy {
-  display: grid;
-  gap: 3px;
-  min-inline-size: 0;
-}
-
-.director-activity-title {
-  color: oklch(0.86 0.025 245);
+.director-narration-text {
+  color: var(--director-foreground);
   font-size: 13px;
-  line-height: 1.35;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
-/* The newest item is the one being read, so it is the one that reads brightest. */
-.director-activity-item:nth-child(1) .director-activity-title {
-  color: oklch(0.94 0.02 245);
-  font-weight: 600;
+.director-narration-item[data-narration-latest="true"] .director-narration-text {
+  color: var(--director-bright);
 }
 
-.director-activity-meta {
-  color: oklch(0.62 0.04 250);
-  font-size: 11px;
-  letter-spacing: 0.02em;
-  line-height: 1.25;
-}
-
-.director-activity-detail {
-  color: oklch(0.7 0.03 250);
-  display: flex;
-  flex-wrap: wrap;
-  font-size: 11px;
-  gap: 6px;
-  padding: 2px 0 2px 16px;
-}
-
-.director-activity-detail[hidden] {
-  display: none;
-}
-
-/* Metadata reads as separated facts. A separator is enough; a pill each is not. */
-.director-activity-detail span + span::before {
-  color: oklch(0.45 0.02 250);
-  content: "·";
-  padding-inline-end: 6px;
+/*
+ * Nothing to report is something the rail says, not something it hides. It
+ * never falls back to what the graph happens to contain — that fallback is the
+ * defect this rail replaced.
+ */
+.director-rail-quiet {
+  color: var(--director-faint);
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .director-activity-item {
-    transition-property: opacity, color;
+  .director-narration-item {
+    transition-property: none;
   }
 }
