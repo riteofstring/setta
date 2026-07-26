@@ -211,42 +211,6 @@ func (runtime *Runtime) MaterializeThread(ctx context.Context, threadID string, 
 	}})
 }
 
-func (runtime *Runtime) ArchiveThread(ctx context.Context, threadID string) error {
-	if strings.TrimSpace(threadID) == "" {
-		return errors.New("provider thread id is required")
-	}
-	raw, err := runtime.manager.Call(ctx, codexapp.CodexMethodThreadArchive, codexapp.ThreadArchiveParams{
-		ThreadID: threadID,
-	})
-	if err != nil {
-		return providerThreadOperationError("archive agent thread", threadID, err)
-	}
-	if _, err := codexapp.DecodeThreadArchiveResponse(raw); err != nil {
-		return fmt.Errorf("decode agent thread archive %s: %w", threadID, err)
-	}
-	return nil
-}
-
-func (runtime *Runtime) DeleteThread(ctx context.Context, threadID string) error {
-	if strings.TrimSpace(threadID) == "" {
-		return errors.New("provider thread id is required")
-	}
-	return runtime.deleteProviderThread(ctx, threadID)
-}
-
-func (runtime *Runtime) deleteProviderThread(ctx context.Context, threadID string) error {
-	raw, err := runtime.manager.Call(ctx, codexapp.CodexMethodThreadDelete, codexapp.ThreadDeleteParams{
-		ThreadID: threadID,
-	})
-	if err != nil {
-		return providerThreadOperationError("delete agent thread", threadID, err)
-	}
-	if _, err := codexapp.DecodeThreadDeleteResponse(raw); err != nil {
-		return fmt.Errorf("decode agent thread delete %s: %w", threadID, err)
-	}
-	return nil
-}
-
 func (runtime *Runtime) UnsubscribeThread(ctx context.Context, threadID string) error {
 	_, err := runtime.UnsubscribeThreadWithStatus(ctx, threadID)
 	return err

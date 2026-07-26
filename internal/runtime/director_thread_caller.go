@@ -134,8 +134,8 @@ func (caller *directorThreadCaller) StartDirectorThread(
 
 // replay seeds the new provider thread with the Director conversation Setta
 // already owns. A thread with no history is materialized with the marker turn
-// the agent runtime uses everywhere else, because a Codex thread that has never
-// received an item is not durable yet.
+// the agent runtime uses everywhere else so the first real request continues
+// from an explicitly inert history item.
 func (caller *directorThreadCaller) replay(
 	ctx context.Context,
 	threadID string,

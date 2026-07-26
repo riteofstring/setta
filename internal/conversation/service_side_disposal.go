@@ -328,15 +328,13 @@ func (service *Service) failSideDisposal(
 		now,
 		&failure,
 	)
-	// Keep the exact active provider identity until cleanup succeeds. A local
-	// cleanup error is not evidence that the provider turn stopped, and the
-	// durable ids are what make the failure genuinely retryable after restart.
+	// Keep the exact active provider identity until same-process cleanup
+	// succeeds. A local cleanup error is not evidence that the provider turn
+	// stopped; restart recovery settles the Setta record without contacting the
+	// expired carrier.
 	return service.persistSideConversation(context.Background(), &expected, side)
 }
 
-// RecoverSideConversations disposes every interrupted ephemeral child before
-// normal app workflows resume. Provider cleanup failures are made durable and
-// retryable; only failures to record that state abort startup.
 // RecoverSideConversations settles side work that outlived the previous Setta
 // process.
 //

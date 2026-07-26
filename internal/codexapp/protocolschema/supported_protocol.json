@@ -3,8 +3,6 @@
     { "method": "config/read" },
     { "method": "initialize" },
     { "method": "model/list" },
-    { "method": "thread/archive" },
-    { "method": "thread/delete" },
     { "method": "thread/fork" },
     { "method": "thread/goal/clear" },
     { "method": "thread/goal/get" },

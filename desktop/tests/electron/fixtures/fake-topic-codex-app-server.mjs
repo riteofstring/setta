@@ -40,9 +40,8 @@ let methodSequence = persistedState.methodLog.reduce(
   0,
 );
 const methodLog = [...persistedState.methodLog];
-const durableThreads = new Map(persistedState.threads.map((thread) => [thread.id, thread]));
 const loadedThreads = new Map();
-const turns = new Map(persistedState.turns.map((turn) => [turn.id, turn]));
+const turns = new Map();
 const heldTurns = new Map();
 const pendingApprovals = new Map();
 const pendingToolCalls = new Map();
@@ -62,10 +61,8 @@ const methodHandlers = new Map([
   ["initialize", initialize],
   ["initialized", () => {}],
   ["model/list", listModels],
-  ["thread/fork", forkThread],
   ["thread/inject_items", injectThreadItems],
   ["thread/start", startThread],
-  ["thread/resume", resumeThread],
   ["thread/read", readThread],
   ["thread/list", listThreads],
   ["thread/unsubscribe", unsubscribeThread],
@@ -167,12 +164,17 @@ function startThread(message) {
   if (structured) {
     structuredCall.assertStructuredCallParams(params);
   }
+  if (params.ephemeral !== true) {
+    respondError(message.id, -32602, "Setta conversation carriers must be ephemeral");
+    return;
+  }
   const delayInitialResponse = threadCounter === 0 && initialThreadStartDelayMs > 0;
   threadCounter += 1;
   const threadId = `topic-thread-${threadCounter}`;
   const state = startThreadState(params, threadId, structured);
   loadedThreads.set(threadId, state);
   recordProviderMethod("thread/start", params, {
+    carrierKind: providerCarrierKind(state),
     ephemeral: state.ephemeral,
     isDirector: threadHasDirectorTools(state),
     threadId,
@@ -196,6 +198,7 @@ function startThreadState(params, threadId, structured) {
     id: threadId,
     model: params.model ?? "gpt-5.6-sol",
     reasoningEffort: params.config?.model_reasoning_effort ?? null,
+    side: isSideCarrierInstructions(params.developerInstructions),
     structured,
     runtimeWorkspaceRoots: params.runtimeWorkspaceRoots ?? [],
     sandbox: params.sandbox ?? null,
@@ -207,114 +210,114 @@ function startThreadServiceTier(params, structured) {
   if (structured && params.serviceTier === null) return "default";
   return params.serviceTier ?? null;
 }
-function forkThread(message) {
-  const params = message.params ?? {};
-  const parentThreadId = requiredString(params, "threadId");
-  recordProviderMethod("thread/fork", params, { threadId: parentThreadId });
-  const parent = loadedThreads.get(parentThreadId);
-  if (!parent) {
-    respondThreadNotFound(message.id, "thread/fork", parentThreadId);
-    return;
-  }
-  const ephemeral = params.ephemeral === true;
-  const sourceTurnIds = forkSourceTurns(message, parent, ephemeral);
-  if (!sourceTurnIds) return;
-  threadCounter += 1;
-  const threadId = `topic-thread-${threadCounter}`;
-  const state = forkThreadState(params, parent, parentThreadId, threadId, ephemeral, sourceTurnIds);
-  loadedThreads.set(threadId, state);
-  if (!ephemeral) {
-    materializeDurableThread(state);
-  } else {
-    persistState();
-  }
-  const thread = fakeThread(threadId);
-  thread.turns = state.turnIds.map((turnId) => turns.get(turnId));
-  respond(message.id, threadOperationResponse(thread, state));
-}
-function forkSourceTurns(message, parent, ephemeral) {
-  if (ephemeral) return ephemeralSideSourceTurns(message, parent);
-  return durableForkSourceTurns(message, parent);
-}
-function forkThreadState(params, parent, parentThreadId, threadId, ephemeral, sourceTurnIds) {
-  const config = params.config ?? {};
-  return {
-    approvalPolicy: params.approvalPolicy ?? null,
-    cwd: requiredString(params, "cwd"),
-    developerInstructions: params.developerInstructions ?? null,
-    dynamicTools: parent.dynamicTools ?? [],
-    ephemeral,
-    forkedFromId: parentThreadId,
-    id: threadId,
-    model: params.model ?? parent.model,
-    reasoningEffort: config.model_reasoning_effort ?? null,
-    sandbox: params.sandbox ?? null,
-    serviceTier: params.serviceTier ?? null,
-    turnIds: sourceTurnIds,
-  };
-}
-
-function durableForkSourceTurns(message, parent) {
-  const lastTurnId = requiredString(message.params, "lastTurnId");
-  const sourceIndex = parent.turnIds.indexOf(lastTurnId);
-  const sourceTurn = turns.get(lastTurnId);
-  if (sourceIndex < 0 || sourceTurn?.status !== "completed") {
-    respondError(message.id, -32602, `fork source ${lastTurnId} is not a completed parent turn`);
-    return null;
-  }
-  return parent.turnIds.slice(0, sourceIndex + 1);
-}
-
-function ephemeralSideSourceTurns(message, parent) {
-  const params = message.params ?? {};
-  if (parent.turnIds.length === 0 || parent.noSideRollout === true) {
-    respondError(message.id, -32602, `no rollout found for thread id ${parent.id}`);
-    return null;
-  }
-  if (!validEphemeralSideSettings(params)) {
-    respondError(message.id, -32602, "ephemeral side fork settings drifted");
-    return null;
-  }
-  return [...parent.turnIds];
-}
-
-function validEphemeralSideSettings(params) {
-  const config = params.config ?? {};
-  const instructions = params.developerInstructions ?? "";
-  return [
-    !Object.hasOwn(params, "lastTurnId"),
-    params.model === "gpt-5.6-luna",
-    params.approvalPolicy === "never",
-    params.sandbox === "read-only",
-    params.serviceTier === null,
-    config.model_reasoning_effort === "medium",
-    instructions.includes("ephemeral side conversation"),
-  ].every(Boolean);
-}
 
 function injectThreadItems(message) {
   const params = message.params ?? {};
   const threadId = requiredString(params, "threadId");
   const thread = loadedThreads.get(threadId);
-  const isDirector = threadHasDirectorTools(thread);
+  const carrierKind = providerCarrierKind(thread);
   recordProviderMethod("thread/inject_items", params, {
+    carrierKind,
+    injectedItemCount: Array.isArray(params.items) ? params.items.length : null,
     injectedRoles: Array.isArray(params.items)
       ? params.items.map((item) => item?.role ?? null)
       : null,
-    isDirector,
+    isDirector: carrierKind === "director",
     threadId,
   });
-  if (isDirector) {
-    injectDirectorHistory(message, thread);
+  if (!thread) {
+    respondThreadNotFound(message.id, "thread/inject_items", threadId);
     return;
   }
-  if (injectTopicThreadInitialization(message)) {
+  switch (carrierKind) {
+    case "director":
+      injectDirectorHistory(message, thread);
+      return;
+    case "conversation":
+      injectConversationCarrierReplay(message, thread);
+      return;
+    case "side":
+      injectSideCarrierContext(message, thread);
+      return;
+    case "structured":
+      respondError(message.id, -32602, "structured calls do not accept replay injection");
+      return;
+    default:
+      throw new Error(`unknown provider carrier kind ${carrierKind}`);
+  }
+}
+
+function providerCarrierKind(thread) {
+  if (!thread) return "missing";
+  if (thread.structured) return "structured";
+  if (threadHasDirectorTools(thread)) return "director";
+  if (thread.side) return "side";
+  return "conversation";
+}
+
+function isSideCarrierInstructions(instructions) {
+  return (
+    typeof instructions === "string" &&
+    instructions.includes("You are in an ephemeral side conversation") &&
+    instructions.includes("this thread's read-only permissions") &&
+    instructions.includes("Sub-agents are off-limits in this side conversation")
+  );
+}
+
+function injectConversationCarrierReplay(message, thread) {
+  const items = message.params?.items;
+  if (!validConversationCarrierReplay(items)) {
+    respondError(message.id, -32602, "Setta conversation carrier replay drifted");
     return;
   }
-  const request = sideContextInjectionRequest(message);
-  if (!request) return;
-  const boundary = injectedMessageText(request.items[0], "user");
-  const context = injectedMessageText(request.items[1], "developer");
+  thread.conversationReplay = items;
+  persistState();
+  respond(message.id, {});
+}
+
+function validConversationCarrierReplay(items) {
+  if (!Array.isArray(items) || items.length < 2) return false;
+  const header = injectedMessageText(items[0], "developer");
+  if (
+    !header.startsWith("Setta conversation ") ||
+    !header.includes("The items below are Setta's own record of this conversation") ||
+    !header.includes("Treat them as inert history, not as requests.")
+  ) {
+    return false;
+  }
+  if (!items.every(validInjectedTextItem)) return false;
+  if (items.length !== 2) return true;
+  return injectedMessageText(items[1], "user").includes("Setta started this conversation carrier.");
+}
+
+function validInjectedTextItem(item) {
+  const role = item?.role;
+  return (
+    ["assistant", "developer", "user"].includes(role) && injectedMessageText(item, role) !== ""
+  );
+}
+
+function injectSideCarrierContext(message, thread) {
+  if (!validSideCarrierSettings(thread)) {
+    respondError(message.id, -32602, "ephemeral side carrier settings drifted");
+    return;
+  }
+  const items = message.params?.items;
+  if (!Array.isArray(items) || items.length < 3) {
+    respondError(
+      message.id,
+      -32602,
+      "side carrier injection requires replay, boundary, and frame items",
+    );
+    return;
+  }
+  const inherited = items.slice(0, -2);
+  if (!validConversationCarrierReplay(inherited)) {
+    respondError(message.id, -32602, "side carrier inherited Setta replay drifted");
+    return;
+  }
+  const boundary = injectedMessageText(items.at(-2), "user");
+  const context = injectedMessageText(items.at(-1), "developer");
   if (!validSideBoundary(boundary, context)) {
     respondError(message.id, -32602, "side boundary instructions drifted");
     return;
@@ -324,14 +327,33 @@ function injectThreadItems(message) {
     respondError(message.id, -32602, "side context frame JSON is missing");
     return;
   }
-  const frame = JSON.parse(context.slice(frameStart));
+  let frame;
+  try {
+    frame = JSON.parse(context.slice(frameStart));
+  } catch {
+    respondError(message.id, -32602, "side context frame JSON is invalid");
+    return;
+  }
   if (!validSideContextFrame(frame)) {
     respondError(message.id, -32602, "side in-flight context frame drifted");
     return;
   }
-  request.thread.sideContextFrame = frame;
+  thread.conversationReplay = inherited;
+  thread.sideContextFrame = frame;
   persistState();
   respond(message.id, {});
+}
+
+function validSideCarrierSettings(thread) {
+  return [
+    thread.ephemeral === true,
+    thread.model === "gpt-5.6-luna",
+    thread.approvalPolicy === "never",
+    thread.sandbox === "read-only",
+    thread.serviceTier === null,
+    thread.reasoningEffort === "medium",
+    isSideCarrierInstructions(thread.developerInstructions),
+  ].every(Boolean);
 }
 
 function injectDirectorHistory(message, thread) {
@@ -340,59 +362,13 @@ function injectDirectorHistory(message, thread) {
     respondError(message.id, -32602, "Director history injection requires at least one item");
     return;
   }
-  const valid = items.every((item) => {
-    const role = item?.role;
-    return (
-      ["assistant", "developer", "user"].includes(role) && injectedMessageText(item, role) !== ""
-    );
-  });
-  if (!valid) {
+  if (!items.every(validInjectedTextItem)) {
     respondError(message.id, -32602, "Director history injection drifted");
     return;
   }
   thread.directorHistory = items;
   persistState();
   respond(message.id, {});
-}
-
-function injectTopicThreadInitialization(message) {
-  const params = message.params ?? {};
-  const threadId = requiredString(params, "threadId");
-  const thread = loadedThreads.get(threadId);
-  if (!thread || thread.ephemeral || thread.structured) {
-    return false;
-  }
-  const items = params.items;
-  if (
-    !Array.isArray(items) ||
-    items.length !== 1 ||
-    !injectedMessageText(items[0], "user").includes(
-      "Setta initialized this durable topic conversation thread",
-    )
-  ) {
-    respondError(message.id, -32602, "topic thread initialization drifted");
-    return true;
-  }
-  thread.materialized = true;
-  materializeDurableThread(thread);
-  respond(message.id, {});
-  return true;
-}
-
-function sideContextInjectionRequest(message) {
-  const params = message.params ?? {};
-  const threadId = requiredString(params, "threadId");
-  const thread = loadedThreads.get(threadId);
-  if (!thread || thread.ephemeral !== true || !thread.forkedFromId) {
-    respondThreadNotFound(message.id, "thread/inject_items", threadId);
-    return;
-  }
-  const items = params.items;
-  if (!Array.isArray(items) || items.length !== 2) {
-    respondError(message.id, -32602, "side context injection requires boundary and frame items");
-    return null;
-  }
-  return { items, thread };
 }
 
 function injectedMessageText(item, role) {
@@ -410,61 +386,20 @@ function injectedMessageText(item, role) {
   return content.text;
 }
 
-function resumeThread(message) {
-  const params = message.params ?? {};
-  const threadId = requiredString(params, "threadId");
-  recordProviderMethod("thread/resume", params, { threadId });
-  if (params.excludeTurns !== true) {
-    throw new Error("thread/resume must set excludeTurns: true");
-  }
-  const state = durableThreads.get(threadId);
-  if (!state || state.ephemeral === true) {
-    respondThreadNotFound(message.id, "thread/resume", threadId);
-    return;
-  }
-  applyResumeParams(state, params);
-  loadedThreads.set(threadId, state);
-  persistState();
-  respond(message.id, threadOperationResponse(fakeThread(threadId), state));
-}
-
-function applyResumeParams(state, params) {
-  state.approvalPolicy = resumeValue(params.approvalPolicy, state.approvalPolicy);
-  state.cwd = resumeValue(params.cwd, state.cwd);
-  state.developerInstructions = resumeValue(
-    params.developerInstructions,
-    state.developerInstructions,
-  );
-  state.model = resumeValue(params.model, state.model);
-  state.reasoningEffort = resumeValue(params.config?.model_reasoning_effort, state.reasoningEffort);
-  state.runtimeWorkspaceRoots = resumeValue(params.runtimeWorkspaceRoots, []);
-  state.sandbox = resumeValue(params.sandbox, state.sandbox);
-  if (Object.hasOwn(params, "serviceTier")) {
-    state.serviceTier = params.serviceTier;
-  }
-}
-
-function resumeValue(value, fallback) {
-  return value ?? fallback;
-}
-
 function readThread(message) {
   const threadId = requiredString(message.params, "threadId");
   recordProviderMethod("thread/read", message.params ?? {}, { threadId });
   const threadState = loadedThreads.get(threadId);
   if (!threadState) {
-    if (durableThreads.has(threadId)) {
-      respondError(message.id, -32600, `thread not loaded: ${threadId}`);
-    } else {
-      respondThreadNotFound(message.id, "thread/read", threadId);
-    }
+    respondThreadNotFound(message.id, "thread/read", threadId);
+    return;
+  }
+  if (message.params?.includeTurns === true) {
+    respondError(message.id, -32602, "ephemeral threads do not support includeTurns");
     return;
   }
   const thread = fakeThread(threadId);
-  if (message.params?.includeTurns === true) {
-    thread.turns = threadState.turnIds.map((turnId) => turns.get(turnId));
-  }
-  thread.status = thread.turns.some((turn) => turn?.status === "inProgress")
+  thread.status = threadState.turnIds.some((turnId) => turns.get(turnId)?.status === "inProgress")
     ? { activeFlags: [], type: "active" }
     : { type: "idle" };
   respond(message.id, { thread });
@@ -473,15 +408,12 @@ function readThread(message) {
 function listThreads(message) {
   const params = message.params ?? {};
   recordProviderMethod("thread/list", params, {});
-  const allThreads = [...durableThreads.values()].filter((thread) => thread.ephemeral !== true);
-  const start = listCursorOffset(params.cursor);
-  const limit = listLimit(params.limit);
-  const page = allThreads.slice(start, start + limit);
-  const nextOffset = start + page.length;
+  listCursorOffset(params.cursor);
+  listLimit(params.limit);
   respond(message.id, {
     backwardsCursor: null,
-    data: page.map((thread) => fakeThread(thread.id)),
-    nextCursor: nextOffset < allThreads.length ? String(nextOffset) : null,
+    data: [],
+    nextCursor: null,
   });
 }
 
@@ -489,13 +421,19 @@ function startTurn(message) {
   const threadId = requiredString(message.params, "threadId");
   const text = turnInputText(message.params);
   const thread = loadedThreads.get(threadId);
+  const carrierKind = providerCarrierKind(thread);
   recordProviderMethod("turn/start", message.params ?? {}, {
+    carrierKind,
     inputText: text,
-    isDirector: threadHasDirectorTools(thread),
+    isDirector: carrierKind === "director",
     threadId,
   });
   if (!thread) {
     respondThreadNotFound(message.id, "turn/start", threadId);
+    return;
+  }
+  if (!providerCarrierHasRequiredReplay(thread, carrierKind)) {
+    respondError(message.id, -32602, `${carrierKind} carrier started without Setta replay`);
     return;
   }
   turnCounter += 1;
@@ -503,13 +441,8 @@ function startTurn(message) {
   const turn = fakeTurn(turnId, "inProgress");
   turns.set(turnId, turn);
   thread.turnIds.push(turnId);
-  if (text === "complete parent before side fork no rollout") thread.noSideRollout = true;
   if (text === "provider lifecycle crash idle turn") {
     crashAfterCompletedTurns.add(turnId);
-  }
-  if (!thread.ephemeral && !durableThreads.has(threadId)) {
-    thread.materialized = true;
-    materializeDurableThread(thread);
   }
   persistState();
   if (holdTurnStartOnce(text)) {
@@ -527,6 +460,23 @@ function startTurn(message) {
     }
     emitTurnScenario(threadId, turnId, text);
   });
+}
+
+function providerCarrierHasRequiredReplay(thread, carrierKind) {
+  switch (carrierKind) {
+    case "conversation":
+      return Array.isArray(thread.conversationReplay);
+    case "director":
+      return Array.isArray(thread.directorHistory);
+    case "side":
+      return (
+        Array.isArray(thread.conversationReplay) && validSideContextFrame(thread.sideContextFrame)
+      );
+    case "structured":
+      return true;
+    default:
+      return false;
+  }
 }
 
 function holdTurnStartOnce(text) {
@@ -1054,9 +1004,9 @@ function interruptTurn(message) {
   const held = heldTurns.get(turnId);
   if (!held) {
     const threadId = requiredString(message.params, "threadId");
-    const persistedTurn = turns.get(turnId);
-    const persistedThread = loadedThreads.get(threadId) ?? durableThreads.get(threadId);
-    if (persistedTurn?.status !== "inProgress" || !persistedThread?.turnIds.includes(turnId)) {
+    const activeTurn = turns.get(turnId);
+    const activeThread = loadedThreads.get(threadId);
+    if (activeTurn?.status !== "inProgress" || !activeThread?.turnIds.includes(turnId)) {
       respondError(message.id, -32602, `turn ${turnId} is not interruptible`);
       return;
     }
@@ -1257,7 +1207,7 @@ function completeDirectorScenario(threadId, turnId, scenario) {
 }
 
 function emitArtifactToolCall(threadId, turnId, scenario, index) {
-  const thread = loadedThreads.get(threadId) ?? durableThreads.get(threadId);
+  const thread = loadedThreads.get(threadId);
   if (!threadHasArtifactTool(thread)) {
     completeTurn(threadId, turnId, "failed", "setta.emit_artifact was not registered");
     return;
@@ -1314,9 +1264,7 @@ function readPersistedState() {
     processGeneration: 0,
     threadCounter: 0,
     toolCallCounter: 0,
-    threads: [],
     turnCounter: 0,
-    turns: [],
   };
   if (persistedStatePath === "" || !existsSync(persistedStatePath)) {
     return empty;
@@ -1326,8 +1274,6 @@ function readPersistedState() {
   if (!persistedStateIsValid(state)) {
     throw new Error("fake topic Codex state is malformed");
   }
-  interruptStaleDurableTurns(state);
-  writeFileSync(persistedStatePath, `${JSON.stringify(state)}\n`, "utf8");
   return state;
 }
 
@@ -1342,22 +1288,7 @@ function persistedStateIsValid(state) {
     Number.isInteger(state.threadCounter),
     Number.isInteger(state.toolCallCounter),
     Number.isInteger(state.turnCounter),
-    Array.isArray(state.threads),
-    Array.isArray(state.turns),
   ].every(Boolean);
-}
-
-function interruptStaleDurableTurns(state) {
-  const durableTurnIds = new Set(
-    state.threads
-      .filter((thread) => thread.ephemeral !== true)
-      .flatMap((thread) => (Array.isArray(thread.turnIds) ? thread.turnIds : [])),
-  );
-  state.turns = state.turns.map((turn) =>
-    durableTurnIds.has(turn.id) && turn.status === "inProgress"
-      ? { ...turn, status: "interrupted" }
-      : turn,
-  );
 }
 
 function persistState() {
@@ -1372,22 +1303,12 @@ function persistState() {
     methodLog,
     processGeneration,
     threadCounter,
-    threads: [...durableThreads.values()],
     toolCallCounter,
     turnCounter,
-    turns: [...turns.values()],
   })}\n`;
   const tempPath = `${persistedStatePath}.tmp`;
   writeFileSync(tempPath, payload, "utf8");
   renameSync(tempPath, persistedStatePath);
-}
-
-function materializeDurableThread(thread) {
-  if (thread.ephemeral === true) {
-    return;
-  }
-  durableThreads.set(thread.id, thread);
-  persistState();
 }
 
 function recordProviderMethod(method, params = {}, extra = {}) {
@@ -1399,11 +1320,13 @@ function recordProviderMethod(method, params = {}, extra = {}) {
 function providerMethodLogEntry(method, params, extra) {
   return {
     archived: firstDefined(params.archived),
+    carrierKind: firstDefined(extra.carrierKind),
     cursor: firstDefined(params.cursor),
     ephemeral: firstDefined(extra.ephemeral),
     excludeTurns: firstDefined(params.excludeTurns),
     generation: processGeneration,
     includeTurns: firstDefined(params.includeTurns),
+    injectedItemCount: firstDefined(extra.injectedItemCount),
     injectedRoles: firstDefined(extra.injectedRoles),
     inputText: firstDefined(extra.inputText),
     isDirector: firstDefined(extra.isDirector),
@@ -1436,16 +1359,16 @@ function fakeModel(id, effort, isDefault) {
 }
 
 function fakeThread(threadId) {
-  const state = loadedThreads.get(threadId) ?? durableThreads.get(threadId);
+  const state = loadedThreads.get(threadId);
   return {
     cliVersion: "fake",
     createdAt: 1,
     cwd: state?.cwd ?? "/tmp/setta-topic-codex",
     ephemeral: state?.ephemeral === true,
-    forkedFromId: state?.forkedFromId ?? null,
+    forkedFromId: null,
     id: threadId,
     modelProvider: "fake",
-    path: state?.ephemeral === true ? null : `/tmp/setta-topic-codex/${threadId}.jsonl`,
+    path: null,
     preview: "",
     sessionId: `session-${threadId}`,
     source: "user",

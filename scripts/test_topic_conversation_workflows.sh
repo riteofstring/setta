@@ -15,7 +15,7 @@ Usage: ./scripts/test_topic_conversation_workflows.sh [--skip-build] [--visible]
 Build and run the conversation and Director workflow gate:
   - deterministic Director/conversation contract suites
   - hidden deterministic Electron workflows with temp app data
-  - complete live Codex agent, side/fork, topic-conversation, and Director matrix
+  - complete live Codex agent-carrier, side, topic-conversation, and Director matrix
     when Codex ChatGPT auth is available
 EOF
 }
@@ -138,7 +138,7 @@ if [[ "${run_live}" -eq 1 ]]; then
     run_live_go_test \
       "agent-protocol" \
       "./internal/agent" \
-      '^TestLiveCodexRuntimeThreadLifecycleAndActiveForkSnapshot$'
+      '^TestLiveCodexRuntimeEphemeralThreadLifecycleAndDiscoveryIsolation$'
     run_live_go_test \
       "side-isolation" \
       "./internal/conversation" \

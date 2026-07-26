@@ -51,8 +51,8 @@ type registryEffect struct {
 }
 
 // applyCommitted folds one durable committed event. Kinds with no app-scoped
-// meaning — narration, presentation, thread bindings, and side conversations —
-// are not registry inputs and change nothing.
+// meaning — narration, presentation, and side conversations — are not registry
+// inputs and change nothing.
 func (state *registryState) applyCommitted(
 	event conversation.CommittedEvent,
 	workspaces WorkspaceResources,

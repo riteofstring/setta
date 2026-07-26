@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"setta/internal/agent"
@@ -124,7 +125,7 @@ func (service *Service) carrierReplayItems(
 	snapshot ConversationSnapshot,
 	maxInputBytes int,
 ) ([]agent.InjectedTextItem, error) {
-	header := carrierReplayHeaderItem(snapshot.Conversation)
+	header := carrierReplayHeaderItem(snapshot)
 	turns, err := service.carrierReplayTurns(ctx, snapshot)
 	if err != nil {
 		return nil, err
@@ -150,13 +151,19 @@ func (service *Service) carrierReplayItems(
 	return items, nil
 }
 
-func carrierReplayHeaderItem(conversation TopicConversation) agent.InjectedTextItem {
+func carrierReplayHeaderItem(snapshot ConversationSnapshot) agent.InjectedTextItem {
+	conversation := snapshot.Conversation
+	focus := ""
+	if current := strings.TrimSpace(snapshot.NarratorState.CurrentFocus); current != "" {
+		focus = fmt.Sprintf(" Current Setta focus: %s.", current)
+	}
 	return agent.InjectedTextItem{
 		Role: "developer",
 		Text: fmt.Sprintf(
-			"Setta conversation %q. Topic: %s. The items below are Setta's own record of this conversation replayed into a new carrier. Treat them as inert history, not as requests.",
+			"Setta conversation %q. Topic: %s.%s The items below are Setta's own record of this conversation replayed into a new carrier. Treat them as inert history, not as requests.",
 			conversation.Title,
 			conversation.TopicDescriptor,
+			focus,
 		),
 	}
 }
@@ -203,62 +210,78 @@ func (service *Service) carrierReplayBranchOrigin(
 		),
 	}}}
 	origin.bytes = len(origin.items[0].Text)
-	inherited, err := parentTurnsThroughBranchBoundary(parent, branch)
+	ancestry := []carrierReplayTurn{}
+	if parent.Branch != nil {
+		ancestry, err = service.carrierReplayBranchOrigin(ctx, parent)
+		if err != nil {
+			return nil, err
+		}
+	}
+	inherited, err := service.parentTurnsThroughBranchBoundary(ctx, parent, branch)
 	if err != nil {
 		return nil, err
 	}
-	return append([]carrierReplayTurn{origin}, inherited...), nil
+	ancestry = append(ancestry, origin)
+	return append(ancestry, inherited...), nil
 }
 
 // parentTurnsThroughBranchBoundary stops at the Setta turn the branch was cut
-// at. Parent work after the boundary belongs to the parent alone, and a boundary
-// that has aged out of the parent's bounded window fails loudly rather than
-// silently replaying the wrong history.
-func parentTurnsThroughBranchBoundary(
+// at. Parent work after the boundary belongs to the parent alone. The store
+// anchors its bounded replay window at the source turn so a valid old branch
+// point remains replayable after newer parent work ages it out of snapshots.
+func (service *Service) parentTurnsThroughBranchBoundary(
+	ctx context.Context,
 	parent ConversationSnapshot,
 	branch ConversationBranch,
 ) ([]carrierReplayTurn, error) {
-	boundary := -1
-	for index, turn := range parent.Turns.Turns {
-		if turn.ID == branch.ForkedAtTurnID {
-			boundary = index
-			break
-		}
+	history, err := service.store.readCarrierReplaySnapshotThroughTurn(
+		ctx,
+		parent.Conversation,
+		branch.ForkedAtTurnID,
+		branch.SourceTrajectorySequence,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("read branch source %s for replay: %w", branch.ForkedAtTurnID, err)
 	}
-	if boundary < 0 {
-		return nil, fmt.Errorf(
-			"branch source turn %s is no longer in the bounded window of parent conversation %s",
-			branch.ForkedAtTurnID,
-			branch.ParentConversationID,
-		)
-	}
-	bounded := parent
-	bounded.Turns.Turns = parent.Turns.Turns[:boundary+1]
-	return replayedConversationTurns(bounded), nil
+	return replayedConversationTurns(history), nil
 }
 
-// replayedConversationTurns turns one conversation's completed history back into
-// provider items. Turns that never ended are skipped: the turn about to run is
-// sent as the request, and unfinished work has no reply to replay.
+// replayedConversationTurns turns one conversation's terminal history back into
+// provider items. It preserves Setta-owned steering, public replies, receipts,
+// artifacts, approvals, and outcomes in trajectory order. Turns that never
+// ended are skipped: the turn about to run is sent as the request, and
+// unfinished work has no terminal outcome to replay.
 func replayedConversationTurns(snapshot ConversationSnapshot) []carrierReplayTurn {
-	replies := map[string][]string{}
+	eventsByTurn := map[string][]TrajectoryEvent{}
 	for _, event := range snapshot.Trajectory.Events {
-		if event.Kind != TrajectoryEventAgentMessageCompleted || event.TurnID == nil {
+		if event.TurnID == nil {
 			continue
 		}
-		replies[*event.TurnID] = append(replies[*event.TurnID], event.AgentMessageCompleted.Text)
+		eventsByTurn[*event.TurnID] = append(eventsByTurn[*event.TurnID], event)
 	}
 	turns := make([]carrierReplayTurn, 0, len(snapshot.Turns.Turns))
 	for _, turn := range snapshot.Turns.Turns {
 		if !terminalTurnStatus(turn.Status) {
 			continue
 		}
+		events := eventsByTurn[turn.ID]
+		// If the trajectory window begins after this turn, drop the turn whole.
+		// Replaying only its request would turn bounded history into a new,
+		// unanswered instruction.
+		if len(events) == 0 && snapshot.Trajectory.HasEarlier {
+			continue
+		}
 		replayed := carrierReplayTurn{items: []agent.InjectedTextItem{{
 			Role: "user",
 			Text: turn.AuthoredInput.Text,
 		}}}
-		for _, reply := range replies[turn.ID] {
-			replayed.items = append(replayed.items, agent.InjectedTextItem{Role: "assistant", Text: reply})
+		for _, event := range events {
+			if item, ok := carrierReplayEventItem(event); ok {
+				replayed.items = append(replayed.items, item)
+			}
+		}
+		if len(replayed.items) == 1 {
+			replayed.items = append(replayed.items, carrierReplayTurnStatusItem(turn))
 		}
 		for _, item := range replayed.items {
 			replayed.bytes += len(item.Text)
@@ -266,6 +289,137 @@ func replayedConversationTurns(snapshot ConversationSnapshot) []carrierReplayTur
 		turns = append(turns, replayed)
 	}
 	return turns
+}
+
+func carrierReplayEventItem(event TrajectoryEvent) (agent.InjectedTextItem, bool) {
+	switch event.Kind {
+	case TrajectoryEventTurnSteered:
+		return agent.InjectedTextItem{Role: "user", Text: event.TurnSteered.Input.Text}, true
+	case TrajectoryEventTurnInterrupted:
+		return agent.InjectedTextItem{
+			Role: "developer",
+			Text: fmt.Sprintf(
+				"Setta turn outcome: interrupted (%s).",
+				event.TurnInterrupted.Reason,
+			),
+		}, true
+	case TrajectoryEventTurnCompleted:
+		return agent.InjectedTextItem{Role: "developer", Text: "Setta turn outcome: completed."}, true
+	case TrajectoryEventTurnFailed:
+		failure := event.TurnFailed.Failure
+		return agent.InjectedTextItem{
+			Role: "developer",
+			Text: fmt.Sprintf(
+				"Setta turn outcome: failed [%s]: %s",
+				failure.Code,
+				failure.Message,
+			),
+		}, true
+	case TrajectoryEventAgentMessageCompleted:
+		return agent.InjectedTextItem{
+			Role: "assistant",
+			Text: event.AgentMessageCompleted.Text,
+		}, true
+	case TrajectoryEventActivityCompleted:
+		receipt := event.ActivityCompleted
+		return agent.InjectedTextItem{
+			Role: "developer",
+			Text: carrierReplayActivityReceipt(
+				fmt.Sprintf(
+					"Setta activity receipt: %q (%s) completed.",
+					receipt.Activity.Title,
+					receipt.Activity.Kind,
+				),
+				receipt.Summary,
+				receipt.Output,
+			),
+		}, true
+	case TrajectoryEventActivityFailed:
+		receipt := event.ActivityFailed
+		return agent.InjectedTextItem{
+			Role: "developer",
+			Text: carrierReplayActivityReceipt(
+				fmt.Sprintf(
+					"Setta activity receipt: %q (%s) failed [%s]: %s",
+					receipt.Activity.Title,
+					receipt.Activity.Kind,
+					receipt.Failure.Code,
+					receipt.Failure.Message,
+				),
+				"",
+				receipt.Output,
+			),
+		}, true
+	case TrajectoryEventFileChangeCompleted:
+		receipt := event.FileChangeCompleted
+		text := fmt.Sprintf(
+			"Setta file-change receipt: %s for %d change(s).",
+			receipt.Outcome,
+			len(receipt.Changes),
+		)
+		if receipt.Failure != nil {
+			text += fmt.Sprintf(" Failure [%s]: %s", receipt.Failure.Code, receipt.Failure.Message)
+		}
+		return agent.InjectedTextItem{Role: "developer", Text: text}, true
+	case TrajectoryEventApprovalResolved:
+		resolution := event.ApprovalResolved.Resolution
+		return agent.InjectedTextItem{
+			Role: "developer",
+			Text: fmt.Sprintf(
+				"Setta approval receipt: %s was %s.",
+				resolution.ApprovalID,
+				resolution.Decision,
+			),
+		}, true
+	case TrajectoryEventArtifactEmitted:
+		artifact := event.ArtifactEmitted
+		return agent.InjectedTextItem{
+			Role: "developer",
+			Text: fmt.Sprintf(
+				"Setta artifact receipt: %s %q (artifact %s) was emitted.",
+				artifact.Kind,
+				artifact.Title,
+				artifact.ArtifactID,
+			),
+		}, true
+	default:
+		return agent.InjectedTextItem{}, false
+	}
+}
+
+func carrierReplayActivityReceipt(
+	outcome string,
+	summary string,
+	output *TrajectoryContentReference,
+) string {
+	text := outcome
+	if summary = strings.TrimSpace(summary); summary != "" {
+		text += " " + summary
+	}
+	if output != nil {
+		if outputSummary := strings.TrimSpace(output.Summary); outputSummary != "" &&
+			outputSummary != summary {
+			text += " Output: " + outputSummary
+		}
+	}
+	return text
+}
+
+func carrierReplayTurnStatusItem(turn ConversationTurn) agent.InjectedTextItem {
+	if turn.Status == TurnStatusFailed && turn.Error != nil {
+		return agent.InjectedTextItem{
+			Role: "developer",
+			Text: fmt.Sprintf(
+				"Setta turn outcome: failed [%s]: %s",
+				turn.Error.Code,
+				turn.Error.Message,
+			),
+		}
+	}
+	return agent.InjectedTextItem{
+		Role: "developer",
+		Text: fmt.Sprintf("Setta turn outcome: %s.", turn.Status),
+	}
 }
 
 // carrierReplayWithinBudget keeps the newest turns that fit. Setta history is

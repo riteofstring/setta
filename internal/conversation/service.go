@@ -251,9 +251,9 @@ func (service *Service) CreateTopicWithOptionalWorkspace(
 	return service.createTopic(ctx, workspaceID, title, conversationID)
 }
 
-// createTopic creates a conversation with no durable parentage. A conversation
-// that carries a parent's provider history forward is created by the fork path
-// instead, which has the provider thread to bind.
+// createTopic creates a conversation with no durable parentage. Branch
+// conversations are created by the branch path instead so their Setta lineage
+// and replay boundary are committed with the child.
 func (service *Service) createTopic(
 	ctx context.Context,
 	workspaceID *string,

@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -91,6 +92,151 @@ func TestServiceCreatesIndependentBranchFromCompletedTurn(t *testing.T) {
 	}
 }
 
+func TestServiceNestedBranchCarrierReplaysFullSettaAncestry(t *testing.T) {
+	_, service, runtime, workspaceID := newReviewServiceHarness(t)
+	ctx := context.Background()
+	ancestor, err := service.CreateTopic(ctx, workspaceID, "Ancestor")
+	if err != nil {
+		t.Fatalf("CreateTopic ancestor: %v", err)
+	}
+	if _, err := service.sendTestTurn(
+		ctx,
+		workspaceID,
+		ancestor.Conversation.ID,
+		"ancestor foundation",
+	); err != nil {
+		t.Fatalf("SendTurn ancestor: %v", err)
+	}
+	runtime.waitForStart(t, "ancestor foundation")
+	ancestor = assertServiceSnapshot(t, service, workspaceID, ancestor.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
+	})
+	child, err := service.forkRouterTopicForTest(
+		ctx,
+		workspaceID,
+		ancestor.Conversation.ID,
+		latestSnapshotTurn(ancestor).ID,
+		"Child",
+	)
+	if err != nil {
+		t.Fatalf("ForkTopic child: %v", err)
+	}
+	if _, err := service.sendTestTurn(
+		ctx,
+		workspaceID,
+		child.Conversation.ID,
+		"child foundation",
+	); err != nil {
+		t.Fatalf("SendTurn child: %v", err)
+	}
+	runtime.waitForStart(t, "child foundation")
+	child = assertServiceSnapshot(t, service, workspaceID, child.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
+	})
+	grandchild, err := service.forkRouterTopicForTest(
+		ctx,
+		workspaceID,
+		child.Conversation.ID,
+		latestSnapshotTurn(child).ID,
+		"Grandchild",
+	)
+	if err != nil {
+		t.Fatalf("ForkTopic grandchild: %v", err)
+	}
+	if _, err := service.sendTestTurn(
+		ctx,
+		workspaceID,
+		grandchild.Conversation.ID,
+		"grandchild work",
+	); err != nil {
+		t.Fatalf("SendTurn grandchild: %v", err)
+	}
+	runtime.waitForStart(t, "grandchild work")
+	assertServiceSnapshot(t, service, workspaceID, grandchild.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
+	})
+
+	requests := runtime.turnRequests()
+	replayed := branchCarrierReplayText(runtime, requests[len(requests)-1].ProviderThreadID)
+	for _, inherited := range []string{"ancestor foundation", "child foundation"} {
+		if !strings.Contains(replayed, inherited) {
+			t.Fatalf("nested branch replay omitted %q: %q", inherited, replayed)
+		}
+	}
+}
+
+func TestServiceBranchReplaysSourceOutsideParentSnapshotWindow(t *testing.T) {
+	_, service, runtime, workspaceID := newReviewServiceHarness(t)
+	ctx := context.Background()
+	parent, err := service.CreateTopic(ctx, workspaceID, "Long parent")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	if _, err := service.sendTestTurn(
+		ctx,
+		workspaceID,
+		parent.Conversation.ID,
+		"aged branch source",
+	); err != nil {
+		t.Fatalf("SendTurn source: %v", err)
+	}
+	runtime.waitForStart(t, "aged branch source")
+	parent = assertServiceSnapshot(t, service, workspaceID, parent.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
+	})
+	sourceTurn := latestSnapshotTurn(parent)
+
+	for index := 0; index < MaxSnapshotTurns; index++ {
+		text := fmt.Sprintf("newer parent turn %d", index+1)
+		if _, err := service.sendTestTurn(ctx, workspaceID, parent.Conversation.ID, text); err != nil {
+			t.Fatalf("SendTurn newer %d: %v", index+1, err)
+		}
+		runtime.waitForStart(t, text)
+		assertServiceSnapshot(t, service, workspaceID, parent.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+			return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
+		})
+	}
+	parent = assertServiceSnapshot(t, service, workspaceID, parent.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+		return snapshot.Turns.HasEarlier
+	})
+	for _, turn := range parent.Turns.Turns {
+		if turn.ID == sourceTurn.ID {
+			t.Fatalf("source turn %s did not age out of the parent snapshot", sourceTurn.ID)
+		}
+	}
+
+	child, err := service.forkRouterTopicForTest(
+		ctx,
+		workspaceID,
+		parent.Conversation.ID,
+		sourceTurn.ID,
+		"Old-boundary child",
+	)
+	if err != nil {
+		t.Fatalf("ForkTopic aged source: %v", err)
+	}
+	if _, err := service.sendTestTurn(
+		ctx,
+		workspaceID,
+		child.Conversation.ID,
+		"aged-source child work",
+	); err != nil {
+		t.Fatalf("SendTurn child: %v", err)
+	}
+	runtime.waitForStart(t, "aged-source child work")
+	assertServiceSnapshot(t, service, workspaceID, child.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
+	})
+	requests := runtime.turnRequests()
+	replayed := branchCarrierReplayText(runtime, requests[len(requests)-1].ProviderThreadID)
+	if !strings.Contains(replayed, sourceTurn.AuthoredInput.Text) {
+		t.Fatalf("aged branch replay omitted source turn: %q", replayed)
+	}
+	if strings.Contains(replayed, "newer parent turn 1") {
+		t.Fatalf("aged branch replay crossed its source boundary: %q", replayed)
+	}
+}
+
 func TestServiceRejectsIncompleteBranchWithoutTouchingTheProvider(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
@@ -160,21 +306,27 @@ func assertBranchCarrierReplay(
 	afterBoundary string,
 ) {
 	t.Helper()
-	replayed := ""
-	for _, injection := range runtime.injectedThreadItems() {
-		if injection.threadID != childThreadID {
-			continue
-		}
-		for _, item := range injection.items {
-			replayed += item.Text + "\n"
-		}
-	}
+	replayed := branchCarrierReplayText(runtime, childThreadID)
 	if !strings.Contains(replayed, sourceTurn.AuthoredInput.Text) {
 		t.Fatalf("branch carrier replay omitted the source turn: %q", replayed)
 	}
 	if strings.Contains(replayed, afterBoundary) {
 		t.Fatalf("branch carrier replay crossed the boundary into %q: %q", afterBoundary, replayed)
 	}
+}
+
+func branchCarrierReplayText(runtime *serviceTestAgentRuntime, threadID string) string {
+	var replayed strings.Builder
+	for _, injection := range runtime.injectedThreadItems() {
+		if injection.threadID != threadID {
+			continue
+		}
+		for _, item := range injection.items {
+			replayed.WriteString(item.Text)
+			replayed.WriteByte('\n')
+		}
+	}
+	return replayed.String()
 }
 
 func turnTrajectoryBoundary(snapshot ConversationSnapshot, turnID string) int {

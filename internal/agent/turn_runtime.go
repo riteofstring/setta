@@ -163,8 +163,8 @@ func (runtime *Runtime) InterruptTurn(ctx context.Context, request TurnControlRe
 }
 
 // InterruptProviderTurn targets a provider-owned turn without requiring the
-// in-memory RunTurn attachment. It is used to clean up ephemeral threads after
-// a Setta restart, when no local active-turn session can exist.
+// in-memory RunTurn attachment. Side disposal uses it while the current process
+// still owns the ephemeral carrier but no local RunTurn attachment remains.
 func (runtime *Runtime) InterruptProviderTurn(ctx context.Context, threadID string, turnID string) error {
 	if strings.TrimSpace(threadID) == "" || strings.TrimSpace(turnID) == "" {
 		return errors.New("provider turn interruption requires thread and turn ids")

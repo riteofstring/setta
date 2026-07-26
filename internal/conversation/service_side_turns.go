@@ -349,7 +349,7 @@ func validateSideAgentEventState(
 		return nil
 	}
 	if side.ActiveProviderTurnID == nil || *side.ActiveProviderTurnID != event.ProviderTurnID {
-		return fmt.Errorf("side agent progress turn %s does not match durable provider turn", event.ProviderTurnID)
+		return fmt.Errorf("side agent progress turn %s does not match the active provider turn", event.ProviderTurnID)
 	}
 	return nil
 }

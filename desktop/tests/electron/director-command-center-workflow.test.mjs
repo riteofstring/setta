@@ -484,7 +484,7 @@ try {
           entry.workstream.resourceScope.folder?.workspaceId === workspaceId,
       ),
   );
-  const providerLifecycle = await readDirectorProviderLifecycle(fakeCodex.statePath);
+  const providerLifecycle = await readProviderLifecycle(fakeCodex.statePath);
 
   await writeJson(join(artifactDir, "summary.json"), {
     artifactDir,
@@ -736,34 +736,38 @@ async function assertDirectorFocusIsConsistent(client) {
   );
 }
 
-async function readDirectorProviderLifecycle(statePath) {
+async function readProviderLifecycle(statePath) {
   const state = JSON.parse(await readFile(statePath, "utf8"));
-  const directorStarts = state.methodLog.filter(
-    (entry) => entry.method === "thread/start" && entry.isDirector === true,
+  const starts = state.methodLog.filter((entry) => entry.method === "thread/start");
+  const injections = state.methodLog.filter((entry) => entry.method === "thread/inject_items");
+  const turns = state.methodLog.filter((entry) => entry.method === "turn/start");
+  const retiredLifecycleCalls = state.methodLog.filter((entry) =>
+    ["thread/fork", "thread/resume"].includes(entry.method),
   );
+  if (starts.length === 0 || starts.some((entry) => entry.ephemeral !== true)) {
+    throw new Error(`Setta provider carrier starts drifted: ${JSON.stringify(starts)}`);
+  }
+  if (retiredLifecycleCalls.length !== 0) {
+    throw new Error(
+      `Setta used retired provider lifecycle calls: ${JSON.stringify(retiredLifecycleCalls)}`,
+    );
+  }
+
+  const directorStarts = starts.filter((entry) => entry.carrierKind === "director");
   const directorThreadIds = new Set(directorStarts.map((entry) => entry.threadId));
-  const directorInjections = state.methodLog.filter(
-    (entry) => entry.method === "thread/inject_items" && directorThreadIds.has(entry.threadId),
+  const directorInjections = injections.filter(
+    (entry) => entry.carrierKind === "director" && directorThreadIds.has(entry.threadId),
   );
-  const directorTurns = state.methodLog.filter(
-    (entry) => entry.method === "turn/start" && entry.isDirector === true,
-  );
-  const directorResumes = state.methodLog.filter(
-    (entry) => entry.method === "thread/resume" && directorThreadIds.has(entry.threadId),
-  );
+  const directorTurns = turns.filter((entry) => entry.carrierKind === "director");
   if (
     directorStarts.length !== 2 ||
-    directorStarts.some((entry) => entry.ephemeral !== true) ||
     new Set(directorStarts.map((entry) => entry.generation)).size !== 2
   ) {
     throw new Error(`Director provider starts drifted: ${JSON.stringify(directorStarts)}`);
   }
-  if (directorInjections.length !== 2 || directorResumes.length !== 0) {
+  if (directorInjections.length !== 2) {
     throw new Error(
-      `Director provider replay lifecycle drifted: ${JSON.stringify({
-        directorInjections,
-        directorResumes,
-      })}`,
+      `Director provider replay lifecycle drifted: ${JSON.stringify(directorInjections)}`,
     );
   }
   if (
@@ -787,12 +791,78 @@ async function readDirectorProviderLifecycle(statePath) {
       `Director restart omitted durable conversation roles: ${JSON.stringify(replayRoles)}`,
     );
   }
+
+  const conversationStarts = starts.filter((entry) => entry.carrierKind === "conversation");
+  const conversationThreadIds = new Set(conversationStarts.map((entry) => entry.threadId));
+  const conversationInjections = injections.filter(
+    (entry) => entry.carrierKind === "conversation" && conversationThreadIds.has(entry.threadId),
+  );
+  const conversationTurns = turns.filter((entry) => entry.carrierKind === "conversation");
+  if (conversationStarts.length === 0) {
+    throw new Error("Director workflow did not start a workstream conversation carrier");
+  }
+  assertCarrierReplayLifecycle(
+    conversationStarts,
+    conversationInjections,
+    conversationTurns,
+    "workstream conversation",
+  );
+
+  const sideStarts = starts.filter((entry) => entry.carrierKind === "side");
+  const sideThreadIds = new Set(sideStarts.map((entry) => entry.threadId));
+  const sideInjections = injections.filter(
+    (entry) => entry.carrierKind === "side" && sideThreadIds.has(entry.threadId),
+  );
+  const sideTurns = turns.filter((entry) => entry.carrierKind === "side");
+  assertCarrierReplayLifecycle(sideStarts, sideInjections, sideTurns, "side conversation");
+
+  const invalidInjection = injections.find(
+    (entry) => !["conversation", "director", "side"].includes(entry.carrierKind),
+  );
+  if (invalidInjection) {
+    throw new Error(
+      `provider replay targeted an invalid carrier: ${JSON.stringify(invalidInjection)}`,
+    );
+  }
   return {
+    carrierCounts: Object.fromEntries(
+      ["conversation", "director", "side", "structured"].map((kind) => [
+        kind,
+        starts.filter((entry) => entry.carrierKind === kind).length,
+      ]),
+    ),
+    conversationThreadIds: [...conversationThreadIds],
     generations: directorStarts.map((entry) => entry.generation),
     replayRoles,
-    threadIds: directorStarts.map((entry) => entry.threadId),
-    turnCount: directorTurns.length,
+    directorThreadIds: directorStarts.map((entry) => entry.threadId),
+    directorTurnCount: directorTurns.length,
   };
+}
+
+function assertCarrierReplayLifecycle(starts, injections, turns, label) {
+  if (starts.length !== injections.length) {
+    throw new Error(
+      `${label} carrier replay count drifted: ${JSON.stringify({ injections, starts })}`,
+    );
+  }
+  for (const start of starts) {
+    const injected = injections.filter((entry) => entry.threadId === start.threadId);
+    if (
+      injected.length !== 1 ||
+      injected[0].injectedItemCount < 2 ||
+      injected[0].injectedRoles?.[0] !== "developer"
+    ) {
+      throw new Error(
+        `${label} carrier omitted Setta replay: ${JSON.stringify({ injected, start })}`,
+      );
+    }
+  }
+  for (const turn of turns) {
+    const start = starts.find((entry) => entry.threadId === turn.threadId);
+    if (!start || start.generation !== turn.generation) {
+      throw new Error(`${label} turn escaped its process-local carrier: ${JSON.stringify(turn)}`);
+    }
+  }
 }
 
 async function verifyWorkspaceSettings(client, workspaceId) {
