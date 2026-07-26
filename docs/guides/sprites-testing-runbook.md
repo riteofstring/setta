@@ -179,14 +179,16 @@ export SPRITE_TOKEN='...'
 
 ### 4a. Lifecycle — the simplest real run (start here)
 
-Self-contained: it sets `SETTA_LIVE_SPRITES=1` itself, builds a Linux lease
-probe, creates a Sprite, exercises it, and tears it down.
+Self-contained: it sets both `SETTA_LIVE_SPRITES=1` and
+`SETTA_LIVE_SPRITES_LIFECYCLE=1` itself, builds a Linux lease probe, creates a
+Sprite, exercises it, and tears it down.
 
 ```bash
 ./scripts/test_sprites_lifecycle.sh
 ```
 
-**Expect:** `TestLiveLifecycle` passes. Allow up to 35 minutes.
+**Expect:** `TestLiveLifecycle` passes. Allow up to 35 minutes. The script fails
+if the test skips, so a zero exit status means the gate actually ran.
 
 **This is the run to watch, not just check.** Notice how long provisioning
 takes, whether it feels invisible, and whether any failure is explainable.

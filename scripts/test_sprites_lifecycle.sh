@@ -83,12 +83,21 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
   "${repo_root}/scripts/go.sh" build -trimpath -o "${lease_probe}" ./cmd/setta-sprite-lease-probe
 
 export SETTA_LIVE_SPRITES=1
+export SETTA_LIVE_SPRITES_LIFECYCLE=1
 export SETTA_SPRITES_LIVE_RUN_ID="${run_id}"
 export SETTA_SPRITES_LEASE_PROBE_BINARY="${lease_probe}"
 
 cd "${repo_root}"
+test_log="${temporary_directory}/live-lifecycle.log"
 "${repo_root}/scripts/go.sh" test ./internal/sprites \
   -run '^TestLiveLifecycle$' \
   -count=1 \
   -v \
-  -timeout 35m
+  -timeout 35m | tee "${test_log}"
+
+# A live gate that exits zero without running proves nothing, so require the
+# passing result rather than trusting the exit status alone.
+grep -q '^--- PASS: TestLiveLifecycle' "${test_log}" || {
+  echo "TestLiveLifecycle did not run to a pass; the live lifecycle gate proved nothing." >&2
+  exit 1
+}
