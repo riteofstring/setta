@@ -60,6 +60,7 @@ import {
   type DirectorRailVisibility,
 } from "./DirectorWorkstreamNavigation";
 import {
+  directorGraphLaneId,
   directorGraphTimeSecondsAt,
   packDirectorGraphs,
   useDirectorGraphPresentation,
@@ -276,10 +277,15 @@ export function DirectorCommandCenterShell({
       return;
     }
     // Presentation first: it decides how the snapshot is read, so the canvas
-    // must never see a new composition under the old rules.
-    canvas.setPresentation(composition.presentation);
+    // must never see a new composition under the old rules. The Director's
+    // own lane is the view's self on its view, so its turns fold on click
+    // instead of "opening" the view the user is already on.
+    canvas.setPresentation(
+      composition.presentation,
+      selectedWorkstreamId === null ? directorGraphLaneId : null,
+    );
     canvas.setSnapshot(composition.snapshot);
-  }, [canvas, composition]);
+  }, [canvas, composition, selectedWorkstreamId]);
 
   // The input node breathes only while the microphone is actually capturing.
   useEffect(() => {

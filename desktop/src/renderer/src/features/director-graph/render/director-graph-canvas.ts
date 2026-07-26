@@ -189,6 +189,15 @@ export class DirectorGraphCanvas {
   private listening = false;
   /** Whether the DOM label layer draws at all; the canvas is legible alone. */
   private labelsEnabled = true;
+  /** The lane whose turns fold on click because it is the view's own thread. */
+  private selfWorkstreamId: string | null = null;
+  /*
+   * The node an unfold is anchored on. Expanding a folded turn grows the
+   * ladder above its outcome, and the camera holds that outcome still on
+   * screen while the rest of the thread unfurls — the mockup's expansion —
+   * instead of letting the growth shove the node the user just clicked.
+   */
+  private unfoldFocus: { nodeIndex: number; anchorOffset: number } | null = null;
 
   constructor(private readonly options: DirectorGraphCanvasOptions) {
     this.snapshot = emptyPackedGraphSnapshot("");
@@ -331,7 +340,12 @@ export class DirectorGraphCanvas {
       this.options.onOpenWorkstream === undefined
         ? undefined
         : this.snapshot.turnWorkstreamIds[turn];
-    const activation = graphNodeActivation(this.presentation, nodeIndex, openable);
+    const activation = graphNodeActivation(
+      this.presentation,
+      nodeIndex,
+      openable,
+      this.selfWorkstreamId,
+    );
     if (activation.kind === "fold") {
       this.toggleTurnAt(activation.nodeIndex);
       return;
@@ -358,8 +372,12 @@ export class DirectorGraphCanvas {
    * click on any thread opens it: the columns and tiles are destinations, and
    * folding one from a view that exists to show them all is never the ask.
    */
-  setPresentation(presentation: SemanticGraphPresentation): void {
+  setPresentation(
+    presentation: SemanticGraphPresentation,
+    selfWorkstreamId: string | null = null,
+  ): void {
     this.presentation = presentation;
+    this.selfWorkstreamId = selfWorkstreamId;
   }
 
   /**
@@ -495,7 +513,18 @@ export class DirectorGraphCanvas {
       return;
     }
     const turn = packedValueAt(this.snapshot.nodes.turn, nodeIndex);
+    const wasFolded = this.layout.turnOpenness(turn) <= 0.5;
     this.view.toggleTurnPin(turn, this.layout.turnOpenness(turn) > 0.5);
+    if (wasFolded) {
+      // Anchor the expansion on the turn's outcome — the node that was
+      // clicked is usually its pill — so the ladder unfurls around it.
+      const outcome = packedValueAt(this.snapshot.turns.outcomeNode, turn);
+      const anchor = outcome >= 0 ? outcome : nodeIndex;
+      this.unfoldFocus = {
+        nodeIndex: anchor,
+        anchorOffset: this.layout.nodeWorldY(anchor) - this.view.camera(),
+      };
+    }
     this.scheduler.requestFrame();
   }
 
@@ -544,15 +573,24 @@ export class DirectorGraphCanvas {
       liveEdgeWorldY: ladder.liveEdgeWorldY,
       lookBackMargin: graphLookBackMargin(graphFitFrame(viewport.width, viewport.height).fitY),
     };
+    if (this.unfoldFocus !== null && !ladder.foldAnimating) {
+      // The expansion has landed; the camera may drift back to the live edge.
+      this.unfoldFocus = null;
+    }
     this.view.followLiveEdge(
-      this.arriveAtLiveEdge
-        ? ladder.liveEdgeWorldY
-        : advanceGraphCamera(
-            this.view.camera(),
-            ladder.liveEdgeWorldY,
-            timing.deltaSeconds,
-            this.reducedMotion,
-          ),
+      this.unfoldFocus !== null
+        ? // Hold the clicked outcome still while its ladder unfurls: the
+          // camera rides the node's own layout motion instead of easing to
+          // the live edge mid-expansion.
+          this.layout.nodeWorldY(this.unfoldFocus.nodeIndex) - this.unfoldFocus.anchorOffset
+        : this.arriveAtLiveEdge
+          ? ladder.liveEdgeWorldY
+          : advanceGraphCamera(
+              this.view.camera(),
+              ladder.liveEdgeWorldY,
+              timing.deltaSeconds,
+              this.reducedMotion,
+            ),
     );
     // Every frame, detached included: the content moves under a camera that has
     // not, and a camera outside it draws nothing with no way to say so.
