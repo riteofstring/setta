@@ -9,7 +9,7 @@ import type {
   WorkspaceSession,
   WorkspaceSummary,
 } from "@generated/backend";
-import { Check, FolderOpen, FolderPlus, X } from "lucide-react";
+import { Check, FolderOpen, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 
 /**
@@ -32,28 +32,18 @@ export function PendingActions({
   approvals,
   dispatch,
   dispatching,
-  offerWorkspaceStart,
   openLocalFolder,
-  openWorkspacePath,
   requests,
   workspaceSession,
 }: {
   approvals: readonly ApprovalRequest[];
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
   dispatching: boolean;
-  /**
-   * Only the cold start offers a non-conversational way in. Once any work
-   * exists, a new workstream comes from asking the Director, which is what the
-   * composer directly below is for — so a permanent "New workstream" panel
-   * would be a second, competing answer to the same question.
-   */
-  offerWorkspaceStart: boolean;
   openLocalFolder: () => Promise<WorkspaceSummary | null>;
-  openWorkspacePath: (rootPath: string) => Promise<WorkspaceSummary>;
   requests: readonly ResourceRequest[];
   workspaceSession: WorkspaceSession | null;
 }) {
-  if (approvals.length === 0 && requests.length === 0 && !offerWorkspaceStart) {
+  if (approvals.length === 0 && requests.length === 0) {
     return null;
   }
   return (
@@ -76,15 +66,6 @@ export function PendingActions({
           workspaceSession={workspaceSession}
         />
       ))}
-      {offerWorkspaceStart ? (
-        <WorkspaceStartPanel
-          disabled={dispatching}
-          dispatch={dispatch}
-          openLocalFolder={openLocalFolder}
-          openWorkspacePath={openWorkspacePath}
-          workspaceSession={workspaceSession}
-        />
-      ) : null}
     </div>
   );
 }
@@ -466,120 +447,6 @@ function approvalQuestionFieldId(formId: string, questionId: string): string {
   return `director-approval-${formId}-${questionId}`.replace(/[^A-Za-z0-9_-]/g, "_");
 }
 
-function WorkspaceStartPanel({
-  disabled,
-  dispatch,
-  openLocalFolder,
-  openWorkspacePath,
-  workspaceSession,
-}: {
-  disabled: boolean;
-  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
-  openLocalFolder: () => Promise<WorkspaceSummary | null>;
-  openWorkspacePath: (rootPath: string) => Promise<WorkspaceSummary>;
-  workspaceSession: WorkspaceSession | null;
-}) {
-  const titleId = useId();
-  const errorId = useId();
-  const [starting, setStarting] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const activeWorkspaces = availableWorkspaceStartChoices(workspaceSession);
-  const recentWorkspaces = recentWorkspaceStartChoices(workspaceSession, activeWorkspaces);
-  const startInWorkspace = async (workspace: WorkspaceSummary): Promise<void> => {
-    setError(null);
-    setStarting(workspace.id);
-    try {
-      await dispatch(createWorkstreamIntent(workspace.id, workspaceWorkstreamTitle(workspace)));
-    } catch {
-      setError("Setta could not start in that folder.");
-    } finally {
-      setStarting(null);
-    }
-  };
-  const startFromRecent = async (workspace: WorkspaceSummary): Promise<void> => {
-    setError(null);
-    setStarting(workspace.id);
-    try {
-      const opened = await openWorkspacePath(workspace.rootPath);
-      await dispatch(createWorkstreamIntent(opened.id, workspaceWorkstreamTitle(opened)));
-    } catch {
-      setError("Setta could not start in that folder.");
-    } finally {
-      setStarting(null);
-    }
-  };
-  const chooseFolder = async (): Promise<void> => {
-    setError(null);
-    setStarting("choose-folder");
-    try {
-      const workspace = await openLocalFolder();
-      if (workspace !== null) {
-        await dispatch(createWorkstreamIntent(workspace.id, workspaceWorkstreamTitle(workspace)));
-      }
-    } catch {
-      setError("Setta could not start in that folder.");
-    } finally {
-      setStarting(null);
-    }
-  };
-  return (
-    <div className="director-workspace-start" aria-labelledby={titleId} role="group">
-      <p className="director-resource-subtitle" id={titleId}>
-        New workstream
-      </p>
-      <div className="director-resource-options director-workspace-start-options">
-        {activeWorkspaces.map((workspace) => (
-          <button
-            aria-describedby={error ? errorId : undefined}
-            aria-label={`Start new workstream in ${workspace.displayName}`}
-            disabled={disabled || starting !== null}
-            key={workspace.id}
-            onClick={() => {
-              void startInWorkspace(workspace);
-            }}
-            title={`Start new workstream in ${workspace.displayName}`}
-            type="button"
-          >
-            <FolderOpen aria-hidden="true" size={14} />
-            <span>{starting === workspace.id ? "Starting…" : workspace.displayName}</span>
-          </button>
-        ))}
-        {recentWorkspaces.map((workspace) => (
-          <button
-            aria-describedby={error ? errorId : undefined}
-            aria-label={`Reopen ${workspace.displayName} and start new workstream`}
-            data-source="recent"
-            disabled={disabled || starting !== null}
-            key={workspace.id}
-            onClick={() => {
-              void startFromRecent(workspace);
-            }}
-            title={`Reopen ${workspace.displayName} and start new workstream`}
-            type="button"
-          >
-            <FolderOpen aria-hidden="true" size={14} />
-            <span>{starting === workspace.id ? "Opening…" : workspace.displayName}</span>
-          </button>
-        ))}
-        <button
-          aria-describedby={error ? errorId : undefined}
-          disabled={disabled || starting !== null}
-          onClick={() => {
-            void chooseFolder();
-          }}
-          type="button"
-        >
-          <FolderPlus aria-hidden="true" size={14} />
-          <span>{starting === "choose-folder" ? "Opening…" : "Choose folder"}</span>
-        </button>
-      </div>
-      <p className="director-resource-error" id={errorId} role="alert">
-        {error}
-      </p>
-    </div>
-  );
-}
-
 function ResourceRequestItem({
   disabled,
   dispatch,
@@ -665,34 +532,7 @@ function ResourceRequestItem({
   );
 }
 
-function availableWorkspaceStartChoices(
-  workspaceSession: WorkspaceSession | null,
-): WorkspaceSummary[] {
-  if (workspaceSession === null) {
-    return [];
-  }
-  const unavailable = new Set(
-    workspaceSession.workspaceAvailabilities
-      .filter((availability) => !availability.available)
-      .map((availability) => availability.workspaceId),
-  );
-  return workspaceSession.activeWorkspaces.filter((workspace) => !unavailable.has(workspace.id));
-}
-
-function recentWorkspaceStartChoices(
-  workspaceSession: WorkspaceSession | null,
-  activeWorkspaces: readonly WorkspaceSummary[],
-): WorkspaceSummary[] {
-  if (workspaceSession === null) {
-    return [];
-  }
-  const activeIds = new Set(activeWorkspaces.map((workspace) => workspace.id));
-  return workspaceSession.recentWorkspaces
-    .filter((workspace) => !activeIds.has(workspace.id))
-    .slice(0, 4);
-}
-
-function workspaceWorkstreamTitle(workspace: WorkspaceSummary): string {
+export function workspaceWorkstreamTitle(workspace: WorkspaceSummary): string {
   const title = workspace.displayName.trim();
   return title.length > 0 ? title : "New workstream";
 }
@@ -727,7 +567,7 @@ function resolveResourceRequestIntent(requestId: string, workspaceId: string): D
   };
 }
 
-function createWorkstreamIntent(workspaceId: string, title: string): DirectorIntent {
+export function createWorkstreamIntent(workspaceId: string, title: string): DirectorIntent {
   return {
     cancelRun: null,
     createWorkstream: { title, workspaceId },

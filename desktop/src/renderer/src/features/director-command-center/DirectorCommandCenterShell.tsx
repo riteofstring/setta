@@ -55,7 +55,11 @@ import { enqueueDirectorSpeechPlayback } from "./director-speech-playback";
 import { DirectorSpeechCaptureController } from "./director-speech-capture";
 import { ArtifactBrowserOverlaySlot } from "./ArtifactBrowserOverlaySlot";
 import { ArtifactsRail } from "./DirectorArtifactsRail";
-import { PendingActions } from "./DirectorPendingActions";
+import {
+  createWorkstreamIntent,
+  PendingActions,
+  workspaceWorkstreamTitle,
+} from "./DirectorPendingActions";
 import { NowRail, type DirectorLoadState } from "./DirectorNowRail";
 import { useDirectorArtifactBrowser } from "./director-artifact-browser";
 import {
@@ -231,6 +235,17 @@ export function DirectorCommandCenterShell({
   const onGraphReady = useCallback((host: DirectorGraphCanvas | null) => {
     setCanvas(host);
   }, []);
+  const startWorkstreamInFolder = useCallback(() => {
+    void (async () => {
+      const workspace = await workspaceBinding.openLocalFolder();
+      if (workspace === null) {
+        return;
+      }
+      await director.dispatch(
+        createWorkstreamIntent(workspace.id, workspaceWorkstreamTitle(workspace)),
+      );
+    })();
+  }, [director.dispatch, workspaceBinding.openLocalFolder]);
 
   useEffect(() => {
     canvas?.setSnapshot(packedSnapshot);
@@ -265,6 +280,7 @@ export function DirectorCommandCenterShell({
         </a>
         <CommandCenterTopBar
           dispatch={director.dispatch}
+          onStartWorkstream={startWorkstreamInFolder}
           onToggleRail={toggleRail}
           onOpenSettingsPage={onOpenSettingsPage}
           platform={platform}
@@ -305,9 +321,7 @@ export function DirectorCommandCenterShell({
               approvals={snapshotView.approvals}
               dispatch={director.dispatch}
               dispatching={director.pending.dispatching}
-              offerWorkspaceStart={(director.snapshot?.workstreams.length ?? 0) === 0}
               openLocalFolder={workspaceBinding.openLocalFolder}
-              openWorkspacePath={workspaceBinding.openWorkspacePath}
               requests={snapshotView.requests}
               workspaceSession={workspaceBinding.session}
             />
@@ -547,7 +561,6 @@ function useDirectorRuntime(
 
 function useDirectorWorkspaceBinding(setta: SettaAPI): {
   openLocalFolder: () => Promise<WorkspaceSummary | null>;
-  openWorkspacePath: (rootPath: string) => Promise<WorkspaceSummary>;
   session: WorkspaceSession | null;
 } {
   const session = useWorkspaceStore((state) => state.session);
@@ -560,15 +573,7 @@ function useDirectorWorkspaceBinding(setta: SettaAPI): {
     applyWorkspaceSession(response.session);
     return response.workspace;
   }, [applyWorkspaceSession, setta]);
-  const openWorkspacePath = useCallback(
-    async (rootPath: string): Promise<WorkspaceSummary> => {
-      const response = await setta.workspace.openPath(rootPath);
-      applyWorkspaceSession(response.session);
-      return response.workspace;
-    },
-    [applyWorkspaceSession, setta],
-  );
-  return { openLocalFolder, openWorkspacePath, session };
+  return { openLocalFolder, session };
 }
 
 function directorCommandCenterSnapshotView(

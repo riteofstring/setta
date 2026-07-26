@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Circle,
   Folder,
+  FolderPlus,
   LoaderCircle,
   PanelLeft,
   PanelRight,
@@ -67,6 +68,7 @@ const statusGlyphs = {
 
 export function CommandCenterTopBar({
   dispatch,
+  onStartWorkstream,
   onToggleRail,
   onOpenSettingsPage,
   platform,
@@ -74,6 +76,7 @@ export function CommandCenterTopBar({
   snapshot,
 }: {
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
+  onStartWorkstream: () => void;
   onToggleRail: (rail: DirectorRailName, trigger: HTMLButtonElement) => void;
   onOpenSettingsPage: () => void;
   platform: DesktopPlatform;
@@ -96,6 +99,7 @@ export function CommandCenterTopBar({
       <WorkstreamNavigation dispatch={dispatch} snapshot={snapshot} />
       <DirectorRailControls
         onOpenSettingsPage={onOpenSettingsPage}
+        onStartWorkstream={onStartWorkstream}
         onToggleRail={onToggleRail}
         railVisibility={railVisibility}
       />
@@ -257,10 +261,12 @@ function WorkstreamFolderChip({ folder }: { folder: DirectorFocusFolder }) {
 
 function DirectorRailControls({
   onOpenSettingsPage,
+  onStartWorkstream,
   onToggleRail,
   railVisibility,
 }: {
   onOpenSettingsPage: () => void;
+  onStartWorkstream: () => void;
   onToggleRail: (rail: DirectorRailName, trigger: HTMLButtonElement) => void;
   railVisibility: DirectorRailVisibility;
 }) {
@@ -270,6 +276,14 @@ function DirectorRailControls({
       className="director-command-center-view-controls app-no-drag"
       role="group"
     >
+      {/*
+       * Starting work in a folder is a way in, not something the Director is
+       * waiting on, so it belongs with the other view-level controls rather
+       * than as a panel stacked over the composer.
+       */}
+      <IconButton label="Start a workstream in a folder" onClick={onStartWorkstream}>
+        <FolderPlus aria-hidden="true" size={16} />
+      </IconButton>
       <IconButton
         controls="director-now-rail"
         expanded={railVisibility.now}

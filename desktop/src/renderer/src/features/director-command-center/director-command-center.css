@@ -116,10 +116,15 @@
   translate: -50% -50%;
 }
 
+/*
+ * The composer's textarea is deliberately absent here. The pill around it
+ * already lights its border and ring on `:focus-within`, so a second outline
+ * drew a hard rectangle inside a rounded pill — two focus indicators for one
+ * focus, and the uglier of the two on top.
+ */
 .director-workstream-dot:focus-visible,
 .director-icon-button:focus-visible,
 .director-summary-disclosure summary:focus-visible,
-.director-composer textarea:focus-visible,
 .director-composer button:focus-visible,
 .director-action-controls button:focus-visible,
 .director-resource-options button:focus-visible,
