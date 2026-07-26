@@ -2,6 +2,8 @@ package director
 
 import (
 	"context"
+	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 
@@ -19,6 +21,14 @@ import (
 type settaToolOutcome struct {
 	receipt   SettaToolReceipt
 	succeeded bool
+}
+
+type settaToolSchemaFixture struct {
+	Properties map[string]struct {
+		Description string   `json:"description"`
+		Enum        []string `json:"enum"`
+	} `json:"properties"`
+	Required []string `json:"required"`
 }
 
 func callSettaTool(
@@ -46,6 +56,84 @@ func callSettaTool(
 		t.Fatalf("director tool calls = %+v", receipt.ToolCalls)
 	}
 	return settaToolOutcome{receipt: provider.receipts[0], succeeded: receipt.ToolCalls[0].Succeeded}
+}
+
+func TestDirectorDeliveryToolsExposeWorkspaceRequirements(t *testing.T) {
+	harness := newRegistryHarness(t)
+	registry := harness.start()
+	executor := newExecutorForTest(t, harness, registry, &recordedExecution{})
+	toolbox, err := NewSettaToolbox(registry, executor)
+	if err != nil {
+		t.Fatalf("NewSettaToolbox: %v", err)
+	}
+	tools, err := toolbox.Tools(directorTurnIntent("create an artifact"))
+	if err != nil {
+		t.Fatalf("Tools: %v", err)
+	}
+	byName := make(map[string]SettaTool, len(tools))
+	for _, tool := range tools {
+		byName[tool.Name] = tool
+	}
+	for _, name := range []string{"create_workstream", "submit_work"} {
+		tool, found := byName[name]
+		if !found {
+			t.Fatalf("Setta tool catalog has no %s", name)
+		}
+		var schema settaToolSchemaFixture
+		if err := json.Unmarshal(tool.InputSchema, &schema); err != nil {
+			t.Fatalf("decode %s schema: %v", name, err)
+		}
+		property, found := schema.Properties["workspaceRequirement"]
+		if !found {
+			t.Fatalf("%s schema has no workspaceRequirement: %s", name, tool.InputSchema)
+		}
+		want := []string{string(WorkspaceOptional), string(WorkspaceRequired)}
+		if !slices.Equal(property.Enum, want) {
+			t.Fatalf("%s workspaceRequirement enum = %v, want %v", name, property.Enum, want)
+		}
+		if !slices.Contains(schema.Required, "workspaceRequirement") {
+			t.Fatalf("%s does not require workspaceRequirement: %v", name, schema.Required)
+		}
+		if !strings.Contains(property.Description, "publishing Setta artifacts") {
+			t.Fatalf("%s workspaceRequirement description = %q", name, property.Description)
+		}
+	}
+
+	var steerSchema settaToolSchemaFixture
+	if err := json.Unmarshal(byName["steer_work"].InputSchema, &steerSchema); err != nil {
+		t.Fatalf("decode steer_work schema: %v", err)
+	}
+	if _, found := steerSchema.Properties["workspaceRequirement"]; found {
+		t.Fatalf("steer_work redeclares the active run's workspace requirement")
+	}
+}
+
+func TestDirectorReportsTheCommittedWorkspaceRequirement(t *testing.T) {
+	harness := newRegistryHarness(t)
+	workspaceID := registryTestWorkspaceID
+	workstreamID := harness.createConversation("conversation-artifact", "Artifact draft", &workspaceID)
+	registry := harness.start()
+	execution := &recordedExecution{}
+
+	outcome := callSettaTool(t, harness, registry, execution, scriptedDirectorToolCall{
+		tool: "submit_work",
+		arguments: map[string]any{
+			"workstreamId":         workstreamID,
+			"input":                "publish the artifact",
+			"workspaceRequirement": string(WorkspaceOptional),
+		},
+	})
+
+	if !outcome.succeeded {
+		t.Fatalf("submit_work was refused: %q", outcome.receipt.Summary)
+	}
+	if outcome.receipt.WorkspaceRequirement == nil ||
+		*outcome.receipt.WorkspaceRequirement != WorkspaceOptional {
+		t.Fatalf("submit_work receipt workspace requirement = %v", outcome.receipt.WorkspaceRequirement)
+	}
+	if len(execution.sends) != 1 {
+		t.Fatalf("submit_work execution = %+v", execution.sends)
+	}
 }
 
 // TestDirectorReadsActivityFromDurableState proves "what is happening?" is

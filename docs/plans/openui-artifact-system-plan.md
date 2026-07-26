@@ -1,7 +1,9 @@
 # OpenUI Artifact System Plan
 
 **Date:** 2026-07-26
-**Status:** Active plan of record.
+**Status:** Repository-actionable work complete. Retained as the OpenUI
+implementation record; native artifact routing follow-up is tracked in the
+[Native Artifact Routing And Execution Plan](native-artifact-routing-and-execution-plan.md).
 
 ## Executive Summary
 

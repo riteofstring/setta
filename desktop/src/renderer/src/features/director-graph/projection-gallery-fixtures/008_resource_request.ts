@@ -5,7 +5,7 @@ import { decodeProjectionGalleryFixture } from "./types";
 const rawProjectionGalleryFixture = {
   name: "resource_request",
   description:
-    "Folderless work blocked on a durable resource request, then unblocked by the folder the user chose.",
+    "Work that needs the user's files blocked on a durable resource request, then unblocked by the folder they chose.",
   graphs: [
     {
       workstreamId: "workstream:conv-zeta",

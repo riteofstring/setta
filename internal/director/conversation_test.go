@@ -25,6 +25,22 @@ func directorTurnIntent(text string) SubmittedIntent {
 	}
 }
 
+func TestDirectorInstructionsPreserveNativeArtifactIntent(t *testing.T) {
+	instructions := DirectorInstructions()
+	for _, required := range []string{
+		"setta.emit_artifact",
+		"Creating artifacts needs no folder.",
+		"Never turn it into a website, a Sites project, a gallery page",
+		"How many artifacts to publish and what goes in each is the worker's judgment",
+		"\"required\" only when the work must read or change files in their project",
+		"\"optional\" for everything else",
+	} {
+		if !strings.Contains(instructions, required) {
+			t.Fatalf("Director instructions do not contain %q:\n%s", required, instructions)
+		}
+	}
+}
+
 // TestDirectorToolCallCreatesAndSelectsAWorkstream is the plan's exit criterion:
 // asking for a new conversation causes a Setta tool call, a durable workstream,
 // and a visible selection — not prose claiming it happened.
@@ -173,6 +189,21 @@ func TestDirectorTurnIsDurableInOrder(t *testing.T) {
 		if got[index] != kind {
 			t.Fatalf("durable director conversation = %v, want %v", got, want)
 		}
+	}
+
+	replayed, err := director.replayHistory(context.Background())
+	if err != nil {
+		t.Fatalf("replayHistory: %v", err)
+	}
+	foundRequirement := false
+	for _, item := range replayed {
+		if strings.Contains(item.Text, `"workspaceRequirement":"required"`) {
+			foundRequirement = true
+			break
+		}
+	}
+	if !foundRequirement {
+		t.Fatalf("replayed Director history lost the workspace requirement: %+v", replayed)
 	}
 }
 

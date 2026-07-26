@@ -9,7 +9,11 @@ measurements from performance-relevant refactors.
 
 Historical reports may reference plan documents that have since been removed.
 The current plan of record is
-`docs/plans/openui-artifact-system-plan.md`.
+`docs/plans/native-artifact-routing-and-execution-plan.md`.
+
+Native artifact routing phase evidence:
+
+- [Phase 1 audit](native-artifact-routing-phase1-audit-20260727.md)
 
 OpenUI artifact phase evidence:
 

@@ -28,6 +28,92 @@ func TestCommittedDecisionsAreDurableFacts(t *testing.T) {
 	}
 }
 
+func TestCommittedDecisionsRecordWorkspaceRequirements(t *testing.T) {
+	context := decisionContextFixture()
+	create := createRootDecisionFixture(folderlessDecisionScope())
+	create.CreateWorkstream.WorkspaceRequirement = WorkspaceOptional
+	cases := []struct {
+		name     string
+		decision DirectorDecision
+		minted   *string
+		want     *WorkspaceRequirement
+	}{
+		{
+			name:     "create",
+			decision: create,
+			minted:   stringPointer(mintedWorkstreamID),
+			want:     workspaceRequirementPointer(WorkspaceOptional),
+		},
+		{
+			name:     "send",
+			decision: sendDecisionFixture(fixtureIdleWorkstream),
+			want:     workspaceRequirementPointer(WorkspaceRequired),
+		},
+		{
+			name: "queue",
+			decision: DirectorDecision{
+				Kind: DirectorDecisionQueueBehindRun,
+				QueueBehindRun: &QueueBehindRunDecision{
+					WorkstreamID:         fixtureActiveWorkstream,
+					AuthoredInput:        "then publish it",
+					WorkspaceRequirement: WorkspaceOptional,
+				},
+			},
+			want: workspaceRequirementPointer(WorkspaceOptional),
+		},
+		{
+			name: "steer",
+			decision: DirectorDecision{
+				Kind: DirectorDecisionSteerRun,
+				SteerRun: &SteerRunDecision{
+					WorkstreamID:  fixtureActiveWorkstream,
+					AuthoredInput: "shorter, please",
+				},
+			},
+		},
+		{
+			name: "select",
+			decision: DirectorDecision{
+				Kind:             DirectorDecisionSelectWorkstream,
+				SelectWorkstream: &SelectWorkstreamDecision{WorkstreamID: fixtureActiveWorkstream},
+			},
+		},
+		{
+			name: "recover",
+			decision: DirectorDecision{
+				Kind: DirectorDecisionRecoverPath,
+				RecoverPath: &RecoverPathDecision{
+					WorkstreamID:   fixtureFailedWorkstream,
+					FailureEventID: fixtureFailureEventID,
+				},
+			},
+			want: workspaceRequirementPointer(WorkspaceOptional),
+		},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			committed, err := NewCommittedDecision(context, testCase.decision, testCase.minted)
+			if err != nil {
+				t.Fatalf("NewCommittedDecision: %v", err)
+			}
+			if (committed.WorkspaceRequirement == nil) != (testCase.want == nil) {
+				t.Fatalf(
+					"workspace requirement = %v, want %v",
+					committed.WorkspaceRequirement,
+					testCase.want,
+				)
+			}
+			if testCase.want != nil && *committed.WorkspaceRequirement != *testCase.want {
+				t.Fatalf(
+					"workspace requirement = %q, want %q",
+					*committed.WorkspaceRequirement,
+					*testCase.want,
+				)
+			}
+		})
+	}
+}
+
 func TestCommittedDecisionSummariesUseTrustedText(t *testing.T) {
 	context := decisionContextFixture()
 	cases := []struct {

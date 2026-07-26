@@ -193,6 +193,18 @@ func TestDecisionAuthorityRejectsUnauthorizedDecisions(t *testing.T) {
 			decision: DirectorDecision{Kind: "ask_narrator"},
 			detail:   "unknown director decision kind",
 		},
+		{
+			name: "an unknown workspace requirement",
+			decision: DirectorDecision{
+				Kind: DirectorDecisionSendToWorkstream,
+				SendToWorkstream: &SendToWorkstreamDecision{
+					WorkstreamID:         fixtureIdleWorkstream,
+					AuthoredInput:        "keep going on the parser",
+					WorkspaceRequirement: "sometimes",
+				},
+			},
+			detail: "workspace requirement \"sometimes\" is unknown",
+		},
 	}
 	context := decisionContextFixture()
 	for _, testCase := range cases {

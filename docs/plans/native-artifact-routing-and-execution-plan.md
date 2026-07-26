@@ -153,7 +153,9 @@ judge the semantic completeness of the agent's chosen outputs.
 
 ### Phase 1 - Contracts And Director Semantics
 
-**Status:** Complete.
+**Status:** Complete. The coherent phase audit, corrections, deterministic
+verification, and live-provider evidence are recorded in
+[`docs/reports/native-artifact-routing-phase1-audit-20260727.md`](../reports/native-artifact-routing-phase1-audit-20260727.md).
 
 - Add the workspace requirement at its Go ownership boundary.
 - Carry it through create, send, queue, recovery, persistence, replay, and
