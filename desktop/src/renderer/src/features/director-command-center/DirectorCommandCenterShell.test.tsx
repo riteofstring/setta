@@ -11,7 +11,8 @@ import type {
 } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
-import { buildApprovalAnswers, directorRailArrivalAnnouncement } from "./DirectorArtifactsRail";
+import { directorRailArrivalAnnouncement } from "./DirectorArtifactsRail";
+import { buildApprovalAnswers } from "./DirectorPendingActions";
 import { directorArtifactCardMetadata } from "./DirectorArtifactPreviewCard";
 import {
   DirectorRefreshCoordinator,

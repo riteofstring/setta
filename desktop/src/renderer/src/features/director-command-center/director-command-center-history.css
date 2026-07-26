@@ -47,7 +47,7 @@
 
 .director-history-dialog h2 {
   color: oklch(0.94 0.025 245);
-  font-size: 1.05rem;
+  font-size: 14px;
   font-weight: 650;
   line-height: 1.2;
   margin: 0;
@@ -67,7 +67,7 @@
   border: 1px solid oklch(0.34 0.026 250 / 0.7);
   border-radius: 8px;
   color: oklch(0.84 0.025 250);
-  font-size: 0.82rem;
+  font-size: 13px;
   line-height: 1.35;
   padding: 9px 10px;
 }

@@ -125,12 +125,19 @@ export function DirectorComposer({
   dispatch,
   focus,
   onOpenVoiceCredentialSettings,
+  pendingActions,
   speechCapture,
 }: {
   answering: boolean;
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
   focus: DirectorFocus;
   onOpenVoiceCredentialSettings: () => void;
+  /**
+   * What the Director is waiting on the user for, rendered directly above the
+   * hint. The composer owns the column rather than the content, so the surface
+   * stays a sibling of the input the user answers with.
+   */
+  pendingActions: React.ReactNode;
   speechCapture: DirectorSpeechCaptureBinding;
 }) {
   const [text, setText] = useState("");
@@ -167,6 +174,7 @@ export function DirectorComposer({
       data-voice-state={voice.state}
       onSubmit={submit}
     >
+      {pendingActions}
       <DirectorComposerHint hint={directorComposerHint(focus, answering)} />
       <div className="director-composer-pill">
         <div className="director-composer-input-stack">

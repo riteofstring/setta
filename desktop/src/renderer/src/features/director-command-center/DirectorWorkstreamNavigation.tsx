@@ -293,7 +293,7 @@ function DirectorRailControls({
   );
 }
 
-export function StatusGlyph({ status }: { status: WorkstreamStatus }) {
+function StatusGlyph({ status }: { status: WorkstreamStatus }) {
   const { Icon, size } = statusGlyphs[status];
   return (
     <Icon

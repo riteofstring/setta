@@ -55,6 +55,7 @@ import { enqueueDirectorSpeechPlayback } from "./director-speech-playback";
 import { DirectorSpeechCaptureController } from "./director-speech-capture";
 import { ArtifactBrowserOverlaySlot } from "./ArtifactBrowserOverlaySlot";
 import { ArtifactsRail } from "./DirectorArtifactsRail";
+import { PendingActions } from "./DirectorPendingActions";
 import { NowRail, type DirectorLoadState } from "./DirectorNowRail";
 import { useDirectorArtifactBrowser } from "./director-artifact-browser";
 import {
@@ -290,18 +291,25 @@ export function DirectorCommandCenterShell({
             approvals={snapshotView.approvals}
             artifactBrowser={artifactBrowser}
             artifacts={snapshotView.artifacts}
-            dispatch={director.dispatch}
-            dispatching={director.pending.dispatching}
-            openLocalFolder={workspaceBinding.openLocalFolder}
-            openWorkspacePath={workspaceBinding.openWorkspacePath}
             requests={snapshotView.requests}
-            workspaceSession={workspaceBinding.session}
           />
           <DirectorComposer
             answering={director.pending.answering}
             dispatch={director.dispatch}
             focus={focus}
             onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
+            pendingActions={
+              <PendingActions
+                approvals={snapshotView.approvals}
+                dispatch={director.dispatch}
+                dispatching={director.pending.dispatching}
+                offerWorkspaceStart={(director.snapshot?.workstreams.length ?? 0) === 0}
+                openLocalFolder={workspaceBinding.openLocalFolder}
+                openWorkspacePath={workspaceBinding.openWorkspacePath}
+                requests={snapshotView.requests}
+                workspaceSession={workspaceBinding.session}
+              />
+            }
             speechCapture={speechCapture}
           />
         </section>

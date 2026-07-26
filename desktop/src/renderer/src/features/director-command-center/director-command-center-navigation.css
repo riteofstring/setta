@@ -64,7 +64,7 @@
 
 .director-focus-title {
   color: oklch(0.95 0.025 245);
-  font-size: 0.86rem;
+  font-size: 13px;
   font-weight: 650;
   line-height: 1.2;
   margin: 0;
@@ -81,7 +81,7 @@
 
 .director-focus-meta {
   color: oklch(0.68 0.04 240);
-  font-size: 0.72rem;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   min-inline-size: 0;
   overflow: hidden;
