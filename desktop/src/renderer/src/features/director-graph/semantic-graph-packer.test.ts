@@ -1,4 +1,4 @@
-import type { WorkstreamGraph } from "@generated/backend";
+import type { SemanticNode, WorkstreamGraph } from "@generated/backend";
 import {
   evidenceClassValues,
   semanticEdgeKindValues,
@@ -13,6 +13,61 @@ import {
   type SemanticGraphPresentation,
 } from "./semantic-graph-packer";
 import { packedValueAt } from "./packed-graph-vocabulary";
+
+/*
+ * A tile whose kept last node points back at one the tile drops.
+ *
+ * Five nodes, of which a tile keeps the final three. The last is `completed`,
+ * which is an outcome kind, and it carries a `blocked_by` edge to the first
+ * node — the shape the projector emits when work is held up by something
+ * earlier, and the one that made the outcome depend on which edge list was read.
+ */
+function tileGraphWithEdgeToDroppedNode(workstreamId: string): WorkstreamGraph {
+  const nodes = ["action", "action", "action", "action", "completed"].map((kind, index) =>
+    tileNode(workstreamId, index + 1, kind as SemanticNode["kind"]),
+  );
+  return {
+    detailLevel: "adjacent",
+    edges: [
+      {
+        createdAt: "2026-07-25T17:05:00Z",
+        fromNodeId: "node-5",
+        id: "edge-blocked",
+        kind: "blocked_by",
+        sourceEventIds: ["event-blocked"],
+        toNodeId: "node-1",
+        workstreamId,
+      },
+    ],
+    hasEarlier: false,
+    nodes,
+    workstreamId,
+  };
+}
+
+function tileNode(
+  workstreamId: string,
+  position: number,
+  kind: SemanticNode["kind"],
+): SemanticNode {
+  const at = `2026-07-25T17:0${position}:00Z`;
+  return {
+    actor: "worker",
+    artifactIds: [],
+    completedAt: at,
+    createdAt: at,
+    evidenceClass: "runtime_fact",
+    id: `node-${position}`,
+    interpretation: null,
+    kind,
+    publicSummary: `Step ${position}`,
+    runId: "run-tile",
+    sourceEventIds: [`event-${position}`],
+    status: "succeeded",
+    updatedAt: at,
+    workstreamId,
+  };
+}
 
 /** Copies a fixture graph under a new workstream id, so a composition can hold many. */
 function renameGraph(graph: WorkstreamGraph | undefined, workstreamId: string): WorkstreamGraph {
@@ -228,42 +283,36 @@ describe("semantic graph packer", () => {
   });
 
   /*
-   * A tile is classified by what it shows. Nodes came from the reduced graphs
-   * while edges came from the full ones, so an edge that was dropped could
-   * still decide which of the kept nodes counts as the tile's outcome — a
-   * classification made from history the tile is not displaying.
+   * A tile is classified by what it shows.
+   *
+   * The outcome is the last terminal node with nothing after it, so an edge
+   * leaving a node disqualifies it. Reading edges from the full graphs while
+   * nodes came from the tile meant an edge to a node the tile dropped still
+   * counted: the tile's real last fact was disqualified by a relationship it is
+   * not displaying, and the classification came from history that is not there.
+   *
+   * The fixture below is that exact shape — a kept `completed` node with a
+   * `blocked_by` edge back to a node the tile drops.
    */
-  it("classifies a tile from the nodes it kept", () => {
-    const fixture = projectionGalleryFixtures.find(
-      (candidate) => candidate.graphs.filter((graph) => graph.nodes.length > 3).length > 0,
-    );
-    expect(fixture).toBeDefined();
-    const long = fixture?.graphs.find((graph) => graph.nodes.length > 3);
-    expect(long).toBeDefined();
-    if (long === undefined) {
-      return;
-    }
-    const graphs = [long, ...Array.from({ length: 8 }, (_u, i) => renameGraph(long, `tile-${i}`))];
+  it("classifies a tile by its own nodes, not by edges it dropped", () => {
+    const lead = tileGraphWithEdgeToDroppedNode("workstream:lead");
+    const tile = tileGraphWithEdgeToDroppedNode("workstream:tile");
     const snapshot = packSemanticGraphComposition({
-      graphs,
+      graphs: [lead, tile],
       presentation: "grid",
       workstreamId: "grid",
     });
 
-    for (let turn = 1; turn < snapshot.turnCount; turn += 1) {
-      const outcome = packedValueAt(snapshot.turns.outcomeNode, turn);
-      if (outcome < 0) {
-        continue;
-      }
-      // Every named outcome is a node this tile actually drew.
-      expect(packedValueAt(snapshot.nodes.turn, outcome)).toBe(turn);
-    }
-    // And no edge points outside the tile that owns it.
-    for (let edge = 0; edge < snapshot.edgeCount; edge += 1) {
-      const from = packedValueAt(snapshot.edges.from, edge);
-      const to = packedValueAt(snapshot.edges.to, edge);
-      expect(packedValueAt(snapshot.nodes.turn, from)).toBe(packedValueAt(snapshot.nodes.turn, to));
-    }
+    // The tile is turn 1; turn 0 is the lead column, which keeps everything.
+    const outcome = packedValueAt(snapshot.turns.outcomeNode, 1);
+    expect(outcome).toBeGreaterThanOrEqual(0);
+    expect(snapshot.nodes.ids[outcome]).toBe("workstream:tile:node-5");
+
+    // The lead column keeps the dropped node, so its own edge still counts and
+    // its last fact is not the outcome. That contrast is the whole point: the
+    // same graph classifies differently depending on how much of it is shown.
+    const leadOutcome = packedValueAt(snapshot.turns.outcomeNode, 0);
+    expect(snapshot.nodes.ids[leadOutcome] ?? null).not.toBe("workstream:lead:node-5");
   });
 
   it("draws cross-workstream delegation inside the gallery composition", () => {
