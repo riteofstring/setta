@@ -74,18 +74,8 @@ export function graphNodeActivation(
   presentation: SemanticGraphPresentation,
   nodeIndex: number,
   workstreamId: string | undefined,
-  selfWorkstreamId: string | null = null,
 ): GraphNodeActivation {
-  /*
-   * Your own lane folds; another thread opens. On the Director's view every
-   * thread is a destination except the one you are already talking to —
-   * "opening" it dispatched a selection of the view you are on, which is why
-   * the Director's folded turns could never be re-expanded there.
-   */
-  if (
-    presentation === "conversation" ||
-    (workstreamId !== undefined && workstreamId === selfWorkstreamId)
-  ) {
+  if (presentation === "conversation") {
     return { kind: "fold", nodeIndex };
   }
   if (workstreamId === undefined) {

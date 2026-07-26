@@ -2,7 +2,6 @@ import {
   Component,
   Suspense,
   lazy,
-  useEffect,
   useId,
   useLayoutEffect,
   useRef,
@@ -30,7 +29,6 @@ const ArtifactBrowserOverlay = lazy(async () => ({
 
 export function ArtifactBrowserOverlaySlot({ browser }: { browser: DirectorArtifactBrowser }) {
   const artifact = browser.activeArtifact;
-  usePrefetchArtifactBrowserChunks();
   if (artifact === null) {
     return null;
   }
@@ -41,38 +39,6 @@ export function ArtifactBrowserOverlaySlot({ browser }: { browser: DirectorArtif
       </Suspense>
     </ArtifactBrowserOverlayBoundary>
   );
-}
-
-/**
- * Warms the browser's chunks once the shell is idle.
- *
- * The overlay and the artifact renderer stay off first paint, but the first
- * open must not pay their load either — an open should be the enter animation,
- * not a fallback modal while a chunk arrives. Idle time between first paint
- * and the first open is when the work is free.
- */
-function usePrefetchArtifactBrowserChunks(): void {
-  useEffect(() => {
-    const idle: (callback: () => void) => number =
-      typeof globalThis.requestIdleCallback === "function"
-        ? (callback) => globalThis.requestIdleCallback(callback)
-        : (callback) => globalThis.setTimeout(callback, 250) as unknown as number;
-    const cancel: (handle: number) => void =
-      typeof globalThis.cancelIdleCallback === "function"
-        ? (handle) => globalThis.cancelIdleCallback(handle)
-        : (handle) => globalThis.clearTimeout(handle);
-    const handle = idle(() => {
-      // Best-effort: a failed prefetch is not an error surface — the open
-      // path retries the same imports and owns the contained failure.
-      void Promise.all([
-        loadArtifactBrowserOverlay(),
-        import("../artifacts/SettaArtifactRenderer"),
-      ]).catch(() => undefined);
-    });
-    return () => {
-      cancel(handle);
-    };
-  }, []);
 }
 
 async function loadArtifactBrowserOverlay() {

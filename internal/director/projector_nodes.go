@@ -143,62 +143,16 @@ func (projector *DirectorGraphProjector) observe(workstream *projectedWorkstream
 	}
 }
 
-// Work kinds that can genuinely run beside each other inside one run: shell
-// commands, file changes, investigations, and delegated subagents. Structural
-// facts — goals, plans, decisions, outcomes — always advance the spine.
-var concurrentWorkKinds = map[SemanticNodeKind]bool{
-	SemanticNodeAction:        true,
-	SemanticNodeInvestigation: true,
-	SemanticNodeDelegation:    true,
-}
-
 // chainFollowedBy orders visible facts. Inside an active run the chain follows
 // that run; otherwise it follows the workstream, which is what keeps a
 // Director decision or a resource request connected to the goal that caused it.
-//
-// Concurrent work fans. New work arriving while the chain's tip is itself
-// unfinished work runs beside that tip, not after it: both branch from the
-// fork the tip left. The next fact that arrives once the tip has finished is
-// the merge, and it follows every branch of the fan rather than only the
-// latest — which is what lets parallel commands or subagents draw as lanes
-// that reconverge on the spine.
 func (projector *DirectorGraphProjector) chainFollowedBy(context factContext, node SemanticNode) error {
-	workstream := context.workstream
-	from := workstream.lastNodeID
+	from := context.workstream.lastNodeID
 	if node.RunID != nil {
-		runID := *node.RunID
-		if runLast, found := workstream.lastRunNodeID[runID]; found {
+		if runLast, found := context.workstream.lastRunNodeID[*node.RunID]; found {
 			from = runLast
 		}
-		if tipIndex, exists := workstream.nodeIndex[from]; exists {
-			tip := workstream.nodes[tipIndex]
-			sameRun := tip.RunID != nil && *tip.RunID == runID
-			if sameRun && concurrentWorkKinds[node.Kind] && concurrentWorkKinds[tip.Kind] &&
-				!IsTerminalSemanticNodeStatus(tip.Status) {
-				if len(workstream.parallelTips[runID]) == 0 {
-					workstream.forkParent[runID] = workstream.chainParent[from]
-					workstream.parallelTips[runID] = []string{from}
-				}
-				workstream.parallelTips[runID] = append(workstream.parallelTips[runID], node.ID)
-				fork := workstream.forkParent[runID]
-				workstream.chainParent[node.ID] = fork
-				return projector.addEdge(context, SemanticEdgeFollowedBy, fork, node.ID)
-			}
-			if tips := workstream.parallelTips[runID]; len(tips) > 0 {
-				// The fan is over: this fact follows all of it.
-				delete(workstream.parallelTips, runID)
-				delete(workstream.forkParent, runID)
-				workstream.chainParent[node.ID] = from
-				for _, tipID := range tips {
-					if err := projector.addEdge(context, SemanticEdgeFollowedBy, tipID, node.ID); err != nil {
-						return err
-					}
-				}
-				return nil
-			}
-		}
 	}
-	workstream.chainParent[node.ID] = from
 	return projector.addEdge(context, SemanticEdgeFollowedBy, from, node.ID)
 }
 

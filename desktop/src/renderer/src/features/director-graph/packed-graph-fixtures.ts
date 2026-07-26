@@ -68,7 +68,7 @@ interface OutcomeVisual {
  * ended the work without failing at it.
  */
 const outcomeVisuals = {
-  succeeded: { mode: "success", glyph: "check", placement: "below" },
+  succeeded: { mode: "success", glyph: "check", placement: "over" },
   failed: { mode: "fail", glyph: "cross", placement: "below" },
   cancelled: { mode: "risk", glyph: "warning", placement: "below" },
 } satisfies Record<Exclude<PackedGraphOutcome, "running">, OutcomeVisual>;

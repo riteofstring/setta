@@ -49,9 +49,11 @@ import {
 import { NowRail } from "./DirectorNowRail";
 import { DirectorReply, type DirectorLoadState } from "./DirectorReply";
 import { useDirectorArtifactBrowser } from "./director-artifact-browser";
-import { useDirectorWorkstreamSwitchTransition } from "./director-workstream-switch-transition";
+import {
+  useDirectorWorkstreamSwitchTransition,
+  WorkstreamSwitchTransition,
+} from "./director-workstream-switch-transition";
 import { directorFocus, type DirectorFocus } from "./director-focus";
-import { readGraphLabelsVisible, writeGraphLabelsVisible } from "./director-graph-label-preference";
 import { directorSubmitIntent } from "./director-view-submit";
 import {
   CommandCenterTopBar,
@@ -60,7 +62,6 @@ import {
   type DirectorRailVisibility,
 } from "./DirectorWorkstreamNavigation";
 import {
-  directorGraphLaneId,
   directorGraphTimeSecondsAt,
   packDirectorGraphs,
   useDirectorGraphPresentation,
@@ -201,29 +202,21 @@ export function DirectorCommandCenterShell({
   // invited them to disagree.
   const snapshot = director.snapshot;
   const selectedWorkstreamId = snapshot === null ? null : snapshot.selectedWorkstreamId;
+  const onDirectorView = selectedWorkstreamId === null;
   const {
     closeCompactRail,
     compactRail,
     effectiveVisibility: effectiveRailVisibility,
     toggleRail,
-  } = useDirectorRailDisclosure();
+  } = useDirectorRailDisclosure(onDirectorView);
   const snapshotGraphs = snapshot === null ? undefined : snapshot.graphs;
   const graphTimeSecondsAt = useMemo(
     () => directorGraphTimeSecondsAt(director.snapshot),
     [snapshot === null ? null : snapshot.connection.lastEventAt, snapshotGraphs],
   );
-  // A compact window folds the grid's tiles to dots; a spacious one earns
-  // their trails. The same viewport fact reaches the packer, not a second
-  // measurement that could disagree with it.
-  const compactViewport = useMediaQueryMatch("(max-width: 1080px), (max-height: 720px)");
   const composition = useMemo(
-    () =>
-      packDirectorGraphs(
-        snapshotGraphs,
-        selectedWorkstreamId,
-        compactViewport ? "compact" : "spacious",
-      ),
-    [compactViewport, snapshotGraphs, selectedWorkstreamId],
+    () => packDirectorGraphs(snapshotGraphs, selectedWorkstreamId),
+    [snapshotGraphs, selectedWorkstreamId],
   );
   const packedSnapshot = composition.snapshot;
   const { openWorkstream: openWorkstreamFromGraph } = useDirectorGraphPresentation({
@@ -286,57 +279,10 @@ export function DirectorCommandCenterShell({
       return;
     }
     // Presentation first: it decides how the snapshot is read, so the canvas
-    // must never see a new composition under the old rules. The Director's
-    // own lane is the view's self on its view, so its turns fold on click
-    // instead of "opening" the view the user is already on.
-    canvas.setPresentation(
-      composition.presentation,
-      selectedWorkstreamId === null ? directorGraphLaneId : null,
-    );
-    canvas.setColumnTitles(directorColumnTitles(snapshot));
+    // must never see a new composition under the old rules.
+    canvas.setPresentation(composition.presentation);
     canvas.setSnapshot(composition.snapshot);
-  }, [canvas, composition, selectedWorkstreamId, snapshot]);
-
-  // The input node breathes only while the microphone is actually capturing.
-  useEffect(() => {
-    canvas?.setListening(speechCapture.snapshot.capture.type === "recording");
-  }, [canvas, speechCapture.snapshot.capture.type]);
-
-  const [labelsVisible, setLabelsVisible] = useState(() =>
-    readGraphLabelsVisible(globalThis.localStorage),
-  );
-  const toggleLabels = useCallback(() => {
-    setLabelsVisible((current) => {
-      const next = !current;
-      writeGraphLabelsVisible(globalThis.localStorage, next);
-      return next;
-    });
-  }, []);
-  useEffect(() => {
-    canvas?.setLabelsEnabled(labelsVisible);
-  }, [canvas, labelsVisible]);
-
-  // Each switch plays once: the transition key names the switch, and the slide
-  // must not replay when the same transition object merely settles inactive.
-  const playedSwitchKeyRef = useRef(0);
-  useEffect(() => {
-    if (
-      canvas === null ||
-      !switchTransition.active ||
-      switchTransition.direction === null ||
-      playedSwitchKeyRef.current === switchTransition.key
-    ) {
-      return;
-    }
-    playedSwitchKeyRef.current = switchTransition.key;
-    canvas.playWorkstreamSwitch(
-      switchTransition.direction === "next"
-        ? 1
-        : switchTransition.direction === "previous"
-          ? -1
-          : 0,
-    );
-  }, [canvas, switchTransition]);
+  }, [canvas, composition]);
 
   useDirectorShellKeyboardNavigation({
     artifactBrowserOpen: artifactBrowser.activeArtifact !== null,
@@ -365,15 +311,12 @@ export function DirectorCommandCenterShell({
         </a>
         <CommandCenterTopBar
           dispatch={director.dispatch}
-          labelsVisible={labelsVisible}
           onStartWorkstream={startWorkstreamInFolder}
-          onToggleLabels={toggleLabels}
           onToggleRail={toggleRail}
           onOpenSettingsPage={onOpenSettingsPage}
           platform={platform}
           railVisibility={effectiveRailVisibility}
           snapshot={director.snapshot}
-          speechPlayback={speechPlayback}
         />
         <section className="director-command-center-stage" aria-label="Director command center">
           <DirectorGraphSurface
@@ -383,11 +326,9 @@ export function DirectorCommandCenterShell({
             onReady={onGraphReady}
             timeSecondsAt={graphTimeSecondsAt}
           />
+          <WorkstreamSwitchTransition transition={switchTransition} />
           {packedSnapshot.nodeCount === 0 ? <GraphEmptyState focus={focus} /> : null}
-          <NowRail
-            narration={snapshotView.narration}
-            workstreamStatus={snapshotView.selectedWorkstream?.status ?? null}
-          />
+          <NowRail narration={snapshotView.narration} />
           <ArtifactsRail
             approvals={snapshotView.approvals}
             artifactBrowser={artifactBrowser}
@@ -410,7 +351,6 @@ export function DirectorCommandCenterShell({
              * not in a rail about a workstream.
              */}
             <DirectorReply
-              answering={director.pending.answering}
               loadState={director.loadState}
               message={director.message}
               receiptText={director.receiptText}
@@ -679,29 +619,18 @@ function directorCommandCenterSnapshotView(
   return {
     approvals: snapshot.unresolvedApprovals,
     /*
-     * A workstream's view lists its own artifacts. The Director's view is the
-     * whole desk, so it lists every thread's artifacts in the order they were
-     * produced — one chronology across the work, not a per-thread scope.
+     * An artifact belongs to the thread that produced it, so a workstream's
+     * view lists its own. The Director's view lists none: it has no rails, and
+     * every artifact is one arrow away in the thread that made it.
      */
     artifacts:
       selected === null
-        ? [...snapshot.artifacts].sort(byCreatedAt)
+        ? []
         : snapshot.artifacts.filter((artifact) => artifact.workstreamId === selected.id),
-    /*
-     * Same rule for the narrator: the Director's Now rail interleaves what
-     * every thread reported, in the order it was said.
-     */
-    narration:
-      selected === null
-        ? snapshot.workstreams.flatMap((entry) => entry.workstream.narration).sort(byCreatedAt)
-        : selected.narration,
+    narration: selected?.narration ?? [],
     requests: snapshot.unresolvedResourceRequests,
     selectedWorkstream: selected,
   };
-}
-
-function byCreatedAt(left: { createdAt: string }, right: { createdAt: string }): number {
-  return left.createdAt < right.createdAt ? -1 : left.createdAt > right.createdAt ? 1 : 0;
 }
 
 function emptyCommandCenterSnapshotView(): DirectorCommandCenterSnapshotView {
@@ -714,15 +643,6 @@ function emptyCommandCenterSnapshotView(): DirectorCommandCenterSnapshotView {
   };
 }
 
-/** Thread names for the canvas's column titles, the Director's lane included. */
-function directorColumnTitles(snapshot: DirectorSnapshot | null): ReadonlyMap<string, string> {
-  const titles = new Map<string, string>([[directorGraphLaneId, "Director"]]);
-  for (const entry of snapshot?.workstreams ?? []) {
-    titles.set(entry.workstream.id, entry.workstream.title);
-  }
-  return titles;
-}
-
 function directorRailVisibilityAttributes(visibility: DirectorRailVisibility) {
   return {
     artifacts: visibility.artifacts ? "shown" : "hidden",
@@ -730,7 +650,7 @@ function directorRailVisibilityAttributes(visibility: DirectorRailVisibility) {
   };
 }
 
-function useDirectorRailDisclosure() {
+function useDirectorRailDisclosure(onDirectorView: boolean) {
   const [railVisibility, setRailVisibility] =
     useState<DirectorRailVisibility>(defaultRailVisibility);
   const [compactRail, setCompactRail] = useState<DirectorCompactRail>(null);
@@ -740,6 +660,7 @@ function useDirectorRailDisclosure() {
   const effectiveVisibility = effectiveDirectorRailVisibility({
     compact,
     compactRail,
+    onDirectorView,
     railVisibility,
   });
   const closeCompactRail = useCallback(() => {
@@ -951,20 +872,26 @@ function dispatchDirectorIntent(
 /*
  * Which rails the current view has.
  *
- * Every view has both, the Director's included: its rails carry the whole
- * desk's narration and artifacts interleaved chronologically, which is
- * exactly the summary a view of every workstream owes. The top-bar toggles
- * still hide either one.
+ * The Director's view has none. Its canvas is the content — every workstream
+ * at once — and a rail over it names the first column rather than sitting
+ * beside it. An artifact belongs to the thread that produced it and is one
+ * arrow away, and what needs an answer rides the composer, where it can be
+ * acted on rather than only reported.
  */
 export function effectiveDirectorRailVisibility({
   compact,
   compactRail,
+  onDirectorView,
   railVisibility,
 }: {
   compact: boolean;
   compactRail: DirectorCompactRail;
+  onDirectorView: boolean;
   railVisibility: DirectorRailVisibility;
 }): DirectorRailVisibility {
+  if (onDirectorView) {
+    return { artifacts: false, now: false };
+  }
   if (!compact) {
     return railVisibility;
   }
@@ -975,28 +902,24 @@ export function effectiveDirectorRailVisibility({
 }
 
 function useCompactRailLayout(): boolean {
-  return useMediaQueryMatch(compactRailQuery);
-}
-
-function useMediaQueryMatch(query: string): boolean {
-  const [matches, setMatches] = useState(
-    () => globalThis.window?.matchMedia?.(query).matches ?? false,
+  const [compact, setCompact] = useState(
+    () => globalThis.window?.matchMedia?.(compactRailQuery).matches ?? false,
   );
   useEffect(() => {
-    const list = globalThis.window?.matchMedia?.(query);
-    if (!list) {
+    const query = globalThis.window?.matchMedia?.(compactRailQuery);
+    if (!query) {
       return;
     }
     const update = (): void => {
-      setMatches(list.matches);
+      setCompact(query.matches);
     };
     update();
-    list.addEventListener("change", update);
+    query.addEventListener("change", update);
     return () => {
-      list.removeEventListener("change", update);
+      query.removeEventListener("change", update);
     };
-  }, [query]);
-  return matches;
+  }, []);
+  return compact;
 }
 
 function directorKeyboardTargetIsEditable(target: EventTarget | null): boolean {
