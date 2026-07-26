@@ -1,7 +1,7 @@
 # Setta-Owned Conversations With Ephemeral Codex Carriers
 
-Status: in progress. Phases 1 through 5 are implemented. Phase 6 updates tests
-and verification targets when verification is requested.
+Status: in progress. Phases 1 through 5 are implemented. Phase 6's deterministic
+targets are updated; its live Codex targets remain.
 
 ## Executive Summary
 
@@ -415,14 +415,25 @@ Do not run tests during implementation unless the user asks.
 
 When verification is requested, update the deterministic tests first:
 
-- conversation creation has no thread binding
-- first turn starts an ephemeral carrier
-- second turn uses Setta replay, not provider resume
-- restart interrupts active work without provider reconciliation
-- queued work promotes after restart
-- branches replay Setta context
-- side work does not require provider fork history
-- Director and workstreams both use ephemeral carriers
+- DONE: conversation creation has no thread binding. Creating a conversation
+  reaches no provider and holds no carrier, and the durable record it produces
+  keeps the provider turn that identifies a call while never naming the carrier
+  that call ran on.
+- DONE: first turn starts an ephemeral carrier.
+- DONE: second turn uses Setta replay, not provider resume. Every turn of one app
+  run shares the carrier the first turn opened and is replayed into it exactly
+  once; after a restart the conversation runs on a fresh ephemeral carrier
+  carrying its own committed history.
+- DONE: restart interrupts active work without provider reconciliation.
+- DONE: queued work promotes after restart. The restarted provider fake now
+  forgets the threads the dead process opened, so promotion proves a fresh
+  carrier rather than a reused id.
+- DONE: branches replay Setta context (`service_forks_test.go`).
+- DONE: side work does not require provider fork history
+  (`service_sides_test.go`, `service_side_lifecycle_test.go`).
+- DONE: Director and workstreams both use ephemeral carriers. The Director's
+  carrier start is asserted directly — ephemeral, its own tools, seeded with the
+  durable Director history, or the inert marker when there is none.
 
 Then update live Codex tests:
 

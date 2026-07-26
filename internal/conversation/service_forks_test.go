@@ -157,7 +157,7 @@ func TestServiceNestedBranchCarrierReplaysFullSettaAncestry(t *testing.T) {
 	})
 
 	requests := runtime.turnRequests()
-	replayed := branchCarrierReplayText(runtime, requests[len(requests)-1].ProviderThreadID)
+	replayed := carrierReplayText(runtime, requests[len(requests)-1].ProviderThreadID)
 	for _, inherited := range []string{"ancestor foundation", "child foundation"} {
 		if !strings.Contains(replayed, inherited) {
 			t.Fatalf("nested branch replay omitted %q: %q", inherited, replayed)
@@ -228,7 +228,7 @@ func TestServiceBranchReplaysSourceOutsideParentSnapshotWindow(t *testing.T) {
 		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
 	})
 	requests := runtime.turnRequests()
-	replayed := branchCarrierReplayText(runtime, requests[len(requests)-1].ProviderThreadID)
+	replayed := carrierReplayText(runtime, requests[len(requests)-1].ProviderThreadID)
 	if !strings.Contains(replayed, sourceTurn.AuthoredInput.Text) {
 		t.Fatalf("aged branch replay omitted source turn: %q", replayed)
 	}
@@ -306,27 +306,13 @@ func assertBranchCarrierReplay(
 	afterBoundary string,
 ) {
 	t.Helper()
-	replayed := branchCarrierReplayText(runtime, childThreadID)
+	replayed := carrierReplayText(runtime, childThreadID)
 	if !strings.Contains(replayed, sourceTurn.AuthoredInput.Text) {
 		t.Fatalf("branch carrier replay omitted the source turn: %q", replayed)
 	}
 	if strings.Contains(replayed, afterBoundary) {
 		t.Fatalf("branch carrier replay crossed the boundary into %q: %q", afterBoundary, replayed)
 	}
-}
-
-func branchCarrierReplayText(runtime *serviceTestAgentRuntime, threadID string) string {
-	var replayed strings.Builder
-	for _, injection := range runtime.injectedThreadItems() {
-		if injection.threadID != threadID {
-			continue
-		}
-		for _, item := range injection.items {
-			replayed.WriteString(item.Text)
-			replayed.WriteByte('\n')
-		}
-	}
-	return replayed.String()
 }
 
 func turnTrajectoryBoundary(snapshot ConversationSnapshot, turnID string) int {

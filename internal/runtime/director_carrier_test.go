@@ -52,10 +52,83 @@ func TestDirectorTurnSinkPrefersCompletedAssistantText(t *testing.T) {
 	}
 }
 
+// The Director reaches Codex the way every other Setta conversation does: an
+// ephemeral carrier, opened with its own tools, seeded with the durable history
+// Setta already owns.
+func TestStartDirectorCarrierIsEphemeralAndReplaysDurableHistory(t *testing.T) {
+	provider := &recordingDirectorProvider{}
+	port, err := newDirectorCarrierPort(
+		staticDirectorRoleResolver{configuration: directorCarrierTestRoleConfiguration(t)},
+		provider,
+		"/tmp/setta-director-carrier-test",
+	)
+	if err != nil {
+		t.Fatalf("newDirectorCarrierPort: %v", err)
+	}
+
+	threadID, err := port.StartDirectorCarrier(context.Background(), director.DirectorCarrierRequest{
+		Instructions: "Coordinate Setta work.",
+		Tools:        []director.SettaTool{directorCarrierTestTool()},
+		History: []director.DirectorHistoryItem{
+			{TurnID: "turn-1", Text: "Start the release."},
+			{TurnID: "turn-1", Assistant: true, Text: "The release is underway."},
+		},
+	})
+	if err != nil {
+		t.Fatalf("StartDirectorCarrier: %v", err)
+	}
+	if threadID != provider.threadID {
+		t.Fatalf("Director carrier = %q, want the started thread %q", threadID, provider.threadID)
+	}
+	start := provider.start
+	if !start.Ephemeral ||
+		start.DeveloperInstructions != "Coordinate Setta work." ||
+		len(start.DynamicTools) != 1 ||
+		start.DynamicTools[0].Namespace != director.SettaToolNamespace {
+		t.Fatalf("Director carrier start = %+v", start)
+	}
+	if len(provider.injected) != 2 ||
+		provider.injected[0].Role != "user" ||
+		provider.injected[0].Text != "Start the release." ||
+		provider.injected[1].Role != "assistant" ||
+		provider.injected[1].Text != "The release is underway." {
+		t.Fatalf("Director carrier replay = %+v", provider.injected)
+	}
+	if len(provider.unsubscribed) != 0 {
+		t.Fatalf("a started Director carrier was released: %+v", provider.unsubscribed)
+	}
+}
+
+// A Director conversation with nothing to replay still needs one item: an empty
+// Codex thread has no history for the first turn to continue from.
+func TestStartDirectorCarrierMaterializesEmptyHistory(t *testing.T) {
+	provider := &recordingDirectorProvider{}
+	port, err := newDirectorCarrierPort(
+		staticDirectorRoleResolver{configuration: directorCarrierTestRoleConfiguration(t)},
+		provider,
+		"/tmp/setta-director-carrier-test",
+	)
+	if err != nil {
+		t.Fatalf("newDirectorCarrierPort: %v", err)
+	}
+
+	if _, err := port.StartDirectorCarrier(context.Background(), director.DirectorCarrierRequest{
+		Instructions: "Coordinate Setta work.",
+		Tools:        []director.SettaTool{directorCarrierTestTool()},
+	}); err != nil {
+		t.Fatalf("StartDirectorCarrier: %v", err)
+	}
+	if len(provider.injected) != 1 ||
+		provider.injected[0].Role != "user" ||
+		provider.injected[0].Text != directorCarrierInitialization {
+		t.Fatalf("empty Director carrier replay = %+v", provider.injected)
+	}
+}
+
 func TestDirectorCarrierReplayFailureReleasesStartedThread(t *testing.T) {
 	replayErr := errors.New("scripted replay rejection")
 	cleanupErr := errors.New("scripted cleanup rejection")
-	provider := &replayRejectingDirectorProvider{
+	provider := &recordingDirectorProvider{
 		replayErr:  replayErr,
 		cleanupErr: cleanupErr,
 	}
@@ -70,11 +143,7 @@ func TestDirectorCarrierReplayFailureReleasesStartedThread(t *testing.T) {
 
 	_, err = port.StartDirectorCarrier(context.Background(), director.DirectorCarrierRequest{
 		Instructions: "Coordinate Setta work.",
-		Tools: []director.SettaTool{{
-			Name:        "test_tool",
-			Description: "A test-only Director tool.",
-			InputSchema: json.RawMessage(`{"type":"object"}`),
-		}},
+		Tools:        []director.SettaTool{directorCarrierTestTool()},
 	})
 	if !errors.Is(err, replayErr) || !errors.Is(err, cleanupErr) {
 		t.Fatalf("StartDirectorCarrier error = %v, want replay and cleanup failures", err)
@@ -121,30 +190,48 @@ func directorCarrierTestRoleConfiguration(t *testing.T) conversation.DirectorRol
 	}
 }
 
-type replayRejectingDirectorProvider struct {
+func directorCarrierTestTool() director.SettaTool {
+	return director.SettaTool{
+		Name:        "test_tool",
+		Description: "A test-only Director tool.",
+		InputSchema: json.RawMessage(`{"type":"object"}`),
+	}
+}
+
+// recordingDirectorProvider is one Codex carrier as the Director's port sees it.
+// The scripted replay and cleanup rejections stay unset unless a test is about
+// what happens when the provider refuses.
+type recordingDirectorProvider struct {
 	threadID     string
+	start        agent.StartThreadRequest
+	injected     []agent.InjectedTextItem
 	replayErr    error
 	cleanupErr   error
 	unsubscribed []string
 }
 
-func (provider *replayRejectingDirectorProvider) StartThread(
-	context.Context,
-	agent.StartThreadRequest,
+func (provider *recordingDirectorProvider) StartThread(
+	_ context.Context,
+	request agent.StartThreadRequest,
 ) (agent.Thread, error) {
 	provider.threadID = "provider-director-carrier"
-	return agent.Thread{ID: provider.threadID}, nil
+	provider.start = request
+	return agent.Thread{ID: provider.threadID, Ephemeral: request.Ephemeral}, nil
 }
 
-func (provider *replayRejectingDirectorProvider) InjectItems(
-	context.Context,
-	string,
-	[]agent.InjectedTextItem,
+func (provider *recordingDirectorProvider) InjectItems(
+	_ context.Context,
+	_ string,
+	items []agent.InjectedTextItem,
 ) error {
-	return provider.replayErr
+	if provider.replayErr != nil {
+		return provider.replayErr
+	}
+	provider.injected = append(provider.injected, items...)
+	return nil
 }
 
-func (provider *replayRejectingDirectorProvider) RunTurn(
+func (provider *recordingDirectorProvider) RunTurn(
 	context.Context,
 	agent.TurnRequest,
 	agent.EventSink,
@@ -152,7 +239,7 @@ func (provider *replayRejectingDirectorProvider) RunTurn(
 	return agent.TurnResult{}, errors.New("unexpected Director test turn")
 }
 
-func (provider *replayRejectingDirectorProvider) UnsubscribeThread(
+func (provider *recordingDirectorProvider) UnsubscribeThread(
 	_ context.Context,
 	threadID string,
 ) error {

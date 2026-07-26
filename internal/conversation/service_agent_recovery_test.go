@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 	"time"
-
-	"setta/internal/agent"
 )
 
 func TestRecoverAgentTurnsInterruptsRestartedRunAndPromotesQueue(t *testing.T) {
@@ -226,6 +224,11 @@ func TestRecoverAgentTurnsPromotesQueueWithoutRunningTurn(t *testing.T) {
 	}
 }
 
+// cloneServiceTestAgentRuntimeForRestart is the provider as the next process
+// finds it. The id counters continue so a fresh carrier is never mistaken for an
+// old one, and the threads the dead process opened are gone: an ephemeral
+// carrier does not outlive the process that started it, so any attempt to run on
+// one fails the way the real provider would.
 func cloneServiceTestAgentRuntimeForRestart(
 	original *serviceTestAgentRuntime,
 ) *serviceTestAgentRuntime {
@@ -234,10 +237,6 @@ func cloneServiceTestAgentRuntimeForRestart(
 	defer original.mu.Unlock()
 	restarted.threads = original.threads
 	restarted.turns = original.turns
-	for id, thread := range original.providerThreads {
-		thread.Turns = append([]agent.ThreadTurn{}, thread.Turns...)
-		restarted.providerThreads[id] = thread
-	}
 	return restarted
 }
 
