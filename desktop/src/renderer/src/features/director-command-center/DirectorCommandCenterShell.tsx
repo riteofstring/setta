@@ -201,12 +201,14 @@ export function DirectorCommandCenterShell({
     runtimeId: connectedRuntimeId,
   });
   const [canvas, setCanvas] = useState<DirectorGraphCanvas | null>(null);
+  // Selection is a view: no workstream means the Director's own.
+  const onDirectorView = (director.snapshot?.selectedWorkstreamId ?? null) === null;
   const {
     closeCompactRail,
     compactRail,
     effectiveVisibility: effectiveRailVisibility,
     toggleRail,
-  } = useDirectorRailDisclosure();
+  } = useDirectorRailDisclosure(onDirectorView);
   const snapshotGraphs = director.snapshot?.graphs;
   const graphTimeSecondsAt = useMemo(
     () => directorGraphTimeSecondsAt(director.snapshot),
@@ -564,7 +566,15 @@ function directorCommandCenterSnapshotView(
   const selected = selectedWorkstreamEntry(snapshot)?.workstream ?? null;
   return {
     approvals: snapshot.unresolvedApprovals,
-    artifacts: snapshot.artifacts,
+    /*
+     * An artifact belongs to the thread that produced it, so a workstream's
+     * view lists its own. The Director's view lists none: it has no rails, and
+     * every artifact is one arrow away in the thread that made it.
+     */
+    artifacts:
+      selected === null
+        ? []
+        : snapshot.artifacts.filter((artifact) => artifact.workstreamId === selected.id),
     narration: selected?.narration ?? [],
     requests: snapshot.unresolvedResourceRequests,
     selectedWorkstream: selected,
@@ -588,7 +598,7 @@ function directorRailVisibilityAttributes(visibility: DirectorRailVisibility) {
   };
 }
 
-function useDirectorRailDisclosure() {
+function useDirectorRailDisclosure(onDirectorView: boolean) {
   const [railVisibility, setRailVisibility] =
     useState<DirectorRailVisibility>(defaultRailVisibility);
   const [compactRail, setCompactRail] = useState<DirectorCompactRail>(null);
@@ -598,6 +608,7 @@ function useDirectorRailDisclosure() {
   const effectiveVisibility = effectiveDirectorRailVisibility({
     compact,
     compactRail,
+    onDirectorView,
     railVisibility,
   });
   const closeCompactRail = useCallback(() => {
@@ -872,15 +883,29 @@ function dispatchDirectorIntent(
   void dispatch(intent).catch(() => {});
 }
 
+/*
+ * Which rails the current view has.
+ *
+ * The Director's view has none. Its canvas is the content — every workstream
+ * at once — and a rail over it names the first column rather than sitting
+ * beside it. An artifact belongs to the thread that produced it and is one
+ * arrow away, and what needs an answer rides the composer, where it can be
+ * acted on rather than only reported.
+ */
 export function effectiveDirectorRailVisibility({
   compact,
   compactRail,
+  onDirectorView,
   railVisibility,
 }: {
   compact: boolean;
   compactRail: DirectorCompactRail;
+  onDirectorView: boolean;
   railVisibility: DirectorRailVisibility;
 }): DirectorRailVisibility {
+  if (onDirectorView) {
+    return { artifacts: false, now: false };
+  }
   if (!compact) {
     return railVisibility;
   }

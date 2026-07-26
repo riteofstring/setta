@@ -297,6 +297,7 @@ describe("Director command-center shell view state", () => {
       effectiveDirectorRailVisibility({
         compact: false,
         compactRail: null,
+        onDirectorView: false,
         railVisibility: { artifacts: false, now: true },
       }),
     ).toEqual({ artifacts: false, now: true });
@@ -305,9 +306,33 @@ describe("Director command-center shell view state", () => {
       effectiveDirectorRailVisibility({
         compact: true,
         compactRail: "artifacts",
+        onDirectorView: false,
         railVisibility: { artifacts: true, now: true },
       }),
     ).toEqual({ artifacts: true, now: false });
+  });
+
+  // The Director's view is the constellation. A rail over it names the first
+  // column rather than sitting beside it, and what it would say belongs to the
+  // thread one arrow away.
+  test("gives the Director's view no rails, whatever the toggles say", () => {
+    expect(
+      effectiveDirectorRailVisibility({
+        compact: false,
+        compactRail: null,
+        onDirectorView: true,
+        railVisibility: { artifacts: true, now: true },
+      }),
+    ).toEqual({ artifacts: false, now: false });
+
+    expect(
+      effectiveDirectorRailVisibility({
+        compact: true,
+        compactRail: "now",
+        onDirectorView: true,
+        railVisibility: { artifacts: true, now: true },
+      }),
+    ).toEqual({ artifacts: false, now: false });
   });
 
   test("routes arrow-key workstream navigation without fighting text editing", () => {
