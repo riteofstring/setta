@@ -26,12 +26,27 @@ type StatusOperation struct {
 }
 
 func (operation StatusOperation) Validate() error {
-	if operation.WorkspaceID != "" {
-		if err := validateIdentifier("narrator status workspace id", operation.WorkspaceID); err != nil {
-			return err
-		}
+	if err := validateOptionalWorkspaceID("narrator status", operation.WorkspaceID); err != nil {
+		return err
 	}
 	return ValidateStatusQuestion(operation.Question)
+}
+
+/*
+ * A narrator operation's workspace, which a folderless conversation does not
+ * have.
+ *
+ * Empty means folderless, and the whole call path already handles it: the
+ * workspace root resolves to `folderlessRuntimeRoot`, the context materializer
+ * yields an empty workspace for a conversation bound to no folder, and the
+ * role-profile read takes a nil binding. Only these validators disagreed, and
+ * they rejected the operation before any of that ran.
+ */
+func validateOptionalWorkspaceID(kind string, workspaceID string) error {
+	if workspaceID == "" {
+		return nil
+	}
+	return validateIdentifier(kind+" workspace id", workspaceID)
 }
 
 // ProjectionOperation freezes the durable trajectory cutoff and target turn
@@ -46,7 +61,7 @@ type ProjectionOperation struct {
 }
 
 func (operation ProjectionOperation) Validate() error {
-	if err := validateIdentifier("narrator projection workspace id", operation.WorkspaceID); err != nil {
+	if err := validateOptionalWorkspaceID("narrator projection", operation.WorkspaceID); err != nil {
 		return err
 	}
 	if err := validateIdentifier("narrator projection turn id", operation.TurnID); err != nil {
@@ -70,7 +85,7 @@ type FocusOperation struct {
 }
 
 func (operation FocusOperation) Validate() error {
-	if err := validateIdentifier("narrator focus workspace id", operation.WorkspaceID); err != nil {
+	if err := validateOptionalWorkspaceID("narrator focus", operation.WorkspaceID); err != nil {
 		return err
 	}
 	if err := validateIdentifier("narrator focus turn id", operation.TurnID); err != nil {
@@ -91,7 +106,7 @@ type CheckpointOperation struct {
 }
 
 func (operation CheckpointOperation) Validate() error {
-	if err := validateIdentifier("narrator checkpoint workspace id", operation.WorkspaceID); err != nil {
+	if err := validateOptionalWorkspaceID("narrator checkpoint", operation.WorkspaceID); err != nil {
 		return err
 	}
 	if operation.TurnID != nil {

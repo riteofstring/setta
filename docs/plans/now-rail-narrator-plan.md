@@ -112,6 +112,14 @@ Narration describes work; the Director dispatches it.
 
 ## Phase 0 — Is the narrator's output actually good?
 
+**Done. It passes.** `docs/reports/narrator-milestone-quality-20260727.md`
+records the verbatim text a live model produced for folderless work, and the
+three gates that had to come down before any of it could be seen — not one. The
+strongest evidence is what is absent: a three-stage run covering 354 trajectory
+sequences produced exactly one milestone.
+
+### Original phase text
+
 Everything after this phase assumes real milestone text is worth reading. The
 prompt is right; the output has never been seen, because the folderless gate
 means it has never run on the work in question.
@@ -158,6 +166,17 @@ in the left group, and the row is title, position dots, nothing else.
 `docs/mockups/fullscreen_conversation_concept.html` at the same viewport.
 
 ## Phase 3 — Folderless conversations reach the narrator
+
+**Done, and it was three gates rather than one.** The observer's early return
+was the visible one. Behind it, `ProjectionOperation`, `FocusOperation`, and
+`CheckpointOperation` all required a workspace id that `StatusOperation`
+already treated as optional — so a folderless observation was rejected at
+validation and dropped without a trace, leaving the narrator reporting
+`status=ready` while never having been invoked. Behind that, `caller.go`
+allowed an empty workspace for status calls only. Everything below those checks
+already handled folderless work.
+
+### Original phase text
 
 Delete the `WorkspaceID == nil` early return in `narration_observer.go` and
 give the observation the folderless runtime root the narrator package already
