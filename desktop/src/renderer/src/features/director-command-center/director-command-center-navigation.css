@@ -23,9 +23,23 @@
   inset-inline: 0;
   min-block-size: 44px;
   padding-block: 0;
-  padding-inline: calc(env(safe-area-inset-left) + 14px) calc(env(safe-area-inset-right) + 14px);
+  padding-inline: calc(env(safe-area-inset-left) + var(--director-chrome-inset, 14px))
+    calc(env(safe-area-inset-right) + 14px);
   position: absolute;
   z-index: 34;
+}
+
+/*
+ * macOS draws its window buttons inside this bar.
+ *
+ * The window is `titleBarStyle: "hidden"` with the traffic lights positioned at
+ * 13px, so without a reserved inset the brand mark is drawn underneath them.
+ * The settings shell already reserves the same 80px
+ * (`styles.css`, `--setta-shell-top-bar-chrome-inset`); the command center set
+ * the platform attribute and nothing read it.
+ */
+.director-command-center-top[data-desktop-platform="darwin"] {
+  --director-chrome-inset: 80px;
 }
 
 .director-command-center-chrome-shield {
@@ -170,7 +184,7 @@
   .director-command-center-top {
     gap: 8px;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    padding-inline: 10px;
+    padding-inline: var(--director-chrome-inset, 10px) 10px;
   }
 
   .director-workstream-nav {
