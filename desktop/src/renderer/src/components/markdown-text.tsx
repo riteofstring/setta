@@ -11,33 +11,21 @@ type ParsedMarkdownBlock = {
   nextIndex: number;
 };
 
-export const MarkdownText = memo(function MarkdownText({
-  headingLevelOffset = 0,
-  text,
-}: {
-  headingLevelOffset?: 0 | 1;
-  text: string;
-}) {
+export const MarkdownText = memo(function MarkdownText({ text }: { text: string }) {
   const blocks = parseMarkdownBlocks(text);
   return (
     <div className="markdown-text">
       {blocks.map((block, index) => (
-        <MarkdownBlockView block={block} headingLevelOffset={headingLevelOffset} key={index} />
+        <MarkdownBlockView block={block} key={index} />
       ))}
     </div>
   );
 });
 
-function MarkdownBlockView({
-  block,
-  headingLevelOffset,
-}: {
-  block: MarkdownBlock;
-  headingLevelOffset: 0 | 1;
-}) {
+function MarkdownBlockView({ block }: { block: MarkdownBlock }) {
   switch (block.kind) {
     case "heading": {
-      const Tag = headingTagFor(block.level + headingLevelOffset);
+      const Tag = headingTagFor(block.level);
       return <Tag>{renderInlineMarkdown(block.text)}</Tag>;
     }
     case "paragraph":
@@ -61,7 +49,7 @@ function MarkdownBlockView({
   }
 }
 
-function headingTagFor(level: number): "h1" | "h2" | "h3" | "h4" | "h5" {
+function headingTagFor(level: 1 | 2 | 3 | 4): "h1" | "h2" | "h3" | "h4" {
   switch (level) {
     case 1:
       return "h1";
@@ -71,10 +59,6 @@ function headingTagFor(level: number): "h1" | "h2" | "h3" | "h4" | "h5" {
       return "h3";
     case 4:
       return "h4";
-    case 5:
-      return "h5";
-    default:
-      throw new Error(`unsupported Markdown heading level ${level}`);
   }
 }
 

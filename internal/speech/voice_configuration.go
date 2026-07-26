@@ -7,14 +7,14 @@ import (
 )
 
 const (
-	DirectorVoiceSelectionStreamID             = "speech:director-voice-selection"
-	DirectorVoiceSelectionInitializedEventID   = "speech-director-voice-selection-initialized"
-	DirectorVoiceSelectionInitializedEventKind = "speech.director_voice_selection.initialized"
-	DirectorVoiceSelectionUpdatedEventKind     = "speech.director_voice_selection.updated"
-	NarratorVoiceDefaultStreamID               = "speech:narrator-voice-default"
-	NarratorVoiceDefaultInitializedEventID     = "speech-narrator-voice-default-initialized"
-	NarratorVoiceDefaultInitializedEventKind   = "speech.narrator_voice_default.initialized"
-	NarratorVoiceDefaultUpdatedEventKind       = "speech.narrator_voice_default.updated"
+	MasterVoiceSelectionStreamID             = "speech:master-voice-selection"
+	MasterVoiceSelectionInitializedEventID   = "speech-master-voice-selection-initialized"
+	MasterVoiceSelectionInitializedEventKind = "speech.master_voice_selection.initialized"
+	MasterVoiceSelectionUpdatedEventKind     = "speech.master_voice_selection.updated"
+	NarratorVoiceDefaultStreamID             = "speech:narrator-voice-default"
+	NarratorVoiceDefaultInitializedEventID   = "speech-narrator-voice-default-initialized"
+	NarratorVoiceDefaultInitializedEventKind = "speech.narrator_voice_default.initialized"
+	NarratorVoiceDefaultUpdatedEventKind     = "speech.narrator_voice_default.updated"
 )
 
 func SynthesisVoiceCatalog() SpeechVoiceCatalog {
@@ -34,10 +34,10 @@ func LookupVoice(voiceID SpeechVoiceID) bool {
 	return false
 }
 
-func DefaultDirectorVoiceSelection(updatedAt string) DirectorVoiceSelection {
+func DefaultMasterVoiceSelection(updatedAt string) MasterVoiceSelection {
 	requested := SynthesisVoice
 	resolved := SynthesisVoice
-	return DirectorVoiceSelection{
+	return MasterVoiceSelection{
 		Selection:        VoiceSelectionExact,
 		RequestedVoiceID: &requested,
 		ResolvedVoiceID:  &resolved,
@@ -137,80 +137,81 @@ func CloneNarratorVoiceDefault(value NarratorVoiceDefault) NarratorVoiceDefault 
 	return value
 }
 
-func NewDirectorVoiceSelectionInitialization(
-	selection DirectorVoiceSelection,
-) DirectorVoiceSelectionInitialization {
-	return DirectorVoiceSelectionInitialization{
+func NewMasterVoiceSelectionInitialization(
+	selection MasterVoiceSelection,
+) MasterVoiceSelectionInitialization {
+	return MasterVoiceSelectionInitialization{
 		Catalog:   SynthesisVoiceCatalog(),
-		Selection: CloneDirectorVoiceSelection(selection),
+		Selection: CloneMasterVoiceSelection(selection),
 	}
 }
 
-func NewDirectorVoiceSelectionUpdate(
-	previous DirectorVoiceSelection,
-	selection DirectorVoiceSelection,
-	reason DirectorVoiceSelectionUpdateReason,
-) DirectorVoiceSelectionUpdate {
-	return DirectorVoiceSelectionUpdate{
+func NewMasterVoiceSelectionUpdate(
+	previous MasterVoiceSelection,
+	selection MasterVoiceSelection,
+	reason MasterVoiceSelectionUpdateReason,
+) MasterVoiceSelectionUpdate {
+	return MasterVoiceSelectionUpdate{
 		Catalog:   SynthesisVoiceCatalog(),
-		Previous:  CloneDirectorVoiceSelection(previous),
-		Selection: CloneDirectorVoiceSelection(selection),
+		Previous:  CloneMasterVoiceSelection(previous),
+		Selection: CloneMasterVoiceSelection(selection),
 		Reason:    reason,
 	}
 }
 
-func (initialization DirectorVoiceSelectionInitialization) Validate() error {
+func (initialization MasterVoiceSelectionInitialization) Validate() error {
 	available, err := validateVoiceCatalogSnapshot(initialization.Catalog)
 	if err != nil {
-		return fmt.Errorf("director voice selection initialization catalog: %w", err)
+		return fmt.Errorf("master voice selection initialization catalog: %w", err)
 	}
 	return initialization.Selection.validateAgainstCatalog(func(voiceID SpeechVoiceID) bool {
 		return available[voiceID]
 	})
 }
 
-func (update DirectorVoiceSelectionUpdate) Validate() error {
+func (update MasterVoiceSelectionUpdate) Validate() error {
 	available, err := validateVoiceCatalogSnapshot(update.Catalog)
 	if err != nil {
-		return fmt.Errorf("director voice selection update catalog: %w", err)
+		return fmt.Errorf("master voice selection update catalog: %w", err)
 	}
-	validateAgainstSnapshot := func(selection DirectorVoiceSelection) error {
+	validateAgainstSnapshot := func(selection MasterVoiceSelection) error {
 		return selection.validateAgainstCatalog(func(voiceID SpeechVoiceID) bool {
 			return available[voiceID]
 		})
 	}
 	if err := validateAgainstSnapshot(update.Previous); err != nil {
-		return fmt.Errorf("director voice selection update previous value: %w", err)
+		return fmt.Errorf("master voice selection update previous value: %w", err)
 	}
 	if err := validateAgainstSnapshot(update.Selection); err != nil {
-		return fmt.Errorf("director voice selection update value: %w", err)
+		return fmt.Errorf("master voice selection update value: %w", err)
 	}
 	switch update.Reason {
-	case DirectorVoiceSelectionUpdateUserOverride,
-		DirectorVoiceSelectionUpdateNarratorAssignment:
+	case MasterVoiceSelectionUpdateUserOverride,
+		MasterVoiceSelectionUpdateNarratorOverride,
+		MasterVoiceSelectionUpdateNarratorAssignment:
 	default:
-		return fmt.Errorf("unsupported director voice selection update reason %q", update.Reason)
+		return fmt.Errorf("unsupported master voice selection update reason %q", update.Reason)
 	}
 	previousAt, _ := time.Parse(time.RFC3339Nano, update.Previous.UpdatedAt)
 	updatedAt, _ := time.Parse(time.RFC3339Nano, update.Selection.UpdatedAt)
 	if !updatedAt.After(previousAt) {
-		return errors.New("director voice selection update timestamp must advance")
+		return errors.New("master voice selection update timestamp must advance")
 	}
 	return nil
 }
 
-func CloneDirectorVoiceSelection(selection DirectorVoiceSelection) DirectorVoiceSelection {
+func CloneMasterVoiceSelection(selection MasterVoiceSelection) MasterVoiceSelection {
 	selection.RequestedVoiceID = cloneVoiceID(selection.RequestedVoiceID)
 	selection.ResolvedVoiceID = cloneVoiceID(selection.ResolvedVoiceID)
 	selection.Reuse = cloneVoiceReuse(selection.Reuse)
 	return selection
 }
 
-func (selection DirectorVoiceSelection) Validate() error {
+func (selection MasterVoiceSelection) Validate() error {
 	return selection.validateAgainstCatalog(LookupVoice)
 }
 
-func (selection DirectorVoiceSelection) validateAgainstCatalog(
+func (selection MasterVoiceSelection) validateAgainstCatalog(
 	available func(SpeechVoiceID) bool,
 ) error {
 	if err := validateVoiceSelectionAgainstCatalog(
@@ -219,20 +220,20 @@ func (selection DirectorVoiceSelection) validateAgainstCatalog(
 		selection.ResolvedVoiceID,
 		available,
 	); err != nil {
-		return fmt.Errorf("director voice selection: %w", err)
+		return fmt.Errorf("master voice selection: %w", err)
 	}
 	if selection.ResolvedVoiceID == nil {
-		return errors.New("director voice selection requires resolved voice id")
+		return errors.New("master voice selection requires resolved voice id")
 	}
 	if selection.Reuse != nil {
 		if selection.Selection == VoiceSelectionExact {
-			return errors.New("exact director voice selection must not contain automatic reuse metadata")
+			return errors.New("exact master voice selection must not contain automatic reuse metadata")
 		}
 		if err := selection.Reuse.validateAgainstCatalog(*selection.ResolvedVoiceID, available); err != nil {
-			return fmt.Errorf("director voice selection reuse: %w", err)
+			return fmt.Errorf("master voice selection reuse: %w", err)
 		}
 	}
-	return validateCanonicalTimestamp("director voice selection updatedAt", selection.UpdatedAt)
+	return validateCanonicalTimestamp("master voice selection updatedAt", selection.UpdatedAt)
 }
 
 func ValidateVoiceSelection(

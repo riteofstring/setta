@@ -108,6 +108,7 @@ func (store *Store) Load() (AppearanceSettings, error) {
 	if err := jsonio.DecodeSingle(file, &settings); err != nil {
 		return AppearanceSettings{}, corruptSettingsError(store.path, err)
 	}
+	settings = Normalize(settings)
 	if err := Validate(settings); err != nil {
 		return AppearanceSettings{}, corruptSettingsError(store.path, err)
 	}
@@ -115,6 +116,7 @@ func (store *Store) Load() (AppearanceSettings, error) {
 }
 
 func (store *Store) Save(settings AppearanceSettings) error {
+	settings = Normalize(settings)
 	if err := Validate(settings); err != nil {
 		return corruptSettingsError(store.path, err)
 	}

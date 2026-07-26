@@ -20,7 +20,8 @@ const (
 	maximumJSONResponseBytes     = 64 * 1024
 )
 
-type OpenAIProviderConfig struct {
+type OpenAIClientConfig struct {
+	APIKey           string
 	BaseURL          string
 	AllowTestBaseURL bool
 	HTTPClient       *http.Client
@@ -34,9 +35,9 @@ type OpenAIClient struct {
 	requestTimeout time.Duration
 }
 
-func NewOpenAIClient(apiKey string, config OpenAIProviderConfig) (*OpenAIClient, error) {
-	if apiKey != "" {
-		if err := validateSecret("speech API key", apiKey); err != nil {
+func NewOpenAIClient(config OpenAIClientConfig) (*OpenAIClient, error) {
+	if config.APIKey != "" {
+		if err := validateSecret("speech API key", config.APIKey); err != nil {
 			return nil, err
 		}
 	}
@@ -56,18 +57,11 @@ func NewOpenAIClient(apiKey string, config OpenAIProviderConfig) (*OpenAIClient,
 		httpClient = &http.Client{}
 	}
 	httpClientCopy := *httpClient
-	if httpClientCopy.Transport == nil {
-		defaultTransport, ok := http.DefaultTransport.(*http.Transport)
-		if !ok {
-			return nil, errors.New("default speech provider transport is not configurable")
-		}
-		httpClientCopy.Transport = defaultTransport.Clone()
-	}
 	httpClientCopy.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
 	return &OpenAIClient{
-		apiKey:         apiKey,
+		apiKey:         config.APIKey,
 		baseURL:        baseURL,
 		httpClient:     &httpClientCopy,
 		requestTimeout: requestTimeout,
@@ -108,13 +102,6 @@ func (client *OpenAIClient) configured() bool {
 
 func (client *OpenAIClient) Configured() bool {
 	return client.configured()
-}
-
-func (client *OpenAIClient) closeIdleConnections() {
-	if client == nil || client.httpClient == nil {
-		return
-	}
-	client.httpClient.CloseIdleConnections()
 }
 
 func (client *OpenAIClient) postJSON(ctx context.Context, path string, payload any, accept string, safetyIdentifier string) (*http.Response, error) {

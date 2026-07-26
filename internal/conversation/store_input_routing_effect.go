@@ -84,6 +84,8 @@ func readConversationRouteCommandEffect(
 		return readConversationRouteSideEffect(ctx, reader, record)
 	case ConversationRouteDecisionKindForkConversation:
 		return readConversationRouteForkEffect(ctx, reader, record)
+	case ConversationRouteDecisionKindEscalateToMaster:
+		return readConversationRouteMasterEffect(ctx, reader, record)
 	case ConversationRouteDecisionKindClarify:
 		// The clarification status and question are committed in the same
 		// transaction as the decision itself.
@@ -138,7 +140,7 @@ func readConversationRouteSteeringEffect(
 	for index, id := range ids {
 		event, scanErr := scanTrajectoryEvent(reader.QueryRowContext(ctx, `
 SELECT id, conversation_id, turn_id, sequence, emitted_at, kind, actor,
-       provider_event_id, provider_turn_id, payload_json
+       provider_event_id, provider_thread_id, provider_turn_id, payload_json
 FROM trajectory_events
 WHERE id = ?
 `, id))
@@ -268,13 +270,6 @@ func readConversationRouteSideEffect(
 		// different provider operation.
 		return true, nil
 	}
-	if metadata.status == SideConversationStatusDisposing &&
-		metadata.disposedAt != nil && metadata.activeTurnID == nil {
-		// A user can dispose a router-created side before its first routed side
-		// turn is durably accepted. The terminal effect is the disposed side, so
-		// replaying would resurrect closed work.
-		return true, nil
-	}
 
 	event, err := scanSideConversationEventEffect(ctx, reader, command.SideConversationID, command.TurnID)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -288,10 +283,9 @@ func readConversationRouteSideEffect(
 
 type conversationRouteSideMetadata struct {
 	parentConversationID string
+	parentPaneID         string
 	source               BranchDecisionSource
 	status               SideConversationStatus
-	activeTurnID         *string
-	disposedAt           *string
 }
 
 func readConversationRouteSideMetadata(
@@ -300,24 +294,19 @@ func readConversationRouteSideMetadata(
 	sideConversationID string,
 ) (conversationRouteSideMetadata, bool, error) {
 	var metadata conversationRouteSideMetadata
-	var activeTurnID, disposedAt sql.NullString
 	err := reader.QueryRowContext(ctx, `
-SELECT parent_conversation_id, decision_source, status,
-       active_turn_id, disposed_at
+SELECT parent_conversation_id, parent_pane_id, decision_source, status
 FROM side_conversations
 WHERE id = ?
 `, sideConversationID).Scan(
 		&metadata.parentConversationID,
+		&metadata.parentPaneID,
 		&metadata.source,
 		&metadata.status,
-		&activeTurnID,
-		&disposedAt,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return conversationRouteSideMetadata{}, false, nil
 	}
-	metadata.activeTurnID = optionalScannedString(activeTurnID)
-	metadata.disposedAt = optionalScannedString(disposedAt)
 	return metadata, err == nil, err
 }
 
@@ -327,6 +316,7 @@ func validateConversationRouteSideMetadata(
 	command *CreateSideConversationRouteCommand,
 ) error {
 	if metadata.parentConversationID != record.ConversationID ||
+		metadata.parentPaneID != command.ParentPaneID ||
 		metadata.source != BranchDecisionSourceConversationRouter {
 		return stateConflict(
 			"conversation route side conversation",
@@ -389,7 +379,7 @@ func readConversationRouteForkEffect(
 	command := record.ResultingCommand.ForkConversation
 	var parentConversationID string
 	var source BranchDecisionSource
-	var forkedAtTurnID sql.NullString
+	var forkedAtTurnID string
 	err := reader.QueryRowContext(ctx, `
 SELECT parent_conversation_id, decision_source, forked_at_turn_id
 FROM conversation_branches
@@ -403,8 +393,7 @@ WHERE child_conversation_id = ?
 	}
 	if parentConversationID != record.ConversationID ||
 		source != BranchDecisionSourceConversationRouter ||
-		!forkedAtTurnID.Valid ||
-		forkedAtTurnID.String != command.ForkedAtTurnID {
+		forkedAtTurnID != command.ForkedAtTurnID {
 		return false, stateConflict("conversation route fork", command.ChildConversationID, "stored effect does not match its command")
 	}
 	return readConversationRouteTurnEffect(
@@ -415,4 +404,32 @@ WHERE child_conversation_id = ?
 		command.Input,
 		TurnDeliveryNormal,
 	)
+}
+
+func readConversationRouteMasterEffect(
+	ctx context.Context,
+	reader routeCommandEffectReader,
+	record ConversationRouteDecisionRecord,
+) (bool, error) {
+	command := record.ResultingCommand.EscalateToMaster
+	var text string
+	var originConversationID sql.NullString
+	var originInputID sql.NullString
+	err := reader.QueryRowContext(ctx, `
+SELECT input_text, originating_conversation_id, originating_conversation_input_id
+FROM master_inputs
+WHERE id = ?
+`, command.MasterInputID).Scan(&text, &originConversationID, &originInputID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if text != command.Input.Text || !originConversationID.Valid ||
+		originConversationID.String != record.ConversationID || !originInputID.Valid ||
+		originInputID.String != record.InputID {
+		return false, stateConflict("conversation route master input", command.MasterInputID, "stored effect does not match its command")
+	}
+	return true, nil
 }

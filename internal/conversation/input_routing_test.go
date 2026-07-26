@@ -14,6 +14,7 @@ func TestConversationRouteDecisionAndCommandCoverEveryRestrictedOutcome(t *testi
 		ConversationRouteDecisionKindAnswerAsNarrator,
 		ConversationRouteDecisionKindCreateSideConversation,
 		ConversationRouteDecisionKindForkConversation,
+		ConversationRouteDecisionKindEscalateToMaster,
 		ConversationRouteDecisionKindClarify,
 	}
 	for _, kind := range kinds {
@@ -90,7 +91,7 @@ func TestConversationRouteDecisionRejectsUnsafeOrIncompleteRouterInvocationAudit
 		},
 		{
 			name: "missing provider request",
-			want: "provider turn and request references",
+			want: "provider thread, turn, and request references",
 			mutate: func(invocation *ResolvedInvocation) {
 				invocation.ProviderReferences.RequestID = nil
 			},
@@ -105,7 +106,7 @@ func TestConversationRouteDecisionRejectsUnsafeOrIncompleteRouterInvocationAudit
 	}
 }
 
-func TestConversationRouteDecisionJSONContainsNoProviderOrGlobalAuthority(t *testing.T) {
+func TestConversationRouteDecisionJSONContainsNoProviderPaneOrGlobalAuthority(t *testing.T) {
 	decision, _ := validConversationRouteDecisionAndCommand(
 		ConversationRouteDecisionKindForkConversation,
 		"Make this a durable topic.",
@@ -233,6 +234,7 @@ func validConversationRouteDecisionAndCommand(
 				Kind: kind,
 				CreateSideConversation: &CreateSideConversationRouteCommand{
 					SideConversationID: "side_routed",
+					ParentPaneID:       "pane_origin",
 					TurnID:             "side_turn_routed",
 					Input:              input,
 				},
@@ -253,6 +255,17 @@ func validConversationRouteDecisionAndCommand(
 					TurnID:              "turn_child_routed",
 					Input:               input,
 					ProposedTitle:       "Durable routed fork",
+				},
+			}
+	case ConversationRouteDecisionKindEscalateToMaster:
+		return ConversationRouteDecision{
+				Kind:             kind,
+				EscalateToMaster: &EscalateToMasterConversationRouteDecision{Input: input},
+			}, ConversationRouteCommand{
+				Kind: kind,
+				EscalateToMaster: &EscalateToMasterConversationRouteCommand{
+					MasterInputID: "master_input_routed",
+					Input:         input,
 				},
 			}
 	case ConversationRouteDecisionKindClarify:
@@ -281,7 +294,6 @@ func validConversationRouteDecisionCommit(
 		InputID:        "input_alpha",
 		RoutingAttempt: 1,
 		RouterContext: ConversationRouteContextAudit{
-			DecisionAuthority:    ConversationRouteDecisionAuthorityNarratorModel,
 			InputSequence:        1,
 			AllowedDecisionKinds: []ConversationRouteDecisionKind{decision.Kind},
 		},

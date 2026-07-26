@@ -147,14 +147,15 @@ func TestTransactionRejectsCrossWorkspaceFork(t *testing.T) {
 	store := newTestStore(t)
 	seed := seedTransactionConversation(t, store)
 	child := transactionTestConversation("conversation-cross-workspace")
-	child.WorkspaceID = stringPointer("workspace-2")
+	child.WorkspaceID = "workspace-2"
 	branch := ConversationBranch{
 		ChildConversationID:      child.ID,
 		ParentConversationID:     seed.conversation.ID,
 		Kind:                     BranchKindFork,
-		DecisionSource:           BranchDecisionSourceConversationRouter,
+		DecisionSource:           BranchDecisionSourceMaster,
 		ForkedAtTurnID:           seed.forkSourceTurn.ID,
 		SourceTrajectorySequence: 1,
+		ProviderMetadata:         map[string]string{"providerForkThreadId": "provider-thread-child"},
 		CreatedAt:                testTimeEnded,
 	}
 
@@ -184,8 +185,10 @@ func TestTransactionRejectsFailedSideConversationResurrection(t *testing.T) {
 	failed := SideConversation{
 		ID:                          "side-failed",
 		ParentConversationID:        seed.conversation.ID,
+		ParentPaneID:                "pane-1",
 		ParentStatus:                seed.conversation.Status,
 		DecisionSource:              BranchDecisionSourceConversationRouter,
+		SourceProviderThreadID:      "provider-thread-parent",
 		SourceTrajectorySequence:    1,
 		Status:                      SideConversationStatusFailed,
 		ResolvedSideAgentInvocation: validInvocation(RoleSideAgent, InvocationOutcomeFailed),
@@ -193,6 +196,7 @@ func TestTransactionRejectsFailedSideConversationResurrection(t *testing.T) {
 		UpdatedAt:                   testTimeEnded,
 		Failure:                     failurePointer(testFailure()),
 	}
+	failed.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = nil
 	_, err := store.Transact(context.Background(), "persist failed side conversation", func(transaction *WriteTransaction) error {
 		if err := transaction.InsertSideConversation(failed); err != nil {
 			return err
@@ -207,8 +211,10 @@ func TestTransactionRejectsFailedSideConversationResurrection(t *testing.T) {
 	}
 
 	resurrected := failed
+	resurrected.ProviderThreadID = stringPointer("provider-thread-side")
 	resurrected.Status = SideConversationStatusActive
 	resurrected.ResolvedSideAgentInvocation = validInvocation(RoleSideAgent, InvocationOutcomeRunning)
+	resurrected.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = stringPointer("provider-thread-side")
 	resurrected.UpdatedAt = testTimeLater
 	resurrected.Failure = nil
 	_, err = store.Transact(context.Background(), "reject failed side resurrection", func(transaction *WriteTransaction) error {

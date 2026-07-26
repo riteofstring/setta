@@ -259,25 +259,6 @@ describe("workspace store", () => {
     expect(useWorkspaceStore.getState().status).toBe("ready");
   });
 
-  test("an externally opened session invalidates an in-flight session load", async () => {
-    const pending = deferred<WorkspaceSession>();
-    const openedSession = workspaceSession("workspace_web");
-    installSettaAPI({
-      workspace: {
-        session: vi.fn().mockReturnValue(pending.promise),
-      },
-    });
-
-    const loadPromise = useWorkspaceStore.getState().loadSession();
-    useWorkspaceStore.getState().applySession(openedSession);
-    pending.resolve(workspaceSession("workspace_stale"));
-    await loadPromise;
-
-    expect(useWorkspaceStore.getState().session).toEqual(openedSession);
-    expect(useWorkspaceStore.getState().operation).toBeNull();
-    expect(useWorkspaceStore.getState().status).toBe("ready");
-  });
-
   test("runtime reset clears session and ignores in-flight session loads", async () => {
     const pending = deferred<WorkspaceSession>();
     useWorkspaceStore.setState({
@@ -319,9 +300,11 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       session: fallbackSession,
       workspace: fallbackWorkspace,
     }),
+    readUILayout: async (workspaceId) => ({ layout: null, workspaceId }),
     refreshAvailability: async () => fallbackSession,
     removeRecent: async () => fallbackSession,
     reorder: async () => fallbackSession,
+    saveUILayout: async (layout) => layout,
     select: async () => fallbackSession,
     session: async () => fallbackSession,
     ...overrides.workspace,
