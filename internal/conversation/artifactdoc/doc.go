@@ -25,6 +25,9 @@
 //	identifier    = ( letter | "_" ) , { letter | digit | "_" } ;
 //	string        = '"' , { character | escape } , '"' ;
 //	number        = [ "-" ] , int , [ frac ] , [ exp ] ;
+//	int           = "0" | nonzero , { digit } ;
+//	frac          = "." , digit , { digit } ;
+//	exp           = ( "e" | "E" ) , [ "+" | "-" ] , digit , { digit } ;
 //	boolean       = "true" | "false" ;
 //	null          = "null" ;
 //

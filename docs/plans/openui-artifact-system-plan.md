@@ -751,7 +751,8 @@ Performance regressions require correction before merge verification.
 [`internal/conversation/artifactdoc`](../../internal/conversation/artifactdoc):
 the grammar, the Go-owned catalog manifest and model-facing signatures, the
 strict compiler, and the accepted and rejected conformance corpus. Nothing in
-production imports it.
+production imports it. The audit and local verification evidence is recorded in
+[`docs/reports/openui-artifact-phase0-audit-20260726.md`](../reports/openui-artifact-phase0-audit-20260726.md).
 
 Landed:
 
@@ -761,14 +762,21 @@ Landed:
   `setta.artifacts.v1` manifest with ordered properties, enums, object shapes,
   and model-facing descriptions
 - catalog signature rendering, which is the text prompt-size measurement and the
-  generated developer instructions are both taken from
+  generated developer instructions are both taken from, plus the complete
+  catalog-owned generation instructions used by the output-quality spike
 - lexer, parser, reference resolution, positional argument mapping, value
   validation, Markdown and file-path safety rules, cross-property invariants,
   and structured diagnostics carrying a stable code, position, statement,
   component, property, and correction instruction
-- 10 accepted fixtures covering every catalog component, reference reuse, and
-  the limit boundaries; 43 rejected fixtures covering every failure code
-- conformance checks over that corpus, written but not executed
+- a delimiter guard before recursive parsing, matching-bracket validation,
+  JSON-strict number syntax, and expanded path, Markdown, and Unicode safety
+- 16 accepted fixtures covering every catalog component, reference reuse, and
+  semantic limit boundaries; 60 rejected fixtures covering every failure code
+  plus the affected syntax, safety, and limit variants
+- one green deterministic compiler and corpus matrix, including prompt, tool
+  argument, representative compile, and maximum-source compile measurements
+- one green ChatGPT-authenticated live output-quality check using the
+  catalog-owned instructions, with `OPENAI_API_KEY` excluded
 
 Blocked on evidence this repository cannot produce:
 
@@ -778,7 +786,6 @@ Blocked on evidence this repository cannot produce:
 - the equivalent generated React library, which needs those packages installed
 - confirming the pinned OpenUI renderer interprets every accepted fixture
   equivalently, which needs that library
-- representative model output quality, which needs a live provider turn
 - the pre-change performance baseline, which needs a driven Electron session
 
 Deliverables:

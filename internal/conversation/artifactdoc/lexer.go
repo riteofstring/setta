@@ -67,13 +67,10 @@ var punctuationTokens = map[byte]tokenKind{
 	'}': tokenRightBrace,
 }
 
-var bracketDepthChange = map[tokenKind]int{
-	tokenLeftParen:    1,
-	tokenLeftBracket:  1,
-	tokenLeftBrace:    1,
-	tokenRightParen:   -1,
-	tokenRightBracket: -1,
-	tokenRightBrace:   -1,
+var closingBracket = map[tokenKind]tokenKind{
+	tokenLeftParen:   tokenRightParen,
+	tokenLeftBracket: tokenRightBracket,
+	tokenLeftBrace:   tokenRightBrace,
 }
 
 // operatorCharacters would start an expression the profile never evaluates.
@@ -115,15 +112,20 @@ type token struct {
 	position Position
 }
 
+type openBracket struct {
+	kind     tokenKind
+	position Position
+}
+
 // lexer turns source into tokens. It tracks bracket depth because a newline
 // inside an open bracket is whitespace and everywhere else ends a statement.
 type lexer struct {
-	source string
-	offset int
-	line   int
-	column int
-	depth  int
-	tokens []token
+	source   string
+	offset   int
+	line     int
+	column   int
+	brackets []openBracket
+	tokens   []token
 }
 
 func lex(source string) ([]token, *Diagnostic) {
@@ -131,6 +133,9 @@ func lex(source string) ([]token, *Diagnostic) {
 	for {
 		scanner.skipSpaces()
 		if scanner.offset >= len(scanner.source) {
+			if diagnostic := scanner.unclosedBracketDiagnostic(); diagnostic != nil {
+				return nil, diagnostic
+			}
 			scanner.emit(token{kind: tokenEOF, position: scanner.position()})
 			return scanner.tokens, nil
 		}
@@ -170,7 +175,7 @@ func (scanner *lexer) peek() byte {
 func (scanner *lexer) skipSpaces() {
 	for scanner.offset < len(scanner.source) {
 		next := scanner.peek()
-		insideBrackets := scanner.depth > 0 && (next == '\n' || next == '\r')
+		insideBrackets := len(scanner.brackets) > 0 && (next == '\n' || next == '\r')
 		if next != ' ' && next != '\t' && !insideBrackets {
 			return
 		}
@@ -222,12 +227,58 @@ func (scanner *lexer) lexPunctuation(start Position) *Diagnostic {
 		)
 	}
 	scanner.advance()
-	scanner.depth += bracketDepthChange[kind]
-	if scanner.depth < 0 {
-		return syntaxDiagnostic(start, "a closing bracket had no matching opening bracket", "remove the extra bracket")
+	if diagnostic := scanner.trackBracket(kind, start); diagnostic != nil {
+		return diagnostic
 	}
 	scanner.emit(token{kind: kind, position: start})
 	return nil
+}
+
+func (scanner *lexer) trackBracket(kind tokenKind, position Position) *Diagnostic {
+	if _, opens := closingBracket[kind]; opens {
+		scanner.brackets = append(scanner.brackets, openBracket{kind: kind, position: position})
+		if len(scanner.brackets) > MaxSyntaxDepth {
+			diagnostic := newDiagnostic(
+				CodeLimitExceeded,
+				position,
+				fmt.Sprintf("expressions are nested more than %d delimiters deep", MaxSyntaxDepth),
+				"flatten nested arrays, objects, and component calls",
+			)
+			return &diagnostic
+		}
+		return nil
+	}
+	if kind != tokenRightParen && kind != tokenRightBracket && kind != tokenRightBrace {
+		return nil
+	}
+	if len(scanner.brackets) == 0 {
+		return syntaxDiagnostic(position, "a closing bracket had no matching opening bracket", "remove the extra bracket")
+	}
+	last := scanner.brackets[len(scanner.brackets)-1]
+	expected := closingBracket[last.kind]
+	if kind != expected {
+		return syntaxDiagnostic(
+			position,
+			fmt.Sprintf("expected %s to close the bracket opened at line %d, column %d but found %s",
+				expected.label(), last.position.Line, last.position.Column, kind.label()),
+			fmt.Sprintf("close the bracket with %s", expected.label()),
+		)
+	}
+	scanner.brackets = scanner.brackets[:len(scanner.brackets)-1]
+	return nil
+}
+
+func (scanner *lexer) unclosedBracketDiagnostic() *Diagnostic {
+	if len(scanner.brackets) == 0 {
+		return nil
+	}
+	last := scanner.brackets[len(scanner.brackets)-1]
+	expected := closingBracket[last.kind]
+	return syntaxDiagnostic(
+		scanner.position(),
+		fmt.Sprintf("the bracket opened at line %d, column %d was never closed", last.position.Line, last.position.Column),
+		fmt.Sprintf("close the expression with %s", expected.label()),
+	)
 }
 
 func (scanner *lexer) lexIdent(start Position) {
@@ -349,11 +400,47 @@ func (scanner *lexer) readHexQuad(start Position) (uint64, *Diagnostic) {
 }
 
 func checkNumberShape(start Position, text string) *Diagnostic {
-	digits := strings.TrimPrefix(text, "-")
-	if digits == "" {
+	index := 0
+	if index < len(text) && text[index] == '-' {
+		index++
+	}
+	if index >= len(text) {
 		return numberDiagnostic(start, text)
 	}
-	if len(digits) > 1 && digits[0] == '0' && isDigit(digits[1]) {
+	if text[index] == '0' {
+		index++
+	} else {
+		if text[index] < '1' || text[index] > '9' {
+			return numberDiagnostic(start, text)
+		}
+		for index < len(text) && isDigit(text[index]) {
+			index++
+		}
+	}
+	if index < len(text) && text[index] == '.' {
+		index++
+		fractionStart := index
+		for index < len(text) && isDigit(text[index]) {
+			index++
+		}
+		if index == fractionStart {
+			return numberDiagnostic(start, text)
+		}
+	}
+	if index < len(text) && (text[index] == 'e' || text[index] == 'E') {
+		index++
+		if index < len(text) && (text[index] == '+' || text[index] == '-') {
+			index++
+		}
+		exponentStart := index
+		for index < len(text) && isDigit(text[index]) {
+			index++
+		}
+		if index == exponentStart {
+			return numberDiagnostic(start, text)
+		}
+	}
+	if index != len(text) {
 		return numberDiagnostic(start, text)
 	}
 	return nil

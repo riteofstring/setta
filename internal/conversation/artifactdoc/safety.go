@@ -3,6 +3,7 @@ package artifactdoc
 import (
 	"fmt"
 	"strings"
+	"unicode"
 )
 
 // valueFailure is a positionless failure. The compiler attaches the position,
@@ -35,6 +36,9 @@ var multilineRoles = map[StringRole]bool{
 const (
 	lineSeparator      = rune(0x2028)
 	paragraphSeparator = rune(0x2029)
+	arabicLetterMark   = rune(0x061c)
+	leftToRightMark    = rune(0x200e)
+	rightToLeftMark    = rune(0x200f)
 	embeddingStart     = rune(0x202a)
 	embeddingEnd       = rune(0x202e)
 	isolateStart       = rune(0x2066)
@@ -92,7 +96,7 @@ func checkStringCharacters(role StringRole, value string) *valueFailure {
 }
 
 func checkCharacter(character rune) *valueFailure {
-	if character < 0x20 || character == 0x7f {
+	if unicode.IsControl(character) {
 		return &valueFailure{
 			Code:       CodeUnsafeValue,
 			Message:    fmt.Sprintf("the value contained the control character U+%04X", character),
@@ -112,6 +116,8 @@ func checkCharacter(character rune) *valueFailure {
 func isLayoutControl(character rune) bool {
 	switch {
 	case character == lineSeparator, character == paragraphSeparator:
+		return true
+	case character == arabicLetterMark, character == leftToRightMark, character == rightToLeftMark:
 		return true
 	case character >= embeddingStart && character <= embeddingEnd:
 		return true
@@ -168,12 +174,16 @@ func startsMarkup(rest string) bool {
 }
 
 func escaped(value string, index int) bool {
-	return index > 0 && value[index-1] == '\\'
+	backslashes := 0
+	for index--; index >= 0 && value[index] == '\\'; index-- {
+		backslashes++
+	}
+	return backslashes%2 == 1
 }
 
 func checkMarkdownLinks(value string) *valueFailure {
 	for index := 0; index+1 < len(value); index++ {
-		if value[index] != ']' || value[index+1] != '(' {
+		if value[index] != ']' || value[index+1] != '(' || escaped(value, index) {
 			continue
 		}
 		if failure := checkLinkDestination(readLinkDestination(value[index+2:])); failure != nil {
@@ -256,8 +266,12 @@ func checkWorkspacePath(value string) *valueFailure {
 
 func checkPathShape(value string) *valueFailure {
 	switch {
-	case strings.HasPrefix(value, "/"), strings.HasPrefix(value, "~"), windowsAbsolute(value):
+	case strings.HasPrefix(value, "/"), strings.HasPrefix(value, "~"):
 		return pathFailure(value, "the path is absolute")
+	case windowsDrivePath(value):
+		return pathFailure(value, "the path used Windows drive notation")
+	case strings.Contains(value, ":"):
+		return pathFailure(value, "the path contained a colon")
 	case strings.Contains(value, "\\"):
 		return pathFailure(value, "the path used backslashes")
 	case strings.Contains(value, "://"):
@@ -280,8 +294,12 @@ func checkPathSegment(segment string) *valueFailure {
 	return nil
 }
 
-func windowsAbsolute(value string) bool {
-	return len(value) >= 3 && isIdentStart(value[0]) && value[1] == ':' && (value[2] == '/' || value[2] == '\\')
+func windowsDrivePath(value string) bool {
+	return len(value) >= 2 && isASCIIAlpha(value[0]) && value[1] == ':'
+}
+
+func isASCIIAlpha(value byte) bool {
+	return (value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z')
 }
 
 func pathFailure(value string, message string) *valueFailure {

@@ -10,6 +10,36 @@ import (
 // and this is most of the difference.
 const blockAlias = "block"
 
+// GenerationInstructions renders the complete model-facing static-profile
+// reference used by the Phase 0 output-quality spike. The production tool will
+// generate its developer instructions from the same catalog-owned text.
+func (catalog Catalog) GenerationInstructions() string {
+	return strings.TrimSpace(fmt.Sprintf(`Compose one Setta artifact document in the source field.
+
+Static-profile rules:
+- Write one assignment per line. A statement may wrap only while a (, [, or { is open.
+- Assign root exactly once to a direct %s call.
+- Pass component arguments positionally in the catalog order. Use null only to skip an optional slot before a later argument.
+- Values may be quoted strings, finite JSON numbers, true, false, null, arrays, objects, registered component calls, or references to uniquely named statements.
+- Every non-root statement must be reachable from root. References may point forward or backward but must not form a cycle.
+- Do not use named arguments, comments, expressions, HTML, images, actions, tools, queries, mutations, bindings, state, styling props, URLs outside safe Markdown links, or remote resources.
+- Markdown links may use only http, https, or mailto. FileReference paths must be portable workspace-relative paths with forward slashes and no traversal.
+- Keep source within %d bytes, statements within %d, rendered components within %d, component depth within %d, and every data array within %d entries.
+
+Example:
+root = Document([Heading("Status"), Text("The report is ready.")])
+
+%s`,
+		catalog.Root,
+		MaxSourceBytes,
+		MaxStatements,
+		MaxNodes,
+		MaxDepth,
+		MaxArrayEntries,
+		catalog.Signatures(),
+	))
+}
+
 // Signatures renders the model-facing catalog reference: the block alias, then
 // one signature and summary per component, in catalog order.
 //

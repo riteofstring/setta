@@ -8,10 +8,10 @@ import (
 // The conformance corpus.
 //
 // Accepted fixtures are the documents the profile promises to accept. Together
-// they exercise every catalog component, every value shape, reference reuse,
-// and the boundaries of the Go-owned limits. They are also the corpus the
-// pinned upstream OpenUI parser has to interpret identically before the
-// production cutover may begin.
+// they exercise every catalog component, every catalog-used value shape,
+// reference reuse, semantic limit boundaries, and parser guard rejection. They
+// are also the corpus the pinned upstream OpenUI parser has to interpret
+// identically before the production cutover may begin.
 //
 // Rejected fixtures are the documents the profile promises to refuse, one per
 // stable failure code. A code with no rejected fixture is a code no one has
@@ -190,14 +190,49 @@ footnote = Text("Generated from durable trajectory facts.", "muted")`,
 ])`,
 		},
 		{
+			Name:        "syntax_edges",
+			Description: "JSON number syntax, quoted object keys, trailing commas, and safely escaped Markdown markup.",
+			Source: `root = Document([
+  Markdown("\\<script> is literal text, not markup."),
+  PieChart([
+    {"label": "Measured", "value": 1.2e+3,},
+  ],),
+])`,
+		},
+		{
 			Name:        "maximum_table",
 			Description: "A table at the column and row limits.",
 			Source:      maximumTableSource(),
 		},
 		{
+			Name:        "maximum_chart",
+			Description: "A chart at both the series and total-point limits.",
+			Source:      maximumChartSource(),
+		},
+		{
+			Name:        "maximum_pie",
+			Description: "A pie chart at the slice limit.",
+			Source:      maximumPieSource(),
+		},
+		{
 			Name:        "maximum_nesting",
 			Description: "A component chain at the nesting limit.",
 			Source:      maximumNestingSource(),
+		},
+		{
+			Name:        "maximum_statements_and_nodes",
+			Description: "One document at both the statement and expanded component-node limits.",
+			Source:      maximumStatementsAndNodesSource(),
+		},
+		{
+			Name:        "maximum_string_values",
+			Description: "Every catalog string role at its byte limit.",
+			Source:      maximumStringValuesSource(),
+		},
+		{
+			Name:        "maximum_source",
+			Description: "A valid document exactly at the source byte limit.",
+			Source:      maximumSource(),
 		},
 	}
 	return fixtures
@@ -279,6 +314,12 @@ root = Document([Text("Body")])`,
 			Source:      `root = Document([Query("select * from tickets")])`,
 			Code:        CodeUnsupportedSyntax,
 		},
+		{
+			Name:        "invalid_number_fraction",
+			Description: "A number with a decimal point but no fractional digits.",
+			Source:      `root = Document([PieChart([{label: "A", value: 1.}])])`,
+			Code:        CodeInvalidValue,
+		},
 	}
 }
 
@@ -317,6 +358,12 @@ root = Document([intro])`,
 right = Stack([left])
 root = Document([left])`,
 			Code: CodeCyclicReference,
+		},
+		{
+			Name:        "root_reference_cycle",
+			Description: "The root document reaches a reference cycle through itself.",
+			Source:      `root = Document([root])`,
+			Code:        CodeCyclicReference,
 		},
 		{
 			Name:        "unused_statement",
@@ -385,6 +432,18 @@ func rejectedComponentFixtures() []RejectedFixture {
   Table([{key: "team", label: "Team", width: 200}], [["Platform"]])
 ])`,
 			Code: CodeInvalidValue,
+		},
+		{
+			Name:        "missing_object_field",
+			Description: "An object missing a required catalog field.",
+			Source:      `root = Document([PieChart([{label: "A"}])])`,
+			Code:        CodeMissingProperty,
+		},
+		{
+			Name:        "duplicate_object_field",
+			Description: "An object declaring one field twice.",
+			Source:      `root = Document([PieChart([{label: "A", label: "B", value: 1}])])`,
+			Code:        CodeInvalidValue,
 		},
 		{
 			Name:        "row_width_mismatch",
@@ -462,6 +521,48 @@ func rejectedLimitFixtures() []RejectedFixture {
 			Source:      oversizeStatementSource(),
 			Code:        CodeLimitExceeded,
 		},
+		{
+			Name:        "nodes_over_limit",
+			Description: "Reference-free content expanding past the component-node limit.",
+			Source:      oversizeNodeSource(),
+			Code:        CodeLimitExceeded,
+		},
+		{
+			Name:        "syntax_nesting_over_limit",
+			Description: "Delimiter nesting deeper than the parser safety limit.",
+			Source:      oversizeSyntaxNestingSource(),
+			Code:        CodeLimitExceeded,
+		},
+		{
+			Name:        "table_columns_over_limit",
+			Description: "A table past the column limit.",
+			Source:      oversizeTableColumnsSource(),
+			Code:        CodeLimitExceeded,
+		},
+		{
+			Name:        "table_rows_over_limit",
+			Description: "A table past the row limit.",
+			Source:      oversizeTableRowsSource(),
+			Code:        CodeLimitExceeded,
+		},
+		{
+			Name:        "chart_series_over_limit",
+			Description: "A chart past the series limit.",
+			Source:      oversizeChartSeriesSource(),
+			Code:        CodeLimitExceeded,
+		},
+		{
+			Name:        "pie_slices_over_limit",
+			Description: "A pie chart past the slice limit.",
+			Source:      oversizePieSource(),
+			Code:        CodeLimitExceeded,
+		},
+		{
+			Name:        "label_over_limit",
+			Description: "A label past its byte limit.",
+			Source:      fmt.Sprintf("root = Document([Heading(%q)])", strings.Repeat("h", MaxLabelBytes+1)),
+			Code:        CodeLimitExceeded,
+		},
 	}
 }
 
@@ -477,6 +578,18 @@ func rejectedSafetyFixtures() []RejectedFixture {
 			Name:        "markdown_image",
 			Description: "An embedded image inside Markdown.",
 			Source:      `root = Document([Markdown("![chart](https://example.com/chart.png)")])`,
+			Code:        CodeUnsafeValue,
+		},
+		{
+			Name:        "markdown_even_escape_raw_html",
+			Description: "An even number of Markdown escapes does not neutralize raw HTML.",
+			Source:      `root = Document([Markdown("\\\\<script>alert(1)</script>")])`,
+			Code:        CodeUnsafeValue,
+		},
+		{
+			Name:        "markdown_even_escape_image",
+			Description: "An even number of Markdown escapes does not neutralize an image.",
+			Source:      `root = Document([Markdown("\\\\![chart](https://example.com/chart.png)")])`,
 			Code:        CodeUnsafeValue,
 		},
 		{
@@ -510,9 +623,33 @@ func rejectedSafetyFixtures() []RejectedFixture {
 			Code:        CodeUnsafeValue,
 		},
 		{
+			Name:        "windows_drive_relative_file_reference",
+			Description: "A Windows drive-relative path.",
+			Source:      `root = Document([FileReference("C:Windows/System32")])`,
+			Code:        CodeUnsafeValue,
+		},
+		{
+			Name:        "scheme_like_file_reference",
+			Description: "A scheme-like value rather than a portable workspace path.",
+			Source:      `root = Document([FileReference("https:report")])`,
+			Code:        CodeUnsafeValue,
+		},
+		{
 			Name:        "bidirectional_override",
 			Description: "A bidirectional override that would make rendered text lie.",
 			Source:      bidirectionalOverrideSource(),
+			Code:        CodeUnsafeValue,
+		},
+		{
+			Name:        "bidirectional_mark",
+			Description: "A bidirectional mark that changes visual ordering.",
+			Source:      `root = Document([Text("left\u200eright")])`,
+			Code:        CodeUnsafeValue,
+		},
+		{
+			Name:        "c1_control",
+			Description: "A Unicode C1 control character.",
+			Source:      `root = Document([Text("left\u0085right")])`,
 			Code:        CodeUnsafeValue,
 		},
 		{
@@ -552,6 +689,27 @@ func maximumTableSource() string {
 	)
 }
 
+func maximumChartSource() string {
+	pointsPerSeries := MaxChartPoints / MaxChartSeries
+	series := make([]string, 0, MaxChartSeries)
+	for seriesIndex := range MaxChartSeries {
+		points := make([]string, 0, pointsPerSeries)
+		for point := range pointsPerSeries {
+			points = append(points, fmt.Sprintf(`{label: "p%d", value: %d}`, point, seriesIndex+point))
+		}
+		series = append(series, fmt.Sprintf(`{name: "s%d", points: [%s]}`, seriesIndex, strings.Join(points, ", ")))
+	}
+	return fmt.Sprintf("root = Document([LineChart([%s])])", strings.Join(series, ", "))
+}
+
+func maximumPieSource() string {
+	slices := make([]string, 0, MaxPieSlices)
+	for index := range MaxPieSlices {
+		slices = append(slices, fmt.Sprintf(`{label: "s%d", value: %d}`, index, index+1))
+	}
+	return fmt.Sprintf("root = Document([PieChart([%s])])", strings.Join(slices, ", "))
+}
+
 func nestedStackSource(stacks int) string {
 	return fmt.Sprintf(
 		"root = Document([%s%s%s])",
@@ -564,6 +722,56 @@ func nestedStackSource(stacks int) string {
 func maximumNestingSource() string {
 	// Document, the stacks, and the innermost Text together reach MaxDepth.
 	return nestedStackSource(MaxDepth - 2)
+}
+
+func maximumStatementsAndNodesSource() string {
+	const stacks = (MaxStatements - 1) / 3
+	lines := make([]string, 0, MaxStatements)
+	stackReferences := make([]string, 0, stacks)
+	for index := range stacks * 2 {
+		lines = append(lines, fmt.Sprintf(`line%d = Text("Line %d")`, index, index))
+	}
+	for index := range stacks {
+		name := fmt.Sprintf("stack%d", index)
+		lines = append(lines, fmt.Sprintf("%s = Stack([line%d, line%d])", name, index*2, index*2+1))
+		stackReferences = append(stackReferences, name)
+	}
+	lines = append(lines, "root = Document(["+strings.Join(stackReferences, ", ")+"])")
+	return strings.Join(lines, "\n")
+}
+
+func maximumStringValuesSource() string {
+	path := strings.Repeat("a/", (MaxPathBytes-2)/2) + "aa"
+	return fmt.Sprintf(
+		"root = Document([Heading(%q), Text(%q), Markdown(%q), FileReference(%q), Table([{key: \"c\", label: \"Cell\"}], [[%q]])])",
+		strings.Repeat("h", MaxLabelBytes),
+		strings.Repeat("t", MaxTextBytes),
+		strings.Repeat("m", MaxMarkdownBytes),
+		path,
+		strings.Repeat("c", MaxCellBytes),
+	)
+}
+
+func maximumSource() string {
+	const blockCount = 4
+	contents := make([]string, blockCount)
+	render := func() string {
+		blocks := make([]string, 0, blockCount)
+		for _, content := range contents {
+			blocks = append(blocks, fmt.Sprintf("CodeBlock(%q)", content))
+		}
+		return "root = Document([" + strings.Join(blocks, ", ") + "])"
+	}
+	remaining := MaxSourceBytes - len(render())
+	for index := range contents {
+		length := min(remaining, MaxCodeBytes)
+		contents[index] = strings.Repeat("x", length)
+		remaining -= length
+	}
+	if remaining != 0 || len(render()) != MaxSourceBytes {
+		panic("artifactdoc: maximum source fixture cannot reach MaxSourceBytes")
+	}
+	return render()
 }
 
 func oversizeNestingSource() string {
@@ -586,6 +794,37 @@ func oversizeBlockArraySource() string {
 	return "root = Document([" + strings.Join(blocks, ", ") + "])"
 }
 
+func oversizeNodeSource() string {
+	stacks := make([]string, 0, (MaxNodes-1)/3+1)
+	for index := 0; 1+len(stacks)*3 <= MaxNodes; index++ {
+		stacks = append(stacks, fmt.Sprintf(`Stack([Text("Left %d"), Text("Right %d")])`, index, index))
+	}
+	stacks = append(stacks, `Stack([Text("Over"), Text("Limit")])`)
+	return "root = Document([" + strings.Join(stacks, ", ") + "])"
+}
+
+func oversizeSyntaxNestingSource() string {
+	return "root = " + strings.Repeat("[", MaxSyntaxDepth+1) + "null" + strings.Repeat("]", MaxSyntaxDepth+1)
+}
+
+func oversizeTableColumnsSource() string {
+	columns := make([]string, 0, MaxTableColumns+1)
+	cells := make([]string, 0, MaxTableColumns+1)
+	for index := range MaxTableColumns + 1 {
+		columns = append(columns, fmt.Sprintf(`{key: "c%d", label: "Column %d"}`, index, index))
+		cells = append(cells, fmt.Sprintf(`"v%d"`, index))
+	}
+	return fmt.Sprintf("root = Document([Table([%s], [[%s]])])", strings.Join(columns, ", "), strings.Join(cells, ", "))
+}
+
+func oversizeTableRowsSource() string {
+	rows := make([]string, 0, MaxTableRows+1)
+	for index := range MaxTableRows + 1 {
+		rows = append(rows, fmt.Sprintf(`["r%d"]`, index))
+	}
+	return fmt.Sprintf(`root = Document([Table([{key: "row", label: "Row"}], [%s])])`, strings.Join(rows, ", "))
+}
+
 func oversizeChartSource() string {
 	seriesCount := MaxChartPoints/MaxArrayEntries + 1
 	series := make([]string, 0, seriesCount)
@@ -597,6 +836,22 @@ func oversizeChartSource() string {
 		series = append(series, fmt.Sprintf(`{name: "s%d", points: [%s]}`, index, strings.Join(points, ", ")))
 	}
 	return fmt.Sprintf("root = Document([BarChart([%s])])", strings.Join(series, ", "))
+}
+
+func oversizeChartSeriesSource() string {
+	series := make([]string, 0, MaxChartSeries+1)
+	for index := range MaxChartSeries + 1 {
+		series = append(series, fmt.Sprintf(`{name: "s%d", points: [{label: "p", value: %d}]}`, index, index))
+	}
+	return fmt.Sprintf("root = Document([BarChart([%s])])", strings.Join(series, ", "))
+}
+
+func oversizePieSource() string {
+	slices := make([]string, 0, MaxPieSlices+1)
+	for index := range MaxPieSlices + 1 {
+		slices = append(slices, fmt.Sprintf(`{label: "s%d", value: %d}`, index, index+1))
+	}
+	return fmt.Sprintf("root = Document([PieChart([%s])])", strings.Join(slices, ", "))
 }
 
 func oversizeStatementSource() string {

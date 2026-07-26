@@ -15,6 +15,10 @@ const (
 	MaxNodes = 256
 	// MaxDepth bounds component nesting.
 	MaxDepth = 12
+	// MaxSyntaxDepth bounds parser recursion before catalog validation runs.
+	// A valid maximum-depth component tree can use two delimiters per
+	// component, plus a small fixed amount for table and chart data.
+	MaxSyntaxDepth = MaxDepth*2 + 8
 	// MaxArrayEntries bounds entries in any single array.
 	MaxArrayEntries = 100
 	// MaxTableColumns bounds table columns.

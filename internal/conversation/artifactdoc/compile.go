@@ -148,7 +148,9 @@ func (builder *compiler) compile() Node {
 		return Node{}
 	}
 	builder.statement = rootStatementName
+	builder.stack = append(builder.stack, rootStatementName)
 	node, _ := builder.compileComponent(root.value, []ComponentName{builder.catalog.Root}, scope{depth: 1})
+	builder.stack = builder.stack[:len(builder.stack)-1]
 	builder.reportUnusedStatements()
 	return node
 }

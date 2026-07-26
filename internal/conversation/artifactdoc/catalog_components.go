@@ -27,11 +27,11 @@ const (
 	ComponentPieChart      ComponentName = "PieChart"
 )
 
-var settaCatalogV1 = newCatalog(CatalogSettaV1, ComponentDocument, settaComponentsV1())
-
 // SettaCatalogV1 is the first frozen Setta artifact catalog.
 func SettaCatalogV1() Catalog {
-	return settaCatalogV1
+	// Build a fresh value so callers cannot mutate package-owned slices or
+	// schemas through the exported manifest fields.
+	return newCatalog(CatalogSettaV1, ComponentDocument, settaComponentsV1())
 }
 
 // blockComponents is the content set a document, section, or container accepts.
