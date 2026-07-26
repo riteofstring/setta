@@ -1,7 +1,7 @@
 # One Conversation, One View
 
 **Date:** 2026-07-27
-**Status:** Not implemented.
+**Status:** Complete. Phases 1-5 landed 2026-07-27.
 
 ## Outcome
 
@@ -110,6 +110,15 @@ or had wrong. The mockup is the specification for them.
 
 ## Phase 1 — Selection names a view
 
+**Done.** Four things had to agree that a nil selection means something: the
+resolver could not express it (returning nil meant "no move"), fact validation
+required a workstream, the fold assumed a nil workstream meant a committed
+decision, and the projector recorded the Director's *lane id* as the selection —
+which made the next selection's previous-selection check disagree with the log
+and stop the follower one dispatch later, with no recorded cause.
+
+### Original phase text
+
 `selectedWorkstreamId == null` becomes the Director's view rather than the
 absence of a selection: a real destination the arrows land on, ordered first,
 and the state the app opens in.
@@ -122,6 +131,13 @@ every later phase reads.
 Director; `director-command-center` workflow; Go director suite.
 
 ## Phase 2 — The canvas follows the view
+
+**Done.** The graph performance workflow passed 19 scenario runs, so the composed
+view did not get slower on its way to becoming one view among several. A
+workstream with no graph draws nothing rather than falling back to the
+composition.
+
+### Original phase text
 
 The Director's view composes every workstream's graph *and its own*. A
 workstream's view draws that workstream's graph alone.
@@ -145,6 +161,11 @@ not get slower.
 
 ## Phase 3 — The rails follow the view
 
+**Done.** What needs an answer already rode the composer through PendingActions,
+so there was nowhere else for it to go.
+
+### Original phase text
+
 A workstream's view lists its own artifacts. `WorkstreamArtifact` already
 carries `workstreamId`, so that is a filter rather than a contract change.
 
@@ -158,6 +179,13 @@ showing only its own and the Director's view showing neither rail;
 `director-command-center` workflow, whose rail assertions move to the composer.
 
 ## Phase 4 — The composer speaks to the view
+
+**Done.** The receipt requirement was met by waiting for the routing decision
+rather than reporting acceptance: `waitInputState` returns the router's
+decisions, and a unit test holds every outcome to a distinct sentence. Voice
+kept a private path to the Director and now goes through the same door.
+
+### Original phase text
 
 On the Director's view, the composer dispatches a Director intent, as it does
 today. On a workstream's view, it hands the text to that conversation and the
@@ -182,6 +210,12 @@ steer receipt, and at an idle one and seeing new work start; the conversation
 route command executor's Go suite.
 
 ## Phase 5 — The bar says where you are
+
+**Done.** Selection can name the Director rather than only be arrowed to, which
+the strip needed. On a compact bar the strip collapses: the arrows do the same
+job and only one of them fits.
+
+### Original phase text
 
 The dot strip includes the Director as its first destination, so the strip
 shows where you are among all views rather than among workstreams only. The
