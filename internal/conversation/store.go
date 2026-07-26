@@ -78,11 +78,7 @@ type writeRequest struct {
 
 type Store struct {
 	dbPath string
-	// appDataDir is the Setta-owned directory this store was opened under. It is
-	// where the service also roots the private working directories unbound turns
-	// run in, so both live under one app-owned location rather than two.
-	appDataDir string
-	db         *sql.DB
+	db     *sql.DB
 
 	writer            *sql.Conn
 	readerConnections []*sql.Conn
@@ -211,7 +207,6 @@ func NewStore(appDataDir string, options ...StoreOption) (*Store, error) {
 
 	store := &Store{
 		dbPath:     dbPath,
-		appDataDir: filepath.Clean(appDataDir),
 		db:         db,
 		readers:    make(chan *sql.Conn, config.readPoolSize),
 		writes:     make(chan writeRequest, config.writeQueueCapacity),

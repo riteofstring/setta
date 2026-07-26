@@ -38,23 +38,5 @@ export default defineConfig({
     resolve: {
       alias: aliases,
     },
-    build: {
-      rollupOptions: {
-        input: {
-          // The app shell.
-          index: resolve("src/renderer/index.html"),
-          // The Setta 4 graph measurement page: the canvas, its fixtures, and
-          // nothing else, so frame samples and pixel checks see only the graph.
-          "director-graph": resolve("src/renderer/director-graph.html"),
-          // Development gallery for Go-owned Director projection fixtures.
-          "director-graph-gallery": resolve("src/renderer/director-graph-gallery.html"),
-          // Development gallery for the Go-owned artifact conformance corpus:
-          // every catalog primitive on one page, so a change to the artifact
-          // visual language is reviewable without hunting for a real artifact
-          // that happens to use the component in question.
-          "artifact-gallery": resolve("src/renderer/artifact-gallery.html"),
-        },
-      },
-    },
   },
 });

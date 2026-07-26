@@ -13,7 +13,7 @@ func TestNewSpeechServiceRequiresDependencies(t *testing.T) {
 		t.Fatal("NewService unexpectedly succeeded")
 	}
 	if _, err := NewService(nil, ServiceConfig{
-		ProviderController:      staticProviderController{provider: &serviceTestProvider{}},
+		Provider:                &serviceTestProvider{},
 		SourceResolver:          &serviceTestSourceResolver{},
 		VoiceConfigurationStore: &serviceTestVoiceConfigurationStore{},
 	}); err == nil {
@@ -54,11 +54,7 @@ func TestSpeechServiceCreatesDeviceScopedTranscriptionSession(t *testing.T) {
 	}
 	service := newServiceTestService(t, provider)
 
-	session, err := service.CreateTranscriptionSession(
-		context.Background(),
-		SpeechProviderOpenAI,
-		"device_sensitive_principal",
-	)
+	session, err := service.CreateTranscriptionSession(context.Background(), "device_sensitive_principal")
 	if err != nil {
 		t.Fatalf("create transcription session: %v", err)
 	}
@@ -74,134 +70,6 @@ func TestSpeechServiceCreatesDeviceScopedTranscriptionSession(t *testing.T) {
 	}
 	if err := ValidateSpeechTranscriptionSession(session); err != nil {
 		t.Fatalf("validate session: %v", err)
-	}
-}
-
-func TestSpeechServiceValidatesCredentialWithoutConfiguringProvider(t *testing.T) {
-	controller := &serviceCredentialTestController{}
-	service := newServiceTestServiceWithControllerAndResolver(
-		t,
-		controller,
-		&serviceTestSourceResolver{},
-	)
-	result, err := service.ValidateCredential(
-		context.Background(),
-		SpeechProviderOpenAI,
-		"sk-setta-candidate",
-		"device_sensitive_principal",
-	)
-	if err != nil {
-		t.Fatalf("validate credential: %v", err)
-	}
-	if result.Provider != SpeechProviderOpenAI || !result.Valid {
-		t.Fatalf("validation result = %+v", result)
-	}
-	if controller.validateCalls != 1 ||
-		controller.validatedAPIKey != "sk-setta-candidate" ||
-		!strings.HasPrefix(controller.safetyIdentifier, safetyIdentifierPrefix) ||
-		strings.Contains(controller.safetyIdentifier, "device_sensitive_principal") {
-		t.Fatalf("controller after validation = %+v", controller)
-	}
-	if controller.Configured() {
-		t.Fatal("validation unexpectedly configured the provider")
-	}
-}
-
-func TestSpeechServiceLoadAndClearCredentialReportNonSecretStatus(t *testing.T) {
-	controller := &serviceCredentialTestController{}
-	service := newServiceTestServiceWithControllerAndResolver(
-		t,
-		controller,
-		&serviceTestSourceResolver{},
-	)
-
-	status, err := service.LoadCredential(context.Background(), SpeechProviderOpenAI, "sk-setta-active")
-	if err != nil {
-		t.Fatalf("load credential: %v", err)
-	}
-	if status.Provider != SpeechProviderOpenAI ||
-		status.ProviderStatus != SpeechProviderStatusConfigured ||
-		controller.loadCalls != 1 ||
-		controller.loadedAPIKey != "sk-setta-active" {
-		t.Fatalf("loaded status = %+v controller = %+v", status, controller)
-	}
-
-	status, err = service.ClearCredential(context.Background(), SpeechProviderOpenAI)
-	if err != nil {
-		t.Fatalf("clear credential: %v", err)
-	}
-	if status.Provider != SpeechProviderOpenAI ||
-		status.ProviderStatus != SpeechProviderStatusNotConfigured ||
-		controller.clearCalls != 1 ||
-		controller.Configured() {
-		t.Fatalf("cleared status = %+v controller = %+v", status, controller)
-	}
-}
-
-func TestSpeechServiceRejectsMalformedCredentialsWithoutLeakingOrCallingController(t *testing.T) {
-	tests := []string{
-		"",
-		" sk-setta-leading-space",
-		"sk-setta-trailing-space ",
-		"sk-setta contains-space",
-		"sk-setta\ncontrol",
-	}
-	for _, candidate := range tests {
-		t.Run(strings.ReplaceAll(candidate, "\n", "\\n"), func(t *testing.T) {
-			controller := &serviceCredentialTestController{}
-			service := newServiceTestServiceWithControllerAndResolver(
-				t,
-				controller,
-				&serviceTestSourceResolver{},
-			)
-
-			_, err := service.ValidateCredential(
-				context.Background(),
-				SpeechProviderOpenAI,
-				candidate,
-				"device_one",
-			)
-			assertSpeechServiceErrorCode(t, err, ErrorCredentialInvalid)
-			if candidate != "" && strings.Contains(err.Error(), candidate) {
-				t.Fatalf("validation error leaked credential: %v", err)
-			}
-			if controller.validateCalls != 0 {
-				t.Fatalf("controller validation calls = %d, want 0", controller.validateCalls)
-			}
-
-			_, err = service.LoadCredential(context.Background(), SpeechProviderOpenAI, candidate)
-			assertSpeechServiceErrorCode(t, err, ErrorCredentialInvalid)
-			if candidate != "" && strings.Contains(err.Error(), candidate) {
-				t.Fatalf("load error leaked credential: %v", err)
-			}
-			if controller.loadCalls != 0 {
-				t.Fatalf("controller load calls = %d, want 0", controller.loadCalls)
-			}
-		})
-	}
-}
-
-func TestSpeechServicePreservesClassifiedCredentialValidationFailure(t *testing.T) {
-	controller := &serviceCredentialTestController{
-		validateErr: &Error{
-			Code:    ErrorProviderRejected,
-			Message: "OpenAI rejected the speech credential or model access.",
-		},
-	}
-	service := newServiceTestServiceWithControllerAndResolver(
-		t,
-		controller,
-		&serviceTestSourceResolver{},
-	)
-	_, err := service.ValidateCredential(
-		context.Background(),
-		SpeechProviderOpenAI,
-		"sk-setta-rejected",
-		"device_one",
-	)
-	assertSpeechServiceErrorCode(t, err, ErrorProviderRejected)
-	if controller.Configured() {
-		t.Fatal("failed validation unexpectedly configured the provider")
 	}
 }
 
@@ -229,11 +97,7 @@ func TestDeviceSafetyIdentifierIsStableAndDeviceScoped(t *testing.T) {
 func TestSpeechServiceUnconfiguredTranscriptionDoesNotCallProvider(t *testing.T) {
 	provider := &serviceTestProvider{}
 	service := newServiceTestService(t, provider)
-	_, err := service.CreateTranscriptionSession(
-		context.Background(),
-		SpeechProviderOpenAI,
-		"device_one",
-	)
+	_, err := service.CreateTranscriptionSession(context.Background(), "device_one")
 	assertSpeechServiceErrorCode(t, err, ErrorNotConfigured)
 	if provider.transcriptionCalls != 0 {
 		t.Fatalf("unexpected provider calls: %+v", provider)
@@ -244,7 +108,7 @@ func TestSpeechServiceInitializesAndReadsStableVoiceConfiguration(t *testing.T) 
 	store := &serviceTestVoiceConfigurationStore{}
 	now := time.Date(2026, 7, 12, 18, 0, 0, 0, time.UTC)
 	service, err := NewService(context.Background(), ServiceConfig{
-		ProviderController:      staticProviderController{provider: &serviceTestProvider{}},
+		Provider:                &serviceTestProvider{},
 		SourceResolver:          &serviceTestSourceResolver{},
 		VoiceConfigurationStore: store,
 		Now:                     func() time.Time { return now },
@@ -252,23 +116,23 @@ func TestSpeechServiceInitializesAndReadsStableVoiceConfiguration(t *testing.T) 
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
-	selection, err := service.ReadDirectorVoiceSelection(context.Background())
+	selection, err := service.ReadMasterVoiceSelection(context.Background())
 	if err != nil {
-		t.Fatalf("read director voice selection: %v", err)
+		t.Fatalf("read master voice selection: %v", err)
 	}
 	if selection.Selection != VoiceSelectionExact || selection.RequestedVoiceID == nil ||
 		selection.ResolvedVoiceID == nil || *selection.RequestedVoiceID != SpeechVoiceMarin ||
 		*selection.ResolvedVoiceID != SpeechVoiceMarin ||
 		selection.UpdatedAt != "2026-07-12T18:00:00Z" {
-		t.Fatalf("director voice selection = %+v", selection)
+		t.Fatalf("master voice selection = %+v", selection)
 	}
 	*selection.ResolvedVoiceID = SpeechVoiceCedar
-	reloaded, err := service.ReadDirectorVoiceSelection(context.Background())
+	reloaded, err := service.ReadMasterVoiceSelection(context.Background())
 	if err != nil {
-		t.Fatalf("reload director voice selection: %v", err)
+		t.Fatalf("reload master voice selection: %v", err)
 	}
 	if reloaded.ResolvedVoiceID == nil || *reloaded.ResolvedVoiceID != SpeechVoiceMarin {
-		t.Fatalf("reloaded director voice selection = %+v, err=%v", reloaded, err)
+		t.Fatalf("reloaded master voice selection = %+v, err=%v", reloaded, err)
 	}
 	narratorDefault, err := service.ReadNarratorVoiceDefault(context.Background())
 	if err != nil {
@@ -297,11 +161,7 @@ func TestSpeechServicePreservesTranscriptionProviderFailure(t *testing.T) {
 	providerFailure := errors.New("transcription provider failed")
 	provider := &serviceTestProvider{configured: true, transcriptionErr: providerFailure}
 	service := newServiceTestService(t, provider)
-	_, err := service.CreateTranscriptionSession(
-		context.Background(),
-		SpeechProviderOpenAI,
-		"device_one",
-	)
+	_, err := service.CreateTranscriptionSession(context.Background(), "device_one")
 	if !errors.Is(err, providerFailure) {
 		t.Fatalf("error = %v, want provider failure", err)
 	}
@@ -329,7 +189,6 @@ func TestSpeechServiceSynthesizesOnlyAuthoritativeSourceWithResolvedVoice(t *tes
 	}}
 	service := newServiceTestServiceWithResolver(t, provider, resolver)
 	audio, err := service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
-		Provider:        SpeechProviderOpenAI,
 		Source:          source,
 		ResolvedVoiceID: SpeechVoiceCedar,
 	})
@@ -337,16 +196,14 @@ func TestSpeechServiceSynthesizesOnlyAuthoritativeSourceWithResolvedVoice(t *tes
 		t.Fatalf("synthesize authoritative source: %v", err)
 	}
 	if resolver.calls != 1 || provider.synthesisCalls != 1 ||
-		provider.synthesisInput.Text != resolver.resolved.Text ||
-		provider.synthesisInput.VoiceID != SpeechVoiceCedar ||
-		provider.synthesisInput.Rate != AssistantSynthesisRate ||
+		provider.synthesisText != resolver.resolved.Text ||
+		provider.synthesisVoiceID != SpeechVoiceCedar ||
 		!equalSpeechSources(audio.Source, source) ||
 		audio.ResolvedVoiceID != SpeechVoiceCedar {
 		t.Fatalf("resolver=%+v provider=%+v audio=%+v", resolver, provider, audio)
 	}
 
 	_, err = service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
-		Provider:        SpeechProviderOpenAI,
 		Source:          source,
 		ResolvedVoiceID: SpeechVoiceAlloy,
 	})
@@ -356,163 +213,17 @@ func TestSpeechServiceSynthesizesOnlyAuthoritativeSourceWithResolvedVoice(t *tes
 	}
 }
 
-func TestSpeechServiceResolvesLocalSynthesisInputWithoutProviderSnapshot(t *testing.T) {
-	source := SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "director-answer-1"}
-	provider := &serviceTestProvider{configured: false}
-	resolver := &serviceTestSourceResolver{resolved: ResolvedSpeechSource{
-		Source:          source,
-		Text:            "The local helper can synthesize this answer.",
-		ResolvedVoiceID: SpeechVoiceMarin,
-	}}
-	service := newServiceTestServiceWithResolver(t, provider, resolver)
-
-	input, err := service.ResolveSynthesisInput(context.Background(), SpeechSynthesisRequest{
-		Provider:        SpeechProviderLocalMacOS,
-		Source:          source,
-		ResolvedVoiceID: SpeechVoiceMarin,
-	})
-	if err != nil {
-		t.Fatalf("resolve local synthesis input: %v", err)
-	}
-	want := SpeechSynthesisInput{
-		Provider:        SpeechProviderLocalMacOS,
-		Source:          source,
-		Text:            resolver.resolved.Text,
-		ResolvedVoiceID: SpeechVoiceMarin,
-		Rate:            AssistantSynthesisRate,
-	}
-	if input != want || resolver.calls != 1 || provider.synthesisCalls != 0 {
-		t.Fatalf("input=%+v resolverCalls=%d providerCalls=%d", input, resolver.calls, provider.synthesisCalls)
-	}
-}
-
 func TestSpeechServiceRejectsUnavailableSynthesisBeforeProviderCall(t *testing.T) {
 	provider := &serviceTestProvider{configured: true}
 	resolver := &serviceTestSourceResolver{err: SourceUnavailable("source missing", nil)}
 	service := newServiceTestServiceWithResolver(t, provider, resolver)
 	_, err := service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
-		Provider:        SpeechProviderOpenAI,
-		Source:          SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "director-answer-1"},
+		Source:          SpeechSource{Speaker: SpeechSpeakerMaster, EventID: "master-answer-1"},
 		ResolvedVoiceID: SpeechVoiceMarin,
 	})
 	assertSpeechServiceErrorCode(t, err, ErrorSourceUnavailable)
 	if provider.synthesisCalls != 0 {
 		t.Fatalf("provider synthesis calls = %d, want 0", provider.synthesisCalls)
-	}
-}
-
-func TestSpeechServiceUsesSharedAssistantSynthesisRate(t *testing.T) {
-	conversationID := "conversation-1"
-	tests := []struct {
-		name    string
-		source  SpeechSource
-		text    string
-		voiceID SpeechVoiceID
-	}{
-		{
-			name:    "director",
-			source:  SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "director-answer-1"},
-			text:    "The director answer is ready.",
-			voiceID: SpeechVoiceMarin,
-		},
-		{
-			name: "narrator",
-			source: SpeechSource{
-				Speaker:        SpeechSpeakerNarrator,
-				EventID:        "status-reply-1",
-				ConversationID: &conversationID,
-			},
-			text:    "The topic agent is still working.",
-			voiceID: SpeechVoiceCedar,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			provider := &serviceTestProvider{
-				configured: true,
-				synthesized: SynthesizedAudio{
-					Bytes:     validTestWAV(),
-					MediaType: SynthesisMediaType,
-					Format:    SynthesisFormat,
-				},
-			}
-			resolver := &serviceTestSourceResolver{resolved: ResolvedSpeechSource{
-				Source:          test.source,
-				Text:            test.text,
-				ResolvedVoiceID: test.voiceID,
-			}}
-			service := newServiceTestServiceWithResolver(t, provider, resolver)
-
-			_, err := service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
-				Provider:        SpeechProviderOpenAI,
-				Source:          test.source,
-				ResolvedVoiceID: test.voiceID,
-			})
-			if err != nil {
-				t.Fatalf("synthesize speech: %v", err)
-			}
-			want := ProviderSynthesisInput{
-				Text:    test.text,
-				VoiceID: test.voiceID,
-				Rate:    AssistantSynthesisRate,
-			}
-			if provider.synthesisInput != want {
-				t.Fatalf("provider synthesis input = %+v, want %+v", provider.synthesisInput, want)
-			}
-		})
-	}
-}
-
-func TestSpeechServiceSnapshotsSynthesisProviderBeforeResolvingSource(t *testing.T) {
-	source := SpeechSource{Speaker: SpeechSpeakerDirector, EventID: "director-answer-1"}
-	originalProvider := &serviceTestProvider{
-		configured: true,
-		synthesized: SynthesizedAudio{
-			Bytes:     validTestWAV(),
-			MediaType: SynthesisMediaType,
-			Format:    SynthesisFormat,
-		},
-	}
-	replacementProvider := &serviceTestProvider{
-		configured: true,
-		synthesized: SynthesizedAudio{
-			Bytes:     validTestWAV(),
-			MediaType: SynthesisMediaType,
-			Format:    SynthesisFormat,
-		},
-	}
-	controller := &mutableServiceProviderController{provider: originalProvider}
-	resolver := &blockingServiceTestSourceResolver{
-		resolved: ResolvedSpeechSource{
-			Source:          source,
-			Text:            "The topic agent is still working.",
-			ResolvedVoiceID: SpeechVoiceMarin,
-		},
-		entered: make(chan struct{}),
-		release: make(chan struct{}),
-	}
-	service := newServiceTestServiceWithControllerAndResolver(t, controller, resolver)
-	done := make(chan error, 1)
-	go func() {
-		_, err := service.SynthesizeSpeech(context.Background(), SpeechSynthesisRequest{
-			Provider:        SpeechProviderOpenAI,
-			Source:          source,
-			ResolvedVoiceID: SpeechVoiceMarin,
-		})
-		done <- err
-	}()
-	<-resolver.entered
-	controller.setProvider(replacementProvider)
-	close(resolver.release)
-	if err := <-done; err != nil {
-		t.Fatalf("synthesize speech: %v", err)
-	}
-	if originalProvider.synthesisCalls != 1 || replacementProvider.synthesisCalls != 0 {
-		t.Fatalf(
-			"synthesis calls original=%d replacement=%d, want original snapshot only",
-			originalProvider.synthesisCalls,
-			replacementProvider.synthesisCalls,
-		)
 	}
 }
 
@@ -524,7 +235,8 @@ type serviceTestProvider struct {
 	transcriptionCalls int
 	synthesized        SynthesizedAudio
 	synthesisErr       error
-	synthesisInput     ProviderSynthesisInput
+	synthesisText      string
+	synthesisVoiceID   SpeechVoiceID
 	synthesisCalls     int
 }
 
@@ -534,47 +246,20 @@ type serviceTestSourceResolver struct {
 	calls    int
 }
 
-type blockingServiceTestSourceResolver struct {
-	resolved ResolvedSpeechSource
-	err      error
-	entered  chan struct{}
-	release  chan struct{}
-}
-
 type serviceTestVoiceConfigurationStore struct {
 	narratorDefault *NarratorVoiceDefault
-	selection       *DirectorVoiceSelection
+	selection       *MasterVoiceSelection
 }
 
-type staticProviderController struct {
-	provider Provider
-}
-
-type mutableServiceProviderController struct {
-	provider Provider
-}
-
-type serviceCredentialTestController struct {
-	provider         Provider
-	validateErr      error
-	loadErr          error
-	validatedAPIKey  string
-	safetyIdentifier string
-	validateCalls    int
-	loadedAPIKey     string
-	loadCalls        int
-	clearCalls       int
-}
-
-func (store *serviceTestVoiceConfigurationStore) EnsureDirectorVoiceSelection(
+func (store *serviceTestVoiceConfigurationStore) EnsureMasterVoiceSelection(
 	_ context.Context,
-	initial DirectorVoiceSelection,
-) (DirectorVoiceSelection, error) {
+	initial MasterVoiceSelection,
+) (MasterVoiceSelection, error) {
 	if store.selection == nil {
-		cloned := CloneDirectorVoiceSelection(initial)
+		cloned := CloneMasterVoiceSelection(initial)
 		store.selection = &cloned
 	}
-	return CloneDirectorVoiceSelection(*store.selection), nil
+	return CloneMasterVoiceSelection(*store.selection), nil
 }
 
 func (store *serviceTestVoiceConfigurationStore) EnsureNarratorVoiceDefault(
@@ -588,13 +273,13 @@ func (store *serviceTestVoiceConfigurationStore) EnsureNarratorVoiceDefault(
 	return CloneNarratorVoiceDefault(*store.narratorDefault), nil
 }
 
-func (store *serviceTestVoiceConfigurationStore) ReadDirectorVoiceSelection(
+func (store *serviceTestVoiceConfigurationStore) ReadMasterVoiceSelection(
 	context.Context,
-) (DirectorVoiceSelection, error) {
+) (MasterVoiceSelection, error) {
 	if store.selection == nil {
-		return DirectorVoiceSelection{}, errors.New("director voice selection is missing")
+		return MasterVoiceSelection{}, errors.New("master voice selection is missing")
 	}
-	return CloneDirectorVoiceSelection(*store.selection), nil
+	return CloneMasterVoiceSelection(*store.selection), nil
 }
 
 func (store *serviceTestVoiceConfigurationStore) ReadNarratorVoiceDefault(
@@ -606,18 +291,18 @@ func (store *serviceTestVoiceConfigurationStore) ReadNarratorVoiceDefault(
 	return CloneNarratorVoiceDefault(*store.narratorDefault), nil
 }
 
-func (store *serviceTestVoiceConfigurationStore) UpdateDirectorVoiceSelection(
+func (store *serviceTestVoiceConfigurationStore) UpdateMasterVoiceSelection(
 	_ context.Context,
 	request VoiceSelectionRequest,
 	updatedAt string,
-) (DirectorVoiceSelection, error) {
-	selection, err := ResolveDirectorVoiceSelection(request, nil, updatedAt)
+) (MasterVoiceSelection, error) {
+	selection, err := ResolveMasterVoiceSelection(request, nil, updatedAt)
 	if err != nil {
-		return DirectorVoiceSelection{}, err
+		return MasterVoiceSelection{}, err
 	}
-	cloned := CloneDirectorVoiceSelection(selection)
+	cloned := CloneMasterVoiceSelection(selection)
 	store.selection = &cloned
-	return CloneDirectorVoiceSelection(cloned), nil
+	return CloneMasterVoiceSelection(cloned), nil
 }
 
 func (store *serviceTestVoiceConfigurationStore) UpdateNarratorVoiceDefault(
@@ -653,10 +338,12 @@ func (provider *serviceTestProvider) CreateTranscriptionClientSecret(_ context.C
 
 func (provider *serviceTestProvider) SynthesizeSpeech(
 	_ context.Context,
-	input ProviderSynthesisInput,
+	text string,
+	voiceID SpeechVoiceID,
 ) (SynthesizedAudio, error) {
 	provider.synthesisCalls++
-	provider.synthesisInput = input
+	provider.synthesisText = text
+	provider.synthesisVoiceID = voiceID
 	return provider.synthesized, provider.synthesisErr
 }
 
@@ -666,134 +353,6 @@ func (resolver *serviceTestSourceResolver) ResolveSpeechSource(
 ) (ResolvedSpeechSource, error) {
 	resolver.calls++
 	return resolver.resolved, resolver.err
-}
-
-func (resolver *blockingServiceTestSourceResolver) ResolveSpeechSource(
-	context.Context,
-	SpeechSource,
-) (ResolvedSpeechSource, error) {
-	close(resolver.entered)
-	<-resolver.release
-	return resolver.resolved, resolver.err
-}
-
-func (controller staticProviderController) Configured() bool {
-	return controller.provider != nil && controller.provider.Configured()
-}
-
-func (staticProviderController) ProviderID() SpeechProvider {
-	return SpeechProviderOpenAI
-}
-
-func (controller staticProviderController) Snapshot() Provider {
-	return controller.provider
-}
-
-func (controller staticProviderController) Status() SpeechProviderStatus {
-	if controller.Configured() {
-		return SpeechProviderStatusConfigured
-	}
-	return SpeechProviderStatusNotConfigured
-}
-
-func (staticProviderController) ValidateCredential(context.Context, string, string) error {
-	return errors.New("unexpected credential validation")
-}
-
-func (staticProviderController) LoadCredential(string) error {
-	return errors.New("unexpected credential load")
-}
-
-func (staticProviderController) ClearCredential() {}
-
-func (staticProviderController) Shutdown() {}
-
-func (controller *mutableServiceProviderController) Configured() bool {
-	return controller.provider != nil && controller.provider.Configured()
-}
-
-func (*mutableServiceProviderController) ProviderID() SpeechProvider {
-	return SpeechProviderOpenAI
-}
-
-func (controller *mutableServiceProviderController) Snapshot() Provider {
-	return controller.provider
-}
-
-func (controller *mutableServiceProviderController) Status() SpeechProviderStatus {
-	if controller.Configured() {
-		return SpeechProviderStatusConfigured
-	}
-	return SpeechProviderStatusNotConfigured
-}
-
-func (*mutableServiceProviderController) ValidateCredential(context.Context, string, string) error {
-	return errors.New("unexpected credential validation")
-}
-
-func (*mutableServiceProviderController) LoadCredential(string) error {
-	return errors.New("unexpected credential load")
-}
-
-func (controller *mutableServiceProviderController) ClearCredential() {
-	controller.provider = nil
-}
-
-func (controller *mutableServiceProviderController) Shutdown() {
-	controller.provider = nil
-}
-
-func (controller *mutableServiceProviderController) setProvider(provider Provider) {
-	controller.provider = provider
-}
-
-func (controller *serviceCredentialTestController) Configured() bool {
-	return controller.provider != nil && controller.provider.Configured()
-}
-
-func (*serviceCredentialTestController) ProviderID() SpeechProvider {
-	return SpeechProviderOpenAI
-}
-
-func (controller *serviceCredentialTestController) Snapshot() Provider {
-	return controller.provider
-}
-
-func (controller *serviceCredentialTestController) Status() SpeechProviderStatus {
-	if controller.Configured() {
-		return SpeechProviderStatusConfigured
-	}
-	return SpeechProviderStatusNotConfigured
-}
-
-func (controller *serviceCredentialTestController) ValidateCredential(
-	_ context.Context,
-	apiKey string,
-	safetyIdentifier string,
-) error {
-	controller.validateCalls++
-	controller.validatedAPIKey = apiKey
-	controller.safetyIdentifier = safetyIdentifier
-	return controller.validateErr
-}
-
-func (controller *serviceCredentialTestController) LoadCredential(apiKey string) error {
-	controller.loadCalls++
-	controller.loadedAPIKey = apiKey
-	if controller.loadErr != nil {
-		return controller.loadErr
-	}
-	controller.provider = &serviceTestProvider{configured: true}
-	return nil
-}
-
-func (controller *serviceCredentialTestController) ClearCredential() {
-	controller.clearCalls++
-	controller.provider = nil
-}
-
-func (controller *serviceCredentialTestController) Shutdown() {
-	controller.provider = nil
 }
 
 func newServiceTestService(t *testing.T, provider Provider) *Service {
@@ -807,21 +366,8 @@ func newServiceTestServiceWithResolver(
 	resolver SourceResolver,
 ) *Service {
 	t.Helper()
-	return newServiceTestServiceWithControllerAndResolver(
-		t,
-		staticProviderController{provider: provider},
-		resolver,
-	)
-}
-
-func newServiceTestServiceWithControllerAndResolver(
-	t *testing.T,
-	providerController ProviderController,
-	resolver SourceResolver,
-) *Service {
-	t.Helper()
 	service, err := NewService(context.Background(), ServiceConfig{
-		ProviderController:      providerController,
+		Provider:                provider,
 		SourceResolver:          resolver,
 		VoiceConfigurationStore: &serviceTestVoiceConfigurationStore{},
 		Now: func() time.Time {

@@ -11,7 +11,6 @@ export function artifactToolResponseAction(requestId, pending, message) {
     validateArtifactToolFailureResult(
       requestId,
       message.result,
-      pending.scenario.expectedFailureCode,
       pending.scenario.expectedFailureFields,
     );
     return { kind: "complete" };

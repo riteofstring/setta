@@ -2,14 +2,14 @@ import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { CDPClient } from "./cdp-client.mjs";
+import { createElectronFixtureTempRoot } from "./electron-fixture-temp-root.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 export const desktopRoot = resolve(scriptDir, "../..");
@@ -100,8 +100,8 @@ export async function writeLatestRecordingPointer(name, artifactDir) {
   });
 }
 
-export async function createElectronFixture(name) {
-  const tempRoot = await mkdtemp(join(tmpdir(), `setta-electron-${name}-`));
+export async function createElectronFixture() {
+  const tempRoot = await createElectronFixtureTempRoot();
   const appDataDir = join(tempRoot, "app-data");
   const workspaceRoot = join(tempRoot, "workspace-root");
   await mkdir(appDataDir, { recursive: true });
@@ -109,19 +109,23 @@ export async function createElectronFixture(name) {
   return { appDataDir, tempRoot, workspaceRoot };
 }
 
-export async function readLocalRuntimeAccess(appDataDir) {
-  const path = join(appDataDir, "electron-user-data", "known-runtimes.json");
-  const registry = JSON.parse(await readFile(path, "utf8"));
-  const localRuntime = registry?.runtimes?.find((runtime) => runtime?.is_local === true);
-  if (
-    typeof localRuntime?.base_url !== "string" ||
-    localRuntime.base_url === "" ||
-    typeof localRuntime.device_token !== "string" ||
-    localRuntime.device_token === ""
-  ) {
-    throw new Error("protected runtime registry did not contain local backend access");
-  }
-  return { baseURL: localRuntime.base_url, deviceToken: localRuntime.device_token };
+export async function readCurrentRuntimeCredential(client) {
+  return waitForState(
+    client,
+    `(async () => {
+      try {
+        return await window.setta.runtimes.currentRuntimeCredential();
+      } catch {
+        return null;
+      }
+    })()`,
+    (credential) =>
+      typeof credential?.runtimeId === "string" &&
+      credential.runtimeId !== "" &&
+      typeof credential?.token === "string" &&
+      credential.token !== "",
+    pageLoadTimeoutMs,
+  );
 }
 
 export async function assertArtifactsExcludeMarkers(root, markers, description) {
@@ -261,13 +265,14 @@ export async function clickEnabledButtonByAria(client, label, timeoutMs = stateW
     timeoutMs,
   );
   const clicked = await client.evaluate(`(() => {
-    const button = Array.from(document.querySelectorAll("button")).find((candidate) =>
-      candidate.getAttribute("aria-label") === ${JSON.stringify(label)} &&
-      candidate instanceof HTMLButtonElement &&
-      !candidate.disabled
+    const button = Array.from(document.querySelectorAll("button")).find(
+      (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)}
     );
     if (!(button instanceof HTMLButtonElement)) {
       return { ok: false, reason: "missing-button" };
+    }
+    if (button.disabled) {
+      return { ok: false, reason: "disabled-button" };
     }
     button.click();
     return { ok: true };
@@ -277,54 +282,15 @@ export async function clickEnabledButtonByAria(client, label, timeoutMs = stateW
   }
 }
 
-export async function openFixtureWorkspace(client, timeoutMs = stateWaitTimeoutMs) {
-  const currentWorkspaceId = await selectedWorkspaceId(client).catch(() => "");
-  if (currentWorkspaceId && currentWorkspaceId !== "empty") {
-    return currentWorkspaceId;
-  }
-  const opened = await client.evaluate(`(async () => {
-    const response = await window.setta?.workspace?.openLocalFolder?.();
-    return response?.session?.selectedWorkspaceId ?? "";
-  })()`);
-  if (!opened) {
-    throw new Error("fixture workspace did not open through preload IPC");
-  }
-  await reloadPage(client);
-  await waitForSelector(client, '[data-testid="app-director-shell"]', timeoutMs);
-  await client.installDriver();
-  return waitForState(
-    client,
-    `(async () => {
-      const session = await window.setta?.workspace?.session?.();
-      return session?.selectedWorkspaceId ?? "";
-    })()`,
-    (workspaceId) => workspaceId === opened,
-    timeoutMs,
-  );
-}
-
-async function selectedWorkspaceId(client) {
-  return client.evaluate(`(async () => {
-    const session = await window.setta?.workspace?.session?.();
-    return session?.selectedWorkspaceId ?? "";
-  })()`);
-}
-
 function enabledButtonByAriaExpression(label) {
   return `(() => {
-    const buttons = Array.from(document.querySelectorAll("button")).filter(
+    const button = Array.from(document.querySelectorAll("button")).find(
       (candidate) => candidate.getAttribute("aria-label") === ${JSON.stringify(label)}
     );
-    const button = buttons.find(
-      (candidate) => candidate instanceof HTMLButtonElement && !candidate.disabled
-    );
     if (!(button instanceof HTMLButtonElement)) {
-      return {
-        ready: false,
-        reason: buttons.length === 0 ? "missing-button" : "disabled-button"
-      };
+      return { ready: false, reason: "missing-button" };
     }
-    return { ready: true, reason: "ready" };
+    return { ready: !button.disabled, reason: button.disabled ? "disabled-button" : "ready" };
   })()`;
 }
 
@@ -795,20 +761,10 @@ async function settaPageTarget(debugPort) {
   return targets.find((target) => target.type === "page" && target.title === "Setta") ?? null;
 }
 
-// stopElectron ends the whole tree, not the process we happen to hold.
-//
-// `electron` is a Node wrapper that spawns the real Electron binary as its own
-// child, so signalling the wrapper is no guarantee the app dies with it. A
-// surviving app is reparented to init, keeps its stdout and stderr pointed at
-// the closed pipes of a run that is over, and puts an error dialog in front of
-// whoever is using the machine the next time it tries to log. The descendants
-// are read before anything is signalled, because once the wrapper exits they
-// are nobody's children and cannot be found by walking down from it.
 async function stopElectron(child) {
   if (child.exitCode !== null || child.killed) {
     return;
   }
-  const descendants = await posixDescendantsToSweep(child.pid);
   const exitPromise = new Promise((resolvePromise) => {
     child.once("exit", resolvePromise);
   });
@@ -821,40 +777,6 @@ async function stopElectron(child) {
     child.kill("SIGKILL");
     await Promise.race([exitPromise, delay(3_000)]);
   }
-  await sweepSurvivingProcesses(descendants);
-}
-
-// posixDescendantsToSweep is every process under the wrapper except the wrapper
-// itself, which the caller signals directly. It returns nothing on Windows,
-// where the tree is killed by taskkill instead, and nothing if the process
-// table cannot be read: a teardown sweep is a safety net and must never be the
-// reason a passing run fails.
-async function posixDescendantsToSweep(rootPid) {
-  if (process.platform === "win32" || rootPid === undefined) {
-    return [];
-  }
-  let rows;
-  try {
-    rows = await readPosixProcessTable();
-  } catch {
-    return [];
-  }
-  const processIds = descendantProcessIds(rows, rootPid);
-  if (processIds.has(process.pid)) {
-    throw new Error("refusing to sweep a process tree containing the test controller");
-  }
-  return [...processIds].filter((pid) => pid !== rootPid);
-}
-
-function sweepSurvivingProcesses(processIds) {
-  for (const pid of processIds) {
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch {
-      // Already gone, which is the outcome this is trying to reach.
-    }
-  }
-  return delay(0);
 }
 
 function electronBin() {

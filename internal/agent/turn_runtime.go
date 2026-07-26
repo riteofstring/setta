@@ -14,6 +14,39 @@ func (runtime *Runtime) RunTurn(ctx context.Context, request TurnRequest, sink E
 	if err := validateRunTurn(runtime, request, sink); err != nil {
 		return TurnResult{}, err
 	}
+	if runtime.workloadLease == nil {
+		if err := runtime.admitTurn(ctx); err != nil {
+			return TurnResult{}, err
+		}
+		return runtime.runTurn(ctx, request, sink)
+	}
+	select {
+	case <-ctx.Done():
+		return TurnResult{}, ctx.Err()
+	case <-runtime.workloadSlot:
+	}
+	defer func() {
+		runtime.workloadSlot <- struct{}{}
+	}()
+	if err := runtime.admitTurn(ctx); err != nil {
+		return TurnResult{}, err
+	}
+	return runtime.workloadLease.run(ctx, func(leaseCtx context.Context) (TurnResult, error) {
+		return runtime.runTurn(leaseCtx, request, sink)
+	})
+}
+
+func (runtime *Runtime) admitTurn(ctx context.Context) error {
+	if runtime.admit == nil {
+		return nil
+	}
+	if err := runtime.admit.AdmitTurn(ctx); err != nil {
+		return fmt.Errorf("admit agent turn: %w", err)
+	}
+	return nil
+}
+
+func (runtime *Runtime) runTurn(ctx context.Context, request TurnRequest, sink EventSink) (TurnResult, error) {
 	session, err := runtime.openTurnSession(ctx, request)
 	if err != nil {
 		return TurnResult{}, err
@@ -60,7 +93,7 @@ func (runtime *Runtime) startProviderTurn(ctx context.Context, request TurnReque
 	}
 	raw, err := session.Call(ctx, codexapp.CodexMethodTurnStart, params)
 	if err != nil {
-		return Event{}, providerThreadOperationError("start agent turn", request.ProviderThreadID, err)
+		return Event{}, fmt.Errorf("start agent turn: %w", err)
 	}
 	response, err := codexapp.DecodeTurnStartResponse(raw)
 	if err != nil {
@@ -163,8 +196,8 @@ func (runtime *Runtime) InterruptTurn(ctx context.Context, request TurnControlRe
 }
 
 // InterruptProviderTurn targets a provider-owned turn without requiring the
-// in-memory RunTurn attachment. Side disposal uses it while the current process
-// still owns the ephemeral carrier but no local RunTurn attachment remains.
+// in-memory RunTurn attachment. It is used to clean up ephemeral threads after
+// a Setta restart, when no local active-turn session can exist.
 func (runtime *Runtime) InterruptProviderTurn(ctx context.Context, threadID string, turnID string) error {
 	if strings.TrimSpace(threadID) == "" || strings.TrimSpace(turnID) == "" {
 		return errors.New("provider turn interruption requires thread and turn ids")
@@ -180,6 +213,42 @@ func (runtime *Runtime) InterruptProviderTurn(ctx context.Context, threadID stri
 		return fmt.Errorf("decode provider turn interruption %s: %w", turnID, err)
 	}
 	return nil
+}
+
+func (runtime *Runtime) ReconcileTurn(ctx context.Context, threadID string, turnID string) (TurnResult, bool, error) {
+	if strings.TrimSpace(threadID) == "" || strings.TrimSpace(turnID) == "" {
+		return TurnResult{}, false, errors.New("reconcile requires provider thread and turn ids")
+	}
+	raw, err := runtime.manager.Call(ctx, codexapp.CodexMethodThreadRead, codexapp.ThreadReadParams{
+		ThreadID:     threadID,
+		IncludeTurns: boolPointer(true),
+	})
+	if err != nil {
+		return TurnResult{}, false, fmt.Errorf("reconcile agent turn %s: %w", turnID, err)
+	}
+	response, err := codexapp.DecodeThreadReadResponse(raw)
+	if err != nil {
+		return TurnResult{}, false, fmt.Errorf("decode agent turn reconciliation %s: %w", turnID, err)
+	}
+	for _, turn := range response.Thread.Turns {
+		if turn.ID != turnID {
+			continue
+		}
+		if turn.Status == codexapp.TurnStatusInProgress {
+			return TurnResult{ProviderThreadID: threadID, ProviderTurnID: turnID}, true, nil
+		}
+		outcome, message, err := terminalOutcome(turn)
+		if err != nil {
+			return TurnResult{}, false, err
+		}
+		return TurnResult{
+			ProviderThreadID: threadID,
+			ProviderTurnID:   turnID,
+			Outcome:          outcome,
+			Error:            message,
+		}, false, nil
+	}
+	return TurnResult{}, false, fmt.Errorf("provider thread %s does not contain turn %s", threadID, turnID)
 }
 
 func turnStartParams(request TurnRequest) (codexapp.TurnStartParams, error) {
@@ -235,4 +304,8 @@ func emitAgentEvent(sink EventSink, event Event) error {
 		return err
 	}
 	return sink.HandleAgentEvent(event)
+}
+
+func boolPointer(value bool) *bool {
+	return &value
 }

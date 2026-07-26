@@ -66,60 +66,6 @@ func TestModelResolverUsesOnlyEffectiveNarratorOverride(t *testing.T) {
 	assertRestrictedNarratorInvocation(t, resolution.Invocation)
 }
 
-func TestModelResolverUsesEffectiveNarratorProfileWithoutAWorkspace(t *testing.T) {
-	profile := conversation.DefaultNarratorRoleProfile()
-	modelID := "gpt-unbound-narrator"
-	profile.ModelSelection.ModelID = &modelID
-	profile.ContextBudget.MaxInputBytes--
-	profiles := &modelResolverProfileSource{profile: &profile}
-	catalog := &modelResolverCatalog{}
-	resolver := newTestModelResolver(t, profiles, catalog)
-
-	resolution, err := resolver.Resolve(
-		context.Background(),
-		"",
-		"conversation-unbound-narrator",
-	)
-	if err != nil {
-		t.Fatalf("Resolve unbound narrator: %v", err)
-	}
-	if profiles.calls != 1 || profiles.workspaceID != nil ||
-		resolution.RequestedProfile.ModelSelection.ModelID == nil ||
-		*resolution.RequestedProfile.ModelSelection.ModelID != modelID {
-		t.Fatalf(
-			"unbound narrator profile source = calls:%d workspace:%v resolution:%+v",
-			profiles.calls,
-			profiles.workspaceID,
-			resolution,
-		)
-	}
-}
-
-func TestServiceAttemptContextLimitsUseEffectiveProfileWithoutAWorkspace(t *testing.T) {
-	profile := conversation.DefaultNarratorRoleProfile()
-	profile.ContextBudget.MaxInputBytes--
-	profiles := &modelResolverProfileSource{profile: &profile}
-	worker := &serviceAttemptWorker{profiles: profiles}
-
-	limits, err := worker.contextLimits(
-		context.Background(),
-		"",
-		"conversation-unbound-attempt",
-	)
-	if err != nil {
-		t.Fatalf("contextLimits: %v", err)
-	}
-	if profiles.calls != 1 || profiles.workspaceID != nil ||
-		limits.MaxInputBytes != profile.ContextBudget.MaxInputBytes {
-		t.Fatalf(
-			"unbound attempt limits = %+v, calls:%d workspace:%v",
-			limits,
-			profiles.calls,
-			profiles.workspaceID,
-		)
-	}
-}
-
 func TestModelResolverRejectsUnsafeNarratorOverridesBeforeCatalogLookup(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -269,28 +215,18 @@ func TestModelResolverValidatesConstructionAndRequests(t *testing.T) {
 }
 
 type modelResolverProfileSource struct {
-	builtIn        conversation.RoleProfile
-	profile        *conversation.RoleProfile
-	err            error
-	calls          int
-	workspaceID    *string
-	conversationID string
+	builtIn conversation.RoleProfile
+	profile *conversation.RoleProfile
+	err     error
 }
 
 func (source *modelResolverProfileSource) ReadEffectiveRoleProfile(
 	_ context.Context,
-	workspaceID *string,
-	conversationID string,
+	_ string,
+	_ string,
 	builtIn conversation.RoleProfile,
 ) (conversation.RoleProfile, error) {
 	source.builtIn = builtIn
-	source.calls++
-	source.workspaceID = nil
-	if workspaceID != nil {
-		value := *workspaceID
-		source.workspaceID = &value
-	}
-	source.conversationID = conversationID
 	if source.err != nil {
 		return conversation.RoleProfile{}, source.err
 	}

@@ -22,32 +22,34 @@ func TestServiceExecutesAIAuthoredSideAndForkThroughOneValidatedBoundary(t *test
 
 	forked, err := service.ExecuteBranchDecision(
 		ctx,
-		&workspaceID,
+		workspaceID,
 		BranchDecisionExecutionScope{
 			ParentConversationID: parent.Conversation.ID,
-			Source:               BranchDecisionSourceDirector,
+			Source:               BranchDecisionSourceMaster,
 		},
 		BranchDecision{
 			Kind: BranchDecisionKindForkConversation,
 			ForkConversation: &ForkConversationBranchDecision{
 				ForkedAtTurnID: latestSnapshotTurn(completed).ID,
-				ProposedTitle:  "Director-authored fork",
+				ProposedTitle:  "Master-authored fork",
 			},
 		},
 	)
 	if err != nil {
 		t.Fatalf("ExecuteBranchDecision fork: %v", err)
 	}
-	if forked.Branch == nil || forked.Branch.DecisionSource != BranchDecisionSourceDirector {
-		t.Fatalf("routed fork audit = %+v", forked.Branch)
+	if forked.Branch == nil || forked.Branch.DecisionSource != BranchDecisionSourceMaster {
+		t.Fatalf("master fork audit = %+v", forked.Branch)
 	}
 
+	paneID := "pane-local-router"
 	sided, err := service.ExecuteBranchDecision(
 		ctx,
-		&workspaceID,
+		workspaceID,
 		BranchDecisionExecutionScope{
 			ParentConversationID: parent.Conversation.ID,
-			Source:               BranchDecisionSourceDirector,
+			ParentPaneID:         &paneID,
+			Source:               BranchDecisionSourceConversationRouter,
 		},
 		BranchDecision{
 			Kind:                   BranchDecisionKindCreateSideConversation,
@@ -58,13 +60,14 @@ func TestServiceExecutesAIAuthoredSideAndForkThroughOneValidatedBoundary(t *test
 		t.Fatalf("ExecuteBranchDecision side: %v", err)
 	}
 	side := requireOnlySideConversation(t, sided)
-	if side.DecisionSource != BranchDecisionSourceDirector {
+	if side.ParentPaneID != paneID || side.DecisionSource != BranchDecisionSourceConversationRouter {
 		t.Fatalf("local side audit = %+v", side)
 	}
 	if _, err := service.DisposeSideConversation(
 		ctx,
 		workspaceID,
 		parent.Conversation.ID,
+		paneID,
 		side.ID,
 	); err != nil {
 		t.Fatalf("DisposeSideConversation: %v", err)
@@ -75,17 +78,17 @@ func TestServiceRejectsMalformedBranchDecisionBeforeProviderExecution(t *testing
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	_, err := service.ExecuteBranchDecision(
 		context.Background(),
-		&workspaceID,
+		workspaceID,
 		BranchDecisionExecutionScope{
 			ParentConversationID: "conversation-missing",
-			Source:               BranchDecisionSourceDirector,
+			Source:               BranchDecisionSourceConversationRouter,
 		},
 		BranchDecision{Kind: BranchDecisionKindCreateSideConversation},
 	)
 	if err == nil {
 		t.Fatal("ExecuteBranchDecision accepted malformed side decision")
 	}
-	if starts := runtime.startThreadRequests(); len(starts) != 0 {
-		t.Fatalf("malformed decision reached provider: %+v", starts)
+	if durable, sides := runtime.durableForkRequests(), runtime.sideForkRequests(); len(durable) != 0 || len(sides) != 0 {
+		t.Fatalf("malformed decision reached provider: durable=%+v sides=%+v", durable, sides)
 	}
 }

@@ -6,14 +6,11 @@ import (
 )
 
 // ExecuteBranchDecision is the only service entry point that dispatches a
-// side/fork decision. The workspace is optional because a fork inherits the
-// parent's scope, and a folderless conversation is a first-class one: work that
-// needs none of the user's files can be branched the same as work that does. A
-// side conversation is the exception — it runs an agent in the user's folder, so
-// it cannot start without one.
+// side/fork decision. Constrained routing actors supply different trusted
+// sources but share the same validation and provider-reference resolution.
 func (service *Service) ExecuteBranchDecision(
 	ctx context.Context,
-	workspaceID *string,
+	workspaceID string,
 	scope BranchDecisionExecutionScope,
 	decision BranchDecision,
 ) (ConversationSnapshot, error) {
@@ -26,10 +23,8 @@ func (service *Service) ExecuteBranchDecision(
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	if workspaceID != nil {
-		if err := validateIdentifier("branch decision workspace id", *workspaceID); err != nil {
-			return ConversationSnapshot{}, err
-		}
+	if err := validateIdentifier("branch decision workspace id", workspaceID); err != nil {
+		return ConversationSnapshot{}, err
 	}
 	if err := scope.Validate(decision); err != nil {
 		return ConversationSnapshot{}, err
@@ -37,20 +32,16 @@ func (service *Service) ExecuteBranchDecision(
 
 	switch decision.Kind {
 	case BranchDecisionKindCreateSideConversation:
-		if workspaceID == nil {
-			return ConversationSnapshot{}, errors.New(
-				"side conversation branch decision requires a workspace",
-			)
-		}
 		return service.executeSideConversationDecision(
 			ctx,
-			*workspaceID,
+			workspaceID,
 			scope.ParentConversationID,
+			*scope.ParentPaneID,
 			scope.SideConversationID,
 			scope.Source,
 		)
 	case BranchDecisionKindForkConversation:
-		return service.executeBranchDecision(
+		return service.executeDurableForkDecision(
 			ctx,
 			workspaceID,
 			scope.ParentConversationID,

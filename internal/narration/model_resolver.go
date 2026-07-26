@@ -12,7 +12,7 @@ import (
 type RoleProfileSource interface {
 	ReadEffectiveRoleProfile(
 		context.Context,
-		*string,
+		string,
 		string,
 		conversation.RoleProfile,
 	) (conversation.RoleProfile, error)
@@ -66,12 +66,20 @@ func (resolver *ModelResolver) Resolve(
 	if ctx == nil {
 		return ModelResolution{}, errors.New("narrator model resolution context is required")
 	}
+	if err := validateIdentifier("narrator model workspace id", workspaceID); err != nil {
+		return ModelResolution{}, err
+	}
 	if err := validateIdentifier("narrator model conversation id", conversationID); err != nil {
 		return ModelResolution{}, err
 	}
-	profile, err := resolver.resolveRoleProfile(ctx, workspaceID, conversationID)
+	profile, err := resolver.profiles.ReadEffectiveRoleProfile(
+		ctx,
+		workspaceID,
+		conversationID,
+		conversation.DefaultNarratorRoleProfile(),
+	)
 	if err != nil {
-		return ModelResolution{}, err
+		return ModelResolution{}, fmt.Errorf("read narrator role profile for conversation %s: %w", conversationID, err)
 	}
 	invocation, err := narratorInvocation(profile)
 	if err != nil {
@@ -95,31 +103,6 @@ func (resolver *ModelResolver) Resolve(
 		Invocation:       invocation,
 		Settings:         settings,
 	}, nil
-}
-
-func (resolver *ModelResolver) resolveRoleProfile(
-	ctx context.Context,
-	workspaceID string,
-	conversationID string,
-) (conversation.RoleProfile, error) {
-	profile := conversation.DefaultNarratorRoleProfile()
-	var workspaceBindingID *string
-	if workspaceID != "" {
-		if err := validateIdentifier("narrator model workspace id", workspaceID); err != nil {
-			return conversation.RoleProfile{}, err
-		}
-		workspaceBindingID = &workspaceID
-	}
-	profile, err := resolver.profiles.ReadEffectiveRoleProfile(
-		ctx,
-		workspaceBindingID,
-		conversationID,
-		profile,
-	)
-	if err != nil {
-		return conversation.RoleProfile{}, fmt.Errorf("read narrator role profile for conversation %s: %w", conversationID, err)
-	}
-	return profile, nil
 }
 
 func validatedNarratorSettings(

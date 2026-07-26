@@ -277,14 +277,12 @@ export function RoleConfigurationForm({ configuration, onSave }: RoleConfigurati
                 setDrafts(roleDrafts(configuration));
                 setError(null);
               }}
-              size="sm"
               type="button"
-              variant="outline"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               Revert
             </Button>
-            <Button disabled={!dirty || saving} size="sm" type="submit">
+            <Button disabled={!dirty || saving} type="submit" variant="primary">
               {saving ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
@@ -468,9 +466,7 @@ function RoleProfileCard({
       <Button
         disabled={disabled || (draft.clearOverride && configuration.override === null)}
         onClick={onReset}
-        size="sm"
         type="button"
-        variant="outline"
       >
         {roleResetButtonLabel(scope, metadata.label)}
       </Button>
@@ -633,9 +629,9 @@ const roleMetadata = {
     description: "Lightweight projection, status, and local routing role.",
     label: "Narrator",
   },
-  director: {
-    description: "App-wide workstream decisions and routing.",
-    label: "Director",
+  master: {
+    description: "Restricted global topic discovery and routing role.",
+    label: "Master",
   },
   side_agent: {
     description: "Read-only focused follow-up and side-conversation role.",

@@ -5,52 +5,79 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"setta/internal/agent"
 )
 
-// executeBranchDecision creates a child conversation that continues the parent
-// from one completed Setta turn.
-//
-// The branch point is a Setta turn id and nothing else. The child gets no
-// provider thread here: its first turn starts an ephemeral carrier and replays
-// the parent's Setta history up to this boundary, so branching costs the product
-// no provider history and works the same whether or not the parent ever ran in
-// this process.
-func (service *Service) executeBranchDecision(
+const (
+	branchMetadataProviderForkThreadID   = "providerForkThreadId"
+	branchMetadataSourceProviderThreadID = "sourceProviderThreadId"
+	branchMetadataSourceProviderTurnID   = "sourceProviderTurnId"
+)
+
+func (service *Service) executeDurableForkDecision(
 	ctx context.Context,
-	workspaceID *string,
+	workspaceID string,
 	parentConversationID string,
 	forkedAtTurnID string,
 	title string,
 	requestedChildConversationID *string,
 	decisionSource BranchDecisionSource,
 ) (ConversationSnapshot, error) {
-	sourceTrajectorySequence, err := service.branchSourceTrajectorySequence(
-		ctx,
-		workspaceID,
-		parentConversationID,
-		forkedAtTurnID,
-	)
+	workspaceSummary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
+	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+
+	source, err := service.prepareDurableForkSource(ctx, workspaceID, parentConversationID, forkedAtTurnID)
+	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	invocation, err := service.resolveDurableForkInvocation(ctx, workspaceID)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
 	childConversationID, err := service.branchConversationID(
 		requestedChildConversationID,
 		"conversation",
-		"director child conversation id",
+		"routed child conversation id",
 	)
 	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	thread, err := service.agent.ForkThread(ctx, agent.ForkThreadRequest{
+		ParentThreadID:        source.providerThreadID,
+		LastTurnID:            &source.providerTurnID,
+		WorkspaceRoot:         workspaceSummary.RootPath,
+		Invocation:            invocation,
+		DeveloperInstructions: topicAgentDeveloperInstructions(),
+		DynamicTools:          service.topicAgentArtifactTools(workspaceID, childConversationID, ""),
+	})
+	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	if err := validateDurableForkThread(thread, source.providerThreadID); err != nil {
+		service.unsubscribeRejectedDurableFork(thread.ID, source.providerThreadID)
 		return ConversationSnapshot{}, err
 	}
 
 	now := service.timestamp()
 	conversation := TopicConversation{
 		ID:              childConversationID,
-		WorkspaceID:     cloneOptionalStringValue(workspaceID),
+		WorkspaceID:     workspaceID,
 		Title:           title,
 		TopicDescriptor: title,
 		Status:          ConversationStatusIdle,
 		CreatedAt:       now,
 		UpdatedAt:       now,
+	}
+	binding := AgentThreadBinding{
+		ConversationID:   childConversationID,
+		Provider:         ProviderCodex,
+		ThreadID:         thread.ID,
+		Status:           ThreadBindingStatusLinked,
+		CreatedAt:        now,
+		ProviderMetadata: map[string]string{"model": thread.Model},
 	}
 	narrator := NarratorState{
 		ConversationID:  childConversationID,
@@ -64,8 +91,13 @@ func (service *Service) executeBranchDecision(
 		Kind:                     BranchKindFork,
 		DecisionSource:           decisionSource,
 		ForkedAtTurnID:           forkedAtTurnID,
-		SourceTrajectorySequence: sourceTrajectorySequence,
-		CreatedAt:                now,
+		SourceTrajectorySequence: source.trajectorySequence,
+		ProviderMetadata: map[string]string{
+			branchMetadataProviderForkThreadID:   thread.ID,
+			branchMetadataSourceProviderThreadID: source.providerThreadID,
+			branchMetadataSourceProviderTurnID:   source.providerTurnID,
+		},
+		CreatedAt: now,
 	}
 
 	service.createMu.Lock()
@@ -83,6 +115,7 @@ func (service *Service) executeBranchDecision(
 		return service.persistCreatedConversation(
 			ctx,
 			conversation,
+			binding,
 			narrator,
 			presentation,
 			&branch,
@@ -90,41 +123,70 @@ func (service *Service) executeBranchDecision(
 	})
 	service.createMu.Unlock()
 	if err != nil {
+		_ = service.agent.UnsubscribeThread(context.Background(), thread.ID)
 		return ConversationSnapshot{}, err
 	}
-	return service.readBranchSnapshot(ctx, workspaceID, childConversationID)
+	return service.store.ReadSnapshot(ctx, workspaceID, childConversationID)
 }
 
-// readBranchSnapshot reads the child back through whichever scope it was created
-// in. A folder-bound child is read through its workspace so the read is checked
-// against the same scope it was written under; a folderless one has no workspace
-// to check it against.
-func (service *Service) readBranchSnapshot(
-	ctx context.Context,
-	workspaceID *string,
-	childConversationID string,
-) (ConversationSnapshot, error) {
-	if workspaceID == nil {
-		return service.store.ReadSnapshotByID(ctx, childConversationID)
+func (service *Service) unsubscribeRejectedDurableFork(threadID string, parentThreadID string) {
+	if threadID == "" || threadID == parentThreadID {
+		return
 	}
-	return service.store.ReadSnapshot(ctx, *workspaceID, childConversationID)
+	_ = service.agent.UnsubscribeThread(context.Background(), threadID)
 }
 
-// branchSourceTrajectorySequence proves the branch point is a completed turn of
-// the parent and reports where in the parent's trajectory the child inherits up
-// to.
-func (service *Service) branchSourceTrajectorySequence(
+func (service *Service) resolveDurableForkInvocation(
 	ctx context.Context,
-	workspaceID *string,
+	workspaceID string,
+) (agent.Invocation, error) {
+	profile, err := service.store.ReadEffectiveWorkspaceRoleProfile(
+		ctx,
+		workspaceID,
+		DefaultAgentRoleProfile(),
+	)
+	if err != nil {
+		return agent.Invocation{}, fmt.Errorf("read durable fork agent role profile: %w", err)
+	}
+	invocation, err := agentInvocation(profile)
+	if err != nil {
+		return agent.Invocation{}, err
+	}
+	resolved, err := service.agent.ResolveInvocation(ctx, invocation)
+	if err != nil {
+		return agent.Invocation{}, fmt.Errorf("resolve durable fork agent profile: %w", err)
+	}
+	if err := validatePrimaryAgentModelResolution(invocation, resolved); err != nil {
+		return agent.Invocation{}, fmt.Errorf("validate durable fork agent profile: %w", err)
+	}
+	return invocation, nil
+}
+
+type durableForkSource struct {
+	providerThreadID   string
+	providerTurnID     string
+	trajectorySequence int
+}
+
+func (service *Service) prepareDurableForkSource(
+	ctx context.Context,
+	workspaceID string,
 	parentConversationID string,
 	forkedAtTurnID string,
-) (int, error) {
+) (durableForkSource, error) {
 	lock := service.conversationLock(parentConversationID)
 	lock.Lock()
 	defer lock.Unlock()
 
-	if _, err := service.snapshotLocked(ctx, workspaceID, parentConversationID); err != nil {
-		return 0, err
+	snapshot, err := service.snapshotLocked(ctx, workspaceID, parentConversationID)
+	if err != nil {
+		return durableForkSource{}, err
+	}
+	if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.Status != ThreadBindingStatusLinked {
+		return durableForkSource{}, &CommandConflictError{
+			ConversationID: parentConversationID,
+			Reason:         "durable fork requires a linked parent agent thread",
+		}
 	}
 	turn, sourceTrajectorySequence, found, err := service.store.readConversationTurn(
 		ctx,
@@ -132,15 +194,19 @@ func (service *Service) branchSourceTrajectorySequence(
 		forkedAtTurnID,
 	)
 	if err != nil {
-		return 0, err
+		return durableForkSource{}, err
 	}
-	if !found || turn.Status != TurnStatusCompleted {
-		return 0, &CommandConflictError{
+	if !found || turn.Status != TurnStatusCompleted || turn.ProviderTurnID == nil {
+		return durableForkSource{}, &CommandConflictError{
 			ConversationID: parentConversationID,
 			Reason:         "fork source must be a completed turn of the parent conversation",
 		}
 	}
-	return sourceTrajectorySequence, nil
+	return durableForkSource{
+		providerThreadID:   snapshot.ThreadBinding.ThreadID,
+		providerTurnID:     *turn.ProviderTurnID,
+		trajectorySequence: sourceTrajectorySequence,
+	}, nil
 }
 
 func (store *Store) readConversationTurn(
@@ -178,10 +244,26 @@ SELECT COALESCE(MAX(sequence), 0)
 FROM trajectory_events
 WHERE conversation_id = ? AND turn_id = ?
 `, conversationID, turnID).Scan(&trajectorySequence); err != nil {
-			return fmt.Errorf("read branch source trajectory sequence: %w", err)
+			return fmt.Errorf("read durable fork source trajectory sequence: %w", err)
 		}
 		found = true
 		return nil
 	})
 	return turn, trajectorySequence, found, err
+}
+
+func validateDurableForkThread(thread agent.Thread, parentThreadID string) error {
+	if err := thread.Validate(); err != nil {
+		return fmt.Errorf("provider returned an invalid durable fork thread: %w", err)
+	}
+	if thread.Ephemeral {
+		return errors.New("provider returned an ephemeral thread for a durable fork")
+	}
+	if thread.ID == parentThreadID {
+		return errors.New("provider durable fork reused the parent thread id")
+	}
+	if thread.ForkedFromID == nil || *thread.ForkedFromID != parentThreadID {
+		return fmt.Errorf("provider durable fork lineage does not match parent thread %s", parentThreadID)
+	}
+	return nil
 }

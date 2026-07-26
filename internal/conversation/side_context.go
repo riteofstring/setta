@@ -61,10 +61,11 @@ type SideInFlightApprovalQuestion struct {
 }
 
 type SideInFlightArtifactMetadata struct {
-	ID                 string `json:"id"`
-	TrajectorySequence int    `json:"trajectorySequence"`
-	Title              string `json:"title"`
-	CreatedAt          string `json:"createdAt"`
+	ID                 string       `json:"id"`
+	TrajectorySequence int          `json:"trajectorySequence"`
+	Kind               ArtifactKind `json:"kind"`
+	Title              string       `json:"title"`
+	CreatedAt          string       `json:"createdAt"`
 }
 
 func (frame SideInFlightContextFrame) Validate() error {
@@ -233,18 +234,29 @@ func (artifact SideInFlightArtifactMetadata) validate(sourceSequence int) error 
 	if artifact.TrajectorySequence <= 0 || artifact.TrajectorySequence > sourceSequence {
 		return fmt.Errorf("artifact %s has invalid source sequence", artifact.ID)
 	}
-	// The frame carries artifact identity only, so identity is what gets
-	// validated here — field by field, rather than by borrowing the full
-	// metadata validator, which checks what a published artifact must have
-	// rather than what this frame carries. Document acceptance already happened
-	// before the artifact was published, and re-compiling stored source per side
-	// frame would cost more than it proves.
-	if err := validateIdentifier("side in-flight artifact id", artifact.ID); err != nil {
-		return err
+	sequence := artifact.TrajectorySequence
+	record := Artifact{
+		ID:                 artifact.ID,
+		ConversationID:     "side-context-conversation",
+		TrajectorySequence: &sequence,
+		Kind:               artifact.Kind,
+		Title:              artifact.Title,
+		CreatedAt:          artifact.CreatedAt,
 	}
-	if err := validateRequiredArtifactText("side in-flight artifact title", artifact.Title); err != nil {
-		return err
+	switch artifact.Kind {
+	case ArtifactKindMarkdown:
+		record.Markdown = &MarkdownArtifactPayload{Markdown: "metadata-only side context validation"}
+	case ArtifactKindTable:
+		record.Table = &TableArtifactPayload{
+			Columns: []ArtifactTableColumn{{Key: "artifact", Label: "Artifact"}},
+			Rows:    [][]string{},
+		}
+	case ArtifactKindBarChart:
+		record.BarChart = &BarChartArtifactPayload{
+			Items: []BarChartArtifactItem{{Label: "Artifact", Value: 1}},
+		}
+	case ArtifactKindFile:
+		record.File = &FileArtifactPayload{Path: "side-context-artifact"}
 	}
-	_, err := validateTimestamp("side in-flight artifact createdAt", artifact.CreatedAt)
-	return err
+	return record.Validate()
 }

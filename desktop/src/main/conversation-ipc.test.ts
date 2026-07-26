@@ -1,4 +1,4 @@
-import type { BackendClient } from "@generated/backend";
+import type { BackendClient, SubmitConversationInputRequest } from "@generated/backend";
 import type { IpcMain, IpcMainInvokeEvent } from "electron";
 import { ipcChannels } from "@shared/ipc";
 import { describe, expect, test, vi } from "vitest";
@@ -16,14 +16,89 @@ describe("conversation IPC handlers", () => {
     const snapshot = { conversation: { id: "conversation_api" } };
     const backendMethods = {
       archiveTopicConversation: vi.fn(async () => snapshot),
-      bindTopicConversationFolder: vi.fn(async () => snapshot),
       disposeSideConversation: vi.fn(async () => snapshot),
+      discardConversationInput: vi.fn(async () => ({
+        clarificationReply: null,
+        decisions: [],
+        input: {
+          acceptedAt: "2026-07-12T18:00:01Z",
+          failure: {
+            code: "conversation_input_discarded",
+            diagnosticReference: "",
+            message: "The conversation input was discarded.",
+            retryable: false,
+          },
+          input: conversationInputRequest().input,
+          routingAttempt: 0,
+          routingStartedAt: null,
+          sequence: 1,
+          status: "failed" as const,
+        },
+      })),
       createTopicConversation: vi.fn(async () => snapshot),
       listTopicConversations,
+      readConversationInputRoutingState: vi.fn(async () => ({
+        clarificationReply: null,
+        decisions: [],
+        input: {
+          acceptedAt: "2026-07-12T18:00:01Z",
+          failure: null,
+          input: conversationInputRequest().input,
+          routingAttempt: 0,
+          routingStartedAt: null,
+          sequence: 1,
+          status: "accepted" as const,
+        },
+      })),
+      waitConversationInputRoutingState: vi.fn(async () => ({
+        clarificationReply: null,
+        decisions: [],
+        input: {
+          acceptedAt: "2026-07-12T18:00:01Z",
+          failure: null,
+          input: conversationInputRequest().input,
+          routingAttempt: 0,
+          routingStartedAt: null,
+          sequence: 1,
+          status: "accepted" as const,
+        },
+      })),
       readConversationSnapshot: vi.fn(async () => snapshot),
+      retryConversationInput: vi.fn(async () => ({
+        clarificationReply: null,
+        decisions: [],
+        input: {
+          acceptedAt: "2026-07-12T18:00:01Z",
+          failure: null,
+          input: conversationInputRequest().input,
+          routingAttempt: 1,
+          routingStartedAt: null,
+          sequence: 1,
+          status: "accepted" as const,
+        },
+      })),
       sendSideConversationTurn: vi.fn(async () => snapshot),
       stopTopicConversationTurn: vi.fn(async () => snapshot),
+      submitConversationInput: vi.fn(async (request: SubmitConversationInputRequest) => ({
+        acceptedAt: "2026-07-12T18:00:01Z",
+        input: request.input,
+        sequence: 1,
+        status: "accepted" as const,
+      })),
       submitTopicConversationApproval: vi.fn(async () => snapshot),
+      updateTopicConversationPresentation: vi.fn(async () => ({
+        conversationId: "conversation_api",
+        narratorSpeechEnabled: true,
+        narratorVoiceReuse: null,
+        narratorVoiceSelection: "exact" as const,
+        paletteReuse: null,
+        paletteSelection: "auto_distinct" as const,
+        requestedNarratorVoiceId: "cedar" as const,
+        requestedPaletteId: null,
+        resolvedNarratorVoiceId: "cedar" as const,
+        resolvedPaletteId: "sky" as const,
+        updatedAt: "2026-07-12T18:00:00Z",
+      })),
     };
     const backend = backendMethods as unknown as BackendClient;
     const conversationEvents = {
@@ -51,6 +126,7 @@ describe("conversation IPC handlers", () => {
     };
     const sideDisposeRequest = {
       parentConversationId: "conversation_api",
+      parentPaneId: "pane_api",
       sideConversationId: "side_api",
       workspaceId: "workspace_api",
     };
@@ -61,13 +137,34 @@ describe("conversation IPC handlers", () => {
       workspaceId: "workspace_api",
     });
     await invokeHandler(handlers, ipcChannels.conversationArchiveTopic, target);
-    await invokeHandler(handlers, ipcChannels.conversationBindFolder, target);
     await invokeHandler(handlers, ipcChannels.conversationReadSnapshot, target);
     await invokeHandler(handlers, ipcChannels.conversationStopTurn, target);
+    const inputRequest = conversationInputRequest();
+    await invokeHandler(handlers, ipcChannels.conversationSubmitInput, inputRequest);
+    const inputStateRequest = {
+      ...target,
+      inputId: inputRequest.input.id,
+    };
+    await invokeHandler(handlers, ipcChannels.conversationReadInputState, inputStateRequest);
+    await invokeHandler(handlers, ipcChannels.conversationWaitInputState, inputStateRequest);
+    await invokeHandler(handlers, ipcChannels.conversationRetryInput, inputStateRequest);
+    await invokeHandler(handlers, ipcChannels.conversationDiscardInput, inputStateRequest);
     await invokeHandler(handlers, ipcChannels.conversationSubmitApproval, {
       ...target,
       response: { answers: [], approvalId: "approval", decision: "approved", response: "" },
     });
+    const presentationRequest = {
+      ...target,
+      settings: {
+        narratorSpeechEnabled: false,
+        narratorVoiceSelection: {
+          requestedVoiceId: "cedar" as const,
+          selection: "exact" as const,
+        },
+        paletteSelection: { requestedPaletteId: "violet" as const, selection: "exact" as const },
+      },
+    };
+    await invokeHandler(handlers, ipcChannels.conversationUpdatePresentation, presentationRequest);
     const subscription = {
       ...target,
       cursor: { sequence: 4, streamId: "conversation:conversation_api" },
@@ -88,9 +185,20 @@ describe("conversation IPC handlers", () => {
       workspaceId: "workspace_api",
     });
     expect(backendMethods.archiveTopicConversation).toHaveBeenCalledWith(target);
-    expect(backendMethods.bindTopicConversationFolder).toHaveBeenCalledWith(target);
     expect(backendMethods.readConversationSnapshot).toHaveBeenCalledWith(target);
     expect(backendMethods.stopTopicConversationTurn).toHaveBeenCalledWith(target);
+    expect(backendMethods.submitConversationInput).toHaveBeenCalledWith(inputRequest);
+    expect(backendMethods.readConversationInputRoutingState).toHaveBeenCalledWith(
+      inputStateRequest,
+    );
+    expect(backendMethods.waitConversationInputRoutingState).toHaveBeenCalledWith(
+      inputStateRequest,
+    );
+    expect(backendMethods.retryConversationInput).toHaveBeenCalledWith(inputStateRequest);
+    expect(backendMethods.discardConversationInput).toHaveBeenCalledWith(inputStateRequest);
+    expect(backendMethods.updateTopicConversationPresentation).toHaveBeenCalledWith(
+      presentationRequest,
+    );
     expect(conversationEvents.subscribe).toHaveBeenCalledWith(
       sender,
       subscription,
@@ -99,6 +207,20 @@ describe("conversation IPC handlers", () => {
     expect(conversationEvents.release).toHaveBeenCalledWith(sender, target, true);
   });
 });
+
+function conversationInputRequest(): SubmitConversationInputRequest {
+  return {
+    input: {
+      conversationId: "conversation_api",
+      id: "input_api",
+      modality: "voice",
+      replyToInputId: null,
+      sourcePaneId: "pane_api",
+      submittedAt: "2026-07-12T18:00:00Z",
+      text: "Route this pane input",
+    },
+  };
+}
 
 type ConversationHandler = Parameters<IpcMain["handle"]>[1];
 

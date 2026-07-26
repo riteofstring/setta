@@ -13,8 +13,8 @@ func readNarratorTurnArtifacts(
 	turnID string,
 ) ([]Artifact, error) {
 	rows, err := reader.QueryContext(ctx, `
-SELECT id, conversation_id, turn_id, trajectory_sequence, title, kind,
-       summary, language, catalog_id, source, created_at
+SELECT id, conversation_id, turn_id, trajectory_sequence, kind, title,
+       markdown_json, table_json, bar_chart_json, file_json, created_at
 FROM artifacts
 WHERE conversation_id = ? AND turn_id = ?
 ORDER BY created_at ASC, id ASC
@@ -129,7 +129,7 @@ func queryNarratorTrajectory(
 ) ([]TrajectoryEvent, error) {
 	query := `
 SELECT id, conversation_id, turn_id, sequence, emitted_at, kind, actor,
-       provider_event_id, provider_turn_id, payload_json
+       provider_event_id, provider_thread_id, provider_turn_id, payload_json
 FROM trajectory_events
 WHERE conversation_id = ? AND sequence BETWEEN ? AND ?
 ORDER BY sequence ` + order + `

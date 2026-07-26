@@ -12,22 +12,27 @@ func TestAppearanceEndpointsReadAndUpdateSettings(t *testing.T) {
 	handler := newAppearanceHandler(t)
 
 	initial := getJSON[appearance.AppearanceSettings](t, handler, "/appearance/settings", http.StatusOK)
+	if initial.Mode != appearance.ColorModeDark {
+		t.Fatalf("initial mode = %q, want dark", initial.Mode)
+	}
 
 	next := initial
+	next.Mode = appearance.ColorModeLight
 	next.Fonts.Heading = `"Work Sans", ui-sans-serif, sans-serif`
+	next.Developer.ShowPerformanceStats = true
 	updated := postJSON[appearance.AppearanceSettings](t, handler, "/appearance/settings", UpdateAppearanceSettingsRequest{
 		Settings: next,
 	}, http.StatusOK)
-	if updated.Fonts.Heading != next.Fonts.Heading {
-		t.Fatalf("updated heading font = %q, want %q", updated.Fonts.Heading, next.Fonts.Heading)
+	if updated.Mode != appearance.ColorModeLight {
+		t.Fatalf("updated mode = %q, want light", updated.Mode)
 	}
 
 	reloaded := getJSON[appearance.AppearanceSettings](t, handler, "/appearance/settings", http.StatusOK)
 	if reloaded.Fonts.Heading != next.Fonts.Heading {
 		t.Fatalf("heading font = %q, want %q", reloaded.Fonts.Heading, next.Fonts.Heading)
 	}
-	if reloaded.SchemaVersion != appearance.SchemaVersion {
-		t.Fatalf("schema version = %d, want %d", reloaded.SchemaVersion, appearance.SchemaVersion)
+	if !reloaded.Developer.ShowPerformanceStats {
+		t.Fatal("performance stats setting = false, want true")
 	}
 }
 

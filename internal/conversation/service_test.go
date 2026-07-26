@@ -3,22 +3,25 @@ package conversation
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"setta/internal/agent"
-	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
 	"setta/internal/workspace"
+	"setta/internal/workspaceui/conversationpalette"
 )
 
 func TestServiceRunsDurableConversationCommandsAndReload(t *testing.T) {
 	appDataDir := t.TempDir()
-	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, appDataDir)
+	outcomes := &recordingOutcomeTimingObserver{}
+	store, service, runtime, workspaceID := newConversationServiceTestHarness(
+		t,
+		appDataDir,
+		WithOutcomeTimingObserver(outcomes),
+	)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -28,7 +31,37 @@ func TestServiceRunsDurableConversationCommandsAndReload(t *testing.T) {
 	exerciseQueuedServiceTurns(t, ctx, service, runtime, workspaceID, conversationID, created, subscription)
 	exerciseServiceApproval(t, ctx, service, runtime, workspaceID, conversationID)
 	exerciseServiceCancellation(t, ctx, service, runtime, workspaceID, conversationID)
+	outcomes.requireKinds(t, OutcomeTimingApproval, OutcomeTimingCancellation, OutcomeTimingArtifactAvailable)
 	assertReloadedServiceState(t, ctx, store, service, appDataDir, workspaceID, conversationID)
+}
+
+type recordingOutcomeTimingObserver struct {
+	mu      sync.Mutex
+	timings []OutcomeTiming
+}
+
+func (observer *recordingOutcomeTimingObserver) ObserveConversationOutcomeTiming(timing OutcomeTiming) {
+	observer.mu.Lock()
+	defer observer.mu.Unlock()
+	observer.timings = append(observer.timings, timing)
+}
+
+func (observer *recordingOutcomeTimingObserver) requireKinds(t *testing.T, kinds ...OutcomeTimingKind) {
+	t.Helper()
+	observer.mu.Lock()
+	defer observer.mu.Unlock()
+	found := map[OutcomeTimingKind]bool{}
+	for _, timing := range observer.timings {
+		if timing.StartedAt.IsZero() || timing.CompletedAt.IsZero() || timing.Duration <= 0 {
+			t.Fatalf("conversation outcome timing = %+v", timing)
+		}
+		found[timing.Kind] = true
+	}
+	for _, kind := range kinds {
+		if !found[kind] {
+			t.Fatalf("conversation outcome timings omit %q: %+v", kind, observer.timings)
+		}
+	}
 }
 
 func TestServiceAllocatesStableDistinctVisibleConversationPalettes(t *testing.T) {
@@ -42,10 +75,14 @@ func TestServiceAllocatesStableDistinctVisibleConversationPalettes(t *testing.T)
 	ctx := context.Background()
 
 	paletteIDs := conversationpalette.IDs()
-	created := createPaletteTestTopics(t, ctx, service, workspaceID, len(paletteIDs))
-	assertDistinctVisiblePaletteProfiles(t, ctx, service, workspaceID, created, paletteIDs)
+	created := createDormantPaletteTestTopics(t, ctx, service, workspaceID, len(paletteIDs))
 
 	exhausted := createPaletteTestTopic(t, ctx, service, workspaceID, "Palette exhausted")
+	created = append(created, exhausted)
+	assertDormantPaletteProfile(t, exhausted.PresentationProfile, "dormant exhausted topic")
+	bindings := paletteTestPaneBindings(created)
+	replacePaletteTestPaneBindings(t, store, workspaceID, bindings)
+	assertDistinctVisiblePaletteProfiles(t, ctx, service, workspaceID, created, paletteIDs)
 	exhausted = readPresentationTestSnapshot(
 		t,
 		ctx,
@@ -55,9 +92,36 @@ func TestServiceAllocatesStableDistinctVisibleConversationPalettes(t *testing.T)
 	)
 	assertExhaustedPaletteProfile(t, exhausted.PresentationProfile, created[0].Conversation.ID)
 
-	if _, err := service.ArchiveTopic(ctx, workspaceID, created[0].Conversation.ID); err != nil {
-		t.Fatalf("ArchiveTopic: %v", err)
+	alpha := created[0]
+	bindings = append(bindings, WorkspacePaneBinding{
+		PaneID:         "pane-alpha-duplicate",
+		ConversationID: alpha.Conversation.ID,
+	})
+	replacePaletteTestPaneBindings(t, store, workspaceID, bindings)
+	alphaWithDuplicateViews, err := service.ReadSnapshot(ctx, workspaceID, alpha.Conversation.ID)
+	if err != nil {
+		t.Fatalf("read alpha with duplicate views: %v", err)
 	}
+	if alphaWithDuplicateViews.PresentationProfile.PaletteSelection !=
+		alpha.PresentationProfile.PaletteSelection ||
+		alphaWithDuplicateViews.PresentationProfile.RequestedPaletteID != nil ||
+		alphaWithDuplicateViews.PresentationProfile.ResolvedPaletteID !=
+			alpha.PresentationProfile.ResolvedPaletteID ||
+		alphaWithDuplicateViews.PresentationProfile.PaletteReuse != nil {
+		t.Fatalf(
+			"duplicate views changed presentation: got %+v want %+v",
+			alphaWithDuplicateViews.PresentationProfile,
+			alpha.PresentationProfile,
+		)
+	}
+
+	remainingBindings := make([]WorkspacePaneBinding, 0, len(bindings)-2)
+	for _, binding := range bindings {
+		if binding.ConversationID != alpha.Conversation.ID {
+			remainingBindings = append(remainingBindings, binding)
+		}
+	}
+	replacePaletteTestPaneBindings(t, store, workspaceID, remainingBindings)
 	relieved := readPresentationTestSnapshot(
 		t,
 		ctx,
@@ -71,175 +135,7 @@ func TestServiceAllocatesStableDistinctVisibleConversationPalettes(t *testing.T)
 	}
 }
 
-func TestServiceRunsFolderlessTopicTurnsInAPrivateWorkingDirectory(t *testing.T) {
-	store, service, _, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
-	t.Cleanup(func() {
-		shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		_ = service.Shutdown(shutdownContext)
-		_ = store.Close()
-	})
-	ctx := context.Background()
-
-	created, err := service.CreateTopicWithOptionalWorkspace(ctx, nil, "App-level request")
-	if err != nil {
-		t.Fatalf("CreateTopicWithOptionalWorkspace: %v", err)
-	}
-	if created.Conversation.WorkspaceID != nil {
-		t.Fatalf("folderless conversation workspace = %q, want nil", *created.Conversation.WorkspaceID)
-	}
-	reloaded, err := store.ReadSnapshotByID(ctx, created.Conversation.ID)
-	if err != nil {
-		t.Fatalf("ReadSnapshotByID: %v", err)
-	}
-	if reloaded.Conversation.WorkspaceID != nil {
-		t.Fatalf("reloaded folderless conversation workspace = %q, want nil", *reloaded.Conversation.WorkspaceID)
-	}
-	if _, err := store.ReadSnapshot(ctx, workspaceID, created.Conversation.ID); !IsConversationNotFound(err) {
-		t.Fatalf("workspace-scoped ReadSnapshot error = %T %v, want conversation not found", err, err)
-	}
-
-	unboundScope := requirePrivateUnboundScope(t, service, created.Conversation.ID, workspaceID)
-	if _, err := service.acceptTurn(
-		ctx,
-		created,
-		unboundScope,
-		"produce something durable from this conversation",
-		TurnDeliveryNormal,
-		0,
-		"turn-folderless",
-	); err != nil {
-		t.Fatalf("folderless acceptTurn: %v", err)
-	}
-
-	bound, err := service.BindFolderResource(ctx, workspaceID, created.Conversation.ID)
-	if err != nil {
-		t.Fatalf("BindFolderResource: %v", err)
-	}
-	if bound.Conversation.WorkspaceID == nil || *bound.Conversation.WorkspaceID != workspaceID {
-		t.Fatalf("bound conversation workspace = %+v, want %q", bound.Conversation.WorkspaceID, workspaceID)
-	}
-	reloadedBound, err := store.ReadSnapshot(ctx, workspaceID, created.Conversation.ID)
-	if err != nil {
-		t.Fatalf("workspace-scoped ReadSnapshot after bind: %v", err)
-	}
-	if reloadedBound.Conversation.WorkspaceID == nil || *reloadedBound.Conversation.WorkspaceID != workspaceID {
-		t.Fatalf("reloaded bound workspace = %+v, want %q", reloadedBound.Conversation.WorkspaceID, workspaceID)
-	}
-	page, err := service.ListNavigatorPage(ctx, workspaceID, "", nil, 10)
-	if err != nil {
-		t.Fatalf("ListNavigatorPage after bind: %v", err)
-	}
-	if len(page.Items) != 1 || page.Items[0].Conversation.ID != created.Conversation.ID {
-		t.Fatalf("navigator after bind = %+v, want bound conversation", page.Items)
-	}
-	boundScope := requireAuthorizedBoundScope(t, service, bound.Conversation.ID, workspaceID)
-	if _, err := service.acceptTurn(
-		ctx,
-		bound,
-		boundScope,
-		"continue with the selected folder",
-		TurnDeliveryNormal,
-		0,
-		"turn-bound",
-	); err != nil {
-		t.Fatalf("bound acceptTurn: %v", err)
-	}
-}
-
-func TestServiceRejectsSymlinkedUnboundWorkingDirectory(t *testing.T) {
-	appDataDir := t.TempDir()
-	store, service, _, _ := newConversationServiceTestHarness(t, appDataDir)
-	t.Cleanup(func() {
-		shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		_ = service.Shutdown(shutdownContext)
-		_ = store.Close()
-	})
-	conversationID := "conversation-symlinked-private-root"
-	privateRoot := filepath.Join(appDataDir, unboundWorkingDirectoryName)
-	if err := os.MkdirAll(privateRoot, 0o700); err != nil {
-		t.Fatalf("create private working-directory root: %v", err)
-	}
-	outside := t.TempDir()
-	privateDirectory := filepath.Join(privateRoot, conversationID)
-	if err := os.Symlink(outside, privateDirectory); err != nil {
-		t.Fatalf("create private working-directory symlink: %v", err)
-	}
-
-	if _, err := service.resolveExecutionScope(conversationID, nil); !IsPersistenceError(err) {
-		t.Fatalf("symlinked private working directory error = %T %v", err, err)
-	}
-}
-
-// requirePrivateUnboundScope proves an unbound conversation resolves to a real
-// private directory that authorizes nothing and lives outside the user's folder.
-func requirePrivateUnboundScope(
-	t *testing.T,
-	service *Service,
-	conversationID string,
-	offeredWorkspaceID string,
-) conversationExecutionScope {
-	t.Helper()
-	scope, err := service.resolveExecutionScope(conversationID, nil)
-	if err != nil {
-		t.Fatalf("resolveExecutionScope for a folderless conversation: %v", err)
-	}
-	if scope.workspaceID != nil || scope.authorizedRoot != "" {
-		t.Fatalf("folderless scope authorizes a workspace: %+v", scope)
-	}
-	offered, err := service.workspaces.ResolveActiveWorkspace(offeredWorkspaceID)
-	if err != nil {
-		t.Fatalf("ResolveActiveWorkspace: %v", err)
-	}
-	if !filepath.IsAbs(scope.workingDirectory) ||
-		strings.HasPrefix(scope.workingDirectory, offered.RootPath) {
-		t.Fatalf(
-			"folderless working directory %q is not a private directory outside %q",
-			scope.workingDirectory,
-			offered.RootPath,
-		)
-	}
-	info, err := os.Stat(scope.workingDirectory)
-	if err != nil || !info.IsDir() {
-		t.Fatalf("private working directory %q: %v", scope.workingDirectory, err)
-	}
-	if info.Mode().Perm() != 0o700 {
-		t.Fatalf("private working directory mode = %o, want 700", info.Mode().Perm())
-	}
-	parentInfo, err := os.Stat(filepath.Dir(scope.workingDirectory))
-	if err != nil || !parentInfo.IsDir() || parentInfo.Mode().Perm() != 0o700 {
-		t.Fatalf(
-			"private working-directory root %q mode = %v, %v",
-			filepath.Dir(scope.workingDirectory),
-			parentInfo,
-			err,
-		)
-	}
-	return scope
-}
-
-// requireAuthorizedBoundScope proves a bound conversation runs in the folder it
-// is authorized to read.
-func requireAuthorizedBoundScope(
-	t *testing.T,
-	service *Service,
-	conversationID string,
-	workspaceID string,
-) conversationExecutionScope {
-	t.Helper()
-	scope, err := service.resolveExecutionScope(conversationID, &workspaceID)
-	if err != nil {
-		t.Fatalf("resolveExecutionScope for a bound conversation: %v", err)
-	}
-	if scope.workspaceID == nil || *scope.workspaceID != workspaceID ||
-		scope.authorizedRoot != scope.workingDirectory {
-		t.Fatalf("bound scope = %+v, want the authorized workspace", scope)
-	}
-	return scope
-}
-
-func createPaletteTestTopics(
+func createDormantPaletteTestTopics(
 	t *testing.T,
 	ctx context.Context,
 	service *Service,
@@ -249,15 +145,40 @@ func createPaletteTestTopics(
 	t.Helper()
 	created := make([]ConversationSnapshot, 0, count)
 	for index := 0; index < count; index++ {
-		created = append(created, createPaletteTestTopic(
+		snapshot := createPaletteTestTopic(
 			t,
 			ctx,
 			service,
 			workspaceID,
 			fmt.Sprintf("Palette %d", index+1),
-		))
+		)
+		assertDormantPaletteProfile(t, snapshot.PresentationProfile, fmt.Sprintf("dormant topic %d", index+1))
+		created = append(created, snapshot)
 	}
 	return created
+}
+
+func assertDormantPaletteProfile(
+	t *testing.T,
+	profile ConversationPresentationProfile,
+	label string,
+) {
+	t.Helper()
+	if profile.ResolvedPaletteID != conversationpalette.ConversationPaletteSky ||
+		profile.PaletteReuse != nil {
+		t.Fatalf("%s presentation = %+v, want stable sky without reuse", label, profile)
+	}
+}
+
+func paletteTestPaneBindings(topics []ConversationSnapshot) []WorkspacePaneBinding {
+	bindings := make([]WorkspacePaneBinding, 0, len(topics)+1)
+	for index, snapshot := range topics {
+		bindings = append(bindings, WorkspacePaneBinding{
+			PaneID:         fmt.Sprintf("pane-palette-%02d", index+1),
+			ConversationID: snapshot.Conversation.ID,
+		})
+	}
+	return bindings
 }
 
 func assertDistinctVisiblePaletteProfiles(
@@ -319,6 +240,23 @@ func createPaletteTestTopic(
 		t.Fatalf("create %s topic: %v", title, err)
 	}
 	return snapshot
+}
+
+func replacePaletteTestPaneBindings(
+	t *testing.T,
+	store *Store,
+	workspaceID string,
+	bindings []WorkspacePaneBinding,
+) {
+	t.Helper()
+	if err := store.ReplaceWorkspacePaneBindings(
+		context.Background(),
+		workspaceID,
+		bindings,
+		"2026-07-14T20:00:00Z",
+	); err != nil {
+		t.Fatalf("replace palette test pane bindings: %v", err)
+	}
 }
 
 func createSubscribedServiceTopic(
@@ -478,11 +416,11 @@ func newConversationServiceTestHarness(
 	if err != nil {
 		t.Fatalf("NewStore: %v", err)
 	}
-	if _, err := store.EnsureDirectorVoiceSelection(
+	if _, err := store.EnsureMasterVoiceSelection(
 		context.Background(),
-		speech.DefaultDirectorVoiceSelection("2026-07-11T20:00:00Z"),
+		speech.DefaultMasterVoiceSelection("2026-07-11T20:00:00Z"),
 	); err != nil {
-		t.Fatalf("EnsureDirectorVoiceSelection: %v", err)
+		t.Fatalf("EnsureMasterVoiceSelection: %v", err)
 	}
 	if _, err := store.EnsureNarratorVoiceDefault(
 		context.Background(),
@@ -542,13 +480,13 @@ type serviceTestAgentRuntime struct {
 	mu                   sync.Mutex
 	controls             map[string]chan string
 	controlLog           []string
+	forkErr              error
+	forkRequests         []agent.ForkThreadRequest
+	forkResponse         *agent.Thread
 	injectErr            error
 	injections           []serviceTestInjection
-	startErr             error
-	startResponse        *agent.Thread
 	lastApproval         *agent.ApprovalResponse
 	resolveRequests      []agent.Invocation
-	runProviderMissing   int
 	runRequests          []agent.TurnRequest
 	startRequests        []agent.StartThreadRequest
 	started              chan string
@@ -597,20 +535,38 @@ func (runtime *serviceTestAgentRuntime) StartThread(
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
 	runtime.startRequests = append(runtime.startRequests, request)
-	if runtime.startErr != nil {
-		return agent.Thread{}, runtime.startErr
-	}
-	if runtime.startResponse != nil {
-		runtime.providerThreads[runtime.startResponse.ID] = *runtime.startResponse
-		return *runtime.startResponse, nil
-	}
 	runtime.threads++
 	thread := agent.Thread{
 		ID:        fmt.Sprintf("provider-thread-%d", runtime.threads),
 		SessionID: fmt.Sprintf("session-%d", runtime.threads),
-		CWD:       request.WorkspaceRoot,
-		Model:     request.Invocation.Model,
-		Ephemeral: request.Ephemeral,
+		Model:     "gpt-5.6-sol",
+	}
+	runtime.providerThreads[thread.ID] = thread
+	return thread, nil
+}
+
+func (runtime *serviceTestAgentRuntime) ForkThread(
+	_ context.Context,
+	request agent.ForkThreadRequest,
+) (agent.Thread, error) {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	runtime.forkRequests = append(runtime.forkRequests, request)
+	if runtime.forkErr != nil {
+		return agent.Thread{}, runtime.forkErr
+	}
+	if runtime.forkResponse != nil {
+		runtime.providerThreads[runtime.forkResponse.ID] = *runtime.forkResponse
+		return *runtime.forkResponse, nil
+	}
+	runtime.threads++
+	parentThreadID := request.ParentThreadID
+	thread := agent.Thread{
+		ID:           fmt.Sprintf("provider-thread-%d", runtime.threads),
+		SessionID:    fmt.Sprintf("session-%d", runtime.threads),
+		Model:        request.Invocation.Model,
+		Ephemeral:    request.Ephemeral,
+		ForkedFromID: &parentThreadID,
 	}
 	runtime.providerThreads[thread.ID] = thread
 	return thread, nil
@@ -636,28 +592,10 @@ func (runtime *serviceTestAgentRuntime) RunTurn(
 	runtime.mu.Lock()
 	runtime.turns++
 	runtime.runRequests = append(runtime.runRequests, request)
-	if runtime.runProviderMissing > 0 {
-		runtime.runProviderMissing--
-		delete(runtime.providerThreads, request.ProviderThreadID)
-		runtime.mu.Unlock()
-		return agent.TurnResult{}, &agent.ProviderThreadMissingError{
-			Operation: "start agent turn",
-			ThreadID:  request.ProviderThreadID,
-			Err:       fmt.Errorf("scripted provider thread %s missing before turn start", request.ProviderThreadID),
-		}
-	}
 	providerTurnID := fmt.Sprintf("provider-turn-%d", runtime.turns)
 	control := make(chan string, 1)
 	runtime.controls[providerTurnID] = control
-	thread, ok := runtime.providerThreads[request.ProviderThreadID]
-	if !ok {
-		runtime.mu.Unlock()
-		return agent.TurnResult{}, &agent.ProviderThreadMissingError{
-			Operation: "start agent turn",
-			ThreadID:  request.ProviderThreadID,
-			Err:       fmt.Errorf("scripted provider thread %s missing before turn start", request.ProviderThreadID),
-		}
-	}
+	thread := runtime.providerThreads[request.ProviderThreadID]
 	thread.Turns = append(thread.Turns, agent.ThreadTurn{ID: providerTurnID, Status: "inProgress", Items: []agent.ThreadItemSummary{}})
 	thread.TurnCount = len(thread.Turns)
 	runtime.providerThreads[request.ProviderThreadID] = thread
@@ -674,7 +612,7 @@ func (runtime *serviceTestAgentRuntime) RunTurn(
 		return agent.TurnResult{}, err
 	}
 	runtime.started <- request.Text
-	result, err := runtime.runTestTurnScenario(ctx, request.Text, sink, base, control, request.WorkspaceRoot)
+	result, err := runtime.runTestTurnScenario(ctx, request.Text, sink, base, control)
 	runtime.mu.Lock()
 	thread = runtime.providerThreads[request.ProviderThreadID]
 	if request.Text == "side reroute" {
@@ -708,7 +646,6 @@ func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
 	sink agent.EventSink,
 	base agent.Event,
 	control <-chan string,
-	workspaceRoot string,
 ) (agent.TurnResult, error) {
 	switch text {
 	case "approval", "secret approval":
@@ -716,7 +653,7 @@ func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
 			return agent.TurnResult{}, err
 		}
 	case "hold side context":
-		if err := runtime.emitSideContextScenario(sink, base, workspaceRoot); err != nil {
+		if err := runtime.emitSideContextScenario(sink, base); err != nil {
 			return agent.TurnResult{}, err
 		}
 		return runtime.runSideContextHeldScenario(ctx, sink, base, control)
@@ -730,6 +667,8 @@ func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
 			ProviderTurnID:   base.ProviderTurnID,
 			Outcome:          agent.TurnOutcomeCompleted,
 		}, nil
+	case "admission failure":
+		return agent.TurnResult{}, testConversationTurnAdmissionFailure{}
 	case "mismatched provider scope":
 		mismatched := base
 		mismatched.ProviderThreadID = "provider-thread-other"
@@ -747,21 +686,20 @@ func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
 		rerouted.ModelReroute = &agent.ModelRerouteEvent{
 			FromModel: "gpt-5.6-luna",
 			ToModel:   "gpt-5.4-mini",
-			Reason:    agent.ModelRerouteReasonHighRiskCyberActivity,
+			Reason:    "provider_reroute",
 		}
 		if err := sink.HandleAgentEvent(rerouted); err != nil {
 			return agent.TurnResult{}, err
 		}
-	case "hold", "hold bound", "hold cancel", "hold fail", "hold after failure":
-		return runtime.runHeldScenario(ctx, text, sink, base, control, workspaceRoot)
+	case "hold", "hold cancel", "hold fail", "hold after failure":
+		return runtime.runHeldScenario(ctx, text, sink, base, control)
 	}
-	return runtime.emitCompletedTurn(sink, base, text, workspaceRoot)
+	return runtime.emitCompletedTurn(sink, base, text)
 }
 
 func (runtime *serviceTestAgentRuntime) emitSideContextScenario(
 	sink agent.EventSink,
 	base agent.Event,
-	workspaceRoot string,
 ) error {
 	reasoning := base
 	reasoning.Kind = agent.EventKindReasoningSummary
@@ -785,18 +723,14 @@ func (runtime *serviceTestAgentRuntime) emitSideContextScenario(
 	if err := sink.HandleAgentEvent(plan); err != nil {
 		return err
 	}
-	savedPath := filepath.Join(workspaceRoot, "side-context-result.md")
-	if err := writeServiceTestGeneratedFile(savedPath); err != nil {
-		return err
-	}
 	artifact := base
 	artifact.Kind = agent.EventKindActivityCompleted
 	artifact.Activity = &agent.ActivityEvent{
 		ProviderItemID: "provider-artifact-side-context",
-		Kind:           agent.ActivityKindImageGeneration,
+		Kind:           agent.ActivityKindArtifact,
 		Status:         "completed",
 		Title:          "Side context result",
-		SavedPath:      &savedPath,
+		Summary:        "/tmp/side-context-result.md",
 	}
 	if err := sink.HandleAgentEvent(artifact); err != nil {
 		return err
@@ -808,8 +742,6 @@ func (runtime *serviceTestAgentRuntime) emitSideContextScenario(
 		Kind:           agent.ActivityKindCommand,
 		Status:         "inProgress",
 		Title:          "sleep 12",
-		Command:        stringPointer("sleep 12"),
-		CWD:            stringPointer("/workspace/side-context"),
 	}
 	if err := sink.HandleAgentEvent(activity); err != nil {
 		return err
@@ -887,7 +819,6 @@ func (runtime *serviceTestAgentRuntime) runHeldScenario(
 	sink agent.EventSink,
 	base agent.Event,
 	control <-chan string,
-	workspaceRoot string,
 ) (agent.TurnResult, error) {
 	var action string
 	select {
@@ -899,7 +830,7 @@ func (runtime *serviceTestAgentRuntime) runHeldScenario(
 		return runtime.emitTerminal(sink, base, agent.TurnOutcomeInterrupted)
 	}
 	if text != "hold fail" {
-		return runtime.emitCompletedTurn(sink, base, text, workspaceRoot)
+		return runtime.emitCompletedTurn(sink, base, text)
 	}
 	message := "scripted held failure"
 	terminal := base
@@ -923,11 +854,11 @@ func (runtime *serviceTestAgentRuntime) emitSubagentLifecycle(
 		event := base
 		event.Kind = agent.EventKindActivityCompleted
 		event.Activity = &agent.ActivityEvent{
-			ProviderItemID:           "subagent-item-" + status,
-			Kind:                     agent.ActivityKindSubagent,
-			Status:                   status,
-			Title:                    "reviewer",
-			ProviderSubagentThreadID: stringPointer("provider-subagent-thread"),
+			ProviderItemID: "subagent-item-" + status,
+			Kind:           agent.ActivityKindSubagent,
+			Status:         status,
+			Title:          "reviewer",
+			Summary:        "provider-subagent-thread",
 		}
 		if err := sink.HandleAgentEvent(event); err != nil {
 			return err
@@ -940,7 +871,6 @@ func (runtime *serviceTestAgentRuntime) emitCompletedTurn(
 	sink agent.EventSink,
 	base agent.Event,
 	text string,
-	workspaceRoot string,
 ) (agent.TurnResult, error) {
 	message := base
 	message.Kind = agent.EventKindAgentTextCompleted
@@ -948,33 +878,19 @@ func (runtime *serviceTestAgentRuntime) emitCompletedTurn(
 	if err := sink.HandleAgentEvent(message); err != nil {
 		return agent.TurnResult{}, err
 	}
-	savedPath := filepath.Join(workspaceRoot, "result-"+base.ProviderTurnID+".md")
-	if err := writeServiceTestGeneratedFile(savedPath); err != nil {
-		return agent.TurnResult{}, err
-	}
 	artifact := base
 	artifact.Kind = agent.EventKindActivityCompleted
 	artifact.Activity = &agent.ActivityEvent{
 		ProviderItemID: "artifact-" + base.ProviderTurnID,
-		Kind:           agent.ActivityKindImageGeneration,
+		Kind:           agent.ActivityKindArtifact,
 		Status:         "completed",
 		Title:          "Result file",
-		SavedPath:      &savedPath,
+		Summary:        "/tmp/result-" + base.ProviderTurnID + ".md",
 	}
 	if err := sink.HandleAgentEvent(artifact); err != nil {
 		return agent.TurnResult{}, err
 	}
 	return runtime.emitTerminal(sink, base, agent.TurnOutcomeCompleted)
-}
-
-func writeServiceTestGeneratedFile(savedPath string) error {
-	if err := os.MkdirAll(filepath.Dir(savedPath), 0o755); err != nil {
-		return fmt.Errorf("create generated-file parent: %w", err)
-	}
-	if err := os.WriteFile(savedPath, []byte("generated test file"), 0o600); err != nil {
-		return fmt.Errorf("write generated test file: %w", err)
-	}
-	return nil
 }
 
 func (runtime *serviceTestAgentRuntime) emitTerminal(
@@ -1028,6 +944,41 @@ func (runtime *serviceTestAgentRuntime) InterruptProviderTurn(_ context.Context,
 	return nil
 }
 
+func (runtime *serviceTestAgentRuntime) ReconcileTurn(
+	_ context.Context,
+	threadID string,
+	turnID string,
+) (agent.TurnResult, bool, error) {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	thread, ok := runtime.providerThreads[threadID]
+	if !ok {
+		return agent.TurnResult{}, false, fmt.Errorf("provider thread %s was not found", threadID)
+	}
+	for _, turn := range thread.Turns {
+		if turn.ID != turnID {
+			continue
+		}
+		result := agent.TurnResult{ProviderThreadID: threadID, ProviderTurnID: turnID}
+		switch turn.Status {
+		case "inProgress":
+			return result, true, nil
+		case "completed":
+			result.Outcome = agent.TurnOutcomeCompleted
+		case "interrupted":
+			result.Outcome = agent.TurnOutcomeInterrupted
+		case "failed":
+			message := "scripted provider turn failed"
+			result.Outcome = agent.TurnOutcomeFailed
+			result.Error = &message
+		default:
+			return agent.TurnResult{}, false, fmt.Errorf("unsupported provider turn status %s", turn.Status)
+		}
+		return result, false, nil
+	}
+	return agent.TurnResult{}, false, fmt.Errorf("provider turn %s was not found", turnID)
+}
+
 func (runtime *serviceTestAgentRuntime) SubmitApproval(response agent.ApprovalResponse) error {
 	runtime.mu.Lock()
 	copy := response
@@ -1073,6 +1024,24 @@ func (runtime *serviceTestAgentRuntime) controlsSent() []string {
 	return append([]string{}, runtime.controlLog...)
 }
 
+func (runtime *serviceTestAgentRuntime) durableForkRequests() []agent.ForkThreadRequest {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	return append([]agent.ForkThreadRequest{}, runtime.forkRequests...)
+}
+
+func (runtime *serviceTestAgentRuntime) sideForkRequests() []agent.ForkThreadRequest {
+	runtime.mu.Lock()
+	defer runtime.mu.Unlock()
+	requests := make([]agent.ForkThreadRequest, 0)
+	for _, request := range runtime.forkRequests {
+		if request.Ephemeral {
+			requests = append(requests, request)
+		}
+	}
+	return requests
+}
+
 func (runtime *serviceTestAgentRuntime) invocationResolutions() []agent.Invocation {
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
@@ -1085,9 +1054,6 @@ func (runtime *serviceTestAgentRuntime) turnRequests() []agent.TurnRequest {
 	return append([]agent.TurnRequest{}, runtime.runRequests...)
 }
 
-// startThreadRequests reports every ephemeral carrier the service asked the
-// provider for. Under the Setta-owned model this is the only way a conversation
-// reaches Codex, so it is what tests assert launch behavior against.
 func (runtime *serviceTestAgentRuntime) startThreadRequests() []agent.StartThreadRequest {
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()

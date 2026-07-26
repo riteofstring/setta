@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
+	"setta/internal/workspaceui/conversationpalette"
 )
 
 const testTimeLater = "2026-07-11T20:02:00Z"
@@ -412,37 +412,49 @@ func TestConcurrentTransactionalActorsSerializeStateAndPublication(t *testing.T)
 	}
 }
 
-func TestTransactionComposesBranchAndConversationAtomically(t *testing.T) {
+func TestTransactionComposesDurableForkAndBindingAtomically(t *testing.T) {
 	store := newTestStore(t)
 	seed := seedTransactionConversation(t, store)
 	child := transactionTestConversation("conversation-child")
+	binding := AgentThreadBinding{
+		ConversationID:   child.ID,
+		Provider:         ProviderCodex,
+		ThreadID:         "provider-thread-child",
+		Status:           ThreadBindingStatusLinked,
+		CreatedAt:        testTimeEnded,
+		ProviderMetadata: map[string]string{"fork": "completed-turn"},
+	}
 	branch := ConversationBranch{
 		ChildConversationID:      child.ID,
 		ParentConversationID:     seed.conversation.ID,
 		Kind:                     BranchKindFork,
-		DecisionSource:           BranchDecisionSourceDirector,
+		DecisionSource:           BranchDecisionSourceMaster,
 		ForkedAtTurnID:           seed.forkSourceTurn.ID,
 		SourceTrajectorySequence: 1,
+		ProviderMetadata:         map[string]string{"providerForkThreadId": binding.ThreadID},
 		CreatedAt:                testTimeEnded,
 	}
-	_, err := store.Transact(context.Background(), "create branch", func(transaction *WriteTransaction) error {
+	_, err := store.Transact(context.Background(), "create durable fork", func(transaction *WriteTransaction) error {
 		if err := transaction.InsertConversation(child); err != nil {
 			return err
 		}
 		if err := transaction.InsertConversationBranch(branch); err != nil {
 			return err
 		}
+		if err := transaction.UpsertAgentThreadBinding(binding); err != nil {
+			return err
+		}
 		_, err := transaction.AppendCommittedEvent(transactionTestEventDraft("branch-created", "conversation:conversation-child", branch))
 		return err
 	})
 	if err != nil {
-		t.Fatalf("create branch: %v", err)
+		t.Fatalf("create durable fork: %v", err)
 	}
 	if got := countRows(t, store, "conversation_branches"); got != 1 {
 		t.Fatalf("conversation branch count = %d, want 1", got)
 	}
-	if got := countRows(t, store, "conversations"); got != 2 {
-		t.Fatalf("conversation count = %d, want 2", got)
+	if got := countRows(t, store, "agent_thread_bindings"); got != 1 {
+		t.Fatalf("thread binding count = %d, want 1", got)
 	}
 }
 
@@ -454,9 +466,10 @@ func TestTransactionRejectsForkFromIncompleteParentTurnAtomically(t *testing.T) 
 		ChildConversationID:      child.ID,
 		ParentConversationID:     seed.conversation.ID,
 		Kind:                     BranchKindFork,
-		DecisionSource:           BranchDecisionSourceDirector,
+		DecisionSource:           BranchDecisionSourceConversationRouter,
 		ForkedAtTurnID:           seed.queuedTurn.ID,
 		SourceTrajectorySequence: 1,
+		ProviderMetadata:         map[string]string{},
 		CreatedAt:                testTimeEnded,
 	}
 	_, err := store.Transact(context.Background(), "reject incomplete durable fork", func(transaction *WriteTransaction) error {
@@ -569,7 +582,7 @@ func appendTestOutboxEvents(t *testing.T, store *Store, drafts []CommittedEventD
 func transactionTestConversation(id string) TopicConversation {
 	return TopicConversation{
 		ID:          id,
-		WorkspaceID: stringPointer("workspace-1"),
+		WorkspaceID: "workspace-1",
 		Title:       "Transaction helpers",
 		Status:      ConversationStatusIdle,
 		CreatedAt:   testTimeStarted,
