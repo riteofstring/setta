@@ -92,9 +92,7 @@ export function ArtifactBrowserOverlay({
         >
           <DialogHeader className="director-artifact-browser-header">
             <div className="director-artifact-browser-identity">
-              <DialogTitle className="director-artifact-browser-title">
-                {artifact.title}
-              </DialogTitle>
+              <DialogTitle className="sr-only">{artifact.title}</DialogTitle>
               <p className="director-artifact-browser-position">{position}</p>
             </div>
             <div className="director-artifact-browser-controls">
@@ -141,6 +139,13 @@ export function ArtifactBrowserOverlay({
               className="director-artifact-browser-document"
               data-artifact-document={artifact.id}
             >
+              {/*
+               * The title block. A document deserves the top of its own page,
+               * and this is the only place the artifact is named now.
+               */}
+              <header className="director-artifact-title-block">
+                <h1>{artifact.title}</h1>
+              </header>
               <ArtifactBrowserDocument artifact={artifact} document={document} />
             </div>
           </ScrollArea>

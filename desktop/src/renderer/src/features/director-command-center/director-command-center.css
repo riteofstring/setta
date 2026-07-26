@@ -638,10 +638,6 @@
   min-inline-size: 0;
 }
 
-.director-artifact-browser-title {
-  overflow-wrap: anywhere;
-}
-
 .director-artifact-browser-position {
   color: var(--muted-foreground);
   font-size: 12px;
@@ -663,15 +659,41 @@
   min-block-size: 0;
 }
 
-/* The document renders through the Setta OpenUI catalog components, which carry
-   their own styling. The browser owns only the surface they sit on, and adds no
-   card around a document that already frames itself where it wants to. */
+/*
+ * The document renders through the Setta OpenUI catalog components, which carry
+ * their own styling. The browser owns only the surface they sit on, and adds no
+ * card around a document that already frames itself where it wants to.
+ *
+ * The width here is the outer bound for figures — tables, charts, grids. Prose
+ * is bounded far tighter by the catalog itself, because a 78ch line of reading
+ * text is not a line anyone finishes.
+ */
 .director-artifact-browser-document {
   margin-inline: auto;
-  max-inline-size: 78ch;
+  max-inline-size: 52rem;
   min-inline-size: 0;
   overflow-wrap: anywhere;
-  padding: 18px 20px 28px;
+  padding: 26px 24px 96px;
+}
+
+/*
+ * The title block. The overlay bar keeps position and controls; this is where
+ * the artifact is named, once, at the top of its own page.
+ */
+.director-artifact-title-block {
+  margin-block-end: 26px;
+  padding-block-end: 26px;
+  border-block-end: 1px solid color-mix(in oklch, var(--director-border) 70%, transparent);
+}
+
+.director-artifact-title-block h1 {
+  color: var(--director-bright);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.14;
+  margin: 0;
+  max-inline-size: 26ch;
 }
 
 .director-artifact-browser-status {

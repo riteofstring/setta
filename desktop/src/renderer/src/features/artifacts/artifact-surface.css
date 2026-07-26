@@ -32,3 +32,22 @@
 
   color: var(--director-foreground);
 }
+
+/*
+ * The measure.
+ *
+ * A line of reading text has a length past which the eye loses its place on the
+ * return sweep; the document's outer width is set by its widest figure, which
+ * is far past it. So prose carries its own bound and everything structural —
+ * tables, charts, grids, cards — keeps the full width.
+ */
+.setta-artifact-prose {
+  max-inline-size: 34rem;
+}
+
+/* Markdown is prose too, whatever node it arrived in. */
+.setta-artifact .markdown-text > p,
+.setta-artifact .markdown-text > ul,
+.setta-artifact .markdown-text > ol {
+  max-inline-size: 34rem;
+}

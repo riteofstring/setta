@@ -189,19 +189,52 @@ function categoryPlot(
   const label = caption ?? categoryChartLabel(kind);
   switch (kind) {
     case "bar":
+      /*
+       * A bar is a stroke, not a slab.
+       *
+       * Recharts sizes bars to fill their band, which on a wide artifact turns
+       * three data points into three saturated blocks — the loudest thing on
+       * the page by a wide margin, and louder than the graph it sits next to.
+       * A capped width and a falloff toward the baseline make it read as the
+       * same luminous material as the canvas.
+       */
       return (
         <BarChart accessibilityLayer aria-label={label} data={rows}>
-          <CartesianGrid vertical={false} />
-          <XAxis axisLine={false} dataKey="label" tickLine={false} tickMargin={8} />
-          <YAxis axisLine={false} tickLine={false} tickMargin={8} width={44} />
+          <defs>
+            {series.map((entry, index) => (
+              <linearGradient
+                id={`${seriesKey(index)}-fill`}
+                key={entry.name}
+                x1="0"
+                x2="0"
+                y1="0"
+                y2="1"
+              >
+                <stop
+                  offset="0%"
+                  stopColor={`var(--color-${seriesKey(index)})`}
+                  stopOpacity={0.95}
+                />
+                <stop
+                  offset="100%"
+                  stopColor={`var(--color-${seriesKey(index)})`}
+                  stopOpacity={0.22}
+                />
+              </linearGradient>
+            ))}
+          </defs>
+          <CartesianGrid stroke="var(--director-border)" strokeOpacity={0.5} vertical={false} />
+          <XAxis axisLine={false} dataKey="label" tickLine={false} tickMargin={10} />
+          <YAxis axisLine={false} tickLine={false} tickMargin={10} width={44} />
           <ChartTooltip content={<ChartTooltipContent />} />
           {series.map((entry, index) => (
             <Bar
               dataKey={seriesKey(index)}
-              fill={`var(--color-${seriesKey(index)})`}
+              fill={`url(#${seriesKey(index)}-fill)`}
               isAnimationActive={false}
               key={entry.name}
-              radius={2}
+              maxBarSize={30}
+              radius={[2, 2, 0, 0]}
             />
           ))}
           {legend}
@@ -210,9 +243,9 @@ function categoryPlot(
     case "line":
       return (
         <LineChart accessibilityLayer aria-label={label} data={rows}>
-          <CartesianGrid vertical={false} />
-          <XAxis axisLine={false} dataKey="label" tickLine={false} tickMargin={8} />
-          <YAxis axisLine={false} tickLine={false} tickMargin={8} width={44} />
+          <CartesianGrid stroke="var(--director-border)" strokeOpacity={0.5} vertical={false} />
+          <XAxis axisLine={false} dataKey="label" tickLine={false} tickMargin={10} />
+          <YAxis axisLine={false} tickLine={false} tickMargin={10} width={44} />
           <ChartTooltip content={<ChartTooltipContent />} />
           {series.map((entry, index) => (
             <Line
@@ -230,9 +263,9 @@ function categoryPlot(
     case "area":
       return (
         <AreaChart accessibilityLayer aria-label={label} data={rows}>
-          <CartesianGrid vertical={false} />
-          <XAxis axisLine={false} dataKey="label" tickLine={false} tickMargin={8} />
-          <YAxis axisLine={false} tickLine={false} tickMargin={8} width={44} />
+          <CartesianGrid stroke="var(--director-border)" strokeOpacity={0.5} vertical={false} />
+          <XAxis axisLine={false} dataKey="label" tickLine={false} tickMargin={10} />
+          <YAxis axisLine={false} tickLine={false} tickMargin={10} width={44} />
           <ChartTooltip content={<ChartTooltipContent />} />
           {series.map((entry, index) => (
             <Area

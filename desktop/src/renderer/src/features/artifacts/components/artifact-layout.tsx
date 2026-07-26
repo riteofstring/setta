@@ -79,7 +79,7 @@ export function ArtifactText({
    * markers literally is what makes generated artifacts look broken.
    */
   return (
-    <p className={cn("leading-relaxed text-balance", textToneClasses[tone])}>
+    <p className={cn("setta-artifact-prose", textToneClasses[tone])}>
       {renderInlineMarkdown(text)}
     </p>
   );
