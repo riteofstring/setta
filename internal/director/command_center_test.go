@@ -220,8 +220,9 @@ func TestCommandCenterMovesSelectionThroughTheVisibleOrder(t *testing.T) {
 	subscription := subscribeFromSnapshot(t, registry)
 	defer subscription.Unsubscribe()
 
-	// With nothing selected, either direction starts at the most recent
-	// workstream, because that is the work the next request is most likely about.
+	// The app opens on the Director, which is position 0 rather than the absence
+	// of a selection. Stepping forward from it reaches the most recent
+	// workstream, and stepping back from that one returns to it.
 	first := dispatch(t, center, moveSelection(DirectorSelectionNext))
 	requireSelection(t, first, newest)
 
@@ -230,7 +231,10 @@ func TestCommandCenterMovesSelectionThroughTheVisibleOrder(t *testing.T) {
 	requireSelection(t, dispatch(t, center, moveSelection(DirectorSelectionNext)), oldest)
 	requireSelection(t, dispatch(t, center, moveSelection(DirectorSelectionPrevious)), middle)
 	requireSelection(t, dispatch(t, center, moveSelection(DirectorSelectionPrevious)), newest)
-	requireSelection(t, dispatch(t, center, moveSelection(DirectorSelectionPrevious)), newest)
+	requireDirectorSelection(t, dispatch(t, center, moveSelection(DirectorSelectionPrevious)))
+	// And it clamps there rather than wrapping to the far end.
+	requireDirectorSelection(t, dispatch(t, center, moveSelection(DirectorSelectionPrevious)))
+	requireSelection(t, dispatch(t, center, moveSelection(DirectorSelectionNext)), newest)
 
 	// A dispatch reports what the app decided; the durable selection arrives
 	// through the pushed stream like every other change.
@@ -482,6 +486,15 @@ func TestCommandCenterSubmitReportsAnUnreachableDirector(t *testing.T) {
 	}
 	if len(execution.starts)+len(execution.sends) != 0 {
 		t.Fatalf("an unrouted request reached the execution port: %+v", execution)
+	}
+}
+
+// requireDirectorSelection asserts the receipt landed on the Director's own
+// view, which is a destination rather than nothing being selected.
+func requireDirectorSelection(t *testing.T, receipt DirectorReceipt) {
+	t.Helper()
+	if receipt.SelectedWorkstreamID != nil {
+		t.Fatalf("receipt selects %q, want the Director's view", *receipt.SelectedWorkstreamID)
 	}
 }
 

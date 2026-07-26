@@ -342,6 +342,12 @@ func (state *registryState) applyDirectorFact(event conversation.CommittedEvent)
 		return nil, err
 	}
 	if fact.WorkstreamID == nil {
+		// A selection that named no workstream landed on the Director's own
+		// view, which is a destination rather than the absence of one.
+		if fact.Kind == DirectorFactWorkstreamSelected {
+			state.selected = nil
+			return append(effects, registryEffect{kind: effectSelection}), nil
+		}
 		// An app-scoped decision changed no workstream row, so it updates none.
 		// It is drawn in the Director's own lane and folded as continuity, because
 		// the Director's dialogue is what the next decision is materialized

@@ -153,14 +153,18 @@ func ValidateDirectorFactEvent(fact DirectorFactEvent) error {
 	return validateDirectorFactPayload(fact)
 }
 
-// validateDirectorFactWorkstream requires the workstream every fact but a root
-// creation decision happens in. The payload is checked first, because whether a
-// decision is app-scoped is a property of the decision it committed.
+/*
+ * validateDirectorFactWorkstream requires the workstream every fact happens in,
+ * except for the two kinds that are about the app rather than about one
+ * workstream: a root creation decision, and a selection that landed on the
+ * Director's own view. The payload is checked first, because whether a decision
+ * is app-scoped is a property of the decision it committed.
+ */
 func validateDirectorFactWorkstream(fact DirectorFactEvent) error {
 	if fact.WorkstreamID != nil {
 		return validateIdentifier("director fact workstream id", *fact.WorkstreamID)
 	}
-	if fact.Kind != DirectorFactDecisionCommitted {
+	if fact.Kind != DirectorFactDecisionCommitted && fact.Kind != DirectorFactWorkstreamSelected {
 		return fmt.Errorf("director fact %s of kind %q requires a workstream", fact.ID, fact.Kind)
 	}
 	if fact.RunID != nil {
