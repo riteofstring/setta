@@ -127,12 +127,16 @@
 .director-icon-button:focus-visible,
 
 /*
- * A dot is the one control that keeps its own box as its target. A 44 px
- * overlay on a strip of 24 px dots spaced 5 px apart would have neighbouring
- * targets overlapping by more than half, so the strip would misroute clicks.
- * 24 px is the WCAG 2.5.8 minimum, which the strip meets exactly.
+ * A dot is a mark, and the box around it is only where you click.
+ *
+ * The two were the same thing here, so the strip drew a row of 24 px discs —
+ * the pointer target, painted. That is what a target is for: it has to be 24 px
+ * to be reliably clickable (WCAG 2.5.8), which is exactly the size a status
+ * mark must not be. So the button keeps its 24 px box, transparent, and the dot
+ * is drawn inside it at the size the eye should read.
  */
 .director-workstream-dot {
+  background: transparent;
   block-size: 24px;
   border-color: transparent;
   border-radius: 999px;
@@ -142,9 +146,49 @@
   padding: 0;
 }
 
-.director-workstream-dot[aria-current="page"] {
-  border-color: oklch(from var(--director-primary) l c h / 0.6);
-  color: oklch(0.97 0.02 240);
+.director-workstream-dot::before {
+  background: var(--director-border);
+  block-size: 5px;
+  border-radius: 999px;
+  content: "";
+  inline-size: 5px;
+  transition-duration: 300ms;
+  transition-property: background-color, box-shadow, opacity;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.director-workstream-dot[aria-current="page"]::before {
+  background: var(--director-primary);
+}
+
+/*
+ * Status is the dot's colour, not a glyph inside it. A strip is read at a
+ * glance across every workstream at once, and at that size a check, a warning
+ * triangle and a square are three illegible smudges where three colours are
+ * three states.
+ */
+.director-workstream-dot[data-status="running"]::before {
+  background: oklch(0.82 0.125 185);
+  box-shadow: 0 0 7px oklch(0.82 0.125 185);
+}
+
+.director-workstream-dot[data-status="completed"]::before {
+  background: oklch(0.79 0.145 152);
+  opacity: 0.65;
+}
+
+.director-workstream-dot[data-status="awaiting_approval"]::before,
+.director-workstream-dot[data-status="awaiting_resource"]::before,
+.director-workstream-dot[data-status="blocked"]::before {
+  background: oklch(0.84 0.14 78);
+}
+
+.director-workstream-dot[data-status="failed"]::before {
+  background: oklch(0.7 0.16 25);
+}
+
+.director-workstream-dot[data-status="archived"]::before {
+  opacity: 0.4;
 }
 
 /* Top-bar navigation is borderless, as the mockup's `.tb-nav` is. */
@@ -155,10 +199,14 @@
   padding: 0;
 }
 
-.director-icon-button:hover,
-.director-workstream-dot:hover {
+.director-icon-button:hover {
   background: oklch(1 0 0 / 0.05);
   color: var(--director-foreground);
+}
+
+/* Hovering a dot brightens the mark, not the invisible box around it. */
+.director-workstream-dot:hover::before {
+  background: var(--director-foreground);
 }
 
 .director-composer button:hover,

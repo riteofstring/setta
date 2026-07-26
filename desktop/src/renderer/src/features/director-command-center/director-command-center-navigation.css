@@ -131,16 +131,29 @@
 }
 
 /*
- * The Director leads the strip: a ring rather than a filled dot, because it is
- * a different kind of destination rather than one more workstream.
+ * The Director leads the strip: a slightly larger ring rather than a filled
+ * dot, because it is a different kind of destination rather than one more
+ * workstream. It fills with its own teal when it is the one you are looking at.
  */
-.director-view-dot {
-  border-color: var(--director-faint);
+.director-view-dot::before {
+  background: transparent;
+  block-size: 7px;
+  box-shadow: inset 0 0 0 1.5px var(--director-faint);
+  inline-size: 7px;
 }
 
-.director-view-dot[aria-current="page"] {
+.director-view-dot[aria-current="page"]::before {
   background: var(--director-role-accent);
-  border-color: transparent;
+  box-shadow: 0 0 8px color-mix(in oklch, var(--director-role-accent) 70%, transparent);
+}
+
+.director-view-dot:hover::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--director-role-accent);
+}
+
+.director-view-dot[aria-current="page"]:hover::before {
+  background: var(--director-role-accent);
   box-shadow: 0 0 8px color-mix(in oklch, var(--director-role-accent) 70%, transparent);
 }
 

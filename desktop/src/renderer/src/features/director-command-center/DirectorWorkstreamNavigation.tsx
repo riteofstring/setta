@@ -4,22 +4,15 @@ import type {
   DirectorSnapshot,
   DirectorWorkstreamEntry,
   Workstream,
-  WorkstreamStatus,
 } from "@generated/backend";
 import type { DesktopPlatform } from "@shared/types";
 import {
-  AlertTriangle,
-  Check,
   ChevronLeft,
   ChevronRight,
-  Circle,
   FolderPlus,
   PanelLeft,
   PanelRight,
   Settings,
-  Square,
-  X,
-  type LucideIcon,
 } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 
@@ -55,18 +48,6 @@ const unwindowedWorkstreamLimit = 24;
  * breathe. The mockup has no spinner anywhere; work in progress is a filled
  * dot that fades and glows.
  */
-const statusGlyphs = {
-  archived: { Icon: Circle, size: 12 },
-  awaiting_approval: { Icon: AlertTriangle, size: 14 },
-  awaiting_resource: { Icon: AlertTriangle, size: 14 },
-  blocked: { Icon: AlertTriangle, size: 14 },
-  completed: { Icon: Check, size: 14 },
-  failed: { Icon: X, size: 14 },
-  idle: { Icon: Circle, size: 12 },
-  queued: { Icon: Square, size: 13 },
-  running: { Icon: Circle, size: 12 },
-} as const satisfies Record<WorkstreamStatus, { Icon: LucideIcon; size: number }>;
-
 export function CommandCenterTopBar({
   dispatch,
   onStartWorkstream,
@@ -180,13 +161,19 @@ function WorkstreamNavigation({
   );
 }
 
-function workstreamSelectionCanMove(
+/*
+ * The Director is a destination, not the absence of one.
+ *
+ * This counted workstreams and so went dead at one: with a single workstream
+ * selected there was nothing else to move to, except that there was — the
+ * Director's own view, which the strip was showing as a dot beside it the whole
+ * time. Destinations are the Director plus every workstream, so one workstream
+ * is already two places to be.
+ */
+export function workstreamSelectionCanMove(
   navigation: ReturnType<typeof directorWorkstreamNavigation>,
 ): boolean {
-  if (navigation.total > 1) {
-    return true;
-  }
-  return navigation.total === 1 && navigation.selected === null;
+  return navigation.total >= 1;
 }
 
 function selectedWorkstreamID(snapshot: DirectorSnapshot | null): string | null {
@@ -242,9 +229,7 @@ function WorkstreamDot({
         onClick={() => dispatchDirectorIntent(dispatch, selectViewIntent(workstream.id))}
         title={labels.tooltip}
         type="button"
-      >
-        <StatusGlyph status={workstream.status} />
-      </button>
+      />
     </span>
   );
 }
@@ -314,19 +299,6 @@ function DirectorRailControls({
         <Settings aria-hidden="true" size={16} />
       </IconButton>
     </div>
-  );
-}
-
-function StatusGlyph({ status }: { status: WorkstreamStatus }) {
-  const { Icon, size } = statusGlyphs[status];
-  return (
-    <Icon
-      aria-hidden="true"
-      className={
-        status === "running" ? "director-status-icon director-pulse" : "director-status-icon"
-      }
-      size={size}
-    />
   );
 }
 

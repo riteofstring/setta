@@ -30,6 +30,7 @@ import {
 import {
   directorWorkstreamKeyboardDirection,
   directorWorkstreamNavigation,
+  workstreamSelectionCanMove,
 } from "./DirectorWorkstreamNavigation";
 import { directorWorkstreamSwitchTransition } from "./director-workstream-switch-transition";
 import { directorFocus, directorFocusFolder, directorWorkstreamSummary } from "./director-focus";
@@ -237,6 +238,24 @@ describe("Director command-center shell view state", () => {
         workstreamRemoved: null,
         workstreamUpdated: null,
       }),
+    ).toBe(false);
+  });
+
+  test("moves between the Director and a lone workstream in either direction", () => {
+    // One workstream is two destinations, because the Director's own view is
+    // one of them. The arrows went dead here while the strip was still showing
+    // both dots.
+    expect(
+      workstreamSelectionCanMove(directorWorkstreamNavigation(snapshotWithWorkstreams(1, 1))),
+    ).toBe(true);
+    expect(
+      workstreamSelectionCanMove(directorWorkstreamNavigation(snapshotWithWorkstreams(1, 0))),
+    ).toBe(true);
+  });
+
+  test("cannot move with no workstream to move to", () => {
+    expect(
+      workstreamSelectionCanMove(directorWorkstreamNavigation(snapshotWithWorkstreams(0, 0))),
     ).toBe(false);
   });
 
