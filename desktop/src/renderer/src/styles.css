@@ -14,6 +14,40 @@
    that attribute says otherwise, so the variant reads the same way. */
 @custom-variant dark (&:not([data-color-mode="light"] *));
 
+/* The copied Accordion styles use shadcn's `data-open`/`data-closed` variants.
+   Upstream declares each to match both Radix's `data-state` and Base UI's own
+   presence attribute; Setta imports the Base UI registry only, so only the Base
+   UI half is declared here. */
+@custom-variant data-open (&:where([data-open]:not([data-open="false"])));
+@custom-variant data-closed (&:where([data-closed]:not([data-closed="false"])));
+
+/* The accordion open/close animation the copied styles name. Upstream takes the
+   `--animate-*` values from `tw-animate-css` and the keyframes from
+   `shadcn/tailwind.css`; both are declared here instead of adding two CSS-only
+   packages for four rules, and the keyframes carry the Base UI panel height. */
+@theme {
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--accordion-panel-height, auto);
+    }
+  }
+
+  @keyframes accordion-up {
+    from {
+      height: var(--accordion-panel-height, auto);
+    }
+    to {
+      height: 0;
+    }
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -230,6 +264,10 @@ a {
     animation: none;
     background-image: none;
     content: none;
+  }
+
+  [data-slot="accordion-content"] {
+    animation: none;
   }
 }
 

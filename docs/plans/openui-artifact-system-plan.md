@@ -270,10 +270,11 @@ A dedicated generator, `cmd/generate-artifact-catalog`, derives:
   library JSON Schema the parser reads argument order and requiredness from
 - Zod schemas required by `@openuidev/react-lang`
 - the model-facing catalog signatures and generation instructions
+- the safety limits a Setta renderer has to size something by
 - typed fixtures used by the renderer's production-path gallery
 
-Phase 0 landed the first and last of those, and Phase 1 landed the other two.
-Later phases extend that one generator rather than adding a second.
+Phase 0 landed the first and last of those, and Phase 1 landed the rest. Later
+phases extend that one generator rather than adding a second.
 
 Generated outputs must be marked generated and must never be edited manually.
 The handwritten React renderer map must use a generated component-name union
@@ -879,18 +880,24 @@ relevant change.
 
 The outstanding baseline measures the artifact surfaces, so no artifact
 contract, schema, or artifact-renderer change lands before it is captured:
-Phases 2, 3, and 4 stay blocked. Phase 1 is application-primitive work on
-surfaces the baseline does not measure and is not blocked by it.
+Phases 2, 3, and 4 stay blocked. Phase 1 is not blocked by it. Its primitive
+replacements are on surfaces the baseline does not measure, and its artifact
+half is unreachable from the renderer entry point, so the artifact surfaces the
+baseline measures still behave exactly as they did.
 
 Phase 1 does move `@base-ui/react` into the renderer bundle, so the pre-change
 bundle and load figures must be captured from a revision at or before
 `fd9d6fb21`, which is the last commit before the first primitive replacement.
+Nothing else Phase 1 adds reaches that bundle: the OpenUI, Recharts, and
+artifact-component code has no importer outside its own tests until the Phase 4
+cutover, which is also where it becomes lazily loaded.
 
 ### Phase 1 - Catalog Generation And Official shadcn Base UI Primitives
 
-**Status:** In progress. The official shadcn Base UI primitive foundation and
-the catalog generator are in place. The artifact component half has not
-started.
+**Status:** Complete, pending audit. The catalog generator, the official shadcn
+Base UI primitives, the Setta artifact components, and the exhaustive renderer
+map are all in place. Nothing in production imports the artifact half yet; the
+Director cutover is Phase 4.
 
 Landed:
 
@@ -926,6 +933,29 @@ Landed:
   neither half declares a JSON Schema `default`, and a parser built from the
   library reads the accepted corpus into the same trees Setta's compiler
   produced.
+- the official Base UI `Accordion`, `Alert`, `Card`, `Chart`, `Separator`,
+  `Table`, and `Tabs` source from the same pinned `bases/base` registry, with
+  their `style-nova.css` sections, and `recharts` `3.8.0` - the version upstream
+  pins for its Chart - added through `./update_dependencies.sh`. The local
+  modifications the new source needed, and the accordion animation and
+  `data-open`/`data-closed` wiring it depends on, are recorded in
+  `PROVENANCE.md` beside the existing ones.
+- `cmd/generate-artifact-catalog` extended a fifth time, with the Go-owned
+  safety limits. The chart adapter's series palette is declared to be exactly
+  `maxChartSeries` long, so the catalog's cap and the renderer's palette cannot
+  drift apart without a compile error, and no TypeScript file restates a limit.
+- the Setta artifact components under
+  [`features/artifacts/components`](../../desktop/src/renderer/src/features/artifacts/components):
+  the document, section, heading, text, stack, and grid layout primitives; the
+  Markdown, code, and file-reference content blocks; the metric and severity
+  alert; and the table and chart adapters. Markdown renders through the
+  renderer's existing text-only `MarkdownText`, which has no raw-HTML, image, or
+  link path at all, and a file reference is inert text rather than a link.
+  Charts colour their series from Setta's appearance-driven accent tokens.
+- the exhaustive renderer map and the library binding it, typed by the generated
+  `ArtifactComponentProps` map and made exhaustive by the generated
+  component-name union, plus the suite that renders the whole accepted corpus
+  and every adapter's own behaviour through the production library
 
 Two upstream behaviours came out of that work and constrain the renderer map:
 
@@ -938,15 +968,27 @@ Two upstream behaviours came out of that work and constrain the renderer map:
   renderer receives is the child's `ElementNode`. The generated slot declares
   the node type, matching `defineComponent().ref`.
 
-Remaining:
+Three renderer decisions came out of the second half:
 
-- the official Base UI components the artifact catalog needs - Accordion,
-  Alert, Card, Chart, Dialog, Scroll Area, Separator, Table, Tabs, Tooltip -
-  and Recharts, imported alongside the components that consume them
-- the Setta artifact content and layout components
-- the exhaustive OpenUI-to-React renderer map, typed by the generated
-  `ArtifactComponentProps` map and made exhaustive by the generated
-  component-name union
+- `Tabs` and `Accordion` render their own triggers, so they read the label off a
+  child node the parser typed only as an element. The catalog admits exactly one
+  child component in each of those slots, and a different one throws rather than
+  rendering around the problem. `Tab` and `AccordionItem` still own their own
+  body content, so neither is a dead entry in the map.
+- the backend is the only acceptance authority, so the adapters do not
+  re-validate a stored document. They fail loudly on the one shape that would
+  otherwise be rendered wrong in silence: a table row whose cell count disagrees
+  with its columns, which would shift every later cell into the wrong column.
+- artifacts are static documents, so chart animation is off at the source rather
+  than behind a reduced-motion query.
+
+Deferred to Phase 4, which is where their consumers land:
+
+- Dialog and Scroll Area, which the artifact browser overlay uses, and Tooltip,
+  which the preview card's expand control uses. This plan's own import rule is
+  to take a component alongside its consumer rather than check it in unused.
+- a code block's syntax highlighting. The language the catalog collects is shown
+  beside the block; highlighting it needs a dependency this plan has not taken.
 
 Deliverables:
 
@@ -1029,6 +1071,9 @@ Gate:
 
 Deliverables:
 
+- import the official Base UI Dialog and Scroll Area source the overlay uses and
+  the Tooltip source the expand control uses, with their `style-nova.css`
+  sections and provenance entries
 - replace the artifact-kind switch with `SettaArtifactRenderer`
 - render through the generated OpenUI library and official shadcn Base UI
   primitives

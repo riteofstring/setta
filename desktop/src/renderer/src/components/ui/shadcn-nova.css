@@ -4,6 +4,48 @@
  * for the revision, the source file, and the exact local modifications.
  */
 
+/* MARK: Accordion */
+.cn-accordion-item {
+  @apply not-last:border-b;
+}
+
+.cn-accordion-trigger {
+  @apply focus-visible:ring-ring/50 focus-visible:border-ring focus-visible:after:border-ring **:data-[slot=accordion-trigger-icon]:text-muted-foreground rounded-lg py-2.5 text-left text-sm font-medium hover:underline focus-visible:ring-3 **:data-[slot=accordion-trigger-icon]:ml-auto **:data-[slot=accordion-trigger-icon]:size-4;
+}
+
+.cn-accordion-content {
+  @apply data-open:animate-accordion-down data-closed:animate-accordion-up text-sm;
+}
+
+.cn-accordion-content-inner {
+  @apply pt-0 pb-2.5;
+}
+
+/* MARK: Alert */
+.cn-alert {
+  @apply grid gap-0.5 rounded-lg border px-2.5 py-2 text-left text-sm has-data-[slot=alert-action]:relative has-data-[slot=alert-action]:pr-18 has-[>svg]:grid-cols-[auto_1fr] has-[>svg]:gap-x-2 *:[svg]:row-span-2 *:[svg]:translate-y-0.5 *:[svg]:text-current *:[svg:not([class*='size-'])]:size-4;
+}
+
+.cn-alert-variant-default {
+  @apply bg-card text-card-foreground;
+}
+
+.cn-alert-variant-destructive {
+  @apply text-destructive bg-card *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current;
+}
+
+.cn-alert-title {
+  @apply font-medium group-has-[>svg]/alert:col-start-2;
+}
+
+.cn-alert-description {
+  @apply text-muted-foreground text-sm text-balance md:text-pretty [&_p:not(:last-child)]:mb-4;
+}
+
+.cn-alert-action {
+  @apply absolute top-2 right-2;
+}
+
 /* MARK: Badge */
 .cn-badge {
   @apply h-5 gap-1 rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium transition-all has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&>svg]:size-3!;
@@ -94,7 +136,91 @@
   @apply size-9;
 }
 
+/* MARK: Card */
+.cn-card {
+  @apply ring-foreground/10 bg-card text-card-foreground gap-(--card-spacing) overflow-hidden rounded-xl py-(--card-spacing) text-sm ring-1 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl;
+}
+
+.cn-card-header {
+  @apply gap-1 rounded-t-xl px-(--card-spacing) [.border-b]:pb-(--card-spacing);
+}
+
+.cn-card-title {
+  @apply text-base leading-snug font-medium group-data-[size=sm]/card:text-sm;
+}
+
+.cn-card-description {
+  @apply text-muted-foreground text-sm;
+}
+
+.cn-card-content {
+  @apply px-(--card-spacing);
+}
+
+.cn-card-footer {
+  @apply bg-muted/50 rounded-b-xl border-t p-(--card-spacing);
+}
+
+/* MARK: Chart */
+.cn-chart-tooltip {
+  @apply border-border/50 bg-background gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs shadow-xl;
+}
+
 /* MARK: Input */
 .cn-input {
   @apply dark:bg-input/30 border-input focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 disabled:bg-input/50 dark:disabled:bg-input/80 h-8 rounded-lg border bg-transparent px-2.5 py-1 text-base transition-colors file:h-6 file:text-sm file:font-medium focus-visible:ring-3 aria-invalid:ring-3 md:text-sm;
+}
+
+/* MARK: Table */
+.cn-table-container {
+  @apply relative w-full overflow-x-auto;
+}
+
+.cn-table {
+  @apply w-full caption-bottom text-sm;
+}
+
+.cn-table-header {
+  @apply [&_tr]:border-b;
+}
+
+.cn-table-body {
+  @apply [&_tr:last-child]:border-0;
+}
+
+.cn-table-footer {
+  @apply bg-muted/50 border-t font-medium [&>tr]:last:border-b-0;
+}
+
+.cn-table-row {
+  @apply hover:bg-muted/50 data-[state=selected]:bg-muted border-b transition-colors;
+}
+
+.cn-table-head {
+  @apply text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0;
+}
+
+.cn-table-cell {
+  @apply p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0;
+}
+
+.cn-table-caption {
+  @apply text-muted-foreground mt-4 text-sm;
+}
+
+/* MARK: Tabs */
+.cn-tabs {
+  @apply gap-2;
+}
+
+.cn-tabs-list {
+  @apply rounded-lg p-[3px] group-data-horizontal/tabs:h-8 data-[variant=line]:rounded-none;
+}
+
+.cn-tabs-trigger {
+  @apply gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 text-sm font-medium group-data-[variant=default]/tabs-list:data-active:shadow-sm group-data-[variant=line]/tabs-list:data-active:shadow-none [&_svg:not([class*='size-'])]:size-4 has-data-[icon=inline-end]:pr-1 has-data-[icon=inline-start]:pl-1;
+}
+
+.cn-tabs-content {
+  @apply text-sm;
 }

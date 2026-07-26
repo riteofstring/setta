@@ -1,7 +1,7 @@
 // Command generate-artifact-catalog renders the TypeScript half of the
 // setta.artifacts.v1 artifact catalog from its Go owner.
 //
-// It emits four things:
+// It emits five things:
 //
 //   - the catalog identity, the component-name union, and the OpenUI library
 //     JSON Schema the pinned upstream parser compiles into its
@@ -11,6 +11,7 @@
 //     the props every Setta renderer receives
 //   - the model-facing signatures, catalog reference, and generation
 //     instructions the backend sends with the artifact tool
+//   - the Go-owned safety limits a Setta renderer has to size something by
 //   - the accepted conformance corpus, each fixture carried with the component
 //     tree Setta's own compiler produced for it
 //
@@ -50,6 +51,9 @@ func main() {
 	}
 	if err := writeSignatures(*outputDir, catalog); err != nil {
 		fatalf("write artifact catalog signatures: %v", err)
+	}
+	if err := writeLimits(*outputDir); err != nil {
+		fatalf("write artifact catalog limits: %v", err)
 	}
 	if err := writeCorpus(filepath.Join(*outputDir, "conformance-corpus"), catalog); err != nil {
 		fatalf("write artifact conformance corpus: %v", err)
