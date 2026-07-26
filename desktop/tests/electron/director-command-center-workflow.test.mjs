@@ -941,7 +941,6 @@ async function assertDirectorFocusIsConsistent(client) {
         document.querySelector(".director-composer-hint-focus")?.textContent?.trim() ?? "",
       currentDots: document.querySelectorAll('.director-workstream-dot[aria-current="page"]').length,
       headingCount: document.querySelectorAll("h1").length,
-      nowTitle: document.querySelector("#director-now-rail h2")?.textContent?.trim() ?? "",
       topMeta: document.querySelector(".director-focus-meta")?.textContent?.trim() ?? "",
       topTitle: document.querySelector(".director-focus-title")?.textContent?.trim() ?? ""
     }))()`,
@@ -949,18 +948,19 @@ async function assertDirectorFocusIsConsistent(client) {
       state.composerFocus === "No workstream in focus" &&
       state.currentDots === 0 &&
       state.headingCount === 1 &&
-      state.nowTitle === "Director" &&
       state.topMeta === "No workstream in focus" &&
       state.topTitle === "Director",
     workflowTimeoutMs,
   );
+  // The top bar is the sole owner of focus identity; the Now rail used to
+  // restate the title and no longer does, so `topTitle` is the only place to
+  // read it and a second assertion on the rail would only re-check itself.
   assertDeepEqual(
     focus,
     {
       composerFocus: "No workstream in focus",
       currentDots: 0,
       headingCount: 1,
-      nowTitle: "Director",
       topMeta: "No workstream in focus",
       topTitle: "Director",
     },

@@ -293,25 +293,31 @@ export function DirectorCommandCenterShell({
             artifacts={snapshotView.artifacts}
             requests={snapshotView.requests}
           />
-          <DirectorComposer
-            answering={director.pending.answering}
-            dispatch={director.dispatch}
-            focus={focus}
-            onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
-            pendingActions={
-              <PendingActions
-                approvals={snapshotView.approvals}
-                dispatch={director.dispatch}
-                dispatching={director.pending.dispatching}
-                offerWorkspaceStart={(director.snapshot?.workstreams.length ?? 0) === 0}
-                openLocalFolder={workspaceBinding.openLocalFolder}
-                openWorkspacePath={workspaceBinding.openWorkspacePath}
-                requests={snapshotView.requests}
-                workspaceSession={workspaceBinding.session}
-              />
-            }
-            speechCapture={speechCapture}
-          />
+          {/*
+           * Waiting-on-you and the composer share a dock so they stack in one
+           * column above the canvas. They are siblings, not nested: an approval
+           * renders its own form, and a form inside the composer's form is
+           * dropped by the parser, which silently kills the approval's submit.
+           */}
+          <div className="director-composer-dock">
+            <PendingActions
+              approvals={snapshotView.approvals}
+              dispatch={director.dispatch}
+              dispatching={director.pending.dispatching}
+              offerWorkspaceStart={(director.snapshot?.workstreams.length ?? 0) === 0}
+              openLocalFolder={workspaceBinding.openLocalFolder}
+              openWorkspacePath={workspaceBinding.openWorkspacePath}
+              requests={snapshotView.requests}
+              workspaceSession={workspaceBinding.session}
+            />
+            <DirectorComposer
+              answering={director.pending.answering}
+              dispatch={director.dispatch}
+              focus={focus}
+              onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
+              speechCapture={speechCapture}
+            />
+          </div>
         </section>
       </div>
       <DirectorHistoryOverlaySlot

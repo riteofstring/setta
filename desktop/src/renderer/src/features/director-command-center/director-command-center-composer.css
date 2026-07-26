@@ -1,3 +1,22 @@
+/*
+ * The dock owns the column below the canvas: what the Director is waiting on,
+ * then the composer. They are siblings inside it rather than parent and child,
+ * because an approval renders its own form and a nested form is dropped by the
+ * parser — which loses the approval's submit handler without any error.
+ */
+.director-composer-dock {
+  display: grid;
+  gap: 9px;
+  grid-column: 1 / -1;
+  grid-row: 2 / 3;
+  inline-size: min(620px, calc(100% - 48px));
+  justify-self: center;
+  margin-block-end: calc(env(safe-area-inset-bottom) + 22px);
+  min-block-size: 0;
+  position: relative;
+  z-index: 28;
+}
+
 .director-composer {
   align-items: center;
   background: transparent;
@@ -5,16 +24,11 @@
   border-radius: 0;
   display: grid;
   gap: 9px;
-  grid-column: 1 / -1;
-  grid-row: 2 / 3;
   grid-template-columns: minmax(0, 1fr);
-  inline-size: min(620px, calc(100% - 48px));
-  justify-self: center;
-  margin-block-end: calc(env(safe-area-inset-bottom) + 22px);
+  inline-size: 100%;
   min-block-size: 0;
   padding: 0;
   position: relative;
-  z-index: 28;
 }
 
 /*
