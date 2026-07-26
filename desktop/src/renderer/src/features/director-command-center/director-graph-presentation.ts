@@ -87,6 +87,7 @@ export interface DirectorGraphComposition {
 export function packDirectorGraphs(
   graphs: DirectorSnapshot["graphs"] | undefined,
   selectedWorkstreamId: string | null,
+  density: "spacious" | "compact" = "spacious",
 ): DirectorGraphComposition {
   const composed = graphs ?? [];
   const visible =
@@ -101,6 +102,7 @@ export function packDirectorGraphs(
   return {
     presentation,
     snapshot: packSemanticGraphComposition({
+      density,
       graphs: visible,
       presentation,
       workstreamId: compositionId,

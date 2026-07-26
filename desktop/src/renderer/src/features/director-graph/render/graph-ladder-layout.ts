@@ -47,6 +47,14 @@ export interface GraphLadderInput {
    * belongs — and a conversation has only one column to align.
    */
   readonly alignColumnsToLiveEdge: boolean;
+  /*
+   * Where a fold collapses to. Top-anchored (the default) is the
+   * conversation's ladder: the rows compress toward the question.
+   * Outcome-anchored is the grid's: the trail is sucked down into the outcome
+   * node, which never leaves its spot — the tile's focused node must hold
+   * still while its history folds away.
+   */
+  readonly anchorFoldsToOutcome?: boolean;
   readonly reducedMotion: boolean;
 }
 
@@ -124,6 +132,7 @@ export class GraphLadderLayout {
   private turnFirstNode = new Int32Array(0);
   private turnNodeEnd = new Int32Array(0);
   private lastLiveEdge = 0;
+  private anchorFoldsToOutcome = false;
   /** Whether the next advance arrives at its resting state instead of easing. */
   private settleNextAdvance = false;
 
@@ -145,7 +154,13 @@ export class GraphLadderLayout {
     const settling = this.settleNextAdvance;
     this.settleNextAdvance = false;
     const firstAnimating = this.advanceOpenness(snapshot, input, settling);
-    const firstDirtyTurn = Math.min(firstAnimating, this.firstTurnOf(appendedFrom, snapshot));
+    // A changed fold anchor moves every folded turn, so everything is dirty.
+    const anchorFolds = input.anchorFoldsToOutcome === true;
+    const anchorChanged = anchorFolds !== this.anchorFoldsToOutcome;
+    this.anchorFoldsToOutcome = anchorFolds;
+    const firstDirtyTurn = anchorChanged
+      ? 0
+      : Math.min(firstAnimating, this.firstTurnOf(appendedFrom, snapshot));
     const dirtyFrom =
       firstDirtyTurn >= snapshot.turnCount
         ? snapshot.nodeCount
@@ -390,12 +405,21 @@ export class GraphLadderLayout {
     }
     const end = packedValueAt(this.turnNodeEnd, turn);
     const openness = packedValueAt(this.openness, turn);
+    const span = this.anchorFoldsToOutcome ? this.turnSpan(snapshot, turn) : 0;
     for (let index = first; index < end; index += 1) {
       const role = packedValueAt(snapshot.nodes.role, index);
       const localY =
         packedValueAt(snapshot.nodes.row, index) * graphLadderSpacing.rowStep +
         (role === packedGraphRoleCode.outcome ? graphLadderSpacing.outcomeGap : 0);
-      this.worldY[index] = top + localY * openness;
+      /*
+       * Top-anchored, rows compress toward the question above them. Outcome-
+       * anchored, the trail is sucked down into the outcome's own spot —
+       * `top + span` is exactly where the outcome sits fully open, so the
+       * focused node of a folding grid tile never moves.
+       */
+      this.worldY[index] = this.anchorFoldsToOutcome
+        ? top + span - (span - localY) * openness
+        : top + localY * openness;
       this.open[index] = role === packedGraphRoleCode.outcome ? 1 : openness;
     }
   }

@@ -212,9 +212,18 @@ export function DirectorCommandCenterShell({
     () => directorGraphTimeSecondsAt(director.snapshot),
     [snapshot === null ? null : snapshot.connection.lastEventAt, snapshotGraphs],
   );
+  // A compact window folds the grid's tiles to dots; a spacious one earns
+  // their trails. The same viewport fact reaches the packer, not a second
+  // measurement that could disagree with it.
+  const compactViewport = useMediaQueryMatch("(max-width: 1080px), (max-height: 720px)");
   const composition = useMemo(
-    () => packDirectorGraphs(snapshotGraphs, selectedWorkstreamId),
-    [snapshotGraphs, selectedWorkstreamId],
+    () =>
+      packDirectorGraphs(
+        snapshotGraphs,
+        selectedWorkstreamId,
+        compactViewport ? "compact" : "spacious",
+      ),
+    [compactViewport, snapshotGraphs, selectedWorkstreamId],
   );
   const packedSnapshot = composition.snapshot;
   const { openWorkstream: openWorkstreamFromGraph } = useDirectorGraphPresentation({
@@ -966,24 +975,28 @@ export function effectiveDirectorRailVisibility({
 }
 
 function useCompactRailLayout(): boolean {
-  const [compact, setCompact] = useState(
-    () => globalThis.window?.matchMedia?.(compactRailQuery).matches ?? false,
+  return useMediaQueryMatch(compactRailQuery);
+}
+
+function useMediaQueryMatch(query: string): boolean {
+  const [matches, setMatches] = useState(
+    () => globalThis.window?.matchMedia?.(query).matches ?? false,
   );
   useEffect(() => {
-    const query = globalThis.window?.matchMedia?.(compactRailQuery);
-    if (!query) {
+    const list = globalThis.window?.matchMedia?.(query);
+    if (!list) {
       return;
     }
     const update = (): void => {
-      setCompact(query.matches);
+      setMatches(list.matches);
     };
     update();
-    query.addEventListener("change", update);
+    list.addEventListener("change", update);
     return () => {
-      query.removeEventListener("change", update);
+      list.removeEventListener("change", update);
     };
-  }, []);
-  return compact;
+  }, [query]);
+  return matches;
 }
 
 function directorKeyboardTargetIsEditable(target: EventTarget | null): boolean {

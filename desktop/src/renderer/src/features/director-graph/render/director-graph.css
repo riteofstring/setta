@@ -154,13 +154,17 @@
  * labels so pills from neighbouring columns stop colliding across the gap.
  */
 .director-graph-labels[data-columns="many"] .director-graph-label {
-  max-inline-size: 200px;
+  max-inline-size: var(--graph-label-max, 200px);
   font-size: 11px;
 }
 
 .director-graph-labels[data-columns="many"] .director-graph-pill {
-  max-inline-size: 220px;
+  max-inline-size: var(--graph-label-max, 220px);
   font-size: 11px;
+}
+
+.director-graph-labels[data-columns="many"] .director-column-title {
+  max-inline-size: var(--graph-label-max, 220px);
 }
 
 /*

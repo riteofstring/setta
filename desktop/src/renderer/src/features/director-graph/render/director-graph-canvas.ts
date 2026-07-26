@@ -128,9 +128,9 @@ const workstreamSwitchSlideMs = 310;
 const columnTitleTopPx = 64;
 
 /** How long fresh activity speaks on side-by-side views before fading. */
-const temporaryLabelSeconds = 4;
+const temporaryLabelSeconds = 2.4;
 /** The tail of that window over which the label fades out. */
-const temporaryLabelFadeSeconds = 1.2;
+const temporaryLabelFadeSeconds = 0.8;
 
 /** Hover animates only in the normal-motion profile; reduced motion snaps once. */
 export function graphHoverNeedsAnimation(
@@ -588,6 +588,7 @@ export class DirectorGraphCanvas {
       pinnedTurns: this.view.pins(),
       reducedMotion: this.reducedMotion,
       alignColumnsToLiveEdge: this.presentation === "columns",
+      anchorFoldsToOutcome: this.presentation === "grid",
     });
     this.bounds = {
       contentTopWorldY: ladder.contentTopWorldY,
@@ -793,12 +794,33 @@ export class DirectorGraphCanvas {
     /*
      * Threads side by side read as shapes, not sentences: labels stay off so
      * the constellation is legible. Two things speak — the hovered node, for
-     * as long as it is hovered, and fresh activity, whose label appears with
-     * the change and fades a few seconds later. Selection is untouched —
-     * clicks hit-test the canvas, not the labels.
+     * as long as it is hovered, and each thread's single freshest change,
+     * which fades quickly. One voice per thread is the overlap rule: two
+     * labels in one tile is already the mess this exists to prevent.
      */
     if (this.presentation !== "conversation") {
       const hovered = this.view.hovered();
+      const freshestPerTurn = new Map<number, { index: number; spokeAt: number }>();
+      for (let index = 0; index < count; index += 1) {
+        const placement = this.placements[index];
+        if (placement === undefined || placement.nodeIndex === hovered) {
+          continue;
+        }
+        const spokeAt = Math.max(
+          packedValueAt(this.snapshot.nodes.bornAt, placement.nodeIndex),
+          packedValueAt(this.snapshot.nodes.settleAt, placement.nodeIndex) - 1,
+        );
+        const age = timeSeconds - spokeAt;
+        if (age < 0 || age >= temporaryLabelSeconds) {
+          continue;
+        }
+        const turn = packedValueAt(this.snapshot.nodes.turn, placement.nodeIndex);
+        const current = freshestPerTurn.get(turn);
+        if (current === undefined || spokeAt > current.spokeAt) {
+          freshestPerTurn.set(turn, { index, spokeAt });
+        }
+      }
+      const keep = new Set([...freshestPerTurn.values()].map((entry) => entry.index));
       let kept = 0;
       for (let index = 0; index < count; index += 1) {
         const placement = this.placements[index];
@@ -810,24 +832,52 @@ export class DirectorGraphCanvas {
           kept += 1;
           continue;
         }
-        const spokeAt = Math.max(
-          packedValueAt(this.snapshot.nodes.bornAt, placement.nodeIndex),
-          packedValueAt(this.snapshot.nodes.settleAt, placement.nodeIndex) - 1,
-        );
-        const age = timeSeconds - spokeAt;
-        if (age >= 0 && age < temporaryLabelSeconds) {
-          placement.opacity *= Math.min(
-            1,
-            (temporaryLabelSeconds - age) / temporaryLabelFadeSeconds,
-          );
-          this.placements[kept] = placement;
-          kept += 1;
+        if (!keep.has(index)) {
+          continue;
         }
+        const entry = freshestPerTurn.get(
+          packedValueAt(this.snapshot.nodes.turn, placement.nodeIndex),
+        );
+        const age = timeSeconds - (entry?.spokeAt ?? timeSeconds);
+        placement.opacity *= Math.min(1, (temporaryLabelSeconds - age) / temporaryLabelFadeSeconds);
+        this.placements[kept] = placement;
+        kept += 1;
       }
       count = kept;
+      this.applyLabelWidthBudget(viewport);
     }
     this.labels.apply(this.snapshot, this.placements, count, this.presentation === "conversation");
     this.labels.applyColumnTitles(this.columnTitlePlacements(viewport));
+  }
+
+  /**
+   * Bounds every label and title to its column's pitch, so neighbouring
+   * threads can never overlap however small the window gets. The budget is a
+   * CSS variable the label styles consume; writing it once per frame is a
+   * string compare when nothing changed.
+   */
+  private applyLabelWidthBudget(viewport: GraphViewport): void {
+    const fit = graphFitFrame(viewport.width, viewport.height);
+    let minimumGap = Number.POSITIVE_INFINITY;
+    const lanes: number[] = [];
+    for (let turn = 0; turn < this.snapshot.turnCount; turn += 1) {
+      const input = packedValueAt(this.snapshot.turns.inputNode, turn);
+      lanes.push(packedValueAt(this.snapshot.nodes.lane, input));
+    }
+    lanes.sort((left, right) => left - right);
+    for (let index = 1; index < lanes.length; index += 1) {
+      const gap = (lanes[index] ?? 0) - (lanes[index - 1] ?? 0);
+      if (gap > 0.001) {
+        minimumGap = Math.min(minimumGap, gap);
+      }
+    }
+    const budget = Number.isFinite(minimumGap)
+      ? Math.max(72, minimumGap * fit.fitX * 0.5 * viewport.width - 14)
+      : 260;
+    const value = `${Math.round(budget)}px`;
+    if (this.options.labelRoot.style.getPropertyValue("--graph-label-max") !== value) {
+      this.options.labelRoot.style.setProperty("--graph-label-max", value);
+    }
   }
 
   /**

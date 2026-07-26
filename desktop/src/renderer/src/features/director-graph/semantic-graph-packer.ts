@@ -41,6 +41,12 @@ export interface SemanticGraphComposition {
   readonly workstreamId: string;
   readonly graphs: readonly WorkstreamGraph[];
   readonly presentation: SemanticGraphPresentation;
+  /**
+   * How much room the viewport has. A spacious window earns the grid its
+   * trails; a compact one folds finished tiles to single dots, because a
+   * trail that cannot fit is worse than a dot that can.
+   */
+  readonly density?: "spacious" | "compact";
 }
 
 /*
@@ -82,7 +88,8 @@ const directorGridBias = -0.36;
  * outcome gap and the title above — or neighbouring tiles overlap.
  */
 const directorTileHeight = 0.74;
-const directorLeadLane = -0.86;
+// In from the mockup's -0.86: the lead column read as pushed off the edge.
+const directorLeadLane = -0.66;
 /**
  * How much of a conversation a tile shows: the newest node in focus with a
  * short trail behind it, the mockup's grid tile. Bounded by the tile height.
@@ -348,7 +355,7 @@ function semanticLane(node: SemanticNode): number {
  */
 function planNodes(nodes: readonly OrderedNode[], edges: readonly SemanticEdge[]): PlannedNode[] {
   const outgoing = outgoingNodeIDs(edges);
-  const fanOffsets = fanLaneOffsets(edges);
+  const fanOffsets = fanLaneOffsets(nodes, edges);
   const planned: PlannedNode[] = [];
   for (const group of groupedByGraph(nodes)) {
     const outcomeId = outcomeNodeID(group.nodes, outgoing);
@@ -377,9 +384,18 @@ function planNodes(nodes: readonly OrderedNode[], edges: readonly SemanticEdge[]
  * the merge that reconverges them has several flow edges in. Siblings spread
  * across lanes centred on the spine, the mockup's fan spacing, so parallel
  * work reads as parallel instead of stacking on one line.
+ *
+ * Sharing a source is necessary but not sufficient: a node that also chains a
+ * side fact — an artifact recorded off a step — sources two flow edges without
+ * any concurrency, and spreading those pushed spine nodes (outcomes included)
+ * off their lane. Only siblings whose lifetimes actually overlap fan out.
  */
-function fanLaneOffsets(edges: readonly SemanticEdge[]): ReadonlyMap<string, number> {
+function fanLaneOffsets(
+  nodes: readonly OrderedNode[],
+  edges: readonly SemanticEdge[],
+): ReadonlyMap<string, number> {
   const spacing = 0.3;
+  const timing = new Map(nodes.map((ordered) => [ordered.packedId, ordered]));
   const siblingsBySource = new Map<string, string[]>();
   const flowSourceCount = new Map<string, number>();
   for (const edge of edges) {
@@ -401,14 +417,44 @@ function fanLaneOffsets(edges: readonly SemanticEdge[]): ReadonlyMap<string, num
     if (members.length < 2) {
       continue;
     }
-    members.forEach((member, index) => {
-      // A merge node with several parents is not itself a branch.
-      if ((flowSourceCount.get(member) ?? 0) <= 1) {
-        offsets.set(member, (index - (members.length - 1) / 2) * spacing);
-      }
+    const cluster = concurrentCluster(members, timing).filter(
+      (member) => (flowSourceCount.get(member) ?? 0) <= 1,
+    );
+    if (cluster.length < 2) {
+      continue;
+    }
+    cluster.forEach((member, index) => {
+      offsets.set(member, (index - (cluster.length - 1) / 2) * spacing);
     });
   }
   return offsets;
+}
+
+/** The members whose lifetimes overlap the sibling before them. */
+function concurrentCluster(
+  members: readonly string[],
+  timing: ReadonlyMap<string, OrderedNode>,
+): string[] {
+  const cluster: string[] = [];
+  let previousEnds = Number.NEGATIVE_INFINITY;
+  for (const member of members) {
+    const ordered = timing.get(member);
+    if (ordered === undefined) {
+      continue;
+    }
+    if (cluster.length === 0 || ordered.bornAt < previousEnds) {
+      cluster.push(member);
+    } else {
+      // A gap breaks the fan; keep the widest run seen so far.
+      if (cluster.length >= 2) {
+        break;
+      }
+      cluster.length = 0;
+      cluster.push(member);
+    }
+    previousEnds = ordered.completedAt ?? Number.POSITIVE_INFINITY;
+  }
+  return cluster;
 }
 
 interface PlannedGroup {
@@ -610,7 +656,10 @@ function compileSemanticGraphComposition(
     planned.map((node) => [node.ordered.packedId, node.failedAt !== null]),
   );
   const packedEdges = edgeInputs(edges, nodeIndexByID, nodeModeByID, terminalByID);
-  const folding = composition.presentation !== "grid" || graphs.length - 1 >= gridFoldTileCount;
+  const folding =
+    composition.presentation !== "grid" ||
+    graphs.length - 1 >= gridFoldTileCount ||
+    composition.density === "compact";
   return [
     {
       cursorSequence: packedNodes.length + packedEdges.length,

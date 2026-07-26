@@ -358,9 +358,24 @@ export class DirectorGraphRenderer {
    */
   applyProfile(profile: GraphQualityProfile): void {
     this.profile = profile;
-    this.uploadFieldParticles(profile.fieldParticles);
+    this.uploadFieldParticles(this.scaledFieldParticles());
     this.uploadParticleTemplate(profile.particlesPerNode);
     this.uploadEdgeSegments(profile.edgeSegments);
+  }
+
+  /*
+   * The field's particle count follows the viewport's area, so its density on
+   * screen is a constant rather than an accident of window size: a fixed count
+   * over a wrapped unit square reads dense on a laptop and sparse on a 6K
+   * display. The scale is quantised so ordinary window drags do not rebuild
+   * the buffer, and clamped so the tier's count stays the budget's anchor.
+   */
+  private scaledFieldParticles(): number {
+    const referenceArea = 1280 * 820;
+    const area = this.surfaces.cssWidth * this.surfaces.cssHeight;
+    const scale = Math.min(2.5, Math.max(0.6, area / referenceArea));
+    const quantised = Math.round(scale * 4) / 4;
+    return Math.round(this.profile.fieldParticles * quantised);
   }
 
   /** The context the instrumentation samples GPU frame time from. */
@@ -388,6 +403,10 @@ export class DirectorGraphRenderer {
       cssWidth: Math.max(1, cssWidth),
       cssHeight: Math.max(1, cssHeight),
     };
+    const fieldParticles = this.scaledFieldParticles();
+    if (fieldParticles !== this.fieldCount) {
+      this.uploadFieldParticles(fieldParticles);
+    }
     if (canvas.width !== sizes.postWidth || canvas.height !== sizes.postHeight) {
       canvas.width = sizes.postWidth;
       canvas.height = sizes.postHeight;
