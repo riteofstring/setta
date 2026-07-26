@@ -14,7 +14,7 @@ conversation and trajectory provenance, persistence, lifecycle projection,
 security, and the Director artifact experience.
 
 Artifacts render through a Setta OpenUI component catalog backed by selected
-official shadcn/ui component source. Setta will not use
+official shadcn/ui Base UI component source. Setta will not use
 `@openuidev/react-ui`, imitate shadcn styling with custom substitutes, or invoke
 the shadcn CLI.
 
@@ -50,7 +50,7 @@ Setta atomically stores the artifact and trajectory event
 OpenUI parses the stored document in the renderer
                   |
                   v
-Official shadcn/ui components render with Setta theme tokens
+Official shadcn/ui Base UI components render with Setta theme tokens
 ```
 
 The AI controls content and composition. Setta controls the component catalog,
@@ -62,7 +62,7 @@ data limits, actions, security, styling, and publication.
   file references, charts, and mixed-content documents without adding a new
   backend artifact kind for every combination.
 - Make artifacts look native to Setta by rendering through actual shadcn/ui
-  component implementations and Setta's existing theme tokens.
+  Base UI component implementations and Setta's existing theme tokens.
 - Preserve durable artifact delivery, model retry, provenance, lifecycle,
   event-stream, and reload guarantees.
 - Reject malformed or unsafe documents before they become durable user-visible
@@ -88,6 +88,8 @@ data limits, actions, security, styling, and publication.
 - Preserving artifacts created with the superseded artifact schema.
 - Installing or running the shadcn CLI, including temporary, global, `npx`, or
   `pnpm dlx` installation.
+- Importing shadcn/ui Radix or React Aria variants, mixing shadcn primitive
+  bases, or retaining Radix primitives for the replaced UI responsibilities.
 
 ## Current System
 
@@ -284,15 +286,27 @@ regenerate `desktop/src/generated/backend.ts` with:
 The artifact catalog generator must not maintain a separate list of HTTP
 request or response types.
 
-## Official shadcn/ui Boundary
+## Official shadcn/ui Base UI Boundary
 
-In this plan, "use shadcn" means using selected official shadcn/ui component
-source, not recreating its visual style.
+In this plan, "use shadcn" means using selected official shadcn/ui Base UI
+component source, not recreating its visual style.
+
+As of July 2, 2026, Base UI is shadcn/ui's default and recommended component
+base for new projects. shadcn/ui rebuilt its component catalog for Base UI;
+Radix remains supported upstream, but this plan explicitly selects Base UI
+only.
 
 shadcn/ui is source-distributed. Without the CLI, Setta will check selected
-official component source into
+official Base UI variant source into
 `desktop/src/renderer/src/components/ui/` manually from a pinned upstream
 shadcn/ui revision.
+
+The selected source baseline is shadcn/ui revision
+[`7774cd7dcee1e98d0815aa6e829f33a7fc952fdf`](https://github.com/shadcn-ui/ui/commit/7774cd7dcee1e98d0815aa6e829f33a7fc952fdf).
+Components must come from that revision's
+`apps/v4/registry/bases/base/ui/` registry, and the initial Base UI runtime
+dependency is exactly `@base-ui/react` `1.6.0`. Do not take components from the
+sibling `radix` or `aria` registries.
 
 No shadcn CLI package may appear in a package manifest or lockfile. Do not use
 `npx shadcn`, `pnpm dlx shadcn`, a global shadcn installation, or any equivalent
@@ -301,8 +315,8 @@ from the pinned upstream repository or registry files.
 
 The existing local `button.tsx`, `badge.tsx`, and `input.tsx` implementations
 are not considered official shadcn/ui source by this plan. All three must be
-replaced directly with their official shadcn/ui implementations as part of
-Phase 1, whether or not the artifact catalog exposes them to the model.
+replaced directly with their official shadcn/ui Base UI implementations as
+part of Phase 1, whether or not the artifact catalog exposes them to the model.
 
 This replacement applies to their existing consumers across settings, runtime
 selection, speech, and account UI. It is an application primitive cleanup
@@ -311,8 +325,8 @@ inside this plan, not an artifact-only copy of shadcn.
 Do not preserve the current local component APIs:
 
 - remove the current Button `primary` and `secondary` variant API; update
-  callers to the official shadcn variant API or a clearly named Setta-domain
-  wrapper
+  callers to the official shadcn Base UI variant and composition API or a
+  clearly named Setta-domain wrapper
 - remove the current Badge `neutral`, `success`, and `danger` variant API; use
   the official Badge plus a separate Setta status component when domain status
   semantics are required
@@ -326,8 +340,9 @@ avoid updating callers.
 Requirements:
 
 - record the upstream shadcn/ui revision and registry source for every imported
-  component in a small provenance manifest
-- keep the official component structure and accessibility primitives
+  component in a small provenance manifest, including `base` as the selected
+  registry
+- keep the official Base UI component structure and accessibility primitives
 - make only the changes required for Setta import aliases, exact dependency
   versions, and existing CSS variable names
 - place Setta-specific behavior in wrappers outside the copied shadcn
@@ -337,8 +352,12 @@ Requirements:
   same responsibility
 - when an existing `components/ui` file conflicts, replace it directly and
   update all consumers in the same phase
+- use Base UI composition contracts such as `render` where the official source
+  requires them; do not introduce or preserve Radix-specific `asChild`
+  contracts
+- do not add direct `@radix-ui/*` dependencies or copy any shadcn Radix variant
 
-The initial official shadcn/ui set should cover:
+The initial official shadcn/ui Base UI set should cover:
 
 - Accordion
 - Alert
@@ -354,9 +373,10 @@ The initial official shadcn/ui set should cover:
 - Tabs
 - Tooltip
 
-Use the shadcn Chart implementation with its Recharts dependency. Dependencies
-introduced by official components must be direct, exactly pinned dependencies
-and must be added through `./update_dependencies.sh`.
+Use the shadcn Base UI registry's Chart implementation with its Recharts
+dependency. Dependencies introduced by official components must be direct,
+exactly pinned dependencies and must be added through
+`./update_dependencies.sh`.
 
 Some required artifact concepts do not exist in shadcn/ui. These should be
 clearly named Setta components rather than shadcn substitutes:
@@ -374,8 +394,8 @@ clearly named Setta components rather than shadcn substitutes:
   surfaces
 - chart and table adapters that enforce Setta data limits
 
-These components may compose official shadcn primitives internally where
-appropriate.
+These components may compose official shadcn Base UI primitives internally
+where appropriate.
 
 ## Initial Model-Visible Catalog
 
@@ -427,9 +447,9 @@ components, not a mandatory wrapper around the artifact or every section.
 OpenUI selects registered components and supplies validated content. It does not
 control arbitrary visual styling.
 
-Official shadcn/ui primitives use Setta's existing Tailwind v4 setup and
-shadcn-compatible CSS variables. Artifact wrappers must use the same tokens as
-the command center:
+Official shadcn/ui Base UI primitives use Setta's existing Tailwind v4 setup
+and shadcn-compatible CSS variables. Artifact wrappers must use the same tokens
+as the command center:
 
 - background and foreground
 - card and popover
@@ -490,7 +510,7 @@ On read:
 2. Electron main and preload decode the generated contract.
 3. The renderer selects the catalog by exact `catalogId`.
 4. OpenUI parses the stored source.
-5. The Setta renderer map produces official shadcn/ui and Setta domain
+5. The Setta renderer map produces official shadcn/ui Base UI and Setta domain
    components.
 
 Within this unreleased plan, `setta.artifacts.v1` may be changed in place and
@@ -601,14 +621,14 @@ The artifact browser must:
   its position in the authoritative collection
 - respect reduced-motion preferences for any directional transition
 
-Use controlled Dialog content and shadcn Button controls by default. Do not add
-a carousel dependency that requires adjacent full artifact documents to remain
-mounted.
+Use controlled shadcn Base UI Dialog content and Button controls by default. Do
+not add a carousel dependency that requires adjacent full artifact documents
+to remain mounted.
 
 The overlay must:
 
-- use the official shadcn/ui Dialog primitive for modal semantics, focus
-  containment, Escape handling, and focus restoration
+- use the official shadcn/ui Base UI Dialog primitive for modal semantics,
+  focus containment, Escape handling, and focus restoration
 - leave the WebGL graph mounted behind a simple dim layer so closing the
   artifact returns to the same graph state
 - disable graph, rail, top-bar, and composer interaction while open
@@ -620,9 +640,9 @@ The overlay must:
 - avoid nesting the artifact document inside an additional decorative card
 - keep OpenUI and chart code out of the initial command-center bundle
 
-The WebGL renderer does not render OpenUI or shadcn content and does not receive
-artifact component state. Electron's Chromium renderer composites the DOM
-overlay above the canvas.
+The WebGL renderer does not render OpenUI or shadcn content and does not
+receive artifact component state. Electron's Chromium renderer composites the
+DOM overlay above the canvas.
 
 The renderer must:
 
@@ -699,9 +719,12 @@ Expected direct dependencies include:
 - `@openuidev/react-lang`
 - its required OpenUI core package if it is not bundled
 - Zod 4
+- `@base-ui/react` `1.6.0`
 - exact dependencies required by the selected official shadcn/ui components
 - Recharts for the official shadcn Chart component
-- Radix primitives required by the selected official shadcn components
+
+Do not add direct `@radix-ui/*` dependencies. All selected shadcn component
+source must use the Base UI registry variant.
 
 All checked-in direct versions must be exact. Use:
 
@@ -777,12 +800,13 @@ Landed:
   argument, representative compile, and maximum-source compile measurements
 - one green ChatGPT-authenticated live output-quality check using the
   catalog-owned instructions, with `OPENAI_API_KEY` excluded
+- the official shadcn/ui Base UI source decision pinned to upstream revision
+  `7774cd7dcee1e98d0815aa6e829f33a7fc952fdf` and `@base-ui/react` `1.6.0`
 
 Blocked on evidence this repository cannot produce:
 
-- pinning the candidate OpenUI revision and package versions, and recording the
-  selected official shadcn/ui upstream revision, both of which need registry
-  access
+- pinning the candidate OpenUI revision and package versions, which needs
+  OpenUI registry access
 - the equivalent generated React library, which needs those packages installed
 - confirming the pinned OpenUI renderer interprets every accepted fixture
   equivalently, which needs that library
@@ -799,7 +823,7 @@ Deliverables:
 - measure prompt size, tool argument size, parse time, and representative model
   output quality
 - capture the required pre-change performance baseline
-- record the selected official shadcn/ui upstream revision
+- record the selected official shadcn/ui Base UI upstream revision
 
 Gate:
 
@@ -818,7 +842,7 @@ cutover until that user-authorized gate passes.
 No production contract, schema, or renderer changes land before this gate is
 satisfied.
 
-### Phase 1 - Catalog Generation And Official shadcn Primitives
+### Phase 1 - Catalog Generation And Official shadcn Base UI Primitives
 
 **Status:** Pending.
 
@@ -826,9 +850,9 @@ Deliverables:
 
 - add the Go-owned catalog definition and generator
 - generate TypeScript names, schemas, and catalog signatures
-- add exact OpenUI, Zod, Radix, and Recharts dependencies through the repository
-  dependency script
-- check in the selected official shadcn/ui component source manually
+- add exact OpenUI, Zod, `@base-ui/react`, and Recharts dependencies through
+  the repository dependency script
+- check in the selected official shadcn/ui Base UI component source manually
 - add the shadcn provenance manifest
 - directly replace the current local Button, Badge, and Input implementations
 - update every existing Button, Badge, and Input consumer in the same change
@@ -843,9 +867,11 @@ Gate:
 
 - every generated component name has exactly one renderer
 - every shadcn-labeled primitive is traceable to official source
+- every imported shadcn primitive comes from the pinned `bases/base` registry
 - Button, Badge, and Input no longer contain Setta's prior local
   implementations or compatibility variants
 - no OpenUI default UI package or shadcn CLI dependency exists
+- no direct `@radix-ui/*` dependency or shadcn Radix variant exists
 - no arbitrary styling or action property is present in the model catalog
 
 ### Phase 2 - Artifact Contract And Storage Replacement
@@ -902,7 +928,8 @@ Gate:
 Deliverables:
 
 - replace the artifact-kind switch with `SettaArtifactRenderer`
-- render through the generated OpenUI library and official shadcn primitives
+- render through the generated OpenUI library and official shadcn Base UI
+  primitives
 - implement safe Markdown, code, table, chart, and file-reference behavior
 - lazy-load OpenUI and chart dependencies
 - replace artifact rows with stable-height, always-visible visual preview cards
@@ -910,7 +937,7 @@ Deliverables:
   model-visible component
 - lazy-read and parse only previews entering the rail viewport
 - reuse the bounded parse cache between previews and the full overlay
-- replace the in-rail detail panel with the shadcn Dialog-backed
+- replace the in-rail detail panel with the shadcn Base UI Dialog-backed
   `ArtifactBrowserOverlay`
 - open the overlay from the explicit expand control and optional double-click,
   with no collapsed or single-click-expanded rail state
@@ -978,7 +1005,7 @@ Required focused coverage:
 - artifact domain and storage behavior
 - dynamic-tool correction and durable publication
 - OpenUI parser conformance corpus
-- shadcn-backed renderer semantics and accessibility
+- shadcn Base UI-backed renderer semantics and accessibility
 - safe Markdown, links, files, tables, and charts
 - generated HTTP, main, preload, and IPC contracts
 
@@ -1015,15 +1042,16 @@ for merge verification.
 This plan is complete only when:
 
 - AI-generated artifacts use one validated OpenUI document contract
-- actual official shadcn/ui component source renders the supported UI
+- actual official shadcn/ui Base UI component source renders the supported UI
   primitives
 - the artifact rail shows stable, content-aware previews rather than collapsed
   text rows or a single-click expansion state
 - rich artifacts open in one large carousel-style DOM browser above the WebGL
   canvas, with previous and next navigation across all available artifacts
 - the existing local Button, Badge, and Input implementations have been
-  replaced with official shadcn/ui source and all consumers use the new
-  contracts directly
+  replaced with official shadcn/ui Base UI source and all consumers use the
+  new contracts directly
+- no shadcn Radix variant or direct `@radix-ui/*` dependency remains
 - Setta's theme, accessibility, security, and performance constraints apply
 - invalid model output is repaired before persistence
 - artifact identity, provenance, lifecycle, and replay remain durable
@@ -1041,3 +1069,6 @@ This plan is complete only when:
 - [OpenUI custom artifacts](https://www.openui.com/docs/agent/guides/custom-artifacts)
 - [OpenUI open-ended HTML guidance](https://www.openui.com/docs/agent/guides/open-ended-html)
 - [shadcn/ui documentation](https://ui.shadcn.com/docs)
+- [shadcn/ui Base UI default announcement](https://ui.shadcn.com/docs/changelog/2026-07-base-ui-default)
+- [Pinned shadcn/ui Base UI registry source](https://github.com/shadcn-ui/ui/tree/7774cd7dcee1e98d0815aa6e829f33a7fc952fdf/apps/v4/registry/bases/base/ui)
+- [Base UI documentation](https://base-ui.com/react/overview/quick-start)
