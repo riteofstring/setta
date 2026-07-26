@@ -32,13 +32,6 @@ const SettaArtifactRenderer = lazy(async () => ({
   default: (await import("../artifacts/SettaArtifactRenderer")).SettaArtifactRenderer,
 }));
 
-export function ArtifactBrowserOverlaySlot({ browser }: { browser: DirectorArtifactBrowser }) {
-  if (browser.activeArtifact === null) {
-    return null;
-  }
-  return <ArtifactBrowserOverlay artifact={browser.activeArtifact} browser={browser} />;
-}
-
 /**
  * The artifact browser.
  *
@@ -51,7 +44,7 @@ export function ArtifactBrowserOverlaySlot({ browser }: { browser: DirectorArtif
  * The WebGL command center stays mounted behind the Dialog's backdrop, so
  * closing the browser returns to the same graph.
  */
-function ArtifactBrowserOverlay({
+export function ArtifactBrowserOverlay({
   artifact,
   browser,
 }: {

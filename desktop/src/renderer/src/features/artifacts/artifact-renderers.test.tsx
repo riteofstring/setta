@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createArtifactLibrary } from "./artifact-library";
 import { artifactRenderers } from "./artifact-renderers";
 import { artifactComponentNames } from "./generated/artifact-catalog";
+import { artifactCatalogLimits } from "./generated/artifact-catalog-limits";
 import { artifactConformanceFixtures } from "./generated/conformance-corpus";
 
 // The renderer map is the last hop of the catalog contract: the backend accepts
@@ -138,6 +139,55 @@ describe("setta.artifacts.v1 renderer map", () => {
     expect(markup).toContain("The artifact contract");
     expect(markup).not.toContain("<a ");
     expect(markup).not.toContain("file://");
+  });
+
+  // A document at the catalog's table bound is the largest DOM one artifact can
+  // ask for, so the adapter has to spend exactly one row on each row the model
+  // wrote: no sticky header clone, no measurement copy, no second table.
+  it("spends one DOM row per model row at the maximum table size", () => {
+    const maximum = artifactConformanceFixtures.find((fixture) => fixture.name === "maximum_table");
+    expect(maximum).toBeDefined();
+
+    const markup = render(maximum!.source);
+
+    expect(markup.match(/data-slot="table"/gu)).toHaveLength(1);
+    expect(markup.match(/<tr\b/gu)).toHaveLength(artifactCatalogLimits.maxTableRows + 1);
+    expect(markup.match(/<th\b/gu)).toHaveLength(artifactCatalogLimits.maxTableColumns);
+    expect(markup.match(/<td\b/gu)).toHaveLength(
+      artifactCatalogLimits.maxTableRows * artifactCatalogLimits.maxTableColumns,
+    );
+  });
+
+  // Tabs and accordions are the two places a document can hide expensive
+  // content behind a control. Base UI unmounts a hidden panel, and this holds
+  // that: an unopened section must not mount Recharts or a maximum table for
+  // content nobody has asked to see.
+  it("does not mount a hidden tab's chart or table", () => {
+    const markup = render(
+      [
+        'shown = Tab("Summary", [Text("Two runs failed.")])',
+        'hidden = Tab("Detail", [BarChart([{name: "Runs", points: [{label: "Mon", value: 3}]}]), Table([{key: "stage", label: "Stage"}], [["Compile"]])])',
+        "root = Document([Tabs([shown, hidden])])",
+      ].join("\n"),
+    );
+
+    expect(markup).toContain("Two runs failed.");
+    expect(markup).toContain("Detail");
+    expect(markup).not.toContain('data-slot="chart"');
+    expect(markup).not.toContain('data-slot="table"');
+  });
+
+  it("does not mount a closed accordion section's chart or table", () => {
+    const markup = render(
+      [
+        'section = AccordionItem("Detail", [BarChart([{name: "Runs", points: [{label: "Mon", value: 3}]}]), Table([{key: "stage", label: "Stage"}], [["Compile"]])])',
+        "root = Document([Accordion([section])])",
+      ].join("\n"),
+    );
+
+    expect(markup).toContain("Detail");
+    expect(markup).not.toContain('data-slot="chart"');
+    expect(markup).not.toContain('data-slot="table"');
   });
 
   it("renders status tones with readable text and non-colour semantics", () => {

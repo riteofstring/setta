@@ -1292,7 +1292,73 @@ needing a driven session.
 
 ### Phase 5 - Cleanup And Performance Remeasurement
 
-**Status:** Pending.
+**Status:** Complete for the repository-actionable work. The post-change
+measurements are recorded in
+[`docs/reports/performance/openui-artifact-post-change-20260726.md`](../reports/performance/openui-artifact-post-change-20260726.md),
+which also carries the driven-session rows as a release gate.
+
+Landed:
+
+- the cleanup sweep found nothing left to remove, which the earlier phases'
+  replace-in-place discipline is what earned. Go dead-code analysis over the
+  conversation, director, narration, httpapi, and catalog-generator packages
+  reports no unused symbol; the desktop dead-export analysis reports only the
+  pre-existing `decodeStringRecord` contract-runtime helper, which predates this
+  plan and is not superseded by it; `noUnusedLocals` and `noUnusedParameters`
+  hold every import; a class-by-class sweep of the renderer stylesheets finds no
+  artifact rule and no custom property without a consumer. The three dead shell
+  classes it did find were already dead before this plan's first commit.
+- regeneration of both Go-owned TypeScript surfaces produced no diff, so the
+  checked-in catalog and backend contracts match their owners.
+- one measured bundle regression corrected. The artifact browser overlay was
+  statically imported by `DirectorCommandCenterShell`, so the Dialog and Scroll
+  Area primitives it alone consumes were paid for on first paint by every reader.
+  `ArtifactBrowserOverlaySlot` now holds that chunk boundary, moving 105.82 kB
+  out of the initial command-center chunk. The rail's Tooltip stays, because the
+  expand control on every preview card needs it.
+- `DirectorCommandCenterShell` brought back under the repository's file-length
+  and complexity limits, which the artifact browser is what pushed it past. The
+  Now rail moved into `DirectorNowRail`, beside the artifacts rail it mirrors and
+  owning its own load-state vocabulary, and Escape's meaning moved out of the
+  keydown handler into one named function.
+- the artifact document pipeline benchmark, which replaces the Phase 0
+  parser-only benchmark: parse, preview projection, preview render, and full
+  document render, for the representative document and the catalog's maximum
+  source, table, and node-count boundaries.
+- two bounds moved from inspection into tests: a maximum table spends exactly one
+  DOM row per model row, and a hidden tab panel or closed accordion section
+  mounts neither a chart nor a table.
+
+Measured, with the full table in the report:
+
+- 249.57 kB of JavaScript and 12.64 kB of CSS added to the initial chunk by
+  Phases 2 through 4, against 1,421.16 kB of artifact code behind lazy
+  boundaries. The initial chunk statically imports no other emitted chunk, and
+  Recharts appears only in `SettaArtifactRenderer`.
+- a rail preview costs under 0.05 ms for a representative artifact and under
+  0.86 ms for the largest document the catalog admits; opening one costs 0.91 ms
+  and 6.99 ms respectively.
+- the pinned parser did not get slower across the cutover: 0.0306 ms and
+  0.8129 ms against Phase 0's 0.0298 ms and 0.8123 ms.
+- backend acceptance is roughly a third of one renderer parse of the same source,
+  so validating before persistence is not what bounds the artifact path.
+
+Blocked on evidence this repository cannot produce, and recorded once as a
+release gate rather than held as an implementation blocker:
+
+- the pre-change baseline's latency rows and every post-change row that needs a
+  driven Electron session, listed in the report's release gate
+
+Two decisions are final and carry into Phase 6:
+
+- a code block shows its language beside the block and is not syntax
+  highlighted. Highlighting needs a dependency this plan did not take, and the
+  catalog already collects the language, so adding one later is a catalog-neutral
+  change.
+- `director-command-center-performance` stays a release gate rather than a Phase
+  5 measurement. Its blank-graph-canvas assertion fails identically on the pinned
+  pre-change revision here, so this sandbox's WebGL readback, not the artifact
+  cutover, is what stops it.
 
 Deliverables:
 
@@ -1311,6 +1377,14 @@ Gate:
 - the OpenUI renderer remains lazy
 - measured performance is acceptable on the repository's target matrix
 - the worktree contains only intentional implementation and evidence
+
+Every gate above is satisfied for the repository-actionable work. No removed
+kind, payload field, column, renderer branch, or fixture remains; both
+generators reproduce their checked-in outputs exactly; the OpenUI parser,
+generated catalog, Recharts, catalog components, and browser overlay are all
+behind lazy boundaries the initial chunk does not statically import; and the
+measured pipeline and DOM bounds are recorded in the post-change report. The
+latency half of "measured performance" is the release gate above.
 
 ### Phase 6 - User-Authorized Merge Verification
 

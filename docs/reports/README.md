@@ -15,3 +15,6 @@ OpenUI artifact phase evidence:
 
 - [Phase 0 audit](openui-artifact-phase0-audit-20260726.md)
 - [Phase 1 audit](openui-artifact-phase1-audit-20260726.md)
+- [Phase 2 and 3 audit](openui-artifact-phase2-3-audit-20260726.md)
+- [Phase 4 audit](openui-artifact-phase4-audit-20260726.md)
+- [Post-change performance](performance/openui-artifact-post-change-20260726.md)
