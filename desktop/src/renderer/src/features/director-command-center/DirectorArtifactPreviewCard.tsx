@@ -70,7 +70,11 @@ export function DirectorArtifactPreviewCard({
            */}
           <p className="director-artifact-preview-kind">{artifact.kind}</p>
           <h3 className="director-artifact-preview-title">{artifact.title}</h3>
-          <p className="director-artifact-preview-meta">{directorArtifactCardMetadata(artifact)}</p>
+          {artifact.status === "available" ? null : (
+            <p className="director-artifact-preview-meta">
+              {directorArtifactCardMetadata(artifact)}
+            </p>
+          )}
         </div>
         <ArtifactExpandControl
           artifact={artifact}

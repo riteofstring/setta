@@ -773,7 +773,12 @@ func (service *Service) imageGenerationArtifact(
 		ConversationID: trajectory.ConversationID,
 		TurnID:         trajectory.TurnID,
 		Title:          activity.Title,
-		CreatedAt:      now,
+		// The kind names the form, and this route only ever produces one: an
+		// image the provider generated and saved into the workspace. It is a
+		// fact about the activity that produced the artifact, not something
+		// read out of its content.
+		Kind:      nativeImageArtifactKind,
+		CreatedAt: now,
 		Document: ArtifactDocument{
 			Language:  ArtifactDocumentLanguageOpenUI,
 			CatalogID: ArtifactCatalogSettaV1,
@@ -781,6 +786,10 @@ func (service *Service) imageGenerationArtifact(
 		},
 	}, nil
 }
+
+// nativeImageArtifactKind is the kicker for an artifact routed from a saved
+// image generation.
+const nativeImageArtifactKind = "Image"
 
 func completedImageGenerationHasPath(activity *agent.ActivityEvent) bool {
 	return activity.Kind == agent.ActivityKindImageGeneration &&

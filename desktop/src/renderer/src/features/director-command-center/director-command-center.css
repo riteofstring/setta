@@ -506,11 +506,12 @@
 }
 
 .director-artifact-preview-title {
-  color: oklch(0.9 0.025 245);
+  color: var(--director-bright);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   font-weight: 600;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .director-artifact-preview-meta {
@@ -539,14 +540,7 @@
   color: var(--director-muted);
   min-block-size: var(--director-artifact-preview-block);
   min-inline-size: 0;
-  overflow: hidden;
   pointer-events: none;
-}
-
-/* A summary is chosen to fit; the fade is only for the rare one that does not. */
-.director-artifact-preview-viewport > * {
-  mask-image: linear-gradient(to bottom, black calc(100% - 12px), transparent);
-  -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 12px), transparent);
 }
 
 .director-artifact-preview-status {
@@ -614,7 +608,28 @@
  * focus containment; these rules only give it the size the command center wants
  * and set the header apart from the document.
  */
+/*
+ * The reading surface is the void, not a panel raised out of it.
+ *
+ * The dialog paints `bg-popover`, which is a lighter slate — that single fill
+ * is why an artifact read as a settings panel floating over the app rather than
+ * a page in the same room as the canvas. It takes the Director's ground and the
+ * canvas texture instead, so opening an artifact feels like the graph resolving
+ * into a document rather than a modal appearing on top of one.
+ */
 .director-artifact-browser {
+  background:
+    radial-gradient(120% 60% at 50% -10%, oklch(0.2 0.03 250 / 0.3), transparent 60%),
+    repeating-conic-gradient(
+      from 0deg at 50% 50%,
+      oklch(0.3 0.04 250 / 0.05) 0% 25%,
+      transparent 0% 50%
+    ),
+    var(--director-ground);
+  background-size:
+    auto,
+    3px 3px,
+    auto;
   block-size: min(840px, calc(100dvh - 64px));
   gap: 0;
   grid-template-rows: auto minmax(0, 1fr);
@@ -625,7 +640,7 @@
 
 .director-artifact-browser-header {
   align-items: start;
-  border-block-end: 1px solid var(--border);
+  border-block-end: 1px solid color-mix(in oklch, var(--director-border) 60%, transparent);
   display: grid;
   gap: 12px;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -670,10 +685,10 @@
  */
 .director-artifact-browser-document {
   margin-inline: auto;
-  max-inline-size: 52rem;
+  max-inline-size: 60rem;
   min-inline-size: 0;
   overflow-wrap: anywhere;
-  padding: 26px 24px 96px;
+  padding: 26px 24px 120px;
 }
 
 /*
@@ -681,7 +696,7 @@
  * the artifact is named, once, at the top of its own page.
  */
 .director-artifact-title-block {
-  margin-block-end: 26px;
+  margin-block-end: 30px;
   padding-block-end: 26px;
   border-block-end: 1px solid color-mix(in oklch, var(--director-border) 70%, transparent);
 }
@@ -947,10 +962,35 @@
   text-transform: uppercase;
 }
 
+/*
+ * The kind, with the accent tick that names it at a glance.
+ *
+ * The tick is the artifact's one piece of colour and the only thing in the
+ * title block that is not type: without it the block is three greys stacked,
+ * and the kind reads as a caption rather than as a classification.
+ */
 .director-artifact-kicker {
-  margin-block-end: 12px;
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  margin-block-end: 14px;
 }
 
+.director-artifact-kicker::before {
+  background: var(--director-primary);
+  block-size: 2px;
+  border-radius: 2px;
+  box-shadow: 0 0 10px var(--director-primary);
+  content: "";
+  inline-size: 14px;
+}
+
+/*
+ * On a card the kind carries the artifact's one piece of colour, where the
+ * title block spends it on the tick instead. A rail of cards is scanned rather
+ * than read, and the kind is what distinguishes one from the next.
+ */
 .director-artifact-preview-kind {
+  color: var(--director-primary);
   margin-block-end: 3px;
 }

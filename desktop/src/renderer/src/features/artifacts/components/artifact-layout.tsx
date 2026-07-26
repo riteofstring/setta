@@ -14,7 +14,7 @@ import type { ArtifactComponentProps } from "../generated/artifact-catalog-props
  */
 export function ArtifactDocument({ children }: { children: ReactNode }) {
   return (
-    <div className="setta-artifact flex min-w-0 flex-col gap-[18px] text-[13px] select-text">
+    <div className="setta-artifact flex min-w-0 flex-col gap-[26px] text-[15px] leading-[1.62] select-text">
       {children}
     </div>
   );
@@ -29,20 +29,25 @@ export function ArtifactDocument({ children }: { children: ReactNode }) {
  */
 export function ArtifactSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="flex flex-col gap-[12px] border-t border-border pt-[14px]">
-      <h2 className="text-[10px] leading-none font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-        {title}
-      </h2>
+    <section className="flex flex-col gap-[14px] border-t border-border pt-[22px]">
+      <h2 className="setta-artifact-kicker">{title}</h2>
       {children}
     </section>
   );
 }
 
+/*
+ * The document's own heading scale, which is not the shell's.
+ *
+ * The shell is glanced at and sits at 10-13px; a document is read, and a
+ * heading inside one has to outrank 15px body text to separate anything. At
+ * the shell's 14px it did not, which is what made a document a flat run of
+ * near-identical lines.
+ */
 const headingClasses = {
-  section: "text-[14px] leading-snug font-semibold text-foreground",
-  subsection: "text-[13px] leading-snug font-semibold text-foreground",
-  detail:
-    "text-[10px] leading-snug font-semibold tracking-[0.14em] text-muted-foreground uppercase",
+  section: "text-[17px] leading-[1.3] font-semibold tracking-[-0.005em] text-foreground",
+  subsection: "text-[14px] leading-[1.35] font-semibold text-foreground",
+  detail: "setta-artifact-kicker",
 } satisfies Record<NonNullable<ArtifactComponentProps["Heading"]["level"]>, string>;
 
 /**
@@ -94,8 +99,8 @@ export function ArtifactText({
 }
 
 const stackGapClasses = {
-  compact: "gap-2",
-  comfortable: "gap-4",
+  compact: "gap-[10px]",
+  comfortable: "gap-[22px]",
 } satisfies Record<NonNullable<ArtifactComponentProps["Stack"]["gap"]>, string>;
 
 /** Vertically stacked blocks. */
@@ -117,7 +122,11 @@ export function ArtifactStack({
  * widens the command-center shell.
  */
 export function ArtifactGrid({ columns, children }: { columns: number; children: ReactNode }) {
-  return <div className={cn("grid gap-4", gridColumnsClass(columns))}>{children}</div>;
+  return (
+    <div className={cn("grid gap-x-[34px] gap-y-[24px]", gridColumnsClass(columns))}>
+      {children}
+    </div>
+  );
 }
 
 function gridColumnsClass(columns: number): string {

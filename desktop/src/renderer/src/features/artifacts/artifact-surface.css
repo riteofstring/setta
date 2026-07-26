@@ -45,9 +45,56 @@
   max-inline-size: 34rem;
 }
 
+/*
+ * A figure: something looked at rather than read.
+ *
+ * Prose carries the measure; a table, a chart, a code block, a callout, and a
+ * file pointer carry this one instead. They are wider because their content is
+ * scanned in two dimensions, and bounded because a block that runs the full
+ * width of the page is a slab whatever is inside it.
+ */
+.setta-artifact-figure {
+  max-inline-size: 52rem;
+}
+
+/*
+ * The tracked label, and the tone below muted it is set in.
+ *
+ * A section label, a column head, a stat label, and a caption are all glanced
+ * at rather than read, so they sit at the shell's label weight and recede a
+ * step further than muted body text. `--muted-foreground` is the wrong token
+ * for them: it is the tone for prose that happens to be secondary, and using
+ * one value for both is what made every label compete with the text under it.
+ */
+.setta-artifact-kicker {
+  color: var(--director-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.setta-artifact-faint {
+  color: var(--director-faint);
+}
+
 /* Markdown is prose too, whatever node it arrived in. */
 .setta-artifact .markdown-text > p,
 .setta-artifact .markdown-text > ul,
 .setta-artifact .markdown-text > ol {
   max-inline-size: 34rem;
+}
+
+/*
+ * The callout's tint. A gradient, so the mark is on the leading edge and the
+ * text is still on the page's own ground by the time the eye reaches it.
+ */
+.setta-artifact-alert {
+  background: linear-gradient(
+    to right,
+    color-mix(in oklch, var(--setta-artifact-accent) 9%, transparent),
+    transparent 70%
+  );
+  border-inline-start-color: var(--setta-artifact-accent);
 }

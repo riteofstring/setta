@@ -123,3 +123,56 @@ kinds of document, and the catalog has no such field. Deriving it from content
 shape would be inference the rules forbid. Either the catalog gains a typed
 kind, which is a contract change and out of this plan's scope, or Phase 1 ships
 the title block without a kicker and the question is answered separately.
+
+## Phase 5 — The delta list, worked against the picture
+
+**Done.** Phases 1–4 were verified component by component against tokens. That
+is not the same as verifying the composition against the mockup, and the gap
+survived all four. Driving `docs/mockups/artifact_concept.html` and the app at
+the same viewport and reading computed styles off both found it in one pass.
+
+| | Mockup | App, before | Now |
+| --- | --- | --- | --- |
+| Body | 15px / 1.62 | **13px / 1.5** | 15px / 1.62 |
+| Block rhythm | 24–30px | 18px | 26px |
+| Section heading | 17px | 14px | 17px |
+| Stat figure | 30px, −0.02em | 26px, plus a tone icon | 30px, −0.02em, tone as colour |
+| Callout | tint fading out by 70% | flat 6% wash, full width | gradient, 52rem |
+| Chart | 150px plot, values above bars, baseline only | 256px, Y axis, grid | single series takes the mockup's plot; multi-series keeps its axis |
+| Code, file pointer | — | bordered slabs at full width | leading rule at 52rem |
+| Tracked labels | `--faint` | `--muted-foreground` | `--faint` |
+| Title block kicker | accent tick + kind | kind only | accent tick + kind |
+| Rail card kind | the artifact's accent | muted grey | `--director-primary` |
+
+**Body type was the headline.** The mockup's premise is one sentence — reading
+text is not chrome, so it sits at 15px on a bounded measure — and it was the one
+thing never implemented. Phase 1 of this plan set it; Phase 3 of
+`artifact-visual-language-plan.md` then set the document to the shell's 13px to
+match the surface around it. The later phase won silently, and every later
+verification checked the result against the shell rather than against the page.
+That is the whole failure, and it is why "matches the tokens" is not a passing
+grade for a composition.
+
+**Two rules stacking is why the file pointer changed.** The margin-note device —
+a rule above a tracked label — collides with itself: a title block's rule and a
+`FileReference`'s rule an line apart read as a mistake. Blocks that lead a
+document carry the rule on their leading edge instead, which cannot collide.
+
+**A natively routed artifact had no kind.** `emit_artifact` requires one, but an
+image the provider saved into the workspace becomes an artifact through
+`service_agent_progress.go`, which set none — so the new title block drew its
+accent tick against an empty string. That route now names its kind, which is a
+fact about the activity that produced it and not an inference from content.
+
+**Not done, and it needs a contract field.** The mockup's standfirst — the
+muted line under the title, above the rule — has no source. `WorkstreamArtifact`
+carries a title and a kind and nothing else, and taking the document's first
+paragraph would be positional inference the rules reject. It is the last
+title-block delta.
+
+**Verification.** `docs/mockups/artifact_concept.html` and the gallery driven in
+Electron at 1400×980 and read side by side; every fixture screenshotted; the
+artifact browser and rail driven through the command-center workflow; 693
+renderer unit tests, `internal/conversation` Go tests, typecheck, eslint, knip,
+prettier, production build, and the `director-command-center` and
+`native-artifact-routing` Electron workflows.
