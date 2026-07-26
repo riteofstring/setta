@@ -51,6 +51,8 @@ Answers: *did anything obviously break?*
   ./internal/runtimeinstall/ \
   ./internal/controlplane/ \
   ./internal/runtime/ \
+  ./internal/runtimecost/... \
+  ./internal/runtimeaccounting/ \
   ./internal/unixsockettest/
 ```
 
@@ -167,6 +169,14 @@ Answers: *does it work against the real provider?*
 > cleanup phase, and always confirm afterwards that nothing was left behind.
 > A stranded Sprite bills until someone notices, and today nothing sweeps for
 > forgotten machines automatically.
+>
+> If a run dies partway, **go straight to 4d**. Setta can now delete a runtime
+> even when it cannot fully observe it, so an automatic cleanup should still
+> succeed, but confirm by hand rather than assuming.
+
+For what the provider actually guarantees — fixed 8 vCPU, autoscaling memory,
+lifecycle states, billing — read the condensed notes in the knowledge vault
+under `Setta/Sprites/` rather than inferring it from a test run.
 
 ### Credentials
 
@@ -194,6 +204,16 @@ if the test skips, so a zero exit status means the gate actually ran.
 takes, whether it feels invisible, and whether any failure is explainable.
 
 ### 4b. Cold soak — behavior over time
+
+> **Status: on-demand regression probe, not a gate.** Do not run this expecting
+> to prove that a `cold` Sprite drops memory. It cannot. Fly confirmed on
+> 2026-07-17 that a Sprite reported `cold` is usually only suspended, keeps its
+> processes, and loses memory only when Fly moves it between hosts — with no
+> signal and no way to force it. The owner accepted that contract on the same
+> date (`docs/plans/sprites-cold-gate-decision-memo.md`, Option A). Three soak
+> cohorts up to 53 hours all woke behaviorally warm. Run this only to re-check
+> that the provider has not changed its behavior, and budget the days and money
+> knowing the result will most likely be "still warm".
 
 State directory must be **outside the repo** and empty for `prepare`.
 
@@ -239,8 +259,27 @@ Until automated reconciliation exists, do this by hand using the Sprites CLI:
 sprite list
 ```
 
-**Expect:** no Sprites carrying your run prefix or a `setta-managed` label.
-Anything left over is billing you right now. Destroy it.
+**Expect:** no Sprites carrying your run prefix or a `setta-managed` label. On
+an empty organization this prints **nothing at all** and exits 0 — that is the
+success case, not a broken command.
+
+Anything left over is billing you right now. Destroy it by name:
+
+```bash
+sprite destroy <sprite-name>
+```
+
+If the CLI cannot see it, delete it through the API directly and confirm it is
+gone. A `204` then a `404` means it is:
+
+```bash
+curl -sS -X DELETE -H "Authorization: Bearer ${SPRITE_TOKEN}" \
+  "https://api.sprites.dev/v1/sprites/<sprite-name>"
+curl -sS -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer ${SPRITE_TOKEN}" \
+  "https://api.sprites.dev/v1/sprites/<sprite-name>"
+```
+
+Then re-run `sprite list` and confirm the organization is empty.
 
 ---
 
@@ -277,6 +316,9 @@ has. This is a known gap, not a missing flag.
 | Live Codex tests `SKIP` | ChatGPT auth unavailable, or `OPENAI_API_KEY` set | `codex login status`; re-run with `env -u OPENAI_API_KEY`. |
 | Go tests fail only on your machine | Environment-dependent path length | Compare against a short `TMPDIR` before calling it a regression. |
 | Electron workflow times out | Machine under load | Re-run the single workflow in isolation before treating it as a regression. |
+| A live Sprites gate exits 0 in seconds | The test skipped instead of running | The lifecycle script now fails on a skip. For any other live gate, confirm a `--- PASS` line for the named test before believing it. |
+| A live run failed and a Sprite is still listed | Cleanup did not complete | Destroy it by name — see 4d. Do this before debugging anything else; it bills while you read. |
+| Live create fails with an unexpected provider value | The provider contract may have changed under you | Capture the raw `GET /v1/sprites/{name}` body before assuming it is our bug. This happened on 2026-07-26 when `config` vanished from every response. Record the payload, then compare against `Setta/Sprites/` in the vault. |
 
 ---
 
@@ -291,4 +333,5 @@ has. This is a known gap, not a missing flag.
 | End-to-end, no cloud | `node desktop/tests/electron/run-workflows.mjs --tier required` |
 | Real AI provider | `env -u OPENAI_API_KEY SETTA_LIVE_CODEX=1 ...` |
 | Real Sprite (costs money) | `./scripts/test_sprites_lifecycle.sh` |
-| Confirm no orphans | `sprite list` |
+| Confirm no orphans | `sprite list` (empty output means empty) |
+| Destroy a stranded Sprite | `sprite destroy <sprite-name>` |
