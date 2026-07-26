@@ -40,7 +40,7 @@ func (service *Service) ExecuteBranchDecision(
 			scope.Source,
 		)
 	case BranchDecisionKindForkConversation:
-		return service.executeDurableForkDecision(
+		return service.executeBranchDecision(
 			ctx,
 			workspaceID,
 			scope.ParentConversationID,

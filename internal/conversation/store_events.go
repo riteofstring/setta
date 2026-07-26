@@ -232,7 +232,6 @@ var conversationEventPayloadConstructors = map[ConversationEventType]func() Conv
 	ConversationEventTypeConversationUpdated:        func() ConversationEventPayload { return &ConversationUpdatedEventPayload{} },
 	ConversationEventTypeTurnUpdated:                func() ConversationEventPayload { return &ConversationTurnUpdatedEventPayload{} },
 	ConversationEventTypeQueueUpdated:               func() ConversationEventPayload { return &ConversationQueueUpdatedEventPayload{} },
-	ConversationEventTypeThreadBindingUpdated:       func() ConversationEventPayload { return &ConversationThreadBindingUpdatedEventPayload{} },
 	ConversationEventTypeTrajectoryAppended:         func() ConversationEventPayload { return &ConversationTrajectoryAppendedEventPayload{} },
 	ConversationEventTypeArtifactCreated:            func() ConversationEventPayload { return &ConversationArtifactCreatedEventPayload{} },
 	ConversationEventTypeNarratorStateUpdated:       func() ConversationEventPayload { return &ConversationNarratorStateUpdatedEventPayload{} },

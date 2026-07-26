@@ -16,9 +16,8 @@ import (
 func TestLiveCodexRuntimeFreshStructuredCall(t *testing.T) {
 	requireLiveCodex(t)
 	runtime := NewRuntime(Config{
-		ExcludedEnv:                    []string{"OPENAI_API_KEY"},
-		DeleteDurableThreadsOnShutdown: true,
-		Version:                        "live-structured-test",
+		ExcludedEnv: []string{"OPENAI_API_KEY"},
+		Version:     "live-structured-test",
 	})
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -103,9 +102,8 @@ func requireLiveCodex(t *testing.T) {
 func newLiveFixture(t *testing.T) liveFixture {
 	t.Helper()
 	runtime := NewRuntime(Config{
-		ExcludedEnv:                    []string{"OPENAI_API_KEY"},
-		DeleteDurableThreadsOnShutdown: true,
-		Version:                        "live-test",
+		ExcludedEnv: []string{"OPENAI_API_KEY"},
+		Version:     "live-test",
 	})
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)

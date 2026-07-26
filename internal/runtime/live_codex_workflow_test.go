@@ -25,7 +25,6 @@ func TestBackendDirectorCommandCenterWithLiveCodex(t *testing.T) {
 
 	config := testConfig(t)
 	config.Version = "test"
-	registerRuntimeLiveCodexThreadCleanup(t, config.AppDataDir)
 	server, ready := startRuntimeTestServer(t, config)
 	defer func() {
 		if server != nil {
@@ -174,7 +173,6 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 
 	config := testConfig(t)
 	config.Version = "test"
-	registerRuntimeLiveCodexThreadCleanup(t, config.AppDataDir)
 	server, ready := startRuntimeTestServer(t, config)
 	defer shutdownServer(t, server)
 
@@ -188,12 +186,11 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 		WorkspaceID: &workspaceID,
 		Title:       "Live topic conversation",
 	}, http.StatusOK)
-	if created.ThreadBinding != nil {
-		t.Fatalf("created live topic eagerly linked provider thread: %+v", created.ThreadBinding)
+	if len(created.Turns.Turns) != 0 {
+		t.Fatalf("created live topic eagerly started work: %+v", created.Turns.Turns)
 	}
 
 	var latestSnapshot conversation.ConversationSnapshot
-	providerThreadID := ""
 	for index, task := range []struct {
 		expected string
 		text     string
@@ -255,14 +252,6 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 		if !runtimeTopicHasFinalNarration(snapshot, latestTurn.ID) {
 			t.Fatalf("live topic turn %s has no automatic narrator final summary", latestTurn.ID)
 		}
-		if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.ThreadID == "" {
-			t.Fatalf("live topic turn %d has no provider thread binding: %+v", index+1, snapshot.ThreadBinding)
-		}
-		if providerThreadID == "" {
-			providerThreadID = snapshot.ThreadBinding.ThreadID
-		} else if snapshot.ThreadBinding.ThreadID != providerThreadID {
-			t.Fatalf("live topic provider thread changed across turns: before=%s after=%+v", providerThreadID, snapshot.ThreadBinding)
-		}
 		latestSnapshot = snapshot
 	}
 
@@ -313,7 +302,6 @@ func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
 
 	config := testConfig(t)
 	config.Version = "test"
-	registerRuntimeLiveCodexThreadCleanup(t, config.AppDataDir)
 	server, ready := startRuntimeTestServer(t, config)
 	defer shutdownServer(t, server)
 
@@ -520,9 +508,7 @@ func assertRuntimeLiveConversationRouteIsolation(
 ) {
 	t.Helper()
 	if after.Conversation.LastTrajectorySequence != before.Conversation.LastTrajectorySequence ||
-		len(after.Turns.Turns) != len(before.Turns.Turns) ||
-		after.ThreadBinding == nil || before.ThreadBinding == nil ||
-		after.ThreadBinding.ThreadID != before.ThreadBinding.ThreadID {
+		len(after.Turns.Turns) != len(before.Turns.Turns) {
 		t.Fatalf("live conversation router mutated topic work: before=%+v after=%+v", before, after)
 	}
 }
@@ -571,9 +557,7 @@ func assertRuntimeLiveNarratorStatus(
 		t.Fatalf("live narrator invocation = %+v", reply.ResolvedInvocation)
 	}
 	if after.Conversation.LastTrajectorySequence != before.Conversation.LastTrajectorySequence ||
-		len(after.Turns.Turns) != len(before.Turns.Turns) ||
-		after.ThreadBinding == nil || before.ThreadBinding == nil ||
-		after.ThreadBinding.ThreadID != before.ThreadBinding.ThreadID {
+		len(after.Turns.Turns) != len(before.Turns.Turns) {
 		t.Fatalf("live narrator status mutated topic work: before=%+v after=%+v", before, after)
 	}
 }

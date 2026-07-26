@@ -27,38 +27,27 @@ func (sink *conversationAgentEventSink) HandleAgentEvent(event agent.Event) erro
 
 func (service *Service) runTurn(active *activeConversationTurn) {
 	defer service.turns.Done()
-	for {
-		invocationID, err := service.newID("invocation")
-		if err != nil {
-			service.finishRunTurn(active, err)
-			return
-		}
-		resolved, err := service.agent.ResolveInvocation(service.lifecycleCtx, active.request.Invocation)
-		if err != nil {
-			service.finishRunTurn(active, fmt.Errorf("resolve agent invocation: %w", err))
-			return
-		}
-		_, err = service.agent.RunTurn(
-			service.lifecycleCtx,
-			active.request,
-			&conversationAgentEventSink{
-				invocationID: invocationID,
-				resolved:     resolved,
-				service:      service,
-				turn:         active,
-			},
-		)
-		retry, retryErr := service.repairMissingProviderThreadBeforeTurnStart(active, err)
-		if retryErr != nil {
-			service.finishRunTurn(active, errors.Join(err, retryErr))
-			return
-		}
-		if retry {
-			continue
-		}
+	invocationID, err := service.newID("invocation")
+	if err != nil {
 		service.finishRunTurn(active, err)
 		return
 	}
+	resolved, err := service.agent.ResolveInvocation(service.lifecycleCtx, active.request.Invocation)
+	if err != nil {
+		service.finishRunTurn(active, fmt.Errorf("resolve agent invocation: %w", err))
+		return
+	}
+	_, err = service.agent.RunTurn(
+		service.lifecycleCtx,
+		active.request,
+		&conversationAgentEventSink{
+			invocationID: invocationID,
+			resolved:     resolved,
+			service:      service,
+			turn:         active,
+		},
+	)
+	service.finishRunTurn(active, err)
 }
 
 func (service *Service) finishRunTurn(active *activeConversationTurn, runErr error) {
@@ -78,7 +67,13 @@ func (service *Service) finishRunTurn(active *activeConversationTurn, runErr err
 	}
 	service.activeMu.Unlock()
 	lock.Unlock()
-	if persisted && !agent.IsProviderThreadMissing(runErr) {
+	if agent.IsProviderThreadMissing(runErr) {
+		// The carrier is gone, not the conversation. Dropping it means the next
+		// turn replays Setta's record into a fresh one instead of addressing a
+		// thread the provider no longer has.
+		service.carriers.forget(active.conversationID)
+	}
+	if persisted {
 		service.promoteNextTurn(active.workspaceID, active.conversationID)
 	}
 }
@@ -225,7 +220,6 @@ func (service *Service) persistTurnStarted(
 }
 
 type turnStartMutation struct {
-	binding      AgentThreadBinding
 	events       []TrajectoryEvent
 	now          string
 	queue        []QueuedConversationTurn
@@ -265,8 +259,6 @@ func (service *Service) prepareTurnStart(
 	turn.StartedAt = &now
 	turn.ResolvedInvocation = &invocation
 	turn.ProviderTurnID = &event.ProviderTurnID
-	binding := *snapshot.ThreadBinding
-	binding.LastTurnID = &turn.ID
 	events, err := service.turnStartTrajectories(active, snapshot, turn, invocation, event, now)
 	if err != nil {
 		return turnStartMutation{}, err
@@ -276,7 +268,6 @@ func (service *Service) prepareTurnStart(
 		return turnStartMutation{}, err
 	}
 	return turnStartMutation{
-		binding:      binding,
 		events:       events,
 		now:          now,
 		queue:        queue,
@@ -343,7 +334,6 @@ func queueAfterTurnStart(
 func turnStartPayloads(mutation turnStartMutation) []ConversationEventPayload {
 	payloads := []ConversationEventPayload{
 		ConversationTurnUpdatedEventPayload{Type: ConversationEventTypeTurnUpdated, Turn: mutation.turn},
-		ConversationThreadBindingUpdatedEventPayload{Type: ConversationEventTypeThreadBindingUpdated, Binding: mutation.binding},
 	}
 	if mutation.queueOrdinal > 0 {
 		payloads = append(payloads, ConversationQueueUpdatedEventPayload{Type: ConversationEventTypeQueueUpdated, Queue: mutation.queue})
@@ -364,9 +354,6 @@ func (service *Service) commitTurnStart(
 			return err
 		}
 		if err := applyTurnStartQueueMutation(transaction, mutation); err != nil {
-			return err
-		}
-		if err := transaction.UpsertAgentThreadBinding(mutation.binding); err != nil {
 			return err
 		}
 		for _, trajectory := range mutation.events {

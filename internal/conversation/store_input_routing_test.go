@@ -1159,10 +1159,10 @@ func seedOpenConversationRouteSide(t *testing.T, store *Store, conversationID st
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO side_conversations (
   id, parent_conversation_id, decision_source,
-  source_provider_thread_id, source_trajectory_sequence, status,
+  source_trajectory_sequence, status,
   resolved_side_agent_invocation_json, created_at, updated_at
 ) VALUES (
-  'side_existing', ?, 'conversation_router', 'provider_parent', 0, 'preparing',
+  'side_existing', ?, 'conversation_router', 0, 'preparing',
   '{}', '2026-07-12T18:00:00Z', '2026-07-12T18:00:00Z'
 )
 `, conversationID)
@@ -1184,11 +1184,11 @@ func seedDisposedConversationRouteSide(
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO side_conversations (
   id, parent_conversation_id, decision_source,
-  provider_thread_id, source_provider_thread_id, source_trajectory_sequence,
+  provider_thread_id, source_trajectory_sequence,
   status, resolved_side_agent_invocation_json, created_at, updated_at, disposed_at
 ) VALUES (
   ?, ?, 'conversation_router',
-  'provider_disposed_side', 'provider_parent', 0,
+  'provider_disposed_side', 0,
   'disposing', '{}', '2026-07-12T18:00:04Z', '2026-07-12T18:00:05Z',
   '2026-07-12T18:00:05Z'
 )

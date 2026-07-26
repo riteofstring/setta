@@ -33,7 +33,6 @@ func TestBackendTopicConversationControlsAndRestartWithLiveCodex(t *testing.T) {
 	requireRuntimeLiveCodexChatGPTAuth(t)
 
 	appDataDir := t.TempDir()
-	registerRuntimeLiveCodexThreadCleanup(t, appDataDir)
 	backend := startRuntimeLiveCodexBackendProcess(t, appDataDir)
 	client, baseURL := runtimeLiveCodexBackendClient(backend)
 	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](
@@ -228,7 +227,7 @@ func TestBackendTopicConversationControlsAndRestartWithLiveCodex(t *testing.T) {
 		conversation.TurnStatusCancelled,
 	)
 
-	restartTopic := createRuntimeLiveTopic(t, client, baseURL, opened.Workspace.ID, "Live restart reconciliation")
+	restartTopic := createRuntimeLiveTopic(t, client, baseURL, opened.Workspace.ID, "Live restart recovery")
 	restartStart := submitRuntimeLiveConversationInput(
 		t,
 		client,
@@ -254,7 +253,6 @@ func TestBackendTopicConversationControlsAndRestartWithLiveCodex(t *testing.T) {
 		restartTopic.Conversation.ID,
 	)
 	restartTurn := latestRuntimeLiveTurn(t, restartActive)
-	providerThreadID := restartActive.ThreadBinding.ThreadID
 	providerTurnID := *restartTurn.ProviderTurnID
 
 	if err := backend.kill(); err != nil {
@@ -272,12 +270,11 @@ func TestBackendTopicConversationControlsAndRestartWithLiveCodex(t *testing.T) {
 	reloadedTurn := latestRuntimeLiveTurn(t, reloaded)
 	if reloadedTurn.ID != restartTurn.ID || reloadedTurn.ProviderTurnID == nil ||
 		*reloadedTurn.ProviderTurnID != providerTurnID || reloadedTurn.Status != conversation.TurnStatusCancelled {
-		t.Fatalf("reloaded live turn = %+v, want reconciled cancellation of %s/%s", reloadedTurn, restartTurn.ID, providerTurnID)
+		t.Fatalf("reloaded live turn = %+v, want restart interruption of %s/%s", reloadedTurn, restartTurn.ID, providerTurnID)
 	}
 	if reloaded.Conversation.Status != conversation.ConversationStatusIdle ||
-		reloaded.ThreadBinding == nil || reloaded.ThreadBinding.ThreadID != providerThreadID ||
-		!runtimeLiveTurnHasInterruption(reloaded, restartTurn.ID, conversation.TurnInterruptionReconciliation) {
-		t.Fatalf("reloaded live reconciliation = conversation=%+v binding=%+v trajectory=%+v", reloaded.Conversation, reloaded.ThreadBinding, reloaded.Trajectory.Events)
+		!runtimeLiveTurnHasInterruption(reloaded, restartTurn.ID, conversation.TurnInterruptionRuntimeRestarted) {
+		t.Fatalf("reloaded live restart recovery = conversation=%+v trajectory=%+v", reloaded.Conversation, reloaded.Trajectory.Events)
 	}
 	page := postRuntimeJSON[conversation.NavigatorPage](
 		t,
@@ -291,7 +288,7 @@ func TestBackendTopicConversationControlsAndRestartWithLiveCodex(t *testing.T) {
 		return item.Conversation.ID == restartTopic.Conversation.ID &&
 			item.Conversation.Status == conversation.ConversationStatusIdle
 	}) {
-		t.Fatalf("reconciled topic is absent from reloaded navigator: %+v", page.Items)
+		t.Fatalf("restarted topic is absent from reloaded navigator: %+v", page.Items)
 	}
 }
 
@@ -328,13 +325,13 @@ func exerciseRuntimeLiveProviderThreadRestartLifecycle(
 ) (*runtimeLiveCodexBackendProcess, *http.Client, string) {
 	t.Helper()
 	topic := createRuntimeLiveTopic(t, client, baseURL, workspaceID, "Live restart before first input")
-	if topic.ThreadBinding != nil || len(topic.Turns.Turns) != 0 {
-		t.Fatalf("live topic creation should be provider-independent: binding=%+v turns=%+v", topic.ThreadBinding, topic.Turns.Turns)
+	if len(topic.Turns.Turns) != 0 {
+		t.Fatalf("live topic creation should be provider-independent: turns=%+v", topic.Turns.Turns)
 	}
 	backend, client, baseURL = restartRuntimeLiveCodexBackend(t, backend, appDataDir)
 	reloaded := readRuntimeLiveSnapshot(t, client, baseURL, workspaceID, topic.Conversation.ID)
-	if reloaded.ThreadBinding != nil || len(reloaded.Turns.Turns) != 0 {
-		t.Fatalf("live restart before first input linked provider state: binding=%+v turns=%+v", reloaded.ThreadBinding, reloaded.Turns.Turns)
+	if len(reloaded.Turns.Turns) != 0 {
+		t.Fatalf("live restart before first input created turns: %+v", reloaded.Turns.Turns)
 	}
 	firstCompleted := submitAndWaitForRuntimeLiveParentTurn(
 		t,
@@ -347,17 +344,13 @@ func exerciseRuntimeLiveProviderThreadRestartLifecycle(
 		1,
 	)
 	firstTurn := latestRuntimeLiveTurn(t, firstCompleted)
-	if firstCompleted.ThreadBinding == nil ||
-		firstCompleted.ThreadBinding.ThreadID == "" ||
-		!runtimeTopicTrajectoryHasCompletedText(firstCompleted, firstTurn.ID, "LIVE_RESTART_FIRST_OK") {
-		t.Fatalf("live first turn after create restart failed: binding=%+v turn=%+v", firstCompleted.ThreadBinding, firstTurn)
+	if !runtimeTopicTrajectoryHasCompletedText(firstCompleted, firstTurn.ID, "LIVE_RESTART_FIRST_OK") {
+		t.Fatalf("live first turn after create restart failed: %+v", firstTurn)
 	}
-	providerThreadID := firstCompleted.ThreadBinding.ThreadID
+	// The carrier that turn ran on is gone after the restart. Continuity is
+	// Setta's: the next turn starts a new carrier replayed from the durable
+	// conversation, and the answer has to prove the history came with it.
 	backend, client, baseURL = restartRuntimeLiveCodexBackend(t, backend, appDataDir)
-	beforeContinuation := readRuntimeLiveSnapshot(t, client, baseURL, workspaceID, topic.Conversation.ID)
-	if beforeContinuation.ThreadBinding == nil || beforeContinuation.ThreadBinding.ThreadID != providerThreadID {
-		t.Fatalf("live completed thread binding changed across restart: before=%s after=%+v", providerThreadID, beforeContinuation.ThreadBinding)
-	}
 	continued := submitAndWaitForRuntimeLiveParentTurn(
 		t,
 		client,
@@ -365,14 +358,13 @@ func exerciseRuntimeLiveProviderThreadRestartLifecycle(
 		workspaceID,
 		topic.Conversation.ID,
 		"live-restart-continuation-turn",
-		"Continue on the same topic thread and reply with exactly LIVE_RESTART_SECOND_OK.",
+		"Repeat the exact phrase you replied with earlier in this conversation, then reply with exactly LIVE_RESTART_SECOND_OK on its own line.",
 		2,
 	)
 	continuedTurn := latestRuntimeLiveTurn(t, continued)
-	if continued.ThreadBinding == nil ||
-		continued.ThreadBinding.ThreadID != providerThreadID ||
-		!runtimeTopicTrajectoryHasCompletedText(continued, continuedTurn.ID, "LIVE_RESTART_SECOND_OK") {
-		t.Fatalf("live continuation after completed-turn restart failed: binding=%+v turn=%+v", continued.ThreadBinding, continuedTurn)
+	if !runtimeTopicTrajectoryHasCompletedText(continued, continuedTurn.ID, "LIVE_RESTART_SECOND_OK") ||
+		!runtimeTopicTrajectoryHasCompletedText(continued, continuedTurn.ID, "LIVE_RESTART_FIRST_OK") {
+		t.Fatalf("live continuation after restart lost replayed Setta history: %+v", continuedTurn)
 	}
 	return backend, client, baseURL
 }
@@ -588,8 +580,7 @@ func waitForRuntimeLiveActiveCommand(
 		conversationID,
 		"active provider command "+runtimeLiveControlCommand,
 		func(snapshot conversation.ConversationSnapshot) bool {
-			if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.ThreadID == "" ||
-				len(snapshot.Turns.Turns) == 0 {
+			if len(snapshot.Turns.Turns) == 0 {
 				return false
 			}
 			turn := snapshot.Turns.Turns[len(snapshot.Turns.Turns)-1]
@@ -755,8 +746,6 @@ func assertRuntimeLiveConcurrentTopics(
 		first.Conversation.ID == second.Conversation.ID ||
 		firstTurn.Status != conversation.TurnStatusRunning ||
 		secondTurn.Status != conversation.TurnStatusRunning ||
-		first.ThreadBinding == nil || second.ThreadBinding == nil ||
-		first.ThreadBinding.ThreadID == second.ThreadBinding.ThreadID ||
 		firstTurn.ProviderTurnID == nil || secondTurn.ProviderTurnID == nil ||
 		*firstTurn.ProviderTurnID == *secondTurn.ProviderTurnID {
 		t.Fatalf("live topics are not concurrently isolated: first=%+v/%+v second=%+v/%+v", first.Conversation, firstTurn, second.Conversation, secondTurn)

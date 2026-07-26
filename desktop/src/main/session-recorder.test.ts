@@ -238,10 +238,9 @@ describe("session recording privacy", () => {
     expect(serialized).not.toContain(rerouteReason);
   });
 
-  test("projects typed lifecycle, validation, and thread metadata without context text", () => {
+  test("projects typed lifecycle and validation without context text", () => {
     const livenessMessage = "private liveness diagnosis";
     const validationSummary = "private Guardian rationale";
-    const metadataSecret = "private thread metadata";
     const lifecycle = trajectoryEvent({
       agentLivenessChanged: {
         liveness: {
@@ -297,24 +296,6 @@ describe("session recording privacy", () => {
       ...conversationRecordingEvents(
         conversationEvent({ event: validation, type: "conversation.trajectory.appended" }, 4),
       ),
-      ...conversationRecordingEvents(
-        conversationEvent(
-          {
-            binding: {
-              conversationId: "conversation-recording",
-              createdAt: "2026-07-15T10:00:00Z",
-              lastResumedAt: null,
-              lastTurnId: "provider-turn-recording",
-              provider: "codex",
-              providerMetadata: { secret: metadataSecret },
-              status: "linked",
-              threadId: "provider-thread-recording",
-            },
-            type: "conversation.thread_binding.updated",
-          },
-          5,
-        ),
-      ),
     ];
 
     expect(recorded).toMatchObject([
@@ -349,16 +330,9 @@ describe("session recording privacy", () => {
         },
         type: "agent_trajectory_observed",
       },
-      {
-        payload: {
-          metadataKeys: ["secret"],
-          providerThreadId: "provider-thread-recording",
-        },
-        type: "agent_thread_binding_observed",
-      },
     ]);
     const serialized = JSON.stringify(recorded);
-    for (const secret of [livenessMessage, validationSummary, metadataSecret]) {
+    for (const secret of [livenessMessage, validationSummary]) {
       expect(serialized).not.toContain(secret);
     }
   });

@@ -44,53 +44,6 @@ func TestRuntimeThreadPrimitivesAndModelCatalog(t *testing.T) {
 	assertFakeThreadDiscovery(t, ctx, runtime)
 	assertFakeForkAndCleanup(t, ctx, runtime, thread)
 	assertFakeModelResolution(t, ctx, runtime)
-	assertFakeReconciliation(t, ctx, runtime, thread)
-}
-
-func TestRuntimeConfiguredResumeExcludesTurns(t *testing.T) {
-	runtime := newFakeRuntime(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	invocation := testInvocation()
-	invocation.Model = ""
-	invocation.ModelSelectionProviderDefault = true
-	request := StartThreadRequest{
-		WorkspaceRoot: t.TempDir(),
-		Invocation:    invocation,
-	}
-	resumed, err := runtime.ResumeThreadWithConfiguration(ctx, "thread-existing", request)
-	if err != nil {
-		t.Fatalf("ResumeThreadWithConfiguration: %v", err)
-	}
-	if !resumed.Resumed || resumed.Thread.ID != "thread-existing" || resumed.Thread.Model != "gpt-agent-test" {
-		t.Fatalf("resumed thread = %+v", resumed)
-	}
-}
-
-func TestRuntimeConfiguredResumeClassifiesMissingThreadByListProbe(t *testing.T) {
-	runtime := newFakeRuntime(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	_, err := runtime.ResumeThreadWithConfiguration(ctx, "thread-missing-list-confirms", StartThreadRequest{
-		WorkspaceRoot: t.TempDir(),
-		Invocation:    testInvocation(),
-	})
-	if !IsProviderThreadMissing(err) {
-		t.Fatalf("ResumeThreadWithConfiguration error = %T %v, want provider thread missing", err, err)
-	}
-}
-
-func TestRuntimeConfiguredResumeDoesNotTreatLoadErrorAsMissingWhenListFindsThread(t *testing.T) {
-	runtime := newFakeRuntime(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	_, err := runtime.ResumeThreadWithConfiguration(ctx, "thread-load-error-list-present", StartThreadRequest{
-		WorkspaceRoot: t.TempDir(),
-		Invocation:    testInvocation(),
-	})
-	if err == nil || IsProviderThreadMissing(err) {
-		t.Fatalf("ResumeThreadWithConfiguration error = %T %v, want non-missing load failure", err, err)
-	}
 }
 
 func TestForkThreadParamsPinsReasoningAndClearsInheritedServiceTier(t *testing.T) {
@@ -265,14 +218,6 @@ func assertFakeModelResolution(t *testing.T, ctx context.Context, runtime *Runti
 	})
 	if err == nil {
 		t.Fatal("ResolveInvocation accepted a missing exact model")
-	}
-}
-
-func assertFakeReconciliation(t *testing.T, ctx context.Context, runtime *Runtime, thread Thread) {
-	t.Helper()
-	result, active, err := runtime.ReconcileTurn(ctx, thread.ID, "turn-history")
-	if err != nil || active || result.Outcome != TurnOutcomeCompleted {
-		t.Fatalf("ReconcileTurn = %+v, active=%t, err=%v", result, active, err)
 	}
 }
 

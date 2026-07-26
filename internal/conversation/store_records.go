@@ -395,56 +395,6 @@ ORDER BY ordinal ASC
 	return nil
 }
 
-func (transaction *WriteTransaction) UpsertAgentThreadBinding(binding AgentThreadBinding) error {
-	if err := transaction.ensureActive(); err != nil {
-		return err
-	}
-	if err := binding.Validate(); err != nil {
-		return err
-	}
-	if binding.LastTurnID != nil {
-		if err := transaction.requireTurnBelongs(
-			*binding.LastTurnID,
-			binding.ConversationID,
-			"agent thread binding",
-			binding.ConversationID,
-		); err != nil {
-			return err
-		}
-	}
-	providerMetadataJSON, err := encodeJSONColumn("thread binding provider metadata", binding.ProviderMetadata)
-	if err != nil {
-		return err
-	}
-	_, err = transaction.tx.ExecContext(transaction.ctx, `
-INSERT INTO agent_thread_bindings (
-  conversation_id, provider, thread_id, status, created_at, last_resumed_at,
-  last_turn_id, provider_metadata_json
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(conversation_id) DO UPDATE SET
-  provider = excluded.provider,
-  thread_id = excluded.thread_id,
-  status = excluded.status,
-  created_at = excluded.created_at,
-  last_resumed_at = excluded.last_resumed_at,
-  last_turn_id = excluded.last_turn_id,
-  provider_metadata_json = excluded.provider_metadata_json
-`,
-		binding.ConversationID,
-		binding.Provider,
-		binding.ThreadID,
-		binding.Status,
-		binding.CreatedAt,
-		nullableString(binding.LastResumedAt),
-		nullableString(binding.LastTurnID),
-		providerMetadataJSON,
-	)
-	if err != nil {
-		return fmt.Errorf("upsert agent thread binding for %s: %w", binding.ConversationID, err)
-	}
-	return transaction.recordStateMutation()
-}
-
 func (transaction *WriteTransaction) InsertArtifact(artifact Artifact) error {
 	if err := transaction.ensureActive(); err != nil {
 		return err

@@ -163,7 +163,7 @@ const (
 	TurnInterruptionUserRequested       TurnInterruptionReason = "user_requested"
 	TurnInterruptionProviderInterrupted TurnInterruptionReason = "provider_interrupted"
 	TurnInterruptionRuntimeShutdown     TurnInterruptionReason = "runtime_shutdown"
-	TurnInterruptionReconciliation      TurnInterruptionReason = "reconciliation"
+	TurnInterruptionRuntimeRestarted    TurnInterruptionReason = "runtime_restarted"
 )
 
 var trajectoryEventKinds = []TrajectoryEventKind{

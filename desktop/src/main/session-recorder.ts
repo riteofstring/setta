@@ -416,8 +416,6 @@ export function conversationRecordingEvents(
       return recordedAgentInvocation(event.payload.turn, envelope);
     case "conversation.narration.created":
       return recordedNarratorOutput(event.payload.event, envelope);
-    case "conversation.thread_binding.updated":
-      return recordedThreadBinding(event.payload.binding, envelope);
     case "conversation.trajectory.appended":
       return recordedAgentTrajectory(event.payload.event, envelope);
     default:
@@ -480,30 +478,6 @@ function recordedNarratorOutput(
         streamSequence: narration.streamSequence,
         trigger: narration.trigger,
         turnId: narration.turnId,
-      },
-    },
-  ];
-}
-
-function recordedThreadBinding(
-  binding: Extract<
-    ConversationEvent["payload"],
-    { type: "conversation.thread_binding.updated" }
-  >["binding"],
-  envelope: ConversationRecordingEnvelope,
-): ConversationRecordingEvent[] {
-  return [
-    {
-      type: "agent_thread_binding_observed",
-      payload: {
-        ...envelope,
-        bindingStatus: binding.status,
-        createdAt: binding.createdAt,
-        lastResumedAt: binding.lastResumedAt,
-        lastTurnId: binding.lastTurnId,
-        metadataKeys: Object.keys(binding.providerMetadata).sort(),
-        provider: binding.provider,
-        providerThreadId: binding.threadId,
       },
     },
   ];

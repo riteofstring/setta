@@ -155,7 +155,6 @@ func TestTransactionRejectsCrossWorkspaceFork(t *testing.T) {
 		DecisionSource:           BranchDecisionSourceConversationRouter,
 		ForkedAtTurnID:           seed.forkSourceTurn.ID,
 		SourceTrajectorySequence: 1,
-		ProviderMetadata:         map[string]string{"providerForkThreadId": "provider-thread-child"},
 		CreatedAt:                testTimeEnded,
 	}
 
@@ -187,7 +186,6 @@ func TestTransactionRejectsFailedSideConversationResurrection(t *testing.T) {
 		ParentConversationID:        seed.conversation.ID,
 		ParentStatus:                seed.conversation.Status,
 		DecisionSource:              BranchDecisionSourceConversationRouter,
-		SourceProviderThreadID:      "provider-thread-parent",
 		SourceTrajectorySequence:    1,
 		Status:                      SideConversationStatusFailed,
 		ResolvedSideAgentInvocation: validInvocation(RoleSideAgent, InvocationOutcomeFailed),

@@ -148,7 +148,6 @@ func TestListNavigatorPageReturnsForkLineageAndPresentationIdentity(t *testing.T
 		DecisionSource:           BranchDecisionSourceConversationRouter,
 		ForkedAtTurnID:           sourceTurn.ID,
 		SourceTrajectorySequence: 0,
-		ProviderMetadata:         map[string]string{"provider": "codex"},
 		CreatedAt:                child.CreatedAt,
 	}
 

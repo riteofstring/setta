@@ -114,10 +114,6 @@ func readConversationSnapshotCore(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	binding, err := readSnapshotBinding(ctx, reader, conversationID)
-	if err != nil {
-		return ConversationSnapshot{}, err
-	}
 	trajectory, err := readSnapshotTrajectory(ctx, reader, conversationID)
 	if err != nil {
 		return ConversationSnapshot{}, err
@@ -131,7 +127,6 @@ func readConversationSnapshotCore(
 		Conversation:  conversation,
 		Turns:         turns,
 		Queue:         queue,
-		ThreadBinding: binding,
 		Trajectory:    trajectory,
 		Artifacts:     artifacts,
 	}, nil
@@ -262,23 +257,6 @@ LIMIT ?
 		queue = append(queue, item)
 	}
 	return queue, rows.Err()
-}
-
-func readSnapshotBinding(ctx context.Context, reader snapshotReader, conversationID string) (*AgentThreadBinding, error) {
-	row := reader.QueryRowContext(ctx, `
-SELECT conversation_id, provider, thread_id, status, created_at, last_resumed_at,
-       last_turn_id, provider_metadata_json
-FROM agent_thread_bindings
-WHERE conversation_id = ?
-`, conversationID)
-	binding, err := scanAgentThreadBinding(row)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &binding, nil
 }
 
 func readSnapshotEventCursor(ctx context.Context, reader snapshotReader, conversationID string) (ConversationEventCursor, error) {

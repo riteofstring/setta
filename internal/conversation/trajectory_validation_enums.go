@@ -131,7 +131,7 @@ func validTurnInterruptionReason(reason TurnInterruptionReason) bool {
 	case TurnInterruptionUserRequested,
 		TurnInterruptionProviderInterrupted,
 		TurnInterruptionRuntimeShutdown,
-		TurnInterruptionReconciliation:
+		TurnInterruptionRuntimeRestarted:
 		return true
 	default:
 		return false

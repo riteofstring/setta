@@ -38,8 +38,6 @@ func (runtime *Runtime) StartThread(ctx context.Context, request StartThreadRequ
 	if err != nil {
 		return Thread{}, err
 	}
-	runtime.rememberAttachedThread(thread, request)
-	runtime.rememberCreatedDurableThread(thread)
 	return thread, nil
 }
 
@@ -60,72 +58,6 @@ func (runtime *Runtime) ResumeThread(ctx context.Context, threadID string) (Thre
 		return Thread{}, fmt.Errorf("decode agent thread resume %s: %w", threadID, err)
 	}
 	return providerThread(response.Thread, response.Model)
-}
-
-func (runtime *Runtime) ResumeThreadWithConfiguration(
-	ctx context.Context,
-	threadID string,
-	request StartThreadRequest,
-) (ThreadResumeResult, error) {
-	params, fingerprint, err := runtime.prepareThreadResumeConfiguration(threadID, request)
-	if err != nil {
-		return ThreadResumeResult{}, err
-	}
-	if !request.RequireProviderResume {
-		if thread, ok := runtime.attachedThread(threadID, request, fingerprint); ok {
-			return ThreadResumeResult{Thread: thread, Resumed: false}, nil
-		}
-	}
-	return runtime.resumeThreadWithConfigurationParams(ctx, threadID, request, params)
-}
-
-func (runtime *Runtime) prepareThreadResumeConfiguration(
-	threadID string,
-	request StartThreadRequest,
-) (codexapp.ThreadResumeParams, string, error) {
-	if runtime == nil || runtime.manager == nil {
-		return codexapp.ThreadResumeParams{}, "", errors.New("agent runtime is required")
-	}
-	if strings.TrimSpace(threadID) == "" {
-		return codexapp.ThreadResumeParams{}, "", errors.New("provider thread id is required")
-	}
-	if err := request.Validate(); err != nil {
-		return codexapp.ThreadResumeParams{}, "", err
-	}
-	params, err := resumeThreadParams(threadID, request)
-	if err != nil {
-		return codexapp.ThreadResumeParams{}, "", err
-	}
-	fingerprint, err := attachedThreadFingerprint(params)
-	if err != nil {
-		return codexapp.ThreadResumeParams{}, "", err
-	}
-	return params, fingerprint, nil
-}
-
-func (runtime *Runtime) resumeThreadWithConfigurationParams(
-	ctx context.Context,
-	threadID string,
-	request StartThreadRequest,
-	params codexapp.ThreadResumeParams,
-) (ThreadResumeResult, error) {
-	raw, err := runtime.manager.Call(ctx, codexapp.CodexMethodThreadResume, params)
-	if err != nil {
-		return ThreadResumeResult{}, runtime.resumeThreadOperationError(ctx, threadID, err)
-	}
-	response, err := codexapp.DecodeThreadResumeResponse(raw)
-	if err != nil {
-		return ThreadResumeResult{}, fmt.Errorf("decode agent thread resume %s: %w", threadID, err)
-	}
-	if err := validateThreadResumeResponse(threadID, request, response); err != nil {
-		return ThreadResumeResult{}, fmt.Errorf("validate agent thread resume %s: %w", threadID, err)
-	}
-	thread, err := providerThread(response.Thread, response.Model)
-	if err != nil {
-		return ThreadResumeResult{}, err
-	}
-	runtime.rememberAttachedThread(thread, request)
-	return ThreadResumeResult{Thread: thread, Resumed: true}, nil
 }
 
 func (runtime *Runtime) ReadThread(ctx context.Context, threadID string, includeTurns bool) (Thread, error) {
@@ -245,7 +177,6 @@ func (runtime *Runtime) ForkThread(ctx context.Context, request ForkThreadReques
 			fmt.Errorf("validate agent thread fork %s: %w", request.ParentThreadID, err),
 		)
 	}
-	runtime.rememberCreatedDurableThread(thread)
 	return thread, nil
 }
 
@@ -300,12 +231,7 @@ func (runtime *Runtime) DeleteThread(ctx context.Context, threadID string) error
 	if strings.TrimSpace(threadID) == "" {
 		return errors.New("provider thread id is required")
 	}
-	err := runtime.deleteProviderThread(ctx, threadID)
-	if err == nil || IsProviderThreadMissing(err) {
-		runtime.forgetAttachedThread(threadID)
-		runtime.forgetCreatedDurableThread(threadID)
-	}
-	return err
+	return runtime.deleteProviderThread(ctx, threadID)
 }
 
 func (runtime *Runtime) deleteProviderThread(ctx context.Context, threadID string) error {
@@ -405,31 +331,6 @@ func startThreadParams(request StartThreadRequest) (codexapp.ThreadStartParams, 
 	return params, nil
 }
 
-func resumeThreadParams(threadID string, request StartThreadRequest) (codexapp.ThreadResumeParams, error) {
-	approvalPolicy, sandbox, err := providerThreadPolicies(request.Invocation)
-	if err != nil {
-		return codexapp.ThreadResumeParams{}, err
-	}
-	config, err := modelThreadConfig(request.Invocation)
-	if err != nil {
-		return codexapp.ThreadResumeParams{}, err
-	}
-	params := codexapp.ThreadResumeParams{
-		ApprovalPolicy:        approvalPolicy,
-		Config:                config,
-		CWD:                   &request.WorkspaceRoot,
-		DeveloperInstructions: optionalStringPointer(request.DeveloperInstructions),
-		ExcludeTurns:          boolPointer(true),
-		Sandbox:               &sandbox,
-		ServiceTier:           nullableServiceTier(request.Invocation.ServiceTier),
-		ThreadID:              threadID,
-	}
-	if !request.Invocation.ModelSelectionProviderDefault {
-		params.Model = &request.Invocation.Model
-	}
-	return params, nil
-}
-
 func modelThreadConfig(invocation Invocation) (*map[string]json.RawMessage, error) {
 	if invocation.ReasoningEffort == "" {
 		return nil, nil
@@ -448,27 +349,6 @@ func validateThreadStartResponse(
 ) error {
 	return validateThreadOperationResponse(
 		"provider thread",
-		request,
-		response.Thread,
-		response.Model,
-		response.ReasoningEffort,
-		response.ServiceTier,
-		response.ApprovalPolicy,
-		response.Sandbox,
-		response.CWD,
-	)
-}
-
-func validateThreadResumeResponse(
-	threadID string,
-	request StartThreadRequest,
-	response codexapp.ThreadResumeResponse,
-) error {
-	if response.Thread.ID != threadID {
-		return fmt.Errorf("provider resumed thread %s, want %s", response.Thread.ID, threadID)
-	}
-	return validateThreadOperationResponse(
-		"provider resumed thread",
 		request,
 		response.Thread,
 		response.Model,

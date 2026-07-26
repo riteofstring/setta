@@ -35,7 +35,6 @@ const (
 	ConversationEventTypeConversationUpdated        ConversationEventType = "conversation.updated"
 	ConversationEventTypeTurnUpdated                ConversationEventType = "conversation.turn.updated"
 	ConversationEventTypeQueueUpdated               ConversationEventType = "conversation.queue.updated"
-	ConversationEventTypeThreadBindingUpdated       ConversationEventType = "conversation.thread_binding.updated"
 	ConversationEventTypeTrajectoryAppended         ConversationEventType = "conversation.trajectory.appended"
 	ConversationEventTypeArtifactCreated            ConversationEventType = "conversation.artifact.created"
 	ConversationEventTypeNarratorStateUpdated       ConversationEventType = "conversation.narrator_state.updated"
@@ -53,7 +52,6 @@ var conversationEventTypeValues = []ConversationEventType{
 	ConversationEventTypeConversationUpdated,
 	ConversationEventTypeTurnUpdated,
 	ConversationEventTypeQueueUpdated,
-	ConversationEventTypeThreadBindingUpdated,
 	ConversationEventTypeTrajectoryAppended,
 	ConversationEventTypeArtifactCreated,
 	ConversationEventTypeNarratorStateUpdated,
@@ -100,7 +98,6 @@ type ConversationSnapshot struct {
 	Conversation         TopicConversation               `json:"conversation"`
 	Turns                ConversationTurnWindow          `json:"turns"`
 	Queue                []QueuedConversationTurn        `json:"queue"`
-	ThreadBinding        *AgentThreadBinding             `json:"threadBinding"`
 	Trajectory           ConversationTrajectoryWindow    `json:"trajectory"`
 	Artifacts            ConversationArtifactWindow      `json:"artifacts"`
 	NarratorState        NarratorState                   `json:"narratorState"`
@@ -150,11 +147,6 @@ type ConversationTurnUpdatedEventPayload struct {
 type ConversationQueueUpdatedEventPayload struct {
 	Type  ConversationEventType    `json:"type"`
 	Queue []QueuedConversationTurn `json:"queue"`
-}
-
-type ConversationThreadBindingUpdatedEventPayload struct {
-	Type    ConversationEventType `json:"type"`
-	Binding AgentThreadBinding    `json:"binding"`
 }
 
 type ConversationTrajectoryAppendedEventPayload struct {
@@ -242,11 +234,6 @@ func (snapshot ConversationSnapshot) Validate() error {
 
 func validateSnapshotExecution(snapshot ConversationSnapshot, conversationID string) error {
 	if err := validateSnapshotTurns(snapshot.Turns, snapshot.Queue, conversationID); err != nil {
-		return err
-	}
-	if err := validateSnapshotOwnedRecord("thread binding", conversationID, snapshot.ThreadBinding, func(binding AgentThreadBinding) (string, error) {
-		return binding.ConversationID, binding.Validate()
-	}); err != nil {
 		return err
 	}
 	if err := validateSnapshotTrajectory(snapshot.Trajectory, snapshot.Conversation); err != nil {
@@ -540,25 +527,6 @@ func validateSnapshotSides(sides []SideConversation, conversationID string, last
 	return nil
 }
 
-func validateSnapshotOwnedRecord[T any](
-	label string,
-	conversationID string,
-	value *T,
-	identity func(T) (string, error),
-) error {
-	if value == nil {
-		return nil
-	}
-	owner, err := identity(*value)
-	if err != nil {
-		return err
-	}
-	if owner != conversationID {
-		return fmt.Errorf("snapshot %s belongs to %q, want %q", label, owner, conversationID)
-	}
-	return nil
-}
-
 func (event ConversationEvent) Validate() error {
 	if event.SchemaVersion != ConversationContractSchemaVersion {
 		return fmt.Errorf("conversation event schema version must be %d", ConversationContractSchemaVersion)
@@ -659,20 +627,6 @@ func (payload ConversationQueueUpdatedEventPayload) validateConversationEventPay
 		}
 	}
 	return nil
-}
-
-func (payload ConversationThreadBindingUpdatedEventPayload) conversationEventType() ConversationEventType {
-	return ConversationEventTypeThreadBindingUpdated
-}
-
-func (payload ConversationThreadBindingUpdatedEventPayload) validateConversationEventPayload(_ *string, conversationID string) error {
-	if err := validateEventPayloadType(payload.Type, payload.conversationEventType()); err != nil {
-		return err
-	}
-	if err := payload.Binding.Validate(); err != nil {
-		return err
-	}
-	return validateEventPayloadOwner("conversation.thread_binding.updated", payload.Binding.ConversationID, conversationID)
 }
 
 func (payload ConversationTrajectoryAppendedEventPayload) conversationEventType() ConversationEventType {
@@ -835,7 +789,6 @@ func ContractUnions() []ContractUnion {
 			contractEventVariant(ConversationEventTypeConversationUpdated, ConversationUpdatedEventPayload{}),
 			contractEventVariant(ConversationEventTypeTurnUpdated, ConversationTurnUpdatedEventPayload{}),
 			contractEventVariant(ConversationEventTypeQueueUpdated, ConversationQueueUpdatedEventPayload{}),
-			contractEventVariant(ConversationEventTypeThreadBindingUpdated, ConversationThreadBindingUpdatedEventPayload{}),
 			contractEventVariant(ConversationEventTypeTrajectoryAppended, ConversationTrajectoryAppendedEventPayload{}),
 			contractEventVariant(ConversationEventTypeArtifactCreated, ConversationArtifactCreatedEventPayload{}),
 			contractEventVariant(ConversationEventTypeNarratorStateUpdated, ConversationNarratorStateUpdatedEventPayload{}),
@@ -930,7 +883,6 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet("ConversationStatus", ConversationStatusIdle, ConversationStatusWorking, ConversationStatusWaitingForApproval, ConversationStatusFailed),
 		contractValueSet("TurnDelivery", TurnDeliveryNormal, TurnDeliveryQueued, TurnDeliverySteering),
 		contractValueSet("TurnStatus", TurnStatusQueued, TurnStatusRunning, TurnStatusCompleted, TurnStatusCancelled, TurnStatusFailed),
-		contractValueSet("ThreadBindingStatus", ThreadBindingStatusLinked, ThreadBindingStatusMissing, ThreadBindingStatusUnavailable),
 		contractValueSet("ArtifactKind", ArtifactKindMarkdown, ArtifactKindTable, ArtifactKindBarChart, ArtifactKindFile),
 		contractValueSet("Provider", ProviderCodex),
 		contractValueSet("Role", RoleDirector, RoleAgent, RoleNarrator, RoleSideAgent),
@@ -966,7 +918,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "TrajectoryValidationKind", Values: stringValues(trajectoryValidationKinds)},
 		{Name: "TrajectoryValidationStatus", Values: stringValues(trajectoryValidationStatuses)},
 		{Name: "TrajectoryValidationRisk", Values: stringValues(trajectoryValidationRisks)},
-		contractValueSet("TurnInterruptionReason", TurnInterruptionUserRequested, TurnInterruptionProviderInterrupted, TurnInterruptionRuntimeShutdown, TurnInterruptionReconciliation),
+		contractValueSet("TurnInterruptionReason", TurnInterruptionUserRequested, TurnInterruptionProviderInterrupted, TurnInterruptionRuntimeShutdown, TurnInterruptionRuntimeRestarted),
 		{Name: "ConversationEventType", Values: stringValues(conversationEventTypeValues)},
 		{Name: "ConversationPaletteID", Values: stringValues(conversationpalette.IDs())},
 	}...)

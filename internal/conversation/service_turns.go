@@ -563,26 +563,25 @@ func (service *Service) launchTurnLocked(
 	if err != nil {
 		return err
 	}
-	binding, err := service.ensureAgentThreadBindingLocked(
+	carrier, err := service.ensureConversationCarrierLocked(
 		ctx,
 		workspaceID,
 		workspaceRoot,
 		snapshot,
-		turn,
+		turn.RequestedRoleProfile,
 		invocation,
 	)
 	if err != nil {
 		return err
 	}
-	snapshot.ThreadBinding = &binding
 	active := &activeConversationTurn{
 		conversationID:   turn.ConversationID,
-		providerThreadID: snapshot.ThreadBinding.ThreadID,
+		providerThreadID: carrier.threadID,
 		queueOrdinal:     queueOrdinal,
 		request: agent.TurnRequest{
 			ConversationID:   turn.ConversationID,
 			TurnID:           turn.ID,
-			ProviderThreadID: snapshot.ThreadBinding.ThreadID,
+			ProviderThreadID: carrier.threadID,
 			ClientInputID:    turn.ID,
 			Text:             turn.AuthoredInput.Text,
 			WorkspaceRoot:    workspaceRoot,
@@ -683,14 +682,17 @@ func (service *Service) controllableTurnState(
 			Reason:         fmt.Sprintf("turn %s is %s", turn.ID, turn.Status),
 		}
 	}
-	if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.Status != ThreadBindingStatusLinked {
+	// The carrier is runtime state, so the check that the caller is steering the
+	// run Setta is actually holding compares the live carrier with the run, not a
+	// durable record of either.
+	carrier, live := service.carriers.lookup(conversationID)
+	if !live || carrier.threadID != active.providerThreadID {
 		return controllableConversationTurn{}, &CommandConflictError{
 			ConversationID: conversationID,
-			Reason:         "agent thread is not linked",
+			Reason:         "the carrier running this turn is no longer active",
 		}
 	}
-	if snapshot.ThreadBinding.ThreadID != active.providerThreadID ||
-		*turn.ProviderTurnID != active.providerTurnID {
+	if *turn.ProviderTurnID != active.providerTurnID {
 		return controllableConversationTurn{}, &CommandConflictError{
 			ConversationID: conversationID,
 			Reason:         "active provider turn does not match durable state",

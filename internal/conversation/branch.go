@@ -6,8 +6,9 @@ type BranchKind string
 type SideConversationStatus string
 
 const (
-	// BranchKindFork carries one completed run of the parent forward, so the
-	// child continues the parent's provider history.
+	// BranchKindFork carries one completed run of the parent forward. The child
+	// continues from that Setta turn by replaying the parent's own conversation
+	// log, not by inheriting provider history.
 	BranchKindFork BranchKind = "fork"
 
 	SideConversationStatusPreparing SideConversationStatus = "preparing"
@@ -23,7 +24,6 @@ type ConversationBranch struct {
 	DecisionSource           BranchDecisionSource `json:"decisionSource"`
 	ForkedAtTurnID           string               `json:"forkedAtTurnId"`
 	SourceTrajectorySequence int                  `json:"sourceTrajectorySequence"`
-	ProviderMetadata         map[string]string    `json:"providerMetadata"`
 	CreatedAt                string               `json:"createdAt"`
 }
 
@@ -33,7 +33,6 @@ type SideConversation struct {
 	ParentStatus                ConversationStatus     `json:"parentStatus"`
 	DecisionSource              BranchDecisionSource   `json:"decisionSource"`
 	ProviderThreadID            *string                `json:"providerThreadId"`
-	SourceProviderThreadID      string                 `json:"sourceProviderThreadId"`
 	SourceProviderTurnID        *string                `json:"sourceProviderTurnId"`
 	SourceTrajectorySequence    int                    `json:"sourceTrajectorySequence"`
 	LastEventSequence           int                    `json:"lastEventSequence"`
@@ -56,9 +55,6 @@ func (branch ConversationBranch) Validate() error {
 	}
 	if branch.SourceTrajectorySequence < 0 {
 		return fmt.Errorf("branch %s source trajectory sequence must be non-negative", branch.ChildConversationID)
-	}
-	if err := validateStringMap("branch provider metadata", branch.ProviderMetadata); err != nil {
-		return err
 	}
 	_, err := validateTimestamp("branch createdAt", branch.CreatedAt)
 	return err
@@ -133,9 +129,6 @@ func validateSideConversationIdentifiers(side SideConversation) error {
 		return err
 	}
 	if err := validateOptionalIdentifier("side conversation provider thread id", side.ProviderThreadID); err != nil {
-		return err
-	}
-	if err := validateIdentifier("side conversation source provider thread id", side.SourceProviderThreadID); err != nil {
 		return err
 	}
 	if err := validateOptionalIdentifier("side conversation source provider turn id", side.SourceProviderTurnID); err != nil {

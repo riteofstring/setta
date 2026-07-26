@@ -207,7 +207,7 @@ func (service *Service) cleanupSideProviderThread(ctx context.Context, side Side
 	threadID := *side.ProviderThreadID
 	if side.Status == SideConversationStatusFailed &&
 		side.Failure != nil &&
-		side.Failure.Code == "side_thread_fork_failed" {
+		side.Failure.Code == "side_carrier_start_failed" {
 		if err := service.agent.UnsubscribeThread(ctx, threadID); err != nil {
 			return fmt.Errorf("unsubscribe rejected side provider thread %s: %w", threadID, err)
 		}
@@ -337,6 +337,13 @@ func (service *Service) failSideDisposal(
 // RecoverSideConversations disposes every interrupted ephemeral child before
 // normal app workflows resume. Provider cleanup failures are made durable and
 // retryable; only failures to record that state abort startup.
+// RecoverSideConversations settles side work that outlived the previous Setta
+// process.
+//
+// A side conversation runs on an ephemeral carrier, so the restart already took
+// its provider thread with it. There is nothing to interrupt and nothing to
+// unsubscribe: what is left is the Setta record, which is closed here so a side
+// nobody can talk to stops presenting itself as open.
 func (service *Service) RecoverSideConversations(ctx context.Context) error {
 	recoverable, err := service.store.readRecoverableSideConversations(ctx)
 	if err != nil {
@@ -345,7 +352,7 @@ func (service *Service) RecoverSideConversations(ctx context.Context) error {
 	var persistenceErrors []error
 	for _, record := range recoverable {
 		side := record.Side
-		if side.Status == SideConversationStatusPreparing && side.ProviderThreadID == nil {
+		if side.Status == SideConversationStatusPreparing {
 			cause := errors.New("side conversation preparation was interrupted by restart")
 			if err := service.failSideDisposal(record.WorkspaceID, side.ParentConversationID, side.ID, "side_restart_interrupted", cause); err != nil {
 				persistenceErrors = append(persistenceErrors, err)
@@ -365,20 +372,7 @@ func (service *Service) RecoverSideConversations(ctx context.Context) error {
 			}
 			side = prepared
 		}
-		cleanupErr := service.cleanupSideProviderThread(ctx, side)
-		if cleanupErr != nil {
-			if err := service.failSideDisposal(
-				record.WorkspaceID,
-				side.ParentConversationID,
-				side.ID,
-				"side_restart_cleanup_failed",
-				cleanupErr,
-			); err != nil {
-				persistenceErrors = append(persistenceErrors, errors.Join(cleanupErr, err))
-			}
-			continue
-		}
-		if err := service.finalizeSideDisposal(ctx, record.WorkspaceID, side, TurnInterruptionReconciliation); err != nil {
+		if err := service.finalizeSideDisposal(ctx, record.WorkspaceID, side, TurnInterruptionRuntimeRestarted); err != nil {
 			persistenceErrors = append(persistenceErrors, err)
 		}
 	}
@@ -391,7 +385,7 @@ func (store *Store) readRecoverableSideConversations(ctx context.Context) ([]rec
 		rows, err := connection.QueryContext(ctx, `
 SELECT parent.workspace_id, parent.status,
        side.id, side.parent_conversation_id,
-       side.decision_source, side.provider_thread_id, side.source_provider_thread_id,
+       side.decision_source, side.provider_thread_id,
        side.source_provider_turn_id, side.source_trajectory_sequence,
        side.last_event_sequence, side.active_turn_id, side.active_provider_turn_id,
        side.status, side.resolved_side_agent_invocation_json,
@@ -421,7 +415,6 @@ ORDER BY side.created_at, side.id
 				&record.Side.ParentConversationID,
 				&record.Side.DecisionSource,
 				&providerThreadID,
-				&record.Side.SourceProviderThreadID,
 				&sourceProviderTurnID,
 				&record.Side.SourceTrajectorySequence,
 				&record.Side.LastEventSequence,

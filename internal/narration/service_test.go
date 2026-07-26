@@ -372,7 +372,7 @@ func seedStatusServiceConversation(t *testing.T, store *conversation.Store, conv
 		NarratorSpeechEnabled:   true,
 		UpdatedAt:               serviceTestTimestamp,
 	}
-	turn, binding, trajectory := statusServiceActiveTurn(conversationID)
+	turn, trajectory := statusServiceActiveTurn(conversationID)
 	_, err := store.Transact(context.Background(), "seed narrator status service", func(tx *conversation.WriteTransaction) error {
 		if err := tx.InsertConversation(record); err != nil {
 			return err
@@ -381,9 +381,6 @@ func seedStatusServiceConversation(t *testing.T, store *conversation.Store, conv
 			return err
 		}
 		if err := tx.InsertTurn(turn); err != nil {
-			return err
-		}
-		if err := tx.UpsertAgentThreadBinding(binding); err != nil {
 			return err
 		}
 		for _, event := range trajectory {
@@ -473,7 +470,7 @@ func narrationTestVoiceIDPointer(value speech.SpeechVoiceID) *speech.SpeechVoice
 
 func statusServiceActiveTurn(
 	conversationID string,
-) (conversation.ConversationTurn, conversation.AgentThreadBinding, []conversation.TrajectoryEvent) {
+) (conversation.ConversationTurn, []conversation.TrajectoryEvent) {
 	profile := conversation.DefaultAgentRoleProfile()
 	providerThreadID := "provider-primary-thread"
 	providerTurnID := "provider-primary-turn"
@@ -508,17 +505,6 @@ func statusServiceActiveTurn(
 		ResolvedInvocation:   &invocation,
 		ProviderTurnID:       &providerTurnID,
 	}
-	binding := conversation.AgentThreadBinding{
-		ConversationID: conversationID,
-		Provider:       conversation.ProviderCodex,
-		ThreadID:       providerThreadID,
-		Status:         conversation.ThreadBindingStatusLinked,
-		CreatedAt:      serviceTestTimestamp,
-		LastTurnID:     &turn.ID,
-		ProviderMetadata: map[string]string{
-			"model": "gpt-5.6-sol",
-		},
-	}
 	turnID := turn.ID
 	trajectory := []conversation.TrajectoryEvent{
 		{
@@ -545,7 +531,7 @@ func statusServiceActiveTurn(
 			TurnStarted:    &conversation.TrajectoryTurnStarted{Invocation: invocation},
 		},
 	}
-	return turn, binding, trajectory
+	return turn, trajectory
 }
 
 type statusServiceWorkspaceResolver struct {

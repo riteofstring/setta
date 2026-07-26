@@ -85,7 +85,7 @@ func TestServiceRejectsMalformedBranchDecisionBeforeProviderExecution(t *testing
 	if err == nil {
 		t.Fatal("ExecuteBranchDecision accepted malformed side decision")
 	}
-	if durable, sides := runtime.durableForkRequests(), runtime.sideForkRequests(); len(durable) != 0 || len(sides) != 0 {
-		t.Fatalf("malformed decision reached provider: durable=%+v sides=%+v", durable, sides)
+	if starts := runtime.startThreadRequests(); len(starts) != 0 {
+		t.Fatalf("malformed decision reached provider: %+v", starts)
 	}
 }

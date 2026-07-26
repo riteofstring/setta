@@ -154,14 +154,12 @@ func (service *Service) persistControlTrajectoryFromSnapshot(
 		return err
 	}
 	now := advanceTimestamp(snapshot.Conversation.UpdatedAt, service.timestamp())
-	providerThreadID := snapshot.ThreadBinding.ThreadID
 	providerTurnID := *turn.ProviderTurnID
 	for index := range events {
 		events[index].ConversationID = snapshot.Conversation.ID
 		events[index].TurnID = &turn.ID
 		events[index].Sequence = snapshot.Conversation.LastTrajectorySequence + index + 1
 		events[index].EmittedAt = now
-		events[index].ProviderThreadID = &providerThreadID
 		events[index].ProviderTurnID = &providerTurnID
 		if events[index].ApprovalResolved != nil {
 			events[index].ApprovalResolved.Resolution.ResolvedAt = now
@@ -243,10 +241,10 @@ func controlTrajectoryTurn(snapshot ConversationSnapshot, turnID string) (Conver
 			Reason:         fmt.Sprintf("turn %s is %s", turn.ID, turn.Status),
 		}
 	}
-	if snapshot.ThreadBinding == nil || turn.ProviderTurnID == nil {
+	if turn.ProviderTurnID == nil {
 		return ConversationTurn{}, &CommandConflictError{
 			ConversationID: snapshot.Conversation.ID,
-			Reason:         "running turn is missing durable provider references",
+			Reason:         "running turn has not started a provider turn yet",
 		}
 	}
 	return turn, nil

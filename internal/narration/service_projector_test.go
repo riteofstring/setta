@@ -934,7 +934,7 @@ func seedTerminalProjectorConversation(
 ) (string, string, conversation.TrajectoryEvent) {
 	t.Helper()
 	conversationID := "conversation-terminal-projector"
-	turn, binding, trajectory := statusServiceActiveTurn(conversationID)
+	turn, trajectory := statusServiceActiveTurn(conversationID)
 	endedAt := "2026-07-12T12:01:00Z"
 	turn.Status = conversation.TurnStatusCompleted
 	turn.EndedAt = &endedAt
@@ -1028,9 +1028,6 @@ func seedTerminalProjectorConversation(
 		if err := tx.InsertTurn(turn); err != nil {
 			return err
 		}
-		if err := tx.UpsertAgentThreadBinding(binding); err != nil {
-			return err
-		}
 		if err := tx.UpsertConversationPresentationProfile(presentation); err != nil {
 			return err
 		}
@@ -1063,7 +1060,7 @@ func seedFailedTerminalProjectorConversation(
 ) (string, string, conversation.TrajectoryEvent) {
 	t.Helper()
 	conversationID := "conversation-failed-terminal-projector"
-	turn, binding, trajectory := statusServiceActiveTurn(conversationID)
+	turn, trajectory := statusServiceActiveTurn(conversationID)
 	endedAt := "2026-07-12T12:01:00Z"
 	failure := conversation.Failure{
 		Code:      "provider_turn_failed",
@@ -1139,9 +1136,6 @@ func seedFailedTerminalProjectorConversation(
 		if err := tx.InsertTurn(turn); err != nil {
 			return err
 		}
-		if err := tx.UpsertAgentThreadBinding(binding); err != nil {
-			return err
-		}
 		if err := tx.UpsertConversationPresentationProfile(presentation); err != nil {
 			return err
 		}
@@ -1214,7 +1208,7 @@ func appendSecondTerminalProjectorTurn(
 	if err != nil {
 		t.Fatalf("read first terminal projector turn: %v", err)
 	}
-	turn, _, events := statusServiceActiveTurn(conversationID)
+	turn, events := statusServiceActiveTurn(conversationID)
 	turn.ID = "primary-agent-turn-two"
 	turn.AuthoredInput = conversation.AuthoredInput{Text: "Complete the promoted second turn."}
 	turn.AcceptedAt = "2026-07-12T12:02:00Z"

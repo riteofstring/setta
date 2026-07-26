@@ -18,12 +18,8 @@ import (
 type AgentRuntime interface {
 	ResolveInvocation(context.Context, agent.Invocation) (agent.ResolvedInvocation, error)
 	StartThread(context.Context, agent.StartThreadRequest) (agent.Thread, error)
-	ResumeThreadWithConfiguration(context.Context, string, agent.StartThreadRequest) (agent.ThreadResumeResult, error)
-	MaterializeThread(context.Context, string, string) error
-	ForkThread(context.Context, agent.ForkThreadRequest) (agent.Thread, error)
 	InjectItems(context.Context, string, []agent.InjectedTextItem) error
 	RunTurn(context.Context, agent.TurnRequest, agent.EventSink) (agent.TurnResult, error)
-	ReconcileTurn(context.Context, string, string) (agent.TurnResult, bool, error)
 	SteerTurn(context.Context, agent.TurnControlRequest) error
 	InterruptTurn(context.Context, agent.TurnControlRequest) error
 	InterruptProviderTurn(context.Context, string, string) error
@@ -58,6 +54,10 @@ type Service struct {
 	activeMu    sync.Mutex
 	active      map[string]*activeConversationTurn
 	activeSides map[string]*activeSideConversationTurn
+	// carriers is the process-local map from Setta conversation to the ephemeral
+	// provider thread currently carrying it. Nothing persists it, so a restart
+	// starts every conversation on a fresh carrier replayed from Setta's own log.
+	carriers *carrierRegistry
 
 	lifecycleCtx    context.Context
 	lifecycleCancel context.CancelFunc
@@ -67,16 +67,15 @@ type Service struct {
 }
 
 type activeConversationTurn struct {
-	conversationID                string
-	interruptionReason            TurnInterruptionReason
-	providerThreadID              string
-	providerThreadRepairAttempted bool
-	providerTurnID                string
-	queueOrdinal                  int
-	request                       agent.TurnRequest
-	roleProfile                   RoleProfile
-	turnID                        string
-	workspaceID                   string
+	conversationID     string
+	interruptionReason TurnInterruptionReason
+	providerThreadID   string
+	providerTurnID     string
+	queueOrdinal       int
+	request            agent.TurnRequest
+	roleProfile        RoleProfile
+	turnID             string
+	workspaceID        string
 }
 
 type activeSideConversationTurn struct {
@@ -177,6 +176,7 @@ func NewService(
 		locks:           map[string]*sync.Mutex{},
 		active:          map[string]*activeConversationTurn{},
 		activeSides:     map[string]*activeSideConversationTurn{},
+		carriers:        newCarrierRegistry(),
 		lifecycleCtx:    lifecycleCtx,
 		lifecycleCancel: lifecycleCancel,
 	}, nil
@@ -296,7 +296,7 @@ func (service *Service) createTopic(
 		if presentationErr != nil {
 			return presentationErr
 		}
-		return service.persistCreatedConversation(ctx, conversation, nil, narrator, presentation, nil)
+		return service.persistCreatedConversation(ctx, conversation, narrator, presentation, nil)
 	})
 	service.createMu.Unlock()
 	if err != nil {
@@ -308,14 +308,12 @@ func (service *Service) createTopic(
 func (service *Service) persistCreatedConversation(
 	ctx context.Context,
 	conversation TopicConversation,
-	binding *AgentThreadBinding,
 	narrator NarratorState,
 	presentation ConversationPresentationProfile,
 	branch *ConversationBranch,
 ) error {
 	publications, err := service.prepareCreatedConversationPublications(
 		conversation,
-		binding,
 		narrator,
 		presentation,
 		branch,
@@ -330,7 +328,7 @@ func (service *Service) persistCreatedConversation(
 		if err := transaction.capturePresentationActivity(); err != nil {
 			return err
 		}
-		if err := persistCreatedConversationRecords(transaction, conversation, binding, narrator, branch); err != nil {
+		if err := persistCreatedConversationRecords(transaction, conversation, narrator, branch); err != nil {
 			return err
 		}
 		if err := transaction.UpsertConversationPresentationProfile(presentation); err != nil {
@@ -347,7 +345,6 @@ func (service *Service) persistCreatedConversation(
 
 func (service *Service) prepareCreatedConversationPublications(
 	conversation TopicConversation,
-	binding *AgentThreadBinding,
 	narrator NarratorState,
 	presentation ConversationPresentationProfile,
 	branch *ConversationBranch,
@@ -367,19 +364,12 @@ func (service *Service) prepareCreatedConversationPublications(
 		ConversationNarratorStateUpdatedEventPayload{Type: ConversationEventTypeNarratorStateUpdated, State: narrator},
 		ConversationPresentationProfileUpdatedEventPayload{Type: ConversationEventTypePresentationProfileUpdated, Profile: presentation},
 	)
-	if binding != nil {
-		payloads = append(payloads, ConversationThreadBindingUpdatedEventPayload{
-			Type:    ConversationEventTypeThreadBindingUpdated,
-			Binding: *binding,
-		})
-	}
 	return service.publications(conversation.ID, conversation.UpdatedAt, payloads...)
 }
 
 func persistCreatedConversationRecords(
 	transaction *WriteTransaction,
 	conversation TopicConversation,
-	binding *AgentThreadBinding,
 	narrator NarratorState,
 	branch *ConversationBranch,
 ) error {
@@ -388,11 +378,6 @@ func persistCreatedConversationRecords(
 	}
 	if branch != nil {
 		if err := transaction.InsertConversationBranch(*branch); err != nil {
-			return err
-		}
-	}
-	if binding != nil {
-		if err := transaction.UpsertAgentThreadBinding(*binding); err != nil {
 			return err
 		}
 	}

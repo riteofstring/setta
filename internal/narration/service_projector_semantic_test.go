@@ -66,7 +66,7 @@ func appendRunningProjectorTurnWithPlans(
 	if err != nil {
 		t.Fatalf("read running projector turn seed: %v", err)
 	}
-	turn, binding, events := statusServiceActiveTurn(conversationID)
+	turn, events := statusServiceActiveTurn(conversationID)
 	turn.ID = "primary-agent-turn-two"
 	turn.AuthoredInput = conversation.AuthoredInput{Text: "Continue the deferred second turn."}
 	turn.AcceptedAt = "2026-07-12T12:02:00Z"
@@ -79,7 +79,6 @@ func appendRunningProjectorTurnWithPlans(
 	invocation.StartedAt = startedAt
 	invocation.ProviderReferences.TurnID = &providerTurnID
 	turn.ResolvedInvocation = &invocation
-	binding.LastTurnID = &turn.ID
 	turnID := turn.ID
 	accepted := events[0]
 	accepted.ID = "second-deferred-user-input"
@@ -132,9 +131,6 @@ func appendRunningProjectorTurnWithPlans(
 			return err
 		}
 		if err := tx.InsertTurn(turn); err != nil {
-			return err
-		}
-		if err := tx.UpsertAgentThreadBinding(binding); err != nil {
 			return err
 		}
 		for _, event := range []conversation.TrajectoryEvent{accepted, started, firstPlan, secondPlan} {

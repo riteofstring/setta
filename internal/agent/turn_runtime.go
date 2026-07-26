@@ -182,42 +182,6 @@ func (runtime *Runtime) InterruptProviderTurn(ctx context.Context, threadID stri
 	return nil
 }
 
-func (runtime *Runtime) ReconcileTurn(ctx context.Context, threadID string, turnID string) (TurnResult, bool, error) {
-	if strings.TrimSpace(threadID) == "" || strings.TrimSpace(turnID) == "" {
-		return TurnResult{}, false, errors.New("reconcile requires provider thread and turn ids")
-	}
-	raw, err := runtime.manager.Call(ctx, codexapp.CodexMethodThreadRead, codexapp.ThreadReadParams{
-		ThreadID:     threadID,
-		IncludeTurns: boolPointer(true),
-	})
-	if err != nil {
-		return TurnResult{}, false, fmt.Errorf("reconcile agent turn %s: %w", turnID, err)
-	}
-	response, err := codexapp.DecodeThreadReadResponse(raw)
-	if err != nil {
-		return TurnResult{}, false, fmt.Errorf("decode agent turn reconciliation %s: %w", turnID, err)
-	}
-	for _, turn := range response.Thread.Turns {
-		if turn.ID != turnID {
-			continue
-		}
-		if turn.Status == codexapp.TurnStatusInProgress {
-			return TurnResult{ProviderThreadID: threadID, ProviderTurnID: turnID}, true, nil
-		}
-		outcome, message, err := terminalOutcome(turn)
-		if err != nil {
-			return TurnResult{}, false, err
-		}
-		return TurnResult{
-			ProviderThreadID: threadID,
-			ProviderTurnID:   turnID,
-			Outcome:          outcome,
-			Error:            message,
-		}, false, nil
-	}
-	return TurnResult{}, false, fmt.Errorf("provider thread %s does not contain turn %s", threadID, turnID)
-}
-
 func turnStartParams(request TurnRequest) (codexapp.TurnStartParams, error) {
 	input, err := textUserInput(request.Text)
 	if err != nil {
@@ -271,8 +235,4 @@ func emitAgentEvent(sink EventSink, event Event) error {
 		return err
 	}
 	return sink.HandleAgentEvent(event)
-}
-
-func boolPointer(value bool) *bool {
-	return &value
 }

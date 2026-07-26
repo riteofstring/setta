@@ -352,8 +352,8 @@ func TestPrimaryAgentRoleProfileUsesGlobalWorkspaceConversationPrecedence(t *tes
 	if err != nil {
 		t.Fatalf("CreateTopic with global profile: %v", err)
 	}
-	if first.ThreadBinding != nil || len(runtime.invocationResolutions()) != 0 {
-		t.Fatalf("topic creation linked or resolved provider state: binding=%+v resolutions=%+v", first.ThreadBinding, runtime.invocationResolutions())
+	if len(runtime.invocationResolutions()) != 0 {
+		t.Fatalf("topic creation resolved provider state: resolutions=%+v", runtime.invocationResolutions())
 	}
 	sendAndAssertPrimaryAgentRoleProfile(
 		t,
@@ -379,9 +379,6 @@ func TestPrimaryAgentRoleProfileUsesGlobalWorkspaceConversationPrecedence(t *tes
 	second, err := service.CreateTopic(ctx, workspaceID, "Workspace agent precedence")
 	if err != nil {
 		t.Fatalf("CreateTopic with workspace profile: %v", err)
-	}
-	if second.ThreadBinding != nil {
-		t.Fatalf("workspace topic creation linked provider thread: %+v", second.ThreadBinding)
 	}
 	sendAndAssertPrimaryAgentRoleProfile(
 		t,
@@ -417,6 +414,9 @@ func TestPrimaryAgentRoleProfileUsesGlobalWorkspaceConversationPrecedence(t *tes
 	)
 	turn := latestSnapshotTurn(completed)
 
+	// A branch inherits the workspace role by resolving it when its own first
+	// turn runs. Creating the branch touches no provider at all, so the profile
+	// that matters is the one the child's carrier is started with.
 	fork, err := service.forkRouterTopicForTest(
 		ctx,
 		workspaceID,
@@ -427,15 +427,17 @@ func TestPrimaryAgentRoleProfileUsesGlobalWorkspaceConversationPrecedence(t *tes
 	if err != nil {
 		t.Fatalf("ForkTopic with workspace profile: %v", err)
 	}
-	requests := runtime.durableForkRequests()
-	if len(requests) != 1 ||
-		requests[0].Invocation.Model != "gpt-agent-workspace" ||
-		requests[0].Invocation.ReasoningEffort != ReasoningEffortHigh {
-		t.Fatalf("durable fork agent invocation = %+v, want workspace profile", requests)
-	}
-	if fork.ThreadBinding == nil || fork.ThreadBinding.ProviderMetadata["model"] != "gpt-agent-workspace" {
-		t.Fatalf("durable fork thread binding = %+v, want workspace model", fork.ThreadBinding)
-	}
+	sendAndAssertPrimaryAgentRoleProfile(
+		t,
+		service,
+		runtime,
+		ctx,
+		workspaceID,
+		fork.Conversation.ID,
+		"complete on the branch",
+		"gpt-agent-workspace",
+		ReasoningEffortHigh,
+	)
 
 	if first.Conversation.ID == second.Conversation.ID {
 		t.Fatal("precedence test topics unexpectedly reused an id")

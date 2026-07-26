@@ -162,7 +162,6 @@ SELECT
   branch.decision_source,
   branch.forked_at_turn_id,
   branch.source_trajectory_sequence,
-  branch.provider_metadata_json,
   branch.created_at
 FROM navigator_conversations AS conversation
 LEFT JOIN conversation_presentation_profiles AS profile
@@ -230,7 +229,6 @@ type navigatorRow struct {
 	branchDecisionSource           sql.NullString
 	branchForkedAtTurnID           sql.NullString
 	branchSourceTrajectorySequence sql.NullInt64
-	branchProviderMetadataJSON     sql.NullString
 	branchCreatedAt                sql.NullString
 }
 
@@ -267,7 +265,6 @@ func scanNavigatorItems(rows *sql.Rows, dbPath string) ([]NavigatorItem, error) 
 			&row.branchDecisionSource,
 			&row.branchForkedAtTurnID,
 			&row.branchSourceTrajectorySequence,
-			&row.branchProviderMetadataJSON,
 			&row.branchCreatedAt,
 		); err != nil {
 			return nil, err
@@ -348,13 +345,8 @@ func navigatorBranch(row navigatorRow) (*ConversationBranch, error) {
 	}
 	if !row.branchParentConversationID.Valid || !row.branchKind.Valid ||
 		!row.branchDecisionSource.Valid ||
-		!row.branchSourceTrajectorySequence.Valid ||
-		!row.branchProviderMetadataJSON.Valid || !row.branchCreatedAt.Valid {
+		!row.branchSourceTrajectorySequence.Valid || !row.branchCreatedAt.Valid {
 		return nil, errors.New("branch contains null required fields")
-	}
-	metadata := map[string]string{}
-	if err := json.Unmarshal([]byte(row.branchProviderMetadataJSON.String), &metadata); err != nil {
-		return nil, fmt.Errorf("decode branch provider metadata: %w", err)
 	}
 	return &ConversationBranch{
 		ChildConversationID:      row.branchChildConversationID.String,
@@ -363,7 +355,6 @@ func navigatorBranch(row navigatorRow) (*ConversationBranch, error) {
 		DecisionSource:           BranchDecisionSource(row.branchDecisionSource.String),
 		ForkedAtTurnID:           row.branchForkedAtTurnID.String,
 		SourceTrajectorySequence: int(row.branchSourceTrajectorySequence.Int64),
-		ProviderMetadata:         metadata,
 		CreatedAt:                row.branchCreatedAt.String,
 	}, nil
 }

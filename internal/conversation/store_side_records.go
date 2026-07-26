@@ -59,7 +59,7 @@ func (store *Store) readSideConversation(
 	err := store.read(ctx, "read side conversation", func(ctx context.Context, connection *sql.Conn) error {
 		value, err := scanSideConversation(connection.QueryRowContext(ctx, `
 SELECT id, parent_conversation_id, decision_source, provider_thread_id,
-       source_provider_thread_id, source_provider_turn_id, source_trajectory_sequence,
+       source_provider_turn_id, source_trajectory_sequence,
        last_event_sequence, active_turn_id, active_provider_turn_id, status,
        resolved_side_agent_invocation_json, created_at, updated_at, disposed_at,
        failure_json

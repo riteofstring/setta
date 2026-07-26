@@ -76,22 +76,6 @@ func TestTopicConversationAndChildRecordsValidateOwnedInvariants(t *testing.T) {
 	queued.Ordinal = 0
 	assertValidationErrorContains(t, queued.Validate(), "ordinal must be positive")
 
-	binding := AgentThreadBinding{
-		ConversationID:   conversation.ID,
-		Provider:         ProviderCodex,
-		ThreadID:         "provider-thread-1",
-		Status:           ThreadBindingStatusLinked,
-		CreatedAt:        testTimeStarted,
-		LastResumedAt:    stringPointer(testTimeEnded),
-		LastTurnID:       stringPointer("turn-1"),
-		ProviderMetadata: map[string]string{"cwd": "/workspace"},
-	}
-	if err := binding.Validate(); err != nil {
-		t.Fatalf("valid thread binding: %v", err)
-	}
-	binding.ProviderMetadata = nil
-	assertValidationErrorContains(t, binding.Validate(), "must be an object, not null")
-
 	sequence := 8
 	artifact := Artifact{
 		ID:                 "artifact-1",
@@ -224,7 +208,6 @@ func TestBranchTypesKeepDurableForksAndEphemeralSidesDistinct(t *testing.T) {
 		DecisionSource:           BranchDecisionSourceConversationRouter,
 		ForkedAtTurnID:           "turn-4",
 		SourceTrajectorySequence: 19,
-		ProviderMetadata:         map[string]string{"providerForkThreadId": "thread-child"},
 		CreatedAt:                testTimeStarted,
 	}
 	if err := branch.Validate(); err != nil {
@@ -239,7 +222,6 @@ func TestBranchTypesKeepDurableForksAndEphemeralSidesDistinct(t *testing.T) {
 		ParentStatus:                ConversationStatusWorking,
 		DecisionSource:              BranchDecisionSourceConversationRouter,
 		ProviderThreadID:            stringPointer("thread-side"),
-		SourceProviderThreadID:      "thread-parent",
 		SourceProviderTurnID:        stringPointer("provider-turn-1"),
 		SourceTrajectorySequence:    21,
 		Status:                      SideConversationStatusActive,

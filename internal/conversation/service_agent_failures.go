@@ -43,7 +43,6 @@ func (service *Service) persistUnexpectedTurnEnd(
 type unexpectedTurnEndMutation struct {
 	conversation   TopicConversation
 	expectedStatus TurnStatus
-	binding        *AgentThreadBinding
 	queue          []QueuedConversationTurn
 	queueOrdinal   int
 	removeQueue    bool
@@ -98,7 +97,7 @@ func (service *Service) buildUnexpectedTurnEnd(
 		Actor:          TrajectoryActorSystem,
 	}
 	expectedStatus := turn.Status
-	conversationStatus := applyUnexpectedTurnOutcome(&turn, &trajectory, runErr, now)
+	conversationStatus := applyUnexpectedTurnOutcome(&turn, &trajectory, active.interruptionReason, runErr, now)
 	applyUnexpectedProviderReferences(&trajectory, active, turn)
 	queue, removeQueue, err := unexpectedQueueAfterTurn(snapshot.Queue, active, turn.ID, expectedStatus)
 	if err != nil {
@@ -110,11 +109,9 @@ func (service *Service) buildUnexpectedTurnEnd(
 	conversation := snapshot.Conversation
 	conversation.Status = conversationStatus
 	conversation.UpdatedAt = now
-	binding := missingThreadBinding(snapshot.ThreadBinding, runErr)
 	return unexpectedTurnEndMutation{
 		conversation:   conversation,
 		expectedStatus: expectedStatus,
-		binding:        binding,
 		queue:          queue,
 		queueOrdinal:   active.queueOrdinal,
 		removeQueue:    removeQueue,
@@ -124,26 +121,25 @@ func (service *Service) buildUnexpectedTurnEnd(
 	}, nil
 }
 
-func missingThreadBinding(binding *AgentThreadBinding, runErr error) *AgentThreadBinding {
-	if !agent.IsProviderThreadMissing(runErr) || binding == nil {
-		return nil
-	}
-	missing := *binding
-	missing.Status = ThreadBindingStatusMissing
-	return &missing
-}
-
+// applyUnexpectedTurnOutcome decides whether a run that ended outside the
+// provider's terminal event was interrupted or failed. An interruption reason
+// supplied by the caller wins: work Setta itself stopped — a shutdown, a
+// restart — is not a failure the user should be asked to interpret.
 func applyUnexpectedTurnOutcome(
 	turn *ConversationTurn,
 	trajectory *TrajectoryEvent,
+	interruptionReason TurnInterruptionReason,
 	runErr error,
 	now string,
 ) ConversationStatus {
 	if errors.Is(runErr, context.Canceled) {
+		interruptionReason = TurnInterruptionRuntimeShutdown
+	}
+	if interruptionReason != "" {
 		turn.Status = TurnStatusCancelled
 		turn.Error = nil
 		trajectory.Kind = TrajectoryEventTurnInterrupted
-		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: TurnInterruptionRuntimeShutdown}
+		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: interruptionReason}
 		if turn.ResolvedInvocation != nil {
 			turn.ResolvedInvocation = invocationPointerValue(
 				terminalInvocation(*turn.ResolvedInvocation, InvocationOutcomeCancelled, now, nil),
@@ -184,12 +180,16 @@ func unexpectedTurnFailure(runErr error) Failure {
 	return Failure{Code: "agent_runtime_failed", Message: agentRuntimeFailureMessage, Retryable: true}
 }
 
+// applyUnexpectedProviderReferences correlates the terminal event with the run
+// the provider was carrying, when Setta still holds the carrier. Recovery after
+// a restart does not: the carrier died with the process, so the event names the
+// Setta turn alone rather than inventing a provider reference for it.
 func applyUnexpectedProviderReferences(
 	trajectory *TrajectoryEvent,
 	active *activeConversationTurn,
 	turn ConversationTurn,
 ) {
-	if turn.ProviderTurnID != nil {
+	if turn.ProviderTurnID != nil && active.providerThreadID != "" {
 		trajectory.ProviderThreadID = &active.providerThreadID
 		trajectory.ProviderTurnID = turn.ProviderTurnID
 	}
@@ -223,12 +223,6 @@ func unexpectedTurnEndPayloads(mutation unexpectedTurnEndMutation) []Conversatio
 	if mutation.removeQueue {
 		payloads = append(payloads, ConversationQueueUpdatedEventPayload{Type: ConversationEventTypeQueueUpdated, Queue: mutation.queue})
 	}
-	if mutation.binding != nil {
-		payloads = append(payloads, ConversationThreadBindingUpdatedEventPayload{
-			Type:    ConversationEventTypeThreadBindingUpdated,
-			Binding: *mutation.binding,
-		})
-	}
 	return append(payloads, ConversationTrajectoryAppendedEventPayload{Type: ConversationEventTypeTrajectoryAppended, Event: mutation.trajectory})
 }
 
@@ -252,11 +246,6 @@ func (service *Service) commitUnexpectedTurnEnd(
 		}
 		if err := applyUnexpectedQueueMutation(transaction, mutation); err != nil {
 			return err
-		}
-		if mutation.binding != nil {
-			if err := transaction.UpsertAgentThreadBinding(*mutation.binding); err != nil {
-				return err
-			}
 		}
 		if err := transaction.AppendTrajectoryEvent(mutation.trajectory); err != nil {
 			return err

@@ -6,7 +6,6 @@ import {
   decodeArray,
   decodeBoolean,
   decodeInteger,
-  decodeStringRecord,
   decodeNullable,
   decodeNumber,
   decodeString,
@@ -17,8 +16,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 98;
-export const backendContractSchemaHash = "sha256:2699444311b073a92dec93862e2d0930880c2149df04d83cddbdb07e819f4865";
+export const backendProtocolVersion = 100;
+export const backendContractSchemaHash = "sha256:d7d59b45685edcbec1ec06d6b5510db0abe9f39b92775b18e473510fad5db648";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -313,24 +312,6 @@ export function decodeInvocationOutcome(value: unknown, label = "InvocationOutco
   }
 }
 
-export type ThreadBindingStatus = "linked" | "missing" | "unavailable";
-
-export const threadBindingStatusValues = ["linked", "missing", "unavailable"] as const satisfies readonly ThreadBindingStatus[];
-
-export function decodeThreadBindingStatus(value: unknown, label = "ThreadBindingStatus"): ThreadBindingStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "linked":
-      return decoded;
-    case "missing":
-      return decoded;
-    case "unavailable":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
 export type TrajectoryEventKind = "user_input_accepted" | "turn_queued" | "turn_promoted" | "turn_started" | "turn_steered" | "turn_interrupted" | "turn_completed" | "turn_failed" | "agent_public_text_delta" | "agent_message_completed" | "public_reasoning_summary_updated" | "plan_changed" | "activity_started" | "activity_progressed" | "activity_completed" | "activity_failed" | "file_change_proposed" | "file_change_completed" | "approval_requested" | "approval_resolved" | "subagent_started" | "subagent_updated" | "subagent_completed" | "artifact_emitted" | "agent_liveness_changed" | "provider_lifecycle_changed" | "validation_recorded" | "model_rerouted";
 
 export const trajectoryEventKindValues = ["user_input_accepted", "turn_queued", "turn_promoted", "turn_started", "turn_steered", "turn_interrupted", "turn_completed", "turn_failed", "agent_public_text_delta", "agent_message_completed", "public_reasoning_summary_updated", "plan_changed", "activity_started", "activity_progressed", "activity_completed", "activity_failed", "file_change_proposed", "file_change_completed", "approval_requested", "approval_resolved", "subagent_started", "subagent_updated", "subagent_completed", "artifact_emitted", "agent_liveness_changed", "provider_lifecycle_changed", "validation_recorded", "model_rerouted"] as const satisfies readonly TrajectoryEventKind[];
@@ -419,9 +400,9 @@ export function decodeTrajectoryActor(value: unknown, label = "TrajectoryActor")
   }
 }
 
-export type TurnInterruptionReason = "user_requested" | "provider_interrupted" | "runtime_shutdown" | "reconciliation";
+export type TurnInterruptionReason = "user_requested" | "provider_interrupted" | "runtime_shutdown" | "runtime_restarted";
 
-export const turnInterruptionReasonValues = ["user_requested", "provider_interrupted", "runtime_shutdown", "reconciliation"] as const satisfies readonly TurnInterruptionReason[];
+export const turnInterruptionReasonValues = ["user_requested", "provider_interrupted", "runtime_shutdown", "runtime_restarted"] as const satisfies readonly TurnInterruptionReason[];
 
 export function decodeTurnInterruptionReason(value: unknown, label = "TurnInterruptionReason"): TurnInterruptionReason {
   const decoded = decodeString(value, label);
@@ -432,7 +413,7 @@ export function decodeTurnInterruptionReason(value: unknown, label = "TurnInterr
       return decoded;
     case "runtime_shutdown":
       return decoded;
-    case "reconciliation":
+    case "runtime_restarted":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -991,9 +972,9 @@ export function decodeSideConversationStatus(value: unknown, label = "SideConver
   }
 }
 
-export type ConversationEventType = "conversation.updated" | "conversation.turn.updated" | "conversation.queue.updated" | "conversation.thread_binding.updated" | "conversation.trajectory.appended" | "conversation.artifact.created" | "conversation.narrator_state.updated" | "conversation.narration.created" | "conversation.role_profile_override.updated" | "conversation.role_profile_override.removed" | "conversation.presentation_profile.updated" | "conversation.branch.created" | "conversation.side_conversation.updated" | "conversation.side_event.appended" | "conversation.resync_required";
+export type ConversationEventType = "conversation.updated" | "conversation.turn.updated" | "conversation.queue.updated" | "conversation.trajectory.appended" | "conversation.artifact.created" | "conversation.narrator_state.updated" | "conversation.narration.created" | "conversation.role_profile_override.updated" | "conversation.role_profile_override.removed" | "conversation.presentation_profile.updated" | "conversation.branch.created" | "conversation.side_conversation.updated" | "conversation.side_event.appended" | "conversation.resync_required";
 
-export const conversationEventTypeValues = ["conversation.updated", "conversation.turn.updated", "conversation.queue.updated", "conversation.thread_binding.updated", "conversation.trajectory.appended", "conversation.artifact.created", "conversation.narrator_state.updated", "conversation.narration.created", "conversation.role_profile_override.updated", "conversation.role_profile_override.removed", "conversation.presentation_profile.updated", "conversation.branch.created", "conversation.side_conversation.updated", "conversation.side_event.appended", "conversation.resync_required"] as const satisfies readonly ConversationEventType[];
+export const conversationEventTypeValues = ["conversation.updated", "conversation.turn.updated", "conversation.queue.updated", "conversation.trajectory.appended", "conversation.artifact.created", "conversation.narrator_state.updated", "conversation.narration.created", "conversation.role_profile_override.updated", "conversation.role_profile_override.removed", "conversation.presentation_profile.updated", "conversation.branch.created", "conversation.side_conversation.updated", "conversation.side_event.appended", "conversation.resync_required"] as const satisfies readonly ConversationEventType[];
 
 export function decodeConversationEventType(value: unknown, label = "ConversationEventType"): ConversationEventType {
   const decoded = decodeString(value, label);
@@ -1003,8 +984,6 @@ export function decodeConversationEventType(value: unknown, label = "Conversatio
     case "conversation.turn.updated":
       return decoded;
     case "conversation.queue.updated":
-      return decoded;
-    case "conversation.thread_binding.updated":
       return decoded;
     case "conversation.trajectory.appended":
       return decoded;
@@ -2119,17 +2098,6 @@ export interface QueuedConversationTurn {
   queuedAt: string;
 }
 
-export interface AgentThreadBinding {
-  conversationId: string;
-  provider: Provider;
-  threadId: string;
-  status: ThreadBindingStatus;
-  createdAt: string;
-  lastResumedAt: string | null;
-  lastTurnId: string | null;
-  providerMetadata: Record<string, string>;
-}
-
 export interface TrajectoryUserInputAccepted {
   input: AuthoredInput;
   delivery: TurnDelivery;
@@ -2521,7 +2489,6 @@ export interface ConversationBranch {
   decisionSource: BranchDecisionSource;
   forkedAtTurnId: string;
   sourceTrajectorySequence: number;
-  providerMetadata: Record<string, string>;
   createdAt: string;
 }
 
@@ -2531,7 +2498,6 @@ export interface SideConversation {
   parentStatus: ConversationStatus;
   decisionSource: BranchDecisionSource;
   providerThreadId: string | null;
-  sourceProviderThreadId: string;
   sourceProviderTurnId: string | null;
   sourceTrajectorySequence: number;
   lastEventSequence: number;
@@ -2568,7 +2534,6 @@ export interface ConversationSnapshot {
   conversation: TopicConversation;
   turns: ConversationTurnWindow;
   queue: QueuedConversationTurn[];
-  threadBinding: AgentThreadBinding | null;
   trajectory: ConversationTrajectoryWindow;
   artifacts: ConversationArtifactWindow;
   narratorState: NarratorState;
@@ -2717,11 +2682,6 @@ export interface ConversationTurnUpdatedEventPayload {
 export interface ConversationQueueUpdatedEventPayload {
   type: "conversation.queue.updated";
   queue: QueuedConversationTurn[];
-}
-
-export interface ConversationThreadBindingUpdatedEventPayload {
-  type: "conversation.thread_binding.updated";
-  binding: AgentThreadBinding;
 }
 
 export interface ConversationTrajectoryAppendedEventPayload {
@@ -3593,7 +3553,6 @@ export type ConversationEventPayload =
   ConversationUpdatedEventPayload
   | ConversationTurnUpdatedEventPayload
   | ConversationQueueUpdatedEventPayload
-  | ConversationThreadBindingUpdatedEventPayload
   | ConversationTrajectoryAppendedEventPayload
   | ConversationArtifactCreatedEventPayload
   | ConversationNarratorStateUpdatedEventPayload
@@ -4434,21 +4393,6 @@ export function decodeQueuedConversationTurn(value: unknown): QueuedConversation
   };
 }
 
-export function decodeAgentThreadBinding(value: unknown): AgentThreadBinding {
-  const record = assertRecord(value, "AgentThreadBinding");
-  assertKnownFields(record, "AgentThreadBinding", ["conversationId", "provider", "threadId", "status", "createdAt", "lastResumedAt", "lastTurnId", "providerMetadata"]);
-  return {
-    conversationId: decodeString(requireField(record, "conversationId", "AgentThreadBinding"), "AgentThreadBinding.conversationId"),
-    provider: decodeProvider(requireField(record, "provider", "AgentThreadBinding"), "AgentThreadBinding.provider"),
-    threadId: decodeString(requireField(record, "threadId", "AgentThreadBinding"), "AgentThreadBinding.threadId"),
-    status: decodeThreadBindingStatus(requireField(record, "status", "AgentThreadBinding"), "AgentThreadBinding.status"),
-    createdAt: decodeString(requireField(record, "createdAt", "AgentThreadBinding"), "AgentThreadBinding.createdAt"),
-    lastResumedAt: decodeNullable(requireField(record, "lastResumedAt", "AgentThreadBinding"), "AgentThreadBinding.lastResumedAt", (item) => decodeString(item, "AgentThreadBinding.lastResumedAt")),
-    lastTurnId: decodeNullable(requireField(record, "lastTurnId", "AgentThreadBinding"), "AgentThreadBinding.lastTurnId", (item) => decodeString(item, "AgentThreadBinding.lastTurnId")),
-    providerMetadata: decodeStringRecord(requireField(record, "providerMetadata", "AgentThreadBinding"), "AgentThreadBinding.providerMetadata"),
-  };
-}
-
 export function decodeTrajectoryUserInputAccepted(value: unknown): TrajectoryUserInputAccepted {
   const record = assertRecord(value, "TrajectoryUserInputAccepted");
   assertKnownFields(record, "TrajectoryUserInputAccepted", ["input", "delivery"]);
@@ -5093,7 +5037,7 @@ export function decodeConversationPresentationProfile(value: unknown): Conversat
 
 export function decodeConversationBranch(value: unknown): ConversationBranch {
   const record = assertRecord(value, "ConversationBranch");
-  assertKnownFields(record, "ConversationBranch", ["childConversationId", "parentConversationId", "kind", "decisionSource", "forkedAtTurnId", "sourceTrajectorySequence", "providerMetadata", "createdAt"]);
+  assertKnownFields(record, "ConversationBranch", ["childConversationId", "parentConversationId", "kind", "decisionSource", "forkedAtTurnId", "sourceTrajectorySequence", "createdAt"]);
   return {
     childConversationId: decodeString(requireField(record, "childConversationId", "ConversationBranch"), "ConversationBranch.childConversationId"),
     parentConversationId: decodeString(requireField(record, "parentConversationId", "ConversationBranch"), "ConversationBranch.parentConversationId"),
@@ -5101,21 +5045,19 @@ export function decodeConversationBranch(value: unknown): ConversationBranch {
     decisionSource: decodeBranchDecisionSource(requireField(record, "decisionSource", "ConversationBranch"), "ConversationBranch.decisionSource"),
     forkedAtTurnId: decodeString(requireField(record, "forkedAtTurnId", "ConversationBranch"), "ConversationBranch.forkedAtTurnId"),
     sourceTrajectorySequence: decodeInteger(requireField(record, "sourceTrajectorySequence", "ConversationBranch"), "ConversationBranch.sourceTrajectorySequence"),
-    providerMetadata: decodeStringRecord(requireField(record, "providerMetadata", "ConversationBranch"), "ConversationBranch.providerMetadata"),
     createdAt: decodeString(requireField(record, "createdAt", "ConversationBranch"), "ConversationBranch.createdAt"),
   };
 }
 
 export function decodeSideConversation(value: unknown): SideConversation {
   const record = assertRecord(value, "SideConversation");
-  assertKnownFields(record, "SideConversation", ["id", "parentConversationId", "parentStatus", "decisionSource", "providerThreadId", "sourceProviderThreadId", "sourceProviderTurnId", "sourceTrajectorySequence", "lastEventSequence", "activeTurnId", "activeProviderTurnId", "status", "resolvedSideAgentInvocation", "createdAt", "updatedAt", "disposedAt", "failure"]);
+  assertKnownFields(record, "SideConversation", ["id", "parentConversationId", "parentStatus", "decisionSource", "providerThreadId", "sourceProviderTurnId", "sourceTrajectorySequence", "lastEventSequence", "activeTurnId", "activeProviderTurnId", "status", "resolvedSideAgentInvocation", "createdAt", "updatedAt", "disposedAt", "failure"]);
   return {
     id: decodeString(requireField(record, "id", "SideConversation"), "SideConversation.id"),
     parentConversationId: decodeString(requireField(record, "parentConversationId", "SideConversation"), "SideConversation.parentConversationId"),
     parentStatus: decodeConversationStatus(requireField(record, "parentStatus", "SideConversation"), "SideConversation.parentStatus"),
     decisionSource: decodeBranchDecisionSource(requireField(record, "decisionSource", "SideConversation"), "SideConversation.decisionSource"),
     providerThreadId: decodeNullable(requireField(record, "providerThreadId", "SideConversation"), "SideConversation.providerThreadId", (item) => decodeString(item, "SideConversation.providerThreadId")),
-    sourceProviderThreadId: decodeString(requireField(record, "sourceProviderThreadId", "SideConversation"), "SideConversation.sourceProviderThreadId"),
     sourceProviderTurnId: decodeNullable(requireField(record, "sourceProviderTurnId", "SideConversation"), "SideConversation.sourceProviderTurnId", (item) => decodeString(item, "SideConversation.sourceProviderTurnId")),
     sourceTrajectorySequence: decodeInteger(requireField(record, "sourceTrajectorySequence", "SideConversation"), "SideConversation.sourceTrajectorySequence"),
     lastEventSequence: decodeInteger(requireField(record, "lastEventSequence", "SideConversation"), "SideConversation.lastEventSequence"),
@@ -5162,13 +5104,12 @@ export function decodeConversationEventCursor(value: unknown): ConversationEvent
 
 export function decodeConversationSnapshot(value: unknown): ConversationSnapshot {
   const record = assertRecord(value, "ConversationSnapshot");
-  assertKnownFields(record, "ConversationSnapshot", ["schemaVersion", "conversation", "turns", "queue", "threadBinding", "trajectory", "artifacts", "narratorState", "narration", "roleProfileOverrides", "presentationProfile", "branch", "sideConversations", "sideEvents", "eventCursor"]);
+  assertKnownFields(record, "ConversationSnapshot", ["schemaVersion", "conversation", "turns", "queue", "trajectory", "artifacts", "narratorState", "narration", "roleProfileOverrides", "presentationProfile", "branch", "sideConversations", "sideEvents", "eventCursor"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ConversationSnapshot"), "ConversationSnapshot.schemaVersion"),
     conversation: decodeTopicConversation(requireField(record, "conversation", "ConversationSnapshot")),
     turns: decodeConversationTurnWindow(requireField(record, "turns", "ConversationSnapshot")),
     queue: decodeArray(requireField(record, "queue", "ConversationSnapshot"), "ConversationSnapshot.queue", (item) => decodeQueuedConversationTurn(item)),
-    threadBinding: decodeNullable(requireField(record, "threadBinding", "ConversationSnapshot"), "ConversationSnapshot.threadBinding", (item) => decodeAgentThreadBinding(item)),
     trajectory: decodeConversationTrajectoryWindow(requireField(record, "trajectory", "ConversationSnapshot")),
     artifacts: decodeConversationArtifactWindow(requireField(record, "artifacts", "ConversationSnapshot")),
     narratorState: decodeNarratorState(requireField(record, "narratorState", "ConversationSnapshot")),
@@ -5420,15 +5361,6 @@ export function decodeConversationQueueUpdatedEventPayload(value: unknown): Conv
   return {
     type: decodeContractLiteral(decodeConversationEventType(requireField(record, "type", "ConversationQueueUpdatedEventPayload"), "ConversationQueueUpdatedEventPayload.type"), "conversation.queue.updated", "ConversationQueueUpdatedEventPayload.type"),
     queue: decodeArray(requireField(record, "queue", "ConversationQueueUpdatedEventPayload"), "ConversationQueueUpdatedEventPayload.queue", (item) => decodeQueuedConversationTurn(item)),
-  };
-}
-
-export function decodeConversationThreadBindingUpdatedEventPayload(value: unknown): ConversationThreadBindingUpdatedEventPayload {
-  const record = assertRecord(value, "ConversationThreadBindingUpdatedEventPayload");
-  assertKnownFields(record, "ConversationThreadBindingUpdatedEventPayload", ["type", "binding"]);
-  return {
-    type: decodeContractLiteral(decodeConversationEventType(requireField(record, "type", "ConversationThreadBindingUpdatedEventPayload"), "ConversationThreadBindingUpdatedEventPayload.type"), "conversation.thread_binding.updated", "ConversationThreadBindingUpdatedEventPayload.type"),
-    binding: decodeAgentThreadBinding(requireField(record, "binding", "ConversationThreadBindingUpdatedEventPayload")),
   };
 }
 
@@ -7023,8 +6955,6 @@ export function decodeConversationEventPayload(value: unknown): ConversationEven
       return decodeConversationTurnUpdatedEventPayload(value);
     case "conversation.queue.updated":
       return decodeConversationQueueUpdatedEventPayload(value);
-    case "conversation.thread_binding.updated":
-      return decodeConversationThreadBindingUpdatedEventPayload(value);
     case "conversation.trajectory.appended":
       return decodeConversationTrajectoryAppendedEventPayload(value);
     case "conversation.artifact.created":

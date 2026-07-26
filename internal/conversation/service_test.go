@@ -435,15 +435,12 @@ type serviceTestAgentRuntime struct {
 	mu                   sync.Mutex
 	controls             map[string]chan string
 	controlLog           []string
-	forkErr              error
-	forkRequests         []agent.ForkThreadRequest
-	forkResponse         *agent.Thread
 	injectErr            error
 	injections           []serviceTestInjection
+	startErr             error
+	startResponse        *agent.Thread
 	lastApproval         *agent.ApprovalResponse
-	operationLog         []string
 	resolveRequests      []agent.Invocation
-	resumeRequests       []serviceTestResume
 	runProviderMissing   int
 	runRequests          []agent.TurnRequest
 	startRequests        []agent.StartThreadRequest
@@ -459,11 +456,6 @@ type serviceTestAgentRuntime struct {
 type serviceTestInjection struct {
 	threadID string
 	items    []agent.InjectedTextItem
-}
-
-type serviceTestResume struct {
-	threadID string
-	request  agent.StartThreadRequest
 }
 
 func newServiceTestAgentRuntime() *serviceTestAgentRuntime {
@@ -498,6 +490,13 @@ func (runtime *serviceTestAgentRuntime) StartThread(
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
 	runtime.startRequests = append(runtime.startRequests, request)
+	if runtime.startErr != nil {
+		return agent.Thread{}, runtime.startErr
+	}
+	if runtime.startResponse != nil {
+		runtime.providerThreads[runtime.startResponse.ID] = *runtime.startResponse
+		return *runtime.startResponse, nil
+	}
 	runtime.threads++
 	thread := agent.Thread{
 		ID:        fmt.Sprintf("provider-thread-%d", runtime.threads),
@@ -505,61 +504,6 @@ func (runtime *serviceTestAgentRuntime) StartThread(
 		CWD:       request.WorkspaceRoot,
 		Model:     request.Invocation.Model,
 		Ephemeral: request.Ephemeral,
-	}
-	runtime.providerThreads[thread.ID] = thread
-	runtime.operationLog = append(runtime.operationLog, "thread/start:"+thread.ID)
-	return thread, nil
-}
-
-func (runtime *serviceTestAgentRuntime) ResumeThreadWithConfiguration(
-	_ context.Context,
-	threadID string,
-	request agent.StartThreadRequest,
-) (agent.ThreadResumeResult, error) {
-	runtime.mu.Lock()
-	defer runtime.mu.Unlock()
-	runtime.resumeRequests = append(runtime.resumeRequests, serviceTestResume{
-		threadID: threadID,
-		request:  request,
-	})
-	runtime.operationLog = append(runtime.operationLog, "thread/resume:"+threadID)
-	thread, ok := runtime.providerThreads[threadID]
-	if !ok {
-		return agent.ThreadResumeResult{}, &agent.ProviderThreadMissingError{
-			Operation: "resume agent thread",
-			ThreadID:  threadID,
-			Err:       fmt.Errorf("scripted provider thread %s missing", threadID),
-		}
-	}
-	thread.CWD = request.WorkspaceRoot
-	thread.Model = request.Invocation.Model
-	thread.Ephemeral = request.Ephemeral
-	runtime.providerThreads[threadID] = thread
-	return agent.ThreadResumeResult{Thread: thread, Resumed: true}, nil
-}
-
-func (runtime *serviceTestAgentRuntime) ForkThread(
-	_ context.Context,
-	request agent.ForkThreadRequest,
-) (agent.Thread, error) {
-	runtime.mu.Lock()
-	defer runtime.mu.Unlock()
-	runtime.forkRequests = append(runtime.forkRequests, request)
-	if runtime.forkErr != nil {
-		return agent.Thread{}, runtime.forkErr
-	}
-	if runtime.forkResponse != nil {
-		runtime.providerThreads[runtime.forkResponse.ID] = *runtime.forkResponse
-		return *runtime.forkResponse, nil
-	}
-	runtime.threads++
-	parentThreadID := request.ParentThreadID
-	thread := agent.Thread{
-		ID:           fmt.Sprintf("provider-thread-%d", runtime.threads),
-		SessionID:    fmt.Sprintf("session-%d", runtime.threads),
-		Model:        request.Invocation.Model,
-		Ephemeral:    request.Ephemeral,
-		ForkedFromID: &parentThreadID,
 	}
 	runtime.providerThreads[thread.ID] = thread
 	return thread, nil
@@ -577,20 +521,6 @@ func (runtime *serviceTestAgentRuntime) InjectItems(
 	return runtime.injectErr
 }
 
-func (runtime *serviceTestAgentRuntime) MaterializeThread(
-	_ context.Context,
-	threadID string,
-	marker string,
-) error {
-	runtime.mu.Lock()
-	runtime.operationLog = append(runtime.operationLog, "thread/materialize:"+threadID)
-	runtime.mu.Unlock()
-	return runtime.InjectItems(context.Background(), threadID, []agent.InjectedTextItem{{
-		Role: "user",
-		Text: marker,
-	}})
-}
-
 func (runtime *serviceTestAgentRuntime) RunTurn(
 	ctx context.Context,
 	request agent.TurnRequest,
@@ -599,7 +529,6 @@ func (runtime *serviceTestAgentRuntime) RunTurn(
 	runtime.mu.Lock()
 	runtime.turns++
 	runtime.runRequests = append(runtime.runRequests, request)
-	runtime.operationLog = append(runtime.operationLog, "turn/start:"+request.ProviderThreadID+":"+request.Text)
 	if runtime.runProviderMissing > 0 {
 		runtime.runProviderMissing--
 		delete(runtime.providerThreads, request.ProviderThreadID)
@@ -970,41 +899,6 @@ func (runtime *serviceTestAgentRuntime) InterruptProviderTurn(_ context.Context,
 	return nil
 }
 
-func (runtime *serviceTestAgentRuntime) ReconcileTurn(
-	_ context.Context,
-	threadID string,
-	turnID string,
-) (agent.TurnResult, bool, error) {
-	runtime.mu.Lock()
-	defer runtime.mu.Unlock()
-	thread, ok := runtime.providerThreads[threadID]
-	if !ok {
-		return agent.TurnResult{}, false, fmt.Errorf("provider thread %s was not found", threadID)
-	}
-	for _, turn := range thread.Turns {
-		if turn.ID != turnID {
-			continue
-		}
-		result := agent.TurnResult{ProviderThreadID: threadID, ProviderTurnID: turnID}
-		switch turn.Status {
-		case "inProgress":
-			return result, true, nil
-		case "completed":
-			result.Outcome = agent.TurnOutcomeCompleted
-		case "interrupted":
-			result.Outcome = agent.TurnOutcomeInterrupted
-		case "failed":
-			message := "scripted provider turn failed"
-			result.Outcome = agent.TurnOutcomeFailed
-			result.Error = &message
-		default:
-			return agent.TurnResult{}, false, fmt.Errorf("unsupported provider turn status %s", turn.Status)
-		}
-		return result, false, nil
-	}
-	return agent.TurnResult{}, false, fmt.Errorf("provider turn %s was not found", turnID)
-}
-
 func (runtime *serviceTestAgentRuntime) SubmitApproval(response agent.ApprovalResponse) error {
 	runtime.mu.Lock()
 	copy := response
@@ -1050,24 +944,6 @@ func (runtime *serviceTestAgentRuntime) controlsSent() []string {
 	return append([]string{}, runtime.controlLog...)
 }
 
-func (runtime *serviceTestAgentRuntime) durableForkRequests() []agent.ForkThreadRequest {
-	runtime.mu.Lock()
-	defer runtime.mu.Unlock()
-	return append([]agent.ForkThreadRequest{}, runtime.forkRequests...)
-}
-
-func (runtime *serviceTestAgentRuntime) sideForkRequests() []agent.ForkThreadRequest {
-	runtime.mu.Lock()
-	defer runtime.mu.Unlock()
-	requests := make([]agent.ForkThreadRequest, 0)
-	for _, request := range runtime.forkRequests {
-		if request.Ephemeral {
-			requests = append(requests, request)
-		}
-	}
-	return requests
-}
-
 func (runtime *serviceTestAgentRuntime) invocationResolutions() []agent.Invocation {
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
@@ -1080,16 +956,13 @@ func (runtime *serviceTestAgentRuntime) turnRequests() []agent.TurnRequest {
 	return append([]agent.TurnRequest{}, runtime.runRequests...)
 }
 
+// startThreadRequests reports every ephemeral carrier the service asked the
+// provider for. Under the Setta-owned model this is the only way a conversation
+// reaches Codex, so it is what tests assert launch behavior against.
 func (runtime *serviceTestAgentRuntime) startThreadRequests() []agent.StartThreadRequest {
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
 	return append([]agent.StartThreadRequest{}, runtime.startRequests...)
-}
-
-func (runtime *serviceTestAgentRuntime) operations() []string {
-	runtime.mu.Lock()
-	defer runtime.mu.Unlock()
-	return append([]string{}, runtime.operationLog...)
 }
 
 func (runtime *serviceTestAgentRuntime) unsubscribedThreads() []string {

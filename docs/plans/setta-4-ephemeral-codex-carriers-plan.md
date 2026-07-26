@@ -1,7 +1,9 @@
 # Setta-Owned Conversations With Ephemeral Codex Carriers
 
-Status: in progress. Phase 1 partially implemented — the Director's durable
-carrier identity is gone; the `agent_thread_bindings` axis remains.
+Status: in progress. Phases 1, 2, and 3 are implemented, along with the parts of
+Phase 4 that ephemeral carriers made unavoidable. Phase 4 still owns the durable
+provider identity that remains on side conversations and invocation audit, and
+Phase 5 still owns moving the Director onto the shared carrier registry.
 
 ## Executive Summary
 
@@ -270,63 +272,92 @@ runtime-active Setta run events, not provider history.
 
 ## Implementation Phases
 
-### Phase 1: Delete Durable Provider Thread Contracts
+### Phase 1: Delete Durable Provider Thread Contracts — DONE
 
-- Remove `AgentThreadBinding` from domain contracts and snapshots.
-- Remove thread-binding event payloads and generated TypeScript surfaces.
-- Remove `agent_thread_bindings` from `schema_v1.sql`.
+- DONE: Remove `AgentThreadBinding` from domain contracts and snapshots.
+- DONE: Remove thread-binding event payloads and generated TypeScript surfaces.
+- DONE: Remove `agent_thread_bindings` from `schema_v1.sql`.
 - DONE: Remove `director_thread` from `schema_v1.sql`.
-- Regenerate affected TypeScript and protocol surfaces.
-- Update frontend code to use conversation/run status instead of thread binding.
+- DONE: Regenerate affected TypeScript and protocol surfaces.
+- DONE: Update frontend code to use conversation/run status instead of thread
+  binding. The only renderer-side reader was the session recorder's
+  `agent_thread_binding_observed` projection, which is gone.
 
 Expected result: no public or durable Setta contract treats provider thread
 identity as app state.
 
-The Director slice of this phase is done. `director_thread`,
-`DirectorThreadRecord`, and its store read/write are gone; the carrier the
-Director runs on is held only in `DirectorThread.carrier` for the app run.
-`DirectorConversationModel` and `InterpretationModelIdentity` now attribute a
-reply to provider and model alone, so no provider thread id reaches the durable
-Director conversation log or the semantic graph. This also completes the first
-bullet of Phase 5.
+The Director slice landed first. `director_thread`, `DirectorThreadRecord`, and
+its store read/write are gone; the carrier the Director runs on is held only in
+`DirectorThread.carrier` for the app run. `DirectorConversationModel` and
+`InterpretationModelIdentity` now attribute a reply to provider and model alone,
+so no provider thread id reaches the durable Director conversation log or the
+semantic graph. This also completes the first bullet of Phase 5.
 
-The `agent_thread_bindings` axis is still open, and it is not independently
-landable: `ConversationSnapshot.ThreadBinding` is the only source of the
-provider thread id the workstream launch path uses, so removing it requires the
-Phase 2 carrier registry and the Phase 3 launch and recovery replacement in the
-same change.
+The `agent_thread_bindings` axis landed with Phases 2 and 3, as predicted:
+`ConversationSnapshot.ThreadBinding` was the only source of the provider thread
+id the workstream launch path used.
 
-### Phase 2: Add The Carrier Runtime
+### Phase 2: Add The Carrier Runtime — DONE
 
-- Add a process-local carrier registry keyed by Setta run ID.
-- Start all carriers with `Ephemeral: true`.
-- Make provider thread and turn IDs runtime-private.
-- Route provider events through the active run mapping.
-- Route dynamic tool calls through Setta run scope.
-- Delete cleanup machinery that only exists to remove durable test threads.
+- DONE: Add a process-local carrier registry. It is keyed by Setta conversation
+  id rather than run id, because a carrier serves every run of one conversation
+  for the life of the process while the run-scoped half — Setta turn id,
+  provider turn id, dynamic tool scope, cancellation and steering handles —
+  already lives on `activeConversationTurn`. Splitting the same fact across two
+  process-local maps would only let them disagree.
+- DONE: Start all carriers with `Ephemeral: true`.
+- DONE: Make provider thread and turn IDs runtime-private. No durable
+  conversation record holds a provider thread id.
+- DONE: Route provider events through the active run mapping.
+- DONE: Route dynamic tool calls through Setta run scope.
+- DONE: Delete cleanup machinery that only exists to remove durable test
+  threads. `DeleteDurableThreadsOnShutdown`, the created-durable-thread set, the
+  attached-thread resume cache, and `live_codex_cleanup_test.go` are gone,
+  because no Setta path creates a durable thread to clean up.
 
 Expected result: provider identity exists only while a run is active in memory.
 
-### Phase 3: Replace Workstream Launch And Recovery
+### Phase 3: Replace Workstream Launch And Recovery — DONE
 
-- Replace `ensureAgentThreadBindingLocked` with ephemeral carrier creation plus
-  Setta context replay.
-- Remove provider-thread repair and missing-thread logic.
-- Replace restart reconciliation with Setta-owned interruption recovery.
-- Preserve queue promotion using Setta state only.
-- Preserve steering and cancellation only for currently active in-memory runs.
+- DONE: Replace `ensureAgentThreadBindingLocked` with ephemeral carrier creation
+  plus Setta context replay (`internal/conversation/carrier.go`).
+- DONE: Remove provider-thread repair and missing-thread logic. A carrier the
+  provider has lost is dropped from the registry so the next turn starts a fresh
+  one.
+- DONE: Replace restart reconciliation with Setta-owned interruption recovery.
+  `ReconcileTurn` and `ResumeThreadWithConfiguration` are deleted; in-flight
+  turns become interrupted with reason `runtime_restarted`.
+- DONE: Preserve queue promotion using Setta state only.
+- DONE: Preserve steering and cancellation only for currently active in-memory
+  runs.
 
 Expected result: regular workstreams behave like the Director: Setta persists
 conversation state, Codex only runs current work.
 
 ### Phase 4: Replace Branch And Side Provider Forks
 
-- Remove durable provider fork paths.
-- Make child conversations replay parent Setta context up to a Setta boundary.
-- Make side work replay parent Setta context and active in-memory context when
-  available.
-- Remove provider fork metadata from branch records.
-- Remove tests that assert stable provider thread IDs across turns.
+Codex cannot fork an ephemeral thread — it is never written to a rollout, so
+`thread/fork` cannot read it — which means Phase 3 could not land without taking
+the provider forks with it. The fork removal is therefore done:
+
+- DONE: Remove durable provider fork paths. `executeDurableForkDecision` is now
+  `executeBranchDecision` and touches no provider; side conversations start
+  their own ephemeral carrier instead of forking the parent's.
+- DONE: Make child conversations replay parent Setta context up to a Setta
+  boundary.
+- DONE: Make side work replay parent Setta context and active in-flight context.
+- DONE: Remove provider fork metadata from branch records.
+  `ConversationBranch.ProviderMetadata` is gone with the fork that filled it.
+- DONE: Remove tests that assert stable provider thread IDs across turns.
+
+Still open in this phase: the provider identity that remains as *audit* of a
+finished run rather than as a resumption handle —
+`SideConversation.ProviderThreadID`, `ActiveProviderTurnID`,
+`TrajectoryEvent.ProviderThreadID`, and
+`ResolvedInvocation.ProviderReferences.ThreadID`. None of them is read back to
+address a provider after a restart, and side restart recovery no longer calls
+the provider at all. Replacing them with Setta side and run ids is the remaining
+work here.
 
 Expected result: branch and side behavior no longer requires provider history.
 
@@ -365,21 +396,23 @@ Then update live Codex tests:
 The implementation is not complete until these searches are either empty or
 limited to low-level provider characterization tests:
 
-- `agent_thread_bindings`
-- `ThreadBinding`
-- `ConversationThreadBindingUpdated`
-- `ResumeThreadWithConfiguration`
-- `ReconcileTurn`
-- `providerForkThreadId`
-- `sourceProviderThreadId`
+- `agent_thread_bindings` — empty.
+- `ThreadBinding` — empty.
+- `ConversationThreadBindingUpdated` — empty.
+- `ResumeThreadWithConfiguration` — empty. `ResumeThread` remains as low-level
+  provider characterization in `internal/agent`, used by nothing in product
+  code.
+- `ReconcileTurn` — empty.
+- `providerForkThreadId` — empty.
+- `sourceProviderThreadId` — empty.
 - `director_thread` — no durable table, record, or store call remains. What is
   left is the runtime adapter that starts the carrier
   (`internal/runtime/director_thread_caller.go`) and the `DirectorThread` /
   `DirectorThreadPort` type names it implements. Renaming those to carrier
   vocabulary belongs with the remaining Phase 5 bullet, which moves the Director
   onto the shared carrier registry.
-- `DeleteDurableThreadsOnShutdown`
-- `live_codex_cleanup`
+- `DeleteDurableThreadsOnShutdown` — empty.
+- `live_codex_cleanup` — empty.
 
 The remaining product vocabulary should be Setta vocabulary:
 

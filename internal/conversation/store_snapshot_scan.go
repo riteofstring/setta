@@ -72,31 +72,6 @@ func scanConversationTurn(scanner sqlScanner) (ConversationTurn, error) {
 	return value, nil
 }
 
-func scanAgentThreadBinding(scanner sqlScanner) (AgentThreadBinding, error) {
-	var value AgentThreadBinding
-	var lastResumedAt, lastTurnID sql.NullString
-	var metadataJSON string
-	err := scanner.Scan(
-		&value.ConversationID,
-		&value.Provider,
-		&value.ThreadID,
-		&value.Status,
-		&value.CreatedAt,
-		&lastResumedAt,
-		&lastTurnID,
-		&metadataJSON,
-	)
-	if err != nil {
-		return AgentThreadBinding{}, err
-	}
-	value.LastResumedAt = optionalScannedString(lastResumedAt)
-	value.LastTurnID = optionalScannedString(lastTurnID)
-	if err := decodeJSON("thread binding metadata", metadataJSON, &value.ProviderMetadata); err != nil {
-		return AgentThreadBinding{}, err
-	}
-	return value, nil
-}
-
 func scanTrajectoryEvent(scanner sqlScanner) (TrajectoryEvent, error) {
 	var value TrajectoryEvent
 	var turnID, providerEventID, providerThreadID, providerTurnID sql.NullString
@@ -391,7 +366,6 @@ func optionalSpeechVoiceID(value sql.NullString) *speech.SpeechVoiceID {
 
 func scanConversationBranch(scanner sqlScanner) (ConversationBranch, error) {
 	var value ConversationBranch
-	var metadataJSON string
 	var forkedAtTurnID sql.NullString
 	err := scanner.Scan(
 		&value.ChildConversationID,
@@ -400,16 +374,12 @@ func scanConversationBranch(scanner sqlScanner) (ConversationBranch, error) {
 		&value.DecisionSource,
 		&forkedAtTurnID,
 		&value.SourceTrajectorySequence,
-		&metadataJSON,
 		&value.CreatedAt,
 	)
 	if err != nil {
 		return ConversationBranch{}, err
 	}
 	value.ForkedAtTurnID = forkedAtTurnID.String
-	if err := decodeJSON("branch provider metadata", metadataJSON, &value.ProviderMetadata); err != nil {
-		return ConversationBranch{}, err
-	}
 	return value, nil
 }
 
@@ -422,7 +392,6 @@ func scanSideConversation(scanner sqlScanner) (SideConversation, error) {
 		&value.ParentConversationID,
 		&value.DecisionSource,
 		&providerThreadID,
-		&value.SourceProviderThreadID,
 		&sourceProviderTurnID,
 		&value.SourceTrajectorySequence,
 		&value.LastEventSequence,

@@ -26,16 +26,12 @@ func (transaction *WriteTransaction) InsertConversationBranch(branch Conversatio
 	if err := transaction.requireBranchSource(branch); err != nil {
 		return err
 	}
-	providerMetadataJSON, err := encodeJSONColumn("conversation branch provider metadata", branch.ProviderMetadata)
-	if err != nil {
-		return err
-	}
-	_, err = transaction.tx.ExecContext(transaction.ctx, `
+	_, err := transaction.tx.ExecContext(transaction.ctx, `
 INSERT INTO conversation_branches (
   child_conversation_id, parent_conversation_id, branch_kind,
   decision_source, forked_at_turn_id, source_trajectory_sequence,
-  provider_metadata_json, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?)
 `,
 		branch.ChildConversationID,
 		branch.ParentConversationID,
@@ -43,7 +39,6 @@ INSERT INTO conversation_branches (
 		branch.DecisionSource,
 		branch.ForkedAtTurnID,
 		branch.SourceTrajectorySequence,
-		providerMetadataJSON,
 		branch.CreatedAt,
 	)
 	if err != nil {
@@ -97,17 +92,16 @@ func (transaction *WriteTransaction) InsertSideConversation(side SideConversatio
 	_, err = transaction.tx.ExecContext(transaction.ctx, `
 INSERT INTO side_conversations (
   id, parent_conversation_id, decision_source, provider_thread_id,
-  source_provider_thread_id, source_provider_turn_id, source_trajectory_sequence,
+  source_provider_turn_id, source_trajectory_sequence,
   last_event_sequence, active_turn_id, active_provider_turn_id, status,
   resolved_side_agent_invocation_json, created_at, updated_at, disposed_at,
   failure_json
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		side.ID,
 		side.ParentConversationID,
 		side.DecisionSource,
 		nullableString(side.ProviderThreadID),
-		side.SourceProviderThreadID,
 		nullableString(side.SourceProviderTurnID),
 		side.SourceTrajectorySequence,
 		side.LastEventSequence,
@@ -153,7 +147,6 @@ SET provider_thread_id = ?, source_provider_turn_id = ?, last_event_sequence = ?
 WHERE id = ?
   AND parent_conversation_id = ?
   AND decision_source = ?
-  AND source_provider_thread_id = ?
   AND source_trajectory_sequence = ?
   AND created_at = ?
   AND status = ?
@@ -172,7 +165,6 @@ WHERE id = ?
 		side.ID,
 		side.ParentConversationID,
 		side.DecisionSource,
-		side.SourceProviderThreadID,
 		side.SourceTrajectorySequence,
 		side.CreatedAt,
 		expected.Status,

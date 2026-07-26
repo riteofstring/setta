@@ -119,7 +119,6 @@ CREATE TABLE conversation_branches (
   decision_source TEXT NOT NULL CHECK (decision_source IN ('conversation_router', 'director')),
   forked_at_turn_id TEXT REFERENCES conversation_turns(id),
   source_trajectory_sequence INTEGER NOT NULL CHECK (source_trajectory_sequence >= 0),
-  provider_metadata_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(provider_metadata_json)),
   created_at TEXT NOT NULL,
   CHECK (child_conversation_id <> parent_conversation_id),
   CHECK ((branch_kind = 'fork') = (forked_at_turn_id IS NOT NULL))
@@ -133,7 +132,6 @@ CREATE TABLE side_conversations (
   parent_conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   decision_source TEXT NOT NULL CHECK (decision_source = 'conversation_router'),
   provider_thread_id TEXT,
-  source_provider_thread_id TEXT NOT NULL,
   source_provider_turn_id TEXT,
   source_trajectory_sequence INTEGER NOT NULL CHECK (source_trajectory_sequence >= 0),
   last_event_sequence INTEGER NOT NULL DEFAULT 0 CHECK (last_event_sequence >= 0),
@@ -165,18 +163,6 @@ CREATE TABLE side_conversation_events (
 
 CREATE INDEX side_conversation_events_side_sequence_idx
   ON side_conversation_events(side_conversation_id, sequence);
-
-CREATE TABLE agent_thread_bindings (
-  conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
-  provider TEXT NOT NULL CHECK (provider = 'codex'),
-  thread_id TEXT NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('linked', 'missing', 'unavailable')),
-  created_at TEXT NOT NULL,
-  last_resumed_at TEXT,
-  last_turn_id TEXT REFERENCES conversation_turns(id),
-  provider_metadata_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(provider_metadata_json)),
-  UNIQUE(provider, thread_id)
-) STRICT;
 
 CREATE TABLE trajectory_events (
   stream_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
