@@ -112,6 +112,7 @@ func (service *Service) artifactTrajectory(
 		ArtifactEmitted: &TrajectoryArtifactEmitted{
 			ArtifactID: artifact.ID,
 			Title:      artifact.Title,
+			Kind:       artifact.Kind,
 		},
 	}, nil
 }

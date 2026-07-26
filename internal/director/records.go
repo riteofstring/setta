@@ -61,9 +61,12 @@ type WorkstreamArtifact struct {
 	RunID          *string        `json:"runId"`
 	Status         ArtifactStatus `json:"status"`
 	Title          string         `json:"title"`
-	SourceEventIDs []string       `json:"sourceEventIds"`
-	CreatedAt      string         `json:"createdAt"`
-	UpdatedAt      string         `json:"updatedAt"`
+	// Kind names the form of the document, shown above its title. It is the
+	// model's own word, displayed verbatim.
+	Kind           string   `json:"kind"`
+	SourceEventIDs []string `json:"sourceEventIds"`
+	CreatedAt      string   `json:"createdAt"`
+	UpdatedAt      string   `json:"updatedAt"`
 }
 
 // ValidateApprovalRequest rejects an approval record trusted code could not

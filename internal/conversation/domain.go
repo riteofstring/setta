@@ -91,13 +91,17 @@ type ArtifactDocument struct {
 }
 
 type Artifact struct {
-	ID                 string           `json:"id"`
-	ConversationID     string           `json:"conversationId"`
-	TurnID             *string          `json:"turnId"`
-	TrajectorySequence *int             `json:"trajectorySequence"`
-	Title              string           `json:"title"`
-	CreatedAt          string           `json:"createdAt"`
-	Document           ArtifactDocument `json:"document"`
+	ID                 string  `json:"id"`
+	ConversationID     string  `json:"conversationId"`
+	TurnID             *string `json:"turnId"`
+	TrajectorySequence *int    `json:"trajectorySequence"`
+	Title              string  `json:"title"`
+	// Kind names the form of the document — Story, Report, Protocol — and is
+	// shown above its title. It is the model's own word, displayed verbatim:
+	// nothing in Setta branches on it, so it needs no closed set.
+	Kind      string           `json:"kind"`
+	CreatedAt string           `json:"createdAt"`
+	Document  ArtifactDocument `json:"document"`
 }
 
 type ArtifactMetadata struct {
@@ -106,6 +110,7 @@ type ArtifactMetadata struct {
 	TurnID             *string `json:"turnId"`
 	TrajectorySequence *int    `json:"trajectorySequence"`
 	Title              string  `json:"title"`
+	Kind               string  `json:"kind"`
 	CreatedAt          string  `json:"createdAt"`
 }
 
@@ -380,6 +385,7 @@ func (artifact Artifact) Metadata() ArtifactMetadata {
 		TurnID:             cloneStringPointer(artifact.TurnID),
 		TrajectorySequence: cloneIntPointer(artifact.TrajectorySequence),
 		Title:              artifact.Title,
+		Kind:               artifact.Kind,
 		CreatedAt:          artifact.CreatedAt,
 	}
 }

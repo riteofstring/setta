@@ -5,6 +5,7 @@ export const languageCountTableArtifactArguments = {
     '  Table([{key: "language", label: "Language"}, {key: "lines", label: "Lines"}], [["Go", "34"], ["TypeScript", "21"], ["CSS", "8"]])',
     "])",
   ].join("\n"),
+  kind: "Report",
   title: "Language line counts",
 };
 
@@ -14,6 +15,7 @@ export const languageCountBarChartArtifactArguments = {
     '  BarChart([{name: "Lines", points: [{label: "Go", value: 34}, {label: "TypeScript", value: 21}, {label: "CSS", value: 8}]}], "Lines by language")',
     "])",
   ].join("\n"),
+  kind: "Report",
   title: "Language line count chart",
 };
 
@@ -23,6 +25,7 @@ export const qualitativeMarkdownArtifactArguments = {
     '  Markdown("## Release themes\\n\\n- Reliability work is complete.\\n- Interface polish is ready for review.")',
     "])",
   ].join("\n"),
+  kind: "Notes",
   title: "Qualitative release notes",
 };
 
@@ -32,6 +35,7 @@ export const numericComparisonArtifactArguments = {
     '  BarChart([{name: "Cases", points: [{label: "North", value: 12}, {label: "South", value: 18}, {label: "West", value: 7}]}], "Cases by region")',
     "])",
   ].join("\n"),
+  kind: "Comparison",
   title: "Regional case comparison",
 };
 
@@ -48,6 +52,7 @@ export const mixedDocumentArtifactArguments = {
     '  FileReference("docs/setta-artifact-policy-memo.md", "Generated policy memo")',
     "])",
   ].join("\n"),
+  kind: "Memo",
   title: "Policy memo",
 };
 
@@ -62,10 +67,12 @@ export const privateDirectoryReferenceArtifactArguments = {
     '  FileReference("docs/setta-artifact-policy-memo.md", "Private working-directory file")',
     "])",
   ].join("\n"),
+  kind: "Reference",
   title: "Private directory reference",
 };
 
 export const incompleteArtifactArguments = {
+  kind: "Report",
   title: "Language line counts",
 };
 
@@ -169,8 +176,10 @@ function hasDocumentInputSchema(schema) {
     schema.additionalProperties === false,
     schema.oneOf === undefined,
     required.includes("title"),
+    required.includes("kind"),
     required.includes("source"),
     isStringSchema(properties.title),
+    isStringSchema(properties.kind),
     isStringSchema(properties.source),
   ].every(Boolean);
 }

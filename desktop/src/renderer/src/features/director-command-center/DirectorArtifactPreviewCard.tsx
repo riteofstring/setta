@@ -63,6 +63,12 @@ export function DirectorArtifactPreviewCard({
     >
       <header className="director-artifact-preview-header">
         <div className="director-artifact-preview-identity">
+          {/*
+           * The kicker names the form of the document. It was in the original
+           * mockup on every artifact and in the fidelity checklist's card row;
+           * production simply never had a field to put there.
+           */}
+          <p className="director-artifact-preview-kind">{artifact.kind}</p>
           <h3 className="director-artifact-preview-title">{artifact.title}</h3>
           <p className="director-artifact-preview-meta">{directorArtifactCardMetadata(artifact)}</p>
         </div>

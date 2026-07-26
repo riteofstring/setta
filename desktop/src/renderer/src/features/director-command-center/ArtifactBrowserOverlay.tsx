@@ -144,6 +144,7 @@ export function ArtifactBrowserOverlay({
                * and this is the only place the artifact is named now.
                */}
               <header className="director-artifact-title-block">
+                <p className="director-artifact-kicker">{artifact.kind}</p>
                 <h1>{artifact.title}</h1>
               </header>
               <ArtifactBrowserDocument artifact={artifact} document={document} />

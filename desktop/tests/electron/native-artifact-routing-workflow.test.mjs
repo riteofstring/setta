@@ -573,7 +573,7 @@ async function openArtifactBrowser(client, snapshot, artifact, documentMarker) {
         loadState: modal?.getAttribute("data-artifact-load-state") ?? "",
         openId: modal?.getAttribute("data-artifact-id") ?? "",
         position: modal?.querySelector(".director-artifact-browser-position")?.textContent ?? "",
-        title: modal?.querySelector(".director-artifact-browser-title")?.textContent ?? ""
+        title: modal?.querySelector(".director-artifact-title-block h1")?.textContent ?? ""
       };
     })()`,
     (state) =>

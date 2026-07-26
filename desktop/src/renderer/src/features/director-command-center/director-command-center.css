@@ -930,3 +930,27 @@
   letter-spacing: 0.03em;
   margin: 0;
 }
+
+/*
+ * The kicker: what kind of document this is, above its title.
+ *
+ * It is the model's own word, displayed verbatim — nothing maps it to a colour
+ * or a behaviour, because that would be reading meaning out of free text.
+ */
+.director-artifact-kicker,
+.director-artifact-preview-kind {
+  color: var(--director-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.director-artifact-kicker {
+  margin-block-end: 12px;
+}
+
+.director-artifact-preview-kind {
+  margin-block-end: 3px;
+}
