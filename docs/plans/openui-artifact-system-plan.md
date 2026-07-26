@@ -875,15 +875,54 @@ gate.
 
 The automated conformance checks ran with explicit user authorization and
 passed after the last relevant changes. Do not duplicate them without another
-relevant change, and do not begin the production cutover until the remaining
-performance gate passes.
+relevant change.
 
-No production contract, schema, or renderer changes land before Phase 0 is
-complete.
+The outstanding baseline measures the artifact surfaces, so no artifact
+contract, schema, or artifact-renderer change lands before it is captured:
+Phases 2, 3, and 4 stay blocked. Phase 1 is application-primitive work on
+surfaces the baseline does not measure and is not blocked by it.
+
+Phase 1 does move `@base-ui/react` into the renderer bundle, so the pre-change
+bundle and load figures must be captured from a revision at or before
+`fd9d6fb21`, which is the last commit before the first primitive replacement.
 
 ### Phase 1 - Catalog Generation And Official shadcn Base UI Primitives
 
-**Status:** Pending.
+**Status:** In progress. The official shadcn Base UI primitive foundation is in
+place. The catalog generation and artifact component halves have not started.
+
+Landed:
+
+- `@base-ui/react` `1.6.0` as an exact direct dependency, added through
+  `./update_dependencies.sh`
+- the official Base UI `Button`, `Badge`, and `Input` source from the pinned
+  `bases/base` registry, together with the `cn-*` rules they resolve, taken from
+  the pinned `style-nova.css`. `nova` is the selected shadcn style because its
+  `sm` control height matches the density Setta's surfaces already used.
+- [`desktop/src/renderer/src/components/ui/PROVENANCE.md`](../../desktop/src/renderer/src/components/ui/PROVENANCE.md),
+  recording the upstream revision, registry, style source, the exact local
+  modifications, and the renderer audit
+- Setta's `dark:` variant bound to the app's own `data-color-mode`, so the
+  copied source follows the appearance setting instead of the OS preference.
+  The appearance store's redundant `.dark` class toggle is removed.
+- every Button, Badge, and Input consumer moved to the official variant, size,
+  and composition contracts. The `primary`/`secondary`,
+  `neutral`/`success`/`danger`, and compact-input APIs are removed rather than
+  aliased, and the call-site colour overrides that defeated them are gone.
+- the two Setta-domain wrappers those surfaces need: `SettaCompactInput` for
+  dense settings and runtime controls, and `SettaStatusBadge` for connection,
+  account, and provider status. The audit's hand-rolled badge spans and raw
+  API-key input now render through them, dropping their raw palette colours.
+
+Remaining:
+
+- the official Base UI components the artifact catalog needs - Accordion,
+  Alert, Card, Chart, Dialog, Scroll Area, Separator, Table, Tabs, Tooltip -
+  and Recharts, imported alongside the components that consume them
+- extending `cmd/generate-artifact-catalog` to the Zod schemas
+  `@openuidev/react-lang` requires and to the model-facing catalog signatures
+- the Setta artifact content and layout components
+- the exhaustive OpenUI-to-React renderer map
 
 Deliverables:
 

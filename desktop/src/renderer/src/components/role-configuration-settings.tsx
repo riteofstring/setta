@@ -277,12 +277,14 @@ export function RoleConfigurationForm({ configuration, onSave }: RoleConfigurati
                 setDrafts(roleDrafts(configuration));
                 setError(null);
               }}
+              size="sm"
               type="button"
+              variant="outline"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               Revert
             </Button>
-            <Button disabled={!dirty || saving} type="submit" variant="primary">
+            <Button disabled={!dirty || saving} size="sm" type="submit">
               {saving ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
@@ -466,7 +468,9 @@ function RoleProfileCard({
       <Button
         disabled={disabled || (draft.clearOverride && configuration.override === null)}
         onClick={onReset}
+        size="sm"
         type="button"
+        variant="outline"
       >
         {roleResetButtonLabel(scope, metadata.label)}
       </Button>

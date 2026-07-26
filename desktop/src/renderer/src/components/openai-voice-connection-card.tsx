@@ -16,16 +16,18 @@ import {
 } from "lucide-react";
 import { type Ref, useEffect, useRef, useState } from "react";
 
-import { cn } from "../lib/utils";
 import {
   completeSettingsNavigationRequest,
   type SettingsFocusRequest,
 } from "../stores/settings-navigation-store";
+import { SettaCompactInput } from "./setta-compact-input";
+import { SettaStatusBadge, type SettaStatusTone } from "./setta-status-badge";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 
 const openAIApiKeysURL = "https://platform.openai.com/api-keys";
 const openAIProvider = openAISpeechProviderID();
+
+type CredentialStatusTone = "good" | "muted" | "pending" | "problem";
 
 export function OpenAIVoiceConnectionCard({
   activeRuntimeVoiceStatus = null,
@@ -219,15 +221,12 @@ export function OpenAIVoiceConnectionCardView({
             </p>
           </div>
         </div>
-        <span
-          className={cn(
-            "inline-flex shrink-0 items-center gap-1 rounded-sm border px-2 py-1 text-[11px] font-medium",
-            credentialStatusClass(status.tone),
-          )}
+        <SettaStatusBadge
           data-testid="openai-voice-connection-status"
+          tone={credentialStatusTone(status.tone)}
         >
           {status.label}
-        </span>
+        </SettaStatusBadge>
       </header>
       <div className="grid gap-1">
         <p className="text-xs text-foreground">{status.summary}</p>
@@ -286,14 +285,9 @@ function ActiveRuntimeVoiceStatusCopy({
           <Server className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <span className="truncate">Active runtime voice status</span>
         </span>
-        <span
-          className={cn(
-            "inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-[11px] font-medium",
-            credentialStatusClass(presentation.tone),
-          )}
-        >
+        <SettaStatusBadge tone={credentialStatusTone(presentation.tone)}>
           {presentation.label}
-        </span>
+        </SettaStatusBadge>
       </div>
       <p className="text-[11px] leading-4 text-muted-foreground">{presentation.summary}</p>
       {presentation.detail ? (
@@ -315,7 +309,7 @@ function CredentialPasswordInput({
   return (
     <label className="grid gap-1 text-[11px] text-muted-foreground">
       OpenAI API key
-      <Input
+      <SettaCompactInput
         aria-label="OpenAI API key"
         autoCapitalize="none"
         autoComplete="off"
@@ -362,7 +356,7 @@ function CredentialCardActions({
   const corruptDisconnectVisible = settings.status === "corrupt" && mode === null && canManage;
   return (
     <div className="flex flex-wrap justify-between gap-2">
-      <Button disabled={busy} onClick={onOpenApiKeys} type="button">
+      <Button disabled={busy} onClick={onOpenApiKeys} size="sm" type="button" variant="outline">
         <ExternalLink className="h-3.5 w-3.5" />
         OpenAI API keys
       </Button>
@@ -402,7 +396,7 @@ function DisconnectCredentialAction({
   onDisconnect: () => void;
 }) {
   return (
-    <Button disabled={busy} onClick={onDisconnect} type="button">
+    <Button disabled={busy} onClick={onDisconnect} size="sm" type="button" variant="outline">
       <Unplug className="h-3.5 w-3.5" />
       Disconnect
     </Button>
@@ -422,7 +416,7 @@ function CredentialRetryAction({
     return null;
   }
   return (
-    <Button disabled={busy} onClick={onRetry} type="button">
+    <Button disabled={busy} onClick={onRetry} size="sm" type="button" variant="outline">
       <RefreshCw className="h-3.5 w-3.5" />
       Retry
     </Button>
@@ -440,7 +434,7 @@ function ConnectedCredentialActions({
 }) {
   return (
     <>
-      <Button disabled={busy} onClick={onReplace} type="button">
+      <Button disabled={busy} onClick={onReplace} size="sm" type="button" variant="outline">
         <KeyRound className="h-3.5 w-3.5" />
         Replace
       </Button>
@@ -470,15 +464,15 @@ function CredentialSaveActions({
   return (
     <>
       {cancelVisible ? (
-        <Button disabled={busy} onClick={onCancelReplace} type="button">
+        <Button disabled={busy} onClick={onCancelReplace} size="sm" type="button" variant="outline">
           Cancel
         </Button>
       ) : null}
       <Button
         disabled={credentialSaveDisabled({ apiKeyDraft, busy })}
         onClick={onSave}
+        size="sm"
         type="button"
-        variant="primary"
       >
         {operation === "save" ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -561,7 +555,7 @@ function speechCredentialStatusPresentation(settings: SpeechCredentialSettings):
   detail: string | null;
   label: string;
   summary: string;
-  tone: "good" | "muted" | "pending" | "problem";
+  tone: CredentialStatusTone;
 } {
   switch (settings.status) {
     case "loading":
@@ -616,7 +610,7 @@ function activeRuntimeVoiceStatusPresentation(status: ActiveRuntimeVoiceStatus):
   detail: string | null;
   label: string;
   summary: string;
-  tone: "good" | "muted" | "pending" | "problem";
+  tone: CredentialStatusTone;
 } {
   switch (status.providerStatus) {
     case "configured":
@@ -679,16 +673,16 @@ function operationFailureLabel(operation: SpeechCredentialOperation): string {
   }
 }
 
-function credentialStatusClass(tone: "good" | "muted" | "pending" | "problem"): string {
+function credentialStatusTone(tone: CredentialStatusTone): SettaStatusTone {
   switch (tone) {
     case "good":
-      return "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+      return "success";
     case "muted":
-      return "border-border bg-muted text-muted-foreground";
+      return "neutral";
     case "pending":
-      return "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300";
+      return "info";
     case "problem":
-      return "border-destructive/40 bg-destructive/10 text-destructive";
+      return "danger";
     default:
       return assertNever(tone);
   }

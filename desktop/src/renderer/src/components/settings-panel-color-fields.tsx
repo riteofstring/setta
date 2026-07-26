@@ -6,7 +6,7 @@ import type {
 import { ChevronDown, Moon, SlidersHorizontal, Sun } from "lucide-react";
 import { type ReactNode, useMemo } from "react";
 
-import { Input } from "./ui/input";
+import { SettaCompactInput } from "./setta-compact-input";
 import { cn } from "../lib/utils";
 import type { AppearanceColorGroup } from "../stores/appearance-store";
 
@@ -252,7 +252,7 @@ function ColorValueControls({
           className="h-5 w-5 rounded-sm border border-border"
           style={{ backgroundColor: value }}
         />
-        <Input
+        <SettaCompactInput
           aria-label={`${label} OKLCH value`}
           className="font-mono"
           onChange={(event) => onChange(event.target.value)}

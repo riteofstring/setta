@@ -184,7 +184,6 @@ function applyAppearanceSettings(settings: AppearanceSettings) {
     return;
   }
   const root = document.documentElement;
-  root.classList.toggle("dark", settings.mode === "dark");
   root.dataset.colorMode = settings.mode;
   root.style.colorScheme = settings.mode;
   for (const [name, value] of Object.entries(appearanceStyleVariables(settings))) {

@@ -48,8 +48,8 @@ import {
   StatusColorSection,
 } from "./settings-panel-color-fields";
 import { settingsSubtabs, type SettingsSubtab } from "./settings-subtabs";
+import { SettaCompactInput } from "./setta-compact-input";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 import { VoiceConfigurationSettings } from "./voice-configuration-settings";
 import { cn } from "../lib/utils";
 import {
@@ -315,11 +315,17 @@ export function AppearanceSettingsEditor({
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
             {settings ? <ModeSwitch mode={settings.mode} onChange={onModeChange} /> : null}
-            <Button disabled={!dirty || busy} onClick={onRevert} type="button">
+            <Button
+              disabled={!dirty || busy}
+              onClick={onRevert}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
               <RotateCcw className="h-3.5 w-3.5" />
               Revert
             </Button>
-            <Button disabled={!dirty || busy} type="submit" variant="primary">
+            <Button disabled={!dirty || busy} size="sm" type="submit">
               {status === "saving" ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
@@ -490,7 +496,7 @@ function PalettePresetChooser({
           aria-expanded={open}
           aria-haspopup="listbox"
           aria-label="Color preset"
-          className="h-8 w-full justify-between px-2.5"
+          className="w-full justify-between"
           onClick={() => {
             if (open) {
               setOpen(false);
@@ -502,6 +508,7 @@ function PalettePresetChooser({
           ref={anchorRef}
           role="combobox"
           type="button"
+          variant="outline"
         >
           <span className="flex min-w-0 items-center gap-2">
             <PresetSwatches className="w-16 shrink-0" values={activePreview} />
@@ -696,7 +703,7 @@ function SeedPaletteSection({
         <div className="grid gap-2">
           <label className="grid gap-1">
             <span className="text-[11px] font-medium text-muted-foreground">Seed color</span>
-            <Input
+            <SettaCompactInput
               aria-label="Custom OKLCH seed color"
               className="font-mono"
               onChange={(event) => setSeedColor(event.target.value)}
@@ -713,7 +720,9 @@ function SeedPaletteSection({
                 onApplySettings(seedSettings);
               }
             }}
+            size="sm"
             type="button"
+            variant="outline"
           >
             Use Seed
           </Button>
@@ -754,7 +763,7 @@ function FontFields({
             <span className="text-[11px] font-medium text-muted-foreground">
               {fieldLabel(name)}
             </span>
-            <Input
+            <SettaCompactInput
               className="font-mono"
               onChange={(event) => onChange(name, event.target.value)}
               spellCheck={false}

@@ -1,23 +1,20 @@
-import type { InputHTMLAttributes } from "react";
-import { forwardRef } from "react";
+import * as React from "react";
+import { Input as InputPrimitive } from "@base-ui/react/input";
 
 import { cn } from "@renderer/lib/utils";
 
-export type InputProps = InputHTMLAttributes<HTMLInputElement>;
-
-export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { className, type = "text", ...props },
-  ref,
-) {
+function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (
-    <input
+    <InputPrimitive
+      type={type}
+      data-slot="input"
       className={cn(
-        "flex h-7 w-full rounded-sm border border-input bg-card px-2 py-1 text-xs text-foreground shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50",
+        "cn-input w-full min-w-0 outline-none file:inline-flex file:border-0 file:bg-transparent file:text-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
-      ref={ref}
-      type={type}
       {...props}
     />
   );
-});
+}
+
+export { Input };

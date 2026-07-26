@@ -489,11 +489,17 @@ function VoiceConfigurationCard({
         />
       </label>
       <div className="flex justify-end gap-1">
-        <Button disabled={!dirty || disabled} onClick={onReset} type="button">
+        <Button
+          disabled={!dirty || disabled}
+          onClick={onReset}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
           <RotateCcw className="h-3.5 w-3.5" />
           Revert
         </Button>
-        <Button disabled={!dirty || disabled} onClick={onSave} type="button" variant="primary">
+        <Button disabled={!dirty || disabled} onClick={onSave} size="sm" type="button">
           {saving ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (

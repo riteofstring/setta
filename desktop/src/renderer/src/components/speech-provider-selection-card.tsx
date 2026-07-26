@@ -17,6 +17,7 @@ import {
   completeSettingsNavigationRequest,
   type SettingsFocusRequest,
 } from "../stores/settings-navigation-store";
+import { SettaStatusBadge } from "./setta-status-badge";
 import { Button } from "./ui/button";
 
 const localMacOSProvider = localMacOSSpeechProviderID();
@@ -256,9 +257,11 @@ function SpeechProviderSelectionHeader({
         </div>
       </div>
       {selection ? (
-        <ProviderBadge label={providerDisplayName(selection.provider)} tone="selected" />
+        <SettaStatusBadge tone="success">
+          {providerDisplayName(selection.provider)}
+        </SettaStatusBadge>
       ) : (
-        <ProviderBadge label="Checking" tone="pending" />
+        <SettaStatusBadge tone="info">Checking</SettaStatusBadge>
       )}
     </header>
   );
@@ -452,7 +455,13 @@ function SpeechProviderSelectionRetry({
   }
   return (
     <div className="flex justify-end">
-      <Button disabled={updatingProvider !== null} onClick={onRefresh} type="button">
+      <Button
+        disabled={updatingProvider !== null}
+        onClick={onRefresh}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
         Retry
       </Button>
     </div>
@@ -495,14 +504,14 @@ function ProviderOption({
           <p className="text-[11px] leading-4 text-muted-foreground">{description}</p>
         </div>
         <span className="flex shrink-0 flex-wrap justify-end gap-1">
-          {isDefault ? <ProviderBadge label="Default" tone="muted" /> : null}
-          <ProviderBadge label={status} tone={selected ? "selected" : "muted"} />
+          {isDefault ? <SettaStatusBadge tone="neutral">Default</SettaStatusBadge> : null}
+          <SettaStatusBadge tone={selected ? "success" : "neutral"}>{status}</SettaStatusBadge>
         </span>
       </div>
       <div className="flex justify-end">
         <div className="flex flex-wrap justify-end gap-2">
           {secondaryAction}
-          <Button disabled={disabled || selected} onClick={onSelect} type="button">
+          <Button disabled={disabled || selected} onClick={onSelect} size="sm" type="button">
             {updating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
             {selected ? (
               <>
@@ -519,22 +528,6 @@ function ProviderOption({
   );
 }
 
-function ProviderBadge({ label, tone }: { label: string; tone: "muted" | "pending" | "selected" }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center rounded-sm border px-1.5 py-0.5 text-[11px] font-medium",
-        tone === "selected" &&
-          "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-        tone === "pending" && "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
-        tone === "muted" && "border-border bg-muted text-muted-foreground",
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
 function localMacOSModelDownloadAction(
   health: LocalMacOSVoiceHealth | null,
   downloadStatus: LocalMacOSVoiceModelDownloadStatus | null,
@@ -545,14 +538,14 @@ function localMacOSModelDownloadAction(
   }
   if (downloadStatus?.status === "downloading") {
     return (
-      <Button disabled type="button">
+      <Button disabled size="sm" type="button" variant="outline">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
         {downloadPercent(downloadStatus)}%
       </Button>
     );
   }
   return (
-    <Button onClick={onDownload} type="button">
+    <Button onClick={onDownload} size="sm" type="button" variant="outline">
       <Download className="h-3.5 w-3.5" />
       {downloadStatus?.status === "failed" || health?.status === "model_hash_mismatch"
         ? "Retry model"

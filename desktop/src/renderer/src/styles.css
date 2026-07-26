@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./components/ui/shadcn-nova.css" layer(base);
 @import "./features/director-graph/render/director-graph.css";
 @import "./features/director-command-center/director-command-center.css";
 @import "./features/director-command-center/director-command-center-navigation.css";
@@ -6,6 +7,12 @@
 @import "./features/director-command-center/director-command-center-activity.css";
 @import "./features/director-command-center/director-workstream-switch-transition.css";
 @import "./features/director-command-center/director-command-center-history.css";
+
+/* Official shadcn/ui component source expects `dark:` to follow the app's own
+   colour mode rather than the OS preference. Setta's colour mode lives on the
+   document element's `data-color-mode`, and the palette below is dark unless
+   that attribute says otherwise, so the variant reads the same way. */
+@custom-variant dark (&:not([data-color-mode="light"] *));
 
 @theme inline {
   --color-background: var(--background);
