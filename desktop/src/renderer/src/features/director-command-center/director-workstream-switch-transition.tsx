@@ -51,21 +51,6 @@ export function useDirectorWorkstreamSwitchTransition(
   return transition;
 }
 
-export function WorkstreamSwitchTransition({
-  transition,
-}: {
-  transition: DirectorWorkstreamSwitchTransition;
-}) {
-  return (
-    <div
-      aria-hidden="true"
-      className="director-workstream-transition"
-      data-active={transition.active && transition.direction !== null ? "true" : "false"}
-      data-direction={transition.direction ?? undefined}
-    />
-  );
-}
-
 /*
  * The Director's own view is a destination, not the absence of one: it leads
  * the strip, so it sits at index -1 and a move between it and any workstream

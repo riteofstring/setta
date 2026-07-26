@@ -49,10 +49,7 @@ import {
 import { NowRail } from "./DirectorNowRail";
 import { DirectorReply, type DirectorLoadState } from "./DirectorReply";
 import { useDirectorArtifactBrowser } from "./director-artifact-browser";
-import {
-  useDirectorWorkstreamSwitchTransition,
-  WorkstreamSwitchTransition,
-} from "./director-workstream-switch-transition";
+import { useDirectorWorkstreamSwitchTransition } from "./director-workstream-switch-transition";
 import { directorFocus, type DirectorFocus } from "./director-focus";
 import { readGraphLabelsVisible, writeGraphLabelsVisible } from "./director-graph-label-preference";
 import { directorSubmitIntent } from "./director-view-submit";
@@ -370,7 +367,6 @@ export function DirectorCommandCenterShell({
             onReady={onGraphReady}
             timeSecondsAt={graphTimeSecondsAt}
           />
-          <WorkstreamSwitchTransition transition={switchTransition} />
           {packedSnapshot.nodeCount === 0 ? <GraphEmptyState focus={focus} /> : null}
           <NowRail
             narration={snapshotView.narration}

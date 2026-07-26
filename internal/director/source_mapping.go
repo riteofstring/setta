@@ -471,11 +471,11 @@ var directorConversationFactRules = map[conversation.DirectorConversationEntryKi
 	conversation.DirectorConversationAssistantText: {
 		Disposition:   SourceFactCreatesNode,
 		Resolution:    SourceFactResolutionFixed,
-		NodeKind:      SemanticNodeMilestone,
+		NodeKind:      SemanticNodeCompleted,
 		NodeIdentity:  SemanticNodeIdentityDirectorReply,
 		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy},
 		EvidenceClass: EvidenceDirectorInterpretation,
-		Note:          "The Director's reply is model-authored, so it carries the model that authored it and stays visually separable from an observed fact.",
+		Note:          "The Director's reply is the turn's outcome — the lane ends each ask on a verdict node — and it is model-authored, so it carries the model that authored it and stays visually separable from an observed fact.",
 	},
 }
 
