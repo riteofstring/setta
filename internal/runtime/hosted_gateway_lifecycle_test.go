@@ -108,6 +108,12 @@ func TestCandidateBGatewayDiskPressureFailsBeforeWorkloadLease(t *testing.T) {
 }
 
 func TestCandidateBGatewayWorkContinuesAfterGatewayDisconnect(t *testing.T) {
+	// The lease TTL sets both the renewal interval, which is half the TTL, and
+	// the margin the renewal loop has before the lease expires and renewal
+	// starts failing. A 100 ms TTL left only 50 ms of margin, so an ordinary
+	// scheduling pause expired the lease, the failed renewal cancelled the
+	// turn's context, and the turn recorded `cancelled` instead of `completed`.
+	// A 500 ms margin still fits several renewals inside the turn delay below.
 	t.Setenv("SETTA_E2E_TOPIC_CODEX_TURN_DELAY_MS", "1500")
 	installRuntimeMasterCodexFixture(t)
 	leases := newHostedSynchronizedWorkloadLeaseManager()
@@ -116,7 +122,7 @@ func TestCandidateBGatewayWorkContinuesAfterGatewayDisconnect(t *testing.T) {
 	config.Version = "hosted-gateway-disconnected-work"
 	config.WorkloadLeaseManager = leases
 	config.WorkloadLeaseReporter = reports
-	config.WorkloadLeaseTTL = 100 * time.Millisecond
+	config.WorkloadLeaseTTL = time.Second
 	runtimeServer, runtimeReady := startRuntimeTestServer(t, config)
 	defer shutdownServer(t, runtimeServer)
 
