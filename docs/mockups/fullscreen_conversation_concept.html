@@ -42,12 +42,21 @@
   .tb-nav { font-size: 17px; line-height: 1; color: var(--muted); background: transparent; border: 0; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
   .tb-nav:hover { color: var(--fg); background: rgba(255,255,255,0.05); }
   .tb-conv { font-size: 13px; color: var(--fg); font-weight: 600; min-width: 190px; text-align: center; font-family: var(--sans); }
-  .tb-dots { display: flex; gap: 5px; margin-left: 6px; }
+  .tb-conv .is-director, #convTitle.is-director { color: var(--merge); }
+  .tb-dots { display: flex; align-items: center; gap: 5px; margin-left: 6px; }
+  /* The Director leads the strip: a slightly larger ring, because it is a
+     different kind of destination rather than one more thread. */
+  .tb-dots i.dir { width: 7px; height: 7px; border-radius: 50%; background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--faint); }
+  .tb-dots i.dir.on { background: var(--merge); box-shadow: 0 0 8px var(--merge); }
+  .dot-sep { width: 1px; height: 9px; background: var(--border); margin: 0 3px; }
   .tb-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--border); }
   .tb-dots i.on { background: var(--primary); }
   .tb-chip { font: 11px var(--sans); color: var(--faint); background: transparent; border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; cursor: pointer; letter-spacing: 0.02em; }
   .tb-chip:hover { color: var(--muted); }
   .tb-chip.on { color: var(--fg); border-color: color-mix(in oklch, var(--primary) 55%, transparent); background: color-mix(in oklch, var(--primary) 12%, transparent); }
+  .artifact-from { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--faint); font-weight: 600; margin-top: 3px; }
   .rail { position: fixed; top: 44px; bottom: 92px; width: 300px; z-index: 12; display: flex; flex-direction: column; gap: 12px; padding: 20px; font-family: var(--sans); pointer-events: none; }
   .rail > * { pointer-events: auto; }
   #railLeft { left: 0; justify-content: flex-start; }
@@ -306,6 +315,9 @@ const RESP_H=0.34, TURN_GAP=0.42;          // expanded spacing: reason->response
 const COLLAPSE_GAP=0.18;                    // folded gap between outcome nodes (room for the question label under each)
 let INTERVAL=5.5, DEAD_INTERVAL=4.0;   // node dwell (driven by the speed slider, default slowest); animation durations stay fixed
 let collapseMode='ladder', labelMode='auto', bgStyle=1, threadCount=1, parallelCols=1;   // dev-panel variations; fluid field is the default now
+// You land on the Director. Talking to it is the default, not a constraint:
+// one arrow puts you on a thread, and then you are talking to that thread.
+let onDirector=true, viewsReady=false;
 function laneOffsets(K){if(K<=1)return[0];const s=0.30,st=-(K-1)/2*s,o=[];for(let i=0;i<K;i++)o.push(st+i*s);return o;}
 
 // A conversation is a THREAD of turns. Each turn is user-input node -> live reasoning graph -> final
@@ -377,8 +389,9 @@ function build(conv){ const nodes=[],edges=[],turns=[];
 
 // Side-by-side view: K real threads (centred on the current one), each a full graph in its own column
 // that scrolls itself so every column's live edge lines up on screen.
-function buildMulti(K){
-  const nodes=[],edges=[],turns=[],cols=[]; const N=CONVS.length, start=convIdx-Math.floor(K/2);
+function buildMulti(K, startAt){
+  const nodes=[],edges=[],turns=[],cols=[]; const N=CONVS.length;
+  const start=(startAt===undefined)?convIdx-Math.floor(K/2):startAt;
   const colW=1.3/K, xScale=Math.min(1, colW/0.85); let lastBorn=0;   // 1.3 keeps the columns clear of the side rails
   for(let i=0;i<K;i++){
     const conv=CONVS[((start+i)%N+N)%N];
@@ -858,12 +871,17 @@ const BOOT_CONV={ seed:7, thread:[
   {u:'ok fix it, but no compat shims', reason:'RUN', r:'Reordering now swaps adjacent panes in place; the two long tasks on overview pan are gone. Committed (+18 −6).'} ] };
 let activeConv=BOOT_CONV;
 function rebuild(){
-  const parallel=threadCount>1, multi=!parallel&&parallelCols>1;
+  // The Director's view is every thread at once. It is not a mode you switch
+  // into: it is what the Director sees, and arrowing off it lands on one thread.
+  const dirCols = (onDirector && viewsReady) ? Math.min(CONVS.length, 5) : 0;
+  const parallel=threadCount>1, multi=!parallel&&(onDirector?dirCols>1:parallelCols>1);
   EDGE_SEG = parallel ? (threadCount>=64?3:5) : (multi ? 7 : 12);    // LOD: fewer edge segments with many threads
-  g = parallel ? buildParallel(threadCount) : (multi ? buildMulti(parallelCols) : build(activeConv));
+  g = parallel ? buildParallel(threadCount)
+    : (multi ? buildMulti(onDirector?dirCols:parallelCols, onDirector?0:undefined) : build(activeConv));
   // each node becomes a small particle system: core orbiters + emitted sparks (fixed randomness, positions animate)
   const rng=mulberry32((activeConv.seed||seed)*911+13);
-  const K = parallel ? (threadCount>=64?3:6) : (multi ? (parallelCols>3?8:14) : 24);   // LOD: fewer particles per node
+  const cols = onDirector ? dirCols : parallelCols;
+  const K = parallel ? (threadCount>=64?3:6) : (multi ? (cols>3?8:14) : 24);   // LOD: fewer particles per node
   g.parts=[];
   for(const n of g.nodes){ for(let j=0;j<K;j++){
     let role,dx,dy,speed; const phase=rng();
@@ -1068,7 +1086,7 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
   if(switching){
     switching.t += dt/0.62;
     if(switching.t>=0.5 && !switching.swapped){
-      convIdx=(convIdx+switching.dir+CONVS.length)%CONVS.length;
+      stepView(switching.dir);
       snapToConv();                                   // arrive at whatever state that thread has progressed to
       renderConv(); switching.swapped=true; document.body.classList.remove('switching');
     }
@@ -1136,6 +1154,26 @@ let autoCam=0, viewCam=0, detached=false, switching=null, xShift=0, glitchAmt=0;
 // mouse wheel = look back through the stream (chat-style history scroll)
 // scroll up to look back; the view stops following the newest node until you scroll back down to the live edge
 addEventListener('wheel', e=>{ viewCam=Math.max(-0.7, Math.min(autoCam, viewCam + e.deltaY*0.0013)); detached = viewCam < autoCam-0.02; }, {passive:true});
+
+/*
+ * The Director's own view.
+ *
+ * Every conversation is a view and the arrows move between them. The Director
+ * is one of those views and it is the one you land on, so the multi-thread
+ * canvas is not a permanent mode — it is the Director's perspective, which is
+ * the only reading under which it means anything.
+ *
+ * Its highlights are about dispatch, never about how a thread did its work.
+ * That is the thread's own view, one arrow away.
+ */
+const DIRECTOR={ title:'Director', director:'watching 3 threads · nothing needs you',
+  nows:[{t:'Started “Local voice capture” with no folder',mode:1,full:'It needs none of your files, so it runs without a folder and nothing is waiting on you.'},
+        {t:'“Workspace drag-drop” finished — paint back to 0.8 ms',mode:3,full:'Committed to pane-drag-reorder.ts. The animation follow-up failed its perf bar and stopped there.'},
+        {t:'“Release notes” is waiting on you to approve a push',mode:2,full:'It will not push without an answer. Everything else keeps running.'}],
+  summary:'Three threads are open. One finished and committed, one is running without a folder, and one needs an answer before it can push. Nothing else is blocked.',
+  response:'Started it — I will bring back anything that needs you.',
+  history:[{u:'work on the drag-drop jank, and separately get voice running locally',
+            r:'Two threads: drag-drop is committed, voice is running on-device now.'}] };
 
 // a few demo conversations the director could be juggling
 const REVEAL_INT=3.2;   // seconds between "Now" items as a conversation progresses
@@ -1250,14 +1288,19 @@ function buildConvList(n){ const list=[];
 // jump straight to a thread's present state (no restart from zero)
 function snapToConv(){
   activeConv=CONVS[convIdx]; seed=activeConv.seed||seed; rebuild();
+  if(onDirector){
+    growT=g.lastBorn*0.62;                                   // arrive mid-flight; the threads did not wait for you
+    layout(0); updateSceneBuffers();
+    let m=0; for(const n of g.nodes) if(n.born<=growT&&n.alpha>0.02&&n.worldY>m) m=n.worldY;
+    autoCam=m; viewCam=m; detached=false; camWorld=m; return; }
   activeConv.spanU=g.lastBorn/INTERVAL;                       // refine the estimate now that it's actually built
   if(activeConv.gT>g.lastBorn+FAIL_DELAY+6.0) activeConv.gT=0;
   growT=activeConv.gT||0; layout(0); updateSceneBuffers();
   let maxY=0; for(const n of g.nodes) if(n.born<=growT&&n.alpha>0.02&&n.worldY>maxY) maxY=n.worldY;
   autoCam=maxY; viewCam=maxY; detached=false; camWorld=viewCam; }
-let CONVS=buildConvList(3);
+let CONVS=buildConvList(3); viewsReady=true;
 function setThreads(n){ CONVS=buildConvList(n);
-  convIdx=Math.min(convIdx,CONVS.length-1); lastIdx=-1; lastN=-1; snapToConv(); renderConv(); }
+  convIdx=Math.min(convIdx,CONVS.length-1); lastIdx=-2; lastN=-1; snapToConv(); renderConv(); }
 let convIdx=0, lastIdx=-1, lastN=-1, lastComplete=false, dotAcc=0;
 const $=id=>document.getElementById(id);
 
@@ -1274,16 +1317,21 @@ function tickConversations(dt){
       continue; }
     const b=revealCount(c); c.t+=dt; if(revealCount(c)>b) c.lastReveal=c.t; }
   const c=CONVS[convIdx], n=revealCount(c), comp=isComplete(c);
-  if(convIdx!==lastIdx||n!==lastN||comp!==lastComplete){ lastIdx=convIdx; lastN=n; lastComplete=comp; renderConv(); }
+  const idx=onDirector?-1:convIdx;
+  if(idx!==lastIdx||n!==lastN||comp!==lastComplete){ lastIdx=idx; lastN=n; lastComplete=comp; renderConv(); }
   dotAcc+=dt; if(dotAcc>0.3){ dotAcc=0; renderDots(); }
 }
 function renderDots(){ const N=CONVS.length, el=$('convDots');
-  const dot=(c,i)=>{ let cls=i===convIdx?'on':''; if(isComplete(c)) cls+=' done'; else if(c.t-c.lastReveal<2.6) cls+=' act';
+  const dot=(c,i)=>{ let cls=(!onDirector&&i===convIdx)?'on':''; if(isComplete(c)) cls+=' done'; else if(c.t-c.lastReveal<2.6) cls+=' act';
     return `<i class="${cls.trim()}"></i>`; };
-  if(N<=24){ el.innerHTML=CONVS.map(dot).join(''); return; }
+  // The strip is a navigator between views, and the Director is a view.
+  const head=`<i class="dir${onDirector?' on':''}"></i><span class="dot-sep"></span>`;
+  if(N<=24){ el.innerHTML=head+CONVS.map(dot).join(''); return; }
+  el.innerHTML=head+windowedDots(N,dot); return; }
+function windowedDots(N,dot){
   const half=9, start=Math.max(0, Math.min(N-(half*2+1), convIdx-half));    // window the strip once there are many threads
-  el.innerHTML=CONVS.slice(start,start+half*2+1).map((c,i)=>dot(c,start+i)).join('')+
-    `<span class="dot-count">${convIdx+1}/${N}</span>`; }
+  return CONVS.slice(start,start+half*2+1).map((c,i)=>dot(c,start+i)).join('')+
+    `<span class="dot-count">${onDirector?'—':convIdx+1}/${N}</span>`; }
 
 function artifactBody(b){ if(!b) return '';
   if(b.type==='bars') return `<div class="artifact-body">`+b.rows.map(r=>`<div class="ab-row"><span>${r[0]}</span><span class="ab-track"><span class="ab-bar" style="width:${Math.round(r[2]*100)}%"></span></span><span class="ab-num">${r[1].toFixed(1)}</span></div>`).join('')+`</div>`;
@@ -1292,8 +1340,11 @@ function artifactBody(b){ if(!b) return '';
   return ''; }
 
 function renderConv(){
+  if(onDirector) return renderDirector();
   const c=CONVS[convIdx], n=revealCount(c), complete=isComplete(c);
-  $('convTitle').textContent=c.title; $('directorText').textContent=c.director; renderDots();
+  $('convTitle').textContent=c.title; $('convTitle').classList.remove('is-director');
+  $('directorText').textContent=c.director; renderDots();
+  $('chatInput').placeholder='Reply to “'+c.title+'”…   (‹ › switch conversation)';
   const shown=c.nows.slice(0,n);
   $('highlights').innerHTML=shown.map((h,i)=>{
     const col=MODE_COLORS[h.mode]||'#8aa'; const newest=i===shown.length-1;
@@ -1308,8 +1359,44 @@ function renderConv(){
     `<div class="artifact" data-i="${i}"><div class="artifact-kicker">${a.kicker}<span class="exp">⤢</span></div>`+
     `<div class="artifact-title">${a.title}</div><div class="artifact-meta">${a.meta}</div>`+artifactBody(a.body)+`</div>`:'').join('');
 }
+/*
+ * The Director's rails.
+ *
+ * Its Now rail is dispatch: what it started, what finished, what needs the
+ * user. Its artifact rail is every thread's output, each card naming the
+ * thread that produced it — on this view the reader is above the threads, so
+ * the thread is the thing they need to be told.
+ */
+function renderDirector(){
+  $('convTitle').textContent=DIRECTOR.title; $('convTitle').classList.add('is-director');
+  $('directorText').textContent=DIRECTOR.director; renderDots();
+  $('chatInput').placeholder='Ask the Director…   (› to open a thread · scroll to look back)';
+  $('highlights').innerHTML=DIRECTOR.nows.map((h,i)=>{
+    const col=MODE_COLORS[h.mode]||'#8aa'; const newest=i===DIRECTOR.nows.length-1;
+    const cls='hl'+(newest?' cur':'')+(h.full?'':' nofull');
+    const full=h.full?`<span class="hl-full">${h.full.replace(/</g,'&lt;')}</span>`:'';
+    return `<li class="${cls}" data-i="${i}"><span class="d" style="color:${col};background:${col}"></span>`+
+      `<span class="hl-body"><span class="hl-short">${h.t.replace(/</g,'&lt;')}</span>${full}</span></li>`;
+  }).join('');
+  $('summaryText').textContent=DIRECTOR.summary;
+  $('artifacts').innerHTML=CONVS.flatMap(c=>c.arts.map(a=>({a,from:c.title})))
+    .map(({a,from})=>
+      `<div class="artifact is-crossthread"><div class="artifact-kicker">${a.kicker}<span class="exp">⤢</span></div>`+
+      `<div class="artifact-title">${a.title}</div><div class="artifact-from">${from}</div>`+
+      `<div class="artifact-meta">${a.meta}</div>`+artifactBody(a.body)+`</div>`).join('');
+}
+
 function switchConv(dir){ if(switching) return;   // start a channel-change transition (swap happens mid-slide)
   switching={dir, t:0, swapped:false}; selected=null; document.body.classList.add('switching'); }
+
+// The Director sits at position 0 and the threads follow it, so arrowing off
+// the last thread wraps back to the Director rather than to the first thread.
+function stepView(dir){
+  const N=CONVS.length;
+  if(onDirector){ onDirector=false; convIdx = dir>0 ? 0 : N-1; return; }
+  const next=convIdx+dir;
+  if(next<0||next>=N){ onDirector=true; return; }
+  convIdx=next; }
 $('convPrev').onclick=()=>switchConv(-1);
 $('convNext').onclick=()=>switchConv(1);
 
@@ -1320,7 +1407,8 @@ function expandBodyHTML(b){ if(!b) return '';
   if(b.type==='rows') return b.rows.map(r=>`<div style="display:flex;justify-content:space-between;border-bottom:1px solid oklch(0.24 0.01 264);padding:8px 0;font:13px ui-monospace"><span style="color:oklch(0.717 0.044 264)">${r[0]}</span><span style="color:oklch(0.908 0.013 263)">${r[1]}</span></div>`).join('');
   return ''; }
 $('artifacts').addEventListener('click',e=>{ const card=e.target.closest('.artifact'); if(!card) return;
-  const a=CONVS[convIdx].arts[+card.dataset.i];
+  const a=onDirector ? CONVS.flatMap(c=>c.arts)[[...card.parentNode.children].indexOf(card)]
+                     : CONVS[convIdx].arts[+card.dataset.i];
   const html=`<!doctype html><meta charset=utf-8><title>${a.title}</title>`+
     `<body style="margin:0;background:oklch(0.128 0.007 261);color:oklch(0.908 0.013 263);font:15px/1.5 system-ui;display:grid;place-items:center;min-height:100vh">`+
     `<div style="max-width:640px;width:100%;padding:40px"><div style="font:11px system-ui;letter-spacing:.14em;text-transform:uppercase;color:oklch(0.522 0.065 264)">${a.kicker}</div>`+
@@ -1332,7 +1420,18 @@ $('artifacts').addEventListener('click',e=>{ const card=e.target.closest('.artif
 // chat input: the director takes the request -> append a new turn and jump the stream to it
 const chatInput=$('chatInput');
 chatInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&chatInput.value.trim()){
-  const val=chatInput.value.trim(); activeConv.thread.push({u:val, reason:'RUN', r:CONVS[convIdx].response||'Done.'});
+  const val=chatInput.value.trim();
+  /*
+   * What you are looking at is what you are talking to. On the Director's view
+   * that is dispatch — it takes the request and decides which thread it
+   * belongs to — so nothing is appended to a thread here.
+   */
+  if(onDirector){ DIRECTOR.history.push({u:val, r:DIRECTOR.response});
+    DIRECTOR.nows.push({t:'Took “'+val.slice(0,44)+(val.length>44?'…':'')+'”',mode:1,
+      full:'The Director decides whether this steers a running thread, queues behind it, or starts a new one.'});
+    if(DIRECTOR.nows.length>4) DIRECTOR.nows.shift();
+    chatInput.value=''; renderDirector(); return; }
+  activeConv.thread.push({u:val, reason:'RUN', r:CONVS[convIdx].response||'Done.'});
   CONVS[convIdx].history.push({u:val, r:CONVS[convIdx].response});
   chatInput.value=''; rebuild();
   activeConv.spanU=g.lastBorn/INTERVAL;
@@ -1345,7 +1444,7 @@ chatInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&chatInput.value.tr
 $('highlights').addEventListener('click',e=>{ const li=e.target.closest('.hl'); if(li&&!li.classList.contains('nofull')) li.classList.toggle('expanded'); });
 
 // "see thread history" -> a traditional chat transcript (your messages + each final response)
-function renderHistory(){ const c=CONVS[convIdx];
+function renderHistory(){ const c=onDirector?DIRECTOR:CONVS[convIdx];
   $('historyLog').innerHTML=c.history.map(t=>`<div class="turn"><div class="u">${t.u}</div><div class="r">${t.r}</div></div>`).join('')||`<div class="turn"><div class="r">No prior turns on this thread yet.</div></div>`; }
 function openHistory(){ renderHistory(); $('history').hidden=false; }
 function closeHistory(){ $('history').hidden=true; }
