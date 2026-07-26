@@ -102,13 +102,7 @@ interface PlannedNode {
   readonly row: number;
   readonly role: "input" | "step" | "outcome";
   readonly mode: PackedGraphMode;
-  /**
-   * When this outcome failed, or null. `terminalAt` is the renderer's failure
-   * visual — the red burst and the eclipse — so a successful outcome must never
-   * carry it: packing it for every outcome painted the end of every finished
-   * run in the failure colour.
-   */
-  readonly failedAt: number | null;
+  readonly terminalAt: number | null;
 }
 
 function parseTimestamp(value: string, label: string): number {
@@ -337,10 +331,7 @@ function planNodes(nodes: readonly OrderedNode[], edges: readonly SemanticEdge[]
         row,
         role,
         mode: semanticNodeMode(ordered.node.kind, ordered.node.status),
-        failedAt:
-          role === "outcome" && semanticStatusOutcomes[ordered.node.status] === "failed"
-            ? terminalSeconds(ordered)
-            : null,
+        terminalAt: role === "outcome" ? terminalSeconds(ordered) : null,
       });
     });
   }
@@ -389,7 +380,7 @@ function packedNodeInput(planned: PlannedNode, placement: ColumnPlacement): Pack
     row: planned.row,
     bornAt: planned.ordered.bornAt,
     settleAt: planned.ordered.bornAt + settleWindowSeconds,
-    terminalAt: planned.failedAt,
+    terminalAt: planned.terminalAt,
     label: planned.ordered.node.publicSummary,
     labelPlacement: planned.role === "input" ? "below" : visual.labelPlacement,
   };
@@ -408,7 +399,7 @@ function graphOutcome(planned: readonly PlannedNode[]): {
     return {
       outcome: semanticStatusOutcomes[candidate.ordered.node.status],
       outcomeNodeId: candidate.ordered.packedId,
-      answerAt: terminalSeconds(candidate.ordered),
+      answerAt: candidate.terminalAt ?? candidate.ordered.bornAt,
     };
   }
   return { outcome: "running", outcomeNodeId: null, answerAt: null };
@@ -527,7 +518,7 @@ function compileSemanticGraphComposition(
   const nodeIndexByID = new Map(packedNodes.map((node, index) => [node.id, index]));
   const nodeModeByID = new Map(planned.map((node) => [node.ordered.packedId, node.mode]));
   const terminalByID = new Map(
-    planned.map((node) => [node.ordered.packedId, node.failedAt !== null]),
+    planned.map((node) => [node.ordered.packedId, node.terminalAt !== null]),
   );
   const packedEdges = edgeInputs(edges, nodeIndexByID, nodeModeByID, terminalByID);
   return [

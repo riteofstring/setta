@@ -317,7 +317,6 @@ export function DirectorCommandCenterShell({
           platform={platform}
           railVisibility={effectiveRailVisibility}
           snapshot={director.snapshot}
-          speechPlayback={speechPlayback}
         />
         <section className="director-command-center-stage" aria-label="Director command center">
           <DirectorGraphSurface
@@ -352,7 +351,6 @@ export function DirectorCommandCenterShell({
              * not in a rail about a workstream.
              */}
             <DirectorReply
-              answering={director.pending.answering}
               loadState={director.loadState}
               message={director.message}
               receiptText={director.receiptText}

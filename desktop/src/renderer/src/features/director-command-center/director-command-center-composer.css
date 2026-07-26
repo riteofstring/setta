@@ -163,53 +163,12 @@
   color: oklch(0.96 0.02 240);
 }
 
-/*
- * The pill's own controls are quiet marks, not boxed buttons: the mockup's
- * composer trails a single glyph. The mic is borderless at rest, and send is
- * the pill's one accent — a small filled disc that reads as the default
- * action without shouting over the canvas.
- */
 .director-composer .director-composer-voice-button,
 .director-composer .director-composer-discard-voice-button {
-  border-color: transparent;
-  border-radius: 999px;
-  justify-content: center;
-  min-inline-size: 30px;
-  padding: 0;
-}
-
-.director-composer .director-composer-voice-button:hover {
-  background: oklch(1 0 0 / 0.06);
-  border-color: transparent;
-}
-
-.director-composer .director-composer-send {
-  background: oklch(from var(--director-primary) l c h / 0.2);
-  border-color: oklch(from var(--director-primary) l c h / 0.45);
-  border-radius: 999px;
-  color: oklch(0.92 0.04 240);
-  justify-content: center;
-  min-inline-size: 30px;
-  padding: 0;
-}
-
-.director-composer .director-composer-send:not(:disabled):hover {
-  background: oklch(from var(--director-primary) l c h / 0.34);
-  border-color: oklch(from var(--director-primary) l c h / 0.7);
-}
-
-.director-composer .director-composer-send:disabled {
-  background: transparent;
   border-color: var(--director-border);
-  color: var(--director-faint);
-}
-
-.director-composer-controls button {
-  transition-property: background-color, border-color, color, scale;
-}
-
-.director-composer-controls button:not(:disabled):active {
-  scale: 0.96;
+  justify-content: center;
+  min-inline-size: 30px;
+  padding: 0;
 }
 
 /* Recording is a state worth shouting about; idle capture is not. */
@@ -296,108 +255,20 @@
 /*
  * The Director's last word, above the composer that asked for it.
  *
- * It draws as the mockup's response card: a quiet surface with the primary
- * accent on its top edge, reading text set start-aligned — an answer is prose,
- * and centred prose stops being readable past one line. Long answers clamp to
- * a few lines and scroll once disclosed, so a thorough reply can never flood
- * the canvas. An empty reply takes no space at all, so a quiet app is quiet
- * rather than reserving a line for something that has not been said.
+ * It reads as speech over the canvas rather than as a panel: no box, no fill,
+ * centred on the dock so it belongs to the composer under it. An empty reply
+ * takes no space at all, so a quiet app is quiet rather than reserving a line
+ * for something that has not been said.
  */
 .director-reply {
-  background: oklch(from var(--director-surface) l c h / 0.78);
-  border: 1px solid var(--director-border);
-  border-block-start-color: oklch(from var(--director-primary) l c h / 0.35);
-  border-radius: 14px;
-  display: grid;
-  gap: 5px;
-  justify-items: start;
-  padding: 12px 16px 10px;
+  color: var(--director-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 0;
+  text-align: center;
+  text-wrap: pretty;
 }
 
 .director-reply[data-empty="true"] {
   display: none;
-}
-
-.director-reply-text {
-  color: var(--director-foreground);
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  font-size: 13.5px;
-  line-height: 1.55;
-  margin: 0;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  text-align: start;
-  text-wrap: pretty;
-  white-space: pre-line;
-}
-
-/*
- * Disclosed, the reply reads in full but inside its own scroll: the card may
- * grow to a comfortable reading height and no further, because the canvas
- * behind it is the app.
- */
-.director-reply-text[data-expanded="true"] {
-  display: block;
-  -webkit-line-clamp: none;
-  max-block-size: min(38vh, 320px);
-  overflow: hidden auto;
-  scrollbar-width: thin;
-}
-
-/* Working is a caret, not a spinner — the shell's own language. */
-.director-reply[data-answering="true"] .director-reply-text {
-  color: var(--director-muted);
-}
-
-.director-reply[data-answering="true"] .director-reply-text::after {
-  animation: director-reply-caret 1s steps(1) infinite;
-  color: var(--director-primary);
-  content: "▍";
-  margin-inline-start: 2px;
-}
-
-@keyframes director-reply-caret {
-  50% {
-    opacity: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .director-reply[data-answering="true"] .director-reply-text::after {
-    animation: none;
-  }
-}
-
-/*
- * The disclosure is drawn as text, like the rail links; its 44px pointer
- * target is an invisible overlay so the card stays as tall as its type.
- */
-.director-reply-toggle {
-  background: transparent;
-  border: 0;
-  color: var(--director-faint);
-  cursor: pointer;
-  font: inherit;
-  font-size: 11px;
-  letter-spacing: 0.02em;
-  padding: 0;
-  position: relative;
-  transition-duration: 140ms;
-  transition-property: color;
-  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
-}
-
-.director-reply-toggle:hover {
-  color: var(--director-role-accent);
-}
-
-.director-reply-toggle::after {
-  block-size: 40px;
-  content: "";
-  inset-block-start: 50%;
-  inset-inline: -8px;
-  position: absolute;
-  translate: 0 -50%;
 }

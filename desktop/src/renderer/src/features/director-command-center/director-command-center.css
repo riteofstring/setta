@@ -390,17 +390,8 @@
   display: grid;
   gap: 8px;
   inline-size: 100%;
-  padding: 11px 12px 12px;
+  padding: 10px;
   text-align: start;
-  transition-duration: 160ms;
-  transition-property: border-color, translate;
-  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
-}
-
-/* The mockup's card hover: the border warms and the card lifts a pixel. */
-.director-artifact-preview:hover {
-  border-color: oklch(from var(--director-primary) l c h / 0.45);
-  translate: 0 -1px;
 }
 
 .director-artifact-preview[data-artifact-active="true"] {
@@ -459,19 +450,11 @@
   pointer-events: none;
 }
 
-/*
- * The author's one line, clamped: a card claims what the document is, and a
- * summary that runs to six lines is the document leaking into the rail.
- */
 .director-artifact-preview-line {
   color: var(--director-muted);
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
   font-size: 12px;
   line-height: 1.45;
   margin: 0;
-  overflow: hidden;
   overflow-wrap: anywhere;
 }
 
