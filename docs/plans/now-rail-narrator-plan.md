@@ -6,8 +6,9 @@
 ## Outcome
 
 The Now rail carries narrator-written highlights: at most a few sentences, each
-one something the user learned. Nothing else. The top bar is the mockup's, and
-the macOS traffic lights stop landing on the logo.
+one something the user learned. Nothing else. The Director can answer "what is
+happening in that conversation?" because it reads the same sentences. The top
+bar is the mockup's, and the macOS traffic lights stop landing on the logo.
 
 ## What is true today
 
@@ -57,6 +58,21 @@ already say to emit nothing otherwise:
 - "Do not infer phases from keywords or command names."
 - "Avoid: 'Continued working on the current objective.' Prefer: no milestone."
 
+**The Director cannot see inside a conversation either.** Its thirteen tools
+carry no conversation content at all. `read_activity` — the tool whose own
+description says to call it to answer "what is happening?" instead of guessing
+— returns this per workstream, and nothing else (`setta_tools.go:81`):
+
+```go
+WorkstreamID, Title, Status, Selected,
+HasActiveRun, QueuedRunCount, RecoverableFailures, WorkspaceID
+```
+
+Counts and titles. No account of the work, no last output, no artifacts.
+`list_workstreams` returns the same struct. Asked what a conversation is doing,
+the Director answers with everything it has, which is "running". That is not a
+prompting failure, and no instruction can fix it.
+
 **Two things stop any of it reaching the screen.**
 
 1. `narration_observer.go:42` returns early when
@@ -69,6 +85,13 @@ already say to emit nothing otherwise:
    conversations — are not registry inputs and change nothing". The Director
    registry drops `conversation.narration.created`, so the command center
    cannot see a milestone even when one is written.
+
+## Decisions
+
+**The Director is not narrated.** Recorded from the product owner, 2026-07-27.
+It is a conversation, and its decisions already produce public sentences, but it
+does not need an account of itself written for a reader — it *is* the reader.
+Narration describes work; the Director dispatches it.
 
 ## Hard Rules
 
@@ -167,7 +190,25 @@ input, not a state transition.
 **Verification.** A driven session where a narrator milestone appears in the
 Director snapshot; Go director and conversation suites.
 
-## Phase 5 — The rail is only what the narrator said
+## Phase 5 — The Director reads what the narrator wrote
+
+`read_activity` and `list_workstreams` return each workstream's recent narrator
+milestones alongside its status, so the Director can answer a question about a
+conversation from the same sentences the user is reading in the rail.
+
+This is the second half of Phase 4's contract change and lands with it, because
+the milestones are already on the workstream record by then; only the tool
+receipt has to carry them.
+
+Nothing else about the toolbox changes. The Director does not gain a transcript
+reader: a transcript is what the narrator was built to compress, and handing the
+Director the raw trajectory would recreate the graph dump one layer down.
+
+**Verification.** A driven session where the Director is asked what a running
+workstream is doing and answers with the milestone rather than with its status;
+Go director suite.
+
+## Phase 6 — The rail is only what the narrator said
 
 - `DirectorNowActivityList` and `currentDirectorActivity` are deleted. So is
   the per-row provenance line.
@@ -184,13 +225,9 @@ rather than dropped; renderer unit tests; the rail read at the width it draws.
 
 ## Open questions
 
-1. **Does the Director's own work get narrated?** The Director is a
-   conversation too. Its decisions already produce public sentences, so it may
-   need no narrator — but then the Now rail has two sources with one voice, and
-   which one wins when both speak is undecided.
-2. **Three milestones, or three sentences?** A bound in rows is simple; a bound
+1. **Three milestones, or three sentences?** A bound in rows is simple; a bound
    in length is what actually protects the reader. Phase 0's real text should
    settle it.
-3. **What happens to `Workstream.LastMilestone`?** Nothing in this plan reads
+2. **What happens to `Workstream.LastMilestone`?** Nothing in this plan reads
    it once the Summary disclosure is gone. If it has no other reader, it is
    dead weight on the contract and should be removed separately.
