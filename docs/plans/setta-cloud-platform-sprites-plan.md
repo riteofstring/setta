@@ -3317,3 +3317,27 @@ Stop and reassess rather than hiding the problem if any of these occur:
   hosted-measurement provisioner — needs a decision about whether to read the
   claimed shape instead. No code change was made for this finding, and Stage 4a
   remains red pending that decision.
+- 2026-07-26 (observed resources leave the provider contract): Implemented
+  Slice 1 of `sprites-runtime-capacity-observation-20260726.md`. Because the
+  provider no longer reports resource configuration, the four sites that
+  verified the provider echoed Setta's requested shape were unsatisfiable and
+  hosted create failed at inspect-after-create. `RuntimeObservation.Resources`
+  is gone, along with the Sprites resource mapper, the two reconciler
+  `provider_resources_mismatch` checks, the comparisons in
+  `validateProviderObservation` and `validateSpriteObservation`, the
+  `hosted_lifecycle_resource_shape_mismatch` code, and the three
+  `provider_observations` resource columns. This is a schema break with no
+  migration; development control-plane databases are recreated. The request
+  path is deliberately unchanged: Setta still requests an exact shape, still
+  enforces the 100 GB provisioning ceiling, still sends `config` on create, and
+  still bills from the authorized shape recorded in `runtimes`, so budget
+  ceilings are unaffected. Three tests that asserted the echo were removed
+  rather than weakened, because the behavior they described can no longer
+  exist; an `httptest` replay of the verbatim captured live payload now pins
+  the mapping, asserting the runtime is owned, mapped, and destroyable with no
+  `config` and an empty placement. The control plane's duplicate `equalLabels`
+  was folded into `ManagedIdentity.OwnsObservedLabels` — it already sorted both
+  sides, so this was deduplication, not a behavior fix. The full Go suite and
+  `./check_quality.sh --all` passed, including the desktop suite and the
+  `hosted-cloud-chat` Electron workflow. No dependency file changed and no
+  provider or cloud mutation ran.

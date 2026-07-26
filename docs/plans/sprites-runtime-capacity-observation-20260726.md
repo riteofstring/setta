@@ -108,7 +108,7 @@ Each slice is one code commit plus one progress-log commit, per the branch
 commit protocol. Slice 1 unblocks hosted provisioning on its own and does not
 depend on any later slice.
 
-### Slice 1 — Stop observing resources through the provider
+### Slice 1 — Stop observing resources through the provider — **landed 2026-07-26**
 
 **Problem.** Four echo verifications and three durable columns depend on a
 field the provider no longer sends. Hosted create fails outright.
@@ -268,7 +268,7 @@ shape, and the final inventory check.
   always empty. It was already empty in the Phase 1b evidence, so nothing
   regresses, but the field is now unobservable in the same way `Resources` was
   and is a candidate for the same treatment once the provider's intent is known.
-- `validateProviderObservation` (`store_runtime_results.go:370`) still uses a
-  local order-sensitive `equalLabels`. It is a fourth ownership site that the
-  "one ownership predicate" slice did not cover. Small, unrelated to capacity,
-  and worth folding into whichever slice next touches that file.
+- ~~`validateProviderObservation` still uses a local `equalLabels`.~~ Resolved
+  in Slice 1. It was a duplicate implementation rather than a divergence — it
+  already sorted both sides, so the semantics matched `OwnsObservedLabels` — and
+  both control-plane sites now call the shared predicate.
