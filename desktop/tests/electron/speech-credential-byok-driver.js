@@ -1,4 +1,4 @@
-/* global HTMLButtonElement, HTMLElement, HTMLInputElement, document */
+/* global HTMLButtonElement, HTMLElement, HTMLInputElement, Node, document */
 
 (() => {
   const version = "setta-speech-credential-byok-driver-v1";
@@ -113,7 +113,11 @@
 
   function credentialStatusLabel(card) {
     const status = card?.querySelector('[data-testid="openai-voice-connection-status"]');
-    return status?.textContent?.trim() ?? "";
+    return Array.from(status?.childNodes ?? [])
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.textContent ?? "")
+      .join("")
+      .trim();
   }
 
   function providerLabel(card) {
