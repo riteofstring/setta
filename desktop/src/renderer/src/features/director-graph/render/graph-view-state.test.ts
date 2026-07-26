@@ -9,11 +9,15 @@ import {
   graphNodeAtPointer,
   graphNodeCssDiameter,
   graphLookBackMargin,
+  graphNodeActivation,
   graphNodeScreenPosition,
   graphOutcomeAtPointer,
   type GraphPointerScene,
 } from "./graph-view-state";
-import { graphFitFrame, graphWarpToScreen } from "./graph-visual-language";
+import { graphFitFrame, graphLiveEdgeClipY, graphWarpToScreen } from "./graph-visual-language";
+
+/** The band the node shader discards outside, in fitted clip units. */
+const nodeCullClipY = 1.3;
 import { packedGraphFixture } from "../packed-graph-fixtures";
 import type { PackedGraphSnapshot } from "../packed-graph-snapshot";
 import { packedGraphRoleCode, packedValueAt } from "../packed-graph-vocabulary";
@@ -202,6 +206,49 @@ describe("graph view controller", () => {
    * arithmetic would have passed while the node sat below the viewport, which
    * is exactly what a fixed margin did.
    */
+  /*
+   * A tall, narrow window is where this goes wrong: the fit is smallest there,
+   * so the margin is widest and the shader's cull band is furthest from the
+   * clip position. 1440x900 has a fit of 1 and hides the whole problem.
+   */
+  it.each([
+    { height: 900, width: 1440 },
+    { height: 900, width: 400 },
+    { height: 1600, width: 380 },
+  ])("keeps the top node drawn at the furthest look-back in $width x $height", (bounds) => {
+    const { scene, snapshot } = sceneFor("single-active-turn", 1e6);
+    const fit = graphFitFrame(bounds.width, bounds.height);
+    let topIndex = 0;
+    for (let index = 1; index < snapshot.nodeCount; index += 1) {
+      if (packedValueAt(scene.worldY, index) < packedValueAt(scene.worldY, topIndex)) {
+        topIndex = index;
+      }
+    }
+    const contentTopWorldY = packedValueAt(scene.worldY, topIndex);
+    const view = new GraphViewController();
+    view.followLiveEdge(scene.cameraWorldY);
+    view.lookBack(-1e6, {
+      contentTopWorldY,
+      liveEdgeWorldY: scene.cameraWorldY,
+      lookBackMargin: graphLookBackMargin(fit.fitY),
+    });
+
+    const position = graphNodeScreenPosition(
+      packedValueAt(snapshot.nodes.lane, topIndex),
+      contentTopWorldY,
+      view.camera(),
+      fit,
+      bounds,
+    );
+    expect(position.y).toBeGreaterThanOrEqual(0);
+    expect(position.y).toBeLessThanOrEqual(bounds.height);
+
+    // And the shader keeps it: it culls the fitted offset, which is the same
+    // space the position above is projected in.
+    const culled = Math.abs((graphLiveEdgeClipY + (view.camera() - contentTopWorldY)) * fit.fitY);
+    expect(culled).toBeLessThan(nodeCullClipY);
+  });
+
   it("keeps the top node on screen at the furthest look-back", () => {
     const { scene, snapshot } = sceneFor("single-active-turn", 1e6);
     const fit = graphFitFrame(viewport.width, viewport.height);
@@ -230,6 +277,29 @@ describe("graph view controller", () => {
 
     expect(position.y).toBeGreaterThanOrEqual(0);
     expect(position.y).toBeLessThanOrEqual(viewport.height);
+  });
+
+  /*
+   * A label pill is a real button and takes the click before the canvas sees
+   * one, so it drove folding by its own path while the canvas beneath it would
+   * have opened a thread. Both routes ask this, so both get one answer.
+   */
+  it("folds in a conversation and opens a thread everywhere else", () => {
+    expect(graphNodeActivation("conversation", 4, "workstream:1")).toEqual({
+      kind: "fold",
+      nodeIndex: 4,
+    });
+    expect(graphNodeActivation("columns", 4, "workstream:1")).toEqual({
+      kind: "open",
+      workstreamId: "workstream:1",
+    });
+    expect(graphNodeActivation("grid", 4, "workstream:1")).toEqual({
+      kind: "open",
+      workstreamId: "workstream:1",
+    });
+    // With nowhere to open, the click still has to do something local rather
+    // than fold a view that is not showing turns.
+    expect(graphNodeActivation("columns", 4, undefined)).toEqual({ kind: "select", nodeIndex: 4 });
   });
 
   it("pins a turn to the opposite of what it is doing now", () => {

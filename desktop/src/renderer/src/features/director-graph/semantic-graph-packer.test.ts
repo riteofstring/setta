@@ -227,6 +227,45 @@ describe("semantic graph packer", () => {
     }
   });
 
+  /*
+   * A tile is classified by what it shows. Nodes came from the reduced graphs
+   * while edges came from the full ones, so an edge that was dropped could
+   * still decide which of the kept nodes counts as the tile's outcome — a
+   * classification made from history the tile is not displaying.
+   */
+  it("classifies a tile from the nodes it kept", () => {
+    const fixture = projectionGalleryFixtures.find(
+      (candidate) => candidate.graphs.filter((graph) => graph.nodes.length > 3).length > 0,
+    );
+    expect(fixture).toBeDefined();
+    const long = fixture?.graphs.find((graph) => graph.nodes.length > 3);
+    expect(long).toBeDefined();
+    if (long === undefined) {
+      return;
+    }
+    const graphs = [long, ...Array.from({ length: 8 }, (_u, i) => renameGraph(long, `tile-${i}`))];
+    const snapshot = packSemanticGraphComposition({
+      graphs,
+      presentation: "grid",
+      workstreamId: "grid",
+    });
+
+    for (let turn = 1; turn < snapshot.turnCount; turn += 1) {
+      const outcome = packedValueAt(snapshot.turns.outcomeNode, turn);
+      if (outcome < 0) {
+        continue;
+      }
+      // Every named outcome is a node this tile actually drew.
+      expect(packedValueAt(snapshot.nodes.turn, outcome)).toBe(turn);
+    }
+    // And no edge points outside the tile that owns it.
+    for (let edge = 0; edge < snapshot.edgeCount; edge += 1) {
+      const from = packedValueAt(snapshot.edges.from, edge);
+      const to = packedValueAt(snapshot.edges.to, edge);
+      expect(packedValueAt(snapshot.nodes.turn, from)).toBe(packedValueAt(snapshot.nodes.turn, to));
+    }
+  });
+
   it("draws cross-workstream delegation inside the gallery composition", () => {
     const fixture = projectionGalleryFixtures.find((candidate) => candidate.name === "delegation");
     expect(fixture).toBeDefined();

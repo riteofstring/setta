@@ -12,6 +12,7 @@
  * not on where an unwarped projection would put it.
  */
 
+import type { SemanticGraphPresentation } from "../semantic-graph-packer";
 import {
   graphFitFrame,
   graphLiveEdgeClipY,
@@ -54,6 +55,33 @@ const outcomeRadiusPx = 16;
 export interface GraphScreenPoint {
   readonly x: number;
   readonly y: number;
+}
+
+/*
+ * What activating a node does.
+ *
+ * A node can be activated from the canvas or from its label, which is a real
+ * button and takes the click first. Both ask this, so the two routes cannot
+ * answer differently — a pill that folds a turn while the canvas beneath it
+ * opens a thread is two answers to one gesture.
+ */
+export type GraphNodeActivation =
+  | { readonly kind: "fold"; readonly nodeIndex: number }
+  | { readonly kind: "open"; readonly workstreamId: string }
+  | { readonly kind: "select"; readonly nodeIndex: number };
+
+export function graphNodeActivation(
+  presentation: SemanticGraphPresentation,
+  nodeIndex: number,
+  workstreamId: string | undefined,
+): GraphNodeActivation {
+  if (presentation === "conversation") {
+    return { kind: "fold", nodeIndex };
+  }
+  if (workstreamId === undefined) {
+    return { kind: "select", nodeIndex };
+  }
+  return { kind: "open", workstreamId };
 }
 
 /** Where the camera may sit: not above what is drawn, not past the live edge. */

@@ -63,6 +63,7 @@ import {
   type GraphScreenPoint,
   type GraphViewport,
   graphLookBackMargin,
+  graphNodeActivation,
   type GraphCameraBounds,
 } from "./graph-view-state";
 import { graphFitFrame, graphMotionRates } from "./graph-visual-language";
@@ -311,25 +312,22 @@ export class DirectorGraphCanvas {
    * is two answers to one gesture.
    */
   private activateNode(nodeIndex: number): void {
-    if (this.presentation === "conversation") {
-      this.toggleTurnAt(nodeIndex);
+    const turn = packedValueAt(this.snapshot.nodes.turn, nodeIndex);
+    const openable =
+      this.options.onOpenWorkstream === undefined
+        ? undefined
+        : this.snapshot.turnWorkstreamIds[turn];
+    const activation = graphNodeActivation(this.presentation, nodeIndex, openable);
+    if (activation.kind === "fold") {
+      this.toggleTurnAt(activation.nodeIndex);
       return;
     }
-    if (!this.openWorkstreamAt(nodeIndex)) {
-      this.view.toggleSelected(nodeIndex);
-      this.scheduler.requestFrame();
+    if (activation.kind === "open") {
+      this.options.onOpenWorkstream?.(activation.workstreamId);
+      return;
     }
-  }
-
-  /** Opens the thread a node belongs to. Reports whether there was one to open. */
-  private openWorkstreamAt(nodeIndex: number): boolean {
-    const turn = packedValueAt(this.snapshot.nodes.turn, nodeIndex);
-    const workstreamId = this.snapshot.turnWorkstreamIds[turn];
-    if (workstreamId === undefined || this.options.onOpenWorkstream === undefined) {
-      return false;
-    }
-    this.options.onOpenWorkstream(workstreamId);
-    return true;
+    this.view.toggleSelected(activation.nodeIndex);
+    this.scheduler.requestFrame();
   }
 
   /** Wheel look-back through the trajectory; live work keeps running. */

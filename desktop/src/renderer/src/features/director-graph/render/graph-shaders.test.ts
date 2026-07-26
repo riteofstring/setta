@@ -113,6 +113,32 @@ describe("graph shaders", () => {
     expect(graphNodeVertexShader).toContain(String(graphLiveEdgeClipY));
   });
 
+  /*
+   * Every pass discards in the space it draws in.
+   *
+   * The node and edge passes tested the world offset while positioning the
+   * fitted one, so on a tall, narrow window — where the fit is smallest — they
+   * threw away geometry that the fitted position puts well inside the viewport.
+   * The glyph pass already had this right: it fits when it builds the vector,
+   * which is why the check below looks at the operand rather than the compare.
+   */
+  it("culls each pass against the fitted position it draws at", () => {
+    for (const source of [graphNodeVertexShader, graphEdgeVertexShader, graphGlyphVertexShader]) {
+      const culls = [...source.matchAll(/if\(([^;]*?1\.3[^;]*?)\)\{ gl_Position=vec4\(2\.0/gu)];
+      expect(culls.length).toBeGreaterThan(0);
+      for (const cull of culls) {
+        const compared = cull[1] ?? "";
+        const fittedHere = compared.includes("u_fitY");
+        // Otherwise the vector it compares was fitted where it was built.
+        const definitions = source.slice(0, cull.index ?? 0);
+        const fittedEarlier = /vec2 (?:center|A|B)=[^;]*u_fitY[^;]*;\s*$/u.test(
+          definitions.slice(-400),
+        );
+        expect(fittedHere || fittedEarlier).toBe(true);
+      }
+    }
+  });
+
   it("carries no prototype vocabulary and no keyword matching", () => {
     for (const source of Object.values(allShaders)) {
       expect(source).not.toMatch(/struggl/iu);
