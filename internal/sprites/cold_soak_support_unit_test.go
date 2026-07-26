@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -105,9 +107,15 @@ func TestColdSoakServiceProbePersistsStartsAndResetsHeartbeat(t *testing.T) {
 	fixture := filepath.Join("testdata", "cold_soak_service_probe.py")
 	first := startColdSoakFixture(t, fixture, root)
 	firstProbe := readColdSoakFixture(t, fixture, root, 1)
+	advanced := awaitColdSoakHeartbeat(t, root, "an advanced heartbeat", func(heartbeat int) bool {
+		return heartbeat >= advancedColdSoakHeartbeat
+	})
 	stopColdSoakFixture(t, first)
 	second := startColdSoakFixture(t, fixture, root)
 	t.Cleanup(func() { stopColdSoakFixture(t, second) })
+	awaitColdSoakHeartbeat(t, root, "a heartbeat reset by the restart", func(heartbeat int) bool {
+		return heartbeat < advanced
+	})
 	secondProbe := readColdSoakFixture(t, fixture, root, 2)
 
 	if firstProbe.StartCount != 1 || secondProbe.StartCount != 2 || len(secondProbe.StartHistory) != 2 {
@@ -115,9 +123,6 @@ func TestColdSoakServiceProbePersistsStartsAndResetsHeartbeat(t *testing.T) {
 	}
 	if firstProbe.StartHistory[0].ProcessID == secondProbe.StartHistory[1].ProcessID {
 		t.Fatalf("fixture reused process ID across explicit restart: %#v", secondProbe.StartHistory)
-	}
-	if secondProbe.Heartbeat > firstProbe.Heartbeat+2 {
-		t.Fatalf("heartbeat did not reset: first=%d second=%d", firstProbe.Heartbeat, secondProbe.Heartbeat)
 	}
 }
 
@@ -155,6 +160,36 @@ func TestColdSoakDestroyOwnedIsIdempotentAndChecksLabels(t *testing.T) {
 	if destroyCalls != 1 {
 		t.Fatalf("destroy calls = %d, want 1", destroyCalls)
 	}
+}
+
+// advancedColdSoakHeartbeat is how far the first service must count, at 100 ms
+// per beat, before the restart. A restarted service republishes zero, so the
+// gap makes the reset observable instead of comparing two samples whose read
+// latency depends on how loaded the machine is.
+const advancedColdSoakHeartbeat = 10
+
+// awaitColdSoakHeartbeat reads the heartbeat the service writes rather than the
+// probe's JSON summary, so waiting for a restart to reset it costs a file read
+// instead of an interpreter start.
+func awaitColdSoakHeartbeat(t *testing.T, root string, want string, accept func(int) bool) int {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	observed := -1
+	for time.Now().Before(deadline) {
+		raw, err := os.ReadFile(filepath.Join(root, "service-heartbeat"))
+		if err == nil {
+			heartbeat, convertErr := strconv.Atoi(strings.TrimSpace(string(raw)))
+			if convertErr == nil {
+				observed = heartbeat
+				if accept(heartbeat) {
+					return heartbeat
+				}
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("fixture never published %s; last heartbeat = %d", want, observed)
+	return 0
 }
 
 func startColdSoakFixture(t *testing.T, fixture string, root string) *exec.Cmd {
