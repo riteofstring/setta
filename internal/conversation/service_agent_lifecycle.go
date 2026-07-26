@@ -140,6 +140,21 @@ func (service *Service) handleAgentEvent(
 	resolved agent.ResolvedInvocation,
 	event agent.Event,
 ) error {
+	if err := validateAgentEventScope(active, event); err != nil {
+		return err
+	}
+	var persist bool
+	event, persist = redactPrivateExecutionEventForTurn(active, event)
+	if !persist {
+		return nil
+	}
+	lock := service.conversationLock(active.conversationID)
+	lock.Lock()
+	defer lock.Unlock()
+	return service.persistScopedAgentEvent(ctx, active, invocationID, resolved, event)
+}
+
+func validateAgentEventScope(active *activeConversationTurn, event agent.Event) error {
 	if event.ConversationID != active.conversationID || event.TurnID != active.turnID {
 		return fmt.Errorf("agent event scope %s/%s does not match %s/%s", event.ConversationID, event.TurnID, active.conversationID, active.turnID)
 	}
@@ -153,26 +168,29 @@ func (service *Service) handleAgentEvent(
 	if event.ProviderTurnID == "" {
 		return errors.New("agent event provider turn id is required")
 	}
-	if event.Kind != agent.EventKindTurnStarted {
-		if active.providerTurnID == "" {
-			return errors.New("agent progress arrived before the provider turn started")
-		}
-		if event.ProviderTurnID != active.providerTurnID {
-			return fmt.Errorf(
-				"agent event provider turn %s does not match %s",
-				event.ProviderTurnID,
-				active.providerTurnID,
-			)
-		}
-	}
-	var persist bool
-	event, persist = redactPrivateExecutionEventForTurn(active, event)
-	if !persist {
+	if event.Kind == agent.EventKindTurnStarted {
 		return nil
 	}
-	lock := service.conversationLock(active.conversationID)
-	lock.Lock()
-	defer lock.Unlock()
+	if active.providerTurnID == "" {
+		return errors.New("agent progress arrived before the provider turn started")
+	}
+	if event.ProviderTurnID != active.providerTurnID {
+		return fmt.Errorf(
+			"agent event provider turn %s does not match %s",
+			event.ProviderTurnID,
+			active.providerTurnID,
+		)
+	}
+	return nil
+}
+
+func (service *Service) persistScopedAgentEvent(
+	ctx context.Context,
+	active *activeConversationTurn,
+	invocationID string,
+	resolved agent.ResolvedInvocation,
+	event agent.Event,
+) error {
 	switch event.Kind {
 	case agent.EventKindTurnStarted:
 		return service.persistTurnStarted(ctx, active, invocationID, resolved, event)

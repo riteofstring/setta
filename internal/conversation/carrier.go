@@ -362,6 +362,13 @@ func carrierReplayIncludesAcceptedInput(events []TrajectoryEvent) bool {
 }
 
 func carrierReplayEventItem(event TrajectoryEvent) (agent.InjectedTextItem, bool) {
+	if item, ok := carrierReplayTurnEventItem(event); ok {
+		return item, true
+	}
+	return carrierReplayWorkEventItem(event)
+}
+
+func carrierReplayTurnEventItem(event TrajectoryEvent) (agent.InjectedTextItem, bool) {
 	switch event.Kind {
 	case TrajectoryEventTurnSteered:
 		return agent.InjectedTextItem{Role: "user", Text: event.TurnSteered.Input.Text}, true
@@ -385,6 +392,13 @@ func carrierReplayEventItem(event TrajectoryEvent) (agent.InjectedTextItem, bool
 				failure.Message,
 			),
 		}, true
+	default:
+		return agent.InjectedTextItem{}, false
+	}
+}
+
+func carrierReplayWorkEventItem(event TrajectoryEvent) (agent.InjectedTextItem, bool) {
+	switch event.Kind {
 	case TrajectoryEventAgentMessageCompleted:
 		return agent.InjectedTextItem{
 			Role: "assistant",
@@ -421,16 +435,7 @@ func carrierReplayEventItem(event TrajectoryEvent) (agent.InjectedTextItem, bool
 			),
 		}, true
 	case TrajectoryEventFileChangeCompleted:
-		receipt := event.FileChangeCompleted
-		text := fmt.Sprintf(
-			"Setta file-change receipt: %s for %d change(s).",
-			receipt.Outcome,
-			len(receipt.Changes),
-		)
-		if receipt.Failure != nil {
-			text += fmt.Sprintf(" Failure [%s]: %s", receipt.Failure.Code, receipt.Failure.Message)
-		}
-		return agent.InjectedTextItem{Role: "developer", Text: text}, true
+		return carrierReplayFileChangeItem(event.FileChangeCompleted), true
 	case TrajectoryEventApprovalResolved:
 		resolution := event.ApprovalResolved.Resolution
 		return agent.InjectedTextItem{
@@ -454,6 +459,18 @@ func carrierReplayEventItem(event TrajectoryEvent) (agent.InjectedTextItem, bool
 	default:
 		return agent.InjectedTextItem{}, false
 	}
+}
+
+func carrierReplayFileChangeItem(receipt *TrajectoryFileChangeCompleted) agent.InjectedTextItem {
+	text := fmt.Sprintf(
+		"Setta file-change receipt: %s for %d change(s).",
+		receipt.Outcome,
+		len(receipt.Changes),
+	)
+	if receipt.Failure != nil {
+		text += fmt.Sprintf(" Failure [%s]: %s", receipt.Failure.Code, receipt.Failure.Message)
+	}
+	return agent.InjectedTextItem{Role: "developer", Text: text}
 }
 
 func carrierReplayActivityReceipt(

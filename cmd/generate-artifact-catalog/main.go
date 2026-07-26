@@ -190,68 +190,85 @@ func componentDefinition(component artifactdoc.Component) object {
 // the byte limits and string safety rules are deliberately not, because they
 // are backend acceptance rules rather than parser behavior.
 func valueDefinition(schema artifactdoc.ValueSchema, description string) object {
-	definition := object{}
-	if description != "" {
-		definition = append(definition, member{key: "description", value: description})
+	definition := valueKindDefinition(schema)
+	if description == "" {
+		return definition
 	}
+	return append(object{{key: "description", value: description}}, definition...)
+}
+
+func valueKindDefinition(schema artifactdoc.ValueSchema) object {
 	switch schema.Kind {
 	case artifactdoc.ValueKindString:
-		definition = append(definition, member{key: "type", value: "string"})
+		return object{{key: "type", value: "string"}}
 	case artifactdoc.ValueKindEnum:
-		definition = append(definition,
+		return object{
 			member{key: "type", value: "string"},
 			member{key: "enum", value: schema.EnumValues},
-		)
+		}
 	case artifactdoc.ValueKindNumber:
-		definition = append(definition, member{key: "type", value: "number"})
-		if schema.Integer {
-			definition = append(definition, member{key: "multipleOf", value: 1})
-		}
-		if schema.Minimum != nil {
-			definition = append(definition, member{key: "minimum", value: *schema.Minimum})
-		}
-		if schema.Maximum != nil {
-			definition = append(definition, member{key: "maximum", value: *schema.Maximum})
-		}
+		return numberDefinition(schema)
 	case artifactdoc.ValueKindBoolean:
-		definition = append(definition, member{key: "type", value: "boolean"})
+		return object{{key: "type", value: "boolean"}}
 	case artifactdoc.ValueKindComponent:
-		definition = append(definition,
+		return object{
 			member{key: "type", value: "object"},
 			member{key: "oneOf", value: componentReferences(schema.Components)},
-		)
+		}
 	case artifactdoc.ValueKindList:
-		definition = append(definition,
-			member{key: "type", value: "array"},
-			member{key: "items", value: valueDefinition(*schema.Element, "")},
-		)
-		if schema.MinItems > 0 {
-			definition = append(definition, member{key: "minItems", value: schema.MinItems})
-		}
-		if schema.MaxItems > 0 {
-			definition = append(definition, member{key: "maxItems", value: schema.MaxItems})
-		}
+		return listDefinition(schema)
 	case artifactdoc.ValueKindObject:
-		fields := make(object, 0, len(schema.Fields))
-		required := make([]string, 0, len(schema.Fields))
-		for _, field := range schema.Fields {
-			fields = append(fields, member{key: field.Name, value: valueDefinition(field.Schema, field.Description)})
-			if field.Required {
-				required = append(required, field.Name)
-			}
-		}
-		definition = append(definition,
-			member{key: "type", value: "object"},
-			member{key: "properties", value: fields},
-			member{key: "required", value: required},
-			member{key: "additionalProperties", value: false},
-		)
+		return objectDefinition(schema)
 	default:
 		// The catalog is a Go-owned constant, so an unhandled kind is a catalog
 		// bug rather than anything a generator run can recover from.
 		panic(fmt.Sprintf("generate-artifact-catalog: no JSON Schema for value kind %q", schema.Kind))
 	}
+}
+
+func numberDefinition(schema artifactdoc.ValueSchema) object {
+	definition := object{{key: "type", value: "number"}}
+	if schema.Integer {
+		definition = append(definition, member{key: "multipleOf", value: 1})
+	}
+	if schema.Minimum != nil {
+		definition = append(definition, member{key: "minimum", value: *schema.Minimum})
+	}
+	if schema.Maximum != nil {
+		definition = append(definition, member{key: "maximum", value: *schema.Maximum})
+	}
 	return definition
+}
+
+func listDefinition(schema artifactdoc.ValueSchema) object {
+	definition := object{
+		{key: "type", value: "array"},
+		{key: "items", value: valueDefinition(*schema.Element, "")},
+	}
+	if schema.MinItems > 0 {
+		definition = append(definition, member{key: "minItems", value: schema.MinItems})
+	}
+	if schema.MaxItems > 0 {
+		definition = append(definition, member{key: "maxItems", value: schema.MaxItems})
+	}
+	return definition
+}
+
+func objectDefinition(schema artifactdoc.ValueSchema) object {
+	fields := make(object, 0, len(schema.Fields))
+	required := make([]string, 0, len(schema.Fields))
+	for _, field := range schema.Fields {
+		fields = append(fields, member{key: field.Name, value: valueDefinition(field.Schema, field.Description)})
+		if field.Required {
+			required = append(required, field.Name)
+		}
+	}
+	return object{
+		{key: "type", value: "object"},
+		{key: "properties", value: fields},
+		{key: "required", value: required},
+		{key: "additionalProperties", value: false},
+	}
 }
 
 func componentReferences(components []artifactdoc.ComponentName) []object {

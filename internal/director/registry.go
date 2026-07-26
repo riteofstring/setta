@@ -432,43 +432,81 @@ func (registry *Registry) AwaitRunTerminal(
 	runID string,
 	streamSequence int,
 ) error {
-	if ctx == nil {
-		return errors.New("director terminal run wait context is required")
-	}
-	if err := validateIdentifier("director terminal run id", runID); err != nil {
-		return err
-	}
-	streamID, err := conversation.ConversationStreamID(conversationID)
+	streamID, err := validateRunTerminalWait(ctx, conversationID, runID, streamSequence)
 	if err != nil {
 		return err
 	}
-	if streamSequence <= 0 {
-		return fmt.Errorf("director terminal run wait sequence must be positive: %d", streamSequence)
-	}
 	for {
 		registry.mutex.Lock()
-		workstreamID, known := registry.state.byConversation[conversationID]
-		workstream := registry.state.workstreams[workstreamID]
-		cursorObserved := registry.state.streamSequences[streamID] >= streamSequence
-		runRetired := known &&
-			workstream != nil &&
-			(workstream.activeRunID == nil || *workstream.activeRunID != runID)
-		if cursorObserved && runRetired {
-			registry.mutex.Unlock()
+		complete, applied, waitErr := registry.runTerminalWaitStateLocked(
+			conversationID,
+			runID,
+			streamID,
+			streamSequence,
+		)
+		registry.mutex.Unlock()
+		if waitErr != nil {
+			return waitErr
+		}
+		if complete {
 			return nil
 		}
-		if err := registry.requireAvailableLocked(); err != nil {
-			registry.mutex.Unlock()
-			return err
-		}
-		applied := registry.applied
-		registry.mutex.Unlock()
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-applied:
 		}
 	}
+}
+
+func validateRunTerminalWait(
+	ctx context.Context,
+	conversationID string,
+	runID string,
+	streamSequence int,
+) (string, error) {
+	if ctx == nil {
+		return "", errors.New("director terminal run wait context is required")
+	}
+	if err := validateIdentifier("director terminal run id", runID); err != nil {
+		return "", err
+	}
+	streamID, err := conversation.ConversationStreamID(conversationID)
+	if err != nil {
+		return "", err
+	}
+	if streamSequence <= 0 {
+		return "", fmt.Errorf("director terminal run wait sequence must be positive: %d", streamSequence)
+	}
+	return streamID, nil
+}
+
+func (registry *Registry) runTerminalWaitStateLocked(
+	conversationID string,
+	runID string,
+	streamID string,
+	streamSequence int,
+) (bool, <-chan struct{}, error) {
+	cursorObserved := registry.state.streamSequences[streamID] >= streamSequence
+	if cursorObserved && registry.runRetiredLocked(conversationID, runID) {
+		return true, nil, nil
+	}
+	if err := registry.requireAvailableLocked(); err != nil {
+		return false, nil, err
+	}
+	return false, registry.applied, nil
+}
+
+func (registry *Registry) runRetiredLocked(conversationID string, runID string) bool {
+	workstreamID, known := registry.state.byConversation[conversationID]
+	if !known {
+		return false
+	}
+	workstream := registry.state.workstreams[workstreamID]
+	if workstream == nil {
+		return false
+	}
+	return workstream.activeRunID == nil || *workstream.activeRunID != runID
 }
 
 func (registry *Registry) signalAppliedLocked() {

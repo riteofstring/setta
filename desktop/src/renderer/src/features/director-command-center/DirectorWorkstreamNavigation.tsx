@@ -112,8 +112,7 @@ function WorkstreamNavigation({
 }) {
   const navigation = directorWorkstreamNavigation(snapshot);
   const focus = directorFocus(navigation.selected?.workstream ?? null);
-  const canMoveSelection =
-    navigation.total > 1 || (navigation.total === 1 && navigation.selected === null);
+  const canMoveSelection = workstreamSelectionCanMove(navigation);
   const workstreamStripRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     centerSelectedWorkstreamDot(workstreamStripRef.current);
@@ -128,17 +127,7 @@ function WorkstreamNavigation({
         <ChevronLeft aria-hidden="true" size={16} />
       </IconButton>
       <div className="director-workstream-selector">
-        <div className="director-workstream-title" data-focus={focus.kind}>
-          {focus.kind === "director" ? (
-            <span aria-hidden="true" className="director-role-dot" />
-          ) : null}
-          <h1 className="director-focus-title">{focus.title}</h1>
-          <span className="director-focus-meta">
-            {focusMetaLabel(focus)}
-            {navigation.counter ? ` ${navigation.counter}` : ""}
-          </span>
-          {focus.kind === "workstream" ? <WorkstreamFolderChip folder={focus.folder} /> : null}
-        </div>
+        <WorkstreamNavigationTitle counter={navigation.counter} focus={focus} />
         <div
           aria-label="Visible workstreams"
           className="director-workstream-strip"
@@ -150,7 +139,7 @@ function WorkstreamNavigation({
               dispatch={dispatch}
               entry={item.entry}
               key={item.entry.workstream.id}
-              selectedWorkstreamId={snapshot?.selectedWorkstreamId ?? null}
+              selectedWorkstreamId={selectedWorkstreamID(snapshot)}
             />
           ))}
         </div>
@@ -163,6 +152,39 @@ function WorkstreamNavigation({
         <ChevronRight aria-hidden="true" size={16} />
       </IconButton>
     </nav>
+  );
+}
+
+function workstreamSelectionCanMove(
+  navigation: ReturnType<typeof directorWorkstreamNavigation>,
+): boolean {
+  if (navigation.total > 1) {
+    return true;
+  }
+  return navigation.total === 1 && navigation.selected === null;
+}
+
+function selectedWorkstreamID(snapshot: DirectorSnapshot | null): string | null {
+  return snapshot === null ? null : snapshot.selectedWorkstreamId;
+}
+
+function WorkstreamNavigationTitle({
+  counter,
+  focus,
+}: {
+  counter: string | null;
+  focus: DirectorFocus;
+}) {
+  return (
+    <div className="director-workstream-title" data-focus={focus.kind}>
+      {focus.kind === "director" ? <span aria-hidden="true" className="director-role-dot" /> : null}
+      <h1 className="director-focus-title">{focus.title}</h1>
+      <span className="director-focus-meta">
+        {focusMetaLabel(focus)}
+        {counter === null ? "" : ` ${counter}`}
+      </span>
+      {focus.kind === "workstream" ? <WorkstreamFolderChip folder={focus.folder} /> : null}
+    </div>
   );
 }
 

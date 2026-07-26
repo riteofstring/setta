@@ -305,6 +305,35 @@ func TestBindingFolderDuringUnboundRunFreezesTheRunAndRotatesTheNextCarrier(t *t
 	defer cancel()
 
 	conversationID := "conversation-bind-during-unbound-run"
+	first, privateRoot, firstThreadID := startUnboundScopeRotation(
+		t,
+		ctx,
+		service,
+		runtime,
+		conversationID,
+	)
+	second := bindAndPromoteScopeRotation(
+		t,
+		ctx,
+		service,
+		runtime,
+		workspaceID,
+		conversationID,
+		first,
+	)
+	assertScopeRotationCarrier(t, service, runtime, workspaceID, firstThreadID, second)
+	finishScopeRotation(t, ctx, service, workspaceID, conversationID, second)
+	assertCompletedScopeRotation(t, ctx, service, conversationID, privateRoot, second.turnID)
+}
+
+func startUnboundScopeRotation(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	runtime *serviceTestAgentRuntime,
+	conversationID string,
+) (*activeConversationTurn, string, string) {
+	t.Helper()
 	if _, err := service.StartDirectorWorkstream(ctx, DirectorWorkstreamStart{
 		ConversationID: conversationID,
 		Title:          "Bind during work",
@@ -327,7 +356,19 @@ func TestBindingFolderDuringUnboundRunFreezesTheRunAndRotatesTheNextCarrier(t *t
 	}
 	privateRoot := first.scope.workingDirectory
 	firstThreadID := first.providerThreadID
+	return first, privateRoot, firstThreadID
+}
 
+func bindAndPromoteScopeRotation(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	runtime *serviceTestAgentRuntime,
+	workspaceID string,
+	conversationID string,
+	first *activeConversationTurn,
+) *activeConversationTurn {
+	t.Helper()
 	bound, err := service.BindFolderResource(ctx, workspaceID, conversationID)
 	if err != nil {
 		t.Fatalf("BindFolderResource while active: %v", err)
@@ -360,6 +401,18 @@ func TestBindingFolderDuringUnboundRunFreezesTheRunAndRotatesTheNextCarrier(t *t
 	if second == nil {
 		t.Fatal("bound queued turn was not active")
 	}
+	return second
+}
+
+func assertScopeRotationCarrier(
+	t *testing.T,
+	service *Service,
+	runtime *serviceTestAgentRuntime,
+	workspaceID string,
+	firstThreadID string,
+	second *activeConversationTurn,
+) {
+	t.Helper()
 	workspaceSummary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
 	if err != nil {
 		t.Fatalf("ResolveActiveWorkspace: %v", err)
@@ -377,6 +430,17 @@ func TestBindingFolderDuringUnboundRunFreezesTheRunAndRotatesTheNextCarrier(t *t
 		unsubscribed[0] != firstThreadID {
 		t.Fatalf("scope rotation unsubscribed threads = %v, want %s", unsubscribed, firstThreadID)
 	}
+}
+
+func finishScopeRotation(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	workspaceID string,
+	conversationID string,
+	second *activeConversationTurn,
+) {
+	t.Helper()
 	if _, err := service.SteerDirectorTurn(
 		ctx,
 		&workspaceID,
@@ -387,27 +451,42 @@ func TestBindingFolderDuringUnboundRunFreezesTheRunAndRotatesTheNextCarrier(t *t
 	); err != nil {
 		t.Fatalf("finish bound queued turn: %v", err)
 	}
+}
 
+func assertCompletedScopeRotation(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	conversationID string,
+	privateRoot string,
+	secondTurnID string,
+) {
+	t.Helper()
 	completed := assertServiceSnapshotByID(t, ctx, service, conversationID, func(snapshot ConversationSnapshot) bool {
-		if len(snapshot.Turns.Turns) != 2 || len(snapshot.Queue) != 0 ||
-			snapshot.Conversation.Status != ConversationStatusIdle {
-			return false
-		}
-		for _, turn := range snapshot.Turns.Turns {
-			if turn.Status != TurnStatusCompleted {
-				return false
-			}
-		}
-		return true
+		return completedScopeRotation(snapshot)
 	})
 	if len(completed.Artifacts.Artifacts) != 1 ||
 		completed.Artifacts.Artifacts[0].TurnID == nil ||
-		*completed.Artifacts.Artifacts[0].TurnID != second.turnID {
+		*completed.Artifacts.Artifacts[0].TurnID != secondTurnID {
 		t.Fatalf("artifacts across scope rotation = %+v", completed.Artifacts.Artifacts)
 	}
 	if strings.Contains(completed.Artifacts.Artifacts[0].Title, privateRoot) {
 		t.Fatalf("private working directory leaked into artifact metadata: %+v", completed.Artifacts.Artifacts[0])
 	}
+}
+
+func completedScopeRotation(snapshot ConversationSnapshot) bool {
+	if len(snapshot.Turns.Turns) != 2 ||
+		len(snapshot.Queue) != 0 ||
+		snapshot.Conversation.Status != ConversationStatusIdle {
+		return false
+	}
+	for _, turn := range snapshot.Turns.Turns {
+		if turn.Status != TurnStatusCompleted {
+			return false
+		}
+	}
+	return true
 }
 
 func TestDirectorControlsAndRecoversUnboundTurns(t *testing.T) {

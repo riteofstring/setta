@@ -694,7 +694,6 @@ func (service *Service) activityTrajectory(
 	event agent.Event,
 	now string,
 ) (TrajectoryEvent, *Artifact, error) {
-	summary := activityProgressText(*event.Activity)
 	if event.Kind == agent.EventKindActivityStarted {
 		trajectory.Kind = TrajectoryEventActivityStarted
 		trajectory.ActivityStarted = &TrajectoryActivityStarted{Activity: activity}
@@ -703,6 +702,17 @@ func (service *Service) activityTrajectory(
 	if event.Kind != agent.EventKindActivityCompleted {
 		return TrajectoryEvent{}, nil, fmt.Errorf("unsupported agent activity event %q", event.Kind)
 	}
+	return service.completedActivityTrajectory(trajectory, activity, workspaceRoot, event, now)
+}
+
+func (service *Service) completedActivityTrajectory(
+	trajectory TrajectoryEvent,
+	activity TrajectoryActivity,
+	workspaceRoot string,
+	event agent.Event,
+	now string,
+) (TrajectoryEvent, *Artifact, error) {
+	summary := activityProgressText(*event.Activity)
 	failed, err := agentActivityFailed(event.Activity.Status)
 	if err != nil {
 		return TrajectoryEvent{}, nil, err
@@ -719,10 +729,22 @@ func (service *Service) activityTrajectory(
 		Summary:  summary,
 		ExitCode: event.Activity.ExitCode,
 	}
-	if event.Activity.Kind != agent.ActivityKindImageGeneration ||
-		event.Activity.SavedPath == nil ||
-		strings.TrimSpace(*event.Activity.SavedPath) == "" {
-		return trajectory, nil, nil
+	artifact, err := service.imageGenerationArtifact(trajectory, activity, workspaceRoot, event, now)
+	if err != nil {
+		return TrajectoryEvent{}, nil, err
+	}
+	return trajectory, artifact, nil
+}
+
+func (service *Service) imageGenerationArtifact(
+	trajectory TrajectoryEvent,
+	activity TrajectoryActivity,
+	workspaceRoot string,
+	event agent.Event,
+	now string,
+) (*Artifact, error) {
+	if !completedImageGenerationHasPath(event.Activity) {
+		return nil, nil
 	}
 	// The provider reports an absolute host path. An artifact may only address
 	// a file inside the conversation's authorized workspace, so a save outside
@@ -732,20 +754,20 @@ func (service *Service) activityTrajectory(
 		strings.TrimSpace(*event.Activity.SavedPath),
 	)
 	if !inside {
-		return trajectory, nil, nil
+		return nil, nil
 	}
 	source, err := artifactdoc.FileReferenceSource(relative, activity.Title)
 	if err != nil {
-		return trajectory, nil, nil
+		return nil, nil
 	}
 	if _, err := artifactdoc.Compile(artifactdoc.SettaCatalogV1(), source); err != nil {
-		return trajectory, nil, nil
+		return nil, nil
 	}
 	artifactID, err := service.newID("artifact")
 	if err != nil {
-		return TrajectoryEvent{}, nil, err
+		return nil, err
 	}
-	return trajectory, &Artifact{
+	return &Artifact{
 		ID:             artifactID,
 		ConversationID: trajectory.ConversationID,
 		TurnID:         trajectory.TurnID,
@@ -757,6 +779,12 @@ func (service *Service) activityTrajectory(
 			Source:    source,
 		},
 	}, nil
+}
+
+func completedImageGenerationHasPath(activity *agent.ActivityEvent) bool {
+	return activity.Kind == agent.ActivityKindImageGeneration &&
+		activity.SavedPath != nil &&
+		strings.TrimSpace(*activity.SavedPath) != ""
 }
 
 func agentActivityFailed(status string) (bool, error) {

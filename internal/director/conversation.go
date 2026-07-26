@@ -249,20 +249,58 @@ func (director *DirectorConversation) Submit(
 	ctx context.Context,
 	intent SubmittedIntent,
 ) (DirectorTurnReceipt, error) {
-	if director == nil || director.provider == nil || director.store == nil {
-		return DirectorTurnReceipt{}, ErrDirectorUnavailable
-	}
-	if ctx == nil {
-		return DirectorTurnReceipt{}, errors.New("director turn context is required")
-	}
-	if err := validateSubmittedIntent(intent); err != nil {
-		return DirectorTurnReceipt{}, fmt.Errorf("%w: %w", ErrDirectorIntentRejected, err)
+	if err := validateDirectorSubmission(director, ctx, intent); err != nil {
+		return DirectorTurnReceipt{}, err
 	}
 	director.turnMutex.Lock()
 	defer director.turnMutex.Unlock()
-	tools, err := director.toolbox.Tools(intent)
+	recorder, recorded, err := director.recordedTools(intent)
 	if err != nil {
 		return DirectorTurnReceipt{}, err
+	}
+	carrier, err := director.establish(ctx, recorded)
+	if err != nil {
+		return DirectorTurnReceipt{}, err
+	}
+	if err := director.persistUserTurn(ctx, intent); err != nil {
+		return DirectorTurnReceipt{}, err
+	}
+	providerTurn, err := director.runSubmittedIntent(ctx, intent, carrier, recorded, recorder)
+	if err != nil {
+		return DirectorTurnReceipt{}, err
+	}
+	return director.finishTurn(
+		ctx,
+		intent,
+		strings.TrimSpace(providerTurn.ReplyText),
+		providerTurn.Model,
+		recorder,
+	)
+}
+
+func validateDirectorSubmission(
+	director *DirectorConversation,
+	ctx context.Context,
+	intent SubmittedIntent,
+) error {
+	if director == nil || director.provider == nil || director.store == nil {
+		return ErrDirectorUnavailable
+	}
+	if ctx == nil {
+		return errors.New("director turn context is required")
+	}
+	if err := validateSubmittedIntent(intent); err != nil {
+		return fmt.Errorf("%w: %w", ErrDirectorIntentRejected, err)
+	}
+	return nil
+}
+
+func (director *DirectorConversation) recordedTools(
+	intent SubmittedIntent,
+) (*directorToolRecorder, []SettaTool, error) {
+	tools, err := director.toolbox.Tools(intent)
+	if err != nil {
+		return nil, nil, err
 	}
 	recorder := &directorToolRecorder{
 		persistence: directorToolPersistence{
@@ -285,22 +323,24 @@ func (director *DirectorConversation) Submit(
 			},
 		},
 	}
-	recorded := recorder.instrument(tools)
-	carrier, err := director.establish(ctx, recorded)
-	if err != nil {
-		return DirectorTurnReceipt{}, err
-	}
-	if err := director.persistUserTurn(ctx, intent); err != nil {
-		return DirectorTurnReceipt{}, err
-	}
+	return recorder, recorder.instrument(tools), nil
+}
+
+func (director *DirectorConversation) runSubmittedIntent(
+	ctx context.Context,
+	intent SubmittedIntent,
+	carrier conversation.Carrier,
+	tools []SettaTool,
+	recorder *directorToolRecorder,
+) (DirectorProviderTurn, error) {
 	providerTurn, err := director.runTurn(ctx, DirectorTurnRequest{
 		Carrier: carrier,
 		TurnID:  intent.ID,
 		Text:    intent.Text,
-		Tools:   recorded,
+		Tools:   tools,
 	})
 	if err != nil {
-		return DirectorTurnReceipt{}, err
+		return DirectorProviderTurn{}, err
 	}
 	// A prose-only answer may be exactly right, or it may be the failure mode
 	// this product replaced: answering an app-control request without acting.
@@ -312,19 +352,13 @@ func (director *DirectorConversation) Submit(
 			Carrier: carrier,
 			TurnID:  intent.ID,
 			Text:    directorToolUseReview,
-			Tools:   recorded,
+			Tools:   tools,
 		})
 		if err != nil {
-			return DirectorTurnReceipt{}, err
+			return DirectorProviderTurn{}, err
 		}
 	}
-	return director.finishTurn(
-		ctx,
-		intent,
-		strings.TrimSpace(providerTurn.ReplyText),
-		providerTurn.Model,
-		recorder,
-	)
+	return providerTurn, nil
 }
 
 // finishTurn makes the Director's reply durable and reports the turn. The reply

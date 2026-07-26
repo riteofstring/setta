@@ -12,25 +12,38 @@ import (
 // false when the workspace is unknown, the saved file is not a regular file,
 // or the canonical path resolves outside the canonical workspace root.
 func workspaceRelativeArtifactPath(workspaceRoot string, absolutePath string) (string, bool) {
-	if workspaceRoot == "" ||
-		!filepath.IsAbs(workspaceRoot) ||
-		!filepath.IsAbs(absolutePath) ||
-		!utf8.ValidString(workspaceRoot) ||
-		!utf8.ValidString(absolutePath) {
+	if !validArtifactHostPaths(workspaceRoot, absolutePath) {
 		return "", false
 	}
 	canonicalRoot, err := filepath.EvalSymlinks(workspaceRoot)
 	if err != nil {
 		return "", false
 	}
-	canonicalPath, err := filepath.EvalSymlinks(absolutePath)
+	canonicalPath, regular := canonicalRegularFile(absolutePath)
+	if !regular {
+		return "", false
+	}
+	return artifactPathRelativeToRoot(canonicalRoot, canonicalPath)
+}
+
+func validArtifactHostPaths(workspaceRoot string, absolutePath string) bool {
+	return workspaceRoot != "" &&
+		filepath.IsAbs(workspaceRoot) &&
+		filepath.IsAbs(absolutePath) &&
+		utf8.ValidString(workspaceRoot) &&
+		utf8.ValidString(absolutePath)
+}
+
+func canonicalRegularFile(path string) (string, bool) {
+	canonicalPath, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		return "", false
 	}
 	info, err := os.Stat(canonicalPath)
-	if err != nil || !info.Mode().IsRegular() {
-		return "", false
-	}
+	return canonicalPath, err == nil && info.Mode().IsRegular()
+}
+
+func artifactPathRelativeToRoot(canonicalRoot string, canonicalPath string) (string, bool) {
 	relative, err := filepath.Rel(canonicalRoot, canonicalPath)
 	if err != nil {
 		return "", false

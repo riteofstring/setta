@@ -187,18 +187,31 @@ func (port *directorCarrierPort) RunDirectorTurn(
 	ctx context.Context,
 	request director.DirectorTurnRequest,
 ) (director.DirectorProviderTurn, error) {
-	if port == nil || port.roles == nil || port.provider == nil {
-		return director.DirectorProviderTurn{}, errors.New("director carrier port is unavailable")
-	}
-	if ctx == nil {
-		return director.DirectorProviderTurn{}, errors.New("director turn context is required")
-	}
-	invocation, maxInputBytes, err := port.invocation(ctx)
+	invocation, providerRequest, err := port.prepareDirectorTurn(ctx, request)
 	if err != nil {
 		return director.DirectorProviderTurn{}, err
 	}
+	sink := &directorTurnSink{}
+	result, runErr := port.provider.RunTurn(ctx, providerRequest, sink)
+	return finishDirectorProviderTurn(request.TurnID, invocation, sink, result, runErr)
+}
+
+func (port *directorCarrierPort) prepareDirectorTurn(
+	ctx context.Context,
+	request director.DirectorTurnRequest,
+) (agent.Invocation, agent.TurnRequest, error) {
+	if port == nil || port.roles == nil || port.provider == nil {
+		return agent.Invocation{}, agent.TurnRequest{}, errors.New("director carrier port is unavailable")
+	}
+	if ctx == nil {
+		return agent.Invocation{}, agent.TurnRequest{}, errors.New("director turn context is required")
+	}
+	invocation, maxInputBytes, err := port.invocation(ctx)
+	if err != nil {
+		return agent.Invocation{}, agent.TurnRequest{}, err
+	}
 	if len(request.Text) > maxInputBytes {
-		return director.DirectorProviderTurn{}, fmt.Errorf(
+		return agent.Invocation{}, agent.TurnRequest{}, fmt.Errorf(
 			"%w: the submitted request needs %d bytes, and the Director role allows %d",
 			director.ErrDirectorIntentRejected,
 			len(request.Text),
@@ -207,14 +220,13 @@ func (port *directorCarrierPort) RunDirectorTurn(
 	}
 	tools, err := directorDynamicTools(request.Tools)
 	if err != nil {
-		return director.DirectorProviderTurn{}, err
+		return agent.Invocation{}, agent.TurnRequest{}, err
 	}
 	clientInputID, err := port.newID("director_turn")
 	if err != nil {
-		return director.DirectorProviderTurn{}, err
+		return agent.Invocation{}, agent.TurnRequest{}, err
 	}
-	sink := &directorTurnSink{}
-	result, err := port.provider.RunTurn(ctx, agent.TurnRequest{
+	return invocation, agent.TurnRequest{
 		ConversationID:   request.Carrier.OwnerID,
 		TurnID:           request.TurnID,
 		ProviderThreadID: request.Carrier.ThreadID,
@@ -223,28 +235,41 @@ func (port *directorCarrierPort) RunDirectorTurn(
 		WorkspaceRoot:    port.workspaceRoot,
 		Invocation:       invocation,
 		DynamicTools:     tools,
-	}, sink)
-	if err != nil {
-		// Only the provider knows that an error means the thread itself is
-		// gone. Saying so in Setta's own vocabulary is what lets the Director
-		// drop the carrier and replay its durable conversation into a new one.
-		if agent.IsProviderThreadMissing(err) {
-			return director.DirectorProviderTurn{}, fmt.Errorf(
-				"%w: run director turn %s: %w",
-				director.ErrDirectorCarrierLost,
-				request.TurnID,
-				err,
-			)
-		}
-		return director.DirectorProviderTurn{}, fmt.Errorf("run director turn %s: %w", request.TurnID, err)
+	}, nil
+}
+
+func finishDirectorProviderTurn(
+	turnID string,
+	invocation agent.Invocation,
+	sink *directorTurnSink,
+	result agent.TurnResult,
+	runErr error,
+) (director.DirectorProviderTurn, error) {
+	if runErr != nil {
+		return director.DirectorProviderTurn{}, directorProviderTurnError(turnID, runErr)
 	}
 	if result.Outcome != agent.TurnOutcomeCompleted {
-		return director.DirectorProviderTurn{}, fmt.Errorf("director turn %s ended as %s", request.TurnID, result.Outcome)
+		return director.DirectorProviderTurn{}, fmt.Errorf("director turn %s ended as %s", turnID, result.Outcome)
 	}
 	return director.DirectorProviderTurn{
 		ReplyText: sink.replyText(),
 		Model:     invocation.Model,
 	}, nil
+}
+
+// Only the provider knows that an error means the thread itself is gone.
+// Translating that fact lets the Director replay its durable conversation into
+// a fresh carrier.
+func directorProviderTurnError(turnID string, err error) error {
+	if agent.IsProviderThreadMissing(err) {
+		return fmt.Errorf(
+			"%w: run director turn %s: %w",
+			director.ErrDirectorCarrierLost,
+			turnID,
+			err,
+		)
+	}
+	return fmt.Errorf("run director turn %s: %w", turnID, err)
 }
 
 // invocation resolves the app-global Director role for one provider call. It is

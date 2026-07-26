@@ -400,50 +400,64 @@ func (scanner *lexer) readHexQuad(start Position) (uint64, *Diagnostic) {
 }
 
 func checkNumberShape(start Position, text string) *Diagnostic {
+	index, valid := consumeInteger(text)
+	if !valid {
+		return numberDiagnostic(start, text)
+	}
+	index, valid = consumeFraction(text, index)
+	if !valid {
+		return numberDiagnostic(start, text)
+	}
+	index, valid = consumeExponent(text, index)
+	if !valid || index != len(text) {
+		return numberDiagnostic(start, text)
+	}
+	return nil
+}
+
+func consumeInteger(text string) (int, bool) {
 	index := 0
 	if index < len(text) && text[index] == '-' {
 		index++
 	}
 	if index >= len(text) {
-		return numberDiagnostic(start, text)
+		return 0, false
 	}
 	if text[index] == '0' {
+		return index + 1, true
+	}
+	if text[index] < '1' || text[index] > '9' {
+		return 0, false
+	}
+	return consumeDigits(text, index), true
+}
+
+func consumeFraction(text string, index int) (int, bool) {
+	if index >= len(text) || text[index] != '.' {
+		return index, true
+	}
+	index++
+	end := consumeDigits(text, index)
+	return end, end > index
+}
+
+func consumeExponent(text string, index int) (int, bool) {
+	if index >= len(text) || (text[index] != 'e' && text[index] != 'E') {
+		return index, true
+	}
+	index++
+	if index < len(text) && (text[index] == '+' || text[index] == '-') {
 		index++
-	} else {
-		if text[index] < '1' || text[index] > '9' {
-			return numberDiagnostic(start, text)
-		}
-		for index < len(text) && isDigit(text[index]) {
-			index++
-		}
 	}
-	if index < len(text) && text[index] == '.' {
+	end := consumeDigits(text, index)
+	return end, end > index
+}
+
+func consumeDigits(text string, index int) int {
+	for index < len(text) && isDigit(text[index]) {
 		index++
-		fractionStart := index
-		for index < len(text) && isDigit(text[index]) {
-			index++
-		}
-		if index == fractionStart {
-			return numberDiagnostic(start, text)
-		}
 	}
-	if index < len(text) && (text[index] == 'e' || text[index] == 'E') {
-		index++
-		if index < len(text) && (text[index] == '+' || text[index] == '-') {
-			index++
-		}
-		exponentStart := index
-		for index < len(text) && isDigit(text[index]) {
-			index++
-		}
-		if index == exponentStart {
-			return numberDiagnostic(start, text)
-		}
-	}
-	if index != len(text) {
-		return numberDiagnostic(start, text)
-	}
-	return nil
+	return index
 }
 
 func isDigit(value byte) bool {

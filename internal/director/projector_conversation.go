@@ -163,54 +163,16 @@ func projectDirectorToolReceipt(
 	if err := projector.requireOpenDirectorTurn(entry); err != nil {
 		return err
 	}
-	callID := *entry.Tool.CallID
-	call, exists := projector.directorToolCalls[callID]
-	if !exists {
-		return fmt.Errorf(
-			"director tool receipt %s answers call %s, which was never recorded",
-			entry.ID,
-			callID,
-		)
-	}
-	if call.resolved {
-		return fmt.Errorf("director tool receipt %s answers call %s twice", entry.ID, callID)
-	}
-	if entry.TurnID != call.turnID {
-		return fmt.Errorf(
-			"director tool receipt %s belongs to turn %s, not call %s turn %s",
-			entry.ID,
-			entry.TurnID,
-			callID,
-			call.turnID,
-		)
-	}
-	if entry.Tool.Tool != call.tool {
-		return fmt.Errorf(
-			"director tool receipt %s reports %s, not call %s tool %s",
-			entry.ID,
-			entry.Tool.Tool,
-			callID,
-			call.tool,
-		)
-	}
-	nodeID, err := SemanticNodeID(SemanticNodeIdentityToolCall, *entry.Tool.CallID)
+	callID, call, err := projector.validatedDirectorToolCall(entry)
 	if err != nil {
 		return err
 	}
-	var receipt SettaToolReceipt
-	if err := json.Unmarshal(entry.Tool.Payload, &receipt); err != nil {
-		return fmt.Errorf("decode setta tool receipt %s: %w", entry.ID, err)
+	receipt, err := decodeDirectorToolReceipt(entry, callID, call.tool)
+	if err != nil {
+		return err
 	}
-	if receipt.Tool != call.tool {
-		return fmt.Errorf(
-			"director tool receipt %s payload reports %s, not call %s tool %s",
-			entry.ID,
-			receipt.Tool,
-			callID,
-			call.tool,
-		)
-	}
-	if err := validateTrimmedText("director tool receipt summary", receipt.Summary); err != nil {
+	nodeID, err := SemanticNodeID(SemanticNodeIdentityToolCall, callID)
+	if err != nil {
 		return err
 	}
 	status := SemanticNodeStatusFailed
@@ -233,6 +195,70 @@ func projectDirectorToolReceipt(
 	call.resolved = true
 	projector.directorToolCalls[callID] = call
 	return nil
+}
+
+func (projector *DirectorGraphProjector) validatedDirectorToolCall(
+	entry conversation.DirectorConversationEntry,
+) (string, directorToolCallProjection, error) {
+	callID := *entry.Tool.CallID
+	call, exists := projector.directorToolCalls[callID]
+	if !exists {
+		return "", directorToolCallProjection{}, fmt.Errorf(
+			"director tool receipt %s answers call %s, which was never recorded",
+			entry.ID,
+			callID,
+		)
+	}
+	if call.resolved {
+		return "", directorToolCallProjection{}, fmt.Errorf(
+			"director tool receipt %s answers call %s twice",
+			entry.ID,
+			callID,
+		)
+	}
+	if entry.TurnID != call.turnID {
+		return "", directorToolCallProjection{}, fmt.Errorf(
+			"director tool receipt %s belongs to turn %s, not call %s turn %s",
+			entry.ID,
+			entry.TurnID,
+			callID,
+			call.turnID,
+		)
+	}
+	if entry.Tool.Tool != call.tool {
+		return "", directorToolCallProjection{}, fmt.Errorf(
+			"director tool receipt %s reports %s, not call %s tool %s",
+			entry.ID,
+			entry.Tool.Tool,
+			callID,
+			call.tool,
+		)
+	}
+	return callID, call, nil
+}
+
+func decodeDirectorToolReceipt(
+	entry conversation.DirectorConversationEntry,
+	callID string,
+	tool string,
+) (SettaToolReceipt, error) {
+	var receipt SettaToolReceipt
+	if err := json.Unmarshal(entry.Tool.Payload, &receipt); err != nil {
+		return SettaToolReceipt{}, fmt.Errorf("decode setta tool receipt %s: %w", entry.ID, err)
+	}
+	if receipt.Tool != tool {
+		return SettaToolReceipt{}, fmt.Errorf(
+			"director tool receipt %s payload reports %s, not call %s tool %s",
+			entry.ID,
+			receipt.Tool,
+			callID,
+			tool,
+		)
+	}
+	if err := validateTrimmedText("director tool receipt summary", receipt.Summary); err != nil {
+		return SettaToolReceipt{}, err
+	}
+	return receipt, nil
 }
 
 // projectDirectorReply draws what the Director told the user and closes the

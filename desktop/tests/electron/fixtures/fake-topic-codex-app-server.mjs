@@ -323,18 +323,8 @@ function injectSideCarrierContext(message, thread) {
     respondError(message.id, -32602, "side boundary instructions drifted");
     return;
   }
-  const frameStart = context.indexOf("{");
-  if (frameStart < 0) {
-    respondError(message.id, -32602, "side context frame JSON is missing");
-    return;
-  }
-  let frame;
-  try {
-    frame = JSON.parse(context.slice(frameStart));
-  } catch {
-    respondError(message.id, -32602, "side context frame JSON is invalid");
-    return;
-  }
+  const frame = decodeSideContextFrame(message.id, context);
+  if (frame === undefined) return;
   if (!validSideContextFrame(frame)) {
     respondError(message.id, -32602, "side in-flight context frame drifted");
     return;
@@ -343,6 +333,20 @@ function injectSideCarrierContext(message, thread) {
   thread.sideContextFrame = frame;
   persistState();
   respond(message.id, {});
+}
+
+function decodeSideContextFrame(messageId, context) {
+  const frameStart = context.indexOf("{");
+  if (frameStart < 0) {
+    respondError(messageId, -32602, "side context frame JSON is missing");
+    return undefined;
+  }
+  try {
+    return JSON.parse(context.slice(frameStart));
+  } catch {
+    respondError(messageId, -32602, "side context frame JSON is invalid");
+    return undefined;
+  }
 }
 
 function validSideCarrierSettings(thread) {

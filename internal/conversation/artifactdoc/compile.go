@@ -63,42 +63,53 @@ func (document Document) ComponentNames() []ComponentName {
 // compiled document addresses, sorted for deterministic policy checks.
 func (document Document) FileReferencePaths() ([]string, error) {
 	paths := []string{}
-	var walk func(value any) error
-	walk = func(value any) error {
-		switch typed := value.(type) {
-		case Node:
-			if typed.Component == ComponentFileReference {
-				path, ok := typed.Props["path"].(string)
-				if !ok {
-					return fmt.Errorf("compiled FileReference path is not a string")
-				}
-				paths = append(paths, path)
-			}
-			for _, property := range typed.Props {
-				if err := walk(property); err != nil {
-					return err
-				}
-			}
-		case []any:
-			for _, item := range typed {
-				if err := walk(item); err != nil {
-					return err
-				}
-			}
-		case map[string]any:
-			for _, item := range typed {
-				if err := walk(item); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	}
-	if err := walk(document.Root); err != nil {
+	if err := collectFileReferencePaths(document.Root, &paths); err != nil {
 		return nil, err
 	}
 	slices.Sort(paths)
 	return slices.Compact(paths), nil
+}
+
+func collectFileReferencePaths(value any, paths *[]string) error {
+	switch typed := value.(type) {
+	case Node:
+		return collectNodeFileReferencePaths(typed, paths)
+	case []any:
+		return collectListFileReferencePaths(typed, paths)
+	case map[string]any:
+		return collectMapFileReferencePaths(typed, paths)
+	default:
+		return nil
+	}
+}
+
+func collectNodeFileReferencePaths(node Node, paths *[]string) error {
+	if node.Component == ComponentFileReference {
+		path, ok := node.Props["path"].(string)
+		if !ok {
+			return fmt.Errorf("compiled FileReference path is not a string")
+		}
+		*paths = append(*paths, path)
+	}
+	return collectMapFileReferencePaths(node.Props, paths)
+}
+
+func collectListFileReferencePaths(values []any, paths *[]string) error {
+	for _, value := range values {
+		if err := collectFileReferencePaths(value, paths); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func collectMapFileReferencePaths(values map[string]any, paths *[]string) error {
+	for _, value := range values {
+		if err := collectFileReferencePaths(value, paths); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // unsupportedBuiltins are OpenUI features Setta deliberately does not accept.

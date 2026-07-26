@@ -1,5 +1,14 @@
 import type { WorkstreamArtifact } from "@generated/backend";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 
 import {
   ArtifactDocumentCache,
@@ -35,6 +44,17 @@ export type ArtifactDocumentState =
   | { readonly status: "loading" }
   | { readonly status: "ready"; readonly entry: ArtifactDocumentEntry }
   | { readonly status: "failed" };
+
+type ArtifactDocumentRequestState = {
+  readonly artifactId: string;
+  readonly documents: ArtifactDocumentCache;
+  readonly value: ArtifactDocumentState;
+} | null;
+
+type ArtifactCacheLookup =
+  | { readonly status: "failed" }
+  | { readonly status: "miss" }
+  | { readonly entry: ArtifactDocumentEntry; readonly status: "ready" };
 
 export interface DirectorArtifactBrowser {
   /** The artifact the browser has open, or null when it is closed. */
@@ -169,87 +189,105 @@ export function useArtifactDocument({
   documents: ArtifactDocumentCache | null;
   enabled: boolean;
 }): ArtifactDocumentState | null {
-  const available = enabled && documents !== null && artifact.status === "available";
-  let cached: ArtifactDocumentEntry | undefined;
-  let cacheFailed = false;
-  if (available) {
-    try {
-      cached = documents.peek(artifact);
-    } catch {
-      cacheFailed = true;
-    }
-  }
-  const [requestState, setRequestState] = useState<{
-    readonly artifactId: string;
-    readonly documents: ArtifactDocumentCache;
-    readonly value: ArtifactDocumentState;
-  } | null>(null);
+  const available = artifactDocumentIsAvailable(enabled, documents, artifact);
+  const cached = available
+    ? lookupArtifactDocument(documents, artifact)
+    : { status: "miss" as const };
+  const [requestState, setRequestState] = useState<ArtifactDocumentRequestState>(null);
 
   useEffect(() => {
-    if (!enabled || documents === null || artifact.status !== "available") {
+    if (!artifactDocumentIsAvailable(enabled, documents, artifact)) {
       return;
     }
-    let ready: ArtifactDocumentEntry | undefined;
-    try {
-      ready = documents.peek(artifact);
-    } catch {
-      setRequestState({
-        artifactId: artifact.id,
-        documents,
-        value: { status: "failed" },
-      });
-      return;
-    }
-    if (ready !== undefined) {
-      setRequestState({
-        artifactId: artifact.id,
-        documents,
-        value: { entry: ready, status: "ready" },
-      });
-      return;
-    }
-    let current = true;
-    setRequestState({
-      artifactId: artifact.id,
-      documents,
-      value: { status: "loading" },
-    });
-    documents
-      .load(artifact)
-      .then((entry) => {
-        if (current) {
-          setRequestState({
-            artifactId: artifact.id,
-            documents,
-            value: { entry, status: "ready" },
-          });
-        }
-      })
-      .catch(() => {
-        if (current) {
-          setRequestState({
-            artifactId: artifact.id,
-            documents,
-            value: { status: "failed" },
-          });
-        }
-      });
-    return () => {
-      current = false;
-    };
+    return requestArtifactDocument(artifact, documents, setRequestState);
   }, [artifact, documents, enabled]);
 
+  return resolveArtifactDocumentState(available, cached, requestState, artifact, documents);
+}
+
+function artifactDocumentIsAvailable(
+  enabled: boolean,
+  documents: ArtifactDocumentCache | null,
+  artifact: WorkstreamArtifact,
+): documents is ArtifactDocumentCache {
+  return enabled && documents !== null && artifact.status === "available";
+}
+
+function lookupArtifactDocument(
+  documents: ArtifactDocumentCache,
+  artifact: WorkstreamArtifact,
+): ArtifactCacheLookup {
+  try {
+    const entry = documents.peek(artifact);
+    return entry === undefined ? { status: "miss" } : { entry, status: "ready" };
+  } catch {
+    return { status: "failed" };
+  }
+}
+
+function requestArtifactDocument(
+  artifact: WorkstreamArtifact,
+  documents: ArtifactDocumentCache,
+  setRequestState: Dispatch<SetStateAction<ArtifactDocumentRequestState>>,
+): () => void {
+  const cached = lookupArtifactDocument(documents, artifact);
+  if (cached.status === "failed") {
+    setArtifactRequestState(setRequestState, artifact, documents, { status: "failed" });
+    return () => {};
+  }
+  if (cached.status === "ready") {
+    setArtifactRequestState(setRequestState, artifact, documents, {
+      entry: cached.entry,
+      status: "ready",
+    });
+    return () => {};
+  }
+  let current = true;
+  setArtifactRequestState(setRequestState, artifact, documents, { status: "loading" });
+  documents
+    .load(artifact)
+    .then((entry) => {
+      if (current) {
+        setArtifactRequestState(setRequestState, artifact, documents, { entry, status: "ready" });
+      }
+    })
+    .catch(() => {
+      if (current) {
+        setArtifactRequestState(setRequestState, artifact, documents, { status: "failed" });
+      }
+    });
+  return () => {
+    current = false;
+  };
+}
+
+function setArtifactRequestState(
+  setRequestState: Dispatch<SetStateAction<ArtifactDocumentRequestState>>,
+  artifact: WorkstreamArtifact,
+  documents: ArtifactDocumentCache,
+  value: ArtifactDocumentState,
+): void {
+  setRequestState({ artifactId: artifact.id, documents, value });
+}
+
+function resolveArtifactDocumentState(
+  available: boolean,
+  cached: ArtifactCacheLookup,
+  requestState: ArtifactDocumentRequestState,
+  artifact: WorkstreamArtifact,
+  documents: ArtifactDocumentCache | null,
+): ArtifactDocumentState | null {
   if (!available) {
     return null;
   }
-  if (cacheFailed) {
+  if (cached.status === "failed") {
     return { status: "failed" };
   }
   // A cache hit always outranks local request state. In particular, moving the
   // persistent Dialog to a prefetched neighbour must never render the prior
   // artifact for one commit while the effect catches up.
-  if (cached !== undefined) {
-    return { entry: cached, status: "ready" };
+  if (cached.status === "ready") {
+    return { entry: cached.entry, status: "ready" };
   }
   if (
     requestState !== null &&

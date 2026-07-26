@@ -16,23 +16,51 @@ func (store *Store) readCarrierReplaySnapshotThroughTurn(
 	turnID string,
 	throughSequence int,
 ) (ConversationSnapshot, error) {
+	if err := validateCarrierReplayRead(store, ctx, conversation.ID, turnID, throughSequence); err != nil {
+		return ConversationSnapshot{}, err
+	}
+	snapshot, err := store.readCarrierReplaySnapshot(ctx, conversation, turnID, throughSequence)
+	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	if err := store.validateCarrierReplaySnapshot(snapshot); err != nil {
+		return ConversationSnapshot{}, err
+	}
+	return snapshot, nil
+}
+
+func validateCarrierReplayRead(
+	store *Store,
+	ctx context.Context,
+	conversationID string,
+	turnID string,
+	throughSequence int,
+) error {
 	if store == nil {
-		return ConversationSnapshot{}, errors.New("conversation store is required")
+		return errors.New("conversation store is required")
 	}
 	if ctx == nil {
-		return ConversationSnapshot{}, errors.New("carrier replay context is required")
+		return errors.New("carrier replay context is required")
 	}
-	if err := validateIdentifier("carrier replay conversation id", conversation.ID); err != nil {
-		return ConversationSnapshot{}, err
+	if err := validateIdentifier("carrier replay conversation id", conversationID); err != nil {
+		return err
 	}
 	if err := validateIdentifier("carrier replay turn id", turnID); err != nil {
-		return ConversationSnapshot{}, err
+		return err
 	}
 	if throughSequence < 0 {
-		return ConversationSnapshot{}, errors.New("carrier replay trajectory sequence must be non-negative")
+		return errors.New("carrier replay trajectory sequence must be non-negative")
 	}
+	return nil
+}
 
-	var snapshot ConversationSnapshot
+func (store *Store) readCarrierReplaySnapshot(
+	ctx context.Context,
+	conversation TopicConversation,
+	turnID string,
+	throughSequence int,
+) (ConversationSnapshot, error) {
+	snapshot := ConversationSnapshot{}
 	err := store.read(ctx, "read carrier replay through branch turn", func(ctx context.Context, connection *sql.Conn) error {
 		reader, err := connection.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 		if err != nil {
@@ -63,17 +91,21 @@ func (store *Store) readCarrierReplaySnapshotThroughTurn(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
+	return snapshot, nil
+}
+
+func (store *Store) validateCarrierReplaySnapshot(snapshot ConversationSnapshot) error {
 	for _, turn := range snapshot.Turns.Turns {
 		if err := turn.Validate(); err != nil {
-			return ConversationSnapshot{}, &CorruptStateError{Path: store.dbPath, Err: err}
+			return &CorruptStateError{Path: store.dbPath, Err: err}
 		}
 	}
 	for _, event := range snapshot.Trajectory.Events {
 		if err := event.Validate(); err != nil {
-			return ConversationSnapshot{}, &CorruptStateError{Path: store.dbPath, Err: err}
+			return &CorruptStateError{Path: store.dbPath, Err: err}
 		}
 	}
-	return snapshot, nil
+	return nil
 }
 
 func readCarrierReplayTurnsThrough(

@@ -1,9 +1,16 @@
 import { createLibrary, createParser, defineComponent } from "@openuidev/react-lang";
 import { describe, expect, it } from "vitest";
 
-import { artifactCatalogRootComponent, artifactCatalogSchema } from "./generated/artifact-catalog";
+import {
+  artifactCatalogRootComponent,
+  artifactCatalogSchema,
+  type ArtifactComponentSchema,
+} from "./generated/artifact-catalog";
 import { artifactComponentPropsSchemas } from "./generated/artifact-catalog-props";
-import { artifactCatalogSignatures } from "./generated/artifact-catalog-signatures";
+import {
+  artifactCatalogSignatures,
+  type ArtifactCatalogSignature,
+} from "./generated/artifact-catalog-signatures";
 import { artifactConformanceFixtures } from "./generated/conformance-corpus";
 import { toArtifactDocumentNode } from "./openui-document-parser";
 
@@ -38,25 +45,11 @@ describe("setta.artifacts.v1 catalog library", () => {
 
   for (const signature of artifactCatalogSignatures) {
     it(`maps ${signature.component} arguments the way the catalog schema does`, () => {
-      const fromZod = libraryDefinitions[signature.component];
-      const fromGo = artifactCatalogSchema.$defs[signature.component];
-      const advertised = signature.properties.map((property) => property.name);
-
-      expect(Object.keys(fromZod?.properties ?? {})).toEqual(Object.keys(fromGo.properties));
-      expect(Object.keys(fromZod?.properties ?? {})).toEqual(advertised);
-      expect(signature.summary).toBe(fromGo.description);
-      expect([...(fromZod?.required ?? [])].sort()).toEqual([...fromGo.required].sort());
-      expect([...(fromZod?.required ?? [])].sort()).toEqual(
-        signature.properties
-          .filter((property) => property.required)
-          .map((property) => property.name)
-          .sort(),
+      assertCatalogSignatureMapping(
+        signature,
+        libraryDefinitions[signature.component],
+        artifactCatalogSchema.$defs[signature.component],
       );
-      for (const property of signature.properties) {
-        expect(property.description).toBe(
-          (fromGo.properties[property.name] as { description?: string }).description,
-        );
-      }
     });
   }
 
@@ -88,3 +81,45 @@ describe("setta.artifacts.v1 catalog library", () => {
     }
   });
 });
+
+interface LibraryComponentDefinition {
+  readonly properties?: Record<string, unknown>;
+  readonly required?: string[];
+}
+
+function assertCatalogSignatureMapping(
+  signature: ArtifactCatalogSignature,
+  fromZod: LibraryComponentDefinition | undefined,
+  fromGo: ArtifactComponentSchema,
+): void {
+  const zodProperties = libraryDefinitionProperties(fromZod);
+  const zodRequired = libraryDefinitionRequired(fromZod);
+  const advertised = signature.properties.map((property) => property.name);
+  const advertisedRequired = signature.properties
+    .filter((property) => property.required)
+    .map((property) => property.name)
+    .sort();
+
+  expect(Object.keys(zodProperties)).toEqual(Object.keys(fromGo.properties));
+  expect(Object.keys(zodProperties)).toEqual(advertised);
+  expect(signature.summary).toBe(fromGo.description);
+  expect([...zodRequired].sort()).toEqual([...fromGo.required].sort());
+  expect([...zodRequired].sort()).toEqual(advertisedRequired);
+  for (const property of signature.properties) {
+    expect(property.description).toBe(
+      (fromGo.properties[property.name] as { description?: string }).description,
+    );
+  }
+}
+
+function libraryDefinitionProperties(
+  definition: LibraryComponentDefinition | undefined,
+): Record<string, unknown> {
+  return definition?.properties ?? {};
+}
+
+function libraryDefinitionRequired(
+  definition: LibraryComponentDefinition | undefined,
+): readonly string[] {
+  return definition?.required ?? [];
+}

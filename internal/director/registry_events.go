@@ -368,30 +368,68 @@ func (registry *Registry) visibleLevelChangeEffects(
 	registry.publishedLevels[workstreamID] = level
 	effects := []registryEffect{{kind: effectWorkstream, id: workstreamID}}
 	if level == WorkstreamDetailBackground {
-		if !wasWindowed || !hadLevel || previousLevel == WorkstreamDetailBackground {
-			return effects, true, nil
-		}
-		previous, err := registry.state.workstreamGraph(workstreamID, previousLevel)
-		if err != nil {
-			return nil, false, err
-		}
-		removed := append([]string{}, appliedGraphChange.RemovedNodeIDs...)
-		for _, node := range previous.Nodes {
-			removed = append(removed, node.ID)
-		}
-		removed = uniqueStrings(removed)
-		if len(removed) == 0 {
-			return effects, true, nil
-		}
-		return append(effects, registryEffect{
-			kind: effectGraph,
-			id:   workstreamID,
-			graph: GraphChange{
-				WorkstreamID:   workstreamID,
-				RemovedNodeIDs: removed,
-			},
-		}), true, nil
+		return registry.backgroundLevelChangeEffects(
+			workstreamID,
+			wasWindowed,
+			hadLevel,
+			previousLevel,
+			appliedGraphChange,
+			effects,
+		)
 	}
+	return registry.detailedLevelChangeEffects(
+		workstreamID,
+		wasWindowed,
+		hadLevel,
+		previousLevel,
+		level,
+		appliedGraphChange,
+		effects,
+	)
+}
+
+func (registry *Registry) backgroundLevelChangeEffects(
+	workstreamID string,
+	wasWindowed bool,
+	hadLevel bool,
+	previousLevel WorkstreamDetailLevel,
+	appliedGraphChange GraphChange,
+	effects []registryEffect,
+) ([]registryEffect, bool, error) {
+	if !wasWindowed || !hadLevel || previousLevel == WorkstreamDetailBackground {
+		return effects, true, nil
+	}
+	previous, err := registry.state.workstreamGraph(workstreamID, previousLevel)
+	if err != nil {
+		return nil, false, err
+	}
+	removed := append([]string{}, appliedGraphChange.RemovedNodeIDs...)
+	for _, node := range previous.Nodes {
+		removed = append(removed, node.ID)
+	}
+	removed = uniqueStrings(removed)
+	if len(removed) == 0 {
+		return effects, true, nil
+	}
+	return append(effects, registryEffect{
+		kind: effectGraph,
+		id:   workstreamID,
+		graph: GraphChange{
+			WorkstreamID:   workstreamID,
+			RemovedNodeIDs: removed,
+		},
+	}), true, nil
+}
+
+func (registry *Registry) detailedLevelChangeEffects(
+	workstreamID string,
+	wasWindowed bool,
+	hadLevel bool,
+	previousLevel WorkstreamDetailLevel,
+	level WorkstreamDetailLevel,
+	appliedGraphChange GraphChange,
+	effects []registryEffect,
+) ([]registryEffect, bool, error) {
 	graph, err := registry.state.workstreamGraph(workstreamID, level)
 	if err != nil {
 		return nil, false, err

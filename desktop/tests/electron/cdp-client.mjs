@@ -20,6 +20,11 @@ const driverExtensionScripts = [
       'globalThis.__settaE2EDriver?.directorCommandCenterPerformanceVersion === "setta-director-command-center-performance-driver-v3"',
     path: join(driverScriptDir, "director-command-center-performance-driver.js"),
   },
+  {
+    installedExpression:
+      'globalThis.__settaE2EDriver?.directorCommandCenterWorkflowVersion === "setta-director-command-center-workflow-driver-v1"',
+    path: join(driverScriptDir, "director-command-center-workflow-driver.js"),
+  },
 ];
 
 export class CDPClient {

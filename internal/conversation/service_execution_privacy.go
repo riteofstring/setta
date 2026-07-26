@@ -27,50 +27,68 @@ func redactPrivateExecutionEvent(
 	if len(aliases) == 0 {
 		return event
 	}
-	redact := func(value string) string {
+	redact := privateTextRedactor(func(value string) string {
 		return redactPrivateWorkingDirectoryText(aliases, value)
-	}
-	redactPointer := func(value *string) *string {
-		if value == nil {
-			return nil
-		}
-		redacted := redact(*value)
-		return &redacted
-	}
+	})
+	event = redactPrivateTextEvent(event, redact)
+	event = redactPrivatePlanEvent(event, redact)
+	event = redactPrivateActivityEvent(event, redact)
+	event = redactPrivateApprovalEvent(event, redact)
+	event = redactPrivateValidationEvent(event, redact)
+	return redactPrivateTerminalEvent(event, redact)
+}
 
+type privateTextRedactor func(string) string
+
+func redactPrivateTextEvent(event agent.Event, redact privateTextRedactor) agent.Event {
 	if event.Text != nil {
 		value := *event.Text
 		value.Text = redact(value.Text)
 		event.Text = &value
 	}
+	return event
+}
+
+func redactPrivatePlanEvent(event agent.Event, redact privateTextRedactor) agent.Event {
 	if event.Plan != nil {
 		value := *event.Plan
-		value.Explanation = redactPointer(value.Explanation)
+		value.Explanation = redactPrivateStringPointer(value.Explanation, redact)
 		value.Steps = append([]agent.PlanStep{}, value.Steps...)
 		for index := range value.Steps {
 			value.Steps[index].Step = redact(value.Steps[index].Step)
 		}
 		event.Plan = &value
 	}
+	return event
+}
+
+func redactPrivateActivityEvent(event agent.Event, redact privateTextRedactor) agent.Event {
 	if event.Activity != nil {
 		value := *event.Activity
 		value.Title = redact(value.Title)
 		value.Summary = redact(value.Summary)
-		value.Command = redactPointer(value.Command)
-		value.CWD = redactPointer(value.CWD)
-		value.Server = redactPointer(value.Server)
-		value.Tool = redactPointer(value.Tool)
-		value.Namespace = redactPointer(value.Namespace)
-		value.ProcessID = redactPointer(value.ProcessID)
-		value.SavedPath = redactPointer(value.SavedPath)
+		value.Command = redactPrivateStringPointer(value.Command, redact)
+		value.CWD = redactPrivateStringPointer(value.CWD, redact)
+		value.Server = redactPrivateStringPointer(value.Server, redact)
+		value.Tool = redactPrivateStringPointer(value.Tool, redact)
+		value.Namespace = redactPrivateStringPointer(value.Namespace, redact)
+		value.ProcessID = redactPrivateStringPointer(value.ProcessID, redact)
+		value.SavedPath = redactPrivateStringPointer(value.SavedPath, redact)
 		value.FileChanges = append([]agent.FileChange{}, value.FileChanges...)
 		for index := range value.FileChanges {
 			value.FileChanges[index].Path = redact(value.FileChanges[index].Path)
-			value.FileChanges[index].MovePath = redactPointer(value.FileChanges[index].MovePath)
+			value.FileChanges[index].MovePath = redactPrivateStringPointer(
+				value.FileChanges[index].MovePath,
+				redact,
+			)
 			value.FileChanges[index].Diff = redact(value.FileChanges[index].Diff)
 		}
 		event.Activity = &value
 	}
+	return event
+}
+
+func redactPrivateApprovalEvent(event agent.Event, redact privateTextRedactor) agent.Event {
 	if event.Approval != nil {
 		value := *event.Approval
 		value.Title = redact(value.Title)
@@ -78,31 +96,53 @@ func redactPrivateExecutionEvent(
 		value.Command = redact(value.Command)
 		value.Path = redact(value.Path)
 		value.PermissionProfile = redact(value.PermissionProfile)
-		value.Questions = append([]agent.ApprovalQuestion{}, value.Questions...)
-		for index := range value.Questions {
-			value.Questions[index].Header = redact(value.Questions[index].Header)
-			value.Questions[index].Question = redact(value.Questions[index].Question)
-			value.Questions[index].Options = append([]string{}, value.Questions[index].Options...)
-			for optionIndex := range value.Questions[index].Options {
-				value.Questions[index].Options[optionIndex] = redact(
-					value.Questions[index].Options[optionIndex],
-				)
-			}
-		}
+		value.Questions = redactPrivateApprovalQuestions(value.Questions, redact)
 		event.Approval = &value
 	}
+	return event
+}
+
+func redactPrivateApprovalQuestions(
+	questions []agent.ApprovalQuestion,
+	redact privateTextRedactor,
+) []agent.ApprovalQuestion {
+	redacted := append([]agent.ApprovalQuestion{}, questions...)
+	for index := range redacted {
+		redacted[index].Header = redact(redacted[index].Header)
+		redacted[index].Question = redact(redacted[index].Question)
+		redacted[index].Options = append([]string{}, redacted[index].Options...)
+		for optionIndex := range redacted[index].Options {
+			redacted[index].Options[optionIndex] = redact(redacted[index].Options[optionIndex])
+		}
+	}
+	return redacted
+}
+
+func redactPrivateValidationEvent(event agent.Event, redact privateTextRedactor) agent.Event {
 	if event.Validation != nil {
 		value := *event.Validation
-		value.Subject = redactPointer(value.Subject)
+		value.Subject = redactPrivateStringPointer(value.Subject, redact)
 		value.Summary = redact(value.Summary)
 		event.Validation = &value
 	}
+	return event
+}
+
+func redactPrivateTerminalEvent(event agent.Event, redact privateTextRedactor) agent.Event {
 	if event.Terminal != nil {
 		value := *event.Terminal
-		value.Error = redactPointer(value.Error)
+		value.Error = redactPrivateStringPointer(value.Error, redact)
 		event.Terminal = &value
 	}
 	return event
+}
+
+func redactPrivateStringPointer(value *string, redact privateTextRedactor) *string {
+	if value == nil {
+		return nil
+	}
+	redacted := redact(*value)
+	return &redacted
 }
 
 // redactPrivateExecutionEventForTurn adds stream awareness to the stateless

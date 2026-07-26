@@ -96,11 +96,25 @@ func TestCompilingTheSameSourceTwiceProducesTheSameTree(t *testing.T) {
 
 func TestAcceptedFixturesReachGlobalBoundaries(t *testing.T) {
 	catalog := SettaCatalogV1()
+	assertMaximumSourceFixture(t)
+	assertMaximumGraphFixture(t, catalog)
+	assertMaximumNestingFixture(t, catalog)
+	assertMaximumTableFixture(t, catalog)
+	assertMaximumChartFixture(t, catalog)
+	assertMaximumPieFixture(t, catalog)
+	assertMaximumStringFixture(t, catalog)
+}
+
+func assertMaximumSourceFixture(t *testing.T) {
+	t.Helper()
 	sourceFixture := acceptedFixture(t, "maximum_source")
 	if len(sourceFixture.Source) != MaxSourceBytes {
 		t.Fatalf("maximum source is %d bytes, want %d", len(sourceFixture.Source), MaxSourceBytes)
 	}
+}
 
+func assertMaximumGraphFixture(t *testing.T, catalog Catalog) {
+	t.Helper()
 	graphFixture := acceptedFixture(t, "maximum_statements_and_nodes")
 	statements, diagnostic := parseDocument(graphFixture.Source)
 	if diagnostic != nil {
@@ -116,16 +130,22 @@ func TestAcceptedFixturesReachGlobalBoundaries(t *testing.T) {
 	if countComponents(document.Root) != MaxNodes {
 		t.Fatalf("maximum graph has %d nodes, want %d", countComponents(document.Root), MaxNodes)
 	}
+}
 
+func assertMaximumNestingFixture(t *testing.T, catalog Catalog) {
+	t.Helper()
 	nestingFixture := acceptedFixture(t, "maximum_nesting")
-	document, err = Compile(catalog, nestingFixture.Source)
+	document, err := Compile(catalog, nestingFixture.Source)
 	if err != nil {
 		t.Fatalf("compile maximum nesting: %v", err)
 	}
 	if componentDepth(document.Root) != MaxDepth {
 		t.Fatalf("maximum nesting has depth %d, want %d", componentDepth(document.Root), MaxDepth)
 	}
+}
 
+func assertMaximumTableFixture(t *testing.T, catalog Catalog) {
+	t.Helper()
 	table := compileFixtureComponent(t, catalog, "maximum_table", ComponentTable)
 	columns, _ := listProperty(table, "columns")
 	rows, _ := listProperty(table, "rows")
@@ -133,7 +153,10 @@ func TestAcceptedFixturesReachGlobalBoundaries(t *testing.T) {
 		t.Fatalf("maximum table has %d columns and %d rows, want %d and %d",
 			len(columns), len(rows), MaxTableColumns, MaxTableRows)
 	}
+}
 
+func assertMaximumChartFixture(t *testing.T, catalog Catalog) {
+	t.Helper()
 	chart := compileFixtureComponent(t, catalog, "maximum_chart", ComponentLineChart)
 	series, _ := listProperty(chart, "series")
 	points := 0
@@ -145,13 +168,19 @@ func TestAcceptedFixturesReachGlobalBoundaries(t *testing.T) {
 		t.Fatalf("maximum chart has %d series and %d points, want %d and %d",
 			len(series), points, MaxChartSeries, MaxChartPoints)
 	}
+}
 
+func assertMaximumPieFixture(t *testing.T, catalog Catalog) {
+	t.Helper()
 	pie := compileFixtureComponent(t, catalog, "maximum_pie", ComponentPieChart)
 	slices, _ := listProperty(pie, "slices")
 	if len(slices) != MaxPieSlices {
 		t.Fatalf("maximum pie has %d slices, want %d", len(slices), MaxPieSlices)
 	}
+}
 
+func assertMaximumStringFixture(t *testing.T, catalog Catalog) {
+	t.Helper()
 	stringDocument, err := Compile(catalog, acceptedFixture(t, "maximum_string_values").Source)
 	if err != nil {
 		t.Fatalf("compile maximum string values: %v", err)
@@ -328,67 +357,107 @@ func assertSchemaIsComplete(t *testing.T, componentNames map[ComponentName]bool,
 	t.Helper()
 	switch schema.Kind {
 	case ValueKindString:
-		if schema.Role == "" || schema.MaxBytes == 0 {
-			t.Errorf("%s is a string with no role or size limit", path)
-		}
+		assertStringSchemaIsComplete(t, path, schema)
 	case ValueKindEnum:
-		if len(schema.EnumValues) == 0 {
-			t.Errorf("%s is an enum with no values", path)
-		}
-		seen := map[string]bool{}
-		for _, value := range schema.EnumValues {
-			if seen[value] {
-				t.Errorf("%s declares enum value %q more than once", path, value)
-			}
-			seen[value] = true
-		}
+		assertEnumSchemaIsComplete(t, path, schema)
 	case ValueKindNumber:
 		if schema.Minimum != nil && schema.Maximum != nil && *schema.Minimum > *schema.Maximum {
 			t.Errorf("%s has minimum %v above maximum %v", path, *schema.Minimum, *schema.Maximum)
 		}
 	case ValueKindBoolean:
 	case ValueKindComponent:
-		if len(schema.Components) == 0 {
-			t.Errorf("%s accepts a component but names none", path)
-		}
-		for _, name := range schema.Components {
-			if !componentNames[name] {
-				t.Errorf("%s accepts unregistered component %s", path, name)
-			}
-		}
+		assertComponentSchemaIsComplete(t, componentNames, path, schema)
 	case ValueKindList:
-		if schema.Element == nil {
-			t.Fatalf("%s is a list with no element schema", path)
-		}
-		if schema.MinItems < 0 ||
-			schema.MaxItems < 1 ||
-			schema.MaxItems > MaxArrayEntries ||
-			schema.MinItems > schema.MaxItems {
-			t.Errorf(
-				"%s has invalid list bounds %d..%d",
-				path,
-				schema.MinItems,
-				schema.MaxItems,
-			)
-		}
-		assertSchemaIsComplete(t, componentNames, path+"[]", *schema.Element)
+		assertListSchemaIsComplete(t, componentNames, path, schema)
 	case ValueKindObject:
-		if len(schema.Fields) == 0 {
-			t.Errorf("%s is an object with no fields", path)
-		}
-		seen := map[string]bool{}
-		for _, field := range schema.Fields {
-			if seen[field.Name] {
-				t.Errorf("%s declares object field %s more than once", path, field.Name)
-			}
-			seen[field.Name] = true
-			if field.Description == "" {
-				t.Errorf("%s.%s has no description", path, field.Name)
-			}
-			assertSchemaIsComplete(t, componentNames, path+"."+field.Name, field.Schema)
-		}
+		assertObjectSchemaIsComplete(t, componentNames, path, schema)
 	default:
 		t.Errorf("%s has unknown value kind %q", path, schema.Kind)
+	}
+}
+
+func assertStringSchemaIsComplete(t *testing.T, path string, schema ValueSchema) {
+	t.Helper()
+	if schema.Role == "" || schema.MaxBytes == 0 {
+		t.Errorf("%s is a string with no role or size limit", path)
+	}
+}
+
+func assertEnumSchemaIsComplete(t *testing.T, path string, schema ValueSchema) {
+	t.Helper()
+	if len(schema.EnumValues) == 0 {
+		t.Errorf("%s is an enum with no values", path)
+	}
+	seen := map[string]bool{}
+	for _, value := range schema.EnumValues {
+		if seen[value] {
+			t.Errorf("%s declares enum value %q more than once", path, value)
+		}
+		seen[value] = true
+	}
+}
+
+func assertComponentSchemaIsComplete(
+	t *testing.T,
+	componentNames map[ComponentName]bool,
+	path string,
+	schema ValueSchema,
+) {
+	t.Helper()
+	if len(schema.Components) == 0 {
+		t.Errorf("%s accepts a component but names none", path)
+	}
+	for _, name := range schema.Components {
+		if !componentNames[name] {
+			t.Errorf("%s accepts unregistered component %s", path, name)
+		}
+	}
+}
+
+func assertListSchemaIsComplete(
+	t *testing.T,
+	componentNames map[ComponentName]bool,
+	path string,
+	schema ValueSchema,
+) {
+	t.Helper()
+	if schema.Element == nil {
+		t.Fatalf("%s is a list with no element schema", path)
+	}
+	if schema.MinItems < 0 ||
+		schema.MaxItems < 1 ||
+		schema.MaxItems > MaxArrayEntries ||
+		schema.MinItems > schema.MaxItems {
+		t.Errorf(
+			"%s has invalid list bounds %d..%d",
+			path,
+			schema.MinItems,
+			schema.MaxItems,
+		)
+	}
+	assertSchemaIsComplete(t, componentNames, path+"[]", *schema.Element)
+}
+
+func assertObjectSchemaIsComplete(
+	t *testing.T,
+	componentNames map[ComponentName]bool,
+	path string,
+	schema ValueSchema,
+) {
+	t.Helper()
+	if len(schema.Fields) == 0 {
+		t.Errorf("%s is an object with no fields", path)
+	}
+	seen := map[string]bool{}
+	for _, field := range schema.Fields {
+		if seen[field.Name] {
+			t.Errorf("%s declares object field %s more than once", path, field.Name)
+		}
+		seen[field.Name] = true
+		if field.Description == "" {
+			t.Errorf("%s.%s has no description", path, field.Name)
+		}
+		assertSchemaIsComplete(t, componentNames, path+"."+field.Name, field.Schema)
 	}
 }
 

@@ -2,9 +2,49 @@
 /* global console */
 
 import { readFile } from "node:fs/promises";
-import { basename, delimiter, join } from "node:path";
+import { delimiter, join } from "node:path";
 import process from "node:process";
 
+import {
+  activateArtifactBrowserControl,
+  answerDirectorApprovalInRail,
+  assertArtifactBrowserBoundaries,
+  assertArtifactBrowserContainsFocus,
+  assertArtifactBrowserModalIsolation,
+  assertArtifactBrowserTheme,
+  assertArtifactExpandControlRegainedFocus,
+  assertArtifactPreviewIgnoresSingleClick,
+  assertArtifactTableOwnsHorizontalArrow,
+  assertDeepEqual,
+  assertDirectorArtifactPreviewTheme,
+  assertDirectorEventSequence,
+  assertDirectorGraphCanvasPreserved,
+  assertEqual,
+  assertEventKinds,
+  assertExcludes,
+  assertGraphUpdates,
+  assertHistoryContainsOnlyUserAndTerminalTurns,
+  assertProjectedDirectorCreation,
+  closeDirectorArtifactBrowser,
+  comparableDirectorSnapshot,
+  conversationID,
+  directorAppearanceMode,
+  directorArtifactMarker,
+  hasProjectedDirectorCreation,
+  navigateArtifactBrowserWithArrow,
+  openDirectorArtifactBrowser,
+  openDirectorArtifactBrowserByDoubleClick,
+  readDirectorHistory,
+  rememberDirectorGraphCanvas,
+  requiredString,
+  setDirectorAppearanceMode,
+  verifyCompactRailFocusRestoration,
+  verifyRailsFlankTheCanvas,
+  verifyWorkspaceSettings,
+  waitForConversationSnapshot,
+  waitForDirectorArtifactPreview,
+  waitForOpenDirectorArtifact,
+} from "./director-command-center-workflow-helpers.mjs";
 import {
   backendProbe,
   openFixtureWorkspace,
@@ -64,14 +104,8 @@ try {
   assertEqual(initial.workstreams.length, 0, "initial Director workstream count");
 
   await submitDirectorInComposer(context.client, "Director create workspace workstream.");
-  const created = await waitForDirectorSnapshot(
-    context.client,
-    (snapshot) =>
-      snapshot.workstreams.length === 1 &&
-      snapshot.workstreams[0]?.workstream.resourceScope.kind === "folder" &&
-      snapshot.workstreams[0]?.workstream.resourceScope.folder?.workspaceId === workspaceId &&
-      snapshot.workstreams[0]?.workstream.status === "idle" &&
-      snapshot.selectedWorkstreamId === snapshot.workstreams[0]?.workstream.id,
+  const created = await waitForDirectorSnapshot(context.client, (snapshot) =>
+    isCreatedWorkspaceWorkstream(snapshot, workspaceId),
   );
   const rootWorkstreamId = requiredString(
     created.workstreams[0]?.workstream.id,
@@ -81,7 +115,11 @@ try {
     hasProjectedDirectorCreation(snapshot, rootWorkstreamId),
   );
   assertProjectedDirectorCreation(projectedCreation, rootWorkstreamId);
-  const workspaceSettings = await verifyWorkspaceSettings(context.client, workspaceId);
+  const workspaceSettings = await verifyWorkspaceSettings(
+    context.client,
+    workspaceId,
+    fixture.workspaceRoot,
+  );
   await verifyComposerQueuesWhileDirectorAnswers(context.client, fakeCodex.statePath);
 
   const normal = await submitDirector(context.client, "Director normal conversation.");
@@ -882,6 +920,19 @@ function submitDirector(client, text) {
   });
 }
 
+function isCreatedWorkspaceWorkstream(snapshot, workspaceId) {
+  if (snapshot.workstreams.length !== 1) return false;
+  const workstream = snapshot.workstreams[0]?.workstream;
+  if (workstream?.resourceScope.kind !== "folder") return false;
+  const folder = workstream.resourceScope.folder;
+  if (folder == null) return false;
+  return (
+    folder.workspaceId === workspaceId &&
+    workstream.status === "idle" &&
+    snapshot.selectedWorkstreamId === workstream.id
+  );
+}
+
 async function assertDirectorFocusIsConsistent(client) {
   const focus = await waitForState(
     client,
@@ -925,6 +976,44 @@ async function readProviderLifecycle(statePath) {
   const retiredLifecycleCalls = state.methodLog.filter((entry) =>
     ["thread/fork", "thread/resume"].includes(entry.method),
   );
+  assertProviderCarrierStarts(starts, retiredLifecycleCalls);
+
+  const directorLifecycle = readDirectorProviderLifecycle(starts, injections, turns);
+  const conversationLifecycle = providerCarrierLifecycle(starts, injections, turns, "conversation");
+  if (conversationLifecycle.starts.length === 0) {
+    throw new Error("Director workflow did not start a workstream conversation carrier");
+  }
+  assertCarrierReplayLifecycle(
+    conversationLifecycle.starts,
+    conversationLifecycle.injections,
+    conversationLifecycle.turns,
+    "workstream conversation",
+  );
+
+  const sideLifecycle = providerCarrierLifecycle(starts, injections, turns, "side");
+  assertCarrierReplayLifecycle(
+    sideLifecycle.starts,
+    sideLifecycle.injections,
+    sideLifecycle.turns,
+    "side conversation",
+  );
+  assertProviderReplayCarriers(injections);
+  return {
+    carrierCounts: Object.fromEntries(
+      ["conversation", "director", "side", "structured"].map((kind) => [
+        kind,
+        starts.filter((entry) => entry.carrierKind === kind).length,
+      ]),
+    ),
+    conversationThreadIds: [...conversationLifecycle.threadIds],
+    generations: directorLifecycle.starts.map((entry) => entry.generation),
+    replayRoles: directorLifecycle.replayRoles,
+    directorThreadIds: directorLifecycle.starts.map((entry) => entry.threadId),
+    directorTurnCount: directorLifecycle.turns.length,
+  };
+}
+
+function assertProviderCarrierStarts(starts, retiredLifecycleCalls) {
   if (starts.length === 0 || starts.some((entry) => entry.ephemeral !== true)) {
     throw new Error(`Setta provider carrier starts drifted: ${JSON.stringify(starts)}`);
   }
@@ -933,13 +1022,27 @@ async function readProviderLifecycle(statePath) {
       `Setta used retired provider lifecycle calls: ${JSON.stringify(retiredLifecycleCalls)}`,
     );
   }
+}
 
+function readDirectorProviderLifecycle(starts, injections, turns) {
   const directorStarts = starts.filter((entry) => entry.carrierKind === "director");
   const directorThreadIds = new Set(directorStarts.map((entry) => entry.threadId));
   const directorInjections = injections.filter(
     (entry) => entry.carrierKind === "director" && directorThreadIds.has(entry.threadId),
   );
   const directorTurns = turns.filter((entry) => entry.carrierKind === "director");
+  assertDirectorCarrierStarts(directorStarts, directorInjections);
+  assertDirectorTurnsStayOnCarrier(directorStarts, directorTurns);
+  const replayRoles = requiredDirectorReplayRoles(directorInjections);
+  return {
+    injections: directorInjections,
+    replayRoles,
+    starts: directorStarts,
+    turns: directorTurns,
+  };
+}
+
+function assertDirectorCarrierStarts(directorStarts, directorInjections) {
   if (
     directorStarts.length !== 2 ||
     new Set(directorStarts.map((entry) => entry.generation)).size !== 2
@@ -951,6 +1054,9 @@ async function readProviderLifecycle(statePath) {
       `Director provider replay lifecycle drifted: ${JSON.stringify(directorInjections)}`,
     );
   }
+}
+
+function assertDirectorTurnsStayOnCarrier(directorStarts, directorTurns) {
   if (
     directorTurns.length < 2 ||
     directorTurns.some((entry) => {
@@ -962,6 +1068,9 @@ async function readProviderLifecycle(statePath) {
       `Director turns did not stay on one provider thread per run: ${JSON.stringify(directorTurns)}`,
     );
   }
+}
+
+function requiredDirectorReplayRoles(directorInjections) {
   const replayRoles = directorInjections[1]?.injectedRoles;
   if (
     !Array.isArray(replayRoles) ||
@@ -972,31 +1081,23 @@ async function readProviderLifecycle(statePath) {
       `Director restart omitted durable conversation roles: ${JSON.stringify(replayRoles)}`,
     );
   }
+  return replayRoles;
+}
 
-  const conversationStarts = starts.filter((entry) => entry.carrierKind === "conversation");
-  const conversationThreadIds = new Set(conversationStarts.map((entry) => entry.threadId));
-  const conversationInjections = injections.filter(
-    (entry) => entry.carrierKind === "conversation" && conversationThreadIds.has(entry.threadId),
-  );
-  const conversationTurns = turns.filter((entry) => entry.carrierKind === "conversation");
-  if (conversationStarts.length === 0) {
-    throw new Error("Director workflow did not start a workstream conversation carrier");
-  }
-  assertCarrierReplayLifecycle(
-    conversationStarts,
-    conversationInjections,
-    conversationTurns,
-    "workstream conversation",
-  );
+function providerCarrierLifecycle(starts, injections, turns, carrierKind) {
+  const carrierStarts = starts.filter((entry) => entry.carrierKind === carrierKind);
+  const threadIds = new Set(carrierStarts.map((entry) => entry.threadId));
+  return {
+    injections: injections.filter(
+      (entry) => entry.carrierKind === carrierKind && threadIds.has(entry.threadId),
+    ),
+    starts: carrierStarts,
+    threadIds,
+    turns: turns.filter((entry) => entry.carrierKind === carrierKind),
+  };
+}
 
-  const sideStarts = starts.filter((entry) => entry.carrierKind === "side");
-  const sideThreadIds = new Set(sideStarts.map((entry) => entry.threadId));
-  const sideInjections = injections.filter(
-    (entry) => entry.carrierKind === "side" && sideThreadIds.has(entry.threadId),
-  );
-  const sideTurns = turns.filter((entry) => entry.carrierKind === "side");
-  assertCarrierReplayLifecycle(sideStarts, sideInjections, sideTurns, "side conversation");
-
+function assertProviderReplayCarriers(injections) {
   const invalidInjection = injections.find(
     (entry) => !["conversation", "director", "side"].includes(entry.carrierKind),
   );
@@ -1005,19 +1106,6 @@ async function readProviderLifecycle(statePath) {
       `provider replay targeted an invalid carrier: ${JSON.stringify(invalidInjection)}`,
     );
   }
-  return {
-    carrierCounts: Object.fromEntries(
-      ["conversation", "director", "side", "structured"].map((kind) => [
-        kind,
-        starts.filter((entry) => entry.carrierKind === kind).length,
-      ]),
-    ),
-    conversationThreadIds: [...conversationThreadIds],
-    generations: directorStarts.map((entry) => entry.generation),
-    replayRoles,
-    directorThreadIds: directorStarts.map((entry) => entry.threadId),
-    directorTurnCount: directorTurns.length,
-  };
 }
 
 function assertCarrierReplayLifecycle(starts, injections, turns, label) {
@@ -1027,1029 +1115,29 @@ function assertCarrierReplayLifecycle(starts, injections, turns, label) {
     );
   }
   for (const start of starts) {
-    const injected = injections.filter((entry) => entry.threadId === start.threadId);
-    if (
-      injected.length !== 1 ||
-      injected[0].injectedItemCount < 2 ||
-      injected[0].injectedRoles?.[0] !== "developer"
-    ) {
-      throw new Error(
-        `${label} carrier omitted Setta replay: ${JSON.stringify({ injected, start })}`,
-      );
-    }
+    assertCarrierReplayInjection(start, injections, label);
   }
   for (const turn of turns) {
-    const start = starts.find((entry) => entry.threadId === turn.threadId);
-    if (!start || start.generation !== turn.generation) {
-      throw new Error(`${label} turn escaped its process-local carrier: ${JSON.stringify(turn)}`);
-    }
+    assertCarrierReplayTurn(turn, starts, label);
   }
 }
 
-async function verifyWorkspaceSettings(client, workspaceId) {
-  const opened = await client.evaluate(`(() => {
-    const button = document.querySelector('button[aria-label="Open settings"]');
-    if (!(button instanceof HTMLButtonElement)) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!opened) {
-    throw new Error("Director command center omitted its Settings action");
-  }
-  await waitForSelector(client, '[data-testid="settings-shell-page"]');
-  await client.evaluate(`document.querySelector("#settings-subtab-roles")?.click()`);
-  await waitForSelector(client, '[data-testid="role-configuration-scope-settings"]');
-  const result = await waitForState(
-    client,
-    `(() => {
-      const select = document.querySelector('select[aria-label="AI role configuration scope"]');
-      if (!(select instanceof HTMLSelectElement)) {
-        return { ready: false };
-      }
-      const workspaceOption = Array.from(select.options).find(
-        (option) => option.value === "workspace"
-      );
-      return {
-        ready: Boolean(workspaceOption),
-        workspaceLabel: workspaceOption?.textContent ?? "",
-        workspaceValue: workspaceOption?.value ?? ""
-      };
-    })()`,
-    (state) => state.ready,
-    workflowTimeoutMs,
-  );
-  assertEqual(result.workspaceValue, "workspace", "workspace role scope option");
-  if (!result.workspaceLabel.includes(basename(fixture.workspaceRoot))) {
-    throw new Error(`workspace role scope omitted the active workspace: ${JSON.stringify(result)}`);
-  }
-  const closed = await client.evaluate(`(() => {
-    const button = document.querySelector(".setta-settings-page-back");
-    if (!(button instanceof HTMLButtonElement)) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!closed) {
-    throw new Error("Settings page omitted Back to command center");
-  }
-  await waitForSelector(client, '[data-testid="director-command-center-shell"]');
-  return { ...result, workspaceId };
-}
-
-async function readDirectorHistory(client) {
-  const opened = await client.evaluate(`(() => {
-    const button = document.querySelector(".director-history-open");
-    if (!(button instanceof HTMLButtonElement)) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!opened) {
-    throw new Error("Director history action was unavailable");
-  }
-  await waitForSelector(client, ".director-history-dialog");
-  const modal = await client.evaluate(`(() => {
-    const background = document.querySelector(".director-command-center-content");
-    const close = document.querySelector(
-      '.director-history-dialog button[aria-label="Close history"]'
-    );
-    const dialog = document.querySelector('[role="dialog"].director-history-overlay');
-    if (
-      !(background instanceof HTMLElement) ||
-      !(close instanceof HTMLButtonElement) ||
-      !(dialog instanceof HTMLElement)
-    ) {
-      return { ready: false };
-    }
-    const focusedInitially = document.activeElement === close;
-    close.dispatchEvent(new KeyboardEvent("keydown", {
-      bubbles: true,
-      cancelable: true,
-      key: "Tab"
-    }));
-    const focusedAfterTab = document.activeElement === close;
-    close.dispatchEvent(new KeyboardEvent("keydown", {
-      bubbles: true,
-      cancelable: true,
-      key: "Tab",
-      shiftKey: true
-    }));
-    return {
-      backgroundHidden: background.getAttribute("aria-hidden") === "true",
-      backgroundInert: background.inert,
-      focusedAfterShiftTab: document.activeElement === close,
-      focusedAfterTab,
-      focusedInitially,
-      ready: true
-    };
-  })()`);
-  assertDeepEqual(
-    modal,
-    {
-      backgroundHidden: true,
-      backgroundInert: true,
-      focusedAfterShiftTab: true,
-      focusedAfterTab: true,
-      focusedInitially: true,
-      ready: true,
-    },
-    "Director history focus isolation",
-  );
-  const history = await client.evaluate(`(() =>
-    Array.from(document.querySelectorAll(".director-history-dialog-list li")).map((item) => ({
-      kind: item.getAttribute("data-node-kind") ?? "",
-      text: item.textContent?.trim() ?? ""
-    }))
-  )()`);
-  await client.evaluate(
-    `document.querySelector('.director-history-dialog button[aria-label="Close history"]')?.click()`,
-  );
-  await waitForState(
-    client,
-    `(() => {
-      const background = document.querySelector(".director-command-center-content");
-      const trigger = document.querySelector(".director-history-open");
-      return {
-        backgroundInert: background instanceof HTMLElement && background.inert,
-        focusedTrigger: document.activeElement === trigger,
-        overlayOpen: Boolean(document.querySelector(".director-history-overlay"))
-      };
-    })()`,
-    (state) => !state.backgroundInert && state.focusedTrigger && !state.overlayOpen,
-    workflowTimeoutMs,
-  );
-  return history;
-}
-
-/*
- * Above the phone breakpoint both rails sit beside the canvas and the canvas is
- * still the whole window. A narrow desktop window used to stack the rails into
- * full-width bars that covered the graph, which is the pane workspace the
- * command center replaced.
- */
-async function verifyRailsFlankTheCanvas(client) {
-  await client.call("Emulation.setDeviceMetricsOverride", {
-    deviceScaleFactor: 1,
-    height: 720,
-    mobile: false,
-    width: 900,
-  });
-  try {
-    const layout = await waitForState(
-      client,
-      `(() => {
-        const box = (selector) => {
-          const node = document.querySelector(selector);
-          if (!(node instanceof HTMLElement)) {
-            return null;
-          }
-          const rect = node.getBoundingClientRect();
-          return {
-            bottom: rect.bottom,
-            left: rect.left,
-            right: rect.right,
-            top: rect.top,
-            width: rect.width
-          };
-        };
-        return {
-          artifacts: box("#director-artifacts-rail"),
-          canvas: box(".director-graph-canvas"),
-          compact: matchMedia("(max-width: 760px)").matches,
-          composer: box(".director-composer"),
-          now: box("#director-now-rail"),
-          viewportWidth: window.innerWidth
-        };
-      })()`,
-      (state) =>
-        state.compact === false &&
-        state.artifacts !== null &&
-        state.canvas !== null &&
-        state.composer !== null &&
-        state.now !== null,
-      workflowTimeoutMs,
-    );
-    const described = JSON.stringify(layout);
-    if (layout.now.right > layout.artifacts.left) {
-      throw new Error(`Director rails stacked instead of flanking the canvas: ${described}`);
-    }
-    if (layout.now.width < 200 || layout.artifacts.width < 200) {
-      throw new Error(`Director rails collapsed beside the canvas: ${described}`);
-    }
-    if (layout.canvas.width < layout.viewportWidth - 1) {
-      throw new Error(`Director canvas was cut down to fit the rails: ${described}`);
-    }
-    if (layout.composer.top < layout.now.bottom - 1) {
-      throw new Error(`Director composer overlapped the Now rail: ${described}`);
-    }
-  } finally {
-    await client.call("Emulation.clearDeviceMetricsOverride");
-  }
-}
-
-async function verifyCompactRailFocusRestoration(client) {
-  await client.call("Emulation.setDeviceMetricsOverride", {
-    deviceScaleFactor: 1,
-    height: 844,
-    mobile: true,
-    width: 390,
-  });
-  try {
-    await waitForState(
-      client,
-      `(() => ({
-        compact: matchMedia("(max-width: 760px)").matches,
-        triggerReady: Boolean(
-          document.querySelector('button[aria-controls="director-now-rail"][aria-expanded="false"]')
-        )
-      }))()`,
-      (state) => state.compact && state.triggerReady,
-      workflowTimeoutMs,
-    );
-    const opened = await client.evaluate(`(() => {
-      const trigger = document.querySelector(
-        'button[aria-controls="director-now-rail"][aria-expanded="false"]'
-      );
-      if (!(trigger instanceof HTMLButtonElement)) {
-        return false;
-      }
-      trigger.click();
-      return true;
-    })()`);
-    if (!opened) {
-      throw new Error("compact Now rail did not expose its disclosure button");
-    }
-    await waitForState(
-      client,
-      `(() => {
-        const rail = document.querySelector("#director-now-rail");
-        const trigger = document.querySelector('button[aria-controls="director-now-rail"]');
-        return {
-          expanded: trigger?.getAttribute("aria-expanded") === "true",
-          visible: rail instanceof HTMLElement && getComputedStyle(rail).display !== "none"
-        };
-      })()`,
-      (state) => state.expanded && state.visible,
-      workflowTimeoutMs,
-    );
-    const escaped = await client.evaluate(`(() => {
-      const railAction = document.querySelector("#director-now-rail .director-history-open");
-      if (!(railAction instanceof HTMLButtonElement)) {
-        return false;
-      }
-      railAction.focus();
-      railAction.dispatchEvent(new KeyboardEvent("keydown", {
-        bubbles: true,
-        cancelable: true,
-        key: "Escape"
-      }));
-      return true;
-    })()`);
-    if (!escaped) {
-      throw new Error("compact Now rail did not contain a focusable history action");
-    }
-    await waitForState(
-      client,
-      `(() => {
-        const rail = document.querySelector("#director-now-rail");
-        const trigger = document.querySelector('button[aria-controls="director-now-rail"]');
-        return {
-          collapsed: trigger?.getAttribute("aria-expanded") === "false",
-          focusedTrigger: document.activeElement === trigger,
-          hidden: rail instanceof HTMLElement && getComputedStyle(rail).display === "none"
-        };
-      })()`,
-      (state) => state.collapsed && state.focusedTrigger && state.hidden,
-      workflowTimeoutMs,
-    );
-    await verifyMinimumCompactWidth(client);
-  } finally {
-    await client.call("Emulation.clearDeviceMetricsOverride");
-  }
-}
-
-async function verifyMinimumCompactWidth(client) {
-  await client.call("Emulation.setDeviceMetricsOverride", {
-    deviceScaleFactor: 1,
-    height: 720,
-    mobile: true,
-    width: 320,
-  });
-  const layout = await waitForState(
-    client,
-    `(() => {
-      const rect = (selector) => {
-        const node = document.querySelector(selector);
-        if (!(node instanceof HTMLElement)) {
-          return null;
-        }
-        const box = node.getBoundingClientRect();
-        return { left: box.left, right: box.right, width: box.width };
-      };
-      const title = document.querySelector(".director-focus-title");
-      return {
-        composer: rect(".director-composer"),
-        controls: rect(".director-command-center-view-controls"),
-        headingCount: document.querySelectorAll("h1").length,
-        metaHidden:
-          getComputedStyle(document.querySelector(".director-focus-meta")).display === "none",
-        navigation: rect(".director-workstream-nav"),
-        titleClipped:
-          title instanceof HTMLElement ? title.scrollWidth > title.clientWidth + 1 : true,
-        viewportWidth: window.innerWidth
-      };
-    })()`,
-    (state) =>
-      state.composer !== null &&
-      state.controls !== null &&
-      state.headingCount === 1 &&
-      state.metaHidden &&
-      state.navigation !== null &&
-      !state.titleClipped &&
-      state.viewportWidth === 320,
-    workflowTimeoutMs,
-  );
-  const described = JSON.stringify(layout);
-  if (layout.navigation.right > layout.controls.left + 1) {
-    throw new Error(`Director compact navigation overlapped view controls: ${described}`);
-  }
-  if (layout.composer.left < 0 || layout.composer.right > layout.viewportWidth) {
-    throw new Error(`Director compact composer escaped the viewport: ${described}`);
-  }
-}
-
-function assertHistoryContainsOnlyUserAndTerminalTurns(history) {
-  if (history.length === 0) {
-    throw new Error("Director history omitted completed work");
-  }
-  const allowed = new Set(["user_goal", "completed", "failed", "cancelled"]);
-  const unexpected = history.filter((item) => !allowed.has(item.kind));
-  if (unexpected.length > 0) {
-    throw new Error(`Director history exposed intermediate activity: ${JSON.stringify(history)}`);
-  }
-  if (!history.some((item) => item.kind === "completed" && item.text !== "Run completed")) {
-    throw new Error(`Director history omitted a final response: ${JSON.stringify(history)}`);
-  }
-}
-
-async function answerDirectorApprovalInRail(client, approvalId, questionId, answer) {
-  const approvalSelector = `[data-approval-id="${approvalId}"]`;
-  await waitForSelector(client, approvalSelector);
-  const fieldSelector = `${approvalSelector} [name="${questionId}"]`;
-  const updated = await client.evaluate(`(() => {
-    const field = document.querySelector(${JSON.stringify(fieldSelector)});
-    if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement)) {
-      return { ok: false, reason: "missing-question" };
-    }
-    const valueDescriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(field), "value");
-    valueDescriptor?.set?.call(field, ${JSON.stringify(answer)});
-    field.dispatchEvent(new Event("input", { bubbles: true }));
-    field.dispatchEvent(new Event("change", { bubbles: true }));
-    return { ok: true };
-  })()`);
-  if (!updated.ok) {
-    throw new Error(`Director approval rail did not update: ${JSON.stringify(updated)}`);
-  }
-  const answered = await client.evaluate(`(() => {
-    const approval = document.querySelector(${JSON.stringify(approvalSelector)});
-    if (!(approval instanceof HTMLElement)) {
-      return { ok: false, reason: "missing-approval" };
-    }
-    const answerButton = Array.from(approval.querySelectorAll("button")).find(
-      (button) => button.textContent?.trim() === "Answer" && !button.disabled
-    );
-    if (!(answerButton instanceof HTMLButtonElement)) {
-      return { ok: false, reason: "missing-answer-button" };
-    }
-    answerButton.click();
-    return { ok: true };
-  })()`);
-  if (!answered.ok) {
-    throw new Error(`Director approval rail did not submit: ${JSON.stringify(answered)}`);
-  }
-}
-
-/**
- * Waits for an artifact's rail preview to render its projected document.
- *
- * The card is read lazily once it enters the rail viewport, so a preview that
- * never leaves `loading` means the read, the parse, or the projection never
- * reached the rail.
- */
-async function waitForDirectorArtifactPreview(client, artifactId) {
-  const selector = `.director-artifact-preview[data-artifact-id="${artifactId}"]`;
-  await waitForSelector(client, selector);
-  await client.evaluate(`document
-    .querySelector(${JSON.stringify(selector)})
-    ?.scrollIntoView({ block: "center", inline: "nearest" })`);
-  return waitForState(
-    client,
-    `(() => {
-      const card = document.querySelector(${JSON.stringify(selector)});
-      const viewport = card?.querySelector(".director-artifact-preview-viewport");
-      return {
-        expandDisabled: card?.querySelector(".director-artifact-expand")?.disabled ?? true,
-        height: card ? Math.round(card.getBoundingClientRect().height) : 0,
-        previewInert: viewport instanceof HTMLElement ? viewport.inert : null,
-        previewText: viewport?.textContent ?? "",
-        state: card?.getAttribute("data-preview-state") ?? ""
-      };
-    })()`,
-    (preview) => preview.state === "ready" && !preview.expandDisabled,
-    workflowTimeoutMs,
-  );
-}
-
-/**
- * A single click on a preview card is not an affordance.
- *
- * The card is not a control, so clicking its body must not open anything and
- * must not resize the card the way a selected-card expansion would.
- */
-async function assertArtifactPreviewIgnoresSingleClick(client, artifactId, before) {
-  const after = await client.evaluate(`(() => {
-    const card = document.querySelector(
-      ${JSON.stringify(`.director-artifact-preview[data-artifact-id="${artifactId}"]`)}
-    );
-    card?.querySelector(".director-artifact-preview-viewport")?.dispatchEvent(
-      new MouseEvent("click", { bubbles: true, cancelable: true })
-    );
-    return {
-      browserOpen: Boolean(document.querySelector(".director-artifact-browser")),
-      height: card ? Math.round(card.getBoundingClientRect().height) : 0
-    };
-  })()`);
-  if (after.browserOpen) {
-    throw new Error("Director artifact preview opened the browser on a single click");
-  }
-  assertEqual(after.height, before.height, "Director artifact preview height after single click");
-}
-
-async function assertArtifactExpandControlRegainedFocus(client, artifactId) {
-  const focused = await client.evaluate(`(() => {
-    const card = document.querySelector(
-      ${JSON.stringify(`.director-artifact-preview[data-artifact-id="${artifactId}"]`)}
-    );
-    return card?.querySelector(".director-artifact-expand") === document.activeElement;
-  })()`);
-  if (!focused) {
-    throw new Error("Director artifact browser did not restore focus to its expand control");
-  }
-}
-
-async function openDirectorArtifactBrowser(client, artifactId, documentMarker) {
-  const opened = await client.evaluate(`(async () => {
-    const card = document.querySelector(
-      ${JSON.stringify(`.director-artifact-preview[data-artifact-id="${artifactId}"]`)}
-    );
-    const expand = card?.querySelector(".director-artifact-expand");
-    if (!(expand instanceof HTMLButtonElement)) {
-      return { ok: false, reason: "missing-artifact" };
-    }
-    if (expand.disabled) {
-      return { ok: false, reason: "disabled-artifact" };
-    }
-    const background = document.querySelector(".director-command-center-content");
-    if (!(background instanceof HTMLElement)) {
-      return { ok: false, reason: "missing-background" };
-    }
-    return new Promise((resolve) => {
-      let settled = false;
-      const finish = () => {
-        if (settled || !background.inert) {
-          return;
-        }
-        settled = true;
-        observer.disconnect();
-        clearTimeout(timeout);
-        const modal = document.querySelector(
-          ".director-artifact-browser, .director-artifact-browser-fallback"
-        );
-        resolve({
-          backgroundHidden: background.getAttribute("aria-hidden") === "true",
-          backgroundInert: background.inert,
-          focusInsideModal: modal instanceof HTMLElement && modal.contains(document.activeElement),
-          modalOpen:
-            modal instanceof HTMLDialogElement ? modal.open : modal instanceof HTMLElement,
-          ok: true
-        });
-      };
-      const observer = new MutationObserver(finish);
-      observer.observe(background, {
-        attributeFilter: ["aria-hidden", "inert"],
-        attributes: true
-      });
-      const timeout = setTimeout(() => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        observer.disconnect();
-        resolve({ ok: false, reason: "modal-handoff-timeout" });
-      }, 1000);
-      expand.click();
-      queueMicrotask(finish);
-    });
-  })()`);
-  if (!opened.ok) {
-    throw new Error(`Director artifact did not open: ${JSON.stringify(opened)}`);
-  }
+function assertCarrierReplayInjection(start, injections, label) {
+  const injected = injections.filter((entry) => entry.threadId === start.threadId);
   if (
-    !opened.backgroundHidden ||
-    !opened.backgroundInert ||
-    !opened.focusInsideModal ||
-    !opened.modalOpen
-  ) {
-    throw new Error(`Director artifact modal handoff was inaccessible: ${JSON.stringify(opened)}`);
-  }
-  return waitForOpenDirectorArtifact(client, artifactId, documentMarker);
-}
-
-async function openDirectorArtifactBrowserByDoubleClick(client, artifactId, documentMarker) {
-  const opened = await client.evaluate(`(() => {
-    const card = document.querySelector(
-      ${JSON.stringify(`.director-artifact-preview[data-artifact-id="${artifactId}"]`)}
-    );
-    if (!(card instanceof HTMLElement)) {
-      return false;
-    }
-    card.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
-    return true;
-  })()`);
-  if (!opened) {
-    throw new Error("Director artifact double-click target was unavailable");
-  }
-  return waitForOpenDirectorArtifact(client, artifactId, documentMarker);
-}
-
-function waitForOpenDirectorArtifact(client, artifactId, documentMarker) {
-  return waitForState(
-    client,
-    `(() => {
-      const browser = document.querySelector(
-        ${JSON.stringify(`.director-artifact-browser[data-artifact-id="${artifactId}"]`)}
-      );
-      const artifactDocument = browser?.querySelector(".director-artifact-browser-document");
-      const previous = browser?.querySelector('button[aria-label="Previous artifact"]');
-      const next = browser?.querySelector('button[aria-label="Next artifact"]');
-      const popupStyle = browser instanceof HTMLElement ? getComputedStyle(browser) : null;
-      const background = document.querySelector(".director-command-center-content");
-      return {
-        activeDocumentId: artifactDocument?.getAttribute("data-artifact-document") ?? "",
-        backgroundHidden:
-          background instanceof HTMLElement &&
-          background.getAttribute("aria-hidden") === "true",
-        backgroundInert: background instanceof HTMLElement && background.inert,
-        backgroundColor: popupStyle?.backgroundColor ?? "",
-        color: popupStyle?.color ?? "",
-        colorMode: document.documentElement.dataset.colorMode ?? "",
-        documentCount: browser?.querySelectorAll(".director-artifact-browser-document").length ?? 0,
-        documentText: artifactDocument?.textContent ?? "",
-        liveText: browser?.querySelector(".sr-only[role='status']")?.textContent ?? "",
-        nextDisabled: next instanceof HTMLButtonElement ? next.disabled : null,
-        position: browser?.querySelector(".director-artifact-browser-position")?.textContent ?? "",
-        previousDisabled: previous instanceof HTMLButtonElement ? previous.disabled : null,
-        status: browser?.getAttribute("data-artifact-load-state") ?? "",
-        tableCount: artifactDocument?.querySelectorAll("[data-slot='table-container']").length ?? 0,
-        text: browser?.textContent ?? ""
-      };
-    })()`,
-    (detail) =>
-      detail.activeDocumentId === artifactId &&
-      detail.documentCount === 1 &&
-      detail.status === "ready" &&
-      detail.documentText.includes(documentMarker) &&
-      detail.position !== "" &&
-      detail.liveText.includes(detail.position),
-    workflowTimeoutMs,
-  );
-}
-
-async function activateArtifactBrowserControl(client, label, artifactId, documentMarker) {
-  const activated = await client.evaluate(`(() => {
-    const button = document.querySelector(
-      ${JSON.stringify(`.director-artifact-browser button[aria-label="${label}"]`)}
-    );
-    if (!(button instanceof HTMLButtonElement)) {
-      return { ok: false, reason: "missing-control" };
-    }
-    if (button.disabled) {
-      return { ok: false, reason: "disabled-control" };
-    }
-    button.click();
-    return { ok: true };
-  })()`);
-  if (!activated.ok) {
-    throw new Error(`Director artifact control did not activate: ${JSON.stringify(activated)}`);
-  }
-  return waitForOpenDirectorArtifact(client, artifactId, documentMarker);
-}
-
-async function navigateArtifactBrowserWithArrow(client, key, artifactId, documentMarker) {
-  const dispatched = await client.evaluate(`(() => {
-    const browser = document.querySelector(".director-artifact-browser");
-    if (!(browser instanceof HTMLElement)) {
-      return false;
-    }
-    browser.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        bubbles: true,
-        cancelable: true,
-        key: ${JSON.stringify(key)}
-      })
-    );
-    return true;
-  })()`);
-  if (!dispatched) {
-    throw new Error("Director artifact browser keyboard target was unavailable");
-  }
-  return waitForOpenDirectorArtifact(client, artifactId, documentMarker);
-}
-
-async function assertArtifactTableOwnsHorizontalArrow(client, artifactId) {
-  const activeArtifactId = await client.evaluate(`(async () => {
-    const table = document.querySelector(
-      ".director-artifact-browser [data-slot='table-container']"
-    );
-    if (!(table instanceof HTMLElement)) {
-      return "";
-    }
-    table.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        bubbles: true,
-        cancelable: true,
-        key: "ArrowRight"
-      })
-    );
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    return document.querySelector(".director-artifact-browser")?.getAttribute("data-artifact-id")
-      ?? "";
-  })()`);
-  assertEqual(activeArtifactId, artifactId, "Director artifact table horizontal arrow ownership");
-}
-
-function assertArtifactBrowserBoundaries(detail, expected) {
-  assertEqual(detail.previousDisabled, expected.previousDisabled, "previous artifact boundary");
-  assertEqual(detail.nextDisabled, expected.nextDisabled, "next artifact boundary");
-}
-
-function assertArtifactBrowserTheme(detail) {
-  if (
-    detail.backgroundColor === "" ||
-    detail.backgroundColor === "rgba(0, 0, 0, 0)" ||
-    detail.color === "" ||
-    detail.color === detail.backgroundColor
-  ) {
-    throw new Error(`Director artifact browser theme was unreadable: ${JSON.stringify(detail)}`);
-  }
-}
-
-function assertArtifactBrowserModalIsolation(detail) {
-  if (!detail.backgroundHidden || !detail.backgroundInert) {
-    throw new Error(
-      `Director artifact browser did not isolate its background: ${JSON.stringify(detail)}`,
-    );
-  }
-}
-
-async function assertArtifactBrowserContainsFocus(client) {
-  await client.evaluate(`document.querySelector("#director-composer-input")?.focus()`);
-  const contained = await waitForState(
-    client,
-    `document.activeElement?.closest(".director-artifact-browser") !== null`,
-    (inside) => inside === true,
-    workflowTimeoutMs,
-  );
-  if (!contained) {
-    throw new Error("Director artifact browser did not contain focus");
-  }
-}
-
-async function rememberDirectorGraphCanvas(client) {
-  const remembered = await client.evaluate(`(() => {
-    const canvas = document.querySelector(".director-graph-canvas");
-    if (!(canvas instanceof HTMLCanvasElement)) {
-      return false;
-    }
-    globalThis.__settaArtifactBrowserGraphCanvas = canvas;
-    return true;
-  })()`);
-  if (!remembered) {
-    throw new Error("Director graph canvas was unavailable before opening an artifact");
-  }
-}
-
-async function assertDirectorGraphCanvasPreserved(client) {
-  const preserved = await client.evaluate(
-    `globalThis.__settaArtifactBrowserGraphCanvas === document.querySelector(".director-graph-canvas")`,
-  );
-  if (!preserved) {
-    throw new Error("Director artifact browser remounted the graph canvas");
-  }
-}
-
-function directorAppearanceMode(client) {
-  return client.evaluate(`document.documentElement.dataset.colorMode ?? "dark"`);
-}
-
-async function setDirectorAppearanceMode(client, mode) {
-  const opened = await client.evaluate(`(() => {
-    const trigger = document.querySelector('button[aria-label="Open settings"]');
-    if (!(trigger instanceof HTMLButtonElement)) {
-      return false;
-    }
-    trigger.click();
-    return true;
-  })()`);
-  if (!opened) {
-    throw new Error("Director appearance check could not open settings");
-  }
-  await waitForSelector(client, '[data-testid="settings-shell-page"]');
-  await client.evaluate(`document.querySelector("#settings-subtab-theme")?.click()`);
-  await waitForSelector(client, '[data-testid="appearance-settings"]');
-  const changed = await client.evaluate(`(() => {
-    const button = document.querySelector(
-      ${JSON.stringify(`[data-testid="appearance-settings"] button[title="${mode === "light" ? "Light" : "Dark"} mode"]`)}
-    );
-    if (!(button instanceof HTMLButtonElement)) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!changed) {
-    throw new Error(`Director appearance check could not select ${mode} mode`);
-  }
-  await waitForState(
-    client,
-    `document.documentElement.dataset.colorMode ?? ""`,
-    (current) => current === mode,
-    workflowTimeoutMs,
-  );
-  const closed = await client.evaluate(`(() => {
-    const button = document.querySelector(".setta-settings-page-back");
-    if (!(button instanceof HTMLButtonElement)) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!closed) {
-    throw new Error("Director appearance check could not return to the command center");
-  }
-  await waitForSelector(client, '[data-testid="director-command-center-shell"]');
-}
-
-async function assertDirectorArtifactPreviewTheme(client, artifactId, mode) {
-  const theme = await client.evaluate(`(() => {
-    const viewport = document.querySelector(
-      ${JSON.stringify(
-        `.director-artifact-preview[data-artifact-id="${artifactId}"] .director-artifact-preview-viewport`,
-      )}
-    );
-    const style = viewport instanceof HTMLElement ? getComputedStyle(viewport) : null;
-    return {
-      backgroundColor: style?.backgroundColor ?? "",
-      color: style?.color ?? "",
-      mode: document.documentElement.dataset.colorMode ?? ""
-    };
-  })()`);
-  assertEqual(theme.mode, mode, `Director artifact preview ${mode} appearance`);
-  if (
-    theme.backgroundColor === "" ||
-    theme.backgroundColor === "rgba(0, 0, 0, 0)" ||
-    theme.color === "" ||
-    theme.color === theme.backgroundColor
-  ) {
-    throw new Error(`Director artifact preview theme was unreadable: ${JSON.stringify(theme)}`);
-  }
-}
-
-async function closeDirectorArtifactBrowser(client) {
-  const closed = await client.evaluate(`(() => {
-    const button = document.querySelector(
-      '.director-artifact-browser button[aria-label="Close artifact browser"]'
-    );
-    if (!(button instanceof HTMLButtonElement)) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!closed) {
-    throw new Error("Director artifact browser did not expose a close action");
-  }
-  await waitForState(
-    client,
-    `Boolean(document.querySelector(".director-artifact-browser"))`,
-    (open) => open === false,
-    workflowTimeoutMs,
-  );
-}
-
-function waitForConversationSnapshot(backend, workspaceId, conversationId, ready) {
-  return waitForBackendState(
-    () => backend.post("/conversations/snapshot/read", { conversationId, workspaceId }),
-    ready,
-    workflowTimeoutMs,
-  );
-}
-
-function conversationID(workstreamId) {
-  const prefix = "workstream:";
-  if (!workstreamId.startsWith(prefix) || workstreamId.length === prefix.length) {
-    throw new Error(`unexpected workstream identity ${workstreamId}`);
-  }
-  return workstreamId.slice(prefix.length);
-}
-
-function assertDirectorEventSequence(cursor, events) {
-  if (events.length === 0) {
-    throw new Error("Director renderer subscription delivered no events");
-  }
-  let expected = cursor.sequence + 1;
-  for (const event of events) {
-    if (event.kind === "director.resync_required") {
-      throw new Error(`Director renderer subscription required resync: ${JSON.stringify(event)}`);
-    }
-    if (event.streamId !== cursor.streamId || event.sequence !== expected) {
-      throw new Error(
-        `Director renderer event sequence drifted: ${JSON.stringify({
-          actual: `${event.streamId}:${event.sequence}`,
-          expected: `${cursor.streamId}:${expected}`,
-        })}`,
-      );
-    }
-    expected += 1;
-  }
-}
-
-function assertEventKinds(events, requiredKinds) {
-  const actual = new Set(events.map((event) => event.kind));
-  const missing = requiredKinds.filter((kind) => !actual.has(kind));
-  if (missing.length > 0) {
-    throw new Error(`Director renderer events omitted kinds: ${missing.join(", ")}`);
-  }
-}
-
-function assertGraphUpdates(events, requiredWorkstreamIds) {
-  const actual = new Set(
-    events
-      .filter((event) => event.kind === "director.graph.updated")
-      .map((event) => event.graphUpdated?.workstreamId),
-  );
-  const missing = requiredWorkstreamIds.filter((workstreamId) => !actual.has(workstreamId));
-  if (missing.length > 0) {
-    throw new Error(`Director pushed graph updates omitted: ${missing.join(", ")}`);
-  }
-}
-
-function hasProjectedDirectorCreation(snapshot, workstreamId) {
-  try {
-    assertProjectedDirectorCreation(snapshot, workstreamId);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function assertProjectedDirectorCreation(snapshot, workstreamId) {
-  const lane = snapshot.graphs.find((graph) => graph.workstreamId === "director");
-  const workstream = snapshot.graphs.find((graph) => graph.workstreamId === workstreamId);
-  if (!lane || !workstream) {
-    throw new Error(
-      `Director creation omitted graph scopes: ${JSON.stringify({
-        graphs: snapshot.graphs.map((graph) => graph.workstreamId),
-        workstreamId,
-      })}`,
-    );
-  }
-  const request = requiredGraphNode(
-    lane,
-    (node) =>
-      node.kind === "user_goal" && node.publicSummary === "Director create workspace workstream.",
-    "Director creation request",
-  );
-  const listed = requiredGraphNode(
-    lane,
-    (node) => node.kind === "action" && node.publicSummary.includes("workspace(s) are open"),
-    "Director list_workspaces call",
-  );
-  const created = requiredGraphNode(
-    lane,
-    (node) =>
-      node.kind === "action" && node.publicSummary === 'Started the workstream "Director root".',
-    "Director create_workstream call",
-  );
-  const decision = requiredGraphNode(
-    lane,
-    (node) =>
-      node.kind === "director_decision" &&
-      node.publicSummary === 'Started the workstream "Director root".',
-    "Director create decision",
-  );
-  const reply = requiredGraphNode(
-    lane,
-    (node) =>
-      node.kind === "milestone" && node.publicSummary === "Created and selected Director root.",
-    "Director creation reply",
-  );
-  for (const [from, to, label] of [
-    [request, listed, "request to list_workspaces"],
-    [listed, created, "list_workspaces to create_workstream"],
-    [created, decision, "create_workstream to decision"],
-    [decision, reply, "decision to reply"],
-  ]) {
-    if (
-      !lane.edges.some(
-        (edge) =>
-          edge.kind === "followed_by" && edge.fromNodeId === from.id && edge.toNodeId === to.id,
-      )
-    ) {
-      throw new Error(`Director creation graph omitted ${label}: ${JSON.stringify(lane.edges)}`);
-    }
-  }
-  const anchor = requiredGraphNode(
-    workstream,
-    (node) =>
-      node.kind === "workstream" &&
-      node.status === "active" &&
-      node.publicSummary === "Director root",
-    "created workstream anchor",
-  );
-  // The anchor's provenance is the durable conversation record, so it cites a
-  // committed event and never a Director fact.
-  if (
-    anchor.sourceEventIds.length === 0 ||
-    anchor.sourceEventIds.some((eventId) => eventId.startsWith("director-fact:"))
+    injected.length !== 1 ||
+    injected[0].injectedItemCount < 2 ||
+    injected[0].injectedRoles?.[0] !== "developer"
   ) {
     throw new Error(
-      `workstream anchor did not carry committed provenance: ${JSON.stringify(anchor)}`,
+      `${label} carrier omitted Setta replay: ${JSON.stringify({ injected, start })}`,
     );
   }
 }
 
-function requiredGraphNode(graph, matches, label) {
-  const node = graph.nodes.find(matches);
-  if (!node) {
-    throw new Error(`${label} was missing: ${JSON.stringify(graph.nodes)}`);
-  }
-  return node;
-}
-
-function comparableDirectorSnapshot(snapshot) {
-  return {
-    artifacts: snapshot.artifacts,
-    graphs: snapshot.graphs,
-    selectedWorkstreamId: snapshot.selectedWorkstreamId,
-    unresolvedApprovals: snapshot.unresolvedApprovals,
-    unresolvedResourceRequests: snapshot.unresolvedResourceRequests,
-    workstreams: snapshot.workstreams,
-  };
-}
-
-function requiredString(value, label) {
-  if (typeof value !== "string" || value === "") {
-    throw new Error(`${label} was missing: ${JSON.stringify(value)}`);
-  }
-  return value;
-}
-
-async function directorArtifactMarker(client, artifact) {
-  const artifactId = requiredString(artifact?.id, "Director artifact");
-  const source = await client.evaluate(
-    `window.setta.conversations.readArtifact(${JSON.stringify({
-      artifactId,
-      conversationId: artifact.conversationId,
-      workspaceId: artifact.workspaceId,
-    })}).then((entry) => entry.document.source)`,
-  );
-  const marker = source.match(/[A-Za-z0-9_-]+-artifact\.png/u)?.[0];
-  const mixedMarker = "The policy memo is ready for review.";
-  return requiredString(
-    marker ?? (source.includes(mixedMarker) ? mixedMarker : undefined),
-    "Director artifact document marker",
-  );
-}
-
-function assertEqual(actual, expected, label) {
-  if (actual !== expected) {
-    throw new Error(`${label} = ${JSON.stringify(actual)}, want ${JSON.stringify(expected)}`);
-  }
-}
-
-function assertDeepEqual(actual, expected, label) {
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(`${label} changed: ${JSON.stringify({ actual, expected }, null, 2)}`);
-  }
-}
-
-function assertExcludes(value, marker, label) {
-  if (value.includes(marker)) {
-    throw new Error(`${label} exposed ${JSON.stringify(marker)}`);
+function assertCarrierReplayTurn(turn, starts, label) {
+  const start = starts.find((entry) => entry.threadId === turn.threadId);
+  if (!start || start.generation !== turn.generation) {
+    throw new Error(`${label} turn escaped its process-local carrier: ${JSON.stringify(turn)}`);
   }
 }
