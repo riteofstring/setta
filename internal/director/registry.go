@@ -32,13 +32,16 @@ type Registry struct {
 	now        func() time.Time
 	newID      func(string) (string, error)
 
-	mutex               sync.Mutex
-	state               *registryState
-	streamID            string
-	sequence            int
-	retained            []DirectorEvent
-	subscribers         map[*registrySubscription]bool
-	adjacent            map[string]bool
+	mutex       sync.Mutex
+	state       *registryState
+	streamID    string
+	sequence    int
+	retained    []DirectorEvent
+	subscribers map[*registrySubscription]bool
+	// carried are the windowed workstreams that are not the selected one and
+	// still carry a graph. How much of a graph each carries is the view's
+	// decision, not theirs: see graphDetailWithoutSelection.
+	carried             map[string]bool
 	publishedApprovals  map[string]bool
 	publishedArtifacts  map[string]bool
 	publishedAggregates DirectorAggregates
@@ -102,7 +105,7 @@ func NewRegistry(facts DirectorFactStore, workspaces WorkspaceResources, options
 		newID:              randomDirectorFactID,
 		state:              newRegistryState(),
 		subscribers:        map[*registrySubscription]bool{},
-		adjacent:           map[string]bool{},
+		carried:            map[string]bool{},
 		publishedApprovals: map[string]bool{},
 		publishedArtifacts: map[string]bool{},
 		publishedLevels:    map[string]WorkstreamDetailLevel{},

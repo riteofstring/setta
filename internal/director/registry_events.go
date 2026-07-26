@@ -781,10 +781,26 @@ func (registry *Registry) detailLevelFor(workstreamID string) WorkstreamDetailLe
 	if selected != nil && *selected == workstreamID {
 		return WorkstreamDetailSelected
 	}
-	if _, adjacent := registry.adjacent[workstreamID]; adjacent {
-		return WorkstreamDetailAdjacent
+	if registry.carried[workstreamID] {
+		return graphDetailWithoutSelection(selected)
 	}
 	return WorkstreamDetailBackground
+}
+
+/*
+ * How much of a workstream a snapshot carries when it is not the selected one.
+ *
+ * The compact level answers "does this need me?" — blockers, results, the last
+ * milestone — which is the right answer for a workstream sitting beside the one
+ * you are reading. It is the wrong answer when there is no one you are reading:
+ * on the Director's own view every workstream is what you came to see, and a
+ * summary of each is a view with the work left out.
+ */
+func graphDetailWithoutSelection(selected *string) WorkstreamDetailLevel {
+	if selected == nil {
+		return WorkstreamDetailSelected
+	}
+	return WorkstreamDetailAdjacent
 }
 
 // refreshDetailLevels recomputes which workstreams are adjacent. It runs after a
@@ -793,19 +809,20 @@ func (registry *Registry) detailLevelFor(workstreamID string) WorkstreamDetailLe
 func (registry *Registry) refreshDetailLevels() {
 	window := registry.state.snapshotWindow()
 	selected := registry.state.activeSelection()
-	adjacent := make(map[string]bool, MaxSnapshotAdjacentGraphs)
-	count := 0
+	// The budget bounds how many graphs one snapshot carries. It is the same
+	// either way, because it is a size limit rather than a statement about
+	// which workstreams matter.
+	carried := make(map[string]bool, MaxSnapshotAdjacentGraphs)
 	for _, workstream := range window {
 		if selected != nil && *selected == workstream.record.ID {
 			continue
 		}
-		if count == MaxSnapshotAdjacentGraphs {
+		if len(carried) == MaxSnapshotAdjacentGraphs {
 			break
 		}
-		adjacent[workstream.record.ID] = true
-		count++
+		carried[workstream.record.ID] = true
 	}
-	registry.adjacent = adjacent
+	registry.carried = carried
 }
 
 func withoutGraphEffects(effects []registryEffect, replaced map[string]bool) []registryEffect {

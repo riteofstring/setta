@@ -58,16 +58,17 @@ func (state *registryState) snapshotWindow() []*registryWorkstream {
 	)
 }
 
-// snapshotEntries assigns detail levels. The selected workstream renders its
-// trajectory, the most recent others render enough to answer whether they need
-// the user, and the rest render aggregate status only.
+// snapshotEntries assigns detail levels, by the same rule the event stream
+// applies. Both used to decide this separately, which is how they came to
+// disagree: the stream learned that the Director's own view draws every
+// workstream whole and the snapshot went on compacting them.
 func (state *registryState) snapshotEntries(
 	window []*registryWorkstream,
 	selected *string,
 ) ([]DirectorWorkstreamEntry, map[string]WorkstreamDetailLevel, error) {
 	entries := make([]DirectorWorkstreamEntry, 0, len(window))
 	levels := make(map[string]WorkstreamDetailLevel, len(window))
-	adjacent := 0
+	carried := 0
 	selectedFound := false
 	for _, workstream := range window {
 		level := WorkstreamDetailBackground
@@ -75,9 +76,9 @@ func (state *registryState) snapshotEntries(
 		case selected != nil && *selected == workstream.record.ID:
 			level = WorkstreamDetailSelected
 			selectedFound = true
-		case adjacent < MaxSnapshotAdjacentGraphs:
-			level = WorkstreamDetailAdjacent
-			adjacent++
+		case carried < MaxSnapshotAdjacentGraphs:
+			level = graphDetailWithoutSelection(selected)
+			carried++
 		}
 		levels[workstream.record.ID] = level
 		entries = append(entries, DirectorWorkstreamEntry{
