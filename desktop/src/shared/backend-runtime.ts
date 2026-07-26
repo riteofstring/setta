@@ -154,20 +154,6 @@ export function decodeNullable<T>(
   return decodeValue(value);
 }
 
-export function decodeStringRecord(value: unknown, label: string): Record<string, string> {
-  const record = assertRecord(value, label);
-  const decoded: Record<string, string> = {};
-  for (const [key, item] of Object.entries(record)) {
-    decoded[key] = decodeString(item, `${label}.${key}`);
-  }
-  return decoded;
-}
-
-export function decodeUnknown(value: unknown, _label: string): unknown {
-  void _label;
-  return value;
-}
-
 export async function requestBackend<ResponsePayload, ErrorPayload extends BackendErrorPayload>(
   request: BackendRequest<ResponsePayload, ErrorPayload>,
 ): Promise<ResponsePayload> {

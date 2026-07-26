@@ -106,7 +106,6 @@ func resolvedConversationInvocation(
 	id string,
 	profile RoleProfile,
 	resolved agent.ResolvedInvocation,
-	threadID string,
 	providerTurnID string,
 	startedAt string,
 ) ResolvedInvocation {
@@ -121,13 +120,10 @@ func resolvedConversationInvocation(
 			ServiceTier:       cloneStringPointer(resolved.ServiceTier),
 			PermissionProfile: profile.PermissionProfile,
 		},
-		ProviderReferences: InvocationProviderReferences{
-			ThreadID: &threadID,
-			TurnID:   &providerTurnID,
-		},
-		ModelReroutes: []InvocationModelReroute{},
-		StartedAt:     startedAt,
-		Outcome:       InvocationOutcomeRunning,
+		ProviderReferences: InvocationProviderReferences{TurnID: &providerTurnID},
+		ModelReroutes:      []InvocationModelReroute{},
+		StartedAt:          startedAt,
+		Outcome:            InvocationOutcomeRunning,
 	}
 }
 
@@ -163,15 +159,67 @@ func cloneStringPointer(value *string) *string {
 	return &copy
 }
 
-func (service *Service) snapshotLocked(
+// readScopedSnapshot reads one conversation and proves its current binding is
+// the workspace the caller is acting in. A nil workspace means "prove this
+// conversation is unbound", not "skip the scope check": app-owned operations
+// that intentionally address a conversation by identity use
+// snapshotByIDLocked instead.
+func (service *Service) readScopedSnapshot(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
-	snapshot, err := service.store.ReadSnapshot(ctx, workspaceID, conversationID)
+	snapshot, err := service.store.readSnapshot(
+		ctx,
+		workspaceID,
+		conversationID,
+		"read scoped conversation snapshot",
+	)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
+	if !equalOptionalString(snapshot.Conversation.WorkspaceID, workspaceID) {
+		return ConversationSnapshot{}, fmt.Errorf(
+			"%w: %s/%s",
+			ErrConversationNotFound,
+			optionalWorkspaceLabel(workspaceID),
+			conversationID,
+		)
+	}
+	return snapshot, nil
+}
+
+func (service *Service) snapshotLocked(
+	ctx context.Context,
+	workspaceID *string,
+	conversationID string,
+) (ConversationSnapshot, error) {
+	snapshot, err := service.readScopedSnapshot(ctx, workspaceID, conversationID)
+	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	return mutableConversationSnapshot(snapshot, conversationID)
+}
+
+// snapshotByIDLocked reads mutable state for work Setta already owns. Active
+// turns keep the execution scope they started with even if the user binds a
+// folder while they run, so lifecycle persistence addresses the conversation
+// rather than pretending that old turn gained the new workspace authority.
+func (service *Service) snapshotByIDLocked(
+	ctx context.Context,
+	conversationID string,
+) (ConversationSnapshot, error) {
+	snapshot, err := service.store.ReadSnapshotByID(ctx, conversationID)
+	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	return mutableConversationSnapshot(snapshot, conversationID)
+}
+
+func mutableConversationSnapshot(
+	snapshot ConversationSnapshot,
+	conversationID string,
+) (ConversationSnapshot, error) {
 	if snapshot.Conversation.ArchivedAt != nil {
 		return ConversationSnapshot{}, &CommandConflictError{
 			ConversationID: conversationID,

@@ -1,12 +1,9 @@
 import type {
-  AppearanceColorMode,
   AppearanceColorScheme,
   AppearanceFontScheme,
-  AppearanceMasterVoiceShortcut,
   AppearancePreset,
   AppearancePresetID,
   AppearanceSettings,
-  AppearanceWorkspaceNavigationShortcut,
 } from "@generated/backend";
 import { create } from "zustand";
 
@@ -14,8 +11,7 @@ export type AppearanceStoreStatus = "idle" | "loading" | "ready" | "saving" | "e
 export type AppearanceColorGroup = keyof AppearanceColorScheme;
 
 const appearanceReadTimeoutMs = 5_000;
-const settaLogoDark = "oklch(0.8460 0.1292 213.38)";
-const settaLogoLight = "oklch(0.5800 0.1300 213.38)";
+const settaLogo = "oklch(0.8460 0.1292 213.38)";
 
 interface AppearanceStore {
   applyDraftSettings: (settings: AppearanceSettings) => void;
@@ -27,19 +23,8 @@ interface AppearanceStore {
   revertDraft: () => void;
   saveDraft: () => Promise<void>;
   settings: AppearanceSettings | null;
-  setColorValue: (
-    mode: AppearanceColorMode,
-    group: AppearanceColorGroup,
-    name: string,
-    value: string,
-  ) => void;
+  setColorValue: (group: AppearanceColorGroup, name: string, value: string) => void;
   setFontValue: (name: keyof AppearanceFontScheme, value: string) => void;
-  setClampResizedPanesToViewport: (clamp: boolean) => void;
-  setMode: (mode: AppearanceColorMode) => void;
-  setMasterVoiceShortcut: (shortcut: AppearanceMasterVoiceShortcut) => void;
-  setOverviewCardWidthBounds: (minWidthPx: number, maxWidthPx: number) => void;
-  setShowPerformanceStats: (show: boolean) => void;
-  setWorkspaceNavigationShortcut: (shortcut: AppearanceWorkspaceNavigationShortcut) => void;
   status: AppearanceStoreStatus;
 }
 
@@ -110,62 +95,13 @@ export const useAppearanceStore = create<AppearanceStore>((set, get) => {
       }
     },
     settings: null,
-    setColorValue: (mode, group, name, value) => {
-      updateDraft((settings) => updateAppearanceColor(settings, mode, group, name, value));
+    setColorValue: (group, name, value) => {
+      updateDraft((settings) => updateAppearanceColor(settings, group, name, value));
     },
     setFontValue: (name, value) => {
       updateDraft((settings) => ({
         ...settings,
         fonts: { ...settings.fonts, [name]: value },
-      }));
-    },
-    setClampResizedPanesToViewport: (clamp) => {
-      updateDraft((settings) => ({
-        ...settings,
-        developer: {
-          ...settings.developer,
-          allowResizedPanesToOverflowViewport: !clamp,
-        },
-      }));
-    },
-    setMode: (mode) => {
-      updateDraft((settings) => ({ ...settings, mode }));
-    },
-    setMasterVoiceShortcut: (shortcut) => {
-      updateDraft((settings) => ({
-        ...settings,
-        shortcuts: {
-          ...settings.shortcuts,
-          masterVoice: shortcut,
-        },
-      }));
-    },
-    setOverviewCardWidthBounds: (minWidthPx, maxWidthPx) => {
-      updateDraft((settings) => ({
-        ...settings,
-        developer: {
-          ...settings.developer,
-          overviewCardMaxWidthPx: Math.round(maxWidthPx),
-          overviewCardMinWidthPx: Math.round(minWidthPx),
-        },
-      }));
-    },
-    setShowPerformanceStats: (show) => {
-      updateDraft((settings) => ({
-        ...settings,
-        developer: {
-          ...settings.developer,
-          showPerformanceStats: show,
-        },
-      }));
-    },
-    setWorkspaceNavigationShortcut: (shortcut) => {
-      updateDraft((settings) => ({
-        ...settings,
-        shortcuts: {
-          ...settings.shortcuts,
-          workspaceNavigation: shortcut,
-        },
       }));
     },
     status: "idle",
@@ -202,17 +138,16 @@ async function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs: num
 
 export function updateAppearanceColor(
   settings: AppearanceSettings,
-  mode: AppearanceColorMode,
   group: AppearanceColorGroup,
   name: string,
   value: string,
 ): AppearanceSettings {
   return {
     ...settings,
-    [mode]: {
-      ...settings[mode],
+    dark: {
+      ...settings.dark,
       [group]: {
-        ...settings[mode][group],
+        ...settings.dark[group],
         [name]: value,
       },
     },
@@ -237,26 +172,26 @@ function applyAppearanceSettings(settings: AppearanceSettings) {
     return;
   }
   const root = document.documentElement;
-  root.classList.toggle("dark", settings.mode === "dark");
-  root.dataset.colorMode = settings.mode;
-  root.style.colorScheme = settings.mode;
+  // Setta's surfaces are authored dark, so the scheme is a fact rather than a
+  // preference. `color-scheme` still has to be declared for form controls and
+  // scrollbars to render dark.
+  root.style.colorScheme = "dark";
   for (const [name, value] of Object.entries(appearanceStyleVariables(settings))) {
     root.style.setProperty(name, value);
   }
 }
 
 export function appearanceStyleVariables(settings: AppearanceSettings): Record<string, string> {
-  const scheme = settings[settings.mode];
+  const scheme = settings.dark;
   return {
     ...tailwindVariables(scheme),
     ...shadcnVariables(scheme),
     ...statusVariables(scheme),
     ...accentVariables(scheme),
-    ...workspaceVariables(scheme),
     "--font-heading": settings.fonts.heading,
     "--font-mono": settings.fonts.mono,
     "--font-sans": settings.fonts.sans,
-    "--setta-logo": settings.mode === "light" ? settaLogoLight : settaLogoDark,
+    "--setta-logo": settaLogo,
     "--setta-font-heading": settings.fonts.heading,
     "--setta-font-mono": settings.fonts.mono,
     "--setta-font-sans": settings.fonts.sans,
@@ -299,18 +234,6 @@ function accentVariables(scheme: AppearanceColorScheme): Record<string, string> 
       [`--accent-${name}`, value],
       [`--color-accent-${name}`, value],
     ]),
-  );
-}
-
-function workspaceVariables(scheme: AppearanceColorScheme): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(scheme.workspace).flatMap(([name, value]) => {
-      const token = kebabCase(name);
-      return [
-        [`--workspace-${token}`, value],
-        [`--color-workspace-${token}`, value],
-      ];
-    }),
   );
 }
 

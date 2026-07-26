@@ -4,15 +4,15 @@ import { createRoot, type Root } from "react-dom/client";
 import { App } from "./App";
 import "./styles.css";
 import { runRendererPageTeardown } from "./renderer-page-lifecycle";
-import { installWebSettaAPIIfNeeded } from "./web/setta-web-api";
-
-installWebSettaAPIIfNeeded();
+import { installGraphModeCssVariables } from "./features/director-graph/render/graph-mode-css";
 
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
   throw new Error("missing renderer root element");
 }
+
+installGraphModeCssVariables(document.documentElement);
 
 const root = createRoot(rootElement);
 installPageTeardown(root);

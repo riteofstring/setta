@@ -1,53 +1,89 @@
 export const languageCountTableArtifactArguments = {
-  columns: [
-    { key: "language", label: "Language" },
-    { key: "lines", label: "Lines" },
-  ],
-  kind: "table",
-  rows: [
-    ["Go", "34"],
-    ["TypeScript", "21"],
-    ["CSS", "8"],
-  ],
+  source: [
+    "root = Document([",
+    '  Heading("Language line counts"),',
+    '  Table([{key: "language", label: "Language"}, {key: "lines", label: "Lines"}], [["Go", "34"], ["TypeScript", "21"], ["CSS", "8"]])',
+    "])",
+  ].join("\n"),
+  kind: "Report",
+  summary: "Line counts across the three languages this repository is written in.",
   title: "Language line counts",
 };
 
 export const languageCountBarChartArtifactArguments = {
-  items: [
-    { label: "Go", value: 34, unit: "lines" },
-    { label: "TypeScript", value: 21, unit: "lines" },
-    { label: "CSS", value: 8, unit: "lines" },
-  ],
-  kind: "bar_chart",
+  source: [
+    "root = Document([",
+    '  BarChart([{name: "Lines", points: [{label: "Go", value: 34}, {label: "TypeScript", value: 21}, {label: "CSS", value: 8}]}], "Lines by language")',
+    "])",
+  ].join("\n"),
+  kind: "Report",
+  summary: "The same line counts as a chart, so the split is visible at a glance.",
   title: "Language line count chart",
 };
 
 export const qualitativeMarkdownArtifactArguments = {
-  kind: "markdown",
-  markdown:
-    "## Release themes\n\n- Reliability work is complete.\n- Interface polish is ready for review.",
+  source: [
+    "root = Document([",
+    '  Markdown("## Release themes\\n\\n- Reliability work is complete.\\n- Interface polish is ready for review.")',
+    "])",
+  ].join("\n"),
+  kind: "Notes",
+  summary: "What this release changed, in themes rather than in commits.",
   title: "Qualitative release notes",
 };
 
 export const numericComparisonArtifactArguments = {
-  items: [
-    { label: "North", value: 12, unit: "cases" },
-    { label: "South", value: 18, unit: "cases" },
-    { label: "West", value: 7, unit: "cases" },
-  ],
-  kind: "bar_chart",
+  source: [
+    "root = Document([",
+    '  BarChart([{name: "Cases", points: [{label: "North", value: 12}, {label: "South", value: 18}, {label: "West", value: 7}]}], "Cases by region")',
+    "])",
+  ].join("\n"),
+  kind: "Comparison",
+  summary: "Case volume by region, with the South carrying the most.",
   title: "Regional case comparison",
 };
 
-export const generatedFileArtifactArguments = {
-  description: "Generated policy memo",
-  kind: "file",
-  path: "/tmp/setta-artifact-policy-memo.md",
-  title: "Policy memo file",
+// A mixed document is the point of the composable format: one artifact carries
+// prose, a metric, a table, and a file reference rather than four artifacts.
+export const mixedDocumentArtifactArguments = {
+  source: [
+    "root = Document([",
+    '  Section("Summary", [',
+    '    Text("The policy memo is ready for review."),',
+    '    Metric("Sections", "4", "one per policy area", "neutral")',
+    "  ]),",
+    '  Table([{key: "area", label: "Area"}, {key: "owner", label: "Owner"}], [["Retention", "Platform"], ["Access", "Security"]], "Owners by policy area"),',
+    '  FileReference("docs/setta-artifact-policy-memo.md", "Generated policy memo")',
+    "])",
+  ].join("\n"),
+  kind: "Memo",
+  summary: "The policy memo covering four areas, with owners and the generated file.",
+  title: "Policy memo",
 };
 
-export const incompleteTableArtifactArguments = {
-  kind: "table",
+// An unbound turn runs in a private Setta-owned directory, so a file it can
+// see there is still not a file an artifact may address. The scenario writes
+// the file into that directory first, so the rejection proves the authorization
+// boundary rather than a missing file.
+export const privateDirectoryReferenceArtifactArguments = {
+  source: [
+    "root = Document([",
+    '  Text("The unbound run tried to address a file from its own working directory."),',
+    '  FileReference("docs/setta-artifact-policy-memo.md", "Private working-directory file")',
+    "])",
+  ].join("\n"),
+  kind: "Reference",
+  summary: "An attempt to address a file the unbound run may see but may not publish.",
+  title: "Private directory reference",
+};
+
+// Incomplete in exactly one field: the document. Everything a reader needs
+// before opening it is here, so the rejection is about the artifact's content
+// rather than about its label.
+export const incompleteArtifactArguments = {
+  kind: "Report",
+  summary: "Line counts that were never actually written into a document.",
+  title: "Language line counts",
 };
 
 export const artifactPolicyScenarios = [
@@ -67,9 +103,10 @@ export const artifactPolicyScenarios = [
     trigger: "supplied numeric comparison",
   },
   {
-    artifacts: [generatedFileArtifactArguments],
-    completion: "Completed supplied generated file.",
-    trigger: "supplied generated file",
+    artifacts: [mixedDocumentArtifactArguments],
+    completion: "Completed supplied mixed document.",
+    trigger: "supplied mixed document",
+    workspaceFiles: ["docs/setta-artifact-policy-memo.md"],
   },
   {
     artifacts: [],
@@ -77,9 +114,19 @@ export const artifactPolicyScenarios = [
     trigger: "supplied conversational answer",
   },
   {
-    artifacts: [incompleteTableArtifactArguments],
+    artifacts: [privateDirectoryReferenceArtifactArguments],
+    completion: "Completed supplied private-directory reference as prose.",
+    expectedFailureCode: "invalid_file_reference",
+    expectedFailureFields: ["source"],
+    trigger: "supplied private directory reference",
+    unresolvedFailure: true,
+    workspaceFiles: ["docs/setta-artifact-policy-memo.md"],
+  },
+  {
+    artifacts: [incompleteArtifactArguments],
     completion: "Completed supplied incomplete artifact after prose fallback.",
-    expectedFailureFields: ["title", "columns", "rows"],
+    expectedFailureCode: "missing_required_fields",
+    expectedFailureFields: ["source"],
     trigger: "supplied incomplete artifact without retry",
     unresolvedFailure: true,
   },
@@ -101,18 +148,16 @@ export function validateArtifactToolResult(requestId, result, expectedArguments)
   throw new Error(`artifact tool ${requestId} acknowledgement drifted`);
 }
 
-export function validateArtifactToolFailureResult(requestId, result, expectedFields) {
+export function validateArtifactToolFailureResult(requestId, result, expectedCode, expectedFields) {
   const item = validToolCallFailureTextItem(result);
   if (!item) {
     throw new Error(`artifact tool ${requestId} returned malformed failure result`);
   }
   const failure = JSON.parse(item.text);
-  if (!validMissingFieldsFailure(failure, expectedFields)) {
+  if (!validRetryableFieldFailure(failure, expectedCode, expectedFields)) {
     throw new Error(`artifact tool ${requestId} failure drifted: ${JSON.stringify(failure)}`);
   }
 }
-
-const requiredArtifactKinds = ["markdown", "table", "bar_chart", "file"];
 
 export function threadHasArtifactTool(thread) {
   return (thread?.dynamicTools ?? []).some((tool) => {
@@ -123,19 +168,37 @@ export function threadHasArtifactTool(thread) {
       (child) =>
         child?.type === "function" &&
         child.name === "emit_artifact" &&
-        hasRequiredArtifactKindBranches(child.inputSchema),
+        hasDocumentInputSchema(child.inputSchema),
     );
   });
 }
 
-function hasRequiredArtifactKindBranches(schema) {
-  const branches = Array.isArray(schema?.oneOf) ? schema.oneOf : [];
-  return requiredArtifactKinds.every((kind) =>
-    branches.some(
-      (branch) =>
-        branch?.additionalProperties === false && branch?.properties?.kind?.const === kind,
-    ),
-  );
+// The tool takes one document and the three things a reader needs before
+// opening it. A branch union here would mean the backend still models artifact
+// kinds.
+function hasDocumentInputSchema(schema) {
+  if (schema === null || typeof schema !== "object") {
+    return false;
+  }
+  const required = Array.isArray(schema.required) ? schema.required : [];
+  const properties = schema.properties ?? {};
+  return [
+    schema.type === "object",
+    schema.additionalProperties === false,
+    schema.oneOf === undefined,
+    required.includes("title"),
+    required.includes("kind"),
+    required.includes("summary"),
+    required.includes("source"),
+    isStringSchema(properties.title),
+    isStringSchema(properties.kind),
+    isStringSchema(properties.summary),
+    isStringSchema(properties.source),
+  ].every(Boolean);
+}
+
+function isStringSchema(property) {
+  return property?.type === "string";
 }
 
 function validToolCallTextItem(result) {
@@ -161,14 +224,13 @@ function validToolCallFailureTextItem(result) {
 function validArtifactToolAcknowledgement(acknowledgement, expectedArguments) {
   return (
     typeof acknowledgement.artifactId === "string" &&
-    acknowledgement.kind === expectedArguments.kind &&
     acknowledgement.title === expectedArguments.title
   );
 }
 
-function validMissingFieldsFailure(failure, expectedFields) {
+function validRetryableFieldFailure(failure, expectedCode, expectedFields) {
   return (
-    failure?.code === "missing_required_fields" &&
+    failure?.code === expectedCode &&
     failure.retryable === true &&
     nonEmptyString(failure.message) &&
     nonEmptyString(failure.diagnosticReference) &&

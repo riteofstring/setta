@@ -67,18 +67,23 @@ func (service *Service) finishRunTurn(active *activeConversationTurn, runErr err
 	}
 	service.activeMu.Unlock()
 	lock.Unlock()
+	if agent.IsProviderThreadMissing(runErr) {
+		// The carrier is gone, not the conversation. Dropping it means the next
+		// turn replays Setta's record into a fresh one instead of addressing a
+		// thread the provider no longer has.
+		service.carriers.Forget(active.conversationID)
+	}
 	if persisted {
-		service.promoteNextTurn(active.workspaceID, active.conversationID)
+		service.promoteNextTurn(active.conversationID)
 	}
 }
 
-func (service *Service) promoteNextTurn(workspaceID string, conversationID string) {
-	_ = service.promoteNextTurnWithResult(context.Background(), workspaceID, conversationID)
+func (service *Service) promoteNextTurn(conversationID string) {
+	_ = service.promoteNextTurnWithResult(context.Background(), conversationID)
 }
 
 func (service *Service) promoteNextTurnWithResult(
 	ctx context.Context,
-	workspaceID string,
 	conversationID string,
 ) error {
 	if err := service.requireOpen(); err != nil {
@@ -90,7 +95,7 @@ func (service *Service) promoteNextTurnWithResult(
 	if service.activeFor(conversationID) != nil {
 		return nil
 	}
-	snapshot, err := service.store.ReadSnapshot(ctx, workspaceID, conversationID)
+	snapshot, err := service.snapshotByIDLocked(ctx, conversationID)
 	if err != nil {
 		return err
 	}
@@ -102,25 +107,24 @@ func (service *Service) promoteNextTurnWithResult(
 	if err != nil {
 		return err
 	}
-	workspaceSummary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
+	workspaceID := snapshot.Conversation.WorkspaceID
+	scope, err := service.resolveExecutionScope(conversationID, workspaceID)
 	if err != nil {
 		persistErr := service.persistUnexpectedTurnEnd(ctx, &activeConversationTurn{
 			conversationID: conversationID,
 			queueOrdinal:   queued.Ordinal,
 			turnID:         turn.ID,
-			workspaceID:    workspaceID,
 		}, err)
 		if persistErr != nil {
 			return errors.Join(err, fmt.Errorf("persist queued turn workspace recovery failure: %w", persistErr))
 		}
 		return nil
 	}
-	if err := service.launchTurnLocked(workspaceSummary.RootPath, workspaceID, turn, queued.Ordinal); err != nil {
+	if err := service.launchTurnLocked(ctx, scope, turn, queued.Ordinal); err != nil {
 		persistErr := service.persistUnexpectedTurnEnd(ctx, &activeConversationTurn{
 			conversationID: conversationID,
 			queueOrdinal:   queued.Ordinal,
 			turnID:         turn.ID,
-			workspaceID:    workspaceID,
 		}, err)
 		if persistErr != nil {
 			return errors.Join(err, fmt.Errorf("persist queued turn launch recovery failure: %w", persistErr))
@@ -136,6 +140,21 @@ func (service *Service) handleAgentEvent(
 	resolved agent.ResolvedInvocation,
 	event agent.Event,
 ) error {
+	if err := validateAgentEventScope(active, event); err != nil {
+		return err
+	}
+	var persist bool
+	event, persist = redactPrivateExecutionEventForTurn(active, event)
+	if !persist {
+		return nil
+	}
+	lock := service.conversationLock(active.conversationID)
+	lock.Lock()
+	defer lock.Unlock()
+	return service.persistScopedAgentEvent(ctx, active, invocationID, resolved, event)
+}
+
+func validateAgentEventScope(active *activeConversationTurn, event agent.Event) error {
 	if event.ConversationID != active.conversationID || event.TurnID != active.turnID {
 		return fmt.Errorf("agent event scope %s/%s does not match %s/%s", event.ConversationID, event.TurnID, active.conversationID, active.turnID)
 	}
@@ -149,21 +168,29 @@ func (service *Service) handleAgentEvent(
 	if event.ProviderTurnID == "" {
 		return errors.New("agent event provider turn id is required")
 	}
-	if event.Kind != agent.EventKindTurnStarted {
-		if active.providerTurnID == "" {
-			return errors.New("agent progress arrived before the provider turn started")
-		}
-		if event.ProviderTurnID != active.providerTurnID {
-			return fmt.Errorf(
-				"agent event provider turn %s does not match %s",
-				event.ProviderTurnID,
-				active.providerTurnID,
-			)
-		}
+	if event.Kind == agent.EventKindTurnStarted {
+		return nil
 	}
-	lock := service.conversationLock(active.conversationID)
-	lock.Lock()
-	defer lock.Unlock()
+	if active.providerTurnID == "" {
+		return errors.New("agent progress arrived before the provider turn started")
+	}
+	if event.ProviderTurnID != active.providerTurnID {
+		return fmt.Errorf(
+			"agent event provider turn %s does not match %s",
+			event.ProviderTurnID,
+			active.providerTurnID,
+		)
+	}
+	return nil
+}
+
+func (service *Service) persistScopedAgentEvent(
+	ctx context.Context,
+	active *activeConversationTurn,
+	invocationID string,
+	resolved agent.ResolvedInvocation,
+	event agent.Event,
+) error {
 	switch event.Kind {
 	case agent.EventKindTurnStarted:
 		return service.persistTurnStarted(ctx, active, invocationID, resolved, event)
@@ -177,6 +204,8 @@ func (service *Service) handleAgentEvent(
 		agent.EventKindActivityUpdated,
 		agent.EventKindActivityCompleted,
 		agent.EventKindApprovalRequested,
+		agent.EventKindApprovalSuperseded,
+		agent.EventKindValidationRecorded,
 		agent.EventKindModelRerouted,
 		agent.EventKindLifecycleChanged:
 		return service.persistAgentProgress(ctx, active, event)
@@ -212,7 +241,6 @@ func (service *Service) persistTurnStarted(
 }
 
 type turnStartMutation struct {
-	binding      AgentThreadBinding
 	events       []TrajectoryEvent
 	now          string
 	queue        []QueuedConversationTurn
@@ -228,7 +256,7 @@ func (service *Service) prepareTurnStart(
 	event agent.Event,
 ) (turnStartMutation, error) {
 	ctx := service.lifecycleCtx
-	snapshot, err := service.snapshotLocked(ctx, active.workspaceID, active.conversationID)
+	snapshot, err := service.snapshotByIDLocked(ctx, active.conversationID)
 	if err != nil {
 		return turnStartMutation{}, err
 	}
@@ -244,7 +272,6 @@ func (service *Service) prepareTurnStart(
 		invocationID,
 		active.roleProfile,
 		resolved,
-		event.ProviderThreadID,
 		event.ProviderTurnID,
 		now,
 	)
@@ -252,9 +279,6 @@ func (service *Service) prepareTurnStart(
 	turn.StartedAt = &now
 	turn.ResolvedInvocation = &invocation
 	turn.ProviderTurnID = &event.ProviderTurnID
-	binding := *snapshot.ThreadBinding
-	binding.LastResumedAt = &now
-	binding.LastTurnID = &turn.ID
 	events, err := service.turnStartTrajectories(active, snapshot, turn, invocation, event, now)
 	if err != nil {
 		return turnStartMutation{}, err
@@ -264,7 +288,6 @@ func (service *Service) prepareTurnStart(
 		return turnStartMutation{}, err
 	}
 	return turnStartMutation{
-		binding:      binding,
 		events:       events,
 		now:          now,
 		queue:        queue,
@@ -310,7 +333,6 @@ func (service *Service) turnStartTrajectories(
 		events[index].TurnID = &turn.ID
 		events[index].Sequence = snapshot.Conversation.LastTrajectorySequence + index + 1
 		events[index].EmittedAt = now
-		events[index].ProviderThreadID = &event.ProviderThreadID
 		events[index].ProviderTurnID = &event.ProviderTurnID
 	}
 	return events, nil
@@ -331,7 +353,6 @@ func queueAfterTurnStart(
 func turnStartPayloads(mutation turnStartMutation) []ConversationEventPayload {
 	payloads := []ConversationEventPayload{
 		ConversationTurnUpdatedEventPayload{Type: ConversationEventTypeTurnUpdated, Turn: mutation.turn},
-		ConversationThreadBindingUpdatedEventPayload{Type: ConversationEventTypeThreadBindingUpdated, Binding: mutation.binding},
 	}
 	if mutation.queueOrdinal > 0 {
 		payloads = append(payloads, ConversationQueueUpdatedEventPayload{Type: ConversationEventTypeQueueUpdated, Queue: mutation.queue})
@@ -354,9 +375,6 @@ func (service *Service) commitTurnStart(
 		if err := applyTurnStartQueueMutation(transaction, mutation); err != nil {
 			return err
 		}
-		if err := transaction.UpsertAgentThreadBinding(mutation.binding); err != nil {
-			return err
-		}
 		for _, trajectory := range mutation.events {
 			if err := transaction.AppendTrajectoryEvent(trajectory); err != nil {
 				return err
@@ -367,8 +385,9 @@ func (service *Service) commitTurnStart(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			mutation.snapshot.Conversation,
-			mutation.turn.ID,
+			mutation.turn,
 			mutation.events,
+			nil,
 			false,
 		)
 	}
@@ -449,7 +468,7 @@ func (service *Service) prepareTurnTerminal(
 	active *activeConversationTurn,
 	event agent.Event,
 ) (turnTerminalMutation, error) {
-	snapshot, err := service.snapshotLocked(service.lifecycleCtx, active.workspaceID, active.conversationID)
+	snapshot, err := service.snapshotByIDLocked(service.lifecycleCtx, active.conversationID)
 	if err != nil {
 		return turnTerminalMutation{}, err
 	}
@@ -470,14 +489,13 @@ func (service *Service) prepareTurnTerminal(
 		return turnTerminalMutation{}, err
 	}
 	trajectory := TrajectoryEvent{
-		ID:               trajectoryID,
-		ConversationID:   active.conversationID,
-		TurnID:           &turn.ID,
-		Sequence:         snapshot.Conversation.LastTrajectorySequence + 1,
-		EmittedAt:        now,
-		Actor:            TrajectoryActorProvider,
-		ProviderThreadID: &event.ProviderThreadID,
-		ProviderTurnID:   &event.ProviderTurnID,
+		ID:             trajectoryID,
+		ConversationID: active.conversationID,
+		TurnID:         &turn.ID,
+		Sequence:       snapshot.Conversation.LastTrajectorySequence + 1,
+		EmittedAt:      now,
+		Actor:          TrajectoryActorProvider,
+		ProviderTurnID: &event.ProviderTurnID,
 	}
 	conversationStatus := ConversationStatusIdle
 	if len(snapshot.Queue) > 0 {
@@ -547,7 +565,7 @@ func applyProviderTerminalOutcome(
 		trajectory.Kind = TrajectoryEventTurnInterrupted
 		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: interruptionReason}
 	case agent.TurnOutcomeFailed:
-		failure := providerFailure("provider_turn_failed", event.Terminal.Error)
+		failure := providerFailure("provider_turn_failed")
 		turn.Status = TurnStatusFailed
 		turn.Error = &failure
 		turn.ResolvedInvocation = invocationPointerValue(terminalInvocation(*turn.ResolvedInvocation, InvocationOutcomeFailed, now, &failure))
@@ -596,8 +614,9 @@ func (service *Service) commitTurnTerminal(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			mutation.conversation,
-			mutation.turn.ID,
+			mutation.turn,
 			[]TrajectoryEvent{mutation.trajectory},
+			artifactMetadataForTurn(mutation.snapshot.Artifacts.Artifacts, mutation.turn.ID),
 			true,
 		)
 	}
@@ -608,10 +627,10 @@ func invocationPointerValue(value ResolvedInvocation) *ResolvedInvocation {
 	return &value
 }
 
-func providerFailure(code string, message *string) Failure {
-	text := "provider turn failed"
-	if message != nil && *message != "" {
-		text = *message
+func providerFailure(code string) Failure {
+	return Failure{
+		Code:      code,
+		Message:   "The provider could not complete this run. Try again.",
+		Retryable: true,
 	}
-	return Failure{Code: code, Message: text, Retryable: true}
 }

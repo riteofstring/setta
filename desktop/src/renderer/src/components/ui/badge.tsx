@@ -1,27 +1,48 @@
+import { mergeProps } from "@base-ui/react/merge-props";
+import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
-import type { HTMLAttributes } from "react";
 
 import { cn } from "@renderer/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] font-medium leading-none",
+  "cn-badge group/badge inline-flex w-fit shrink-0 items-center justify-center overflow-hidden whitespace-nowrap focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none",
   {
-    defaultVariants: {
-      variant: "neutral",
-    },
     variants: {
       variant: {
-        danger: "border-status-critical bg-status-critical text-status-critical-foreground",
-        neutral: "border-border bg-card text-card-foreground",
-        success: "border-status-success bg-status-success text-status-success-foreground",
+        default: "cn-badge-variant-default",
+        secondary: "cn-badge-variant-secondary",
+        destructive: "cn-badge-variant-destructive",
+        outline: "cn-badge-variant-outline",
+        ghost: "cn-badge-variant-ghost",
+        link: "cn-badge-variant-link",
       },
+    },
+    defaultVariants: {
+      variant: "default",
     },
   },
 );
 
-export interface BadgeProps
-  extends HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badgeVariants> {}
-
-export function Badge({ className, variant, ...props }: BadgeProps) {
-  return <span className={cn(badgeVariants({ variant }), className)} {...props} />;
+function Badge({
+  className,
+  variant = "default",
+  render,
+  ...props
+}: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
+  return useRender({
+    defaultTagName: "span",
+    props: mergeProps<"span">(
+      {
+        className: cn(badgeVariants({ variant }), className),
+      },
+      props,
+    ),
+    render,
+    state: {
+      slot: "badge",
+      variant,
+    },
+  });
 }
+
+export { Badge, badgeVariants };

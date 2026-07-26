@@ -42,7 +42,11 @@ func normalizedAgentMessage(base Event, item codexapp.ThreadItem, completed bool
 	event := base
 	event.Kind = EventKindAgentTextCompleted
 	event.ProviderEventID = stringPointer(item.AgentMessage.ID)
-	event.Text = &TextEvent{ProviderItemID: item.AgentMessage.ID, Text: item.AgentMessage.Text}
+	event.Text = &TextEvent{
+		ProviderItemID: item.AgentMessage.ID,
+		Text:           item.AgentMessage.Text,
+		Final:          true,
+	}
 	return []Event{event}, nil, nil
 }
 
@@ -56,7 +60,11 @@ func normalizedReasoning(base Event, item codexapp.ThreadItem, completed bool) (
 	event := base
 	event.Kind = EventKindReasoningSummary
 	event.ProviderEventID = stringPointer(item.Reasoning.ID)
-	event.Text = &TextEvent{ProviderItemID: item.Reasoning.ID, Text: strings.Join(item.Reasoning.Summary, "\n")}
+	event.Text = &TextEvent{
+		ProviderItemID: item.Reasoning.ID,
+		Text:           strings.Join(item.Reasoning.Summary, "\n"),
+		Final:          true,
+	}
 	return []Event{event}, nil, nil
 }
 
@@ -95,7 +103,13 @@ func commandActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 		Kind:           ActivityKindCommand,
 		Status:         string(item.CommandExecution.Status),
 		Title:          item.CommandExecution.Command,
-		ExitCode:       cloneInt(item.CommandExecution.ExitCode),
+		Command:        stringPointer(item.CommandExecution.Command),
+		// The provider names the directory the command actually ran in. It is
+		// not always the workspace root, so the durable record uses the
+		// reported directory instead of the conversation's own root.
+		CWD:       stringPointer(item.CommandExecution.CWD),
+		ProcessID: cloneString(item.CommandExecution.ProcessId),
+		ExitCode:  cloneInt(item.CommandExecution.ExitCode),
 	}, nil
 }
 
@@ -103,11 +117,16 @@ func fileChangeActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	if item.FileChange == nil {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
+	changes, err := providerFileChanges(item.FileChange.Changes)
+	if err != nil {
+		return ActivityEvent{}, err
+	}
 	return ActivityEvent{
 		ProviderItemID: item.FileChange.ID,
 		Kind:           ActivityKindFileChange,
 		Status:         string(item.FileChange.Status),
 		Title:          fmt.Sprintf("Changed %d file(s)", len(item.FileChange.Changes)),
+		FileChanges:    changes,
 	}, nil
 }
 
@@ -117,9 +136,11 @@ func mcpToolActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	}
 	return ActivityEvent{
 		ProviderItemID: item.McpToolCall.ID,
-		Kind:           ActivityKindTool,
+		Kind:           ActivityKindMCPTool,
 		Status:         string(item.McpToolCall.Status),
 		Title:          item.McpToolCall.Server + "/" + item.McpToolCall.Tool,
+		Server:         stringPointer(item.McpToolCall.Server),
+		Tool:           stringPointer(item.McpToolCall.Tool),
 	}, nil
 }
 
@@ -131,16 +152,26 @@ func dynamicToolActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	if item.DynamicToolCall.Namespace != nil {
 		title = *item.DynamicToolCall.Namespace + "/" + title
 	}
-	return ActivityEvent{ProviderItemID: item.DynamicToolCall.ID, Kind: ActivityKindTool, Status: string(item.DynamicToolCall.Status), Title: title}, nil
+	return ActivityEvent{
+		ProviderItemID: item.DynamicToolCall.ID,
+		Kind:           ActivityKindDynamicTool,
+		Status:         string(item.DynamicToolCall.Status),
+		Title:          title,
+		Tool:           stringPointer(item.DynamicToolCall.Tool),
+		Namespace:      cloneString(item.DynamicToolCall.Namespace),
+	}, nil
 }
 
 func collabAgentActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	if item.CollabAgentToolCall == nil {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
+	// A collab-agent call addresses provider threads Setta has no durable
+	// workstream for, so it stays an untyped activity until a Setta owner can
+	// say what the receiver is.
 	return ActivityEvent{
 		ProviderItemID: item.CollabAgentToolCall.ID,
-		Kind:           ActivityKindCollaboration,
+		Kind:           ActivityKindOther,
 		Status:         string(item.CollabAgentToolCall.Status),
 		Title:          string(item.CollabAgentToolCall.Tool),
 		Summary:        fmt.Sprintf("%d receiver thread(s)", len(item.CollabAgentToolCall.ReceiverThreadIds)),
@@ -152,11 +183,11 @@ func subagentActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
 	return ActivityEvent{
-		ProviderItemID: item.SubAgentActivity.ID,
-		Kind:           ActivityKindSubagent,
-		Status:         string(item.SubAgentActivity.Kind),
-		Title:          item.SubAgentActivity.AgentPath,
-		Summary:        item.SubAgentActivity.AgentThreadId,
+		ProviderItemID:           item.SubAgentActivity.ID,
+		Kind:                     ActivityKindSubagent,
+		Status:                   string(item.SubAgentActivity.Kind),
+		Title:                    item.SubAgentActivity.AgentPath,
+		ProviderSubagentThreadID: stringPointer(item.SubAgentActivity.AgentThreadId),
 	}, nil
 }
 
@@ -164,32 +195,39 @@ func webSearchActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	if item.WebSearch == nil {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
-	return ActivityEvent{ProviderItemID: item.WebSearch.ID, Kind: ActivityKindTool, Status: "completed", Title: "Web search", Summary: item.WebSearch.Query}, nil
+	return ActivityEvent{ProviderItemID: item.WebSearch.ID, Kind: ActivityKindWebSearch, Status: "completed", Title: "Web search", Summary: item.WebSearch.Query}, nil
 }
 
 func imageViewActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	if item.ImageView == nil {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
-	return ActivityEvent{ProviderItemID: item.ImageView.ID, Kind: ActivityKindTool, Status: "completed", Title: "Viewed image", Summary: item.ImageView.Path}, nil
+	return ActivityEvent{ProviderItemID: item.ImageView.ID, Kind: ActivityKindImageView, Status: "completed", Title: "Viewed image"}, nil
 }
 
 func imageGenerationActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	if item.ImageGeneration == nil {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
-	summary := ""
+	var savedPath *string
 	if item.ImageGeneration.SavedPath != nil {
-		summary = string(*item.ImageGeneration.SavedPath)
+		path := string(*item.ImageGeneration.SavedPath)
+		savedPath = &path
 	}
-	return ActivityEvent{ProviderItemID: item.ImageGeneration.ID, Kind: ActivityKindArtifact, Status: item.ImageGeneration.Status, Title: "Generated image", Summary: summary}, nil
+	return ActivityEvent{
+		ProviderItemID: item.ImageGeneration.ID,
+		Kind:           ActivityKindImageGeneration,
+		Status:         item.ImageGeneration.Status,
+		Title:          "Generated image",
+		SavedPath:      savedPath,
+	}, nil
 }
 
 func sleepActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
 	if item.Sleep == nil {
 		return ActivityEvent{}, missingThreadItemPayload(item.Type)
 	}
-	return ActivityEvent{ProviderItemID: item.Sleep.ID, Kind: ActivityKindOther, Status: "completed", Title: "Waited", Summary: fmt.Sprintf("%d ms", item.Sleep.DurationMs)}, nil
+	return ActivityEvent{ProviderItemID: item.Sleep.ID, Kind: ActivityKindSleep, Status: "completed", Title: "Waited", Summary: fmt.Sprintf("%d ms", item.Sleep.DurationMs)}, nil
 }
 
 func otherActivity(item codexapp.ThreadItem) (ActivityEvent, error) {
@@ -224,4 +262,43 @@ func cloneInt(value *int) *int {
 	}
 	copy := *value
 	return &copy
+}
+
+func providerFileChanges(changes []codexapp.FileUpdateChange) ([]FileChange, error) {
+	result := make([]FileChange, 0, len(changes))
+	for index, change := range changes {
+		kind, movePath, err := providerFileChangeKind(change.Kind)
+		if err != nil {
+			return nil, fmt.Errorf("provider file change %d: %w", index, err)
+		}
+		result = append(result, FileChange{
+			Path:     change.Path,
+			Kind:     kind,
+			MovePath: movePath,
+			Diff:     change.Diff,
+		})
+	}
+	return result, nil
+}
+
+func providerFileChangeKind(kind codexapp.PatchChangeKind) (FileChangeKind, *string, error) {
+	switch kind.Type {
+	case codexapp.PatchChangeKindTypeAdd:
+		if kind.Add == nil {
+			return "", nil, fmt.Errorf("provider add change is missing its typed payload")
+		}
+		return FileChangeKindAdd, nil, nil
+	case codexapp.PatchChangeKindTypeDelete:
+		if kind.Delete == nil {
+			return "", nil, fmt.Errorf("provider delete change is missing its typed payload")
+		}
+		return FileChangeKindDelete, nil, nil
+	case codexapp.PatchChangeKindTypeUpdate:
+		if kind.Update == nil {
+			return "", nil, fmt.Errorf("provider update change is missing its typed payload")
+		}
+		return FileChangeKindUpdate, cloneString(kind.Update.MovePath), nil
+	default:
+		return "", nil, fmt.Errorf("unsupported provider file change kind %q", kind.Type)
+	}
 }

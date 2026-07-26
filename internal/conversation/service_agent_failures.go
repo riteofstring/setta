@@ -7,6 +7,12 @@ import (
 	"setta/internal/agent"
 )
 
+const (
+	agentRuntimeFailureMessage          = "The run stopped unexpectedly. Try again."
+	providerUnavailableFailureMessage   = "Provider is temporarily unavailable. Try again."
+	providerThreadMissingFailureMessage = "This run cannot continue because its provider session is no longer available. Start a new run."
+)
+
 func (service *Service) persistUnexpectedTurnEnd(
 	ctx context.Context,
 	active *activeConversationTurn,
@@ -25,7 +31,7 @@ func (service *Service) persistUnexpectedTurnEnd(
 	}
 	publications, err := service.publications(
 		active.conversationID,
-		mutation.trajectory.EmittedAt,
+		mutation.conversation.UpdatedAt,
 		unexpectedTurnEndPayloads(mutation)...,
 	)
 	if err != nil {
@@ -41,7 +47,7 @@ type unexpectedTurnEndMutation struct {
 	queueOrdinal   int
 	removeQueue    bool
 	snapshot       ConversationSnapshot
-	trajectory     TrajectoryEvent
+	trajectories   []TrajectoryEvent
 	turn           ConversationTurn
 }
 
@@ -49,7 +55,7 @@ func (service *Service) unexpectedTurnState(
 	ctx context.Context,
 	active *activeConversationTurn,
 ) (ConversationSnapshot, ConversationTurn, bool, error) {
-	snapshot, err := service.store.ReadSnapshot(ctx, active.workspaceID, active.conversationID)
+	snapshot, err := service.snapshotByIDLocked(ctx, active.conversationID)
 	if err != nil {
 		return ConversationSnapshot{}, ConversationTurn{}, false, err
 	}
@@ -78,6 +84,10 @@ func (service *Service) buildUnexpectedTurnEnd(
 	runErr error,
 ) (unexpectedTurnEndMutation, error) {
 	now := advanceTimestamp(snapshot.Conversation.UpdatedAt, service.timestamp())
+	trajectories, err := service.unexpectedApprovalCancellationEvents(active, snapshot, turn, now)
+	if err != nil {
+		return unexpectedTurnEndMutation{}, err
+	}
 	trajectoryID, err := service.newID("trajectory")
 	if err != nil {
 		return unexpectedTurnEndMutation{}, err
@@ -86,13 +96,14 @@ func (service *Service) buildUnexpectedTurnEnd(
 		ID:             trajectoryID,
 		ConversationID: active.conversationID,
 		TurnID:         &turn.ID,
-		Sequence:       snapshot.Conversation.LastTrajectorySequence + 1,
+		Sequence:       snapshot.Conversation.LastTrajectorySequence + len(trajectories) + 1,
 		EmittedAt:      now,
 		Actor:          TrajectoryActorSystem,
 	}
 	expectedStatus := turn.Status
-	conversationStatus := applyUnexpectedTurnOutcome(&turn, &trajectory, runErr, now)
+	conversationStatus := applyUnexpectedTurnOutcome(&turn, &trajectory, active.interruptionReason, runErr, now)
 	applyUnexpectedProviderReferences(&trajectory, active, turn)
+	trajectories = append(trajectories, trajectory)
 	queue, removeQueue, err := unexpectedQueueAfterTurn(snapshot.Queue, active, turn.ID, expectedStatus)
 	if err != nil {
 		return unexpectedTurnEndMutation{}, err
@@ -110,22 +121,80 @@ func (service *Service) buildUnexpectedTurnEnd(
 		queueOrdinal:   active.queueOrdinal,
 		removeQueue:    removeQueue,
 		snapshot:       snapshot,
-		trajectory:     trajectory,
+		trajectories:   trajectories,
 		turn:           turn,
 	}, nil
 }
 
+// unexpectedApprovalCancellationEvents withdraws every prompt owned by a run
+// before that run's terminal fact is committed. The provider cannot answer
+// after an unexpected end, and leaving a durable pending approval would make
+// the Director offer an action against a dead run.
+func (service *Service) unexpectedApprovalCancellationEvents(
+	active *activeConversationTurn,
+	snapshot ConversationSnapshot,
+	turn ConversationTurn,
+	now string,
+) ([]TrajectoryEvent, error) {
+	pending := pendingApprovalsForTurn(snapshot, turn.ID)
+	if len(pending) == 0 {
+		return []TrajectoryEvent{}, nil
+	}
+	events := make([]TrajectoryEvent, 0, len(pending))
+	recorded := map[string]bool{}
+	for _, event := range snapshot.Trajectory.Events {
+		if event.TurnID == nil || *event.TurnID != turn.ID || event.ApprovalRequested == nil {
+			continue
+		}
+		approvalID := event.ApprovalRequested.Approval.ID
+		if _, stillPending := pending[approvalID]; !stillPending || recorded[approvalID] {
+			continue
+		}
+		eventID, err := service.newID("trajectory")
+		if err != nil {
+			return nil, err
+		}
+		cancellation := TrajectoryEvent{
+			ID:             eventID,
+			ConversationID: active.conversationID,
+			TurnID:         &turn.ID,
+			Sequence:       snapshot.Conversation.LastTrajectorySequence + len(events) + 1,
+			EmittedAt:      now,
+			Kind:           TrajectoryEventApprovalResolved,
+			Actor:          TrajectoryActorSystem,
+			ApprovalResolved: &TrajectoryApprovalResolved{Resolution: TrajectoryApprovalResolution{
+				ApprovalID: approvalID,
+				Decision:   TrajectoryApprovalDecisionCancelled,
+				Answers:    []ConversationApprovalAnswer{},
+				ResolvedAt: now,
+			}},
+		}
+		applyUnexpectedProviderReferences(&cancellation, active, turn)
+		events = append(events, cancellation)
+		recorded[approvalID] = true
+	}
+	return events, nil
+}
+
+// applyUnexpectedTurnOutcome decides whether a run that ended outside the
+// provider's terminal event was interrupted or failed. An interruption reason
+// supplied by the caller wins: work Setta itself stopped — a shutdown, a
+// restart — is not a failure the user should be asked to interpret.
 func applyUnexpectedTurnOutcome(
 	turn *ConversationTurn,
 	trajectory *TrajectoryEvent,
+	interruptionReason TurnInterruptionReason,
 	runErr error,
 	now string,
 ) ConversationStatus {
 	if errors.Is(runErr, context.Canceled) {
+		interruptionReason = TurnInterruptionRuntimeShutdown
+	}
+	if interruptionReason != "" {
 		turn.Status = TurnStatusCancelled
 		turn.Error = nil
 		trajectory.Kind = TrajectoryEventTurnInterrupted
-		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: TurnInterruptionRuntimeShutdown}
+		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: interruptionReason}
 		if turn.ResolvedInvocation != nil {
 			turn.ResolvedInvocation = invocationPointerValue(
 				terminalInvocation(*turn.ResolvedInvocation, InvocationOutcomeCancelled, now, nil),
@@ -134,8 +203,7 @@ func applyUnexpectedTurnOutcome(
 		turn.EndedAt = &now
 		return ConversationStatusIdle
 	}
-	code, retryable := classifyAgentRuntimeFailure(runErr, "agent_runtime_failed")
-	failure := Failure{Code: code, Message: runErr.Error(), Retryable: retryable}
+	failure := unexpectedTurnFailure(runErr)
 	turn.Status = TurnStatusFailed
 	turn.Error = &failure
 	trajectory.Kind = TrajectoryEventTurnFailed
@@ -149,20 +217,34 @@ func applyUnexpectedTurnOutcome(
 	return ConversationStatusFailed
 }
 
-func classifyAgentRuntimeFailure(runErr error, fallbackCode string) (string, bool) {
-	if code, retryable, ok := agent.TurnAdmissionFailure(runErr); ok {
-		return code, retryable
+func unexpectedTurnFailure(runErr error) Failure {
+	if agent.IsProviderThreadMissing(runErr) {
+		return Failure{
+			Code:      "provider_thread_missing",
+			Message:   providerThreadMissingFailureMessage,
+			Retryable: false,
+		}
 	}
-	return fallbackCode, true
+	if agent.IsProviderLifecycleError(runErr) {
+		return Failure{
+			Code:      "provider_unavailable",
+			Message:   providerUnavailableFailureMessage,
+			Retryable: true,
+		}
+	}
+	return Failure{Code: "agent_runtime_failed", Message: agentRuntimeFailureMessage, Retryable: true}
 }
 
+// applyUnexpectedProviderReferences correlates the terminal event with the run
+// the provider was carrying, when Setta still holds the carrier. Recovery after
+// a restart does not: the carrier died with the process, so the event names the
+// Setta turn alone rather than inventing a provider reference for it.
 func applyUnexpectedProviderReferences(
 	trajectory *TrajectoryEvent,
 	active *activeConversationTurn,
 	turn ConversationTurn,
 ) {
-	if turn.ProviderTurnID != nil {
-		trajectory.ProviderThreadID = &active.providerThreadID
+	if turn.ProviderTurnID != nil && active.providerThreadID != "" {
 		trajectory.ProviderTurnID = turn.ProviderTurnID
 	}
 }
@@ -187,7 +269,7 @@ func unexpectedQueueAfterTurn(
 
 func unexpectedTurnEndPayloads(mutation unexpectedTurnEndMutation) []ConversationEventPayload {
 	publishedConversation := mutation.conversation
-	publishedConversation.LastTrajectorySequence++
+	publishedConversation.LastTrajectorySequence += len(mutation.trajectories)
 	payloads := []ConversationEventPayload{
 		ConversationUpdatedEventPayload{Type: ConversationEventTypeConversationUpdated, Conversation: publishedConversation},
 		ConversationTurnUpdatedEventPayload{Type: ConversationEventTypeTurnUpdated, Turn: mutation.turn},
@@ -195,7 +277,13 @@ func unexpectedTurnEndPayloads(mutation unexpectedTurnEndMutation) []Conversatio
 	if mutation.removeQueue {
 		payloads = append(payloads, ConversationQueueUpdatedEventPayload{Type: ConversationEventTypeQueueUpdated, Queue: mutation.queue})
 	}
-	return append(payloads, ConversationTrajectoryAppendedEventPayload{Type: ConversationEventTypeTrajectoryAppended, Event: mutation.trajectory})
+	for _, trajectory := range mutation.trajectories {
+		payloads = append(payloads, ConversationTrajectoryAppendedEventPayload{
+			Type:  ConversationEventTypeTrajectoryAppended,
+			Event: trajectory,
+		})
+	}
+	return payloads
 }
 
 func (service *Service) commitUnexpectedTurnEnd(
@@ -219,16 +307,19 @@ func (service *Service) commitUnexpectedTurnEnd(
 		if err := applyUnexpectedQueueMutation(transaction, mutation); err != nil {
 			return err
 		}
-		if err := transaction.AppendTrajectoryEvent(mutation.trajectory); err != nil {
-			return err
+		for _, trajectory := range mutation.trajectories {
+			if err := transaction.AppendTrajectoryEvent(trajectory); err != nil {
+				return err
+			}
 		}
 		return appendPublications(transaction, publications)
 	})
 	if err == nil {
 		service.observeCommittedTrajectory(
 			mutation.conversation,
-			mutation.turn.ID,
-			[]TrajectoryEvent{mutation.trajectory},
+			mutation.turn,
+			mutation.trajectories,
+			artifactMetadataForTurn(mutation.snapshot.Artifacts.Artifacts, mutation.turn.ID),
 			true,
 		)
 	}

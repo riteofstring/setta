@@ -12,10 +12,11 @@ usage() {
   cat <<'EOF'
 Usage: ./scripts/test_topic_conversation_workflows.sh [--skip-build] [--visible] [--deterministic-only] [--live-only] [--keep-artifacts]
 
-Build and run the topic-conversation workflow gate:
-  - hidden deterministic Electron topic-conversation workflow with temp app data
-  - complete live Codex agent, side/fork, and production topic-conversation matrix
-    when Codex ChatGPT auth is available
+Build and run the conversation and Director workflow gate:
+  - deterministic Director/conversation contract suites
+  - hidden deterministic Electron workflows with temp app data
+  - complete live Codex agent-carrier, side, topic-conversation, Director, and
+    unbound native-artifact matrix when Codex ChatGPT auth is available
 EOF
 }
 
@@ -101,15 +102,31 @@ if [[ "${keep_artifacts}" -eq 1 ]]; then
 fi
 
 if [[ "${run_deterministic}" -eq 1 ]]; then
-  echo "Deterministic Electron topic-conversation workflow..."
+  echo "Deterministic Director and conversation Go contract suite..."
+  if (
+    cd "${repo_root}" &&
+      "${repo_root}/scripts/go.sh" test \
+        ./internal/director \
+        ./internal/conversation \
+        ./internal/httpapi \
+        ./internal/runtime \
+        -count=1
+  ); then
+    passed_workflows+=("deterministic-go-contracts")
+  else
+    status=1
+  fi
+
+  echo "Deterministic desktop contract suite..."
+  if pnpm -C "${repo_root}/desktop" test; then
+    passed_workflows+=("deterministic-desktop-contracts")
+  else
+    status=1
+  fi
+
+  echo "Deterministic Electron Director command-center workflows..."
   if run_electron_node "${repo_root}/desktop/tests/electron/run-workflows.mjs" \
-    --workflow topic-conversation-pane-projection \
-    --workflow topic-conversation-archive \
-    --workflow topic-conversation-role-configuration \
-    --workflow topic-conversation-presentation-configuration \
-    --workflow topic-conversation-palette-identity \
-    --workflow topic-conversation-crash-recovery \
-    --workflow topic-conversation-speech-arbitration; then
+    --tier required; then
     passed_workflows+=("deterministic-electron")
   else
     status=1
@@ -118,18 +135,10 @@ fi
 
 if [[ "${run_live}" -eq 1 ]]; then
   if live_skip_reason="$(codex_chatgpt_auth_present 2>&1)"; then
-    echo "Live Codex Electron workflow..."
-    if run_electron_node "${repo_root}/desktop/tests/electron/run-workflows.mjs" \
-      --workflow live-codex-electron \
-      --skip-build; then
-      passed_workflows+=("live-codex-electron")
-    else
-      status=1
-    fi
     run_live_go_test \
       "agent-protocol" \
       "./internal/agent" \
-      '^TestLiveCodexRuntimeThreadLifecycleAndActiveForkSnapshot$'
+      '^TestLiveCodexRuntimeEphemeralThreadLifecycleAndDiscoveryIsolation$'
     run_live_go_test \
       "side-isolation" \
       "./internal/conversation" \
@@ -138,6 +147,14 @@ if [[ "${run_live}" -eq 1 ]]; then
       "topic-conversation" \
       "./internal/runtime" \
       '^TestBackendTopicConversation(Workflow|ControlsAndRestart|Artifact)WithLiveCodex$'
+    run_live_go_test \
+      "director-command-center" \
+      "./internal/runtime" \
+      '^TestBackendDirectorCommandCenterWithLiveCodex$'
+    run_live_go_test \
+      "unbound-native-artifacts" \
+      "./internal/runtime" \
+      '^TestBackendUnboundNativeArtifactsWithLiveCodex$'
   else
     live_skip_reason="${live_skip_reason:-Codex ChatGPT auth is unavailable}"
     skipped_workflows+=("live-codex-matrix (${live_skip_reason})")

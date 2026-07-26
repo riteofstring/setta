@@ -138,6 +138,78 @@ export function installRendererRecorder(ipcRenderer: Pick<IpcRenderer, "send">) 
   });
   window.addEventListener("beforeunload", () => layoutRecorder.capture("before_unload"));
   layoutRecorder.observe();
+  observeInteractionLatency(ipcRenderer);
+  observeLongTasks(ipcRenderer);
+}
+
+/*
+ * Below this an interaction is indistinguishable from an immediate one at any
+ * refresh rate, so recording it would bury the slow ones it exists to find.
+ */
+const slowInteractionMs = 24;
+const longTaskMs = 50;
+
+/**
+ * The browser's own account of how long an interaction took to reach a paint.
+ *
+ * `durationThreshold` is what keeps this cheap: the observer is not told about
+ * fast interactions at all, so ordinary typing costs nothing and only the
+ * keystrokes that actually lagged reach the recording.
+ */
+function observeInteractionLatency(ipcRenderer: Pick<IpcRenderer, "send">): void {
+  const observer = new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) {
+      const timing = entry as PerformanceEventTiming;
+      record(ipcRenderer, {
+        at: timestamp(),
+        delayMs: round(timing.processingStart - timing.startTime),
+        durationMs: round(timing.duration),
+        interactionId: timing.interactionId ?? 0,
+        name: timing.name,
+        processingMs: round(timing.processingEnd - timing.processingStart),
+        target: summarizeTarget(timing.target ?? null),
+        type: "interaction_latency",
+        url: window.location.href,
+      });
+    }
+  });
+  // `durationThreshold` is not in every lib.dom; the option is what makes this
+  // affordable, so it is passed explicitly rather than dropped for the typing.
+  observer.observe({
+    durationThreshold: slowInteractionMs,
+    type: "event",
+  } as PerformanceObserverInit);
+}
+
+/** The slice of `PerformanceLongTaskTiming` used here; it is not in lib.dom. */
+interface LongTaskAttribution {
+  containerType: string;
+  name: string;
+}
+
+/** What the main thread was doing instead of responding. */
+function observeLongTasks(ipcRenderer: Pick<IpcRenderer, "send">): void {
+  const observer = new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) {
+      if (entry.duration < longTaskMs) {
+        continue;
+      }
+      const attribution: LongTaskAttribution[] =
+        (entry as unknown as { attribution?: LongTaskAttribution[] }).attribution ?? [];
+      record(ipcRenderer, {
+        at: timestamp(),
+        attribution: attribution
+          .map((item) => `${item.name}:${item.containerType}`)
+          .join(",")
+          .slice(0, maxTextLength),
+        durationMs: round(entry.duration),
+        startedAtMs: round(entry.startTime),
+        type: "long_task",
+        url: window.location.href,
+      });
+    }
+  });
+  observer.observe({ entryTypes: ["longtask"] });
 }
 
 function markDocumentRecordingEnabled() {
@@ -202,10 +274,8 @@ function createLayoutRecorder(ipcRenderer: Pick<IpcRenderer, "send">) {
 }
 
 function layoutSnapshot(trigger: string): RendererRecordedEvent {
-  const workspace = document.querySelector<HTMLElement>('[data-testid="workspace-layout-area"]');
   return {
     at: timestamp(),
-    panes: workspacePaneSnapshots(),
     trigger,
     type: "layout_snapshot",
     url: window.location.href,
@@ -213,86 +283,7 @@ function layoutSnapshot(trigger: string): RendererRecordedEvent {
       height: window.innerHeight,
       width: window.innerWidth,
     },
-    workspace: workspaceSnapshot(workspace),
   };
-}
-
-function workspaceSnapshot(workspace: HTMLElement | null) {
-  if (!workspace) {
-    return null;
-  }
-  return {
-    mode: truncate(workspace.dataset.workspaceMode ?? ""),
-    paneCount: nonNegativeInteger(workspace.dataset.paneCount),
-    presentationMode: truncate(workspace.dataset.presentationMode ?? ""),
-    rect: elementRect(workspace),
-    workspaceId: truncate(workspace.dataset.workspaceId ?? ""),
-  };
-}
-
-function workspacePaneSnapshots() {
-  return Array.from(
-    document.querySelectorAll<HTMLElement>('[data-testid="workspace-pane-host"]'),
-  ).flatMap((host) => {
-    const paneId = host.dataset.paneId ?? "";
-    if (paneId === "") {
-      return [];
-    }
-    const conversation = host.querySelector<HTMLElement>('[data-testid="easy-button-surface"]');
-    return [
-      {
-        conversation: conversationPaneSnapshot(conversation),
-        focused: host.dataset.focused === "true",
-        paneId: truncate(paneId),
-        rect: elementRect(host),
-        runtimeState: truncate(host.dataset.runtimeState ?? ""),
-        surfaceKind: truncate(host.dataset.surfaceKind ?? ""),
-        visible: host.dataset.visible === "true",
-      },
-    ];
-  });
-}
-
-function conversationPaneSnapshot(conversation: HTMLElement | null) {
-  if (!conversation) {
-    return null;
-  }
-  return {
-    captureScope: recordedDataValue(conversation, "easyButtonCaptureScope"),
-    captureState: recordedDataValue(conversation, "easyButtonCapture"),
-    focusStatus: recordedDataValue(conversation, "easyButtonFocus"),
-    id: recordedDataValue(conversation, "conversationId"),
-    paletteId: recordedDataValue(conversation, "conversationPalette"),
-    playbackScope: recordedDataValue(conversation, "easyButtonPlaybackScope"),
-    playbackState: recordedDataValue(conversation, "easyButtonPlayback"),
-    projectionStatus: recordedDataValue(conversation, "easyButtonProjection"),
-    queueCount: nonNegativeInteger(conversation.dataset.easyButtonQueueCount),
-    sideConversationId: recordedDataValue(conversation, "easyButtonSideId"),
-    sideStatus: recordedDataValue(conversation, "easyButtonSideStatus"),
-    statusTone: recordedDataValue(conversation, "easyButtonStatus"),
-    viewState: recordedDataValue(conversation, "easyButtonState"),
-  };
-}
-
-function recordedDataValue(element: HTMLElement, name: string): string {
-  return truncate(element.dataset[name] ?? "");
-}
-
-function elementRect(element: Element) {
-  const rect = element.getBoundingClientRect();
-  return {
-    bottom: round(rect.bottom),
-    height: round(rect.height),
-    left: round(rect.left),
-    right: round(rect.right),
-    top: round(rect.top),
-    width: round(rect.width),
-  };
-}
-
-function nonNegativeInteger(value: string | undefined): number {
-  const parsed = Number(value ?? 0);
-  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 function summarizeTarget(target: EventTarget | null) {

@@ -248,7 +248,7 @@ func foldNarratorTurnTrajectoryBounded(
 ) error {
 	query := `
 SELECT id, conversation_id, turn_id, sequence, emitted_at, kind, actor,
-       provider_event_id, provider_thread_id, provider_turn_id, payload_json
+       provider_event_id, provider_turn_id, payload_json
 FROM trajectory_events
 WHERE turn_id = ?
 `
@@ -311,6 +311,13 @@ func (fold *narratorTurnFold) applyInstructions(
 			Sequence: event.Sequence,
 			Input:    event.TurnSteered.Input,
 		})
+		return true, nil
+	case TrajectoryEventAgentMessageCompleted:
+		message := NarratorSemanticAssistantMessage{
+			ProviderItemID: event.AgentMessageCompleted.ProviderItemID,
+			Text:           event.AgentMessageCompleted.Text,
+		}
+		projection.LatestAssistantMessage = &message
 		return true, nil
 	case TrajectoryEventPlanChanged:
 		projection.Plan = &NarratorCurrentPlan{Sequence: event.Sequence, Plan: *event.PlanChanged}

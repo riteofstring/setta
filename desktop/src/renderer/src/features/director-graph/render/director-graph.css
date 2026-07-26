@@ -1,0 +1,149 @@
+/*
+ * The fullscreen graph surface.
+ *
+ * The canvas is the primary surface: it fills its container and everything
+ * else floats over it. The label layer sits between the canvas and the rails,
+ * is pointer-transparent apart from the pills, and never reflows the canvas.
+ */
+
+.director-graph-surface {
+  position: relative;
+  inline-size: 100%;
+  block-size: 100%;
+  background: #05060a;
+  overflow: hidden;
+}
+
+.director-graph-surface:focus-visible {
+  outline: 2px solid oklch(0.78 0.13 220);
+  outline-offset: -2px;
+}
+
+.director-graph-canvas {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.director-graph-labels {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  font-size: 12px;
+  line-height: 1.35;
+  color: oklch(0.88 0.02 240);
+}
+
+/*
+ * A label is a chip, not floating text.
+ *
+ * The canvas underneath is a halftone-dithered field, so unbacked text has no
+ * consistent ground to sit on and reads as mush wherever the dither is bright.
+ * The tinted background and hairline border are what make it legible; they are
+ * the label's substance, not decoration.
+ *
+ * Two lines is the bound. The mockup ellipses at one because mock text is
+ * short, and the fidelity checklist's section 5 item 7 allows the second line a
+ * real public summary needs — but the budget stays bounded, so the chip can
+ * never grow into a paragraph.
+ */
+.director-graph-label {
+  position: absolute;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  max-inline-size: 260px;
+  padding: 3px 9px;
+  overflow: hidden;
+  border: 1px solid var(--director-border);
+  border-radius: 8px;
+  background: oklch(from var(--director-ground) l c h / 0.86);
+  color: var(--director-muted);
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
+  text-align: center;
+  will-change: transform, opacity;
+}
+
+/*
+ * The question driving current work. It stays on screen while its turn is open,
+ * so it is the one label that outranks the graph behind it.
+ */
+.director-graph-label-sticky {
+  z-index: 9;
+  border-color: oklch(0.82 0.125 185 / 0.55);
+  background: oklch(from var(--director-ground) l c h / 0.9);
+  box-shadow: 0 6px 18px oklch(0 0 0 / 0.55);
+  color: var(--director-foreground);
+}
+
+.director-graph-pill {
+  position: absolute;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-block-size: 44px;
+  min-inline-size: 44px;
+  max-inline-size: 320px;
+  margin: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--director-border);
+  border-radius: 999px;
+  background: oklch(from var(--director-ground) l c h / 0.9);
+  color: oklch(0.92 0.02 240);
+  font: inherit;
+  text-align: start;
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: manipulation;
+  will-change: transform, opacity;
+}
+
+.director-graph-pill:focus-visible {
+  outline: 2px solid oklch(0.82 0.13 220);
+  outline-offset: 2px;
+}
+
+.director-graph-pill-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.director-graph-pill-mark {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.director-graph-pill-question .director-graph-pill-mark {
+  color: oklch(0.82 0.12 220);
+}
+
+.director-graph-pill-succeeded .director-graph-pill-mark {
+  color: oklch(0.86 0.19 155);
+}
+
+.director-graph-pill-failed .director-graph-pill-mark {
+  color: oklch(0.68 0.22 22);
+}
+
+.director-graph-pill-cancelled .director-graph-pill-mark,
+.director-graph-pill-running .director-graph-pill-mark {
+  color: oklch(0.85 0.15 85);
+}
+
+/*
+ * Below the phone breakpoint the label budget shrinks with the viewport; the
+ * graph, its navigation, and the composer stay.
+ */
+@media (max-width: 760px) {
+  .director-graph-label {
+    max-inline-size: 180px;
+  }
+
+  .director-graph-pill {
+    max-inline-size: 240px;
+  }
+}

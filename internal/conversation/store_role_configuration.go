@@ -136,7 +136,7 @@ func (store *Store) readRoleProfileResolutionsAtConnection(
 		if err := requireRoleProfileConversation(
 			ctx,
 			reader,
-			*scope.WorkspaceID,
+			scope.WorkspaceID,
 			*scope.ConversationID,
 		); err != nil {
 			return nil, err

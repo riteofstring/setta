@@ -4,8 +4,11 @@
     "eslint.config.mjs",
     "src/main/index.ts",
     "src/preload/index.ts",
-    "src/renderer/public/sw.js",
     "src/renderer/src/main.tsx",
+    "src/renderer/src/components/ui/*.tsx",
+    "src/renderer/src/features/director-graph/harness/director-graph-harness-main.tsx",
+    "src/renderer/src/features/director-graph/gallery/director-graph-gallery-main.tsx",
+    "src/renderer/src/features/artifacts/gallery/artifact-gallery-main.tsx",
     "vitest.config.ts"
   ],
   "project": [
@@ -17,10 +20,18 @@
     "src/**/*.tsx",
     "vitest.config.ts"
   ],
-  "ignore": ["out/**", "dist/**", "src/generated/**"],
-  "ignoreFiles": ["src/renderer/src/components/workspace-pane-split-overlay.tsx"],
-  "ignoreIssues": {
-    "src/renderer/src/components/workspace-pane.tsx": ["exports", "types"]
-  },
-  "ignoreDependencies": ["@types/node", "@types/react", "@types/react-dom", "tailwindcss", "vite"]
+  "ignore": [
+    "out/**",
+    "dist/**",
+    "src/generated/**",
+    "src/renderer/src/features/artifacts/generated/**"
+  ],
+  "ignoreDependencies": [
+    "@types/node",
+    "@types/react",
+    "@types/react-dom",
+    "tailwindcss",
+    "tw-animate-css",
+    "vite"
+  ]
 }

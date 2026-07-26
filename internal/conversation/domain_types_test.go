@@ -4,20 +4,34 @@ import (
 	"strings"
 	"testing"
 
+	"setta/internal/conversation/artifactdoc"
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 const (
 	testTimeStarted = "2026-07-11T20:00:00Z"
 	testTimeEnded   = "2026-07-11T20:01:00Z"
+
+	// testArtifactSource is the smallest document the package's artifact
+	// records are built from. Every artifact is a compiled document now, so a
+	// test record needs source the compiler actually accepts.
+	testArtifactSource = `root = Document([Text("Report")])`
 )
+
+func testArtifactDocument() ArtifactDocument {
+	return ArtifactDocument{
+		Language:  ArtifactDocumentLanguageOpenUI,
+		CatalogID: ArtifactCatalogSettaV1,
+		Source:    testArtifactSource,
+	}
+}
 
 func TestTopicConversationAndChildRecordsValidateOwnedInvariants(t *testing.T) {
 	archivedAt := testTimeEnded
 	conversation := TopicConversation{
 		ID:                     "conversation-1",
-		WorkspaceID:            "workspace-1",
+		WorkspaceID:            stringPointer("workspace-1"),
 		Title:                  "Topic conversations",
 		TopicDescriptor:        "Implement the new aggregate.",
 		Status:                 ConversationStatusIdle,
@@ -76,32 +90,17 @@ func TestTopicConversationAndChildRecordsValidateOwnedInvariants(t *testing.T) {
 	queued.Ordinal = 0
 	assertValidationErrorContains(t, queued.Validate(), "ordinal must be positive")
 
-	binding := AgentThreadBinding{
-		ConversationID:   conversation.ID,
-		Provider:         ProviderCodex,
-		ThreadID:         "provider-thread-1",
-		Status:           ThreadBindingStatusLinked,
-		CreatedAt:        testTimeStarted,
-		LastResumedAt:    stringPointer(testTimeEnded),
-		LastTurnID:       stringPointer("turn-1"),
-		ProviderMetadata: map[string]string{"cwd": "/workspace"},
-	}
-	if err := binding.Validate(); err != nil {
-		t.Fatalf("valid thread binding: %v", err)
-	}
-	binding.ProviderMetadata = nil
-	assertValidationErrorContains(t, binding.Validate(), "must be an object, not null")
-
 	sequence := 8
 	artifact := Artifact{
 		ID:                 "artifact-1",
 		ConversationID:     conversation.ID,
 		TurnID:             stringPointer("turn-1"),
 		TrajectorySequence: &sequence,
-		Kind:               ArtifactKindMarkdown,
 		Title:              "Report",
+		Kind:               "Report",
+		Summary:            "What the run found and what it concluded.",
 		CreatedAt:          testTimeEnded,
-		Markdown:           &MarkdownArtifactPayload{Markdown: "Report"},
+		Document:           testArtifactDocument(),
 	}
 	if err := artifact.Validate(); err != nil {
 		t.Fatalf("valid artifact: %v", err)
@@ -109,6 +108,12 @@ func TestTopicConversationAndChildRecordsValidateOwnedInvariants(t *testing.T) {
 	zero := 0
 	artifact.TrajectorySequence = &zero
 	assertValidationErrorContains(t, artifact.Validate(), "trajectory sequence must be positive")
+	artifact.TrajectorySequence = &sequence
+	artifact.Document.Source = `root = Marquee("Report")`
+	assertValidationErrorContains(t, artifact.Validate(), string(artifactdoc.CodeUnknownComponent))
+	artifact.Document = testArtifactDocument()
+	artifact.Document.CatalogID = "setta.artifacts.v0"
+	assertValidationErrorContains(t, artifact.Validate(), "catalog \"setta.artifacts.v0\" is not supported")
 }
 
 func TestRoleProfilesKeepSelectionsPermissionsAndAuditIndependent(t *testing.T) {
@@ -145,8 +150,8 @@ func TestRoleProfilesKeepSelectionsPermissionsAndAuditIndependent(t *testing.T) 
 
 	invocation := validInvocation(RoleAgent, InvocationOutcomeSucceeded)
 	invocation.ModelReroutes = []InvocationModelReroute{
-		{FromModelID: invocation.Resolved.ModelID, ToModelID: "gpt-fallback", Reason: "high_risk_cyber_activity"},
-		{FromModelID: "gpt-fallback", ToModelID: "gpt-safe", Reason: "provider_policy"},
+		{FromModelID: invocation.Resolved.ModelID, ToModelID: "gpt-fallback", Reason: InvocationModelRerouteReasonHighRiskCyberActivity},
+		{FromModelID: "gpt-fallback", ToModelID: "gpt-safe", Reason: InvocationModelRerouteReasonHighRiskCyberActivity},
 	}
 	if err := invocation.Validate(); err != nil {
 		t.Fatalf("valid invocation audit: %v", err)
@@ -221,10 +226,9 @@ func TestBranchTypesKeepDurableForksAndEphemeralSidesDistinct(t *testing.T) {
 		ChildConversationID:      "conversation-child",
 		ParentConversationID:     "conversation-parent",
 		Kind:                     BranchKindFork,
-		DecisionSource:           BranchDecisionSourceConversationRouter,
+		DecisionSource:           BranchDecisionSourceDirector,
 		ForkedAtTurnID:           "turn-4",
 		SourceTrajectorySequence: 19,
-		ProviderMetadata:         map[string]string{"providerForkThreadId": "thread-child"},
 		CreatedAt:                testTimeStarted,
 	}
 	if err := branch.Validate(); err != nil {
@@ -236,26 +240,20 @@ func TestBranchTypesKeepDurableForksAndEphemeralSidesDistinct(t *testing.T) {
 	side := SideConversation{
 		ID:                          "side-1",
 		ParentConversationID:        "conversation-parent",
-		ParentPaneID:                "pane-1",
 		ParentStatus:                ConversationStatusWorking,
-		DecisionSource:              BranchDecisionSourceConversationRouter,
-		ProviderThreadID:            stringPointer("thread-side"),
-		SourceProviderThreadID:      "thread-parent",
-		SourceProviderTurnID:        stringPointer("provider-turn-1"),
+		DecisionSource:              BranchDecisionSourceDirector,
+		SourceTurnID:                stringPointer("turn-parent"),
 		SourceTrajectorySequence:    21,
 		Status:                      SideConversationStatusActive,
 		ResolvedSideAgentInvocation: validInvocation(RoleSideAgent, InvocationOutcomeRunning),
 		CreatedAt:                   testTimeStarted,
 		UpdatedAt:                   testTimeEnded,
 	}
-	side.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = stringPointer("thread-side")
 	if err := side.Validate(); err != nil {
 		t.Fatalf("valid active side conversation: %v", err)
 	}
-	side.ProviderThreadID = nil
-	assertValidationErrorContains(t, side.Validate(), "must match its invocation audit")
-	side.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = nil
-	assertValidationErrorContains(t, side.Validate(), "must have provider thread")
+	side.DisposedAt = stringPointer(testTimeEnded)
+	assertValidationErrorContains(t, side.Validate(), "must not carry terminal state")
 }
 
 func validConversationTurn(status TurnStatus) ConversationTurn {
@@ -333,7 +331,6 @@ func validInvocation(role Role, outcome InvocationOutcome) ResolvedInvocation {
 			PermissionProfile: validRoleProfile(role).PermissionProfile,
 		},
 		ProviderReferences: InvocationProviderReferences{
-			ThreadID:  stringPointer("provider-thread-1"),
 			TurnID:    stringPointer("provider-turn-1"),
 			RequestID: stringPointer("provider-request-1"),
 		},

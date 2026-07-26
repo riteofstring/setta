@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, safeStorage } from "electron";
 import type { OpenDialogOptions } from "electron";
 import { homedir, hostname } from "node:os";
 import { join, resolve } from "node:path";
@@ -10,7 +10,7 @@ import {
   type CodexAccountChangeEvent,
 } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
-import { handleIpc, ipcEvents, ipcMessages } from "@shared/ipc";
+import { handleIpc, ipcEvents } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
 import type { BackendProcessStatus, RuntimeRegistrySnapshot } from "@shared/types";
 import { registerAppIpcHandlers } from "./app-ipc";
@@ -25,39 +25,66 @@ import {
 } from "./codex-account-event-stream";
 import { registerConversationIpcHandlers } from "./conversation-ipc";
 import { ConversationEventRegistry } from "./conversation-event-registry";
-import { DesktopCredentialStore, type RuntimeAccessCredential } from "./desktop-credential-store";
-import { DeveloperHostedRuntimeController } from "./developer-hosted-runtime-controller";
-import { DeveloperHostedRuntimeCredentialClient } from "./developer-hosted-runtime-client";
-import { registerDeveloperHostedRuntimeIpcHandlers } from "./developer-hosted-runtime-ipc";
-import { createElectronCredentialSecretStore } from "./electron-credential-secret-store";
+import { DirectorEventRegistry } from "./director-event-registry";
+import { registerDirectorIpcHandlers } from "./director-ipc";
 import { KnownRuntimeStore } from "./known-runtime-store";
 import {
-  enrollWithLocalRuntimeIssuer,
-  LocalRuntimeCredentialClient,
-} from "./local-runtime-credential-client";
-import { registerHostedAccessIpcHandlers } from "./hosted-access-ipc";
-import { HostedAccessProgressRegistry } from "./hosted-access-progress-registry";
-import { registerMasterIpcHandlers } from "./master-ipc";
+  createLocalMacOSVoiceHelperFromEnvironment,
+  type LocalMacOSVoiceHelper,
+} from "./local-macos-voice-helper";
+import {
+  createLocalMacOSVoiceModelDownloadService,
+  type LocalMacOSVoiceModelDownloadService,
+} from "./local-macos-voice-model-download";
 import { configureMainRendererMicrophonePermissions } from "./microphone-permissions";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
 import { registerRoleConfigurationIpcHandlers } from "./role-configuration-ipc";
 import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registry";
-import { RuntimeCredentialManager } from "./runtime-credential-manager";
+import { SpeechCredentialCoordinator } from "./speech-credential-coordinator";
+import {
+  createElectronSafeStorageCredentialProtection,
+  SpeechCredentialVault,
+} from "./speech-credential-vault";
 import { registerSpeechIpcHandlers } from "./speech-ipc";
-import { createElectronWebContentsViewRegistry } from "./workspace-browser-views";
+import { SpeechProviderSelectionStore } from "./speech-provider-selection-store";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { registerAppWindowDragIpcHandlers } from "./window-drag";
-import { registerWorkspaceUILayoutIpcHandlers } from "./workspace-ui-ipc";
+
+/*
+ * Losing the log pipe is not a crash.
+ *
+ * Whoever launched this app owns its stdout and stderr, and they can go away
+ * while the app is still running — a terminal closes, a test harness exits, a
+ * parent process dies. The next write then fails with EPIPE, and because it is
+ * thrown from the stream rather than from anything the app called, it surfaces
+ * as an uncaught exception dialog in front of the user. Nothing they were doing
+ * has actually gone wrong: only the destination of a log line has.
+ *
+ * So a dead pipe silences logging and the app carries on. Any other stream
+ * error is left to fail, because it is not this condition.
+ */
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on("error", (error: NodeJS.ErrnoException) => {
+    if (error.code !== "EPIPE") {
+      throw error;
+    }
+  });
+}
 
 let backend: BackendHandle | null = null;
 let codexAccountEventStream: CodexAccountEventStream | null = null;
 let backendStartupError: string | null = null;
 let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
+let localMacOSVoiceHelper: LocalMacOSVoiceHelper | null = null;
+let localMacOSVoiceModelDownloadService: LocalMacOSVoiceModelDownloadService | null = null;
 let quitting = false;
 let recorder: SessionRecorder | null = null;
 let runtimeRegistry: RuntimeRegistryController | null = null;
+let speechCredentialCoordinator: SpeechCredentialCoordinator | null = null;
+let speechProviderSelectionStore: SpeechProviderSelectionStore | null = null;
 const backendRequests = createBackendRequestLifecycle();
+const localBackendRequests = createBackendRequestLifecycle();
 const backendStatuses = createBackendStatusBroadcaster(() => BrowserWindow.getAllWindows());
 const conversationEvents = new ConversationEventRegistry({
   backendConnection: () => {
@@ -70,44 +97,53 @@ const conversationEvents = new ConversationEventRegistry({
   recordEvent: (event) => {
     recorder?.recordConversationEvent(event);
   },
-  recordDisconnect: (error) => {
-    recorder?.recordAppEvent("conversation_event_stream_disconnected", errorPayload(error));
-  },
 });
-const hostedAccessProgress = new HostedAccessProgressRegistry({
-  reportDisconnect: (error) => {
-    recorder?.recordAppEvent("hosted_access_progress_disconnected", errorPayload(error));
+const directorEvents = new DirectorEventRegistry({
+  backendConnection: () => {
+    const runtime = activeRuntime();
+    if (!runtime) {
+      throw new Error(runtimeUnavailableMessage());
+    }
+    return { baseURL: runtime.baseUrl, fetchImpl: backendFetch() };
   },
-  socketPath: hostedAccessSocketPath,
-});
-const developerHostedRuntime = new DeveloperHostedRuntimeController({
-  enabled: process.env.SETTA_DEVELOPER_HOSTED_RUNTIME === "1",
-  hostedWorkspacePath:
-    process.env.SETTA_E2E === "1"
-      ? process.env.SETTA_E2E_DEVELOPER_HOSTED_WORKSPACE_PATH
-      : undefined,
-  openHostedTestWorkspace: async (rootPath) => {
-    await requireBackendClient().openWorkspace({ rootPath });
+  recordEvent: (event) => {
+    recorder?.recordAppEvent("director_event", event);
   },
-  runtimeRegistry: requireRuntimeRegistry,
-  senders: () => BrowserWindow.getAllWindows().map((window) => window.webContents),
-  socketPath: hostedAccessSocketPath,
 });
 const compactWindowMinHeight = 320;
-const compactWindowMinWidth = 320;
+/*
+ * The narrowest useful window, per platform.
+ *
+ * macOS draws its window buttons inside the renderer's own top bar, and the
+ * bar reserves 80px for them. At 320px there is not enough left for the
+ * workstream identity and the view controls, so the floor on darwin is that
+ * 80px higher — the constraint is the platform's, not the layout's.
+ */
+const compactWindowMinWidth = process.platform === "darwin" ? 400 : 320;
 const backendRequestDrainTimeoutMs = 1_500;
-const workspaceBrowserViews = createElectronWebContentsViewRegistry();
 function desktopRoot() {
   return process.cwd();
 }
 function repoRoot() {
   return resolve(desktopRoot(), "..");
 }
+function localMacOSVoiceResourceRoots() {
+  return [
+    join(process.resourcesPath, "local-macos-voice"),
+    join(desktopRoot(), "out", "local-macos-voice"),
+    join(desktopRoot(), "resources", "local-macos-voice"),
+  ];
+}
 async function prepareBackend(appDataDir: string) {
   emitBackendProcessStatus({ message: "Starting backend", status: "starting" });
   try {
     backend = await startBackend(repoRoot(), appDataDir, process.env);
+    localBackendRequests.setStopping(false);
     backendStartupError = null;
+    backend.events.on("exit", () => {
+      localBackendRequests.setStopping(true);
+      void speechCredentialCoordinator?.setLocalRuntime(null);
+    });
     attachBackendObservers({
       backend,
       emitBackendProcessStatus,
@@ -120,12 +156,17 @@ async function prepareBackend(appDataDir: string) {
     await runtimeRegistry.load();
     const localRuntime = await runtimeRegistry.registerLocalRuntime({
       baseUrl: backend.url,
-      pairingToken: backend.localPairingToken,
+      deviceToken: backend.bootstrapToken,
+    });
+    await speechCredentialCoordinator?.setLocalRuntime({
+      client: createLocalSpeechCredentialClient(localRuntime),
+      runtimeId: localRuntime.runtimeId,
     });
     await runtimeRegistry.connectStoredOrLocal(localRuntime.runtimeId);
-    await developerHostedRuntime.load();
   } catch (error) {
     backend = null;
+    localBackendRequests.setStopping(true);
+    void speechCredentialCoordinator?.setLocalRuntime(null);
     backendStartupError = error instanceof Error ? error.message : "backend failed to start";
     emitBackendProcessStatus({ message: backendStartupError, status: "failed" });
     recorder?.recordBackendStartupError(backendStartupError);
@@ -133,17 +174,8 @@ async function prepareBackend(appDataDir: string) {
 }
 
 function createRuntimeRegistry() {
-  const credentials = new DesktopCredentialStore(
-    createElectronCredentialSecretStore(app.getPath("userData")),
-  );
   return new RuntimeRegistryController({
     clientDisplayName,
-    enrollRuntime: (pairing, displayName) =>
-      enrollWithLocalRuntimeIssuer({
-        clientDisplayName: displayName,
-        fetchImpl: fetch,
-        pairing,
-      }),
     fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
     hooks: {
       activeRuntimeFailed: handleRuntimeFailed,
@@ -152,17 +184,7 @@ function createRuntimeRegistry() {
       beforeRuntimeSwitch,
     },
     onSnapshot: broadcastRuntimeSnapshot,
-    runtimeCredentials: new RuntimeCredentialManager(
-      credentials,
-      new DeveloperHostedRuntimeCredentialClient(
-        () => process.env.SETTA_DEVELOPER_HOSTED_RUNTIME === "1",
-        hostedAccessSocketPath,
-      ),
-      {
-        localRuntimeCredentialClient: new LocalRuntimeCredentialClient(fetch),
-      },
-    ),
-    store: new KnownRuntimeStore(app.getPath("userData"), credentials),
+    store: new KnownRuntimeStore(app.getPath("userData")),
   });
 }
 
@@ -196,7 +218,11 @@ async function beforeRuntimeSwitch() {
 async function stopBackendEventStreams() {
   const accountStream = codexAccountEventStream;
   codexAccountEventStream = null;
-  await Promise.all([accountStream?.stop(), conversationEvents.stopAll()]);
+  await Promise.all([
+    accountStream?.stop(),
+    conversationEvents.stopAll(),
+    directorEvents.stopAll(),
+  ]);
 }
 
 function startBackendEventStreams() {
@@ -208,18 +234,8 @@ function startBackendEventStreams() {
   codexAccountEventStream = startCodexAccountEventStream({
     baseURL: runtime.baseUrl,
     fetchImpl: backendFetch(),
-    reportDisconnect: (error) => {
-      recorder?.recordAppEvent("codex_account_event_stream_disconnected", errorPayload(error));
-    },
     sendEvent: forwardCodexAccountChange,
   });
-}
-
-function errorPayload(error: unknown): { message: string; name: string } {
-  if (error instanceof Error) {
-    return { message: error.message, name: error.name };
-  }
-  return { message: "non-error stream failure", name: "UnknownError" };
 }
 
 function forwardCodexAccountChange(event: CodexAccountChangeEvent) {
@@ -247,6 +263,30 @@ function broadcastRuntimeSnapshot(snapshot: RuntimeRegistrySnapshot) {
   }
 }
 
+function broadcastSpeechCredentialSettings(settings: unknown) {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send(ipcEvents.speechCredentialSettingsChanged, settings);
+    }
+  }
+}
+
+function broadcastSpeechProviderSelection(settings: unknown) {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send(ipcEvents.speechProviderSelectionChanged, settings);
+    }
+  }
+}
+
+function broadcastLocalMacOSVoiceModelDownload(status: unknown) {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send(ipcEvents.speechLocalMacOSVoiceModelDownloadChanged, status);
+    }
+  }
+}
+
 function sendRuntimeSnapshot(window: BrowserWindow) {
   const snapshot = runtimeRegistry?.snapshot();
   if (snapshot) {
@@ -261,17 +301,6 @@ function clientDisplayName() {
 
 function settaAppDataDir() {
   return process.env.SETTA_APP_DATA_DIR ?? join(homedir(), ".setta");
-}
-
-function hostedAccessSocketPath(): string {
-  const socketPath = process.env.SETTA_HOSTED_ACCESS_SOCKET?.trim() ?? "";
-  if (socketPath === "") {
-    throw new Error("hosted access is not configured");
-  }
-  if (!socketPath.startsWith("/")) {
-    throw new Error("SETTA_HOSTED_ACCESS_SOCKET must be an absolute path");
-  }
-  return socketPath;
 }
 
 function configureElectronUserDataPath() {
@@ -372,7 +401,6 @@ async function createWindow() {
     }
   });
   mainWindow.on("closed", () => {
-    workspaceBrowserViews.teardownAll();
     mainWindow = null;
   });
 
@@ -423,12 +451,7 @@ function rendererURLWithQuery(rawURL: string): string {
 }
 
 function rendererQuery(): Record<string, string> | null {
-  const query: Record<string, string> = {};
-  const workspaceScene = process.env.SETTA_E2E_NIRI_SCENE;
-  if (workspaceScene) {
-    query.workspaceScene = workspaceScene;
-  }
-  return Object.keys(query).length > 0 ? query : null;
+  return null;
 }
 
 function registerIpc() {
@@ -439,9 +462,6 @@ function registerIpc() {
   const ipcObserver = recorder?.createIpcObserver();
   ipcMain.on(recordingRendererEventChannel, (_event, event: RendererRecordedEvent) => {
     recorder?.recordRendererEvent(event);
-  });
-  ipcMain.on(ipcMessages.workspaceBrowserViewBatch, (event, batch) => {
-    workspaceBrowserViews.applyBatch(event, batch);
   });
   registerAppIpcHandlers({
     ipcMain,
@@ -570,7 +590,6 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerWorkspaceUILayoutIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
     "workspaceClose",
@@ -595,11 +614,15 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  registerSpeechIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
-  registerMasterIpcHandlers({
+  registerSpeechIpcHandlers({
     ipcMain,
     ipcObserver,
+    onProviderSelectionChanged: broadcastSpeechProviderSelection,
+    requireLocalMacOSVoiceHelper,
+    requireLocalMacOSVoiceModelDownloadService,
     requireBackendClient,
+    requireSpeechCredentialCoordinator,
+    requireSpeechProviderSelectionStore,
   });
   registerConversationIpcHandlers({
     conversationEvents,
@@ -607,16 +630,11 @@ function registerIpc() {
     ipcObserver,
     requireBackendClient,
   });
-  registerHostedAccessIpcHandlers({
-    hostedAccessProgress,
+  registerDirectorIpcHandlers({
+    directorEvents,
     ipcMain,
     ipcObserver,
-    socketPath: hostedAccessSocketPath,
-  });
-  registerDeveloperHostedRuntimeIpcHandlers({
-    controller: developerHostedRuntime,
-    ipcMain,
-    ipcObserver,
+    requireBackendClient,
   });
   registerRoleConfigurationIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
@@ -659,22 +677,6 @@ function registerIpc() {
     },
     ipcObserver,
   );
-  handleIpc(
-    ipcMain,
-    "workspaceBrowserViewStats",
-    () => {
-      return workspaceBrowserViews.readStats();
-    },
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
-    "workspaceBrowserViewsTeardown",
-    (_event, workspaceId) => {
-      return workspaceBrowserViews.teardownWorkspace(workspaceId);
-    },
-    ipcObserver,
-  );
 }
 
 function requireBackendClient(): BackendClient {
@@ -685,31 +687,32 @@ function requireBackendClient(): BackendClient {
   return createBackendClient(runtime.baseUrl, backendRequests.wrapFetch(backendFetch()));
 }
 
-function backendFetch(): BackendFetch {
+function createLocalSpeechCredentialClient(localRuntime: {
+  baseUrl: string;
+  deviceToken: string;
+  runtimeId: string;
+}): BackendClient {
   const fetchImpl = recorder?.createBackendFetch(fetch) ?? fetch;
-  return authenticatedBackendFetch(
-    fetchImpl,
-    async () => {
-      const runtime = activeRuntime();
-      if (!runtime) {
-        throw new Error(runtimeUnavailableMessage());
-      }
-      return (await currentRuntimeCredential(runtime)).token;
-    },
-    () => {
+  const authenticatedFetch = authenticatedBackendFetch(fetchImpl, localRuntime.deviceToken, () => {
+    if (activeRuntime()?.runtimeId === localRuntime.runtimeId) {
       void runtimeRegistry?.markActiveRuntimeRevoked();
-    },
+    }
+  });
+  return createBackendClient(
+    localRuntime.baseUrl,
+    localBackendRequests.wrapFetch(authenticatedFetch),
   );
 }
 
-async function currentRuntimeCredential(runtime: ActiveRuntime): Promise<RuntimeAccessCredential> {
-  const registry = requireRuntimeRegistry();
-  const credential = await registry.currentRuntimeCredential();
-  const current = activeRuntime();
-  if (!current || current.runtimeId !== runtime.runtimeId) {
-    throw new Error("runtime changed while resolving runtime credential");
+function backendFetch(): BackendFetch {
+  const runtime = activeRuntime();
+  if (!runtime) {
+    throw new Error(runtimeUnavailableMessage());
   }
-  return credential;
+  const fetchImpl = recorder?.createBackendFetch(fetch) ?? fetch;
+  return authenticatedBackendFetch(fetchImpl, runtime.deviceToken, () => {
+    void runtimeRegistry?.markActiveRuntimeRevoked();
+  });
 }
 
 function activeRuntime(): ActiveRuntime | null {
@@ -723,6 +726,53 @@ function requireRuntimeRegistry(): RuntimeRegistryController {
   return runtimeRegistry;
 }
 
+function requireSpeechCredentialCoordinator(): SpeechCredentialCoordinator {
+  if (!speechCredentialCoordinator) {
+    throw new Error("speech credential coordinator is not ready");
+  }
+  return speechCredentialCoordinator;
+}
+
+function requireSpeechProviderSelectionStore(): SpeechProviderSelectionStore {
+  if (!speechProviderSelectionStore) {
+    throw new Error("speech provider selection store is not ready");
+  }
+  return speechProviderSelectionStore;
+}
+
+function requireLocalMacOSVoiceHelper(): LocalMacOSVoiceHelper {
+  if (!localMacOSVoiceHelper) {
+    throw new Error("local macOS voice helper is not ready");
+  }
+  return localMacOSVoiceHelper;
+}
+
+function requireLocalMacOSVoiceModelDownloadService(): LocalMacOSVoiceModelDownloadService {
+  if (!localMacOSVoiceModelDownloadService) {
+    throw new Error("local macOS voice model download service is not ready");
+  }
+  return localMacOSVoiceModelDownloadService;
+}
+
+function createSpeechCredentialCoordinator(): SpeechCredentialCoordinator {
+  let vault: SpeechCredentialVault | null = null;
+  let secureStorageUnavailableMessage: string | undefined;
+  try {
+    vault = new SpeechCredentialVault(
+      app.getPath("userData"),
+      createElectronSafeStorageCredentialProtection({ app, safeStorage }),
+    );
+  } catch (error) {
+    secureStorageUnavailableMessage =
+      error instanceof Error ? error.message : "Secure storage is unavailable.";
+  }
+  return new SpeechCredentialCoordinator({
+    onSettingsChanged: broadcastSpeechCredentialSettings,
+    secureStorageUnavailableMessage,
+    vault,
+  });
+}
+
 function runtimeUnavailableMessage() {
   const snapshot = runtimeRegistry?.snapshot();
   return snapshot?.connection.message ?? backendStartupError ?? "runtime is not connected";
@@ -730,13 +780,16 @@ function runtimeUnavailableMessage() {
 
 async function stopBackend() {
   backendRequests.setStopping(true);
+  localBackendRequests.setStopping(true);
   emitBackendProcessStatus({ message: "Backend is stopping", status: "offline" });
   await stopBackendEventStreams();
-  hostedAccessProgress.stopAll();
-  developerHostedRuntime.stop();
-  await backendRequests.waitForIdle(backendRequestDrainTimeoutMs);
+  await Promise.all([
+    backendRequests.waitForIdle(backendRequestDrainTimeoutMs),
+    localBackendRequests.waitForIdle(backendRequestDrainTimeoutMs),
+  ]);
   await backend?.stop();
   backend = null;
+  void speechCredentialCoordinator?.setLocalRuntime(null);
 }
 
 function requestQuit() {
@@ -753,6 +806,24 @@ app.whenReady().then(async () => {
     desktopRoot: desktopRoot(),
     repoRoot: repoRoot(),
   });
+  speechCredentialCoordinator = createSpeechCredentialCoordinator();
+  speechProviderSelectionStore = new SpeechProviderSelectionStore(
+    app.getPath("userData"),
+    process.platform,
+  );
+  localMacOSVoiceModelDownloadService = createLocalMacOSVoiceModelDownloadService({
+    onStatusChanged: broadcastLocalMacOSVoiceModelDownload,
+    platform: process.platform,
+    userDataDir: app.getPath("userData"),
+  });
+  localMacOSVoiceHelper = createLocalMacOSVoiceHelperFromEnvironment(
+    process.env,
+    process.platform,
+    {
+      defaultModel: localMacOSVoiceModelDownloadService.defaultModelConfiguration(),
+      resourceRoots: localMacOSVoiceResourceRoots(),
+    },
+  );
   await prepareBackend(appDataDir);
   await createWindow();
 });
@@ -784,6 +855,10 @@ app.on("window-all-closed", () => {
 });
 
 app.on("will-quit", () => {
+  localMacOSVoiceModelDownloadService?.shutdown();
+  localMacOSVoiceModelDownloadService = null;
+  localMacOSVoiceHelper?.shutdown();
+  localMacOSVoiceHelper = null;
   recorder?.close();
 });
 

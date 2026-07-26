@@ -1,17 +1,7 @@
-import type {
-  DeveloperHostedRuntimePhase,
-  DeveloperHostedRuntimeReasonCode,
-  DeveloperHostedRuntimeStatus,
-} from "@generated/backend";
-import type {
-  KnownRuntimeView,
-  RuntimeConnectionStatus,
-  RuntimeRegistrySnapshot,
-} from "@shared/types";
+import type { KnownRuntimeView, RuntimeConnectionStatus } from "@shared/types";
 import {
   AlertTriangle,
   Check,
-  Cloud,
   Copy,
   Ellipsis,
   Loader2,
@@ -19,7 +9,6 @@ import {
   Plus,
   Power,
   Server,
-  Trash2,
 } from "lucide-react";
 import {
   type Dispatch,
@@ -33,11 +22,8 @@ import {
 import { cn } from "../lib/utils";
 import { runtimePickerControlsDisabled, useRuntimeStore } from "../stores/runtime-store";
 import { FloatingMenu } from "./floating-menu";
+import { SettaCompactInput } from "./setta-compact-input";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-
-export const developerHostedOfflineDeletionWarning =
-  "Automatic compute cutoff is armed. Keep this controller running for automatic deletion.";
 
 interface RuntimePickerProps {
   adding?: boolean;
@@ -59,351 +45,13 @@ export function RuntimePicker({
         busy={state.busy}
         onRemove={(runtimeId) => void state.removeRuntime(runtimeId)}
         onSwitch={(runtimeId) => void state.switchRuntime(runtimeId)}
-        runtimes={state.runtimes.filter((runtime) => !runtime.managedHosted)}
+        runtimes={state.runtimes}
         status={state.status}
       />
-      <DeveloperHostedRuntimeCard />
       <RuntimePairingForm state={state} />
       <RuntimePickerError error={state.error} />
     </section>
   );
-}
-
-function DeveloperHostedRuntimeCard() {
-  const available = useRuntimeStore((state) => state.developerHostedAvailable);
-  const destroy = useRuntimeStore((state) => state.destroyHostedRuntime);
-  const operation = useRuntimeStore((state) => state.operation);
-  const provision = useRuntimeStore((state) => state.provisionHostedRuntime);
-  const snapshot = useRuntimeStore((state) => state.snapshot);
-  const status = useRuntimeStore((state) => state.developerHostedStatus);
-  const switchRuntime = useRuntimeStore((state) => state.switchRuntime);
-  return (
-    <DeveloperHostedRuntimeCardContent
-      available={available}
-      destroy={destroy}
-      operation={operation}
-      provision={provision}
-      snapshot={snapshot}
-      status={status}
-      switchRuntime={switchRuntime}
-    />
-  );
-}
-
-function DeveloperHostedRuntimeCardContent({
-  available,
-  destroy,
-  operation,
-  provision,
-  snapshot,
-  status,
-  switchRuntime,
-}: {
-  available: boolean;
-  destroy: () => Promise<void>;
-  operation: ReturnType<typeof useRuntimeStore.getState>["operation"];
-  provision: () => Promise<void>;
-  snapshot: RuntimeRegistrySnapshot | null;
-  status: DeveloperHostedRuntimeStatus | null;
-  switchRuntime: (runtimeId: string) => Promise<void>;
-}) {
-  if (!available) {
-    return null;
-  }
-  if (!status) {
-    return (
-      <DeveloperHostedInactiveCard operation={operation} provision={provision} removed={false} />
-    );
-  }
-  if (status.phase === "removed") {
-    return (
-      <DeveloperHostedInactiveCard operation={operation} provision={provision} removed={true} />
-    );
-  }
-  const managedRuntime = snapshot?.runtimes.find((runtime) => runtime.managedHosted) ?? null;
-  const presentation = developerHostedPresentation(status, managedRuntime, snapshot);
-  const localRuntime = snapshot?.runtimes.find((runtime) => runtime.isLocal) ?? null;
-  const busy = developerHostedActionsBusy(operation, snapshot);
-
-  return (
-    <article
-      aria-label="Hosted developer runtime"
-      className="grid gap-2 rounded-sm border border-border/70 px-2 py-2"
-    >
-      <div className="flex min-w-0 items-start gap-2">
-        <span
-          aria-hidden="true"
-          className={cn("mt-1 h-2 w-2 shrink-0 rounded-full", presentation.dotClass)}
-        />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-xs font-medium">Hosted developer runtime</span>
-          <span aria-live="polite" className="block text-xs text-muted-foreground" role="status">
-            {presentation.label}
-          </span>
-        </span>
-      </div>
-      <DeveloperHostedDetails status={status} />
-      <DeveloperHostedNotices presentation={presentation} status={status} />
-      <DeveloperHostedActions
-        busy={busy}
-        destroy={destroy}
-        localRuntime={localRuntime}
-        managedRuntime={managedRuntime}
-        operation={operation}
-        status={status}
-        switchRuntime={switchRuntime}
-      />
-    </article>
-  );
-}
-
-function developerHostedActionsBusy(
-  operation: ReturnType<typeof useRuntimeStore.getState>["operation"],
-  snapshot: RuntimeRegistrySnapshot | null,
-): boolean {
-  if (operation !== null) {
-    return true;
-  }
-  return Boolean(snapshot?.switching);
-}
-
-function DeveloperHostedInactiveCard({
-  operation,
-  provision,
-  removed,
-}: {
-  operation: ReturnType<typeof useRuntimeStore.getState>["operation"];
-  provision: () => Promise<void>;
-  removed: boolean;
-}) {
-  return (
-    <div className="grid gap-1 rounded-sm border border-border/70 px-2 py-2">
-      {removed ? (
-        <p className="text-xs text-muted-foreground" role="status">
-          Hosted developer runtime · Removed
-        </p>
-      ) : null}
-      <Button
-        className="min-h-10 w-full justify-center"
-        disabled={operation !== null}
-        onClick={() => void provision()}
-        type="button"
-      >
-        {operation === "provisioningHosted" ? (
-          <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <Cloud aria-hidden="true" className="h-3.5 w-3.5" />
-        )}
-        Provision hosted runtime
-      </Button>
-    </div>
-  );
-}
-
-function DeveloperHostedDetails({ status }: { status: DeveloperHostedRuntimeStatus }) {
-  return (
-    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-0.5 text-[11px] leading-4">
-      <dt className="text-muted-foreground">Deletes</dt>
-      <dd className="truncate text-right">{formatTimestamp(status.deletionScheduledAt)}</dd>
-      <dt className="text-muted-foreground">Budget</dt>
-      <dd className="text-right">{formatUSDMicros(status.enforcedBudgetUsdMicros)}</dd>
-      <dt className="text-muted-foreground">Usage</dt>
-      <dd className="text-right">
-        {status.reportedUsageUsdMicros === null
-          ? "Usage pending"
-          : formatUSDMicros(status.reportedUsageUsdMicros)}
-      </dd>
-      <dt className="text-muted-foreground">Last connected</dt>
-      <dd className="truncate text-right">
-        {status.lastConnectedAt ? formatTimestamp(status.lastConnectedAt) : "Not yet"}
-      </dd>
-    </dl>
-  );
-}
-
-function DeveloperHostedNotices({
-  presentation,
-  status,
-}: {
-  presentation: ReturnType<typeof developerHostedPresentation>;
-  status: DeveloperHostedRuntimeStatus;
-}) {
-  return (
-    <>
-      {!status.automaticDeletionWhileOffline ? (
-        <p className="text-[11px] leading-4 text-amber-300">
-          {developerHostedOfflineDeletionWarning}
-        </p>
-      ) : null}
-      {presentation.failure ? (
-        <p className="text-[11px] leading-4 text-destructive" role="alert">
-          {presentation.failure}
-        </p>
-      ) : null}
-    </>
-  );
-}
-
-function DeveloperHostedActions({
-  busy,
-  destroy,
-  localRuntime,
-  managedRuntime,
-  operation,
-  status,
-  switchRuntime,
-}: {
-  busy: boolean;
-  destroy: () => Promise<void>;
-  localRuntime: KnownRuntimeView | null;
-  managedRuntime: KnownRuntimeView | null;
-  operation: ReturnType<typeof useRuntimeStore.getState>["operation"];
-  status: DeveloperHostedRuntimeStatus;
-  switchRuntime: (runtimeId: string) => Promise<void>;
-}) {
-  return (
-    <div className="grid gap-1">
-      {managedRuntime && !managedRuntime.active ? (
-        <Button
-          className="min-h-10 w-full"
-          disabled={busy}
-          onClick={() => void switchRuntime(managedRuntime.runtimeId)}
-          type="button"
-          variant="secondary"
-        >
-          Switch to hosted runtime
-        </Button>
-      ) : null}
-      {managedRuntime?.active && localRuntime ? (
-        <Button
-          className="min-h-10 w-full"
-          disabled={busy}
-          onClick={() => void switchRuntime(localRuntime.runtimeId)}
-          type="button"
-          variant="secondary"
-        >
-          Switch to local runtime
-        </Button>
-      ) : null}
-      <Button
-        className="min-h-10 w-full border-destructive/50 text-destructive hover:bg-destructive/15"
-        disabled={busy}
-        onClick={() => confirmDeveloperHostedDestroy(destroy)}
-        type="button"
-        variant="secondary"
-      >
-        {operation === "destroyingHosted" ? (
-          <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <Trash2 aria-hidden="true" className="h-3.5 w-3.5" />
-        )}
-        {status.phase === "preparing" ? "Cancel provisioning" : "Destroy hosted runtime"}
-      </Button>
-    </div>
-  );
-}
-
-function confirmDeveloperHostedDestroy(destroy: () => Promise<void>) {
-  if (
-    window.confirm("Destroy hosted runtime? Its filesystem and hosted Codex login will be deleted.")
-  ) {
-    void destroy();
-  }
-}
-
-export function developerHostedPresentation(
-  status: DeveloperHostedRuntimeStatus,
-  runtime: KnownRuntimeView | null,
-  snapshot: RuntimeRegistrySnapshot | null,
-) {
-  if (status.phase !== "connected") {
-    return {
-      dotClass: developerHostedPhaseDotClass(status.phase),
-      failure: developerHostedFailure(status.reasonCode),
-      label: developerHostedPhaseLabel(status.phase),
-    };
-  }
-  if (!runtime?.active) {
-    return { dotClass: "bg-zinc-500", failure: null, label: "Not selected" };
-  }
-  if (snapshot?.connection.status === "connected") {
-    return { dotClass: "bg-emerald-400", failure: null, label: "Connected" };
-  }
-  return { dotClass: "bg-sky-400", failure: null, label: "Reconnecting" };
-}
-
-function developerHostedPhaseDotClass(phase: DeveloperHostedRuntimePhase): string {
-  return (
-    {
-      connected: "bg-zinc-500",
-      connecting: "bg-sky-400",
-      destroying: "bg-sky-400",
-      installing: "bg-sky-400",
-      needs_attention: "bg-destructive",
-      pairing: "bg-sky-400",
-      preparing: "bg-sky-400",
-      provisioning: "bg-sky-400",
-      removed: "bg-zinc-500",
-      retrying: "bg-sky-400",
-    } satisfies Record<DeveloperHostedRuntimePhase, string>
-  )[phase];
-}
-
-function developerHostedFailure(reason: DeveloperHostedRuntimeReasonCode | null): string | null {
-  return reason === null ? null : developerHostedFailureCopy(reason);
-}
-
-function developerHostedPhaseLabel(phase: DeveloperHostedRuntimePhase): string {
-  return (
-    {
-      connected: "Not selected",
-      connecting: "Connecting",
-      destroying: "Destroying",
-      installing: "Installing Setta",
-      needs_attention: "Needs attention",
-      pairing: "Pairing",
-      preparing: "Preparing",
-      provisioning: "Provisioning",
-      removed: "Removed",
-      retrying: "Retrying",
-    } satisfies Record<DeveloperHostedRuntimePhase, string>
-  )[phase];
-}
-
-export function developerHostedFailureCopy(reason: DeveloperHostedRuntimeReasonCode): string {
-  return (
-    {
-      budget_cutoff: "The spending limit stopped new work. Destroy the runtime when finished.",
-      cleanup_pending: "Cleanup is still pending. Setta will keep retrying.",
-      connection_failed: "Unable to connect. Check the controller and try again.",
-      developer_feature_disabled: "Developer hosted access is not enabled.",
-      health_check_failed: "Setta did not become healthy. Provisioning can be retried.",
-      pairing_failed: "Secure pairing failed. Destroy or retry the runtime.",
-      provider_identity_mismatch: "The provider identity did not match. No changes were made.",
-      provider_unavailable: "The provider is unavailable. Setta will retry when safe.",
-      provisioning_canceled: "Provisioning was canceled.",
-      release_verification_failed: "The signed Setta release could not be verified.",
-    } satisfies Record<DeveloperHostedRuntimeReasonCode, string>
-  )[reason];
-}
-
-function formatUSDMicros(value: number): string {
-  return new Intl.NumberFormat(undefined, {
-    currency: "USD",
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
-    style: "currency",
-  }).format(value / 1_000_000);
-}
-
-function formatTimestamp(value: string): string {
-  if (value === "") {
-    return "Pending";
-  }
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }
 
 export function RuntimePickerAddButton({ adding, setAdding }: Required<RuntimePickerProps>) {
@@ -486,7 +134,7 @@ function RuntimePairingForm({ state }: { state: RuntimePickerState }) {
 
   return (
     <form className="grid gap-1 px-1 pt-1" onSubmit={submitPairingURL}>
-      <Input
+      <SettaCompactInput
         aria-label="Runtime pairing URL"
         autoComplete="off"
         disabled={state.busy}
@@ -497,7 +145,9 @@ function RuntimePairingForm({ state }: { state: RuntimePickerState }) {
       <Button
         className="w-fit"
         disabled={state.busy || state.pairingUrl.trim() === ""}
+        size="sm"
         type="submit"
+        variant="outline"
       >
         {state.operation === "adding" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
         Add
@@ -608,7 +258,40 @@ function RuntimeIcon({ runtime }: { runtime: KnownRuntimeView | null }) {
   if (runtime.isLocal) {
     return <Monitor className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
   }
+  if (
+    runtime.infrastructureProvider.id !== "unknown" &&
+    runtime.infrastructureProvider.iconUrl.trim() !== ""
+  ) {
+    return <RuntimeProviderIcon provider={runtime.infrastructureProvider} />;
+  }
   return <Server className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
+}
+
+function RuntimeProviderIcon({
+  provider,
+}: {
+  provider: KnownRuntimeView["infrastructureProvider"];
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return <Server className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
+  }
+  return (
+    <span
+      className="grid h-3.5 w-3.5 shrink-0 place-items-center overflow-hidden rounded-[2px]"
+      title={provider.displayName}
+    >
+      <img
+        alt=""
+        aria-hidden="true"
+        className="h-3.5 w-3.5 object-contain opacity-70 grayscale"
+        decoding="async"
+        onError={() => setFailed(true)}
+        referrerPolicy="no-referrer"
+        src={provider.iconUrl}
+      />
+    </span>
+  );
 }
 
 function RuntimeRowStatusAction({
@@ -752,7 +435,7 @@ function RuntimeRowStatusAction({
             )}
           </button>
         </div>
-        {canCloseRuntime(runtime) ? (
+        {!runtime.isLocal ? (
           <button
             className="flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-xs text-destructive hover:bg-destructive/15 hover:text-destructive disabled:pointer-events-none disabled:opacity-40"
             disabled={busy}
@@ -770,10 +453,6 @@ function RuntimeRowStatusAction({
       </FloatingMenu>
     </span>
   );
-}
-
-function canCloseRuntime(runtime: KnownRuntimeView): boolean {
-  return !runtime.isLocal && !runtime.managedHosted;
 }
 
 function runtimeAddress(baseUrl: string) {

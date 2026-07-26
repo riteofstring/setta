@@ -3,6 +3,7 @@ import { backendProtocolVersion } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
 import {
+  completePairing,
   parsePairingURL,
   RuntimePairingError,
   validateRemoteRuntimeBaseURL,
@@ -33,31 +34,51 @@ describe("runtime pairing URL parsing", () => {
   });
 });
 
-describe("runtime connection verification", () => {
-  test("rejects runtime metadata outside the generated contract", async () => {
+describe("runtime pairing completion", () => {
+  test("classifies invalid or expired pairing tokens", async () => {
+    const parsed = parsePairingURL(
+      "setta://pair?rt=runtime_remote&tok=token_pair&url=http%3A%2F%2F100.64.0.12%3A7345",
+    );
+
     await expect(
-      verifyRuntimeConnection({
-        authToken: "runtime_credential",
-        baseUrl: "http://100.64.0.12:7345/",
-        expectedProtocolVersion: backendProtocolVersion,
-        expectedRuntimeId: "runtime_expected",
-        fetchImpl: async (input) =>
-          input.pathname === "/runtime/info"
-            ? jsonResponse({
-                ...runtimeInfo("runtime_expected", backendProtocolVersion),
-                unsupportedField: true,
-              })
-            : jsonResponse({ devices: [] }),
-      }),
-    ).rejects.toMatchObject({ reason: "unreachable" } satisfies Partial<RuntimeConnectionError>);
+      completePairing(parsed, "Setta Desktop", async () =>
+        jsonResponse(
+          {
+            error: {
+              code: "invalid_pairing_token",
+              message: "pairing token is invalid, expired, or already used",
+              operationApplied: false,
+            },
+          },
+          401,
+        ),
+      ),
+    ).rejects.toMatchObject({ reason: "invalid_pairing_token" });
   });
 
-  test("verifies runtime id and authenticated runtime credential", async () => {
+  test("rejects pairing runtime_id mismatches", async () => {
+    const parsed = parsePairingURL(
+      "setta://pair?rt=runtime_expected&tok=token_pair&url=http%3A%2F%2F100.64.0.12%3A7345",
+    );
+
+    await expect(
+      completePairing(parsed, "Setta Desktop", async () =>
+        jsonResponse({
+          deviceId: "device_api",
+          deviceToken: "device_token",
+          protocolVersion: backendProtocolVersion,
+          runtimeId: "runtime_actual",
+        }),
+      ),
+    ).rejects.toMatchObject({ reason: "runtime_id_mismatch" });
+  });
+});
+
+describe("runtime connection verification", () => {
+  test("verifies runtime id and authenticated device token", async () => {
     const calls: string[] = [];
-    const authorizations: string[] = [];
-    const fetchImpl: BackendFetch = async (input, init) => {
+    const fetchImpl: BackendFetch = async (input) => {
       calls.push(input.toString());
-      authorizations.push(new Headers(init.headers).get("Authorization") ?? "");
       if (input.pathname === "/runtime/info") {
         return jsonResponse(runtimeInfo("runtime_expected", backendProtocolVersion));
       }
@@ -66,9 +87,8 @@ describe("runtime connection verification", () => {
 
     await expect(
       verifyRuntimeConnection({
-        authToken: "runtime_credential",
         baseUrl: "http://100.64.0.12:7345/",
-        expectedProtocolVersion: backendProtocolVersion,
+        deviceToken: "device_token",
         expectedRuntimeId: "runtime_expected",
         fetchImpl,
       }),
@@ -77,22 +97,20 @@ describe("runtime connection verification", () => {
       "http://100.64.0.12:7345/runtime/info",
       "http://100.64.0.12:7345/devices/list",
     ]);
-    expect(authorizations).toEqual(["Bearer runtime_credential", "Bearer runtime_credential"]);
   });
 
   test("marks older protocol versions incompatible", async () => {
     const fetchImpl: BackendFetch = async (input) => {
       if (input.pathname === "/runtime/info") {
-        return jsonResponse(runtimeInfo("runtime_expected", backendProtocolVersion - 1));
+        return jsonResponse(legacyRuntimeInfo("runtime_expected", backendProtocolVersion - 1));
       }
       return jsonResponse({ devices: [] });
     };
 
     await expect(
       verifyRuntimeConnection({
-        authToken: "runtime_credential",
         baseUrl: "http://100.64.0.12:7345/",
-        expectedProtocolVersion: backendProtocolVersion,
+        deviceToken: "device_token",
         expectedRuntimeId: "runtime_expected",
         fetchImpl,
       }),
@@ -102,9 +120,8 @@ describe("runtime connection verification", () => {
   test("blocks different runtimes at the stored address", async () => {
     await expect(
       verifyRuntimeConnection({
-        authToken: "runtime_credential",
         baseUrl: "http://100.64.0.12:7345/",
-        expectedProtocolVersion: backendProtocolVersion,
+        deviceToken: "device_token",
         expectedRuntimeId: "runtime_expected",
         fetchImpl: async () => jsonResponse(runtimeInfo("runtime_actual", backendProtocolVersion)),
       }),
@@ -114,16 +131,15 @@ describe("runtime connection verification", () => {
   test("marks unsupported protocol versions incompatible", async () => {
     await expect(
       verifyRuntimeConnection({
-        authToken: "runtime_credential",
         baseUrl: "http://100.64.0.12:7345/",
-        expectedProtocolVersion: backendProtocolVersion,
+        deviceToken: "device_token",
         expectedRuntimeId: "runtime_expected",
         fetchImpl: async () => jsonResponse(runtimeInfo("runtime_expected", 99)),
       }),
     ).rejects.toMatchObject({ reason: "incompatible" } satisfies Partial<RuntimeConnectionError>);
   });
 
-  test("marks 401 credential verification as revoked", async () => {
+  test("marks 401 token verification as revoked", async () => {
     const fetchImpl: BackendFetch = async (input) => {
       if (input.pathname === "/runtime/info") {
         return jsonResponse(runtimeInfo("runtime_expected", backendProtocolVersion));
@@ -142,9 +158,8 @@ describe("runtime connection verification", () => {
 
     await expect(
       verifyRuntimeConnection({
-        authToken: "runtime_credential",
         baseUrl: "http://100.64.0.12:7345/",
-        expectedProtocolVersion: backendProtocolVersion,
+        deviceToken: "device_token",
         expectedRuntimeId: "runtime_expected",
         fetchImpl,
       }),
@@ -157,69 +172,23 @@ function runtimeInfo(runtimeId: string, protocolVersion: number) {
     backendName: "setta-backend",
     backendVersion: "test",
     displayName: "Remote",
+    infrastructureProvider: {
+      displayName: "Unknown provider",
+      iconUrl: "",
+      id: "unknown",
+    },
     protocolVersion,
     runtimeId,
-    featureSet: {
-      features: ["device_pairing_url", "runtime_web_app", "setup_attestation", "web_push"],
-      version: 1,
-    },
-    diagnostics: runtimeDiagnostics(),
   };
 }
 
-function runtimeDiagnostics() {
+function legacyRuntimeInfo(runtimeId: string, protocolVersion: number) {
   return {
-    settaRelease: {
-      status: "unavailable",
-      runtimeVersion: "test",
-      metadataPresent: false,
-      metadataValid: false,
-      installedVersion: "",
-      reasonCode: "test",
-    },
-    codex: {
-      status: "unavailable",
-      binary: { status: "unavailable", command: "codex", present: false, reasonCode: "test" },
-      authentication: {
-        status: "unavailable",
-        accountStatus: "",
-        accountType: "",
-        requiresOpenaiAuth: false,
-        loginStatus: "",
-        reasonCode: "test",
-      },
-    },
-    workloadLease: {
-      status: "unavailable",
-      configured: false,
-      leaseName: "setta-agent",
-      active: false,
-      startedAt: "",
-      expiresAt: "",
-      reasonCode: "test",
-    },
-    policy: {
-      status: "unavailable",
-      configured: false,
-      present: false,
-      schemaVersion: 0,
-      ruleCount: 0,
-      reasonCode: "test",
-    },
-    diskSpace: {
-      status: "unavailable",
-      availableMib: 0,
-      totalMib: 0,
-      minimumFreeMib: 0,
-      reasonCode: "test",
-    },
-    protectedState: {
-      status: "unavailable",
-      present: false,
-      directory: false,
-      ownerOnlyWritable: false,
-      reasonCode: "test",
-    },
+    backendName: "setta-backend",
+    backendVersion: "test",
+    displayName: "Remote",
+    protocolVersion,
+    runtimeId,
   };
 }
 

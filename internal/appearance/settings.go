@@ -7,27 +7,15 @@ import (
 	"unicode"
 )
 
-const SchemaVersion = 3
+const SchemaVersion = 5
 
 const (
-	accessibleBlack               = "oklch(0.0000 0.0000 0.00)"
-	accessibleWhite               = "oklch(1.0000 0.0000 0.00)"
-	defaultOverviewCardMaxWidthPx = 460
-	defaultOverviewCardMinWidthPx = 280
-	maximumOverviewCardWidthPx    = 900
-	minimumOverviewCardWidthPx    = 180
-	wcagAANormalTextContrast      = 4.5
+	accessibleBlack          = "oklch(0.0000 0.0000 0.00)"
+	accessibleWhite          = "oklch(1.0000 0.0000 0.00)"
+	wcagAANormalTextContrast = 4.5
 )
 
-type AppearanceColorMode string
 type AppearancePresetID string
-
-const (
-	ColorModeDark  AppearanceColorMode = "dark"
-	ColorModeLight AppearanceColorMode = "light"
-)
-
-var colorModeValues = []AppearanceColorMode{ColorModeDark, ColorModeLight}
 
 const (
 	PresetSettaStandard   AppearancePresetID = "setta_standard"
@@ -64,22 +52,22 @@ const settaLogoCyan = "oklch(0.8460 0.1292 213.38)"
 
 var presetIDValues = defaultPresetIDValues()
 
+// AppearanceSettings carries one colour scheme, not a choice between two.
+// Setta's surfaces are authored dark — the Director command center and its
+// canvas read no theme variable at all — so a light scheme had nothing to
+// apply to beyond the settings pages, while forcing every themed surface
+// embedded in the command center to paint its own background to stay readable.
 type AppearanceSettings struct {
-	SchemaVersion int                         `json:"schemaVersion"`
-	Mode          AppearanceColorMode         `json:"mode"`
-	Light         AppearanceColorScheme       `json:"light"`
-	Dark          AppearanceColorScheme       `json:"dark"`
-	Fonts         AppearanceFontScheme        `json:"fonts"`
-	Developer     AppearanceDeveloperSettings `json:"developer"`
-	Shortcuts     AppearanceShortcutsSettings `json:"shortcuts"`
+	SchemaVersion int                   `json:"schemaVersion"`
+	Dark          AppearanceColorScheme `json:"dark"`
+	Fonts         AppearanceFontScheme  `json:"fonts"`
 }
 
 type AppearanceColorScheme struct {
-	Tailwind  AppearanceTailwindPalette  `json:"tailwind"`
-	Shadcn    AppearanceShadcnPalette    `json:"shadcn"`
-	Status    AppearanceStatusPalette    `json:"status"`
-	Accent    AppearanceAccentPalette    `json:"accent"`
-	Workspace AppearanceWorkspacePalette `json:"workspace"`
+	Tailwind AppearanceTailwindPalette `json:"tailwind"`
+	Shadcn   AppearanceShadcnPalette   `json:"shadcn"`
+	Status   AppearanceStatusPalette   `json:"status"`
+	Accent   AppearanceAccentPalette   `json:"accent"`
 }
 
 type AppearanceTailwindPalette struct {
@@ -142,18 +130,6 @@ type AppearanceStatusPalette struct {
 	CriticalForeground string `json:"criticalForeground"`
 }
 
-type AppearanceWorkspacePalette struct {
-	Surface             string `json:"surface"`
-	DotGrid             string `json:"dotGrid"`
-	PaneSurface         string `json:"paneSurface"`
-	PaneTitleBarSurface string `json:"paneTitleBarSurface"`
-	PaneEdge            string `json:"paneEdge"`
-	PaneSelectedOutline string `json:"paneSelectedOutline"`
-	PaneSelectedGlow    string `json:"paneSelectedGlow"`
-	DragTargetSurface   string `json:"dragTargetSurface"`
-	DragTargetOutline   string `json:"dragTargetOutline"`
-}
-
 type AppearanceFontScheme struct {
 	Sans    string `json:"sans"`
 	Mono    string `json:"mono"`
@@ -179,10 +155,7 @@ type ContractValueSet struct {
 
 func ContractValueSets() []ContractValueSet {
 	return []ContractValueSet{
-		{Name: "AppearanceColorMode", Values: stringValues(colorModeValues)},
 		{Name: "AppearancePresetID", Values: stringValues(presetIDValues)},
-		{Name: "AppearanceWorkspaceNavigationShortcut", Values: stringValues(workspaceNavigationShortcutValues)},
-		{Name: "AppearanceMasterVoiceShortcut", Values: stringValues(masterVoiceShortcutValues)},
 	}
 }
 
@@ -190,23 +163,11 @@ func DefaultSettings() AppearanceSettings {
 	tailwind := defaultSettaTailwindPalette()
 	return AppearanceSettings{
 		SchemaVersion: SchemaVersion,
-		Mode:          ColorModeDark,
-		Light:         defaultSettaLightColorScheme(tailwind),
 		Dark:          defaultSettaDarkColorScheme(tailwind),
 		Fonts: AppearanceFontScheme{
 			Sans:    `Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`,
 			Mono:    `"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace`,
 			Heading: `Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`,
-		},
-		Developer: AppearanceDeveloperSettings{
-			AllowResizedPanesToOverflowViewport: false,
-			OverviewCardMaxWidthPx:              defaultOverviewCardMaxWidthPx,
-			OverviewCardMinWidthPx:              defaultOverviewCardMinWidthPx,
-			ShowPerformanceStats:                false,
-		},
-		Shortcuts: AppearanceShortcutsSettings{
-			WorkspaceNavigation: WorkspaceNavigationModAltArrows,
-			MasterVoice:         MasterVoiceModShiftK,
 		},
 	}
 }
@@ -235,7 +196,6 @@ func DefaultPresetList() AppearancePresetList {
 func appearancePreset(preset palettePreset) AppearancePreset {
 	tailwind := tailwindPaletteFromScale(preset.scale)
 	settings := DefaultSettings()
-	settings.Light = defaultLightColorScheme(tailwind)
 	settings.Dark = defaultDarkColorScheme(tailwind)
 	return AppearancePreset{
 		ID:          preset.id,
@@ -260,41 +220,13 @@ func Validate(settings AppearanceSettings) error {
 	if settings.SchemaVersion != SchemaVersion {
 		return fmt.Errorf("appearance schemaVersion = %d, want %d", settings.SchemaVersion, SchemaVersion)
 	}
-	if settings.Mode != ColorModeDark && settings.Mode != ColorModeLight {
-		return fmt.Errorf("appearance mode is unsupported: %s", settings.Mode)
-	}
-	if err := validateColorScheme("light", settings.Light); err != nil {
-		return err
-	}
 	if err := validateColorScheme("dark", settings.Dark); err != nil {
 		return err
 	}
 	if err := validateFontScheme(settings.Fonts); err != nil {
 		return err
 	}
-	if err := validateDeveloperSettings(settings.Developer); err != nil {
-		return err
-	}
-	return validateShortcutsSettings(settings.Shortcuts)
-}
-
-func Normalize(settings AppearanceSettings) AppearanceSettings {
-	defaults := DefaultSettings()
-	if settings.Developer.OverviewCardMinWidthPx == 0 {
-		settings.Developer.OverviewCardMinWidthPx = defaultOverviewCardMinWidthPx
-	}
-	if settings.Developer.OverviewCardMaxWidthPx == 0 {
-		settings.Developer.OverviewCardMaxWidthPx = defaultOverviewCardMaxWidthPx
-	}
-	if settings.Shortcuts.WorkspaceNavigation == "" {
-		settings.Shortcuts.WorkspaceNavigation = WorkspaceNavigationModAltArrows
-	}
-	if settings.Shortcuts.MasterVoice == "" {
-		settings.Shortcuts.MasterVoice = MasterVoiceModShiftK
-	}
-	settings.Light.Workspace = normalizeWorkspacePalette(settings.Light.Workspace, defaults.Light.Workspace)
-	settings.Dark.Workspace = normalizeWorkspacePalette(settings.Dark.Workspace, defaults.Dark.Workspace)
-	return settings
+	return nil
 }
 
 func validateColorScheme(label string, scheme AppearanceColorScheme) error {
@@ -308,9 +240,6 @@ func validateColorScheme(label string, scheme AppearanceColorScheme) error {
 		return err
 	}
 	if err := validateAccentPalette(label+".accent", scheme.Accent); err != nil {
-		return err
-	}
-	if err := validateWorkspacePalette(label+".workspace", scheme.Workspace); err != nil {
 		return err
 	}
 	return validateColorContrast(label, scheme)
@@ -383,52 +312,6 @@ func validateStatusPalette(label string, palette AppearanceStatusPalette) error 
 		{"criticalForeground", palette.CriticalForeground},
 	}
 	return validateOKLCHFields(label, values)
-}
-
-func validateWorkspacePalette(label string, palette AppearanceWorkspacePalette) error {
-	values := []namedValue{
-		{"surface", palette.Surface},
-		{"dotGrid", palette.DotGrid},
-		{"paneSurface", palette.PaneSurface},
-		{"paneTitleBarSurface", palette.PaneTitleBarSurface},
-		{"paneEdge", palette.PaneEdge},
-		{"paneSelectedOutline", palette.PaneSelectedOutline},
-		{"paneSelectedGlow", palette.PaneSelectedGlow},
-		{"dragTargetSurface", palette.DragTargetSurface},
-		{"dragTargetOutline", palette.DragTargetOutline},
-	}
-	return validateOKLCHFields(label, values)
-}
-
-func normalizeWorkspacePalette(palette AppearanceWorkspacePalette, defaults AppearanceWorkspacePalette) AppearanceWorkspacePalette {
-	if palette.Surface == "" {
-		palette.Surface = defaults.Surface
-	}
-	if palette.DotGrid == "" {
-		palette.DotGrid = defaults.DotGrid
-	}
-	if palette.PaneSurface == "" {
-		palette.PaneSurface = defaults.PaneSurface
-	}
-	if palette.PaneTitleBarSurface == "" {
-		palette.PaneTitleBarSurface = defaults.PaneTitleBarSurface
-	}
-	if palette.PaneEdge == "" {
-		palette.PaneEdge = defaults.PaneEdge
-	}
-	if palette.PaneSelectedOutline == "" {
-		palette.PaneSelectedOutline = defaults.PaneSelectedOutline
-	}
-	if palette.PaneSelectedGlow == "" {
-		palette.PaneSelectedGlow = defaults.PaneSelectedGlow
-	}
-	if palette.DragTargetSurface == "" {
-		palette.DragTargetSurface = defaults.DragTargetSurface
-	}
-	if palette.DragTargetOutline == "" {
-		palette.DragTargetOutline = defaults.DragTargetOutline
-	}
-	return palette
 }
 
 type namedValue struct {

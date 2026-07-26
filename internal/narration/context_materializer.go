@@ -176,17 +176,35 @@ func materializeProjection(
 	source conversation.NarratorContextSource,
 	request ProjectionContextRequest,
 ) (ProjectionContextBundle, error) {
+	if request.Trigger == conversation.NarrationTriggerTurnTerminal {
+		return materializeTerminalProjection(source, request)
+	}
 	state := source.NarratorState
 	if state.ObservedThroughSequence >= request.ThroughSequence {
-		if canFinalizeObservedTerminal(source, request) {
-			return materializeObservedTerminalProjection(source, request)
-		}
+		return ProjectionContextBundle{}, ErrNoProjectionWork
+	}
+	semanticEvents := projectionSemanticEvents(
+		request.SemanticEvents,
+		state.ObservedThroughSequence,
+		request.ThroughSequence,
+	)
+	if len(semanticEvents) == 0 {
 		return ProjectionContextBundle{}, ErrNoProjectionWork
 	}
 	bundle, baseBytes, err := newProjectionBundle(source, request)
 	if err != nil {
 		return ProjectionContextBundle{}, err
 	}
+	bundle.SemanticEvents = semanticEvents
+	bundle.SemanticSourceRange = semanticSourceRange(semanticEvents)
+	bundle.EvaluationRange = conversation.TrajectorySequenceRange{
+		Start: state.ObservedThroughSequence + 1,
+		End:   request.ThroughSequence,
+	}
+	bundle.RemainingUnobservedRange = sequenceRange(
+		request.ThroughSequence+1,
+		source.Conversation.LastTrajectorySequence,
+	)
 	if baseBytes > request.Limits.MaxInputBytes {
 		return ProjectionContextBundle{}, budgetError(
 			ContextKindProjection,
@@ -195,23 +213,61 @@ func materializeProjection(
 			"authoritative fields, checkpoint, and prior narration are required",
 		)
 	}
-	bundle, firstRejectedBytes, err := selectProjectionTrajectory(bundle, source, request.Limits.MaxInputBytes)
+	size, err := contextBytes(bundle)
 	if err != nil {
 		return ProjectionContextBundle{}, err
 	}
-	if projectionCanAdvance(bundle, state) {
-		return bundle, nil
+	if size > request.Limits.MaxInputBytes {
+		return ProjectionContextBundle{}, budgetError(
+			ContextKindProjection,
+			request.Limits.MaxInputBytes,
+			size,
+			"authoritative fields and semantic narrator events are required",
+		)
 	}
-	return ProjectionContextBundle{}, projectionAdvanceError(source, request, baseBytes, firstRejectedBytes)
+	bundle.InputBytes = size
+	return bundle, nil
 }
 
-func canFinalizeObservedTerminal(
+func materializeTerminalProjection(
 	source conversation.NarratorContextSource,
 	request ProjectionContextRequest,
-) bool {
-	return request.Trigger == conversation.NarrationTriggerTurnTerminal &&
-		source.NarratorState.ObservedThroughSequence == request.ThroughSequence &&
-		source.CurrentTurnFinalSummary == nil
+) (ProjectionContextBundle, error) {
+	state := source.NarratorState
+	if source.CurrentTurnFinalSummary != nil || state.ObservedThroughSequence > request.ThroughSequence {
+		return ProjectionContextBundle{}, ErrNoProjectionWork
+	}
+	if state.ObservedThroughSequence == request.ThroughSequence {
+		return materializeObservedTerminalProjection(source, request)
+	}
+	bundle, _, err := newProjectionBundle(source, request)
+	if err != nil {
+		return ProjectionContextBundle{}, err
+	}
+	bundle.SemanticEvents = projectionSemanticEvents(
+		request.SemanticEvents,
+		state.ObservedThroughSequence,
+		request.ThroughSequence,
+	)
+	bundle.SemanticSourceRange = semanticSourceRange(bundle.SemanticEvents)
+	bundle.EvaluationRange = conversation.TrajectorySequenceRange{
+		Start: state.ObservedThroughSequence + 1,
+		End:   request.ThroughSequence,
+	}
+	size, err := contextBytes(bundle)
+	if err != nil {
+		return ProjectionContextBundle{}, err
+	}
+	if size > request.Limits.MaxInputBytes {
+		return ProjectionContextBundle{}, budgetError(
+			ContextKindProjection,
+			request.Limits.MaxInputBytes,
+			size,
+			"authoritative terminal fields and prior narration are required",
+		)
+	}
+	bundle.InputBytes = size
+	return bundle, nil
 }
 
 func materializeObservedTerminalProjection(
@@ -222,6 +278,12 @@ func materializeObservedTerminalProjection(
 	if err != nil {
 		return ProjectionContextBundle{}, err
 	}
+	bundle.SemanticEvents = projectionSemanticEvents(
+		request.SemanticEvents,
+		request.ThroughSequence-1,
+		request.ThroughSequence,
+	)
+	bundle.SemanticSourceRange = semanticSourceRange(bundle.SemanticEvents)
 	bundle.EvaluationRange = conversation.TrajectorySequenceRange{
 		Start: request.ThroughSequence,
 		End:   request.ThroughSequence,
@@ -239,24 +301,6 @@ func materializeObservedTerminalProjection(
 		)
 	}
 	bundle.InputBytes = size
-	for _, event := range source.Trajectory.Events {
-		candidate := bundle
-		candidate.Trajectory = appendCopy(bundle.Trajectory, event)
-		candidate.IncludedRange = conversation.TrajectorySequenceRange{
-			Start: candidate.Trajectory[0].Sequence,
-			End:   event.Sequence,
-		}
-		candidate.InputBytes = 0
-		nextSize, sizeErr := contextBytes(candidate)
-		if sizeErr != nil {
-			return ProjectionContextBundle{}, sizeErr
-		}
-		if nextSize > request.Limits.MaxInputBytes {
-			break
-		}
-		candidate.InputBytes = nextSize
-		bundle = candidate
-	}
 	return bundle, nil
 }
 
@@ -310,7 +354,7 @@ func newProjectionBundle(
 		Authoritative:            authoritativeContext(source),
 		HistoricalCheckpoint:     historicalCheckpoint(source.NarratorState),
 		PreCallCursor:            narratorCursor(source.NarratorState),
-		Trajectory:               []conversation.TrajectoryEvent{},
+		SemanticEvents:           []conversation.NarratorSemanticEvent{},
 		PriorMilestones:          priorMilestones(source.PriorMilestones),
 		PriorFinalSummaries:      priorFinalSummaries(source.RecentFinalSummaries),
 	}
@@ -318,73 +362,35 @@ func newProjectionBundle(
 	return bundle, baseBytes, err
 }
 
-func selectProjectionTrajectory(
-	bundle ProjectionContextBundle,
-	source conversation.NarratorContextSource,
-	maxInputBytes int,
-) (ProjectionContextBundle, int, error) {
-	state := source.NarratorState
-	var firstRejectedBytes int
-	for _, event := range source.Trajectory.Events {
-		candidate := bundle
-		candidate.Trajectory = appendCopy(bundle.Trajectory, event)
-		candidate.IncludedRange = conversation.TrajectorySequenceRange{
-			Start: candidate.Trajectory[0].Sequence,
-			End:   event.Sequence,
+func projectionSemanticEvents(
+	events []conversation.NarratorSemanticEvent,
+	observedThrough int,
+	requestedThrough int,
+) []conversation.NarratorSemanticEvent {
+	result := make([]conversation.NarratorSemanticEvent, 0, len(events))
+	for _, event := range events {
+		if event.SourceTrajectoryRange.End <= observedThrough ||
+			event.SourceTrajectoryRange.Start > requestedThrough {
+			continue
 		}
-		if event.Sequence > state.ObservedThroughSequence {
-			candidate.EvaluationRange = conversation.TrajectorySequenceRange{
-				Start: state.ObservedThroughSequence + 1,
-				End:   event.Sequence,
-			}
-			candidate.RemainingUnobservedRange = sequenceRange(
-				event.Sequence+1,
-				source.Conversation.LastTrajectorySequence,
-			)
-		}
-		size, sizeErr := contextBytes(candidate)
-		if sizeErr != nil {
-			return ProjectionContextBundle{}, 0, sizeErr
-		}
-		if size > maxInputBytes {
-			firstRejectedBytes = size
-			break
-		}
-		candidate.InputBytes = size
-		bundle = candidate
+		result = append(result, event)
 	}
-	return bundle, firstRejectedBytes, nil
+	return result
 }
 
-func projectionCanAdvance(bundle ProjectionContextBundle, state conversation.NarratorState) bool {
-	return len(bundle.Trajectory) > 0 &&
-		bundle.Trajectory[len(bundle.Trajectory)-1].Sequence > state.ObservedThroughSequence
-}
-
-func projectionAdvanceError(
-	source conversation.NarratorContextSource,
-	request ProjectionContextRequest,
-	baseBytes int,
-	firstRejectedBytes int,
-) error {
-	state := source.NarratorState
-	if state.CheckpointThroughSequence < state.ObservedThroughSequence {
-		return &CheckpointRequiredError{
-			CheckpointThroughSequence: state.CheckpointThroughSequence,
-			ObservedThroughSequence:   state.ObservedThroughSequence,
-			NextUnobservedSequence:    state.ObservedThroughSequence + 1,
-			Reason:                    "the complete observed tail plus the next unevaluated event does not fit",
-		}
+func semanticSourceRange(
+	events []conversation.NarratorSemanticEvent,
+) *conversation.TrajectorySequenceRange {
+	if len(events) == 0 {
+		return nil
 	}
-	if firstRejectedBytes == 0 {
-		firstRejectedBytes = baseBytes
+	start := events[0].SourceTrajectoryRange.Start
+	end := events[0].SourceTrajectoryRange.End
+	for _, event := range events[1:] {
+		start = min(start, event.SourceTrajectoryRange.Start)
+		end = max(end, event.SourceTrajectoryRange.End)
 	}
-	return budgetError(
-		ContextKindProjection,
-		request.Limits.MaxInputBytes,
-		firstRejectedBytes,
-		"the next complete trajectory event is required for ordered evaluation",
-	)
+	return &conversation.TrajectorySequenceRange{Start: start, End: end}
 }
 
 func materializeStatus(
@@ -509,20 +515,25 @@ func materializeCheckpoint(
 
 func authoritativeContext(source conversation.NarratorContextSource) AuthoritativeContext {
 	current := source.CurrentTurn
+	workspaceID := ""
+	if source.Conversation.WorkspaceID != nil {
+		workspaceID = *source.Conversation.WorkspaceID
+	}
 	var instructions *CurrentInstructions
 	if current.Turn != nil {
 		instructions = &CurrentInstructions{
-			TurnID:           current.Turn.ID,
-			TurnStatus:       current.Turn.Status,
-			Objective:        current.Turn.AuthoredInput,
-			AcceptedSteering: append([]conversation.NarratorAcceptedSteering{}, current.AcceptedSteering...),
-			Authority:        ContextAuthorityCurrentInputs,
+			TurnID:                 current.Turn.ID,
+			TurnStatus:             current.Turn.Status,
+			Objective:              current.Turn.AuthoredInput,
+			AcceptedSteering:       append([]conversation.NarratorAcceptedSteering{}, current.AcceptedSteering...),
+			LatestAssistantMessage: cloneSemanticAssistantMessage(current.LatestAssistantMessage),
+			Authority:              ContextAuthorityCurrentInputs,
 		}
 	}
 	return AuthoritativeContext{
 		Conversation: ConversationIdentity{
 			ConversationID:           source.Conversation.ID,
-			WorkspaceID:              source.Conversation.WorkspaceID,
+			WorkspaceID:              workspaceID,
 			Title:                    source.Conversation.Title,
 			TopicDescriptor:          source.Conversation.TopicDescriptor,
 			NarratorTopicDescriptor:  source.NarratorState.TopicDescriptor,
@@ -537,6 +548,16 @@ func authoritativeContext(source conversation.NarratorContextSource) Authoritati
 		Artifacts:           append([]conversation.Artifact{}, current.Artifacts...),
 		CurrentFocus:        source.NarratorState.CurrentFocus,
 	}
+}
+
+func cloneSemanticAssistantMessage(
+	message *conversation.NarratorSemanticAssistantMessage,
+) *conversation.NarratorSemanticAssistantMessage {
+	if message == nil {
+		return nil
+	}
+	copy := *message
+	return &copy
 }
 
 func historicalCheckpoint(state conversation.NarratorState) *HistoricalCheckpoint {

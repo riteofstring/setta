@@ -17,34 +17,6 @@ func defaultDarkAccentPalette() AppearanceAccentPalette {
 	}
 }
 
-// Light accent lightness is tuned per hue so each accent keeps at least a
-// 4.5:1 WCAG AA contrast ratio as text on Setta100, the darkest common light
-// surface.
-func defaultLightAccentPalette() AppearanceAccentPalette {
-	return AppearanceAccentPalette{
-		Cyan:    "oklch(0.4700 0.1300 213.38)",
-		Blue:    "oklch(0.5000 0.1600 255.00)",
-		Violet:  "oklch(0.5200 0.1800 290.00)",
-		Magenta: "oklch(0.5200 0.1900 340.00)",
-		Red:     "oklch(0.5200 0.2100 25.00)",
-		Amber:   "oklch(0.5000 0.1500 70.00)",
-		Green:   "oklch(0.4800 0.1500 152.00)",
-		Teal:    "oklch(0.4700 0.1150 185.00)",
-	}
-}
-
-const tailwindBlue700 = "oklch(0.4880 0.1700 264.38)"
-
-func defaultSettaLightColorScheme(tailwind AppearanceTailwindPalette) AppearanceColorScheme {
-	scheme := defaultLightColorScheme(tailwind)
-	scheme.Shadcn.Primary = tailwind.Setta600
-	scheme.Shadcn.PrimaryForeground = highContrastForeground(scheme.Shadcn.Primary)
-	scheme.Shadcn.Ring = settaLogoCyan
-	scheme.Status.Info = settaLogoCyan
-	scheme.Status.InfoForeground = highContrastForeground(scheme.Status.Info)
-	return scheme
-}
-
 func defaultSettaDarkColorScheme(tailwind AppearanceTailwindPalette) AppearanceColorScheme {
 	scheme := defaultDarkColorScheme(tailwind)
 	scheme.Shadcn.Primary = settaLogoCyan
@@ -53,78 +25,6 @@ func defaultSettaDarkColorScheme(tailwind AppearanceTailwindPalette) AppearanceC
 	scheme.Status.Info = settaLogoCyan
 	scheme.Status.InfoForeground = highContrastForeground(scheme.Status.Info)
 	return scheme
-}
-
-func defaultLightColorScheme(tailwind AppearanceTailwindPalette) AppearanceColorScheme {
-	accent := defaultLightAccentPalette()
-	card := "oklch(1.0000 0.0000 0.00)"
-	destructive := "oklch(0.6368 0.2078 25.33)"
-	info := accent.Blue
-	success := accent.Green
-	warning := accent.Amber
-	alert := accent.Magenta
-	critical := destructive
-	mutedForeground := firstReadableForeground(
-		[]string{tailwind.Setta50, card},
-		tailwind.Setta600,
-		tailwind.Setta700,
-		tailwind.Setta800,
-		tailwind.Setta900,
-		tailwind.Setta950,
-		tailwind.Setta975,
-	)
-	return AppearanceColorScheme{
-		Tailwind: tailwind,
-		Shadcn: AppearanceShadcnPalette{
-			Background:              tailwind.Setta50,
-			Foreground:              tailwind.Setta900,
-			Card:                    card,
-			CardForeground:          tailwind.Setta900,
-			Popover:                 card,
-			PopoverForeground:       tailwind.Setta900,
-			Primary:                 tailwind.Setta600,
-			PrimaryForeground:       highContrastForeground(tailwind.Setta600),
-			Secondary:               tailwind.Setta100,
-			SecondaryForeground:     tailwind.Setta800,
-			Muted:                   tailwind.Setta100,
-			MutedForeground:         mutedForeground,
-			Accent:                  tailwind.Setta200,
-			AccentForeground:        tailwind.Setta800,
-			Destructive:             destructive,
-			DestructiveForeground:   highContrastForeground(destructive),
-			Border:                  tailwind.Setta200,
-			Input:                   tailwind.Setta200,
-			Ring:                    tailwind.Setta500,
-			Sidebar:                 tailwind.Setta100,
-			SidebarForeground:       tailwind.Setta800,
-			SidebarAccent:           tailwind.Setta200,
-			SidebarAccentForeground: bestReadableForeground(tailwind.Setta200, tailwind.Setta900, accessibleBlack),
-		},
-		Status: AppearanceStatusPalette{
-			Info:               info,
-			InfoForeground:     highContrastForeground(info),
-			Success:            success,
-			SuccessForeground:  highContrastForeground(success),
-			Warning:            warning,
-			WarningForeground:  highContrastForeground(warning),
-			Alert:              alert,
-			AlertForeground:    highContrastForeground(alert),
-			Critical:           critical,
-			CriticalForeground: highContrastForeground(critical),
-		},
-		Accent: accent,
-		Workspace: AppearanceWorkspacePalette{
-			Surface:             tailwind.Setta100,
-			DotGrid:             tailwind.Setta500,
-			PaneSurface:         tailwind.Setta50,
-			PaneTitleBarSurface: tailwind.Setta100,
-			PaneEdge:            tailwind.Setta200,
-			PaneSelectedOutline: tailwind.Setta500,
-			PaneSelectedGlow:    tailwind.Setta300,
-			DragTargetSurface:   tailwind.Setta200,
-			DragTargetOutline:   tailwind.Setta500,
-		},
-	}
 }
 
 func defaultDarkColorScheme(tailwind AppearanceTailwindPalette) AppearanceColorScheme {
@@ -183,16 +83,5 @@ func defaultDarkColorScheme(tailwind AppearanceTailwindPalette) AppearanceColorS
 			CriticalForeground: highContrastForeground(critical),
 		},
 		Accent: accent,
-		Workspace: AppearanceWorkspacePalette{
-			Surface:             tailwind.Setta850,
-			DotGrid:             settaLogoCyan,
-			PaneSurface:         tailwind.Setta975,
-			PaneTitleBarSurface: tailwind.Setta950,
-			PaneEdge:            tailwind.Setta850,
-			PaneSelectedOutline: tailwindBlue700,
-			PaneSelectedGlow:    tailwind.Setta700,
-			DragTargetSurface:   tailwind.Setta850,
-			DragTargetOutline:   tailwind.Setta300,
-		},
 	}
 }

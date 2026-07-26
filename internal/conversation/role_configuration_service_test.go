@@ -181,7 +181,7 @@ func TestRoleConfigurationServiceReadsUpdatesAndAuditsWorkspacePrecedence(t *tes
 		false,
 	)
 	topic := transactionTestConversation("conversation-workspace-role-configuration-service")
-	topic.WorkspaceID = workspaceID
+	topic.WorkspaceID = &workspaceID
 	persistRoleProfileTestMutation(t, store, "create-workspace-role-configuration-topic", func(transaction *WriteTransaction) error {
 		return transaction.InsertConversation(topic)
 	})
@@ -206,9 +206,9 @@ func TestRoleConfigurationServiceReadsUpdatesAndAuditsWorkspacePrecedence(t *tes
 	if _, err := service.UpdateWorkspaceConfiguration(
 		context.Background(),
 		workspaceID,
-		[]RoleProfileUpdate{{Role: RoleMaster, Profile: nil}},
-	); err == nil || !containsError(err, "role master cannot be configured at workspace scope") {
-		t.Fatalf("workspace master update error = %v", err)
+		[]RoleProfileUpdate{{Role: RoleDirector, Profile: nil}},
+	); err == nil || !containsError(err, "role director cannot be configured at workspace scope") {
+		t.Fatalf("workspace director update error = %v", err)
 	}
 
 	configuration, err = service.UpdateWorkspaceConfiguration(
@@ -241,13 +241,14 @@ func TestRoleConfigurationServiceReadsUpdatesAndAuditsWorkspacePrecedence(t *tes
 func TestRoleConfigurationServiceAppliesAndPublishesConversationOverrides(t *testing.T) {
 	store := newTestStore(t)
 	topic := transactionTestConversation("conversation-role-configuration-service")
+	topicWorkspaceID := *topic.WorkspaceID
 	persistRoleProfileTestMutation(t, store, "create-role-configuration-topic", func(transaction *WriteTransaction) error {
 		return transaction.InsertConversation(topic)
 	})
 	global := roleConfigurationAgentOverride(RoleProfileScopeGlobal, "", "gpt-5.6-terra", ReasoningEffortMedium)
 	workspace := roleConfigurationAgentOverride(
 		RoleProfileScopeWorkspace,
-		topic.WorkspaceID,
+		topicWorkspaceID,
 		"gpt-5.6-luna",
 		ReasoningEffortMedium,
 	)
@@ -264,7 +265,7 @@ func TestRoleConfigurationServiceAppliesAndPublishesConversationOverrides(t *tes
 
 	configuration, err := service.ReadConversationConfiguration(
 		context.Background(),
-		topic.WorkspaceID,
+		topicWorkspaceID,
 		topic.ID,
 	)
 	if err != nil {
@@ -277,8 +278,8 @@ func TestRoleConfigurationServiceAppliesAndPublishesConversationOverrides(t *tes
 		t.Fatalf("workspace-effective agent = %+v", agentConfiguration)
 	}
 	for _, profile := range configuration.Profiles {
-		if profile.Role == RoleMaster {
-			t.Fatal("conversation role configuration exposed the app-global master role")
+		if profile.Role == RoleDirector {
+			t.Fatal("conversation role configuration exposed the app-global director role")
 		}
 	}
 
@@ -290,7 +291,7 @@ func TestRoleConfigurationServiceAppliesAndPublishesConversationOverrides(t *tes
 	}
 	configuration, err = service.UpdateConversationConfiguration(
 		context.Background(),
-		topic.WorkspaceID,
+		topicWorkspaceID,
 		topic.ID,
 		[]RoleProfileUpdate{{Role: RoleAgent, Profile: &conversationProfile}},
 	)
@@ -312,7 +313,7 @@ func TestRoleConfigurationServiceAppliesAndPublishesConversationOverrides(t *tes
 
 	configuration, err = service.UpdateConversationConfiguration(
 		context.Background(),
-		topic.WorkspaceID,
+		topicWorkspaceID,
 		topic.ID,
 		[]RoleProfileUpdate{{Role: RoleAgent, Profile: nil}},
 	)
@@ -351,7 +352,20 @@ func TestPrimaryAgentRoleProfileUsesGlobalWorkspaceConversationPrecedence(t *tes
 	if err != nil {
 		t.Fatalf("CreateTopic with global profile: %v", err)
 	}
-	assertLastResolvedAgentModel(t, runtime, "gpt-agent-global")
+	if len(runtime.invocationResolutions()) != 0 {
+		t.Fatalf("topic creation resolved provider state: resolutions=%+v", runtime.invocationResolutions())
+	}
+	sendAndAssertPrimaryAgentRoleProfile(
+		t,
+		service,
+		runtime,
+		ctx,
+		workspaceID,
+		first.Conversation.ID,
+		"complete with global profile",
+		"gpt-agent-global",
+		ReasoningEffortMedium,
+	)
 
 	workspace := roleConfigurationAgentOverride(
 		RoleProfileScopeWorkspace,
@@ -366,7 +380,17 @@ func TestPrimaryAgentRoleProfileUsesGlobalWorkspaceConversationPrecedence(t *tes
 	if err != nil {
 		t.Fatalf("CreateTopic with workspace profile: %v", err)
 	}
-	assertLastResolvedAgentModel(t, runtime, "gpt-agent-workspace")
+	sendAndAssertPrimaryAgentRoleProfile(
+		t,
+		service,
+		runtime,
+		ctx,
+		workspaceID,
+		second.Conversation.ID,
+		"complete with workspace profile",
+		"gpt-agent-workspace",
+		ReasoningEffortHigh,
+	)
 
 	conversationOverride := roleConfigurationAgentOverride(
 		RoleProfileScopeConversation,
@@ -377,29 +401,25 @@ func TestPrimaryAgentRoleProfileUsesGlobalWorkspaceConversationPrecedence(t *tes
 	persistRoleProfileTestMutation(t, store, "set-conversation-primary-agent", func(transaction *WriteTransaction) error {
 		return transaction.UpsertRoleProfileOverride(conversationOverride)
 	})
-	completed, err := service.sendTestTurn(
+	completed := sendAndAssertPrimaryAgentRoleProfile(
+		t,
+		service,
+		runtime,
 		ctx,
 		workspaceID,
 		second.Conversation.ID,
 		"complete with conversation profile",
+		"gpt-agent-conversation",
+		ReasoningEffortXHigh,
 	)
-	if err != nil {
-		t.Fatalf("SendTurn with conversation profile: %v", err)
-	}
-	completed = assertServiceSnapshot(t, service, workspaceID, second.Conversation.ID, func(snapshot ConversationSnapshot) bool {
-		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
-	})
 	turn := latestSnapshotTurn(completed)
-	if turn.RequestedRoleProfile.ModelSelection.ModelID == nil ||
-		*turn.RequestedRoleProfile.ModelSelection.ModelID != "gpt-agent-conversation" ||
-		turn.RequestedRoleProfile.ReasoningEffort != ReasoningEffortXHigh {
-		t.Fatalf("conversation turn requested profile = %+v", turn.RequestedRoleProfile)
-	}
-	assertLastResolvedAgentModel(t, runtime, "gpt-agent-conversation")
 
-	fork, err := service.forkRouterTopicForTest(
+	// A branch inherits the workspace role by resolving it when its own first
+	// turn runs. Creating the branch touches no provider at all, so the profile
+	// that matters is the one the child's carrier is started with.
+	fork, err := service.forkDirectorTopicForTest(
 		ctx,
-		workspaceID,
+		&workspaceID,
 		second.Conversation.ID,
 		turn.ID,
 		"Workspace agent precedence fork",
@@ -407,18 +427,59 @@ func TestPrimaryAgentRoleProfileUsesGlobalWorkspaceConversationPrecedence(t *tes
 	if err != nil {
 		t.Fatalf("ForkTopic with workspace profile: %v", err)
 	}
-	requests := runtime.durableForkRequests()
-	if len(requests) != 1 ||
-		requests[0].Invocation.Model != "gpt-agent-workspace" ||
-		requests[0].Invocation.ReasoningEffort != ReasoningEffortHigh {
-		t.Fatalf("durable fork agent invocation = %+v, want workspace profile", requests)
-	}
-	if fork.ThreadBinding == nil || fork.ThreadBinding.ProviderMetadata["model"] != "gpt-agent-workspace" {
-		t.Fatalf("durable fork thread binding = %+v, want workspace model", fork.ThreadBinding)
-	}
+	sendAndAssertPrimaryAgentRoleProfile(
+		t,
+		service,
+		runtime,
+		ctx,
+		workspaceID,
+		fork.Conversation.ID,
+		"complete on the branch",
+		"gpt-agent-workspace",
+		ReasoningEffortHigh,
+	)
 
 	if first.Conversation.ID == second.Conversation.ID {
 		t.Fatal("precedence test topics unexpectedly reused an id")
+	}
+}
+
+func sendAndAssertPrimaryAgentRoleProfile(
+	t *testing.T,
+	service *Service,
+	runtime *serviceTestAgentRuntime,
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	input string,
+	wantModel string,
+	wantEffort ReasoningEffort,
+) ConversationSnapshot {
+	t.Helper()
+	if _, err := service.sendTestTurn(ctx, workspaceID, conversationID, input); err != nil {
+		t.Fatalf("SendTurn %q: %v", input, err)
+	}
+	runtime.waitForStart(t, input)
+	completed := assertServiceSnapshot(t, service, workspaceID, conversationID, func(snapshot ConversationSnapshot) bool {
+		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
+	})
+	turn := latestSnapshotTurn(completed)
+	assertPrimaryAgentTurnProfile(t, turn, wantModel, wantEffort)
+	assertLastResolvedAgentModel(t, runtime, wantModel)
+	return completed
+}
+
+func assertPrimaryAgentTurnProfile(
+	t *testing.T,
+	turn ConversationTurn,
+	wantModel string,
+	wantEffort ReasoningEffort,
+) {
+	t.Helper()
+	if turn.RequestedRoleProfile.ModelSelection.ModelID == nil ||
+		*turn.RequestedRoleProfile.ModelSelection.ModelID != wantModel ||
+		turn.RequestedRoleProfile.ReasoningEffort != wantEffort {
+		t.Fatalf("turn requested profile = %+v, want model %s effort %s", turn.RequestedRoleProfile, wantModel, wantEffort)
 	}
 }
 
@@ -504,8 +565,8 @@ func assertWorkspaceRoleConfiguration(
 		t.Fatalf("workspace profiles = %d, want 3", len(configuration.Profiles))
 	}
 	for _, profile := range configuration.Profiles {
-		if profile.Role == RoleMaster {
-			t.Fatal("workspace role configuration exposed the global-only master role")
+		if profile.Role == RoleDirector {
+			t.Fatal("workspace role configuration exposed the global-only director role")
 		}
 	}
 }

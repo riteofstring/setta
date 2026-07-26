@@ -11,6 +11,7 @@ import (
 func TestReadEffectiveRoleProfileAppliesEveryScopeInPrecedenceOrder(t *testing.T) {
 	store := newTestStore(t)
 	conversation := transactionTestConversation("conversation-role-profile")
+	workspaceID := *conversation.WorkspaceID
 	persistRoleProfileTestMutation(t, store, "create-role-profile-conversation", func(transaction *WriteTransaction) error {
 		return transaction.InsertConversation(conversation)
 	})
@@ -26,7 +27,7 @@ func TestReadEffectiveRoleProfileAppliesEveryScopeInPrecedenceOrder(t *testing.T
 
 	workspace := narratorOverride(
 		RoleProfileScopeWorkspace,
-		conversation.WorkspaceID,
+		workspaceID,
 		"gpt-narrator-workspace",
 		ReasoningEffortLow,
 	)
@@ -63,9 +64,10 @@ func TestReadEffectiveRoleProfileRejectsWorkspaceMismatch(t *testing.T) {
 		return transaction.InsertConversation(conversation)
 	})
 
+	otherWorkspaceID := "workspace-other"
 	_, err := store.ReadEffectiveRoleProfile(
 		context.Background(),
-		"workspace-other",
+		&otherWorkspaceID,
 		conversation.ID,
 		DefaultNarratorRoleProfile(),
 	)
@@ -77,6 +79,7 @@ func TestReadEffectiveRoleProfileRejectsWorkspaceMismatch(t *testing.T) {
 func TestReadEffectiveRoleProfileReportsCorruptStoredProfile(t *testing.T) {
 	store := newTestStore(t)
 	conversation := transactionTestConversation("conversation-corrupt-role-profile")
+	workspaceID := *conversation.WorkspaceID
 	override := narratorOverride(
 		RoleProfileScopeConversation,
 		conversation.ID,
@@ -108,7 +111,7 @@ WHERE scope_kind = 'conversation' AND scope_id = ? AND role = 'narrator'
 
 	_, err = store.ReadEffectiveRoleProfile(
 		context.Background(),
-		conversation.WorkspaceID,
+		&workspaceID,
 		conversation.ID,
 		DefaultNarratorRoleProfile(),
 	)
@@ -121,14 +124,54 @@ func TestReadEffectiveRoleProfileValidatesRequestAndBuiltInProfile(t *testing.T)
 	store := newTestStore(t)
 	invalid := DefaultNarratorRoleProfile()
 	invalid.ModelSelection.ModelID = nil
+	workspaceID := "workspace-1"
 
-	_, err := store.ReadEffectiveRoleProfile(context.Background(), "workspace-1", "conversation-1", invalid)
+	_, err := store.ReadEffectiveRoleProfile(context.Background(), &workspaceID, "conversation-1", invalid)
 	if err == nil || errors.Is(err, ErrConversationNotFound) {
 		t.Fatalf("invalid built-in error = %v, want direct validation failure", err)
 	}
-	if _, err := store.ReadEffectiveRoleProfile(nil, "workspace-1", "conversation-1", DefaultNarratorRoleProfile()); err == nil {
+	if _, err := store.ReadEffectiveRoleProfile(nil, &workspaceID, "conversation-1", DefaultNarratorRoleProfile()); err == nil {
 		t.Fatal("nil role profile read context succeeded")
 	}
+}
+
+// TestReadEffectiveRoleProfileSkipsWorkspaceScopeWhenUnbound proves an unbound
+// conversation resolves built-in -> global -> conversation. There is no folder
+// it could be inheriting a workspace override from, and a stored override for
+// some other workspace must not reach it.
+func TestReadEffectiveRoleProfileSkipsWorkspaceScopeWhenUnbound(t *testing.T) {
+	store := newTestStore(t)
+	unbound := transactionTestConversation("conversation-unbound-role-profile")
+	boundWorkspaceID := *unbound.WorkspaceID
+	unbound.WorkspaceID = nil
+	persistRoleProfileTestMutation(t, store, "create-unbound-conversation", func(transaction *WriteTransaction) error {
+		return transaction.InsertConversation(unbound)
+	})
+	persistRoleProfileTestMutation(t, store, "set-global-narrator-profile", func(transaction *WriteTransaction) error {
+		return transaction.UpsertRoleProfileOverride(
+			narratorOverride(RoleProfileScopeGlobal, "", "gpt-narrator-global", ReasoningEffortMedium),
+		)
+	})
+	persistRoleProfileTestMutation(t, store, "set-workspace-narrator-profile", func(transaction *WriteTransaction) error {
+		return transaction.UpsertRoleProfileOverride(narratorOverride(
+			RoleProfileScopeWorkspace,
+			boundWorkspaceID,
+			"gpt-narrator-workspace",
+			ReasoningEffortLow,
+		))
+	})
+
+	assertEffectiveRoleProfileModel(t, store, unbound, DefaultNarratorRoleProfile(), "gpt-narrator-global")
+
+	persistRoleProfileTestMutation(t, store, "set-conversation-narrator-profile", func(transaction *WriteTransaction) error {
+		return transaction.UpsertRoleProfileOverride(narratorOverride(
+			RoleProfileScopeConversation,
+			unbound.ID,
+			"gpt-narrator-conversation",
+			ReasoningEffortNone,
+		))
+	})
+	assertEffectiveRoleProfileModel(t, store, unbound, DefaultNarratorRoleProfile(), "gpt-narrator-conversation")
 }
 
 func assertEffectiveRoleProfileModel(

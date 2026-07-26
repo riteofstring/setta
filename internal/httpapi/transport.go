@@ -9,24 +9,15 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/appstate"
 	"setta/internal/conversation"
+	"setta/internal/director"
 	"setta/internal/jsonio"
-	"setta/internal/master"
 	"setta/internal/speech"
 	"setta/internal/workspace"
-	"setta/internal/workspaceui"
 )
 
 func requireWorkspaceService(response http.ResponseWriter, service WorkspaceService) WorkspaceService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "workspace_service_unavailable", "workspace service is not available")
-		return nil
-	}
-	return service
-}
-
-func requireWorkspaceUIService(response http.ResponseWriter, service WorkspaceUIService) WorkspaceUIService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "workspace_ui_service_unavailable", "workspace UI service is not available")
 		return nil
 	}
 	return service
@@ -48,15 +39,27 @@ func requireConversationService(response http.ResponseWriter, service Conversati
 	return service
 }
 
-func requireConversationInputService(
-	response http.ResponseWriter,
-	service ConversationInputService,
-) ConversationInputService {
+func requireDirectorService(response http.ResponseWriter, service DirectorService) DirectorService {
 	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "conversation_input_service_unavailable", "conversation input service is not available")
+		writeError(response, http.StatusServiceUnavailable, "director_service_unavailable", "director command center is not available")
 		return nil
 	}
 	return service
+}
+
+// writeDirectorError separates the two failures the command center can have.
+// A rejected intent named something trusted state does not hold, which is the
+// caller's request to fix; an unavailable command center is a runtime condition
+// the shell retries rather than something the user did.
+func writeDirectorError(response http.ResponseWriter, code string, err error) {
+	switch {
+	case errors.Is(err, director.ErrDirectorIntentRejected):
+		writeError(response, http.StatusBadRequest, code, err.Error())
+	case errors.Is(err, director.ErrDirectorUnavailable):
+		writeError(response, http.StatusServiceUnavailable, "director_service_unavailable", err.Error())
+	default:
+		writeError(response, http.StatusInternalServerError, code, err.Error())
+	}
 }
 
 func requireConversationNavigatorService(
@@ -81,17 +84,6 @@ func requireRoleConfigurationService(
 			"role_configuration_service_unavailable",
 			"role configuration service is not available",
 		)
-		return nil
-	}
-	return service
-}
-
-func requireMasterInputService(
-	response http.ResponseWriter,
-	service MasterInputService,
-) MasterInputService {
-	if service == nil {
-		writeError(response, http.StatusServiceUnavailable, "master_input_service_unavailable", "master input service is not available")
 		return nil
 	}
 	return service
@@ -170,18 +162,6 @@ func writeWorkspaceError(response http.ResponseWriter, code string, err error) {
 	writeError(response, status, code, err.Error())
 }
 
-func writeWorkspaceUIError(response http.ResponseWriter, code string, err error) {
-	status := http.StatusBadRequest
-	if workspaceui.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_workspace_ui_state", err.Error())
-		return
-	}
-	if workspaceui.IsPersistenceError(err) {
-		status = http.StatusInternalServerError
-	}
-	writeError(response, status, code, err.Error())
-}
-
 func writeAppearanceError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
 	if appearance.IsCorruptSettingsError(err) {
@@ -207,6 +187,10 @@ func writeConversationError(response http.ResponseWriter, code string, err error
 	if conversation.IsCommandConflict(err) {
 		status = http.StatusConflict
 	}
+	if conversation.IsResourceRequired(err) {
+		writeError(response, http.StatusConflict, "conversation_resource_required", err.Error())
+		return
+	}
 	if conversation.IsCorruptStateError(err) {
 		writeError(response, http.StatusInternalServerError, "corrupt_conversation_state", err.Error())
 		return
@@ -215,98 +199,6 @@ func writeConversationError(response http.ResponseWriter, code string, err error
 		status = http.StatusInternalServerError
 	}
 	writeError(response, status, code, err.Error())
-}
-
-func writeConversationInputError(response http.ResponseWriter, err error) {
-	if conversation.IsInvalidConversationInputReceipt(err) {
-		writeError(response, http.StatusInternalServerError, "invalid_conversation_input_receipt", err.Error())
-		return
-	}
-	if conversation.IsWriteOutcome(err, conversation.WriteOutcomeCancelled) {
-		writeError(response, http.StatusRequestTimeout, "conversation_input_write_cancelled", err.Error())
-		return
-	}
-	if conversation.IsWriteOutcome(err, conversation.WriteOutcomeSaturated) {
-		writeError(response, http.StatusTooManyRequests, "conversation_input_write_saturated", err.Error())
-		return
-	}
-	if conversation.IsWriteOutcome(err, conversation.WriteOutcomeStoreClosed) {
-		writeError(response, http.StatusServiceUnavailable, "conversation_input_store_unavailable", err.Error())
-		return
-	}
-	if errors.Is(err, conversation.ErrStoreClosed) {
-		writeError(response, http.StatusServiceUnavailable, "conversation_input_store_unavailable", err.Error())
-		return
-	}
-	if conversation.IsConversationInputConflict(err) {
-		writeError(response, http.StatusConflict, "conversation_input_conflict", err.Error())
-		return
-	}
-	if conversation.IsConversationNotFound(err) {
-		writeError(response, http.StatusNotFound, "conversation_not_found", err.Error())
-		return
-	}
-	if conversation.IsStateConflict(err) {
-		writeError(response, http.StatusConflict, "conversation_input_state_conflict", err.Error())
-		return
-	}
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_conversation_input_state", err.Error())
-		return
-	}
-	if conversation.IsPersistenceError(err) {
-		writeError(response, http.StatusInternalServerError, "persist_conversation_input_failed", err.Error())
-		return
-	}
-	writeError(response, http.StatusBadRequest, "invalid_conversation_input", err.Error())
-}
-
-func writeMasterInputError(response http.ResponseWriter, err error) {
-	if master.IsInputConflict(err) {
-		writeError(response, http.StatusConflict, "master_input_conflict", err.Error())
-		return
-	}
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_master_input_state", err.Error())
-		return
-	}
-	if conversation.IsPersistenceError(err) {
-		writeError(response, http.StatusInternalServerError, "persist_master_input_failed", err.Error())
-		return
-	}
-	writeError(response, http.StatusBadRequest, "invalid_master_input", err.Error())
-}
-
-func writeMasterShellInteractionError(response http.ResponseWriter, err error) {
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_master_input_state", err.Error())
-		return
-	}
-	if errors.Is(err, conversation.ErrStoreClosed) {
-		writeError(response, http.StatusServiceUnavailable, "master_input_store_unavailable", err.Error())
-		return
-	}
-	writeError(response, http.StatusInternalServerError, "read_master_shell_interaction_failed", err.Error())
-}
-
-func writeMasterInputStateError(response http.ResponseWriter, err error) {
-	if conversation.IsStateConflict(err) {
-		writeError(response, http.StatusConflict, "master_input_state_conflict", err.Error())
-		return
-	}
-	if conversation.IsCorruptStateError(err) {
-		writeError(response, http.StatusInternalServerError, "corrupt_master_input_state", err.Error())
-		return
-	}
-	if errors.Is(err, conversation.ErrStoreClosed) {
-		writeError(response, http.StatusServiceUnavailable, "master_input_store_unavailable", err.Error())
-		return
-	}
-	if conversation.IsPersistenceError(err) {
-		writeError(response, http.StatusInternalServerError, "read_master_input_state_failed", err.Error())
-		return
-	}
-	writeError(response, http.StatusBadRequest, "invalid_master_input_state_request", err.Error())
 }
 
 func writeSpeechError(response http.ResponseWriter, fallbackCode string, err error) {
@@ -341,14 +233,6 @@ func writeSpeechVoiceConfigurationError(response http.ResponseWriter, err error)
 	writeSpeechError(response, "invalid_speech_voice_configuration", err)
 }
 
-func writeConversationPresentationConfigurationError(response http.ResponseWriter, err error) {
-	if _, ok := speech.AsError(err); ok {
-		writeSpeechError(response, "invalid_speech_voice_configuration", err)
-		return
-	}
-	writeConversationError(response, "update_conversation_presentation_failed", err)
-}
-
 func speechErrorHTTPStatus(code speech.ErrorCode) int {
 	switch code {
 	case speech.ErrorRateLimited:
@@ -357,6 +241,10 @@ func speechErrorHTTPStatus(code speech.ErrorCode) int {
 		return http.StatusBadGateway
 	case speech.ErrorNotConfigured, speech.ErrorProviderUnavailable:
 		return http.StatusServiceUnavailable
+	case speech.ErrorCredentialInvalid:
+		return http.StatusBadRequest
+	case speech.ErrorCredentialManagementUnavailable:
+		return http.StatusForbidden
 	case speech.ErrorSourceUnavailable:
 		return http.StatusConflict
 	case speech.ErrorVoiceUnavailable:
