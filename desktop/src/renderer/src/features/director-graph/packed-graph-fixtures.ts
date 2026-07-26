@@ -130,6 +130,7 @@ function runningTurn(state: CompilerState): PackedGraphTurnInput {
   return {
     index: state.turnIndex,
     column: 0,
+    columnTop: 0,
     inputNodeId: state.inputId,
     outcomeNodeId: null,
     rowSpan: state.row,
@@ -404,6 +405,7 @@ function finishTurn(state: CompilerState, turn: FixtureTurn): void {
   emitBatch(state, [node], [edge], {
     index: state.turnIndex,
     column: 0,
+    columnTop: 0,
     inputNodeId: state.inputId,
     outcomeNodeId: id,
     rowSpan: state.row,

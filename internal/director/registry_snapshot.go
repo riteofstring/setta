@@ -68,6 +68,11 @@ func (state *registryState) snapshotEntries(
 ) ([]DirectorWorkstreamEntry, map[string]WorkstreamDetailLevel, error) {
 	entries := make([]DirectorWorkstreamEntry, 0, len(window))
 	levels := make(map[string]WorkstreamDetailLevel, len(window))
+	budget := MaxSnapshotAdjacentGraphs
+	if selected == nil {
+		budget = MaxDirectorTiledGraphs
+	}
+	drawn := drawnGraphCount(window, selected, budget)
 	carried := 0
 	selectedFound := false
 	for _, workstream := range window {
@@ -76,8 +81,8 @@ func (state *registryState) snapshotEntries(
 		case selected != nil && *selected == workstream.record.ID:
 			level = WorkstreamDetailSelected
 			selectedFound = true
-		case carried < MaxSnapshotAdjacentGraphs:
-			level = graphDetailWithoutSelection(selected)
+		case carried < budget:
+			level = graphDetailWithoutSelection(selected, drawn)
 			carried++
 		}
 		levels[workstream.record.ID] = level
@@ -90,6 +95,23 @@ func (state *registryState) snapshotEntries(
 		return nil, nil, fmt.Errorf("selected workstream %s is not in the active registry", *selected)
 	}
 	return entries, levels, nil
+}
+
+// drawnGraphCount is how many workstreams this snapshot will draw. The level
+// each one gets depends on it: a few are columns and many are tiles, so the
+// count has to be known before the first level is assigned.
+func drawnGraphCount(window []*registryWorkstream, selected *string, budget int) int {
+	count := 0
+	for _, workstream := range window {
+		if selected != nil && *selected == workstream.record.ID {
+			continue
+		}
+		if count == budget {
+			break
+		}
+		count++
+	}
+	return count
 }
 
 // snapshotGraphs carries the Director lane first. The lane is the conversation

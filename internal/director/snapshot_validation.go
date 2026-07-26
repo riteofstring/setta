@@ -158,11 +158,18 @@ func validateSnapshotDetailCounts(snapshot DirectorSnapshot, levelCounts map[Wor
 			)
 		}
 	}
-	if adjacentCount := levelCounts[WorkstreamDetailAdjacent]; adjacentCount > MaxSnapshotAdjacentGraphs {
+	// Compact graphs are context beside a selected workstream and tiles on the
+	// Director's own view, which is why the two have different budgets: a
+	// handful of neighbours against a grid of everything running.
+	compactBudget := MaxSnapshotAdjacentGraphs
+	if snapshot.SelectedWorkstreamID == nil {
+		compactBudget = MaxDirectorTiledGraphs
+	}
+	if adjacentCount := levelCounts[WorkstreamDetailAdjacent]; adjacentCount > compactBudget {
 		return fmt.Errorf(
-			"director snapshot holds %d adjacent workstreams, max %d",
+			"director snapshot holds %d compact workstreams, max %d",
 			adjacentCount,
-			MaxSnapshotAdjacentGraphs,
+			compactBudget,
 		)
 	}
 	return nil

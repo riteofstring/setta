@@ -319,6 +319,7 @@ describe("graph ladder columns", () => {
           {
             index: 0,
             column: 0,
+            columnTop: 0,
             inputNodeId: "left-input",
             outcomeNodeId: "left-outcome",
             rowSpan: 3,
@@ -329,6 +330,7 @@ describe("graph ladder columns", () => {
           {
             index: 1,
             column: 1,
+            columnTop: 0,
             inputNodeId: "right-input",
             outcomeNodeId: "right-outcome",
             rowSpan: 3,

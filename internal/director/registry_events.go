@@ -782,7 +782,7 @@ func (registry *Registry) detailLevelFor(workstreamID string) WorkstreamDetailLe
 		return WorkstreamDetailSelected
 	}
 	if registry.carried[workstreamID] {
-		return graphDetailWithoutSelection(selected)
+		return graphDetailWithoutSelection(selected, len(registry.carried))
 	}
 	return WorkstreamDetailBackground
 }
@@ -796,8 +796,11 @@ func (registry *Registry) detailLevelFor(workstreamID string) WorkstreamDetailLe
  * on the Director's own view every workstream is what you came to see, and a
  * summary of each is a view with the work left out.
  */
-func graphDetailWithoutSelection(selected *string) WorkstreamDetailLevel {
-	if selected == nil {
+func graphDetailWithoutSelection(selected *string, carried int) WorkstreamDetailLevel {
+	if selected != nil {
+		return WorkstreamDetailAdjacent
+	}
+	if carried <= MaxDirectorColumnGraphs {
 		return WorkstreamDetailSelected
 	}
 	return WorkstreamDetailAdjacent
@@ -809,15 +812,25 @@ func graphDetailWithoutSelection(selected *string) WorkstreamDetailLevel {
 func (registry *Registry) refreshDetailLevels() {
 	window := registry.state.snapshotWindow()
 	selected := registry.state.activeSelection()
-	// The budget bounds how many graphs one snapshot carries. It is the same
-	// either way, because it is a size limit rather than a statement about
-	// which workstreams matter.
-	carried := make(map[string]bool, MaxSnapshotAdjacentGraphs)
+	/*
+	 * How many graphs one snapshot carries.
+	 *
+	 * Beside a selected workstream a handful of compact neighbours is context.
+	 * On the Director's own view the graphs are the view, so it carries every
+	 * conversation it can and reduces them to tiles rather than dropping them:
+	 * a conversation that vanishes from the canvas because a ninth one started
+	 * is the app losing work in front of the user.
+	 */
+	budget := MaxSnapshotAdjacentGraphs
+	if selected == nil {
+		budget = MaxDirectorTiledGraphs
+	}
+	carried := make(map[string]bool, budget)
 	for _, workstream := range window {
 		if selected != nil && *selected == workstream.record.ID {
 			continue
 		}
-		if len(carried) == MaxSnapshotAdjacentGraphs {
+		if len(carried) == budget {
 			break
 		}
 		carried[workstream.record.ID] = true

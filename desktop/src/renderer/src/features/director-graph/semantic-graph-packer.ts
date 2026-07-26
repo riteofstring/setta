@@ -34,6 +34,21 @@ export interface SemanticGraphComposition {
 const settleWindowSeconds = 1.45;
 const compactDelaySeconds = 2.5;
 const workstreamLaneSpacing = 0.42;
+/*
+ * Where the Director's view stops being columns and becomes a grid.
+ *
+ * Past a handful of conversations, side-by-side columns are slivers: each one
+ * loses the width its labels need and the view stops being readable at exactly
+ * the moment it has the most to say. So the lane keeps its full column and the
+ * conversations become tiles — each one its own cell, showing what it is doing
+ * now rather than how it got there.
+ */
+const maxDirectorColumns = 5;
+const directorGridWidth = 1.45;
+const directorGridBias = -0.36;
+/** A tile's own vertical room, before its rows are laid inside it. */
+const directorTileHeight = 0.62;
+const directorLeadLane = -0.86;
 
 interface OrderedNode {
   readonly node: SemanticNode;
@@ -173,6 +188,40 @@ function workstreamLane(graphIndex: number, graphCount: number): number {
   return (graphIndex - (graphCount - 1) / 2) * workstreamLaneSpacing;
 }
 
+interface ColumnPlacement {
+  readonly lane: number;
+  readonly top: number;
+}
+
+/*
+ * Where each column sits.
+ *
+ * Few enough conversations and they are columns across the view, all starting
+ * at the top. Too many and the first graph — the Director's own lane — keeps a
+ * column on the left while the rest tile into a square-ish grid beside it, in
+ * reading order: oldest top-left, newest bottom-right.
+ */
+function columnPlacements(graphCount: number): ColumnPlacement[] {
+  if (graphCount <= maxDirectorColumns) {
+    return Array.from({ length: graphCount }, (_unused, index) => ({
+      lane: workstreamLane(index, graphCount),
+      top: 0,
+    }));
+  }
+  const tiles = graphCount - 1;
+  const across = Math.ceil(Math.sqrt(tiles));
+  const down = Math.ceil(tiles / across);
+  const cellWidth = directorGridWidth / across;
+  const placements: ColumnPlacement[] = [{ lane: directorLeadLane, top: 0 }];
+  for (let tile = 0; tile < tiles; tile += 1) {
+    placements.push({
+      lane: 0.24 + ((tile % across) - (across - 1) / 2) * cellWidth,
+      top: (Math.floor(tile / across) - (down - 1) / 2) * directorTileHeight + directorGridBias,
+    });
+  }
+  return placements;
+}
+
 function semanticLane(node: SemanticNode): number {
   switch (node.kind) {
     case "delegation":
@@ -252,7 +301,7 @@ function groupedByGraph(nodes: readonly OrderedNode[]): PlannedGroup[] {
   return groups;
 }
 
-function packedNodeInput(planned: PlannedNode, graphCount: number): PackedGraphNodeInput {
+function packedNodeInput(planned: PlannedNode, placement: ColumnPlacement): PackedGraphNodeInput {
   const visual = semanticNodeKindVisuals[planned.ordered.node.kind];
   return {
     id: planned.ordered.packedId,
@@ -262,8 +311,7 @@ function packedNodeInput(planned: PlannedNode, graphCount: number): PackedGraphN
     glyph: visual.glyph,
     emphasis: semanticEvidenceEmphases[planned.ordered.node.evidenceClass],
     detail: planned.ordered.node.kind === "milestone" ? "compacted" : "detailed",
-    lane:
-      workstreamLane(planned.ordered.graphIndex, graphCount) + semanticLane(planned.ordered.node),
+    lane: placement.lane + semanticLane(planned.ordered.node),
     row: planned.row,
     bornAt: planned.ordered.bornAt,
     settleAt: planned.ordered.bornAt + settleWindowSeconds,
@@ -293,7 +341,10 @@ function graphOutcome(planned: readonly PlannedNode[]): {
 }
 
 /** One turn per column, each describing only its own workstream. */
-function turnInputs(planned: readonly PlannedNode[]): PackedGraphTurnInput[] {
+function turnInputs(
+  planned: readonly PlannedNode[],
+  placementFor: (graphIndex: number) => ColumnPlacement,
+): PackedGraphTurnInput[] {
   const byTurn = new Map<number, PlannedNode[]>();
   for (const node of planned) {
     const existing = byTurn.get(node.turn);
@@ -313,6 +364,7 @@ function turnInputs(planned: readonly PlannedNode[]): PackedGraphTurnInput[] {
     turns.push({
       index,
       column: index,
+      columnTop: placementFor(input.ordered.graphIndex).top,
       inputNodeId: input.ordered.packedId,
       outcomeNodeId: outcome.outcomeNodeId,
       rowSpan: nodes.length,
@@ -382,7 +434,12 @@ function compileSemanticGraphComposition(
   }
   const edges = graphEdges(composition.graphs);
   const planned = planNodes(nodes, edges);
-  const packedNodes = planned.map((node) => packedNodeInput(node, composition.graphs.length));
+  const placements = columnPlacements(composition.graphs.length);
+  const placementFor = (graphIndex: number): ColumnPlacement =>
+    placements[graphIndex] ?? { lane: 0, top: 0 };
+  const packedNodes = planned.map((node) =>
+    packedNodeInput(node, placementFor(node.ordered.graphIndex)),
+  );
   const nodeIndexByID = new Map(packedNodes.map((node, index) => [node.id, index]));
   const nodeModeByID = new Map(planned.map((node) => [node.ordered.packedId, node.mode]));
   const terminalByID = new Map(
@@ -395,7 +452,7 @@ function compileSemanticGraphComposition(
       hasEarlier: composition.graphs.some((graph) => graph.hasEarlier),
       nodes: packedNodes,
       edges: packedEdges,
-      turns: turnInputs(planned),
+      turns: turnInputs(planned, placementFor),
     },
   ];
 }

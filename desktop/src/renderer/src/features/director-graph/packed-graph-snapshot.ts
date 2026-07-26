@@ -100,6 +100,14 @@ export interface PackedGraphTurnInput {
    * turn that happened to be packed before it somewhere else.
    */
   readonly column: number;
+  /*
+   * Where this column's first turn starts, in world units.
+   *
+   * A conversation starts at the top of the view and runs down. A tile in the
+   * Director's grid starts in its own cell, which is what lets many
+   * conversations be on screen at once without becoming a row of slivers.
+   */
+  readonly columnTop: number;
   readonly inputNodeId: string;
   /** Null while the turn is still running. */
   readonly outcomeNodeId: string | null;
@@ -158,6 +166,8 @@ interface PackedGraphEdgeColumns {
 interface PackedGraphTurnColumns {
   /** Which column each turn stacks in. See PackedGraphTurnInput.column. */
   readonly column: Uint16Array;
+  /** Where each column starts. See PackedGraphTurnInput.columnTop. */
+  readonly columnTop: Float32Array;
   readonly inputNode: Uint32Array;
   /** -1 while the turn is still running. */
   readonly outcomeNode: Int32Array;
@@ -274,6 +284,7 @@ function grownTurnColumns(
 ): PackedGraphTurnColumns {
   return {
     column: grownU16(source.column, used, size),
+    columnTop: grownF32(source.columnTop, used, size),
     inputNode: grownU32(source.inputNode, used, size),
     outcomeNode: grownI32(source.outcomeNode, used, size),
     rowSpan: grownU16(source.rowSpan, used, size),
@@ -317,6 +328,7 @@ function writeTurn(
   turn: PackedGraphTurnInput,
 ): void {
   columns.column[turn.index] = turn.column;
+  columns.columnTop[turn.index] = turn.columnTop;
   columns.inputNode[turn.index] = nodeIndexOf(indexById, turn.inputNodeId);
   columns.outcomeNode[turn.index] =
     turn.outcomeNodeId === null ? -1 : nodeIndexOf(indexById, turn.outcomeNodeId);
@@ -394,6 +406,7 @@ const emptyEdgeColumns: PackedGraphEdgeColumns = {
 
 const emptyTurnColumns: PackedGraphTurnColumns = {
   column: new Uint16Array(0),
+  columnTop: new Float32Array(0),
   inputNode: new Uint32Array(0),
   outcomeNode: new Int32Array(0),
   rowSpan: new Uint16Array(0),

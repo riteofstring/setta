@@ -311,7 +311,10 @@ export class GraphLadderLayout {
   private placeTurns(snapshot: PackedGraphSnapshot, firstTurn: number): void {
     for (let turn = firstTurn; turn < snapshot.turnCount; turn += 1) {
       const previous = this.previousTurnInColumn(snapshot, turn);
-      const cursor = previous < 0 ? 0 : this.turnBottom(snapshot, previous);
+      const cursor =
+        previous < 0
+          ? packedValueAt(snapshot.turns.columnTop, turn)
+          : this.turnBottom(snapshot, previous);
       this.turnTopY[turn] = cursor;
       this.placeTurnNodes(snapshot, turn, cursor);
     }

@@ -1,3 +1,4 @@
+import type { WorkstreamGraph } from "@generated/backend";
 import {
   evidenceClassValues,
   semanticEdgeKindValues,
@@ -9,6 +10,19 @@ import { describe, expect, it } from "vitest";
 import { projectionGalleryFixtures } from "./projection-gallery-fixtures";
 import { packSemanticGraphComposition } from "./semantic-graph-packer";
 import { packedValueAt } from "./packed-graph-vocabulary";
+
+/** Copies a fixture graph under a new workstream id, so a composition can hold many. */
+function renameGraph(graph: WorkstreamGraph | undefined, workstreamId: string): WorkstreamGraph {
+  if (graph === undefined) {
+    throw new Error("no fixture graph to copy");
+  }
+  return {
+    ...graph,
+    workstreamId,
+    nodes: graph.nodes.map((node) => ({ ...node, workstreamId })),
+    edges: graph.edges.map((edge) => ({ ...edge, workstreamId })),
+  };
+}
 
 function semanticNodes() {
   return projectionGalleryFixtures.flatMap((fixture) =>
@@ -105,6 +119,37 @@ describe("semantic graph packer", () => {
     for (const rows of rowsByTurn.values()) {
       expect(Math.min(...rows)).toBe(0);
     }
+  });
+
+  /*
+   * Past a handful of conversations the view becomes a grid. Every conversation
+   * still gets a cell — none of them stop being drawn because another one
+   * started — and the cells occupy more than one row, which is the difference
+   * between a grid and a row of slivers.
+   */
+  it("tiles the conversations into a grid once there are too many for columns", () => {
+    const fixture = projectionGalleryFixtures.find((candidate) =>
+      candidate.graphs.some((graph) => graph.nodes.length > 0),
+    );
+    expect(fixture).toBeDefined();
+    if (fixture === undefined) {
+      return;
+    }
+    const populated = fixture.graphs.filter((graph) => graph.nodes.length > 0);
+    const many = Array.from({ length: 9 }, (_unused, index) =>
+      renameGraph(populated[index % populated.length], `workstream-tile-${index}`),
+    );
+    const snapshot = packSemanticGraphComposition({ workstreamId: "grid", graphs: many });
+
+    expect(snapshot.turnCount).toBe(many.length);
+    const tops = new Set<number>();
+    const lanes = new Set<number>();
+    for (let turn = 0; turn < snapshot.turnCount; turn += 1) {
+      tops.add(packedValueAt(snapshot.turns.columnTop, turn));
+      lanes.add(packedValueAt(snapshot.nodes.lane, packedValueAt(snapshot.turns.inputNode, turn)));
+    }
+    expect(tops.size).toBeGreaterThan(1);
+    expect(lanes.size).toBeGreaterThan(1);
   });
 
   it("draws cross-workstream delegation inside the gallery composition", () => {
