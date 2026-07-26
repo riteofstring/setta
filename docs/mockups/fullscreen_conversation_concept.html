@@ -55,7 +55,6 @@
   .tb-chip { font: 11px var(--sans); color: var(--faint); background: transparent; border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; cursor: pointer; letter-spacing: 0.02em; }
   .tb-chip:hover { color: var(--muted); }
   .tb-chip.on { color: var(--fg); border-color: color-mix(in oklch, var(--primary) 55%, transparent); background: color-mix(in oklch, var(--primary) 12%, transparent); }
-  .nl-coltitle.tile { font-size: 9px; opacity: 0.62; }
   .artifact-from { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
     color: var(--faint); font-weight: 600; margin-top: 3px; }
   .rail { position: fixed; top: 44px; bottom: 92px; width: 300px; z-index: 12; display: flex; flex-direction: column; gap: 12px; padding: 20px; font-family: var(--sans); pointer-events: none; }
@@ -70,8 +69,17 @@
   .multi-cols .nlabel { font-size: 11px; }
   .multi-cols .nl-outcome { max-width: 210px; }
   .nl-coltitle { position: absolute; transform: translateX(-50%); font: 10px var(--sans); text-transform: uppercase;
-    letter-spacing: 0.13em; color: var(--faint); white-space: nowrap; pointer-events: none; }
+    letter-spacing: 0.13em; color: var(--muted); font-weight: 600; white-space: nowrap; pointer-events: none; }
   .nl-coltitle.focus { color: var(--accent-teal); }
+  .nl-coltitle.tile { font-size: 10px; color: var(--muted); }
+  /*
+   * A tile's live step, under its node. This is the part that changes as the
+   * thread works, which is what makes the tile a thing that is happening
+   * rather than a status glyph that was set once.
+   */
+  .nl-colstep { position: absolute; transform: translateX(-50%); font: 11px var(--sans);
+    color: var(--faint); white-space: nowrap; pointer-events: none; max-width: 210px;
+    overflow: hidden; text-overflow: ellipsis; transition: opacity 240ms; }
   .nl-you { border-color: color-mix(in oklch, var(--accent-teal) 34%, transparent); }
   .nl-you .nl-mark { color: var(--accent-teal); }
   .nlabel.nl-sticky { z-index: 9; background: color-mix(in oklch, var(--bg) 90%, transparent); border-color: color-mix(in oklch, var(--accent-teal) 55%, transparent); box-shadow: 0 6px 18px rgba(0,0,0,0.55); transition: top 120ms ease-out; }
@@ -482,10 +490,10 @@ function buildDirectorGrid(lead){
     title:lead.title,xClip:leadX,focus:true,conv:null});
   let lastBorn=lb0;
   const gc=Math.ceil(Math.sqrt(N)), gr=Math.ceil(N/gc);   // the rest, tiled
-  const cellW=1.15/gc, cellH=1.5/gr;
+  const cellW=1.15/gc, cellH=1.18/gr;
   for(let k=0;k<N;k++){
     const conv=CONVS[k], nFrom=nodes.length, tFrom=turns.length;
-    const cx=0.34+((k%gc)-(gc-1)/2)*cellW, cy=((gr-1)/2-Math.floor(k/gc))*cellH;
+    const cx=0.34+((k%gc)-(gc-1)/2)*cellW, cy=((gr-1)/2-Math.floor(k/gc))*cellH-0.15;
     const tail=Object.assign({},conv,{thread:(conv.thread||[]).slice(-1)});   // the live turn only
     const lb=addThread(tail,nodes,edges,turns,k+1,cx,Math.min(0.42,cellW/0.9),(k*2.7)%11);
     cols.push({i:k+1,nodeFrom:nFrom,nodeTo:nodes.length,turnFrom:tFrom,turnTo:turns.length,cam:0,
@@ -1006,8 +1014,10 @@ function buildNodeLabels(){ const c=document.getElementById('nodeLabels'); if(!c
     for(const rid of T.reasonIds) g.nodes[rid].labelEl = mk('nlabel nl-reason', g.nodes[rid].label);
     T.rLabel = pillFor(r, T.fail?'nl-fail':'nl-ok', T.fail?'✕':'✓'); }
   if(g.multi) for(const C of g.cols){                                  // a heading per column so you know which thread is which
-    const el=document.createElement('div'); el.className='nl-coltitle'+(C.focus?' focus':'');
-    el.textContent=C.title; c.appendChild(el); C.titleEl=el; } }
+    const el=document.createElement('div'); el.className='nl-coltitle'+(C.focus?' focus':'')+(C.tile?' tile':'');
+    el.textContent=C.title; c.appendChild(el); C.titleEl=el;
+    if(C.tile){ const st=document.createElement('div'); st.className='nl-colstep';
+      c.appendChild(st); C.stepEl=st; } } }
 const STICKY_TOP=58, FADE_SPAN=0.42;
 function labelOpacity(n){ if(labelMode==='off') return 0; if(labelMode==='show') return 1; if(hovered===n) return 1;
   return Math.max(0, Math.min(1, 1-(autoCam-n.worldY)/FADE_SPAN)); }   // auto: fade to just the icon as the flow moves past
@@ -1033,13 +1043,69 @@ function updateNodeLabels(){ if(!g.turns||g.parallel) return;   // no labels in 
     if(g.multi){ for(const rid of T.reasonIds){ const e=g.nodes[rid].labelEl; if(e) e.style.display='none'; } }   // columns are too tight for step labels
     else for(const rid of T.reasonIds){ const rn=g.nodes[rid]; placeNodeLabel(rn, rn.labelEl, 'below', {hideIfFolded:true}); }
     placeNodeLabel(g.nodes[T.respId], T.rLabel, T.fail?'below':'over', {delay:0.9}); }   // success over the node; failure below (eclipse stays visible)
+  syncTileNodes();
   if(g.multi) for(const C of g.cols){ if(!C.titleEl) continue;
-    // A tiled column sits in a grid row, so its title travels with it. Columns
-    // share the one header row, which is what makes them read as a set.
-    const topPx = C.tile ? (0.5-((C.rowY||0)*0.5))*innerHeight - 96 : 96;
-    const s=warpToScreen((C.xClip*0.5+0.5)*innerWidth, topPx);
-    C.titleEl.style.left=Math.round(s.x)+'px'; C.titleEl.style.top=Math.round(topPx)+'px';
-    C.titleEl.classList.toggle('tile', !!C.tile); } }
+    if(!C.tile){
+      // A column shares the one header row, which is what makes columns read
+      // as a set rather than as scattered graphs.
+      const s=warpToScreen((C.xClip*0.5+0.5)*innerWidth, 96);
+      C.titleEl.style.left=Math.round(s.x)+'px'; C.titleEl.style.top='96px'; continue; }
+    /*
+     * A tile's labels are anchored to its node. The node is cam-followed and a
+     * computed row is not, so anchoring to the row left the title drifting a
+     * hundred pixels off the thing it names.
+     */
+    const T=g.turns[C.turnFrom]; if(!T){ continue; }
+    const live=liveTileNode(T);
+    const s=screenOf(live), r=nodeCssDiam(live)*0.5;
+    C.titleEl.style.left=Math.round(s.x)+'px';
+    C.titleEl.style.top=Math.round(s.y-r-20)+'px';
+    if(C.stepEl){ C.stepEl.style.left=Math.round(s.x)+'px';
+      C.stepEl.style.top=Math.round(s.y+r+8)+'px';
+      const text=tileStepText(C, live);
+      if(C.stepEl.textContent!==text) C.stepEl.textContent=text;
+      C.stepEl.style.opacity=live.alpha<0.2?0:1; } } }
+
+/*
+ * The node a tile is currently about: the newest one that has been born. While
+ * a turn runs that is the step it is on; once it is answered it is the
+ * outcome. This is why a tile is not static — it names where the thread is.
+ */
+function liveTileNode(T){
+  let best=g.nodes[T.userId];
+  for(const rid of T.reasonIds){ const n=g.nodes[rid]; if(growT>=n.born && n.born>=best.born) best=n; }
+  const R=g.nodes[T.respId]; if(growT>=R.born) best=R;
+  return best; }
+
+/*
+ * A tile reports where its thread is, on the thread's own clock.
+ *
+ * Not on the shared graph clock: every tile holds one turn, so on the shared
+ * clock they all finish together and then sit at "done" until the whole view
+ * loops. Each conversation already advances its own activity independently in
+ * tickConversations, which is the thing that is actually happening, so the
+ * tile reads from there — the label changes, and the node takes that step's
+ * colour, whether or not its own turn has been answered.
+ */
+function tileStepText(C, live){
+  const conv=C.conv!=null?CONVS[C.conv]:null;
+  if(!conv) return live.label;
+  if(isComplete(conv)) return 'done';
+  const h=conv.nows[revealCount(conv)-1];
+  return h?h.t:live.label; }
+
+// The node takes the colour of the step its thread is on, so a tile changes
+// as the work moves rather than only when its own turn ends.
+function syncTileNodes(){
+  if(!g.cols) return;
+  for(const C of g.cols){ if(!C.tile || C.conv==null) continue;
+    const conv=CONVS[C.conv], T=g.turns[C.turnFrom]; if(!T) continue;
+    const live=liveTileNode(T);
+    // A Now item's mode is already an index into the same order M uses.
+    const step=conv.nows[revealCount(conv)-1];
+    const want=isComplete(conv) ? M.success : (step ? step.mode : live.mode);
+    if(live.mode!==want){ live.mode=want; sceneDirty=true; } } }
+
 // dynamic layout: reasoning graph compresses into the user/AI ladder as each turn folds (open 1->0)
 function layout(dt){
   if(g.parallel) return;   // parallel view: positions are baked, nothing folds -> no repack, stays smooth
