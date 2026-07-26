@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
+	"setta/internal/workspaceui/conversationpalette"
 )
 
 type sqlScanner interface {
@@ -15,10 +15,10 @@ type sqlScanner interface {
 
 func scanTopicConversation(scanner sqlScanner) (TopicConversation, error) {
 	var value TopicConversation
-	var workspaceID, archivedAt sql.NullString
+	var archivedAt sql.NullString
 	err := scanner.Scan(
 		&value.ID,
-		&workspaceID,
+		&value.WorkspaceID,
 		&value.Title,
 		&value.TopicDescriptor,
 		&value.Status,
@@ -27,7 +27,6 @@ func scanTopicConversation(scanner sqlScanner) (TopicConversation, error) {
 		&archivedAt,
 		&value.LastTrajectorySequence,
 	)
-	value.WorkspaceID = optionalScannedString(workspaceID)
 	value.ArchivedAt = optionalScannedString(archivedAt)
 	return value, err
 }
@@ -68,6 +67,31 @@ func scanConversationTurn(scanner sqlScanner) (ConversationTurn, error) {
 	}
 	if err := decodeOptionalJSON("turn failure", failureJSON, &value.Error); err != nil {
 		return ConversationTurn{}, err
+	}
+	return value, nil
+}
+
+func scanAgentThreadBinding(scanner sqlScanner) (AgentThreadBinding, error) {
+	var value AgentThreadBinding
+	var lastResumedAt, lastTurnID sql.NullString
+	var metadataJSON string
+	err := scanner.Scan(
+		&value.ConversationID,
+		&value.Provider,
+		&value.ThreadID,
+		&value.Status,
+		&value.CreatedAt,
+		&lastResumedAt,
+		&lastTurnID,
+		&metadataJSON,
+	)
+	if err != nil {
+		return AgentThreadBinding{}, err
+	}
+	value.LastResumedAt = optionalScannedString(lastResumedAt)
+	value.LastTurnID = optionalScannedString(lastTurnID)
+	if err := decodeJSON("thread binding metadata", metadataJSON, &value.ProviderMetadata); err != nil {
+		return AgentThreadBinding{}, err
 	}
 	return value, nil
 }
@@ -137,7 +161,6 @@ var trajectoryPayloadTargets = map[TrajectoryEventKind]func(*TrajectoryEvent) an
 	TrajectoryEventArtifactEmitted:               func(event *TrajectoryEvent) any { return &event.ArtifactEmitted },
 	TrajectoryEventAgentLivenessChanged:          func(event *TrajectoryEvent) any { return &event.AgentLivenessChanged },
 	TrajectoryEventProviderLifecycleChanged:      func(event *TrajectoryEvent) any { return &event.ProviderLifecycleChanged },
-	TrajectoryEventValidationRecorded:            func(event *TrajectoryEvent) any { return &event.ValidationRecorded },
 	TrajectoryEventModelRerouted:                 func(event *TrajectoryEvent) any { return &event.ModelRerouted },
 }
 
@@ -366,20 +389,23 @@ func optionalSpeechVoiceID(value sql.NullString) *speech.SpeechVoiceID {
 
 func scanConversationBranch(scanner sqlScanner) (ConversationBranch, error) {
 	var value ConversationBranch
-	var forkedAtTurnID sql.NullString
+	var metadataJSON string
 	err := scanner.Scan(
 		&value.ChildConversationID,
 		&value.ParentConversationID,
 		&value.Kind,
 		&value.DecisionSource,
-		&forkedAtTurnID,
+		&value.ForkedAtTurnID,
 		&value.SourceTrajectorySequence,
+		&metadataJSON,
 		&value.CreatedAt,
 	)
 	if err != nil {
 		return ConversationBranch{}, err
 	}
-	value.ForkedAtTurnID = forkedAtTurnID.String
+	if err := decodeJSON("branch provider metadata", metadataJSON, &value.ProviderMetadata); err != nil {
+		return ConversationBranch{}, err
+	}
 	return value, nil
 }
 
@@ -390,8 +416,10 @@ func scanSideConversation(scanner sqlScanner) (SideConversation, error) {
 	err := scanner.Scan(
 		&value.ID,
 		&value.ParentConversationID,
+		&value.ParentPaneID,
 		&value.DecisionSource,
 		&providerThreadID,
+		&value.SourceProviderThreadID,
 		&sourceProviderTurnID,
 		&value.SourceTrajectorySequence,
 		&value.LastEventSequence,

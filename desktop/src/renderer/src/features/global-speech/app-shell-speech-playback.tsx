@@ -1,29 +1,45 @@
+import type { ConversationEvent, ConversationSnapshot, TurnStatus } from "@generated/backend";
 import type { SettaAPI } from "@shared/types";
-import { type ReactNode, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
+import { queuedConversationProjectionEventsBefore } from "../../stores/conversation-projection-runtime";
+import { useConversationStore } from "../../stores/conversation-store";
 import { registerRendererPageTeardown } from "../../renderer-page-lifecycle";
 import {
   AppShellSpeechPlaybackController,
+  narrationSpeechPlaybackIntent,
   type SpeechPlaybackControllerDependencies,
+  type SpeechPlaybackSnapshot,
 } from "./app-shell-speech-playback-controller";
-import { selectDesktopVoiceOutputProvider } from "./desktop-speech-provider-coordinator";
-import { createLocalMacOSSpeechOutputProvider } from "./local-macos-speech-output-provider";
-import { createOpenAIBackendSpeechOutputProvider } from "./openai-speech-output-provider";
-import type { VoiceOutputProvider } from "./voice-provider-boundary";
 
-/**
- * Owns the app-shell playback controller and hands it to the one subtree that
- * speaks. The controller is passed down directly rather than through context:
- * the shell drives it by calling it, so a context would be a second way to reach
- * the same object, and subscribing to its snapshot here would re-render the
- * whole shell on every playback change for a value nothing renders.
- */
+export interface AppShellSpeechPlaybackContextValue {
+  controller: AppShellSpeechPlaybackController;
+  snapshot: SpeechPlaybackSnapshot;
+}
+
+const AppShellSpeechPlaybackContext = createContext<AppShellSpeechPlaybackContextValue | null>(
+  null,
+);
+
+export function useAppShellSpeechPlayback(): AppShellSpeechPlaybackContextValue | null {
+  return useContext(AppShellSpeechPlaybackContext);
+}
+
 export function AppShellSpeechPlaybackProvider({
   children,
   runtimeId,
   setta,
 }: {
-  children: (controller: AppShellSpeechPlaybackController) => ReactNode;
+  children: ReactNode | ((controller: AppShellSpeechPlaybackController) => ReactNode);
   runtimeId: string | null;
   setta: SettaAPI;
 }) {
@@ -31,13 +47,92 @@ export function AppShellSpeechPlaybackProvider({
     () => new AppShellSpeechPlaybackController(browserPlaybackDependencies(setta)),
   );
   const [effectLifetime] = useState(() => new AppShellSpeechPlaybackEffectLifetime());
-  const content = useMemo(() => children(controller), [children, controller]);
+  const snapshot = useSyncExternalStore(
+    controller.subscribe,
+    controller.getSnapshot,
+    controller.getSnapshot,
+  );
+  const context = useMemo(() => ({ controller, snapshot }), [controller, snapshot]);
+  const content = useMemo(
+    () => (typeof children === "function" ? children(controller) : children),
+    [children, controller],
+  );
 
   useLayoutEffect(() => effectLifetime.mount(controller), [controller, effectLifetime]);
   useLayoutEffect(() => registerRendererPageTeardown(() => controller.dispose()), [controller]);
   useEffect(() => controller.synchronizeRuntime(runtimeId), [controller, runtimeId]);
+  useEffect(
+    () =>
+      setta.conversations.onEvent((event) => handlePlaybackConversationEvent(controller, event)),
+    [controller, setta],
+  );
 
-  return content;
+  return (
+    <AppShellSpeechPlaybackContext.Provider value={context}>
+      {content}
+    </AppShellSpeechPlaybackContext.Provider>
+  );
+}
+
+export function handlePlaybackConversationEvent(
+  controller: AppShellSpeechPlaybackController,
+  event: ConversationEvent,
+): void {
+  if (event.payload.type !== "conversation.narration.created") {
+    return;
+  }
+  const snapshot = useConversationStore
+    .getState()
+    .conversations.get(event.conversationId)?.snapshot;
+  if (!snapshot) {
+    throw new Error(
+      `live narration event ${event.payload.event.id} arrived without its conversation projection`,
+    );
+  }
+  const eventState = playbackEventState(snapshot, event);
+  const intent = narrationSpeechPlaybackIntent(
+    event.payload.event,
+    eventState.presentationProfile,
+    eventState.turnStatus,
+  );
+  if (intent) {
+    controller.enqueueAutomatic(intent);
+  }
+}
+
+function playbackEventState(
+  snapshot: ConversationSnapshot,
+  event: ConversationEvent,
+): {
+  presentationProfile: ConversationSnapshot["presentationProfile"];
+  turnStatus: TurnStatus | null;
+} {
+  const turnId =
+    event.payload.type === "conversation.narration.created" ? event.payload.event.turnId : null;
+  let presentationProfile = snapshot.presentationProfile;
+  let turnStatus = narrationTurnStatus(turnId, snapshot);
+  for (const queued of queuedConversationProjectionEventsBefore(event)) {
+    if (queued.sequence <= snapshot.eventCursor.sequence) {
+      continue;
+    }
+    if (queued.payload.type === "conversation.presentation_profile.updated") {
+      presentationProfile = queued.payload.profile;
+    }
+    if (queued.payload.type === "conversation.turn.updated" && queued.payload.turn.id === turnId) {
+      turnStatus = queued.payload.turn.status;
+    }
+  }
+  return { presentationProfile, turnStatus };
+}
+
+function narrationTurnStatus(
+  turnId: string | null,
+  snapshot: ConversationSnapshot,
+): TurnStatus | null {
+  if (turnId === null) {
+    return null;
+  }
+  return snapshot.turns.turns.find((turn) => turn.id === turnId)?.status ?? null;
 }
 
 interface SpeechPlaybackControllerDisposable {
@@ -80,8 +175,6 @@ function scheduleMicrotask(handler: () => void): void {
 }
 
 function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerDependencies {
-  const openAIOutputProvider = createOpenAIBackendSpeechOutputProvider(setta);
-  const localMacOSOutputProvider = createLocalMacOSSpeechOutputProvider(setta);
   return {
     createAbortController: () => new AbortController(),
     createAudio: (url) => new Audio(url),
@@ -96,23 +189,13 @@ function browserPlaybackDependencies(setta: SettaAPI): SpeechPlaybackControllerD
     now: () => Date.now(),
     revokeObjectURL: (url) => URL.revokeObjectURL(url),
     synthesize: (request, signal) => {
+      if (!setta.speech.synthesize || !setta.speech.cancelSynthesis) {
+        return Promise.reject(new Error("the desktop speech synthesis boundary is unavailable"));
+      }
       const operationId = createSpeechSynthesisOperationId();
-      let outputProvider: VoiceOutputProvider | null = null;
       return abortableSpeechRequest(
-        async () => {
-          outputProvider = await selectDesktopVoiceOutputProvider({
-            localMacOS: localMacOSOutputProvider,
-            openAI: openAIOutputProvider,
-            platform: setta.app.platform,
-            readLocalMacOSVoiceHealth: setta.speech.readLocalMacOSVoiceHealth,
-            readProviderSelection: setta.speech.readProviderSelection,
-          });
-          if (signal.aborted) {
-            throw speechSynthesisStoppedError();
-          }
-          return outputProvider.synthesize(request, operationId);
-        },
-        () => outputProvider?.cancel(operationId) ?? Promise.resolve(),
+        () => setta.speech.synthesize!(request, operationId),
+        () => setta.speech.cancelSynthesis!(operationId),
         signal,
       );
     },
@@ -143,12 +226,12 @@ function abortableSpeechRequest<T>(
   signal: AbortSignal,
 ): Promise<T> {
   if (signal.aborted) {
-    return Promise.reject(speechSynthesisStoppedError());
+    return Promise.reject(new DOMException("Speech synthesis was stopped.", "AbortError"));
   }
   return new Promise<T>((resolve, reject) => {
     const aborted = () => {
       void cancel().catch(() => undefined);
-      reject(speechSynthesisStoppedError());
+      reject(new DOMException("Speech synthesis was stopped.", "AbortError"));
     };
     signal.addEventListener("abort", aborted, { once: true });
     void start().then(
@@ -162,8 +245,4 @@ function abortableSpeechRequest<T>(
       },
     );
   });
-}
-
-function speechSynthesisStoppedError(): DOMException {
-  return new DOMException("Speech synthesis was stopped.", "AbortError");
 }

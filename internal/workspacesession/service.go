@@ -48,14 +48,6 @@ func (service *Service) LookupWorkspace(id string) (workspace.WorkspaceSummary, 
 	return service.session.Workspace(id)
 }
 
-// LookupLocalWorkspace reads durable workspace metadata rather than the
-// session's list. A workstream keeps its folder resource after the folder is
-// closed or dropped from the recent list, so resolving a durable binding must
-// not depend on the folder still being open.
-func (service *Service) LookupLocalWorkspace(id string) (workspace.WorkspaceSummary, bool, error) {
-	return service.manager.LookupLocal(id)
-}
-
 func (service *Service) ResolveWorkspace(id string) (workspace.WorkspaceSummary, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()

@@ -158,7 +158,7 @@ func readSnapshotBranch(ctx context.Context, reader snapshotReader, conversation
 	row := reader.QueryRowContext(ctx, `
 SELECT child_conversation_id, parent_conversation_id, branch_kind,
        decision_source, forked_at_turn_id, source_trajectory_sequence,
-       created_at
+       provider_metadata_json, created_at
 FROM conversation_branches
 WHERE child_conversation_id = ?
 `, conversationID)
@@ -179,14 +179,14 @@ func readSnapshotSides(
 	parentStatus ConversationStatus,
 ) ([]SideConversation, error) {
 	rows, err := reader.QueryContext(ctx, `
-SELECT id, parent_conversation_id, decision_source, provider_thread_id,
-       source_provider_turn_id, source_trajectory_sequence,
+SELECT id, parent_conversation_id, parent_pane_id, decision_source, provider_thread_id,
+       source_provider_thread_id, source_provider_turn_id, source_trajectory_sequence,
        last_event_sequence, active_turn_id, active_provider_turn_id, status,
        resolved_side_agent_invocation_json, created_at, updated_at, disposed_at,
        failure_json
 FROM (
-  SELECT id, parent_conversation_id, decision_source, provider_thread_id,
-         source_provider_turn_id, source_trajectory_sequence,
+  SELECT id, parent_conversation_id, parent_pane_id, decision_source, provider_thread_id,
+         source_provider_thread_id, source_provider_turn_id, source_trajectory_sequence,
          last_event_sequence, active_turn_id, active_provider_turn_id, status,
          resolved_side_agent_invocation_json, created_at, updated_at, disposed_at,
          failure_json

@@ -1,8 +1,8 @@
 import type { WorkspaceAvailability, WorkspaceSession } from "@generated/backend";
 import { create } from "zustand";
 
-type WorkspaceStatus = "idle" | "loading" | "ready" | "error";
-type WorkspaceOperationKind =
+export type WorkspaceStatus = "idle" | "loading" | "ready" | "error";
+export type WorkspaceOperationKind =
   | "closing"
   | "opening"
   | "relocating"
@@ -10,10 +10,9 @@ type WorkspaceOperationKind =
   | "removingRecent"
   | "reordering"
   | "selecting";
-type WorkspaceOperation = WorkspaceOperationKind | null;
+export type WorkspaceOperation = WorkspaceOperationKind | null;
 
 interface WorkspaceStore {
-  applySession: (session: WorkspaceSession) => void;
   clearError: () => void;
   error: string | null;
   loadSession: () => Promise<void>;
@@ -73,16 +72,6 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => {
   }
 
   return {
-    applySession: (session: WorkspaceSession) => {
-      operationSequence += 1;
-      currentOperationId = operationSequence;
-      set({
-        error: null,
-        operation: null,
-        session,
-        status: "ready",
-      });
-    },
     clearError: () =>
       set((current) => ({ error: null, status: current.session ? "ready" : "idle" })),
     closeWorkspace: (id: string) =>

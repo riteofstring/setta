@@ -25,12 +25,6 @@ export function registerConversationIpcHandlers({
   );
   handleIpc(
     ipcMain,
-    "conversationBindFolder",
-    async (_event, request) => requireBackendClient().bindTopicConversationFolder(request),
-    ipcObserver,
-  );
-  handleIpc(
-    ipcMain,
     "conversationDisposeSide",
     async (_event, request) => requireBackendClient().disposeSideConversation(request),
     ipcObserver,
@@ -105,6 +99,12 @@ export function registerConversationIpcHandlers({
     ipcMain,
     "conversationSubmitApproval",
     async (_event, request) => requireBackendClient().submitTopicConversationApproval(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "conversationUpdatePresentation",
+    async (_event, request) => requireBackendClient().updateTopicConversationPresentation(request),
     ipcObserver,
   );
   handleIpc(

@@ -15,12 +15,9 @@ import (
 
 func TestLiveCodexRuntimeFreshStructuredCall(t *testing.T) {
 	requireLiveCodex(t)
-	runtime := NewRuntime(Config{
-		ExcludedEnv: []string{"OPENAI_API_KEY"},
-		Version:     "live-structured-test",
-	})
+	runtime := NewRuntime(Config{ExcludedEnv: []string{"OPENAI_API_KEY"}, Version: "live-structured-test"})
 	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := runtime.Shutdown(ctx); err != nil {
 			t.Errorf("Shutdown: %v", err)
@@ -70,6 +67,121 @@ func TestLiveCodexRuntimeFreshStructuredCall(t *testing.T) {
 	}
 }
 
+func TestLiveCodexRuntimeDurableRestrictedThread(t *testing.T) {
+	requireLiveCodex(t)
+	runtime := NewRuntime(Config{ExcludedEnv: []string{"OPENAI_API_KEY"}, Version: "live-restricted-thread-test"})
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := runtime.Shutdown(ctx); err != nil {
+			t.Errorf("Shutdown: %v", err)
+		}
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	requireLiveRoleModels(t, runtime, ctx)
+	request := RestrictedThreadRequest{
+		WorkspaceRoot: t.TempDir(),
+		Invocation: Invocation{
+			Model:           "gpt-5.6-terra",
+			ReasoningEffort: "medium",
+			PermissionMode:  PermissionModeReadOnly,
+			ApprovalMode:    ApprovalModeNever,
+		},
+		DeveloperInstructions: "You are Setta's restricted global master. Wait for a constrained Setta routing turn.",
+	}
+	thread, err := runtime.StartRestrictedThread(ctx, request)
+	if err != nil {
+		t.Fatalf("StartRestrictedThread: %v", err)
+	}
+	if thread.ID == "" || thread.Ephemeral || thread.Model != request.Invocation.Model {
+		t.Fatalf("live restricted thread = %+v", thread)
+	}
+	firstTurn := runLiveRestrictedStructuredTurn(
+		t,
+		runtime,
+		ctx,
+		request,
+		thread.ID,
+		"live-durable-structured-one",
+		"DURABLE_STRUCTURED_ONE_OK",
+	)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	if err := runtime.Shutdown(shutdownCtx); err != nil {
+		shutdownCancel()
+		t.Fatalf("shutdown restricted thread runtime before resume: %v", err)
+	}
+	shutdownCancel()
+	runtime = NewRuntime(Config{ExcludedEnv: []string{"OPENAI_API_KEY"}, Version: "live-restricted-thread-resume-test"})
+	resumed, err := runtime.ResumeRestrictedThread(ctx, thread.ID, request)
+	if err != nil {
+		t.Fatalf("ResumeRestrictedThread: %v", err)
+	}
+	if resumed.ID != thread.ID || resumed.Ephemeral || resumed.Model != request.Invocation.Model {
+		t.Fatalf("live resumed restricted thread = %+v", resumed)
+	}
+	secondTurn := runLiveRestrictedStructuredTurn(
+		t,
+		runtime,
+		ctx,
+		request,
+		thread.ID,
+		"live-durable-structured-two",
+		"DURABLE_STRUCTURED_TWO_OK",
+	)
+	if firstTurn.ProviderThreadID != secondTurn.ProviderThreadID ||
+		firstTurn.ProviderTurnID == secondTurn.ProviderTurnID {
+		t.Fatalf("durable structured turn continuity drifted: first=%+v second=%+v", firstTurn, secondTurn)
+	}
+	if err := runtime.UnsubscribeThread(ctx, thread.ID); err != nil {
+		t.Fatalf("UnsubscribeThread: %v", err)
+	}
+}
+
+func runLiveRestrictedStructuredTurn(
+	t *testing.T,
+	runtime *Runtime,
+	ctx context.Context,
+	thread RestrictedThreadRequest,
+	threadID string,
+	requestID string,
+	expected string,
+) RestrictedStructuredTurnResult {
+	t.Helper()
+	schema, err := json.Marshal(map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"answer": map[string]any{"type": "string", "enum": []string{expected}},
+		},
+		"required":             []string{"answer"},
+		"additionalProperties": false,
+	})
+	if err != nil {
+		t.Fatalf("marshal durable structured schema: %v", err)
+	}
+	result, err := runtime.RunRestrictedStructuredTurn(ctx, RestrictedStructuredTurnRequest{
+		ID:               requestID,
+		ProviderThreadID: threadID,
+		WorkspaceRoot:    thread.WorkspaceRoot,
+		Invocation:       thread.Invocation,
+		Input:            json.RawMessage(fmt.Sprintf(`{"instruction":"Return exactly %s."}`, expected)),
+		OutputSchema:     schema,
+	})
+	if err != nil {
+		t.Fatalf("RunRestrictedStructuredTurn: %v", err)
+	}
+	var output struct {
+		Answer string `json:"answer"`
+	}
+	if err := json.Unmarshal(result.Output, &output); err != nil {
+		t.Fatalf("decode durable structured output: %v", err)
+	}
+	if output.Answer != expected || result.ProviderThreadID != threadID || result.ProviderTurnID == "" {
+		t.Fatalf("durable structured result = %+v output=%s", result, result.Output)
+	}
+	return result
+}
+
 func TestLiveCodexRuntimeThreadLifecycleAndActiveForkSnapshot(t *testing.T) {
 	requireLiveCodex(t)
 	fixture := newLiveFixture(t)
@@ -101,12 +213,9 @@ func requireLiveCodex(t *testing.T) {
 
 func newLiveFixture(t *testing.T) liveFixture {
 	t.Helper()
-	runtime := NewRuntime(Config{
-		ExcludedEnv: []string{"OPENAI_API_KEY"},
-		Version:     "live-test",
-	})
+	runtime := NewRuntime(Config{ExcludedEnv: []string{"OPENAI_API_KEY"}, Version: "live-test"})
 	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := runtime.Shutdown(ctx); err != nil {
 			t.Errorf("Shutdown: %v", err)

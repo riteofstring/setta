@@ -1,0 +1,343 @@
+import {
+  workspaceUILayoutSchemaVersion,
+  type ColumnWidthSpec as PersistedColumnWidthSpec,
+  type PaneTone as PersistedPaneTone,
+  type WorkspaceUIColumn,
+  type WorkspaceUILayout,
+  type WorkspaceUIPane,
+} from "@generated/backend";
+
+import type {
+  ColumnWidthSpec,
+  WorkspaceColumn,
+  WorkspacePane,
+  WorkspaceScene,
+  PaneLimitPolicy,
+  PaneId,
+  ProductSurfaceKind,
+} from "./types";
+
+const realWorkspaceVisibleColumnCount = 3;
+const defaultRealColumnWidth: ColumnWidthSpec = { unit: "px", value: 520 };
+const realWorkspaceRenderOverscanColumns = 2;
+export const defaultRealWorkspacePaneLimits = {
+  browser: 10,
+  "easy-button": 10,
+  "empty-frame": 10,
+  "settings-dom": 1,
+} satisfies PaneLimitPolicy;
+
+export interface RealWorkspaceSceneOptions {
+  storedLayout: WorkspaceUILayout | null;
+  workspaceId: string;
+  workspaceName: string;
+}
+
+export interface RealWorkspaceSceneResult {
+  focusedPaneId: PaneId;
+  layoutRecovery: WorkspaceLayoutRecovery | null;
+  scene: WorkspaceScene;
+}
+
+interface WorkspaceLayoutRecovery {
+  message: string;
+  workspaceId: string;
+}
+
+interface CreatePaneInput {
+  columnId: string;
+  sequence: number;
+  subtitle: string;
+  surfaceKind: Exclude<ProductSurfaceKind, "easy-button">;
+  title: string;
+  tone: WorkspacePane["tone"];
+  weight?: number;
+}
+
+export function createRealWorkspaceScene({
+  storedLayout,
+  workspaceId,
+  workspaceName,
+}: RealWorkspaceSceneOptions): RealWorkspaceSceneResult {
+  if (storedLayout) {
+    const scene = sceneFromPanesAndColumns(
+      workspaceId,
+      storedLayout.panes.map(workspacePaneFromPersisted),
+      storedLayout.columns.map(workspaceColumnFromPersisted),
+    );
+    return {
+      focusedPaneId: focusedPaneIdForScene(scene, storedLayout.focusedPaneId),
+      layoutRecovery: null,
+      scene,
+    };
+  }
+  const scene = createDefaultRealWorkspaceScene(workspaceId, workspaceName);
+  return {
+    focusedPaneId: focusedPaneIdForScene(scene),
+    layoutRecovery: null,
+    scene,
+  };
+}
+
+export function workspaceUILayoutFromScene(
+  workspaceId: string,
+  scene: WorkspaceScene,
+  focusedPaneId: PaneId,
+): WorkspaceUILayout {
+  return {
+    columns: scene.columns.map((column, index) => ({
+      columnId: column.columnId,
+      idealWidthSpec: persistedColumnWidthSpec(column.idealWidthSpec),
+      index,
+      paneIds: [...column.paneIds],
+      planeIndex: column.planeIndex,
+      previousProportionWidth: isFiniteNumber(column.previousProportionWidth)
+        ? column.previousProportionWidth
+        : null,
+      slotIndex: normalizedStoredSlotIndex(column.slotIndex, index),
+      widthSpec: persistedColumnWidthSpec(column.widthSpec),
+    })),
+    focusedPaneId,
+    panes: scene.panes.map(workspacePaneToPersisted),
+    schemaVersion: workspaceUILayoutSchemaVersion,
+    workspaceId,
+  };
+}
+
+function createDefaultRealWorkspaceScene(
+  workspaceId: string,
+  workspaceName: string,
+): WorkspaceScene {
+  const panes = [
+    createPane({
+      columnId: "workspace_column_0",
+      sequence: 0,
+      subtitle: workspaceName,
+      surfaceKind: "empty-frame",
+      title: "New frame",
+      tone: "slate",
+    }),
+  ];
+  return sceneFromPanesAndColumns(
+    workspaceId,
+    panes,
+    panes.map((pane, index) => ({
+      columnId: pane.columnId,
+      idealWidthSpec: defaultRealColumnWidth,
+      index,
+      paneIds: [pane.paneId],
+      planeIndex: 0,
+      slotIndex: index,
+      widthSpec: defaultRealColumnWidth,
+    })),
+  );
+}
+
+function createPane({
+  columnId,
+  sequence,
+  subtitle,
+  surfaceKind,
+  title,
+  tone,
+  weight = 1,
+}: CreatePaneInput): WorkspacePane {
+  return {
+    columnId,
+    heat: (sequence * 37) % 100,
+    paneId: `workspace_pane_${sequence}`,
+    sequence,
+    subtitle,
+    surfaceId: `workspace_surface_${sequence}`,
+    surfaceKind,
+    title,
+    tone,
+    weight,
+  };
+}
+
+function workspaceColumnFromPersisted(column: WorkspaceUIColumn): WorkspaceColumn {
+  return {
+    columnId: column.columnId,
+    idealWidthSpec: workspaceColumnWidthSpec(column.idealWidthSpec),
+    index: column.index,
+    paneIds: [...column.paneIds],
+    planeIndex: column.planeIndex,
+    previousProportionWidth: column.previousProportionWidth ?? undefined,
+    slotIndex: column.slotIndex,
+    widthSpec: workspaceColumnWidthSpec(column.widthSpec),
+  };
+}
+
+function workspacePaneFromPersisted(pane: WorkspaceUIPane): WorkspacePane {
+  const fields = {
+    columnId: pane.columnId,
+    heat: pane.heat,
+    paneId: pane.paneId,
+    sequence: pane.sequence,
+    subtitle: pane.subtitle,
+    surfaceId: pane.surfaceId,
+    title: pane.title,
+    tone: pane.tone,
+    weight: pane.weight,
+  };
+  switch (pane.surfaceKind) {
+    case "easy-button":
+      return {
+        ...fields,
+        easyButtonConfig: pane.easyButtonConfig,
+        surfaceKind: pane.surfaceKind,
+      };
+    case "browser":
+    case "empty-frame":
+    case "settings-dom":
+      return { ...fields, surfaceKind: pane.surfaceKind };
+  }
+}
+
+function workspacePaneToPersisted(pane: WorkspacePane): WorkspaceUIPane {
+  const fields = {
+    columnId: pane.columnId,
+    heat: pane.heat,
+    paneId: pane.paneId,
+    sequence: pane.sequence,
+    subtitle: pane.subtitle,
+    surfaceId: pane.surfaceId,
+    title: pane.title,
+    tone: persistedPaneTone(pane.tone),
+    weight: pane.weight,
+  };
+  switch (pane.surfaceKind) {
+    case "easy-button":
+      return {
+        ...fields,
+        easyButtonConfig: pane.easyButtonConfig,
+        surfaceKind: pane.surfaceKind,
+      };
+    case "browser":
+    case "empty-frame":
+    case "settings-dom":
+      return { ...fields, easyButtonConfig: null, surfaceKind: pane.surfaceKind };
+    default:
+      return persistedDiagnosticPaneError(pane.surfaceKind);
+  }
+}
+
+function workspaceColumnWidthSpec(spec: PersistedColumnWidthSpec): ColumnWidthSpec {
+  return {
+    unit: spec.unit,
+    value: spec.value,
+  };
+}
+
+function persistedColumnWidthSpec(spec: ColumnWidthSpec): PersistedColumnWidthSpec {
+  return {
+    unit: spec.unit,
+    value: spec.value,
+  };
+}
+
+function persistedDiagnosticPaneError(surfaceKind: string): never {
+  throw new Error(`real workspace layout cannot persist diagnostic surface kind: ${surfaceKind}`);
+}
+
+function persistedPaneTone(tone: WorkspacePane["tone"]): PersistedPaneTone {
+  return tone;
+}
+
+function sceneFromPanesAndColumns(
+  id: string,
+  panes: readonly WorkspacePane[],
+  columns: readonly WorkspaceColumn[],
+): WorkspaceScene {
+  const storedPanes = panes.map((pane) => ({ ...pane }));
+  const storedPaneById = new Map(storedPanes.map((pane) => [pane.paneId, pane]));
+  const ownerColumnByPaneId = new Map<PaneId, string>();
+  const usedSurfaceIds = new Set<string>();
+  const nextSlotIndexByPlane = new Map<number, number>();
+  const normalizedColumns = columns
+    .map((column) => {
+      const paneIds = column.paneIds.filter((paneId) => storedPaneById.has(paneId));
+      for (const paneId of paneIds) {
+        ownerColumnByPaneId.set(paneId, column.columnId);
+      }
+      return {
+        ...column,
+        paneIds,
+      };
+    })
+    .filter((column) => column.paneIds.length > 0)
+    .map((column, index) => {
+      const fallbackSlotIndex = nextSlotIndexByPlane.get(column.planeIndex) ?? 0;
+      const slotIndex = normalizedStoredSlotIndex(column.slotIndex, fallbackSlotIndex);
+      nextSlotIndexByPlane.set(column.planeIndex, Math.max(fallbackSlotIndex, slotIndex) + 1);
+      return {
+        ...column,
+        idealWidthSpec: { ...column.idealWidthSpec },
+        index,
+        paneIds: [...column.paneIds],
+        planeIndex: column.planeIndex,
+        slotIndex,
+        widthSpec: { ...column.widthSpec },
+      };
+    });
+  const normalizedPanes = storedPanes
+    .filter((pane) => ownerColumnByPaneId.has(pane.paneId))
+    .map((pane) => ({
+      ...pane,
+      columnId: ownerColumnByPaneId.get(pane.paneId) ?? pane.columnId,
+      surfaceId: uniqueSurfaceId(pane, usedSurfaceIds),
+    }));
+  return {
+    columnGap: 8,
+    columns: normalizedColumns,
+    defaultColumnWidthSpec: defaultRealColumnWidth,
+    id,
+    paneById: new Map(normalizedPanes.map((pane) => [pane.paneId, pane])),
+    panes: normalizedPanes,
+    panesPerColumn: Math.max(1, ...normalizedColumns.map((column) => column.paneIds.length)),
+    padding: 10,
+    renderOverscanColumns: realWorkspaceRenderOverscanColumns,
+    rowGap: 8,
+    targetVisiblePanes: normalizedPanes.length,
+    totalPanes: normalizedPanes.length,
+    visibleColumnCount: Math.min(
+      realWorkspaceVisibleColumnCount,
+      Math.max(1, normalizedColumns.length),
+    ),
+  };
+}
+
+function focusedPaneIdForScene(scene: WorkspaceScene, preferredPaneId?: PaneId): PaneId {
+  if (preferredPaneId && scene.paneById.has(preferredPaneId)) {
+    return preferredPaneId;
+  }
+  return scene.columns[0]?.paneIds[0] ?? scene.panes[0]?.paneId ?? "";
+}
+
+function uniqueSurfaceId(pane: WorkspacePane, usedSurfaceIds: Set<string>): string {
+  if (!usedSurfaceIds.has(pane.surfaceId)) {
+    usedSurfaceIds.add(pane.surfaceId);
+    return pane.surfaceId;
+  }
+  const base = `${pane.surfaceId}_${pane.paneId}`;
+  let candidate = base;
+  let suffix = 1;
+  while (usedSurfaceIds.has(candidate)) {
+    candidate = `${base}_${suffix}`;
+    suffix += 1;
+  }
+  usedSurfaceIds.add(candidate);
+  return candidate;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function normalizedStoredSlotIndex(slotIndex: number | undefined, fallbackIndex: number): number {
+  if (!isFiniteNumber(slotIndex)) {
+    return Math.max(0, Math.floor(fallbackIndex));
+  }
+  return Math.max(0, Math.floor(slotIndex));
+}

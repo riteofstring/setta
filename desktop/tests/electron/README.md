@@ -13,11 +13,11 @@ Inspect or narrow the manifest directly:
 
 ```sh
 node desktop/tests/electron/run-workflows.mjs --list
-node desktop/tests/electron/run-workflows.mjs --workflow director-command-center
+node desktop/tests/electron/run-workflows.mjs --workflow topic-conversation-pane-projection
 node desktop/tests/electron/run-workflows.mjs --tier performance
 ```
 
-Run the deterministic Director workflow gate through the root script wrapper:
+Run the deterministic topic-conversation workflow through the root script wrapper:
 
 ```sh
 ./scripts/test_topic_conversation_workflows.sh --deterministic-only
