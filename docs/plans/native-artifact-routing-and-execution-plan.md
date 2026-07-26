@@ -13,8 +13,10 @@ An explicit request for Setta artifacts must produce native artifacts through
   authorized workspace files.
 - A workspace-unbound agent can create native artifacts from conversation
   context without exposing or requesting a folder.
-- If the user asks for five distinct artifacts, the agent emits five artifacts,
-  not one gallery document and not a website project.
+- The AI decides when artifacts are useful, how many to create, and how to
+  compose them from the user's request and conversation context.
+- When the AI creates multiple independent artifacts, it publishes them
+  separately rather than wrapping them in one gallery document or website.
 - The existing artifact rail, previews, and large carousel browser remain the
   presentation experience.
 
@@ -29,8 +31,6 @@ Failure evidence for this correction is in
    even when the work needs no user files.
 3. The topic-agent instructions say to compose the deliverable as one artifact
    document, which conflicts with requests for multiple independent artifacts.
-4. Setta records artifact-tool failures, but it does not detect a successful
-   provider completion that emitted fewer artifacts than explicitly requested.
 
 OpenUI parsing, validation, persistence, shadcn/ui rendering, the artifact rail,
 and the artifact browser were not reached in the failed recording and are not
@@ -38,7 +38,8 @@ the cause.
 
 ## Product Model
 
-Workspace access and artifact delivery are independent properties of a turn.
+Workspace access is optional context. Artifact creation is an AI capability
+available with or without that context.
 
 ### Workspace Requirement
 
@@ -67,31 +68,15 @@ The provider's process working directory is an execution detail, not a Setta
 workspace. Keep the private working directory outside the workspace registry,
 workspace UI, artifact metadata, and `FileReference` authorization.
 
-### Artifact Expectation
-
-Each work delivery may also carry:
-
-```go
-type ArtifactDeliveryExpectation struct {
-    ExpectedCount int `json:"expectedCount"`
-}
-```
-
-A nil expectation means the turn has no mandatory native-artifact output. A
-non-nil expectation is bounded by `MaxArtifactsPerTurn` and means:
-
-- the requested outputs are native Setta artifacts
-- each independent requested output requires one successful
-  `setta.emit_artifact` call
-- the turn cannot complete successfully with fewer emitted artifacts
-- Setta does not persist artifacts beyond the expected count
-
-This is structured Director-owned intent. Do not infer it later with keyword or
-number parsing.
-
 ## Hard Rules
 
 - Do not create a special artifact workstream type.
+- Do not add artifact intent metadata, expected-output counters, semantic
+  completion gates, or semantic repair loops.
+- Do not parse user text to decide whether an artifact was required or whether
+  the AI created the "correct" number.
+- Leave the decision to create artifacts, including their number and
+  composition, to the Director and topic agent.
 - Do not create or register a fake workspace for workspace-unbound work.
 - Do not expose the private provider working directory to the user.
 - Do not authorize `FileReference` against the private working directory.
@@ -120,7 +105,6 @@ Setta is unreleased. Change current contracts directly.
   `WorkspaceRequirement` is explicitly `required`.
 - Separate the provider working directory from the optional authorized
   workspace root throughout agent and artifact-file validation.
-- Add the artifact delivery expectation to Director decisions and durable turns.
 - Update owner-defined Go contracts and regenerate affected TypeScript outputs.
 - Update current SQL schema and fixtures directly if persistence changes.
 
@@ -138,15 +122,13 @@ Teach the Director these product facts:
 - Native artifact creation does not require a workspace.
 - Existing workspace context may be used when the user asks for artifacts based
   on project files.
-- Preserve explicit artifact count and separateness in authored work.
+- Preserve the user's artifact intent and requested distinctions in authored
+  work.
 - Never introduce website, Sites, gallery-page, or source-file requirements that
   the user did not request.
 
-Update `create_workstream`, `submit_work`, and applicable steering tool schemas
-so the Director supplies:
-
-- `workspaceRequirement`
-- nullable `artifactDelivery.expectedCount`
+Update `create_workstream` and `submit_work` so the Director supplies the
+`workspaceRequirement`. Artifact output needs no separate routing field.
 
 The Director must send the user's artifact intent to the worker without
 rewriting its delivery medium.
@@ -155,28 +137,17 @@ rewriting its delivery medium.
 
 Replace the current single-document instruction with:
 
-> Each `setta.emit_artifact` call publishes one artifact. When the user requests
-> multiple distinct artifacts, call it once for each requested artifact. Keep
-> mixed content that belongs to one artifact in one document. Do not combine
-> separately requested artifacts into a gallery, tabs, or accordion unless the
-> user explicitly requests one combined artifact.
+> Each `setta.emit_artifact` call publishes one artifact. Use judgment to decide
+> whether content belongs in one coherent mixed-content artifact or in multiple
+> independently useful artifacts. Publish independent artifacts separately.
+> Follow explicit user requests about the desired outputs without inventing a
+> website, source project, or combined gallery.
 
-For a turn with an artifact delivery expectation:
-
-1. Include the expected count in trusted model context.
-2. Count durable `artifact_emitted` events for that Setta turn.
-3. Do not mark provider completion successful while the count is below the
-   expectation.
-4. Use a bounded private repair continuation on the same carrier to request only
-   the missing artifacts.
-5. Once the expected count exists, return a structured non-emitting
-   `artifact_count_satisfied` result for any additional call; do not persist an
-   extra artifact and do not treat that result as an unresolved tool failure.
-6. Never ask the user to retry a missing artifact-tool call and never report
-   success with an unmet requirement.
-
-Keep the existing retry behavior for malformed artifact documents. The count
-repair is deterministic and must not inspect prose for intent.
+The topic agent decides whether to call the tool and may call it repeatedly.
+Setta continues to validate each individual document and return structured
+correction feedback for malformed calls. Final prose is not a substitute when
+the agent has decided to produce a durable artifact, but product code does not
+judge the semantic completeness of the agent's chosen outputs.
 
 ## Execution Changes
 
@@ -184,10 +155,9 @@ repair is deterministic and must not inspect prose for intent.
 
 **Status:** Pending.
 
-- Add the workspace requirement and artifact delivery expectation at their Go
-  ownership boundaries.
-- Carry them through create, send, queue, steer, recovery, persistence, replay,
-  and Director receipts.
+- Add the workspace requirement at its Go ownership boundary.
+- Carry it through create, send, queue, recovery, persistence, replay, and
+  Director receipts.
 - Update Director instructions and tool descriptions with native artifact
   semantics.
 - Regenerate all affected generated contracts.
@@ -210,18 +180,17 @@ repair is deterministic and must not inspect prose for intent.
 - Preserve the existing folder-resource UX only when a delivery explicitly
   declares `WorkspaceRequired`.
 
-### Phase 3 - Artifact Cardinality And Repair
+### Phase 3 - AI Artifact Semantics
 
 **Status:** Pending.
 
 - Offer `setta.emit_artifact` identically in bound and unbound turns.
-- Apply the revised one-call-per-output topic-agent instructions.
-- Persist and replay the artifact delivery expectation.
-- Extend terminal handling to compare expected and emitted counts.
-- Add a bounded internal continuation for a shortfall and keep all resulting
-  emissions attached to the same Setta turn.
-- Ensure queueing, steering, cancellation, failure, and restart cannot silently
-  discard or falsely satisfy the expectation.
+- Apply the revised AI-judgment topic-agent instructions.
+- Keep artifact quantity and composition under model judgment.
+- Preserve existing per-document validation, retryable correction, durable
+  publication, provenance, and replay.
+- Confirm no artifact expectation or semantic count-enforcement code was
+  introduced.
 
 ### Phase 4 - Final Verification
 
@@ -235,19 +204,17 @@ implementation.
 
 The focused deterministic workflow must prove:
 
-- with zero open workspaces, "create five varied Setta artifacts" starts
-  immediately, opens no folder request, emits five artifacts, and creates no
-  website or project files
-- the five outputs are five durable artifact records and five rail previews,
-  not one combined gallery artifact
+- with zero open workspaces, a native artifact request starts immediately,
+  opens no folder request, and creates no website or project files
+- one turn can emit multiple independent durable artifacts and show each in the
+  rail without a combined gallery wrapper
 - a workspace-bound conversation can emit the same artifacts
 - a workspace-bound artifact may use a valid `FileReference`
 - an unbound artifact cannot reference the private working directory
-- an artifact shortfall is repaired before successful completion
 - a genuinely file-dependent delivery with no workspace still opens a folder
   resource request
-- queue, steer, cancellation, recovery, reload, and restart preserve the new
-  optional workspace and artifact expectation contracts
+- queue, steer, cancellation, recovery, reload, and restart preserve optional
+  workspace execution and normal artifact publication
 
 Because this changes conversation execution, Director routing, provider
 lifecycle, generated contracts, and artifact publication, final verification
@@ -255,7 +222,9 @@ must include a deterministic production Electron/main/preload/renderer/HTTP/
 store workflow using temporary app data. Run the live Codex workflow only with
 ChatGPT auth and without `OPENAI_API_KEY`; if ChatGPT auth is unavailable,
 record the narrow skip and do not treat deterministic coverage as proof of
-provider integration.
+provider integration. Include the recorded "create five varied artifacts"
+request as a live behavioral regression, without adding production count
+metadata or enforcement for the test.
 
 ## Definition Of Done
 
@@ -263,12 +232,14 @@ provider integration.
   artifacts.
 - Workspace-bound and workspace-unbound agents use the same artifact tool and
   artifact UX.
-- The Director preserves native artifact delivery and explicit output count.
-- Five requested artifacts produce five separate durable artifacts.
-- Missing required artifacts are repaired internally before completion.
+- The Director and topic agent understand native Setta artifact semantics.
+- Artifact quantity and composition remain AI decisions.
+- Multiple independently composed artifacts remain separate durable artifacts.
 - No unrequested Sites project, gallery page, or source tree is created.
 - Private execution directories never become workspaces or artifact file
   references.
 - File-dependent work can still request a real user workspace explicitly.
 - Superseded folder-gating code and single-artifact instructions are removed.
+- No artifact expectation, semantic counter, completion gate, or count-repair
+  mechanism exists.
 - No compatibility, migration, legacy, transitional, or dual-path code exists.
