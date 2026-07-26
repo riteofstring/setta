@@ -101,7 +101,7 @@ export const semanticNodeKindVisuals = {
     mode: "merge",
     glyph: "document",
     role: "step",
-    labelPlacement: "over",
+    labelPlacement: "below",
   },
   validation: {
     mode: "merge",
@@ -127,11 +127,16 @@ export const semanticNodeKindVisuals = {
     role: "step",
     labelPlacement: "below",
   },
+  /*
+   * Below, like every other label. The mockup floated a success summary over
+   * its node, which made the one green node in a run the only node the reader
+   * could not see — the pill eclipsed exactly the mark it was celebrating.
+   */
   completed: {
     mode: "success",
     glyph: "check",
     role: "outcome",
-    labelPlacement: "over",
+    labelPlacement: "below",
   },
   failed: {
     mode: "fail",

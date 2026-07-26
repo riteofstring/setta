@@ -98,8 +98,9 @@ export type PackedGraphOutcome = (typeof packedGraphOutcomes)[number];
 export const packedGraphOutcomeCode = codeTable(packedGraphOutcomes);
 
 /**
- * Where the DOM label layer anchors a node's label. Success outcomes sit over
- * the node and failures below it so the eclipsed node stays visible.
+ * Where the DOM label layer anchors a node's label. Every production label
+ * sits below its node so the node itself stays visible; `over` remains in the
+ * vocabulary for surfaces that deliberately eclipse (none currently do).
  */
 export const packedGraphLabelPlacements = ["none", "below", "over"] as const;
 export type PackedGraphLabelPlacement = (typeof packedGraphLabelPlacements)[number];
