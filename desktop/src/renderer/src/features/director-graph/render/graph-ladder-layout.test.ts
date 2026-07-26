@@ -293,3 +293,100 @@ describe("graph camera", () => {
     expect(advanceGraphCamera(0, 3, 1 / 120, true)).toBe(3);
   });
 });
+
+/*
+ * Columns are independent runs, which is the whole reason they exist. Folding
+ * one conversation on the Director's view must collapse that conversation and
+ * leave the others exactly where they were — the old single-turn packing made
+ * one fold collapse the entire view.
+ */
+describe("graph ladder columns", () => {
+  function twoColumnSnapshot(): PackedGraphSnapshot {
+    return buildPackedGraphSnapshot("composition", [
+      {
+        cursorSequence: 1,
+        hasEarlier: false,
+        nodes: [
+          columnNode("left-input", 0, 0, -0.4, 0),
+          columnNode("left-step", 0, 1, -0.4, 1),
+          columnNode("left-outcome", 0, 2, -0.4, 2, "outcome"),
+          columnNode("right-input", 1, 0, 0.4, 0),
+          columnNode("right-step", 1, 1, 0.4, 1),
+          columnNode("right-outcome", 1, 2, 0.4, 2, "outcome"),
+        ],
+        edges: [],
+        turns: [
+          {
+            index: 0,
+            column: 0,
+            inputNodeId: "left-input",
+            outcomeNodeId: "left-outcome",
+            rowSpan: 3,
+            outcome: "succeeded",
+            answerAt: 2,
+            compactAt: null,
+          },
+          {
+            index: 1,
+            column: 1,
+            inputNodeId: "right-input",
+            outcomeNodeId: "right-outcome",
+            rowSpan: 3,
+            outcome: "succeeded",
+            answerAt: 2,
+            compactAt: null,
+          },
+        ],
+      },
+    ]);
+  }
+
+  function columnNode(
+    id: string,
+    turn: number,
+    row: number,
+    lane: number,
+    bornAt: number,
+    role: "input" | "step" | "outcome" = row === 0 ? "input" : "step",
+  ) {
+    return {
+      id,
+      turn,
+      role,
+      mode: "success" as const,
+      glyph: "terminal" as const,
+      emphasis: "declared" as const,
+      detail: "detailed" as const,
+      lane,
+      row,
+      bornAt,
+      settleAt: bornAt + 1,
+      terminalAt: role === "outcome" ? bornAt : null,
+      label: id,
+      labelPlacement: "below" as const,
+    };
+  }
+
+  it("starts every column at the top instead of below the one before it", () => {
+    const snapshot = twoColumnSnapshot();
+    const layout = new GraphLadderLayout();
+    settle(layout, snapshot, 10);
+
+    // Same row in either column sits at the same height.
+    expect(layout.nodeWorldY(0)).toBeCloseTo(layout.nodeWorldY(3), 5);
+    expect(layout.nodeWorldY(1)).toBeCloseTo(layout.nodeWorldY(4), 5);
+  });
+
+  it("folds one column without moving the other", () => {
+    const snapshot = twoColumnSnapshot();
+    const layout = new GraphLadderLayout();
+    settle(layout, snapshot, 10);
+    const rightBefore = [3, 4, 5].map((index) => layout.nodeWorldY(index));
+    const leftStepBefore = layout.nodeWorldY(1);
+
+    settle(layout, snapshot, 10, new Map([[0, false]]));
+
+    expect(layout.nodeWorldY(1)).toBeLessThan(leftStepBefore);
+    expect([3, 4, 5].map((index) => layout.nodeWorldY(index))).toEqual(rightBefore);
+  });
+});

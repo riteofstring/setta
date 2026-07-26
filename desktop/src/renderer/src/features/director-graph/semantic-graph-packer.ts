@@ -47,6 +47,9 @@ interface OrderedNode {
 
 interface PlannedNode {
   readonly ordered: OrderedNode;
+  /** Turn index, which for a composition is the workstream's own column. */
+  readonly turn: number;
+  /** Row within that turn, so every column starts at its own top. */
   readonly row: number;
   readonly role: "input" | "step" | "outcome";
   readonly mode: PackedGraphMode;
@@ -90,12 +93,21 @@ function graphNodes(graphs: readonly WorkstreamGraph[]): OrderedNode[] {
       });
     });
   });
+  /*
+   * Grouped by workstream, then in time within it.
+   *
+   * Ordering by time across the whole composition interleaved the workstreams,
+   * which is the wrong shape for a set of columns: a column has to own one
+   * contiguous run of nodes to be placed and folded as a unit. Time still
+   * orders what happens inside a column, which is the only place it means
+   * anything — two conversations do not share a clock the reader cares about.
+   */
   records.sort((left, right) => {
-    if (left.bornAt !== right.bornAt) {
-      return left.bornAt - right.bornAt;
-    }
     if (left.graphIndex !== right.graphIndex) {
       return left.graphIndex - right.graphIndex;
+    }
+    if (left.bornAt !== right.bornAt) {
+      return left.bornAt - right.bornAt;
     }
     return left.graphOrder - right.graphOrder;
   });
@@ -180,26 +192,71 @@ function semanticLane(node: SemanticNode): number {
   }
 }
 
+/*
+ * Plans each workstream on its own.
+ *
+ * Rows are local to a column, because a column is a conversation read from its
+ * own beginning: numbering rows across the whole composition put the second
+ * conversation below the end of the first instead of beside its start. One turn
+ * per workstream then makes folding mean what a reader expects — collapse this
+ * conversation — rather than collapsing the view.
+ *
+ * Nodes arrive grouped by workstream and ordered within it, which is what lets
+ * a turn own one contiguous run of nodes.
+ */
 function planNodes(nodes: readonly OrderedNode[], edges: readonly SemanticEdge[]): PlannedNode[] {
   const outgoing = outgoingNodeIDs(edges);
-  const outcomeId = outcomeNodeID(nodes, outgoing);
-  return nodes.map((ordered, row) => {
-    const role = plannedRole(ordered, row, outcomeId);
-    return {
-      ordered,
-      row,
-      role,
-      mode: semanticNodeMode(ordered.node.kind, ordered.node.status),
-      terminalAt: role === "outcome" ? terminalSeconds(ordered) : null,
-    };
-  });
+  const planned: PlannedNode[] = [];
+  for (const group of groupedByGraph(nodes)) {
+    const outcomeId = outcomeNodeID(group.nodes, outgoing);
+    group.nodes.forEach((ordered, row) => {
+      const role = plannedRole(ordered, row, outcomeId);
+      planned.push({
+        ordered,
+        turn: group.turn,
+        row,
+        role,
+        mode: semanticNodeMode(ordered.node.kind, ordered.node.status),
+        terminalAt: role === "outcome" ? terminalSeconds(ordered) : null,
+      });
+    });
+  }
+  return planned;
+}
+
+interface PlannedGroup {
+  readonly turn: number;
+  readonly nodes: readonly OrderedNode[];
+}
+
+/**
+ * Splits the ordered nodes into one run per workstream. Turn indices count the
+ * workstreams that actually have nodes, so they stay dense even when a graph in
+ * the composition is empty.
+ */
+function groupedByGraph(nodes: readonly OrderedNode[]): PlannedGroup[] {
+  const groups: PlannedGroup[] = [];
+  let current: OrderedNode[] = [];
+  let graphIndex = -1;
+  for (const ordered of nodes) {
+    if (ordered.graphIndex !== graphIndex && current.length > 0) {
+      groups.push({ turn: groups.length, nodes: current });
+      current = [];
+    }
+    graphIndex = ordered.graphIndex;
+    current.push(ordered);
+  }
+  if (current.length > 0) {
+    groups.push({ turn: groups.length, nodes: current });
+  }
+  return groups;
 }
 
 function packedNodeInput(planned: PlannedNode, graphCount: number): PackedGraphNodeInput {
   const visual = semanticNodeKindVisuals[planned.ordered.node.kind];
   return {
     id: planned.ordered.packedId,
-    turn: 0,
+    turn: planned.turn,
     role: planned.role,
     mode: planned.mode,
     glyph: visual.glyph,
@@ -235,23 +292,36 @@ function graphOutcome(planned: readonly PlannedNode[]): {
   return { outcome: "running", outcomeNodeId: null, answerAt: null };
 }
 
+/** One turn per column, each describing only its own workstream. */
 function turnInputs(planned: readonly PlannedNode[]): PackedGraphTurnInput[] {
-  const input = planned[0];
-  if (input === undefined) {
-    return [];
+  const byTurn = new Map<number, PlannedNode[]>();
+  for (const node of planned) {
+    const existing = byTurn.get(node.turn);
+    if (existing === undefined) {
+      byTurn.set(node.turn, [node]);
+    } else {
+      existing.push(node);
+    }
   }
-  const outcome = graphOutcome(planned);
-  return [
-    {
-      index: 0,
+  const turns: PackedGraphTurnInput[] = [];
+  for (const [index, nodes] of [...byTurn.entries()].sort(([left], [right]) => left - right)) {
+    const input = nodes[0];
+    if (input === undefined) {
+      continue;
+    }
+    const outcome = graphOutcome(nodes);
+    turns.push({
+      index,
+      column: index,
       inputNodeId: input.ordered.packedId,
       outcomeNodeId: outcome.outcomeNodeId,
-      rowSpan: planned.length,
+      rowSpan: nodes.length,
       outcome: outcome.outcome,
       answerAt: outcome.answerAt,
       compactAt: outcome.answerAt === null ? null : outcome.answerAt + compactDelaySeconds,
-    },
-  ];
+    });
+  }
+  return turns;
 }
 
 function edgeInputs(

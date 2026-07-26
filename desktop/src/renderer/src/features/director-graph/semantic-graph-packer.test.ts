@@ -65,6 +65,48 @@ describe("semantic graph packer", () => {
     expect(snapshot.cursorSequence).toBe(snapshot.nodeCount + snapshot.edgeCount);
   });
 
+  /*
+   * A column per workstream is what makes the Director view readable and
+   * foldable. Packing the whole composition as one turn put the second
+   * conversation below the end of the first rather than beside its start, and
+   * made folding an outcome collapse every conversation at once.
+   */
+  it("gives each workstream its own column, rows, and turn", () => {
+    const fixture = projectionGalleryFixtures.find(
+      (candidate) => candidate.graphs.filter((graph) => graph.nodes.length > 0).length > 1,
+    );
+    expect(fixture).toBeDefined();
+    if (fixture === undefined) {
+      return;
+    }
+    const populated = fixture.graphs.filter((graph) => graph.nodes.length > 0);
+    const snapshot = packSemanticGraphComposition({
+      workstreamId: fixture.name,
+      graphs: fixture.graphs,
+    });
+
+    expect(snapshot.turnCount).toBe(populated.length);
+    const columns = new Set<number>();
+    for (let turn = 0; turn < snapshot.turnCount; turn += 1) {
+      columns.add(packedValueAt(snapshot.turns.column, turn));
+    }
+    expect(columns.size).toBe(snapshot.turnCount);
+
+    // Every column is read from its own beginning, so each one has a row 0 and
+    // its rows never continue the column before it.
+    const rowsByTurn = new Map<number, number[]>();
+    for (let index = 0; index < snapshot.nodeCount; index += 1) {
+      const turn = packedValueAt(snapshot.nodes.turn, index);
+      const rows = rowsByTurn.get(turn) ?? [];
+      rows.push(packedValueAt(snapshot.nodes.row, index));
+      rowsByTurn.set(turn, rows);
+    }
+    expect(rowsByTurn.size).toBe(snapshot.turnCount);
+    for (const rows of rowsByTurn.values()) {
+      expect(Math.min(...rows)).toBe(0);
+    }
+  });
+
   it("draws cross-workstream delegation inside the gallery composition", () => {
     const fixture = projectionGalleryFixtures.find((candidate) => candidate.name === "delegation");
     expect(fixture).toBeDefined();

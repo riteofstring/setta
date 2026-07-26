@@ -300,14 +300,37 @@ export class GraphLadderLayout {
     return input.timeSeconds > compactAt ? 0 : 1;
   }
 
-  /** Stacks turns from the first dirty one and writes their node positions. */
+  /**
+   * Stacks turns from the first dirty one and writes their node positions.
+   *
+   * A turn follows the turn above it *in its own column*. One conversation is
+   * one column and reads as a single run; a composition is several columns side
+   * by side, each starting at the top of the view rather than below whatever
+   * was packed before it.
+   */
   private placeTurns(snapshot: PackedGraphSnapshot, firstTurn: number): void {
-    let cursor = firstTurn === 0 ? 0 : this.turnBottom(snapshot, firstTurn - 1);
     for (let turn = firstTurn; turn < snapshot.turnCount; turn += 1) {
+      const previous = this.previousTurnInColumn(snapshot, turn);
+      const cursor = previous < 0 ? 0 : this.turnBottom(snapshot, previous);
       this.turnTopY[turn] = cursor;
       this.placeTurnNodes(snapshot, turn, cursor);
-      cursor = this.turnBottom(snapshot, turn);
     }
+  }
+
+  /**
+   * The turn immediately above this one in the same column, or -1 when it is
+   * that column's first. Turns of a column are contiguous, so a conversation —
+   * where every turn shares one column — finds its predecessor in a single
+   * step.
+   */
+  private previousTurnInColumn(snapshot: PackedGraphSnapshot, turn: number): number {
+    const column = packedValueAt(snapshot.turns.column, turn);
+    for (let candidate = turn - 1; candidate >= 0; candidate -= 1) {
+      if (packedValueAt(snapshot.turns.column, candidate) === column) {
+        return candidate;
+      }
+    }
+    return -1;
   }
 
   private turnBottom(snapshot: PackedGraphSnapshot, turn: number): number {
@@ -350,28 +373,40 @@ export class GraphLadderLayout {
   }
 
   /**
-   * The newest committed fact that is on screen. Only the last turns can hold
-   * it, because a turn's top is always below the turn before it.
+   * The lowest committed fact on screen. It used to be enough to look at the
+   * last turns, because a turn's top was always below the turn before it. With
+   * columns that no longer holds — the deepest point can be at the bottom of
+   * any of them — so this takes the lowest across the last turn of each.
    */
   private computeLiveEdge(snapshot: PackedGraphSnapshot, timeSeconds: number): number {
-    for (let turn = snapshot.turnCount - 1; turn >= 0; turn -= 1) {
+    let edge = Number.NEGATIVE_INFINITY;
+    for (const turn of this.lastTurnPerColumn(snapshot)) {
       const first = packedValueAt(this.turnFirstNode, turn);
       if (first < 0) {
         continue;
       }
       const end = packedValueAt(this.turnNodeEnd, turn);
-      let edge = Number.NEGATIVE_INFINITY;
       for (let index = first; index < end; index += 1) {
         if (packedValueAt(snapshot.nodes.bornAt, index) > timeSeconds) {
           continue;
         }
         edge = Math.max(edge, packedValueAt(this.worldY, index));
       }
-      if (edge > Number.NEGATIVE_INFINITY) {
-        return edge;
-      }
     }
-    return 0;
+    return edge > Number.NEGATIVE_INFINITY ? edge : 0;
+  }
+
+  /**
+   * The bottom turn of every column. Scanning turn indices is cheap; scanning
+   * their nodes is not, which is why the callers below start from this rather
+   * than from every turn in the graph.
+   */
+  private lastTurnPerColumn(snapshot: PackedGraphSnapshot): number[] {
+    const last = new Map<number, number>();
+    for (let turn = 0; turn < snapshot.turnCount; turn += 1) {
+      last.set(packedValueAt(snapshot.turns.column, turn), turn);
+    }
+    return [...last.values()];
   }
 
   /**
@@ -384,8 +419,19 @@ export class GraphLadderLayout {
       return input.timeSeconds;
     }
     let quiet = input.timeSeconds;
-    const firstTurn = Math.max(0, snapshot.turnCount - 2);
-    for (let turn = firstTurn; turn < snapshot.turnCount; turn += 1) {
+    // The bottom turn of each column, plus the one above it: those are the
+    // turns still capable of moving. Taking the last two turns overall would
+    // watch one column and let the others go quiet while they were still
+    // animating.
+    const recent = new Set<number>();
+    for (const turn of this.lastTurnPerColumn(snapshot)) {
+      recent.add(turn);
+      const previous = this.previousTurnInColumn(snapshot, turn);
+      if (previous >= 0) {
+        recent.add(previous);
+      }
+    }
+    for (const turn of recent) {
       const compactAt = packedValueAt(snapshot.turns.compactAt, turn);
       if (Number.isFinite(compactAt)) {
         quiet = Math.max(quiet, compactAt + foldTailSeconds);
