@@ -3403,3 +3403,30 @@ Stop and reassess rather than hiding the problem if any of these occur:
   rather than deriving ceilings from a requested shape. Removing
   `RuntimeObservation.Resources` in Slice 1 is confirmed correct for this
   provider. Slices 3 to 7 of the capacity plan should not be built as written.
+- 2026-07-26 (documentation sweep reviewed; two live findings, one rediscovery):
+  A full read of `docs.sprites.dev` was condensed into the knowledge vault at
+  `Setta/Sprites/`. Reviewed against this repository, its headline finding is a
+  rediscovery: that a provider-reported `cold` Sprite usually remains suspended
+  with memory intact, and loses memory only on an unannounced host move, is the
+  same Fly answer on thread 28288 already recorded in
+  `sprites-cold-gate-decision-memo.md`, where the owner signed Option A on
+  2026-07-17. The memo already records that usage data is organization-wide
+  only. Nothing in the cold analysis changes our approach, because rules 19 and
+  24 already treat provider lifecycle labels as hints and memory as a cache.
+  Two findings are genuinely new and actionable. First, memory has a documented
+  maximum: the 2026-03-25 Sprites release note states that "Sprites now start
+  with 2 GB of memory and can autoscale up to 16 GB based on demand", which
+  supersedes the earlier conclusion here that no maximum was published and
+  answers the product question directly — a user needing 16 GB is servable, a
+  user needing 32 or 64 GB is not, on this provider. Second, the current public
+  rate card at `https://fly.io/sprites/yolo-mode/#billing` presents a single
+  storage rate of "$0.50 /GB/month" with no hot and cold distinction, while
+  `internal/runtimecost/sprites/published.go` encodes
+  `HotStorageGBHour` at 683 and `ColdStorageGBHour` at 27 micro-dollars.
+  Roughly 685 micro-dollars per GB-hour matches the single published rate, so
+  the hot rate is right and the cold rate is about twenty-five times too low
+  against today's card. `UsageDimensionColdStorage` is a live dimension in the
+  estimator, so this is a latent under-recovery rather than dead configuration.
+  The rate cards are deliberately immutable and versioned, so the correct fix is
+  a new dated schedule reflecting one storage rate rather than an edit to the
+  2026-07-14 card. No code was changed for either finding.
