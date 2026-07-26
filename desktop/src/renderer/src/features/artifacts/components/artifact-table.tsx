@@ -37,7 +37,11 @@ export function ArtifactTable({ caption, columns, rows }: TableProps) {
       <TableHeader>
         <TableRow>
           {columns.map((column) => (
-            <TableHead className={alignmentClasses[column.align ?? "start"]} key={column.key}>
+            <TableHead
+              className={alignmentClasses[column.align ?? "start"]}
+              key={column.key}
+              scope="col"
+            >
               {column.label}
             </TableHead>
           ))}

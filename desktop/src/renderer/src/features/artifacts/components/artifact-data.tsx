@@ -1,19 +1,23 @@
-import { CircleAlertIcon, CircleCheckIcon, InfoIcon, TriangleAlertIcon } from "lucide-react";
-import type { ComponentType } from "react";
+import {
+  CircleAlertIcon,
+  CircleCheckIcon,
+  InfoIcon,
+  TriangleAlertIcon,
+  type LucideIcon,
+} from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@renderer/components/ui/alert";
-import { cn } from "@renderer/lib/utils";
 
 import type { ArtifactComponentProps } from "../generated/artifact-catalog-props";
 
 type MetricTone = NonNullable<ArtifactComponentProps["Metric"]["tone"]>;
 type AlertTone = NonNullable<ArtifactComponentProps["Alert"]["tone"]>;
 
-const metricToneClasses = {
-  neutral: "text-foreground",
-  positive: "text-status-success",
-  negative: "text-status-critical",
-} satisfies Record<MetricTone, string>;
+const metricTonePresentation = {
+  neutral: { icon: null, label: null },
+  positive: { icon: CircleCheckIcon, label: "Positive" },
+  negative: { icon: CircleAlertIcon, label: "Negative" },
+} satisfies Record<MetricTone, { icon: LucideIcon | null; label: string | null }>;
 
 /** One headline number with the label that says what it measures. */
 export function ArtifactMetric({
@@ -27,18 +31,22 @@ export function ArtifactMetric({
   tone: MetricTone;
   value: string;
 }) {
+  const presentation = metricTonePresentation[tone];
+  const Icon = presentation.icon;
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <span
-        className={cn("text-2xl leading-tight font-semibold tabular-nums", metricToneClasses[tone])}
-      >
+    <dl className="flex flex-col gap-0.5" data-tone={tone}>
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="m-0 flex items-center gap-1.5 text-2xl leading-tight font-semibold text-foreground tabular-nums">
+        {Icon === null ? null : <Icon aria-hidden className="size-4 shrink-0" />}
+        {presentation.label === null ? null : (
+          <span className="sr-only">{presentation.label}: </span>
+        )}
         {value}
-      </span>
+      </dd>
       {caption === undefined ? null : (
-        <span className="text-xs text-muted-foreground">{caption}</span>
+        <dd className="m-0 text-xs text-muted-foreground">{caption}</dd>
       )}
-    </div>
+    </dl>
   );
 }
 
@@ -46,34 +54,34 @@ export function ArtifactMetric({
  * The tone treatment for the official Alert.
  *
  * shadcn ships emphasis variants — default and destructive — not the four
- * severities the catalog exposes, so the Setta status tokens supply the rest.
- * The icon is chosen by tone here rather than named by the model: the catalog
- * deliberately has no icon property.
+ * severities the catalog exposes. Artifact text stays on the validated card
+ * colour pair; Setta status tokens mark the border, while distinct icons and
+ * screen-reader copy carry severity without relying on colour. The icon is
+ * chosen here rather than named by the model: the catalog deliberately has no
+ * icon property.
  */
 const alertTones = {
   info: {
-    destructive: false,
     icon: InfoIcon,
-    className:
-      "border-status-info/40 text-status-info [&_[data-slot=alert-title]]:text-status-info",
+    className: "border-status-info/40",
+    label: "Information",
   },
   success: {
-    destructive: false,
     icon: CircleCheckIcon,
-    className:
-      "border-status-success/40 text-status-success [&_[data-slot=alert-title]]:text-status-success",
+    className: "border-status-success/40",
+    label: "Success",
   },
   warning: {
-    destructive: false,
     icon: TriangleAlertIcon,
-    className:
-      "border-status-warning/40 text-status-warning [&_[data-slot=alert-title]]:text-status-warning",
+    className: "border-status-warning/40",
+    label: "Warning",
   },
-  danger: { destructive: true, icon: CircleAlertIcon, className: "border-status-critical/40" },
-} satisfies Record<
-  AlertTone,
-  { destructive: boolean; icon: ComponentType<{ className?: string }>; className: string }
->;
+  danger: {
+    icon: CircleAlertIcon,
+    className: "border-status-critical/40",
+    label: "Danger",
+  },
+} satisfies Record<AlertTone, { icon: LucideIcon; className: string; label: string }>;
 
 /** A callout the reader must not miss. */
 export function ArtifactAlert({
@@ -88,12 +96,12 @@ export function ArtifactAlert({
   const treatment = alertTones[tone];
   const Icon = treatment.icon;
   return (
-    <Alert
-      className={treatment.className}
-      variant={treatment.destructive ? "destructive" : "default"}
-    >
-      <Icon />
-      <AlertTitle>{title}</AlertTitle>
+    <Alert className={treatment.className} data-tone={tone} variant="default">
+      <Icon aria-hidden />
+      <AlertTitle>
+        <span className="sr-only">{treatment.label}: </span>
+        {title}
+      </AlertTitle>
       <AlertDescription>{body}</AlertDescription>
     </Alert>
   );

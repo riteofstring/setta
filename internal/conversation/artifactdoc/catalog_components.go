@@ -113,7 +113,7 @@ func contentComponents() []Component {
 		},
 		{
 			Name:    ComponentMarkdown,
-			Summary: "Rich prose with lists, emphasis, and inline code. No raw HTML, images, or embedded resources.",
+			Summary: "Rich prose with headings, lists, and inline code. No raw HTML, images, or embedded resources.",
 			Properties: []Property{
 				requiredProperty("source", "Markdown source.", markdownValue()),
 			},
@@ -123,7 +123,7 @@ func contentComponents() []Component {
 			Summary: "A verbatim code or output block.",
 			Properties: []Property{
 				requiredProperty("code", "Code shown exactly as written.", codeValue()),
-				optionalProperty("language", "Syntax highlighting language. Defaults to text.", codeLanguageValue()),
+				optionalProperty("language", "Code language label. Defaults to text.", codeLanguageValue()),
 				optionalProperty("caption", "Short caption above the block.", labelValue()),
 			},
 		},

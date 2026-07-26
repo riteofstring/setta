@@ -84,15 +84,21 @@ export const artifactRenderers = {
   Separator: () => <Separator />,
   Tabs: ({ props, renderNode }) => (
     <Tabs defaultValue={tabValue(0)}>
-      <TabsList>
-        {props.tabs.map((tab, index) => (
-          <TabsTrigger key={tabValue(index)} value={tabValue(index)}>
-            {childProps(tab, "Tab").label}
-          </TabsTrigger>
-        ))}
-      </TabsList>
+      <div className="max-w-full overflow-x-auto overscroll-x-contain pb-1">
+        <TabsList>
+          {props.tabs.map((tab, index) => (
+            <TabsTrigger key={tabValue(index)} value={tabValue(index)}>
+              {childProps(tab, "Tab").label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </div>
       {props.tabs.map((tab, index) => (
-        <TabsContent key={tabValue(index)} value={tabValue(index)}>
+        <TabsContent
+          className="focus-visible:outline-2 focus-visible:outline-offset-2"
+          key={tabValue(index)}
+          value={tabValue(index)}
+        >
           {renderNode(tab)}
         </TabsContent>
       ))}

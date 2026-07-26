@@ -12,7 +12,11 @@ import type { ArtifactComponentProps } from "../generated/artifact-catalog-props
  * second one.
  */
 export function ArtifactDocument({ children }: { children: ReactNode }) {
-  return <div className="flex flex-col gap-6 text-sm text-foreground">{children}</div>;
+  return (
+    <div className="flex min-w-0 flex-col gap-6 text-sm text-foreground select-text">
+      {children}
+    </div>
+  );
 }
 
 /** A titled group of blocks. */

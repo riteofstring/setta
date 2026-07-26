@@ -45,6 +45,8 @@ describe("setta.artifacts.v1 renderer map", () => {
     expect(markup).toContain("Runs by stage");
     expect(markup.indexOf("Compile")).toBeLessThan(markup.indexOf("Render"));
     expect(markup).toContain("text-end tabular-nums");
+    expect(markup).toContain('scope="col"');
+    expect(markup).toContain("select-text");
   });
 
   it("renders each tab's label and the first tab's content", () => {
@@ -59,6 +61,8 @@ describe("setta.artifacts.v1 renderer map", () => {
     expect(markup).toContain("Summary");
     expect(markup).toContain("Detail");
     expect(markup).toContain("Two runs failed.");
+    expect(markup).toContain("overflow-x-auto");
+    expect(markup).toContain("focus-visible:outline-2");
   });
 
   it("renders every accordion item's label", () => {
@@ -91,7 +95,8 @@ describe("setta.artifacts.v1 renderer map", () => {
     expect(markup).toContain("Runs per day");
     expect(markup).toContain("--color-series-0: var(--accent-cyan)");
     expect(markup).toContain("--color-series-1: var(--accent-violet)");
-    expect(markup).toContain(':not([data-color-mode="light"])');
+    expect(markup).toContain(':root:not([data-color-mode="light"])');
+    expect(markup).toContain("recharts-surface:focus-visible");
   });
 
   it("gives a pie slice a colour from the artifact palette", () => {
@@ -105,10 +110,11 @@ describe("setta.artifacts.v1 renderer map", () => {
 
   it("renders Markdown structure without raw markup", () => {
     const markup = render(
-      'root = Document([Markdown("## Findings\\n\\n- one `flaky` test\\n- two slow runs")])',
+      'root = Document([Markdown("# Findings\\n\\n- one `flaky` test\\n- two slow runs")])',
     );
 
     expect(markup).toContain("<h2");
+    expect(markup).not.toContain("<h1");
     expect(markup).toContain("<li>");
     expect(markup).toContain("<code>flaky</code>");
   });
@@ -134,15 +140,25 @@ describe("setta.artifacts.v1 renderer map", () => {
     expect(markup).not.toContain("file://");
   });
 
-  it("renders status tone through Setta's status tokens", () => {
+  it("renders status tones with readable text and non-colour semantics", () => {
     const markup = render(
       [
         'root = Document([Badge("Blocked", "danger"), Alert("Two runs failed", "Both failed while compiling.", "warning"), Metric("Failed runs", "2", null, "negative")])',
       ].join("\n"),
     );
 
-    expect(markup).toContain("text-status-critical");
-    expect(markup).toContain("text-status-warning");
+    expect(markup).toContain('data-tone="danger"');
+    expect(markup).toContain('data-tone="warning"');
+    expect(markup).toContain('data-tone="negative"');
+    expect(markup).toContain("border-status-critical/40");
+    expect(markup).toContain("border-status-warning/40");
+    expect(markup).toContain("text-card-foreground");
+    expect(markup).toContain('<span class="sr-only">Danger: </span>Blocked');
+    expect(markup).toContain('<span class="sr-only">Warning: </span>Two runs failed');
+    expect(markup).toContain('<span class="sr-only">Negative: </span>2');
+    expect(markup).toContain("<dl");
+    expect(markup).toContain("<dt");
+    expect(markup).toContain("<dd");
     expect(markup).toContain("Both failed while compiling.");
   });
 });

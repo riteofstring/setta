@@ -271,7 +271,7 @@ export const artifactCatalogSchema: {
       ]
     },
     "Markdown": {
-      "description": "Rich prose with lists, emphasis, and inline code. No raw HTML, images, or embedded resources.",
+      "description": "Rich prose with headings, lists, and inline code. No raw HTML, images, or embedded resources.",
       "properties": {
         "source": {
           "description": "Markdown source.",
@@ -290,7 +290,7 @@ export const artifactCatalogSchema: {
           "type": "string"
         },
         "language": {
-          "description": "Syntax highlighting language. Defaults to text.",
+          "description": "Code language label. Defaults to text.",
           "type": "string",
           "enum": [
             "text",

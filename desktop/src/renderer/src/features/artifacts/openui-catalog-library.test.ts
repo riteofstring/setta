@@ -44,6 +44,7 @@ describe("setta.artifacts.v1 catalog library", () => {
 
       expect(Object.keys(fromZod?.properties ?? {})).toEqual(Object.keys(fromGo.properties));
       expect(Object.keys(fromZod?.properties ?? {})).toEqual(advertised);
+      expect(signature.summary).toBe(fromGo.description);
       expect([...(fromZod?.required ?? [])].sort()).toEqual([...fromGo.required].sort());
       expect([...(fromZod?.required ?? [])].sort()).toEqual(
         signature.properties
@@ -51,6 +52,11 @@ describe("setta.artifacts.v1 catalog library", () => {
           .map((property) => property.name)
           .sort(),
       );
+      for (const property of signature.properties) {
+        expect(property.description).toBe(
+          (fromGo.properties[property.name] as { description?: string }).description,
+        );
+      }
     });
   }
 

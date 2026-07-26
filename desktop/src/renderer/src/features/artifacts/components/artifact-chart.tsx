@@ -84,7 +84,7 @@ export function ArtifactCategoryChart({
   const config = categoryChartConfig(series);
   return (
     <ArtifactChartFigure caption={caption} config={config}>
-      {categoryPlot(kind, series)}
+      {categoryPlot(kind, series, caption)}
     </ArtifactChartFigure>
   );
 }
@@ -110,7 +110,7 @@ export function ArtifactPieChart({
   }));
   return (
     <ArtifactChartFigure caption={caption} config={config}>
-      <PieChart>
+      <PieChart accessibilityLayer aria-label={caption ?? "Pie chart"}>
         <ChartTooltip content={<ChartTooltipContent nameKey="key" />} />
         <Pie data={data} dataKey="value" isAnimationActive={false} nameKey="key">
           {data.map((slice) => (
@@ -134,7 +134,10 @@ function ArtifactChartFigure({
 }) {
   return (
     <figure className="flex flex-col gap-1.5">
-      <ChartContainer className="max-h-64 w-full" config={config}>
+      <ChartContainer
+        className="max-h-64 w-full [&_.recharts-surface:focus-visible]:outline-2 [&_.recharts-surface:focus-visible]:outline-offset-2"
+        config={config}
+      >
         {children}
       </ChartContainer>
       {caption === undefined ? null : (
@@ -176,13 +179,18 @@ function categoryRows(series: ChartSeries): Record<string, number | string>[] {
 // Recharts reads a chart's axes, plots, tooltip, and legend from its own direct
 // children, so these stay written out per plot rather than shared through a
 // wrapper component that Recharts would not look inside.
-function categoryPlot(kind: ArtifactCategoryChartKind, series: ChartSeries): ReactElement {
+function categoryPlot(
+  kind: ArtifactCategoryChartKind,
+  series: ChartSeries,
+  caption: string | undefined,
+): ReactElement {
   const rows = categoryRows(series);
   const legend = series.length > 1 ? <ChartLegend content={<ChartLegendContent />} /> : null;
+  const label = caption ?? categoryChartLabel(kind);
   switch (kind) {
     case "bar":
       return (
-        <BarChart accessibilityLayer data={rows}>
+        <BarChart accessibilityLayer aria-label={label} data={rows}>
           <CartesianGrid vertical={false} />
           <XAxis axisLine={false} dataKey="label" tickLine={false} tickMargin={8} />
           <YAxis axisLine={false} tickLine={false} tickMargin={8} width={44} />
@@ -201,7 +209,7 @@ function categoryPlot(kind: ArtifactCategoryChartKind, series: ChartSeries): Rea
       );
     case "line":
       return (
-        <LineChart accessibilityLayer data={rows}>
+        <LineChart accessibilityLayer aria-label={label} data={rows}>
           <CartesianGrid vertical={false} />
           <XAxis axisLine={false} dataKey="label" tickLine={false} tickMargin={8} />
           <YAxis axisLine={false} tickLine={false} tickMargin={8} width={44} />
@@ -221,7 +229,7 @@ function categoryPlot(kind: ArtifactCategoryChartKind, series: ChartSeries): Rea
       );
     case "area":
       return (
-        <AreaChart accessibilityLayer data={rows}>
+        <AreaChart accessibilityLayer aria-label={label} data={rows}>
           <CartesianGrid vertical={false} />
           <XAxis axisLine={false} dataKey="label" tickLine={false} tickMargin={8} />
           <YAxis axisLine={false} tickLine={false} tickMargin={8} width={44} />
@@ -240,6 +248,17 @@ function categoryPlot(kind: ArtifactCategoryChartKind, series: ChartSeries): Rea
           {legend}
         </AreaChart>
       );
+  }
+}
+
+function categoryChartLabel(kind: ArtifactCategoryChartKind): string {
+  switch (kind) {
+    case "area":
+      return "Area chart";
+    case "bar":
+      return "Bar chart";
+    case "line":
+      return "Line chart";
   }
 }
 

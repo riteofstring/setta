@@ -894,10 +894,12 @@ cutover, which is also where it becomes lazily loaded.
 
 ### Phase 1 - Catalog Generation And Official shadcn Base UI Primitives
 
-**Status:** Complete, pending audit. The catalog generator, the official shadcn
-Base UI primitives, the Setta artifact components, and the exhaustive renderer
-map are all in place. Nothing in production imports the artifact half yet; the
-Director cutover is Phase 4.
+**Status:** Complete. The catalog generator, the official shadcn Base UI
+primitives, the Setta artifact components, and the exhaustive renderer map are
+all in place. Nothing in production imports the artifact half yet; the Director
+cutover is Phase 4. The coherent implementation audit and verification evidence
+is recorded in
+[`docs/reports/openui-artifact-phase1-audit-20260726.md`](../reports/openui-artifact-phase1-audit-20260726.md).
 
 Landed:
 
@@ -921,6 +923,9 @@ Landed:
   dense settings and runtime controls, and `SettaStatusBadge` for connection,
   account, and provider status. The audit's hand-rolled badge spans and raw
   API-key input now render through them, dropping their raw palette colours.
+  Status meaning is carried by distinct icons and screen-reader text rather
+  than colour alone, while text stays on a validated foreground/background
+  pair.
 - `cmd/generate-artifact-catalog` extended to the two outputs it still owed:
   the Zod props schemas `defineComponent` takes, and the model-facing
   signatures, catalog reference, and generation instructions. Both are rendered
@@ -951,7 +956,10 @@ Landed:
   alert; and the table and chart adapters. Markdown renders through the
   renderer's existing text-only `MarkdownText`, which has no raw-HTML, image, or
   link path at all, and a file reference is inert text rather than a link.
-  Charts colour their series from Setta's appearance-driven accent tokens.
+  Markdown headings stay below the artifact title; tables carry column
+  semantics; status meaning does not depend on colour; and charts are named,
+  keyboard-focusable surfaces whose series use Setta's appearance-driven accent
+  tokens.
 - the exhaustive renderer map and the library binding it, typed by the generated
   `ArtifactComponentProps` map and made exhaustive by the generated
   component-name union, plus the suite that renders the whole accepted corpus
@@ -1017,6 +1025,11 @@ Gate:
 - no OpenUI default UI package or shadcn CLI dependency exists
 - no direct `@radix-ui/*` dependency or shadcn Radix variant exists
 - no arbitrary styling or action property is present in the model catalog
+
+The gate above is satisfied by the static audit, deterministic matrix, and
+single live-provider check recorded in the Phase 1 audit. The unavailable Phase
+0 performance baseline still blocks Phases 2, 3, and 4, and none of those phases
+has started.
 
 ### Phase 2 - Artifact Contract And Storage Replacement
 

@@ -81,7 +81,7 @@ const textProps = z.object({
   tone: z.enum(["normal", "muted", "strong"]).optional(),
 });
 
-/** Rich prose with lists, emphasis, and inline code. No raw HTML, images, or embedded resources. */
+/** Rich prose with headings, lists, and inline code. No raw HTML, images, or embedded resources. */
 const markdownProps = z.object({
   /** Markdown source. */
   source: z.string(),
@@ -91,7 +91,7 @@ const markdownProps = z.object({
 const codeBlockProps = z.object({
   /** Code shown exactly as written. */
   code: z.string(),
-  /** Syntax highlighting language. Defaults to text. */
+  /** Code language label. Defaults to text. */
   language: z.enum([
     "text",
     "bash",

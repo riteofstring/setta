@@ -8,9 +8,8 @@ import { cn } from "@renderer/lib/utils";
 // Setta's colour mode lives on the document element's `data-color-mode` and is
 // dark unless that attribute says light, so the dark selector is the same
 // condition the `dark:` variant in ../../styles.css uses.
-const THEMES = { light: "", dark: ':not([data-color-mode="light"])' } as const;
+const THEMES = { light: "", dark: ':root:not([data-color-mode="light"])' } as const;
 
-const INITIAL_DIMENSION = { width: 320, height: 200 } as const;
 type TooltipNameType = number | string;
 
 export type ChartConfig = Record<
@@ -45,15 +44,10 @@ function ChartContainer({
   className,
   children,
   config,
-  initialDimension = INITIAL_DIMENSION,
   ...props
 }: React.ComponentProps<"div"> & {
   config: ChartConfig;
   children: React.ComponentProps<typeof RechartsPrimitive.ResponsiveContainer>["children"];
-  initialDimension?: {
-    width: number;
-    height: number;
-  };
 }) {
   const uniqueId = React.useId();
   const chartId = `chart-${id ?? uniqueId.replace(/:/g, "")}`;
@@ -70,9 +64,7 @@ function ChartContainer({
         {...props}
       >
         <ChartStyle id={chartId} config={config} />
-        <RechartsPrimitive.ResponsiveContainer initialDimension={initialDimension}>
-          {children}
-        </RechartsPrimitive.ResponsiveContainer>
+        <RechartsPrimitive.ResponsiveContainer>{children}</RechartsPrimitive.ResponsiveContainer>
       </div>
     </ChartContext.Provider>
   );

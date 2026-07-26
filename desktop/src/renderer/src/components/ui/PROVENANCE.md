@@ -64,9 +64,11 @@ These are the only changes made to the copied source:
 - `accordion.tsx` resolves upstream's `IconPlaceholder` to `lucide-react`,
   which is the icon library Setta already depends on and the default the
   published registry substitutes. The `data-slot` and class names are unchanged.
-- `chart.tsx` points its dark theme selector at Setta's `data-color-mode`
-  instead of a `.dark` class, matching the `dark:` variant below. Without it a
-  `theme`-keyed `ChartConfig` would emit a rule that can never match.
+- `chart.tsx` anchors its dark theme selector to the document root's
+  `data-color-mode` instead of a `.dark` class, matching the `dark:` variant
+  below. Without the root anchor, any ordinary ancestor would satisfy the
+  not-light selector even while the document was light; without the selector
+  change, a `theme`-keyed `ChartConfig` would emit a rule that can never match.
 - `shadcn-nova.css` is unwrapped from upstream's `.style-nova` selector, since
   Setta ships exactly one style, and it carries only the sections belonging to
   the imported components. Sections for components Setta has not imported

@@ -255,9 +255,12 @@ function CodexAPIKeyForm({
     <form className="flex min-w-0 gap-2" onSubmit={(event) => void submit(event)}>
       <SettaCompactInput
         aria-label="OpenAI API key"
+        autoCapitalize="none"
+        autoComplete="off"
         className="min-w-0 flex-1"
         data-testid="codex-account-api-key"
         onChange={(event) => setAPIKey(event.target.value)}
+        spellCheck={false}
         type="password"
         value={apiKey}
       />
