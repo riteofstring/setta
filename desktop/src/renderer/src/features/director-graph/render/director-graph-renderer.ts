@@ -81,6 +81,13 @@ export interface GraphRenderView {
   readonly glitch: number;
   /** 1 while the app is actually capturing the user's voice; 0 otherwise. */
   readonly listening: number;
+  /**
+   * Seconds since this canvas first drew, for the ambient field only. The
+   * field compares against no event time, and the committed-time clock grows
+   * past float32 precision on a days-old thread, which quantised the drift
+   * into shimmering noise.
+   */
+  readonly fieldTimeSeconds: number;
   readonly reducedMotion: boolean;
 }
 
@@ -373,7 +380,10 @@ export class DirectorGraphRenderer {
   private scaledFieldParticles(): number {
     const referenceArea = 1280 * 820;
     const area = this.surfaces.cssWidth * this.surfaces.cssHeight;
-    const scale = Math.min(2.5, Math.max(0.6, area / referenceArea));
+    // Wide bounds on purpose: the old clamps bit at ordinary window sizes,
+    // which is what made a shrunken window read too dense and a fullscreen
+    // display too sparse. The bounds are sanity rails, not tuning.
+    const scale = Math.min(6, Math.max(0.25, area / referenceArea));
     const quantised = Math.round(scale * 4) / 4;
     return Math.round(this.profile.fieldParticles * quantised);
   }
@@ -891,7 +901,7 @@ export class DirectorGraphRenderer {
     const gl = this.gl;
     gl.useProgram(this.fieldProgram);
     const count = this.collectHalos(frame, fit);
-    gl.uniform1f(this.fieldUniforms.u_time, frame.view.timeSeconds);
+    gl.uniform1f(this.fieldUniforms.u_time, frame.view.fieldTimeSeconds);
     gl.uniform1f(this.fieldUniforms.u_cam, frame.view.cameraWorldY);
     gl.uniform1f(this.fieldUniforms.u_pointScale, this.surfaces.scenePixelScale);
     gl.uniform1f(

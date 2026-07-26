@@ -104,15 +104,14 @@ out float v_alpha,v_seed;
 void main(){
   float depth=0.35+a_field.w*0.65;
   vec2 p=a_field.xy;
+  // The mockup's constants exactly: this is the ocean. u_time here is the
+  // session clock, not event time — a days-old thread pushes event time past
+  // float precision and the drift quantises into shimmering noise.
   float motionTime=u_time*u_flow;
-  // The mockup's demo camera never stops, so its field parallax-drifts all
-  // the time; production idles at a still camera, so the field carries a
-  // stronger drift of its own (0.004->0.012) and a faster flow phase
-  // (0.07->0.11) or the fluid reads as static noise between runs.
-  p.y+=(u_cam*0.16+motionTime*0.012)*depth;
+  p.y+=(u_cam*0.16+motionTime*0.004)*depth;
   p.x+=0.028*depth*sin(motionTime*0.13+a_field.z*31.0+a_field.y*7.0);
   p.y+=0.014*depth*sin(motionTime*0.10+a_field.z*19.0);
-  float t=motionTime*0.11;
+  float t=motionTime*0.07;
   vec2 flow=vec2(sin(p.y*3.1+t)+0.5*sin(p.y*6.7-t*1.3+p.x*2.2),
                  cos(p.x*3.0-t*0.8)+0.5*cos(p.x*5.9+t+p.y*2.1));
   p+=flow*(0.035*depth*u_flow);

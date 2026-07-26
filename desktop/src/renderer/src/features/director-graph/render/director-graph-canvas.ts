@@ -187,6 +187,8 @@ export class DirectorGraphCanvas {
   private lastSurfaceKey = "";
   private lastFrameTimestampMs = 0;
   private disposed = false;
+  /** The ambient field's session clock origin. See GraphRenderView.fieldTimeSeconds. */
+  private firstFrameTimeSeconds: number | null = null;
   /*
    * The mockup's thread-switch slide (mockup lines 1278–1285). By the time the
    * shell knows the selection changed, the new snapshot is already on screen,
@@ -697,8 +699,12 @@ export class DirectorGraphCanvas {
   private renderView(timeSeconds: number): GraphRenderView {
     const hovered = this.view.hovered();
     const switchMotion = this.workstreamSwitchMotion();
+    if (this.firstFrameTimeSeconds === null) {
+      this.firstFrameTimeSeconds = timeSeconds;
+    }
     return {
       timeSeconds,
+      fieldTimeSeconds: timeSeconds - this.firstFrameTimeSeconds,
       cameraWorldY: this.view.camera(),
       hoverLaneX: hovered === null ? 0 : packedValueAt(this.snapshot.nodes.lane, hovered),
       hoverWorldY: hovered === null ? 0 : this.layout.nodeWorldY(hovered),
