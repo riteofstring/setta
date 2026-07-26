@@ -1,0 +1,163 @@
+# Artifact Visual Language Plan
+
+**Date:** 2026-07-27
+**Status:** Not started.
+
+## Outcome
+
+An artifact looks like it belongs to the Director command center, because it is
+drawn from the same palette, the same type scale, and the same rules about what
+gets a box.
+
+## The problem
+
+The command center and the artifacts are two products.
+
+The command center never reads the appearance setting. Its CSS contains no
+theme variable at all — the palette is literal `oklch()` values, fixed dark,
+matching `docs/mockups/fullscreen_conversation_concept.html`.
+
+The artifact catalog is a themed shadcn app. Its components are written in
+`text-foreground`, `text-muted-foreground`, `border-border`, `bg-muted`, and
+`var(--accent-*)`, all of which the appearance store rewrites on `:root` when
+the mode changes (`appearance-store.ts:182`).
+
+So an artifact is a light-or-dark document embedded in a permanently dark
+canvas. The seam is visible wherever the two meet, and it is load-bearing: the
+artifact preview in the rail must paint its own themed background, because
+without it the catalog's theme-token text would render dark on a dark card in
+light mode. That background is what makes a rail card read as a box inside a
+box, and it cannot simply be deleted while the coupling exists.
+
+Colour is only the part that forced a workaround. Side by side, the rest:
+
+| | Command center | Artifacts |
+| --- | --- | --- |
+| Palette | fixed dark `oklch()` | shadcn tokens, mode-dependent |
+| Type scale | explicit 10/11/12/13 px | browser-relative shadcn sizes |
+| Kickers | 10 px uppercase, 0.14 em tracking | none |
+| Boxes | artifacts and pending actions only | nearly everything |
+| Status colour | graph modes (cyan/violet/amber/green/red) | shadcn status tokens |
+| Vertical rhythm | 8–18 px | roughly double |
+
+The duplicated title is the same failure in miniature: the browser header names
+the artifact and then the document names it again, because neither surface knows
+what the other says.
+
+## Decision
+
+**Artifacts are always dark.** They stop reading the appearance setting and
+adopt the command center's palette.
+
+Recorded from the product owner, 2026-07-27: light mode is never used, and it
+stays only for the settings pages. So the mode-following behaviour in the
+artifact path is not a feature being removed — it is a divergence that never
+paid for itself, and it is what forces the theme island.
+
+## Hard Rules
+
+- No compatibility layer. Theme-token usage in the artifact path is replaced,
+  not kept alongside a dark override; there is no artifact theme switch.
+- The Go-owned catalog contract is untouched. `artifact-catalog.ts` and friends
+  are generated from `cmd/generate-artifact-catalog` and describe component
+  names and props, not appearance. This plan is renderer-only.
+- No new dependency. No CSS framework, no theming library, no icon set.
+- The appearance setting keeps working for the settings pages. This plan removes
+  artifacts from its scope, not the setting.
+- One source for the palette. The point of the work is to stop having two; do
+  not fix the seam by copying the shell's literals into the artifact components.
+
+## Phase 0 — A surface that shows every primitive at once
+
+The catalog has ten conformance fixtures covering content blocks, layout
+containers, data display, charts, references, a mixed report, skipped slots,
+syntax edges, and a maximum table
+(`src/renderer/src/features/artifacts/generated/conformance-corpus/`). They are
+used by unit tests and never rendered anywhere a person can look.
+
+Add an artifact gallery entry that renders all ten, mirroring the existing
+`director-graph-gallery.html` entry point. Every later phase is judged on it,
+and it is the only way to see a catalog-wide change without hunting for an
+artifact that happens to use a `PieChart`.
+
+**Verification.** The gallery loads every fixture without a renderer error.
+
+## Phase 1 — Name the command center's palette
+
+The shell's colours are literals repeated across
+`director-command-center.css`, `director-command-center-composer.css`,
+`director-command-center-navigation.css`, `director-command-center-activity.css`,
+and `director-graph.css`. Artifacts cannot adopt them while they are spelled out
+in forty places.
+
+Extract them into custom properties on the command center root — ground,
+surface, panel, foreground, muted, faint, border, primary, and the five graph
+mode colours already defined in `graph-visual-language.ts`. The mode colours are
+owned by the graph and must be read from there rather than re-typed, so the
+canvas and the artifacts cannot drift.
+
+This phase changes no pixels. It is the enabler, and it is separately
+verifiable *because* it changes no pixels.
+
+**Verification.** Screenshot parity on the command center before and after;
+the Electron `director-command-center` workflow.
+
+## Phase 2 — Artifacts adopt the palette
+
+Replace theme tokens in `artifact-layout.tsx`, `artifact-content.tsx`,
+`artifact-data.tsx`, `artifact-table.tsx`, `artifact-chart.tsx`, and
+`ArtifactPreviewSurface.tsx` with the Phase 1 properties.
+
+Then delete the theme island: `.director-artifact-preview-viewport` loses its
+background, radius, and padding, and the summary sits directly on the card. That
+deletion is the proof the coupling is gone.
+
+**This phase changes an E2E contract.** `assertDirectorArtifactPreviewTheme`
+currently asserts the preview follows the mode, and
+`director-command-center-workflow.test.mjs:499–550` drives light and dark to
+check it. The new expectation is the opposite: the preview is the same dark
+surface in both modes, and readable in both. Rewrite the assertion to state
+that, rather than deleting it — the risk it guards (an unreadable preview) is
+real and is exactly what a botched version of this phase would produce.
+
+**Verification.** The rewritten appearance assertions; the gallery in both
+modes; `director-command-center` workflow.
+
+## Phase 3 — Type scale and rhythm
+
+Adopt the shell's explicit scale: 10 px uppercase kickers with 0.14 em tracking,
+11 px meta, 12.5–13 px body, and one step above that for a document title.
+Nothing in an artifact is larger than the command center's own title.
+
+Halve the vertical rhythm to the shell's 8–18 px range. The current gaps are
+what make a short artifact feel like an empty page.
+
+Remove the duplicated title: the artifact browser header names the artifact, so
+the document body starts at its first real content.
+
+**Verification.** The gallery at the reviewed viewports; `better-typography`
+review of the resulting scale.
+
+## Phase 4 — What gets a box
+
+Apply the command center's rule: a card is for a thing with edges — a produced
+artifact, a question the user must answer. Prose, headings, metrics, and list
+items are not boxes.
+
+In catalog terms: `Card` keeps a hairline and loses its fill; `Alert` becomes a
+rule-and-tint rather than a bordered panel; `Badge` matches the shell's chip
+weight; `Table` keeps hairline row rules and drops its outer border; `Metric`
+loses its container entirely. Status tone maps to the graph's mode colours, so a
+failing artifact and a failing node are the same red.
+
+**Verification.** The gallery; a screenshot pair against the command center at
+each reviewed viewport, which is the actual question this plan exists to answer.
+
+## Open questions
+
+1. **Does the artifact browser overlay stay full-bleed?** It currently fills the
+   window with a wide measure. The shell's reading surfaces are bounded columns.
+   Deferred to Phase 3, where the measure gets set.
+2. **Does light mode survive at all?** With artifacts out of its scope it
+   applies only to settings pages. Removing it entirely is a smaller change than
+   keeping it half-used, and worth asking once this plan lands.
