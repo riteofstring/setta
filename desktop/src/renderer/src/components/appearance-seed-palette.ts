@@ -52,6 +52,7 @@ export function settingsFromSeed(
   return {
     ...settings,
     dark: darkSchemeFromTailwind(tailwind, settings.dark.status, settings.dark.accent),
+    light: lightSchemeFromTailwind(tailwind, settings.light.status, settings.light.accent),
   };
 }
 
@@ -71,6 +72,64 @@ function tailwindPaletteFromSeed(seedColor: string): AppearanceTailwindPalette {
     palette[name] = formatOKLCH(lightness, chroma * chromaFactor, seed.hue);
   }
   return palette as AppearanceTailwindPalette;
+}
+
+function lightSchemeFromTailwind(
+  tailwind: AppearanceTailwindPalette,
+  status: AppearanceColorScheme["status"],
+  accent: AppearanceColorScheme["accent"],
+): AppearanceColorScheme {
+  const card = "oklch(1.0000 0.0000 0.00)";
+  const mutedForeground = firstReadableForeground(
+    [tailwind.setta50, card],
+    tailwind.setta600,
+    tailwind.setta700,
+    tailwind.setta800,
+    tailwind.setta900,
+    tailwind.setta950,
+    tailwind.setta975,
+  );
+  return {
+    accent,
+    shadcn: {
+      accent: tailwind.setta200,
+      accentForeground: tailwind.setta800,
+      background: tailwind.setta50,
+      border: tailwind.setta200,
+      card,
+      cardForeground: tailwind.setta900,
+      destructive: status.critical,
+      destructiveForeground: safeHighContrastForeground(status.critical, status.criticalForeground),
+      foreground: tailwind.setta900,
+      input: tailwind.setta200,
+      muted: tailwind.setta100,
+      mutedForeground,
+      popover: card,
+      popoverForeground: tailwind.setta900,
+      primary: tailwind.setta600,
+      primaryForeground: highContrastForeground(tailwind.setta600),
+      ring: tailwind.setta500,
+      secondary: tailwind.setta100,
+      secondaryForeground: tailwind.setta800,
+      sidebar: tailwind.setta100,
+      sidebarAccent: tailwind.setta200,
+      sidebarAccentForeground: bestReadableForeground(
+        tailwind.setta200,
+        tailwind.setta900,
+        accessibleBlack,
+      ),
+      sidebarForeground: tailwind.setta800,
+    },
+    status: {
+      ...status,
+      alertForeground: safeHighContrastForeground(status.alert, status.alertForeground),
+      criticalForeground: safeHighContrastForeground(status.critical, status.criticalForeground),
+      infoForeground: safeHighContrastForeground(status.info, status.infoForeground),
+      successForeground: safeHighContrastForeground(status.success, status.successForeground),
+      warningForeground: safeHighContrastForeground(status.warning, status.warningForeground),
+    },
+    tailwind,
+  };
 }
 
 function darkSchemeFromTailwind(

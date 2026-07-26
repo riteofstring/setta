@@ -58,6 +58,9 @@ func (service *Service) archiveConversationSnapshot(
 		return err
 	}
 	_, err = service.store.transactPresentationAware(ctx, "archive topic conversation", func(transaction *WriteTransaction) error {
+		if err := requireArchiveRoutingSettled(transaction, conversationID); err != nil {
+			return err
+		}
 		if err := transaction.UpdateConversation(
 			ConversationExpectation{
 				UpdatedAt:              snapshot.Conversation.UpdatedAt,
@@ -70,6 +73,40 @@ func (service *Service) archiveConversationSnapshot(
 		return appendPublications(transaction, publications)
 	})
 	return err
+}
+
+func requireArchiveRoutingSettled(transaction *WriteTransaction, conversationID string) error {
+	var pending bool
+	err := transaction.tx.QueryRowContext(transaction.ctx, `
+SELECT
+  EXISTS(
+    SELECT 1
+    FROM conversation_inputs
+    WHERE conversation_id = ? AND status IN (?, ?)
+  )
+  OR EXISTS(
+    SELECT 1
+    FROM conversation_route_decisions AS decision
+    LEFT JOIN conversation_route_command_completions AS completion
+      ON completion.decision_id = decision.id
+    WHERE decision.conversation_id = ? AND completion.decision_id IS NULL
+  )
+`,
+		conversationID,
+		ConversationInputStatusAccepted,
+		ConversationInputStatusRouting,
+		conversationID,
+	).Scan(&pending)
+	if err != nil {
+		return fmt.Errorf("read conversation input routing state before archive: %w", err)
+	}
+	if pending {
+		return &CommandConflictError{
+			ConversationID: conversationID,
+			Reason:         "conversation input routing must settle before archiving",
+		}
+	}
+	return nil
 }
 
 func (service *Service) validateArchiveSnapshot(snapshot ConversationSnapshot) error {

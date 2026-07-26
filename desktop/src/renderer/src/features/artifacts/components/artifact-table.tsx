@@ -8,8 +8,6 @@ import {
   TableRow,
 } from "@renderer/components/ui/table";
 
-import { cn } from "@renderer/lib/utils";
-
 import type { ArtifactComponentProps } from "../generated/artifact-catalog-props";
 
 type TableProps = ArtifactComponentProps["Table"];
@@ -33,27 +31,14 @@ type AlignedCell = { readonly column: TableColumn; readonly text: string };
  * shifting every cell after the gap into the wrong column.
  */
 export function ArtifactTable({ caption, columns, rows }: TableProps) {
-  /*
-   * Hairlines and tabular figures, no frame. The vendored table is built for a
-   * data grid — a boxed cell with even padding on all four sides — and a table
-   * inside a document is set like a table in a book: flush to the text column
-   * on the left, with the row rule doing the separating.
-   */
   return (
-    <Table className="setta-artifact-figure text-[14px]">
-      {caption === undefined ? null : (
-        <TableCaption className="setta-artifact-faint mt-[10px] text-start text-[12px] leading-[1.4]">
-          {caption}
-        </TableCaption>
-      )}
+    <Table>
+      {caption === undefined ? null : <TableCaption>{caption}</TableCaption>}
       <TableHeader>
         <TableRow>
           {columns.map((column) => (
             <TableHead
-              className={cn(
-                "setta-artifact-kicker h-auto pt-0 pb-[9px] ps-0 pe-[14px] last:pe-0",
-                alignmentClasses[column.align ?? "start"],
-              )}
+              className={alignmentClasses[column.align ?? "start"]}
               key={column.key}
               scope="col"
             >
@@ -67,10 +52,7 @@ export function ArtifactTable({ caption, columns, rows }: TableProps) {
           <TableRow key={rowIndex}>
             {alignRow(columns, row, rowIndex).map((cell) => (
               <TableCell
-                className={cn(
-                  "py-[11px] ps-0 pe-[14px] text-muted-foreground first:text-foreground last:pe-0",
-                  alignmentClasses[cell.column.align ?? "start"],
-                )}
+                className={alignmentClasses[cell.column.align ?? "start"]}
                 key={cell.column.key}
               >
                 {cell.text}

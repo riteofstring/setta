@@ -4,7 +4,6 @@ import type {
   DirectorReceipt,
   DirectorSnapshot,
   Workstream,
-  WorkstreamNarration,
   WorkspaceSession,
   WorkspaceSummary,
 } from "@generated/backend";
@@ -27,6 +26,11 @@ import {
 } from "../global-speech/speech-capture-lifecycle";
 import type { AppShellSpeechPlaybackController } from "../global-speech/app-shell-speech-playback-controller";
 import { createBrowserVoiceInputProvider } from "../global-speech/browser-voice-input-provider";
+import { emptyPackedGraphSnapshot } from "../director-graph/packed-graph-snapshot";
+import {
+  packSemanticGraphComposition,
+  semanticGraphTimeOriginSeconds,
+} from "../director-graph/semantic-graph-packer";
 import { DirectorGraphSurface } from "../director-graph/render/DirectorGraphSurface";
 import type { DirectorGraphCanvas } from "../director-graph/render/director-graph-canvas";
 import {
@@ -36,36 +40,34 @@ import {
   focusDirectorComposer,
   type DirectorSpeechCaptureBinding,
 } from "./DirectorComposer";
-import { applyDirectorEvent, selectedWorkstreamEntry } from "./director-command-center-state";
+import {
+  compactDirectorHistory,
+  DirectorHistoryOverlaySlot,
+  type DirectorHistory,
+} from "./DirectorHistoryOverlay";
+import { currentDirectorActivity, type DirectorNowActivity } from "./DirectorNowActivityList";
+import {
+  applyDirectorEvent,
+  selectedWorkstreamEntry,
+  visibleSelectedGraph,
+} from "./director-command-center-state";
 import { enqueueDirectorSpeechPlayback } from "./director-speech-playback";
 import { DirectorSpeechCaptureController } from "./director-speech-capture";
 import { ArtifactBrowserOverlaySlot } from "./ArtifactBrowserOverlaySlot";
 import { ArtifactsRail } from "./DirectorArtifactsRail";
-import {
-  createWorkstreamIntent,
-  PendingActions,
-  workspaceWorkstreamTitle,
-} from "./DirectorPendingActions";
-import { NowRail } from "./DirectorNowRail";
-import { DirectorReply, type DirectorLoadState } from "./DirectorReply";
+import { NowRail, type DirectorLoadState } from "./DirectorNowRail";
 import { useDirectorArtifactBrowser } from "./director-artifact-browser";
 import {
   useDirectorWorkstreamSwitchTransition,
   WorkstreamSwitchTransition,
 } from "./director-workstream-switch-transition";
-import { directorFocus, type DirectorFocus } from "./director-focus";
-import { directorSubmitIntent } from "./director-view-submit";
+import { directorFocus } from "./director-focus";
 import {
   CommandCenterTopBar,
   directorWorkstreamKeyboardDirection,
   moveSelectionIntent,
   type DirectorRailVisibility,
 } from "./DirectorWorkstreamNavigation";
-import {
-  directorGraphTimeSecondsAt,
-  packDirectorGraphs,
-  useDirectorGraphPresentation,
-} from "./director-graph-presentation";
 
 interface DirectorCommandCenterShellProps {
   connectedRuntimeId: string | null;
@@ -106,9 +108,10 @@ interface DirectorRuntimeState {
 }
 
 interface DirectorCommandCenterSnapshotView {
-  readonly narration: readonly WorkstreamNarration[];
+  readonly activity: DirectorNowActivity;
   readonly approvals: readonly DirectorSnapshot["unresolvedApprovals"][number][];
   readonly artifacts: readonly DirectorSnapshot["artifacts"][number][];
+  readonly history: DirectorHistory;
   readonly requests: readonly DirectorSnapshot["unresolvedResourceRequests"][number][];
   readonly selectedWorkstream: Workstream | null;
 }
@@ -128,6 +131,7 @@ const defaultRailVisibility = {
  * on when a rail floats.
  */
 const compactRailQuery = "(max-width: 760px)";
+const directorGraphCompositionId = "director-command-center";
 const directorEventVisibility = {
   "director.aggregates.updated": true,
   "director.approval.updated": true,
@@ -185,6 +189,12 @@ export function DirectorCommandCenterShell({
   speechPlayback,
 }: DirectorCommandCenterShellProps): React.JSX.Element {
   const director = useDirectorRuntime(setta, speechPlayback, connectedRuntimeId);
+  const speechCapture = useDirectorSpeechCapture({
+    dispatch: director.dispatch,
+    runtimeId: connectedRuntimeId,
+    setta,
+    speechPlayback,
+  });
   const workspaceBinding = useDirectorWorkspaceBinding(setta);
   const snapshotView = useMemo(
     () => directorCommandCenterSnapshotView(director.snapshot),
@@ -196,99 +206,42 @@ export function DirectorCommandCenterShell({
     runtimeId: connectedRuntimeId,
   });
   const [canvas, setCanvas] = useState<DirectorGraphCanvas | null>(null);
-  // Selection is a view: no workstream means the Director's own.
-  // Read once. Which workstream is selected decides the view, the composition
-  // and what a click on the canvas does, and re-deriving it at each of those
-  // invited them to disagree.
-  const snapshot = director.snapshot;
-  const selectedWorkstreamId = snapshot === null ? null : snapshot.selectedWorkstreamId;
-  const onDirectorView = selectedWorkstreamId === null;
+  const {
+    close: closeHistory,
+    isOpen: historyOpen,
+    open: openHistory,
+  } = useDirectorHistoryDialog();
   const {
     closeCompactRail,
     compactRail,
     effectiveVisibility: effectiveRailVisibility,
     toggleRail,
-  } = useDirectorRailDisclosure(onDirectorView);
-  const snapshotGraphs = snapshot === null ? undefined : snapshot.graphs;
+  } = useDirectorRailDisclosure();
+  const snapshotGraphs = director.snapshot?.graphs;
   const graphTimeSecondsAt = useMemo(
     () => directorGraphTimeSecondsAt(director.snapshot),
-    [snapshot === null ? null : snapshot.connection.lastEventAt, snapshotGraphs],
+    [director.snapshot?.connection.lastEventAt, snapshotGraphs],
   );
-  const composition = useMemo(
-    () => packDirectorGraphs(snapshotGraphs, selectedWorkstreamId),
-    [snapshotGraphs, selectedWorkstreamId],
-  );
-  const packedSnapshot = composition.snapshot;
-  const { openWorkstream: openWorkstreamFromGraph } = useDirectorGraphPresentation({
-    dispatch: director.dispatch,
-  });
+  const packedSnapshot = useMemo(() => packDirectorGraphs(snapshotGraphs), [snapshotGraphs]);
   const railAttributes = directorRailVisibilityAttributes(effectiveRailVisibility);
   const focus = directorFocus(snapshotView.selectedWorkstream);
   const switchTransition = useDirectorWorkstreamSwitchTransition(director.snapshot);
-  const contentInert = artifactBrowser.activeArtifact !== null;
+  const contentInert = historyOpen || artifactBrowser.activeArtifact !== null;
   const onGraphReady = useCallback((host: DirectorGraphCanvas | null) => {
     setCanvas(host);
   }, []);
-  /*
-   * What you are looking at is what you are talking to.
-   *
-   * On the Director's view this is the intent it has always dispatched. On a
-   * workstream's view the words go to that conversation, and the router decides
-   * whether they steer the run, queue behind it, or answer from what it already
-   * knows — then say which, because a silent wrong guess is worse than not
-   * guessing at all.
-   */
-  const submitTranscriptToCurrentView = useCallback(
-    async (text: string): Promise<string | null> => {
-      const receipt = await director.dispatch(directorSubmitIntent(text));
-      return receipt.submit?.replyText ?? null;
-    },
-    [director.dispatch],
-  );
-  const submitToCurrentView = useCallback(
-    async (text: string): Promise<void> => {
-      await submitTranscriptToCurrentView(text);
-    },
-    [submitTranscriptToCurrentView],
-  );
-  /*
-   * Voice submits through the same door as text, so speaking to a workstream's
-   * view routes exactly as typing at it does. It returns the receipt line the
-   * capture surface shows, which for a workstream is what the router decided.
-   */
-  const speechCapture = useDirectorSpeechCapture({
-    runtimeId: connectedRuntimeId,
-    setta,
-    speechPlayback,
-    submitTranscript: submitTranscriptToCurrentView,
-  });
-  const startWorkstreamInFolder = useCallback(() => {
-    void (async () => {
-      const workspace = await workspaceBinding.openLocalFolder();
-      if (workspace === null) {
-        return;
-      }
-      await director.dispatch(
-        createWorkstreamIntent(workspace.id, workspaceWorkstreamTitle(workspace)),
-      );
-    })();
-  }, [director.dispatch, workspaceBinding.openLocalFolder]);
 
   useEffect(() => {
-    if (canvas === null) {
-      return;
-    }
-    // Presentation first: it decides how the snapshot is read, so the canvas
-    // must never see a new composition under the old rules.
-    canvas.setPresentation(composition.presentation);
-    canvas.setSnapshot(composition.snapshot);
-  }, [canvas, composition]);
+    canvas?.setSnapshot(packedSnapshot);
+  }, [canvas, packedSnapshot]);
 
   useDirectorShellKeyboardNavigation({
     artifactBrowserOpen: artifactBrowser.activeArtifact !== null,
     closeCompactRail,
+    closeHistory,
     compactRail,
     dispatch: director.dispatch,
+    historyOpen,
   });
 
   return (
@@ -311,7 +264,6 @@ export function DirectorCommandCenterShell({
         </a>
         <CommandCenterTopBar
           dispatch={director.dispatch}
-          onStartWorkstream={startWorkstreamInFolder}
           onToggleRail={toggleRail}
           onOpenSettingsPage={onOpenSettingsPage}
           platform={platform}
@@ -322,83 +274,46 @@ export function DirectorCommandCenterShell({
           <DirectorGraphSurface
             ambientMotion
             label="Director semantic graph"
-            onOpenWorkstream={openWorkstreamFromGraph}
             onReady={onGraphReady}
             timeSecondsAt={graphTimeSecondsAt}
           />
           <WorkstreamSwitchTransition transition={switchTransition} />
-          {packedSnapshot.nodeCount === 0 ? <GraphEmptyState focus={focus} /> : null}
-          <NowRail narration={snapshotView.narration} />
+          <NowRail
+            activity={snapshotView.activity}
+            focus={focus}
+            history={snapshotView.history}
+            loadState={director.loadState}
+            message={director.message}
+            onOpenHistory={openHistory}
+            receiptText={director.receiptText}
+          />
           <ArtifactsRail
             approvals={snapshotView.approvals}
             artifactBrowser={artifactBrowser}
             artifacts={snapshotView.artifacts}
+            dispatch={director.dispatch}
+            dispatching={director.pending.dispatching}
+            openLocalFolder={workspaceBinding.openLocalFolder}
+            openWorkspacePath={workspaceBinding.openWorkspacePath}
             requests={snapshotView.requests}
+            workspaceSession={workspaceBinding.session}
           />
-          {/*
-           * Waiting-on-you and the composer share a dock so they stack in one
-           * column above the canvas. They are siblings, not nested: an approval
-           * renders its own form, and a form inside the composer's form is
-           * dropped by the parser, which silently kills the approval's submit.
-           */}
-          <div className="director-composer-dock">
-            {/*
-             * What the Director just said, above the composer that asked.
-             *
-             * It used to live in the Now rail, which the Director's own view
-             * hides — so the app's primary interaction completed with no
-             * readable answer. A reply belongs beside the thing you typed into,
-             * not in a rail about a workstream.
-             */}
-            <DirectorReply
-              loadState={director.loadState}
-              message={director.message}
-              receiptText={director.receiptText}
-            />
-            <PendingActions
-              approvals={snapshotView.approvals}
-              dispatch={director.dispatch}
-              dispatching={director.pending.dispatching}
-              openLocalFolder={workspaceBinding.openLocalFolder}
-              requests={snapshotView.requests}
-              workspaceSession={workspaceBinding.session}
-            />
-            <DirectorComposer
-              answering={director.pending.answering}
-              focus={focus}
-              onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
-              onSubmit={submitToCurrentView}
-              speechCapture={speechCapture}
-            />
-          </div>
+          <DirectorComposer
+            answering={director.pending.answering}
+            dispatch={director.dispatch}
+            focus={focus}
+            onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
+            speechCapture={speechCapture}
+          />
         </section>
       </div>
+      <DirectorHistoryOverlaySlot
+        history={snapshotView.history}
+        isOpen={historyOpen}
+        onClose={closeHistory}
+      />
       <ArtifactBrowserOverlaySlot browser={artifactBrowser} />
     </main>
-  );
-}
-
-/**
- * What the canvas says when there is nothing to draw.
- *
- * A workstream with no committed nodes renders only the drifting medium, which
- * is indistinguishable from a graph that failed to draw. The mockup never has
- * this state — it is a demo with scripted activity — so the empty case had no
- * answer at all: an idle workstream showed an empty void and said nothing.
- *
- * It is DOM over the canvas, like every other graph label, and it names the one
- * action that changes the state rather than describing the emptiness.
- */
-function GraphEmptyState({ focus }: { focus: DirectorFocus }) {
-  return (
-    <div className="director-graph-empty" role="status">
-      <p className="director-graph-empty-line">
-        {focus.kind === "director"
-          ? "No work has started yet."
-          : "Nothing has run in this workstream yet."}
-      </p>
-      <p className="director-graph-empty-hint">Ask the Director below to start.</p>
-    </div>
   );
 }
 
@@ -594,6 +509,7 @@ function useDirectorRuntime(
 
 function useDirectorWorkspaceBinding(setta: SettaAPI): {
   openLocalFolder: () => Promise<WorkspaceSummary | null>;
+  openWorkspacePath: (rootPath: string) => Promise<WorkspaceSummary>;
   session: WorkspaceSession | null;
 } {
   const session = useWorkspaceStore((state) => state.session);
@@ -606,7 +522,15 @@ function useDirectorWorkspaceBinding(setta: SettaAPI): {
     applyWorkspaceSession(response.session);
     return response.workspace;
   }, [applyWorkspaceSession, setta]);
-  return { openLocalFolder, session };
+  const openWorkspacePath = useCallback(
+    async (rootPath: string): Promise<WorkspaceSummary> => {
+      const response = await setta.workspace.openPath(rootPath);
+      applyWorkspaceSession(response.session);
+      return response.workspace;
+    },
+    [applyWorkspaceSession, setta],
+  );
+  return { openLocalFolder, openWorkspacePath, session };
 }
 
 function directorCommandCenterSnapshotView(
@@ -615,29 +539,23 @@ function directorCommandCenterSnapshotView(
   if (snapshot === null) {
     return emptyCommandCenterSnapshotView();
   }
-  const selected = selectedWorkstreamEntry(snapshot)?.workstream ?? null;
+  const selectedGraph = visibleSelectedGraph(snapshot);
   return {
+    activity: currentDirectorActivity(selectedGraph),
     approvals: snapshot.unresolvedApprovals,
-    /*
-     * An artifact belongs to the thread that produced it, so a workstream's
-     * view lists its own. The Director's view lists none: it has no rails, and
-     * every artifact is one arrow away in the thread that made it.
-     */
-    artifacts:
-      selected === null
-        ? []
-        : snapshot.artifacts.filter((artifact) => artifact.workstreamId === selected.id),
-    narration: selected?.narration ?? [],
+    artifacts: snapshot.artifacts,
+    history: compactDirectorHistory(selectedGraph),
     requests: snapshot.unresolvedResourceRequests,
-    selectedWorkstream: selected,
+    selectedWorkstream: selectedWorkstreamEntry(snapshot)?.workstream ?? null,
   };
 }
 
 function emptyCommandCenterSnapshotView(): DirectorCommandCenterSnapshotView {
   return {
-    narration: [],
+    activity: [],
     approvals: [],
     artifacts: [],
+    history: [],
     requests: [],
     selectedWorkstream: null,
   };
@@ -650,7 +568,31 @@ function directorRailVisibilityAttributes(visibility: DirectorRailVisibility) {
   };
 }
 
-function useDirectorRailDisclosure(onDirectorView: boolean) {
+function useDirectorHistoryDialog() {
+  const [isOpen, setOpen] = useState(false);
+  const wasOpenRef = useRef(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const open = useCallback((trigger: HTMLButtonElement) => {
+    triggerRef.current = trigger;
+    setOpen(true);
+  }, []);
+  const close = useCallback(() => {
+    setOpen(false);
+  }, []);
+  useLayoutEffect(() => {
+    if (wasOpenRef.current && !isOpen) {
+      const trigger = triggerRef.current;
+      if (trigger !== null && document.contains(trigger)) {
+        trigger.focus({ preventScroll: true });
+      }
+      triggerRef.current = null;
+    }
+    wasOpenRef.current = isOpen;
+  }, [isOpen]);
+  return { close, isOpen, open };
+}
+
+function useDirectorRailDisclosure() {
   const [railVisibility, setRailVisibility] =
     useState<DirectorRailVisibility>(defaultRailVisibility);
   const [compactRail, setCompactRail] = useState<DirectorCompactRail>(null);
@@ -660,7 +602,6 @@ function useDirectorRailDisclosure(onDirectorView: boolean) {
   const effectiveVisibility = effectiveDirectorRailVisibility({
     compact,
     compactRail,
-    onDirectorView,
     railVisibility,
   });
   const closeCompactRail = useCallback(() => {
@@ -700,14 +641,17 @@ function useDirectorRailDisclosure(onDirectorView: boolean) {
 function useDirectorShellKeyboardNavigation({
   artifactBrowserOpen,
   closeCompactRail,
+  closeHistory,
   compactRail,
   dispatch,
+  historyOpen,
 }: {
   artifactBrowserOpen: boolean;
   closeCompactRail: () => void;
-
+  closeHistory: () => void;
   compactRail: DirectorCompactRail;
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
+  historyOpen: boolean;
 }) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
@@ -721,7 +665,16 @@ function useDirectorShellKeyboardNavigation({
         return;
       }
       if (event.key === "Escape") {
-        closeDirectorShellLayers({ closeCompactRail, compactRail, event });
+        closeDirectorShellLayers({
+          closeCompactRail,
+          closeHistory,
+          compactRail,
+          event,
+          historyOpen,
+        });
+        return;
+      }
+      if (historyOpen) {
         return;
       }
       const targetIsEditable = directorKeyboardTargetIsEditable(event.target);
@@ -756,54 +709,59 @@ function useDirectorShellKeyboardNavigation({
     return () => {
       globalThis.window?.removeEventListener("keydown", handleKeyDown);
     };
-  }, [artifactBrowserOpen, closeCompactRail, compactRail, dispatch]);
+  }, [artifactBrowserOpen, closeCompactRail, closeHistory, compactRail, dispatch, historyOpen]);
 }
 
 /**
- * Escape's whole meaning in the shell: dismiss the compact rail.
+ * Escape's whole meaning in the shell: dismiss the topmost dismissable layer.
  *
- * It used to close the history overlay too, and both together so the reader
- * never pressed Escape twice. The overlay is gone — it showed the reader their
- * own prompt back — so the compact rail is the only dismissable layer the shell
- * owns. With it closed, Escape belongs to whatever holds focus and the shell
- * leaves the default alone.
+ * The compact rail can sit under the history overlay, so both close together
+ * rather than making the reader press Escape twice. With neither open, Escape
+ * belongs to whatever holds focus and the shell leaves the default alone.
  */
 function closeDirectorShellLayers({
   closeCompactRail,
+  closeHistory,
   compactRail,
   event,
+  historyOpen,
 }: {
   closeCompactRail: () => void;
+  closeHistory: () => void;
   compactRail: DirectorCompactRail;
   event: KeyboardEvent;
+  historyOpen: boolean;
 }): void {
-  if (compactRail === null) {
+  if (!historyOpen && compactRail === null) {
     return;
   }
   event.preventDefault();
+  if (historyOpen) {
+    closeHistory();
+  }
   closeCompactRail();
 }
 
 function useDirectorSpeechCapture({
+  dispatch,
   runtimeId,
   setta,
   speechPlayback,
-  submitTranscript,
 }: {
+  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
   runtimeId: string | null;
   setta: SettaAPI;
   speechPlayback: AppShellSpeechPlaybackController;
-  submitTranscript: (text: string) => Promise<string | null>;
 }): DirectorSpeechCaptureBinding {
-  const submitRef = useRef(submitTranscript);
-  submitRef.current = submitTranscript;
+  const dispatchRef = useRef(dispatch);
+  dispatchRef.current = dispatch;
   const [controller] = useState(
     () =>
       new DirectorSpeechCaptureController({
         captureProvider: createBrowserVoiceInputProvider(setta),
         clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
         createCaptureSessionId: () => globalThis.crypto.randomUUID(),
-        submitTranscript: (text) => submitRef.current(text),
+        dispatchDirectorIntent: (intent) => dispatchRef.current(intent),
         onCaptureEnd: speechPlayback.resumeAfterCapture,
         onCaptureStart: speechPlayback.preemptForCapture,
         setTimeout: (handler, delayMs) => globalThis.setTimeout(handler, delayMs),
@@ -824,6 +782,53 @@ function useDirectorSpeechCapture({
   useEffect(() => subscribeSpeechCapabilityRefresh(setta, controller), [controller, setta]);
 
   return { controller, snapshot };
+}
+
+function packDirectorGraphs(graphs: DirectorSnapshot["graphs"] | undefined) {
+  if (graphs === undefined || graphs.length === 0) {
+    return emptyPackedGraphSnapshot(directorGraphCompositionId);
+  }
+  return packSemanticGraphComposition({
+    graphs,
+    workstreamId: directorGraphCompositionId,
+  });
+}
+
+export function directorGraphTimeSecondsAt(
+  snapshot: DirectorSnapshot | null,
+  frameAnchorMs = globalThis.performance?.now() ?? 0,
+): (timestampMs: number) => number {
+  const graphs = snapshot?.graphs ?? [];
+  const origin = semanticGraphTimeOriginSeconds(graphs);
+  if (snapshot === null || origin === null) {
+    return (timestampMs) => Math.max(0, timestampMs - frameAnchorMs) / 1000;
+  }
+  const committedAt = latestDirectorGraphTimeSeconds(snapshot, origin);
+  const relativeAtAnchor = Math.max(0, committedAt - origin);
+  return (timestampMs) => relativeAtAnchor + (timestampMs - frameAnchorMs) / 1000;
+}
+
+function latestDirectorGraphTimeSeconds(snapshot: DirectorSnapshot, fallback: number): number {
+  let latest = timestampSeconds(snapshot.connection.lastEventAt) ?? fallback;
+  for (const graph of snapshot.graphs) {
+    for (const node of graph.nodes) {
+      latest = Math.max(
+        latest,
+        timestampSeconds(node.createdAt) ?? fallback,
+        timestampSeconds(node.updatedAt) ?? fallback,
+        timestampSeconds(node.completedAt) ?? fallback,
+      );
+    }
+  }
+  return latest;
+}
+
+function timestampSeconds(value: string | null): number | null {
+  if (value === null) {
+    return null;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed / 1000 : null;
 }
 
 export function directorEventChangesVisibleState(event: DirectorEvent): boolean {
@@ -869,29 +874,15 @@ function dispatchDirectorIntent(
   void dispatch(intent).catch(() => {});
 }
 
-/*
- * Which rails the current view has.
- *
- * The Director's view has none. Its canvas is the content — every workstream
- * at once — and a rail over it names the first column rather than sitting
- * beside it. An artifact belongs to the thread that produced it and is one
- * arrow away, and what needs an answer rides the composer, where it can be
- * acted on rather than only reported.
- */
 export function effectiveDirectorRailVisibility({
   compact,
   compactRail,
-  onDirectorView,
   railVisibility,
 }: {
   compact: boolean;
   compactRail: DirectorCompactRail;
-  onDirectorView: boolean;
   railVisibility: DirectorRailVisibility;
 }): DirectorRailVisibility {
-  if (onDirectorView) {
-    return { artifacts: false, now: false };
-  }
   if (!compact) {
     return railVisibility;
   }

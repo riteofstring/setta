@@ -60,9 +60,6 @@ function makeEdge(
 function runningTurn(rowSpan: number): PackedGraphTurnInput {
   return {
     index: 0,
-    column: 0,
-    columnTop: 0,
-    workstreamId: "fixture",
     inputNodeId: "input",
     outcomeNodeId: null,
     rowSpan,
@@ -175,9 +172,6 @@ describe("packed graph snapshot", () => {
       turns: [
         {
           index: 0,
-          column: 0,
-          columnTop: 0,
-          workstreamId: "fixture",
           inputNodeId: "input",
           outcomeNodeId: "done",
           rowSpan: 3,
@@ -318,9 +312,6 @@ describe("packed graph batch validation", () => {
         turns: [
           {
             index: 0,
-            column: 0,
-            columnTop: 0,
-            workstreamId: "fixture",
             inputNodeId: "input",
             outcomeNodeId: "step-1",
             rowSpan: 2,
@@ -413,9 +404,6 @@ describe("packed graph batch validation", () => {
       turns: [
         {
           index: 0,
-          column: 0,
-          columnTop: 0,
-          workstreamId: "fixture",
           inputNodeId: "input",
           outcomeNodeId: "done",
           rowSpan: 3,
@@ -434,9 +422,6 @@ describe("packed graph batch validation", () => {
         turns: [
           {
             index: 0,
-            column: 0,
-            columnTop: 0,
-            workstreamId: "fixture",
             inputNodeId: "input",
             outcomeNodeId: "done",
             rowSpan: 3,

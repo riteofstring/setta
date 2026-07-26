@@ -233,18 +233,16 @@ func (artifact SideInFlightArtifactMetadata) validate(sourceSequence int) error 
 	if artifact.TrajectorySequence <= 0 || artifact.TrajectorySequence > sourceSequence {
 		return fmt.Errorf("artifact %s has invalid source sequence", artifact.ID)
 	}
+	sequence := artifact.TrajectorySequence
 	// The frame carries artifact identity only, so identity is what gets
-	// validated here — field by field, rather than by borrowing the full
-	// metadata validator, which checks what a published artifact must have
-	// rather than what this frame carries. Document acceptance already happened
-	// before the artifact was published, and re-compiling stored source per side
-	// frame would cost more than it proves.
-	if err := validateIdentifier("side in-flight artifact id", artifact.ID); err != nil {
-		return err
-	}
-	if err := validateRequiredArtifactText("side in-flight artifact title", artifact.Title); err != nil {
-		return err
-	}
-	_, err := validateTimestamp("side in-flight artifact createdAt", artifact.CreatedAt)
-	return err
+	// validated here. Document acceptance already happened before the artifact
+	// was published, and re-compiling stored source per side frame would cost
+	// more than it proves.
+	return ArtifactMetadata{
+		ID:                 artifact.ID,
+		ConversationID:     "side-context-conversation",
+		TrajectorySequence: &sequence,
+		Title:              artifact.Title,
+		CreatedAt:          artifact.CreatedAt,
+	}.Validate()
 }

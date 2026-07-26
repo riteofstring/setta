@@ -143,17 +143,6 @@ type DirectorActivity struct {
 
 // Activity reads the app-wide activity under one lock, so the counts and the
 // outstanding requests beside them describe the same moment.
-// ConversationForWorkstream names the conversation one workstream's work runs
-// in, so a caller can address that conversation directly.
-func (registry *Registry) ConversationForWorkstream(workstreamID string) (string, error) {
-	registry.mutex.Lock()
-	defer registry.mutex.Unlock()
-	if err := registry.requireAvailableLocked(); err != nil {
-		return "", err
-	}
-	return registry.state.conversationForWorkstream(workstreamID)
-}
-
 func (registry *Registry) Activity() (DirectorActivity, error) {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
@@ -248,10 +237,8 @@ func (workstream *registryWorkstream) decisionTarget() (WorkstreamDecisionTarget
 		ResourceScope:        scope,
 		ActiveRunID:          copyOptionalString(record.ActiveRunID),
 		QueuedRunCount:       record.QueuedRunCount,
-		ForkPointRunID:       copyOptionalString(workstream.lastCompletedRunID),
 		LastMilestone:        decisionMilestoneFor(record.LastMilestone),
-		Narration:            append([]WorkstreamNarration{}, record.Narration...),
-		AllowedDecisionKinds: targetDecisionKinds(record, failures, workstream.lastCompletedRunID),
+		AllowedDecisionKinds: targetDecisionKinds(record, failures),
 		RecoverableFailures:  failures,
 	}
 	if err := target.Validate(); err != nil {
@@ -263,17 +250,7 @@ func (workstream *registryWorkstream) decisionTarget() (WorkstreamDecisionTarget
 // targetDecisionKinds is the whole action authority one workstream carries.
 // Selection is always available because every workstream the Director can see
 // is one the user can be shown.
-//
-// Forking is offered on the strength of history rather than run state: a
-// workstream with a completed run has something a child can inherit, and it has
-// it whether or not the parent is busy right now. Forking a running workstream
-// reads the parent and starts nothing in it, so the run it is carrying is not a
-// reason to refuse.
-func targetDecisionKinds(
-	record Workstream,
-	failures []DecisionRecoverableFailure,
-	forkPoint *string,
-) []DirectorDecisionKind {
+func targetDecisionKinds(record Workstream, failures []DecisionRecoverableFailure) []DirectorDecisionKind {
 	kinds := []DirectorDecisionKind{DirectorDecisionSelectWorkstream}
 	idleForDelivery := record.ActiveRunID == nil &&
 		record.QueuedRunCount == 0 &&
@@ -282,9 +259,6 @@ func targetDecisionKinds(
 		kinds = append(kinds, DirectorDecisionSendToWorkstream)
 	} else if record.ActiveRunID != nil {
 		kinds = append(kinds, DirectorDecisionQueueBehindRun, DirectorDecisionSteerRun)
-	}
-	if forkPoint != nil {
-		kinds = append(kinds, DirectorDecisionForkWorkstream)
 	}
 	if idleForDelivery && len(failures) > 0 {
 		kinds = append(kinds, DirectorDecisionRecoverPath)

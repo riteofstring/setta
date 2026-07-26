@@ -1,4 +1,5 @@
-import { Circle, Mic, RotateCcw, Send, Square, X } from "lucide-react";
+import type { DirectorIntent, DirectorReceipt } from "@generated/backend";
+import { LoaderCircle, Mic, RotateCcw, Send, Square, X } from "lucide-react";
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { voiceProviderSetupActionLabel } from "../global-speech/speech-capture-availability";
@@ -121,47 +122,24 @@ function DirectorComposerHint({ hint }: { hint: DirectorComposerHintCopy }) {
 
 export function DirectorComposer({
   answering,
+  dispatch,
   focus,
   onOpenVoiceCredentialSettings,
-  onSubmit,
   speechCapture,
 }: {
   answering: boolean;
+  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
   focus: DirectorFocus;
   onOpenVoiceCredentialSettings: () => void;
-  /*
-   * Where what you typed goes. The composer does not know or choose: what you
-   * are looking at is what you are talking to, and the shell owns which view
-   * that is.
-   */
-  onSubmit: (text: string) => Promise<void>;
   speechCapture: DirectorSpeechCaptureBinding;
 }) {
   const [text, setText] = useState("");
   const voice = directorVoiceComposerState(speechCapture.snapshot);
-  /*
-   * "Voice is not set up" is a standing fact about a control, not news about
-   * the request being written. It used to occupy a line inside the composer,
-   * where it pushed on the field the user came to type in and read as an error
-   * about their input. It now lives on the control it describes: the mic button
-   * dims and carries the reason.
-   *
-   * What stays in the composer is only what is happening right now — recording,
-   * transcribing, a transcript preview, a failed submission to retry.
-   */
-  const voiceUnavailable = voice.state === "unavailable";
-  const voiceStatusInComposer = voiceUnavailable ? null : voice.status;
-  const voiceAnnouncement = [voiceStatusInComposer, voice.transcriptPreview]
-    .filter(Boolean)
-    .join(" ");
-  const voiceControlLabel =
-    voiceUnavailable && voice.status !== null
-      ? `${voice.controlLabel}. ${voice.status}`
-      : voice.controlLabel;
+  const voiceAnnouncement = [voice.status, voice.transcriptPreview].filter(Boolean).join(" ");
   const submitText = async (submittedText: string): Promise<void> => {
     setText("");
     try {
-      await onSubmit(submittedText);
+      await dispatch(submitIntent(submittedText));
     } catch {
       setText((current) => restoreFailedDirectorDraft(current, submittedText));
     }
@@ -207,9 +185,9 @@ export function DirectorComposer({
           <span aria-atomic="true" className="sr-only" role="status">
             {voiceAnnouncement}
           </span>
-          {voiceStatusInComposer === null ? null : (
+          {voice.status === null ? null : (
             <p aria-hidden="true" className="director-composer-voice-status">
-              <span>{voiceStatusInComposer}</span>
+              <span>{voice.status}</span>
               {voice.transcriptPreview === null ? null : (
                 <span className="director-composer-transcript">{voice.transcriptPreview}</span>
               )}
@@ -218,7 +196,7 @@ export function DirectorComposer({
         </div>
         <div className="director-composer-controls">
           <button
-            aria-label={voiceControlLabel}
+            aria-label={voice.controlLabel}
             className="director-composer-voice-button"
             disabled={voice.action === null}
             onClick={() =>
@@ -228,7 +206,7 @@ export function DirectorComposer({
                 onOpenVoiceCredentialSettings,
               )
             }
-            title={voiceControlLabel}
+            title={voice.controlLabel}
             type="button"
           >
             <DirectorVoiceGlyph state={voice.state} />
@@ -489,9 +467,8 @@ function DirectorVoiceGlyph({ state }: { state: DirectorVoiceComposerState["stat
   switch (directorVoiceGlyphKinds[state]) {
     case "failed":
       return <RotateCcw aria-hidden="true" size={17} />;
-    // Waiting is a pulse, like every other in-progress mark in the shell.
     case "loading":
-      return <Circle aria-hidden="true" className="director-pulse" size={13} />;
+      return <LoaderCircle aria-hidden="true" className="director-spinner" size={17} />;
     case "microphone":
       return <Mic aria-hidden="true" size={17} />;
     case "stop":
@@ -499,6 +476,19 @@ function DirectorVoiceGlyph({ state }: { state: DirectorVoiceComposerState["stat
     default:
       return assertNever(directorVoiceGlyphKinds[state]);
   }
+}
+
+function submitIntent(text: string): DirectorIntent {
+  return {
+    cancelRun: null,
+    createWorkstream: null,
+    kind: "submit",
+    moveSelection: null,
+    resolveApproval: null,
+    resolveResourceRequest: null,
+    selectWorkstream: null,
+    submit: { modality: "text", text },
+  };
 }
 
 function transcriptPreview(transcript: string): string | null {

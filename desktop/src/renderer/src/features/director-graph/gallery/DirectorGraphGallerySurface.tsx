@@ -33,9 +33,8 @@ export function DirectorGraphGallerySurface(): React.JSX.Element {
       return null;
     }
     return packSemanticGraphComposition({
-      graphs: selectedFixture.graphs,
-      presentation: "columns",
       workstreamId: selectedFixture.name,
+      graphs: selectedFixture.graphs,
     });
   }, [selectedFixture]);
 

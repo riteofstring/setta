@@ -3,9 +3,7 @@ package director
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"strings"
 
 	"setta/internal/conversation"
 )
@@ -303,44 +301,4 @@ func settaTargetTitle(decisionContext DirectorDecisionContext, workstreamID stri
 		return target.Title
 	}
 	return workstreamID
-}
-
-/*
- * askConversation puts one question to a workstream's narrator.
- *
- * The Director does not get the conversation's trajectory. The narrator holds
- * that context already and answers the question that was asked, scoped to it —
- * "why did it fail" comes back about the failure. A transcript would put the
- * graph dump one layer down, which is the thing this whole plan removes.
- */
-func (box *SettaToolbox) askConversation() SettaToolHandler {
-	return func(ctx context.Context, arguments json.RawMessage) (SettaToolReceipt, error) {
-		var input struct {
-			WorkstreamID string `json:"workstreamId"`
-			Question     string `json:"question"`
-		}
-		if err := decodeSettaToolArguments(arguments, &input); err != nil {
-			return SettaToolReceipt{}, err
-		}
-		if err := validateIdentifier("ask conversation workstream id", input.WorkstreamID); err != nil {
-			return SettaToolReceipt{}, err
-		}
-		question := strings.TrimSpace(input.Question)
-		if question == "" {
-			return SettaToolReceipt{}, errors.New("ask_conversation requires a question")
-		}
-		conversationID, err := box.registry.ConversationForWorkstream(input.WorkstreamID)
-		if err != nil {
-			return SettaToolReceipt{}, err
-		}
-		answer, err := box.narrator.AskConversationStatus(ctx, conversationID, question)
-		if err != nil {
-			return SettaToolReceipt{}, err
-		}
-		return SettaToolReceipt{
-			Tool:         "ask_conversation",
-			Summary:      strings.TrimSpace(answer),
-			WorkstreamID: &input.WorkstreamID,
-		}, nil
-	}
 }

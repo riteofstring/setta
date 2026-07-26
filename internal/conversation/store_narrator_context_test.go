@@ -314,8 +314,6 @@ func seedNarratorContext(t *testing.T, store *Store) narratorContextSeed {
 		TurnID:             &turn.ID,
 		TrajectorySequence: &artifactSequence,
 		Title:              "Narrator context report",
-		Kind:               "Report",
-		Summary:            "The context the narrator was given for this turn.",
 		CreatedAt:          testTimeEnded,
 		Document:           testArtifactDocument(),
 	}

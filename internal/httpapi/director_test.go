@@ -96,7 +96,7 @@ func TestDirectorIntentEndpointSeparatesRejectionFromUnavailability(t *testing.T
 				"/director/intents/dispatch",
 				DispatchDirectorIntentRequest{Intent: director.DirectorIntent{
 					Kind:             director.DirectorIntentSelectWorkstream,
-					SelectWorkstream: &director.DirectorSelectWorkstreamIntent{WorkstreamID: func() *string { id := "workstream:missing"; return &id }()},
+					SelectWorkstream: &director.DirectorSelectWorkstreamIntent{WorkstreamID: "workstream:missing"},
 				}},
 				testCase.wantStatus,
 			)

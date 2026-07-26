@@ -285,8 +285,6 @@ func folderlessStartFixture() ProjectionFixture {
 			event.ArtifactEmitted = &conversation.TrajectoryArtifactEmitted{
 				ArtifactID: "artifact-alpha-1",
 				Title:      "Release notes summary",
-				Kind:       "Report",
-				Summary:    "Three release notes, collapsed into what changed.",
 			}
 		})
 	builder.trajectory(conversationID, stringPointer(turnID), conversation.TrajectoryEventAgentMessageCompleted, conversation.TrajectoryActorAgent,

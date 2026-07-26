@@ -19,7 +19,6 @@ func testStreamID(t *testing.T) string {
 func testWorkstream(id string) Workstream {
 	return Workstream{
 		ID:               id,
-		ConversationID:   "conversation-" + id,
 		Title:            "Refresh the release notes",
 		Status:           WorkstreamStatusIdle,
 		ResourceScope:    WorkstreamResourceScope{Kind: WorkstreamResourceScopeFolderless},

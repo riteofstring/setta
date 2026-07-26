@@ -523,33 +523,34 @@ describe("appearance settings", () => {
 
   test("uses the light color scheme when light mode is active", () => {
     const settings = sampleAppearanceSettings();
-    const setta900 = color(333);
-    const warning = color(334);
-    const edited: AppearanceSettings = {
+    const lightSetta900 = color(333);
+    const lightWarning = color(334);
+    const lightSettings: AppearanceSettings = {
       ...settings,
-      dark: {
-        ...settings.dark,
-        status: { ...settings.dark.status, warning },
-        tailwind: { ...settings.dark.tailwind, setta900 },
+      light: {
+        ...settings.light,
+        status: { ...settings.light.status, warning: lightWarning },
+        tailwind: { ...settings.light.tailwind, setta900: lightSetta900 },
       },
+      mode: "light",
     };
 
-    const variables = appearanceStyleVariables(edited);
+    const variables = appearanceStyleVariables(lightSettings);
 
-    expect(variables["--background"]).toBe(edited.dark.shadcn.background);
-    expect(variables["--color-setta-900"]).toBe(setta900);
-    expect(variables["--setta-logo"]).toBe("oklch(0.8460 0.1292 213.38)");
-    expect(variables["--status-warning"]).toBe(warning);
+    expect(variables["--background"]).toBe(lightSettings.light.shadcn.background);
+    expect(variables["--color-setta-900"]).toBe(lightSetta900);
+    expect(variables["--setta-logo"]).toBe("oklch(0.5800 0.1300 213.38)");
+    expect(variables["--status-warning"]).toBe(lightWarning);
   });
 
   test("updates a nested color without changing the source settings", () => {
     const settings = sampleAppearanceSettings();
     const nextWarning = color(88);
-    const updated = updateAppearanceColor(settings, "status", "warning", nextWarning);
+    const updated = updateAppearanceColor(settings, "light", "status", "warning", nextWarning);
 
-    expect(updated.dark.status.warning).toBe(nextWarning);
-    expect(settings.dark.status.warning).not.toBe(nextWarning);
-    expect(updated.fonts).toBe(settings.fonts);
+    expect(updated.light.status.warning).toBe(nextWarning);
+    expect(settings.light.status.warning).not.toBe(nextWarning);
+    expect(updated.dark.status.warning).toBe(settings.dark.status.warning);
   });
 
   test("renders editable mode, font, Tailwind, shadcn, and status fields", () => {
@@ -561,6 +562,7 @@ describe("appearance settings", () => {
         onApplySettings={vi.fn()}
         onColorChange={vi.fn()}
         onFontChange={vi.fn()}
+        onModeChange={vi.fn()}
         onRevert={vi.fn()}
         onSave={async () => {}}
         presets={sampleAppearancePresets()}
@@ -577,9 +579,9 @@ describe("appearance settings", () => {
     expect(html).toContain("Custom Seed Palette");
     expect(html).toContain("Custom OKLCH seed color");
     expect(html).toContain("oklch(0.8460 0.1292 213.38)");
-    // Setta's surfaces are authored dark, so appearance edits one scheme and
-    // the editor offers no light/dark switch to pick between two.
-    expect(html).not.toContain("Color scheme");
+    expect(html).toContain("Color scheme");
+    expect(html).toContain("Light");
+    expect(html).toContain("Dark");
     expect(html).toContain("Fonts");
     expect(html).toContain("Advanced Color Tokens");
     expect(html).toContain("Palette Scale");
@@ -828,7 +830,9 @@ function sampleAppearanceSettings(): AppearanceSettings {
       mono: `"SFMono-Regular", Consolas, monospace`,
       sans: `"Aptos", ui-sans-serif, sans-serif`,
     },
-    schemaVersion: 5,
+    light: sampleColorScheme(tailwind, 100),
+    mode: "dark",
+    schemaVersion: 4,
   };
 }
 

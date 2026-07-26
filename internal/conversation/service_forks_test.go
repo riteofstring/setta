@@ -33,9 +33,9 @@ func TestServiceCreatesIndependentBranchFromCompletedTurn(t *testing.T) {
 	})
 
 	startsBeforeBranch := len(runtime.startThreadRequests())
-	child, err := service.forkDirectorTopicForTest(
+	child, err := service.forkRouterTopicForTest(
 		ctx,
-		&workspaceID,
+		workspaceID,
 		parentID,
 		sourceTurn.ID,
 		"Durable child")
@@ -111,9 +111,9 @@ func TestServiceNestedBranchCarrierReplaysFullSettaAncestry(t *testing.T) {
 	ancestor = assertServiceSnapshot(t, service, workspaceID, ancestor.Conversation.ID, func(snapshot ConversationSnapshot) bool {
 		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
 	})
-	child, err := service.forkDirectorTopicForTest(
+	child, err := service.forkRouterTopicForTest(
 		ctx,
-		&workspaceID,
+		workspaceID,
 		ancestor.Conversation.ID,
 		latestSnapshotTurn(ancestor).ID,
 		"Child",
@@ -133,9 +133,9 @@ func TestServiceNestedBranchCarrierReplaysFullSettaAncestry(t *testing.T) {
 	child = assertServiceSnapshot(t, service, workspaceID, child.Conversation.ID, func(snapshot ConversationSnapshot) bool {
 		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
 	})
-	grandchild, err := service.forkDirectorTopicForTest(
+	grandchild, err := service.forkRouterTopicForTest(
 		ctx,
-		&workspaceID,
+		workspaceID,
 		child.Conversation.ID,
 		latestSnapshotTurn(child).ID,
 		"Grandchild",
@@ -205,9 +205,9 @@ func TestServiceBranchReplaysSourceOutsideParentSnapshotWindow(t *testing.T) {
 		}
 	}
 
-	child, err := service.forkDirectorTopicForTest(
+	child, err := service.forkRouterTopicForTest(
 		ctx,
-		&workspaceID,
+		workspaceID,
 		parent.Conversation.ID,
 		sourceTurn.ID,
 		"Old-boundary child",
@@ -252,9 +252,9 @@ func TestServiceRejectsIncompleteBranchWithoutTouchingTheProvider(t *testing.T) 
 		return latestSnapshotTurn(snapshot).Status == TurnStatusRunning
 	})
 	startsBeforeBranch := len(runtime.startThreadRequests())
-	_, err = service.forkDirectorTopicForTest(
+	_, err = service.forkRouterTopicForTest(
 		ctx,
-		&workspaceID,
+		workspaceID,
 		parent.Conversation.ID,
 		latestSnapshotTurn(working).ID,
 		"Rejected child")
@@ -286,7 +286,7 @@ func assertBranchSnapshot(
 		branch.ParentConversationID != parent.Conversation.ID ||
 		branch.ForkedAtTurnID != sourceTurn.ID ||
 		branch.SourceTrajectorySequence != turnTrajectoryBoundary(parent, sourceTurn.ID) ||
-		branch.DecisionSource != BranchDecisionSourceDirector {
+		branch.DecisionSource != BranchDecisionSourceConversationRouter {
 		t.Fatalf("branch lineage = %+v", branch)
 	}
 	if child.NarratorState.ConversationID != child.Conversation.ID ||
@@ -323,40 +323,4 @@ func turnTrajectoryBoundary(snapshot ConversationSnapshot, turnID string) int {
 		}
 	}
 	return sequence
-}
-
-// TestServiceBranchesAFolderlessConversation proves a fork inherits the
-// parent's scope rather than requiring one. A folderless conversation is a
-// first-class conversation everywhere else, so a branch of one is too: it stays
-// folderless, keeps the parent's history, and is readable without a workspace.
-func TestServiceBranchesAFolderlessConversation(t *testing.T) {
-	_, service, runtime, workspaceID := newReviewServiceHarness(t)
-	ctx := context.Background()
-	parent, err := service.CreateTopicWithOptionalWorkspace(ctx, nil, "Folderless parent")
-	if err != nil {
-		t.Fatalf("CreateTopicWithOptionalWorkspace: %v", err)
-	}
-	parentID := parent.Conversation.ID
-	if _, err := service.sendTurn(ctx, nil, parentID, "folderless foundation", ""); err != nil {
-		t.Fatalf("send folderless turn: %v", err)
-	}
-	runtime.waitForStart(t, "folderless foundation")
-	completed := assertServiceSnapshotByID(t, ctx, service, parentID, func(snapshot ConversationSnapshot) bool {
-		return latestSnapshotTurn(snapshot).Status == TurnStatusCompleted
-	})
-	sourceTurn := latestSnapshotTurn(completed)
-
-	child, err := service.forkDirectorTopicForTest(ctx, nil, parentID, sourceTurn.ID, "Folderless child")
-	if err != nil {
-		t.Fatalf("fork a folderless conversation: %v", err)
-	}
-	assertBranchSnapshot(t, child, completed, sourceTurn)
-	if child.Conversation.WorkspaceID != nil {
-		t.Fatalf("folderless fork bound a folder: %v", *child.Conversation.WorkspaceID)
-	}
-	// The child is scoped the way the parent was, so a workspace-scoped read
-	// must not find it.
-	if _, err := service.ReadSnapshot(ctx, workspaceID, child.Conversation.ID); !IsConversationNotFound(err) {
-		t.Fatalf("workspace-scoped read of a folderless fork = %T %v, want conversation not found", err, err)
-	}
 }

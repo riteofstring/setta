@@ -25,10 +25,6 @@ type directorWorkstreamCommands interface {
 		context.Context,
 		conversation.DirectorWorkstreamStart,
 	) (conversation.ConversationSnapshot, error)
-	ForkDirectorWorkstream(
-		context.Context,
-		conversation.DirectorWorkstreamFork,
-	) (conversation.ConversationSnapshot, error)
 	SendDirectorTurn(context.Context, *string, string, string, string) (conversation.ConversationSnapshot, error)
 	QueueDirectorTurn(context.Context, *string, string, string, string) (conversation.ConversationSnapshot, error)
 	SteerDirectorTurn(
@@ -84,23 +80,6 @@ func (execution *directorWorkstreamExecution) StartWorkstream(
 			ConversationID: request.ConversationID,
 			Title:          request.Title,
 			WorkspaceID:    request.WorkspaceID,
-		},
-	)
-	return execution.observe(ctx, request.ConversationID, snapshot, err)
-}
-
-func (execution *directorWorkstreamExecution) ForkWorkstream(
-	ctx context.Context,
-	request director.WorkstreamForkRequest,
-) error {
-	snapshot, err := execution.conversations.ForkDirectorWorkstream(
-		ctx,
-		conversation.DirectorWorkstreamFork{
-			ParentConversationID: request.ParentConversationID,
-			ChildConversationID:  request.ConversationID,
-			ForkedAtRunID:        request.ForkedAtRunID,
-			Title:                request.Title,
-			WorkspaceID:          request.WorkspaceID,
 		},
 	)
 	return execution.observe(ctx, request.ConversationID, snapshot, err)

@@ -159,8 +159,7 @@ void main(){
   float tt=min(a_seg.x,grow);
   vec2 A=vec2(a_lane.x,${liveEdgeY}+(u_cam-stateA.x));
   vec2 B=vec2(a_lane.y,${liveEdgeY}+(u_cam-stateB.x));
-  // Fitted, for the reason the node shader gives.
-  if((A.y*u_fitY>1.35&&B.y*u_fitY>1.35)||(A.y*u_fitY<-1.35&&B.y*u_fitY<-1.35)){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }
+  if((A.y>1.35&&B.y>1.35)||(A.y<-1.35&&B.y<-1.35)){ gl_Position=vec4(2.0,2.0,2.0,1.0); return; }
   vec2 dS=normalize((B-A)*vec2(u_aspect,1.0)+vec2(1e-6));
   vec2 perpS=vec2(-dS.y,dS.x);
   vec2 perpC=vec2(perpS.x/u_aspect,perpS.y);
@@ -264,11 +263,7 @@ void main(){
   float settlePop=exp(-max(age-0.10,0.0)*6.0)*u_motion;
   float pop=rise*(1.0+0.55*settlePop);
   vec2 center=vec2(a_node.x,${liveEdgeY}+(u_cam-state.x));
-  // Culled where it is drawn. The fit compresses the graph toward the centre,
-  // so testing the world offset threw away nodes that the fitted position puts
-  // well inside the viewport — most visibly on a tall, narrow window, where the
-  // fit is smallest and the discarded band is widest.
-  if(abs(center.y*u_fitY)>1.3){ gl_Position=vec4(2.0,2.0,2.0,1.0); gl_PointSize=0.0; return; }
+  if(center.y>1.3||center.y<-1.3){ gl_Position=vec4(2.0,2.0,2.0,1.0); gl_PointSize=0.0; return; }
   float hover=exp(-distance(vec2(a_node.x,state.x),vec2(u_hoverX,u_hoverY))*20.0)*u_hoverAmount;
   float failing=step(terminal,1e17);
   float failAge=0.0;

@@ -4,21 +4,34 @@ import type {
   DirectorSnapshot,
   DirectorWorkstreamEntry,
   Workstream,
+  WorkstreamStatus,
 } from "@generated/backend";
 import type { DesktopPlatform } from "@shared/types";
 import {
+  AlertTriangle,
+  Check,
   ChevronLeft,
   ChevronRight,
-  FolderPlus,
+  Circle,
+  Folder,
+  LoaderCircle,
   PanelLeft,
   PanelRight,
   Settings,
+  Square,
+  X,
+  type LucideIcon,
 } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 
 import { useAppWindowDragHandlers } from "../../app-window-drag";
 import { SettaLogoMark } from "../../components/setta-logo-mark";
-import { directorFocus, directorFocusFolder, type DirectorFocus } from "./director-focus";
+import {
+  directorFocus,
+  directorFocusFolder,
+  type DirectorFocus,
+  type DirectorFocusFolder,
+} from "./director-focus";
 import { directorWorkstreamStatusLabels } from "./director-workstream-status";
 
 export interface DirectorRailVisibility {
@@ -40,17 +53,20 @@ interface DirectorKeyboardNavigationInput {
 const maxVisibleWorkstreamDots = 19;
 const unwindowedWorkstreamLimit = 24;
 
-/*
- * Running is a pulse, not a spinner.
- *
- * A rotating loader is a busy indicator from a different design language — it
- * says "wait" — and the command center's language is luminous dots that
- * breathe. The mockup has no spinner anywhere; work in progress is a filled
- * dot that fades and glows.
- */
+const statusGlyphs = {
+  archived: { Icon: Circle, size: 12 },
+  awaiting_approval: { Icon: AlertTriangle, size: 14 },
+  awaiting_resource: { Icon: AlertTriangle, size: 14 },
+  blocked: { Icon: AlertTriangle, size: 14 },
+  completed: { Icon: Check, size: 14 },
+  failed: { Icon: X, size: 14 },
+  idle: { Icon: Circle, size: 12 },
+  queued: { Icon: Square, size: 13 },
+  running: { Icon: LoaderCircle, size: 14 },
+} as const satisfies Record<WorkstreamStatus, { Icon: LucideIcon; size: number }>;
+
 export function CommandCenterTopBar({
   dispatch,
-  onStartWorkstream,
   onToggleRail,
   onOpenSettingsPage,
   platform,
@@ -58,7 +74,6 @@ export function CommandCenterTopBar({
   snapshot,
 }: {
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
-  onStartWorkstream: () => void;
   onToggleRail: (rail: DirectorRailName, trigger: HTMLButtonElement) => void;
   onOpenSettingsPage: () => void;
   platform: DesktopPlatform;
@@ -81,7 +96,6 @@ export function CommandCenterTopBar({
       <WorkstreamNavigation dispatch={dispatch} snapshot={snapshot} />
       <DirectorRailControls
         onOpenSettingsPage={onOpenSettingsPage}
-        onStartWorkstream={onStartWorkstream}
         onToggleRail={onToggleRail}
         railVisibility={railVisibility}
       />
@@ -114,41 +128,21 @@ function WorkstreamNavigation({
       </IconButton>
       <div className="director-workstream-selector">
         <WorkstreamNavigationTitle counter={navigation.counter} focus={focus} />
-        {/*
-         * A strip of one is not a navigator. With a single workstream the dot
-         * has nothing to switch between, and it read as an unexplained glyph
-         * floating under the title — the status it carries is already the
-         * word beside the title.
-         */}
-        {navigation.visibleEntries.length > 0 ? (
-          <div
-            aria-label="Views"
-            className="director-workstream-strip"
-            ref={workstreamStripRef}
-            role="list"
-          >
-            <span role="listitem">
-              <button
-                aria-current={focus.kind === "director" ? "page" : undefined}
-                aria-label="Select the Director"
-                className="director-workstream-dot director-view-dot"
-                data-view="director"
-                onClick={() => dispatchDirectorIntent(dispatch, selectViewIntent(null))}
-                title="Director — every workstream at once"
-                type="button"
-              />
-            </span>
-            <span aria-hidden="true" className="director-strip-separator" />
-            {navigation.visibleEntries.map((item) => (
-              <WorkstreamDot
-                dispatch={dispatch}
-                entry={item.entry}
-                key={item.entry.workstream.id}
-                selectedWorkstreamId={selectedWorkstreamID(snapshot)}
-              />
-            ))}
-          </div>
-        ) : null}
+        <div
+          aria-label="Visible workstreams"
+          className="director-workstream-strip"
+          ref={workstreamStripRef}
+          role="list"
+        >
+          {navigation.visibleEntries.map((item) => (
+            <WorkstreamDot
+              dispatch={dispatch}
+              entry={item.entry}
+              key={item.entry.workstream.id}
+              selectedWorkstreamId={selectedWorkstreamID(snapshot)}
+            />
+          ))}
+        </div>
       </div>
       <IconButton
         disabled={!canMoveSelection}
@@ -161,19 +155,13 @@ function WorkstreamNavigation({
   );
 }
 
-/*
- * The Director is a destination, not the absence of one.
- *
- * This counted workstreams and so went dead at one: with a single workstream
- * selected there was nothing else to move to, except that there was — the
- * Director's own view, which the strip was showing as a dot beside it the whole
- * time. Destinations are the Director plus every workstream, so one workstream
- * is already two places to be.
- */
-export function workstreamSelectionCanMove(
+function workstreamSelectionCanMove(
   navigation: ReturnType<typeof directorWorkstreamNavigation>,
 ): boolean {
-  return navigation.total >= 1;
+  if (navigation.total > 1) {
+    return true;
+  }
+  return navigation.total === 1 && navigation.selected === null;
 }
 
 function selectedWorkstreamID(snapshot: DirectorSnapshot | null): string | null {
@@ -192,17 +180,10 @@ function WorkstreamNavigationTitle({
       {focus.kind === "director" ? <span aria-hidden="true" className="director-role-dot" /> : null}
       <h1 className="director-focus-title">{focus.title}</h1>
       <span className="director-focus-meta">
-        {/*
-         * The status is its own element because it is the top bar's only
-         * changing fact, and the Now rail no longer restates it.
-         *
-         * The folder is not here. It never changes while a workstream is
-         * selected, so it spent bar width on a constant — and every workstream
-         * dot's accessible name and tooltip already name it.
-         */}
-        <span className="director-focus-status">{focusMetaLabel(focus)}</span>
+        {focusMetaLabel(focus)}
         {counter === null ? "" : ` ${counter}`}
       </span>
+      {focus.kind === "workstream" ? <WorkstreamFolderChip folder={focus.folder} /> : null}
     </div>
   );
 }
@@ -226,10 +207,12 @@ function WorkstreamDot({
         className="director-workstream-dot"
         data-status={workstream.status}
         data-workstream-id={workstream.id}
-        onClick={() => dispatchDirectorIntent(dispatch, selectViewIntent(workstream.id))}
+        onClick={() => dispatchDirectorIntent(dispatch, selectWorkstreamIntent(workstream.id))}
         title={labels.tooltip}
         type="button"
-      />
+      >
+        <StatusGlyph status={workstream.status} />
+      </button>
     </span>
   );
 }
@@ -254,14 +237,26 @@ function focusMetaLabel(focus: DirectorFocus): string {
   return focus.kind === "director" ? focus.roleLabel : focus.statusLabel;
 }
 
+function WorkstreamFolderChip({ folder }: { folder: DirectorFocusFolder }) {
+  return (
+    <span
+      className="director-workstream-folder"
+      data-folder={folder.path === null ? "none" : "bound"}
+      title={folder.path ?? undefined}
+    >
+      <Folder aria-hidden="true" size={12} />
+      <span className="sr-only">Folder: </span>
+      <span>{folder.label}</span>
+    </span>
+  );
+}
+
 function DirectorRailControls({
   onOpenSettingsPage,
-  onStartWorkstream,
   onToggleRail,
   railVisibility,
 }: {
   onOpenSettingsPage: () => void;
-  onStartWorkstream: () => void;
   onToggleRail: (rail: DirectorRailName, trigger: HTMLButtonElement) => void;
   railVisibility: DirectorRailVisibility;
 }) {
@@ -271,14 +266,6 @@ function DirectorRailControls({
       className="director-command-center-view-controls app-no-drag"
       role="group"
     >
-      {/*
-       * Starting work in a folder is a way in, not something the Director is
-       * waiting on, so it belongs with the other view-level controls rather
-       * than as a panel stacked over the composer.
-       */}
-      <IconButton label="Start a workstream in a folder" onClick={onStartWorkstream}>
-        <FolderPlus aria-hidden="true" size={16} />
-      </IconButton>
       <IconButton
         controls="director-now-rail"
         expanded={railVisibility.now}
@@ -302,11 +289,20 @@ function DirectorRailControls({
   );
 }
 
-/*
- * Selecting a view. A null workstream is the Director's own, which is what the
- * strip's first destination selects.
- */
-export function selectViewIntent(workstreamId: string | null): DirectorIntent {
+export function StatusGlyph({ status }: { status: WorkstreamStatus }) {
+  const { Icon, size } = statusGlyphs[status];
+  return (
+    <Icon
+      aria-hidden="true"
+      className={
+        status === "running" ? "director-status-icon director-spinner" : "director-status-icon"
+      }
+      size={size}
+    />
+  );
+}
+
+function selectWorkstreamIntent(workstreamId: string): DirectorIntent {
   return {
     cancelRun: null,
     createWorkstream: null,

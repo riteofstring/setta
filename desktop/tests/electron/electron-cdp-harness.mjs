@@ -795,20 +795,10 @@ async function settaPageTarget(debugPort) {
   return targets.find((target) => target.type === "page" && target.title === "Setta") ?? null;
 }
 
-// stopElectron ends the whole tree, not the process we happen to hold.
-//
-// `electron` is a Node wrapper that spawns the real Electron binary as its own
-// child, so signalling the wrapper is no guarantee the app dies with it. A
-// surviving app is reparented to init, keeps its stdout and stderr pointed at
-// the closed pipes of a run that is over, and puts an error dialog in front of
-// whoever is using the machine the next time it tries to log. The descendants
-// are read before anything is signalled, because once the wrapper exits they
-// are nobody's children and cannot be found by walking down from it.
 async function stopElectron(child) {
   if (child.exitCode !== null || child.killed) {
     return;
   }
-  const descendants = await posixDescendantsToSweep(child.pid);
   const exitPromise = new Promise((resolvePromise) => {
     child.once("exit", resolvePromise);
   });
@@ -821,40 +811,6 @@ async function stopElectron(child) {
     child.kill("SIGKILL");
     await Promise.race([exitPromise, delay(3_000)]);
   }
-  await sweepSurvivingProcesses(descendants);
-}
-
-// posixDescendantsToSweep is every process under the wrapper except the wrapper
-// itself, which the caller signals directly. It returns nothing on Windows,
-// where the tree is killed by taskkill instead, and nothing if the process
-// table cannot be read: a teardown sweep is a safety net and must never be the
-// reason a passing run fails.
-async function posixDescendantsToSweep(rootPid) {
-  if (process.platform === "win32" || rootPid === undefined) {
-    return [];
-  }
-  let rows;
-  try {
-    rows = await readPosixProcessTable();
-  } catch {
-    return [];
-  }
-  const processIds = descendantProcessIds(rows, rootPid);
-  if (processIds.has(process.pid)) {
-    throw new Error("refusing to sweep a process tree containing the test controller");
-  }
-  return [...processIds].filter((pid) => pid !== rootPid);
-}
-
-function sweepSurvivingProcesses(processIds) {
-  for (const pid of processIds) {
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch {
-      // Already gone, which is the outcome this is trying to reach.
-    }
-  }
-  return delay(0);
 }
 
 function electronBin() {

@@ -23,17 +23,21 @@ import {
   assertEventKinds,
   assertExcludes,
   assertGraphUpdates,
+  assertHistoryContainsOnlyUserAndTerminalTurns,
   assertProjectedDirectorCreation,
   closeDirectorArtifactBrowser,
   comparableDirectorSnapshot,
   conversationID,
+  directorAppearanceMode,
   directorArtifactMarker,
   hasProjectedDirectorCreation,
   navigateArtifactBrowserWithArrow,
   openDirectorArtifactBrowser,
   openDirectorArtifactBrowserByDoubleClick,
+  readDirectorHistory,
   rememberDirectorGraphCanvas,
   requiredString,
+  setDirectorAppearanceMode,
   verifyCompactRailFocusRestoration,
   verifyRailsFlankTheCanvas,
   verifyWorkspaceSettings,
@@ -116,16 +120,7 @@ try {
     workspaceId,
     fixture.workspaceRoot,
   );
-  /*
-   * This checks the Director answering, so it runs on the Director's view.
-   * Typing at a workstream's view speaks to that conversation instead, and the
-   * Director is not answering then — which is the point of the change, not a
-   * gap in it.
-   */
-  const selectionBeforeComposerCheck = await client_selectedWorkstream(context.client);
-  await selectDirectorView(context.client);
   await verifyComposerQueuesWhileDirectorAnswers(context.client, fakeCodex.statePath);
-  await selectView(context.client, selectionBeforeComposerCheck);
 
   const normal = await submitDirector(context.client, "Director normal conversation.");
   assertEqual(
@@ -176,54 +171,6 @@ try {
     context.client,
     rootWorkstreamId,
     (workstream) => workstream.activeRunId === null && workstream.queuedRunCount === 0,
-  );
-
-  // Forking is the one Director action that both acts on an existing workstream
-  // and produces a new one. The branch has to arrive as a workstream in its own
-  // right — selected, titled, and anchored under the parent — while the parent
-  // keeps everything it had.
-  const forkedTurn = await submitDirector(context.client, "Director fork selected.");
-  const forkedCall = forkedTurn.submit?.toolCalls.find(
-    (call) => call.tool === "fork_workstream" && call.succeeded,
-  );
-  const branchWorkstreamId = forkedCall?.workstreamId;
-  if (!branchWorkstreamId || branchWorkstreamId === rootWorkstreamId) {
-    throw new Error(`Director fork produced no separate workstream: ${branchWorkstreamId}`);
-  }
-  await waitForDirectorSnapshot(
-    context.client,
-    (snapshot) =>
-      snapshot.selectedWorkstreamId === branchWorkstreamId &&
-      snapshot.workstreams.some(
-        (entry) =>
-          entry.workstream.id === branchWorkstreamId &&
-          entry.workstream.parentId === rootWorkstreamId &&
-          entry.workstream.title === "Director branch",
-      ) &&
-      snapshot.workstreams.some((entry) => entry.workstream.id === rootWorkstreamId),
-  );
-  const archivedBranchTurn = await submitDirector(context.client, "Director archive selected.");
-  const archivedBranchCall = archivedBranchTurn.submit?.toolCalls.find(
-    (call) => call.tool === "archive_workstream" && call.succeeded,
-  );
-  assertEqual(archivedBranchCall?.workstreamId, branchWorkstreamId, "Director archive branch");
-  await submitDirector(context.client, "Director select root.");
-  await waitForDirectorSnapshot(
-    context.client,
-    (snapshot) => snapshot.selectedWorkstreamId === rootWorkstreamId,
-  );
-  // The decision is drawn where it happened. A fork is something that happened
-  // to the parent, so the parent's graph is where the account of it belongs —
-  // asserted with the parent selected, because that is the only detail level
-  // that carries a workstream's whole graph.
-  await waitForDirectorSnapshot(context.client, (snapshot) =>
-    snapshot.graphs
-      .find((candidate) => candidate.workstreamId === rootWorkstreamId)
-      ?.nodes.some(
-        (node) =>
-          node.kind === "director_decision" &&
-          node.publicSummary === 'Forked "Director root" into "Director branch".',
-      ),
   );
 
   await submitDirector(context.client, "Director send cancel hold.");
@@ -527,19 +474,14 @@ try {
     context.client,
     newestArtifactId,
   );
-  // A card claims what its artifact is, in the author's own line. That line is
-  // what binds a card to its artifact, so it is what the rail is checked for —
-  // a card is no longer a bounded replay of the document's opening.
-  const openedArtifactSummary = requiredString(openedArtifact?.summary, "older Director summary");
-  const newestArtifactSummary = requiredString(newestArtifact?.summary, "newest Director summary");
-  if (!artifactPreview.previewText.includes(openedArtifactSummary)) {
+  if (!artifactPreview.previewText.includes(openedArtifactMarker)) {
     throw new Error(
-      `Director artifact card omitted its artifact's summary: ${JSON.stringify(artifactPreview)}`,
+      `Director artifact preview omitted its projected document: ${JSON.stringify(artifactPreview)}`,
     );
   }
-  if (!newestArtifactPreview.previewText.includes(newestArtifactSummary)) {
+  if (!newestArtifactPreview.previewText.includes(newestArtifactMarker)) {
     throw new Error(
-      `Newest Director artifact card omitted its artifact's summary: ${JSON.stringify(newestArtifactPreview)}`,
+      `Newest Director artifact preview omitted its projected document: ${JSON.stringify(newestArtifactPreview)}`,
     );
   }
   if (artifactPreview.previewInert) {
@@ -547,19 +489,16 @@ try {
       `Director artifact preview hid its readable content: ${JSON.stringify(artifactPreview)}`,
     );
   }
-  // Two artifacts of the same kind making the same claim draw the same card.
-  // A card is as tall as what it has to say, so this is what "stable" means
-  // now: the height follows the claim, not the arrival order.
   assertEqual(
     newestArtifactPreview.height,
     artifactPreview.height,
-    "Director artifact card height for equal claims",
+    "Director artifact preview stable height",
   );
   await assertArtifactPreviewIgnoresSingleClick(context.client, openedArtifactId, artifactPreview);
-  // Setta has one scheme, so the preview is checked for readability rather than
-  // for following a mode. The risk it guards is unchanged: a preview whose text
-  // and ground resolve to the same colour is invisible.
-  await assertDirectorArtifactPreviewTheme(context.client, openedArtifactId);
+  const originalAppearanceMode = await directorAppearanceMode(context.client);
+  await setDirectorAppearanceMode(context.client, "light");
+  await waitForDirectorArtifactPreview(context.client, openedArtifactId);
+  await assertDirectorArtifactPreviewTheme(context.client, openedArtifactId, "light");
   await rememberDirectorGraphCanvas(context.client);
   const artifactDetail = await openDirectorArtifactBrowser(
     context.client,
@@ -568,6 +507,7 @@ try {
   );
   assertEqual(artifactDetail.status, "ready", "Director artifact browser load state");
   assertEqual(artifactDetail.position, "2 of 2", "Director artifact browser position");
+  assertEqual(artifactDetail.colorMode, "light", "Director artifact browser light appearance");
   assertArtifactBrowserTheme(artifactDetail);
   assertArtifactBrowserModalIsolation(artifactDetail);
   assertArtifactBrowserBoundaries(artifactDetail, {
@@ -605,7 +545,9 @@ try {
   await assertArtifactExpandControlRegainedFocus(context.client, openedArtifactId);
   await assertDirectorGraphCanvasPreserved(context.client);
 
-  await assertDirectorArtifactPreviewTheme(context.client, openedArtifactId);
+  await setDirectorAppearanceMode(context.client, "dark");
+  await waitForDirectorArtifactPreview(context.client, openedArtifactId);
+  await assertDirectorArtifactPreviewTheme(context.client, openedArtifactId, "dark");
   await rememberDirectorGraphCanvas(context.client);
   const doubleClickDetail = await openDirectorArtifactBrowserByDoubleClick(
     context.client,
@@ -613,6 +555,7 @@ try {
     openedArtifactMarker,
   );
   assertEqual(doubleClickDetail.position, "2 of 2", "double-click artifact position");
+  assertEqual(doubleClickDetail.colorMode, "dark", "Director artifact browser dark appearance");
   assertArtifactBrowserTheme(doubleClickDetail);
 
   // The browser's active identity is local state. A newer Director snapshot
@@ -687,7 +630,10 @@ try {
   await closeDirectorArtifactBrowser(context.client);
   await assertArtifactExpandControlRegainedFocus(context.client, openedArtifactId);
   await assertDirectorGraphCanvasPreserved(context.client);
+  await setDirectorAppearanceMode(context.client, originalAppearanceMode);
 
+  const history = await readDirectorHistory(context.client);
+  assertHistoryContainsOnlyUserAndTerminalTurns(history);
   await verifyRailsFlankTheCanvas(context.client);
   await verifyCompactRailFocusRestoration(context.client);
   const rendererEvents = await readRendererEvents(context.client);
@@ -800,61 +746,24 @@ async function launchDirectorElectron(launchArtifactDir) {
   return launched;
 }
 
-/*
- * A running workstream's rail must not still be showing the blocker it cleared.
- *
- * The rail renders narrator sentences now, and a workstream that has just
- * started running has not been narrated yet — so the guarantee is the same one
- * stated the other way round: whatever the rail says, it is not the resolved
- * folder request.
- */
-// Selecting a view. A null workstream is the Director's own, which is a
-// destination the intent names rather than the absence of a workstream.
-async function selectView(client, workstreamId) {
-  await client.evaluate(`window.setta.director.dispatch({
-    cancelRun: null,
-    createWorkstream: null,
-    kind: "select_workstream",
-    moveSelection: null,
-    resolveApproval: null,
-    resolveResourceRequest: null,
-    selectWorkstream: { workstreamId: ${JSON.stringify(workstreamId)} },
-    submit: null
-  })`);
-  await waitForState(
-    client,
-    `(async () => (await window.setta.director.readSnapshot()).selectedWorkstreamId)()`,
-    (selected) => selected === workstreamId,
-    workflowTimeoutMs,
-  );
-}
-
-async function selectDirectorView(client) {
-  await selectView(client, null);
-}
-
-async function client_selectedWorkstream(client) {
-  return client.evaluate(
-    `(async () => (await window.setta.director.readSnapshot()).selectedWorkstreamId)()`,
-  );
-}
-
 async function assertRunningSummaryIsCurrent(client) {
   const state = await waitForState(
     client,
     `(() => {
-      const rail = document.querySelector("#director-now-rail");
-      const status = document.querySelector(".director-focus-status");
+      const summary = document.querySelector(
+        "#director-now-rail > .director-rail-section:first-child .director-rail-summary"
+      );
+      const status = document.querySelector(".director-selected-status");
       return {
         status: status?.textContent?.trim() ?? "",
-        rail: rail?.textContent?.trim() ?? ""
+        summary: summary?.textContent?.trim() ?? ""
       };
     })()`,
     (candidate) =>
-      candidate.status === "Running" && !candidate.rail.includes("Waiting for a project folder"),
+      candidate.status === "Running" && !candidate.summary.includes("Waiting for a project folder"),
     workflowTimeoutMs,
   );
-  assertExcludes(state.rail, "Waiting for a project folder", "running Now rail");
+  assertExcludes(state.summary, "Waiting for a project folder", "running Now summary");
 }
 
 async function subscribeFromRenderer(client) {
@@ -981,7 +890,7 @@ async function verifyComposerQueuesWhileDirectorAnswers(client, statePath) {
     `(() => {
       const hint = document.querySelector(".director-composer-hint");
       const input = document.querySelector("#director-composer-input");
-      const status = document.querySelector(".director-reply");
+      const status = document.querySelector(".director-live-status");
       return {
         answering: hint?.getAttribute("data-answering") === "true",
         status: status?.textContent?.trim() ?? "",
@@ -1031,35 +940,27 @@ async function assertDirectorFocusIsConsistent(client) {
       composerFocus:
         document.querySelector(".director-composer-hint-focus")?.textContent?.trim() ?? "",
       currentDots: document.querySelectorAll('.director-workstream-dot[aria-current="page"]').length,
-      currentIsDirector: Boolean(
-        document.querySelector('.director-view-dot[aria-current="page"]')
-      ),
       headingCount: document.querySelectorAll("h1").length,
+      nowTitle: document.querySelector("#director-now-rail h2")?.textContent?.trim() ?? "",
       topMeta: document.querySelector(".director-focus-meta")?.textContent?.trim() ?? "",
       topTitle: document.querySelector(".director-focus-title")?.textContent?.trim() ?? ""
     }))()`,
     (state) =>
       state.composerFocus === "No workstream in focus" &&
-      // The Director is a destination, so exactly one dot is current and it is
-      // the Director's. It used to be none, because the Director was the
-      // absence of a selection rather than a view.
-      state.currentDots === 1 &&
-      state.currentIsDirector &&
+      state.currentDots === 0 &&
       state.headingCount === 1 &&
+      state.nowTitle === "Director" &&
       state.topMeta === "No workstream in focus" &&
       state.topTitle === "Director",
     workflowTimeoutMs,
   );
-  // The top bar is the sole owner of focus identity; the Now rail used to
-  // restate the title and no longer does, so `topTitle` is the only place to
-  // read it and a second assertion on the rail would only re-check itself.
   assertDeepEqual(
     focus,
     {
       composerFocus: "No workstream in focus",
-      currentDots: 1,
-      currentIsDirector: true,
+      currentDots: 0,
       headingCount: 1,
+      nowTitle: "Director",
       topMeta: "No workstream in focus",
       topTitle: "Director",
     },

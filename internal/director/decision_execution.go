@@ -210,8 +210,6 @@ func (executor *DecisionExecutor) carryOut(
 		DirectorDecisionQueueBehindRun,
 		DirectorDecisionSteerRun:
 		return executor.deliverWork(ctx, authorized)
-	case DirectorDecisionForkWorkstream:
-		return executor.forkWorkstream(ctx, authorized)
 	case DirectorDecisionSelectWorkstream:
 		return executor.selectWorkstream(ctx, authorized)
 	case DirectorDecisionRecoverPath:
@@ -434,66 +432,6 @@ func (executor *DecisionExecutor) callWorkPort(
 // selectWorkstream moves app-wide selection. Selection is the one decision that
 // changes what the user is looking at rather than what the app is doing, so the
 // registry writes it and the decision records that the Director chose it.
-// forkWorkstream branches an existing workstream into a new one that inherits
-// its history through the parent's latest completed run.
-//
-// It mirrors creating: the child is minted, the decision that made it is
-// committed before the substrate exists, and the user is left looking at what
-// they asked for. It differs in where the decision is drawn — a fork is
-// something that happened to the parent, so the fact is committed in the
-// parent's lane while its target is the child — and in delivering no work. A
-// fork is a starting point, not an instruction; the different direction the
-// user wants from it arrives as its own work afterwards.
-func (executor *DecisionExecutor) forkWorkstream(
-	ctx context.Context,
-	authorized AuthorizedDecision,
-) (ExecutedDecision, error) {
-	payload := *authorized.Decision.ForkWorkstream
-	parent, err := executor.registry.ExecutionTarget(payload.WorkstreamID)
-	if err != nil {
-		return ExecutedDecision{}, err
-	}
-	forkedAtRunID, err := executor.registry.ForkPoint(payload.WorkstreamID)
-	if err != nil {
-		return ExecutedDecision{}, err
-	}
-	conversationID, err := executor.newID("conversation")
-	if err != nil {
-		return ExecutedDecision{}, err
-	}
-	workstreamID, err := WorkstreamIDForConversation(conversationID)
-	if err != nil {
-		return ExecutedDecision{}, err
-	}
-	committed, err := executor.commitDecision(ctx, authorized, &payload.WorkstreamID, &workstreamID)
-	if err != nil {
-		return ExecutedDecision{}, err
-	}
-	if err := executor.execution.ForkWorkstream(ctx, WorkstreamForkRequest{
-		ParentConversationID: parent.ConversationID,
-		ConversationID:       conversationID,
-		ForkedAtRunID:        forkedAtRunID,
-		Title:                payload.ProposedTitle,
-		WorkspaceID:          copyOptionalString(parent.WorkspaceID),
-	}); err != nil {
-		return ExecutedDecision{}, err
-	}
-	if err := executor.registry.awaitWorkstream(ctx, workstreamID); err != nil {
-		return ExecutedDecision{}, err
-	}
-	selected, err := executor.registry.SelectWorkstream(ctx, workstreamID)
-	if err != nil {
-		return ExecutedDecision{}, err
-	}
-	return ExecutedDecision{
-		IntentID:             authorized.Intent.ID,
-		Decision:             authorized.Decision.Kind,
-		Summary:              committed.PublicSummary,
-		WorkstreamID:         &workstreamID,
-		SelectedWorkstreamID: selected,
-	}, nil
-}
-
 func (executor *DecisionExecutor) selectWorkstream(
 	ctx context.Context,
 	authorized AuthorizedDecision,

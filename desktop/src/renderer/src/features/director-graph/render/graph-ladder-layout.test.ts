@@ -24,7 +24,6 @@ function advance(
     deltaSeconds,
     pinnedTurns,
     reducedMotion: false,
-    alignColumnsToLiveEdge: false,
   });
 }
 
@@ -178,7 +177,6 @@ describe("graph ladder layout", () => {
       deltaSeconds: 1 / 120,
       pinnedTurns: noPins,
       reducedMotion: true,
-      alignColumnsToLiveEdge: false,
     });
     expect(frame.foldAnimating).toBe(true);
     expect(layout.turnOpenness(0)).toBe(0);
@@ -192,7 +190,6 @@ describe("graph ladder layout", () => {
       deltaSeconds: 1 / 120,
       pinnedTurns: noPins,
       reducedMotion: true,
-      alignColumnsToLiveEdge: false,
     });
     expect(frame.quietUntilSeconds).toBe(timeSeconds);
   });
@@ -206,7 +203,6 @@ describe("graph ladder layout", () => {
       deltaSeconds: 0,
       pinnedTurns: noPins,
       reducedMotion: true,
-      alignColumnsToLiveEdge: false,
     });
     expect(layout.turnOpenness(0)).toBe(0);
   });
@@ -247,38 +243,6 @@ describe("graph ladder layout", () => {
     );
     expect(healed.liveEdgeWorldY).toBe(cold.liveEdgeWorldY);
   });
-  /*
-   * Arriving at a graph is not the same as watching one unfold.
-   *
-   * The fold eases while the reader is watching it happen. Replaying it for a
-   * graph they have just switched to shows them history they did not ask for,
-   * and on a long conversation that is seconds of it before the present
-   * appears.
-   */
-  it("arrives at the settled fold in one frame after a reset", () => {
-    const full = packedGraphFixture("director-and-worker-interleaved");
-    const arriving = new GraphLadderLayout();
-    arriving.reset();
-    const first = advance(arriving, full, 60);
-
-    expect(first.foldAnimating).toBe(false);
-
-    const settled = settle(new GraphLadderLayout(), full, 60);
-    expect(Array.from(first.worldY.subarray(0, full.nodeCount))).toStrictEqual(
-      Array.from(settled.worldY.subarray(0, full.nodeCount)),
-    );
-    expect(first.liveEdgeWorldY).toBe(settled.liveEdgeWorldY);
-  });
-
-  it("keeps easing the fold on frames that are not an arrival", () => {
-    const full = packedGraphFixture("director-and-worker-interleaved");
-    const watching = new GraphLadderLayout();
-    // The first advance settles, so a later fold change is what has to ease.
-    advance(watching, full, 0);
-    const changing = advance(watching, full, 60);
-
-    expect(changing.foldAnimating).toBe(true);
-  });
 });
 
 describe("graph camera", () => {
@@ -295,124 +259,5 @@ describe("graph camera", () => {
 
   it("jumps straight to the target under reduced motion", () => {
     expect(advanceGraphCamera(0, 3, 1 / 120, true)).toBe(3);
-  });
-});
-
-/*
- * Columns are independent runs, which is the whole reason they exist. Folding
- * one conversation on the Director's view must collapse that conversation and
- * leave the others exactly where they were — the old single-turn packing made
- * one fold collapse the entire view.
- */
-describe("graph ladder columns", () => {
-  function twoColumnSnapshot(): PackedGraphSnapshot {
-    return buildPackedGraphSnapshot("composition", [
-      {
-        cursorSequence: 1,
-        hasEarlier: false,
-        nodes: [
-          columnNode("left-input", 0, 0, -0.4, 0),
-          columnNode("left-step", 0, 1, -0.4, 1),
-          columnNode("left-outcome", 0, 2, -0.4, 2, "outcome"),
-          columnNode("right-input", 1, 0, 0.4, 0),
-          columnNode("right-outcome", 1, 1, 0.4, 1, "outcome"),
-        ],
-        edges: [],
-        turns: [
-          {
-            index: 0,
-            column: 0,
-            columnTop: 0,
-            workstreamId: "fixture",
-            inputNodeId: "left-input",
-            outcomeNodeId: "left-outcome",
-            rowSpan: 3,
-            outcome: "succeeded",
-            answerAt: 2,
-            compactAt: null,
-          },
-          {
-            index: 1,
-            column: 1,
-            columnTop: 0,
-            workstreamId: "fixture",
-            inputNodeId: "right-input",
-            outcomeNodeId: "right-outcome",
-            rowSpan: 2,
-            outcome: "succeeded",
-            answerAt: 2,
-            compactAt: null,
-          },
-        ],
-      },
-    ]);
-  }
-
-  function columnNode(
-    id: string,
-    turn: number,
-    row: number,
-    lane: number,
-    bornAt: number,
-    role: "input" | "step" | "outcome" = row === 0 ? "input" : "step",
-  ) {
-    return {
-      id,
-      turn,
-      role,
-      mode: "success" as const,
-      glyph: "terminal" as const,
-      emphasis: "declared" as const,
-      detail: "detailed" as const,
-      lane,
-      row,
-      bornAt,
-      settleAt: bornAt + 1,
-      terminalAt: role === "outcome" ? bornAt : null,
-      label: id,
-      labelPlacement: "below" as const,
-    };
-  }
-
-  it("starts every column at the top instead of below the one before it", () => {
-    const snapshot = twoColumnSnapshot();
-    const layout = new GraphLadderLayout();
-    settle(layout, snapshot, 10);
-
-    // Same row in either column sits at the same height.
-    expect(layout.nodeWorldY(0)).toBeCloseTo(layout.nodeWorldY(3), 5);
-  });
-
-  /*
-   * One camera looks at one depth. Columns left at their own depths hide each
-   * other — a short conversation ends far above a long one and falls off the
-   * top while the long one is being watched — so their live edges share a line.
-   */
-  it("aligns every column's newest fact when asked to", () => {
-    const snapshot = twoColumnSnapshot();
-    const layout = new GraphLadderLayout();
-    layout.advance(snapshot, {
-      timeSeconds: 10,
-      deltaSeconds: 1 / 120,
-      pinnedTurns: noPins,
-      reducedMotion: true,
-      alignColumnsToLiveEdge: true,
-    });
-
-    // The right column is one row shorter, so aligning has to have moved it.
-    expect(layout.nodeWorldY(4)).toBeCloseTo(layout.nodeWorldY(2), 5);
-  });
-
-  it("folds one column without moving the other", () => {
-    const snapshot = twoColumnSnapshot();
-    const layout = new GraphLadderLayout();
-    settle(layout, snapshot, 10);
-    const rightBefore = [3, 4].map((index) => layout.nodeWorldY(index));
-    const leftStepBefore = layout.nodeWorldY(1);
-
-    settle(layout, snapshot, 10, new Map([[0, false]]));
-
-    expect(layout.nodeWorldY(1)).toBeLessThan(leftStepBefore);
-    expect([3, 4].map((index) => layout.nodeWorldY(index))).toEqual(rightBefore);
   });
 });

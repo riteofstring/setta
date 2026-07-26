@@ -79,21 +79,11 @@ function assignOpacity(label: PooledLabel, value: string): void {
   label.opacity = value;
 }
 
-/*
- * `aria-expanded` says "this control shows and hides something", which is true
- * of a pill in a conversation and false of one on the Director's views, where
- * activating it goes somewhere. A navigation control that announces itself as a
- * disclosure tells a screen reader the wrong thing about what will happen.
- */
-function assignExpanded(label: PooledLabel, expanded: boolean | null): void {
+function assignExpanded(label: PooledLabel, expanded: boolean): void {
   if (label.expanded === expanded) {
     return;
   }
-  if (expanded === null) {
-    label.element.removeAttribute("aria-expanded");
-  } else {
-    label.element.setAttribute("aria-expanded", String(expanded));
-  }
+  label.element.setAttribute("aria-expanded", String(expanded));
   label.expanded = expanded;
 }
 
@@ -130,8 +120,6 @@ export interface GraphLabelLayerCallbacks {
 export class GraphLabelLayer {
   private readonly steps: PooledLabel[] = [];
   private readonly pills: PooledLabel[] = [];
-  /** Whether a pill discloses a fold here, or navigates. See assignExpanded. */
-  private foldable = true;
   private stepsUsed = 0;
   private pillsUsed = 0;
 
@@ -146,9 +134,7 @@ export class GraphLabelLayer {
     snapshot: PackedGraphSnapshot,
     placements: readonly GraphLabelPlacement[],
     count: number,
-    foldable: boolean,
   ): void {
-    this.foldable = foldable;
     let steps = 0;
     let pills = 0;
     for (let index = 0; index < count; index += 1) {
@@ -191,7 +177,7 @@ export class GraphLabelLayer {
     assignText(label, snapshot.nodes.labels[placement.nodeIndex] ?? "");
     if (isPill) {
       assignMark(label, pillMarks[variant]);
-      assignExpanded(label, this.foldable ? placement.expanded : null);
+      assignExpanded(label, placement.expanded);
     }
     assignClassName(label, className(isPill, variant, placement.sticky));
     assignOpacity(label, placement.opacity.toFixed(3));
@@ -202,10 +188,7 @@ export class GraphLabelLayer {
       placement.anchor === "over" ? "translate(-50%,-50%)" : "translateX(-50%)",
     );
     if (label.hidden) {
-      // Clearing the inline display hands it back to the stylesheet, where both
-      // variants declare their own. The step label's two-line clamp needs
-      // `display: -webkit-box`, which an inline `block` would override.
-      label.element.style.display = "";
+      label.element.style.display = isPill ? "inline-flex" : "block";
       label.hidden = false;
     }
   }

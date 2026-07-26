@@ -78,7 +78,7 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 		t.Fatalf("active parent turn has no provider identity: %+v", activeTurn)
 	}
 
-	created, err := service.createDirectorSideConversationForTest(ctx, workspaceID, parentID)
+	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID)
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
@@ -524,7 +524,7 @@ func assertLiveSideCreatedDuringParentTurn(
 		latestSnapshotTurn(created).ID != activeTurn.ID ||
 		latestSnapshotTurn(created).Status != TurnStatusRunning ||
 		side.ParentConversationID != created.Conversation.ID ||
-		side.DecisionSource != BranchDecisionSourceDirector ||
+		side.DecisionSource != BranchDecisionSourceConversationRouter ||
 		side.Status != SideConversationStatusActive ||
 		side.ParentStatus != ConversationStatusWorking ||
 		side.SourceTrajectorySequence < working.Conversation.LastTrajectorySequence ||

@@ -34,8 +34,6 @@ var emitArtifactInputSchemaJSON = mustEmitArtifactInputSchemaJSON()
 
 type emitArtifactInput struct {
 	Title    string `json:"title"`
-	Kind     string `json:"kind"`
-	Summary  string `json:"summary"`
 	Source   string `json:"source"`
 	document artifactdoc.Document
 }
@@ -53,27 +51,11 @@ func emitArtifactInputSchema() map[string]any {
 		"type":                 "object",
 		"additionalProperties": false,
 		"description":          "Publish one finished Setta conversation artifact as a Setta artifact document.",
-		"required":             []string{"title", "kind", "summary", "source"},
+		"required":             []string{"title", "source"},
 		"properties": map[string]any{
 			"title": map[string]any{
 				"type":        "string",
 				"description": "Short artifact title, rendered above the document.",
-			},
-			"kind": map[string]any{
-				"type": "string",
-				"description": "One or two words naming what kind of document this is, shown above " +
-					"the title. Name the form, not the subject: Story, Report, Protocol, Decision, " +
-					"Benchmark, Diff, Trace, Checklist. Setta displays it verbatim and never " +
-					"interprets it.",
-				"maxLength": maxArtifactKindBytes,
-			},
-			"summary": map[string]any{
-				"type": "string",
-				"description": "One sentence saying what this artifact is, for a reader deciding " +
-					"whether to open it. Write a claim about the document, not its opening line: " +
-					"say what it covers and what it concludes. Shown under the title and on the " +
-					"artifact card.",
-				"maxLength": maxArtifactSummaryBytes,
 			},
 			"source": map[string]any{
 				"type":        "string",
@@ -97,9 +79,6 @@ func topicAgentDeveloperInstructions() string {
 Durable user-facing deliverables are emitted through setta.emit_artifact.
 Each setta.emit_artifact call publishes one artifact. Use judgment to decide whether the content belongs in one coherent mixed-content artifact or in several independently useful ones, and publish independent artifacts separately rather than wrapping them in one gallery document.
 Prose, tables, charts, code, metrics, and file references that belong to the same artifact belong in the same document.
-Name each artifact's kind in one or two words describing its form, not its subject: Story, Report, Protocol, Decision, Checklist, Memo, Benchmark, Diff. Setta shows it above the title and never interprets it, so choose the word a reader would use to say what sort of document this is.
-Write each artifact's summary as one sentence a reader uses to decide whether to open it. It is a claim about the document, not its first line: say what the artifact covers and what it concludes.
-Do not repeat the title as the document's first heading. Setta already renders the title above the document.
 Follow explicit user requests about the outputs they asked for without inventing a website, a source project, or a combined gallery they did not ask for.
 Use FileReference only for an existing regular file inside the current authorized workspace. Omit FileReference when the topic has no authorized workspace.
 When the topic has no authorized workspace, treat the absolute process working-directory path as a private Setta execution detail. Never mention it or publish it in an artifact.
@@ -271,8 +250,6 @@ func (service *Service) persistArtifactToolEmission(
 		ArtifactEmitted: &TrajectoryArtifactEmitted{
 			ArtifactID: artifact.ID,
 			Title:      artifact.Title,
-			Kind:       artifact.Kind,
-			Summary:    artifact.Summary,
 		},
 	}
 	publications, err := service.publications(
@@ -367,8 +344,6 @@ func (input emitArtifactInput) artifact(
 		ConversationID: conversationID,
 		TurnID:         &turnID,
 		Title:          input.Title,
-		Kind:           input.Kind,
-		Summary:        input.Summary,
 		CreatedAt:      createdAt,
 		Document: ArtifactDocument{
 			Language:  ArtifactDocumentLanguageOpenUI,

@@ -32,16 +32,8 @@ func projectWorkstreamSelected(projector *DirectorGraphProjector, context factCo
 			fact.WorkstreamSelected.PreviousWorkstreamID,
 		)
 	}
-	/*
-	 * The selection is the fact's own, not the lane the fact was folded in.
-	 *
-	 * A fact naming no workstream is folded in the Director's lane, so reading
-	 * the lane's id here recorded the Director's lane as the selected
-	 * workstream — and the next selection's previous-selection check then
-	 * disagreed with the log and stopped the follower. Selecting the Director's
-	 * view is a nil selection, which is exactly what the fact carries.
-	 */
-	projector.selected = copyOptionalString(fact.WorkstreamID)
+	selected := context.workstream.id
+	projector.selected = &selected
 	return nil
 }
 
@@ -78,9 +70,9 @@ func (projector *DirectorGraphProjector) validateDecisionTarget(
 	payload DirectorDecisionCommitted,
 ) error {
 	switch payload.Decision {
-	case DirectorDecisionCreateWorkstream, DirectorDecisionForkWorkstream:
+	case DirectorDecisionCreateWorkstream:
 		if _, exists := projector.workstreams[*payload.TargetWorkstreamID]; exists {
-			return fmt.Errorf("%q decision targets existing workstream %s", payload.Decision, *payload.TargetWorkstreamID)
+			return fmt.Errorf("create-workstream decision targets existing workstream %s", *payload.TargetWorkstreamID)
 		}
 	case DirectorDecisionSendToWorkstream,
 		DirectorDecisionQueueBehindRun,

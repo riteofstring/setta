@@ -91,25 +91,6 @@ export interface PackedGraphEdgeInput {
 /** One turn ladder: input node, reasoning rows, outcome node. */
 export interface PackedGraphTurnInput {
   readonly index: number;
-  /*
-   * The column this turn stacks in.
-   *
-   * A conversation is one column and its turns run down it. A composition of
-   * several conversations is several columns side by side, and each runs down
-   * its own: a turn's top follows the turn above it *in its column*, not the
-   * turn that happened to be packed before it somewhere else.
-   */
-  readonly column: number;
-  /*
-   * Where this column's first turn starts, in world units.
-   *
-   * A conversation starts at the top of the view and runs down. A tile in the
-   * Director's grid starts in its own cell, which is what lets many
-   * conversations be on screen at once without becoming a row of slivers.
-   */
-  readonly columnTop: number;
-  /** The workstream this column draws, so a click on it can open that thread. */
-  readonly workstreamId: string;
   readonly inputNodeId: string;
   /** Null while the turn is still running. */
   readonly outcomeNodeId: string | null;
@@ -166,10 +147,6 @@ interface PackedGraphEdgeColumns {
 }
 
 interface PackedGraphTurnColumns {
-  /** Which column each turn stacks in. See PackedGraphTurnInput.column. */
-  readonly column: Uint16Array;
-  /** Where each column starts. See PackedGraphTurnInput.columnTop. */
-  readonly columnTop: Float32Array;
   readonly inputNode: Uint32Array;
   /** -1 while the turn is still running. */
   readonly outcomeNode: Int32Array;
@@ -200,8 +177,6 @@ export interface PackedGraphSnapshot {
   readonly nodes: PackedGraphNodeColumns;
   readonly edges: PackedGraphEdgeColumns;
   readonly turns: PackedGraphTurnColumns;
-  /** Each turn's workstream, indexed by turn. See PackedGraphTurnInput.workstreamId. */
-  readonly turnWorkstreamIds: readonly string[];
   readonly nodeIndexById: ReadonlyMap<string, number>;
 }
 
@@ -287,8 +262,6 @@ function grownTurnColumns(
   size: number,
 ): PackedGraphTurnColumns {
   return {
-    column: grownU16(source.column, used, size),
-    columnTop: grownF32(source.columnTop, used, size),
     inputNode: grownU32(source.inputNode, used, size),
     outcomeNode: grownI32(source.outcomeNode, used, size),
     rowSpan: grownU16(source.rowSpan, used, size),
@@ -331,8 +304,6 @@ function writeTurn(
   indexById: ReadonlyMap<string, number>,
   turn: PackedGraphTurnInput,
 ): void {
-  columns.column[turn.index] = turn.column;
-  columns.columnTop[turn.index] = turn.columnTop;
   columns.inputNode[turn.index] = nodeIndexOf(indexById, turn.inputNodeId);
   columns.outcomeNode[turn.index] =
     turn.outcomeNodeId === null ? -1 : nodeIndexOf(indexById, turn.outcomeNodeId);
@@ -409,8 +380,6 @@ const emptyEdgeColumns: PackedGraphEdgeColumns = {
 };
 
 const emptyTurnColumns: PackedGraphTurnColumns = {
-  column: new Uint16Array(0),
-  columnTop: new Float32Array(0),
   inputNode: new Uint32Array(0),
   outcomeNode: new Int32Array(0),
   rowSpan: new Uint16Array(0),
@@ -432,7 +401,6 @@ export function emptyPackedGraphSnapshot(workstreamId: string): PackedGraphSnaps
     nodes: emptyNodeColumns,
     edges: emptyEdgeColumns,
     turns: emptyTurnColumns,
-    turnWorkstreamIds: [],
     nodeIndexById: new Map<string, number>(),
   });
 }
@@ -474,11 +442,9 @@ export function extendPackedGraphSnapshot(
   );
 
   const turns = grownTurnColumns(previous.turns, previous.turnCount, turnCount);
-  const turnWorkstreamIds = previous.turnWorkstreamIds.slice(0, previous.turnCount);
   let turnsFrom = turnCount;
   for (const turn of batch.turns) {
     writeTurn(turns, indexById, turn);
-    turnWorkstreamIds[turn.index] = turn.workstreamId;
     turnsFrom = Math.min(turnsFrom, turn.index);
   }
 
@@ -498,7 +464,6 @@ export function extendPackedGraphSnapshot(
     nodes,
     edges,
     turns,
-    turnWorkstreamIds,
     nodeIndexById: indexById,
   });
 }

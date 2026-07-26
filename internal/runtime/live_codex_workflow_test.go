@@ -21,19 +21,6 @@ import (
 	"setta/internal/workspacesession"
 )
 
-// Removing the conversation router removed the only way a test could put work
-// into a conversation directly, and with it two live acceptance tests whose
-// coverage the Director has not replaced yet:
-//
-//   - provider-thread restart continuity across a backend restart, plus
-//     concurrent topic isolation, mid-turn steering and cancellation;
-//   - multi-turn topic work with automatic final narration, and a narrator
-//     status reply that leaves the parent turn untouched.
-//
-// Both are worth rebuilding against Director intents (submit / steer_work /
-// cancel_run / ask_conversation). They are not written here because each is a
-// multi-minute live run whose assertions need to be designed against the
-// Director's own snapshot, not translated from the routed shape.
 const (
 	// A five-artifact request is several provider turns of work, so the wait is
 	// longer than a single-turn live snapshot wait.
@@ -226,31 +213,136 @@ func liveDirectorSucceededAtTool(submit director.DirectorTurnReceipt, tool strin
 	return false
 }
 
-// sendRuntimeLiveDirectorWork is the only way live work starts. The Director
-// owns which workstream a request lands in, so the test states the request and
-// asserts on what the command center published, never on a conversation the
-// test picked itself.
-func sendRuntimeLiveDirectorWork(
-	t *testing.T,
-	client *http.Client,
-	baseURL string,
-	text string,
-) director.DirectorReceipt {
-	t.Helper()
-	return postRuntimeJSON[director.DirectorReceipt](
+func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
+	unsetRuntimeEnv(t, "OPENAI_API_KEY")
+	requireRuntimeLiveCodexChatGPTAuth(t)
+	isolation := newLiveCarrierIsolation(t, "topicworkflow")
+
+	config := testConfig(t)
+	config.Version = "test"
+	server, ready := startRuntimeTestServer(t, config)
+	defer shutdownServer(t, server)
+
+	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 3*time.Minute)
+	baseURL := "http://" + server.Addr()
+	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
+		RootPath: t.TempDir(),
+	}, http.StatusOK)
+	workspaceID := opened.Workspace.ID
+	created := postRuntimeJSON[conversation.ConversationSnapshot](t, client, baseURL, "/conversations/create", httpapi.CreateTopicConversationRequest{
+		WorkspaceID: &workspaceID,
+		Title:       "Live topic conversation",
+	}, http.StatusOK)
+	if len(created.Turns.Turns) != 0 {
+		t.Fatalf("created live topic eagerly started work: %+v", created.Turns.Turns)
+	}
+
+	var latestSnapshot conversation.ConversationSnapshot
+	for index, task := range []struct {
+		expected string
+		text     string
+	}{
+		{
+			expected: "TOPIC_ONE_OK",
+			text: isolation.prompt(
+				"Produce the next parent-agent topic deliverable as exactly TOPIC_ONE_OK, with no other text.",
+			),
+		},
+		{
+			expected: "TOPIC_TWO_OK",
+			text: isolation.prompt(
+				"Produce the next parent-agent topic deliverable as exactly TOPIC_TWO_OK, with no other text.",
+			),
+		},
+	} {
+		accepted := postRuntimeJSON[conversation.AcceptedConversationInput](
+			t,
+			client,
+			baseURL,
+			"/conversations/inputs/submit",
+			httpapi.SubmitConversationInputRequest{Input: conversation.ConversationInput{
+				ID:             fmt.Sprintf("live-topic-conversation-turn-%d", index+1),
+				ConversationID: created.Conversation.ID,
+				Text:           task.text,
+				Modality:       conversation.ConversationInputModalityText,
+				SubmittedAt:    time.Now().UTC().Format(time.RFC3339Nano),
+			}},
+			http.StatusAccepted,
+		)
+		routed := waitForRuntimeLiveConversationRoute(
+			t,
+			client,
+			baseURL,
+			opened.Workspace.ID,
+			created.Conversation.ID,
+			accepted,
+		)
+		if len(routed.Decisions) != 1 ||
+			routed.Decisions[0].Decision.Kind != conversation.ConversationRouteDecisionKindSendToParent {
+			encoded, err := json.MarshalIndent(routed.Decisions, "", "  ")
+			if err != nil {
+				t.Fatalf("encode invalid live topic input route: %v", err)
+			}
+			t.Fatalf("live topic input route = %s, want send", encoded)
+		}
+		snapshot := waitForRuntimeLiveTopicTurns(
+			t,
+			client,
+			baseURL,
+			opened.Workspace.ID,
+			created.Conversation.ID,
+			index+1,
+		)
+		latestTurn := snapshot.Turns.Turns[len(snapshot.Turns.Turns)-1]
+		if latestTurn.Status != conversation.TurnStatusCompleted {
+			t.Fatalf("live topic turn %d status = %s error=%+v, want completed", index+1, latestTurn.Status, latestTurn.Error)
+		}
+		if !runtimeTopicTrajectoryHasCompletedText(snapshot, latestTurn.ID, task.expected) {
+			t.Fatalf("live topic turn %s has no completed public agent text containing %s", latestTurn.ID, task.expected)
+		}
+		if !runtimeTopicHasFinalNarration(snapshot, latestTurn.ID) {
+			t.Fatalf("live topic turn %s has no automatic narrator final summary", latestTurn.ID)
+		}
+		latestSnapshot = snapshot
+	}
+
+	accepted := postRuntimeJSON[conversation.AcceptedConversationInput](
 		t,
 		client,
 		baseURL,
-		"/director/intents/dispatch",
-		httpapi.DispatchDirectorIntentRequest{Intent: director.DirectorIntent{
-			Kind: director.DirectorIntentSubmit,
-			Submit: &director.DirectorSubmitIntent{
-				Text:     text,
-				Modality: director.DecisionIntentModalityText,
-			},
+		"/conversations/inputs/submit",
+		httpapi.SubmitConversationInputRequest{Input: conversation.ConversationInput{
+			ID:             "live-topic-conversation-status",
+			ConversationID: created.Conversation.ID,
+			Text: "Answer as this conversation's narrator: Has the latest topic turn completed, and what did it produce? " +
+				"Do not send new work to the parent agent.",
+			Modality:    conversation.ConversationInputModalityText,
+			SubmittedAt: time.Now().UTC().Format(time.RFC3339Nano),
 		}},
-		http.StatusOK,
+		http.StatusAccepted,
 	)
+	routed := waitForRuntimeLiveConversationRoute(
+		t,
+		client,
+		baseURL,
+		opened.Workspace.ID,
+		created.Conversation.ID,
+		accepted,
+	)
+	assertRuntimeLiveConversationRoute(t, latestSnapshot, routed)
+	question := routed.Decisions[0].ResultingCommand.AnswerAsNarrator.Question
+	afterRoute := waitForRuntimeLiveNarratorStatus(
+		t,
+		client,
+		baseURL,
+		opened.Workspace.ID,
+		created.Conversation.ID,
+		latestSnapshot,
+		question,
+	)
+	assertRuntimeLiveNarratorStatus(t, latestSnapshot, afterRoute, question)
+	assertRuntimeLiveConversationRouteIsolation(t, latestSnapshot, afterRoute)
+
 }
 
 func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
@@ -265,48 +357,55 @@ func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
 	server, ready := startRuntimeTestServer(t, config)
 	defer shutdownServer(t, server)
 
-	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 8*time.Minute)
+	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 3*time.Minute)
 	baseURL := "http://" + server.Addr()
 	opened := postRuntimeJSON[httpapi.OpenWorkspaceResponse](t, client, baseURL, "/workspaces/open", httpapi.OpenWorkspaceRequest{
 		RootPath: t.TempDir(),
 	}, http.StatusOK)
-	sendRuntimeLiveDirectorWork(
+	created := createRuntimeLiveTopic(t, client, baseURL, opened.Workspace.ID, "Live structured artifact")
+	accepted := submitRuntimeLiveConversationInput(
 		t,
 		client,
 		baseURL,
-		isolation.prompt(fmt.Sprintf(
-			"Using only this supplied dataset: Go=34, TypeScript=21, CSS=8. Create a durable "+
-				"user-facing table titled %s with columns language and lines, and one row per "+
-				"supplied language. Final prose should only confirm that the table is ready.",
-			expectedTableTitle,
-		)),
+		created.Conversation.ID,
+		"live-topic-artifact-table-first-turn",
+		isolation.prompt(fmt.Sprintf("Using only this supplied dataset: Go=34, TypeScript=21, CSS=8. Create a durable user-facing table titled %s with columns language and lines, and one row per supplied language. Final prose should only confirm that the table is ready.", expectedTableTitle)),
 	)
-	snapshot := waitForRuntimeLiveDirectorSnapshot(
+	route := waitForRuntimeLiveConversationRoute(
 		t,
 		client,
 		baseURL,
-		"structured table artifact published",
-		func(candidate director.DirectorSnapshot) bool {
-			return len(runtimeLiveAvailableArtifacts(candidate)) >= 1 && runtimeLiveDirectorIsIdle(candidate)
-		},
+		opened.Workspace.ID,
+		created.Conversation.ID,
+		accepted,
 	)
-	metadata := runtimeLiveTableArtifactMetadata(t, snapshot, expectedTableTitle)
-	if metadata.WorkspaceID == nil || *metadata.WorkspaceID != opened.Workspace.ID {
-		t.Fatalf("live table artifact left the open workspace: %+v", metadata)
+	requireRuntimeLiveRouteKind(t, route, conversation.ConversationRouteDecisionKindSendToParent)
+	snapshot := waitForRuntimeLiveTopicTurns(
+		t,
+		client,
+		baseURL,
+		opened.Workspace.ID,
+		created.Conversation.ID,
+		1,
+	)
+	latestTurn := latestRuntimeLiveTurn(t, snapshot)
+	if latestTurn.Status != conversation.TurnStatusCompleted {
+		t.Fatalf("live structured table turn status = %s error=%+v, want completed", latestTurn.Status, latestTurn.Error)
 	}
+	metadata := runtimeLiveTableArtifactMetadataForTurn(t, snapshot, latestTurn.ID, expectedTableTitle)
 	artifact := postRuntimeJSON[conversation.Artifact](
 		t,
 		client,
 		baseURL,
 		"/conversations/artifacts/read",
 		httpapi.ReadConversationArtifactRequest{
-			WorkspaceID:    metadata.WorkspaceID,
-			ConversationID: metadata.ConversationID,
+			WorkspaceID:    &opened.Workspace.ID,
+			ConversationID: created.Conversation.ID,
 			ArtifactID:     metadata.ID,
 		},
 		http.StatusOK,
 	)
-	assertRuntimeLiveTableArtifact(t, expectedTableTitle, metadata, artifact)
+	assertRuntimeLiveTableArtifact(t, latestTurn.ID, expectedTableTitle, metadata, artifact)
 }
 
 // TestBackendUnboundNativeArtifactsWithLiveCodex replays the recorded failure
@@ -455,31 +554,37 @@ func waitForRuntimeLiveDirectorSnapshot(
 	return director.DirectorSnapshot{}
 }
 
-func runtimeLiveTableArtifactMetadata(
+func runtimeLiveTableArtifactMetadataForTurn(
 	t *testing.T,
-	snapshot director.DirectorSnapshot,
+	snapshot conversation.ConversationSnapshot,
+	turnID string,
 	title string,
-) director.WorkstreamArtifact {
+) conversation.ArtifactMetadata {
 	t.Helper()
-	var matches []director.WorkstreamArtifact
-	for _, artifact := range runtimeLiveAvailableArtifacts(snapshot) {
-		if artifact.Title == title {
+	var matches []conversation.ArtifactMetadata
+	for _, artifact := range snapshot.Artifacts.Artifacts {
+		if artifact.Title == title && artifact.TurnID != nil && *artifact.TurnID == turnID {
 			matches = append(matches, artifact)
 		}
 	}
 	if len(matches) != 1 {
-		t.Fatalf("live table artifact count = %d, want 1; artifacts=%+v", len(matches), snapshot.Artifacts)
+		t.Fatalf("live turn %s table artifact metadata count = %d, want 1; artifacts=%+v", turnID, len(matches), snapshot.Artifacts)
 	}
 	return matches[0]
 }
 
 func assertRuntimeLiveTableArtifact(
 	t *testing.T,
+	turnID string,
 	expectedTitle string,
-	metadata director.WorkstreamArtifact,
+	metadata conversation.ArtifactMetadata,
 	artifact conversation.Artifact,
 ) {
 	t.Helper()
+	if metadata.TurnID == nil || *metadata.TurnID != turnID ||
+		artifact.TurnID == nil || *artifact.TurnID != turnID {
+		t.Fatalf("live table artifact turn IDs: want %s metadata=%+v artifact=%+v", turnID, metadata, artifact)
+	}
 	if metadata.ID != artifact.ID ||
 		metadata.ConversationID != artifact.ConversationID ||
 		metadata.Title != artifact.Title ||
@@ -570,6 +675,258 @@ func runtimeLiveArtifactTableContains(rows [][]string, language string, lines st
 			strings.TrimSpace(row[1]) == lines {
 			return true
 		}
+	}
+	return false
+}
+
+func waitForRuntimeLiveConversationRoute(
+	t *testing.T,
+	client *http.Client,
+	baseURL string,
+	workspaceID string,
+	conversationID string,
+	accepted conversation.AcceptedConversationInput,
+) conversation.ConversationInputRoutingState {
+	t.Helper()
+	state := postRuntimeJSON[conversation.ConversationInputRoutingState](
+		t,
+		client,
+		baseURL,
+		"/conversations/inputs/state/wait",
+		httpapi.ReadConversationInputRoutingStateRequest{
+			WorkspaceID:    &workspaceID,
+			ConversationID: conversationID,
+			InputID:        accepted.Input.ID,
+		},
+		http.StatusOK,
+	)
+	switch state.Input.Status {
+	case conversation.ConversationInputStatusDispatched:
+		return state
+	case conversation.ConversationInputStatusFailed,
+		conversation.ConversationInputStatusAwaitingClarification:
+		t.Fatalf(
+			"live conversation router did not resolve the input: failure=%+v state=%+v",
+			state.Input.Failure,
+			state,
+		)
+	default:
+		t.Fatalf("live conversation route wait returned unsettled state: %+v", state)
+	}
+	return conversation.ConversationInputRoutingState{}
+}
+
+func assertRuntimeLiveConversationRoute(
+	t *testing.T,
+	before conversation.ConversationSnapshot,
+	state conversation.ConversationInputRoutingState,
+) {
+	t.Helper()
+	if len(state.Decisions) != 1 {
+		t.Fatalf("live conversation route decisions = %+v", state.Decisions)
+	}
+	record := state.Decisions[0]
+	assertRuntimeLiveConversationRouteDecision(t, record)
+	assertRuntimeLiveConversationRouteAudit(t, before, state, record)
+}
+
+func assertRuntimeLiveConversationRouteDecision(
+	t *testing.T,
+	record conversation.ConversationRouteDecisionRecord,
+) {
+	t.Helper()
+	if record.Decision.Kind != conversation.ConversationRouteDecisionKindAnswerAsNarrator ||
+		record.Decision.AnswerAsNarrator == nil ||
+		strings.TrimSpace(record.Decision.AnswerAsNarrator.Question) == "" ||
+		record.ResultingCommand.AnswerAsNarrator == nil {
+		t.Fatalf("live conversation route decision = %+v", record)
+	}
+}
+
+func assertRuntimeLiveConversationRouteAudit(
+	t *testing.T,
+	before conversation.ConversationSnapshot,
+	state conversation.ConversationInputRoutingState,
+	record conversation.ConversationRouteDecisionRecord,
+) {
+	t.Helper()
+	audit := record.RouterContext
+	allowed := false
+	for _, kind := range audit.AllowedDecisionKinds {
+		allowed = allowed || kind == conversation.ConversationRouteDecisionKindAnswerAsNarrator
+	}
+	invocation := record.ResolvedInvocation
+	if !allowed || audit.InputSequence != state.Input.Sequence ||
+		audit.LatestTrajectorySequence != before.Conversation.LastTrajectorySequence ||
+		invocation.Role != conversation.RoleNarrator ||
+		invocation.Resolved.ModelID != "gpt-5.4-mini" ||
+		invocation.Resolved.PermissionProfile.ToolAccess.Mode != conversation.ToolAccessNone ||
+		invocation.Outcome != conversation.InvocationOutcomeSucceeded {
+		t.Fatalf("live conversation router audit = context=%+v invocation=%+v", audit, invocation)
+	}
+}
+
+func assertRuntimeLiveConversationRouteIsolation(
+	t *testing.T,
+	before conversation.ConversationSnapshot,
+	after conversation.ConversationSnapshot,
+) {
+	t.Helper()
+	if after.Conversation.LastTrajectorySequence != before.Conversation.LastTrajectorySequence ||
+		len(after.Turns.Turns) != len(before.Turns.Turns) {
+		t.Fatalf("live conversation router mutated topic work: before=%+v after=%+v", before, after)
+	}
+}
+
+func assertRuntimeLiveNarratorStatus(
+	t *testing.T,
+	before conversation.ConversationSnapshot,
+	after conversation.ConversationSnapshot,
+	question string,
+) {
+	t.Helper()
+	beforeIDs := make(map[string]bool, len(before.Narration.Events))
+	for _, event := range before.Narration.Events {
+		beforeIDs[event.ID] = true
+	}
+	replies := make([]conversation.NarrationEvent, 0, 1)
+	newEventKinds := make([]conversation.NarrationEventKind, 0)
+	statusQuestions := make([]string, 0)
+	for _, event := range after.Narration.Events {
+		if beforeIDs[event.ID] {
+			continue
+		}
+		newEventKinds = append(newEventKinds, event.Kind)
+		if event.StatusReply != nil {
+			statusQuestions = append(statusQuestions, event.StatusReply.Question)
+		}
+		if event.Kind != conversation.NarrationEventKindStatusReply ||
+			event.StatusReply == nil || event.StatusReply.Question != question {
+			continue
+		}
+		replies = append(replies, event)
+	}
+	if len(replies) != 1 || strings.TrimSpace(replies[0].StatusReply.Text) == "" {
+		t.Fatalf(
+			"live narrator matching status replies = %+v, want one; new kinds=%v status questions=%q narrator status=%s degradation=%+v",
+			replies,
+			newEventKinds,
+			statusQuestions,
+			after.NarratorState.Status,
+			after.NarratorState.Degradation,
+		)
+	}
+	reply := replies[0]
+	if reply.ResolvedInvocation.Role != conversation.RoleNarrator ||
+		reply.ResolvedInvocation.Resolved.ModelID != "gpt-5.4-mini" {
+		t.Fatalf("live narrator invocation = %+v", reply.ResolvedInvocation)
+	}
+	if after.Conversation.LastTrajectorySequence != before.Conversation.LastTrajectorySequence ||
+		len(after.Turns.Turns) != len(before.Turns.Turns) {
+		t.Fatalf("live narrator status mutated topic work: before=%+v after=%+v", before, after)
+	}
+}
+
+func waitForRuntimeLiveNarratorStatus(
+	t *testing.T,
+	client *http.Client,
+	baseURL string,
+	workspaceID string,
+	conversationID string,
+	before conversation.ConversationSnapshot,
+	question string,
+) conversation.ConversationSnapshot {
+	t.Helper()
+	return waitForRuntimeLiveConversationSnapshot(
+		t,
+		client,
+		baseURL,
+		workspaceID,
+		conversationID,
+		"routed narrator status",
+		func(snapshot conversation.ConversationSnapshot) bool {
+			if snapshot.NarratorState.Degradation != nil {
+				t.Fatalf("live routed narrator status degraded: %+v", *snapshot.NarratorState.Degradation)
+			}
+			return runtimeLiveHasNewNarratorStatusReply(before, snapshot, question)
+		},
+	)
+}
+
+func runtimeLiveHasNewNarratorStatusReply(
+	before conversation.ConversationSnapshot,
+	after conversation.ConversationSnapshot,
+	question string,
+) bool {
+	beforeIDs := make(map[string]bool, len(before.Narration.Events))
+	for _, event := range before.Narration.Events {
+		beforeIDs[event.ID] = true
+	}
+	for _, event := range after.Narration.Events {
+		if !beforeIDs[event.ID] && event.Kind == conversation.NarrationEventKindStatusReply &&
+			event.StatusReply != nil && event.StatusReply.Question == question &&
+			strings.TrimSpace(event.StatusReply.Text) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func waitForRuntimeLiveTopicTurns(
+	t *testing.T,
+	client *http.Client,
+	baseURL string,
+	workspaceID string,
+	conversationID string,
+	wantTurns int,
+) conversation.ConversationSnapshot {
+	t.Helper()
+	return waitForRuntimeLiveConversationSnapshot(
+		t,
+		client,
+		baseURL,
+		workspaceID,
+		conversationID,
+		fmt.Sprintf("%d terminal topic turns with final narration", wantTurns),
+		func(snapshot conversation.ConversationSnapshot) bool {
+			if len(snapshot.Turns.Turns) != wantTurns {
+				return false
+			}
+			latest := snapshot.Turns.Turns[len(snapshot.Turns.Turns)-1]
+			terminal := latest.Status == conversation.TurnStatusCompleted ||
+				latest.Status == conversation.TurnStatusFailed ||
+				latest.Status == conversation.TurnStatusCancelled
+			return terminal && runtimeTopicHasFinalNarration(snapshot, latest.ID) &&
+				snapshot.NarratorState.ObservedThroughSequence == snapshot.Conversation.LastTrajectorySequence
+		},
+	)
+}
+
+func runtimeTopicTrajectoryHasCompletedText(
+	snapshot conversation.ConversationSnapshot,
+	turnID string,
+	expected string,
+) bool {
+	for _, event := range snapshot.Trajectory.Events {
+		if event.TurnID == nil || *event.TurnID != turnID || event.AgentMessageCompleted == nil {
+			continue
+		}
+		if strings.Contains(event.AgentMessageCompleted.Text, expected) {
+			return true
+		}
+	}
+	return false
+}
+
+func runtimeTopicHasFinalNarration(snapshot conversation.ConversationSnapshot, turnID string) bool {
+	for _, event := range snapshot.Narration.Events {
+		if event.Kind != conversation.NarrationEventKindFinalSummary || event.TurnID == nil ||
+			*event.TurnID != turnID || event.FinalSummary == nil {
+			continue
+		}
+		return strings.TrimSpace(event.FinalSummary.Text) != "" &&
+			event.ResolvedInvocation.Role == conversation.RoleNarrator &&
+			event.ResolvedInvocation.Resolved.ModelID == "gpt-5.4-mini"
 	}
 	return false
 }

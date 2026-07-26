@@ -12,9 +12,8 @@ import "fmt"
 
 // NewCommittedDecision builds the durable fact payload for a validated
 // decision. createdWorkstreamID is the id trusted product code minted for a
-// decision that brings a workstream into existence — creating or forking one;
-// the protocol cannot name a workstream that does not exist yet, and every
-// other decision must not supply one.
+// create decision; the protocol cannot name a workstream that does not exist
+// yet, and every other decision must not supply one.
 func NewCommittedDecision(
 	context DirectorDecisionContext,
 	decision DirectorDecision,
@@ -59,17 +58,10 @@ func committedWorkspaceRequirement(decision DirectorDecision) *WorkspaceRequirem
 	}
 }
 
-// mintsWorkstream reports the decisions whose target is a workstream trusted
-// code minted for them. Both bring a workstream into existence, so neither can
-// name its target from the protocol.
-func mintsWorkstream(kind DirectorDecisionKind) bool {
-	return kind == DirectorDecisionCreateWorkstream || kind == DirectorDecisionForkWorkstream
-}
-
 func committedDecisionTarget(decision DirectorDecision, createdWorkstreamID *string) (*string, error) {
-	if mintsWorkstream(decision.Kind) {
+	if decision.Kind == DirectorDecisionCreateWorkstream {
 		if createdWorkstreamID == nil {
-			return nil, fmt.Errorf("%s requires the minted workstream id", decision.Kind)
+			return nil, fmt.Errorf("create_workstream requires the minted workstream id")
 		}
 		if err := validateIdentifier("created workstream id", *createdWorkstreamID); err != nil {
 			return nil, err
@@ -104,8 +96,6 @@ func decisionSummaryText(context DirectorDecisionContext, decision DirectorDecis
 		return targetSummary(context, decision.QueueBehindRun.WorkstreamID, "Queued work behind the active run in %q.")
 	case DirectorDecisionSteerRun:
 		return targetSummary(context, decision.SteerRun.WorkstreamID, "Steered the active run in %q.")
-	case DirectorDecisionForkWorkstream:
-		return forkWorkstreamSummary(context, *decision.ForkWorkstream)
 	case DirectorDecisionSelectWorkstream:
 		return targetSummary(context, decision.SelectWorkstream.WorkstreamID, "Selected %q.")
 	case DirectorDecisionRecoverPath:
@@ -121,17 +111,6 @@ func targetSummary(context DirectorDecisionContext, workstreamID string, format 
 		return "", fmt.Errorf("unknown workstream %s", workstreamID)
 	}
 	return fmt.Sprintf(format, target.Title), nil
-}
-
-// forkWorkstreamSummary names both ends of the branch. The sentence has to say
-// what was forked as well as what came out of it, because the new workstream is
-// the only thing the user will see in the rail afterwards.
-func forkWorkstreamSummary(context DirectorDecisionContext, payload ForkWorkstreamDecision) (string, error) {
-	target, found := context.Target(payload.WorkstreamID)
-	if !found {
-		return "", fmt.Errorf("unknown workstream %s", payload.WorkstreamID)
-	}
-	return fmt.Sprintf("Forked %q into %q.", target.Title, payload.ProposedTitle), nil
 }
 
 func recoverPathSummary(context DirectorDecisionContext, payload RecoverPathDecision) (string, error) {

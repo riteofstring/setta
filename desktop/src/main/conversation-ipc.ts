@@ -43,8 +43,20 @@ export function registerConversationIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "conversationDiscardInput",
+    async (_event, request) => requireBackendClient().discardConversationInput(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "conversationListTopicConversations",
     async (_event, request) => requireBackendClient().listTopicConversations(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "conversationReadInputState",
+    async (_event, request) => requireBackendClient().readConversationInputRoutingState(request),
     ipcObserver,
   );
   handleIpc(
@@ -55,8 +67,20 @@ export function registerConversationIpcHandlers({
   );
   handleIpc(
     ipcMain,
+    "conversationWaitInputState",
+    async (_event, request) => requireBackendClient().waitConversationInputRoutingState(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "conversationReadSnapshot",
     async (_event, request) => requireBackendClient().readConversationSnapshot(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "conversationRetryInput",
+    async (_event, request) => requireBackendClient().retryConversationInput(request),
     ipcObserver,
   );
   handleIpc(
@@ -69,6 +93,12 @@ export function registerConversationIpcHandlers({
     ipcMain,
     "conversationStopTurn",
     async (_event, request) => requireBackendClient().stopTopicConversationTurn(request),
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "conversationSubmitInput",
+    async (_event, request) => requireBackendClient().submitConversationInput(request),
     ipcObserver,
   );
   handleIpc(

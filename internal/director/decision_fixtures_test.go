@@ -33,24 +33,18 @@ func idleDecisionTarget() WorkstreamDecisionTarget {
 	}
 }
 
-// activeDecisionTarget is running and has finished a run before. Forking is
-// offered on the strength of that history rather than on being idle, so this
-// target is what proves a busy workstream can still be branched.
 func activeDecisionTarget() WorkstreamDecisionTarget {
 	runID := fixtureActiveRunID
-	forkPoint := fixtureForkRunID
 	return WorkstreamDecisionTarget{
-		WorkstreamID:   fixtureActiveWorkstream,
-		Title:          "Release notes",
-		Status:         WorkstreamStatusRunning,
-		ResourceScope:  folderlessDecisionScope(),
-		ActiveRunID:    &runID,
-		ForkPointRunID: &forkPoint,
+		WorkstreamID:  fixtureActiveWorkstream,
+		Title:         "Release notes",
+		Status:        WorkstreamStatusRunning,
+		ResourceScope: folderlessDecisionScope(),
+		ActiveRunID:   &runID,
 		AllowedDecisionKinds: []DirectorDecisionKind{
 			DirectorDecisionSelectWorkstream,
 			DirectorDecisionQueueBehindRun,
 			DirectorDecisionSteerRun,
-			DirectorDecisionForkWorkstream,
 		},
 		RecoverableFailures: []DecisionRecoverableFailure{},
 	}

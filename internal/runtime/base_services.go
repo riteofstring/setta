@@ -18,6 +18,7 @@ type runtimeBaseServices struct {
 	appearanceService        *appearance.Service
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
+	conversationInputService *conversation.InputService
 	conversationStore        *conversation.Store
 	directorServices         directorServices
 	narratorService          *narration.Service
@@ -50,6 +51,7 @@ func newRuntimeBaseServices(config Config) (runtimeBaseServices, error) {
 		appearanceService:        foundation.appearanceService,
 		codexManager:             foundation.codexManager,
 		conversationService:      foundation.conversationService,
+		conversationInputService: foundation.conversationInputService,
 		conversationStore:        foundation.conversationStore,
 		directorServices:         foundation.directorServices,
 		narratorService:          foundation.narratorService,
@@ -104,6 +106,7 @@ type runtimeFoundation struct {
 	appearanceService        *appearance.Service
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
+	conversationInputService *conversation.InputService
 	conversationStore        *conversation.Store
 	directorServices         directorServices
 	narratorService          *narration.Service
@@ -119,7 +122,8 @@ type runtimeAgentServices struct {
 }
 
 type runtimeConversationServices struct {
-	conversationService *conversation.Service
+	conversationService      *conversation.Service
+	conversationInputService *conversation.InputService
 }
 
 func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
@@ -167,6 +171,7 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		return runtimeFoundation{}, err
 	}
 	conversationService := conversationServices.conversationService
+	conversationInputService := conversationServices.conversationInputService
 	directorRuntime, err := newDirectorServices(
 		config.AppDataDir,
 		conversationStore,
@@ -174,7 +179,6 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		conversationService,
 		agentServices.globalRoleResolver,
 		agentServices.agentRuntime,
-		narratorService,
 	)
 	if err != nil {
 		shutdownRuntimeConversationServices(
@@ -190,6 +194,7 @@ func newRuntimeFoundation(config Config) (runtimeFoundation, error) {
 		appearanceService:        appearanceService,
 		codexManager:             codexManager,
 		conversationService:      conversationService,
+		conversationInputService: conversationInputService,
 		conversationStore:        conversationStore,
 		directorServices:         directorRuntime,
 		narratorService:          narratorService,
@@ -216,12 +221,26 @@ func newRuntimeConversationServices(
 		shutdownRuntimeConversationServices(config, store, nil, narrator, agentRuntime.Manager())
 		return runtimeConversationServices{}, fmt.Errorf("create conversation service: %w", err)
 	}
+	executor, err := newConversationRouteCommandExecutor(store, service, narrator)
+	if err == nil {
+		err = narrator.AttachConversationRouteCommandExecutor(executor)
+	}
+	if err != nil {
+		shutdownRuntimeConversationServices(config, store, service, narrator, agentRuntime.Manager())
+		return runtimeConversationServices{}, fmt.Errorf("attach conversation route command executor: %w", err)
+	}
+	inputService, err := newConversationInputService(store, narrator)
+	if err != nil {
+		shutdownRuntimeConversationServices(config, store, service, narrator, agentRuntime.Manager())
+		return runtimeConversationServices{}, err
+	}
 	if err := recoverRuntimeConversationServices(service, narrator); err != nil {
 		shutdownRuntimeConversationServices(config, store, service, narrator, agentRuntime.Manager())
 		return runtimeConversationServices{}, err
 	}
 	return runtimeConversationServices{
-		conversationService: service,
+		conversationService:      service,
+		conversationInputService: inputService,
 	}, nil
 }
 
@@ -286,8 +305,28 @@ func recoverRuntimeConversationServices(
 	if err := conversationService.RecoverSideConversations(context.Background()); err != nil {
 		return fmt.Errorf("recover side conversations: %w", err)
 	}
+	if err := narratorService.RecoverConversationInputs(context.Background()); err != nil {
+		return fmt.Errorf("recover conversation input routing: %w", err)
+	}
 	if err := narratorService.RecoverTerminalProjections(context.Background()); err != nil {
 		return fmt.Errorf("recover terminal narrator projections: %w", err)
 	}
 	return nil
+}
+
+func newConversationInputService(
+	store *conversation.Store,
+	router conversation.ConversationInputRoutingNotifier,
+) (*conversation.InputService, error) {
+	service, err := conversation.NewRoutedInputService(store, router)
+	if err != nil {
+		return nil, fmt.Errorf("create conversation input service: %w", err)
+	}
+	if _, err := store.RecoverConversationInputRouting(
+		context.Background(),
+		time.Now().UTC().Format(time.RFC3339Nano),
+	); err != nil {
+		return nil, fmt.Errorf("recover conversation input routing: %w", err)
+	}
+	return service, nil
 }

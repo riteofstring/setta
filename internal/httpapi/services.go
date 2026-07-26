@@ -69,6 +69,14 @@ type ConversationNavigatorService interface {
 	) (conversation.NavigatorPage, error)
 }
 
+type ConversationInputService interface {
+	DiscardInput(context.Context, string, string, string) (conversation.ConversationInputRoutingState, error)
+	ReadInputState(context.Context, string, string, string) (conversation.ConversationInputRoutingState, error)
+	WaitInputState(context.Context, string, string, string) (conversation.ConversationInputRoutingState, error)
+	RetryInput(context.Context, string, string, string) (conversation.ConversationInputRoutingState, error)
+	SubmitInput(context.Context, conversation.ConversationInput) (conversation.AcceptedConversationInput, error)
+}
+
 type RoleConfigurationService interface {
 	ReadModelCatalog(context.Context) (conversation.RoleModelCatalog, error)
 	ReadGlobalConfiguration(context.Context) (conversation.RoleConfiguration, error)
@@ -161,6 +169,7 @@ type RuntimeIdentityService interface {
 type HandlerConfig struct {
 	AppearanceService            AppearanceService
 	Metadata                     BackendMetadata
+	ConversationInputService     ConversationInputService
 	ConversationNavigatorService ConversationNavigatorService
 	ConversationService          ConversationService
 	DirectorService              DirectorService
@@ -178,6 +187,7 @@ type HandlerConfig struct {
 type handler struct {
 	appearanceService            AppearanceService
 	metadata                     BackendMetadata
+	conversationInputService     ConversationInputService
 	conversationNavigatorService ConversationNavigatorService
 	conversationService          ConversationService
 	directorService              DirectorService
@@ -204,6 +214,7 @@ func NewHandler(config HandlerConfig) http.Handler {
 	apiHandler := handler{
 		appearanceService:            config.AppearanceService,
 		metadata:                     config.Metadata,
+		conversationInputService:     config.ConversationInputService,
 		conversationNavigatorService: config.ConversationNavigatorService,
 		conversationService:          config.ConversationService,
 		directorService:              config.DirectorService,

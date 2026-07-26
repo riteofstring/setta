@@ -22,17 +22,12 @@ import (
 // registryWorkstream is one registry row plus the inputs its public record is
 // derived from.
 type registryWorkstream struct {
-	record          Workstream
-	conversationID  string
-	archived        bool
-	activeRunID     *string
-	queuedRunCount  int
-	lastTerminalRun conversation.TurnStatus
-	// lastCompletedRunID is the newest run this workstream carried to
-	// completion. It is the point a fork branches from, so a workstream that
-	// has never finished a run cannot be forked: there is no shared history for
-	// the child to inherit.
-	lastCompletedRunID  *string
+	record              Workstream
+	conversationID      string
+	archived            bool
+	activeRunID         *string
+	queuedRunCount      int
+	lastTerminalRun     conversation.TurnStatus
 	unresolvedApprovals map[string]bool
 	unresolvedResources map[string]bool
 	// blockedNodes are the workstream's unresolved blocked graph nodes. The
@@ -177,14 +172,6 @@ func (state *registryState) registerWorkstreamRecord(
 			owner,
 		)
 	}
-	if record.ConversationID != conversationID {
-		return nil, fmt.Errorf(
-			"workstream %s records conversation %s but was registered under %s",
-			record.ID,
-			record.ConversationID,
-			conversationID,
-		)
-	}
 	if err := ValidateWorkstream(record); err != nil {
 		return nil, err
 	}
@@ -225,21 +212,6 @@ func (state *registryState) applyAggregateDelta(record Workstream, sign int) {
 	state.aggregates.UnresolvedApprovalCount += sign * record.UnresolvedApprovalCount
 	state.aggregates.UnresolvedResourceRequestCount += sign * record.UnresolvedResourceRequestCount
 	state.aggregates.ArtifactCount += sign * record.ArtifactCount
-}
-
-// conversationForWorkstream is the inverse of the conversation index: which
-// conversation a workstream's work runs in. The record does not carry it,
-// because the renderer has never needed it; the Director does, to ask that
-// conversation a question.
-func (state *registryState) conversationForWorkstream(workstreamID string) (string, error) {
-	workstream, exists := state.workstreams[workstreamID]
-	if !exists {
-		return "", fmt.Errorf("workstream %s is not tracked", workstreamID)
-	}
-	if workstream.conversationID == "" {
-		return "", fmt.Errorf("workstream %s has no conversation", workstreamID)
-	}
-	return workstream.conversationID, nil
 }
 
 func (state *registryState) workstreamForConversation(conversationID string) (*registryWorkstream, error) {

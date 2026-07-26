@@ -16,16 +16,21 @@ describe("preload topic conversation API", () => {
       "archive",
       "bindFolder",
       "create",
+      "discardInput",
       "disposeSide",
       "list",
       "onEvent",
       "read",
       "readArtifact",
+      "readInputState",
       "release",
+      "retryInput",
       "sendSide",
       "stop",
       "submitApproval",
+      "submitInput",
       "subscribe",
+      "waitInputState",
     ]);
     const listRequest = {
       cursor: null,
@@ -64,9 +69,25 @@ describe("preload topic conversation API", () => {
         response: "",
       },
     };
+    const inputRequest = {
+      input: {
+        conversationId: "conversation_api",
+        id: "input_api",
+        modality: "voice" as const,
+        replyToInputId: null,
+        submittedAt: "2026-07-12T18:00:00Z",
+        text: "Route this conversation input",
+      },
+    };
+    const inputStateRequest = {
+      ...target,
+      inputId: inputRequest.input.id,
+    };
     await invokeConversationCommands(api, {
       approval,
       folderBindingRequest,
+      inputRequest,
+      inputStateRequest,
       listRequest,
       release,
       sideDisposeRequest,
@@ -92,6 +113,11 @@ describe("preload topic conversation API", () => {
       [ipcChannels.conversationReadSnapshot, target],
       [ipcChannels.conversationReadArtifact, artifactRequest],
       [ipcChannels.conversationStopTurn, target],
+      [ipcChannels.conversationSubmitInput, inputRequest],
+      [ipcChannels.conversationReadInputState, inputStateRequest],
+      [ipcChannels.conversationWaitInputState, inputStateRequest],
+      [ipcChannels.conversationRetryInput, inputStateRequest],
+      [ipcChannels.conversationDiscardInput, inputStateRequest],
       [ipcChannels.conversationSubmitApproval, approval],
       [ipcChannels.conversationSubscribeEvents, subscription],
       [ipcChannels.conversationReleaseEvents, release],
@@ -131,6 +157,8 @@ async function invokeConversationCommands(
   requests: {
     approval: Parameters<SettaAPI["conversations"]["submitApproval"]>[0];
     folderBindingRequest: Parameters<SettaAPI["conversations"]["bindFolder"]>[0];
+    inputRequest: Parameters<NonNullable<SettaAPI["conversations"]["submitInput"]>>[0];
+    inputStateRequest: Parameters<NonNullable<SettaAPI["conversations"]["readInputState"]>>[0];
     listRequest: Parameters<SettaAPI["conversations"]["list"]>[0];
     release: Parameters<SettaAPI["conversations"]["release"]>[0];
     sideDisposeRequest: Parameters<NonNullable<SettaAPI["conversations"]["disposeSide"]>>[0];
@@ -158,6 +186,31 @@ async function invokeConversationCommands(
   );
   await readArtifact(requests.artifactRequest);
   await api.conversations.stop(requests.target);
+  const submitInput = requireConversationCommand(
+    api.conversations.submitInput,
+    "conversation input intake",
+  );
+  await submitInput(requests.inputRequest);
+  const readInputState = requireConversationCommand(
+    api.conversations.readInputState,
+    "conversation input routing state",
+  );
+  await readInputState(requests.inputStateRequest);
+  const waitInputState = requireConversationCommand(
+    api.conversations.waitInputState,
+    "conversation input routing settlement",
+  );
+  await waitInputState(requests.inputStateRequest);
+  const retryInput = requireConversationCommand(
+    api.conversations.retryInput,
+    "conversation input routing retry",
+  );
+  const discardInput = requireConversationCommand(
+    api.conversations.discardInput,
+    "conversation input routing discard",
+  );
+  await retryInput(requests.inputStateRequest);
+  await discardInput(requests.inputStateRequest);
   await api.conversations.submitApproval(requests.approval);
   await api.conversations.subscribe(requests.subscription);
   await api.conversations.release(requests.release);

@@ -2,20 +2,18 @@
 @import "tw-animate-css";
 @import "./components/ui/shadcn-nova.css" layer(base);
 @import "./features/director-graph/render/director-graph.css";
-@import "./features/director-command-center/director-palette.css";
-@import "./features/artifacts/artifact-surface.css";
 @import "./features/director-command-center/director-command-center.css";
 @import "./features/director-command-center/director-command-center-navigation.css";
 @import "./features/director-command-center/director-command-center-composer.css";
 @import "./features/director-command-center/director-command-center-activity.css";
 @import "./features/director-command-center/director-workstream-switch-transition.css";
+@import "./features/director-command-center/director-command-center-history.css";
 
 /* Official shadcn/ui component source expects `dark:` to follow the app's own
-   colour mode rather than the OS preference. Setta has one: its surfaces are
-   authored dark and there is no light scheme to switch to, so the variant
-   always matches. It stays declared because the vendored components use it and
-   may not be edited (see components/ui/PROVENANCE.md). */
-@custom-variant dark (&);
+   colour mode rather than the OS preference. Setta's colour mode lives on the
+   document element's `data-color-mode`, and the palette below is dark unless
+   that attribute says otherwise, so the variant reads the same way. */
+@custom-variant dark (&:not([data-color-mode="light"] *));
 
 /* The copied Accordion styles use shadcn's `data-open`/`data-closed` variants.
    Upstream declares each to match both Radix's `data-state` and Base UI's own
@@ -195,6 +193,9 @@
   font-family: var(--setta-font-sans);
 }
 
+[data-color-mode="light"] {
+}
+
 * {
   box-sizing: border-box;
 }
@@ -299,6 +300,12 @@ h3 {
 
 .setta-shell-top-bar[data-desktop-platform="darwin"] {
   --setta-shell-top-bar-chrome-inset: 80px;
+}
+
+[data-color-mode="light"] .setta-shell-top-bar {
+  background: color-mix(in oklch, var(--setta-900) 90%, var(--setta-950));
+  border-color: color-mix(in oklch, var(--setta-400) 36%, transparent);
+  color: var(--setta-100);
 }
 
 .setta-shell-top-bar-chrome-shield {
@@ -532,6 +539,12 @@ h3 {
 
 .setta-settings-page[data-desktop-platform="darwin"] .setta-settings-page-header {
   --setta-settings-page-chrome-inset: 80px;
+}
+
+[data-color-mode="light"] .setta-settings-page-header {
+  background: color-mix(in oklch, var(--setta-900) 90%, var(--setta-950));
+  border-color: color-mix(in oklch, var(--setta-400) 36%, transparent);
+  color: var(--setta-100);
 }
 
 .setta-settings-page-chrome-shield {

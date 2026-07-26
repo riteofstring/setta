@@ -26,9 +26,6 @@ const (
 	DirectorDecisionQueueBehindRun DirectorDecisionKind = "queue_behind_run"
 	// DirectorDecisionSteerRun changes the instruction of an active run.
 	DirectorDecisionSteerRun DirectorDecisionKind = "steer_run"
-	// DirectorDecisionForkWorkstream branches an existing workstream into a new
-	// one that inherits its history up to a completed run.
-	DirectorDecisionForkWorkstream DirectorDecisionKind = "fork_workstream"
 	// DirectorDecisionSelectWorkstream focuses an existing workstream.
 	DirectorDecisionSelectWorkstream DirectorDecisionKind = "select_workstream"
 	// DirectorDecisionRecoverPath retries or recovers a failed execution path
@@ -41,7 +38,6 @@ var directorDecisionKinds = []DirectorDecisionKind{
 	DirectorDecisionSendToWorkstream,
 	DirectorDecisionQueueBehindRun,
 	DirectorDecisionSteerRun,
-	DirectorDecisionForkWorkstream,
 	DirectorDecisionSelectWorkstream,
 	DirectorDecisionRecoverPath,
 }
@@ -157,18 +153,14 @@ func ValidateDirectorFactEvent(fact DirectorFactEvent) error {
 	return validateDirectorFactPayload(fact)
 }
 
-/*
- * validateDirectorFactWorkstream requires the workstream every fact happens in,
- * except for the two kinds that are about the app rather than about one
- * workstream: a root creation decision, and a selection that landed on the
- * Director's own view. The payload is checked first, because whether a decision
- * is app-scoped is a property of the decision it committed.
- */
+// validateDirectorFactWorkstream requires the workstream every fact but a root
+// creation decision happens in. The payload is checked first, because whether a
+// decision is app-scoped is a property of the decision it committed.
 func validateDirectorFactWorkstream(fact DirectorFactEvent) error {
 	if fact.WorkstreamID != nil {
 		return validateIdentifier("director fact workstream id", *fact.WorkstreamID)
 	}
-	if fact.Kind != DirectorFactDecisionCommitted && fact.Kind != DirectorFactWorkstreamSelected {
+	if fact.Kind != DirectorFactDecisionCommitted {
 		return fmt.Errorf("director fact %s of kind %q requires a workstream", fact.ID, fact.Kind)
 	}
 	if fact.RunID != nil {

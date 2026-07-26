@@ -43,54 +43,6 @@ func (service *Service) StartDirectorWorkstream(
 	return service.createTopic(ctx, request.WorkspaceID, request.Title, request.ConversationID)
 }
 
-// DirectorWorkstreamFork branches one conversation into a new one that inherits
-// the parent's history up to a completed turn. The child is a conversation in
-// its own right from the moment it exists: it starts idle, and the work that
-// takes it somewhere different is delivered afterwards like any other work.
-type DirectorWorkstreamFork struct {
-	ParentConversationID string
-	ChildConversationID  string
-	// ForkedAtRunID is the parent turn the child inherits through. It is trusted
-	// state rather than something the decision named, so a fork always branches
-	// from work the parent actually completed.
-	ForkedAtRunID string
-	Title         string
-	// WorkspaceID is the parent's folder, or nil when the parent has none. The
-	// child inherits the scope rather than choosing one.
-	WorkspaceID *string
-}
-
-// ForkDirectorWorkstream creates the durable substrate for a forked workstream.
-// Like starting one, it delivers no work: the fork and the different direction
-// the user wants from it are separate durable facts.
-func (service *Service) ForkDirectorWorkstream(
-	ctx context.Context,
-	request DirectorWorkstreamFork,
-) (ConversationSnapshot, error) {
-	if err := validateDirectorRequest(service, ctx); err != nil {
-		return ConversationSnapshot{}, err
-	}
-	if err := validateIdentifier("director fork child conversation id", request.ChildConversationID); err != nil {
-		return ConversationSnapshot{}, err
-	}
-	return service.ExecuteBranchDecision(
-		ctx,
-		request.WorkspaceID,
-		BranchDecisionExecutionScope{
-			ParentConversationID: request.ParentConversationID,
-			ChildConversationID:  &request.ChildConversationID,
-			Source:               BranchDecisionSourceDirector,
-		},
-		BranchDecision{
-			Kind: BranchDecisionKindForkConversation,
-			ForkConversation: &ForkConversationBranchDecision{
-				ForkedAtTurnID: request.ForkedAtRunID,
-				ProposedTitle:  request.Title,
-			},
-		},
-	)
-}
-
 // SendDirectorTurn starts a run on a conversation with no active turn. The
 // workspace is optional: work that needs none runs in a private Setta-owned
 // working directory instead of waiting for a folder the user never had to give.

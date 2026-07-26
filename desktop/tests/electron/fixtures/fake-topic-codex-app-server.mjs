@@ -23,6 +23,7 @@ import {
   directorToolCallForStep,
   threadHasDirectorTools,
 } from "./fake-topic-codex-director-tools.mjs";
+import { createExactStructuredInputRoutes } from "./fake-topic-codex-input-routes.mjs";
 import * as structuredCall from "./fake-topic-codex-structured-call.mjs";
 const persistedStatePath = process.env.SETTA_E2E_TOPIC_CODEX_STATE_PATH ?? "";
 const initialThreadStartDelayMs = optionalNonNegativeIntegerEnvironment(
@@ -512,6 +513,7 @@ function emitKnownStructuredTurn(threadId, turnId, context, outputSchema) {
 const structuredTurnEmitters = {
   checkpoint: emitStructuredCheckpoint,
   focus: emitStructuredFocus,
+  input_route: emitStructuredInputRoute,
   projection: emitStructuredProjection,
   status: emitStructuredStatus,
 };
@@ -552,6 +554,144 @@ function emitStructuredCheckpoint(threadId, turnId, context) {
   return true;
 }
 
+function emitStructuredInputRoute(threadId, turnId, context) {
+  const input = context.input?.input;
+  const authoredInput = context.input?.clarificationReply?.text ?? input?.text;
+  const serialized = JSON.stringify(context);
+  const allowed = context.allowedDecisionKinds;
+  const routeKind = structuredInputRouteKind(context, allowed);
+  const valid = [
+    Array.isArray(allowed),
+    validStructuredRouteInput(context, input, routeKind),
+    validStructuredRouteHistory(context, routeKind),
+    structuredRouteContextIsRedacted(serialized),
+  ].every(Boolean);
+  if (!valid) {
+    completeTurn(threadId, turnId, "failed", "input router context drifted");
+    return true;
+  }
+  const decision = structuredInputRouteDecision(context, routeKind, authoredInput);
+  emitAgentMessage(
+    threadId,
+    turnId,
+    JSON.stringify({
+      decision,
+    }),
+  );
+  completeTurn(threadId, turnId, "completed");
+  return true;
+}
+
+function structuredInputRouteDecision(context, routeKind, authoredInput) {
+  const decision = {
+    authoredInput: null,
+    forkedAtTurnId: null,
+    kind: routeKind,
+    proposedTitle: null,
+    question: null,
+  };
+  switch (routeKind) {
+    case "answer_as_narrator":
+      decision.question = authoredInput;
+      return decision;
+    case "clarify":
+      decision.question = "Which exact request should I send?";
+      return decision;
+    case "fork_conversation": {
+      const forkPoint = context.validCompletedForkPoints.at(-1);
+      decision.authoredInput = authoredInput;
+      decision.forkedAtTurnId = forkPoint.turnId;
+      decision.proposedTitle = authoredInput;
+      return decision;
+    }
+    default:
+      decision.authoredInput = authoredInput;
+      return decision;
+  }
+}
+
+function structuredInputRouteKind(context, allowed) {
+  if (!Array.isArray(allowed)) {
+    return null;
+  }
+  const specialRoute = specialStructuredInputRouteKind(context, allowed);
+  if (specialRoute) {
+    return specialRoute;
+  }
+  return conversationStatusRouteKind(context, allowed);
+}
+
+function specialStructuredInputRouteKind(context, allowed) {
+  const clarification = structuredInputClarificationRouteKind(context, allowed);
+  if (clarification) {
+    return clarification;
+  }
+  const text = structuredInputRouteText(context);
+  for (const route of exactStructuredInputRoutes) {
+    if (route.inputs.has(text) && allowed.includes(route.kind)) {
+      return route.kind;
+    }
+  }
+  return null;
+}
+
+function structuredInputRouteText(context) {
+  const input = context.input ?? {};
+  return input.clarificationReply?.text ?? input.input?.text;
+}
+
+function structuredInputClarificationRouteKind(context, allowed) {
+  return context.input?.input?.text === "clarify routing request" &&
+    !context.input?.clarificationReply &&
+    allowed.includes("clarify")
+    ? "clarify"
+    : null;
+}
+
+const exactStructuredInputRoutes = createExactStructuredInputRoutes({
+  simultaneousCompletionInput,
+});
+
+function conversationStatusRouteKind(context, allowed) {
+  const status = context.authoritative?.conversation?.status;
+  if (status === "idle") {
+    return allowed.includes("send_to_parent") ? "send_to_parent" : null;
+  }
+  if (!["working", "waiting_for_approval"].includes(status)) {
+    return null;
+  }
+  return activeStructuredInputRouteKind(context, allowed);
+}
+
+function activeStructuredInputRouteKind(context, allowed) {
+  if (context.authoritative?.currentInstructions?.turnStatus !== "running") {
+    return null;
+  }
+  return allowed.includes("queue_parent_turn") ? "queue_parent_turn" : null;
+}
+
+function validStructuredRouteInput(context, input, routeKind) {
+  return (
+    typeof input?.text === "string" &&
+    ["text", "voice"].includes(input.modality) &&
+    routeKind !== null
+  );
+}
+
+function validStructuredRouteHistory(context, routeKind) {
+  if (routeKind !== "queue_parent_turn") {
+    return true;
+  }
+  return context.priorRouteDecisions?.length >= 1 && context.trajectory?.length > 0;
+}
+
+function structuredRouteContextIsRedacted(serialized) {
+  return (
+    !serialized.includes("topic-thread-") &&
+    !serialized.includes('"providerItemId":"provider-') &&
+    !serialized.includes('"processId":"')
+  );
+}
 function emitStructuredProjection(threadId, turnId, context) {
   const objective = objectiveSubject(
     (context.authoritative?.currentInstructions?.objective?.text ?? "topic work").trim(),

@@ -91,22 +91,13 @@ type ArtifactDocument struct {
 }
 
 type Artifact struct {
-	ID                 string  `json:"id"`
-	ConversationID     string  `json:"conversationId"`
-	TurnID             *string `json:"turnId"`
-	TrajectorySequence *int    `json:"trajectorySequence"`
-	Title              string  `json:"title"`
-	// Kind names the form of the document — Story, Report, Protocol — and is
-	// shown above its title. It is the model's own word, displayed verbatim:
-	// nothing in Setta branches on it, so it needs no closed set.
-	Kind string `json:"kind"`
-	// Summary is one line saying what this artifact is, in the author's own
-	// words. It is the standfirst under the title and the line on the rail
-	// card, and it exists because neither can be taken from the document: an
-	// opening sentence is the start of the thing, not a claim about it.
-	Summary   string           `json:"summary"`
-	CreatedAt string           `json:"createdAt"`
-	Document  ArtifactDocument `json:"document"`
+	ID                 string           `json:"id"`
+	ConversationID     string           `json:"conversationId"`
+	TurnID             *string          `json:"turnId"`
+	TrajectorySequence *int             `json:"trajectorySequence"`
+	Title              string           `json:"title"`
+	CreatedAt          string           `json:"createdAt"`
+	Document           ArtifactDocument `json:"document"`
 }
 
 type ArtifactMetadata struct {
@@ -115,8 +106,6 @@ type ArtifactMetadata struct {
 	TurnID             *string `json:"turnId"`
 	TrajectorySequence *int    `json:"trajectorySequence"`
 	Title              string  `json:"title"`
-	Kind               string  `json:"kind"`
-	Summary            string  `json:"summary"`
 	CreatedAt          string  `json:"createdAt"`
 }
 
@@ -384,16 +373,6 @@ func (queued QueuedConversationTurn) Validate() error {
 	return err
 }
 
-// cloneIntPointer copies an optional integer so a snapshot never shares a
-// pointer with the record it was projected from.
-func cloneIntPointer(value *int) *int {
-	if value == nil {
-		return nil
-	}
-	cloned := *value
-	return &cloned
-}
-
 func (artifact Artifact) Metadata() ArtifactMetadata {
 	return ArtifactMetadata{
 		ID:                 artifact.ID,
@@ -401,8 +380,6 @@ func (artifact Artifact) Metadata() ArtifactMetadata {
 		TurnID:             cloneStringPointer(artifact.TurnID),
 		TrajectorySequence: cloneIntPointer(artifact.TrajectorySequence),
 		Title:              artifact.Title,
-		Kind:               artifact.Kind,
-		Summary:            artifact.Summary,
 		CreatedAt:          artifact.CreatedAt,
 	}
 }
@@ -442,15 +419,6 @@ func (artifact ArtifactMetadata) Validate() error {
 		return fmt.Errorf("artifact %s trajectory sequence must be positive", artifact.ID)
 	}
 	if err := validateRequiredArtifactText("artifact title", artifact.Title); err != nil {
-		return err
-	}
-	// Kind and summary are as required as the title. They are what the rail card
-	// and the document header say an artifact is, so an artifact that reaches
-	// durable state without them is one the app cannot describe to the user.
-	if err := validateRequiredArtifactText("artifact kind", artifact.Kind); err != nil {
-		return err
-	}
-	if err := validateRequiredArtifactText("artifact summary", artifact.Summary); err != nil {
 		return err
 	}
 	if _, err := validateTimestamp("artifact createdAt", artifact.CreatedAt); err != nil {

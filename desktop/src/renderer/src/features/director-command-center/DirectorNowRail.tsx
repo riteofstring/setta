@@ -1,54 +1,156 @@
-import type { WorkstreamNarration } from "@generated/backend";
+import { ChevronDown, Folder, History } from "lucide-react";
+
+import { DirectorNowActivityList, type DirectorNowActivity } from "./DirectorNowActivityList";
+import { StatusGlyph } from "./DirectorWorkstreamNavigation";
+import type { DirectorFocus } from "./director-focus";
+import type { DirectorHistory } from "./DirectorHistoryOverlay";
+
+/** What the shell is waiting on before the Now rail can speak for itself. */
+export type DirectorLoadState = "loading" | "ready" | "resyncing" | "error";
 
 /**
- * The Now rail: what the narrator has said about the work in focus.
+ * The Now rail: what is happening, what just happened, and what the shell is
+ * waiting on.
  *
- * It renders narration and nothing else. It used to render the last five
- * semantic graph nodes, which were hardcoded constants — a row reading
- * "Tool / Action / Done" carries no information — raw provider text with its
- * markdown unrendered, and a provenance line of actor, evidence class, and
- * source-event counts that exists to debug a projector.
- *
- * There is deliberately no fallback. If the narrator has said nothing, the rail
- * says so in one line. A rail that degrades into a node dump is the defect this
- * replaced, and a fallback would reintroduce it under a different name.
- *
- * It does not name the selected workstream, its status, or its folder: the top
- * bar renders those, and restating them here is what turned the rail into a
- * second header stacked on the first. Nothing in it is a card — narration reads
- * as text over the canvas, so the rail stays a heads-up layer.
+ * It is the artifacts rail's opposite number, and like that rail it owns the
+ * whole of its own presentation rather than leaving pieces in the shell.
  */
-export function NowRail({ narration }: { narration: readonly WorkstreamNarration[] }) {
+export function NowRail({
+  activity,
+  focus,
+  history,
+  loadState,
+  message,
+  onOpenHistory,
+  receiptText,
+}: {
+  activity: DirectorNowActivity;
+  focus: DirectorFocus;
+  history: DirectorHistory;
+  loadState: DirectorLoadState;
+  message: string | null;
+  onOpenHistory: (trigger: HTMLButtonElement) => void;
+  receiptText: string | null;
+}) {
   return (
     <aside aria-label="Now" className="director-now-rail" id="director-now-rail">
-      <p className="director-rail-kicker">Now</p>
-      <DirectorNarrationList narration={narration} />
+      <CurrentFocusSummary focus={focus} />
+      <DirectorNowActivityList activity={activity} />
+      <HistoryList history={history} onOpenHistory={onOpenHistory} />
+      <div aria-live="polite" className="director-live-status" role="status">
+        {message ?? receiptText ?? loadStateMessage(loadState)}
+      </div>
     </aside>
   );
 }
 
-function DirectorNarrationList({ narration }: { narration: readonly WorkstreamNarration[] }) {
-  if (narration.length === 0) {
-    return <p className="director-rail-quiet">Nothing to report yet.</p>;
-  }
-  /*
-   * Newest first. The backend keeps narration in the order it was written, and
-   * the newest sentence is the one a glance is for.
-   */
-  const newestFirst = [...narration].reverse();
+function CurrentFocusSummary({ focus }: { focus: DirectorFocus }) {
   return (
-    <ol aria-label="What the narrator has reported" className="director-narration-list">
-      {newestFirst.map((entry, index) => (
-        <li
-          className="director-narration-item"
-          data-narration-kind={entry.kind}
-          data-narration-latest={index === 0 ? "true" : "false"}
-          key={entry.id}
-        >
-          <span aria-hidden="true" className="director-narration-mark" />
-          <span className="director-narration-text">{entry.text}</span>
-        </li>
-      ))}
-    </ol>
+    <section className="director-rail-section" data-focus={focus.kind}>
+      <p className="director-rail-kicker">Now</p>
+      <h2>{focus.title}</h2>
+      {focus.kind === "director" ? (
+        <div className="director-selected-status">
+          <span aria-hidden="true" className="director-role-dot" />
+          <span>{focus.roleLabel}</span>
+        </div>
+      ) : (
+        <CurrentWorkstreamFacts focus={focus} />
+      )}
+    </section>
   );
+}
+
+function CurrentWorkstreamFacts({
+  focus,
+}: {
+  focus: Extract<DirectorFocus, { kind: "workstream" }>;
+}) {
+  return (
+    <>
+      <div className="director-focus-facts">
+        <div className="director-selected-status" data-status={focus.status}>
+          <StatusGlyph status={focus.status} />
+          <span>{focus.statusLabel}</span>
+        </div>
+        <div
+          className="director-selected-folder"
+          data-folder={focus.folder.path === null ? "none" : "bound"}
+        >
+          <Folder aria-hidden="true" size={14} />
+          <span className="sr-only">Folder: </span>
+          <span title={focus.folder.path ?? undefined}>{focus.folder.label}</span>
+        </div>
+      </div>
+      {focus.summary === null ? null : (
+        <CurrentWorkstreamSummaryDisclosure summary={focus.summary} />
+      )}
+    </>
+  );
+}
+
+function CurrentWorkstreamSummaryDisclosure({ summary }: { summary: string }) {
+  return (
+    <details className="director-summary-disclosure">
+      <summary>
+        <span>Summary</span>
+        <ChevronDown aria-hidden="true" size={15} />
+      </summary>
+      <p className="director-rail-summary">{summary}</p>
+    </details>
+  );
+}
+
+function HistoryList({
+  history,
+  onOpenHistory,
+}: {
+  history: DirectorHistory;
+  onOpenHistory: (trigger: HTMLButtonElement) => void;
+}) {
+  return (
+    <section className="director-rail-section" aria-label="Recent work">
+      <p className="director-rail-kicker">History</p>
+      {history.length > 0 ? (
+        <>
+          <ol className="director-history-list">
+            {history.slice(-3).map((node) => (
+              <li data-node-kind={node.kind} key={node.id}>
+                <span>{node.publicSummary}</span>
+              </li>
+            ))}
+          </ol>
+          <button
+            className="director-history-open"
+            onClick={(event) => onOpenHistory(event.currentTarget)}
+            type="button"
+          >
+            <History aria-hidden="true" size={14} />
+            <span>See thread history</span>
+          </button>
+        </>
+      ) : (
+        <p className="director-rail-summary">No workstream history yet.</p>
+      )}
+    </section>
+  );
+}
+
+function loadStateMessage(state: DirectorLoadState): string {
+  switch (state) {
+    case "loading":
+      return "Loading Director state.";
+    case "resyncing":
+      return "Resyncing Director state.";
+    case "error":
+      return "The Director command center is unavailable.";
+    case "ready":
+      return "";
+    default:
+      return exhaustiveLoadState(state);
+  }
+}
+
+function exhaustiveLoadState(state: never): never {
+  throw new Error(`unsupported Director load state ${state}`);
 }

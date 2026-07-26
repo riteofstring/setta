@@ -11,16 +11,15 @@ import type {
 } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
-import { directorRailArrivalAnnouncement } from "./DirectorArtifactsRail";
-import { buildApprovalAnswers } from "./DirectorPendingActions";
+import { buildApprovalAnswers, directorRailArrivalAnnouncement } from "./DirectorArtifactsRail";
 import { directorArtifactCardMetadata } from "./DirectorArtifactPreviewCard";
 import {
   DirectorRefreshCoordinator,
   directorEventChangesVisibleState,
+  directorGraphTimeSecondsAt,
   directorPendingWork,
   effectiveDirectorRailVisibility,
 } from "./DirectorCommandCenterShell";
-import { directorGraphTimeSecondsAt, packDirectorGraphs } from "./director-graph-presentation";
 import {
   directorComposerHint,
   directorComposerTakesKeystroke,
@@ -29,10 +28,11 @@ import {
 import {
   directorWorkstreamKeyboardDirection,
   directorWorkstreamNavigation,
-  workstreamSelectionCanMove,
 } from "./DirectorWorkstreamNavigation";
+import { compactDirectorHistory } from "./DirectorHistoryOverlay";
+import { currentDirectorActivity } from "./DirectorNowActivityList";
 import { directorWorkstreamSwitchTransition } from "./director-workstream-switch-transition";
-import { directorFocus, directorFocusFolder, directorWorkstreamSummary } from "./director-focus";
+import { directorFocus, directorWorkstreamSummary } from "./director-focus";
 
 describe("Director command-center approval answers", () => {
   test("builds structured answers from public question definitions", () => {
@@ -91,17 +91,14 @@ describe("Director command-center approval answers", () => {
 });
 
 describe("Director command-center shell view state", () => {
-  // A card says whether its artifact is readable. How many events produced it
-  // is provenance, which belongs to the artifact surface rather than to a
-  // one-line card caption that a reader cannot act on.
-  test("labels artifact cards with the reader-facing status alone", () => {
+  test("labels artifact cards from typed Director artifact metadata", () => {
     expect(
       directorArtifactCardMetadata({
         ...workstreamArtifact(),
         sourceEventIds: ["event:1"],
         status: "available",
       }),
-    ).toBe("Ready");
+    ).toBe("Ready / 1 source");
 
     expect(
       directorArtifactCardMetadata({
@@ -109,7 +106,7 @@ describe("Director command-center shell view state", () => {
         sourceEventIds: ["event:1", "event:2"],
         status: "unresolved",
       }),
-    ).toBe("This artifact has not arrived yet.");
+    ).toBe("Pending / 2 sources");
   });
 
   test("announces typed artifact lifecycle changes at their update time", () => {
@@ -147,48 +144,46 @@ describe("Director command-center shell view state", () => {
     ).toBe("Artifact ready: Generated artifact");
   });
 
-  /*
-   * The canvas draws the view, which is the whole reason selection means
-   * something now. The Director's view is every workstream at once; a
-   * workstream's view is that workstream alone.
-   */
-  /*
-   * The presentation the graphs were packed under is the one the canvas has to
-   * draw them in. Deriving it twice — once from the graphs, once from the turns
-   * that came out — let an empty lane split the two, because a graph with no
-   * nodes is something to pack and nothing to draw. A grid drawn as columns
-   * aligns cells that were never meant to line up.
-   */
-  test("carries the presentation it packed under, even with an empty graph", () => {
-    const empty = graphWithNodes([], "director");
-    const tiles = Array.from({ length: 6 }, (_unused, index) => ({
-      ...graphWithNodes([semanticNode(index + 1, "action", "active")], `workstream:${index}`),
-      detailLevel: "adjacent" as const,
-    }));
+  test("builds bounded current activity from typed semantic nodes", () => {
+    const activity = currentDirectorActivity(
+      graphWithNodes([
+        semanticNode(1, "user_goal", "succeeded"),
+        semanticNode(2, "director_decision", "succeeded"),
+        semanticNode(3, "plan", "active"),
+        semanticNode(4, "action", "active"),
+        semanticNode(5, "artifact", "succeeded"),
+        semanticNode(6, "validation", "succeeded"),
+        semanticNode(7, "completed", "succeeded"),
+      ]),
+    );
 
-    const composition = packDirectorGraphs([empty, ...tiles], null);
-
-    expect(composition.presentation).toBe("grid");
-    // The lane packs no turn, so a count taken from the packed snapshot would
-    // have disagreed with the count the packer decided on.
-    expect(composition.snapshot.turnCount).toBe(tiles.length);
+    expect(activity.map((node) => node.id)).toEqual([
+      "node:7",
+      "node:6",
+      "node:5",
+      "node:4",
+      "node:3",
+    ]);
   });
 
-  test("packs the whole constellation for the Director and one workstream otherwise", () => {
-    const graphs = [
-      graphWithNodes([semanticNode(1, "action", "active")], "workstream:1"),
-      graphWithNodes(
-        [semanticNode(2, "action", "active"), semanticNode(3, "artifact", "succeeded")],
-        "workstream:2",
-      ),
-    ];
+  test("keeps compact history to user requests and terminal responses", () => {
+    const history = compactDirectorHistory(
+      graphWithNodes([
+        semanticNode(1, "user_goal", "succeeded"),
+        semanticNode(2, "director_decision", "succeeded"),
+        semanticNode(3, "milestone", "succeeded"),
+        semanticNode(4, "completed", "succeeded"),
+        semanticNode(5, "failed", "failed"),
+        semanticNode(6, "cancelled", "cancelled"),
+      ]),
+    );
 
-    expect(packDirectorGraphs(graphs, null).snapshot.nodeCount).toBe(3);
-    expect(packDirectorGraphs(graphs, "workstream:2").snapshot.nodeCount).toBe(2);
-    expect(packDirectorGraphs(graphs, "workstream:1").snapshot.nodeCount).toBe(1);
-    // A workstream with no graph yet draws nothing rather than the composition.
-    expect(packDirectorGraphs(graphs, "workstream:absent").snapshot.nodeCount).toBe(0);
-    expect(packDirectorGraphs(undefined, null).snapshot.nodeCount).toBe(0);
+    expect(history.map((node) => node.kind)).toEqual([
+      "user_goal",
+      "completed",
+      "failed",
+      "cancelled",
+    ]);
   });
 
   test("does not present a resolved blocker as current running work", () => {
@@ -262,24 +257,6 @@ describe("Director command-center shell view state", () => {
     ).toBe(false);
   });
 
-  test("moves between the Director and a lone workstream in either direction", () => {
-    // One workstream is two destinations, because the Director's own view is
-    // one of them. The arrows went dead here while the strip was still showing
-    // both dots.
-    expect(
-      workstreamSelectionCanMove(directorWorkstreamNavigation(snapshotWithWorkstreams(1, 1))),
-    ).toBe(true);
-    expect(
-      workstreamSelectionCanMove(directorWorkstreamNavigation(snapshotWithWorkstreams(1, 0))),
-    ).toBe(true);
-  });
-
-  test("cannot move with no workstream to move to", () => {
-    expect(
-      workstreamSelectionCanMove(directorWorkstreamNavigation(snapshotWithWorkstreams(0, 0))),
-    ).toBe(false);
-  });
-
   test("windows large workstream sets around the selected entry", () => {
     const navigation = directorWorkstreamNavigation(snapshotWithWorkstreams(30, 22));
 
@@ -337,7 +314,6 @@ describe("Director command-center shell view state", () => {
       effectiveDirectorRailVisibility({
         compact: false,
         compactRail: null,
-        onDirectorView: false,
         railVisibility: { artifacts: false, now: true },
       }),
     ).toEqual({ artifacts: false, now: true });
@@ -346,33 +322,9 @@ describe("Director command-center shell view state", () => {
       effectiveDirectorRailVisibility({
         compact: true,
         compactRail: "artifacts",
-        onDirectorView: false,
         railVisibility: { artifacts: true, now: true },
       }),
     ).toEqual({ artifacts: true, now: false });
-  });
-
-  // The Director's view is the constellation. A rail over it names the first
-  // column rather than sitting beside it, and what it would say belongs to the
-  // thread one arrow away.
-  test("gives the Director's view no rails, whatever the toggles say", () => {
-    expect(
-      effectiveDirectorRailVisibility({
-        compact: false,
-        compactRail: null,
-        onDirectorView: true,
-        railVisibility: { artifacts: true, now: true },
-      }),
-    ).toEqual({ artifacts: false, now: false });
-
-    expect(
-      effectiveDirectorRailVisibility({
-        compact: true,
-        compactRail: "now",
-        onDirectorView: true,
-        railVisibility: { artifacts: true, now: true },
-      }),
-    ).toEqual({ artifacts: false, now: false });
   });
 
   test("routes arrow-key workstream navigation without fighting text editing", () => {
@@ -415,19 +367,17 @@ describe("Director command-center shell view state", () => {
     });
   });
 
-  // The top bar no longer carries a folder chip: it never changed while a
-  // workstream was selected, so it spent bar width on a constant. The fact is
-  // still reachable — every workstream dot names its folder — and that is what
-  // this guards, because losing it entirely is the real risk.
-  test("names the folder a workstream runs in, without the bar carrying it", () => {
-    const bound = directorFocus({
-      ...workstreamEntry(7, "running").workstream,
-      resourceScope: {
-        folder: { rootPath: "/Users/dev/code/setta", workspaceId: "workspace:1" },
-        kind: "folder",
-      },
-    });
-    expect(bound).toEqual({
+  test("carries the folder a focused workstream runs in", () => {
+    expect(
+      directorFocus({
+        ...workstreamEntry(7, "running").workstream,
+        resourceScope: {
+          folder: { rootPath: "/Users/dev/code/setta", workspaceId: "workspace:1" },
+          kind: "folder",
+        },
+      }),
+    ).toEqual({
+      folder: { label: "setta", path: "/Users/dev/code/setta" },
       kind: "workstream",
       status: "running",
       statusLabel: "Running",
@@ -435,23 +385,14 @@ describe("Director command-center shell view state", () => {
       title: "Workstream 7",
     });
 
-    expect(
-      directorFocusFolder({
-        folder: { rootPath: "/Users/dev/code/setta", workspaceId: "workspace:1" },
-        kind: "folder",
-      }),
-    ).toEqual({ label: "setta", path: "/Users/dev/code/setta" });
-
     expect(directorFocus(workstreamEntry(8, "awaiting_resource").workstream)).toEqual({
+      folder: { label: "No folder", path: null },
       kind: "workstream",
       status: "awaiting_resource",
       statusLabel: "Needs folder",
       summary: null,
       title: "Workstream 8",
     });
-    expect(
-      directorFocusFolder(workstreamEntry(8, "awaiting_resource").workstream.resourceScope),
-    ).toEqual({ label: "No folder", path: null });
   });
 
   test("keeps a Director turn from reading as a busy direct command", () => {
@@ -577,9 +518,7 @@ function workstreamEntry(position: number, status: WorkstreamStatus): DirectorWo
       artifactCount: 0,
       createdAt: "2026-07-25T17:00:00Z",
       id: `workstream:${position}`,
-      conversationId: "conversation:1",
       lastMilestone: null,
-      narration: [],
       parentId: null,
       queuedRunCount: 0,
       resourceBindings: [],
@@ -598,10 +537,8 @@ function workstreamArtifact(): WorkstreamArtifact {
     conversationId: "conversation:1",
     createdAt: "2026-07-25T17:00:00Z",
     id: "artifact:1",
-    kind: "Report",
     runId: "run:1",
     sourceEventIds: [],
-    summary: "What the report found, in one line.",
     status: "declared",
     title: "Generated artifact",
     updatedAt: "2026-07-25T17:00:01Z",
@@ -610,16 +547,13 @@ function workstreamArtifact(): WorkstreamArtifact {
   };
 }
 
-function graphWithNodes(
-  nodes: SemanticNode[],
-  workstreamId = "workstream:activity",
-): WorkstreamGraph {
+function graphWithNodes(nodes: SemanticNode[]): WorkstreamGraph {
   return {
     detailLevel: "selected",
     edges: [],
     hasEarlier: false,
     nodes,
-    workstreamId,
+    workstreamId: "workstream:activity",
   };
 }
 

@@ -62,18 +62,16 @@ func artifactRow(
 	if workspaceID == nil {
 		return reader.QueryRowContext(ctx, `
 SELECT artifacts.id, artifacts.conversation_id, artifacts.turn_id,
-       artifacts.trajectory_sequence, artifacts.title, artifacts.kind,
-       artifacts.summary, artifacts.language, artifacts.catalog_id,
-       artifacts.source, artifacts.created_at
+       artifacts.trajectory_sequence, artifacts.title, artifacts.language,
+       artifacts.catalog_id, artifacts.source, artifacts.created_at
 FROM artifacts
 WHERE artifacts.id = ? AND artifacts.conversation_id = ?
 `, artifactID, conversationID)
 	}
 	return reader.QueryRowContext(ctx, `
 SELECT artifacts.id, artifacts.conversation_id, artifacts.turn_id,
-       artifacts.trajectory_sequence, artifacts.title, artifacts.kind,
-       artifacts.summary, artifacts.language, artifacts.catalog_id,
-       artifacts.source, artifacts.created_at
+       artifacts.trajectory_sequence, artifacts.title, artifacts.language,
+       artifacts.catalog_id, artifacts.source, artifacts.created_at
 FROM artifacts
 JOIN conversations ON conversations.id = artifacts.conversation_id
 WHERE artifacts.id = ? AND artifacts.conversation_id = ? AND conversations.workspace_id = ?

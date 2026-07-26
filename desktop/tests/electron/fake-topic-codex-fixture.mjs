@@ -33,6 +33,11 @@ const fakeTopicDirectorToolsFixture = join(
   "fixtures",
   "fake-topic-codex-director-tools.mjs",
 );
+const fakeTopicInputRoutesFixture = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "fake-topic-codex-input-routes.mjs",
+);
 
 export async function installFakeTopicCodex(fixture) {
   const binDir = join(fixture.tempRoot, "fake-topic-bin");
@@ -50,6 +55,7 @@ export async function installFakeTopicCodex(fixture) {
     fakeTopicDirectorToolsFixture,
     join(binDir, "fake-topic-codex-director-tools.mjs"),
   );
+  await copyFile(fakeTopicInputRoutesFixture, join(binDir, "fake-topic-codex-input-routes.mjs"));
   await copyFile(
     fakeTopicStructuredCallFixture,
     join(binDir, "fake-topic-codex-structured-call.mjs"),

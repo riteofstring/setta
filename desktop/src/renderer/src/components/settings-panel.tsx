@@ -1,4 +1,5 @@
 import type {
+  AppearanceColorMode,
   AppearanceFontScheme,
   AppearancePreset,
   AppearancePresetID,
@@ -42,6 +43,7 @@ import {
   AccordionSection,
   ColorSchemeFields,
   fieldLabel,
+  ModeSwitch,
   OKLCHSeedPicker,
   StatusColorSection,
 } from "./settings-panel-color-fields";
@@ -152,6 +154,7 @@ function SettingsSubtabContent({
   const settings = useAppearanceStore((state) => state.settings);
   const setColorValue = useAppearanceStore((state) => state.setColorValue);
   const setFontValue = useAppearanceStore((state) => state.setFontValue);
+  const setMode = useAppearanceStore((state) => state.setMode);
   const status = useAppearanceStore((state) => state.status);
   const dirty = draft !== null && !appearanceSettingsEqual(draft, settings);
   const contentBySubtab = {
@@ -166,6 +169,7 @@ function SettingsSubtabContent({
         onApplySettings={applyDraftSettings}
         onColorChange={setColorValue}
         onFontChange={setFontValue}
+        onModeChange={setMode}
         onRevert={revertDraft}
         onSave={saveDraft}
         presets={presets}
@@ -263,8 +267,14 @@ interface AppearanceSettingsEditorProps {
   dirty: boolean;
   error: string | null;
   onApplySettings: (settings: AppearanceSettings) => void;
-  onColorChange: (group: AppearanceColorGroup, name: string, value: string) => void;
+  onColorChange: (
+    mode: AppearanceColorMode,
+    group: AppearanceColorGroup,
+    name: string,
+    value: string,
+  ) => void;
   onFontChange: (name: keyof AppearanceFontScheme, value: string) => void;
+  onModeChange: (mode: AppearanceColorMode) => void;
   onRevert: () => void;
   onSave: () => Promise<void>;
   presets: AppearancePreset[];
@@ -279,6 +289,7 @@ export function AppearanceSettingsEditor({
   onApplySettings,
   onColorChange,
   onFontChange,
+  onModeChange,
   onRevert,
   onSave,
   presets,
@@ -303,6 +314,7 @@ export function AppearanceSettingsEditor({
             <h2 className="truncate text-xs font-semibold tracking-wide text-foreground">Theme</h2>
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+            {settings ? <ModeSwitch mode={settings.mode} onChange={onModeChange} /> : null}
             <Button
               disabled={!dirty || busy}
               onClick={onRevert}
@@ -335,9 +347,10 @@ export function AppearanceSettingsEditor({
           />
           <SeedPaletteSection onApplySettings={onApplySettings} settings={settings} />
           <StatusColorSection
+            mode={settings.mode}
             onChange={onColorChange}
-            status={settings.dark.status}
-            tailwind={settings.dark.tailwind}
+            status={settings[settings.mode].status}
+            tailwind={settings[settings.mode].tailwind}
           />
           <AccordionSection
             count={Object.keys(settings.fonts).length}
@@ -346,7 +359,11 @@ export function AppearanceSettingsEditor({
           >
             <FontFields fonts={settings.fonts} onChange={onFontChange} />
           </AccordionSection>
-          <ColorSchemeFields scheme={settings.dark} onChange={onColorChange} />
+          <ColorSchemeFields
+            mode={settings.mode}
+            scheme={settings[settings.mode]}
+            onChange={onColorChange}
+          />
         </>
       ) : (
         <div className="flex h-16 items-center gap-2 rounded-sm border border-border px-3 text-xs text-muted-foreground">
@@ -414,7 +431,7 @@ function PalettePresetChooser({
     [presets, settings],
   );
   const activePreview = useMemo(
-    () => presetPreviewValues((activePreset?.settings ?? settings).dark.tailwind),
+    () => presetPreviewValues((activePreset?.settings ?? settings)[settings.mode].tailwind),
     [activePreset, settings],
   );
   const [open, setOpen] = useState(false);
@@ -546,6 +563,7 @@ function PalettePresetChooser({
                   onClick={() => {
                     onApplySettings({
                       ...preset.settings,
+                      mode: settings.mode,
                     });
                     setOpen(false);
                     anchorRef.current?.focus();
@@ -567,7 +585,7 @@ function PalettePresetChooser({
                   </span>
                   <PresetSwatches
                     className="h-3.5 w-16"
-                    values={presetPreviewValues(preset.settings.dark.tailwind)}
+                    values={presetPreviewValues(preset.settings[settings.mode].tailwind)}
                   />
                 </button>
               );
@@ -599,6 +617,7 @@ function presetMatchesSettings(preset: AppearancePreset, settings: AppearanceSet
   return appearanceSettingsEqual(
     {
       ...preset.settings,
+      mode: settings.mode,
     },
     settings,
   );

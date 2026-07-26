@@ -475,16 +475,11 @@ func preparedContextIdentity(
 	if err := validateIdentifier("narrator call conversation id", conversationID); err != nil {
 		return preparedCallRequest{}, err
 	}
-	/*
-	 * An empty workspace is a folderless conversation, not a missing field.
-	 *
-	 * Only a status call used to be allowed one, so a folderless conversation's
-	 * focus and projection calls failed here as an internal contract error —
-	 * which the narrator recorded as a degradation rather than as work it could
-	 * not have done. Folderless work is the one kind with no files to look at,
-	 * so an account of it is the only account there is.
-	 */
-	if workspaceID != "" {
+	if workspaceID == "" {
+		if kind != RequestKindStatus {
+			return preparedCallRequest{}, fmt.Errorf("narrator %s call requires a workspace id", kind)
+		}
+	} else {
 		if err := validateIdentifier("narrator call workspace id", workspaceID); err != nil {
 			return preparedCallRequest{}, err
 		}

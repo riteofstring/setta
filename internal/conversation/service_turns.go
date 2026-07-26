@@ -395,6 +395,7 @@ func (service *Service) steerTurn(
 			Reason:         fmt.Sprintf("steer target changed from %s to %s", expectedTurnID, control.turn.ID),
 		}
 	}
+	routeDecisionID := clientInputID
 	if clientInputID == "" {
 		clientInputID = control.active.turnID + "_steer"
 	} else if err := validateIdentifier("routed steer client input id", clientInputID); err != nil {
@@ -415,6 +416,7 @@ func (service *Service) steerTurn(
 		control.snapshot,
 		control.turn.ID,
 		text,
+		routeDecisionID,
 	); err != nil {
 		return ConversationSnapshot{}, err
 	}

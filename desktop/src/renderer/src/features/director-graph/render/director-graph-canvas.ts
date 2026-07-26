@@ -45,9 +45,9 @@ import {
 } from "./graph-labels";
 import {
   GraphQualityController,
+  graphQualityForViewport,
   graphReducedMotionProfile,
   graphRefreshPeriodMs,
-  graphStartingQualityProfile,
   type GraphQualityTier,
 } from "./graph-quality";
 import {
@@ -62,13 +62,9 @@ import {
   graphOutcomeAtPointer,
   type GraphScreenPoint,
   type GraphViewport,
-  graphLookBackMargin,
-  graphNodeActivation,
-  type GraphCameraBounds,
 } from "./graph-view-state";
 import { graphFitFrame, graphMotionRates } from "./graph-visual-language";
 import { packedValueAt } from "../packed-graph-vocabulary";
-import type { SemanticGraphPresentation } from "../semantic-graph-packer";
 
 export interface GraphCanvasQuality {
   readonly tier: GraphQualityTier;
@@ -100,11 +96,6 @@ export interface DirectorGraphCanvasOptions {
    */
   readonly timeSecondsAt: (timestampMs: number) => number;
   readonly reducedMotion: boolean;
-  /**
-   * Opens the thread a click landed on. Supplied by the Director's views, where
-   * a column or a tile is a destination; a conversation has nothing to open.
-   */
-  readonly onOpenWorkstream?: (workstreamId: string) => void;
   /**
    * Keeps the mockup's drifting void alive after semantic graph motion settles.
    * Fixture harnesses leave this off so completed replays can still sleep.
@@ -157,21 +148,7 @@ export class DirectorGraphCanvas {
   private pendingPixelChecks: ((check: GraphCanvasPixelCheck) => void)[] = [];
   private reducedMotion: boolean;
   private hoverAmount = 0;
-  /*
-   * Whether the next frame puts the camera at the live edge outright.
-   *
-   * The camera eases toward the live edge, which is how live work reads: a new
-   * turn nudges the view rather than jumping it. Arriving at a different graph
-   * is not live work — easing there pans across the whole conversation, which
-   * on a long one is seconds of replay before the reader sees the present.
-   */
-  private arriveAtLiveEdge = false;
-  private presentation: SemanticGraphPresentation = "conversation";
-  private bounds: GraphCameraBounds = {
-    contentTopWorldY: 0,
-    liveEdgeWorldY: 0,
-    lookBackMargin: 0,
-  };
+  private lastViewportKey = "";
   private lastSurfaceKey = "";
   private lastFrameTimestampMs = 0;
   private disposed = false;
@@ -182,7 +159,7 @@ export class DirectorGraphCanvas {
     this.ambientMotion = options.ambientMotion === true;
     this.now = options.now ?? (() => performance.now());
     const viewport = options.viewportOf();
-    const profile = this.profileFor();
+    const profile = this.profileFor(viewport, options.devicePixelRatioOf());
     this.quality = new GraphQualityController(profile);
     this.renderer = new DirectorGraphRenderer(options.canvas, options.ownerDocument, profile);
     this.renderer.resize(
@@ -194,7 +171,7 @@ export class DirectorGraphCanvas {
     );
     this.renderer.prewarm();
     this.labels = new GraphLabelLayer(options.labelRoot, options.ownerDocument, {
-      onPillActivated: (nodeIndex) => this.activateNode(nodeIndex),
+      onPillActivated: (nodeIndex) => this.toggleTurnAt(nodeIndex),
     });
     this.stopwatch = new GraphFrameStopwatch(this.now);
     this.gpuTimer = new GraphGpuTimer(
@@ -218,7 +195,6 @@ export class DirectorGraphCanvas {
     if (snapshot.workstreamId !== this.snapshot.workstreamId) {
       this.view.reset();
       this.hoverAmount = 0;
-      this.arriveAtLiveEdge = true;
     } else {
       this.view.clearNodeFocus();
     }
@@ -248,10 +224,14 @@ export class DirectorGraphCanvas {
       return;
     }
     this.reducedMotion = reducedMotion;
-    const decision = this.quality.setProfile(this.profileFor());
+    const viewport = this.options.viewportOf();
+    const decision = this.quality.setProfile(
+      this.profileFor(viewport, this.options.devicePixelRatioOf()),
+    );
     this.renderer.applyProfile(decision.profile);
     // Reduced motion re-derives the profile, so both the tier and the surfaces
     // have to be reapplied rather than only redrawn.
+    this.lastViewportKey = "";
     this.lastSurfaceKey = "";
     this.scheduler.requestFrame();
   }
@@ -262,7 +242,7 @@ export class DirectorGraphCanvas {
 
   /** Wakes the loop after a viewport or layout change. */
   invalidate(): void {
-    this.lastSurfaceKey = "";
+    this.lastViewportKey = "";
     this.scheduler.requestFrame();
   }
 
@@ -286,14 +266,6 @@ export class DirectorGraphCanvas {
    */
   clicked(point: GraphScreenPoint): void {
     const scene = this.pointerScene();
-    if (this.presentation !== "conversation") {
-      const hit = graphNodeAtPointer(scene, point);
-      if (hit === null) {
-        return;
-      }
-      this.activateNode(hit);
-      return;
-    }
     const outcome = graphOutcomeAtPointer(scene, point);
     if (outcome !== null) {
       this.toggleTurnAt(outcome);
@@ -303,49 +275,10 @@ export class DirectorGraphCanvas {
     this.scheduler.requestFrame();
   }
 
-  /*
-   * What activating a node does, wherever the activation came from.
-   *
-   * A label is a real button, so it takes the click before the canvas ever sees
-   * one and drives the same decision by a different path. Both routes end here,
-   * because a pill that folds a turn while the canvas beneath it opens a thread
-   * is two answers to one gesture.
-   */
-  private activateNode(nodeIndex: number): void {
-    const turn = packedValueAt(this.snapshot.nodes.turn, nodeIndex);
-    const openable =
-      this.options.onOpenWorkstream === undefined
-        ? undefined
-        : this.snapshot.turnWorkstreamIds[turn];
-    const activation = graphNodeActivation(this.presentation, nodeIndex, openable);
-    if (activation.kind === "fold") {
-      this.toggleTurnAt(activation.nodeIndex);
-      return;
-    }
-    if (activation.kind === "open") {
-      this.options.onOpenWorkstream?.(activation.workstreamId);
-      return;
-    }
-    this.view.toggleSelected(activation.nodeIndex);
-    this.scheduler.requestFrame();
-  }
-
   /** Wheel look-back through the trajectory; live work keeps running. */
   wheeled(deltaYPx: number): void {
-    this.view.lookBack(deltaYPx, this.bounds);
+    this.view.lookBack(deltaYPx, this.layout.liveEdge());
     this.scheduler.requestFrame();
-  }
-
-  /*
-   * Which presentation the canvas is drawing.
-   *
-   * It decides what a click means. In a conversation an outcome node folds its
-   * turn, because the turns are the thing being read. On the Director's views a
-   * click on any thread opens it: the columns and tiles are destinations, and
-   * folding one from a view that exists to show them all is never the ask.
-   */
-  setPresentation(presentation: SemanticGraphPresentation): void {
-    this.presentation = presentation;
   }
 
   /**
@@ -433,8 +366,8 @@ export class DirectorGraphCanvas {
     this.renderer.dispose();
   }
 
-  private profileFor() {
-    const profile = graphStartingQualityProfile();
+  private profileFor(viewport: GraphViewport, devicePixelRatio: number) {
+    const profile = graphQualityForViewport(viewport.width, viewport.height, devicePixelRatio);
     return this.reducedMotion ? graphReducedMotionProfile(profile) : profile;
   }
 
@@ -450,7 +383,6 @@ export class DirectorGraphCanvas {
   private pointerScene() {
     return {
       snapshot: this.snapshot,
-      placedNodeCount: Math.min(this.snapshot.nodeCount, this.layout.placedNodeCount()),
       worldY: this.layout.worldYColumn(),
       open: this.layout.openColumn(),
       cameraWorldY: this.view.camera(),
@@ -485,27 +417,15 @@ export class DirectorGraphCanvas {
       deltaSeconds: timing.deltaSeconds,
       pinnedTurns: this.view.pins(),
       reducedMotion: this.reducedMotion,
-      alignColumnsToLiveEdge: this.presentation === "columns",
     });
-    this.bounds = {
-      contentTopWorldY: ladder.contentTopWorldY,
-      liveEdgeWorldY: ladder.liveEdgeWorldY,
-      lookBackMargin: graphLookBackMargin(graphFitFrame(viewport.width, viewport.height).fitY),
-    };
     this.view.followLiveEdge(
-      this.arriveAtLiveEdge
-        ? ladder.liveEdgeWorldY
-        : advanceGraphCamera(
-            this.view.camera(),
-            ladder.liveEdgeWorldY,
-            timing.deltaSeconds,
-            this.reducedMotion,
-          ),
+      advanceGraphCamera(
+        this.view.camera(),
+        ladder.liveEdgeWorldY,
+        timing.deltaSeconds,
+        this.reducedMotion,
+      ),
     );
-    // Every frame, detached included: the content moves under a camera that has
-    // not, and a camera outside it draws nothing with no way to say so.
-    this.view.clampToContent(this.bounds);
-    this.arriveAtLiveEdge = false;
     const hovering = this.view.hovered() !== null;
     this.hoverAmount = advanceHoverAmount(
       this.hoverAmount,
@@ -521,22 +441,12 @@ export class DirectorGraphCanvas {
       to: ladder.dirtyTo,
     });
     const profile = this.quality.current().profile;
-    /*
-     * Culling reads worldY as sorted, which it is down one column and is not
-     * across several: each column restarts at its own top, so a binary search
-     * lands anywhere and drops nodes that are on screen. A composition is
-     * bounded by the snapshot budget, so it is drawn whole rather than searched
-     * wrongly.
-     */
-    const nodes =
-      ladder.columnCount > 1
-        ? { from: 0, to: this.snapshot.nodeCount }
-        : graphVisibleNodeRange(
-            ladder.worldY,
-            this.snapshot.nodeCount,
-            this.view.camera(),
-            profile.visibleHalfWindow,
-          );
+    const nodes = graphVisibleNodeRange(
+      ladder.worldY,
+      this.snapshot.nodeCount,
+      this.view.camera(),
+      profile.visibleHalfWindow,
+    );
     const edges = graphVisibleEdgeRange(this.snapshot.edges.to, this.snapshot.edgeCount, nodes);
 
     this.stopwatch.begin("upload");
@@ -597,22 +507,30 @@ export class DirectorGraphCanvas {
   }
 
   /**
-   * Resizing is the only thing a viewport change decides.
+   * Two decisions, kept apart.
    *
-   * It does not touch the tier. The tier is not chosen from how many pixels the
-   * surface has — see `graphStartingQualityProfile` — so re-deriving it here
-   * would only throw away a tier the graph had earned from measured GPU time,
-   * and pay for a geometry rebuild, every time the window moved a pixel.
+   * A *viewport* change re-derives the starting tier, because the tier is chosen
+   * from how many pixels the surface has. Everything else — an adaptive tier
+   * step, an adaptive scale step — only resizes. Re-deriving the tier on every
+   * frame that changed quality would hand the viewport's starting tier back
+   * immediately, so the graph could never hold a tier it had earned and would
+   * pay for a geometry rebuild every few frames.
    *
-   * The surface key covers the viewport, the tier, and the scale, so an
-   * adaptive step in either knob reaches the framebuffers on the next frame
-   * instead of waiting for a viewport change to carry it.
+   * The surface key covers the scale as well as the tier, so a scale step
+   * actually reaches the framebuffers instead of waiting for the next viewport
+   * change to carry it.
    */
   private applyViewport(viewport: GraphViewport, devicePixelRatio: number): void {
+    const viewportKey = `${viewport.width}x${viewport.height}@${devicePixelRatio}`;
+    if (viewportKey !== this.lastViewportKey) {
+      this.lastViewportKey = viewportKey;
+      const decision = this.quality.setProfile(this.profileFor(viewport, devicePixelRatio));
+      if (decision.tierChanged) {
+        this.renderer.applyProfile(decision.profile);
+      }
+    }
     const current = this.quality.current();
-    const surfaceKey =
-      `${viewport.width}x${viewport.height}@${devicePixelRatio}` +
-      `|${current.profile.tier}|${current.renderScale}`;
+    const surfaceKey = `${viewportKey}|${current.profile.tier}|${current.renderScale}`;
     if (surfaceKey === this.lastSurfaceKey) {
       return;
     }
@@ -647,7 +565,7 @@ export class DirectorGraphCanvas {
       },
       this.placements,
     );
-    this.labels.apply(this.snapshot, this.placements, count, this.presentation === "conversation");
+    this.labels.apply(this.snapshot, this.placements, count);
   }
 
   private recordFrame(frameStart: number, timing: GraphFrameTiming): void {

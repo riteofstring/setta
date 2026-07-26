@@ -26,24 +26,9 @@ const artifactToolTestSource = `root = Document([
   BarChart([{name: "Lines", points: [{label: "Go", value: 34}, {label: "CSS", value: 8}]}])
 ])`
 
-// The kind and the summary are what the rail card and the document header say
-// an artifact is. They are asserted on every read below rather than only at the
-// tool boundary, because they are supplied once and then have to survive the
-// store: an artifact that reads back without them is one the app cannot
-// describe to the user.
-const (
-	artifactToolTestKind    = "Report"
-	artifactToolTestSummary = "What the report found."
-)
-
 func artifactToolArguments(t *testing.T, title string, source string) []byte {
 	t.Helper()
-	arguments, err := json.Marshal(map[string]string{
-		"title":   title,
-		"kind":    artifactToolTestKind,
-		"summary": artifactToolTestSummary,
-		"source":  source,
-	})
+	arguments, err := json.Marshal(map[string]string{"title": title, "source": source})
 	if err != nil {
 		t.Fatalf("encode emit_artifact arguments: %v", err)
 	}
@@ -153,7 +138,7 @@ func TestEmitArtifactToolReturnsStructuredFailureAndAllowsRetry(t *testing.T) {
 		ProviderTurnID:   active.providerTurnID,
 		Namespace:        artifactToolNamespace,
 		Tool:             artifactToolName,
-		Arguments:        []byte(`{"title":"Language line counts","kind":"Report","summary":"One line.","summary":"Lines of code per language."}`),
+		Arguments:        []byte(`{"title":"Language line counts"}`),
 	})
 	if err != nil {
 		t.Fatalf("failed artifact handler returned error: %v", err)
@@ -220,7 +205,7 @@ func TestFailedArtifactAttemptMakesProviderCompletionUnresolved(t *testing.T) {
 		ProviderTurnID:   active.providerTurnID,
 		Namespace:        artifactToolNamespace,
 		Tool:             artifactToolName,
-		Arguments:        []byte(`{"title":"Language line counts","kind":"Report","summary":"One line.","summary":"Lines of code per language."}`),
+		Arguments:        []byte(`{"title":"Language line counts"}`),
 	})
 	if err != nil {
 		t.Fatalf("failed artifact handler returned error: %v", err)
@@ -261,8 +246,8 @@ func TestEmitArtifactToolSchemaDeclaresTitleAndSource(t *testing.T) {
 	if schema.Type != "object" || schema.AdditionalProperties == nil || *schema.AdditionalProperties {
 		t.Fatalf("emit artifact schema = %+v, want a strict object", schema)
 	}
-	requireStringSet(t, "emit artifact required fields", schema.Required, []string{"title", "kind", "summary", "source"})
-	requireStringSet(t, "emit artifact properties", mapKeys(schema.Properties), []string{"title", "kind", "summary", "source"})
+	requireStringSet(t, "emit artifact required fields", schema.Required, []string{"title", "source"})
+	requireStringSet(t, "emit artifact properties", mapKeys(schema.Properties), []string{"title", "source"})
 	if schema.Properties["title"].Type != "string" || schema.Properties["source"].Type != "string" {
 		t.Fatalf("emit artifact property types = %+v", schema.Properties)
 	}
@@ -475,9 +460,7 @@ func requireDocumentArtifact(t *testing.T, artifact Artifact) {
 	t.Helper()
 	if artifact.Document.Language != ArtifactDocumentLanguageOpenUI ||
 		artifact.Document.CatalogID != ArtifactCatalogSettaV1 ||
-		artifact.Document.Source != artifactToolTestSource ||
-		artifact.Kind != artifactToolTestKind ||
-		artifact.Summary != artifactToolTestSummary {
+		artifact.Document.Source != artifactToolTestSource {
 		t.Fatalf("artifact = %+v", artifact)
 	}
 }
@@ -500,8 +483,7 @@ func readTestArtifact(
 
 func requireReadDocumentArtifact(t *testing.T, read Artifact, artifactID string) {
 	t.Helper()
-	if read.ID != artifactID || read.Document.Source != artifactToolTestSource ||
-		read.Kind != artifactToolTestKind || read.Summary != artifactToolTestSummary {
+	if read.ID != artifactID || read.Document.Source != artifactToolTestSource {
 		t.Fatalf("read artifact = %+v", read)
 	}
 }
@@ -523,13 +505,9 @@ func readTestSnapshot(
 
 func requireSnapshotArtifact(t *testing.T, snapshot ConversationSnapshot, artifactID string) {
 	t.Helper()
-	if len(snapshot.Artifacts.Artifacts) != 1 {
+	if len(snapshot.Artifacts.Artifacts) != 1 ||
+		snapshot.Artifacts.Artifacts[0].ID != artifactID {
 		t.Fatalf("snapshot artifacts = %+v", snapshot.Artifacts)
-	}
-	metadata := snapshot.Artifacts.Artifacts[0]
-	if metadata.ID != artifactID || metadata.Kind != artifactToolTestKind ||
-		metadata.Summary != artifactToolTestSummary {
-		t.Fatalf("snapshot artifact metadata = %+v", metadata)
 	}
 }
 
@@ -632,61 +610,55 @@ func TestDecodeEmitArtifactInputRejectsInvalidDocuments(t *testing.T) {
 	}{
 		{
 			name:      "unknown field",
-			argument:  `{"title":"Report","kind":"Report","summary":"One line.","source":"root = Document([Text(\"Done\")])","format":"markdown"}`,
+			argument:  `{"title":"Report","source":"root = Document([Text(\"Done\")])","kind":"markdown"}`,
 			wantCode:  artifactToolFailureInvalidArguments,
-			wantField: "format",
+			wantField: "kind",
 		},
 		{
 			name:      "missing title",
-			argument:  `{"kind":"Report","summary":"One line.","source":"root = Document([Text(\"Done\")])"}`,
+			argument:  `{"source":"root = Document([Text(\"Done\")])"}`,
 			wantCode:  artifactToolFailureMissingRequiredFields,
 			wantField: "title",
 		},
 		{
-			name:      "missing kind",
-			argument:  `{"title":"Report","source":"root = Document([Text(\"Done\")])"}`,
-			wantCode:  artifactToolFailureMissingRequiredFields,
-			wantField: "kind",
-		},
-		{
 			name:      "missing source",
-			argument:  `{"title":"Report","kind":"Report","summary":"One line."}`,
+			argument:  `{"title":"Report"}`,
 			wantCode:  artifactToolFailureMissingRequiredFields,
 			wantField: "source",
 		},
 		{
 			name:      "source is not a string",
-			argument:  `{"title":"Report","kind":"Report","summary":"One line.","source":{"root":"Document"}}`,
+			argument:  `{"title":"Report","source":{"root":"Document"}}`,
 			wantCode:  artifactToolFailureInvalidField,
 			wantField: "source",
 		},
 		{
 			name:      "empty source",
-			argument:  `{"title":"Report","kind":"Report","summary":"One line.","source":""}`,
+			argument:  `{"title":"Report","source":""}`,
 			wantCode:  string(artifactdoc.CodeSourceEmpty),
 			wantField: "source",
 		},
 		{
 			name:      "missing root",
-			argument:  `{"title":"Report","kind":"Report","summary":"One line.","source":"body = Document([Text(\"Done\")])"}`,
+			argument:  `{"title":"Report","source":"body = Document([Text(\"Done\")])"}`,
 			wantCode:  string(artifactdoc.CodeMissingRoot),
 			wantField: "source",
 		},
 		{
 			name:      "unknown component",
-			argument:  `{"title":"Report","kind":"Report","summary":"One line.","source":"root = Document([Marquee(\"Done\")])"}`,
+			argument:  `{"title":"Report","source":"root = Document([Marquee(\"Done\")])"}`,
 			wantCode:  string(artifactdoc.CodeUnknownComponent),
 			wantField: "source.root.blocks",
 		},
 		{
 			name:      "table row width",
-			argument:  `{"title":"Counts","kind":"Report","summary":"One line.","source":"root = Document([Table([{key: \"language\", label: \"Language\"}], [[\"Go\", \"34\"]])])"}`,
+			argument:  `{"title":"Counts","source":"root = Document([Table([{key: \"language\", label: \"Language\"}], [[\"Go\", \"34\"]])])"}`,
 			wantCode:  string(artifactdoc.CodeRowWidthMismatch),
 			wantField: "source.root.rows",
 		},
 		{
 			name:      "unsafe file reference",
-			argument:  `{"title":"Report","kind":"Report","summary":"One line.","source":"root = Document([FileReference(\"/etc/passwd\")])"}`,
+			argument:  `{"title":"Report","source":"root = Document([FileReference(\"/etc/passwd\")])"}`,
 			wantCode:  string(artifactdoc.CodeUnsafeValue),
 			wantField: "source.root.path",
 		},

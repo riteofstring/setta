@@ -2,7 +2,7 @@ import type { ArtifactStatus, WorkstreamArtifact } from "@generated/backend";
 import { Maximize2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { ArtifactCardFigureView } from "../artifacts/ArtifactCardFigures";
+import { ArtifactPreviewSurface } from "../artifacts/ArtifactPreviewSurface";
 import type { ArtifactDocumentCache } from "../artifacts/artifact-document-cache";
 import { Button } from "@renderer/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@renderer/components/ui/tooltip";
@@ -11,18 +11,15 @@ import { useArtifactDocument, type ArtifactDocumentState } from "./director-arti
 
 const artifactStatusLabels = {
   available: "Ready",
-  declared: "Setta is still writing this artifact.",
-  unresolved: "This artifact has not arrived yet.",
+  declared: "Declared",
+  unresolved: "Pending",
 } as const satisfies Record<ArtifactStatus, string>;
 
 /**
- * One artifact's rail card.
+ * One artifact's rail preview.
  *
- * A card claims what the document holds: its kind, its title, the one line the
- * author wrote to say what it is, and the single most telling thing inside.
- * It is never a shrunken replay of the document's first screen — that replay
- * is what made the rail a column of boxes each showing the top of something.
- *
+ * The card is a fixed-height surface whatever its artifact contains, so
+ * arriving artifacts and finishing reads never move the rail under the reader.
  * A single click does nothing: the card is not a control. Opening the artifact
  * goes through the explicit expand control, or a double-click on the card as a
  * pointer shortcut for the same action.
@@ -65,13 +62,8 @@ export function DirectorArtifactPreviewCard({
     >
       <header className="director-artifact-preview-header">
         <div className="director-artifact-preview-identity">
-          {/*
-           * The kicker names the form of the document. It was in the original
-           * mockup on every artifact and in the fidelity checklist's card row;
-           * production simply never had a field to put there.
-           */}
-          <p className="director-artifact-preview-kind">{artifact.kind}</p>
           <h3 className="director-artifact-preview-title">{artifact.title}</h3>
+          <p className="director-artifact-preview-meta">{directorArtifactCardMetadata(artifact)}</p>
         </div>
         <ArtifactExpandControl
           artifact={artifact}
@@ -81,11 +73,11 @@ export function DirectorArtifactPreviewCard({
           ref={expandRef}
         />
       </header>
-      {/* The card's body is noninteractive and ignores pointer input, so the
-          expand control above remains the only way into the full document. Its
-          readable content stays in the accessibility tree. */}
+      {/* Preview blocks are noninteractive and ignore pointer input, so the
+          expand control above remains the only way into the full document.
+          Their readable content stays in the accessibility tree. */}
       <div className="director-artifact-preview-viewport">
-        <DirectorArtifactCardBody artifact={artifact} document={document} />
+        <DirectorArtifactPreviewBody artifact={artifact} document={document} />
       </div>
     </article>
   );
@@ -148,50 +140,38 @@ function ArtifactExpandControl({
   );
 }
 
-/**
- * The card's line and its figures.
- *
- * The line is the artifact's own summary, so it is there the moment the
- * artifact is, without waiting for a read — which is why an unavailable
- * artifact still says what it will be rather than only that it is not here
- * yet. The figures arrive with the document.
- */
-function DirectorArtifactCardBody({
+function DirectorArtifactPreviewBody({
   artifact,
   document,
 }: {
   artifact: WorkstreamArtifact;
   document: ArtifactDocumentState | null;
 }) {
-  return (
-    <>
-      <p className="director-artifact-preview-line">{artifact.summary}</p>
-      {artifact.status === "available" ? (
-        <DirectorArtifactCardFigures document={document} />
-      ) : (
-        <p className="director-artifact-preview-status">{directorArtifactCardMetadata(artifact)}</p>
-      )}
-    </>
-  );
-}
-
-function DirectorArtifactCardFigures({ document }: { document: ArtifactDocumentState | null }) {
+  if (artifact.status !== "available") {
+    return (
+      <p className="director-artifact-preview-status">
+        {artifact.status === "declared"
+          ? "Setta is still writing this artifact."
+          : "This artifact has not arrived yet."}
+      </p>
+    );
+  }
   switch (document?.status) {
     case "ready":
-      return <ArtifactCardFigureView figures={document.entry.figures} />;
+      return <ArtifactPreviewSurface blocks={document.entry.preview} />;
     case "failed":
       return (
         <p className="director-artifact-preview-status">Setta could not read this artifact.</p>
       );
     default:
-      // A card that has said what the artifact is does not also need to
-      // announce that its evidence is still loading.
-      return null;
+      return <p className="director-artifact-preview-status">Loading preview.</p>;
   }
 }
 
 export function directorArtifactCardMetadata(artifact: WorkstreamArtifact): string {
-  return artifactStatusLabels[artifact.status];
+  const sourceCount = artifact.sourceEventIds.length;
+  const sourceLabel = `${sourceCount} ${sourceCount === 1 ? "source" : "sources"}`;
+  return `${artifactStatusLabels[artifact.status]} / ${sourceLabel}`;
 }
 
 /**

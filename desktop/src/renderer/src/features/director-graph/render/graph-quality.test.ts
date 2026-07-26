@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   graphDitherCellPixels,
   GraphQualityController,
+  graphQualityForViewport,
   graphQualityProfiles,
   graphReducedMotionProfile,
   graphRefreshPeriodMs,
   graphRenderScaleBounds,
-  graphStartingQualityProfile,
   graphSurfaceSizes,
 } from "./graph-quality";
 
@@ -51,37 +51,14 @@ describe("graph surface sizing", () => {
 });
 
 describe("graph quality tier selection", () => {
-  it("starts at full fidelity, because the viewport does not predict the load", () => {
-    expect(graphStartingQualityProfile().tier).toBe("full");
+  it("starts a phone and a harness viewport at full fidelity", () => {
+    expect(graphQualityForViewport(390, 844, 3).tier).toBe("full");
+    expect(graphQualityForViewport(1440, 900, 1).tier).toBe("full");
   });
 
-  it("holds every matrix viewport under the same ceilings at full", () => {
-    // The performance matrix's first consequence: above roughly the laptop
-    // tier the ceilings equalise GPU cost, so a larger display buys sharpness
-    // and costs nothing extra. That is why none of these starts lower.
-    const start = graphStartingQualityProfile();
-    const laptop = graphSurfaceSizes(1512, 982, 2, start, 1);
-    const desktop4k = graphSurfaceSizes(3840, 2160, 1, start, 1);
-    const desktop6k = graphSurfaceSizes(6016, 3384, 1, start, 1);
-    for (const sizes of [laptop, desktop4k, desktop6k]) {
-      expect(sizes.sceneWidth * sizes.sceneHeight).toBeLessThanOrEqual(start.scenePixelCeiling);
-      expect(sizes.postWidth * sizes.postHeight).toBeLessThanOrEqual(start.postPixelCeiling);
-    }
-    expect(desktop6k.sceneWidth * desktop6k.sceneHeight).toBeCloseTo(
-      desktop4k.sceneWidth * desktop4k.sceneHeight,
-      -4,
-    );
-  });
-
-  it("keeps the field flowing at every tier", () => {
-    // A tier step thins the medium; it never freezes it. The still field is
-    // reachable only through the accessibility path below.
-    for (const profile of Object.values(graphQualityProfiles)) {
-      expect(profile.effects.fieldFlow).toBe(true);
-    }
-    expect(graphQualityProfiles.reduced.fieldParticles).toBeLessThan(
-      graphQualityProfiles.full.fieldParticles,
-    );
+  it("steps down as the surface grows", () => {
+    expect(graphQualityForViewport(1512, 982, 2).tier).toBe("balanced");
+    expect(graphQualityForViewport(6016, 3384, 1).tier).toBe("reduced");
   });
 
   it("stops motion under reduced motion without dropping fidelity", () => {

@@ -70,6 +70,7 @@ const api: SettaAPI = {
     archive: (request) => invoke("conversationArchiveTopic", request),
     bindFolder: (request) => invoke("conversationBindFolder", request),
     disposeSide: (request) => invoke("conversationDisposeSide", request),
+    discardInput: (request) => invoke("conversationDiscardInput", request),
     create: (request) => invoke("conversationCreateTopic", request),
     list: (request) => invoke("conversationListTopicConversations", request),
     onEvent: (listener) => {
@@ -82,10 +83,14 @@ const api: SettaAPI = {
       };
     },
     sendSide: (request) => invoke("conversationSendSideTurn", request),
+    readInputState: (request) => invoke("conversationReadInputState", request),
+    waitInputState: (request) => invoke("conversationWaitInputState", request),
     readArtifact: (request) => invoke("conversationReadArtifact", request),
     read: (request) => invoke("conversationReadSnapshot", request),
     release: (request) => invoke("conversationReleaseEvents", request),
+    retryInput: (request) => invoke("conversationRetryInput", request),
     stop: (request) => invoke("conversationStopTurn", request),
+    submitInput: (request) => invoke("conversationSubmitInput", request),
     submitApproval: (request) => invoke("conversationSubmitApproval", request),
     subscribe: (request) => invoke("conversationSubscribeEvents", request),
   },

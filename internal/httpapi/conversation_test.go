@@ -692,8 +692,6 @@ func (service *httpTestConversationService) recordArtifactRead(
 		ConversationID:     conversationID,
 		TurnID:             nil,
 		Title:              "HTTP artifact",
-		Kind:               "Report",
-		Summary:            "What the transport fixture artifact claims.",
 		CreatedAt:          httpConversationTestTime,
 		TrajectorySequence: nil,
 		Document: conversation.ArtifactDocument{

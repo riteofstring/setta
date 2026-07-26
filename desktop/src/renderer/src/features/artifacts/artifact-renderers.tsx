@@ -74,24 +74,11 @@ export const artifactRenderers = {
     <ArtifactGrid columns={props.columns ?? 2}>{renderNode(props.blocks)}</ArtifactGrid>
   ),
   Card: ({ props, renderNode }) => (
-    /*
-     * A card is a margin note: a rule above it and a tracked label, the way the
-     * mockup sets an aside. A bordered box on every one of these is what turned
-     * a document into a page of boxes stacked on boxes, and the box was never
-     * the informative part — the label is.
-     */
-    <Card
-      className="gap-[9px] rounded-none border-0 border-t border-border bg-transparent px-0 py-0 pt-[12px] shadow-none"
-      size="sm"
-    >
-      <CardHeader className="px-0">
-        <CardTitle className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-          {props.title}
-        </CardTitle>
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>{props.title}</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-[10px] px-0">
-        {renderNode(props.blocks)}
-      </CardContent>
+      <CardContent className="flex flex-col gap-3">{renderNode(props.blocks)}</CardContent>
     </Card>
   ),
   Separator: () => <Separator />,

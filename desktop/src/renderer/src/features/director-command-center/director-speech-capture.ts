@@ -1,3 +1,5 @@
+import type { DirectorIntent, DirectorReceipt } from "@generated/backend";
+
 import {
   captureAvailabilityFailure,
   safeSessionErrorMessage,
@@ -65,13 +67,7 @@ export interface DirectorSpeechCaptureControllerDependencies {
   captureProvider: VoiceInputProvider;
   clearTimeout: (handle: unknown) => void;
   createCaptureSessionId: () => string;
-  /*
-   * Where a finished transcript goes. It is the composer's own submit, so
-   * speaking to a workstream's view routes exactly as typing at it does —
-   * one rule for both, rather than voice keeping a private path to the
-   * Director.
-   */
-  submitTranscript: (text: string) => Promise<string | null>;
+  dispatchDirectorIntent: (intent: DirectorIntent) => Promise<DirectorReceipt>;
   onCaptureEnd: () => void;
   onCaptureStart: () => void;
   setTimeout: (handler: () => void, delayMs: number) => unknown;
@@ -490,15 +486,17 @@ export class DirectorSpeechCaptureController {
     this.submissionGeneration += 1;
     const generation = this.submissionGeneration;
     this.updateSnapshot({ capture: { ...completed, type: "submitting" } });
-    let pending: Promise<string | null>;
+    let pending: Promise<DirectorReceipt>;
     try {
-      pending = this.dependencies.submitTranscript(completed.transcript);
+      pending = this.dependencies.dispatchDirectorIntent(
+        directorVoiceSubmitIntent(completed.transcript),
+      );
     } catch {
       this.handleSubmissionFailure(generation, completed);
       return;
     }
     void pending.then(
-      (receiptText) => this.handleSubmissionSuccess(generation, completed, receiptText),
+      (receipt) => this.handleSubmissionSuccess(generation, completed, receipt),
       () => this.handleSubmissionFailure(generation, completed),
     );
   }
@@ -506,13 +504,17 @@ export class DirectorSpeechCaptureController {
   private handleSubmissionSuccess(
     generation: number,
     completed: CompletedDirectorSpeechTranscript,
-    receiptText: string | null,
+    receipt: DirectorReceipt,
   ): void {
     if (!this.isCurrentSubmission(generation, completed)) {
       return;
     }
     this.updateSnapshot({
-      capture: { ...completed, receiptText: receiptText?.trim() || null, type: "submitted" },
+      capture: {
+        ...completed,
+        receiptText: receipt.submit?.replyText.trim() || null,
+        type: "submitted",
+      },
     });
   }
 
@@ -665,6 +667,19 @@ function submissionCaptureMatches(
     state.runtimeId === completed.runtimeId &&
     state.transcript === completed.transcript
   );
+}
+
+function directorVoiceSubmitIntent(text: string): DirectorIntent {
+  return {
+    cancelRun: null,
+    createWorkstream: null,
+    kind: "submit",
+    moveSelection: null,
+    resolveApproval: null,
+    resolveResourceRequest: null,
+    selectWorkstream: null,
+    submit: { modality: "voice", text },
+  };
 }
 
 function assertNever(value: never): never {

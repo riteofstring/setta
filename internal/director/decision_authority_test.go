@@ -100,13 +100,6 @@ func TestDecisionTargetAuthorityMatchesRunState(t *testing.T) {
 				DirectorDecisionQueueBehindRun,
 			}
 		}},
-		{"forking offered with no completed run", func(target *WorkstreamDecisionTarget) {
-			target.AllowedDecisionKinds = append(target.AllowedDecisionKinds, DirectorDecisionForkWorkstream)
-		}},
-		{"completed run offered without forking", func(target *WorkstreamDecisionTarget) {
-			forkPoint := fixtureForkRunID
-			target.ForkPointRunID = &forkPoint
-		}},
 		{"recovery offered with no recoverable failure", func(target *WorkstreamDecisionTarget) {
 			target.AllowedDecisionKinds = append(target.AllowedDecisionKinds, DirectorDecisionRecoverPath)
 		}},
@@ -158,13 +151,6 @@ func TestDecisionAuthorityRejectsUnauthorizedDecisions(t *testing.T) {
 			name: "steering a workstream with no active run",
 			decision: DirectorDecision{Kind: DirectorDecisionSteerRun, SteerRun: &SteerRunDecision{
 				WorkstreamID: fixtureIdleWorkstream, AuthoredInput: "change course",
-			}},
-			detail: "does not allow",
-		},
-		{
-			name: "forking a workstream that has completed no run",
-			decision: DirectorDecision{Kind: DirectorDecisionForkWorkstream, ForkWorkstream: &ForkWorkstreamDecision{
-				WorkstreamID: fixtureIdleWorkstream, ProposedTitle: "Parser rewrite, again",
 			}},
 			detail: "does not allow",
 		},
@@ -271,9 +257,6 @@ func authorizedDecisionsForFixture() []DirectorDecision {
 		}},
 		{Kind: DirectorDecisionSteerRun, SteerRun: &SteerRunDecision{
 			WorkstreamID: fixtureActiveWorkstream, AuthoredInput: "shorter, please",
-		}},
-		{Kind: DirectorDecisionForkWorkstream, ForkWorkstream: &ForkWorkstreamDecision{
-			WorkstreamID: fixtureActiveWorkstream, ProposedTitle: "Release notes, shorter",
 		}},
 		{Kind: DirectorDecisionSelectWorkstream, SelectWorkstream: &SelectWorkstreamDecision{
 			WorkstreamID: fixtureActiveWorkstream,

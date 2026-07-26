@@ -15,9 +15,6 @@
  * - **Render scale** is the continuous response to measured GPU time inside a
  *   tier. It only steps a tier when it has run out of room.
  *
- * A tier is *earned down*, never assigned by viewport size. See
- * `graphStartingQualityProfile` for why the viewport cannot predict the load.
- *
  * Reduced motion is not a tier. It is an accessibility mode that stops motion
  * and the analog effects while leaving fidelity alone.
  */
@@ -95,10 +92,7 @@ export const graphQualityProfiles = {
     scenePixelCeiling: 900_000,
     postPixelCeiling: 1_500_000,
     visibleHalfWindow: 1.4,
-    // The flow field is product identity, not a demo filter (fidelity
-    // checklist section 1.2), so a tier step may thin the medium but may not
-    // freeze it. Only the grade effects go.
-    effects: { ...fullEffects, grain: false, switchTear: false },
+    effects: { ...fullEffects, grain: false, switchTear: false, fieldFlow: false },
   },
 } satisfies Record<GraphQualityTier, GraphQualityProfile>;
 
@@ -116,33 +110,23 @@ export function graphReducedMotionProfile(profile: GraphQualityProfile): GraphQu
 }
 
 /**
- * The tier every surface starts at.
- *
- * It does not read the viewport, because the viewport does not predict the
- * load. The two costs a tier varies split cleanly:
- *
- * - **Fragment cost** is already bounded by this profile's own ceilings. Per
- *   `docs/reports/performance/setta-4-target-performance-matrix-20260724.md`
- *   section 3.1, the laptop, 4K, and 6K tiers all resolve to a 2.30 MP scene
- *   pass and a 3.34–3.60 MP post pass. That report's first consequence states
- *   it directly: above roughly the laptop tier the ceilings hold GPU cost
- *   nearly constant, and larger displays differ only in sharpness.
- * - **Vertex and instance cost** — particles per node, edge segments, field
- *   density, the visible window — scales with the graph, not with the window.
- *   A 6K viewport does not add a node.
- *
- * So a viewport-area threshold spent fidelity to buy nothing: it thinned the
- * scene for surfaces whose measured cost the ceilings had already equalised.
- * The previous thresholds admitted `full` only below about a 1280×764 window
- * on a retina display, which is to say never.
- *
- * `GraphQualityController` still steps tiers down, but from measured GPU time
- * against the observed refresh period — which is the one signal that does
- * predict the load. This mirrors the mockup, which renders a single profile and
- * lets the adaptive render scale respond (mockup lines 830–847, 1035–1046).
+ * Starting tier for a viewport. Large surfaces begin lower because the scene
+ * ceiling has already stopped bounding them by resolution alone.
  */
-export function graphStartingQualityProfile(): GraphQualityProfile {
-  return graphQualityProfiles.full;
+export function graphQualityForViewport(
+  cssWidth: number,
+  cssHeight: number,
+  devicePixelRatio: number,
+): GraphQualityProfile {
+  const clamped = Math.min(devicePixelRatio, graphQualityProfiles.full.devicePixelClamp);
+  const pixels = Math.max(1, cssWidth) * Math.max(1, cssHeight) * clamped * clamped;
+  if (pixels <= 2_200_000) {
+    return graphQualityProfiles.full;
+  }
+  if (pixels <= 6_500_000) {
+    return graphQualityProfiles.balanced;
+  }
+  return graphQualityProfiles.reduced;
 }
 
 export interface GraphSurfaceSizes {

@@ -4,15 +4,15 @@ import type {
   WorkstreamArtifact,
 } from "@generated/backend";
 
-import type { ArtifactCardFigures } from "./artifact-card-figures";
+import type { ArtifactPreviewBlock } from "./artifact-preview-blocks";
 import { artifactFaultText, reportArtifactDocumentFault } from "./artifact-telemetry";
 
 export type ReadArtifact = (request: ReadConversationArtifactRequest) => Promise<Artifact>;
 
-/** One read artifact with the card figures projected from its source. */
+/** One read artifact with the bounded preview projected from its source. */
 export interface ArtifactDocumentEntry {
   readonly artifact: Artifact;
-  readonly figures: ArtifactCardFigures;
+  readonly preview: readonly ArtifactPreviewBlock[];
 }
 
 /**
@@ -20,7 +20,7 @@ export interface ArtifactDocumentEntry {
  *
  * A stored artifact is immutable, so its ID is its identity and the entry
  * carries the language, catalog, and source it was read with. The cache exists
- * so a card that scrolls into the rail, the artifact the reader then opens,
+ * so a preview that scrolls into the rail, the artifact the reader then opens,
  * and the neighbours prefetched around it are one read and one projection
  * rather than three. It is not a second artifact representation: it holds no
  * more than `limit` entries, survives no runtime change, and answers nothing
@@ -60,7 +60,7 @@ export class ArtifactDocumentCache {
   /**
    * Reads and projects one artifact, sharing a read already in flight.
    *
-   * Two cards entering the viewport together, or a card and the overlay
+   * Two previews entering the viewport together, or a preview and the overlay
    * that opens on top of it, produce one HTTP read.
    */
   load(metadata: WorkstreamArtifact): Promise<ArtifactDocumentEntry> {
@@ -97,14 +97,14 @@ export class ArtifactDocumentCache {
     request: ReadConversationArtifactRequest,
   ): Promise<ArtifactDocumentEntry> {
     const artifact = await this.readWithRetry(request);
-    const { projectArtifactCardFigures } = await import("./artifact-card-projection");
+    const { projectArtifactPreview } = await import("./artifact-preview-projection");
     // The backend accepted this source before it was stored, so the parser
     // disagreeing with the compiler here is not something the reader can act
     // on. The cache is where that fault is observed, so it is where it is
     // reported.
-    let figures: ArtifactCardFigures;
+    let preview: readonly ArtifactPreviewBlock[];
     try {
-      figures = projectArtifactCardFigures(artifact.document.source);
+      preview = projectArtifactPreview(artifact.document.source);
     } catch (error) {
       reportArtifactDocumentFault({
         artifactId: artifact.id,
@@ -114,7 +114,7 @@ export class ArtifactDocumentCache {
       });
       throw error;
     }
-    return { artifact, figures };
+    return { artifact, preview };
   }
 
   /**

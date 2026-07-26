@@ -422,17 +422,15 @@ func (transaction *WriteTransaction) InsertArtifact(artifact Artifact) error {
 	}
 	_, err := transaction.tx.ExecContext(transaction.ctx, `
 INSERT INTO artifacts (
-  id, conversation_id, turn_id, trajectory_sequence, title, kind, summary,
+  id, conversation_id, turn_id, trajectory_sequence, title,
   language, catalog_id, source, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		artifact.ID,
 		artifact.ConversationID,
 		nullableString(artifact.TurnID),
 		nullableInt(artifact.TrajectorySequence),
 		artifact.Title,
-		artifact.Kind,
-		artifact.Summary,
 		artifact.Document.Language,
 		artifact.Document.CatalogID,
 		artifact.Document.Source,

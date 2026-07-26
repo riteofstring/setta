@@ -12,7 +12,6 @@ import (
 // same requests, so a managed runtime has to accept exactly these.
 type recordedExecution struct {
 	starts    []WorkstreamStartRequest
-	forks     []WorkstreamForkRequest
 	sends     []WorkDeliveryRequest
 	queues    []WorkDeliveryRequest
 	steers    []SteerRunRequest
@@ -27,11 +26,6 @@ type recordedExecution struct {
 
 func (execution *recordedExecution) StartWorkstream(_ context.Context, request WorkstreamStartRequest) error {
 	execution.starts = append(execution.starts, request)
-	return execution.fail
-}
-
-func (execution *recordedExecution) ForkWorkstream(_ context.Context, request WorkstreamForkRequest) error {
-	execution.forks = append(execution.forks, request)
 	return execution.fail
 }
 

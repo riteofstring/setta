@@ -58,22 +58,16 @@ func (state *registryState) snapshotWindow() []*registryWorkstream {
 	)
 }
 
-// snapshotEntries assigns detail levels, by the same rule the event stream
-// applies. Both used to decide this separately, which is how they came to
-// disagree: the stream learned that the Director's own view draws every
-// workstream whole and the snapshot went on compacting them.
+// snapshotEntries assigns detail levels. The selected workstream renders its
+// trajectory, the most recent others render enough to answer whether they need
+// the user, and the rest render aggregate status only.
 func (state *registryState) snapshotEntries(
 	window []*registryWorkstream,
 	selected *string,
 ) ([]DirectorWorkstreamEntry, map[string]WorkstreamDetailLevel, error) {
 	entries := make([]DirectorWorkstreamEntry, 0, len(window))
 	levels := make(map[string]WorkstreamDetailLevel, len(window))
-	budget := MaxSnapshotAdjacentGraphs
-	if selected == nil {
-		budget = MaxDirectorTiledGraphs
-	}
-	drawn := drawnGraphCount(window, selected, budget)
-	carried := 0
+	adjacent := 0
 	selectedFound := false
 	for _, workstream := range window {
 		level := WorkstreamDetailBackground
@@ -81,9 +75,9 @@ func (state *registryState) snapshotEntries(
 		case selected != nil && *selected == workstream.record.ID:
 			level = WorkstreamDetailSelected
 			selectedFound = true
-		case carried < budget:
-			level = graphDetailWithoutSelection(selected, drawn)
-			carried++
+		case adjacent < MaxSnapshotAdjacentGraphs:
+			level = WorkstreamDetailAdjacent
+			adjacent++
 		}
 		levels[workstream.record.ID] = level
 		entries = append(entries, DirectorWorkstreamEntry{
@@ -95,23 +89,6 @@ func (state *registryState) snapshotEntries(
 		return nil, nil, fmt.Errorf("selected workstream %s is not in the active registry", *selected)
 	}
 	return entries, levels, nil
-}
-
-// drawnGraphCount is how many workstreams this snapshot will draw. The level
-// each one gets depends on it: a few are columns and many are tiles, so the
-// count has to be known before the first level is assigned.
-func drawnGraphCount(window []*registryWorkstream, selected *string, budget int) int {
-	count := 0
-	for _, workstream := range window {
-		if selected != nil && *selected == workstream.record.ID {
-			continue
-		}
-		if count == budget {
-			break
-		}
-		count++
-	}
-	return count
 }
 
 // snapshotGraphs carries the Director lane first. The lane is the conversation
@@ -273,10 +250,6 @@ func cloneWorkstream(record Workstream) Workstream {
 		milestone := *record.LastMilestone
 		cloned.LastMilestone = &milestone
 	}
-	// Always a list, never null: a workstream nobody has narrated yet has an
-	// empty account rather than a missing one, and the renderer's decoder is
-	// right to insist on the difference.
-	cloned.Narration = append([]WorkstreamNarration{}, record.Narration...)
 	return cloned
 }
 

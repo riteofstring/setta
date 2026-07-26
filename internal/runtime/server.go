@@ -78,6 +78,7 @@ type runtimeServices struct {
 	codexAccountService      *codexaccount.Service
 	codexManager             *codexapp.Manager
 	conversationService      *conversation.Service
+	conversationInputService *conversation.InputService
 	conversationStore        *conversation.Store
 	directorServices         directorServices
 	narratorService          *narration.Service
@@ -254,6 +255,7 @@ func buildRuntimeServices(config Config) (runtimeServices, error) {
 		codexAccountService:      codexAccountService,
 		codexManager:             baseServices.codexManager,
 		conversationService:      baseServices.conversationService,
+		conversationInputService: baseServices.conversationInputService,
 		conversationStore:        baseServices.conversationStore,
 		directorServices:         baseServices.directorServices,
 		narratorService:          baseServices.narratorService,

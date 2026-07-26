@@ -12,7 +12,6 @@
  * not on where an unwarped projection would put it.
  */
 
-import type { SemanticGraphPresentation } from "../semantic-graph-packer";
 import {
   graphFitFrame,
   graphLiveEdgeClipY,
@@ -25,26 +24,8 @@ import type { PackedGraphSnapshot } from "../packed-graph-snapshot";
 
 /** How far one wheel notch looks back, in reference clip units per pixel. */
 const lookBackPerPixel = 0.0013;
-/*
- * How far past the first fact the view may scroll.
- *
- * The point of stopping there is that the first fact is still on screen, so the
- * margin has to come from the projection rather than be picked: with the live
- * edge sitting at clip -0.35, a flat 0.7 put the top node at clip -1.05, off
- * the bottom of the viewport, and the canvas went blank at exactly the position
- * the bound was supposed to make safe.
- *
- * The limit keeps that node inside clip space with room to spare, so it is
- * drawn rather than just barely intersecting the edge.
- */
-const visibleClipLimit = 0.9;
-
-export function graphLookBackMargin(fitY: number): number {
-  if (!(fitY > 0)) {
-    return 0;
-  }
-  return Math.max(0, graphLiveEdgeClipY + visibleClipLimit / fitY);
-}
+/** Furthest the view may scroll past the first fact. */
+const lookBackCeiling = -0.7;
 /** Camera distance from the live edge that counts as detached. */
 const detachEpsilon = 0.02;
 /** Pointer radius for selecting a node, in CSS pixels. */
@@ -55,41 +36,6 @@ const outcomeRadiusPx = 16;
 export interface GraphScreenPoint {
   readonly x: number;
   readonly y: number;
-}
-
-/*
- * What activating a node does.
- *
- * A node can be activated from the canvas or from its label, which is a real
- * button and takes the click first. Both ask this, so the two routes cannot
- * answer differently — a pill that folds a turn while the canvas beneath it
- * opens a thread is two answers to one gesture.
- */
-export type GraphNodeActivation =
-  | { readonly kind: "fold"; readonly nodeIndex: number }
-  | { readonly kind: "open"; readonly workstreamId: string }
-  | { readonly kind: "select"; readonly nodeIndex: number };
-
-export function graphNodeActivation(
-  presentation: SemanticGraphPresentation,
-  nodeIndex: number,
-  workstreamId: string | undefined,
-): GraphNodeActivation {
-  if (presentation === "conversation") {
-    return { kind: "fold", nodeIndex };
-  }
-  if (workstreamId === undefined) {
-    return { kind: "select", nodeIndex };
-  }
-  return { kind: "open", workstreamId };
-}
-
-/** Where the camera may sit: not above what is drawn, not past the live edge. */
-export interface GraphCameraBounds {
-  readonly contentTopWorldY: number;
-  readonly liveEdgeWorldY: number;
-  /** Overscroll past the top that still leaves the first fact drawn. */
-  readonly lookBackMargin: number;
 }
 
 export interface GraphViewport {
@@ -134,19 +80,6 @@ export function graphNodeCssDiameter(
 
 export interface GraphPointerScene {
   readonly snapshot: PackedGraphSnapshot;
-  /*
-   * How many of the snapshot's nodes the layout has actually placed.
-   *
-   * A snapshot arrives before it is laid out: replacing one drops the ladder's
-   * columns, and they are refilled by the next frame's advance. A pointer event
-   * in that gap is the ordinary case — the mouse is already over the canvas
-   * when new work lands — and reading a position that does not exist yet threw
-   * out of the event handler and took the render loop with it, leaving a canvas
-   * that had drawn its last frame and would never draw another.
-   *
-   * Nothing is hittable before it is placed, so the hit test stops here.
-   */
-  readonly placedNodeCount: number;
   readonly worldY: Float32Array;
   readonly open: Float32Array;
   readonly cameraWorldY: number;
@@ -199,7 +132,7 @@ function hitTest(
 ): GraphHit | null {
   const fit = graphFitFrame(scene.viewport.width, scene.viewport.height);
   let best: GraphHit | null = null;
-  for (let index = 0; index < scene.placedNodeCount; index += 1) {
+  for (let index = 0; index < scene.snapshot.nodeCount; index += 1) {
     if (!accept(index)) {
       continue;
     }
@@ -309,29 +242,13 @@ export class GraphViewController {
    * the live edge reattaches it. Live work never stops, so there is nothing to
    * return to and no "back to live" control to hunt for.
    */
-  lookBack(deltaYPx: number, bounds: GraphCameraBounds): void {
-    this.settleCamera(this.cameraWorldY + deltaYPx * lookBackPerPixel, bounds);
-  }
-
-  /*
-   * Puts the camera back inside what is drawn.
-   *
-   * Folding, a new column and a replaced snapshot all move the content out from
-   * under a camera that has not moved, so clamping only on the wheel left the
-   * view parked somewhere with nothing in it and no way to tell. This runs every
-   * frame, detached included: being detached means the camera is not following
-   * the live edge, not that it may point at nothing.
-   */
-  clampToContent(bounds: GraphCameraBounds): void {
-    this.settleCamera(this.cameraWorldY, bounds);
-  }
-
-  private settleCamera(candidate: number, bounds: GraphCameraBounds): void {
-    const floor = bounds.contentTopWorldY - bounds.lookBackMargin;
-    const ceiling = Math.max(floor, bounds.liveEdgeWorldY);
-    const next = Math.max(floor, Math.min(ceiling, candidate));
+  lookBack(deltaYPx: number, liveEdgeWorldY: number): void {
+    const next = Math.max(
+      lookBackCeiling,
+      Math.min(liveEdgeWorldY, this.cameraWorldY + deltaYPx * lookBackPerPixel),
+    );
     this.cameraWorldY = next;
-    this.detached = next < bounds.liveEdgeWorldY - detachEpsilon;
+    this.detached = next < liveEdgeWorldY - detachEpsilon;
   }
 
   setHovered(nodeIndex: number | null): boolean {

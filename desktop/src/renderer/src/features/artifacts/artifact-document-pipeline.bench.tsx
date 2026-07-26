@@ -3,18 +3,18 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { bench, describe } from "vitest";
 
 import { createArtifactLibrary } from "./artifact-library";
-import { projectArtifactCardFigures } from "./artifact-card-projection";
-import { ArtifactCardFigureView } from "./ArtifactCardFigures";
+import { projectArtifactPreview } from "./artifact-preview-projection";
+import { ArtifactPreviewSurface } from "./ArtifactPreviewSurface";
 import { artifactConformanceFixtures } from "./generated/conformance-corpus";
 import { createArtifactDocumentParser } from "./openui-document-parser";
 
 /**
  * What an accepted artifact document costs on the two paths that read it.
  *
- * The rail projects a document into its card's figures; the browser overlay
- * renders the whole thing through the catalog's components. Both start from
- * the same stored source and the same pinned parser, so measuring them
- * together is what says whether a card is cheap enough to draw for every
+ * The rail projects a document into bounded preview blocks; the browser
+ * overlay renders the whole thing through the catalog's components. Both start
+ * from the same stored source and the same pinned parser, so measuring them
+ * together is what says whether a preview is cheap enough to draw for every
  * artifact in the rail and whether opening one is cheap enough to feel
  * immediate.
  *
@@ -34,7 +34,7 @@ const documents = [
 ] as const;
 
 for (const document of documents) {
-  const figures = projectArtifactCardFigures(document.source);
+  const previewBlocks = projectArtifactPreview(document.source);
 
   describe(`setta.artifacts.v1: ${document.label}`, () => {
     bench("parse", () => {
@@ -42,13 +42,13 @@ for (const document of documents) {
     });
 
     // The rail's whole cost for one artifact it has read: this parses too, so
-    // it is the card path end to end rather than the projection alone.
-    bench("project card figures", () => {
-      projectArtifactCardFigures(document.source);
+    // it is the preview path end to end rather than the projection alone.
+    bench("project preview", () => {
+      projectArtifactPreview(document.source);
     });
 
-    bench("render card figures", () => {
-      renderToStaticMarkup(<ArtifactCardFigureView figures={figures} />);
+    bench("render preview", () => {
+      renderToStaticMarkup(<ArtifactPreviewSurface blocks={previewBlocks} />);
     });
 
     // The overlay's cost. `Renderer` takes source text rather than a tree, so

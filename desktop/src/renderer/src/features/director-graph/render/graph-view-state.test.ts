@@ -8,16 +8,11 @@ import {
   advanceHoverAmount,
   graphNodeAtPointer,
   graphNodeCssDiameter,
-  graphLookBackMargin,
-  graphNodeActivation,
   graphNodeScreenPosition,
   graphOutcomeAtPointer,
   type GraphPointerScene,
 } from "./graph-view-state";
-import { graphFitFrame, graphLiveEdgeClipY, graphWarpToScreen } from "./graph-visual-language";
-
-/** The band the node shader discards outside, in fitted clip units. */
-const nodeCullClipY = 1.3;
+import { graphFitFrame, graphWarpToScreen } from "./graph-visual-language";
 import { packedGraphFixture } from "../packed-graph-fixtures";
 import type { PackedGraphSnapshot } from "../packed-graph-snapshot";
 import { packedGraphRoleCode, packedValueAt } from "../packed-graph-vocabulary";
@@ -33,7 +28,6 @@ function sceneFor(name: Parameters<typeof packedGraphFixture>[0], timeSeconds: n
     deltaSeconds: 1 / 120,
     pinnedTurns: noPins,
     reducedMotion: false,
-    alignColumnsToLiveEdge: false,
   });
   for (let step = 0; step < 400 && frame.foldAnimating; step += 1) {
     frame = layout.advance(snapshot, {
@@ -41,12 +35,10 @@ function sceneFor(name: Parameters<typeof packedGraphFixture>[0], timeSeconds: n
       deltaSeconds: 1 / 60,
       pinnedTurns: noPins,
       reducedMotion: false,
-      alignColumnsToLiveEdge: false,
     });
   }
   const scene: GraphPointerScene = {
     snapshot,
-    placedNodeCount: layout.placedNodeCount(),
     worldY: frame.worldY,
     open: frame.open,
     cameraWorldY: frame.liveEdgeWorldY,
@@ -75,37 +67,6 @@ function outcomeNodeOf(snapshot: PackedGraphSnapshot, turn: number): number {
 }
 
 describe("graph pointer projection", () => {
-  /*
-   * The mouse is already over the canvas when new work lands, so a pointer
-   * event between a snapshot replacement and the frame that lays it out is the
-   * ordinary case rather than a corner. It used to throw out of the event
-   * handler and take the render loop with it: the canvas kept its last frame
-   * and never drew another, which read as the graph vanishing on a click.
-   */
-  it("hits nothing while the layout has not placed the snapshot yet", () => {
-    const snapshot = packedGraphFixture("single-active-turn");
-    const layout = new GraphLadderLayout();
-    layout.reset();
-    const unplaced: GraphPointerScene = {
-      snapshot,
-      placedNodeCount: Math.min(snapshot.nodeCount, layout.placedNodeCount()),
-      worldY: layout.worldYColumn(),
-      open: layout.openColumn(),
-      cameraWorldY: 0,
-      timeSeconds: 1e6,
-      viewport,
-    };
-
-    expect(snapshot.nodeCount).toBeGreaterThan(0);
-    expect(unplaced.placedNodeCount).toBe(0);
-    expect(graphNodeAtPointer(unplaced, { x: viewport.width / 2, y: viewport.height / 2 })).toBe(
-      null,
-    );
-    expect(graphOutcomeAtPointer(unplaced, { x: viewport.width / 2, y: viewport.height / 2 })).toBe(
-      null,
-    );
-  });
-
   it("puts the live edge where the shader puts it", () => {
     const { scene, frame } = sceneFor("single-active-turn", 1e6);
     const fit = graphFitFrame(viewport.width, viewport.height);
@@ -153,18 +114,12 @@ describe("graph pointer projection", () => {
   });
 });
 
-const boundsTo = (liveEdgeWorldY: number, contentTopWorldY = 0) => ({
-  contentTopWorldY,
-  liveEdgeWorldY,
-  lookBackMargin: graphLookBackMargin(graphFitFrame(viewport.width, viewport.height).fitY),
-});
-
 describe("graph view controller", () => {
   it("follows the live edge until the user looks back", () => {
     const view = new GraphViewController();
     view.followLiveEdge(3);
     expect(view.camera()).toBe(3);
-    view.lookBack(-500, boundsTo(3));
+    view.lookBack(-500, 3);
     expect(view.isDetached()).toBe(true);
     expect(view.camera()).toBeLessThan(3);
     view.followLiveEdge(4);
@@ -174,132 +129,10 @@ describe("graph view controller", () => {
   it("reattaches when the view scrolls back to the live edge", () => {
     const view = new GraphViewController();
     view.followLiveEdge(3);
-    view.lookBack(-500, boundsTo(3));
-    view.lookBack(5000, boundsTo(3));
+    view.lookBack(-500, 3);
+    view.lookBack(5000, 3);
     expect(view.camera()).toBe(3);
     expect(view.isDetached()).toBe(false);
-  });
-
-  /*
-   * The camera has to stay inside what is drawn even when nothing moved it:
-   * folding, a new column and a replaced snapshot all move the content out from
-   * under it, and a camera left pointing above the first fact draws an empty
-   * canvas with nothing to say so.
-   */
-  it("returns a camera left outside the content", () => {
-    const view = new GraphViewController();
-    view.followLiveEdge(3);
-    view.lookBack(-5000, boundsTo(3));
-    const scrolledBack = view.camera();
-    expect(scrolledBack).toBeLessThan(0);
-
-    view.clampToContent(boundsTo(3, 2));
-
-    expect(view.camera()).toBeGreaterThanOrEqual(
-      2 - graphLookBackMargin(graphFitFrame(viewport.width, viewport.height).fitY),
-    );
-    expect(view.camera()).toBeLessThanOrEqual(3);
-  });
-
-  /*
-   * The bound exists so the first fact is still drawn at it. Asserting the
-   * arithmetic would have passed while the node sat below the viewport, which
-   * is exactly what a fixed margin did.
-   */
-  /*
-   * A tall, narrow window is where this goes wrong: the fit is smallest there,
-   * so the margin is widest and the shader's cull band is furthest from the
-   * clip position. 1440x900 has a fit of 1 and hides the whole problem.
-   */
-  it.each([
-    { height: 900, width: 1440 },
-    { height: 900, width: 400 },
-    { height: 1600, width: 380 },
-  ])("keeps the top node drawn at the furthest look-back in $width x $height", (bounds) => {
-    const { scene, snapshot } = sceneFor("single-active-turn", 1e6);
-    const fit = graphFitFrame(bounds.width, bounds.height);
-    let topIndex = 0;
-    for (let index = 1; index < snapshot.nodeCount; index += 1) {
-      if (packedValueAt(scene.worldY, index) < packedValueAt(scene.worldY, topIndex)) {
-        topIndex = index;
-      }
-    }
-    const contentTopWorldY = packedValueAt(scene.worldY, topIndex);
-    const view = new GraphViewController();
-    view.followLiveEdge(scene.cameraWorldY);
-    view.lookBack(-1e6, {
-      contentTopWorldY,
-      liveEdgeWorldY: scene.cameraWorldY,
-      lookBackMargin: graphLookBackMargin(fit.fitY),
-    });
-
-    const position = graphNodeScreenPosition(
-      packedValueAt(snapshot.nodes.lane, topIndex),
-      contentTopWorldY,
-      view.camera(),
-      fit,
-      bounds,
-    );
-    expect(position.y).toBeGreaterThanOrEqual(0);
-    expect(position.y).toBeLessThanOrEqual(bounds.height);
-
-    // And the shader keeps it: it culls the fitted offset, which is the same
-    // space the position above is projected in.
-    const culled = Math.abs((graphLiveEdgeClipY + (view.camera() - contentTopWorldY)) * fit.fitY);
-    expect(culled).toBeLessThan(nodeCullClipY);
-  });
-
-  it("keeps the top node on screen at the furthest look-back", () => {
-    const { scene, snapshot } = sceneFor("single-active-turn", 1e6);
-    const fit = graphFitFrame(viewport.width, viewport.height);
-    let topIndex = 0;
-    for (let index = 1; index < snapshot.nodeCount; index += 1) {
-      if (packedValueAt(scene.worldY, index) < packedValueAt(scene.worldY, topIndex)) {
-        topIndex = index;
-      }
-    }
-    const contentTopWorldY = packedValueAt(scene.worldY, topIndex);
-    const view = new GraphViewController();
-    view.followLiveEdge(scene.cameraWorldY);
-    view.lookBack(-1e6, {
-      contentTopWorldY,
-      liveEdgeWorldY: scene.cameraWorldY,
-      lookBackMargin: graphLookBackMargin(fit.fitY),
-    });
-
-    const position = graphNodeScreenPosition(
-      packedValueAt(snapshot.nodes.lane, topIndex),
-      contentTopWorldY,
-      view.camera(),
-      fit,
-      viewport,
-    );
-
-    expect(position.y).toBeGreaterThanOrEqual(0);
-    expect(position.y).toBeLessThanOrEqual(viewport.height);
-  });
-
-  /*
-   * A label pill is a real button and takes the click before the canvas sees
-   * one, so it drove folding by its own path while the canvas beneath it would
-   * have opened a thread. Both routes ask this, so both get one answer.
-   */
-  it("folds in a conversation and opens a thread everywhere else", () => {
-    expect(graphNodeActivation("conversation", 4, "workstream:1")).toEqual({
-      kind: "fold",
-      nodeIndex: 4,
-    });
-    expect(graphNodeActivation("columns", 4, "workstream:1")).toEqual({
-      kind: "open",
-      workstreamId: "workstream:1",
-    });
-    expect(graphNodeActivation("grid", 4, "workstream:1")).toEqual({
-      kind: "open",
-      workstreamId: "workstream:1",
-    });
-    // With nowhere to open, the click still has to do something local rather
-    // than fold a view that is not showing turns.
-    expect(graphNodeActivation("columns", 4, undefined)).toEqual({ kind: "select", nodeIndex: 4 });
   });
 
   it("pins a turn to the opposite of what it is doing now", () => {

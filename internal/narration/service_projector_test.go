@@ -965,8 +965,6 @@ func seedTerminalProjectorConversation(
 		TurnID:             &turnID,
 		TrajectorySequence: &artifactSequence,
 		Title:              "Terminal projector result",
-		Kind:               "Report",
-		Summary:            "What the terminal projector produced.",
 		CreatedAt:          endedAt,
 		Document: conversation.ArtifactDocument{
 			Language:  conversation.ArtifactDocumentLanguageOpenUI,

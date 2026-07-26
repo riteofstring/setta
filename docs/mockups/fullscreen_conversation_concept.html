@@ -42,21 +42,12 @@
   .tb-nav { font-size: 17px; line-height: 1; color: var(--muted); background: transparent; border: 0; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
   .tb-nav:hover { color: var(--fg); background: rgba(255,255,255,0.05); }
   .tb-conv { font-size: 13px; color: var(--fg); font-weight: 600; min-width: 190px; text-align: center; font-family: var(--sans); }
-  .tb-conv .is-director, #convTitle.is-director { color: var(--merge); }
-  .tb-dots { display: flex; align-items: center; gap: 5px; margin-left: 6px; }
-  /* The Director leads the strip: a slightly larger ring, because it is a
-     different kind of destination rather than one more thread. */
-  .tb-dots i.dir { width: 7px; height: 7px; border-radius: 50%; background: transparent;
-    box-shadow: inset 0 0 0 1.5px var(--faint); }
-  .tb-dots i.dir.on { background: var(--merge); box-shadow: 0 0 8px var(--merge); }
-  .dot-sep { width: 1px; height: 9px; background: var(--border); margin: 0 3px; }
+  .tb-dots { display: flex; gap: 5px; margin-left: 6px; }
   .tb-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--border); }
   .tb-dots i.on { background: var(--primary); }
   .tb-chip { font: 11px var(--sans); color: var(--faint); background: transparent; border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; cursor: pointer; letter-spacing: 0.02em; }
   .tb-chip:hover { color: var(--muted); }
   .tb-chip.on { color: var(--fg); border-color: color-mix(in oklch, var(--primary) 55%, transparent); background: color-mix(in oklch, var(--primary) 12%, transparent); }
-  .artifact-from { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
-    color: var(--faint); font-weight: 600; margin-top: 3px; }
   .rail { position: fixed; top: 44px; bottom: 92px; width: 300px; z-index: 12; display: flex; flex-direction: column; gap: 12px; padding: 20px; font-family: var(--sans); pointer-events: none; }
   .rail > * { pointer-events: auto; }
   #railLeft { left: 0; justify-content: flex-start; }
@@ -69,17 +60,8 @@
   .multi-cols .nlabel { font-size: 11px; }
   .multi-cols .nl-outcome { max-width: 210px; }
   .nl-coltitle { position: absolute; transform: translateX(-50%); font: 10px var(--sans); text-transform: uppercase;
-    letter-spacing: 0.13em; color: var(--muted); font-weight: 600; white-space: nowrap; pointer-events: none; }
+    letter-spacing: 0.13em; color: var(--faint); white-space: nowrap; pointer-events: none; }
   .nl-coltitle.focus { color: var(--accent-teal); }
-  .nl-coltitle.tile { font-size: 10px; color: var(--muted); }
-  /*
-   * A tile's live step, under its node. This is the part that changes as the
-   * thread works, which is what makes the tile a thing that is happening
-   * rather than a status glyph that was set once.
-   */
-  .nl-colstep { position: absolute; transform: translateX(-50%); font: 11px var(--sans);
-    color: var(--faint); white-space: nowrap; pointer-events: none; max-width: 210px;
-    overflow: hidden; text-overflow: ellipsis; transition: opacity 240ms; }
   .nl-you { border-color: color-mix(in oklch, var(--accent-teal) 34%, transparent); }
   .nl-you .nl-mark { color: var(--accent-teal); }
   .nlabel.nl-sticky { z-index: 9; background: color-mix(in oklch, var(--bg) 90%, transparent); border-color: color-mix(in oklch, var(--accent-teal) 55%, transparent); box-shadow: 0 6px 18px rgba(0,0,0,0.55); transition: top 120ms ease-out; }
@@ -101,22 +83,6 @@
     -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24px, #000 calc(100% - 24px), transparent);
             mask-image: linear-gradient(to bottom, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
   body.hide-summaries #railLeft, body.hide-artifacts #railRight, body.hide-composer #composer { display: none; }
-  /*
-   * The Director's view is the constellation, so it gives the canvas the whole
-   * window. Artifacts belong to the thread that produced them and are one
-   * arrow away; the Now rail keeps only what is waiting on an answer, and
-   * disappears when nothing is.
-   */
-  body.director-view #railRight, body.director-view #railLeft { display: none; }
-  /*
-   * What needs you rides the composer instead, because that is where you can
-   * do something about it. A rail would only be able to tell you.
-   */
-  #directorHint .needs { color: var(--risk); font-weight: 600; }
-  #directorHint button.needs { background: transparent; border: 0; padding: 0;
-    font: inherit; cursor: pointer; text-decoration: underline;
-    text-underline-offset: 3px; text-decoration-color: color-mix(in oklch, var(--risk) 45%, transparent); }
-  #directorHint button.needs:hover { text-decoration-color: var(--risk); }
   .rail-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--faint); font-weight: 600; }
   #highlights { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
   .hl { display: grid; grid-template-columns: 7px 1fr; gap: 9px; font-size: 13px; color: var(--muted); line-height: 1.35; cursor: pointer; }
@@ -148,31 +114,6 @@
   .input-wrap input { flex: 1; background: transparent; border: 0; outline: none; color: var(--fg); font: 13px var(--sans); padding: 13px 0; }
   .input-wrap input::placeholder { color: var(--faint); }
   .enter-chip { font: 10px ui-monospace, monospace; color: var(--faint); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
-/*
- * The level-of-detail switch, shown on the Director's view only.
- *
- * Columns are readable to about four threads. Past that the honest move is not
- * to shrink them — a twelve-column constellation is a partial view of
- * everything instead of a complete view of anything — but to change what a
- * thread is drawn as. This is here so the transition can be watched rather
- * than described.
- */
-#lodbar { position: fixed; top: 52px; left: 50%; translate: -50% 0; z-index: 15;
-  display: flex; gap: 6px; align-items: center;
-  background: color-mix(in oklch, var(--bg) 82%, transparent);
-  border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
-  padding: 5px 10px; border-radius: 999px; }
-#lodbar[hidden] { display: none; }
-.lod-label, .lod-note { font: 10px var(--sans); text-transform: uppercase; letter-spacing: 0.14em;
-  color: var(--faint); font-weight: 600; }
-.lod-note { text-transform: none; letter-spacing: 0.01em; font-size: 11px; margin-left: 6px; }
-#lodbar button { background: transparent; border: 1px solid var(--border); border-radius: 999px;
-  color: var(--faint); font: 11px var(--sans); padding: 2px 9px; cursor: pointer;
-  font-variant-numeric: tabular-nums; }
-#lodbar button:hover { color: var(--muted); }
-#lodbar button.on { color: var(--fg); border-color: color-mix(in oklch, var(--primary) 55%, transparent);
-  background: color-mix(in oklch, var(--primary) 12%, transparent); }
-
   #devbar { position: fixed; top: 52px; left: 14px; z-index: 14; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; max-width: 62vw;
     background: rgba(8,10,16,0.84); border: 1px solid rgba(120,140,180,0.18); padding: 8px 10px; border-radius: 10px; }
   #devbar[hidden] { display: none; }
@@ -230,13 +171,6 @@
 <div id="reticleActive" class="reticle"><span class="c tl"></span><span class="c tr"></span><span class="c bl"></span><span class="c br"></span></div>
 <div id="reticleSel" class="reticle"><span class="c tl"></span><span class="c tr"></span><span class="c bl"></span><span class="c br"></span></div>
 <div id="tip"></div>
-<div id="lodbar" hidden>
-  <span class="lod-label">Threads</span>
-  <button data-lod="3" class="on">3</button><button data-lod="4">4</button>
-  <button data-lod="6">6</button><button data-lod="9">9</button><button data-lod="16">16</button>
-  <span class="lod-note" id="lodNote">columns · every thread's reasoning is legible</span>
-</div>
-
 <header id="topbar">
   <div class="tb-left">
     <button class="tb-nav" id="convPrev" aria-label="Previous conversation">‹</button>
@@ -372,9 +306,6 @@ const RESP_H=0.34, TURN_GAP=0.42;          // expanded spacing: reason->response
 const COLLAPSE_GAP=0.18;                    // folded gap between outcome nodes (room for the question label under each)
 let INTERVAL=5.5, DEAD_INTERVAL=4.0;   // node dwell (driven by the speed slider, default slowest); animation durations stay fixed
 let collapseMode='ladder', labelMode='auto', bgStyle=1, threadCount=1, parallelCols=1;   // dev-panel variations; fluid field is the default now
-// You land on the Director. Talking to it is the default, not a constraint:
-// one arrow puts you on a thread, and then you are talking to that thread.
-let onDirector=true, viewsReady=false;
 function laneOffsets(K){if(K<=1)return[0];const s=0.30,st=-(K-1)/2*s,o=[];for(let i=0;i<K;i++)o.push(st+i*s);return o;}
 
 // A conversation is a THREAD of turns. Each turn is user-input node -> live reasoning graph -> final
@@ -446,78 +377,20 @@ function build(conv){ const nodes=[],edges=[],turns=[];
 
 // Side-by-side view: K real threads (centred on the current one), each a full graph in its own column
 // that scrolls itself so every column's live edge lines up on screen.
-function buildMulti(K, startAt, lead){
-  const nodes=[],edges=[],turns=[],cols=[]; const N=CONVS.length;
-  const start=(startAt===undefined)?convIdx-Math.floor(K/2):startAt;
-  // `lead` puts a conversation in the first column ahead of the list — the
-  // Director's own thread on its own view, so the view is not missing the one
-  // conversation you are actually talking to.
-  const src=i=>(lead&&i===0)?lead:CONVS[(((start+i-(lead?1:0))%N)+N)%N];
-  // 1.3 keeps columns clear of both side rails; the Director's view has only
-  // one rail, and often none, so its columns get the width back.
-  const span=lead?1.75:1.3;
-  const colW=span/K, xScale=Math.min(1, colW/0.85); let lastBorn=0;
+function buildMulti(K){
+  const nodes=[],edges=[],turns=[],cols=[]; const N=CONVS.length, start=convIdx-Math.floor(K/2);
+  const colW=1.3/K, xScale=Math.min(1, colW/0.85); let lastBorn=0;   // 1.3 keeps the columns clear of the side rails
   for(let i=0;i<K;i++){
-    const conv=src(i);
+    const conv=CONVS[((start+i)%N+N)%N];
     const nFrom=nodes.length, tFrom=turns.length;
     const lb=addThread(conv,nodes,edges,turns,i,(i-(K-1)/2)*colW,xScale,(i*2.7)%11);   // staggered so columns run out of phase
     cols.push({i,nodeFrom:nFrom,nodeTo:nodes.length,turnFrom:tFrom,turnTo:turns.length,cam:0,title:conv.title,
-      xClip:(i-(K-1)/2)*colW, focus:lead?i===0:((((start+i)%N+N)%N)===convIdx),
-      // Which conversation this column draws. Null on the Director's own
-      // column: you are already in it, so there is nowhere to go.
-      conv:lead?(i===0?null:i-1):(((start+i)%N+N)%N)});
+      xClip:(i-(K-1)/2)*colW, focus:(((start+i)%N+N)%N)===convIdx});
     lastBorn=Math.max(lastBorn,lb);
   }
   settlePass(nodes,edges);
   return {nodes,edges,turns,cols,multi:true,lastBorn};
 }
-
-/*
- * The Director's view at scale.
- *
- * Columns are readable to about four. Beyond that the honest move is not to
- * shrink them — a 12-column constellation is a partial view of everything
- * instead of a complete view of anything — but to change what a thread is
- * drawn as. The Director keeps its full column on the left because it is the
- * conversation you are talking to; every other thread becomes a tile in the
- * remaining space, carrying position, status, and motion but no reasoning.
- */
-function buildDirectorGrid(lead){
-  const nodes=[],edges=[],turns=[],cols=[]; const N=CONVS.length;
-  const leadSpan=0.62, leadX=-0.86;                       // the Director's own column, left
-  const lb0=addThread(lead,nodes,edges,turns,0,leadX,Math.min(1,leadSpan/0.85),0);
-  cols.push({i:0,nodeFrom:0,nodeTo:nodes.length,turnFrom:0,turnTo:turns.length,cam:0,
-    title:lead.title,xClip:leadX,focus:true,conv:null});
-  let lastBorn=lb0;
-  const gc=Math.ceil(Math.sqrt(N)), gr=Math.ceil(N/gc);   // the rest, tiled
-  /*
-   * The grid fills the band between the switch and the composer.
-   *
-   * The band has to be computed rather than constant, and in two ways. A 4x4
-   * sized for a 3x3 leaves the top third of the window empty — that is the row
-   * count. And the canvas maps world units to a fraction of the viewport while
-   * the switch, the hint, and the composer are fixed pixels, so a span tuned at
-   * one window height runs into the composer at another. Both are divided out
-   * here, which is why this is arithmetic and not three tuned constants.
-   */
-  const worldPx=0.4956*innerHeight;                    // one world unit, in CSS px
-  const bandPx=Math.max(300, innerHeight-275);         // switch above, hint and composer below
-  // The lift is constant in world units, not pixels: the canvas already scales
-  // its own centre with the viewport, so a pixel-constant lift over-corrects in
-  // a tall window and the grid drifts back into the composer.
-  const cellW=1.45/gc, cellH=(bandPx/worldPx)/gr, bias=-0.36;
-  for(let k=0;k<N;k++){
-    const conv=CONVS[k], nFrom=nodes.length, tFrom=turns.length;
-    // Larger worldY draws lower, so the row index runs with it: the oldest
-    // thread is top-left and the newest is bottom-right, in reading order.
-    const cx=0.24+((k%gc)-(gc-1)/2)*cellW, cy=(Math.floor(k/gc)-(gr-1)/2)*cellH+bias;
-    const tail=Object.assign({},conv,{thread:(conv.thread||[]).slice(-1)});   // the live turn only
-    const lb=addThread(tail,nodes,edges,turns,k+1,cx,Math.min(0.42,cellW/0.9),(k*2.7)%11);
-    cols.push({i:k+1,nodeFrom:nFrom,nodeTo:nodes.length,turnFrom:tFrom,turnTo:turns.length,cam:0,
-      title:conv.title,xClip:cx,focus:false,tile:true,rowY:cy,cellH,conv:k});
-    lastBorn=Math.max(lastBorn,lb); }
-  settlePass(nodes,edges);
-  return {nodes,edges,turns,cols,multi:true,lastBorn}; }
 
 // Parallel-threads view: N independent threads in a grid, each revealing on its own staggered clock.
 // Positions are baked here (nothing folds), so there is zero per-frame buffer repacking at high counts.
@@ -985,20 +858,12 @@ const BOOT_CONV={ seed:7, thread:[
   {u:'ok fix it, but no compat shims', reason:'RUN', r:'Reordering now swaps adjacent panes in place; the two long tasks on overview pan are gone. Committed (+18 −6).'} ] };
 let activeConv=BOOT_CONV;
 function rebuild(){
-  // The Director's view is every thread at once. It is not a mode you switch
-  // into: it is what the Director sees, and arrowing off it lands on one thread.
-  const dirCols = (onDirector && viewsReady) ? CONVS.length + 1 : 0;
-  const dirGrid = dirCols > 5;                              // past four threads, tiles rather than columns
-  const parallel=threadCount>1, multi=!parallel&&(onDirector?dirCols>1:parallelCols>1);
+  const parallel=threadCount>1, multi=!parallel&&parallelCols>1;
   EDGE_SEG = parallel ? (threadCount>=64?3:5) : (multi ? 7 : 12);    // LOD: fewer edge segments with many threads
-  g = parallel ? buildParallel(threadCount)
-    : (onDirector&&dirGrid ? buildDirectorGrid(DIRECTOR)
-    : (multi ? buildMulti(onDirector?dirCols:parallelCols, onDirector?0:undefined, onDirector?DIRECTOR:undefined)
-             : build(activeConv)));
+  g = parallel ? buildParallel(threadCount) : (multi ? buildMulti(parallelCols) : build(activeConv));
   // each node becomes a small particle system: core orbiters + emitted sparks (fixed randomness, positions animate)
   const rng=mulberry32((activeConv.seed||seed)*911+13);
-  const cols = onDirector ? (dirGrid?8:dirCols) : parallelCols;
-  const K = parallel ? (threadCount>=64?3:6) : (multi ? (cols>3?8:14) : 24);   // LOD: fewer particles per node
+  const K = parallel ? (threadCount>=64?3:6) : (multi ? (parallelCols>3?8:14) : 24);   // LOD: fewer particles per node
   g.parts=[];
   for(const n of g.nodes){ for(let j=0;j<K;j++){
     let role,dx,dy,speed; const phase=rng();
@@ -1031,10 +896,8 @@ function buildNodeLabels(){ const c=document.getElementById('nodeLabels'); if(!c
     for(const rid of T.reasonIds) g.nodes[rid].labelEl = mk('nlabel nl-reason', g.nodes[rid].label);
     T.rLabel = pillFor(r, T.fail?'nl-fail':'nl-ok', T.fail?'✕':'✓'); }
   if(g.multi) for(const C of g.cols){                                  // a heading per column so you know which thread is which
-    const el=document.createElement('div'); el.className='nl-coltitle'+(C.focus?' focus':'')+(C.tile?' tile':'');
-    el.textContent=C.title; c.appendChild(el); C.titleEl=el;
-    if(C.tile){ const st=document.createElement('div'); st.className='nl-colstep';
-      c.appendChild(st); C.stepEl=st; } } }
+    const el=document.createElement('div'); el.className='nl-coltitle'+(C.focus?' focus':'');
+    el.textContent=C.title; c.appendChild(el); C.titleEl=el; } }
 const STICKY_TOP=58, FADE_SPAN=0.42;
 function labelOpacity(n){ if(labelMode==='off') return 0; if(labelMode==='show') return 1; if(hovered===n) return 1;
   return Math.max(0, Math.min(1, 1-(autoCam-n.worldY)/FADE_SPAN)); }   // auto: fade to just the icon as the flow moves past
@@ -1060,69 +923,9 @@ function updateNodeLabels(){ if(!g.turns||g.parallel) return;   // no labels in 
     if(g.multi){ for(const rid of T.reasonIds){ const e=g.nodes[rid].labelEl; if(e) e.style.display='none'; } }   // columns are too tight for step labels
     else for(const rid of T.reasonIds){ const rn=g.nodes[rid]; placeNodeLabel(rn, rn.labelEl, 'below', {hideIfFolded:true}); }
     placeNodeLabel(g.nodes[T.respId], T.rLabel, T.fail?'below':'over', {delay:0.9}); }   // success over the node; failure below (eclipse stays visible)
-  syncTileNodes();
   if(g.multi) for(const C of g.cols){ if(!C.titleEl) continue;
-    if(!C.tile){
-      // A column shares the one header row, which is what makes columns read
-      // as a set rather than as scattered graphs.
-      const s=warpToScreen((C.xClip*0.5+0.5)*innerWidth, 96);
-      C.titleEl.style.left=Math.round(s.x)+'px'; C.titleEl.style.top='96px'; continue; }
-    /*
-     * A tile's labels are anchored to its node. The node is cam-followed and a
-     * computed row is not, so anchoring to the row left the title drifting a
-     * hundred pixels off the thing it names.
-     */
-    const T=g.turns[C.turnFrom]; if(!T){ continue; }
-    const live=liveTileNode(T);
-    const s=screenOf(live), r=nodeCssDiam(live)*0.5;
-    C.titleEl.style.left=Math.round(s.x)+'px';
-    C.titleEl.style.top=Math.round(s.y-r-20)+'px';
-    if(C.stepEl){ C.stepEl.style.left=Math.round(s.x)+'px';
-      C.stepEl.style.top=Math.round(s.y+r+8)+'px';
-      const text=tileStepText(C, live);
-      if(C.stepEl.textContent!==text) C.stepEl.textContent=text;
-      C.stepEl.style.opacity=live.alpha<0.2?0:1; } } }
-
-/*
- * The node a tile is currently about: the newest one that has been born. While
- * a turn runs that is the step it is on; once it is answered it is the
- * outcome. This is why a tile is not static — it names where the thread is.
- */
-function liveTileNode(T){
-  let best=g.nodes[T.userId];
-  for(const rid of T.reasonIds){ const n=g.nodes[rid]; if(growT>=n.born && n.born>=best.born) best=n; }
-  const R=g.nodes[T.respId]; if(growT>=R.born) best=R;
-  return best; }
-
-/*
- * A tile reports where its thread is, on the thread's own clock.
- *
- * Not on the shared graph clock: every tile holds one turn, so on the shared
- * clock they all finish together and then sit at "done" until the whole view
- * loops. Each conversation already advances its own activity independently in
- * tickConversations, which is the thing that is actually happening, so the
- * tile reads from there — the label changes, and the node takes that step's
- * colour, whether or not its own turn has been answered.
- */
-function tileStepText(C, live){
-  const conv=C.conv!=null?CONVS[C.conv]:null;
-  if(!conv) return live.label;
-  if(isComplete(conv)) return 'done';
-  const h=conv.nows[revealCount(conv)-1];
-  return h?h.t:live.label; }
-
-// The node takes the colour of the step its thread is on, so a tile changes
-// as the work moves rather than only when its own turn ends.
-function syncTileNodes(){
-  if(!g.cols) return;
-  for(const C of g.cols){ if(!C.tile || C.conv==null) continue;
-    const conv=CONVS[C.conv], T=g.turns[C.turnFrom]; if(!T) continue;
-    const live=liveTileNode(T);
-    // A Now item's mode is already an index into the same order M uses.
-    const step=conv.nows[revealCount(conv)-1];
-    const want=isComplete(conv) ? M.success : (step ? step.mode : live.mode);
-    if(live.mode!==want){ live.mode=want; sceneDirty=true; } } }
-
+    const s=warpToScreen((C.xClip*0.5+0.5)*innerWidth, 96);
+    C.titleEl.style.left=Math.round(s.x)+'px'; C.titleEl.style.top='96px'; } }
 // dynamic layout: reasoning graph compresses into the user/AI ladder as each turn folds (open 1->0)
 function layout(dt){
   if(g.parallel) return;   // parallel view: positions are baked, nothing folds -> no repack, stays smooth
@@ -1149,10 +952,7 @@ function layout(dt){
         cur=R.worldY+(COLLAPSE_GAP+(TURN_GAP-COLLAPSE_GAP)*a); }
       let mY=0; for(let i=C.nodeFrom;i<C.nodeTo;i++){ const n=g.nodes[i]; if(n.born<=growT&&n.alpha>0.02&&n.worldY>mY) mY=n.worldY; }
       C.cam += (mY-C.cam)*Math.min(1,dt*2.2);                                  // follow this column's own live edge
-      // `rowY` lifts a tile into its grid row; a plain column leaves it zero,
-      // so every column's live edge still lines up on one screen row.
-      for(let i=C.nodeFrom;i<C.nodeTo;i++) g.nodes[i].worldY -= C.cam - (C.rowY||0);
-    }
+      for(let i=C.nodeFrom;i<C.nodeTo;i++) g.nodes[i].worldY -= C.cam; }       // so all columns' active rows line up
     return; }
   let cursor=0;
   for(const T of g.turns){ const a=T.open, topY=cursor;
@@ -1208,9 +1008,6 @@ canvas.addEventListener('click',e=>{
     const s=screenOf(R); if(s.y<-50||s.y>innerHeight+50) continue;
     const rad=nodeCssDiam(R)*0.6+16, d=Math.hypot(s.x-e.clientX,s.y-e.clientY);
     if(d<rad && d<hb){ hb=d; hitTurn=T; } }
-  if(hitTurn && onDirector){
-    const C=columnForTurn(g.turns.indexOf(hitTurn));
-    if(C && C.conv!=null){ openConversation(C.conv); return; } }
   if(hitTurn && collapseMode!=='off'){ hitTurn.manual = hitTurn.open>0.5 ? false : true; sceneDirty=true; selected=null; return; }
   let best=null,bd=44;                          // otherwise: normal node selection (tooltip), no collapse
   for(const n of g.nodes){if(growT<n.born||n.alpha<0.2)continue;const s=screenOf(n);if(s.y<-40||s.y>innerHeight+40)continue;
@@ -1271,7 +1068,7 @@ function frame(ms){const dt=Math.min(0.05,(ms-last)/1000);last=ms;growT+=dt;acc+
   if(switching){
     switching.t += dt/0.62;
     if(switching.t>=0.5 && !switching.swapped){
-      stepView(switching.dir);
+      convIdx=(convIdx+switching.dir+CONVS.length)%CONVS.length;
       snapToConv();                                   // arrive at whatever state that thread has progressed to
       renderConv(); switching.swapped=true; document.body.classList.remove('switching');
     }
@@ -1339,40 +1136,6 @@ let autoCam=0, viewCam=0, detached=false, switching=null, xShift=0, glitchAmt=0;
 // mouse wheel = look back through the stream (chat-style history scroll)
 // scroll up to look back; the view stops following the newest node until you scroll back down to the live edge
 addEventListener('wheel', e=>{ viewCam=Math.max(-0.7, Math.min(autoCam, viewCam + e.deltaY*0.0013)); detached = viewCam < autoCam-0.02; }, {passive:true});
-
-/*
- * The Director's own view.
- *
- * Every conversation is a view and the arrows move between them. The Director
- * is one of those views and it is the one you land on, so the multi-thread
- * canvas is not a permanent mode — it is the Director's perspective, which is
- * the only reading under which it means anything.
- *
- * Its highlights are about dispatch, never about how a thread did its work.
- * That is the thread's own view, one arrow away.
- */
-const DIRECTOR={ title:'Director', seed:1301, director:'watching 3 threads · 1 needs an answer',
-  // The Director's own thread. It is a conversation like the others — you ask,
-  // it decides where the work goes — so it is the first column of its own view.
-  thread:[
-    {u:'work on the drag-drop jank, and separately get voice running locally',
-     reason:[{m:'think',t:'read request'},{m:'do',t:'split into two threads'}],
-     r:'Two threads: “Workspace drag-drop” and “Local voice capture”.'},
-    {u:'also draft the release notes when those land', reason:'RUN',
-     r:'Queued “Release notes” behind them; it will ask before it pushes.'},
-    {u:'how is the voice one going',
-     reason:[{m:'think',t:'ask its narrator'}],
-     r:'It is downloading the on-device model — 1.1 GB, nothing needed from you.'},
-    {u:'drop the pane animation if it keeps failing the perf bar', reason:'RUN',
-     r:'Dropped it. Drag-drop keeps the committed fix and stops there.'}],
-  arts:[],
-  nows:[],
-  // The one thing a glance has to surface: work that stopped for an answer.
-  waiting:{ label:'“Codex run lifecycle” needs you to approve a push', at:2 },
-  summary:'Three threads are open. One finished and committed, one is running without a folder, and one needs an answer before it can push. Nothing else is blocked.',
-  response:'Started it — I will bring back anything that needs you.',
-  history:[{u:'work on the drag-drop jank, and separately get voice running locally',
-            r:'Two threads: drag-drop is committed, voice is running on-device now.'}] };
 
 // a few demo conversations the director could be juggling
 const REVEAL_INT=3.2;   // seconds between "Now" items as a conversation progresses
@@ -1487,19 +1250,14 @@ function buildConvList(n){ const list=[];
 // jump straight to a thread's present state (no restart from zero)
 function snapToConv(){
   activeConv=CONVS[convIdx]; seed=activeConv.seed||seed; rebuild();
-  if(onDirector){
-    growT=g.lastBorn*0.62;                                   // arrive mid-flight; the threads did not wait for you
-    layout(0); updateSceneBuffers();
-    let m=0; for(const n of g.nodes) if(n.born<=growT&&n.alpha>0.02&&n.worldY>m) m=n.worldY;
-    autoCam=m; viewCam=m; detached=false; camWorld=m; return; }
   activeConv.spanU=g.lastBorn/INTERVAL;                       // refine the estimate now that it's actually built
   if(activeConv.gT>g.lastBorn+FAIL_DELAY+6.0) activeConv.gT=0;
   growT=activeConv.gT||0; layout(0); updateSceneBuffers();
   let maxY=0; for(const n of g.nodes) if(n.born<=growT&&n.alpha>0.02&&n.worldY>maxY) maxY=n.worldY;
   autoCam=maxY; viewCam=maxY; detached=false; camWorld=viewCam; }
-let CONVS=buildConvList(3); viewsReady=true;
+let CONVS=buildConvList(3);
 function setThreads(n){ CONVS=buildConvList(n);
-  convIdx=Math.min(convIdx,CONVS.length-1); lastIdx=-2; lastN=-1; snapToConv(); renderConv(); }
+  convIdx=Math.min(convIdx,CONVS.length-1); lastIdx=-1; lastN=-1; snapToConv(); renderConv(); }
 let convIdx=0, lastIdx=-1, lastN=-1, lastComplete=false, dotAcc=0;
 const $=id=>document.getElementById(id);
 
@@ -1516,21 +1274,16 @@ function tickConversations(dt){
       continue; }
     const b=revealCount(c); c.t+=dt; if(revealCount(c)>b) c.lastReveal=c.t; }
   const c=CONVS[convIdx], n=revealCount(c), comp=isComplete(c);
-  const idx=onDirector?-1:convIdx;
-  if(idx!==lastIdx||n!==lastN||comp!==lastComplete){ lastIdx=idx; lastN=n; lastComplete=comp; renderConv(); }
+  if(convIdx!==lastIdx||n!==lastN||comp!==lastComplete){ lastIdx=convIdx; lastN=n; lastComplete=comp; renderConv(); }
   dotAcc+=dt; if(dotAcc>0.3){ dotAcc=0; renderDots(); }
 }
 function renderDots(){ const N=CONVS.length, el=$('convDots');
-  const dot=(c,i)=>{ let cls=(!onDirector&&i===convIdx)?'on':''; if(isComplete(c)) cls+=' done'; else if(c.t-c.lastReveal<2.6) cls+=' act';
+  const dot=(c,i)=>{ let cls=i===convIdx?'on':''; if(isComplete(c)) cls+=' done'; else if(c.t-c.lastReveal<2.6) cls+=' act';
     return `<i class="${cls.trim()}"></i>`; };
-  // The strip is a navigator between views, and the Director is a view.
-  const head=`<i class="dir${onDirector?' on':''}"></i><span class="dot-sep"></span>`;
-  if(N<=24){ el.innerHTML=head+CONVS.map(dot).join(''); return; }
-  el.innerHTML=head+windowedDots(N,dot); return; }
-function windowedDots(N,dot){
+  if(N<=24){ el.innerHTML=CONVS.map(dot).join(''); return; }
   const half=9, start=Math.max(0, Math.min(N-(half*2+1), convIdx-half));    // window the strip once there are many threads
-  return CONVS.slice(start,start+half*2+1).map((c,i)=>dot(c,start+i)).join('')+
-    `<span class="dot-count">${onDirector?'—':convIdx+1}/${N}</span>`; }
+  el.innerHTML=CONVS.slice(start,start+half*2+1).map((c,i)=>dot(c,start+i)).join('')+
+    `<span class="dot-count">${convIdx+1}/${N}</span>`; }
 
 function artifactBody(b){ if(!b) return '';
   if(b.type==='bars') return `<div class="artifact-body">`+b.rows.map(r=>`<div class="ab-row"><span>${r[0]}</span><span class="ab-track"><span class="ab-bar" style="width:${Math.round(r[2]*100)}%"></span></span><span class="ab-num">${r[1].toFixed(1)}</span></div>`).join('')+`</div>`;
@@ -1539,12 +1292,8 @@ function artifactBody(b){ if(!b) return '';
   return ''; }
 
 function renderConv(){
-  if(onDirector) return renderDirector();
   const c=CONVS[convIdx], n=revealCount(c), complete=isComplete(c);
-  document.body.classList.remove('director-view'); $('lodbar').hidden=true;
-  $('convTitle').textContent=c.title; $('convTitle').classList.remove('is-director');
-  $('directorText').textContent=c.director; renderDots();
-  $('chatInput').placeholder='Reply to “'+c.title+'”…   (‹ › switch conversation)';
+  $('convTitle').textContent=c.title; $('directorText').textContent=c.director; renderDots();
   const shown=c.nows.slice(0,n);
   $('highlights').innerHTML=shown.map((h,i)=>{
     const col=MODE_COLORS[h.mode]||'#8aa'; const newest=i===shown.length-1;
@@ -1559,75 +1308,8 @@ function renderConv(){
     `<div class="artifact" data-i="${i}"><div class="artifact-kicker">${a.kicker}<span class="exp">⤢</span></div>`+
     `<div class="artifact-title">${a.title}</div><div class="artifact-meta">${a.meta}</div>`+artifactBody(a.body)+`</div>`:'').join('');
 }
-/*
- * What the Director's view says in words: one line above the composer, naming
- * what is waiting and taking you to it. There is no Now rail here — the
- * constellation already shows that everything is moving, and each thread's own
- * account belongs to its own view.
- */
-function renderDirectorHint(){
-  const waiting=DIRECTOR.waiting;
-  const el=$('directorText');
-  if(!waiting){ el.textContent=`watching ${CONVS.length} threads · nothing needs you`; return; }
-  el.innerHTML=`watching ${CONVS.length} threads · `+
-    `<button type="button" class="needs" data-goto="${waiting.at}">${waiting.label}</button>`;
-}
-
-/*
- * The Director's rails.
- *
- * Its Now rail is dispatch: what it started, what finished, what needs the
- * user. Its artifact rail is every thread's output, each card naming the
- * thread that produced it — on this view the reader is above the threads, so
- * the thread is the thing they need to be told.
- */
-function renderDirector(){
-  document.body.classList.add('director-view');
-  $('lodbar').hidden=false;
-  $('lodNote').textContent = (CONVS.length+1>5) ? LOD_NOTES.tiles : LOD_NOTES.columns;
-  document.querySelectorAll('[data-lod]').forEach(x=>
-    x.classList.toggle('on', parseInt(x.dataset.lod)===CONVS.length));
-  $('convTitle').textContent=DIRECTOR.title; $('convTitle').classList.add('is-director');
-  renderDirectorHint(); renderDots();
-  $('chatInput').placeholder='Ask the Director…   (› to open a thread · scroll to look back)';
-}
-
-/*
- * Which conversation a turn belongs to, when the view is drawing more than one.
- */
-function columnForTurn(turnIndex){
-  if(!g.cols) return null;
-  for(const C of g.cols) if(turnIndex>=C.turnFrom && turnIndex<C.turnTo) return C;
-  return null; }
-
-function openConversation(index){
-  onDirector=false; convIdx=index; lastIdx=-2; selected=null;
-  snapToConv(); renderConv(); }
-
 function switchConv(dir){ if(switching) return;   // start a channel-change transition (swap happens mid-slide)
   switching={dir, t:0, swapped:false}; selected=null; document.body.classList.add('switching'); }
-
-// The Director sits at position 0 and the threads follow it, so arrowing off
-// the last thread wraps back to the Director rather than to the first thread.
-function stepView(dir){
-  const N=CONVS.length;
-  if(onDirector){ onDirector=false; convIdx = dir>0 ? 0 : N-1; return; }
-  const next=convIdx+dir;
-  if(next<0||next>=N){ onDirector=true; return; }
-  convIdx=next; }
-/*
- * The switch is a demonstration, so it says what changed and why — the note is
- * the argument the control exists to make.
- */
-const LOD_NOTES={ columns:'columns · latest turn per thread · click one to open it',
-                  tiles:'tiles · latest turn per thread · click one to open it' };
-document.querySelectorAll('[data-lod]').forEach(b=>b.onclick=()=>{
-  setThreads(parseInt(b.dataset.lod));
-  document.querySelectorAll('[data-lod]').forEach(x=>x.classList.toggle('on',x===b));
-  $('lodNote').textContent = (CONVS.length+1>5) ? LOD_NOTES.tiles : LOD_NOTES.columns; });
-
-$('directorHint').addEventListener('click',e=>{ const b=e.target.closest('[data-goto]'); if(!b) return;
-  openConversation(+b.dataset.goto); });
 $('convPrev').onclick=()=>switchConv(-1);
 $('convNext').onclick=()=>switchConv(1);
 
@@ -1650,18 +1332,7 @@ $('artifacts').addEventListener('click',e=>{ const card=e.target.closest('.artif
 // chat input: the director takes the request -> append a new turn and jump the stream to it
 const chatInput=$('chatInput');
 chatInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&chatInput.value.trim()){
-  const val=chatInput.value.trim();
-  /*
-   * What you are looking at is what you are talking to. On the Director's view
-   * that is dispatch — it takes the request and decides which thread it
-   * belongs to — so nothing is appended to a thread here.
-   */
-  if(onDirector){ DIRECTOR.history.push({u:val, r:DIRECTOR.response});
-    DIRECTOR.nows.push({t:'Took “'+val.slice(0,44)+(val.length>44?'…':'')+'”',mode:1,
-      full:'The Director decides whether this steers a running thread, queues behind it, or starts a new one.'});
-    if(DIRECTOR.nows.length>4) DIRECTOR.nows.shift();
-    chatInput.value=''; renderDirector(); return; }
-  activeConv.thread.push({u:val, reason:'RUN', r:CONVS[convIdx].response||'Done.'});
+  const val=chatInput.value.trim(); activeConv.thread.push({u:val, reason:'RUN', r:CONVS[convIdx].response||'Done.'});
   CONVS[convIdx].history.push({u:val, r:CONVS[convIdx].response});
   chatInput.value=''; rebuild();
   activeConv.spanU=g.lastBorn/INTERVAL;
@@ -1674,7 +1345,7 @@ chatInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&chatInput.value.tr
 $('highlights').addEventListener('click',e=>{ const li=e.target.closest('.hl'); if(li&&!li.classList.contains('nofull')) li.classList.toggle('expanded'); });
 
 // "see thread history" -> a traditional chat transcript (your messages + each final response)
-function renderHistory(){ const c=onDirector?DIRECTOR:CONVS[convIdx];
+function renderHistory(){ const c=CONVS[convIdx];
   $('historyLog').innerHTML=c.history.map(t=>`<div class="turn"><div class="u">${t.u}</div><div class="r">${t.r}</div></div>`).join('')||`<div class="turn"><div class="r">No prior turns on this thread yet.</div></div>`; }
 function openHistory(){ renderHistory(); $('history').hidden=false; }
 function closeHistory(){ $('history').hidden=true; }

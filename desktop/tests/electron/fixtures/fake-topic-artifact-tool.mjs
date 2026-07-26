@@ -5,8 +5,6 @@ export const languageCountTableArtifactArguments = {
     '  Table([{key: "language", label: "Language"}, {key: "lines", label: "Lines"}], [["Go", "34"], ["TypeScript", "21"], ["CSS", "8"]])',
     "])",
   ].join("\n"),
-  kind: "Report",
-  summary: "Line counts across the three languages this repository is written in.",
   title: "Language line counts",
 };
 
@@ -16,8 +14,6 @@ export const languageCountBarChartArtifactArguments = {
     '  BarChart([{name: "Lines", points: [{label: "Go", value: 34}, {label: "TypeScript", value: 21}, {label: "CSS", value: 8}]}], "Lines by language")',
     "])",
   ].join("\n"),
-  kind: "Report",
-  summary: "The same line counts as a chart, so the split is visible at a glance.",
   title: "Language line count chart",
 };
 
@@ -27,8 +23,6 @@ export const qualitativeMarkdownArtifactArguments = {
     '  Markdown("## Release themes\\n\\n- Reliability work is complete.\\n- Interface polish is ready for review.")',
     "])",
   ].join("\n"),
-  kind: "Notes",
-  summary: "What this release changed, in themes rather than in commits.",
   title: "Qualitative release notes",
 };
 
@@ -38,8 +32,6 @@ export const numericComparisonArtifactArguments = {
     '  BarChart([{name: "Cases", points: [{label: "North", value: 12}, {label: "South", value: 18}, {label: "West", value: 7}]}], "Cases by region")',
     "])",
   ].join("\n"),
-  kind: "Comparison",
-  summary: "Case volume by region, with the South carrying the most.",
   title: "Regional case comparison",
 };
 
@@ -56,8 +48,6 @@ export const mixedDocumentArtifactArguments = {
     '  FileReference("docs/setta-artifact-policy-memo.md", "Generated policy memo")',
     "])",
   ].join("\n"),
-  kind: "Memo",
-  summary: "The policy memo covering four areas, with owners and the generated file.",
   title: "Policy memo",
 };
 
@@ -72,17 +62,10 @@ export const privateDirectoryReferenceArtifactArguments = {
     '  FileReference("docs/setta-artifact-policy-memo.md", "Private working-directory file")',
     "])",
   ].join("\n"),
-  kind: "Reference",
-  summary: "An attempt to address a file the unbound run may see but may not publish.",
   title: "Private directory reference",
 };
 
-// Incomplete in exactly one field: the document. Everything a reader needs
-// before opening it is here, so the rejection is about the artifact's content
-// rather than about its label.
 export const incompleteArtifactArguments = {
-  kind: "Report",
-  summary: "Line counts that were never actually written into a document.",
   title: "Language line counts",
 };
 
@@ -173,9 +156,8 @@ export function threadHasArtifactTool(thread) {
   });
 }
 
-// The tool takes one document and the three things a reader needs before
-// opening it. A branch union here would mean the backend still models artifact
-// kinds.
+// The tool takes one document, so its schema is a strict two-field object. A
+// branch union here would mean the backend still models artifact kinds.
 function hasDocumentInputSchema(schema) {
   if (schema === null || typeof schema !== "object") {
     return false;
@@ -187,12 +169,8 @@ function hasDocumentInputSchema(schema) {
     schema.additionalProperties === false,
     schema.oneOf === undefined,
     required.includes("title"),
-    required.includes("kind"),
-    required.includes("summary"),
     required.includes("source"),
     isStringSchema(properties.title),
-    isStringSchema(properties.kind),
-    isStringSchema(properties.summary),
     isStringSchema(properties.source),
   ].every(Boolean);
 }

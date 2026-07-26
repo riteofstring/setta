@@ -64,14 +64,14 @@ func TestBranchDecisionScopeKeepsExecutionAuthorityOutsideModelDecision(t *testi
 	}
 	if err := (BranchDecisionExecutionScope{
 		ParentConversationID: "conversation-parent",
-		Source:               BranchDecisionSourceDirector,
+		Source:               BranchDecisionSourceConversationRouter,
 	}).Validate(side); err != nil {
 		t.Fatalf("valid local side scope: %v", err)
 	}
 	if err := (BranchDecisionExecutionScope{
 		ParentConversationID: "conversation-parent",
 		ChildConversationID:  &childConversationID,
-		Source:               BranchDecisionSourceDirector,
+		Source:               BranchDecisionSourceConversationRouter,
 	}).Validate(side); err == nil {
 		t.Fatal("side decision accepted a child conversation id")
 	}
@@ -87,7 +87,7 @@ func TestBranchDecisionScopeKeepsExecutionAuthorityOutsideModelDecision(t *testi
 	if err := (BranchDecisionExecutionScope{
 		ParentConversationID: "conversation-parent",
 		SideConversationID:   &sideConversationID,
-		Source:               BranchDecisionSourceDirector,
+		Source:               BranchDecisionSourceConversationRouter,
 	}).Validate(fork); err == nil {
 		t.Fatal("fork decision accepted side-conversation scope")
 	}

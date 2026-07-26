@@ -13,6 +13,7 @@ func newHTTPServer(config Config, services runtimeServices) *http.Server {
 			Version: config.Version,
 		},
 		AppearanceService:            services.appearanceService,
+		ConversationInputService:     services.conversationInputService,
 		ConversationNavigatorService: services.conversationService,
 		ConversationService:          services.conversationService,
 		DirectorService:              services.directorServices.commandCenter,

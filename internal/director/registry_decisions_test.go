@@ -71,22 +71,14 @@ func TestDecisionContextDerivesTargetAuthorityFromRunState(t *testing.T) {
 	registry := harness.start()
 	decisionContext := requireDecisionContext(t, registry)
 
-	// The idle workstream finished a turn, so it can be branched as well as sent
-	// work: forking is authorized by completed history, not by being free now.
 	idleTarget := requireDecisionTarget(t, decisionContext, idle)
 	if !slices.Equal(idleTarget.AllowedDecisionKinds, []DirectorDecisionKind{
 		DirectorDecisionSelectWorkstream,
 		DirectorDecisionSendToWorkstream,
-		DirectorDecisionForkWorkstream,
 	}) {
 		t.Fatalf("idle target allows %v", idleTarget.AllowedDecisionKinds)
 	}
-	if idleTarget.ForkPointRunID == nil || *idleTarget.ForkPointRunID != "turn-idle-1" {
-		t.Fatalf("idle target fork point = %v", idleTarget.ForkPointRunID)
-	}
 
-	// The running workstream has never completed a turn, so it cannot be
-	// branched: there is no shared history for a child to inherit.
 	runningTarget := requireDecisionTarget(t, decisionContext, running)
 	if !slices.Equal(runningTarget.AllowedDecisionKinds, []DirectorDecisionKind{
 		DirectorDecisionSelectWorkstream,
@@ -94,9 +86,6 @@ func TestDecisionContextDerivesTargetAuthorityFromRunState(t *testing.T) {
 		DirectorDecisionSteerRun,
 	}) {
 		t.Fatalf("running target allows %v", runningTarget.AllowedDecisionKinds)
-	}
-	if runningTarget.ForkPointRunID != nil {
-		t.Fatalf("running target offered a fork point with no completed run: %v", *runningTarget.ForkPointRunID)
 	}
 	if runningTarget.ActiveRunID == nil || *runningTarget.ActiveRunID != "turn-running-1" {
 		t.Fatalf("running target active run = %v", runningTarget.ActiveRunID)

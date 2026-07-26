@@ -7,7 +7,7 @@ import (
 	"unicode"
 )
 
-const SchemaVersion = 5
+const SchemaVersion = 4
 
 const (
 	accessibleBlack          = "oklch(0.0000 0.0000 0.00)"
@@ -15,7 +15,15 @@ const (
 	wcagAANormalTextContrast = 4.5
 )
 
+type AppearanceColorMode string
 type AppearancePresetID string
+
+const (
+	ColorModeDark  AppearanceColorMode = "dark"
+	ColorModeLight AppearanceColorMode = "light"
+)
+
+var colorModeValues = []AppearanceColorMode{ColorModeDark, ColorModeLight}
 
 const (
 	PresetSettaStandard   AppearancePresetID = "setta_standard"
@@ -52,13 +60,10 @@ const settaLogoCyan = "oklch(0.8460 0.1292 213.38)"
 
 var presetIDValues = defaultPresetIDValues()
 
-// AppearanceSettings carries one colour scheme, not a choice between two.
-// Setta's surfaces are authored dark — the Director command center and its
-// canvas read no theme variable at all — so a light scheme had nothing to
-// apply to beyond the settings pages, while forcing every themed surface
-// embedded in the command center to paint its own background to stay readable.
 type AppearanceSettings struct {
 	SchemaVersion int                   `json:"schemaVersion"`
+	Mode          AppearanceColorMode   `json:"mode"`
+	Light         AppearanceColorScheme `json:"light"`
 	Dark          AppearanceColorScheme `json:"dark"`
 	Fonts         AppearanceFontScheme  `json:"fonts"`
 }
@@ -155,6 +160,7 @@ type ContractValueSet struct {
 
 func ContractValueSets() []ContractValueSet {
 	return []ContractValueSet{
+		{Name: "AppearanceColorMode", Values: stringValues(colorModeValues)},
 		{Name: "AppearancePresetID", Values: stringValues(presetIDValues)},
 	}
 }
@@ -163,6 +169,8 @@ func DefaultSettings() AppearanceSettings {
 	tailwind := defaultSettaTailwindPalette()
 	return AppearanceSettings{
 		SchemaVersion: SchemaVersion,
+		Mode:          ColorModeDark,
+		Light:         defaultSettaLightColorScheme(tailwind),
 		Dark:          defaultSettaDarkColorScheme(tailwind),
 		Fonts: AppearanceFontScheme{
 			Sans:    `Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`,
@@ -196,6 +204,7 @@ func DefaultPresetList() AppearancePresetList {
 func appearancePreset(preset palettePreset) AppearancePreset {
 	tailwind := tailwindPaletteFromScale(preset.scale)
 	settings := DefaultSettings()
+	settings.Light = defaultLightColorScheme(tailwind)
 	settings.Dark = defaultDarkColorScheme(tailwind)
 	return AppearancePreset{
 		ID:          preset.id,
@@ -219,6 +228,12 @@ func defaultPresetIDValues() []AppearancePresetID {
 func Validate(settings AppearanceSettings) error {
 	if settings.SchemaVersion != SchemaVersion {
 		return fmt.Errorf("appearance schemaVersion = %d, want %d", settings.SchemaVersion, SchemaVersion)
+	}
+	if settings.Mode != ColorModeDark && settings.Mode != ColorModeLight {
+		return fmt.Errorf("appearance mode is unsupported: %s", settings.Mode)
+	}
+	if err := validateColorScheme("light", settings.Light); err != nil {
+		return err
 	}
 	if err := validateColorScheme("dark", settings.Dark); err != nil {
 		return err

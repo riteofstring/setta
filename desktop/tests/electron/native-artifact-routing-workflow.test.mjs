@@ -573,7 +573,7 @@ async function openArtifactBrowser(client, snapshot, artifact, documentMarker) {
         loadState: modal?.getAttribute("data-artifact-load-state") ?? "",
         openId: modal?.getAttribute("data-artifact-id") ?? "",
         position: modal?.querySelector(".director-artifact-browser-position")?.textContent ?? "",
-        title: modal?.querySelector(".director-artifact-title-block h1")?.textContent ?? ""
+        title: modal?.querySelector(".director-artifact-browser-title")?.textContent ?? ""
       };
     })()`,
     (state) =>
@@ -582,19 +582,10 @@ async function openArtifactBrowser(client, snapshot, artifact, documentMarker) {
       state.documentText.includes(documentMarker),
     workflowTimeoutMs,
   );
-  /*
-   * The browser paginates the view's artifacts, and a view is one workstream.
-   * It used to paginate every artifact in the app while the bar named one
-   * workstream, which is the mismatch the view work removed: an artifact
-   * belongs to the thread that produced it.
-   */
-  const inView = snapshot.artifacts.filter(
-    (candidate) => candidate.workstreamId === artifact.workstreamId,
-  );
-  const position = inView.findIndex((candidate) => candidate.id === artifact.id) + 1;
+  const position = snapshot.artifacts.findIndex((candidate) => candidate.id === artifact.id) + 1;
   assertEqual(
     detail.position,
-    `${position} of ${inView.length}`,
+    `${position} of ${snapshot.artifacts.length}`,
     `artifact browser position for ${artifact.id}`,
   );
   return detail;

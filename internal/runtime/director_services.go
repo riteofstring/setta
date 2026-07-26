@@ -8,7 +8,6 @@ import (
 
 	"setta/internal/conversation"
 	"setta/internal/director"
-	"setta/internal/narration"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
@@ -44,7 +43,6 @@ func newDirectorServices(
 	conversations *conversation.Service,
 	roles directorRoleResolver,
 	provider directorProviderRuntime,
-	narrator *narration.Service,
 ) (directorServices, error) {
 	registry, err := director.NewRegistry(store, directorWorkspaceResources{workspaces: workspaces})
 	if err != nil {
@@ -53,15 +51,7 @@ func newDirectorServices(
 	if err := registry.Start(context.Background()); err != nil {
 		return directorServices{}, fmt.Errorf("materialize director registry: %w", err)
 	}
-	commandCenter, err := newDirectorCommandCenter(
-		appDataDir,
-		store,
-		registry,
-		conversations,
-		roles,
-		provider,
-		narrator,
-	)
+	commandCenter, err := newDirectorCommandCenter(appDataDir, store, registry, conversations, roles, provider)
 	if err != nil {
 		_ = registry.Close()
 		return directorServices{}, err
@@ -76,7 +66,6 @@ func newDirectorCommandCenter(
 	conversations *conversation.Service,
 	roles directorRoleResolver,
 	provider directorProviderRuntime,
-	narrator *narration.Service,
 ) (*director.CommandCenter, error) {
 	carrierRoot := filepath.Join(filepath.Clean(appDataDir), directorRuntimeDirectoryName)
 	if err := os.MkdirAll(carrierRoot, 0o700); err != nil {
@@ -97,17 +86,12 @@ func newDirectorCommandCenter(
 	// The Director shares the conversation runtime's carrier registry. Its
 	// carrier is process-local runtime state like every workstream's, so one
 	// registry holds every live carrier this app run started.
-	narratorPort, err := newDirectorNarratorPort(narrator, store)
-	if err != nil {
-		return nil, fmt.Errorf("create director narrator port: %w", err)
-	}
 	directorConversation, err := director.NewDirectorConversation(
 		registry,
 		executor,
 		store,
 		conversations.Carriers(),
 		carrierPort,
-		narratorPort,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create director conversation: %w", err)

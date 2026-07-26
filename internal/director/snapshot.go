@@ -19,15 +19,6 @@ const (
 	// MaxSnapshotAdjacentGraphs bounds how many non-selected workstreams carry
 	// a compact graph.
 	MaxSnapshotAdjacentGraphs = 8
-	// MaxDirectorColumnGraphs is how many conversations the Director's own view
-	// draws as full columns before it reduces them. Past this the view is a
-	// grid of tiles, and a tile is the workstream's latest activity rather than
-	// its trajectory: a dozen full columns is a dozen unreadable slivers.
-	MaxDirectorColumnGraphs = 4
-	// MaxDirectorTiledGraphs bounds how many tiles that grid holds. Beyond it a
-	// workstream still counts in the aggregates and still sits in the strip; it
-	// just has no cell of its own to draw in.
-	MaxDirectorTiledGraphs = 24
 	// MaxSnapshotAdjacentGraphNodes bounds one adjacent workstream's compact
 	// graph. An adjacent workstream answers "does this need me?", so it carries
 	// its blockers, its results, and its last milestone — not its trajectory.

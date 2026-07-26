@@ -1,4 +1,5 @@
 import type {
+  AcceptedConversationInput,
   ArchiveTopicConversationRequest,
   AppearancePresetList,
   AppearanceSettings,
@@ -8,6 +9,7 @@ import type {
   CodexAccountChangeEvent,
   CodexAccountState,
   ConversationEvent,
+  ConversationInputRoutingState,
   ConversationSnapshot,
   Artifact,
   ClearDesktopSpeechCredentialRequest,
@@ -17,6 +19,7 @@ import type {
   DirectorIntent,
   DirectorReceipt,
   DirectorSnapshot,
+  DiscardConversationInputRequest,
   DisposeSideConversationRequest,
   ListTopicConversationsRequest,
   LogoutCodexAccountRequest,
@@ -24,11 +27,13 @@ import type {
   NarratorVoiceDefault,
   NavigatorPage,
   OpenWorkspaceResponse,
+  ReadConversationInputRoutingStateRequest,
   ReadConversationArtifactRequest,
   ReadConversationSnapshotRequest,
   RefreshCodexAccountRequest,
   ReadConversationRoleConfigurationRequest,
   ReadWorkspaceRoleConfigurationRequest,
+  RetryConversationInputRequest,
   RoleConfiguration,
   RoleModelCatalog,
   RuntimeInfrastructureProvider,
@@ -41,6 +46,7 @@ import type {
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   StopTopicConversationTurnRequest,
+  SubmitConversationInputRequest,
   SubmitTopicConversationApprovalRequest,
   UpdateAppearanceSettingsRequest,
   UpdateConversationRoleProfilesRequest,
@@ -194,18 +200,29 @@ export interface SettaAPI {
     archive: (request: ArchiveTopicConversationRequest) => Promise<ConversationSnapshot>;
     bindFolder: (request: BindTopicConversationFolderRequest) => Promise<ConversationSnapshot>;
     create: (request: CreateTopicConversationRequest) => Promise<ConversationSnapshot>;
+    discardInput?: (
+      request: DiscardConversationInputRequest,
+    ) => Promise<ConversationInputRoutingState>;
     disposeSide?: (request: DisposeSideConversationRequest) => Promise<ConversationSnapshot>;
     list: (request: ListTopicConversationsRequest) => Promise<NavigatorPage>;
     onEvent: (listener: (event: ConversationEvent) => void) => () => void;
     read: (request: ReadConversationSnapshotRequest) => Promise<ConversationSnapshot>;
     readArtifact?: (request: ReadConversationArtifactRequest) => Promise<Artifact>;
+    readInputState?: (
+      request: ReadConversationInputRoutingStateRequest,
+    ) => Promise<ConversationInputRoutingState>;
     release: (request: ConversationEventReleaseRequest) => Promise<void>;
+    retryInput?: (request: RetryConversationInputRequest) => Promise<ConversationInputRoutingState>;
     sendSide?: (request: SendSideConversationTurnRequest) => Promise<ConversationSnapshot>;
     stop: (request: StopTopicConversationTurnRequest) => Promise<ConversationSnapshot>;
     submitApproval: (
       request: SubmitTopicConversationApprovalRequest,
     ) => Promise<ConversationSnapshot>;
+    submitInput?: (request: SubmitConversationInputRequest) => Promise<AcceptedConversationInput>;
     subscribe: (request: ConversationEventSubscriptionRequest) => Promise<void>;
+    waitInputState?: (
+      request: ReadConversationInputRoutingStateRequest,
+    ) => Promise<ConversationInputRoutingState>;
   };
   director: {
     dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;

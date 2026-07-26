@@ -61,7 +61,7 @@
     const workstreamStrip = document.querySelector(".director-workstream-strip");
     const dots = Array.from(document.querySelectorAll(".director-workstream-dot"));
     return {
-      narrationItems: document.querySelectorAll(".director-narration-item").length,
+      activityItems: document.querySelectorAll(".director-activity-item").length,
       artifactCards: document.querySelectorAll(".director-artifact-preview").length,
       artifactDetailOpen: Boolean(document.querySelector(".director-artifact-browser")),
       bodyDescendantCount: document.body.querySelectorAll("*").length,
@@ -72,11 +72,8 @@
         width: canvas instanceof HTMLCanvasElement ? canvas.width : 0,
       },
       graphCanvas: elementBox(canvas),
-      // A workstream with no committed nodes draws nothing but the medium. That
-      // is correct, and the shell says so on the canvas; the pixel check is only
-      // meaningful when there is a graph to have drawn.
-      graphEmptyState: Boolean(document.querySelector(".director-graph-empty")),
       graphLabelCount: document.querySelectorAll(".director-graph-label").length,
+      historyItems: document.querySelectorAll(".director-history-list li").length,
       pendingApprovals: document.querySelectorAll("[data-approval-id]").length,
       pendingResourceRequests: document.querySelectorAll("[data-resource-request-id]").length,
       rails: {
@@ -149,15 +146,7 @@
         const pixels = new Uint8Array(width * height * 4);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-        resolve(
-          graphPixelSnapshot(
-            pixels,
-            width,
-            height,
-            canvas.clientWidth || width,
-            canvas.clientHeight || height,
-          ),
-        );
+        resolve(graphPixelSnapshot(pixels, width, height));
       });
     });
   }
@@ -293,24 +282,9 @@
     return document.querySelector(`[data-${kind}-id="${cssEscape(value)}"]`);
   }
 
-  // A cell is a fixed size in CSS pixels, not a fixed fraction of the canvas.
-  //
-  // The graph is letterboxed into an authored portrait frame, so it covers the
-  // same CSS area at 6K that it covers on a laptop while the canvas around it
-  // grows. A fixed 32x32 grid therefore made each cell 4x wider at 6K, diluted
-  // the same node energy across it, and reported a correctly-drawn graph as
-  // blank. Constant-size cells keep one threshold valid at every tier.
-  const graphPixelCellCss = 47;
-  const graphPixelGridBounds = { maximum: 224, minimum: 16 };
-
-  function graphPixelSnapshot(pixels, width, height, cssWidth, cssHeight) {
-    const axis = (css) =>
-      Math.min(
-        graphPixelGridBounds.maximum,
-        Math.max(graphPixelGridBounds.minimum, Math.round(css / graphPixelCellCss)),
-      );
-    const columns = axis(cssWidth);
-    const rows = axis(cssHeight);
+  function graphPixelSnapshot(pixels, width, height) {
+    const columns = 32;
+    const rows = 32;
     const minimumSparseGraphLitCellRatio = 2 / (columns * rows);
     const minimumSparseGraphPeakCellLuminance = 0.03;
     const grid = sampleGraphPixelGrid(pixels, width, height, columns, rows);

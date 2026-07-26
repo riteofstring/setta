@@ -49,7 +49,7 @@ const navigationWorkstreamTarget = 100;
 const navigationMoveCount = 80;
 const secretApprovalAnswer = "director-performance-secret-scope";
 const domBudgets = {
-  narrationItems: 3,
+  activityItems: 5,
   bodyDescendants: 900,
   graphLabels: 80,
   visibleWorkstreamDots: 19,
@@ -385,7 +385,7 @@ async function measureScenario(client, scenario, run, tier = "laptop") {
   });
   assertDomBudgets(stopped.final, scenario);
   assertScenarioLayout(stopped.final, scenario, tier);
-  assertCanvasPixel(stopped.final, `${tier}/${scenario}`);
+  assertCanvasPixel(stopped.final.canvasPixel, `${tier}/${scenario}`);
   assertScenarioPerformance(stopped.sample, scenario, tier);
   return {
     final: stopped.final,
@@ -870,7 +870,7 @@ function navigationDirection(snapshot) {
 }
 
 function assertDomBudgets(snapshot, scenario) {
-  assertBudget(snapshot.narrationItems, domBudgets.narrationItems, `${scenario} narration items`);
+  assertBudget(snapshot.activityItems, domBudgets.activityItems, `${scenario} activity items`);
   assertBudget(
     snapshot.bodyDescendantCount,
     domBudgets.bodyDescendants,
@@ -884,26 +884,11 @@ function assertDomBudgets(snapshot, scenario) {
   assertBudget(snapshot.graphLabelCount, domBudgets.graphLabels, `${scenario} graph labels`);
 }
 
-/*
- * A blank canvas is a defect only when there was a graph to draw. A workstream
- * with no committed nodes legitimately renders nothing but the drifting medium,
- * and the shell states that on the canvas instead of leaving an unexplained
- * void — so the empty state is what this asserts in that case.
- */
-function assertCanvasPixel(snapshot, label) {
-  const pixel = snapshot?.canvasPixel;
-  if (!pixel?.available) {
-    throw new Error(`${label} could not read the graph canvas: ${JSON.stringify(pixel)}`);
-  }
-  if (snapshot.graphEmptyState) {
-    if (pixel.ok) {
-      throw new Error(`${label} drew a graph while claiming to be empty`);
-    }
+function assertCanvasPixel(pixel, label) {
+  if (pixel?.available && pixel.ok) {
     return;
   }
-  if (!pixel.ok) {
-    throw new Error(`${label} rendered a blank graph canvas: ${JSON.stringify(pixel)}`);
-  }
+  throw new Error(`${label} rendered a blank graph canvas: ${JSON.stringify(pixel)}`);
 }
 
 function assertScenarioPerformance(sample, scenario, tier) {
@@ -985,7 +970,7 @@ function compactResult(result) {
       peakLuminance: round(result.final.canvasPixel.peakLuminance),
     },
     dom: {
-      narrationItems: result.final.narrationItems,
+      activityItems: result.final.activityItems,
       artifactCards: result.final.artifactCards,
       artifactDetailOpen: result.final.artifactDetailOpen,
       bodyDescendantCount: result.final.bodyDescendantCount,
