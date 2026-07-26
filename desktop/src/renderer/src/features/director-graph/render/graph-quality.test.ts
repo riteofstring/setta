@@ -73,15 +73,16 @@ describe("graph quality tier selection", () => {
     );
   });
 
-  it("keeps the field flowing at every tier", () => {
-    // A tier step thins the medium; it never freezes it. The still field is
-    // reachable only through the accessibility path below.
+  it("keeps the field flowing at one density and brightness at every tier", () => {
+    // The field is product identity: a tier step may never freeze it, thin
+    // it, or coarsen the dither — those read as the display dimming, not as
+    // a quality decision. The still field is reachable only through the
+    // accessibility path below.
     for (const profile of Object.values(graphQualityProfiles)) {
       expect(profile.effects.fieldFlow).toBe(true);
+      expect(profile.fieldParticles).toBe(graphQualityProfiles.full.fieldParticles);
+      expect(profile.ditherPixel).toBe(graphQualityProfiles.full.ditherPixel);
     }
-    expect(graphQualityProfiles.reduced.fieldParticles).toBeLessThan(
-      graphQualityProfiles.full.fieldParticles,
-    );
   });
 
   it("stops motion under reduced motion without dropping fidelity", () => {
@@ -106,9 +107,25 @@ describe("graph refresh period", () => {
 });
 
 describe("graph quality controller", () => {
-  it("drops the render scale before it drops a tier", () => {
+  /** Applies `count` identical samples and returns the last decision. */
+  function sampled(
+    controller: GraphQualityController,
+    gpuFrameMs: number,
+    count: number,
+  ): ReturnType<GraphQualityController["sample"]> {
+    let decision = controller.current();
+    for (let step = 0; step < count; step += 1) {
+      decision = controller.sample(gpuFrameMs, 8.33);
+    }
+    return decision;
+  }
+
+  it("ignores a hitch and reacts only to sustained pressure", () => {
     const controller = new GraphQualityController(full);
-    const decision = controller.sample(8, 8.33);
+    // A few over-budget frames are a hitch, not a load: nothing moves, so
+    // the picture cannot dim a step and brighten again moments later.
+    expect(sampled(controller, 8, 3).renderScale).toBe(graphRenderScaleBounds.maximum);
+    const decision = sampled(controller, 8, 4);
     expect(decision.tierChanged).toBe(false);
     expect(decision.renderScale).toBeLessThan(graphRenderScaleBounds.maximum);
     expect(decision.profile.tier).toBe("full");
@@ -117,7 +134,7 @@ describe("graph quality controller", () => {
   it("steps down a tier only once the scale has bottomed out", () => {
     const controller = new GraphQualityController(full);
     let decision = controller.current();
-    for (let step = 0; step < 40 && !decision.tierChanged; step += 1) {
+    for (let step = 0; step < 300 && !decision.tierChanged; step += 1) {
       decision = controller.sample(8, 8.33);
     }
     expect(decision.tierChanged).toBe(true);
@@ -125,20 +142,27 @@ describe("graph quality controller", () => {
     expect(decision.renderScale).toBe(graphRenderScaleBounds.maximum);
   });
 
-  it("recovers the scale before it climbs back to a richer tier", () => {
+  it("recovers slowly: long comfort raises the scale, then the tier", () => {
     const controller = new GraphQualityController(graphQualityProfiles.balanced);
-    controller.sample(8, 8.33);
-    let decision = controller.sample(1, 8.33);
-    expect(decision.renderScale).toBeGreaterThan(graphRenderScaleBounds.minimum);
-    for (let step = 0; step < 40 && !decision.tierChanged; step += 1) {
+    sampled(controller, 8, 10);
+    expect(controller.current().renderScale).toBeLessThan(graphRenderScaleBounds.maximum);
+    let decision = controller.current();
+    let upscaledAtSample = 0;
+    for (let step = 0; step < 400 && !decision.tierChanged; step += 1) {
       decision = controller.sample(1, 8.33);
+      if (upscaledAtSample === 0 && decision.renderScale === graphRenderScaleBounds.maximum) {
+        upscaledAtSample = step + 1;
+      }
     }
+    // The scale must be back at full well before the tier climbs.
+    expect(upscaledAtSample).toBeGreaterThan(1);
+    expect(decision.tierChanged).toBe(true);
     expect(decision.profile.tier).toBe("full");
   });
 
   it("holds steady inside the comfortable band", () => {
     const controller = new GraphQualityController(full);
-    const decision = controller.sample(8.33 * 0.6, 8.33);
+    const decision = sampled(controller, 8.33 * 0.6, 50);
     expect(decision.renderScale).toBe(graphRenderScaleBounds.maximum);
     expect(decision.tierChanged).toBe(false);
   });
@@ -150,7 +174,7 @@ describe("graph quality controller", () => {
 
   it("resets the scale when a tier is applied explicitly", () => {
     const controller = new GraphQualityController(full);
-    controller.sample(8, 8.33);
+    sampled(controller, 8, 10);
     const decision = controller.setProfile(graphQualityProfiles.reduced);
     expect(decision.tierChanged).toBe(true);
     expect(decision.renderScale).toBe(graphRenderScaleBounds.maximum);
