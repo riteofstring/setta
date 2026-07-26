@@ -62,7 +62,7 @@ import {
   useDirectorWorkstreamSwitchTransition,
   WorkstreamSwitchTransition,
 } from "./director-workstream-switch-transition";
-import { directorFocus } from "./director-focus";
+import { directorFocus, type DirectorFocus } from "./director-focus";
 import {
   CommandCenterTopBar,
   directorWorkstreamKeyboardDirection,
@@ -279,6 +279,7 @@ export function DirectorCommandCenterShell({
             timeSecondsAt={graphTimeSecondsAt}
           />
           <WorkstreamSwitchTransition transition={switchTransition} />
+          {packedSnapshot.nodeCount === 0 ? <GraphEmptyState focus={focus} /> : null}
           <NowRail
             activity={snapshotView.activity}
             focus={focus}
@@ -327,6 +328,30 @@ export function DirectorCommandCenterShell({
       />
       <ArtifactBrowserOverlaySlot browser={artifactBrowser} />
     </main>
+  );
+}
+
+/**
+ * What the canvas says when there is nothing to draw.
+ *
+ * A workstream with no committed nodes renders only the drifting medium, which
+ * is indistinguishable from a graph that failed to draw. The mockup never has
+ * this state — it is a demo with scripted activity — so the empty case had no
+ * answer at all: an idle workstream showed an empty void and said nothing.
+ *
+ * It is DOM over the canvas, like every other graph label, and it names the one
+ * action that changes the state rather than describing the emptiness.
+ */
+function GraphEmptyState({ focus }: { focus: DirectorFocus }) {
+  return (
+    <div className="director-graph-empty" role="status">
+      <p className="director-graph-empty-line">
+        {focus.kind === "director"
+          ? "No work has started yet."
+          : "Nothing has run in this workstream yet."}
+      </p>
+      <p className="director-graph-empty-hint">Ask the Director below to start.</p>
+    </div>
   );
 }
 

@@ -865,3 +865,37 @@
     padding: 14px 14px 24px;
   }
 }
+
+/*
+ * The empty canvas.
+ *
+ * It sits on the live edge, where the first node would appear, so the answer
+ * shows up where the work will. Pointer-transparent: the canvas underneath
+ * still pans and zooms, because an empty graph is still a graph.
+ */
+.director-graph-empty {
+  display: grid;
+  gap: 5px;
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  justify-items: center;
+  align-content: center;
+  padding-block-end: 12vh;
+  pointer-events: none;
+  text-align: center;
+  z-index: 10;
+}
+
+.director-graph-empty-line {
+  color: oklch(0.78 0.03 250);
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.director-graph-empty-hint {
+  color: oklch(0.58 0.05 250);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  margin: 0;
+}

@@ -385,7 +385,7 @@ async function measureScenario(client, scenario, run, tier = "laptop") {
   });
   assertDomBudgets(stopped.final, scenario);
   assertScenarioLayout(stopped.final, scenario, tier);
-  assertCanvasPixel(stopped.final.canvasPixel, `${tier}/${scenario}`);
+  assertCanvasPixel(stopped.final, `${tier}/${scenario}`);
   assertScenarioPerformance(stopped.sample, scenario, tier);
   return {
     final: stopped.final,
@@ -884,11 +884,26 @@ function assertDomBudgets(snapshot, scenario) {
   assertBudget(snapshot.graphLabelCount, domBudgets.graphLabels, `${scenario} graph labels`);
 }
 
-function assertCanvasPixel(pixel, label) {
-  if (pixel?.available && pixel.ok) {
+/*
+ * A blank canvas is a defect only when there was a graph to draw. A workstream
+ * with no committed nodes legitimately renders nothing but the drifting medium,
+ * and the shell states that on the canvas instead of leaving an unexplained
+ * void — so the empty state is what this asserts in that case.
+ */
+function assertCanvasPixel(snapshot, label) {
+  const pixel = snapshot?.canvasPixel;
+  if (!pixel?.available) {
+    throw new Error(`${label} could not read the graph canvas: ${JSON.stringify(pixel)}`);
+  }
+  if (snapshot.graphEmptyState) {
+    if (pixel.ok) {
+      throw new Error(`${label} drew a graph while claiming to be empty`);
+    }
     return;
   }
-  throw new Error(`${label} rendered a blank graph canvas: ${JSON.stringify(pixel)}`);
+  if (!pixel.ok) {
+    throw new Error(`${label} rendered a blank graph canvas: ${JSON.stringify(pixel)}`);
+  }
 }
 
 function assertScenarioPerformance(sample, scenario, tier) {
