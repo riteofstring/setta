@@ -92,6 +92,17 @@
     -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24px, #000 calc(100% - 24px), transparent);
             mask-image: linear-gradient(to bottom, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
   body.hide-summaries #railLeft, body.hide-artifacts #railRight, body.hide-composer #composer { display: none; }
+  /*
+   * The Director's view is the constellation, so it gives the canvas the whole
+   * window. Artifacts belong to the thread that produced them and are one
+   * arrow away; the Now rail keeps only what is waiting on an answer, and
+   * disappears when nothing is.
+   */
+  body.director-view #railRight { display: none; }
+  body.director-view #railLeft { width: 250px; }
+  body.director-view #railLeft.quiet { display: none; }
+  body.director-view #summaryToggle, body.director-view #summaryText,
+  body.director-view #threadHistoryBtn { display: none; }
   .rail-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--faint); font-weight: 600; }
   #highlights { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
   .hl { display: grid; grid-template-columns: 7px 1fr; gap: 9px; font-size: 13px; color: var(--muted); line-height: 1.35; cursor: pointer; }
@@ -389,16 +400,23 @@ function build(conv){ const nodes=[],edges=[],turns=[];
 
 // Side-by-side view: K real threads (centred on the current one), each a full graph in its own column
 // that scrolls itself so every column's live edge lines up on screen.
-function buildMulti(K, startAt){
+function buildMulti(K, startAt, lead){
   const nodes=[],edges=[],turns=[],cols=[]; const N=CONVS.length;
   const start=(startAt===undefined)?convIdx-Math.floor(K/2):startAt;
-  const colW=1.3/K, xScale=Math.min(1, colW/0.85); let lastBorn=0;   // 1.3 keeps the columns clear of the side rails
+  // `lead` puts a conversation in the first column ahead of the list — the
+  // Director's own thread on its own view, so the view is not missing the one
+  // conversation you are actually talking to.
+  const src=i=>(lead&&i===0)?lead:CONVS[(((start+i-(lead?1:0))%N)+N)%N];
+  // 1.3 keeps columns clear of both side rails; the Director's view has only
+  // one rail, and often none, so its columns get the width back.
+  const span=lead?1.75:1.3;
+  const colW=span/K, xScale=Math.min(1, colW/0.85); let lastBorn=0;
   for(let i=0;i<K;i++){
-    const conv=CONVS[((start+i)%N+N)%N];
+    const conv=src(i);
     const nFrom=nodes.length, tFrom=turns.length;
     const lb=addThread(conv,nodes,edges,turns,i,(i-(K-1)/2)*colW,xScale,(i*2.7)%11);   // staggered so columns run out of phase
     cols.push({i,nodeFrom:nFrom,nodeTo:nodes.length,turnFrom:tFrom,turnTo:turns.length,cam:0,title:conv.title,
-      xClip:(i-(K-1)/2)*colW, focus:(((start+i)%N+N)%N)===convIdx});
+      xClip:(i-(K-1)/2)*colW, focus:lead?i===0:((((start+i)%N+N)%N)===convIdx)});
     lastBorn=Math.max(lastBorn,lb);
   }
   settlePass(nodes,edges);
@@ -873,11 +891,12 @@ let activeConv=BOOT_CONV;
 function rebuild(){
   // The Director's view is every thread at once. It is not a mode you switch
   // into: it is what the Director sees, and arrowing off it lands on one thread.
-  const dirCols = (onDirector && viewsReady) ? Math.min(CONVS.length, 5) : 0;
+  const dirCols = (onDirector && viewsReady) ? Math.min(CONVS.length + 1, 5) : 0;
   const parallel=threadCount>1, multi=!parallel&&(onDirector?dirCols>1:parallelCols>1);
   EDGE_SEG = parallel ? (threadCount>=64?3:5) : (multi ? 7 : 12);    // LOD: fewer edge segments with many threads
   g = parallel ? buildParallel(threadCount)
-    : (multi ? buildMulti(onDirector?dirCols:parallelCols, onDirector?0:undefined) : build(activeConv));
+    : (multi ? buildMulti(onDirector?dirCols:parallelCols, onDirector?0:undefined, onDirector?DIRECTOR:undefined)
+             : build(activeConv));
   // each node becomes a small particle system: core orbiters + emitted sparks (fixed randomness, positions animate)
   const rng=mulberry32((activeConv.seed||seed)*911+13);
   const cols = onDirector ? dirCols : parallelCols;
@@ -1166,10 +1185,25 @@ addEventListener('wheel', e=>{ viewCam=Math.max(-0.7, Math.min(autoCam, viewCam 
  * Its highlights are about dispatch, never about how a thread did its work.
  * That is the thread's own view, one arrow away.
  */
-const DIRECTOR={ title:'Director', director:'watching 3 threads · nothing needs you',
-  nows:[{t:'Started “Local voice capture” with no folder',mode:1,full:'It needs none of your files, so it runs without a folder and nothing is waiting on you.'},
-        {t:'“Workspace drag-drop” finished — paint back to 0.8 ms',mode:3,full:'Committed to pane-drag-reorder.ts. The animation follow-up failed its perf bar and stopped there.'},
-        {t:'“Release notes” is waiting on you to approve a push',mode:2,full:'It will not push without an answer. Everything else keeps running.'}],
+const DIRECTOR={ title:'Director', seed:1301, director:'watching 3 threads · 1 needs an answer',
+  // The Director's own thread. It is a conversation like the others — you ask,
+  // it decides where the work goes — so it is the first column of its own view.
+  thread:[
+    {u:'work on the drag-drop jank, and separately get voice running locally',
+     reason:[{m:'think',t:'read request'},{m:'do',t:'split into two threads'}],
+     r:'Two threads: “Workspace drag-drop” and “Local voice capture”.'},
+    {u:'also draft the release notes when those land', reason:'RUN',
+     r:'Queued “Release notes” behind them; it will ask before it pushes.'},
+    {u:'how is the voice one going',
+     reason:[{m:'think',t:'ask its narrator'}],
+     r:'It is downloading the on-device model — 1.1 GB, nothing needed from you.'},
+    {u:'drop the pane animation if it keeps failing the perf bar', reason:'RUN',
+     r:'Dropped it. Drag-drop keeps the committed fix and stops there.'}],
+  arts:[],
+  // Only what is waiting on you. Not a feed of what happened — that is each
+  // thread's own rail, and the constellation behind this one already shows
+  // that everything is moving.
+  nows:[{t:'“Release notes” needs you to approve a push',mode:2,full:'It will not push without an answer. Everything else keeps running.'}],
   summary:'Three threads are open. One finished and committed, one is running without a folder, and one needs an answer before it can push. Nothing else is blocked.',
   response:'Started it — I will bring back anything that needs you.',
   history:[{u:'work on the drag-drop jank, and separately get voice running locally',
@@ -1342,6 +1376,7 @@ function artifactBody(b){ if(!b) return '';
 function renderConv(){
   if(onDirector) return renderDirector();
   const c=CONVS[convIdx], n=revealCount(c), complete=isComplete(c);
+  document.body.classList.remove('director-view'); $('railLeft').classList.remove('quiet');
   $('convTitle').textContent=c.title; $('convTitle').classList.remove('is-director');
   $('directorText').textContent=c.director; renderDots();
   $('chatInput').placeholder='Reply to “'+c.title+'”…   (‹ › switch conversation)';
@@ -1368,6 +1403,9 @@ function renderConv(){
  * the thread is the thing they need to be told.
  */
 function renderDirector(){
+  document.body.classList.add('director-view');
+  // A rail with nothing waiting is a rail with nothing to say, so it goes.
+  $('railLeft').classList.toggle('quiet', DIRECTOR.nows.length===0);
   $('convTitle').textContent=DIRECTOR.title; $('convTitle').classList.add('is-director');
   $('directorText').textContent=DIRECTOR.director; renderDots();
   $('chatInput').placeholder='Ask the Director…   (› to open a thread · scroll to look back)';
@@ -1379,11 +1417,6 @@ function renderDirector(){
       `<span class="hl-body"><span class="hl-short">${h.t.replace(/</g,'&lt;')}</span>${full}</span></li>`;
   }).join('');
   $('summaryText').textContent=DIRECTOR.summary;
-  $('artifacts').innerHTML=CONVS.flatMap(c=>c.arts.map(a=>({a,from:c.title})))
-    .map(({a,from})=>
-      `<div class="artifact is-crossthread"><div class="artifact-kicker">${a.kicker}<span class="exp">⤢</span></div>`+
-      `<div class="artifact-title">${a.title}</div><div class="artifact-from">${from}</div>`+
-      `<div class="artifact-meta">${a.meta}</div>`+artifactBody(a.body)+`</div>`).join('');
 }
 
 function switchConv(dir){ if(switching) return;   // start a channel-change transition (swap happens mid-slide)
@@ -1407,8 +1440,7 @@ function expandBodyHTML(b){ if(!b) return '';
   if(b.type==='rows') return b.rows.map(r=>`<div style="display:flex;justify-content:space-between;border-bottom:1px solid oklch(0.24 0.01 264);padding:8px 0;font:13px ui-monospace"><span style="color:oklch(0.717 0.044 264)">${r[0]}</span><span style="color:oklch(0.908 0.013 263)">${r[1]}</span></div>`).join('');
   return ''; }
 $('artifacts').addEventListener('click',e=>{ const card=e.target.closest('.artifact'); if(!card) return;
-  const a=onDirector ? CONVS.flatMap(c=>c.arts)[[...card.parentNode.children].indexOf(card)]
-                     : CONVS[convIdx].arts[+card.dataset.i];
+  const a=CONVS[convIdx].arts[+card.dataset.i];
   const html=`<!doctype html><meta charset=utf-8><title>${a.title}</title>`+
     `<body style="margin:0;background:oklch(0.128 0.007 261);color:oklch(0.908 0.013 263);font:15px/1.5 system-ui;display:grid;place-items:center;min-height:100vh">`+
     `<div style="max-width:640px;width:100%;padding:40px"><div style="font:11px system-ui;letter-spacing:.14em;text-transform:uppercase;color:oklch(0.522 0.065 264)">${a.kicker}</div>`+
