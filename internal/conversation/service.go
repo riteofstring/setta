@@ -10,14 +10,16 @@ import (
 	"time"
 
 	"setta/internal/agent"
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
 	"setta/internal/workspace"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 type AgentRuntime interface {
 	ResolveInvocation(context.Context, agent.Invocation) (agent.ResolvedInvocation, error)
 	StartThread(context.Context, agent.StartThreadRequest) (agent.Thread, error)
+	ResumeThreadWithConfiguration(context.Context, string, agent.StartThreadRequest) (agent.ThreadResumeResult, error)
+	MaterializeThread(context.Context, string, string) error
 	ForkThread(context.Context, agent.ForkThreadRequest) (agent.Thread, error)
 	InjectItems(context.Context, string, []agent.InjectedTextItem) error
 	RunTurn(context.Context, agent.TurnRequest, agent.EventSink) (agent.TurnResult, error)
@@ -39,18 +41,16 @@ type ServiceOption func(*serviceConfig) error
 type serviceConfig struct {
 	newID             func(string) (string, error)
 	narrationObserver NarrationTrajectoryObserver
-	outcomeTiming     OutcomeTimingObserver
 	now               func() time.Time
 }
 
 type Service struct {
-	agent         AgentRuntime
-	store         *Store
-	workspaces    WorkspaceResolver
-	newID         func(string) (string, error)
-	now           func() time.Time
-	narration     NarrationTrajectoryObserver
-	outcomeTiming OutcomeTimingObserver
+	agent      AgentRuntime
+	store      *Store
+	workspaces WorkspaceResolver
+	newID      func(string) (string, error)
+	now        func() time.Time
+	narration  NarrationTrajectoryObserver
 
 	createMu    sync.Mutex
 	locksMu     sync.Mutex
@@ -67,15 +67,16 @@ type Service struct {
 }
 
 type activeConversationTurn struct {
-	conversationID     string
-	interruptionReason TurnInterruptionReason
-	providerThreadID   string
-	providerTurnID     string
-	queueOrdinal       int
-	request            agent.TurnRequest
-	roleProfile        RoleProfile
-	turnID             string
-	workspaceID        string
+	conversationID                string
+	interruptionReason            TurnInterruptionReason
+	providerThreadID              string
+	providerThreadRepairAttempted bool
+	providerTurnID                string
+	queueOrdinal                  int
+	request                       agent.TurnRequest
+	roleProfile                   RoleProfile
+	turnID                        string
+	workspaceID                   string
 }
 
 type activeSideConversationTurn struct {
@@ -101,6 +102,20 @@ func (err *CommandConflictError) Error() string {
 func IsCommandConflict(err error) bool {
 	var conflict *CommandConflictError
 	return errors.As(err, &conflict) || IsStateConflict(err)
+}
+
+type ResourceRequiredError struct {
+	ConversationID string
+	ResourceKind   string
+}
+
+func (err *ResourceRequiredError) Error() string {
+	return fmt.Sprintf("conversation %s requires a %s resource", err.ConversationID, err.ResourceKind)
+}
+
+func IsResourceRequired(err error) bool {
+	var resourceRequired *ResourceRequiredError
+	return errors.As(err, &resourceRequired)
 }
 
 func WithServiceIDGenerator(generator func(string) (string, error)) ServiceOption {
@@ -133,16 +148,6 @@ func WithNarrationTrajectoryObserver(observer NarrationTrajectoryObserver) Servi
 	}
 }
 
-func WithOutcomeTimingObserver(observer OutcomeTimingObserver) ServiceOption {
-	return func(config *serviceConfig) error {
-		if observer == nil {
-			return errors.New("conversation outcome timing observer is required")
-		}
-		config.outcomeTiming = observer
-		return nil
-	}
-}
-
 func NewService(
 	store *Store,
 	workspaces WorkspaceResolver,
@@ -169,7 +174,6 @@ func NewService(
 		newID:           config.newID,
 		now:             config.now,
 		narration:       config.narrationObserver,
-		outcomeTiming:   config.outcomeTiming,
 		locks:           map[string]*sync.Mutex{},
 		active:          map[string]*activeConversationTurn{},
 		activeSides:     map[string]*activeSideConversationTurn{},
@@ -184,6 +188,13 @@ func (service *Service) ReadSnapshot(
 	conversationID string,
 ) (ConversationSnapshot, error) {
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
+}
+
+func (service *Service) ReadSnapshotByID(
+	ctx context.Context,
+	conversationID string,
+) (ConversationSnapshot, error) {
+	return service.store.ReadSnapshotByID(ctx, conversationID)
 }
 
 func (service *Service) ReadArtifact(
@@ -213,9 +224,24 @@ func (service *Service) SubscribeEvents(
 	return service.store.SubscribeEvents(cursor, workspaceID, conversationID)
 }
 
+func (service *Service) SubscribeEventsByID(
+	cursor ConversationEventCursor,
+	conversationID string,
+) (ConversationEventSubscription, error) {
+	return service.store.SubscribeEventsByID(cursor, conversationID)
+}
+
 func (service *Service) CreateTopic(
 	ctx context.Context,
 	workspaceID string,
+	title string,
+) (ConversationSnapshot, error) {
+	return service.CreateTopicWithOptionalWorkspace(ctx, &workspaceID, title)
+}
+
+func (service *Service) CreateTopicWithOptionalWorkspace(
+	ctx context.Context,
+	workspaceID *string,
 	title string,
 ) (ConversationSnapshot, error) {
 	conversationID, err := service.newID("conversation")
@@ -225,21 +251,12 @@ func (service *Service) CreateTopic(
 	return service.createTopic(ctx, workspaceID, title, conversationID)
 }
 
-func (service *Service) CreateRoutedTopic(
-	ctx context.Context,
-	workspaceID string,
-	title string,
-	conversationID string,
-) (ConversationSnapshot, error) {
-	if err := validateIdentifier("routed topic conversation id", conversationID); err != nil {
-		return ConversationSnapshot{}, err
-	}
-	return service.createTopic(ctx, workspaceID, title, conversationID)
-}
-
+// createTopic creates a conversation with no durable parentage. A conversation
+// that carries a parent's provider history forward is created by the fork path
+// instead, which has the provider thread to bind.
 func (service *Service) createTopic(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	title string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
@@ -249,55 +266,20 @@ func (service *Service) createTopic(
 	if err := validateTopicTitle(title); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	workspaceSummary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
-	if err != nil {
-		return ConversationSnapshot{}, err
-	}
-	profile, err := service.store.ReadEffectiveWorkspaceRoleProfile(
-		ctx,
-		workspaceID,
-		DefaultAgentRoleProfile(),
-	)
-	if err != nil {
-		return ConversationSnapshot{}, fmt.Errorf("read topic agent role profile: %w", err)
-	}
-	invocation, err := agentInvocation(profile)
-	if err != nil {
-		return ConversationSnapshot{}, err
-	}
-	resolved, err := service.agent.ResolveInvocation(ctx, invocation)
-	if err != nil {
-		return ConversationSnapshot{}, fmt.Errorf("resolve topic agent profile: %w", err)
-	}
-	if err := validatePrimaryAgentModelResolution(invocation, resolved); err != nil {
-		return ConversationSnapshot{}, fmt.Errorf("validate topic agent profile: %w", err)
-	}
-	thread, err := service.agent.StartThread(ctx, agent.StartThreadRequest{
-		WorkspaceRoot:         workspaceSummary.RootPath,
-		Invocation:            invocation,
-		DeveloperInstructions: topicAgentDeveloperInstructions(),
-		DynamicTools:          service.topicAgentArtifactTools(workspaceID, conversationID, ""),
-	})
-	if err != nil {
-		return ConversationSnapshot{}, err
+	if workspaceID != nil {
+		if _, err := service.workspaces.ResolveActiveWorkspace(*workspaceID); err != nil {
+			return ConversationSnapshot{}, err
+		}
 	}
 	now := service.timestamp()
 	conversation := TopicConversation{
 		ID:              conversationID,
-		WorkspaceID:     workspaceID,
+		WorkspaceID:     cloneStringPointer(workspaceID),
 		Title:           title,
 		TopicDescriptor: title,
 		Status:          ConversationStatusIdle,
 		CreatedAt:       now,
 		UpdatedAt:       now,
-	}
-	binding := AgentThreadBinding{
-		ConversationID:   conversationID,
-		Provider:         ProviderCodex,
-		ThreadID:         thread.ID,
-		Status:           ThreadBindingStatusLinked,
-		CreatedAt:        now,
-		ProviderMetadata: map[string]string{"model": thread.Model},
 	}
 	narrator := NarratorState{
 		ConversationID:  conversationID,
@@ -307,26 +289,26 @@ func (service *Service) createTopic(
 	}
 	service.createMu.Lock()
 	var presentation ConversationPresentationProfile
+	var err error
 	err = service.store.withPresentationConfigurationLock(func() error {
 		var presentationErr error
 		presentation, presentationErr = service.initialPresentationProfile(ctx, conversationID, now)
 		if presentationErr != nil {
 			return presentationErr
 		}
-		return service.persistCreatedConversation(ctx, conversation, binding, narrator, presentation, nil)
+		return service.persistCreatedConversation(ctx, conversation, nil, narrator, presentation, nil)
 	})
 	service.createMu.Unlock()
 	if err != nil {
-		_ = service.agent.UnsubscribeThread(context.Background(), thread.ID)
 		return ConversationSnapshot{}, err
 	}
-	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
+	return service.store.ReadSnapshotByID(ctx, conversationID)
 }
 
 func (service *Service) persistCreatedConversation(
 	ctx context.Context,
 	conversation TopicConversation,
-	binding AgentThreadBinding,
+	binding *AgentThreadBinding,
 	narrator NarratorState,
 	presentation ConversationPresentationProfile,
 	branch *ConversationBranch,
@@ -342,12 +324,22 @@ func (service *Service) persistCreatedConversation(
 		return err
 	}
 	_, err = service.store.Transact(ctx, "create topic conversation", func(transaction *WriteTransaction) error {
+		// A new conversation is immediately a visible workstream, so its
+		// presentation identity reconciles against the conversations it now
+		// has to stay distinguishable from.
+		if err := transaction.capturePresentationActivity(); err != nil {
+			return err
+		}
 		if err := persistCreatedConversationRecords(transaction, conversation, binding, narrator, branch); err != nil {
 			return err
 		}
 		if err := transaction.UpsertConversationPresentationProfile(presentation); err != nil {
 			return err
 		}
+		transaction.presentationActivityUpdatedAt = advanceTimestamp(
+			transaction.presentationActivityUpdatedAt,
+			conversation.UpdatedAt,
+		)
 		return appendPublications(transaction, publications)
 	})
 	return err
@@ -355,21 +347,30 @@ func (service *Service) persistCreatedConversation(
 
 func (service *Service) prepareCreatedConversationPublications(
 	conversation TopicConversation,
-	binding AgentThreadBinding,
+	binding *AgentThreadBinding,
 	narrator NarratorState,
 	presentation ConversationPresentationProfile,
 	branch *ConversationBranch,
 ) ([]preparedPublication, error) {
-	payloads := []ConversationEventPayload{
-		ConversationUpdatedEventPayload{Type: ConversationEventTypeConversationUpdated, Conversation: conversation},
-		ConversationThreadBindingUpdatedEventPayload{Type: ConversationEventTypeThreadBindingUpdated, Binding: binding},
-		ConversationNarratorStateUpdatedEventPayload{Type: ConversationEventTypeNarratorStateUpdated, State: narrator},
-		ConversationPresentationProfileUpdatedEventPayload{Type: ConversationEventTypePresentationProfileUpdated, Profile: presentation},
-	}
+	payloads := make([]ConversationEventPayload, 0, 5)
 	if branch != nil {
+		// Parentage is published ahead of the conversation record it describes.
+		// A reader that registers the conversation as app-scoped work would
+		// otherwise admit it, and draw it, before knowing where it came from.
 		payloads = append(payloads, ConversationBranchCreatedEventPayload{
 			Type:   ConversationEventTypeBranchCreated,
 			Branch: *branch,
+		})
+	}
+	payloads = append(payloads,
+		ConversationUpdatedEventPayload{Type: ConversationEventTypeConversationUpdated, Conversation: conversation},
+		ConversationNarratorStateUpdatedEventPayload{Type: ConversationEventTypeNarratorStateUpdated, State: narrator},
+		ConversationPresentationProfileUpdatedEventPayload{Type: ConversationEventTypePresentationProfileUpdated, Profile: presentation},
+	)
+	if binding != nil {
+		payloads = append(payloads, ConversationThreadBindingUpdatedEventPayload{
+			Type:    ConversationEventTypeThreadBindingUpdated,
+			Binding: *binding,
 		})
 	}
 	return service.publications(conversation.ID, conversation.UpdatedAt, payloads...)
@@ -378,7 +379,7 @@ func (service *Service) prepareCreatedConversationPublications(
 func persistCreatedConversationRecords(
 	transaction *WriteTransaction,
 	conversation TopicConversation,
-	binding AgentThreadBinding,
+	binding *AgentThreadBinding,
 	narrator NarratorState,
 	branch *ConversationBranch,
 ) error {
@@ -390,8 +391,10 @@ func persistCreatedConversationRecords(
 			return err
 		}
 	}
-	if err := transaction.UpsertAgentThreadBinding(binding); err != nil {
-		return err
+	if binding != nil {
+		if err := transaction.UpsertAgentThreadBinding(*binding); err != nil {
+			return err
+		}
 	}
 	return transaction.InsertNarratorState(narrator)
 }
@@ -401,12 +404,12 @@ func (service *Service) initialPresentationProfile(
 	conversationID string,
 	updatedAt string,
 ) (ConversationPresentationProfile, error) {
-	master, err := service.store.ReadMasterVoiceSelection(ctx)
+	director, err := service.store.ReadDirectorVoiceSelection(ctx)
 	if err != nil {
-		return ConversationPresentationProfile{}, fmt.Errorf("read master voice selection: %w", err)
+		return ConversationPresentationProfile{}, fmt.Errorf("read director voice selection: %w", err)
 	}
-	if master.ResolvedVoiceID == nil {
-		return ConversationPresentationProfile{}, errors.New("master voice selection has no resolved voice")
+	if director.ResolvedVoiceID == nil {
+		return ConversationPresentationProfile{}, errors.New("director voice selection has no resolved voice")
 	}
 	narratorDefault, err := service.store.ReadNarratorVoiceDefault(ctx)
 	if err != nil {
@@ -414,7 +417,7 @@ func (service *Service) initialPresentationProfile(
 	}
 	resolvedVoiceID := cloneVoiceID(narratorDefault.RequestedVoiceID)
 	if narratorDefault.Selection == speech.VoiceSelectionAutoDistinct {
-		allocation, allocationErr := speech.AllocateNarratorVoice(*master.ResolvedVoiceID, nil)
+		allocation, allocationErr := speech.AllocateNarratorVoice(*director.ResolvedVoiceID, nil)
 		if allocationErr != nil {
 			return ConversationPresentationProfile{}, allocationErr
 		}

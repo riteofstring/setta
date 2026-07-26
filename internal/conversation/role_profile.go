@@ -18,7 +18,7 @@ type InvocationOutcome string
 const (
 	ProviderCodex Provider = "codex"
 
-	RoleMaster    Role = "master"
+	RoleDirector  Role = "director"
 	RoleAgent     Role = "agent"
 	RoleNarrator  Role = "narrator"
 	RoleSideAgent Role = "side_agent"
@@ -113,10 +113,20 @@ type InvocationProviderReferences struct {
 	ResponseID *string `json:"responseId"`
 }
 
+type InvocationModelRerouteReason string
+
+const (
+	InvocationModelRerouteReasonHighRiskCyberActivity InvocationModelRerouteReason = "high_risk_cyber_activity"
+)
+
+var invocationModelRerouteReasons = []InvocationModelRerouteReason{
+	InvocationModelRerouteReasonHighRiskCyberActivity,
+}
+
 type InvocationModelReroute struct {
-	FromModelID string `json:"fromModelId"`
-	ToModelID   string `json:"toModelId"`
-	Reason      string `json:"reason"`
+	FromModelID string                       `json:"fromModelId"`
+	ToModelID   string                       `json:"toModelId"`
+	Reason      InvocationModelRerouteReason `json:"reason"`
 }
 
 type ResolvedInvocation struct {
@@ -257,12 +267,12 @@ func (override RoleProfileOverride) Validate() error {
 	if err := override.Profile.Validate(); err != nil {
 		return err
 	}
-	if override.Profile.Role == RoleMaster {
+	if override.Profile.Role == RoleDirector {
 		if override.ScopeKind != RoleProfileScopeGlobal {
-			return fmt.Errorf("master role profile override must use global scope")
+			return fmt.Errorf("director role profile override must use global scope")
 		}
-		if err := validateMasterRoleProfile(override.Profile); err != nil {
-			return fmt.Errorf("master role profile override: %w", err)
+		if err := validateDirectorRoleProfile(override.Profile); err != nil {
+			return fmt.Errorf("director role profile override: %w", err)
 		}
 	}
 	_, err := validateTimestamp("role profile override updatedAt", override.UpdatedAt)
@@ -309,7 +319,17 @@ func (reroute InvocationModelReroute) Validate() error {
 	if reroute.FromModelID == reroute.ToModelID {
 		return fmt.Errorf("model reroute must change model id")
 	}
-	return validateIdentifier("model reroute reason", reroute.Reason)
+	validReason := false
+	for _, candidate := range invocationModelRerouteReasons {
+		if reroute.Reason == candidate {
+			validReason = true
+			break
+		}
+	}
+	if !validReason {
+		return fmt.Errorf("unsupported model reroute reason %q", reroute.Reason)
+	}
+	return nil
 }
 
 func (invocation ResolvedInvocation) Validate() error {
@@ -429,7 +449,7 @@ func validateFailedInvocation(invocation ResolvedInvocation, hasEnded bool) erro
 
 func validRole(role Role) bool {
 	switch role {
-	case RoleMaster, RoleAgent, RoleNarrator, RoleSideAgent:
+	case RoleDirector, RoleAgent, RoleNarrator, RoleSideAgent:
 		return true
 	default:
 		return false

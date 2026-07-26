@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"setta/internal/codexapp"
-	"setta/internal/runtimeaccounting"
 )
 
 func TestInitializeParamsPreservesProductionCapabilities(t *testing.T) {
@@ -30,8 +29,10 @@ func TestInitializeParamsPreservesProductionCapabilities(t *testing.T) {
 		t.Fatal("opt-out notification methods are nil")
 	}
 	methods := *capabilities.OptOutNotificationMethods
-	if len(methods) != 1 || methods[0] != codexapp.CodexNotificationThreadStarted {
-		t.Fatalf("opt-out notification methods = %v, want [%s]", methods, codexapp.CodexNotificationThreadStarted)
+	if len(methods) != 2 ||
+		methods[0] != codexapp.CodexNotificationItemReasoningTextDelta ||
+		methods[1] != codexapp.CodexNotificationThreadStarted {
+		t.Fatalf("opt-out notification methods = %v, want private reasoning deltas and %s", methods, codexapp.CodexNotificationThreadStarted)
 	}
 }
 
@@ -46,87 +47,49 @@ func TestRuntimeThreadPrimitivesAndModelCatalog(t *testing.T) {
 	assertFakeReconciliation(t, ctx, runtime, thread)
 }
 
-func TestRuntimeStartsAndResumesDurableRestrictedThread(t *testing.T) {
+func TestRuntimeConfiguredResumeExcludesTurns(t *testing.T) {
 	runtime := newFakeRuntime(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	request := RestrictedThreadRequest{
+	invocation := testInvocation()
+	invocation.Model = ""
+	invocation.ModelSelectionProviderDefault = true
+	request := StartThreadRequest{
 		WorkspaceRoot: t.TempDir(),
-		Invocation: Invocation{
-			Model:           "gpt-narrator-test",
-			ReasoningEffort: "low",
-			PermissionMode:  PermissionModeReadOnly,
-			ApprovalMode:    ApprovalModeNever,
-		},
-		DeveloperInstructions: "You are Setta's restricted global master.",
+		Invocation:    invocation,
 	}
-
-	thread, err := runtime.StartRestrictedThread(ctx, request)
+	resumed, err := runtime.ResumeThreadWithConfiguration(ctx, "thread-existing", request)
 	if err != nil {
-		t.Fatalf("StartRestrictedThread: %v", err)
+		t.Fatalf("ResumeThreadWithConfiguration: %v", err)
 	}
-	if thread.ID == "" || thread.Ephemeral || thread.Model != request.Invocation.Model ||
-		thread.CWD != request.WorkspaceRoot {
-		t.Fatalf("restricted thread = %+v", thread)
-	}
-	resumed, err := runtime.ResumeRestrictedThread(ctx, thread.ID, request)
-	if err != nil {
-		t.Fatalf("ResumeRestrictedThread: %v", err)
-	}
-	if resumed.ID != thread.ID || resumed.Model != request.Invocation.Model || resumed.Ephemeral {
-		t.Fatalf("resumed restricted thread = %+v", resumed)
+	if !resumed.Resumed || resumed.Thread.ID != "thread-existing" || resumed.Thread.Model != "gpt-agent-test" {
+		t.Fatalf("resumed thread = %+v", resumed)
 	}
 }
 
-func TestRestrictedThreadRejectsUnresolvedOrPrivilegedInvocation(t *testing.T) {
-	request := RestrictedThreadRequest{
-		WorkspaceRoot: t.TempDir(),
-		Invocation: Invocation{
-			Model:           "gpt-master-test",
-			ReasoningEffort: "medium",
-			PermissionMode:  PermissionModeReadOnly,
-			ApprovalMode:    ApprovalModeNever,
-		},
-		DeveloperInstructions: "You are Setta's restricted global master.",
-	}
-	request.Invocation.Model = ""
-	request.Invocation.ModelSelectionProviderDefault = true
-	if err := request.Validate(); err == nil || !strings.Contains(err.Error(), "catalog-resolved exact model") {
-		t.Fatalf("provider-default validation error = %v", err)
-	}
-	request.Invocation.ModelSelectionProviderDefault = false
-	request.Invocation.Model = "gpt-master-test"
-	request.Invocation.PermissionMode = PermissionModeWorkspaceWrite
-	if err := request.Validate(); err == nil || !strings.Contains(err.Error(), "read-only") {
-		t.Fatalf("privileged validation error = %v", err)
-	}
-}
-
-func TestRestrictedThreadUnsubscribesProviderResumeThatDriftsPolicy(t *testing.T) {
+func TestRuntimeConfiguredResumeClassifiesMissingThreadByListProbe(t *testing.T) {
 	runtime := newFakeRuntime(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	request := RestrictedThreadRequest{
+	_, err := runtime.ResumeThreadWithConfiguration(ctx, "thread-missing-list-confirms", StartThreadRequest{
 		WorkspaceRoot: t.TempDir(),
-		Invocation: Invocation{
-			Model:           "gpt-narrator-test",
-			ReasoningEffort: "low",
-			PermissionMode:  PermissionModeReadOnly,
-			ApprovalMode:    ApprovalModeNever,
-		},
-		DeveloperInstructions: "You are Setta's restricted global master.",
+		Invocation:    testInvocation(),
+	})
+	if !IsProviderThreadMissing(err) {
+		t.Fatalf("ResumeThreadWithConfiguration error = %T %v, want provider thread missing", err, err)
 	}
-	threadID := "thread-restricted-response-drift"
-	if _, err := runtime.ResumeRestrictedThread(ctx, threadID, request); err == nil ||
-		!strings.Contains(err.Error(), "permission mode") {
-		t.Fatalf("restricted resume policy drift error = %v", err)
-	}
-	status, err := runtime.UnsubscribeThreadWithStatus(ctx, threadID)
-	if err != nil {
-		t.Fatalf("read rejected resume subscription status: %v", err)
-	}
-	if status != ThreadUnsubscribeStatusNotSubscribed {
-		t.Fatalf("rejected resume subscription status = %s, want %s", status, ThreadUnsubscribeStatusNotSubscribed)
+}
+
+func TestRuntimeConfiguredResumeDoesNotTreatLoadErrorAsMissingWhenListFindsThread(t *testing.T) {
+	runtime := newFakeRuntime(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err := runtime.ResumeThreadWithConfiguration(ctx, "thread-load-error-list-present", StartThreadRequest{
+		WorkspaceRoot: t.TempDir(),
+		Invocation:    testInvocation(),
+	})
+	if err == nil || IsProviderThreadMissing(err) {
+		t.Fatalf("ResumeThreadWithConfiguration error = %T %v, want non-missing load failure", err, err)
 	}
 }
 
@@ -372,140 +335,6 @@ func TestRuntimeRunsSequentialAndConcurrentConversationTurns(t *testing.T) {
 	}
 }
 
-func TestRuntimeSerializesConcurrentTurnsWhenWorkloadLeasesAreEnabled(t *testing.T) {
-	manager := &testWorkloadLeaseManager{}
-	reporter := &testWorkloadLeaseReporter{}
-	runtime := newFakeRuntimeWithConfig(t, Config{
-		WorkloadLeaseManager:  manager,
-		WorkloadLeaseReporter: reporter,
-		WorkloadLeaseTTL:      2 * time.Minute,
-	})
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	workspace := t.TempDir()
-	threads := make([]Thread, 2)
-	for index := range threads {
-		thread, err := runtime.StartThread(ctx, StartThreadRequest{
-			WorkspaceRoot: workspace,
-			Invocation:    testInvocation(),
-		})
-		if err != nil {
-			t.Fatalf("StartThread %d: %v", index, err)
-		}
-		threads[index] = thread
-	}
-
-	firstCtx, cancelFirst := context.WithCancel(ctx)
-	firstSink := newSignalingEventSink()
-	firstDone := make(chan error, 1)
-	go func() {
-		_, err := runtime.RunTurn(
-			firstCtx,
-			testTurnRequest(0, threads[0].ID, workspace, "hold"),
-			firstSink,
-		)
-		firstDone <- err
-	}()
-	firstSink.waitForKind(t, EventKindTurnStarted)
-	manager.requireCalls(t, 1, 0, 0)
-
-	secondSink := newSignalingEventSink()
-	secondResult := make(chan TurnResult, 1)
-	secondDone := make(chan error, 1)
-	go func() {
-		result, err := runtime.RunTurn(
-			ctx,
-			testTurnRequest(1, threads[1].ID, workspace, "normal"),
-			secondSink,
-		)
-		secondResult <- result
-		secondDone <- err
-	}()
-	select {
-	case err := <-secondDone:
-		t.Fatalf("second leased turn finished while the first was active: %v", err)
-	case <-time.After(100 * time.Millisecond):
-	}
-	if events := secondSink.snapshot(); len(events) != 0 {
-		t.Fatalf("second leased turn emitted events while the first was active: %+v", events)
-	}
-	manager.requireCalls(t, 1, 0, 0)
-
-	cancelFirst()
-	if err := <-firstDone; !errors.Is(err, context.Canceled) {
-		t.Fatalf("cancelled first leased turn = %v, want context canceled", err)
-	}
-	if err := <-secondDone; err != nil {
-		t.Fatalf("second leased turn after slot release: %v", err)
-	}
-	if result := <-secondResult; result.Outcome != TurnOutcomeCompleted {
-		t.Fatalf("second leased turn result = %+v", result)
-	}
-	manager.requireCalls(t, 2, 0, 2)
-	reporter.requireActions(
-		t,
-		runtimeaccounting.EventBegin,
-		runtimeaccounting.EventEnd,
-		runtimeaccounting.EventBegin,
-		runtimeaccounting.EventEnd,
-	)
-}
-
-func TestRuntimeAdmissionFailurePreventsWorkloadLeaseAndRecovers(t *testing.T) {
-	manager := &testWorkloadLeaseManager{}
-	reporter := &testWorkloadLeaseReporter{}
-	gate := &testTurnAdmissionGate{err: testTurnAdmissionError{}}
-	runtime := newFakeRuntimeWithConfig(t, Config{
-		TurnAdmissionGate:     gate,
-		WorkloadLeaseManager:  manager,
-		WorkloadLeaseReporter: reporter,
-		WorkloadLeaseTTL:      2 * time.Minute,
-	})
-	workspace := t.TempDir()
-	thread, err := runtime.StartThread(t.Context(), StartThreadRequest{
-		WorkspaceRoot: workspace,
-		Invocation:    testInvocation(),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	request := testTurnRequest(0, thread.ID, workspace, "normal")
-
-	_, err = runtime.RunTurn(t.Context(), request, &recordingEventSink{})
-	code, retryable, admissionFailure := TurnAdmissionFailure(err)
-	if !admissionFailure || code != "test_admission_denied" || !retryable {
-		t.Fatalf("turn admission failure = %q, %t, %t from %v", code, retryable, admissionFailure, err)
-	}
-	manager.requireCalls(t, 0, 0, 0)
-	reporter.requireActions(t)
-
-	gate.err = nil
-	result, err := runtime.RunTurn(t.Context(), request, &recordingEventSink{})
-	if err != nil || result.Outcome != TurnOutcomeCompleted {
-		t.Fatalf("recovered turn = %+v, %v", result, err)
-	}
-	manager.requireCalls(t, 1, 0, 1)
-	reporter.requireActions(t, runtimeaccounting.EventBegin, runtimeaccounting.EventEnd)
-}
-
-type testTurnAdmissionGate struct {
-	err error
-}
-
-func (gate *testTurnAdmissionGate) AdmitTurn(context.Context) error {
-	return gate.err
-}
-
-type testTurnAdmissionError struct{}
-
-func (testTurnAdmissionError) Error() string {
-	return "test admission denied"
-}
-
-func (testTurnAdmissionError) TurnAdmissionFailure() (string, bool) {
-	return "test_admission_denied", true
-}
-
 func TestRuntimeHandlesDynamicToolCalls(t *testing.T) {
 	runtime := newFakeRuntime(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -725,16 +554,12 @@ func TestAgentRuntimeFakeAppServer(t *testing.T) {
 
 func newFakeRuntime(t *testing.T) *Runtime {
 	t.Helper()
-	return newFakeRuntimeWithConfig(t, Config{})
-}
-
-func newFakeRuntimeWithConfig(t *testing.T, config Config) *Runtime {
-	t.Helper()
-	config.Command = os.Args[0]
-	config.Args = []string{"-test.run=TestAgentRuntimeFakeAppServer", "--"}
-	config.Env = append(os.Environ(), "SETTA_AGENT_FAKE_APP_SERVER=1")
-	config.Version = "test"
-	runtime := NewRuntime(config)
+	runtime := NewRuntime(Config{
+		Command: os.Args[0],
+		Args:    []string{"-test.run=TestAgentRuntimeFakeAppServer", "--"},
+		Env:     append(os.Environ(), "SETTA_AGENT_FAKE_APP_SERVER=1"),
+		Version: "test",
+	})
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

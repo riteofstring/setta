@@ -27,50 +27,35 @@ func TestSideConversationTurnEventsStayIsolatedWhileParentContinues(t *testing.T
 func TestSideConversationSnapshotRetainsOpenSideOverDisposedHistory(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Long-lived open side")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
-	created, err := service.createRouterSideConversationForTest(
-		ctx,
-		workspaceID,
-		parent.Conversation.ID,
-		"pane-long-lived")
-
-	if err != nil {
-		t.Fatalf("CreateSideConversation long-lived: %v", err)
-	}
-	longLived := requireOnlySideConversation(t, created)
-
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Long-lived open side")
 	for index := 0; index < MaxSnapshotSideConversations+3; index++ {
 		history, createErr := service.createRouterSideConversationForTest(
 			ctx,
 			workspaceID,
-			parent.Conversation.ID,
-			"pane-history")
+			parent.Conversation.ID)
 
 		if createErr != nil {
 			t.Fatalf("CreateSideConversation history %d: %v", index, createErr)
 		}
-		var current SideConversation
-		for _, candidate := range history.SideConversations {
-			if candidate.ParentPaneID == "pane-history" && candidate.DisposedAt == nil {
-				current = candidate
-			}
-		}
-		if current.ID == "" {
-			t.Fatalf("history side %d is unavailable: %+v", index, history.SideConversations)
-		}
+		current := requireOpenSideConversation(t, history)
 		if _, disposeErr := service.DisposeSideConversation(
 			ctx,
 			workspaceID,
 			parent.Conversation.ID,
-			"pane-history",
 			current.ID,
 		); disposeErr != nil {
 			t.Fatalf("DisposeSideConversation history %d: %v", index, disposeErr)
 		}
 	}
+	created, err := service.createRouterSideConversationForTest(
+		ctx,
+		workspaceID,
+		parent.Conversation.ID)
+
+	if err != nil {
+		t.Fatalf("CreateSideConversation long-lived: %v", err)
+	}
+	longLived := requireOpenSideConversation(t, created)
 
 	snapshot, err := service.ReadSnapshot(ctx, workspaceID, parent.Conversation.ID)
 	if err != nil {
@@ -118,7 +103,7 @@ func startWorkingParentWithSide(
 		return snapshot.Conversation.Status == ConversationStatusWorking &&
 			latestSnapshotTurn(snapshot).Status == TurnStatusRunning
 	})
-	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID, "pane-lifecycle")
+	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID)
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
@@ -185,7 +170,7 @@ func assertSideDisposalPreservesParent(
 	side SideConversation,
 ) {
 	t.Helper()
-	if _, err := service.DisposeSideConversation(ctx, workspaceID, parentID, "pane-lifecycle", side.ID); err != nil {
+	if _, err := service.DisposeSideConversation(ctx, workspaceID, parentID, side.ID); err != nil {
 		t.Fatalf("DisposeSideConversation: %v", err)
 	}
 	disposed := assertServiceSnapshot(t, service, workspaceID, parentID, func(snapshot ConversationSnapshot) bool {
@@ -234,11 +219,8 @@ func assertParentContinuesAfterSide(
 func TestSideConversationDisposalFailureIsDurableAndRetryable(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Retry side cleanup")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
-	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-retry")
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Retry side cleanup")
+	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID)
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
@@ -250,7 +232,6 @@ func TestSideConversationDisposalFailureIsDurableAndRetryable(t *testing.T) {
 		ctx,
 		workspaceID,
 		parent.Conversation.ID,
-		"pane-retry",
 		side.ID,
 	); err == nil {
 		t.Fatal("DisposeSideConversation succeeded despite unsubscribe failure")
@@ -271,7 +252,6 @@ func TestSideConversationDisposalFailureIsDurableAndRetryable(t *testing.T) {
 		ctx,
 		workspaceID,
 		parent.Conversation.ID,
-		"pane-retry",
 		side.ID,
 	); err != nil {
 		t.Fatalf("retry DisposeSideConversation: %v", err)
@@ -289,11 +269,8 @@ func TestSideConversationDisposalFailureIsDurableAndRetryable(t *testing.T) {
 func TestSideConversationUnexpectedRuntimeFailureRetainsProviderCleanupIdentity(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Failed side attachment")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
-	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-runtime-failure")
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Failed side attachment")
+	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID)
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
@@ -313,7 +290,9 @@ func TestSideConversationUnexpectedRuntimeFailureRetainsProviderCleanupIdentity(
 		return findErr == nil && current.Status == SideConversationStatusFailed
 	})
 	current, _ := findSideConversation(failed, side.ID)
-	if current.Failure == nil || current.Failure.Code != "side_turn_runtime_failed" {
+	if current.Failure == nil ||
+		current.Failure.Code != "side_turn_runtime_failed" ||
+		current.Failure.Message != "This work stopped unexpectedly. Try again." {
 		t.Fatalf("side runtime failure = %+v", current)
 	}
 	if current.ActiveTurnID == nil || current.ActiveProviderTurnID == nil {
@@ -326,7 +305,6 @@ func TestSideConversationUnexpectedRuntimeFailureRetainsProviderCleanupIdentity(
 		ctx,
 		workspaceID,
 		parent.Conversation.ID,
-		"pane-runtime-failure",
 		side.ID,
 	); err != nil {
 		t.Fatalf("DisposeSideConversation failed side: %v", err)
@@ -342,48 +320,11 @@ func TestSideConversationUnexpectedRuntimeFailureRetainsProviderCleanupIdentity(
 	}
 }
 
-func TestSideConversationPersistsTypedAdmissionFailure(t *testing.T) {
-	_, service, runtime, workspaceID := newReviewServiceHarness(t)
-	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Side admission failure")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
-	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-side-admission")
-	if err != nil {
-		t.Fatalf("CreateSideConversation: %v", err)
-	}
-	side := requireOnlySideConversation(t, created)
-	if _, err := service.SendSideConversationTurn(
-		ctx,
-		workspaceID,
-		parent.Conversation.ID,
-		side.ID,
-		"admission failure",
-	); err != nil {
-		t.Fatalf("SendSideConversationTurn: %v", err)
-	}
-	runtime.waitForStart(t, "admission failure")
-	failed := assertServiceSnapshot(t, service, workspaceID, parent.Conversation.ID, func(snapshot ConversationSnapshot) bool {
-		current, findErr := findSideConversation(snapshot, side.ID)
-		return findErr == nil && current.Status == SideConversationStatusFailed
-	})
-	current, _ := findSideConversation(failed, side.ID)
-	if current.Failure == nil ||
-		current.Failure.Code != "runtime_disk_pressure" ||
-		!current.Failure.Retryable {
-		t.Fatalf("side admission failure = %+v", current)
-	}
-}
-
 func TestSideConversationDisposalInterruptsItsActiveTurn(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Interrupt active side")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
-	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-active")
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Interrupt active side")
+	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID)
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
@@ -400,7 +341,6 @@ func TestSideConversationDisposalInterruptsItsActiveTurn(t *testing.T) {
 		ctx,
 		workspaceID,
 		parent.Conversation.ID,
-		"pane-active",
 		side.ID,
 	); err != nil {
 		t.Fatalf("DisposeSideConversation: %v", err)
@@ -423,11 +363,8 @@ func TestSideConversationDisposalTrustsDurableTerminalOverRacingInterruptRejecti
 		err:                     errors.New("provider turn already terminated"),
 	}
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Terminal race side")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
-	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-terminal-race")
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Terminal race side")
+	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID)
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
@@ -445,7 +382,6 @@ func TestSideConversationDisposalTrustsDurableTerminalOverRacingInterruptRejecti
 		ctx,
 		workspaceID,
 		parent.Conversation.ID,
-		"pane-terminal-race",
 		side.ID,
 	); err != nil {
 		t.Fatalf("DisposeSideConversation after durable terminal: %v", err)
@@ -498,11 +434,8 @@ func (runtime *terminalThenRejectSideInterruptRuntime) InterruptTurn(
 func TestSideConversationModelReroutePersistsAcrossTurnsAndDisposal(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Rerouted side model")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
-	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-reroute")
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Rerouted side model")
+	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID)
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
@@ -533,7 +466,7 @@ func TestSideConversationModelReroutePersistsAcrossTurnsAndDisposal(t *testing.T
 	if len(requests) < 2 || requests[len(requests)-1].Invocation.Model != "gpt-5.4-mini" {
 		t.Fatalf("side turn requests after reroute = %+v", requests)
 	}
-	if _, err := service.DisposeSideConversation(ctx, workspaceID, parent.Conversation.ID, "pane-reroute", side.ID); err != nil {
+	if _, err := service.DisposeSideConversation(ctx, workspaceID, parent.Conversation.ID, side.ID); err != nil {
 		t.Fatalf("DisposeSideConversation after reroute: %v", err)
 	}
 }
@@ -541,15 +474,11 @@ func TestSideConversationModelReroutePersistsAcrossTurnsAndDisposal(t *testing.T
 func TestRecoverSideConversationsDisposesInterruptedEphemeralChildren(t *testing.T) {
 	appDataDir := t.TempDir()
 	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, appDataDir)
-	parent, err := service.CreateTopic(context.Background(), workspaceID, "Restart side cleanup")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, context.Background(), service, runtime, workspaceID, "Restart side cleanup")
 	created, err := service.createRouterSideConversationForTest(
 		context.Background(),
 		workspaceID,
-		parent.Conversation.ID,
-		"pane-restart")
+		parent.Conversation.ID)
 
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
@@ -594,15 +523,11 @@ func TestRecoverSideConversationsDisposesInterruptedEphemeralChildren(t *testing
 func TestRecoverSideConversationsPersistsCleanupFailureAndRetries(t *testing.T) {
 	appDataDir := t.TempDir()
 	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, appDataDir)
-	parent, err := service.CreateTopic(context.Background(), workspaceID, "Restart side cleanup failure")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
+	parent := createLinkedParentForSideTest(t, context.Background(), service, runtime, workspaceID, "Restart side cleanup failure")
 	created, err := service.createRouterSideConversationForTest(
 		context.Background(),
 		workspaceID,
-		parent.Conversation.ID,
-		"pane-restart-failure")
+		parent.Conversation.ID)
 
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
@@ -686,11 +611,8 @@ func startActiveSideBeforeRestart(
 	workspaceID string,
 ) (string, string, string, string) {
 	t.Helper()
-	parent, err := service.CreateTopic(ctx, workspaceID, "Restart active side cleanup retry")
-	if err != nil {
-		t.Fatalf("CreateTopic: %v", err)
-	}
-	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID, "pane-active-retry")
+	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Restart active side cleanup retry")
+	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID)
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}

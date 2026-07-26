@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -13,13 +12,11 @@ import (
 	"syscall"
 
 	"setta/internal/runtime"
-	"setta/internal/runtimereporting"
 	"setta/internal/speech"
-	"setta/internal/sprites"
 )
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, os.Getenv, os.Unsetenv))
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, os.Getenv))
 }
 
 func run(
@@ -27,9 +24,8 @@ func run(
 	stdout io.Writer,
 	stderr io.Writer,
 	getenv func(string) string,
-	unsetenv func(string) error,
 ) int {
-	config, err := configFromArgs(args, stdout, stderr, getenv, unsetenv)
+	config, err := configFromArgs(args, stdout, stderr, getenv)
 	if err != nil {
 		fmt.Fprintf(stderr, "%v\n", err)
 		return 2
@@ -64,9 +60,9 @@ func configFromArgs(
 	stdout io.Writer,
 	stderr io.Writer,
 	getenv func(string) string,
-	unsetenv func(string) error,
 ) (runtime.Config, error) {
 	config := runtime.DefaultConfig()
+	config.SpeechCredentialOwner = runtime.SpeechCredentialOwnerElectronVault
 	config.Stdout = stdout
 	config.Stderr = stderr
 
@@ -82,69 +78,25 @@ func configFromArgs(
 	if err != nil {
 		return config, err
 	}
-	speechConfig, err := speech.OpenAIClientConfigFromEnvironment(getenv, unsetenv)
+	speechConfig, err := speech.OpenAIProviderConfigFromDesktopEnvironment(getenv)
 	if err != nil {
 		return config, err
 	}
 	config.Speech = speechConfig
-	if err := configureWorkloadAccounting(&config, getenv); err != nil {
-		return config, err
-	}
 
 	flagSet := flag.NewFlagSet("setta-backend", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)
-	localCredentialIssuer := false
 	flagSet.StringVar(&config.AppDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
 	flagSet.BoolVar(&config.AllowRemote, "allow-remote", allowRemote, "allow binding to non-loopback numeric IP addresses")
 	flagSet.StringVar(&config.RuntimeDisplayName, "display-name", envOrDefault(getenv, "SETTA_RUNTIME_DISPLAY_NAME", config.RuntimeDisplayName), "runtime display name to persist for this Setta instance")
 	flagSet.StringVar(&config.Host, "host", envOrDefault(getenv, "SETTA_BACKEND_HOST", config.Host), "loopback host to bind")
 	flagSet.IntVar(&config.Port, "port", port, "port to bind, or 0 for an ephemeral port")
-	flagSet.BoolVar(&localCredentialIssuer, "local-credential-issuer", false, "host the local development credential issuer")
-	flagSet.IntVar(&config.MinimumDiskFreeMiB, "minimum-disk-free-mib", config.MinimumDiskFreeMiB, "reject new agent turns below this free-storage threshold")
 	flagSet.BoolVar(&config.SkipBootstrapDeviceSession, "skip-bootstrap-device-session", config.SkipBootstrapDeviceSession, "do not mint a bootstrap device token on startup")
 	flagSet.StringVar(&config.Version, "version", envOrDefault(getenv, "SETTA_BACKEND_VERSION", config.Version), "backend version metadata")
 	if err := flagSet.Parse(args); err != nil {
 		return config, err
 	}
-	if localCredentialIssuer {
-		config.EnableLocalCredentialIssuer = true
-		config.SkipBootstrapDeviceSession = true
-	}
 	return validatedConfig(config)
-}
-
-func configureWorkloadAccounting(
-	config *runtime.Config,
-	getenv func(string) string,
-) error {
-	socketPath := getenv("SETTA_SPRITES_WORKLOAD_LEASE_SOCKET")
-	accountingURL := getenv("SETTA_WORKLOAD_ACCOUNTING_URL")
-	accountingCredentialFile := getenv("SETTA_WORKLOAD_ACCOUNTING_CREDENTIAL_FILE")
-	if socketPath != "" || accountingURL != "" || accountingCredentialFile != "" {
-		if socketPath == "" || accountingURL == "" || accountingCredentialFile == "" {
-			return errors.New(
-				"Sprites workload lease socket, accounting URL, and accounting credential file must be configured together",
-			)
-		}
-		manager, managerErr := sprites.NewWorkloadLeaseClientForSocket(socketPath)
-		if managerErr != nil {
-			return fmt.Errorf("configure Sprites workload leases: %w", managerErr)
-		}
-		credential, credentialErr := runtimereporting.ReadCredentialFile(accountingCredentialFile)
-		if credentialErr != nil {
-			return fmt.Errorf("read workload accounting credential: %w", credentialErr)
-		}
-		reporter, reporterErr := runtimereporting.NewClient(runtimereporting.ClientConfig{
-			BaseURL:    accountingURL,
-			Credential: credential,
-		})
-		if reporterErr != nil {
-			return fmt.Errorf("configure workload accounting: %w", reporterErr)
-		}
-		config.WorkloadLeaseManager = manager
-		config.WorkloadLeaseReporter = reporter
-	}
-	return nil
 }
 
 func validatedConfig(config runtime.Config) (runtime.Config, error) {
