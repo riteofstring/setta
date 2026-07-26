@@ -412,17 +412,26 @@ try {
     (artifact) => artifact.workstreamId === rootWorkstreamId && artifact.status === "available",
   );
   const openedArtifactId = requiredString(openedArtifact?.id, "Director artifact");
-  const artifactDetail = await openDirectorArtifactDetail(context.client, openedArtifactId);
-  assertEqual(artifactDetail.status, "loaded", "Director artifact detail status");
+  const artifactPreview = await waitForDirectorArtifactPreview(context.client, openedArtifactId);
+  if (!artifactPreview.previewText.includes("-artifact.png")) {
+    throw new Error(
+      `Director artifact preview omitted its projected document: ${JSON.stringify(artifactPreview)}`,
+    );
+  }
+  await assertArtifactPreviewIgnoresSingleClick(context.client, openedArtifactId, artifactPreview);
+  const artifactDetail = await openDirectorArtifactBrowser(context.client, openedArtifactId);
+  assertEqual(artifactDetail.status, "ready", "Director artifact browser load state");
+  assertEqual(artifactDetail.position, "1 of 1", "Director artifact browser position");
   if (!artifactDetail.text.includes(openedArtifact.title)) {
-    throw new Error(`Director artifact detail omitted title: ${JSON.stringify(artifactDetail)}`);
+    throw new Error(`Director artifact browser omitted title: ${JSON.stringify(artifactDetail)}`);
   }
   if (!artifactDetail.documentText.includes("-artifact.png")) {
     throw new Error(
-      `Director artifact detail omitted rendered document: ${JSON.stringify(artifactDetail)}`,
+      `Director artifact browser omitted rendered document: ${JSON.stringify(artifactDetail)}`,
     );
   }
-  await closeDirectorArtifactDetail(context.client);
+  await closeDirectorArtifactBrowser(context.client);
+  await assertArtifactExpandControlRegainedFocus(context.client, openedArtifactId);
   const history = await readDirectorHistory(context.client);
   assertHistoryContainsOnlyUserAndTerminalTurns(history);
   await verifyRailsFlankTheCanvas(context.client);
@@ -1262,16 +1271,83 @@ async function answerDirectorApprovalInRail(client, approvalId, questionId, answ
   }
 }
 
-async function openDirectorArtifactDetail(client, artifactId) {
-  await waitForSelector(client, `[data-artifact-id="${artifactId}"]`);
-  const opened = await client.evaluate(`(() => {
-    const artifact = Array.from(document.querySelectorAll("button[data-artifact-id]")).find(
-      (candidate) => candidate.getAttribute("data-artifact-id") === ${JSON.stringify(artifactId)}
+/**
+ * Waits for an artifact's rail preview to render its projected document.
+ *
+ * The card is read lazily once it enters the rail viewport, so a preview that
+ * never leaves `loading` means the read, the parse, or the projection never
+ * reached the rail.
+ */
+async function waitForDirectorArtifactPreview(client, artifactId) {
+  const selector = `.director-artifact-preview[data-artifact-id="${artifactId}"]`;
+  await waitForSelector(client, selector);
+  return waitForState(
+    client,
+    `(() => {
+      const card = document.querySelector(${JSON.stringify(selector)});
+      const viewport = card?.querySelector(".director-artifact-preview-viewport");
+      return {
+        expandDisabled: card?.querySelector(".director-artifact-expand")?.disabled ?? true,
+        height: card ? Math.round(card.getBoundingClientRect().height) : 0,
+        previewText: viewport?.textContent ?? "",
+        state: card?.getAttribute("data-preview-state") ?? ""
+      };
+    })()`,
+    (preview) => preview.state === "ready" && !preview.expandDisabled,
+    workflowTimeoutMs,
+  );
+}
+
+/**
+ * A single click on a preview card is not an affordance.
+ *
+ * The card is not a control, so clicking its body must not open anything and
+ * must not resize the card the way a selected-card expansion would.
+ */
+async function assertArtifactPreviewIgnoresSingleClick(client, artifactId, before) {
+  const after = await client.evaluate(`(() => {
+    const card = document.querySelector(
+      ${JSON.stringify(`.director-artifact-preview[data-artifact-id="${artifactId}"]`)}
     );
-    if (!(artifact instanceof HTMLButtonElement) || artifact.disabled) {
-      return { ok: false, reason: artifact ? "disabled-artifact" : "missing-artifact" };
+    card?.querySelector(".director-artifact-preview-viewport")?.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true })
+    );
+    return {
+      browserOpen: Boolean(document.querySelector(".director-artifact-browser")),
+      height: card ? Math.round(card.getBoundingClientRect().height) : 0
+    };
+  })()`);
+  if (after.browserOpen) {
+    throw new Error("Director artifact preview opened the browser on a single click");
+  }
+  assertEqual(after.height, before.height, "Director artifact preview height after single click");
+}
+
+async function assertArtifactExpandControlRegainedFocus(client, artifactId) {
+  const focused = await client.evaluate(`(() => {
+    const card = document.querySelector(
+      ${JSON.stringify(`.director-artifact-preview[data-artifact-id="${artifactId}"]`)}
+    );
+    return card?.querySelector(".director-artifact-expand") === document.activeElement;
+  })()`);
+  if (!focused) {
+    throw new Error("Director artifact browser did not restore focus to its expand control");
+  }
+}
+
+async function openDirectorArtifactBrowser(client, artifactId) {
+  const opened = await client.evaluate(`(() => {
+    const card = document.querySelector(
+      ${JSON.stringify(`.director-artifact-preview[data-artifact-id="${artifactId}"]`)}
+    );
+    const expand = card?.querySelector(".director-artifact-expand");
+    if (!(expand instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-artifact" };
     }
-    artifact.click();
+    if (expand.disabled) {
+      return { ok: false, reason: "disabled-artifact" };
+    }
+    expand.click();
     return { ok: true };
   })()`);
   if (!opened.ok) {
@@ -1280,25 +1356,26 @@ async function openDirectorArtifactDetail(client, artifactId) {
   return waitForState(
     client,
     `(() => {
-      const detail = Array.from(document.querySelectorAll(".director-artifact-detail")).find(
-        (candidate) => candidate.getAttribute("data-artifact-id") === ${JSON.stringify(artifactId)}
+      const browser = document.querySelector(
+        ${JSON.stringify(`.director-artifact-browser[data-artifact-id="${artifactId}"]`)}
       );
-      const artifactDocument = detail?.querySelector(".director-artifact-document");
+      const artifactDocument = browser?.querySelector(".director-artifact-browser-document");
       return {
         documentText: artifactDocument?.textContent ?? "",
-        status: detail?.getAttribute("data-artifact-load-state") ?? "",
-        text: detail?.textContent ?? ""
+        position: browser?.querySelector(".director-artifact-browser-position")?.textContent ?? "",
+        status: browser?.getAttribute("data-artifact-load-state") ?? "",
+        text: browser?.textContent ?? ""
       };
     })()`,
-    (detail) => detail.status === "loaded" && detail.documentText.includes("-artifact.png"),
+    (detail) => detail.status === "ready" && detail.documentText.includes("-artifact.png"),
     workflowTimeoutMs,
   );
 }
 
-async function closeDirectorArtifactDetail(client) {
+async function closeDirectorArtifactBrowser(client) {
   const closed = await client.evaluate(`(() => {
     const button = document.querySelector(
-      '.director-artifact-detail button[aria-label="Close artifact details"]'
+      '.director-artifact-browser button[aria-label="Close artifact browser"]'
     );
     if (!(button instanceof HTMLButtonElement)) {
       return false;
@@ -1307,8 +1384,14 @@ async function closeDirectorArtifactDetail(client) {
     return true;
   })()`);
   if (!closed) {
-    throw new Error("Director artifact detail did not expose a close action");
+    throw new Error("Director artifact browser did not expose a close action");
   }
+  await waitForState(
+    client,
+    `Boolean(document.querySelector(".director-artifact-browser"))`,
+    (open) => open === false,
+    workflowTimeoutMs,
+  );
 }
 
 function waitForConversationSnapshot(backend, workspaceId, conversationId, ready) {

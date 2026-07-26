@@ -1168,20 +1168,64 @@ document.
 
 ### Phase 4 - Director Renderer Cutover
 
-**Status:** In progress. Two deliverables landed with the Phase 2 contract
-replacement because the artifact-kind switch could not survive it:
+**Status:** Complete. Two deliverables landed early, with the Phase 2 contract
+replacement, because the artifact-kind switch could not survive it: the rail's
+kind switch, labels, icons, and per-kind payload renderers were replaced by the
+lazily loaded `SettaArtifactRenderer`. The rest landed as one change, because
+the preview gallery, the browser overlay, and the cache between them are one
+read path: a preview that could not hand its parse to the overlay would read
+every artifact twice, and an overlay opened from anything but the preview's own
+expand control would have nothing to restore focus to.
 
-- the rail's kind switch, kind labels, kind icons, and per-kind payload
-  renderers and styles are replaced by `SettaArtifactRenderer`, which selects
-  the catalog by exact `catalogId` and renders through the generated OpenUI
-  library and the official shadcn Base UI primitives
-- that renderer is a lazily loaded chunk, so OpenUI, the generated library, and
-  Recharts load with the first opened artifact rather than with the command
-  center
+Landed:
 
-Everything else below is still pending, including the preview gallery, the
-Dialog-backed browser overlay and the primitives it needs, navigation, and the
-renderer telemetry.
+- the official Base UI `Dialog`, `Scroll Area`, and `Tooltip` source from the
+  pinned `bases/base` registry, with their `style-nova.css` sections and
+  `PROVENANCE.md` entries. Their styles name upstream's enter and exit animation
+  utilities, so `tw-animate-css` `1.4.0` — the version upstream pins at the same
+  revision — is now an exact direct dependency added through
+  `./update_dependencies.sh`, and the accordion keyframes are redeclared after
+  it so the Base UI panel height still wins over the package's Radix-keyed ones.
+- the rail's artifact rows replaced by always-visible, stable-height preview
+  cards. The card reserves one fixed content viewport whatever its artifact
+  holds, so an arriving artifact never moves the rail; it is not a control, so a
+  single click does nothing; and the icon-only expand control, with its
+  accessible name and tooltip, and a double-click on the card open the same
+  artifact.
+- an exhaustive preview projection keyed by the generated component-name union,
+  so a catalog addition without a preview is a compile error. It is bounded by
+  its own limits rather than the document's: two content blocks, a short text or
+  Markdown excerpt, three code lines, a table header and two rows, and one
+  static plot of a chart's first series drawn as an SVG rather than mounted
+  through Recharts.
+- `ArtifactDocumentCache`: one bounded, runtime-scoped cache holding each read
+  artifact and its projection, sharing reads already in flight. A preview asks
+  for its document only when it enters the rail viewport and releases the
+  rendered DOM when it leaves, so the parse survives scrolling but the nodes do
+  not.
+- the `ArtifactBrowserOverlay`, built on the official Dialog: one persistent
+  overlay with the active title, a `3 of 8` position, previous, next, and close
+  icon controls with accessible names and tooltips, boundary disabling, Left and
+  Right Arrow shortcuts that stand down inside an interactive artifact control,
+  a polite live region, and the WebGL graph left mounted behind the backdrop.
+  Only the active document is mounted; the neighbours either side are read ahead
+  into the same cache.
+- active-artifact and browser state owned by `DirectorCommandCenterShell`
+  through `useDirectorArtifactBrowser`. No store was added: the cache is
+  rebuilt on a runtime change, the active artifact resets when the Director
+  snapshot no longer holds it, and its position is recomputed rather than stored
+  when new artifacts arrive. The shell's own keyboard shortcuts stand down while
+  the browser is open.
+- renderer telemetry for a document that fails after acceptance: the cache
+  reports a projection failure and `SettaArtifactRenderer`'s `onError` reports a
+  render failure, both as Setta faults rather than as something shown to the
+  reader.
+
+One upstream constraint shapes the cache. `Renderer` takes source text, not a
+parse tree, so the overlay cannot be handed the preview's tree; what it reuses
+is the cached read and projection, and the pinned parser reads the same accepted
+source again inside the renderer. Parsing a representative document measured
+0.0298 ms in Phase 0, so this is a second parse rather than a second read.
 
 Deliverables:
 
@@ -1227,6 +1271,21 @@ Gate:
 - a single click never changes preview size, and both the expand control and
   double-click shortcut open the same artifact
 - no new Zustand store owns artifact content or artifact-view state
+
+The gate is met by the implementation above and by the deterministic Director
+command-center workflow, which now asserts the rail preview renders its
+projected document, that a single click on a preview neither opens the browser
+nor changes the card's height, that the expand control opens the browser to a
+ready document at its announced position, and that closing it returns focus to
+that control. A renderer build confirms the initial command-center chunk
+statically imports neither the OpenUI parser nor Recharts; both stay behind the
+preview and overlay chunks.
+
+The Phase 4 audit is the phase's own step. `director-command-center-performance`
+cannot run here: its blank-graph-canvas assertion fails identically on the
+pre-change revision, so this sandbox's WebGL readback, not the artifact
+cutover, is what stops it. It joins the pre-change baseline as a release gate
+needing a driven session.
 
 ### Phase 5 - Cleanup And Performance Remeasurement
 

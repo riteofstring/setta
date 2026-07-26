@@ -10,7 +10,8 @@ import type {
 } from "@generated/backend";
 import { describe, expect, test } from "vitest";
 
-import { buildApprovalAnswers, directorArtifactCardMetadata } from "./DirectorArtifactsRail";
+import { buildApprovalAnswers } from "./DirectorArtifactsRail";
+import { directorArtifactCardMetadata } from "./DirectorArtifactPreviewCard";
 import {
   DirectorRefreshCoordinator,
   directorEventChangesVisibleState,

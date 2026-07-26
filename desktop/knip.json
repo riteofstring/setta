@@ -25,5 +25,12 @@
     "src/generated/**",
     "src/renderer/src/features/artifacts/generated/**"
   ],
-  "ignoreDependencies": ["@types/node", "@types/react", "@types/react-dom", "tailwindcss", "vite"]
+  "ignoreDependencies": [
+    "@types/node",
+    "@types/react",
+    "@types/react-dom",
+    "tailwindcss",
+    "tw-animate-css",
+    "vite"
+  ]
 }

@@ -80,7 +80,7 @@ function HistoryOverlay({ history, onClose }: { history: DirectorHistory; onClos
           </div>
           <button
             aria-label="Close history"
-            className="director-artifact-detail-close"
+            className="director-history-close"
             onClick={onClose}
             ref={closeButtonRef}
             type="button"

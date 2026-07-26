@@ -781,12 +781,12 @@ function waitForArtifactDetail(client, artifactId) {
   return waitForState(
     client,
     `(() => {
-      const detail = document.querySelector(${JSON.stringify(
-        `.director-artifact-detail[data-artifact-id="${artifactId}"]`,
+      const browser = document.querySelector(${JSON.stringify(
+        `.director-artifact-browser[data-artifact-id="${artifactId}"]`,
       )});
-      return detail?.getAttribute("data-artifact-load-state") ?? "";
+      return browser?.getAttribute("data-artifact-load-state") ?? "";
     })()`,
-    (state) => state === "loaded",
+    (state) => state === "ready",
     workflowTimeoutMs,
   );
 }
@@ -794,7 +794,7 @@ function waitForArtifactDetail(client, artifactId) {
 async function closeArtifact(client) {
   const closed = await client.evaluate(`(() => {
     const button = document.querySelector(
-      '.director-artifact-detail button[aria-label="Close artifact details"]'
+      '.director-artifact-browser button[aria-label="Close artifact browser"]'
     );
     if (!(button instanceof HTMLButtonElement)) {
       return false;
@@ -803,7 +803,7 @@ async function closeArtifact(client) {
     return true;
   })()`);
   if (!closed) {
-    throw new Error("Director artifact detail did not close");
+    throw new Error("Director artifact browser did not close");
   }
 }
 

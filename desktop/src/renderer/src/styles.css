@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 @import "./components/ui/shadcn-nova.css" layer(base);
 @import "./features/director-graph/render/director-graph.css";
 @import "./features/director-command-center/director-command-center.css";
@@ -21,10 +22,11 @@
 @custom-variant data-open (&:where([data-open]:not([data-open="false"])));
 @custom-variant data-closed (&:where([data-closed]:not([data-closed="false"])));
 
-/* The accordion open/close animation the copied styles name. Upstream takes the
-   `--animate-*` values from `tw-animate-css` and the keyframes from
-   `shadcn/tailwind.css`; both are declared here instead of adding two CSS-only
-   packages for four rules, and the keyframes carry the Base UI panel height. */
+/* The accordion open/close animation the copied styles name. `tw-animate-css`
+   above declares its own `--animate-accordion-*`, but its keyframes resolve
+   Radix's `--radix-accordion-content-height`; Setta imports the Base UI
+   registry, whose panel measures itself into `--accordion-panel-height`. This
+   block comes after the import so the Base UI keyframes win. */
 @theme {
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
@@ -266,7 +268,10 @@ a {
     content: none;
   }
 
-  [data-slot="accordion-content"] {
+  [data-slot="accordion-content"],
+  [data-slot="dialog-overlay"],
+  [data-slot="dialog-content"],
+  [data-slot="tooltip-content"] {
     animation: none;
   }
 }

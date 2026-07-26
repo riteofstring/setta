@@ -1,11 +1,8 @@
 import type {
-  Artifact,
   ApprovalRequest,
-  ArtifactStatus,
   ConversationApprovalAnswer,
   DirectorIntent,
   DirectorReceipt,
-  ReadConversationArtifactRequest,
   ResourceRequest,
   TrajectoryApprovalDecision,
   TrajectoryApprovalQuestion,
@@ -13,109 +10,35 @@ import type {
   WorkspaceSession,
   WorkspaceSummary,
 } from "@generated/backend";
-import { Check, FileText, FolderOpen, FolderPlus, X } from "lucide-react";
-import {
-  Suspense,
-  lazy,
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type FormEvent,
-  type KeyboardEvent,
-} from "react";
+import { Check, FolderOpen, FolderPlus, X } from "lucide-react";
+import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 
-// The OpenUI parser, the generated library, and the chart dependency are only
-// reachable once a user opens an artifact, so they load with the first opened
-// document rather than with the command center.
-const SettaArtifactRenderer = lazy(async () => ({
-  default: (await import("../artifacts/SettaArtifactRenderer")).SettaArtifactRenderer,
-}));
+import { TooltipProvider } from "@renderer/components/ui/tooltip";
 
-const artifactStatusLabels = {
-  available: "Ready",
-  declared: "Declared",
-  unresolved: "Pending",
-} as const satisfies Record<ArtifactStatus, string>;
-
-type ReadArtifact = ((request: ReadConversationArtifactRequest) => Promise<Artifact>) | undefined;
+import { DirectorArtifactPreviewCard } from "./DirectorArtifactPreviewCard";
+import { directorRailArtifacts, type DirectorArtifactBrowser } from "./director-artifact-browser";
 
 export function ArtifactsRail({
   approvals,
+  artifactBrowser,
   artifacts,
   dispatch,
   dispatching,
   openLocalFolder,
   openWorkspacePath,
-  readArtifact,
   requests,
   workspaceSession,
 }: {
   approvals: readonly ApprovalRequest[];
+  artifactBrowser: DirectorArtifactBrowser;
   artifacts: readonly WorkstreamArtifact[];
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
   dispatching: boolean;
   openLocalFolder: () => Promise<WorkspaceSummary | null>;
   openWorkspacePath: (rootPath: string) => Promise<WorkspaceSummary>;
-  readArtifact?: (request: ReadConversationArtifactRequest) => Promise<Artifact>;
   requests: readonly ResourceRequest[];
   workspaceSession: WorkspaceSession | null;
 }) {
-  const [artifactDetail, setArtifactDetail] = useState<ArtifactDetailState | null>(null);
-  const detailRef = useRef<HTMLElement | null>(null);
-  const lastArtifactTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const artifactDetailId = artifactDetail?.artifact.id ?? null;
-
-  useEffect(() => {
-    if (artifactDetailId !== null) {
-      detailRef.current?.focus();
-    }
-  }, [artifactDetailId]);
-
-  const closeArtifactDetail = useCallback(() => {
-    setArtifactDetail(null);
-    lastArtifactTriggerRef.current?.focus();
-  }, []);
-
-  const openArtifactDetail = useCallback(
-    async (artifact: WorkstreamArtifact, trigger: HTMLButtonElement): Promise<void> => {
-      lastArtifactTriggerRef.current = trigger;
-      if (!readArtifact || artifact.status !== "available") {
-        setArtifactDetail({
-          artifact,
-          error: "Artifact details are not available yet.",
-          status: "failed",
-        });
-        return;
-      }
-      setArtifactDetail({ artifact, status: "loading" });
-      try {
-        const payload = await readArtifact({
-          artifactId: artifact.id,
-          conversationId: artifact.conversationId,
-          workspaceId: artifact.workspaceId,
-        });
-        validateDirectorArtifactPayload(artifact, payload);
-        setArtifactDetail((current) =>
-          current?.artifact.id === artifact.id ? { artifact, payload, status: "loaded" } : current,
-        );
-      } catch {
-        setArtifactDetail((current) =>
-          current?.artifact.id === artifact.id
-            ? {
-                artifact,
-                error: "Setta could not open this artifact. Try again.",
-                status: "failed",
-              }
-            : current,
-        );
-      }
-    },
-    [readArtifact],
-  );
-
   return (
     <aside aria-label="Artifacts" className="director-artifacts-rail" id="director-artifacts-rail">
       <span aria-atomic="true" className="sr-only" role="status">
@@ -166,76 +89,25 @@ export function ArtifactsRail({
       </section>
       <section className="director-rail-section">
         <p className="director-rail-kicker">Artifacts</p>
-        <div className="director-artifact-list">
-          {artifacts.slice(0, 8).map((artifact) => (
-            <ArtifactCard
-              artifact={artifact}
-              disabled={!directorArtifactCanOpen(artifact, readArtifact)}
-              key={artifact.id}
-              onOpen={openArtifactDetail}
-            />
-          ))}
-          {artifacts.length === 0 ? (
-            <p className="director-rail-summary">No artifacts yet.</p>
-          ) : null}
-        </div>
+        <TooltipProvider>
+          <div className="director-artifact-gallery">
+            {directorRailArtifacts(artifacts).map((artifact) => (
+              <DirectorArtifactPreviewCard
+                artifact={artifact}
+                documents={artifactBrowser.documents}
+                isActive={artifactBrowser.activeArtifact?.id === artifact.id}
+                key={artifact.id}
+                onOpen={artifactBrowser.open}
+              />
+            ))}
+            {artifacts.length === 0 ? (
+              <p className="director-rail-summary">No artifacts yet.</p>
+            ) : null}
+          </div>
+        </TooltipProvider>
       </section>
-      {artifactDetail ? (
-        <ArtifactDetailPanel
-          detail={artifactDetail}
-          onClose={closeArtifactDetail}
-          panelRef={(node) => {
-            detailRef.current = node;
-          }}
-        />
-      ) : null}
     </aside>
   );
-}
-
-function ArtifactCard({
-  artifact,
-  disabled,
-  onOpen,
-}: {
-  artifact: WorkstreamArtifact;
-  disabled: boolean;
-  onOpen: (artifact: WorkstreamArtifact, trigger: HTMLButtonElement) => Promise<void>;
-}) {
-  return (
-    <button
-      aria-label={`Open artifact details: ${artifact.title}`}
-      className="director-artifact-item"
-      data-artifact-id={artifact.id}
-      data-artifact-status={artifact.status}
-      disabled={disabled}
-      onClick={(event) => {
-        void onOpen(artifact, event.currentTarget);
-      }}
-      type="button"
-    >
-      <span aria-hidden="true" className="director-artifact-icon">
-        <FileText size={15} />
-      </span>
-      <span className="director-artifact-copy">
-        <span className="director-artifact-title">{artifact.title}</span>
-        <span className="director-artifact-meta">{directorArtifactCardMetadata(artifact)}</span>
-      </span>
-    </button>
-  );
-}
-
-function directorArtifactCanOpen(
-  artifact: WorkstreamArtifact,
-  readArtifact: ReadArtifact,
-): boolean {
-  return artifact.status === "available" && Boolean(readArtifact);
-}
-
-export function directorArtifactCardMetadata(artifact: WorkstreamArtifact): string {
-  const sourceCount = artifact.sourceEventIds.length;
-  const sourceLabel = `${sourceCount} ${sourceCount === 1 ? "source" : "sources"}`;
-  return `${artifactStatusLabels[artifact.status]} / ${sourceLabel}`;
 }
 
 function directorRailArrivalAnnouncement(
@@ -877,105 +749,6 @@ function workspaceWorkstreamTitle(workspace: WorkspaceSummary): string {
   return title.length > 0 ? title : "New workstream";
 }
 
-type ArtifactDetailState =
-  | { artifact: WorkstreamArtifact; status: "loading" }
-  | { artifact: WorkstreamArtifact; error: string; status: "failed" }
-  | { artifact: WorkstreamArtifact; payload: Artifact; status: "loaded" };
-
-function ArtifactDetailPanel({
-  detail,
-  onClose,
-  panelRef,
-}: {
-  detail: ArtifactDetailState;
-  onClose: () => void;
-  panelRef: (node: HTMLElement | null) => void;
-}) {
-  const headingId = `director-artifact-detail-${detail.artifact.id}`.replace(
-    /[^A-Za-z0-9_-]/g,
-    "_",
-  );
-  const onKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      onClose();
-    }
-  };
-  return (
-    <section
-      aria-labelledby={headingId}
-      className="director-artifact-detail"
-      data-artifact-id={detail.artifact.id}
-      data-artifact-load-state={detail.status}
-      onKeyDown={onKeyDown}
-      ref={panelRef}
-      tabIndex={-1}
-    >
-      <header>
-        <h2 id={headingId}>{detail.artifact.title}</h2>
-        <button
-          aria-label="Close artifact details"
-          className="director-artifact-detail-close"
-          onClick={onClose}
-          type="button"
-        >
-          <X aria-hidden="true" size={15} />
-        </button>
-      </header>
-      <ArtifactDetailBody detail={detail} />
-    </section>
-  );
-}
-
-function ArtifactDetailBody({ detail }: { detail: ArtifactDetailState }) {
-  switch (detail.status) {
-    case "loading":
-      return (
-        <p className="director-artifact-detail-status" role="status">
-          Loading artifact.
-        </p>
-      );
-    case "failed":
-      return (
-        <p className="director-artifact-detail-status" role="alert">
-          {detail.error}
-        </p>
-      );
-    case "loaded":
-      return <ArtifactPayload artifact={detail.payload} />;
-    default:
-      return exhaustiveArtifactDetail(detail);
-  }
-}
-
-function ArtifactPayload({ artifact }: { artifact: Artifact }) {
-  return (
-    <div className="director-artifact-document">
-      <Suspense
-        fallback={
-          <p className="director-artifact-detail-status" role="status">
-            Loading artifact.
-          </p>
-        }
-      >
-        <SettaArtifactRenderer document={artifact.document} />
-      </Suspense>
-    </div>
-  );
-}
-
-function validateDirectorArtifactPayload(metadata: WorkstreamArtifact, artifact: Artifact): void {
-  if (
-    artifact.id !== metadata.id ||
-    artifact.conversationId !== metadata.conversationId ||
-    artifact.turnId !== metadata.runId ||
-    artifact.title !== metadata.title ||
-    artifact.createdAt !== metadata.createdAt
-  ) {
-    throw new Error(`Artifact payload ${artifact.id} does not match its Director record.`);
-  }
-}
-
 function resolveApprovalIntent(
   approvalId: string,
   decision: TrajectoryApprovalDecision,
@@ -1024,8 +797,4 @@ function dispatchDirectorIntent(
   intent: DirectorIntent,
 ): void {
   void dispatch(intent).catch(() => {});
-}
-
-function exhaustiveArtifactDetail(state: never): never {
-  throw new Error(`unsupported artifact detail state ${JSON.stringify(state)}`);
 }

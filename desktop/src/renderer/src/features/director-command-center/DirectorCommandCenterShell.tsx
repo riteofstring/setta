@@ -58,7 +58,9 @@ import {
 } from "./director-command-center-state";
 import { enqueueDirectorSpeechPlayback } from "./director-speech-playback";
 import { DirectorSpeechCaptureController } from "./director-speech-capture";
+import { ArtifactBrowserOverlaySlot } from "./ArtifactBrowserOverlay";
 import { ArtifactsRail } from "./DirectorArtifactsRail";
+import { useDirectorArtifactBrowser } from "./director-artifact-browser";
 import {
   useDirectorWorkstreamSwitchTransition,
   WorkstreamSwitchTransition,
@@ -205,6 +207,11 @@ export function DirectorCommandCenterShell({
     () => directorCommandCenterSnapshotView(director.snapshot),
     [director.snapshot],
   );
+  const artifactBrowser = useDirectorArtifactBrowser({
+    artifacts: snapshotView.artifacts,
+    readArtifact: setta.conversations.readArtifact,
+    runtimeId: connectedRuntimeId,
+  });
   const [canvas, setCanvas] = useState<DirectorGraphCanvas | null>(null);
   const {
     close: closeHistory,
@@ -235,6 +242,7 @@ export function DirectorCommandCenterShell({
   }, [canvas, packedSnapshot]);
 
   useDirectorShellKeyboardNavigation({
+    artifactBrowserOpen: artifactBrowser.activeArtifact !== null,
     closeCompactRail,
     closeHistory,
     compactRail,
@@ -287,12 +295,12 @@ export function DirectorCommandCenterShell({
           />
           <ArtifactsRail
             approvals={snapshotView.approvals}
+            artifactBrowser={artifactBrowser}
             artifacts={snapshotView.artifacts}
             dispatch={director.dispatch}
             dispatching={director.pending.dispatching}
             openLocalFolder={workspaceBinding.openLocalFolder}
             openWorkspacePath={workspaceBinding.openWorkspacePath}
-            readArtifact={setta.conversations.readArtifact}
             requests={snapshotView.requests}
             workspaceSession={workspaceBinding.session}
           />
@@ -310,6 +318,7 @@ export function DirectorCommandCenterShell({
         isOpen={historyOpen}
         onClose={closeHistory}
       />
+      <ArtifactBrowserOverlaySlot browser={artifactBrowser} />
     </main>
   );
 }
@@ -636,12 +645,14 @@ function useDirectorRailDisclosure() {
 }
 
 function useDirectorShellKeyboardNavigation({
+  artifactBrowserOpen,
   closeCompactRail,
   closeHistory,
   compactRail,
   dispatch,
   historyOpen,
 }: {
+  artifactBrowserOpen: boolean;
   closeCompactRail: () => void;
   closeHistory: () => void;
   compactRail: DirectorCompactRail;
@@ -651,6 +662,12 @@ function useDirectorShellKeyboardNavigation({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.defaultPrevented) {
+        return;
+      }
+      // The artifact browser is a modal Dialog: it owns Escape, arrow keys, and
+      // every keystroke inside it, so the shell's own shortcuts stand down
+      // rather than steering the graph or the composer behind it.
+      if (artifactBrowserOpen) {
         return;
       }
       if (event.key === "Escape") {
@@ -698,7 +715,7 @@ function useDirectorShellKeyboardNavigation({
     return () => {
       globalThis.window?.removeEventListener("keydown", handleKeyDown);
     };
-  }, [closeCompactRail, closeHistory, compactRail, dispatch, historyOpen]);
+  }, [artifactBrowserOpen, closeCompactRail, closeHistory, compactRail, dispatch, historyOpen]);
 }
 
 function useDirectorSpeechCapture({

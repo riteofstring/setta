@@ -62,8 +62,8 @@
     const dots = Array.from(document.querySelectorAll(".director-workstream-dot"));
     return {
       activityItems: document.querySelectorAll(".director-activity-item").length,
-      artifactCards: document.querySelectorAll("[data-artifact-id]").length,
-      artifactDetailOpen: Boolean(document.querySelector(".director-artifact-detail")),
+      artifactCards: document.querySelectorAll(".director-artifact-preview").length,
+      artifactDetailOpen: Boolean(document.querySelector(".director-artifact-browser")),
       bodyDescendantCount: document.body.querySelectorAll("*").length,
       composerPresent: Boolean(document.querySelector("#director-composer-input")),
       graph: elementBox(graph),
@@ -112,18 +112,17 @@
   }
 
   function directorCommandCenterOpenArtifact({ artifactId }) {
-    const artifact = Array.from(document.querySelectorAll("button[data-artifact-id]")).find(
-      (candidate) =>
-        candidate instanceof HTMLButtonElement &&
-        candidate.getAttribute("data-artifact-id") === artifactId,
+    const card = document.querySelector(
+      `.director-artifact-preview[data-artifact-id="${artifactId}"]`,
     );
-    if (!(artifact instanceof HTMLButtonElement)) {
+    const expand = card?.querySelector(".director-artifact-expand");
+    if (!(expand instanceof HTMLButtonElement)) {
       return { ok: false, reason: "missing-artifact" };
     }
-    if (artifact.disabled) {
+    if (expand.disabled) {
       return { ok: false, reason: "disabled-artifact" };
     }
-    artifact.click();
+    expand.click();
     return { ok: true };
   }
 

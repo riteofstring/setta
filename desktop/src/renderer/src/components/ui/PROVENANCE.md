@@ -29,25 +29,33 @@ command center, settings, and runtime surfaces are dense, and nova's 28px
 
 ## Imported components
 
-| Local file      | Upstream source                                |
-| --------------- | ---------------------------------------------- |
-| `accordion.tsx` | `apps/v4/registry/bases/base/ui/accordion.tsx` |
-| `alert.tsx`     | `apps/v4/registry/bases/base/ui/alert.tsx`     |
-| `badge.tsx`     | `apps/v4/registry/bases/base/ui/badge.tsx`     |
-| `button.tsx`    | `apps/v4/registry/bases/base/ui/button.tsx`    |
-| `card.tsx`      | `apps/v4/registry/bases/base/ui/card.tsx`      |
-| `chart.tsx`     | `apps/v4/registry/bases/base/ui/chart.tsx`     |
-| `input.tsx`     | `apps/v4/registry/bases/base/ui/input.tsx`     |
-| `separator.tsx` | `apps/v4/registry/bases/base/ui/separator.tsx` |
-| `table.tsx`     | `apps/v4/registry/bases/base/ui/table.tsx`     |
-| `tabs.tsx`      | `apps/v4/registry/bases/base/ui/tabs.tsx`      |
+| Local file        | Upstream source                                  |
+| ----------------- | ------------------------------------------------ |
+| `accordion.tsx`   | `apps/v4/registry/bases/base/ui/accordion.tsx`   |
+| `alert.tsx`       | `apps/v4/registry/bases/base/ui/alert.tsx`       |
+| `badge.tsx`       | `apps/v4/registry/bases/base/ui/badge.tsx`       |
+| `button.tsx`      | `apps/v4/registry/bases/base/ui/button.tsx`      |
+| `card.tsx`        | `apps/v4/registry/bases/base/ui/card.tsx`        |
+| `chart.tsx`       | `apps/v4/registry/bases/base/ui/chart.tsx`       |
+| `dialog.tsx`      | `apps/v4/registry/bases/base/ui/dialog.tsx`      |
+| `input.tsx`       | `apps/v4/registry/bases/base/ui/input.tsx`       |
+| `scroll-area.tsx` | `apps/v4/registry/bases/base/ui/scroll-area.tsx` |
+| `separator.tsx`   | `apps/v4/registry/bases/base/ui/separator.tsx`   |
+| `table.tsx`       | `apps/v4/registry/bases/base/ui/table.tsx`       |
+| `tabs.tsx`        | `apps/v4/registry/bases/base/ui/tabs.tsx`        |
+| `tooltip.tsx`     | `apps/v4/registry/bases/base/ui/tooltip.tsx`     |
 
 `chart.tsx` brings the runtime dependency upstream pins for it, `recharts`
 `3.8.0`, added through `./update_dependencies.sh`.
 
-Dialog, Scroll Area, and Tooltip belong to the same catalog but have no consumer
-yet. They arrive with the artifact browser overlay and its expand control, so
-they are imported alongside those rather than checked in unused.
+`dialog.tsx`, `scroll-area.tsx`, and `tooltip.tsx` arrived with their consumers:
+the artifact browser overlay, its scrolling document surface, and the icon-only
+controls the rail and the overlay label with tooltips.
+
+The Dialog and Tooltip styles name upstream's enter and exit animation
+utilities, so `tw-animate-css` `1.4.0` — the version upstream pins at the same
+revision — is now a direct dependency, added through
+`./update_dependencies.sh`. It is a CSS-only package with no runtime.
 
 `shadcn-nova.css` carries the `cn-*` rules these components resolve, taken
 verbatim from the matching sections of the pinned `style-nova.css`.
@@ -61,9 +69,10 @@ These are the only changes made to the copied source:
 - the files are formatted with the repository's Prettier configuration
 - the `"use client"` directive is dropped. Setta has no React Server
   Components boundary, and a module-level directive is a bundler warning here.
-- `accordion.tsx` resolves upstream's `IconPlaceholder` to `lucide-react`,
-  which is the icon library Setta already depends on and the default the
-  published registry substitutes. The `data-slot` and class names are unchanged.
+- `accordion.tsx` and `dialog.tsx` resolve upstream's `IconPlaceholder` to
+  `lucide-react`, which is the icon library Setta already depends on and the
+  default the published registry substitutes. The `data-slot` and class names
+  are unchanged.
 - `chart.tsx` anchors its dark theme selector to the document root's
   `data-color-mode` instead of a `.dark` class, matching the `dark:` variant
   below. Without the root anchor, any ordinary ancestor would satisfy the
@@ -87,11 +96,15 @@ Setta-side wiring that these components depend on, in `../../styles.css`:
 - `@custom-variant data-open` and `@custom-variant data-closed` carry the Base
   UI half of the variants upstream declares in `shadcn/tailwind.css`. The
   Radix half is omitted because Setta takes the Base UI registry only.
+- `tw-animate-css` is imported so the `animate-in`, `animate-out`, `fade-*`,
+  `zoom-*`, and `slide-in-from-*` utilities the Dialog and Tooltip styles name
+  resolve
 - `--animate-accordion-down`, `--animate-accordion-up`, and their keyframes are
-  declared from upstream's `tw-animate-css` values and `shadcn/tailwind.css`
-  keyframes, resolving the Base UI `--accordion-panel-height`. Two CSS-only
-  packages for four rules was the alternative. A reduced-motion query switches
-  the accordion panel animation off.
+  redeclared after that import. The package's own accordion keyframes resolve
+  Radix's `--radix-accordion-content-height`; Setta takes the Base UI registry,
+  whose panel measures itself into `--accordion-panel-height`.
+- a reduced-motion query switches the accordion panel, dialog, and tooltip
+  animations off
 
 `knip.json` lists this directory as an entry point. Upstream's export surface
 (`buttonVariants`, `badgeVariants`) is part of the copied source whether or not
@@ -132,6 +145,12 @@ imported primitive's responsibility:
   because shadcn has no equivalent. They compose the primitives here rather
   than restyling them, and the tone treatments they add for the catalog's
   status severities use Setta's status tokens.
-- the old Director artifact rendering in `director-command-center.css`
-  (`director-artifact-*`) predates this directory and is replaced, not renamed,
-  when the artifact renderer cutover lands.
+- the old Director artifact rows and in-rail detail panel
+  (`director-artifact-item`, `director-artifact-detail*`) are gone. What replaced
+  them — `director-artifact-preview*`, `director-artifact-browser*` — is
+  Setta-domain chrome around the official Dialog, Scroll Area, Tooltip, and
+  Button, not a restyling of them.
+- the rail preview's own blocks in `../../features/artifacts/ArtifactPreviewSurface.tsx`
+  are deliberately not the catalog's components: a preview must not mount
+  Recharts or a shadcn Table for a card the reader has not opened, so it draws
+  a bounded projection with the same tokens instead.
