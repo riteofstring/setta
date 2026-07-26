@@ -605,31 +605,11 @@ func (generator *generator) render() ([]byte, error) {
 	renderProtocolMemberValues(&buffer, "CodexSupportedMethodValues", "CodexMethod", generator.supportedClientMethods)
 	renderProtocolMemberValues(&buffer, "CodexSupportedServerRequestValues", "CodexServerRequest", generator.supportedServerRequests)
 	renderProtocolMemberValues(&buffer, "CodexSupportedNotificationValues", "CodexNotification", generator.supportedNotifications)
+	renderUpstreamNotificationMethods(&buffer, generator.notifications)
 	if err := generator.renderSchemas(&buffer); err != nil {
 		return nil, err
 	}
 	return buffer.Bytes(), nil
-}
-
-func renderMethodConstants(buffer *bytes.Buffer, prefix string, members []protocolMember) {
-	renderProtocolMemberConstants(buffer, prefix, members)
-	renderProtocolMemberValues(buffer, prefix+"Values", prefix, members)
-}
-
-func renderProtocolMemberConstants(buffer *bytes.Buffer, prefix string, members []protocolMember) {
-	buffer.WriteString("const (\n")
-	for _, member := range members {
-		fmt.Fprintf(buffer, "\t%s%s = %q\n", prefix, member.ConstName, member.Method)
-	}
-	buffer.WriteString(")\n\n")
-}
-
-func renderProtocolMemberValues(buffer *bytes.Buffer, name string, prefix string, members []protocolMember) {
-	fmt.Fprintf(buffer, "var %s = []string{\n", name)
-	for _, member := range members {
-		fmt.Fprintf(buffer, "\t%s%s,\n", prefix, member.ConstName)
-	}
-	buffer.WriteString("}\n\n")
 }
 
 func (generator *generator) renderSchemas(buffer *bytes.Buffer) error {
@@ -653,7 +633,7 @@ func (generator *generator) renderSchema(buffer *bytes.Buffer, name string, sche
 		renderStringEnum(buffer, typeName, enumValues)
 		return nil
 	}
-	if typeName == "ThreadItem" && isTaggedObjectUnionSchema(schema) {
+	if taggedObjectUnionTypeNames[typeName] && isTaggedObjectUnionSchema(schema) {
 		return generator.renderTaggedObjectUnionSchema(buffer, typeName, schema)
 	}
 	if isObjectSchema(schema) {

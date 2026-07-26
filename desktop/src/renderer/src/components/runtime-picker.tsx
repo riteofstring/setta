@@ -22,8 +22,8 @@ import {
 import { cn } from "../lib/utils";
 import { runtimePickerControlsDisabled, useRuntimeStore } from "../stores/runtime-store";
 import { FloatingMenu } from "./floating-menu";
+import { SettaCompactInput } from "./setta-compact-input";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 
 interface RuntimePickerProps {
   adding?: boolean;
@@ -134,7 +134,7 @@ function RuntimePairingForm({ state }: { state: RuntimePickerState }) {
 
   return (
     <form className="grid gap-1 px-1 pt-1" onSubmit={submitPairingURL}>
-      <Input
+      <SettaCompactInput
         aria-label="Runtime pairing URL"
         autoComplete="off"
         disabled={state.busy}
@@ -145,7 +145,9 @@ function RuntimePairingForm({ state }: { state: RuntimePickerState }) {
       <Button
         className="w-fit"
         disabled={state.busy || state.pairingUrl.trim() === ""}
+        size="sm"
         type="submit"
+        variant="outline"
       >
         {state.operation === "adding" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
         Add
@@ -256,7 +258,40 @@ function RuntimeIcon({ runtime }: { runtime: KnownRuntimeView | null }) {
   if (runtime.isLocal) {
     return <Monitor className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
   }
+  if (
+    runtime.infrastructureProvider.id !== "unknown" &&
+    runtime.infrastructureProvider.iconUrl.trim() !== ""
+  ) {
+    return <RuntimeProviderIcon provider={runtime.infrastructureProvider} />;
+  }
   return <Server className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
+}
+
+function RuntimeProviderIcon({
+  provider,
+}: {
+  provider: KnownRuntimeView["infrastructureProvider"];
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return <Server className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
+  }
+  return (
+    <span
+      className="grid h-3.5 w-3.5 shrink-0 place-items-center overflow-hidden rounded-[2px]"
+      title={provider.displayName}
+    >
+      <img
+        alt=""
+        aria-hidden="true"
+        className="h-3.5 w-3.5 object-contain opacity-70 grayscale"
+        decoding="async"
+        onError={() => setFailed(true)}
+        referrerPolicy="no-referrer"
+        src={provider.iconUrl}
+      />
+    </span>
+  );
 }
 
 function RuntimeRowStatusAction({

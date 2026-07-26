@@ -33,8 +33,6 @@ func defaultLightAccentPalette() AppearanceAccentPalette {
 	}
 }
 
-const tailwindBlue700 = "oklch(0.4880 0.1700 264.38)"
-
 func defaultSettaLightColorScheme(tailwind AppearanceTailwindPalette) AppearanceColorScheme {
 	scheme := defaultLightColorScheme(tailwind)
 	scheme.Shadcn.Primary = tailwind.Setta600
@@ -113,17 +111,6 @@ func defaultLightColorScheme(tailwind AppearanceTailwindPalette) AppearanceColor
 			CriticalForeground: highContrastForeground(critical),
 		},
 		Accent: accent,
-		Workspace: AppearanceWorkspacePalette{
-			Surface:             tailwind.Setta100,
-			DotGrid:             tailwind.Setta500,
-			PaneSurface:         tailwind.Setta50,
-			PaneTitleBarSurface: tailwind.Setta100,
-			PaneEdge:            tailwind.Setta200,
-			PaneSelectedOutline: tailwind.Setta500,
-			PaneSelectedGlow:    tailwind.Setta300,
-			DragTargetSurface:   tailwind.Setta200,
-			DragTargetOutline:   tailwind.Setta500,
-		},
 	}
 }
 
@@ -183,16 +170,5 @@ func defaultDarkColorScheme(tailwind AppearanceTailwindPalette) AppearanceColorS
 			CriticalForeground: highContrastForeground(critical),
 		},
 		Accent: accent,
-		Workspace: AppearanceWorkspacePalette{
-			Surface:             tailwind.Setta850,
-			DotGrid:             settaLogoCyan,
-			PaneSurface:         tailwind.Setta975,
-			PaneTitleBarSurface: tailwind.Setta950,
-			PaneEdge:            tailwind.Setta850,
-			PaneSelectedOutline: tailwindBlue700,
-			PaneSelectedGlow:    tailwind.Setta700,
-			DragTargetSurface:   tailwind.Setta850,
-			DragTargetOutline:   tailwind.Setta300,
-		},
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 )
@@ -38,6 +39,23 @@ func ValidateSpeechCapabilities(capabilities SpeechCapabilities) error {
 	}
 	if capabilities.MaximumSynthesisCharacters != MaximumSynthesisCharacters {
 		return fmt.Errorf("speech maximum synthesis characters = %d, want %d", capabilities.MaximumSynthesisCharacters, MaximumSynthesisCharacters)
+	}
+	return nil
+}
+
+func ValidateSpeechCredentialValidationResult(result SpeechCredentialValidationResult) error {
+	if !validValue(result.Provider, speechProviderValues) {
+		return fmt.Errorf("unsupported speech credential provider %q", result.Provider)
+	}
+	return nil
+}
+
+func ValidateSpeechCredentialStatus(status SpeechCredentialStatus) error {
+	if !validValue(status.Provider, speechProviderValues) {
+		return fmt.Errorf("unsupported speech credential provider %q", status.Provider)
+	}
+	if !validValue(status.ProviderStatus, speechProviderStatusValues) {
+		return fmt.Errorf("unsupported speech credential provider status %q", status.ProviderStatus)
 	}
 	return nil
 }
@@ -130,6 +148,25 @@ func validateSpeechAudioEncoding(audio SpeechAudio) error {
 	return validateWAV(decoded)
 }
 
+func ValidateSpeechSynthesisInput(input SpeechSynthesisInput) error {
+	if !validValue(input.Provider, speechProviderValues) {
+		return fmt.Errorf("unsupported speech synthesis provider %q", input.Provider)
+	}
+	if err := input.Source.Validate(); err != nil {
+		return err
+	}
+	if err := validateSynthesisText(input.Text); err != nil {
+		return err
+	}
+	if !LookupVoice(input.ResolvedVoiceID) {
+		return unavailableVoiceError(input.ResolvedVoiceID)
+	}
+	if err := validateSynthesisRate(input.Rate); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (source SpeechSource) Validate() error {
 	if !validValue(source.Speaker, speechSpeakerValues) {
 		return fmt.Errorf("unsupported speech speaker %q", source.Speaker)
@@ -138,9 +175,9 @@ func (source SpeechSource) Validate() error {
 		return err
 	}
 	switch source.Speaker {
-	case SpeechSpeakerMaster:
+	case SpeechSpeakerDirector:
 		if source.ConversationID != nil {
-			return errors.New("master speech source must not include a conversation id")
+			return errors.New("director speech source must not include a conversation id")
 		}
 	case SpeechSpeakerNarrator:
 		if source.ConversationID == nil {
@@ -156,11 +193,27 @@ func (source SpeechSource) Validate() error {
 }
 
 func (request SpeechSynthesisRequest) Validate() error {
+	if !validValue(request.Provider, speechProviderValues) {
+		return fmt.Errorf("unsupported speech synthesis provider %q", request.Provider)
+	}
 	if err := request.Source.Validate(); err != nil {
 		return err
 	}
 	if !LookupVoice(request.ResolvedVoiceID) {
 		return unavailableVoiceError(request.ResolvedVoiceID)
+	}
+	return nil
+}
+
+func (input ProviderSynthesisInput) Validate() error {
+	if err := validateSynthesisText(input.Text); err != nil {
+		return err
+	}
+	if !LookupVoice(input.VoiceID) {
+		return unavailableVoiceError(input.VoiceID)
+	}
+	if err := validateSynthesisRate(input.Rate); err != nil {
+		return err
 	}
 	return nil
 }
@@ -184,6 +237,15 @@ func validateSynthesisText(text string) error {
 	}
 	if len([]rune(text)) > MaximumSynthesisCharacters {
 		return fmt.Errorf("speech synthesis text exceeds %d characters", MaximumSynthesisCharacters)
+	}
+	return nil
+}
+
+func validateSynthesisRate(rate float64) error {
+	const minimum = 0.25
+	const maximum = 4.0
+	if math.IsNaN(rate) || math.IsInf(rate, 0) || rate < minimum || rate > maximum {
+		return fmt.Errorf("speech synthesis rate %g must be between %.2g and %.2g", rate, minimum, maximum)
 	}
 	return nil
 }

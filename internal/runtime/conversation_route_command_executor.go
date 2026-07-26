@@ -15,7 +15,6 @@ type conversationRouteCommandService interface {
 		string,
 		string,
 		string,
-		string,
 		conversation.ConversationRouteCommand,
 	) (conversation.ConversationSnapshot, error)
 }
@@ -28,6 +27,12 @@ type conversationRouteNarratorService interface {
 		string,
 		string,
 	) (conversation.ConversationSnapshot, error)
+	AskRoutedFolderlessStatus(
+		context.Context,
+		string,
+		string,
+		string,
+	) (conversation.ConversationSnapshot, error)
 }
 
 type conversationRouteCommandStore interface {
@@ -36,8 +41,9 @@ type conversationRouteCommandStore interface {
 		conversation.ConversationRouteDecisionRecord,
 	) (bool, error)
 	ReadConversationWorkspaceID(context.Context, string) (string, error)
-	ReadConversationInput(context.Context, string) (conversation.AcceptedConversationInput, bool, error)
+	ReadConversationWorkspaceBindingID(context.Context, string) (*string, error)
 	ReadSnapshot(context.Context, string, string) (conversation.ConversationSnapshot, error)
+	ReadSnapshotByID(context.Context, string) (conversation.ConversationSnapshot, error)
 }
 
 type conversationRouteCommandExecutor struct {
@@ -72,12 +78,39 @@ func (executor *conversationRouteCommandExecutor) ExecuteConversationRouteComman
 	if err != nil || applied {
 		return err
 	}
-	workspaceID, err := executor.store.ReadConversationWorkspaceID(ctx, record.ConversationID)
+	workspaceID, err := executor.commandWorkspaceID(ctx, record)
 	if err != nil {
 		return err
 	}
 	executeErr := executor.executeConversationRouteCommand(ctx, workspaceID, record)
 	return executor.verifyConversationRouteCommandEffect(ctx, workspaceID, record, executeErr)
+}
+
+func (executor *conversationRouteCommandExecutor) commandWorkspaceID(
+	ctx context.Context,
+	record conversation.ConversationRouteDecisionRecord,
+) (string, error) {
+	if record.ResultingCommand.Kind == conversation.ConversationRouteDecisionKindAnswerAsNarrator {
+		workspaceID, err := executor.store.ReadConversationWorkspaceBindingID(ctx, record.ConversationID)
+		if err != nil {
+			return "", err
+		}
+		if workspaceID == nil {
+			return "", nil
+		}
+		return *workspaceID, nil
+	}
+	workspaceID, err := executor.store.ReadConversationWorkspaceID(ctx, record.ConversationID)
+	if err != nil {
+		if errors.Is(err, conversation.ErrConversationHasNoWorkspace) {
+			return "", &conversation.ResourceRequiredError{
+				ConversationID: record.ConversationID,
+				ResourceKind:   "folder",
+			}
+		}
+		return "", err
+	}
+	return workspaceID, nil
 }
 
 func (executor *conversationRouteCommandExecutor) validateExecution(
@@ -104,6 +137,15 @@ func (executor *conversationRouteCommandExecutor) executeConversationRouteComman
 	switch record.ResultingCommand.Kind {
 	case conversation.ConversationRouteDecisionKindAnswerAsNarrator:
 		command := record.ResultingCommand.AnswerAsNarrator
+		if workspaceID == "" {
+			_, err := executor.narrator.AskRoutedFolderlessStatus(
+				ctx,
+				record.ConversationID,
+				command.RequestID,
+				command.Question,
+			)
+			return err
+		}
 		_, err := executor.narrator.AskRoutedStatus(
 			ctx,
 			workspaceID,
@@ -112,41 +154,18 @@ func (executor *conversationRouteCommandExecutor) executeConversationRouteComman
 			command.Question,
 		)
 		return err
-	case conversation.ConversationRouteDecisionKindEscalateToMaster,
-		conversation.ConversationRouteDecisionKindClarify:
+	case conversation.ConversationRouteDecisionKindClarify:
 		return nil
 	default:
-		acceptedAt, err := executor.routeCommandAcceptedAt(ctx, record)
-		if err != nil {
-			return err
-		}
-		_, err = executor.conversations.ExecuteRouteCommand(
+		_, err := executor.conversations.ExecuteRouteCommand(
 			ctx,
 			workspaceID,
 			record.ConversationID,
 			record.ID,
-			acceptedAt,
 			record.ResultingCommand,
 		)
 		return err
 	}
-}
-
-func (executor *conversationRouteCommandExecutor) routeCommandAcceptedAt(
-	ctx context.Context,
-	record conversation.ConversationRouteDecisionRecord,
-) (string, error) {
-	if record.ResultingCommand.Kind != conversation.ConversationRouteDecisionKindSteerParentTurn {
-		return "", nil
-	}
-	accepted, found, err := executor.store.ReadConversationInput(ctx, record.InputID)
-	if err != nil {
-		return "", err
-	}
-	if !found {
-		return "", errors.New("routed steering input is absent")
-	}
-	return accepted.AcceptedAt, nil
 }
 
 func (executor *conversationRouteCommandExecutor) verifyConversationRouteCommandEffect(
@@ -202,7 +221,13 @@ func (executor *conversationRouteCommandExecutor) routedNarratorDegradationAppli
 			requestID,
 		)
 	}
-	snapshot, err := executor.store.ReadSnapshot(ctx, workspaceID, record.ConversationID)
+	var snapshot conversation.ConversationSnapshot
+	var err error
+	if workspaceID == "" {
+		snapshot, err = executor.store.ReadSnapshotByID(ctx, record.ConversationID)
+	} else {
+		snapshot, err = executor.store.ReadSnapshot(ctx, workspaceID, record.ConversationID)
+	}
 	if err != nil {
 		return false, fmt.Errorf("verify routed narrator degradation: %w", err)
 	}

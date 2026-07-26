@@ -42,8 +42,8 @@ WHERE id = ? AND last_trajectory_sequence = ?
 	_, err = transaction.tx.ExecContext(transaction.ctx, `
 INSERT INTO trajectory_events (
   id, conversation_id, turn_id, sequence, emitted_at, kind, actor,
-  provider_event_id, provider_thread_id, provider_turn_id, payload_json
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  provider_event_id, provider_turn_id, payload_json
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		event.ID,
 		event.ConversationID,
@@ -53,7 +53,6 @@ INSERT INTO trajectory_events (
 		event.Kind,
 		event.Actor,
 		nullableString(event.ProviderEventID),
-		nullableString(event.ProviderThreadID),
 		nullableString(event.ProviderTurnID),
 		payloadJSON,
 	)
