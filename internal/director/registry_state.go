@@ -172,6 +172,14 @@ func (state *registryState) registerWorkstreamRecord(
 			owner,
 		)
 	}
+	if record.ConversationID != conversationID {
+		return nil, fmt.Errorf(
+			"workstream %s records conversation %s but was registered under %s",
+			record.ID,
+			record.ConversationID,
+			conversationID,
+		)
+	}
 	if err := ValidateWorkstream(record); err != nil {
 		return nil, err
 	}

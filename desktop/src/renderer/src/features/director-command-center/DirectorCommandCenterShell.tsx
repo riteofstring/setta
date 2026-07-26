@@ -59,6 +59,11 @@ import {
 } from "./director-workstream-switch-transition";
 import { directorFocus, type DirectorFocus } from "./director-focus";
 import {
+  directorConversationInputId,
+  directorSubmitIntent,
+  submitToWorkstreamConversation,
+} from "./director-view-submit";
+import {
   CommandCenterTopBar,
   directorWorkstreamKeyboardDirection,
   moveSelectionIntent,
@@ -184,12 +189,6 @@ export function DirectorCommandCenterShell({
   speechPlayback,
 }: DirectorCommandCenterShellProps): React.JSX.Element {
   const director = useDirectorRuntime(setta, speechPlayback, connectedRuntimeId);
-  const speechCapture = useDirectorSpeechCapture({
-    dispatch: director.dispatch,
-    runtimeId: connectedRuntimeId,
-    setta,
-    speechPlayback,
-  });
   const workspaceBinding = useDirectorWorkspaceBinding(setta);
   const snapshotView = useMemo(
     () => directorCommandCenterSnapshotView(director.snapshot),
@@ -225,6 +224,52 @@ export function DirectorCommandCenterShell({
   const onGraphReady = useCallback((host: DirectorGraphCanvas | null) => {
     setCanvas(host);
   }, []);
+  /*
+   * What you are looking at is what you are talking to.
+   *
+   * On the Director's view this is the intent it has always dispatched. On a
+   * workstream's view the words go to that conversation, and the router decides
+   * whether they steer the run, queue behind it, or answer from what it already
+   * knows — then say which, because a silent wrong guess is worse than not
+   * guessing at all.
+   */
+  const submitTranscriptToCurrentView = useCallback(
+    async (text: string): Promise<string | null> => {
+      const selected = snapshotView.selectedWorkstream;
+      if (selected === null) {
+        const receipt = await director.dispatch(directorSubmitIntent(text));
+        return receipt.submit?.replyText ?? null;
+      }
+      const result = await submitToWorkstreamConversation({
+        conversationId: selected.conversationId,
+        newInputId: directorConversationInputId,
+        now: () => new Date().toISOString(),
+        setta,
+        text,
+        workstreamTitle: selected.title,
+      });
+      director.reportReceipt(result.receiptText);
+      return result.receiptText;
+    },
+    [director.dispatch, director.reportReceipt, setta, snapshotView.selectedWorkstream],
+  );
+  const submitToCurrentView = useCallback(
+    async (text: string): Promise<void> => {
+      await submitTranscriptToCurrentView(text);
+    },
+    [submitTranscriptToCurrentView],
+  );
+  /*
+   * Voice submits through the same door as text, so speaking to a workstream's
+   * view routes exactly as typing at it does. It returns the receipt line the
+   * capture surface shows, which for a workstream is what the router decided.
+   */
+  const speechCapture = useDirectorSpeechCapture({
+    runtimeId: connectedRuntimeId,
+    setta,
+    speechPlayback,
+    submitTranscript: submitTranscriptToCurrentView,
+  });
   const startWorkstreamInFolder = useCallback(() => {
     void (async () => {
       const workspace = await workspaceBinding.openLocalFolder();
@@ -313,9 +358,9 @@ export function DirectorCommandCenterShell({
             />
             <DirectorComposer
               answering={director.pending.answering}
-              dispatch={director.dispatch}
               focus={focus}
               onOpenVoiceCredentialSettings={onOpenVoiceCredentialSettings}
+              onSubmit={submitToCurrentView}
               speechCapture={speechCapture}
             />
           </div>
@@ -356,6 +401,7 @@ function useDirectorRuntime(
   runtimeId: string | null,
 ): DirectorRuntimeState & {
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
+  reportReceipt: (text: string) => void;
 } {
   const [snapshot, setSnapshotState] = useState<DirectorSnapshot | null>(null);
   const [loadState, setLoadState] = useState<DirectorLoadState>("loading");
@@ -537,7 +583,15 @@ function useDirectorRuntime(
     [finishPendingDispatch, handleDirectorReceipt, runtimeEpoch, setta, speechPlayback],
   );
 
-  return { dispatch, loadState, message, pending, receiptText, snapshot };
+  /*
+   * A receipt the shell wrote rather than the Director. Input sent to a
+   * workstream's conversation is routed by the conversation router, so what
+   * happened to it is reported here rather than arriving in a Director receipt.
+   */
+  const reportReceipt = useCallback((text: string) => {
+    setReceiptText(text);
+  }, []);
+  return { dispatch, loadState, message, pending, receiptText, reportReceipt, snapshot };
 }
 
 function useDirectorWorkspaceBinding(setta: SettaAPI): {
@@ -733,25 +787,25 @@ function closeDirectorShellLayers({
 }
 
 function useDirectorSpeechCapture({
-  dispatch,
   runtimeId,
   setta,
   speechPlayback,
+  submitTranscript,
 }: {
-  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
   runtimeId: string | null;
   setta: SettaAPI;
   speechPlayback: AppShellSpeechPlaybackController;
+  submitTranscript: (text: string) => Promise<string | null>;
 }): DirectorSpeechCaptureBinding {
-  const dispatchRef = useRef(dispatch);
-  dispatchRef.current = dispatch;
+  const submitRef = useRef(submitTranscript);
+  submitRef.current = submitTranscript;
   const [controller] = useState(
     () =>
       new DirectorSpeechCaptureController({
         captureProvider: createBrowserVoiceInputProvider(setta),
         clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
         createCaptureSessionId: () => globalThis.crypto.randomUUID(),
-        dispatchDirectorIntent: (intent) => dispatchRef.current(intent),
+        submitTranscript: (text) => submitRef.current(text),
         onCaptureEnd: speechPlayback.resumeAfterCapture,
         onCaptureStart: speechPlayback.preemptForCapture,
         setTimeout: (handler, delayMs) => globalThis.setTimeout(handler, delayMs),

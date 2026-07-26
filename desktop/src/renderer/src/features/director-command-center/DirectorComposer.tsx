@@ -1,4 +1,3 @@
-import type { DirectorIntent, DirectorReceipt } from "@generated/backend";
 import { Circle, Mic, RotateCcw, Send, Square, X } from "lucide-react";
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 
@@ -122,15 +121,20 @@ function DirectorComposerHint({ hint }: { hint: DirectorComposerHintCopy }) {
 
 export function DirectorComposer({
   answering,
-  dispatch,
   focus,
   onOpenVoiceCredentialSettings,
+  onSubmit,
   speechCapture,
 }: {
   answering: boolean;
-  dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
   focus: DirectorFocus;
   onOpenVoiceCredentialSettings: () => void;
+  /*
+   * Where what you typed goes. The composer does not know or choose: what you
+   * are looking at is what you are talking to, and the shell owns which view
+   * that is.
+   */
+  onSubmit: (text: string) => Promise<void>;
   speechCapture: DirectorSpeechCaptureBinding;
 }) {
   const [text, setText] = useState("");
@@ -157,7 +161,7 @@ export function DirectorComposer({
   const submitText = async (submittedText: string): Promise<void> => {
     setText("");
     try {
-      await dispatch(submitIntent(submittedText));
+      await onSubmit(submittedText);
     } catch {
       setText((current) => restoreFailedDirectorDraft(current, submittedText));
     }
@@ -495,19 +499,6 @@ function DirectorVoiceGlyph({ state }: { state: DirectorVoiceComposerState["stat
     default:
       return assertNever(directorVoiceGlyphKinds[state]);
   }
-}
-
-function submitIntent(text: string): DirectorIntent {
-  return {
-    cancelRun: null,
-    createWorkstream: null,
-    kind: "submit",
-    moveSelection: null,
-    resolveApproval: null,
-    resolveResourceRequest: null,
-    selectWorkstream: null,
-    submit: { modality: "text", text },
-  };
 }
 
 function transcriptPreview(transcript: string): string | null {

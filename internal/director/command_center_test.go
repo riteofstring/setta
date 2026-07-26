@@ -101,7 +101,7 @@ func dispatch(t *testing.T, center *CommandCenter, intent DirectorIntent) Direct
 func selectWorkstream(workstreamID string) DirectorIntent {
 	return DirectorIntent{
 		Kind:             DirectorIntentSelectWorkstream,
-		SelectWorkstream: &DirectorSelectWorkstreamIntent{WorkstreamID: workstreamID},
+		SelectWorkstream: &DirectorSelectWorkstreamIntent{WorkstreamID: stringPointer(workstreamID)},
 	}
 }
 
@@ -318,13 +318,13 @@ func TestCommandCenterRejectsUnauthorizedIntents(t *testing.T) {
 		"unknown modality":   submit("do the work", DecisionIntentModality("telepathy")),
 		"two payloads": {
 			Kind:             DirectorIntentSelectWorkstream,
-			SelectWorkstream: &DirectorSelectWorkstreamIntent{WorkstreamID: known},
+			SelectWorkstream: &DirectorSelectWorkstreamIntent{WorkstreamID: stringPointer(known)},
 			MoveSelection:    &DirectorMoveSelectionIntent{Direction: DirectorSelectionNext},
 		},
 		"submit beside a selection": {
 			Kind:             DirectorIntentSubmit,
 			Submit:           &DirectorSubmitIntent{Text: "do the work", Modality: DecisionIntentModalityText},
-			SelectWorkstream: &DirectorSelectWorkstreamIntent{WorkstreamID: known},
+			SelectWorkstream: &DirectorSelectWorkstreamIntent{WorkstreamID: stringPointer(known)},
 		},
 	} {
 		if _, err := center.Dispatch(context.Background(), intent); !errors.Is(err, ErrDirectorIntentRejected) {

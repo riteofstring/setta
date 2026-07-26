@@ -14,6 +14,19 @@ import (
 // opposite order to the one they were decided in, and a restart lands on the
 // selection the user last made rather than on whichever workstream ran last.
 
+// SelectView moves app-wide selection to a named workstream, or to the
+// Director's own view when the workstream is nil, and reports what results.
+func (registry *Registry) SelectView(ctx context.Context, workstreamID *string) (*string, error) {
+	if workstreamID == nil {
+		registry.selectMutex.Lock()
+		defer registry.selectMutex.Unlock()
+		return registry.commitSelection(ctx, func(_ *registryState, _ *string) (selectionTarget, error) {
+			return selectionTarget{workstreamID: nil, resolved: true}, nil
+		})
+	}
+	return registry.SelectWorkstream(ctx, *workstreamID)
+}
+
 // SelectWorkstream moves app-wide selection to a named workstream and reports
 // the selection that results.
 func (registry *Registry) SelectWorkstream(ctx context.Context, workstreamID string) (*string, error) {

@@ -16,8 +16,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 108;
-export const backendContractSchemaHash = "sha256:245b1356f6328d544d5591e2a622a71ce51bad50178dac1c22e3f8f094409064";
+export const backendProtocolVersion = 110;
+export const backendContractSchemaHash = "sha256:5a1a40ab0fc2791cdbfb5721a49755c2f41a30748a45daa097018a73b277ced7";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -2934,6 +2934,7 @@ export interface WorkstreamNarration {
 
 export interface Workstream {
   id: string;
+  conversationId: string;
   title: string;
   status: WorkstreamStatus;
   parentId: string | null;
@@ -3091,7 +3092,7 @@ export interface DirectorCreateWorkstreamIntent {
 }
 
 export interface DirectorSelectWorkstreamIntent {
-  workstreamId: string;
+  workstreamId: string | null;
 }
 
 export interface DirectorMoveSelectionIntent {
@@ -5813,9 +5814,10 @@ export function decodeWorkstreamNarration(value: unknown): WorkstreamNarration {
 
 export function decodeWorkstream(value: unknown): Workstream {
   const record = assertRecord(value, "Workstream");
-  assertKnownFields(record, "Workstream", ["id", "title", "status", "parentId", "resourceScope", "resourceBindings", "activeRunId", "queuedRunCount", "unresolvedApprovalCount", "unresolvedResourceRequestCount", "artifactCount", "lastMilestone", "narration", "createdAt", "updatedAt"]);
+  assertKnownFields(record, "Workstream", ["id", "conversationId", "title", "status", "parentId", "resourceScope", "resourceBindings", "activeRunId", "queuedRunCount", "unresolvedApprovalCount", "unresolvedResourceRequestCount", "artifactCount", "lastMilestone", "narration", "createdAt", "updatedAt"]);
   return {
     id: decodeString(requireField(record, "id", "Workstream"), "Workstream.id"),
+    conversationId: decodeString(requireField(record, "conversationId", "Workstream"), "Workstream.conversationId"),
     title: decodeString(requireField(record, "title", "Workstream"), "Workstream.title"),
     status: decodeWorkstreamStatus(requireField(record, "status", "Workstream"), "Workstream.status"),
     parentId: decodeNullable(requireField(record, "parentId", "Workstream"), "Workstream.parentId", (item) => decodeString(item, "Workstream.parentId")),
@@ -6037,7 +6039,7 @@ export function decodeDirectorSelectWorkstreamIntent(value: unknown): DirectorSe
   const record = assertRecord(value, "DirectorSelectWorkstreamIntent");
   assertKnownFields(record, "DirectorSelectWorkstreamIntent", ["workstreamId"]);
   return {
-    workstreamId: decodeString(requireField(record, "workstreamId", "DirectorSelectWorkstreamIntent"), "DirectorSelectWorkstreamIntent.workstreamId"),
+    workstreamId: decodeNullable(requireField(record, "workstreamId", "DirectorSelectWorkstreamIntent"), "DirectorSelectWorkstreamIntent.workstreamId", (item) => decodeString(item, "DirectorSelectWorkstreamIntent.workstreamId")),
   };
 }
 

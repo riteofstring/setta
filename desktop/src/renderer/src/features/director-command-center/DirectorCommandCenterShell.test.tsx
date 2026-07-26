@@ -537,6 +537,7 @@ function workstreamEntry(position: number, status: WorkstreamStatus): DirectorWo
       artifactCount: 0,
       createdAt: "2026-07-25T17:00:00Z",
       id: `workstream:${position}`,
+      conversationId: "conversation:1",
       lastMilestone: null,
       narration: [],
       parentId: null,

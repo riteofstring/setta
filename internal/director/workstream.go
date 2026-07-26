@@ -130,8 +130,12 @@ type WorkstreamMilestone struct {
 // Workstream is one registry record. Counts are aggregated by the registry so
 // background workstreams never need their trajectory loaded to be actionable.
 type Workstream struct {
-	ID                             string                      `json:"id"`
-	Title                          string                      `json:"title"`
+	ID string `json:"id"`
+	// ConversationID is the conversation this workstream's work runs in. The
+	// view that shows a workstream is also the view you talk to it from, so the
+	// renderer needs to be able to address it.
+	ConversationID string           `json:"conversationId"`
+	Title          string           `json:"title"`
 	Status                         WorkstreamStatus            `json:"status"`
 	ParentID                       *string                     `json:"parentId"`
 	ResourceScope                  WorkstreamResourceScope     `json:"resourceScope"`
@@ -236,6 +240,9 @@ func ValidateWorkstream(workstream Workstream) error {
 
 func validateWorkstreamIdentity(workstream Workstream) error {
 	if err := validateIdentifier("workstream id", workstream.ID); err != nil {
+		return err
+	}
+	if err := validateIdentifier("workstream conversation id", workstream.ConversationID); err != nil {
 		return err
 	}
 	if workstream.ParentID != nil {

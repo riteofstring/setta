@@ -172,6 +172,7 @@ func (state *registryState) registerConversation(
 	delete(state.pendingParents, record.ID)
 	return state.registerWorkstreamRecord(Workstream{
 		ID:               workstreamID,
+		ConversationID:   record.ID,
 		Title:            record.Title,
 		Status:           WorkstreamStatusIdle,
 		ParentID:         parentID,

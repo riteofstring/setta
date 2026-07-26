@@ -139,13 +139,25 @@ function WorkstreamNavigation({
          * floating under the title — the status it carries is already the
          * word beside the title.
          */}
-        {navigation.visibleEntries.length > 1 ? (
+        {navigation.visibleEntries.length > 0 ? (
           <div
-            aria-label="Visible workstreams"
+            aria-label="Views"
             className="director-workstream-strip"
             ref={workstreamStripRef}
             role="list"
           >
+            <span role="listitem">
+              <button
+                aria-current={focus.kind === "director" ? "page" : undefined}
+                aria-label="Select the Director"
+                className="director-workstream-dot director-view-dot"
+                data-view="director"
+                onClick={() => dispatchDirectorIntent(dispatch, selectViewIntent(null))}
+                title="Director — every workstream at once"
+                type="button"
+              />
+            </span>
+            <span aria-hidden="true" className="director-strip-separator" />
             {navigation.visibleEntries.map((item) => (
               <WorkstreamDot
                 dispatch={dispatch}
@@ -227,7 +239,7 @@ function WorkstreamDot({
         className="director-workstream-dot"
         data-status={workstream.status}
         data-workstream-id={workstream.id}
-        onClick={() => dispatchDirectorIntent(dispatch, selectWorkstreamIntent(workstream.id))}
+        onClick={() => dispatchDirectorIntent(dispatch, selectViewIntent(workstream.id))}
         title={labels.tooltip}
         type="button"
       >
@@ -318,7 +330,11 @@ function StatusGlyph({ status }: { status: WorkstreamStatus }) {
   );
 }
 
-function selectWorkstreamIntent(workstreamId: string): DirectorIntent {
+/*
+ * Selecting a view. A null workstream is the Director's own, which is what the
+ * strip's first destination selects.
+ */
+function selectViewIntent(workstreamId: string | null): DirectorIntent {
   return {
     cancelRun: null,
     createWorkstream: null,

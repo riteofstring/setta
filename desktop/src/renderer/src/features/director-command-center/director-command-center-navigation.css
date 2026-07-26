@@ -130,6 +130,28 @@
   inline-size: 7px;
 }
 
+/*
+ * The Director leads the strip: a ring rather than a filled dot, because it is
+ * a different kind of destination rather than one more workstream.
+ */
+.director-view-dot {
+  border-color: var(--director-faint);
+}
+
+.director-view-dot[aria-current="page"] {
+  background: var(--director-role-accent);
+  border-color: transparent;
+  box-shadow: 0 0 8px color-mix(in oklch, var(--director-role-accent) 70%, transparent);
+}
+
+.director-strip-separator {
+  background: var(--director-border);
+  block-size: 9px;
+  flex: none;
+  inline-size: 1px;
+  margin-inline: 3px;
+}
+
 .director-workstream-strip {
   display: flex;
   flex: none;
@@ -165,6 +187,16 @@
   .director-workstream-nav {
     gap: 2px;
     min-inline-size: 0;
+  }
+
+  /*
+   * The strip is a navigator, and so are the arrows beside it. A compact bar
+   * has room for one of them, and the arrows are the one that works at any
+   * count.
+   */
+  .director-workstream-strip,
+  .director-strip-separator {
+    display: none;
   }
 
   .director-command-center-view-controls {

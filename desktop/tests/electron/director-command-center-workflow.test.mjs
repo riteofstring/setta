@@ -116,7 +116,16 @@ try {
     workspaceId,
     fixture.workspaceRoot,
   );
+  /*
+   * This checks the Director answering, so it runs on the Director's view.
+   * Typing at a workstream's view speaks to that conversation instead, and the
+   * Director is not answering then — which is the point of the change, not a
+   * gap in it.
+   */
+  const selectionBeforeComposerCheck = await client_selectedWorkstream(context.client);
+  await selectDirectorView(context.client);
   await verifyComposerQueuesWhileDirectorAnswers(context.client, fakeCodex.statePath);
+  await selectView(context.client, selectionBeforeComposerCheck);
 
   const normal = await submitDirector(context.client, "Director normal conversation.");
   assertEqual(
@@ -751,6 +760,37 @@ async function launchDirectorElectron(launchArtifactDir) {
  * stated the other way round: whatever the rail says, it is not the resolved
  * folder request.
  */
+// Selecting a view. A null workstream is the Director's own, which is a
+// destination the intent names rather than the absence of a workstream.
+async function selectView(client, workstreamId) {
+  await client.evaluate(`window.setta.director.dispatch({
+    cancelRun: null,
+    createWorkstream: null,
+    kind: "select_workstream",
+    moveSelection: null,
+    resolveApproval: null,
+    resolveResourceRequest: null,
+    selectWorkstream: { workstreamId: ${JSON.stringify(workstreamId)} },
+    submit: null
+  })`);
+  await waitForState(
+    client,
+    `(async () => (await window.setta.director.readSnapshot()).selectedWorkstreamId)()`,
+    (selected) => selected === workstreamId,
+    workflowTimeoutMs,
+  );
+}
+
+async function selectDirectorView(client) {
+  await selectView(client, null);
+}
+
+async function client_selectedWorkstream(client) {
+  return client.evaluate(
+    `(async () => (await window.setta.director.readSnapshot()).selectedWorkstreamId)()`,
+  );
+}
+
 async function assertRunningSummaryIsCurrent(client) {
   const state = await waitForState(
     client,
@@ -943,13 +983,20 @@ async function assertDirectorFocusIsConsistent(client) {
       composerFocus:
         document.querySelector(".director-composer-hint-focus")?.textContent?.trim() ?? "",
       currentDots: document.querySelectorAll('.director-workstream-dot[aria-current="page"]').length,
+      currentIsDirector: Boolean(
+        document.querySelector('.director-view-dot[aria-current="page"]')
+      ),
       headingCount: document.querySelectorAll("h1").length,
       topMeta: document.querySelector(".director-focus-meta")?.textContent?.trim() ?? "",
       topTitle: document.querySelector(".director-focus-title")?.textContent?.trim() ?? ""
     }))()`,
     (state) =>
       state.composerFocus === "No workstream in focus" &&
-      state.currentDots === 0 &&
+      // The Director is a destination, so exactly one dot is current and it is
+      // the Director's. It used to be none, because the Director was the
+      // absence of a selection rather than a view.
+      state.currentDots === 1 &&
+      state.currentIsDirector &&
       state.headingCount === 1 &&
       state.topMeta === "No workstream in focus" &&
       state.topTitle === "Director",
@@ -962,7 +1009,8 @@ async function assertDirectorFocusIsConsistent(client) {
     focus,
     {
       composerFocus: "No workstream in focus",
-      currentDots: 0,
+      currentDots: 1,
+      currentIsDirector: true,
       headingCount: 1,
       topMeta: "No workstream in focus",
       topTitle: "Director",
