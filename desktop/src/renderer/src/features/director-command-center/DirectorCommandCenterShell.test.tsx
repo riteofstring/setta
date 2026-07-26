@@ -512,7 +512,11 @@ describe("Director command-center shell view state", () => {
   test("classifies workstream switch transitions as view state", () => {
     const entries = snapshotWithWorkstreams(3, 2).workstreams;
 
-    expect(directorWorkstreamSwitchTransition(null, "workstream:1", entries)).toBeNull();
+    // The Director's view leads the strip, so moving between it and a
+    // workstream is a directed switch like any other.
+    expect(directorWorkstreamSwitchTransition(null, "workstream:1", entries)).toBe("next");
+    expect(directorWorkstreamSwitchTransition("workstream:1", null, entries)).toBe("previous");
+    expect(directorWorkstreamSwitchTransition(null, null, entries)).toBeNull();
     expect(directorWorkstreamSwitchTransition("workstream:1", "workstream:1", entries)).toBeNull();
     expect(directorWorkstreamSwitchTransition("workstream:1", "workstream:3", entries)).toBe(
       "next",

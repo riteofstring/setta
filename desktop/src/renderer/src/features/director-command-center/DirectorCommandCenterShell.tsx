@@ -284,6 +284,24 @@ export function DirectorCommandCenterShell({
     canvas.setSnapshot(composition.snapshot);
   }, [canvas, composition]);
 
+  // Each switch plays once: the transition key names the switch, and the slide
+  // must not replay when the same transition object merely settles inactive.
+  const playedSwitchKeyRef = useRef(0);
+  useEffect(() => {
+    if (
+      canvas === null ||
+      !switchTransition.active ||
+      switchTransition.direction === null ||
+      playedSwitchKeyRef.current === switchTransition.key
+    ) {
+      return;
+    }
+    playedSwitchKeyRef.current = switchTransition.key;
+    canvas.playWorkstreamSwitch(
+      switchTransition.direction === "next" ? 1 : switchTransition.direction === "previous" ? -1 : 0,
+    );
+  }, [canvas, switchTransition]);
+
   useDirectorShellKeyboardNavigation({
     artifactBrowserOpen: artifactBrowser.activeArtifact !== null,
     closeCompactRail,

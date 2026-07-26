@@ -120,6 +120,9 @@ const defaultFrameHost: GraphFrameSchedulerHost = {
   cancelFrame: (handle) => cancelAnimationFrame(handle),
 };
 
+/** The in-phase of the mockup's 620ms switch: the half after the swap. */
+const workstreamSwitchSlideMs = 310;
+
 /** Hover animates only in the normal-motion profile; reduced motion snaps once. */
 export function graphHoverNeedsAnimation(
   reducedMotion: boolean,
@@ -175,6 +178,13 @@ export class DirectorGraphCanvas {
   private lastSurfaceKey = "";
   private lastFrameTimestampMs = 0;
   private disposed = false;
+  /*
+   * The mockup's thread-switch slide (mockup lines 1278–1285). By the time the
+   * shell knows the selection changed, the new snapshot is already on screen,
+   * so production plays the mockup's second half: the new graph sweeps in from
+   * the arrow's direction while the post pass glitches, both easing out.
+   */
+  private workstreamSwitch: { direction: -1 | 0 | 1; startMs: number } | null = null;
 
   constructor(private readonly options: DirectorGraphCanvasOptions) {
     this.snapshot = emptyPackedGraphSnapshot("");
@@ -346,6 +356,19 @@ export class DirectorGraphCanvas {
    */
   setPresentation(presentation: SemanticGraphPresentation): void {
     this.presentation = presentation;
+  }
+
+  /**
+   * Plays the workstream-switch slide: the graph and its field sweep in from
+   * the direction of travel with a signal glitch that settles as they land.
+   * `0` glitches without sliding, for jumps with no spatial direction.
+   */
+  playWorkstreamSwitch(direction: -1 | 0 | 1): void {
+    if (this.reducedMotion) {
+      return;
+    }
+    this.workstreamSwitch = { direction, startMs: this.now() };
+    this.scheduler.requestFrame();
   }
 
   /**
@@ -584,15 +607,42 @@ export class DirectorGraphCanvas {
 
   private renderView(timeSeconds: number): GraphRenderView {
     const hovered = this.view.hovered();
+    const switchMotion = this.workstreamSwitchMotion();
     return {
       timeSeconds,
       cameraWorldY: this.view.camera(),
       hoverLaneX: hovered === null ? 0 : packedValueAt(this.snapshot.nodes.lane, hovered),
       hoverWorldY: hovered === null ? 0 : this.layout.nodeWorldY(hovered),
       hoverAmount: this.hoverAmount,
-      shiftX: 0,
-      glitch: 0,
+      shiftX: switchMotion.shiftX,
+      glitch: switchMotion.glitch,
       reducedMotion: this.reducedMotion,
+    };
+  }
+
+  /**
+   * Where the slide is right now. The mockup's in-phase: position eases out
+   * cubically from a full viewport off to rest, and the glitch is the tail of
+   * the sine that peaked at the swap (mockup lines 1281–1283).
+   */
+  private workstreamSwitchMotion(): { shiftX: number; glitch: number } {
+    const active = this.workstreamSwitch;
+    if (active === null) {
+      return { shiftX: 0, glitch: 0 };
+    }
+    const progress = (this.now() - active.startMs) / workstreamSwitchSlideMs;
+    if (progress >= 1) {
+      this.workstreamSwitch = null;
+      this.options.labelRoot.style.opacity = "";
+      return { shiftX: 0, glitch: 0 };
+    }
+    const remaining = 1 - progress;
+    // Labels are DOM and cannot ride the shader's shift, so they fade in with
+    // the slide instead of standing still while the nodes move under them.
+    this.options.labelRoot.style.opacity = String(progress * progress);
+    return {
+      shiftX: active.direction * remaining * remaining * remaining * 1.7,
+      glitch: Math.cos(progress * Math.PI * 0.5),
     };
   }
 
@@ -678,6 +728,9 @@ export class DirectorGraphCanvas {
     hovering: boolean,
   ): GraphFrameOutcome {
     if (arrived || ladder.foldAnimating || this.queued.length > 0) {
+      return "continue";
+    }
+    if (this.workstreamSwitch !== null) {
       return "continue";
     }
     if (timeSeconds < ladder.quietUntilSeconds) {
