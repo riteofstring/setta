@@ -13,7 +13,7 @@ import { MarkdownText } from "@renderer/components/markdown-text";
  */
 export function ArtifactMarkdown({ source }: { source: string }) {
   return (
-    <div className="[&_code]:rounded [&_code]:border [&_code]:border-border [&_code]:bg-muted [&_code]:px-1 [&_code]:py-px [&_code]:font-mono [&_code]:text-xs [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_h4]:text-xs [&_h4]:font-semibold [&_h5]:text-xs [&_h5]:font-semibold [&_ol]:list-decimal [&_ol]:ps-5 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-border [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:border-0 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_ul]:list-disc [&_ul]:ps-5 [&>div]:grid [&>div]:gap-2 [&>div>*]:m-0">
+    <div className="[&_code]:rounded [&_code]:border [&_code]:border-border [&_code]:bg-muted [&_code]:px-1 [&_code]:py-px [&_code]:font-mono [&_code]:text-xs [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-semibold [&_h4]:text-xs [&_h4]:font-semibold [&_h5]:text-xs [&_h5]:font-semibold [&_ol]:list-decimal [&_ol]:ps-5 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-border [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:border-0 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_ul]:list-disc [&_ul]:ps-5 [&_li[data-task]]:list-none [&_li[data-task]]:-ms-5 [&_li[data-task=true]]:text-muted-foreground [&_.markdown-task-mark]:me-2 [&_.markdown-task-mark]:text-muted-foreground [&>div]:grid [&>div]:gap-2 [&>div>*]:m-0">
       <MarkdownText headingLevelOffset={1} text={source} />
     </div>
   );

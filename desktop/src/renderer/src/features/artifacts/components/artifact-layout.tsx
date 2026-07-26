@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { renderInlineMarkdown } from "@renderer/components/markdown-text";
 import { cn } from "@renderer/lib/utils";
 
 import type { ArtifactComponentProps } from "../generated/artifact-catalog-props";
@@ -71,7 +72,16 @@ export function ArtifactText({
   text: string;
   tone: NonNullable<ArtifactComponentProps["Text"]["tone"]>;
 }) {
-  return <p className={cn("leading-relaxed text-balance", textToneClasses[tone])}>{text}</p>;
+  /*
+   * Inline markdown, not a raw string. A model writing prose emits `**bold**`
+   * whether or not the node it lands in is called Markdown, and rendering the
+   * markers literally is what makes generated artifacts look broken.
+   */
+  return (
+    <p className={cn("leading-relaxed text-balance", textToneClasses[tone])}>
+      {renderInlineMarkdown(text)}
+    </p>
+  );
 }
 
 const stackGapClasses = {

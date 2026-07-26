@@ -11,11 +11,13 @@
   /* The Director's role accent. Workstreams keep the status palette. */
   --director-role-accent: oklch(0.84 0.12 195);
   /*
-   * The artifact preview's content viewport. Every card reserves exactly this,
-   * so the rail's height is decided by how many artifacts there are and never
-   * by what any of them contain.
+   * The artifact summary's reserve. Every card holds exactly this, so the rail's
+   * height is decided by how many artifacts there are and never by what any of
+   * them contain — an arriving preview cannot move the card under the reader.
+   * It is smaller than it was because a card now shows a chosen summary rather
+   * than a replay of the document's opening.
    */
-  --director-artifact-preview-block: 108px;
+  --director-artifact-preview-block: 96px;
   background:
     radial-gradient(circle at 50% 10%, oklch(0.25 0.06 230 / 0.42), transparent 34%),
     linear-gradient(180deg, oklch(0.11 0.01 260), oklch(0.07 0.006 260));
@@ -526,9 +528,19 @@
  * word or a wide table must not be able to change the card's size, so the
  * viewport clips instead of growing and fades its last line out.
  */
+/*
+ * The summary keeps its own themed surface, without a border around it.
+ *
+ * The background is not decoration: the preview blocks are drawn with the
+ * artifact catalog's theme tokens, so they need a matching ground to stay
+ * readable when the appearance mode is light and the card around them is not.
+ * That coupling is the real problem, and it belongs to the artifact catalog
+ * rather than to this card — until it is fixed, dropping the ground here would
+ * put dark text on a dark card. The border is what made it read as a box inside
+ * a box, so only the border goes.
+ */
 .director-artifact-preview-viewport {
   background: var(--card);
-  border: 1px solid var(--border);
   border-radius: 6px;
   block-size: var(--director-artifact-preview-block);
   color: var(--card-foreground);
@@ -538,11 +550,10 @@
   pointer-events: none;
 }
 
+/* A summary is chosen to fit; the fade is only for the rare one that does not. */
 .director-artifact-preview-viewport > * {
-  block-size: 100%;
-  mask-image: linear-gradient(to bottom, black calc(100% - 18px), transparent);
-  overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 18px), transparent);
+  mask-image: linear-gradient(to bottom, black calc(100% - 12px), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 12px), transparent);
 }
 
 .director-artifact-preview-status {

@@ -92,14 +92,17 @@ describe("Director command-center approval answers", () => {
 });
 
 describe("Director command-center shell view state", () => {
-  test("labels artifact cards from typed Director artifact metadata", () => {
+  // A card says whether its artifact is readable. How many events produced it
+  // is provenance, which belongs to the artifact surface rather than to a
+  // one-line card caption that a reader cannot act on.
+  test("labels artifact cards with the reader-facing status alone", () => {
     expect(
       directorArtifactCardMetadata({
         ...workstreamArtifact(),
         sourceEventIds: ["event:1"],
         status: "available",
       }),
-    ).toBe("Ready / 1 source");
+    ).toBe("Ready");
 
     expect(
       directorArtifactCardMetadata({
@@ -107,7 +110,7 @@ describe("Director command-center shell view state", () => {
         sourceEventIds: ["event:1", "event:2"],
         status: "unresolved",
       }),
-    ).toBe("Pending / 2 sources");
+    ).toBe("Pending");
   });
 
   test("announces typed artifact lifecycle changes at their update time", () => {
