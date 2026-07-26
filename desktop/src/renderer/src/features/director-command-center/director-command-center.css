@@ -407,6 +407,12 @@
   border-color: oklch(0.66 0.12 220 / 0.8);
 }
 
+/* Preparing to open: the card warms while its document is read, so the wait
+   is visibly this card's and the browser never appears empty. */
+.director-artifact-preview[data-artifact-opening="true"] {
+  border-color: oklch(from var(--director-primary) l c h / 0.6);
+}
+
 .director-artifact-preview-header {
   align-items: start;
   display: grid;
