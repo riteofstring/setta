@@ -491,18 +491,26 @@ function buildDirectorGrid(lead){
   let lastBorn=lb0;
   const gc=Math.ceil(Math.sqrt(N)), gr=Math.ceil(N/gc);   // the rest, tiled
   /*
-   * The grid fills the band between the switch and the composer rather than
-   * being a fixed block: a 4x4 sized for 3x3 leaves the top third empty. The
-   * band is ~1.55 world units, so a row's share is that over the row count,
-   * which keeps half a cell of margin at the top and bottom whatever the
-   * thread count is.
+   * The grid fills the band between the switch and the composer.
+   *
+   * The band has to be computed rather than constant, and in two ways. A 4x4
+   * sized for a 3x3 leaves the top third of the window empty — that is the row
+   * count. And the canvas maps world units to a fraction of the viewport while
+   * the switch, the hint, and the composer are fixed pixels, so a span tuned at
+   * one window height runs into the composer at another. Both are divided out
+   * here, which is why this is arithmetic and not three tuned constants.
    */
-  const cellW=1.45/gc, cellH=1.55/gr;
+  const worldPx=0.4956*innerHeight;                    // one world unit, in CSS px
+  const bandPx=Math.max(300, innerHeight-275);         // switch above, hint and composer below
+  // The lift is constant in world units, not pixels: the canvas already scales
+  // its own centre with the viewport, so a pixel-constant lift over-corrects in
+  // a tall window and the grid drifts back into the composer.
+  const cellW=1.45/gc, cellH=(bandPx/worldPx)/gr, bias=-0.36;
   for(let k=0;k<N;k++){
     const conv=CONVS[k], nFrom=nodes.length, tFrom=turns.length;
     // Larger worldY draws lower, so the row index runs with it: the oldest
     // thread is top-left and the newest is bottom-right, in reading order.
-    const cx=0.24+((k%gc)-(gc-1)/2)*cellW, cy=(Math.floor(k/gc)-(gr-1)/2)*cellH-0.23;
+    const cx=0.24+((k%gc)-(gc-1)/2)*cellW, cy=(Math.floor(k/gc)-(gr-1)/2)*cellH+bias;
     const tail=Object.assign({},conv,{thread:(conv.thread||[]).slice(-1)});   // the live turn only
     const lb=addThread(tail,nodes,edges,turns,k+1,cx,Math.min(0.42,cellW/0.9),(k*2.7)%11);
     cols.push({i:k+1,nodeFrom:nFrom,nodeTo:nodes.length,turnFrom:tFrom,turnTo:turns.length,cam:0,
