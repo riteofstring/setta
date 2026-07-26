@@ -41,7 +41,6 @@ import { enqueueDirectorSpeechPlayback } from "./director-speech-playback";
 import { DirectorSpeechCaptureController } from "./director-speech-capture";
 import { ArtifactBrowserOverlaySlot } from "./ArtifactBrowserOverlaySlot";
 import { ArtifactsRail } from "./DirectorArtifactsRail";
-import { DirectorColumnTitles } from "./DirectorColumnTitles";
 import {
   createWorkstreamIntent,
   PendingActions,
@@ -285,8 +284,9 @@ export function DirectorCommandCenterShell({
       composition.presentation,
       selectedWorkstreamId === null ? directorGraphLaneId : null,
     );
+    canvas.setColumnTitles(directorColumnTitles(snapshot));
     canvas.setSnapshot(composition.snapshot);
-  }, [canvas, composition, selectedWorkstreamId]);
+  }, [canvas, composition, selectedWorkstreamId, snapshot]);
 
   // The input node breathes only while the microphone is actually capturing.
   useEffect(() => {
@@ -374,9 +374,6 @@ export function DirectorCommandCenterShell({
             onReady={onGraphReady}
             timeSecondsAt={graphTimeSecondsAt}
           />
-          {composition.presentation === "columns" && snapshotGraphs !== undefined ? (
-            <DirectorColumnTitles graphs={snapshotGraphs} snapshot={director.snapshot} />
-          ) : null}
           {packedSnapshot.nodeCount === 0 ? <GraphEmptyState focus={focus} /> : null}
           <NowRail
             narration={snapshotView.narration}
@@ -706,6 +703,15 @@ function emptyCommandCenterSnapshotView(): DirectorCommandCenterSnapshotView {
     requests: [],
     selectedWorkstream: null,
   };
+}
+
+/** Thread names for the canvas's column titles, the Director's lane included. */
+function directorColumnTitles(snapshot: DirectorSnapshot | null): ReadonlyMap<string, string> {
+  const titles = new Map<string, string>([[directorGraphLaneId, "Director"]]);
+  for (const entry of snapshot?.workstreams ?? []) {
+    titles.set(entry.workstream.id, entry.workstream.title);
+  }
+  return titles;
 }
 
 function directorRailVisibilityAttributes(visibility: DirectorRailVisibility) {

@@ -59,6 +59,7 @@ import {
   GraphViewController,
   advanceHoverAmount,
   graphNodeAtPointer,
+  graphNodeScreenPosition,
   graphOutcomeAtPointer,
   type GraphScreenPoint,
   type GraphViewport,
@@ -66,7 +67,7 @@ import {
   graphNodeActivation,
   type GraphCameraBounds,
 } from "./graph-view-state";
-import { graphFitFrame, graphMotionRates } from "./graph-visual-language";
+import { graphFitFrame, graphMotionRates, graphWarpToScreen } from "./graph-visual-language";
 import { packedValueAt } from "../packed-graph-vocabulary";
 import type { SemanticGraphPresentation } from "../semantic-graph-packer";
 
@@ -122,6 +123,9 @@ const defaultFrameHost: GraphFrameSchedulerHost = {
 
 /** The in-phase of the mockup's 620ms switch: the half after the swap. */
 const workstreamSwitchSlideMs = 310;
+
+/** Where the columns view pins its title row, just under the top bar. */
+const columnTitleTopPx = 64;
 
 /** Hover animates only in the normal-motion profile; reduced motion snaps once. */
 export function graphHoverNeedsAnimation(
@@ -191,6 +195,8 @@ export class DirectorGraphCanvas {
   private labelsEnabled = true;
   /** The lane whose turns fold on click because it is the view's own thread. */
   private selfWorkstreamId: string | null = null;
+  /** Thread names, drawn above each column by the label layer. */
+  private columnTitles: ReadonlyMap<string, string> = new Map();
   /*
    * The node an unfold is anchored on. Expanding a folded turn grows the
    * ladder above its outcome, and the camera holds that outcome still on
@@ -378,6 +384,16 @@ export class DirectorGraphCanvas {
   ): void {
     this.presentation = presentation;
     this.selfWorkstreamId = selfWorkstreamId;
+  }
+
+  /**
+   * Names the threads. The label layer draws each name above its column,
+   * anchored to the column's own input node, so a title cannot drift from the
+   * thread it names whatever lane the packer chose.
+   */
+  setColumnTitles(titles: ReadonlyMap<string, string>): void {
+    this.columnTitles = titles;
+    this.scheduler.requestFrame();
   }
 
   /**
@@ -788,6 +804,52 @@ export class DirectorGraphCanvas {
       count = kept;
     }
     this.labels.apply(this.snapshot, this.placements, count, this.presentation === "conversation");
+    this.labels.applyColumnTitles(this.columnTitlePlacements(viewport));
+  }
+
+  /**
+   * Where each thread's name sits: over its column's input node, computed by
+   * the same node-to-screen projection the labels use, so titles and threads
+   * cannot disagree. Columns pin the row just under the bar; the grid hangs
+   * each name above its own tile.
+   */
+  private columnTitlePlacements(
+    viewport: GraphViewport,
+  ): readonly { text: string; x: number; y: number; self: boolean }[] {
+    if (this.presentation === "conversation" || this.columnTitles.size === 0) {
+      return [];
+    }
+    const fit = graphFitFrame(viewport.width, viewport.height);
+    const camera = this.view.camera();
+    const placements: { text: string; x: number; y: number; self: boolean }[] = [];
+    for (let turn = 0; turn < this.snapshot.turnCount; turn += 1) {
+      const workstreamId = this.snapshot.turnWorkstreamIds[turn];
+      if (workstreamId === undefined) {
+        continue;
+      }
+      const text = this.columnTitles.get(workstreamId);
+      if (text === undefined) {
+        continue;
+      }
+      const input = packedValueAt(this.snapshot.turns.inputNode, turn);
+      const position = graphNodeScreenPosition(
+        packedValueAt(this.snapshot.nodes.lane, input),
+        this.layout.nodeWorldY(input),
+        camera,
+        fit,
+        viewport,
+      );
+      const anchorY =
+        this.presentation === "columns" ? columnTitleTopPx : Math.max(52, position.y - 44);
+      const warped = graphWarpToScreen(position.x, anchorY, viewport.width, viewport.height);
+      placements.push({
+        text,
+        x: warped.x,
+        y: warped.y,
+        self: workstreamId === this.selfWorkstreamId,
+      });
+    }
+    return placements;
   }
 
   private recordFrame(frameStart: number, timing: GraphFrameTiming): void {

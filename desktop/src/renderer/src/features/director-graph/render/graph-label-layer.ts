@@ -130,16 +130,53 @@ export interface GraphLabelLayerCallbacks {
 export class GraphLabelLayer {
   private readonly steps: PooledLabel[] = [];
   private readonly pills: PooledLabel[] = [];
+  private readonly titles: HTMLElement[] = [];
   /** Whether a pill discloses a fold here, or navigates. See assignExpanded. */
   private foldable = true;
   private stepsUsed = 0;
   private pillsUsed = 0;
+  private titlesUsed = 0;
 
   constructor(
     private readonly root: HTMLElement,
     private readonly ownerDocument: Document,
     private readonly callbacks: GraphLabelLayerCallbacks,
   ) {}
+
+  /**
+   * Draws the thread names the canvas computed. Pooled like every label, so a
+   * frame with the same titles writes styles, never DOM structure.
+   */
+  applyColumnTitles(
+    placements: readonly { text: string; x: number; y: number; self: boolean }[],
+  ): void {
+    while (this.titles.length < placements.length) {
+      const element = this.ownerDocument.createElement("span");
+      element.className = "director-column-title";
+      this.root.append(element);
+      this.titles.push(element);
+    }
+    placements.forEach((placement, index) => {
+      const element = this.titles[index];
+      if (element === undefined) {
+        return;
+      }
+      if (element.textContent !== placement.text) {
+        element.textContent = placement.text;
+      }
+      element.style.left = `${placement.x}px`;
+      element.style.top = `${placement.y}px`;
+      element.style.display = "";
+      element.setAttribute("data-self", placement.self ? "true" : "false");
+    });
+    for (let index = placements.length; index < this.titlesUsed; index += 1) {
+      const element = this.titles[index];
+      if (element !== undefined) {
+        element.style.display = "none";
+      }
+    }
+    this.titlesUsed = placements.length;
+  }
 
   /** Applies one frame's placements. Nothing else in the loop touches the DOM. */
   apply(

@@ -79,8 +79,17 @@ const directorGridBias = -0.36;
 /** A tile's own vertical room, before its rows are laid inside it. */
 const directorTileHeight = 0.62;
 const directorLeadLane = -0.86;
-/** How much of a conversation a tile shows: its latest activity, and no more. */
-const maxTileNodes = 3;
+/**
+ * How much of a conversation a tile shows: the newest node in focus with a
+ * short trail behind it, the mockup's grid tile.
+ */
+const maxTileNodes = 4;
+/**
+ * Where the grid's level of detail steps down. Up to this many tiles, each
+ * shows its trail; past it, finished tiles fold to single outcome dots. The
+ * fold eases, so crossing the threshold is an animation rather than a swap.
+ */
+const gridFoldTileCount = 12;
 
 interface OrderedNode {
   readonly node: SemanticNode;
@@ -471,6 +480,7 @@ function graphOutcome(planned: readonly PlannedNode[]): {
 function turnInputs(
   planned: readonly PlannedNode[],
   placementFor: (graphIndex: number) => ColumnPlacement,
+  folding: boolean,
 ): PackedGraphTurnInput[] {
   const byTurn = new Map<number, PlannedNode[]>();
   for (const node of planned) {
@@ -498,12 +508,14 @@ function turnInputs(
       outcome: outcome.outcome,
       answerAt: outcome.answerAt,
       /*
-       * Finished work folds itself, whatever the view: the ladder eases shut
-       * a beat after the answer lands, leaving the outcome node carrying the
-       * verdict. On a conversation the pill re-opens it; on the Director's
-       * views a click enters the thread, where it can be reopened.
+       * Finished work folds itself where the view wants dots: conversations
+       * and columns ease shut a beat after the answer lands, leaving the
+       * outcome node carrying the verdict, and a crowded grid folds its tiles
+       * the same way. A small grid keeps each tile's trail open instead —
+       * the newest node in focus, trailing off into what led to it.
        */
-      compactAt: outcome.answerAt === null ? null : outcome.answerAt + compactDelaySeconds,
+      compactAt:
+        !folding || outcome.answerAt === null ? null : outcome.answerAt + compactDelaySeconds,
       workstreamId: input.ordered.node.workstreamId,
     });
   }
@@ -584,13 +596,14 @@ function compileSemanticGraphComposition(
     planned.map((node) => [node.ordered.packedId, node.failedAt !== null]),
   );
   const packedEdges = edgeInputs(edges, nodeIndexByID, nodeModeByID, terminalByID);
+  const folding = composition.presentation !== "grid" || graphs.length - 1 >= gridFoldTileCount;
   return [
     {
       cursorSequence: packedNodes.length + packedEdges.length,
       hasEarlier: composition.graphs.some((graph) => graph.hasEarlier),
       nodes: packedNodes,
       edges: packedEdges,
-      turns: turnInputs(planned, placementFor),
+      turns: turnInputs(planned, placementFor, folding),
     },
   ];
 }
