@@ -73,8 +73,7 @@
 .director-composer button,
 .director-action-controls button,
 .director-resource-options button,
-.director-history-close,
-.director-history-open {
+.director-history-close {
   align-items: center;
   border: 1px solid oklch(0.36 0.03 250 / 0.78);
   border-radius: 7px;
@@ -94,8 +93,7 @@
 .director-composer button:active,
 .director-action-controls button:active,
 .director-resource-options button:active,
-.director-history-close:active,
-.director-history-open:active {
+.director-history-close:active {
   transform: scale(0.96);
 }
 
@@ -143,8 +141,7 @@
 .director-composer button:hover,
 .director-action-controls button:hover,
 .director-resource-options button:hover,
-.director-history-close:hover,
-.director-history-open:hover {
+.director-history-close:hover {
   background: oklch(0.2 0.04 225 / 0.82);
   border-color: oklch(0.66 0.12 220 / 0.72);
 }
@@ -229,24 +226,70 @@
   gap: 10px;
 }
 
+/*
+ * A kicker names a rail's contents at the weight the mockup uses: small, upper
+ * case, widely tracked, and quiet enough that the content under it is what the
+ * eye lands on.
+ */
 .director-rail-kicker {
-  color: oklch(0.72 0.08 220);
-  font-size: 0.72rem;
-  font-weight: 700;
+  color: oklch(0.62 0.055 250);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   margin: 0;
   text-transform: uppercase;
 }
 
-.director-rail-section h2 {
-  font-size: clamp(1.35rem, 2vw, 2.1rem);
-  font-weight: 650;
-  line-height: 1.05;
-  margin: 0;
-  overflow-wrap: anywhere;
+/* The kicker and the rail's one link share a baseline row. */
+.director-rail-head {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
 }
 
-.director-selected-status,
-.director-history-list li,
+/*
+ * A rail link is text that acts, so it is drawn as text. The 44 px pointer
+ * target is an invisible overlay centred on the line rather than a 44 px box,
+ * which is what keeps the head row as tall as its own type. The overlay stays
+ * inside the rail's row gap, so it cannot swallow a click meant for the list.
+ */
+.director-history-open {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: oklch(0.62 0.055 250);
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  font: inherit;
+  font-size: 11px;
+  gap: 6px;
+  letter-spacing: 0.02em;
+  padding: 0;
+  position: relative;
+  transition-duration: 140ms;
+  transition-property: color;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.director-history-open:hover {
+  color: oklch(0.82 0.125 185);
+}
+
+.director-history-open::after {
+  block-size: 44px;
+  content: "";
+  inset-block-start: 50%;
+  inset-inline: -6px;
+  position: absolute;
+  translate: 0 -50%;
+}
+
+/*
+ * Only a produced artifact is a card. Activity, history, and identity are text,
+ * so a card around them reads as a panel the rail is not.
+ */
 .director-artifact-preview,
 .director-action-item {
   background: oklch(0.12 0.012 252 / 0.74);
@@ -254,57 +297,39 @@
   border-radius: 8px;
 }
 
-.director-selected-status {
-  align-items: center;
-  display: inline-flex;
-  gap: 8px;
-  justify-self: start;
-  min-block-size: 32px;
-  padding-inline: 10px;
-}
-
-.director-focus-facts {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  min-inline-size: 0;
-}
-
-.director-selected-folder {
-  font-size: 0.82rem;
-  max-inline-size: 100%;
-}
-
 .director-rail-summary {
-  color: oklch(0.78 0.025 250);
-  font-size: 0.88rem;
-  line-height: 1.45;
+  color: oklch(0.74 0.03 250);
+  font-size: 12.5px;
+  line-height: 1.5;
   margin: 0;
   overflow-wrap: anywhere;
 }
 
+/*
+ * The longer narrative is available and is never the default reading surface,
+ * so its toggle is the quietest thing in the rail: a word and a caret, with no
+ * box around either. Its 44 px target is the row height, not a drawn button.
+ */
 .director-summary-disclosure {
-  background: oklch(0.1 0.012 252 / 0.66);
-  border: 1px solid oklch(0.3 0.026 250 / 0.62);
-  border-radius: 8px;
-  overflow: hidden;
+  justify-self: start;
+  max-inline-size: 100%;
 }
 
 .director-summary-disclosure summary {
   align-items: center;
-  color: oklch(0.78 0.05 225);
+  color: oklch(0.62 0.055 250);
   cursor: pointer;
   display: flex;
-  font-size: 0.76rem;
-  font-weight: 700;
-  gap: 8px;
-  justify-content: space-between;
+  font-size: 11px;
+  gap: 6px;
+  letter-spacing: 0.03em;
   line-height: 1.2;
   list-style: none;
-  min-block-size: 38px;
-  padding-inline: 10px;
-  text-transform: uppercase;
+  min-block-size: 44px;
+}
+
+.director-summary-disclosure summary:hover {
+  color: oklch(0.78 0.05 225);
 }
 
 .director-summary-disclosure summary::-webkit-details-marker {
@@ -312,9 +337,9 @@
 }
 
 .director-summary-disclosure summary svg {
-  color: oklch(0.66 0.04 240);
+  color: inherit;
   flex: none;
-  transition-duration: 140ms;
+  transition-duration: 160ms;
   transition-property: transform;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
@@ -324,28 +349,12 @@
 }
 
 .director-summary-disclosure .director-rail-summary {
-  border-block-start: 1px solid oklch(0.28 0.025 250 / 0.54);
-  padding: 9px 10px 10px;
-}
-
-.director-history-list {
-  display: grid;
-  gap: 8px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.director-history-list li {
-  color: oklch(0.84 0.025 250);
-  font-size: 0.82rem;
-  line-height: 1.35;
-  padding: 9px 10px;
+  padding-block-end: 4px;
 }
 
 .director-live-status {
-  color: oklch(0.74 0.04 220);
-  font-size: 0.78rem;
+  color: oklch(0.66 0.045 220);
+  font-size: 11px;
   min-block-size: 1rem;
 }
 
@@ -392,8 +401,7 @@
 
 .director-action-controls button,
 .director-resource-options button,
-.director-history-close,
-.director-history-open {
+.director-history-close {
   background: oklch(0.16 0.024 245 / 0.8);
   min-block-size: 38px;
   padding-inline: 10px;
@@ -406,8 +414,7 @@
 .director-action-controls button:disabled,
 .director-resource-options button:disabled,
 .director-composer button:disabled,
-.director-icon-button:disabled,
-.director-history-open:disabled {
+.director-icon-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -736,8 +743,7 @@
   .director-composer button,
   .director-action-controls button,
   .director-resource-options button,
-  .director-history-close,
-  .director-history-open {
+  .director-history-close {
     transition-property: opacity, background-color, border-color, color;
   }
 
@@ -750,8 +756,7 @@
   .director-composer button:active,
   .director-action-controls button:active,
   .director-resource-options button:active,
-  .director-history-close:active,
-  .director-history-open:active {
+  .director-history-close:active {
     transform: none;
   }
 }

@@ -6,7 +6,6 @@ import type {
   SemanticNodeStatus,
   WorkstreamGraph,
 } from "@generated/backend";
-import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { semanticNodeMode } from "../director-graph/semantic-graph-visual-catalog";
@@ -64,19 +63,15 @@ export function DirectorNowActivityList({
 }: {
   activity: DirectorNowActivity;
 }): React.JSX.Element {
+  if (activity.length === 0) {
+    return <p className="director-rail-summary">No current activity.</p>;
+  }
   return (
-    <section className="director-rail-section" aria-label="Current activity">
-      <p className="director-rail-kicker">Activity</p>
-      {activity.length > 0 ? (
-        <ol className="director-activity-list">
-          {activity.map((node, index) => (
-            <CurrentActivityItem initiallyExpanded={index === 0} key={node.id} node={node} />
-          ))}
-        </ol>
-      ) : (
-        <p className="director-rail-summary">No current activity.</p>
-      )}
-    </section>
+    <ol aria-label="Current activity" className="director-activity-list">
+      {activity.map((node, index) => (
+        <CurrentActivityItem initiallyExpanded={index === 0} key={node.id} node={node} />
+      ))}
+    </ol>
   );
 }
 
@@ -104,39 +99,36 @@ function CurrentActivityItem({
     }
   }, [initiallyExpanded, node.id]);
   return (
-    <li>
-      <article
-        className="director-activity-item"
-        data-activity-tone={tone}
-        data-expanded={expanded ? "true" : "false"}
-        data-node-evidence={node.evidenceClass}
-        data-node-kind={node.kind}
-        data-node-status={node.status}
+    <li
+      className="director-activity-item"
+      data-activity-tone={tone}
+      data-expanded={expanded ? "true" : "false"}
+      data-node-evidence={node.evidenceClass}
+      data-node-kind={node.kind}
+      data-node-status={node.status}
+    >
+      <button
+        aria-controls={detailId}
+        aria-expanded={expanded}
+        className="director-activity-toggle"
+        onClick={() => {
+          setExpanded((current) => !current);
+        }}
+        type="button"
       >
-        <button
-          aria-controls={detailId}
-          aria-expanded={expanded}
-          className="director-activity-toggle"
-          onClick={() => {
-            setExpanded((current) => !current);
-          }}
-          type="button"
-        >
-          <span aria-hidden="true" className="director-activity-dot" />
-          <span className="director-activity-copy">
-            <span className="director-activity-title">{node.publicSummary}</span>
-            <span className="director-activity-meta">
-              {semanticNodeKindLabels[node.kind]} / {semanticNodeStatusLabels[node.status]}
-            </span>
+        <span aria-hidden="true" className="director-activity-dot" />
+        <span className="director-activity-copy">
+          <span className="director-activity-title">{node.publicSummary}</span>
+          <span className="director-activity-meta">
+            {semanticNodeKindLabels[node.kind]} / {semanticNodeStatusLabels[node.status]}
           </span>
-          <ChevronDown aria-hidden="true" className="director-activity-disclosure" size={15} />
-        </button>
-        <div className="director-activity-detail" hidden={!expanded} id={detailId}>
-          {metadata.map((item) => (
-            <span key={item}>{item}</span>
-          ))}
-        </div>
-      </article>
+        </span>
+      </button>
+      <div className="director-activity-detail" hidden={!expanded} id={detailId}>
+        {metadata.map((item) => (
+          <span key={item}>{item}</span>
+        ))}
+      </div>
     </li>
   );
 }

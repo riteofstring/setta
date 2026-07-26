@@ -180,7 +180,11 @@ function WorkstreamNavigationTitle({
       {focus.kind === "director" ? <span aria-hidden="true" className="director-role-dot" /> : null}
       <h1 className="director-focus-title">{focus.title}</h1>
       <span className="director-focus-meta">
-        {focusMetaLabel(focus)}
+        {/*
+         * The status is its own element because it is the top bar's only
+         * changing fact, and the Now rail no longer restates it.
+         */}
+        <span className="director-focus-status">{focusMetaLabel(focus)}</span>
         {counter === null ? "" : ` ${counter}`}
       </span>
       {focus.kind === "workstream" ? <WorkstreamFolderChip folder={focus.folder} /> : null}

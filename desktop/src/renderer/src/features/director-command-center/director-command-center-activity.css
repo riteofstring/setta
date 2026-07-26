@@ -1,34 +1,41 @@
+/*
+ * Current activity is a list of lines, not a stack of cards.
+ *
+ * A row has a mode-colored dot and its text, and nothing else: no fill, no
+ * border, no chevron. Recency is opacity — the newest two read at full
+ * strength and everything behind them recedes — which is the whole of the
+ * emphasis model and needs no chrome to express.
+ *
+ * The row is still a disclosure button. Its 44 px target comes from padding
+ * around the text rather than from a drawn box, so the hit area is real
+ * without anything being outlined.
+ */
 .director-activity-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.director-activity-list li {
-  display: grid;
-}
-
 .director-activity-item {
-  background: oklch(0.12 0.012 252 / 0.74);
-  border: 1px solid oklch(0.34 0.026 250 / 0.7);
-  border-radius: 8px;
   display: grid;
   min-inline-size: 0;
-  opacity: 0.46;
-  overflow: hidden;
+  opacity: 0.4;
   transition-duration: 140ms;
-  transition-property: border-color, opacity;
+  transition-property: opacity;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
-.director-activity-list li:nth-child(-n + 2) .director-activity-item,
-.director-activity-item[data-expanded="true"] {
+.director-activity-item:nth-child(-n + 2),
+.director-activity-item[data-expanded="true"],
+.director-activity-item:hover,
+.director-activity-item:focus-within {
   opacity: 1;
 }
 
 .director-activity-toggle {
+  align-content: center;
   align-items: start;
   background: transparent;
   border: 0;
@@ -36,19 +43,12 @@
   cursor: pointer;
   display: grid;
   font: inherit;
-  gap: 8px;
-  grid-template-columns: 10px minmax(0, 1fr) 16px;
+  gap: 9px;
+  grid-template-columns: 7px minmax(0, 1fr);
   inline-size: 100%;
   min-block-size: 44px;
-  padding: 10px;
+  padding-block: 4px;
   text-align: start;
-  transition-duration: 140ms;
-  transition-property: transform;
-  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
-}
-
-.director-activity-toggle:active {
-  transform: scale(0.96);
 }
 
 .director-activity-toggle:focus-visible {
@@ -58,12 +58,12 @@
 
 .director-activity-dot {
   background: oklch(0.72 0.12 220);
-  block-size: 8px;
+  block-size: 6px;
   border-radius: 999px;
-  box-shadow: 0 0 14px currentColor;
+  box-shadow: 0 0 6px currentColor;
   color: oklch(0.72 0.12 220);
-  inline-size: 8px;
-  margin-block-start: 6px;
+  inline-size: 6px;
+  margin-block-start: 5px;
 }
 
 .director-activity-item[data-activity-tone="think"] .director-activity-dot {
@@ -108,58 +108,47 @@
 }
 
 .director-activity-title {
-  color: oklch(0.9 0.025 245);
-  font-size: 0.84rem;
-  line-height: 1.28;
+  color: oklch(0.86 0.025 245);
+  font-size: 13px;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
+/* The newest item is the one being read, so it is the one that reads brightest. */
+.director-activity-item:nth-child(1) .director-activity-title {
+  color: oklch(0.94 0.02 245);
+  font-weight: 600;
+}
+
 .director-activity-meta {
-  color: oklch(0.66 0.03 250);
-  font-size: 0.7rem;
-  line-height: 1.2;
-}
-
-.director-activity-disclosure {
-  color: oklch(0.66 0.04 240);
-  margin-block-start: 2px;
-  transition-duration: 140ms;
-  transition-property: transform;
-  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
-}
-
-.director-activity-item[data-expanded="true"] .director-activity-disclosure {
-  transform: rotate(180deg);
+  color: oklch(0.62 0.04 250);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
 }
 
 .director-activity-detail {
-  color: oklch(0.68 0.03 250);
+  color: oklch(0.7 0.03 250);
   display: flex;
   flex-wrap: wrap;
-  font-size: 0.72rem;
+  font-size: 11px;
   gap: 6px;
-  padding: 0 10px 10px 28px;
+  padding: 2px 0 2px 16px;
 }
 
 .director-activity-detail[hidden] {
   display: none;
 }
 
-.director-activity-detail span {
-  background: oklch(0.08 0.01 255 / 0.62);
-  border: 1px solid oklch(0.3 0.025 250 / 0.55);
-  border-radius: 999px;
-  padding: 2px 7px;
+/* Metadata reads as separated facts. A separator is enough; a pill each is not. */
+.director-activity-detail span + span::before {
+  color: oklch(0.45 0.02 250);
+  content: "·";
+  padding-inline-end: 6px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .director-activity-item,
-  .director-activity-toggle,
-  .director-activity-disclosure {
-    transition-property: opacity, background-color, border-color, color;
-  }
-
-  .director-activity-toggle:active {
-    transform: none;
+  .director-activity-item {
+    transition-property: opacity, color;
   }
 }

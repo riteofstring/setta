@@ -751,9 +751,9 @@ async function assertRunningSummaryIsCurrent(client) {
     client,
     `(() => {
       const summary = document.querySelector(
-        "#director-now-rail > .director-rail-section:first-child .director-rail-summary"
+        "#director-now-rail .director-summary-disclosure .director-rail-summary"
       );
-      const status = document.querySelector(".director-selected-status");
+      const status = document.querySelector(".director-focus-status");
       return {
         status: status?.textContent?.trim() ?? "",
         summary: summary?.textContent?.trim() ?? ""

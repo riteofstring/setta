@@ -1,8 +1,11 @@
 /*
  * The command center's top bar and the focus identity it renders: which
  * conversation is in focus, what it is doing, and the folder it does it in.
- * The Director role marker lives here too, because the Now rail shows the same
- * identity the top bar does.
+ * The Director role marker lives here too.
+ *
+ * This bar is the sole owner of that identity. The Now rail used to restate all
+ * three and is now free of them, so a change here is the only place the answer
+ * moves.
  */
 
 .director-command-center-top {
@@ -100,35 +103,28 @@
   inline-size: 7px;
 }
 
-.director-workstream-folder,
-.director-selected-folder {
+.director-workstream-folder {
   align-items: center;
   color: oklch(0.7 0.035 245);
   display: inline-flex;
+  font-size: 11px;
   gap: 6px;
+  max-inline-size: min(18vw, 180px);
   min-inline-size: 0;
 }
 
-.director-workstream-folder {
-  font-size: 0.72rem;
-  max-inline-size: min(18vw, 180px);
-}
-
-.director-workstream-folder > span:last-child,
-.director-selected-folder > span:last-child {
+.director-workstream-folder > span:last-child {
   min-inline-size: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.director-workstream-folder[data-folder="none"],
-.director-selected-folder[data-folder="none"] {
+.director-workstream-folder[data-folder="none"] {
   color: oklch(0.6 0.03 250);
 }
 
-.director-workstream-folder svg,
-.director-selected-folder svg {
+.director-workstream-folder svg {
   color: oklch(0.62 0.05 235);
   flex: none;
 }
@@ -178,11 +174,6 @@
   .director-focus-title {
     max-inline-size: min(38vw, 180px);
   }
-
-  /* The rail keeps the folder at this width; the top bar has no room for it. */
-  .director-workstream-folder {
-    display: none;
-  }
 }
 
 @media (max-width: 420px) {
@@ -195,6 +186,15 @@
   }
 
   .director-focus-meta {
+    display: none;
+  }
+
+  /*
+   * The narrowest bar carries the title alone. The folder is still named by
+   * every workstream dot's accessible name and tooltip, so dropping the chip
+   * here loses a glance, not the fact.
+   */
+  .director-workstream-folder {
     display: none;
   }
 }

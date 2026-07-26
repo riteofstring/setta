@@ -281,7 +281,6 @@ export function DirectorCommandCenterShell({
           <NowRail
             activity={snapshotView.activity}
             focus={focus}
-            history={snapshotView.history}
             loadState={director.loadState}
             message={director.message}
             onOpenHistory={openHistory}

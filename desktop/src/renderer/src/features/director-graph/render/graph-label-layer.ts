@@ -188,7 +188,10 @@ export class GraphLabelLayer {
       placement.anchor === "over" ? "translate(-50%,-50%)" : "translateX(-50%)",
     );
     if (label.hidden) {
-      label.element.style.display = isPill ? "inline-flex" : "block";
+      // Clearing the inline display hands it back to the stylesheet, where both
+      // variants declare their own. The step label's two-line clamp needs
+      // `display: -webkit-box`, which an inline `block` would override.
+      label.element.style.display = "";
       label.hidden = false;
     }
   }
