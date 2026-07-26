@@ -170,49 +170,6 @@ LIMIT ?
 	return events, nil
 }
 
-// ReadRecentCommittedStreamEvents returns the newest events of one stream,
-// oldest first. It answers the question a bounded tail asks — what happened
-// most recently — without reading a stream that grows with the profile forever.
-func (store *Store) ReadRecentCommittedStreamEvents(
-	ctx context.Context,
-	streamID string,
-	limit int,
-) ([]CommittedEvent, error) {
-	if store == nil {
-		return nil, errors.New("conversation store is required")
-	}
-	if err := validateIdentifier("committed event stream id", streamID); err != nil {
-		return nil, err
-	}
-	if err := validateCommittedEventRead(0, limit); err != nil {
-		return nil, err
-	}
-	var events []CommittedEvent
-	err := store.read(ctx, "read recent committed conversation event stream", func(ctx context.Context, reader *sql.Conn) error {
-		rows, err := reader.QueryContext(ctx, `
-SELECT commit_sequence, id, stream_id, stream_sequence, kind, payload_json, committed_at
-FROM (
-  SELECT commit_sequence, id, stream_id, stream_sequence, kind, payload_json, committed_at
-  FROM committed_events
-  WHERE stream_id = ?
-  ORDER BY stream_sequence DESC
-  LIMIT ?
-)
-ORDER BY stream_sequence ASC
-`, streamID, limit)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		events, err = scanCommittedEvents(rows, store.dbPath)
-		return err
-	})
-	if err != nil {
-		return nil, err
-	}
-	return events, nil
-}
-
 // WaitForCommittedEvents blocks without polling until a record exists after
 // the supplied durable cursor, the context is cancelled, or the store closes.
 func (store *Store) WaitForCommittedEvents(

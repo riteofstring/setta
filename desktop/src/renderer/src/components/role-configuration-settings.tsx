@@ -629,9 +629,9 @@ const roleMetadata = {
     description: "Lightweight projection, status, and local routing role.",
     label: "Narrator",
   },
-  director: {
-    description: "App-wide workstream decisions and routing.",
-    label: "Director",
+  master: {
+    description: "Restricted global topic discovery and routing role.",
+    label: "Master",
   },
   side_agent: {
     description: "Read-only focused follow-up and side-conversation role.",

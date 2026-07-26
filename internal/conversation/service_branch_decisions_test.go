@@ -25,28 +25,30 @@ func TestServiceExecutesAIAuthoredSideAndForkThroughOneValidatedBoundary(t *test
 		workspaceID,
 		BranchDecisionExecutionScope{
 			ParentConversationID: parent.Conversation.ID,
-			Source:               BranchDecisionSourceConversationRouter,
+			Source:               BranchDecisionSourceMaster,
 		},
 		BranchDecision{
 			Kind: BranchDecisionKindForkConversation,
 			ForkConversation: &ForkConversationBranchDecision{
 				ForkedAtTurnID: latestSnapshotTurn(completed).ID,
-				ProposedTitle:  "Router-authored fork",
+				ProposedTitle:  "Master-authored fork",
 			},
 		},
 	)
 	if err != nil {
 		t.Fatalf("ExecuteBranchDecision fork: %v", err)
 	}
-	if forked.Branch == nil || forked.Branch.DecisionSource != BranchDecisionSourceConversationRouter {
-		t.Fatalf("routed fork audit = %+v", forked.Branch)
+	if forked.Branch == nil || forked.Branch.DecisionSource != BranchDecisionSourceMaster {
+		t.Fatalf("master fork audit = %+v", forked.Branch)
 	}
 
+	paneID := "pane-local-router"
 	sided, err := service.ExecuteBranchDecision(
 		ctx,
 		workspaceID,
 		BranchDecisionExecutionScope{
 			ParentConversationID: parent.Conversation.ID,
+			ParentPaneID:         &paneID,
 			Source:               BranchDecisionSourceConversationRouter,
 		},
 		BranchDecision{
@@ -58,13 +60,14 @@ func TestServiceExecutesAIAuthoredSideAndForkThroughOneValidatedBoundary(t *test
 		t.Fatalf("ExecuteBranchDecision side: %v", err)
 	}
 	side := requireOnlySideConversation(t, sided)
-	if side.DecisionSource != BranchDecisionSourceConversationRouter {
+	if side.ParentPaneID != paneID || side.DecisionSource != BranchDecisionSourceConversationRouter {
 		t.Fatalf("local side audit = %+v", side)
 	}
 	if _, err := service.DisposeSideConversation(
 		ctx,
 		workspaceID,
 		parent.Conversation.ID,
+		paneID,
 		side.ID,
 	); err != nil {
 		t.Fatalf("DisposeSideConversation: %v", err)

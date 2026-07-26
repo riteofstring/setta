@@ -44,7 +44,7 @@ func (transaction *WriteTransaction) reconcilePresentationActivity() error {
 	if len(presentations) == 0 {
 		return nil
 	}
-	director, found, markerFound, err := inspectDirectorVoiceSelectionState(
+	master, found, markerFound, err := inspectMasterVoiceSelectionState(
 		transaction.ctx,
 		transaction.tx,
 		transaction.store.dbPath,
@@ -52,8 +52,8 @@ func (transaction *WriteTransaction) reconcilePresentationActivity() error {
 	if err != nil {
 		return err
 	}
-	resolvedDirector, err := resolveDirectorVoiceSelectionState(
-		director,
+	resolvedMaster, err := resolveMasterVoiceSelectionState(
+		master,
 		found,
 		markerFound,
 		transaction.store.dbPath,
@@ -61,19 +61,19 @@ func (transaction *WriteTransaction) reconcilePresentationActivity() error {
 	if err != nil {
 		return err
 	}
-	if resolvedDirector == nil {
+	if resolvedMaster == nil {
 		return nil
 	}
-	updates, directorUpdate, err := reconcileAutomaticPresentationIdentities(
+	updates, masterUpdate, err := reconcileAutomaticPresentationIdentities(
 		presentations,
 		transaction.presentationActivityPrevious,
-		*resolvedDirector,
+		*resolvedMaster,
 		transaction.presentationActivityUpdatedAt,
 	)
 	if err != nil {
 		return err
 	}
-	return transaction.commitPresentationActivityUpdates(*resolvedDirector, directorUpdate, updates)
+	return transaction.commitPresentationActivityUpdates(*resolvedMaster, masterUpdate, updates)
 }
 
 func presentationActivityChanged(
@@ -92,12 +92,12 @@ func presentationActivityChanged(
 }
 
 func (transaction *WriteTransaction) commitPresentationActivityUpdates(
-	director speech.DirectorVoiceSelection,
-	directorUpdate *speech.DirectorVoiceSelection,
+	master speech.MasterVoiceSelection,
+	masterUpdate *speech.MasterVoiceSelection,
 	updates []ConversationPresentationProfile,
 ) error {
-	if directorUpdate != nil {
-		if err := transaction.UpdateDirectorVoiceSelection(director.UpdatedAt, *directorUpdate); err != nil {
+	if masterUpdate != nil {
+		if err := transaction.UpdateMasterVoiceSelection(master.UpdatedAt, *masterUpdate); err != nil {
 			return err
 		}
 	}
@@ -106,8 +106,8 @@ func (transaction *WriteTransaction) commitPresentationActivityUpdates(
 			return err
 		}
 	}
-	if directorUpdate != nil {
-		if err := transaction.appendPresentationActivityDirectorEvent(director, *directorUpdate); err != nil {
+	if masterUpdate != nil {
+		if err := transaction.appendPresentationActivityMasterEvent(master, *masterUpdate); err != nil {
 			return err
 		}
 	}
@@ -119,26 +119,26 @@ func (transaction *WriteTransaction) commitPresentationActivityUpdates(
 	return nil
 }
 
-func (transaction *WriteTransaction) appendPresentationActivityDirectorEvent(
-	previous speech.DirectorVoiceSelection,
-	updated speech.DirectorVoiceSelection,
+func (transaction *WriteTransaction) appendPresentationActivityMasterEvent(
+	previous speech.MasterVoiceSelection,
+	updated speech.MasterVoiceSelection,
 ) error {
 	eventID, err := randomServiceID("speech_event")
 	if err != nil {
 		return err
 	}
-	payload := speech.NewDirectorVoiceSelectionUpdate(
+	payload := speech.NewMasterVoiceSelectionUpdate(
 		previous,
 		updated,
-		speech.DirectorVoiceSelectionUpdateNarratorAssignment,
+		speech.MasterVoiceSelectionUpdateNarratorAssignment,
 	)
 	if err := payload.Validate(); err != nil {
 		return err
 	}
 	_, err = transaction.AppendCommittedEvent(CommittedEventDraft{
 		ID:          eventID,
-		StreamID:    speech.DirectorVoiceSelectionStreamID,
-		Kind:        speech.DirectorVoiceSelectionUpdatedEventKind,
+		StreamID:    speech.MasterVoiceSelectionStreamID,
+		Kind:        speech.MasterVoiceSelectionUpdatedEventKind,
 		Payload:     payload,
 		CommittedAt: updated.UpdatedAt,
 	})

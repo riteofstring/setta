@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -31,100 +32,22 @@ func (runtime *Runtime) StartThread(ctx context.Context, request StartThreadRequ
 	if err != nil {
 		return Thread{}, fmt.Errorf("decode agent thread start: %w", err)
 	}
-	if err := validateThreadStartResponse(request, response); err != nil {
-		return Thread{}, fmt.Errorf("validate agent thread start: %w", err)
-	}
-	thread, err := providerThread(response.Thread, response.Model)
-	if err != nil {
-		return Thread{}, err
-	}
-	runtime.rememberAttachedThread(thread, request)
-	return thread, nil
+	return providerThread(response.Thread, response.Model)
 }
 
 func (runtime *Runtime) ResumeThread(ctx context.Context, threadID string) (Thread, error) {
 	if strings.TrimSpace(threadID) == "" {
 		return Thread{}, errors.New("provider thread id is required")
 	}
-	excludeTurns := true
-	raw, err := runtime.manager.Call(ctx, codexapp.CodexMethodThreadResume, codexapp.ThreadResumeParams{
-		ExcludeTurns: &excludeTurns,
-		ThreadID:     threadID,
-	})
+	raw, err := runtime.manager.Call(ctx, codexapp.CodexMethodThreadResume, codexapp.ThreadResumeParams{ThreadID: threadID})
 	if err != nil {
-		return Thread{}, runtime.resumeThreadOperationError(ctx, threadID, err)
+		return Thread{}, fmt.Errorf("resume agent thread %s: %w", threadID, err)
 	}
 	response, err := codexapp.DecodeThreadResumeResponse(raw)
 	if err != nil {
 		return Thread{}, fmt.Errorf("decode agent thread resume %s: %w", threadID, err)
 	}
 	return providerThread(response.Thread, response.Model)
-}
-
-func (runtime *Runtime) ResumeThreadWithConfiguration(
-	ctx context.Context,
-	threadID string,
-	request StartThreadRequest,
-) (ThreadResumeResult, error) {
-	params, fingerprint, err := runtime.prepareThreadResumeConfiguration(threadID, request)
-	if err != nil {
-		return ThreadResumeResult{}, err
-	}
-	if !request.RequireProviderResume {
-		if thread, ok := runtime.attachedThread(threadID, request, fingerprint); ok {
-			return ThreadResumeResult{Thread: thread, Resumed: false}, nil
-		}
-	}
-	return runtime.resumeThreadWithConfigurationParams(ctx, threadID, request, params)
-}
-
-func (runtime *Runtime) prepareThreadResumeConfiguration(
-	threadID string,
-	request StartThreadRequest,
-) (codexapp.ThreadResumeParams, string, error) {
-	if runtime == nil || runtime.manager == nil {
-		return codexapp.ThreadResumeParams{}, "", errors.New("agent runtime is required")
-	}
-	if strings.TrimSpace(threadID) == "" {
-		return codexapp.ThreadResumeParams{}, "", errors.New("provider thread id is required")
-	}
-	if err := request.Validate(); err != nil {
-		return codexapp.ThreadResumeParams{}, "", err
-	}
-	params, err := resumeThreadParams(threadID, request)
-	if err != nil {
-		return codexapp.ThreadResumeParams{}, "", err
-	}
-	fingerprint, err := attachedThreadFingerprint(params)
-	if err != nil {
-		return codexapp.ThreadResumeParams{}, "", err
-	}
-	return params, fingerprint, nil
-}
-
-func (runtime *Runtime) resumeThreadWithConfigurationParams(
-	ctx context.Context,
-	threadID string,
-	request StartThreadRequest,
-	params codexapp.ThreadResumeParams,
-) (ThreadResumeResult, error) {
-	raw, err := runtime.manager.Call(ctx, codexapp.CodexMethodThreadResume, params)
-	if err != nil {
-		return ThreadResumeResult{}, runtime.resumeThreadOperationError(ctx, threadID, err)
-	}
-	response, err := codexapp.DecodeThreadResumeResponse(raw)
-	if err != nil {
-		return ThreadResumeResult{}, fmt.Errorf("decode agent thread resume %s: %w", threadID, err)
-	}
-	if err := validateThreadResumeResponse(threadID, request, response); err != nil {
-		return ThreadResumeResult{}, fmt.Errorf("validate agent thread resume %s: %w", threadID, err)
-	}
-	thread, err := providerThread(response.Thread, response.Model)
-	if err != nil {
-		return ThreadResumeResult{}, err
-	}
-	runtime.rememberAttachedThread(thread, request)
-	return ThreadResumeResult{Thread: thread, Resumed: true}, nil
 }
 
 func (runtime *Runtime) ReadThread(ctx context.Context, threadID string, includeTurns bool) (Thread, error) {
@@ -223,7 +146,7 @@ func (runtime *Runtime) ForkThread(ctx context.Context, request ForkThreadReques
 	}
 	raw, err := runtime.manager.Call(ctx, codexapp.CodexMethodThreadFork, params)
 	if err != nil {
-		return Thread{}, providerThreadOperationError("fork agent thread", request.ParentThreadID, err)
+		return Thread{}, fmt.Errorf("fork agent thread %s: %w", request.ParentThreadID, err)
 	}
 	response, err := codexapp.DecodeThreadForkResponse(raw)
 	if err != nil {
@@ -260,22 +183,12 @@ func (runtime *Runtime) InjectItems(ctx context.Context, threadID string, items 
 		Items:    encoded,
 	})
 	if err != nil {
-		return providerThreadOperationError("inject agent thread items", threadID, err)
+		return fmt.Errorf("inject agent thread items %s: %w", threadID, err)
 	}
 	if _, err := codexapp.DecodeThreadInjectItemsResponse(raw); err != nil {
 		return fmt.Errorf("decode agent thread item injection %s: %w", threadID, err)
 	}
 	return nil
-}
-
-func (runtime *Runtime) MaterializeThread(ctx context.Context, threadID string, marker string) error {
-	if strings.TrimSpace(marker) == "" || strings.TrimSpace(marker) != marker {
-		return errors.New("thread materialization marker must be non-empty without surrounding whitespace")
-	}
-	return runtime.InjectItems(ctx, threadID, []InjectedTextItem{{
-		Role: "user",
-		Text: marker,
-	}})
 }
 
 func (runtime *Runtime) UnsubscribeThread(ctx context.Context, threadID string) error {
@@ -334,10 +247,6 @@ func startThreadParams(request StartThreadRequest) (codexapp.ThreadStartParams, 
 	if err != nil {
 		return codexapp.ThreadStartParams{}, err
 	}
-	config, err := modelThreadConfig(request.Invocation)
-	if err != nil {
-		return codexapp.ThreadStartParams{}, err
-	}
 	dynamicTools, err := dynamicToolSpecs(request.DynamicTools)
 	if err != nil {
 		return codexapp.ThreadStartParams{}, err
@@ -350,9 +259,6 @@ func startThreadParams(request StartThreadRequest) (codexapp.ThreadStartParams, 
 		Sandbox:               &sandbox,
 		ServiceTier:           nullableServiceTier(request.Invocation.ServiceTier),
 	}
-	if config != nil {
-		params.Config = config
-	}
 	if len(dynamicTools) > 0 {
 		params.DynamicTools = &dynamicTools
 	}
@@ -360,180 +266,6 @@ func startThreadParams(request StartThreadRequest) (codexapp.ThreadStartParams, 
 		params.Model = &request.Invocation.Model
 	}
 	return params, nil
-}
-
-func resumeThreadParams(threadID string, request StartThreadRequest) (codexapp.ThreadResumeParams, error) {
-	approvalPolicy, sandbox, err := providerThreadPolicies(request.Invocation)
-	if err != nil {
-		return codexapp.ThreadResumeParams{}, err
-	}
-	config, err := modelThreadConfig(request.Invocation)
-	if err != nil {
-		return codexapp.ThreadResumeParams{}, err
-	}
-	params := codexapp.ThreadResumeParams{
-		ApprovalPolicy:        approvalPolicy,
-		Config:                config,
-		CWD:                   &request.WorkspaceRoot,
-		DeveloperInstructions: optionalStringPointer(request.DeveloperInstructions),
-		ExcludeTurns:          boolPointer(true),
-		Sandbox:               &sandbox,
-		ServiceTier:           nullableServiceTier(request.Invocation.ServiceTier),
-		ThreadID:              threadID,
-	}
-	if !request.Invocation.ModelSelectionProviderDefault {
-		params.Model = &request.Invocation.Model
-	}
-	return params, nil
-}
-
-func modelThreadConfig(invocation Invocation) (*map[string]json.RawMessage, error) {
-	if invocation.ReasoningEffort == "" {
-		return nil, nil
-	}
-	effort, err := json.Marshal(invocation.ReasoningEffort)
-	if err != nil {
-		return nil, fmt.Errorf("encode thread reasoning effort: %w", err)
-	}
-	config := map[string]json.RawMessage{"model_reasoning_effort": effort}
-	return &config, nil
-}
-
-func validateThreadStartResponse(
-	request StartThreadRequest,
-	response codexapp.ThreadStartResponse,
-) error {
-	return validateThreadOperationResponse(
-		"provider thread",
-		request,
-		response.Thread,
-		response.Model,
-		response.ReasoningEffort,
-		response.ServiceTier,
-		response.ApprovalPolicy,
-		response.Sandbox,
-		response.CWD,
-	)
-}
-
-func validateThreadResumeResponse(
-	threadID string,
-	request StartThreadRequest,
-	response codexapp.ThreadResumeResponse,
-) error {
-	if response.Thread.ID != threadID {
-		return fmt.Errorf("provider resumed thread %s, want %s", response.Thread.ID, threadID)
-	}
-	return validateThreadOperationResponse(
-		"provider resumed thread",
-		request,
-		response.Thread,
-		response.Model,
-		response.ReasoningEffort,
-		response.ServiceTier,
-		response.ApprovalPolicy,
-		response.Sandbox,
-		response.CWD,
-	)
-}
-
-func validateThreadOperationResponse(
-	label string,
-	request StartThreadRequest,
-	thread codexapp.Thread,
-	model string,
-	reasoningEffort *codexapp.ReasoningEffort,
-	serviceTier *string,
-	approvalPolicy json.RawMessage,
-	sandbox json.RawMessage,
-	cwd codexapp.AbsolutePathBuf,
-) error {
-	if strings.TrimSpace(thread.ID) == "" {
-		return fmt.Errorf("%s response omitted thread id", label)
-	}
-	if thread.Ephemeral != request.Ephemeral {
-		if request.Ephemeral {
-			return fmt.Errorf("%s must be ephemeral", label)
-		}
-		return fmt.Errorf("%s must be durable", label)
-	}
-	if err := validateThreadOperationModel(label, request.Invocation, model, reasoningEffort, serviceTier); err != nil {
-		return err
-	}
-	if err := validateThreadOperationPolicy(label, request.Invocation, approvalPolicy, sandbox); err != nil {
-		return err
-	}
-	return validateThreadOperationWorkspace(label, request.WorkspaceRoot, thread, cwd)
-}
-
-func validateThreadOperationModel(
-	label string,
-	invocation Invocation,
-	model string,
-	reasoningEffort *codexapp.ReasoningEffort,
-	serviceTier *string,
-) error {
-	if strings.TrimSpace(model) == "" {
-		return fmt.Errorf("%s response omitted model", label)
-	}
-	if !invocation.ModelSelectionProviderDefault && model != invocation.Model {
-		return fmt.Errorf("%s model is %s, want %s", label, model, invocation.Model)
-	}
-	if invocation.ReasoningEffort != "" {
-		if reasoningEffort == nil {
-			return fmt.Errorf("%s response omitted reasoning effort", label)
-		}
-		if actual := string(*reasoningEffort); actual != invocation.ReasoningEffort {
-			return fmt.Errorf("%s reasoning effort is %s, want %s", label, actual, invocation.ReasoningEffort)
-		}
-	}
-	if !forkServiceTierMatches(serviceTier, invocation.ServiceTier) {
-		return fmt.Errorf(
-			"%s service tier is %s, want %s",
-			label,
-			optionalAgentString(serviceTier),
-			optionalAgentString(invocation.ServiceTier),
-		)
-	}
-	return nil
-}
-
-func validateThreadOperationPolicy(
-	label string,
-	invocation Invocation,
-	approvalPolicy json.RawMessage,
-	sandbox json.RawMessage,
-) error {
-	approvalMode, err := forkResponseApprovalMode(approvalPolicy)
-	if err != nil {
-		return err
-	}
-	if approvalMode != invocation.ApprovalMode {
-		return fmt.Errorf("%s approval mode is %s, want %s", label, approvalMode, invocation.ApprovalMode)
-	}
-	permissionMode, err := forkResponsePermissionMode(sandbox)
-	if err != nil {
-		return err
-	}
-	if permissionMode != invocation.PermissionMode {
-		return fmt.Errorf("%s permission mode is %s, want %s", label, permissionMode, invocation.PermissionMode)
-	}
-	return nil
-}
-
-func validateThreadOperationWorkspace(
-	label string,
-	workspaceRoot string,
-	thread codexapp.Thread,
-	cwd codexapp.AbsolutePathBuf,
-) error {
-	if !sameWorkspaceRoot(workspaceRoot, string(cwd)) {
-		return fmt.Errorf("%s cwd is %s, want %s", label, cwd, workspaceRoot)
-	}
-	if !sameWorkspaceRoot(workspaceRoot, string(thread.CWD)) {
-		return fmt.Errorf("%s thread cwd is %s, want %s", label, thread.CWD, workspaceRoot)
-	}
-	return nil
 }
 
 func forkThreadParams(request ForkThreadRequest) (codexapp.ThreadForkParams, error) {
@@ -771,20 +503,16 @@ func injectedItems(items []InjectedTextItem) ([]json.RawMessage, error) {
 	}
 	encoded := make([]json.RawMessage, 0, len(items))
 	for index, item := range items {
-		if item.Role != "user" && item.Role != "developer" && item.Role != "assistant" {
+		if item.Role != "user" && item.Role != "developer" {
 			return nil, fmt.Errorf("injected item %d has unsupported role %q", index, item.Role)
 		}
 		if strings.TrimSpace(item.Text) == "" {
 			return nil, fmt.Errorf("injected item %d text is required", index)
 		}
-		contentType := "input_text"
-		if item.Role == "assistant" {
-			contentType = "output_text"
-		}
 		raw, err := json.Marshal(map[string]any{
 			"type":    "message",
 			"role":    item.Role,
-			"content": []map[string]string{{"type": contentType, "text": item.Text}},
+			"content": []map[string]string{{"type": "input_text", "text": item.Text}},
 		})
 		if err != nil {
 			return nil, fmt.Errorf("encode injected item %d: %w", index, err)
@@ -958,11 +686,13 @@ func summarizeCompaction(item codexapp.ThreadItem, summary *ThreadItemSummary) {
 	}
 }
 
-// providerThreadStatus reads the status union's discriminator. Before the
-// protocol snapshot decoded this union, the status was raw JSON, so a thread
-// read reported `{"type":"idle"}` as its status text.
-func providerThreadStatus(status codexapp.ThreadStatus) string {
-	return string(status.Type)
+func providerThreadStatus(raw codexapp.ThreadStatus) string {
+	data := bytes.TrimSpace(raw)
+	var text string
+	if json.Unmarshal(data, &text) == nil {
+		return text
+	}
+	return string(data)
 }
 
 func optionalStringPointer(value string) *string {

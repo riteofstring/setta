@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"setta/internal/agent"
 )
@@ -44,7 +45,7 @@ func (service *Service) sendTurn(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	if err := service.launchTurnLocked(ctx, workspaceSummary.RootPath, workspaceID, turn, 0); err != nil {
+	if err := service.launchTurnLocked(workspaceSummary.RootPath, workspaceID, turn, 0); err != nil {
 		persistErr := service.persistUnexpectedTurnEnd(context.Background(), &activeConversationTurn{
 			conversationID: conversationID,
 			turnID:         turn.ID,
@@ -160,13 +161,9 @@ func (service *Service) acceptTurn(
 	queueOrdinal int,
 	turnID string,
 ) (ConversationTurn, error) {
-	workspaceID, err := requiredSnapshotWorkspaceID(snapshot)
-	if err != nil {
-		return ConversationTurn{}, err
-	}
 	profile, err := service.store.ReadEffectiveRoleProfile(
 		ctx,
-		workspaceID,
+		snapshot.Conversation.WorkspaceID,
 		snapshot.Conversation.ID,
 		DefaultAgentRoleProfile(),
 	)
@@ -200,16 +197,6 @@ func (service *Service) acceptTurn(
 	}
 	err = service.commitAcceptedTurn(ctx, mutation, publications)
 	return mutation.turn, err
-}
-
-func requiredSnapshotWorkspaceID(snapshot ConversationSnapshot) (string, error) {
-	if snapshot.Conversation.WorkspaceID == nil {
-		return "", &ResourceRequiredError{
-			ConversationID: snapshot.Conversation.ID,
-			ResourceKind:   "folder",
-		}
-	}
-	return *snapshot.Conversation.WorkspaceID, nil
 }
 
 type acceptedTurnIDs struct {
@@ -368,9 +355,8 @@ func (service *Service) commitAcceptedTurn(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			mutation.conversation,
-			mutation.turn,
+			mutation.turn.ID,
 			mutation.trajectory,
-			nil,
 			false,
 		)
 	}
@@ -384,6 +370,7 @@ func (service *Service) steerTurn(
 	text string,
 	expectedTurnID string,
 	clientInputID string,
+	outcomeStartedAt *time.Time,
 ) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
@@ -429,6 +416,9 @@ func (service *Service) steerTurn(
 	); err != nil {
 		return ConversationSnapshot{}, err
 	}
+	if outcomeStartedAt != nil {
+		service.observeOutcomeTiming(OutcomeTimingSteering, *outcomeStartedAt)
+	}
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
 }
 
@@ -437,19 +427,7 @@ func (service *Service) StopTurn(
 	workspaceID string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
-	return service.stopTurn(ctx, workspaceID, conversationID, "")
-}
-
-// stopTurn interrupts the active turn, optionally requiring it to be the one the
-// caller named. Naming it matters when the caller acted on a turn it was shown:
-// a conversation promotes queued work as soon as the previous turn ends, so an
-// unnamed stop can interrupt a turn the caller never saw.
-func (service *Service) stopTurn(
-	ctx context.Context,
-	workspaceID string,
-	conversationID string,
-	expectedTurnID string,
-) (ConversationSnapshot, error) {
+	startedAt := service.now().UTC()
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -458,9 +436,6 @@ func (service *Service) stopTurn(
 	defer lock.Unlock()
 	control, err := service.controllableTurnState(ctx, workspaceID, conversationID)
 	if err != nil {
-		return ConversationSnapshot{}, err
-	}
-	if err := requireControlledTurn(conversationID, "stop", control.turn.ID, expectedTurnID); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	if err := service.agent.InterruptTurn(ctx, agent.TurnControlRequest{
@@ -478,6 +453,7 @@ func (service *Service) stopTurn(
 	); err != nil {
 		return ConversationSnapshot{}, err
 	}
+	service.observeOutcomeTiming(OutcomeTimingCancellation, startedAt)
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
 }
 
@@ -487,20 +463,7 @@ func (service *Service) SubmitApproval(
 	conversationID string,
 	response ConversationApprovalResponse,
 ) (ConversationSnapshot, error) {
-	return service.submitApproval(ctx, workspaceID, conversationID, "", response)
-}
-
-// submitApproval answers one pending approval, optionally requiring it to belong
-// to the turn the caller named. An approval only exists while its own turn is
-// running, so a caller that was shown the turn should not answer for its
-// successor.
-func (service *Service) submitApproval(
-	ctx context.Context,
-	workspaceID string,
-	conversationID string,
-	expectedTurnID string,
-	response ConversationApprovalResponse,
-) (ConversationSnapshot, error) {
+	startedAt := service.now().UTC()
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -512,9 +475,6 @@ func (service *Service) submitApproval(
 	defer lock.Unlock()
 	control, err := service.controllableTurnState(ctx, workspaceID, conversationID)
 	if err != nil {
-		return ConversationSnapshot{}, err
-	}
-	if err := requireControlledTurn(conversationID, "approval", control.turn.ID, expectedTurnID); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	pending := pendingApprovalsForTurn(control.snapshot, control.turn.ID)
@@ -545,11 +505,11 @@ func (service *Service) submitApproval(
 	); err != nil {
 		return ConversationSnapshot{}, err
 	}
+	service.observeOutcomeTiming(OutcomeTimingApproval, startedAt)
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
 }
 
 func (service *Service) launchTurnLocked(
-	ctx context.Context,
 	workspaceRoot string,
 	workspaceID string,
 	turn ConversationTurn,
@@ -563,18 +523,9 @@ func (service *Service) launchTurnLocked(
 	if err != nil {
 		return err
 	}
-	binding, err := service.ensureAgentThreadBindingLocked(
-		ctx,
-		workspaceID,
-		workspaceRoot,
-		snapshot,
-		turn,
-		invocation,
-	)
-	if err != nil {
-		return err
+	if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.Status != ThreadBindingStatusLinked {
+		return &CommandConflictError{ConversationID: turn.ConversationID, Reason: "agent thread is not linked"}
 	}
-	snapshot.ThreadBinding = &binding
 	active := &activeConversationTurn{
 		conversationID:   turn.ConversationID,
 		providerThreadID: snapshot.ThreadBinding.ThreadID,

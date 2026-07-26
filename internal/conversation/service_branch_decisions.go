@@ -36,6 +36,7 @@ func (service *Service) ExecuteBranchDecision(
 			ctx,
 			workspaceID,
 			scope.ParentConversationID,
+			*scope.ParentPaneID,
 			scope.SideConversationID,
 			scope.Source,
 		)

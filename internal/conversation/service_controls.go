@@ -205,31 +205,12 @@ func (service *Service) persistControlTrajectoryFromSnapshot(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			conversation,
-			turn,
+			turn.ID,
 			events,
-			nil,
 			false,
 		)
 	}
 	return err
-}
-
-// requireControlledTurn proves a control command addressed the turn its caller
-// named. The check runs inside the conversation lock that read the active turn,
-// so it closes the window between deciding to act on a turn and acting on it.
-func requireControlledTurn(
-	conversationID string,
-	command string,
-	activeTurnID string,
-	expectedTurnID string,
-) error {
-	if expectedTurnID == "" || activeTurnID == expectedTurnID {
-		return nil
-	}
-	return &CommandConflictError{
-		ConversationID: conversationID,
-		Reason:         fmt.Sprintf("%s target changed from %s to %s", command, expectedTurnID, activeTurnID),
-	}
 }
 
 func controlTrajectoryTurn(snapshot ConversationSnapshot, turnID string) (ConversationTurn, error) {

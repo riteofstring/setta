@@ -1,6 +1,6 @@
 CREATE TABLE conversations (
   id TEXT PRIMARY KEY,
-  workspace_id TEXT,
+  workspace_id TEXT NOT NULL,
   title TEXT NOT NULL,
   topic_descriptor TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL CHECK (status IN ('idle', 'working', 'waiting_for_approval', 'failed')),
@@ -17,6 +17,7 @@ CREATE TABLE conversation_inputs (
   sequence INTEGER PRIMARY KEY AUTOINCREMENT,
   id TEXT NOT NULL UNIQUE,
   conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  source_pane_id TEXT,
   reply_to_input_id TEXT,
   input_text TEXT NOT NULL,
   input_modality TEXT NOT NULL CHECK (input_modality IN ('text', 'voice')),
@@ -115,14 +116,13 @@ CREATE TABLE conversation_queue (
 CREATE TABLE conversation_branches (
   child_conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
   parent_conversation_id TEXT NOT NULL REFERENCES conversations(id),
-  branch_kind TEXT NOT NULL CHECK (branch_kind IN ('fork', 'child')),
-  decision_source TEXT NOT NULL CHECK (decision_source IN ('conversation_router', 'director')),
-  forked_at_turn_id TEXT REFERENCES conversation_turns(id),
+  branch_kind TEXT NOT NULL CHECK (branch_kind = 'fork'),
+  decision_source TEXT NOT NULL CHECK (decision_source IN ('conversation_router', 'master')),
+  forked_at_turn_id TEXT NOT NULL REFERENCES conversation_turns(id),
   source_trajectory_sequence INTEGER NOT NULL CHECK (source_trajectory_sequence >= 0),
   provider_metadata_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(provider_metadata_json)),
   created_at TEXT NOT NULL,
-  CHECK (child_conversation_id <> parent_conversation_id),
-  CHECK ((branch_kind = 'fork') = (forked_at_turn_id IS NOT NULL))
+  CHECK (child_conversation_id <> parent_conversation_id)
 ) STRICT;
 
 CREATE INDEX conversation_branches_parent_idx
@@ -131,7 +131,8 @@ CREATE INDEX conversation_branches_parent_idx
 CREATE TABLE side_conversations (
   id TEXT PRIMARY KEY,
   parent_conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  decision_source TEXT NOT NULL CHECK (decision_source = 'conversation_router'),
+  parent_pane_id TEXT NOT NULL,
+  decision_source TEXT NOT NULL CHECK (decision_source IN ('conversation_router', 'master')),
   provider_thread_id TEXT,
   source_provider_thread_id TEXT NOT NULL,
   source_provider_turn_id TEXT,
@@ -261,10 +262,37 @@ CREATE TABLE narration_events (
 CREATE INDEX narration_events_conversation_stream_idx
   ON narration_events(conversation_id, stream_sequence);
 
+CREATE TABLE topic_index_documents (
+  conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+  workspace_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  topic_descriptor TEXT NOT NULL,
+  recent_user_requests_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(recent_user_requests_json)),
+  recent_final_summaries_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(recent_final_summaries_json)),
+  updated_at TEXT NOT NULL,
+  updated_sort_key TEXT NOT NULL
+) STRICT;
+
+CREATE INDEX topic_index_documents_workspace_updated_idx
+  ON topic_index_documents(workspace_id, updated_sort_key DESC, conversation_id);
+
+CREATE INDEX topic_index_documents_updated_idx
+  ON topic_index_documents(updated_sort_key DESC, conversation_id);
+
+CREATE VIRTUAL TABLE topic_index_search USING fts5(
+  conversation_id UNINDEXED,
+  workspace_id UNINDEXED,
+  title,
+  topic_descriptor,
+  recent_user_requests,
+  recent_final_summaries,
+  tokenize = 'unicode61'
+);
+
 CREATE TABLE role_profile_overrides (
   scope_kind TEXT NOT NULL CHECK (scope_kind IN ('global', 'workspace', 'conversation')),
   scope_id TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('director', 'agent', 'narrator', 'side_agent')),
+  role TEXT NOT NULL CHECK (role IN ('master', 'agent', 'narrator', 'side_agent')),
   provider TEXT NOT NULL CHECK (provider = 'codex'),
   profile_json TEXT NOT NULL CHECK (json_valid(profile_json)),
   updated_at TEXT NOT NULL,
@@ -291,15 +319,7 @@ CREATE TABLE conversation_presentation_profiles (
   CHECK ((narrator_voice_selection = 'exact' AND requested_narrator_voice_id IS NOT NULL) OR narrator_voice_selection = 'auto_distinct')
 ) STRICT;
 
-CREATE TABLE director_thread (
-  singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-  provider TEXT NOT NULL CHECK (provider = 'codex'),
-  thread_id TEXT NOT NULL,
-  model TEXT NOT NULL,
-  started_at TEXT NOT NULL
-) STRICT;
-
-CREATE TABLE director_voice_selection (
+CREATE TABLE master_voice_selection (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
   selection TEXT NOT NULL CHECK (selection IN ('auto_distinct', 'exact')),
   requested_voice_id TEXT,
@@ -319,6 +339,111 @@ CREATE TABLE narrator_voice_default (
     OR (selection = 'auto_distinct' AND requested_voice_id IS NULL)
   )
 ) STRICT;
+
+CREATE TABLE master_sessions (
+  singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+  id TEXT NOT NULL UNIQUE,
+  provider TEXT NOT NULL CHECK (provider = 'codex'),
+  provider_thread_id TEXT,
+  status TEXT NOT NULL CHECK (status IN ('initializing', 'ready', 'running', 'degraded')),
+  resolved_invocation_json TEXT NOT NULL CHECK (json_valid(resolved_invocation_json)),
+  durable_context_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(durable_context_json)),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  degradation_json TEXT CHECK (degradation_json IS NULL OR json_valid(degradation_json))
+) STRICT;
+
+CREATE TABLE master_inputs (
+  sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+  id TEXT NOT NULL UNIQUE,
+  input_text TEXT NOT NULL,
+  input_modality TEXT NOT NULL CHECK (input_modality IN ('voice', 'text')),
+  input_source TEXT NOT NULL CHECK (input_source IN ('shell', 'conversation_escalation')),
+  submitted_at TEXT NOT NULL,
+  accepted_at TEXT NOT NULL,
+  routing_status TEXT NOT NULL DEFAULT 'accepted' CHECK (routing_status IN ('accepted', 'routing', 'decided', 'cancelled', 'failed')),
+  routing_attempt INTEGER NOT NULL DEFAULT 0 CHECK (routing_attempt >= 0),
+  routing_started_at TEXT,
+  routing_failure_json TEXT CHECK (routing_failure_json IS NULL OR json_valid(routing_failure_json)),
+  focused_workspace_id TEXT,
+  focused_conversation_id TEXT,
+  focused_pane_id TEXT,
+  originating_workspace_id TEXT,
+  originating_conversation_id TEXT,
+  originating_pane_id TEXT,
+  originating_conversation_input_id TEXT,
+  UNIQUE(originating_conversation_input_id),
+  FOREIGN KEY (originating_conversation_id, originating_conversation_input_id)
+    REFERENCES conversation_inputs(conversation_id, id),
+  CHECK (
+    (input_source = 'shell'
+      AND originating_workspace_id IS NULL
+      AND originating_conversation_id IS NULL
+      AND originating_pane_id IS NULL
+      AND originating_conversation_input_id IS NULL)
+    OR (input_source = 'conversation_escalation'
+      AND originating_workspace_id IS NOT NULL
+      AND originating_conversation_id IS NOT NULL
+      AND originating_conversation_input_id IS NOT NULL)
+  ),
+  CHECK (
+    (routing_status = 'routing' AND routing_started_at IS NOT NULL)
+    OR (routing_status <> 'routing' AND routing_started_at IS NULL)
+  ),
+  CHECK (
+    (routing_status = 'failed' AND routing_failure_json IS NOT NULL)
+    OR (routing_status <> 'failed' AND routing_failure_json IS NULL)
+  )
+) STRICT;
+
+CREATE INDEX master_inputs_routing_status_accepted_idx
+  ON master_inputs(routing_status, sequence);
+
+CREATE TABLE master_input_cancellations (
+  input_id TEXT PRIMARY KEY REFERENCES master_inputs(id) ON DELETE CASCADE,
+  routing_attempt INTEGER NOT NULL CHECK (routing_attempt >= 0),
+  cancelled_at TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE master_route_decisions (
+  stream_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+  id TEXT NOT NULL UNIQUE,
+  master_session_id TEXT NOT NULL REFERENCES master_sessions(id) ON DELETE CASCADE,
+  input_id TEXT NOT NULL UNIQUE REFERENCES master_inputs(id) ON DELETE CASCADE,
+  routing_attempt INTEGER NOT NULL CHECK (routing_attempt > 0),
+  candidate_context_json TEXT NOT NULL CHECK (json_valid(candidate_context_json)),
+  resolved_invocation_json TEXT NOT NULL CHECK (json_valid(resolved_invocation_json)),
+  route_decision_json TEXT NOT NULL CHECK (json_valid(route_decision_json)),
+  resulting_command_json TEXT NOT NULL CHECK (json_valid(resulting_command_json)),
+  decided_at TEXT NOT NULL
+) STRICT;
+
+CREATE INDEX master_route_decisions_session_stream_idx
+  ON master_route_decisions(master_session_id, stream_sequence);
+
+CREATE TABLE master_presentation_resolutions (
+  decision_id TEXT PRIMARY KEY REFERENCES master_route_decisions(id) ON DELETE CASCADE,
+  intent_id TEXT NOT NULL UNIQUE,
+  pane_id TEXT NOT NULL,
+  resolved_at TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE master_route_command_completions (
+  decision_id TEXT PRIMARY KEY REFERENCES master_route_decisions(id) ON DELETE CASCADE,
+  completed_at TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE pane_bindings (
+  pane_id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  last_focused_at TEXT
+) STRICT;
+
+CREATE INDEX pane_bindings_conversation_focus_idx
+  ON pane_bindings(conversation_id, last_focused_at DESC, pane_id);
 
 CREATE TABLE committed_events (
   commit_sequence INTEGER PRIMARY KEY AUTOINCREMENT,

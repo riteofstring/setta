@@ -19,9 +19,9 @@ func (store *Store) ResolveSpeechSource(
 	if err := source.Validate(); err != nil {
 		return speech.ResolvedSpeechSource{}, err
 	}
-	if source.Speaker != speech.SpeechSpeakerNarrator {
+	if source.Speaker == speech.SpeechSpeakerMaster {
 		return speech.ResolvedSpeechSource{}, speech.SourceUnavailable(
-			"The requested speech event is not conversation narration.",
+			"The requested master speech event is not available.",
 			nil,
 		)
 	}

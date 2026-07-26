@@ -1,0 +1,279 @@
+.easy-button-lineage {
+  align-items: center;
+  background: color-mix(in oklab, var(--easy-button-primary) 7%, var(--easy-button-plate));
+  border: 1px solid color-mix(in oklab, var(--easy-button-primary) 25%, var(--easy-button-border));
+  border-radius: 999px;
+  color: var(--easy-button-muted);
+  display: flex;
+  font-size: 11px;
+  gap: 7px;
+  margin-bottom: 12px;
+  max-width: min(100%, 460px);
+  min-width: 0;
+  padding: 5px 7px 5px 9px;
+}
+
+.easy-button-lineage > svg {
+  color: var(--easy-button-primary);
+  flex: 0 0 auto;
+  height: 13px;
+  width: 13px;
+}
+
+.easy-button-lineage > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.easy-button-lineage strong {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.easy-button-lineage button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--easy-button-primary);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  gap: 4px;
+  padding: 3px 5px;
+}
+
+.easy-button-lineage button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.easy-button-lineage button > svg {
+  height: 11px;
+  width: 11px;
+}
+
+.easy-button-side {
+  display: grid;
+  gap: 14px;
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
+  min-width: 0;
+  padding: 22px clamp(20px, 4vw, 56px) 24px;
+}
+
+.easy-button-side-header {
+  align-items: center;
+  border-bottom: 1px solid var(--easy-button-border);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding-bottom: 14px;
+}
+
+.easy-button-side-heading {
+  min-width: 0;
+}
+
+.easy-button-side-heading > span {
+  color: var(--easy-button-primary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.easy-button-side-heading > h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 2px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.easy-button-side-parent-status {
+  background: var(--easy-button-plate);
+  border: 1px solid var(--easy-button-border);
+  border-radius: 999px;
+  color: var(--easy-button-muted);
+  font-size: 10.5px;
+  margin: 0;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+
+.easy-button-side-parent-status[data-parent-conversation-status="working"] {
+  border-color: color-mix(in oklab, var(--easy-button-primary) 40%, var(--easy-button-border));
+  color: var(--easy-button-primary);
+}
+
+.easy-button-side-end,
+.easy-button-side-composer button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--easy-button-border);
+  border-radius: 7px;
+  color: var(--easy-button-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 11px;
+  gap: 6px;
+  padding: 7px 9px;
+}
+
+.easy-button-side-end:disabled,
+.easy-button-side-composer button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.easy-button-side-end > svg,
+.easy-button-side-composer button > svg {
+  height: 12px;
+  width: 12px;
+}
+
+.easy-button-side-transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px max(0px, calc((100% - 760px) / 2));
+  scrollbar-gutter: stable;
+}
+
+.easy-button-side-message {
+  max-width: min(82%, 620px);
+  min-width: 0;
+}
+
+.easy-button-side-message[data-side-message-role="user"] {
+  align-self: flex-end;
+  text-align: right;
+}
+
+.easy-button-side-message[data-side-message-role="status"] {
+  align-self: center;
+  max-width: min(100%, 620px);
+  text-align: center;
+}
+
+.easy-button-side-message > span {
+  color: var(--easy-button-faint);
+  display: block;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.easy-button-side-message > p {
+  background: var(--easy-button-plate);
+  border: 1px solid var(--easy-button-border);
+  border-radius: 9px;
+  color: var(--easy-button-muted);
+  font-size: 12.5px;
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: 9px 11px;
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+.easy-button-side-message[data-side-message-role="assistant"] > p {
+  border-left-color: var(--easy-button-primary);
+}
+
+.easy-button-side-message[data-side-message-role="status"] > p {
+  background: transparent;
+  border-color: color-mix(in oklab, var(--destructive) 40%, var(--easy-button-border));
+  color: color-mix(in oklab, var(--destructive) 80%, var(--foreground));
+  font-size: 11px;
+}
+
+.easy-button-side-empty,
+.easy-button-side-history-note,
+.easy-button-side-working,
+.easy-button-side-failure {
+  align-self: center;
+  color: var(--easy-button-faint);
+  font-size: 11px;
+  margin: 0;
+}
+
+.easy-button-side-working {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.easy-button-side-working > svg {
+  animation: easy-button-speech-spin 900ms linear infinite;
+  height: 12px;
+  width: 12px;
+}
+
+.easy-button-side-failure {
+  color: color-mix(in oklab, var(--destructive) 80%, var(--foreground));
+}
+
+.easy-button-side-composer {
+  background: var(--easy-button-plate);
+  border: 1px solid var(--easy-button-border);
+  border-radius: 999px;
+  display: flex;
+  gap: 8px;
+  margin: 0 auto;
+  max-width: 760px;
+  min-width: 0;
+  padding: 5px 6px 5px 14px;
+  width: 100%;
+}
+
+.easy-button-side-composer:focus-within {
+  border-color: color-mix(in oklch, var(--easy-button-primary) 50%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--easy-button-primary) 10%, transparent);
+}
+
+.easy-button-side-composer input {
+  background: transparent;
+  border: 0;
+  color: var(--foreground);
+  flex: 1 1 auto;
+  font: inherit;
+  font-size: 13px;
+  min-width: 0;
+  outline: none;
+}
+
+.easy-button-side-composer input::placeholder {
+  color: var(--easy-button-faint);
+}
+
+.easy-button-side-composer button {
+  border-radius: 999px;
+  color: var(--easy-button-primary);
+}
+
+/* Keyed to the pane, not the window: the side conversation renders inside the
+   Easy Button pane host, which is the `easy-button-pane` query container (see
+   easy-button.css). A narrow *pane* — not a narrow window — should compact. */
+@container easy-button-pane (max-width: 720px) {
+  .easy-button-side {
+    padding: 16px;
+  }
+
+  .easy-button-side-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .easy-button-side-heading {
+    grid-column: 1 / -1;
+  }
+}
