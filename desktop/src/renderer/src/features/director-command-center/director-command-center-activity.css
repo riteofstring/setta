@@ -23,10 +23,15 @@
   display: grid;
   gap: 9px;
   grid-template-columns: auto minmax(0, 1fr);
-  opacity: 0.6;
+  opacity: 0.55;
   transition-duration: 220ms;
   transition-property: opacity;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* An older line brightens under the pointer, as the mockup's history does. */
+.director-narration-item:hover {
+  opacity: 0.85;
 }
 
 .director-narration-item[data-narration-latest="true"] {
@@ -35,18 +40,21 @@
 
 /*
  * The mark. A final summary is the end of something and takes the graph's
- * success colour; a milestone is work still moving and takes its own.
+ * success colour; a milestone is work still moving and takes its own. The glow
+ * is the mockup's: a luminous dot on the void, not a flat disc.
  */
 .director-narration-mark {
-  background: var(--graph-mode-think);
-  block-size: 7px;
+  background: currentColor;
+  block-size: 6px;
   border-radius: 999px;
-  inline-size: 7px;
-  margin-block-start: 6px;
+  box-shadow: 0 0 6px currentColor;
+  color: var(--graph-mode-think);
+  inline-size: 6px;
+  margin-block-start: 7px;
 }
 
 .director-narration-item[data-narration-kind="final_summary"] .director-narration-mark {
-  background: var(--graph-mode-success);
+  color: var(--graph-mode-success);
 }
 
 .director-narration-text {

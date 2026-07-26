@@ -119,44 +119,7 @@ function WorkstreamNavigation({
       >
         <ChevronLeft aria-hidden="true" size={16} />
       </IconButton>
-      <div className="director-workstream-selector">
-        <WorkstreamNavigationTitle counter={navigation.counter} focus={focus} />
-        {/*
-         * A strip of one is not a navigator. With a single workstream the dot
-         * has nothing to switch between, and it read as an unexplained glyph
-         * floating under the title — the status it carries is already the
-         * word beside the title.
-         */}
-        {navigation.visibleEntries.length > 0 ? (
-          <div
-            aria-label="Views"
-            className="director-workstream-strip"
-            ref={workstreamStripRef}
-            role="list"
-          >
-            <span role="listitem">
-              <button
-                aria-current={focus.kind === "director" ? "page" : undefined}
-                aria-label="Select the Director"
-                className="director-workstream-dot director-view-dot"
-                data-view="director"
-                onClick={() => dispatchDirectorIntent(dispatch, selectViewIntent(null))}
-                title="Director — every workstream at once"
-                type="button"
-              />
-            </span>
-            <span aria-hidden="true" className="director-strip-separator" />
-            {navigation.visibleEntries.map((item) => (
-              <WorkstreamDot
-                dispatch={dispatch}
-                entry={item.entry}
-                key={item.entry.workstream.id}
-                selectedWorkstreamId={selectedWorkstreamID(snapshot)}
-              />
-            ))}
-          </div>
-        ) : null}
-      </div>
+      <WorkstreamNavigationTitle counter={navigation.counter} focus={focus} />
       <IconButton
         disabled={!canMoveSelection}
         label="Next workstream"
@@ -164,6 +127,43 @@ function WorkstreamNavigation({
       >
         <ChevronRight aria-hidden="true" size={16} />
       </IconButton>
+      {/*
+       * The strip sits beside the bracketed title, as the mockup draws it: the
+       * chevrons page through destinations, the dots are the map of them.
+       *
+       * A strip of one is not a navigator. With a single workstream the dot
+       * has nothing to switch between, and it read as an unexplained glyph —
+       * the status it carries is already the word beside the title.
+       */}
+      {navigation.visibleEntries.length > 0 ? (
+        <div
+          aria-label="Views"
+          className="director-workstream-strip"
+          ref={workstreamStripRef}
+          role="list"
+        >
+          <span role="listitem">
+            <button
+              aria-current={focus.kind === "director" ? "page" : undefined}
+              aria-label="Select the Director"
+              className="director-workstream-dot director-view-dot"
+              data-view="director"
+              onClick={() => dispatchDirectorIntent(dispatch, selectViewIntent(null))}
+              title="Director — every workstream at once"
+              type="button"
+            />
+          </span>
+          <span aria-hidden="true" className="director-strip-separator" />
+          {navigation.visibleEntries.map((item) => (
+            <WorkstreamDot
+              dispatch={dispatch}
+              entry={item.entry}
+              key={item.entry.workstream.id}
+              selectedWorkstreamId={selectedWorkstreamID(snapshot)}
+            />
+          ))}
+        </div>
+      ) : null}
     </nav>
   );
 }

@@ -163,12 +163,53 @@
   color: oklch(0.96 0.02 240);
 }
 
+/*
+ * The pill's own controls are quiet marks, not boxed buttons: the mockup's
+ * composer trails a single glyph. The mic is borderless at rest, and send is
+ * the pill's one accent — a small filled disc that reads as the default
+ * action without shouting over the canvas.
+ */
 .director-composer .director-composer-voice-button,
 .director-composer .director-composer-discard-voice-button {
-  border-color: var(--director-border);
+  border-color: transparent;
+  border-radius: 999px;
   justify-content: center;
   min-inline-size: 30px;
   padding: 0;
+}
+
+.director-composer .director-composer-voice-button:hover {
+  background: oklch(1 0 0 / 0.06);
+  border-color: transparent;
+}
+
+.director-composer .director-composer-send {
+  background: oklch(from var(--director-primary) l c h / 0.2);
+  border-color: oklch(from var(--director-primary) l c h / 0.45);
+  border-radius: 999px;
+  color: oklch(0.92 0.04 240);
+  justify-content: center;
+  min-inline-size: 30px;
+  padding: 0;
+}
+
+.director-composer .director-composer-send:not(:disabled):hover {
+  background: oklch(from var(--director-primary) l c h / 0.34);
+  border-color: oklch(from var(--director-primary) l c h / 0.7);
+}
+
+.director-composer .director-composer-send:disabled {
+  background: transparent;
+  border-color: var(--director-border);
+  color: var(--director-faint);
+}
+
+.director-composer-controls button {
+  transition-property: background-color, border-color, color, scale;
+}
+
+.director-composer-controls button:not(:disabled):active {
+  scale: 0.96;
 }
 
 /* Recording is a state worth shouting about; idle capture is not. */

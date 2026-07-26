@@ -65,30 +65,11 @@
 }
 
 /*
- * One row.
- *
- * The title and the strip used to be stacked, which put a second row inside a
- * 44px bar: the brand centred against the taller row, the chevrons against
- * their own, and the dots hung below the title with nothing beside them. A bar
- * is a line of things on one baseline.
+ * One row, in the mockup's order: the chevrons bracket the title, and the dot
+ * strip sits beside them. The chevrons page through destinations; the dots are
+ * the map of them — separating the two is what stopped the bar reading as one
+ * control with parts scattered across it.
  */
-/*
- * The title absorbs its own variation so the strip does not.
- *
- * Laid out in a row, a title that sizes to its text drags the dots along with
- * it: switching from "Director" to a long workstream name slid the whole strip
- * across the bar, and a navigator that moves when nothing about it changed is
- * one you have to find again every time. The title column takes the slack
- * instead — it is the thing that changed — and the dots stay where they were.
- */
-.director-workstream-selector {
-  align-items: center;
-  display: flex;
-  gap: 10px;
-  min-inline-size: 0;
-  padding-inline: 4px;
-}
-
 /*
  * The title reserves its width instead of taking it.
  *
@@ -290,6 +271,7 @@
   flex: none;
   gap: 2px;
   justify-content: safe center;
+  margin-inline-start: 6px;
   max-inline-size: min(30vw, 260px);
   min-inline-size: 0;
   overflow-x: auto;

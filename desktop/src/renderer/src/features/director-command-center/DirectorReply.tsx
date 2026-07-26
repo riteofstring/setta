@@ -1,5 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
+import { stripInlineMarkdown } from "@renderer/lib/plain-inline-text";
+
 /** What the shell is waiting on before it can speak for itself. */
 export type DirectorLoadState = "loading" | "ready" | "resyncing" | "error";
 
@@ -32,7 +34,7 @@ export function DirectorReply({
   message: string | null;
   receiptText: string | null;
 }) {
-  const text = message ?? receiptText ?? loadStateMessage(loadState);
+  const text = stripInlineMarkdown(message ?? receiptText ?? loadStateMessage(loadState));
   const [expanded, setExpanded] = useState(false);
   const [clamped, setClamped] = useState(false);
   const textRef = useRef<HTMLParagraphElement | null>(null);
