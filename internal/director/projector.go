@@ -110,21 +110,14 @@ type DirectorGraphProjector struct {
 // projectedWorkstream is the live graph of one workstream plus the small amount
 // of causal bookkeeping edge derivation needs.
 type projectedWorkstream struct {
-	id             string
-	nodes          []SemanticNode
-	nodeIndex      map[string]int
-	edges          []SemanticEdge
-	edgeIndex      map[string]bool
-	lastNodeID     string
-	lastRunNodeID  map[string]string
-	openRunNodeIDs []string
-	// Parallel work inside a run. chainParent remembers what each chained node
-	// followed; parallelTips is the open fan of concurrent work, per run; and
-	// forkParent is the node that fan branched from, so a third concurrent
-	// action joins the same fork instead of chaining off a busy sibling.
-	chainParent           map[string]string
-	parallelTips          map[string][]string
-	forkParent            map[string]string
+	id                    string
+	nodes                 []SemanticNode
+	nodeIndex             map[string]int
+	edges                 []SemanticEdge
+	edgeIndex             map[string]bool
+	lastNodeID            string
+	lastRunNodeID         map[string]string
+	openRunNodeIDs        []string
 	recoveryAnchor        string
 	providerLifecycleNode map[string]string
 	planStepNodes         map[string][]string
@@ -167,9 +160,6 @@ func newProjectedWorkstream(id string) *projectedWorkstream {
 		changedNodeIDs:        map[string]bool{},
 		changedEdgeIDs:        map[string]bool{},
 		removedNodeIDs:        map[string]bool{},
-		chainParent:           map[string]string{},
-		parallelTips:          map[string][]string{},
-		forkParent:            map[string]string{},
 	}
 }
 

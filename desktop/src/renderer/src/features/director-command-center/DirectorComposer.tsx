@@ -1,4 +1,4 @@
-import { ArrowUp, Circle, Mic, RotateCcw, Square, X } from "lucide-react";
+import { Circle, Mic, RotateCcw, Send, Square, X } from "lucide-react";
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { voiceProviderSetupActionLabel } from "../global-speech/speech-capture-availability";
@@ -244,15 +244,9 @@ export function DirectorComposer({
               <X aria-hidden="true" size={16} />
             </button>
           ) : null}
-          <button
-            aria-keyshortcuts="Enter"
-            aria-label="Send"
-            className="director-composer-send"
-            disabled={text.trim().length === 0}
-            title="Send (Enter)"
-            type="submit"
-          >
-            <ArrowUp aria-hidden="true" size={16} />
+          <button disabled={text.trim().length === 0} type="submit">
+            <Send aria-hidden="true" size={17} />
+            <span>Send</span>
           </button>
         </div>
       </div>

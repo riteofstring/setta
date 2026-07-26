@@ -181,14 +181,8 @@ export const graphEdgeGeometry = {
  */
 export const graphBarrel = 0.21;
 
-/**
- * Where the graph's live edge sits vertically in clip space.
- *
- * The mockup authored -0.35 above an enclosed response card; production's
- * reply is bare text on the canvas layer, so the live edge sits a step higher
- * to keep the newest node's own label clear of the reply and the composer.
- */
-export const graphLiveEdgeClipY = -0.42;
+/** Where the graph's live edge sits vertically in clip space. */
+export const graphLiveEdgeClipY = -0.35;
 
 /**
  * How fast the camera eases onto the live edge, and how fast a turn folds.

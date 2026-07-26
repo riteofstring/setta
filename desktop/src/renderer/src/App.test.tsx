@@ -43,12 +43,12 @@ describe("Director command-center shell", () => {
     expect(html).toContain('aria-label="Director composer"');
     expect(html).toContain('aria-label="Now"');
     expect(html).toContain('aria-label="Artifacts"');
-    // The Director's view keeps both rails: they interleave every thread's
-    // narration and artifacts chronologically, so they start shown.
-    expect(html).toContain('data-now-rail="shown"');
-    expect(html).toContain('data-artifacts-rail="shown"');
-    expect(html).toContain('aria-label="Hide Now rail"');
-    expect(html).toContain('aria-label="Hide Artifacts rail"');
+    // The app opens on the Director's view, whose canvas is the content: both
+    // rails start hidden there, so their toggles offer to show rather than hide.
+    expect(html).toContain('data-now-rail="hidden"');
+    expect(html).toContain('data-artifacts-rail="hidden"');
+    expect(html).toContain('aria-label="Show Now rail"');
+    expect(html).toContain('aria-label="Show Artifacts rail"');
     expect(html).not.toContain('data-testid="workspace-layout-area"');
     expect(html).not.toContain("data-pane-count=");
     expect(html).not.toContain("Back to panes");

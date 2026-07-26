@@ -191,9 +191,7 @@ func TestRefusedDirectorToolCallFailsItsNode(t *testing.T) {
 }
 
 // TestDirectorRequestStaysOpenUntilTheTurnEnds proves a turn that acted without
-// replying does not claim to still be in progress once the next request
-// arrives — and does not claim success either: an ask abandoned without an
-// answer closes cancelled, the intermediate verdict, never a green one.
+// replying does not claim to still be in progress once the next request arrives.
 func TestDirectorRequestStaysOpenUntilTheTurnEnds(t *testing.T) {
 	turn := directorLaneTurn(true)
 	acted := turn[:3]
@@ -209,8 +207,8 @@ func TestDirectorRequestStaysOpenUntilTheTurnEnds(t *testing.T) {
 		t.Fatalf("apply the next request: %v", err)
 	}
 
-	if request := laneNode(t, projector, SemanticNodeIdentityDirectorTurn, "entry-request"); request.Status != SemanticNodeStatusCancelled {
-		t.Fatalf("an abandoned request is %q, want cancelled", request.Status)
+	if request := laneNode(t, projector, SemanticNodeIdentityDirectorTurn, "entry-request"); request.Status != SemanticNodeStatusSucceeded {
+		t.Fatalf("a finished request is still %q", request.Status)
 	}
 	if next := laneNode(t, projector, SemanticNodeIdentityDirectorTurn, "entry-request-2"); next.Status != SemanticNodeStatusActive {
 		t.Fatalf("the current request is %q", next.Status)

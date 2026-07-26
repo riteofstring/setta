@@ -9,7 +9,6 @@ import {
 import { selectDesktopVoiceOutputProvider } from "./desktop-speech-provider-coordinator";
 import { createLocalMacOSSpeechOutputProvider } from "./local-macos-speech-output-provider";
 import { createOpenAIBackendSpeechOutputProvider } from "./openai-speech-output-provider";
-import { readSpeechPlaybackMutePreference } from "./speech-playback-mute-preference";
 import type { VoiceOutputProvider } from "./voice-provider-boundary";
 
 /**
@@ -28,11 +27,9 @@ export function AppShellSpeechPlaybackProvider({
   runtimeId: string | null;
   setta: SettaAPI;
 }) {
-  const [controller] = useState(() => {
-    const created = new AppShellSpeechPlaybackController(browserPlaybackDependencies(setta));
-    created.setMuted(readSpeechPlaybackMutePreference(globalThis.localStorage));
-    return created;
-  });
+  const [controller] = useState(
+    () => new AppShellSpeechPlaybackController(browserPlaybackDependencies(setta)),
+  );
   const [effectLifetime] = useState(() => new AppShellSpeechPlaybackEffectLifetime());
   const content = useMemo(() => children(controller), [children, controller]);
 

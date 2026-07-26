@@ -16,10 +16,9 @@ import { selectViewIntent } from "./DirectorWorkstreamNavigation";
 /**
  * The Director's own lane. It is a graph in the composition but not a
  * workstream, so clicking it means "no workstream in focus" rather than a
- * thread to open — and on the Director's own view it is the self lane, whose
- * turns fold on click.
+ * thread to open.
  */
-export const directorGraphLaneId = "director";
+const directorGraphLaneId = "director";
 
 /**
  * How the canvas should draw what it was given, and what a click on it does.
