@@ -11,10 +11,13 @@ import type {
   StartCodexLoginRequest,
   StartCodexLoginResponse,
   UpdateAppearanceSettingsRequest,
+  WorkspaceUILayout,
+  WorkspaceUILayoutReadResult,
   WorkspaceSession,
 } from "@generated/backend";
 import { conversationIpcChannels, type ConversationIpc } from "./conversation-ipc";
-import { directorIpcChannels, type DirectorIpcContract } from "./director-ipc";
+import { hostedAccessIpcChannels, type HostedAccessIpcContract } from "./hosted-access-ipc";
+import { masterIpcChannels, type MasterIpcContract } from "./master-ipc";
 import {
   roleConfigurationIpcChannels,
   type RoleConfigurationIpcContract,
@@ -26,8 +29,10 @@ import type {
   KnownRuntimeView,
   RendererRegionCaptureRequest,
   RendererRegionSnapshot,
+  RuntimeAccessCredentialView,
   RuntimeRegistrySnapshot,
   RuntimeVersions,
+  WorkspaceBrowserViewStats,
   WorkspaceGitInfo,
 } from "./types";
 
@@ -47,11 +52,13 @@ export const ipcChannels = {
   backendHealth: "backend:health",
   runtimeAddByPairingUrl: "runtimes:add-by-pairing-url",
   runtimeCurrent: "runtimes:current",
+  runtimeCurrentCredential: "runtimes:current-runtime-credential",
   runtimeList: "runtimes:list",
   runtimeRemove: "runtimes:remove",
   runtimeSwitch: "runtimes:switch",
   ...conversationIpcChannels,
-  ...directorIpcChannels,
+  ...hostedAccessIpcChannels,
+  ...masterIpcChannels,
   ...roleConfigurationIpcChannels,
   ...speechIpcChannels,
   codexAccountCancelLogin: "codex-account:cancel-login",
@@ -59,15 +66,23 @@ export const ipcChannels = {
   codexAccountRead: "codex-account:read",
   codexAccountRefresh: "codex-account:refresh",
   codexAccountStartLogin: "codex-account:start-login",
+  workspaceBrowserViewStats: "workspace:browser-view-stats",
+  workspaceBrowserViewsTeardown: "workspace:browser-views-teardown",
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceOpenPath: "workspace:open-path",
   workspaceRelocateLocalFolder: "workspace:relocate-local-folder",
+  workspaceReadUILayout: "workspace:read-ui-layout",
   workspaceRefreshAvailability: "workspace:refresh-availability",
   workspaceRemoveRecent: "workspace:remove-recent",
   workspaceReorder: "workspace:reorder",
+  workspaceSaveUILayout: "workspace:save-ui-layout",
   workspaceSelect: "workspace:select",
   workspaceSession: "workspace:session",
+} as const;
+
+export const ipcMessages = {
+  workspaceBrowserViewBatch: "workspace:browser-view-batch",
 } as const;
 
 export const ipcEvents = {
@@ -75,15 +90,19 @@ export const ipcEvents = {
   backendUnexpectedExit: "backend:unexpected-exit",
   codexAccountChange: "codex-account:change",
   conversationEvent: "conversation:event",
-  directorEvent: "director:event",
+  hostedAccessProgress: "hosted-access:progress",
   runtimeConnectionState: "runtimes:connection-state",
-  speechCredentialSettingsChanged: "speech:credential-settings-changed",
-  speechLocalMacOSVoiceModelDownloadChanged: "speech:local-macos-voice-model-download-changed",
-  speechProviderSelectionChanged: "speech:provider-selection-changed",
+  workspaceBrowserViewKey: "workspace:browser-view-key",
+  workspaceBrowserViewSnapshot: "workspace:browser-view-snapshot",
 } as const;
 
 interface IpcContract
-  extends ConversationIpc, DirectorIpcContract, RoleConfigurationIpcContract, SpeechIpcContract {
+  extends
+    ConversationIpc,
+    HostedAccessIpcContract,
+    MasterIpcContract,
+    RoleConfigurationIpcContract,
+    SpeechIpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];
@@ -144,6 +163,10 @@ interface IpcContract
     args: [];
     result: RuntimeRegistrySnapshot;
   };
+  runtimeCurrentCredential: {
+    args: [];
+    result: RuntimeAccessCredentialView;
+  };
   runtimeList: {
     args: [];
     result: KnownRuntimeView[];
@@ -176,6 +199,14 @@ interface IpcContract
     args: [request: StartCodexLoginRequest];
     result: StartCodexLoginResponse;
   };
+  workspaceBrowserViewStats: {
+    args: [];
+    result: WorkspaceBrowserViewStats;
+  };
+  workspaceBrowserViewsTeardown: {
+    args: [workspaceId: string];
+    result: WorkspaceBrowserViewStats;
+  };
   workspaceClose: {
     args: [id: string];
     result: WorkspaceSession;
@@ -192,6 +223,10 @@ interface IpcContract
     args: [id: string];
     result: OpenWorkspaceResponse | null;
   };
+  workspaceReadUILayout: {
+    args: [workspaceId: string];
+    result: WorkspaceUILayoutReadResult;
+  };
   workspaceRefreshAvailability: {
     args: [id: string];
     result: WorkspaceSession;
@@ -203,6 +238,10 @@ interface IpcContract
   workspaceReorder: {
     args: [ids: string[]];
     result: WorkspaceSession;
+  };
+  workspaceSaveUILayout: {
+    args: [layout: WorkspaceUILayout];
+    result: WorkspaceUILayout;
   };
   workspaceSelect: {
     args: [id: string];

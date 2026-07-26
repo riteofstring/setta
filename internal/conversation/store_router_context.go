@@ -7,36 +7,20 @@ import (
 	"fmt"
 )
 
-var ErrConversationHasNoWorkspace = errors.New("topic conversation has no workspace resource")
-
 func (store *Store) ReadConversationWorkspaceID(
 	ctx context.Context,
 	conversationID string,
 ) (string, error) {
-	workspaceID, err := store.ReadConversationWorkspaceBindingID(ctx, conversationID)
-	if err != nil {
-		return "", err
-	}
-	if workspaceID == nil {
-		return "", fmt.Errorf("%w: %s", ErrConversationHasNoWorkspace, conversationID)
-	}
-	return *workspaceID, nil
-}
-
-func (store *Store) ReadConversationWorkspaceBindingID(
-	ctx context.Context,
-	conversationID string,
-) (*string, error) {
 	if store == nil {
-		return nil, errors.New("conversation store is required")
+		return "", errors.New("conversation store is required")
 	}
 	if ctx == nil {
-		return nil, errors.New("conversation workspace read context is required")
+		return "", errors.New("conversation workspace read context is required")
 	}
 	if err := validateIdentifier("conversation workspace read conversation id", conversationID); err != nil {
-		return nil, err
+		return "", err
 	}
-	var workspaceID sql.NullString
+	var workspaceID string
 	err := store.read(ctx, "read conversation workspace", func(ctx context.Context, reader *sql.Conn) error {
 		err := reader.QueryRowContext(ctx, `SELECT workspace_id FROM conversations WHERE id = ?`, conversationID).Scan(&workspaceID)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -44,7 +28,7 @@ func (store *Store) ReadConversationWorkspaceBindingID(
 		}
 		return err
 	})
-	return optionalScannedString(workspaceID), err
+	return workspaceID, err
 }
 
 func (store *Store) ReadConversationRouterContextSource(
@@ -332,16 +316,6 @@ func readConversationRouterAllowedDecisionKinds(
 	narrator NarratorContextSource,
 	forkPoints []ConversationRouterForkPoint,
 ) ([]ConversationRouteDecisionKind, error) {
-	if narrator.Conversation.WorkspaceID == nil {
-		allowed := []ConversationRouteDecisionKind{
-			ConversationRouteDecisionKindSendToParent,
-			ConversationRouteDecisionKindAnswerAsNarrator,
-		}
-		if work.ClarificationReply == nil {
-			allowed = append(allowed, ConversationRouteDecisionKindClarify)
-		}
-		return allowed, nil
-	}
 	allowed, err := readConversationRouterParentDecisionKinds(ctx, reader, work, narrator)
 	if err != nil {
 		return nil, err
@@ -357,6 +331,7 @@ func readConversationRouterAllowedDecisionKinds(
 	if len(forkPoints) > 0 {
 		allowed = append(allowed, ConversationRouteDecisionKindForkConversation)
 	}
+	allowed = append(allowed, ConversationRouteDecisionKindEscalateToMaster)
 	if work.ClarificationReply == nil {
 		allowed = append(allowed, ConversationRouteDecisionKindClarify)
 	}
@@ -410,10 +385,30 @@ func conversationRouterSideAllowed(
 	reader *sql.Tx,
 	work ConversationInputRoutingWork,
 ) (bool, error) {
-	open, err := readOpenSideConversationForParent(
+	paneID := work.Input.Input.SourcePaneID
+	if paneID == nil {
+		return false, nil
+	}
+	var boundConversationID string
+	err := reader.QueryRowContext(ctx, `
+SELECT conversation_id
+FROM pane_bindings
+WHERE pane_id = ?
+`, *paneID).Scan(&boundConversationID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read conversation router pane binding: %w", err)
+	}
+	if boundConversationID != work.Input.Input.ConversationID {
+		return false, nil
+	}
+	open, err := readOpenSideConversationForPane(
 		ctx,
 		reader,
 		work.Input.Input.ConversationID,
+		*paneID,
 	)
 	if err != nil {
 		return false, fmt.Errorf("read conversation router side state: %w", err)

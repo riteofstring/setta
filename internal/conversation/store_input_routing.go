@@ -295,6 +295,9 @@ func commitConversationRouteDecisionTransaction(
 	if err != nil {
 		return ConversationRouteDecisionRecord{}, err
 	}
+	if err := applyConversationRouteDecisionCommand(transaction, dbPath, root, commit); err != nil {
+		return ConversationRouteDecisionRecord{}, err
+	}
 	if err := applyConversationRouteDecisionStatus(transaction, root, active, commit); err != nil {
 		return ConversationRouteDecisionRecord{}, err
 	}
@@ -633,9 +636,11 @@ func validateConversationRouteCommandState(
 	case ConversationRouteDecisionKindAnswerAsNarrator:
 		return nil
 	case ConversationRouteDecisionKindCreateSideConversation:
-		return validateCreateSideConversationRouteCommandState(ctx, tx, commit)
+		return validateCreateSideConversationRouteCommandState(ctx, tx, root, commit)
 	case ConversationRouteDecisionKindForkConversation:
 		return validateForkConversationRouteCommandState(ctx, tx, commit)
+	case ConversationRouteDecisionKindEscalateToMaster:
+		return requireConversationRouteIdentifierAbsent(ctx, tx, "master_inputs", commit.ResultingCommand.EscalateToMaster.MasterInputID)
 	case ConversationRouteDecisionKindClarify:
 		return validateClarifyConversationRouteCommandState(commit)
 	default:
@@ -728,10 +733,20 @@ func validateSteerParentRouteCommandState(
 func validateCreateSideConversationRouteCommandState(
 	ctx context.Context,
 	tx *sql.Tx,
+	root conversationInputRecord,
 	commit ConversationRouteDecisionCommit,
 ) error {
 	command := commit.ResultingCommand.CreateSideConversation
-	if err := requireConversationRouteSideAvailable(ctx, tx, commit.ConversationID); err != nil {
+	if root.Accepted.Input.SourcePaneID == nil {
+		return stateConflict("conversation input", root.Accepted.Input.ID, "side routing requires an originating pane")
+	}
+	if command.ParentPaneID != *root.Accepted.Input.SourcePaneID {
+		return stateConflict("conversation input", root.Accepted.Input.ID, "side routing changed the originating pane")
+	}
+	if err := requireConversationRoutePaneBinding(ctx, tx, commit.ConversationID, command.ParentPaneID); err != nil {
+		return err
+	}
+	if err := requireConversationRouteSidePaneAvailable(ctx, tx, commit.ConversationID, command.ParentPaneID); err != nil {
 		return err
 	}
 	if err := requireConversationRouteIdentifierAbsent(ctx, tx, "side_conversations", command.SideConversationID); err != nil {
