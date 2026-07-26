@@ -552,17 +552,11 @@ export async function closeDirectorArtifactBrowser(client) {
   );
 }
 
-export function waitForConversationSnapshot(
-  backend,
-  workspaceId,
-  conversationId,
-  ready,
-  timeoutMs = workflowTimeoutMs,
-) {
+export function waitForConversationSnapshot(backend, workspaceId, conversationId, ready) {
   return waitForBackendState(
     () => backend.post("/conversations/snapshot/read", { conversationId, workspaceId }),
     ready,
-    timeoutMs,
+    workflowTimeoutMs,
   );
 }
 

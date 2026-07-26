@@ -28,45 +28,6 @@ func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
 	if config.AppDataDir != appDataDir {
 		t.Fatalf("app data dir = %q, want %q", config.AppDataDir, appDataDir)
 	}
-	if config.MinimumDiskFreeMiB != runtime.DefaultConfig().MinimumDiskFreeMiB ||
-		config.MinimumDiskFreeMiB <= 0 {
-		t.Fatalf(
-			"minimum free disk = %d MiB, want positive runtime default %d",
-			config.MinimumDiskFreeMiB,
-			runtime.DefaultConfig().MinimumDiskFreeMiB,
-		)
-	}
-}
-
-func TestConfigFromArgsAllowsExplicitDiskAdmissionOptOut(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-
-	config, err := configFromArgs([]string{
-		"--app-data-dir", t.TempDir(),
-		"--minimum-disk-free-mib", "0",
-	}, &stdout, &stderr, emptyEnv)
-	if err != nil {
-		t.Fatalf("config from args: %v", err)
-	}
-	if config.MinimumDiskFreeMiB != 0 {
-		t.Fatalf("minimum free disk = %d MiB, want explicit zero", config.MinimumDiskFreeMiB)
-	}
-}
-
-func TestConfigFromArgsEnablesLocalCredentialIssuerOnlyWithExplicitFlag(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	config, err := configFromArgs([]string{
-		"--app-data-dir", t.TempDir(),
-		"--local-credential-issuer",
-	}, &stdout, &stderr, emptyEnv)
-	if err != nil {
-		t.Fatalf("config from args: %v", err)
-	}
-	if !config.EnableLocalCredentialIssuer || !config.SkipBootstrapDeviceSession {
-		t.Fatalf("local issuer config = %+v", config)
-	}
 }
 
 func TestConfigFromArgsRejectsInvalidEnvPort(t *testing.T) {

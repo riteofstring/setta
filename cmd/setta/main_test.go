@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"reflect"
 	"strings"
 	"testing"
@@ -57,43 +58,11 @@ func TestServeOptionsDefaultsAndExplicitPort(t *testing.T) {
 	if options.Port != 0 {
 		t.Fatalf("port = %d, want 0", options.Port)
 	}
-	if options.MinimumDiskFreeMiB != runtime.DefaultConfig().MinimumDiskFreeMiB ||
-		options.MinimumDiskFreeMiB <= 0 {
-		t.Fatalf(
-			"minimum free disk = %d MiB, want positive runtime default %d",
-			options.MinimumDiskFreeMiB,
-			runtime.DefaultConfig().MinimumDiskFreeMiB,
-		)
-	}
 	if options.Host != "127.0.0.1" {
 		t.Fatalf("host = %q, want loopback", options.Host)
 	}
-}
-
-func TestServeOptionsAllowsExplicitDiskAdmissionOptOut(t *testing.T) {
-	options, err := serveOptionsFromArgs(context.Background(), []string{
-		"--app-data-dir", t.TempDir(),
-		"--minimum-disk-free-mib", "0",
-	}, testDeps())
-	if err != nil {
-		t.Fatalf("serve options: %v", err)
-	}
-	if options.MinimumDiskFreeMiB != 0 {
-		t.Fatalf("minimum free disk = %d MiB, want explicit zero", options.MinimumDiskFreeMiB)
-	}
-}
-
-func TestServeOptionsRequireExplicitLocalCredentialIssuerFlag(t *testing.T) {
-	deps := testDeps()
-	options, err := serveOptionsFromArgs(context.Background(), []string{
-		"--app-data-dir", t.TempDir(),
-		"--local-credential-issuer",
-	}, deps)
-	if err != nil {
-		t.Fatalf("serve options: %v", err)
-	}
-	if !options.LocalCredentialIssuer {
-		t.Fatal("local credential issuer was not enabled")
+	if options.Tailnet {
+		t.Fatal("tailnet = true, want false")
 	}
 }
 
@@ -163,10 +132,7 @@ func TestServeOptionsMapsSpeechEnvironment(t *testing.T) {
 		t.Fatalf("speech provider config = %+v, want guarded E2E URL", options.Speech.Provider)
 	}
 
-	config, err := serveRuntimeConfig(options, deps, io.Discard)
-	if err != nil {
-		t.Fatalf("runtime config: %v", err)
-	}
+	config := serveRuntimeConfig(options, deps, io.Discard)
 	if !reflect.DeepEqual(config.Speech, options.Speech.Provider) ||
 		config.SpeechCredentialOwner != runtime.SpeechCredentialOwnerServerStartup ||
 		config.SpeechStartupAPIKey != options.Speech.APIKey {
@@ -182,6 +148,35 @@ func TestServeOptionsMapsSpeechEnvironment(t *testing.T) {
 	}
 	if cleared != speech.APIKeyEnvironmentVariable {
 		t.Fatalf("cleared environment variable = %q, want %q", cleared, speech.APIKeyEnvironmentVariable)
+	}
+}
+
+func TestServeOptionsClearsSpeechCredentialBeforeTailnetCommand(t *testing.T) {
+	env := map[string]string{
+		speech.APIKeyEnvironmentVariable: "sk-setta-speech-tailnet",
+	}
+	deps := testDeps()
+	deps.getenv = func(name string) string { return env[name] }
+	deps.unsetenv = func(name string) error {
+		delete(env, name)
+		return nil
+	}
+	deps.commandRunner = func(context.Context, string, ...string) ([]byte, error) {
+		if value := env[speech.APIKeyEnvironmentVariable]; value != "" {
+			return nil, fmt.Errorf("tailnet helper inherited speech credential")
+		}
+		return []byte("100.64.0.12\n"), nil
+	}
+
+	options, err := serveOptionsFromArgs(context.Background(), []string{
+		"--app-data-dir", t.TempDir(),
+		"--tailnet",
+	}, deps)
+	if err != nil {
+		t.Fatalf("serve options: %v", err)
+	}
+	if options.Host != "100.64.0.12" || options.Speech.APIKey != "sk-setta-speech-tailnet" {
+		t.Fatalf("serve options = %+v, want retained config and tailnet host", options)
 	}
 }
 
@@ -215,6 +210,71 @@ func TestServeOptionsRejectsUnclearedSpeechCredential(t *testing.T) {
 	}
 }
 
+func TestServeOptionsTailnetResolvesNumericIPv4(t *testing.T) {
+	appDataDir := t.TempDir()
+	deps := testDeps()
+	deps.commandRunner = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		if name != "tailscale" || !reflect.DeepEqual(args, []string{"ip", "-4"}) {
+			t.Fatalf("command = %s %v, want tailscale ip -4", name, args)
+		}
+		return []byte("100.64.0.12\n"), nil
+	}
+
+	options, err := serveOptionsFromArgs(context.Background(), []string{
+		"--app-data-dir", appDataDir,
+		"--tailnet",
+	}, deps)
+	if err != nil {
+		t.Fatalf("serve options: %v", err)
+	}
+	if options.Host != "100.64.0.12" {
+		t.Fatalf("host = %q, want tailscale IPv4", options.Host)
+	}
+	if !options.Tailnet {
+		t.Fatal("tailnet = false, want true")
+	}
+}
+
+func TestResolveTailnetIPv4RejectsInvalidCommandResults(t *testing.T) {
+	tests := map[string]struct {
+		output []byte
+		err    error
+		want   string
+	}{
+		"missing cli": {
+			err:  &exec.Error{Name: "tailscale", Err: exec.ErrNotFound},
+			want: "tailscale CLI not found",
+		},
+		"command failure": {
+			output: []byte("not logged in\n"),
+			err:    errors.New("exit status 1"),
+			want:   "not logged in",
+		},
+		"empty output": {
+			want: "returned no address",
+		},
+		"multiple addresses": {
+			output: []byte("100.64.0.1\n100.64.0.2\n"),
+			want:   "expected exactly one",
+		},
+		"not ipv4": {
+			output: []byte("fd7a:115c:a1e0::1\n"),
+			want:   "expected a numeric IPv4 address",
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := resolveTailnetIPv4(context.Background(), func(context.Context, string, ...string) ([]byte, error) {
+				return test.output, test.err
+			})
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want containing %q", err, test.want)
+			}
+		})
+	}
+}
+
 func TestBuildPairingURL(t *testing.T) {
 	pairingURL, err := buildPairingURL(testRuntimeID, "token_test", "http://127.0.0.1:7345")
 	if err != nil {
@@ -236,25 +296,6 @@ func TestBuildPairingURL(t *testing.T) {
 	}
 	if query.Get("url") != "http://127.0.0.1:7345" {
 		t.Fatalf("url = %q, want base URL", query.Get("url"))
-	}
-}
-
-func TestPrintPairingJSONIsTypedAndDoesNotRenderHumanOutput(t *testing.T) {
-	var output bytes.Buffer
-	renderedQR := false
-	err := printPairing(&output, pairingResult{
-		RuntimeID: testRuntimeID, Token: "pairing-token", URL: "setta://pair?tok=pairing-token",
-	}, true, cliDeps{renderQR: func(io.Writer, string) { renderedQR = true }})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var event pairingJSONEvent
-	if err := json.Unmarshal(output.Bytes(), &event); err != nil {
-		t.Fatal(err)
-	}
-	if event.SchemaVersion != 1 || event.Event != "runtime_pairing_ready" || event.RuntimeID != testRuntimeID ||
-		event.PairingToken != "pairing-token" || renderedQR || strings.Contains(output.String(), "Pairing URL") {
-		t.Fatalf("pairing JSON event = %+v, rendered QR = %t", event, renderedQR)
 	}
 }
 
@@ -412,6 +453,9 @@ func authedStatus(t *testing.T, client *http.Client, targetURL string, token str
 
 func testDeps() cliDeps {
 	return normalizeDeps(cliDeps{
+		commandRunner: func(context.Context, string, ...string) ([]byte, error) {
+			return nil, fmt.Errorf("unexpected command")
+		},
 		getenv: func(string) string {
 			return ""
 		},

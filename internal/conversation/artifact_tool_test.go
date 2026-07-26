@@ -122,7 +122,7 @@ func TestEmitArtifactToolPublishesWithoutAFolder(t *testing.T) {
 	}
 	requireSnapshotArtifact(t, snapshot, artifact.ID)
 	requireArtifactTrajectory(t, snapshot, artifact.ID)
-	if _, err := service.stopTurn(ctx, nil, conversationID, "", nil); err != nil {
+	if _, err := service.stopTurn(ctx, nil, conversationID, ""); err != nil {
 		t.Fatalf("stop folderless turn: %v", err)
 	}
 }

@@ -14,12 +14,7 @@ import type {
   WorkspaceSession,
 } from "@generated/backend";
 import { conversationIpcChannels, type ConversationIpc } from "./conversation-ipc";
-import {
-  developerHostedRuntimeIpcChannels,
-  type DeveloperHostedRuntimeIpcContract,
-} from "./developer-hosted-runtime-ipc";
 import { directorIpcChannels, type DirectorIpcContract } from "./director-ipc";
-import { hostedAccessIpcChannels, type HostedAccessIpcContract } from "./hosted-access-ipc";
 import {
   roleConfigurationIpcChannels,
   type RoleConfigurationIpcContract,
@@ -31,7 +26,6 @@ import type {
   KnownRuntimeView,
   RendererRegionCaptureRequest,
   RendererRegionSnapshot,
-  RuntimeAccessCredentialView,
   RuntimeRegistrySnapshot,
   RuntimeVersions,
   WorkspaceGitInfo,
@@ -53,14 +47,11 @@ export const ipcChannels = {
   backendHealth: "backend:health",
   runtimeAddByPairingUrl: "runtimes:add-by-pairing-url",
   runtimeCurrent: "runtimes:current",
-  runtimeCurrentCredential: "runtimes:current-runtime-credential",
   runtimeList: "runtimes:list",
   runtimeRemove: "runtimes:remove",
   runtimeSwitch: "runtimes:switch",
   ...conversationIpcChannels,
-  ...developerHostedRuntimeIpcChannels,
   ...directorIpcChannels,
-  ...hostedAccessIpcChannels,
   ...roleConfigurationIpcChannels,
   ...speechIpcChannels,
   codexAccountCancelLogin: "codex-account:cancel-login",
@@ -84,9 +75,7 @@ export const ipcEvents = {
   backendUnexpectedExit: "backend:unexpected-exit",
   codexAccountChange: "codex-account:change",
   conversationEvent: "conversation:event",
-  developerHostedRuntimeStatus: "developer-hosted-runtime:status",
   directorEvent: "director:event",
-  hostedAccessProgress: "hosted-access:progress",
   runtimeConnectionState: "runtimes:connection-state",
   speechCredentialSettingsChanged: "speech:credential-settings-changed",
   speechLocalMacOSVoiceModelDownloadChanged: "speech:local-macos-voice-model-download-changed",
@@ -94,13 +83,7 @@ export const ipcEvents = {
 } as const;
 
 interface IpcContract
-  extends
-    ConversationIpc,
-    DeveloperHostedRuntimeIpcContract,
-    DirectorIpcContract,
-    HostedAccessIpcContract,
-    RoleConfigurationIpcContract,
-    SpeechIpcContract {
+  extends ConversationIpc, DirectorIpcContract, RoleConfigurationIpcContract, SpeechIpcContract {
   appInstalledEditors: {
     args: [];
     result: InstalledEditorApp[];
@@ -160,10 +143,6 @@ interface IpcContract
   runtimeCurrent: {
     args: [];
     result: RuntimeRegistrySnapshot;
-  };
-  runtimeCurrentCredential: {
-    args: [];
-    result: RuntimeAccessCredentialView;
   };
   runtimeList: {
     args: [];

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"setta/internal/agent"
 	"setta/internal/conversation/artifactdoc"
@@ -15,7 +14,6 @@ func (service *Service) persistAgentProgress(
 	active *activeConversationTurn,
 	event agent.Event,
 ) error {
-	startedAt := service.now().UTC()
 	snapshot, turn, err := service.runningProgressState(ctx, active)
 	if err != nil {
 		return err
@@ -34,7 +32,7 @@ func (service *Service) persistAgentProgress(
 	if err != nil {
 		return err
 	}
-	return service.commitAgentProgress(ctx, mutation, publications, startedAt)
+	return service.commitAgentProgress(ctx, mutation, publications)
 }
 
 type agentProgressMutation struct {
@@ -178,7 +176,6 @@ func (service *Service) commitAgentProgress(
 	ctx context.Context,
 	mutation agentProgressMutation,
 	publications []preparedPublication,
-	startedAt time.Time,
 ) error {
 	_, err := service.store.transactPresentationAware(ctx, "persist topic agent progress", func(transaction *WriteTransaction) error {
 		if err := applyAgentProgressAggregates(transaction, mutation); err != nil {
@@ -208,9 +205,6 @@ func (service *Service) commitAgentProgress(
 			artifacts,
 			false,
 		)
-		if mutation.artifact != nil {
-			service.observeOutcomeTiming(OutcomeTimingArtifactAvailable, startedAt)
-		}
 	}
 	return err
 }

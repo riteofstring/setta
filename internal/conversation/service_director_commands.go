@@ -130,19 +130,10 @@ func (service *Service) SteerDirectorTurn(
 	targetTurnID string,
 	decisionID string,
 ) (ConversationSnapshot, error) {
-	startedAt := service.now().UTC()
 	if err := validateDirectorRequest(service, ctx); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	return service.steerTurn(
-		ctx,
-		workspaceID,
-		conversationID,
-		text,
-		targetTurnID,
-		decisionID,
-		&startedAt,
-	)
+	return service.steerTurn(ctx, workspaceID, conversationID, text, targetTurnID, decisionID)
 }
 
 // CancelDirectorTurn stops the turn the user asked to stop. The turn is named,
@@ -154,14 +145,13 @@ func (service *Service) CancelDirectorTurn(
 	conversationID string,
 	targetTurnID string,
 ) (ConversationSnapshot, error) {
-	startedAt := service.now().UTC()
 	if err := validateDirectorRequest(service, ctx); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	if err := validateIdentifier("director cancelled turn id", targetTurnID); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	return service.stopTurn(ctx, workspaceID, conversationID, targetTurnID, &startedAt)
+	return service.stopTurn(ctx, workspaceID, conversationID, targetTurnID)
 }
 
 // SubmitDirectorApproval answers one approval the named turn is waiting on.
@@ -174,14 +164,13 @@ func (service *Service) SubmitDirectorApproval(
 	targetTurnID string,
 	response ConversationApprovalResponse,
 ) (ConversationSnapshot, error) {
-	startedAt := service.now().UTC()
 	if err := validateDirectorRequest(service, ctx); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	if err := validateIdentifier("director approved turn id", targetTurnID); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	return service.submitApproval(ctx, workspaceID, conversationID, targetTurnID, response, &startedAt)
+	return service.submitApproval(ctx, workspaceID, conversationID, targetTurnID, response)
 }
 
 // RecoverDirectorTurn restarts the work a failed turn was carrying. The failed

@@ -331,48 +331,6 @@ func TestSideConversationUnexpectedRuntimeFailureRetainsProviderCleanupIdentity(
 	}
 }
 
-func TestSideConversationPersistsTypedAdmissionFailure(t *testing.T) {
-	_, service, runtime, workspaceID := newReviewServiceHarness(t)
-	ctx := context.Background()
-	parent := createLinkedParentForSideTest(
-		t,
-		ctx,
-		service,
-		runtime,
-		workspaceID,
-		"Side admission failure",
-	)
-	created, err := service.createDirectorSideConversationForTest(
-		ctx,
-		workspaceID,
-		parent.Conversation.ID,
-	)
-	if err != nil {
-		t.Fatalf("CreateSideConversation: %v", err)
-	}
-	side := requireOnlySideConversation(t, created)
-	if _, err := service.SendSideConversationTurn(
-		ctx,
-		workspaceID,
-		parent.Conversation.ID,
-		side.ID,
-		"admission failure",
-	); err != nil {
-		t.Fatalf("SendSideConversationTurn: %v", err)
-	}
-	runtime.waitForStart(t, "admission failure")
-	failed := assertServiceSnapshot(t, service, workspaceID, parent.Conversation.ID, func(snapshot ConversationSnapshot) bool {
-		current, findErr := findSideConversation(snapshot, side.ID)
-		return findErr == nil && current.Status == SideConversationStatusFailed
-	})
-	current, _ := findSideConversation(failed, side.ID)
-	if current.Failure == nil ||
-		current.Failure.Code != "runtime_disk_pressure" ||
-		!current.Failure.Retryable {
-		t.Fatalf("side admission failure = %+v", current)
-	}
-}
-
 func TestSideConversationDisposalInterruptsItsActiveTurn(t *testing.T) {
 	_, service, runtime, workspaceID := newReviewServiceHarness(t)
 	ctx := context.Background()

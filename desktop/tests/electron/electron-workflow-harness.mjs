@@ -3,14 +3,14 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createServer } from "node:net";
 import { existsSync } from "node:fs";
-import { appendFile, mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { CDPClient, driverCallExpression } from "./cdp-client.mjs";
-import { createElectronFixtureTempRoot } from "./electron-fixture-temp-root.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "../..");
@@ -121,36 +121,18 @@ export async function waitForState(client, expression, isReady, timeoutMs = work
   throw new Error(`timed out waiting for Electron workflow state: ${JSON.stringify(lastValue)}`);
 }
 
-export async function backendProbe(recordingDir, client) {
-  const { baseURL } = await waitForBackendAccess(recordingDir);
-  await waitForCurrentRuntimeCredential(client);
+export async function backendProbe(recordingDir) {
+  const { baseURL, deviceToken } = await waitForBackendAccess(recordingDir);
   await writeFile(join(recordingDir, "backend-url.txt"), baseURL + "\n");
-  const credentialToken = async () => (await waitForCurrentRuntimeCredential(client)).token;
   return {
     baseURL,
-    currentRuntimeCredential: credentialToken,
-    get: async (path) =>
-      backendRequest(recordingDir, baseURL, await credentialToken(), "GET", path),
-    post: async (path, payload) =>
-      backendRequest(recordingDir, baseURL, await credentialToken(), "POST", path, payload),
-    request: async (method, path, payload) =>
-      backendFetch(recordingDir, baseURL, await credentialToken(), method, path, payload),
+    deviceToken,
+    get: (path) => backendRequest(recordingDir, baseURL, deviceToken, "GET", path),
+    post: (path, payload) =>
+      backendRequest(recordingDir, baseURL, deviceToken, "POST", path, payload),
+    request: (method, path, payload) =>
+      backendFetch(recordingDir, baseURL, deviceToken, method, path, payload),
   };
-}
-
-async function waitForCurrentRuntimeCredential(client) {
-  return waitForState(
-    client,
-    `(async () => {
-      try {
-        return await window.setta.runtimes.currentRuntimeCredential();
-      } catch {
-        return null;
-      }
-    })()`,
-    (credential) => nonEmptyString(credential?.token),
-    pageLoadTimeoutMs,
-  );
 }
 
 async function backendRequest(recordingDir, baseURL, deviceToken, method, path, payload) {
@@ -205,13 +187,32 @@ async function waitForBackendAccess(recordingDir) {
 async function readBackendAccess(recordingDir) {
   const events = await readJsonLines(join(recordingDir, "events.jsonl"));
   const baseURL = backendURLFromEvents(events);
-  return baseURL === null ? null : { baseURL };
+  if (baseURL === null) {
+    return null;
+  }
+  const manifest = JSON.parse(await readFile(join(recordingDir, "manifest.json"), "utf8"));
+  const appDataDir = nonEmptyString(manifest?.appDataDir) ? manifest.appDataDir : null;
+  if (appDataDir === null) {
+    return null;
+  }
+  const registryPath = join(appDataDir, "electron-user-data", "known-runtimes.json");
+  const registry = JSON.parse(await readFile(registryPath, "utf8"));
+  const deviceToken = localRuntimeDeviceToken(registry, baseURL);
+  return deviceToken === null ? null : { baseURL, deviceToken };
 }
 
 function backendURLFromEvents(events) {
   const started = events.find((entry) => entry.type === "backend_started");
   const url = started?.payload?.url;
   return nonEmptyString(url) ? url : null;
+}
+
+function localRuntimeDeviceToken(registry, baseURL) {
+  const localRuntime = registry?.runtimes?.find(
+    (runtime) => runtime?.is_local === true && runtime.base_url === baseURL,
+  );
+  const deviceToken = localRuntime?.device_token;
+  return nonEmptyString(deviceToken) ? deviceToken : null;
 }
 
 function nonEmptyString(value) {
@@ -279,8 +280,8 @@ function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
   return electron;
 }
 
-export async function createFixture() {
-  const tempRoot = await createElectronFixtureTempRoot();
+export async function createFixture(name) {
+  const tempRoot = await mkdtemp(join(tmpdir(), `setta-electron-${name}-`));
   const appDataDir = join(tempRoot, "app-data");
   const workspaceRoot = join(tempRoot, "workspace-root");
   await mkdir(appDataDir, { recursive: true });

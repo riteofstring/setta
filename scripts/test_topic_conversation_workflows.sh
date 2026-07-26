@@ -135,14 +135,6 @@ fi
 
 if [[ "${run_live}" -eq 1 ]]; then
   if live_skip_reason="$(codex_chatgpt_auth_present 2>&1)"; then
-    echo "Live Codex Electron workflow..."
-    if run_electron_node "${repo_root}/desktop/tests/electron/run-workflows.mjs" \
-      --workflow live-codex-electron \
-      --skip-build; then
-      passed_workflows+=("live-codex-electron")
-    else
-      status=1
-    fi
     run_live_go_test \
       "agent-protocol" \
       "./internal/agent" \

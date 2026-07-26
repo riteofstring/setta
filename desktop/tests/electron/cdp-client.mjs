@@ -60,7 +60,7 @@ export class CDPClient {
     };
   }
 
-  call(method, params = {}, timeoutMs = this.timeoutMs) {
+  call(method, params = {}) {
     const id = this.nextId;
     this.nextId += 1;
     this.socket.send(JSON.stringify({ id, method, params }));
@@ -68,7 +68,7 @@ export class CDPClient {
       const timeout = globalThis.setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`CDP call timed out: ${method}`));
-      }, timeoutMs);
+      }, this.timeoutMs);
       this.pending.set(id, {
         reject: (error) => {
           globalThis.clearTimeout(timeout);
@@ -82,16 +82,12 @@ export class CDPClient {
     });
   }
 
-  async evaluate(expression, timeoutMs = this.timeoutMs) {
-    const result = await this.call(
-      "Runtime.evaluate",
-      {
-        awaitPromise: true,
-        expression,
-        returnByValue: true,
-      },
-      timeoutMs,
-    );
+  async evaluate(expression) {
+    const result = await this.call("Runtime.evaluate", {
+      awaitPromise: true,
+      expression,
+      returnByValue: true,
+    });
     if (result.exceptionDetails) {
       throw new Error(
         result.exceptionDetails.exception?.description ??

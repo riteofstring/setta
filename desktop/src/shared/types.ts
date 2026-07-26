@@ -7,13 +7,8 @@ import type {
   CancelCodexLoginRequest,
   CodexAccountChangeEvent,
   CodexAccountState,
-  DestroyDeveloperHostedRuntimeRequest,
-  DeveloperHostedRuntimeStatus,
   ConversationEvent,
   ConversationSnapshot,
-  EnsureHostedAccessIntent,
-  EnsureDeveloperHostedRuntimeRequest,
-  HostedAccessProgress,
   Artifact,
   ClearDesktopSpeechCredentialRequest,
   CreateSpeechTranscriptionSessionRequest,
@@ -36,6 +31,7 @@ import type {
   ReadWorkspaceRoleConfigurationRequest,
   RoleConfiguration,
   RoleModelCatalog,
+  RuntimeInfrastructureProvider,
   SendSideConversationTurnRequest,
   SpeechAudio,
   SpeechCapabilities,
@@ -58,10 +54,6 @@ import type {
   ConversationEventSubscriptionRequest,
 } from "./conversation-ipc";
 import type { DirectorEventSubscriptionRequest } from "./director-ipc";
-import type {
-  HostedAccessProgressReleaseRequest,
-  HostedAccessProgressSubscriptionRequest,
-} from "./hosted-access-ipc";
 import type {
   LocalMacOSVoiceCancelCaptureResult,
   LocalMacOSVoiceFinishCaptureResult,
@@ -158,9 +150,9 @@ export interface KnownRuntimeView {
   connectionMessage: string;
   connectionStatus: RuntimeConnectionStatus;
   displayName: string;
+  infrastructureProvider: RuntimeInfrastructureProvider;
   isLocal: boolean;
   lastConnected: string | null;
-  managedHosted: boolean;
   runtimeId: string;
 }
 
@@ -169,12 +161,6 @@ export interface RuntimeRegistrySnapshot {
   connection: RuntimeConnectionState;
   runtimes: KnownRuntimeView[];
   switching: boolean;
-}
-
-export interface RuntimeAccessCredentialView {
-  expiresAt: string;
-  runtimeId: string;
-  token: string;
 }
 
 export interface SettaAPI {
@@ -196,25 +182,9 @@ export interface SettaAPI {
     health: () => Promise<BackendHealth>;
     onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
   };
-  hostedAccess?: {
-    ensure: (intent: EnsureHostedAccessIntent) => Promise<HostedAccessProgress>;
-    onProgress: (listener: (progress: HostedAccessProgress) => void) => () => void;
-    releaseProgress: (request: HostedAccessProgressReleaseRequest) => Promise<void>;
-    subscribeProgress: (request: HostedAccessProgressSubscriptionRequest) => Promise<void>;
-  };
-  developerHostedRuntime: {
-    available: () => Promise<boolean>;
-    destroy: (
-      request: DestroyDeveloperHostedRuntimeRequest,
-    ) => Promise<DeveloperHostedRuntimeStatus>;
-    ensure: (request: EnsureDeveloperHostedRuntimeRequest) => Promise<DeveloperHostedRuntimeStatus>;
-    onStatus: (listener: (status: DeveloperHostedRuntimeStatus) => void) => () => void;
-    status: () => Promise<DeveloperHostedRuntimeStatus | null>;
-  };
   runtimes: {
     addByPairingUrl: (pairingUrl: string) => Promise<RuntimeRegistrySnapshot>;
     current: () => Promise<RuntimeRegistrySnapshot>;
-    currentRuntimeCredential: () => Promise<RuntimeAccessCredentialView>;
     list: () => Promise<KnownRuntimeView[]>;
     onConnectionState: (listener: (snapshot: RuntimeRegistrySnapshot) => void) => () => void;
     remove: (runtimeId: string) => Promise<RuntimeRegistrySnapshot>;

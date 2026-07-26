@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"setta/internal/agent"
 )
@@ -376,7 +375,6 @@ func (service *Service) steerTurn(
 	text string,
 	expectedTurnID string,
 	clientInputID string,
-	outcomeStartedAt *time.Time,
 ) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
@@ -420,9 +418,6 @@ func (service *Service) steerTurn(
 	); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	if outcomeStartedAt != nil {
-		service.observeOutcomeTiming(OutcomeTimingSteering, *outcomeStartedAt)
-	}
 	return service.readScopedSnapshot(ctx, workspaceID, conversationID)
 }
 
@@ -431,8 +426,7 @@ func (service *Service) StopTurn(
 	workspaceID string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
-	startedAt := service.now().UTC()
-	return service.stopTurn(ctx, &workspaceID, conversationID, "", &startedAt)
+	return service.stopTurn(ctx, &workspaceID, conversationID, "")
 }
 
 // stopTurn interrupts the active turn, optionally requiring it to be the one the
@@ -444,7 +438,6 @@ func (service *Service) stopTurn(
 	workspaceID *string,
 	conversationID string,
 	expectedTurnID string,
-	outcomeStartedAt *time.Time,
 ) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
@@ -474,9 +467,6 @@ func (service *Service) stopTurn(
 	); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	if outcomeStartedAt != nil {
-		service.observeOutcomeTiming(OutcomeTimingCancellation, *outcomeStartedAt)
-	}
 	return service.readScopedSnapshot(ctx, workspaceID, conversationID)
 }
 
@@ -486,8 +476,7 @@ func (service *Service) SubmitApproval(
 	conversationID string,
 	response ConversationApprovalResponse,
 ) (ConversationSnapshot, error) {
-	startedAt := service.now().UTC()
-	return service.submitApproval(ctx, &workspaceID, conversationID, "", response, &startedAt)
+	return service.submitApproval(ctx, &workspaceID, conversationID, "", response)
 }
 
 // submitApproval answers one pending approval, optionally requiring it to belong
@@ -500,7 +489,6 @@ func (service *Service) submitApproval(
 	conversationID string,
 	expectedTurnID string,
 	response ConversationApprovalResponse,
-	outcomeStartedAt *time.Time,
 ) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
@@ -545,9 +533,6 @@ func (service *Service) submitApproval(
 		len(pending) > 1,
 	); err != nil {
 		return ConversationSnapshot{}, err
-	}
-	if outcomeStartedAt != nil {
-		service.observeOutcomeTiming(OutcomeTimingApproval, *outcomeStartedAt)
 	}
 	return service.readScopedSnapshot(ctx, workspaceID, conversationID)
 }

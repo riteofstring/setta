@@ -18,12 +18,7 @@ import (
 
 func TestServiceRunsDurableConversationCommandsAndReload(t *testing.T) {
 	appDataDir := t.TempDir()
-	outcomes := &recordingOutcomeTimingObserver{}
-	store, service, runtime, workspaceID := newConversationServiceTestHarness(
-		t,
-		appDataDir,
-		WithOutcomeTimingObserver(outcomes),
-	)
+	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, appDataDir)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -33,37 +28,7 @@ func TestServiceRunsDurableConversationCommandsAndReload(t *testing.T) {
 	exerciseQueuedServiceTurns(t, ctx, service, runtime, workspaceID, conversationID, created, subscription)
 	exerciseServiceApproval(t, ctx, service, runtime, workspaceID, conversationID)
 	exerciseServiceCancellation(t, ctx, service, runtime, workspaceID, conversationID)
-	outcomes.requireKinds(t, OutcomeTimingApproval, OutcomeTimingCancellation, OutcomeTimingArtifactAvailable)
 	assertReloadedServiceState(t, ctx, store, service, appDataDir, workspaceID, conversationID)
-}
-
-type recordingOutcomeTimingObserver struct {
-	mu      sync.Mutex
-	timings []OutcomeTiming
-}
-
-func (observer *recordingOutcomeTimingObserver) ObserveConversationOutcomeTiming(timing OutcomeTiming) {
-	observer.mu.Lock()
-	defer observer.mu.Unlock()
-	observer.timings = append(observer.timings, timing)
-}
-
-func (observer *recordingOutcomeTimingObserver) requireKinds(t *testing.T, kinds ...OutcomeTimingKind) {
-	t.Helper()
-	observer.mu.Lock()
-	defer observer.mu.Unlock()
-	found := map[OutcomeTimingKind]bool{}
-	for _, timing := range observer.timings {
-		if timing.StartedAt.IsZero() || timing.CompletedAt.IsZero() || timing.Duration <= 0 {
-			t.Fatalf("conversation outcome timing = %+v", timing)
-		}
-		found[timing.Kind] = true
-	}
-	for _, kind := range kinds {
-		if !found[kind] {
-			t.Fatalf("conversation outcome timings omit %q: %+v", kind, observer.timings)
-		}
-	}
 }
 
 func TestServiceAllocatesStableDistinctVisibleConversationPalettes(t *testing.T) {
@@ -765,8 +730,6 @@ func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
 			ProviderTurnID:   base.ProviderTurnID,
 			Outcome:          agent.TurnOutcomeCompleted,
 		}, nil
-	case "admission failure":
-		return agent.TurnResult{}, testConversationTurnAdmissionFailure{}
 	case "mismatched provider scope":
 		mismatched := base
 		mismatched.ProviderThreadID = "provider-thread-other"

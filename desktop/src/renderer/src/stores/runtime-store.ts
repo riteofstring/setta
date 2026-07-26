@@ -1,29 +1,17 @@
-import type { DeveloperHostedRuntimeStatus } from "@generated/backend";
 import type { RuntimeConnectionStatus, RuntimeRegistrySnapshot } from "@shared/types";
 import { create } from "zustand";
 
-export type RuntimeStoreOperation =
-  | "adding"
-  | "destroyingHosted"
-  | "provisioningHosted"
-  | "removing"
-  | "switching"
-  | null;
+export type RuntimeStoreOperation = "adding" | "removing" | "switching" | null;
 type RuntimeStoreStatus = "idle" | "loading" | "ready" | "error";
 
 interface RuntimeStore {
   addByPairingUrl: (pairingUrl: string) => Promise<void>;
   clearError: () => void;
-  destroyHostedRuntime: () => Promise<void>;
-  developerHostedAvailable: boolean;
-  developerHostedStatus: DeveloperHostedRuntimeStatus | null;
   error: string | null;
   load: () => Promise<void>;
   operation: RuntimeStoreOperation;
-  provisionHostedRuntime: () => Promise<void>;
   removeRuntime: (runtimeId: string) => Promise<void>;
   setSnapshot: (snapshot: RuntimeRegistrySnapshot) => void;
-  setDeveloperHostedStatus: (status: DeveloperHostedRuntimeStatus) => void;
   snapshot: RuntimeRegistrySnapshot | null;
   status: RuntimeStoreStatus;
   switchRuntime: (runtimeId: string) => Promise<void>;
@@ -51,50 +39,17 @@ export const useRuntimeStore = create<RuntimeStore>((set) => {
     addByPairingUrl: (pairingUrl) =>
       runRuntimeOperation("adding", () => window.setta.runtimes.addByPairingUrl(pairingUrl)),
     clearError: () => set({ error: null }),
-    destroyHostedRuntime: async () => {
-      set({ error: null, operation: "destroyingHosted" });
-      try {
-        const status = await window.setta.developerHostedRuntime.destroy({
-          operationId: crypto.randomUUID(),
-        });
-        set({ developerHostedStatus: status, operation: null, status: "ready" });
-      } catch (error) {
-        set({ error: errorMessage(error), operation: null, status: "error" });
-      }
-    },
-    developerHostedAvailable: false,
-    developerHostedStatus: null,
     error: null,
     load: async () => {
       set({ error: null, status: "loading" });
       try {
-        const [snapshot, developerHostedAvailable, developerHostedStatus] = await Promise.all([
-          window.setta.runtimes.current(),
-          window.setta.developerHostedRuntime.available(),
-          window.setta.developerHostedRuntime.status(),
-        ]);
-        set({
-          developerHostedAvailable,
-          developerHostedStatus,
-          snapshot,
-          status: "ready",
-        });
+        const snapshot = await window.setta.runtimes.current();
+        set({ snapshot, status: "ready" });
       } catch (error) {
         set({ error: errorMessage(error), status: "error" });
       }
     },
     operation: null,
-    provisionHostedRuntime: async () => {
-      set({ error: null, operation: "provisioningHosted" });
-      try {
-        const status = await window.setta.developerHostedRuntime.ensure({
-          operationId: crypto.randomUUID(),
-        });
-        set({ developerHostedStatus: status, operation: null, status: "ready" });
-      } catch (error) {
-        set({ error: errorMessage(error), operation: null, status: "error" });
-      }
-    },
     removeRuntime: (runtimeId) =>
       runRuntimeOperation("removing", () => window.setta.runtimes.remove(runtimeId)),
     setSnapshot: (snapshot) =>
@@ -103,12 +58,6 @@ export const useRuntimeStore = create<RuntimeStore>((set) => {
         snapshot,
         status: "ready",
       })),
-    setDeveloperHostedStatus: (developerHostedStatus) =>
-      set({
-        developerHostedStatus,
-        operation: null,
-        status: "ready",
-      }),
     snapshot: null,
     status: "idle",
     switchRuntime: (runtimeId) =>
