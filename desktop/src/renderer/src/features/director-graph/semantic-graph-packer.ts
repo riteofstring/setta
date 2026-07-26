@@ -76,14 +76,18 @@ const workstreamLaneSpacing = 0.42;
  */
 const directorGridWidth = 1.45;
 const directorGridBias = -0.36;
-/** A tile's own vertical room, before its rows are laid inside it. */
-const directorTileHeight = 0.62;
+/*
+ * A tile's own vertical room, before its rows are laid inside it. It must
+ * exceed the tallest trail a tile can show — `maxTileNodes` rows plus the
+ * outcome gap and the title above — or neighbouring tiles overlap.
+ */
+const directorTileHeight = 0.74;
 const directorLeadLane = -0.86;
 /**
  * How much of a conversation a tile shows: the newest node in focus with a
- * short trail behind it, the mockup's grid tile.
+ * short trail behind it, the mockup's grid tile. Bounded by the tile height.
  */
-const maxTileNodes = 4;
+const maxTileNodes = 3;
 /**
  * Where the grid's level of detail steps down. Up to this many tiles, each
  * shows its trail; past it, finished tiles fold to single outcome dots. The
@@ -450,7 +454,17 @@ function packedNodeInput(planned: PlannedNode, placement: ColumnPlacement): Pack
       (planned.fanLane === 0 ? semanticLane(planned.ordered.node) : planned.fanLane),
     row: planned.row,
     bornAt: planned.ordered.bornAt,
-    settleAt: planned.ordered.bornAt + settleWindowSeconds,
+    /*
+     * A state change is motion, not a swap: the settle window reopens at every
+     * durable update, so a node that just changed status swells and its
+     * particles flare for a beat — the working envelope doubling as the
+     * transition animation. Derived from updatedAt, so replay animates the
+     * same frames a live push did.
+     */
+    settleAt: Math.max(
+      planned.ordered.bornAt + settleWindowSeconds,
+      planned.ordered.updatedAt + settleWindowSeconds * 0.6,
+    ),
     terminalAt: planned.failedAt,
     label: planned.ordered.node.publicSummary,
     labelPlacement: planned.role === "input" ? "below" : visual.labelPlacement,

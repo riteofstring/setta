@@ -127,6 +127,11 @@ const workstreamSwitchSlideMs = 310;
 /** Where the columns view pins its title row, just under the top bar. */
 const columnTitleTopPx = 64;
 
+/** How long fresh activity speaks on side-by-side views before fading. */
+const temporaryLabelSeconds = 4;
+/** The tail of that window over which the label fades out. */
+const temporaryLabelFadeSeconds = 1.2;
+
 /** Hover animates only in the normal-motion profile; reduced motion snaps once. */
 export function graphHoverNeedsAnimation(
   reducedMotion: boolean,
@@ -787,16 +792,34 @@ export class DirectorGraphCanvas {
     );
     /*
      * Threads side by side read as shapes, not sentences: labels stay off so
-     * the constellation is legible, and hovering a node speaks for that node
-     * alone. Selection is untouched — clicks hit-test the canvas, not the
-     * labels — so a thread opens exactly as it did with every label drawn.
+     * the constellation is legible. Two things speak — the hovered node, for
+     * as long as it is hovered, and fresh activity, whose label appears with
+     * the change and fades a few seconds later. Selection is untouched —
+     * clicks hit-test the canvas, not the labels.
      */
     if (this.presentation !== "conversation") {
       const hovered = this.view.hovered();
       let kept = 0;
       for (let index = 0; index < count; index += 1) {
         const placement = this.placements[index];
-        if (placement !== undefined && placement.nodeIndex === hovered) {
+        if (placement === undefined) {
+          continue;
+        }
+        if (placement.nodeIndex === hovered) {
+          this.placements[kept] = placement;
+          kept += 1;
+          continue;
+        }
+        const spokeAt = Math.max(
+          packedValueAt(this.snapshot.nodes.bornAt, placement.nodeIndex),
+          packedValueAt(this.snapshot.nodes.settleAt, placement.nodeIndex) - 1,
+        );
+        const age = timeSeconds - spokeAt;
+        if (age >= 0 && age < temporaryLabelSeconds) {
+          placement.opacity *= Math.min(
+            1,
+            (temporaryLabelSeconds - age) / temporaryLabelFadeSeconds,
+          );
           this.placements[kept] = placement;
           kept += 1;
         }
