@@ -82,7 +82,6 @@ func WithServiceCallerClock(now func() time.Time) ServiceOption {
 type Service struct {
 	store                  *conversation.Store
 	registry               *Registry
-	inputRouter            *ConversationInputRouter
 	newID                  func(string) (string, error)
 	progressWait           RetryWait
 	retryWait              RetryWait
@@ -97,7 +96,6 @@ type Service struct {
 	focus           map[string][]focusBarrier
 	progress        map[string]*progressWindow
 	terminal        map[string]*terminalProjectionQueue
-	routing         map[string]*conversationRouteQueue
 	tasks           sync.WaitGroup
 }
 
@@ -123,7 +121,6 @@ func NewService(
 		focus:                  map[string][]focusBarrier{},
 		progress:               map[string]*progressWindow{},
 		terminal:               map[string]*terminalProjectionQueue{},
-		routing:                map[string]*conversationRouteQueue{},
 	}
 	if err := applyServiceOptions(service, options); err != nil {
 		lifecycleCancel()
@@ -135,13 +132,6 @@ func NewService(
 		return nil, err
 	}
 	service.registry = registry
-	inputRouter, err := NewConversationInputRouter(store, workspaces, agentRuntime)
-	if err != nil {
-		lifecycleCancel()
-		return nil, err
-	}
-	inputRouter.newID = service.newID
-	service.inputRouter = inputRouter
 	return service, nil
 }
 

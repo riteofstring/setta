@@ -859,12 +859,11 @@ func ContractTaggedUnions() []ContractTaggedUnion {
 			},
 		},
 	}
-	return append(unions, conversationInputContractTaggedUnions()...)
+	return unions
 }
 
 func ContractValueSets() []ContractValueSet {
-	sets := conversationInputContractValueSets()
-	return append(sets, []ContractValueSet{
+	return []ContractValueSet{
 		contractValueSet("ConversationStatus", ConversationStatusIdle, ConversationStatusWorking, ConversationStatusWaitingForApproval, ConversationStatusFailed),
 		contractValueSet("TurnDelivery", TurnDeliveryNormal, TurnDeliveryQueued, TurnDeliverySteering),
 		contractValueSet("TurnStatus", TurnStatusQueued, TurnStatusRunning, TurnStatusCompleted, TurnStatusCancelled, TurnStatusFailed),
@@ -905,7 +904,7 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet("TurnInterruptionReason", TurnInterruptionUserRequested, TurnInterruptionProviderInterrupted, TurnInterruptionRuntimeShutdown, TurnInterruptionRuntimeRestarted),
 		{Name: "ConversationEventType", Values: stringValues(conversationEventTypeValues)},
 		{Name: "ConversationPaletteID", Values: stringValues(conversationpalette.IDs())},
-	}...)
+	}
 }
 
 func contractValueSet[T ~string](name string, values ...T) ContractValueSet {

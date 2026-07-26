@@ -206,7 +206,7 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 						"description": "The workstream to ask about, from list_workstreams or read_activity.",
 					},
 					"question": map[string]any{
-						"type": "string",
+						"type":        "string",
 						"description": "One specific question about that conversation, in the user's terms.",
 					},
 				},

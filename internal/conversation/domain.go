@@ -384,6 +384,16 @@ func (queued QueuedConversationTurn) Validate() error {
 	return err
 }
 
+// cloneIntPointer copies an optional integer so a snapshot never shares a
+// pointer with the record it was projected from.
+func cloneIntPointer(value *int) *int {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
+}
+
 func (artifact Artifact) Metadata() ArtifactMetadata {
 	return ArtifactMetadata{
 		ID:                 artifact.ID,

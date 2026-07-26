@@ -22,7 +22,6 @@ type directorNarratorPort struct {
 	narrator *narration.Service
 	store    *conversation.Store
 	newID    func(string) (string, error)
-
 }
 
 func newDirectorNarratorPort(
@@ -40,10 +39,17 @@ func (port *directorNarratorPort) AskConversationStatus(
 	conversationID string,
 	question string,
 ) (string, error) {
-	workspaceID, err := port.store.ReadConversationWorkspaceBindingID(ctx, conversationID)
+	/*
+	 * Which folder the conversation is bound to, read from the conversation
+	 * itself. The narrator's two entrypoints differ only in that: a bound
+	 * conversation is asked through its workspace and a folderless one through
+	 * the folderless path.
+	 */
+	bound, err := port.store.ReadSnapshotByID(ctx, conversationID)
 	if err != nil {
 		return "", fmt.Errorf("resolve conversation %s workspace: %w", conversationID, err)
 	}
+	workspaceID := bound.Conversation.WorkspaceID
 	requestID, err := port.newID("narrator_request")
 	if err != nil {
 		return "", err

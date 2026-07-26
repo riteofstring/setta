@@ -455,7 +455,6 @@ func TestDirectorArchivesOnlySettledWork(t *testing.T) {
 	}
 }
 
-
 // stubDirectorNarrator stands in for the narrator the toolbox asks. These tests
 // are about the authority a tool call carries, not about what a narrator says.
 type stubDirectorNarrator struct{}

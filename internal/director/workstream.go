@@ -134,8 +134,8 @@ type Workstream struct {
 	// ConversationID is the conversation this workstream's work runs in. The
 	// view that shows a workstream is also the view you talk to it from, so the
 	// renderer needs to be able to address it.
-	ConversationID string           `json:"conversationId"`
-	Title          string           `json:"title"`
+	ConversationID                 string                      `json:"conversationId"`
+	Title                          string                      `json:"title"`
 	Status                         WorkstreamStatus            `json:"status"`
 	ParentID                       *string                     `json:"parentId"`
 	ResourceScope                  WorkstreamResourceScope     `json:"resourceScope"`
@@ -151,8 +151,8 @@ type Workstream struct {
 	// Director's decision authority and answers a different question — what the
 	// Director decided, rather than what the work has come to.
 	Narration []WorkstreamNarration `json:"narration"`
-	CreatedAt                      string                      `json:"createdAt"`
-	UpdatedAt                      string                      `json:"updatedAt"`
+	CreatedAt string                `json:"createdAt"`
+	UpdatedAt string                `json:"updatedAt"`
 }
 
 /*
