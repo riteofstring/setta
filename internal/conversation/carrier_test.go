@@ -227,7 +227,6 @@ func TestCarrierReplayPreservesSettaHistoryFactsInOrder(t *testing.T) {
 				Kind:   TrajectoryEventArtifactEmitted,
 				ArtifactEmitted: &TrajectoryArtifactEmitted{
 					ArtifactID: "artifact-report",
-					Kind:       ArtifactKindMarkdown,
 					Title:      "Revised report",
 				},
 			},

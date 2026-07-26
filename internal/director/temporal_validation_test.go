@@ -42,7 +42,6 @@ func TestDirectorRecordsRejectBackwardsTimestamps(t *testing.T) {
 		WorkstreamID:   testParentWorkstream,
 		ConversationID: "conversation-1",
 		WorkspaceID:    "workspace-1",
-		Kind:           conversation.ArtifactKindMarkdown,
 		Status:         ArtifactStatusAvailable,
 		Title:          "Release notes",
 		SourceEventIDs: []string{"event-1"},

@@ -402,10 +402,6 @@ func (transaction *WriteTransaction) InsertArtifact(artifact Artifact) error {
 	if err := artifact.Validate(); err != nil {
 		return err
 	}
-	branchColumns, err := artifactPayloadColumns(artifact)
-	if err != nil {
-		return err
-	}
 	if artifact.TurnID != nil {
 		if err := transaction.requireTurnBelongs(*artifact.TurnID, artifact.ConversationID, "artifact", artifact.ID); err != nil {
 			return err
@@ -424,68 +420,26 @@ func (transaction *WriteTransaction) InsertArtifact(artifact Artifact) error {
 			return err
 		}
 	}
-	_, err = transaction.tx.ExecContext(transaction.ctx, `
+	_, err := transaction.tx.ExecContext(transaction.ctx, `
 INSERT INTO artifacts (
-  id, conversation_id, turn_id, trajectory_sequence, kind, title,
-  markdown_json, table_json, bar_chart_json, file_json, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  id, conversation_id, turn_id, trajectory_sequence, title,
+  language, catalog_id, source, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		artifact.ID,
 		artifact.ConversationID,
 		nullableString(artifact.TurnID),
 		nullableInt(artifact.TrajectorySequence),
-		artifact.Kind,
 		artifact.Title,
-		branchColumns.markdownJSON,
-		branchColumns.tableJSON,
-		branchColumns.barChartJSON,
-		branchColumns.fileJSON,
+		artifact.Document.Language,
+		artifact.Document.CatalogID,
+		artifact.Document.Source,
 		artifact.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("insert artifact %s: %w", artifact.ID, err)
 	}
 	return transaction.recordStateMutation()
-}
-
-type artifactPayloadColumnValues struct {
-	markdownJSON sql.NullString
-	tableJSON    sql.NullString
-	barChartJSON sql.NullString
-	fileJSON     sql.NullString
-}
-
-func artifactPayloadColumns(artifact Artifact) (artifactPayloadColumnValues, error) {
-	var columns artifactPayloadColumnValues
-	switch artifact.Kind {
-	case ArtifactKindMarkdown:
-		encoded, err := encodeJSONColumn("markdown artifact payload", artifact.Markdown)
-		if err != nil {
-			return columns, err
-		}
-		columns.markdownJSON = sql.NullString{String: encoded, Valid: true}
-	case ArtifactKindTable:
-		encoded, err := encodeJSONColumn("table artifact payload", artifact.Table)
-		if err != nil {
-			return columns, err
-		}
-		columns.tableJSON = sql.NullString{String: encoded, Valid: true}
-	case ArtifactKindBarChart:
-		encoded, err := encodeJSONColumn("bar chart artifact payload", artifact.BarChart)
-		if err != nil {
-			return columns, err
-		}
-		columns.barChartJSON = sql.NullString{String: encoded, Valid: true}
-	case ArtifactKindFile:
-		encoded, err := encodeJSONColumn("file artifact payload", artifact.File)
-		if err != nil {
-			return columns, err
-		}
-		columns.fileJSON = sql.NullString{String: encoded, Valid: true}
-	default:
-		return columns, fmt.Errorf("artifact %s has unsupported kind %q", artifact.ID, artifact.Kind)
-	}
-	return columns, nil
 }
 
 func (transaction *WriteTransaction) requireArtifactTurnCapacity(conversationID string, turnID string) error {

@@ -1128,12 +1128,15 @@ function handleDirectorToolCallResponse(requestId, pending, message) {
 }
 
 function emitArtifact(threadId, turnId) {
+  // An artifact addresses a file inside the conversation's authorized
+  // workspace, so a generated image saves under the carrier's own cwd.
+  const workspaceRoot = loadedThreads.get(threadId)?.cwd ?? "/tmp/setta-topic-codex";
   notify("item/completed", {
     completedAtMs: Date.now(),
     item: {
       id: `image-${turnId}`,
       result: "generated",
-      savedPath: `/tmp/${turnId}-artifact.png`,
+      savedPath: `${workspaceRoot}/${turnId}-artifact.png`,
       status: "completed",
       type: "imageGeneration",
     },

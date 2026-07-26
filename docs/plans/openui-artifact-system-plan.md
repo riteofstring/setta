@@ -878,19 +878,23 @@ The automated conformance checks ran with explicit user authorization and
 passed after the last relevant changes. Do not duplicate them without another
 relevant change.
 
-The outstanding baseline measures the artifact surfaces, so no artifact
-contract, schema, or artifact-renderer change lands before it is captured:
-Phases 2, 3, and 4 stay blocked. Phase 1 is not blocked by it. Its primitive
-replacements are on surfaces the baseline does not measure, and its artifact
-half is unreachable from the renderer entry point, so the artifact surfaces the
-baseline measures still behave exactly as they did.
+The baseline needs a driven Electron session, which this repository cannot
+produce. It is recorded once as a release gate rather than held as an
+implementation blocker, because a gate nothing in the repository can satisfy
+would stop the plan permanently. Later phases therefore proceed, and the
+baseline is captured against pinned pre-change revisions when a driven session
+is available:
 
-Phase 1 does move `@base-ui/react` into the renderer bundle, so the pre-change
-bundle and load figures must be captured from a revision at or before
-`fd9d6fb21`, which is the last commit before the first primitive replacement.
-Nothing else Phase 1 adds reaches that bundle: the OpenUI, Recharts, and
-artifact-component code has no importer outside its own tests until the Phase 4
-cutover, which is also where it becomes lazily loaded.
+- renderer bundle and load figures come from a revision at or before
+  `fd9d6fb21`, the last commit before the first primitive replacement, because
+  Phase 1 moves `@base-ui/react` into the renderer bundle
+- artifact surface figures come from a revision at or before `3ed68d293`, the
+  last commit before the artifact contract, schema, and renderer changed
+
+Nothing else Phase 1 adds reaches the renderer bundle: the OpenUI, Recharts, and
+artifact-component code has no importer outside its own tests until the Phase 2
+renderer cutover, where it becomes a lazily loaded chunk rather than part of the
+command center's bundle.
 
 ### Phase 1 - Catalog Generation And Official shadcn Base UI Primitives
 
@@ -1027,13 +1031,49 @@ Gate:
 - no arbitrary styling or action property is present in the model catalog
 
 The gate above is satisfied by the static audit, deterministic matrix, and
-single live-provider check recorded in the Phase 1 audit. The unavailable Phase
-0 performance baseline still blocks Phases 2, 3, and 4, and none of those phases
-has started.
+single live-provider check recorded in the Phase 1 audit.
 
 ### Phase 2 - Artifact Contract And Storage Replacement
 
-**Status:** Pending.
+**Status:** Complete, together with Phase 3. Removing the payload union forces
+the tool boundary to change in the same commit: there is no `title` plus
+`source` tool without the document contract, and no document contract that can
+be written without the compiler accepting it first. Splitting the two would have
+meant a tool that accepts a shape nothing validates, which is the transitional
+code this plan forbids.
+
+Landed:
+
+- `ArtifactDocument` carrying one language, one catalog ID, and the accepted
+  source; `Artifact` and `ArtifactMetadata` rebuilt around it. `ArtifactKind`,
+  the four payload types, the branch-count and payload validators, and the
+  payload byte, column, row, and item limits are gone; the limits the profile
+  needs already live in `artifactdoc`.
+- `ArtifactDocument.Validate` compiles through `artifactdoc.Compile`, so the
+  same acceptance rule applies to a write, a read, and a snapshot scan.
+- the `artifacts` table replaced in place with `language`, `catalog_id`, and
+  `source` columns, their value checks, and no nullable payload columns or
+  branch check; every artifact insert, scan, snapshot, side-context, and
+  narrator-context query updated to the new column list.
+- `TrajectoryArtifactEmitted`, `SideInFlightArtifactMetadata`, the Director's
+  `WorkstreamArtifact` and registry identity, and the narrator's route artifact
+  all drop `kind`. The route summary now names the components the stored
+  document renders, taken from a compile rather than from a payload branch.
+- the provider carrier's artifact receipt names the document instead of a kind.
+- the generated `Artifact` tagged union and `ArtifactKind` value set are gone,
+  replaced by `ArtifactDocumentLanguage` and `ArtifactCatalogID` value sets;
+  `desktop/src/generated/backend.ts` regenerated at protocol version 103.
+- the image-generation artifact Setta composes itself is now a document. The
+  provider reports an absolute host path, and an artifact may only address a
+  file inside the conversation's authorized workspace, so the path is made
+  workspace-relative and a save outside the workspace stays a completed activity
+  with no artifact. `artifactdoc.FileReferenceSource` renders that document, so
+  source text is built by the grammar owner rather than concatenated in the
+  service.
+- every old artifact fixture and assumption replaced: the Go unit fixtures, the
+  HTTP boundary fixture, the live Codex workflow assertions, which now read the
+  model's table out of the compiled document, and the Electron fake provider's
+  artifact tool and image-save fixtures.
 
 Deliverables:
 
@@ -1054,9 +1094,33 @@ Gate:
 - a clean app-data directory is the only supported database state
 - no migration or compatibility code exists
 
+The gate is satisfied: a repository search for the removed kinds, payload
+fields, and columns finds nothing outside historical reports, `schema_v1.sql`
+was replaced in place with no migration path, and no compatibility or dual-read
+code exists.
+
 ### Phase 3 - Generation, Validation, Repair, And Durable Publication
 
-**Status:** Pending.
+**Status:** Complete, in the same change as Phase 2.
+
+Landed:
+
+- `setta.emit_artifact` takes exactly `title` and `source`. Its input schema is
+  one strict object with no branch union, and its `source` bound is the
+  Go-owned `MaxSourceBytes`.
+- the topic agent's developer instructions state the artifact policy and then
+  append the catalog's own `GenerationInstructions`, rendered from the same Go
+  catalog the compiler accepts against.
+- the tool compiles the source before any artifact or trajectory ID is minted
+  and before the transaction opens, so an invalid document cannot produce an
+  artifact row or an artifact-created event.
+- compiler diagnostics map onto the existing typed failure: the failure code is
+  the diagnostic's own stable code, `retryable` is true, and each field error
+  carries the diagnostic's rooted field path plus its position, component, and
+  correction instruction. No parser internals reach the model or the user.
+- the provider receipt and the narrator's route context describe the generic
+  document; atomic publication, delivery-attempt reduction, unresolved-delivery
+  handling, and the per-turn and snapshot artifact bounds are unchanged.
 
 Deliverables:
 
@@ -1078,9 +1142,28 @@ Gate:
   current system
 - no renderer or desktop process participates in backend acceptance
 
+The gate is satisfied by the focused Go coverage over the tool boundary: the
+rejected-document table asserts a retryable typed failure with the compiler's
+code and field for empty source, a missing root, an unknown component, a table
+row-width mismatch, and an unsafe file reference, and the emission tests assert
+publication, snapshot, trajectory, and read-back on the accepted document.
+
 ### Phase 4 - Director Renderer Cutover
 
-**Status:** Pending.
+**Status:** In progress. Two deliverables landed with the Phase 2 contract
+replacement because the artifact-kind switch could not survive it:
+
+- the rail's kind switch, kind labels, kind icons, and per-kind payload
+  renderers and styles are replaced by `SettaArtifactRenderer`, which selects
+  the catalog by exact `catalogId` and renders through the generated OpenUI
+  library and the official shadcn Base UI primitives
+- that renderer is a lazily loaded chunk, so OpenUI, the generated library, and
+  Recharts load with the first opened artifact rather than with the command
+  center
+
+Everything else below is still pending, including the preview gallery, the
+Dialog-backed browser overlay and the primitives it needs, navigation, and the
+renderer telemetry.
 
 Deliverables:
 

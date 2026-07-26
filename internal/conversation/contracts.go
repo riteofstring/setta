@@ -22,11 +22,7 @@ const (
 	MaxSnapshotSideConversations = 32
 	MaxSnapshotSideEvents        = 200
 
-	MaxArtifactsPerTurn      = 20
-	MaxMarkdownArtifactBytes = 16 * 1024
-	MaxTableArtifactColumns  = 12
-	MaxTableArtifactRows     = 100
-	MaxBarChartArtifactItems = 24
+	MaxArtifactsPerTurn = 20
 )
 
 type ConversationEventType string
@@ -813,16 +809,6 @@ func ContractTaggedUnions() []ContractTaggedUnion {
 	unions := []ContractTaggedUnion{
 		{
 			Discriminator: "kind",
-			Type:          reflect.TypeFor[Artifact](),
-			Branches: []ContractTaggedUnionBranch{
-				{Field: "markdown", KindValue: string(ArtifactKindMarkdown)},
-				{Field: "table", KindValue: string(ArtifactKindTable)},
-				{Field: "barChart", KindValue: string(ArtifactKindBarChart)},
-				{Field: "file", KindValue: string(ArtifactKindFile)},
-			},
-		},
-		{
-			Discriminator: "kind",
 			Type:          reflect.TypeFor[TrajectoryEvent](),
 			Branches: []ContractTaggedUnionBranch{
 				{Field: "userInputAccepted", KindValue: string(TrajectoryEventUserInputAccepted)},
@@ -882,7 +868,8 @@ func ContractValueSets() []ContractValueSet {
 		contractValueSet("ConversationStatus", ConversationStatusIdle, ConversationStatusWorking, ConversationStatusWaitingForApproval, ConversationStatusFailed),
 		contractValueSet("TurnDelivery", TurnDeliveryNormal, TurnDeliveryQueued, TurnDeliverySteering),
 		contractValueSet("TurnStatus", TurnStatusQueued, TurnStatusRunning, TurnStatusCompleted, TurnStatusCancelled, TurnStatusFailed),
-		contractValueSet("ArtifactKind", ArtifactKindMarkdown, ArtifactKindTable, ArtifactKindBarChart, ArtifactKindFile),
+		contractValueSet("ArtifactDocumentLanguage", ArtifactDocumentLanguageOpenUI),
+		contractValueSet("ArtifactCatalogID", ArtifactCatalogSettaV1),
 		contractValueSet("Provider", ProviderCodex),
 		contractValueSet("Role", RoleDirector, RoleAgent, RoleNarrator, RoleSideAgent),
 		contractValueSet("RoleProfileScopeKind", RoleProfileScopeGlobal, RoleProfileScopeWorkspace, RoleProfileScopeConversation),

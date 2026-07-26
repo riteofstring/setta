@@ -33,7 +33,6 @@ func TestNarratorSemanticEventsForLiveCommitUseTypedSources(t *testing.T) {
 		semanticTestTrajectory(TrajectoryEventArtifactEmitted, 5, func(event *TrajectoryEvent) {
 			event.ArtifactEmitted = &TrajectoryArtifactEmitted{
 				ArtifactID: artifact.ID,
-				Kind:       artifact.Kind,
 				Title:      artifact.Title,
 			}
 		}),
@@ -73,7 +72,7 @@ func TestNarratorSemanticEventsForLiveCommitUseTypedSources(t *testing.T) {
 		t.Fatalf("assistant message semantic did not collapse delta noise: %+v", semantic[0])
 	}
 	result := semantic[3].ArtifactOrResultEmitted
-	if result.Artifact == nil || result.Artifact.ID != artifact.ID || result.Artifact.Kind != artifact.Kind {
+	if result.Artifact == nil || result.Artifact.ID != artifact.ID || result.Artifact.Title != artifact.Title {
 		t.Fatalf("artifact semantic payload = %+v, want metadata %+v", result, artifact)
 	}
 	if got := semantic[4].TaskCompleted.Artifacts; len(got) != 1 || got[0].ID != artifact.ID {
@@ -162,7 +161,6 @@ func semanticTestArtifact(turnID string, sequence int) ArtifactMetadata {
 		ConversationID:     "conversation-1",
 		TurnID:             &turnID,
 		TrajectorySequence: &sequence,
-		Kind:               ArtifactKindFile,
 		Title:              "Result file",
 		CreatedAt:          testTimeStarted,
 	}

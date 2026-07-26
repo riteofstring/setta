@@ -1,6 +1,7 @@
 package conversation
 
 import (
+	"strings"
 	"testing"
 
 	"setta/internal/agent"
@@ -131,12 +132,12 @@ func TestGeneratedMediaProducesTheArtifactItSaved(t *testing.T) {
 		Kind:           agent.ActivityKindImageGeneration,
 		Status:         "completed",
 		Title:          "Generated image",
-		SavedPath:      stringPointer("/tmp/director-graph.png"),
+		SavedPath:      stringPointer("/workspace/docs/director-graph.png"),
 	})
 
 	trajectory, artifact, err := service.populateAgentTrajectory(
 		activityMappingTrajectory(),
-		&activeConversationTurn{},
+		imageGenerationActiveTurn("/workspace"),
 		ConversationSnapshot{},
 		event,
 		testTimeStarted,
@@ -148,12 +149,63 @@ func TestGeneratedMediaProducesTheArtifactItSaved(t *testing.T) {
 		trajectory.ActivityCompleted.Activity.Kind != TrajectoryActivityImageGeneration {
 		t.Fatalf("image generation trajectory = %+v", trajectory)
 	}
-	if artifact == nil || artifact.File == nil || artifact.File.Path != "/tmp/director-graph.png" {
-		t.Fatalf("image generation artifact = %+v", artifact)
+	if artifact == nil {
+		t.Fatal("image generation produced no artifact")
+	}
+	if err := artifact.Validate(); err != nil {
+		t.Fatalf("image generation artifact is not a valid document: %v", err)
+	}
+	if !strings.Contains(artifact.Document.Source, `FileReference("docs/director-graph.png"`) {
+		t.Fatalf("image generation artifact document = %q", artifact.Document.Source)
 	}
 	if trajectory.ActivityCompleted.Summary != "Generated image" {
 		t.Fatalf("saved path leaked into image activity summary %q", trajectory.ActivityCompleted.Summary)
 	}
+}
+
+// An artifact addresses a file inside the conversation's authorized workspace.
+// A save the provider put somewhere else stays a completed activity rather than
+// becoming a durable reference to a path the workspace does not own.
+func TestGeneratedMediaOutsideTheWorkspaceProducesNoArtifact(t *testing.T) {
+	service := activityMappingTestService()
+	for _, testCase := range []struct {
+		name          string
+		workspaceRoot string
+		savedPath     string
+	}{
+		{name: "outside the workspace", workspaceRoot: "/workspace", savedPath: "/tmp/director-graph.png"},
+		{name: "no authorized workspace", workspaceRoot: "", savedPath: "/workspace/docs/director-graph.png"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			event := agentActivityEvent(agent.EventKindActivityCompleted, agent.ActivityEvent{
+				ProviderItemID: "item-image",
+				Kind:           agent.ActivityKindImageGeneration,
+				Status:         "completed",
+				Title:          "Generated image",
+				SavedPath:      stringPointer(testCase.savedPath),
+			})
+			trajectory, artifact, err := service.populateAgentTrajectory(
+				activityMappingTrajectory(),
+				imageGenerationActiveTurn(testCase.workspaceRoot),
+				ConversationSnapshot{},
+				event,
+				testTimeStarted,
+			)
+			if err != nil {
+				t.Fatalf("populate image generation trajectory: %v", err)
+			}
+			if trajectory.Kind != TrajectoryEventActivityCompleted {
+				t.Fatalf("image generation trajectory = %+v", trajectory)
+			}
+			if artifact != nil {
+				t.Fatalf("image generation artifact = %+v, want none", artifact)
+			}
+		})
+	}
+}
+
+func imageGenerationActiveTurn(workspaceRoot string) *activeConversationTurn {
+	return &activeConversationTurn{request: agent.TurnRequest{WorkspaceRoot: workspaceRoot}}
 }
 
 func TestProviderFileChangesUseTheDedicatedDurableContract(t *testing.T) {

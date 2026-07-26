@@ -16,8 +16,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 102;
-export const backendContractSchemaHash = "sha256:5a4b28584399cb32f16e56b7337a8b7d6ddbb45d0db60ac5345418189073a9c4";
+export const backendProtocolVersion = 103;
+export const backendContractSchemaHash = "sha256:b7de0d505a875ffe2350dc92ff876dfeebde7166924be62a94c89983356cea83";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -580,26 +580,6 @@ export function decodeSubagentStatus(value: unknown, label = "SubagentStatus"): 
   }
 }
 
-export type ArtifactKind = "markdown" | "table" | "bar_chart" | "file";
-
-export const artifactKindValues = ["markdown", "table", "bar_chart", "file"] as const satisfies readonly ArtifactKind[];
-
-export function decodeArtifactKind(value: unknown, label = "ArtifactKind"): ArtifactKind {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "markdown":
-      return decoded;
-    case "table":
-      return decoded;
-    case "bar_chart":
-      return decoded;
-    case "file":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
 export type ProviderLifecycleStatus = "ready" | "restarting" | "unavailable" | "closed";
 
 export const providerLifecycleStatusValues = ["ready", "restarting", "unavailable", "closed"] as const satisfies readonly ProviderLifecycleStatus[];
@@ -908,6 +888,34 @@ export function decodeSideConversationStatus(value: unknown, label = "SideConver
     case "disposing":
       return decoded;
     case "failed":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ArtifactDocumentLanguage = "openui_lang";
+
+export const artifactDocumentLanguageValues = ["openui_lang"] as const satisfies readonly ArtifactDocumentLanguage[];
+
+export function decodeArtifactDocumentLanguage(value: unknown, label = "ArtifactDocumentLanguage"): ArtifactDocumentLanguage {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "openui_lang":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ArtifactCatalogID = "setta.artifacts.v1";
+
+export const artifactCatalogIDValues = ["setta.artifacts.v1"] as const satisfies readonly ArtifactCatalogID[];
+
+export function decodeArtifactCatalogID(value: unknown, label = "ArtifactCatalogID"): ArtifactCatalogID {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "setta.artifacts.v1":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2226,7 +2234,6 @@ export interface TrajectorySubagentCompleted {
 
 export interface TrajectoryArtifactEmitted {
   artifactId: string;
-  kind: ArtifactKind;
   title: string;
 }
 
@@ -2306,7 +2313,6 @@ export interface ArtifactMetadata {
   conversationId: string;
   turnId: string | null;
   trajectorySequence: number | null;
-  kind: ArtifactKind;
   title: string;
   createdAt: string;
 }
@@ -2501,33 +2507,10 @@ export interface ReadConversationArtifactRequest {
   artifactId: string;
 }
 
-export interface MarkdownArtifactPayload {
-  markdown: string;
-}
-
-export interface ArtifactTableColumn {
-  key: string;
-  label: string;
-}
-
-export interface TableArtifactPayload {
-  columns: ArtifactTableColumn[];
-  rows: string[][];
-}
-
-export interface BarChartArtifactItem {
-  label: string;
-  value: number;
-  unit: string | null;
-}
-
-export interface BarChartArtifactPayload {
-  items: BarChartArtifactItem[];
-}
-
-export interface FileArtifactPayload {
-  path: string;
-  description: string | null;
+export interface ArtifactDocument {
+  language: ArtifactDocumentLanguage;
+  catalogId: ArtifactCatalogID;
+  source: string;
 }
 
 export interface Artifact {
@@ -2535,13 +2518,9 @@ export interface Artifact {
   conversationId: string;
   turnId: string | null;
   trajectorySequence: number | null;
-  kind: ArtifactKind;
   title: string;
   createdAt: string;
-  markdown: MarkdownArtifactPayload | null;
-  table: TableArtifactPayload | null;
-  barChart: BarChartArtifactPayload | null;
-  file: FileArtifactPayload | null;
+  document: ArtifactDocument;
 }
 
 export interface NavigatorCursor {
@@ -3059,7 +3038,6 @@ export interface WorkstreamArtifact {
   conversationId: string;
   workspaceId: string;
   runId: string | null;
-  kind: ArtifactKind;
   status: ArtifactStatus;
   title: string;
   sourceEventIds: string[];
@@ -4628,10 +4606,9 @@ export function decodeTrajectorySubagentCompleted(value: unknown): TrajectorySub
 
 export function decodeTrajectoryArtifactEmitted(value: unknown): TrajectoryArtifactEmitted {
   const record = assertRecord(value, "TrajectoryArtifactEmitted");
-  assertKnownFields(record, "TrajectoryArtifactEmitted", ["artifactId", "kind", "title"]);
+  assertKnownFields(record, "TrajectoryArtifactEmitted", ["artifactId", "title"]);
   return {
     artifactId: decodeString(requireField(record, "artifactId", "TrajectoryArtifactEmitted"), "TrajectoryArtifactEmitted.artifactId"),
-    kind: decodeArtifactKind(requireField(record, "kind", "TrajectoryArtifactEmitted"), "TrajectoryArtifactEmitted.kind"),
     title: decodeString(requireField(record, "title", "TrajectoryArtifactEmitted"), "TrajectoryArtifactEmitted.title"),
   };
 }
@@ -4767,13 +4744,12 @@ export function decodeConversationTrajectoryWindow(value: unknown): Conversation
 
 export function decodeArtifactMetadata(value: unknown): ArtifactMetadata {
   const record = assertRecord(value, "ArtifactMetadata");
-  assertKnownFields(record, "ArtifactMetadata", ["id", "conversationId", "turnId", "trajectorySequence", "kind", "title", "createdAt"]);
+  assertKnownFields(record, "ArtifactMetadata", ["id", "conversationId", "turnId", "trajectorySequence", "title", "createdAt"]);
   return {
     id: decodeString(requireField(record, "id", "ArtifactMetadata"), "ArtifactMetadata.id"),
     conversationId: decodeString(requireField(record, "conversationId", "ArtifactMetadata"), "ArtifactMetadata.conversationId"),
     turnId: decodeNullable(requireField(record, "turnId", "ArtifactMetadata"), "ArtifactMetadata.turnId", (item) => decodeString(item, "ArtifactMetadata.turnId")),
     trajectorySequence: decodeNullable(requireField(record, "trajectorySequence", "ArtifactMetadata"), "ArtifactMetadata.trajectorySequence", (item) => decodeInteger(item, "ArtifactMetadata.trajectorySequence")),
-    kind: decodeArtifactKind(requireField(record, "kind", "ArtifactMetadata"), "ArtifactMetadata.kind"),
     title: decodeString(requireField(record, "title", "ArtifactMetadata"), "ArtifactMetadata.title"),
     createdAt: decodeString(requireField(record, "createdAt", "ArtifactMetadata"), "ArtifactMetadata.createdAt"),
   };
@@ -5072,82 +5048,28 @@ export function decodeReadConversationArtifactRequest(value: unknown): ReadConve
   };
 }
 
-export function decodeMarkdownArtifactPayload(value: unknown): MarkdownArtifactPayload {
-  const record = assertRecord(value, "MarkdownArtifactPayload");
-  assertKnownFields(record, "MarkdownArtifactPayload", ["markdown"]);
+export function decodeArtifactDocument(value: unknown): ArtifactDocument {
+  const record = assertRecord(value, "ArtifactDocument");
+  assertKnownFields(record, "ArtifactDocument", ["language", "catalogId", "source"]);
   return {
-    markdown: decodeString(requireField(record, "markdown", "MarkdownArtifactPayload"), "MarkdownArtifactPayload.markdown"),
-  };
-}
-
-export function decodeArtifactTableColumn(value: unknown): ArtifactTableColumn {
-  const record = assertRecord(value, "ArtifactTableColumn");
-  assertKnownFields(record, "ArtifactTableColumn", ["key", "label"]);
-  return {
-    key: decodeString(requireField(record, "key", "ArtifactTableColumn"), "ArtifactTableColumn.key"),
-    label: decodeString(requireField(record, "label", "ArtifactTableColumn"), "ArtifactTableColumn.label"),
-  };
-}
-
-export function decodeTableArtifactPayload(value: unknown): TableArtifactPayload {
-  const record = assertRecord(value, "TableArtifactPayload");
-  assertKnownFields(record, "TableArtifactPayload", ["columns", "rows"]);
-  return {
-    columns: decodeArray(requireField(record, "columns", "TableArtifactPayload"), "TableArtifactPayload.columns", (item) => decodeArtifactTableColumn(item)),
-    rows: decodeArray(requireField(record, "rows", "TableArtifactPayload"), "TableArtifactPayload.rows", (item) => decodeArray(item, "TableArtifactPayload.rows item", (item) => decodeString(item, "TableArtifactPayload.rows item item"))),
-  };
-}
-
-export function decodeBarChartArtifactItem(value: unknown): BarChartArtifactItem {
-  const record = assertRecord(value, "BarChartArtifactItem");
-  assertKnownFields(record, "BarChartArtifactItem", ["label", "value", "unit"]);
-  return {
-    label: decodeString(requireField(record, "label", "BarChartArtifactItem"), "BarChartArtifactItem.label"),
-    value: decodeNumber(requireField(record, "value", "BarChartArtifactItem"), "BarChartArtifactItem.value"),
-    unit: decodeNullable(requireField(record, "unit", "BarChartArtifactItem"), "BarChartArtifactItem.unit", (item) => decodeString(item, "BarChartArtifactItem.unit")),
-  };
-}
-
-export function decodeBarChartArtifactPayload(value: unknown): BarChartArtifactPayload {
-  const record = assertRecord(value, "BarChartArtifactPayload");
-  assertKnownFields(record, "BarChartArtifactPayload", ["items"]);
-  return {
-    items: decodeArray(requireField(record, "items", "BarChartArtifactPayload"), "BarChartArtifactPayload.items", (item) => decodeBarChartArtifactItem(item)),
-  };
-}
-
-export function decodeFileArtifactPayload(value: unknown): FileArtifactPayload {
-  const record = assertRecord(value, "FileArtifactPayload");
-  assertKnownFields(record, "FileArtifactPayload", ["path", "description"]);
-  return {
-    path: decodeString(requireField(record, "path", "FileArtifactPayload"), "FileArtifactPayload.path"),
-    description: decodeNullable(requireField(record, "description", "FileArtifactPayload"), "FileArtifactPayload.description", (item) => decodeString(item, "FileArtifactPayload.description")),
+    language: decodeArtifactDocumentLanguage(requireField(record, "language", "ArtifactDocument"), "ArtifactDocument.language"),
+    catalogId: decodeArtifactCatalogID(requireField(record, "catalogId", "ArtifactDocument"), "ArtifactDocument.catalogId"),
+    source: decodeString(requireField(record, "source", "ArtifactDocument"), "ArtifactDocument.source"),
   };
 }
 
 export function decodeArtifact(value: unknown): Artifact {
   const record = assertRecord(value, "Artifact");
-  assertKnownFields(record, "Artifact", ["id", "conversationId", "turnId", "trajectorySequence", "kind", "title", "createdAt", "markdown", "table", "barChart", "file"]);
-  const result: Artifact = {
+  assertKnownFields(record, "Artifact", ["id", "conversationId", "turnId", "trajectorySequence", "title", "createdAt", "document"]);
+  return {
     id: decodeString(requireField(record, "id", "Artifact"), "Artifact.id"),
     conversationId: decodeString(requireField(record, "conversationId", "Artifact"), "Artifact.conversationId"),
     turnId: decodeNullable(requireField(record, "turnId", "Artifact"), "Artifact.turnId", (item) => decodeString(item, "Artifact.turnId")),
     trajectorySequence: decodeNullable(requireField(record, "trajectorySequence", "Artifact"), "Artifact.trajectorySequence", (item) => decodeInteger(item, "Artifact.trajectorySequence")),
-    kind: decodeArtifactKind(requireField(record, "kind", "Artifact"), "Artifact.kind"),
     title: decodeString(requireField(record, "title", "Artifact"), "Artifact.title"),
     createdAt: decodeString(requireField(record, "createdAt", "Artifact"), "Artifact.createdAt"),
-    markdown: decodeNullable(requireField(record, "markdown", "Artifact"), "Artifact.markdown", (item) => decodeMarkdownArtifactPayload(item)),
-    table: decodeNullable(requireField(record, "table", "Artifact"), "Artifact.table", (item) => decodeTableArtifactPayload(item)),
-    barChart: decodeNullable(requireField(record, "barChart", "Artifact"), "Artifact.barChart", (item) => decodeBarChartArtifactPayload(item)),
-    file: decodeNullable(requireField(record, "file", "Artifact"), "Artifact.file", (item) => decodeFileArtifactPayload(item)),
+    document: decodeArtifactDocument(requireField(record, "document", "Artifact")),
   };
-  assertTaggedUnionBranch("Artifact", result.kind, {
-    "markdown": result.markdown,
-    "table": result.table,
-    "bar_chart": result.barChart,
-    "file": result.file,
-  });
-  return result;
 }
 
 export function decodeNavigatorCursor(value: unknown): NavigatorCursor {
@@ -6009,14 +5931,13 @@ export function decodeResourceRequest(value: unknown): ResourceRequest {
 
 export function decodeWorkstreamArtifact(value: unknown): WorkstreamArtifact {
   const record = assertRecord(value, "WorkstreamArtifact");
-  assertKnownFields(record, "WorkstreamArtifact", ["id", "workstreamId", "conversationId", "workspaceId", "runId", "kind", "status", "title", "sourceEventIds", "createdAt", "updatedAt"]);
+  assertKnownFields(record, "WorkstreamArtifact", ["id", "workstreamId", "conversationId", "workspaceId", "runId", "status", "title", "sourceEventIds", "createdAt", "updatedAt"]);
   return {
     id: decodeString(requireField(record, "id", "WorkstreamArtifact"), "WorkstreamArtifact.id"),
     workstreamId: decodeString(requireField(record, "workstreamId", "WorkstreamArtifact"), "WorkstreamArtifact.workstreamId"),
     conversationId: decodeString(requireField(record, "conversationId", "WorkstreamArtifact"), "WorkstreamArtifact.conversationId"),
     workspaceId: decodeString(requireField(record, "workspaceId", "WorkstreamArtifact"), "WorkstreamArtifact.workspaceId"),
     runId: decodeNullable(requireField(record, "runId", "WorkstreamArtifact"), "WorkstreamArtifact.runId", (item) => decodeString(item, "WorkstreamArtifact.runId")),
-    kind: decodeArtifactKind(requireField(record, "kind", "WorkstreamArtifact"), "WorkstreamArtifact.kind"),
     status: decodeArtifactStatus(requireField(record, "status", "WorkstreamArtifact"), "WorkstreamArtifact.status"),
     title: decodeString(requireField(record, "title", "WorkstreamArtifact"), "WorkstreamArtifact.title"),
     sourceEventIds: decodeArray(requireField(record, "sourceEventIds", "WorkstreamArtifact"), "WorkstreamArtifact.sourceEventIds", (item) => decodeString(item, "WorkstreamArtifact.sourceEventIds item")),

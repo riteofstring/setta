@@ -114,7 +114,6 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 		{TrajectoryEventArtifactEmitted, func(event *TrajectoryEvent) {
 			event.ArtifactEmitted = &TrajectoryArtifactEmitted{
 				ArtifactID: "artifact-1",
-				Kind:       ArtifactKindMarkdown,
 				Title:      "Focused test summary",
 			}
 		}},

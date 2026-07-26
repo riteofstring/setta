@@ -50,17 +50,16 @@ type ResourceRequest struct {
 // WorkstreamArtifact is one durable output addressed by workstream rather than
 // by conversation, so the Artifacts rail can list app-wide results.
 type WorkstreamArtifact struct {
-	ID             string                    `json:"id"`
-	WorkstreamID   string                    `json:"workstreamId"`
-	ConversationID string                    `json:"conversationId"`
-	WorkspaceID    string                    `json:"workspaceId"`
-	RunID          *string                   `json:"runId"`
-	Kind           conversation.ArtifactKind `json:"kind"`
-	Status         ArtifactStatus            `json:"status"`
-	Title          string                    `json:"title"`
-	SourceEventIDs []string                  `json:"sourceEventIds"`
-	CreatedAt      string                    `json:"createdAt"`
-	UpdatedAt      string                    `json:"updatedAt"`
+	ID             string         `json:"id"`
+	WorkstreamID   string         `json:"workstreamId"`
+	ConversationID string         `json:"conversationId"`
+	WorkspaceID    string         `json:"workspaceId"`
+	RunID          *string        `json:"runId"`
+	Status         ArtifactStatus `json:"status"`
+	Title          string         `json:"title"`
+	SourceEventIDs []string       `json:"sourceEventIds"`
+	CreatedAt      string         `json:"createdAt"`
+	UpdatedAt      string         `json:"updatedAt"`
 }
 
 // ValidateApprovalRequest rejects an approval record trusted code could not
@@ -196,9 +195,6 @@ func ValidateWorkstreamArtifact(artifact WorkstreamArtifact) error {
 	if err := validateWorkstreamArtifactIdentity(artifact); err != nil {
 		return err
 	}
-	if !isArtifactKind(artifact.Kind) {
-		return fmt.Errorf("unknown workstream artifact kind %q", artifact.Kind)
-	}
 	if err := artifactLifecycle.validateStatus(artifact.Status); err != nil {
 		return err
 	}
@@ -259,18 +255,6 @@ func isTrajectoryApprovalKind(kind conversation.TrajectoryApprovalKind) bool {
 		conversation.TrajectoryApprovalKindStructuredInput,
 		conversation.TrajectoryApprovalKindUserInput,
 		conversation.TrajectoryApprovalKindMCPElicitation:
-		return true
-	default:
-		return false
-	}
-}
-
-func isArtifactKind(kind conversation.ArtifactKind) bool {
-	switch kind {
-	case conversation.ArtifactKindMarkdown,
-		conversation.ArtifactKindTable,
-		conversation.ArtifactKindBarChart,
-		conversation.ArtifactKindFile:
 		return true
 	default:
 		return false

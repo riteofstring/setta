@@ -193,7 +193,6 @@ type artifactRecordIdentity struct {
 	conversationID string
 	workspaceID    string
 	runID          *string
-	kind           conversation.ArtifactKind
 	title          string
 }
 
@@ -209,7 +208,6 @@ func emittedArtifactIdentity(
 		conversationID: workstream.conversationID,
 		workspaceID:    workspaceID,
 		runID:          runID,
-		kind:           emitted.Kind,
 		title:          emitted.Title,
 	}
 }
@@ -225,7 +223,6 @@ func createdArtifactIdentity(
 		conversationID: metadata.ConversationID,
 		workspaceID:    workspaceID,
 		runID:          metadata.TurnID,
-		kind:           metadata.Kind,
 		title:          metadata.Title,
 	}
 }
@@ -258,7 +255,6 @@ func newDeclaredArtifact(
 		ConversationID: identity.conversationID,
 		WorkspaceID:    identity.workspaceID,
 		RunID:          copyOptionalString(identity.runID),
-		Kind:           identity.kind,
 		Status:         ArtifactStatusDeclared,
 		Title:          identity.title,
 		SourceEventIDs: []string{event.ID},
@@ -291,7 +287,6 @@ func newAvailableArtifact(
 		ConversationID: identity.conversationID,
 		WorkspaceID:    identity.workspaceID,
 		RunID:          copyOptionalString(identity.runID),
-		Kind:           identity.kind,
 		Status:         ArtifactStatusAvailable,
 		Title:          identity.title,
 		CreatedAt:      metadata.CreatedAt,
@@ -322,7 +317,6 @@ func artifactRecordMatchesIdentity(
 		record.ConversationID == identity.conversationID &&
 		record.WorkspaceID == identity.workspaceID &&
 		equalOptionalString(record.RunID, identity.runID) &&
-		record.Kind == identity.kind &&
 		record.Title == identity.title
 }
 

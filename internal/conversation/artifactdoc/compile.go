@@ -2,6 +2,7 @@ package artifactdoc
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"unicode/utf8"
 )
@@ -24,6 +25,38 @@ type Document struct {
 	Language  DocumentLanguage `json:"language"`
 	CatalogID CatalogID        `json:"catalogId"`
 	Root      Node             `json:"root"`
+}
+
+// ComponentNames lists the distinct components the document renders, sorted so
+// the same document always describes itself the same way. Props is a map, so
+// first-reached order would not be stable.
+func (document Document) ComponentNames() []ComponentName {
+	seen := map[ComponentName]bool{}
+	var walk func(value any)
+	walk = func(value any) {
+		switch typed := value.(type) {
+		case Node:
+			seen[typed.Component] = true
+			for _, property := range typed.Props {
+				walk(property)
+			}
+		case []any:
+			for _, item := range typed {
+				walk(item)
+			}
+		case map[string]any:
+			for _, item := range typed {
+				walk(item)
+			}
+		}
+	}
+	walk(document.Root)
+	names := make([]ComponentName, 0, len(seen))
+	for name := range seen {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
 }
 
 // unsupportedBuiltins are OpenUI features Setta deliberately does not accept.

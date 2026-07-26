@@ -1,7 +1,6 @@
 import type {
   Artifact,
   ApprovalRequest,
-  ArtifactKind,
   ArtifactStatus,
   ConversationApprovalAnswer,
   DirectorIntent,
@@ -14,18 +13,10 @@ import type {
   WorkspaceSession,
   WorkspaceSummary,
 } from "@generated/backend";
+import { Check, FileText, FolderOpen, FolderPlus, X } from "lucide-react";
 import {
-  BarChart3,
-  Check,
-  File,
-  FileText,
-  FolderOpen,
-  FolderPlus,
-  Table2,
-  X,
-  type LucideIcon,
-} from "lucide-react";
-import {
+  Suspense,
+  lazy,
   useCallback,
   useEffect,
   useId,
@@ -36,21 +27,12 @@ import {
   type KeyboardEvent,
 } from "react";
 
-import { MarkdownText } from "../../components/markdown-text";
-
-const artifactLabels = {
-  bar_chart: "Chart",
-  file: "File",
-  markdown: "Markdown",
-  table: "Table",
-} as const satisfies Record<ArtifactKind, string>;
-
-const artifactIcons = {
-  bar_chart: BarChart3,
-  file: File,
-  markdown: FileText,
-  table: Table2,
-} as const satisfies Record<ArtifactKind, LucideIcon>;
+// The OpenUI parser, the generated library, and the chart dependency are only
+// reachable once a user opens an artifact, so they load with the first opened
+// document rather than with the command center.
+const SettaArtifactRenderer = lazy(async () => ({
+  default: (await import("../artifacts/SettaArtifactRenderer")).SettaArtifactRenderer,
+}));
 
 const artifactStatusLabels = {
   available: "Ready",
@@ -220,13 +202,11 @@ function ArtifactCard({
   disabled: boolean;
   onOpen: (artifact: WorkstreamArtifact, trigger: HTMLButtonElement) => Promise<void>;
 }) {
-  const Icon = artifactIcons[artifact.kind];
   return (
     <button
       aria-label={`Open artifact details: ${artifact.title}`}
       className="director-artifact-item"
       data-artifact-id={artifact.id}
-      data-artifact-kind={artifact.kind}
       data-artifact-status={artifact.status}
       disabled={disabled}
       onClick={(event) => {
@@ -235,10 +215,9 @@ function ArtifactCard({
       type="button"
     >
       <span aria-hidden="true" className="director-artifact-icon">
-        <Icon size={15} />
+        <FileText size={15} />
       </span>
       <span className="director-artifact-copy">
-        <span className="director-artifact-kicker">{artifactLabels[artifact.kind]}</span>
         <span className="director-artifact-title">{artifact.title}</span>
         <span className="director-artifact-meta">{directorArtifactCardMetadata(artifact)}</span>
       </span>
@@ -927,17 +906,13 @@ function ArtifactDetailPanel({
       aria-labelledby={headingId}
       className="director-artifact-detail"
       data-artifact-id={detail.artifact.id}
-      data-artifact-kind={detail.artifact.kind}
       data-artifact-load-state={detail.status}
       onKeyDown={onKeyDown}
       ref={panelRef}
       tabIndex={-1}
     >
       <header>
-        <div>
-          <p className="director-artifact-detail-kicker">{artifactLabels[detail.artifact.kind]}</p>
-          <h2 id={headingId}>{detail.artifact.title}</h2>
-        </div>
+        <h2 id={headingId}>{detail.artifact.title}</h2>
         <button
           aria-label="Close artifact details"
           className="director-artifact-detail-close"
@@ -974,114 +949,23 @@ function ArtifactDetailBody({ detail }: { detail: ArtifactDetailState }) {
 }
 
 function ArtifactPayload({ artifact }: { artifact: Artifact }) {
-  switch (artifact.kind) {
-    case "markdown":
-      return <MarkdownArtifact artifact={artifact} />;
-    case "table":
-      return <TableArtifact artifact={artifact} />;
-    case "bar_chart":
-      return <BarChartArtifact artifact={artifact} />;
-    case "file":
-      return <FileArtifact artifact={artifact} />;
-    default:
-      return exhaustiveArtifactKind(artifact.kind);
-  }
-}
-
-function MarkdownArtifact({ artifact }: { artifact: Artifact }) {
-  const payload = requireArtifactPayload(artifact.markdown, artifact.kind);
   return (
-    <div className="director-artifact-markdown">
-      <MarkdownText text={payload.markdown} />
+    <div className="director-artifact-document">
+      <Suspense
+        fallback={
+          <p className="director-artifact-detail-status" role="status">
+            Loading artifact.
+          </p>
+        }
+      >
+        <SettaArtifactRenderer document={artifact.document} />
+      </Suspense>
     </div>
   );
-}
-
-function TableArtifact({ artifact }: { artifact: Artifact }) {
-  const payload = requireArtifactPayload(artifact.table, artifact.kind);
-  return (
-    <div className="director-artifact-table-wrap">
-      <table className="director-artifact-table">
-        <thead>
-          <tr>
-            {payload.columns.map((column) => (
-              <th key={column.key}>{column.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {payload.rows.map((row, rowIndex) => (
-            <tr key={rowIndex}>
-              {payload.columns.map((column, columnIndex) => (
-                <td key={column.key}>{row[columnIndex] ?? ""}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function BarChartArtifact({ artifact }: { artifact: Artifact }) {
-  const payload = requireArtifactPayload(artifact.barChart, artifact.kind);
-  const maxValue = Math.max(...payload.items.map((item) => item.value), 0);
-  return (
-    <div className="director-artifact-bars">
-      {payload.items.map((item) => (
-        <div className="director-artifact-bar-row" key={item.label}>
-          <span className="director-artifact-bar-label">{item.label}</span>
-          <div className="director-artifact-bar-track">
-            <span
-              aria-label={`${item.label}: ${formatArtifactValue(item.value, item.unit)}`}
-              className="director-artifact-bar"
-              style={{
-                width: `${maxValue > 0 ? Math.max((item.value / maxValue) * 100, 2) : 0}%`,
-              }}
-            />
-            <span className="director-artifact-bar-value">
-              {formatArtifactValue(item.value, item.unit)}
-            </span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function FileArtifact({ artifact }: { artifact: Artifact }) {
-  const payload = requireArtifactPayload(artifact.file, artifact.kind);
-  return (
-    <div className="director-artifact-file">
-      <code>{payload.path}</code>
-      {payload.description ? <p>{payload.description}</p> : null}
-    </div>
-  );
-}
-
-function requireArtifactPayload<Payload>(
-  payload: Payload | null | undefined,
-  kind: Artifact["kind"],
-): Payload {
-  if (!payload) {
-    throw new Error(`Artifact ${kind} is missing its typed payload`);
-  }
-  return payload;
-}
-
-function formatArtifactValue(value: number, unit: string | null): string {
-  const formatted = Number.isInteger(value)
-    ? String(value)
-    : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  return unit ? `${formatted} ${unit}` : formatted;
 }
 
 function validateDirectorArtifactPayload(metadata: WorkstreamArtifact, artifact: Artifact): void {
-  if (
-    artifact.id !== metadata.id ||
-    artifact.conversationId !== metadata.conversationId ||
-    artifact.kind !== metadata.kind
-  ) {
+  if (artifact.id !== metadata.id || artifact.conversationId !== metadata.conversationId) {
     throw new Error(`Artifact payload ${artifact.id} does not match its Director record.`);
   }
 }
@@ -1138,8 +1022,4 @@ function dispatchDirectorIntent(
 
 function exhaustiveArtifactDetail(state: never): never {
   throw new Error(`unsupported artifact detail state ${JSON.stringify(state)}`);
-}
-
-function exhaustiveArtifactKind(kind: never): never {
-  throw new Error(`unsupported artifact kind ${kind}`);
 }

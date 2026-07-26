@@ -26,9 +26,8 @@ func (store *Store) ReadArtifact(
 	err := store.read(ctx, "read conversation artifact", func(ctx context.Context, reader *sql.Conn) error {
 		row := reader.QueryRowContext(ctx, `
 SELECT artifacts.id, artifacts.conversation_id, artifacts.turn_id,
-       artifacts.trajectory_sequence, artifacts.kind, artifacts.title,
-       artifacts.markdown_json, artifacts.table_json, artifacts.bar_chart_json,
-       artifacts.file_json, artifacts.created_at
+       artifacts.trajectory_sequence, artifacts.title, artifacts.language,
+       artifacts.catalog_id, artifacts.source, artifacts.created_at
 FROM artifacts
 JOIN conversations ON conversations.id = artifacts.conversation_id
 WHERE artifacts.id = ? AND artifacts.conversation_id = ? AND conversations.workspace_id = ?

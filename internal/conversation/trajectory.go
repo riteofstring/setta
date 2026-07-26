@@ -490,13 +490,12 @@ type TrajectorySubagentCompleted struct {
 }
 
 // TrajectoryArtifactEmitted carries the public artifact identity a projection
-// needs to label the result. The kind and title travel with the event because an
+// needs to label the result. The title travels with the event because an
 // artifact is immutable once emitted, so a consumer never has to resolve a
 // second record — or invent a label — to say what was produced.
 type TrajectoryArtifactEmitted struct {
-	ArtifactID string       `json:"artifactId"`
-	Kind       ArtifactKind `json:"kind"`
-	Title      string       `json:"title"`
+	ArtifactID string `json:"artifactId"`
+	Title      string `json:"title"`
 }
 
 type TrajectoryProviderLifecycleChanged struct {

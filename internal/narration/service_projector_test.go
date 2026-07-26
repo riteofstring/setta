@@ -964,10 +964,13 @@ func seedTerminalProjectorConversation(
 		ConversationID:     conversationID,
 		TurnID:             &turnID,
 		TrajectorySequence: &artifactSequence,
-		Kind:               conversation.ArtifactKindMarkdown,
 		Title:              "Terminal projector result",
 		CreatedAt:          endedAt,
-		Markdown:           &conversation.MarkdownArtifactPayload{Markdown: "The terminal projector produced a deterministic artifact."},
+		Document: conversation.ArtifactDocument{
+			Language:  conversation.ArtifactDocumentLanguageOpenUI,
+			CatalogID: conversation.ArtifactCatalogSettaV1,
+			Source:    `root = Document([Text("The terminal projector produced a deterministic artifact.")])`,
+		},
 	}
 	trajectory = append(trajectory, conversation.TrajectoryEvent{
 		ID:             "projector-artifact-emitted",
@@ -979,7 +982,6 @@ func seedTerminalProjectorConversation(
 		Actor:          conversation.TrajectoryActorSystem,
 		ArtifactEmitted: &conversation.TrajectoryArtifactEmitted{
 			ArtifactID: artifact.ID,
-			Kind:       artifact.Kind,
 			Title:      artifact.Title,
 		},
 	})

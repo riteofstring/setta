@@ -397,8 +397,7 @@ func carrierReplayEventItem(event TrajectoryEvent) (agent.InjectedTextItem, bool
 		return agent.InjectedTextItem{
 			Role: "developer",
 			Text: fmt.Sprintf(
-				"Setta artifact receipt: %s %q (artifact %s) was emitted.",
-				artifact.Kind,
+				"Setta artifact receipt: the artifact document %q (artifact %s) was emitted.",
 				artifact.Title,
 				artifact.ArtifactID,
 			),

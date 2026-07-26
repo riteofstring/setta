@@ -56,7 +56,7 @@ func TestReadConversationArtifactUsesTypedServiceBoundary(t *testing.T) {
 		},
 		http.StatusOK,
 	)
-	if response.ID != "artifact-api" || response.Table == nil || len(response.Table.Rows) != 1 {
+	if response.ID != "artifact-api" || response.Document.Source != httpConversationTestArtifactSource {
 		t.Fatalf("artifact response = %+v", response)
 	}
 	if service.readWorkspaceID != "workspace-api" ||
@@ -441,7 +441,10 @@ func TestConversationEventStreamRejectsAnotherConversationCursor(t *testing.T) {
 	}
 }
 
-const httpConversationTestTime = "2026-07-11T20:00:00Z"
+const (
+	httpConversationTestTime           = "2026-07-11T20:00:00Z"
+	httpConversationTestArtifactSource = `root = Document([Table([{key: "metric", label: "Metric"}], [["Rows"]])])`
+)
 
 type httpTestConversationService struct {
 	snapshot                conversation.ConversationSnapshot
@@ -655,17 +658,14 @@ func (service *httpTestConversationService) ReadArtifact(
 		ID:                 artifactID,
 		ConversationID:     conversationID,
 		TurnID:             nil,
-		Kind:               conversation.ArtifactKindTable,
 		Title:              "HTTP artifact",
 		CreatedAt:          httpConversationTestTime,
 		TrajectorySequence: nil,
-		Markdown:           nil,
-		Table: &conversation.TableArtifactPayload{
-			Columns: []conversation.ArtifactTableColumn{{Key: "metric", Label: "Metric"}},
-			Rows:    [][]string{{"Rows"}},
+		Document: conversation.ArtifactDocument{
+			Language:  conversation.ArtifactDocumentLanguageOpenUI,
+			CatalogID: conversation.ArtifactCatalogSettaV1,
+			Source:    httpConversationTestArtifactSource,
 		},
-		BarChart: nil,
-		File:     nil,
 	}, nil
 }
 

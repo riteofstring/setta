@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"setta/internal/conversation/artifactdoc"
 	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
 )
@@ -11,7 +12,20 @@ import (
 const (
 	testTimeStarted = "2026-07-11T20:00:00Z"
 	testTimeEnded   = "2026-07-11T20:01:00Z"
+
+	// testArtifactSource is the smallest document the package's artifact
+	// records are built from. Every artifact is a compiled document now, so a
+	// test record needs source the compiler actually accepts.
+	testArtifactSource = `root = Document([Text("Report")])`
 )
+
+func testArtifactDocument() ArtifactDocument {
+	return ArtifactDocument{
+		Language:  ArtifactDocumentLanguageOpenUI,
+		CatalogID: ArtifactCatalogSettaV1,
+		Source:    testArtifactSource,
+	}
+}
 
 func TestTopicConversationAndChildRecordsValidateOwnedInvariants(t *testing.T) {
 	archivedAt := testTimeEnded
@@ -82,10 +96,9 @@ func TestTopicConversationAndChildRecordsValidateOwnedInvariants(t *testing.T) {
 		ConversationID:     conversation.ID,
 		TurnID:             stringPointer("turn-1"),
 		TrajectorySequence: &sequence,
-		Kind:               ArtifactKindMarkdown,
 		Title:              "Report",
 		CreatedAt:          testTimeEnded,
-		Markdown:           &MarkdownArtifactPayload{Markdown: "Report"},
+		Document:           testArtifactDocument(),
 	}
 	if err := artifact.Validate(); err != nil {
 		t.Fatalf("valid artifact: %v", err)
@@ -93,6 +106,12 @@ func TestTopicConversationAndChildRecordsValidateOwnedInvariants(t *testing.T) {
 	zero := 0
 	artifact.TrajectorySequence = &zero
 	assertValidationErrorContains(t, artifact.Validate(), "trajectory sequence must be positive")
+	artifact.TrajectorySequence = &sequence
+	artifact.Document.Source = `root = Marquee("Report")`
+	assertValidationErrorContains(t, artifact.Validate(), string(artifactdoc.CodeUnknownComponent))
+	artifact.Document = testArtifactDocument()
+	artifact.Document.CatalogID = "setta.artifacts.v0"
+	assertValidationErrorContains(t, artifact.Validate(), "catalog \"setta.artifacts.v0\" is not supported")
 }
 
 func TestRoleProfilesKeepSelectionsPermissionsAndAuditIndependent(t *testing.T) {

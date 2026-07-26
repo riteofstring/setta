@@ -567,7 +567,7 @@ func (runtime *serviceTestAgentRuntime) RunTurn(
 		return agent.TurnResult{}, err
 	}
 	runtime.started <- request.Text
-	result, err := runtime.runTestTurnScenario(ctx, request.Text, sink, base, control)
+	result, err := runtime.runTestTurnScenario(ctx, request.Text, sink, base, control, request.WorkspaceRoot)
 	runtime.mu.Lock()
 	thread = runtime.providerThreads[request.ProviderThreadID]
 	if request.Text == "side reroute" {
@@ -601,6 +601,7 @@ func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
 	sink agent.EventSink,
 	base agent.Event,
 	control <-chan string,
+	workspaceRoot string,
 ) (agent.TurnResult, error) {
 	switch text {
 	case "approval", "secret approval":
@@ -608,7 +609,7 @@ func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
 			return agent.TurnResult{}, err
 		}
 	case "hold side context":
-		if err := runtime.emitSideContextScenario(sink, base); err != nil {
+		if err := runtime.emitSideContextScenario(sink, base, workspaceRoot); err != nil {
 			return agent.TurnResult{}, err
 		}
 		return runtime.runSideContextHeldScenario(ctx, sink, base, control)
@@ -645,14 +646,15 @@ func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
 			return agent.TurnResult{}, err
 		}
 	case "hold", "hold cancel", "hold fail", "hold after failure":
-		return runtime.runHeldScenario(ctx, text, sink, base, control)
+		return runtime.runHeldScenario(ctx, text, sink, base, control, workspaceRoot)
 	}
-	return runtime.emitCompletedTurn(sink, base, text)
+	return runtime.emitCompletedTurn(sink, base, text, workspaceRoot)
 }
 
 func (runtime *serviceTestAgentRuntime) emitSideContextScenario(
 	sink agent.EventSink,
 	base agent.Event,
+	workspaceRoot string,
 ) error {
 	reasoning := base
 	reasoning.Kind = agent.EventKindReasoningSummary
@@ -683,7 +685,7 @@ func (runtime *serviceTestAgentRuntime) emitSideContextScenario(
 		Kind:           agent.ActivityKindImageGeneration,
 		Status:         "completed",
 		Title:          "Side context result",
-		SavedPath:      stringPointer("/tmp/side-context-result.md"),
+		SavedPath:      stringPointer(workspaceRoot + "/side-context-result.md"),
 	}
 	if err := sink.HandleAgentEvent(artifact); err != nil {
 		return err
@@ -774,6 +776,7 @@ func (runtime *serviceTestAgentRuntime) runHeldScenario(
 	sink agent.EventSink,
 	base agent.Event,
 	control <-chan string,
+	workspaceRoot string,
 ) (agent.TurnResult, error) {
 	var action string
 	select {
@@ -785,7 +788,7 @@ func (runtime *serviceTestAgentRuntime) runHeldScenario(
 		return runtime.emitTerminal(sink, base, agent.TurnOutcomeInterrupted)
 	}
 	if text != "hold fail" {
-		return runtime.emitCompletedTurn(sink, base, text)
+		return runtime.emitCompletedTurn(sink, base, text, workspaceRoot)
 	}
 	message := "scripted held failure"
 	terminal := base
@@ -826,6 +829,7 @@ func (runtime *serviceTestAgentRuntime) emitCompletedTurn(
 	sink agent.EventSink,
 	base agent.Event,
 	text string,
+	workspaceRoot string,
 ) (agent.TurnResult, error) {
 	message := base
 	message.Kind = agent.EventKindAgentTextCompleted
@@ -840,7 +844,7 @@ func (runtime *serviceTestAgentRuntime) emitCompletedTurn(
 		Kind:           agent.ActivityKindImageGeneration,
 		Status:         "completed",
 		Title:          "Result file",
-		SavedPath:      stringPointer("/tmp/result-" + base.ProviderTurnID + ".md"),
+		SavedPath:      stringPointer(workspaceRoot + "/result-" + base.ProviderTurnID + ".md"),
 	}
 	if err := sink.HandleAgentEvent(artifact); err != nil {
 		return agent.TurnResult{}, err

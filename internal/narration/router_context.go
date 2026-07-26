@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"setta/internal/conversation"
+	"setta/internal/conversation/artifactdoc"
 )
 
 const (
@@ -66,10 +68,9 @@ type ConversationRouteSubagent struct {
 }
 
 type ConversationRouteArtifact struct {
-	ID      string                    `json:"id"`
-	Kind    conversation.ArtifactKind `json:"kind"`
-	Title   string                    `json:"title"`
-	Summary string                    `json:"summary"`
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	Summary string `json:"summary"`
 }
 
 type ConversationRouteAuthoritativeContext struct {
@@ -324,7 +325,6 @@ func conversationRouteArtifacts(artifacts []conversation.Artifact) []Conversatio
 	for _, artifact := range artifacts {
 		result = append(result, ConversationRouteArtifact{
 			ID:      artifact.ID,
-			Kind:    artifact.Kind,
 			Title:   artifact.Title,
 			Summary: conversationRouteArtifactSummary(artifact),
 		})
@@ -332,31 +332,21 @@ func conversationRouteArtifacts(artifacts []conversation.Artifact) []Conversatio
 	return result
 }
 
+// conversationRouteArtifactSummary says what the document is made of, which is
+// the part of an artifact the router can act on without reading its content.
+// The document already compiled before it was stored, so a compile failure here
+// is a corrupt row rather than model output.
 func conversationRouteArtifactSummary(artifact conversation.Artifact) string {
-	switch artifact.Kind {
-	case conversation.ArtifactKindMarkdown:
-		if artifact.Markdown == nil {
-			return "missing markdown payload"
-		}
-		return fmt.Sprintf("%d byte markdown payload", len(artifact.Markdown.Markdown))
-	case conversation.ArtifactKindTable:
-		if artifact.Table == nil {
-			return "missing table payload"
-		}
-		return fmt.Sprintf("%d column, %d row table payload", len(artifact.Table.Columns), len(artifact.Table.Rows))
-	case conversation.ArtifactKindBarChart:
-		if artifact.BarChart == nil {
-			return "missing bar chart payload"
-		}
-		return fmt.Sprintf("%d item bar chart payload", len(artifact.BarChart.Items))
-	case conversation.ArtifactKindFile:
-		if artifact.File == nil {
-			return "missing file payload"
-		}
-		return artifact.File.Path
-	default:
-		return "unsupported artifact payload"
+	document, err := artifactdoc.Compile(artifactdoc.SettaCatalogV1(), artifact.Document.Source)
+	if err != nil {
+		return "unreadable artifact document"
 	}
+	names := document.ComponentNames()
+	labels := make([]string, 0, len(names))
+	for _, name := range names {
+		labels = append(labels, string(name))
+	}
+	return fmt.Sprintf("%d byte document using %s", len(artifact.Document.Source), strings.Join(labels, ", "))
 }
 
 func fitConversationRouteContext(

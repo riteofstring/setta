@@ -395,23 +395,19 @@ try {
   );
 
   await submitDirector(context.client, "Director artifact.");
-  const beforeRestart = await waitForDirectorSnapshot(
-    context.client,
-    (snapshot) => {
-      const workstream = snapshot.workstreams.find(
-        (entry) => entry.workstream.id === rootWorkstreamId,
-      )?.workstream;
-      return (
-        snapshot.selectedWorkstreamId === rootWorkstreamId &&
-        snapshot.artifacts.some(
-          (artifact) =>
-            artifact.workstreamId === rootWorkstreamId && artifact.status === "available",
-        ) &&
-        workstream?.activeRunId === null &&
-        workstream.status === "completed"
-      );
-    },
-  );
+  const beforeRestart = await waitForDirectorSnapshot(context.client, (snapshot) => {
+    const workstream = snapshot.workstreams.find(
+      (entry) => entry.workstream.id === rootWorkstreamId,
+    )?.workstream;
+    return (
+      snapshot.selectedWorkstreamId === rootWorkstreamId &&
+      snapshot.artifacts.some(
+        (artifact) => artifact.workstreamId === rootWorkstreamId && artifact.status === "available",
+      ) &&
+      workstream?.activeRunId === null &&
+      workstream.status === "completed"
+    );
+  });
   const openedArtifact = beforeRestart.artifacts.find(
     (artifact) => artifact.workstreamId === rootWorkstreamId && artifact.status === "available",
   );

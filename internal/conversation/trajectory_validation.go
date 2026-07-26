@@ -388,9 +388,6 @@ func validateEmittedArtifact(payload *TrajectoryArtifactEmitted) error {
 	if err := validateIdentifier("emitted artifact id", payload.ArtifactID); err != nil {
 		return err
 	}
-	if !validArtifactKind(payload.Kind) {
-		return fmt.Errorf("emitted artifact %s has unsupported kind %q", payload.ArtifactID, payload.Kind)
-	}
 	return validateTrimmedText("emitted artifact title", payload.Title)
 }
 

@@ -3,9 +3,11 @@ package conversation
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"setta/internal/agent"
+	"setta/internal/conversation/artifactdoc"
 )
 
 func (service *Service) persistAgentProgress(
@@ -110,7 +112,6 @@ func (service *Service) artifactTrajectory(
 		ProviderTurnID: &event.ProviderTurnID,
 		ArtifactEmitted: &TrajectoryArtifactEmitted{
 			ArtifactID: artifact.ID,
-			Kind:       artifact.Kind,
 			Title:      artifact.Title,
 		},
 	}, nil
@@ -352,7 +353,7 @@ func (service *Service) conversationActivityTrajectory(
 	if err != nil {
 		return TrajectoryEvent{}, nil, err
 	}
-	return service.activityTrajectory(trajectory, activity, event, now)
+	return service.activityTrajectory(trajectory, activity, active.request.WorkspaceRoot, event, now)
 }
 
 func conversationApprovalTrajectory(
@@ -686,6 +687,7 @@ func conversationFileChangeKind(kind agent.FileChangeKind) (FileChangeKind, erro
 func (service *Service) activityTrajectory(
 	trajectory TrajectoryEvent,
 	activity TrajectoryActivity,
+	workspaceRoot string,
 	event agent.Event,
 	now string,
 ) (TrajectoryEvent, *Artifact, error) {
@@ -719,6 +721,13 @@ func (service *Service) activityTrajectory(
 		strings.TrimSpace(*event.Activity.SavedPath) == "" {
 		return trajectory, nil, nil
 	}
+	// The provider reports an absolute host path. An artifact may only address
+	// a file inside the conversation's authorized workspace, so a save outside
+	// it stays a completed activity and never becomes a durable reference.
+	relative, inside := workspaceRelativePath(workspaceRoot, strings.TrimSpace(*event.Activity.SavedPath))
+	if !inside {
+		return trajectory, nil, nil
+	}
 	artifactID, err := service.newID("artifact")
 	if err != nil {
 		return TrajectoryEvent{}, nil, err
@@ -727,11 +736,32 @@ func (service *Service) activityTrajectory(
 		ID:             artifactID,
 		ConversationID: trajectory.ConversationID,
 		TurnID:         trajectory.TurnID,
-		Kind:           ArtifactKindFile,
 		Title:          activity.Title,
 		CreatedAt:      now,
-		File:           &FileArtifactPayload{Path: strings.TrimSpace(*event.Activity.SavedPath)},
+		Document: ArtifactDocument{
+			Language:  ArtifactDocumentLanguageOpenUI,
+			CatalogID: ArtifactCatalogSettaV1,
+			Source:    artifactdoc.FileReferenceSource(relative, activity.Title),
+		},
 	}, nil
+}
+
+// workspaceRelativePath converts an absolute provider path into the
+// workspace-relative form artifact documents address files by. It reports false
+// when the workspace is unknown or the path resolves outside it.
+func workspaceRelativePath(workspaceRoot string, absolutePath string) (string, bool) {
+	if workspaceRoot == "" || !filepath.IsAbs(absolutePath) {
+		return "", false
+	}
+	relative, err := filepath.Rel(workspaceRoot, absolutePath)
+	if err != nil {
+		return "", false
+	}
+	relative = filepath.ToSlash(relative)
+	if relative == "." || relative == ".." || strings.HasPrefix(relative, "../") {
+		return "", false
+	}
+	return relative, true
 }
 
 func agentActivityFailed(status string) (bool, error) {

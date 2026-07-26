@@ -313,10 +313,9 @@ func seedNarratorContext(t *testing.T, store *Store) narratorContextSeed {
 		ConversationID:     conversationRecord.ID,
 		TurnID:             &turn.ID,
 		TrajectorySequence: &artifactSequence,
-		Kind:               ArtifactKindMarkdown,
 		Title:              "Narrator context report",
 		CreatedAt:          testTimeEnded,
-		Markdown:           &MarkdownArtifactPayload{Markdown: "Narrator context report"},
+		Document:           testArtifactDocument(),
 	}
 	milestone := narratorContextNarration(
 		"narration-milestone-context",
@@ -433,7 +432,6 @@ func narratorContextTrajectory(conversationID string, turn ConversationTurn) []T
 	}}
 	events[8].ArtifactEmitted = &TrajectoryArtifactEmitted{
 		ArtifactID: "artifact-1",
-		Kind:       ArtifactKindMarkdown,
 		Title:      "Narrator context artifact",
 	}
 	events[9].AgentPublicTextDelta = &TrajectoryAgentPublicTextDelta{

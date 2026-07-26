@@ -363,7 +363,7 @@ describe("session recording privacy", () => {
         failure: {
           code: "missing_required_fields",
           diagnosticReference: "artifact_tool:artifact-call-1:missing_required_fields",
-          message: "table artifact requires title, columns, rows",
+          message: `emit_artifact requires artifact document source, and the attempted document held ${attemptedPayloadValue}`,
           retryable: true,
         },
         output: null,

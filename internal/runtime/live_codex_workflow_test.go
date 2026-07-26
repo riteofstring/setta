@@ -15,6 +15,7 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
 	"setta/internal/conversation"
+	"setta/internal/conversation/artifactdoc"
 	"setta/internal/director"
 	"setta/internal/httpapi"
 )
@@ -383,7 +384,7 @@ func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
 	if latestTurn.Status != conversation.TurnStatusCompleted {
 		t.Fatalf("live structured table turn status = %s error=%+v, want completed", latestTurn.Status, latestTurn.Error)
 	}
-	metadata := runtimeLiveTableArtifactMetadataForTurn(t, snapshot, latestTurn.ID)
+	metadata := runtimeLiveTableArtifactMetadataForTurn(t, snapshot, latestTurn.ID, expectedTableTitle)
 	artifact := postRuntimeJSON[conversation.Artifact](
 		t,
 		client,
@@ -403,11 +404,12 @@ func runtimeLiveTableArtifactMetadataForTurn(
 	t *testing.T,
 	snapshot conversation.ConversationSnapshot,
 	turnID string,
+	title string,
 ) conversation.ArtifactMetadata {
 	t.Helper()
 	var matches []conversation.ArtifactMetadata
 	for _, artifact := range snapshot.Artifacts.Artifacts {
-		if artifact.Kind == conversation.ArtifactKindTable && artifact.TurnID != nil && *artifact.TurnID == turnID {
+		if artifact.Title == title && artifact.TurnID != nil && *artifact.TurnID == turnID {
 			matches = append(matches, artifact)
 		}
 	}
@@ -431,24 +433,90 @@ func assertRuntimeLiveTableArtifact(
 	}
 	if metadata.ID != artifact.ID ||
 		metadata.ConversationID != artifact.ConversationID ||
-		metadata.Kind != artifact.Kind ||
 		metadata.Title != artifact.Title ||
 		metadata.Title != expectedTitle ||
-		artifact.Title != expectedTitle ||
-		artifact.Kind != conversation.ArtifactKindTable ||
-		artifact.Table == nil ||
-		!runtimeLiveArtifactTableContains(artifact.Table, "Go", "34") ||
-		!runtimeLiveArtifactTableContains(artifact.Table, "TypeScript", "21") ||
-		!runtimeLiveArtifactTableContains(artifact.Table, "CSS", "8") {
+		artifact.Document.Language != conversation.ArtifactDocumentLanguageOpenUI ||
+		artifact.Document.CatalogID != conversation.ArtifactCatalogSettaV1 {
 		t.Fatalf("live table artifact metadata=%+v artifact=%+v", metadata, artifact)
+	}
+	rows := runtimeLiveArtifactTableRows(t, artifact)
+	for _, want := range [][2]string{{"Go", "34"}, {"TypeScript", "21"}, {"CSS", "8"}} {
+		if !runtimeLiveArtifactTableContains(rows, want[0], want[1]) {
+			t.Fatalf("live table artifact rows = %+v, missing %s=%s in %q", rows, want[0], want[1], artifact.Document.Source)
+		}
 	}
 }
 
-func runtimeLiveArtifactTableContains(table *conversation.TableArtifactPayload, language string, lines string) bool {
-	if table == nil {
-		return false
+// runtimeLiveArtifactTableRows compiles the stored document the same way the
+// backend accepted it and returns the first table's rows, so the live assertion
+// reads the model's data rather than its source text.
+func runtimeLiveArtifactTableRows(t *testing.T, artifact conversation.Artifact) [][]string {
+	t.Helper()
+	document, err := artifactdoc.Compile(artifactdoc.SettaCatalogV1(), artifact.Document.Source)
+	if err != nil {
+		t.Fatalf("compile live artifact document %q: %v", artifact.Document.Source, err)
 	}
-	for _, row := range table.Rows {
+	table, found := findLiveArtifactNode(document.Root, artifactdoc.ComponentTable)
+	if !found {
+		t.Fatalf("live artifact document has no table: %q", artifact.Document.Source)
+	}
+	rawRows, ok := table.Props["rows"].([]any)
+	if !ok {
+		t.Fatalf("live artifact table rows = %+v", table.Props["rows"])
+	}
+	rows := make([][]string, 0, len(rawRows))
+	for _, rawRow := range rawRows {
+		cells, ok := rawRow.([]any)
+		if !ok {
+			t.Fatalf("live artifact table row = %+v", rawRow)
+		}
+		row := make([]string, 0, len(cells))
+		for _, cell := range cells {
+			text, ok := cell.(string)
+			if !ok {
+				t.Fatalf("live artifact table cell = %+v", cell)
+			}
+			row = append(row, text)
+		}
+		rows = append(rows, row)
+	}
+	return rows
+}
+
+func findLiveArtifactNode(node artifactdoc.Node, component artifactdoc.ComponentName) (artifactdoc.Node, bool) {
+	if node.Component == component {
+		return node, true
+	}
+	for _, property := range node.Props {
+		if found, ok := findLiveArtifactNodeInValue(property, component); ok {
+			return found, true
+		}
+	}
+	return artifactdoc.Node{}, false
+}
+
+func findLiveArtifactNodeInValue(value any, component artifactdoc.ComponentName) (artifactdoc.Node, bool) {
+	switch typed := value.(type) {
+	case artifactdoc.Node:
+		return findLiveArtifactNode(typed, component)
+	case []any:
+		for _, item := range typed {
+			if found, ok := findLiveArtifactNodeInValue(item, component); ok {
+				return found, true
+			}
+		}
+	case map[string]any:
+		for _, item := range typed {
+			if found, ok := findLiveArtifactNodeInValue(item, component); ok {
+				return found, true
+			}
+		}
+	}
+	return artifactdoc.Node{}, false
+}
+
+func runtimeLiveArtifactTableContains(rows [][]string, language string, lines string) bool {
+	for _, row := range rows {
 		if len(row) >= 2 && strings.EqualFold(strings.TrimSpace(row[0]), language) &&
 			strings.TrimSpace(row[1]) == lines {
 			return true

@@ -83,7 +83,6 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 	artifact := ArtifactMetadata{
 		ID:             "artifact-1",
 		ConversationID: conversationID,
-		Kind:           ArtifactKindMarkdown,
 		Title:          "Contract report",
 		CreatedAt:      testTimeStarted,
 	}

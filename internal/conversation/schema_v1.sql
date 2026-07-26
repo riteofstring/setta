@@ -188,19 +188,11 @@ CREATE TABLE artifacts (
   conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   turn_id TEXT REFERENCES conversation_turns(id) ON DELETE CASCADE,
   trajectory_sequence INTEGER CHECK (trajectory_sequence IS NULL OR trajectory_sequence > 0),
-  kind TEXT NOT NULL CHECK (kind IN ('markdown', 'table', 'bar_chart', 'file')),
   title TEXT NOT NULL DEFAULT '',
-  markdown_json TEXT CHECK (markdown_json IS NULL OR json_valid(markdown_json)),
-  table_json TEXT CHECK (table_json IS NULL OR json_valid(table_json)),
-  bar_chart_json TEXT CHECK (bar_chart_json IS NULL OR json_valid(bar_chart_json)),
-  file_json TEXT CHECK (file_json IS NULL OR json_valid(file_json)),
-  created_at TEXT NOT NULL,
-  CHECK (
-    (kind = 'markdown' AND markdown_json IS NOT NULL AND table_json IS NULL AND bar_chart_json IS NULL AND file_json IS NULL)
-    OR (kind = 'table' AND markdown_json IS NULL AND table_json IS NOT NULL AND bar_chart_json IS NULL AND file_json IS NULL)
-    OR (kind = 'bar_chart' AND markdown_json IS NULL AND table_json IS NULL AND bar_chart_json IS NOT NULL AND file_json IS NULL)
-    OR (kind = 'file' AND markdown_json IS NULL AND table_json IS NULL AND bar_chart_json IS NULL AND file_json IS NOT NULL)
-  )
+  language TEXT NOT NULL CHECK (language IN ('openui_lang')),
+  catalog_id TEXT NOT NULL CHECK (catalog_id IN ('setta.artifacts.v1')),
+  source TEXT NOT NULL CHECK (length(source) > 0),
+  created_at TEXT NOT NULL
 ) STRICT;
 
 CREATE INDEX artifacts_conversation_created_idx

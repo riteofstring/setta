@@ -441,39 +441,10 @@
   inline-size: 28px;
 }
 
-.director-artifact-item[data-artifact-kind="bar_chart"] .director-artifact-icon {
-  color: oklch(0.78 0.13 220);
-}
-
-.director-artifact-item[data-artifact-kind="file"] .director-artifact-icon {
-  color: oklch(0.8 0.15 152);
-}
-
-.director-artifact-item[data-artifact-kind="markdown"] .director-artifact-icon {
-  color: oklch(0.84 0.08 252);
-}
-
-.director-artifact-item[data-artifact-kind="table"] .director-artifact-icon {
-  color: oklch(0.84 0.14 78);
-}
-
 .director-artifact-copy {
   display: grid;
   gap: 3px;
   min-inline-size: 0;
-}
-
-.director-artifact-kicker,
-.director-artifact-meta {
-  display: block;
-}
-
-.director-artifact-kicker {
-  color: oklch(0.72 0.08 220);
-  font-size: 0.68rem;
-  font-weight: 700;
-  line-height: 1.2;
-  text-transform: uppercase;
 }
 
 .director-artifact-title {
@@ -482,6 +453,7 @@
 
 .director-artifact-meta {
   color: oklch(0.68 0.04 250);
+  display: block;
   font-size: 0.72rem;
   line-height: 1.25;
 }
@@ -556,18 +528,10 @@
 }
 
 .director-artifact-detail h2,
-.director-artifact-detail-kicker,
 .director-artifact-detail-status {
   margin: 0;
   min-inline-size: 0;
   overflow-wrap: anywhere;
-}
-
-.director-artifact-detail-kicker {
-  color: oklch(0.72 0.08 220);
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
 }
 
 .director-artifact-detail h2 {
@@ -588,151 +552,15 @@
   line-height: 1.4;
 }
 
-.director-artifact-markdown {
-  color: oklch(0.8 0.025 250);
-  font-size: 0.84rem;
-  line-height: 1.45;
-}
-
-.director-artifact-markdown .markdown-text {
-  display: grid;
-  gap: 8px;
-}
-
-.director-artifact-markdown .markdown-text h1,
-.director-artifact-markdown .markdown-text h2,
-.director-artifact-markdown .markdown-text h3,
-.director-artifact-markdown .markdown-text h4,
-.director-artifact-markdown .markdown-text p,
-.director-artifact-markdown .markdown-text pre,
-.director-artifact-markdown .markdown-text ul,
-.director-artifact-markdown .markdown-text ol {
-  margin: 0;
-  min-inline-size: 0;
-  overflow-wrap: anywhere;
-}
-
-.director-artifact-markdown .markdown-text h1,
-.director-artifact-markdown .markdown-text h2,
-.director-artifact-markdown .markdown-text h3,
-.director-artifact-markdown .markdown-text h4 {
-  color: oklch(0.92 0.02 250);
-  font-size: 0.92rem;
-  font-weight: 650;
-}
-
-.director-artifact-markdown .markdown-text ul,
-.director-artifact-markdown .markdown-text ol {
-  padding-inline-start: 18px;
-}
-
-.director-artifact-markdown .markdown-text code,
-.director-artifact-file code,
-.director-artifact-markdown .markdown-text pre {
-  background: oklch(0.08 0.01 255 / 0.8);
-  border: 1px solid oklch(0.3 0.025 250 / 0.72);
-  border-radius: 6px;
-}
-
-.director-artifact-markdown .markdown-text code {
-  color: oklch(0.82 0.11 190);
-  font-family: var(--setta-font-mono);
-  font-size: 0.78rem;
-  padding: 1px 4px;
-}
-
-.director-artifact-markdown .markdown-text pre {
-  color: oklch(0.88 0.02 250);
-  overflow-x: auto;
-  padding: 8px;
-}
-
-.director-artifact-table-wrap {
-  min-inline-size: 0;
-  overflow-x: auto;
-}
-
-.director-artifact-table {
-  border-collapse: collapse;
-  font-size: 0.78rem;
-  inline-size: 100%;
-}
-
-.director-artifact-table th,
-.director-artifact-table td {
-  border-block-start: 1px solid oklch(0.28 0.025 250 / 0.6);
-  max-inline-size: 180px;
-  overflow-wrap: anywhere;
-  padding-block: 7px;
-  text-align: start;
-  vertical-align: top;
-}
-
-.director-artifact-table th {
-  border-block-start: 0;
-  color: oklch(0.72 0.04 235);
-  font-size: 0.7rem;
-  font-weight: 650;
-  text-transform: uppercase;
-}
-
-.director-artifact-table td {
+/* The artifact document renders through the Setta OpenUI catalog components,
+   which carry their own styling. The rail only owns the surface they sit on. */
+.director-artifact-document {
   color: oklch(0.82 0.025 250);
-  font-family: var(--setta-font-mono);
-}
-
-.director-artifact-bars,
-.director-artifact-file {
   display: grid;
-  gap: 9px;
-}
-
-.director-artifact-bar-row {
-  display: grid;
-  gap: 7px;
-}
-
-.director-artifact-bar-label {
-  color: oklch(0.78 0.025 250);
-  font-size: 0.78rem;
-  overflow-wrap: anywhere;
-}
-
-.director-artifact-bar-track {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  min-inline-size: 0;
-}
-
-.director-artifact-bar {
-  background: linear-gradient(90deg, oklch(0.6 0.12 190 / 0.68), oklch(0.72 0.13 220));
-  block-size: 9px;
-  border-radius: 2px;
-  flex: 0 1 auto;
-}
-
-.director-artifact-bar-value {
-  color: oklch(0.72 0.04 235);
-  flex: 0 0 auto;
-  font-family: var(--setta-font-mono);
-  font-size: 0.76rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.director-artifact-file code {
-  color: oklch(0.82 0.11 190);
-  font-family: var(--setta-font-mono);
-  font-size: 0.78rem;
-  overflow-wrap: anywhere;
-  padding: 8px;
-}
-
-.director-artifact-file p {
-  color: oklch(0.78 0.025 250);
   font-size: 0.84rem;
-  line-height: 1.4;
-  margin: 0;
+  gap: 10px;
+  line-height: 1.45;
+  min-inline-size: 0;
   overflow-wrap: anywhere;
 }
 

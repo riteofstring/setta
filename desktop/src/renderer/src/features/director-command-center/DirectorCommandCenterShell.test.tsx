@@ -500,7 +500,6 @@ function workstreamArtifact(): WorkstreamArtifact {
     conversationId: "conversation:1",
     createdAt: "2026-07-25T17:00:00Z",
     id: "artifact:1",
-    kind: "file",
     runId: "run:1",
     sourceEventIds: [],
     status: "declared",
