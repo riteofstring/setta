@@ -31,7 +31,7 @@ func (service *Service) persistUnexpectedTurnEnd(
 	}
 	publications, err := service.publications(
 		active.conversationID,
-		mutation.trajectory.EmittedAt,
+		mutation.conversation.UpdatedAt,
 		unexpectedTurnEndPayloads(mutation)...,
 	)
 	if err != nil {
@@ -47,7 +47,7 @@ type unexpectedTurnEndMutation struct {
 	queueOrdinal   int
 	removeQueue    bool
 	snapshot       ConversationSnapshot
-	trajectory     TrajectoryEvent
+	trajectories   []TrajectoryEvent
 	turn           ConversationTurn
 }
 
@@ -84,6 +84,10 @@ func (service *Service) buildUnexpectedTurnEnd(
 	runErr error,
 ) (unexpectedTurnEndMutation, error) {
 	now := advanceTimestamp(snapshot.Conversation.UpdatedAt, service.timestamp())
+	trajectories, err := service.unexpectedApprovalCancellationEvents(active, snapshot, turn, now)
+	if err != nil {
+		return unexpectedTurnEndMutation{}, err
+	}
 	trajectoryID, err := service.newID("trajectory")
 	if err != nil {
 		return unexpectedTurnEndMutation{}, err
@@ -92,13 +96,14 @@ func (service *Service) buildUnexpectedTurnEnd(
 		ID:             trajectoryID,
 		ConversationID: active.conversationID,
 		TurnID:         &turn.ID,
-		Sequence:       snapshot.Conversation.LastTrajectorySequence + 1,
+		Sequence:       snapshot.Conversation.LastTrajectorySequence + len(trajectories) + 1,
 		EmittedAt:      now,
 		Actor:          TrajectoryActorSystem,
 	}
 	expectedStatus := turn.Status
 	conversationStatus := applyUnexpectedTurnOutcome(&turn, &trajectory, active.interruptionReason, runErr, now)
 	applyUnexpectedProviderReferences(&trajectory, active, turn)
+	trajectories = append(trajectories, trajectory)
 	queue, removeQueue, err := unexpectedQueueAfterTurn(snapshot.Queue, active, turn.ID, expectedStatus)
 	if err != nil {
 		return unexpectedTurnEndMutation{}, err
@@ -116,9 +121,59 @@ func (service *Service) buildUnexpectedTurnEnd(
 		queueOrdinal:   active.queueOrdinal,
 		removeQueue:    removeQueue,
 		snapshot:       snapshot,
-		trajectory:     trajectory,
+		trajectories:   trajectories,
 		turn:           turn,
 	}, nil
+}
+
+// unexpectedApprovalCancellationEvents withdraws every prompt owned by a run
+// before that run's terminal fact is committed. The provider cannot answer
+// after an unexpected end, and leaving a durable pending approval would make
+// the Director offer an action against a dead run.
+func (service *Service) unexpectedApprovalCancellationEvents(
+	active *activeConversationTurn,
+	snapshot ConversationSnapshot,
+	turn ConversationTurn,
+	now string,
+) ([]TrajectoryEvent, error) {
+	pending := pendingApprovalsForTurn(snapshot, turn.ID)
+	if len(pending) == 0 {
+		return []TrajectoryEvent{}, nil
+	}
+	events := make([]TrajectoryEvent, 0, len(pending))
+	recorded := map[string]bool{}
+	for _, event := range snapshot.Trajectory.Events {
+		if event.TurnID == nil || *event.TurnID != turn.ID || event.ApprovalRequested == nil {
+			continue
+		}
+		approvalID := event.ApprovalRequested.Approval.ID
+		if _, stillPending := pending[approvalID]; !stillPending || recorded[approvalID] {
+			continue
+		}
+		eventID, err := service.newID("trajectory")
+		if err != nil {
+			return nil, err
+		}
+		cancellation := TrajectoryEvent{
+			ID:             eventID,
+			ConversationID: active.conversationID,
+			TurnID:         &turn.ID,
+			Sequence:       snapshot.Conversation.LastTrajectorySequence + len(events) + 1,
+			EmittedAt:      now,
+			Kind:           TrajectoryEventApprovalResolved,
+			Actor:          TrajectoryActorSystem,
+			ApprovalResolved: &TrajectoryApprovalResolved{Resolution: TrajectoryApprovalResolution{
+				ApprovalID: approvalID,
+				Decision:   TrajectoryApprovalDecisionCancelled,
+				Answers:    []ConversationApprovalAnswer{},
+				ResolvedAt: now,
+			}},
+		}
+		applyUnexpectedProviderReferences(&cancellation, active, turn)
+		events = append(events, cancellation)
+		recorded[approvalID] = true
+	}
+	return events, nil
 }
 
 // applyUnexpectedTurnOutcome decides whether a run that ended outside the
@@ -214,7 +269,7 @@ func unexpectedQueueAfterTurn(
 
 func unexpectedTurnEndPayloads(mutation unexpectedTurnEndMutation) []ConversationEventPayload {
 	publishedConversation := mutation.conversation
-	publishedConversation.LastTrajectorySequence++
+	publishedConversation.LastTrajectorySequence += len(mutation.trajectories)
 	payloads := []ConversationEventPayload{
 		ConversationUpdatedEventPayload{Type: ConversationEventTypeConversationUpdated, Conversation: publishedConversation},
 		ConversationTurnUpdatedEventPayload{Type: ConversationEventTypeTurnUpdated, Turn: mutation.turn},
@@ -222,7 +277,13 @@ func unexpectedTurnEndPayloads(mutation unexpectedTurnEndMutation) []Conversatio
 	if mutation.removeQueue {
 		payloads = append(payloads, ConversationQueueUpdatedEventPayload{Type: ConversationEventTypeQueueUpdated, Queue: mutation.queue})
 	}
-	return append(payloads, ConversationTrajectoryAppendedEventPayload{Type: ConversationEventTypeTrajectoryAppended, Event: mutation.trajectory})
+	for _, trajectory := range mutation.trajectories {
+		payloads = append(payloads, ConversationTrajectoryAppendedEventPayload{
+			Type:  ConversationEventTypeTrajectoryAppended,
+			Event: trajectory,
+		})
+	}
+	return payloads
 }
 
 func (service *Service) commitUnexpectedTurnEnd(
@@ -246,8 +307,10 @@ func (service *Service) commitUnexpectedTurnEnd(
 		if err := applyUnexpectedQueueMutation(transaction, mutation); err != nil {
 			return err
 		}
-		if err := transaction.AppendTrajectoryEvent(mutation.trajectory); err != nil {
-			return err
+		for _, trajectory := range mutation.trajectories {
+			if err := transaction.AppendTrajectoryEvent(trajectory); err != nil {
+				return err
+			}
 		}
 		return appendPublications(transaction, publications)
 	})
@@ -255,7 +318,7 @@ func (service *Service) commitUnexpectedTurnEnd(
 		service.observeCommittedTrajectory(
 			mutation.conversation,
 			mutation.turn,
-			[]TrajectoryEvent{mutation.trajectory},
+			mutation.trajectories,
 			artifactMetadataForTurn(mutation.snapshot.Artifacts.Artifacts, mutation.turn.ID),
 			true,
 		)

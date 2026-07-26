@@ -94,7 +94,6 @@ func (event TrajectoryEvent) trajectoryPayload() (any, error) {
 		{kind: TrajectoryEventSubagentUpdated, payload: event.SubagentUpdated},
 		{kind: TrajectoryEventSubagentCompleted, payload: event.SubagentCompleted},
 		{kind: TrajectoryEventArtifactEmitted, payload: event.ArtifactEmitted},
-		{kind: TrajectoryEventAgentLivenessChanged, payload: event.AgentLivenessChanged},
 		{kind: TrajectoryEventProviderLifecycleChanged, payload: event.ProviderLifecycleChanged},
 		{kind: TrajectoryEventValidationRecorded, payload: event.ValidationRecorded},
 		{kind: TrajectoryEventModelRerouted, payload: event.ModelRerouted},
@@ -226,8 +225,6 @@ func validateSystemTrajectoryPayload(payload any) (error, bool) {
 	switch value := payload.(type) {
 	case *TrajectoryArtifactEmitted:
 		return validateEmittedArtifact(value), true
-	case *TrajectoryAgentLivenessChanged:
-		return value.Liveness.Validate(), true
 	case *TrajectoryProviderLifecycleChanged:
 		return value.Lifecycle.Validate(), true
 	case *TrajectoryValidationRecorded:
@@ -742,9 +739,6 @@ func (subagent Subagent) Validate() error {
 	if err := validateIdentifier("subagent id", subagent.ID); err != nil {
 		return err
 	}
-	if err := validateIdentifier("subagent provider thread id", subagent.ProviderThreadID); err != nil {
-		return err
-	}
 	if err := validateOptionalIdentifier("subagent model id", subagent.ModelID); err != nil {
 		return err
 	}
@@ -768,31 +762,6 @@ func (subagent Subagent) Validate() error {
 	default:
 		return fmt.Errorf("unsupported subagent status %q", subagent.Status)
 	}
-}
-
-func (liveness AgentLiveness) Validate() error {
-	switch liveness.Status {
-	case AgentLivenessAttached, AgentLivenessReconciling, AgentLivenessLost, AgentLivenessTerminal:
-	default:
-		return fmt.Errorf("unsupported agent liveness status %q", liveness.Status)
-	}
-	if !validAgentLivenessReason(liveness.Reason) {
-		return fmt.Errorf("unsupported agent liveness reason %q", liveness.Reason)
-	}
-	if liveness.LastProviderEventAt != nil {
-		if _, err := validateTimestampPointer("liveness lastProviderEventAt", liveness.LastProviderEventAt); err != nil {
-			return err
-		}
-	}
-	if liveness.LastReconciledAt != nil {
-		if _, err := validateTimestampPointer("liveness lastReconciledAt", liveness.LastReconciledAt); err != nil {
-			return err
-		}
-	}
-	if liveness.Status == AgentLivenessLost && strings.TrimSpace(liveness.Message) == "" {
-		return fmt.Errorf("lost agent liveness requires message")
-	}
-	return nil
 }
 
 func (lifecycle ProviderLifecycle) Validate() error {

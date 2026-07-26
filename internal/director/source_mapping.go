@@ -51,9 +51,6 @@ const (
 	// SourceFactResolutionActivityKind selects the node kind from the typed
 	// activity kind.
 	SourceFactResolutionActivityKind SourceFactResolution = "activity_kind"
-	// SourceFactResolutionAgentLiveness selects the node kind from the typed
-	// agent liveness status.
-	SourceFactResolutionAgentLiveness SourceFactResolution = "agent_liveness"
 	// SourceFactResolutionProviderLifecycle selects the node kind from the
 	// typed provider lifecycle status.
 	SourceFactResolutionProviderLifecycle SourceFactResolution = "provider_lifecycle"
@@ -362,14 +359,6 @@ var trajectoryFactRules = map[conversation.TrajectoryEventKind]SourceFactRule{
 		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy, SemanticEdgeProduced},
 		EvidenceClass: EvidenceRuntimeFact,
 		Note:          "The artifact node connects from the run or action that produced it.",
-	},
-	conversation.TrajectoryEventAgentLivenessChanged: {
-		Disposition:   SourceFactConditionalNode,
-		Resolution:    SourceFactResolutionAgentLiveness,
-		NodeIdentity:  SemanticNodeIdentityLifecycle,
-		EdgeKinds:     []SemanticEdgeKind{SemanticEdgeFollowedBy, SemanticEdgeBlockedBy, SemanticEdgeRecoveredBy},
-		EvidenceClass: EvidenceRuntimeFact,
-		Note:          "Attached and terminal liveness update metadata; lost and reconciling become visible nodes.",
 	},
 	conversation.TrajectoryEventProviderLifecycleChanged: {
 		Disposition:   SourceFactConditionalNode,

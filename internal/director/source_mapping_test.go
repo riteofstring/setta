@@ -134,20 +134,6 @@ func TestActivityKindsMapToPreciseNodes(t *testing.T) {
 }
 
 func TestOnlyActionableLifecycleStatesBecomeNodes(t *testing.T) {
-	for status, want := range map[conversation.AgentLivenessStatus]SemanticNodeKind{
-		conversation.AgentLivenessAttached:    SemanticNodeNone,
-		conversation.AgentLivenessTerminal:    SemanticNodeNone,
-		conversation.AgentLivenessReconciling: SemanticNodeRecovery,
-		conversation.AgentLivenessLost:        SemanticNodeBlocked,
-	} {
-		got, err := NodeKindForAgentLiveness(status)
-		if err != nil {
-			t.Fatalf("liveness %q was rejected: %v", status, err)
-		}
-		if got != want {
-			t.Fatalf("liveness %q mapped to %q, want %q", status, got, want)
-		}
-	}
 	for status, want := range map[conversation.ProviderLifecycleStatus]SemanticNodeKind{
 		conversation.ProviderLifecycleReady:       SemanticNodeNone,
 		conversation.ProviderLifecycleRestarting:  SemanticNodeRecovery,

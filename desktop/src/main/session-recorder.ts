@@ -521,7 +521,6 @@ function summarizeAgentTrajectoryEvent(event: TrajectoryEvent) {
   return {
     actor: event.actor,
     activity: summarizeTrajectoryActivity(event),
-    agentLiveness: summarizeAgentLiveness(event),
     emittedAt: event.emittedAt,
     eventKind: event.kind,
     failure: summarizeTrajectoryFailure(event),
@@ -562,22 +561,6 @@ function summarizeTrajectoryActivity(event: TrajectoryEvent) {
     namespace: activity.namespace,
     server: activity.server,
     tool: activity.tool,
-  };
-}
-
-function summarizeAgentLiveness(event: TrajectoryEvent) {
-  const changed = event.agentLivenessChanged;
-  if (changed === null) {
-    return null;
-  }
-  return {
-    cancellable: changed.liveness.cancellable,
-    lastProviderEventAt: changed.liveness.lastProviderEventAt,
-    lastReconciledAt: changed.liveness.lastReconciledAt,
-    reason: changed.liveness.reason,
-    retryable: changed.liveness.retryable,
-    status: changed.liveness.status,
-    steerable: changed.liveness.steerable,
   };
 }
 

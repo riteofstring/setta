@@ -530,9 +530,6 @@ func sanitizeConversationRouteTrajectory(
 	event.ActivityStarted = sanitizeRouteStartedActivity(event.ActivityStarted)
 	event.ActivityCompleted = sanitizeRouteCompletedActivity(event.ActivityCompleted)
 	event.ActivityFailed = sanitizeRouteFailedActivity(event.ActivityFailed)
-	event.SubagentStarted = sanitizeRouteStartedSubagent(event.SubagentStarted)
-	event.SubagentUpdated = sanitizeRouteUpdatedSubagent(event.SubagentUpdated)
-	event.SubagentCompleted = sanitizeRouteCompletedSubagent(event.SubagentCompleted)
 	return event
 }
 
@@ -566,39 +563,6 @@ func sanitizeRouteFailedActivity(
 	}
 	cloned := *payload
 	cloned.Activity.ProcessID = nil
-	return &cloned
-}
-
-func sanitizeRouteStartedSubagent(
-	payload *conversation.TrajectorySubagentStarted,
-) *conversation.TrajectorySubagentStarted {
-	if payload == nil {
-		return nil
-	}
-	cloned := *payload
-	cloned.Subagent.ProviderThreadID = ""
-	return &cloned
-}
-
-func sanitizeRouteUpdatedSubagent(
-	payload *conversation.TrajectorySubagentUpdated,
-) *conversation.TrajectorySubagentUpdated {
-	if payload == nil {
-		return nil
-	}
-	cloned := *payload
-	cloned.Subagent.ProviderThreadID = ""
-	return &cloned
-}
-
-func sanitizeRouteCompletedSubagent(
-	payload *conversation.TrajectorySubagentCompleted,
-) *conversation.TrajectorySubagentCompleted {
-	if payload == nil {
-		return nil
-	}
-	cloned := *payload
-	cloned.Subagent.ProviderThreadID = ""
 	return &cloned
 }
 

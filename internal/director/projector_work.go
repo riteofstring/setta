@@ -16,7 +16,6 @@ import (
 
 const (
 	subagentSummaryFallback   = "Delegated subagent"
-	livenessSummaryFallback   = "Agent liveness changed"
 	approvalSummaryFallback   = "Approval required"
 	fileChangeSummaryFallback = "File change"
 	validationSummaryFallback = "Validation recorded"
@@ -476,108 +475,6 @@ func projectArtifactEmitted(projector *DirectorGraphProjector, context factConte
 		return nil
 	}
 	return projector.addEdge(context, SemanticEdgeProduced, runNodeID, nodeID)
-}
-
-func projectAgentLivenessChanged(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {
-	payload := event.AgentLivenessChanged
-	if payload == nil {
-		return missingPayload(event)
-	}
-	kind, err := NodeKindForAgentLiveness(payload.Liveness.Status)
-	if err != nil {
-		return err
-	}
-	summary := firstText(payload.Liveness.Message, livenessSummaryFallback)
-	runID, err := requireRunID(event)
-	if err != nil {
-		return err
-	}
-	switch kind {
-	case SemanticNodeBlocked:
-		return projector.projectAgentLivenessBlock(context, event.ID, runID, kind, summary)
-	case SemanticNodeRecovery:
-		return projector.projectAgentLivenessRecovery(context, event.ID, runID, kind, summary)
-	case SemanticNodeNone:
-		if payload.Liveness.Status != conversation.AgentLivenessAttached {
-			return nil
-		}
-		return projector.resolveAgentLiveness(context, runID, summary)
-	default:
-		return fmt.Errorf("unsupported agent liveness node kind %q", kind)
-	}
-}
-
-func (projector *DirectorGraphProjector) projectAgentLivenessBlock(
-	context factContext,
-	eventID string,
-	runID string,
-	kind SemanticNodeKind,
-	summary string,
-) error {
-	nodeID, err := projector.commitTrackedLifecycleNode(
-		context,
-		eventID,
-		context.workstream.agentLivenessBlock[runID],
-		kind,
-		SemanticNodeStatusWaiting,
-		summary,
-	)
-	if err != nil {
-		return err
-	}
-	context.workstream.agentLivenessBlock[runID] = nodeID
-	return projector.blockActiveRun(context, nodeID)
-}
-
-func (projector *DirectorGraphProjector) projectAgentLivenessRecovery(
-	context factContext,
-	eventID string,
-	runID string,
-	kind SemanticNodeKind,
-	summary string,
-) error {
-	nodeID, err := projector.commitTrackedLifecycleNode(
-		context,
-		eventID,
-		context.workstream.agentLivenessRecovery[runID],
-		kind,
-		SemanticNodeStatusActive,
-		summary,
-	)
-	if err != nil {
-		return err
-	}
-	context.workstream.agentLivenessRecovery[runID] = nodeID
-	if blocked := context.workstream.agentLivenessBlock[runID]; blocked != "" {
-		return projector.addEdge(context, SemanticEdgeRecoveredBy, blocked, nodeID)
-	}
-	return projector.recoverFrom(context, nodeID)
-}
-
-func (projector *DirectorGraphProjector) resolveAgentLiveness(
-	context factContext,
-	runID string,
-	summary string,
-) error {
-	if err := projector.resolveTrackedLifecycleNode(
-		context,
-		context.workstream.agentLivenessBlock[runID],
-		SemanticNodeStatusSucceeded,
-		summary,
-	); err != nil {
-		return err
-	}
-	if err := projector.resolveTrackedLifecycleNode(
-		context,
-		context.workstream.agentLivenessRecovery[runID],
-		SemanticNodeStatusSucceeded,
-		summary,
-	); err != nil {
-		return err
-	}
-	delete(context.workstream.agentLivenessBlock, runID)
-	delete(context.workstream.agentLivenessRecovery, runID)
-	return nil
 }
 
 func projectProviderLifecycleChanged(projector *DirectorGraphProjector, context factContext, event conversation.TrajectoryEvent) error {

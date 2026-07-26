@@ -518,6 +518,81 @@ func TestRecoverSideConversationsDisposesInterruptedEphemeralChildren(t *testing
 	}
 }
 
+func TestRecoverSideConversationsDisposesPreparationInterruptedByRestart(t *testing.T) {
+	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
+	ctx := context.Background()
+	parent := createLinkedParentForSideTest(
+		t,
+		ctx,
+		service,
+		runtime,
+		workspaceID,
+		"Restart preparing side cleanup",
+	)
+	workspaceSummary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
+	if err != nil {
+		t.Fatalf("ResolveActiveWorkspace: %v", err)
+	}
+	profile, resolved, invocation, err := service.resolveSideAgentInvocation(
+		ctx,
+		workspaceID,
+		parent.Conversation.ID,
+	)
+	if err != nil {
+		t.Fatalf("resolveSideAgentInvocation: %v", err)
+	}
+	prepared, err := service.persistPreparingSideConversation(
+		ctx,
+		workspaceID,
+		parent.Conversation.ID,
+		workspaceSummary.RootPath,
+		profile,
+		resolved,
+		invocation,
+		nil,
+		BranchDecisionSourceConversationRouter,
+	)
+	if err != nil {
+		t.Fatalf("persistPreparingSideConversation: %v", err)
+	}
+	shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := service.Shutdown(shutdownCtx); err != nil {
+		t.Fatalf("Shutdown first service: %v", err)
+	}
+	providerCallsBeforeRecovery := len(runtime.unsubscribedThreads())
+
+	restarted := newSideRecoveryService(t, store, service, runtime)
+	t.Cleanup(func() { cleanupReviewService(t, store, restarted) })
+	if err := restarted.RecoverSideConversations(ctx); err != nil {
+		t.Fatalf("RecoverSideConversations: %v", err)
+	}
+	recovered := assertServiceSnapshot(t, restarted, workspaceID, parent.Conversation.ID, func(snapshot ConversationSnapshot) bool {
+		current, findErr := findSideConversation(snapshot, prepared.side.ID)
+		return findErr == nil && current.DisposedAt != nil
+	})
+	current, err := findSideConversation(recovered, prepared.side.ID)
+	if err != nil {
+		t.Fatalf("find recovered side: %v", err)
+	}
+	if current.Status != SideConversationStatusFailed ||
+		current.Failure == nil ||
+		current.Failure.Code != "side_restart_interrupted" ||
+		current.ResolvedSideAgentInvocation.Outcome != InvocationOutcomeFailed {
+		t.Fatalf("recovered preparing side = %+v", current)
+	}
+	open, err := store.hasOpenSideConversationForParent(ctx, parent.Conversation.ID)
+	if err != nil {
+		t.Fatalf("hasOpenSideConversationForParent: %v", err)
+	}
+	if open {
+		t.Fatal("one restart left the interrupted side preparation open")
+	}
+	if providerCalls := runtime.unsubscribedThreads(); len(providerCalls) != providerCallsBeforeRecovery {
+		t.Fatalf("preparing-side recovery reached a provider carrier: %+v", providerCalls[providerCallsBeforeRecovery:])
+	}
+}
+
 // A side turn that was still running when the process died has no provider left
 // to answer it. Recovery ends it as a Setta interruption instead of leaving an
 // active turn nobody can reach.

@@ -84,8 +84,8 @@ func normalizeEnvironmentDisconnected(raw []byte, base Event) ([]Event, *Termina
 	})
 }
 
-// normalizeThreadClosed reconciles provider session teardown into Setta run
-// liveness. The provider closing the session under an active turn means this
+// normalizeThreadClosed maps provider session teardown into Setta provider
+// lifecycle. The provider closing the session under an active turn means this
 // run has no substrate left.
 func normalizeThreadClosed(raw []byte, base Event) ([]Event, *TerminalEvent, error) {
 	notification, err := codexapp.DecodeThreadClosedNotification(raw)

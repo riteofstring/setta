@@ -477,10 +477,9 @@ func delegationFixture() ProjectionFixture {
 	builder.acceptInput(conversationID, turnID, "Ship the release")
 	builder.startTurn(conversationID, turnID)
 	subagent := conversation.Subagent{
-		ID:               "subagent-parent-1",
-		ProviderThreadID: "provider-thread-1",
-		Status:           conversation.SubagentStatusRunning,
-		Message:          stringPointer("Checking the tag history"),
+		ID:      "subagent-parent-1",
+		Status:  conversation.SubagentStatusRunning,
+		Message: stringPointer("Checking the tag history"),
 	}
 	builder.trajectory(conversationID, stringPointer(turnID), conversation.TrajectoryEventSubagentStarted, conversation.TrajectoryActorAgent,
 		func(event *conversation.TrajectoryEvent) {
@@ -690,7 +689,7 @@ func directorConversationFixture() ProjectionFixture {
 }
 
 // blockedAndCancelledFixture covers the lifecycle facts that tell the user the
-// app is stuck: a lost agent, an unavailable provider, and a cancelled run.
+// app is stuck: an unavailable provider and a cancelled run.
 func blockedAndCancelledFixture() ProjectionFixture {
 	builder := &fixtureBuilder{}
 	const conversationID = "conv-theta"
@@ -698,22 +697,6 @@ func blockedAndCancelledFixture() ProjectionFixture {
 	builder.register(conversationID, "Deploy the preview")
 	builder.acceptInput(conversationID, turnID, "Deploy the preview")
 	builder.startTurn(conversationID, turnID)
-	builder.liveness(conversationID, turnID, conversation.AgentLiveness{
-		Status:    conversation.AgentLivenessLost,
-		Reason:    conversation.AgentLivenessReasonProviderInactive,
-		Retryable: true,
-		Message:   "Lost the provider attachment for this run",
-	})
-	builder.liveness(conversationID, turnID, conversation.AgentLiveness{
-		Status:  conversation.AgentLivenessReconciling,
-		Reason:  conversation.AgentLivenessReasonStreamResync,
-		Message: "Reattaching to the provider run",
-	})
-	builder.liveness(conversationID, turnID, conversation.AgentLiveness{
-		Status:  conversation.AgentLivenessAttached,
-		Reason:  conversation.AgentLivenessReasonProviderTurnLinked,
-		Message: "Provider run reattached",
-	})
 	builder.providerLifecycle(conversationID, turnID, conversation.ProviderLifecycle{
 		Provider: conversation.ProviderCodex,
 		Status:   conversation.ProviderLifecycleUnavailable,
@@ -764,16 +747,9 @@ func blockedAndCancelledFixture() ProjectionFixture {
 		})
 	return ProjectionFixture{
 		Name:        "blocked_and_cancelled",
-		Description: "A lost agent, a reconciliation, a disconnected then reconnected environment, an approval superseded by the provider, and a user cancellation confirmed by the provider.",
+		Description: "A disconnected then reconnected environment, an approval superseded by the provider, and a user cancellation confirmed by the provider.",
 		Events:      builder.events,
 	}
-}
-
-func (builder *fixtureBuilder) liveness(conversationID string, turnID string, liveness conversation.AgentLiveness) {
-	builder.trajectory(conversationID, &turnID, conversation.TrajectoryEventAgentLivenessChanged, conversation.TrajectoryActorSystem,
-		func(event *conversation.TrajectoryEvent) {
-			event.AgentLivenessChanged = &conversation.TrajectoryAgentLivenessChanged{Liveness: liveness}
-		})
 }
 
 func (builder *fixtureBuilder) providerLifecycle(conversationID string, turnID string, lifecycle conversation.ProviderLifecycle) {

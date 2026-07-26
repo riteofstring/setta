@@ -44,22 +44,6 @@ func NodeKindForActivity(kind conversation.TrajectoryActivityKind) (SemanticNode
 	}
 }
 
-// NodeKindForAgentLiveness maps typed agent liveness onto a visible node.
-// Attached liveness is healthy metadata, and terminal liveness is already told
-// by the run's own terminal event, so neither creates a node.
-func NodeKindForAgentLiveness(status conversation.AgentLivenessStatus) (SemanticNodeKind, error) {
-	switch status {
-	case conversation.AgentLivenessAttached, conversation.AgentLivenessTerminal:
-		return SemanticNodeNone, nil
-	case conversation.AgentLivenessReconciling:
-		return SemanticNodeRecovery, nil
-	case conversation.AgentLivenessLost:
-		return SemanticNodeBlocked, nil
-	default:
-		return SemanticNodeNone, fmt.Errorf("unknown agent liveness status %q", status)
-	}
-}
-
 // NodeKindForProviderLifecycle maps typed provider lifecycle onto a visible
 // node. Only states the user or Director must act on become nodes.
 func NodeKindForProviderLifecycle(status conversation.ProviderLifecycleStatus) (SemanticNodeKind, error) {
@@ -277,13 +261,6 @@ func markResolvedNodeKinds(produced map[SemanticNodeKind]bool) error {
 		}
 		markResolvedNodeKind(produced, resolved)
 	}
-	for _, status := range conversation.AgentLivenessStatuses() {
-		resolved, err := NodeKindForAgentLiveness(status)
-		if err != nil {
-			return err
-		}
-		markResolvedNodeKind(produced, resolved)
-	}
 	for _, status := range conversation.ProviderLifecycleStatuses() {
 		resolved, err := NodeKindForProviderLifecycle(status)
 		if err != nil {
@@ -379,7 +356,6 @@ func validateDirectorConversationFactCoverage() error {
 func validateResolverCoverage() error {
 	for _, validate := range []func() error{
 		validateActivityResolverCoverage,
-		validateAgentLivenessResolverCoverage,
 		validateProviderLifecycleResolverCoverage,
 		validatePlanStepResolverCoverage,
 		validateTrajectoryValidationResolverCoverage,
@@ -394,15 +370,6 @@ func validateResolverCoverage() error {
 func validateActivityResolverCoverage() error {
 	for _, kind := range conversation.TrajectoryActivityKinds() {
 		if _, err := NodeKindForActivity(kind); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateAgentLivenessResolverCoverage() error {
-	for _, status := range conversation.AgentLivenessStatuses() {
-		if _, err := NodeKindForAgentLiveness(status); err != nil {
 			return err
 		}
 	}
@@ -502,7 +469,6 @@ func validateSourceFactResolution(label string, rule SourceFactRule, producesNod
 			return fmt.Errorf("source fact %s has unknown node kind %q", label, rule.NodeKind)
 		}
 	case SourceFactResolutionActivityKind,
-		SourceFactResolutionAgentLiveness,
 		SourceFactResolutionProviderLifecycle,
 		SourceFactResolutionValidationStatus:
 		if !producesNode {

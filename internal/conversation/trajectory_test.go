@@ -31,10 +31,9 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 		RequestedAt:    testTimeStarted,
 	}
 	subagent := Subagent{
-		ID:               "subagent-1",
-		ProviderThreadID: "provider-subagent-thread-1",
-		Status:           SubagentStatusRunning,
-		ModelID:          stringPointer("gpt-subagent"),
+		ID:      "subagent-1",
+		Status:  SubagentStatusRunning,
+		ModelID: stringPointer("gpt-subagent"),
 	}
 	tests := []struct {
 		kind  TrajectoryEventKind
@@ -118,15 +117,6 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 				Kind:       ArtifactKindMarkdown,
 				Title:      "Focused test summary",
 			}
-		}},
-		{TrajectoryEventAgentLivenessChanged, func(event *TrajectoryEvent) {
-			event.AgentLivenessChanged = &TrajectoryAgentLivenessChanged{Liveness: AgentLiveness{
-				Status:              AgentLivenessAttached,
-				Reason:              AgentLivenessReasonProviderTurnLinked,
-				Cancellable:         true,
-				Steerable:           true,
-				LastProviderEventAt: stringPointer(testTimeStarted),
-			}}
 		}},
 		{TrajectoryEventProviderLifecycleChanged, func(event *TrajectoryEvent) {
 			event.ProviderLifecycleChanged = &TrajectoryProviderLifecycleChanged{Lifecycle: ProviderLifecycle{

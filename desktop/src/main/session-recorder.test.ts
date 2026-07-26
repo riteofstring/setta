@@ -238,27 +238,10 @@ describe("session recording privacy", () => {
     expect(serialized).not.toContain(rerouteReason);
   });
 
-  test("projects typed lifecycle and validation without context text", () => {
-    const livenessMessage = "private liveness diagnosis";
+  test("projects typed provider lifecycle and validation without context text", () => {
     const validationSummary = "private Guardian rationale";
-    const lifecycle = trajectoryEvent({
-      agentLivenessChanged: {
-        liveness: {
-          cancellable: true,
-          lastProviderEventAt: "2026-07-15T10:00:01Z",
-          lastReconciledAt: null,
-          message: livenessMessage,
-          reason: "provider_turn_linked",
-          retryable: false,
-          status: "attached",
-          steerable: true,
-        },
-      },
-      kind: "agent_liveness_changed",
-    });
     const providerLifecycle = trajectoryEvent({
       actor: "provider",
-      agentLivenessChanged: null,
       kind: "provider_lifecycle_changed",
       providerLifecycleChanged: {
         lifecycle: {
@@ -270,7 +253,6 @@ describe("session recording privacy", () => {
     });
     const validation = trajectoryEvent({
       actor: "provider",
-      agentLivenessChanged: null,
       kind: "validation_recorded",
       validationRecorded: {
         validation: {
@@ -285,9 +267,6 @@ describe("session recording privacy", () => {
     });
     const recorded = [
       ...conversationRecordingEvents(
-        conversationEvent({ event: lifecycle, type: "conversation.trajectory.appended" }, 2),
-      ),
-      ...conversationRecordingEvents(
         conversationEvent(
           { event: providerLifecycle, type: "conversation.trajectory.appended" },
           3,
@@ -299,13 +278,6 @@ describe("session recording privacy", () => {
     ];
 
     expect(recorded).toMatchObject([
-      {
-        payload: {
-          agentLiveness: { reason: "provider_turn_linked" },
-          eventKind: "agent_liveness_changed",
-        },
-        type: "agent_trajectory_observed",
-      },
       {
         payload: {
           eventKind: "provider_lifecycle_changed",
@@ -332,9 +304,7 @@ describe("session recording privacy", () => {
       },
     ]);
     const serialized = JSON.stringify(recorded);
-    for (const secret of [livenessMessage, validationSummary]) {
-      expect(serialized).not.toContain(secret);
-    }
+    expect(serialized).not.toContain(validationSummary);
   });
 
   test("records activity metadata without command titles", () => {
@@ -505,7 +475,6 @@ function trajectoryEvent(overrides: Partial<TrajectoryEvent>): TrajectoryEvent {
     activityProgressed: null,
     activityStarted: null,
     actor: "agent",
-    agentLivenessChanged: null,
     agentMessageCompleted: null,
     agentPublicTextDelta: null,
     approvalRequested: null,
@@ -516,7 +485,7 @@ function trajectoryEvent(overrides: Partial<TrajectoryEvent>): TrajectoryEvent {
     fileChangeCompleted: null,
     fileChangeProposed: null,
     id: "trajectory-recording",
-    kind: "agent_liveness_changed",
+    kind: "provider_lifecycle_changed",
     modelRerouted: null,
     planChanged: null,
     providerEventId: "provider-event-recording",

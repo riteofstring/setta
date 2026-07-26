@@ -16,8 +16,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 101;
-export const backendContractSchemaHash = "sha256:3ecd22bb5c8167d2e0493bffff143f0d5719c9ba44db917948181e5f7253cc7b";
+export const backendProtocolVersion = 102;
+export const backendContractSchemaHash = "sha256:5a4b28584399cb32f16e56b7337a8b7d6ddbb45d0db60ac5345418189073a9c4";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -312,9 +312,9 @@ export function decodeInvocationOutcome(value: unknown, label = "InvocationOutco
   }
 }
 
-export type TrajectoryEventKind = "user_input_accepted" | "turn_queued" | "turn_promoted" | "turn_started" | "turn_steered" | "turn_interrupted" | "turn_completed" | "turn_failed" | "agent_public_text_delta" | "agent_message_completed" | "public_reasoning_summary_updated" | "plan_changed" | "activity_started" | "activity_progressed" | "activity_completed" | "activity_failed" | "file_change_proposed" | "file_change_completed" | "approval_requested" | "approval_resolved" | "subagent_started" | "subagent_updated" | "subagent_completed" | "artifact_emitted" | "agent_liveness_changed" | "provider_lifecycle_changed" | "validation_recorded" | "model_rerouted";
+export type TrajectoryEventKind = "user_input_accepted" | "turn_queued" | "turn_promoted" | "turn_started" | "turn_steered" | "turn_interrupted" | "turn_completed" | "turn_failed" | "agent_public_text_delta" | "agent_message_completed" | "public_reasoning_summary_updated" | "plan_changed" | "activity_started" | "activity_progressed" | "activity_completed" | "activity_failed" | "file_change_proposed" | "file_change_completed" | "approval_requested" | "approval_resolved" | "subagent_started" | "subagent_updated" | "subagent_completed" | "artifact_emitted" | "provider_lifecycle_changed" | "validation_recorded" | "model_rerouted";
 
-export const trajectoryEventKindValues = ["user_input_accepted", "turn_queued", "turn_promoted", "turn_started", "turn_steered", "turn_interrupted", "turn_completed", "turn_failed", "agent_public_text_delta", "agent_message_completed", "public_reasoning_summary_updated", "plan_changed", "activity_started", "activity_progressed", "activity_completed", "activity_failed", "file_change_proposed", "file_change_completed", "approval_requested", "approval_resolved", "subagent_started", "subagent_updated", "subagent_completed", "artifact_emitted", "agent_liveness_changed", "provider_lifecycle_changed", "validation_recorded", "model_rerouted"] as const satisfies readonly TrajectoryEventKind[];
+export const trajectoryEventKindValues = ["user_input_accepted", "turn_queued", "turn_promoted", "turn_started", "turn_steered", "turn_interrupted", "turn_completed", "turn_failed", "agent_public_text_delta", "agent_message_completed", "public_reasoning_summary_updated", "plan_changed", "activity_started", "activity_progressed", "activity_completed", "activity_failed", "file_change_proposed", "file_change_completed", "approval_requested", "approval_resolved", "subagent_started", "subagent_updated", "subagent_completed", "artifact_emitted", "provider_lifecycle_changed", "validation_recorded", "model_rerouted"] as const satisfies readonly TrajectoryEventKind[];
 
 export function decodeTrajectoryEventKind(value: unknown, label = "TrajectoryEventKind"): TrajectoryEventKind {
   const decoded = decodeString(value, label);
@@ -366,8 +366,6 @@ export function decodeTrajectoryEventKind(value: unknown, label = "TrajectoryEve
     case "subagent_completed":
       return decoded;
     case "artifact_emitted":
-      return decoded;
-    case "agent_liveness_changed":
       return decoded;
     case "provider_lifecycle_changed":
       return decoded;
@@ -596,62 +594,6 @@ export function decodeArtifactKind(value: unknown, label = "ArtifactKind"): Arti
     case "bar_chart":
       return decoded;
     case "file":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type AgentLivenessStatus = "attached" | "reconciling" | "lost" | "terminal";
-
-export const agentLivenessStatusValues = ["attached", "reconciling", "lost", "terminal"] as const satisfies readonly AgentLivenessStatus[];
-
-export function decodeAgentLivenessStatus(value: unknown, label = "AgentLivenessStatus"): AgentLivenessStatus {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "attached":
-      return decoded;
-    case "reconciling":
-      return decoded;
-    case "lost":
-      return decoded;
-    case "terminal":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type AgentLivenessReason = "provider_ref_pending" | "provider_turn_linked" | "provider_inactive" | "attachment_missing" | "turn_terminal" | "wake_recheck" | "snapshot_load" | "stream_resync" | "user_retry" | "provider_restarted" | "provider_unavailable" | "turn_not_found";
-
-export const agentLivenessReasonValues = ["provider_ref_pending", "provider_turn_linked", "provider_inactive", "attachment_missing", "turn_terminal", "wake_recheck", "snapshot_load", "stream_resync", "user_retry", "provider_restarted", "provider_unavailable", "turn_not_found"] as const satisfies readonly AgentLivenessReason[];
-
-export function decodeAgentLivenessReason(value: unknown, label = "AgentLivenessReason"): AgentLivenessReason {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "provider_ref_pending":
-      return decoded;
-    case "provider_turn_linked":
-      return decoded;
-    case "provider_inactive":
-      return decoded;
-    case "attachment_missing":
-      return decoded;
-    case "turn_terminal":
-      return decoded;
-    case "wake_recheck":
-      return decoded;
-    case "snapshot_load":
-      return decoded;
-    case "stream_resync":
-      return decoded;
-    case "user_retry":
-      return decoded;
-    case "provider_restarted":
-      return decoded;
-    case "provider_unavailable":
-      return decoded;
-    case "turn_not_found":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -2264,7 +2206,6 @@ export interface TrajectoryApprovalResolved {
 
 export interface Subagent {
   id: string;
-  providerThreadId: string;
   status: SubagentStatus;
   modelId: string | null;
   reasoningEffort: string | null;
@@ -2287,21 +2228,6 @@ export interface TrajectoryArtifactEmitted {
   artifactId: string;
   kind: ArtifactKind;
   title: string;
-}
-
-export interface AgentLiveness {
-  status: AgentLivenessStatus;
-  reason: AgentLivenessReason;
-  retryable: boolean;
-  cancellable: boolean;
-  steerable: boolean;
-  lastProviderEventAt: string | null;
-  lastReconciledAt: string | null;
-  message: string;
-}
-
-export interface TrajectoryAgentLivenessChanged {
-  liveness: AgentLiveness;
 }
 
 export interface ProviderLifecycle {
@@ -2365,7 +2291,6 @@ export interface TrajectoryEvent {
   subagentUpdated: TrajectorySubagentUpdated | null;
   subagentCompleted: TrajectorySubagentCompleted | null;
   artifactEmitted: TrajectoryArtifactEmitted | null;
-  agentLivenessChanged: TrajectoryAgentLivenessChanged | null;
   providerLifecycleChanged: TrajectoryProviderLifecycleChanged | null;
   validationRecorded: TrajectoryValidationRecorded | null;
   modelRerouted: TrajectoryModelRerouted | null;
@@ -4667,10 +4592,9 @@ export function decodeTrajectoryApprovalResolved(value: unknown): TrajectoryAppr
 
 export function decodeSubagent(value: unknown): Subagent {
   const record = assertRecord(value, "Subagent");
-  assertKnownFields(record, "Subagent", ["id", "providerThreadId", "status", "modelId", "reasoningEffort", "message"]);
+  assertKnownFields(record, "Subagent", ["id", "status", "modelId", "reasoningEffort", "message"]);
   return {
     id: decodeString(requireField(record, "id", "Subagent"), "Subagent.id"),
-    providerThreadId: decodeString(requireField(record, "providerThreadId", "Subagent"), "Subagent.providerThreadId"),
     status: decodeSubagentStatus(requireField(record, "status", "Subagent"), "Subagent.status"),
     modelId: decodeNullable(requireField(record, "modelId", "Subagent"), "Subagent.modelId", (item) => decodeString(item, "Subagent.modelId")),
     reasoningEffort: decodeNullable(requireField(record, "reasoningEffort", "Subagent"), "Subagent.reasoningEffort", (item) => decodeString(item, "Subagent.reasoningEffort")),
@@ -4709,29 +4633,6 @@ export function decodeTrajectoryArtifactEmitted(value: unknown): TrajectoryArtif
     artifactId: decodeString(requireField(record, "artifactId", "TrajectoryArtifactEmitted"), "TrajectoryArtifactEmitted.artifactId"),
     kind: decodeArtifactKind(requireField(record, "kind", "TrajectoryArtifactEmitted"), "TrajectoryArtifactEmitted.kind"),
     title: decodeString(requireField(record, "title", "TrajectoryArtifactEmitted"), "TrajectoryArtifactEmitted.title"),
-  };
-}
-
-export function decodeAgentLiveness(value: unknown): AgentLiveness {
-  const record = assertRecord(value, "AgentLiveness");
-  assertKnownFields(record, "AgentLiveness", ["status", "reason", "retryable", "cancellable", "steerable", "lastProviderEventAt", "lastReconciledAt", "message"]);
-  return {
-    status: decodeAgentLivenessStatus(requireField(record, "status", "AgentLiveness"), "AgentLiveness.status"),
-    reason: decodeAgentLivenessReason(requireField(record, "reason", "AgentLiveness"), "AgentLiveness.reason"),
-    retryable: decodeBoolean(requireField(record, "retryable", "AgentLiveness"), "AgentLiveness.retryable"),
-    cancellable: decodeBoolean(requireField(record, "cancellable", "AgentLiveness"), "AgentLiveness.cancellable"),
-    steerable: decodeBoolean(requireField(record, "steerable", "AgentLiveness"), "AgentLiveness.steerable"),
-    lastProviderEventAt: decodeNullable(requireField(record, "lastProviderEventAt", "AgentLiveness"), "AgentLiveness.lastProviderEventAt", (item) => decodeString(item, "AgentLiveness.lastProviderEventAt")),
-    lastReconciledAt: decodeNullable(requireField(record, "lastReconciledAt", "AgentLiveness"), "AgentLiveness.lastReconciledAt", (item) => decodeString(item, "AgentLiveness.lastReconciledAt")),
-    message: decodeString(requireField(record, "message", "AgentLiveness"), "AgentLiveness.message"),
-  };
-}
-
-export function decodeTrajectoryAgentLivenessChanged(value: unknown): TrajectoryAgentLivenessChanged {
-  const record = assertRecord(value, "TrajectoryAgentLivenessChanged");
-  assertKnownFields(record, "TrajectoryAgentLivenessChanged", ["liveness"]);
-  return {
-    liveness: decodeAgentLiveness(requireField(record, "liveness", "TrajectoryAgentLivenessChanged")),
   };
 }
 
@@ -4784,7 +4685,7 @@ export function decodeTrajectoryModelRerouted(value: unknown): TrajectoryModelRe
 
 export function decodeTrajectoryEvent(value: unknown): TrajectoryEvent {
   const record = assertRecord(value, "TrajectoryEvent");
-  assertKnownFields(record, "TrajectoryEvent", ["id", "conversationId", "turnId", "sequence", "emittedAt", "kind", "actor", "providerEventId", "providerTurnId", "userInputAccepted", "turnQueued", "turnPromoted", "turnStarted", "turnSteered", "turnInterrupted", "turnCompleted", "turnFailed", "agentPublicTextDelta", "agentMessageCompleted", "publicReasoningSummaryUpdated", "planChanged", "activityStarted", "activityProgressed", "activityCompleted", "activityFailed", "fileChangeProposed", "fileChangeCompleted", "approvalRequested", "approvalResolved", "subagentStarted", "subagentUpdated", "subagentCompleted", "artifactEmitted", "agentLivenessChanged", "providerLifecycleChanged", "validationRecorded", "modelRerouted"]);
+  assertKnownFields(record, "TrajectoryEvent", ["id", "conversationId", "turnId", "sequence", "emittedAt", "kind", "actor", "providerEventId", "providerTurnId", "userInputAccepted", "turnQueued", "turnPromoted", "turnStarted", "turnSteered", "turnInterrupted", "turnCompleted", "turnFailed", "agentPublicTextDelta", "agentMessageCompleted", "publicReasoningSummaryUpdated", "planChanged", "activityStarted", "activityProgressed", "activityCompleted", "activityFailed", "fileChangeProposed", "fileChangeCompleted", "approvalRequested", "approvalResolved", "subagentStarted", "subagentUpdated", "subagentCompleted", "artifactEmitted", "providerLifecycleChanged", "validationRecorded", "modelRerouted"]);
   const result: TrajectoryEvent = {
     id: decodeString(requireField(record, "id", "TrajectoryEvent"), "TrajectoryEvent.id"),
     conversationId: decodeString(requireField(record, "conversationId", "TrajectoryEvent"), "TrajectoryEvent.conversationId"),
@@ -4819,7 +4720,6 @@ export function decodeTrajectoryEvent(value: unknown): TrajectoryEvent {
     subagentUpdated: decodeNullable(requireField(record, "subagentUpdated", "TrajectoryEvent"), "TrajectoryEvent.subagentUpdated", (item) => decodeTrajectorySubagentUpdated(item)),
     subagentCompleted: decodeNullable(requireField(record, "subagentCompleted", "TrajectoryEvent"), "TrajectoryEvent.subagentCompleted", (item) => decodeTrajectorySubagentCompleted(item)),
     artifactEmitted: decodeNullable(requireField(record, "artifactEmitted", "TrajectoryEvent"), "TrajectoryEvent.artifactEmitted", (item) => decodeTrajectoryArtifactEmitted(item)),
-    agentLivenessChanged: decodeNullable(requireField(record, "agentLivenessChanged", "TrajectoryEvent"), "TrajectoryEvent.agentLivenessChanged", (item) => decodeTrajectoryAgentLivenessChanged(item)),
     providerLifecycleChanged: decodeNullable(requireField(record, "providerLifecycleChanged", "TrajectoryEvent"), "TrajectoryEvent.providerLifecycleChanged", (item) => decodeTrajectoryProviderLifecycleChanged(item)),
     validationRecorded: decodeNullable(requireField(record, "validationRecorded", "TrajectoryEvent"), "TrajectoryEvent.validationRecorded", (item) => decodeTrajectoryValidationRecorded(item)),
     modelRerouted: decodeNullable(requireField(record, "modelRerouted", "TrajectoryEvent"), "TrajectoryEvent.modelRerouted", (item) => decodeTrajectoryModelRerouted(item)),
@@ -4849,7 +4749,6 @@ export function decodeTrajectoryEvent(value: unknown): TrajectoryEvent {
     "subagent_updated": result.subagentUpdated,
     "subagent_completed": result.subagentCompleted,
     "artifact_emitted": result.artifactEmitted,
-    "agent_liveness_changed": result.agentLivenessChanged,
     "provider_lifecycle_changed": result.providerLifecycleChanged,
     "validation_recorded": result.validationRecorded,
     "model_rerouted": result.modelRerouted,

@@ -65,6 +65,76 @@ func TestRecoverAgentTurnsInterruptsRestartedRunAndPromotesQueue(t *testing.T) {
 	}
 }
 
+func TestRecoverAgentTurnsCancelsApprovalsOwnedByDeadRun(t *testing.T) {
+	store, original, originalRuntime, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	created, err := original.CreateTopic(ctx, workspaceID, "Restart approval recovery")
+	if err != nil {
+		t.Fatalf("CreateTopic: %v", err)
+	}
+	conversationID := created.Conversation.ID
+	if _, err := original.sendTestTurn(ctx, workspaceID, conversationID, "approval"); err != nil {
+		t.Fatalf("SendTurn: %v", err)
+	}
+	originalRuntime.waitForStart(t, "approval")
+	waiting := assertServiceSnapshot(t, original, workspaceID, conversationID, func(snapshot ConversationSnapshot) bool {
+		return snapshot.Conversation.Status == ConversationStatusWaitingForApproval
+	})
+	turn := latestSnapshotTurn(waiting)
+	approvalID := latestPendingApprovalID(waiting)
+	if approvalID == "" {
+		t.Fatal("running turn published no pending approval")
+	}
+
+	restartedRuntime := cloneServiceTestAgentRuntimeForRestart(originalRuntime)
+	restarted, err := NewService(store, original.workspaces, restartedRuntime)
+	if err != nil {
+		t.Fatalf("NewService after crash: %v", err)
+	}
+	cleanupRecoveryServices(t, store, restarted, original)
+	if err := restarted.RecoverAgentTurns(ctx); err != nil {
+		t.Fatalf("RecoverAgentTurns: %v", err)
+	}
+
+	recovered := assertServiceSnapshot(t, restarted, workspaceID, conversationID, func(snapshot ConversationSnapshot) bool {
+		return latestSnapshotTurn(snapshot).Status == TurnStatusCancelled
+	})
+	if pending := pendingApprovalsForTurn(recovered, turn.ID); len(pending) != 0 {
+		t.Fatalf("restart left dead-run approvals pending: %+v", pending)
+	}
+	resolutionSequence := 0
+	terminalSequence := 0
+	for _, event := range recovered.Trajectory.Events {
+		if event.TurnID == nil || *event.TurnID != turn.ID {
+			continue
+		}
+		if event.ApprovalResolved != nil &&
+			event.ApprovalResolved.Resolution.ApprovalID == approvalID {
+			if event.Actor != TrajectoryActorSystem ||
+				event.ApprovalResolved.Resolution.Decision != TrajectoryApprovalDecisionCancelled {
+				t.Fatalf("restart approval resolution = %+v", event)
+			}
+			resolutionSequence = event.Sequence
+		}
+		if event.TurnInterrupted != nil &&
+			event.TurnInterrupted.Reason == TurnInterruptionRuntimeRestarted {
+			terminalSequence = event.Sequence
+		}
+	}
+	if resolutionSequence == 0 || terminalSequence <= resolutionSequence {
+		t.Fatalf(
+			"restart approval/terminal sequences = %d/%d, want cancellation before terminal",
+			resolutionSequence,
+			terminalSequence,
+		)
+	}
+	if controls := restartedRuntime.controlsSent(); len(controls) != 0 {
+		t.Fatalf("approval recovery reached the provider for a dead carrier: %v", controls)
+	}
+}
+
 func TestRecoverAgentTurnsInterruptsAcceptedTurnThatNeverStarted(t *testing.T) {
 	store, original, originalRuntime, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

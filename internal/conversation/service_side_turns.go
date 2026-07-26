@@ -220,6 +220,7 @@ func (service *Service) buildSideTurnPreparation(
 			Invocation:       invocation,
 		},
 		sideConversationID: side.ID,
+		subagentIDs:        map[string]string{},
 		turnID:             turnID,
 		workspaceID:        workspaceID,
 	}
@@ -469,7 +470,11 @@ func (service *Service) sideTrajectoryFromAgentEvent(
 		agent.EventKindLifecycleChanged:
 		mapped, _, err := service.populateAgentTrajectory(
 			trajectory,
-			&activeConversationTurn{request: active.request, turnID: active.turnID},
+			&activeConversationTurn{
+				request:     active.request,
+				subagentIDs: active.subagentIDs,
+				turnID:      active.turnID,
+			},
 			snapshot,
 			event,
 			now,

@@ -965,7 +965,7 @@ func TestThreadScopedLifecycleCanResolveAfterRunTerminal(t *testing.T) {
 	t.Fatal("the disconnected provider environment projected no visible block")
 }
 
-func TestRecoveredLivenessDoesNotLeaveActionableLifecycleNodes(t *testing.T) {
+func TestResolvedProviderLifecycleDoesNotLeaveActionableNodes(t *testing.T) {
 	projection := projectFixture(t, fixtureByName(t, "blocked_and_cancelled"))
 	graph, err := projection.Graph(fixtureWorkstreamID("conv-theta"), WorkstreamDetailSelected)
 	if err != nil {
@@ -974,7 +974,7 @@ func TestRecoveredLivenessDoesNotLeaveActionableLifecycleNodes(t *testing.T) {
 	for _, node := range graph.Nodes {
 		if (node.Kind == SemanticNodeBlocked || node.Kind == SemanticNodeRecovery) &&
 			(node.Status == SemanticNodeStatusWaiting || node.Status == SemanticNodeStatusActive) {
-			t.Fatalf("recovered or terminal liveness left actionable node %+v", node)
+			t.Fatalf("resolved or terminal provider lifecycle left actionable node %+v", node)
 		}
 	}
 }

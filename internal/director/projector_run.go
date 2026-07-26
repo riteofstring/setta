@@ -60,7 +60,6 @@ var trajectoryHandlers = map[conversation.TrajectoryEventKind]trajectoryHandler{
 	conversation.TrajectoryEventSubagentUpdated:               projectSubagentUpdated,
 	conversation.TrajectoryEventSubagentCompleted:             projectSubagentCompleted,
 	conversation.TrajectoryEventArtifactEmitted:               projectArtifactEmitted,
-	conversation.TrajectoryEventAgentLivenessChanged:          projectAgentLivenessChanged,
 	conversation.TrajectoryEventProviderLifecycleChanged:      projectProviderLifecycleChanged,
 	conversation.TrajectoryEventValidationRecorded:            projectProviderValidationRecorded,
 	conversation.TrajectoryEventModelRerouted:                 projectModelRerouted,
@@ -385,8 +384,6 @@ func (projector *DirectorGraphProjector) finalizeRunLifecycleNodes(
 		nodeID string
 		status SemanticNodeStatus
 	}{
-		{nodeID: context.workstream.agentLivenessBlock[runID], status: blockedStatus},
-		{nodeID: context.workstream.agentLivenessRecovery[runID], status: recoveryStatus},
 		{
 			nodeID: context.workstream.providerLifecycleNode[providerLifecycleTrackingKey("turn_retry", &runID)],
 			status: recoveryStatus,
@@ -400,8 +397,6 @@ func (projector *DirectorGraphProjector) finalizeRunLifecycleNodes(
 			return err
 		}
 	}
-	delete(context.workstream.agentLivenessBlock, runID)
-	delete(context.workstream.agentLivenessRecovery, runID)
 	delete(
 		context.workstream.providerLifecycleNode,
 		providerLifecycleTrackingKey("turn_retry", &runID),

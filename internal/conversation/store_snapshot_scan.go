@@ -133,7 +133,6 @@ var trajectoryPayloadTargets = map[TrajectoryEventKind]func(*TrajectoryEvent) an
 	TrajectoryEventSubagentUpdated:               func(event *TrajectoryEvent) any { return &event.SubagentUpdated },
 	TrajectoryEventSubagentCompleted:             func(event *TrajectoryEvent) any { return &event.SubagentCompleted },
 	TrajectoryEventArtifactEmitted:               func(event *TrajectoryEvent) any { return &event.ArtifactEmitted },
-	TrajectoryEventAgentLivenessChanged:          func(event *TrajectoryEvent) any { return &event.AgentLivenessChanged },
 	TrajectoryEventProviderLifecycleChanged:      func(event *TrajectoryEvent) any { return &event.ProviderLifecycleChanged },
 	TrajectoryEventValidationRecorded:            func(event *TrajectoryEvent) any { return &event.ValidationRecorded },
 	TrajectoryEventModelRerouted:                 func(event *TrajectoryEvent) any { return &event.ModelRerouted },

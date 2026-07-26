@@ -37,6 +37,7 @@ type directorProviderRuntime interface {
 	StartThread(context.Context, agent.StartThreadRequest) (agent.Thread, error)
 	InjectItems(context.Context, string, []agent.InjectedTextItem) error
 	RunTurn(context.Context, agent.TurnRequest, agent.EventSink) (agent.TurnResult, error)
+	UnsubscribeThread(context.Context, string) error
 }
 
 // directorCarrierPort starts and runs the Director's carriers against Codex.
@@ -111,12 +112,19 @@ func (port *directorCarrierPort) StartDirectorCarrier(
 	if err != nil {
 		return "", fmt.Errorf("start director carrier: %w", err)
 	}
-	if err := port.replay(
+	if replayErr := port.replay(
 		ctx,
 		thread.ID,
 		directorHistoryWithinBudget(request.History, maxInputBytes),
-	); err != nil {
-		return "", err
+	); replayErr != nil {
+		cause := fmt.Errorf("replay director carrier %s: %w", thread.ID, replayErr)
+		if cleanupErr := port.provider.UnsubscribeThread(context.Background(), thread.ID); cleanupErr != nil {
+			cause = errors.Join(
+				cause,
+				fmt.Errorf("unsubscribe rejected director carrier %s: %w", thread.ID, cleanupErr),
+			)
+		}
+		return "", cause
 	}
 	return thread.ID, nil
 }

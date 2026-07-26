@@ -652,15 +652,6 @@ func TestSanitizeConversationRouteTrajectoryRemovesProviderAuthority(t *testing.
 		ApprovalRequested: &conversation.TrajectoryApprovalRequested{Approval: conversation.TrajectoryApprovalRequest{
 			ProviderItemID: "provider-item-approval-secret",
 		}},
-		SubagentStarted: &conversation.TrajectorySubagentStarted{Subagent: conversation.Subagent{
-			ProviderThreadID: "provider-subagent-started-secret",
-		}},
-		SubagentUpdated: &conversation.TrajectorySubagentUpdated{Subagent: conversation.Subagent{
-			ProviderThreadID: "provider-subagent-updated-secret",
-		}},
-		SubagentCompleted: &conversation.TrajectorySubagentCompleted{Subagent: conversation.Subagent{
-			ProviderThreadID: "provider-subagent-completed-secret",
-		}},
 	}
 
 	encoded, err := json.Marshal(sanitizeConversationRouteTrajectory(event))
@@ -678,9 +669,6 @@ func TestSanitizeConversationRouteTrajectoryRemovesProviderAuthority(t *testing.
 		"provider-item-file-proposed-secret",
 		"provider-item-file-completed-secret",
 		"provider-item-approval-secret",
-		"provider-subagent-started-secret",
-		"provider-subagent-updated-secret",
-		"provider-subagent-completed-secret",
 	} {
 		if strings.Contains(string(encoded), forbidden) {
 			t.Fatalf("sanitized router trajectory leaked %q: %s", forbidden, encoded)

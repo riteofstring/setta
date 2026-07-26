@@ -589,6 +589,7 @@ func (service *Service) launchTurnLocked(
 			DynamicTools:     service.topicAgentArtifactTools(workspaceID, turn.ConversationID, turn.ID),
 		},
 		roleProfile: turn.RequestedRoleProfile,
+		subagentIDs: map[string]string{},
 		turnID:      turn.ID,
 		workspaceID: workspaceID,
 	}

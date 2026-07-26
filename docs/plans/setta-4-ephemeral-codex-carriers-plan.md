@@ -329,6 +329,13 @@ Expected result: provider identity exists only while a run is active in memory.
 - DONE: Preserve steering and cancellation only for currently active in-memory
   runs.
 
+Restart settlement also cancels every pending approval owned by the dead run in
+the same durable mutation, before its `runtime_restarted` terminal fact. The
+Director therefore stops offering approvals that no live carrier can answer.
+The old `agent_liveness_changed` contract and its reconciliation-only status
+surface are removed; provider lifecycle facts remain the typed source for live
+execution-substrate state.
+
 Expected result: regular workstreams behave like the Director: Setta persists
 conversation state, Codex only runs current work.
 
@@ -367,6 +374,12 @@ disposes the side on the spot. And the parent turn a side was cut from was
 recorded as `SourceProviderTurnID`; it is now `SourceTurnID`, the same Setta
 boundary the in-flight context frame is built around.
 
+Provider subagents now receive a Setta-owned durable activity id from the active
+run's process-local correlation map; their provider thread id stays inside that
+map and the agent adapter. Restart recovery also fails and disposes an
+interrupted `preparing` side in one pass, so it cannot block the parent's next
+side until another restart.
+
 Expected result: branch and side behavior no longer requires provider history.
 
 ### Phase 5: Unify Director Carrier Handling — DONE
@@ -390,6 +403,9 @@ Director's remaining thread vocabulary became carrier vocabulary —
 `DirectorCarrierPort`, `DirectorProviderThread` is gone (the port returns the
 provider id it started, and Setta owns the identity around it), and
 `internal/runtime/director_thread_caller.go` is `internal/runtime/director_carrier.go`.
+A fresh Director carrier that rejects Setta history replay is unsubscribed
+before the start fails, matching the cleanup invariant used by workstream and
+side carriers.
 
 Expected result: Director and workstreams share the same persistence model.
 

@@ -148,7 +148,7 @@ var providerNotificationMatrix = []ProviderNotificationRule{
 	},
 
 	// Workstream and environment lifecycle. Ready states are metadata; only typed
-	// lost, unavailable, or reconciling states are allowed to become visible.
+	// restarting, unavailable, or closed states are allowed to become visible.
 	{
 		Method:      codexapp.CodexNotificationThreadStatusChanged,
 		Disposition: ProviderNotificationNormalized,
@@ -167,7 +167,7 @@ var providerNotificationMatrix = []ProviderNotificationRule{
 	{
 		Method:      codexapp.CodexNotificationThreadClosed,
 		Disposition: ProviderNotificationNormalized,
-		Note:        "Provider session teardown is execution liveness, reconciled into Setta run liveness rather than shown as a provider event.",
+		Note:        "Provider session teardown becomes a typed closed provider-lifecycle fact rather than a raw provider event.",
 	},
 
 	// Guardian, verification, and safety signals. Upstream payloads are unstable,

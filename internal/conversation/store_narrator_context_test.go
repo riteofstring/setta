@@ -428,9 +428,8 @@ func narratorContextTrajectory(conversationID string, turn ConversationTurn) []T
 	events[5].ActivityProgressed = &TrajectoryActivityProgressed{ActivityID: activity.ID, Progress: "Halfway complete."}
 	events[6].ApprovalRequested = &TrajectoryApprovalRequested{Approval: approval}
 	events[7].SubagentStarted = &TrajectorySubagentStarted{Subagent: Subagent{
-		ID:               "subagent-1",
-		ProviderThreadID: "provider-subagent-1",
-		Status:           SubagentStatusRunning,
+		ID:     "subagent-1",
+		Status: SubagentStatusRunning,
 	}}
 	events[8].ArtifactEmitted = &TrajectoryArtifactEmitted{
 		ArtifactID: "artifact-1",

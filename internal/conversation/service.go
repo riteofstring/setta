@@ -75,6 +75,7 @@ type activeConversationTurn struct {
 	queueOrdinal       int
 	request            agent.TurnRequest
 	roleProfile        RoleProfile
+	subagentIDs        map[string]string
 	turnID             string
 	workspaceID        string
 }
@@ -90,6 +91,7 @@ type activeSideConversationTurn struct {
 	parentConversationID string
 	request              agent.TurnRequest
 	sideConversationID   string
+	subagentIDs          map[string]string
 	turnID               string
 	workspaceID          string
 }

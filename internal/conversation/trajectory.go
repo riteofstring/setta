@@ -9,8 +9,6 @@ type FileChangeOutcome string
 type TrajectoryApprovalKind string
 type TrajectoryApprovalDecision string
 type SubagentStatus string
-type AgentLivenessStatus string
-type AgentLivenessReason string
 type ProviderLifecycleStatus string
 type ProviderLifecycleReason string
 type TrajectoryValidationKind string
@@ -43,7 +41,6 @@ const (
 	TrajectoryEventSubagentUpdated               TrajectoryEventKind = "subagent_updated"
 	TrajectoryEventSubagentCompleted             TrajectoryEventKind = "subagent_completed"
 	TrajectoryEventArtifactEmitted               TrajectoryEventKind = "artifact_emitted"
-	TrajectoryEventAgentLivenessChanged          TrajectoryEventKind = "agent_liveness_changed"
 	TrajectoryEventProviderLifecycleChanged      TrajectoryEventKind = "provider_lifecycle_changed"
 	TrajectoryEventValidationRecorded            TrajectoryEventKind = "validation_recorded"
 	TrajectoryEventModelRerouted                 TrajectoryEventKind = "model_rerouted"
@@ -101,24 +98,6 @@ const (
 	SubagentStatusErrored     SubagentStatus = "errored"
 	SubagentStatusShutdown    SubagentStatus = "shutdown"
 	SubagentStatusNotFound    SubagentStatus = "not_found"
-
-	AgentLivenessAttached    AgentLivenessStatus = "attached"
-	AgentLivenessReconciling AgentLivenessStatus = "reconciling"
-	AgentLivenessLost        AgentLivenessStatus = "lost"
-	AgentLivenessTerminal    AgentLivenessStatus = "terminal"
-
-	AgentLivenessReasonProviderRefPending  AgentLivenessReason = "provider_ref_pending"
-	AgentLivenessReasonProviderTurnLinked  AgentLivenessReason = "provider_turn_linked"
-	AgentLivenessReasonProviderInactive    AgentLivenessReason = "provider_inactive"
-	AgentLivenessReasonAttachmentMissing   AgentLivenessReason = "attachment_missing"
-	AgentLivenessReasonTurnTerminal        AgentLivenessReason = "turn_terminal"
-	AgentLivenessReasonWakeRecheck         AgentLivenessReason = "wake_recheck"
-	AgentLivenessReasonSnapshotLoad        AgentLivenessReason = "snapshot_load"
-	AgentLivenessReasonStreamResync        AgentLivenessReason = "stream_resync"
-	AgentLivenessReasonUserRetry           AgentLivenessReason = "user_retry"
-	AgentLivenessReasonProviderRestarted   AgentLivenessReason = "provider_restarted"
-	AgentLivenessReasonProviderUnavailable AgentLivenessReason = "provider_unavailable"
-	AgentLivenessReasonTurnNotFound        AgentLivenessReason = "turn_not_found"
 
 	ProviderLifecycleReady       ProviderLifecycleStatus = "ready"
 	ProviderLifecycleRestarting  ProviderLifecycleStatus = "restarting"
@@ -191,7 +170,6 @@ var trajectoryEventKinds = []TrajectoryEventKind{
 	TrajectoryEventSubagentUpdated,
 	TrajectoryEventSubagentCompleted,
 	TrajectoryEventArtifactEmitted,
-	TrajectoryEventAgentLivenessChanged,
 	TrajectoryEventProviderLifecycleChanged,
 	TrajectoryEventValidationRecorded,
 	TrajectoryEventModelRerouted,
@@ -223,20 +201,6 @@ var trajectoryActivityKinds = []TrajectoryActivityKind{
 func TrajectoryActivityKinds() []TrajectoryActivityKind {
 	result := make([]TrajectoryActivityKind, len(trajectoryActivityKinds))
 	copy(result, trajectoryActivityKinds)
-	return result
-}
-
-var agentLivenessStatuses = []AgentLivenessStatus{
-	AgentLivenessAttached,
-	AgentLivenessReconciling,
-	AgentLivenessLost,
-	AgentLivenessTerminal,
-}
-
-// AgentLivenessStatuses is the authoritative agent liveness catalog.
-func AgentLivenessStatuses() []AgentLivenessStatus {
-	result := make([]AgentLivenessStatus, len(agentLivenessStatuses))
-	copy(result, agentLivenessStatuses)
 	return result
 }
 
@@ -393,23 +357,11 @@ type TrajectoryApprovalResolution struct {
 }
 
 type Subagent struct {
-	ID               string           `json:"id"`
-	ProviderThreadID string           `json:"providerThreadId"`
-	Status           SubagentStatus   `json:"status"`
-	ModelID          *string          `json:"modelId"`
-	ReasoningEffort  *ReasoningEffort `json:"reasoningEffort"`
-	Message          *string          `json:"message"`
-}
-
-type AgentLiveness struct {
-	Status              AgentLivenessStatus `json:"status"`
-	Reason              AgentLivenessReason `json:"reason"`
-	Retryable           bool                `json:"retryable"`
-	Cancellable         bool                `json:"cancellable"`
-	Steerable           bool                `json:"steerable"`
-	LastProviderEventAt *string             `json:"lastProviderEventAt"`
-	LastReconciledAt    *string             `json:"lastReconciledAt"`
-	Message             string              `json:"message"`
+	ID              string           `json:"id"`
+	Status          SubagentStatus   `json:"status"`
+	ModelID         *string          `json:"modelId"`
+	ReasoningEffort *ReasoningEffort `json:"reasoningEffort"`
+	Message         *string          `json:"message"`
 }
 
 type ProviderLifecycle struct {
@@ -547,10 +499,6 @@ type TrajectoryArtifactEmitted struct {
 	Title      string       `json:"title"`
 }
 
-type TrajectoryAgentLivenessChanged struct {
-	Liveness AgentLiveness `json:"liveness"`
-}
-
 type TrajectoryProviderLifecycleChanged struct {
 	Lifecycle ProviderLifecycle `json:"lifecycle"`
 }
@@ -597,7 +545,6 @@ type TrajectoryEvent struct {
 	SubagentUpdated               *TrajectorySubagentUpdated               `json:"subagentUpdated"`
 	SubagentCompleted             *TrajectorySubagentCompleted             `json:"subagentCompleted"`
 	ArtifactEmitted               *TrajectoryArtifactEmitted               `json:"artifactEmitted"`
-	AgentLivenessChanged          *TrajectoryAgentLivenessChanged          `json:"agentLivenessChanged"`
 	ProviderLifecycleChanged      *TrajectoryProviderLifecycleChanged      `json:"providerLifecycleChanged"`
 	ValidationRecorded            *TrajectoryValidationRecorded            `json:"validationRecorded"`
 	ModelRerouted                 *TrajectoryModelRerouted                 `json:"modelRerouted"`

@@ -259,7 +259,7 @@ func (service *Service) populateAgentTrajectory(
 	case agent.EventKindPlanChanged:
 		return conversationPlanTrajectory(trajectory, event)
 	case agent.EventKindActivityStarted, agent.EventKindActivityUpdated, agent.EventKindActivityCompleted:
-		return service.conversationActivityTrajectory(trajectory, event, now)
+		return service.conversationActivityTrajectory(trajectory, active, event, now)
 	case agent.EventKindApprovalRequested:
 		return conversationApprovalTrajectory(trajectory, active, event, now)
 	case agent.EventKindApprovalSuperseded:
@@ -321,6 +321,7 @@ func conversationPlanTrajectory(
 
 func (service *Service) conversationActivityTrajectory(
 	trajectory TrajectoryEvent,
+	active *activeConversationTurn,
 	event agent.Event,
 	now string,
 ) (TrajectoryEvent, *Artifact, error) {
@@ -328,7 +329,7 @@ func (service *Service) conversationActivityTrajectory(
 		return TrajectoryEvent{}, nil, fmt.Errorf("agent activity payload is required")
 	}
 	if event.Activity.Kind == agent.ActivityKindSubagent {
-		return conversationSubagentTrajectory(trajectory, event)
+		return service.conversationSubagentTrajectory(trajectory, active, event)
 	}
 	if event.Activity.Kind == agent.ActivityKindFileChange &&
 		event.Kind != agent.EventKindActivityUpdated &&
@@ -546,23 +547,38 @@ var trajectoryActivityKindByAgentKind = map[agent.ActivityKind]TrajectoryActivit
 	agent.ActivityKindWebSearch:       TrajectoryActivityWebSearch,
 }
 
-func conversationSubagentTrajectory(
+func (service *Service) conversationSubagentTrajectory(
 	trajectory TrajectoryEvent,
+	active *activeConversationTurn,
 	event agent.Event,
 ) (TrajectoryEvent, *Artifact, error) {
 	activity := event.Activity
 	if activity == nil {
 		return TrajectoryEvent{}, nil, fmt.Errorf("agent subagent activity payload is required")
 	}
+	if active == nil {
+		return TrajectoryEvent{}, nil, fmt.Errorf("active turn is required to map a subagent")
+	}
 	if activity.ProviderSubagentThreadID == nil ||
 		strings.TrimSpace(*activity.ProviderSubagentThreadID) == "" {
 		return TrajectoryEvent{}, nil, fmt.Errorf("agent subagent activity requires provider thread id")
 	}
+	if active.subagentIDs == nil {
+		active.subagentIDs = map[string]string{}
+	}
 	providerThreadID := strings.TrimSpace(*activity.ProviderSubagentThreadID)
+	subagentID := active.subagentIDs[providerThreadID]
+	if subagentID == "" {
+		var err error
+		subagentID, err = service.newID("subagent")
+		if err != nil {
+			return TrajectoryEvent{}, nil, err
+		}
+		active.subagentIDs[providerThreadID] = subagentID
+	}
 	subagent := Subagent{
-		ID:               providerThreadID,
-		ProviderThreadID: providerThreadID,
-		Message:          stringPointerValue(activity.Title),
+		ID:      subagentID,
+		Message: stringPointerValue(activity.Title),
 	}
 	trajectory.Actor = TrajectoryActorAgent
 	switch activity.Status {

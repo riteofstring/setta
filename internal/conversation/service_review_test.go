@@ -251,9 +251,27 @@ func TestSubagentActivityProjectsTypedLifecycle(t *testing.T) {
 		TrajectoryEventSubagentUpdated:   false,
 		TrajectoryEventSubagentCompleted: false,
 	}
+	subagentID := ""
 	for _, event := range completed.Trajectory.Events {
 		if _, ok := want[event.Kind]; ok {
 			want[event.Kind] = true
+			var subagent Subagent
+			switch event.Kind {
+			case TrajectoryEventSubagentStarted:
+				subagent = event.SubagentStarted.Subagent
+			case TrajectoryEventSubagentUpdated:
+				subagent = event.SubagentUpdated.Subagent
+			case TrajectoryEventSubagentCompleted:
+				subagent = event.SubagentCompleted.Subagent
+			}
+			if subagentID == "" {
+				subagentID = subagent.ID
+			}
+			if subagent.ID != subagentID ||
+				subagent.ID == "provider-subagent-thread" ||
+				strings.HasPrefix(subagent.ID, "subagent-item-") {
+				t.Errorf("durable subagent id = %q, want one Setta-owned id", subagent.ID)
+			}
 		}
 		switch event.Kind {
 		case TrajectoryEventActivityStarted,

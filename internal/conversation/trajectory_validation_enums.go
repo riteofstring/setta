@@ -108,7 +108,6 @@ func trajectoryKindRequiresTurn(kind TrajectoryEventKind) bool {
 		TrajectoryEventSubagentUpdated,
 		TrajectoryEventSubagentCompleted,
 		TrajectoryEventArtifactEmitted,
-		TrajectoryEventAgentLivenessChanged,
 		TrajectoryEventValidationRecorded,
 		TrajectoryEventModelRerouted:
 		return true
@@ -132,26 +131,6 @@ func validTurnInterruptionReason(reason TurnInterruptionReason) bool {
 		TurnInterruptionProviderInterrupted,
 		TurnInterruptionRuntimeShutdown,
 		TurnInterruptionRuntimeRestarted:
-		return true
-	default:
-		return false
-	}
-}
-
-func validAgentLivenessReason(reason AgentLivenessReason) bool {
-	switch reason {
-	case AgentLivenessReasonProviderRefPending,
-		AgentLivenessReasonProviderTurnLinked,
-		AgentLivenessReasonProviderInactive,
-		AgentLivenessReasonAttachmentMissing,
-		AgentLivenessReasonTurnTerminal,
-		AgentLivenessReasonWakeRecheck,
-		AgentLivenessReasonSnapshotLoad,
-		AgentLivenessReasonStreamResync,
-		AgentLivenessReasonUserRetry,
-		AgentLivenessReasonProviderRestarted,
-		AgentLivenessReasonProviderUnavailable,
-		AgentLivenessReasonTurnNotFound:
 		return true
 	default:
 		return false

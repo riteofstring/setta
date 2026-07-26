@@ -359,8 +359,8 @@ func (service *Service) RecoverSideConversations(ctx context.Context) error {
 			cause := errors.New("side conversation preparation was interrupted by restart")
 			if err := service.failSideDisposal(record.WorkspaceID, side.ParentConversationID, side.ID, "side_restart_interrupted", cause); err != nil {
 				persistenceErrors = append(persistenceErrors, err)
+				continue
 			}
-			continue
 		}
 		if side.Status == SideConversationStatusActive {
 			prepared, err := service.prepareSideDisposal(
