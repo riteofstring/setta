@@ -3341,3 +3341,25 @@ Stop and reassess rather than hiding the problem if any of these occur:
   `./check_quality.sh --all` passed, including the desktop suite and the
   `hosted-cloud-chat` Electron workflow. No dependency file changed and no
   provider or cloud mutation ran.
+- 2026-07-26 (live capacity probe: the requested shape is ignored): Slice 2 of
+  `sprites-runtime-capacity-observation-20260726.md`. One Sprite was created
+  requesting `cpus=1, ram_mb=512, storage_gb=10`, probed from inside, and
+  destroyed (`DELETE` 204, follow-up `GET` 404, inventory empty). The machine
+  does not match the request in any dimension. `nproc` and `/proc/cpuinfo`
+  report 8 processors, `/proc/meminfo` reports `MemTotal: 8388608 kB` (8 GiB),
+  and the overlay root reports 105,542,934,528 bytes total with essentially all
+  of it available. There is no cgroup limit to find: cgroup v2 `cpu.max` is
+  `max 100000` and `memory.max` is `max`, and no cgroup v1 hierarchy exists.
+  Two conclusions follow. First, the authoritative in-runtime capacity sources
+  on Sprites are `/proc` and `statfs`, not cgroup limits; an implementation
+  should read those and fail loudly if a cgroup limit ever appears, because its
+  presence would mean the answer changed. Second, and more consequential, the
+  provider is not merely declining to report the requested shape — it is
+  ignoring it. Setta asked for 1 CPU and 512 MB and received 8 CPUs and 8 GiB.
+  The observed disk also exceeds Setta's own 100 GB `MaximumPersistentStorageBytes`
+  product ceiling. This invalidates the assumption carried into Slice 1 that the
+  authorized shape can stand in for reality: budget ceilings computed from the
+  claim now describe a machine sixteen times smaller than the one running, so
+  usage evidence and cutoffs are measured against a fiction. No code was changed
+  for this finding. The billing decision it forces is recorded as an open
+  question in the capacity plan and needs an owner before Slices 3 to 7 proceed.
