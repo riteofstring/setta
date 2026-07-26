@@ -1,5 +1,14 @@
 # Repository Guidelines
 
+## Communication
+
+- Write for a CEO with ADHD who does not like to read. Simple language first, always. This outranks completeness in every reply.
+- Lead with the answer, the result, or the one decision needed. No preamble, no restating the request, no narrating the process.
+- Prefer short bullets and short sentences over paragraphs. Cut any sentence that does not change what the reader thinks or does.
+- Keep detail below the summary, and only when it changes a decision. Long technical explanations are opt-in, not the default.
+- Plain words over jargon. Name a file or symbol when it is the point, not to show work.
+- Bad news, risks, and money still get said plainly and early. Brevity never means hiding a problem.
+
 ## Generation & Contracts
 
 - Generate TypeScript surfaces from Go-owned contracts or values programmatically; do not maintain hardcoded mirrors or scattered cross-language constants.
