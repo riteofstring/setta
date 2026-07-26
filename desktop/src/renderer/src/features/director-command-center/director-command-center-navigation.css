@@ -72,6 +72,15 @@
  * their own, and the dots hung below the title with nothing beside them. A bar
  * is a line of things on one baseline.
  */
+/*
+ * The title absorbs its own variation so the strip does not.
+ *
+ * Laid out in a row, a title that sizes to its text drags the dots along with
+ * it: switching from "Director" to a long workstream name slid the whole strip
+ * across the bar, and a navigator that moves when nothing about it changed is
+ * one you have to find again every time. The title column takes the slack
+ * instead — it is the thing that changed — and the dots stay where they were.
+ */
 .director-workstream-selector {
   align-items: center;
   display: flex;
@@ -80,6 +89,16 @@
   padding-inline: 4px;
 }
 
+/*
+ * The title reserves its width instead of taking it.
+ *
+ * The strip sits beside the title, so a title that sizes to its text drags the
+ * dots along with it — switching workstreams slid the whole strip across the
+ * bar, and a navigator that moves when nothing about it changed is one you have
+ * to find again every time. Reserving the room costs a little space beside a
+ * short title and makes the dots a fixed landmark, which is the trade the
+ * mockup's `.tb-conv` makes too. A title longer than the room ellipsises.
+ */
 .director-workstream-title {
   align-items: baseline;
   display: flex;
@@ -87,6 +106,17 @@
   justify-content: safe center;
   min-inline-size: 0;
   text-align: center;
+}
+
+/*
+ * Only while the strip is on screen. A compact bar drops the strip for the
+ * arrows, and with nothing beside the title to hold still there is nothing to
+ * reserve room for — the width would just be room the bar does not have.
+ */
+@media (min-width: 641px) {
+  .director-workstream-title {
+    inline-size: clamp(190px, 22vw, 270px);
+  }
 }
 
 .director-focus-title {
@@ -163,6 +193,7 @@
 
 .director-workstream-dot[aria-current="page"]::before {
   background: var(--director-primary);
+  box-shadow: 0 0 8px color-mix(in oklch, var(--director-primary) 70%, transparent);
 }
 
 /*
@@ -176,9 +207,27 @@
   background: var(--director-foreground);
 }
 
+/*
+ * Work in progress breathes. A dot that only changes colour says "this one is
+ * different"; the pulse says "this one is doing something right now", which is
+ * the single most useful thing the strip can tell you at a glance.
+ */
 .director-workstream-dot[data-status="running"]::before {
+  animation: director-dot-pulse 1.4s ease-in-out infinite;
   background: oklch(0.82 0.125 185);
   box-shadow: 0 0 7px oklch(0.82 0.125 185);
+}
+
+@keyframes director-dot-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .director-workstream-dot[data-status="running"]::before {
+    animation: none;
+  }
 }
 
 .director-workstream-dot[data-status="completed"]::before {
@@ -236,6 +285,7 @@
 }
 
 .director-workstream-strip {
+  align-items: center;
   display: flex;
   flex: none;
   gap: 2px;
