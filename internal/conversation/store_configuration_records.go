@@ -20,9 +20,36 @@ func (transaction *WriteTransaction) InsertConversationBranch(branch Conversatio
 	if err := branch.Validate(); err != nil {
 		return err
 	}
-	if err := transaction.requireForkWorkspaceMatch(branch); err != nil {
+	if err := transaction.requireBranchWorkspaceMatch(branch); err != nil {
 		return err
 	}
+	if err := transaction.requireBranchSource(branch); err != nil {
+		return err
+	}
+	_, err := transaction.tx.ExecContext(transaction.ctx, `
+INSERT INTO conversation_branches (
+  child_conversation_id, parent_conversation_id, branch_kind,
+  decision_source, forked_at_turn_id, source_trajectory_sequence,
+  created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?)
+`,
+		branch.ChildConversationID,
+		branch.ParentConversationID,
+		branch.Kind,
+		branch.DecisionSource,
+		branch.ForkedAtTurnID,
+		branch.SourceTrajectorySequence,
+		branch.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("insert conversation branch %s: %w", branch.ChildConversationID, err)
+	}
+	return transaction.recordStateMutation()
+}
+
+// requireBranchSource proves the parent state a branch claims: it must name a
+// completed run of its parent and cover the trajectory it carried forward.
+func (transaction *WriteTransaction) requireBranchSource(branch ConversationBranch) error {
 	if err := transaction.requireCompletedTurnBelongs(
 		branch.ForkedAtTurnID,
 		branch.ParentConversationID,
@@ -31,38 +58,12 @@ func (transaction *WriteTransaction) InsertConversationBranch(branch Conversatio
 	); err != nil {
 		return err
 	}
-	if err := transaction.requireConversationCoversSequence(
+	return transaction.requireConversationCoversSequence(
 		branch.ParentConversationID,
 		branch.SourceTrajectorySequence,
 		"conversation branch",
 		branch.ChildConversationID,
-	); err != nil {
-		return err
-	}
-	providerMetadataJSON, err := encodeJSONColumn("conversation branch provider metadata", branch.ProviderMetadata)
-	if err != nil {
-		return err
-	}
-	_, err = transaction.tx.ExecContext(transaction.ctx, `
-INSERT INTO conversation_branches (
-  child_conversation_id, parent_conversation_id, branch_kind,
-  decision_source, forked_at_turn_id, source_trajectory_sequence,
-  provider_metadata_json, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-`,
-		branch.ChildConversationID,
-		branch.ParentConversationID,
-		branch.Kind,
-		branch.DecisionSource,
-		branch.ForkedAtTurnID,
-		branch.SourceTrajectorySequence,
-		providerMetadataJSON,
-		branch.CreatedAt,
 	)
-	if err != nil {
-		return fmt.Errorf("insert conversation branch %s: %w", branch.ChildConversationID, err)
-	}
-	return transaction.recordStateMutation()
 }
 
 func (transaction *WriteTransaction) InsertSideConversation(side SideConversation) error {
@@ -90,24 +91,19 @@ func (transaction *WriteTransaction) InsertSideConversation(side SideConversatio
 	}
 	_, err = transaction.tx.ExecContext(transaction.ctx, `
 INSERT INTO side_conversations (
-  id, parent_conversation_id, parent_pane_id, decision_source, provider_thread_id,
-  source_provider_thread_id, source_provider_turn_id, source_trajectory_sequence,
-  last_event_sequence, active_turn_id, active_provider_turn_id, status,
+  id, parent_conversation_id, decision_source, source_turn_id,
+  source_trajectory_sequence, last_event_sequence, active_turn_id, status,
   resolved_side_agent_invocation_json, created_at, updated_at, disposed_at,
   failure_json
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		side.ID,
 		side.ParentConversationID,
-		side.ParentPaneID,
 		side.DecisionSource,
-		nullableString(side.ProviderThreadID),
-		side.SourceProviderThreadID,
-		nullableString(side.SourceProviderTurnID),
+		nullableString(side.SourceTurnID),
 		side.SourceTrajectorySequence,
 		side.LastEventSequence,
 		nullableString(side.ActiveTurnID),
-		nullableString(side.ActiveProviderTurnID),
 		side.Status,
 		invocationJSON,
 		side.CreatedAt,
@@ -141,25 +137,21 @@ func (transaction *WriteTransaction) UpdateSideConversation(
 	}
 	result, err := transaction.tx.ExecContext(transaction.ctx, `
 UPDATE side_conversations
-SET provider_thread_id = ?, source_provider_turn_id = ?, last_event_sequence = ?,
-    active_turn_id = ?, active_provider_turn_id = ?, status = ?,
+SET source_turn_id = ?, last_event_sequence = ?,
+    active_turn_id = ?, status = ?,
     resolved_side_agent_invocation_json = ?, updated_at = ?, disposed_at = ?,
     failure_json = ?
 WHERE id = ?
   AND parent_conversation_id = ?
-  AND parent_pane_id = ?
   AND decision_source = ?
-  AND source_provider_thread_id = ?
   AND source_trajectory_sequence = ?
   AND created_at = ?
   AND status = ?
   AND updated_at = ?
 `,
-		nullableString(side.ProviderThreadID),
-		nullableString(side.SourceProviderTurnID),
+		nullableString(side.SourceTurnID),
 		side.LastEventSequence,
 		nullableString(side.ActiveTurnID),
-		nullableString(side.ActiveProviderTurnID),
 		side.Status,
 		invocationJSON,
 		side.UpdatedAt,
@@ -167,9 +159,7 @@ WHERE id = ?
 		failureJSON,
 		side.ID,
 		side.ParentConversationID,
-		side.ParentPaneID,
 		side.DecisionSource,
-		side.SourceProviderThreadID,
 		side.SourceTrajectorySequence,
 		side.CreatedAt,
 		expected.Status,
@@ -337,9 +327,11 @@ SELECT EXISTS(
 	return nil
 }
 
-func (transaction *WriteTransaction) requireForkWorkspaceMatch(branch ConversationBranch) error {
-	var parentWorkspaceID string
-	var childWorkspaceID string
+func (transaction *WriteTransaction) requireBranchWorkspaceMatch(branch ConversationBranch) error {
+	// A folderless conversation has no workspace, and a folderless workstream is
+	// first class, so both sides are read as optional and compared as they are.
+	var parentWorkspaceID sql.NullString
+	var childWorkspaceID sql.NullString
 	err := transaction.tx.QueryRowContext(transaction.ctx, `
 SELECT parent.workspace_id, child.workspace_id
 FROM conversations AS parent
@@ -360,7 +352,7 @@ WHERE parent.id = ?
 		return stateConflict(
 			"conversation branch",
 			branch.ChildConversationID,
-			"fork parent and child must belong to the same workspace",
+			"branch parent and child must belong to the same workspace",
 		)
 	}
 	return nil
@@ -457,9 +449,9 @@ ON CONFLICT(conversation_id) DO UPDATE SET
 	return transaction.recordStateMutation()
 }
 
-func (transaction *WriteTransaction) UpdateMasterVoiceSelection(
+func (transaction *WriteTransaction) UpdateDirectorVoiceSelection(
 	expectedUpdatedAt string,
-	selection speech.MasterVoiceSelection,
+	selection speech.DirectorVoiceSelection,
 ) error {
 	if err := transaction.ensureActive(); err != nil {
 		return err
@@ -467,12 +459,12 @@ func (transaction *WriteTransaction) UpdateMasterVoiceSelection(
 	if err := selection.Validate(); err != nil {
 		return err
 	}
-	reuseJSON, err := encodeOptionalJSONColumn("master voice reuse", selection.Reuse)
+	reuseJSON, err := encodeOptionalJSONColumn("director voice reuse", selection.Reuse)
 	if err != nil {
 		return err
 	}
 	result, err := transaction.tx.ExecContext(transaction.ctx, `
-UPDATE master_voice_selection
+UPDATE director_voice_selection
 SET selection = ?, requested_voice_id = ?, resolved_voice_id = ?,
     reuse_json = ?, updated_at = ?
 WHERE singleton = 1 AND updated_at = ?
@@ -485,9 +477,9 @@ WHERE singleton = 1 AND updated_at = ?
 		expectedUpdatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("update master voice selection: %w", err)
+		return fmt.Errorf("update director voice selection: %w", err)
 	}
-	if err := requireOneRow(result, "master voice selection", "singleton", "configuration changed concurrently"); err != nil {
+	if err := requireOneRow(result, "director voice selection", "singleton", "configuration changed concurrently"); err != nil {
 		return err
 	}
 	return transaction.recordStateMutation()

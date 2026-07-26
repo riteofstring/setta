@@ -230,8 +230,8 @@ func NewService(manager *codexapp.Manager) (*Service, error) {
 		changeStreamID:    streamID,
 		changeSubscribers: map[uint64]chan CodexAccountChangeEvent{},
 	}
-	manager.RegisterNotificationHandler("account/login/completed", service.handleLoginCompleted)
-	manager.RegisterNotificationHandler("account/updated", service.handleAccountUpdated)
+	manager.RegisterNotificationHandler(codexapp.CodexNotificationAccountLoginCompleted, service.handleLoginCompleted)
+	manager.RegisterNotificationHandler(codexapp.CodexNotificationAccountUpdated, service.handleAccountUpdated)
 	return service, nil
 }
 

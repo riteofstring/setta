@@ -129,17 +129,6 @@ function lightSchemeFromTailwind(
       warningForeground: safeHighContrastForeground(status.warning, status.warningForeground),
     },
     tailwind,
-    workspace: {
-      dotGrid: tailwind.setta500,
-      dragTargetOutline: tailwind.setta500,
-      dragTargetSurface: tailwind.setta200,
-      paneEdge: tailwind.setta200,
-      paneSelectedGlow: tailwind.setta300,
-      paneSelectedOutline: tailwind.setta500,
-      paneSurface: tailwind.setta50,
-      paneTitleBarSurface: tailwind.setta100,
-      surface: tailwind.setta100,
-    },
   };
 }
 
@@ -192,17 +181,6 @@ function darkSchemeFromTailwind(
       warningForeground: safeHighContrastForeground(status.warning, status.warningForeground),
     },
     tailwind,
-    workspace: {
-      dotGrid: "oklch(0.8460 0.1292 213.38)",
-      dragTargetOutline: tailwind.setta300,
-      dragTargetSurface: tailwind.setta850,
-      paneEdge: tailwind.setta850,
-      paneSelectedGlow: tailwind.setta700,
-      paneSelectedOutline: "oklch(0.4880 0.1700 264.38)",
-      paneSurface: tailwind.setta975,
-      paneTitleBarSurface: tailwind.setta950,
-      surface: tailwind.setta850,
-    },
   };
 }
 

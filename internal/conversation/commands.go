@@ -1,6 +1,9 @@
 package conversation
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 const (
 	MaxConversationTitleBytes = 200
@@ -54,18 +57,31 @@ func validateConversationApprovalDecisionFields(response ConversationApprovalRes
 	return validateConversationApprovalDecisionPayload(response)
 }
 
+// conversationApprovalDecisions is what an approval can be answered with here.
+// A session-wide approval is deliberately absent: Setta answers one approval at
+// a time, so anything offering that choice would be offering something the
+// durable write refuses.
+var conversationApprovalDecisions = []TrajectoryApprovalDecision{
+	TrajectoryApprovalDecisionApproved,
+	TrajectoryApprovalDecisionDenied,
+	TrajectoryApprovalDecisionCancelled,
+	TrajectoryApprovalDecisionAnswered,
+}
+
+// ConversationApprovalDecisions returns the answers an approval accepts, so a
+// caller that offers the choice offers exactly the ones this package validates.
+func ConversationApprovalDecisions() []TrajectoryApprovalDecision {
+	return append([]TrajectoryApprovalDecision(nil), conversationApprovalDecisions...)
+}
+
 func validateConversationApprovalDecision(decision TrajectoryApprovalDecision) error {
-	switch decision {
-	case TrajectoryApprovalDecisionApproved,
-		TrajectoryApprovalDecisionDenied,
-		TrajectoryApprovalDecisionCancelled,
-		TrajectoryApprovalDecisionAnswered:
-	case TrajectoryApprovalDecisionApprovedForSession:
-		return fmt.Errorf("conversation approvals do not support session-wide decisions")
-	default:
-		return fmt.Errorf("unsupported conversation approval decision %q", decision)
+	if slices.Contains(conversationApprovalDecisions, decision) {
+		return nil
 	}
-	return nil
+	if decision == TrajectoryApprovalDecisionApprovedForSession {
+		return fmt.Errorf("conversation approvals do not support session-wide decisions")
+	}
+	return fmt.Errorf("unsupported conversation approval decision %q", decision)
 }
 
 func validateConversationApprovalAnswers(answers []ConversationApprovalAnswer) error {

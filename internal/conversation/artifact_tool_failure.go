@@ -27,7 +27,8 @@ func (service *Service) persistArtifactToolFailure(
 	if err != nil {
 		return err
 	}
-	if _, err := findConversationTurn(snapshot, turnID); err != nil {
+	turn, err := findConversationTurn(snapshot, turnID)
+	if err != nil {
 		return err
 	}
 	now := service.timestamp()
@@ -55,7 +56,7 @@ func (service *Service) persistArtifactToolFailure(
 		return appendPublications(transaction, publications)
 	})
 	if err == nil {
-		service.observeCommittedTrajectory(snapshot.Conversation, turnID, []TrajectoryEvent{trajectory}, false)
+		service.observeCommittedTrajectory(snapshot.Conversation, turn, []TrajectoryEvent{trajectory}, nil, false)
 	}
 	return err
 }
@@ -83,16 +84,15 @@ func artifactToolFailureTrajectory(
 		activity.Namespace = &call.Namespace
 	}
 	return TrajectoryEvent{
-		ID:               trajectoryID,
-		ConversationID:   conversationID,
-		TurnID:           &turnID,
-		Sequence:         sequence,
-		EmittedAt:        emittedAt,
-		Kind:             TrajectoryEventActivityFailed,
-		Actor:            TrajectoryActorSystem,
-		ProviderEventID:  &call.CallID,
-		ProviderThreadID: &call.ProviderThreadID,
-		ProviderTurnID:   &call.ProviderTurnID,
+		ID:              trajectoryID,
+		ConversationID:  conversationID,
+		TurnID:          &turnID,
+		Sequence:        sequence,
+		EmittedAt:       emittedAt,
+		Kind:            TrajectoryEventActivityFailed,
+		Actor:           TrajectoryActorSystem,
+		ProviderEventID: &call.CallID,
+		ProviderTurnID:  &call.ProviderTurnID,
 		ActivityFailed: &TrajectoryActivityFailed{
 			Activity: activity,
 			Failure: Failure{
