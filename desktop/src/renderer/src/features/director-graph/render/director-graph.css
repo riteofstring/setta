@@ -150,6 +150,20 @@
 }
 
 /*
+ * The mockup's multi-column label budget: side-by-side columns shrink their
+ * labels so pills from neighbouring columns stop colliding across the gap.
+ */
+.director-graph-labels[data-columns="many"] .director-graph-label {
+  max-inline-size: 200px;
+  font-size: 11px;
+}
+
+.director-graph-labels[data-columns="many"] .director-graph-pill {
+  max-inline-size: 220px;
+  font-size: 11px;
+}
+
+/*
  * Below the phone breakpoint the label budget shrinks with the viewport; the
  * graph, its navigation, and the composer stay.
  */

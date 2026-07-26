@@ -149,6 +149,12 @@ export class GraphLabelLayer {
     foldable: boolean,
   ): void {
     this.foldable = foldable;
+    // Side-by-side columns get the mockup's tighter label budget (multi-cols):
+    // full-width pills from neighbouring columns collide across the gap.
+    const columns = foldable ? "single" : "many";
+    if (this.root.getAttribute("data-columns") !== columns) {
+      this.root.setAttribute("data-columns", columns);
+    }
     let steps = 0;
     let pills = 0;
     for (let index = 0; index < count; index += 1) {
