@@ -7,6 +7,12 @@ import (
 	"setta/internal/agent"
 )
 
+const (
+	agentRuntimeFailureMessage          = "The run stopped unexpectedly. Try again."
+	providerUnavailableFailureMessage   = "Provider is temporarily unavailable. Try again."
+	providerThreadMissingFailureMessage = "This run cannot continue because its provider session is no longer available. Start a new run."
+)
+
 func (service *Service) persistUnexpectedTurnEnd(
 	ctx context.Context,
 	active *activeConversationTurn,
@@ -91,7 +97,7 @@ func (service *Service) buildUnexpectedTurnEnd(
 		Actor:          TrajectoryActorSystem,
 	}
 	expectedStatus := turn.Status
-	conversationStatus := applyUnexpectedTurnOutcome(&turn, &trajectory, runErr, now)
+	conversationStatus := applyUnexpectedTurnOutcome(&turn, &trajectory, active.interruptionReason, runErr, now)
 	applyUnexpectedProviderReferences(&trajectory, active, turn)
 	queue, removeQueue, err := unexpectedQueueAfterTurn(snapshot.Queue, active, turn.ID, expectedStatus)
 	if err != nil {
@@ -115,17 +121,25 @@ func (service *Service) buildUnexpectedTurnEnd(
 	}, nil
 }
 
+// applyUnexpectedTurnOutcome decides whether a run that ended outside the
+// provider's terminal event was interrupted or failed. An interruption reason
+// supplied by the caller wins: work Setta itself stopped — a shutdown, a
+// restart — is not a failure the user should be asked to interpret.
 func applyUnexpectedTurnOutcome(
 	turn *ConversationTurn,
 	trajectory *TrajectoryEvent,
+	interruptionReason TurnInterruptionReason,
 	runErr error,
 	now string,
 ) ConversationStatus {
 	if errors.Is(runErr, context.Canceled) {
+		interruptionReason = TurnInterruptionRuntimeShutdown
+	}
+	if interruptionReason != "" {
 		turn.Status = TurnStatusCancelled
 		turn.Error = nil
 		trajectory.Kind = TrajectoryEventTurnInterrupted
-		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: TurnInterruptionRuntimeShutdown}
+		trajectory.TurnInterrupted = &TrajectoryTurnInterrupted{Reason: interruptionReason}
 		if turn.ResolvedInvocation != nil {
 			turn.ResolvedInvocation = invocationPointerValue(
 				terminalInvocation(*turn.ResolvedInvocation, InvocationOutcomeCancelled, now, nil),
@@ -134,8 +148,7 @@ func applyUnexpectedTurnOutcome(
 		turn.EndedAt = &now
 		return ConversationStatusIdle
 	}
-	code, retryable := classifyAgentRuntimeFailure(runErr, "agent_runtime_failed")
-	failure := Failure{Code: code, Message: runErr.Error(), Retryable: retryable}
+	failure := unexpectedTurnFailure(runErr)
 	turn.Status = TurnStatusFailed
 	turn.Error = &failure
 	trajectory.Kind = TrajectoryEventTurnFailed
@@ -149,19 +162,34 @@ func applyUnexpectedTurnOutcome(
 	return ConversationStatusFailed
 }
 
-func classifyAgentRuntimeFailure(runErr error, fallbackCode string) (string, bool) {
-	if code, retryable, ok := agent.TurnAdmissionFailure(runErr); ok {
-		return code, retryable
+func unexpectedTurnFailure(runErr error) Failure {
+	if agent.IsProviderThreadMissing(runErr) {
+		return Failure{
+			Code:      "provider_thread_missing",
+			Message:   providerThreadMissingFailureMessage,
+			Retryable: false,
+		}
 	}
-	return fallbackCode, true
+	if agent.IsProviderLifecycleError(runErr) {
+		return Failure{
+			Code:      "provider_unavailable",
+			Message:   providerUnavailableFailureMessage,
+			Retryable: true,
+		}
+	}
+	return Failure{Code: "agent_runtime_failed", Message: agentRuntimeFailureMessage, Retryable: true}
 }
 
+// applyUnexpectedProviderReferences correlates the terminal event with the run
+// the provider was carrying, when Setta still holds the carrier. Recovery after
+// a restart does not: the carrier died with the process, so the event names the
+// Setta turn alone rather than inventing a provider reference for it.
 func applyUnexpectedProviderReferences(
 	trajectory *TrajectoryEvent,
 	active *activeConversationTurn,
 	turn ConversationTurn,
 ) {
-	if turn.ProviderTurnID != nil {
+	if turn.ProviderTurnID != nil && active.providerThreadID != "" {
 		trajectory.ProviderThreadID = &active.providerThreadID
 		trajectory.ProviderTurnID = turn.ProviderTurnID
 	}
@@ -227,8 +255,9 @@ func (service *Service) commitUnexpectedTurnEnd(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			mutation.conversation,
-			mutation.turn.ID,
+			mutation.turn,
 			[]TrajectoryEvent{mutation.trajectory},
+			artifactMetadataForTurn(mutation.snapshot.Artifacts.Artifacts, mutation.turn.ID),
 			true,
 		)
 	}

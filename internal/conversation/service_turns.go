@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"setta/internal/agent"
 )
@@ -45,7 +44,7 @@ func (service *Service) sendTurn(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	if err := service.launchTurnLocked(workspaceSummary.RootPath, workspaceID, turn, 0); err != nil {
+	if err := service.launchTurnLocked(ctx, workspaceSummary.RootPath, workspaceID, turn, 0); err != nil {
 		persistErr := service.persistUnexpectedTurnEnd(context.Background(), &activeConversationTurn{
 			conversationID: conversationID,
 			turnID:         turn.ID,
@@ -161,9 +160,13 @@ func (service *Service) acceptTurn(
 	queueOrdinal int,
 	turnID string,
 ) (ConversationTurn, error) {
+	workspaceID, err := requiredSnapshotWorkspaceID(snapshot)
+	if err != nil {
+		return ConversationTurn{}, err
+	}
 	profile, err := service.store.ReadEffectiveRoleProfile(
 		ctx,
-		snapshot.Conversation.WorkspaceID,
+		workspaceID,
 		snapshot.Conversation.ID,
 		DefaultAgentRoleProfile(),
 	)
@@ -197,6 +200,16 @@ func (service *Service) acceptTurn(
 	}
 	err = service.commitAcceptedTurn(ctx, mutation, publications)
 	return mutation.turn, err
+}
+
+func requiredSnapshotWorkspaceID(snapshot ConversationSnapshot) (string, error) {
+	if snapshot.Conversation.WorkspaceID == nil {
+		return "", &ResourceRequiredError{
+			ConversationID: snapshot.Conversation.ID,
+			ResourceKind:   "folder",
+		}
+	}
+	return *snapshot.Conversation.WorkspaceID, nil
 }
 
 type acceptedTurnIDs struct {
@@ -355,8 +368,9 @@ func (service *Service) commitAcceptedTurn(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			mutation.conversation,
-			mutation.turn.ID,
+			mutation.turn,
 			mutation.trajectory,
+			nil,
 			false,
 		)
 	}
@@ -370,7 +384,6 @@ func (service *Service) steerTurn(
 	text string,
 	expectedTurnID string,
 	clientInputID string,
-	outcomeStartedAt *time.Time,
 ) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
@@ -416,9 +429,6 @@ func (service *Service) steerTurn(
 	); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	if outcomeStartedAt != nil {
-		service.observeOutcomeTiming(OutcomeTimingSteering, *outcomeStartedAt)
-	}
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
 }
 
@@ -427,7 +437,19 @@ func (service *Service) StopTurn(
 	workspaceID string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
-	startedAt := service.now().UTC()
+	return service.stopTurn(ctx, workspaceID, conversationID, "")
+}
+
+// stopTurn interrupts the active turn, optionally requiring it to be the one the
+// caller named. Naming it matters when the caller acted on a turn it was shown:
+// a conversation promotes queued work as soon as the previous turn ends, so an
+// unnamed stop can interrupt a turn the caller never saw.
+func (service *Service) stopTurn(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	expectedTurnID string,
+) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -436,6 +458,9 @@ func (service *Service) StopTurn(
 	defer lock.Unlock()
 	control, err := service.controllableTurnState(ctx, workspaceID, conversationID)
 	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	if err := requireControlledTurn(conversationID, "stop", control.turn.ID, expectedTurnID); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	if err := service.agent.InterruptTurn(ctx, agent.TurnControlRequest{
@@ -453,7 +478,6 @@ func (service *Service) StopTurn(
 	); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	service.observeOutcomeTiming(OutcomeTimingCancellation, startedAt)
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
 }
 
@@ -463,7 +487,20 @@ func (service *Service) SubmitApproval(
 	conversationID string,
 	response ConversationApprovalResponse,
 ) (ConversationSnapshot, error) {
-	startedAt := service.now().UTC()
+	return service.submitApproval(ctx, workspaceID, conversationID, "", response)
+}
+
+// submitApproval answers one pending approval, optionally requiring it to belong
+// to the turn the caller named. An approval only exists while its own turn is
+// running, so a caller that was shown the turn should not answer for its
+// successor.
+func (service *Service) submitApproval(
+	ctx context.Context,
+	workspaceID string,
+	conversationID string,
+	expectedTurnID string,
+	response ConversationApprovalResponse,
+) (ConversationSnapshot, error) {
 	if err := service.requireOpen(); err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -475,6 +512,9 @@ func (service *Service) SubmitApproval(
 	defer lock.Unlock()
 	control, err := service.controllableTurnState(ctx, workspaceID, conversationID)
 	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	if err := requireControlledTurn(conversationID, "approval", control.turn.ID, expectedTurnID); err != nil {
 		return ConversationSnapshot{}, err
 	}
 	pending := pendingApprovalsForTurn(control.snapshot, control.turn.ID)
@@ -505,11 +545,11 @@ func (service *Service) SubmitApproval(
 	); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	service.observeOutcomeTiming(OutcomeTimingApproval, startedAt)
 	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
 }
 
 func (service *Service) launchTurnLocked(
+	ctx context.Context,
 	workspaceRoot string,
 	workspaceID string,
 	turn ConversationTurn,
@@ -523,17 +563,25 @@ func (service *Service) launchTurnLocked(
 	if err != nil {
 		return err
 	}
-	if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.Status != ThreadBindingStatusLinked {
-		return &CommandConflictError{ConversationID: turn.ConversationID, Reason: "agent thread is not linked"}
+	carrier, err := service.ensureConversationCarrierLocked(
+		ctx,
+		workspaceID,
+		workspaceRoot,
+		snapshot,
+		turn.RequestedRoleProfile,
+		invocation,
+	)
+	if err != nil {
+		return err
 	}
 	active := &activeConversationTurn{
 		conversationID:   turn.ConversationID,
-		providerThreadID: snapshot.ThreadBinding.ThreadID,
+		providerThreadID: carrier.threadID,
 		queueOrdinal:     queueOrdinal,
 		request: agent.TurnRequest{
 			ConversationID:   turn.ConversationID,
 			TurnID:           turn.ID,
-			ProviderThreadID: snapshot.ThreadBinding.ThreadID,
+			ProviderThreadID: carrier.threadID,
 			ClientInputID:    turn.ID,
 			Text:             turn.AuthoredInput.Text,
 			WorkspaceRoot:    workspaceRoot,
@@ -634,14 +682,17 @@ func (service *Service) controllableTurnState(
 			Reason:         fmt.Sprintf("turn %s is %s", turn.ID, turn.Status),
 		}
 	}
-	if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.Status != ThreadBindingStatusLinked {
+	// The carrier is runtime state, so the check that the caller is steering the
+	// run Setta is actually holding compares the live carrier with the run, not a
+	// durable record of either.
+	carrier, live := service.carriers.lookup(conversationID)
+	if !live || carrier.threadID != active.providerThreadID {
 		return controllableConversationTurn{}, &CommandConflictError{
 			ConversationID: conversationID,
-			Reason:         "agent thread is not linked",
+			Reason:         "the carrier running this turn is no longer active",
 		}
 	}
-	if snapshot.ThreadBinding.ThreadID != active.providerThreadID ||
-		*turn.ProviderTurnID != active.providerTurnID {
+	if *turn.ProviderTurnID != active.providerTurnID {
 		return controllableConversationTurn{}, &CommandConflictError{
 			ConversationID: conversationID,
 			Reason:         "active provider turn does not match durable state",

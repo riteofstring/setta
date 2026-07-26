@@ -6,6 +6,9 @@ type BranchKind string
 type SideConversationStatus string
 
 const (
+	// BranchKindFork carries one completed run of the parent forward. The child
+	// continues from that Setta turn by replaying the parent's own conversation
+	// log, not by inheriting provider history.
 	BranchKindFork BranchKind = "fork"
 
 	SideConversationStatusPreparing SideConversationStatus = "preparing"
@@ -21,18 +24,15 @@ type ConversationBranch struct {
 	DecisionSource           BranchDecisionSource `json:"decisionSource"`
 	ForkedAtTurnID           string               `json:"forkedAtTurnId"`
 	SourceTrajectorySequence int                  `json:"sourceTrajectorySequence"`
-	ProviderMetadata         map[string]string    `json:"providerMetadata"`
 	CreatedAt                string               `json:"createdAt"`
 }
 
 type SideConversation struct {
 	ID                          string                 `json:"id"`
 	ParentConversationID        string                 `json:"parentConversationId"`
-	ParentPaneID                string                 `json:"parentPaneId"`
 	ParentStatus                ConversationStatus     `json:"parentStatus"`
 	DecisionSource              BranchDecisionSource   `json:"decisionSource"`
 	ProviderThreadID            *string                `json:"providerThreadId"`
-	SourceProviderThreadID      string                 `json:"sourceProviderThreadId"`
 	SourceProviderTurnID        *string                `json:"sourceProviderTurnId"`
 	SourceTrajectorySequence    int                    `json:"sourceTrajectorySequence"`
 	LastEventSequence           int                    `json:"lastEventSequence"`
@@ -47,6 +47,20 @@ type SideConversation struct {
 }
 
 func (branch ConversationBranch) Validate() error {
+	if err := validateBranchIdentity(branch); err != nil {
+		return err
+	}
+	if err := validateBranchForkPoint(branch); err != nil {
+		return err
+	}
+	if branch.SourceTrajectorySequence < 0 {
+		return fmt.Errorf("branch %s source trajectory sequence must be non-negative", branch.ChildConversationID)
+	}
+	_, err := validateTimestamp("branch createdAt", branch.CreatedAt)
+	return err
+}
+
+func validateBranchIdentity(branch ConversationBranch) error {
 	if err := validateIdentifier("branch child conversation id", branch.ChildConversationID); err != nil {
 		return err
 	}
@@ -62,17 +76,14 @@ func (branch ConversationBranch) Validate() error {
 	if !validBranchDecisionSource(branch.DecisionSource) {
 		return fmt.Errorf("branch %s has unsupported decision source %q", branch.ChildConversationID, branch.DecisionSource)
 	}
-	if err := validateIdentifier("branch forked-at turn id", branch.ForkedAtTurnID); err != nil {
-		return err
-	}
-	if branch.SourceTrajectorySequence < 0 {
-		return fmt.Errorf("branch %s source trajectory sequence must be non-negative", branch.ChildConversationID)
-	}
-	if err := validateStringMap("branch provider metadata", branch.ProviderMetadata); err != nil {
-		return err
-	}
-	_, err := validateTimestamp("branch createdAt", branch.CreatedAt)
-	return err
+	return nil
+}
+
+// validateBranchForkPoint requires the completed parent turn every branch
+// carries forward. A branch exists because history was carried, so a branch
+// without a fork point would claim a child resumed work it never saw.
+func validateBranchForkPoint(branch ConversationBranch) error {
+	return validateIdentifier("branch forked-at turn id", branch.ForkedAtTurnID)
 }
 
 func (side SideConversation) Validate() error {
@@ -117,13 +128,7 @@ func validateSideConversationIdentifiers(side SideConversation) error {
 	if err := validateIdentifier("side conversation parent id", side.ParentConversationID); err != nil {
 		return err
 	}
-	if err := validateIdentifier("side conversation parent pane id", side.ParentPaneID); err != nil {
-		return err
-	}
 	if err := validateOptionalIdentifier("side conversation provider thread id", side.ProviderThreadID); err != nil {
-		return err
-	}
-	if err := validateIdentifier("side conversation source provider thread id", side.SourceProviderThreadID); err != nil {
 		return err
 	}
 	if err := validateOptionalIdentifier("side conversation source provider turn id", side.SourceProviderTurnID); err != nil {

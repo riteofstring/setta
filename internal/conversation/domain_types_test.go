@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 const (
@@ -17,7 +17,7 @@ func TestTopicConversationAndChildRecordsValidateOwnedInvariants(t *testing.T) {
 	archivedAt := testTimeEnded
 	conversation := TopicConversation{
 		ID:                     "conversation-1",
-		WorkspaceID:            "workspace-1",
+		WorkspaceID:            stringPointer("workspace-1"),
 		Title:                  "Topic conversations",
 		TopicDescriptor:        "Implement the new aggregate.",
 		Status:                 ConversationStatusIdle,
@@ -76,22 +76,6 @@ func TestTopicConversationAndChildRecordsValidateOwnedInvariants(t *testing.T) {
 	queued.Ordinal = 0
 	assertValidationErrorContains(t, queued.Validate(), "ordinal must be positive")
 
-	binding := AgentThreadBinding{
-		ConversationID:   conversation.ID,
-		Provider:         ProviderCodex,
-		ThreadID:         "provider-thread-1",
-		Status:           ThreadBindingStatusLinked,
-		CreatedAt:        testTimeStarted,
-		LastResumedAt:    stringPointer(testTimeEnded),
-		LastTurnID:       stringPointer("turn-1"),
-		ProviderMetadata: map[string]string{"cwd": "/workspace"},
-	}
-	if err := binding.Validate(); err != nil {
-		t.Fatalf("valid thread binding: %v", err)
-	}
-	binding.ProviderMetadata = nil
-	assertValidationErrorContains(t, binding.Validate(), "must be an object, not null")
-
 	sequence := 8
 	artifact := Artifact{
 		ID:                 "artifact-1",
@@ -145,8 +129,8 @@ func TestRoleProfilesKeepSelectionsPermissionsAndAuditIndependent(t *testing.T) 
 
 	invocation := validInvocation(RoleAgent, InvocationOutcomeSucceeded)
 	invocation.ModelReroutes = []InvocationModelReroute{
-		{FromModelID: invocation.Resolved.ModelID, ToModelID: "gpt-fallback", Reason: "high_risk_cyber_activity"},
-		{FromModelID: "gpt-fallback", ToModelID: "gpt-safe", Reason: "provider_policy"},
+		{FromModelID: invocation.Resolved.ModelID, ToModelID: "gpt-fallback", Reason: InvocationModelRerouteReasonHighRiskCyberActivity},
+		{FromModelID: "gpt-fallback", ToModelID: "gpt-safe", Reason: InvocationModelRerouteReasonHighRiskCyberActivity},
 	}
 	if err := invocation.Validate(); err != nil {
 		t.Fatalf("valid invocation audit: %v", err)
@@ -224,7 +208,6 @@ func TestBranchTypesKeepDurableForksAndEphemeralSidesDistinct(t *testing.T) {
 		DecisionSource:           BranchDecisionSourceConversationRouter,
 		ForkedAtTurnID:           "turn-4",
 		SourceTrajectorySequence: 19,
-		ProviderMetadata:         map[string]string{"providerForkThreadId": "thread-child"},
 		CreatedAt:                testTimeStarted,
 	}
 	if err := branch.Validate(); err != nil {
@@ -236,11 +219,9 @@ func TestBranchTypesKeepDurableForksAndEphemeralSidesDistinct(t *testing.T) {
 	side := SideConversation{
 		ID:                          "side-1",
 		ParentConversationID:        "conversation-parent",
-		ParentPaneID:                "pane-1",
 		ParentStatus:                ConversationStatusWorking,
 		DecisionSource:              BranchDecisionSourceConversationRouter,
 		ProviderThreadID:            stringPointer("thread-side"),
-		SourceProviderThreadID:      "thread-parent",
 		SourceProviderTurnID:        stringPointer("provider-turn-1"),
 		SourceTrajectorySequence:    21,
 		Status:                      SideConversationStatusActive,

@@ -23,7 +23,6 @@ const (
 	liveSideContextFailed   = "SETTA_LIVE_SIDE_CONTEXT_MISMATCH"
 	liveSideIsolationOK     = "SETTA_LIVE_SIDE_HISTORY_ISOLATED"
 	liveSideIsolationFailed = "SETTA_LIVE_SIDE_HISTORY_LEAKED"
-	liveSideParentPaneID    = "pane-live-side"
 )
 
 func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
@@ -32,7 +31,7 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 	defer cancel()
 	runtime := newObservedLiveSideRuntime()
 	t.Cleanup(func() {
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), time.Minute)
 		defer shutdownCancel()
 		if err := runtime.Shutdown(shutdownCtx); err != nil {
 			t.Errorf("shutdown live agent runtime: %v", err)
@@ -78,14 +77,14 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 		t.Fatalf("active parent turn has no provider identity: %+v", activeTurn)
 	}
 
-	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID, liveSideParentPaneID)
+	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID)
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
 	side := requireOnlySideConversation(t, created)
 	assertLiveSideCreatedDuringParentTurn(t, created, side, working, activeTurn)
-	forkRequest, forkedThread, injection := runtime.sidePreparation(t)
-	assertLiveSideForkSnapshot(t, forkRequest, forkedThread, working, activeRequest)
+	startRequest, sideThread, injection := runtime.sidePreparation(t)
+	assertLiveSideCarrierSnapshot(t, startRequest, sideThread, injection, activeRequest)
 	frame := assertLiveSideContextFrame(t, injection, side, activeRequest)
 	if !liveFrameHasCommand(frame, "sleep 20") {
 		t.Fatalf("live side context omitted active command: %+v", frame.ActiveActivities)
@@ -174,8 +173,6 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 	}
 	assertLiveParentExcludesSideWork(
 		t,
-		ctx,
-		runtime.Runtime,
 		isolationAnswered,
 		sideConversationBoundary,
 		sideInFlightContextFrameHeader,
@@ -186,9 +183,9 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 	)
 	disposeLiveSideConversation(t, ctx, runtime, service, workspaceID, parentID, side)
 	t.Logf(
-		"full side lifecycle re-verification: ephemeral fork response turns=%d items=%d projected the active source turn in progress; the typed frame carried %d active activities; two isolated side turns completed; the parent completed without side history; disposal unsubscribed the ephemeral provider thread",
-		len(forkedThread.Turns),
-		liveThreadItemCount(forkedThread),
+		"full side lifecycle re-verification: the side started its own ephemeral carrier %s replayed with %d Setta items; the typed frame carried %d active activities; two isolated side turns completed; the parent completed without side history; disposal unsubscribed the ephemeral provider thread",
+		sideThread.ID,
+		len(injection.items),
 		len(frame.ActiveActivities),
 	)
 }
@@ -207,7 +204,6 @@ func disposeLiveSideConversation(
 		ctx,
 		workspaceID,
 		parentID,
-		liveSideParentPaneID,
 		side.ID,
 	)
 	if err != nil {
@@ -232,8 +228,8 @@ func disposeLiveSideConversation(
 type observedLiveSideRuntime struct {
 	*agent.Runtime
 	mu              sync.Mutex
-	forkRequests    []agent.ForkThreadRequest
-	forkedThreads   []agent.Thread
+	startRequests   []agent.StartThreadRequest
+	startedThreads  []agent.Thread
 	injections      []observedLiveInjection
 	unsubscriptions []observedLiveUnsubscription
 }
@@ -257,17 +253,17 @@ func newObservedLiveSideRuntime() *observedLiveSideRuntime {
 	}
 }
 
-func (runtime *observedLiveSideRuntime) ForkThread(
+func (runtime *observedLiveSideRuntime) StartThread(
 	ctx context.Context,
-	request agent.ForkThreadRequest,
+	request agent.StartThreadRequest,
 ) (agent.Thread, error) {
-	thread, err := runtime.Runtime.ForkThread(ctx, request)
+	thread, err := runtime.Runtime.StartThread(ctx, request)
 	if err != nil {
 		return agent.Thread{}, err
 	}
 	runtime.mu.Lock()
-	runtime.forkRequests = append(runtime.forkRequests, request)
-	runtime.forkedThreads = append(runtime.forkedThreads, thread)
+	runtime.startRequests = append(runtime.startRequests, request)
+	runtime.startedThreads = append(runtime.startedThreads, thread)
 	runtime.mu.Unlock()
 	return thread, nil
 }
@@ -307,23 +303,26 @@ func (runtime *observedLiveSideRuntime) UnsubscribeThreadWithStatus(
 	return status, nil
 }
 
+// sidePreparation reports the carrier the side conversation was started on. The
+// parent's own carrier is started first, so the side's is the second: both are
+// ephemeral threads replayed from Setta state, and neither forks the other.
 func (runtime *observedLiveSideRuntime) sidePreparation(
 	t *testing.T,
-) (agent.ForkThreadRequest, agent.Thread, observedLiveInjection) {
+) (agent.StartThreadRequest, agent.Thread, observedLiveInjection) {
 	t.Helper()
 	runtime.mu.Lock()
 	defer runtime.mu.Unlock()
-	if len(runtime.forkRequests) != 1 || len(runtime.forkedThreads) != 1 || len(runtime.injections) != 1 {
+	if len(runtime.startRequests) != 2 || len(runtime.startedThreads) != 2 || len(runtime.injections) != 2 {
 		t.Fatalf(
-			"live side preparation calls = forks %d/%d injections %d",
-			len(runtime.forkRequests),
-			len(runtime.forkedThreads),
+			"live side preparation calls = starts %d/%d injections %d, want the parent carrier then the side carrier",
+			len(runtime.startRequests),
+			len(runtime.startedThreads),
 			len(runtime.injections),
 		)
 	}
-	injection := runtime.injections[0]
+	injection := runtime.injections[1]
 	injection.items = append([]agent.InjectedTextItem{}, injection.items...)
-	return runtime.forkRequests[0], runtime.forkedThreads[0], injection
+	return runtime.startRequests[1], runtime.startedThreads[1], injection
 }
 
 func (runtime *observedLiveSideRuntime) assertSideUnsubscribed(t *testing.T, threadID string) {
@@ -351,11 +350,11 @@ func newLiveSideConversationService(
 			t.Errorf("close live conversation store: %v", err)
 		}
 	})
-	if _, err := store.EnsureMasterVoiceSelection(
+	if _, err := store.EnsureDirectorVoiceSelection(
 		context.Background(),
-		speech.DefaultMasterVoiceSelection("2026-07-13T12:00:00Z"),
+		speech.DefaultDirectorVoiceSelection("2026-07-13T12:00:00Z"),
 	); err != nil {
-		t.Fatalf("EnsureMasterVoiceSelection: %v", err)
+		t.Fatalf("EnsureDirectorVoiceSelection: %v", err)
 	}
 	if _, err := store.EnsureNarratorVoiceDefault(
 		context.Background(),
@@ -522,11 +521,9 @@ func assertLiveSideCreatedDuringParentTurn(
 		latestSnapshotTurn(created).ID != activeTurn.ID ||
 		latestSnapshotTurn(created).Status != TurnStatusRunning ||
 		side.ParentConversationID != created.Conversation.ID ||
-		side.ParentPaneID != liveSideParentPaneID ||
 		side.DecisionSource != BranchDecisionSourceConversationRouter ||
 		side.Status != SideConversationStatusActive ||
 		side.ParentStatus != ConversationStatusWorking ||
-		side.SourceProviderThreadID != working.ThreadBinding.ThreadID ||
 		side.SourceTrajectorySequence < working.Conversation.LastTrajectorySequence ||
 		side.SourceTrajectorySequence > created.Conversation.LastTrajectorySequence ||
 		side.SourceProviderTurnID == nil ||
@@ -537,49 +534,48 @@ func assertLiveSideCreatedDuringParentTurn(
 	}
 }
 
-func assertLiveSideForkSnapshot(
+func assertLiveSideCarrierSnapshot(
 	t *testing.T,
-	request agent.ForkThreadRequest,
+	request agent.StartThreadRequest,
 	thread agent.Thread,
-	working ConversationSnapshot,
+	injection observedLiveInjection,
 	activeRequest string,
 ) {
 	t.Helper()
-	if !request.Ephemeral || request.LastTurnID != nil || request.ParentThreadID != working.ThreadBinding.ThreadID {
-		t.Fatalf("live side fork request = %+v", request)
+	if !request.Ephemeral {
+		t.Fatalf("live side carrier request = %+v", request)
 	}
 	if request.Invocation.Model != "gpt-5.6-luna" ||
 		request.Invocation.ModelSelectionProviderDefault ||
 		request.Invocation.ReasoningEffort != "medium" ||
 		request.Invocation.PermissionMode != agent.PermissionModeReadOnly ||
-		request.Invocation.ApprovalMode != agent.ApprovalModeOnRequest {
+		request.Invocation.ApprovalMode != agent.ApprovalModeNever {
 		t.Fatalf("live side invocation = %+v", request.Invocation)
 	}
 	if request.DeveloperInstructions != sideAgentDeveloperInstructions {
 		t.Fatalf("live side developer instructions = %q", request.DeveloperInstructions)
 	}
-	if !thread.Ephemeral || thread.ForkedFromID == nil || *thread.ForkedFromID != request.ParentThreadID {
-		t.Fatalf("live side fork response = %+v", thread)
+	if !thread.Ephemeral || thread.ForkedFromID != nil {
+		t.Fatalf("live side carrier response = %+v", thread)
 	}
-	if !liveThreadHasTextItem(thread, "userMessage", activeRequest) ||
-		!liveThreadHasTextItem(thread, "agentMessage", liveSideParentStarting) {
-		t.Fatalf("live side fork omitted active user/commentary history: %+v", thread.Turns)
+	// The parent context the side reads is what Setta replayed, not provider
+	// history: the running request reaches the side through the typed frame, and
+	// parent output produced after the boundary never does.
+	if liveInjectionContains(injection, activeRequest) {
+		t.Fatalf("live side replay repeated the running parent request as history: %+v", injection.items)
 	}
-	if liveThreadHasItemType(thread, "commandExecution") {
-		t.Fatalf("live side fork unexpectedly included active command item: %+v", thread.Turns)
+	if liveInjectionContains(injection, liveSideParentFinished) {
+		t.Fatalf("live side replay included later parent output: %+v", injection.items)
 	}
-	if liveThreadHasTextItem(thread, "agentMessage", liveSideParentFinished) {
-		t.Fatalf("live side fork included later parent output: %+v", thread.Turns)
+}
+
+func liveInjectionContains(injection observedLiveInjection, text string) bool {
+	for _, item := range injection.items {
+		if item.Role != "developer" && strings.Contains(item.Text, text) {
+			return true
+		}
 	}
-	activeTurnStatus, found := liveThreadTurnStatusContaining(thread, activeRequest)
-	if !found || activeTurnStatus != "inProgress" {
-		t.Fatalf(
-			"live ephemeral fork active-turn response status = %q/%t, want inProgress: %+v",
-			activeTurnStatus,
-			found,
-			thread.Turns,
-		)
-	}
+	return false
 }
 
 func assertLiveSideContextFrame(
@@ -593,16 +589,22 @@ func assertLiveSideContextFrame(
 		t.Fatalf("live side context injection thread = %q, side=%+v", injection.threadID, side)
 	}
 	items := injection.items
-	if len(items) != 2 || items[0].Role != "user" || items[0].Text != sideConversationBoundary ||
-		items[1].Role != "developer" {
+	if len(items) < 2 {
+		t.Fatalf("live side injected items = %+v", items)
+	}
+	// The Setta replay of the parent comes first; the last two items are always
+	// the boundary that ends it and the typed frame the side reads.
+	boundary := items[len(items)-2]
+	context := items[len(items)-1]
+	if boundary.Role != "user" || boundary.Text != sideConversationBoundary || context.Role != "developer" {
 		t.Fatalf("live side injected items = %+v", items)
 	}
 	prefix := sideInFlightContextFrameHeader + "\n"
-	if !strings.HasPrefix(items[1].Text, prefix) {
-		t.Fatalf("live side context header drifted: %q", items[1].Text)
+	if !strings.HasPrefix(context.Text, prefix) {
+		t.Fatalf("live side context header drifted: %q", context.Text)
 	}
 	var frame SideInFlightContextFrame
-	if err := json.Unmarshal([]byte(strings.TrimPrefix(items[1].Text, prefix)), &frame); err != nil {
+	if err := json.Unmarshal([]byte(strings.TrimPrefix(context.Text, prefix)), &frame); err != nil {
 		t.Fatalf("decode live side context frame: %v", err)
 	}
 	if err := frame.Validate(); err != nil {
@@ -624,47 +626,6 @@ func liveFrameHasCommand(frame SideInFlightContextFrame, command string) bool {
 		}
 	}
 	return false
-}
-
-func liveThreadHasTextItem(thread agent.Thread, itemType string, text string) bool {
-	for _, turn := range thread.Turns {
-		for _, item := range turn.Items {
-			if item.Type == itemType && strings.Contains(item.Text, text) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func liveThreadHasItemType(thread agent.Thread, itemType string) bool {
-	for _, turn := range thread.Turns {
-		for _, item := range turn.Items {
-			if item.Type == itemType {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func liveThreadItemCount(thread agent.Thread) int {
-	count := 0
-	for _, turn := range thread.Turns {
-		count += len(turn.Items)
-	}
-	return count
-}
-
-func liveThreadTurnStatusContaining(thread agent.Thread, text string) (string, bool) {
-	for _, turn := range thread.Turns {
-		for _, item := range turn.Items {
-			if strings.Contains(item.Text, text) {
-				return turn.Status, true
-			}
-		}
-	}
-	return "", false
 }
 
 func requireLiveActiveSideTurnID(t *testing.T, snapshot ConversationSnapshot, sideID string) string {
@@ -720,34 +681,21 @@ func liveConversationTurnFinalText(snapshot ConversationSnapshot, turnID string)
 	return text
 }
 
+// assertLiveParentExcludesSideWork proves side work never entered the parent
+// conversation. It reads Setta's own record rather than the parent's provider
+// thread: the durable conversation is what the next carrier replays, so keeping
+// it clean is what keeps side work out of the parent for good.
 func assertLiveParentExcludesSideWork(
 	t *testing.T,
-	ctx context.Context,
-	runtime *agent.Runtime,
 	parent ConversationSnapshot,
 	forbidden ...string,
 ) {
 	t.Helper()
-	thread, err := runtime.ReadThread(ctx, parent.ThreadBinding.ThreadID, true)
-	if err != nil {
-		t.Fatalf("ReadThread parent after side work: %v", err)
-	}
 	for _, text := range forbidden {
-		if liveThreadContainsText(thread, text) || liveParentTrajectoryContains(parent, text) {
-			t.Fatalf("side work %q contaminated parent thread or trajectory", text)
+		if liveParentTrajectoryContains(parent, text) {
+			t.Fatalf("side work %q contaminated the parent conversation", text)
 		}
 	}
-}
-
-func liveThreadContainsText(thread agent.Thread, text string) bool {
-	for _, turn := range thread.Turns {
-		for _, item := range turn.Items {
-			if strings.Contains(item.Text, text) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func liveParentTrajectoryContains(snapshot ConversationSnapshot, text string) bool {

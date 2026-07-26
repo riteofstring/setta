@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 func TestConversationSnapshotIsBoundedOwnedAndCursorAligned(t *testing.T) {
@@ -87,14 +87,6 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 		Title:          "Contract report",
 		CreatedAt:      testTimeStarted,
 	}
-	binding := AgentThreadBinding{
-		ConversationID:   conversationID,
-		Provider:         ProviderCodex,
-		ThreadID:         "provider-thread-1",
-		Status:           ThreadBindingStatusLinked,
-		CreatedAt:        testTimeStarted,
-		ProviderMetadata: map[string]string{},
-	}
 	branch := ConversationBranch{
 		ChildConversationID:      conversationID,
 		ParentConversationID:     "conversation-parent",
@@ -102,17 +94,14 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 		DecisionSource:           BranchDecisionSourceConversationRouter,
 		ForkedAtTurnID:           "turn-parent",
 		SourceTrajectorySequence: 1,
-		ProviderMetadata:         map[string]string{},
 		CreatedAt:                testTimeStarted,
 	}
 	side := SideConversation{
 		ID:                          "side-1",
 		ParentConversationID:        conversationID,
-		ParentPaneID:                "pane-1",
 		ParentStatus:                snapshot.Conversation.Status,
 		DecisionSource:              BranchDecisionSourceConversationRouter,
 		ProviderThreadID:            stringPointer("provider-side-thread"),
-		SourceProviderThreadID:      "provider-thread-1",
 		SourceProviderTurnID:        stringPointer("provider-turn-1"),
 		SourceTrajectorySequence:    1,
 		Status:                      SideConversationStatusActive,
@@ -137,7 +126,6 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 		ConversationUpdatedEventPayload{Type: ConversationEventTypeConversationUpdated, Conversation: snapshot.Conversation},
 		ConversationTurnUpdatedEventPayload{Type: ConversationEventTypeTurnUpdated, Turn: snapshot.Turns.Turns[0]},
 		ConversationQueueUpdatedEventPayload{Type: ConversationEventTypeQueueUpdated, Queue: snapshot.Queue},
-		ConversationThreadBindingUpdatedEventPayload{Type: ConversationEventTypeThreadBindingUpdated, Binding: binding},
 		ConversationTrajectoryAppendedEventPayload{Type: ConversationEventTypeTrajectoryAppended, Event: trajectory},
 		ConversationArtifactCreatedEventPayload{Type: ConversationEventTypeArtifactCreated, Artifact: artifact},
 		ConversationNarratorStateUpdatedEventPayload{Type: ConversationEventTypeNarratorStateUpdated, State: snapshot.NarratorState},
@@ -239,7 +227,7 @@ func TestConversationEventRejectsMismatchedDiscriminatorAndOwnership(t *testing.
 func validConversationSnapshot() ConversationSnapshot {
 	conversation := TopicConversation{
 		ID:          "conversation-1",
-		WorkspaceID: "workspace-1",
+		WorkspaceID: stringPointer("workspace-1"),
 		Title:       "Generated conversation contracts",
 		Status:      ConversationStatusIdle,
 		CreatedAt:   testTimeStarted,

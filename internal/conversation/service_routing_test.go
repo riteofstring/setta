@@ -26,21 +26,18 @@ func (service *Service) steerTestTurn(
 	conversationID string,
 	text string,
 ) (ConversationSnapshot, error) {
-	return service.steerTurn(ctx, workspaceID, conversationID, text, "", "", nil)
+	return service.steerTurn(ctx, workspaceID, conversationID, text, "", "")
 }
 
 func (service *Service) createRouterSideConversationForTest(
 	ctx context.Context,
 	workspaceID string,
-	parentConversationID string,
-	parentPaneID string,
-) (ConversationSnapshot, error) {
+	parentConversationID string) (ConversationSnapshot, error) {
 	return service.ExecuteBranchDecision(
 		ctx,
 		workspaceID,
 		BranchDecisionExecutionScope{
 			ParentConversationID: parentConversationID,
-			ParentPaneID:         &parentPaneID,
 			Source:               BranchDecisionSourceConversationRouter,
 		},
 		BranchDecision{

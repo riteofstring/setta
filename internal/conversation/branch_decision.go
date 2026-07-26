@@ -13,12 +13,11 @@ const (
 	BranchDecisionKindForkConversation       BranchDecisionKind = "fork_conversation"
 
 	BranchDecisionSourceConversationRouter BranchDecisionSource = "conversation_router"
-	BranchDecisionSourceMaster             BranchDecisionSource = "master"
 )
 
 // CreateSideConversationBranchDecision is deliberately empty. The model-owned
-// decision selects an operation but cannot name a provider thread, pane, or
-// renderer command. The trusted execution scope supplies the parent and pane.
+// decision selects an operation but cannot name a provider thread or renderer
+// command. The trusted execution scope supplies the parent conversation.
 type CreateSideConversationBranchDecision struct{}
 
 // ForkConversationBranchDecision contains only Setta-owned fork inputs. The
@@ -28,8 +27,8 @@ type ForkConversationBranchDecision struct {
 	ProposedTitle  string `json:"proposedTitle"`
 }
 
-// BranchDecision is the restricted payload shared by the conversation router
-// and global master. Exactly one branch must match Kind.
+// BranchDecision is the restricted payload shared by the conversation-local
+// router and Director execution boundary. Exactly one branch must match Kind.
 type BranchDecision struct {
 	Kind                   BranchDecisionKind                    `json:"kind"`
 	CreateSideConversation *CreateSideConversationBranchDecision `json:"createSideConversation"`
@@ -37,11 +36,9 @@ type BranchDecision struct {
 }
 
 // BranchDecisionExecutionScope is trusted application context and is never
-// part of the model decision schema. A side pane is supplied only after the
-// pane coordinator or originating conversation has resolved it.
+// part of the model decision schema.
 type BranchDecisionExecutionScope struct {
 	ParentConversationID string
-	ParentPaneID         *string
 	SideConversationID   *string
 	ChildConversationID  *string
 	Source               BranchDecisionSource
@@ -88,14 +85,8 @@ func (scope BranchDecisionExecutionScope) Validate(decision BranchDecision) erro
 }
 
 func (scope BranchDecisionExecutionScope) validateCreateSideConversation() error {
-	if scope.ParentPaneID == nil {
-		return errors.New("create-side branch decision requires a resolved parent pane")
-	}
 	if scope.ChildConversationID != nil {
 		return errors.New("create-side branch decision must not contain a child conversation id")
-	}
-	if err := validateIdentifier("branch decision parent pane id", *scope.ParentPaneID); err != nil {
-		return err
 	}
 	if scope.SideConversationID == nil {
 		return nil
@@ -104,7 +95,7 @@ func (scope BranchDecisionExecutionScope) validateCreateSideConversation() error
 }
 
 func (scope BranchDecisionExecutionScope) validateForkConversation() error {
-	if scope.ParentPaneID != nil || scope.SideConversationID != nil {
+	if scope.SideConversationID != nil {
 		return errors.New("fork branch decision must not contain side-conversation scope")
 	}
 	if scope.ChildConversationID == nil {
@@ -114,11 +105,5 @@ func (scope BranchDecisionExecutionScope) validateForkConversation() error {
 }
 
 func validBranchDecisionSource(source BranchDecisionSource) bool {
-	switch source {
-	case BranchDecisionSourceConversationRouter,
-		BranchDecisionSourceMaster:
-		return true
-	default:
-		return false
-	}
+	return source == BranchDecisionSourceConversationRouter
 }

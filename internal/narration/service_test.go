@@ -13,9 +13,9 @@ import (
 
 	"setta/internal/agent"
 	"setta/internal/conversation"
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
 	"setta/internal/workspace"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 const serviceTestTimestamp = "2026-07-12T12:00:00Z"
@@ -38,6 +38,26 @@ func TestServiceAskRoutedStatusPersistsReadOnlyReply(t *testing.T) {
 	assertStatusPreservesPrimaryAgent(t, before, snapshot)
 	assertStatusNarrationReply(t, snapshot, question)
 	assertStatusProviderRequest(t, fixture, question)
+}
+
+func TestServiceAskRoutedFolderlessStatusPersistsReply(t *testing.T) {
+	fixture := newFolderlessBlankStatusServiceFixture(t)
+	question := "hi"
+
+	snapshot, err := fixture.service.AskRoutedFolderlessStatus(
+		context.Background(),
+		fixture.conversationID,
+		"narrator_folderless_status_test",
+		question,
+	)
+	if err != nil {
+		t.Fatalf("AskRoutedFolderlessStatus: %v", err)
+	}
+	if snapshot.Conversation.WorkspaceID != nil {
+		t.Fatalf("folderless status bound workspace: %+v", snapshot.Conversation.WorkspaceID)
+	}
+	assertFolderlessStatusNarrationReply(t, snapshot, question)
+	assertFolderlessStatusProviderRequest(t, fixture, question)
 }
 
 func readStatusServiceSnapshot(t *testing.T, fixture statusServiceFixture) conversation.ConversationSnapshot {
@@ -102,6 +122,25 @@ func assertStatusNarrationReply(
 	}
 }
 
+func assertFolderlessStatusNarrationReply(
+	t *testing.T,
+	snapshot conversation.ConversationSnapshot,
+	question string,
+) {
+	t.Helper()
+	if len(snapshot.Narration.Events) != 1 {
+		t.Fatalf("folderless narration events = %+v, want one status reply", snapshot.Narration.Events)
+	}
+	reply := snapshot.Narration.Events[0]
+	if reply.Kind != conversation.NarrationEventKindStatusReply || reply.StatusReply == nil ||
+		reply.StatusReply.Question != question ||
+		reply.StatusReply.Text != "The primary agent turn is still running." ||
+		reply.Trigger != conversation.NarrationTriggerExplicitStatusRequested ||
+		reply.TurnID != nil {
+		t.Fatalf("folderless status narration event = %+v", reply)
+	}
+}
+
 func assertStatusProviderRequest(
 	t *testing.T,
 	fixture statusServiceFixture,
@@ -123,6 +162,31 @@ func assertStatusProviderRequest(
 		contextBundle.Authoritative.CurrentInstructions == nil ||
 		contextBundle.Authoritative.CurrentInstructions.TurnStatus != conversation.TurnStatusRunning {
 		t.Fatalf("structured status context = %+v", contextBundle)
+	}
+}
+
+func assertFolderlessStatusProviderRequest(
+	t *testing.T,
+	fixture statusServiceFixture,
+	question string,
+) {
+	t.Helper()
+	request := fixture.provider.lastRequest
+	if request.Invocation.PermissionMode != agent.PermissionModeReadOnly ||
+		request.Invocation.ApprovalMode != agent.ApprovalModeNever ||
+		request.WorkspaceRoot == fixture.workspace.RootPath ||
+		!filepath.IsAbs(request.WorkspaceRoot) {
+		t.Fatalf("folderless structured status request = %+v", request)
+	}
+	var contextBundle StatusContextBundle
+	if err := json.Unmarshal(request.Input, &contextBundle); err != nil {
+		t.Fatalf("decode folderless structured status input: %v", err)
+	}
+	if contextBundle.Question != question ||
+		contextBundle.Authoritative.Conversation.ConversationID != fixture.conversationID ||
+		contextBundle.Authoritative.Conversation.WorkspaceID != "" ||
+		contextBundle.Authoritative.CurrentInstructions != nil {
+		t.Fatalf("folderless structured status context = %+v", contextBundle)
 	}
 }
 
@@ -223,11 +287,70 @@ func newStatusServiceFixture(t *testing.T, providerErr error) statusServiceFixtu
 	}
 }
 
+func newBlankStatusServiceFixture(t *testing.T) statusServiceFixture {
+	return newBlankStatusServiceFixtureWithWorkspace(
+		t,
+		"conversation-blank-route",
+		stringPointerForServiceTest("workspace-status-service"),
+	)
+}
+
+func newFolderlessBlankStatusServiceFixture(t *testing.T) statusServiceFixture {
+	return newBlankStatusServiceFixtureWithWorkspace(t, "conversation-folderless-route", nil)
+}
+
+func newBlankStatusServiceFixtureWithWorkspace(
+	t *testing.T,
+	conversationID string,
+	workspaceID *string,
+) statusServiceFixture {
+	t.Helper()
+	store, err := conversation.NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	seedBlankStatusServiceConversation(t, store, conversationID, workspaceID)
+	workspaceSummary := workspace.WorkspaceSummary{
+		ID:       "workspace-status-service",
+		RootPath: filepath.Clean(t.TempDir()),
+	}
+	provider := &statusServiceAgentRuntime{}
+	service, err := NewService(
+		store,
+		statusServiceWorkspaceResolver{summary: workspaceSummary},
+		provider,
+		WithServiceIDGenerator(func(prefix string) (string, error) {
+			return prefix + "-request", nil
+		}),
+	)
+	if err != nil {
+		_ = store.Close()
+		t.Fatalf("NewService: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := service.Shutdown(ctx); err != nil {
+			t.Errorf("Shutdown: %v", err)
+		}
+		if err := store.Close(); err != nil {
+			t.Errorf("Close: %v", err)
+		}
+	})
+	return statusServiceFixture{
+		conversationID: conversationID,
+		provider:       provider,
+		service:        service,
+		store:          store,
+		workspace:      workspaceSummary,
+	}
+}
+
 func seedStatusServiceConversation(t *testing.T, store *conversation.Store, conversationID string) {
 	t.Helper()
 	record := conversation.TopicConversation{
 		ID:              conversationID,
-		WorkspaceID:     "workspace-status-service",
+		WorkspaceID:     stringPointerForServiceTest("workspace-status-service"),
 		Title:           "Status service topic",
 		TopicDescriptor: "Status service topic",
 		Status:          conversation.ConversationStatusWorking,
@@ -249,7 +372,7 @@ func seedStatusServiceConversation(t *testing.T, store *conversation.Store, conv
 		NarratorSpeechEnabled:   true,
 		UpdatedAt:               serviceTestTimestamp,
 	}
-	turn, binding, trajectory := statusServiceActiveTurn(conversationID)
+	turn, trajectory := statusServiceActiveTurn(conversationID)
 	_, err := store.Transact(context.Background(), "seed narrator status service", func(tx *conversation.WriteTransaction) error {
 		if err := tx.InsertConversation(record); err != nil {
 			return err
@@ -258,9 +381,6 @@ func seedStatusServiceConversation(t *testing.T, store *conversation.Store, conv
 			return err
 		}
 		if err := tx.InsertTurn(turn); err != nil {
-			return err
-		}
-		if err := tx.UpsertAgentThreadBinding(binding); err != nil {
 			return err
 		}
 		for _, event := range trajectory {
@@ -285,13 +405,72 @@ func seedStatusServiceConversation(t *testing.T, store *conversation.Store, conv
 	}
 }
 
+func seedBlankStatusServiceConversation(
+	t *testing.T,
+	store *conversation.Store,
+	conversationID string,
+	workspaceID *string,
+) {
+	t.Helper()
+	record := conversation.TopicConversation{
+		ID:              conversationID,
+		WorkspaceID:     workspaceID,
+		Title:           "New conversation",
+		TopicDescriptor: "New conversation",
+		Status:          conversation.ConversationStatusIdle,
+		CreatedAt:       serviceTestTimestamp,
+		UpdatedAt:       serviceTestTimestamp,
+	}
+	narratorState := conversation.NarratorState{
+		ConversationID:  conversationID,
+		TopicDescriptor: record.TopicDescriptor,
+		Status:          conversation.NarratorStatusReady,
+		UpdatedAt:       serviceTestTimestamp,
+	}
+	presentation := conversation.ConversationPresentationProfile{
+		ConversationID:          conversationID,
+		PaletteSelection:        conversation.PresentationSelectionAutoDistinct,
+		ResolvedPaletteID:       conversationpalette.ConversationPaletteGreen,
+		NarratorVoiceSelection:  speech.VoiceSelectionAutoDistinct,
+		ResolvedNarratorVoiceID: narrationTestVoiceIDPointer(speech.SpeechVoiceAlloy),
+		NarratorSpeechEnabled:   true,
+		UpdatedAt:               serviceTestTimestamp,
+	}
+	_, err := store.Transact(context.Background(), "seed blank routed conversation", func(tx *conversation.WriteTransaction) error {
+		if err := tx.InsertConversation(record); err != nil {
+			return err
+		}
+		if err := tx.InsertNarratorState(narratorState); err != nil {
+			return err
+		}
+		if err := tx.UpsertConversationPresentationProfile(presentation); err != nil {
+			return err
+		}
+		_, err := tx.AppendCommittedEvent(conversation.CommittedEventDraft{
+			ID:          "conversation-blank-seed-event",
+			StreamID:    "conversation:" + conversationID,
+			Kind:        string(conversation.ConversationEventTypeConversationUpdated),
+			Payload:     map[string]string{"conversationId": conversationID},
+			CommittedAt: serviceTestTimestamp,
+		})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("seed blank conversation: %v", err)
+	}
+}
+
+func stringPointerForServiceTest(value string) *string {
+	return &value
+}
+
 func narrationTestVoiceIDPointer(value speech.SpeechVoiceID) *speech.SpeechVoiceID {
 	return &value
 }
 
 func statusServiceActiveTurn(
 	conversationID string,
-) (conversation.ConversationTurn, conversation.AgentThreadBinding, []conversation.TrajectoryEvent) {
+) (conversation.ConversationTurn, []conversation.TrajectoryEvent) {
 	profile := conversation.DefaultAgentRoleProfile()
 	providerThreadID := "provider-primary-thread"
 	providerTurnID := "provider-primary-turn"
@@ -326,17 +505,6 @@ func statusServiceActiveTurn(
 		ResolvedInvocation:   &invocation,
 		ProviderTurnID:       &providerTurnID,
 	}
-	binding := conversation.AgentThreadBinding{
-		ConversationID: conversationID,
-		Provider:       conversation.ProviderCodex,
-		ThreadID:       providerThreadID,
-		Status:         conversation.ThreadBindingStatusLinked,
-		CreatedAt:      serviceTestTimestamp,
-		LastTurnID:     &turn.ID,
-		ProviderMetadata: map[string]string{
-			"model": "gpt-5.6-sol",
-		},
-	}
 	turnID := turn.ID
 	trajectory := []conversation.TrajectoryEvent{
 		{
@@ -363,7 +531,7 @@ func statusServiceActiveTurn(
 			TurnStarted:    &conversation.TrajectoryTurnStarted{Invocation: invocation},
 		},
 	}
-	return turn, binding, trajectory
+	return turn, trajectory
 }
 
 type statusServiceWorkspaceResolver struct {
@@ -380,12 +548,12 @@ func (resolver statusServiceWorkspaceResolver) ResolveActiveWorkspace(
 }
 
 type statusServiceAgentRuntime struct {
-	mu                 sync.Mutex
-	lastRequest        agent.FreshStructuredCallRequest
-	providerErr        error
-	routeKinds         []conversation.ConversationRouteDecisionKind
-	routeRequests      []agent.FreshStructuredCallRequest
-	invalidRouteOutput bool
+	mu                           sync.Mutex
+	lastRequest                  agent.FreshStructuredCallRequest
+	providerErr                  error
+	routeKinds                   []conversation.ConversationRouteDecisionKind
+	routeRequests                []agent.FreshStructuredCallRequest
+	invalidRouteOutputsRemaining int
 }
 
 func (*statusServiceAgentRuntime) ResolveInvocation(
@@ -444,7 +612,8 @@ func (runtime *statusServiceAgentRuntime) runConversationRouteCall(
 	request agent.FreshStructuredCallRequest,
 ) (agent.FreshStructuredCallResult, error) {
 	runtime.routeRequests = append(runtime.routeRequests, request)
-	if runtime.invalidRouteOutput {
+	if runtime.invalidRouteOutputsRemaining > 0 {
+		runtime.invalidRouteOutputsRemaining--
 		return agent.FreshStructuredCallResult{
 			ProviderThreadID: "provider-router-thread",
 			ProviderTurnID:   "provider-router-turn",

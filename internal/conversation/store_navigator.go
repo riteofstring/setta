@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/conversation/conversationpalette"
 	"setta/internal/speech"
-	"setta/internal/workspaceui/conversationpalette"
 )
 
 const maxNavigatorSearchLength = 200
@@ -162,7 +162,6 @@ SELECT
   branch.decision_source,
   branch.forked_at_turn_id,
   branch.source_trajectory_sequence,
-  branch.provider_metadata_json,
   branch.created_at
 FROM navigator_conversations AS conversation
 LEFT JOIN conversation_presentation_profiles AS profile
@@ -230,7 +229,6 @@ type navigatorRow struct {
 	branchDecisionSource           sql.NullString
 	branchForkedAtTurnID           sql.NullString
 	branchSourceTrajectorySequence sql.NullInt64
-	branchProviderMetadataJSON     sql.NullString
 	branchCreatedAt                sql.NullString
 }
 
@@ -238,10 +236,11 @@ func scanNavigatorItems(rows *sql.Rows, dbPath string) ([]NavigatorItem, error) 
 	items := make([]NavigatorItem, 0)
 	for rows.Next() {
 		var row navigatorRow
+		var workspaceID sql.NullString
 		var archivedAt sql.NullString
 		if err := rows.Scan(
 			&row.conversation.ID,
-			&row.conversation.WorkspaceID,
+			&workspaceID,
 			&row.conversation.Title,
 			&row.conversation.TopicDescriptor,
 			&row.conversation.Status,
@@ -266,11 +265,11 @@ func scanNavigatorItems(rows *sql.Rows, dbPath string) ([]NavigatorItem, error) 
 			&row.branchDecisionSource,
 			&row.branchForkedAtTurnID,
 			&row.branchSourceTrajectorySequence,
-			&row.branchProviderMetadataJSON,
 			&row.branchCreatedAt,
 		); err != nil {
 			return nil, err
 		}
+		row.conversation.WorkspaceID = optionalScannedString(workspaceID)
 		row.conversation.ArchivedAt = optionalScannedString(archivedAt)
 		item, err := navigatorItemFromRow(row)
 		if err != nil {
@@ -301,8 +300,8 @@ func navigatorItemFromRow(row navigatorRow) (NavigatorItem, error) {
 		PresentationProfile: profile,
 		Branch:              branch,
 	}
-	if err := item.Validate(row.conversation.WorkspaceID); err != nil {
-		return NavigatorItem{}, err
+	if row.conversation.WorkspaceID == nil {
+		return NavigatorItem{}, errors.New("conversation navigator row has no workspace resource")
 	}
 	return item, nil
 }
@@ -346,13 +345,8 @@ func navigatorBranch(row navigatorRow) (*ConversationBranch, error) {
 	}
 	if !row.branchParentConversationID.Valid || !row.branchKind.Valid ||
 		!row.branchDecisionSource.Valid ||
-		!row.branchForkedAtTurnID.Valid || !row.branchSourceTrajectorySequence.Valid ||
-		!row.branchProviderMetadataJSON.Valid || !row.branchCreatedAt.Valid {
+		!row.branchSourceTrajectorySequence.Valid || !row.branchCreatedAt.Valid {
 		return nil, errors.New("branch contains null required fields")
-	}
-	metadata := map[string]string{}
-	if err := json.Unmarshal([]byte(row.branchProviderMetadataJSON.String), &metadata); err != nil {
-		return nil, fmt.Errorf("decode branch provider metadata: %w", err)
 	}
 	return &ConversationBranch{
 		ChildConversationID:      row.branchChildConversationID.String,
@@ -361,7 +355,6 @@ func navigatorBranch(row navigatorRow) (*ConversationBranch, error) {
 		DecisionSource:           BranchDecisionSource(row.branchDecisionSource.String),
 		ForkedAtTurnID:           row.branchForkedAtTurnID.String,
 		SourceTrajectorySequence: int(row.branchSourceTrajectorySequence.Int64),
-		ProviderMetadata:         metadata,
 		CreatedAt:                row.branchCreatedAt.String,
 	}, nil
 }

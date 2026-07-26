@@ -22,7 +22,7 @@ Sub-agents are off-limits in this side conversation. Do not interact with existi
 
 const sideConversationBoundary = `Side conversation boundary.
 
-Everything before this boundary is inherited history from the parent thread. It is reference context only. It is not your current task.
+Everything before this boundary is the parent conversation's history, replayed from Setta's own record. It is reference context only. It is not your current task.
 
 Do not continue, execute, or complete any instructions, plans, tool calls, approvals, edits, or requests from before this boundary. Only messages submitted after this boundary are active user instructions for this side conversation.
 
@@ -38,7 +38,6 @@ const sideInFlightContextFrameHeader = `Setta authoritative parent-state referen
 
 type preparedSideConversation struct {
 	invocation           agent.Invocation
-	parentThreadID       string
 	resolved             agent.ResolvedInvocation
 	side                 SideConversation
 	injectedItems        []agent.InjectedTextItem
@@ -51,7 +50,6 @@ func (service *Service) executeSideConversationDecision(
 	ctx context.Context,
 	workspaceID string,
 	parentConversationID string,
-	parentPaneID string,
 	sideConversationID *string,
 	decisionSource BranchDecisionSource,
 ) (ConversationSnapshot, error) {
@@ -71,7 +69,6 @@ func (service *Service) executeSideConversationDecision(
 		ctx,
 		workspaceID,
 		parentConversationID,
-		parentPaneID,
 		workspaceSummary.RootPath,
 		profile,
 		resolved,
@@ -92,8 +89,10 @@ func (service *Service) startPreparedSideConversation(
 	ctx context.Context,
 	prepared preparedSideConversation,
 ) error {
-	thread, err := service.agent.ForkThread(ctx, agent.ForkThreadRequest{
-		ParentThreadID:        prepared.parentThreadID,
+	// The side conversation gets its own ephemeral carrier rather than a fork of
+	// the parent's. Nothing durable names the parent's provider thread, and a
+	// fork could only inherit provider history Setta already owns and replays.
+	thread, err := service.agent.StartThread(ctx, agent.StartThreadRequest{
 		WorkspaceRoot:         prepared.workspaceRoot,
 		Invocation:            prepared.invocation,
 		Ephemeral:             true,
@@ -102,20 +101,17 @@ func (service *Service) startPreparedSideConversation(
 	if err != nil {
 		return service.failPreparingSideConversation(
 			prepared,
-			"side_thread_fork_failed",
+			"side_carrier_start_failed",
 			nil,
 			false,
 			err,
 		)
 	}
-	if err := validateSideForkThread(thread, prepared.parentThreadID, prepared.resolved.Model); err != nil {
-		providerThreadID, disposed, cleanupErr := service.cleanupRejectedSideFork(
-			thread.ID,
-			prepared.parentThreadID,
-		)
+	if err := validateSideCarrier(thread, prepared.resolved.Model); err != nil {
+		providerThreadID, disposed, cleanupErr := service.cleanupRejectedSideCarrier(thread.ID)
 		return service.failPreparingSideConversation(
 			prepared,
-			"side_thread_fork_failed",
+			"side_carrier_start_failed",
 			providerThreadID,
 			disposed,
 			errors.Join(err, cleanupErr),
@@ -156,26 +152,21 @@ func (service *Service) startPreparedSideConversation(
 	return nil
 }
 
-func validateSideConversationRequest(parentConversationID string, parentPaneID string) error {
-	if err := validateIdentifier("side parent conversation id", parentConversationID); err != nil {
-		return err
-	}
-	return validateIdentifier("side parent pane id", parentPaneID)
+func validateSideConversationRequest(parentConversationID string) error {
+	return validateIdentifier("side parent conversation id", parentConversationID)
 }
 
-func (store *Store) hasOpenSideConversationForPane(
+func (store *Store) hasOpenSideConversationForParent(
 	ctx context.Context,
 	parentConversationID string,
-	parentPaneID string,
 ) (bool, error) {
 	var exists bool
-	err := store.read(ctx, "read open side conversation for pane", func(ctx context.Context, connection *sql.Conn) error {
+	err := store.read(ctx, "read open side conversation for parent", func(ctx context.Context, connection *sql.Conn) error {
 		var readErr error
-		exists, readErr = readOpenSideConversationForPane(
+		exists, readErr = readOpenSideConversationForParent(
 			ctx,
 			connection,
 			parentConversationID,
-			parentPaneID,
 		)
 		return readErr
 	})
@@ -289,7 +280,6 @@ func (service *Service) persistPreparingSideConversation(
 	ctx context.Context,
 	workspaceID string,
 	parentConversationID string,
-	parentPaneID string,
 	workspaceRoot string,
 	profile RoleProfile,
 	resolved agent.ResolvedInvocation,
@@ -304,20 +294,14 @@ func (service *Service) persistPreparingSideConversation(
 	if err != nil {
 		return preparedSideConversation{}, err
 	}
-	if snapshot.ThreadBinding == nil || snapshot.ThreadBinding.Status != ThreadBindingStatusLinked {
-		return preparedSideConversation{}, &CommandConflictError{
-			ConversationID: parentConversationID,
-			Reason:         "side conversation requires a linked parent agent thread",
-		}
-	}
-	hasOpenSide, err := service.store.hasOpenSideConversationForPane(ctx, parentConversationID, parentPaneID)
+	hasOpenSide, err := service.store.hasOpenSideConversationForParent(ctx, parentConversationID)
 	if err != nil {
 		return preparedSideConversation{}, err
 	}
 	if hasOpenSide {
 		return preparedSideConversation{}, &CommandConflictError{
 			ConversationID: parentConversationID,
-			Reason:         "originating pane already has an open side conversation",
+			Reason:         "conversation already has an open side conversation",
 		}
 	}
 	injectedItems, err := service.materializeSideContext(
@@ -345,10 +329,8 @@ func (service *Service) persistPreparingSideConversation(
 	side := SideConversation{
 		ID:                       sideID,
 		ParentConversationID:     parentConversationID,
-		ParentPaneID:             parentPaneID,
 		ParentStatus:             snapshot.Conversation.Status,
 		DecisionSource:           decisionSource,
-		SourceProviderThreadID:   snapshot.ThreadBinding.ThreadID,
 		SourceProviderTurnID:     latestProviderTurnID(snapshot.Turns.Turns),
 		SourceTrajectorySequence: snapshot.Conversation.LastTrajectorySequence,
 		Status:                   SideConversationStatusPreparing,
@@ -367,7 +349,6 @@ func (service *Service) persistPreparingSideConversation(
 	return preparedSideConversation{
 		invocation:           invocation,
 		injectedItems:        injectedItems,
-		parentThreadID:       snapshot.ThreadBinding.ThreadID,
 		resolved:             resolved,
 		side:                 side,
 		workspaceID:          workspaceID,
@@ -391,7 +372,7 @@ func (service *Service) materializeSideContext(
 	if err != nil {
 		return nil, fmt.Errorf("materialize side in-flight context: %w", err)
 	}
-	injectedItems, inputBytes, err := sideConversationInjectedItems(frame)
+	boundary, inputBytes, err := sideConversationInjectedItems(frame)
 	if err != nil {
 		return nil, err
 	}
@@ -402,7 +383,14 @@ func (service *Service) materializeSideContext(
 			maxInputBytes,
 		)
 	}
-	return injectedItems, nil
+	// The parent history the side reads is Setta's own record replayed into the
+	// side's carrier, ahead of the boundary that marks where it stops being
+	// reference and starts being this side conversation's task.
+	inherited, err := service.carrierReplayItems(ctx, snapshot, maxInputBytes-inputBytes)
+	if err != nil {
+		return nil, err
+	}
+	return append(inherited, boundary...), nil
 }
 
 func sideContextTurn(turns []ConversationTurn) *ConversationTurn {
@@ -626,34 +614,25 @@ func (service *Service) persistSideConversationEvent(
 	return err
 }
 
-func validateSideForkThread(thread agent.Thread, parentThreadID string, modelID string) error {
+func validateSideCarrier(thread agent.Thread, modelID string) error {
 	if err := thread.Validate(); err != nil {
-		return fmt.Errorf("provider returned an invalid side fork thread: %w", err)
+		return fmt.Errorf("provider returned an invalid side carrier: %w", err)
 	}
 	if !thread.Ephemeral {
 		return errors.New("provider returned a durable thread for an ephemeral side conversation")
 	}
-	if thread.ID == parentThreadID {
-		return errors.New("provider side fork reused the parent thread id")
-	}
-	if thread.ForkedFromID == nil || *thread.ForkedFromID != parentThreadID {
-		return fmt.Errorf("provider side fork lineage does not match parent thread %s", parentThreadID)
-	}
 	if thread.Model != modelID {
-		return fmt.Errorf("provider side fork model is %s, want resolved model %s", thread.Model, modelID)
+		return fmt.Errorf("provider side carrier model is %s, want resolved model %s", thread.Model, modelID)
 	}
 	return nil
 }
 
-func (service *Service) cleanupRejectedSideFork(
-	threadID string,
-	parentThreadID string,
-) (*string, bool, error) {
-	if threadID == "" || threadID == parentThreadID {
+func (service *Service) cleanupRejectedSideCarrier(threadID string) (*string, bool, error) {
+	if threadID == "" {
 		return nil, false, nil
 	}
 	if err := service.agent.UnsubscribeThread(context.Background(), threadID); err != nil {
-		return &threadID, false, fmt.Errorf("unsubscribe rejected side fork %s: %w", threadID, err)
+		return &threadID, false, fmt.Errorf("unsubscribe rejected side carrier %s: %w", threadID, err)
 	}
 	return &threadID, true, nil
 }
