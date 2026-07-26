@@ -395,7 +395,7 @@ try {
   );
 
   await submitDirector(context.client, "Director artifact.");
-  const beforeRestart = await waitForDirectorSnapshot(context.client, (snapshot) => {
+  await waitForDirectorSnapshot(context.client, (snapshot) => {
     const workstream = snapshot.workstreams.find(
       (entry) => entry.workstream.id === rootWorkstreamId,
     )?.workstream;
@@ -408,30 +408,186 @@ try {
       workstream.status === "completed"
     );
   });
-  const openedArtifact = beforeRestart.artifacts.find(
+  await submitDirector(context.client, "Director artifact.");
+  const artifactSnapshot = await waitForDirectorSnapshot(context.client, (snapshot) => {
+    const workstream = snapshot.workstreams.find(
+      (entry) => entry.workstream.id === rootWorkstreamId,
+    )?.workstream;
+    return (
+      snapshot.selectedWorkstreamId === rootWorkstreamId &&
+      snapshot.artifacts.filter(
+        (artifact) => artifact.workstreamId === rootWorkstreamId && artifact.status === "available",
+      ).length >= 2 &&
+      workstream?.activeRunId === null &&
+      workstream.status === "completed"
+    );
+  });
+  const initialArtifacts = artifactSnapshot.artifacts.filter(
     (artifact) => artifact.workstreamId === rootWorkstreamId && artifact.status === "available",
   );
-  const openedArtifactId = requiredString(openedArtifact?.id, "Director artifact");
+  const newestArtifact = initialArtifacts[0];
+  const openedArtifact = initialArtifacts[1];
+  const newestArtifactId = requiredString(newestArtifact?.id, "newest Director artifact");
+  const openedArtifactId = requiredString(openedArtifact?.id, "older Director artifact");
+  const newestArtifactMarker = await directorArtifactMarker(context.client, newestArtifact);
+  const openedArtifactMarker = await directorArtifactMarker(context.client, openedArtifact);
   const artifactPreview = await waitForDirectorArtifactPreview(context.client, openedArtifactId);
-  if (!artifactPreview.previewText.includes("-artifact.png")) {
+  const newestArtifactPreview = await waitForDirectorArtifactPreview(
+    context.client,
+    newestArtifactId,
+  );
+  if (!artifactPreview.previewText.includes(openedArtifactMarker)) {
     throw new Error(
       `Director artifact preview omitted its projected document: ${JSON.stringify(artifactPreview)}`,
     );
   }
+  if (!newestArtifactPreview.previewText.includes(newestArtifactMarker)) {
+    throw new Error(
+      `Newest Director artifact preview omitted its projected document: ${JSON.stringify(newestArtifactPreview)}`,
+    );
+  }
+  assertEqual(
+    newestArtifactPreview.height,
+    artifactPreview.height,
+    "Director artifact preview stable height",
+  );
   await assertArtifactPreviewIgnoresSingleClick(context.client, openedArtifactId, artifactPreview);
-  const artifactDetail = await openDirectorArtifactBrowser(context.client, openedArtifactId);
+  const originalAppearanceMode = await directorAppearanceMode(context.client);
+  await setDirectorAppearanceMode(context.client, "light");
+  await waitForDirectorArtifactPreview(context.client, openedArtifactId);
+  await assertDirectorArtifactPreviewTheme(context.client, openedArtifactId, "light");
+  await rememberDirectorGraphCanvas(context.client);
+  const artifactDetail = await openDirectorArtifactBrowser(
+    context.client,
+    openedArtifactId,
+    openedArtifactMarker,
+  );
   assertEqual(artifactDetail.status, "ready", "Director artifact browser load state");
-  assertEqual(artifactDetail.position, "1 of 1", "Director artifact browser position");
+  assertEqual(artifactDetail.position, "2 of 2", "Director artifact browser position");
+  assertEqual(artifactDetail.colorMode, "light", "Director artifact browser light appearance");
+  assertArtifactBrowserTheme(artifactDetail);
+  assertArtifactBrowserBoundaries(artifactDetail, {
+    nextDisabled: true,
+    previousDisabled: false,
+  });
   if (!artifactDetail.text.includes(openedArtifact.title)) {
     throw new Error(`Director artifact browser omitted title: ${JSON.stringify(artifactDetail)}`);
   }
-  if (!artifactDetail.documentText.includes("-artifact.png")) {
+  if (!artifactDetail.documentText.includes(openedArtifactMarker)) {
     throw new Error(
       `Director artifact browser omitted rendered document: ${JSON.stringify(artifactDetail)}`,
     );
   }
+  await assertArtifactBrowserContainsFocus(context.client);
+  const previousDetail = await activateArtifactBrowserControl(
+    context.client,
+    "Previous artifact",
+    newestArtifactId,
+    newestArtifactMarker,
+  );
+  assertEqual(previousDetail.position, "1 of 2", "previous artifact position");
+  assertArtifactBrowserBoundaries(previousDetail, {
+    nextDisabled: false,
+    previousDisabled: true,
+  });
+  const keyboardDetail = await navigateArtifactBrowserWithArrow(
+    context.client,
+    "ArrowRight",
+    openedArtifactId,
+    openedArtifactMarker,
+  );
+  assertEqual(keyboardDetail.position, "2 of 2", "keyboard artifact position");
   await closeDirectorArtifactBrowser(context.client);
   await assertArtifactExpandControlRegainedFocus(context.client, openedArtifactId);
+  await assertDirectorGraphCanvasPreserved(context.client);
+
+  await setDirectorAppearanceMode(context.client, "dark");
+  await waitForDirectorArtifactPreview(context.client, openedArtifactId);
+  await assertDirectorArtifactPreviewTheme(context.client, openedArtifactId, "dark");
+  await rememberDirectorGraphCanvas(context.client);
+  const doubleClickDetail = await openDirectorArtifactBrowserByDoubleClick(
+    context.client,
+    openedArtifactId,
+    openedArtifactMarker,
+  );
+  assertEqual(doubleClickDetail.position, "2 of 2", "double-click artifact position");
+  assertEqual(doubleClickDetail.colorMode, "dark", "Director artifact browser dark appearance");
+  assertArtifactBrowserTheme(doubleClickDetail);
+
+  // The browser's active identity is local state. A newer Director snapshot
+  // changes its computed position but must not replace or close the document
+  // the reader is looking at.
+  await submitDirector(context.client, "Director mixed artifact.");
+  const beforeRestart = await waitForDirectorSnapshot(context.client, (snapshot) => {
+    const workstream = snapshot.workstreams.find(
+      (entry) => entry.workstream.id === rootWorkstreamId,
+    )?.workstream;
+    return (
+      snapshot.artifacts.filter(
+        (artifact) => artifact.workstreamId === rootWorkstreamId && artifact.status === "available",
+      ).length >= 3 &&
+      workstream?.activeRunId === null &&
+      workstream.status === "completed"
+    );
+  });
+  const finalArtifacts = beforeRestart.artifacts.filter(
+    (artifact) => artifact.workstreamId === rootWorkstreamId && artifact.status === "available",
+  );
+  const arrivedArtifact = finalArtifacts[0];
+  const arrivedArtifactId = requiredString(arrivedArtifact?.id, "arriving Director artifact");
+  const arrivedArtifactMarker = await directorArtifactMarker(context.client, arrivedArtifact);
+  const retainedDetail = await waitForOpenDirectorArtifact(
+    context.client,
+    openedArtifactId,
+    openedArtifactMarker,
+  );
+  assertEqual(retainedDetail.position, "3 of 3", "retained active artifact position");
+
+  const middleDetail = await activateArtifactBrowserControl(
+    context.client,
+    "Previous artifact",
+    newestArtifactId,
+    newestArtifactMarker,
+  );
+  assertEqual(middleDetail.position, "2 of 3", "middle artifact position");
+  const firstDetail = await navigateArtifactBrowserWithArrow(
+    context.client,
+    "ArrowLeft",
+    arrivedArtifactId,
+    arrivedArtifactMarker,
+  );
+  assertEqual(firstDetail.position, "1 of 3", "first artifact position");
+  if (firstDetail.tableCount !== 1) {
+    throw new Error(`Mixed Director artifact omitted its table: ${JSON.stringify(firstDetail)}`);
+  }
+  assertArtifactBrowserBoundaries(firstDetail, {
+    nextDisabled: false,
+    previousDisabled: true,
+  });
+  await assertArtifactTableOwnsHorizontalArrow(context.client, arrivedArtifactId);
+  const middleAgain = await navigateArtifactBrowserWithArrow(
+    context.client,
+    "ArrowRight",
+    newestArtifactId,
+    newestArtifactMarker,
+  );
+  assertEqual(middleAgain.position, "2 of 3", "middle keyboard artifact position");
+  const lastDetail = await activateArtifactBrowserControl(
+    context.client,
+    "Next artifact",
+    openedArtifactId,
+    openedArtifactMarker,
+  );
+  assertEqual(lastDetail.position, "3 of 3", "last artifact position");
+  assertArtifactBrowserBoundaries(lastDetail, {
+    nextDisabled: true,
+    previousDisabled: false,
+  });
+  await closeDirectorArtifactBrowser(context.client);
+  await assertArtifactExpandControlRegainedFocus(context.client, openedArtifactId);
+  await assertDirectorGraphCanvasPreserved(context.client);
+  await setDirectorAppearanceMode(context.client, originalAppearanceMode);
+
   const history = await readDirectorHistory(context.client);
   assertHistoryContainsOnlyUserAndTerminalTurns(history);
   await verifyRailsFlankTheCanvas(context.client);
@@ -1281,6 +1437,9 @@ async function answerDirectorApprovalInRail(client, approvalId, questionId, answ
 async function waitForDirectorArtifactPreview(client, artifactId) {
   const selector = `.director-artifact-preview[data-artifact-id="${artifactId}"]`;
   await waitForSelector(client, selector);
+  await client.evaluate(`document
+    .querySelector(${JSON.stringify(selector)})
+    ?.scrollIntoView({ block: "center", inline: "nearest" })`);
   return waitForState(
     client,
     `(() => {
@@ -1335,7 +1494,7 @@ async function assertArtifactExpandControlRegainedFocus(client, artifactId) {
   }
 }
 
-async function openDirectorArtifactBrowser(client, artifactId) {
+async function openDirectorArtifactBrowser(client, artifactId, documentMarker) {
   const opened = await client.evaluate(`(() => {
     const card = document.querySelector(
       ${JSON.stringify(`.director-artifact-preview[data-artifact-id="${artifactId}"]`)}
@@ -1353,6 +1512,27 @@ async function openDirectorArtifactBrowser(client, artifactId) {
   if (!opened.ok) {
     throw new Error(`Director artifact did not open: ${JSON.stringify(opened)}`);
   }
+  return waitForOpenDirectorArtifact(client, artifactId, documentMarker);
+}
+
+async function openDirectorArtifactBrowserByDoubleClick(client, artifactId, documentMarker) {
+  const opened = await client.evaluate(`(() => {
+    const card = document.querySelector(
+      ${JSON.stringify(`.director-artifact-preview[data-artifact-id="${artifactId}"]`)}
+    );
+    if (!(card instanceof HTMLElement)) {
+      return false;
+    }
+    card.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
+    return true;
+  })()`);
+  if (!opened) {
+    throw new Error("Director artifact double-click target was unavailable");
+  }
+  return waitForOpenDirectorArtifact(client, artifactId, documentMarker);
+}
+
+function waitForOpenDirectorArtifact(client, artifactId, documentMarker) {
   return waitForState(
     client,
     `(() => {
@@ -1360,16 +1540,226 @@ async function openDirectorArtifactBrowser(client, artifactId) {
         ${JSON.stringify(`.director-artifact-browser[data-artifact-id="${artifactId}"]`)}
       );
       const artifactDocument = browser?.querySelector(".director-artifact-browser-document");
+      const previous = browser?.querySelector('button[aria-label="Previous artifact"]');
+      const next = browser?.querySelector('button[aria-label="Next artifact"]');
+      const popupStyle = browser instanceof HTMLElement ? getComputedStyle(browser) : null;
       return {
+        activeDocumentId: artifactDocument?.getAttribute("data-artifact-document") ?? "",
+        backgroundColor: popupStyle?.backgroundColor ?? "",
+        color: popupStyle?.color ?? "",
+        colorMode: document.documentElement.dataset.colorMode ?? "",
+        documentCount: browser?.querySelectorAll(".director-artifact-browser-document").length ?? 0,
         documentText: artifactDocument?.textContent ?? "",
+        liveText: browser?.querySelector(".sr-only[role='status']")?.textContent ?? "",
+        nextDisabled: next instanceof HTMLButtonElement ? next.disabled : null,
         position: browser?.querySelector(".director-artifact-browser-position")?.textContent ?? "",
+        previousDisabled: previous instanceof HTMLButtonElement ? previous.disabled : null,
         status: browser?.getAttribute("data-artifact-load-state") ?? "",
+        tableCount: artifactDocument?.querySelectorAll("[data-slot='table-container']").length ?? 0,
         text: browser?.textContent ?? ""
       };
     })()`,
-    (detail) => detail.status === "ready" && detail.documentText.includes("-artifact.png"),
+    (detail) =>
+      detail.activeDocumentId === artifactId &&
+      detail.documentCount === 1 &&
+      detail.status === "ready" &&
+      detail.documentText.includes(documentMarker) &&
+      detail.position !== "" &&
+      detail.liveText.includes(detail.position),
     workflowTimeoutMs,
   );
+}
+
+async function activateArtifactBrowserControl(client, label, artifactId, documentMarker) {
+  const activated = await client.evaluate(`(() => {
+    const button = document.querySelector(
+      ${JSON.stringify(`.director-artifact-browser button[aria-label="${label}"]`)}
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      return { ok: false, reason: "missing-control" };
+    }
+    if (button.disabled) {
+      return { ok: false, reason: "disabled-control" };
+    }
+    button.click();
+    return { ok: true };
+  })()`);
+  if (!activated.ok) {
+    throw new Error(`Director artifact control did not activate: ${JSON.stringify(activated)}`);
+  }
+  return waitForOpenDirectorArtifact(client, artifactId, documentMarker);
+}
+
+async function navigateArtifactBrowserWithArrow(client, key, artifactId, documentMarker) {
+  const dispatched = await client.evaluate(`(() => {
+    const browser = document.querySelector(".director-artifact-browser");
+    if (!(browser instanceof HTMLElement)) {
+      return false;
+    }
+    browser.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: ${JSON.stringify(key)}
+      })
+    );
+    return true;
+  })()`);
+  if (!dispatched) {
+    throw new Error("Director artifact browser keyboard target was unavailable");
+  }
+  return waitForOpenDirectorArtifact(client, artifactId, documentMarker);
+}
+
+async function assertArtifactTableOwnsHorizontalArrow(client, artifactId) {
+  const activeArtifactId = await client.evaluate(`(async () => {
+    const table = document.querySelector(
+      ".director-artifact-browser [data-slot='table-container']"
+    );
+    if (!(table instanceof HTMLElement)) {
+      return "";
+    }
+    table.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: "ArrowRight"
+      })
+    );
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    return document.querySelector(".director-artifact-browser")?.getAttribute("data-artifact-id")
+      ?? "";
+  })()`);
+  assertEqual(activeArtifactId, artifactId, "Director artifact table horizontal arrow ownership");
+}
+
+function assertArtifactBrowserBoundaries(detail, expected) {
+  assertEqual(detail.previousDisabled, expected.previousDisabled, "previous artifact boundary");
+  assertEqual(detail.nextDisabled, expected.nextDisabled, "next artifact boundary");
+}
+
+function assertArtifactBrowserTheme(detail) {
+  if (
+    detail.backgroundColor === "" ||
+    detail.backgroundColor === "rgba(0, 0, 0, 0)" ||
+    detail.color === "" ||
+    detail.color === detail.backgroundColor
+  ) {
+    throw new Error(`Director artifact browser theme was unreadable: ${JSON.stringify(detail)}`);
+  }
+}
+
+async function assertArtifactBrowserContainsFocus(client) {
+  await client.evaluate(`document.querySelector("#director-composer-input")?.focus()`);
+  const contained = await waitForState(
+    client,
+    `document.activeElement?.closest(".director-artifact-browser") !== null`,
+    (inside) => inside === true,
+    workflowTimeoutMs,
+  );
+  if (!contained) {
+    throw new Error("Director artifact browser did not contain focus");
+  }
+}
+
+async function rememberDirectorGraphCanvas(client) {
+  const remembered = await client.evaluate(`(() => {
+    const canvas = document.querySelector(".director-graph-canvas");
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      return false;
+    }
+    globalThis.__settaArtifactBrowserGraphCanvas = canvas;
+    return true;
+  })()`);
+  if (!remembered) {
+    throw new Error("Director graph canvas was unavailable before opening an artifact");
+  }
+}
+
+async function assertDirectorGraphCanvasPreserved(client) {
+  const preserved = await client.evaluate(
+    `globalThis.__settaArtifactBrowserGraphCanvas === document.querySelector(".director-graph-canvas")`,
+  );
+  if (!preserved) {
+    throw new Error("Director artifact browser remounted the graph canvas");
+  }
+}
+
+function directorAppearanceMode(client) {
+  return client.evaluate(`document.documentElement.dataset.colorMode ?? "dark"`);
+}
+
+async function setDirectorAppearanceMode(client, mode) {
+  const opened = await client.evaluate(`(() => {
+    const trigger = document.querySelector('button[aria-label="Open settings"]');
+    if (!(trigger instanceof HTMLButtonElement)) {
+      return false;
+    }
+    trigger.click();
+    return true;
+  })()`);
+  if (!opened) {
+    throw new Error("Director appearance check could not open settings");
+  }
+  await waitForSelector(client, '[data-testid="settings-shell-page"]');
+  await client.evaluate(`document.querySelector("#settings-subtab-theme")?.click()`);
+  await waitForSelector(client, '[data-testid="appearance-settings"]');
+  const changed = await client.evaluate(`(() => {
+    const button = document.querySelector(
+      ${JSON.stringify(`[data-testid="appearance-settings"] button[title="${mode === "light" ? "Light" : "Dark"} mode"]`)}
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!changed) {
+    throw new Error(`Director appearance check could not select ${mode} mode`);
+  }
+  await waitForState(
+    client,
+    `document.documentElement.dataset.colorMode ?? ""`,
+    (current) => current === mode,
+    workflowTimeoutMs,
+  );
+  const closed = await client.evaluate(`(() => {
+    const button = document.querySelector(".setta-settings-page-back");
+    if (!(button instanceof HTMLButtonElement)) {
+      return false;
+    }
+    button.click();
+    return true;
+  })()`);
+  if (!closed) {
+    throw new Error("Director appearance check could not return to the command center");
+  }
+  await waitForSelector(client, '[data-testid="director-command-center-shell"]');
+}
+
+async function assertDirectorArtifactPreviewTheme(client, artifactId, mode) {
+  const theme = await client.evaluate(`(() => {
+    const viewport = document.querySelector(
+      ${JSON.stringify(
+        `.director-artifact-preview[data-artifact-id="${artifactId}"] .director-artifact-preview-viewport`,
+      )}
+    );
+    const style = viewport instanceof HTMLElement ? getComputedStyle(viewport) : null;
+    return {
+      backgroundColor: style?.backgroundColor ?? "",
+      color: style?.color ?? "",
+      mode: document.documentElement.dataset.colorMode ?? ""
+    };
+  })()`);
+  assertEqual(theme.mode, mode, `Director artifact preview ${mode} appearance`);
+  if (
+    theme.backgroundColor === "" ||
+    theme.backgroundColor === "rgba(0, 0, 0, 0)" ||
+    theme.color === "" ||
+    theme.color === theme.backgroundColor
+  ) {
+    throw new Error(`Director artifact preview theme was unreadable: ${JSON.stringify(theme)}`);
+  }
 }
 
 async function closeDirectorArtifactBrowser(client) {
@@ -1560,6 +1950,23 @@ function requiredString(value, label) {
     throw new Error(`${label} was missing: ${JSON.stringify(value)}`);
   }
   return value;
+}
+
+async function directorArtifactMarker(client, artifact) {
+  const artifactId = requiredString(artifact?.id, "Director artifact");
+  const source = await client.evaluate(
+    `window.setta.conversations.readArtifact(${JSON.stringify({
+      artifactId,
+      conversationId: artifact.conversationId,
+      workspaceId: artifact.workspaceId,
+    })}).then((entry) => entry.document.source)`,
+  );
+  const marker = source.match(/[A-Za-z0-9_-]+-artifact\.png/u)?.[0];
+  const mixedMarker = "The policy memo is ready for review.";
+  return requiredString(
+    marker ?? (source.includes(mixedMarker) ? mixedMarker : undefined),
+    "Director artifact document marker",
+  );
 }
 
 function assertEqual(actual, expected, label) {

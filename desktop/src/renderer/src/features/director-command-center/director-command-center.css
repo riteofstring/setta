@@ -453,6 +453,9 @@
 .director-artifact-preview-title {
   color: oklch(0.9 0.025 245);
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .director-artifact-preview-meta {
@@ -469,16 +472,26 @@
  * viewport clips instead of growing and fades its last line out.
  */
 .director-artifact-preview-viewport {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
   block-size: var(--director-artifact-preview-block);
-  mask-image: linear-gradient(to bottom, black calc(100% - 18px), transparent);
+  color: var(--card-foreground);
   min-inline-size: 0;
   overflow: hidden;
+  padding: 8px;
   pointer-events: none;
+}
+
+.director-artifact-preview-viewport > * {
+  block-size: 100%;
+  mask-image: linear-gradient(to bottom, black calc(100% - 18px), transparent);
+  overflow: hidden;
   -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 18px), transparent);
 }
 
 .director-artifact-preview-status {
-  color: oklch(0.7 0.035 250);
+  color: var(--muted-foreground);
   font-size: 0.76rem;
   line-height: 1.35;
   margin: 0;
@@ -580,7 +593,11 @@
 .director-artifact-browser-controls {
   align-items: center;
   display: flex;
-  gap: 4px;
+  gap: 8px;
+}
+
+.director-artifact-tooltip-anchor {
+  display: inline-flex;
 }
 
 .director-artifact-browser-scroll {

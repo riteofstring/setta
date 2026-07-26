@@ -233,6 +233,7 @@ export function DirectorCommandCenterShell({
   const railAttributes = directorRailVisibilityAttributes(effectiveRailVisibility);
   const focus = directorFocus(snapshotView.selectedWorkstream);
   const switchTransition = useDirectorWorkstreamSwitchTransition(director.snapshot);
+  const contentInert = historyOpen || artifactBrowser.activeArtifact !== null;
   const onGraphReady = useCallback((host: DirectorGraphCanvas | null) => {
     setCanvas(host);
   }, []);
@@ -261,9 +262,9 @@ export function DirectorCommandCenterShell({
       data-workstream-switching={switchTransition.active ? "true" : "false"}
     >
       <div
-        aria-hidden={historyOpen || undefined}
+        aria-hidden={contentInert || undefined}
         className="director-command-center-content"
-        inert={historyOpen || undefined}
+        inert={contentInert || undefined}
       >
         <a className="director-command-center-skip" href={`#${directorComposerInputId}`}>
           Skip to composer

@@ -40,7 +40,11 @@ export function DirectorArtifactPreviewCard({
   const visible = useRailViewportVisibility(cardRef);
   const document = useArtifactDocument({ artifact, documents, enabled: visible });
   const canOpen = artifact.status === "available" && documents !== null;
-  const openLabel = `Open artifact: ${artifact.title}`;
+  const openLabel = canOpen
+    ? `Open artifact: ${artifact.title}`
+    : artifact.status === "declared"
+      ? `Artifact is still being written: ${artifact.title}`
+      : `Artifact is not available: ${artifact.title}`;
 
   return (
     <article
@@ -61,26 +65,13 @@ export function DirectorArtifactPreviewCard({
           <h3 className="director-artifact-preview-title">{artifact.title}</h3>
           <p className="director-artifact-preview-meta">{directorArtifactCardMetadata(artifact)}</p>
         </div>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                aria-label={openLabel}
-                className="director-artifact-expand"
-                disabled={!canOpen}
-                onClick={(event) => {
-                  onOpen(artifact, event.currentTarget);
-                }}
-                ref={expandRef}
-                size="icon-sm"
-                variant="ghost"
-              />
-            }
-          >
-            <Maximize2 />
-          </TooltipTrigger>
-          <TooltipContent>{openLabel}</TooltipContent>
-        </Tooltip>
+        <ArtifactExpandControl
+          artifact={artifact}
+          canOpen={canOpen}
+          label={openLabel}
+          onOpen={onOpen}
+          ref={expandRef}
+        />
       </header>
       {/* The preview is a picture of the artifact, not a copy of it: inert
           keeps every projected block out of the tab order, off the pointer, and
@@ -90,6 +81,63 @@ export function DirectorArtifactPreviewCard({
         <DirectorArtifactPreviewBody artifact={artifact} document={document} />
       </div>
     </article>
+  );
+}
+
+function ArtifactExpandControl({
+  artifact,
+  canOpen,
+  label,
+  onOpen,
+  ref,
+}: {
+  artifact: WorkstreamArtifact;
+  canOpen: boolean;
+  label: string;
+  onOpen: (artifact: WorkstreamArtifact, trigger: HTMLElement) => void;
+  ref: React.Ref<HTMLButtonElement>;
+}) {
+  const button = (
+    <Button
+      aria-label={label}
+      className="director-artifact-expand size-10"
+      disabled={!canOpen}
+      onClick={(event) => {
+        onOpen(artifact, event.currentTarget);
+      }}
+      ref={ref}
+      size="icon-sm"
+      variant="ghost"
+    >
+      <Maximize2 aria-hidden="true" />
+    </Button>
+  );
+  return (
+    <Tooltip>
+      {canOpen ? (
+        <TooltipTrigger
+          render={
+            <Button
+              aria-label={label}
+              className="director-artifact-expand size-10"
+              onClick={(event) => {
+                onOpen(artifact, event.currentTarget);
+              }}
+              ref={ref}
+              size="icon-sm"
+              variant="ghost"
+            />
+          }
+        >
+          <Maximize2 aria-hidden="true" />
+        </TooltipTrigger>
+      ) : (
+        <TooltipTrigger render={<span className="director-artifact-tooltip-anchor" />}>
+          {button}
+        </TooltipTrigger>
+      )}
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }
 

@@ -1,4 +1,4 @@
-import type { Artifact, WorkstreamArtifact } from "@generated/backend";
+import type { WorkstreamArtifact } from "@generated/backend";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -116,7 +116,7 @@ export function useDirectorArtifactBrowser({
     }
     for (const neighbour of [browsable[activeIndex - 1], browsable[activeIndex + 1]]) {
       if (neighbour !== undefined) {
-        void documents.load(artifactReadRequest(neighbour)).catch(() => {});
+        void documents.load(neighbour).catch(() => {});
       }
     }
   }, [activeIndex, browsable, documents]);
@@ -169,32 +169,69 @@ export function useArtifactDocument({
   documents: ArtifactDocumentCache | null;
   enabled: boolean;
 }): ArtifactDocumentState | null {
-  const cached = enabled && documents !== null ? documents.peek(artifact.id) : undefined;
-  const [state, setState] = useState<ArtifactDocumentState | null>(null);
+  const available = enabled && documents !== null && artifact.status === "available";
+  let cached: ArtifactDocumentEntry | undefined;
+  let cacheFailed = false;
+  if (available) {
+    try {
+      cached = documents.peek(artifact);
+    } catch {
+      cacheFailed = true;
+    }
+  }
+  const [requestState, setRequestState] = useState<{
+    readonly artifactId: string;
+    readonly documents: ArtifactDocumentCache;
+    readonly value: ArtifactDocumentState;
+  } | null>(null);
 
   useEffect(() => {
     if (!enabled || documents === null || artifact.status !== "available") {
-      setState(null);
       return;
     }
-    const ready = documents.peek(artifact.id);
+    let ready: ArtifactDocumentEntry | undefined;
+    try {
+      ready = documents.peek(artifact);
+    } catch {
+      setRequestState({
+        artifactId: artifact.id,
+        documents,
+        value: { status: "failed" },
+      });
+      return;
+    }
     if (ready !== undefined) {
-      setState({ entry: ready, status: "ready" });
+      setRequestState({
+        artifactId: artifact.id,
+        documents,
+        value: { entry: ready, status: "ready" },
+      });
       return;
     }
     let current = true;
-    setState({ status: "loading" });
+    setRequestState({
+      artifactId: artifact.id,
+      documents,
+      value: { status: "loading" },
+    });
     documents
-      .load(artifactReadRequest(artifact))
+      .load(artifact)
       .then((entry) => {
-        verifyDirectorArtifactPayload(artifact, entry.artifact);
         if (current) {
-          setState({ entry, status: "ready" });
+          setRequestState({
+            artifactId: artifact.id,
+            documents,
+            value: { entry, status: "ready" },
+          });
         }
       })
       .catch(() => {
         if (current) {
-          setState({ status: "failed" });
+          setRequestState({
+            artifactId: artifact.id,
+            documents,
+            value: { status: "failed" },
+          });
         }
       });
     return () => {
@@ -202,37 +239,24 @@ export function useArtifactDocument({
     };
   }, [artifact, documents, enabled]);
 
-  // A cache hit is answered on the first render rather than after the effect,
-  // so reopening an artifact or scrolling a preview back into the rail does not
-  // flash a loading state over content Setta already holds.
-  if (cached !== undefined && state === null) {
+  if (!available) {
+    return null;
+  }
+  if (cacheFailed) {
+    return { status: "failed" };
+  }
+  // A cache hit always outranks local request state. In particular, moving the
+  // persistent Dialog to a prefetched neighbour must never render the prior
+  // artifact for one commit while the effect catches up.
+  if (cached !== undefined) {
     return { entry: cached, status: "ready" };
   }
-  return state;
-}
-
-function artifactReadRequest(artifact: WorkstreamArtifact) {
-  return {
-    artifactId: artifact.id,
-    conversationId: artifact.conversationId,
-    workspaceId: artifact.workspaceId,
-  };
-}
-
-/**
- * Holds a read artifact to the Director record that announced it.
- *
- * The two come from different endpoints, so a mismatch means the command center
- * is about to show one artifact under another's identity.
- */
-function verifyDirectorArtifactPayload(metadata: WorkstreamArtifact, artifact: Artifact): void {
   if (
-    artifact.id !== metadata.id ||
-    artifact.conversationId !== metadata.conversationId ||
-    artifact.turnId !== metadata.runId ||
-    artifact.title !== metadata.title ||
-    artifact.createdAt !== metadata.createdAt
+    requestState !== null &&
+    requestState.artifactId === artifact.id &&
+    requestState.documents === documents
   ) {
-    throw new Error(`Artifact payload ${artifact.id} does not match its Director record.`);
+    return requestState.value;
   }
+  return { status: "loading" };
 }

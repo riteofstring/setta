@@ -1175,7 +1175,9 @@ lazily loaded `SettaArtifactRenderer`. The rest landed as one change, because
 the preview gallery, the browser overlay, and the cache between them are one
 read path: a preview that could not hand its parse to the overlay would read
 every artifact twice, and an overlay opened from anything but the preview's own
-expand control would have nothing to restore focus to.
+expand control would have nothing to restore focus to. The coherent
+implementation audit and verification evidence is recorded in
+[`docs/reports/openui-artifact-phase4-audit-20260726.md`](../reports/openui-artifact-phase4-audit-20260726.md).
 
 Landed:
 
@@ -1273,13 +1275,14 @@ Gate:
 - no new Zustand store owns artifact content or artifact-view state
 
 The gate is met by the implementation above and by the deterministic Director
-command-center workflow, which now asserts the rail preview renders its
-projected document, that a single click on a preview neither opens the browser
-nor changes the card's height, that the expand control opens the browser to a
-ready document at its announced position, and that closing it returns focus to
-that control. A renderer build confirms the initial command-center chunk
-statically imports neither the OpenUI parser nor Recharts; both stay behind the
-preview and overlay chunks.
+command-center workflow, which now traverses three unique artifacts and asserts
+stable projected previews, single-click behavior, both open paths, light and
+dark appearance, mixed content, button and keyboard traversal through both
+boundaries, table arrow ownership, one active full document, active retention
+when a new artifact arrives, native background inertness, focus restoration,
+mounted graph identity, and restart durability. A renderer build confirms the
+initial command-center chunk statically imports neither the OpenUI parser nor
+Recharts; both stay behind the preview and overlay chunks.
 
 The Phase 4 audit is the phase's own step. `director-command-center-performance`
 cannot run here: its blank-graph-canvas assertion fails identically on the

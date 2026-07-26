@@ -1,4 +1,8 @@
-import type { Artifact, ReadConversationArtifactRequest } from "@generated/backend";
+import type {
+  Artifact,
+  ReadConversationArtifactRequest,
+  WorkstreamArtifact,
+} from "@generated/backend";
 
 import type { ArtifactPreviewBlock } from "./artifact-preview-blocks";
 import { artifactFaultText, reportArtifactDocumentFault } from "./artifact-telemetry";
@@ -37,11 +41,18 @@ export class ArtifactDocumentCache {
     this.readArtifact = readArtifact;
   }
 
-  /** The cached entry for an artifact, without reading or parsing anything. */
-  peek(artifactId: string): ArtifactDocumentEntry | undefined {
-    const entry = this.entries.get(artifactId);
+  /**
+   * The cached entry for a Director artifact, without reading or parsing.
+   *
+   * The metadata is part of the lookup contract, not just the ID. Director
+   * snapshots and artifact reads arrive through different endpoints, so even a
+   * prefetched cache hit must prove that it belongs under the identity the rail
+   * announced.
+   */
+  peek(metadata: WorkstreamArtifact): ArtifactDocumentEntry | undefined {
+    const entry = this.entries.get(metadata.id);
     if (entry !== undefined) {
-      this.touch(artifactId, entry);
+      verifyArtifactIdentity(metadata, entry.artifact);
     }
     return entry;
   }
@@ -52,20 +63,28 @@ export class ArtifactDocumentCache {
    * Two previews entering the viewport together, or a preview and the overlay
    * that opens on top of it, produce one HTTP read.
    */
-  load(request: ReadConversationArtifactRequest): Promise<ArtifactDocumentEntry> {
-    const cached = this.peek(request.artifactId);
+  load(metadata: WorkstreamArtifact): Promise<ArtifactDocumentEntry> {
+    let cached: ArtifactDocumentEntry | undefined;
+    try {
+      cached = this.peek(metadata);
+    } catch (error) {
+      return Promise.reject(error);
+    }
     if (cached !== undefined) {
+      this.touch(metadata.id, cached);
       return Promise.resolve(cached);
     }
-    const pending = this.inFlight.get(request.artifactId);
+    const pending = this.inFlight.get(metadata.id);
     if (pending !== undefined) {
-      return pending;
+      // A second caller can carry different metadata for the same ID. Sharing
+      // the network read must not share the first caller's identity decision.
+      return this.accept(metadata, pending);
     }
-    const read = this.readAndProject(request).finally(() => {
-      this.inFlight.delete(request.artifactId);
+    const read = this.readAndProject(artifactReadRequest(metadata)).finally(() => {
+      this.inFlight.delete(metadata.id);
     });
-    this.inFlight.set(request.artifactId, read);
-    return read;
+    this.inFlight.set(metadata.id, read);
+    return this.accept(metadata, read);
   }
 
   /** Drops every entry. The connected runtime owns which artifacts exist. */
@@ -77,7 +96,7 @@ export class ArtifactDocumentCache {
   private async readAndProject(
     request: ReadConversationArtifactRequest,
   ): Promise<ArtifactDocumentEntry> {
-    const artifact = await this.readArtifact(request);
+    const artifact = await this.readWithRetry(request);
     const { projectArtifactPreview } = await import("./artifact-preview-projection");
     // The backend accepted this source before it was stored, so the parser
     // disagreeing with the compiler here is not something the reader can act
@@ -95,8 +114,30 @@ export class ArtifactDocumentCache {
       });
       throw error;
     }
-    const entry: ArtifactDocumentEntry = { artifact, preview };
-    this.touch(request.artifactId, entry);
+    return { artifact, preview };
+  }
+
+  /**
+   * One automatic retry keeps a transient artifact-read failure out of the UI.
+   *
+   * This retry is deliberately local to the idempotent read. Parse and
+   * identity failures are deterministic Setta faults and are never retried.
+   */
+  private async readWithRetry(request: ReadConversationArtifactRequest): Promise<Artifact> {
+    try {
+      return await this.readArtifact(request);
+    } catch {
+      return this.readArtifact(request);
+    }
+  }
+
+  private async accept(
+    metadata: WorkstreamArtifact,
+    pending: Promise<ArtifactDocumentEntry>,
+  ): Promise<ArtifactDocumentEntry> {
+    const entry = await pending;
+    verifyArtifactIdentity(metadata, entry.artifact);
+    this.touch(metadata.id, entry);
     return entry;
   }
 
@@ -111,4 +152,40 @@ export class ArtifactDocumentCache {
       this.entries.delete(oldest.value);
     }
   }
+}
+
+function artifactReadRequest(artifact: WorkstreamArtifact): ReadConversationArtifactRequest {
+  return {
+    artifactId: artifact.id,
+    conversationId: artifact.conversationId,
+    workspaceId: artifact.workspaceId,
+  };
+}
+
+/**
+ * Holds a read artifact to the Director record that announced it.
+ *
+ * This check lives at the cache boundary so initial reads, shared in-flight
+ * reads, rail reuse, and browser neighbour prefetch all enforce it.
+ */
+function verifyArtifactIdentity(metadata: WorkstreamArtifact, artifact: Artifact): void {
+  if (
+    artifact.id === metadata.id &&
+    artifact.conversationId === metadata.conversationId &&
+    artifact.turnId === metadata.runId &&
+    artifact.title === metadata.title &&
+    artifact.createdAt === metadata.createdAt
+  ) {
+    return;
+  }
+  const error = new Error(
+    `Artifact payload ${artifact.id} does not match Director record ${metadata.id}.`,
+  );
+  reportArtifactDocumentFault({
+    artifactId: metadata.id,
+    catalogId: artifact.document.catalogId,
+    errors: [artifactFaultText(error)],
+    stage: "identity",
+  });
+  throw error;
 }

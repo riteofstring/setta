@@ -92,8 +92,22 @@ describe("setta.artifacts.v1 preview projection", () => {
     );
 
     expect(markup).toContain("<svg");
+    expect(markup).toContain("Runs");
     expect(markup).not.toContain("recharts");
     expect(markup).not.toContain("<animate");
+  });
+
+  it("plots negative and positive bars around the zero baseline", () => {
+    const markup = render(
+      [
+        'series = [{name: "Change", points: [{label: "Mon", value: -3}, {label: "Tue", value: 3}]}]',
+        "root = Document([BarChart(series)])",
+      ].join("\n"),
+    );
+
+    expect(markup.match(/height="14"/gu)).toHaveLength(2);
+    expect(markup.match(/y="14"/gu)).toHaveLength(1);
+    expect(markup.match(/y="0"/gu)).toHaveLength(1);
   });
 
   it("stops at the preview's own bounds on a maximum-size document", () => {

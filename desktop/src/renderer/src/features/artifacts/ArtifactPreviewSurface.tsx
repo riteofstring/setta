@@ -57,7 +57,7 @@ function ArtifactPreviewBlockView({ block }: { block: ArtifactPreviewBlock }) {
     case "table":
       return <ArtifactPreviewTable columns={block.columns} rows={block.rows} />;
     case "chart":
-      return <ArtifactPreviewChart shape={block.shape} values={block.values} />;
+      return <ArtifactPreviewChart label={block.label} shape={block.shape} values={block.values} />;
     case "metric":
       return (
         <div className="flex flex-col">
@@ -138,9 +138,11 @@ const previewChartHeight = 28;
  * carries.
  */
 function ArtifactPreviewChart({
+  label,
   shape,
   values,
 }: {
+  label: string;
   shape: ArtifactPreviewChartShape;
   values: readonly number[];
 }) {
@@ -148,13 +150,17 @@ function ArtifactPreviewChart({
     return null;
   }
   return (
-    <svg
-      className="h-7 w-full text-[var(--accent-cyan)]"
-      preserveAspectRatio="none"
-      viewBox={`0 0 ${previewChartWidth} ${previewChartHeight}`}
-    >
-      <ArtifactPreviewPlot shape={shape} values={values} />
-    </svg>
+    <div className="flex flex-col gap-1">
+      <span className="truncate text-[0.68rem] text-muted-foreground">{label}</span>
+      <svg
+        aria-hidden="true"
+        className="h-7 w-full text-[var(--accent-cyan)]"
+        preserveAspectRatio="none"
+        viewBox={`0 0 ${previewChartWidth} ${previewChartHeight}`}
+      >
+        <ArtifactPreviewPlot shape={shape} values={values} />
+      </svg>
+    </div>
   );
 }
 
@@ -172,16 +178,18 @@ function ArtifactPreviewPlot({
       return (
         <polyline fill="none" points={plotPoints(values)} stroke="currentColor" strokeWidth={1.5} />
       );
-    case "area":
+    case "area": {
+      const baseline = plotY(values, 0);
       return (
         <polygon
           fill="currentColor"
           fillOpacity={0.35}
-          points={`0,${previewChartHeight} ${plotPoints(values)} ${previewChartWidth},${previewChartHeight}`}
+          points={`0,${baseline} ${plotPoints(values)} ${previewChartWidth},${baseline}`}
           stroke="currentColor"
           strokeWidth={1}
         />
       );
+    }
     case "slices":
       return <ArtifactPreviewSlices values={values} />;
     default:
@@ -194,7 +202,9 @@ function ArtifactPreviewBars({ values }: { values: readonly number[] }) {
   return (
     <>
       {values.map((value, index) => {
-        const height = Math.max(1, plotHeight(values, value));
+        const baseline = plotY(values, 0);
+        const valueY = plotY(values, value);
+        const height = Math.max(1, Math.abs(baseline - valueY));
         return (
           <rect
             fill="currentColor"
@@ -202,7 +212,7 @@ function ArtifactPreviewBars({ values }: { values: readonly number[] }) {
             key={index}
             width={Math.max(1, span - 1.5)}
             x={index * span}
-            y={previewChartHeight - height}
+            y={Math.min(baseline, valueY)}
           />
         );
       })}
@@ -253,26 +263,23 @@ function ArtifactPreviewSlices({ values }: { values: readonly number[] }) {
 
 function plotPoints(values: readonly number[]): string {
   const step = values.length === 1 ? 0 : previewChartWidth / (values.length - 1);
-  return values
-    .map((value, index) => `${index * step},${previewChartHeight - plotHeight(values, value)}`)
-    .join(" ");
+  return values.map((value, index) => `${index * step},${plotY(values, value)}`).join(" ");
 }
 
 /**
- * One value's height in the plot.
+ * One value's vertical coordinate in a plot with a real zero baseline.
  *
- * The scale spans the series' own minimum and maximum so a flat series draws a
- * flat line rather than a full-height block, and a series with no spread sits
- * on the baseline.
+ * Including zero in the domain keeps negative bars, lines, and areas on the
+ * correct side of the baseline instead of depicting them as positive values.
  */
-function plotHeight(values: readonly number[], value: number): number {
+function plotY(values: readonly number[], value: number): number {
   const lowest = Math.min(...values, 0);
   const highest = Math.max(...values, 0);
   const spread = highest - lowest;
   if (spread === 0) {
-    return 0;
+    return previewChartHeight;
   }
-  return ((value - lowest) / spread) * previewChartHeight;
+  return ((highest - value) / spread) * previewChartHeight;
 }
 
 function exhaustivePreviewBlock(block: never): never {

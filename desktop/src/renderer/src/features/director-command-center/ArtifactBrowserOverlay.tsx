@@ -1,6 +1,13 @@
 import type { WorkstreamArtifact } from "@generated/backend";
 import { ChevronLeft, ChevronRight, X, type LucideIcon } from "lucide-react";
-import { Suspense, lazy, type KeyboardEvent } from "react";
+import {
+  Component,
+  Suspense,
+  lazy,
+  type ErrorInfo,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 
 import { Button } from "@renderer/components/ui/button";
 import {
@@ -18,6 +25,7 @@ import {
   TooltipTrigger,
 } from "@renderer/components/ui/tooltip";
 
+import { artifactFaultText, reportArtifactDocumentFault } from "../artifacts/artifact-telemetry";
 import { useArtifactDocument, type DirectorArtifactBrowser } from "./director-artifact-browser";
 
 const SettaArtifactRenderer = lazy(async () => ({
@@ -118,6 +126,7 @@ function ArtifactBrowserOverlay({
                       render={
                         <Button
                           aria-label="Close artifact browser"
+                          className="size-10"
                           size="icon-sm"
                           variant="ghost"
                         />
@@ -125,7 +134,7 @@ function ArtifactBrowserOverlay({
                     />
                   }
                 >
-                  <X />
+                  <X aria-hidden="true" />
                 </TooltipTrigger>
                 <TooltipContent>Close artifact browser</TooltipContent>
               </Tooltip>
@@ -134,8 +143,11 @@ function ArtifactBrowserOverlay({
           <span aria-live="polite" className="sr-only" role="status">
             {`${artifact.title}, ${position}`}
           </span>
-          <ScrollArea className="director-artifact-browser-scroll">
-            <div className="director-artifact-browser-document" data-artifact-document="true">
+          <ScrollArea className="director-artifact-browser-scroll" key={artifact.id}>
+            <div
+              className="director-artifact-browser-document"
+              data-artifact-document={artifact.id}
+            >
               <ArtifactBrowserDocument artifact={artifact} document={document} />
             </div>
           </ScrollArea>
@@ -155,19 +167,20 @@ function ArtifactBrowserDocument({
   switch (document?.status) {
     case "ready":
       return (
-        <Suspense fallback={<ArtifactBrowserStatus text="Loading artifact." />}>
-          <SettaArtifactRenderer
-            artifactId={artifact.id}
-            document={document.entry.artifact.document}
-          />
-        </Suspense>
+        <ArtifactBrowserRenderBoundary
+          artifactId={artifact.id}
+          catalogId={document.entry.artifact.document.catalogId}
+        >
+          <Suspense fallback={<ArtifactBrowserStatus text="Loading artifact." />}>
+            <SettaArtifactRenderer
+              artifactId={artifact.id}
+              document={document.entry.artifact.document}
+            />
+          </Suspense>
+        </ArtifactBrowserRenderBoundary>
       );
     case "failed":
-      return (
-        <p className="director-artifact-browser-status" role="alert">
-          Setta could not open this artifact. Try again.
-        </p>
-      );
+      return <ArtifactBrowserFailure />;
     default:
       return <ArtifactBrowserStatus text="Loading artifact." />;
   }
@@ -181,6 +194,42 @@ function ArtifactBrowserStatus({ text }: { text: string }) {
   );
 }
 
+function ArtifactBrowserFailure() {
+  return (
+    <p className="director-artifact-browser-status" role="alert">
+      Setta could not open this artifact.
+    </p>
+  );
+}
+
+class ArtifactBrowserRenderBoundary extends Component<
+  {
+    readonly artifactId: string;
+    readonly catalogId: string;
+    readonly children: ReactNode;
+  },
+  { readonly failed: boolean }
+> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError(): { readonly failed: boolean } {
+    return { failed: true };
+  }
+
+  override componentDidCatch(error: unknown, info: ErrorInfo): void {
+    reportArtifactDocumentFault({
+      artifactId: this.props.artifactId,
+      catalogId: this.props.catalogId,
+      errors: [artifactFaultText(error), info.componentStack ?? ""].filter(Boolean),
+      stage: "render",
+    });
+  }
+
+  override render(): ReactNode {
+    return this.state.failed ? <ArtifactBrowserFailure /> : this.props.children;
+  }
+}
+
 function ArtifactBrowserControl({
   disabled = false,
   icon: Icon,
@@ -192,21 +241,39 @@ function ArtifactBrowserControl({
   label: string;
   onActivate: () => void;
 }) {
+  const button = (
+    <Button
+      aria-label={label}
+      className="size-10"
+      disabled={disabled}
+      onClick={onActivate}
+      size="icon-sm"
+      variant="ghost"
+    >
+      <Icon aria-hidden="true" />
+    </Button>
+  );
   return (
     <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            aria-label={label}
-            disabled={disabled}
-            onClick={onActivate}
-            size="icon-sm"
-            variant="ghost"
-          />
-        }
-      >
-        <Icon />
-      </TooltipTrigger>
+      {disabled ? (
+        <TooltipTrigger render={<span className="director-artifact-tooltip-anchor" />}>
+          {button}
+        </TooltipTrigger>
+      ) : (
+        <TooltipTrigger
+          render={
+            <Button
+              aria-label={label}
+              className="size-10"
+              onClick={onActivate}
+              size="icon-sm"
+              variant="ghost"
+            />
+          }
+        >
+          <Icon aria-hidden="true" />
+        </TooltipTrigger>
+      )}
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
   );
@@ -224,11 +291,27 @@ function artifactBrowserTakesArrowKey(target: EventTarget | null): boolean {
     return true;
   }
   if (target.closest("[data-artifact-document]") === null) {
-    return true;
+    return !(
+      target.matches("[data-slot='scroll-area-viewport']") ||
+      target.closest("[data-slot='scroll-area-scrollbar']") !== null
+    );
   }
   return (
     target.closest(
-      "a, button, input, textarea, select, [contenteditable='true'], [role='tab'], [role='slider']",
+      [
+        "a",
+        "button",
+        "input",
+        "textarea",
+        "select",
+        "summary",
+        "[contenteditable]:not([contenteditable='false'])",
+        "[tabindex]:not([tabindex='-1'])",
+        "[role='tab']",
+        "[role='slider']",
+        "[data-slot='table-container']",
+        "[data-slot='scroll-area-scrollbar']",
+      ].join(", "),
     ) === null
   );
 }

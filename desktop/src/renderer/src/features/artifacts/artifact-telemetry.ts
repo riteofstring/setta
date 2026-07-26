@@ -3,15 +3,16 @@
  *
  * Setta's Go compiler is the only acceptance authority, and the pinned parser
  * agreed with it on the whole conformance corpus, so a document that reaches
- * the renderer and then fails to parse or render is a Setta fault. The reader
- * is shown a generic failure; this is where the fault itself is recorded, in
- * the same one-line JSON shape the renderer's other observations use.
+ * the renderer and then fails identity matching, parsing, or rendering is a
+ * Setta fault. The reader is shown a generic failure; this is where the fault
+ * itself is recorded, in the same one-line JSON shape the renderer's other
+ * observations use.
  */
 export function reportArtifactDocumentFault(observation: {
   readonly artifactId: string;
   readonly catalogId: string;
   readonly errors: readonly string[];
-  readonly stage: "parse" | "render";
+  readonly stage: "identity" | "parse" | "render";
 }): void {
   console.error(JSON.stringify({ type: "artifact_document_fault", ...observation }));
 }

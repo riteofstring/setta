@@ -30,6 +30,7 @@ const selectedWorkScenarios = new Map([
   ],
   ["Director fail.", { input: "director fail", tool: "submit_work" }],
   ["Director artifact.", { input: "director artifact", tool: "submit_work" }],
+  ["Director mixed artifact.", { input: "supplied mixed document", tool: "submit_work" }],
   ["Director graph burst.", { input: "director graph burst", tool: "submit_work" }],
   [
     "Director text burst.",
