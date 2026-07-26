@@ -62,6 +62,33 @@ who to address" — and that is a default, not a lock. It also breaks down
 exactly when it matters most: telling a running worker "no, not like that" is
 steering, and steering is the thing you would most want to do directly.
 
+## What the mockup settled
+
+`docs/mockups/fullscreen_conversation_concept.html` was extended to carry the
+Director's view, and driving it decided several things this plan had left open
+or had wrong. The mockup is the specification for them.
+
+- **The Director's own conversation is a column of its own view.** It is a
+  conversation like any other — you ask, it decides where the work goes — and
+  it was missing from the one view you talk to it in.
+- **The Director's view has no rails.** Not slimmed: gone. The Now rail's text
+  collided with the first column's title, and an artifact belongs to the thread
+  that produced it, one arrow away. This answers open question 1, which asked
+  whether the Director's view lists every thread's artifacts. It does not list
+  any.
+- **What needs an answer rides the composer line**, where it can be acted on:
+  it names the waiting thread and opens it. A rail could only have told you.
+- **Level of detail replaces shrinking.** Columns are readable to about four
+  threads; beyond that every other thread becomes a tile — its latest turn,
+  collapsed — while the Director keeps its full column. A twelve-column
+  constellation is a partial view of everything rather than a complete view of
+  anything.
+- **Clicking a thread opens it.** On the Director's view a thread is something
+  you open, not something you unfold.
+- **A tile reports on its conversation's clock, not the canvas's.** It looked
+  static when driven by render state; the work's own progress is what makes it
+  live. This is the trap to avoid when building it.
+
 ## Hard Rules
 
 - **One meaning for selection.** After this plan there is no surface that
@@ -96,8 +123,12 @@ Director; `director-command-center` workflow; Go director suite.
 
 ## Phase 2 — The canvas follows the view
 
-The Director's view composes every workstream's graph, exactly as the canvas
-does today. A workstream's view draws that workstream's graph alone.
+The Director's view composes every workstream's graph *and its own*. A
+workstream's view draws that workstream's graph alone.
+
+Past about four threads the composition changes representation rather than
+scale: the Director's conversation keeps a full column and every other thread
+becomes a tile carrying its latest turn. Clicking any thread opens it.
 
 **This closes an open defect by making it a specification.** The canvas not
 following selection has been recorded as a bug with no agreed fix; there was no
@@ -112,16 +143,19 @@ the canvas changing between them and returning to the composition on the
 Director's view; the graph performance workflow, to prove the composed view did
 not get slower.
 
-## Phase 3 — The artifacts rail follows the view
+## Phase 3 — The rails follow the view
 
-A workstream's view lists its own artifacts. The Director's view lists all of
-them, because the Director's view is the whole app.
+A workstream's view lists its own artifacts. `WorkstreamArtifact` already
+carries `workstreamId`, so that is a filter rather than a contract change.
 
-`WorkstreamArtifact` already carries `workstreamId`, so this is a filter rather
-than a contract change.
+The Director's view has no rails at all. What is waiting on an answer moves to
+the composer, naming the thread and opening it when clicked — which is also
+where the app already puts pending approvals, so this is one home rather than
+two.
 
-**Verification.** A driven session with artifacts in two workstreams, each
-view showing only its own; `director-command-center` workflow.
+**Verification.** A driven session with artifacts in two workstreams, each view
+showing only its own and the Director's view showing neither rail;
+`director-command-center` workflow, whose rail assertions move to the composer.
 
 ## Phase 4 — The composer speaks to the view
 
@@ -161,13 +195,9 @@ against `docs/mockups/fullscreen_conversation_concept.html`.
 
 ## Open questions
 
-1. **Does the Director's view show the Director's own artifacts?** The Director
-   emits artifacts too. "Everything" is the simple rule and probably right, but
-   it means the Director's view has a rail its own work shares with five
-   workstreams.
-2. **What does a workstream's view show while it is archived or has no graph
+1. **What does a workstream's view show while it is archived or has no graph
    yet?** An empty canvas is honest but startling after the constellation.
-3. **Does arrowing away from a running workstream keep its narration warm?**
+2. **Does arrowing away from a running workstream keep its narration warm?**
    Narration is per conversation and unaffected by what is on screen, but the
    cost question — narrating five conversations while looking at one — belongs
    with `now-rail-narrator-plan.md` Phase 3.
