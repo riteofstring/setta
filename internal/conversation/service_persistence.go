@@ -159,12 +159,23 @@ func cloneStringPointer(value *string) *string {
 	return &copy
 }
 
-func (service *Service) snapshotLocked(
+// readScopedSnapshot reads one conversation and proves it belongs to the
+// workspace the caller is acting in. An unbound conversation has no workspace to
+// prove, so the read is by conversation identity alone rather than refused.
+func (service *Service) readScopedSnapshot(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
-	snapshot, err := service.store.ReadSnapshot(ctx, workspaceID, conversationID)
+	return service.store.readSnapshot(ctx, workspaceID, conversationID, "read scoped conversation snapshot")
+}
+
+func (service *Service) snapshotLocked(
+	ctx context.Context,
+	workspaceID *string,
+	conversationID string,
+) (ConversationSnapshot, error) {
+	snapshot, err := service.readScopedSnapshot(ctx, workspaceID, conversationID)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}

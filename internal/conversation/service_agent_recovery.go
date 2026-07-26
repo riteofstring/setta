@@ -48,7 +48,7 @@ func (service *Service) interruptRestartedAgentTurn(
 		conversationID:     target.ConversationID,
 		interruptionReason: TurnInterruptionRuntimeRestarted,
 		turnID:             target.TurnID,
-		workspaceID:        target.WorkspaceID,
+		scope:              conversationExecutionScope{workspaceID: target.WorkspaceID},
 	}
 	lock := service.conversationLock(target.ConversationID)
 	lock.Lock()

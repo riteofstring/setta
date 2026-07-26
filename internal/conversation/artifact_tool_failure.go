@@ -10,7 +10,7 @@ import (
 
 func (service *Service) persistArtifactToolFailure(
 	ctx context.Context,
-	workspaceID string,
+	scope conversationExecutionScope,
 	conversationID string,
 	turnID string,
 	call agent.DynamicToolCall,
@@ -23,7 +23,7 @@ func (service *Service) persistArtifactToolFailure(
 	lock := service.conversationLock(conversationID)
 	lock.Lock()
 	defer lock.Unlock()
-	snapshot, err := service.snapshotLocked(ctx, workspaceID, conversationID)
+	snapshot, err := service.snapshotLocked(ctx, scope.workspaceID, conversationID)
 	if err != nil {
 		return err
 	}

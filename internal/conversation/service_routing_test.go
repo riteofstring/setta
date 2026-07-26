@@ -8,7 +8,7 @@ func (service *Service) sendTestTurn(
 	conversationID string,
 	text string,
 ) (ConversationSnapshot, error) {
-	return service.sendTurn(ctx, workspaceID, conversationID, text, "")
+	return service.sendTurn(ctx, &workspaceID, conversationID, text, "")
 }
 
 func (service *Service) queueTestTurn(
@@ -17,7 +17,7 @@ func (service *Service) queueTestTurn(
 	conversationID string,
 	text string,
 ) (ConversationSnapshot, error) {
-	return service.queueTurn(ctx, workspaceID, conversationID, text, "")
+	return service.queueTurn(ctx, &workspaceID, conversationID, text, "")
 }
 
 func (service *Service) steerTestTurn(
@@ -26,7 +26,7 @@ func (service *Service) steerTestTurn(
 	conversationID string,
 	text string,
 ) (ConversationSnapshot, error) {
-	return service.steerTurn(ctx, workspaceID, conversationID, text, "", "")
+	return service.steerTurn(ctx, &workspaceID, conversationID, text, "", "")
 }
 
 func (service *Service) createRouterSideConversationForTest(

@@ -222,7 +222,7 @@ type modelResolverProfileSource struct {
 
 func (source *modelResolverProfileSource) ReadEffectiveRoleProfile(
 	_ context.Context,
-	_ string,
+	_ *string,
 	_ string,
 	builtIn conversation.RoleProfile,
 ) (conversation.RoleProfile, error) {

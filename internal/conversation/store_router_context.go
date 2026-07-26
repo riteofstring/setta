@@ -332,30 +332,25 @@ func readConversationRouterAllowedDecisionKinds(
 	narrator NarratorContextSource,
 	forkPoints []ConversationRouterForkPoint,
 ) ([]ConversationRouteDecisionKind, error) {
-	if narrator.Conversation.WorkspaceID == nil {
-		allowed := []ConversationRouteDecisionKind{
-			ConversationRouteDecisionKindSendToParent,
-			ConversationRouteDecisionKindAnswerAsNarrator,
-		}
-		if work.ClarificationReply == nil {
-			allowed = append(allowed, ConversationRouteDecisionKindClarify)
-		}
-		return allowed, nil
-	}
 	allowed, err := readConversationRouterParentDecisionKinds(ctx, reader, work, narrator)
 	if err != nil {
 		return nil, err
 	}
 	allowed = append(allowed, ConversationRouteDecisionKindAnswerAsNarrator)
-	sideAllowed, err := conversationRouterSideAllowed(ctx, reader, work)
-	if err != nil {
-		return nil, err
-	}
-	if sideAllowed {
-		allowed = append(allowed, ConversationRouteDecisionKindCreateSideConversation)
-	}
-	if len(forkPoints) > 0 {
-		allowed = append(allowed, ConversationRouteDecisionKindForkConversation)
+	// Delivering work to the conversation itself needs no folder. A side
+	// conversation and a fork are durable records scoped to one, so only a bound
+	// conversation is offered them.
+	if narrator.Conversation.WorkspaceID != nil {
+		sideAllowed, err := conversationRouterSideAllowed(ctx, reader, work)
+		if err != nil {
+			return nil, err
+		}
+		if sideAllowed {
+			allowed = append(allowed, ConversationRouteDecisionKindCreateSideConversation)
+		}
+		if len(forkPoints) > 0 {
+			allowed = append(allowed, ConversationRouteDecisionKindForkConversation)
+		}
 	}
 	if work.ClarificationReply == nil {
 		allowed = append(allowed, ConversationRouteDecisionKindClarify)

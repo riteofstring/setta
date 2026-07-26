@@ -139,7 +139,8 @@ func TestSendingWorkAddressesTheDurableSubstrate(t *testing.T) {
 	}
 	sent := execution.sends[0]
 	if sent.ConversationID != "conversation-idle" ||
-		sent.WorkspaceID != workspaceID ||
+		sent.WorkspaceID == nil ||
+		*sent.WorkspaceID != workspaceID ||
 		sent.Text != "rewrite the parser" ||
 		sent.RunID == "" {
 		t.Fatalf("sent work = %+v", sent)
@@ -280,10 +281,11 @@ func TestCreatingARootWorkstreamHappensInNoWorkstream(t *testing.T) {
 	}
 }
 
-// TestFolderlessWorkOpensADurableResourceRequest proves a folderless workstream
-// is not an execution failure. It exists, it is selectable, and what it lacks
-// becomes an actionable durable request rather than an error.
-func TestFolderlessWorkOpensADurableResourceRequest(t *testing.T) {
+// TestWorkNeedingTheUsersFilesOpensADurableResourceRequest proves the folder
+// request is driven by what the delivery declared it needs. Work that needs the
+// user's own files, on a workstream with none, becomes an actionable durable
+// request rather than an error.
+func TestWorkNeedingTheUsersFilesOpensADurableResourceRequest(t *testing.T) {
 	harness := newRegistryHarness(t)
 	folderless := harness.createConversation("conversation-folderless", "Run the tests", nil)
 	registry := harness.start()
@@ -324,6 +326,51 @@ func TestFolderlessWorkOpensADurableResourceRequest(t *testing.T) {
 	}
 	if snapshot.Aggregates.AwaitingResourceCount != 1 {
 		t.Fatalf("aggregates = %+v", snapshot.Aggregates)
+	}
+}
+
+// TestWorkNeedingNoFilesRunsWithoutAFolder proves an optional delivery is not
+// held up by a workstream having no folder. The work reaches the execution port
+// naming no workspace, and the user is asked for nothing.
+func TestWorkNeedingNoFilesRunsWithoutAFolder(t *testing.T) {
+	harness := newRegistryHarness(t)
+	folderless := harness.createConversation("conversation-folderless", "Draft the brief", nil)
+	registry := harness.start()
+	execution := &recordedExecution{}
+	executor := newExecutorForTest(t, harness, registry, execution)
+
+	executed, err := executor.Execute(context.Background(), routedFor(t, registry, DirectorDecision{
+		Kind: DirectorDecisionSendToWorkstream,
+		SendToWorkstream: &SendToWorkstreamDecision{
+			WorkstreamID:         folderless,
+			AuthoredInput:        "draft five artifacts about the plan",
+			WorkspaceRequirement: WorkspaceOptional,
+		},
+	}))
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if executed.ResourceRequestID != nil {
+		t.Fatalf("artifact work asked the user for a folder: %+v", executed)
+	}
+	if len(execution.sends) != 1 {
+		t.Fatalf("execution sends = %+v", execution.sends)
+	}
+	if execution.sends[0].WorkspaceID != nil {
+		t.Fatalf("unbound delivery named a workspace: %+v", execution.sends[0])
+	}
+	if execution.sends[0].Text != "draft five artifacts about the plan" {
+		t.Fatalf("sent work = %+v", execution.sends[0])
+	}
+	registry.Close()
+
+	restarted := harness.start()
+	snapshot, err := restarted.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	if len(snapshot.UnresolvedResourceRequests) != 0 || snapshot.Aggregates.AwaitingResourceCount != 0 {
+		t.Fatalf("unbound artifact work left the user a request: %+v", snapshot.UnresolvedResourceRequests)
 	}
 }
 

@@ -49,7 +49,7 @@ func (service *Service) runningProgressState(
 	ctx context.Context,
 	active *activeConversationTurn,
 ) (ConversationSnapshot, ConversationTurn, error) {
-	snapshot, err := service.snapshotLocked(ctx, active.workspaceID, active.conversationID)
+	snapshot, err := service.snapshotLocked(ctx, active.scope.workspaceID, active.conversationID)
 	if err != nil {
 		return ConversationSnapshot{}, ConversationTurn{}, err
 	}

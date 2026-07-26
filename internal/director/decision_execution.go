@@ -21,11 +21,12 @@ import (
 //     workstream that does not exist until execution starts it. Work that then
 //     fails to start leaves a decision the app truthfully made and an error the
 //     caller receives, rather than a silent gap.
-//   - Work a workstream cannot start yet becomes a durable resource request
-//     instead of an error. A folderless workstream is a first-class workstream:
-//     it exists, it is selectable, and what it is missing is a folder. That is
-//     the affordance the pane world could only derive from a routing failure
-//     code.
+//   - Work that declared it needs the user's own files, on a workstream with no
+//     folder, becomes a durable resource request instead of an error. A
+//     folderless workstream is a first-class workstream: it exists, it is
+//     selectable, and it runs everything that does not need the user's files.
+//     Only the work that does is what waits, and that is the affordance the pane
+//     world could only derive from a routing failure code.
 //
 // The Director's reply is not a decision. It is durable once, in the Director
 // conversation, because prose is what the user was told and never proof that
@@ -286,7 +287,7 @@ func (executor *DecisionExecutor) createWorkstream(
 		return ExecutedDecision{}, err
 	}
 	return executor.finishWork(ctx, executed, workstreamID, func() error {
-		workspaceID, err := requireFolderResource(start.WorkspaceID)
+		workspaceID, err := deliveryWorkspace(committed.WorkspaceRequirement, start.WorkspaceID)
 		if err != nil {
 			return err
 		}
@@ -385,7 +386,7 @@ func (executor *DecisionExecutor) deliverWork(
 		WorkstreamID:         &workstreamID,
 		WorkspaceRequirement: committed.WorkspaceRequirement,
 	}, workstreamID, func() error {
-		return executor.callWorkPort(ctx, decision, target, runID, committed.FactID)
+		return executor.callWorkPort(ctx, decision, target, runID, committed)
 	})
 }
 
@@ -394,9 +395,9 @@ func (executor *DecisionExecutor) callWorkPort(
 	decision DirectorDecision,
 	target WorkstreamExecutionTarget,
 	runID string,
-	decisionID string,
+	committed committedDecision,
 ) error {
-	workspaceID, err := requireFolderResource(target.WorkspaceID)
+	workspaceID, err := deliveryWorkspace(committed.WorkspaceRequirement, target.WorkspaceID)
 	if err != nil {
 		return err
 	}
@@ -421,7 +422,7 @@ func (executor *DecisionExecutor) callWorkPort(
 			WorkspaceID:    workspaceID,
 			TargetRunID:    *target.ActiveRunID,
 			Text:           decision.SteerRun.AuthoredInput,
-			DecisionID:     decisionID,
+			DecisionID:     committed.FactID,
 		})
 	default:
 		return fmt.Errorf("director decision %q does not deliver work", decision.Kind)
@@ -502,13 +503,9 @@ func (executor *DecisionExecutor) recoverPath(
 		WorkstreamID:         &payload.WorkstreamID,
 		WorkspaceRequirement: committed.WorkspaceRequirement,
 	}, payload.WorkstreamID, func() error {
-		workspaceID, err := requireFolderResource(target.WorkspaceID)
-		if err != nil {
-			return err
-		}
 		return executor.execution.RecoverRun(ctx, RecoverRunRequest{
 			ConversationID: target.ConversationID,
-			WorkspaceID:    workspaceID,
+			WorkspaceID:    copyOptionalString(target.WorkspaceID),
 			FailedRunID:    failedRunID,
 			RunID:          runID,
 		})
@@ -542,14 +539,22 @@ func (executor *DecisionExecutor) finishWork(
 	return executed, nil
 }
 
-// requireFolderResource reports the folder work runs inside. Setta runs work in
-// a folder, so a folderless workstream is not broken: it is waiting for one, and
-// the caller turns that into the durable request that says so.
-func requireFolderResource(workspaceID *string) (string, error) {
-	if workspaceID == nil {
-		return "", &WorkstreamResourceRequiredError{Kind: WorkstreamResourceKindFolder}
+// deliveryWorkspace resolves the folder one delivery runs with. A workspace is
+// optional context, so the only thing that can hold work up is the delivery
+// having declared that it needs the user's own files and the workstream not
+// having any: the caller turns that into the durable request that says so.
+//
+// Steering and recovery declare nothing, because neither is a new delivery: they
+// change or restart work the workstream already carried under the scope it
+// already has.
+func deliveryWorkspace(
+	requirement *WorkspaceRequirement,
+	workspaceID *string,
+) (*string, error) {
+	if workspaceID == nil && requirement != nil && *requirement == WorkspaceRequired {
+		return nil, &WorkstreamResourceRequiredError{Kind: WorkstreamResourceKindFolder}
 	}
-	return *workspaceID, nil
+	return copyOptionalString(workspaceID), nil
 }
 
 func (executor *DecisionExecutor) openResourceRequest(

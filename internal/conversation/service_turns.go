@@ -10,7 +10,7 @@ import (
 
 func (service *Service) sendTurn(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 	text string,
 	turnID string,
@@ -21,7 +21,7 @@ func (service *Service) sendTurn(
 	if err := validateAuthoredText(text); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	workspaceSummary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
+	scope, err := service.resolveExecutionScope(conversationID, workspaceID)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -40,27 +40,27 @@ func (service *Service) sendTurn(
 			Reason:         "send requires an idle conversation; queue or steer active work",
 		}
 	}
-	turn, err := service.acceptTurn(ctx, snapshot, text, TurnDeliveryNormal, 0, turnID)
+	turn, err := service.acceptTurn(ctx, snapshot, scope, text, TurnDeliveryNormal, 0, turnID)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
-	if err := service.launchTurnLocked(ctx, workspaceSummary.RootPath, workspaceID, turn, 0); err != nil {
+	if err := service.launchTurnLocked(ctx, scope, turn, 0); err != nil {
 		persistErr := service.persistUnexpectedTurnEnd(context.Background(), &activeConversationTurn{
 			conversationID: conversationID,
 			turnID:         turn.ID,
-			workspaceID:    workspaceID,
+			scope:          scope,
 		}, err)
 		if persistErr != nil {
 			return ConversationSnapshot{}, errors.Join(err, fmt.Errorf("persist rejected turn launch: %w", persistErr))
 		}
 		return ConversationSnapshot{}, err
 	}
-	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
+	return service.readScopedSnapshot(ctx, workspaceID, conversationID)
 }
 
 func (service *Service) queueTurn(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 	text string,
 	turnID string,
@@ -74,7 +74,7 @@ func (service *Service) queueTurn(
 // through the normal lifecycle once the conversation is idle.
 func (service *Service) queueRoutedTurn(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 	text string,
 	turnID string,
@@ -84,7 +84,7 @@ func (service *Service) queueRoutedTurn(
 
 func (service *Service) queueTurnWithIdlePromotion(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 	text string,
 	turnID string,
@@ -94,6 +94,10 @@ func (service *Service) queueTurnWithIdlePromotion(
 		return ConversationSnapshot{}, err
 	}
 	if err := validateAuthoredText(text); err != nil {
+		return ConversationSnapshot{}, err
+	}
+	scope, err := service.resolveExecutionScope(conversationID, workspaceID)
+	if err != nil {
 		return ConversationSnapshot{}, err
 	}
 	lock := service.conversationLock(conversationID)
@@ -120,7 +124,7 @@ func (service *Service) queueTurnWithIdlePromotion(
 		}
 	}
 	ordinal := len(snapshot.Queue) + 1
-	if _, err := service.acceptTurn(ctx, snapshot, text, TurnDeliveryQueued, ordinal, turnID); err != nil {
+	if _, err := service.acceptTurn(ctx, snapshot, scope, text, TurnDeliveryQueued, ordinal, turnID); err != nil {
 		lock.Unlock()
 		return ConversationSnapshot{}, err
 	}
@@ -128,7 +132,7 @@ func (service *Service) queueTurnWithIdlePromotion(
 	if shouldPromote {
 		service.promoteNextTurn(workspaceID, conversationID)
 	}
-	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
+	return service.readScopedSnapshot(ctx, workspaceID, conversationID)
 }
 
 func (service *Service) routedQueueIdlePromotion(
@@ -155,18 +159,15 @@ func (service *Service) routedQueueIdlePromotion(
 func (service *Service) acceptTurn(
 	ctx context.Context,
 	snapshot ConversationSnapshot,
+	scope conversationExecutionScope,
 	text string,
 	delivery TurnDelivery,
 	queueOrdinal int,
 	turnID string,
 ) (ConversationTurn, error) {
-	workspaceID, err := requiredSnapshotWorkspaceID(snapshot)
-	if err != nil {
-		return ConversationTurn{}, err
-	}
 	profile, err := service.store.ReadEffectiveRoleProfile(
 		ctx,
-		workspaceID,
+		scope.workspaceID,
 		snapshot.Conversation.ID,
 		DefaultAgentRoleProfile(),
 	)
@@ -200,16 +201,6 @@ func (service *Service) acceptTurn(
 	}
 	err = service.commitAcceptedTurn(ctx, mutation, publications)
 	return mutation.turn, err
-}
-
-func requiredSnapshotWorkspaceID(snapshot ConversationSnapshot) (string, error) {
-	if snapshot.Conversation.WorkspaceID == nil {
-		return "", &ResourceRequiredError{
-			ConversationID: snapshot.Conversation.ID,
-			ResourceKind:   "folder",
-		}
-	}
-	return *snapshot.Conversation.WorkspaceID, nil
 }
 
 type acceptedTurnIDs struct {
@@ -379,7 +370,7 @@ func (service *Service) commitAcceptedTurn(
 
 func (service *Service) steerTurn(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 	text string,
 	expectedTurnID string,
@@ -429,7 +420,7 @@ func (service *Service) steerTurn(
 	); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
+	return service.readScopedSnapshot(ctx, workspaceID, conversationID)
 }
 
 func (service *Service) StopTurn(
@@ -437,7 +428,7 @@ func (service *Service) StopTurn(
 	workspaceID string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
-	return service.stopTurn(ctx, workspaceID, conversationID, "")
+	return service.stopTurn(ctx, &workspaceID, conversationID, "")
 }
 
 // stopTurn interrupts the active turn, optionally requiring it to be the one the
@@ -446,7 +437,7 @@ func (service *Service) StopTurn(
 // unnamed stop can interrupt a turn the caller never saw.
 func (service *Service) stopTurn(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 	expectedTurnID string,
 ) (ConversationSnapshot, error) {
@@ -478,7 +469,7 @@ func (service *Service) stopTurn(
 	); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
+	return service.readScopedSnapshot(ctx, workspaceID, conversationID)
 }
 
 func (service *Service) SubmitApproval(
@@ -487,7 +478,7 @@ func (service *Service) SubmitApproval(
 	conversationID string,
 	response ConversationApprovalResponse,
 ) (ConversationSnapshot, error) {
-	return service.submitApproval(ctx, workspaceID, conversationID, "", response)
+	return service.submitApproval(ctx, &workspaceID, conversationID, "", response)
 }
 
 // submitApproval answers one pending approval, optionally requiring it to belong
@@ -496,7 +487,7 @@ func (service *Service) SubmitApproval(
 // successor.
 func (service *Service) submitApproval(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 	expectedTurnID string,
 	response ConversationApprovalResponse,
@@ -545,13 +536,12 @@ func (service *Service) submitApproval(
 	); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
+	return service.readScopedSnapshot(ctx, workspaceID, conversationID)
 }
 
 func (service *Service) launchTurnLocked(
 	ctx context.Context,
-	workspaceRoot string,
-	workspaceID string,
+	scope conversationExecutionScope,
 	turn ConversationTurn,
 	queueOrdinal int,
 ) error {
@@ -559,14 +549,13 @@ func (service *Service) launchTurnLocked(
 	if err != nil {
 		return err
 	}
-	snapshot, err := service.store.ReadSnapshot(context.Background(), workspaceID, turn.ConversationID)
+	snapshot, err := service.readScopedSnapshot(context.Background(), scope.workspaceID, turn.ConversationID)
 	if err != nil {
 		return err
 	}
 	carrier, err := service.ensureConversationCarrierLocked(
 		ctx,
-		workspaceID,
-		workspaceRoot,
+		scope,
 		snapshot,
 		turn.RequestedRoleProfile,
 		invocation,
@@ -584,14 +573,16 @@ func (service *Service) launchTurnLocked(
 			ProviderThreadID: carrier.ThreadID,
 			ClientInputID:    turn.ID,
 			Text:             turn.AuthoredInput.Text,
-			WorkspaceRoot:    workspaceRoot,
-			Invocation:       invocation,
-			DynamicTools:     service.topicAgentArtifactTools(workspaceID, turn.ConversationID, turn.ID),
+			// The provider needs a process working directory for every turn. It
+			// is the authorized workspace only when there is one.
+			WorkspaceRoot: scope.workingDirectory,
+			Invocation:    invocation,
+			DynamicTools:  service.topicAgentArtifactTools(scope, turn.ConversationID, turn.ID),
 		},
 		roleProfile: turn.RequestedRoleProfile,
+		scope:       scope,
 		subagentIDs: map[string]string{},
 		turnID:      turn.ID,
-		workspaceID: workspaceID,
 	}
 	if err := service.reserveActiveTurn(active); err != nil {
 		return err
@@ -653,7 +644,7 @@ type controllableConversationTurn struct {
 
 func (service *Service) controllableTurnState(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 ) (controllableConversationTurn, error) {
 	snapshot, err := service.snapshotLocked(ctx, workspaceID, conversationID)

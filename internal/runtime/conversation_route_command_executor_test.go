@@ -170,13 +170,6 @@ func (store *routeCommandExecutorStore) ConversationRouteCommandApplied(
 	return store.applied[index], nil
 }
 
-func (store *routeCommandExecutorStore) ReadConversationWorkspaceID(
-	_ context.Context,
-	_ string,
-) (string, error) {
-	return store.workspaceID, nil
-}
-
 func (store *routeCommandExecutorStore) ReadConversationWorkspaceBindingID(
 	_ context.Context,
 	_ string,
@@ -209,7 +202,7 @@ type routeCommandExecutorConversations struct{}
 
 func (*routeCommandExecutorConversations) ExecuteRouteCommand(
 	context.Context,
-	string,
+	*string,
 	string,
 	string,
 	conversation.ConversationRouteCommand,

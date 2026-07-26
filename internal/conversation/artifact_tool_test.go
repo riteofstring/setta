@@ -75,7 +75,7 @@ func TestEmitArtifactToolReturnsStructuredFailureAndAllowsRetry(t *testing.T) {
 	created := createArtifactToolTopic(t, ctx, service, workspaceID)
 	conversationID := created.Conversation.ID
 	active := startHeldArtifactToolTurn(t, ctx, service, runtime, workspaceID, conversationID)
-	tools := service.topicAgentArtifactTools(workspaceID, conversationID, active.turnID)
+	tools := service.topicAgentArtifactTools(active.scope, conversationID, active.turnID)
 	if len(tools) != 1 {
 		t.Fatalf("artifact tools = %+v", tools)
 	}
@@ -142,7 +142,7 @@ func TestFailedArtifactAttemptMakesProviderCompletionUnresolved(t *testing.T) {
 	created := createArtifactToolTopic(t, ctx, service, workspaceID)
 	conversationID := created.Conversation.ID
 	active := startHeldArtifactToolTurn(t, ctx, service, runtime, workspaceID, conversationID)
-	tools := service.topicAgentArtifactTools(workspaceID, conversationID, active.turnID)
+	tools := service.topicAgentArtifactTools(active.scope, conversationID, active.turnID)
 	if len(tools) != 1 {
 		t.Fatalf("artifact tools = %+v", tools)
 	}
@@ -382,7 +382,7 @@ func emitTestDocumentArtifact(
 	active *activeConversationTurn,
 ) Artifact {
 	t.Helper()
-	artifact, err := service.emitArtifactFromTool(ctx, workspaceID, conversationID, active.turnID, agent.DynamicToolCall{
+	artifact, err := service.emitArtifactFromTool(ctx, active.scope, conversationID, active.turnID, agent.DynamicToolCall{
 		CallID:           "provider-tool-call-1",
 		ConversationID:   conversationID,
 		TurnID:           active.turnID,
@@ -670,7 +670,7 @@ func TestEmitArtifactToolValidatesFileReferencesBeforeMintingIDs(t *testing.T) {
 		mintedPrefixes = append(mintedPrefixes, prefix)
 		return originalNewID(prefix)
 	}
-	_, err := service.emitArtifactFromTool(ctx, workspaceID, conversationID, active.turnID, call)
+	_, err := service.emitArtifactFromTool(ctx, active.scope, conversationID, active.turnID, call)
 	service.newID = originalNewID
 	var failure *artifactToolFailureError
 	if !errors.As(err, &failure) {
@@ -699,7 +699,7 @@ func TestEmitArtifactToolValidatesFileReferencesBeforeMintingIDs(t *testing.T) {
 	)
 	artifact, err := service.emitArtifactFromTool(
 		ctx,
-		workspaceID,
+		active.scope,
 		conversationID,
 		active.turnID,
 		call,

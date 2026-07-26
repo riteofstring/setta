@@ -83,7 +83,7 @@ Final prose summarizes the outcome but is not a substitute for emitting a durabl
 }
 
 func (service *Service) topicAgentArtifactTools(
-	workspaceID string,
+	scope conversationExecutionScope,
 	conversationID string,
 	turnID string,
 ) []agent.DynamicTool {
@@ -94,19 +94,19 @@ func (service *Service) topicAgentArtifactTools(
 		Description:          "Publish a durable typed artifact for the current Setta topic conversation turn.",
 		InputSchema:          append(json.RawMessage{}, emitArtifactInputSchemaJSON...),
 		Handler: func(ctx context.Context, call agent.DynamicToolCall) (agent.DynamicToolResult, error) {
-			return service.handleArtifactToolCall(ctx, workspaceID, conversationID, turnID, call)
+			return service.handleArtifactToolCall(ctx, scope, conversationID, turnID, call)
 		},
 	}}
 }
 
 func (service *Service) handleArtifactToolCall(
 	ctx context.Context,
-	workspaceID string,
+	scope conversationExecutionScope,
 	conversationID string,
 	turnID string,
 	call agent.DynamicToolCall,
 ) (agent.DynamicToolResult, error) {
-	artifact, err := service.emitArtifactFromTool(ctx, workspaceID, conversationID, turnID, call)
+	artifact, err := service.emitArtifactFromTool(ctx, scope, conversationID, turnID, call)
 	if err == nil {
 		return artifactToolResult(artifact)
 	}
@@ -117,7 +117,7 @@ func (service *Service) handleArtifactToolCall(
 	if !ok {
 		return agent.DynamicToolResult{}, err
 	}
-	if recordErr := service.persistArtifactToolFailure(ctx, workspaceID, conversationID, turnID, call, failure); recordErr != nil {
+	if recordErr := service.persistArtifactToolFailure(ctx, scope, conversationID, turnID, call, failure); recordErr != nil {
 		failure = artifactToolPersistenceFailure(call, recordErr)
 	}
 	return agent.DynamicToolFailureResult(failure)
@@ -125,7 +125,7 @@ func (service *Service) handleArtifactToolCall(
 
 func (service *Service) emitArtifactFromTool(
 	ctx context.Context,
-	workspaceID string,
+	scope conversationExecutionScope,
 	conversationID string,
 	turnID string,
 	call agent.DynamicToolCall,
@@ -137,11 +137,12 @@ func (service *Service) emitArtifactFromTool(
 	if err != nil {
 		return Artifact{}, err
 	}
-	active, err := service.requireActiveArtifactToolTurn(workspaceID, conversationID, turnID, call)
-	if err != nil {
+	if _, err := service.requireActiveArtifactToolTurn(scope, conversationID, turnID, call); err != nil {
 		return Artifact{}, artifactToolStaleTurnError(err)
 	}
-	if err := validateEmitArtifactFileReferences(input.document, active.request.WorkspaceRoot); err != nil {
+	// File references are authorized against the user's own folder, never against
+	// the directory the provider process happens to run in.
+	if err := validateEmitArtifactFileReferences(input.document, scope.authorizedRoot); err != nil {
 		return Artifact{}, err
 	}
 	artifactID, trajectoryID, err := service.newArtifactToolIDs()
@@ -157,7 +158,7 @@ func (service *Service) emitArtifactFromTool(
 	lock := service.conversationLock(conversationID)
 	lock.Lock()
 	defer lock.Unlock()
-	return service.persistArtifactToolEmission(ctx, workspaceID, conversationID, turnID, call, input, artifactID, trajectoryID)
+	return service.persistArtifactToolEmission(ctx, scope, conversationID, turnID, call, input, artifactID, trajectoryID)
 }
 
 func (service *Service) validateArtifactToolRequest(
@@ -195,7 +196,7 @@ func (service *Service) newArtifactToolIDs() (string, string, error) {
 
 func (service *Service) persistArtifactToolEmission(
 	ctx context.Context,
-	workspaceID string,
+	scope conversationExecutionScope,
 	conversationID string,
 	turnID string,
 	call agent.DynamicToolCall,
@@ -203,7 +204,7 @@ func (service *Service) persistArtifactToolEmission(
 	artifactID string,
 	trajectoryID string,
 ) (Artifact, error) {
-	active, err := service.requireActiveArtifactToolTurn(workspaceID, conversationID, turnID, call)
+	active, err := service.requireActiveArtifactToolTurn(scope, conversationID, turnID, call)
 	if err != nil {
 		return Artifact{}, artifactToolStaleTurnError(err)
 	}
@@ -269,7 +270,7 @@ func (service *Service) persistArtifactToolEmission(
 }
 
 func (service *Service) requireActiveArtifactToolTurn(
-	workspaceID string,
+	scope conversationExecutionScope,
 	conversationID string,
 	turnID string,
 	call agent.DynamicToolCall,
@@ -278,8 +279,14 @@ func (service *Service) requireActiveArtifactToolTurn(
 	if active == nil {
 		return nil, &CommandConflictError{ConversationID: conversationID, Reason: "artifact tool requires an active topic turn"}
 	}
-	if active.workspaceID != workspaceID || active.turnID != turnID {
-		return nil, fmt.Errorf("artifact tool active turn is %s/%s, want %s/%s", active.workspaceID, active.turnID, workspaceID, turnID)
+	if !equalOptionalString(active.scope.workspaceID, scope.workspaceID) || active.turnID != turnID {
+		return nil, fmt.Errorf(
+			"artifact tool active turn is %s/%s, want %s/%s",
+			optionalWorkspaceLabel(active.scope.workspaceID),
+			active.turnID,
+			optionalWorkspaceLabel(scope.workspaceID),
+			turnID,
+		)
 	}
 	if active.providerThreadID != call.ProviderThreadID || active.providerTurnID != call.ProviderTurnID {
 		return nil, fmt.Errorf("artifact tool provider scope %s/%s does not match active turn %s/%s", call.ProviderThreadID, call.ProviderTurnID, active.providerThreadID, active.providerTurnID)

@@ -12,7 +12,7 @@ import (
 type conversationRouteCommandService interface {
 	ExecuteRouteCommand(
 		context.Context,
-		string,
+		*string,
 		string,
 		string,
 		conversation.ConversationRouteCommand,
@@ -40,7 +40,6 @@ type conversationRouteCommandStore interface {
 		context.Context,
 		conversation.ConversationRouteDecisionRecord,
 	) (bool, error)
-	ReadConversationWorkspaceID(context.Context, string) (string, error)
 	ReadConversationWorkspaceBindingID(context.Context, string) (*string, error)
 	ReadSnapshot(context.Context, string, string) (conversation.ConversationSnapshot, error)
 	ReadSnapshotByID(context.Context, string) (conversation.ConversationSnapshot, error)
@@ -78,39 +77,12 @@ func (executor *conversationRouteCommandExecutor) ExecuteConversationRouteComman
 	if err != nil || applied {
 		return err
 	}
-	workspaceID, err := executor.commandWorkspaceID(ctx, record)
+	workspaceID, err := executor.store.ReadConversationWorkspaceBindingID(ctx, record.ConversationID)
 	if err != nil {
 		return err
 	}
 	executeErr := executor.executeConversationRouteCommand(ctx, workspaceID, record)
 	return executor.verifyConversationRouteCommandEffect(ctx, workspaceID, record, executeErr)
-}
-
-func (executor *conversationRouteCommandExecutor) commandWorkspaceID(
-	ctx context.Context,
-	record conversation.ConversationRouteDecisionRecord,
-) (string, error) {
-	if record.ResultingCommand.Kind == conversation.ConversationRouteDecisionKindAnswerAsNarrator {
-		workspaceID, err := executor.store.ReadConversationWorkspaceBindingID(ctx, record.ConversationID)
-		if err != nil {
-			return "", err
-		}
-		if workspaceID == nil {
-			return "", nil
-		}
-		return *workspaceID, nil
-	}
-	workspaceID, err := executor.store.ReadConversationWorkspaceID(ctx, record.ConversationID)
-	if err != nil {
-		if errors.Is(err, conversation.ErrConversationHasNoWorkspace) {
-			return "", &conversation.ResourceRequiredError{
-				ConversationID: record.ConversationID,
-				ResourceKind:   "folder",
-			}
-		}
-		return "", err
-	}
-	return workspaceID, nil
 }
 
 func (executor *conversationRouteCommandExecutor) validateExecution(
@@ -131,13 +103,13 @@ func (executor *conversationRouteCommandExecutor) validateExecution(
 
 func (executor *conversationRouteCommandExecutor) executeConversationRouteCommand(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	record conversation.ConversationRouteDecisionRecord,
 ) error {
 	switch record.ResultingCommand.Kind {
 	case conversation.ConversationRouteDecisionKindAnswerAsNarrator:
 		command := record.ResultingCommand.AnswerAsNarrator
-		if workspaceID == "" {
+		if workspaceID == nil {
 			_, err := executor.narrator.AskRoutedFolderlessStatus(
 				ctx,
 				record.ConversationID,
@@ -148,7 +120,7 @@ func (executor *conversationRouteCommandExecutor) executeConversationRouteComman
 		}
 		_, err := executor.narrator.AskRoutedStatus(
 			ctx,
-			workspaceID,
+			*workspaceID,
 			record.ConversationID,
 			command.RequestID,
 			command.Question,
@@ -170,7 +142,7 @@ func (executor *conversationRouteCommandExecutor) executeConversationRouteComman
 
 func (executor *conversationRouteCommandExecutor) verifyConversationRouteCommandEffect(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	record conversation.ConversationRouteDecisionRecord,
 	executeErr error,
 ) error {
@@ -202,7 +174,7 @@ func (executor *conversationRouteCommandExecutor) verifyConversationRouteCommand
 
 func (executor *conversationRouteCommandExecutor) routedNarratorDegradationApplied(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	record conversation.ConversationRouteDecisionRecord,
 	executeErr error,
 ) (bool, error) {
@@ -223,10 +195,10 @@ func (executor *conversationRouteCommandExecutor) routedNarratorDegradationAppli
 	}
 	var snapshot conversation.ConversationSnapshot
 	var err error
-	if workspaceID == "" {
+	if workspaceID == nil {
 		snapshot, err = executor.store.ReadSnapshotByID(ctx, record.ConversationID)
 	} else {
-		snapshot, err = executor.store.ReadSnapshot(ctx, workspaceID, record.ConversationID)
+		snapshot, err = executor.store.ReadSnapshot(ctx, *workspaceID, record.ConversationID)
 	}
 	if err != nil {
 		return false, fmt.Errorf("verify routed narrator degradation: %w", err)

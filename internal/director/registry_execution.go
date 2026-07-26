@@ -19,8 +19,8 @@ type WorkstreamExecutionTarget struct {
 	WorkstreamID   string
 	ConversationID string
 	// WorkspaceID is the folder resource the workstream is bound to. A nil
-	// workspace is a folderless workstream, which exists and is selectable but
-	// cannot run work until the user supplies a folder.
+	// workspace is a folderless workstream, which exists, is selectable, and runs
+	// every delivery that does not need the user's own files.
 	WorkspaceID *string
 	ActiveRunID *string
 }
@@ -85,8 +85,11 @@ func (registry *Registry) RecoverableRun(workstreamID string, failureEventID str
 type WorkstreamRunTarget struct {
 	WorkstreamID   string
 	ConversationID string
-	WorkspaceID    string
-	RunID          string
+	// WorkspaceID is the folder the run is authorized to read, or nil when the
+	// workstream is unbound. A run exists on an unbound workstream exactly as it
+	// does on a bound one, so stopping or answering it names no folder.
+	WorkspaceID *string
+	RunID       string
 }
 
 // ActiveRunTarget resolves the substrate of a run the user asked to act on, and
@@ -134,10 +137,10 @@ func (registry *Registry) PendingApprovalTarget(approvalID string) (WorkstreamRu
 	return registry.activeRunTargetLocked(approval.WorkstreamID, *approval.RunID)
 }
 
-// activeRunTargetLocked is the shared resolution: the workstream exists, the run
-// is the one it is carrying, and it runs inside a folder. A workstream with no
-// folder cannot have a run at all, so the check is a guard rather than a state
-// the user can reach.
+// activeRunTargetLocked is the shared resolution: the workstream exists, and the
+// run is the one it is carrying. Whether it has a folder is not part of that
+// question — an unbound workstream runs work like any other, and stopping or
+// answering that run addresses the run rather than the folder.
 func (registry *Registry) activeRunTargetLocked(
 	workstreamID string,
 	runID string,
@@ -161,18 +164,10 @@ func (registry *Registry) activeRunTargetLocked(
 			workstreamID,
 		)
 	}
-	workspaceID := workstreamFolderWorkspaceID(workstream.record.ResourceScope)
-	if workspaceID == nil {
-		return WorkstreamRunTarget{}, fmt.Errorf(
-			"%w: workstream %s has no folder resource its run could be executing in",
-			ErrDirectorIntentRejected,
-			workstreamID,
-		)
-	}
 	return WorkstreamRunTarget{
 		WorkstreamID:   workstream.record.ID,
 		ConversationID: workstream.conversationID,
-		WorkspaceID:    *workspaceID,
+		WorkspaceID:    workstreamFolderWorkspaceID(workstream.record.ResourceScope),
 		RunID:          runID,
 	}, nil
 }

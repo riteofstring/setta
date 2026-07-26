@@ -35,7 +35,7 @@ func (executor *DecisionExecutor) CancelRun(ctx context.Context, intent Director
 	}
 	return executor.execution.CancelRun(ctx, CancelRunRequest{
 		ConversationID: target.ConversationID,
-		WorkspaceID:    target.WorkspaceID,
+		WorkspaceID:    copyOptionalString(target.WorkspaceID),
 		RunID:          target.RunID,
 	})
 }
@@ -56,7 +56,7 @@ func (executor *DecisionExecutor) ResolveApproval(
 	}
 	return executor.execution.ResolveApproval(ctx, ResolveApprovalRequest{
 		ConversationID: target.ConversationID,
-		WorkspaceID:    target.WorkspaceID,
+		WorkspaceID:    copyOptionalString(target.WorkspaceID),
 		RunID:          target.RunID,
 		ApprovalID:     intent.ApprovalID,
 		Decision:       intent.Decision,

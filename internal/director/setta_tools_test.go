@@ -202,7 +202,8 @@ func TestDirectorStopsTheRunAWorkstreamIsCarrying(t *testing.T) {
 	}
 	stopped := execution.cancels[0]
 	if stopped.ConversationID != "conversation-migrate" ||
-		stopped.WorkspaceID != workspaceID ||
+		stopped.WorkspaceID == nil ||
+		*stopped.WorkspaceID != workspaceID ||
 		stopped.RunID != "turn-migrate-1" {
 		t.Fatalf("cancelled run = %+v", stopped)
 	}

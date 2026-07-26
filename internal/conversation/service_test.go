@@ -2,10 +2,10 @@ package conversation
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -71,7 +71,7 @@ func TestServiceAllocatesStableDistinctVisibleConversationPalettes(t *testing.T)
 	}
 }
 
-func TestServiceCreatesFolderlessTopicAndRequiresFolderForTurns(t *testing.T) {
+func TestServiceRunsFolderlessTopicTurnsInAPrivateWorkingDirectory(t *testing.T) {
 	store, service, _, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
 	t.Cleanup(func() {
 		shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -99,12 +99,17 @@ func TestServiceCreatesFolderlessTopicAndRequiresFolderForTurns(t *testing.T) {
 		t.Fatalf("workspace-scoped ReadSnapshot error = %T %v, want conversation not found", err, err)
 	}
 
-	_, err = service.acceptTurn(ctx, created, "needs the project folder", TurnDeliveryNormal, 0, "turn-folderless")
-	var resourceRequired *ResourceRequiredError
-	if !errors.As(err, &resourceRequired) ||
-		resourceRequired.ConversationID != created.Conversation.ID ||
-		resourceRequired.ResourceKind != "folder" {
-		t.Fatalf("folderless turn error = %T %v, want folder ResourceRequiredError", err, err)
+	unboundScope := requirePrivateUnboundScope(t, service, created.Conversation.ID, workspaceID)
+	if _, err := service.acceptTurn(
+		ctx,
+		created,
+		unboundScope,
+		"produce something durable from this conversation",
+		TurnDeliveryNormal,
+		0,
+		"turn-folderless",
+	); err != nil {
+		t.Fatalf("folderless acceptTurn: %v", err)
 	}
 
 	bound, err := service.BindFolderResource(ctx, workspaceID, created.Conversation.ID)
@@ -128,9 +133,73 @@ func TestServiceCreatesFolderlessTopicAndRequiresFolderForTurns(t *testing.T) {
 	if len(page.Items) != 1 || page.Items[0].Conversation.ID != created.Conversation.ID {
 		t.Fatalf("navigator after bind = %+v, want bound conversation", page.Items)
 	}
-	if _, err := service.acceptTurn(ctx, bound, "continue with the selected folder", TurnDeliveryNormal, 0, "turn-bound"); err != nil {
+	boundScope := requireAuthorizedBoundScope(t, service, bound.Conversation.ID, workspaceID)
+	if _, err := service.acceptTurn(
+		ctx,
+		bound,
+		boundScope,
+		"continue with the selected folder",
+		TurnDeliveryNormal,
+		0,
+		"turn-bound",
+	); err != nil {
 		t.Fatalf("bound acceptTurn: %v", err)
 	}
+}
+
+// requirePrivateUnboundScope proves an unbound conversation resolves to a real
+// private directory that authorizes nothing and lives outside the user's folder.
+func requirePrivateUnboundScope(
+	t *testing.T,
+	service *Service,
+	conversationID string,
+	offeredWorkspaceID string,
+) conversationExecutionScope {
+	t.Helper()
+	scope, err := service.resolveExecutionScope(conversationID, nil)
+	if err != nil {
+		t.Fatalf("resolveExecutionScope for a folderless conversation: %v", err)
+	}
+	if scope.workspaceID != nil || scope.authorizedRoot != "" {
+		t.Fatalf("folderless scope authorizes a workspace: %+v", scope)
+	}
+	offered, err := service.workspaces.ResolveActiveWorkspace(offeredWorkspaceID)
+	if err != nil {
+		t.Fatalf("ResolveActiveWorkspace: %v", err)
+	}
+	if !filepath.IsAbs(scope.workingDirectory) ||
+		strings.HasPrefix(scope.workingDirectory, offered.RootPath) {
+		t.Fatalf(
+			"folderless working directory %q is not a private directory outside %q",
+			scope.workingDirectory,
+			offered.RootPath,
+		)
+	}
+	info, err := os.Stat(scope.workingDirectory)
+	if err != nil || !info.IsDir() {
+		t.Fatalf("private working directory %q: %v", scope.workingDirectory, err)
+	}
+	return scope
+}
+
+// requireAuthorizedBoundScope proves a bound conversation runs in the folder it
+// is authorized to read.
+func requireAuthorizedBoundScope(
+	t *testing.T,
+	service *Service,
+	conversationID string,
+	workspaceID string,
+) conversationExecutionScope {
+	t.Helper()
+	scope, err := service.resolveExecutionScope(conversationID, &workspaceID)
+	if err != nil {
+		t.Fatalf("resolveExecutionScope for a bound conversation: %v", err)
+	}
+	if scope.workspaceID == nil || *scope.workspaceID != workspaceID ||
+		scope.authorizedRoot != scope.workingDirectory {
+		t.Fatalf("bound scope = %+v, want the authorized workspace", scope)
+	}
+	return scope
 }
 
 func createPaletteTestTopics(

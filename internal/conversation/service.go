@@ -75,9 +75,12 @@ type activeConversationTurn struct {
 	queueOrdinal       int
 	request            agent.TurnRequest
 	roleProfile        RoleProfile
-	subagentIDs        map[string]string
-	turnID             string
-	workspaceID        string
+	// scope is where this turn runs and what it may read. The authorized
+	// workspace is optional, so it is the whole scope rather than a workspace id
+	// that every path would otherwise have to assume exists.
+	scope       conversationExecutionScope
+	subagentIDs map[string]string
+	turnID      string
 }
 
 type activeSideConversationTurn struct {

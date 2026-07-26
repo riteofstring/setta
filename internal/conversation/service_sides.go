@@ -179,7 +179,7 @@ func (service *Service) resolveSideAgentInvocation(
 ) (RoleProfile, agent.ResolvedInvocation, agent.Invocation, error) {
 	profile, err := service.store.ReadEffectiveRoleProfile(
 		ctx,
-		workspaceID,
+		&workspaceID,
 		conversationID,
 		DefaultSideAgentRoleProfile(),
 	)
@@ -289,7 +289,7 @@ func (service *Service) persistPreparingSideConversation(
 	lock := service.conversationLock(parentConversationID)
 	lock.Lock()
 	defer lock.Unlock()
-	snapshot, err := service.snapshotLocked(ctx, workspaceID, parentConversationID)
+	snapshot, err := service.snapshotLocked(ctx, &workspaceID, parentConversationID)
 	if err != nil {
 		return preparedSideConversation{}, err
 	}
@@ -477,7 +477,7 @@ func (service *Service) activateSideConversation(
 	lock := service.conversationLock(prepared.parentConversationID)
 	lock.Lock()
 	defer lock.Unlock()
-	snapshot, err := service.snapshotLocked(ctx, prepared.workspaceID, prepared.parentConversationID)
+	snapshot, err := service.snapshotLocked(ctx, &prepared.workspaceID, prepared.parentConversationID)
 	if err != nil {
 		return fmt.Errorf("read parent state before side activation: %w", err)
 	}

@@ -12,7 +12,7 @@ import (
 type RoleProfileSource interface {
 	ReadEffectiveRoleProfile(
 		context.Context,
-		string,
+		*string,
 		string,
 		conversation.RoleProfile,
 	) (conversation.RoleProfile, error)
@@ -111,7 +111,7 @@ func (resolver *ModelResolver) resolveRoleProfile(
 	}
 	profile, err := resolver.profiles.ReadEffectiveRoleProfile(
 		ctx,
-		workspaceID,
+		&workspaceID,
 		conversationID,
 		profile,
 	)

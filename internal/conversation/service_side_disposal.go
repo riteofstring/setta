@@ -140,7 +140,7 @@ func (service *Service) prepareSideDisposal(
 	lock := service.conversationLock(parentConversationID)
 	lock.Lock()
 	defer lock.Unlock()
-	snapshot, err := service.snapshotLocked(ctx, workspaceID, parentConversationID)
+	snapshot, err := service.snapshotLocked(ctx, &workspaceID, parentConversationID)
 	if err != nil {
 		return SideConversation{}, err
 	}
@@ -249,7 +249,7 @@ func (service *Service) finalizeSideDisposal(
 	lock := service.conversationLock(known.ParentConversationID)
 	lock.Lock()
 	defer lock.Unlock()
-	snapshot, err := service.snapshotLocked(ctx, workspaceID, known.ParentConversationID)
+	snapshot, err := service.snapshotLocked(ctx, &workspaceID, known.ParentConversationID)
 	if err != nil {
 		return err
 	}

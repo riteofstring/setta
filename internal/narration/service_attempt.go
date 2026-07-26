@@ -384,7 +384,7 @@ func (worker *serviceAttemptWorker) contextLimits(
 		var err error
 		profile, err = worker.profiles.ReadEffectiveRoleProfile(
 			ctx,
-			workspaceID,
+			&workspaceID,
 			conversationID,
 			profile,
 		)

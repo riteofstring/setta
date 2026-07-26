@@ -70,7 +70,8 @@ func TestCancelStopsTheRunTheUserSaw(t *testing.T) {
 	}
 	cancelled := execution.cancels[0]
 	if cancelled.ConversationID != "conversation-running" ||
-		cancelled.WorkspaceID != workspaceID ||
+		cancelled.WorkspaceID == nil ||
+		*cancelled.WorkspaceID != workspaceID ||
 		cancelled.RunID != "turn-running-1" {
 		t.Fatalf("cancelled run = %+v", cancelled)
 	}
@@ -129,7 +130,8 @@ func TestResolvingAnApprovalAnswersOnItsOwnRun(t *testing.T) {
 	}
 	resolved := execution.approvals[0]
 	if resolved.ConversationID != "conversation-approving" ||
-		resolved.WorkspaceID != workspaceID ||
+		resolved.WorkspaceID == nil ||
+		*resolved.WorkspaceID != workspaceID ||
 		resolved.RunID != "turn-approving-1" ||
 		resolved.ApprovalID != "approval-migrate" ||
 		resolved.Decision != conversation.TrajectoryApprovalDecisionApproved {

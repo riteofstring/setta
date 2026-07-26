@@ -74,17 +74,17 @@ func (service *Service) finishRunTurn(active *activeConversationTurn, runErr err
 		service.carriers.Forget(active.conversationID)
 	}
 	if persisted {
-		service.promoteNextTurn(active.workspaceID, active.conversationID)
+		service.promoteNextTurn(active.scope.workspaceID, active.conversationID)
 	}
 }
 
-func (service *Service) promoteNextTurn(workspaceID string, conversationID string) {
+func (service *Service) promoteNextTurn(workspaceID *string, conversationID string) {
 	_ = service.promoteNextTurnWithResult(context.Background(), workspaceID, conversationID)
 }
 
 func (service *Service) promoteNextTurnWithResult(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 ) error {
 	if err := service.requireOpen(); err != nil {
@@ -96,7 +96,7 @@ func (service *Service) promoteNextTurnWithResult(
 	if service.activeFor(conversationID) != nil {
 		return nil
 	}
-	snapshot, err := service.store.ReadSnapshot(ctx, workspaceID, conversationID)
+	snapshot, err := service.readScopedSnapshot(ctx, workspaceID, conversationID)
 	if err != nil {
 		return err
 	}
@@ -108,25 +108,25 @@ func (service *Service) promoteNextTurnWithResult(
 	if err != nil {
 		return err
 	}
-	workspaceSummary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
+	scope, err := service.resolveExecutionScope(conversationID, workspaceID)
 	if err != nil {
 		persistErr := service.persistUnexpectedTurnEnd(ctx, &activeConversationTurn{
 			conversationID: conversationID,
 			queueOrdinal:   queued.Ordinal,
 			turnID:         turn.ID,
-			workspaceID:    workspaceID,
+			scope:          conversationExecutionScope{workspaceID: workspaceID},
 		}, err)
 		if persistErr != nil {
 			return errors.Join(err, fmt.Errorf("persist queued turn workspace recovery failure: %w", persistErr))
 		}
 		return nil
 	}
-	if err := service.launchTurnLocked(ctx, workspaceSummary.RootPath, workspaceID, turn, queued.Ordinal); err != nil {
+	if err := service.launchTurnLocked(ctx, scope, turn, queued.Ordinal); err != nil {
 		persistErr := service.persistUnexpectedTurnEnd(ctx, &activeConversationTurn{
 			conversationID: conversationID,
 			queueOrdinal:   queued.Ordinal,
 			turnID:         turn.ID,
-			workspaceID:    workspaceID,
+			scope:          scope,
 		}, err)
 		if persistErr != nil {
 			return errors.Join(err, fmt.Errorf("persist queued turn launch recovery failure: %w", persistErr))
@@ -235,7 +235,7 @@ func (service *Service) prepareTurnStart(
 	event agent.Event,
 ) (turnStartMutation, error) {
 	ctx := service.lifecycleCtx
-	snapshot, err := service.snapshotLocked(ctx, active.workspaceID, active.conversationID)
+	snapshot, err := service.snapshotLocked(ctx, active.scope.workspaceID, active.conversationID)
 	if err != nil {
 		return turnStartMutation{}, err
 	}
@@ -447,7 +447,7 @@ func (service *Service) prepareTurnTerminal(
 	active *activeConversationTurn,
 	event agent.Event,
 ) (turnTerminalMutation, error) {
-	snapshot, err := service.snapshotLocked(service.lifecycleCtx, active.workspaceID, active.conversationID)
+	snapshot, err := service.snapshotLocked(service.lifecycleCtx, active.scope.workspaceID, active.conversationID)
 	if err != nil {
 		return turnTerminalMutation{}, err
 	}

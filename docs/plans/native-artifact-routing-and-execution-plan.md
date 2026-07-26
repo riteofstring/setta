@@ -183,7 +183,7 @@ turn run.
 
 ### Phase 2 - Workspace-Independent Agent Execution
 
-**Status:** Pending.
+**Status:** Implemented, ready for phase audit.
 
 - Let an unbound conversation accept, queue, steer, cancel, recover, and complete
   turns without a workspace ID.
@@ -196,6 +196,29 @@ turn run.
   existing retryable field error when an unbound turn attempts one.
 - Preserve the existing folder-resource UX only when a delivery explicitly
   declares `WorkspaceRequired`.
+
+The conversation service now resolves one execution scope per turn: the optional
+authorized workspace, the authorized root a `FileReference` may resolve inside,
+and the working directory the provider process runs in. A bound turn resolves
+all three from the workspace registry. An unbound turn authorizes nothing and
+runs in a private per-conversation directory under the app's own data location,
+which is not a workspace and never authorizes a file reference.
+`requireFolderResource` is gone: the Director opens the folder request from the
+requirement its committed decision declared, so only work that said it needs the
+user's files waits for one. Steering and recovery declare nothing, because
+neither is a new delivery.
+
+The topic-pane router follows the same rule. Delivering work to the conversation
+itself is offered and executed without a folder; a side conversation and a fork
+are still workspace-scoped durable records, so an unbound conversation is not
+offered them and the execution boundary rejects one loudly.
+
+Phase 3 owns the topic-agent side: identical `setta.emit_artifact` availability
+and composition judgment in bound and unbound turns. Reading a published
+artifact back is still addressed by workspace through
+`ReadConversationArtifactRequest`, so an unbound conversation's artifacts are not
+readable yet; that belongs with Phase 3's "offer the tool identically" work
+rather than with this execution change.
 
 ### Phase 3 - AI Artifact Semantics
 

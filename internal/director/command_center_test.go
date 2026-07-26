@@ -396,7 +396,8 @@ func TestCommandCenterSubmitCarriesOneRequestIntoWork(t *testing.T) {
 	}
 	if len(execution.sends) != 1 ||
 		execution.sends[0].ConversationID != "conversation-idle" ||
-		execution.sends[0].WorkspaceID != workspaceID ||
+		execution.sends[0].WorkspaceID == nil ||
+		*execution.sends[0].WorkspaceID != workspaceID ||
 		execution.sends[0].Text != "rewrite the parser" {
 		t.Fatalf("execution sends = %+v", execution.sends)
 	}

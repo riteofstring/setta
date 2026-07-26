@@ -123,7 +123,7 @@ func (service *Service) prepareSideTurnLocked(
 	eventID string,
 	text string,
 ) (sideTurnPreparation, error) {
-	snapshot, err := service.snapshotLocked(ctx, workspaceID, parentConversationID)
+	snapshot, err := service.snapshotLocked(ctx, &workspaceID, parentConversationID)
 	if err != nil {
 		return sideTurnPreparation{}, err
 	}
@@ -352,7 +352,7 @@ func (service *Service) sideAgentEventState(
 	active *activeSideConversationTurn,
 	event agent.Event,
 ) (ConversationSnapshot, SideConversation, error) {
-	snapshot, err := service.snapshotLocked(ctx, active.workspaceID, active.parentConversationID)
+	snapshot, err := service.snapshotLocked(ctx, &active.workspaceID, active.parentConversationID)
 	if err != nil {
 		return ConversationSnapshot{}, SideConversation{}, err
 	}

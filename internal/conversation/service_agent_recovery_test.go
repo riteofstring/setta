@@ -141,9 +141,14 @@ func TestRecoverAgentTurnsInterruptsAcceptedTurnThatNeverStarted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateTopic: %v", err)
 	}
+	scope, err := original.resolveExecutionScope(created.Conversation.ID, &workspaceID)
+	if err != nil {
+		t.Fatalf("resolveExecutionScope: %v", err)
+	}
 	accepted, err := original.acceptTurn(
 		ctx,
 		created,
+		scope,
 		"provider acceptance is ambiguous",
 		TurnDeliveryNormal,
 		0,
@@ -188,9 +193,14 @@ func TestRecoverAgentTurnsPromotesQueueWithoutRunningTurn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateTopic: %v", err)
 	}
+	scope, err := original.resolveExecutionScope(created.Conversation.ID, &workspaceID)
+	if err != nil {
+		t.Fatalf("resolveExecutionScope: %v", err)
+	}
 	accepted, err := original.acceptTurn(
 		ctx,
 		created,
+		scope,
 		"promote after terminal crash",
 		TurnDeliveryQueued,
 		1,

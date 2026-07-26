@@ -55,7 +55,7 @@ func (service *Service) unexpectedTurnState(
 	ctx context.Context,
 	active *activeConversationTurn,
 ) (ConversationSnapshot, ConversationTurn, bool, error) {
-	snapshot, err := service.store.ReadSnapshot(ctx, active.workspaceID, active.conversationID)
+	snapshot, err := service.readScopedSnapshot(ctx, active.scope.workspaceID, active.conversationID)
 	if err != nil {
 		return ConversationSnapshot{}, ConversationTurn{}, false, err
 	}

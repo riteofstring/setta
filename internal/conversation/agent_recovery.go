@@ -5,7 +5,10 @@ package conversation
 // carrier it ran on was ephemeral, so there is no provider reference left to
 // reconcile it against.
 type restartedAgentTurn struct {
-	WorkspaceID    string
+	// WorkspaceID is the authorized workspace the conversation is bound to, or
+	// nil when it is unbound. Unbound work is recovered exactly like bound work,
+	// because a missing workspace never meant the turn could not run.
+	WorkspaceID    *string
 	ConversationID string
 	TurnID         string
 }
@@ -14,12 +17,12 @@ type restartedAgentTurn struct {
 // and no running primary turn. The in-process promotion signal may have been
 // lost between a terminal commit and process exit.
 type agentQueueRecoveryTarget struct {
-	WorkspaceID    string
+	WorkspaceID    *string
 	ConversationID string
 }
 
 func (target restartedAgentTurn) validate() error {
-	if err := validateIdentifier("restarted agent turn workspace id", target.WorkspaceID); err != nil {
+	if err := validateOptionalIdentifier("restarted agent turn workspace id", target.WorkspaceID); err != nil {
 		return err
 	}
 	if err := validateIdentifier("restarted agent turn conversation id", target.ConversationID); err != nil {
@@ -29,7 +32,7 @@ func (target restartedAgentTurn) validate() error {
 }
 
 func (target agentQueueRecoveryTarget) validate() error {
-	if err := validateIdentifier("agent queue recovery workspace id", target.WorkspaceID); err != nil {
+	if err := validateOptionalIdentifier("agent queue recovery workspace id", target.WorkspaceID); err != nil {
 		return err
 	}
 	return validateIdentifier("agent queue recovery conversation id", target.ConversationID)

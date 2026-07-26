@@ -16,9 +16,13 @@ import (
 // Overrides are complete role profiles rather than partial patches. The read
 // transaction also verifies that the conversation belongs to the requested
 // workspace so configuration from another workspace cannot leak across scope.
+//
+// The workspace is optional. An unbound conversation has no workspace scope to
+// resolve, so its precedence is built-in -> global -> conversation: there is no
+// folder whose configuration it could be inheriting.
 func (store *Store) ReadEffectiveRoleProfile(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 	builtIn RoleProfile,
 ) (RoleProfile, error) {
@@ -28,7 +32,7 @@ func (store *Store) ReadEffectiveRoleProfile(
 	if ctx == nil {
 		return RoleProfile{}, errors.New("role profile read context is required")
 	}
-	if err := validateIdentifier("role profile workspace id", workspaceID); err != nil {
+	if err := validateOptionalIdentifier("role profile workspace id", workspaceID); err != nil {
 		return RoleProfile{}, err
 	}
 	if err := validateIdentifier("role profile conversation id", conversationID); err != nil {
@@ -109,26 +113,41 @@ WHERE scope_kind = 'global' AND scope_id = '' AND role = ?
 func requireRoleProfileConversation(
 	ctx context.Context,
 	reader snapshotReader,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 ) error {
-	var actualWorkspaceID string
+	var actualWorkspaceID *string
 	err := reader.QueryRowContext(ctx, `
 SELECT workspace_id
 FROM conversations
 WHERE id = ?
 `, conversationID).Scan(&actualWorkspaceID)
-	if errors.Is(err, sql.ErrNoRows) || (err == nil && actualWorkspaceID != workspaceID) {
-		return fmt.Errorf("%w: %s/%s", ErrConversationNotFound, workspaceID, conversationID)
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && !equalOptionalString(actualWorkspaceID, workspaceID)) {
+		return fmt.Errorf(
+			"%w: %s/%s",
+			ErrConversationNotFound,
+			optionalWorkspaceLabel(workspaceID),
+			conversationID,
+		)
 	}
 	return err
+}
+
+// optionalWorkspaceLabel names the scope a failed lookup was made in. An unbound
+// conversation is named by what it is rather than by an empty string, so the
+// message reads as a scope rather than as a missing value.
+func optionalWorkspaceLabel(workspaceID *string) string {
+	if workspaceID == nil {
+		return "no workspace"
+	}
+	return *workspaceID
 }
 
 func readEffectiveRoleProfile(
 	ctx context.Context,
 	reader snapshotReader,
 	dbPath string,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 	builtIn RoleProfile,
 ) (RoleProfile, error) {
@@ -138,7 +157,7 @@ FROM role_profile_overrides
 WHERE role = ?
   AND (
     (scope_kind = 'global' AND scope_id = '')
-    OR (scope_kind = 'workspace' AND scope_id = ?)
+    OR (scope_kind = 'workspace' AND ? IS NOT NULL AND scope_id = ?)
     OR (scope_kind = 'conversation' AND scope_id = ?)
   )
 ORDER BY CASE scope_kind
@@ -146,7 +165,7 @@ ORDER BY CASE scope_kind
   WHEN 'workspace' THEN 1
   WHEN 'conversation' THEN 2
 END ASC
-`, builtIn.Role, workspaceID, conversationID)
+`, builtIn.Role, workspaceID, workspaceID, conversationID)
 	if err != nil {
 		return RoleProfile{}, err
 	}

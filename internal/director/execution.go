@@ -16,9 +16,9 @@ import (
 // interrupted, retitle a workstream, and retire one the user is finished with.
 // It is consumer-owned. Every request names Setta identities
 // trusted product code minted before the call — the conversation a workstream
-// executes on, the folder resource it is bound to, the run the work will be —
-// and no provider id, thread, credential, lease, or execution detail appears in
-// either direction.
+// executes on, the folder resource it is bound to when it has one, the run the
+// work will be — and no provider id, thread, credential, lease, working
+// directory, or execution detail appears in either direction.
 //
 // Ids are supplied rather than returned so the Director keeps authority over
 // Setta identity. Run ids are minted immediately before the execution call;
@@ -37,6 +37,10 @@ import (
 // supplies a resource the workstream does not have. It is a product state, not
 // a failure: the Director turns it into a durable resource request, which is
 // the affordance the pane world could only derive from a routing failure code.
+//
+// Only work that declared it needs the user's own files reaches this. Producing
+// an artifact, answering from the conversation, or anything else the app can do
+// on its own runs without a folder.
 type WorkstreamResourceRequiredError struct {
 	// Kind is the resource the work is waiting for.
 	Kind WorkstreamResourceKind
@@ -47,9 +51,8 @@ func (err *WorkstreamResourceRequiredError) Error() string {
 }
 
 // WorkstreamStartRequest creates the durable substrate for one new workstream.
-// It delivers no work: a folderless workstream exists and is selectable before
-// it can run anything, so creating it and starting its first run are separate
-// facts.
+// It delivers no work: a workstream exists and is selectable before it runs
+// anything, so creating it and starting its first run are separate facts.
 type WorkstreamStartRequest struct {
 	ConversationID string
 	Title          string
@@ -62,10 +65,11 @@ type WorkstreamStartRequest struct {
 // workstream that already exists.
 type WorkDeliveryRequest struct {
 	ConversationID string
-	// WorkspaceID is the folder resource the work runs inside. Setta runs work
-	// in a folder, so this is never empty: a workstream without one is waiting
-	// for a resource rather than able to run.
-	WorkspaceID string
+	// WorkspaceID is the user's folder the work is authorized to read, or nil
+	// when the work needs none. It is not where the provider process runs: that
+	// is an execution detail the adapter owns, and work that needs no folder runs
+	// just as well without one.
+	WorkspaceID *string
 	// RunID is the durable run this work becomes.
 	RunID string
 	Text  string
@@ -74,7 +78,7 @@ type WorkDeliveryRequest struct {
 // SteerRunRequest changes the instruction of the run a workstream is carrying.
 type SteerRunRequest struct {
 	ConversationID string
-	WorkspaceID    string
+	WorkspaceID    *string
 	// TargetRunID is the active run being steered.
 	TargetRunID string
 	Text        string
@@ -88,7 +92,7 @@ type SteerRunRequest struct {
 // rather than re-authoring the request the user already made.
 type RecoverRunRequest struct {
 	ConversationID string
-	WorkspaceID    string
+	WorkspaceID    *string
 	FailedRunID    string
 	// RunID is the durable run the recovered work becomes.
 	RunID string
@@ -101,7 +105,7 @@ type RecoverRunRequest struct {
 // never saw.
 type CancelRunRequest struct {
 	ConversationID string
-	WorkspaceID    string
+	WorkspaceID    *string
 	// RunID is the run the user asked to stop.
 	RunID string
 }
@@ -113,7 +117,7 @@ type CancelRunRequest struct {
 // redacted resolution.
 type ResolveApprovalRequest struct {
 	ConversationID string
-	WorkspaceID    string
+	WorkspaceID    *string
 	// RunID is the run waiting on the approval.
 	RunID      string
 	ApprovalID string
@@ -137,9 +141,8 @@ type ArchiveWorkstreamRequest struct {
 }
 
 // BindWorkstreamResourceRequest attaches the folder resource the user supplied
-// to the durable substrate a workstream runs on. Setta runs work inside a
-// folder, so this is what turns a workstream that was waiting for one into a
-// workstream that can run.
+// to the durable substrate a workstream runs on. It is what turns a workstream
+// that was asked for a folder into one that can run the work needing it.
 type BindWorkstreamResourceRequest struct {
 	ConversationID string
 	WorkspaceID    string

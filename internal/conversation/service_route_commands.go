@@ -10,9 +10,13 @@ import (
 // conversation-local command through the production conversation services.
 // IDs carried by the command remain the IDs of the resulting turn, side
 // conversation, or durable child.
+//
+// The workspace is optional. Delivering work to the conversation itself needs
+// no folder; a side conversation or a fork does, because both create durable
+// records scoped to one.
 func (service *Service) ExecuteRouteCommand(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 	decisionID string,
 	command ConversationRouteCommand,
@@ -57,16 +61,24 @@ func (service *Service) ExecuteRouteCommand(
 			decisionID,
 		)
 	case ConversationRouteDecisionKindCreateSideConversation:
+		boundWorkspaceID, err := requireRoutedBranchWorkspace(conversationID, workspaceID)
+		if err != nil {
+			return ConversationSnapshot{}, err
+		}
 		return service.executeRoutedSideConversation(
 			ctx,
-			workspaceID,
+			boundWorkspaceID,
 			conversationID,
 			command,
 		)
 	case ConversationRouteDecisionKindForkConversation:
+		boundWorkspaceID, err := requireRoutedBranchWorkspace(conversationID, workspaceID)
+		if err != nil {
+			return ConversationSnapshot{}, err
+		}
 		return service.executeRoutedForkConversation(
 			ctx,
-			workspaceID,
+			boundWorkspaceID,
 			conversationID,
 			command,
 		)
@@ -79,6 +91,19 @@ func (service *Service) ExecuteRouteCommand(
 	default:
 		return ConversationSnapshot{}, fmt.Errorf("unsupported conversation route command %q", command.Kind)
 	}
+}
+
+// requireRoutedBranchWorkspace resolves the folder a side conversation or fork
+// is created inside. Both are workspace-scoped durable records, so an unbound
+// conversation is asked for a folder rather than branched without one.
+func requireRoutedBranchWorkspace(conversationID string, workspaceID *string) (string, error) {
+	if workspaceID == nil {
+		return "", &ResourceRequiredError{
+			ConversationID: conversationID,
+			ResourceKind:   "folder",
+		}
+	}
+	return *workspaceID, nil
 }
 
 func validateRouteCommandExecution(
@@ -183,7 +208,7 @@ func (service *Service) executeRoutedForkConversation(
 	}
 	return service.sendTurn(
 		ctx,
-		workspaceID,
+		&workspaceID,
 		payload.ChildConversationID,
 		payload.Input.Text,
 		payload.TurnID,

@@ -44,10 +44,12 @@ func (service *Service) StartDirectorWorkstream(
 	return service.createTopic(ctx, request.WorkspaceID, request.Title, request.ConversationID)
 }
 
-// SendDirectorTurn starts a run on a conversation with no active turn.
+// SendDirectorTurn starts a run on a conversation with no active turn. The
+// workspace is optional: work that needs none runs in a private Setta-owned
+// working directory instead of waiting for a folder the user never had to give.
 func (service *Service) SendDirectorTurn(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 	text string,
 	turnID string,
@@ -61,7 +63,7 @@ func (service *Service) SendDirectorTurn(
 // QueueDirectorTurn preserves the active turn and queues work behind it.
 func (service *Service) QueueDirectorTurn(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 	text string,
 	turnID string,
@@ -75,7 +77,7 @@ func (service *Service) QueueDirectorTurn(
 // SteerDirectorTurn changes the instruction of the active turn.
 func (service *Service) SteerDirectorTurn(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 	text string,
 	targetTurnID string,
@@ -92,7 +94,7 @@ func (service *Service) SteerDirectorTurn(
 // queued work as soon as the previous turn ends.
 func (service *Service) CancelDirectorTurn(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 	targetTurnID string,
 ) (ConversationSnapshot, error) {
@@ -110,7 +112,7 @@ func (service *Service) CancelDirectorTurn(
 // resolution this writes carries them redacted.
 func (service *Service) SubmitDirectorApproval(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 	targetTurnID string,
 	response ConversationApprovalResponse,
@@ -129,7 +131,7 @@ func (service *Service) SubmitDirectorApproval(
 // re-authoring the request the user already made would recover something else.
 func (service *Service) RecoverDirectorTurn(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	conversationID string,
 	failedTurnID string,
 	turnID string,

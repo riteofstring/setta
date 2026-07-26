@@ -405,13 +405,6 @@ func (router *ConversationInputRouter) commitConversationRouteDecision(
 	invocation conversation.ResolvedInvocation,
 	after string,
 ) (conversation.ConversationRouteDecisionRecord, error) {
-	if conversationRouteDecisionRequiresWorkspace(decision.Kind) &&
-		bundle.Authoritative.Conversation.WorkspaceID == "" {
-		return conversation.ConversationRouteDecisionRecord{}, &conversation.ResourceRequiredError{
-			ConversationID: work.Input.Input.ConversationID,
-			ResourceKind:   "folder",
-		}
-	}
 	command, err := router.buildCommand(work, bundle, decision)
 	if err != nil {
 		return conversation.ConversationRouteDecisionRecord{}, err
@@ -505,7 +498,7 @@ func (router *ConversationInputRouter) contextLimits(
 		workspaceID = *workspaceBindingID
 		profile, err = router.profiles.ReadEffectiveRoleProfile(
 			ctx,
-			workspaceID,
+			workspaceBindingID,
 			conversationID,
 			profile,
 		)
@@ -548,24 +541,6 @@ func (router *ConversationInputRouter) resolveConversationRouteWorkspaceRoot(
 		return root, nil
 	}
 	return router.resolveWorkspaceRoot(workspaceID)
-}
-
-func conversationRouteDecisionRequiresWorkspace(
-	kind conversation.ConversationRouteDecisionKind,
-) bool {
-	switch kind {
-	case conversation.ConversationRouteDecisionKindSendToParent,
-		conversation.ConversationRouteDecisionKindQueueParentTurn,
-		conversation.ConversationRouteDecisionKindSteerParentTurn,
-		conversation.ConversationRouteDecisionKindCreateSideConversation,
-		conversation.ConversationRouteDecisionKindForkConversation:
-		return true
-	case conversation.ConversationRouteDecisionKindAnswerAsNarrator,
-		conversation.ConversationRouteDecisionKindClarify:
-		return false
-	default:
-		return true
-	}
 }
 
 func (router *ConversationInputRouter) buildCommand(
@@ -721,15 +696,6 @@ func (router *ConversationInputRouter) failClaimedInput(
 	work conversation.ConversationInputRoutingWork,
 	cause error,
 ) error {
-	var resourceRequired *conversation.ResourceRequiredError
-	if errors.As(cause, &resourceRequired) {
-		return router.failClaimedInputWithFailure(ctx, work, conversation.Failure{
-			Code:                "conversation_resource_required",
-			Message:             resourceRequired.Error(),
-			Retryable:           true,
-			DiagnosticReference: fmt.Sprintf("conversation_resource:%s:%d", conversationRouteActiveInputID(work), work.RoutingAttempt),
-		})
-	}
 	kind, classified, classificationErr := classifyTypedFailure(cause)
 	if classificationErr != nil {
 		return classificationErr

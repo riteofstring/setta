@@ -176,7 +176,10 @@ func TestConversationInputRouterRoutesFolderlessChatToNarrator(t *testing.T) {
 	assertFixtureRouterProviderRequests(t, fixture.provider, 1)
 }
 
-func TestConversationInputRouterRequiresFolderForFolderlessParentWork(t *testing.T) {
+// TestConversationInputRouterDeliversFolderlessParentWork proves work delivered
+// to the conversation itself is routed without a project folder. A workspace is
+// context for reading the user's files, not a precondition for running a turn.
+func TestConversationInputRouterDeliversFolderlessParentWork(t *testing.T) {
 	fixture := newFolderlessBlankStatusServiceFixture(t)
 	fixture.provider.routeKinds = []conversation.ConversationRouteDecisionKind{
 		conversation.ConversationRouteDecisionKindSendToParent,
@@ -198,12 +201,20 @@ func TestConversationInputRouterRequiresFolderForFolderlessParentWork(t *testing
 		t.Fatalf("ProcessNext = %t, %v", processed, err)
 	}
 	state := readFixtureRoutingStateWithWorkspace(t, fixture, "", accepted.Input.ID)
-	if state.Input.Status != conversation.ConversationInputStatusFailed ||
-		state.Input.Failure == nil ||
-		state.Input.Failure.Code != "conversation_resource_required" ||
-		!state.Input.Failure.Retryable ||
-		len(state.Decisions) != 0 {
-		t.Fatalf("folderless resource route state = %+v", state)
+	if state.Input.Status != conversation.ConversationInputStatusDispatched ||
+		state.Input.Failure != nil ||
+		len(state.Decisions) != 1 ||
+		state.Decisions[0].Decision.Kind != conversation.ConversationRouteDecisionKindSendToParent ||
+		state.Decisions[0].ResultingCommand.SendToParent == nil {
+		t.Fatalf("folderless parent work route state = %+v", state)
+	}
+	for _, kind := range []conversation.ConversationRouteDecisionKind{
+		conversation.ConversationRouteDecisionKindCreateSideConversation,
+		conversation.ConversationRouteDecisionKindForkConversation,
+	} {
+		if conversationRouteDecisionKindIncluded(state.Decisions[0].RouterContext.AllowedDecisionKinds, kind) {
+			t.Fatalf("folderless conversation was offered %s: %+v", kind, state.Decisions[0].RouterContext)
+		}
 	}
 	assertFixtureRouterProviderRequests(t, fixture.provider, 1)
 }

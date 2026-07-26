@@ -108,7 +108,7 @@ func (service *Service) branchSourceTrajectorySequence(
 	lock.Lock()
 	defer lock.Unlock()
 
-	if _, err := service.snapshotLocked(ctx, workspaceID, parentConversationID); err != nil {
+	if _, err := service.snapshotLocked(ctx, &workspaceID, parentConversationID); err != nil {
 		return 0, err
 	}
 	turn, sourceTrajectorySequence, found, err := service.store.readConversationTurn(

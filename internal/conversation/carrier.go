@@ -84,8 +84,7 @@ const carrierReplayInitialization = "Setta started this conversation carrier. Th
 // most one carrier.
 func (service *Service) ensureConversationCarrierLocked(
 	ctx context.Context,
-	workspaceID string,
-	workspaceRoot string,
+	scope conversationExecutionScope,
 	snapshot ConversationSnapshot,
 	profile RoleProfile,
 	invocation agent.Invocation,
@@ -99,11 +98,11 @@ func (service *Service) ensureConversationCarrierLocked(
 		return Carrier{}, err
 	}
 	thread, err := service.agent.StartThread(ctx, agent.StartThreadRequest{
-		WorkspaceRoot:         workspaceRoot,
+		WorkspaceRoot:         scope.workingDirectory,
 		Invocation:            invocation,
 		Ephemeral:             true,
 		DeveloperInstructions: topicAgentDeveloperInstructions(),
-		DynamicTools:          service.topicAgentArtifactTools(workspaceID, conversationID, ""),
+		DynamicTools:          service.topicAgentArtifactTools(scope, conversationID, ""),
 	})
 	if err != nil {
 		return Carrier{}, err
@@ -205,11 +204,11 @@ func (service *Service) carrierReplayBranchOrigin(
 	snapshot ConversationSnapshot,
 ) ([]carrierReplayTurn, error) {
 	branch := *snapshot.Branch
-	workspaceID, err := requiredSnapshotWorkspaceID(snapshot)
-	if err != nil {
-		return nil, err
-	}
-	parent, err := service.store.ReadSnapshot(ctx, workspaceID, branch.ParentConversationID)
+	parent, err := service.readScopedSnapshot(
+		ctx,
+		snapshot.Conversation.WorkspaceID,
+		branch.ParentConversationID,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("read branch parent %s for replay: %w", branch.ParentConversationID, err)
 	}
