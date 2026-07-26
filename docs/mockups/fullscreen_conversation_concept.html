@@ -454,7 +454,10 @@ function buildMulti(K, startAt, lead){
     const nFrom=nodes.length, tFrom=turns.length;
     const lb=addThread(conv,nodes,edges,turns,i,(i-(K-1)/2)*colW,xScale,(i*2.7)%11);   // staggered so columns run out of phase
     cols.push({i,nodeFrom:nFrom,nodeTo:nodes.length,turnFrom:tFrom,turnTo:turns.length,cam:0,title:conv.title,
-      xClip:(i-(K-1)/2)*colW, focus:lead?i===0:((((start+i)%N+N)%N)===convIdx)});
+      xClip:(i-(K-1)/2)*colW, focus:lead?i===0:((((start+i)%N+N)%N)===convIdx),
+      // Which conversation this column draws. Null on the Director's own
+      // column: you are already in it, so there is nowhere to go.
+      conv:lead?(i===0?null:i-1):(((start+i)%N+N)%N)});
     lastBorn=Math.max(lastBorn,lb);
   }
   settlePass(nodes,edges);
@@ -476,7 +479,7 @@ function buildDirectorGrid(lead){
   const leadSpan=0.62, leadX=-0.86;                       // the Director's own column, left
   const lb0=addThread(lead,nodes,edges,turns,0,leadX,Math.min(1,leadSpan/0.85),0);
   cols.push({i:0,nodeFrom:0,nodeTo:nodes.length,turnFrom:0,turnTo:turns.length,cam:0,
-    title:lead.title,xClip:leadX,focus:true});
+    title:lead.title,xClip:leadX,focus:true,conv:null});
   let lastBorn=lb0;
   const gc=Math.ceil(Math.sqrt(N)), gr=Math.ceil(N/gc);   // the rest, tiled
   const cellW=1.15/gc, cellH=1.5/gr;
@@ -486,7 +489,7 @@ function buildDirectorGrid(lead){
     const tail=Object.assign({},conv,{thread:(conv.thread||[]).slice(-1)});   // the live turn only
     const lb=addThread(tail,nodes,edges,turns,k+1,cx,Math.min(0.42,cellW/0.9),(k*2.7)%11);
     cols.push({i:k+1,nodeFrom:nFrom,nodeTo:nodes.length,turnFrom:tFrom,turnTo:turns.length,cam:0,
-      title:conv.title,xClip:cx,focus:false,tile:true,rowY:cy,cellH});
+      title:conv.title,xClip:cx,focus:false,tile:true,rowY:cy,cellH,conv:k});
     lastBorn=Math.max(lastBorn,lb); }
   settlePass(nodes,edges);
   return {nodes,edges,turns,cols,multi:true,lastBorn}; }
@@ -1122,6 +1125,9 @@ canvas.addEventListener('click',e=>{
     const s=screenOf(R); if(s.y<-50||s.y>innerHeight+50) continue;
     const rad=nodeCssDiam(R)*0.6+16, d=Math.hypot(s.x-e.clientX,s.y-e.clientY);
     if(d<rad && d<hb){ hb=d; hitTurn=T; } }
+  if(hitTurn && onDirector){
+    const C=columnForTurn(g.turns.indexOf(hitTurn));
+    if(C && C.conv!=null){ openConversation(C.conv); return; } }
   if(hitTurn && collapseMode!=='off'){ hitTurn.manual = hitTurn.open>0.5 ? false : true; sceneDirty=true; selected=null; return; }
   let best=null,bd=44;                          // otherwise: normal node selection (tooltip), no collapse
   for(const n of g.nodes){if(growT<n.born||n.alpha<0.2)continue;const s=screenOf(n);if(s.y<-40||s.y>innerHeight+40)continue;
@@ -1503,6 +1509,18 @@ function renderDirector(){
   $('chatInput').placeholder='Ask the Director…   (› to open a thread · scroll to look back)';
 }
 
+/*
+ * Which conversation a turn belongs to, when the view is drawing more than one.
+ */
+function columnForTurn(turnIndex){
+  if(!g.cols) return null;
+  for(const C of g.cols) if(turnIndex>=C.turnFrom && turnIndex<C.turnTo) return C;
+  return null; }
+
+function openConversation(index){
+  onDirector=false; convIdx=index; lastIdx=-2; selected=null;
+  snapToConv(); renderConv(); }
+
 function switchConv(dir){ if(switching) return;   // start a channel-change transition (swap happens mid-slide)
   switching={dir, t:0, swapped:false}; selected=null; document.body.classList.add('switching'); }
 
@@ -1518,15 +1536,15 @@ function stepView(dir){
  * The switch is a demonstration, so it says what changed and why — the note is
  * the argument the control exists to make.
  */
-const LOD_NOTES={ columns:'columns · every thread’s reasoning is legible',
-                  tiles:'tiles · position, status, motion — open one to read it' };
+const LOD_NOTES={ columns:'columns · latest turn per thread · click one to open it',
+                  tiles:'tiles · latest turn per thread · click one to open it' };
 document.querySelectorAll('[data-lod]').forEach(b=>b.onclick=()=>{
   setThreads(parseInt(b.dataset.lod));
   document.querySelectorAll('[data-lod]').forEach(x=>x.classList.toggle('on',x===b));
   $('lodNote').textContent = (CONVS.length+1>5) ? LOD_NOTES.tiles : LOD_NOTES.columns; });
 
 $('directorHint').addEventListener('click',e=>{ const b=e.target.closest('[data-goto]'); if(!b) return;
-  onDirector=false; convIdx=+b.dataset.goto; lastIdx=-2; snapToConv(); renderConv(); });
+  openConversation(+b.dataset.goto); });
 $('convPrev').onclick=()=>switchConv(-1);
 $('convNext').onclick=()=>switchConv(1);
 
