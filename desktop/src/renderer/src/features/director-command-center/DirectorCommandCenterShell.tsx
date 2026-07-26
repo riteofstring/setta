@@ -284,6 +284,11 @@ export function DirectorCommandCenterShell({
     canvas.setSnapshot(composition.snapshot);
   }, [canvas, composition]);
 
+  // The input node breathes only while the microphone is actually capturing.
+  useEffect(() => {
+    canvas?.setListening(speechCapture.snapshot.capture.type === "recording");
+  }, [canvas, speechCapture.snapshot.capture.type]);
+
   // Each switch plays once: the transition key names the switch, and the slide
   // must not replay when the same transition object merely settles inactive.
   const playedSwitchKeyRef = useRef(0);

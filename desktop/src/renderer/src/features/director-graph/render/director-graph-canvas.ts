@@ -185,6 +185,8 @@ export class DirectorGraphCanvas {
    * the arrow's direction while the post pass glitches, both easing out.
    */
   private workstreamSwitch: { direction: -1 | 0 | 1; startMs: number } | null = null;
+  /** True while the app is capturing the user's voice; the input node breathes. */
+  private listening = false;
 
   constructor(private readonly options: DirectorGraphCanvasOptions) {
     this.snapshot = emptyPackedGraphSnapshot("");
@@ -356,6 +358,19 @@ export class DirectorGraphCanvas {
    */
   setPresentation(presentation: SemanticGraphPresentation): void {
     this.presentation = presentation;
+  }
+
+  /**
+   * Whether the app is actually hearing the user. The listening node's pulse
+   * is gated on this, exactly as the mockup gated it on its listen toggle: a
+   * node that breathes constantly says "recording" when nothing is.
+   */
+  setListening(listening: boolean): void {
+    if (listening === this.listening) {
+      return;
+    }
+    this.listening = listening;
+    this.scheduler.requestFrame();
   }
 
   /**
@@ -616,6 +631,7 @@ export class DirectorGraphCanvas {
       hoverAmount: this.hoverAmount,
       shiftX: switchMotion.shiftX,
       glitch: switchMotion.glitch,
+      listening: this.listening ? 1 : 0,
       reducedMotion: this.reducedMotion,
     };
   }

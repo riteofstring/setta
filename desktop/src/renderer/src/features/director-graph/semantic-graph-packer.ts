@@ -29,13 +29,11 @@ import type { PackedGraphMode, PackedGraphOutcome } from "./packed-graph-vocabul
 /*
  * What the canvas is being asked to show.
  *
- * The three are genuinely different presentations, not one with settings. A
- * conversation is a trajectory you read, and folding old turns out of the way is
- * how it stays readable. The Director's columns are work you are watching, so
- * nothing may fold itself away — a conversation that quietly collapsed to a dot
- * because it finished is the view losing the thing it exists to show. The grid
- * is already a reduction: each tile is the latest activity and there is nothing
- * further to fold.
+ * The three are genuinely different presentations, not one with settings: they
+ * differ in how columns are placed and how much of each graph a cell shows.
+ * Folding is not one of the differences — finished work eases shut into its
+ * outcome node on every presentation, because the single success node is the
+ * reward for a completed run wherever it is read.
  */
 export type SemanticGraphPresentation = "conversation" | "columns" | "grid";
 
@@ -418,7 +416,6 @@ function graphOutcome(planned: readonly PlannedNode[]): {
 function turnInputs(
   planned: readonly PlannedNode[],
   placementFor: (graphIndex: number) => ColumnPlacement,
-  presentation: SemanticGraphPresentation,
 ): PackedGraphTurnInput[] {
   const byTurn = new Map<number, PlannedNode[]>();
   for (const node of planned) {
@@ -445,11 +442,13 @@ function turnInputs(
       rowSpan: nodes.length,
       outcome: outcome.outcome,
       answerAt: outcome.answerAt,
-      // Only a conversation folds itself. See SemanticGraphPresentation.
-      compactAt:
-        presentation !== "conversation" || outcome.answerAt === null
-          ? null
-          : outcome.answerAt + compactDelaySeconds,
+      /*
+       * Finished work folds itself, whatever the view: the ladder eases shut
+       * a beat after the answer lands, leaving the outcome node carrying the
+       * verdict. On a conversation the pill re-opens it; on the Director's
+       * views a click enters the thread, where it can be reopened.
+       */
+      compactAt: outcome.answerAt === null ? null : outcome.answerAt + compactDelaySeconds,
       workstreamId: input.ordered.node.workstreamId,
     });
   }
@@ -536,7 +535,7 @@ function compileSemanticGraphComposition(
       hasEarlier: composition.graphs.some((graph) => graph.hasEarlier),
       nodes: packedNodes,
       edges: packedEdges,
-      turns: turnInputs(planned, placementFor, composition.presentation),
+      turns: turnInputs(planned, placementFor),
     },
   ];
 }

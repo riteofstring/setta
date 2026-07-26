@@ -79,6 +79,8 @@ export interface GraphRenderView {
   readonly shiftX: number;
   /** 0..1 signal tear and aberration during a workstream switch. */
   readonly glitch: number;
+  /** 1 while the app is actually capturing the user's voice; 0 otherwise. */
+  readonly listening: number;
   readonly reducedMotion: boolean;
 }
 
@@ -130,6 +132,7 @@ const nodeUniformNames = [
   "u_scale",
   "u_maxPoint",
   "u_motion",
+  "u_listen",
   "u_hoverX",
   "u_hoverY",
   "u_hoverAmount",
@@ -925,6 +928,7 @@ export class DirectorGraphRenderer {
     gl.uniform1f(this.nodeUniforms.u_fitY, fit.fitY);
     gl.uniform1f(this.nodeUniforms.u_scale, fit.size);
     gl.uniform1f(this.nodeUniforms.u_motion, motion);
+    gl.uniform1f(this.nodeUniforms.u_listen, frame.view.listening);
     gl.uniform1f(this.nodeUniforms.u_hoverX, frame.view.hoverLaneX);
     gl.uniform1f(this.nodeUniforms.u_hoverY, frame.view.hoverWorldY);
     gl.uniform1f(this.nodeUniforms.u_hoverAmount, frame.view.hoverAmount);

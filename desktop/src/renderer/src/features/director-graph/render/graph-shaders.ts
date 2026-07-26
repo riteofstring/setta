@@ -226,7 +226,7 @@ layout(location=1) in float a_particleRole;   // 0 core, 1 spark, 2 orbital
 layout(location=2) in vec4 a_node;       // lane x, born, settle, terminal
 layout(location=3) in vec4 a_style;      // mode, glyph, role, emphasis
 layout(location=4) in float a_detail;
-uniform float u_time,u_cam,u_pointScale,u_shiftX,u_fitX,u_fitY,u_scale,u_maxPoint,u_motion;
+uniform float u_time,u_cam,u_pointScale,u_shiftX,u_fitX,u_fitY,u_scale,u_maxPoint,u_motion,u_listen;
 uniform float u_hoverX,u_hoverY,u_hoverAmount;
 uniform int u_instanceBase;   // first drawn node; the visible slice starts here
 uniform vec3 u_modeColor[${modeCount}];
@@ -298,8 +298,10 @@ void main(){
       psize=mix((3.0+recent*3.5)*(0.35+(1.0-t2)*0.8),6.5+recent*10.0,burst);
     }
   } else if(a_particleRole<0.5){
+    // The listening node breathes only while the app is actually hearing the
+    // user (mockup line 622: listen*u_listen); an idle input node holds still.
     float listening=step(${listeningMode}-0.5,a_style.x);
-    float calm=1.0+listening*0.16*abs(sin(u_time*6.0))*u_motion;
+    float calm=1.0+listening*0.32*abs(sin(u_time*6.0))*u_motion*u_listen;
     pos=center; psize=bodySize*pop*calm; palpha=1.0;
   } else if(a_particleRole<1.5){
     float act=working;
