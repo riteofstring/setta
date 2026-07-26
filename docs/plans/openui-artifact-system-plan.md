@@ -264,12 +264,16 @@ types, enum values, required fields, limits, and model-facing descriptions.
 These definitions belong at the conversation artifact boundary, not in a
 global constants file.
 
-A dedicated generator should derive:
+A dedicated generator, `cmd/generate-artifact-catalog`, derives:
 
-- TypeScript component-name and property contracts
+- TypeScript component-name and property contracts, including the OpenUI
+  library JSON Schema the parser reads argument order and requiredness from
 - Zod schemas required by `@openuidev/react-lang`
 - the model-facing catalog signatures and generation instructions
 - typed fixtures used by the renderer's production-path gallery
+
+Phase 0 landed the first and last of those. Later phases extend that one
+generator rather than adding a second.
 
 Generated outputs must be marked generated and must never be edited manually.
 The handwritten React renderer map must use a generated component-name union
@@ -773,8 +777,12 @@ Performance regressions require correction before merge verification.
 **Status:** In progress. The backend half of the spike is implemented in
 [`internal/conversation/artifactdoc`](../../internal/conversation/artifactdoc):
 the grammar, the Go-owned catalog manifest and model-facing signatures, the
-strict compiler, and the accepted and rejected conformance corpus. Nothing in
-production imports it. The audit and local verification evidence is recorded in
+strict compiler, and the accepted and rejected conformance corpus. The desktop
+half is implemented in
+[`desktop/src/renderer/src/features/artifacts`](../../desktop/src/renderer/src/features/artifacts):
+the generated catalog schema, the generated accepted corpus, and the parser
+conformance suite. Nothing in production imports either half. The audit and
+local verification evidence for the backend spike is recorded in
 [`docs/reports/openui-artifact-phase0-audit-20260726.md`](../reports/openui-artifact-phase0-audit-20260726.md).
 
 Landed:
@@ -802,14 +810,33 @@ Landed:
   catalog-owned instructions, with `OPENAI_API_KEY` excluded
 - the official shadcn/ui Base UI source decision pinned to upstream revision
   `7774cd7dcee1e98d0815aa6e829f33a7fc952fdf` and `@base-ui/react` `1.6.0`
+- the pinned OpenUI dependency: `@openuidev/react-lang` `0.2.8` and its required
+  peer `zod` `4.4.3`, with `@openuidev/lang-core` `0.2.9` resolved and
+  integrity-pinned in `desktop/pnpm-lock.yaml`. Setta consumes the published
+  packages rather than an upstream checkout, so the lockfile is the revision
+  pin. `@openuidev/react-lang` `0.2.9` exists but is younger than the
+  repository's seven-day minimum release age.
+- `cmd/generate-artifact-catalog`, which renders the TypeScript half of
+  `setta.artifacts.v1` from its Go owner: the catalog identity, the
+  component-name union, the OpenUI library JSON Schema the pinned parser
+  compiles into its positional-argument map, and the accepted corpus carried
+  with the tree Setta's compiler produced for it
+- one green desktop conformance suite proving the pinned upstream parser reads
+  every accepted fixture into the tree Setta's compiler accepted, with no parse
+  error, no incomplete input, and no unresolved or orphaned statement
+
+Two interpretation rules came out of that conformance work and constrain the
+later phases:
+
+- a skipped optional argument is absent in Setta's compiled tree and present as
+  `null` in the parser's, so the renderer map must read a `null` property as
+  absent
+- the generated catalog schema must never carry a JSON Schema `default`,
+  because the upstream parser substitutes a declared default where Setta's
+  compiler leaves the property absent
 
 Blocked on evidence this repository cannot produce:
 
-- pinning the candidate OpenUI revision and package versions, which needs
-  OpenUI registry access
-- the equivalent generated React library, which needs those packages installed
-- confirming the pinned OpenUI renderer interprets every accepted fixture
-  equivalently, which needs that library
 - the pre-change performance baseline, which needs a driven Electron session
 
 Deliverables:
@@ -834,6 +861,9 @@ Gate:
 - stop if upstream parser behavior cannot be constrained deterministically
 - stop if the catalog prompt or JSON string escaping makes generation
   materially less reliable than the current tool
+
+Every gate above is satisfied except the pre-change performance baseline, which
+needs a driven Electron session and is a release gate for the phase audit.
 
 Once the Phase 0 spike is branch-ready, pause for explicit user authorization
 before running its automated conformance checks. Do not begin the production

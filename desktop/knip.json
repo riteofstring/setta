@@ -18,6 +18,11 @@
     "src/**/*.tsx",
     "vitest.config.ts"
   ],
-  "ignore": ["out/**", "dist/**", "src/generated/**"],
+  "ignore": [
+    "out/**",
+    "dist/**",
+    "src/generated/**",
+    "src/renderer/src/features/artifacts/generated/**"
+  ],
   "ignoreDependencies": ["@types/node", "@types/react", "@types/react-dom", "tailwindcss", "vite"]
 }

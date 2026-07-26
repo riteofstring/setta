@@ -67,6 +67,9 @@ importers:
 
   .:
     dependencies:
+      '@openuidev/react-lang':
+        specifier: 0.2.8
+        version: 0.2.8(react@19.2.6)(zod@4.4.3)
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
@@ -85,6 +88,9 @@ importers:
       tailwind-merge:
         specifier: 3.6.0
         version: 3.6.0
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
       zustand:
         specifier: 5.0.13
         version: 5.0.13(@types/react@19.2.15)(react@19.2.6)
@@ -484,6 +490,25 @@ packages:
     peerDependencies:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
+
+  '@openuidev/lang-core@0.2.9':
+    resolution: {integrity: sha512-LRSzjCUTuNAAUNlO5xbKDJYoe1PGoPXVosK1QTexBOD9mzOHk2Da5/BuXEqHBVdRoH+y4upfm3y9CTb2Z/Q4fg==}
+    peerDependencies:
+      '@modelcontextprotocol/sdk': '>=1.0.0'
+      zod: ^3.25.0 || ^4.0.0
+    peerDependenciesMeta:
+      '@modelcontextprotocol/sdk':
+        optional: true
+
+  '@openuidev/react-lang@0.2.8':
+    resolution: {integrity: sha512-SsbZes76oIviuZH3RW/VL+pZZjx6cOGjhkaeiSwuEnV24jWBgT9qswL4bDaQXpFG2e6sZKWjH/f0fRyqWQzhDA==}
+    peerDependencies:
+      '@modelcontextprotocol/sdk': '>=1.0.0'
+      react: ^18.3.1 || ^19.0.0
+      zod: ^3.25.0 || ^4.0.0
+    peerDependenciesMeta:
+      '@modelcontextprotocol/sdk':
+        optional: true
 
   '@oxc-parser/binding-android-arm-eabi@0.130.0':
     resolution: {integrity: sha512-h/xYU8/7ADWzVSf5I+YalLpj33LOy9CI/zgbJNIZ5eunRBG+Czqa3lZsvuPHHf3rOt6z1c5+UzoxjbAzAvhwVw==}
@@ -2429,6 +2454,16 @@ snapshots:
       '@emnapi/runtime': 1.10.0
       '@tybys/wasm-util': 0.10.2
     optional: true
+
+  '@openuidev/lang-core@0.2.9(zod@4.4.3)':
+    dependencies:
+      zod: 4.4.3
+
+  '@openuidev/react-lang@0.2.8(react@19.2.6)(zod@4.4.3)':
+    dependencies:
+      '@openuidev/lang-core': 0.2.9(zod@4.4.3)
+      react: 19.2.6
+      zod: 4.4.3
 
   '@oxc-parser/binding-android-arm-eabi@0.130.0':
     optional: true
