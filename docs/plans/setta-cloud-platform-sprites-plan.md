@@ -3289,3 +3289,31 @@ Stop and reassess rather than hiding the problem if any of these occur:
   provider parse failure itself is not yet diagnosed: no Sprite exists to
   inspect, and the response shape that broke the mapping is unknown until a
   live run captures it.
+- 2026-07-26 (live provider evidence: resource configuration is gone from the
+  API): One diagnostic Sprite was created with the exact request the adapter
+  sends, its raw responses captured, and it was destroyed immediately
+  (`DELETE` 204, follow-up `GET` 404, organization inventory empty). The
+  provider no longer reports resource configuration anywhere. `POST
+  /v1/sprites` returned 201 with the full Sprite object rather than the pinned
+  SDK's `{name}`, and neither that body, nor `GET /v1/sprites/{name}` polled
+  over a minute, nor `GET /v1/sprites` contains a `config` object. The observed
+  fields are `id`, `name`, `status`, `version`, `url`, `labels`, `url_settings`
+  (now including `private_access`), `created_at`, `updated_at`,
+  `organization`, `last_running_at`, `last_warming_at`, and
+  `environment_version`. `primary_region` and `bucket_name` are also absent, so
+  `Placement` is unobservable too, consistent with the empty placement recorded
+  in the Phase 1b report. Status went `cold` at creation and then `warm`;
+  neither `created` nor `provisioning` appeared. This is not a provisioning
+  race and not a storage-ceiling interaction: `mapRuntimeResources` cannot
+  succeed against the current API at all, which is why creation fails and why
+  the pre-fix cleanup path could not delete what it could not parse. The pinned
+  SDK still declares `SpriteConfig`, and the newest published `sprites-go`
+  (v0.0.0-20260708201521) is identical, so the client is behind the server
+  rather than the reverse; the installed CLI (v0.0.1-rc45) exposes no resource
+  flags on `sprite create`. Setta's post-create verification that the provider
+  echoed the exact requested shape is therefore no longer satisfiable, and
+  every consumer of observed resources — the reconciler's claim comparison,
+  the durable observed-resource columns, budget accounting ceilings, and the
+  hosted-measurement provisioner — needs a decision about whether to read the
+  claimed shape instead. No code change was made for this finding, and Stage 4a
+  remains red pending that decision.
