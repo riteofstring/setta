@@ -45,9 +45,9 @@ import {
 } from "./graph-labels";
 import {
   GraphQualityController,
-  graphQualityForViewport,
   graphReducedMotionProfile,
   graphRefreshPeriodMs,
+  graphStartingQualityProfile,
   type GraphQualityTier,
 } from "./graph-quality";
 import {
@@ -148,7 +148,6 @@ export class DirectorGraphCanvas {
   private pendingPixelChecks: ((check: GraphCanvasPixelCheck) => void)[] = [];
   private reducedMotion: boolean;
   private hoverAmount = 0;
-  private lastViewportKey = "";
   private lastSurfaceKey = "";
   private lastFrameTimestampMs = 0;
   private disposed = false;
@@ -159,7 +158,7 @@ export class DirectorGraphCanvas {
     this.ambientMotion = options.ambientMotion === true;
     this.now = options.now ?? (() => performance.now());
     const viewport = options.viewportOf();
-    const profile = this.profileFor(viewport, options.devicePixelRatioOf());
+    const profile = this.profileFor();
     this.quality = new GraphQualityController(profile);
     this.renderer = new DirectorGraphRenderer(options.canvas, options.ownerDocument, profile);
     this.renderer.resize(
@@ -224,14 +223,10 @@ export class DirectorGraphCanvas {
       return;
     }
     this.reducedMotion = reducedMotion;
-    const viewport = this.options.viewportOf();
-    const decision = this.quality.setProfile(
-      this.profileFor(viewport, this.options.devicePixelRatioOf()),
-    );
+    const decision = this.quality.setProfile(this.profileFor());
     this.renderer.applyProfile(decision.profile);
     // Reduced motion re-derives the profile, so both the tier and the surfaces
     // have to be reapplied rather than only redrawn.
-    this.lastViewportKey = "";
     this.lastSurfaceKey = "";
     this.scheduler.requestFrame();
   }
@@ -242,7 +237,7 @@ export class DirectorGraphCanvas {
 
   /** Wakes the loop after a viewport or layout change. */
   invalidate(): void {
-    this.lastViewportKey = "";
+    this.lastSurfaceKey = "";
     this.scheduler.requestFrame();
   }
 
@@ -366,8 +361,8 @@ export class DirectorGraphCanvas {
     this.renderer.dispose();
   }
 
-  private profileFor(viewport: GraphViewport, devicePixelRatio: number) {
-    const profile = graphQualityForViewport(viewport.width, viewport.height, devicePixelRatio);
+  private profileFor() {
+    const profile = graphStartingQualityProfile();
     return this.reducedMotion ? graphReducedMotionProfile(profile) : profile;
   }
 
@@ -507,30 +502,22 @@ export class DirectorGraphCanvas {
   }
 
   /**
-   * Two decisions, kept apart.
+   * Resizing is the only thing a viewport change decides.
    *
-   * A *viewport* change re-derives the starting tier, because the tier is chosen
-   * from how many pixels the surface has. Everything else — an adaptive tier
-   * step, an adaptive scale step — only resizes. Re-deriving the tier on every
-   * frame that changed quality would hand the viewport's starting tier back
-   * immediately, so the graph could never hold a tier it had earned and would
-   * pay for a geometry rebuild every few frames.
+   * It does not touch the tier. The tier is not chosen from how many pixels the
+   * surface has — see `graphStartingQualityProfile` — so re-deriving it here
+   * would only throw away a tier the graph had earned from measured GPU time,
+   * and pay for a geometry rebuild, every time the window moved a pixel.
    *
-   * The surface key covers the scale as well as the tier, so a scale step
-   * actually reaches the framebuffers instead of waiting for the next viewport
-   * change to carry it.
+   * The surface key covers the viewport, the tier, and the scale, so an
+   * adaptive step in either knob reaches the framebuffers on the next frame
+   * instead of waiting for a viewport change to carry it.
    */
   private applyViewport(viewport: GraphViewport, devicePixelRatio: number): void {
-    const viewportKey = `${viewport.width}x${viewport.height}@${devicePixelRatio}`;
-    if (viewportKey !== this.lastViewportKey) {
-      this.lastViewportKey = viewportKey;
-      const decision = this.quality.setProfile(this.profileFor(viewport, devicePixelRatio));
-      if (decision.tierChanged) {
-        this.renderer.applyProfile(decision.profile);
-      }
-    }
     const current = this.quality.current();
-    const surfaceKey = `${viewportKey}|${current.profile.tier}|${current.renderScale}`;
+    const surfaceKey =
+      `${viewport.width}x${viewport.height}@${devicePixelRatio}` +
+      `|${current.profile.tier}|${current.renderScale}`;
     if (surfaceKey === this.lastSurfaceKey) {
       return;
     }

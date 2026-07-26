@@ -1,7 +1,8 @@
 # Command Center Mockup Fidelity Plan
 
 **Date:** 2026-07-27
-**Status:** Not started.
+**Status:** Phase 1 implemented; its measurement gate is not yet run. Phases 2–5
+not started.
 
 ## Outcome
 
@@ -122,22 +123,51 @@ frame scales with the root font size and lands heavier than authored.
 
 ## Phase 1 — Make `full` the tier real displays get
 
-**Change.** Re-derive the tier boundaries in `graph-quality.ts` from measured
-GPU time on the reference displays rather than from the current constants, so a
-maximized window on a laptop and on a 4K external both resolve to `full`. Move
-`fieldFlow` out of what `reduced` drops (`graph-quality.ts:95`); `reduced` drops
-`grain` and `switchTear` only. Let `GraphQualityController` and the adaptive
-render scale absorb the load, as the mockup does.
+**Done.**
 
-**Files.** `graph-quality.ts`, `graph-quality.test.ts`.
+The change is not the re-tuned threshold this plan first described. Re-tuning
+assumed viewport area predicts GPU load, and the performance matrix says it does
+not: section 3.1 resolves the laptop, 4K, and 6K tiers to the same 2.30 MP scene
+pass, and its first consequence states that above roughly the laptop tier the
+ceilings hold cost nearly constant. The other costs a tier varies — particles
+per node, edge segments, field density, the visible window — are per-node and
+per-edge, so they do not scale with the window at all. A viewport-area threshold
+therefore spent fidelity to buy nothing, and no boundary would have fixed that.
 
-**Verification.** Baseline before and re-measure after with
+So the predictor is gone rather than retuned:
+
+- `graphQualityForViewport` is replaced by `graphStartingQualityProfile()`,
+  which takes no viewport and returns `full`. The derivation is recorded on the
+  function.
+- `applyViewport` no longer re-derives a tier on viewport change. It only
+  resizes, so a resize can no longer discard a tier the graph earned from
+  measured GPU time, and `lastViewportKey` is gone with it.
+- `reduced` keeps `fieldFlow`. A tier step thins the medium; only the
+  accessibility path in `graphReducedMotionProfile` stills it.
+
+`GraphQualityController` is unchanged and remains the only thing that lowers a
+tier, from GPU timer samples against the observed refresh period
+(`director-graph-canvas.ts` `recordFrame`). That closes matrix capability gap 2
+by use: the timer-query instrument now decides quality rather than only
+reporting it. The tiers themselves are unchanged and still exist for it to step
+through.
+
+**Files.** `graph-quality.ts`, `graph-quality.test.ts`,
+`director-graph-canvas.ts`.
+
+**Verification — owed, not done.** This is a performance-relevant change and its
+gate has not been run. Baseline the parent revision and re-measure this one with
 `node desktop/tests/electron/director-command-center-performance.test.mjs`
 at the viewports in
-`docs/reports/performance/setta-4-target-performance-matrix-20260724.md`.
-Record both runs in a new append-only report under `docs/reports/performance/`.
-A boundary that cannot hold the observed refresh period at `full` is evidence
-against that boundary, not a reason to disable the measurement.
+`docs/reports/performance/setta-4-target-performance-matrix-20260724.md`, and
+record both in a new append-only report under `docs/reports/performance/`.
+
+What the measurement decides: whether `full` holds the observed refresh period
+on the primary display and at the emulated 4K and 6K tiers. If it does not, the
+answer is a lower `full` profile or a faster path — not the return of a
+viewport-area predictor, which the evidence above already rules out. Also
+confirm the graph settles at a stable tier instead of oscillating, since a
+resize no longer resets it.
 
 ## Phase 2 — Give graph labels their chip back
 
