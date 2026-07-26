@@ -154,12 +154,14 @@ func (service *Service) persistControlTrajectoryFromSnapshot(
 		return err
 	}
 	now := advanceTimestamp(snapshot.Conversation.UpdatedAt, service.timestamp())
+	providerThreadID := snapshot.ThreadBinding.ThreadID
 	providerTurnID := *turn.ProviderTurnID
 	for index := range events {
 		events[index].ConversationID = snapshot.Conversation.ID
 		events[index].TurnID = &turn.ID
 		events[index].Sequence = snapshot.Conversation.LastTrajectorySequence + index + 1
 		events[index].EmittedAt = now
+		events[index].ProviderThreadID = &providerThreadID
 		events[index].ProviderTurnID = &providerTurnID
 		if events[index].ApprovalResolved != nil {
 			events[index].ApprovalResolved.Resolution.ResolvedAt = now
@@ -203,31 +205,12 @@ func (service *Service) persistControlTrajectoryFromSnapshot(
 	if err == nil {
 		service.observeCommittedTrajectory(
 			conversation,
-			turn,
+			turn.ID,
 			events,
-			nil,
 			false,
 		)
 	}
 	return err
-}
-
-// requireControlledTurn proves a control command addressed the turn its caller
-// named. The check runs inside the conversation lock that read the active turn,
-// so it closes the window between deciding to act on a turn and acting on it.
-func requireControlledTurn(
-	conversationID string,
-	command string,
-	activeTurnID string,
-	expectedTurnID string,
-) error {
-	if expectedTurnID == "" || activeTurnID == expectedTurnID {
-		return nil
-	}
-	return &CommandConflictError{
-		ConversationID: conversationID,
-		Reason:         fmt.Sprintf("%s target changed from %s to %s", command, expectedTurnID, activeTurnID),
-	}
 }
 
 func controlTrajectoryTurn(snapshot ConversationSnapshot, turnID string) (ConversationTurn, error) {
@@ -241,10 +224,10 @@ func controlTrajectoryTurn(snapshot ConversationSnapshot, turnID string) (Conver
 			Reason:         fmt.Sprintf("turn %s is %s", turn.ID, turn.Status),
 		}
 	}
-	if turn.ProviderTurnID == nil {
+	if snapshot.ThreadBinding == nil || turn.ProviderTurnID == nil {
 		return ConversationTurn{}, &CommandConflictError{
 			ConversationID: snapshot.Conversation.ID,
-			Reason:         "running turn has not started a provider turn yet",
+			Reason:         "running turn is missing durable provider references",
 		}
 	}
 	return turn, nil

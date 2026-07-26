@@ -106,6 +106,7 @@ func resolvedConversationInvocation(
 	id string,
 	profile RoleProfile,
 	resolved agent.ResolvedInvocation,
+	threadID string,
 	providerTurnID string,
 	startedAt string,
 ) ResolvedInvocation {
@@ -120,10 +121,13 @@ func resolvedConversationInvocation(
 			ServiceTier:       cloneStringPointer(resolved.ServiceTier),
 			PermissionProfile: profile.PermissionProfile,
 		},
-		ProviderReferences: InvocationProviderReferences{TurnID: &providerTurnID},
-		ModelReroutes:      []InvocationModelReroute{},
-		StartedAt:          startedAt,
-		Outcome:            InvocationOutcomeRunning,
+		ProviderReferences: InvocationProviderReferences{
+			ThreadID: &threadID,
+			TurnID:   &providerTurnID,
+		},
+		ModelReroutes: []InvocationModelReroute{},
+		StartedAt:     startedAt,
+		Outcome:       InvocationOutcomeRunning,
 	}
 }
 

@@ -18,7 +18,7 @@ type InvocationOutcome string
 const (
 	ProviderCodex Provider = "codex"
 
-	RoleDirector  Role = "director"
+	RoleMaster    Role = "master"
 	RoleAgent     Role = "agent"
 	RoleNarrator  Role = "narrator"
 	RoleSideAgent Role = "side_agent"
@@ -106,30 +106,17 @@ type ResolvedInvocationSettings struct {
 	PermissionProfile PermissionProfile `json:"permissionProfile"`
 }
 
-// InvocationProviderReferences correlates one durable Setta invocation with the
-// provider call that produced it. The carrier the call ran on is deliberately
-// absent: a thread id is only addressable while the process that started it is
-// alive, so recording it would put an expired handle in a durable record.
 type InvocationProviderReferences struct {
+	ThreadID   *string `json:"threadId"`
 	TurnID     *string `json:"turnId"`
 	RequestID  *string `json:"requestId"`
 	ResponseID *string `json:"responseId"`
 }
 
-type InvocationModelRerouteReason string
-
-const (
-	InvocationModelRerouteReasonHighRiskCyberActivity InvocationModelRerouteReason = "high_risk_cyber_activity"
-)
-
-var invocationModelRerouteReasons = []InvocationModelRerouteReason{
-	InvocationModelRerouteReasonHighRiskCyberActivity,
-}
-
 type InvocationModelReroute struct {
-	FromModelID string                       `json:"fromModelId"`
-	ToModelID   string                       `json:"toModelId"`
-	Reason      InvocationModelRerouteReason `json:"reason"`
+	FromModelID string `json:"fromModelId"`
+	ToModelID   string `json:"toModelId"`
+	Reason      string `json:"reason"`
 }
 
 type ResolvedInvocation struct {
@@ -270,12 +257,12 @@ func (override RoleProfileOverride) Validate() error {
 	if err := override.Profile.Validate(); err != nil {
 		return err
 	}
-	if override.Profile.Role == RoleDirector {
+	if override.Profile.Role == RoleMaster {
 		if override.ScopeKind != RoleProfileScopeGlobal {
-			return fmt.Errorf("director role profile override must use global scope")
+			return fmt.Errorf("master role profile override must use global scope")
 		}
-		if err := validateDirectorRoleProfile(override.Profile); err != nil {
-			return fmt.Errorf("director role profile override: %w", err)
+		if err := validateMasterRoleProfile(override.Profile); err != nil {
+			return fmt.Errorf("master role profile override: %w", err)
 		}
 	}
 	_, err := validateTimestamp("role profile override updatedAt", override.UpdatedAt)
@@ -300,6 +287,7 @@ func (references InvocationProviderReferences) Validate() error {
 		label string
 		value *string
 	}{
+		{label: "invocation provider thread id", value: references.ThreadID},
 		{label: "invocation provider turn id", value: references.TurnID},
 		{label: "invocation provider request id", value: references.RequestID},
 		{label: "invocation provider response id", value: references.ResponseID},
@@ -321,17 +309,7 @@ func (reroute InvocationModelReroute) Validate() error {
 	if reroute.FromModelID == reroute.ToModelID {
 		return fmt.Errorf("model reroute must change model id")
 	}
-	validReason := false
-	for _, candidate := range invocationModelRerouteReasons {
-		if reroute.Reason == candidate {
-			validReason = true
-			break
-		}
-	}
-	if !validReason {
-		return fmt.Errorf("unsupported model reroute reason %q", reroute.Reason)
-	}
-	return nil
+	return validateIdentifier("model reroute reason", reroute.Reason)
 }
 
 func (invocation ResolvedInvocation) Validate() error {
@@ -451,7 +429,7 @@ func validateFailedInvocation(invocation ResolvedInvocation, hasEnded bool) erro
 
 func validRole(role Role) bool {
 	switch role {
-	case RoleDirector, RoleAgent, RoleNarrator, RoleSideAgent:
+	case RoleMaster, RoleAgent, RoleNarrator, RoleSideAgent:
 		return true
 	default:
 		return false

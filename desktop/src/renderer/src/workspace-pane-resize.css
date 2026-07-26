@@ -1,0 +1,103 @@
+.workspace-pane-resize-handle {
+  background: transparent;
+  border: 0;
+  opacity: 0;
+  pointer-events: auto;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  transition: opacity 120ms ease;
+  z-index: 64;
+}
+
+.workspace-pane-resize-handle::before {
+  background: color-mix(in oklch, var(--foreground) 28%, transparent);
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--background) 54%, transparent);
+  content: "";
+  position: absolute;
+  transition:
+    background 120ms ease,
+    transform 120ms ease;
+}
+
+.workspace-pane-resize-handle-horizontal {
+  cursor: ew-resize !important;
+}
+
+.workspace-pane-resize-handle-horizontal::before {
+  bottom: 0;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%) scaleX(0.72);
+  transform-origin: center;
+  width: 3px;
+}
+
+.workspace-pane-resize-handle-vertical {
+  cursor: ns-resize !important;
+}
+
+.workspace-pane-resize-handle-height {
+  cursor: ns-resize !important;
+}
+
+.workspace-pane-resize-handle-vertical::before {
+  height: 3px;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%) scaleY(0.72);
+  transform-origin: center;
+}
+
+.workspace-pane-resize-handle-height::before {
+  height: 3px;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%) scaleY(0.72);
+  transform-origin: center;
+}
+
+.workspace-pane-resize-handle:hover,
+.workspace-pane-resize-handle:focus-visible,
+.workspace-layout-area[data-pane-resizing="true"] .workspace-pane-resize-handle {
+  opacity: 0.9;
+}
+
+/* Full-screen panes leave nothing to resize at mobile widths. */
+.workspace-layout-area[data-compact-layout="true"] .workspace-pane-resize-handle {
+  display: none;
+}
+
+.workspace-pane-resize-handle-horizontal:hover::before,
+.workspace-pane-resize-handle-horizontal:focus-visible::before,
+.workspace-layout-area[data-pane-resizing="true"] .workspace-pane-resize-handle-horizontal::before {
+  background: color-mix(in oklch, var(--foreground) 38%, transparent);
+  transform: translateX(-50%) scaleX(1);
+}
+
+.workspace-pane-resize-handle-vertical:hover::before,
+.workspace-pane-resize-handle-vertical:focus-visible::before,
+.workspace-layout-area[data-pane-resizing="true"] .workspace-pane-resize-handle-vertical::before,
+.workspace-pane-resize-handle-height:hover::before,
+.workspace-pane-resize-handle-height:focus-visible::before,
+.workspace-layout-area[data-pane-resizing="true"] .workspace-pane-resize-handle-height::before {
+  background: color-mix(in oklch, var(--foreground) 38%, transparent);
+  transform: translateY(-50%) scaleY(1);
+}
+
+.workspace-layout-area[data-pane-resizing-axis="horizontal"],
+.workspace-layout-area[data-pane-resizing-axis="horizontal"] * {
+  cursor: ew-resize !important;
+}
+
+.workspace-layout-area[data-pane-resizing-axis="vertical"],
+.workspace-layout-area[data-pane-resizing-axis="vertical"] * {
+  cursor: ns-resize !important;
+}
+
+.workspace-layout-area[data-pane-resizing-axis="height"],
+.workspace-layout-area[data-pane-resizing-axis="height"] * {
+  cursor: ns-resize !important;
+}

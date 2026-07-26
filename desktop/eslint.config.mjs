@@ -4,13 +4,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: [
-      "out/**",
-      "dist/**",
-      "node_modules/**",
-      "src/generated/**",
-      "src/renderer/src/features/artifacts/generated/**",
-    ],
+    ignores: ["out/**", "dist/**", "node_modules/**", "src/generated/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -39,13 +33,14 @@ export default tseslint.config(
     },
   },
   {
-    files: ["tests/native/**/*.mjs"],
+    files: ["src/renderer/public/sw.js"],
     languageOptions: {
       ecmaVersion: "latest",
       globals: {
-        ...globals.node,
+        ...globals.serviceworker,
+        URL: "readonly",
       },
-      sourceType: "module",
+      sourceType: "script",
     },
   },
 );

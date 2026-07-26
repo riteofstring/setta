@@ -370,7 +370,7 @@ func configurableRoles(scope RoleProfileScopeKind) []Role {
 	case RoleProfileScopeWorkspace, RoleProfileScopeConversation:
 		return []Role{RoleAgent, RoleNarrator, RoleSideAgent}
 	case RoleProfileScopeGlobal:
-		return []Role{RoleAgent, RoleNarrator, RoleDirector, RoleSideAgent}
+		return []Role{RoleAgent, RoleNarrator, RoleMaster, RoleSideAgent}
 	default:
 		return nil
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"sync"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 var (
 	ErrMailboxClosed        = errors.New("narrator mailbox is closed")
 	ErrCheckpointSuperseded = errors.New("narrator checkpoint request was superseded")
-	ErrWorkingPreempted     = errors.New("narrator working projection was preempted by terminal projection")
 )
 
 // PreparedCommit is returned only after external narrator work and output
@@ -275,7 +273,6 @@ type actorState struct {
 	queues         [mailboxPriorityCount][]queuedRequest
 	active         *activeInvocation
 	nextGeneration uint64
-	terminalTurns  map[string]struct{}
 }
 
 func (state *actorState) accept(actor *conversationActor, command submission) {
@@ -290,14 +287,6 @@ func (state *actorState) acceptQueued(actor *conversationActor, queued queuedReq
 }
 
 func (state *actorState) enqueue(actor *conversationActor, queued queuedRequest) {
-	if state.isPreemptedByTerminal(queued.request) {
-		state.completePreempted(actor, queued)
-		return
-	}
-	if turnID, ok := terminalProjectionTurn(queued.request); ok {
-		state.markTerminalTurn(turnID)
-		state.preemptWorkingForTurn(actor, turnID)
-	}
 	priority := requestPriority(queued.request)
 	state.queues[priority] = append(state.queues[priority], queued)
 	if state.active != nil &&
@@ -305,51 +294,6 @@ func (state *actorState) enqueue(actor *conversationActor, queued queuedRequest)
 		priority < priorityCheckpoint {
 		state.supersedeCheckpoint(actor)
 	}
-}
-
-func (state *actorState) markTerminalTurn(turnID string) {
-	if state.terminalTurns == nil {
-		state.terminalTurns = map[string]struct{}{}
-	}
-	state.terminalTurns[turnID] = struct{}{}
-}
-
-func (state *actorState) isPreemptedByTerminal(request Request) bool {
-	turnID, ok := preemptableWorkingTurn(request)
-	if !ok || state.terminalTurns == nil {
-		return false
-	}
-	_, terminal := state.terminalTurns[turnID]
-	return terminal
-}
-
-func (state *actorState) preemptWorkingForTurn(actor *conversationActor, turnID string) {
-	if state.active != nil && requestPreemptedByTerminalTurn(state.active.queued.request, turnID) {
-		active := state.active
-		active.cancel()
-		state.completePreempted(actor, active.queued)
-		state.active = nil
-	}
-	for priority := mailboxPriority(0); priority < mailboxPriorityCount; priority++ {
-		queue := state.queues[priority]
-		kept := queue[:0]
-		for _, queued := range queue {
-			if requestPreemptedByTerminalTurn(queued.request, turnID) {
-				state.completePreempted(actor, queued)
-				continue
-			}
-			kept = append(kept, queued)
-		}
-		state.queues[priority] = kept
-	}
-}
-
-func (state *actorState) completePreempted(actor *conversationActor, queued queuedRequest) {
-	actor.complete(queued, fmt.Errorf(
-		"narrator request %s: %w",
-		queued.request.ID,
-		ErrWorkingPreempted,
-	), false)
 }
 
 // drainReadyWork batches every request that is already ready when an invocation
@@ -548,29 +492,6 @@ func validateRetryOperation(request Request, retry Request) error {
 	return nil
 }
 
-func terminalProjectionTurn(request Request) (string, bool) {
-	if request.Kind != RequestKindProjection ||
-		request.Trigger != conversation.NarrationTriggerTurnTerminal ||
-		request.Projection == nil {
-		return "", false
-	}
-	return request.Projection.TurnID, true
-}
-
-func preemptableWorkingTurn(request Request) (string, bool) {
-	if request.Kind == RequestKindProjection &&
-		request.Trigger != conversation.NarrationTriggerTurnTerminal &&
-		request.Projection != nil {
-		return request.Projection.TurnID, true
-	}
-	return "", false
-}
-
-func requestPreemptedByTerminalTurn(request Request, turnID string) bool {
-	requestTurnID, ok := preemptableWorkingTurn(request)
-	return ok && requestTurnID == turnID
-}
-
 func sameFocusOperation(left *FocusOperation, right *FocusOperation) bool {
 	if left == nil || right == nil {
 		return left == nil && right == nil
@@ -582,25 +503,7 @@ func sameProjectionOperation(left *ProjectionOperation, right *ProjectionOperati
 	if left == nil || right == nil {
 		return left == nil && right == nil
 	}
-	return left.WorkspaceID == right.WorkspaceID &&
-		left.TurnID == right.TurnID &&
-		left.ThroughSequence == right.ThroughSequence &&
-		sameProjectionSemanticEvents(left.SemanticEvents, right.SemanticEvents)
-}
-
-func sameProjectionSemanticEvents(
-	left []conversation.NarratorSemanticEvent,
-	right []conversation.NarratorSemanticEvent,
-) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for index := range left {
-		if !reflect.DeepEqual(left[index], right[index]) {
-			return false
-		}
-	}
-	return true
+	return *left == *right
 }
 
 func sameStatusOperation(left *StatusOperation, right *StatusOperation) bool {
@@ -614,8 +517,11 @@ func sameCheckpointOperation(left *CheckpointOperation, right *CheckpointOperati
 	if left == nil || right == nil {
 		return left == nil && right == nil
 	}
-	return left.WorkspaceID == right.WorkspaceID &&
-		sameOptionalOperationString(left.TurnID, right.TurnID)
+	if left.WorkspaceID != right.WorkspaceID || left.ResumeTrigger != right.ResumeTrigger ||
+		!sameOptionalOperationString(left.TurnID, right.TurnID) {
+		return false
+	}
+	return sameProjectionOperation(left.ResumeProjection, right.ResumeProjection)
 }
 
 func sameOptionalOperationString(left *string, right *string) bool {
