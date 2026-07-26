@@ -79,6 +79,18 @@
   color: var(--director-faint);
 }
 
+/*
+ * The card renders as a margin note — a rule and a tracked label — but the
+ * base `.cn-card` carries a 1px ring shadow that Tailwind's layered
+ * `shadow-none` utility cannot out-cascade (the shadcn stylesheet is
+ * unlayered). That ring drew a full hairline box hugging the card's text on
+ * every card in a document. The document's cards have no box; this is the one
+ * place with the specificity to say so.
+ */
+.setta-artifact .cn-card {
+  box-shadow: none;
+}
+
 /* Markdown is prose too, whatever node it arrived in. */
 .setta-artifact .markdown-text > p,
 .setta-artifact .markdown-text > ul,
