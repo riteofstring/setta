@@ -317,6 +317,7 @@ export function DirectorCommandCenterShell({
           platform={platform}
           railVisibility={effectiveRailVisibility}
           snapshot={director.snapshot}
+          speechPlayback={speechPlayback}
         />
         <section className="director-command-center-stage" aria-label="Director command center">
           <DirectorGraphSurface

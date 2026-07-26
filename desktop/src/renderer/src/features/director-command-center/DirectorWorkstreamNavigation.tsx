@@ -13,11 +13,15 @@ import {
   PanelLeft,
   PanelRight,
   Settings,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 
 import { useAppWindowDragHandlers } from "../../app-window-drag";
 import { SettaLogoMark } from "../../components/setta-logo-mark";
+import type { AppShellSpeechPlaybackController } from "../global-speech/app-shell-speech-playback-controller";
+import { writeSpeechPlaybackMutePreference } from "../global-speech/speech-playback-mute-preference";
 import { directorFocus, directorFocusFolder, type DirectorFocus } from "./director-focus";
 import { directorWorkstreamStatusLabels } from "./director-workstream-status";
 
@@ -56,6 +60,7 @@ export function CommandCenterTopBar({
   platform,
   railVisibility,
   snapshot,
+  speechPlayback,
 }: {
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
   onStartWorkstream: () => void;
@@ -64,6 +69,7 @@ export function CommandCenterTopBar({
   platform: DesktopPlatform;
   railVisibility: DirectorRailVisibility;
   snapshot: DirectorSnapshot | null;
+  speechPlayback: AppShellSpeechPlaybackController;
 }) {
   const windowDragHandlers = useAppWindowDragHandlers();
   return (
@@ -84,6 +90,7 @@ export function CommandCenterTopBar({
         onStartWorkstream={onStartWorkstream}
         onToggleRail={onToggleRail}
         railVisibility={railVisibility}
+        speechPlayback={speechPlayback}
       />
     </header>
   );
@@ -259,11 +266,13 @@ function DirectorRailControls({
   onStartWorkstream,
   onToggleRail,
   railVisibility,
+  speechPlayback,
 }: {
   onOpenSettingsPage: () => void;
   onStartWorkstream: () => void;
   onToggleRail: (rail: DirectorRailName, trigger: HTMLButtonElement) => void;
   railVisibility: DirectorRailVisibility;
+  speechPlayback: AppShellSpeechPlaybackController;
 }) {
   return (
     <div
@@ -295,10 +304,49 @@ function DirectorRailControls({
       >
         <PanelRight aria-hidden="true" size={16} />
       </IconButton>
+      <SpeechPlaybackMuteToggle speechPlayback={speechPlayback} />
       <IconButton label="Open settings" onClick={onOpenSettingsPage}>
         <Settings aria-hidden="true" size={16} />
       </IconButton>
     </div>
+  );
+}
+
+/**
+ * Whether the Director speaks its replies out loud.
+ *
+ * Mute silences automatic speech only — a deliberate replay still plays,
+ * because the user asked for that one by hand. The choice is persisted, so an
+ * app told to be quiet stays quiet across restarts.
+ */
+function SpeechPlaybackMuteToggle({
+  speechPlayback,
+}: {
+  speechPlayback: AppShellSpeechPlaybackController;
+}) {
+  const snapshot = useSyncExternalStore(
+    speechPlayback.subscribe,
+    speechPlayback.getSnapshot,
+    speechPlayback.getSnapshot,
+  );
+  const muted = snapshot.muted;
+  return (
+    <IconButton
+      label={muted ? "Unmute the Director's voice" : "Mute the Director's voice"}
+      onClick={() => {
+        const next = !muted;
+        speechPlayback.setMuted(next);
+        writeSpeechPlaybackMutePreference(globalThis.localStorage, next);
+      }}
+      pressed={muted}
+      testId="director-speech-mute-toggle"
+    >
+      {muted ? (
+        <VolumeX aria-hidden="true" size={16} />
+      ) : (
+        <Volume2 aria-hidden="true" size={16} />
+      )}
+    </IconButton>
   );
 }
 
@@ -372,6 +420,8 @@ function IconButton({
   expanded,
   label,
   onClick,
+  pressed,
+  testId,
 }: {
   children: ReactNode;
   controls?: string;
@@ -379,13 +429,17 @@ function IconButton({
   expanded?: boolean;
   label: string;
   onClick: (trigger: HTMLButtonElement) => void;
+  pressed?: boolean;
+  testId?: string;
 }) {
   return (
     <button
       aria-controls={controls}
       aria-expanded={expanded}
       aria-label={label}
+      aria-pressed={pressed}
       className="director-icon-button"
+      data-testid={testId}
       disabled={disabled}
       onClick={(event) => onClick(event.currentTarget)}
       title={label}
