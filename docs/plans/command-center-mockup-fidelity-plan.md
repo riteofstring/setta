@@ -1,9 +1,16 @@
 # Command Center Mockup Fidelity Plan
 
 **Date:** 2026-07-27
-**Status:** All five phases implemented. Phase 1's measurement is partial (see
-its Verification); phases 2–5 are verified by the static gates and unit tests,
-and are still owed a run of the command-center Electron workflow.
+**Status:** All five phases implemented and verified. The `director-command-center`
+Electron workflow passes; six of the seven non-sustained
+`director-command-center-performance` scenarios pass, including the 6K viewport
+matrix. Phase 1's measurement remains partial (see its Verification).
+
+Open, deliberately not fixed: `navigate-100-workstreams` stays red. The canvas
+packs every workstream's graph into one composition, so selecting a workstream
+changes the top bar and rails but never moves the canvas to that workstream —
+while the switch transition plays as if it had. Left as a standing bug report
+pending a product decision.
 
 ## Outcome
 
