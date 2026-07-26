@@ -13,7 +13,7 @@ import { describe, expect, test } from "vitest";
 
 import { directorRailArrivalAnnouncement } from "./DirectorArtifactsRail";
 import { buildApprovalAnswers } from "./DirectorPendingActions";
-import { directorArtifactCardMetadata } from "./DirectorArtifactPreviewCard";
+import { artifactCardSummary, directorArtifactCardMetadata } from "./DirectorArtifactPreviewCard";
 import {
   DirectorRefreshCoordinator,
   directorEventChangesVisibleState,
@@ -111,6 +111,28 @@ describe("Director command-center shell view state", () => {
         status: "unresolved",
       }),
     ).toBe("Pending");
+  });
+
+  // A card is a claim about what the document holds, so the body is chosen
+  // rather than truncated: the lead prose, then the most telling structure.
+  test("summarizes an artifact card by prose plus its most telling block", () => {
+    const prose = { kind: "text", text: "What it is.", tone: "normal" } as const;
+    const heading = { kind: "heading", text: "Repeated title" } as const;
+    const metricA = { kind: "metric", label: "Resolved", value: "412" } as const;
+    const metricB = { kind: "metric", label: "Escalated", value: "17" } as const;
+    const file = { kind: "file", path: "report.png" } as const;
+
+    // Numbers read as a set; a chart would outrank them, a file would not.
+    expect(artifactCardSummary([heading, prose, file, metricA, metricB])).toEqual([
+      prose,
+      metricA,
+      metricB,
+    ]);
+    // With no structure at all, the prose stands alone.
+    expect(artifactCardSummary([heading, prose])).toEqual([prose]);
+    // An artifact made only of headings still has to show something.
+    expect(artifactCardSummary([heading])).toEqual([heading]);
+    expect(artifactCardSummary([])).toEqual([]);
   });
 
   test("announces typed artifact lifecycle changes at their update time", () => {

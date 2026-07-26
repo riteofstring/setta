@@ -8,6 +8,7 @@
     "src/renderer/src/components/ui/*.tsx",
     "src/renderer/src/features/director-graph/harness/director-graph-harness-main.tsx",
     "src/renderer/src/features/director-graph/gallery/director-graph-gallery-main.tsx",
+    "src/renderer/src/features/artifacts/gallery/artifact-gallery-main.tsx",
     "vitest.config.ts"
   ],
   "project": [
