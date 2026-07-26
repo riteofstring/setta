@@ -187,6 +187,33 @@ modes; `director-command-center` workflow.
 
 ## Phase 3 — Type scale and rhythm
 
+**Done.** The catalog was written in Tailwind's t-shirt sizes, which are
+browser-relative and land a step above the shell's; that is what made an
+artifact read larger and looser than the surface holding it. It now uses the
+shell's explicit scale: 14 px section headings, 13 px body, 11 px captions, and
+10 px kickers tracked at 0.14 em. Markdown headings inside a document answer to
+the same scale, so a model's `##` cannot outrank a `Section`. The document gap
+halves from 24 px to 18 px and section gaps from 12 px to 10 px, inside the
+shell's 8–18 px range.
+
+**One declared exception.** The plan said nothing in an artifact outranks the
+command center's own title. A metric is the one thing that legitimately does —
+its whole job is to be the number read first — so it keeps a larger size, 20 px
+rather than the browser-default 24 px it had.
+
+**The duplicated title is not a rendering defect and was left alone.** The
+renderer already declines to draw the artifact title, and says so: the model's
+top heading rank starts one level below it. The repetition in a real artifact is
+the *model* authoring a `Heading` that restates the title it was given. That is
+an authoring instruction to fix, and removing it in the renderer would mean
+string-matching content against chrome, which the plan's own rules reject.
+
+**Verification.** `director-command-center` Electron workflow, the gallery driven
+and read at the mixed-report fixture, 691 renderer unit tests, typecheck, eslint,
+production build.
+
+### Original phase text
+
 Adopt the shell's explicit scale: 10 px uppercase kickers with 0.14 em tracking,
 11 px meta, 12.5–13 px body, and one step above that for a document title.
 Nothing in an artifact is larger than the command center's own title.

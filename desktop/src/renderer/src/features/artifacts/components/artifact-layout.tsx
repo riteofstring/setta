@@ -14,24 +14,27 @@ import type { ArtifactComponentProps } from "../generated/artifact-catalog-props
  */
 export function ArtifactDocument({ children }: { children: ReactNode }) {
   return (
-    <div className="setta-artifact flex min-w-0 flex-col gap-6 text-sm select-text">{children}</div>
+    <div className="setta-artifact flex min-w-0 flex-col gap-[18px] text-[13px] select-text">
+      {children}
+    </div>
   );
 }
 
 /** A titled group of blocks. */
 export function ArtifactSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-base leading-snug font-semibold text-foreground">{title}</h2>
+    <section className="flex flex-col gap-[10px]">
+      <h2 className="text-[14px] leading-snug font-semibold text-foreground">{title}</h2>
       {children}
     </section>
   );
 }
 
 const headingClasses = {
-  section: "text-base leading-snug font-semibold text-foreground",
-  subsection: "text-sm leading-snug font-semibold text-foreground",
-  detail: "text-xs leading-snug font-semibold tracking-wide text-muted-foreground uppercase",
+  section: "text-[14px] leading-snug font-semibold text-foreground",
+  subsection: "text-[13px] leading-snug font-semibold text-foreground",
+  detail:
+    "text-[10px] leading-snug font-semibold tracking-[0.14em] text-muted-foreground uppercase",
 } satisfies Record<NonNullable<ArtifactComponentProps["Heading"]["level"]>, string>;
 
 /**
