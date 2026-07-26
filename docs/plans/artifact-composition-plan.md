@@ -176,3 +176,50 @@ artifact browser and rail driven through the command-center workflow; 693
 renderer unit tests, `internal/conversation` Go tests, typecheck, eslint, knip,
 prettier, production build, and the `director-command-center` and
 `native-artifact-routing` Electron workflows.
+
+## Phase 6 — The rail card, and the field it needed
+
+**Done.** The mockup's card is a kind, a title, one line about the artifact,
+and the single most telling thing inside it. Three of those the app had. The
+line it did not, and that is why the rail still looked worse than the mockup
+after Phase 5: with nothing authored to say what an artifact *is*, the card
+fell back to a bounded replay of the document's opening — which for an image
+artifact was a monospace file path, and for a report was the first sentence of
+the thing you were deciding whether to read.
+
+**The contract gained `summary`.** One sentence, required on `emit_artifact`,
+bounded at 220 bytes and rejected if it carries a line break, because a
+standfirst is one line. It is threaded through `Artifact`, `ArtifactMetadata`,
+`TrajectoryArtifactEmitted`, and `WorkstreamArtifact`; protocol version 107.
+The tool instructions ask for a claim about the document rather than its
+opening line. The native image route supplies its own, as it does its kind.
+
+It pays for itself twice: it is the rail card's line and the browser's
+standfirst — the last title-block delta Phase 5 could not close.
+
+**The bounded preview projection is gone.** `ArtifactPreviewSurface`,
+`artifact-preview-projection`, and `artifact-preview-blocks` existed to render
+a shrunken document: prose excerpts, Markdown flattening, a two-row table, three
+code lines, status chips, file rows, and the ranked block selection that chose
+between them. None of that is what a card is. What replaced them is
+`artifact-card-projection` and `ArtifactCardFigures`: the document's first
+metric and its first chart series, drawn as a figure and one static sparkline.
+Everything else in the catalog contributes nothing to a card, and says so.
+
+**Two things the mockup taught twice.** A spark bar sized to fill its band is
+40px wide on a stretched plot — the same slab the document's chart drew before
+Phase 5 capped it — so the card caps its bars in viewBox units. And a card's
+figure leads with the value and follows with a tracked caption, because the
+number is what the eye lands on.
+
+**One delta left, and it is deliberate.** The mockup gives each card its own
+accent, drawn from the graph's modes. Nothing about an artifact says which mode
+it belongs to, so every card spends the Director's primary instead. Picking a
+colour per card without a source would be decoration.
+
+**Verification.** The command-center rail driven in Electron and read against
+the mockup's card; 690 renderer unit tests including a rewritten card
+projection suite; the whole Go suite; typecheck, eslint, knip, prettier,
+production build; and the full required Electron workflow tier
+(`director-command-center`, `director-command-center-local-voice`,
+`native-artifact-routing`, `microphone-permissions`).

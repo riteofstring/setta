@@ -63,7 +63,11 @@ type WorkstreamArtifact struct {
 	Title          string         `json:"title"`
 	// Kind names the form of the document, shown above its title. It is the
 	// model's own word, displayed verbatim.
-	Kind           string   `json:"kind"`
+	Kind string `json:"kind"`
+	// Summary is the author's one-line claim about the artifact. The rail card
+	// shows it, and it is the reason a card can say what an artifact is
+	// without replaying the top of the document.
+	Summary        string   `json:"summary"`
 	SourceEventIDs []string `json:"sourceEventIds"`
 	CreatedAt      string   `json:"createdAt"`
 	UpdatedAt      string   `json:"updatedAt"`

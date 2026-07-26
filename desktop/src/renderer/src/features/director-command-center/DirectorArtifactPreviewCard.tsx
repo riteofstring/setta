@@ -2,8 +2,7 @@ import type { ArtifactStatus, WorkstreamArtifact } from "@generated/backend";
 import { Maximize2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { ArtifactPreviewSurface } from "../artifacts/ArtifactPreviewSurface";
-import type { ArtifactPreviewBlock } from "../artifacts/artifact-preview-blocks";
+import { ArtifactCardFigureView } from "../artifacts/ArtifactCardFigures";
 import type { ArtifactDocumentCache } from "../artifacts/artifact-document-cache";
 import { Button } from "@renderer/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@renderer/components/ui/tooltip";
@@ -12,15 +11,18 @@ import { useArtifactDocument, type ArtifactDocumentState } from "./director-arti
 
 const artifactStatusLabels = {
   available: "Ready",
-  declared: "Declared",
-  unresolved: "Pending",
+  declared: "Setta is still writing this artifact.",
+  unresolved: "This artifact has not arrived yet.",
 } as const satisfies Record<ArtifactStatus, string>;
 
 /**
- * One artifact's rail preview.
+ * One artifact's rail card.
  *
- * The card is a fixed-height surface whatever its artifact contains, so
- * arriving artifacts and finishing reads never move the rail under the reader.
+ * A card claims what the document holds: its kind, its title, the one line the
+ * author wrote to say what it is, and the single most telling thing inside.
+ * It is never a shrunken replay of the document's first screen — that replay
+ * is what made the rail a column of boxes each showing the top of something.
+ *
  * A single click does nothing: the card is not a control. Opening the artifact
  * goes through the explicit expand control, or a double-click on the card as a
  * pointer shortcut for the same action.
@@ -70,11 +72,6 @@ export function DirectorArtifactPreviewCard({
            */}
           <p className="director-artifact-preview-kind">{artifact.kind}</p>
           <h3 className="director-artifact-preview-title">{artifact.title}</h3>
-          {artifact.status === "available" ? null : (
-            <p className="director-artifact-preview-meta">
-              {directorArtifactCardMetadata(artifact)}
-            </p>
-          )}
         </div>
         <ArtifactExpandControl
           artifact={artifact}
@@ -84,11 +81,11 @@ export function DirectorArtifactPreviewCard({
           ref={expandRef}
         />
       </header>
-      {/* Preview blocks are noninteractive and ignore pointer input, so the
-          expand control above remains the only way into the full document.
-          Their readable content stays in the accessibility tree. */}
+      {/* The card's body is noninteractive and ignores pointer input, so the
+          expand control above remains the only way into the full document. Its
+          readable content stays in the accessibility tree. */}
       <div className="director-artifact-preview-viewport">
-        <DirectorArtifactPreviewBody artifact={artifact} document={document} />
+        <DirectorArtifactCardBody artifact={artifact} document={document} />
       </div>
     </article>
   );
@@ -151,80 +148,50 @@ function ArtifactExpandControl({
   );
 }
 
-function DirectorArtifactPreviewBody({
+/**
+ * The card's line and its figures.
+ *
+ * The line is the artifact's own summary, so it is there the moment the
+ * artifact is, without waiting for a read — which is why an unavailable
+ * artifact still says what it will be rather than only that it is not here
+ * yet. The figures arrive with the document.
+ */
+function DirectorArtifactCardBody({
   artifact,
   document,
 }: {
   artifact: WorkstreamArtifact;
   document: ArtifactDocumentState | null;
 }) {
-  if (artifact.status !== "available") {
-    return (
-      <p className="director-artifact-preview-status">
-        {artifact.status === "declared"
-          ? "Setta is still writing this artifact."
-          : "This artifact has not arrived yet."}
-      </p>
-    );
-  }
+  return (
+    <>
+      <p className="director-artifact-preview-line">{artifact.summary}</p>
+      {artifact.status === "available" ? (
+        <DirectorArtifactCardFigures document={document} />
+      ) : (
+        <p className="director-artifact-preview-status">{directorArtifactCardMetadata(artifact)}</p>
+      )}
+    </>
+  );
+}
+
+function DirectorArtifactCardFigures({ document }: { document: ArtifactDocumentState | null }) {
   switch (document?.status) {
     case "ready":
-      return <ArtifactPreviewSurface blocks={artifactCardSummary(document.entry.preview)} />;
+      return <ArtifactCardFigureView figures={document.entry.figures} />;
     case "failed":
       return (
         <p className="director-artifact-preview-status">Setta could not read this artifact.</p>
       );
     default:
-      return <p className="director-artifact-preview-status">Loading preview.</p>;
+      // A card that has said what the artifact is does not also need to
+      // announce that its evidence is still loading.
+      return null;
   }
 }
 
 export function directorArtifactCardMetadata(artifact: WorkstreamArtifact): string {
   return artifactStatusLabels[artifact.status];
-}
-
-/**
- * What a card shows of its artifact.
- *
- * The projection is the document's opening in order, which on a card became a
- * shrunken replay of the first screen: the title again, the first sentence
- * again, then a hard clip mid-word. A card is not a small window onto the
- * document — it is a claim about what the document holds.
- *
- * So the body is chosen: one line of prose to say what it is, and the most
- * telling structural block to say what shape it takes. Headings are dropped
- * throughout, because the card's own title already names it.
- */
-export function artifactCardSummary(
-  blocks: readonly ArtifactPreviewBlock[],
-): readonly ArtifactPreviewBlock[] {
-  const prose = blocks.find((block) => block.kind === "text");
-  const structure = mostTellingArtifactBlock(blocks);
-  const chosen = [prose, ...(structure ?? [])].filter((block) => block !== undefined);
-  // An artifact made only of headings still has to show something.
-  return chosen.length > 0 ? chosen : blocks.slice(0, 1);
-}
-
-/**
- * Ranked by how much a glance gets from it: a chart shows the shape of the
- * data, numbers show the headline, a table shows structure, a file names what
- * was produced. Prose is handled separately and code is last, because a card is
- * too small to read code in.
- */
-const artifactCardStructureRank = ["chart", "metric", "table", "file", "code"] as const;
-
-function mostTellingArtifactBlock(
-  blocks: readonly ArtifactPreviewBlock[],
-): readonly ArtifactPreviewBlock[] | null {
-  for (const kind of artifactCardStructureRank) {
-    const matching = blocks.filter((block) => block.kind === kind);
-    if (matching.length === 0) {
-      continue;
-    }
-    // Numbers are a row and read as a set; everything else stands alone.
-    return kind === "metric" ? matching.slice(0, 3) : matching.slice(0, 1);
-  }
-  return null;
 }
 
 /**

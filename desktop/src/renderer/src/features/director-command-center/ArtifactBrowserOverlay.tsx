@@ -146,6 +146,12 @@ export function ArtifactBrowserOverlay({
               <header className="director-artifact-title-block">
                 <p className="director-artifact-kicker">{artifact.kind}</p>
                 <h1>{artifact.title}</h1>
+                {/*
+                 * The standfirst. The author wrote one line saying what this
+                 * artifact is, and the top of the document is where a reader
+                 * decides whether to read the rest of it.
+                 */}
+                <p className="director-artifact-standfirst">{artifact.summary}</p>
               </header>
               <ArtifactBrowserDocument artifact={artifact} document={document} />
             </div>

@@ -113,6 +113,7 @@ func (service *Service) artifactTrajectory(
 			ArtifactID: artifact.ID,
 			Title:      artifact.Title,
 			Kind:       artifact.Kind,
+			Summary:    artifact.Summary,
 		},
 	}, nil
 }
@@ -778,6 +779,7 @@ func (service *Service) imageGenerationArtifact(
 		// fact about the activity that produced the artifact, not something
 		// read out of its content.
 		Kind:      nativeImageArtifactKind,
+		Summary:   nativeImageArtifactSummary,
 		CreatedAt: now,
 		Document: ArtifactDocument{
 			Language:  ArtifactDocumentLanguageOpenUI,
@@ -790,6 +792,12 @@ func (service *Service) imageGenerationArtifact(
 // nativeImageArtifactKind is the kicker for an artifact routed from a saved
 // image generation.
 const nativeImageArtifactKind = "Image"
+
+// nativeImageArtifactSummary is the standfirst for that artifact. The route
+// produces exactly one sort of document and nothing about the image is
+// readable from here, so the line says what the artifact is rather than
+// pretending to describe what is in it.
+const nativeImageArtifactSummary = "An image the assistant generated and saved into this workspace."
 
 func completedImageGenerationHasPath(activity *agent.ActivityEvent) bool {
 	return activity.Kind == agent.ActivityKindImageGeneration &&

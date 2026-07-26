@@ -497,6 +497,7 @@ type TrajectoryArtifactEmitted struct {
 	ArtifactID string `json:"artifactId"`
 	Title      string `json:"title"`
 	Kind       string `json:"kind"`
+	Summary    string `json:"summary"`
 }
 
 type TrajectoryProviderLifecycleChanged struct {

@@ -472,14 +472,19 @@ try {
     context.client,
     newestArtifactId,
   );
-  if (!artifactPreview.previewText.includes(openedArtifactMarker)) {
+  // A card claims what its artifact is, in the author's own line. That line is
+  // what binds a card to its artifact, so it is what the rail is checked for —
+  // a card is no longer a bounded replay of the document's opening.
+  const openedArtifactSummary = requiredString(openedArtifact?.summary, "older Director summary");
+  const newestArtifactSummary = requiredString(newestArtifact?.summary, "newest Director summary");
+  if (!artifactPreview.previewText.includes(openedArtifactSummary)) {
     throw new Error(
-      `Director artifact preview omitted its projected document: ${JSON.stringify(artifactPreview)}`,
+      `Director artifact card omitted its artifact's summary: ${JSON.stringify(artifactPreview)}`,
     );
   }
-  if (!newestArtifactPreview.previewText.includes(newestArtifactMarker)) {
+  if (!newestArtifactPreview.previewText.includes(newestArtifactSummary)) {
     throw new Error(
-      `Newest Director artifact preview omitted its projected document: ${JSON.stringify(newestArtifactPreview)}`,
+      `Newest Director artifact card omitted its artifact's summary: ${JSON.stringify(newestArtifactPreview)}`,
     );
   }
   if (artifactPreview.previewInert) {
@@ -487,10 +492,13 @@ try {
       `Director artifact preview hid its readable content: ${JSON.stringify(artifactPreview)}`,
     );
   }
+  // Two artifacts of the same kind making the same claim draw the same card.
+  // A card is as tall as what it has to say, so this is what "stable" means
+  // now: the height follows the claim, not the arrival order.
   assertEqual(
     newestArtifactPreview.height,
     artifactPreview.height,
-    "Director artifact preview stable height",
+    "Director artifact card height for equal claims",
   );
   await assertArtifactPreviewIgnoresSingleClick(context.client, openedArtifactId, artifactPreview);
   // Setta has one scheme, so the preview is checked for readability rather than

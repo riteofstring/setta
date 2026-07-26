@@ -189,6 +189,7 @@ type artifactRecordIdentity struct {
 	runID          *string
 	title          string
 	kind           string
+	summary        string
 }
 
 func emittedArtifactIdentity(
@@ -205,6 +206,7 @@ func emittedArtifactIdentity(
 		runID:          runID,
 		title:          emitted.Title,
 		kind:           emitted.Kind,
+		summary:        emitted.Summary,
 	}
 }
 
@@ -221,6 +223,7 @@ func createdArtifactIdentity(
 		runID:          metadata.TurnID,
 		title:          metadata.Title,
 		kind:           metadata.Kind,
+		summary:        metadata.Summary,
 	}
 }
 
@@ -255,6 +258,7 @@ func newDeclaredArtifact(
 		Status:         ArtifactStatusDeclared,
 		Title:          identity.title,
 		Kind:           identity.kind,
+		Summary:        identity.summary,
 		SourceEventIDs: []string{event.ID},
 		CreatedAt:      event.EmittedAt,
 		UpdatedAt:      event.EmittedAt,
@@ -288,6 +292,7 @@ func newAvailableArtifact(
 		Status:         ArtifactStatusAvailable,
 		Title:          identity.title,
 		Kind:           identity.kind,
+		Summary:        identity.summary,
 		CreatedAt:      metadata.CreatedAt,
 		UpdatedAt:      metadata.CreatedAt,
 	}

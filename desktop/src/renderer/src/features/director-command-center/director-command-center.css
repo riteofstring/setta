@@ -514,14 +514,6 @@
   overflow: hidden;
 }
 
-.director-artifact-preview-meta {
-  color: oklch(0.68 0.04 250);
-  display: block;
-  font-size: 11px;
-  line-height: 1.25;
-  margin: 0;
-}
-
 /*
  * The fixed content viewport. The projection is already bounded, but a long
  * word or a wide table must not be able to change the card's size, so the
@@ -536,11 +528,73 @@
  * a dark card. Light mode is gone and the catalog now reads the Director's
  * palette, so the coupling that forced the box is gone with it.
  */
+/*
+ * The card's body: a line, then whatever evidence the document offers.
+ *
+ * The reserve is a floor rather than a block every card must fill. It keeps an
+ * arriving figure from moving the card under the reader; reserving a fixed
+ * block is what made the rail a column of half-empty boxes.
+ */
 .director-artifact-preview-viewport {
   color: var(--director-muted);
+  display: grid;
+  gap: 9px;
   min-block-size: var(--director-artifact-preview-block);
   min-inline-size: 0;
   pointer-events: none;
+}
+
+.director-artifact-preview-line {
+  color: var(--director-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.director-artifact-figures {
+  display: grid;
+  gap: 7px;
+}
+
+/*
+ * The single most telling number, at the weight a number earns. The value
+ * leads and the label follows it as a tracked caption, because the figure is
+ * what the eye lands on and the label is what explains it afterwards.
+ */
+.director-artifact-figure {
+  align-items: baseline;
+  display: flex;
+  gap: 7px;
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.director-artifact-figure b {
+  color: var(--director-bright);
+  flex: none;
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.director-artifact-figure span {
+  color: var(--director-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.director-artifact-spark {
+  block-size: 22px;
+  color: oklch(from var(--director-primary) l c h / 0.7);
+  inline-size: 100%;
 }
 
 .director-artifact-preview-status {
@@ -709,6 +763,14 @@
   line-height: 1.14;
   margin: 0;
   max-inline-size: 26ch;
+}
+
+.director-artifact-standfirst {
+  color: var(--director-muted);
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 12px 0 0;
+  max-inline-size: 32rem;
 }
 
 .director-artifact-browser-status {

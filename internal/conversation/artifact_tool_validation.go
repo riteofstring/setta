@@ -44,6 +44,16 @@ func decodeEmitArtifactInput(arguments json.RawMessage) (emitArtifactInput, erro
 	if err := validateEmitArtifactKind(kind); err != nil {
 		return emitArtifactInput{}, err
 	}
+	summary, err := decodeRequiredEmitArtifactStringField(fields, "summary", "artifact summary")
+	if err != nil {
+		return emitArtifactInput{}, err
+	}
+	if err := validateRequiredEmitArtifactToolText("summary", "artifact summary", summary); err != nil {
+		return emitArtifactInput{}, err
+	}
+	if err := validateEmitArtifactSummary(summary); err != nil {
+		return emitArtifactInput{}, err
+	}
 	source, err := decodeRequiredEmitArtifactStringField(fields, "source", "artifact document source")
 	if err != nil {
 		return emitArtifactInput{}, err
@@ -52,7 +62,13 @@ func decodeEmitArtifactInput(arguments json.RawMessage) (emitArtifactInput, erro
 	if err != nil {
 		return emitArtifactInput{}, err
 	}
-	return emitArtifactInput{Title: title, Kind: kind, Source: source, document: document}, nil
+	return emitArtifactInput{
+		Title:    title,
+		Kind:     kind,
+		Summary:  summary,
+		Source:   source,
+		document: document,
+	}, nil
 }
 
 func decodeEmitArtifactArgumentFields(arguments json.RawMessage) (map[string]json.RawMessage, error) {
@@ -61,7 +77,7 @@ func decodeEmitArtifactArgumentFields(arguments json.RawMessage) (map[string]jso
 			artifactToolFailureMissingRequiredFields,
 			"emit_artifact arguments are required",
 			true,
-			[]agent.DynamicToolFieldError{{Field: "arguments", Message: "Provide a JSON object with title, kind, and source."}},
+			[]agent.DynamicToolFieldError{{Field: "arguments", Message: "Provide a JSON object with title, kind, summary, and source."}},
 			nil,
 		)
 	}
@@ -109,9 +125,45 @@ func validateEmitArtifactKind(kind string) error {
 	)
 }
 
+// maxArtifactSummaryBytes bounds the standfirst. One sentence fits well inside
+// it; anything longer has stopped claiming what the artifact is and started
+// being the artifact.
+const maxArtifactSummaryBytes = 220
+
+func validateEmitArtifactSummary(summary string) error {
+	if len(summary) > maxArtifactSummaryBytes {
+		return newArtifactToolFailureError(
+			artifactToolFailureInvalidArguments,
+			fmt.Sprintf("artifact summary is longer than %d bytes", maxArtifactSummaryBytes),
+			true,
+			[]agent.DynamicToolFieldError{{
+				Field:   "summary",
+				Message: "Say what the artifact is in one sentence.",
+			}},
+			nil,
+		)
+	}
+	// A standfirst is one line. A summary carrying its own paragraph breaks is
+	// a document, and it would be rendered as a run-on line rather than as the
+	// structure it was written as.
+	if strings.ContainsAny(summary, "\r\n") {
+		return newArtifactToolFailureError(
+			artifactToolFailureInvalidArguments,
+			"artifact summary must be a single line",
+			true,
+			[]agent.DynamicToolFieldError{{
+				Field:   "summary",
+				Message: "Write one sentence with no line breaks.",
+			}},
+			nil,
+		)
+	}
+	return nil
+}
+
 func rejectUnknownEmitArtifactFields(fields map[string]json.RawMessage) error {
 	for name := range fields {
-		if name == "title" || name == "kind" || name == "source" {
+		if name == "title" || name == "kind" || name == "summary" || name == "source" {
 			continue
 		}
 		return newArtifactToolFailureError(

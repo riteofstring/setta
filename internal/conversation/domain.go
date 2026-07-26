@@ -99,7 +99,12 @@ type Artifact struct {
 	// Kind names the form of the document — Story, Report, Protocol — and is
 	// shown above its title. It is the model's own word, displayed verbatim:
 	// nothing in Setta branches on it, so it needs no closed set.
-	Kind      string           `json:"kind"`
+	Kind string `json:"kind"`
+	// Summary is one line saying what this artifact is, in the author's own
+	// words. It is the standfirst under the title and the line on the rail
+	// card, and it exists because neither can be taken from the document: an
+	// opening sentence is the start of the thing, not a claim about it.
+	Summary   string           `json:"summary"`
 	CreatedAt string           `json:"createdAt"`
 	Document  ArtifactDocument `json:"document"`
 }
@@ -111,6 +116,7 @@ type ArtifactMetadata struct {
 	TrajectorySequence *int    `json:"trajectorySequence"`
 	Title              string  `json:"title"`
 	Kind               string  `json:"kind"`
+	Summary            string  `json:"summary"`
 	CreatedAt          string  `json:"createdAt"`
 }
 
@@ -386,6 +392,7 @@ func (artifact Artifact) Metadata() ArtifactMetadata {
 		TrajectorySequence: cloneIntPointer(artifact.TrajectorySequence),
 		Title:              artifact.Title,
 		Kind:               artifact.Kind,
+		Summary:            artifact.Summary,
 		CreatedAt:          artifact.CreatedAt,
 	}
 }

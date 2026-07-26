@@ -16,8 +16,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 106;
-export const backendContractSchemaHash = "sha256:6891ab57f023e4bfc3b663a83f3f8cec51b3922ee513dc070aa7120c89d9cb92";
+export const backendProtocolVersion = 107;
+export const backendContractSchemaHash = "sha256:c5956a412bb328de6995b11716457bb56b7bbcffc50f33e3b2ebf9b1052e6886";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -2218,6 +2218,7 @@ export interface TrajectoryArtifactEmitted {
   artifactId: string;
   title: string;
   kind: string;
+  summary: string;
 }
 
 export interface ProviderLifecycle {
@@ -2298,6 +2299,7 @@ export interface ArtifactMetadata {
   trajectorySequence: number | null;
   title: string;
   kind: string;
+  summary: string;
   createdAt: string;
 }
 
@@ -2504,6 +2506,7 @@ export interface Artifact {
   trajectorySequence: number | null;
   title: string;
   kind: string;
+  summary: string;
   createdAt: string;
   document: ArtifactDocument;
 }
@@ -3026,6 +3029,7 @@ export interface WorkstreamArtifact {
   status: ArtifactStatus;
   title: string;
   kind: string;
+  summary: string;
   sourceEventIds: string[];
   createdAt: string;
   updatedAt: string;
@@ -4590,11 +4594,12 @@ export function decodeTrajectorySubagentCompleted(value: unknown): TrajectorySub
 
 export function decodeTrajectoryArtifactEmitted(value: unknown): TrajectoryArtifactEmitted {
   const record = assertRecord(value, "TrajectoryArtifactEmitted");
-  assertKnownFields(record, "TrajectoryArtifactEmitted", ["artifactId", "title", "kind"]);
+  assertKnownFields(record, "TrajectoryArtifactEmitted", ["artifactId", "title", "kind", "summary"]);
   return {
     artifactId: decodeString(requireField(record, "artifactId", "TrajectoryArtifactEmitted"), "TrajectoryArtifactEmitted.artifactId"),
     title: decodeString(requireField(record, "title", "TrajectoryArtifactEmitted"), "TrajectoryArtifactEmitted.title"),
     kind: decodeString(requireField(record, "kind", "TrajectoryArtifactEmitted"), "TrajectoryArtifactEmitted.kind"),
+    summary: decodeString(requireField(record, "summary", "TrajectoryArtifactEmitted"), "TrajectoryArtifactEmitted.summary"),
   };
 }
 
@@ -4729,7 +4734,7 @@ export function decodeConversationTrajectoryWindow(value: unknown): Conversation
 
 export function decodeArtifactMetadata(value: unknown): ArtifactMetadata {
   const record = assertRecord(value, "ArtifactMetadata");
-  assertKnownFields(record, "ArtifactMetadata", ["id", "conversationId", "turnId", "trajectorySequence", "title", "kind", "createdAt"]);
+  assertKnownFields(record, "ArtifactMetadata", ["id", "conversationId", "turnId", "trajectorySequence", "title", "kind", "summary", "createdAt"]);
   return {
     id: decodeString(requireField(record, "id", "ArtifactMetadata"), "ArtifactMetadata.id"),
     conversationId: decodeString(requireField(record, "conversationId", "ArtifactMetadata"), "ArtifactMetadata.conversationId"),
@@ -4737,6 +4742,7 @@ export function decodeArtifactMetadata(value: unknown): ArtifactMetadata {
     trajectorySequence: decodeNullable(requireField(record, "trajectorySequence", "ArtifactMetadata"), "ArtifactMetadata.trajectorySequence", (item) => decodeInteger(item, "ArtifactMetadata.trajectorySequence")),
     title: decodeString(requireField(record, "title", "ArtifactMetadata"), "ArtifactMetadata.title"),
     kind: decodeString(requireField(record, "kind", "ArtifactMetadata"), "ArtifactMetadata.kind"),
+    summary: decodeString(requireField(record, "summary", "ArtifactMetadata"), "ArtifactMetadata.summary"),
     createdAt: decodeString(requireField(record, "createdAt", "ArtifactMetadata"), "ArtifactMetadata.createdAt"),
   };
 }
@@ -5046,7 +5052,7 @@ export function decodeArtifactDocument(value: unknown): ArtifactDocument {
 
 export function decodeArtifact(value: unknown): Artifact {
   const record = assertRecord(value, "Artifact");
-  assertKnownFields(record, "Artifact", ["id", "conversationId", "turnId", "trajectorySequence", "title", "kind", "createdAt", "document"]);
+  assertKnownFields(record, "Artifact", ["id", "conversationId", "turnId", "trajectorySequence", "title", "kind", "summary", "createdAt", "document"]);
   return {
     id: decodeString(requireField(record, "id", "Artifact"), "Artifact.id"),
     conversationId: decodeString(requireField(record, "conversationId", "Artifact"), "Artifact.conversationId"),
@@ -5054,6 +5060,7 @@ export function decodeArtifact(value: unknown): Artifact {
     trajectorySequence: decodeNullable(requireField(record, "trajectorySequence", "Artifact"), "Artifact.trajectorySequence", (item) => decodeInteger(item, "Artifact.trajectorySequence")),
     title: decodeString(requireField(record, "title", "Artifact"), "Artifact.title"),
     kind: decodeString(requireField(record, "kind", "Artifact"), "Artifact.kind"),
+    summary: decodeString(requireField(record, "summary", "Artifact"), "Artifact.summary"),
     createdAt: decodeString(requireField(record, "createdAt", "Artifact"), "Artifact.createdAt"),
     document: decodeArtifactDocument(requireField(record, "document", "Artifact")),
   };
@@ -5918,7 +5925,7 @@ export function decodeResourceRequest(value: unknown): ResourceRequest {
 
 export function decodeWorkstreamArtifact(value: unknown): WorkstreamArtifact {
   const record = assertRecord(value, "WorkstreamArtifact");
-  assertKnownFields(record, "WorkstreamArtifact", ["id", "workstreamId", "conversationId", "workspaceId", "runId", "status", "title", "kind", "sourceEventIds", "createdAt", "updatedAt"]);
+  assertKnownFields(record, "WorkstreamArtifact", ["id", "workstreamId", "conversationId", "workspaceId", "runId", "status", "title", "kind", "summary", "sourceEventIds", "createdAt", "updatedAt"]);
   return {
     id: decodeString(requireField(record, "id", "WorkstreamArtifact"), "WorkstreamArtifact.id"),
     workstreamId: decodeString(requireField(record, "workstreamId", "WorkstreamArtifact"), "WorkstreamArtifact.workstreamId"),
@@ -5928,6 +5935,7 @@ export function decodeWorkstreamArtifact(value: unknown): WorkstreamArtifact {
     status: decodeArtifactStatus(requireField(record, "status", "WorkstreamArtifact"), "WorkstreamArtifact.status"),
     title: decodeString(requireField(record, "title", "WorkstreamArtifact"), "WorkstreamArtifact.title"),
     kind: decodeString(requireField(record, "kind", "WorkstreamArtifact"), "WorkstreamArtifact.kind"),
+    summary: decodeString(requireField(record, "summary", "WorkstreamArtifact"), "WorkstreamArtifact.summary"),
     sourceEventIds: decodeArray(requireField(record, "sourceEventIds", "WorkstreamArtifact"), "WorkstreamArtifact.sourceEventIds", (item) => decodeString(item, "WorkstreamArtifact.sourceEventIds item")),
     createdAt: decodeString(requireField(record, "createdAt", "WorkstreamArtifact"), "WorkstreamArtifact.createdAt"),
     updatedAt: decodeString(requireField(record, "updatedAt", "WorkstreamArtifact"), "WorkstreamArtifact.updatedAt"),
