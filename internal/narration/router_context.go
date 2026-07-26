@@ -188,6 +188,10 @@ func newConversationRouteContextBundle(
 	if err != nil {
 		return ConversationRouteContextBundle{}, err
 	}
+	authoritative, err := conversationRouteAuthoritativeContext(source)
+	if err != nil {
+		return ConversationRouteContextBundle{}, err
+	}
 	return ConversationRouteContextBundle{
 		Kind: ConversationRouteContextKind,
 		Task: ConversationRouteTask{
@@ -197,7 +201,7 @@ func newConversationRouteContextBundle(
 			Directive:       routeTaskDirective,
 		},
 		Input:                    input,
-		Authoritative:            conversationRouteAuthoritativeContext(source),
+		Authoritative:            authoritative,
 		HistoricalCheckpoint:     historicalCheckpoint(source.NarratorState),
 		Trajectory:               []conversation.TrajectoryEvent{},
 		AvailableTrajectoryRange: cloneRouteRange(source.Trajectory.AvailableRange),
@@ -241,7 +245,7 @@ func conversationRouteInput(input conversation.AcceptedConversationInput) Conver
 
 func conversationRouteAuthoritativeContext(
 	source conversation.ConversationRouterContextSource,
-) ConversationRouteAuthoritativeContext {
+) (ConversationRouteAuthoritativeContext, error) {
 	current := source.CurrentTurn
 	workspaceID := ""
 	if source.Conversation.WorkspaceID != nil {
@@ -256,6 +260,10 @@ func conversationRouteAuthoritativeContext(
 			AcceptedSteering: append([]conversation.NarratorAcceptedSteering{}, current.AcceptedSteering...),
 			Authority:        ContextAuthorityCurrentInputs,
 		}
+	}
+	artifacts, err := conversationRouteArtifacts(current.Artifacts)
+	if err != nil {
+		return ConversationRouteAuthoritativeContext{}, err
 	}
 	return ConversationRouteAuthoritativeContext{
 		Conversation: ConversationIdentity{
@@ -272,9 +280,9 @@ func conversationRouteAuthoritativeContext(
 		ActiveActivities:    conversationRouteActivities(current.ActiveActivities),
 		PendingApprovals:    conversationRouteApprovals(current.PendingApprovals),
 		ActiveSubagents:     conversationRouteSubagents(current.ActiveSubagents),
-		Artifacts:           conversationRouteArtifacts(current.Artifacts),
+		Artifacts:           artifacts,
 		CurrentFocus:        source.NarratorState.CurrentFocus,
-	}
+	}, nil
 }
 
 func conversationRouteActivities(
@@ -320,33 +328,41 @@ func conversationRouteSubagents(
 	return result
 }
 
-func conversationRouteArtifacts(artifacts []conversation.Artifact) []ConversationRouteArtifact {
+func conversationRouteArtifacts(artifacts []conversation.Artifact) ([]ConversationRouteArtifact, error) {
 	result := make([]ConversationRouteArtifact, 0, len(artifacts))
 	for _, artifact := range artifacts {
+		summary, err := conversationRouteArtifactSummary(artifact)
+		if err != nil {
+			return nil, fmt.Errorf("summarize artifact %s for conversation routing: %w", artifact.ID, err)
+		}
 		result = append(result, ConversationRouteArtifact{
 			ID:      artifact.ID,
 			Title:   artifact.Title,
-			Summary: conversationRouteArtifactSummary(artifact),
+			Summary: summary,
 		})
 	}
-	return result
+	return result, nil
 }
 
 // conversationRouteArtifactSummary says what the document is made of, which is
 // the part of an artifact the router can act on without reading its content.
 // The document already compiled before it was stored, so a compile failure here
 // is a corrupt row rather than model output.
-func conversationRouteArtifactSummary(artifact conversation.Artifact) string {
+func conversationRouteArtifactSummary(artifact conversation.Artifact) (string, error) {
 	document, err := artifactdoc.Compile(artifactdoc.SettaCatalogV1(), artifact.Document.Source)
 	if err != nil {
-		return "unreadable artifact document"
+		return "", err
 	}
 	names := document.ComponentNames()
 	labels := make([]string, 0, len(names))
 	for _, name := range names {
 		labels = append(labels, string(name))
 	}
-	return fmt.Sprintf("%d byte document using %s", len(artifact.Document.Source), strings.Join(labels, ", "))
+	return fmt.Sprintf(
+		"%d byte document using %s",
+		len(artifact.Document.Source),
+		strings.Join(labels, ", "),
+	), nil
 }
 
 func fitConversationRouteContext(

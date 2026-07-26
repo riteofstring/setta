@@ -1,6 +1,8 @@
 package conversation
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -127,17 +129,19 @@ func TestDurableActivityKeepsTheProviderActivityIdentity(t *testing.T) {
 
 func TestGeneratedMediaProducesTheArtifactItSaved(t *testing.T) {
 	service := activityMappingTestService()
+	workspaceRoot := t.TempDir()
+	savedPath := writeGeneratedMediaFile(t, workspaceRoot, "docs/director-graph.png")
 	event := agentActivityEvent(agent.EventKindActivityCompleted, agent.ActivityEvent{
 		ProviderItemID: "item-image",
 		Kind:           agent.ActivityKindImageGeneration,
 		Status:         "completed",
 		Title:          "Generated image",
-		SavedPath:      stringPointer("/workspace/docs/director-graph.png"),
+		SavedPath:      &savedPath,
 	})
 
 	trajectory, artifact, err := service.populateAgentTrajectory(
 		activityMappingTrajectory(),
-		imageGenerationActiveTurn("/workspace"),
+		imageGenerationActiveTurn(workspaceRoot),
 		ConversationSnapshot{},
 		event,
 		testTimeStarted,
@@ -163,30 +167,82 @@ func TestGeneratedMediaProducesTheArtifactItSaved(t *testing.T) {
 	}
 }
 
-// An artifact addresses a file inside the conversation's authorized workspace.
-// A save the provider put somewhere else stays a completed activity rather than
-// becoming a durable reference to a path the workspace does not own.
-func TestGeneratedMediaOutsideTheWorkspaceProducesNoArtifact(t *testing.T) {
-	service := activityMappingTestService()
+// An artifact addresses an existing safe file inside the conversation's
+// canonical authorized workspace. Anything else stays a completed activity
+// rather than becoming a durable reference the workspace does not own or the
+// artifact catalog cannot represent.
+func TestGeneratedMediaWithoutAnAuthorizedSafeFileProducesNoArtifact(t *testing.T) {
 	for _, testCase := range []struct {
-		name          string
-		workspaceRoot string
-		savedPath     string
+		name    string
+		prepare func(*testing.T) (string, string)
 	}{
-		{name: "outside the workspace", workspaceRoot: "/workspace", savedPath: "/tmp/director-graph.png"},
-		{name: "no authorized workspace", workspaceRoot: "", savedPath: "/workspace/docs/director-graph.png"},
+		{
+			name: "outside the workspace",
+			prepare: func(t *testing.T) (string, string) {
+				return t.TempDir(), writeGeneratedMediaFile(t, t.TempDir(), "director-graph.png")
+			},
+		},
+		{
+			name: "no authorized workspace",
+			prepare: func(t *testing.T) (string, string) {
+				return "", writeGeneratedMediaFile(t, t.TempDir(), "director-graph.png")
+			},
+		},
+		{
+			name: "missing saved file",
+			prepare: func(t *testing.T) (string, string) {
+				workspaceRoot := t.TempDir()
+				return workspaceRoot, filepath.Join(workspaceRoot, "missing.png")
+			},
+		},
+		{
+			name: "saved path is a directory",
+			prepare: func(t *testing.T) (string, string) {
+				workspaceRoot := t.TempDir()
+				savedPath := filepath.Join(workspaceRoot, "generated")
+				if err := os.Mkdir(savedPath, 0o755); err != nil {
+					t.Fatalf("create generated-media directory: %v", err)
+				}
+				return workspaceRoot, savedPath
+			},
+		},
+		{
+			name: "workspace symlink escapes",
+			prepare: func(t *testing.T) (string, string) {
+				workspaceRoot := t.TempDir()
+				outsidePath := writeGeneratedMediaFile(t, t.TempDir(), "director-graph.png")
+				savedPath := filepath.Join(workspaceRoot, "director-graph.png")
+				if err := os.Symlink(outsidePath, savedPath); err != nil {
+					t.Fatalf("create generated-media symlink: %v", err)
+				}
+				return workspaceRoot, savedPath
+			},
+		},
+		{
+			name: "path is outside the artifact catalog profile",
+			prepare: func(t *testing.T) (string, string) {
+				workspaceRoot := t.TempDir()
+				return workspaceRoot, writeGeneratedMediaFile(t, workspaceRoot, "report\u202Egnp.png")
+			},
+		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
+			workspaceRoot, savedPath := testCase.prepare(t)
+			mintedArtifactID := false
+			service := &Service{newID: func(string) (string, error) {
+				mintedArtifactID = true
+				return "artifact-unexpected", nil
+			}}
 			event := agentActivityEvent(agent.EventKindActivityCompleted, agent.ActivityEvent{
 				ProviderItemID: "item-image",
 				Kind:           agent.ActivityKindImageGeneration,
 				Status:         "completed",
 				Title:          "Generated image",
-				SavedPath:      stringPointer(testCase.savedPath),
+				SavedPath:      &savedPath,
 			})
 			trajectory, artifact, err := service.populateAgentTrajectory(
 				activityMappingTrajectory(),
-				imageGenerationActiveTurn(testCase.workspaceRoot),
+				imageGenerationActiveTurn(workspaceRoot),
 				ConversationSnapshot{},
 				event,
 				testTimeStarted,
@@ -200,8 +256,23 @@ func TestGeneratedMediaOutsideTheWorkspaceProducesNoArtifact(t *testing.T) {
 			if artifact != nil {
 				t.Fatalf("image generation artifact = %+v, want none", artifact)
 			}
+			if mintedArtifactID {
+				t.Fatal("image generation minted an artifact id before document acceptance")
+			}
 		})
 	}
+}
+
+func writeGeneratedMediaFile(t *testing.T, workspaceRoot string, relativePath string) string {
+	t.Helper()
+	savedPath := filepath.Join(workspaceRoot, filepath.FromSlash(relativePath))
+	if err := os.MkdirAll(filepath.Dir(savedPath), 0o755); err != nil {
+		t.Fatalf("create generated-media parent: %v", err)
+	}
+	if err := os.WriteFile(savedPath, []byte("generated media"), 0o600); err != nil {
+		t.Fatalf("write generated media: %v", err)
+	}
+	return savedPath
 }
 
 func imageGenerationActiveTurn(workspaceRoot string) *activeConversationTurn {

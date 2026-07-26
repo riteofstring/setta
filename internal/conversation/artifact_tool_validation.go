@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 
 	"setta/internal/agent"
@@ -13,9 +14,10 @@ import (
 )
 
 // The emit_artifact boundary accepts exactly two fields and one document
-// language. Everything past strict argument decoding is the compiler's
-// judgement, so this file maps compiler diagnostics into the typed tool failure
-// the model can correct, and never re-implements a rule the compiler owns.
+// language. The compiler owns document-shape acceptance; the conversation
+// boundary then binds any compiled file references to the authorized workspace.
+// This file maps either failure into the typed tool response the model can
+// correct, without re-implementing a compiler rule here.
 
 func decodeEmitArtifactInput(arguments json.RawMessage) (emitArtifactInput, error) {
 	fields, err := decodeEmitArtifactArgumentFields(arguments)
@@ -36,10 +38,11 @@ func decodeEmitArtifactInput(arguments json.RawMessage) (emitArtifactInput, erro
 	if err != nil {
 		return emitArtifactInput{}, err
 	}
-	if err := compileEmitArtifactSource(source); err != nil {
+	document, err := compileEmitArtifactSource(source)
+	if err != nil {
 		return emitArtifactInput{}, err
 	}
-	return emitArtifactInput{Title: title, Source: source}, nil
+	return emitArtifactInput{Title: title, Source: source, document: document}, nil
 }
 
 func decodeEmitArtifactArgumentFields(arguments json.RawMessage) (map[string]json.RawMessage, error) {
@@ -120,11 +123,71 @@ func decodeRequiredEmitArtifactStringField(
 // compileEmitArtifactSource is the acceptance decision. It runs before any ID
 // is minted or any transaction opens, so a document the renderer could not
 // render never reaches durable state.
-func compileEmitArtifactSource(source string) error {
-	if _, err := artifactdoc.Compile(artifactCatalog(), source); err != nil {
-		return emitArtifactCompileFailure(err)
+func compileEmitArtifactSource(source string) (artifactdoc.Document, error) {
+	document, err := artifactdoc.Compile(artifactCatalog(), source)
+	if err != nil {
+		return artifactdoc.Document{}, emitArtifactCompileFailure(err)
 	}
-	return nil
+	return document, nil
+}
+
+// validateEmitArtifactFileReferences resolves compiled FileReference nodes
+// against the active turn's workspace before any artifact ID is allocated.
+// The compiler already rejected absolute and traversal paths; this check binds
+// the portable path to a real regular file and closes symlink escapes.
+func validateEmitArtifactFileReferences(document artifactdoc.Document, workspaceRoot string) error {
+	paths, err := document.FileReferencePaths()
+	if err != nil {
+		return newArtifactToolFailureError(
+			artifactToolFailureInvalidDocument,
+			"the compiled artifact document could not be inspected",
+			true,
+			[]agent.DynamicToolFieldError{{
+				Field:   "source",
+				Message: "Rewrite the document against the catalog reference in the instructions.",
+			}},
+			err,
+		)
+	}
+	if len(paths) == 0 {
+		return nil
+	}
+	if workspaceRoot == "" {
+		return newArtifactToolFailureError(
+			artifactToolFailureInvalidFileReference,
+			"the artifact document references a file without an authorized workspace",
+			true,
+			[]agent.DynamicToolFieldError{{
+				Field:   "source",
+				Message: "Remove FileReference components because this topic has no authorized workspace.",
+			}},
+			nil,
+		)
+	}
+	fieldErrors := make([]agent.DynamicToolFieldError, 0, len(paths))
+	for _, path := range paths {
+		absolutePath := filepath.Join(workspaceRoot, filepath.FromSlash(path))
+		if _, valid := workspaceRelativeArtifactPath(workspaceRoot, absolutePath); valid {
+			continue
+		}
+		fieldErrors = append(fieldErrors, agent.DynamicToolFieldError{
+			Field: "source",
+			Message: fmt.Sprintf(
+				"FileReference %q must resolve to an existing regular file inside the authorized workspace.",
+				path,
+			),
+		})
+	}
+	if len(fieldErrors) == 0 {
+		return nil
+	}
+	return newArtifactToolFailureError(
+		artifactToolFailureInvalidFileReference,
+		"the artifact document contains an unavailable or unauthorized file reference",
+		true,
+		fieldErrors,
+		nil,
+	)
 }
 
 func emitArtifactCompileFailure(err error) error {

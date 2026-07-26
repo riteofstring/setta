@@ -75,6 +75,7 @@ export const artifactPolicyScenarios = [
     artifacts: [mixedDocumentArtifactArguments],
     completion: "Completed supplied mixed document.",
     trigger: "supplied mixed document",
+    workspaceFiles: ["docs/setta-artifact-policy-memo.md"],
   },
   {
     artifacts: [],

@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import process from "node:process";
 import readline from "node:readline";
 import { setImmediate, setTimeout } from "node:timers";
@@ -942,6 +943,7 @@ function emitArtifactToolScenario(threadId, turnId, text) {
   if (!scenario) {
     return false;
   }
+  materializeArtifactScenarioFiles(threadId, scenario);
   if (scenario.artifacts.length === 0) {
     emitAgentMessage(threadId, turnId, scenario.completion);
     completeTurn(threadId, turnId, "completed");
@@ -949,6 +951,22 @@ function emitArtifactToolScenario(threadId, turnId, text) {
   }
   emitArtifactToolCall(threadId, turnId, scenario, 0);
   return true;
+}
+
+function materializeArtifactScenarioFiles(threadId, scenario) {
+  const workspaceFiles = scenario.workspaceFiles ?? [];
+  if (workspaceFiles.length === 0) {
+    return;
+  }
+  const workspaceRoot = loadedThreads.get(threadId)?.cwd;
+  if (!workspaceRoot) {
+    throw new Error(`artifact scenario thread ${threadId} has no workspace`);
+  }
+  for (const relativePath of workspaceFiles) {
+    const absolutePath = join(workspaceRoot, relativePath);
+    mkdirSync(dirname(absolutePath), { recursive: true });
+    writeFileSync(absolutePath, "fake artifact workspace file");
+  }
 }
 
 function emitLegacyArtifactIfRequested(threadId, turnId, text) {
@@ -1131,12 +1149,14 @@ function emitArtifact(threadId, turnId) {
   // An artifact addresses a file inside the conversation's authorized
   // workspace, so a generated image saves under the carrier's own cwd.
   const workspaceRoot = loadedThreads.get(threadId)?.cwd ?? "/tmp/setta-topic-codex";
+  const savedPath = `${workspaceRoot}/${turnId}-artifact.png`;
+  writeFileSync(savedPath, "fake generated image");
   notify("item/completed", {
     completedAtMs: Date.now(),
     item: {
       id: `image-${turnId}`,
       result: "generated",
-      savedPath: `${workspaceRoot}/${turnId}-artifact.png`,
+      savedPath,
       status: "completed",
       type: "imageGeneration",
     },

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -678,6 +679,10 @@ func (runtime *serviceTestAgentRuntime) emitSideContextScenario(
 	if err := sink.HandleAgentEvent(plan); err != nil {
 		return err
 	}
+	savedPath := filepath.Join(workspaceRoot, "side-context-result.md")
+	if err := writeServiceTestGeneratedFile(savedPath); err != nil {
+		return err
+	}
 	artifact := base
 	artifact.Kind = agent.EventKindActivityCompleted
 	artifact.Activity = &agent.ActivityEvent{
@@ -685,7 +690,7 @@ func (runtime *serviceTestAgentRuntime) emitSideContextScenario(
 		Kind:           agent.ActivityKindImageGeneration,
 		Status:         "completed",
 		Title:          "Side context result",
-		SavedPath:      stringPointer(workspaceRoot + "/side-context-result.md"),
+		SavedPath:      &savedPath,
 	}
 	if err := sink.HandleAgentEvent(artifact); err != nil {
 		return err
@@ -837,6 +842,10 @@ func (runtime *serviceTestAgentRuntime) emitCompletedTurn(
 	if err := sink.HandleAgentEvent(message); err != nil {
 		return agent.TurnResult{}, err
 	}
+	savedPath := filepath.Join(workspaceRoot, "result-"+base.ProviderTurnID+".md")
+	if err := writeServiceTestGeneratedFile(savedPath); err != nil {
+		return agent.TurnResult{}, err
+	}
 	artifact := base
 	artifact.Kind = agent.EventKindActivityCompleted
 	artifact.Activity = &agent.ActivityEvent{
@@ -844,12 +853,22 @@ func (runtime *serviceTestAgentRuntime) emitCompletedTurn(
 		Kind:           agent.ActivityKindImageGeneration,
 		Status:         "completed",
 		Title:          "Result file",
-		SavedPath:      stringPointer(workspaceRoot + "/result-" + base.ProviderTurnID + ".md"),
+		SavedPath:      &savedPath,
 	}
 	if err := sink.HandleAgentEvent(artifact); err != nil {
 		return agent.TurnResult{}, err
 	}
 	return runtime.emitTerminal(sink, base, agent.TurnOutcomeCompleted)
+}
+
+func writeServiceTestGeneratedFile(savedPath string) error {
+	if err := os.MkdirAll(filepath.Dir(savedPath), 0o755); err != nil {
+		return fmt.Errorf("create generated-file parent: %w", err)
+	}
+	if err := os.WriteFile(savedPath, []byte("generated test file"), 0o600); err != nil {
+		return fmt.Errorf("write generated test file: %w", err)
+	}
+	return nil
 }
 
 func (runtime *serviceTestAgentRuntime) emitTerminal(

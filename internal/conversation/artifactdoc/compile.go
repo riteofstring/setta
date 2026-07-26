@@ -59,6 +59,48 @@ func (document Document) ComponentNames() []ComponentName {
 	return names
 }
 
+// FileReferencePaths returns the distinct workspace-relative paths the
+// compiled document addresses, sorted for deterministic policy checks.
+func (document Document) FileReferencePaths() ([]string, error) {
+	paths := []string{}
+	var walk func(value any) error
+	walk = func(value any) error {
+		switch typed := value.(type) {
+		case Node:
+			if typed.Component == ComponentFileReference {
+				path, ok := typed.Props["path"].(string)
+				if !ok {
+					return fmt.Errorf("compiled FileReference path is not a string")
+				}
+				paths = append(paths, path)
+			}
+			for _, property := range typed.Props {
+				if err := walk(property); err != nil {
+					return err
+				}
+			}
+		case []any:
+			for _, item := range typed {
+				if err := walk(item); err != nil {
+					return err
+				}
+			}
+		case map[string]any:
+			for _, item := range typed {
+				if err := walk(item); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	if err := walk(document.Root); err != nil {
+		return nil, err
+	}
+	slices.Sort(paths)
+	return slices.Compact(paths), nil
+}
+
 // unsupportedBuiltins are OpenUI features Setta deliberately does not accept.
 // Naming them separately turns "unknown component" into a correction the model
 // can act on.

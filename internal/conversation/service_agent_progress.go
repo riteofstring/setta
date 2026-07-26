@@ -3,7 +3,6 @@ package conversation
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"setta/internal/agent"
@@ -724,8 +723,18 @@ func (service *Service) activityTrajectory(
 	// The provider reports an absolute host path. An artifact may only address
 	// a file inside the conversation's authorized workspace, so a save outside
 	// it stays a completed activity and never becomes a durable reference.
-	relative, inside := workspaceRelativePath(workspaceRoot, strings.TrimSpace(*event.Activity.SavedPath))
+	relative, inside := workspaceRelativeArtifactPath(
+		workspaceRoot,
+		strings.TrimSpace(*event.Activity.SavedPath),
+	)
 	if !inside {
+		return trajectory, nil, nil
+	}
+	source, err := artifactdoc.FileReferenceSource(relative, activity.Title)
+	if err != nil {
+		return trajectory, nil, nil
+	}
+	if _, err := artifactdoc.Compile(artifactdoc.SettaCatalogV1(), source); err != nil {
 		return trajectory, nil, nil
 	}
 	artifactID, err := service.newID("artifact")
@@ -741,27 +750,9 @@ func (service *Service) activityTrajectory(
 		Document: ArtifactDocument{
 			Language:  ArtifactDocumentLanguageOpenUI,
 			CatalogID: ArtifactCatalogSettaV1,
-			Source:    artifactdoc.FileReferenceSource(relative, activity.Title),
+			Source:    source,
 		},
 	}, nil
-}
-
-// workspaceRelativePath converts an absolute provider path into the
-// workspace-relative form artifact documents address files by. It reports false
-// when the workspace is unknown or the path resolves outside it.
-func workspaceRelativePath(workspaceRoot string, absolutePath string) (string, bool) {
-	if workspaceRoot == "" || !filepath.IsAbs(absolutePath) {
-		return "", false
-	}
-	relative, err := filepath.Rel(workspaceRoot, absolutePath)
-	if err != nil {
-		return "", false
-	}
-	relative = filepath.ToSlash(relative)
-	if relative == "." || relative == ".." || strings.HasPrefix(relative, "../") {
-		return "", false
-	}
-	return relative, true
 }
 
 func agentActivityFailed(status string) (bool, error) {

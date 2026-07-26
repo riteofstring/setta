@@ -17,6 +17,7 @@ const (
 	artifactToolFailureInvalidArguments      = "invalid_arguments"
 	artifactToolFailureInvalidDocument       = "invalid_document"
 	artifactToolFailureInvalidField          = "invalid_field"
+	artifactToolFailureInvalidFileReference  = "invalid_file_reference"
 	artifactToolFailureMissingRequiredFields = "missing_required_fields"
 	artifactToolFailurePersistenceFailure    = "persistence_failure"
 	artifactToolFailureStaleTurn             = "stale_turn"
@@ -32,8 +33,9 @@ func artifactCatalog() artifactdoc.Catalog {
 var emitArtifactInputSchemaJSON = mustEmitArtifactInputSchemaJSON()
 
 type emitArtifactInput struct {
-	Title  string `json:"title"`
-	Source string `json:"source"`
+	Title    string `json:"title"`
+	Source   string `json:"source"`
+	document artifactdoc.Document
 }
 
 func mustEmitArtifactInputSchemaJSON() json.RawMessage {
@@ -72,6 +74,7 @@ func topicAgentDeveloperInstructions() string {
 
 Durable user-facing deliverables are emitted through setta.emit_artifact.
 Compose the deliverable as one artifact document: prose, tables, charts, code, metrics, and file references all belong in the same document rather than in separate artifacts.
+Use FileReference only for an existing regular file inside the current authorized workspace. Omit FileReference when the topic has no authorized workspace.
 Do not emit an artifact for short conversational answers, exact-text confirmations, acknowledgements, or status replies that do not create standalone durable content.
 If setta.emit_artifact returns a failure with retryable true, correct the listed fieldErrors and retry setta.emit_artifact before completing the turn.
 Final prose summarizes the outcome but is not a substitute for emitting a durable artifact when the response creates a deliverable.
@@ -132,6 +135,13 @@ func (service *Service) emitArtifactFromTool(
 	}
 	input, err := decodeEmitArtifactInput(call.Arguments)
 	if err != nil {
+		return Artifact{}, err
+	}
+	active, err := service.requireActiveArtifactToolTurn(workspaceID, conversationID, turnID, call)
+	if err != nil {
+		return Artifact{}, artifactToolStaleTurnError(err)
+	}
+	if err := validateEmitArtifactFileReferences(input.document, active.request.WorkspaceRoot); err != nil {
 		return Artifact{}, err
 	}
 	artifactID, trajectoryID, err := service.newArtifactToolIDs()

@@ -1040,7 +1040,9 @@ the tool boundary to change in the same commit: there is no `title` plus
 `source` tool without the document contract, and no document contract that can
 be written without the compiler accepting it first. Splitting the two would have
 meant a tool that accepts a shape nothing validates, which is the transitional
-code this plan forbids.
+code this plan forbids. The coherent implementation audit and verification
+evidence is recorded in
+[`docs/reports/openui-artifact-phase2-3-audit-20260726.md`](../reports/openui-artifact-phase2-3-audit-20260726.md).
 
 Landed:
 
@@ -1050,11 +1052,14 @@ Landed:
   payload byte, column, row, and item limits are gone; the limits the profile
   needs already live in `artifactdoc`.
 - `ArtifactDocument.Validate` compiles through `artifactdoc.Compile`, so the
-  same acceptance rule applies to a write, a read, and a snapshot scan.
+  same acceptance rule applies to every full-document write and read.
+  Conversation snapshot windows continue to scan bounded artifact metadata,
+  which does not carry a document to compile.
 - the `artifacts` table replaced in place with `language`, `catalog_id`, and
   `source` columns, their value checks, and no nullable payload columns or
-  branch check; every artifact insert, scan, snapshot, side-context, and
-  narrator-context query updated to the new column list.
+  branch check; every full-artifact insert, scan, side-context, and
+  narrator-context query updated to the document columns, while bounded
+  snapshot metadata queries drop the old kind.
 - `TrajectoryArtifactEmitted`, `SideInFlightArtifactMetadata`, the Director's
   `WorkstreamArtifact` and registry identity, and the narrator's route artifact
   all drop `kind`. The route summary now names the components the stored
@@ -1065,11 +1070,13 @@ Landed:
   `desktop/src/generated/backend.ts` regenerated at protocol version 103.
 - the image-generation artifact Setta composes itself is now a document. The
   provider reports an absolute host path, and an artifact may only address a
-  file inside the conversation's authorized workspace, so the path is made
-  workspace-relative and a save outside the workspace stays a completed activity
-  with no artifact. `artifactdoc.FileReferenceSource` renders that document, so
-  source text is built by the grammar owner rather than concatenated in the
-  service.
+  real regular file inside the conversation's authorized workspace, so the
+  workspace and saved path are canonicalized before containment is decided.
+  Missing files, directories, and symlink escapes stay completed activities
+  with no artifact. `artifactdoc.FileReferenceSource` renders that document
+  without lossy string replacement, and the result compiles before an artifact
+  ID is minted, so source text is built and accepted by the grammar owner rather
+  than concatenated in the service.
 - every old artifact fixture and assumption replaced: the Go unit fixtures, the
   HTTP boundary fixture, the live Codex workflow assertions, which now read the
   model's table out of the compiled document, and the Electron fake provider's
@@ -1094,14 +1101,18 @@ Gate:
 - a clean app-data directory is the only supported database state
 - no migration or compatibility code exists
 
-The gate is satisfied: a repository search for the removed kinds, payload
-fields, and columns finds nothing outside historical reports, `schema_v1.sql`
-was replaced in place with no migration path, and no compatibility or dual-read
-code exists.
+The gate is satisfied: a repository search finds no removed kind symbol,
+payload field, or column in the implementation. The sole old-kind input string
+outside historical reports is a negative strict-tool test proving that `kind`
+is rejected. `schema_v1.sql` was replaced in place with no migration path, and
+no compatibility or dual-read code exists.
 
 ### Phase 3 - Generation, Validation, Repair, And Durable Publication
 
 **Status:** Complete, in the same change as Phase 2.
+
+The combined Phase 2-3 audit and verification evidence is recorded in
+[`docs/reports/openui-artifact-phase2-3-audit-20260726.md`](../reports/openui-artifact-phase2-3-audit-20260726.md).
 
 Landed:
 
@@ -1111,9 +1122,13 @@ Landed:
 - the topic agent's developer instructions state the artifact policy and then
   append the catalog's own `GenerationInstructions`, rendered from the same Go
   catalog the compiler accepts against.
-- the tool compiles the source before any artifact or trajectory ID is minted
-  and before the transaction opens, so an invalid document cannot produce an
-  artifact row or an artifact-created event.
+- the tool compiles the source before any artifact or emitted-trajectory ID is
+  minted and before the transaction opens. It walks the compiled document's
+  `FileReference` paths and requires each one to resolve to an existing regular
+  file inside the active turn's canonical authorized workspace; missing files,
+  missing workspace authority, directories, and symlink escapes are retryable
+  field failures. An invalid or unauthorized document therefore cannot produce
+  an artifact row or an artifact-created event.
 - compiler diagnostics map onto the existing typed failure: the failure code is
   the diagnostic's own stable code, `retryable` is true, and each field error
   carries the diagnostic's rooted field path plus its position, component, and
@@ -1142,11 +1157,14 @@ Gate:
   current system
 - no renderer or desktop process participates in backend acceptance
 
-The gate is satisfied by the focused Go coverage over the tool boundary: the
+The gate is satisfied by the focused Go coverage, full deterministic matrix,
+and single live-provider matrix recorded in the combined audit. The
 rejected-document table asserts a retryable typed failure with the compiler's
 code and field for empty source, a missing root, an unknown component, a table
-row-width mismatch, and an unsafe file reference, and the emission tests assert
-publication, snapshot, trajectory, and read-back on the accepted document.
+row-width mismatch, and an unsafe file reference. Workspace-resolution coverage
+adds missing authority, missing files, and symlink escape, and the emission
+tests assert publication, snapshot, trajectory, and read-back on the accepted
+document.
 
 ### Phase 4 - Director Renderer Cutover
 

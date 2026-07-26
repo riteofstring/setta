@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -363,6 +365,7 @@ func requireArtifactRecoveryInstructions(t *testing.T, instructions string) {
 		"before completing the turn",
 		"Assign root exactly once",
 		"Document(blocks",
+		"existing regular file inside the current authorized workspace",
 	} {
 		if !strings.Contains(instructions, fragment) {
 			t.Fatalf("topic agent developer instructions missing %q: %q", fragment, instructions)
@@ -630,5 +633,123 @@ func TestDecodeEmitArtifactInputAcceptsDocument(t *testing.T) {
 		artifact.Document.CatalogID != ArtifactCatalogSettaV1 ||
 		artifact.Document.Source != artifactToolTestSource {
 		t.Fatalf("artifact document = %+v", artifact.Document)
+	}
+}
+
+func TestEmitArtifactToolValidatesFileReferencesBeforeMintingIDs(t *testing.T) {
+	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = service.Shutdown(ctx)
+		_ = store.Close()
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	created := createArtifactToolTopic(t, ctx, service, workspaceID)
+	conversationID := created.Conversation.ID
+	active := startHeldArtifactToolTurn(t, ctx, service, runtime, workspaceID, conversationID)
+	call := agent.DynamicToolCall{
+		CallID:           "provider-tool-call-file-reference",
+		ConversationID:   conversationID,
+		TurnID:           active.turnID,
+		ProviderThreadID: active.providerThreadID,
+		ProviderTurnID:   active.providerTurnID,
+		Namespace:        artifactToolNamespace,
+		Tool:             artifactToolName,
+		Arguments: artifactToolArguments(
+			t,
+			"Workspace report",
+			`root = Document([FileReference("docs/missing.md", "Workspace report")])`,
+		),
+	}
+	originalNewID := service.newID
+	mintedPrefixes := []string{}
+	service.newID = func(prefix string) (string, error) {
+		mintedPrefixes = append(mintedPrefixes, prefix)
+		return originalNewID(prefix)
+	}
+	_, err := service.emitArtifactFromTool(ctx, workspaceID, conversationID, active.turnID, call)
+	service.newID = originalNewID
+	var failure *artifactToolFailureError
+	if !errors.As(err, &failure) {
+		t.Fatalf("missing file reference error = %v, want typed failure", err)
+	}
+	if failure.code != artifactToolFailureInvalidFileReference || !failure.retryable {
+		t.Fatalf("missing file reference failure = %+v", failure)
+	}
+	requireDynamicToolFieldErrors(t, failure.fieldErrors, []string{"source"})
+	if len(mintedPrefixes) != 0 {
+		t.Fatalf("missing file reference minted ids for %v", mintedPrefixes)
+	}
+
+	savedPath := filepath.Join(active.request.WorkspaceRoot, "docs", "report.md")
+	if err := os.MkdirAll(filepath.Dir(savedPath), 0o755); err != nil {
+		t.Fatalf("create file-reference parent: %v", err)
+	}
+	if err := os.WriteFile(savedPath, []byte("workspace report"), 0o600); err != nil {
+		t.Fatalf("write file-reference target: %v", err)
+	}
+	call.CallID = "provider-tool-call-file-reference-retry"
+	call.Arguments = artifactToolArguments(
+		t,
+		"Workspace report",
+		`root = Document([FileReference("docs/report.md", "Workspace report")])`,
+	)
+	artifact, err := service.emitArtifactFromTool(
+		ctx,
+		workspaceID,
+		conversationID,
+		active.turnID,
+		call,
+	)
+	if err != nil {
+		t.Fatalf("emit artifact with authorized file reference: %v", err)
+	}
+	if artifact.Document.Source == "" {
+		t.Fatalf("file-reference artifact = %+v", artifact)
+	}
+	stopTestTurn(t, ctx, service, workspaceID, conversationID)
+}
+
+func TestArtifactFileReferenceWorkspaceValidationRejectsMissingAuthorityAndSymlinkEscapes(
+	t *testing.T,
+) {
+	workspaceRoot := t.TempDir()
+	outsidePath := filepath.Join(t.TempDir(), "outside.md")
+	if err := os.WriteFile(outsidePath, []byte("outside"), 0o600); err != nil {
+		t.Fatalf("write outside file-reference target: %v", err)
+	}
+	symlinkPath := filepath.Join(workspaceRoot, "escape.md")
+	if err := os.Symlink(outsidePath, symlinkPath); err != nil {
+		t.Fatalf("create file-reference symlink: %v", err)
+	}
+	input, err := decodeEmitArtifactInput(artifactToolArguments(
+		t,
+		"Workspace report",
+		`root = Document([FileReference("escape.md", "Workspace report")])`,
+	))
+	if err != nil {
+		t.Fatalf("compile file-reference document: %v", err)
+	}
+	for _, testCase := range []struct {
+		name          string
+		workspaceRoot string
+	}{
+		{name: "no authorized workspace"},
+		{name: "symlink leaves workspace", workspaceRoot: workspaceRoot},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			err := validateEmitArtifactFileReferences(input.document, testCase.workspaceRoot)
+			var failure *artifactToolFailureError
+			if !errors.As(err, &failure) {
+				t.Fatalf("file-reference validation error = %v, want typed failure", err)
+			}
+			if failure.code != artifactToolFailureInvalidFileReference || !failure.retryable {
+				t.Fatalf("file-reference validation failure = %+v", failure)
+			}
+			requireDynamicToolFieldErrors(t, failure.fieldErrors, []string{"source"})
+		})
 	}
 }

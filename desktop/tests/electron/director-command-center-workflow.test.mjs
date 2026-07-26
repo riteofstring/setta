@@ -417,6 +417,11 @@ try {
   if (!artifactDetail.text.includes(openedArtifact.title)) {
     throw new Error(`Director artifact detail omitted title: ${JSON.stringify(artifactDetail)}`);
   }
+  if (!artifactDetail.documentText.includes("-artifact.png")) {
+    throw new Error(
+      `Director artifact detail omitted rendered document: ${JSON.stringify(artifactDetail)}`,
+    );
+  }
   await closeDirectorArtifactDetail(context.client);
   const history = await readDirectorHistory(context.client);
   assertHistoryContainsOnlyUserAndTerminalTurns(history);
@@ -1278,12 +1283,14 @@ async function openDirectorArtifactDetail(client, artifactId) {
       const detail = Array.from(document.querySelectorAll(".director-artifact-detail")).find(
         (candidate) => candidate.getAttribute("data-artifact-id") === ${JSON.stringify(artifactId)}
       );
+      const artifactDocument = detail?.querySelector(".director-artifact-document");
       return {
+        documentText: artifactDocument?.textContent ?? "",
         status: detail?.getAttribute("data-artifact-load-state") ?? "",
         text: detail?.textContent ?? ""
       };
     })()`,
-    (detail) => detail.status === "loaded",
+    (detail) => detail.status === "loaded" && detail.documentText.includes("-artifact.png"),
     workflowTimeoutMs,
   );
 }

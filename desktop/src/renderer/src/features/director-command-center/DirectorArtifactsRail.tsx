@@ -965,7 +965,13 @@ function ArtifactPayload({ artifact }: { artifact: Artifact }) {
 }
 
 function validateDirectorArtifactPayload(metadata: WorkstreamArtifact, artifact: Artifact): void {
-  if (artifact.id !== metadata.id || artifact.conversationId !== metadata.conversationId) {
+  if (
+    artifact.id !== metadata.id ||
+    artifact.conversationId !== metadata.conversationId ||
+    artifact.turnId !== metadata.runId ||
+    artifact.title !== metadata.title ||
+    artifact.createdAt !== metadata.createdAt
+  ) {
     throw new Error(`Artifact payload ${artifact.id} does not match its Director record.`);
   }
 }
