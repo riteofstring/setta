@@ -1,6 +1,7 @@
 package conversation
 
 import (
+	"net/url"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -285,12 +286,19 @@ func privateWorkingDirectoryAliases(scope conversationExecutionScope) []string {
 
 func resolvePrivateWorkingDirectoryAliases(workingDirectory string) []string {
 	aliases := map[string]bool{}
-	add := func(value string) {
+	addAlias := func(value string) {
 		if value == "" || value == "." {
 			return
 		}
 		aliases[value] = true
-		aliases[filepath.ToSlash(value)] = true
+	}
+	add := func(value string) {
+		for _, spelling := range []string{value, filepath.ToSlash(value)} {
+			addAlias(spelling)
+			addAlias((&url.URL{Path: spelling}).EscapedPath())
+			addAlias(url.PathEscape(spelling))
+			addAlias(url.QueryEscape(spelling))
+		}
 	}
 	add(filepath.Clean(workingDirectory))
 	if canonical, err := filepath.EvalSymlinks(workingDirectory); err == nil {

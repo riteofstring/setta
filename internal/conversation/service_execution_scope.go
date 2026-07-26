@@ -40,9 +40,10 @@ type conversationExecutionScope struct {
 	// workspace, and for an unbound one it is a private Setta-owned directory
 	// that is not a workspace.
 	workingDirectory string
-	// privatePathAliases are the equivalent absolute spellings redacted from an
-	// unbound provider's output. They are resolved once with the scope instead
-	// of consulting the filesystem for every streamed event.
+	// privatePathAliases are the equivalent absolute spellings and standard URL
+	// encodings redacted from an unbound provider's output. They are resolved
+	// once with the scope instead of consulting the filesystem for every
+	// streamed event.
 	privatePathAliases []string
 }
 

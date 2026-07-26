@@ -3,6 +3,8 @@ package conversation
 import (
 	"encoding/json"
 	"errors"
+	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -12,13 +14,17 @@ import (
 )
 
 func TestRedactPrivateExecutionEventRemovesWorkingDirectoryFromDurableFields(t *testing.T) {
-	privateRoot := t.TempDir()
+	privateRoot := filepath.Join(t.TempDir(), "Application Support", "unbound conversation")
+	if err := os.MkdirAll(privateRoot, 0o700); err != nil {
+		t.Fatalf("MkdirAll private root: %v", err)
+	}
 	canonicalRoot, err := filepath.EvalSymlinks(privateRoot)
 	if err != nil {
 		t.Fatalf("EvalSymlinks: %v", err)
 	}
 	privatePath := filepath.Join(privateRoot, "scratch", "result.md")
 	canonicalPath := filepath.Join(canonicalRoot, "scratch", "result.md")
+	privateFileURL := (&url.URL{Scheme: "file", Path: privatePath}).String()
 	scope := conversationExecutionScope{workingDirectory: privateRoot}
 	base := agent.Event{
 		ConversationID:   "conversation-private-redaction",
@@ -38,7 +44,7 @@ func TestRedactPrivateExecutionEventRemovesWorkingDirectoryFromDurableFields(t *
 			event: privateExecutionEvent(base, agent.EventKindAgentTextCompleted, func(event *agent.Event) {
 				event.Text = &agent.TextEvent{
 					ProviderItemID: "provider-item-private-text",
-					Text:           "Saved " + privatePath + " and " + canonicalPath,
+					Text:           "Saved " + privatePath + ", " + canonicalPath + ", and " + privateFileURL,
 				}
 			}),
 		},
@@ -170,6 +176,24 @@ func TestRedactPrivateExecutionEventRemovesWorkingDirectoryFromDurableFields(t *
 				t.Fatalf("redaction mutated source event:\nbefore %s\nafter  %s", before, unchanged)
 			}
 		})
+	}
+}
+
+func TestRedactPrivateWorkingDirectoryTextRemovesURLPathRepresentations(t *testing.T) {
+	privateRoot := filepath.Join(t.TempDir(), "Application Support", "unbound conversation")
+	aliases := resolvePrivateWorkingDirectoryAliases(privateRoot)
+	slashRoot := filepath.ToSlash(privateRoot)
+	values := []string{
+		"file://" + (&url.URL{Path: slashRoot}).EscapedPath() + "/result.md",
+		"artifact?path=" + url.QueryEscape(slashRoot) + "%2Fresult.md",
+		"opaque:" + url.PathEscape(slashRoot) + "%2Fresult.md",
+	}
+	for _, value := range values {
+		redacted := redactPrivateWorkingDirectoryText(aliases, value)
+		if strings.Contains(redacted, "Application") ||
+			!strings.Contains(redacted, privateWorkingDirectoryRedaction) {
+			t.Fatalf("redacted URL path = %q from %q", redacted, value)
+		}
 	}
 }
 
@@ -378,6 +402,36 @@ func TestArtifactPrivateExecutionValidationChecksCompiledStrings(t *testing.T) {
 		len(failure.fieldErrors) != 1 ||
 		failure.fieldErrors[0].Field != "source" {
 		t.Fatalf("encoded private path failure = %+v", failure)
+	}
+}
+
+func TestArtifactPrivateExecutionValidationRejectsURLPathRepresentations(t *testing.T) {
+	privateRoot := filepath.Join(t.TempDir(), "Application Support", "unbound conversation")
+	privateFileURL := (&url.URL{
+		Scheme: "file",
+		Path:   filepath.Join(privateRoot, "result.md"),
+	}).String()
+	source := "root = Document([Text(" + strconv.Quote(privateFileURL) + ")])"
+	document, err := compileEmitArtifactSource(source)
+	if err != nil {
+		t.Fatalf("compile private file URL: %v", err)
+	}
+	err = validateEmitArtifactPrivateExecutionDetails(
+		emitArtifactInput{
+			Title:    "Private file URL",
+			Source:   source,
+			document: document,
+		},
+		conversationExecutionScope{workingDirectory: privateRoot},
+	)
+	var failure *artifactToolFailureError
+	if !errors.As(err, &failure) {
+		t.Fatalf("private file URL error = %v, want artifact tool failure", err)
+	}
+	if failure.code != artifactToolFailureInvalidField ||
+		len(failure.fieldErrors) != 1 ||
+		failure.fieldErrors[0].Field != "source" {
+		t.Fatalf("private file URL failure = %+v", failure)
 	}
 }
 

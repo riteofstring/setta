@@ -1,7 +1,7 @@
 # Native Artifact Routing And Execution Plan
 
 **Date:** 2026-07-27
-**Status:** Active plan of record.
+**Status:** Complete. Retained as the implementation record.
 
 ## Outcome
 
@@ -261,9 +261,13 @@ evidence that already followed each phase's last relevant change.
 
 ### Phase 4 - Final Verification
 
-**Status:** Checks authored; gates pending. The dedicated deterministic
-production workflow and the recorded live behavioral regression now exist in the
-repository:
+**Status:** Complete. The whole-plan audit, privacy correction, focused
+verification, deterministic production workflow, and complete live-provider
+matrix are recorded in
+[`docs/reports/native-artifact-routing-final-audit-20260727.md`](../reports/native-artifact-routing-final-audit-20260727.md).
+
+The dedicated deterministic production workflow and recorded live behavioral
+regression are in the repository:
 
 - `desktop/tests/electron/native-artifact-routing-workflow.test.mjs`, in the
   required Electron manifest as `native-artifact-routing`, proves every focused
@@ -280,17 +284,15 @@ retryable `invalid_file_reference` tool failure, so a turn that never corrects i
 fails with `artifact_delivery_unresolved` and publishes no artifact. That is the
 existing per-document validation contract, not new enforcement.
 
-The remaining Phase 4 work is running the still-required broader deterministic
-and live-provider gates once against the stable implementation.
+The final audit reused the coherent Phase 1 through Phase 3 evidence, inspected
+the Phase 4 focused recordings, and completed static review before verification.
+It corrected URL-encoded private-working-directory disclosure at the existing
+privacy boundary. That production correction made the earlier broad evidence
+stale, so exactly one broad deterministic invocation and exactly one complete
+live-provider invocation ran against the stabilized tree. Both passed; no gate
+was retried.
 
-During Phases 1-3 implementation, do not run broad deterministic matrices or
-complete live-provider suites; their phase audits own the applicable stable-tree
-gates. In Phase 4, run the narrowest dedicated checks below first, fix any
-failures, and then run each still-required broader deterministic or
-live-provider gate once against the stable implementation. Reuse a green gate
-that postdates the last relevant code change.
-
-The focused deterministic workflow must prove:
+The focused deterministic workflow proves:
 
 - with zero open workspaces, a native artifact request starts immediately,
   opens no folder request, and creates no website or project files
@@ -306,13 +308,11 @@ The focused deterministic workflow must prove:
 
 Because this changes conversation execution, Director routing, provider
 lifecycle, generated contracts, and artifact publication, final verification
-must include a deterministic production Electron/main/preload/renderer/HTTP/
-store workflow using temporary app data. Run the live Codex workflow only with
-ChatGPT auth and without `OPENAI_API_KEY`; if ChatGPT auth is unavailable,
-record the narrow skip and do not treat deterministic coverage as proof of
-provider integration. Include the recorded "create five varied artifacts"
-request as a live behavioral regression, without adding production count
-metadata or enforcement for the test.
+includes the deterministic production Electron/main/preload/renderer/HTTP/store
+workflow with temporary app data. The live Codex workflow ran with ChatGPT auth
+and without `OPENAI_API_KEY`, including the recorded "create five varied
+artifacts" request as a behavioral regression without production count metadata
+or enforcement.
 
 ## Definition Of Done
 
