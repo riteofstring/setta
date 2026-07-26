@@ -528,7 +528,6 @@ function summarizeAgentTrajectoryEvent(event: TrajectoryEvent) {
     modelReroute: summarizeTrajectoryModelReroute(event),
     providerEventId: event.providerEventId,
     providerLifecycle: summarizeProviderLifecycle(event),
-    providerThreadId: event.providerThreadId,
     providerTurnId: event.providerTurnId,
     trajectoryEventId: event.id,
     trajectorySequence: event.sequence,

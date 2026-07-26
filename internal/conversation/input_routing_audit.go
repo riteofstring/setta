@@ -58,10 +58,9 @@ func validateConversationRouterModelInvocationAudit(invocation ResolvedInvocatio
 	if err := validateConversationRouterPermission(invocation); err != nil {
 		return err
 	}
-	if invocation.ProviderReferences.ThreadID == nil ||
-		invocation.ProviderReferences.TurnID == nil ||
+	if invocation.ProviderReferences.TurnID == nil ||
 		invocation.ProviderReferences.RequestID == nil {
-		return errors.New("conversation-router model invocation must record provider thread, turn, and request references")
+		return errors.New("conversation-router model invocation must record provider turn and request references")
 	}
 	return nil
 }
@@ -85,8 +84,7 @@ func validateConversationRouterProductInvariantAudit(
 	if err := validateConversationRouterPermission(invocation); err != nil {
 		return err
 	}
-	if invocation.ProviderReferences.ThreadID != nil ||
-		invocation.ProviderReferences.TurnID != nil ||
+	if invocation.ProviderReferences.TurnID != nil ||
 		invocation.ProviderReferences.RequestID != nil ||
 		invocation.ProviderReferences.ResponseID != nil {
 		return errors.New("conversation-router product invariant must not record provider references")

@@ -453,9 +453,7 @@ func assertCommittedNarratorInvocation(
 		*invocation.EndedAt != narratorCallEnded {
 		t.Fatalf("committed narrator invocation = %+v", invocation)
 	}
-	if invocation.ProviderReferences.ThreadID == nil ||
-		*invocation.ProviderReferences.ThreadID != result.ProviderThreadID ||
-		invocation.ProviderReferences.TurnID == nil ||
+	if invocation.ProviderReferences.TurnID == nil ||
 		*invocation.ProviderReferences.TurnID != result.ProviderTurnID ||
 		invocation.ProviderReferences.RequestID == nil ||
 		*invocation.ProviderReferences.RequestID != result.RequestID {

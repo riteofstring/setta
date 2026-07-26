@@ -190,7 +190,6 @@ func applyUnexpectedProviderReferences(
 	turn ConversationTurn,
 ) {
 	if turn.ProviderTurnID != nil && active.providerThreadID != "" {
-		trajectory.ProviderThreadID = &active.providerThreadID
 		trajectory.ProviderTurnID = turn.ProviderTurnID
 	}
 }

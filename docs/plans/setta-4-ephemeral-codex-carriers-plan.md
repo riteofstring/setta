@@ -1,9 +1,7 @@
 # Setta-Owned Conversations With Ephemeral Codex Carriers
 
-Status: in progress. Phases 1, 2, and 3 are implemented, along with the parts of
-Phase 4 that ephemeral carriers made unavoidable. Phase 4 still owns the durable
-provider identity that remains on side conversations and invocation audit, and
-Phase 5 still owns moving the Director onto the shared carrier registry.
+Status: in progress. Phases 1 through 4 are implemented. Phase 5 still owns
+moving the Director onto the shared carrier registry.
 
 ## Executive Summary
 
@@ -334,7 +332,7 @@ Expected result: provider identity exists only while a run is active in memory.
 Expected result: regular workstreams behave like the Director: Setta persists
 conversation state, Codex only runs current work.
 
-### Phase 4: Replace Branch And Side Provider Forks
+### Phase 4: Replace Branch And Side Provider Forks — DONE
 
 Codex cannot fork an ephemeral thread — it is never written to a rollout, so
 `thread/fork` cannot read it — which means Phase 3 could not land without taking
@@ -350,14 +348,24 @@ the provider forks with it. The fork removal is therefore done:
   `ConversationBranch.ProviderMetadata` is gone with the fork that filled it.
 - DONE: Remove tests that assert stable provider thread IDs across turns.
 
-Still open in this phase: the provider identity that remains as *audit* of a
-finished run rather than as a resumption handle —
-`SideConversation.ProviderThreadID`, `ActiveProviderTurnID`,
-`TrajectoryEvent.ProviderThreadID`, and
-`ResolvedInvocation.ProviderReferences.ThreadID`. None of them is read back to
-address a provider after a restart, and side restart recovery no longer calls
-the provider at all. Replacing them with Setta side and run ids is the remaining
-work here.
+- DONE: Move side provider identity into the runtime carrier registry.
+  `SideConversation.ProviderThreadID`, `SourceProviderTurnID`, and
+  `ActiveProviderTurnID` are gone from the durable record, the schema, and the
+  generated TypeScript. A side's carrier is now a `carrierRegistry` entry keyed
+  by its Setta side id, and its live provider turn is a field on
+  `activeSideConversationTurn`.
+- DONE: Remove durable provider identity from run audit.
+  `TrajectoryEvent.ProviderThreadID` and
+  `ResolvedInvocation.ProviderReferences.ThreadID` are gone; a trajectory event
+  and an invocation now name a Setta conversation, turn, and sequence plus the
+  provider turn/request ids that identify the call, never the carrier it ran on.
+
+Two invariants had to move from provider identity to Setta identity as a result.
+A side conversation was "still open" when it still held a provider thread; it is
+now open until `DisposedAt` is set, so a failure with nothing left to clean up
+disposes the side on the spot. And the parent turn a side was cut from was
+recorded as `SourceProviderTurnID`; it is now `SourceTurnID`, the same Setta
+boundary the in-flight context frame is built around.
 
 Expected result: branch and side behavior no longer requires provider history.
 
@@ -405,6 +413,7 @@ limited to low-level provider characterization tests:
 - `ReconcileTurn` — empty.
 - `providerForkThreadId` — empty.
 - `sourceProviderThreadId` — empty.
+- `sourceProviderTurnId` — empty.
 - `director_thread` — no durable table, record, or store call remains. What is
   left is the runtime adapter that starts the carrier
   (`internal/runtime/director_thread_caller.go`) and the `DirectorThread` /

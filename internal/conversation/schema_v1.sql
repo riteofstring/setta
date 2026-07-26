@@ -131,19 +131,16 @@ CREATE TABLE side_conversations (
   id TEXT PRIMARY KEY,
   parent_conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   decision_source TEXT NOT NULL CHECK (decision_source = 'conversation_router'),
-  provider_thread_id TEXT,
-  source_provider_turn_id TEXT,
+  source_turn_id TEXT,
   source_trajectory_sequence INTEGER NOT NULL CHECK (source_trajectory_sequence >= 0),
   last_event_sequence INTEGER NOT NULL DEFAULT 0 CHECK (last_event_sequence >= 0),
   active_turn_id TEXT,
-  active_provider_turn_id TEXT,
   status TEXT NOT NULL CHECK (status IN ('preparing', 'active', 'disposing', 'failed')),
   resolved_side_agent_invocation_json TEXT NOT NULL CHECK (json_valid(resolved_side_agent_invocation_json)),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   disposed_at TEXT,
   failure_json TEXT CHECK (failure_json IS NULL OR json_valid(failure_json)),
-  CHECK (active_provider_turn_id IS NULL OR active_turn_id IS NOT NULL),
   CHECK (disposed_at IS NULL OR active_turn_id IS NULL)
 ) STRICT;
 
@@ -174,7 +171,6 @@ CREATE TABLE trajectory_events (
   kind TEXT NOT NULL,
   actor TEXT NOT NULL,
   provider_event_id TEXT,
-  provider_thread_id TEXT,
   provider_turn_id TEXT,
   payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),
   UNIQUE(conversation_id, sequence)

@@ -216,7 +216,7 @@ describe("session recording privacy", () => {
           resolvedInvocation: {
             failure: { code: "provider_unavailable" },
             modelReroutes: [{ fromModelId: "requested-model", toModelId: "resolved-model" }],
-            providerReferences: { threadId: "provider-thread-recording" },
+            providerReferences: { turnId: "provider-turn-recording" },
           },
         },
         type: "agent_invocation_observed",
@@ -462,7 +462,6 @@ function resolvedInvocation(
     providerReferences: {
       requestId: "provider-request-recording",
       responseId: "provider-response-recording",
-      threadId: "provider-thread-recording",
       turnId: "provider-turn-recording",
     },
     requested,
@@ -523,7 +522,6 @@ function trajectoryEvent(overrides: Partial<TrajectoryEvent>): TrajectoryEvent {
     providerEventId: "provider-event-recording",
     providerLifecycleChanged: null,
     validationRecorded: null,
-    providerThreadId: "provider-thread-recording",
     providerTurnId: "provider-turn-recording",
     publicReasoningSummaryUpdated: null,
     sequence: 8,

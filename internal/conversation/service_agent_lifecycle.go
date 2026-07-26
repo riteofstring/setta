@@ -251,7 +251,6 @@ func (service *Service) prepareTurnStart(
 		invocationID,
 		active.roleProfile,
 		resolved,
-		event.ProviderThreadID,
 		event.ProviderTurnID,
 		now,
 	)
@@ -313,7 +312,6 @@ func (service *Service) turnStartTrajectories(
 		events[index].TurnID = &turn.ID
 		events[index].Sequence = snapshot.Conversation.LastTrajectorySequence + index + 1
 		events[index].EmittedAt = now
-		events[index].ProviderThreadID = &event.ProviderThreadID
 		events[index].ProviderTurnID = &event.ProviderTurnID
 	}
 	return events, nil
@@ -470,14 +468,13 @@ func (service *Service) prepareTurnTerminal(
 		return turnTerminalMutation{}, err
 	}
 	trajectory := TrajectoryEvent{
-		ID:               trajectoryID,
-		ConversationID:   active.conversationID,
-		TurnID:           &turn.ID,
-		Sequence:         snapshot.Conversation.LastTrajectorySequence + 1,
-		EmittedAt:        now,
-		Actor:            TrajectoryActorProvider,
-		ProviderThreadID: &event.ProviderThreadID,
-		ProviderTurnID:   &event.ProviderTurnID,
+		ID:             trajectoryID,
+		ConversationID: active.conversationID,
+		TurnID:         &turn.ID,
+		Sequence:       snapshot.Conversation.LastTrajectorySequence + 1,
+		EmittedAt:      now,
+		Actor:          TrajectoryActorProvider,
+		ProviderTurnID: &event.ProviderTurnID,
 	}
 	conversationStatus := ConversationStatusIdle
 	if len(snapshot.Queue) > 0 {

@@ -491,7 +491,6 @@ func sanitizeConversationRouteTrajectory(
 	event conversation.TrajectoryEvent,
 ) conversation.TrajectoryEvent {
 	event.ProviderEventID = nil
-	event.ProviderThreadID = nil
 	event.ProviderTurnID = nil
 	if event.TurnStarted != nil {
 		payload := *event.TurnStarted

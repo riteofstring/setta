@@ -100,15 +100,14 @@ func (service *Service) artifactTrajectory(
 		return TrajectoryEvent{}, err
 	}
 	return TrajectoryEvent{
-		ID:               artifactEventID,
-		ConversationID:   active.conversationID,
-		TurnID:           &active.turnID,
-		Sequence:         sequence,
-		EmittedAt:        now,
-		Kind:             TrajectoryEventArtifactEmitted,
-		Actor:            TrajectoryActorSystem,
-		ProviderThreadID: &event.ProviderThreadID,
-		ProviderTurnID:   &event.ProviderTurnID,
+		ID:             artifactEventID,
+		ConversationID: active.conversationID,
+		TurnID:         &active.turnID,
+		Sequence:       sequence,
+		EmittedAt:      now,
+		Kind:           TrajectoryEventArtifactEmitted,
+		Actor:          TrajectoryActorSystem,
+		ProviderTurnID: &event.ProviderTurnID,
 		ArtifactEmitted: &TrajectoryArtifactEmitted{
 			ArtifactID: artifact.ID,
 			Kind:       artifact.Kind,
@@ -237,13 +236,12 @@ func (service *Service) trajectoryFromAgentEvent(
 		return TrajectoryEvent{}, nil, err
 	}
 	trajectory := TrajectoryEvent{
-		ID:               eventID,
-		ConversationID:   active.conversationID,
-		TurnID:           &active.turnID,
-		EmittedAt:        now,
-		ProviderEventID:  cloneStringPointer(event.ProviderEventID),
-		ProviderThreadID: &event.ProviderThreadID,
-		ProviderTurnID:   &event.ProviderTurnID,
+		ID:              eventID,
+		ConversationID:  active.conversationID,
+		TurnID:          &active.turnID,
+		EmittedAt:       now,
+		ProviderEventID: cloneStringPointer(event.ProviderEventID),
+		ProviderTurnID:  &event.ProviderTurnID,
 	}
 	return service.populateAgentTrajectory(trajectory, active, snapshot, event, now)
 }

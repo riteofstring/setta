@@ -54,9 +54,10 @@ type Service struct {
 	activeMu    sync.Mutex
 	active      map[string]*activeConversationTurn
 	activeSides map[string]*activeSideConversationTurn
-	// carriers is the process-local map from Setta conversation to the ephemeral
-	// provider thread currently carrying it. Nothing persists it, so a restart
-	// starts every conversation on a fresh carrier replayed from Setta's own log.
+	// carriers is the process-local map from Setta conversation or side
+	// conversation to the ephemeral provider thread currently carrying it.
+	// Nothing persists it, so a restart starts every conversation on a fresh
+	// carrier replayed from Setta's own log.
 	carriers *carrierRegistry
 
 	lifecycleCtx    context.Context
@@ -79,9 +80,13 @@ type activeConversationTurn struct {
 }
 
 type activeSideConversationTurn struct {
-	cancel               context.CancelFunc
-	ctx                  context.Context
-	done                 chan struct{}
+	cancel context.CancelFunc
+	ctx    context.Context
+	done   chan struct{}
+	// providerTurnID is the provider's name for this run, learned when the turn
+	// starts. It lives here rather than on the durable side record because it is
+	// only addressable while this attachment is alive.
+	providerTurnID       string
 	parentConversationID string
 	request              agent.TurnRequest
 	sideConversationID   string

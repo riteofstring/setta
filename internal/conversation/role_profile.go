@@ -106,8 +106,11 @@ type ResolvedInvocationSettings struct {
 	PermissionProfile PermissionProfile `json:"permissionProfile"`
 }
 
+// InvocationProviderReferences correlates one durable Setta invocation with the
+// provider call that produced it. The carrier the call ran on is deliberately
+// absent: a thread id is only addressable while the process that started it is
+// alive, so recording it would put an expired handle in a durable record.
 type InvocationProviderReferences struct {
-	ThreadID   *string `json:"threadId"`
 	TurnID     *string `json:"turnId"`
 	RequestID  *string `json:"requestId"`
 	ResponseID *string `json:"responseId"`
@@ -297,7 +300,6 @@ func (references InvocationProviderReferences) Validate() error {
 		label string
 		value *string
 	}{
-		{label: "invocation provider thread id", value: references.ThreadID},
 		{label: "invocation provider turn id", value: references.TurnID},
 		{label: "invocation provider request id", value: references.RequestID},
 		{label: "invocation provider response id", value: references.ResponseID},

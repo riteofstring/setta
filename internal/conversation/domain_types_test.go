@@ -221,22 +221,18 @@ func TestBranchTypesKeepDurableForksAndEphemeralSidesDistinct(t *testing.T) {
 		ParentConversationID:        "conversation-parent",
 		ParentStatus:                ConversationStatusWorking,
 		DecisionSource:              BranchDecisionSourceConversationRouter,
-		ProviderThreadID:            stringPointer("thread-side"),
-		SourceProviderTurnID:        stringPointer("provider-turn-1"),
+		SourceTurnID:                stringPointer("turn-parent"),
 		SourceTrajectorySequence:    21,
 		Status:                      SideConversationStatusActive,
 		ResolvedSideAgentInvocation: validInvocation(RoleSideAgent, InvocationOutcomeRunning),
 		CreatedAt:                   testTimeStarted,
 		UpdatedAt:                   testTimeEnded,
 	}
-	side.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = stringPointer("thread-side")
 	if err := side.Validate(); err != nil {
 		t.Fatalf("valid active side conversation: %v", err)
 	}
-	side.ProviderThreadID = nil
-	assertValidationErrorContains(t, side.Validate(), "must match its invocation audit")
-	side.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = nil
-	assertValidationErrorContains(t, side.Validate(), "must have provider thread")
+	side.DisposedAt = stringPointer(testTimeEnded)
+	assertValidationErrorContains(t, side.Validate(), "must not carry terminal state")
 }
 
 func validConversationTurn(status TurnStatus) ConversationTurn {
@@ -314,7 +310,6 @@ func validInvocation(role Role, outcome InvocationOutcome) ResolvedInvocation {
 			PermissionProfile: validRoleProfile(role).PermissionProfile,
 		},
 		ProviderReferences: InvocationProviderReferences{
-			ThreadID:  stringPointer("provider-thread-1"),
 			TurnID:    stringPointer("provider-turn-1"),
 			RequestID: stringPointer("provider-request-1"),
 		},

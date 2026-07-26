@@ -693,7 +693,6 @@ func (router *ConversationInputRouter) successfulInvocation(
 		return conversation.ResolvedInvocation{}, err
 	}
 	requestID := call.RequestID
-	threadID := call.ProviderThreadID
 	turnID := call.ProviderTurnID
 	endedAt := call.EndedAt
 	invocation := conversation.ResolvedInvocation{
@@ -703,7 +702,6 @@ func (router *ConversationInputRouter) successfulInvocation(
 		Requested: call.Model.RequestedProfile,
 		Resolved:  call.Model.Settings,
 		ProviderReferences: conversation.InvocationProviderReferences{
-			ThreadID:  &threadID,
 			TurnID:    &turnID,
 			RequestID: &requestID,
 		},

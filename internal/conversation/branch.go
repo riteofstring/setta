@@ -27,17 +27,19 @@ type ConversationBranch struct {
 	CreatedAt                string               `json:"createdAt"`
 }
 
+// SideConversation is the durable Setta record of one side conversation. It
+// names Setta ids only: the ephemeral carrier the side runs on lives in the
+// process-local carrier registry, and DisposedAt — not a provider handle — is
+// what says whether anything is still owed cleanup.
 type SideConversation struct {
 	ID                          string                 `json:"id"`
 	ParentConversationID        string                 `json:"parentConversationId"`
 	ParentStatus                ConversationStatus     `json:"parentStatus"`
 	DecisionSource              BranchDecisionSource   `json:"decisionSource"`
-	ProviderThreadID            *string                `json:"providerThreadId"`
-	SourceProviderTurnID        *string                `json:"sourceProviderTurnId"`
+	SourceTurnID                *string                `json:"sourceTurnId"`
 	SourceTrajectorySequence    int                    `json:"sourceTrajectorySequence"`
 	LastEventSequence           int                    `json:"lastEventSequence"`
 	ActiveTurnID                *string                `json:"activeTurnId"`
-	ActiveProviderTurnID        *string                `json:"activeProviderTurnId"`
 	Status                      SideConversationStatus `json:"status"`
 	ResolvedSideAgentInvocation ResolvedInvocation     `json:"resolvedSideAgentInvocation"`
 	CreatedAt                   string                 `json:"createdAt"`
@@ -128,19 +130,10 @@ func validateSideConversationIdentifiers(side SideConversation) error {
 	if err := validateIdentifier("side conversation parent id", side.ParentConversationID); err != nil {
 		return err
 	}
-	if err := validateOptionalIdentifier("side conversation provider thread id", side.ProviderThreadID); err != nil {
+	if err := validateOptionalIdentifier("side conversation source turn id", side.SourceTurnID); err != nil {
 		return err
 	}
-	if err := validateOptionalIdentifier("side conversation source provider turn id", side.SourceProviderTurnID); err != nil {
-		return err
-	}
-	if err := validateOptionalIdentifier("side conversation active turn id", side.ActiveTurnID); err != nil {
-		return err
-	}
-	if err := validateOptionalIdentifier("side conversation active provider turn id", side.ActiveProviderTurnID); err != nil {
-		return err
-	}
-	return nil
+	return validateOptionalIdentifier("side conversation active turn id", side.ActiveTurnID)
 }
 
 func validateSideConversationSequenceState(side SideConversation) error {
@@ -149,9 +142,6 @@ func validateSideConversationSequenceState(side SideConversation) error {
 	}
 	if side.LastEventSequence < 0 {
 		return fmt.Errorf("side conversation %s last event sequence must be non-negative", side.ID)
-	}
-	if side.ActiveProviderTurnID != nil && side.ActiveTurnID == nil {
-		return fmt.Errorf("side conversation %s provider turn requires an active turn", side.ID)
 	}
 	return nil
 }
@@ -162,12 +152,6 @@ func validateSideConversationInvocation(side SideConversation) error {
 	}
 	if side.ResolvedSideAgentInvocation.Role != RoleSideAgent {
 		return fmt.Errorf("side conversation %s invocation role must be %s", side.ID, RoleSideAgent)
-	}
-	if !equalOptionalString(
-		side.ProviderThreadID,
-		side.ResolvedSideAgentInvocation.ProviderReferences.ThreadID,
-	) {
-		return fmt.Errorf("side conversation %s provider thread must match its invocation audit", side.ID)
 	}
 	return nil
 }
@@ -214,22 +198,22 @@ func validateSideConversationLifecycle(side SideConversation, hasDisposed bool) 
 }
 
 func validatePreparingSideConversation(side SideConversation, hasDisposed bool) error {
-	if side.ProviderThreadID != nil || side.ActiveTurnID != nil || hasDisposed || side.Failure != nil {
+	if side.ActiveTurnID != nil || hasDisposed || side.Failure != nil {
 		return fmt.Errorf("preparing side conversation %s contains active or terminal state", side.ID)
 	}
 	return nil
 }
 
 func validateActiveSideConversation(side SideConversation, hasDisposed bool) error {
-	if side.ProviderThreadID == nil || hasDisposed || side.Failure != nil {
-		return fmt.Errorf("active side conversation %s must have provider thread without terminal state", side.ID)
+	if hasDisposed || side.Failure != nil {
+		return fmt.Errorf("active side conversation %s must not carry terminal state", side.ID)
 	}
 	return nil
 }
 
 func validateDisposingSideConversation(side SideConversation) error {
-	if side.ProviderThreadID == nil || side.Failure != nil {
-		return fmt.Errorf("disposing side conversation %s must have provider thread and no failure", side.ID)
+	if side.Failure != nil {
+		return fmt.Errorf("disposing side conversation %s must not carry a failure", side.ID)
 	}
 	if side.DisposedAt != nil && side.ActiveTurnID != nil {
 		return fmt.Errorf("disposed side conversation %s cannot retain an active turn", side.ID)

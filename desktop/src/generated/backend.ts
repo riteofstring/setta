@@ -16,8 +16,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 100;
-export const backendContractSchemaHash = "sha256:d7d59b45685edcbec1ec06d6b5510db0abe9f39b92775b18e473510fad5db648";
+export const backendProtocolVersion = 101;
+export const backendContractSchemaHash = "sha256:3ecd22bb5c8167d2e0493bffff143f0d5719c9ba44db917948181e5f7253cc7b";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -2038,7 +2038,6 @@ export interface ResolvedInvocationSettings {
 }
 
 export interface InvocationProviderReferences {
-  threadId: string | null;
   turnId: string | null;
   requestId: string | null;
   responseId: string | null;
@@ -2341,7 +2340,6 @@ export interface TrajectoryEvent {
   kind: TrajectoryEventKind;
   actor: TrajectoryActor;
   providerEventId: string | null;
-  providerThreadId: string | null;
   providerTurnId: string | null;
   userInputAccepted: TrajectoryUserInputAccepted | null;
   turnQueued: TrajectoryTurnQueued | null;
@@ -2497,12 +2495,10 @@ export interface SideConversation {
   parentConversationId: string;
   parentStatus: ConversationStatus;
   decisionSource: BranchDecisionSource;
-  providerThreadId: string | null;
-  sourceProviderTurnId: string | null;
+  sourceTurnId: string | null;
   sourceTrajectorySequence: number;
   lastEventSequence: number;
   activeTurnId: string | null;
-  activeProviderTurnId: string | null;
   status: SideConversationStatus;
   resolvedSideAgentInvocation: ResolvedInvocation;
   createdAt: string;
@@ -4306,9 +4302,8 @@ export function decodeResolvedInvocationSettings(value: unknown): ResolvedInvoca
 
 export function decodeInvocationProviderReferences(value: unknown): InvocationProviderReferences {
   const record = assertRecord(value, "InvocationProviderReferences");
-  assertKnownFields(record, "InvocationProviderReferences", ["threadId", "turnId", "requestId", "responseId"]);
+  assertKnownFields(record, "InvocationProviderReferences", ["turnId", "requestId", "responseId"]);
   return {
-    threadId: decodeNullable(requireField(record, "threadId", "InvocationProviderReferences"), "InvocationProviderReferences.threadId", (item) => decodeString(item, "InvocationProviderReferences.threadId")),
     turnId: decodeNullable(requireField(record, "turnId", "InvocationProviderReferences"), "InvocationProviderReferences.turnId", (item) => decodeString(item, "InvocationProviderReferences.turnId")),
     requestId: decodeNullable(requireField(record, "requestId", "InvocationProviderReferences"), "InvocationProviderReferences.requestId", (item) => decodeString(item, "InvocationProviderReferences.requestId")),
     responseId: decodeNullable(requireField(record, "responseId", "InvocationProviderReferences"), "InvocationProviderReferences.responseId", (item) => decodeString(item, "InvocationProviderReferences.responseId")),
@@ -4789,7 +4784,7 @@ export function decodeTrajectoryModelRerouted(value: unknown): TrajectoryModelRe
 
 export function decodeTrajectoryEvent(value: unknown): TrajectoryEvent {
   const record = assertRecord(value, "TrajectoryEvent");
-  assertKnownFields(record, "TrajectoryEvent", ["id", "conversationId", "turnId", "sequence", "emittedAt", "kind", "actor", "providerEventId", "providerThreadId", "providerTurnId", "userInputAccepted", "turnQueued", "turnPromoted", "turnStarted", "turnSteered", "turnInterrupted", "turnCompleted", "turnFailed", "agentPublicTextDelta", "agentMessageCompleted", "publicReasoningSummaryUpdated", "planChanged", "activityStarted", "activityProgressed", "activityCompleted", "activityFailed", "fileChangeProposed", "fileChangeCompleted", "approvalRequested", "approvalResolved", "subagentStarted", "subagentUpdated", "subagentCompleted", "artifactEmitted", "agentLivenessChanged", "providerLifecycleChanged", "validationRecorded", "modelRerouted"]);
+  assertKnownFields(record, "TrajectoryEvent", ["id", "conversationId", "turnId", "sequence", "emittedAt", "kind", "actor", "providerEventId", "providerTurnId", "userInputAccepted", "turnQueued", "turnPromoted", "turnStarted", "turnSteered", "turnInterrupted", "turnCompleted", "turnFailed", "agentPublicTextDelta", "agentMessageCompleted", "publicReasoningSummaryUpdated", "planChanged", "activityStarted", "activityProgressed", "activityCompleted", "activityFailed", "fileChangeProposed", "fileChangeCompleted", "approvalRequested", "approvalResolved", "subagentStarted", "subagentUpdated", "subagentCompleted", "artifactEmitted", "agentLivenessChanged", "providerLifecycleChanged", "validationRecorded", "modelRerouted"]);
   const result: TrajectoryEvent = {
     id: decodeString(requireField(record, "id", "TrajectoryEvent"), "TrajectoryEvent.id"),
     conversationId: decodeString(requireField(record, "conversationId", "TrajectoryEvent"), "TrajectoryEvent.conversationId"),
@@ -4799,7 +4794,6 @@ export function decodeTrajectoryEvent(value: unknown): TrajectoryEvent {
     kind: decodeTrajectoryEventKind(requireField(record, "kind", "TrajectoryEvent"), "TrajectoryEvent.kind"),
     actor: decodeTrajectoryActor(requireField(record, "actor", "TrajectoryEvent"), "TrajectoryEvent.actor"),
     providerEventId: decodeNullable(requireField(record, "providerEventId", "TrajectoryEvent"), "TrajectoryEvent.providerEventId", (item) => decodeString(item, "TrajectoryEvent.providerEventId")),
-    providerThreadId: decodeNullable(requireField(record, "providerThreadId", "TrajectoryEvent"), "TrajectoryEvent.providerThreadId", (item) => decodeString(item, "TrajectoryEvent.providerThreadId")),
     providerTurnId: decodeNullable(requireField(record, "providerTurnId", "TrajectoryEvent"), "TrajectoryEvent.providerTurnId", (item) => decodeString(item, "TrajectoryEvent.providerTurnId")),
     userInputAccepted: decodeNullable(requireField(record, "userInputAccepted", "TrajectoryEvent"), "TrajectoryEvent.userInputAccepted", (item) => decodeTrajectoryUserInputAccepted(item)),
     turnQueued: decodeNullable(requireField(record, "turnQueued", "TrajectoryEvent"), "TrajectoryEvent.turnQueued", (item) => decodeTrajectoryTurnQueued(item)),
@@ -5051,18 +5045,16 @@ export function decodeConversationBranch(value: unknown): ConversationBranch {
 
 export function decodeSideConversation(value: unknown): SideConversation {
   const record = assertRecord(value, "SideConversation");
-  assertKnownFields(record, "SideConversation", ["id", "parentConversationId", "parentStatus", "decisionSource", "providerThreadId", "sourceProviderTurnId", "sourceTrajectorySequence", "lastEventSequence", "activeTurnId", "activeProviderTurnId", "status", "resolvedSideAgentInvocation", "createdAt", "updatedAt", "disposedAt", "failure"]);
+  assertKnownFields(record, "SideConversation", ["id", "parentConversationId", "parentStatus", "decisionSource", "sourceTurnId", "sourceTrajectorySequence", "lastEventSequence", "activeTurnId", "status", "resolvedSideAgentInvocation", "createdAt", "updatedAt", "disposedAt", "failure"]);
   return {
     id: decodeString(requireField(record, "id", "SideConversation"), "SideConversation.id"),
     parentConversationId: decodeString(requireField(record, "parentConversationId", "SideConversation"), "SideConversation.parentConversationId"),
     parentStatus: decodeConversationStatus(requireField(record, "parentStatus", "SideConversation"), "SideConversation.parentStatus"),
     decisionSource: decodeBranchDecisionSource(requireField(record, "decisionSource", "SideConversation"), "SideConversation.decisionSource"),
-    providerThreadId: decodeNullable(requireField(record, "providerThreadId", "SideConversation"), "SideConversation.providerThreadId", (item) => decodeString(item, "SideConversation.providerThreadId")),
-    sourceProviderTurnId: decodeNullable(requireField(record, "sourceProviderTurnId", "SideConversation"), "SideConversation.sourceProviderTurnId", (item) => decodeString(item, "SideConversation.sourceProviderTurnId")),
+    sourceTurnId: decodeNullable(requireField(record, "sourceTurnId", "SideConversation"), "SideConversation.sourceTurnId", (item) => decodeString(item, "SideConversation.sourceTurnId")),
     sourceTrajectorySequence: decodeInteger(requireField(record, "sourceTrajectorySequence", "SideConversation"), "SideConversation.sourceTrajectorySequence"),
     lastEventSequence: decodeInteger(requireField(record, "lastEventSequence", "SideConversation"), "SideConversation.lastEventSequence"),
     activeTurnId: decodeNullable(requireField(record, "activeTurnId", "SideConversation"), "SideConversation.activeTurnId", (item) => decodeString(item, "SideConversation.activeTurnId")),
-    activeProviderTurnId: decodeNullable(requireField(record, "activeProviderTurnId", "SideConversation"), "SideConversation.activeProviderTurnId", (item) => decodeString(item, "SideConversation.activeProviderTurnId")),
     status: decodeSideConversationStatus(requireField(record, "status", "SideConversation"), "SideConversation.status"),
     resolvedSideAgentInvocation: decodeResolvedInvocation(requireField(record, "resolvedSideAgentInvocation", "SideConversation")),
     createdAt: decodeString(requireField(record, "createdAt", "SideConversation"), "SideConversation.createdAt"),

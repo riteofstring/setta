@@ -57,7 +57,7 @@ func readArtifactDeliveryAttempt(
 ) (artifactDeliveryAttempt, error) {
 	rows, err := reader.QueryContext(ctx, `
 SELECT id, conversation_id, turn_id, sequence, emitted_at, kind, actor,
-       provider_event_id, provider_thread_id, provider_turn_id, payload_json
+       provider_event_id, provider_turn_id, payload_json
 FROM trajectory_events
 WHERE conversation_id = ?
   AND turn_id = ?

@@ -292,14 +292,13 @@ func TestTrajectoryLargeOutputUsesTypedBoundedReference(t *testing.T) {
 
 func baseTrajectoryEvent(kind TrajectoryEventKind) TrajectoryEvent {
 	return TrajectoryEvent{
-		ID:               "trajectory-" + string(kind),
-		ConversationID:   "conversation-1",
-		TurnID:           stringPointer("turn-1"),
-		Sequence:         1,
-		EmittedAt:        testTimeStarted,
-		Kind:             kind,
-		Actor:            TrajectoryActorSystem,
-		ProviderThreadID: stringPointer("provider-thread-1"),
-		ProviderTurnID:   stringPointer("provider-turn-1"),
+		ID:             "trajectory-" + string(kind),
+		ConversationID: "conversation-1",
+		TurnID:         stringPointer("turn-1"),
+		Sequence:       1,
+		EmittedAt:      testTimeStarted,
+		Kind:           kind,
+		Actor:          TrajectoryActorSystem,
+		ProviderTurnID: stringPointer("provider-turn-1"),
 	}
 }

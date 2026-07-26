@@ -124,7 +124,6 @@ func routedNarratorStatusDecisionRecord() conversation.ConversationRouteDecision
 
 func routedNarratorInvocation() conversation.ResolvedInvocation {
 	profile := conversation.DefaultNarratorRoleProfile()
-	threadID := "provider_thread_test"
 	turnID := "provider_turn_test"
 	requestID := "provider_request_test"
 	responseID := "provider_response_test"
@@ -140,7 +139,6 @@ func routedNarratorInvocation() conversation.ResolvedInvocation {
 			PermissionProfile: profile.PermissionProfile,
 		},
 		ProviderReferences: conversation.InvocationProviderReferences{
-			ThreadID:   &threadID,
 			TurnID:     &turnID,
 			RequestID:  &requestID,
 			ResponseID: &responseID,

@@ -572,7 +572,6 @@ type TrajectoryEvent struct {
 	Kind                          TrajectoryEventKind                      `json:"kind"`
 	Actor                         TrajectoryActor                          `json:"actor"`
 	ProviderEventID               *string                                  `json:"providerEventId"`
-	ProviderThreadID              *string                                  `json:"providerThreadId"`
 	ProviderTurnID                *string                                  `json:"providerTurnId"`
 	UserInputAccepted             *TrajectoryUserInputAccepted             `json:"userInputAccepted"`
 	TurnQueued                    *TrajectoryTurnQueued                    `json:"turnQueued"`

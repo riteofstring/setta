@@ -85,7 +85,7 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 	assertLiveSideCreatedDuringParentTurn(t, created, side, working, activeTurn)
 	startRequest, sideThread, injection := runtime.sidePreparation(t)
 	assertLiveSideCarrierSnapshot(t, startRequest, sideThread, injection, activeRequest)
-	frame := assertLiveSideContextFrame(t, injection, side, activeRequest)
+	frame := assertLiveSideContextFrame(t, injection, side, sideThread.ID, activeRequest)
 	if !liveFrameHasCommand(frame, "sleep 20") {
 		t.Fatalf("live side context omitted active command: %+v", frame.ActiveActivities)
 	}
@@ -167,7 +167,7 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 	if got := strings.TrimSpace(liveSideTurnFinalText(isolationAnswered, side.ID, isolationTurnID)); got != liveSideIsolationOK {
 		t.Fatalf("live side inherited-history probe reply = %q, want %q", got, liveSideIsolationOK)
 	}
-	if _, err := runtime.ReadThread(ctx, *side.ProviderThreadID, true); err == nil ||
+	if _, err := runtime.ReadThread(ctx, sideThread.ID, true); err == nil ||
 		!strings.Contains(err.Error(), "ephemeral threads do not support includeTurns") {
 		t.Fatalf("ephemeral side thread read error = %v, want includeTurns constraint", err)
 	}
@@ -181,7 +181,7 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 		isolationPrompt,
 		liveSideIsolationOK,
 	)
-	disposeLiveSideConversation(t, ctx, runtime, service, workspaceID, parentID, side)
+	disposeLiveSideConversation(t, ctx, runtime, service, workspaceID, parentID, side, sideThread.ID)
 	t.Logf(
 		"full side lifecycle re-verification: the side started its own ephemeral carrier %s replayed with %d Setta items; the typed frame carried %d active activities; two isolated side turns completed; the parent completed without side history; disposal unsubscribed the ephemeral provider thread",
 		sideThread.ID,
@@ -198,6 +198,7 @@ func disposeLiveSideConversation(
 	workspaceID string,
 	parentID string,
 	side SideConversation,
+	carrierThreadID string,
 ) {
 	t.Helper()
 	disposed, err := service.DisposeSideConversation(
@@ -215,11 +216,10 @@ func disposeLiveSideConversation(
 	}
 	if disposedSide.DisposedAt == nil ||
 		disposedSide.ActiveTurnID != nil ||
-		disposedSide.ActiveProviderTurnID != nil ||
 		disposedSide.ResolvedSideAgentInvocation.Outcome != InvocationOutcomeCancelled {
 		t.Fatalf("disposed live side state = %+v", disposedSide)
 	}
-	runtime.assertSideUnsubscribed(t, *side.ProviderThreadID)
+	runtime.assertSideUnsubscribed(t, carrierThreadID)
 	if disposed.Conversation.Status != ConversationStatusIdle || latestSnapshotTurn(disposed).Status != TurnStatusCompleted {
 		t.Fatalf("side disposal changed completed parent: %+v", disposed.Conversation)
 	}
@@ -526,10 +526,8 @@ func assertLiveSideCreatedDuringParentTurn(
 		side.ParentStatus != ConversationStatusWorking ||
 		side.SourceTrajectorySequence < working.Conversation.LastTrajectorySequence ||
 		side.SourceTrajectorySequence > created.Conversation.LastTrajectorySequence ||
-		side.SourceProviderTurnID == nil ||
-		activeTurn.ProviderTurnID == nil ||
-		*side.SourceProviderTurnID != *activeTurn.ProviderTurnID ||
-		side.ProviderThreadID == nil {
+		side.SourceTurnID == nil ||
+		*side.SourceTurnID != activeTurn.ID {
 		t.Fatalf("live side was not bound to the active parent turn: side=%+v parent=%+v", side, created.Conversation)
 	}
 }
@@ -582,11 +580,12 @@ func assertLiveSideContextFrame(
 	t *testing.T,
 	injection observedLiveInjection,
 	side SideConversation,
+	carrierThreadID string,
 	activeRequest string,
 ) SideInFlightContextFrame {
 	t.Helper()
-	if side.ProviderThreadID == nil || injection.threadID != *side.ProviderThreadID {
-		t.Fatalf("live side context injection thread = %q, side=%+v", injection.threadID, side)
+	if injection.threadID != carrierThreadID {
+		t.Fatalf("live side context injection thread = %q, want %q", injection.threadID, carrierThreadID)
 	}
 	items := injection.items
 	if len(items) < 2 {

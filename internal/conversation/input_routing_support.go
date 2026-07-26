@@ -157,7 +157,6 @@ func cloneConversationRouteResolvedInvocation(invocation ResolvedInvocation) Res
 		[]string{},
 		invocation.Resolved.PermissionProfile.ToolAccess.AllowedTools...,
 	)
-	cloned.ProviderReferences.ThreadID = cloneStringPointer(invocation.ProviderReferences.ThreadID)
 	cloned.ProviderReferences.TurnID = cloneStringPointer(invocation.ProviderReferences.TurnID)
 	cloned.ProviderReferences.RequestID = cloneStringPointer(invocation.ProviderReferences.RequestID)
 	cloned.ProviderReferences.ResponseID = cloneStringPointer(invocation.ProviderReferences.ResponseID)

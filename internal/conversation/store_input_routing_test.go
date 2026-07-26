@@ -1097,7 +1097,6 @@ func seedConversationRouteRunningTurn(t *testing.T, store *Store, conversationID
 	turn.ID = "turn_running"
 	turn.ConversationID = conversationID
 	turn.ResolvedInvocation.ID = "invocation_running"
-	turn.ResolvedInvocation.ProviderReferences.ThreadID = stringPointer("provider_thread")
 	turn.ResolvedInvocation.ProviderReferences.TurnID = turn.ProviderTurnID
 	err := store.write(context.Background(), "seed conversation route running turn", func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `UPDATE conversations SET status = ? WHERE id = ?`, ConversationStatusWorking, conversationID); err != nil {
@@ -1116,7 +1115,6 @@ func seedConversationRouteCompletedTurn(t *testing.T, store *Store, conversation
 	turn.ID = "turn_completed"
 	turn.ConversationID = conversationID
 	turn.ResolvedInvocation.ID = "invocation_completed"
-	turn.ResolvedInvocation.ProviderReferences.ThreadID = stringPointer("provider_thread")
 	turn.ResolvedInvocation.ProviderReferences.TurnID = turn.ProviderTurnID
 	err := store.write(context.Background(), "seed conversation route completed turn", func(ctx context.Context, tx *sql.Tx) error {
 		return insertConversationRouteTestTurn(ctx, tx, turn)
@@ -1184,11 +1182,11 @@ func seedDisposedConversationRouteSide(
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO side_conversations (
   id, parent_conversation_id, decision_source,
-  provider_thread_id, source_trajectory_sequence,
+  source_turn_id, source_trajectory_sequence,
   status, resolved_side_agent_invocation_json, created_at, updated_at, disposed_at
 ) VALUES (
   ?, ?, 'conversation_router',
-  'provider_disposed_side', 0,
+  'turn_running', 0,
   'disposing', '{}', '2026-07-12T18:00:04Z', '2026-07-12T18:00:05Z',
   '2026-07-12T18:00:05Z'
 )

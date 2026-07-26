@@ -472,7 +472,6 @@ func statusServiceActiveTurn(
 	conversationID string,
 ) (conversation.ConversationTurn, []conversation.TrajectoryEvent) {
 	profile := conversation.DefaultAgentRoleProfile()
-	providerThreadID := "provider-primary-thread"
 	providerTurnID := "provider-primary-turn"
 	startedAt := serviceTestTimestamp
 	invocation := conversation.ResolvedInvocation{
@@ -485,13 +484,10 @@ func statusServiceActiveTurn(
 			ReasoningEffort:   conversation.ReasoningEffortHigh,
 			PermissionProfile: profile.PermissionProfile,
 		},
-		ProviderReferences: conversation.InvocationProviderReferences{
-			ThreadID: &providerThreadID,
-			TurnID:   &providerTurnID,
-		},
-		ModelReroutes: []conversation.InvocationModelReroute{},
-		StartedAt:     serviceTestTimestamp,
-		Outcome:       conversation.InvocationOutcomeRunning,
+		ProviderReferences: conversation.InvocationProviderReferences{TurnID: &providerTurnID},
+		ModelReroutes:      []conversation.InvocationModelReroute{},
+		StartedAt:          serviceTestTimestamp,
+		Outcome:            conversation.InvocationOutcomeRunning,
 	}
 	turn := conversation.ConversationTurn{
 		ID:                   "primary-agent-turn",

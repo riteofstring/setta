@@ -133,7 +133,6 @@ func TestConversationInputRouterDispatchesBlankConversationWithoutModelRouting(t
 		state.Decisions[0].Decision.Kind != conversation.ConversationRouteDecisionKindSendToParent ||
 		state.Decisions[0].ResultingCommand.SendToParent.AuthoredInput.Text != accepted.Input.Text ||
 		state.Decisions[0].ResolvedInvocation.Resolved.ModelID != "product-invariant" ||
-		state.Decisions[0].ResolvedInvocation.ProviderReferences.ThreadID != nil ||
 		state.Decisions[0].ResolvedInvocation.ProviderReferences.TurnID != nil ||
 		state.Decisions[0].ResolvedInvocation.ProviderReferences.RequestID != nil {
 		t.Fatalf("blank route state = %+v", state)
@@ -357,7 +356,6 @@ func TestConversationInputRouterFallsBackToClarificationWhenInvalidOutputCannotR
 		state.Decisions[0].Decision.Clarify.Question !=
 			"Should I change the current run or queue this as the next task?" ||
 		state.Decisions[0].ResolvedInvocation.Resolved.ModelID != "product-invariant" ||
-		state.Decisions[0].ResolvedInvocation.ProviderReferences.ThreadID != nil ||
 		state.Decisions[0].ResolvedInvocation.ProviderReferences.TurnID != nil ||
 		state.Decisions[0].ResolvedInvocation.ProviderReferences.RequestID != nil {
 		t.Fatalf("fallback route state = %+v", state)
@@ -620,13 +618,11 @@ func TestSanitizeConversationRouteTrajectoryRemovesProviderAuthority(t *testing.
 	providerTurnID := "provider-turn-secret"
 	processID := "provider-process-secret"
 	event := conversation.TrajectoryEvent{
-		ProviderEventID:  &providerEventID,
-		ProviderThreadID: &providerThreadID,
-		ProviderTurnID:   &providerTurnID,
+		ProviderEventID: &providerEventID,
+		ProviderTurnID:  &providerTurnID,
 		TurnStarted: &conversation.TrajectoryTurnStarted{Invocation: conversation.ResolvedInvocation{
 			ProviderReferences: conversation.InvocationProviderReferences{
-				ThreadID: &providerThreadID,
-				TurnID:   &providerTurnID,
+				TurnID: &providerTurnID,
 			},
 		}},
 		AgentPublicTextDelta: &conversation.TrajectoryAgentPublicTextDelta{
@@ -691,7 +687,7 @@ func TestSanitizeConversationRouteTrajectoryRemovesProviderAuthority(t *testing.
 		}
 	}
 	if event.ActivityStarted.Activity.ProcessID == nil ||
-		event.TurnStarted.Invocation.ProviderReferences.ThreadID == nil {
+		event.TurnStarted.Invocation.ProviderReferences.TurnID == nil {
 		t.Fatal("router trajectory sanitization mutated the authoritative event")
 	}
 }

@@ -36,7 +36,7 @@ func TestServiceCreatesEphemeralSideForkForParentConversation(t *testing.T) {
 	side := requireOnlySideConversation(t, created)
 	assertActiveSideConversation(t, side, working, profile)
 	assertSideCarrierRequest(t, runtime, profile)
-	assertSideContextInjection(t, runtime, side, "hold")
+	assertSideContextInjection(t, service, runtime, side, "hold")
 	assertSideCreationEvents(t, service, workspaceID, parentID, working.EventCursor)
 	assertSideAbsentFromNavigator(t, service, workspaceID, side.ID)
 	assertParentExecutionUnchangedBySide(t, working, created)
@@ -82,7 +82,7 @@ func TestServiceInjectsTypedAuthoritativeSideContextBeforeActivation(t *testing.
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
 	side := requireOnlySideConversation(t, created)
-	frame, serialized := assertSideContextInjection(t, runtime, side, "hold side context")
+	frame, serialized := assertSideContextInjection(t, service, runtime, side, "hold side context")
 	assertTypedSideContextFrame(t, frame, steered.Conversation.LastTrajectorySequence, working)
 	assertSideContextSanitized(t, serialized)
 	if _, err := service.StopTurn(ctx, workspaceID, parentID); err != nil {
@@ -154,13 +154,15 @@ func TestServiceFailsSideWhenContextInjectionIsRejected(t *testing.T) {
 	if side.Status != SideConversationStatusFailed ||
 		side.Failure == nil ||
 		side.Failure.Code != "side_context_injection_failed" ||
-		side.ProviderThreadID == nil ||
-		side.ResolvedSideAgentInvocation.ProviderReferences.ThreadID == nil ||
-		*side.ResolvedSideAgentInvocation.ProviderReferences.ThreadID != *side.ProviderThreadID {
+		side.DisposedAt == nil {
 		t.Fatalf("failed side injection audit = %+v", side)
 	}
-	unsubscribed := runtime.unsubscribedThreads()
-	if len(unsubscribed) != 1 || unsubscribed[0] != *side.ProviderThreadID {
+	// The carrier was unsubscribed, so nothing is owed cleanup and the registry
+	// keeps no entry for a side that never became usable.
+	if _, live := service.carriers.lookup(side.ID); live {
+		t.Fatalf("rejected side kept a carrier registered")
+	}
+	if unsubscribed := runtime.unsubscribedThreads(); len(unsubscribed) != 1 {
 		t.Fatalf("unsubscribed side threads = %v, side = %+v", unsubscribed, side)
 	}
 }
@@ -220,7 +222,8 @@ func TestServiceRefreshesParentStatusWhenSidePreparationFinishes(t *testing.T) {
 		if err != nil {
 			t.Fatalf("StartThread: %v", err)
 		}
-		if err := service.activateSideConversation(ctx, prepared, thread); err != nil {
+		carrier := conversationCarrier{ownerID: prepared.side.ID, threadID: thread.ID}
+		if err := service.activateSideConversation(ctx, prepared, carrier); err != nil {
 			t.Fatalf("activateSideConversation: %v", err)
 		}
 		assertSideUpdateParentStatus(t, readServiceEvent(t, subscription), ConversationStatusWorking)
@@ -258,7 +261,6 @@ func TestServiceRefreshesParentStatusWhenSidePreparationFinishes(t *testing.T) {
 			prepared,
 			"side_carrier_start_failed",
 			nil,
-			false,
 			cause,
 		); !errors.Is(err, cause) {
 			t.Fatalf("failPreparingSideConversation = %v, want %v", err, cause)
@@ -475,11 +477,10 @@ func assertActiveSideLinkage(t *testing.T, side SideConversation, parent Convers
 	if side.ParentConversationID != parent.Conversation.ID ||
 		side.DecisionSource != BranchDecisionSourceConversationRouter ||
 		side.SourceTrajectorySequence != parent.Conversation.LastTrajectorySequence ||
-		side.SourceProviderTurnID == nil ||
-		parentTurn.ProviderTurnID == nil ||
-		*side.SourceProviderTurnID != *parentTurn.ProviderTurnID ||
+		side.SourceTurnID == nil ||
+		*side.SourceTurnID != parentTurn.ID ||
 		side.Status != SideConversationStatusActive ||
-		side.ProviderThreadID == nil {
+		side.DisposedAt != nil {
 		t.Fatalf("active side linkage = %+v, parent = %+v", side, parent)
 	}
 }
@@ -495,23 +496,29 @@ func assertActiveSideInvocation(t *testing.T, side SideConversation, profile Rol
 		invocation.Resolved.PermissionProfile.ProviderPermissionProfile != ":read-only" ||
 		invocation.Resolved.PermissionProfile.WorkspaceMutation ||
 		invocation.Outcome != InvocationOutcomeRunning ||
-		invocation.ProviderReferences.ThreadID == nil ||
-		*invocation.ProviderReferences.ThreadID != *side.ProviderThreadID {
+		invocation.ProviderReferences.TurnID != nil {
 		t.Fatalf("side invocation = %+v", invocation)
 	}
 }
 
 func assertSideContextInjection(
 	t *testing.T,
+	service *Service,
 	runtime *serviceTestAgentRuntime,
 	side SideConversation,
 	wantObjective string,
 ) (SideInFlightContextFrame, string) {
 	t.Helper()
+	// The side's carrier is process-local, so the registry — not the durable
+	// record — is what names the thread its context was replayed into.
+	carrier, live := service.carriers.lookup(side.ID)
+	if !live {
+		t.Fatalf("active side has no registered carrier: %+v", side)
+	}
 	allInjections := runtime.injectedThreadItems()
 	sideInjections := make([]serviceTestInjection, 0, 1)
 	for _, injection := range allInjections {
-		if side.ProviderThreadID != nil && injection.threadID == *side.ProviderThreadID {
+		if injection.threadID == carrier.threadID {
 			sideInjections = append(sideInjections, injection)
 		}
 	}

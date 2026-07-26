@@ -74,7 +74,7 @@ func scanConversationTurn(scanner sqlScanner) (ConversationTurn, error) {
 
 func scanTrajectoryEvent(scanner sqlScanner) (TrajectoryEvent, error) {
 	var value TrajectoryEvent
-	var turnID, providerEventID, providerThreadID, providerTurnID sql.NullString
+	var turnID, providerEventID, providerTurnID sql.NullString
 	var payloadJSON string
 	err := scanner.Scan(
 		&value.ID,
@@ -85,7 +85,6 @@ func scanTrajectoryEvent(scanner sqlScanner) (TrajectoryEvent, error) {
 		&value.Kind,
 		&value.Actor,
 		&providerEventID,
-		&providerThreadID,
 		&providerTurnID,
 		&payloadJSON,
 	)
@@ -94,7 +93,6 @@ func scanTrajectoryEvent(scanner sqlScanner) (TrajectoryEvent, error) {
 	}
 	value.TurnID = optionalScannedString(turnID)
 	value.ProviderEventID = optionalScannedString(providerEventID)
-	value.ProviderThreadID = optionalScannedString(providerThreadID)
 	value.ProviderTurnID = optionalScannedString(providerTurnID)
 	if err := decodeTrajectoryPayload(&value, payloadJSON); err != nil {
 		return TrajectoryEvent{}, err
@@ -385,18 +383,16 @@ func scanConversationBranch(scanner sqlScanner) (ConversationBranch, error) {
 
 func scanSideConversation(scanner sqlScanner) (SideConversation, error) {
 	var value SideConversation
-	var providerThreadID, sourceProviderTurnID, activeTurnID, activeProviderTurnID, disposedAt, failureJSON sql.NullString
+	var sourceTurnID, activeTurnID, disposedAt, failureJSON sql.NullString
 	var invocationJSON string
 	err := scanner.Scan(
 		&value.ID,
 		&value.ParentConversationID,
 		&value.DecisionSource,
-		&providerThreadID,
-		&sourceProviderTurnID,
+		&sourceTurnID,
 		&value.SourceTrajectorySequence,
 		&value.LastEventSequence,
 		&activeTurnID,
-		&activeProviderTurnID,
 		&value.Status,
 		&invocationJSON,
 		&value.CreatedAt,
@@ -407,10 +403,8 @@ func scanSideConversation(scanner sqlScanner) (SideConversation, error) {
 	if err != nil {
 		return SideConversation{}, err
 	}
-	value.ProviderThreadID = optionalScannedString(providerThreadID)
-	value.SourceProviderTurnID = optionalScannedString(sourceProviderTurnID)
+	value.SourceTurnID = optionalScannedString(sourceTurnID)
 	value.ActiveTurnID = optionalScannedString(activeTurnID)
-	value.ActiveProviderTurnID = optionalScannedString(activeProviderTurnID)
 	value.DisposedAt = optionalScannedString(disposedAt)
 	if err := decodeJSON("side invocation", invocationJSON, &value.ResolvedSideAgentInvocation); err != nil {
 		return SideConversation{}, err

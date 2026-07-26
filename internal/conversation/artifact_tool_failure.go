@@ -84,16 +84,15 @@ func artifactToolFailureTrajectory(
 		activity.Namespace = &call.Namespace
 	}
 	return TrajectoryEvent{
-		ID:               trajectoryID,
-		ConversationID:   conversationID,
-		TurnID:           &turnID,
-		Sequence:         sequence,
-		EmittedAt:        emittedAt,
-		Kind:             TrajectoryEventActivityFailed,
-		Actor:            TrajectoryActorSystem,
-		ProviderEventID:  &call.CallID,
-		ProviderThreadID: &call.ProviderThreadID,
-		ProviderTurnID:   &call.ProviderTurnID,
+		ID:              trajectoryID,
+		ConversationID:  conversationID,
+		TurnID:          &turnID,
+		Sequence:        sequence,
+		EmittedAt:       emittedAt,
+		Kind:            TrajectoryEventActivityFailed,
+		Actor:           TrajectoryActorSystem,
+		ProviderEventID: &call.CallID,
+		ProviderTurnID:  &call.ProviderTurnID,
 		ActivityFailed: &TrajectoryActivityFailed{
 			Activity: activity,
 			Failure: Failure{

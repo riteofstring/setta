@@ -90,7 +90,7 @@ func TestConversationRouteDecisionRejectsUnsafeOrIncompleteRouterInvocationAudit
 		},
 		{
 			name: "missing provider request",
-			want: "provider thread, turn, and request references",
+			want: "provider turn and request references",
 			mutate: func(invocation *ResolvedInvocation) {
 				invocation.ProviderReferences.RequestID = nil
 			},

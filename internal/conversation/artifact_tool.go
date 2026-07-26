@@ -323,19 +323,17 @@ func (service *Service) persistArtifactToolEmission(
 		)
 	}
 	callID := call.CallID
-	providerThreadID := call.ProviderThreadID
 	providerTurnID := call.ProviderTurnID
 	trajectory := TrajectoryEvent{
-		ID:               trajectoryID,
-		ConversationID:   conversationID,
-		TurnID:           &turn.ID,
-		Sequence:         sequence,
-		EmittedAt:        now,
-		Kind:             TrajectoryEventArtifactEmitted,
-		Actor:            TrajectoryActorSystem,
-		ProviderEventID:  &callID,
-		ProviderThreadID: &providerThreadID,
-		ProviderTurnID:   &providerTurnID,
+		ID:              trajectoryID,
+		ConversationID:  conversationID,
+		TurnID:          &turn.ID,
+		Sequence:        sequence,
+		EmittedAt:       now,
+		Kind:            TrajectoryEventArtifactEmitted,
+		Actor:           TrajectoryActorSystem,
+		ProviderEventID: &callID,
+		ProviderTurnID:  &providerTurnID,
 		ArtifactEmitted: &TrajectoryArtifactEmitted{
 			ArtifactID: artifact.ID,
 			Kind:       artifact.Kind,

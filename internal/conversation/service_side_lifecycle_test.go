@@ -296,8 +296,8 @@ func TestSideConversationUnexpectedRuntimeFailureRetainsProviderCleanupIdentity(
 		current.Failure.Message != "This work stopped unexpectedly. Try again." {
 		t.Fatalf("side runtime failure = %+v", current)
 	}
-	if current.ActiveTurnID == nil || current.ActiveProviderTurnID == nil {
-		t.Fatalf("side runtime failure discarded provider cleanup identity: %+v", current)
+	if current.ActiveTurnID == nil || current.DisposedAt != nil {
+		t.Fatalf("side runtime failure settled a turn whose outcome is unknown: %+v", current)
 	}
 	if containsSideEventKind(failed.SideEvents.Events, side.ID, TrajectoryEventTurnFailed) {
 		t.Fatalf("uncertain provider outcome was recorded as terminal: %+v", failed.SideEvents.Events)
@@ -315,7 +315,7 @@ func TestSideConversationUnexpectedRuntimeFailureRetainsProviderCleanupIdentity(
 		return findErr == nil && current.DisposedAt != nil
 	})
 	current, _ = findSideConversation(disposed, side.ID)
-	if current.ActiveTurnID != nil || current.ActiveProviderTurnID != nil ||
+	if current.ActiveTurnID != nil ||
 		!containsSideEventKind(disposed.SideEvents.Events, side.ID, TrajectoryEventTurnInterrupted) {
 		t.Fatalf("failed side cleanup did not confirm interruption: side=%+v events=%+v", current, disposed.SideEvents.Events)
 	}
@@ -335,8 +335,7 @@ func TestSideConversationDisposalInterruptsItsActiveTurn(t *testing.T) {
 	}
 	runtime.waitForStart(t, "hold")
 	assertServiceSnapshot(t, service, workspaceID, parent.Conversation.ID, func(snapshot ConversationSnapshot) bool {
-		current, findErr := findSideConversation(snapshot, side.ID)
-		return findErr == nil && current.ActiveProviderTurnID != nil
+		return containsSideEventKind(snapshot.SideEvents.Events, side.ID, TrajectoryEventTurnStarted)
 	})
 	if _, err := service.DisposeSideConversation(
 		ctx,
@@ -352,7 +351,7 @@ func TestSideConversationDisposalInterruptsItsActiveTurn(t *testing.T) {
 			containsSideEventKind(snapshot.SideEvents.Events, side.ID, TrajectoryEventTurnInterrupted)
 	})
 	current, _ := findSideConversation(disposed, side.ID)
-	if current.ActiveTurnID != nil || current.ActiveProviderTurnID != nil {
+	if current.ActiveTurnID != nil {
 		t.Fatalf("disposed side retained active provider state: %+v", current)
 	}
 }
@@ -375,8 +374,7 @@ func TestSideConversationDisposalTrustsDurableTerminalOverRacingInterruptRejecti
 	}
 	runtime.waitForStart(t, "hold")
 	assertServiceSnapshot(t, service, workspaceID, parent.Conversation.ID, func(snapshot ConversationSnapshot) bool {
-		current, findErr := findSideConversation(snapshot, side.ID)
-		return findErr == nil && current.ActiveProviderTurnID != nil
+		return containsSideEventKind(snapshot.SideEvents.Events, side.ID, TrajectoryEventTurnStarted)
 	})
 	setProviderInterruptError(runtime, errors.New("second provider interrupt rejected"))
 	if _, err := service.DisposeSideConversation(
@@ -393,7 +391,7 @@ func TestSideConversationDisposalTrustsDurableTerminalOverRacingInterruptRejecti
 	})
 	current, _ := findSideConversation(disposed, side.ID)
 	if current.Status != SideConversationStatusDisposing || current.Failure != nil ||
-		current.ActiveTurnID != nil || current.ActiveProviderTurnID != nil {
+		current.ActiveTurnID != nil {
 		t.Fatalf("durably completed side disposal = %+v", current)
 	}
 }
@@ -526,7 +524,7 @@ func TestRecoverSideConversationsDisposesInterruptedEphemeralChildren(t *testing
 func TestRecoverSideConversationsInterruptsRunningSideTurnAfterRestart(t *testing.T) {
 	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
 	ctx := context.Background()
-	parentID, sideID, _, providerTurnID := startActiveSideBeforeRestart(
+	parentID, sideID, activeTurnID := startActiveSideBeforeRestart(
 		t, ctx, service, runtime, workspaceID,
 	)
 	shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -546,7 +544,7 @@ func TestRecoverSideConversationsInterruptsRunningSideTurnAfterRestart(t *testin
 	})
 	requireFinalizedSideRecovery(t, recovered, sideID)
 	if controls := runtime.controlsSent(); len(controls) != controlsBeforeRecovery {
-		t.Fatalf("recovery interrupted provider turn %s on a dead carrier: %+v", providerTurnID, controls[controlsBeforeRecovery:])
+		t.Fatalf("recovery interrupted side turn %s on a dead carrier: %+v", activeTurnID, controls[controlsBeforeRecovery:])
 	}
 }
 
@@ -556,7 +554,7 @@ func startActiveSideBeforeRestart(
 	service *Service,
 	runtime *serviceTestAgentRuntime,
 	workspaceID string,
-) (string, string, string, string) {
+) (string, string, string) {
 	t.Helper()
 	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Restart active side cleanup retry")
 	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID)
@@ -570,10 +568,11 @@ func startActiveSideBeforeRestart(
 	runtime.waitForStart(t, "hold")
 	active := assertServiceSnapshot(t, service, workspaceID, parent.Conversation.ID, func(snapshot ConversationSnapshot) bool {
 		current, findErr := findSideConversation(snapshot, side.ID)
-		return findErr == nil && current.ActiveTurnID != nil && current.ActiveProviderTurnID != nil
+		return findErr == nil && current.ActiveTurnID != nil &&
+			containsSideEventKind(snapshot.SideEvents.Events, side.ID, TrajectoryEventTurnStarted)
 	})
 	current, _ := findSideConversation(active, side.ID)
-	return parent.Conversation.ID, side.ID, *current.ActiveTurnID, *current.ActiveProviderTurnID
+	return parent.Conversation.ID, side.ID, *current.ActiveTurnID
 }
 
 func newSideRecoveryService(
@@ -601,7 +600,7 @@ func requireFinalizedSideRecovery(t *testing.T, snapshot ConversationSnapshot, s
 	if err != nil {
 		t.Fatalf("find finalized side: %v", err)
 	}
-	if current.ActiveTurnID != nil || current.ActiveProviderTurnID != nil {
+	if current.ActiveTurnID != nil {
 		t.Fatalf("recovered side retained an active turn: %+v", current)
 	}
 	if !containsSideEventKind(snapshot.SideEvents.Events, sideID, TrajectoryEventTurnInterrupted) {

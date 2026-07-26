@@ -103,49 +103,46 @@ func (service *Service) startPreparedSideConversation(
 			prepared,
 			"side_carrier_start_failed",
 			nil,
-			false,
 			err,
 		)
 	}
+	carrier := conversationCarrier{ownerID: prepared.side.ID, threadID: thread.ID}
 	if err := validateSideCarrier(thread, prepared.resolved.Model); err != nil {
-		providerThreadID, disposed, cleanupErr := service.cleanupRejectedSideCarrier(thread.ID)
+		retained, cleanupErr := service.cleanupRejectedSideCarrier(carrier)
 		return service.failPreparingSideConversation(
 			prepared,
 			"side_carrier_start_failed",
-			providerThreadID,
-			disposed,
+			retained,
 			errors.Join(err, cleanupErr),
 		)
 	}
 	if err := service.agent.InjectItems(ctx, thread.ID, prepared.injectedItems); err != nil {
 		failure := fmt.Errorf("inject side boundary and in-flight context: %w", err)
-		disposed := false
+		retained := &carrier
 		if unsubscribeErr := service.agent.UnsubscribeThread(context.Background(), thread.ID); unsubscribeErr != nil {
 			failure = errors.Join(failure, fmt.Errorf("unsubscribe unprepared side thread: %w", unsubscribeErr))
 		} else {
-			disposed = true
+			retained = nil
 		}
 		return service.failPreparingSideConversation(
 			prepared,
 			"side_context_injection_failed",
-			&thread.ID,
-			disposed,
+			retained,
 			failure,
 		)
 	}
-	if err := service.activateSideConversation(ctx, prepared, thread); err != nil {
+	if err := service.activateSideConversation(ctx, prepared, carrier); err != nil {
 		failure := err
-		disposed := false
+		retained := &carrier
 		if unsubscribeErr := service.agent.UnsubscribeThread(context.Background(), thread.ID); unsubscribeErr != nil {
 			failure = errors.Join(failure, fmt.Errorf("unsubscribe uncommitted side thread: %w", unsubscribeErr))
 		} else {
-			disposed = true
+			retained = nil
 		}
 		return service.failPreparingSideConversation(
 			prepared,
 			"side_activation_failed",
-			&thread.ID,
-			disposed,
+			retained,
 			failure,
 		)
 	}
@@ -331,7 +328,7 @@ func (service *Service) persistPreparingSideConversation(
 		ParentConversationID:     parentConversationID,
 		ParentStatus:             snapshot.Conversation.Status,
 		DecisionSource:           decisionSource,
-		SourceProviderTurnID:     latestProviderTurnID(snapshot.Turns.Turns),
+		SourceTurnID:             sideSourceTurnID(snapshot.Turns.Turns),
 		SourceTrajectorySequence: snapshot.Conversation.LastTrajectorySequence,
 		Status:                   SideConversationStatusPreparing,
 		ResolvedSideAgentInvocation: newSideAgentInvocation(
@@ -435,13 +432,15 @@ func sideConversationInjectedItems(
 	return items, inputBytes, nil
 }
 
-func latestProviderTurnID(turns []ConversationTurn) *string {
-	for index := len(turns) - 1; index >= 0; index-- {
-		if turns[index].ProviderTurnID != nil {
-			return cloneStringPointer(turns[index].ProviderTurnID)
-		}
+// sideSourceTurnID names the parent turn this side was cut from, so the durable
+// record points at the same Setta boundary the in-flight context frame was built
+// around.
+func sideSourceTurnID(turns []ConversationTurn) *string {
+	turn := sideContextTurn(turns)
+	if turn == nil {
+		return nil
 	}
-	return nil
+	return &turn.ID
 }
 
 func newSideAgentInvocation(
@@ -471,7 +470,7 @@ func newSideAgentInvocation(
 func (service *Service) activateSideConversation(
 	ctx context.Context,
 	prepared preparedSideConversation,
-	thread agent.Thread,
+	carrier conversationCarrier,
 ) error {
 	lock := service.conversationLock(prepared.parentConversationID)
 	lock.Lock()
@@ -488,16 +487,23 @@ func (service *Service) activateSideConversation(
 	active.ParentStatus = snapshot.Conversation.Status
 	active.Status = SideConversationStatusActive
 	active.UpdatedAt = advanceTimestamp(active.UpdatedAt, service.timestamp())
-	active.ProviderThreadID = &thread.ID
-	active.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = &thread.ID
-	return service.persistSideConversation(ctx, &expected, active)
+	if err := service.persistSideConversation(ctx, &expected, active); err != nil {
+		return err
+	}
+	// The carrier is remembered only once the side is durably active, so a side
+	// nothing committed never leaves a live thread behind under its id.
+	service.carriers.remember(carrier)
+	return nil
 }
 
+// failPreparingSideConversation settles a side conversation that never became
+// usable. retainedCarrier is the carrier the provider still holds; when there is
+// none, the side is disposed on the spot, because "disposed" is the Setta-owned
+// way to say nothing is owed cleanup.
 func (service *Service) failPreparingSideConversation(
 	prepared preparedSideConversation,
 	code string,
-	providerThreadID *string,
-	providerDisposed bool,
+	retainedCarrier *conversationCarrier,
 	cause error,
 ) error {
 	diagnosticID, idErr := service.newID("side_diagnostic")
@@ -523,11 +529,9 @@ func (service *Service) failPreparingSideConversation(
 	failed.ParentStatus = snapshot.Conversation.Status
 	failed.Status = SideConversationStatusFailed
 	failed.UpdatedAt = advanceTimestamp(failed.UpdatedAt, service.timestamp())
-	failed.ProviderThreadID = cloneStringPointer(providerThreadID)
-	if providerDisposed {
+	if retainedCarrier == nil {
 		failed.DisposedAt = &failed.UpdatedAt
 	}
-	failed.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = cloneStringPointer(providerThreadID)
 	failure := Failure{
 		Code:                code,
 		Message:             cause.Error(),
@@ -544,6 +548,9 @@ func (service *Service) failPreparingSideConversation(
 	persistErr := service.persistSideConversation(context.Background(), &expected, failed)
 	if persistErr != nil {
 		return errors.Join(cause, fmt.Errorf("persist failed side conversation: %w", persistErr))
+	}
+	if retainedCarrier != nil {
+		service.carriers.remember(*retainedCarrier)
 	}
 	return cause
 }
@@ -627,12 +634,17 @@ func validateSideCarrier(thread agent.Thread, modelID string) error {
 	return nil
 }
 
-func (service *Service) cleanupRejectedSideCarrier(threadID string) (*string, bool, error) {
-	if threadID == "" {
-		return nil, false, nil
+// cleanupRejectedSideCarrier drops a carrier the side will never run on. It
+// returns the carrier only when the provider still holds it, so the caller knows
+// whether the side conversation is already settled or still owes cleanup.
+func (service *Service) cleanupRejectedSideCarrier(
+	carrier conversationCarrier,
+) (*conversationCarrier, error) {
+	if carrier.threadID == "" {
+		return nil, nil
 	}
-	if err := service.agent.UnsubscribeThread(context.Background(), threadID); err != nil {
-		return &threadID, false, fmt.Errorf("unsubscribe rejected side carrier %s: %w", threadID, err)
+	if err := service.agent.UnsubscribeThread(context.Background(), carrier.threadID); err != nil {
+		return &carrier, fmt.Errorf("unsubscribe rejected side carrier %s: %w", carrier.threadID, err)
 	}
-	return &threadID, true, nil
+	return nil, nil
 }

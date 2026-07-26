@@ -91,22 +91,19 @@ func (transaction *WriteTransaction) InsertSideConversation(side SideConversatio
 	}
 	_, err = transaction.tx.ExecContext(transaction.ctx, `
 INSERT INTO side_conversations (
-  id, parent_conversation_id, decision_source, provider_thread_id,
-  source_provider_turn_id, source_trajectory_sequence,
-  last_event_sequence, active_turn_id, active_provider_turn_id, status,
+  id, parent_conversation_id, decision_source, source_turn_id,
+  source_trajectory_sequence, last_event_sequence, active_turn_id, status,
   resolved_side_agent_invocation_json, created_at, updated_at, disposed_at,
   failure_json
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `,
 		side.ID,
 		side.ParentConversationID,
 		side.DecisionSource,
-		nullableString(side.ProviderThreadID),
-		nullableString(side.SourceProviderTurnID),
+		nullableString(side.SourceTurnID),
 		side.SourceTrajectorySequence,
 		side.LastEventSequence,
 		nullableString(side.ActiveTurnID),
-		nullableString(side.ActiveProviderTurnID),
 		side.Status,
 		invocationJSON,
 		side.CreatedAt,
@@ -140,8 +137,8 @@ func (transaction *WriteTransaction) UpdateSideConversation(
 	}
 	result, err := transaction.tx.ExecContext(transaction.ctx, `
 UPDATE side_conversations
-SET provider_thread_id = ?, source_provider_turn_id = ?, last_event_sequence = ?,
-    active_turn_id = ?, active_provider_turn_id = ?, status = ?,
+SET source_turn_id = ?, last_event_sequence = ?,
+    active_turn_id = ?, status = ?,
     resolved_side_agent_invocation_json = ?, updated_at = ?, disposed_at = ?,
     failure_json = ?
 WHERE id = ?
@@ -152,11 +149,9 @@ WHERE id = ?
   AND status = ?
   AND updated_at = ?
 `,
-		nullableString(side.ProviderThreadID),
-		nullableString(side.SourceProviderTurnID),
+		nullableString(side.SourceTurnID),
 		side.LastEventSequence,
 		nullableString(side.ActiveTurnID),
-		nullableString(side.ActiveProviderTurnID),
 		side.Status,
 		invocationJSON,
 		side.UpdatedAt,

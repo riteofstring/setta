@@ -53,7 +53,6 @@ func validateTrajectoryEventEnvelope(event TrajectoryEvent) error {
 		value *string
 	}{
 		{label: "trajectory provider event id", value: event.ProviderEventID},
-		{label: "trajectory provider thread id", value: event.ProviderThreadID},
 		{label: "trajectory provider turn id", value: event.ProviderTurnID},
 	} {
 		if err := validateOptionalIdentifier(field.label, field.value); err != nil {

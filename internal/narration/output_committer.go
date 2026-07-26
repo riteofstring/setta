@@ -223,7 +223,6 @@ func (committer *OutputCommitter) successfulInvocation(
 	}
 	endedAt := result.EndedAt
 	requestID := result.RequestID
-	threadID := result.ProviderThreadID
 	turnID := result.ProviderTurnID
 	invocation := conversation.ResolvedInvocation{
 		ID:        id,
@@ -232,7 +231,6 @@ func (committer *OutputCommitter) successfulInvocation(
 		Requested: result.Model.RequestedProfile,
 		Resolved:  result.Model.Settings,
 		ProviderReferences: conversation.InvocationProviderReferences{
-			ThreadID:  &threadID,
 			TurnID:    &turnID,
 			RequestID: &requestID,
 		},
@@ -621,7 +619,6 @@ func cloneResolvedInvocation(value conversation.ResolvedInvocation) conversation
 		[]string{},
 		value.Resolved.PermissionProfile.ToolAccess.AllowedTools...,
 	)
-	cloned.ProviderReferences.ThreadID = cloneOptionalString(value.ProviderReferences.ThreadID)
 	cloned.ProviderReferences.TurnID = cloneOptionalString(value.ProviderReferences.TurnID)
 	cloned.ProviderReferences.RequestID = cloneOptionalString(value.ProviderReferences.RequestID)
 	cloned.ProviderReferences.ResponseID = cloneOptionalString(value.ProviderReferences.ResponseID)

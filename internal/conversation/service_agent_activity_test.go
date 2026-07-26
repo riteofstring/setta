@@ -324,15 +324,13 @@ func agentActivityEvent(kind agent.EventKind, activity agent.ActivityEvent) agen
 
 func activityMappingTrajectory() TrajectoryEvent {
 	turnID := "turn-director"
-	providerThreadID := "provider-thread-1"
 	providerTurnID := "provider-turn-1"
 	return TrajectoryEvent{
-		ID:               "trajectory-activity",
-		ConversationID:   "conversation-director",
-		TurnID:           &turnID,
-		Sequence:         1,
-		EmittedAt:        testTimeStarted,
-		ProviderThreadID: &providerThreadID,
-		ProviderTurnID:   &providerTurnID,
+		ID:             "trajectory-activity",
+		ConversationID: "conversation-director",
+		TurnID:         &turnID,
+		Sequence:       1,
+		EmittedAt:      testTimeStarted,
+		ProviderTurnID: &providerTurnID,
 	}
 }

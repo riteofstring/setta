@@ -10,7 +10,7 @@ import (
 func readSnapshotTrajectory(ctx context.Context, reader snapshotReader, conversationID string) (ConversationTrajectoryWindow, error) {
 	rows, err := reader.QueryContext(ctx, `
 SELECT id, conversation_id, turn_id, sequence, emitted_at, kind, actor,
-       provider_event_id, provider_thread_id, provider_turn_id, payload_json
+       provider_event_id, provider_turn_id, payload_json
 FROM trajectory_events
 WHERE conversation_id = ?
 ORDER BY sequence DESC
@@ -179,22 +179,19 @@ func readSnapshotSides(
 	parentStatus ConversationStatus,
 ) ([]SideConversation, error) {
 	rows, err := reader.QueryContext(ctx, `
-SELECT id, parent_conversation_id, decision_source, provider_thread_id,
-       source_provider_turn_id, source_trajectory_sequence,
-       last_event_sequence, active_turn_id, active_provider_turn_id, status,
+SELECT id, parent_conversation_id, decision_source, source_turn_id,
+       source_trajectory_sequence, last_event_sequence, active_turn_id, status,
        resolved_side_agent_invocation_json, created_at, updated_at, disposed_at,
        failure_json
 FROM (
-  SELECT id, parent_conversation_id, decision_source, provider_thread_id,
-         source_provider_turn_id, source_trajectory_sequence,
-         last_event_sequence, active_turn_id, active_provider_turn_id, status,
+  SELECT id, parent_conversation_id, decision_source, source_turn_id,
+         source_trajectory_sequence, last_event_sequence, active_turn_id, status,
          resolved_side_agent_invocation_json, created_at, updated_at, disposed_at,
          failure_json
   FROM side_conversations
   WHERE parent_conversation_id = ?
   ORDER BY CASE
-             WHEN disposed_at IS NULL
-               AND (status <> 'failed' OR provider_thread_id IS NOT NULL) THEN 0
+             WHEN disposed_at IS NULL THEN 0
              WHEN status = 'failed' THEN 2
              ELSE 1
            END ASC,
@@ -230,8 +227,7 @@ WITH selected_sides AS (
   FROM side_conversations
   WHERE parent_conversation_id = ?
   ORDER BY CASE
-             WHEN disposed_at IS NULL
-               AND (status <> 'failed' OR provider_thread_id IS NOT NULL) THEN 0
+             WHEN disposed_at IS NULL THEN 0
              WHEN status = 'failed' THEN 2
              ELSE 1
            END ASC,

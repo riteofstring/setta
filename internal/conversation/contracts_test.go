@@ -101,15 +101,13 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 		ParentConversationID:        conversationID,
 		ParentStatus:                snapshot.Conversation.Status,
 		DecisionSource:              BranchDecisionSourceConversationRouter,
-		ProviderThreadID:            stringPointer("provider-side-thread"),
-		SourceProviderTurnID:        stringPointer("provider-turn-1"),
+		SourceTurnID:                stringPointer("turn-parent"),
 		SourceTrajectorySequence:    1,
 		Status:                      SideConversationStatusActive,
 		ResolvedSideAgentInvocation: validInvocation(RoleSideAgent, InvocationOutcomeRunning),
 		CreatedAt:                   testTimeStarted,
 		UpdatedAt:                   testTimeStarted,
 	}
-	side.ResolvedSideAgentInvocation.ProviderReferences.ThreadID = stringPointer("provider-side-thread")
 	sideEventTrajectory := trajectory
 	sideEventTrajectory.ID = "side-event-1"
 	sideEventTrajectory.ConversationID = side.ID
