@@ -35,28 +35,6 @@ describe("conversation event stream", () => {
     expect(forwarded).toEqual([event]);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
-
-  test("reports reconnect failures without writing to a process stream", async () => {
-    const disconnected: unknown[] = [];
-    const stream = startConversationEventStream({
-      baseURL: "http://127.0.0.1:41000",
-      conversationId: "conversation_api",
-      cursor: { sequence: 0, streamId: "conversation:conversation_api" },
-      fetchImpl: vi.fn(async () => {
-        throw new Error("conversation stream unavailable");
-      }),
-      reconnectDelayMs: 10_000,
-      reportDisconnect: (error) => disconnected.push(error),
-      sendEvent: vi.fn(),
-      workspaceId: "workspace_api",
-    });
-
-    await waitFor(() => disconnected.length === 1);
-    await stream.stop();
-
-    expect(disconnected).toHaveLength(1);
-    expect(disconnected[0]).toEqual(new Error("conversation stream unavailable"));
-  });
 });
 
 function resyncEvent(sequence: number): ConversationEvent {

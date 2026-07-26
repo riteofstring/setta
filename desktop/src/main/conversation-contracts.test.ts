@@ -55,7 +55,6 @@ const eventDispositionByType = {
   "conversation.updated": (payload) => payload.conversation.status,
   "conversation.turn.updated": (payload) => payload.turn.status,
   "conversation.queue.updated": (payload) => `queue:${payload.queue.length}`,
-  "conversation.thread_binding.updated": (payload) => payload.binding.status,
   "conversation.trajectory.appended": (payload) => payload.event.kind,
   "conversation.artifact.created": (payload) => payload.artifact.kind,
   "conversation.narrator_state.updated": (payload) => payload.state.status,
