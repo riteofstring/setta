@@ -40,6 +40,10 @@ type conversationExecutionScope struct {
 	// workspace, and for an unbound one it is a private Setta-owned directory
 	// that is not a workspace.
 	workingDirectory string
+	// privatePathAliases are the equivalent absolute spellings redacted from an
+	// unbound provider's output. They are resolved once with the scope instead
+	// of consulting the filesystem for every streamed event.
+	privatePathAliases []string
 }
 
 // resolveExecutionScope resolves where one conversation's next turn runs. A
@@ -55,7 +59,9 @@ func (service *Service) resolveExecutionScope(
 		if err != nil {
 			return conversationExecutionScope{}, err
 		}
-		return conversationExecutionScope{workingDirectory: directory}, nil
+		scope := conversationExecutionScope{workingDirectory: directory}
+		scope.privatePathAliases = resolvePrivateWorkingDirectoryAliases(directory)
+		return scope, nil
 	}
 	summary, err := service.workspaces.ResolveActiveWorkspace(*workspaceID)
 	if err != nil {
@@ -82,15 +88,52 @@ func (service *Service) unboundWorkingDirectory(conversationID string) (string, 
 			conversationID,
 		)
 	}
-	directory := filepath.Join(service.store.appDataDir, unboundWorkingDirectoryName, conversationID)
-	if err := os.MkdirAll(directory, 0o700); err != nil {
+	root := filepath.Join(service.store.appDataDir, unboundWorkingDirectoryName)
+	if err := os.MkdirAll(root, 0o700); err != nil {
+		return "", &PersistenceError{
+			Operation: "create private conversation working-directory root",
+			Path:      root,
+			Err:       err,
+		}
+	}
+	if err := enforcePrivateWorkingDirectory(root, "secure private conversation working-directory root"); err != nil {
+		return "", err
+	}
+	directory := filepath.Join(root, conversationID)
+	if err := os.Mkdir(directory, 0o700); err != nil && !os.IsExist(err) {
 		return "", &PersistenceError{
 			Operation: "create private conversation working directory",
 			Path:      directory,
 			Err:       err,
 		}
 	}
+	if err := enforcePrivateWorkingDirectory(directory, "secure private conversation working directory"); err != nil {
+		return "", err
+	}
 	return directory, nil
+}
+
+// enforcePrivateWorkingDirectory rejects a file or symlink in place of either
+// app-owned directory and reapplies owner-only permissions on reuse. Following a
+// pre-created symlink would let an unbound provider run somewhere Setta never
+// selected, defeating the separation between execution storage and a user's
+// authorized workspace.
+func enforcePrivateWorkingDirectory(path string, operation string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return &PersistenceError{Operation: operation, Path: path, Err: err}
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return &PersistenceError{
+			Operation: operation,
+			Path:      path,
+			Err:       fmt.Errorf("expected an app-owned directory, got mode %s", info.Mode()),
+		}
+	}
+	if err := os.Chmod(path, 0o700); err != nil {
+		return &PersistenceError{Operation: operation, Path: path, Err: err}
+	}
+	return nil
 }
 
 // validateWorkingDirectorySegment proves a Setta id can name a directory. Ids

@@ -14,8 +14,8 @@ import (
 )
 
 // TestDirectorFolderlessWorkstreamStartsWithoutAFolder proves a folderless
-// workstream is created rather than refused. It exists and is selectable; only
-// running work needs the folder.
+// workstream is created rather than refused. It exists, is selectable, and can
+// run any work that does not need the user's files.
 func TestDirectorFolderlessWorkstreamStartsWithoutAFolder(t *testing.T) {
 	store, service, _, _ := newConversationServiceTestHarness(t, t.TempDir())
 	t.Cleanup(func() {
@@ -221,6 +221,7 @@ func TestDirectorRunsAnUnboundTurnInAPrivateWorkingDirectory(t *testing.T) {
 	}
 	requireUnboundPrivateTurnDirectory(t, service, active, appDataDir, workspaceID)
 	requireUnauthorizedPrivateFileReference(t, ctx, service, active)
+	requirePrivateExecutionPathRejected(t, ctx, service, active)
 
 	if _, err := service.QueueDirectorTurn(ctx, nil, conversationID, "queued unbound", "turn-unbound-2"); err != nil {
 		t.Fatalf("QueueDirectorTurn without a workspace: %v", err)
@@ -237,7 +238,294 @@ func TestDirectorRunsAnUnboundTurnInAPrivateWorkingDirectory(t *testing.T) {
 	}
 	runtime.waitForStart(t, "queued unbound")
 
-	awaitSettledUnboundConversation(t, ctx, service, conversationID)
+	settled := awaitSettledUnboundConversation(t, ctx, service, conversationID)
+	if len(settled.Artifacts.Artifacts) != 0 {
+		t.Fatalf("private generated files became artifacts: %+v", settled.Artifacts.Artifacts)
+	}
+}
+
+func TestDirectorCommandsRequireTheCurrentOptionalWorkspaceBinding(t *testing.T) {
+	appDataDir := t.TempDir()
+	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, appDataDir)
+	t.Cleanup(func() {
+		shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = service.Shutdown(shutdownContext)
+		_ = store.Close()
+	})
+	ctx := context.Background()
+	conversationID := "conversation-director-scope-proof"
+	if _, err := service.StartDirectorWorkstream(ctx, DirectorWorkstreamStart{
+		ConversationID: conversationID,
+		Title:          "Scope proof",
+	}); err != nil {
+		t.Fatalf("StartDirectorWorkstream: %v", err)
+	}
+
+	if _, err := service.SendDirectorTurn(
+		ctx,
+		&workspaceID,
+		conversationID,
+		"must not cross into a workspace",
+		"turn-wrong-bound-scope",
+	); !errors.Is(err, ErrConversationNotFound) {
+		t.Fatalf("bound caller addressed unbound conversation: %T %v", err, err)
+	}
+	if _, err := service.BindFolderResource(ctx, workspaceID, conversationID); err != nil {
+		t.Fatalf("BindFolderResource: %v", err)
+	}
+	if _, err := service.SendDirectorTurn(
+		ctx,
+		nil,
+		conversationID,
+		"must not drop the workspace",
+		"turn-wrong-unbound-scope",
+	); !errors.Is(err, ErrConversationNotFound) {
+		t.Fatalf("unbound caller addressed bound conversation: %T %v", err, err)
+	}
+	privateDirectory := filepath.Join(appDataDir, unboundWorkingDirectoryName, conversationID)
+	if _, err := os.Stat(privateDirectory); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("rejected scope created private directory %q: %v", privateDirectory, err)
+	}
+	if requests := runtime.turnRequests(); len(requests) != 0 {
+		t.Fatalf("rejected scope reached provider turns: %+v", requests)
+	}
+}
+
+func TestBindingFolderDuringUnboundRunFreezesTheRunAndRotatesTheNextCarrier(t *testing.T) {
+	appDataDir := t.TempDir()
+	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, appDataDir)
+	t.Cleanup(func() {
+		shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = service.Shutdown(shutdownContext)
+		_ = store.Close()
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	conversationID := "conversation-bind-during-unbound-run"
+	if _, err := service.StartDirectorWorkstream(ctx, DirectorWorkstreamStart{
+		ConversationID: conversationID,
+		Title:          "Bind during work",
+	}); err != nil {
+		t.Fatalf("StartDirectorWorkstream: %v", err)
+	}
+	if _, err := service.SendDirectorTurn(
+		ctx,
+		nil,
+		conversationID,
+		"hold",
+		"turn-before-folder-binding",
+	); err != nil {
+		t.Fatalf("SendDirectorTurn: %v", err)
+	}
+	runtime.waitForStart(t, "hold")
+	first := service.activeFor(conversationID)
+	if first == nil {
+		t.Fatal("unbound turn was not active")
+	}
+	privateRoot := first.scope.workingDirectory
+	firstThreadID := first.providerThreadID
+
+	bound, err := service.BindFolderResource(ctx, workspaceID, conversationID)
+	if err != nil {
+		t.Fatalf("BindFolderResource while active: %v", err)
+	}
+	if bound.Conversation.WorkspaceID == nil || *bound.Conversation.WorkspaceID != workspaceID {
+		t.Fatalf("bound conversation = %+v", bound.Conversation)
+	}
+	if _, err := service.QueueDirectorTurn(
+		ctx,
+		&workspaceID,
+		conversationID,
+		"hold bound",
+		"turn-after-folder-binding",
+	); err != nil {
+		t.Fatalf("QueueDirectorTurn after binding: %v", err)
+	}
+	if _, err := service.SteerDirectorTurn(
+		ctx,
+		&workspaceID,
+		conversationID,
+		"finish the unbound run",
+		first.turnID,
+		"director-decision-after-binding",
+	); err != nil {
+		t.Fatalf("SteerDirectorTurn after binding: %v", err)
+	}
+
+	runtime.waitForStart(t, "hold bound")
+	second := service.activeFor(conversationID)
+	if second == nil {
+		t.Fatal("bound queued turn was not active")
+	}
+	workspaceSummary, err := service.workspaces.ResolveActiveWorkspace(workspaceID)
+	if err != nil {
+		t.Fatalf("ResolveActiveWorkspace: %v", err)
+	}
+	if second.scope.workspaceID == nil ||
+		*second.scope.workspaceID != workspaceID ||
+		second.scope.authorizedRoot != workspaceSummary.RootPath ||
+		second.scope.workingDirectory != workspaceSummary.RootPath {
+		t.Fatalf("promoted turn scope = %+v", second.scope)
+	}
+	if second.providerThreadID == firstThreadID {
+		t.Fatalf("bound turn reused unbound carrier %s", firstThreadID)
+	}
+	if unsubscribed := runtime.unsubscribedThreads(); len(unsubscribed) != 1 ||
+		unsubscribed[0] != firstThreadID {
+		t.Fatalf("scope rotation unsubscribed threads = %v, want %s", unsubscribed, firstThreadID)
+	}
+	if _, err := service.SteerDirectorTurn(
+		ctx,
+		&workspaceID,
+		conversationID,
+		"finish the bound run",
+		second.turnID,
+		"director-decision-finish-bound",
+	); err != nil {
+		t.Fatalf("finish bound queued turn: %v", err)
+	}
+
+	completed := assertServiceSnapshotByID(t, ctx, service, conversationID, func(snapshot ConversationSnapshot) bool {
+		if len(snapshot.Turns.Turns) != 2 || len(snapshot.Queue) != 0 ||
+			snapshot.Conversation.Status != ConversationStatusIdle {
+			return false
+		}
+		for _, turn := range snapshot.Turns.Turns {
+			if turn.Status != TurnStatusCompleted {
+				return false
+			}
+		}
+		return true
+	})
+	if len(completed.Artifacts.Artifacts) != 1 ||
+		completed.Artifacts.Artifacts[0].TurnID == nil ||
+		*completed.Artifacts.Artifacts[0].TurnID != second.turnID {
+		t.Fatalf("artifacts across scope rotation = %+v", completed.Artifacts.Artifacts)
+	}
+	if strings.Contains(completed.Artifacts.Artifacts[0].Title, privateRoot) {
+		t.Fatalf("private working directory leaked into artifact metadata: %+v", completed.Artifacts.Artifacts[0])
+	}
+}
+
+func TestDirectorControlsAndRecoversUnboundTurns(t *testing.T) {
+	store, service, runtime, _ := newConversationServiceTestHarness(t, t.TempDir())
+	t.Cleanup(func() {
+		shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = service.Shutdown(shutdownContext)
+		_ = store.Close()
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	conversationID := "conversation-director-unbound-controls"
+	if _, err := service.StartDirectorWorkstream(ctx, DirectorWorkstreamStart{
+		ConversationID: conversationID,
+		Title:          "Unbound controls",
+	}); err != nil {
+		t.Fatalf("StartDirectorWorkstream: %v", err)
+	}
+	if _, err := service.SendDirectorTurn(
+		ctx,
+		nil,
+		conversationID,
+		"approval",
+		"turn-unbound-approval",
+	); err != nil {
+		t.Fatalf("SendDirectorTurn approval: %v", err)
+	}
+	runtime.waitForStart(t, "approval")
+	waiting := assertServiceSnapshotByID(t, ctx, service, conversationID, func(snapshot ConversationSnapshot) bool {
+		return snapshot.Conversation.Status == ConversationStatusWaitingForApproval
+	})
+	if _, err := service.SubmitDirectorApproval(
+		ctx,
+		nil,
+		conversationID,
+		"turn-unbound-approval",
+		ConversationApprovalResponse{
+			ApprovalID: latestPendingApprovalID(waiting),
+			Decision:   TrajectoryApprovalDecisionAnswered,
+			Answers: []ConversationApprovalAnswer{{
+				QuestionID: "scope",
+				Answers:    []string{"focused"},
+			}},
+		},
+	); err != nil {
+		t.Fatalf("SubmitDirectorApproval without a workspace: %v", err)
+	}
+	assertServiceSnapshotByID(t, ctx, service, conversationID, func(snapshot ConversationSnapshot) bool {
+		turn, err := findConversationTurn(snapshot, "turn-unbound-approval")
+		return err == nil &&
+			turn.Status == TurnStatusCompleted &&
+			service.activeFor(conversationID) == nil
+	})
+
+	if _, err := service.SendDirectorTurn(
+		ctx,
+		nil,
+		conversationID,
+		"hold cancel",
+		"turn-unbound-cancel",
+	); err != nil {
+		t.Fatalf("SendDirectorTurn cancellation: %v", err)
+	}
+	runtime.waitForStart(t, "hold cancel")
+	if _, err := service.CancelDirectorTurn(
+		ctx,
+		nil,
+		conversationID,
+		"turn-unbound-cancel",
+	); err != nil {
+		t.Fatalf("CancelDirectorTurn without a workspace: %v", err)
+	}
+	assertServiceSnapshotByID(t, ctx, service, conversationID, func(snapshot ConversationSnapshot) bool {
+		turn, err := findConversationTurn(snapshot, "turn-unbound-cancel")
+		return err == nil &&
+			turn.Status == TurnStatusCancelled &&
+			service.activeFor(conversationID) == nil
+	})
+
+	runtime.mu.Lock()
+	runtime.runProviderMissing = 1
+	runtime.mu.Unlock()
+	if _, err := service.SendDirectorTurn(
+		ctx,
+		nil,
+		conversationID,
+		"recover unbound",
+		"turn-unbound-failed",
+	); err != nil {
+		t.Fatalf("SendDirectorTurn before recovery: %v", err)
+	}
+	assertServiceSnapshotByID(t, ctx, service, conversationID, func(snapshot ConversationSnapshot) bool {
+		turn, err := findConversationTurn(snapshot, "turn-unbound-failed")
+		return err == nil &&
+			turn.Status == TurnStatusFailed &&
+			service.activeFor(conversationID) == nil
+	})
+	if _, err := service.RecoverDirectorTurn(
+		ctx,
+		nil,
+		conversationID,
+		"turn-unbound-failed",
+		"turn-unbound-recovered",
+	); err != nil {
+		t.Fatalf("RecoverDirectorTurn without a workspace: %v", err)
+	}
+	runtime.waitForStart(t, "recover unbound")
+	recovered := assertServiceSnapshotByID(t, ctx, service, conversationID, func(snapshot ConversationSnapshot) bool {
+		turn, err := findConversationTurn(snapshot, "turn-unbound-recovered")
+		return err == nil &&
+			turn.Status == TurnStatusCompleted &&
+			snapshot.Conversation.Status == ConversationStatusIdle
+	})
+	if len(recovered.Artifacts.Artifacts) != 0 {
+		t.Fatalf("unbound lifecycle published private files: %+v", recovered.Artifacts.Artifacts)
+	}
 }
 
 // requireUnboundPrivateTurnDirectory proves the provider was given a private
@@ -313,12 +601,68 @@ func requireUnauthorizedPrivateFileReference(
 	}
 }
 
+func requirePrivateExecutionPathRejected(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	active *activeConversationTurn,
+) {
+	t.Helper()
+	privatePath := filepath.Join(active.scope.workingDirectory, "private-output.md")
+	_, emitErr := service.emitArtifactFromTool(
+		ctx,
+		active.scope,
+		active.conversationID,
+		active.turnID,
+		agent.DynamicToolCall{
+			CallID:           "provider-tool-call-private-execution-path",
+			ConversationID:   active.conversationID,
+			TurnID:           active.turnID,
+			ProviderThreadID: active.providerThreadID,
+			ProviderTurnID:   active.providerTurnID,
+			Namespace:        artifactToolNamespace,
+			Tool:             artifactToolName,
+			Arguments: artifactToolArguments(
+				t,
+				"Private output at "+privatePath,
+				fmt.Sprintf(`root = Document([Text(%q)])`, privatePath),
+			),
+		},
+	)
+	var failure *artifactToolFailureError
+	if !errors.As(emitErr, &failure) ||
+		failure.code != artifactToolFailureInvalidField ||
+		!failure.retryable {
+		t.Fatalf("private execution path artifact = %v, want a retryable field error", emitErr)
+	}
+	requireDynamicToolFieldErrors(t, failure.fieldErrors, []string{"title", "source"})
+}
+
 func awaitSettledUnboundConversation(
 	t *testing.T,
 	ctx context.Context,
 	service *Service,
 	conversationID string,
-) {
+) ConversationSnapshot {
+	t.Helper()
+	return assertServiceSnapshotByID(t, ctx, service, conversationID, func(snapshot ConversationSnapshot) bool {
+		if len(snapshot.Turns.Turns) == 2 &&
+			latestSnapshotTurn(snapshot).Status == TurnStatusCompleted &&
+			len(snapshot.Queue) == 0 &&
+			snapshot.Conversation.Status == ConversationStatusIdle {
+			return true
+		}
+		return false
+	})
+}
+
+func assertServiceSnapshotByID(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	conversationID string,
+	done func(ConversationSnapshot) bool,
+) ConversationSnapshot {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
 	for {
@@ -326,14 +670,11 @@ func awaitSettledUnboundConversation(
 		if err != nil {
 			t.Fatalf("ReadSnapshotByID: %v", err)
 		}
-		if len(snapshot.Turns.Turns) == 2 &&
-			latestSnapshotTurn(snapshot).Status == TurnStatusCompleted &&
-			len(snapshot.Queue) == 0 &&
-			snapshot.Conversation.Status == ConversationStatusIdle {
-			return
+		if done(snapshot) {
+			return snapshot
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("unbound turns did not settle: %+v", snapshot)
+			t.Fatalf("conversation %s did not reach expected state: %+v", conversationID, snapshot)
 		}
 		time.Sleep(5 * time.Millisecond)
 	}

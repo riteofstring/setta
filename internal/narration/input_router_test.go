@@ -187,7 +187,7 @@ func TestConversationInputRouterDeliversFolderlessParentWork(t *testing.T) {
 	router := configuredFixtureInputRouter(fixture.service.inputRouter)
 	inputService := fixtureInputService(t, fixture.store)
 	accepted, err := inputService.SubmitInput(context.Background(), conversation.ConversationInput{
-		ID:             "input-route-folderless-folder-required",
+		ID:             "input-route-folderless-work",
 		ConversationID: fixture.conversationID,
 		Text:           "Inspect the repository files.",
 		Modality:       conversation.ConversationInputModalityText,
@@ -217,6 +217,36 @@ func TestConversationInputRouterDeliversFolderlessParentWork(t *testing.T) {
 		}
 	}
 	assertFixtureRouterProviderRequests(t, fixture.provider, 1)
+}
+
+func TestConversationInputRouterContextLimitsUseEffectiveUnboundProfile(t *testing.T) {
+	fixture := newFolderlessBlankStatusServiceFixture(t)
+	profile := conversation.DefaultNarratorRoleProfile()
+	profile.ContextBudget.MaxInputBytes--
+	profiles := &modelResolverProfileSource{profile: &profile}
+	fixture.service.inputRouter.profiles = profiles
+
+	workspaceID, resolved, limits, err := fixture.service.inputRouter.contextLimits(
+		context.Background(),
+		fixture.conversationID,
+	)
+	if err != nil {
+		t.Fatalf("contextLimits: %v", err)
+	}
+	if workspaceID != "" ||
+		profiles.calls != 1 ||
+		profiles.workspaceID != nil ||
+		profiles.conversationID != fixture.conversationID ||
+		resolved.ContextBudget.MaxInputBytes != profile.ContextBudget.MaxInputBytes ||
+		limits.MaxInputBytes != profile.ContextBudget.MaxInputBytes {
+		t.Fatalf(
+			"unbound router context = workspace:%q profile:%+v limits:%+v source:%+v",
+			workspaceID,
+			resolved,
+			limits,
+			profiles,
+		)
+	}
 }
 
 func TestConversationInputRouterResolvesOneClarificationAndExcludesAnother(t *testing.T) {

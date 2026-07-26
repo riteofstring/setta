@@ -2,9 +2,86 @@ package conversation
 
 import (
 	"context"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestRecoverAgentTurnsInterruptsRestartedUnboundRunAndPromotesQueue(t *testing.T) {
+	appDataDir := t.TempDir()
+	store, original, originalRuntime, _ := newConversationServiceTestHarness(t, appDataDir)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	created, err := original.StartDirectorWorkstream(ctx, DirectorWorkstreamStart{
+		ConversationID: "conversation-unbound-crash-recovery",
+		Title:          "Unbound crash recovery",
+	})
+	if err != nil {
+		t.Fatalf("StartDirectorWorkstream: %v", err)
+	}
+	conversationID := created.Conversation.ID
+	if _, err := original.SendDirectorTurn(
+		ctx,
+		nil,
+		conversationID,
+		"hold",
+		"turn-unbound-before-restart",
+	); err != nil {
+		t.Fatalf("SendDirectorTurn: %v", err)
+	}
+	originalRuntime.waitForStart(t, "hold")
+	if _, err := original.QueueDirectorTurn(
+		ctx,
+		nil,
+		conversationID,
+		"after unbound crash",
+		"turn-unbound-after-restart",
+	); err != nil {
+		t.Fatalf("QueueDirectorTurn: %v", err)
+	}
+	running := assertServiceSnapshotByID(t, ctx, original, conversationID, func(snapshot ConversationSnapshot) bool {
+		return len(snapshot.Queue) == 1
+	})
+	first, err := findConversationTurn(running, "turn-unbound-before-restart")
+	if err != nil || first.Status != TurnStatusRunning || first.ProviderTurnID == nil {
+		t.Fatalf("pre-crash unbound turn = %+v, %v", first, err)
+	}
+
+	restartedRuntime := cloneServiceTestAgentRuntimeForRestart(originalRuntime)
+	restarted, err := NewService(store, original.workspaces, restartedRuntime)
+	if err != nil {
+		t.Fatalf("NewService after crash: %v", err)
+	}
+	cleanupRecoveryServices(t, store, restarted, original)
+	if err := restarted.RecoverAgentTurns(ctx); err != nil {
+		t.Fatalf("RecoverAgentTurns: %v", err)
+	}
+	restartedRuntime.waitForStart(t, "after unbound crash")
+	recovered := assertServiceSnapshotByID(t, ctx, restarted, conversationID, func(snapshot ConversationSnapshot) bool {
+		if len(snapshot.Queue) != 0 || snapshot.Conversation.Status != ConversationStatusIdle {
+			return false
+		}
+		firstTurn, firstErr := findConversationTurn(snapshot, "turn-unbound-before-restart")
+		nextTurn, nextErr := findConversationTurn(snapshot, "turn-unbound-after-restart")
+		return firstErr == nil && nextErr == nil &&
+			firstTurn.Status == TurnStatusCancelled &&
+			nextTurn.Status == TurnStatusCompleted
+	})
+	assertRecoveredTurnInterruption(t, recovered, first.ID)
+	if len(recovered.Artifacts.Artifacts) != 0 {
+		t.Fatalf("unbound restart published private files: %+v", recovered.Artifacts.Artifacts)
+	}
+	requests := restartedRuntime.turnRequests()
+	privateRoot := filepath.Join(appDataDir, unboundWorkingDirectoryName)
+	if len(requests) != 1 || !strings.HasPrefix(requests[0].WorkspaceRoot, privateRoot) {
+		t.Fatalf("restarted unbound provider requests = %+v, want root under %q", requests, privateRoot)
+	}
+	if controls := restartedRuntime.controlsSent(); len(controls) != 0 {
+		t.Fatalf("unbound recovery reached the provider for a dead carrier: %v", controls)
+	}
+}
 
 func TestRecoverAgentTurnsInterruptsRestartedRunAndPromotesQueue(t *testing.T) {
 	store, original, originalRuntime, workspaceID := newConversationServiceTestHarness(t, t.TempDir())

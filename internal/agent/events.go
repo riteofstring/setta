@@ -46,6 +46,10 @@ type Event struct {
 type TextEvent struct {
 	ProviderItemID string `json:"providerItemId"`
 	Text           string `json:"text"`
+	// Final distinguishes a completed reasoning-summary snapshot from the
+	// deltas that use the same EventKind. It is adapter-local stream metadata,
+	// not part of the provider or durable conversation contract.
+	Final bool `json:"-"`
 }
 
 type PlanStep struct {

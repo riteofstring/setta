@@ -380,17 +380,19 @@ func (worker *serviceAttemptWorker) contextLimits(
 	conversationID string,
 ) (ContextLimits, error) {
 	profile := conversation.DefaultNarratorRoleProfile()
+	var workspaceBindingID *string
 	if workspaceID != "" {
-		var err error
-		profile, err = worker.profiles.ReadEffectiveRoleProfile(
-			ctx,
-			&workspaceID,
-			conversationID,
-			profile,
-		)
-		if err != nil {
-			return ContextLimits{}, err
-		}
+		workspaceBindingID = &workspaceID
+	}
+	var err error
+	profile, err = worker.profiles.ReadEffectiveRoleProfile(
+		ctx,
+		workspaceBindingID,
+		conversationID,
+		profile,
+	)
+	if err != nil {
+		return ContextLimits{}, err
 	}
 	if err := validateNarratorRoleProfile(profile); err != nil {
 		return ContextLimits{}, NewAttemptFailure(FailureKindConfigurationInvalid, err)

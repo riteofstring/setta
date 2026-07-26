@@ -49,7 +49,7 @@ func (service *Service) runningProgressState(
 	ctx context.Context,
 	active *activeConversationTurn,
 ) (ConversationSnapshot, ConversationTurn, error) {
-	snapshot, err := service.snapshotLocked(ctx, active.scope.workspaceID, active.conversationID)
+	snapshot, err := service.snapshotByIDLocked(ctx, active.conversationID)
 	if err != nil {
 		return ConversationSnapshot{}, ConversationTurn{}, err
 	}
@@ -352,7 +352,7 @@ func (service *Service) conversationActivityTrajectory(
 	if err != nil {
 		return TrajectoryEvent{}, nil, err
 	}
-	return service.activityTrajectory(trajectory, activity, active.request.WorkspaceRoot, event, now)
+	return service.activityTrajectory(trajectory, activity, active.scope.authorizedRoot, event, now)
 }
 
 func conversationApprovalTrajectory(
@@ -361,7 +361,11 @@ func conversationApprovalTrajectory(
 	event agent.Event,
 	now string,
 ) (TrajectoryEvent, *Artifact, error) {
-	approval, err := conversationApproval(event.Approval, active.request.WorkspaceRoot, now)
+	approval, err := conversationApproval(
+		event.Approval,
+		userVisibleWorkingDirectory(active.scope),
+		now,
+	)
 	if err != nil {
 		return TrajectoryEvent{}, nil, err
 	}

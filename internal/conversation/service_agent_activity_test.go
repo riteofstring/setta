@@ -276,7 +276,15 @@ func writeGeneratedMediaFile(t *testing.T, workspaceRoot string, relativePath st
 }
 
 func imageGenerationActiveTurn(workspaceRoot string) *activeConversationTurn {
-	return &activeConversationTurn{request: agent.TurnRequest{WorkspaceRoot: workspaceRoot}}
+	workspaceID := "workspace-image-generation"
+	return &activeConversationTurn{
+		request: agent.TurnRequest{WorkspaceRoot: workspaceRoot},
+		scope: conversationExecutionScope{
+			workspaceID:      &workspaceID,
+			authorizedRoot:   workspaceRoot,
+			workingDirectory: workspaceRoot,
+		},
+	}
 }
 
 func TestProviderFileChangesUseTheDedicatedDurableContract(t *testing.T) {

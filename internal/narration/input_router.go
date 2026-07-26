@@ -496,15 +496,15 @@ func (router *ConversationInputRouter) contextLimits(
 	profile := conversation.DefaultNarratorRoleProfile()
 	if workspaceBindingID != nil {
 		workspaceID = *workspaceBindingID
-		profile, err = router.profiles.ReadEffectiveRoleProfile(
-			ctx,
-			workspaceBindingID,
-			conversationID,
-			profile,
-		)
-		if err != nil {
-			return "", conversation.RoleProfile{}, ContextLimits{}, NewAttemptFailure(FailureKindConfigurationInvalid, err)
-		}
+	}
+	profile, err = router.profiles.ReadEffectiveRoleProfile(
+		ctx,
+		workspaceBindingID,
+		conversationID,
+		profile,
+	)
+	if err != nil {
+		return "", conversation.RoleProfile{}, ContextLimits{}, NewAttemptFailure(FailureKindConfigurationInvalid, err)
 	}
 	if err := validateNarratorRoleProfile(profile); err != nil {
 		return "", conversation.RoleProfile{}, ContextLimits{}, NewAttemptFailure(FailureKindConfigurationInvalid, err)

@@ -48,7 +48,6 @@ func (service *Service) interruptRestartedAgentTurn(
 		conversationID:     target.ConversationID,
 		interruptionReason: TurnInterruptionRuntimeRestarted,
 		turnID:             target.TurnID,
-		scope:              conversationExecutionScope{workspaceID: target.WorkspaceID},
 	}
 	lock := service.conversationLock(target.ConversationID)
 	lock.Lock()
@@ -68,7 +67,7 @@ func (service *Service) recoverAgentQueues(ctx context.Context) error {
 	}
 	var persistenceErrors []error
 	for _, target := range queued {
-		if err := service.promoteNextTurnWithResult(ctx, target.WorkspaceID, target.ConversationID); err != nil {
+		if err := service.promoteNextTurnWithResult(ctx, target.ConversationID); err != nil {
 			persistenceErrors = append(persistenceErrors, err)
 		}
 	}

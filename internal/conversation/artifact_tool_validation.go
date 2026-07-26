@@ -190,6 +190,73 @@ func validateEmitArtifactFileReferences(document artifactdoc.Document, workspace
 	)
 }
 
+// validateEmitArtifactPrivateExecutionDetails keeps the Setta-owned process
+// directory out of explicit artifacts as well as provider progress. The model
+// receives retryable field guidance instead of publishing an internal host path
+// in a title or document string.
+func validateEmitArtifactPrivateExecutionDetails(
+	input emitArtifactInput,
+	scope conversationExecutionScope,
+) error {
+	fieldErrors := []agent.DynamicToolFieldError{}
+	if containsPrivateWorkingDirectory(scope, input.Title) {
+		fieldErrors = append(fieldErrors, agent.DynamicToolFieldError{
+			Field:   "title",
+			Message: "Remove the internal working-directory path from the artifact title.",
+		})
+	}
+	if containsPrivateWorkingDirectory(scope, input.Source) ||
+		artifactDocumentContainsPrivateWorkingDirectory(scope, input.document) {
+		fieldErrors = append(fieldErrors, agent.DynamicToolFieldError{
+			Field:   "source",
+			Message: "Remove the internal working-directory path from the artifact document.",
+		})
+	}
+	if len(fieldErrors) == 0 {
+		return nil
+	}
+	return newArtifactToolFailureError(
+		artifactToolFailureInvalidField,
+		"the artifact contains a private execution detail",
+		true,
+		fieldErrors,
+		nil,
+	)
+}
+
+func artifactDocumentContainsPrivateWorkingDirectory(
+	scope conversationExecutionScope,
+	document artifactdoc.Document,
+) bool {
+	var contains func(any) bool
+	contains = func(value any) bool {
+		switch typed := value.(type) {
+		case string:
+			return containsPrivateWorkingDirectory(scope, typed)
+		case artifactdoc.Node:
+			for _, property := range typed.Props {
+				if contains(property) {
+					return true
+				}
+			}
+		case []any:
+			for _, item := range typed {
+				if contains(item) {
+					return true
+				}
+			}
+		case map[string]any:
+			for _, item := range typed {
+				if contains(item) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	return contains(document.Root)
+}
+
 func emitArtifactCompileFailure(err error) error {
 	var compileErr *artifactdoc.CompileError
 	if !errors.As(err, &compileErr) || len(compileErr.Diagnostics) == 0 {

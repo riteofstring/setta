@@ -147,6 +147,31 @@ func TestServiceRunsFolderlessTopicTurnsInAPrivateWorkingDirectory(t *testing.T)
 	}
 }
 
+func TestServiceRejectsSymlinkedUnboundWorkingDirectory(t *testing.T) {
+	appDataDir := t.TempDir()
+	store, service, _, _ := newConversationServiceTestHarness(t, appDataDir)
+	t.Cleanup(func() {
+		shutdownContext, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = service.Shutdown(shutdownContext)
+		_ = store.Close()
+	})
+	conversationID := "conversation-symlinked-private-root"
+	privateRoot := filepath.Join(appDataDir, unboundWorkingDirectoryName)
+	if err := os.MkdirAll(privateRoot, 0o700); err != nil {
+		t.Fatalf("create private working-directory root: %v", err)
+	}
+	outside := t.TempDir()
+	privateDirectory := filepath.Join(privateRoot, conversationID)
+	if err := os.Symlink(outside, privateDirectory); err != nil {
+		t.Fatalf("create private working-directory symlink: %v", err)
+	}
+
+	if _, err := service.resolveExecutionScope(conversationID, nil); !IsPersistenceError(err) {
+		t.Fatalf("symlinked private working directory error = %T %v", err, err)
+	}
+}
+
 // requirePrivateUnboundScope proves an unbound conversation resolves to a real
 // private directory that authorizes nothing and lives outside the user's folder.
 func requirePrivateUnboundScope(
@@ -178,6 +203,18 @@ func requirePrivateUnboundScope(
 	info, err := os.Stat(scope.workingDirectory)
 	if err != nil || !info.IsDir() {
 		t.Fatalf("private working directory %q: %v", scope.workingDirectory, err)
+	}
+	if info.Mode().Perm() != 0o700 {
+		t.Fatalf("private working directory mode = %o, want 700", info.Mode().Perm())
+	}
+	parentInfo, err := os.Stat(filepath.Dir(scope.workingDirectory))
+	if err != nil || !parentInfo.IsDir() || parentInfo.Mode().Perm() != 0o700 {
+		t.Fatalf(
+			"private working-directory root %q mode = %v, %v",
+			filepath.Dir(scope.workingDirectory),
+			parentInfo,
+			err,
+		)
 	}
 	return scope
 }
@@ -715,7 +752,7 @@ func (runtime *serviceTestAgentRuntime) runTestTurnScenario(
 		if err := sink.HandleAgentEvent(rerouted); err != nil {
 			return agent.TurnResult{}, err
 		}
-	case "hold", "hold cancel", "hold fail", "hold after failure":
+	case "hold", "hold bound", "hold cancel", "hold fail", "hold after failure":
 		return runtime.runHeldScenario(ctx, text, sink, base, control, workspaceRoot)
 	}
 	return runtime.emitCompletedTurn(sink, base, text, workspaceRoot)

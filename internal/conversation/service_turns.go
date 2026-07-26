@@ -21,14 +21,14 @@ func (service *Service) sendTurn(
 	if err := validateAuthoredText(text); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	scope, err := service.resolveExecutionScope(conversationID, workspaceID)
-	if err != nil {
-		return ConversationSnapshot{}, err
-	}
 	lock := service.conversationLock(conversationID)
 	lock.Lock()
 	defer lock.Unlock()
 	snapshot, err := service.snapshotLocked(ctx, workspaceID, conversationID)
+	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	scope, err := service.resolveExecutionScope(conversationID, snapshot.Conversation.WorkspaceID)
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
@@ -48,7 +48,6 @@ func (service *Service) sendTurn(
 		persistErr := service.persistUnexpectedTurnEnd(context.Background(), &activeConversationTurn{
 			conversationID: conversationID,
 			turnID:         turn.ID,
-			scope:          scope,
 		}, err)
 		if persistErr != nil {
 			return ConversationSnapshot{}, errors.Join(err, fmt.Errorf("persist rejected turn launch: %w", persistErr))
@@ -96,13 +95,14 @@ func (service *Service) queueTurnWithIdlePromotion(
 	if err := validateAuthoredText(text); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	scope, err := service.resolveExecutionScope(conversationID, workspaceID)
-	if err != nil {
-		return ConversationSnapshot{}, err
-	}
 	lock := service.conversationLock(conversationID)
 	lock.Lock()
 	snapshot, err := service.snapshotLocked(ctx, workspaceID, conversationID)
+	if err != nil {
+		lock.Unlock()
+		return ConversationSnapshot{}, err
+	}
+	scope, err := service.resolveExecutionScope(conversationID, snapshot.Conversation.WorkspaceID)
 	if err != nil {
 		lock.Unlock()
 		return ConversationSnapshot{}, err
@@ -130,7 +130,7 @@ func (service *Service) queueTurnWithIdlePromotion(
 	}
 	lock.Unlock()
 	if shouldPromote {
-		service.promoteNextTurn(workspaceID, conversationID)
+		service.promoteNextTurn(conversationID)
 	}
 	return service.readScopedSnapshot(ctx, workspaceID, conversationID)
 }
@@ -549,7 +549,7 @@ func (service *Service) launchTurnLocked(
 	if err != nil {
 		return err
 	}
-	snapshot, err := service.readScopedSnapshot(context.Background(), scope.workspaceID, turn.ConversationID)
+	snapshot, err := service.snapshotByIDLocked(context.Background(), turn.ConversationID)
 	if err != nil {
 		return err
 	}
@@ -579,10 +579,11 @@ func (service *Service) launchTurnLocked(
 			Invocation:    invocation,
 			DynamicTools:  service.topicAgentArtifactTools(scope, turn.ConversationID, turn.ID),
 		},
-		roleProfile: turn.RequestedRoleProfile,
-		scope:       scope,
-		subagentIDs: map[string]string{},
-		turnID:      turn.ID,
+		roleProfile:        turn.RequestedRoleProfile,
+		scope:              scope,
+		subagentIDs:        map[string]string{},
+		privateStreamTails: map[string]string{},
+		turnID:             turn.ID,
 	}
 	if err := service.reserveActiveTurn(active); err != nil {
 		return err

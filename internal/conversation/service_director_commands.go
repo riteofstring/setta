@@ -22,15 +22,14 @@ type DirectorWorkstreamStart struct {
 	ConversationID string
 	Title          string
 	// WorkspaceID is the folder resource the conversation is scoped to. A nil
-	// workspace is a folderless conversation, which is a first-class workstream
-	// that cannot run work until a folder is bound.
+	// workspace is a first-class unbound conversation that runs work needing no
+	// user files in Setta-managed private execution space.
 	WorkspaceID *string
 }
 
 // StartDirectorWorkstream creates the durable substrate for one new workstream.
-// It starts no turn: a folderless workstream exists and is selectable before it
-// can run anything, so creating it and delivering its first work are separate
-// durable facts.
+// It starts no turn: creating a selectable workstream and delivering its first
+// work are separate durable facts whether or not a folder is bound.
 func (service *Service) StartDirectorWorkstream(
 	ctx context.Context,
 	request DirectorWorkstreamStart,

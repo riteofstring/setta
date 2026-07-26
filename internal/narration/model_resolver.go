@@ -103,15 +103,16 @@ func (resolver *ModelResolver) resolveRoleProfile(
 	conversationID string,
 ) (conversation.RoleProfile, error) {
 	profile := conversation.DefaultNarratorRoleProfile()
-	if workspaceID == "" {
-		return profile, nil
-	}
-	if err := validateIdentifier("narrator model workspace id", workspaceID); err != nil {
-		return conversation.RoleProfile{}, err
+	var workspaceBindingID *string
+	if workspaceID != "" {
+		if err := validateIdentifier("narrator model workspace id", workspaceID); err != nil {
+			return conversation.RoleProfile{}, err
+		}
+		workspaceBindingID = &workspaceID
 	}
 	profile, err := resolver.profiles.ReadEffectiveRoleProfile(
 		ctx,
-		&workspaceID,
+		workspaceBindingID,
 		conversationID,
 		profile,
 	)

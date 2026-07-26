@@ -29,6 +29,21 @@ import (
 type Carrier struct {
 	OwnerID  string
 	ThreadID string
+	// execution is present only on a primary topic carrier. The Director and
+	// side-conversation carriers share this registry but own their execution
+	// contracts elsewhere.
+	execution *carrierExecution
+}
+
+// carrierExecution records the thread-start settings that cannot safely drift
+// while a carrier is reused. Turn start can select a model and CWD again, but
+// workspace authority, sandbox permission, and approval policy belong to the
+// provider thread that was originally started.
+type carrierExecution struct {
+	workspaceID      *string
+	workingDirectory string
+	permissionMode   agent.PermissionMode
+	approvalMode     agent.ApprovalMode
 }
 
 // CarrierRegistry maps Setta ids to the provider threads currently carrying
@@ -91,7 +106,21 @@ func (service *Service) ensureConversationCarrierLocked(
 ) (Carrier, error) {
 	conversationID := snapshot.Conversation.ID
 	if carrier, ok := service.carriers.Lookup(conversationID); ok {
-		return carrier, nil
+		if carrierMatchesExecution(carrier, scope, invocation) {
+			return carrier, nil
+		}
+		// Binding a folder changes the authority and possibly the role profile
+		// the next turn runs under. The old thread can finish the turn it already
+		// owns, but once idle it must be retired rather than silently carrying
+		// the new scope under its old thread-start policy.
+		if err := service.agent.UnsubscribeThread(ctx, carrier.ThreadID); err != nil {
+			return Carrier{}, fmt.Errorf(
+				"unsubscribe topic carrier %s before execution scope changed: %w",
+				carrier.ThreadID,
+				err,
+			)
+		}
+		service.carriers.Forget(conversationID)
 	}
 	items, err := service.carrierReplayItems(ctx, snapshot, profile.ContextBudget.MaxInputBytes)
 	if err != nil {
@@ -114,9 +143,30 @@ func (service *Service) ensureConversationCarrierLocked(
 		}
 		return Carrier{}, cause
 	}
-	carrier := Carrier{OwnerID: conversationID, ThreadID: thread.ID}
+	carrier := Carrier{
+		OwnerID:  conversationID,
+		ThreadID: thread.ID,
+		execution: &carrierExecution{
+			workspaceID:      cloneStringPointer(scope.workspaceID),
+			workingDirectory: scope.workingDirectory,
+			permissionMode:   invocation.PermissionMode,
+			approvalMode:     invocation.ApprovalMode,
+		},
+	}
 	service.carriers.Remember(carrier)
 	return carrier, nil
+}
+
+func carrierMatchesExecution(
+	carrier Carrier,
+	scope conversationExecutionScope,
+	invocation agent.Invocation,
+) bool {
+	return carrier.execution != nil &&
+		equalOptionalString(carrier.execution.workspaceID, scope.workspaceID) &&
+		carrier.execution.workingDirectory == scope.workingDirectory &&
+		carrier.execution.permissionMode == invocation.PermissionMode &&
+		carrier.execution.approvalMode == invocation.ApprovalMode
 }
 
 // carrierReplayTurn is one Setta turn as the provider will see it again. Replay

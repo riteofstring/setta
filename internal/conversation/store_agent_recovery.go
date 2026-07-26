@@ -24,7 +24,7 @@ func (store *Store) listRestartedAgentTurns(
 	targets := []restartedAgentTurn{}
 	err := store.read(ctx, "list restarted agent turns", func(ctx context.Context, connection *sql.Conn) error {
 		rows, err := connection.QueryContext(ctx, `
-SELECT conversation.workspace_id, conversation.id, turn.id
+SELECT conversation.id, turn.id
 FROM conversation_turns AS turn
 JOIN conversations AS conversation
   ON conversation.id = turn.conversation_id
@@ -39,7 +39,6 @@ ORDER BY conversation.id, turn.accepted_at, turn.id
 		for rows.Next() {
 			var target restartedAgentTurn
 			if err := rows.Scan(
-				&target.WorkspaceID,
 				&target.ConversationID,
 				&target.TurnID,
 			); err != nil {
@@ -72,7 +71,7 @@ func (store *Store) listAgentQueueRecoveryTargets(
 	targets := []agentQueueRecoveryTarget{}
 	err := store.read(ctx, "list agent queue recovery targets", func(ctx context.Context, connection *sql.Conn) error {
 		rows, err := connection.QueryContext(ctx, `
-SELECT conversation.workspace_id, conversation.id
+SELECT conversation.id
 FROM conversation_queue AS queue
 JOIN conversation_turns AS turn
   ON turn.id = queue.turn_id
@@ -96,7 +95,7 @@ ORDER BY conversation.id
 		defer rows.Close()
 		for rows.Next() {
 			var target agentQueueRecoveryTarget
-			if err := rows.Scan(&target.WorkspaceID, &target.ConversationID); err != nil {
+			if err := rows.Scan(&target.ConversationID); err != nil {
 				return err
 			}
 			targets = append(targets, target)

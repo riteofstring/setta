@@ -14,6 +14,7 @@ The current plan of record is
 Native artifact routing phase evidence:
 
 - [Phase 1 audit](native-artifact-routing-phase1-audit-20260727.md)
+- [Phase 2 audit](native-artifact-routing-phase2-audit-20260727.md)
 
 OpenUI artifact phase evidence:
 

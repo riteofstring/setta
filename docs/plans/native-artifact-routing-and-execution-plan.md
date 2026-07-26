@@ -183,7 +183,9 @@ turn run.
 
 ### Phase 2 - Workspace-Independent Agent Execution
 
-**Status:** Implemented, ready for phase audit.
+**Status:** Complete. The coherent phase audit, corrections, deterministic
+verification, and live-provider evidence are recorded in
+[`docs/reports/native-artifact-routing-phase2-audit-20260727.md`](../reports/native-artifact-routing-phase2-audit-20260727.md).
 
 - Let an unbound conversation accept, queue, steer, cancel, recover, and complete
   turns without a workspace ID.

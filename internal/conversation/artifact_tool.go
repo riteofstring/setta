@@ -75,6 +75,7 @@ func topicAgentDeveloperInstructions() string {
 Durable user-facing deliverables are emitted through setta.emit_artifact.
 Compose the deliverable as one artifact document: prose, tables, charts, code, metrics, and file references all belong in the same document rather than in separate artifacts.
 Use FileReference only for an existing regular file inside the current authorized workspace. Omit FileReference when the topic has no authorized workspace.
+When the topic has no authorized workspace, treat the absolute process working-directory path as a private Setta execution detail. Never mention it or publish it in an artifact.
 Do not emit an artifact for short conversational answers, exact-text confirmations, acknowledgements, or status replies that do not create standalone durable content.
 If setta.emit_artifact returns a failure with retryable true, correct the listed fieldErrors and retry setta.emit_artifact before completing the turn.
 Final prose summarizes the outcome but is not a substitute for emitting a durable artifact when the response creates a deliverable.
@@ -117,7 +118,7 @@ func (service *Service) handleArtifactToolCall(
 	if !ok {
 		return agent.DynamicToolResult{}, err
 	}
-	if recordErr := service.persistArtifactToolFailure(ctx, scope, conversationID, turnID, call, failure); recordErr != nil {
+	if recordErr := service.persistArtifactToolFailure(ctx, conversationID, turnID, call, failure); recordErr != nil {
 		failure = artifactToolPersistenceFailure(call, recordErr)
 	}
 	return agent.DynamicToolFailureResult(failure)
@@ -139,6 +140,9 @@ func (service *Service) emitArtifactFromTool(
 	}
 	if _, err := service.requireActiveArtifactToolTurn(scope, conversationID, turnID, call); err != nil {
 		return Artifact{}, artifactToolStaleTurnError(err)
+	}
+	if err := validateEmitArtifactPrivateExecutionDetails(input, scope); err != nil {
+		return Artifact{}, err
 	}
 	// File references are authorized against the user's own folder, never against
 	// the directory the provider process happens to run in.

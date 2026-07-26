@@ -159,15 +159,34 @@ func cloneStringPointer(value *string) *string {
 	return &copy
 }
 
-// readScopedSnapshot reads one conversation and proves it belongs to the
-// workspace the caller is acting in. An unbound conversation has no workspace to
-// prove, so the read is by conversation identity alone rather than refused.
+// readScopedSnapshot reads one conversation and proves its current binding is
+// the workspace the caller is acting in. A nil workspace means "prove this
+// conversation is unbound", not "skip the scope check": app-owned operations
+// that intentionally address a conversation by identity use
+// snapshotByIDLocked instead.
 func (service *Service) readScopedSnapshot(
 	ctx context.Context,
 	workspaceID *string,
 	conversationID string,
 ) (ConversationSnapshot, error) {
-	return service.store.readSnapshot(ctx, workspaceID, conversationID, "read scoped conversation snapshot")
+	snapshot, err := service.store.readSnapshot(
+		ctx,
+		workspaceID,
+		conversationID,
+		"read scoped conversation snapshot",
+	)
+	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	if !equalOptionalString(snapshot.Conversation.WorkspaceID, workspaceID) {
+		return ConversationSnapshot{}, fmt.Errorf(
+			"%w: %s/%s",
+			ErrConversationNotFound,
+			optionalWorkspaceLabel(workspaceID),
+			conversationID,
+		)
+	}
+	return snapshot, nil
 }
 
 func (service *Service) snapshotLocked(
@@ -179,6 +198,28 @@ func (service *Service) snapshotLocked(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
+	return mutableConversationSnapshot(snapshot, conversationID)
+}
+
+// snapshotByIDLocked reads mutable state for work Setta already owns. Active
+// turns keep the execution scope they started with even if the user binds a
+// folder while they run, so lifecycle persistence addresses the conversation
+// rather than pretending that old turn gained the new workspace authority.
+func (service *Service) snapshotByIDLocked(
+	ctx context.Context,
+	conversationID string,
+) (ConversationSnapshot, error) {
+	snapshot, err := service.store.ReadSnapshotByID(ctx, conversationID)
+	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	return mutableConversationSnapshot(snapshot, conversationID)
+}
+
+func mutableConversationSnapshot(
+	snapshot ConversationSnapshot,
+	conversationID string,
+) (ConversationSnapshot, error) {
 	if snapshot.Conversation.ArchivedAt != nil {
 		return ConversationSnapshot{}, &CommandConflictError{
 			ConversationID: conversationID,

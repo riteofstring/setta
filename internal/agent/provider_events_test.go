@@ -410,6 +410,57 @@ func TestNormalizedThreadItemsKeepProviderActivityIdentity(t *testing.T) {
 	}
 }
 
+func TestCompletedTextItemsMarkFinalSnapshots(t *testing.T) {
+	base := providerNotificationTestBase()
+	for _, testCase := range []struct {
+		name string
+		item codexapp.ThreadItem
+		kind EventKind
+	}{
+		{
+			name: "agent message",
+			item: codexapp.ThreadItem{
+				Type: codexapp.ThreadItemTypeAgentMessage,
+				AgentMessage: &codexapp.AgentMessageThreadItem{
+					ID:   "agent-final",
+					Text: "final answer",
+					Type: codexapp.ThreadItemTypeAgentMessage,
+				},
+			},
+			kind: EventKindAgentTextCompleted,
+		},
+		{
+			name: "reasoning summary",
+			item: codexapp.ThreadItem{
+				Type: codexapp.ThreadItemTypeReasoning,
+				Reasoning: &codexapp.ReasoningThreadItem{
+					ID:      "reasoning-final",
+					Summary: []string{"final summary"},
+					Type:    codexapp.ThreadItemTypeReasoning,
+				},
+			},
+			kind: EventKindReasoningSummary,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			events, terminal, err := normalizedThreadItem(base, testCase.item, true)
+			if err != nil || terminal != nil || len(events) != 1 {
+				t.Fatalf(
+					"normalize completed text: events=%d terminal=%v err=%v",
+					len(events),
+					terminal,
+					err,
+				)
+			}
+			if events[0].Kind != testCase.kind ||
+				events[0].Text == nil ||
+				!events[0].Text.Final {
+				t.Fatalf("completed text event = %+v, want final %s", events[0], testCase.kind)
+			}
+		})
+	}
+}
+
 func equalActivityEvents(left ActivityEvent, right ActivityEvent) bool {
 	return left.ProviderItemID == right.ProviderItemID &&
 		left.Kind == right.Kind &&

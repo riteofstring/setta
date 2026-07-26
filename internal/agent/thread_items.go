@@ -42,7 +42,11 @@ func normalizedAgentMessage(base Event, item codexapp.ThreadItem, completed bool
 	event := base
 	event.Kind = EventKindAgentTextCompleted
 	event.ProviderEventID = stringPointer(item.AgentMessage.ID)
-	event.Text = &TextEvent{ProviderItemID: item.AgentMessage.ID, Text: item.AgentMessage.Text}
+	event.Text = &TextEvent{
+		ProviderItemID: item.AgentMessage.ID,
+		Text:           item.AgentMessage.Text,
+		Final:          true,
+	}
 	return []Event{event}, nil, nil
 }
 
@@ -56,7 +60,11 @@ func normalizedReasoning(base Event, item codexapp.ThreadItem, completed bool) (
 	event := base
 	event.Kind = EventKindReasoningSummary
 	event.ProviderEventID = stringPointer(item.Reasoning.ID)
-	event.Text = &TextEvent{ProviderItemID: item.Reasoning.ID, Text: strings.Join(item.Reasoning.Summary, "\n")}
+	event.Text = &TextEvent{
+		ProviderItemID: item.Reasoning.ID,
+		Text:           strings.Join(item.Reasoning.Summary, "\n"),
+		Final:          true,
+	}
 	return []Event{event}, nil, nil
 }
 

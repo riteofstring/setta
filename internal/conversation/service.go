@@ -80,7 +80,10 @@ type activeConversationTurn struct {
 	// that every path would otherwise have to assume exists.
 	scope       conversationExecutionScope
 	subagentIDs map[string]string
-	turnID      string
+	// privateStreamTails holds only the suffix of unbound streamed provider text
+	// that could become a private-path match when the next delta arrives.
+	privateStreamTails map[string]string
+	turnID             string
 }
 
 type activeSideConversationTurn struct {
