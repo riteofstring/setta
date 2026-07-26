@@ -3454,3 +3454,27 @@ Stop and reassess rather than hiding the problem if any of these occur:
   `TestCandidateBGatewayWorkContinuesAfterGatewayDisconnect` was observed
   failing once in three runs both with and without this change, so it is
   pre-existing flakiness rather than a regression from it.
+- 2026-07-27 (hosted disconnect flake fixed; a production question it raised):
+  `TestCandidateBGatewayWorkContinuesAfterGatewayDisconnect` failed about one
+  run in three, recording its turn as `cancelled` rather than `completed`. The
+  cause was the test's 100 ms workload lease TTL. `workloadLeaseController.run`
+  renews at half the TTL, leaving 50 ms of margin before
+  `runtimetest.LeaseManager.Renew` calls `expire` and reports the lease absent;
+  any ordinary scheduling pause beat that margin. The controller cancels the
+  turn's context when a renewal fails, so the turn ended on `context.Canceled`
+  and `applyUnexpectedTurnOutcome` persisted it as cancelled with a nil error.
+  The test was measuring the host scheduler rather than disconnect behavior. A
+  one-second TTL keeps several renewals inside the 1.5 s turn, including after
+  the gateway disconnects, with ten times the margin; twenty sequential runs and
+  eighteen concurrent runs under the race detector pass. Raising the turn delay
+  as well was tried and reverted because it produced a different timeout while
+  waiting for the running turn, and the TTL margin alone was the actual cause.
+  Two production observations came out of this and are deliberately not acted on
+  here. First, a single failed lease renewal cancels a user's in-flight turn.
+  That is defensible, since the lease is what keeps the runtime alive and
+  failing loudly beats running unaccounted, but it is a policy worth stating
+  explicitly rather than leaving implicit in a cancel call. Second, the
+  resulting turn carries `TurnInterruptionRuntimeShutdown` and a nil error, so a
+  lease-renewal failure is presented to the user as a runtime shutdown with no
+  explanation. That is a diagnosability gap of exactly the kind the typed
+  hosted-lifecycle failure codes were introduced to close.
