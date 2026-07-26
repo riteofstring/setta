@@ -7,13 +7,8 @@
  *
  * - columns follow durable event order, so an earlier cursor is a prefix
  * - every edge endpoint and turn reference resolves to a packed node
- * - an edge into a failed node carries the failure flag its child carries
+ * - a terminated branch produces no further children
  * - a turn is running exactly when it has no outcome node
- *
- * A failed node may still be followed: a conversation recovers from failures,
- * so the next run chains from the failed outcome it answers. The mockup's
- * "dead ends produce no children" rule described scripted side branches, not
- * durable runs.
  */
 
 import {
@@ -409,6 +404,7 @@ function validateEdge(edge: PackedGraphEdgeInput, view: BatchNodeView): void {
   const from = view.indexOf(edge.fromNodeId);
   const to = view.indexOf(edge.toNodeId);
   requireTrue(from < to, `${label} runs backwards through durable order (${from} -> ${to})`);
+  requireTrue(!view.isTerminal(from), `${label} continues from a terminated branch`);
   requireTrue(
     edge.terminated === view.isTerminal(to),
     `${label} terminated flag does not match its child`,

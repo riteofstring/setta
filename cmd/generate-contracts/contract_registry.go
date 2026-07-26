@@ -7,10 +7,12 @@ import (
 
 	"setta/internal/appearance"
 	"setta/internal/codexaccount"
+	"setta/internal/controlplane"
 	"setta/internal/conversation"
 	"setta/internal/conversation/conversationpalette"
 	"setta/internal/director"
 	"setta/internal/runtimeauth"
+	"setta/internal/runtimecapability"
 	"setta/internal/speech"
 )
 
@@ -99,10 +101,16 @@ func contractValueSets() []contractValueSet {
 	for _, set := range conversation.ContractValueSets() {
 		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
 	}
+	for _, set := range controlplane.ContractValueSets() {
+		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
+	}
 	for _, set := range director.ContractValueSets() {
 		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range runtimeauth.ContractValueSets() {
+		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
+	}
+	for _, set := range runtimecapability.ContractValueSets() {
 		sets = append(sets, contractValueSet{Name: set.Name, Values: set.Values})
 	}
 	for _, set := range speech.ContractValueSets() {

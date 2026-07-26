@@ -345,9 +345,7 @@ describe("packed graph batch validation", () => {
     ).toThrow(message);
   });
 
-  it("accepts an edge that continues from a failed node", () => {
-    // A conversation recovers from failures: the next run chains from the
-    // failed outcome it answers, so a failed node may produce children.
+  it("rejects an edge that continues from a terminated branch", () => {
     const snapshot = extendPackedGraphSnapshot(
       emptyPackedGraphSnapshot("workstream-1"),
       firstBatch({
@@ -358,15 +356,15 @@ describe("packed graph batch validation", () => {
         edges: [makeEdge("input", "step-1", { terminated: true })],
       }),
     );
-    const extended = extendPackedGraphSnapshot(snapshot, {
-      cursorSequence: 9,
-      hasEarlier: false,
-      nodes: [makeNode("step-2", 2, 3)],
-      edges: [makeEdge("step-1", "step-2")],
-      turns: [runningTurn(3)],
-    });
-    expect(extended.nodeCount).toBe(3);
-    expect(extended.edgeCount).toBe(2);
+    expect(() =>
+      extendPackedGraphSnapshot(snapshot, {
+        cursorSequence: 9,
+        hasEarlier: false,
+        nodes: [makeNode("step-2", 2, 3)],
+        edges: [makeEdge("step-1", "step-2")],
+        turns: [runningTurn(3)],
+      }),
+    ).toThrow("terminated branch");
   });
 
   it("rejects an existing turn whose row span regresses", () => {

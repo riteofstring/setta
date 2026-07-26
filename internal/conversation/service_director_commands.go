@@ -130,10 +130,19 @@ func (service *Service) SteerDirectorTurn(
 	targetTurnID string,
 	decisionID string,
 ) (ConversationSnapshot, error) {
+	startedAt := service.now().UTC()
 	if err := validateDirectorRequest(service, ctx); err != nil {
 		return ConversationSnapshot{}, err
 	}
-	return service.steerTurn(ctx, workspaceID, conversationID, text, targetTurnID, decisionID)
+	return service.steerTurn(
+		ctx,
+		workspaceID,
+		conversationID,
+		text,
+		targetTurnID,
+		decisionID,
+		&startedAt,
+	)
 }
 
 // CancelDirectorTurn stops the turn the user asked to stop. The turn is named,

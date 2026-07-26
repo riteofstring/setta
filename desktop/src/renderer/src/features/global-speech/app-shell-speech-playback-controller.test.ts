@@ -274,7 +274,7 @@ describe("app-shell speech playback controller", () => {
     await flushPromises();
 
     expect(harness.audios).toEqual([]);
-    expect(harness.snapshot()).toEqual({ muted: false, queued: [], state: { type: "idle" } });
+    expect(harness.snapshot()).toEqual({ queued: [], state: { type: "idle" } });
     expect(harness.observations).toContainEqual(
       expect.objectContaining({
         action: "synthesized",
@@ -490,42 +490,7 @@ describe("app-shell speech playback controller", () => {
     harness.controller.synchronizeRuntime("runtime-b");
 
     expect(harness.revokedURLs).toEqual(["blob:speech-1"]);
-    expect(harness.snapshot()).toEqual({ muted: false, queued: [], state: { type: "idle" } });
-  });
-
-  test("mute stops active automatic speech, drops arrivals for good, and spares replays", async () => {
-    const harness = createHarness();
-    const speaking = intent("status_reply", "speaking-when-muted");
-    harness.controller.enqueueAutomatic(speaking);
-    harness.resolveSynthesis(0);
-    await flushPromises();
-
-    harness.controller.setMuted(true);
-
-    expect(harness.snapshot().muted).toBe(true);
-    expect(harness.snapshot().state).toEqual({
-      intent: speaking,
-      reason: "user",
-      type: "stopped",
-    });
-    expect(harness.audios[0]!.pause).toHaveBeenCalled();
-
-    // Automatic speech arriving while muted is dropped and stays dropped: the
-    // source is marked seen, so unmuting must not replay it.
-    const droppedWhileMuted = intent("status_reply", "dropped-while-muted");
-    harness.controller.enqueueAutomatic(droppedWhileMuted);
-    expect(harness.snapshot().queued).toEqual([]);
-    harness.controller.setMuted(false);
-    harness.controller.enqueueAutomatic(droppedWhileMuted);
-    expect(harness.snapshot().queued).toEqual([]);
-    expect(harness.snapshot().muted).toBe(false);
-
-    // An explicit replay is the user asking for that audio by hand.
-    harness.controller.setMuted(true);
-    harness.controller.replay(intent("status_reply", "replayed-while-muted"));
-    harness.resolveSynthesis(1);
-    await flushPromises();
-    expect(harness.snapshot().state).toMatchObject({ type: "speaking" });
+    expect(harness.snapshot()).toEqual({ queued: [], state: { type: "idle" } });
   });
 });
 

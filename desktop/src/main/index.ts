@@ -25,9 +25,20 @@ import {
 } from "./codex-account-event-stream";
 import { registerConversationIpcHandlers } from "./conversation-ipc";
 import { ConversationEventRegistry } from "./conversation-event-registry";
+import { DesktopCredentialStore, type RuntimeAccessCredential } from "./desktop-credential-store";
+import { DeveloperHostedRuntimeCredentialClient } from "./developer-hosted-runtime-client";
+import { DeveloperHostedRuntimeController } from "./developer-hosted-runtime-controller";
+import { registerDeveloperHostedRuntimeIpcHandlers } from "./developer-hosted-runtime-ipc";
 import { DirectorEventRegistry } from "./director-event-registry";
 import { registerDirectorIpcHandlers } from "./director-ipc";
+import { createElectronCredentialSecretStore } from "./electron-credential-secret-store";
+import { registerHostedAccessIpcHandlers } from "./hosted-access-ipc";
+import { HostedAccessProgressRegistry } from "./hosted-access-progress-registry";
 import { KnownRuntimeStore } from "./known-runtime-store";
+import {
+  enrollWithLocalRuntimeIssuer,
+  LocalRuntimeCredentialClient,
+} from "./local-runtime-credential-client";
 import {
   createLocalMacOSVoiceHelperFromEnvironment,
   type LocalMacOSVoiceHelper,
@@ -39,6 +50,7 @@ import {
 import { configureMainRendererMicrophonePermissions } from "./microphone-permissions";
 import { registerRuntimeIpcHandlers } from "./runtime-ipc";
 import { registerRoleConfigurationIpcHandlers } from "./role-configuration-ipc";
+import { RuntimeCredentialManager } from "./runtime-credential-manager";
 import { RuntimeRegistryController, type ActiveRuntime } from "./runtime-registry";
 import { SpeechCredentialCoordinator } from "./speech-credential-coordinator";
 import {
@@ -97,6 +109,28 @@ const conversationEvents = new ConversationEventRegistry({
   recordEvent: (event) => {
     recorder?.recordConversationEvent(event);
   },
+  recordDisconnect: (error) => {
+    recorder?.recordAppEvent("conversation_event_stream_disconnected", errorPayload(error));
+  },
+});
+const hostedAccessProgress = new HostedAccessProgressRegistry({
+  reportDisconnect: (error) => {
+    recorder?.recordAppEvent("hosted_access_progress_disconnected", errorPayload(error));
+  },
+  socketPath: hostedAccessSocketPath,
+});
+const developerHostedRuntime = new DeveloperHostedRuntimeController({
+  enabled: process.env.SETTA_DEVELOPER_HOSTED_RUNTIME === "1",
+  hostedWorkspacePath:
+    process.env.SETTA_E2E === "1"
+      ? process.env.SETTA_E2E_DEVELOPER_HOSTED_WORKSPACE_PATH
+      : undefined,
+  openHostedTestWorkspace: async (rootPath) => {
+    await requireBackendClient().openWorkspace({ rootPath });
+  },
+  runtimeRegistry: requireRuntimeRegistry,
+  senders: () => BrowserWindow.getAllWindows().map((window) => window.webContents),
+  socketPath: hostedAccessSocketPath,
 });
 const directorEvents = new DirectorEventRegistry({
   backendConnection: () => {
@@ -156,13 +190,14 @@ async function prepareBackend(appDataDir: string) {
     await runtimeRegistry.load();
     const localRuntime = await runtimeRegistry.registerLocalRuntime({
       baseUrl: backend.url,
-      deviceToken: backend.bootstrapToken,
+      pairingToken: backend.localPairingToken,
     });
     await speechCredentialCoordinator?.setLocalRuntime({
       client: createLocalSpeechCredentialClient(localRuntime),
       runtimeId: localRuntime.runtimeId,
     });
     await runtimeRegistry.connectStoredOrLocal(localRuntime.runtimeId);
+    await developerHostedRuntime.load();
   } catch (error) {
     backend = null;
     localBackendRequests.setStopping(true);
@@ -174,8 +209,17 @@ async function prepareBackend(appDataDir: string) {
 }
 
 function createRuntimeRegistry() {
+  const credentials = new DesktopCredentialStore(
+    createElectronCredentialSecretStore(app.getPath("userData")),
+  );
   return new RuntimeRegistryController({
     clientDisplayName,
+    enrollRuntime: (pairing, displayName) =>
+      enrollWithLocalRuntimeIssuer({
+        clientDisplayName: displayName,
+        fetchImpl: fetch,
+        pairing,
+      }),
     fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
     hooks: {
       activeRuntimeFailed: handleRuntimeFailed,
@@ -184,7 +228,17 @@ function createRuntimeRegistry() {
       beforeRuntimeSwitch,
     },
     onSnapshot: broadcastRuntimeSnapshot,
-    store: new KnownRuntimeStore(app.getPath("userData")),
+    runtimeCredentials: new RuntimeCredentialManager(
+      credentials,
+      new DeveloperHostedRuntimeCredentialClient(
+        () => process.env.SETTA_DEVELOPER_HOSTED_RUNTIME === "1",
+        hostedAccessSocketPath,
+      ),
+      {
+        localRuntimeCredentialClient: new LocalRuntimeCredentialClient(fetch),
+      },
+    ),
+    store: new KnownRuntimeStore(app.getPath("userData"), credentials),
   });
 }
 
@@ -234,8 +288,18 @@ function startBackendEventStreams() {
   codexAccountEventStream = startCodexAccountEventStream({
     baseURL: runtime.baseUrl,
     fetchImpl: backendFetch(),
+    reportDisconnect: (error) => {
+      recorder?.recordAppEvent("codex_account_event_stream_disconnected", errorPayload(error));
+    },
     sendEvent: forwardCodexAccountChange,
   });
+}
+
+function errorPayload(error: unknown): { message: string; name: string } {
+  if (error instanceof Error) {
+    return { message: error.message, name: error.name };
+  }
+  return { message: "non-error stream failure", name: "UnknownError" };
 }
 
 function forwardCodexAccountChange(event: CodexAccountChangeEvent) {
@@ -301,6 +365,17 @@ function clientDisplayName() {
 
 function settaAppDataDir() {
   return process.env.SETTA_APP_DATA_DIR ?? join(homedir(), ".setta");
+}
+
+function hostedAccessSocketPath(): string {
+  const socketPath = process.env.SETTA_HOSTED_ACCESS_SOCKET?.trim() ?? "";
+  if (socketPath === "") {
+    throw new Error("hosted access is not configured");
+  }
+  if (!socketPath.startsWith("/")) {
+    throw new Error("SETTA_HOSTED_ACCESS_SOCKET must be an absolute path");
+  }
+  return socketPath;
 }
 
 function configureElectronUserDataPath() {
@@ -636,6 +711,17 @@ function registerIpc() {
     ipcObserver,
     requireBackendClient,
   });
+  registerHostedAccessIpcHandlers({
+    hostedAccessProgress,
+    ipcMain,
+    ipcObserver,
+    socketPath: hostedAccessSocketPath,
+  });
+  registerDeveloperHostedRuntimeIpcHandlers({
+    controller: developerHostedRuntime,
+    ipcMain,
+    ipcObserver,
+  });
   registerRoleConfigurationIpcHandlers({ ipcMain, ipcObserver, requireBackendClient });
   handleIpc(
     ipcMain,
@@ -689,15 +775,18 @@ function requireBackendClient(): BackendClient {
 
 function createLocalSpeechCredentialClient(localRuntime: {
   baseUrl: string;
-  deviceToken: string;
   runtimeId: string;
 }): BackendClient {
   const fetchImpl = recorder?.createBackendFetch(fetch) ?? fetch;
-  const authenticatedFetch = authenticatedBackendFetch(fetchImpl, localRuntime.deviceToken, () => {
-    if (activeRuntime()?.runtimeId === localRuntime.runtimeId) {
-      void runtimeRegistry?.markActiveRuntimeRevoked();
-    }
-  });
+  const authenticatedFetch = authenticatedBackendFetch(
+    fetchImpl,
+    async () => (await requireRuntimeRegistry().runtimeCredential(localRuntime.runtimeId)).token,
+    () => {
+      if (activeRuntime()?.runtimeId === localRuntime.runtimeId) {
+        void runtimeRegistry?.markActiveRuntimeRevoked();
+      }
+    },
+  );
   return createBackendClient(
     localRuntime.baseUrl,
     localBackendRequests.wrapFetch(authenticatedFetch),
@@ -705,14 +794,30 @@ function createLocalSpeechCredentialClient(localRuntime: {
 }
 
 function backendFetch(): BackendFetch {
-  const runtime = activeRuntime();
-  if (!runtime) {
-    throw new Error(runtimeUnavailableMessage());
-  }
   const fetchImpl = recorder?.createBackendFetch(fetch) ?? fetch;
-  return authenticatedBackendFetch(fetchImpl, runtime.deviceToken, () => {
-    void runtimeRegistry?.markActiveRuntimeRevoked();
-  });
+  return authenticatedBackendFetch(
+    fetchImpl,
+    async () => {
+      const runtime = activeRuntime();
+      if (!runtime) {
+        throw new Error(runtimeUnavailableMessage());
+      }
+      return (await currentRuntimeCredential(runtime)).token;
+    },
+    () => {
+      void runtimeRegistry?.markActiveRuntimeRevoked();
+    },
+  );
+}
+
+async function currentRuntimeCredential(runtime: ActiveRuntime): Promise<RuntimeAccessCredential> {
+  const registry = requireRuntimeRegistry();
+  const credential = await registry.currentRuntimeCredential();
+  const current = activeRuntime();
+  if (!current || current.runtimeId !== runtime.runtimeId) {
+    throw new Error("runtime changed while resolving runtime credential");
+  }
+  return credential;
 }
 
 function activeRuntime(): ActiveRuntime | null {
@@ -783,6 +888,8 @@ async function stopBackend() {
   localBackendRequests.setStopping(true);
   emitBackendProcessStatus({ message: "Backend is stopping", status: "offline" });
   await stopBackendEventStreams();
+  hostedAccessProgress.stopAll();
+  developerHostedRuntime.stop();
   await Promise.all([
     backendRequests.waitForIdle(backendRequestDrainTimeoutMs),
     localBackendRequests.waitForIdle(backendRequestDrainTimeoutMs),

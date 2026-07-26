@@ -70,11 +70,7 @@ export interface PackedGraphNodeInput {
    * builder derives the packed value instead of storing this one unchanged.
    */
   readonly settleAt: number;
-  /**
-   * When the node failed, or null when it did not. This drives the renderer's
-   * failure visual — the red burst and the eclipse — so it is only ever set on
-   * genuinely failed work, never on a run that merely finished.
-   */
+  /** When the node terminated as a dead end, or null when it did not. */
   readonly terminalAt: number | null;
   readonly label: string;
   readonly labelPlacement: PackedGraphLabelPlacement;
@@ -88,7 +84,7 @@ export interface PackedGraphEdgeInput {
   readonly channel: PackedGraphEdgeChannel;
   /** 0..1; modulates the beam. Full confidence is the default state. */
   readonly confidence: number;
-  /** The edge ends at a failed node, so the beam takes the failure colour. */
+  /** The edge ends at a terminated branch. */
   readonly terminated: boolean;
 }
 

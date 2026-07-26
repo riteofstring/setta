@@ -206,11 +206,13 @@ func newRuntimeConversationServices(
 	agentRuntime *agent.Runtime,
 	narrator *narration.Service,
 ) (runtimeConversationServices, error) {
+	outcomeObserver := newConversationOutcomeObserver(config.Stderr)
 	service, err := conversation.NewService(
 		store,
 		workspaces,
 		agentRuntime,
 		conversation.WithNarrationTrajectoryObserver(narrator),
+		conversation.WithOutcomeTimingObserver(outcomeObserver),
 	)
 	if err != nil {
 		shutdownRuntimeConversationServices(config, store, nil, narrator, agentRuntime.Manager())
@@ -252,8 +254,18 @@ func newRuntimeAgentServices(
 	workspaceService *workspacesession.Service,
 ) (runtimeAgentServices, error) {
 	agentRuntime := agent.NewRuntime(agent.Config{
+		Command:     config.CodexCommand,
 		ExcludedEnv: []string{speech.APIKeyEnvironmentVariable},
-		Version:     config.Version,
+		TurnAdmissionGate: newRuntimeDiskAdmissionGate(
+			config.AppDataDir,
+			config.DiskSpacePath,
+			config.MinimumDiskFreeMiB,
+		),
+		Version:               config.Version,
+		WorkloadLeaseManager:  config.WorkloadLeaseManager,
+		WorkloadLeaseName:     config.WorkloadLeaseDiagnosticName,
+		WorkloadLeaseReporter: config.WorkloadLeaseReporter,
+		WorkloadLeaseTTL:      config.WorkloadLeaseTTL,
 	})
 	codexManager := agentRuntime.Manager()
 	// The app-global Director role is resolved from its durable profile when
