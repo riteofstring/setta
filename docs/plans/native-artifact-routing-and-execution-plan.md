@@ -224,7 +224,7 @@ rather than with this execution change.
 
 ### Phase 3 - AI Artifact Semantics
 
-**Status:** Pending.
+**Status:** Implemented, ready for phase audit.
 
 - Offer `setta.emit_artifact` identically in bound and unbound turns.
 - Apply the revised AI-judgment topic-agent instructions.
@@ -233,6 +233,23 @@ rather than with this execution change.
   publication, provenance, and replay.
 - Confirm no artifact expectation or semantic count-enforcement code was
   introduced.
+
+The topic agent is now told that each call publishes one artifact and that
+deciding between one coherent mixed-content artifact and several independently
+useful ones is its judgment, not a rule Setta scripts. The superseded
+"compose the deliverable as one artifact document" instruction is gone, and
+nothing counts, classifies, or repairs the set of documents the agent chose.
+
+Publication is the same capability with or without the user's files. A
+workstream that never bound a folder used to fail its own artifact record with
+"produced artifact without a folder resource"; the rail's artifact record now
+carries the producing workstream's optional folder, so an unbound artifact is
+listed beside a bound one. Reading a published artifact follows the snapshot
+rule the same way: `ReadConversationArtifactRequest` carries an optional
+workspace, and an artifact is addressed by the conversation that published it.
+
+Phase 4 owns verification. Nothing in Phases 1-3 was verified beyond the
+focused checks each change ran.
 
 ### Phase 4 - Final Verification
 

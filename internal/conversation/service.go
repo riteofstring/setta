@@ -219,6 +219,14 @@ func (service *Service) ReadArtifact(
 	return service.store.ReadArtifact(ctx, workspaceID, conversationID, artifactID)
 }
 
+func (service *Service) ReadArtifactByID(
+	ctx context.Context,
+	conversationID string,
+	artifactID string,
+) (Artifact, error) {
+	return service.store.ReadArtifactByID(ctx, conversationID, artifactID)
+}
+
 func (service *Service) ListNavigatorPage(
 	ctx context.Context,
 	workspaceID string,

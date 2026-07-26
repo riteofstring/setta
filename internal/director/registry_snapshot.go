@@ -219,6 +219,7 @@ func cloneResourceRequest(record ResourceRequest) ResourceRequest {
 
 func cloneWorkstreamArtifact(record WorkstreamArtifact) WorkstreamArtifact {
 	cloned := record
+	cloned.WorkspaceID = copyOptionalString(record.WorkspaceID)
 	cloned.RunID = copyOptionalString(record.RunID)
 	cloned.SourceEventIDs = append([]string{}, record.SourceEventIDs...)
 	return cloned

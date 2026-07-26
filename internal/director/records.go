@@ -49,11 +49,15 @@ type ResourceRequest struct {
 
 // WorkstreamArtifact is one durable output addressed by workstream rather than
 // by conversation, so the Artifacts rail can list app-wide results.
+//
+// WorkspaceID is the folder the producing workstream is scoped to, and is null
+// when it has none. Publishing an artifact never needed the user's files, so a
+// folderless workstream produces artifacts the rail lists like any other.
 type WorkstreamArtifact struct {
 	ID             string         `json:"id"`
 	WorkstreamID   string         `json:"workstreamId"`
 	ConversationID string         `json:"conversationId"`
-	WorkspaceID    string         `json:"workspaceId"`
+	WorkspaceID    *string        `json:"workspaceId"`
 	RunID          *string        `json:"runId"`
 	Status         ArtifactStatus `json:"status"`
 	Title          string         `json:"title"`
@@ -217,7 +221,7 @@ func validateWorkstreamArtifactIdentity(artifact WorkstreamArtifact) error {
 	if err := validateIdentifier("workstream artifact conversation id", artifact.ConversationID); err != nil {
 		return err
 	}
-	if err := validateIdentifier("workstream artifact workspace id", artifact.WorkspaceID); err != nil {
+	if err := validateOptionalIdentifier("workstream artifact workspace id", artifact.WorkspaceID); err != nil {
 		return err
 	}
 	if err := validateOptionalRunID("workstream artifact run id", artifact.RunID); err != nil {

@@ -45,12 +45,13 @@ func TestReadConversationArtifactUsesTypedServiceBoundary(t *testing.T) {
 		Metadata:            BackendMetadata{Name: BackendName, Version: "test"},
 	})
 
+	workspaceID := "workspace-api"
 	response := postJSON[conversation.Artifact](
 		t,
 		handler,
 		"/conversations/artifacts/read",
 		ReadConversationArtifactRequest{
-			WorkspaceID:    "workspace-api",
+			WorkspaceID:    &workspaceID,
 			ConversationID: "conversation-api",
 			ArtifactID:     "artifact-api",
 		},
@@ -63,6 +64,28 @@ func TestReadConversationArtifactUsesTypedServiceBoundary(t *testing.T) {
 		service.readConversationID != "conversation-api" ||
 		service.readArtifactID != "artifact-api" {
 		t.Fatalf("artifact service request = %q/%q/%q", service.readWorkspaceID, service.readConversationID, service.readArtifactID)
+	}
+
+	// An artifact published by a conversation with no folder is addressed by the
+	// conversation that published it, so the rail can open it like any other.
+	unbound := postJSON[conversation.Artifact](
+		t,
+		handler,
+		"/conversations/artifacts/read",
+		ReadConversationArtifactRequest{
+			WorkspaceID:    nil,
+			ConversationID: "conversation-unbound",
+			ArtifactID:     "artifact-unbound",
+		},
+		http.StatusOK,
+	)
+	if unbound.ID != "artifact-unbound" || unbound.Document.Source != httpConversationTestArtifactSource {
+		t.Fatalf("unbound artifact response = %+v", unbound)
+	}
+	if service.readWorkspaceID != "" ||
+		service.readConversationID != "conversation-unbound" ||
+		service.readArtifactID != "artifact-unbound" {
+		t.Fatalf("unbound artifact service request = %q/%q/%q", service.readWorkspaceID, service.readConversationID, service.readArtifactID)
 	}
 }
 
@@ -652,6 +675,22 @@ func (service *httpTestConversationService) ReadArtifact(
 	artifactID string,
 ) (conversation.Artifact, error) {
 	service.readWorkspaceID = workspaceID
+	return service.recordArtifactRead(conversationID, artifactID), nil
+}
+
+func (service *httpTestConversationService) ReadArtifactByID(
+	_ context.Context,
+	conversationID string,
+	artifactID string,
+) (conversation.Artifact, error) {
+	service.readWorkspaceID = ""
+	return service.recordArtifactRead(conversationID, artifactID), nil
+}
+
+func (service *httpTestConversationService) recordArtifactRead(
+	conversationID string,
+	artifactID string,
+) conversation.Artifact {
 	service.readConversationID = conversationID
 	service.readArtifactID = artifactID
 	return conversation.Artifact{
@@ -666,7 +705,7 @@ func (service *httpTestConversationService) ReadArtifact(
 			CatalogID: conversation.ArtifactCatalogSettaV1,
 			Source:    httpConversationTestArtifactSource,
 		},
-	}, nil
+	}
 }
 
 func (service *httpTestConversationService) ListNavigatorPage(

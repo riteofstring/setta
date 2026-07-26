@@ -51,7 +51,7 @@ func TestEmitArtifactToolCommitsTypedArtifact(t *testing.T) {
 	active := startHeldArtifactToolTurn(t, ctx, service, runtime, workspaceID, conversationID)
 	requireArtifactToolRequest(t, runtime)
 
-	artifact := emitTestDocumentArtifact(t, ctx, service, workspaceID, conversationID, active)
+	artifact := emitTestDocumentArtifact(t, ctx, service, conversationID, active)
 	requireDocumentArtifact(t, artifact)
 	read := readTestArtifact(t, ctx, service, workspaceID, conversationID, artifact.ID)
 	requireReadDocumentArtifact(t, read, artifact.ID)
@@ -59,6 +59,57 @@ func TestEmitArtifactToolCommitsTypedArtifact(t *testing.T) {
 	requireSnapshotArtifact(t, snapshot, artifact.ID)
 	requireArtifactTrajectory(t, snapshot, artifact.ID)
 	stopTestTurn(t, ctx, service, workspaceID, conversationID)
+}
+
+// TestEmitArtifactToolPublishesWithoutAFolder proves the artifact tool is the
+// same capability with or without the user's files: an unbound turn is offered
+// the same tool, publishes the same durable document, and reads it back by the
+// conversation that published it rather than by a workspace it never had.
+func TestEmitArtifactToolPublishesWithoutAFolder(t *testing.T) {
+	store, service, runtime, workspaceID := newConversationServiceTestHarness(t, t.TempDir())
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = service.Shutdown(ctx)
+		_ = store.Close()
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	created, err := service.CreateTopicWithOptionalWorkspace(ctx, nil, "Tool artifact without a folder")
+	if err != nil {
+		t.Fatalf("CreateTopicWithOptionalWorkspace: %v", err)
+	}
+	conversationID := created.Conversation.ID
+	if _, err := service.sendTurn(ctx, nil, conversationID, "hold", ""); err != nil {
+		t.Fatalf("send held folderless turn: %v", err)
+	}
+	runtime.waitForStart(t, "hold")
+	active := service.activeFor(conversationID)
+	if active == nil || active.scope.workspaceID != nil {
+		t.Fatalf("folderless active turn = %+v", active)
+	}
+	requireArtifactToolRequest(t, runtime)
+
+	artifact := emitTestDocumentArtifact(t, ctx, service, conversationID, active)
+	requireDocumentArtifact(t, artifact)
+	read, err := service.ReadArtifactByID(ctx, conversationID, artifact.ID)
+	if err != nil {
+		t.Fatalf("ReadArtifactByID: %v", err)
+	}
+	requireReadDocumentArtifact(t, read, artifact.ID)
+	if _, err := service.ReadArtifact(ctx, workspaceID, conversationID, artifact.ID); !IsArtifactNotFound(err) {
+		t.Fatalf("workspace-scoped read of a folderless artifact = %T %v, want artifact not found", err, err)
+	}
+	snapshot, err := service.ReadSnapshotByID(ctx, conversationID)
+	if err != nil {
+		t.Fatalf("ReadSnapshotByID: %v", err)
+	}
+	requireSnapshotArtifact(t, snapshot, artifact.ID)
+	requireArtifactTrajectory(t, snapshot, artifact.ID)
+	if _, err := service.stopTurn(ctx, nil, conversationID, ""); err != nil {
+		t.Fatalf("stop folderless turn: %v", err)
+	}
 }
 
 func TestEmitArtifactToolReturnsStructuredFailureAndAllowsRetry(t *testing.T) {
@@ -366,10 +417,18 @@ func requireArtifactRecoveryInstructions(t *testing.T, instructions string) {
 		"Assign root exactly once",
 		"Document(blocks",
 		"existing regular file inside the current authorized workspace",
+		// How many artifacts a request deserves is the agent's judgment. The
+		// instructions must say so, and must not ask for one document per turn.
+		"Each setta.emit_artifact call publishes one artifact",
+		"publish independent artifacts separately",
+		"without inventing a website",
 	} {
 		if !strings.Contains(instructions, fragment) {
 			t.Fatalf("topic agent developer instructions missing %q: %q", fragment, instructions)
 		}
+	}
+	if strings.Contains(instructions, "as one artifact document") {
+		t.Fatalf("topic agent developer instructions still force one document per turn: %q", instructions)
 	}
 }
 
@@ -377,7 +436,6 @@ func emitTestDocumentArtifact(
 	t *testing.T,
 	ctx context.Context,
 	service *Service,
-	workspaceID string,
 	conversationID string,
 	active *activeConversationTurn,
 ) Artifact {

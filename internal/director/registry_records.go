@@ -126,10 +126,7 @@ func (state *registryState) declareArtifact(
 		return nil, missingPayload(event)
 	}
 	emitted := event.ArtifactEmitted
-	workspaceID, err := workstreamArtifactWorkspaceID(workstream)
-	if err != nil {
-		return nil, err
-	}
+	workspaceID := workstreamFolderWorkspaceID(workstream.record.ResourceScope)
 	identity := emittedArtifactIdentity(workstream, emitted, event.TurnID, workspaceID)
 	if record, exists := state.artifacts[emitted.ArtifactID]; exists {
 		if err := updateDeclaredArtifact(record, identity, event); err != nil {
@@ -157,10 +154,7 @@ func (state *registryState) applyArtifactCreated(event conversation.CommittedEve
 	if err != nil {
 		return nil, err
 	}
-	workspaceID, err := workstreamArtifactWorkspaceID(workstream)
-	if err != nil {
-		return nil, err
-	}
+	workspaceID := workstreamFolderWorkspaceID(workstream.record.ResourceScope)
 	identity := createdArtifactIdentity(workstream, metadata, workspaceID)
 	record, exists, err := state.artifactRecordForCreated(identity, metadata)
 	if err != nil {
@@ -191,7 +185,7 @@ type artifactRecordIdentity struct {
 	id             string
 	workstreamID   string
 	conversationID string
-	workspaceID    string
+	workspaceID    *string
 	runID          *string
 	title          string
 }
@@ -200,7 +194,7 @@ func emittedArtifactIdentity(
 	workstream *registryWorkstream,
 	emitted *conversation.TrajectoryArtifactEmitted,
 	runID *string,
-	workspaceID string,
+	workspaceID *string,
 ) artifactRecordIdentity {
 	return artifactRecordIdentity{
 		id:             emitted.ArtifactID,
@@ -215,7 +209,7 @@ func emittedArtifactIdentity(
 func createdArtifactIdentity(
 	workstream *registryWorkstream,
 	metadata conversation.ArtifactMetadata,
-	workspaceID string,
+	workspaceID *string,
 ) artifactRecordIdentity {
 	return artifactRecordIdentity{
 		id:             metadata.ID,
@@ -253,7 +247,7 @@ func newDeclaredArtifact(
 		ID:             identity.id,
 		WorkstreamID:   identity.workstreamID,
 		ConversationID: identity.conversationID,
-		WorkspaceID:    identity.workspaceID,
+		WorkspaceID:    copyOptionalString(identity.workspaceID),
 		RunID:          copyOptionalString(identity.runID),
 		Status:         ArtifactStatusDeclared,
 		Title:          identity.title,
@@ -285,7 +279,7 @@ func newAvailableArtifact(
 		ID:             identity.id,
 		WorkstreamID:   identity.workstreamID,
 		ConversationID: identity.conversationID,
-		WorkspaceID:    identity.workspaceID,
+		WorkspaceID:    copyOptionalString(identity.workspaceID),
 		RunID:          copyOptionalString(identity.runID),
 		Status:         ArtifactStatusAvailable,
 		Title:          identity.title,
@@ -315,7 +309,7 @@ func artifactRecordMatchesIdentity(
 ) bool {
 	return record.WorkstreamID == identity.workstreamID &&
 		record.ConversationID == identity.conversationID &&
-		record.WorkspaceID == identity.workspaceID &&
+		equalOptionalString(record.WorkspaceID, identity.workspaceID) &&
 		equalOptionalString(record.RunID, identity.runID) &&
 		record.Title == identity.title
 }
@@ -506,15 +500,4 @@ func hasSecretQuestion(questions []conversation.TrajectoryApprovalQuestion) bool
 		}
 	}
 	return false
-}
-
-func workstreamArtifactWorkspaceID(workstream *registryWorkstream) (string, error) {
-	if workstream.record.ResourceScope.Kind != WorkstreamResourceScopeFolder ||
-		workstream.record.ResourceScope.Folder == nil {
-		return "", fmt.Errorf(
-			"workstream %s produced artifact without a folder resource",
-			workstream.record.ID,
-		)
-	}
-	return workstream.record.ResourceScope.Folder.WorkspaceID, nil
 }

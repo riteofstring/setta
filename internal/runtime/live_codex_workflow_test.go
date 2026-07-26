@@ -391,7 +391,7 @@ func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
 		baseURL,
 		"/conversations/artifacts/read",
 		httpapi.ReadConversationArtifactRequest{
-			WorkspaceID:    opened.Workspace.ID,
+			WorkspaceID:    &opened.Workspace.ID,
 			ConversationID: created.Conversation.ID,
 			ArtifactID:     metadata.ID,
 		},

@@ -37,11 +37,12 @@ func TestDirectorRecordsRejectBackwardsTimestamps(t *testing.T) {
 		t.Fatal("a resource request resolved before it was requested")
 	}
 
+	artifactWorkspace := "workspace-1"
 	artifact := WorkstreamArtifact{
 		ID:             "artifact-1",
 		WorkstreamID:   testParentWorkstream,
 		ConversationID: "conversation-1",
-		WorkspaceID:    "workspace-1",
+		WorkspaceID:    &artifactWorkspace,
 		Status:         ArtifactStatusAvailable,
 		Title:          "Release notes",
 		SourceEventIDs: []string{"event-1"},

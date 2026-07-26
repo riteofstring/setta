@@ -98,9 +98,9 @@ type ReadConversationSnapshotRequest struct {
 }
 
 type ReadConversationArtifactRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	ArtifactID     string `json:"artifactId"`
+	WorkspaceID    *string `json:"workspaceId"`
+	ConversationID string  `json:"conversationId"`
+	ArtifactID     string  `json:"artifactId"`
 }
 
 type ListTopicConversationsRequest struct {

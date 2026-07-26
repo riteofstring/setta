@@ -18,6 +18,8 @@ import (
 
 const registryTestWorkspaceID = "workspace-alpha"
 
+const registryTestArtifactSource = `root = Document([Table([{key: "metric", label: "Metric"}], [["Rows"]])])`
+
 var registryTestEpoch = time.Date(2026, time.July, 24, 9, 0, 0, 0, time.UTC)
 
 type registryHarness struct {
@@ -385,6 +387,20 @@ func (harness *registryHarness) appendTrajectory(
 	apply func(*conversation.TrajectoryEvent),
 ) conversation.TrajectoryEvent {
 	harness.t.Helper()
+	return harness.appendTrajectoryWith(conversationID, turnID, kind, actor, apply, nil)
+}
+
+// appendTrajectoryWith publishes a trajectory fact and lets the caller write the
+// durable rows that fact covers in the same transaction.
+func (harness *registryHarness) appendTrajectoryWith(
+	conversationID string,
+	turnID *string,
+	kind conversation.TrajectoryEventKind,
+	actor conversation.TrajectoryActor,
+	apply func(*conversation.TrajectoryEvent),
+	mutate func(*conversation.WriteTransaction, conversation.TrajectoryEvent) error,
+) conversation.TrajectoryEvent {
+	harness.t.Helper()
 	at := harness.now()
 	harness.sequences[conversationID]++
 	eventID, err := harness.identity("trajectory")
@@ -401,6 +417,12 @@ func (harness *registryHarness) appendTrajectory(
 		Actor:          actor,
 	}
 	apply(&event)
+	var write func(*conversation.WriteTransaction) error
+	if mutate != nil {
+		write = func(transaction *conversation.WriteTransaction) error {
+			return mutate(transaction, event)
+		}
+	}
 	harness.publish(
 		conversationID,
 		conversation.ConversationTrajectoryAppendedEventPayload{
@@ -409,7 +431,7 @@ func (harness *registryHarness) appendTrajectory(
 		},
 		conversation.ConversationEventTypeTrajectoryAppended,
 		at,
-		nil,
+		write,
 	)
 	return event
 }
@@ -427,6 +449,62 @@ func (harness *registryHarness) acceptInput(conversationID string, turnID string
 			}
 		},
 	)
+}
+
+// emitArtifact writes the two durable facts publication produces: the agent
+// declared the artifact, and Setta stored it. Production writes them in that
+// order, so a workstream that never bound a folder exercises the same path a
+// bound one does.
+func (harness *registryHarness) emitArtifact(
+	conversationID string,
+	turnID string,
+	artifactID string,
+	title string,
+) conversation.ArtifactMetadata {
+	harness.t.Helper()
+	emitted := harness.appendTrajectoryWith(
+		conversationID,
+		&turnID,
+		conversation.TrajectoryEventArtifactEmitted,
+		conversation.TrajectoryActorSystem,
+		func(event *conversation.TrajectoryEvent) {
+			event.ArtifactEmitted = &conversation.TrajectoryArtifactEmitted{
+				ArtifactID: artifactID,
+				Title:      title,
+			}
+		},
+		func(transaction *conversation.WriteTransaction, event conversation.TrajectoryEvent) error {
+			return transaction.AppendTrajectoryEvent(event)
+		},
+	)
+	at := harness.now()
+	sequence := emitted.Sequence
+	artifact := conversation.Artifact{
+		ID:                 artifactID,
+		ConversationID:     conversationID,
+		TurnID:             &turnID,
+		TrajectorySequence: &sequence,
+		Title:              title,
+		CreatedAt:          at,
+		Document: conversation.ArtifactDocument{
+			Language:  conversation.ArtifactDocumentLanguageOpenUI,
+			CatalogID: conversation.ArtifactCatalogSettaV1,
+			Source:    registryTestArtifactSource,
+		},
+	}
+	harness.publish(
+		conversationID,
+		conversation.ConversationArtifactCreatedEventPayload{
+			Type:     conversation.ConversationEventTypeArtifactCreated,
+			Artifact: artifact.Metadata(),
+		},
+		conversation.ConversationEventTypeArtifactCreated,
+		at,
+		func(transaction *conversation.WriteTransaction) error {
+			return transaction.InsertArtifact(artifact)
+		},
+	)
+	return artifact.Metadata()
 }
 
 func (harness *registryHarness) requestApproval(

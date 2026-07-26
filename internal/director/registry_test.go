@@ -55,6 +55,64 @@ func TestRegistryAdmitsFolderlessAndFolderBoundConversations(t *testing.T) {
 	}
 }
 
+// TestArtifactsArePublishedWithOrWithoutAFolder proves the artifact half of the
+// same product rule: publishing a durable document never needed the user's
+// files, so a workstream that bound no folder lists its artifacts in the rail
+// beside a bound one's, addressed by the conversation that published them.
+func TestArtifactsArePublishedWithOrWithoutAFolder(t *testing.T) {
+	harness := newRegistryHarness(t)
+	folderless := harness.createConversation("conversation-folderless", "Draft the release notes", nil)
+	workspaceID := registryTestWorkspaceID
+	bound := harness.createConversation("conversation-bound", "Summarize the parser", &workspaceID)
+	harness.startTurn("conversation-folderless", "turn-folderless-1")
+	harness.emitArtifact("conversation-folderless", "turn-folderless-1", "artifact-folderless", "Release notes")
+	harness.completeTurn("conversation-folderless", "turn-folderless-1")
+	harness.startTurn("conversation-bound", "turn-bound-1")
+	harness.emitArtifact("conversation-bound", "turn-bound-1", "artifact-bound", "Parser summary")
+	harness.completeTurn("conversation-bound", "turn-bound-1")
+
+	registry := harness.start()
+	snapshot := requireSnapshot(t, registry)
+
+	if len(snapshot.Artifacts) != 2 {
+		t.Fatalf("snapshot holds %d artifacts, want 2", len(snapshot.Artifacts))
+	}
+	unbound := findArtifact(t, snapshot, "artifact-folderless")
+	if unbound.WorkspaceID != nil {
+		t.Fatalf("folderless artifact carries workspace %q", *unbound.WorkspaceID)
+	}
+	if unbound.WorkstreamID != folderless {
+		t.Fatalf("folderless artifact workstream = %q, want %q", unbound.WorkstreamID, folderless)
+	}
+	if unbound.ConversationID != "conversation-folderless" {
+		t.Fatalf("folderless artifact conversation = %q", unbound.ConversationID)
+	}
+	if unbound.Status != ArtifactStatusAvailable {
+		t.Fatalf("folderless artifact status = %q, want available", unbound.Status)
+	}
+	attached := findArtifact(t, snapshot, "artifact-bound")
+	if attached.WorkspaceID == nil || *attached.WorkspaceID != registryTestWorkspaceID {
+		t.Fatalf("bound artifact workspace = %v", attached.WorkspaceID)
+	}
+	if attached.WorkstreamID != bound {
+		t.Fatalf("bound artifact workstream = %q, want %q", attached.WorkstreamID, bound)
+	}
+	if snapshot.Aggregates.ArtifactCount != 2 {
+		t.Fatalf("aggregate artifact count = %d, want 2", snapshot.Aggregates.ArtifactCount)
+	}
+}
+
+func findArtifact(t *testing.T, snapshot DirectorSnapshot, artifactID string) WorkstreamArtifact {
+	t.Helper()
+	for _, artifact := range snapshot.Artifacts {
+		if artifact.ID == artifactID {
+			return artifact
+		}
+	}
+	t.Fatalf("snapshot holds no artifact %q", artifactID)
+	return WorkstreamArtifact{}
+}
+
 // TestRegistryPushesWorkstreamAndGraphChanges proves the live path: a durable
 // fact arriving produces a registry row update and the graph delta it justifies,
 // with no refresh, poll, or re-read from the subscriber.

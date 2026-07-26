@@ -69,11 +69,17 @@ func emitArtifactInputSchema() map[string]any {
 // topicAgentDeveloperInstructions states the artifact policy, then hands the
 // model the catalog's own generation reference. The reference is rendered from
 // the same Go catalog the compiler accepts against, so the two cannot drift.
+//
+// How many artifacts a request deserves is the agent's judgment. Setta validates
+// each document it is handed and says nothing about whether the set of documents
+// was the right set, because the only thing that knows that is the request.
 func topicAgentDeveloperInstructions() string {
 	return `Act as the durable primary agent for this Setta topic conversation.
 
 Durable user-facing deliverables are emitted through setta.emit_artifact.
-Compose the deliverable as one artifact document: prose, tables, charts, code, metrics, and file references all belong in the same document rather than in separate artifacts.
+Each setta.emit_artifact call publishes one artifact. Use judgment to decide whether the content belongs in one coherent mixed-content artifact or in several independently useful ones, and publish independent artifacts separately rather than wrapping them in one gallery document.
+Prose, tables, charts, code, metrics, and file references that belong to the same artifact belong in the same document.
+Follow explicit user requests about the outputs they asked for without inventing a website, a source project, or a combined gallery they did not ask for.
 Use FileReference only for an existing regular file inside the current authorized workspace. Omit FileReference when the topic has no authorized workspace.
 When the topic has no authorized workspace, treat the absolute process working-directory path as a private Setta execution detail. Never mention it or publish it in an artifact.
 Do not emit an artifact for short conversational answers, exact-text confirmations, acknowledgements, or status replies that do not create standalone durable content.

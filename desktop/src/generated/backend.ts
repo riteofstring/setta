@@ -16,8 +16,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 103;
-export const backendContractSchemaHash = "sha256:b7de0d505a875ffe2350dc92ff876dfeebde7166924be62a94c89983356cea83";
+export const backendProtocolVersion = 104;
+export const backendContractSchemaHash = "sha256:657e3831c0fddbd97793b072fde67bb55ce352a8b68d400df27b6d6666ecb3b2";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -2502,7 +2502,7 @@ export interface ReadConversationSnapshotRequest {
 }
 
 export interface ReadConversationArtifactRequest {
-  workspaceId: string;
+  workspaceId: string | null;
   conversationId: string;
   artifactId: string;
 }
@@ -3036,7 +3036,7 @@ export interface WorkstreamArtifact {
   id: string;
   workstreamId: string;
   conversationId: string;
-  workspaceId: string;
+  workspaceId: string | null;
   runId: string | null;
   status: ArtifactStatus;
   title: string;
@@ -5042,7 +5042,7 @@ export function decodeReadConversationArtifactRequest(value: unknown): ReadConve
   const record = assertRecord(value, "ReadConversationArtifactRequest");
   assertKnownFields(record, "ReadConversationArtifactRequest", ["workspaceId", "conversationId", "artifactId"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "ReadConversationArtifactRequest"), "ReadConversationArtifactRequest.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "ReadConversationArtifactRequest"), "ReadConversationArtifactRequest.workspaceId", (item) => decodeString(item, "ReadConversationArtifactRequest.workspaceId")),
     conversationId: decodeString(requireField(record, "conversationId", "ReadConversationArtifactRequest"), "ReadConversationArtifactRequest.conversationId"),
     artifactId: decodeString(requireField(record, "artifactId", "ReadConversationArtifactRequest"), "ReadConversationArtifactRequest.artifactId"),
   };
@@ -5936,7 +5936,7 @@ export function decodeWorkstreamArtifact(value: unknown): WorkstreamArtifact {
     id: decodeString(requireField(record, "id", "WorkstreamArtifact"), "WorkstreamArtifact.id"),
     workstreamId: decodeString(requireField(record, "workstreamId", "WorkstreamArtifact"), "WorkstreamArtifact.workstreamId"),
     conversationId: decodeString(requireField(record, "conversationId", "WorkstreamArtifact"), "WorkstreamArtifact.conversationId"),
-    workspaceId: decodeString(requireField(record, "workspaceId", "WorkstreamArtifact"), "WorkstreamArtifact.workspaceId"),
+    workspaceId: decodeNullable(requireField(record, "workspaceId", "WorkstreamArtifact"), "WorkstreamArtifact.workspaceId", (item) => decodeString(item, "WorkstreamArtifact.workspaceId")),
     runId: decodeNullable(requireField(record, "runId", "WorkstreamArtifact"), "WorkstreamArtifact.runId", (item) => decodeString(item, "WorkstreamArtifact.runId")),
     status: decodeArtifactStatus(requireField(record, "status", "WorkstreamArtifact"), "WorkstreamArtifact.status"),
     title: decodeString(requireField(record, "title", "WorkstreamArtifact"), "WorkstreamArtifact.title"),
