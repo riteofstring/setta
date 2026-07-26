@@ -23,45 +23,57 @@ import (
 // tools are guaranteed to be attached: Codex binds them at thread start and does
 // not carry them into a resumed thread.
 
-// conversationCarrier is one live provider thread. ownerID is the Setta
-// conversation the carrier serves, so runtime state stays keyed by Setta
-// identity and the provider id is only ever the value behind it.
-type conversationCarrier struct {
-	ownerID  string
-	threadID string
+// Carrier is one live provider thread. OwnerID is the Setta conversation the
+// carrier serves, so runtime state stays keyed by Setta identity and the
+// provider id is only ever the value behind it.
+type Carrier struct {
+	OwnerID  string
+	ThreadID string
 }
 
-// carrierRegistry maps Setta conversation ids to the provider threads currently
-// carrying them. It is in-memory only and starts empty on every app run; a
-// lookup miss means "start a fresh carrier", never "this conversation is lost".
-type carrierRegistry struct {
+// CarrierRegistry maps Setta ids to the provider threads currently carrying
+// them. It is in-memory only and starts empty on every app run; a lookup miss
+// means "start a fresh carrier", never "this conversation is lost".
+//
+// One registry serves the whole app run. Workstream conversations, side
+// conversations, and the Director conversation all key their carrier by their
+// own Setta id, which is why none of them needs carrier state of its own.
+type CarrierRegistry struct {
 	mu       sync.Mutex
-	carriers map[string]conversationCarrier
+	carriers map[string]Carrier
 }
 
-func newCarrierRegistry() *carrierRegistry {
-	return &carrierRegistry{carriers: map[string]conversationCarrier{}}
+func NewCarrierRegistry() *CarrierRegistry {
+	return &CarrierRegistry{carriers: map[string]Carrier{}}
 }
 
-func (registry *carrierRegistry) lookup(ownerID string) (conversationCarrier, bool) {
+func (registry *CarrierRegistry) Lookup(ownerID string) (Carrier, bool) {
 	registry.mu.Lock()
 	defer registry.mu.Unlock()
 	carrier, ok := registry.carriers[ownerID]
 	return carrier, ok
 }
 
-func (registry *carrierRegistry) remember(carrier conversationCarrier) {
+func (registry *CarrierRegistry) Remember(carrier Carrier) {
 	registry.mu.Lock()
 	defer registry.mu.Unlock()
-	registry.carriers[carrier.ownerID] = carrier
+	registry.carriers[carrier.OwnerID] = carrier
 }
 
-// forget drops a carrier Setta can no longer run on, so the next turn starts a
+// Forget drops a carrier Setta can no longer run on, so the next turn starts a
 // new one instead of addressing a thread the provider has abandoned.
-func (registry *carrierRegistry) forget(ownerID string) {
+func (registry *CarrierRegistry) Forget(ownerID string) {
 	registry.mu.Lock()
 	defer registry.mu.Unlock()
 	delete(registry.carriers, ownerID)
+}
+
+// Carriers is the registry of live carriers this app run started. The Director
+// conversation shares it: the Director is durable in Setta like every other
+// conversation, so the thread it currently runs on belongs in the one
+// process-local map and nowhere else.
+func (service *Service) Carriers() *CarrierRegistry {
+	return service.carriers
 }
 
 const carrierReplayInitialization = "Setta started this conversation carrier. This is an inert history marker, not a request. Respond only to later user turns for this conversation under the carrier's developer contract."
@@ -77,14 +89,14 @@ func (service *Service) ensureConversationCarrierLocked(
 	snapshot ConversationSnapshot,
 	profile RoleProfile,
 	invocation agent.Invocation,
-) (conversationCarrier, error) {
+) (Carrier, error) {
 	conversationID := snapshot.Conversation.ID
-	if carrier, ok := service.carriers.lookup(conversationID); ok {
+	if carrier, ok := service.carriers.Lookup(conversationID); ok {
 		return carrier, nil
 	}
 	items, err := service.carrierReplayItems(ctx, snapshot, profile.ContextBudget.MaxInputBytes)
 	if err != nil {
-		return conversationCarrier{}, err
+		return Carrier{}, err
 	}
 	thread, err := service.agent.StartThread(ctx, agent.StartThreadRequest{
 		WorkspaceRoot:         workspaceRoot,
@@ -94,17 +106,17 @@ func (service *Service) ensureConversationCarrierLocked(
 		DynamicTools:          service.topicAgentArtifactTools(workspaceID, conversationID, ""),
 	})
 	if err != nil {
-		return conversationCarrier{}, err
+		return Carrier{}, err
 	}
 	if err := service.agent.InjectItems(ctx, thread.ID, items); err != nil {
 		cause := fmt.Errorf("replay setta context into carrier %s: %w", thread.ID, err)
 		if cleanupErr := service.agent.UnsubscribeThread(context.Background(), thread.ID); cleanupErr != nil {
 			cause = errors.Join(cause, fmt.Errorf("unsubscribe unreplayed carrier %s: %w", thread.ID, cleanupErr))
 		}
-		return conversationCarrier{}, cause
+		return Carrier{}, cause
 	}
-	carrier := conversationCarrier{ownerID: conversationID, threadID: thread.ID}
-	service.carriers.remember(carrier)
+	carrier := Carrier{OwnerID: conversationID, ThreadID: thread.ID}
+	service.carriers.Remember(carrier)
 	return carrier, nil
 }
 

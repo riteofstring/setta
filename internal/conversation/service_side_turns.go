@@ -134,7 +134,7 @@ func (service *Service) prepareSideTurnLocked(
 	if err := validateSideTurnAdmission(side); err != nil {
 		return sideTurnPreparation{}, err
 	}
-	carrier, ok := service.carriers.lookup(side.ID)
+	carrier, ok := service.carriers.Lookup(side.ID)
 	if !ok {
 		// A side conversation only ever runs on the carrier this process started
 		// for it. Restart recovery disposes sides it can no longer talk to, so a
@@ -177,7 +177,7 @@ func validateSideTurnAdmission(side SideConversation) error {
 func (service *Service) buildSideTurnPreparation(
 	snapshot ConversationSnapshot,
 	side SideConversation,
-	carrier conversationCarrier,
+	carrier Carrier,
 	workspaceID string,
 	workspaceRoot string,
 	turnID string,
@@ -213,7 +213,7 @@ func (service *Service) buildSideTurnPreparation(
 		request: agent.TurnRequest{
 			ConversationID:   side.ID,
 			TurnID:           turnID,
-			ProviderThreadID: carrier.threadID,
+			ProviderThreadID: carrier.ThreadID,
 			ClientInputID:    turnID,
 			Text:             text,
 			WorkspaceRoot:    workspaceRoot,
@@ -528,7 +528,7 @@ func (service *Service) finishSideRunTurn(active *activeSideConversationTurn, ru
 		// A side that has lost its carrier owes no provider cleanup. Dropping the
 		// registration keeps "registered" meaning "a live thread is still out
 		// there", which is what disposal reads it for.
-		service.carriers.forget(active.sideConversationID)
+		service.carriers.Forget(active.sideConversationID)
 	}
 	service.releaseReservedSideTurn(active)
 }

@@ -576,12 +576,12 @@ func (service *Service) launchTurnLocked(
 	}
 	active := &activeConversationTurn{
 		conversationID:   turn.ConversationID,
-		providerThreadID: carrier.threadID,
+		providerThreadID: carrier.ThreadID,
 		queueOrdinal:     queueOrdinal,
 		request: agent.TurnRequest{
 			ConversationID:   turn.ConversationID,
 			TurnID:           turn.ID,
-			ProviderThreadID: carrier.threadID,
+			ProviderThreadID: carrier.ThreadID,
 			ClientInputID:    turn.ID,
 			Text:             turn.AuthoredInput.Text,
 			WorkspaceRoot:    workspaceRoot,
@@ -685,8 +685,8 @@ func (service *Service) controllableTurnState(
 	// The carrier is runtime state, so the check that the caller is steering the
 	// run Setta is actually holding compares the live carrier with the run, not a
 	// durable record of either.
-	carrier, live := service.carriers.lookup(conversationID)
-	if !live || carrier.threadID != active.providerThreadID {
+	carrier, live := service.carriers.Lookup(conversationID)
+	if !live || carrier.ThreadID != active.providerThreadID {
 		return controllableConversationTurn{}, &CommandConflictError{
 			ConversationID: conversationID,
 			Reason:         "the carrier running this turn is no longer active",

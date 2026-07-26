@@ -30,7 +30,7 @@ func callSettaTool(
 ) settaToolOutcome {
 	t.Helper()
 	provider := &scriptedDirectorProvider{reply: "Done.", calls: []scriptedDirectorToolCall{call}}
-	thread := newDirectorThreadForTest(
+	director := newDirectorConversationForTest(
 		t,
 		harness,
 		registry,
@@ -38,7 +38,7 @@ func callSettaTool(
 		execution,
 		newDirectorConversationStoreForTest(),
 	)
-	receipt, err := thread.Submit(context.Background(), directorTurnIntent("do that for me"))
+	receipt, err := director.Submit(context.Background(), directorTurnIntent("do that for me"))
 	if err != nil {
 		t.Fatalf("Submit %s: %v", call.tool, err)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -43,9 +44,9 @@ func TestDirectorToolCallCreatesAndSelectsAWorkstream(t *testing.T) {
 		}},
 	}
 	store := newDirectorConversationStoreForTest()
-	thread := newDirectorThreadForTest(t, harness, registry, provider, execution, store)
+	director := newDirectorConversationForTest(t, harness, registry, provider, execution, store)
 
-	receipt, err := thread.Submit(context.Background(), directorTurnIntent("start a parser rewrite in setta"))
+	receipt, err := director.Submit(context.Background(), directorTurnIntent("start a parser rewrite in setta"))
 	if err != nil {
 		t.Fatalf("Submit: %v", err)
 	}
@@ -78,11 +79,11 @@ func TestDirectorToolCallCreatesAndSelectsAWorkstream(t *testing.T) {
 	}
 }
 
-// TestDirectorRepairsAProseOnlyAppControlAnswerInTheSameThread proves the
+// TestDirectorRepairsAProseOnlyAppControlAnswerInTheSameConversation proves the
 // product does not accept the failure mode this architecture replaced. Setta
 // asks the persistent Director conversation to review a prose-only answer, and
-// the repair turn performs the app action without a second router or thread.
-func TestDirectorRepairsAProseOnlyAppControlAnswerInTheSameThread(t *testing.T) {
+// the repair turn performs the app action without a second router or carrier.
+func TestDirectorRepairsAProseOnlyAppControlAnswerInTheSameConversation(t *testing.T) {
 	harness := newRegistryHarness(t)
 	registry := harness.start()
 	execution := &publishingStartExecution{harness: harness}
@@ -104,9 +105,9 @@ func TestDirectorRepairsAProseOnlyAppControlAnswerInTheSameThread(t *testing.T) 
 		},
 	}
 	store := newDirectorConversationStoreForTest()
-	thread := newDirectorThreadForTest(t, harness, registry, provider, execution, store)
+	director := newDirectorConversationForTest(t, harness, registry, provider, execution, store)
 
-	receipt, err := thread.Submit(
+	receipt, err := director.Submit(
 		context.Background(),
 		directorTurnIntent("Create a new conversation in setta."),
 	)
@@ -149,9 +150,9 @@ func TestDirectorTurnIsDurableInOrder(t *testing.T) {
 		}},
 	}
 	store := newDirectorConversationStoreForTest()
-	thread := newDirectorThreadForTest(t, harness, registry, provider, execution, store)
+	director := newDirectorConversationForTest(t, harness, registry, provider, execution, store)
 
-	if _, err := thread.Submit(context.Background(), directorTurnIntent("start a parser rewrite in setta")); err != nil {
+	if _, err := director.Submit(context.Background(), directorTurnIntent("start a parser rewrite in setta")); err != nil {
 		t.Fatalf("Submit: %v", err)
 	}
 
@@ -191,9 +192,9 @@ func TestDirectorToolCallSurvivesAProviderTurnFailure(t *testing.T) {
 		turnErr: errors.New("provider failed after tool execution"),
 	}
 	store := newDirectorConversationStoreForTest()
-	thread := newDirectorThreadForTest(t, harness, registry, provider, execution, store)
+	director := newDirectorConversationForTest(t, harness, registry, provider, execution, store)
 
-	_, err := thread.Submit(context.Background(), directorTurnIntent("start durable parser work"))
+	_, err := director.Submit(context.Background(), directorTurnIntent("start durable parser work"))
 	if err == nil || !strings.Contains(err.Error(), "provider failed after tool execution") {
 		t.Fatalf("Submit returned %v", err)
 	}
@@ -216,36 +217,49 @@ func TestDirectorToolCallSurvivesAProviderTurnFailure(t *testing.T) {
 	}
 }
 
-// TestDirectorThreadIsReEstablishedFromDurableHistory proves the Director keeps
-// its conversation across an app restart, and that the rebuilt provider thread
-// still carries the `setta` tools. Codex does not reattach dynamic tools to a
-// resumed thread, so a Director rebuilt without them could talk and not act.
+// TestDirectorCarrierIsReEstablishedFromDurableHistory proves the Director keeps
+// its conversation across an app restart, and that the rebuilt carrier still
+// carries the `setta` tools. Codex does not reattach dynamic tools to a resumed
+// thread, so a Director rebuilt without them could talk and not act.
 //
-// It also proves the restart replays Setta's own history rather than resuming
-// the carrier: the rebuilt Director starts a new thread with no memory of which
-// thread ran before it, because nothing durable recorded one.
-func TestDirectorThreadIsReEstablishedFromDurableHistory(t *testing.T) {
+// A restart is modelled the way the process models it: the carrier registry is
+// process-local, so the rebuilt Director looks its carrier up in an empty one,
+// starts a fresh thread, and replays Setta's own history into it.
+func TestDirectorCarrierIsReEstablishedFromDurableHistory(t *testing.T) {
 	harness := newRegistryHarness(t)
 	registry := harness.start()
 	execution := &recordedExecution{}
 	store := newDirectorConversationStoreForTest()
+	carriers := conversation.NewCarrierRegistry()
 	first := &scriptedDirectorProvider{reply: "A workstream is a conversation where work runs."}
-	thread := newDirectorThreadForTest(t, harness, registry, first, execution, store)
-	if _, err := thread.Submit(context.Background(), directorTurnIntent("what is a workstream?")); err != nil {
+	director := newDirectorConversationOnCarriers(t, harness, registry, first, execution, store, carriers)
+	if _, err := director.Submit(context.Background(), directorTurnIntent("what is a workstream?")); err != nil {
 		t.Fatalf("Submit: %v", err)
 	}
 	if len(first.started) != 1 || len(first.started[0].History) != 0 {
-		t.Fatalf("the first director thread replayed %+v", first.started)
+		t.Fatalf("the first director carrier replayed %+v", first.started)
+	}
+	live, running := carriers.Lookup(DirectorConversationID)
+	if !running || live.ThreadID != first.turns[0].Carrier.ThreadID {
+		t.Fatalf("the director carrier registered as %+v, and the turn ran on %+v", live, first.turns[0].Carrier)
 	}
 
 	restarted := &scriptedDirectorProvider{reply: "It is also the unit shown in Setta's rails."}
-	rebuilt := newDirectorThreadForTest(t, harness, registry, restarted, execution, store)
+	rebuilt := newDirectorConversationOnCarriers(
+		t,
+		harness,
+		registry,
+		restarted,
+		execution,
+		store,
+		conversation.NewCarrierRegistry(),
+	)
 	if _, err := rebuilt.Submit(context.Background(), directorTurnIntent("tell me more")); err != nil {
 		t.Fatalf("Submit after restart: %v", err)
 	}
 
 	if len(restarted.started) != 1 {
-		t.Fatalf("the rebuilt director started %d threads", len(restarted.started))
+		t.Fatalf("the rebuilt director started %d carriers", len(restarted.started))
 	}
 	established := restarted.started[0]
 	if len(established.History) != 2 ||
@@ -256,7 +270,7 @@ func TestDirectorThreadIsReEstablishedFromDurableHistory(t *testing.T) {
 		t.Fatalf("replayed history = %+v", established.History)
 	}
 	if len(established.Tools) == 0 {
-		t.Fatal("the rebuilt director thread carries no setta tools")
+		t.Fatal("the rebuilt director carrier carries no setta tools")
 	}
 	for _, entry := range store.snapshotEntries() {
 		if entry.Text == nil || entry.Text.Model == nil {
@@ -266,6 +280,47 @@ func TestDirectorThreadIsReEstablishedFromDurableHistory(t *testing.T) {
 			entry.Text.Model.Model == "" {
 			t.Fatalf("durable director reply attribution = %+v", entry.Text.Model)
 		}
+	}
+}
+
+// TestDirectorStartsAFreshCarrierAfterTheProviderLosesIt proves the Director
+// recovers from a carrier Codex no longer has, the same way a workstream does:
+// the turn fails with what went wrong, the dead carrier leaves the shared
+// registry, and the next turn replays the durable conversation into a new one.
+func TestDirectorStartsAFreshCarrierAfterTheProviderLosesIt(t *testing.T) {
+	harness := newRegistryHarness(t)
+	registry := harness.start()
+	execution := &recordedExecution{}
+	store := newDirectorConversationStoreForTest()
+	carriers := conversation.NewCarrierRegistry()
+	provider := &scriptedDirectorProvider{
+		reply:   "A workstream is a conversation where work runs.",
+		turnErr: fmt.Errorf("%w: the provider no longer has this thread", ErrDirectorCarrierLost),
+	}
+	director := newDirectorConversationOnCarriers(t, harness, registry, provider, execution, store, carriers)
+
+	_, err := director.Submit(context.Background(), directorTurnIntent("what is a workstream?"))
+	if !errors.Is(err, ErrDirectorCarrierLost) {
+		t.Fatalf("Submit on a lost carrier = %v", err)
+	}
+	if lost, running := carriers.Lookup(DirectorConversationID); running {
+		t.Fatalf("the lost director carrier is still registered as %+v", lost)
+	}
+
+	provider.turnErr = nil
+	if _, err := director.Submit(context.Background(), directorTurnIntent("tell me more")); err != nil {
+		t.Fatalf("Submit after the carrier was lost: %v", err)
+	}
+	if len(provider.started) != 2 {
+		t.Fatalf("the director started %d carriers", len(provider.started))
+	}
+	replayed := provider.started[1].History
+	if len(replayed) != 1 || replayed[0].Assistant || replayed[0].Text != "what is a workstream?" {
+		t.Fatalf("history replayed into the new carrier = %+v", replayed)
+	}
+	live, running := carriers.Lookup(DirectorConversationID)
+	if !running || live.ThreadID != provider.turns[len(provider.turns)-1].Carrier.ThreadID {
+		t.Fatalf("director carrier after recovery = %+v", live)
 	}
 }
 
@@ -287,9 +342,9 @@ func TestDirectorToolRefusalStaysInsideTheConversation(t *testing.T) {
 		}},
 	}
 	store := newDirectorConversationStoreForTest()
-	thread := newDirectorThreadForTest(t, harness, registry, provider, execution, store)
+	director := newDirectorConversationForTest(t, harness, registry, provider, execution, store)
 
-	receipt, err := thread.Submit(context.Background(), directorTurnIntent("keep going on the parser"))
+	receipt, err := director.Submit(context.Background(), directorTurnIntent("keep going on the parser"))
 	if err != nil {
 		t.Fatalf("Submit: %v", err)
 	}
@@ -322,9 +377,9 @@ func TestDirectorToolsRejectUndeclaredArguments(t *testing.T) {
 		}},
 	}
 	store := newDirectorConversationStoreForTest()
-	thread := newDirectorThreadForTest(t, harness, registry, provider, execution, store)
+	director := newDirectorConversationForTest(t, harness, registry, provider, execution, store)
 
-	receipt, err := thread.Submit(context.Background(), directorTurnIntent("make one in /tmp/setta"))
+	receipt, err := director.Submit(context.Background(), directorTurnIntent("make one in /tmp/setta"))
 	if err != nil {
 		t.Fatalf("Submit: %v", err)
 	}
@@ -351,9 +406,9 @@ func TestDirectorToolsRejectTrailingJSONValues(t *testing.T) {
 		}},
 	}
 	store := newDirectorConversationStoreForTest()
-	thread := newDirectorThreadForTest(t, harness, registry, provider, execution, store)
+	director := newDirectorConversationForTest(t, harness, registry, provider, execution, store)
 
-	receipt, err := thread.Submit(context.Background(), directorTurnIntent("list the workspaces"))
+	receipt, err := director.Submit(context.Background(), directorTurnIntent("list the workspaces"))
 	if err != nil {
 		t.Fatalf("Submit: %v", err)
 	}
@@ -385,7 +440,7 @@ func TestDirectorApprovalToolArgumentsAreRedactedBeforePersistence(t *testing.T)
 		}},
 	}
 	store := newDirectorConversationStoreForTest()
-	thread := newDirectorThreadForTest(
+	director := newDirectorConversationForTest(
 		t,
 		harness,
 		registry,
@@ -394,7 +449,7 @@ func TestDirectorApprovalToolArgumentsAreRedactedBeforePersistence(t *testing.T)
 		store,
 	)
 
-	receipt, err := thread.Submit(
+	receipt, err := director.Submit(
 		context.Background(),
 		directorTurnIntent("Answer the waiting secret approval."),
 	)
@@ -436,7 +491,7 @@ func TestDirectorReplyProvenanceUsesTheModelThatAuthoredEachTurn(t *testing.T) {
 	registry := harness.start()
 	provider := &scriptedDirectorProvider{reply: "A conversational answer.", model: "gpt-director-one"}
 	store := newDirectorConversationStoreForTest()
-	thread := newDirectorThreadForTest(
+	director := newDirectorConversationForTest(
 		t,
 		harness,
 		registry,
@@ -446,13 +501,13 @@ func TestDirectorReplyProvenanceUsesTheModelThatAuthoredEachTurn(t *testing.T) {
 	)
 
 	first := directorTurnIntent("Explain the first thing.")
-	if _, err := thread.Submit(context.Background(), first); err != nil {
+	if _, err := director.Submit(context.Background(), first); err != nil {
 		t.Fatalf("first Submit: %v", err)
 	}
 	provider.model = "gpt-director-two"
 	second := directorTurnIntent("Explain the second thing.")
 	second.ID = "director-intent-2"
-	if _, err := thread.Submit(context.Background(), second); err != nil {
+	if _, err := director.Submit(context.Background(), second); err != nil {
 		t.Fatalf("second Submit: %v", err)
 	}
 
@@ -473,7 +528,7 @@ func TestDirectorTurnRequiresAnAnswerOrAnAction(t *testing.T) {
 	harness := newRegistryHarness(t)
 	registry := harness.start()
 	store := newDirectorConversationStoreForTest()
-	thread := newDirectorThreadForTest(
+	director := newDirectorConversationForTest(
 		t,
 		harness,
 		registry,
@@ -482,7 +537,7 @@ func TestDirectorTurnRequiresAnAnswerOrAnAction(t *testing.T) {
 		store,
 	)
 
-	_, err := thread.Submit(context.Background(), directorTurnIntent("hello"))
+	_, err := director.Submit(context.Background(), directorTurnIntent("hello"))
 	if err == nil || !strings.Contains(err.Error(), "neither answered nor acted") {
 		t.Fatalf("empty director turn returned %v", err)
 	}
@@ -501,7 +556,7 @@ func TestDirectorSubmitRejectsAnUnacceptedIntent(t *testing.T) {
 	harness := newRegistryHarness(t)
 	registry := harness.start()
 	provider := &scriptedDirectorProvider{reply: "anything"}
-	thread := newDirectorThreadForTest(
+	director := newDirectorConversationForTest(
 		t,
 		harness,
 		registry,
@@ -510,7 +565,7 @@ func TestDirectorSubmitRejectsAnUnacceptedIntent(t *testing.T) {
 		newDirectorConversationStoreForTest(),
 	)
 
-	_, err := thread.Submit(context.Background(), SubmittedIntent{Text: "do the work"})
+	_, err := director.Submit(context.Background(), SubmittedIntent{Text: "do the work"})
 	if !errors.Is(err, ErrDirectorIntentRejected) {
 		t.Fatalf("unaccepted intent returned %v", err)
 	}

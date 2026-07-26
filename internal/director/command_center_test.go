@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"setta/internal/conversation"
 )
 
 // The command center is the shell's only surface, so these tests are written
@@ -16,11 +18,11 @@ import (
 // reached a provider would be a routing path the product never asked for.
 type silentDirectorProvider struct{}
 
-func (silentDirectorProvider) StartDirectorThread(
+func (silentDirectorProvider) StartDirectorCarrier(
 	context.Context,
-	DirectorThreadStart,
-) (DirectorProviderThread, error) {
-	return DirectorProviderThread{}, errors.New("this dispatch must not reach the director conversation")
+	DirectorCarrierRequest,
+) (string, error) {
+	return "", errors.New("this dispatch must not reach the director conversation")
 }
 
 func (silentDirectorProvider) RunDirectorTurn(
@@ -43,24 +45,25 @@ func newSubmittingCommandCenter(
 	t *testing.T,
 	harness *registryHarness,
 	registry *Registry,
-	provider DirectorThreadPort,
+	provider DirectorCarrierPort,
 	execution WorkstreamExecution,
 ) *CommandCenter {
 	t.Helper()
-	thread, err := NewDirectorThread(
+	directorConversation, err := NewDirectorConversation(
 		registry,
 		newExecutorForTest(t, harness, registry, execution),
 		newDirectorConversationStoreForTest(),
+		conversation.NewCarrierRegistry(),
 		provider,
-		WithDirectorThreadClock(harness.clock),
-		WithDirectorThreadIdentity(harness.identity),
+		WithDirectorConversationClock(harness.clock),
+		WithDirectorConversationIdentity(harness.identity),
 	)
 	if err != nil {
-		t.Fatalf("NewDirectorThread: %v", err)
+		t.Fatalf("NewDirectorConversation: %v", err)
 	}
 	center, err := NewCommandCenter(
 		registry,
-		thread,
+		directorConversation,
 		newExecutorForTest(t, harness, registry, execution),
 		WithCommandCenterClock(harness.clock),
 		WithCommandCenterIdentity(harness.identity),
@@ -427,8 +430,8 @@ func requireDirectorTurnInput(
 	if ran.Text != text {
 		t.Fatalf("director turn text = %q, want %q", ran.Text, text)
 	}
-	if ran.ThreadID == "" || len(ran.Tools) == 0 {
-		t.Fatalf("director turn ran without a thread or tools: %+v", ran)
+	if ran.Carrier.OwnerID != DirectorConversationID || ran.Carrier.ThreadID == "" || len(ran.Tools) == 0 {
+		t.Fatalf("director turn ran without a carrier or tools: %+v", ran)
 	}
 }
 

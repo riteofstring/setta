@@ -33,10 +33,10 @@ type scriptedDirectorTurn struct {
 }
 
 type ranDirectorTurn struct {
-	ThreadID string
-	TurnID   string
-	Text     string
-	Tools    []SettaTool
+	Carrier conversation.Carrier
+	TurnID  string
+	Text    string
+	Tools   []SettaTool
 }
 
 type scriptedDirectorProvider struct {
@@ -47,24 +47,21 @@ type scriptedDirectorProvider struct {
 	err      error
 	turnErr  error
 
-	started []DirectorThreadStart
+	started []DirectorCarrierRequest
 	turns   []ranDirectorTurn
 	// receipts are what the scripted calls reported back, in order.
 	receipts []SettaToolReceipt
 }
 
-func (provider *scriptedDirectorProvider) StartDirectorThread(
+func (provider *scriptedDirectorProvider) StartDirectorCarrier(
 	_ context.Context,
-	request DirectorThreadStart,
-) (DirectorProviderThread, error) {
+	request DirectorCarrierRequest,
+) (string, error) {
 	if provider.err != nil {
-		return DirectorProviderThread{}, provider.err
+		return "", provider.err
 	}
 	provider.started = append(provider.started, request)
-	return DirectorProviderThread{
-		ThreadID: fmt.Sprintf("provider-thread-%d", len(provider.started)),
-		Model:    "gpt-test",
-	}, nil
+	return fmt.Sprintf("provider-thread-%d", len(provider.started)), nil
 }
 
 func (provider *scriptedDirectorProvider) RunDirectorTurn(
@@ -75,10 +72,10 @@ func (provider *scriptedDirectorProvider) RunDirectorTurn(
 		return DirectorProviderTurn{}, provider.err
 	}
 	provider.turns = append(provider.turns, ranDirectorTurn{
-		ThreadID: request.ThreadID,
-		TurnID:   request.TurnID,
-		Text:     request.Text,
-		Tools:    request.Tools,
+		Carrier: request.Carrier,
+		TurnID:  request.TurnID,
+		Text:    request.Text,
+		Tools:   request.Tools,
 	})
 	reply := provider.reply
 	model := provider.model
@@ -186,25 +183,50 @@ func (store *memoryDirectorConversationStore) snapshotEntries() []conversation.D
 	return append([]conversation.DirectorConversationEntry{}, store.entries...)
 }
 
-func newDirectorThreadForTest(
+func newDirectorConversationForTest(
 	t *testing.T,
 	harness *registryHarness,
 	registry *Registry,
-	provider DirectorThreadPort,
+	provider DirectorCarrierPort,
 	execution WorkstreamExecution,
 	store DirectorConversationStore,
-) *DirectorThread {
+) *DirectorConversation {
 	t.Helper()
-	thread, err := NewDirectorThread(
+	return newDirectorConversationOnCarriers(
+		t,
+		harness,
+		registry,
+		provider,
+		execution,
+		store,
+		conversation.NewCarrierRegistry(),
+	)
+}
+
+// newDirectorConversationOnCarriers builds a Director on a caller-supplied
+// carrier registry. A test that restarts the app builds the second Director on a
+// fresh registry, because that is what a new process has.
+func newDirectorConversationOnCarriers(
+	t *testing.T,
+	harness *registryHarness,
+	registry *Registry,
+	provider DirectorCarrierPort,
+	execution WorkstreamExecution,
+	store DirectorConversationStore,
+	carriers *conversation.CarrierRegistry,
+) *DirectorConversation {
+	t.Helper()
+	directorConversation, err := NewDirectorConversation(
 		registry,
 		newExecutorForTest(t, harness, registry, execution),
 		store,
+		carriers,
 		provider,
-		WithDirectorThreadClock(harness.clock),
-		WithDirectorThreadIdentity(harness.identity),
+		WithDirectorConversationClock(harness.clock),
+		WithDirectorConversationIdentity(harness.identity),
 	)
 	if err != nil {
-		t.Fatalf("NewDirectorThread: %v", err)
+		t.Fatalf("NewDirectorConversation: %v", err)
 	}
-	return thread
+	return directorConversation
 }

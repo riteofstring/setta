@@ -8,7 +8,7 @@ import (
 )
 
 func TestDirectorHistoryBudgetDropsWholeOldestTurns(t *testing.T) {
-	history := []director.DirectorThreadHistoryItem{
+	history := []director.DirectorHistoryItem{
 		{TurnID: "turn-1", Text: "first user"},
 		{TurnID: "turn-1", Assistant: true, Text: "first assistant"},
 		{TurnID: "turn-2", Text: "second user"},

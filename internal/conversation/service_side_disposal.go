@@ -55,7 +55,7 @@ func (service *Service) disposePreparedSide(
 	workspaceID string,
 	side SideConversation,
 ) error {
-	carrier, live := service.carriers.lookup(side.ID)
+	carrier, live := service.carriers.Lookup(side.ID)
 	if !live {
 		return service.finalizeSideDisposal(ctx, workspaceID, side, TurnInterruptionUserRequested)
 	}
@@ -83,7 +83,7 @@ func (service *Service) disposePreparedSide(
 		cause := errors.Join(localErr, cleanupErr)
 		return service.persistSideCleanupFailure(workspaceID, side, cause)
 	}
-	service.carriers.forget(side.ID)
+	service.carriers.Forget(side.ID)
 	return service.finalizeSideDisposal(ctx, workspaceID, side, TurnInterruptionUserRequested)
 }
 
@@ -174,7 +174,7 @@ func (service *Service) prepareSideDisposal(
 func (service *Service) stopLocalSideTurn(
 	ctx context.Context,
 	side SideConversation,
-	carrier conversationCarrier,
+	carrier Carrier,
 ) (bool, string, error) {
 	service.activeMu.Lock()
 	active := service.activeSides[side.ID]
@@ -190,7 +190,7 @@ func (service *Service) stopLocalSideTurn(
 	if providerTurnID != "" {
 		interruptErr = service.agent.InterruptTurn(ctx, agent.TurnControlRequest{
 			ConversationID:   side.ID,
-			ProviderThreadID: carrier.threadID,
+			ProviderThreadID: carrier.ThreadID,
 			ProviderTurnID:   providerTurnID,
 			ClientInputID:    active.turnID,
 		})
@@ -210,24 +210,24 @@ func (service *Service) stopLocalSideTurn(
 func (service *Service) cleanupSideCarrier(
 	ctx context.Context,
 	side SideConversation,
-	carrier conversationCarrier,
+	carrier Carrier,
 	activeProviderTurnID string,
 ) error {
 	if side.Status == SideConversationStatusFailed &&
 		side.Failure != nil &&
 		side.Failure.Code == "side_carrier_start_failed" {
-		if err := service.agent.UnsubscribeThread(ctx, carrier.threadID); err != nil {
-			return fmt.Errorf("unsubscribe rejected side carrier %s: %w", carrier.threadID, err)
+		if err := service.agent.UnsubscribeThread(ctx, carrier.ThreadID); err != nil {
+			return fmt.Errorf("unsubscribe rejected side carrier %s: %w", carrier.ThreadID, err)
 		}
 		return nil
 	}
 	var interruptErr error
 	if activeProviderTurnID != "" {
-		interruptErr = service.agent.InterruptProviderTurn(ctx, carrier.threadID, activeProviderTurnID)
+		interruptErr = service.agent.InterruptProviderTurn(ctx, carrier.ThreadID, activeProviderTurnID)
 	}
-	unsubscribeStatus, unsubscribeErr := service.agent.UnsubscribeThreadWithStatus(ctx, carrier.threadID)
+	unsubscribeStatus, unsubscribeErr := service.agent.UnsubscribeThreadWithStatus(ctx, carrier.ThreadID)
 	if unsubscribeErr != nil {
-		return errors.Join(interruptErr, fmt.Errorf("unsubscribe side carrier %s: %w", carrier.threadID, unsubscribeErr))
+		return errors.Join(interruptErr, fmt.Errorf("unsubscribe side carrier %s: %w", carrier.ThreadID, unsubscribeErr))
 	}
 	if interruptErr != nil && unsubscribeStatus != agent.ThreadUnsubscribeStatusNotLoaded {
 		return interruptErr

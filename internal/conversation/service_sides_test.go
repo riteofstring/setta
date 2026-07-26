@@ -159,7 +159,7 @@ func TestServiceFailsSideWhenContextInjectionIsRejected(t *testing.T) {
 	}
 	// The carrier was unsubscribed, so nothing is owed cleanup and the registry
 	// keeps no entry for a side that never became usable.
-	if _, live := service.carriers.lookup(side.ID); live {
+	if _, live := service.carriers.Lookup(side.ID); live {
 		t.Fatalf("rejected side kept a carrier registered")
 	}
 	if unsubscribed := runtime.unsubscribedThreads(); len(unsubscribed) != 1 {
@@ -222,7 +222,7 @@ func TestServiceRefreshesParentStatusWhenSidePreparationFinishes(t *testing.T) {
 		if err != nil {
 			t.Fatalf("StartThread: %v", err)
 		}
-		carrier := conversationCarrier{ownerID: prepared.side.ID, threadID: thread.ID}
+		carrier := Carrier{OwnerID: prepared.side.ID, ThreadID: thread.ID}
 		if err := service.activateSideConversation(ctx, prepared, carrier); err != nil {
 			t.Fatalf("activateSideConversation: %v", err)
 		}
@@ -511,14 +511,14 @@ func assertSideContextInjection(
 	t.Helper()
 	// The side's carrier is process-local, so the registry — not the durable
 	// record — is what names the thread its context was replayed into.
-	carrier, live := service.carriers.lookup(side.ID)
+	carrier, live := service.carriers.Lookup(side.ID)
 	if !live {
 		t.Fatalf("active side has no registered carrier: %+v", side)
 	}
 	allInjections := runtime.injectedThreadItems()
 	sideInjections := make([]serviceTestInjection, 0, 1)
 	for _, injection := range allInjections {
-		if injection.threadID == carrier.threadID {
+		if injection.threadID == carrier.ThreadID {
 			sideInjections = append(sideInjections, injection)
 		}
 	}

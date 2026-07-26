@@ -344,11 +344,11 @@ func ValidateDirectorReceipt(receipt DirectorReceipt) error {
 
 // CommandCenter is the application boundary the shell dispatches through.
 type CommandCenter struct {
-	registry *Registry
-	thread   *DirectorThread
-	executor *DecisionExecutor
-	now      func() time.Time
-	newID    func(string) (string, error)
+	registry     *Registry
+	conversation *DirectorConversation
+	executor     *DecisionExecutor
+	now          func() time.Time
+	newID        func(string) (string, error)
 }
 
 // CommandCenterOption configures the boundary.
@@ -383,19 +383,19 @@ func WithCommandCenterIdentity(newID func(string) (string, error)) CommandCenter
 // product's front door.
 func NewCommandCenter(
 	registry *Registry,
-	thread *DirectorThread,
+	directorConversation *DirectorConversation,
 	executor *DecisionExecutor,
 	options ...CommandCenterOption,
 ) (*CommandCenter, error) {
-	if registry == nil || thread == nil || executor == nil {
+	if registry == nil || directorConversation == nil || executor == nil {
 		return nil, errors.New("director command center requires the registry, the director conversation, and the executor")
 	}
 	center := &CommandCenter{
-		registry: registry,
-		thread:   thread,
-		executor: executor,
-		now:      time.Now,
-		newID:    randomDirectorFactID,
+		registry:     registry,
+		conversation: directorConversation,
+		executor:     executor,
+		now:          time.Now,
+		newID:        randomDirectorFactID,
 	}
 	for _, option := range options {
 		if option == nil {
@@ -409,7 +409,7 @@ func NewCommandCenter(
 }
 
 func (center *CommandCenter) available() error {
-	if center == nil || center.registry == nil || center.thread == nil || center.executor == nil {
+	if center == nil || center.registry == nil || center.conversation == nil || center.executor == nil {
 		return ErrDirectorUnavailable
 	}
 	return nil
@@ -525,7 +525,7 @@ func (center *CommandCenter) submit(
 	if err != nil {
 		return DirectorTurnReceipt{}, err
 	}
-	receipt, err := center.thread.Submit(ctx, intent)
+	receipt, err := center.conversation.Submit(ctx, intent)
 	if err == nil {
 		return receipt, nil
 	}

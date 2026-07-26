@@ -8,7 +8,7 @@ import (
 
 // The Director's own durable conversation.
 //
-// The Director is one long-running Codex thread with Setta meta-tools, not a
+// The Director is one long-running conversation with Setta meta-tools, not a
 // workstream. Its history therefore lives here rather than in the conversation
 // tables: a workstream conversation is work the user delegated inside a folder,
 // and the Director conversation is the command centre the user talks to about
@@ -17,15 +17,16 @@ import (
 //
 // Setta owns this history rather than the provider, because the provider
 // cannot. Codex attaches dynamic tools when a thread starts and does not
-// reattach them when one resumes, so a Director thread resumed after a restart
-// would come back without the `setta` namespace — a Director that can talk but
-// can no longer act. Setta therefore keeps the conversation and re-establishes
-// the provider thread from it, which is also what makes the Director's own
+// reattach them when one resumes, so a Director resumed onto its old provider
+// thread would come back without the `setta` namespace — a Director that can
+// talk but can no longer act. Setta therefore keeps the conversation and
+// replays it into a fresh carrier, which is also what makes the Director's own
 // turns durable across a restart.
 //
-// The provider thread carrying the Director is an ephemeral execution carrier,
-// so nothing here records its identity. Which thread is running right now is
-// process-local runtime state; what the Director said is what survives.
+// The thread carrying the Director is an ephemeral execution carrier out of the
+// same registry every workstream uses, so nothing here records its identity.
+// Which thread is running right now is process-local runtime state; what the
+// Director said is what survives.
 
 const (
 	// DirectorConversationStreamID is the durable stream the Director's own

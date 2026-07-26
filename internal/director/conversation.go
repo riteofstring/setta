@@ -12,29 +12,36 @@ import (
 	"setta/internal/conversation"
 )
 
-// The Director's persistent Codex conversation.
+// The Director's persistent Setta conversation.
 //
-// The Director is one long-running thread the user talks to, not a fresh
+// The Director is one long-running conversation the user talks to, not a fresh
 // classifier turn per request. It keeps its history, it answers in prose when
 // prose is the right answer, and it changes the app by calling `setta` tools.
 // That is the whole product model: Setta supplies authority and durability,
 // Codex supplies the conversation.
 //
-// Setta owns the history rather than the provider. Codex attaches dynamic tools
-// when a thread starts and does not carry them into a resumed thread, so a
-// Director resumed after a restart would come back able to talk and unable to
-// act. Setta therefore keeps every Director turn durably and re-establishes the
-// provider thread from that history on the first turn of each app run, which is
-// also the only way the tools are guaranteed to be attached.
+// Setta owns the history rather than the provider. The Director runs on an
+// ephemeral carrier out of the shared carrier registry, exactly like every
+// workstream conversation: the carrier is process-local, and Codex attaches
+// dynamic tools when a thread starts and does not carry them into a resumed
+// thread, so a Director that resumed a provider thread would come back able to
+// talk and unable to act. Setta therefore keeps every Director turn durably and
+// replays that history into a fresh carrier on the first turn of each app run.
 //
 // One turn runs at a time. Tool calls inside a turn commit durable facts and
 // mutate app-wide selection, so two Director turns interleaving would let the
 // second act on state the first had not finished writing.
 
+// DirectorConversationID is the Director conversation's Setta identity. It is a
+// constant because there is exactly one Director conversation per app profile:
+// it keys the Director's carrier in the shared registry and names the Director
+// in the provider runtime, so both agree on which conversation is running.
+const DirectorConversationID = "director"
+
 // MaxDirectorReplayEntries bounds how much of the Director conversation one new
-// provider thread is re-established with. It is a product bound rather than a
-// storage one: the Director needs recent continuity, not a transcript that
-// grows with the profile forever.
+// carrier is replayed with. It is a product bound rather than a storage one: the
+// Director needs recent continuity, not a transcript that grows with the profile
+// forever.
 const MaxDirectorReplayEntries = 200
 
 // MaxDirectorReplyBytes bounds what the Director says in one turn. The reply is
@@ -42,17 +49,15 @@ const MaxDirectorReplayEntries = 200
 // beside the turn that produces it.
 const MaxDirectorReplyBytes = 64 * 1024
 
-// DirectorProviderThread is the ephemeral carrier now running the Director
-// conversation. It is process-local runtime state: the thread id is a live
-// correlation handle for this app run and nothing durable records it.
-type DirectorProviderThread struct {
-	ThreadID string
-	Model    string
-}
+// ErrDirectorCarrierLost reports that the provider no longer has the thread the
+// Director was running on. The port classifies it, because which provider
+// failures mean "this carrier is gone" is provider knowledge; what Setta does
+// about it — drop the carrier so the next turn starts a fresh one — is not.
+var ErrDirectorCarrierLost = errors.New("director carrier is no longer available")
 
-// DirectorThreadHistoryItem is one line of Director history replayed into a new
-// provider thread.
-type DirectorThreadHistoryItem struct {
+// DirectorHistoryItem is one line of Director history replayed into a new
+// carrier.
+type DirectorHistoryItem struct {
 	// TurnID keeps replay trimming atomic: when the role's input budget drops
 	// old history, it drops a whole turn rather than leaving a receipt or reply
 	// without the user request it belongs to.
@@ -64,19 +69,21 @@ type DirectorThreadHistoryItem struct {
 	Text      string
 }
 
-// DirectorThreadStart is one request to establish the Director provider thread.
-type DirectorThreadStart struct {
+// DirectorCarrierRequest is one request to start the Director's carrier.
+type DirectorCarrierRequest struct {
 	Instructions string
 	Tools        []SettaTool
-	History      []DirectorThreadHistoryItem
+	History      []DirectorHistoryItem
 }
 
-// DirectorTurnRequest is one user turn on the established thread.
+// DirectorTurnRequest is one user turn on the established carrier. Carrier
+// names both halves the provider call needs: the Setta conversation the turn
+// belongs to, and the provider thread it currently runs on.
 type DirectorTurnRequest struct {
-	ThreadID string
-	TurnID   string
-	Text     string
-	Tools    []SettaTool
+	Carrier conversation.Carrier
+	TurnID  string
+	Text    string
+	Tools   []SettaTool
 }
 
 // DirectorProviderTurn is the provider-authored result of one turn. Model is
@@ -88,12 +95,16 @@ type DirectorProviderTurn struct {
 	Model     string
 }
 
-// DirectorThreadPort is the consumer-owned half of the Director's provider
+// DirectorCarrierPort is the consumer-owned half of the Director's provider
 // boundary. Provider identity, credentials, models, and accounting stay behind
 // it; what crosses is a tool catalog the Director owns and the text of one
 // turn.
-type DirectorThreadPort interface {
-	StartDirectorThread(context.Context, DirectorThreadStart) (DirectorProviderThread, error)
+type DirectorCarrierPort interface {
+	// StartDirectorCarrier starts the ephemeral provider thread this app run's
+	// Director turns run on, replays the supplied history into it, and returns
+	// its provider id. The id is runtime correlation only: Setta records which
+	// conversation is running, never which thread carried it.
+	StartDirectorCarrier(context.Context, DirectorCarrierRequest) (string, error)
 	// RunDirectorTurn runs one turn to completion and returns the assistant
 	// text and model that produced it. Tool calls reach their handlers during
 	// the turn.
@@ -154,89 +165,91 @@ func (receipt DirectorTurnReceipt) Validate() error {
 	return nil
 }
 
-// DirectorThread runs the Director conversation.
-type DirectorThread struct {
+// DirectorConversation runs the Director conversation.
+type DirectorConversation struct {
 	toolbox  *SettaToolbox
 	store    DirectorConversationStore
-	provider DirectorThreadPort
+	carriers *conversation.CarrierRegistry
+	provider DirectorCarrierPort
 	now      func() time.Time
 	newID    func(string) (string, error)
 
-	// turnMutex serializes Director turns. carrier is written under it, so the
-	// provider carrier is started exactly once per app run.
+	// turnMutex serializes Director turns. The carrier is established under it,
+	// so one app run starts exactly one Director carrier.
 	turnMutex sync.Mutex
-	carrier   *DirectorProviderThread
 }
 
-// DirectorThreadOption configures the Director conversation.
-type DirectorThreadOption func(*DirectorThread) error
+// DirectorConversationOption configures the Director conversation.
+type DirectorConversationOption func(*DirectorConversation) error
 
-// WithDirectorThreadClock replaces the clock durable Director entries are
+// WithDirectorConversationClock replaces the clock durable Director entries are
 // stamped with.
-func WithDirectorThreadClock(now func() time.Time) DirectorThreadOption {
-	return func(thread *DirectorThread) error {
+func WithDirectorConversationClock(now func() time.Time) DirectorConversationOption {
+	return func(director *DirectorConversation) error {
 		if now == nil {
-			return errors.New("director thread clock must not be nil")
+			return errors.New("director conversation clock must not be nil")
 		}
-		thread.now = now
+		director.now = now
 		return nil
 	}
 }
 
-// WithDirectorThreadIdentity replaces the generator that mints durable entry
-// ids.
-func WithDirectorThreadIdentity(newID func(string) (string, error)) DirectorThreadOption {
-	return func(thread *DirectorThread) error {
+// WithDirectorConversationIdentity replaces the generator that mints durable
+// entry ids.
+func WithDirectorConversationIdentity(newID func(string) (string, error)) DirectorConversationOption {
+	return func(director *DirectorConversation) error {
 		if newID == nil {
-			return errors.New("director thread identity generator must not be nil")
+			return errors.New("director conversation identity generator must not be nil")
 		}
-		thread.newID = newID
+		director.newID = newID
 		return nil
 	}
 }
 
-// NewDirectorThread builds the Director conversation over trusted state, the
-// durable store, and the provider port.
-func NewDirectorThread(
+// NewDirectorConversation builds the Director conversation over trusted state,
+// the durable store, the app run's carrier registry, and the provider port.
+func NewDirectorConversation(
 	registry *Registry,
 	executor *DecisionExecutor,
 	store DirectorConversationStore,
-	provider DirectorThreadPort,
-	options ...DirectorThreadOption,
-) (*DirectorThread, error) {
-	if registry == nil || executor == nil || store == nil || provider == nil {
+	carriers *conversation.CarrierRegistry,
+	provider DirectorCarrierPort,
+	options ...DirectorConversationOption,
+) (*DirectorConversation, error) {
+	if registry == nil || executor == nil || store == nil || carriers == nil || provider == nil {
 		return nil, errors.New(
-			"director thread requires the registry, the executor, the durable store, and the provider port",
+			"director conversation requires the registry, the executor, the durable store, the carrier registry, and the provider port",
 		)
 	}
 	toolbox, err := NewSettaToolbox(registry, executor)
 	if err != nil {
 		return nil, err
 	}
-	thread := &DirectorThread{
+	director := &DirectorConversation{
 		toolbox:  toolbox,
 		store:    store,
+		carriers: carriers,
 		provider: provider,
 		now:      time.Now,
 		newID:    randomDirectorFactID,
 	}
 	for _, option := range options {
 		if option == nil {
-			return nil, errors.New("director thread option must not be nil")
+			return nil, errors.New("director conversation option must not be nil")
 		}
-		if err := option(thread); err != nil {
+		if err := option(director); err != nil {
 			return nil, err
 		}
 	}
-	return thread, nil
+	return director, nil
 }
 
 // Submit runs one user request as a turn of the Director conversation.
-func (thread *DirectorThread) Submit(
+func (director *DirectorConversation) Submit(
 	ctx context.Context,
 	intent SubmittedIntent,
 ) (DirectorTurnReceipt, error) {
-	if thread == nil || thread.provider == nil || thread.store == nil {
+	if director == nil || director.provider == nil || director.store == nil {
 		return DirectorTurnReceipt{}, ErrDirectorUnavailable
 	}
 	if ctx == nil {
@@ -245,16 +258,16 @@ func (thread *DirectorThread) Submit(
 	if err := validateSubmittedIntent(intent); err != nil {
 		return DirectorTurnReceipt{}, fmt.Errorf("%w: %w", ErrDirectorIntentRejected, err)
 	}
-	thread.turnMutex.Lock()
-	defer thread.turnMutex.Unlock()
-	tools, err := thread.toolbox.Tools(intent)
+	director.turnMutex.Lock()
+	defer director.turnMutex.Unlock()
+	tools, err := director.toolbox.Tools(intent)
 	if err != nil {
 		return DirectorTurnReceipt{}, err
 	}
 	recorder := &directorToolRecorder{
 		persistence: directorToolPersistence{
 			begin: func(callContext context.Context, tool string, arguments json.RawMessage) (string, error) {
-				return thread.persistToolCall(context.WithoutCancel(callContext), intent, tool, arguments)
+				return director.persistToolCall(context.WithoutCancel(callContext), intent, tool, arguments)
 			},
 			finish: func(
 				callContext context.Context,
@@ -262,7 +275,7 @@ func (thread *DirectorThread) Submit(
 				receipt SettaToolReceipt,
 				succeeded bool,
 			) error {
-				return thread.persistToolReceipt(
+				return director.persistToolReceipt(
 					context.WithoutCancel(callContext),
 					intent,
 					callID,
@@ -273,39 +286,39 @@ func (thread *DirectorThread) Submit(
 		},
 	}
 	recorded := recorder.instrument(tools)
-	carrier, err := thread.establish(ctx, recorded)
+	carrier, err := director.establish(ctx, recorded)
 	if err != nil {
 		return DirectorTurnReceipt{}, err
 	}
-	if err := thread.persistUserTurn(ctx, intent); err != nil {
+	if err := director.persistUserTurn(ctx, intent); err != nil {
 		return DirectorTurnReceipt{}, err
 	}
-	providerTurn, err := thread.provider.RunDirectorTurn(ctx, DirectorTurnRequest{
-		ThreadID: carrier.ThreadID,
-		TurnID:   intent.ID,
-		Text:     intent.Text,
-		Tools:    recorded,
+	providerTurn, err := director.runTurn(ctx, DirectorTurnRequest{
+		Carrier: carrier,
+		TurnID:  intent.ID,
+		Text:    intent.Text,
+		Tools:   recorded,
 	})
 	if err != nil {
 		return DirectorTurnReceipt{}, err
 	}
 	// A prose-only answer may be exactly right, or it may be the failure mode
 	// this product replaced: answering an app-control request without acting.
-	// Setta does not guess from keywords. It asks the same Director thread to
-	// review the turn against its tool contract, act now when action was
+	// Setta does not guess from keywords. It asks the same Director conversation
+	// to review the turn against its tool contract, act now when action was
 	// required, or repeat the conversational answer when it was not.
 	if len(recorder.recorded) == 0 {
-		providerTurn, err = thread.provider.RunDirectorTurn(ctx, DirectorTurnRequest{
-			ThreadID: carrier.ThreadID,
-			TurnID:   intent.ID,
-			Text:     directorToolUseReview,
-			Tools:    recorded,
+		providerTurn, err = director.runTurn(ctx, DirectorTurnRequest{
+			Carrier: carrier,
+			TurnID:  intent.ID,
+			Text:    directorToolUseReview,
+			Tools:   recorded,
 		})
 		if err != nil {
 			return DirectorTurnReceipt{}, err
 		}
 	}
-	return thread.finishTurn(
+	return director.finishTurn(
 		ctx,
 		intent,
 		strings.TrimSpace(providerTurn.ReplyText),
@@ -319,7 +332,7 @@ func (thread *DirectorThread) Submit(
 // re-established from, what the graph draws as the Director's answer, and what
 // the spoken reply is read out of, so a second durable record of the same
 // sentence could only disagree with it.
-func (thread *DirectorThread) finishTurn(
+func (director *DirectorConversation) finishTurn(
 	ctx context.Context,
 	intent SubmittedIntent,
 	reply string,
@@ -340,10 +353,10 @@ func (thread *DirectorThread) finishTurn(
 	if err := validateIdentifier("director reply model", model); err != nil {
 		return DirectorTurnReceipt{}, err
 	}
-	entry, err := thread.textEntry(
+	entry, err := director.textEntry(
 		conversation.DirectorConversationAssistantText,
 		intent.ID,
-		thread.now().UTC().Format(time.RFC3339Nano),
+		director.now().UTC().Format(time.RFC3339Nano),
 		reply,
 	)
 	if err != nil {
@@ -353,7 +366,7 @@ func (thread *DirectorThread) finishTurn(
 		Provider: conversation.ProviderCodex,
 		Model:    model,
 	}
-	if err := thread.store.AppendDirectorConversation(ctx, []conversation.DirectorConversationEntry{entry}); err != nil {
+	if err := director.store.AppendDirectorConversation(ctx, []conversation.DirectorConversationEntry{entry}); err != nil {
 		return DirectorTurnReceipt{}, err
 	}
 	return receipt, nil
@@ -362,31 +375,31 @@ func (thread *DirectorThread) finishTurn(
 // persistUserTurn records the request before the provider is asked to serve it.
 // The user said it first, so the conversation says so first: a provider failure
 // then leaves a request nothing answered rather than erasing that it was made.
-func (thread *DirectorThread) persistUserTurn(ctx context.Context, intent SubmittedIntent) error {
-	entry, err := thread.textEntry(
+func (director *DirectorConversation) persistUserTurn(ctx context.Context, intent SubmittedIntent) error {
+	entry, err := director.textEntry(
 		conversation.DirectorConversationUserTurn,
 		intent.ID,
-		thread.now().UTC().Format(time.RFC3339Nano),
+		director.now().UTC().Format(time.RFC3339Nano),
 		intent.Text,
 	)
 	if err != nil {
 		return err
 	}
-	return thread.store.AppendDirectorConversation(ctx, []conversation.DirectorConversationEntry{entry})
+	return director.store.AppendDirectorConversation(ctx, []conversation.DirectorConversationEntry{entry})
 }
 
 // persistToolCall commits a call before its handler runs and returns the entry
 // id its receipt answers.
-func (thread *DirectorThread) persistToolCall(
+func (director *DirectorConversation) persistToolCall(
 	ctx context.Context,
 	intent SubmittedIntent,
 	tool string,
 	arguments json.RawMessage,
 ) (string, error) {
-	entry, err := thread.newEntry(
+	entry, err := director.newEntry(
 		conversation.DirectorConversationToolCall,
 		intent.ID,
-		thread.now().UTC().Format(time.RFC3339Nano),
+		director.now().UTC().Format(time.RFC3339Nano),
 	)
 	if err != nil {
 		return "", err
@@ -395,7 +408,7 @@ func (thread *DirectorThread) persistToolCall(
 		Tool:    tool,
 		Payload: durableDirectorToolArguments(tool, arguments),
 	}
-	if err := thread.store.AppendDirectorConversation(ctx, []conversation.DirectorConversationEntry{entry}); err != nil {
+	if err := director.store.AppendDirectorConversation(ctx, []conversation.DirectorConversationEntry{entry}); err != nil {
 		return "", err
 	}
 	return entry.ID, nil
@@ -420,7 +433,7 @@ func durableDirectorToolArguments(tool string, arguments json.RawMessage) json.R
 // persistToolReceipt commits what the call reported, verbatim. Replaying the
 // conversation reproduces what the Director was actually told rather than a
 // re-rendered summary of it.
-func (thread *DirectorThread) persistToolReceipt(
+func (director *DirectorConversation) persistToolReceipt(
 	ctx context.Context,
 	intent SubmittedIntent,
 	callID string,
@@ -431,10 +444,10 @@ func (thread *DirectorThread) persistToolReceipt(
 	if err != nil {
 		return fmt.Errorf("encode setta tool receipt %s: %w", receipt.Tool, err)
 	}
-	entry, err := thread.newEntry(
+	entry, err := director.newEntry(
 		conversation.DirectorConversationToolReceipt,
 		intent.ID,
-		thread.now().UTC().Format(time.RFC3339Nano),
+		director.now().UTC().Format(time.RFC3339Nano),
 	)
 	if err != nil {
 		return err
@@ -445,81 +458,95 @@ func (thread *DirectorThread) persistToolReceipt(
 		Succeeded: succeeded,
 		CallID:    &callID,
 	}
-	return thread.store.AppendDirectorConversation(ctx, []conversation.DirectorConversationEntry{entry})
+	return director.store.AppendDirectorConversation(ctx, []conversation.DirectorConversationEntry{entry})
 }
 
 // establish returns the ephemeral carrier this app run's Director turns run on,
 // starting it from the durable conversation the first time it is needed. The
-// carrier is held in memory only: the next app run starts a fresh one and
-// replays the same Setta-owned history into it.
-func (thread *DirectorThread) establish(
+// carrier lives in the app run's shared registry under the Director's own Setta
+// id, exactly like a workstream's: the next app run finds nothing there, starts
+// a fresh carrier, and replays the same Setta-owned history into it.
+func (director *DirectorConversation) establish(
 	ctx context.Context,
 	tools []SettaTool,
-) (DirectorProviderThread, error) {
-	if thread.carrier != nil {
-		return *thread.carrier, nil
+) (conversation.Carrier, error) {
+	if carrier, live := director.carriers.Lookup(DirectorConversationID); live {
+		return carrier, nil
 	}
-	history, err := thread.replayHistory(ctx)
+	history, err := director.replayHistory(ctx)
 	if err != nil {
-		return DirectorProviderThread{}, err
+		return conversation.Carrier{}, err
 	}
-	started, err := thread.provider.StartDirectorThread(ctx, DirectorThreadStart{
-		Instructions: DirectorThreadInstructions(),
+	threadID, err := director.provider.StartDirectorCarrier(ctx, DirectorCarrierRequest{
+		Instructions: DirectorInstructions(),
 		Tools:        tools,
 		History:      history,
 	})
 	if err != nil {
-		return DirectorProviderThread{}, err
+		return conversation.Carrier{}, err
 	}
-	if err := validateIdentifier("director carrier thread id", started.ThreadID); err != nil {
-		return DirectorProviderThread{}, err
+	if err := validateIdentifier("director carrier thread id", threadID); err != nil {
+		return conversation.Carrier{}, err
 	}
-	if err := validateIdentifier("director carrier model", started.Model); err != nil {
-		return DirectorProviderThread{}, err
+	carrier := conversation.Carrier{OwnerID: DirectorConversationID, ThreadID: threadID}
+	director.carriers.Remember(carrier)
+	return carrier, nil
+}
+
+// runTurn runs one turn on the Director's carrier. A carrier the provider has
+// lost is dropped rather than retried here: the turn fails with what went
+// wrong, and the next one replays the durable conversation into a fresh carrier
+// instead of addressing a thread Codex no longer has.
+func (director *DirectorConversation) runTurn(
+	ctx context.Context,
+	request DirectorTurnRequest,
+) (DirectorProviderTurn, error) {
+	turn, err := director.provider.RunDirectorTurn(ctx, request)
+	if errors.Is(err, ErrDirectorCarrierLost) {
+		director.carriers.Forget(request.Carrier.OwnerID)
 	}
-	thread.carrier = &started
-	return started, nil
+	return turn, err
 }
 
 // replayHistory turns the durable Director conversation back into the turns a
-// new provider thread is started with. Tool calls are replayed as their
+// new carrier is started with. Tool calls are replayed as their
 // receipts, because what the Director needs to remember is what Setta did, not
 // how the call was encoded.
-func (thread *DirectorThread) replayHistory(
+func (director *DirectorConversation) replayHistory(
 	ctx context.Context,
-) ([]DirectorThreadHistoryItem, error) {
-	entries, err := thread.store.ReadRecentDirectorConversation(ctx, MaxDirectorReplayEntries)
+) ([]DirectorHistoryItem, error) {
+	entries, err := director.store.ReadRecentDirectorConversation(ctx, MaxDirectorReplayEntries)
 	if err != nil {
 		return nil, err
 	}
 	// The entry limit may land inside a turn. Drop that incomplete prefix so a
-	// new provider thread never sees a tool receipt or assistant reply without
-	// the user turn it answered.
+	// new carrier never sees a tool receipt or assistant reply without the user
+	// turn it answered.
 	for len(entries) > 0 && entries[0].Kind != conversation.DirectorConversationUserTurn {
 		entries = entries[1:]
 	}
-	history := make([]DirectorThreadHistoryItem, 0, len(entries))
+	history := make([]DirectorHistoryItem, 0, len(entries))
 	for _, entry := range entries {
 		switch entry.Kind {
 		case conversation.DirectorConversationUserTurn:
-			history = append(history, DirectorThreadHistoryItem{
+			history = append(history, DirectorHistoryItem{
 				TurnID: entry.TurnID,
 				Text:   entry.Text.Text,
 			})
 		case conversation.DirectorConversationAssistantText:
-			history = append(history, DirectorThreadHistoryItem{
+			history = append(history, DirectorHistoryItem{
 				TurnID:    entry.TurnID,
 				Assistant: true,
 				Text:      entry.Text.Text,
 			})
 		case conversation.DirectorConversationToolReceipt:
-			history = append(history, DirectorThreadHistoryItem{
+			history = append(history, DirectorHistoryItem{
 				TurnID: entry.TurnID,
 				Text:   fmt.Sprintf("Setta tool %s.%s reported: %s", SettaToolNamespace, entry.Tool.Tool, entry.Tool.Payload),
 			})
 		case conversation.DirectorConversationToolCall:
 			// The call is durable so the app can explain what the Director did;
-			// replaying it would tell the thread to act again.
+			// replaying it would tell the carrier to act again.
 			continue
 		default:
 			return nil, fmt.Errorf("unknown director conversation entry kind %q", entry.Kind)
@@ -528,13 +555,13 @@ func (thread *DirectorThread) replayHistory(
 	return history, nil
 }
 
-func (thread *DirectorThread) textEntry(
+func (director *DirectorConversation) textEntry(
 	kind conversation.DirectorConversationEntryKind,
 	turnID string,
 	recordedAt string,
 	text string,
 ) (conversation.DirectorConversationEntry, error) {
-	entry, err := thread.newEntry(kind, turnID, recordedAt)
+	entry, err := director.newEntry(kind, turnID, recordedAt)
 	if err != nil {
 		return conversation.DirectorConversationEntry{}, err
 	}
@@ -542,12 +569,12 @@ func (thread *DirectorThread) textEntry(
 	return entry, nil
 }
 
-func (thread *DirectorThread) newEntry(
+func (director *DirectorConversation) newEntry(
 	kind conversation.DirectorConversationEntryKind,
 	turnID string,
 	recordedAt string,
 ) (conversation.DirectorConversationEntry, error) {
-	id, err := thread.newID("director-entry")
+	id, err := director.newID("director-entry")
 	if err != nil {
 		return conversation.DirectorConversationEntry{}, err
 	}

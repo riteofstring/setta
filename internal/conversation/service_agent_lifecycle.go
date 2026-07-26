@@ -71,7 +71,7 @@ func (service *Service) finishRunTurn(active *activeConversationTurn, runErr err
 		// The carrier is gone, not the conversation. Dropping it means the next
 		// turn replays Setta's record into a fresh one instead of addressing a
 		// thread the provider no longer has.
-		service.carriers.forget(active.conversationID)
+		service.carriers.Forget(active.conversationID)
 	}
 	if persisted {
 		service.promoteNextTurn(active.workspaceID, active.conversationID)

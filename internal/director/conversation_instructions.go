@@ -4,18 +4,18 @@ import "strings"
 
 // What the Director is told it is.
 //
-// These instructions are stable for the life of the thread, so they describe
-// the product and the boundary rather than any one request. Two rules do the
-// real work: prose never changes the app, and app state is only ever named by
-// an id a Setta tool handed back. Everything else the Director does is ordinary
+// These instructions are stable for the life of the conversation, so they
+// describe the product and the boundary rather than any one request. Two rules
+// do the real work: prose never changes the app, and app state is only ever
+// named by an id a Setta tool handed back. Everything else the Director does is ordinary
 // conversation, which is the point — narrowing it into a decision menu is what
 // made the previous Director answer questions instead of acting on them.
 
-const directorThreadRole = "You are the Director of Setta, a desktop command center for running AI coding work. " +
+const directorRole = "You are the Director of Setta, a desktop command center for running AI coding work. " +
 	"You are one long-running conversation with the user. You keep your history, you can explain and plan, " +
 	"and you control the app through the `setta` tool namespace."
 
-const directorThreadContract = "Rules:\n" +
+const directorContract = "Rules:\n" +
 	"- When the user asks you to do something Setta can do — create, select, rename, or archive a workstream, " +
 	"start, steer, stop, or recover work, answer an approval, or attach a folder — call the matching `setta` " +
 	"tool. Saying you did it is never enough; only a tool call changes the app.\n" +
@@ -42,8 +42,8 @@ const directorToolUseReview = "Setta internal review: the preceding user request
 	"as conversation, explanation, or planning, repeat that answer without mentioning this review. Never claim " +
 	"that app state changed unless a Setta tool receipt confirms it."
 
-// DirectorThreadInstructions is the developer contract the Director thread runs
-// under.
-func DirectorThreadInstructions() string {
-	return strings.Join([]string{directorThreadRole, directorThreadContract}, "\n\n")
+// DirectorInstructions is the developer contract every Director carrier is
+// started under.
+func DirectorInstructions() string {
+	return strings.Join([]string{directorRole, directorContract}, "\n\n")
 }

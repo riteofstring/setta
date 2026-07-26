@@ -19,9 +19,9 @@ import (
 // startup and then blocks on the store's committed-event wake.
 //
 // The command center is assembled from three pieces that stay separable: the
-// registry is what is durably true, the Director thread decides whether to talk
-// or call a Setta tool, and the executor turns authorized tool calls into work.
-// Only this file joins the provider conversation to the local conversation
+// registry is what is durably true, the Director conversation decides whether to
+// talk or call a Setta tool, and the executor turns authorized tool calls into
+// work. Only this file joins the Director conversation to the local conversation
 // service.
 
 // directorRuntimeDirectoryName holds the isolated, read-only working directory
@@ -67,13 +67,13 @@ func newDirectorCommandCenter(
 	roles directorRoleResolver,
 	provider directorProviderRuntime,
 ) (*director.CommandCenter, error) {
-	threadRoot := filepath.Join(filepath.Clean(appDataDir), directorRuntimeDirectoryName)
-	if err := os.MkdirAll(threadRoot, 0o700); err != nil {
+	carrierRoot := filepath.Join(filepath.Clean(appDataDir), directorRuntimeDirectoryName)
+	if err := os.MkdirAll(carrierRoot, 0o700); err != nil {
 		return nil, fmt.Errorf("create director runtime directory: %w", err)
 	}
-	caller, err := newDirectorThreadCaller(roles, provider, threadRoot)
+	carrierPort, err := newDirectorCarrierPort(roles, provider, carrierRoot)
 	if err != nil {
-		return nil, fmt.Errorf("create director thread caller: %w", err)
+		return nil, fmt.Errorf("create director carrier port: %w", err)
 	}
 	execution, err := newDirectorWorkstreamExecution(conversations, registry)
 	if err != nil {
@@ -83,11 +83,20 @@ func newDirectorCommandCenter(
 	if err != nil {
 		return nil, fmt.Errorf("create director decision executor: %w", err)
 	}
-	thread, err := director.NewDirectorThread(registry, executor, store, caller)
+	// The Director shares the conversation runtime's carrier registry. Its
+	// carrier is process-local runtime state like every workstream's, so one
+	// registry holds every live carrier this app run started.
+	directorConversation, err := director.NewDirectorConversation(
+		registry,
+		executor,
+		store,
+		conversations.Carriers(),
+		carrierPort,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("create director conversation: %w", err)
 	}
-	commandCenter, err := director.NewCommandCenter(registry, thread, executor)
+	commandCenter, err := director.NewCommandCenter(registry, directorConversation, executor)
 	if err != nil {
 		return nil, fmt.Errorf("create director command center: %w", err)
 	}

@@ -17,12 +17,12 @@ import (
 // The Director conversation's provider half.
 //
 // The Director owns what its tools mean; this owns how they reach Codex. It
-// holds provider identity, the resolved role, the isolated directory the thread
+// holds provider identity, the resolved role, the isolated directory the carrier
 // runs in, and the translation between Setta's tool catalog and the app-server's
 // dynamic-tool wire shape — and it holds nothing about what a tool call does.
 //
-// The Director thread is read-only and approval-free at the provider level. It
-// coordinates workstreams; the work itself runs in workstream threads with their
+// The Director carrier is read-only and approval-free at the provider level. It
+// coordinates workstreams; the work itself runs on workstream carriers with their
 // own permissions, so a Director that could edit files or run commands would be
 // authority the product never asked for.
 
@@ -39,41 +39,30 @@ type directorProviderRuntime interface {
 	RunTurn(context.Context, agent.TurnRequest, agent.EventSink) (agent.TurnResult, error)
 }
 
-// directorThreadCaller runs the Director conversation against Codex.
-type directorThreadCaller struct {
+// directorCarrierPort starts and runs the Director's carriers against Codex.
+type directorCarrierPort struct {
 	roles         directorRoleResolver
 	provider      directorProviderRuntime
 	workspaceRoot string
-	// conversationID names the Director in the provider runtime's active-turn
-	// map. It is a constant because there is exactly one Director conversation
-	// per app profile, and the runtime uses it to refuse a second concurrent
-	// turn on the same conversation.
-	conversationID string
-	newID          func(string) (string, error)
+	newID         func(string) (string, error)
 }
 
-// directorProviderConversationID is the Director's identity in the agent
-// runtime. It is not a Setta conversation id: the Director is not a workstream,
-// and nothing in the conversation store is keyed by it.
-const directorProviderConversationID = "director"
-
-func newDirectorThreadCaller(
+func newDirectorCarrierPort(
 	roles directorRoleResolver,
 	provider directorProviderRuntime,
 	workspaceRoot string,
-) (*directorThreadCaller, error) {
+) (*directorCarrierPort, error) {
 	if roles == nil || provider == nil {
-		return nil, errors.New("director thread caller requires a role resolver and a provider runtime")
+		return nil, errors.New("director carrier port requires a role resolver and a provider runtime")
 	}
 	if workspaceRoot == "" || !filepath.IsAbs(workspaceRoot) {
-		return nil, fmt.Errorf("director thread workspace root must be absolute: %s", workspaceRoot)
+		return nil, fmt.Errorf("director carrier workspace root must be absolute: %s", workspaceRoot)
 	}
-	return &directorThreadCaller{
-		roles:          roles,
-		provider:       provider,
-		workspaceRoot:  filepath.Clean(workspaceRoot),
-		conversationID: directorProviderConversationID,
-		newID:          randomDirectorRequestID,
+	return &directorCarrierPort{
+		roles:         roles,
+		provider:      provider,
+		workspaceRoot: filepath.Clean(workspaceRoot),
+		newID:         randomDirectorRequestID,
 	}, nil
 }
 
@@ -87,64 +76,64 @@ func randomDirectorRequestID(prefix string) (string, error) {
 	return prefix + "_" + hex.EncodeToString(data[:]), nil
 }
 
-// StartDirectorThread opens the provider thread the Director conversation runs
-// on and replays the durable history into it.
+// StartDirectorCarrier opens the ephemeral provider thread the Director
+// conversation runs on and replays the durable history into it.
 //
 // Codex attaches dynamic tools at thread start and does not carry them into a
 // resumed thread, so this always starts. The Director's continuity comes from
-// the durable history Setta injects here, which is why losing the provider
-// thread across a restart costs the Director nothing it needs.
-func (caller *directorThreadCaller) StartDirectorThread(
+// the durable history Setta injects here, which is why losing the carrier across
+// a restart costs the Director nothing it needs.
+func (port *directorCarrierPort) StartDirectorCarrier(
 	ctx context.Context,
-	request director.DirectorThreadStart,
-) (director.DirectorProviderThread, error) {
-	if caller == nil || caller.roles == nil || caller.provider == nil {
-		return director.DirectorProviderThread{}, errors.New("director thread caller is unavailable")
+	request director.DirectorCarrierRequest,
+) (string, error) {
+	if port == nil || port.roles == nil || port.provider == nil {
+		return "", errors.New("director carrier port is unavailable")
 	}
 	if ctx == nil {
-		return director.DirectorProviderThread{}, errors.New("director thread context is required")
+		return "", errors.New("director carrier context is required")
 	}
-	invocation, maxInputBytes, err := caller.invocation(ctx)
+	invocation, maxInputBytes, err := port.invocation(ctx)
 	if err != nil {
-		return director.DirectorProviderThread{}, err
+		return "", err
 	}
 	tools, err := directorDynamicTools(request.Tools)
 	if err != nil {
-		return director.DirectorProviderThread{}, err
+		return "", err
 	}
-	thread, err := caller.provider.StartThread(ctx, agent.StartThreadRequest{
-		WorkspaceRoot:         caller.workspaceRoot,
+	thread, err := port.provider.StartThread(ctx, agent.StartThreadRequest{
+		WorkspaceRoot:         port.workspaceRoot,
 		Invocation:            invocation,
 		Ephemeral:             true,
 		DeveloperInstructions: request.Instructions,
 		DynamicTools:          tools,
 	})
 	if err != nil {
-		return director.DirectorProviderThread{}, fmt.Errorf("start director thread: %w", err)
+		return "", fmt.Errorf("start director carrier: %w", err)
 	}
-	if err := caller.replay(
+	if err := port.replay(
 		ctx,
 		thread.ID,
 		directorHistoryWithinBudget(request.History, maxInputBytes),
 	); err != nil {
-		return director.DirectorProviderThread{}, err
+		return "", err
 	}
-	return director.DirectorProviderThread{ThreadID: thread.ID, Model: thread.Model}, nil
+	return thread.ID, nil
 }
 
-// replay seeds the new provider thread with the Director conversation Setta
-// already owns. A thread with no history is materialized with the marker turn
-// the agent runtime uses everywhere else so the first real request continues
-// from an explicitly inert history item.
-func (caller *directorThreadCaller) replay(
+// replay seeds the new carrier with the Director conversation Setta already
+// owns. A carrier with no history is materialized with the marker turn the agent
+// runtime uses everywhere else so the first real request continues from an
+// explicitly inert history item.
+func (port *directorCarrierPort) replay(
 	ctx context.Context,
 	threadID string,
-	history []director.DirectorThreadHistoryItem,
+	history []director.DirectorHistoryItem,
 ) error {
 	if len(history) == 0 {
-		return caller.provider.InjectItems(ctx, threadID, []agent.InjectedTextItem{{
+		return port.provider.InjectItems(ctx, threadID, []agent.InjectedTextItem{{
 			Role: "user",
-			Text: directorThreadInitialization,
+			Text: directorCarrierInitialization,
 		}})
 	}
 	items := make([]agent.InjectedTextItem, 0, len(history))
@@ -155,16 +144,16 @@ func (caller *directorThreadCaller) replay(
 		}
 		items = append(items, agent.InjectedTextItem{Role: role, Text: entry.Text})
 	}
-	return caller.provider.InjectItems(ctx, threadID, items)
+	return port.provider.InjectItems(ctx, threadID, items)
 }
 
 // directorHistoryWithinBudget keeps the newest complete turns that fit the
 // Director role's input budget. Setta history is append-only and can outgrow a
 // provider request; dropping a whole oldest turn preserves causal replay.
 func directorHistoryWithinBudget(
-	history []director.DirectorThreadHistoryItem,
+	history []director.DirectorHistoryItem,
 	maxInputBytes int,
-) []director.DirectorThreadHistoryItem {
+) []director.DirectorHistoryItem {
 	total := 0
 	for _, entry := range history {
 		total += len(entry.Text)
@@ -177,26 +166,26 @@ func directorHistoryWithinBudget(
 			first++
 		}
 	}
-	return append([]director.DirectorThreadHistoryItem{}, history[first:]...)
+	return append([]director.DirectorHistoryItem{}, history[first:]...)
 }
 
-const directorThreadInitialization = "Setta started this Director conversation. This is an inert history marker, not a request. Respond only to later user turns."
+const directorCarrierInitialization = "Setta started this Director conversation. This is an inert history marker, not a request. Respond only to later user turns."
 
 // RunDirectorTurn runs one Director turn and returns the assistant text plus
 // the exact resolved model that authored it. Tool calls reach their Setta
 // handlers while the turn runs, so by the time this returns the app has already
 // changed.
-func (caller *directorThreadCaller) RunDirectorTurn(
+func (port *directorCarrierPort) RunDirectorTurn(
 	ctx context.Context,
 	request director.DirectorTurnRequest,
 ) (director.DirectorProviderTurn, error) {
-	if caller == nil || caller.roles == nil || caller.provider == nil {
-		return director.DirectorProviderTurn{}, errors.New("director thread caller is unavailable")
+	if port == nil || port.roles == nil || port.provider == nil {
+		return director.DirectorProviderTurn{}, errors.New("director carrier port is unavailable")
 	}
 	if ctx == nil {
 		return director.DirectorProviderTurn{}, errors.New("director turn context is required")
 	}
-	invocation, maxInputBytes, err := caller.invocation(ctx)
+	invocation, maxInputBytes, err := port.invocation(ctx)
 	if err != nil {
 		return director.DirectorProviderTurn{}, err
 	}
@@ -212,22 +201,33 @@ func (caller *directorThreadCaller) RunDirectorTurn(
 	if err != nil {
 		return director.DirectorProviderTurn{}, err
 	}
-	clientInputID, err := caller.newID("director_turn")
+	clientInputID, err := port.newID("director_turn")
 	if err != nil {
 		return director.DirectorProviderTurn{}, err
 	}
 	sink := &directorTurnSink{}
-	result, err := caller.provider.RunTurn(ctx, agent.TurnRequest{
-		ConversationID:   caller.conversationID,
+	result, err := port.provider.RunTurn(ctx, agent.TurnRequest{
+		ConversationID:   request.Carrier.OwnerID,
 		TurnID:           request.TurnID,
-		ProviderThreadID: request.ThreadID,
+		ProviderThreadID: request.Carrier.ThreadID,
 		ClientInputID:    clientInputID,
 		Text:             request.Text,
-		WorkspaceRoot:    caller.workspaceRoot,
+		WorkspaceRoot:    port.workspaceRoot,
 		Invocation:       invocation,
 		DynamicTools:     tools,
 	}, sink)
 	if err != nil {
+		// Only the provider knows that an error means the thread itself is
+		// gone. Saying so in Setta's own vocabulary is what lets the Director
+		// drop the carrier and replay its durable conversation into a new one.
+		if agent.IsProviderThreadMissing(err) {
+			return director.DirectorProviderTurn{}, fmt.Errorf(
+				"%w: run director turn %s: %w",
+				director.ErrDirectorCarrierLost,
+				request.TurnID,
+				err,
+			)
+		}
 		return director.DirectorProviderTurn{}, fmt.Errorf("run director turn %s: %w", request.TurnID, err)
 	}
 	if result.Outcome != agent.TurnOutcomeCompleted {
@@ -242,8 +242,8 @@ func (caller *directorThreadCaller) RunDirectorTurn(
 // invocation resolves the app-global Director role for one provider call. It is
 // resolved per call rather than cached, because the user can change the
 // Director's model while the conversation is running.
-func (caller *directorThreadCaller) invocation(ctx context.Context) (agent.Invocation, int, error) {
-	configuration, err := caller.roles.ResolveDirectorRoleConfiguration(ctx)
+func (port *directorCarrierPort) invocation(ctx context.Context) (agent.Invocation, int, error) {
+	configuration, err := port.roles.ResolveDirectorRoleConfiguration(ctx)
 	if err != nil {
 		return agent.Invocation{}, 0, fmt.Errorf("resolve director role: %w", err)
 	}
@@ -293,7 +293,7 @@ func (sink *directorTurnSink) replyText() string {
 // so the Director's tools stay named by what they do.
 func directorDynamicTools(tools []director.SettaTool) ([]agent.DynamicTool, error) {
 	if len(tools) == 0 {
-		return nil, errors.New("director thread requires the setta tool catalog")
+		return nil, errors.New("director carrier requires the setta tool catalog")
 	}
 	dynamic := make([]agent.DynamicTool, 0, len(tools))
 	for _, tool := range tools {

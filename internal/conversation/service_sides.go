@@ -106,7 +106,7 @@ func (service *Service) startPreparedSideConversation(
 			err,
 		)
 	}
-	carrier := conversationCarrier{ownerID: prepared.side.ID, threadID: thread.ID}
+	carrier := Carrier{OwnerID: prepared.side.ID, ThreadID: thread.ID}
 	if err := validateSideCarrier(thread, prepared.resolved.Model); err != nil {
 		retained, cleanupErr := service.cleanupRejectedSideCarrier(carrier)
 		return service.failPreparingSideConversation(
@@ -470,7 +470,7 @@ func newSideAgentInvocation(
 func (service *Service) activateSideConversation(
 	ctx context.Context,
 	prepared preparedSideConversation,
-	carrier conversationCarrier,
+	carrier Carrier,
 ) error {
 	lock := service.conversationLock(prepared.parentConversationID)
 	lock.Lock()
@@ -492,7 +492,7 @@ func (service *Service) activateSideConversation(
 	}
 	// The carrier is remembered only once the side is durably active, so a side
 	// nothing committed never leaves a live thread behind under its id.
-	service.carriers.remember(carrier)
+	service.carriers.Remember(carrier)
 	return nil
 }
 
@@ -503,7 +503,7 @@ func (service *Service) activateSideConversation(
 func (service *Service) failPreparingSideConversation(
 	prepared preparedSideConversation,
 	code string,
-	retainedCarrier *conversationCarrier,
+	retainedCarrier *Carrier,
 	cause error,
 ) error {
 	diagnosticID, idErr := service.newID("side_diagnostic")
@@ -550,7 +550,7 @@ func (service *Service) failPreparingSideConversation(
 		return errors.Join(cause, fmt.Errorf("persist failed side conversation: %w", persistErr))
 	}
 	if retainedCarrier != nil {
-		service.carriers.remember(*retainedCarrier)
+		service.carriers.Remember(*retainedCarrier)
 	}
 	return cause
 }
@@ -638,13 +638,13 @@ func validateSideCarrier(thread agent.Thread, modelID string) error {
 // returns the carrier only when the provider still holds it, so the caller knows
 // whether the side conversation is already settled or still owes cleanup.
 func (service *Service) cleanupRejectedSideCarrier(
-	carrier conversationCarrier,
-) (*conversationCarrier, error) {
-	if carrier.threadID == "" {
+	carrier Carrier,
+) (*Carrier, error) {
+	if carrier.ThreadID == "" {
 		return nil, nil
 	}
-	if err := service.agent.UnsubscribeThread(context.Background(), carrier.threadID); err != nil {
-		return &carrier, fmt.Errorf("unsubscribe rejected side carrier %s: %w", carrier.threadID, err)
+	if err := service.agent.UnsubscribeThread(context.Background(), carrier.ThreadID); err != nil {
+		return &carrier, fmt.Errorf("unsubscribe rejected side carrier %s: %w", carrier.ThreadID, err)
 	}
 	return nil, nil
 }

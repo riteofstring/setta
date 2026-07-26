@@ -1,7 +1,7 @@
 # Setta-Owned Conversations With Ephemeral Codex Carriers
 
-Status: in progress. Phases 1 through 4 are implemented. Phase 5 still owns
-moving the Director onto the shared carrier registry.
+Status: in progress. Phases 1 through 5 are implemented. Phase 6 updates tests
+and verification targets when verification is requested.
 
 ## Executive Summary
 
@@ -285,8 +285,8 @@ Expected result: no public or durable Setta contract treats provider thread
 identity as app state.
 
 The Director slice landed first. `director_thread`, `DirectorThreadRecord`, and
-its store read/write are gone; the carrier the Director runs on is held only in
-`DirectorThread.carrier` for the app run. `DirectorConversationModel` and
+its store read/write are gone; the carrier the Director runs on is now a
+`CarrierRegistry` entry for the app run (Phase 5). `DirectorConversationModel` and
 `InterpretationModelIdentity` now attribute a reply to provider and model alone,
 so no provider thread id reaches the durable Director conversation log or the
 semantic graph. This also completes the first bullet of Phase 5.
@@ -369,12 +369,27 @@ boundary the in-flight context frame is built around.
 
 Expected result: branch and side behavior no longer requires provider history.
 
-### Phase 5: Unify Director Carrier Handling
+### Phase 5: Unify Director Carrier Handling — DONE
 
 - DONE: Delete durable Director provider binding.
-- Move Director carrier lifecycle onto the same carrier registry.
-- Keep Director conversation history in the committed Setta log.
-- Keep Director-specific tools and styling.
+- DONE: Move Director carrier lifecycle onto the same carrier registry. The
+  registry is `conversation.CarrierRegistry`, the conversation runtime owns the
+  one instance an app run has (`Service.Carriers()`), and the Director keys its
+  carrier by `director.DirectorConversationID`. That id is also what names the
+  Director in the agent runtime, so the carrier key and the provider's
+  active-turn key are the same Setta fact instead of two constants.
+- DONE: Keep Director conversation history in the committed Setta log.
+- DONE: Keep Director-specific tools and styling.
+
+Two things followed from sharing the registry. A carrier the provider has lost
+now leaves the Director's registry entry the same way a workstream's does: the
+port reports it as `ErrDirectorCarrierLost`, the Director forgets the carrier,
+and the next turn replays the durable conversation into a fresh one. And the
+Director's remaining thread vocabulary became carrier vocabulary —
+`DirectorThread` is `DirectorConversation`, `DirectorThreadPort` is
+`DirectorCarrierPort`, `DirectorProviderThread` is gone (the port returns the
+provider id it started, and Setta owns the identity around it), and
+`internal/runtime/director_thread_caller.go` is `internal/runtime/director_carrier.go`.
 
 Expected result: Director and workstreams share the same persistence model.
 
@@ -414,12 +429,8 @@ limited to low-level provider characterization tests:
 - `providerForkThreadId` — empty.
 - `sourceProviderThreadId` — empty.
 - `sourceProviderTurnId` — empty.
-- `director_thread` — no durable table, record, or store call remains. What is
-  left is the runtime adapter that starts the carrier
-  (`internal/runtime/director_thread_caller.go`) and the `DirectorThread` /
-  `DirectorThreadPort` type names it implements. Renaming those to carrier
-  vocabulary belongs with the remaining Phase 5 bullet, which moves the Director
-  onto the shared carrier registry.
+- `director_thread` — empty. No durable table, record, or store call remains,
+  and Phase 5 renamed the runtime adapter and its types to carrier vocabulary.
 - `DeleteDurableThreadsOnShutdown` — empty.
 - `live_codex_cleanup` — empty.
 
