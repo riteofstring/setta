@@ -35,6 +35,20 @@ afterEach(() => {
 });
 
 describe("ArtifactDocumentCache", () => {
+  it("reads an artifact recorded without a workspace through the same contract", async () => {
+    const readArtifact = vi.fn().mockResolvedValue(artifact);
+    const cache = new ArtifactDocumentCache({ readArtifact });
+    const folderless = { ...metadata, workspaceId: null };
+
+    await cache.load(folderless);
+
+    expect(readArtifact).toHaveBeenCalledWith({
+      artifactId: metadata.id,
+      conversationId: metadata.conversationId,
+      workspaceId: null,
+    });
+  });
+
   it("retries one transient read and reuses the resulting entry", async () => {
     const readArtifact = vi
       .fn()

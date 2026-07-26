@@ -224,7 +224,9 @@ rather than with this execution change.
 
 ### Phase 3 - AI Artifact Semantics
 
-**Status:** Implemented, ready for phase audit.
+**Status:** Complete. The coherent phase audit, corrections, deterministic
+verification, and live-provider evidence are recorded in
+[`docs/reports/native-artifact-routing-phase3-audit-20260727.md`](../reports/native-artifact-routing-phase3-audit-20260727.md).
 
 - Offer `setta.emit_artifact` identically in bound and unbound turns.
 - Apply the revised AI-judgment topic-agent instructions.
@@ -248,18 +250,26 @@ listed beside a bound one. Reading a published artifact follows the snapshot
 rule the same way: `ReadConversationArtifactRequest` carries an optional
 workspace, and an artifact is addressed by the conversation that published it.
 
-Phase 4 owns verification. Nothing in Phases 1-3 was verified beyond the
-focused checks each change ran.
+The phase audit also replaced the interim workspace-bound/by-ID reader pair with
+one optional-workspace artifact-read contract from HTTP through the
+conversation service and store. This is the current contract directly, not a
+compatibility or dual-read path.
+
+Phase 4 owns the dedicated final workflow below. The Phase 1 through Phase 3
+audit reports record the focused, broad deterministic, and live-provider
+evidence that already followed each phase's last relevant change.
 
 ### Phase 4 - Final Verification
 
 **Status:** Pending. The user has authorized this phase after Phases 1-3 are
 fully implemented and the branch is ready to merge.
 
-Do not run automated tests during Phases 1-3. Once implementation is complete,
-run the narrowest focused checks below first, fix any failures, and then run the
-required broader deterministic and live-provider gates once against the stable
-implementation.
+During Phases 1-3 implementation, do not run broad deterministic matrices or
+complete live-provider suites; their phase audits own the applicable stable-tree
+gates. In Phase 4, run the narrowest dedicated checks below first, fix any
+failures, and then run each still-required broader deterministic or
+live-provider gate once against the stable implementation. Reuse a green gate
+that postdates the last relevant code change.
 
 The focused deterministic workflow must prove:
 

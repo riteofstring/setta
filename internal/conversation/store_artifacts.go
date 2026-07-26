@@ -7,28 +7,11 @@ import (
 	"fmt"
 )
 
-// ReadArtifact reads one artifact of a workspace-bound conversation.
+// ReadArtifact reads one artifact by the conversation that published it.
+// WorkspaceID scopes a bound artifact read when present. A nil workspace
+// addresses an artifact that the Director recorded without a folder, including
+// one whose conversation gained a folder after publication.
 func (store *Store) ReadArtifact(
-	ctx context.Context,
-	workspaceID string,
-	conversationID string,
-	artifactID string,
-) (Artifact, error) {
-	return store.readArtifact(ctx, &workspaceID, conversationID, artifactID)
-}
-
-// ReadArtifactByID reads one artifact by the conversation that published it.
-// An artifact is durable whether or not its conversation is bound to a folder,
-// so the workspace is not part of addressing it.
-func (store *Store) ReadArtifactByID(
-	ctx context.Context,
-	conversationID string,
-	artifactID string,
-) (Artifact, error) {
-	return store.readArtifact(ctx, nil, conversationID, artifactID)
-}
-
-func (store *Store) readArtifact(
 	ctx context.Context,
 	workspaceID *string,
 	conversationID string,

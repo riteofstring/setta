@@ -65,7 +65,8 @@ func TestArtifactsArePublishedWithOrWithoutAFolder(t *testing.T) {
 	workspaceID := registryTestWorkspaceID
 	bound := harness.createConversation("conversation-bound", "Summarize the parser", &workspaceID)
 	harness.startTurn("conversation-folderless", "turn-folderless-1")
-	harness.emitArtifact("conversation-folderless", "turn-folderless-1", "artifact-folderless", "Release notes")
+	harness.emitArtifact("conversation-folderless", "turn-folderless-1", "artifact-folderless-notes", "Release notes")
+	harness.emitArtifact("conversation-folderless", "turn-folderless-1", "artifact-folderless-metrics", "Release metrics")
 	harness.completeTurn("conversation-folderless", "turn-folderless-1")
 	harness.startTurn("conversation-bound", "turn-bound-1")
 	harness.emitArtifact("conversation-bound", "turn-bound-1", "artifact-bound", "Parser summary")
@@ -74,21 +75,23 @@ func TestArtifactsArePublishedWithOrWithoutAFolder(t *testing.T) {
 	registry := harness.start()
 	snapshot := requireSnapshot(t, registry)
 
-	if len(snapshot.Artifacts) != 2 {
-		t.Fatalf("snapshot holds %d artifacts, want 2", len(snapshot.Artifacts))
+	if len(snapshot.Artifacts) != 3 {
+		t.Fatalf("snapshot holds %d artifacts, want 3", len(snapshot.Artifacts))
 	}
-	unbound := findArtifact(t, snapshot, "artifact-folderless")
-	if unbound.WorkspaceID != nil {
-		t.Fatalf("folderless artifact carries workspace %q", *unbound.WorkspaceID)
-	}
-	if unbound.WorkstreamID != folderless {
-		t.Fatalf("folderless artifact workstream = %q, want %q", unbound.WorkstreamID, folderless)
-	}
-	if unbound.ConversationID != "conversation-folderless" {
-		t.Fatalf("folderless artifact conversation = %q", unbound.ConversationID)
-	}
-	if unbound.Status != ArtifactStatusAvailable {
-		t.Fatalf("folderless artifact status = %q, want available", unbound.Status)
+	for _, artifactID := range []string{"artifact-folderless-notes", "artifact-folderless-metrics"} {
+		unbound := findArtifact(t, snapshot, artifactID)
+		if unbound.WorkspaceID != nil {
+			t.Fatalf("folderless artifact %s carries workspace %q", artifactID, *unbound.WorkspaceID)
+		}
+		if unbound.WorkstreamID != folderless {
+			t.Fatalf("folderless artifact %s workstream = %q, want %q", artifactID, unbound.WorkstreamID, folderless)
+		}
+		if unbound.ConversationID != "conversation-folderless" {
+			t.Fatalf("folderless artifact %s conversation = %q", artifactID, unbound.ConversationID)
+		}
+		if unbound.Status != ArtifactStatusAvailable {
+			t.Fatalf("folderless artifact %s status = %q, want available", artifactID, unbound.Status)
+		}
 	}
 	attached := findArtifact(t, snapshot, "artifact-bound")
 	if attached.WorkspaceID == nil || *attached.WorkspaceID != registryTestWorkspaceID {
@@ -97,8 +100,14 @@ func TestArtifactsArePublishedWithOrWithoutAFolder(t *testing.T) {
 	if attached.WorkstreamID != bound {
 		t.Fatalf("bound artifact workstream = %q, want %q", attached.WorkstreamID, bound)
 	}
-	if snapshot.Aggregates.ArtifactCount != 2 {
-		t.Fatalf("aggregate artifact count = %d, want 2", snapshot.Aggregates.ArtifactCount)
+	if count := findEntry(t, snapshot, folderless).Workstream.ArtifactCount; count != 2 {
+		t.Fatalf("folderless workstream artifact count = %d, want 2", count)
+	}
+	if count := findEntry(t, snapshot, bound).Workstream.ArtifactCount; count != 1 {
+		t.Fatalf("bound workstream artifact count = %d, want 1", count)
+	}
+	if snapshot.Aggregates.ArtifactCount != 3 {
+		t.Fatalf("aggregate artifact count = %d, want 3", snapshot.Aggregates.ArtifactCount)
 	}
 }
 

@@ -93,12 +93,12 @@ func TestEmitArtifactToolPublishesWithoutAFolder(t *testing.T) {
 
 	artifact := emitTestDocumentArtifact(t, ctx, service, conversationID, active)
 	requireDocumentArtifact(t, artifact)
-	read, err := service.ReadArtifactByID(ctx, conversationID, artifact.ID)
+	read, err := service.ReadArtifact(ctx, nil, conversationID, artifact.ID)
 	if err != nil {
-		t.Fatalf("ReadArtifactByID: %v", err)
+		t.Fatalf("ReadArtifact without a workspace: %v", err)
 	}
 	requireReadDocumentArtifact(t, read, artifact.ID)
-	if _, err := service.ReadArtifact(ctx, workspaceID, conversationID, artifact.ID); !IsArtifactNotFound(err) {
+	if _, err := service.ReadArtifact(ctx, &workspaceID, conversationID, artifact.ID); !IsArtifactNotFound(err) {
 		t.Fatalf("workspace-scoped read of a folderless artifact = %T %v, want artifact not found", err, err)
 	}
 	snapshot, err := service.ReadSnapshotByID(ctx, conversationID)
@@ -474,7 +474,7 @@ func readTestArtifact(
 	artifactID string,
 ) Artifact {
 	t.Helper()
-	read, err := service.ReadArtifact(ctx, workspaceID, conversationID, artifactID)
+	read, err := service.ReadArtifact(ctx, &workspaceID, conversationID, artifactID)
 	if err != nil {
 		t.Fatalf("ReadArtifact: %v", err)
 	}

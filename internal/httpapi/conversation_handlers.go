@@ -294,13 +294,12 @@ func (handler handler) readConversationArtifact(response http.ResponseWriter, re
 		writeError(response, http.StatusBadRequest, "invalid_conversation_artifact_request", "artifact id is required without surrounding whitespace")
 		return
 	}
-	var artifact conversation.Artifact
-	var err error
-	if payload.WorkspaceID == nil {
-		artifact, err = service.ReadArtifactByID(request.Context(), payload.ConversationID, payload.ArtifactID)
-	} else {
-		artifact, err = service.ReadArtifact(request.Context(), *payload.WorkspaceID, payload.ConversationID, payload.ArtifactID)
-	}
+	artifact, err := service.ReadArtifact(
+		request.Context(),
+		payload.WorkspaceID,
+		payload.ConversationID,
+		payload.ArtifactID,
+	)
 	if err != nil {
 		writeConversationError(response, "read_conversation_artifact_failed", err)
 		return

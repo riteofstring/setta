@@ -670,20 +670,14 @@ func (service *httpTestConversationService) ReadSnapshotByID(
 
 func (service *httpTestConversationService) ReadArtifact(
 	_ context.Context,
-	workspaceID string,
-	conversationID string,
-	artifactID string,
-) (conversation.Artifact, error) {
-	service.readWorkspaceID = workspaceID
-	return service.recordArtifactRead(conversationID, artifactID), nil
-}
-
-func (service *httpTestConversationService) ReadArtifactByID(
-	_ context.Context,
+	workspaceID *string,
 	conversationID string,
 	artifactID string,
 ) (conversation.Artifact, error) {
 	service.readWorkspaceID = ""
+	if workspaceID != nil {
+		service.readWorkspaceID = *workspaceID
+	}
 	return service.recordArtifactRead(conversationID, artifactID), nil
 }
 
