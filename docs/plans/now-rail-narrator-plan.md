@@ -1,7 +1,7 @@
 # The Now Rail Says What Happened
 
 **Date:** 2026-07-27
-**Status:** Not implemented.
+**Status:** Complete. Phases 0-6 landed 2026-07-27.
 
 ## Outcome
 
@@ -136,6 +136,13 @@ what happened?
 
 ## Phase 1 — The macOS window chrome
 
+**Done.** The conflict turned out to belong to the platform: 80px of window
+buttons plus the identity plus four view controls do not fit in a 320px window,
+so the minimum width on darwin is 400 and the compact E2E drives the platform's
+own floor.
+
+### Original phase text
+
 Independent of everything else, and the only defect here that is not about
 editing.
 
@@ -152,6 +159,11 @@ Reserve the same inset on the command center's leading edge.
 logo clear of the buttons; and maximized, with no stray gap.
 
 ## Phase 2 — The top bar is the mockup's
+
+**Done.** The focus type lost its folder with the chip, because the bar was its
+only reader; the dots build theirs from the workstream directly.
+
+### Original phase text
 
 The mockup's bar is a heads-up layer, not a document header: the identity sits
 in the left group, and the row is title, position dots, nothing else.
@@ -194,6 +206,10 @@ the report, not as a surprise.
 
 ## Phase 4 — Narration reaches the Director
 
+**Done.** Protocol 108.
+
+### Original phase text
+
 `conversation.narration.created` becomes a registry input. The workstream
 record carries its recent narrator milestones, and `DirectorSnapshot` exposes
 them, so the command center reads milestones the same way it reads artifacts.
@@ -210,6 +226,11 @@ input, not a state transition.
 Director snapshot; Go director and conversation suites.
 
 ## Phase 5 — The Director reads what the narrator wrote
+
+**Done.** The registry already knew which conversation a workstream runs in and
+nothing exposed it, because the renderer never needed it.
+
+### Original phase text
 
 Inspection has two levels, because a glance and a question are different needs
 and cost different amounts.
@@ -241,6 +262,12 @@ asked something the milestone does not cover and answers from
 `ask_conversation`; Go director and narration suites.
 
 ## Phase 6 — The rail is only what the narrator said
+
+**Done.** Two fixtures caught what the types could not: the fake Codex asserts
+the Director's exact tool set, and Go marshals a nil slice as null where the
+generated decoder insists on an array.
+
+### Original phase text
 
 - `DirectorNowActivityList` and `currentDirectorActivity` are deleted. So is
   the per-row provenance line.
