@@ -109,7 +109,7 @@ func projectDirectorUserTurn(
 	if err != nil {
 		return err
 	}
-	if err := projector.closeDirectorTurn(context); err != nil {
+	if err := projector.closeDirectorTurn(context, SemanticNodeStatusCancelled); err != nil {
 		return err
 	}
 	projector.directorTurnIDs[entry.TurnID] = true
@@ -281,10 +281,12 @@ func projectDirectorReply(
 		},
 		InterpretedAt: entry.RecordedAt,
 	}
+	// The reply is the turn's outcome node: a Director ask ends on a verdict,
+	// so the lane folds to the answer the way a run folds to its terminal.
 	if _, err := projector.commitNode(context, nodeSpec{
 		identity:       SemanticNodeIdentityDirectorReply,
 		sourceID:       entry.ID,
-		kind:           SemanticNodeMilestone,
+		kind:           SemanticNodeCompleted,
 		status:         SemanticNodeStatusSucceeded,
 		actor:          SemanticActorDirector,
 		summary:        entry.Text.Text,
@@ -294,18 +296,24 @@ func projectDirectorReply(
 	}); err != nil {
 		return err
 	}
-	return projector.closeDirectorTurn(context)
+	return projector.closeDirectorTurn(context, SemanticNodeStatusSucceeded)
 }
 
-// closeDirectorTurn succeeds the request the lane still has open. It is a no-op
-// once the turn is closed, so a reply and the request that follows it cannot
-// resolve the same turn twice.
+// closeDirectorTurn resolves the request the lane still has open. A reply
+// closes it as succeeded; a turn abandoned without one — the next request is
+// proof it is over — closes as cancelled, because an interrupted ask is an
+// intermediate state, never a claimed success. It is a no-op once the turn is
+// closed, so a reply and the request that follows it cannot resolve the same
+// turn twice.
 //
 // Resolving an older node must not rewrite what the applying entry is. The
 // chain anchor and the entry's own node are restored afterwards, because the
 // lane's next fact follows the fact that just happened rather than the request
 // it answered.
-func (projector *DirectorGraphProjector) closeDirectorTurn(context factContext) error {
+func (projector *DirectorGraphProjector) closeDirectorTurn(
+	context factContext,
+	status SemanticNodeStatus,
+) error {
 	nodeID := projector.openTurnNodeID
 	if nodeID == "" {
 		return nil
@@ -316,7 +324,7 @@ func (projector *DirectorGraphProjector) closeDirectorTurn(context factContext) 
 	appliedNodeID := projector.nodeBySourceEvent[context.eventID]
 	if _, err := projector.commitNode(context, nodeSpec{
 		nodeID: nodeID,
-		status: SemanticNodeStatusSucceeded,
+		status: status,
 	}); err != nil {
 		return err
 	}

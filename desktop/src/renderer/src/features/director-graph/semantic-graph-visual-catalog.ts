@@ -91,14 +91,20 @@ export const semanticNodeKindVisuals = {
     role: "step",
     labelPlacement: "below",
   },
+  /*
+   * Green is reserved for the run's own final success — the `completed`
+   * outcome node. An artifact or a passing validation mid-run is progress,
+   * not the verdict, so both take the synthesis brightness instead: painting
+   * them green made a run read as already won while it was still working.
+   */
   artifact: {
-    mode: "success",
+    mode: "merge",
     glyph: "document",
     role: "step",
-    labelPlacement: "over",
+    labelPlacement: "below",
   },
   validation: {
-    mode: "success",
+    mode: "merge",
     glyph: "check",
     role: "step",
     labelPlacement: "below",
@@ -121,11 +127,16 @@ export const semanticNodeKindVisuals = {
     role: "step",
     labelPlacement: "below",
   },
+  /*
+   * Below, like every other label. The mockup floated a success summary over
+   * its node, which made the one green node in a run the only node the reader
+   * could not see — the pill eclipsed exactly the mark it was celebrating.
+   */
   completed: {
     mode: "success",
     glyph: "check",
     role: "outcome",
-    labelPlacement: "over",
+    labelPlacement: "below",
   },
   failed: {
     mode: "fail",
@@ -180,8 +191,10 @@ const semanticEdgeModes = {
   delegated_to: "merge",
   depends_on: "risk",
   blocked_by: "risk",
-  produced: "success",
-  validated_by: "success",
+  // Not green: an edge into an artifact or a validation is work landing, not
+  // the run's verdict. Green beams belong to the final success alone.
+  produced: "merge",
+  validated_by: "merge",
   recovered_by: "risk",
 } satisfies Record<SemanticEdgeKind, PackedGraphMode>;
 

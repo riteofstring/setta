@@ -95,10 +95,14 @@ void main(){
   float depth=0.35+a_field.w*0.65;
   vec2 p=a_field.xy;
   float motionTime=u_time*u_flow;
-  p.y+=(u_cam*0.16+motionTime*0.004)*depth;
+  // The mockup's demo camera never stops, so its field parallax-drifts all
+  // the time; production idles at a still camera, so the field carries a
+  // stronger drift of its own (0.004->0.012) and a faster flow phase
+  // (0.07->0.11) or the fluid reads as static noise between runs.
+  p.y+=(u_cam*0.16+motionTime*0.012)*depth;
   p.x+=0.028*depth*sin(motionTime*0.13+a_field.z*31.0+a_field.y*7.0);
   p.y+=0.014*depth*sin(motionTime*0.10+a_field.z*19.0);
-  float t=motionTime*0.07;
+  float t=motionTime*0.11;
   vec2 flow=vec2(sin(p.y*3.1+t)+0.5*sin(p.y*6.7-t*1.3+p.x*2.2),
                  cos(p.x*3.0-t*0.8)+0.5*cos(p.x*5.9+t+p.y*2.1));
   p+=flow*(0.035*depth*u_flow);
@@ -226,7 +230,7 @@ layout(location=1) in float a_particleRole;   // 0 core, 1 spark, 2 orbital
 layout(location=2) in vec4 a_node;       // lane x, born, settle, terminal
 layout(location=3) in vec4 a_style;      // mode, glyph, role, emphasis
 layout(location=4) in float a_detail;
-uniform float u_time,u_cam,u_pointScale,u_shiftX,u_fitX,u_fitY,u_scale,u_maxPoint,u_motion;
+uniform float u_time,u_cam,u_pointScale,u_shiftX,u_fitX,u_fitY,u_scale,u_maxPoint,u_motion,u_listen;
 uniform float u_hoverX,u_hoverY,u_hoverAmount;
 uniform int u_instanceBase;   // first drawn node; the visible slice starts here
 uniform vec3 u_modeColor[${modeCount}];
@@ -298,8 +302,10 @@ void main(){
       psize=mix((3.0+recent*3.5)*(0.35+(1.0-t2)*0.8),6.5+recent*10.0,burst);
     }
   } else if(a_particleRole<0.5){
+    // The listening node breathes only while the app is actually hearing the
+    // user (mockup line 622: listen*u_listen); an idle input node holds still.
     float listening=step(${listeningMode}-0.5,a_style.x);
-    float calm=1.0+listening*0.16*abs(sin(u_time*6.0))*u_motion;
+    float calm=1.0+listening*0.32*abs(sin(u_time*6.0))*u_motion*u_listen;
     pos=center; psize=bodySize*pop*calm; palpha=1.0;
   } else if(a_particleRole<1.5){
     float act=working;

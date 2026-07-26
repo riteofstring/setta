@@ -1,4 +1,4 @@
-import type { WorkstreamNarration } from "@generated/backend";
+import type { WorkstreamNarration, WorkstreamStatus } from "@generated/backend";
 
 /**
  * The Now rail: what the narrator has said about the work in focus.
@@ -18,16 +18,28 @@ import type { WorkstreamNarration } from "@generated/backend";
  * second header stacked on the first. Nothing in it is a card — narration reads
  * as text over the canvas, so the rail stays a heads-up layer.
  */
-export function NowRail({ narration }: { narration: readonly WorkstreamNarration[] }) {
+export function NowRail({
+  narration,
+  workstreamStatus,
+}: {
+  narration: readonly WorkstreamNarration[];
+  workstreamStatus: WorkstreamStatus | null;
+}) {
   return (
     <aside aria-label="Now" className="director-now-rail" id="director-now-rail">
       <p className="director-rail-kicker">Now</p>
-      <DirectorNarrationList narration={narration} />
+      <DirectorNarrationList narration={narration} workstreamStatus={workstreamStatus} />
     </aside>
   );
 }
 
-function DirectorNarrationList({ narration }: { narration: readonly WorkstreamNarration[] }) {
+function DirectorNarrationList({
+  narration,
+  workstreamStatus,
+}: {
+  narration: readonly WorkstreamNarration[];
+  workstreamStatus: WorkstreamStatus | null;
+}) {
   if (narration.length === 0) {
     return <p className="director-rail-quiet">Nothing to report yet.</p>;
   }
@@ -43,6 +55,9 @@ function DirectorNarrationList({ narration }: { narration: readonly WorkstreamNa
           className="director-narration-item"
           data-narration-kind={entry.kind}
           data-narration-latest={index === 0 ? "true" : "false"}
+          data-narration-outcome={
+            narrationOutcome(entry, index === 0, workstreamStatus) ?? undefined
+          }
           key={entry.id}
         >
           <span aria-hidden="true" className="director-narration-mark" />
@@ -51,4 +66,30 @@ function DirectorNarrationList({ narration }: { narration: readonly WorkstreamNa
       ))}
     </ol>
   );
+}
+
+/**
+ * Which verdict colour the latest final summary carries, if any.
+ *
+ * Green is reserved for the whole task succeeding, and a narration entry does
+ * not know how the run ended — colouring every final summary green painted a
+ * failed run's last word as a win. The workstream's own terminal status is the
+ * fact that knows, and it only speaks for the latest line: an older summary
+ * belongs to a run this status no longer describes.
+ */
+function narrationOutcome(
+  entry: WorkstreamNarration,
+  latest: boolean,
+  workstreamStatus: WorkstreamStatus | null,
+): "succeeded" | "failed" | null {
+  if (!latest || entry.kind !== "final_summary") {
+    return null;
+  }
+  if (workstreamStatus === "completed") {
+    return "succeeded";
+  }
+  if (workstreamStatus === "failed") {
+    return "failed";
+  }
+  return null;
 }

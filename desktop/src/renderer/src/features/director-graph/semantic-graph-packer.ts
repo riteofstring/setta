@@ -29,13 +29,11 @@ import type { PackedGraphMode, PackedGraphOutcome } from "./packed-graph-vocabul
 /*
  * What the canvas is being asked to show.
  *
- * The three are genuinely different presentations, not one with settings. A
- * conversation is a trajectory you read, and folding old turns out of the way is
- * how it stays readable. The Director's columns are work you are watching, so
- * nothing may fold itself away — a conversation that quietly collapsed to a dot
- * because it finished is the view losing the thing it exists to show. The grid
- * is already a reduction: each tile is the latest activity and there is nothing
- * further to fold.
+ * The three are genuinely different presentations, not one with settings: they
+ * differ in how columns are placed and how much of each graph a cell shows.
+ * Folding is not one of the differences — finished work eases shut into its
+ * outcome node on every presentation, because the single success node is the
+ * reward for a completed run wherever it is read.
  */
 export type SemanticGraphPresentation = "conversation" | "columns" | "grid";
 
@@ -81,8 +79,17 @@ const directorGridBias = -0.36;
 /** A tile's own vertical room, before its rows are laid inside it. */
 const directorTileHeight = 0.62;
 const directorLeadLane = -0.86;
-/** How much of a conversation a tile shows: its latest activity, and no more. */
-const maxTileNodes = 3;
+/**
+ * How much of a conversation a tile shows: the newest node in focus with a
+ * short trail behind it, the mockup's grid tile.
+ */
+const maxTileNodes = 4;
+/**
+ * Where the grid's level of detail steps down. Up to this many tiles, each
+ * shows its trail; past it, finished tiles fold to single outcome dots. The
+ * fold eases, so crossing the threshold is an animation rather than a swap.
+ */
+const gridFoldTileCount = 12;
 
 interface OrderedNode {
   readonly node: SemanticNode;
@@ -101,8 +108,16 @@ interface PlannedNode {
   /** Row within that turn, so every column starts at its own top. */
   readonly row: number;
   readonly role: "input" | "step" | "outcome";
+  /** Lateral offset when this node is one branch of a concurrent fan. */
+  readonly fanLane: number;
   readonly mode: PackedGraphMode;
-  readonly terminalAt: number | null;
+  /**
+   * When this outcome failed, or null. `terminalAt` is the renderer's failure
+   * visual — the red burst and the eclipse — so a successful outcome must never
+   * carry it: packing it for every outcome painted the end of every finished
+   * run in the failure colour.
+   */
+  readonly failedAt: number | null;
 }
 
 function parseTimestamp(value: string, label: string): number {
@@ -246,7 +261,16 @@ function plannedRole(
   return "step";
 }
 
-function workstreamLane(graphIndex: number, graphCount: number): number {
+/*
+ * Columns in the mockup's reading order: the Director's lane leads on the
+ * left and threads follow to the right, the group centred as a whole. Past
+ * the point columns stay readable, the backend compacts and the view becomes
+ * the grid.
+ *
+ * Exported for the column-title overlay, which names each thread above its
+ * column and must agree with the packer about where a column is.
+ */
+export function workstreamLane(graphIndex: number, graphCount: number): number {
   return (graphIndex - (graphCount - 1) / 2) * workstreamLaneSpacing;
 }
 
@@ -320,6 +344,7 @@ function semanticLane(node: SemanticNode): number {
  */
 function planNodes(nodes: readonly OrderedNode[], edges: readonly SemanticEdge[]): PlannedNode[] {
   const outgoing = outgoingNodeIDs(edges);
+  const fanOffsets = fanLaneOffsets(edges);
   const planned: PlannedNode[] = [];
   for (const group of groupedByGraph(nodes)) {
     const outcomeId = outcomeNodeID(group.nodes, outgoing);
@@ -330,12 +355,56 @@ function planNodes(nodes: readonly OrderedNode[], edges: readonly SemanticEdge[]
         turn: group.turn,
         row,
         role,
+        fanLane: fanOffsets.get(ordered.packedId) ?? 0,
         mode: semanticNodeMode(ordered.node.kind, ordered.node.status),
-        terminalAt: role === "outcome" ? terminalSeconds(ordered) : null,
+        failedAt:
+          role === "outcome" && semanticStatusOutcomes[ordered.node.status] === "failed"
+            ? terminalSeconds(ordered)
+            : null,
       });
     });
   }
   return planned;
+}
+
+/*
+ * Where a fan's branches sit. Concurrent work — parallel commands, spun-off
+ * subagents — arrives as siblings whose flow edges leave one fork node, and
+ * the merge that reconverges them has several flow edges in. Siblings spread
+ * across lanes centred on the spine, the mockup's fan spacing, so parallel
+ * work reads as parallel instead of stacking on one line.
+ */
+function fanLaneOffsets(edges: readonly SemanticEdge[]): ReadonlyMap<string, number> {
+  const spacing = 0.3;
+  const siblingsBySource = new Map<string, string[]>();
+  const flowSourceCount = new Map<string, number>();
+  for (const edge of edges) {
+    if (semanticEdgeChannels[edge.kind] !== "flow") {
+      continue;
+    }
+    const target = `${edge.workstreamId}:${edge.toNodeId}`;
+    flowSourceCount.set(target, (flowSourceCount.get(target) ?? 0) + 1);
+    const source = `${edge.workstreamId}:${edge.fromNodeId}`;
+    const members = siblingsBySource.get(source);
+    if (members === undefined) {
+      siblingsBySource.set(source, [target]);
+    } else {
+      members.push(target);
+    }
+  }
+  const offsets = new Map<string, number>();
+  for (const members of siblingsBySource.values()) {
+    if (members.length < 2) {
+      continue;
+    }
+    members.forEach((member, index) => {
+      // A merge node with several parents is not itself a branch.
+      if ((flowSourceCount.get(member) ?? 0) <= 1) {
+        offsets.set(member, (index - (members.length - 1) / 2) * spacing);
+      }
+    });
+  }
+  return offsets;
 }
 
 interface PlannedGroup {
@@ -376,11 +445,13 @@ function packedNodeInput(planned: PlannedNode, placement: ColumnPlacement): Pack
     glyph: visual.glyph,
     emphasis: semanticEvidenceEmphases[planned.ordered.node.evidenceClass],
     detail: planned.ordered.node.kind === "milestone" ? "compacted" : "detailed",
-    lane: placement.lane + semanticLane(planned.ordered.node),
+    lane:
+      placement.lane +
+      (planned.fanLane === 0 ? semanticLane(planned.ordered.node) : planned.fanLane),
     row: planned.row,
     bornAt: planned.ordered.bornAt,
     settleAt: planned.ordered.bornAt + settleWindowSeconds,
-    terminalAt: planned.terminalAt,
+    terminalAt: planned.failedAt,
     label: planned.ordered.node.publicSummary,
     labelPlacement: planned.role === "input" ? "below" : visual.labelPlacement,
   };
@@ -399,7 +470,7 @@ function graphOutcome(planned: readonly PlannedNode[]): {
     return {
       outcome: semanticStatusOutcomes[candidate.ordered.node.status],
       outcomeNodeId: candidate.ordered.packedId,
-      answerAt: candidate.terminalAt ?? candidate.ordered.bornAt,
+      answerAt: terminalSeconds(candidate.ordered),
     };
   }
   return { outcome: "running", outcomeNodeId: null, answerAt: null };
@@ -409,7 +480,7 @@ function graphOutcome(planned: readonly PlannedNode[]): {
 function turnInputs(
   planned: readonly PlannedNode[],
   placementFor: (graphIndex: number) => ColumnPlacement,
-  presentation: SemanticGraphPresentation,
+  folding: boolean,
 ): PackedGraphTurnInput[] {
   const byTurn = new Map<number, PlannedNode[]>();
   for (const node of planned) {
@@ -436,11 +507,15 @@ function turnInputs(
       rowSpan: nodes.length,
       outcome: outcome.outcome,
       answerAt: outcome.answerAt,
-      // Only a conversation folds itself. See SemanticGraphPresentation.
+      /*
+       * Finished work folds itself where the view wants dots: conversations
+       * and columns ease shut a beat after the answer lands, leaving the
+       * outcome node carrying the verdict, and a crowded grid folds its tiles
+       * the same way. A small grid keeps each tile's trail open instead —
+       * the newest node in focus, trailing off into what led to it.
+       */
       compactAt:
-        presentation !== "conversation" || outcome.answerAt === null
-          ? null
-          : outcome.answerAt + compactDelaySeconds,
+        !folding || outcome.answerAt === null ? null : outcome.answerAt + compactDelaySeconds,
       workstreamId: input.ordered.node.workstreamId,
     });
   }
@@ -518,16 +593,17 @@ function compileSemanticGraphComposition(
   const nodeIndexByID = new Map(packedNodes.map((node, index) => [node.id, index]));
   const nodeModeByID = new Map(planned.map((node) => [node.ordered.packedId, node.mode]));
   const terminalByID = new Map(
-    planned.map((node) => [node.ordered.packedId, node.terminalAt !== null]),
+    planned.map((node) => [node.ordered.packedId, node.failedAt !== null]),
   );
   const packedEdges = edgeInputs(edges, nodeIndexByID, nodeModeByID, terminalByID);
+  const folding = composition.presentation !== "grid" || graphs.length - 1 >= gridFoldTileCount;
   return [
     {
       cursorSequence: packedNodes.length + packedEdges.length,
       hasEarlier: composition.graphs.some((graph) => graph.hasEarlier),
       nodes: packedNodes,
       edges: packedEdges,
-      turns: turnInputs(planned, placementFor, composition.presentation),
+      turns: turnInputs(planned, placementFor, folding),
     },
   ];
 }

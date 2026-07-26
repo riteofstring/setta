@@ -15,6 +15,8 @@
  * error instead of a generic fallback.
  */
 
+import { stripInlineMarkdown } from "@renderer/lib/plain-inline-text";
+
 function codeTable<Value extends string>(
   values: readonly Value[],
 ): Readonly<Record<Value, number>> {
@@ -96,8 +98,9 @@ export type PackedGraphOutcome = (typeof packedGraphOutcomes)[number];
 export const packedGraphOutcomeCode = codeTable(packedGraphOutcomes);
 
 /**
- * Where the DOM label layer anchors a node's label. Success outcomes sit over
- * the node and failures below it so the eclipsed node stays visible.
+ * Where the DOM label layer anchors a node's label. Every production label
+ * sits below its node so the node itself stays visible; `over` remains in the
+ * vocabulary for surfaces that deliberately eclipse (none currently do).
  */
 export const packedGraphLabelPlacements = ["none", "below", "over"] as const;
 export type PackedGraphLabelPlacement = (typeof packedGraphLabelPlacements)[number];
@@ -134,10 +137,11 @@ export interface BoundedGraphLabel {
  * Bounds one label for the canvas layer. Real public summaries are longer than
  * the prototype's mock text, so bounding is the product rule rather than an
  * assumption that upstream text already fits; `truncated` lets the DOM layer
- * offer the full text.
+ * offer the full text. Inline markdown markers are dropped: a pill is a plain
+ * line, and `**title**` in one is formatting displayed as content.
  */
 export function boundGraphLabel(label: string): BoundedGraphLabel {
-  const collapsed = label.trim().replace(/\s+/gu, " ");
+  const collapsed = stripInlineMarkdown(label).trim().replace(/\s+/gu, " ");
   const characters = Array.from(collapsed);
   if (characters.length <= packedGraphLimits.maxLabelCharacters) {
     return { text: collapsed, truncated: false };

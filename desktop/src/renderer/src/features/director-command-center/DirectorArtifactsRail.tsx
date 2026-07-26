@@ -51,6 +51,7 @@ export function ArtifactsRail({
               artifact={artifact}
               documents={artifactBrowser.documents}
               isActive={artifactBrowser.activeArtifact?.id === artifact.id}
+              isOpening={artifactBrowser.pendingArtifactId === artifact.id}
               key={artifact.id}
               onOpen={artifactBrowser.open}
             />

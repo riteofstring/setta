@@ -50,6 +50,8 @@ export type SpeechPlaybackState =
   | { intent: SpeechPlaybackIntent; message: string; type: "failed" };
 
 export interface SpeechPlaybackSnapshot {
+  /** True while automatic playback is muted; explicit replays still speak. */
+  muted: boolean;
   queued: readonly SpeechPlaybackIntent[];
   state: SpeechPlaybackState;
 }
@@ -147,10 +149,15 @@ export class AppShellSpeechPlaybackController {
   private captureActive = false;
   private disposed = false;
   private lifecycle = 0;
+  private muted = false;
   private nextSequence = 1;
   private queue: QueuedSpeech[] = [];
   private runtimeId: string | null = null;
-  private snapshotValue: SpeechPlaybackSnapshot = { queued: [], state: { type: "idle" } };
+  private snapshotValue: SpeechPlaybackSnapshot = {
+    muted: false,
+    queued: [],
+    state: { type: "idle" },
+  };
 
   constructor(dependencies: SpeechPlaybackControllerDependencies) {
     this.dependencies = dependencies;
@@ -180,11 +187,33 @@ export class AppShellSpeechPlaybackController {
       return;
     }
     this.automaticSourceKeys.add(automaticKey);
+    // Muted drops automatic speech the way capture does: the source is marked
+    // seen, so unmuting never replays what arrived while the app was quiet.
+    if (this.muted) {
+      this.observe(item, "dropped", "user", null);
+      return;
+    }
     if (this.captureActive) {
       this.observe(item, "dropped", "capture", null);
       return;
     }
     this.enqueue(item, "automatic");
+  };
+
+  /**
+   * Mutes automatic playback. An explicit replay still speaks — mute means
+   * "do not talk to me unprompted", not "this app has no audio".
+   */
+  setMuted = (muted: boolean): void => {
+    this.assertUsable();
+    if (muted === this.muted) {
+      return;
+    }
+    this.muted = muted;
+    if (muted) {
+      this.dropAutomaticWork("user");
+    }
+    this.publishSnapshot(this.snapshotValue.state);
   };
 
   replay = (intent: SpeechPlaybackIntent): void => {
@@ -769,6 +798,7 @@ export class AppShellSpeechPlaybackController {
 
   private publishSnapshot(state: SpeechPlaybackState): void {
     this.snapshotValue = {
+      muted: this.muted,
       queued: this.queue.map((item) => item.intent),
       state,
     };

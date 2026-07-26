@@ -65,10 +65,20 @@ export interface DirectorArtifactBrowser {
   readonly close: () => void;
   readonly documents: ArtifactDocumentCache | null;
   readonly open: (artifact: WorkstreamArtifact, trigger: HTMLElement) => void;
+  /** The artifact whose document is being prepared before its browser opens. */
+  readonly pendingArtifactId: string | null;
   readonly showNext: () => void;
   readonly showPrevious: () => void;
   readonly triggerRef: React.RefObject<HTMLElement | null>;
 }
+
+/**
+ * How long an open may wait on the document read before opening anyway. The
+ * read settles on its own success or failure; this cap only covers a hung
+ * transport, where opening with the in-dialog loading line beats a card that
+ * pulses forever.
+ */
+const artifactOpenPrepareCapMs = 4000;
 
 /**
  * The Director's artifact-browser lifecycle.
@@ -141,11 +151,47 @@ export function useDirectorArtifactBrowser({
     }
   }, [activeIndex, browsable, documents]);
 
-  const open = useCallback((artifact: WorkstreamArtifact, trigger: HTMLElement) => {
-    triggerRef.current = trigger;
-    setActiveArtifactId(artifact.id);
-  }, []);
+  /*
+   * Opening waits for the document, on the card. The browser must never
+   * appear with an empty body, even for a frame: the card carries the
+   * preparing state, and the small-to-large morph runs only once the
+   * document is ready to fill it. A document already cached — or a read that
+   * has already failed, whose contained failure surface is deliberate —
+   * opens immediately.
+   */
+  const [pendingArtifactId, setPendingArtifactId] = useState<string | null>(null);
+  const openEpochRef = useRef(0);
+  const open = useCallback(
+    (artifact: WorkstreamArtifact, trigger: HTMLElement) => {
+      triggerRef.current = trigger;
+      if (documents === null || lookupArtifactDocument(documents, artifact).status !== "miss") {
+        openEpochRef.current += 1;
+        setPendingArtifactId(null);
+        setActiveArtifactId(artifact.id);
+        return;
+      }
+      openEpochRef.current += 1;
+      const epoch = openEpochRef.current;
+      setPendingArtifactId(artifact.id);
+      const settle = (): void => {
+        if (openEpochRef.current !== epoch) {
+          return;
+        }
+        globalThis.clearTimeout(cap);
+        setPendingArtifactId(null);
+        setActiveArtifactId(artifact.id);
+      };
+      const cap = globalThis.setTimeout(settle, artifactOpenPrepareCapMs);
+      documents
+        .load(artifact)
+        .catch(() => undefined)
+        .then(settle);
+    },
+    [documents],
+  );
   const close = useCallback(() => {
+    openEpochRef.current += 1;
+    setPendingArtifactId(null);
     setActiveArtifactId(null);
   }, []);
   const step = useCallback(
@@ -167,6 +213,7 @@ export function useDirectorArtifactBrowser({
     close,
     documents,
     open,
+    pendingArtifactId,
     showNext,
     showPrevious,
     triggerRef,

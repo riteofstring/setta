@@ -59,6 +59,7 @@ import {
   GraphViewController,
   advanceHoverAmount,
   graphNodeAtPointer,
+  graphNodeScreenPosition,
   graphOutcomeAtPointer,
   type GraphScreenPoint,
   type GraphViewport,
@@ -66,7 +67,7 @@ import {
   graphNodeActivation,
   type GraphCameraBounds,
 } from "./graph-view-state";
-import { graphFitFrame, graphMotionRates } from "./graph-visual-language";
+import { graphFitFrame, graphMotionRates, graphWarpToScreen } from "./graph-visual-language";
 import { packedValueAt } from "../packed-graph-vocabulary";
 import type { SemanticGraphPresentation } from "../semantic-graph-packer";
 
@@ -119,6 +120,12 @@ const defaultFrameHost: GraphFrameSchedulerHost = {
   requestFrame: (callback) => requestAnimationFrame(callback),
   cancelFrame: (handle) => cancelAnimationFrame(handle),
 };
+
+/** The in-phase of the mockup's 620ms switch: the half after the swap. */
+const workstreamSwitchSlideMs = 310;
+
+/** Where the columns view pins its title row, just under the top bar. */
+const columnTitleTopPx = 64;
 
 /** Hover animates only in the normal-motion profile; reduced motion snaps once. */
 export function graphHoverNeedsAnimation(
@@ -175,6 +182,28 @@ export class DirectorGraphCanvas {
   private lastSurfaceKey = "";
   private lastFrameTimestampMs = 0;
   private disposed = false;
+  /*
+   * The mockup's thread-switch slide (mockup lines 1278–1285). By the time the
+   * shell knows the selection changed, the new snapshot is already on screen,
+   * so production plays the mockup's second half: the new graph sweeps in from
+   * the arrow's direction while the post pass glitches, both easing out.
+   */
+  private workstreamSwitch: { direction: -1 | 0 | 1; startMs: number } | null = null;
+  /** True while the app is capturing the user's voice; the input node breathes. */
+  private listening = false;
+  /** Whether the DOM label layer draws at all; the canvas is legible alone. */
+  private labelsEnabled = true;
+  /** The lane whose turns fold on click because it is the view's own thread. */
+  private selfWorkstreamId: string | null = null;
+  /** Thread names, drawn above each column by the label layer. */
+  private columnTitles: ReadonlyMap<string, string> = new Map();
+  /*
+   * The node an unfold is anchored on. Expanding a folded turn grows the
+   * ladder above its outcome, and the camera holds that outcome still on
+   * screen while the rest of the thread unfurls — the mockup's expansion —
+   * instead of letting the growth shove the node the user just clicked.
+   */
+  private unfoldFocus: { nodeIndex: number; anchorOffset: number } | null = null;
 
   constructor(private readonly options: DirectorGraphCanvasOptions) {
     this.snapshot = emptyPackedGraphSnapshot("");
@@ -317,7 +346,12 @@ export class DirectorGraphCanvas {
       this.options.onOpenWorkstream === undefined
         ? undefined
         : this.snapshot.turnWorkstreamIds[turn];
-    const activation = graphNodeActivation(this.presentation, nodeIndex, openable);
+    const activation = graphNodeActivation(
+      this.presentation,
+      nodeIndex,
+      openable,
+      this.selfWorkstreamId,
+    );
     if (activation.kind === "fold") {
       this.toggleTurnAt(activation.nodeIndex);
       return;
@@ -344,8 +378,60 @@ export class DirectorGraphCanvas {
    * click on any thread opens it: the columns and tiles are destinations, and
    * folding one from a view that exists to show them all is never the ask.
    */
-  setPresentation(presentation: SemanticGraphPresentation): void {
+  setPresentation(
+    presentation: SemanticGraphPresentation,
+    selfWorkstreamId: string | null = null,
+  ): void {
     this.presentation = presentation;
+    this.selfWorkstreamId = selfWorkstreamId;
+  }
+
+  /**
+   * Names the threads. The label layer draws each name above its column,
+   * anchored to the column's own input node, so a title cannot drift from the
+   * thread it names whatever lane the packer chose.
+   */
+  setColumnTitles(titles: ReadonlyMap<string, string>): void {
+    this.columnTitles = titles;
+    this.scheduler.requestFrame();
+  }
+
+  /**
+   * Shows or hides the label layer, the mockup's labels toggle. Hiding clears
+   * the layer rather than fading it, so the pills' pointer targets go with it.
+   */
+  setLabelsEnabled(enabled: boolean): void {
+    if (enabled === this.labelsEnabled) {
+      return;
+    }
+    this.labelsEnabled = enabled;
+    this.scheduler.requestFrame();
+  }
+
+  /**
+   * Whether the app is actually hearing the user. The listening node's pulse
+   * is gated on this, exactly as the mockup gated it on its listen toggle: a
+   * node that breathes constantly says "recording" when nothing is.
+   */
+  setListening(listening: boolean): void {
+    if (listening === this.listening) {
+      return;
+    }
+    this.listening = listening;
+    this.scheduler.requestFrame();
+  }
+
+  /**
+   * Plays the workstream-switch slide: the graph and its field sweep in from
+   * the direction of travel with a signal glitch that settles as they land.
+   * `0` glitches without sliding, for jumps with no spatial direction.
+   */
+  playWorkstreamSwitch(direction: -1 | 0 | 1): void {
+    if (this.reducedMotion) {
+      return;
+    }
+    this.workstreamSwitch = { direction, startMs: this.now() };
+    this.scheduler.requestFrame();
   }
 
   /**
@@ -443,7 +529,18 @@ export class DirectorGraphCanvas {
       return;
     }
     const turn = packedValueAt(this.snapshot.nodes.turn, nodeIndex);
+    const wasFolded = this.layout.turnOpenness(turn) <= 0.5;
     this.view.toggleTurnPin(turn, this.layout.turnOpenness(turn) > 0.5);
+    if (wasFolded) {
+      // Anchor the expansion on the turn's outcome — the node that was
+      // clicked is usually its pill — so the ladder unfurls around it.
+      const outcome = packedValueAt(this.snapshot.turns.outcomeNode, turn);
+      const anchor = outcome >= 0 ? outcome : nodeIndex;
+      this.unfoldFocus = {
+        nodeIndex: anchor,
+        anchorOffset: this.layout.nodeWorldY(anchor) - this.view.camera(),
+      };
+    }
     this.scheduler.requestFrame();
   }
 
@@ -492,15 +589,24 @@ export class DirectorGraphCanvas {
       liveEdgeWorldY: ladder.liveEdgeWorldY,
       lookBackMargin: graphLookBackMargin(graphFitFrame(viewport.width, viewport.height).fitY),
     };
+    if (this.unfoldFocus !== null && !ladder.foldAnimating) {
+      // The expansion has landed; the camera may drift back to the live edge.
+      this.unfoldFocus = null;
+    }
     this.view.followLiveEdge(
-      this.arriveAtLiveEdge
-        ? ladder.liveEdgeWorldY
-        : advanceGraphCamera(
-            this.view.camera(),
-            ladder.liveEdgeWorldY,
-            timing.deltaSeconds,
-            this.reducedMotion,
-          ),
+      this.unfoldFocus !== null
+        ? // Hold the clicked outcome still while its ladder unfurls: the
+          // camera rides the node's own layout motion instead of easing to
+          // the live edge mid-expansion.
+          this.layout.nodeWorldY(this.unfoldFocus.nodeIndex) - this.unfoldFocus.anchorOffset
+        : this.arriveAtLiveEdge
+          ? ladder.liveEdgeWorldY
+          : advanceGraphCamera(
+              this.view.camera(),
+              ladder.liveEdgeWorldY,
+              timing.deltaSeconds,
+              this.reducedMotion,
+            ),
     );
     // Every frame, detached included: the content moves under a camera that has
     // not, and a camera outside it draws nothing with no way to say so.
@@ -584,15 +690,43 @@ export class DirectorGraphCanvas {
 
   private renderView(timeSeconds: number): GraphRenderView {
     const hovered = this.view.hovered();
+    const switchMotion = this.workstreamSwitchMotion();
     return {
       timeSeconds,
       cameraWorldY: this.view.camera(),
       hoverLaneX: hovered === null ? 0 : packedValueAt(this.snapshot.nodes.lane, hovered),
       hoverWorldY: hovered === null ? 0 : this.layout.nodeWorldY(hovered),
       hoverAmount: this.hoverAmount,
-      shiftX: 0,
-      glitch: 0,
+      shiftX: switchMotion.shiftX,
+      glitch: switchMotion.glitch,
+      listening: this.listening ? 1 : 0,
       reducedMotion: this.reducedMotion,
+    };
+  }
+
+  /**
+   * Where the slide is right now. The mockup's in-phase: position eases out
+   * cubically from a full viewport off to rest, and the glitch is the tail of
+   * the sine that peaked at the swap (mockup lines 1281–1283).
+   */
+  private workstreamSwitchMotion(): { shiftX: number; glitch: number } {
+    const active = this.workstreamSwitch;
+    if (active === null) {
+      return { shiftX: 0, glitch: 0 };
+    }
+    const progress = (this.now() - active.startMs) / workstreamSwitchSlideMs;
+    if (progress >= 1) {
+      this.workstreamSwitch = null;
+      this.options.labelRoot.style.opacity = "";
+      return { shiftX: 0, glitch: 0 };
+    }
+    const remaining = 1 - progress;
+    // Labels are DOM and cannot ride the shader's shift, so they fade in with
+    // the slide instead of standing still while the nodes move under them.
+    this.options.labelRoot.style.opacity = String(progress * progress);
+    return {
+      shiftX: active.direction * remaining * remaining * remaining * 1.7,
+      glitch: Math.cos(progress * Math.PI * 0.5),
     };
   }
 
@@ -631,7 +765,11 @@ export class DirectorGraphCanvas {
     viewport: GraphViewport,
     nodes: { readonly from: number; readonly to: number },
   ): void {
-    const count = computeGraphLabelPlacements(
+    if (!this.labelsEnabled) {
+      this.labels.apply(this.snapshot, this.placements, 0, this.presentation === "conversation");
+      return;
+    }
+    let count = computeGraphLabelPlacements(
       {
         snapshot: this.snapshot,
         worldY: this.layout.worldYColumn(),
@@ -647,7 +785,71 @@ export class DirectorGraphCanvas {
       },
       this.placements,
     );
+    /*
+     * Threads side by side read as shapes, not sentences: labels stay off so
+     * the constellation is legible, and hovering a node speaks for that node
+     * alone. Selection is untouched — clicks hit-test the canvas, not the
+     * labels — so a thread opens exactly as it did with every label drawn.
+     */
+    if (this.presentation !== "conversation") {
+      const hovered = this.view.hovered();
+      let kept = 0;
+      for (let index = 0; index < count; index += 1) {
+        const placement = this.placements[index];
+        if (placement !== undefined && placement.nodeIndex === hovered) {
+          this.placements[kept] = placement;
+          kept += 1;
+        }
+      }
+      count = kept;
+    }
     this.labels.apply(this.snapshot, this.placements, count, this.presentation === "conversation");
+    this.labels.applyColumnTitles(this.columnTitlePlacements(viewport));
+  }
+
+  /**
+   * Where each thread's name sits: over its column's input node, computed by
+   * the same node-to-screen projection the labels use, so titles and threads
+   * cannot disagree. Columns pin the row just under the bar; the grid hangs
+   * each name above its own tile.
+   */
+  private columnTitlePlacements(
+    viewport: GraphViewport,
+  ): readonly { text: string; x: number; y: number; self: boolean }[] {
+    if (this.presentation === "conversation" || this.columnTitles.size === 0) {
+      return [];
+    }
+    const fit = graphFitFrame(viewport.width, viewport.height);
+    const camera = this.view.camera();
+    const placements: { text: string; x: number; y: number; self: boolean }[] = [];
+    for (let turn = 0; turn < this.snapshot.turnCount; turn += 1) {
+      const workstreamId = this.snapshot.turnWorkstreamIds[turn];
+      if (workstreamId === undefined) {
+        continue;
+      }
+      const text = this.columnTitles.get(workstreamId);
+      if (text === undefined) {
+        continue;
+      }
+      const input = packedValueAt(this.snapshot.turns.inputNode, turn);
+      const position = graphNodeScreenPosition(
+        packedValueAt(this.snapshot.nodes.lane, input),
+        this.layout.nodeWorldY(input),
+        camera,
+        fit,
+        viewport,
+      );
+      const anchorY =
+        this.presentation === "columns" ? columnTitleTopPx : Math.max(52, position.y - 44);
+      const warped = graphWarpToScreen(position.x, anchorY, viewport.width, viewport.height);
+      placements.push({
+        text,
+        x: warped.x,
+        y: warped.y,
+        self: workstreamId === this.selfWorkstreamId,
+      });
+    }
+    return placements;
   }
 
   private recordFrame(frameStart: number, timing: GraphFrameTiming): void {
@@ -678,6 +880,9 @@ export class DirectorGraphCanvas {
     hovering: boolean,
   ): GraphFrameOutcome {
     if (arrived || ladder.foldAnimating || this.queued.length > 0) {
+      return "continue";
+    }
+    if (this.workstreamSwitch !== null) {
       return "continue";
     }
     if (timeSeconds < ladder.quietUntilSeconds) {

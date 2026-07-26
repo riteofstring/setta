@@ -4,6 +4,8 @@ import {
   Component,
   Suspense,
   lazy,
+  useLayoutEffect,
+  useRef,
   type ErrorInfo,
   type KeyboardEvent,
   type ReactNode,
@@ -56,6 +58,8 @@ export function ArtifactBrowserOverlay({
   const position = `${browser.activePosition} of ${total}`;
   const hasPrevious = browser.activePosition > 1;
   const hasNext = browser.activePosition < total;
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  useArtifactBrowserOpenMorph(contentRef, browser.triggerRef);
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
     if (event.defaultPrevented || !artifactBrowserTakesArrowKey(event.target)) {
@@ -88,6 +92,7 @@ export function ArtifactBrowserOverlay({
           data-artifact-load-state={document?.status ?? "loading"}
           finalFocus={browser.triggerRef}
           onKeyDown={onKeyDown}
+          ref={contentRef}
           showCloseButton={false}
         >
           <DialogHeader className="director-artifact-browser-header">
@@ -160,6 +165,56 @@ export function ArtifactBrowserOverlay({
       </TooltipProvider>
     </Dialog>
   );
+}
+
+/**
+ * The open morph: the browser grows out of the card that opened it.
+ *
+ * A first/last transform from the preview card's rect to the dialog's rect,
+ * on compositor properties only — the dialog centres itself with the separate
+ * `translate` property, so animating `transform` cannot fight the centring.
+ * Without a card rect (keyboard entry after the card scrolled away) it falls
+ * back to the quick rise. Runs once per overlay mount, which is once per open:
+ * previous/next keep the dialog mounted and must not replay the morph.
+ */
+function useArtifactBrowserOpenMorph(
+  contentRef: React.RefObject<HTMLDivElement | null>,
+  triggerRef: React.RefObject<HTMLElement | null>,
+): void {
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (content === null || globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+    const card = triggerRef.current?.closest(".director-artifact-preview") ?? null;
+    const to = content.getBoundingClientRect();
+    if (to.width === 0 || to.height === 0) {
+      return;
+    }
+    const from = card?.getBoundingClientRect() ?? null;
+    if (from === null || from.width === 0) {
+      content.animate(
+        [
+          { opacity: 0, transform: "translateY(10px)", scale: "0.985" },
+          { opacity: 1, transform: "translateY(0)", scale: "1" },
+        ],
+        { duration: 200, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+      );
+      return;
+    }
+    const deltaX = from.left + from.width / 2 - (to.left + to.width / 2);
+    const deltaY = from.top + from.height / 2 - (to.top + to.height / 2);
+    content.animate(
+      [
+        {
+          opacity: 0.4,
+          transform: `translate(${deltaX}px, ${deltaY}px) scale(${from.width / to.width}, ${from.height / to.height})`,
+        },
+        { opacity: 1, transform: "translate(0, 0) scale(1, 1)" },
+      ],
+      { duration: 260, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+    );
+  }, [contentRef, triggerRef]);
 }
 
 function ArtifactBrowserDocument({
