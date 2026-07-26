@@ -39,6 +39,7 @@ function sceneFor(name: Parameters<typeof packedGraphFixture>[0], timeSeconds: n
   }
   const scene: GraphPointerScene = {
     snapshot,
+    placedNodeCount: layout.placedNodeCount(),
     worldY: frame.worldY,
     open: frame.open,
     cameraWorldY: frame.liveEdgeWorldY,
@@ -67,6 +68,37 @@ function outcomeNodeOf(snapshot: PackedGraphSnapshot, turn: number): number {
 }
 
 describe("graph pointer projection", () => {
+  /*
+   * The mouse is already over the canvas when new work lands, so a pointer
+   * event between a snapshot replacement and the frame that lays it out is the
+   * ordinary case rather than a corner. It used to throw out of the event
+   * handler and take the render loop with it: the canvas kept its last frame
+   * and never drew another, which read as the graph vanishing on a click.
+   */
+  it("hits nothing while the layout has not placed the snapshot yet", () => {
+    const snapshot = packedGraphFixture("single-active-turn");
+    const layout = new GraphLadderLayout();
+    layout.reset();
+    const unplaced: GraphPointerScene = {
+      snapshot,
+      placedNodeCount: Math.min(snapshot.nodeCount, layout.placedNodeCount()),
+      worldY: layout.worldYColumn(),
+      open: layout.openColumn(),
+      cameraWorldY: 0,
+      timeSeconds: 1e6,
+      viewport,
+    };
+
+    expect(snapshot.nodeCount).toBeGreaterThan(0);
+    expect(unplaced.placedNodeCount).toBe(0);
+    expect(graphNodeAtPointer(unplaced, { x: viewport.width / 2, y: viewport.height / 2 })).toBe(
+      null,
+    );
+    expect(graphOutcomeAtPointer(unplaced, { x: viewport.width / 2, y: viewport.height / 2 })).toBe(
+      null,
+    );
+  });
+
   it("puts the live edge where the shader puts it", () => {
     const { scene, frame } = sceneFor("single-active-turn", 1e6);
     const fit = graphFitFrame(viewport.width, viewport.height);

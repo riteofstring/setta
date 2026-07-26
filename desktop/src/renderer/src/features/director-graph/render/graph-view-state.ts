@@ -80,6 +80,19 @@ export function graphNodeCssDiameter(
 
 export interface GraphPointerScene {
   readonly snapshot: PackedGraphSnapshot;
+  /*
+   * How many of the snapshot's nodes the layout has actually placed.
+   *
+   * A snapshot arrives before it is laid out: replacing one drops the ladder's
+   * columns, and they are refilled by the next frame's advance. A pointer event
+   * in that gap is the ordinary case — the mouse is already over the canvas
+   * when new work lands — and reading a position that does not exist yet threw
+   * out of the event handler and took the render loop with it, leaving a canvas
+   * that had drawn its last frame and would never draw another.
+   *
+   * Nothing is hittable before it is placed, so the hit test stops here.
+   */
+  readonly placedNodeCount: number;
   readonly worldY: Float32Array;
   readonly open: Float32Array;
   readonly cameraWorldY: number;
@@ -132,7 +145,7 @@ function hitTest(
 ): GraphHit | null {
   const fit = graphFitFrame(scene.viewport.width, scene.viewport.height);
   let best: GraphHit | null = null;
-  for (let index = 0; index < scene.snapshot.nodeCount; index += 1) {
+  for (let index = 0; index < scene.placedNodeCount; index += 1) {
     if (!accept(index)) {
       continue;
     }

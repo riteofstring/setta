@@ -388,6 +388,7 @@ export class DirectorGraphCanvas {
   private pointerScene() {
     return {
       snapshot: this.snapshot,
+      placedNodeCount: Math.min(this.snapshot.nodeCount, this.layout.placedNodeCount()),
       worldY: this.layout.worldYColumn(),
       open: this.layout.openColumn(),
       cameraWorldY: this.view.camera(),

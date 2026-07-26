@@ -151,6 +151,15 @@ export class GraphLadderLayout {
     return packedValueAt(this.worldY, index);
   }
 
+  /**
+   * How many nodes the last advance placed. It is 0 after a reset and until the
+   * next frame runs, which is exactly the window in which the columns below
+   * hold no position for a node the snapshot already has.
+   */
+  placedNodeCount(): number {
+    return this.syncedNodeCount;
+  }
+
   /** The live columns. Callers read them; only `advance` writes them. */
   worldYColumn(): Float32Array {
     return this.worldY;
