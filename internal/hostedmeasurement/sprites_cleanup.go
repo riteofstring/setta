@@ -7,9 +7,12 @@ import (
 	settasprites "setta/internal/sprites"
 )
 
+// spritesCleanupAPI reads ownership through the identity-only lookup so a
+// Sprite whose fuller observation cannot be mapped still appears in the cleanup
+// inventory and can be destroyed.
 type spritesCleanupAPI interface {
 	Destroy(context.Context, string) error
-	Inspect(context.Context, string) (runtimeprovider.RuntimeObservation, bool, error)
+	InspectIdentity(context.Context, string) (runtimeprovider.RuntimeIdentityObservation, bool, error)
 }
 
 type SpritesCleanupClient struct {
@@ -88,7 +91,7 @@ func (client *SpritesCleanupClient) List(ctx context.Context, organization strin
 			"Sprites cleanup identity is invalid",
 		)
 	}
-	observation, found, err := client.api.Inspect(ctx, client.expectedName)
+	observation, found, err := client.api.InspectIdentity(ctx, client.expectedName)
 	if err != nil {
 		return nil, newHostedLifecycleFailure(
 			hostedLifecycleProviderRequestFailureCode,

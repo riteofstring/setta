@@ -204,6 +204,18 @@ type RuntimeObservation struct {
 	UpdatedAt          time.Time
 }
 
+// RuntimeIdentityObservation contains only the provider observations that
+// deciding ownership and deleting a runtime require. Deletion and cleanup
+// inventory read this instead of RuntimeObservation so a billable runtime whose
+// resource, activity, or URL fields fall outside the pinned provider contract
+// stays visible and destroyable rather than becoming a stranded orphan.
+type RuntimeIdentityObservation struct {
+	ProviderResourceID string
+	Name               string
+	Labels             []string
+	Placement          string
+}
+
 // ExecRequest describes a bounded non-interactive command execution.
 type ExecRequest struct {
 	RuntimeName string

@@ -215,6 +215,92 @@ func TestAdapterDestroyIsIdempotentAndOwnershipChecked(t *testing.T) {
 	})
 }
 
+func TestAdapterDestroysRuntimeItCannotFullyObserve(t *testing.T) {
+	identity := testManagedIdentity(t)
+	unmappable := map[string]func(*spritessdk.SpriteInfo){
+		"absent configuration": func(runtime *spritessdk.SpriteInfo) { runtime.Config = nil },
+		"absent storage":       func(runtime *spritessdk.SpriteInfo) { runtime.Config.StorageGB = 0 },
+		"unknown status":       func(runtime *spritessdk.SpriteInfo) { runtime.Status = "hibernating" },
+		"absent URL settings":  func(runtime *spritessdk.SpriteInfo) { runtime.URLSettings = nil },
+	}
+	for name, breakRuntime := range unmappable {
+		t.Run(name, func(t *testing.T) {
+			runtime := testRuntimeInfo(identity, "running")
+			breakRuntime(runtime)
+			destroyedNames := []string{}
+			adapter := &Adapter{client: &fakeSDKAPI{
+				findRuntime: func(context.Context, string) (*spritessdk.SpriteInfo, bool, error) {
+					return runtime, true, nil
+				},
+				destroy: func(_ context.Context, name string) error {
+					destroyedNames = append(destroyedNames, name)
+					return nil
+				},
+			}}
+
+			if _, _, err := adapter.Inspect(context.Background(), identity.Name); err == nil {
+				t.Fatal("Inspect accepted a runtime outside the pinned contract")
+			}
+			if err := adapter.Destroy(context.Background(), identity.Name); err != nil {
+				t.Fatalf("Destroy: %v", err)
+			}
+			if !slices.Equal(destroyedNames, []string{identity.Name}) {
+				t.Fatalf("destroyed names = %v", destroyedNames)
+			}
+		})
+	}
+}
+
+func TestAdapterInspectIdentityStillRefusesForeignAndUnnamedRuntimes(t *testing.T) {
+	identity := testManagedIdentity(t)
+
+	t.Run("foreign labels", func(t *testing.T) {
+		runtime := testRuntimeInfo(identity, "running")
+		runtime.Config = nil
+		runtime.Labels = []string{"foreign"}
+		adapter := &Adapter{client: &fakeSDKAPI{
+			findRuntime: func(context.Context, string) (*spritessdk.SpriteInfo, bool, error) {
+				return runtime, true, nil
+			},
+		}}
+		if err := adapter.Destroy(context.Background(), identity.Name); !errors.Is(err, ErrOwnershipMismatch) {
+			t.Fatalf("Destroy error = %v, want ErrOwnershipMismatch", err)
+		}
+	})
+
+	t.Run("absent name", func(t *testing.T) {
+		runtime := testRuntimeInfo(identity, "running")
+		runtime.Name = ""
+		adapter := &Adapter{client: &fakeSDKAPI{
+			findRuntime: func(context.Context, string) (*spritessdk.SpriteInfo, bool, error) {
+				return runtime, true, nil
+			},
+		}}
+		_, _, err := adapter.InspectIdentity(context.Background(), identity.Name)
+		if !errors.Is(err, ErrUnexpectedProviderValue) {
+			t.Fatalf("InspectIdentity error = %v, want ErrUnexpectedProviderValue", err)
+		}
+	})
+}
+
+func TestRuntimeResourceMappingNamesTheOffendingProviderField(t *testing.T) {
+	tests := []struct {
+		config *spritessdk.SpriteConfig
+		want   string
+	}{
+		{config: nil, want: "carries no resource configuration"},
+		{config: &spritessdk.SpriteConfig{CPUs: 0, RamMB: 512, StorageGB: 10}, want: "field cpus is 0"},
+		{config: &spritessdk.SpriteConfig{CPUs: 1, RamMB: 0, StorageGB: 10}, want: "field ram_mb is 0"},
+		{config: &spritessdk.SpriteConfig{CPUs: 1, RamMB: 512, StorageGB: -1}, want: "field storage_gb is -1"},
+	}
+	for _, test := range tests {
+		_, err := mapRuntimeResources(test.config)
+		if !errors.Is(err, ErrUnexpectedProviderValue) || !strings.Contains(err.Error(), test.want) {
+			t.Fatalf("mapRuntimeResources(%+v) error = %v, want %q", test.config, err, test.want)
+		}
+	}
+}
+
 func TestAdapterConfigureURLMapsOnlyProvenModes(t *testing.T) {
 	identity := testManagedIdentity(t)
 	var authValues []string

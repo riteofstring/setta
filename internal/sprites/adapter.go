@@ -441,7 +441,7 @@ func (adapter *Adapter) RestoreCheckpoint(ctx context.Context, runtimeName strin
 }
 
 func (adapter *Adapter) Destroy(ctx context.Context, name string) error {
-	observation, found, err := adapter.Inspect(ctx, name)
+	observed, found, err := adapter.InspectIdentity(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -452,7 +452,7 @@ func (adapter *Adapter) Destroy(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-	if err := requireLabels(identity, observation.Labels); err != nil {
+	if err := requireLabels(identity, observed.Labels); err != nil {
 		return err
 	}
 	if err := adapter.client.Destroy(ctx, name); err != nil {
@@ -475,6 +475,33 @@ func (adapter *Adapter) ServerVersion(ctx context.Context, name string) (string,
 		return "", operationError("inspect server version", ErrUnexpectedProviderValue)
 	}
 	return version, nil
+}
+
+// InspectIdentity reports a runtime's provider identity and ownership labels
+// without mapping the resource, activity, and URL fields that only a fuller
+// observation needs. Deletion and cleanup inventory use it so a runtime Setta
+// created stays destroyable even when the provider reports it outside the
+// pinned contract; a runtime that cannot be observed must never become a
+// billable resource that Setta's own cleanup path is unable to see.
+func (adapter *Adapter) InspectIdentity(
+	ctx context.Context,
+	name string,
+) (runtimeprovider.RuntimeIdentityObservation, bool, error) {
+	if err := runtimeprovider.ValidateManagedName(name); err != nil {
+		return runtimeprovider.RuntimeIdentityObservation{}, false, err
+	}
+	runtime, found, err := adapter.client.FindRuntime(ctx, name)
+	if err != nil {
+		return runtimeprovider.RuntimeIdentityObservation{}, false, operationError("inspect identity", err)
+	}
+	if !found {
+		return runtimeprovider.RuntimeIdentityObservation{}, false, nil
+	}
+	observed, err := mapRuntimeIdentity(runtime)
+	if err != nil {
+		return runtimeprovider.RuntimeIdentityObservation{}, false, operationError("inspect identity", err)
+	}
+	return observed, true, nil
 }
 
 func (adapter *Adapter) inspect(
@@ -513,9 +540,31 @@ func (adapter *Adapter) requireOwnedRuntime(
 	return observation, nil
 }
 
-func mapRuntime(runtime *spritessdk.SpriteInfo) (runtimeprovider.RuntimeObservation, error) {
+func mapRuntimeIdentity(runtime *spritessdk.SpriteInfo) (runtimeprovider.RuntimeIdentityObservation, error) {
 	if runtime == nil {
-		return runtimeprovider.RuntimeObservation{}, fmt.Errorf("%w: missing runtime", ErrUnexpectedProviderValue)
+		return runtimeprovider.RuntimeIdentityObservation{}, fmt.Errorf(
+			"%w: missing runtime",
+			ErrUnexpectedProviderValue,
+		)
+	}
+	if runtime.Name == "" {
+		return runtimeprovider.RuntimeIdentityObservation{}, fmt.Errorf(
+			"%w: missing runtime name",
+			ErrUnexpectedProviderValue,
+		)
+	}
+	return runtimeprovider.RuntimeIdentityObservation{
+		ProviderResourceID: runtime.ID,
+		Name:               runtime.Name,
+		Labels:             slices.Clone(runtime.Labels),
+		Placement:          runtime.PrimaryRegion,
+	}, nil
+}
+
+func mapRuntime(runtime *spritessdk.SpriteInfo) (runtimeprovider.RuntimeObservation, error) {
+	observed, err := mapRuntimeIdentity(runtime)
+	if err != nil {
+		return runtimeprovider.RuntimeObservation{}, err
 	}
 	resources, err := mapRuntimeResources(runtime.Config)
 	if err != nil {
@@ -545,25 +594,34 @@ func mapRuntime(runtime *spritessdk.SpriteInfo) (runtimeprovider.RuntimeObservat
 		)
 	}
 	return runtimeprovider.RuntimeObservation{
-		ProviderResourceID: runtime.ID,
-		Name:               runtime.Name,
-		Labels:             slices.Clone(runtime.Labels),
+		ProviderResourceID: observed.ProviderResourceID,
+		Name:               observed.Name,
+		Labels:             observed.Labels,
 		Resources:          resources,
 		Activity:           activity,
 		URL:                runtime.URL,
 		URLAccess:          access,
-		Placement:          runtime.PrimaryRegion,
+		Placement:          observed.Placement,
 		CreatedAt:          runtime.CreatedAt,
 		UpdatedAt:          runtime.UpdatedAt,
 	}, nil
 }
 
 func mapRuntimeResources(config *spritessdk.SpriteConfig) (runtimeprovider.RuntimeResources, error) {
-	if config == nil || config.CPUs <= 0 || config.RamMB <= 0 || config.StorageGB <= 0 {
+	if config == nil {
 		return runtimeprovider.RuntimeResources{}, fmt.Errorf(
-			"%w: missing or invalid runtime resource configuration",
+			"%w: runtime response carries no resource configuration",
 			ErrUnexpectedProviderValue,
 		)
+	}
+	if config.CPUs <= 0 {
+		return runtimeprovider.RuntimeResources{}, invalidRuntimeConfigField("cpus", config.CPUs)
+	}
+	if config.RamMB <= 0 {
+		return runtimeprovider.RuntimeResources{}, invalidRuntimeConfigField("ram_mb", config.RamMB)
+	}
+	if config.StorageGB <= 0 {
+		return runtimeprovider.RuntimeResources{}, invalidRuntimeConfigField("storage_gb", config.StorageGB)
 	}
 	const (
 		cpuUnit     = uint64(1_000_000)
@@ -587,6 +645,18 @@ func mapRuntimeResources(config *spritessdk.SpriteConfig) (runtimeprovider.Runti
 		return runtimeprovider.RuntimeResources{}, fmt.Errorf("%w: %v", ErrUnexpectedProviderValue, err)
 	}
 	return resources, nil
+}
+
+// invalidRuntimeConfigField names the exact provider field that put a runtime
+// outside the pinned contract, so a live failure identifies which part of the
+// response changed instead of reporting the whole configuration as unusable.
+func invalidRuntimeConfigField(field string, value int) error {
+	return fmt.Errorf(
+		"%w: runtime resource configuration field %s is %d",
+		ErrUnexpectedProviderValue,
+		field,
+		value,
+	)
 }
 
 func mapRuntimeActivity(status string) (runtimeprovider.RuntimeActivity, error) {

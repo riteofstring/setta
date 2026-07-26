@@ -18,7 +18,7 @@ func TestSpritesCleanupFailuresExposeHostedLifecycleClassification(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	validObservation := runtimeprovider.RuntimeObservation{
+	validObservation := runtimeprovider.RuntimeIdentityObservation{
 		ProviderResourceID: "sprite_123",
 		Name:               name,
 		Labels:             identity.Labels,
