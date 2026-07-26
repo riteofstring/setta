@@ -7,6 +7,8 @@ import type {
 } from "@generated/backend";
 import type { DesktopPlatform } from "@shared/types";
 import {
+  Captions,
+  CaptionsOff,
   ChevronLeft,
   ChevronRight,
   FolderPlus,
@@ -54,7 +56,9 @@ const unwindowedWorkstreamLimit = 24;
  */
 export function CommandCenterTopBar({
   dispatch,
+  labelsVisible,
   onStartWorkstream,
+  onToggleLabels,
   onToggleRail,
   onOpenSettingsPage,
   platform,
@@ -63,7 +67,9 @@ export function CommandCenterTopBar({
   speechPlayback,
 }: {
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
+  labelsVisible: boolean;
   onStartWorkstream: () => void;
+  onToggleLabels: () => void;
   onToggleRail: (rail: DirectorRailName, trigger: HTMLButtonElement) => void;
   onOpenSettingsPage: () => void;
   platform: DesktopPlatform;
@@ -86,8 +92,10 @@ export function CommandCenterTopBar({
       </div>
       <WorkstreamNavigation dispatch={dispatch} snapshot={snapshot} />
       <DirectorRailControls
+        labelsVisible={labelsVisible}
         onOpenSettingsPage={onOpenSettingsPage}
         onStartWorkstream={onStartWorkstream}
+        onToggleLabels={onToggleLabels}
         onToggleRail={onToggleRail}
         railVisibility={railVisibility}
         speechPlayback={speechPlayback}
@@ -262,14 +270,18 @@ function focusMetaLabel(focus: DirectorFocus): string {
 }
 
 function DirectorRailControls({
+  labelsVisible,
   onOpenSettingsPage,
   onStartWorkstream,
+  onToggleLabels,
   onToggleRail,
   railVisibility,
   speechPlayback,
 }: {
+  labelsVisible: boolean;
   onOpenSettingsPage: () => void;
   onStartWorkstream: () => void;
+  onToggleLabels: () => void;
   onToggleRail: (rail: DirectorRailName, trigger: HTMLButtonElement) => void;
   railVisibility: DirectorRailVisibility;
   speechPlayback: AppShellSpeechPlaybackController;
@@ -303,6 +315,18 @@ function DirectorRailControls({
         onClick={(trigger) => onToggleRail("artifacts", trigger)}
       >
         <PanelRight aria-hidden="true" size={16} />
+      </IconButton>
+      <IconButton
+        label={labelsVisible ? "Hide graph labels" : "Show graph labels"}
+        onClick={onToggleLabels}
+        pressed={!labelsVisible}
+        testId="director-graph-labels-toggle"
+      >
+        {labelsVisible ? (
+          <Captions aria-hidden="true" size={16} />
+        ) : (
+          <CaptionsOff aria-hidden="true" size={16} />
+        )}
       </IconButton>
       <SpeechPlaybackMuteToggle speechPlayback={speechPlayback} />
       <IconButton label="Open settings" onClick={onOpenSettingsPage}>

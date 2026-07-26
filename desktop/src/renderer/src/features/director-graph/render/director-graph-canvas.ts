@@ -187,6 +187,8 @@ export class DirectorGraphCanvas {
   private workstreamSwitch: { direction: -1 | 0 | 1; startMs: number } | null = null;
   /** True while the app is capturing the user's voice; the input node breathes. */
   private listening = false;
+  /** Whether the DOM label layer draws at all; the canvas is legible alone. */
+  private labelsEnabled = true;
 
   constructor(private readonly options: DirectorGraphCanvasOptions) {
     this.snapshot = emptyPackedGraphSnapshot("");
@@ -358,6 +360,18 @@ export class DirectorGraphCanvas {
    */
   setPresentation(presentation: SemanticGraphPresentation): void {
     this.presentation = presentation;
+  }
+
+  /**
+   * Shows or hides the label layer, the mockup's labels toggle. Hiding clears
+   * the layer rather than fading it, so the pills' pointer targets go with it.
+   */
+  setLabelsEnabled(enabled: boolean): void {
+    if (enabled === this.labelsEnabled) {
+      return;
+    }
+    this.labelsEnabled = enabled;
+    this.scheduler.requestFrame();
   }
 
   /**
@@ -697,6 +711,10 @@ export class DirectorGraphCanvas {
     viewport: GraphViewport,
     nodes: { readonly from: number; readonly to: number },
   ): void {
+    if (!this.labelsEnabled) {
+      this.labels.apply(this.snapshot, this.placements, 0, this.presentation === "conversation");
+      return;
+    }
     const count = computeGraphLabelPlacements(
       {
         snapshot: this.snapshot,
