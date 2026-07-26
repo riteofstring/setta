@@ -62,6 +62,7 @@ import {
   graphOutcomeAtPointer,
   type GraphScreenPoint,
   type GraphViewport,
+  graphLookBackMargin,
   type GraphCameraBounds,
 } from "./graph-view-state";
 import { graphFitFrame, graphMotionRates } from "./graph-visual-language";
@@ -165,7 +166,11 @@ export class DirectorGraphCanvas {
    */
   private arriveAtLiveEdge = false;
   private presentation: SemanticGraphPresentation = "conversation";
-  private bounds: GraphCameraBounds = { contentTopWorldY: 0, liveEdgeWorldY: 0 };
+  private bounds: GraphCameraBounds = {
+    contentTopWorldY: 0,
+    liveEdgeWorldY: 0,
+    lookBackMargin: 0,
+  };
   private lastSurfaceKey = "";
   private lastFrameTimestampMs = 0;
   private disposed = false;
@@ -188,7 +193,7 @@ export class DirectorGraphCanvas {
     );
     this.renderer.prewarm();
     this.labels = new GraphLabelLayer(options.labelRoot, options.ownerDocument, {
-      onPillActivated: (nodeIndex) => this.toggleTurnAt(nodeIndex),
+      onPillActivated: (nodeIndex) => this.activateNode(nodeIndex),
     });
     this.stopwatch = new GraphFrameStopwatch(this.now);
     this.gpuTimer = new GraphGpuTimer(
@@ -282,11 +287,10 @@ export class DirectorGraphCanvas {
     const scene = this.pointerScene();
     if (this.presentation !== "conversation") {
       const hit = graphNodeAtPointer(scene, point);
-      if (hit !== null && this.openWorkstreamAt(hit)) {
+      if (hit === null) {
         return;
       }
-      this.view.toggleSelected(hit);
-      this.scheduler.requestFrame();
+      this.activateNode(hit);
       return;
     }
     const outcome = graphOutcomeAtPointer(scene, point);
@@ -296,6 +300,25 @@ export class DirectorGraphCanvas {
     }
     this.view.toggleSelected(graphNodeAtPointer(scene, point));
     this.scheduler.requestFrame();
+  }
+
+  /*
+   * What activating a node does, wherever the activation came from.
+   *
+   * A label is a real button, so it takes the click before the canvas ever sees
+   * one and drives the same decision by a different path. Both routes end here,
+   * because a pill that folds a turn while the canvas beneath it opens a thread
+   * is two answers to one gesture.
+   */
+  private activateNode(nodeIndex: number): void {
+    if (this.presentation === "conversation") {
+      this.toggleTurnAt(nodeIndex);
+      return;
+    }
+    if (!this.openWorkstreamAt(nodeIndex)) {
+      this.view.toggleSelected(nodeIndex);
+      this.scheduler.requestFrame();
+    }
   }
 
   /** Opens the thread a node belongs to. Reports whether there was one to open. */
@@ -469,6 +492,7 @@ export class DirectorGraphCanvas {
     this.bounds = {
       contentTopWorldY: ladder.contentTopWorldY,
       liveEdgeWorldY: ladder.liveEdgeWorldY,
+      lookBackMargin: graphLookBackMargin(graphFitFrame(viewport.width, viewport.height).fitY),
     };
     this.view.followLiveEdge(
       this.arriveAtLiveEdge
@@ -625,7 +649,7 @@ export class DirectorGraphCanvas {
       },
       this.placements,
     );
-    this.labels.apply(this.snapshot, this.placements, count);
+    this.labels.apply(this.snapshot, this.placements, count, this.presentation === "conversation");
   }
 
   private recordFrame(frameStart: number, timing: GraphFrameTiming): void {

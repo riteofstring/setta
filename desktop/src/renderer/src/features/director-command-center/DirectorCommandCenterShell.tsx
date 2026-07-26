@@ -214,16 +214,14 @@ export function DirectorCommandCenterShell({
     () => directorGraphTimeSecondsAt(director.snapshot),
     [snapshot === null ? null : snapshot.connection.lastEventAt, snapshotGraphs],
   );
-  const packedSnapshot = useMemo(
+  const composition = useMemo(
     () => packDirectorGraphs(snapshotGraphs, selectedWorkstreamId),
     [snapshotGraphs, selectedWorkstreamId],
   );
-  const { openWorkstream: openWorkstreamFromGraph, presentation: graphPresentation } =
-    useDirectorGraphPresentation({
-      columnCount: packedSnapshot.turnCount,
-      dispatch: director.dispatch,
-      snapshot: director.snapshot,
-    });
+  const packedSnapshot = composition.snapshot;
+  const { openWorkstream: openWorkstreamFromGraph } = useDirectorGraphPresentation({
+    dispatch: director.dispatch,
+  });
   const railAttributes = directorRailVisibilityAttributes(effectiveRailVisibility);
   const focus = directorFocus(snapshotView.selectedWorkstream);
   const switchTransition = useDirectorWorkstreamSwitchTransition(director.snapshot);
@@ -282,9 +280,9 @@ export function DirectorCommandCenterShell({
     }
     // Presentation first: it decides how the snapshot is read, so the canvas
     // must never see a new composition under the old rules.
-    canvas.setPresentation(graphPresentation);
-    canvas.setSnapshot(packedSnapshot);
-  }, [canvas, graphPresentation, packedSnapshot]);
+    canvas.setPresentation(composition.presentation);
+    canvas.setSnapshot(composition.snapshot);
+  }, [canvas, composition]);
 
   useDirectorShellKeyboardNavigation({
     artifactBrowserOpen: artifactBrowser.activeArtifact !== null,

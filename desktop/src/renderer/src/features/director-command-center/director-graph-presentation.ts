@@ -1,7 +1,10 @@
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 
 import type { DirectorIntent, DirectorReceipt, DirectorSnapshot } from "@generated/backend";
-import { emptyPackedGraphSnapshot } from "../director-graph/packed-graph-snapshot";
+import {
+  emptyPackedGraphSnapshot,
+  type PackedGraphSnapshot,
+} from "../director-graph/packed-graph-snapshot";
 import {
   directorPresentationFor,
   packSemanticGraphComposition,
@@ -24,29 +27,19 @@ const directorGraphLaneId = "director";
  * they are decided together rather than rediscovered at each call site.
  */
 export function useDirectorGraphPresentation({
-  columnCount,
   dispatch,
-  snapshot,
 }: {
-  columnCount: number;
   dispatch: (intent: DirectorIntent) => Promise<DirectorReceipt>;
-  snapshot: DirectorSnapshot | null;
 }): {
   openWorkstream: (workstreamId: string) => void;
-  presentation: SemanticGraphPresentation;
 } {
-  const selectedWorkstreamId = snapshot === null ? null : snapshot.selectedWorkstreamId;
-  const presentation = useMemo(
-    () => directorPresentationFor(columnCount, selectedWorkstreamId),
-    [columnCount, selectedWorkstreamId],
-  );
   const openWorkstream = useCallback(
     (workstreamId: string) => {
       void dispatch(selectViewIntent(workstreamId === directorGraphLaneId ? null : workstreamId));
     },
     [dispatch],
   );
-  return { openWorkstream, presentation };
+  return { openWorkstream };
 }
 
 /*
@@ -76,24 +69,42 @@ function directorGraphCompositionId(selectedWorkstreamId: string | null): string
     : `director-command-center:${selectedWorkstreamId}`;
 }
 
+/*
+ * The composition and the presentation it was packed under, together.
+ *
+ * They were derived separately — packing from the graphs it was handed, the
+ * canvas from the turns that came out — and an empty graph made the two
+ * disagree: a lane with nothing in it is a graph to pack and not a turn to
+ * draw, so the same view could be packed as a grid and then drawn as columns,
+ * aligning cells that were never meant to line up. One derivation, carried.
+ */
+export interface DirectorGraphComposition {
+  readonly presentation: SemanticGraphPresentation;
+  readonly snapshot: PackedGraphSnapshot;
+}
+
 export function packDirectorGraphs(
   graphs: DirectorSnapshot["graphs"] | undefined,
   selectedWorkstreamId: string | null,
-) {
+): DirectorGraphComposition {
   const composed = graphs ?? [];
   const visible =
     selectedWorkstreamId === null
       ? composed
       : composed.filter((graph) => graph.workstreamId === selectedWorkstreamId);
+  const presentation = directorPresentationFor(visible, selectedWorkstreamId);
   const compositionId = directorGraphCompositionId(selectedWorkstreamId);
   if (visible.length === 0) {
-    return emptyPackedGraphSnapshot(compositionId);
+    return { presentation, snapshot: emptyPackedGraphSnapshot(compositionId) };
   }
-  return packSemanticGraphComposition({
-    graphs: visible,
-    presentation: directorPresentationFor(visible.length, selectedWorkstreamId),
-    workstreamId: compositionId,
-  });
+  return {
+    presentation,
+    snapshot: packSemanticGraphComposition({
+      graphs: visible,
+      presentation,
+      workstreamId: compositionId,
+    }),
+  };
 }
 
 export function directorGraphTimeSecondsAt(

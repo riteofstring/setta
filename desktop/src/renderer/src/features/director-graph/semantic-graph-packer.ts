@@ -45,18 +45,23 @@ export interface SemanticGraphComposition {
   readonly presentation: SemanticGraphPresentation;
 }
 
-/** How many conversations the Director draws as columns before it tiles them. */
-const maxDirectorColumnGraphs = 5;
-
-/** The presentation a set of Director graphs should be drawn in. */
+/*
+ * The presentation a set of Director graphs should be drawn in.
+ *
+ * How many conversations is too many for columns is the backend's decision —
+ * it is the same judgement that decides how much of each graph to send, and
+ * two copies of one threshold in two languages would drift. So this reads what
+ * the backend already said: a graph it compacted is one it does not expect to
+ * be read as a column.
+ */
 export function directorPresentationFor(
-  graphCount: number,
+  graphs: readonly WorkstreamGraph[],
   selectedWorkstreamId: string | null,
 ): SemanticGraphPresentation {
   if (selectedWorkstreamId !== null) {
     return "conversation";
   }
-  return graphCount > maxDirectorColumnGraphs ? "grid" : "columns";
+  return graphs.some((graph) => graph.detailLevel !== "selected") ? "grid" : "columns";
 }
 
 const settleWindowSeconds = 1.45;
@@ -258,8 +263,11 @@ interface ColumnPlacement {
  * column on the left while the rest tile into a square-ish grid beside it, in
  * reading order: oldest top-left, newest bottom-right.
  */
-function columnPlacements(graphCount: number): ColumnPlacement[] {
-  if (graphCount <= maxDirectorColumnGraphs) {
+function columnPlacements(
+  graphCount: number,
+  presentation: SemanticGraphPresentation,
+): ColumnPlacement[] {
+  if (presentation !== "grid") {
     return Array.from({ length: graphCount }, (_unused, index) => ({
       lane: workstreamLane(index, graphCount),
       top: 0,
@@ -491,13 +499,17 @@ function compileSemanticGraphComposition(
   if (composition.graphs.length === 0) {
     return [];
   }
-  const nodes = graphNodes(tiledGraphs(composition));
+  // One reduced set for both. Reading edges from the full graphs while nodes
+  // came from the tiles let a dropped edge still decide which node is the
+  // outcome, so a tile could be classified by history it is not showing.
+  const graphs = tiledGraphs(composition);
+  const nodes = graphNodes(graphs);
   if (nodes.length === 0) {
     return [];
   }
-  const edges = graphEdges(composition.graphs);
+  const edges = graphEdges(graphs);
   const planned = planNodes(nodes, edges);
-  const placements = columnPlacements(composition.graphs.length);
+  const placements = columnPlacements(graphs.length, composition.presentation);
   const placementFor = (graphIndex: number): ColumnPlacement =>
     placements[graphIndex] ?? { lane: 0, top: 0 };
   const packedNodes = planned.map((node) =>

@@ -152,6 +152,28 @@ describe("Director command-center shell view state", () => {
    * something now. The Director's view is every workstream at once; a
    * workstream's view is that workstream alone.
    */
+  /*
+   * The presentation the graphs were packed under is the one the canvas has to
+   * draw them in. Deriving it twice — once from the graphs, once from the turns
+   * that came out — let an empty lane split the two, because a graph with no
+   * nodes is something to pack and nothing to draw. A grid drawn as columns
+   * aligns cells that were never meant to line up.
+   */
+  test("carries the presentation it packed under, even with an empty graph", () => {
+    const empty = graphWithNodes([], "director");
+    const tiles = Array.from({ length: 6 }, (_unused, index) => ({
+      ...graphWithNodes([semanticNode(index + 1, "action", "active")], `workstream:${index}`),
+      detailLevel: "adjacent" as const,
+    }));
+
+    const composition = packDirectorGraphs([empty, ...tiles], null);
+
+    expect(composition.presentation).toBe("grid");
+    // The lane packs no turn, so a count taken from the packed snapshot would
+    // have disagreed with the count the packer decided on.
+    expect(composition.snapshot.turnCount).toBe(tiles.length);
+  });
+
   test("packs the whole constellation for the Director and one workstream otherwise", () => {
     const graphs = [
       graphWithNodes([semanticNode(1, "action", "active")], "workstream:1"),
@@ -161,12 +183,12 @@ describe("Director command-center shell view state", () => {
       ),
     ];
 
-    expect(packDirectorGraphs(graphs, null).nodeCount).toBe(3);
-    expect(packDirectorGraphs(graphs, "workstream:2").nodeCount).toBe(2);
-    expect(packDirectorGraphs(graphs, "workstream:1").nodeCount).toBe(1);
+    expect(packDirectorGraphs(graphs, null).snapshot.nodeCount).toBe(3);
+    expect(packDirectorGraphs(graphs, "workstream:2").snapshot.nodeCount).toBe(2);
+    expect(packDirectorGraphs(graphs, "workstream:1").snapshot.nodeCount).toBe(1);
     // A workstream with no graph yet draws nothing rather than the composition.
-    expect(packDirectorGraphs(graphs, "workstream:absent").nodeCount).toBe(0);
-    expect(packDirectorGraphs(undefined, null).nodeCount).toBe(0);
+    expect(packDirectorGraphs(graphs, "workstream:absent").snapshot.nodeCount).toBe(0);
+    expect(packDirectorGraphs(undefined, null).snapshot.nodeCount).toBe(0);
   });
 
   test("does not present a resolved blocker as current running work", () => {

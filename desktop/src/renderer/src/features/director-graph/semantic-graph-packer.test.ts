@@ -145,9 +145,9 @@ describe("semantic graph packer", () => {
       renameGraph(populated[index % populated.length], `workstream-tile-${index}`),
     );
     const snapshot = packSemanticGraphComposition({
-      presentation: "columns",
-      workstreamId: "grid",
       graphs: many,
+      presentation: "grid",
+      workstreamId: "grid",
     });
 
     expect(snapshot.turnCount).toBe(many.length);

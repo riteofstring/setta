@@ -8,6 +8,7 @@ import {
   advanceHoverAmount,
   graphNodeAtPointer,
   graphNodeCssDiameter,
+  graphLookBackMargin,
   graphNodeScreenPosition,
   graphOutcomeAtPointer,
   type GraphPointerScene,
@@ -151,6 +152,7 @@ describe("graph pointer projection", () => {
 const boundsTo = (liveEdgeWorldY: number, contentTopWorldY = 0) => ({
   contentTopWorldY,
   liveEdgeWorldY,
+  lookBackMargin: graphLookBackMargin(graphFitFrame(viewport.width, viewport.height).fitY),
 });
 
 describe("graph view controller", () => {
@@ -189,8 +191,45 @@ describe("graph view controller", () => {
 
     view.clampToContent(boundsTo(3, 2));
 
-    expect(view.camera()).toBeGreaterThanOrEqual(2 - 0.7);
+    expect(view.camera()).toBeGreaterThanOrEqual(
+      2 - graphLookBackMargin(graphFitFrame(viewport.width, viewport.height).fitY),
+    );
     expect(view.camera()).toBeLessThanOrEqual(3);
+  });
+
+  /*
+   * The bound exists so the first fact is still drawn at it. Asserting the
+   * arithmetic would have passed while the node sat below the viewport, which
+   * is exactly what a fixed margin did.
+   */
+  it("keeps the top node on screen at the furthest look-back", () => {
+    const { scene, snapshot } = sceneFor("single-active-turn", 1e6);
+    const fit = graphFitFrame(viewport.width, viewport.height);
+    let topIndex = 0;
+    for (let index = 1; index < snapshot.nodeCount; index += 1) {
+      if (packedValueAt(scene.worldY, index) < packedValueAt(scene.worldY, topIndex)) {
+        topIndex = index;
+      }
+    }
+    const contentTopWorldY = packedValueAt(scene.worldY, topIndex);
+    const view = new GraphViewController();
+    view.followLiveEdge(scene.cameraWorldY);
+    view.lookBack(-1e6, {
+      contentTopWorldY,
+      liveEdgeWorldY: scene.cameraWorldY,
+      lookBackMargin: graphLookBackMargin(fit.fitY),
+    });
+
+    const position = graphNodeScreenPosition(
+      packedValueAt(snapshot.nodes.lane, topIndex),
+      contentTopWorldY,
+      view.camera(),
+      fit,
+      viewport,
+    );
+
+    expect(position.y).toBeGreaterThanOrEqual(0);
+    expect(position.y).toBeLessThanOrEqual(viewport.height);
   });
 
   it("pins a turn to the opposite of what it is doing now", () => {

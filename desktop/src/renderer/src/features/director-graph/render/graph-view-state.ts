@@ -24,8 +24,26 @@ import type { PackedGraphSnapshot } from "../packed-graph-snapshot";
 
 /** How far one wheel notch looks back, in reference clip units per pixel. */
 const lookBackPerPixel = 0.0013;
-/** How far past the first fact the view may scroll, so it has somewhere to stop. */
-const lookBackMargin = 0.7;
+/*
+ * How far past the first fact the view may scroll.
+ *
+ * The point of stopping there is that the first fact is still on screen, so the
+ * margin has to come from the projection rather than be picked: with the live
+ * edge sitting at clip -0.35, a flat 0.7 put the top node at clip -1.05, off
+ * the bottom of the viewport, and the canvas went blank at exactly the position
+ * the bound was supposed to make safe.
+ *
+ * The limit keeps that node inside clip space with room to spare, so it is
+ * drawn rather than just barely intersecting the edge.
+ */
+const visibleClipLimit = 0.9;
+
+export function graphLookBackMargin(fitY: number): number {
+  if (!(fitY > 0)) {
+    return 0;
+  }
+  return Math.max(0, graphLiveEdgeClipY + visibleClipLimit / fitY);
+}
 /** Camera distance from the live edge that counts as detached. */
 const detachEpsilon = 0.02;
 /** Pointer radius for selecting a node, in CSS pixels. */
@@ -42,6 +60,8 @@ export interface GraphScreenPoint {
 export interface GraphCameraBounds {
   readonly contentTopWorldY: number;
   readonly liveEdgeWorldY: number;
+  /** Overscroll past the top that still leaves the first fact drawn. */
+  readonly lookBackMargin: number;
 }
 
 export interface GraphViewport {
@@ -279,7 +299,7 @@ export class GraphViewController {
   }
 
   private settleCamera(candidate: number, bounds: GraphCameraBounds): void {
-    const floor = bounds.contentTopWorldY - lookBackMargin;
+    const floor = bounds.contentTopWorldY - bounds.lookBackMargin;
     const ceiling = Math.max(floor, bounds.liveEdgeWorldY);
     const next = Math.max(floor, Math.min(ceiling, candidate));
     this.cameraWorldY = next;
