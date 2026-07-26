@@ -1,8 +1,9 @@
 # Command Center Mockup Fidelity Plan
 
 **Date:** 2026-07-27
-**Status:** Phase 1 implemented and partially measured (see its Verification).
-Phases 2–5 not started.
+**Status:** All five phases implemented. Phase 1's measurement is partial (see
+its Verification); phases 2–5 are verified by the static gates and unit tests,
+and are still owed a run of the command-center Electron workflow.
 
 ## Outcome
 
@@ -191,6 +192,8 @@ it silently.
 
 ## Phase 2 — Give graph labels their chip back
 
+**Done.** Commit `2ae4cf250`.
+
 **Change.** `.director-graph-label` gets the mockup's tinted background and
 hairline border, single-line layout, and ellipsis. Drop `text-wrap: balance` and
 `overflow-wrap: anywhere` in favour of the bounded label budget.
@@ -206,6 +209,13 @@ deterministic command-center Electron workflow, and a screenshot at each
 reviewed viewport.
 
 ## Phase 3 — De-box the Now rail
+
+**Done.** Commit `2ae4cf250`. The rail's identity block was not moved anywhere:
+the top bar already rendered the title, the status, and the folder chip, so it
+was deleted outright and the status gained its own `.director-focus-status`
+element for the one assertion that read it. The inline history list went with
+it — the mockup reaches the transcript through a link, and the overlay already
+owns the list.
 
 **Change.** Activity rows become the mockup's dot-plus-text grid: no fill, no
 border, recency by opacity. History rows lose their cards. Remove the
@@ -223,6 +233,12 @@ keyboard and still announce the live region.
 
 ## Phase 4 — Rebuild the chrome weight
 
+**Done.** Commit `de1fb42ca`. One declared exception: the workstream dot keeps
+its own 24 px box instead of taking the 44 px overlay, because a 44 px target on
+dots spaced 5 px apart would leave neighbouring targets overlapping by more than
+half and the strip would misroute clicks. 24 px is the WCAG 2.5.8 minimum, met
+exactly.
+
 **Change.** Chips and buttons become hairline and transparent at the mockup's
 padding. The 44 px hit target is produced by padding or a pseudo-element
 overlay, not by a drawn 40–48 px box. The composer returns to a hairline pill;
@@ -238,6 +254,14 @@ area survived the visual change — plus `better-accessibility` review of focus
 visibility against the lighter borders.
 
 ## Phase 5 — Re-home the surfaces the mockup never had
+
+**Done.** Commit `de1fb42ca`. Approvals and resource requests moved to a
+`director-pending-actions` surface directly above the composer, rendered only
+when something is waiting. That is a stronger answer than this plan's original
+disclosure: the composer is present at every viewport, so the section 5 item 8
+phone requirement is satisfied without a toggle, and a blocking question is
+never hidden behind one. The workspace start panel is offered only at the cold
+start, since once work exists a new workstream comes from asking the Director.
 
 **Change.** Approvals, resource requests, workspace start, and voice status are
 real product needs with no mockup counterpart. Give each one a home that does
