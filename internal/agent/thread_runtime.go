@@ -201,16 +201,6 @@ func (runtime *Runtime) InjectItems(ctx context.Context, threadID string, items 
 	return nil
 }
 
-func (runtime *Runtime) MaterializeThread(ctx context.Context, threadID string, marker string) error {
-	if strings.TrimSpace(marker) == "" || strings.TrimSpace(marker) != marker {
-		return errors.New("thread materialization marker must be non-empty without surrounding whitespace")
-	}
-	return runtime.InjectItems(ctx, threadID, []InjectedTextItem{{
-		Role: "user",
-		Text: marker,
-	}})
-}
-
 func (runtime *Runtime) UnsubscribeThread(ctx context.Context, threadID string) error {
 	_, err := runtime.UnsubscribeThreadWithStatus(ctx, threadID)
 	return err

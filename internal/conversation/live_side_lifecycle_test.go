@@ -38,6 +38,7 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 		}
 	})
 	requireLiveConversationModels(t, ctx, runtime.Runtime)
+	isolation := newLiveCarrierIsolation(t, runtime.Runtime, "sidelifecycle")
 
 	service, workspaceID := newLiveSideConversationService(t, runtime)
 	parent, err := service.CreateTopic(ctx, workspaceID, "Live active side lifecycle")
@@ -51,12 +52,12 @@ func TestLiveConversationServiceActiveSideLifecycle(t *testing.T) {
 	}
 	defer subscription.Unsubscribe()
 
-	runLiveSideParentBaseline(t, ctx, service, subscription, workspaceID, parentID)
-	activeRequest := fmt.Sprintf(
+	runLiveSideParentBaseline(t, ctx, service, subscription, workspaceID, parentID, isolation)
+	activeRequest := isolation.prompt(fmt.Sprintf(
 		"Before using a tool, send the public commentary marker %s. Then use the shell command tool to run `sleep 20`. Do not answer without running it. After it finishes, reply with exactly %s.",
 		liveSideParentStarting,
 		liveSideParentFinished,
-	)
+	))
 	if _, err := service.sendTestTurn(ctx, workspaceID, parentID, activeRequest); err != nil {
 		t.Fatalf("SendTurn active parent: %v", err)
 	}
@@ -432,9 +433,11 @@ func runLiveSideParentBaseline(
 	subscription ConversationEventSubscription,
 	workspaceID string,
 	parentID string,
+	isolation liveCarrierIsolation,
 ) {
 	t.Helper()
-	if _, err := service.sendTestTurn(ctx, workspaceID, parentID, "Reply with exactly SETTA_LIVE_SIDE_BASELINE_OK."); err != nil {
+	baseline := isolation.prompt("Reply with exactly SETTA_LIVE_SIDE_BASELINE_OK.")
+	if _, err := service.sendTestTurn(ctx, workspaceID, parentID, baseline); err != nil {
 		t.Fatalf("SendTurn baseline: %v", err)
 	}
 	awaitLiveConversationSnapshot(

@@ -1,7 +1,8 @@
 # Setta-Owned Conversations With Ephemeral Codex Carriers
 
 Status: in progress. Phases 1 through 5 are implemented. Phase 6's deterministic
-targets are updated; its live Codex targets remain.
+and live Codex targets are written; running the live suite against ChatGPT auth
+is the remaining release gate.
 
 ## Executive Summary
 
@@ -437,9 +438,32 @@ When verification is requested, update the deterministic tests first:
 
 Then update live Codex tests:
 
-- live tests must not create durable provider threads
-- live test prompt tokens must not appear in provider thread list/search
-- ChatGPT-authenticated runs should not pollute the ChatGPT sidebar
+- DONE: live tests must not create durable provider threads. Every carrier a
+  live test can reach starts ephemeral — the three product `StartThread` call
+  sites and the fresh structured call — and `MaterializeThread`, the one API
+  that could turn a carrier into durable provider history, is deleted rather
+  than left callable.
+- DONE: live test prompt tokens must not appear in provider thread list/search.
+  Every live test stamps the prompts it submits through the product path with
+  one tracking token and, as test cleanup so an early failure cannot skip it,
+  asks the provider to list and search for that token.
+- DONE: ChatGPT-authenticated runs should not pollute the ChatGPT sidebar. The
+  token check is the sidebar check: a Setta conversation the sidebar could show
+  is a thread the provider can find.
+
+The live tests carry the token because a product-level test cannot see the
+provider ids its carriers used — that is the point of the phase. The prompt is
+the only thing the test and the provider both know about, so it is what the
+test asks the provider to forget.
+
+Release gate: these live assertions have not been run against ChatGPT auth yet.
+`SETTA_LIVE_CODEX=1` runs of `TestBackendDirectorCommandCenterWithLiveCodex`,
+`TestBackendTopicConversationWorkflowWithLiveCodex`,
+`TestBackendTopicConversationArtifactWithLiveCodex`,
+`TestBackendTopicConversationControlsAndRestartWithLiveCodex`,
+`TestLiveConversationServiceActiveSideLifecycle`, and
+`TestLiveCodexRuntimeEphemeralThreadLifecycleAndDiscoveryIsolation` are the
+remaining evidence for this phase.
 
 ## Code Deletion Checklist
 
@@ -460,6 +484,9 @@ limited to low-level provider characterization tests:
   and Phase 5 renamed the runtime adapter and its types to carrier vocabulary.
 - `DeleteDurableThreadsOnShutdown` — empty.
 - `live_codex_cleanup` — empty.
+- `MaterializeThread` — empty. Making an ephemeral carrier durable is the one
+  thing this product must never do, so the API that did it is gone rather than
+  left callable.
 
 The remaining product vocabulary should be Setta vocabulary:
 

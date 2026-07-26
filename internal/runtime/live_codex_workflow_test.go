@@ -22,6 +22,7 @@ import (
 func TestBackendDirectorCommandCenterWithLiveCodex(t *testing.T) {
 	unsetRuntimeEnv(t, "OPENAI_API_KEY")
 	requireRuntimeLiveCodexChatGPTAuth(t)
+	isolation := newLiveCarrierIsolation(t, "director")
 
 	config := testConfig(t)
 	config.Version = "test"
@@ -50,54 +51,24 @@ func TestBackendDirectorCommandCenterWithLiveCodex(t *testing.T) {
 		httpapi.DispatchDirectorIntentRequest{Intent: director.DirectorIntent{
 			Kind: director.DirectorIntentSubmit,
 			Submit: &director.DirectorSubmitIntent{
-				Text: "Create a new conversation titled Live Director workstream in the currently open " +
-					"workspace, and leave it idle. After it is created, answer exactly " +
-					"DIRECTOR_TOOL_HISTORY and no other text.",
+				Text: isolation.prompt(
+					"Create a new conversation titled Live Director workstream in the currently open " +
+						"workspace, and leave it idle. After it is created, answer exactly " +
+						"DIRECTOR_TOOL_HISTORY and no other text.",
+				),
 				Modality: director.DecisionIntentModalityText,
 			},
 		}},
 		http.StatusOK,
 	)
-	if created.Submit == nil ||
-		!strings.HasSuffix(strings.TrimSpace(created.Submit.ReplyText), "DIRECTOR_TOOL_HISTORY") {
-		encoded, err := json.MarshalIndent(created, "", "  ")
-		if err != nil {
-			t.Fatalf("encode invalid live Director receipt: %v", err)
-		}
-		t.Fatalf("live Director receipt = %s", encoded)
-	}
-	var createdWorkstreamID string
-	listedWorkspaces := false
-	for _, call := range created.Submit.ToolCalls {
-		switch call.Tool {
-		case "list_workspaces":
-			listedWorkspaces = call.Succeeded
-		case "create_workstream":
-			if call.Succeeded && call.WorkstreamID != nil {
-				createdWorkstreamID = *call.WorkstreamID
-			}
-		}
-	}
-	if !listedWorkspaces || createdWorkstreamID == "" {
-		t.Fatalf("live Director tool calls = %+v, want successful workspace list and create", created.Submit.ToolCalls)
-	}
-	snapshot := getRuntimeJSON[director.DirectorSnapshot](t, client, baseURL, "/director/snapshot")
-	if snapshot.SelectedWorkstreamID == nil || *snapshot.SelectedWorkstreamID != createdWorkstreamID {
-		t.Fatalf("live Director selection = %v, want %s", snapshot.SelectedWorkstreamID, createdWorkstreamID)
-	}
-	var createdWorkstream *director.Workstream
-	for index := range snapshot.Workstreams {
-		if snapshot.Workstreams[index].Workstream.ID == createdWorkstreamID {
-			createdWorkstream = &snapshot.Workstreams[index].Workstream
-			break
-		}
-	}
-	if createdWorkstream == nil ||
-		createdWorkstream.ResourceScope.Kind != director.WorkstreamResourceScopeFolder ||
-		createdWorkstream.ResourceScope.Folder == nil ||
-		createdWorkstream.ResourceScope.Folder.WorkspaceID != opened.Workspace.ID {
-		t.Fatalf("live Director created workstream = %+v, want workspace %s", createdWorkstream, opened.Workspace.ID)
-	}
+	createdSubmit := requireLiveDirectorReply(t, "live Director receipt", created, "DIRECTOR_TOOL_HISTORY")
+	createdWorkstreamID := requireLiveDirectorCreatedWorkstreamID(t, createdSubmit)
+	requireLiveDirectorFolderWorkstream(
+		t,
+		getRuntimeJSON[director.DirectorSnapshot](t, client, baseURL, "/director/snapshot"),
+		createdWorkstreamID,
+		opened.Workspace.ID,
+	)
 
 	firstServer := server
 	server = nil
@@ -121,14 +92,14 @@ func TestBackendDirectorCommandCenterWithLiveCodex(t *testing.T) {
 		}},
 		http.StatusOK,
 	)
-	if reply.Submit == nil ||
-		len(reply.Submit.ToolCalls) != 0 ||
-		!strings.HasSuffix(strings.TrimSpace(reply.Submit.ReplyText), "DIRECTOR_TOOL_HISTORY") {
-		encoded, err := json.MarshalIndent(reply, "", "  ")
-		if err != nil {
-			t.Fatalf("encode invalid live Director conversation reply: %v", err)
-		}
-		t.Fatalf("live Director conversation reply = %s", encoded)
+	replySubmit := requireLiveDirectorReply(
+		t,
+		"live Director conversation reply",
+		reply,
+		"DIRECTOR_TOOL_HISTORY",
+	)
+	if len(replySubmit.ToolCalls) != 0 {
+		t.Fatalf("live Director answered from replayed history with tools: %+v", replySubmit.ToolCalls)
 	}
 
 	restarted := postRuntimeJSON[director.DirectorReceipt](
@@ -146,30 +117,97 @@ func TestBackendDirectorCommandCenterWithLiveCodex(t *testing.T) {
 		}},
 		http.StatusOK,
 	)
-	listedWorkstreams := false
-	if restarted.Submit != nil {
-		for _, call := range restarted.Submit.ToolCalls {
-			listedWorkstreams = listedWorkstreams ||
-				(call.Tool == "list_workstreams" && call.Succeeded)
+	restartedSubmit := requireLiveDirectorReply(
+		t,
+		"restarted live Director receipt",
+		restarted,
+		"DIRECTOR_RESTART_TOOLS_OK",
+	)
+	if !liveDirectorSucceededAtTool(restartedSubmit, "list_workstreams") {
+		t.Fatalf("restarted live Director tool calls = %+v, want a successful list_workstreams", restartedSubmit.ToolCalls)
+	}
+}
+
+func requireLiveDirectorReply(
+	t *testing.T,
+	label string,
+	receipt director.DirectorReceipt,
+	marker string,
+) director.DirectorTurnReceipt {
+	t.Helper()
+	if receipt.Submit != nil &&
+		strings.HasSuffix(strings.TrimSpace(receipt.Submit.ReplyText), marker) {
+		return *receipt.Submit
+	}
+	encoded, err := json.MarshalIndent(receipt, "", "  ")
+	if err != nil {
+		t.Fatalf("encode invalid %s: %v", label, err)
+	}
+	t.Fatalf("%s = %s, want a reply ending in %s", label, encoded, marker)
+	return director.DirectorTurnReceipt{}
+}
+
+func requireLiveDirectorCreatedWorkstreamID(
+	t *testing.T,
+	submit director.DirectorTurnReceipt,
+) string {
+	t.Helper()
+	createdWorkstreamID := ""
+	listedWorkspaces := false
+	for _, call := range submit.ToolCalls {
+		switch call.Tool {
+		case "list_workspaces":
+			listedWorkspaces = call.Succeeded
+		case "create_workstream":
+			if call.Succeeded && call.WorkstreamID != nil {
+				createdWorkstreamID = *call.WorkstreamID
+			}
 		}
 	}
-	if restarted.Submit == nil ||
-		!listedWorkstreams ||
-		!strings.HasSuffix(
-			strings.TrimSpace(restarted.Submit.ReplyText),
-			"DIRECTOR_RESTART_TOOLS_OK",
-		) {
-		encoded, err := json.MarshalIndent(restarted, "", "  ")
-		if err != nil {
-			t.Fatalf("encode invalid restarted live Director receipt: %v", err)
-		}
-		t.Fatalf("restarted live Director receipt = %s", encoded)
+	if !listedWorkspaces || createdWorkstreamID == "" {
+		t.Fatalf("live Director tool calls = %+v, want successful workspace list and create", submit.ToolCalls)
 	}
+	return createdWorkstreamID
+}
+
+func requireLiveDirectorFolderWorkstream(
+	t *testing.T,
+	snapshot director.DirectorSnapshot,
+	workstreamID string,
+	workspaceID string,
+) {
+	t.Helper()
+	if snapshot.SelectedWorkstreamID == nil || *snapshot.SelectedWorkstreamID != workstreamID {
+		t.Fatalf("live Director selection = %v, want %s", snapshot.SelectedWorkstreamID, workstreamID)
+	}
+	for index := range snapshot.Workstreams {
+		workstream := snapshot.Workstreams[index].Workstream
+		if workstream.ID != workstreamID {
+			continue
+		}
+		if workstream.ResourceScope.Kind != director.WorkstreamResourceScopeFolder ||
+			workstream.ResourceScope.Folder == nil ||
+			workstream.ResourceScope.Folder.WorkspaceID != workspaceID {
+			t.Fatalf("live Director created workstream = %+v, want workspace %s", workstream, workspaceID)
+		}
+		return
+	}
+	t.Fatalf("live Director snapshot has no workstream %s: %+v", workstreamID, snapshot.Workstreams)
+}
+
+func liveDirectorSucceededAtTool(submit director.DirectorTurnReceipt, tool string) bool {
+	for _, call := range submit.ToolCalls {
+		if call.Tool == tool && call.Succeeded {
+			return true
+		}
+	}
+	return false
 }
 
 func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 	unsetRuntimeEnv(t, "OPENAI_API_KEY")
 	requireRuntimeLiveCodexChatGPTAuth(t)
+	isolation := newLiveCarrierIsolation(t, "topicworkflow")
 
 	config := testConfig(t)
 	config.Version = "test"
@@ -197,11 +235,15 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 	}{
 		{
 			expected: "TOPIC_ONE_OK",
-			text:     "Produce the next parent-agent topic deliverable as exactly TOPIC_ONE_OK, with no other text.",
+			text: isolation.prompt(
+				"Produce the next parent-agent topic deliverable as exactly TOPIC_ONE_OK, with no other text.",
+			),
 		},
 		{
 			expected: "TOPIC_TWO_OK",
-			text:     "Produce the next parent-agent topic deliverable as exactly TOPIC_TWO_OK, with no other text.",
+			text: isolation.prompt(
+				"Produce the next parent-agent topic deliverable as exactly TOPIC_TWO_OK, with no other text.",
+			),
 		},
 	} {
 		accepted := postRuntimeJSON[conversation.AcceptedConversationInput](
@@ -297,6 +339,7 @@ func TestBackendTopicConversationWorkflowWithLiveCodex(t *testing.T) {
 func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
 	unsetRuntimeEnv(t, "OPENAI_API_KEY")
 	requireRuntimeLiveCodexChatGPTAuth(t)
+	isolation := newLiveCarrierIsolation(t, "topicartifact")
 
 	const expectedTableTitle = "Language line counts"
 
@@ -317,7 +360,7 @@ func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
 		baseURL,
 		created.Conversation.ID,
 		"live-topic-artifact-table-first-turn",
-		fmt.Sprintf("Using only this supplied dataset: Go=34, TypeScript=21, CSS=8. Create a durable user-facing table titled %s with columns language and lines, and one row per supplied language. Final prose should only confirm that the table is ready.", expectedTableTitle),
+		isolation.prompt(fmt.Sprintf("Using only this supplied dataset: Go=34, TypeScript=21, CSS=8. Create a durable user-facing table titled %s with columns language and lines, and one row per supplied language. Final prose should only confirm that the table is ready.", expectedTableTitle)),
 	)
 	route := waitForRuntimeLiveConversationRoute(
 		t,

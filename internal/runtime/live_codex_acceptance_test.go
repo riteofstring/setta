@@ -31,6 +31,7 @@ const (
 func TestBackendTopicConversationControlsAndRestartWithLiveCodex(t *testing.T) {
 	unsetRuntimeEnv(t, "OPENAI_API_KEY")
 	requireRuntimeLiveCodexChatGPTAuth(t)
+	isolation := newLiveCarrierIsolation(t, "topiccontrols")
 
 	appDataDir := t.TempDir()
 	backend := startRuntimeLiveCodexBackendProcess(t, appDataDir)
@@ -50,6 +51,7 @@ func TestBackendTopicConversationControlsAndRestartWithLiveCodex(t *testing.T) {
 		client,
 		baseURL,
 		opened.Workspace.ID,
+		isolation,
 	)
 
 	steeredTopic := createRuntimeLiveTopic(t, client, baseURL, opened.Workspace.ID, "Live concurrent steering")
@@ -60,7 +62,7 @@ func TestBackendTopicConversationControlsAndRestartWithLiveCodex(t *testing.T) {
 		baseURL,
 		steeredTopic.Conversation.ID,
 		"live-concurrent-steer-start",
-		"Continue this topic with parent-agent work. Before answering, use the shell command tool to run `"+runtimeLiveControlCommand+"`. Do not answer without running it. After it finishes, reply exactly LIVE_STEER_ORIGINAL_REPLY.",
+		isolation.prompt("Continue this topic with parent-agent work. Before answering, use the shell command tool to run `"+runtimeLiveControlCommand+"`. Do not answer without running it. After it finishes, reply exactly LIVE_STEER_ORIGINAL_REPLY."),
 	)
 	cancelledStart := submitRuntimeLiveConversationInput(
 		t,
@@ -68,7 +70,7 @@ func TestBackendTopicConversationControlsAndRestartWithLiveCodex(t *testing.T) {
 		baseURL,
 		cancelledTopic.Conversation.ID,
 		"live-concurrent-cancel-start",
-		"Continue this topic with parent-agent work. Before answering, use the shell command tool to run `"+runtimeLiveControlCommand+"`. Do not answer without running it. After it finishes, reply exactly LIVE_CANCEL_ORIGINAL_REPLY.",
+		isolation.prompt("Continue this topic with parent-agent work. Before answering, use the shell command tool to run `"+runtimeLiveControlCommand+"`. Do not answer without running it. After it finishes, reply exactly LIVE_CANCEL_ORIGINAL_REPLY."),
 	)
 	steeredStartRoute := waitForRuntimeLiveConversationRoute(
 		t,
@@ -234,7 +236,7 @@ func TestBackendTopicConversationControlsAndRestartWithLiveCodex(t *testing.T) {
 		baseURL,
 		restartTopic.Conversation.ID,
 		"live-restart-start",
-		"Continue this topic with parent-agent work. Before answering, use the shell command tool to run `"+runtimeLiveControlCommand+"`. Do not answer without running it. After it finishes, reply exactly LIVE_RESTART_UNEXPECTED_REPLY.",
+		isolation.prompt("Continue this topic with parent-agent work. Before answering, use the shell command tool to run `"+runtimeLiveControlCommand+"`. Do not answer without running it. After it finishes, reply exactly LIVE_RESTART_UNEXPECTED_REPLY."),
 	)
 	restartRoute := waitForRuntimeLiveConversationRoute(
 		t,
@@ -322,6 +324,7 @@ func exerciseRuntimeLiveProviderThreadRestartLifecycle(
 	client *http.Client,
 	baseURL string,
 	workspaceID string,
+	isolation liveCarrierIsolation,
 ) (*runtimeLiveCodexBackendProcess, *http.Client, string) {
 	t.Helper()
 	topic := createRuntimeLiveTopic(t, client, baseURL, workspaceID, "Live restart before first input")
@@ -340,7 +343,7 @@ func exerciseRuntimeLiveProviderThreadRestartLifecycle(
 		workspaceID,
 		topic.Conversation.ID,
 		"live-restart-before-first-input-turn",
-		"Reply with exactly LIVE_RESTART_FIRST_OK.",
+		isolation.prompt("Reply with exactly LIVE_RESTART_FIRST_OK."),
 		1,
 	)
 	firstTurn := latestRuntimeLiveTurn(t, firstCompleted)
