@@ -76,7 +76,7 @@
 }
 
 .director-workstream-title[data-focus="director"] .director-focus-title {
-  color: color-mix(in oklch, var(--director-role-accent) 62%, oklch(0.96 0.01 240));
+  color: color-mix(in oklch, var(--director-role-accent) 62%, var(--director-bright));
 }
 
 .director-focus-meta {

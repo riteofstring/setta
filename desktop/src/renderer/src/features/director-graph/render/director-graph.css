@@ -56,10 +56,10 @@
   max-inline-size: 260px;
   padding: 3px 9px;
   overflow: hidden;
-  border: 1px solid oklch(0.29 0.032 262);
+  border: 1px solid var(--director-border);
   border-radius: 8px;
-  background: oklch(0.128 0.007 261 / 0.86);
-  color: oklch(0.717 0.044 264);
+  background: oklch(from var(--director-ground) l c h / 0.86);
+  color: var(--director-muted);
   font-size: 11.5px;
   letter-spacing: 0.01em;
   text-align: center;
@@ -73,9 +73,9 @@
 .director-graph-label-sticky {
   z-index: 9;
   border-color: oklch(0.82 0.125 185 / 0.55);
-  background: oklch(0.128 0.007 261 / 0.9);
+  background: oklch(from var(--director-ground) l c h / 0.9);
   box-shadow: 0 6px 18px oklch(0 0 0 / 0.55);
-  color: oklch(0.94 0.02 240);
+  color: var(--director-foreground);
 }
 
 .director-graph-pill {
@@ -88,9 +88,9 @@
   max-inline-size: 320px;
   margin: 0;
   padding: 4px 10px;
-  border: 1px solid oklch(0.29 0.032 262);
+  border: 1px solid var(--director-border);
   border-radius: 999px;
-  background: oklch(0.128 0.007 261 / 0.9);
+  background: oklch(from var(--director-ground) l c h / 0.9);
   color: oklch(0.92 0.02 240);
   font: inherit;
   text-align: start;

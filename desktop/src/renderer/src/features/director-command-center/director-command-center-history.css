@@ -63,8 +63,8 @@
 }
 
 .director-history-dialog-list li {
-  background: oklch(0.12 0.012 252 / 0.74);
-  border: 1px solid oklch(0.34 0.026 250 / 0.7);
+  background: var(--director-card);
+  border: 1px solid var(--director-card-border);
   border-radius: 8px;
   color: oklch(0.84 0.025 250);
   font-size: 13px;

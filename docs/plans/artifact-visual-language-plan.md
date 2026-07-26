@@ -84,6 +84,42 @@ artifact that happens to use a `PieChart`.
 
 ## Phase 1 — Name the command center's palette
 
+**Done.** `director-palette.css` defines the neutral scheme on `:root` — ground,
+surface, card, bright, foreground, muted, faint, border, card border, primary,
+and the Director's role accent — and the five command center stylesheets plus
+`director-graph.css` now read it. Alpha variants use relative colour syntax
+(`oklch(from var(--director-ground) l c h / 0.86)`) so they are identical to the
+literals they replace by construction rather than by arithmetic.
+
+Tokens live on `:root` rather than on the command center, because the graph
+surface is also mounted by the gallery and the measurement harness, neither of
+which has a command center above it.
+
+**The mode colours did not move, and the plan was wrong to assume they could.**
+It said to read them from `graph-visual-language.ts`, which owns them for the
+shaders. Measured, the rail's CSS approximations of those colours differ from
+the shader's by as much as 0.08 in lightness and 32 degrees of hue:
+
+| Mode | Shader | Rail CSS | Δ |
+| --- | --- | --- | --- |
+| think | `oklch(0.79 0.12 222)` | `oklch(0.72 0.13 220)` | ΔL 0.07 |
+| do | `oklch(0.66 0.20 295)` | `oklch(0.72 0.12 292)` | ΔC 0.08 |
+| success | `oklch(0.87 0.18 156)` | `oklch(0.80 0.15 152)` | ΔL 0.07 |
+| fail | `oklch(0.67 0.22 19)` | `oklch(0.70 0.16 25)` | ΔC 0.06 |
+| merge | `oklch(0.94 0.05 218)` | `oklch(0.86 0.04 250)` | Δh 32 |
+| listening | `oklch(0.90 0.06 233)` | `oklch(0.82 0.08 210)` | Δh 23 |
+
+Unifying them is a visible change and belongs to Phase 4, where status tone is
+already in scope — not to a phase whose whole value is that it changes nothing.
+
+**Verified.** Computed styles for every node under the command center, captured
+from a driven Electron session before and after: identical across all 86 nodes.
+Screenshots cannot show this, because the drifting field never repeats between
+launches — a naive pixel diff reports 41 % of pixels differing with a worst
+channel delta of 7, all of it particle noise.
+
+### Original phase text
+
 The shell's colours are literals repeated across
 `director-command-center.css`, `director-command-center-composer.css`,
 `director-command-center-navigation.css`, `director-command-center-activity.css`,

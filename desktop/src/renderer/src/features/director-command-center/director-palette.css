@@ -1,0 +1,44 @@
+/*
+ * The Director's palette, named.
+ *
+ * Setta's Director surfaces are authored dark and read no appearance variable:
+ * the command center, its canvas, and its overlays are one fixed scheme taken
+ * from `docs/mockups/fullscreen_conversation_concept.html`. Those values were
+ * spelled out as literals in five stylesheets, repeated up to five times each,
+ * which is why nothing else could adopt them.
+ *
+ * These are those literals, unchanged. Naming them is the whole of this file's
+ * job — every value here is what the stylesheets already painted — so that the
+ * artifact catalog can be moved onto the same scheme instead of carrying a
+ * second one. Nothing here is a new colour decision.
+ *
+ * They live on `:root` rather than on the command center, because the graph
+ * surface is also mounted by the gallery and the measurement harness, which
+ * have no command center above them.
+ *
+ * The graph's seven mode colours are deliberately absent. They are owned by
+ * `director-graph/render/graph-visual-language.ts`, which hands them to the
+ * shaders, and the rail's hand-matched approximations of them differ by as much
+ * as 0.08 lightness and 32 degrees of hue. Reconciling those is a visible
+ * change and belongs to its own step, not to a file that changes no pixels.
+ */
+:root {
+  /* Ground and raised surfaces. */
+  --director-ground: oklch(0.128 0.007 261);
+  --director-surface: oklch(0.147 0.009 264);
+  --director-card: oklch(0.12 0.012 252 / 0.74);
+
+  /* Type, from the brightest reading weight down to decoration. */
+  --director-bright: oklch(0.96 0.01 240);
+  --director-foreground: oklch(0.94 0.02 240);
+  --director-muted: oklch(0.717 0.044 264);
+  --director-faint: oklch(0.62 0.055 250);
+
+  /* Edges. The card border is lighter because a card sits on the ground. */
+  --director-border: oklch(0.29 0.032 262);
+  --director-card-border: oklch(0.34 0.026 250 / 0.7);
+
+  /* The primary accent, and the Director's own role marker. */
+  --director-primary: oklch(0.76 0.115 250);
+  --director-role-accent: oklch(0.84 0.12 195);
+}
