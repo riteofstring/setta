@@ -963,6 +963,37 @@
 }
 
 /*
+ * The mockup's column titles: each thread named above its lane, tracked and
+ * quiet. The Director's own lane takes the role accent, as the mockup's
+ * focused column does.
+ */
+.director-column-titles {
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  pointer-events: none;
+  position: relative;
+  z-index: 10;
+}
+
+.director-column-title {
+  color: var(--director-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  max-inline-size: 220px;
+  overflow: hidden;
+  position: absolute;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.director-column-title[data-self="true"] {
+  color: var(--director-role-accent);
+}
+
+/*
  * The empty canvas.
  *
  * It sits on the live edge, where the first node would appear, so the answer

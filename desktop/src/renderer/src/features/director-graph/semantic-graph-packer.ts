@@ -251,19 +251,16 @@ function plannedRole(
 }
 
 /*
- * The Director holds the centre of its own view. Threads flank it as they
- * arrive — first to the right, then the left, stepping outward — so adding a
- * thread widens the constellation around the conversation you are having
- * instead of shoving it aside. Past the point columns stay readable, the
- * backend compacts and the view becomes the grid.
+ * Columns in the mockup's reading order: the Director's lane leads on the
+ * left and threads follow to the right, the group centred as a whole. Past
+ * the point columns stay readable, the backend compacts and the view becomes
+ * the grid.
+ *
+ * Exported for the column-title overlay, which names each thread above its
+ * column and must agree with the packer about where a column is.
  */
-function workstreamLane(graphIndex: number): number {
-  if (graphIndex === 0) {
-    return 0;
-  }
-  const step = Math.ceil(graphIndex / 2);
-  const side = graphIndex % 2 === 1 ? 1 : -1;
-  return side * step * workstreamLaneSpacing;
+export function workstreamLane(graphIndex: number, graphCount: number): number {
+  return (graphIndex - (graphCount - 1) / 2) * workstreamLaneSpacing;
 }
 
 interface ColumnPlacement {
@@ -285,7 +282,7 @@ function columnPlacements(
 ): ColumnPlacement[] {
   if (presentation !== "grid") {
     return Array.from({ length: graphCount }, (_unused, index) => ({
-      lane: workstreamLane(index),
+      lane: workstreamLane(index, graphCount),
       top: 0,
     }));
   }

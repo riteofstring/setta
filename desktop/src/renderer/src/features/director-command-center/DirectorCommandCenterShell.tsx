@@ -41,6 +41,7 @@ import { enqueueDirectorSpeechPlayback } from "./director-speech-playback";
 import { DirectorSpeechCaptureController } from "./director-speech-capture";
 import { ArtifactBrowserOverlaySlot } from "./ArtifactBrowserOverlaySlot";
 import { ArtifactsRail } from "./DirectorArtifactsRail";
+import { DirectorColumnTitles } from "./DirectorColumnTitles";
 import {
   createWorkstreamIntent,
   PendingActions,
@@ -373,6 +374,9 @@ export function DirectorCommandCenterShell({
             onReady={onGraphReady}
             timeSecondsAt={graphTimeSecondsAt}
           />
+          {composition.presentation === "columns" && snapshotGraphs !== undefined ? (
+            <DirectorColumnTitles graphs={snapshotGraphs} snapshot={director.snapshot} />
+          ) : null}
           {packedSnapshot.nodeCount === 0 ? <GraphEmptyState focus={focus} /> : null}
           <NowRail
             narration={snapshotView.narration}
