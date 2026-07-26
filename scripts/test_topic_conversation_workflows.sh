@@ -15,8 +15,8 @@ Usage: ./scripts/test_topic_conversation_workflows.sh [--skip-build] [--visible]
 Build and run the conversation and Director workflow gate:
   - deterministic Director/conversation contract suites
   - hidden deterministic Electron workflows with temp app data
-  - complete live Codex agent-carrier, side, topic-conversation, and Director matrix
-    when Codex ChatGPT auth is available
+  - complete live Codex agent-carrier, side, topic-conversation, Director, and
+    unbound native-artifact matrix when Codex ChatGPT auth is available
 EOF
 }
 
@@ -151,6 +151,10 @@ if [[ "${run_live}" -eq 1 ]]; then
       "director-command-center" \
       "./internal/runtime" \
       '^TestBackendDirectorCommandCenterWithLiveCodex$'
+    run_live_go_test \
+      "unbound-native-artifacts" \
+      "./internal/runtime" \
+      '^TestBackendUnboundNativeArtifactsWithLiveCodex$'
   else
     live_skip_reason="${live_skip_reason:-Codex ChatGPT auth is unavailable}"
     skipped_workflows+=("live-codex-matrix (${live_skip_reason})")

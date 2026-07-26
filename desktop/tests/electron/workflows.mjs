@@ -10,6 +10,11 @@ export const electronWorkflows = [
     tiers: ["required"],
   },
   {
+    file: "native-artifact-routing-workflow.test.mjs",
+    name: "native-artifact-routing",
+    tiers: ["required"],
+  },
+  {
     file: "microphone-permissions-workflow.test.mjs",
     name: "microphone-permissions",
     tiers: ["required"],

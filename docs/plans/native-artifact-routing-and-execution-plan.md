@@ -261,8 +261,27 @@ evidence that already followed each phase's last relevant change.
 
 ### Phase 4 - Final Verification
 
-**Status:** Pending. The user has authorized this phase after Phases 1-3 are
-fully implemented and the branch is ready to merge.
+**Status:** Checks authored; gates pending. The dedicated deterministic
+production workflow and the recorded live behavioral regression now exist in the
+repository:
+
+- `desktop/tests/electron/native-artifact-routing-workflow.test.mjs`, in the
+  required Electron manifest as `native-artifact-routing`, proves every focused
+  behavior below through Electron/main/preload/renderer/HTTP/store with
+  temporary app data.
+- `TestBackendUnboundNativeArtifactsWithLiveCodex` replays the recorded "create
+  five varied artifacts" request with zero open workspaces and asserts only
+  behavior: work starts with no folder request, and more than one separately
+  readable OpenUI artifact is published. It runs from
+  `./scripts/test_topic_conversation_workflows.sh` when ChatGPT auth is present.
+
+The refusal boundary the workflow records: a rejected `FileReference` is a loud
+retryable `invalid_file_reference` tool failure, so a turn that never corrects it
+fails with `artifact_delivery_unresolved` and publishes no artifact. That is the
+existing per-document validation contract, not new enforcement.
+
+The remaining Phase 4 work is running the still-required broader deterministic
+and live-provider gates once against the stable implementation.
 
 During Phases 1-3 implementation, do not run broad deterministic matrices or
 complete live-provider suites; their phase audits own the applicable stable-tree

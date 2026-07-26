@@ -18,6 +18,14 @@ import (
 	"setta/internal/conversation/artifactdoc"
 	"setta/internal/director"
 	"setta/internal/httpapi"
+	"setta/internal/workspacesession"
+)
+
+const (
+	// A five-artifact request is several provider turns of work, so the wait is
+	// longer than a single-turn live snapshot wait.
+	runtimeLiveDirectorSnapshotWaitTimeout  = 8 * time.Minute
+	runtimeLiveDirectorSnapshotPollInterval = 2 * time.Second
 )
 
 func TestBackendDirectorCommandCenterWithLiveCodex(t *testing.T) {
@@ -398,6 +406,152 @@ func TestBackendTopicConversationArtifactWithLiveCodex(t *testing.T) {
 		http.StatusOK,
 	)
 	assertRuntimeLiveTableArtifact(t, latestTurn.ID, expectedTableTitle, metadata, artifact)
+}
+
+// TestBackendUnboundNativeArtifactsWithLiveCodex replays the recorded failure
+// that this plan corrects: with zero open workspaces, the user asked for
+// several varied Setta artifacts and got a website workstream waiting for a
+// project folder. The assertions stay behavioral — the work must start without
+// a folder and publish more than one separately viewable artifact — because the
+// number and composition of artifacts is the model's judgment, not a count the
+// product enforces.
+func TestBackendUnboundNativeArtifactsWithLiveCodex(t *testing.T) {
+	unsetRuntimeEnv(t, "OPENAI_API_KEY")
+	requireRuntimeLiveCodexChatGPTAuth(t)
+	isolation := newLiveCarrierIsolation(t, "unboundartifacts")
+
+	config := testConfig(t)
+	config.Version = "test"
+	server, ready := startRuntimeTestServer(t, config)
+	defer shutdownServer(t, server)
+
+	client := authenticatedRuntimeTestClient(ready.BootstrapToken, 10*time.Minute)
+	baseURL := "http://" + server.Addr()
+	session := getRuntimeJSON[workspacesession.WorkspaceSession](t, client, baseURL, "/workspace-session")
+	if len(session.ActiveWorkspaces) != 0 || session.SelectedWorkspaceID != "" {
+		t.Fatalf("live unbound artifact run started with workspaces: %+v", session)
+	}
+
+	postRuntimeJSON[director.DirectorReceipt](
+		t,
+		client,
+		baseURL,
+		"/director/intents/dispatch",
+		httpapi.DispatchDirectorIntentRequest{Intent: director.DirectorIntent{
+			Kind: director.DirectorIntentSubmit,
+			Submit: &director.DirectorSubmitIntent{
+				Text: isolation.prompt(
+					"Hey I want to see the artifact functionality in this app. Can you create 5 " +
+						"interesting artifacts for me to look at. Make sure they have variety! " +
+						"Mixed content artifacts would be great too!",
+				),
+				Modality: director.DecisionIntentModalityText,
+			},
+		}},
+		http.StatusOK,
+	)
+	snapshot := waitForRuntimeLiveDirectorSnapshot(
+		t,
+		client,
+		baseURL,
+		"native artifacts published without a workspace",
+		func(candidate director.DirectorSnapshot) bool {
+			return len(runtimeLiveAvailableArtifacts(candidate)) >= 2 &&
+				runtimeLiveDirectorIsIdle(candidate)
+		},
+	)
+	if len(snapshot.UnresolvedResourceRequests) != 0 {
+		t.Fatalf("live unbound artifact work opened a folder request: %+v", snapshot.UnresolvedResourceRequests)
+	}
+	for index := range snapshot.Workstreams {
+		workstream := snapshot.Workstreams[index].Workstream
+		if workstream.ResourceScope.Kind != director.WorkstreamResourceScopeFolderless {
+			t.Fatalf("live unbound artifact workstream bound a folder: %+v", workstream)
+		}
+	}
+	after := getRuntimeJSON[workspacesession.WorkspaceSession](t, client, baseURL, "/workspace-session")
+	if len(after.ActiveWorkspaces) != 0 {
+		t.Fatalf("live unbound artifact run registered a workspace: %+v", after)
+	}
+	assertRuntimeLiveSeparateArtifacts(t, client, baseURL, runtimeLiveAvailableArtifacts(snapshot))
+}
+
+func runtimeLiveAvailableArtifacts(snapshot director.DirectorSnapshot) []director.WorkstreamArtifact {
+	var available []director.WorkstreamArtifact
+	for _, artifact := range snapshot.Artifacts {
+		if artifact.Status == director.ArtifactStatusAvailable {
+			available = append(available, artifact)
+		}
+	}
+	return available
+}
+
+func runtimeLiveDirectorIsIdle(snapshot director.DirectorSnapshot) bool {
+	for index := range snapshot.Workstreams {
+		if snapshot.Workstreams[index].Workstream.ActiveRunID != nil {
+			return false
+		}
+	}
+	return len(snapshot.Workstreams) > 0
+}
+
+// assertRuntimeLiveSeparateArtifacts reads every published artifact back through
+// the folderless artifact-read contract and proves each one is its own OpenUI
+// document rather than one gallery the rail happens to list several times.
+func assertRuntimeLiveSeparateArtifacts(
+	t *testing.T,
+	client *http.Client,
+	baseURL string,
+	artifacts []director.WorkstreamArtifact,
+) {
+	t.Helper()
+	sources := map[string]string{}
+	for _, metadata := range artifacts {
+		read := postRuntimeJSON[conversation.Artifact](
+			t,
+			client,
+			baseURL,
+			"/conversations/artifacts/read",
+			httpapi.ReadConversationArtifactRequest{
+				WorkspaceID:    metadata.WorkspaceID,
+				ConversationID: metadata.ConversationID,
+				ArtifactID:     metadata.ID,
+			},
+			http.StatusOK,
+		)
+		if read.Document.Language != conversation.ArtifactDocumentLanguageOpenUI ||
+			read.Document.CatalogID != conversation.ArtifactCatalogSettaV1 {
+			t.Fatalf("live unbound artifact %s document = %+v", metadata.ID, read.Document)
+		}
+		if _, err := artifactdoc.Compile(artifactdoc.SettaCatalogV1(), read.Document.Source); err != nil {
+			t.Fatalf("compile live unbound artifact %s: %v", metadata.ID, err)
+		}
+		if existing, duplicated := sources[read.Document.Source]; duplicated {
+			t.Fatalf("live artifacts %s and %s published the same document", existing, metadata.ID)
+		}
+		sources[read.Document.Source] = metadata.ID
+	}
+}
+
+func waitForRuntimeLiveDirectorSnapshot(
+	t *testing.T,
+	client *http.Client,
+	baseURL string,
+	description string,
+	condition func(director.DirectorSnapshot) bool,
+) director.DirectorSnapshot {
+	t.Helper()
+	deadline := time.Now().Add(runtimeLiveDirectorSnapshotWaitTimeout)
+	var last director.DirectorSnapshot
+	for time.Now().Before(deadline) {
+		last = getRuntimeJSON[director.DirectorSnapshot](t, client, baseURL, "/director/snapshot")
+		if condition(last) {
+			return last
+		}
+		time.Sleep(runtimeLiveDirectorSnapshotPollInterval)
+	}
+	t.Fatalf("timed out waiting for live %s; snapshot=%+v", description, last)
+	return director.DirectorSnapshot{}
 }
 
 func runtimeLiveTableArtifactMetadataForTurn(

@@ -37,6 +37,61 @@ const selectedWorkScenarios = new Map([
     "Director mixed artifact.",
     { input: "supplied mixed document", tool: "submit_work", workspaceRequirement: "optional" },
   ],
+  // Native artifact work declares nothing about the user's files, so every
+  // unbound delivery below is `optional` and must run without a folder.
+  [
+    "Director unbound dataset.",
+    {
+      input: "supplied language-counts dataset",
+      tool: "submit_work",
+      workspaceRequirement: "optional",
+    },
+  ],
+  [
+    "Director unbound notes.",
+    {
+      input: "supplied qualitative release notes",
+      tool: "submit_work",
+      workspaceRequirement: "optional",
+    },
+  ],
+  [
+    "Director unbound saved image.",
+    { input: "unbound artifact", tool: "submit_work", workspaceRequirement: "optional" },
+  ],
+  [
+    "Director unbound file reference.",
+    {
+      input: "supplied private directory reference",
+      tool: "submit_work",
+      workspaceRequirement: "optional",
+    },
+  ],
+  [
+    "Director unbound hold.",
+    { input: "unbound hold", tool: "submit_work", workspaceRequirement: "optional" },
+  ],
+  [
+    "Director unbound queue.",
+    { input: "unbound queued", tool: "submit_work", workspaceRequirement: "optional" },
+  ],
+  ["Director unbound steer.", { input: "finish unbound hold", tool: "steer_work" }],
+  [
+    "Director unbound cancel hold.",
+    { input: "unbound hold cancel", tool: "submit_work", workspaceRequirement: "optional" },
+  ],
+  [
+    "Director unbound fail.",
+    { input: "director fail", tool: "submit_work", workspaceRequirement: "optional" },
+  ],
+  [
+    "Director bound dataset.",
+    {
+      input: "supplied language-counts dataset",
+      tool: "submit_work",
+      workspaceRequirement: "optional",
+    },
+  ],
   ["Director graph burst.", { input: "director graph burst", tool: "submit_work" }],
   [
     "Director text burst.",
@@ -76,91 +131,156 @@ export function threadHasDirectorTools(thread) {
   return true;
 }
 
-export function directorScenarioForTurn(text, injectedItems = []) {
-  if (text.startsWith("local transcript for ")) {
-    return scenario([], "The Director received the voice request.");
-  }
-  if (text === "Director normal conversation.") {
-    return scenario([], "The Director can answer without acting.");
-  }
-  if (text === "Director delayed conversation.") {
-    return scenario([], "The Director finished the delayed answer.", 600);
-  }
-  if (text === "Remember DIRECTOR_HISTORY_OK and acknowledge it.") {
-    return scenario([], "I will remember DIRECTOR_HISTORY_OK.");
-  }
-  if (text === "What marker did I ask you to remember?") {
-    const history = JSON.stringify(injectedItems);
-    return history.includes("Remember DIRECTOR_HISTORY_OK") &&
-      history.includes("I will remember DIRECTOR_HISTORY_OK.")
-      ? scenario([], "DIRECTOR_HISTORY_OK")
-      : null;
-  }
-  if (text === "Director create workspace workstream.") {
-    return scenario([], "I created and selected the workstream.", 0, {
-      delayMs: 0,
-      reply: "Created and selected Director root.",
-      review: null,
-      steps: ["list_workspaces", "create_workspace"],
-    });
-  }
-  if (text === "Director create folderless.") {
-    return scenario(["create_folderless"], "Created the folderless Director root.");
-  }
-  if (text === "Director recover.") {
-    return scenario(["list_workstreams", "recover_run"], "Recovered the failed Director run.");
-  }
-  if (text === "Director cancel.") {
-    return scenario(
-      ["list_workstreams", "cancel_selected", "list_workstreams", { kind: "finish_if_cancelled" }],
-      "Cancelled the selected Director run.",
-    );
-  }
-  if (text === "Director try secret approval.") {
-    return scenario(
-      ["read_activity", { kind: "resolve_approval", secret: true, succeeds: false }],
-      "The secret approval is waiting for the user.",
-    );
-  }
-  if (text === "Director deny command approval.") {
-    return scenario(
-      [
+// Every Director turn whose scripted answer depends only on its exact text.
+// Keeping them as data rather than a branch per phrase is what lets a new
+// scenario be one entry instead of one more path through the dispatcher.
+const staticDirectorScenarios = new Map([
+  ["Director normal conversation.", { reply: "The Director can answer without acting." }],
+  [
+    "Director delayed conversation.",
+    { delayMs: 600, reply: "The Director finished the delayed answer." },
+  ],
+  [
+    "Remember DIRECTOR_HISTORY_OK and acknowledge it.",
+    { reply: "I will remember DIRECTOR_HISTORY_OK." },
+  ],
+  [
+    "Director create workspace workstream.",
+    {
+      reply: "I created and selected the workstream.",
+      review: {
+        delayMs: 0,
+        reply: "Created and selected Director root.",
+        review: null,
+        steps: ["list_workspaces", "create_workspace"],
+      },
+    },
+  ],
+  [
+    "Director create folderless.",
+    { reply: "Created the folderless Director root.", steps: ["create_folderless"] },
+  ],
+  [
+    "Director create unbound.",
+    { reply: "Started the unbound artifact work.", steps: ["create_unbound"] },
+  ],
+  [
+    "Director create bound.",
+    { reply: "Created the workspace-bound work.", steps: ["list_workspaces", "create_bound"] },
+  ],
+  [
+    "Director create file dependent.",
+    { reply: "The file work needs a folder first.", steps: ["create_file_dependent"] },
+  ],
+  [
+    "Director select unbound.",
+    {
+      reply: "Selected the unbound artifact work.",
+      steps: ["list_workstreams", { kind: "select_title", title: "Unbound artifacts" }],
+    },
+  ],
+  [
+    "Director select bound.",
+    {
+      reply: "Selected the workspace-bound work.",
+      steps: ["list_workstreams", { kind: "select_title", title: "Bound artifacts" }],
+    },
+  ],
+  [
+    "Director recover.",
+    { reply: "Recovered the failed Director run.", steps: ["list_workstreams", "recover_run"] },
+  ],
+  [
+    "Director cancel.",
+    {
+      reply: "Cancelled the selected Director run.",
+      steps: [
+        "list_workstreams",
+        "cancel_selected",
+        "list_workstreams",
+        { kind: "finish_if_cancelled" },
+      ],
+    },
+  ],
+  [
+    "Director try secret approval.",
+    {
+      reply: "The secret approval is waiting for the user.",
+      steps: ["read_activity", { kind: "resolve_approval", secret: true, succeeds: false }],
+    },
+  ],
+  [
+    "Director deny command approval.",
+    {
+      reply: "Denied the command approval.",
+      steps: [
         "read_activity",
         { kind: "resolve_approval", secret: false },
         "read_activity",
         { kind: "finish_if_approval_resolved" },
       ],
-      "Denied the command approval.",
-    );
-  }
-  if (text === "Director resolve folder.") {
-    return scenario(
-      [
+    },
+  ],
+  [
+    "Director resolve folder.",
+    {
+      reply: "Attached the folder to the selected workstream.",
+      steps: [
         "read_activity",
         "list_workspaces",
         "resolve_resource_request",
         "read_activity",
         { kind: "finish_if_resource_resolved" },
       ],
-      "Attached the folder to the selected workstream.",
-    );
+    },
+  ],
+  [
+    "Director rename selected.",
+    {
+      reply: "Renamed the selected workstream.",
+      steps: [
+        "list_workstreams",
+        "rename_selected",
+        "list_workstreams",
+        { kind: "finish_if_renamed" },
+      ],
+    },
+  ],
+  [
+    "Director archive selected.",
+    {
+      reply: "Archived the selected workstream.",
+      steps: [
+        "list_workstreams",
+        "archive_selected",
+        "list_workstreams",
+        { kind: "finish_if_archived" },
+      ],
+    },
+  ],
+  [
+    "Director select root.",
+    {
+      reply: "Selected the Director root.",
+      steps: ["list_workstreams", { kind: "select_title", title: "Director root" }],
+    },
+  ],
+]);
+
+export function directorScenarioForTurn(text, injectedItems = []) {
+  if (text.startsWith("local transcript for ")) {
+    return scenario([], "The Director received the voice request.");
   }
-  if (text === "Director rename selected.") {
-    return scenario(
-      ["list_workstreams", "rename_selected", "list_workstreams", { kind: "finish_if_renamed" }],
-      "Renamed the selected workstream.",
-    );
+  if (text === "What marker did I ask you to remember?") {
+    return rememberedMarkerScenario(injectedItems);
   }
-  if (text === "Director archive selected.") {
+  const staticScenario = staticDirectorScenarios.get(text);
+  if (staticScenario) {
     return scenario(
-      ["list_workstreams", "archive_selected", "list_workstreams", { kind: "finish_if_archived" }],
-      "Archived the selected workstream.",
-    );
-  }
-  if (text === "Director select root.") {
-    return scenario(
-      ["list_workstreams", { kind: "select_title", title: "Director root" }],
-      "Selected the Director root.",
+      staticScenario.steps ?? [],
+      staticScenario.reply,
+      staticScenario.delayMs ?? 0,
+      staticScenario.review ?? null,
     );
   }
   const selectedWork = selectedWorkScenarios.get(text);
@@ -173,166 +293,236 @@ export function directorScenarioForTurn(text, injectedItems = []) {
   return null;
 }
 
+function rememberedMarkerScenario(injectedItems) {
+  const history = JSON.stringify(injectedItems);
+  return history.includes("Remember DIRECTOR_HISTORY_OK") &&
+    history.includes("I will remember DIRECTOR_HISTORY_OK.")
+    ? scenario([], "DIRECTOR_HISTORY_OK")
+    : null;
+}
+
 function scenario(steps, reply, delayMs = 0, review = null) {
   return { delayMs, reply, review, steps };
 }
+
+// One scripted workstream creation per named step. Each entry is the exact
+// `create_workstream` call the fake Director makes, so what a scenario declares
+// about the user's files stays visible beside the folder it names.
+const workstreamCreationSteps = new Map([
+  [
+    "create_workspace",
+    (receipts) => ({
+      initialInput: null,
+      title: "Director root",
+      workspaceId: requiredWorkspace(receipts).workspaceId,
+      workspaceRequirement: "required",
+    }),
+  ],
+  [
+    "create_folderless",
+    () => ({
+      initialInput: "director folderless first work",
+      title: "Director root",
+      workspaceId: null,
+      workspaceRequirement: "required",
+    }),
+  ],
+  [
+    "create_unbound",
+    () => ({
+      initialInput: "supplied language-counts dataset",
+      title: "Unbound artifacts",
+      workspaceId: null,
+      workspaceRequirement: "optional",
+    }),
+  ],
+  [
+    "create_bound",
+    (receipts) => ({
+      initialInput: null,
+      title: "Bound artifacts",
+      workspaceId: requiredWorkspace(receipts).workspaceId,
+      workspaceRequirement: "optional",
+    }),
+  ],
+  [
+    "create_file_dependent",
+    () => ({
+      initialInput: "read the user's project files",
+      title: "File dependent work",
+      workspaceId: null,
+      workspaceRequirement: "required",
+    }),
+  ],
+]);
+
+const namedToolCallSteps = new Map([
+  ["list_workspaces", () => ({ arguments: {}, tool: "list_workspaces" })],
+  ["list_workstreams", () => ({ arguments: {}, tool: "list_workstreams" })],
+  ["read_activity", () => ({ arguments: {}, tool: "read_activity" })],
+  ["recover_run", recoverRunCall],
+  [
+    "cancel_selected",
+    (receipts) => ({
+      arguments: { workstreamId: requiredSelectedWorkstream(receipts).workstreamId },
+      tool: "cancel_run",
+    }),
+  ],
+  [
+    "rename_selected",
+    (receipts) => ({
+      arguments: {
+        title: "Resolved draft",
+        workstreamId: requiredSelectedWorkstream(receipts).workstreamId,
+      },
+      tool: "rename_workstream",
+    }),
+  ],
+  [
+    "archive_selected",
+    (receipts) => ({
+      arguments: { workstreamId: requiredSelectedWorkstream(receipts).workstreamId },
+      tool: "archive_workstream",
+    }),
+  ],
+  [
+    "resolve_resource_request",
+    (receipts) => ({
+      arguments: {
+        requestId: requiredResourceRequest(receipts).requestId,
+        workspaceId: requiredWorkspace(receipts).workspaceId,
+      },
+      tool: "resolve_resource_request",
+    }),
+  ],
+]);
+
+const keyedToolCallSteps = new Map([
+  ["resolve_approval", resolveApprovalCall],
+  ["select_title", selectTitleCall],
+  ["selected_work", selectedWorkCall],
+  ["finish_if_cancelled", finishIfCancelled],
+  ["finish_if_approval_resolved", finishIfApprovalResolved],
+  ["finish_if_resource_resolved", finishIfResourceResolved],
+  ["finish_if_renamed", finishIfRenamed],
+  ["finish_if_archived", finishIfArchived],
+]);
 
 export function directorToolCallForStep(scenarioValue, index, receipts) {
   const step = scenarioValue?.steps?.[index];
   if (step === undefined) {
     return null;
   }
-  if (step === "list_workspaces" || step === "list_workstreams" || step === "read_activity") {
-    return { arguments: {}, tool: step };
-  }
-  if (step === "create_workspace") {
-    return {
-      arguments: {
-        initialInput: null,
-        title: "Director root",
-        workspaceId: requiredWorkspace(receipts).workspaceId,
-        workspaceRequirement: "required",
-      },
-      tool: "create_workstream",
-    };
-  }
-  if (step === "create_folderless") {
-    return {
-      arguments: {
-        initialInput: "director folderless first work",
-        title: "Director root",
-        workspaceId: null,
-        workspaceRequirement: "required",
-      },
-      tool: "create_workstream",
-    };
-  }
-  if (step === "recover_run") {
-    const workstream = requiredSelectedWorkstream(receipts);
-    const failure = workstream.recoverableFailures?.[0];
-    if (!nonEmptyString(failure?.failureEventId)) {
-      throw new Error("Director recover_run scenario received no recoverable failure");
+  if (typeof step === "string") {
+    const creation = workstreamCreationSteps.get(step);
+    if (creation) {
+      return { arguments: creation(receipts), tool: "create_workstream" };
     }
-    return {
-      arguments: {
-        failureEventId: failure.failureEventId,
-        workstreamId: workstream.workstreamId,
-      },
-      tool: "recover_run",
-    };
-  }
-  if (step === "cancel_selected") {
-    return {
-      arguments: { workstreamId: requiredSelectedWorkstream(receipts).workstreamId },
-      tool: "cancel_run",
-    };
-  }
-  if (step === "rename_selected") {
-    return {
-      arguments: {
-        title: "Resolved draft",
-        workstreamId: requiredSelectedWorkstream(receipts).workstreamId,
-      },
-      tool: "rename_workstream",
-    };
-  }
-  if (step === "archive_selected") {
-    return {
-      arguments: { workstreamId: requiredSelectedWorkstream(receipts).workstreamId },
-      tool: "archive_workstream",
-    };
-  }
-  if (step === "resolve_resource_request") {
-    return {
-      arguments: {
-        requestId: requiredResourceRequest(receipts).requestId,
-        workspaceId: requiredWorkspace(receipts).workspaceId,
-      },
-      tool: "resolve_resource_request",
-    };
-  }
-  if (step?.kind === "resolve_approval") {
-    const approval = requiredApproval(receipts, step.secret);
-    const question = approval.questions?.[0];
-    return {
-      arguments: {
-        answers: step.secret
-          ? [
-              {
-                answers: [directorInventedSecretApprovalAnswer],
-                questionId: question?.questionId,
-              },
-            ]
-          : null,
-        approvalId: approval.approvalId,
-        decision: step.secret ? "answered" : "denied",
-      },
-      succeeds: step.succeeds,
-      tool: "resolve_approval",
-    };
-  }
-  if (step?.kind === "select_title") {
-    const workstream = requiredWorkstreamWithTitle(receipts, step.title);
-    return {
-      arguments: { workstreamId: workstream.workstreamId },
-      tool: "select_workstream",
-    };
-  }
-  if (step?.kind === "finish_if_cancelled") {
-    const cancelled = requiredReceipt(receipts, "cancel_run");
-    const listing = latestReceipt(receipts, "list_workstreams");
-    const workstream = listing.workstreams?.find(
-      (candidate) => candidate.workstreamId === cancelled.workstreamId,
-    );
-    if (!workstream || workstream.hasActiveRun !== false) {
-      throw new Error("Director cancel_run was not visible to the next tool call");
+    const named = namedToolCallSteps.get(step);
+    if (named) {
+      return named(receipts);
     }
-    return null;
   }
-  if (step?.kind === "finish_if_approval_resolved") {
-    const approval = requiredApproval(receipts, false);
-    const activity = latestReceipt(receipts, "read_activity");
-    if (activity.approvals?.some((candidate) => candidate.approvalId === approval.approvalId)) {
-      throw new Error("Director resolve_approval was not visible to the next tool call");
-    }
-    return null;
+  const keyed = keyedToolCallSteps.get(step?.kind);
+  if (!keyed) {
+    throw new Error(`unsupported Director tool scenario step ${JSON.stringify(step)}`);
   }
-  if (step?.kind === "finish_if_resource_resolved") {
-    const request = requiredResourceRequest(receipts);
-    const activity = latestReceipt(receipts, "read_activity");
-    if (activity.resourceRequests?.some((candidate) => candidate.requestId === request.requestId)) {
-      throw new Error("Director resolve_resource_request was not visible to the next tool call");
-    }
-    return null;
+  return keyed(step, receipts);
+}
+
+function recoverRunCall(receipts) {
+  const workstream = requiredSelectedWorkstream(receipts);
+  const failure = workstream.recoverableFailures?.[0];
+  if (!nonEmptyString(failure?.failureEventId)) {
+    throw new Error("Director recover_run scenario received no recoverable failure");
   }
-  if (step?.kind === "finish_if_renamed") {
-    requiredWorkstreamWithTitle(receipts, "Resolved draft");
-    return null;
-  }
-  if (step?.kind === "finish_if_archived") {
-    const archived = requiredReceipt(receipts, "archive_workstream");
-    const listing = latestReceipt(receipts, "list_workstreams");
-    if (
-      listing.workstreams?.some((candidate) => candidate.workstreamId === archived.workstreamId)
-    ) {
-      throw new Error("Director archive_workstream was not visible to the next tool call");
-    }
-    return null;
-  }
-  if (step?.kind === "selected_work") {
-    const workstream = requiredSelectedWorkstream(receipts);
-    const workArguments = {
-      input: step.input,
+  return {
+    arguments: {
+      failureEventId: failure.failureEventId,
       workstreamId: workstream.workstreamId,
-    };
-    // Steering changes a run already carrying work, so only a delivery declares
-    // what the work needs from the user's files.
-    if (step.tool === "submit_work") {
-      workArguments.workspaceRequirement = step.workspaceRequirement ?? "required";
-    }
-    return { arguments: workArguments, tool: step.tool };
+    },
+    tool: "recover_run",
+  };
+}
+
+function resolveApprovalCall(step, receipts) {
+  const approval = requiredApproval(receipts, step.secret);
+  const question = approval.questions?.[0];
+  return {
+    arguments: {
+      answers: step.secret
+        ? [{ answers: [directorInventedSecretApprovalAnswer], questionId: question?.questionId }]
+        : null,
+      approvalId: approval.approvalId,
+      decision: step.secret ? "answered" : "denied",
+    },
+    succeeds: step.succeeds,
+    tool: "resolve_approval",
+  };
+}
+
+function selectTitleCall(step, receipts) {
+  return {
+    arguments: { workstreamId: requiredWorkstreamWithTitle(receipts, step.title).workstreamId },
+    tool: "select_workstream",
+  };
+}
+
+function selectedWorkCall(step, receipts) {
+  const workArguments = {
+    input: step.input,
+    workstreamId: requiredSelectedWorkstream(receipts).workstreamId,
+  };
+  // Steering changes a run already carrying work, so only a delivery declares
+  // what the work needs from the user's files.
+  if (step.tool === "submit_work") {
+    workArguments.workspaceRequirement = step.workspaceRequirement ?? "required";
   }
-  throw new Error(`unsupported Director tool scenario step ${JSON.stringify(step)}`);
+  return { arguments: workArguments, tool: step.tool };
+}
+
+function finishIfCancelled(step, receipts) {
+  const cancelled = requiredReceipt(receipts, "cancel_run");
+  const listing = latestReceipt(receipts, "list_workstreams");
+  const workstream = listing.workstreams?.find(
+    (candidate) => candidate.workstreamId === cancelled.workstreamId,
+  );
+  if (!workstream || workstream.hasActiveRun !== false) {
+    throw new Error("Director cancel_run was not visible to the next tool call");
+  }
+  return null;
+}
+
+function finishIfApprovalResolved(step, receipts) {
+  const approval = requiredApproval(receipts, false);
+  const activity = latestReceipt(receipts, "read_activity");
+  if (activity.approvals?.some((candidate) => candidate.approvalId === approval.approvalId)) {
+    throw new Error("Director resolve_approval was not visible to the next tool call");
+  }
+  return null;
+}
+
+function finishIfResourceResolved(step, receipts) {
+  const request = requiredResourceRequest(receipts);
+  const activity = latestReceipt(receipts, "read_activity");
+  if (activity.resourceRequests?.some((candidate) => candidate.requestId === request.requestId)) {
+    throw new Error("Director resolve_resource_request was not visible to the next tool call");
+  }
+  return null;
+}
+
+function finishIfRenamed(step, receipts) {
+  requiredWorkstreamWithTitle(receipts, "Resolved draft");
+  return null;
+}
+
+function finishIfArchived(step, receipts) {
+  const archived = requiredReceipt(receipts, "archive_workstream");
+  const listing = latestReceipt(receipts, "list_workstreams");
+  if (listing.workstreams?.some((candidate) => candidate.workstreamId === archived.workstreamId)) {
+    throw new Error("Director archive_workstream was not visible to the next tool call");
+  }
+  return null;
 }
 
 export function decodeDirectorToolReceipt(
@@ -344,25 +534,11 @@ export function decodeDirectorToolReceipt(
   if (message.error) {
     throw new Error(`Director tool ${requestId} failed: ${message.error.message}`);
   }
-  const result = message.result;
-  const item = Array.isArray(result?.contentItems) ? result.contentItems[0] : null;
-  if (
-    result?.success !== true ||
-    result.contentItems.length !== 1 ||
-    item?.type !== "inputText" ||
-    !nonEmptyString(item.text)
-  ) {
-    throw new Error(`Director tool ${requestId} returned a malformed result`);
-  }
-  const receipt = JSON.parse(item.text);
-  const refused =
-    receipt?.summary?.startsWith("Setta refused") ||
-    receipt?.summary?.startsWith("Setta could not");
+  const receipt = JSON.parse(directorToolReceiptText(requestId, message.result));
   if (
     receipt?.tool !== expectedTool ||
     !nonEmptyString(receipt.summary) ||
-    (expectedSucceeded && refused) ||
-    (!expectedSucceeded && !refused)
+    directorToolReceiptWasRefused(receipt) !== !expectedSucceeded
   ) {
     throw new Error(`Director tool ${requestId} receipt drifted: ${JSON.stringify(receipt)}`);
   }
@@ -372,54 +548,95 @@ export function decodeDirectorToolReceipt(
   return receipt;
 }
 
-function validateDirectorToolReceipt(tool, receipt) {
-  switch (tool) {
-    case "list_workspaces":
-      if (!Array.isArray(receipt.workspaces) || receipt.workspaces.length === 0) {
-        throw new Error("Director list_workspaces returned no authorized workspace");
-      }
-      return;
-    case "list_workstreams":
-      if (!Array.isArray(receipt.workstreams) || receipt.workstreams.length === 0) {
-        throw new Error("Director list_workstreams returned no workstream");
-      }
-      return;
-    case "read_activity":
-      if (!receipt.aggregates || !Array.isArray(receipt.workstreams)) {
-        throw new Error("Director read_activity returned an incomplete activity report");
-      }
-      return;
-    case "create_workstream":
-      if (
-        !nonEmptyString(receipt.workstreamId) ||
-        receipt.selectedWorkstreamId !== receipt.workstreamId
-      ) {
-        throw new Error("Director create_workstream did not create and select one workstream");
-      }
-      return;
-    case "recover_run":
-    case "archive_workstream":
-    case "cancel_run":
-    case "rename_workstream":
-    case "resolve_approval":
-    case "resolve_resource_request":
-    case "steer_work":
-    case "submit_work":
-      if (!nonEmptyString(receipt.workstreamId)) {
-        throw new Error(`Director ${tool} receipt names no workstream`);
-      }
-      return;
-    case "select_workstream":
-      if (
-        !nonEmptyString(receipt.workstreamId) ||
-        receipt.selectedWorkstreamId !== receipt.workstreamId
-      ) {
-        throw new Error("Director select_workstream did not select its workstream");
-      }
-      return;
-    default:
-      throw new Error(`unexpected Director tool receipt ${tool}`);
+function directorToolReceiptText(requestId, result) {
+  const item = Array.isArray(result?.contentItems) ? result.contentItems[0] : null;
+  const valid = [
+    result?.success === true,
+    result?.contentItems?.length === 1,
+    item?.type === "inputText",
+    nonEmptyString(item?.text),
+  ].every(Boolean);
+  if (!valid) {
+    throw new Error(`Director tool ${requestId} returned a malformed result`);
   }
+  return item.text;
+}
+
+function directorToolReceiptWasRefused(receipt) {
+  const summary = receipt?.summary ?? "";
+  return summary.startsWith("Setta refused") || summary.startsWith("Setta could not");
+}
+
+// One validator per Setta tool receipt. The Director's receipt is the only
+// thing the fake model sees, so each entry states what that tool must have
+// reported back before the next scripted step may rely on it.
+const directorReceiptValidators = new Map([
+  [
+    "list_workspaces",
+    (receipt) =>
+      Array.isArray(receipt.workspaces) && receipt.workspaces.length > 0
+        ? null
+        : "Director list_workspaces returned no authorized workspace",
+  ],
+  [
+    "list_workstreams",
+    (receipt) =>
+      Array.isArray(receipt.workstreams) && receipt.workstreams.length > 0
+        ? null
+        : "Director list_workstreams returned no workstream",
+  ],
+  [
+    "read_activity",
+    (receipt) =>
+      receipt.aggregates && Array.isArray(receipt.workstreams)
+        ? null
+        : "Director read_activity returned an incomplete activity report",
+  ],
+  [
+    "create_workstream",
+    (receipt) =>
+      directorReceiptSelectedItsWorkstream(receipt)
+        ? null
+        : "Director create_workstream did not create and select one workstream",
+  ],
+  [
+    "select_workstream",
+    (receipt) =>
+      directorReceiptSelectedItsWorkstream(receipt)
+        ? null
+        : "Director select_workstream did not select its workstream",
+  ],
+  ...[
+    "archive_workstream",
+    "cancel_run",
+    "recover_run",
+    "rename_workstream",
+    "resolve_approval",
+    "resolve_resource_request",
+    "steer_work",
+    "submit_work",
+  ].map((tool) => [
+    tool,
+    (receipt) =>
+      nonEmptyString(receipt.workstreamId) ? null : `Director ${tool} receipt names no workstream`,
+  ]),
+]);
+
+function validateDirectorToolReceipt(tool, receipt) {
+  const validate = directorReceiptValidators.get(tool);
+  if (!validate) {
+    throw new Error(`unexpected Director tool receipt ${tool}`);
+  }
+  const failure = validate(receipt);
+  if (failure !== null) {
+    throw new Error(failure);
+  }
+}
+
+function directorReceiptSelectedItsWorkstream(receipt) {
+  return (
+    nonEmptyString(receipt.workstreamId) && receipt.selectedWorkstreamId === receipt.workstreamId
+  );
 }
 
 function requiredWorkspace(receipts) {
@@ -461,14 +678,18 @@ function requiredApproval(receipts, secret) {
     .reverse()
     .find((receipt) => receipt.approvals?.some((approval) => approval.secret === secret));
   const approval = activity?.approvals?.find((candidate) => candidate.secret === secret);
-  if (
-    !nonEmptyString(approval?.approvalId) ||
-    !nonEmptyString(approval?.workstreamId) ||
-    !Array.isArray(approval?.questions)
-  ) {
+  if (!answerableApproval(approval)) {
     throw new Error(`Director scenario received no ${secret ? "secret" : "public"} approval`);
   }
   return approval;
+}
+
+function answerableApproval(approval) {
+  return [
+    nonEmptyString(approval?.approvalId),
+    nonEmptyString(approval?.workstreamId),
+    Array.isArray(approval?.questions),
+  ].every(Boolean);
 }
 
 function requiredResourceRequest(receipts) {

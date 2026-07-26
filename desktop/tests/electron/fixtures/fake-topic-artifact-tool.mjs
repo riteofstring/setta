@@ -51,6 +51,20 @@ export const mixedDocumentArtifactArguments = {
   title: "Policy memo",
 };
 
+// An unbound turn runs in a private Setta-owned directory, so a file it can
+// see there is still not a file an artifact may address. The scenario writes
+// the file into that directory first, so the rejection proves the authorization
+// boundary rather than a missing file.
+export const privateDirectoryReferenceArtifactArguments = {
+  source: [
+    "root = Document([",
+    '  Text("The unbound run tried to address a file from its own working directory."),',
+    '  FileReference("docs/setta-artifact-policy-memo.md", "Private working-directory file")',
+    "])",
+  ].join("\n"),
+  title: "Private directory reference",
+};
+
 export const incompleteArtifactArguments = {
   title: "Language line counts",
 };
@@ -83,8 +97,18 @@ export const artifactPolicyScenarios = [
     trigger: "supplied conversational answer",
   },
   {
+    artifacts: [privateDirectoryReferenceArtifactArguments],
+    completion: "Completed supplied private-directory reference as prose.",
+    expectedFailureCode: "invalid_file_reference",
+    expectedFailureFields: ["source"],
+    trigger: "supplied private directory reference",
+    unresolvedFailure: true,
+    workspaceFiles: ["docs/setta-artifact-policy-memo.md"],
+  },
+  {
     artifacts: [incompleteArtifactArguments],
     completion: "Completed supplied incomplete artifact after prose fallback.",
+    expectedFailureCode: "missing_required_fields",
     expectedFailureFields: ["source"],
     trigger: "supplied incomplete artifact without retry",
     unresolvedFailure: true,
@@ -107,13 +131,13 @@ export function validateArtifactToolResult(requestId, result, expectedArguments)
   throw new Error(`artifact tool ${requestId} acknowledgement drifted`);
 }
 
-export function validateArtifactToolFailureResult(requestId, result, expectedFields) {
+export function validateArtifactToolFailureResult(requestId, result, expectedCode, expectedFields) {
   const item = validToolCallFailureTextItem(result);
   if (!item) {
     throw new Error(`artifact tool ${requestId} returned malformed failure result`);
   }
   const failure = JSON.parse(item.text);
-  if (!validMissingFieldsFailure(failure, expectedFields)) {
+  if (!validRetryableFieldFailure(failure, expectedCode, expectedFields)) {
     throw new Error(`artifact tool ${requestId} failure drifted: ${JSON.stringify(failure)}`);
   }
 }
@@ -135,19 +159,24 @@ export function threadHasArtifactTool(thread) {
 // The tool takes one document, so its schema is a strict two-field object. A
 // branch union here would mean the backend still models artifact kinds.
 function hasDocumentInputSchema(schema) {
-  if (schema?.type !== "object" || schema.additionalProperties !== false) {
-    return false;
-  }
-  if (schema.oneOf !== undefined) {
+  if (schema === null || typeof schema !== "object") {
     return false;
   }
   const required = Array.isArray(schema.required) ? schema.required : [];
-  return (
-    required.includes("title") &&
-    required.includes("source") &&
-    schema.properties?.title?.type === "string" &&
-    schema.properties?.source?.type === "string"
-  );
+  const properties = schema.properties ?? {};
+  return [
+    schema.type === "object",
+    schema.additionalProperties === false,
+    schema.oneOf === undefined,
+    required.includes("title"),
+    required.includes("source"),
+    isStringSchema(properties.title),
+    isStringSchema(properties.source),
+  ].every(Boolean);
+}
+
+function isStringSchema(property) {
+  return property?.type === "string";
 }
 
 function validToolCallTextItem(result) {
@@ -177,9 +206,9 @@ function validArtifactToolAcknowledgement(acknowledgement, expectedArguments) {
   );
 }
 
-function validMissingFieldsFailure(failure, expectedFields) {
+function validRetryableFieldFailure(failure, expectedCode, expectedFields) {
   return (
-    failure?.code === "missing_required_fields" &&
+    failure?.code === expectedCode &&
     failure.retryable === true &&
     nonEmptyString(failure.message) &&
     nonEmptyString(failure.diagnosticReference) &&
