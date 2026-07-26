@@ -140,6 +140,31 @@
   .input-wrap input { flex: 1; background: transparent; border: 0; outline: none; color: var(--fg); font: 13px var(--sans); padding: 13px 0; }
   .input-wrap input::placeholder { color: var(--faint); }
   .enter-chip { font: 10px ui-monospace, monospace; color: var(--faint); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+/*
+ * The level-of-detail switch, shown on the Director's view only.
+ *
+ * Columns are readable to about four threads. Past that the honest move is not
+ * to shrink them — a twelve-column constellation is a partial view of
+ * everything instead of a complete view of anything — but to change what a
+ * thread is drawn as. This is here so the transition can be watched rather
+ * than described.
+ */
+#lodbar { position: fixed; top: 52px; left: 50%; translate: -50% 0; z-index: 15;
+  display: flex; gap: 6px; align-items: center;
+  background: color-mix(in oklch, var(--bg) 82%, transparent);
+  border: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
+  padding: 5px 10px; border-radius: 999px; }
+#lodbar[hidden] { display: none; }
+.lod-label, .lod-note { font: 10px var(--sans); text-transform: uppercase; letter-spacing: 0.14em;
+  color: var(--faint); font-weight: 600; }
+.lod-note { text-transform: none; letter-spacing: 0.01em; font-size: 11px; margin-left: 6px; }
+#lodbar button { background: transparent; border: 1px solid var(--border); border-radius: 999px;
+  color: var(--faint); font: 11px var(--sans); padding: 2px 9px; cursor: pointer;
+  font-variant-numeric: tabular-nums; }
+#lodbar button:hover { color: var(--muted); }
+#lodbar button.on { color: var(--fg); border-color: color-mix(in oklch, var(--primary) 55%, transparent);
+  background: color-mix(in oklch, var(--primary) 12%, transparent); }
+
   #devbar { position: fixed; top: 52px; left: 14px; z-index: 14; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; max-width: 62vw;
     background: rgba(8,10,16,0.84); border: 1px solid rgba(120,140,180,0.18); padding: 8px 10px; border-radius: 10px; }
   #devbar[hidden] { display: none; }
@@ -197,6 +222,13 @@
 <div id="reticleActive" class="reticle"><span class="c tl"></span><span class="c tr"></span><span class="c bl"></span><span class="c br"></span></div>
 <div id="reticleSel" class="reticle"><span class="c tl"></span><span class="c tr"></span><span class="c bl"></span><span class="c br"></span></div>
 <div id="tip"></div>
+<div id="lodbar" hidden>
+  <span class="lod-label">Threads</span>
+  <button data-lod="3" class="on">3</button><button data-lod="4">4</button>
+  <button data-lod="6">6</button><button data-lod="9">9</button><button data-lod="16">16</button>
+  <span class="lod-note" id="lodNote">columns · every thread's reasoning is legible</span>
+</div>
+
 <header id="topbar">
   <div class="tb-left">
     <button class="tb-nav" id="convPrev" aria-label="Previous conversation">‹</button>
@@ -1420,7 +1452,7 @@ function artifactBody(b){ if(!b) return '';
 function renderConv(){
   if(onDirector) return renderDirector();
   const c=CONVS[convIdx], n=revealCount(c), complete=isComplete(c);
-  document.body.classList.remove('director-view'); $('railLeft').classList.remove('quiet');
+  document.body.classList.remove('director-view'); $('lodbar').hidden=true;
   $('convTitle').textContent=c.title; $('convTitle').classList.remove('is-director');
   $('directorText').textContent=c.director; renderDots();
   $('chatInput').placeholder='Reply to “'+c.title+'”…   (‹ › switch conversation)';
@@ -1462,6 +1494,10 @@ function renderDirectorHint(){
  */
 function renderDirector(){
   document.body.classList.add('director-view');
+  $('lodbar').hidden=false;
+  $('lodNote').textContent = (CONVS.length+1>5) ? LOD_NOTES.tiles : LOD_NOTES.columns;
+  document.querySelectorAll('[data-lod]').forEach(x=>
+    x.classList.toggle('on', parseInt(x.dataset.lod)===CONVS.length));
   $('convTitle').textContent=DIRECTOR.title; $('convTitle').classList.add('is-director');
   renderDirectorHint(); renderDots();
   $('chatInput').placeholder='Ask the Director…   (› to open a thread · scroll to look back)';
@@ -1478,6 +1514,17 @@ function stepView(dir){
   const next=convIdx+dir;
   if(next<0||next>=N){ onDirector=true; return; }
   convIdx=next; }
+/*
+ * The switch is a demonstration, so it says what changed and why — the note is
+ * the argument the control exists to make.
+ */
+const LOD_NOTES={ columns:'columns · every thread’s reasoning is legible',
+                  tiles:'tiles · position, status, motion — open one to read it' };
+document.querySelectorAll('[data-lod]').forEach(b=>b.onclick=()=>{
+  setThreads(parseInt(b.dataset.lod));
+  document.querySelectorAll('[data-lod]').forEach(x=>x.classList.toggle('on',x===b));
+  $('lodNote').textContent = (CONVS.length+1>5) ? LOD_NOTES.tiles : LOD_NOTES.columns; });
+
 $('directorHint').addEventListener('click',e=>{ const b=e.target.closest('[data-goto]'); if(!b) return;
   onDirector=false; convIdx=+b.dataset.goto; lastIdx=-2; snapToConv(); renderConv(); });
 $('convPrev').onclick=()=>switchConv(-1);
