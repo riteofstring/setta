@@ -28,7 +28,6 @@ import {
   closeDirectorArtifactBrowser,
   comparableDirectorSnapshot,
   conversationID,
-  directorAppearanceMode,
   directorArtifactMarker,
   hasProjectedDirectorCreation,
   navigateArtifactBrowserWithArrow,
@@ -37,7 +36,6 @@ import {
   readDirectorHistory,
   rememberDirectorGraphCanvas,
   requiredString,
-  setDirectorAppearanceMode,
   verifyCompactRailFocusRestoration,
   verifyRailsFlankTheCanvas,
   verifyWorkspaceSettings,
@@ -495,10 +493,10 @@ try {
     "Director artifact preview stable height",
   );
   await assertArtifactPreviewIgnoresSingleClick(context.client, openedArtifactId, artifactPreview);
-  const originalAppearanceMode = await directorAppearanceMode(context.client);
-  await setDirectorAppearanceMode(context.client, "light");
-  await waitForDirectorArtifactPreview(context.client, openedArtifactId);
-  await assertDirectorArtifactPreviewTheme(context.client, openedArtifactId, "light");
+  // Setta has one scheme, so the preview is checked for readability rather than
+  // for following a mode. The risk it guards is unchanged: a preview whose text
+  // and ground resolve to the same colour is invisible.
+  await assertDirectorArtifactPreviewTheme(context.client, openedArtifactId);
   await rememberDirectorGraphCanvas(context.client);
   const artifactDetail = await openDirectorArtifactBrowser(
     context.client,
@@ -507,7 +505,6 @@ try {
   );
   assertEqual(artifactDetail.status, "ready", "Director artifact browser load state");
   assertEqual(artifactDetail.position, "2 of 2", "Director artifact browser position");
-  assertEqual(artifactDetail.colorMode, "light", "Director artifact browser light appearance");
   assertArtifactBrowserTheme(artifactDetail);
   assertArtifactBrowserModalIsolation(artifactDetail);
   assertArtifactBrowserBoundaries(artifactDetail, {
@@ -545,9 +542,7 @@ try {
   await assertArtifactExpandControlRegainedFocus(context.client, openedArtifactId);
   await assertDirectorGraphCanvasPreserved(context.client);
 
-  await setDirectorAppearanceMode(context.client, "dark");
-  await waitForDirectorArtifactPreview(context.client, openedArtifactId);
-  await assertDirectorArtifactPreviewTheme(context.client, openedArtifactId, "dark");
+  await assertDirectorArtifactPreviewTheme(context.client, openedArtifactId);
   await rememberDirectorGraphCanvas(context.client);
   const doubleClickDetail = await openDirectorArtifactBrowserByDoubleClick(
     context.client,
@@ -555,7 +550,6 @@ try {
     openedArtifactMarker,
   );
   assertEqual(doubleClickDetail.position, "2 of 2", "double-click artifact position");
-  assertEqual(doubleClickDetail.colorMode, "dark", "Director artifact browser dark appearance");
   assertArtifactBrowserTheme(doubleClickDetail);
 
   // The browser's active identity is local state. A newer Director snapshot
@@ -630,7 +624,6 @@ try {
   await closeDirectorArtifactBrowser(context.client);
   await assertArtifactExpandControlRegainedFocus(context.client, openedArtifactId);
   await assertDirectorGraphCanvasPreserved(context.client);
-  await setDirectorAppearanceMode(context.client, originalAppearanceMode);
 
   const history = await readDirectorHistory(context.client);
   assertHistoryContainsOnlyUserAndTerminalTurns(history);

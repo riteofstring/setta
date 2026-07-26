@@ -554,59 +554,7 @@ export async function assertDirectorGraphCanvasPreserved(client) {
   }
 }
 
-export function directorAppearanceMode(client) {
-  return client.evaluate(`document.documentElement.dataset.colorMode ?? "dark"`);
-}
-
-export async function setDirectorAppearanceMode(client, mode) {
-  const opened = await client.evaluate(`(() => {
-    const trigger = document.querySelector('button[aria-label="Open settings"]');
-    if (!(trigger instanceof HTMLButtonElement)) {
-      return false;
-    }
-    trigger.click();
-    return true;
-  })()`);
-  if (!opened) {
-    throw new Error("Director appearance check could not open settings");
-  }
-  await waitForSelector(client, '[data-testid="settings-shell-page"]');
-  await client.evaluate(`document.querySelector("#settings-subtab-theme")?.click()`);
-  await waitForSelector(client, '[data-testid="appearance-settings"]');
-  const changed = await client.evaluate(`(() => {
-    const button = document.querySelector(
-      ${JSON.stringify(`[data-testid="appearance-settings"] button[title="${mode === "light" ? "Light" : "Dark"} mode"]`)}
-    );
-    if (!(button instanceof HTMLButtonElement)) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!changed) {
-    throw new Error(`Director appearance check could not select ${mode} mode`);
-  }
-  await waitForState(
-    client,
-    `document.documentElement.dataset.colorMode ?? ""`,
-    (current) => current === mode,
-    workflowTimeoutMs,
-  );
-  const closed = await client.evaluate(`(() => {
-    const button = document.querySelector(".setta-settings-page-back");
-    if (!(button instanceof HTMLButtonElement)) {
-      return false;
-    }
-    button.click();
-    return true;
-  })()`);
-  if (!closed) {
-    throw new Error("Director appearance check could not return to the command center");
-  }
-  await waitForSelector(client, '[data-testid="director-command-center-shell"]');
-}
-
-export async function assertDirectorArtifactPreviewTheme(client, artifactId, mode) {
+export async function assertDirectorArtifactPreviewTheme(client, artifactId) {
   const theme = await client.evaluate(`(() => {
     const viewport = document.querySelector(
       ${JSON.stringify(
@@ -616,11 +564,9 @@ export async function assertDirectorArtifactPreviewTheme(client, artifactId, mod
     const style = viewport instanceof HTMLElement ? getComputedStyle(viewport) : null;
     return {
       backgroundColor: style?.backgroundColor ?? "",
-      color: style?.color ?? "",
-      mode: document.documentElement.dataset.colorMode ?? ""
+      color: style?.color ?? ""
     };
   })()`);
-  assertEqual(theme.mode, mode, `Director artifact preview ${mode} appearance`);
   if (
     theme.backgroundColor === "" ||
     theme.backgroundColor === "rgba(0, 0, 0, 0)" ||

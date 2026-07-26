@@ -79,7 +79,6 @@ function testAppearanceSettings(): AppearanceSettings {
       mono: "Menlo, monospace",
       sans: "Inter, sans-serif",
     },
-    mode: "dark",
-    schemaVersion: 4,
+    schemaVersion: 5,
   } as AppearanceSettings;
 }

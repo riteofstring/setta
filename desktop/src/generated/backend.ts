@@ -16,8 +16,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 104;
-export const backendContractSchemaHash = "sha256:657e3831c0fddbd97793b072fde67bb55ce352a8b68d400df27b6d6666ecb3b2";
+export const backendProtocolVersion = 105;
+export const backendContractSchemaHash = "sha256:9f9b7781bffac3021f327b71990a0cccd937c795fe2038548ab7f4476c1e6103";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -44,22 +44,6 @@ export function decodeDeviceScope(value: unknown, label = "DeviceScope"): Device
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "full":
-      return decoded;
-    default:
-      throw new Error(label + " is unsupported: " + decoded);
-  }
-}
-
-export type AppearanceColorMode = "dark" | "light";
-
-export const appearanceColorModeValues = ["dark", "light"] as const satisfies readonly AppearanceColorMode[];
-
-export function decodeAppearanceColorMode(value: unknown, label = "AppearanceColorMode"): AppearanceColorMode {
-  const decoded = decodeString(value, label);
-  switch (decoded) {
-    case "dark":
-      return decoded;
-    case "light":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);
@@ -1849,8 +1833,6 @@ export interface AppearanceFontScheme {
 
 export interface AppearanceSettings {
   schemaVersion: number;
-  mode: AppearanceColorMode;
-  light: AppearanceColorScheme;
   dark: AppearanceColorScheme;
   fonts: AppearanceFontScheme;
 }
@@ -3969,11 +3951,9 @@ export function decodeAppearanceFontScheme(value: unknown): AppearanceFontScheme
 
 export function decodeAppearanceSettings(value: unknown): AppearanceSettings {
   const record = assertRecord(value, "AppearanceSettings");
-  assertKnownFields(record, "AppearanceSettings", ["schemaVersion", "mode", "light", "dark", "fonts"]);
+  assertKnownFields(record, "AppearanceSettings", ["schemaVersion", "dark", "fonts"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "AppearanceSettings"), "AppearanceSettings.schemaVersion"),
-    mode: decodeAppearanceColorMode(requireField(record, "mode", "AppearanceSettings"), "AppearanceSettings.mode"),
-    light: decodeAppearanceColorScheme(requireField(record, "light", "AppearanceSettings")),
     dark: decodeAppearanceColorScheme(requireField(record, "dark", "AppearanceSettings")),
     fonts: decodeAppearanceFontScheme(requireField(record, "fonts", "AppearanceSettings")),
   };
