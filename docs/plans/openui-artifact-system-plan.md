@@ -84,6 +84,7 @@ data limits, actions, security, styling, and publication.
 - Rendering external images or loading other remote resources from artifacts.
 - Streaming a partially generated artifact in the first release. Setta's
   current dynamic-tool boundary receives complete JSON arguments.
+- A collapsed text-only artifact list or a single-click rail-expansion state.
 - Preserving artifacts created with the superseded artifact schema.
 - Installing or running the shadcn CLI, including temporary, global, `npx`, or
   `pnpm dlx` installation.
@@ -528,10 +529,81 @@ load remote artifact resources.
 Replace the kind switch in `DirectorArtifactsRail.tsx` with one
 `SettaArtifactRenderer`.
 
-The artifact rail remains the compact artifact index. Selecting an artifact
-must replace the current narrow in-rail detail panel with a large
-`ArtifactWorkspaceOverlay` rendered as normal React DOM above the WebGL command
-center.
+The artifact rail becomes an always-visible preview gallery. There is no
+collapsed artifact row, selected-card expansion, or other single-click layout
+state.
+
+Every artifact occupies a stable-height preview card containing:
+
+- title, availability, and concise provenance metadata
+- a bounded, content-aware visual preview
+- an explicit icon-only expand control with an accessible name and tooltip
+
+Available artifacts render previews from the same validated OpenUI document:
+
+- text and Markdown show a short excerpt
+- tables show the header and first two rows
+- charts show a small static, nonanimated plot
+- code shows its first few lines
+- mixed documents show the first two meaningful content blocks
+
+Declared or unresolved artifacts retain a stable status preview and disabled
+expand control until content becomes available. The artifact browser sequence
+contains available artifacts only.
+
+Preview cards must not store or request a separate preview document. When a
+preview enters the visible rail viewport, read the artifact through the
+existing production API, parse it once, and project the parsed document through
+an exhaustive Setta preview-renderer map. Reuse that parsed result when the
+full artifact opens.
+
+Preview rendering must:
+
+- use a fixed content viewport so arrivals and loads do not shift the rail
+- be noninteractive and pointer-transparent apart from the expand control
+- disable chart animation, tabs, accordions, links, file actions, code copy,
+  hover tooltips, and all other document interactions
+- cap rendered preview nodes independently of the full-document limits
+- avoid mounting content that falls outside the preview projection
+- lazy-load only previews that enter the rail viewport
+- release offscreen preview DOM while retaining only the bounded parse cache
+
+Activating the expand control opens the complete artifact in a large
+`ArtifactBrowserOverlay` rendered as normal React DOM above the WebGL command
+center. Double-clicking the preview may perform the same action as a pointer
+shortcut. Double-click is never the only affordance, and a single click must
+not change the preview's size or layout.
+
+"Artifact browser" means a carousel-style browser for Setta artifacts. It does
+not mean an embedded web browser, webview, iframe, remote page, or new network
+surface.
+
+Opening any preview sets that artifact as the active document in one persistent
+browser overlay. The user can then move through all available artifacts in the
+same authoritative rail order without closing the overlay.
+
+The artifact browser must:
+
+- show the active artifact title and position, such as `3 of 8`
+- provide visible previous, next, and close icon controls with accessible names
+  and tooltips
+- disable previous or next at the corresponding collection boundary rather
+  than wrapping chronology unexpectedly
+- update the active artifact in place without closing and reopening the Dialog
+- support Left and Right Arrow shortcuts when focus is not inside an
+  interactive artifact control
+- announce the newly active artifact title and position through a polite live
+  region
+- keep only the active full document mounted
+- prefetch and parse only the immediate previous and next available artifacts
+  into the bounded cache
+- keep the current artifact active when new artifacts arrive, recomputing only
+  its position in the authoritative collection
+- respect reduced-motion preferences for any directional transition
+
+Use controlled Dialog content and shadcn Button controls by default. Do not add
+a carousel dependency that requires adjacent full artifact documents to remain
+mounted.
 
 The overlay must:
 
@@ -541,21 +613,24 @@ The overlay must:
   artifact returns to the same graph state
 - disable graph, rail, top-bar, and composer interaction while open
 - provide a large, scrollable, unframed document surface on desktop
-- become a safe-area-aware full-screen document surface on mobile
-- restore focus to the artifact rail item that opened it
+- fill the available Electron content area at the existing compact-window
+  breakpoint; this is narrow desktop-window behavior, not a mobile-app target
+- restore focus to the expand control that opened it
 - use an icon close control and a stable title association
 - avoid nesting the artifact document inside an additional decorative card
 - keep OpenUI and chart code out of the initial command-center bundle
 
 The WebGL renderer does not render OpenUI or shadcn content and does not receive
-artifact component state. The browser composites the DOM overlay above the
-canvas.
+artifact component state. Electron's Chromium renderer composites the DOM
+overlay above the canvas.
 
 The renderer must:
 
 - lazy-load OpenUI and chart code when artifact details open
-- preserve the artifact rail as the entry point while deleting the existing
-  in-rail detail presentation
+- replace the current artifact rows and in-rail detail presentation with
+  stable-height visual preview cards
+- keep the full OpenUI and Recharts presentation in the overlay; preview charts
+  use a lightweight static projection
 - use a generic artifact identity treatment instead of guessing a type from the
   document
 - render semantic headings, lists, tables, code, and status content
@@ -568,7 +643,7 @@ The renderer must:
 
 Large collections must remain bounded by backend limits. Tables at the maximum
 row count must avoid unnecessary duplicate DOM trees, and chart components must
-not mount while their tab or collapsed section is hidden.
+not mount while their tab or accordion section is hidden.
 
 ## Frontend State Ownership
 
@@ -580,22 +655,25 @@ State ownership remains:
   lifecycle facts
 - the existing runtime, workspace, appearance, and settings-navigation Zustand
   stores own only their current app-wide responsibilities
-- `DirectorCommandCenterShell` owns the open artifact ID and overlay lifecycle
-  as local React state
-- the artifact loader owns local loading and failure state and reads the
-  document through the existing production Setta API
+- `DirectorCommandCenterShell` owns the active artifact ID and artifact-browser
+  lifecycle as local React state
+- the artifact preview loader owns local loading and failure state, reads only
+  visible previews through the existing production Setta API, and shares its
+  parsed result with the overlay
 - OpenUI tabs, accordions, scroll position, and other presentation-only state
   remain local to their rendered components
 - `DirectorGraphCanvas` continues to own camera, buffers, pointer state, and
   animation outside React and Zustand
 
-Reset the open artifact when the connected runtime changes or when the selected
+Reset the active artifact when the connected runtime changes or when that
 artifact is no longer present in the authoritative Director snapshot. Do not
-persist overlay-open state or presentation state in Go, SQLite, or Zustand.
+persist browser-open state or presentation state in Go, SQLite, or Zustand.
 
 A bounded in-memory parse cache may be keyed by artifact ID, catalog ID, and
 source identity. It must not become a second durable artifact representation
-and must clear on runtime change.
+and must clear on runtime change. It may prefetch only the active artifact's
+immediate available neighbors. There is no selected-preview state or separately
+stored browser ordering.
 
 ## Interaction Boundary
 
@@ -650,9 +728,14 @@ Before changing production rendering, record a baseline under
 After the cutover, append a comparable report covering:
 
 - lazy chunk size and load latency
+- time until visible artifact previews are ready
 - first and repeat artifact open latency
-- artifact workspace overlay open and close latency
+- artifact browser open and close latency
+- previous and next artifact transition latency with cold and prefetched
+  neighbors
 - parse and render duration for representative and maximum-size documents
+- preview DOM counts and artifact-read counts with 100 metadata entries
+- scroll performance through eight mixed-content preview cards
 - DOM counts for large tables and hidden tabs/accordions
 - memory after repeatedly opening and closing artifacts
 - command-center frame behavior while an artifact is open
@@ -783,9 +866,19 @@ Deliverables:
 - render through the generated OpenUI library and official shadcn primitives
 - implement safe Markdown, code, table, chart, and file-reference behavior
 - lazy-load OpenUI and chart dependencies
+- replace artifact rows with stable-height, always-visible visual preview cards
+- implement an exhaustive, bounded, noninteractive preview renderer for every
+  model-visible component
+- lazy-read and parse only previews entering the rail viewport
+- reuse the bounded parse cache between previews and the full overlay
 - replace the in-rail detail panel with the shadcn Dialog-backed
-  `ArtifactWorkspaceOverlay`
-- keep open-artifact and overlay state local to `DirectorCommandCenterShell`
+  `ArtifactBrowserOverlay`
+- open the overlay from the explicit expand control and optional double-click,
+  with no collapsed or single-click-expanded rail state
+- add previous, next, position, boundary, keyboard, and live-announcement
+  behavior across the authoritative available-artifact order
+- mount only the active full artifact and prefetch only its immediate neighbors
+- keep active-artifact and browser state local to `DirectorCommandCenterShell`
 - add responsive, theme, keyboard, screen-reader, and reduced-motion handling
 - add renderer telemetry for impossible post-validation parse failures
 - update the artifact rail to use generic artifact identity treatment
@@ -794,12 +887,18 @@ Deliverables:
 Gate:
 
 - all current artifact capabilities are expressible in the new catalog
-- mixed documents render coherently in the large artifact workspace overlay
+- every available artifact has a meaningful fixed-height rail preview,
+  including mixed-content documents
+- mixed documents render coherently in the large artifact browser
 - light and dark appearance settings apply without a separate artifact theme
 - no artifact can load remote content or invoke an unbrokered action
 - opening an artifact cannot destabilize the command-center layout
 - opening and closing an artifact preserves the mounted WebGL graph state,
-  contains focus, and restores focus to the originating rail item
+  contains focus, and restores focus to the originating expand control
+- previous and next navigation traverse every available artifact without
+  closing the browser or mounting adjacent full documents
+- a single click never changes preview size, and both the expand control and
+  double-click shortcut open the same artifact
 - no new Zustand store owns artifact content or artifact-view state
 
 ### Phase 5 - Cleanup And Performance Remeasurement
@@ -849,8 +948,13 @@ Required deterministic production-path workflow coverage:
 - open a temporary workspace
 - create and open a conversation
 - submit input and receive streamed assistant output
-- emit and open a mixed OpenUI artifact
-- close the artifact overlay and confirm focus and graph state are restored
+- emit a mixed OpenUI artifact and observe its rail preview
+- confirm a single click does not change preview layout
+- open the complete artifact through both the expand control and double-click
+- browse previous and next artifacts, including collection boundaries and
+  keyboard navigation
+- receive a new artifact while browsing and retain the active artifact
+- close the artifact browser and confirm focus and graph state are restored
 - reject malformed output and repair it within the same provider turn
 - queue and steer while a run is active
 - complete, cancel, and fail relevant runs
@@ -874,8 +978,10 @@ This plan is complete only when:
 - AI-generated artifacts use one validated OpenUI document contract
 - actual official shadcn/ui component source renders the supported UI
   primitives
-- rich artifacts open in the large DOM workspace above the WebGL canvas rather
-  than inside the narrow artifact rail
+- the artifact rail shows stable, content-aware previews rather than collapsed
+  text rows or a single-click expansion state
+- rich artifacts open in one large carousel-style DOM browser above the WebGL
+  canvas, with previous and next navigation across all available artifacts
 - the existing local Button, Badge, and Input implementations have been
   replaced with official shadcn/ui source and all consumers use the new
   contracts directly
