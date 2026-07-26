@@ -235,12 +235,24 @@ export async function verifyCompactRailFocusRestoration(client) {
   }
 }
 
+/*
+ * The narrowest window the platform actually allows.
+ *
+ * macOS draws its window buttons inside the renderer's top bar, and the bar
+ * reserves 80px for them, so the floor there is 80px higher than elsewhere
+ * (`compactWindowMinWidth` in the main process). Emulating 320px on darwin
+ * would assert a layout for a window macOS will not let the user make.
+ */
 async function verifyMinimumCompactWidth(client) {
+  const platform = await client.evaluate(
+    `document.querySelector("[data-desktop-platform]")?.getAttribute("data-desktop-platform") ?? ""`,
+  );
+  const width = platform === "darwin" ? 400 : 320;
   await client.call("Emulation.setDeviceMetricsOverride", {
     deviceScaleFactor: 1,
     height: 720,
     mobile: true,
-    width: 320,
+    width,
   });
   const layout = await waitForState(
     client,
@@ -252,7 +264,7 @@ async function verifyMinimumCompactWidth(client) {
       state.metaHidden &&
       state.navigation !== null &&
       !state.titleClipped &&
-      state.viewportWidth === 320,
+      state.viewportWidth === width,
     workflowTimeoutMs,
   );
   const described = JSON.stringify(layout);

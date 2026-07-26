@@ -33,7 +33,7 @@ import {
 import { compactDirectorHistory } from "./DirectorHistoryOverlay";
 import { currentDirectorActivity } from "./DirectorNowActivityList";
 import { directorWorkstreamSwitchTransition } from "./director-workstream-switch-transition";
-import { directorFocus, directorWorkstreamSummary } from "./director-focus";
+import { directorFocus, directorFocusFolder, directorWorkstreamSummary } from "./director-focus";
 
 describe("Director command-center approval answers", () => {
   test("builds structured answers from public question definitions", () => {
@@ -371,17 +371,19 @@ describe("Director command-center shell view state", () => {
     });
   });
 
-  test("carries the folder a focused workstream runs in", () => {
-    expect(
-      directorFocus({
-        ...workstreamEntry(7, "running").workstream,
-        resourceScope: {
-          folder: { rootPath: "/Users/dev/code/setta", workspaceId: "workspace:1" },
-          kind: "folder",
-        },
-      }),
-    ).toEqual({
-      folder: { label: "setta", path: "/Users/dev/code/setta" },
+  // The top bar no longer carries a folder chip: it never changed while a
+  // workstream was selected, so it spent bar width on a constant. The fact is
+  // still reachable — every workstream dot names its folder — and that is what
+  // this guards, because losing it entirely is the real risk.
+  test("names the folder a workstream runs in, without the bar carrying it", () => {
+    const bound = directorFocus({
+      ...workstreamEntry(7, "running").workstream,
+      resourceScope: {
+        folder: { rootPath: "/Users/dev/code/setta", workspaceId: "workspace:1" },
+        kind: "folder",
+      },
+    });
+    expect(bound).toEqual({
       kind: "workstream",
       status: "running",
       statusLabel: "Running",
@@ -389,14 +391,23 @@ describe("Director command-center shell view state", () => {
       title: "Workstream 7",
     });
 
+    expect(
+      directorFocusFolder({
+        folder: { rootPath: "/Users/dev/code/setta", workspaceId: "workspace:1" },
+        kind: "folder",
+      }),
+    ).toEqual({ label: "setta", path: "/Users/dev/code/setta" });
+
     expect(directorFocus(workstreamEntry(8, "awaiting_resource").workstream)).toEqual({
-      folder: { label: "No folder", path: null },
       kind: "workstream",
       status: "awaiting_resource",
       statusLabel: "Needs folder",
       summary: null,
       title: "Workstream 8",
     });
+    expect(
+      directorFocusFolder(workstreamEntry(8, "awaiting_resource").workstream.resourceScope),
+    ).toEqual({ label: "No folder", path: null });
   });
 
   test("keeps a Director turn from reading as a busy direct command", () => {

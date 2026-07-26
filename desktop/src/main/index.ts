@@ -90,7 +90,15 @@ const directorEvents = new DirectorEventRegistry({
   },
 });
 const compactWindowMinHeight = 320;
-const compactWindowMinWidth = 320;
+/*
+ * The narrowest useful window, per platform.
+ *
+ * macOS draws its window buttons inside the renderer's own top bar, and the
+ * bar reserves 80px for them. At 320px there is not enough left for the
+ * workstream identity and the view controls, so the floor on darwin is that
+ * 80px higher — the constraint is the platform's, not the layout's.
+ */
+const compactWindowMinWidth = process.platform === "darwin" ? 400 : 320;
 const backendRequestDrainTimeoutMs = 1_500;
 function desktopRoot() {
   return process.cwd();

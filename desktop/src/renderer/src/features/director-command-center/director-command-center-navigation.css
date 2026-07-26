@@ -14,11 +14,12 @@
   display: grid;
   gap: 12px;
   /*
-   * Three tracks, so the identity is centred on the window rather than parked
-   * wherever the brand happens to end. The outer tracks are equal, which is
-   * what makes the centre actually the centre.
+   * The identity travels with the brand in the left group, and the view
+   * controls hold the right. The mockup's bar is a heads-up layer over a
+   * canvas, not a document header, so its title is not centred on the window —
+   * centring it made the bar read as chrome the canvas belonged to.
    */
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   inset-block-start: 0;
   inset-inline: 0;
   min-block-size: 44px;
@@ -59,7 +60,7 @@
   align-items: center;
   display: flex;
   gap: 4px;
-  justify-self: center;
+  justify-self: start;
   min-inline-size: 0;
 }
 
@@ -129,32 +130,6 @@
   inline-size: 7px;
 }
 
-.director-workstream-folder {
-  align-items: center;
-  color: oklch(0.7 0.035 245);
-  display: inline-flex;
-  font-size: 11px;
-  gap: 6px;
-  max-inline-size: min(18vw, 180px);
-  min-inline-size: 0;
-}
-
-.director-workstream-folder > span:last-child {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.director-workstream-folder[data-folder="none"] {
-  color: oklch(0.6 0.03 250);
-}
-
-.director-workstream-folder svg {
-  color: oklch(0.62 0.05 235);
-  flex: none;
-}
-
 .director-workstream-strip {
   display: flex;
   flex: none;
@@ -211,15 +186,6 @@
   }
 
   .director-focus-meta {
-    display: none;
-  }
-
-  /*
-   * The narrowest bar carries the title alone. The folder is still named by
-   * every workstream dot's accessible name and tooltip, so dropping the chip
-   * here loses a glance, not the fact.
-   */
-  .director-workstream-folder {
     display: none;
   }
 }

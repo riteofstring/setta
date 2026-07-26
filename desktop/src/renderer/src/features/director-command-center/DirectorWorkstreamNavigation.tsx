@@ -13,7 +13,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Circle,
-  Folder,
   FolderPlus,
   PanelLeft,
   PanelRight,
@@ -26,12 +25,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 
 import { useAppWindowDragHandlers } from "../../app-window-drag";
 import { SettaLogoMark } from "../../components/setta-logo-mark";
-import {
-  directorFocus,
-  directorFocusFolder,
-  type DirectorFocus,
-  type DirectorFocusFolder,
-} from "./director-focus";
+import { directorFocus, directorFocusFolder, type DirectorFocus } from "./director-focus";
 import { directorWorkstreamStatusLabels } from "./director-workstream-status";
 
 export interface DirectorRailVisibility {
@@ -202,11 +196,14 @@ function WorkstreamNavigationTitle({
         {/*
          * The status is its own element because it is the top bar's only
          * changing fact, and the Now rail no longer restates it.
+         *
+         * The folder is not here. It never changes while a workstream is
+         * selected, so it spent bar width on a constant — and every workstream
+         * dot's accessible name and tooltip already name it.
          */}
         <span className="director-focus-status">{focusMetaLabel(focus)}</span>
         {counter === null ? "" : ` ${counter}`}
       </span>
-      {focus.kind === "workstream" ? <WorkstreamFolderChip folder={focus.folder} /> : null}
     </div>
   );
 }
@@ -258,20 +255,6 @@ function workstreamDotLabels(workstream: Workstream): {
 
 function focusMetaLabel(focus: DirectorFocus): string {
   return focus.kind === "director" ? focus.roleLabel : focus.statusLabel;
-}
-
-function WorkstreamFolderChip({ folder }: { folder: DirectorFocusFolder }) {
-  return (
-    <span
-      className="director-workstream-folder"
-      data-folder={folder.path === null ? "none" : "bound"}
-      title={folder.path ?? undefined}
-    >
-      <Folder aria-hidden="true" size={12} />
-      <span className="sr-only">Folder: </span>
-      <span>{folder.label}</span>
-    </span>
-  );
 }
 
 function DirectorRailControls({
