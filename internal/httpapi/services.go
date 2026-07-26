@@ -8,8 +8,12 @@ import (
 	"setta/internal/appearance"
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
+	"setta/internal/credissuer"
 	"setta/internal/director"
+	"setta/internal/localcredissuer"
 	"setta/internal/runtimeauth"
+	"setta/internal/runtimecapability"
+	"setta/internal/runtimesetup"
 	"setta/internal/speech"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
@@ -148,6 +152,21 @@ type RuntimeAuthService interface {
 	TouchDeviceSession(context.Context, string) (bool, error)
 }
 
+type RuntimeAccessService interface {
+	VerifyRuntimeAccessCredential(context.Context, string) (credissuer.VerifiedCredential, bool, error)
+	RevalidateRuntimeAccessCredential(context.Context, credissuer.VerifiedCredential) (bool, error)
+}
+
+// LocalCredentialIssuerService is available only when a local development
+// runtime explicitly opts into hosting the bounded proof-of-concept issuer.
+// Cloud runtimes must use the control-plane issuer and leave this service nil.
+type LocalCredentialIssuerService interface {
+	Enroll(context.Context, localcredissuer.EnrollRequest, int) (localcredissuer.EnrollResponse, error)
+	Refresh(context.Context, localcredissuer.RefreshRequest) (localcredissuer.RuntimeCredentialResponse, error)
+	ListDeviceSessions(context.Context) ([]runtimeauth.DeviceSession, error)
+	RevokeDeviceSession(context.Context, string) (runtimeauth.DeviceSession, bool, error)
+}
+
 type RuntimeIdentity struct {
 	ID          string
 	DisplayName string
@@ -156,6 +175,14 @@ type RuntimeIdentity struct {
 type RuntimeIdentityService interface {
 	RuntimeIdentity(context.Context) (RuntimeIdentity, error)
 	UpdateRuntimeDisplayName(context.Context, string) (RuntimeIdentity, error)
+}
+
+type RuntimeSetupService interface {
+	CreateAttestation(context.Context, runtimesetup.AttestationChallenge) (runtimesetup.Attestation, runtimesetup.AttestationStatus, error)
+}
+
+type RuntimeDiagnosticsService interface {
+	RuntimeDiagnostics(context.Context) runtimecapability.RuntimeDiagnostics
 }
 
 type HandlerConfig struct {
@@ -167,10 +194,16 @@ type HandlerConfig struct {
 	RoleConfigurationService     RoleConfigurationService
 	CodexAccountService          CodexAccountService
 	PairingFailureLimiter        *PairingFailureLimiter
+	SetupAttestationLimiter      *PairingFailureLimiter
 	RevocationSweepInterval      time.Duration
+	LocalCredentialIssuer        LocalCredentialIssuerService
+	RuntimeAccessService         RuntimeAccessService
+	RuntimeEndpointAccess        RuntimeEndpointAccessConfig
 	RuntimeAuthService           RuntimeAuthService
+	RuntimeDiagnosticsService    RuntimeDiagnosticsService
 	RuntimeIdentityService       RuntimeIdentityService
 	RuntimeMetadata              RuntimeMetadata
+	RuntimeSetupService          RuntimeSetupService
 	SpeechService                SpeechService
 	WorkspaceService             WorkspaceService
 }
@@ -184,22 +217,44 @@ type handler struct {
 	roleConfigurationService     RoleConfigurationService
 	codexAccountService          CodexAccountService
 	pairingFailureLimiter        *PairingFailureLimiter
+	setupAttestationLimiter      *PairingFailureLimiter
 	revocationSweepInterval      time.Duration
+	localCredentialIssuer        LocalCredentialIssuerService
+	runtimeAccessService         RuntimeAccessService
+	runtimeEndpointAccess        RuntimeEndpointAccessPolicy
 	runtimeAuthService           RuntimeAuthService
+	runtimeDiagnosticsService    RuntimeDiagnosticsService
 	runtimeIdentityService       RuntimeIdentityService
 	runtimeMetadata              RuntimeMetadata
+	runtimeSetupService          RuntimeSetupService
 	speechService                SpeechService
 	workspaceService             WorkspaceService
 }
 
 func NewHandler(config HandlerConfig) http.Handler {
+	handler, err := NewHandlerWithError(config)
+	if err != nil {
+		panic(err)
+	}
+	return handler
+}
+
+func NewHandlerWithError(config HandlerConfig) (http.Handler, error) {
 	pairingFailureLimiter := config.PairingFailureLimiter
 	if pairingFailureLimiter == nil {
 		pairingFailureLimiter = NewPairingFailureLimiter(10, time.Minute)
 	}
+	setupAttestationLimiter := config.SetupAttestationLimiter
+	if setupAttestationLimiter == nil {
+		setupAttestationLimiter = NewPairingFailureLimiter(30, time.Minute)
+	}
 	revocationSweepInterval := config.RevocationSweepInterval
 	if revocationSweepInterval <= 0 {
 		revocationSweepInterval = 30 * time.Second
+	}
+	runtimeEndpointAccess, err := NewRuntimeEndpointAccessPolicy(config.RuntimeEndpointAccess)
+	if err != nil {
+		return nil, err
 	}
 	apiHandler := handler{
 		appearanceService:            config.AppearanceService,
@@ -210,14 +265,20 @@ func NewHandler(config HandlerConfig) http.Handler {
 		roleConfigurationService:     config.RoleConfigurationService,
 		codexAccountService:          config.CodexAccountService,
 		pairingFailureLimiter:        pairingFailureLimiter,
+		setupAttestationLimiter:      setupAttestationLimiter,
 		revocationSweepInterval:      revocationSweepInterval,
+		localCredentialIssuer:        config.LocalCredentialIssuer,
+		runtimeAccessService:         config.RuntimeAccessService,
+		runtimeEndpointAccess:        runtimeEndpointAccess,
 		runtimeAuthService:           config.RuntimeAuthService,
+		runtimeDiagnosticsService:    config.RuntimeDiagnosticsService,
 		runtimeIdentityService:       config.RuntimeIdentityService,
 		runtimeMetadata:              config.RuntimeMetadata,
+		runtimeSetupService:          config.RuntimeSetupService,
 		speechService:                config.SpeechService,
 		workspaceService:             config.WorkspaceService,
 	}
 	mux := http.NewServeMux()
 	registerEndpoints(mux, apiHandler)
-	return mux
+	return runtimeEndpointAccess.Wrap(mux), nil
 }

@@ -8,6 +8,7 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/conversation"
 	"setta/internal/director"
+	"setta/internal/runtimeaccounting"
 	"setta/internal/speech"
 	"setta/internal/workspacesession"
 )
@@ -37,13 +38,30 @@ type endpoint struct {
 type routeHandler func(handler, http.ResponseWriter, *http.Request)
 
 const (
-	defaultRequestBodyLimitBytes int64 = 4 * 1024 * 1024
+	defaultRequestBodyLimitBytes          int64 = 4 * 1024 * 1024
+	runtimeAccountingReportBodyLimitBytes int64 = 64 * 1024
 )
+
+// controlPlaneEndpoints owns non-renderer HTTP contracts served by the hosted
+// control plane. They deliberately remain outside Contracts because the
+// generated desktop client must not expose runtime-only credential surfaces.
+var controlPlaneEndpoints = []ContractEndpoint{
+	{
+		Name:                  "RecordRuntimeAccountingTransition",
+		Method:                http.MethodPost,
+		Path:                  "/control-plane/runtime-accounting/events",
+		Request:               reflect.TypeFor[runtimeaccounting.ActivityTransition](),
+		RequestBodyLimitBytes: runtimeAccountingReportBodyLimitBytes,
+	},
+}
 
 var apiEndpoints = []endpoint{
 	unauthenticated(get[BackendHealth]("BackendHealth", "/health", handler.health)),
 	unauthenticated(get[RuntimeInfoResponse]("RuntimeInfo", "/runtime/info", handler.runtimeInfo)),
 	unauthenticated(post[CompletePairingRequest, CompletePairingResponse]("CompletePairing", "/pairing/complete", handler.completePairing)),
+	unauthenticated(post[LocalCredentialEnrollRequest, LocalCredentialEnrollResponse]("LocalCredentialEnroll", "/local-credentials/enroll", handler.localCredentialEnroll)),
+	unauthenticated(post[LocalCredentialRefreshRequest, LocalCredentialRefreshResponse]("LocalCredentialRefresh", "/local-credentials/refresh", handler.localCredentialRefresh)),
+	unauthenticated(post[SetupAttestationRequest, SetupAttestationResponse]("SetupAttestation", "/setup/attestation", handler.setupAttestation)),
 	post[UpdateRuntimeDisplayNameRequest, RuntimeInfoResponse]("UpdateRuntimeDisplayName", "/runtime/display-name/update", handler.updateRuntimeDisplayName),
 	post[ListDevicesRequest, ListDevicesResponse]("ListDevices", "/devices/list", handler.listDevices),
 	post[RevokeDeviceRequest, RevokeDeviceResponse]("RevokeDevice", "/devices/revoke", handler.revokeDevice),
@@ -98,6 +116,16 @@ var apiEndpoints = []endpoint{
 	streamEvent[codexaccount.CodexAccountChangeEvent]("CodexAccountEventStream", "/codex/account/events", handler.codexAccountEventStream),
 }
 
+func ControlPlaneEndpoints() []ContractEndpoint {
+	endpoints := make([]ContractEndpoint, len(controlPlaneEndpoints))
+	copy(endpoints, controlPlaneEndpoints)
+	return endpoints
+}
+
+func RuntimeAccountingReportEndpoint() ContractEndpoint {
+	return controlPlaneEndpoints[0]
+}
+
 func Contracts() ContractSchema {
 	endpoints := make([]ContractEndpoint, len(apiEndpoints))
 	for index, endpoint := range apiEndpoints {
@@ -107,6 +135,15 @@ func Contracts() ContractSchema {
 		Endpoints:      endpoints,
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
 	}
+}
+
+func GatewayOperation(method string, path string) string {
+	for _, endpoint := range apiEndpoints {
+		if endpoint.Method == method && endpoint.Path == path {
+			return endpoint.Name
+		}
+	}
+	return ""
 }
 
 func registerEndpoints(mux *http.ServeMux, apiHandler handler) {
@@ -119,6 +156,15 @@ func registerEndpoints(mux *http.ServeMux, apiHandler handler) {
 			apiHandler.dispatch(route, response, request)
 		})
 	}
+}
+
+func endpointMethodAllowed(path string, method string) bool {
+	for _, endpoint := range apiEndpoints {
+		if endpoint.Path == path && endpoint.Method == method {
+			return true
+		}
+	}
+	return false
 }
 
 func unauthenticated(route endpoint) endpoint {

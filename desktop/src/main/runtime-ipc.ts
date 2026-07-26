@@ -1,6 +1,6 @@
 import type { IpcMain } from "electron";
 
-import { handleIpc, type IpcObserver } from "@shared/ipc";
+import { handleIpc, ipcChannels, type IpcObserver } from "@shared/ipc";
 import type { RuntimeRegistryController } from "./runtime-registry";
 
 interface RuntimeIpcRegistration {
@@ -22,6 +22,14 @@ export function registerRuntimeIpcHandlers({
     },
     ipcObserver,
   );
+  ipcMain.handle(ipcChannels.runtimeCurrentCredential, async () => {
+    const credential = await requireRuntimeRegistry().currentRuntimeCredential();
+    return {
+      expiresAt: credential.expiresAt,
+      runtimeId: credential.runtimeId,
+      token: credential.token,
+    };
+  });
   handleIpc(
     ipcMain,
     "runtimeList",

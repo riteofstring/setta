@@ -30,6 +30,7 @@ type NavigationListener = (
 
 interface ConversationEventRegistryOptions {
   backendConnection: () => { baseURL: string; fetchImpl: BackendFetch };
+  recordDisconnect?: (error: unknown) => void;
   recordEvent?: (event: ConversationEvent) => void;
   startEventStream?: typeof startConversationEventStream;
 }
@@ -66,6 +67,7 @@ export class ConversationEventRegistry {
       conversationId: target.conversationId,
       cursor,
       fetchImpl,
+      reportDisconnect: this.options.recordDisconnect,
       sendEvent: (event) => this.forwardEvent(key, event),
       workspaceId: target.workspaceId,
     });

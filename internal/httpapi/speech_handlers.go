@@ -3,7 +3,6 @@ package httpapi
 import (
 	"net/http"
 
-	"setta/internal/runtimeauth"
 	"setta/internal/speech"
 )
 
@@ -91,7 +90,7 @@ func (handler handler) validateDesktopSpeechCredential(response http.ResponseWri
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	device, ok := authenticatedSpeechDeviceSession(response, request)
+	deviceID, ok := authenticatedSpeechDeviceID(response, request)
 	if !ok {
 		return
 	}
@@ -99,7 +98,7 @@ func (handler handler) validateDesktopSpeechCredential(response http.ResponseWri
 		request.Context(),
 		payload.Provider,
 		payload.APIKey,
-		device.ID,
+		deviceID,
 	)
 	if err != nil {
 		writeSpeechError(response, "validate_desktop_speech_credential_failed", err)
@@ -151,14 +150,14 @@ func (handler handler) createSpeechTranscriptionSession(response http.ResponseWr
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	device, ok := authenticatedSpeechDeviceSession(response, request)
+	deviceID, ok := authenticatedSpeechDeviceID(response, request)
 	if !ok {
 		return
 	}
 	session, err := service.CreateTranscriptionSession(
 		request.Context(),
 		payload.Provider,
-		device.ID,
+		deviceID,
 	)
 	if err != nil {
 		writeSpeechError(response, "create_speech_transcription_session_failed", err)
@@ -201,14 +200,14 @@ func (handler handler) synthesizeSpeech(response http.ResponseWriter, request *h
 	writeJSON(response, http.StatusOK, audio)
 }
 
-func authenticatedSpeechDeviceSession(
+func authenticatedSpeechDeviceID(
 	response http.ResponseWriter,
 	request *http.Request,
-) (runtimeauth.DeviceSession, bool) {
-	device, ok := authenticatedDeviceSession(request)
+) (string, bool) {
+	deviceID, ok := authenticatedDeviceID(request)
 	if !ok {
 		writeError(response, http.StatusInternalServerError, "authenticated_device_session_missing", "authenticated device session is missing")
-		return runtimeauth.DeviceSession{}, false
+		return "", false
 	}
-	return device, true
+	return deviceID, true
 }

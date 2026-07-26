@@ -28,6 +28,7 @@ const persistedStatePath = process.env.SETTA_E2E_TOPIC_CODEX_STATE_PATH ?? "";
 const initialThreadStartDelayMs = optionalNonNegativeIntegerEnvironment(
   "SETTA_E2E_TOPIC_CODEX_INITIAL_THREAD_START_DELAY_MS",
 );
+const turnDelayMs = optionalNonNegativeIntegerEnvironment("SETTA_E2E_TOPIC_CODEX_TURN_DELAY_MS");
 const persistedState = readPersistedState();
 let threadCounter = persistedState.threadCounter;
 let turnCounter = persistedState.turnCounter;
@@ -463,7 +464,7 @@ function startTurn(message) {
       return;
     }
     emitTurnScenario(threadId, turnId, text);
-  });
+  }, turnDelayMs);
 }
 
 function providerCarrierHasRequiredReplay(thread, carrierKind) {

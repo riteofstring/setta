@@ -5,25 +5,36 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"setta/internal/codexapp"
+	"setta/internal/runtimeprovider"
 )
 
 type Config struct {
-	Command     string
-	Args        []string
-	Env         []string
-	ExcludedEnv []string
-	Manager     *codexapp.Manager
-	Version     string
+	Command               string
+	Args                  []string
+	Env                   []string
+	ExcludedEnv           []string
+	Manager               *codexapp.Manager
+	TurnAdmissionGate     TurnAdmissionGate
+	Version               string
+	WorkloadLeaseManager  runtimeprovider.WorkloadLeaseManager
+	WorkloadLeaseName     string
+	WorkloadLeaseReporter WorkloadLeaseReporter
+	WorkloadLeaseTTL      time.Duration
 }
 
 type Runtime struct {
 	manager *codexapp.Manager
+	admit   TurnAdmissionGate
 
 	mu      sync.Mutex
 	active  map[string]*activeTurn
 	pending map[string]pendingApproval
+
+	workloadLease *workloadLeaseController
+	workloadSlot  chan struct{}
 }
 
 type activeTurn struct {
@@ -71,11 +82,23 @@ func NewRuntime(config Config) *Runtime {
 			InitializeParams: initializeParams(version),
 		})
 	}
-	return &Runtime{
+	runtime := &Runtime{
 		manager: manager,
+		admit:   config.TurnAdmissionGate,
 		active:  map[string]*activeTurn{},
 		pending: map[string]pendingApproval{},
 	}
+	if config.WorkloadLeaseManager != nil {
+		runtime.workloadLease = newWorkloadLeaseController(
+			config.WorkloadLeaseManager,
+			config.WorkloadLeaseReporter,
+			config.WorkloadLeaseName,
+			config.WorkloadLeaseTTL,
+		)
+		runtime.workloadSlot = make(chan struct{}, 1)
+		runtime.workloadSlot <- struct{}{}
+	}
+	return runtime
 }
 
 func (runtime *Runtime) Manager() *codexapp.Manager {

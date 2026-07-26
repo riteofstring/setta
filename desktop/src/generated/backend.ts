@@ -16,8 +16,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 112;
-export const backendContractSchemaHash = "sha256:37fb730ef905ed1b4b32c09ec42ff421fa201fb88089ebf8ad9aeb385ab87ef5";
+export const backendProtocolVersion = 113;
+export const backendContractSchemaHash = "sha256:20fb4c90bcc8f7c7b15dc7d417da436a24083fe0799d49b71c01e5b3a15f79b6";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -34,6 +34,26 @@ export type SpeechVoiceID = string;
 
 export function decodeSpeechVoiceID(value: unknown, label = "SpeechVoiceID"): SpeechVoiceID {
   return decodeString(value, label);
+}
+
+export type DiagnosticStatus = "ok" | "failing" | "unavailable" | "unknown";
+
+export const diagnosticStatusValues = ["ok", "failing", "unavailable", "unknown"] as const satisfies readonly DiagnosticStatus[];
+
+export function decodeDiagnosticStatus(value: unknown, label = "DiagnosticStatus"): DiagnosticStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "ok":
+      return decoded;
+    case "failing":
+      return decoded;
+    case "unavailable":
+      return decoded;
+    case "unknown":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
 }
 
 export type DeviceScope = "full";
@@ -1588,6 +1608,180 @@ export function decodeCodexAccountChangeReason(value: unknown, label = "CodexAcc
   }
 }
 
+export type HostedAccessClientKind = "desktop" | "phone";
+
+export const hostedAccessClientKindValues = ["desktop", "phone"] as const satisfies readonly HostedAccessClientKind[];
+
+export function decodeHostedAccessClientKind(value: unknown, label = "HostedAccessClientKind"): HostedAccessClientKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "desktop":
+      return decoded;
+    case "phone":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type HostedAccessCapability = "observe" | "steer" | "approve" | "artifacts";
+
+export const hostedAccessCapabilityValues = ["observe", "steer", "approve", "artifacts"] as const satisfies readonly HostedAccessCapability[];
+
+export function decodeHostedAccessCapability(value: unknown, label = "HostedAccessCapability"): HostedAccessCapability {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "observe":
+      return decoded;
+    case "steer":
+      return decoded;
+    case "approve":
+      return decoded;
+    case "artifacts":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type HostedAccessProgressState = "preparing_access" | "syncing_project" | "ready_on_phone" | "needs_attention" | "suspended";
+
+export const hostedAccessProgressStateValues = ["preparing_access", "syncing_project", "ready_on_phone", "needs_attention", "suspended"] as const satisfies readonly HostedAccessProgressState[];
+
+export function decodeHostedAccessProgressState(value: unknown, label = "HostedAccessProgressState"): HostedAccessProgressState {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "preparing_access":
+      return decoded;
+    case "syncing_project":
+      return decoded;
+    case "ready_on_phone":
+      return decoded;
+    case "needs_attention":
+      return decoded;
+    case "suspended":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type HostedAccessReasonCode = "runtime_assignment_rejected" | "device_grant_rejected";
+
+export const hostedAccessReasonCodeValues = ["runtime_assignment_rejected", "device_grant_rejected"] as const satisfies readonly HostedAccessReasonCode[];
+
+export function decodeHostedAccessReasonCode(value: unknown, label = "HostedAccessReasonCode"): HostedAccessReasonCode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "runtime_assignment_rejected":
+      return decoded;
+    case "device_grant_rejected":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DeveloperHostedRuntimeOperationKind = "ensure" | "destroy";
+
+export const developerHostedRuntimeOperationKindValues = ["ensure", "destroy"] as const satisfies readonly DeveloperHostedRuntimeOperationKind[];
+
+export function decodeDeveloperHostedRuntimeOperationKind(value: unknown, label = "DeveloperHostedRuntimeOperationKind"): DeveloperHostedRuntimeOperationKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "ensure":
+      return decoded;
+    case "destroy":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DeveloperHostedRuntimePhase = "preparing" | "provisioning" | "installing" | "pairing" | "connecting" | "connected" | "retrying" | "needs_attention" | "destroying" | "removed";
+
+export const developerHostedRuntimePhaseValues = ["preparing", "provisioning", "installing", "pairing", "connecting", "connected", "retrying", "needs_attention", "destroying", "removed"] as const satisfies readonly DeveloperHostedRuntimePhase[];
+
+export function decodeDeveloperHostedRuntimePhase(value: unknown, label = "DeveloperHostedRuntimePhase"): DeveloperHostedRuntimePhase {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "preparing":
+      return decoded;
+    case "provisioning":
+      return decoded;
+    case "installing":
+      return decoded;
+    case "pairing":
+      return decoded;
+    case "connecting":
+      return decoded;
+    case "connected":
+      return decoded;
+    case "retrying":
+      return decoded;
+    case "needs_attention":
+      return decoded;
+    case "destroying":
+      return decoded;
+    case "removed":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DeveloperHostedRuntimeReasonCode = "provider_unavailable" | "provider_identity_mismatch" | "release_verification_failed" | "health_check_failed" | "pairing_failed" | "connection_failed" | "budget_cutoff" | "cleanup_pending" | "developer_feature_disabled" | "provisioning_canceled";
+
+export const developerHostedRuntimeReasonCodeValues = ["provider_unavailable", "provider_identity_mismatch", "release_verification_failed", "health_check_failed", "pairing_failed", "connection_failed", "budget_cutoff", "cleanup_pending", "developer_feature_disabled", "provisioning_canceled"] as const satisfies readonly DeveloperHostedRuntimeReasonCode[];
+
+export function decodeDeveloperHostedRuntimeReasonCode(value: unknown, label = "DeveloperHostedRuntimeReasonCode"): DeveloperHostedRuntimeReasonCode {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "provider_unavailable":
+      return decoded;
+    case "provider_identity_mismatch":
+      return decoded;
+    case "release_verification_failed":
+      return decoded;
+    case "health_check_failed":
+      return decoded;
+    case "pairing_failed":
+      return decoded;
+    case "connection_failed":
+      return decoded;
+    case "budget_cutoff":
+      return decoded;
+    case "cleanup_pending":
+      return decoded;
+    case "developer_feature_disabled":
+      return decoded;
+    case "provisioning_canceled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DeveloperHostedRuntimeTerminalOutcome = "connected" | "removed" | "failed" | "canceled";
+
+export const developerHostedRuntimeTerminalOutcomeValues = ["connected", "removed", "failed", "canceled"] as const satisfies readonly DeveloperHostedRuntimeTerminalOutcome[];
+
+export function decodeDeveloperHostedRuntimeTerminalOutcome(value: unknown, label = "DeveloperHostedRuntimeTerminalOutcome"): DeveloperHostedRuntimeTerminalOutcome {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "connected":
+      return decoded;
+    case "removed":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "canceled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
 export const conversationPaletteCatalog = {
   "sky": {"id":"sky","dark":{"conversationAccent":"oklch(0.846 0.1292 213.38)","conversationAccentForeground":"oklch(0.0697 0.0051 260.18)","conversationFocusRing":"oklch(0.846 0.1292 213.38)"},"light":{"conversationAccent":"oklch(0.48 0.13 213.38)","conversationAccentForeground":"oklch(0.9574 0.0071 267.38)","conversationFocusRing":"oklch(0.48 0.13 213.38)"}},
   "blue": {"id":"blue","dark":{"conversationAccent":"oklch(0.76 0.115 250)","conversationAccentForeground":"oklch(0.0697 0.0051 260.18)","conversationFocusRing":"oklch(0.76 0.115 250)"},"light":{"conversationAccent":"oklch(0.48 0.13 250)","conversationAccentForeground":"oklch(0.9574 0.0071 267.38)","conversationFocusRing":"oklch(0.48 0.13 250)"}},
@@ -1612,19 +1806,94 @@ export interface BackendHealth {
   protocolVersion: number;
 }
 
-export interface RuntimeInfrastructureProvider {
-  id: string;
-  displayName: string;
-  iconUrl: string;
+export interface RuntimeFeatureSet {
+  version: number;
+  features: string[];
+}
+
+export interface SettaReleaseDiagnostic {
+  status: DiagnosticStatus;
+  runtimeVersion: string;
+  metadataPresent: boolean;
+  metadataValid: boolean;
+  installedVersion: string;
+  reasonCode: string;
+}
+
+export interface CodexBinaryDiagnostic {
+  status: DiagnosticStatus;
+  command: string;
+  present: boolean;
+  reasonCode: string;
+}
+
+export interface CodexAuthenticationDiagnostic {
+  status: DiagnosticStatus;
+  accountStatus: string;
+  accountType: string;
+  requiresOpenaiAuth: boolean;
+  loginStatus: string;
+  reasonCode: string;
+}
+
+export interface CodexDiagnostic {
+  status: DiagnosticStatus;
+  binary: CodexBinaryDiagnostic;
+  authentication: CodexAuthenticationDiagnostic;
+}
+
+export interface WorkloadLeaseDiagnostic {
+  status: DiagnosticStatus;
+  configured: boolean;
+  leaseName: string;
+  active: boolean;
+  startedAt: string;
+  expiresAt: string;
+  reasonCode: string;
+}
+
+export interface PolicyDiagnostic {
+  status: DiagnosticStatus;
+  configured: boolean;
+  present: boolean;
+  schemaVersion: number;
+  ruleCount: number;
+  reasonCode: string;
+}
+
+export interface DiskSpaceDiagnostic {
+  status: DiagnosticStatus;
+  availableMib: number;
+  totalMib: number;
+  minimumFreeMib: number;
+  reasonCode: string;
+}
+
+export interface ProtectedStateDiagnostic {
+  status: DiagnosticStatus;
+  present: boolean;
+  directory: boolean;
+  ownerOnlyWritable: boolean;
+  reasonCode: string;
+}
+
+export interface RuntimeDiagnostics {
+  settaRelease: SettaReleaseDiagnostic;
+  codex: CodexDiagnostic;
+  workloadLease: WorkloadLeaseDiagnostic;
+  policy: PolicyDiagnostic;
+  diskSpace: DiskSpaceDiagnostic;
+  protectedState: ProtectedStateDiagnostic;
 }
 
 export interface RuntimeInfoResponse {
   runtimeId: string;
   displayName: string;
-  infrastructureProvider: RuntimeInfrastructureProvider;
   backendName: string;
   backendVersion: string;
   protocolVersion: number;
+  featureSet: RuntimeFeatureSet;
+  diagnostics: RuntimeDiagnostics;
 }
 
 export interface CompletePairingRequest {
@@ -1637,6 +1906,52 @@ export interface CompletePairingResponse {
   deviceToken: string;
   runtimeId: string;
   protocolVersion: number;
+}
+
+export interface EnrollRequest {
+  pairingToken: string;
+  clientDisplayName: string;
+}
+
+export interface RuntimeCredentialResponse {
+  deviceId: string;
+  runtimeId: string;
+  token: string;
+  expiresAt: string;
+}
+
+export interface EnrollResponse {
+  userId: string;
+  deviceId: string;
+  deviceSecret: string;
+  runtimeId: string;
+  protocolVersion: number;
+  runtimeCredential: RuntimeCredentialResponse;
+}
+
+export interface RefreshRequest {
+  deviceId: string;
+  deviceSecret: string;
+  runtimeId: string;
+}
+
+export interface SetupAttestationRequest {
+  setupId: string;
+  nonce: string;
+}
+
+export interface SetupAttestationResponse {
+  algorithm: string;
+  backendName: string;
+  runtimeId: string;
+  runtimeName: string;
+  setupId: string;
+  releaseVersion: string;
+  credentialEpoch: number;
+  featureSet: RuntimeFeatureSet;
+  nonce: string;
+  expiresAt: string;
+  attestation: string;
 }
 
 export interface UpdateRuntimeDisplayNameRequest {
@@ -3191,6 +3506,63 @@ export interface ErrorResponse {
   error: APIError;
 }
 
+export interface HostedAccessClient {
+  deviceId: string;
+  kind: HostedAccessClientKind;
+}
+
+export interface EnsureHostedAccessIntent {
+  idempotencyKey: string;
+  userId: string;
+  projectId: string;
+  workstreamId: string;
+  client: HostedAccessClient;
+  requestedCapabilities: HostedAccessCapability[];
+}
+
+export interface HostedAccessGrant {
+  deviceId: string;
+  projectId: string;
+  workstreamId: string;
+  grantedCapabilities: HostedAccessCapability[];
+  expiresAt: string;
+}
+
+export interface HostedAccessProgress {
+  intentId: string;
+  cursor: string;
+  state: HostedAccessProgressState;
+  reasonCode: HostedAccessReasonCode | null;
+  retryable: boolean;
+  occurredAt: string;
+  accessGrant: HostedAccessGrant | null;
+}
+
+export interface EnsureDeveloperHostedRuntimeRequest {
+  operationId: string;
+}
+
+export interface DestroyDeveloperHostedRuntimeRequest {
+  operationId: string;
+}
+
+export interface DeveloperHostedRuntimeStatus {
+  operationId: string;
+  cursor: string;
+  runtimeRegistryId: string | null;
+  operationKind: DeveloperHostedRuntimeOperationKind;
+  phase: DeveloperHostedRuntimePhase;
+  retryable: boolean;
+  reasonCode: DeveloperHostedRuntimeReasonCode | null;
+  occurredAt: string;
+  lastConnectedAt: string | null;
+  enforcedBudgetUsdMicros: number;
+  reportedUsageUsdMicros: number | null;
+  deletionScheduledAt: string;
+  automaticDeletionWhileOffline: boolean;
+  terminalOutcome: DeveloperHostedRuntimeTerminalOutcome | null;
+}
+
 export type ConversationEventPayload =
   ConversationUpdatedEventPayload
   | ConversationTurnUpdatedEventPayload
@@ -3220,6 +3592,21 @@ export const backendEndpoints = {
   CompletePairing: {
     method: "POST",
     path: "/pairing/complete",
+    requestBodyLimitBytes: 4194304,
+  },
+  LocalCredentialEnroll: {
+    method: "POST",
+    path: "/local-credentials/enroll",
+    requestBodyLimitBytes: 4194304,
+  },
+  LocalCredentialRefresh: {
+    method: "POST",
+    path: "/local-credentials/refresh",
+    requestBodyLimitBytes: 4194304,
+  },
+  SetupAttestation: {
+    method: "POST",
+    path: "/setup/attestation",
     requestBodyLimitBytes: 4194304,
   },
   UpdateRuntimeDisplayName: {
@@ -3482,26 +3869,137 @@ export function decodeBackendHealth(value: unknown): BackendHealth {
   };
 }
 
-export function decodeRuntimeInfrastructureProvider(value: unknown): RuntimeInfrastructureProvider {
-  const record = assertRecord(value, "RuntimeInfrastructureProvider");
-  assertKnownFields(record, "RuntimeInfrastructureProvider", ["id", "displayName", "iconUrl"]);
+export function decodeRuntimeFeatureSet(value: unknown): RuntimeFeatureSet {
+  const record = assertRecord(value, "RuntimeFeatureSet");
+  assertKnownFields(record, "RuntimeFeatureSet", ["version", "features"]);
   return {
-    id: decodeString(requireField(record, "id", "RuntimeInfrastructureProvider"), "RuntimeInfrastructureProvider.id"),
-    displayName: decodeString(requireField(record, "displayName", "RuntimeInfrastructureProvider"), "RuntimeInfrastructureProvider.displayName"),
-    iconUrl: decodeString(requireField(record, "iconUrl", "RuntimeInfrastructureProvider"), "RuntimeInfrastructureProvider.iconUrl"),
+    version: decodeInteger(requireField(record, "version", "RuntimeFeatureSet"), "RuntimeFeatureSet.version"),
+    features: decodeArray(requireField(record, "features", "RuntimeFeatureSet"), "RuntimeFeatureSet.features", (item) => decodeString(item, "RuntimeFeatureSet.features item")),
+  };
+}
+
+export function decodeSettaReleaseDiagnostic(value: unknown): SettaReleaseDiagnostic {
+  const record = assertRecord(value, "SettaReleaseDiagnostic");
+  assertKnownFields(record, "SettaReleaseDiagnostic", ["status", "runtimeVersion", "metadataPresent", "metadataValid", "installedVersion", "reasonCode"]);
+  return {
+    status: decodeDiagnosticStatus(requireField(record, "status", "SettaReleaseDiagnostic"), "SettaReleaseDiagnostic.status"),
+    runtimeVersion: decodeString(requireField(record, "runtimeVersion", "SettaReleaseDiagnostic"), "SettaReleaseDiagnostic.runtimeVersion"),
+    metadataPresent: decodeBoolean(requireField(record, "metadataPresent", "SettaReleaseDiagnostic"), "SettaReleaseDiagnostic.metadataPresent"),
+    metadataValid: decodeBoolean(requireField(record, "metadataValid", "SettaReleaseDiagnostic"), "SettaReleaseDiagnostic.metadataValid"),
+    installedVersion: decodeString(requireField(record, "installedVersion", "SettaReleaseDiagnostic"), "SettaReleaseDiagnostic.installedVersion"),
+    reasonCode: decodeString(requireField(record, "reasonCode", "SettaReleaseDiagnostic"), "SettaReleaseDiagnostic.reasonCode"),
+  };
+}
+
+export function decodeCodexBinaryDiagnostic(value: unknown): CodexBinaryDiagnostic {
+  const record = assertRecord(value, "CodexBinaryDiagnostic");
+  assertKnownFields(record, "CodexBinaryDiagnostic", ["status", "command", "present", "reasonCode"]);
+  return {
+    status: decodeDiagnosticStatus(requireField(record, "status", "CodexBinaryDiagnostic"), "CodexBinaryDiagnostic.status"),
+    command: decodeString(requireField(record, "command", "CodexBinaryDiagnostic"), "CodexBinaryDiagnostic.command"),
+    present: decodeBoolean(requireField(record, "present", "CodexBinaryDiagnostic"), "CodexBinaryDiagnostic.present"),
+    reasonCode: decodeString(requireField(record, "reasonCode", "CodexBinaryDiagnostic"), "CodexBinaryDiagnostic.reasonCode"),
+  };
+}
+
+export function decodeCodexAuthenticationDiagnostic(value: unknown): CodexAuthenticationDiagnostic {
+  const record = assertRecord(value, "CodexAuthenticationDiagnostic");
+  assertKnownFields(record, "CodexAuthenticationDiagnostic", ["status", "accountStatus", "accountType", "requiresOpenaiAuth", "loginStatus", "reasonCode"]);
+  return {
+    status: decodeDiagnosticStatus(requireField(record, "status", "CodexAuthenticationDiagnostic"), "CodexAuthenticationDiagnostic.status"),
+    accountStatus: decodeString(requireField(record, "accountStatus", "CodexAuthenticationDiagnostic"), "CodexAuthenticationDiagnostic.accountStatus"),
+    accountType: decodeString(requireField(record, "accountType", "CodexAuthenticationDiagnostic"), "CodexAuthenticationDiagnostic.accountType"),
+    requiresOpenaiAuth: decodeBoolean(requireField(record, "requiresOpenaiAuth", "CodexAuthenticationDiagnostic"), "CodexAuthenticationDiagnostic.requiresOpenaiAuth"),
+    loginStatus: decodeString(requireField(record, "loginStatus", "CodexAuthenticationDiagnostic"), "CodexAuthenticationDiagnostic.loginStatus"),
+    reasonCode: decodeString(requireField(record, "reasonCode", "CodexAuthenticationDiagnostic"), "CodexAuthenticationDiagnostic.reasonCode"),
+  };
+}
+
+export function decodeCodexDiagnostic(value: unknown): CodexDiagnostic {
+  const record = assertRecord(value, "CodexDiagnostic");
+  assertKnownFields(record, "CodexDiagnostic", ["status", "binary", "authentication"]);
+  return {
+    status: decodeDiagnosticStatus(requireField(record, "status", "CodexDiagnostic"), "CodexDiagnostic.status"),
+    binary: decodeCodexBinaryDiagnostic(requireField(record, "binary", "CodexDiagnostic")),
+    authentication: decodeCodexAuthenticationDiagnostic(requireField(record, "authentication", "CodexDiagnostic")),
+  };
+}
+
+export function decodeWorkloadLeaseDiagnostic(value: unknown): WorkloadLeaseDiagnostic {
+  const record = assertRecord(value, "WorkloadLeaseDiagnostic");
+  assertKnownFields(record, "WorkloadLeaseDiagnostic", ["status", "configured", "leaseName", "active", "startedAt", "expiresAt", "reasonCode"]);
+  return {
+    status: decodeDiagnosticStatus(requireField(record, "status", "WorkloadLeaseDiagnostic"), "WorkloadLeaseDiagnostic.status"),
+    configured: decodeBoolean(requireField(record, "configured", "WorkloadLeaseDiagnostic"), "WorkloadLeaseDiagnostic.configured"),
+    leaseName: decodeString(requireField(record, "leaseName", "WorkloadLeaseDiagnostic"), "WorkloadLeaseDiagnostic.leaseName"),
+    active: decodeBoolean(requireField(record, "active", "WorkloadLeaseDiagnostic"), "WorkloadLeaseDiagnostic.active"),
+    startedAt: decodeString(requireField(record, "startedAt", "WorkloadLeaseDiagnostic"), "WorkloadLeaseDiagnostic.startedAt"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "WorkloadLeaseDiagnostic"), "WorkloadLeaseDiagnostic.expiresAt"),
+    reasonCode: decodeString(requireField(record, "reasonCode", "WorkloadLeaseDiagnostic"), "WorkloadLeaseDiagnostic.reasonCode"),
+  };
+}
+
+export function decodePolicyDiagnostic(value: unknown): PolicyDiagnostic {
+  const record = assertRecord(value, "PolicyDiagnostic");
+  assertKnownFields(record, "PolicyDiagnostic", ["status", "configured", "present", "schemaVersion", "ruleCount", "reasonCode"]);
+  return {
+    status: decodeDiagnosticStatus(requireField(record, "status", "PolicyDiagnostic"), "PolicyDiagnostic.status"),
+    configured: decodeBoolean(requireField(record, "configured", "PolicyDiagnostic"), "PolicyDiagnostic.configured"),
+    present: decodeBoolean(requireField(record, "present", "PolicyDiagnostic"), "PolicyDiagnostic.present"),
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "PolicyDiagnostic"), "PolicyDiagnostic.schemaVersion"),
+    ruleCount: decodeInteger(requireField(record, "ruleCount", "PolicyDiagnostic"), "PolicyDiagnostic.ruleCount"),
+    reasonCode: decodeString(requireField(record, "reasonCode", "PolicyDiagnostic"), "PolicyDiagnostic.reasonCode"),
+  };
+}
+
+export function decodeDiskSpaceDiagnostic(value: unknown): DiskSpaceDiagnostic {
+  const record = assertRecord(value, "DiskSpaceDiagnostic");
+  assertKnownFields(record, "DiskSpaceDiagnostic", ["status", "availableMib", "totalMib", "minimumFreeMib", "reasonCode"]);
+  return {
+    status: decodeDiagnosticStatus(requireField(record, "status", "DiskSpaceDiagnostic"), "DiskSpaceDiagnostic.status"),
+    availableMib: decodeInteger(requireField(record, "availableMib", "DiskSpaceDiagnostic"), "DiskSpaceDiagnostic.availableMib"),
+    totalMib: decodeInteger(requireField(record, "totalMib", "DiskSpaceDiagnostic"), "DiskSpaceDiagnostic.totalMib"),
+    minimumFreeMib: decodeInteger(requireField(record, "minimumFreeMib", "DiskSpaceDiagnostic"), "DiskSpaceDiagnostic.minimumFreeMib"),
+    reasonCode: decodeString(requireField(record, "reasonCode", "DiskSpaceDiagnostic"), "DiskSpaceDiagnostic.reasonCode"),
+  };
+}
+
+export function decodeProtectedStateDiagnostic(value: unknown): ProtectedStateDiagnostic {
+  const record = assertRecord(value, "ProtectedStateDiagnostic");
+  assertKnownFields(record, "ProtectedStateDiagnostic", ["status", "present", "directory", "ownerOnlyWritable", "reasonCode"]);
+  return {
+    status: decodeDiagnosticStatus(requireField(record, "status", "ProtectedStateDiagnostic"), "ProtectedStateDiagnostic.status"),
+    present: decodeBoolean(requireField(record, "present", "ProtectedStateDiagnostic"), "ProtectedStateDiagnostic.present"),
+    directory: decodeBoolean(requireField(record, "directory", "ProtectedStateDiagnostic"), "ProtectedStateDiagnostic.directory"),
+    ownerOnlyWritable: decodeBoolean(requireField(record, "ownerOnlyWritable", "ProtectedStateDiagnostic"), "ProtectedStateDiagnostic.ownerOnlyWritable"),
+    reasonCode: decodeString(requireField(record, "reasonCode", "ProtectedStateDiagnostic"), "ProtectedStateDiagnostic.reasonCode"),
+  };
+}
+
+export function decodeRuntimeDiagnostics(value: unknown): RuntimeDiagnostics {
+  const record = assertRecord(value, "RuntimeDiagnostics");
+  assertKnownFields(record, "RuntimeDiagnostics", ["settaRelease", "codex", "workloadLease", "policy", "diskSpace", "protectedState"]);
+  return {
+    settaRelease: decodeSettaReleaseDiagnostic(requireField(record, "settaRelease", "RuntimeDiagnostics")),
+    codex: decodeCodexDiagnostic(requireField(record, "codex", "RuntimeDiagnostics")),
+    workloadLease: decodeWorkloadLeaseDiagnostic(requireField(record, "workloadLease", "RuntimeDiagnostics")),
+    policy: decodePolicyDiagnostic(requireField(record, "policy", "RuntimeDiagnostics")),
+    diskSpace: decodeDiskSpaceDiagnostic(requireField(record, "diskSpace", "RuntimeDiagnostics")),
+    protectedState: decodeProtectedStateDiagnostic(requireField(record, "protectedState", "RuntimeDiagnostics")),
   };
 }
 
 export function decodeRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
   const record = assertRecord(value, "RuntimeInfoResponse");
-  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "infrastructureProvider", "backendName", "backendVersion", "protocolVersion"]);
+  assertKnownFields(record, "RuntimeInfoResponse", ["runtimeId", "displayName", "backendName", "backendVersion", "protocolVersion", "featureSet", "diagnostics"]);
   return {
     runtimeId: decodeString(requireField(record, "runtimeId", "RuntimeInfoResponse"), "RuntimeInfoResponse.runtimeId"),
     displayName: decodeString(requireField(record, "displayName", "RuntimeInfoResponse"), "RuntimeInfoResponse.displayName"),
-    infrastructureProvider: decodeRuntimeInfrastructureProvider(requireField(record, "infrastructureProvider", "RuntimeInfoResponse")),
     backendName: decodeString(requireField(record, "backendName", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendName"),
     backendVersion: decodeString(requireField(record, "backendVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.backendVersion"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "RuntimeInfoResponse"), "RuntimeInfoResponse.protocolVersion"),
+    featureSet: decodeRuntimeFeatureSet(requireField(record, "featureSet", "RuntimeInfoResponse")),
+    diagnostics: decodeRuntimeDiagnostics(requireField(record, "diagnostics", "RuntimeInfoResponse")),
   };
 }
 
@@ -3522,6 +4020,76 @@ export function decodeCompletePairingResponse(value: unknown): CompletePairingRe
     deviceToken: decodeString(requireField(record, "deviceToken", "CompletePairingResponse"), "CompletePairingResponse.deviceToken"),
     runtimeId: decodeString(requireField(record, "runtimeId", "CompletePairingResponse"), "CompletePairingResponse.runtimeId"),
     protocolVersion: decodeInteger(requireField(record, "protocolVersion", "CompletePairingResponse"), "CompletePairingResponse.protocolVersion"),
+  };
+}
+
+export function decodeEnrollRequest(value: unknown): EnrollRequest {
+  const record = assertRecord(value, "EnrollRequest");
+  assertKnownFields(record, "EnrollRequest", ["pairingToken", "clientDisplayName"]);
+  return {
+    pairingToken: decodeString(requireField(record, "pairingToken", "EnrollRequest"), "EnrollRequest.pairingToken"),
+    clientDisplayName: decodeString(requireField(record, "clientDisplayName", "EnrollRequest"), "EnrollRequest.clientDisplayName"),
+  };
+}
+
+export function decodeRuntimeCredentialResponse(value: unknown): RuntimeCredentialResponse {
+  const record = assertRecord(value, "RuntimeCredentialResponse");
+  assertKnownFields(record, "RuntimeCredentialResponse", ["deviceId", "runtimeId", "token", "expiresAt"]);
+  return {
+    deviceId: decodeString(requireField(record, "deviceId", "RuntimeCredentialResponse"), "RuntimeCredentialResponse.deviceId"),
+    runtimeId: decodeString(requireField(record, "runtimeId", "RuntimeCredentialResponse"), "RuntimeCredentialResponse.runtimeId"),
+    token: decodeString(requireField(record, "token", "RuntimeCredentialResponse"), "RuntimeCredentialResponse.token"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "RuntimeCredentialResponse"), "RuntimeCredentialResponse.expiresAt"),
+  };
+}
+
+export function decodeEnrollResponse(value: unknown): EnrollResponse {
+  const record = assertRecord(value, "EnrollResponse");
+  assertKnownFields(record, "EnrollResponse", ["userId", "deviceId", "deviceSecret", "runtimeId", "protocolVersion", "runtimeCredential"]);
+  return {
+    userId: decodeString(requireField(record, "userId", "EnrollResponse"), "EnrollResponse.userId"),
+    deviceId: decodeString(requireField(record, "deviceId", "EnrollResponse"), "EnrollResponse.deviceId"),
+    deviceSecret: decodeString(requireField(record, "deviceSecret", "EnrollResponse"), "EnrollResponse.deviceSecret"),
+    runtimeId: decodeString(requireField(record, "runtimeId", "EnrollResponse"), "EnrollResponse.runtimeId"),
+    protocolVersion: decodeInteger(requireField(record, "protocolVersion", "EnrollResponse"), "EnrollResponse.protocolVersion"),
+    runtimeCredential: decodeRuntimeCredentialResponse(requireField(record, "runtimeCredential", "EnrollResponse")),
+  };
+}
+
+export function decodeRefreshRequest(value: unknown): RefreshRequest {
+  const record = assertRecord(value, "RefreshRequest");
+  assertKnownFields(record, "RefreshRequest", ["deviceId", "deviceSecret", "runtimeId"]);
+  return {
+    deviceId: decodeString(requireField(record, "deviceId", "RefreshRequest"), "RefreshRequest.deviceId"),
+    deviceSecret: decodeString(requireField(record, "deviceSecret", "RefreshRequest"), "RefreshRequest.deviceSecret"),
+    runtimeId: decodeString(requireField(record, "runtimeId", "RefreshRequest"), "RefreshRequest.runtimeId"),
+  };
+}
+
+export function decodeSetupAttestationRequest(value: unknown): SetupAttestationRequest {
+  const record = assertRecord(value, "SetupAttestationRequest");
+  assertKnownFields(record, "SetupAttestationRequest", ["setupId", "nonce"]);
+  return {
+    setupId: decodeString(requireField(record, "setupId", "SetupAttestationRequest"), "SetupAttestationRequest.setupId"),
+    nonce: decodeString(requireField(record, "nonce", "SetupAttestationRequest"), "SetupAttestationRequest.nonce"),
+  };
+}
+
+export function decodeSetupAttestationResponse(value: unknown): SetupAttestationResponse {
+  const record = assertRecord(value, "SetupAttestationResponse");
+  assertKnownFields(record, "SetupAttestationResponse", ["algorithm", "backendName", "runtimeId", "runtimeName", "setupId", "releaseVersion", "credentialEpoch", "featureSet", "nonce", "expiresAt", "attestation"]);
+  return {
+    algorithm: decodeString(requireField(record, "algorithm", "SetupAttestationResponse"), "SetupAttestationResponse.algorithm"),
+    backendName: decodeString(requireField(record, "backendName", "SetupAttestationResponse"), "SetupAttestationResponse.backendName"),
+    runtimeId: decodeString(requireField(record, "runtimeId", "SetupAttestationResponse"), "SetupAttestationResponse.runtimeId"),
+    runtimeName: decodeString(requireField(record, "runtimeName", "SetupAttestationResponse"), "SetupAttestationResponse.runtimeName"),
+    setupId: decodeString(requireField(record, "setupId", "SetupAttestationResponse"), "SetupAttestationResponse.setupId"),
+    releaseVersion: decodeString(requireField(record, "releaseVersion", "SetupAttestationResponse"), "SetupAttestationResponse.releaseVersion"),
+    credentialEpoch: decodeInteger(requireField(record, "credentialEpoch", "SetupAttestationResponse"), "SetupAttestationResponse.credentialEpoch"),
+    featureSet: decodeRuntimeFeatureSet(requireField(record, "featureSet", "SetupAttestationResponse")),
+    nonce: decodeString(requireField(record, "nonce", "SetupAttestationResponse"), "SetupAttestationResponse.nonce"),
+    expiresAt: decodeString(requireField(record, "expiresAt", "SetupAttestationResponse"), "SetupAttestationResponse.expiresAt"),
+    attestation: decodeString(requireField(record, "attestation", "SetupAttestationResponse"), "SetupAttestationResponse.attestation"),
   };
 }
 
@@ -6190,6 +6758,91 @@ export function decodeErrorResponse(value: unknown): ErrorResponse {
   };
 }
 
+export function decodeHostedAccessClient(value: unknown): HostedAccessClient {
+  const record = assertRecord(value, "HostedAccessClient");
+  assertKnownFields(record, "HostedAccessClient", ["deviceId", "kind"]);
+  return {
+    deviceId: decodeString(requireField(record, "deviceId", "HostedAccessClient"), "HostedAccessClient.deviceId"),
+    kind: decodeHostedAccessClientKind(requireField(record, "kind", "HostedAccessClient"), "HostedAccessClient.kind"),
+  };
+}
+
+export function decodeEnsureHostedAccessIntent(value: unknown): EnsureHostedAccessIntent {
+  const record = assertRecord(value, "EnsureHostedAccessIntent");
+  assertKnownFields(record, "EnsureHostedAccessIntent", ["idempotencyKey", "userId", "projectId", "workstreamId", "client", "requestedCapabilities"]);
+  return {
+    idempotencyKey: decodeString(requireField(record, "idempotencyKey", "EnsureHostedAccessIntent"), "EnsureHostedAccessIntent.idempotencyKey"),
+    userId: decodeString(requireField(record, "userId", "EnsureHostedAccessIntent"), "EnsureHostedAccessIntent.userId"),
+    projectId: decodeString(requireField(record, "projectId", "EnsureHostedAccessIntent"), "EnsureHostedAccessIntent.projectId"),
+    workstreamId: decodeString(requireField(record, "workstreamId", "EnsureHostedAccessIntent"), "EnsureHostedAccessIntent.workstreamId"),
+    client: decodeHostedAccessClient(requireField(record, "client", "EnsureHostedAccessIntent")),
+    requestedCapabilities: decodeArray(requireField(record, "requestedCapabilities", "EnsureHostedAccessIntent"), "EnsureHostedAccessIntent.requestedCapabilities", (item) => decodeHostedAccessCapability(item, "EnsureHostedAccessIntent.requestedCapabilities item")),
+  };
+}
+
+export function decodeHostedAccessGrant(value: unknown): HostedAccessGrant {
+  const record = assertRecord(value, "HostedAccessGrant");
+  assertKnownFields(record, "HostedAccessGrant", ["deviceId", "projectId", "workstreamId", "grantedCapabilities", "expiresAt"]);
+  return {
+    deviceId: decodeString(requireField(record, "deviceId", "HostedAccessGrant"), "HostedAccessGrant.deviceId"),
+    projectId: decodeString(requireField(record, "projectId", "HostedAccessGrant"), "HostedAccessGrant.projectId"),
+    workstreamId: decodeString(requireField(record, "workstreamId", "HostedAccessGrant"), "HostedAccessGrant.workstreamId"),
+    grantedCapabilities: decodeArray(requireField(record, "grantedCapabilities", "HostedAccessGrant"), "HostedAccessGrant.grantedCapabilities", (item) => decodeHostedAccessCapability(item, "HostedAccessGrant.grantedCapabilities item")),
+    expiresAt: decodeString(requireField(record, "expiresAt", "HostedAccessGrant"), "HostedAccessGrant.expiresAt"),
+  };
+}
+
+export function decodeHostedAccessProgress(value: unknown): HostedAccessProgress {
+  const record = assertRecord(value, "HostedAccessProgress");
+  assertKnownFields(record, "HostedAccessProgress", ["intentId", "cursor", "state", "reasonCode", "retryable", "occurredAt", "accessGrant"]);
+  return {
+    intentId: decodeString(requireField(record, "intentId", "HostedAccessProgress"), "HostedAccessProgress.intentId"),
+    cursor: decodeString(requireField(record, "cursor", "HostedAccessProgress"), "HostedAccessProgress.cursor"),
+    state: decodeHostedAccessProgressState(requireField(record, "state", "HostedAccessProgress"), "HostedAccessProgress.state"),
+    reasonCode: decodeNullable(requireField(record, "reasonCode", "HostedAccessProgress"), "HostedAccessProgress.reasonCode", (item) => decodeHostedAccessReasonCode(item, "HostedAccessProgress.reasonCode")),
+    retryable: decodeBoolean(requireField(record, "retryable", "HostedAccessProgress"), "HostedAccessProgress.retryable"),
+    occurredAt: decodeString(requireField(record, "occurredAt", "HostedAccessProgress"), "HostedAccessProgress.occurredAt"),
+    accessGrant: decodeNullable(requireField(record, "accessGrant", "HostedAccessProgress"), "HostedAccessProgress.accessGrant", (item) => decodeHostedAccessGrant(item)),
+  };
+}
+
+export function decodeEnsureDeveloperHostedRuntimeRequest(value: unknown): EnsureDeveloperHostedRuntimeRequest {
+  const record = assertRecord(value, "EnsureDeveloperHostedRuntimeRequest");
+  assertKnownFields(record, "EnsureDeveloperHostedRuntimeRequest", ["operationId"]);
+  return {
+    operationId: decodeString(requireField(record, "operationId", "EnsureDeveloperHostedRuntimeRequest"), "EnsureDeveloperHostedRuntimeRequest.operationId"),
+  };
+}
+
+export function decodeDestroyDeveloperHostedRuntimeRequest(value: unknown): DestroyDeveloperHostedRuntimeRequest {
+  const record = assertRecord(value, "DestroyDeveloperHostedRuntimeRequest");
+  assertKnownFields(record, "DestroyDeveloperHostedRuntimeRequest", ["operationId"]);
+  return {
+    operationId: decodeString(requireField(record, "operationId", "DestroyDeveloperHostedRuntimeRequest"), "DestroyDeveloperHostedRuntimeRequest.operationId"),
+  };
+}
+
+export function decodeDeveloperHostedRuntimeStatus(value: unknown): DeveloperHostedRuntimeStatus {
+  const record = assertRecord(value, "DeveloperHostedRuntimeStatus");
+  assertKnownFields(record, "DeveloperHostedRuntimeStatus", ["operationId", "cursor", "runtimeRegistryId", "operationKind", "phase", "retryable", "reasonCode", "occurredAt", "lastConnectedAt", "enforcedBudgetUsdMicros", "reportedUsageUsdMicros", "deletionScheduledAt", "automaticDeletionWhileOffline", "terminalOutcome"]);
+  return {
+    operationId: decodeString(requireField(record, "operationId", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.operationId"),
+    cursor: decodeString(requireField(record, "cursor", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.cursor"),
+    runtimeRegistryId: decodeNullable(requireField(record, "runtimeRegistryId", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.runtimeRegistryId", (item) => decodeString(item, "DeveloperHostedRuntimeStatus.runtimeRegistryId")),
+    operationKind: decodeDeveloperHostedRuntimeOperationKind(requireField(record, "operationKind", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.operationKind"),
+    phase: decodeDeveloperHostedRuntimePhase(requireField(record, "phase", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.phase"),
+    retryable: decodeBoolean(requireField(record, "retryable", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.retryable"),
+    reasonCode: decodeNullable(requireField(record, "reasonCode", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.reasonCode", (item) => decodeDeveloperHostedRuntimeReasonCode(item, "DeveloperHostedRuntimeStatus.reasonCode")),
+    occurredAt: decodeString(requireField(record, "occurredAt", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.occurredAt"),
+    lastConnectedAt: decodeNullable(requireField(record, "lastConnectedAt", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.lastConnectedAt", (item) => decodeString(item, "DeveloperHostedRuntimeStatus.lastConnectedAt")),
+    enforcedBudgetUsdMicros: decodeInteger(requireField(record, "enforcedBudgetUsdMicros", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.enforcedBudgetUsdMicros"),
+    reportedUsageUsdMicros: decodeNullable(requireField(record, "reportedUsageUsdMicros", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.reportedUsageUsdMicros", (item) => decodeInteger(item, "DeveloperHostedRuntimeStatus.reportedUsageUsdMicros")),
+    deletionScheduledAt: decodeString(requireField(record, "deletionScheduledAt", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.deletionScheduledAt"),
+    automaticDeletionWhileOffline: decodeBoolean(requireField(record, "automaticDeletionWhileOffline", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.automaticDeletionWhileOffline"),
+    terminalOutcome: decodeNullable(requireField(record, "terminalOutcome", "DeveloperHostedRuntimeStatus"), "DeveloperHostedRuntimeStatus.terminalOutcome", (item) => decodeDeveloperHostedRuntimeTerminalOutcome(item, "DeveloperHostedRuntimeStatus.terminalOutcome")),
+  };
+}
+
 export function decodeConversationEventPayload(value: unknown): ConversationEventPayload {
   const record = assertRecord(value, "ConversationEventPayload");
   const discriminator = decodeString(requireField(record, "type", "ConversationEventPayload"), "ConversationEventPayload.type");
@@ -6231,6 +6884,9 @@ export interface BackendClient {
   backendHealth: (options?: BackendRequestOptions) => Promise<BackendHealth>;
   runtimeInfo: (options?: BackendRequestOptions) => Promise<RuntimeInfoResponse>;
   completePairing: (request: CompletePairingRequest, options?: BackendRequestOptions) => Promise<CompletePairingResponse>;
+  localCredentialEnroll: (request: EnrollRequest, options?: BackendRequestOptions) => Promise<EnrollResponse>;
+  localCredentialRefresh: (request: RefreshRequest, options?: BackendRequestOptions) => Promise<RuntimeCredentialResponse>;
+  setupAttestation: (request: SetupAttestationRequest, options?: BackendRequestOptions) => Promise<SetupAttestationResponse>;
   updateRuntimeDisplayName: (request: UpdateRuntimeDisplayNameRequest, options?: BackendRequestOptions) => Promise<RuntimeInfoResponse>;
   listDevices: (request: ListDevicesRequest, options?: BackendRequestOptions) => Promise<ListDevicesResponse>;
   revokeDevice: (request: RevokeDeviceRequest, options?: BackendRequestOptions) => Promise<RevokeDeviceResponse>;
@@ -6307,6 +6963,33 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeCompletePairingResponse,
       endpoint: backendEndpoints.CompletePairing,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    localCredentialEnroll: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeEnrollResponse,
+      endpoint: backendEndpoints.LocalCredentialEnroll,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    localCredentialRefresh: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRuntimeCredentialResponse,
+      endpoint: backendEndpoints.LocalCredentialRefresh,
+      fetchImpl,
+      requestPayload: request,
+      signal: options?.signal,
+    }),
+    setupAttestation: (request, options) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSetupAttestationResponse,
+      endpoint: backendEndpoints.SetupAttestation,
       fetchImpl,
       requestPayload: request,
       signal: options?.signal,

@@ -39,6 +39,7 @@ describe("preload runtime API", () => {
     expect(Object.keys(api.runtimes).sort()).toEqual([
       "addByPairingUrl",
       "current",
+      "currentRuntimeCredential",
       "list",
       "onConnectionState",
       "remove",
@@ -46,6 +47,7 @@ describe("preload runtime API", () => {
     ]);
 
     await api.runtimes.current();
+    await api.runtimes.currentRuntimeCredential();
     await api.runtimes.list();
     await api.runtimes.addByPairingUrl("setta://pair?rt=runtime_remote&tok=tok&url=http://host");
     await api.runtimes.switch("runtime_remote");
@@ -62,6 +64,7 @@ describe("preload runtime API", () => {
 
     expect(invoke.mock.calls).toEqual([
       [ipcChannels.runtimeCurrent],
+      [ipcChannels.runtimeCurrentCredential],
       [ipcChannels.runtimeList],
       [
         ipcChannels.runtimeAddByPairingUrl,
@@ -93,13 +96,9 @@ function runtimeSnapshot() {
         connectionMessage: "Connected to Remote",
         connectionStatus: "connected",
         displayName: "Remote",
-        infrastructureProvider: {
-          displayName: "Unknown provider",
-          iconUrl: "",
-          id: "unknown",
-        },
         isLocal: false,
         lastConnected: "2026-07-02T12:00:00Z",
+        managedHosted: false,
         runtimeId: "runtime_remote",
       },
     ],

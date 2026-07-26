@@ -1,10 +1,7 @@
 import {
   backendEndpoints,
-  backendProtocolVersion,
-  decodeCompletePairingResponse,
   decodeErrorResponse,
   decodeRuntimeInfoResponse,
-  type CompletePairingResponse,
   type RuntimeInfoResponse,
 } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
@@ -56,17 +53,6 @@ class RuntimeHTTPError extends Error {
   }
 }
 
-const supportedRuntimeProtocol = {
-  max: backendProtocolVersion,
-  min: backendProtocolVersion,
-} as const;
-
-const unknownRuntimeInfrastructureProvider = {
-  displayName: "Unknown provider",
-  iconUrl: "",
-  id: "unknown",
-} satisfies RuntimeInfoResponse["infrastructureProvider"];
-
 export function parsePairingURL(rawURL: string): ParsedPairingURL {
   let parsed: URL;
   try {
@@ -100,9 +86,18 @@ export async function fetchRuntimeInfo(
   baseUrl: string,
   fetchImpl: BackendFetch,
 ): Promise<RuntimeInfoResponse> {
+  return fetchRuntimeInfoRequest(baseUrl, fetchImpl);
+}
+
+async function fetchRuntimeInfoRequest(
+  baseUrl: string,
+  fetchImpl: BackendFetch,
+  authToken?: string,
+): Promise<RuntimeInfoResponse> {
   try {
-    return decodeCompatibleRuntimeInfoResponse(
+    return decodeRuntimeInfoResponse(
       await requestRuntimeJSON({
+        authToken,
         baseUrl,
         endpoint: backendEndpoints.RuntimeInfo,
         fetchImpl,
@@ -119,73 +114,14 @@ export async function fetchRuntimeInfo(
   }
 }
 
-function decodeCompatibleRuntimeInfoResponse(value: unknown): RuntimeInfoResponse {
-  return decodeRuntimeInfoResponse(runtimeInfoResponseWithProviderFallback(value));
-}
-
-function runtimeInfoResponseWithProviderFallback(value: unknown): unknown {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return value;
-  }
-  if ("infrastructureProvider" in value) {
-    return value;
-  }
-  return {
-    ...value,
-    infrastructureProvider: unknownRuntimeInfrastructureProvider,
-  };
-}
-
-export async function completePairing(
-  parsed: ParsedPairingURL,
-  clientDisplayName: string,
-  fetchImpl: BackendFetch,
-): Promise<CompletePairingResponse> {
-  let response: CompletePairingResponse;
-  try {
-    response = decodeCompletePairingResponse(
-      await requestRuntimeJSON({
-        baseUrl: parsed.baseUrl,
-        endpoint: backendEndpoints.CompletePairing,
-        fetchImpl,
-        requestPayload: {
-          clientDisplayName,
-          pairingToken: parsed.pairingToken,
-        },
-      }),
-    );
-  } catch (error) {
-    if (
-      error instanceof RuntimeHTTPError &&
-      error.status === 401 &&
-      error.code === "invalid_pairing_token"
-    ) {
-      throw new RuntimePairingError(
-        "invalid_pairing_token",
-        "pairing token is invalid, expired, or already used",
-      );
-    }
-    if (error instanceof RuntimeHTTPError) {
-      throw new RuntimePairingError("unreachable", error.message);
-    }
-    throw new RuntimePairingError("unreachable", `runtime is unreachable: ${errorMessage(error)}`);
-  }
-  if (response.runtimeId !== parsed.runtimeId) {
-    throw new RuntimePairingError(
-      "runtime_id_mismatch",
-      `pairing response runtime_id ${response.runtimeId} does not match URL runtime_id ${parsed.runtimeId}`,
-    );
-  }
-  return response;
-}
-
 export async function verifyRuntimeConnection(options: {
+  authToken: string;
   baseUrl: string;
-  deviceToken: string;
+  expectedProtocolVersion: number;
   expectedRuntimeId: string;
   fetchImpl: BackendFetch;
 }): Promise<RuntimeInfoResponse> {
-  const info = await fetchRuntimeInfo(options.baseUrl, options.fetchImpl);
+  const info = await fetchRuntimeInfoRequest(options.baseUrl, options.fetchImpl, options.authToken);
   if (info.runtimeId !== options.expectedRuntimeId) {
     throw new RuntimeConnectionError(
       "mismatched",
@@ -196,27 +132,19 @@ export async function verifyRuntimeConnection(options: {
       },
     );
   }
-  if (!runtimeProtocolSupported(info.protocolVersion)) {
+  if (info.protocolVersion !== options.expectedProtocolVersion) {
     throw new RuntimeConnectionError(
       "incompatible",
-      `runtime protocol ${info.protocolVersion} is outside the supported range ${supportedRuntimeProtocol.min}-${supportedRuntimeProtocol.max}`,
+      `runtime protocol ${info.protocolVersion} does not match enrolled protocol ${options.expectedProtocolVersion}`,
       {
         protocolVersion: info.protocolVersion,
-        supportedMax: supportedRuntimeProtocol.max,
-        supportedMin: supportedRuntimeProtocol.min,
+        supportedMax: options.expectedProtocolVersion,
+        supportedMin: options.expectedProtocolVersion,
       },
     );
   }
-  await verifyDeviceToken(options.baseUrl, options.deviceToken, options.fetchImpl);
+  await verifyRuntimeCredential(options.baseUrl, options.authToken, options.fetchImpl);
   return info;
-}
-
-function runtimeProtocolSupported(protocolVersion: number): boolean {
-  return (
-    Number.isInteger(protocolVersion) &&
-    protocolVersion >= supportedRuntimeProtocol.min &&
-    protocolVersion <= supportedRuntimeProtocol.max
-  );
 }
 
 function parseRuntimeBaseURL(rawURL: string): URL {
@@ -260,14 +188,14 @@ function requireRuntimeURLOriginOnly(parsed: URL): void {
   }
 }
 
-async function verifyDeviceToken(
+async function verifyRuntimeCredential(
   baseUrl: string,
-  deviceToken: string,
+  authToken: string,
   fetchImpl: BackendFetch,
 ): Promise<void> {
   try {
     await requestRuntimeJSON({
-      authToken: deviceToken,
+      authToken,
       baseUrl,
       endpoint: backendEndpoints.ListDevices,
       fetchImpl,
@@ -283,7 +211,7 @@ async function verifyDeviceToken(
     if (error instanceof RuntimeHTTPError) {
       throw new RuntimeConnectionError(
         "unreachable",
-        `runtime token verification returned HTTP ${error.status}: ${error.message}`,
+        `runtime credential verification returned HTTP ${error.status}: ${error.message}`,
       );
     }
     throw unreachableConnectionError(baseUrl, error);

@@ -218,6 +218,9 @@ func applyUnexpectedTurnOutcome(
 }
 
 func unexpectedTurnFailure(runErr error) Failure {
+	if code, retryable, ok := agent.TurnAdmissionFailure(runErr); ok {
+		return Failure{Code: code, Message: runErr.Error(), Retryable: retryable}
+	}
 	if agent.IsProviderThreadMissing(runErr) {
 		return Failure{
 			Code:      "provider_thread_missing",

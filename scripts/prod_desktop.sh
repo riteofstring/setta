@@ -17,7 +17,7 @@ electron_args=()
 electron_arg_count=0
 backend_pid=""
 backend_ready_file=""
-backend_token_file=""
+backend_pairing_token_file=""
 
 usage() {
   cat <<'USAGE'
@@ -52,8 +52,8 @@ cleanup() {
   if [[ -n "${backend_ready_file}" ]]; then
     rm -f "${backend_ready_file}"
   fi
-  if [[ -n "${backend_token_file}" ]]; then
-    rm -f "${backend_token_file}"
+  if [[ -n "${backend_pairing_token_file}" ]]; then
+    rm -f "${backend_pairing_token_file}"
   fi
   exit "${status}"
 }
@@ -137,8 +137,8 @@ parse_ready_addr() {
   parse_ready_field "$1" "addr"
 }
 
-parse_ready_bootstrap_token() {
-  parse_ready_field "$1" "bootstrapToken"
+parse_ready_pairing_token() {
+  parse_ready_field "$1" "localPairingToken"
 }
 
 start_backend() {
@@ -146,15 +146,15 @@ start_backend() {
   [[ "${data_dir}" = /* ]] || fail "SETTA_APP_DATA_DIR must be absolute: ${data_dir}"
 
   backend_ready_file="$(mktemp "${TMPDIR:-/tmp}/setta-prod-backend-ready.XXXXXX")"
-  backend_token_file="$(mktemp "${TMPDIR:-/tmp}/setta-prod-backend-token.XXXXXX")"
-  "${BACKEND_BIN}" --app-data-dir "${data_dir}" --port 0 > >(
+  backend_pairing_token_file="$(mktemp "${TMPDIR:-/tmp}/setta-prod-backend-pairing-token.XXXXXX")"
+  "${BACKEND_BIN}" --app-data-dir "${data_dir}" --port 0 --local-credential-issuer > >(
     while IFS= read -r line; do
       printf '%s\n' "${line}"
       if [[ ! -s "${backend_ready_file}" ]]; then
         local addr
         addr="$(parse_ready_addr "${line}")"
         if [[ -n "${addr}" ]]; then
-          parse_ready_bootstrap_token "${line}" > "${backend_token_file}"
+          parse_ready_pairing_token "${line}" > "${backend_pairing_token_file}"
           printf '%s\n' "${addr}" > "${backend_ready_file}"
         fi
       fi
@@ -204,10 +204,10 @@ wait_for_backend
 
 export NODE_ENV=production
 backend_url="http://$(< "${backend_ready_file}")"
-backend_token="$(< "${backend_token_file}")"
-[[ -n "${backend_token}" ]] || fail "backend readiness did not include a bootstrap token."
+backend_pairing_token="$(< "${backend_pairing_token_file}")"
+[[ -n "${backend_pairing_token}" ]] || fail "backend readiness did not include a local pairing token."
 export SETTA_BACKEND_URL="${backend_url}"
-export SETTA_BACKEND_TOKEN="${backend_token}"
+export SETTA_BACKEND_PAIRING_TOKEN="${backend_pairing_token}"
 unset ELECTRON_RENDERER_URL
 
 launch_electron

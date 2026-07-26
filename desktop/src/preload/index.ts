@@ -3,7 +3,9 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import {
   decodeCodexAccountChangeEvent,
   decodeConversationEvent,
+  decodeDeveloperHostedRuntimeStatus,
   decodeDirectorEvent,
+  decodeHostedAccessProgress,
 } from "@generated/backend";
 import { createRendererIpcInvoke, ipcEvents } from "@shared/ipc";
 import {
@@ -50,9 +52,39 @@ const api: SettaAPI = {
       };
     },
   },
+  hostedAccess: {
+    ensure: (intent) => invoke("hostedAccessEnsure", intent),
+    onProgress: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeHostedAccessProgress(payload));
+      };
+      ipcRenderer.on(ipcEvents.hostedAccessProgress, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.hostedAccessProgress, handler);
+      };
+    },
+    releaseProgress: (request) => invoke("hostedAccessReleaseProgress", request),
+    subscribeProgress: (request) => invoke("hostedAccessSubscribeProgress", request),
+  },
+  developerHostedRuntime: {
+    available: () => invoke("developerHostedRuntimeAvailable"),
+    destroy: (request) => invoke("developerHostedRuntimeDestroy", request),
+    ensure: (request) => invoke("developerHostedRuntimeEnsure", request),
+    onStatus: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeDeveloperHostedRuntimeStatus(payload));
+      };
+      ipcRenderer.on(ipcEvents.developerHostedRuntimeStatus, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.developerHostedRuntimeStatus, handler);
+      };
+    },
+    status: () => invoke("developerHostedRuntimeStatus"),
+  },
   runtimes: {
     addByPairingUrl: (pairingUrl) => invoke("runtimeAddByPairingUrl", pairingUrl),
     current: () => invoke("runtimeCurrent"),
+    currentRuntimeCredential: () => invoke("runtimeCurrentCredential"),
     list: () => invoke("runtimeList"),
     onConnectionState: (listener) => {
       const handler = (_event: IpcRendererEvent, payload: unknown) => {
@@ -252,25 +284,10 @@ function decodeKnownRuntimeView(value: unknown, label: string): KnownRuntimeView
       `${label}.connectionStatus`,
     ),
     displayName: stringField(record, "displayName", label),
-    infrastructureProvider: decodeRuntimeInfrastructureProvider(
-      requireRuntimeField(record, "infrastructureProvider", label),
-      `${label}.infrastructureProvider`,
-    ),
     isLocal: booleanField(record, "isLocal", label),
     lastConnected: nullableStringField(record, "lastConnected", label),
+    managedHosted: booleanField(record, "managedHosted", label),
     runtimeId: stringField(record, "runtimeId", label),
-  };
-}
-
-function decodeRuntimeInfrastructureProvider(
-  value: unknown,
-  label: string,
-): KnownRuntimeView["infrastructureProvider"] {
-  const record = assertStatusRecord(value, label);
-  return {
-    displayName: stringField(record, "displayName", label),
-    iconUrl: stringField(record, "iconUrl", label),
-    id: stringField(record, "id", label),
   };
 }
 

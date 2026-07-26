@@ -2,14 +2,14 @@ import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { CDPClient } from "./cdp-client.mjs";
+import { createElectronFixtureTempRoot } from "./electron-fixture-temp-root.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 export const desktopRoot = resolve(scriptDir, "../..");
@@ -100,8 +100,8 @@ export async function writeLatestRecordingPointer(name, artifactDir) {
   });
 }
 
-export async function createElectronFixture(name) {
-  const tempRoot = await mkdtemp(join(tmpdir(), `setta-electron-${name}-`));
+export async function createElectronFixture() {
+  const tempRoot = await createElectronFixtureTempRoot();
   const appDataDir = join(tempRoot, "app-data");
   const workspaceRoot = join(tempRoot, "workspace-root");
   await mkdir(appDataDir, { recursive: true });
@@ -109,19 +109,23 @@ export async function createElectronFixture(name) {
   return { appDataDir, tempRoot, workspaceRoot };
 }
 
-export async function readLocalRuntimeAccess(appDataDir) {
-  const path = join(appDataDir, "electron-user-data", "known-runtimes.json");
-  const registry = JSON.parse(await readFile(path, "utf8"));
-  const localRuntime = registry?.runtimes?.find((runtime) => runtime?.is_local === true);
-  if (
-    typeof localRuntime?.base_url !== "string" ||
-    localRuntime.base_url === "" ||
-    typeof localRuntime.device_token !== "string" ||
-    localRuntime.device_token === ""
-  ) {
-    throw new Error("protected runtime registry did not contain local backend access");
-  }
-  return { baseURL: localRuntime.base_url, deviceToken: localRuntime.device_token };
+export async function readCurrentRuntimeCredential(client) {
+  return waitForState(
+    client,
+    `(async () => {
+      try {
+        return await window.setta.runtimes.currentRuntimeCredential();
+      } catch {
+        return null;
+      }
+    })()`,
+    (credential) =>
+      typeof credential?.runtimeId === "string" &&
+      credential.runtimeId !== "" &&
+      typeof credential?.token === "string" &&
+      credential.token !== "",
+    pageLoadTimeoutMs,
+  );
 }
 
 export async function assertArtifactsExcludeMarkers(root, markers, description) {

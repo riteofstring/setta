@@ -37,16 +37,18 @@ type ServiceOption func(*serviceConfig) error
 type serviceConfig struct {
 	newID             func(string) (string, error)
 	narrationObserver NarrationTrajectoryObserver
+	outcomeTiming     OutcomeTimingObserver
 	now               func() time.Time
 }
 
 type Service struct {
-	agent      AgentRuntime
-	store      *Store
-	workspaces WorkspaceResolver
-	newID      func(string) (string, error)
-	now        func() time.Time
-	narration  NarrationTrajectoryObserver
+	agent         AgentRuntime
+	store         *Store
+	workspaces    WorkspaceResolver
+	newID         func(string) (string, error)
+	now           func() time.Time
+	narration     NarrationTrajectoryObserver
+	outcomeTiming OutcomeTimingObserver
 
 	createMu    sync.Mutex
 	locksMu     sync.Mutex
@@ -160,6 +162,16 @@ func WithNarrationTrajectoryObserver(observer NarrationTrajectoryObserver) Servi
 	}
 }
 
+func WithOutcomeTimingObserver(observer OutcomeTimingObserver) ServiceOption {
+	return func(config *serviceConfig) error {
+		if observer == nil {
+			return errors.New("conversation outcome timing observer is required")
+		}
+		config.outcomeTiming = observer
+		return nil
+	}
+}
+
 func NewService(
 	store *Store,
 	workspaces WorkspaceResolver,
@@ -186,6 +198,7 @@ func NewService(
 		newID:           config.newID,
 		now:             config.now,
 		narration:       config.narrationObserver,
+		outcomeTiming:   config.outcomeTiming,
 		locks:           map[string]*sync.Mutex{},
 		active:          map[string]*activeConversationTurn{},
 		activeSides:     map[string]*activeSideConversationTurn{},
