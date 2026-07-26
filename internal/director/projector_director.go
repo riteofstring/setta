@@ -78,9 +78,9 @@ func (projector *DirectorGraphProjector) validateDecisionTarget(
 	payload DirectorDecisionCommitted,
 ) error {
 	switch payload.Decision {
-	case DirectorDecisionCreateWorkstream:
+	case DirectorDecisionCreateWorkstream, DirectorDecisionForkWorkstream:
 		if _, exists := projector.workstreams[*payload.TargetWorkstreamID]; exists {
-			return fmt.Errorf("create-workstream decision targets existing workstream %s", *payload.TargetWorkstreamID)
+			return fmt.Errorf("%q decision targets existing workstream %s", payload.Decision, *payload.TargetWorkstreamID)
 		}
 	case DirectorDecisionSendToWorkstream,
 		DirectorDecisionQueueBehindRun,

@@ -16,7 +16,7 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 111;
+export const backendProtocolVersion = 112;
 export const backendContractSchemaHash = "sha256:37fb730ef905ed1b4b32c09ec42ff421fa201fb88089ebf8ad9aeb385ab87ef5";
 
 export const conversationSnapshotLimits = {
@@ -844,14 +844,14 @@ export function decodeBranchKind(value: unknown, label = "BranchKind"): BranchKi
   }
 }
 
-export type BranchDecisionSource = "conversation_router";
+export type BranchDecisionSource = "director";
 
-export const branchDecisionSourceValues = ["conversation_router"] as const satisfies readonly BranchDecisionSource[];
+export const branchDecisionSourceValues = ["director"] as const satisfies readonly BranchDecisionSource[];
 
 export function decodeBranchDecisionSource(value: unknown, label = "BranchDecisionSource"): BranchDecisionSource {
   const decoded = decodeString(value, label);
   switch (decoded) {
-    case "conversation_router":
+    case "director":
       return decoded;
     default:
       throw new Error(label + " is unsupported: " + decoded);

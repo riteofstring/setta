@@ -466,3 +466,95 @@ func (stubDirectorNarrator) AskConversationStatus(
 ) (string, error) {
 	return "The run is waiting on an approval before it can push.", nil
 }
+
+// TestDirectorForksAWorkstreamItHasHistoryFor proves the two halves of the fork
+// authority rule with the same tool call: a workstream that has completed a run
+// can be branched, and the branch arrives as its own selected workstream
+// anchored under the parent it came from.
+func TestDirectorForksAWorkstreamItHasHistoryFor(t *testing.T) {
+	harness := newRegistryHarness(t)
+	workspaceID := registryTestWorkspaceID
+	parentWorkstreamID := harness.createConversation("conversation-parser", "Parser rewrite", &workspaceID)
+	harness.startTurn("conversation-parser", "turn-parser-1")
+	harness.acceptInput("conversation-parser", "turn-parser-1", "rewrite the tokenizer")
+	harness.completeTurnTrajectory("conversation-parser", "turn-parser-1")
+	harness.completeTurn("conversation-parser", "turn-parser-1")
+	registry := harness.start()
+	execution := &publishingStartExecution{harness: harness}
+
+	outcome := callSettaTool(t, harness, registry, execution, scriptedDirectorToolCall{
+		tool: "fork_workstream",
+		arguments: map[string]any{
+			"workstreamId": parentWorkstreamID,
+			"title":        "Parser rewrite, recursive descent",
+		},
+	})
+
+	if !outcome.succeeded {
+		t.Fatalf("fork_workstream was refused: %q", outcome.receipt.Summary)
+	}
+	if !strings.Contains(outcome.receipt.Summary, "Parser rewrite, recursive descent") {
+		t.Fatalf("fork receipt = %q", outcome.receipt.Summary)
+	}
+	if len(execution.forks) != 1 {
+		t.Fatalf("execution forks = %+v", execution.forks)
+	}
+	fork := execution.forks[0]
+	// The branch point is trusted state. The Director named neither the run nor
+	// the folder, so both have to come from the parent.
+	if fork.ParentConversationID != "conversation-parser" ||
+		fork.ForkedAtRunID != "turn-parser-1" ||
+		fork.WorkspaceID == nil || *fork.WorkspaceID != workspaceID {
+		t.Fatalf("fork request = %+v", fork)
+	}
+	childWorkstreamID, err := WorkstreamIDForConversation(fork.ConversationID)
+	if err != nil {
+		t.Fatalf("WorkstreamIDForConversation: %v", err)
+	}
+	if outcome.receipt.WorkstreamID == nil || *outcome.receipt.WorkstreamID != childWorkstreamID ||
+		outcome.receipt.SelectedWorkstreamID == nil ||
+		*outcome.receipt.SelectedWorkstreamID != childWorkstreamID {
+		t.Fatalf("fork receipt = %+v, want the branch created and selected", outcome.receipt)
+	}
+	snapshot, err := registry.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	child := findEntry(t, snapshot, childWorkstreamID)
+	if child.Workstream.ParentID == nil || *child.Workstream.ParentID != parentWorkstreamID {
+		t.Fatalf("forked workstream parent = %v, want %s", child.Workstream.ParentID, parentWorkstreamID)
+	}
+	// A fork is a starting point, not an instruction: the different direction
+	// the user wants arrives afterwards as its own work.
+	if len(execution.sends) != 0 || len(execution.queues) != 0 {
+		t.Fatalf("fork delivered work: sends=%+v queues=%+v", execution.sends, execution.queues)
+	}
+}
+
+// TestDirectorCannotForkAWorkstreamWithNoCompletedRun proves the refusal is
+// specific. There is nothing for a child to inherit before the parent has
+// finished anything, so the app says that rather than branching an empty
+// conversation.
+func TestDirectorCannotForkAWorkstreamWithNoCompletedRun(t *testing.T) {
+	harness := newRegistryHarness(t)
+	workspaceID := registryTestWorkspaceID
+	workstreamID := harness.createConversation("conversation-parser", "Parser rewrite", &workspaceID)
+	harness.startTurn("conversation-parser", "turn-parser-1")
+	registry := harness.start()
+	execution := &recordedExecution{}
+
+	outcome := callSettaTool(t, harness, registry, execution, scriptedDirectorToolCall{
+		tool: "fork_workstream",
+		arguments: map[string]any{
+			"workstreamId": workstreamID,
+			"title":        "Parser rewrite, recursive descent",
+		},
+	})
+
+	if outcome.succeeded {
+		t.Fatalf("fork_workstream branched a workstream with no completed run: %+v", outcome.receipt)
+	}
+	if len(execution.forks) != 0 {
+		t.Fatalf("refused fork reached execution: %+v", execution.forks)
+	}
+}

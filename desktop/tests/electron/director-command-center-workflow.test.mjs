@@ -178,6 +178,54 @@ try {
     (workstream) => workstream.activeRunId === null && workstream.queuedRunCount === 0,
   );
 
+  // Forking is the one Director action that both acts on an existing workstream
+  // and produces a new one. The branch has to arrive as a workstream in its own
+  // right — selected, titled, and anchored under the parent — while the parent
+  // keeps everything it had.
+  const forkedTurn = await submitDirector(context.client, "Director fork selected.");
+  const forkedCall = forkedTurn.submit?.toolCalls.find(
+    (call) => call.tool === "fork_workstream" && call.succeeded,
+  );
+  const branchWorkstreamId = forkedCall?.workstreamId;
+  if (!branchWorkstreamId || branchWorkstreamId === rootWorkstreamId) {
+    throw new Error(`Director fork produced no separate workstream: ${branchWorkstreamId}`);
+  }
+  await waitForDirectorSnapshot(
+    context.client,
+    (snapshot) =>
+      snapshot.selectedWorkstreamId === branchWorkstreamId &&
+      snapshot.workstreams.some(
+        (entry) =>
+          entry.workstream.id === branchWorkstreamId &&
+          entry.workstream.parentId === rootWorkstreamId &&
+          entry.workstream.title === "Director branch",
+      ) &&
+      snapshot.workstreams.some((entry) => entry.workstream.id === rootWorkstreamId),
+  );
+  const archivedBranchTurn = await submitDirector(context.client, "Director archive selected.");
+  const archivedBranchCall = archivedBranchTurn.submit?.toolCalls.find(
+    (call) => call.tool === "archive_workstream" && call.succeeded,
+  );
+  assertEqual(archivedBranchCall?.workstreamId, branchWorkstreamId, "Director archive branch");
+  await submitDirector(context.client, "Director select root.");
+  await waitForDirectorSnapshot(
+    context.client,
+    (snapshot) => snapshot.selectedWorkstreamId === rootWorkstreamId,
+  );
+  // The decision is drawn where it happened. A fork is something that happened
+  // to the parent, so the parent's graph is where the account of it belongs —
+  // asserted with the parent selected, because that is the only detail level
+  // that carries a workstream's whole graph.
+  await waitForDirectorSnapshot(context.client, (snapshot) =>
+    snapshot.graphs
+      .find((candidate) => candidate.workstreamId === rootWorkstreamId)
+      ?.nodes.some(
+        (node) =>
+          node.kind === "director_decision" &&
+          node.publicSummary === 'Forked "Director root" into "Director branch".',
+      ),
+  );
+
   await submitDirector(context.client, "Director send cancel hold.");
   const cancellable = await waitForWorkstream(
     context.client,

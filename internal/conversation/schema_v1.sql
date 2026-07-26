@@ -47,7 +47,7 @@ CREATE TABLE conversation_branches (
   child_conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
   parent_conversation_id TEXT NOT NULL REFERENCES conversations(id),
   branch_kind TEXT NOT NULL CHECK (branch_kind IN ('fork', 'child')),
-  decision_source TEXT NOT NULL CHECK (decision_source IN ('conversation_router', 'director')),
+  decision_source TEXT NOT NULL CHECK (decision_source = 'director'),
   forked_at_turn_id TEXT REFERENCES conversation_turns(id),
   source_trajectory_sequence INTEGER NOT NULL CHECK (source_trajectory_sequence >= 0),
   created_at TEXT NOT NULL,
@@ -61,7 +61,7 @@ CREATE INDEX conversation_branches_parent_idx
 CREATE TABLE side_conversations (
   id TEXT PRIMARY KEY,
   parent_conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  decision_source TEXT NOT NULL CHECK (decision_source = 'conversation_router'),
+  decision_source TEXT NOT NULL CHECK (decision_source = 'director'),
   source_turn_id TEXT,
   source_trajectory_sequence INTEGER NOT NULL CHECK (source_trajectory_sequence >= 0),
   last_event_sequence INTEGER NOT NULL DEFAULT 0 CHECK (last_event_sequence >= 0),

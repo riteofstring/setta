@@ -13,7 +13,7 @@ func TestCommittedDecisionsAreDurableFacts(t *testing.T) {
 	context := decisionContextFixture()
 	for _, decision := range authorizedDecisionsForFixture() {
 		var minted *string
-		if decision.Kind == DirectorDecisionCreateWorkstream {
+		if mintsWorkstream(decision.Kind) {
 			id := mintedWorkstreamID
 			minted = &id
 		}
@@ -174,8 +174,8 @@ func TestCommittedDecisionTargetsFollowTheCatalog(t *testing.T) {
 	context := decisionContextFixture()
 	for _, decision := range authorizedDecisionsForFixture() {
 		target := DecisionTargetWorkstreamID(decision)
-		switch decision.Kind {
-		case DirectorDecisionCreateWorkstream:
+		switch {
+		case mintsWorkstream(decision.Kind):
 			if target != nil {
 				t.Fatalf("%q must not carry an existing target, got %q", decision.Kind, *target)
 			}
@@ -203,8 +203,12 @@ func decisionFactFixture(committed DirectorDecisionCommitted, workstreamID *stri
 
 // decisionFactWorkstream is where a decision happened, which is what the
 // executor commits the fact against. A created workstream did not exist when
-// the decision was made, so that fact belongs to the Director's own lane;
-// every other decision happened in the workstream it acted on.
+// the decision was made, so that fact belongs to the Director's own lane. A
+// fork did not either, but it happened to the parent, so its fact belongs
+// there; every other decision happened in the workstream it acted on.
 func decisionFactWorkstream(decision DirectorDecision) *string {
+	if decision.Kind == DirectorDecisionForkWorkstream {
+		return &decision.ForkWorkstream.WorkstreamID
+	}
 	return DecisionTargetWorkstreamID(decision)
 }

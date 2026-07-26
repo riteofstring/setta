@@ -7,6 +7,7 @@ const directorToolNames = [
   "ask_conversation",
   "cancel_run",
   "create_workstream",
+  "fork_workstream",
   "list_workspaces",
   "list_workstreams",
   "read_activity",
@@ -260,6 +261,18 @@ const staticDirectorScenarios = new Map([
     },
   ],
   [
+    "Director fork selected.",
+    {
+      reply: "Forked the selected workstream.",
+      steps: [
+        "list_workstreams",
+        "fork_selected",
+        "list_workstreams",
+        { kind: "finish_if_forked" },
+      ],
+    },
+  ],
+  [
     "Director select root.",
     {
       reply: "Selected the Director root.",
@@ -379,6 +392,20 @@ const namedToolCallSteps = new Map([
       tool: "rename_workstream",
     }),
   ],
+  // Forking names only the workstream and the title. Where the branch is cut is
+  // the parent's latest completed run, which trusted state resolves, so a fake
+  // Director that tried to name it would be asserting authority it does not
+  // have.
+  [
+    "fork_selected",
+    (receipts) => ({
+      arguments: {
+        title: "Director branch",
+        workstreamId: requiredSelectedWorkstream(receipts).workstreamId,
+      },
+      tool: "fork_workstream",
+    }),
+  ],
   [
     "archive_selected",
     (receipts) => ({
@@ -407,6 +434,7 @@ const keyedToolCallSteps = new Map([
   ["finish_if_resource_resolved", finishIfResourceResolved],
   ["finish_if_renamed", finishIfRenamed],
   ["finish_if_archived", finishIfArchived],
+  ["finish_if_forked", finishIfForked],
 ]);
 
 export function directorToolCallForStep(scenarioValue, index, receipts) {
@@ -517,6 +545,21 @@ function finishIfRenamed(step, receipts) {
   return null;
 }
 
+// finishIfForked proves the branch is a workstream in its own right by the time
+// the next tool call runs: a new id, selected, and listed beside the parent it
+// came from rather than replacing it.
+function finishIfForked(step, receipts) {
+  const forked = requiredReceipt(receipts, "fork_workstream");
+  const listing = latestReceipt(receipts, "list_workstreams");
+  const branch = listing.workstreams?.find(
+    (candidate) => candidate.workstreamId === forked.workstreamId,
+  );
+  if (!branch || branch.title !== "Director branch" || !branch.selected) {
+    throw new Error("Director fork_workstream did not produce a selected branch workstream");
+  }
+  return null;
+}
+
 function finishIfArchived(step, receipts) {
   const archived = requiredReceipt(receipts, "archive_workstream");
   const listing = latestReceipt(receipts, "list_workstreams");
@@ -599,6 +642,16 @@ const directorReceiptValidators = new Map([
       directorReceiptSelectedItsWorkstream(receipt)
         ? null
         : "Director create_workstream did not create and select one workstream",
+  ],
+  // Forking reports the branch it made, not the workstream it branched: the
+  // parent is where the call was aimed, but the new workstream is what the
+  // Director now has to talk about.
+  [
+    "fork_workstream",
+    (receipt) =>
+      directorReceiptSelectedItsWorkstream(receipt)
+        ? null
+        : "Director fork_workstream did not create and select one branch workstream",
   ],
   [
     "select_workstream",

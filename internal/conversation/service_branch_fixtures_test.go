@@ -29,16 +29,16 @@ func (service *Service) steerTestTurn(
 	return service.steerTurn(ctx, &workspaceID, conversationID, text, "", "")
 }
 
-func (service *Service) createRouterSideConversationForTest(
+func (service *Service) createDirectorSideConversationForTest(
 	ctx context.Context,
 	workspaceID string,
 	parentConversationID string) (ConversationSnapshot, error) {
 	return service.ExecuteBranchDecision(
 		ctx,
-		workspaceID,
+		&workspaceID,
 		BranchDecisionExecutionScope{
 			ParentConversationID: parentConversationID,
-			Source:               BranchDecisionSourceConversationRouter,
+			Source:               BranchDecisionSourceDirector,
 		},
 		BranchDecision{
 			Kind:                   BranchDecisionKindCreateSideConversation,
@@ -47,26 +47,25 @@ func (service *Service) createRouterSideConversationForTest(
 	)
 }
 
-func (service *Service) forkRouterTopicForTest(
+// forkDirectorTopicForTest branches through the same entry point the Director's
+// execution port calls, so a fork test proves the production path rather than a
+// parallel one assembled here.
+func (service *Service) forkDirectorTopicForTest(
 	ctx context.Context,
-	workspaceID string,
+	workspaceID *string,
 	parentConversationID string,
 	forkedAtTurnID string,
 	title string,
 ) (ConversationSnapshot, error) {
-	return service.ExecuteBranchDecision(
-		ctx,
-		workspaceID,
-		BranchDecisionExecutionScope{
-			ParentConversationID: parentConversationID,
-			Source:               BranchDecisionSourceConversationRouter,
-		},
-		BranchDecision{
-			Kind: BranchDecisionKindForkConversation,
-			ForkConversation: &ForkConversationBranchDecision{
-				ForkedAtTurnID: forkedAtTurnID,
-				ProposedTitle:  title,
-			},
-		},
-	)
+	childConversationID, err := service.newID("conversation")
+	if err != nil {
+		return ConversationSnapshot{}, err
+	}
+	return service.ForkDirectorWorkstream(ctx, DirectorWorkstreamFork{
+		ParentConversationID: parentConversationID,
+		ChildConversationID:  childConversationID,
+		ForkedAtRunID:        forkedAtTurnID,
+		Title:                title,
+		WorkspaceID:          workspaceID,
+	})
 }

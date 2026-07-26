@@ -144,6 +144,15 @@ type SteerRunDecision struct {
 	AuthoredInput string `json:"authoredInput"`
 }
 
+// ForkWorkstreamDecision branches an existing workstream. It names the
+// workstream to branch and what to call the result, and nothing else: where the
+// branch is taken from is the parent's latest completed run, which is trusted
+// state rather than something the Director could name.
+type ForkWorkstreamDecision struct {
+	WorkstreamID  string `json:"workstreamId"`
+	ProposedTitle string `json:"proposedTitle"`
+}
+
 // SelectWorkstreamDecision moves app-wide selection. It carries no
 // presentation authority: the shell owns how a selected workstream is shown.
 type SelectWorkstreamDecision struct {
@@ -167,6 +176,7 @@ type DirectorDecision struct {
 	SendToWorkstream *SendToWorkstreamDecision `json:"sendToWorkstream"`
 	QueueBehindRun   *QueueBehindRunDecision   `json:"queueBehindRun"`
 	SteerRun         *SteerRunDecision         `json:"steerRun"`
+	ForkWorkstream   *ForkWorkstreamDecision   `json:"forkWorkstream"`
 	SelectWorkstream *SelectWorkstreamDecision `json:"selectWorkstream"`
 	RecoverPath      *RecoverPathDecision      `json:"recoverPath"`
 }
@@ -180,6 +190,7 @@ func decisionPayloads(decision DirectorDecision) map[DirectorDecisionKind]bool {
 		DirectorDecisionSendToWorkstream: decision.SendToWorkstream != nil,
 		DirectorDecisionQueueBehindRun:   decision.QueueBehindRun != nil,
 		DirectorDecisionSteerRun:         decision.SteerRun != nil,
+		DirectorDecisionForkWorkstream:   decision.ForkWorkstream != nil,
 		DirectorDecisionSelectWorkstream: decision.SelectWorkstream != nil,
 		DirectorDecisionRecoverPath:      decision.RecoverPath != nil,
 	}
@@ -217,6 +228,8 @@ func (decision DirectorDecision) validatePayload() error {
 		return validateWorkstreamWork("queue", decision.QueueBehindRun.WorkstreamID, decision.QueueBehindRun.AuthoredInput)
 	case DirectorDecisionSteerRun:
 		return validateWorkstreamWork("steer", decision.SteerRun.WorkstreamID, decision.SteerRun.AuthoredInput)
+	case DirectorDecisionForkWorkstream:
+		return validateForkWorkstreamDecision(*decision.ForkWorkstream)
 	case DirectorDecisionSelectWorkstream:
 		return validateDecisionReference("selected workstream id", decision.SelectWorkstream.WorkstreamID)
 	case DirectorDecisionRecoverPath:
@@ -259,6 +272,13 @@ func validateDecisionResourceScope(scope DecisionResourceScope) error {
 	default:
 		return rejectedDecision(fmt.Sprintf("unknown decision resource scope kind %q", scope.Kind))
 	}
+}
+
+func validateForkWorkstreamDecision(payload ForkWorkstreamDecision) error {
+	if err := validateDecisionReference("forked workstream id", payload.WorkstreamID); err != nil {
+		return err
+	}
+	return validateDecisionText("forked workstream title", payload.ProposedTitle, MaxDecisionTitleBytes)
 }
 
 func validateRecoverPathDecision(payload RecoverPathDecision) error {

@@ -128,6 +128,26 @@ func (execution *publishingStartExecution) StartWorkstream(
 	return nil
 }
 
+// ForkWorkstream publishes the branch the same way StartWorkstream publishes a
+// creation, so the registry learns about the child from durable conversation
+// records rather than from the decision that asked for it.
+func (execution *publishingStartExecution) ForkWorkstream(
+	ctx context.Context,
+	request WorkstreamForkRequest,
+) error {
+	if err := execution.recordedExecution.ForkWorkstream(ctx, request); err != nil {
+		return err
+	}
+	execution.harness.forkConversation(
+		request.ParentConversationID,
+		request.ConversationID,
+		request.Title,
+		request.ForkedAtRunID,
+		request.WorkspaceID,
+	)
+	return nil
+}
+
 func TestCommandCenterCreatesAndSelectsWorkspaceWorkstream(t *testing.T) {
 	harness := newRegistryHarness(t)
 	registry := harness.start()

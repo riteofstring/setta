@@ -29,7 +29,7 @@ func TestServiceCreatesEphemeralSideForkForParentConversation(t *testing.T) {
 	profile := sideAgentOverride("gpt-side-exact")
 	persistSideAgentOverride(t, store, parentID, profile)
 
-	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID)
+	created, err := service.createDirectorSideConversationForTest(ctx, workspaceID, parentID)
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestServiceCreatesEphemeralSideForkForParentConversation(t *testing.T) {
 	assertSideAbsentFromNavigator(t, service, workspaceID, side.ID)
 	assertParentExecutionUnchangedBySide(t, working, created)
 
-	if _, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID); !IsCommandConflict(err) {
+	if _, err := service.createDirectorSideConversationForTest(ctx, workspaceID, parentID); !IsCommandConflict(err) {
 		t.Fatalf("duplicate side error = %T %v, want conflict", err, err)
 	}
 	if starts := sideCarrierStarts(runtime); len(starts) != 1 {
@@ -77,7 +77,7 @@ func TestServiceInjectsTypedAuthoritativeSideContextBeforeActivation(t *testing.
 	steered := assertServiceSnapshot(t, service, workspaceID, parentID, func(snapshot ConversationSnapshot) bool {
 		return containsTrajectoryKind(snapshot.Trajectory.Events, TrajectoryEventTurnSteered)
 	})
-	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID)
+	created, err := service.createDirectorSideConversationForTest(ctx, workspaceID, parentID)
 	if err != nil {
 		t.Fatalf("CreateSideConversation: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestServiceFailsSideWhenContextInjectionIsRejected(t *testing.T) {
 	ctx := context.Background()
 	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Rejected side context")
 	runtime.injectErr = errors.New("scripted side context rejection")
-	_, err := service.createRouterSideConversationForTest(ctx, workspaceID, parent.Conversation.ID)
+	_, err := service.createDirectorSideConversationForTest(ctx, workspaceID, parent.Conversation.ID)
 	if err == nil || !strings.Contains(err.Error(), "scripted side context rejection") {
 		t.Fatalf("CreateSideConversation injection error = %v", err)
 	}
@@ -176,7 +176,7 @@ func TestServicePersistsFailedSideWhenProviderRejectsCarrier(t *testing.T) {
 	ctx := context.Background()
 	parent := createLinkedParentForSideTest(t, ctx, service, runtime, workspaceID, "Failed side parent")
 	runtime.startErr = errors.New("scripted side carrier failure")
-	_, err := service.createRouterSideConversationForTest(
+	_, err := service.createDirectorSideConversationForTest(
 		ctx,
 		workspaceID,
 		parent.Conversation.ID)
@@ -307,7 +307,7 @@ func prepareSideBeforeParentStartsWorking(
 		resolved,
 		invocation,
 		nil,
-		BranchDecisionSourceConversationRouter,
+		BranchDecisionSourceDirector,
 	)
 	if err != nil {
 		t.Fatalf("persistPreparingSideConversation: %v", err)
@@ -348,7 +348,7 @@ func TestServiceSideSnapshotRetainsOpenSideOverBoundedFailedHistory(t *testing.T
 	runtime.startErr = errors.New("scripted bounded side failure")
 	firstFailedSideID := ""
 	for index := 0; index < MaxSnapshotSideConversations+3; index++ {
-		_, err := service.createRouterSideConversationForTest(
+		_, err := service.createDirectorSideConversationForTest(
 			ctx,
 			workspaceID,
 			parentID)
@@ -365,7 +365,7 @@ func TestServiceSideSnapshotRetainsOpenSideOverBoundedFailedHistory(t *testing.T
 		}
 	}
 	runtime.startErr = nil
-	created, err := service.createRouterSideConversationForTest(ctx, workspaceID, parentID)
+	created, err := service.createDirectorSideConversationForTest(ctx, workspaceID, parentID)
 	if err != nil {
 		t.Fatalf("CreateSideConversation active: %v", err)
 	}
@@ -483,7 +483,7 @@ func assertActiveSideLinkage(t *testing.T, side SideConversation, parent Convers
 	t.Helper()
 	parentTurn := latestSnapshotTurn(parent)
 	if side.ParentConversationID != parent.Conversation.ID ||
-		side.DecisionSource != BranchDecisionSourceConversationRouter ||
+		side.DecisionSource != BranchDecisionSourceDirector ||
 		side.SourceTrajectorySequence != parent.Conversation.LastTrajectorySequence ||
 		side.SourceTurnID == nil ||
 		*side.SourceTurnID != parentTurn.ID ||

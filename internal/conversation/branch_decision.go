@@ -12,7 +12,11 @@ const (
 	BranchDecisionKindCreateSideConversation BranchDecisionKind = "create_side_conversation"
 	BranchDecisionKindForkConversation       BranchDecisionKind = "fork_conversation"
 
-	BranchDecisionSourceConversationRouter BranchDecisionSource = "conversation_router"
+	// BranchDecisionSourceDirector is the only branch decision source. The
+	// Director decides which work becomes its own workstream, so a branch is
+	// recorded as its decision rather than as something a conversation did to
+	// itself.
+	BranchDecisionSourceDirector BranchDecisionSource = "director"
 )
 
 // CreateSideConversationBranchDecision is deliberately empty. The model-owned
@@ -105,5 +109,5 @@ func (scope BranchDecisionExecutionScope) validateForkConversation() error {
 }
 
 func validBranchDecisionSource(source BranchDecisionSource) bool {
-	return source == BranchDecisionSourceConversationRouter
+	return source == BranchDecisionSourceDirector
 }

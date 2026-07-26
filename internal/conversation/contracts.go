@@ -880,7 +880,7 @@ func ContractValueSets() []ContractValueSet {
 		{Name: "InvocationModelRerouteReason", Values: stringValues(invocationModelRerouteReasons)},
 		contractValueSet("BranchKind", BranchKindFork),
 		contractValueSet("BranchDecisionKind", BranchDecisionKindCreateSideConversation, BranchDecisionKindForkConversation),
-		contractValueSet("BranchDecisionSource", BranchDecisionSourceConversationRouter),
+		contractValueSet("BranchDecisionSource", BranchDecisionSourceDirector),
 		contractValueSet("SideConversationStatus", SideConversationStatusPreparing, SideConversationStatusActive, SideConversationStatusDisposing, SideConversationStatusFailed),
 		contractValueSet("NarratorStatus", NarratorStatusReady, NarratorStatusRunning, NarratorStatusDegraded),
 		contractValueSet("NarrationEventKind", NarrationEventKindMilestone, NarrationEventKindStatusReply, NarrationEventKindFinalSummary, NarrationEventKindTopicDescriptor),

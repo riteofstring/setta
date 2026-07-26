@@ -231,6 +231,19 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 			Handler: box.createWorkstream(intent),
 		},
 		{
+			Name: "fork_workstream",
+			Description: "Branch an existing workstream into a new one that inherits its history, and select " +
+				"the branch. Use this when the user wants to try a different direction without losing or " +
+				"disturbing what the original workstream already did. The branch starts idle from the " +
+				"workstream's latest completed run: send it the new direction with submit_work afterwards. " +
+				"Only a workstream that has completed a run can be forked.",
+			InputSchema: settaToolSchema(map[string]any{
+				"workstreamId": settaToolString("The workstream to branch, from list_workstreams.", MaxDecisionReferenceBytes),
+				"title":        settaToolString("A short human title for the branch.", MaxDecisionTitleBytes),
+			}, []string{"workstreamId", "title"}),
+			Handler: box.forkWorkstream(intent),
+		},
+		{
 			Name:        "select_workstream",
 			Description: "Make an existing workstream the one the user is looking at.",
 			InputSchema: settaToolSchema(map[string]any{
@@ -361,6 +374,14 @@ type settaRenameArguments struct {
 	Title        string `json:"title"`
 }
 
+// settaForkArguments names the workstream to branch and what to call the
+// branch. It does not name where the branch is taken from: that is the
+// parent's latest completed run, which trusted state resolves.
+type settaForkArguments struct {
+	WorkstreamID string `json:"workstreamId"`
+	Title        string `json:"title"`
+}
+
 type settaRecoverArguments struct {
 	WorkstreamID   string `json:"workstreamId"`
 	FailureEventID string `json:"failureEventId"`
@@ -477,6 +498,22 @@ func (box *SettaToolbox) createWorkstream(intent SubmittedIntent) SettaToolHandl
 			},
 		}
 		return box.execute(ctx, intent, "create_workstream", decision)
+	}
+}
+
+func (box *SettaToolbox) forkWorkstream(intent SubmittedIntent) SettaToolHandler {
+	return func(ctx context.Context, arguments json.RawMessage) (SettaToolReceipt, error) {
+		var payload settaForkArguments
+		if err := decodeSettaToolArguments(arguments, &payload); err != nil {
+			return SettaToolReceipt{}, err
+		}
+		return box.execute(ctx, intent, "fork_workstream", DirectorDecision{
+			Kind: DirectorDecisionForkWorkstream,
+			ForkWorkstream: &ForkWorkstreamDecision{
+				WorkstreamID:  payload.WorkstreamID,
+				ProposedTitle: payload.Title,
+			},
+		})
 	}
 }
 

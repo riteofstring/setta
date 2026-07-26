@@ -22,12 +22,17 @@ import (
 // registryWorkstream is one registry row plus the inputs its public record is
 // derived from.
 type registryWorkstream struct {
-	record              Workstream
-	conversationID      string
-	archived            bool
-	activeRunID         *string
-	queuedRunCount      int
-	lastTerminalRun     conversation.TurnStatus
+	record          Workstream
+	conversationID  string
+	archived        bool
+	activeRunID     *string
+	queuedRunCount  int
+	lastTerminalRun conversation.TurnStatus
+	// lastCompletedRunID is the newest run this workstream carried to
+	// completion. It is the point a fork branches from, so a workstream that
+	// has never finished a run cannot be forked: there is no shared history for
+	// the child to inherit.
+	lastCompletedRunID  *string
 	unresolvedApprovals map[string]bool
 	unresolvedResources map[string]bool
 	// blockedNodes are the workstream's unresolved blocked graph nodes. The

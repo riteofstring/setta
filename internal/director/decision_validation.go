@@ -39,6 +39,8 @@ func validateAuthorizedDecisionPayload(context DirectorDecisionContext, decision
 		return validateAuthorizedTargetKind(context, decision.Kind, decision.QueueBehindRun.WorkstreamID)
 	case DirectorDecisionSteerRun:
 		return validateAuthorizedTargetKind(context, decision.Kind, decision.SteerRun.WorkstreamID)
+	case DirectorDecisionForkWorkstream:
+		return validateAuthorizedTargetKind(context, decision.Kind, decision.ForkWorkstream.WorkstreamID)
 	case DirectorDecisionSelectWorkstream:
 		return validateAuthorizedTargetKind(context, decision.Kind, decision.SelectWorkstream.WorkstreamID)
 	case DirectorDecisionRecoverPath:

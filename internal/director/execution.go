@@ -61,6 +61,20 @@ type WorkstreamStartRequest struct {
 	WorkspaceID *string
 }
 
+// WorkstreamForkRequest branches an existing workstream's conversation into a
+// new one. Every id here was minted or resolved by trusted product code: the
+// child's conversation, the parent's, and the completed run the child inherits
+// through.
+type WorkstreamForkRequest struct {
+	ParentConversationID string
+	ConversationID       string
+	ForkedAtRunID        string
+	Title                string
+	// WorkspaceID is the parent's folder, or nil when the parent has none. A
+	// fork inherits the parent's scope rather than choosing its own.
+	WorkspaceID *string
+}
+
 // WorkDeliveryRequest is one unit of work the Director authored for a
 // workstream that already exists.
 type WorkDeliveryRequest struct {
@@ -152,6 +166,8 @@ type BindWorkstreamResourceRequest struct {
 type WorkstreamExecution interface {
 	// StartWorkstream creates the durable substrate a new workstream runs on.
 	StartWorkstream(ctx context.Context, request WorkstreamStartRequest) error
+	// ForkWorkstream creates the durable substrate a forked workstream runs on.
+	ForkWorkstream(ctx context.Context, request WorkstreamForkRequest) error
 	// SendWork starts a run on a workstream with no active run.
 	SendWork(ctx context.Context, request WorkDeliveryRequest) error
 	// QueueWork preserves the active run and queues work behind it.

@@ -255,6 +255,10 @@ func (state *registryState) applyTurnUpdated(event conversation.CommittedEvent) 
 			workstream.activeRunID = nil
 		}
 		workstream.lastTerminalRun = turn.Status
+		if turn.Status == conversation.TurnStatusCompleted {
+			completedRunID := turn.ID
+			workstream.lastCompletedRunID = &completedRunID
+		}
 	case conversation.TurnStatusQueued:
 		// The durable queue owns how much work is waiting.
 	default:

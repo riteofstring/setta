@@ -26,6 +26,9 @@ const (
 	DirectorDecisionQueueBehindRun DirectorDecisionKind = "queue_behind_run"
 	// DirectorDecisionSteerRun changes the instruction of an active run.
 	DirectorDecisionSteerRun DirectorDecisionKind = "steer_run"
+	// DirectorDecisionForkWorkstream branches an existing workstream into a new
+	// one that inherits its history up to a completed run.
+	DirectorDecisionForkWorkstream DirectorDecisionKind = "fork_workstream"
 	// DirectorDecisionSelectWorkstream focuses an existing workstream.
 	DirectorDecisionSelectWorkstream DirectorDecisionKind = "select_workstream"
 	// DirectorDecisionRecoverPath retries or recovers a failed execution path
@@ -38,6 +41,7 @@ var directorDecisionKinds = []DirectorDecisionKind{
 	DirectorDecisionSendToWorkstream,
 	DirectorDecisionQueueBehindRun,
 	DirectorDecisionSteerRun,
+	DirectorDecisionForkWorkstream,
 	DirectorDecisionSelectWorkstream,
 	DirectorDecisionRecoverPath,
 }

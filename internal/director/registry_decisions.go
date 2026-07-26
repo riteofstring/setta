@@ -248,9 +248,10 @@ func (workstream *registryWorkstream) decisionTarget() (WorkstreamDecisionTarget
 		ResourceScope:        scope,
 		ActiveRunID:          copyOptionalString(record.ActiveRunID),
 		QueuedRunCount:       record.QueuedRunCount,
+		ForkPointRunID:       copyOptionalString(workstream.lastCompletedRunID),
 		LastMilestone:        decisionMilestoneFor(record.LastMilestone),
 		Narration:            append([]WorkstreamNarration{}, record.Narration...),
-		AllowedDecisionKinds: targetDecisionKinds(record, failures),
+		AllowedDecisionKinds: targetDecisionKinds(record, failures, workstream.lastCompletedRunID),
 		RecoverableFailures:  failures,
 	}
 	if err := target.Validate(); err != nil {
@@ -262,7 +263,17 @@ func (workstream *registryWorkstream) decisionTarget() (WorkstreamDecisionTarget
 // targetDecisionKinds is the whole action authority one workstream carries.
 // Selection is always available because every workstream the Director can see
 // is one the user can be shown.
-func targetDecisionKinds(record Workstream, failures []DecisionRecoverableFailure) []DirectorDecisionKind {
+//
+// Forking is offered on the strength of history rather than run state: a
+// workstream with a completed run has something a child can inherit, and it has
+// it whether or not the parent is busy right now. Forking a running workstream
+// reads the parent and starts nothing in it, so the run it is carrying is not a
+// reason to refuse.
+func targetDecisionKinds(
+	record Workstream,
+	failures []DecisionRecoverableFailure,
+	forkPoint *string,
+) []DirectorDecisionKind {
 	kinds := []DirectorDecisionKind{DirectorDecisionSelectWorkstream}
 	idleForDelivery := record.ActiveRunID == nil &&
 		record.QueuedRunCount == 0 &&
@@ -271,6 +282,9 @@ func targetDecisionKinds(record Workstream, failures []DecisionRecoverableFailur
 		kinds = append(kinds, DirectorDecisionSendToWorkstream)
 	} else if record.ActiveRunID != nil {
 		kinds = append(kinds, DirectorDecisionQueueBehindRun, DirectorDecisionSteerRun)
+	}
+	if forkPoint != nil {
+		kinds = append(kinds, DirectorDecisionForkWorkstream)
 	}
 	if idleForDelivery && len(failures) > 0 {
 		kinds = append(kinds, DirectorDecisionRecoverPath)
