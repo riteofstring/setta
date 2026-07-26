@@ -36,6 +36,17 @@ export interface GraphLadderInput {
   readonly deltaSeconds: number;
   /** Turn index to manual fold pin. A pin overrides the automatic fold. */
   readonly pinnedTurns: ReadonlyMap<number, boolean>;
+  /*
+   * Whether columns share a live edge.
+   *
+   * One camera looks at one depth, so columns left at their own depths hide
+   * each other: a short conversation ends far above a long one and falls off
+   * the top while the long one is being watched. Aligning their live edges puts
+   * every column's newest fact on the same line, which is the row the camera is
+   * already following. The grid does not do this — a tile's cell is where it
+   * belongs — and a conversation has only one column to align.
+   */
+  readonly alignColumnsToLiveEdge: boolean;
   readonly reducedMotion: boolean;
 }
 
@@ -49,6 +60,15 @@ export interface GraphLadderFrame {
   readonly dirtyTo: number;
   /** World position of the newest visible fact; the camera follows this. */
   readonly liveEdgeWorldY: number;
+  /*
+   * The top of what has been drawn. The camera clamps to it, so the view can
+   * scroll back to the first fact and no further — a fixed bound assumed
+   * content began at zero, which stopped being true the moment a tile could be
+   * placed in a cell above it.
+   */
+  readonly contentTopWorldY: number;
+  /** How many columns the snapshot holds. One means worldY is monotonic. */
+  readonly columnCount: number;
   /** A fold is still easing, so the next frame will differ from this one. */
   readonly foldAnimating: boolean;
   /**
@@ -131,6 +151,9 @@ export class GraphLadderLayout {
         ? snapshot.nodeCount
         : Math.min(appendedFrom, packedValueAt(this.turnFirstNode, firstDirtyTurn));
     this.placeTurns(snapshot, firstDirtyTurn);
+    if (input.alignColumnsToLiveEdge) {
+      this.alignColumns(snapshot);
+    }
     this.syncedNodeCount = snapshot.nodeCount;
     this.syncedTurnCount = snapshot.turnCount;
     this.lastLiveEdge = this.computeLiveEdge(snapshot, input.timeSeconds);
@@ -141,6 +164,8 @@ export class GraphLadderLayout {
       dirtyFrom: Math.min(dirtyFrom, snapshot.nodeCount),
       dirtyTo: snapshot.nodeCount,
       liveEdgeWorldY: this.lastLiveEdge,
+      contentTopWorldY: this.computeContentTop(snapshot),
+      columnCount: this.lastTurnPerColumn(snapshot).length,
       foldAnimating: !settling && firstAnimating < snapshot.turnCount,
       quietUntilSeconds: this.quietUntil(snapshot, input),
     };
@@ -397,6 +422,56 @@ export class GraphLadderLayout {
       }
     }
     return edge > Number.NEGATIVE_INFINITY ? edge : 0;
+  }
+
+  /*
+   * Shifts every column so their live edges line up.
+   *
+   * A column's own depth is set by how much history it has, which is not
+   * something the reader chose to care about; what they are watching is the
+   * newest fact in each. So each column moves by the difference between its
+   * bottom and the deepest one, and nothing inside a column moves relative to
+   * the rest of it.
+   */
+  private alignColumns(snapshot: PackedGraphSnapshot): void {
+    const bottoms = new Map<number, number>();
+    for (let turn = 0; turn < snapshot.turnCount; turn += 1) {
+      const column = packedValueAt(snapshot.turns.column, turn);
+      const first = packedValueAt(this.turnFirstNode, turn);
+      if (first < 0) {
+        continue;
+      }
+      const end = packedValueAt(this.turnNodeEnd, turn);
+      let bottom = bottoms.get(column) ?? Number.NEGATIVE_INFINITY;
+      for (let index = first; index < end; index += 1) {
+        bottom = Math.max(bottom, packedValueAt(this.worldY, index));
+      }
+      bottoms.set(column, bottom);
+    }
+    let deepest = Number.NEGATIVE_INFINITY;
+    for (const bottom of bottoms.values()) {
+      deepest = Math.max(deepest, bottom);
+    }
+    if (!Number.isFinite(deepest)) {
+      return;
+    }
+    for (let index = 0; index < snapshot.nodeCount; index += 1) {
+      const turn = packedValueAt(snapshot.nodes.turn, index);
+      const bottom = bottoms.get(packedValueAt(snapshot.turns.column, turn));
+      if (bottom === undefined) {
+        continue;
+      }
+      this.worldY[index] = packedValueAt(this.worldY, index) + (deepest - bottom);
+    }
+  }
+
+  /** The highest placed node, which is as far back as the view can scroll. */
+  private computeContentTop(snapshot: PackedGraphSnapshot): number {
+    let top = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < snapshot.nodeCount; index += 1) {
+      top = Math.min(top, packedValueAt(this.worldY, index));
+    }
+    return Number.isFinite(top) ? top : 0;
   }
 
   /**

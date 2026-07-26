@@ -27,11 +27,6 @@ import {
 } from "../global-speech/speech-capture-lifecycle";
 import type { AppShellSpeechPlaybackController } from "../global-speech/app-shell-speech-playback-controller";
 import { createBrowserVoiceInputProvider } from "../global-speech/browser-voice-input-provider";
-import { emptyPackedGraphSnapshot } from "../director-graph/packed-graph-snapshot";
-import {
-  packSemanticGraphComposition,
-  semanticGraphTimeOriginSeconds,
-} from "../director-graph/semantic-graph-packer";
 import { DirectorGraphSurface } from "../director-graph/render/DirectorGraphSurface";
 import type { DirectorGraphCanvas } from "../director-graph/render/director-graph-canvas";
 import {
@@ -66,6 +61,11 @@ import {
   moveSelectionIntent,
   type DirectorRailVisibility,
 } from "./DirectorWorkstreamNavigation";
+import {
+  directorGraphTimeSecondsAt,
+  packDirectorGraphs,
+  useDirectorGraphPresentation,
+} from "./director-graph-presentation";
 
 interface DirectorCommandCenterShellProps {
   connectedRuntimeId: string | null;
@@ -128,21 +128,6 @@ const defaultRailVisibility = {
  * on when a rail floats.
  */
 const compactRailQuery = "(max-width: 760px)";
-/*
- * What the canvas is currently drawing, named.
- *
- * The canvas resets its camera when this changes and keeps it when it does not,
- * which is right: a camera should follow new content rather than stay pointed
- * where the last content was. Every view used to pack under one constant name,
- * which was harmless while the composition never changed — and wrong the moment
- * it started following selection, because switching views left the camera
- * framing a region the new view has nothing in.
- */
-function directorGraphCompositionId(selectedWorkstreamId: string | null): string {
-  return selectedWorkstreamId === null
-    ? "director-command-center"
-    : `director-command-center:${selectedWorkstreamId}`;
-}
 const directorEventVisibility = {
   "director.aggregates.updated": true,
   "director.approval.updated": true,
@@ -212,22 +197,33 @@ export function DirectorCommandCenterShell({
   });
   const [canvas, setCanvas] = useState<DirectorGraphCanvas | null>(null);
   // Selection is a view: no workstream means the Director's own.
-  const onDirectorView = (director.snapshot?.selectedWorkstreamId ?? null) === null;
+  // Read once. Which workstream is selected decides the view, the composition
+  // and what a click on the canvas does, and re-deriving it at each of those
+  // invited them to disagree.
+  const snapshot = director.snapshot;
+  const selectedWorkstreamId = snapshot === null ? null : snapshot.selectedWorkstreamId;
+  const onDirectorView = selectedWorkstreamId === null;
   const {
     closeCompactRail,
     compactRail,
     effectiveVisibility: effectiveRailVisibility,
     toggleRail,
   } = useDirectorRailDisclosure(onDirectorView);
-  const snapshotGraphs = director.snapshot?.graphs;
+  const snapshotGraphs = snapshot === null ? undefined : snapshot.graphs;
   const graphTimeSecondsAt = useMemo(
     () => directorGraphTimeSecondsAt(director.snapshot),
-    [director.snapshot?.connection.lastEventAt, snapshotGraphs],
+    [snapshot === null ? null : snapshot.connection.lastEventAt, snapshotGraphs],
   );
   const packedSnapshot = useMemo(
-    () => packDirectorGraphs(snapshotGraphs, director.snapshot?.selectedWorkstreamId ?? null),
-    [snapshotGraphs, director.snapshot?.selectedWorkstreamId],
+    () => packDirectorGraphs(snapshotGraphs, selectedWorkstreamId),
+    [snapshotGraphs, selectedWorkstreamId],
   );
+  const { openWorkstream: openWorkstreamFromGraph, presentation: graphPresentation } =
+    useDirectorGraphPresentation({
+      columnCount: packedSnapshot.turnCount,
+      dispatch: director.dispatch,
+      snapshot: director.snapshot,
+    });
   const railAttributes = directorRailVisibilityAttributes(effectiveRailVisibility);
   const focus = directorFocus(snapshotView.selectedWorkstream);
   const switchTransition = useDirectorWorkstreamSwitchTransition(director.snapshot);
@@ -281,8 +277,14 @@ export function DirectorCommandCenterShell({
   }, [director.dispatch, workspaceBinding.openLocalFolder]);
 
   useEffect(() => {
-    canvas?.setSnapshot(packedSnapshot);
-  }, [canvas, packedSnapshot]);
+    if (canvas === null) {
+      return;
+    }
+    // Presentation first: it decides how the snapshot is read, so the canvas
+    // must never see a new composition under the old rules.
+    canvas.setPresentation(graphPresentation);
+    canvas.setSnapshot(packedSnapshot);
+  }, [canvas, graphPresentation, packedSnapshot]);
 
   useDirectorShellKeyboardNavigation({
     artifactBrowserOpen: artifactBrowser.activeArtifact !== null,
@@ -322,6 +324,7 @@ export function DirectorCommandCenterShell({
           <DirectorGraphSurface
             ambientMotion
             label="Director semantic graph"
+            onOpenWorkstream={openWorkstreamFromGraph}
             onReady={onGraphReady}
             timeSecondsAt={graphTimeSecondsAt}
           />
@@ -823,73 +826,6 @@ function useDirectorSpeechCapture({
   useEffect(() => subscribeSpeechCapabilityRefresh(setta, controller), [controller, setta]);
 
   return { controller, snapshot };
-}
-
-/*
- * The canvas draws the view you are on.
- *
- * The Director's view is the whole constellation — every workstream at once,
- * and its own lane with them — because that is what the Director sees. A
- * workstream's view is that workstream alone.
- *
- * The composition used to be permanent, which is why selection had no visible
- * consequence here and why the canvas failing to follow it had no agreed fix:
- * there was no answer to what it should show.
- */
-export function packDirectorGraphs(
-  graphs: DirectorSnapshot["graphs"] | undefined,
-  selectedWorkstreamId: string | null,
-) {
-  const composed = graphs ?? [];
-  const visible =
-    selectedWorkstreamId === null
-      ? composed
-      : composed.filter((graph) => graph.workstreamId === selectedWorkstreamId);
-  const compositionId = directorGraphCompositionId(selectedWorkstreamId);
-  if (visible.length === 0) {
-    return emptyPackedGraphSnapshot(compositionId);
-  }
-  return packSemanticGraphComposition({
-    graphs: visible,
-    workstreamId: compositionId,
-  });
-}
-
-export function directorGraphTimeSecondsAt(
-  snapshot: DirectorSnapshot | null,
-  frameAnchorMs = globalThis.performance?.now() ?? 0,
-): (timestampMs: number) => number {
-  const graphs = snapshot?.graphs ?? [];
-  const origin = semanticGraphTimeOriginSeconds(graphs);
-  if (snapshot === null || origin === null) {
-    return (timestampMs) => Math.max(0, timestampMs - frameAnchorMs) / 1000;
-  }
-  const committedAt = latestDirectorGraphTimeSeconds(snapshot, origin);
-  const relativeAtAnchor = Math.max(0, committedAt - origin);
-  return (timestampMs) => relativeAtAnchor + (timestampMs - frameAnchorMs) / 1000;
-}
-
-function latestDirectorGraphTimeSeconds(snapshot: DirectorSnapshot, fallback: number): number {
-  let latest = timestampSeconds(snapshot.connection.lastEventAt) ?? fallback;
-  for (const graph of snapshot.graphs) {
-    for (const node of graph.nodes) {
-      latest = Math.max(
-        latest,
-        timestampSeconds(node.createdAt) ?? fallback,
-        timestampSeconds(node.updatedAt) ?? fallback,
-        timestampSeconds(node.completedAt) ?? fallback,
-      );
-    }
-  }
-  return latest;
-}
-
-function timestampSeconds(value: string | null): number | null {
-  if (value === null) {
-    return null;
-  }
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? parsed / 1000 : null;
 }
 
 export function directorEventChangesVisibleState(event: DirectorEvent): boolean {

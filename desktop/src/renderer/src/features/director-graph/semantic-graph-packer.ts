@@ -26,9 +26,37 @@ import {
 } from "./packed-graph-snapshot";
 import type { PackedGraphMode, PackedGraphOutcome } from "./packed-graph-vocabulary";
 
+/*
+ * What the canvas is being asked to show.
+ *
+ * The three are genuinely different presentations, not one with settings. A
+ * conversation is a trajectory you read, and folding old turns out of the way is
+ * how it stays readable. The Director's columns are work you are watching, so
+ * nothing may fold itself away — a conversation that quietly collapsed to a dot
+ * because it finished is the view losing the thing it exists to show. The grid
+ * is already a reduction: each tile is the latest activity and there is nothing
+ * further to fold.
+ */
+export type SemanticGraphPresentation = "conversation" | "columns" | "grid";
+
 export interface SemanticGraphComposition {
   readonly workstreamId: string;
   readonly graphs: readonly WorkstreamGraph[];
+  readonly presentation: SemanticGraphPresentation;
+}
+
+/** How many conversations the Director draws as columns before it tiles them. */
+const maxDirectorColumnGraphs = 5;
+
+/** The presentation a set of Director graphs should be drawn in. */
+export function directorPresentationFor(
+  graphCount: number,
+  selectedWorkstreamId: string | null,
+): SemanticGraphPresentation {
+  if (selectedWorkstreamId !== null) {
+    return "conversation";
+  }
+  return graphCount > maxDirectorColumnGraphs ? "grid" : "columns";
 }
 
 const settleWindowSeconds = 1.45;
@@ -43,12 +71,13 @@ const workstreamLaneSpacing = 0.42;
  * conversations become tiles — each one its own cell, showing what it is doing
  * now rather than how it got there.
  */
-const maxDirectorColumns = 5;
 const directorGridWidth = 1.45;
 const directorGridBias = -0.36;
 /** A tile's own vertical room, before its rows are laid inside it. */
 const directorTileHeight = 0.62;
 const directorLeadLane = -0.86;
+/** How much of a conversation a tile shows: its latest activity, and no more. */
+const maxTileNodes = 3;
 
 interface OrderedNode {
   readonly node: SemanticNode;
@@ -129,6 +158,34 @@ function graphNodes(graphs: readonly WorkstreamGraph[]): OrderedNode[] {
   return records;
 }
 
+/*
+ * A tile is the latest activity, not the trajectory behind it.
+ *
+ * The grid exists because there is no room to read every conversation at once,
+ * so it answers what each one is doing now. Reducing here rather than folding
+ * later keeps the reduction a property of the view: nothing has to animate
+ * closed, and nothing can quietly re-open.
+ */
+function tiledGraphs(composition: SemanticGraphComposition): readonly WorkstreamGraph[] {
+  if (composition.presentation !== "grid") {
+    return composition.graphs;
+  }
+  return composition.graphs.map((graph, index) => {
+    if (index === 0) {
+      return graph;
+    }
+    const kept = graph.nodes.slice(-maxTileNodes);
+    const keptIds = new Set(kept.map((node) => node.id));
+    return {
+      ...graph,
+      nodes: kept,
+      edges: graph.edges.filter(
+        (edge) => keptIds.has(edge.fromNodeId) && keptIds.has(edge.toNodeId),
+      ),
+    };
+  });
+}
+
 function graphEdges(graphs: readonly WorkstreamGraph[]): SemanticEdge[] {
   return graphs
     .flatMap((graph) => graph.edges)
@@ -202,7 +259,7 @@ interface ColumnPlacement {
  * reading order: oldest top-left, newest bottom-right.
  */
 function columnPlacements(graphCount: number): ColumnPlacement[] {
-  if (graphCount <= maxDirectorColumns) {
+  if (graphCount <= maxDirectorColumnGraphs) {
     return Array.from({ length: graphCount }, (_unused, index) => ({
       lane: workstreamLane(index, graphCount),
       top: 0,
@@ -344,6 +401,7 @@ function graphOutcome(planned: readonly PlannedNode[]): {
 function turnInputs(
   planned: readonly PlannedNode[],
   placementFor: (graphIndex: number) => ColumnPlacement,
+  presentation: SemanticGraphPresentation,
 ): PackedGraphTurnInput[] {
   const byTurn = new Map<number, PlannedNode[]>();
   for (const node of planned) {
@@ -370,7 +428,12 @@ function turnInputs(
       rowSpan: nodes.length,
       outcome: outcome.outcome,
       answerAt: outcome.answerAt,
-      compactAt: outcome.answerAt === null ? null : outcome.answerAt + compactDelaySeconds,
+      // Only a conversation folds itself. See SemanticGraphPresentation.
+      compactAt:
+        presentation !== "conversation" || outcome.answerAt === null
+          ? null
+          : outcome.answerAt + compactDelaySeconds,
+      workstreamId: input.ordered.node.workstreamId,
     });
   }
   return turns;
@@ -428,7 +491,7 @@ function compileSemanticGraphComposition(
   if (composition.graphs.length === 0) {
     return [];
   }
-  const nodes = graphNodes(composition.graphs);
+  const nodes = graphNodes(tiledGraphs(composition));
   if (nodes.length === 0) {
     return [];
   }
@@ -452,7 +515,7 @@ function compileSemanticGraphComposition(
       hasEarlier: composition.graphs.some((graph) => graph.hasEarlier),
       nodes: packedNodes,
       edges: packedEdges,
-      turns: turnInputs(planned, placementFor),
+      turns: turnInputs(planned, placementFor, composition.presentation),
     },
   ];
 }

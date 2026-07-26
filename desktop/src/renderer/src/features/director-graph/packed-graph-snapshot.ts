@@ -108,6 +108,8 @@ export interface PackedGraphTurnInput {
    * conversations be on screen at once without becoming a row of slivers.
    */
   readonly columnTop: number;
+  /** The workstream this column draws, so a click on it can open that thread. */
+  readonly workstreamId: string;
   readonly inputNodeId: string;
   /** Null while the turn is still running. */
   readonly outcomeNodeId: string | null;
@@ -198,6 +200,8 @@ export interface PackedGraphSnapshot {
   readonly nodes: PackedGraphNodeColumns;
   readonly edges: PackedGraphEdgeColumns;
   readonly turns: PackedGraphTurnColumns;
+  /** Each turn's workstream, indexed by turn. See PackedGraphTurnInput.workstreamId. */
+  readonly turnWorkstreamIds: readonly string[];
   readonly nodeIndexById: ReadonlyMap<string, number>;
 }
 
@@ -428,6 +432,7 @@ export function emptyPackedGraphSnapshot(workstreamId: string): PackedGraphSnaps
     nodes: emptyNodeColumns,
     edges: emptyEdgeColumns,
     turns: emptyTurnColumns,
+    turnWorkstreamIds: [],
     nodeIndexById: new Map<string, number>(),
   });
 }
@@ -469,9 +474,11 @@ export function extendPackedGraphSnapshot(
   );
 
   const turns = grownTurnColumns(previous.turns, previous.turnCount, turnCount);
+  const turnWorkstreamIds = previous.turnWorkstreamIds.slice(0, previous.turnCount);
   let turnsFrom = turnCount;
   for (const turn of batch.turns) {
     writeTurn(turns, indexById, turn);
+    turnWorkstreamIds[turn.index] = turn.workstreamId;
     turnsFrom = Math.min(turnsFrom, turn.index);
   }
 
@@ -491,6 +498,7 @@ export function extendPackedGraphSnapshot(
     nodes,
     edges,
     turns,
+    turnWorkstreamIds,
     nodeIndexById: indexById,
   });
 }

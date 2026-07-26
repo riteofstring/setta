@@ -28,6 +28,7 @@ function sceneFor(name: Parameters<typeof packedGraphFixture>[0], timeSeconds: n
     deltaSeconds: 1 / 120,
     pinnedTurns: noPins,
     reducedMotion: false,
+    alignColumnsToLiveEdge: false,
   });
   for (let step = 0; step < 400 && frame.foldAnimating; step += 1) {
     frame = layout.advance(snapshot, {
@@ -35,6 +36,7 @@ function sceneFor(name: Parameters<typeof packedGraphFixture>[0], timeSeconds: n
       deltaSeconds: 1 / 60,
       pinnedTurns: noPins,
       reducedMotion: false,
+      alignColumnsToLiveEdge: false,
     });
   }
   const scene: GraphPointerScene = {
@@ -146,12 +148,17 @@ describe("graph pointer projection", () => {
   });
 });
 
+const boundsTo = (liveEdgeWorldY: number, contentTopWorldY = 0) => ({
+  contentTopWorldY,
+  liveEdgeWorldY,
+});
+
 describe("graph view controller", () => {
   it("follows the live edge until the user looks back", () => {
     const view = new GraphViewController();
     view.followLiveEdge(3);
     expect(view.camera()).toBe(3);
-    view.lookBack(-500, 3);
+    view.lookBack(-500, boundsTo(3));
     expect(view.isDetached()).toBe(true);
     expect(view.camera()).toBeLessThan(3);
     view.followLiveEdge(4);
@@ -161,10 +168,29 @@ describe("graph view controller", () => {
   it("reattaches when the view scrolls back to the live edge", () => {
     const view = new GraphViewController();
     view.followLiveEdge(3);
-    view.lookBack(-500, 3);
-    view.lookBack(5000, 3);
+    view.lookBack(-500, boundsTo(3));
+    view.lookBack(5000, boundsTo(3));
     expect(view.camera()).toBe(3);
     expect(view.isDetached()).toBe(false);
+  });
+
+  /*
+   * The camera has to stay inside what is drawn even when nothing moved it:
+   * folding, a new column and a replaced snapshot all move the content out from
+   * under it, and a camera left pointing above the first fact draws an empty
+   * canvas with nothing to say so.
+   */
+  it("returns a camera left outside the content", () => {
+    const view = new GraphViewController();
+    view.followLiveEdge(3);
+    view.lookBack(-5000, boundsTo(3));
+    const scrolledBack = view.camera();
+    expect(scrolledBack).toBeLessThan(0);
+
+    view.clampToContent(boundsTo(3, 2));
+
+    expect(view.camera()).toBeGreaterThanOrEqual(2 - 0.7);
+    expect(view.camera()).toBeLessThanOrEqual(3);
   });
 
   it("pins a turn to the opposite of what it is doing now", () => {

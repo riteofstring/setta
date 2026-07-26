@@ -24,8 +24,8 @@ import type { PackedGraphSnapshot } from "../packed-graph-snapshot";
 
 /** How far one wheel notch looks back, in reference clip units per pixel. */
 const lookBackPerPixel = 0.0013;
-/** Furthest the view may scroll past the first fact. */
-const lookBackCeiling = -0.7;
+/** How far past the first fact the view may scroll, so it has somewhere to stop. */
+const lookBackMargin = 0.7;
 /** Camera distance from the live edge that counts as detached. */
 const detachEpsilon = 0.02;
 /** Pointer radius for selecting a node, in CSS pixels. */
@@ -36,6 +36,12 @@ const outcomeRadiusPx = 16;
 export interface GraphScreenPoint {
   readonly x: number;
   readonly y: number;
+}
+
+/** Where the camera may sit: not above what is drawn, not past the live edge. */
+export interface GraphCameraBounds {
+  readonly contentTopWorldY: number;
+  readonly liveEdgeWorldY: number;
 }
 
 export interface GraphViewport {
@@ -255,13 +261,29 @@ export class GraphViewController {
    * the live edge reattaches it. Live work never stops, so there is nothing to
    * return to and no "back to live" control to hunt for.
    */
-  lookBack(deltaYPx: number, liveEdgeWorldY: number): void {
-    const next = Math.max(
-      lookBackCeiling,
-      Math.min(liveEdgeWorldY, this.cameraWorldY + deltaYPx * lookBackPerPixel),
-    );
+  lookBack(deltaYPx: number, bounds: GraphCameraBounds): void {
+    this.settleCamera(this.cameraWorldY + deltaYPx * lookBackPerPixel, bounds);
+  }
+
+  /*
+   * Puts the camera back inside what is drawn.
+   *
+   * Folding, a new column and a replaced snapshot all move the content out from
+   * under a camera that has not moved, so clamping only on the wheel left the
+   * view parked somewhere with nothing in it and no way to tell. This runs every
+   * frame, detached included: being detached means the camera is not following
+   * the live edge, not that it may point at nothing.
+   */
+  clampToContent(bounds: GraphCameraBounds): void {
+    this.settleCamera(this.cameraWorldY, bounds);
+  }
+
+  private settleCamera(candidate: number, bounds: GraphCameraBounds): void {
+    const floor = bounds.contentTopWorldY - lookBackMargin;
+    const ceiling = Math.max(floor, bounds.liveEdgeWorldY);
+    const next = Math.max(floor, Math.min(ceiling, candidate));
     this.cameraWorldY = next;
-    this.detached = next < liveEdgeWorldY - detachEpsilon;
+    this.detached = next < bounds.liveEdgeWorldY - detachEpsilon;
   }
 
   setHovered(nodeIndex: number | null): boolean {

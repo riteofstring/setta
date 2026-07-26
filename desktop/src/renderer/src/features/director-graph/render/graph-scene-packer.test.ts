@@ -28,6 +28,7 @@ function layoutFor(snapshot: PackedGraphSnapshot, layout = new GraphLadderLayout
     deltaSeconds: 1 / 120,
     pinnedTurns: noPins,
     reducedMotion: false,
+    alignColumnsToLiveEdge: false,
   });
 }
 
@@ -97,6 +98,7 @@ describe("graph scene packer", () => {
       deltaSeconds: 1 / 120,
       pinnedTurns: noPins,
       reducedMotion: false,
+      alignColumnsToLiveEdge: false,
     });
     const scene = packer.sync(after, ladder, { from: ladder.dirtyFrom, to: ladder.dirtyTo });
     expect(scene.nodeStaticUpload.from).toBe(after.changed.nodesFrom);
@@ -128,6 +130,7 @@ describe("graph scene packer", () => {
       deltaSeconds: 1 / 120,
       pinnedTurns: noPins,
       reducedMotion: false,
+      alignColumnsToLiveEdge: false,
     });
     const scene = packer.sync(after, ladder, { from: ladder.dirtyFrom, to: ladder.dirtyTo });
     expect(scene.nodeStaticUpload.from).toBe(after.changed.nodesFrom);

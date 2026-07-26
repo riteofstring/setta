@@ -8,7 +8,10 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { projectionGalleryFixtures } from "./projection-gallery-fixtures";
-import { packSemanticGraphComposition } from "./semantic-graph-packer";
+import {
+  packSemanticGraphComposition,
+  type SemanticGraphPresentation,
+} from "./semantic-graph-packer";
 import { packedValueAt } from "./packed-graph-vocabulary";
 
 /** Copies a fixture graph under a new workstream id, so a composition can hold many. */
@@ -61,6 +64,7 @@ describe("semantic graph gallery fixtures", () => {
 describe("semantic graph packer", () => {
   it.each(projectionGalleryFixtures)("packs $name into a drawable snapshot", (fixture) => {
     const snapshot = packSemanticGraphComposition({
+      presentation: "columns",
       workstreamId: fixture.name,
       graphs: fixture.graphs,
     });
@@ -95,6 +99,7 @@ describe("semantic graph packer", () => {
     }
     const populated = fixture.graphs.filter((graph) => graph.nodes.length > 0);
     const snapshot = packSemanticGraphComposition({
+      presentation: "columns",
       workstreamId: fixture.name,
       graphs: fixture.graphs,
     });
@@ -139,7 +144,11 @@ describe("semantic graph packer", () => {
     const many = Array.from({ length: 9 }, (_unused, index) =>
       renameGraph(populated[index % populated.length], `workstream-tile-${index}`),
     );
-    const snapshot = packSemanticGraphComposition({ workstreamId: "grid", graphs: many });
+    const snapshot = packSemanticGraphComposition({
+      presentation: "columns",
+      workstreamId: "grid",
+      graphs: many,
+    });
 
     expect(snapshot.turnCount).toBe(many.length);
     const tops = new Set<number>();
@@ -152,6 +161,72 @@ describe("semantic graph packer", () => {
     expect(lanes.size).toBeGreaterThan(1);
   });
 
+  /*
+   * Only a conversation folds itself. The Director's views exist to show the
+   * work, so nothing on them may collapse to a dot because it finished — that
+   * is the view losing the thing it is for.
+   */
+  it("sets a fold clock for a conversation and for nothing else", () => {
+    const fixture = projectionGalleryFixtures.find((candidate) =>
+      candidate.graphs.some((graph) => graph.nodes.length > 0),
+    );
+    expect(fixture).toBeDefined();
+    if (fixture === undefined) {
+      return;
+    }
+    const compactClocks = (presentation: SemanticGraphPresentation) => {
+      const snapshot = packSemanticGraphComposition({
+        graphs: fixture.graphs,
+        presentation,
+        workstreamId: fixture.name,
+      });
+      const clocks: number[] = [];
+      for (let turn = 0; turn < snapshot.turnCount; turn += 1) {
+        clocks.push(packedValueAt(snapshot.turns.compactAt, turn));
+      }
+      return clocks;
+    };
+
+    expect(compactClocks("conversation").some((clock) => Number.isFinite(clock))).toBe(true);
+    expect(compactClocks("columns").every((clock) => !Number.isFinite(clock))).toBe(true);
+    expect(compactClocks("grid").every((clock) => !Number.isFinite(clock))).toBe(true);
+  });
+
+  it("reduces a grid tile to its latest activity", () => {
+    const fixture = projectionGalleryFixtures.find(
+      (candidate) => candidate.graphs.filter((graph) => graph.nodes.length > 3).length > 0,
+    );
+    expect(fixture).toBeDefined();
+    if (fixture === undefined) {
+      return;
+    }
+    const long = fixture.graphs.find((graph) => graph.nodes.length > 3);
+    expect(long).toBeDefined();
+    if (long === undefined) {
+      return;
+    }
+    const graphs = [long, ...Array.from({ length: 8 }, (_u, i) => renameGraph(long, `tile-${i}`))];
+    const snapshot = packSemanticGraphComposition({
+      graphs,
+      presentation: "grid",
+      workstreamId: "grid",
+    });
+
+    // The lead column keeps its trajectory; every tile is cut down to its end.
+    const perTurn = new Map<number, number>();
+    for (let index = 0; index < snapshot.nodeCount; index += 1) {
+      const turn = packedValueAt(snapshot.nodes.turn, index);
+      perTurn.set(turn, (perTurn.get(turn) ?? 0) + 1);
+    }
+    expect(perTurn.get(0)).toBe(long.nodes.length);
+    for (const [turn, count] of perTurn) {
+      if (turn === 0) {
+        continue;
+      }
+      expect(count).toBeLessThanOrEqual(3);
+    }
+  });
+
   it("draws cross-workstream delegation inside the gallery composition", () => {
     const fixture = projectionGalleryFixtures.find((candidate) => candidate.name === "delegation");
     expect(fixture).toBeDefined();
@@ -159,6 +234,7 @@ describe("semantic graph packer", () => {
       return;
     }
     const snapshot = packSemanticGraphComposition({
+      presentation: "columns",
       workstreamId: fixture.name,
       graphs: fixture.graphs,
     });

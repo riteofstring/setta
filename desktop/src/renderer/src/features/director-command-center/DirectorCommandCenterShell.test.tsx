@@ -17,11 +17,10 @@ import { directorArtifactCardMetadata } from "./DirectorArtifactPreviewCard";
 import {
   DirectorRefreshCoordinator,
   directorEventChangesVisibleState,
-  directorGraphTimeSecondsAt,
   directorPendingWork,
   effectiveDirectorRailVisibility,
-  packDirectorGraphs,
 } from "./DirectorCommandCenterShell";
+import { directorGraphTimeSecondsAt, packDirectorGraphs } from "./director-graph-presentation";
 import {
   directorComposerHint,
   directorComposerTakesKeystroke,

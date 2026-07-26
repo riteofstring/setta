@@ -306,7 +306,7 @@ function DirectorRailControls({
  * Selecting a view. A null workstream is the Director's own, which is what the
  * strip's first destination selects.
  */
-function selectViewIntent(workstreamId: string | null): DirectorIntent {
+export function selectViewIntent(workstreamId: string | null): DirectorIntent {
   return {
     cancelRun: null,
     createWorkstream: null,

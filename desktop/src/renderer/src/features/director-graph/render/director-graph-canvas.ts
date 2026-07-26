@@ -62,9 +62,11 @@ import {
   graphOutcomeAtPointer,
   type GraphScreenPoint,
   type GraphViewport,
+  type GraphCameraBounds,
 } from "./graph-view-state";
 import { graphFitFrame, graphMotionRates } from "./graph-visual-language";
 import { packedValueAt } from "../packed-graph-vocabulary";
+import type { SemanticGraphPresentation } from "../semantic-graph-packer";
 
 export interface GraphCanvasQuality {
   readonly tier: GraphQualityTier;
@@ -96,6 +98,11 @@ export interface DirectorGraphCanvasOptions {
    */
   readonly timeSecondsAt: (timestampMs: number) => number;
   readonly reducedMotion: boolean;
+  /**
+   * Opens the thread a click landed on. Supplied by the Director's views, where
+   * a column or a tile is a destination; a conversation has nothing to open.
+   */
+  readonly onOpenWorkstream?: (workstreamId: string) => void;
   /**
    * Keeps the mockup's drifting void alive after semantic graph motion settles.
    * Fixture harnesses leave this off so completed replays can still sleep.
@@ -157,6 +164,8 @@ export class DirectorGraphCanvas {
    * on a long one is seconds of replay before the reader sees the present.
    */
   private arriveAtLiveEdge = false;
+  private presentation: SemanticGraphPresentation = "conversation";
+  private bounds: GraphCameraBounds = { contentTopWorldY: 0, liveEdgeWorldY: 0 };
   private lastSurfaceKey = "";
   private lastFrameTimestampMs = 0;
   private disposed = false;
@@ -271,6 +280,15 @@ export class DirectorGraphCanvas {
    */
   clicked(point: GraphScreenPoint): void {
     const scene = this.pointerScene();
+    if (this.presentation !== "conversation") {
+      const hit = graphNodeAtPointer(scene, point);
+      if (hit !== null && this.openWorkstreamAt(hit)) {
+        return;
+      }
+      this.view.toggleSelected(hit);
+      this.scheduler.requestFrame();
+      return;
+    }
     const outcome = graphOutcomeAtPointer(scene, point);
     if (outcome !== null) {
       this.toggleTurnAt(outcome);
@@ -280,10 +298,33 @@ export class DirectorGraphCanvas {
     this.scheduler.requestFrame();
   }
 
+  /** Opens the thread a node belongs to. Reports whether there was one to open. */
+  private openWorkstreamAt(nodeIndex: number): boolean {
+    const turn = packedValueAt(this.snapshot.nodes.turn, nodeIndex);
+    const workstreamId = this.snapshot.turnWorkstreamIds[turn];
+    if (workstreamId === undefined || this.options.onOpenWorkstream === undefined) {
+      return false;
+    }
+    this.options.onOpenWorkstream(workstreamId);
+    return true;
+  }
+
   /** Wheel look-back through the trajectory; live work keeps running. */
   wheeled(deltaYPx: number): void {
-    this.view.lookBack(deltaYPx, this.layout.liveEdge());
+    this.view.lookBack(deltaYPx, this.bounds);
     this.scheduler.requestFrame();
+  }
+
+  /*
+   * Which presentation the canvas is drawing.
+   *
+   * It decides what a click means. In a conversation an outcome node folds its
+   * turn, because the turns are the thing being read. On the Director's views a
+   * click on any thread opens it: the columns and tiles are destinations, and
+   * folding one from a view that exists to show them all is never the ask.
+   */
+  setPresentation(presentation: SemanticGraphPresentation): void {
+    this.presentation = presentation;
   }
 
   /**
@@ -423,7 +464,12 @@ export class DirectorGraphCanvas {
       deltaSeconds: timing.deltaSeconds,
       pinnedTurns: this.view.pins(),
       reducedMotion: this.reducedMotion,
+      alignColumnsToLiveEdge: this.presentation === "columns",
     });
+    this.bounds = {
+      contentTopWorldY: ladder.contentTopWorldY,
+      liveEdgeWorldY: ladder.liveEdgeWorldY,
+    };
     this.view.followLiveEdge(
       this.arriveAtLiveEdge
         ? ladder.liveEdgeWorldY
@@ -434,6 +480,9 @@ export class DirectorGraphCanvas {
             this.reducedMotion,
           ),
     );
+    // Every frame, detached included: the content moves under a camera that has
+    // not, and a camera outside it draws nothing with no way to say so.
+    this.view.clampToContent(this.bounds);
     this.arriveAtLiveEdge = false;
     const hovering = this.view.hovered() !== null;
     this.hoverAmount = advanceHoverAmount(
@@ -450,12 +499,22 @@ export class DirectorGraphCanvas {
       to: ladder.dirtyTo,
     });
     const profile = this.quality.current().profile;
-    const nodes = graphVisibleNodeRange(
-      ladder.worldY,
-      this.snapshot.nodeCount,
-      this.view.camera(),
-      profile.visibleHalfWindow,
-    );
+    /*
+     * Culling reads worldY as sorted, which it is down one column and is not
+     * across several: each column restarts at its own top, so a binary search
+     * lands anywhere and drops nodes that are on screen. A composition is
+     * bounded by the snapshot budget, so it is drawn whole rather than searched
+     * wrongly.
+     */
+    const nodes =
+      ladder.columnCount > 1
+        ? { from: 0, to: this.snapshot.nodeCount }
+        : graphVisibleNodeRange(
+            ladder.worldY,
+            this.snapshot.nodeCount,
+            this.view.camera(),
+            profile.visibleHalfWindow,
+          );
     const edges = graphVisibleEdgeRange(this.snapshot.edges.to, this.snapshot.edgeCount, nodes);
 
     this.stopwatch.begin("upload");

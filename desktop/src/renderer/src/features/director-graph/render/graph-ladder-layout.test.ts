@@ -24,6 +24,7 @@ function advance(
     deltaSeconds,
     pinnedTurns,
     reducedMotion: false,
+    alignColumnsToLiveEdge: false,
   });
 }
 
@@ -177,6 +178,7 @@ describe("graph ladder layout", () => {
       deltaSeconds: 1 / 120,
       pinnedTurns: noPins,
       reducedMotion: true,
+      alignColumnsToLiveEdge: false,
     });
     expect(frame.foldAnimating).toBe(true);
     expect(layout.turnOpenness(0)).toBe(0);
@@ -190,6 +192,7 @@ describe("graph ladder layout", () => {
       deltaSeconds: 1 / 120,
       pinnedTurns: noPins,
       reducedMotion: true,
+      alignColumnsToLiveEdge: false,
     });
     expect(frame.quietUntilSeconds).toBe(timeSeconds);
   });
@@ -203,6 +206,7 @@ describe("graph ladder layout", () => {
       deltaSeconds: 0,
       pinnedTurns: noPins,
       reducedMotion: true,
+      alignColumnsToLiveEdge: false,
     });
     expect(layout.turnOpenness(0)).toBe(0);
   });
@@ -311,8 +315,7 @@ describe("graph ladder columns", () => {
           columnNode("left-step", 0, 1, -0.4, 1),
           columnNode("left-outcome", 0, 2, -0.4, 2, "outcome"),
           columnNode("right-input", 1, 0, 0.4, 0),
-          columnNode("right-step", 1, 1, 0.4, 1),
-          columnNode("right-outcome", 1, 2, 0.4, 2, "outcome"),
+          columnNode("right-outcome", 1, 1, 0.4, 1, "outcome"),
         ],
         edges: [],
         turns: [
@@ -320,6 +323,7 @@ describe("graph ladder columns", () => {
             index: 0,
             column: 0,
             columnTop: 0,
+            workstreamId: "fixture",
             inputNodeId: "left-input",
             outcomeNodeId: "left-outcome",
             rowSpan: 3,
@@ -331,9 +335,10 @@ describe("graph ladder columns", () => {
             index: 1,
             column: 1,
             columnTop: 0,
+            workstreamId: "fixture",
             inputNodeId: "right-input",
             outcomeNodeId: "right-outcome",
-            rowSpan: 3,
+            rowSpan: 2,
             outcome: "succeeded",
             answerAt: 2,
             compactAt: null,
@@ -376,19 +381,38 @@ describe("graph ladder columns", () => {
 
     // Same row in either column sits at the same height.
     expect(layout.nodeWorldY(0)).toBeCloseTo(layout.nodeWorldY(3), 5);
-    expect(layout.nodeWorldY(1)).toBeCloseTo(layout.nodeWorldY(4), 5);
+  });
+
+  /*
+   * One camera looks at one depth. Columns left at their own depths hide each
+   * other — a short conversation ends far above a long one and falls off the
+   * top while the long one is being watched — so their live edges share a line.
+   */
+  it("aligns every column's newest fact when asked to", () => {
+    const snapshot = twoColumnSnapshot();
+    const layout = new GraphLadderLayout();
+    layout.advance(snapshot, {
+      timeSeconds: 10,
+      deltaSeconds: 1 / 120,
+      pinnedTurns: noPins,
+      reducedMotion: true,
+      alignColumnsToLiveEdge: true,
+    });
+
+    // The right column is one row shorter, so aligning has to have moved it.
+    expect(layout.nodeWorldY(4)).toBeCloseTo(layout.nodeWorldY(2), 5);
   });
 
   it("folds one column without moving the other", () => {
     const snapshot = twoColumnSnapshot();
     const layout = new GraphLadderLayout();
     settle(layout, snapshot, 10);
-    const rightBefore = [3, 4, 5].map((index) => layout.nodeWorldY(index));
+    const rightBefore = [3, 4].map((index) => layout.nodeWorldY(index));
     const leftStepBefore = layout.nodeWorldY(1);
 
     settle(layout, snapshot, 10, new Map([[0, false]]));
 
     expect(layout.nodeWorldY(1)).toBeLessThan(leftStepBefore);
-    expect([3, 4, 5].map((index) => layout.nodeWorldY(index))).toEqual(rightBefore);
+    expect([3, 4].map((index) => layout.nodeWorldY(index))).toEqual(rightBefore);
   });
 });
