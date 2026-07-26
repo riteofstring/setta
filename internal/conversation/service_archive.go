@@ -21,11 +21,25 @@ func (service *Service) ArchiveTopic(
 	if err != nil {
 		return ConversationSnapshot{}, err
 	}
+	if err := service.archiveConversationSnapshot(ctx, snapshot); err != nil {
+		return ConversationSnapshot{}, err
+	}
+	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
+}
+
+// archiveConversationSnapshot retires one conversation the caller already read
+// and locked. Archiving an archived conversation is the state the caller asked
+// for, so it is a no-op rather than a conflict.
+func (service *Service) archiveConversationSnapshot(
+	ctx context.Context,
+	snapshot ConversationSnapshot,
+) error {
+	conversationID := snapshot.Conversation.ID
 	if snapshot.Conversation.ArchivedAt != nil {
-		return snapshot, nil
+		return nil
 	}
 	if err := service.validateArchiveSnapshot(snapshot); err != nil {
-		return ConversationSnapshot{}, err
+		return err
 	}
 
 	archivedAt := advanceTimestamp(snapshot.Conversation.UpdatedAt, service.timestamp())
@@ -41,7 +55,7 @@ func (service *Service) ArchiveTopic(
 		},
 	)
 	if err != nil {
-		return ConversationSnapshot{}, err
+		return err
 	}
 	_, err = service.store.transactPresentationAware(ctx, "archive topic conversation", func(transaction *WriteTransaction) error {
 		if err := requireArchiveRoutingSettled(transaction, conversationID); err != nil {
@@ -58,10 +72,7 @@ func (service *Service) ArchiveTopic(
 		}
 		return appendPublications(transaction, publications)
 	})
-	if err != nil {
-		return ConversationSnapshot{}, err
-	}
-	return service.store.ReadSnapshot(ctx, workspaceID, conversationID)
+	return err
 }
 
 func requireArchiveRoutingSettled(transaction *WriteTransaction, conversationID string) error {

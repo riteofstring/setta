@@ -37,8 +37,7 @@ func (body trackingBody) Close() error {
 
 func newFakeOpenAIClient(t *testing.T, roundTrip http.RoundTripper) *OpenAIClient {
 	t.Helper()
-	client, err := NewOpenAIClient(OpenAIClientConfig{
-		APIKey:         testSpeechAPIKey,
+	client, err := NewOpenAIClient(testSpeechAPIKey, OpenAIProviderConfig{
 		HTTPClient:     &http.Client{Transport: roundTrip},
 		RequestTimeout: time.Second,
 	})
@@ -63,6 +62,14 @@ func fakeResponse(status int, contentType string, body []byte) *http.Response {
 
 func validTestWAV() []byte {
 	return validTestWAVWithDataLength(2)
+}
+
+func testSynthesisInput(text string, voiceID SpeechVoiceID) ProviderSynthesisInput {
+	return ProviderSynthesisInput{
+		Text:    text,
+		VoiceID: voiceID,
+		Rate:    AssistantSynthesisRate,
+	}
 }
 
 func validTestWAVWithDataLength(dataLength int) []byte {
@@ -105,27 +112,28 @@ func requireSpeechErrorCode(t *testing.T, err error, code ErrorCode) *Error {
 func TestNewOpenAIClientValidatesConfiguration(t *testing.T) {
 	tests := []struct {
 		name   string
-		config OpenAIClientConfig
+		apiKey string
+		config OpenAIProviderConfig
 		want   string
 	}{
-		{name: "api key whitespace", config: OpenAIClientConfig{APIKey: " secret"}, want: "API key must not contain"},
-		{name: "api key embedded whitespace", config: OpenAIClientConfig{APIKey: "secret value"}, want: "only visible ASCII"},
-		{name: "negative timeout", config: OpenAIClientConfig{RequestTimeout: -time.Second}, want: "request timeout must be positive"},
-		{name: "unapproved base URL", config: OpenAIClientConfig{BaseURL: "http://127.0.0.1:1234/v1"}, want: "requires explicit test authorization"},
-		{name: "base URL query", config: OpenAIClientConfig{BaseURL: "http://127.0.0.1:1234/v1?secret=value", AllowTestBaseURL: true}, want: "must not contain user info"},
-		{name: "base URL without host", config: OpenAIClientConfig{BaseURL: "http:///v1", AllowTestBaseURL: true}, want: "requires a scheme and host"},
-		{name: "base URL unsupported scheme", config: OpenAIClientConfig{BaseURL: "ftp://example.test/v1", AllowTestBaseURL: true}, want: "must use HTTP or HTTPS"},
+		{name: "api key whitespace", apiKey: " secret", want: "API key must not contain"},
+		{name: "api key embedded whitespace", apiKey: "secret value", want: "only visible ASCII"},
+		{name: "negative timeout", config: OpenAIProviderConfig{RequestTimeout: -time.Second}, want: "request timeout must be positive"},
+		{name: "unapproved base URL", config: OpenAIProviderConfig{BaseURL: "http://127.0.0.1:1234/v1"}, want: "requires explicit test authorization"},
+		{name: "base URL query", config: OpenAIProviderConfig{BaseURL: "http://127.0.0.1:1234/v1?secret=value", AllowTestBaseURL: true}, want: "must not contain user info"},
+		{name: "base URL without host", config: OpenAIProviderConfig{BaseURL: "http:///v1", AllowTestBaseURL: true}, want: "requires a scheme and host"},
+		{name: "base URL unsupported scheme", config: OpenAIProviderConfig{BaseURL: "ftp://example.test/v1", AllowTestBaseURL: true}, want: "must use HTTP or HTTPS"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := NewOpenAIClient(test.config)
+			_, err := NewOpenAIClient(test.apiKey, test.config)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want containing %q", err, test.want)
 			}
 		})
 	}
 
-	client, err := NewOpenAIClient(OpenAIClientConfig{
+	client, err := NewOpenAIClient("", OpenAIProviderConfig{
 		BaseURL:          "http://127.0.0.1:1234/v1/",
 		AllowTestBaseURL: true,
 	})
@@ -137,17 +145,37 @@ func TestNewOpenAIClientValidatesConfiguration(t *testing.T) {
 	}
 }
 
+func TestNewOpenAIClientOwnsDefaultTransport(t *testing.T) {
+	client, err := NewOpenAIClient(testSpeechAPIKey, OpenAIProviderConfig{})
+	if err != nil {
+		t.Fatalf("create OpenAI speech client: %v", err)
+	}
+	if client.httpClient.Transport == nil {
+		t.Fatal("OpenAI speech client transport is nil")
+	}
+	if client.httpClient.Transport == http.DefaultTransport {
+		t.Fatal("OpenAI speech client reused the process default transport")
+	}
+}
+
 func TestOpenAIClientWithoutAPIKeyFailsWithoutProviderRequest(t *testing.T) {
 	var calls atomic.Int32
-	client := newFakeOpenAIClient(t, fakeRoundTripper(func(*http.Request) (*http.Response, error) {
-		calls.Add(1)
-		return nil, errors.New("unexpected request")
-	}))
-	client.apiKey = ""
+	client, err := NewOpenAIClient("", OpenAIProviderConfig{
+		HTTPClient: &http.Client{Transport: fakeRoundTripper(func(*http.Request) (*http.Response, error) {
+			calls.Add(1)
+			return nil, errors.New("unexpected request")
+		})},
+	})
+	if err != nil {
+		t.Fatalf("create unconfigured OpenAI speech client: %v", err)
+	}
 
-	_, err := client.CreateTranscriptionClientSecret(context.Background(), "setta-device-hash")
+	_, err = client.CreateTranscriptionClientSecret(context.Background(), "setta-device-hash")
 	requireSpeechErrorCode(t, err, ErrorNotConfigured)
-	_, err = client.SynthesizeSpeech(context.Background(), "Visible persisted summary.", SynthesisVoice)
+	_, err = client.SynthesizeSpeech(
+		context.Background(),
+		testSynthesisInput("Visible persisted summary.", SynthesisVoice),
+	)
 	requireSpeechErrorCode(t, err, ErrorNotConfigured)
 	if calls.Load() != 0 {
 		t.Fatalf("provider calls = %d, want 0", calls.Load())
@@ -174,7 +202,10 @@ func TestOpenAIClientClassifiesProviderStatusesWithoutLeakingBodies(t *testing.T
 				calls.Add(1)
 				return fakeResponse(test.status, "application/json", []byte(`{"error":"provider-body-secret"}`)), nil
 			}))
-			_, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.", SynthesisVoice)
+			_, err := client.SynthesizeSpeech(
+				context.Background(),
+				testSynthesisInput("Persisted summary.", SynthesisVoice),
+			)
 			requireSpeechErrorCode(t, err, test.code)
 			if calls.Load() != 1 {
 				t.Fatalf("provider calls = %d, want 1", calls.Load())
@@ -194,7 +225,10 @@ func TestOpenAIClientDoesNotFollowProviderRedirects(t *testing.T) {
 		response.Header.Set("Location", "https://example.test/credential-sink")
 		return response, nil
 	}))
-	_, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.", SynthesisVoice)
+	_, err := client.SynthesizeSpeech(
+		context.Background(),
+		testSynthesisInput("Persisted summary.", SynthesisVoice),
+	)
 	requireSpeechErrorCode(t, err, ErrorProviderResponseMalformed)
 	if calls.Load() != 1 {
 		t.Fatalf("provider calls = %d, want 1", calls.Load())
@@ -219,7 +253,10 @@ func TestOpenAIClientClosesProviderResponseBodies(t *testing.T) {
 				response.ContentLength = int64(len(test.body))
 				return response, nil
 			}))
-			_, _ = client.SynthesizeSpeech(context.Background(), "Persisted summary.", SynthesisVoice)
+			_, _ = client.SynthesizeSpeech(
+				context.Background(),
+				testSynthesisInput("Persisted summary.", SynthesisVoice),
+			)
 			if !closed.Load() {
 				t.Fatal("provider response body was not closed")
 			}
@@ -235,7 +272,10 @@ func TestOpenAIClientPropagatesCancellationAndDeadlineClassification(t *testing.
 		}))
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err := client.SynthesizeSpeech(ctx, "Persisted summary.", SynthesisVoice)
+		_, err := client.SynthesizeSpeech(
+			ctx,
+			testSynthesisInput("Persisted summary.", SynthesisVoice),
+		)
 		requireSpeechErrorCode(t, err, ErrorProviderUnavailable)
 		if !errors.Is(err, context.Canceled) {
 			t.Fatalf("error does not wrap context cancellation: %v", err)
@@ -248,7 +288,10 @@ func TestOpenAIClientPropagatesCancellationAndDeadlineClassification(t *testing.
 			return nil, request.Context().Err()
 		}))
 		client.requestTimeout = time.Millisecond
-		_, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.", SynthesisVoice)
+		_, err := client.SynthesizeSpeech(
+			context.Background(),
+			testSynthesisInput("Persisted summary.", SynthesisVoice),
+		)
 		requireSpeechErrorCode(t, err, ErrorProviderUnavailable)
 		if !errors.Is(err, context.DeadlineExceeded) {
 			t.Fatalf("error does not wrap deadline: %v", err)
@@ -260,7 +303,10 @@ func TestOpenAIClientPropagatesCancellationAndDeadlineClassification(t *testing.
 		client := newFakeOpenAIClient(t, fakeRoundTripper(func(*http.Request) (*http.Response, error) {
 			return nil, transportError
 		}))
-		_, err := client.SynthesizeSpeech(context.Background(), "Persisted summary.", SynthesisVoice)
+		_, err := client.SynthesizeSpeech(
+			context.Background(),
+			testSynthesisInput("Persisted summary.", SynthesisVoice),
+		)
 		requireSpeechErrorCode(t, err, ErrorProviderUnavailable)
 		if !errors.Is(err, transportError) {
 			t.Fatalf("error does not wrap transport failure: %v", err)

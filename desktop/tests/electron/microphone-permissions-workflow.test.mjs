@@ -43,7 +43,7 @@ try {
     fixture,
     visible: options.visible,
   });
-  await waitForSelector(context.client, '[data-testid="workspace-layout-area"]');
+  await waitForSelector(context.client, '[data-testid="director-command-center-shell"]');
 
   const result = await context.client.driver("microphonePermissionsProbe");
   assertMediaPermissionResult(result);

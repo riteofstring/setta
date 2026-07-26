@@ -31,10 +31,9 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 		RequestedAt:    testTimeStarted,
 	}
 	subagent := Subagent{
-		ID:               "subagent-1",
-		ProviderThreadID: "provider-subagent-thread-1",
-		Status:           SubagentStatusRunning,
-		ModelID:          stringPointer("gpt-subagent"),
+		ID:      "subagent-1",
+		Status:  SubagentStatusRunning,
+		ModelID: stringPointer("gpt-subagent"),
 	}
 	tests := []struct {
 		kind  TrajectoryEventKind
@@ -113,22 +112,30 @@ func TestEveryTrajectoryKindHasAValidatedTypedPayload(t *testing.T) {
 			event.SubagentCompleted = &TrajectorySubagentCompleted{Subagent: completed}
 		}},
 		{TrajectoryEventArtifactEmitted, func(event *TrajectoryEvent) {
-			event.ArtifactEmitted = &TrajectoryArtifactEmitted{ArtifactID: "artifact-1"}
-		}},
-		{TrajectoryEventAgentLivenessChanged, func(event *TrajectoryEvent) {
-			event.AgentLivenessChanged = &TrajectoryAgentLivenessChanged{Liveness: AgentLiveness{
-				Status:              AgentLivenessAttached,
-				Reason:              AgentLivenessReasonProviderTurnLinked,
-				Cancellable:         true,
-				Steerable:           true,
-				LastProviderEventAt: stringPointer(testTimeStarted),
-			}}
+			event.ArtifactEmitted = &TrajectoryArtifactEmitted{
+				ArtifactID: "artifact-1",
+				Kind:       ArtifactKindMarkdown,
+				Title:      "Focused test summary",
+			}
 		}},
 		{TrajectoryEventProviderLifecycleChanged, func(event *TrajectoryEvent) {
-			event.ProviderLifecycleChanged = &TrajectoryProviderLifecycleChanged{Lifecycle: ProviderLifecycle{Provider: ProviderCodex, Status: ProviderLifecycleReady}}
+			event.ProviderLifecycleChanged = &TrajectoryProviderLifecycleChanged{Lifecycle: ProviderLifecycle{
+				Provider: ProviderCodex,
+				Status:   ProviderLifecycleReady,
+				Reason:   ProviderLifecycleReasonThreadIdle,
+			}}
+		}},
+		{TrajectoryEventValidationRecorded, func(event *TrajectoryEvent) {
+			event.ValidationRecorded = &TrajectoryValidationRecorded{Validation: TrajectoryValidation{
+				ID:      "review-1",
+				Kind:    TrajectoryValidationGuardianReview,
+				Status:  TrajectoryValidationStatusPassed,
+				Subject: stringPointer("provider-item-file"),
+				Summary: "Automatic approval review allowed the change (risk low)",
+			}}
 		}},
 		{TrajectoryEventModelRerouted, func(event *TrajectoryEvent) {
-			event.ModelRerouted = &TrajectoryModelRerouted{Reroute: InvocationModelReroute{FromModelID: "gpt-heavy", ToModelID: "gpt-safe", Reason: "high_risk_cyber_activity"}}
+			event.ModelRerouted = &TrajectoryModelRerouted{Reroute: InvocationModelReroute{FromModelID: "gpt-heavy", ToModelID: "gpt-safe", Reason: InvocationModelRerouteReasonHighRiskCyberActivity}}
 		}},
 	}
 
@@ -217,6 +224,47 @@ func TestTrajectoryEventRejectsMismatchedAndMultiplePayloadBranches(t *testing.T
 	assertValidationErrorContains(t, event.Validate(), "failed file change requires failure")
 }
 
+func TestTurnLifecycleReasonsCannotBecomeRunlessFacts(t *testing.T) {
+	event := baseTrajectoryEvent(TrajectoryEventProviderLifecycleChanged)
+	event.TurnID = nil
+	event.ProviderTurnID = nil
+	event.Actor = TrajectoryActorProvider
+	event.ProviderLifecycleChanged = &TrajectoryProviderLifecycleChanged{Lifecycle: ProviderLifecycle{
+		Provider: ProviderCodex,
+		Status:   ProviderLifecycleRestarting,
+		Reason:   ProviderLifecycleReasonTurnRetrying,
+	}}
+	assertValidationErrorContains(t, event.Validate(), "requires turn id")
+
+	event.ProviderLifecycleChanged.Lifecycle = ProviderLifecycle{
+		Provider: ProviderCodex,
+		Status:   ProviderLifecycleUnavailable,
+		Reason:   ProviderLifecycleReasonEnvironmentDisconnected,
+	}
+	if err := event.Validate(); err != nil {
+		t.Fatalf("thread-scoped environment lifecycle was rejected: %v", err)
+	}
+}
+
+func TestOnlyGuardianValidationCarriesTypedRisk(t *testing.T) {
+	risk := TrajectoryValidationRiskHigh
+	validation := TrajectoryValidation{
+		ID:      "validation-1",
+		Kind:    TrajectoryValidationModelVerification,
+		Status:  TrajectoryValidationStatusInProgress,
+		Risk:    &risk,
+		Summary: "Extra model safety verification is applied to this run",
+	}
+	assertValidationErrorContains(t, validation.Validate(), "must not carry Guardian risk")
+
+	validation.Kind = TrajectoryValidationGuardianReview
+	if err := validation.Validate(); err != nil {
+		t.Fatalf("Guardian validation with typed risk was rejected: %v", err)
+	}
+	validation.Summary = " Extra model safety verification is applied to this run"
+	assertValidationErrorContains(t, validation.Validate(), "surrounding whitespace")
+}
+
 func TestTrajectoryLargeOutputUsesTypedBoundedReference(t *testing.T) {
 	reference := TrajectoryContentReference{
 		URI:       "setta-content://tool-output-1",
@@ -234,14 +282,13 @@ func TestTrajectoryLargeOutputUsesTypedBoundedReference(t *testing.T) {
 
 func baseTrajectoryEvent(kind TrajectoryEventKind) TrajectoryEvent {
 	return TrajectoryEvent{
-		ID:               "trajectory-" + string(kind),
-		ConversationID:   "conversation-1",
-		TurnID:           stringPointer("turn-1"),
-		Sequence:         1,
-		EmittedAt:        testTimeStarted,
-		Kind:             kind,
-		Actor:            TrajectoryActorSystem,
-		ProviderThreadID: stringPointer("provider-thread-1"),
-		ProviderTurnID:   stringPointer("provider-turn-1"),
+		ID:             "trajectory-" + string(kind),
+		ConversationID: "conversation-1",
+		TurnID:         stringPointer("turn-1"),
+		Sequence:       1,
+		EmittedAt:      testTimeStarted,
+		Kind:           kind,
+		Actor:          TrajectoryActorSystem,
+		ProviderTurnID: stringPointer("provider-turn-1"),
 	}
 }

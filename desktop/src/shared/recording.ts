@@ -70,55 +70,10 @@ interface RendererUnhandledRejectionEvent extends RendererRecordedEventBase {
 }
 
 interface RendererLayoutSnapshotEvent extends RendererRecordedEventBase {
-  panes: RendererPaneSnapshot[];
   trigger: string;
   type: "layout_snapshot";
   viewport: {
     height: number;
     width: number;
   };
-  workspace: RendererWorkspaceSnapshot | null;
-}
-
-interface RendererPaneSnapshot {
-  conversation: RendererConversationPaneSnapshot | null;
-  focused: boolean;
-  paneId: string;
-  rect: RendererRect;
-  runtimeState: string;
-  surfaceKind: string;
-  visible: boolean;
-}
-
-interface RendererConversationPaneSnapshot {
-  captureScope: string;
-  captureState: string;
-  focusStatus: string;
-  id: string;
-  paletteId: string;
-  playbackScope: string;
-  playbackState: string;
-  projectionStatus: string;
-  queueCount: number;
-  sideConversationId: string;
-  sideStatus: string;
-  statusTone: string;
-  viewState: string;
-}
-
-interface RendererRect {
-  bottom: number;
-  height: number;
-  left: number;
-  right: number;
-  top: number;
-  width: number;
-}
-
-interface RendererWorkspaceSnapshot {
-  mode: string;
-  paneCount: number;
-  presentationMode: string;
-  rect: RendererRect;
-  workspaceId: string;
 }

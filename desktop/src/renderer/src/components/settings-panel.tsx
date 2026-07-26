@@ -6,7 +6,6 @@ import type {
   AppearanceSettings,
   AppearanceTailwindPalette,
 } from "@generated/backend";
-import type { DesktopPlatform } from "@shared/types";
 import {
   Check,
   ChevronDown,
@@ -15,11 +14,14 @@ import {
   Palette,
   RotateCcw,
   Save,
+  Server,
   Type,
 } from "lucide-react";
 import {
+  type Dispatch,
   type KeyboardEvent,
   type ReactNode,
+  type SetStateAction,
   useEffect,
   useId,
   useMemo,
@@ -34,11 +36,9 @@ import {
   settingsFromSeed,
 } from "./appearance-seed-palette";
 import { CodexAccountSettings } from "./codex-account-settings";
-import { DeveloperSettingsEditor } from "./developer-settings";
 import { FloatingMenu } from "./floating-menu";
 import { RoleConfigurationSettings } from "./role-configuration-settings";
-import { PresentationConfigurationSettings } from "./presentation-configuration-settings";
-import { ShortcutSettingsEditor } from "./shortcut-settings";
+import { RuntimePicker, RuntimePickerAddButton } from "./runtime-picker";
 import {
   AccordionSection,
   ColorSchemeFields,
@@ -48,8 +48,9 @@ import {
   StatusColorSection,
 } from "./settings-panel-color-fields";
 import { settingsSubtabs, type SettingsSubtab } from "./settings-subtabs";
+import { SettaCompactInput } from "./setta-compact-input";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
+import { VoiceConfigurationSettings } from "./voice-configuration-settings";
 import { cn } from "../lib/utils";
 import {
   appearanceSettingsEqual,
@@ -57,14 +58,31 @@ import {
   type AppearanceStoreStatus,
   useAppearanceStore,
 } from "../stores/appearance-store";
+import {
+  type SettingsFocusRequest,
+  type SettingsShellRoute,
+  useSettingsNavigationStore,
+} from "../stores/settings-navigation-store";
 
 export function SettingsPanel() {
-  const [activeSubtab, setActiveSubtab] = useState<SettingsSubtab>("theme");
   const load = useAppearanceStore((state) => state.load);
+  const lastSubtab = useSettingsNavigationStore((state) => state.lastSubtab);
+  const route = useSettingsNavigationStore((state) => state.route);
+  const setActiveSubtab = useSettingsNavigationStore((state) => state.setActiveSubtab);
+  const activeSubtab = settingsPanelActiveSubtab(route, lastSubtab);
+  const [runtimePairingOpen, setRuntimePairingOpen] = useState(false);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const focusRequest =
+    route.page === "settings" && route.focusTarget && route.subtab === activeSubtab
+      ? {
+          requestId: route.requestId,
+          target: route.focusTarget,
+        }
+      : null;
 
   return (
     <section
@@ -73,15 +91,59 @@ export function SettingsPanel() {
     >
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         <div className="mx-auto grid w-full max-w-4xl gap-3">
+          <RuntimeSettingsPanel adding={runtimePairingOpen} setAdding={setRuntimePairingOpen} />
           <SettingsSubtabList activeSubtab={activeSubtab} onChange={setActiveSubtab} />
-          <SettingsSubtabContent activeSubtab={activeSubtab} />
+          <SettingsSubtabContent activeSubtab={activeSubtab} focusRequest={focusRequest} />
         </div>
       </div>
     </section>
   );
 }
 
-function SettingsSubtabContent({ activeSubtab }: { activeSubtab: SettingsSubtab }) {
+function RuntimeSettingsPanel({
+  adding,
+  setAdding,
+}: {
+  adding: boolean;
+  setAdding: Dispatch<SetStateAction<boolean>>;
+}) {
+  return (
+    <section
+      aria-labelledby="settings-runtime-title"
+      className="grid gap-2 rounded-sm border border-border bg-card/30 px-3 py-2.5"
+      data-testid="settings-runtime-picker"
+    >
+      <header className="flex min-h-7 items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <Server className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <h2
+            className="truncate text-xs font-semibold tracking-wide text-foreground"
+            id="settings-runtime-title"
+          >
+            Runtime
+          </h2>
+        </div>
+        <RuntimePickerAddButton adding={adding} setAdding={setAdding} />
+      </header>
+      <RuntimePicker adding={adding} setAdding={setAdding} />
+    </section>
+  );
+}
+
+function settingsPanelActiveSubtab(
+  route: SettingsShellRoute,
+  lastSubtab: SettingsSubtab,
+): SettingsSubtab {
+  return route.page === "settings" ? route.subtab : lastSubtab;
+}
+
+function SettingsSubtabContent({
+  activeSubtab,
+  focusRequest,
+}: {
+  activeSubtab: SettingsSubtab;
+  focusRequest: SettingsFocusRequest | null;
+}) {
   const applyDraftSettings = useAppearanceStore((state) => state.applyDraftSettings);
   const defaultPresetId = useAppearanceStore((state) => state.defaultPresetId);
   const draft = useAppearanceStore((state) => state.draft);
@@ -92,50 +154,13 @@ function SettingsSubtabContent({ activeSubtab }: { activeSubtab: SettingsSubtab 
   const settings = useAppearanceStore((state) => state.settings);
   const setColorValue = useAppearanceStore((state) => state.setColorValue);
   const setFontValue = useAppearanceStore((state) => state.setFontValue);
-  const setClampResizedPanesToViewport = useAppearanceStore(
-    (state) => state.setClampResizedPanesToViewport,
-  );
   const setMode = useAppearanceStore((state) => state.setMode);
-  const setMasterVoiceShortcut = useAppearanceStore((state) => state.setMasterVoiceShortcut);
-  const setOverviewCardWidthBounds = useAppearanceStore(
-    (state) => state.setOverviewCardWidthBounds,
-  );
-  const setShowPerformanceStats = useAppearanceStore((state) => state.setShowPerformanceStats);
-  const setWorkspaceNavigationShortcut = useAppearanceStore(
-    (state) => state.setWorkspaceNavigationShortcut,
-  );
   const status = useAppearanceStore((state) => state.status);
   const dirty = draft !== null && !appearanceSettingsEqual(draft, settings);
   const contentBySubtab = {
     "codex-account": <CodexAccountSettings />,
-    developer: (
-      <DeveloperSettingsEditor
-        developer={draft?.developer ?? null}
-        dirty={dirty}
-        error={error}
-        onClampResizedPanesToViewportChange={setClampResizedPanesToViewport}
-        onOverviewCardWidthBoundsChange={setOverviewCardWidthBounds}
-        onRevert={revertDraft}
-        onSave={saveDraft}
-        onShowPerformanceStatsChange={setShowPerformanceStats}
-        status={status}
-      />
-    ),
     roles: <RoleConfigurationSettings />,
-    speech: <PresentationConfigurationSettings />,
-    shortcuts: (
-      <ShortcutSettingsEditor
-        dirty={dirty}
-        error={error}
-        onMasterVoiceChange={setMasterVoiceShortcut}
-        onRevert={revertDraft}
-        onSave={saveDraft}
-        onWorkspaceNavigationChange={setWorkspaceNavigationShortcut}
-        platform={settingsPanelPlatform()}
-        shortcuts={draft?.shortcuts ?? null}
-        status={status}
-      />
-    ),
+    speech: <VoiceConfigurationSettings focusRequest={focusRequest} />,
     theme: (
       <AppearanceSettingsEditor
         defaultPresetId={defaultPresetId}
@@ -237,13 +262,6 @@ function settingsSubtabPanelId(tab: SettingsSubtab) {
   return `settings-subtab-panel-${tab}`;
 }
 
-function settingsPanelPlatform(): DesktopPlatform {
-  if (typeof window === "undefined") {
-    return "linux";
-  }
-  return window.setta?.app.platform ?? "linux";
-}
-
 interface AppearanceSettingsEditorProps {
   defaultPresetId: AppearancePresetID | null;
   dirty: boolean;
@@ -297,11 +315,17 @@ export function AppearanceSettingsEditor({
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
             {settings ? <ModeSwitch mode={settings.mode} onChange={onModeChange} /> : null}
-            <Button disabled={!dirty || busy} onClick={onRevert} type="button">
+            <Button
+              disabled={!dirty || busy}
+              onClick={onRevert}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
               <RotateCcw className="h-3.5 w-3.5" />
               Revert
             </Button>
-            <Button disabled={!dirty || busy} type="submit" variant="primary">
+            <Button disabled={!dirty || busy} size="sm" type="submit">
               {status === "saving" ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
@@ -354,12 +378,10 @@ export function AppearanceSettingsEditor({
 function AppearanceStatus({
   dirty,
   error,
-  label = "theme",
   status,
 }: {
   dirty: boolean;
   error: string | null;
-  label?: "developer" | "theme";
   status: AppearanceStoreStatus;
 }) {
   if (error) {
@@ -374,18 +396,18 @@ function AppearanceStatus({
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Saving {label} settings
+        Saving theme settings
       </div>
     );
   }
   if (dirty) {
-    return <div className="text-xs text-muted-foreground">Unsaved {label} changes</div>;
+    return <div className="text-xs text-muted-foreground">Unsaved theme changes</div>;
   }
   if (status === "ready") {
     return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Check className="h-3.5 w-3.5" />
-        {label === "theme" ? "Theme" : "Developer"} settings saved
+        Theme settings saved
       </div>
     );
   }
@@ -474,7 +496,7 @@ function PalettePresetChooser({
           aria-expanded={open}
           aria-haspopup="listbox"
           aria-label="Color preset"
-          className="h-8 w-full justify-between px-2.5"
+          className="w-full justify-between"
           onClick={() => {
             if (open) {
               setOpen(false);
@@ -486,6 +508,7 @@ function PalettePresetChooser({
           ref={anchorRef}
           role="combobox"
           type="button"
+          variant="outline"
         >
           <span className="flex min-w-0 items-center gap-2">
             <PresetSwatches className="w-16 shrink-0" values={activePreview} />
@@ -540,9 +563,7 @@ function PalettePresetChooser({
                   onClick={() => {
                     onApplySettings({
                       ...preset.settings,
-                      developer: settings.developer,
                       mode: settings.mode,
-                      shortcuts: settings.shortcuts,
                     });
                     setOpen(false);
                     anchorRef.current?.focus();
@@ -596,9 +617,7 @@ function presetMatchesSettings(preset: AppearancePreset, settings: AppearanceSet
   return appearanceSettingsEqual(
     {
       ...preset.settings,
-      developer: settings.developer,
       mode: settings.mode,
-      shortcuts: settings.shortcuts,
     },
     settings,
   );
@@ -684,7 +703,7 @@ function SeedPaletteSection({
         <div className="grid gap-2">
           <label className="grid gap-1">
             <span className="text-[11px] font-medium text-muted-foreground">Seed color</span>
-            <Input
+            <SettaCompactInput
               aria-label="Custom OKLCH seed color"
               className="font-mono"
               onChange={(event) => setSeedColor(event.target.value)}
@@ -701,7 +720,9 @@ function SeedPaletteSection({
                 onApplySettings(seedSettings);
               }
             }}
+            size="sm"
             type="button"
+            variant="outline"
           >
             Use Seed
           </Button>
@@ -742,7 +763,7 @@ function FontFields({
             <span className="text-[11px] font-medium text-muted-foreground">
               {fieldLabel(name)}
             </span>
-            <Input
+            <SettaCompactInput
               className="font-mono"
               onChange={(event) => onChange(name, event.target.value)}
               spellCheck={false}
