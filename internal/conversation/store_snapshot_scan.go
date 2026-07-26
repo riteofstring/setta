@@ -148,6 +148,8 @@ func scanArtifact(scanner sqlScanner) (Artifact, error) {
 		&turnID,
 		&trajectorySequence,
 		&value.Title,
+		&value.Kind,
+		&value.Summary,
 		&value.Document.Language,
 		&value.Document.CatalogID,
 		&value.Document.Source,
@@ -174,6 +176,8 @@ func scanArtifactMetadata(scanner sqlScanner) (ArtifactMetadata, error) {
 		&turnID,
 		&trajectorySequence,
 		&value.Title,
+		&value.Kind,
+		&value.Summary,
 		&value.CreatedAt,
 	)
 	if err != nil {

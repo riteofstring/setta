@@ -50,6 +50,27 @@ import { SpeechProviderSelectionStore } from "./speech-provider-selection-store"
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 import { registerAppWindowDragIpcHandlers } from "./window-drag";
 
+/*
+ * Losing the log pipe is not a crash.
+ *
+ * Whoever launched this app owns its stdout and stderr, and they can go away
+ * while the app is still running — a terminal closes, a test harness exits, a
+ * parent process dies. The next write then fails with EPIPE, and because it is
+ * thrown from the stream rather than from anything the app called, it surfaces
+ * as an uncaught exception dialog in front of the user. Nothing they were doing
+ * has actually gone wrong: only the destination of a log line has.
+ *
+ * So a dead pipe silences logging and the app carries on. Any other stream
+ * error is left to fail, because it is not this condition.
+ */
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on("error", (error: NodeJS.ErrnoException) => {
+    if (error.code !== "EPIPE") {
+      throw error;
+    }
+  });
+}
+
 let backend: BackendHandle | null = null;
 let codexAccountEventStream: CodexAccountEventStream | null = null;
 let backendStartupError: string | null = null;

@@ -26,9 +26,24 @@ const artifactToolTestSource = `root = Document([
   BarChart([{name: "Lines", points: [{label: "Go", value: 34}, {label: "CSS", value: 8}]}])
 ])`
 
+// The kind and the summary are what the rail card and the document header say
+// an artifact is. They are asserted on every read below rather than only at the
+// tool boundary, because they are supplied once and then have to survive the
+// store: an artifact that reads back without them is one the app cannot
+// describe to the user.
+const (
+	artifactToolTestKind    = "Report"
+	artifactToolTestSummary = "What the report found."
+)
+
 func artifactToolArguments(t *testing.T, title string, source string) []byte {
 	t.Helper()
-	arguments, err := json.Marshal(map[string]string{"title": title, "kind": "Report", "summary": "What the report found.", "source": source})
+	arguments, err := json.Marshal(map[string]string{
+		"title":   title,
+		"kind":    artifactToolTestKind,
+		"summary": artifactToolTestSummary,
+		"source":  source,
+	})
 	if err != nil {
 		t.Fatalf("encode emit_artifact arguments: %v", err)
 	}
@@ -460,7 +475,9 @@ func requireDocumentArtifact(t *testing.T, artifact Artifact) {
 	t.Helper()
 	if artifact.Document.Language != ArtifactDocumentLanguageOpenUI ||
 		artifact.Document.CatalogID != ArtifactCatalogSettaV1 ||
-		artifact.Document.Source != artifactToolTestSource {
+		artifact.Document.Source != artifactToolTestSource ||
+		artifact.Kind != artifactToolTestKind ||
+		artifact.Summary != artifactToolTestSummary {
 		t.Fatalf("artifact = %+v", artifact)
 	}
 }
@@ -483,7 +500,8 @@ func readTestArtifact(
 
 func requireReadDocumentArtifact(t *testing.T, read Artifact, artifactID string) {
 	t.Helper()
-	if read.ID != artifactID || read.Document.Source != artifactToolTestSource {
+	if read.ID != artifactID || read.Document.Source != artifactToolTestSource ||
+		read.Kind != artifactToolTestKind || read.Summary != artifactToolTestSummary {
 		t.Fatalf("read artifact = %+v", read)
 	}
 }
@@ -505,9 +523,13 @@ func readTestSnapshot(
 
 func requireSnapshotArtifact(t *testing.T, snapshot ConversationSnapshot, artifactID string) {
 	t.Helper()
-	if len(snapshot.Artifacts.Artifacts) != 1 ||
-		snapshot.Artifacts.Artifacts[0].ID != artifactID {
+	if len(snapshot.Artifacts.Artifacts) != 1 {
 		t.Fatalf("snapshot artifacts = %+v", snapshot.Artifacts)
+	}
+	metadata := snapshot.Artifacts.Artifacts[0]
+	if metadata.ID != artifactID || metadata.Kind != artifactToolTestKind ||
+		metadata.Summary != artifactToolTestSummary {
+		t.Fatalf("snapshot artifact metadata = %+v", metadata)
 	}
 }
 

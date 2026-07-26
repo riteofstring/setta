@@ -84,6 +84,8 @@ func TestEveryConversationEventVariantIsExhaustiveAndOwned(t *testing.T) {
 		ID:             "artifact-1",
 		ConversationID: conversationID,
 		Title:          "Contract report",
+		Kind:           "Report",
+		Summary:        "What the contract fixture artifact claims.",
 		CreatedAt:      testTimeStarted,
 	}
 	branch := ConversationBranch{

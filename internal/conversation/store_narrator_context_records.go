@@ -13,8 +13,8 @@ func readNarratorTurnArtifacts(
 	turnID string,
 ) ([]Artifact, error) {
 	rows, err := reader.QueryContext(ctx, `
-SELECT id, conversation_id, turn_id, trajectory_sequence, title,
-       language, catalog_id, source, created_at
+SELECT id, conversation_id, turn_id, trajectory_sequence, title, kind,
+       summary, language, catalog_id, source, created_at
 FROM artifacts
 WHERE conversation_id = ? AND turn_id = ?
 ORDER BY created_at ASC, id ASC

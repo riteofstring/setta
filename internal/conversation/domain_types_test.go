@@ -97,6 +97,8 @@ func TestTopicConversationAndChildRecordsValidateOwnedInvariants(t *testing.T) {
 		TurnID:             stringPointer("turn-1"),
 		TrajectorySequence: &sequence,
 		Title:              "Report",
+		Kind:               "Report",
+		Summary:            "What the run found and what it concluded.",
 		CreatedAt:          testTimeEnded,
 		Document:           testArtifactDocument(),
 	}

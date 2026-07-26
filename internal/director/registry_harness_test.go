@@ -485,6 +485,8 @@ func (harness *registryHarness) emitArtifact(
 		TurnID:             &turnID,
 		TrajectorySequence: &sequence,
 		Title:              title,
+		Kind:               "Report",
+		Summary:            "What this registry fixture artifact claims.",
 		CreatedAt:          at,
 		Document: conversation.ArtifactDocument{
 			Language:  conversation.ArtifactDocumentLanguageOpenUI,

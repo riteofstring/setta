@@ -444,6 +444,15 @@ func (artifact ArtifactMetadata) Validate() error {
 	if err := validateRequiredArtifactText("artifact title", artifact.Title); err != nil {
 		return err
 	}
+	// Kind and summary are as required as the title. They are what the rail card
+	// and the document header say an artifact is, so an artifact that reaches
+	// durable state without them is one the app cannot describe to the user.
+	if err := validateRequiredArtifactText("artifact kind", artifact.Kind); err != nil {
+		return err
+	}
+	if err := validateRequiredArtifactText("artifact summary", artifact.Summary); err != nil {
+		return err
+	}
 	if _, err := validateTimestamp("artifact createdAt", artifact.CreatedAt); err != nil {
 		return err
 	}
