@@ -38,6 +38,7 @@ func TestDirectorInstructionsPreserveNativeArtifactIntent(t *testing.T) {
 		"An explicit request to follow the project's existing convention can be resolved by project inspection.",
 		"they cannot invent an unspecified external contract",
 		"call `setta.request_user_choice` and ask one useful question",
+		"the route, method, or response contract is unspecified",
 		"When queueing a separate next task, send only that task's objective and constraints.",
 		"queue order already provides sequencing",
 		"call the tool before writing user-facing prose",

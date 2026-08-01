@@ -52,6 +52,9 @@ const directorContract = "Rules:\n" +
 	"route or behavior another system expects. When a missing external choice materially changes the requested " +
 	"outcome, call `setta.request_user_choice` and ask one useful question before starting or queueing work. Do not " +
 	"delegate the user's choice to a worker or guess between materially different outcomes.\n" +
+	"  Example: \"follow this project's existing readiness convention\" is ready for project inspection. \"Add the " +
+	"API needed by an external monitor\" is not ready when the route, method, or response contract is unspecified; " +
+	"call `setta.request_user_choice` before starting it.\n" +
 	"- When queueing a separate next task, send only that task's objective and constraints. Do not restate the active " +
 	"task or make its completion part of the queued instruction; queue order already provides sequencing, and the " +
 	"queued task must remain independent if the active task is later cancelled.\n" +
