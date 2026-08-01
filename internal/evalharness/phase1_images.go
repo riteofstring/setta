@@ -401,7 +401,6 @@ func populatePhase1BuildContexts(
 		{source: pnpm.licensePath, destination: filepath.Join(contexts.agent, "pnpm-license")},
 		{source: pnpm.licensePath, destination: filepath.Join(contexts.verifier, "pnpm-license")},
 		{source: filepath.Join(config.codexLinuxBundle, manifest.Entrypoint), destination: filepath.Join(contexts.agent, "codex"), proofName: "codex"},
-		{source: filepath.Join(config.codexLinuxBundle, manifest.ResourcesDir, "bwrap"), destination: filepath.Join(contexts.agent, "bwrap"), proofName: "bwrap"},
 		{source: filepath.Join(config.codexLinuxBundle, manifest.PathDir, "rg"), destination: filepath.Join(contexts.agent, "rg"), proofName: "rg"},
 		{source: filepath.Join(config.codexLinuxBundle, manifest.ResourcesDir, "zsh", "bin", "zsh"), destination: filepath.Join(contexts.agent, "zsh"), proofName: "zsh"},
 	}
