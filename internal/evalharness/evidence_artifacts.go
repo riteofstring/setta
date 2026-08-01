@@ -25,14 +25,15 @@ type VerifierArtifact struct {
 }
 
 type EvaluationArtifactSet struct {
-	Scenarios       []Scenario
-	Manifest        EvaluationManifest
-	Events          []EvaluationEvent
-	Transcript      TranscriptArtifact
-	TokenUsage      TokenUsageArtifact
-	VerifierResults VerifierArtifact
-	JudgeResults    JudgeArtifact
-	Results         Results
+	Scenarios        []Scenario
+	Manifest         EvaluationManifest
+	Events           []EvaluationEvent
+	Transcript       TranscriptArtifact
+	TokenUsage       TokenUsageArtifact
+	VerifierResults  VerifierArtifact
+	JudgeResults     JudgeArtifact
+	PromptGenericity PromptGenericityArtifact
+	Results          Results
 }
 
 func NewVerifierArtifact(scenarios []ScenarioVerifierResult) (VerifierArtifact, error) {
@@ -156,6 +157,9 @@ func validateEvaluationArtifactComponents(artifacts EvaluationArtifactSet) error
 	if err := artifacts.JudgeResults.Validate(); err != nil {
 		return err
 	}
+	if err := artifacts.PromptGenericity.Validate(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -195,6 +199,15 @@ func validateArtifactInvocationIdentity(
 	}
 	if manifestAttemptCount != attemptCount {
 		return errors.New("manifest and results contain different attempt counts")
+	}
+	auditedScenarios := make(map[string]bool, len(artifacts.PromptGenericity.Scenarios))
+	for _, scenario := range artifacts.PromptGenericity.Scenarios {
+		auditedScenarios[scenario.ScenarioID] = true
+	}
+	for _, scenario := range artifacts.Scenarios {
+		if !auditedScenarios[scenario.ID] {
+			return fmt.Errorf("prompt genericity audit omits evaluated scenario %s", scenario.ID)
+		}
 	}
 	return nil
 }

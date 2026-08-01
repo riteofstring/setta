@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "external-file-contract",
+  "fixture": "typescript-service",
+  "timeoutSeconds": 1800,
+  "steps": [
+    {
+      "kind": "submit",
+      "text": "Add the release metadata file our desktop packaging job needs so it can publish this service correctly."
+    },
+    {
+      "kind": "submit_when",
+      "trigger": "director_turn_completed",
+      "text": "Create `release-manifest.json` at the repository root. It must contain only `package` and `release`, populated from the `name` and `version` in package.json."
+    }
+  ],
+  "expect": {
+    "terminalState": "completed",
+    "clarification": "required_once",
+    "controlAssertions": [
+      "no_mutation_before_scripted_reply",
+      "scripted_reply_consumed_once",
+      "follow_up_routed_through_director"
+    ]
+  },
+  "verifier": "external-file-contract",
+  "budget": {
+    "hardTotalTokens": 300000
+  },
+  "communication": {
+    "progress": "when_useful",
+    "finalResultRequired": true
+  }
+}

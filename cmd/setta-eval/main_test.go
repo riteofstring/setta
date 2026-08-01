@@ -62,6 +62,8 @@ func assertEvaluationCommandOutput(t *testing.T, output string) {
 		"Token usage: /recordings/run/token-usage.json",
 		"Verifier results: /recordings/run/verifier-results.json",
 		"Judge results: /recordings/run/judge-results.json",
+		"Prompt genericity: score=100/100; pass=true",
+		"Prompt genericity evidence: /recordings/run/prompt-genericity.json",
 		"Report: /recordings/run/report.md",
 	}
 	for _, expected := range want {
@@ -90,7 +92,7 @@ func TestRunReturnsFailureForObjectiveEvaluationFailure(t *testing.T) {
 			if exitCode := run(nil, &stdout, &stderr, runner); exitCode != 1 {
 				t.Fatalf("exit code = %d, want 1", exitCode)
 			}
-			if !strings.Contains(stderr.String(), "did not pass ability, user control, and communication on the first attempt") {
+			if !strings.Contains(stderr.String(), "did not pass ability, user control, communication, and prompt genericity") {
 				t.Fatalf("stderr = %q", stderr.String())
 			}
 		})
@@ -113,7 +115,27 @@ func TestRunReturnsFailureForCommunicationEvaluationFailure(t *testing.T) {
 	if exitCode := run(nil, &stdout, &stderr, runner); exitCode != 1 {
 		t.Fatalf("exit code = %d, want 1", exitCode)
 	}
-	if !strings.Contains(stderr.String(), "did not pass ability, user control, and communication on the first attempt") {
+	if !strings.Contains(stderr.String(), "did not pass ability, user control, communication, and prompt genericity") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRunReturnsFailureForPromptGenericityFailure(t *testing.T) {
+	runner := func(
+		_ context.Context,
+		_ evalharness.EvaluationConfig,
+	) (evalharness.EvaluationOutput, error) {
+		output := phase1CommandOutput(evalharness.ScenarioClassificationPass)
+		output.PromptGenericity.Verdict.Score = 80
+		output.PromptGenericity.Verdict.OverallPass = false
+		return output, nil
+	}
+	var stdout strings.Builder
+	var stderr strings.Builder
+	if exitCode := run(nil, &stdout, &stderr, runner); exitCode != 1 {
+		t.Fatalf("exit code = %d, want 1", exitCode)
+	}
+	if !strings.Contains(stderr.String(), "prompt genericity") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
@@ -186,16 +208,23 @@ func phase1CommandOutput(
 				},
 			}},
 		},
+		PromptGenericity: evalharness.PromptGenericityArtifact{
+			Verdict: evalharness.PromptGenericityVerdict{
+				Score:       100,
+				OverallPass: true,
+			},
+		},
 		Artifacts: evalharness.ResultArtifactPaths{
-			Directory:           "/recordings/run",
-			ManifestJSON:        "/recordings/run/manifest.json",
-			EventsJSONL:         "/recordings/run/events.jsonl",
-			TranscriptJSON:      "/recordings/run/transcript.json",
-			ResultsJSON:         "/recordings/run/results.json",
-			TokenUsageJSON:      "/recordings/run/token-usage.json",
-			VerifierResultsJSON: "/recordings/run/verifier-results.json",
-			JudgeResultsJSON:    "/recordings/run/judge-results.json",
-			ReportMarkdown:      "/recordings/run/report.md",
+			Directory:            "/recordings/run",
+			ManifestJSON:         "/recordings/run/manifest.json",
+			EventsJSONL:          "/recordings/run/events.jsonl",
+			TranscriptJSON:       "/recordings/run/transcript.json",
+			ResultsJSON:          "/recordings/run/results.json",
+			TokenUsageJSON:       "/recordings/run/token-usage.json",
+			VerifierResultsJSON:  "/recordings/run/verifier-results.json",
+			JudgeResultsJSON:     "/recordings/run/judge-results.json",
+			PromptGenericityJSON: "/recordings/run/prompt-genericity.json",
+			ReportMarkdown:       "/recordings/run/report.md",
 		},
 	}
 }

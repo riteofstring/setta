@@ -197,7 +197,7 @@ func TestLoadScenariosPreservesExplicitSelectionOrder(t *testing.T) {
 	}
 }
 
-func TestCheckedInScenarioCatalogOwnsFiveExactScenarios(t *testing.T) {
+func TestCheckedInScenarioCatalogOwnsTenExactScenarios(t *testing.T) {
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("resolve scenario test source")
@@ -215,9 +215,14 @@ func TestCheckedInScenarioCatalogOwnsFiveExactScenarios(t *testing.T) {
 	}
 	want := []string{
 		ScenarioVerifierApparentAmbiguity,
+		ScenarioVerifierDocumentationOnly,
+		ScenarioVerifierExternalFile,
 		ScenarioVerifierGenuineAmbiguity,
 		ScenarioVerifierMidRunSteering,
 		ScenarioVerifierQueueThenCancel,
+		ScenarioVerifierRamblingPort,
+		ScenarioVerifierRequestLogging,
+		ScenarioVerifierStableReleaseData,
 		ScenarioVerifierStraightforward,
 	}
 	if len(scenarios) != len(want) {

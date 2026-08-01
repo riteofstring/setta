@@ -2,16 +2,16 @@ package typescriptverifier
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 
-	"setta/internal/evalharness"
 	evalverifier "setta/internal/evalharness/verifier"
+	"setta/internal/jsonio"
 )
 
 var snapshotOptions = evalverifier.SnapshotOptions{
@@ -33,11 +33,34 @@ type scenarioDefinition struct {
 	allowedChangedFiles  []string
 	routes               []routeExpectation
 	documentation        *documentationExpectation
+	jsonFiles            []jsonFileExpectation
+	rejectMalformedPort  bool
+	requestLog           *requestLogExpectation
 }
 
 type documentationExpectation struct {
+	checkID        string
+	text           string
+	sectionHeading string
+}
+
+type jsonFileExpectation struct {
+	checkID             string
+	path                string
+	expected            any
+	packageNameField    string
+	packageVersionField string
+}
+
+type requestLogExpectation struct {
 	checkID string
-	text    string
+	method  string
+	path    string
+}
+
+type fixturePackageMetadata struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
 }
 
 func Verify(
@@ -64,11 +87,11 @@ func Verify(
 	if err != nil {
 		return evalverifier.Result{}, fmt.Errorf("read trusted verifier baseline: %w", err)
 	}
-	version, err := readFixtureVersion(baseline)
+	packageMetadata, err := readFixturePackageMetadata(baseline)
 	if err != nil {
 		return evalverifier.Result{}, err
 	}
-	definition = definition.withFixtureVersion(version)
+	definition = definition.withFixturePackageMetadata(packageMetadata)
 	if err := validateWorkspaceTree(workspaceRoot); err != nil {
 		return workspaceSnapshotFailure(definition.verifierID, err), nil
 	}
@@ -107,11 +130,23 @@ func runFixtureChecks(
 		return evalverifier.NewResult(definition.verifierID, checks, changedFiles), nil
 	}
 
-	routeChecks, err := runRouteChecks(ctx, workspaceRoot, definition.routes)
+	routeChecks, err := runRouteChecks(
+		ctx,
+		workspaceRoot,
+		definition.routes,
+		definition.requestLog,
+	)
 	if err != nil {
 		return evalverifier.Result{}, err
 	}
 	checks = append(checks, routeChecks...)
+	if definition.rejectMalformedPort {
+		malformedPortCheck, err := checkMalformedPortRejected(ctx, workspaceRoot)
+		if err != nil {
+			return evalverifier.Result{}, err
+		}
+		checks = append(checks, malformedPortCheck)
+	}
 	testCheck, err := runCommandCheck(
 		ctx,
 		workspaceRoot,
@@ -125,152 +160,6 @@ func runFixtureChecks(
 	}
 	checks = append(checks, testCheck)
 	return evalverifier.NewResult(definition.verifierID, checks, changedFiles), nil
-}
-
-func definitionFor(verifierID string) (scenarioDefinition, error) {
-	rootRoute := routeExpectation{
-		checkID: "root_route",
-		path:    "/",
-		status:  200,
-		body:    map[string]any{"service": "setta-eval-fixture"},
-	}
-	definitions := map[string]scenarioDefinition{
-		evalharness.ScenarioVerifierStraightforward: {
-			verifierID: evalharness.ScenarioVerifierStraightforward,
-			requiredChangedFiles: []string{
-				"README.md",
-				"src/server.ts",
-				"test/server.test.ts",
-			},
-			routes: []routeExpectation{
-				rootRoute,
-				{
-					checkID: "health_route",
-					path:    "/health",
-					status:  200,
-					body:    map[string]any{"ok": true},
-				},
-			},
-			documentation: &documentationExpectation{
-				checkID: "health_documented",
-				text:    "GET /health",
-			},
-		},
-		evalharness.ScenarioVerifierApparentAmbiguity: readinessDefinition(
-			evalharness.ScenarioVerifierApparentAmbiguity,
-			rootRoute,
-		),
-		evalharness.ScenarioVerifierGenuineAmbiguity: readinessDefinition(
-			evalharness.ScenarioVerifierGenuineAmbiguity,
-			rootRoute,
-		),
-		evalharness.ScenarioVerifierMidRunSteering: {
-			verifierID: evalharness.ScenarioVerifierMidRunSteering,
-			requiredChangedFiles: []string{
-				"src/server.ts",
-				"test/server.test.ts",
-			},
-			routes: []routeExpectation{
-				rootRoute,
-				{
-					checkID:        "status_route",
-					path:           "/status",
-					status:         200,
-					body:           map[string]any{"ok": true},
-					fixtureVersion: true,
-				},
-				absentRoute("health_absent", "/health"),
-			},
-		},
-		evalharness.ScenarioVerifierQueueThenCancel: {
-			verifierID: evalharness.ScenarioVerifierQueueThenCancel,
-			requiredChangedFiles: []string{
-				"src/server.ts",
-			},
-			allowedChangedFiles: []string{
-				"src/server.ts",
-				"test/server.test.ts",
-			},
-			routes: []routeExpectation{
-				rootRoute,
-				{
-					checkID:        "version_route",
-					path:           "/version",
-					status:         200,
-					body:           map[string]any{},
-					attempts:       2,
-					fixtureVersion: true,
-				},
-			},
-		},
-	}
-	definition, ok := definitions[verifierID]
-	if !ok {
-		return scenarioDefinition{}, fmt.Errorf("typescript-service verifier %q is not supported", verifierID)
-	}
-	return definition, nil
-}
-
-func readinessDefinition(verifierID string, rootRoute routeExpectation) scenarioDefinition {
-	return scenarioDefinition{
-		verifierID: verifierID,
-		requiredChangedFiles: []string{
-			"src/server.ts",
-			"test/server.test.ts",
-		},
-		routes: []routeExpectation{
-			rootRoute,
-			{
-				checkID:        "ready_route",
-				path:           "/ready",
-				status:         200,
-				body:           map[string]any{"ready": true},
-				fixtureVersion: true,
-			},
-			absentRoute("live_absent", "/live"),
-		},
-	}
-}
-
-func absentRoute(checkID string, path string) routeExpectation {
-	return routeExpectation{
-		checkID: checkID,
-		path:    path,
-		status:  404,
-		body:    map[string]any{"error": "not_found"},
-	}
-}
-
-func (definition scenarioDefinition) withFixtureVersion(version string) scenarioDefinition {
-	for index := range definition.routes {
-		if !definition.routes[index].fixtureVersion {
-			continue
-		}
-		body := make(map[string]any, len(definition.routes[index].body)+1)
-		for name, value := range definition.routes[index].body {
-			body[name] = value
-		}
-		body["version"] = version
-		definition.routes[index].body = body
-	}
-	return definition
-}
-
-func readFixtureVersion(baseline evalverifier.WorkspaceSnapshot) (string, error) {
-	packageFile, exists := baseline["package.json"]
-	if !exists {
-		return "", errors.New("trusted verifier baseline omitted package.json")
-	}
-	var metadata struct {
-		Version string `json:"version"`
-	}
-	if err := json.Unmarshal(packageFile.Content, &metadata); err != nil {
-		return "", fmt.Errorf("decode trusted verifier package.json: %w", err)
-	}
-	if strings.TrimSpace(metadata.Version) == "" || strings.TrimSpace(metadata.Version) != metadata.Version {
-		return "", errors.New("trusted verifier package.json has no normalized version")
-	}
-	return metadata.Version, nil
 }
 
 func validateRoots(baselineRoot string, workspaceRoot string) (string, string, error) {
@@ -331,6 +220,9 @@ func initialChecks(
 	}
 	if definition.documentation != nil {
 		checks = append(checks, checkDocumentation(workspaceRoot, *definition.documentation))
+	}
+	for _, expectation := range definition.jsonFiles {
+		checks = append(checks, checkJSONFile(workspaceRoot, expectation))
 	}
 	return checks
 }
@@ -447,16 +339,82 @@ func checkDocumentation(
 			Detail: evalverifier.BoundedDetail(fmt.Sprintf("Read README.md: %v", err)),
 		}
 	}
-	if !strings.Contains(string(content), expectation.text) {
+	searchable := string(content)
+	location := "README.md"
+	if expectation.sectionHeading != "" {
+		section, exists := markdownSection(searchable, expectation.sectionHeading)
+		if !exists {
+			return evalverifier.Check{
+				ID:     expectation.checkID,
+				Passed: false,
+				Detail: fmt.Sprintf("README.md does not contain %s.", expectation.sectionHeading),
+			}
+		}
+		searchable = section
+		location = "README.md " + expectation.sectionHeading + " section"
+	}
+	if !strings.Contains(searchable, expectation.text) {
 		return evalverifier.Check{
 			ID:     expectation.checkID,
 			Passed: false,
-			Detail: fmt.Sprintf("README.md does not document %s.", expectation.text),
+			Detail: fmt.Sprintf("%s does not document %s.", location, expectation.text),
 		}
 	}
 	return evalverifier.Check{
 		ID:     expectation.checkID,
 		Passed: true,
-		Detail: fmt.Sprintf("README.md documents %s.", expectation.text),
+		Detail: fmt.Sprintf("%s documents %s.", location, expectation.text),
+	}
+}
+
+func markdownSection(document string, heading string) (string, bool) {
+	startMarker := heading + "\n"
+	start := strings.Index(document, startMarker)
+	if start < 0 || (start > 0 && document[start-1] != '\n') {
+		return "", false
+	}
+	section := document[start+len(startMarker):]
+	if end := strings.Index(section, "\n## "); end >= 0 {
+		section = section[:end]
+	}
+	return section, true
+}
+
+func checkJSONFile(
+	workspaceRoot string,
+	expectation jsonFileExpectation,
+) evalverifier.Check {
+	content, err := os.ReadFile(filepath.Join(workspaceRoot, filepath.FromSlash(expectation.path)))
+	if err != nil {
+		return evalverifier.Check{
+			ID:     expectation.checkID,
+			Passed: false,
+			Detail: evalverifier.BoundedDetail(fmt.Sprintf("Read %s: %v", expectation.path, err)),
+		}
+	}
+	var actual any
+	if err := jsonio.DecodeSingle(strings.NewReader(string(content)), &actual); err != nil {
+		return evalverifier.Check{
+			ID:     expectation.checkID,
+			Passed: false,
+			Detail: evalverifier.BoundedDetail(fmt.Sprintf("Decode %s: %v", expectation.path, err)),
+		}
+	}
+	if !reflect.DeepEqual(actual, expectation.expected) {
+		return evalverifier.Check{
+			ID:     expectation.checkID,
+			Passed: false,
+			Detail: evalverifier.BoundedDetail(fmt.Sprintf(
+				"%s contains %#v, want %#v.",
+				expectation.path,
+				actual,
+				expectation.expected,
+			)),
+		}
+	}
+	return evalverifier.Check{
+		ID:     expectation.checkID,
+		Passed: true,
+		Detail: fmt.Sprintf("%s contains the exact expected JSON value.", expectation.path),
 	}
 }

@@ -479,7 +479,7 @@ func NewJudgeArtifact(scenarios []ScenarioJudgeResult) (JudgeArtifact, error) {
 
 func (configuration JudgeConfiguration) Validate() error {
 	if !reflect.DeepEqual(configuration, FixedJudgeConfiguration()) {
-		return errors.New("communication judge configuration does not match the fixed contract")
+		return errors.New("judge configuration does not match the fixed contract")
 	}
 	return nil
 }

@@ -445,8 +445,7 @@ func requireArtifactRecoveryInstructions(t *testing.T, instructions string) {
 		"do not repeat equivalent attempts",
 		"omit the unavailable check entirely",
 		"name checks that succeeded",
-		"The endpoint is implemented with coverage; formatting, build, and the direct handler check passed.",
-		"Do not mention the unavailable listener suite, execution environment, or raw error",
+		"without exposing the internal limitation",
 	} {
 		if !strings.Contains(instructions, fragment) {
 			t.Fatalf("topic agent developer instructions missing %q: %q", fragment, instructions)

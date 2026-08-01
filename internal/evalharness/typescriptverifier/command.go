@@ -16,7 +16,55 @@ import (
 const (
 	maximumCommandOutputBytes = 16 * 1024
 	commandTimeout            = 2 * time.Minute
+	malformedPortTimeout      = 5 * time.Second
 )
+
+func checkMalformedPortRejected(
+	ctx context.Context,
+	workspaceRoot string,
+) (evalverifier.Check, error) {
+	commandContext, cancel := context.WithTimeout(ctx, malformedPortTimeout)
+	defer cancel()
+	command := exec.CommandContext(commandContext, "node", "dist/server.js")
+	command.Dir = workspaceRoot
+	command.Env = append(verifierEnvironment(), "PORT=3000oops")
+	output := newBoundedBuffer(maximumCommandOutputBytes)
+	command.Stdout = output
+	command.Stderr = output
+	err := command.Run()
+	if ctx.Err() != nil {
+		return evalverifier.Check{}, fmt.Errorf(
+			"verifier context ended while checking malformed PORT rejection: %w",
+			ctx.Err(),
+		)
+	}
+	if errors.Is(err, exec.ErrNotFound) {
+		return evalverifier.Check{}, fmt.Errorf("verifier command node is unavailable: %w", err)
+	}
+	if errors.Is(commandContext.Err(), context.DeadlineExceeded) {
+		return evalverifier.Check{
+			ID:     "malformed_port_rejected",
+			Passed: false,
+			Detail: "The built service accepted PORT=3000oops and continued running.",
+		}, nil
+	}
+	if err == nil {
+		return evalverifier.Check{
+			ID:     "malformed_port_rejected",
+			Passed: false,
+			Detail: "The built service exited successfully for the malformed PORT value.",
+		}, nil
+	}
+	var exitError *exec.ExitError
+	if !errors.As(err, &exitError) {
+		return evalverifier.Check{}, fmt.Errorf("check malformed PORT rejection: %w", err)
+	}
+	return evalverifier.Check{
+		ID:     "malformed_port_rejected",
+		Passed: true,
+		Detail: "The built service rejected PORT=3000oops before listening.",
+	}, nil
+}
 
 func runCommandCheck(
 	ctx context.Context,

@@ -61,7 +61,7 @@ func run(
 	}
 	writeEvaluationOutput(stdout, output)
 	if !evaluationOutputPassed(output) {
-		fmt.Fprintln(stderr, "Setta live evaluation did not pass ability, user control, and communication on the first attempt; inspect the result artifacts.")
+		fmt.Fprintln(stderr, "Setta live evaluation did not pass ability, user control, communication, and prompt genericity; inspect the result artifacts.")
 		return 1
 	}
 	return 0
@@ -115,7 +115,7 @@ func evaluationConfigFromArgs(
 func writeEvaluationUsage(output io.Writer) {
 	fmt.Fprintln(output, "Usage: setta-eval [options]")
 	fmt.Fprintln(output)
-	fmt.Fprintln(output, "Run all five live evaluations, or a selected subset, through the production Setta boundary.")
+	fmt.Fprintln(output, "Run the complete live evaluation catalog, or a selected subset, through the production Setta boundary.")
 	fmt.Fprintln(output, "Execution remains gated until the Phase 0 PASS report and resolution are committed.")
 	fmt.Fprintln(output, "The exact checked-in ARM64 toolchain image must already be installed locally; the runner never pulls it.")
 }
@@ -147,11 +147,18 @@ func writeEvaluationOutput(output io.Writer, result evalharness.EvaluationOutput
 	fmt.Fprintf(output, "Token usage: %s\n", result.Artifacts.TokenUsageJSON)
 	fmt.Fprintf(output, "Verifier results: %s\n", result.Artifacts.VerifierResultsJSON)
 	fmt.Fprintf(output, "Judge results: %s\n", result.Artifacts.JudgeResultsJSON)
+	fmt.Fprintf(
+		output,
+		"Prompt genericity: score=%d/100; pass=%t\n",
+		result.PromptGenericity.Verdict.Score,
+		result.PromptGenericity.Verdict.OverallPass,
+	)
+	fmt.Fprintf(output, "Prompt genericity evidence: %s\n", result.Artifacts.PromptGenericityJSON)
 	fmt.Fprintf(output, "Report: %s\n", result.Artifacts.ReportMarkdown)
 }
 
 func evaluationOutputPassed(output evalharness.EvaluationOutput) bool {
-	if len(output.Results.Scenarios) == 0 {
+	if len(output.Results.Scenarios) == 0 || !output.PromptGenericity.Verdict.OverallPass {
 		return false
 	}
 	for _, scenario := range output.Results.Scenarios {

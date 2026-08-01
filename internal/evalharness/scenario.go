@@ -23,9 +23,14 @@ const (
 	ScenarioFixtureTypeScriptService  = "typescript-service"
 	ScenarioVerifierStraightforward   = "straightforward-task"
 	ScenarioVerifierApparentAmbiguity = "apparent-ambiguity"
+	ScenarioVerifierDocumentationOnly = "documentation-only"
+	ScenarioVerifierExternalFile      = "external-file-contract"
 	ScenarioVerifierGenuineAmbiguity  = "genuine-ambiguity"
 	ScenarioVerifierMidRunSteering    = "mid-run-steering"
 	ScenarioVerifierQueueThenCancel   = "queue-then-cancel"
+	ScenarioVerifierRamblingPort      = "rambling-port-validation"
+	ScenarioVerifierRequestLogging    = "request-logging"
+	ScenarioVerifierStableReleaseData = "stable-release-data"
 )
 
 type ScenarioStepKind string
@@ -320,9 +325,14 @@ func supportedScenarioVerifier(verifier string) bool {
 	switch verifier {
 	case ScenarioVerifierStraightforward,
 		ScenarioVerifierApparentAmbiguity,
+		ScenarioVerifierDocumentationOnly,
+		ScenarioVerifierExternalFile,
 		ScenarioVerifierGenuineAmbiguity,
 		ScenarioVerifierMidRunSteering,
-		ScenarioVerifierQueueThenCancel:
+		ScenarioVerifierQueueThenCancel,
+		ScenarioVerifierRamblingPort,
+		ScenarioVerifierRequestLogging,
+		ScenarioVerifierStableReleaseData:
 		return true
 	default:
 		return false

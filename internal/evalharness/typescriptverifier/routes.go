@@ -21,14 +21,22 @@ func runRouteChecks(
 	ctx context.Context,
 	workspaceRoot string,
 	expectations []routeExpectation,
+	requestLog *requestLogExpectation,
 ) ([]evalverifier.Check, error) {
 	server, err := startFixtureServer(ctx, workspaceRoot)
 	if err != nil {
 		detail := evalverifier.BoundedDetail(fmt.Sprintf("Start built service: %v", err))
-		checks := make([]evalverifier.Check, 0, len(expectations))
+		checks := make([]evalverifier.Check, 0, len(expectations)+1)
 		for _, expectation := range expectations {
 			checks = append(checks, evalverifier.Check{
 				ID:     expectation.checkID,
+				Passed: false,
+				Detail: detail,
+			})
+		}
+		if requestLog != nil {
+			checks = append(checks, evalverifier.Check{
+				ID:     requestLog.checkID,
 				Passed: false,
 				Detail: detail,
 			})
@@ -39,10 +47,67 @@ func runRouteChecks(
 	for _, expectation := range expectations {
 		checks = append(checks, checkJSONRoute(ctx, server.port, expectation))
 	}
+	if requestLog != nil {
+		checks = append(checks, checkRequestLog(ctx, server.events, *requestLog))
+	}
 	if err := server.stop(); err != nil {
 		return nil, err
 	}
 	return checks, nil
+}
+
+func checkRequestLog(
+	ctx context.Context,
+	events <-chan fixtureServerEvent,
+	expectation requestLogExpectation,
+) evalverifier.Check {
+	waitContext, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	for {
+		select {
+		case event, open := <-events:
+			if !open {
+				return failedRequestLogCheck(expectation, "the service closed its output before logging the request")
+			}
+			if event.Event != "request" {
+				continue
+			}
+			if event.Method != expectation.method || event.Path != expectation.path {
+				return failedRequestLogCheck(
+					expectation,
+					fmt.Sprintf(
+						"logged method/path %q/%q, want %q/%q",
+						event.Method,
+						event.Path,
+						expectation.method,
+						expectation.path,
+					),
+				)
+			}
+			return evalverifier.Check{
+				ID:     expectation.checkID,
+				Passed: true,
+				Detail: fmt.Sprintf(
+					"Request logging recorded method %s and path %s in its JSON event.",
+					expectation.method,
+					expectation.path,
+				),
+			}
+		case <-waitContext.Done():
+			return failedRequestLogCheck(expectation, "no matching request log event arrived")
+		}
+	}
+}
+
+func failedRequestLogCheck(
+	expectation requestLogExpectation,
+	detail string,
+) evalverifier.Check {
+	return evalverifier.Check{
+		ID:     expectation.checkID,
+		Passed: false,
+		Detail: evalverifier.BoundedDetail("Request logging verification failed: " + detail + "."),
+	}
 }
 
 func skippedRouteChecks(expectations []routeExpectation) []evalverifier.Check {

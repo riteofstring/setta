@@ -14,15 +14,16 @@ import (
 const resultArtifactDirectoryTimestamp = "20060102T150405.000000000Z"
 
 type ResultArtifactPaths struct {
-	Directory           string
-	ManifestJSON        string
-	EventsJSONL         string
-	TranscriptJSON      string
-	TokenUsageJSON      string
-	VerifierResultsJSON string
-	JudgeResultsJSON    string
-	ResultsJSON         string
-	ReportMarkdown      string
+	Directory            string
+	ManifestJSON         string
+	EventsJSONL          string
+	TranscriptJSON       string
+	TokenUsageJSON       string
+	VerifierResultsJSON  string
+	JudgeResultsJSON     string
+	PromptGenericityJSON string
+	ResultsJSON          string
+	ReportMarkdown       string
 }
 
 // WriteResultArtifacts publishes the current eval artifacts as one directory.
@@ -57,15 +58,16 @@ func WriteResultArtifacts(
 	}
 	published = true
 	return ResultArtifactPaths{
-		Directory:           finalDirectory,
-		ManifestJSON:        filepath.Join(finalDirectory, "manifest.json"),
-		EventsJSONL:         filepath.Join(finalDirectory, "events.jsonl"),
-		TranscriptJSON:      filepath.Join(finalDirectory, "transcript.json"),
-		TokenUsageJSON:      filepath.Join(finalDirectory, "token-usage.json"),
-		VerifierResultsJSON: filepath.Join(finalDirectory, "verifier-results.json"),
-		JudgeResultsJSON:    filepath.Join(finalDirectory, "judge-results.json"),
-		ResultsJSON:         filepath.Join(finalDirectory, "results.json"),
-		ReportMarkdown:      filepath.Join(finalDirectory, "report.md"),
+		Directory:            finalDirectory,
+		ManifestJSON:         filepath.Join(finalDirectory, "manifest.json"),
+		EventsJSONL:          filepath.Join(finalDirectory, "events.jsonl"),
+		TranscriptJSON:       filepath.Join(finalDirectory, "transcript.json"),
+		TokenUsageJSON:       filepath.Join(finalDirectory, "token-usage.json"),
+		VerifierResultsJSON:  filepath.Join(finalDirectory, "verifier-results.json"),
+		JudgeResultsJSON:     filepath.Join(finalDirectory, "judge-results.json"),
+		PromptGenericityJSON: filepath.Join(finalDirectory, "prompt-genericity.json"),
+		ResultsJSON:          filepath.Join(finalDirectory, "results.json"),
+		ReportMarkdown:       filepath.Join(finalDirectory, "report.md"),
 	}, nil
 }
 
@@ -104,6 +106,7 @@ func writePendingResultArtifacts(
 		{name: "token-usage.json", value: artifactSet.TokenUsage},
 		{name: "verifier-results.json", value: artifactSet.VerifierResults},
 		{name: "judge-results.json", value: artifactSet.JudgeResults},
+		{name: "prompt-genericity.json", value: artifactSet.PromptGenericity},
 		{name: "results.json", value: artifactSet.Results},
 	}
 	for _, artifact := range jsonArtifacts {
@@ -152,6 +155,8 @@ func RenderResultReport(artifactSet EvaluationArtifactSet) (string, error) {
 		firstAttemptPassCount(results.Scenarios),
 		len(results.Scenarios),
 	)
+
+	writePromptGenericityReport(&report, artifactSet.PromptGenericity)
 
 	report.WriteString("## Ability\n\n")
 	report.WriteString("| Scenario | First attempt | Stability | Rerun |\n")
@@ -213,6 +218,71 @@ func RenderResultReport(artifactSet EvaluationArtifactSet) (string, error) {
 	}
 	report.WriteString("\nSystem totals include Director, Agent, Narrator, and Side Agent calls. Judge usage is recorded separately and excluded from every system total. First-attempt tokens are the efficiency headline; rerun tokens remain separate diagnostics and are never averaged into it.\n")
 	return report.String(), nil
+}
+
+func writePromptGenericityReport(
+	report *strings.Builder,
+	artifact PromptGenericityArtifact,
+) {
+	report.WriteString("## Prompt Genericity\n\n")
+	verdict := "FAIL"
+	if artifact.Verdict.OverallPass {
+		verdict = "PASS"
+	}
+	fmt.Fprintf(
+		report,
+		"Score: **%d/100**; verdict: **%s**\n\n",
+		artifact.Verdict.Score,
+		verdict,
+	)
+	report.WriteString("| Check | Result |\n")
+	report.WriteString("| --- | --- |\n")
+	checks := []struct {
+		label  string
+		passed bool
+	}{
+		{label: "No scenario literals", passed: artifact.Verdict.Checks.NoScenarioLiterals},
+		{label: "No fixture-specific rules", passed: artifact.Verdict.Checks.NoFixtureSpecificRules},
+		{label: "No expected-outcome leakage", passed: artifact.Verdict.Checks.NoExpectedOutcomeLeakage},
+		{label: "Principles cover equivalent cases", passed: artifact.Verdict.Checks.PrinciplesCoverEquivalents},
+		{label: "Examples are transferable", passed: artifact.Verdict.Checks.ExamplesTransferable},
+	}
+	for _, check := range checks {
+		result := "fail"
+		if check.passed {
+			result = "pass"
+		}
+		fmt.Fprintf(report, "| %s | %s |\n", check.label, result)
+	}
+	if len(artifact.Verdict.Findings) == 0 {
+		report.WriteString("\nNo scenario-coupling findings.\n")
+	} else {
+		report.WriteString("\n| Severity | Role / surface | Scenarios | Finding | Recommendation |\n")
+		report.WriteString("| --- | --- | --- | --- | --- |\n")
+		for _, finding := range artifact.Verdict.Findings {
+			scenarios := "none"
+			if len(finding.ScenarioIDs) > 0 {
+				scenarios = strings.Join(finding.ScenarioIDs, ", ")
+			}
+			fmt.Fprintf(
+				report,
+				"| %s | `%s/%s` | %s | %s | %s |\n",
+				escapeMarkdownTableCell(string(finding.Severity)),
+				escapeMarkdownTableCell(string(finding.Role)),
+				escapeMarkdownTableCell(finding.Surface),
+				escapeMarkdownTableCell(scenarios),
+				escapeMarkdownTableCell(finding.Explanation),
+				escapeMarkdownTableCell(finding.Recommendation),
+			)
+		}
+	}
+	fmt.Fprintf(
+		report,
+		"\nThe fixed prompt auditor inspected %d exact production prompt surfaces against %d standard scenarios using %d judge tokens.\n\n",
+		len(artifact.Prompts),
+		len(artifact.Scenarios),
+		artifact.TokenUsage.Total.TotalTokens,
+	)
 }
 
 func validateResultTokenUsage(results Results, tokenUsage TokenUsageArtifact) error {

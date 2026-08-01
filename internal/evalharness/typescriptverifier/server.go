@@ -24,11 +24,14 @@ type fixtureServer struct {
 	command *exec.Cmd
 	cancel  context.CancelFunc
 	wait    <-chan error
+	events  <-chan fixtureServerEvent
 }
 
 type fixtureServerEvent struct {
-	Event string `json:"event"`
-	Port  int    `json:"port"`
+	Event  string `json:"event"`
+	Port   int    `json:"port"`
+	Method string `json:"method"`
+	Path   string `json:"path"`
 }
 
 func startFixtureServer(ctx context.Context, workspaceRoot string) (*fixtureServer, error) {
@@ -51,7 +54,8 @@ func startFixtureServer(ctx context.Context, workspaceRoot string) (*fixtureServ
 		return nil, fmt.Errorf("start built service: %w", err)
 	}
 	ready := make(chan serverReadiness, 1)
-	go readServerReadiness(stdout, ready)
+	events := make(chan fixtureServerEvent, 32)
+	go readServerEvents(stdout, ready, events)
 	wait := make(chan error, 1)
 	go func() {
 		wait <- command.Wait()
@@ -71,6 +75,7 @@ func startFixtureServer(ctx context.Context, workspaceRoot string) (*fixtureServ
 			command: command,
 			cancel:  cancel,
 			wait:    wait,
+			events:  events,
 		}, nil
 	case err := <-wait:
 		cancel()
@@ -92,16 +97,25 @@ type serverReadiness struct {
 	err  error
 }
 
-func readServerReadiness(reader io.Reader, ready chan<- serverReadiness) {
+func readServerEvents(
+	reader io.Reader,
+	ready chan<- serverReadiness,
+	events chan<- fixtureServerEvent,
+) {
+	defer close(events)
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(make([]byte, 1024), maximumCommandOutputBytes)
 	found := false
 	for scanner.Scan() {
-		if found {
+		var event fixtureServerEvent
+		if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
 			continue
 		}
-		var event fixtureServerEvent
-		if err := json.Unmarshal(scanner.Bytes(), &event); err != nil || event.Event != "listening" {
+		if found {
+			events <- event
+			continue
+		}
+		if event.Event != "listening" {
 			continue
 		}
 		if event.Port < 1 || event.Port > 65_535 {

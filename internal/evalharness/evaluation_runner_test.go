@@ -106,7 +106,14 @@ func TestPublishEvaluationWritesOneOrderedMultiScenarioArtifactSet(t *testing.T)
 		manifest.Scenarios,
 		validTestManifestScenario(second.ID, []EvaluatedRoleConfiguration{}),
 	)
-	output, err := publishEvaluation(t.TempDir(), manifest, runs, startedAt, finishedAt)
+	output, err := publishEvaluation(
+		t.TempDir(),
+		manifest,
+		runs,
+		validTestPromptGenericityArtifact(t, first.ID, second.ID),
+		startedAt,
+		finishedAt,
+	)
 	if err != nil {
 		t.Fatalf("publish multi-scenario evaluation: %v", err)
 	}

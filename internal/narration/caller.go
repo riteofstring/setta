@@ -657,6 +657,38 @@ func checkpointInstructions() string {
 	}, "\n")
 }
 
+// PromptSurfaces returns every exact Setta-owned Narrator instruction surface
+// used by production focus, progress, terminal, status, and checkpoint calls.
+func PromptSurfaces() []conversation.RolePromptSurface {
+	return []conversation.RolePromptSurface{
+		{
+			Role:    conversation.RoleNarrator,
+			Surface: "focus",
+			Prompt:  focusInstructions(),
+		},
+		{
+			Role:    conversation.RoleNarrator,
+			Surface: "working-projection",
+			Prompt:  projectionInstructions(ProjectionChannelWorking),
+		},
+		{
+			Role:    conversation.RoleNarrator,
+			Surface: "terminal-projection",
+			Prompt:  projectionInstructions(ProjectionChannelTerminal),
+		},
+		{
+			Role:    conversation.RoleNarrator,
+			Surface: "status",
+			Prompt:  statusInstructions(),
+		},
+		{
+			Role:    conversation.RoleNarrator,
+			Surface: "checkpoint",
+			Prompt:  checkpointInstructions(),
+		},
+	}
+}
+
 func userVisibleNarratorLanguageInstructions() []string {
 	return []string{
 		"Write for the user whose objective appears in the supplied context.",
@@ -678,11 +710,9 @@ func userVisibleNarratorLanguageInstructions() []string {
 func narratorLanguageExamples() []string {
 	return []string{
 		"Examples teach voice and relevance:",
-		"Avoid: \"Narrator evaluated the deployment through sequence 41.\" Prefer: \"The deployment now completes successfully, and failed releases keep the previous version running.\"",
+		"Avoid: \"Narrator evaluated the checkout update through sequence 41.\" Prefer: \"Checkout now preserves the cart when payment is declined and explains how to try again.\"",
 		"Avoid: \"The provider boundary is now typed.\" Prefer: \"Voice requests now preserve the configured narrator and speaking pace across restarts.\"",
 		"Avoid: \"A terminal projection was durably committed.\" Prefer: \"The final summary is saved with the conversation and remains available after restart.\"",
-		"Avoid: \"The endpoint is complete, but the test suite could not open a local port in this environment.\" Prefer: \"The endpoint is implemented, covered, and the available checks passed.\"",
-		"Avoid: \"The quality check failed before its results were available.\" When the turn is still active and needs no user action, prefer: no milestone.",
 		"Avoid: \"Continued working on the current objective.\" Prefer: no milestone.",
 	}
 }

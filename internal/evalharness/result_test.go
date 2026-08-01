@@ -503,6 +503,11 @@ func assertArtifactSetRejectsMismatchedEvidence(
 		mismatched.TokenUsage.Scenarios[0] = usage
 		assertArtifactSetValidationError(t, mismatched, "judge token evidence does not use the fixed judge configuration")
 	})
+	t.Run("prompt audit scenario", func(t *testing.T) {
+		mismatched := cloneTestArtifactSet(t, artifacts)
+		mismatched.PromptGenericity.Scenarios[0].ScenarioID = ScenarioVerifierApparentAmbiguity
+		assertArtifactSetValidationError(t, mismatched, "prompt genericity audit omits evaluated scenario")
+	})
 	t.Run("public transcript", func(t *testing.T) {
 		mismatched := cloneTestArtifactSet(t, artifacts)
 		mismatched.Transcript.Scenarios[0].Entries[0].Text = "Complete a different fixture task."
@@ -587,12 +592,24 @@ func assertPublishedResultArtifacts(t *testing.T, paths ResultArtifactPaths) {
 	if err := decodedTokens.Validate(); err != nil {
 		t.Fatalf("validate decoded token usage: %v", err)
 	}
+	promptPayload, err := os.ReadFile(paths.PromptGenericityJSON)
+	if err != nil {
+		t.Fatalf("read prompt genericity artifact: %v", err)
+	}
+	var decodedPromptGenericity PromptGenericityArtifact
+	if err := json.Unmarshal(promptPayload, &decodedPromptGenericity); err != nil {
+		t.Fatalf("decode prompt genericity artifact: %v", err)
+	}
+	if err := decodedPromptGenericity.Validate(); err != nil {
+		t.Fatalf("validate decoded prompt genericity artifact: %v", err)
+	}
 	for _, path := range []string{
 		paths.ManifestJSON,
 		paths.EventsJSONL,
 		paths.TranscriptJSON,
 		paths.VerifierResultsJSON,
 		paths.JudgeResultsJSON,
+		paths.PromptGenericityJSON,
 	} {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("inspect complete artifact %s: %v", path, err)
@@ -606,7 +623,7 @@ func assertPublishedResultReport(t *testing.T, path string) {
 	if err != nil {
 		t.Fatalf("read report artifact: %v", err)
 	}
-	for _, section := range []string{"## Ability", "## User Control", "## AI Communication", "## Efficiency"} {
+	for _, section := range []string{"## Prompt Genericity", "## Ability", "## User Control", "## AI Communication", "## Efficiency"} {
 		if !strings.Contains(string(report), section) {
 			t.Fatalf("report omitted %s: %s", section, report)
 		}
@@ -712,12 +729,13 @@ func validTestArtifactSet(
 				PNPMVersion:    "10.23.0",
 			},
 		},
-		Events:          testArtifactEvents(results, tokenUsage, scenarios),
-		Transcript:      mustTestTranscriptArtifact(t, transcripts),
-		TokenUsage:      tokenUsage,
-		VerifierResults: mustTestVerifierArtifact(t, verifiers),
-		JudgeResults:    mustTestJudgeArtifact(t, judges),
-		Results:         results,
+		Events:           testArtifactEvents(results, tokenUsage, scenarios),
+		Transcript:       mustTestTranscriptArtifact(t, transcripts),
+		TokenUsage:       tokenUsage,
+		VerifierResults:  mustTestVerifierArtifact(t, verifiers),
+		JudgeResults:     mustTestJudgeArtifact(t, judges),
+		PromptGenericity: validTestPromptGenericityArtifact(t),
+		Results:          results,
 	}
 }
 

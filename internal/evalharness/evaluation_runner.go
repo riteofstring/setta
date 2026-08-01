@@ -20,9 +20,10 @@ type EvaluationConfig struct {
 }
 
 type EvaluationOutput struct {
-	Results      Results
-	JudgeResults JudgeArtifact
-	Artifacts    ResultArtifactPaths
+	Results          Results
+	JudgeResults     JudgeArtifact
+	PromptGenericity PromptGenericityArtifact
+	Artifacts        ResultArtifactPaths
 }
 
 type evaluationScenarioAttempt struct {
@@ -72,18 +73,35 @@ func RunEvaluation(ctx context.Context, config EvaluationConfig) (EvaluationOutp
 		return EvaluationOutput{}, fmt.Errorf("read committed Phase 0 proof: %w", err)
 	}
 	normalized.phase0Codex = phase0Evidence.Codex
+	scenarioDirectory := filepath.Join(normalized.repoRoot, "evals", "scenarios")
 	scenarios, err := LoadScenarios(
-		filepath.Join(normalized.repoRoot, "evals", "scenarios"),
+		scenarioDirectory,
 		normalized.scenarioIDs,
 	)
 	if err != nil {
 		return EvaluationOutput{}, err
+	}
+	promptAuditScenarios := scenarios
+	if len(normalized.scenarioIDs) > 0 {
+		promptAuditScenarios, err = LoadScenarios(scenarioDirectory, nil)
+		if err != nil {
+			return EvaluationOutput{}, err
+		}
 	}
 	repository, err := inspectPhase0Repository(ctx, normalized.repoRoot)
 	if err != nil {
 		return EvaluationOutput{}, fmt.Errorf("inspect live-evaluation repository: %w", err)
 	}
 	startedAt := time.Now().UTC()
+	promptGenericity, err := runPromptGenericityJudge(
+		ctx,
+		normalized.repoRoot,
+		normalized.codexCommand,
+		promptAuditScenarios,
+	)
+	if err != nil {
+		return EvaluationOutput{}, err
+	}
 	runs, sandbox, err := runEvaluationScenarios(ctx, normalized, scenarios)
 	if err != nil {
 		return EvaluationOutput{}, err
@@ -107,6 +125,7 @@ func RunEvaluation(ctx context.Context, config EvaluationConfig) (EvaluationOutp
 		normalized.recordingsRoot,
 		manifest,
 		runs,
+		promptGenericity,
 		startedAt,
 		finishedAt,
 	)
@@ -287,10 +306,17 @@ func publishEvaluation(
 	recordingsRoot string,
 	manifest EvaluationManifest,
 	runs []evaluationScenarioRun,
+	promptGenericity PromptGenericityArtifact,
 	startedAt time.Time,
 	finishedAt time.Time,
 ) (EvaluationOutput, error) {
-	artifacts, err := buildEvaluationArtifactSet(manifest, runs, startedAt, finishedAt)
+	artifacts, err := buildEvaluationArtifactSet(
+		manifest,
+		runs,
+		promptGenericity,
+		startedAt,
+		finishedAt,
+	)
 	if err != nil {
 		return EvaluationOutput{}, err
 	}
@@ -299,15 +325,17 @@ func publishEvaluation(
 		return EvaluationOutput{}, fmt.Errorf("publish live-evaluation results: %w", err)
 	}
 	return EvaluationOutput{
-		Results:      artifacts.Results,
-		JudgeResults: artifacts.JudgeResults,
-		Artifacts:    paths,
+		Results:          artifacts.Results,
+		JudgeResults:     artifacts.JudgeResults,
+		PromptGenericity: artifacts.PromptGenericity,
+		Artifacts:        paths,
 	}, nil
 }
 
 func buildEvaluationArtifactSet(
 	manifest EvaluationManifest,
 	runs []evaluationScenarioRun,
+	promptGenericity PromptGenericityArtifact,
 	startedAt time.Time,
 	finishedAt time.Time,
 ) (EvaluationArtifactSet, error) {
@@ -346,6 +374,7 @@ func buildEvaluationArtifactSet(
 	}
 	return newEvaluationArtifactSet(
 		manifest,
+		promptGenericity,
 		scenarios,
 		results,
 		transcripts,
@@ -415,6 +444,7 @@ func buildEvaluationScenarioArtifacts(
 
 func newEvaluationArtifactSet(
 	manifest EvaluationManifest,
+	promptGenericity PromptGenericityArtifact,
 	scenarios []Scenario,
 	scenarioResults []ScenarioEvaluationResult,
 	transcripts []ScenarioTranscript,
@@ -446,14 +476,15 @@ func newEvaluationArtifactSet(
 		return EvaluationArtifactSet{}, fmt.Errorf("create judge artifact: %w", err)
 	}
 	return EvaluationArtifactSet{
-		Scenarios:       append([]Scenario{}, scenarios...),
-		Manifest:        manifest,
-		Events:          append([]EvaluationEvent{}, events...),
-		Transcript:      transcriptArtifact,
-		TokenUsage:      tokenArtifact,
-		VerifierResults: verifierArtifact,
-		JudgeResults:    judgeArtifact,
-		Results:         results,
+		Scenarios:        append([]Scenario{}, scenarios...),
+		Manifest:         manifest,
+		Events:           append([]EvaluationEvent{}, events...),
+		Transcript:       transcriptArtifact,
+		TokenUsage:       tokenArtifact,
+		VerifierResults:  verifierArtifact,
+		JudgeResults:     judgeArtifact,
+		PromptGenericity: promptGenericity,
+		Results:          results,
 	}, nil
 }
 

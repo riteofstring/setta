@@ -88,7 +88,7 @@ func testCallerFocusProjection(t *testing.T) {
 	assertInstructionsContain(t, provider.requests[0].DeveloperInstructions, []string{
 		"Write for the user whose objective appears in the supplied context.",
 		"Omit Setta's bookkeeping",
-		"Avoid: \"Narrator evaluated the deployment through sequence 41.\"",
+		"Avoid: \"Narrator evaluated the checkout update through sequence 41.\"",
 	})
 }
 
@@ -116,7 +116,7 @@ func testCallerWorkingProjection(t *testing.T) {
 		"Write for the user whose objective appears in the supplied context.",
 		"Lead with the observable outcome",
 		"An activity or verification failure is not a user-facing blocker while the turn remains active",
-		"The quality check failed before its results were available.",
+		"Continued working on the current objective.",
 		"Prefer: no milestone.",
 	})
 }
@@ -146,7 +146,7 @@ func testCallerTerminalProjection(t *testing.T) {
 		"If the turn failed or was stopped, say so directly and include only the important caveat.",
 		"Never mention workers, workstreams, provider runtimes, internal execution environments",
 		"Omit execution limitations and unavailable checks when the user has no action to take",
-		"The endpoint is implemented, covered, and the available checks passed.",
+		"name only checks known to have succeeded",
 	})
 }
 

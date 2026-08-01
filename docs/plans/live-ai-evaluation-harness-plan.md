@@ -14,17 +14,23 @@ capabilities before it starts, while only Agent and Side Agent threads retain
 the proved remote shell surface. Full Phase 1 live harness execution is now
 authorized for this verification run.
 
+The current framework uses one fixed ten-scenario catalog plus one run-level
+prompt-genericity judge. There is intentionally no holdout, generated batch, or
+evaluate-and-burn lifecycle.
+
 ## Outcome
 
 Once Phase 0 proves the credential-safe boundary, one on-demand command runs
-five live, Director-only scenarios against the real Setta orchestration stack
-in disposable Docker isolation and produces a small report answering four
+ten live, Director-only scenarios against the real Setta orchestration stack
+in disposable Docker isolation and produces a small report answering five
 separate questions:
 
 1. Did Setta complete the task?
 2. How many system tokens did a successful task consume?
 3. Did Setta communicate truthfully and at the right level?
 4. Could the user control the work entirely through the Director?
+5. Do the production role prompts remain generic instead of encoding the eval
+   answers?
 
 The first command is:
 
@@ -33,8 +39,9 @@ The first command is:
 ```
 
 This is an evaluation runner, not a second test framework. It has one fixture,
-five scenarios, deterministic end-state verifiers, one fixed communication
-judge, JSON artifacts, and a Markdown summary. There is no dashboard, database,
+ten scenarios, deterministic end-state verifiers, one fixed communication
+judge, one fixed prompt-genericity audit, JSON artifacts, and a Markdown
+summary. There is no dashboard, database, holdout pipeline, scenario generator,
 synthetic user agent, benchmark adapter, or automatic prompt optimizer.
 
 Live evaluations and deterministic product tests remain different things. The
@@ -169,16 +176,22 @@ The initial layout is:
 ```text
 evals/
   communication-rubric.md
+  prompt-genericity-rubric.md
   fixtures/
     typescript-service/
   models/
     screening.json
   scenarios/
-    straightforward-task.json
     apparent-ambiguity.json
+    documentation-only.json
+    external-file-contract.json
     genuine-ambiguity.json
     mid-run-steering.json
     queue-then-cancel.json
+    rambling-port-validation.json
+    request-logging.json
+    stable-release-data.json
+    straightforward-task.json
   verifiers/
     ...normal source files...
   sandbox/
@@ -247,7 +260,7 @@ multi-turn scenarios while still stopping a genuine runaway; the report records
 actual usage for efficiency decisions. Regression thresholds are set only
 after successful baselines provide real measurements.
 
-All five MVP scenarios initially use the 1,800-second ceiling. This bounds a
+All ten standard scenarios use the 1,800-second ceiling. This bounds a
 disposable evaluation of an intentionally small fixture task; it is not a
 timeout on the plan implementation loop or a general product limit on how long
 an Agent may work. Changing it requires an intentional scenario-contract edit,
@@ -259,14 +272,14 @@ or cancel APIs behind the Director's back. Whether the Director sends, steers,
 queues, answers, or asks a useful question is exactly what the scenario is
 measuring.
 
-### One fixture, five scenarios
+### One fixture, ten scenarios
 
 The first fixture is a small dependency-complete TypeScript HTTP service. Its
 dependencies are present in the pinned ARM64 image, so the Agent does not need
 general internet access or a package-install step. Each scenario receives a
 fresh copy and an independent disposable git repository.
 
-The first five scenarios are:
+The standard scenarios are:
 
 | Scenario                               | What it proves                                                                                                                                        |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -275,6 +288,11 @@ The first five scenarios are:
 | Genuine ambiguity                      | The Director does not mutate first, asks one useful question, consumes the scripted answer, and then succeeds                                         |
 | Mid-run steering                       | A follow-up sent after the first real mutation replaces the obsolete requirement                                                                      |
 | Queue then cancel                      | A second request is retained exactly once while work is active; cancelling the observed run stops it without losing or duplicating the queued request |
+| Documentation only                     | A narrow documentation request changes only the requested document and preserves source, tests, and scripts                                         |
+| External file contract                 | A genuinely unspecified external contract produces one useful clarification before work begins                                                       |
+| Rambling port validation               | The Director extracts a precise task and constraints from conversational, non-spec-like input                                                         |
+| Request logging                        | A focused behavioral change includes runtime behavior and automated coverage without unrelated work                                                   |
+| Stable release data                    | The system performs a deterministic data transformation while respecting explicit source and application-code boundaries                              |
 
 The fixture and scenario semantics are benchmark inputs, not implementation
 details for the harness author to improvise. The MVP checks in the following
@@ -298,7 +316,11 @@ exact contract.
   liveness (`GET /live`, `{"live":true}`) or readiness (`GET /ready`, the
   standard readiness body), and deliberately chooses neither one;
 - a request-logging implementation that does not yet include both HTTP method
-  and path.
+  and path;
+- permissive `PORT` parsing that accepts a valid numeric prefix followed by
+  invalid characters;
+- `data/releases.csv`, containing stable and non-stable release rows, with no
+  derived stable-release JSON file.
 
 Every scenario starts from a fresh byte-for-byte copy and independent git
 repository. Hidden verifiers compare against that baseline, run code only in
@@ -402,13 +424,55 @@ the verifier container, and reject unrelated mutations.
    are not required to roll back; cancellation owns stopping future work, not
    transactional filesystem rollback.
 
+6. `documentation-only`
+
+   The user asks to add `pnpm run format` to the README's Development section
+   and explicitly forbids source, test, and package-script changes. No
+   clarification is allowed. The verifier requires only `README.md` to change,
+   requires the command to appear, and confirms that the unchanged service
+   still builds, tests, and serves its root route.
+
+7. `external-file-contract`
+
+   The initial request asks for an unspecified release metadata file needed by
+   an external packaging job. The Director must ask one useful question before
+   mutation. The scripted reply then requires root `release-manifest.json`
+   containing only `package` and `release`, derived from the package name and
+   version. Control assertions require no mutation before that reply and one
+   Director-routed consumption of it; the verifier requires exactly that JSON
+   file and no unrelated change.
+
+8. `rambling-port-validation`
+
+   A conversational request explains that values such as `3000oops` must be
+   rejected while valid ports keep working, asks for focused coverage, and
+   forbids a broader configuration or documentation project. No clarification
+   is allowed. The verifier requires source and test changes, a passing build
+   and suite, a working service, and process-level rejection of the malformed
+   value.
+
+9. `request-logging`
+
+   The user asks for every one-line JSON request record to include uppercase
+   `method` and request `path`, plus coverage and relevant checks. The verifier
+   requires only source and test changes, observes an actual `GET /` request
+   event with those exact fields, and requires the build and suite to pass.
+
+10. `stable-release-data`
+
+   The user asks to derive `data/stable-releases.json` from the supplied CSV,
+   keeping stable rows only, sorting by service, retaining only service and
+   version, and leaving the source CSV and application code untouched. The
+   verifier requires that exact JSON array as the only change and confirms the
+   fixture remains healthy.
+
 Changing any quoted message, scripted answer, fixture convention, or verifier
 outcome is an intentional benchmark-contract edit reviewed with the scenario
 and verifier in the same change.
 
 Recoverable provider failure, genuine external blocking, approvals, restart,
-and more task domains are the next scenarios only after the vertical slice is
-useful. They are not prerequisites for the MVP.
+and additional task domains remain future scenarios only when product evidence
+justifies their implementation cost.
 
 The genuine-ambiguity scenario does not detect questions by punctuation or
 keywords. It waits for the Director turn to finish without starting or mutating
@@ -512,8 +576,36 @@ short task may need no interim message; a longer one may need several. The
 rubric judges whether each interruption bought the user useful information.
 
 Before the judge result is used for comparisons, the product owner reads the
-five baseline transcripts and their five verdicts. This is a small sanity
-check, not a labeling program or judge-calibration project.
+ten baseline transcripts and their verdicts. This is a small sanity check, not
+a labeling program or judge-calibration project.
+
+### One run-level judge audits prompt overfitting
+
+Once per invocation, the same fixed judge configuration performs one separate
+structured audit before behavioral execution. This preflights the audit without
+hiding behavioral results when it returns a valid failing verdict. It receives
+the exact assembled production prompt surfaces for Director, Agent, and
+Narrator plus the complete standard scenario catalog. Even when the operator
+selects one behavioral scenario, the prompt audit still uses the full catalog.
+
+The audit checks five independent invariants: no copied scenario literals, no
+fixture-specific rules, no expected-outcome leakage, principles that transfer
+to equivalent cases, and examples that remain useful if the current scenarios
+are replaced. Capability-level overlap is expected; findings must identify
+coupling to a particular benchmark rather than penalizing general instructions
+about ambiguity, steering, cancellation, scope, or communication.
+
+Every failed check requires a high- or medium-severity finding with an exact
+prompt excerpt, affected role and surface, relevant scenario IDs, explanation,
+and generic replacement direction. Each passed check contributes 20 points;
+the eval passes this axis only at 100/100. Prompt, rubric, and scenario hashes,
+the judge invocation, verdict, findings, and separate judge-token evidence are
+written to `prompt-genericity.json`.
+
+This is the complete anti-overfitting mechanism. The harness does not maintain
+a holdout set, generate fresh scenarios, hide cases from developers, or burn a
+scenario after it is viewed. Breadth comes from expanding the standard catalog
+when a reusable, objectively verifiable product behavior is worth adding.
 
 ### Efficiency is total tokens per successful task
 
@@ -665,6 +757,7 @@ Each invocation writes:
   token-usage.json
   verifier-results.json
   judge-results.json
+  prompt-genericity.json
   results.json
   report.md
 ```
@@ -675,11 +768,11 @@ and runtime version. The event log contains typed public/semantic events and
 accounting evidence only. It never records private model reasoning, raw auth
 material, or unrestricted process environments.
 
-The Markdown report has four sections—Ability, User Control, AI Communication,
-and Efficiency—and a compact row per scenario. It does not calculate a single
-weighted Setta score. Full JSON exists for later analysis, but no result
-database or baseline service is built. The first comparison can be made by
-reading two reports.
+The Markdown report has five sections—Prompt Genericity, Ability, User Control,
+AI Communication, and Efficiency—and a compact row per scenario. It does not
+calculate a single weighted Setta score. Full JSON exists for later analysis,
+but no result database or baseline service is built. The first comparison can
+be made by reading two reports.
 
 ## Hard Rules
 
@@ -694,7 +787,8 @@ reading two reports.
   stuck run.
 - No new polling path. Existing HTTP event streams drive the scenario.
 - No heuristic parsing of prompts, questions, commands, or output. Typed events,
-  deterministic artifacts, and the communication judge own those decisions.
+  deterministic artifacts, the communication judge, and the prompt auditor own
+  those decisions.
 - No eval-only route directly to an Agent. User messages go to the Director.
 - No verifier or expected answer is visible to the system under evaluation.
 - No communication score compensates for an objectively failed task.
@@ -703,10 +797,13 @@ reading two reports.
 - No single aggregate score.
 - No automatic model search, dynamic model router, prompt optimizer, dashboard,
   evaluation database, synthetic user model, or multi-judge voting.
+- No holdout catalog, generated evaluation batch, or evaluate-and-burn
+  lifecycle. The fixed standard catalog and prompt-genericity audit are the
+  current design.
 - No eval model configuration may change tools, workspace authority, or
   approval policy.
-- No new provider merely to judge communication. Use one fixed exact model from
-  the already integrated provider.
+- No new provider merely to judge communication or prompt genericity. Use one
+  fixed exact model from the already integrated provider.
 - No backward compatibility, legacy support, migrations, transitional adapters,
   feature-flagged old paths, dual-read/write behavior, field aliases, or second
   scenario/result schema. Replace unreleased contracts directly and delete the
@@ -1601,12 +1698,12 @@ and its five-Boolean result schema. Write the complete local artifact set under
 excludes judge tokens, and receives a schema-valid judge result with the
 transcript and verdict ready for the one-time MVP verification review.
 
-## Phase 3 — Complete the five-scenario MVP
+## Phase 3 — Complete the standard scenario suite
 
 ### Phase 3 implementation status
 
 The benchmark-contract and hidden-verifier batch is implemented. The strict
-scenario schema now owns only the four event triggers the five MVP scenarios
+scenario schema now owns only the four event triggers the ten standard scenarios
 need—`director_turn_completed`, `first_workspace_mutation`,
 `agent_turn_running`, and `queue_nonempty`—plus the closed clarification and
 control-assertion vocabulary needed to grade their user-control contracts. It
@@ -1614,17 +1711,15 @@ requires one initial Director submission, triggered later submissions, unique
 triggers, a verifier matching the scenario identity, and internally consistent
 clarification, steering, queueing, and cancellation assertions.
 
-All five exact scenario files are checked in with the quoted messages and the
-fixed 1,800-second and 400,000-token runaway ceilings. The shared hidden fixture
-grader selects the scenario by its validated identifier and preserves the
-strict changed-file boundary. It now grades the original route plus exact
-`/health`, `/ready`, `/status`, or `/version` behavior as applicable; rejected
-obsolete `/live` or `/health` routes; README requirements or byte identity via
-the changed-file boundary; fixture build and tests; and consecutive `/version`
-requests to reject duplicate-response or stateful handling. The
-verifier container entrypoint accepts the selected verifier explicitly, and
-the existing vertical lifecycle passes that identity through both normal and
-invalid-workspace verification paths.
+All ten exact scenario files are checked in with the quoted messages, the fixed
+1,800-second ceiling, and explicit 300,000- or 400,000-token runaway ceilings.
+The shared hidden fixture grader selects the scenario by its validated
+identifier and preserves the strict changed-file boundary. It grades route
+behavior, absent superseded routes, README scope, exact derived JSON files,
+request-log events, malformed-port rejection, fixture build and tests, and
+repeated requests where applicable. The verifier container entrypoint accepts
+the selected verifier explicitly, and the existing vertical lifecycle passes
+that identity through both normal and invalid-workspace verification paths.
 
 The multi-turn orchestration and typed-control batch is also implemented. The
 per-scenario production HTTP boundary now dispatches every scripted message
@@ -1763,7 +1858,7 @@ artifact again omitted its open workspace ID. That pre-existing artifact-routing
 failure is already documented above, predates this plan's implementation, and
 remains an external production release gate; it was not retried or expanded
 into unrelated work. The then-unavailable committed Phase 0 PASS evidence gated
-the live harness, fixed judge, and five-scenario suite, so none was invoked.
+the live harness, fixed judge, and then-current scenario suite, so none was invoked.
 Subsequent live probe evidence above invalidated the internal-network
 port-publication assumption in both Phase 0 and Phase 1. The shared
 control-transport repair is now implemented; the final audit remains reopened
@@ -1794,7 +1889,8 @@ Static review and formatting are the only verification authorized for this
 completion audit. The focused checks affected by this repair, the applicable
 deterministic production workflow gate, the live Codex matrix including the
 pre-existing topic-artifact case, the Phase 1 vertical classifications, fixed
-judge review, five-scenario live suite, successful-scenario timing evidence,
+judge review, ten-scenario live suite, prompt-genericity audit,
+successful-scenario timing evidence,
 and the previously unavailable remote pnpm checks remain explicit merge or
 release gates. None is retried by this audit, and the already-passing Phase 0
 probe remains applicable because this repair does not change its proof inputs
@@ -1807,10 +1903,11 @@ assertions, communication checks, and token totals. Confirm that the checked-in
 change that scenario contract explicitly if the evidence disproves it. Do not
 yet automate baseline regression thresholds.
 
-**Exit:** all five scenarios can be launched together or individually, every
-failure is attributable to ability, control, communication, efficiency, or
-infrastructure, no scenario relies on timing luck, and an explicitly supplied
-candidate configuration can be evaluated without changing harness code.
+**Exit:** all ten scenarios can be launched together or individually, every
+failure is attributable to ability, control, communication, prompt genericity,
+efficiency, or infrastructure, no scenario relies on timing luck, and an
+explicitly supplied candidate configuration can be evaluated without changing
+harness code.
 
 The implementation loop's repository work ends here and proceeds to its final
 audit. The following sections describe later operation and evidence-driven
@@ -1859,7 +1956,7 @@ token accounting, sandbox preflight, and one fixture verifier. Then prove the
 Phase 1 classification cases in order: one passing workspace, one intentionally
 incorrect workspace, one timeout, and one infrastructure failure. Only after
 that vertical slice is unambiguous, verify token accounting and the fixed judge,
-then run the five-scenario suite once.
+then run the ten-scenario suite and prompt-genericity audit once.
 
 Because this work touches provider handling, role configuration, Director
 dispatch, conversation lifecycle, queueing, steering, cancellation, streaming,
@@ -1879,7 +1976,7 @@ If Phase 0 finds a supported sandbox path, the target is one focused week:
 - sandbox proof and preflight: one day;
 - vertical runner and verifier: two days;
 - token observer, judge, and artifacts: one to two days;
-- four remaining scenarios and model input: one to two days.
+- remaining standard scenarios, prompt audit, and model input: one to two days.
 
 That is a guardrail, not a promise. If credential-safe Docker requires a new
 provider proxy, remote execution system, or undocumented Codex integration,

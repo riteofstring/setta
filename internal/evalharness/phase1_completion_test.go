@@ -286,6 +286,7 @@ func TestPublishPhase1EvaluationExercisesExitClassifications(t *testing.T) {
 				t.TempDir(),
 				manifest,
 				[]evaluationScenarioRun{run},
+				validTestPromptGenericityArtifact(t),
 				startedAt,
 				invocationFinishedAt,
 			)
