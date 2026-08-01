@@ -52,6 +52,7 @@ func TestDecodePhase1BackendReadyRequiresOneExactProductionEvent(t *testing.T) {
 }
 
 func TestPhase1ProviderEnvironmentScrubsCredentialsAndStaleControl(t *testing.T) {
+	controlURL := "ws://127.0.0.1:4500" + execServerControlPathPrefix + strings.Repeat("a", 64)
 	environment := phase1ProviderEnvironment(
 		[]string{
 			"HOME=/developer",
@@ -60,11 +61,11 @@ func TestPhase1ProviderEnvironmentScrubsCredentialsAndStaleControl(t *testing.T)
 			"CODEX_EXEC_SERVER_URL=ws://stale.example.invalid",
 			providerbridge.TokenEnvironment + "=secret",
 		},
-		"CODEX_EXEC_SERVER_URL=ws://127.0.0.1:4500",
+		"CODEX_EXEC_SERVER_URL="+controlURL,
 	)
 	want := []string{
 		"HOME=/developer",
-		"CODEX_EXEC_SERVER_URL=ws://127.0.0.1:4500",
+		"CODEX_EXEC_SERVER_URL=" + controlURL,
 	}
 	if strings.Join(environment, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("provider environment = %q", environment)

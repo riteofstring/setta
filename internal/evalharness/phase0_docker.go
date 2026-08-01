@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -28,6 +28,7 @@ type phase0DockerResources struct {
 	containerCreated bool
 	volumeCreated    bool
 	networkCreated   bool
+	controlRelay     *execServerControlRelay
 }
 
 type phase0DockerVersion struct {
@@ -56,10 +57,13 @@ type phase0DockerImage struct {
 
 type phase0DockerContainer struct {
 	Config struct {
-		Env        []string `json:"Env"`
-		Entrypoint []string `json:"Entrypoint"`
-		User       string   `json:"User"`
-		WorkingDir string   `json:"WorkingDir"`
+		Env          []string            `json:"Env"`
+		Entrypoint   []string            `json:"Entrypoint"`
+		ExposedPorts map[string]struct{} `json:"ExposedPorts"`
+		OpenStdin    bool                `json:"OpenStdin"`
+		StdinOnce    bool                `json:"StdinOnce"`
+		User         string              `json:"User"`
+		WorkingDir   string              `json:"WorkingDir"`
 	} `json:"Config"`
 	HostConfig struct {
 		CapAdd         []string          `json:"CapAdd"`
@@ -68,11 +72,15 @@ type phase0DockerContainer struct {
 		NanoCPUs       int64             `json:"NanoCpus"`
 		NetworkMode    string            `json:"NetworkMode"`
 		PidsLimit      *int64            `json:"PidsLimit"`
+		PortBindings   map[string][]any  `json:"PortBindings"`
 		Privileged     bool              `json:"Privileged"`
 		ReadonlyRootfs bool              `json:"ReadonlyRootfs"`
 		SecurityOpt    []string          `json:"SecurityOpt"`
 		Tmpfs          map[string]string `json:"Tmpfs"`
 	} `json:"HostConfig"`
+	NetworkSettings struct {
+		Ports map[string][]any `json:"Ports"`
+	} `json:"NetworkSettings"`
 	Mounts []struct {
 		Destination string `json:"Destination"`
 		RW          bool   `json:"RW"`
@@ -111,6 +119,14 @@ type phase0HelperFile struct {
 
 type phase0HelperWorkspace struct {
 	Files []phase0HelperFile `json:"files"`
+}
+
+var execServerStdioEntrypoint = []string{
+	"/usr/local/bin/codex",
+	"exec-server",
+	"--strict-config",
+	"--listen",
+	"stdio://",
 }
 
 func inspectPhase0Docker(
@@ -263,6 +279,7 @@ func (resources *phase0DockerResources) start(
 		ctx,
 		"run",
 		"--detach",
+		"--interactive",
 		"--pull",
 		"never",
 		"--name",
@@ -271,8 +288,6 @@ func (resources *phase0DockerResources) start(
 		phase0ImagePlatform,
 		"--network",
 		resources.networkName,
-		"--publish",
-		"127.0.0.1::"+phase0ExecServerPort+"/tcp",
 		"--mount",
 		"type=volume,source="+resources.volumeName+",destination="+phase0WorkspaceRoot,
 		"--read-only",
@@ -304,6 +319,11 @@ func (resources *phase0DockerResources) start(
 	); err != nil {
 		return Phase0BoundaryEvidence{}, fmt.Errorf("start Phase 0 exec-server container: %w", err)
 	}
+	relay, err := startExecServerControlRelay(ctx, resources.client, resources.containerName, nil)
+	if err != nil {
+		return Phase0BoundaryEvidence{}, fmt.Errorf("start Phase 0 exec-server control relay: %w", err)
+	}
+	resources.controlRelay = relay
 	return resources.inspectBoundary(ctx)
 }
 
@@ -348,17 +368,17 @@ func (resources *phase0DockerResources) inspectBoundary(
 	if err := resources.validateWorkspaceVolume(ctx); err != nil {
 		return Phase0BoundaryEvidence{}, err
 	}
-	address, err := resources.publishedAddress(ctx)
-	if err != nil {
-		return Phase0BoundaryEvidence{}, err
-	}
+	endpoint := resources.controlRelay.endpointValue()
 	environmentNames := environmentNames(container.Config.Env)
 	return Phase0BoundaryEvidence{
 		ContainerUser:             container.Config.User,
 		ReadOnlyRootFilesystem:    container.HostConfig.ReadonlyRootfs,
 		WorkspaceDiskLimitBytes:   phase0WorkspaceDiskBytes,
 		InternalNetwork:           networks[0].Internal,
-		PublishedControlAddress:   address,
+		ControlTransport:          execServerControlTransport,
+		HostControlAddress:        endpoint.Address,
+		ContainerStdioAttached:    container.Config.OpenStdin && !container.Config.StdinOnce,
+		HostPortPublicationAbsent: phase0HostPortPublicationAbsent(container),
 		MountDestinations:         phase0MountDestinations(container),
 		ContainerEnvironmentNames: environmentNames,
 		DroppedCapabilities:       sortedUnique(container.HostConfig.CapDrop),
@@ -434,7 +454,33 @@ func validatePhase0ContainerIsolation(container phase0DockerContainer, networkNa
 	if !phase0NoNewPrivileges(container.HostConfig.SecurityOpt) {
 		return errors.New("Phase 0 container is missing no-new-privileges")
 	}
+	if err := validateExecServerStdioContainer(container); err != nil {
+		return fmt.Errorf("Phase 0 Agent control boundary: %w", err)
+	}
 	return nil
+}
+
+func validateExecServerStdioContainer(container phase0DockerContainer) error {
+	if !container.Config.OpenStdin || container.Config.StdinOnce {
+		return errors.New("exec-server container must keep one Docker-managed stdin stream open")
+	}
+	if !slices.Equal(container.Config.Entrypoint, execServerStdioEntrypoint) {
+		return fmt.Errorf(
+			"exec-server container entrypoint is %q, want %q",
+			container.Config.Entrypoint,
+			execServerStdioEntrypoint,
+		)
+	}
+	if !phase0HostPortPublicationAbsent(container) {
+		return errors.New("exec-server container must not expose or publish a host port")
+	}
+	return nil
+}
+
+func phase0HostPortPublicationAbsent(container phase0DockerContainer) bool {
+	return len(container.Config.ExposedPorts) == 0 &&
+		len(container.HostConfig.PortBindings) == 0 &&
+		len(container.NetworkSettings.Ports) == 0
 }
 
 func validatePhase0ContainerLimits(container phase0DockerContainer) error {
@@ -459,26 +505,6 @@ func validatePhase0ContainerFilesystem(container phase0DockerContainer) error {
 		return errors.New("Phase 0 container must mount only one writable workspace volume")
 	}
 	return validateEnvironmentNames(environmentNames(container.Config.Env))
-}
-
-func (resources *phase0DockerResources) publishedAddress(ctx context.Context) (string, error) {
-	result, err := resources.client.run(
-		ctx,
-		"port",
-		resources.containerName,
-		phase0ExecServerPort+"/tcp",
-	)
-	if err != nil {
-		return "", fmt.Errorf("read Phase 0 control port: %w", err)
-	}
-	host, port, err := net.SplitHostPort(strings.TrimSpace(result.stdout))
-	if err != nil {
-		return "", fmt.Errorf("parse Phase 0 control address %q: %w", result.stdout, err)
-	}
-	if host != "127.0.0.1" || strings.TrimSpace(port) == "" {
-		return "", fmt.Errorf("Phase 0 control address is %q, want host loopback", result.stdout)
-	}
-	return net.JoinHostPort(host, port), nil
 }
 
 func (resources *phase0DockerResources) runBoundaryHelper(
@@ -576,6 +602,14 @@ func (resources *phase0DockerResources) cleanup(
 ) (Phase0TeardownEvidence, error) {
 	evidence := Phase0TeardownEvidence{}
 	var cleanupErrors []error
+	if resources.controlRelay != nil {
+		if err := resources.controlRelay.close(ctx); err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("stop Phase 0 control relay: %w", err))
+		} else {
+			evidence.ControlRelayStopped = true
+			resources.controlRelay = nil
+		}
+	}
 	if resources.containerCreated {
 		_, removeErr := resources.client.run(ctx, "container", "rm", "--force", resources.containerName)
 		removed, err := resolvePhase0DockerRemoval(

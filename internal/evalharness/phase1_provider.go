@@ -66,7 +66,7 @@ type phase1ProviderBroker struct {
 func startPhase1ProviderBroker(
 	ctx context.Context,
 	codexCommand string,
-	execServerAddress string,
+	execServerURL string,
 	hardTotalTokens int64,
 	abortScenario func(),
 ) (*phase1ProviderBroker, error) {
@@ -76,8 +76,8 @@ func startPhase1ProviderBroker(
 	if strings.TrimSpace(codexCommand) == "" {
 		codexCommand = "codex"
 	}
-	if err := validateNumericLoopbackAddress(execServerAddress); err != nil {
-		return nil, fmt.Errorf("validate Phase 1 exec-server address: %w", err)
+	if err := validateExecServerControlEndpointURL(execServerURL); err != nil {
+		return nil, fmt.Errorf("validate Phase 1 exec-server control URL: %w", err)
 	}
 	socketDir, err := os.MkdirTemp("/tmp", "setta-eval-provider-")
 	if err != nil {
@@ -122,7 +122,7 @@ func startPhase1ProviderBroker(
 		abortScenario: abortScenario,
 		contextCancel: cancel,
 	}
-	if err := broker.startAppServer(brokerContext, execServerAddress); err != nil {
+	if err := broker.startAppServer(brokerContext, execServerURL); err != nil {
 		cleanupContext, cleanupCancel := context.WithTimeout(
 			context.Background(),
 			phase1ProcessStopTimeout,
@@ -206,7 +206,7 @@ func (broker *phase1ProviderBroker) verifyChatGPTAuth(ctx context.Context) (retu
 
 func (broker *phase1ProviderBroker) startAppServer(
 	ctx context.Context,
-	execServerAddress string,
+	execServerURL string,
 ) error {
 	args := []string{
 		"app-server",
@@ -220,7 +220,7 @@ func (broker *phase1ProviderBroker) startAppServer(
 	}
 	environment := phase1ProviderEnvironment(
 		os.Environ(),
-		"CODEX_EXEC_SERVER_URL=ws://"+execServerAddress,
+		"CODEX_EXEC_SERVER_URL="+execServerURL,
 	)
 	process, err := startPhase1ManagedProcess(ctx, broker.codexCommand, args, environment)
 	if err != nil {

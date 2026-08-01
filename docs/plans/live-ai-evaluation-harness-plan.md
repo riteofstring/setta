@@ -1,13 +1,13 @@
 # Live AI Evaluation Harness Plan
 
 **Date:** 2026-07-31
-**Status:** Phase 0 live execution has reopened repository work. Docker and the
-version-matched Linux Codex bundle are now available, but the probe established
-that Docker Desktop does not publish the Agent control port from an internal
-network. Phase 0 and Phase 1 currently share that unsupported assumption. The
-control transport must be replaced without giving the Agent general network
-access, then the benign Phase 0 probe must pass. Phase 2 and Phase 3 repository
-implementation and their prior audits remain complete.
+**Status:** The reopened Phase 0 control-transport repair is implemented. Phase
+0 and Phase 1 now share a host-owned, capability-authenticated loopback
+WebSocket relay to Docker-managed stdin/stdout and Codex's supported
+`exec-server --listen stdio` transport; the Agent publishes no host port and
+retains its internal network. The narrowly bounded benign Phase 0 probe must
+still pass before the Phase 0 exit or final audit can be claimed. Phase 2 and
+Phase 3 repository implementation and their prior audits remain complete.
 
 ## Outcome
 
@@ -742,17 +742,23 @@ read Phase 0 control port: docker failed: exit status 1: Error: No public port '
 
 An independent disposable-container reproduction confirmed that an internal
 Docker bridge combined with `--publish 127.0.0.1::4500/tcp` produces empty
-port mappings on this target Docker Desktop. This is now repository-actionable:
-both `phase0DockerResources.start` and `phase1DockerResources.startAgent` use
-that combination. It is not a macOS permission problem and must not be worked
-around by weakening the Agent network boundary.
+port mappings on this target Docker Desktop. That finding made the shared Phase
+0 and Phase 1 assumption repository-actionable. It is not a macOS permission
+problem and is not worked around by weakening the Agent network boundary.
 
-Replace the shared assumption with one current control-transport design. The
-preferred path is a host-owned loopback relay that reaches only the fixed Agent
-container through Docker-managed stdin/stdout and Codex's supported
-`exec-server --listen stdio` transport. An alternative is acceptable only when
-it is supported by the installed Codex and Docker surfaces and preserves all
-of these invariants:
+The current implementation replaces that assumption once, at the shared
+`internal/evalharness` boundary. A host-owned relay binds a numeric IPv4
+loopback address with a random 256-bit capability path, accepts one strict and
+bounded WebSocket connection, and attaches only to the fixed per-run Agent
+container through Docker-managed stdin/stdout. Both Agent images now run
+Codex's supported `exec-server --listen stdio` transport with Docker-managed
+stdin kept open. Docker inspection rejects an exposed port, host binding, or
+network port mapping, and Phase 0 evidence schema 2 records the actual
+transport, stdio attachment, absent publication, and relay teardown. Phase 1
+requires the committed relay source digest from the Phase 0 proof before it can
+build its Agent image.
+
+The repaired transport preserves all of these invariants:
 
 - the Agent remains on an internal network or `network=none` and has no general
   route to the host or internet;
@@ -767,6 +773,19 @@ of these invariants:
 - the live benign Phase 0 read and workspace-write turns pass, all boundary
   checks pass, and teardown leaves no eval container, network, volume, relay,
   or tagged image behind.
+
+The source repair is complete, but the final invariant remains unproved until
+the authorized benign probe runs from its clean committed source revision. No
+Phase 0 resolution is recorded before that PASS evidence exists.
+
+Required pre-commit formatting and changed-file quality ran for this repair.
+The first quality pass was green for Go vet, the affected package tests, and
+dead-code analysis; it identified only the touched Phase 1 Docker file crossing
+the 1,000-line limit and two relay validators crossing the complexity ceiling.
+The Agent-control owner was split into its own file, the validators were
+decomposed, and the focused length and complexity reruns passed. The repository
+supply-chain gate also passed its tidy, exact-version, release-age, and
+vulnerability checks. No dependency input changed.
 
 The user's instruction to proceed with the implementation loop authorizes the
 same narrowly bounded benign Phase 0 probe already described by this plan. It
@@ -855,7 +874,9 @@ bounded teardown. It starts the production backend in a controller container,
 keeps the authenticated Codex app-server host-owned, forwards only the
 supported app-server stdio contract through an authenticated per-run bridge,
 and confines AI-controlled commands to the internal-network exec-server
-container. After the typed HTTP observation completes, it stops both runtime
+container. The app-server reaches that fixed Agent through the same
+capability-authenticated host-loopback WebSocket to Docker-attach stdio relay
+proved by Phase 0; the Agent exposes and publishes no port. After the typed HTTP observation completes, it stops both runtime
 containers, copies the final workspace volume inside Docker, invokes the hidden
 networkless verifier, and wires both observations into the atomic result
 publisher. The typed copy boundary maps out-of-bounds or non-regular final
@@ -1197,10 +1218,11 @@ remains an external production release gate; it was not retried or expanded
 into unrelated work. The then-unavailable committed Phase 0 PASS evidence gated
 the live harness, fixed judge, and five-scenario suite, so none was invoked.
 Subsequent live probe evidence above invalidated the internal-network
-port-publication assumption in both Phase 0 and Phase 1. The final audit is
-therefore reopened for that repository-actionable control-transport repair and
-a successful benign Phase 0 exit. Successful live-scenario timing evidence for
-the 1,800-second ceiling remains the later harness release gate.
+port-publication assumption in both Phase 0 and Phase 1. The shared
+control-transport repair is now implemented; the final audit remains reopened
+until the benign Phase 0 probe records a successful exit. Successful
+live-scenario timing evidence for the 1,800-second ceiling remains the later
+harness release gate.
 
 Run once by default and rerun only failed scenarios once. Report first-attempt
 passes, stable failures, flaky scenarios, infrastructure failures, user-control

@@ -37,7 +37,7 @@ type phase0EventSink struct {
 
 func newPhase0CodexRuntime(
 	config phase0ProbeConfig,
-	execServerAddress string,
+	execServerURL string,
 ) *phase0CodexRuntime {
 	title := "Setta Phase 0 Sandbox Probe"
 	experimental := true
@@ -56,7 +56,7 @@ func newPhase0CodexRuntime(
 				`shell_environment_policy.set={ HOME = "/tmp", LANG = "C.UTF-8", PATH = "/usr/local/bin:/bin", SHELL = "/bin/zsh" }`,
 			},
 			Env: []string{
-				"CODEX_EXEC_SERVER_URL=ws://" + execServerAddress,
+				"CODEX_EXEC_SERVER_URL=" + execServerURL,
 			},
 			ExcludedEnv: []string{
 				"CODEX_ACCESS_TOKEN",
