@@ -1,5 +1,5 @@
 import type { ArtifactStatus, WorkstreamArtifact } from "@generated/backend";
-import { Circle, Maximize2 } from "lucide-react";
+import { Maximize2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { ArtifactCardFigureView } from "../artifacts/ArtifactCardFigures";
@@ -31,14 +31,11 @@ export function DirectorArtifactPreviewCard({
   artifact,
   documents,
   isActive,
-  isOpening,
   onOpen,
 }: {
   artifact: WorkstreamArtifact;
   documents: ArtifactDocumentCache | null;
   isActive: boolean;
-  /** True while the browser prepares this artifact's document before opening. */
-  isOpening: boolean;
   onOpen: (artifact: WorkstreamArtifact, trigger: HTMLElement) => void;
 }) {
   const cardRef = useRef<HTMLElement | null>(null);
@@ -46,25 +43,21 @@ export function DirectorArtifactPreviewCard({
   const visible = useRailViewportVisibility(cardRef);
   const document = useArtifactDocument({ artifact, documents, enabled: visible });
   const canOpen = artifact.status === "available" && documents !== null;
-  const openLabel = isOpening
-    ? `Opening artifact: ${artifact.title}`
-    : canOpen
-      ? `Open artifact: ${artifact.title}`
-      : artifact.status === "declared"
-        ? `Artifact is still being written: ${artifact.title}`
-        : `Artifact is not available: ${artifact.title}`;
+  const openLabel = canOpen
+    ? `Open artifact: ${artifact.title}`
+    : artifact.status === "declared"
+      ? `Artifact is still being written: ${artifact.title}`
+      : `Artifact is not available: ${artifact.title}`;
 
   return (
     <article
-      aria-busy={isOpening || undefined}
       className="director-artifact-preview"
       data-artifact-active={isActive ? "true" : "false"}
       data-artifact-id={artifact.id}
-      data-artifact-opening={isOpening ? "true" : "false"}
       data-artifact-status={artifact.status}
       data-preview-state={document?.status ?? "idle"}
       onDoubleClick={() => {
-        if (canOpen && !isOpening && expandRef.current !== null) {
+        if (canOpen && expandRef.current !== null) {
           onOpen(artifact, expandRef.current);
         }
       }}
@@ -82,8 +75,7 @@ export function DirectorArtifactPreviewCard({
         </div>
         <ArtifactExpandControl
           artifact={artifact}
-          canOpen={canOpen && !isOpening}
-          isOpening={isOpening}
+          canOpen={canOpen}
           label={openLabel}
           onOpen={onOpen}
           ref={expandRef}
@@ -102,26 +94,16 @@ export function DirectorArtifactPreviewCard({
 function ArtifactExpandControl({
   artifact,
   canOpen,
-  isOpening,
   label,
   onOpen,
   ref,
 }: {
   artifact: WorkstreamArtifact;
   canOpen: boolean;
-  /** Shows the shell's loading pulse in place of the expand glyph. */
-  isOpening: boolean;
   label: string;
   onOpen: (artifact: WorkstreamArtifact, trigger: HTMLElement) => void;
   ref: React.Ref<HTMLButtonElement>;
 }) {
-  // Preparing is a pulse, like every in-progress mark in the shell: the glyph
-  // swaps for the breathing dot until the document is ready to morph open.
-  const glyph = isOpening ? (
-    <Circle aria-hidden="true" className="director-pulse" size={13} />
-  ) : (
-    <Maximize2 aria-hidden="true" />
-  );
   const button = (
     <Button
       aria-label={label}
@@ -134,7 +116,7 @@ function ArtifactExpandControl({
       size="icon-sm"
       variant="ghost"
     >
-      {glyph}
+      <Maximize2 aria-hidden="true" />
     </Button>
   );
   return (
@@ -154,7 +136,7 @@ function ArtifactExpandControl({
             />
           }
         >
-          {glyph}
+          <Maximize2 aria-hidden="true" />
         </TooltipTrigger>
       ) : (
         <TooltipTrigger render={<span className="director-artifact-tooltip-anchor" />}>

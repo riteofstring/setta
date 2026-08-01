@@ -73,20 +73,11 @@ export const graphQualityProfiles = {
     visibleHalfWindow: 1.6,
     effects: fullEffects,
   },
-  /*
-   * The field density and the dither cell are the same at every tier. Both
-   * set the picture's apparent brightness, and a tier step that dims the
-   * whole canvas reads as the display failing rather than as a quality
-   * decision — the flow field is product identity (fidelity checklist
-   * section 1.2), and its brightness is part of that identity. Tiers spend
-   * their savings on per-node particles, edge segments, and surface
-   * ceilings, which change load without changing the ambient light.
-   */
   balanced: {
     tier: "balanced",
     particlesPerNode: 14,
     edgeSegments: 8,
-    fieldParticles: 5200,
+    fieldParticles: 3400,
     ditherPixel: 3,
     devicePixelClamp: 1.5,
     scenePixelCeiling: 1_600_000,
@@ -98,12 +89,15 @@ export const graphQualityProfiles = {
     tier: "reduced",
     particlesPerNode: 8,
     edgeSegments: 5,
-    fieldParticles: 5200,
-    ditherPixel: 3,
+    fieldParticles: 1800,
+    ditherPixel: 3.4,
     devicePixelClamp: 1.25,
     scenePixelCeiling: 900_000,
     postPixelCeiling: 1_500_000,
     visibleHalfWindow: 1.4,
+    // The flow field is product identity, not a demo filter (fidelity
+    // checklist section 1.2), so a tier step may thin the medium but may not
+    // freeze it. Only the grade effects go.
     effects: { ...fullEffects, grain: false, switchTear: false },
   },
 } satisfies Record<GraphQualityTier, GraphQualityProfile>;
@@ -258,22 +252,11 @@ export interface GraphQualityDecision {
  * Holds the graph inside the observed refresh period. Scale moves first because
  * it is free; a tier step costs a geometry rebuild, so it happens only once
  * scale has bottomed out or has been comfortable at full for a while.
- *
- * Both directions carry hysteresis. A single over-budget frame is a hitch,
- * not a load, and reacting to it made the picture visibly dim a step and
- * brighten again moments later — the pumping the constants below exist to
- * prevent. Pressure must be sustained to step down, comfort must be long to
- * step back up, and the two thresholds are far apart so the controller
- * settles instead of oscillating.
  */
-const sustainedPressureSamples = 5;
-const sustainedComfortSamples = 24;
-
 export class GraphQualityController {
   private profile: GraphQualityProfile;
   private renderScale: number = graphRenderScaleBounds.maximum;
   private comfortableSamples = 0;
-  private pressuredSamples = 0;
 
   constructor(initial: GraphQualityProfile) {
     this.profile = initial;
@@ -290,7 +273,6 @@ export class GraphQualityController {
     if (tierChanged) {
       this.renderScale = graphRenderScaleBounds.maximum;
       this.comfortableSamples = 0;
-      this.pressuredSamples = 0;
     }
     return { profile: this.profile, renderScale: this.renderScale, tierChanged };
   }
@@ -302,29 +284,20 @@ export class GraphQualityController {
     }
     if (gpuFrameMs > refreshPeriodMs * 0.78) {
       this.comfortableSamples = 0;
-      this.pressuredSamples += 1;
-      if (this.pressuredSamples < sustainedPressureSamples) {
-        return this.current();
-      }
-      this.pressuredSamples = 0;
       if (this.renderScale > graphRenderScaleBounds.minimum) {
         this.renderScale = Math.max(graphRenderScaleBounds.minimum, this.renderScale * 0.85);
         return { profile: this.profile, renderScale: this.renderScale, tierChanged: false };
       }
       return this.stepTier(-1);
     }
-    this.pressuredSamples = 0;
     if (gpuFrameMs < refreshPeriodMs * 0.45) {
-      this.comfortableSamples += 1;
-      if (this.comfortableSamples < sustainedComfortSamples) {
-        return this.current();
-      }
       if (this.renderScale < graphRenderScaleBounds.maximum) {
         this.comfortableSamples = 0;
         this.renderScale = Math.min(graphRenderScaleBounds.maximum, this.renderScale * 1.12);
         return { profile: this.profile, renderScale: this.renderScale, tierChanged: false };
       }
-      if (gpuFrameMs < refreshPeriodMs * 0.3) {
+      this.comfortableSamples += 1;
+      if (gpuFrameMs < refreshPeriodMs * 0.3 && this.comfortableSamples >= 8) {
         this.comfortableSamples = 0;
         return this.stepTier(1);
       }

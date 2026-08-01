@@ -16,10 +16,9 @@ import { selectViewIntent } from "./DirectorWorkstreamNavigation";
 /**
  * The Director's own lane. It is a graph in the composition but not a
  * workstream, so clicking it means "no workstream in focus" rather than a
- * thread to open — and on the Director's own view it is the self lane, whose
- * turns fold on click.
+ * thread to open.
  */
-export const directorGraphLaneId = "director";
+const directorGraphLaneId = "director";
 
 /**
  * How the canvas should draw what it was given, and what a click on it does.
@@ -87,7 +86,6 @@ export interface DirectorGraphComposition {
 export function packDirectorGraphs(
   graphs: DirectorSnapshot["graphs"] | undefined,
   selectedWorkstreamId: string | null,
-  density: "spacious" | "compact" = "spacious",
 ): DirectorGraphComposition {
   const composed = graphs ?? [];
   const visible =
@@ -102,7 +100,6 @@ export function packDirectorGraphs(
   return {
     presentation,
     snapshot: packSemanticGraphComposition({
-      density,
       graphs: visible,
       presentation,
       workstreamId: compositionId,

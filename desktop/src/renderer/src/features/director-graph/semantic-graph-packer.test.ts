@@ -217,11 +217,11 @@ describe("semantic graph packer", () => {
   });
 
   /*
-   * Finished work folds itself on every presentation: the reader's reward for
-   * a completed run is the single success node, and the trajectory stays one
-   * activation away.
+   * Only a conversation folds itself. The Director's views exist to show the
+   * work, so nothing on them may collapse to a dot because it finished — that
+   * is the view losing the thing it is for.
    */
-  it("sets a fold clock for finished turns on every presentation", () => {
+  it("sets a fold clock for a conversation and for nothing else", () => {
     const fixture = projectionGalleryFixtures.find((candidate) =>
       candidate.graphs.some((graph) => graph.nodes.length > 0),
     );
@@ -243,8 +243,8 @@ describe("semantic graph packer", () => {
     };
 
     expect(compactClocks("conversation").some((clock) => Number.isFinite(clock))).toBe(true);
-    expect(compactClocks("columns").some((clock) => Number.isFinite(clock))).toBe(true);
-    expect(compactClocks("grid").some((clock) => Number.isFinite(clock))).toBe(true);
+    expect(compactClocks("columns").every((clock) => !Number.isFinite(clock))).toBe(true);
+    expect(compactClocks("grid").every((clock) => !Number.isFinite(clock))).toBe(true);
   });
 
   it("reduces a grid tile to its latest activity", () => {

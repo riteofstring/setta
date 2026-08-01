@@ -1,7 +1,3 @@
-import { useLayoutEffect, useRef, useState } from "react";
-
-import { stripInlineMarkdown } from "@renderer/lib/plain-inline-text";
-
 /** What the shell is waiting on before it can speak for itself. */
 export type DirectorLoadState = "loading" | "ready" | "resyncing" | "error";
 
@@ -17,104 +13,26 @@ export type DirectorLoadState = "loading" | "ready" | "resyncing" | "error";
  * It is a live region rather than a transcript: one reply, replaced by the
  * next. The durable account of what happened is the narration in the rail, and
  * of what was produced, the artifacts.
- *
- * Folded, it is bare text over the canvas — the same layer the graph's own
- * labels live on, so it needs no box. Disclosing it grows the same element
- * into an enclosed card: the height animates and the ground fades in, so the
- * card reads as the text expanding rather than a panel replacing it.
  */
 export function DirectorReply({
-  answering,
   loadState,
   message,
   receiptText,
 }: {
-  answering: boolean;
   loadState: DirectorLoadState;
   message: string | null;
   receiptText: string | null;
 }) {
-  const text = stripInlineMarkdown(message ?? receiptText ?? loadStateMessage(loadState));
-  const [expanded, setExpanded] = useState(false);
-  const [clamped, setClamped] = useState(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const textRef = useRef<HTMLParagraphElement | null>(null);
-  /** Height captured in the click, before React re-lays the disclosure out. */
-  const morphFromHeightRef = useRef<number | null>(null);
-
-  // A new reply starts folded; the previous reply's disclosure state is about
-  // text that is no longer on screen.
-  useLayoutEffect(() => {
-    setExpanded(false);
-  }, [text]);
-
-  useLayoutEffect(() => {
-    const element = textRef.current;
-    if (element === null) {
-      return;
-    }
-    const measure = (): void => {
-      setClamped(element.scrollHeight > element.clientHeight + 1);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => {
-      observer.disconnect();
-    };
-  }, [text, expanded]);
-
-  /*
-   * The disclosure morph. The clamp switch is discrete, so the fluid motion is
-   * a first/last height animation over the same element; the enclosure itself
-   * fades in through the CSS transition on the container's ground and border.
-   */
-  useLayoutEffect(() => {
-    const container = containerRef.current;
-    const fromHeight = morphFromHeightRef.current;
-    morphFromHeightRef.current = null;
-    if (container === null || fromHeight === null) {
-      return;
-    }
-    if (globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      return;
-    }
-    const toHeight = container.offsetHeight;
-    if (fromHeight === toHeight) {
-      return;
-    }
-    container.animate([{ height: `${fromHeight}px` }, { height: `${toHeight}px` }], {
-      duration: 240,
-      easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-    });
-  }, [expanded]);
-
+  const text = message ?? receiptText ?? loadStateMessage(loadState);
   return (
-    <div
+    <p
       aria-live="polite"
       className="director-reply"
-      data-answering={answering ? "true" : "false"}
-      data-empty={text === "" && !answering ? "true" : "false"}
-      data-expanded={expanded ? "true" : "false"}
-      ref={containerRef}
+      data-empty={text === "" ? "true" : "false"}
       role="status"
     >
-      <p className="director-reply-text" data-expanded={expanded ? "true" : "false"} ref={textRef}>
-        {text}
-      </p>
-      {expanded || clamped ? (
-        <button
-          className="director-reply-toggle"
-          onClick={() => {
-            morphFromHeightRef.current = containerRef.current?.offsetHeight ?? null;
-            setExpanded((current) => !current);
-          }}
-          type="button"
-        >
-          {expanded ? "Show less" : "Show more"}
-        </button>
-      ) : null}
-    </div>
+      {text}
+    </p>
   );
 }
 
