@@ -154,6 +154,31 @@ func TestConversationStateObservesOnlyExactTypedTriggers(t *testing.T) {
 	}
 }
 
+func TestConversationStateRetainsPushedHistoryPastSnapshotWindow(t *testing.T) {
+	events := make([]conversation.TrajectoryEvent, conversation.MaxSnapshotTrajectoryEvents)
+	for index := range events {
+		events[index].Sequence = index + 1
+	}
+	state := &evaluationConversationState{snapshot: conversation.ConversationSnapshot{
+		Trajectory: conversation.ConversationTrajectoryWindow{Events: events},
+	}}
+	appended := conversation.TrajectoryEvent{Sequence: len(events) + 1}
+	if err := state.apply(&conversation.ConversationTrajectoryAppendedEventPayload{
+		Event: appended,
+	}); err != nil {
+		t.Fatalf("apply pushed trajectory event: %v", err)
+	}
+	if got := len(state.snapshot.Trajectory.Events); got != len(events)+1 {
+		t.Fatalf("accumulated trajectory events = %d, want %d", got, len(events)+1)
+	}
+	if state.snapshot.Trajectory.HasEarlier {
+		t.Fatal("complete pushed history was marked as truncated")
+	}
+	if got := state.snapshot.Trajectory.Events[len(events)].Sequence; got != appended.Sequence {
+		t.Fatalf("last accumulated sequence = %d, want %d", got, appended.Sequence)
+	}
+}
+
 func controlTestGenuineAmbiguityScenario() Scenario {
 	return controlTestScenario(
 		ScenarioVerifierGenuineAmbiguity,

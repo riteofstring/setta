@@ -347,7 +347,12 @@ func orchestrateEvaluationConversation(
 			behavior.message,
 		)
 	}
-	return completeEvaluationConversationEvidence(ctx, client, scenario, observation, finalTurn)
+	return completeEvaluationConversationEvidence(
+		scenario,
+		observation,
+		finalTurn,
+		state.snapshot,
+	)
 }
 
 func orchestrateTriggeredEvaluationSteps(
@@ -409,23 +414,14 @@ func orchestrateTriggeredEvaluationSteps(
 }
 
 func completeEvaluationConversationEvidence(
-	ctx context.Context,
-	client *BackendClient,
 	scenario Scenario,
 	observation Phase1HTTPObservation,
 	finalTurn conversation.ConversationTurn,
+	finalSnapshot conversation.ConversationSnapshot,
 ) (Phase1HTTPObservation, error) {
 	observation.TurnID = finalTurn.ID
-	finalSnapshot, err := client.ReadConversationSnapshot(
-		ctx,
-		observation.WorkspaceID,
-		observation.ConversationID,
-	)
-	if err != nil {
-		return observation, err
-	}
 	observation.finalSnapshotAt = time.Now().UTC()
-	observation, err = collectPhase2ConversationEvidence(scenario, observation, finalSnapshot)
+	observation, err := collectPhase2ConversationEvidence(scenario, observation, finalSnapshot)
 	if err != nil {
 		return observation, err
 	}
