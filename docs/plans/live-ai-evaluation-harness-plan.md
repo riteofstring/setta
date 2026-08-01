@@ -1,19 +1,15 @@
 # Live AI Evaluation Harness Plan
 
 **Date:** 2026-07-31
-**Status:** The reopened Phase 0 repository repair is implemented. Phase 0 and
-Phase 1 share a host-owned, capability-authenticated loopback WebSocket relay
-to Docker-managed stdin/stdout and Codex's supported
-`exec-server --listen stdio` transport; the Agent publishes no host port and
-retains its internal network. Phase 0 composes Docker inspection, a typed
-in-container boundary helper, the strict remote shell policy, typed remote
-environment readiness, and strict random-fixture model turns instead of
-depending on local-only `command/exec`, persisted thread history, or a
-provider-specific completed-command presentation. It explicitly stops the host
-attach process during relay teardown, and both lifecycles give each teardown
-stage a fresh bounded context. Rerun the benign probe from the clean committed
-repair before claiming the Phase 0 exit or final audit. Phase 2 and Phase 3
-repository implementation and their prior audits remain complete.
+**Status:** Phase 0 achieved `PASS` on 2026-08-01 from clean source commit
+`1bc05a916c456c33d8db15dea1aa35f832be7c1f`; the canonical schema-4 report is
+recorded at `docs/reports/live-ai-eval-sandbox-phase0.md`. The read-only and
+workspace-write tasks both passed on their first attempt, every credential,
+filesystem, process, mount, network, and environment invariant validated, and
+teardown removed every disposable resource. Phase 0 is ready for its normal
+phase audit. Phase 1 through Phase 3 repository implementation and their prior
+audits remain complete; no Phase 1 live harness or broader provider suite was
+run in this implementation turn.
 
 ## Outcome
 
@@ -1189,7 +1185,28 @@ its declared harmless content and an output schema whose sole enum value is
 that token. Its only PASS condition remains the independently measured path,
 byte count, SHA-256, and whole-workspace delta. This decouples the read and
 write capabilities while preserving both proofs and all sandbox invariants.
-Rerun only the same benign Phase 0 probe from the amended clean repair.
+
+### Phase 0 resolution
+
+**Outcome:** `PASS`
+
+The benign probe ran from clean source commit
+`1bc05a916c456c33d8db15dea1aa35f832be7c1f` with Codex 0.146.0 on the target
+Linux/ARM64 Docker daemon. The authenticated app-server remained host-owned,
+and the network-isolated Agent used the capability-authenticated loopback
+WebSocket-to-Docker-attach stdio relay with no published Agent port, credential
+mount, Docker socket, or host network route.
+
+The random container-only read completed without mutation, and the independent
+workspace-write task created only its exact declared file. Docker inspection,
+the typed boundary helper, strict shell-environment policy, and typed remote
+environment readiness proved the required user, filesystem, mount, environment,
+and network facts. The app-server, relay and attach client, container, volume,
+network, image tag, temporary canary, and build context were all removed. The
+strict machine-readable evidence and canonical narrative are committed in the
+Phase 0 report; no credential values are present. Phase 0 implementation is
+complete and awaits the normal phase audit before the implementation loop
+advances to final audit.
 
 The user's instruction to proceed with the implementation loop authorizes the
 same narrowly bounded benign Phase 0 probe already described by this plan. It
