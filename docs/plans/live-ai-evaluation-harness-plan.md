@@ -8,9 +8,12 @@ effective MCP servers and external Codex features before either model turn,
 rejects untyped provider activity, and records the exact hardened `/tmp` mount
 options. Both benign tasks passed on their first attempt, and teardown was
 complete. Phase 1 through Phase 3 repository implementation and their prior
-audits remain complete; the current Phase 0 completion-audit repair is ready
-for final static audit. The current instruction does not authorize automated
-tests, broad verification gates, or Phase 1 live harness execution.
+audits remain complete. The final whole-plan containment audit repair is now
+implemented: every Phase 1 model thread disables inherited host-side external
+capabilities before it starts, while only Agent and Side Agent threads retain
+the proved remote shell surface. The current instruction authorizes static
+inspection and formatting, but not automated tests, broad verification gates,
+or Phase 1 live harness execution.
 
 ## Outcome
 
@@ -1730,6 +1733,35 @@ control-transport repair is now implemented; the final audit remains reopened
 until the benign Phase 0 probe records a successful exit. Successful
 live-scenario timing evidence for the 1,800-second ceiling remains the later
 harness release gate.
+
+The schema-6 Phase 0 PASS recorded above subsequently closed that sandbox
+exit. The final completion audit on 2026-08-01 then traced the proved boundary
+through the Phase 1 host app-server and found one repository-actionable gap:
+ordinary production Director and Agent threads still inherited the developer's
+effective MCP servers and external Codex features. Those capabilities execute
+at the host-owned app-server boundary and could therefore evade the disposable
+Agent container even though its remote shell was isolated correctly.
+
+The current repair adds one eval-owned backend policy input and applies it at
+the production Agent runtime before every normal thread or fork starts. It
+reads the actual effective app-server configuration, disables every configured
+MCP server, external feature family, web search, project instructions, and
+orchestrator capability, and supplies empty selected capability roots. Topic
+Agent and Side Agent carriers retain only the same remote shell and unified-exec
+features proved by Phase 0; the Director retains its Setta-owned dynamic routing
+tools but receives no shell feature. The fixed judge and Phase 0 probe continue
+to use their existing stricter owners. No app-server proxy rewriting, prompt
+heuristic, host execution fallback, or alternate scenario path was added.
+
+Static review and formatting are the only verification authorized for this
+completion audit. The focused checks affected by this repair, the applicable
+deterministic production workflow gate, the live Codex matrix including the
+pre-existing topic-artifact case, the Phase 1 vertical classifications, fixed
+judge review, five-scenario live suite, successful-scenario timing evidence,
+and the previously unavailable remote pnpm checks remain explicit merge or
+release gates. None is retried by this audit, and the already-passing Phase 0
+probe remains applicable because this repair does not change its proof inputs
+or contract.
 
 Run once by default and rerun only failed scenarios once. Report first-attempt
 passes, stable failures, flaky scenarios, infrastructure failures, user-control

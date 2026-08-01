@@ -37,7 +37,7 @@ func TestConversationCarrierStartsOnlyWhenTheFirstTurnRuns(t *testing.T) {
 	}
 	if start := starts[0]; !start.Ephemeral ||
 		start.DeveloperInstructions != topicAgentDeveloperInstructions() ||
-		len(start.DynamicTools) == 0 {
+		len(start.DynamicTools) == 0 || !start.EnableShellTools {
 		t.Fatalf("first-turn carrier start = %+v", starts[0])
 	}
 	carrier, ok := service.Carriers().Lookup(conversationID)

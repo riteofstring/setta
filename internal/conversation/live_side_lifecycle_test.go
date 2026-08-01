@@ -543,7 +543,7 @@ func assertLiveSideCarrierSnapshot(
 	activeRequest string,
 ) {
 	t.Helper()
-	if !request.Ephemeral {
+	if !request.Ephemeral || !request.EnableShellTools {
 		t.Fatalf("live side carrier request = %+v", request)
 	}
 	if request.Invocation.Model != "gpt-5.6-luna" ||

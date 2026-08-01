@@ -158,6 +158,7 @@ func TestStartDirectorCarrierIsEphemeralAndReplaysDurableHistory(t *testing.T) {
 	}
 	start := provider.start
 	if !start.Ephemeral ||
+		start.EnableShellTools ||
 		start.DeveloperInstructions != "Coordinate Setta work." ||
 		len(start.DynamicTools) != 1 ||
 		start.DynamicTools[0].Namespace != director.SettaToolNamespace {

@@ -46,6 +46,35 @@ func TestRuntimeThreadPrimitivesAndModelCatalog(t *testing.T) {
 	assertFakeModelResolution(t, ctx, runtime)
 }
 
+func TestRuntimeRestrictedThreadsDisableExternalToolsBeforeStart(t *testing.T) {
+	runtime := newFakeRuntimeWithExternalToolRestriction(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	workspace := t.TempDir()
+
+	for _, test := range []struct {
+		name       string
+		shellTools bool
+		marker     string
+	}{
+		{name: "execution tools", shellTools: true, marker: "EXPECT_SHELL_TOOLS_ENABLED"},
+		{name: "dynamic tools only", marker: "EXPECT_SHELL_TOOLS_DISABLED"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := runtime.StartThread(ctx, StartThreadRequest{
+				WorkspaceRoot:         workspace,
+				Invocation:            testInvocation(),
+				Ephemeral:             true,
+				DeveloperInstructions: test.marker,
+				EnableShellTools:      test.shellTools,
+			})
+			if err != nil {
+				t.Fatalf("start restricted thread: %v", err)
+			}
+		})
+	}
+}
+
 func TestForkThreadParamsPinsReasoningAndClearsInheritedServiceTier(t *testing.T) {
 	params, err := forkThreadParams(ForkThreadRequest{
 		ParentThreadID: "thread-parent",
@@ -498,12 +527,21 @@ func TestAgentRuntimeFakeAppServer(t *testing.T) {
 }
 
 func newFakeRuntime(t *testing.T) *Runtime {
+	return newConfiguredFakeRuntime(t, false)
+}
+
+func newFakeRuntimeWithExternalToolRestriction(t *testing.T) *Runtime {
+	return newConfiguredFakeRuntime(t, true)
+}
+
+func newConfiguredFakeRuntime(t *testing.T, restrictExternalTools bool) *Runtime {
 	t.Helper()
 	runtime := NewRuntime(Config{
-		Command: os.Args[0],
-		Args:    []string{"-test.run=TestAgentRuntimeFakeAppServer", "--"},
-		Env:     append(os.Environ(), "SETTA_AGENT_FAKE_APP_SERVER=1"),
-		Version: "test",
+		Command:               os.Args[0],
+		Args:                  []string{"-test.run=TestAgentRuntimeFakeAppServer", "--"},
+		Env:                   append(os.Environ(), "SETTA_AGENT_FAKE_APP_SERVER=1"),
+		RestrictExternalTools: restrictExternalTools,
+		Version:               "test",
 	})
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

@@ -132,6 +132,7 @@ func (service *Service) ensureConversationCarrierLocked(
 		Ephemeral:             true,
 		DeveloperInstructions: topicAgentDeveloperInstructions(),
 		DynamicTools:          service.topicAgentArtifactTools(scope, conversationID, ""),
+		EnableShellTools:      true,
 	})
 	if err != nil {
 		return Carrier{}, err

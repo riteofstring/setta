@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"setta/internal/evalharness/toolpolicy"
 	"setta/internal/runtime"
 	"setta/internal/speech"
 )
@@ -59,6 +60,29 @@ func TestConfigFromArgsCanSkipBootstrapDeviceSession(t *testing.T) {
 	}
 	if !config.SkipBootstrapDeviceSession {
 		t.Fatal("skip bootstrap device session = false, want true")
+	}
+}
+
+func TestConfigFromArgsEnablesEvalExternalToolRestriction(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	config, err := configFromArgs(
+		[]string{"--app-data-dir", t.TempDir()},
+		&stdout,
+		&stderr,
+		func(name string) string {
+			if name == toolpolicy.RestrictExternalToolsEnvironment {
+				return "1"
+			}
+			return ""
+		},
+	)
+	if err != nil {
+		t.Fatalf("config from args: %v", err)
+	}
+	if !config.RestrictAgentExternalTools {
+		t.Fatal("eval external tool restriction = false, want true")
 	}
 }
 

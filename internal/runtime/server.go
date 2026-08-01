@@ -44,6 +44,7 @@ type Config struct {
 	Speech                     speech.OpenAIProviderConfig
 	SpeechCredentialOwner      SpeechCredentialOwner
 	SpeechStartupAPIKey        string
+	RestrictAgentExternalTools bool
 	TokenUsageObserver         agent.TokenUsageObserver
 }
 

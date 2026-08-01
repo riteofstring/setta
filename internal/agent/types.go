@@ -147,6 +147,7 @@ type StartThreadRequest struct {
 	Ephemeral             bool          `json:"ephemeral"`
 	DeveloperInstructions string        `json:"developerInstructions,omitempty"`
 	DynamicTools          []DynamicTool `json:"-"`
+	EnableShellTools      bool          `json:"-"`
 }
 
 type ForkThreadRequest struct {
@@ -157,6 +158,7 @@ type ForkThreadRequest struct {
 	Ephemeral             bool          `json:"ephemeral"`
 	DeveloperInstructions string        `json:"developerInstructions,omitempty"`
 	DynamicTools          []DynamicTool `json:"-"`
+	EnableShellTools      bool          `json:"-"`
 }
 
 type ListThreadsRequest struct {

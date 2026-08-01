@@ -596,6 +596,7 @@ func assertSideCarrierRequest(
 	}
 	request := requests[0]
 	if !request.Ephemeral ||
+		!request.EnableShellTools ||
 		request.Invocation.Model != *profile.ModelSelection.ModelID ||
 		request.Invocation.ReasoningEffort != string(profile.ReasoningEffort) ||
 		request.Invocation.PermissionMode != agent.PermissionModeReadOnly ||

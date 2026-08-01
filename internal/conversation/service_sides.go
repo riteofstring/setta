@@ -99,6 +99,7 @@ func (service *Service) startPreparedSideConversation(
 		Invocation:            prepared.invocation,
 		Ephemeral:             true,
 		DeveloperInstructions: sideAgentDeveloperInstructions,
+		EnableShellTools:      true,
 	})
 	if err != nil {
 		return service.failPreparingSideConversation(

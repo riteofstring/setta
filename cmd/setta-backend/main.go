@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"setta/internal/evalharness/tokenusage"
+	"setta/internal/evalharness/toolpolicy"
 	"setta/internal/runtime"
 	"setta/internal/speech"
 )
@@ -103,6 +104,13 @@ func configFromArgs(
 	if err != nil {
 		return config, err
 	}
+	restrictExternalTools, err := defaultBool(
+		getenv(toolpolicy.RestrictExternalToolsEnvironment),
+		toolpolicy.RestrictExternalToolsEnvironment,
+	)
+	if err != nil {
+		return config, err
+	}
 	appDataDir, err := defaultAppDataDir(getenv)
 	if err != nil {
 		return config, err
@@ -112,6 +120,7 @@ func configFromArgs(
 		return config, err
 	}
 	config.Speech = speechConfig
+	config.RestrictAgentExternalTools = restrictExternalTools
 
 	flagSet := flag.NewFlagSet("setta-backend", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)

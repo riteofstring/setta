@@ -15,6 +15,7 @@ import (
 	"setta/internal/agent"
 	"setta/internal/evalharness/providerbridge"
 	"setta/internal/evalharness/tokenusage"
+	"setta/internal/evalharness/toolpolicy"
 	evalverifier "setta/internal/evalharness/verifier"
 	"setta/internal/evalharness/volumecopy"
 	"setta/internal/httpapi"
@@ -460,6 +461,7 @@ func (resources *phase1DockerResources) startBackend(
 		"--env", "SETTA_BACKEND_PORT="+phase1BackendPort,
 		"--env", providerbridge.AddressEnvironment+"="+bridgeAddress,
 		"--env", providerbridge.TokenEnvironment+"="+resources.provider.controllerToken(),
+		"--env", toolpolicy.RestrictExternalToolsEnvironment+"=1",
 		"--env", tokenusage.PathEnvironment+"="+phase1TokenUsagePath,
 		"--env", "SETTA_RUNTIME_DISPLAY_NAME=Setta Evaluation",
 		"--env", "SETTA_RUNTIME_INFRA_PROVIDER=unknown",
