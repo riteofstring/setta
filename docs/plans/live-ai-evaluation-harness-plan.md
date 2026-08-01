@@ -1,17 +1,18 @@
 # Live AI Evaluation Harness Plan
 
 **Date:** 2026-07-31
-**Status:** The reopened Phase 0 control-transport repair is implemented. Phase
-0 and Phase 1 now share a host-owned, capability-authenticated loopback
-WebSocket relay to Docker-managed stdin/stdout and Codex's supported
+**Status:** The reopened Phase 0 repository repair is implemented. Phase 0 and
+Phase 1 share a host-owned, capability-authenticated loopback WebSocket relay
+to Docker-managed stdin/stdout and Codex's supported
 `exec-server --listen stdio` transport; the Agent publishes no host port and
-retains its internal network. The first repaired live probe passed the original
-container-start and control-port failure, then exposed two repository issues:
-its tool-environment preflight calls a local-only Codex API while the app-server
-is remote-only, and teardown reuses an unavailable run context. Replace those
-assumptions and rerun the benign probe before claiming the Phase 0 exit or final
-audit. Phase 2 and Phase 3 repository implementation and their prior audits
-remain complete.
+retains its internal network. Phase 0 obtains tool-environment evidence from a
+live completed remote command item instead of local-only `command/exec` or
+persisted thread history, requires a strict structured read result, and
+explicitly stops the host attach process during relay teardown. Both lifecycles
+give each teardown stage a fresh bounded context. Rerun the benign probe from
+the clean committed repair before claiming the Phase 0 exit or final audit.
+Phase 2 and Phase 3 repository implementation and their prior audits remain
+complete.
 
 ## Outcome
 
@@ -822,11 +823,76 @@ The same failed run also reported context-deadline errors while stopping the
 relay and removing the disposable container, volume, network, and image tag.
 The monitor removed those exact Phase 0 resources manually and confirmed no
 eval container, volume, network, image tag, attach process, or app-server
-process remained. Normal probe teardown must own a fresh, bounded cleanup
-context so primary failure, timeout, cancellation, or interruption cannot skip
-cleanup or obscure the primary diagnostic. Fix both issues as one Phase 0
-repair, apply the same relay lifecycle correction to Phase 1 where relevant,
-then rerun the authorized benign probe from a clean commit.
+process remained.
+
+The repository repair removes both failed assumptions together. The read-only
+remote model turn runs the exact sandbox environment helper as a standalone
+command. The probe captures its lossless live `item/completed` notification
+through the existing app-server manager notification boundary and accepts the
+helper evidence only when its provider thread and turn match the completed
+Agent turn and the typed command, working directory, status, exit code, and
+schema-valid bounded output prove it ran inside the selected remote
+environment. The in-memory collector retains only the exact helper command and
+does not add provider output to durable conversation state. It never configures
+a host-local execution environment, reads persisted thread history, or treats
+a host command as remote evidence. Phase 0 app-server, relay, Docker-resource
+removal, and removal confirmation each own a fresh bounded cleanup context.
+Phase 1 applies the same rule independently to backend, provider, relay, Agent,
+container, volume, and network teardown, so an expired stage cannot prevent
+later cleanup or replace the primary diagnostic. The authorized benign probe
+from the clean committed repair is the remaining Phase 0 action.
+
+**Remote-turn probe evidence recorded 2026-08-01:** the next clean-revision
+probe again passed startup and reached a completed read-only model turn. It then
+reported that the final response was not the exact fixture token and that the
+relay exhausted its independent cleanup context while waiting for the
+host-owned `docker attach` process. The later cleanup stages still removed the
+container, volume, network, and image tag. An immediate post-run inspection
+confirmed that no Phase 0 Docker resource, attach process, or app-server process
+remained.
+
+The follow-up correction makes the read-only turn use a strict one-field output
+schema and validates that field against the container-only random fixture. It
+also closes relay I/O and explicitly terminates the host-owned Docker attach
+client before waiting for relay goroutines; `--sig-proxy=false` continues to
+prevent that host process termination from signaling the Agent container. The
+remote environment evidence is inspected before the structured result, so a
+future failure identifies the actual failing contract instead of hiding it
+behind the final-text assertion. Rerun only the same benign probe from the
+amended clean repair.
+
+Required formatting and changed-file quality ran for this repair. File length,
+Go vet, the affected package tests, and dead-code analysis passed. The first
+complexity pass isolated the new remote-evidence decoder and extractor; those
+functions were decomposed, the focused complexity rerun passed, and the
+directly affected remote-environment selector passed after the refactor. After
+the live failure, focused relay-termination, structured-output, and remote-turn
+selectors plus vet, dead-code analysis, and source and test complexity checks
+passed. The repository supply-chain gate was not duplicated because it passed
+for the immediately preceding sandbox repair and this batch changes no
+dependency or lockfile input.
+
+**Ephemeral-history probe evidence recorded 2026-08-01:** the amended clean
+repair passed startup, ran the exact helper and fixture read, and completed the
+read-only model turn. The relay teardown deadline did not recur. Evidence
+inspection then failed with:
+
+```text
+thread/read failed: ephemeral threads do not support includeTurns
+```
+
+Codex source at the pinned revision rejects both `thread/read` with turns and
+`thread/turns/list` for ephemeral threads. Persisting a probe thread merely to
+recover command evidence would weaken the intended lifecycle and is
+unnecessary: the supported lossless `item/completed` notification already
+carries the typed command action, aggregate output, source, working directory,
+status, and exit code while the turn is live. The follow-up correction consumes
+that notification through the existing manager handler, binds it to the
+completed Agent result's provider thread and turn, and keeps the evidence
+ephemeral. Formatting, the focused completed-item and environment-evidence
+selectors, and the changed-file quality gate passed. The preceding green
+supply-chain result remains applicable because no dependency or lockfile input
+changed. Rerun only the same benign probe from the amended clean repair.
 
 The user's instruction to proceed with the implementation loop authorizes the
 same narrowly bounded benign Phase 0 probe already described by this plan. It
