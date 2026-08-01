@@ -212,6 +212,7 @@ func populatePhase0BuildContext(
 		buildEnvironment,
 		filepath.Join(config.repoRoot, "scripts", "go.sh"),
 		"build",
+		"-buildvcs=false",
 		"-trimpath",
 		"-o",
 		helperPath,

@@ -481,6 +481,7 @@ func buildPhase1LinuxBinary(
 		environment,
 		filepath.Join(repoRoot, "scripts", "go.sh"),
 		"build",
+		"-buildvcs=false",
 		"-trimpath",
 		"-o",
 		output,
