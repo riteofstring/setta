@@ -54,9 +54,10 @@ type phase0ReadOnlyOutput struct {
 }
 
 type phase0CodexRuntime struct {
-	manager *codexapp.Manager
-	runtime *agent.Runtime
-	model   string
+	manager         *codexapp.Manager
+	runtime         *agent.Runtime
+	model           string
+	reasoningEffort string
 }
 
 type phase0EventSink struct {
@@ -123,9 +124,10 @@ func newPhase0CodexRuntime(
 		},
 	})
 	return &phase0CodexRuntime{
-		manager: manager,
-		runtime: agent.NewRuntime(agent.Config{Manager: manager}),
-		model:   config.model,
+		manager:         manager,
+		runtime:         agent.NewRuntime(agent.Config{Manager: manager}),
+		model:           config.model,
+		reasoningEffort: config.reasoningEffort,
 	}
 }
 
@@ -172,11 +174,11 @@ func (runtime *phase0CodexRuntime) verifyChatGPTAuthAndModel(ctx context.Context
 		if model.ID != runtime.model {
 			continue
 		}
-		if !containsString(model.SupportedReasoningEfforts, phase0ReasoningEffort) {
+		if !containsString(model.SupportedReasoningEfforts, runtime.reasoningEffort) {
 			return fmt.Errorf(
 				"Phase 0 model %s does not support %s reasoning",
 				runtime.model,
-				phase0ReasoningEffort,
+				runtime.reasoningEffort,
 			)
 		}
 		return nil
@@ -394,14 +396,14 @@ func (runtime *phase0CodexRuntime) runFixtureTurnAttempt(
 		ClientInputID:    fmt.Sprintf("phase0-%s-input-%d", name, attempt),
 		Text:             phase0AttemptPrompt(attempt, prompt),
 		WorkspaceRoot:    phase0WorkspaceRoot,
-		Invocation:       phase0Invocation(permissionMode, runtime.model),
+		Invocation:       phase0Invocation(permissionMode, runtime.model, runtime.reasoningEffort),
 		OutputSchema:     append([]byte{}, outputSchema...),
 		TokenUsageAttribution: agent.TokenUsageAttribution{
 			Bucket:          agent.TokenUsageBucketSystem,
 			Role:            agent.TokenUsageRoleAgent,
 			InvocationID:    fmt.Sprintf("phase0-%s-invocation-%d", name, attempt),
 			Model:           runtime.model,
-			ReasoningEffort: phase0ReasoningEffort,
+			ReasoningEffort: runtime.reasoningEffort,
 		},
 	}, sink)
 	if err != nil {
@@ -506,7 +508,7 @@ func (runtime *phase0CodexRuntime) startThread(
 			RuntimeWorkspaceRoots: phase0LegacyWorkspaceRoots(),
 		},
 	}
-	effort, err := json.Marshal(phase0ReasoningEffort)
+	effort, err := json.Marshal(runtime.reasoningEffort)
 	if err != nil {
 		return "", fmt.Errorf("encode Phase 0 reasoning effort: %w", err)
 	}
@@ -538,7 +540,7 @@ func (runtime *phase0CodexRuntime) startThread(
 	if response.Model != runtime.model {
 		return "", fmt.Errorf("Phase 0 thread resolved model %s, want %s", response.Model, runtime.model)
 	}
-	if response.ReasoningEffort == nil || string(*response.ReasoningEffort) != phase0ReasoningEffort {
+	if response.ReasoningEffort == nil || string(*response.ReasoningEffort) != runtime.reasoningEffort {
 		return "", errors.New("Phase 0 thread did not preserve the requested reasoning effort")
 	}
 	return response.Thread.ID, nil
@@ -559,7 +561,13 @@ func (sink *phase0EventSink) HandleAgentEvent(event agent.Event) error {
 	if event.Text != nil && event.Kind == agent.EventKindAgentTextCompleted {
 		sink.finalText = event.Text.Text
 	}
-	if event.Activity == nil || event.Activity.CWD == nil {
+	if event.Activity == nil {
+		return nil
+	}
+	if !phase0AllowsActivity(event.Activity.Kind) {
+		return fmt.Errorf("Phase 0 model used disallowed %s activity", event.Activity.Kind)
+	}
+	if event.Activity.CWD == nil {
 		return nil
 	}
 	cleaned := path.Clean(*event.Activity.CWD)
@@ -569,10 +577,34 @@ func (sink *phase0EventSink) HandleAgentEvent(event agent.Event) error {
 	return nil
 }
 
-func phase0Invocation(permissionMode agent.PermissionMode, model string) agent.Invocation {
+func phase0AllowsActivity(kind agent.ActivityKind) bool {
+	switch kind {
+	case agent.ActivityKindCommand,
+		agent.ActivityKindFileChange,
+		agent.ActivityKindOther:
+		return true
+	case agent.ActivityKindMCPTool,
+		agent.ActivityKindDynamicTool,
+		agent.ActivityKindWebSearch,
+		agent.ActivityKindImageView,
+		agent.ActivityKindImageGeneration,
+		agent.ActivityKindSleep,
+		agent.ActivityKindHook,
+		agent.ActivityKindSubagent:
+		return false
+	default:
+		return false
+	}
+}
+
+func phase0Invocation(
+	permissionMode agent.PermissionMode,
+	model string,
+	reasoningEffort string,
+) agent.Invocation {
 	return agent.Invocation{
 		Model:           model,
-		ReasoningEffort: phase0ReasoningEffort,
+		ReasoningEffort: reasoningEffort,
 		PermissionMode:  permissionMode,
 		ApprovalMode:    agent.ApprovalModeNever,
 	}
@@ -609,14 +641,16 @@ func phase0OnlyExpectedOutputAdded(
 	after phase0HelperWorkspace,
 	output phase0HelperFile,
 ) bool {
-	want := append([]phase0HelperFile{}, baseline.Files...)
-	want = append(want, phase0HelperFile{
+	want := append([]phase0HelperWorkspaceEntry{}, baseline.Entries...)
+	want = append(want, phase0HelperWorkspaceEntry{
 		Path:   "probe-output.txt",
+		Kind:   "file",
+		Mode:   output.Mode,
 		Bytes:  output.Bytes,
 		SHA256: output.SHA256,
 	})
 	sort.Slice(want, func(left int, right int) bool {
 		return want[left].Path < want[right].Path
 	})
-	return reflect.DeepEqual(want, after.Files)
+	return reflect.DeepEqual(want, after.Entries)
 }

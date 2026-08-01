@@ -1,15 +1,15 @@
 # Live AI Evaluation Harness Plan
 
 **Date:** 2026-07-31
-**Status:** Phase 0 achieved `PASS` on 2026-08-01 from clean source commit
-`1bc05a916c456c33d8db15dea1aa35f832be7c1f`; the canonical schema-4 report is
-recorded at `docs/reports/live-ai-eval-sandbox-phase0.md`. The read-only and
-workspace-write tasks both passed on their first attempt, every credential,
-filesystem, process, mount, network, and environment invariant validated, and
-teardown removed every disposable resource. Phase 0 is ready for its normal
-phase audit. Phase 1 through Phase 3 repository implementation and their prior
-audits remain complete; no Phase 1 live harness or broader provider suite was
-run in this implementation turn.
+**Status:** The Phase 0 audit invalidated the prior schema-4 proof after finding
+that it did not bind the release-owned Agent model and reasoning effort, and
+that its workspace delta omitted directory and permission-mode changes. The
+repaired schema-5 proof derives the baseline from the production role owner,
+records it, inventories the complete workspace tree, and rejects external tool
+activity. The prior report has been removed; rerun the authorized benign probe
+from the clean repair commit before restoring the Phase 0 resolution. Phase 1
+through Phase 3 repository implementation and their prior audits remain
+complete; no Phase 1 live harness starts before the repaired Phase 0 proof.
 
 ## Outcome
 
@@ -755,7 +755,7 @@ bounded WebSocket connection, and attaches only to the fixed per-run Agent
 container through Docker-managed stdin/stdout. Both Agent images now run
 Codex's supported `exec-server --listen stdio` transport with Docker-managed
 stdin kept open. Docker inspection rejects an exposed port, host binding, or
-network port mapping, and current Phase 0 evidence schema 4 records the actual
+network port mapping, and current Phase 0 evidence schema 5 records the actual
 transport, stdio attachment, absent publication, relay teardown, boundary
 environment observations, strict remote shell policy, and exact bundled
 bubblewrap input used by Codex's Linux filesystem sandbox. Phase 1 requires
@@ -975,9 +975,9 @@ also disable command tools independently of host feature flags, so this was not
 a valid Agent boundary proof.
 
 Phase 0 now owns the same exact release Agent baseline as the behavior it
-proves: `gpt-5.6-sol`/high. The command defaults its model flag to empty and
-lets the eval-harness owner resolve that baseline, removing the second
-hardcoded default. The catalog and thread-start checks still reject an
+proves: `gpt-5.6-sol`/high. The command has no model override; the eval-harness
+owner resolves that baseline from the production role owner, removing the
+second hardcoded default. The catalog and thread-start checks still reject an
 unavailable model or effort, and no alternate model fallback or search is
 introduced.
 
@@ -1010,7 +1010,7 @@ The shared correction copies the exact packaged `bwrap` into Codex's supported
 `/usr/local/bin/codex-resources/bwrap` location in both Phase 0 and Phase 1
 Agent images. Phase 0 first hashed that executable into evidence schema 3, and
 Phase 1 requires its input digest to match the committed proof before building.
-The current schema 4 retains that digest while replacing the superseded
+The current schema 5 retains that digest while replacing the superseded
 environment-evidence shape directly; no older-schema compatibility path
 remains. Rerun only the same benign Phase 0 probe from the amended clean repair.
 
@@ -1035,7 +1035,7 @@ pinned Codex implementation has nested command lifecycle machinery, this
 supported live turn established that requiring one particular top-level
 completed-command presentation is not a reliable boundary contract and is not
 needed for the plan's accepted composed proof. The correction removes the
-exact environment-helper prompt and ephemeral command collector. Evidence schema 4 now
+exact environment-helper prompt and ephemeral command collector. Evidence schema 5 now
 names each source honestly: Docker-inspected container variables,
 boundary-helper-observed variables, and the strict remote shell policy whose
 inheritance and set-variable names are generated from the same owner values as
@@ -1108,13 +1108,13 @@ leave their internal selection and presentation to the release Agent. The
 report records the attempt count, and terminal failure retains only bounded
 final text. This is an invariant-driven bounded repair, not a keyword heuristic,
 provider fallback, permission change, or unbounded retry. Because the same
-code-mode path does not guarantee
-top-level command activity items, schema 4 also removes the superseded
-non-empty activity list from PASS evidence. If the provider does emit activity,
-the live sink still fails immediately when its working directory escapes
-`/workspace`; typed remote readiness plus the random read, exact mutation, and
-Docker/helper facts own the positive proof. Rerun only the same benign Phase 0
-probe from the amended clean repair.
+code-mode path does not guarantee top-level command activity items, schema 5
+also omits the superseded non-empty activity list from PASS evidence. If the
+provider does emit activity, the live sink fails immediately when its type is
+outside local command, file-change, or provider-bookkeeping activity, or when
+its working directory escapes `/workspace`; typed remote readiness plus the
+random read, exact mutation, and Docker/helper facts own the positive proof.
+Rerun only the same benign Phase 0 probe from the amended clean repair.
 
 **Mechanism-prompt probe evidence recorded 2026-08-01:** the clean
 `ccbbf12be` probe used both bounded read-only attempts. Each mechanism-focused
@@ -1186,27 +1186,28 @@ that token. Its only PASS condition remains the independently measured path,
 byte count, SHA-256, and whole-workspace delta. This decouples the read and
 write capabilities while preserving both proofs and all sandbox invariants.
 
-### Phase 0 resolution
+### Phase 0 audit repair
 
-**Outcome:** `PASS`
+The normal phase audit found three proof-contract omissions in the otherwise
+successful Phase 0 run. The probe mirrored the Agent model and effort instead
+of reading the production role owner, and its report did not record either
+value. Its workspace snapshot recorded only regular-file bytes and digests, so
+an empty directory or permission-mode change could evade the claimed exact
+delta; attempting to read a special file could also stall the helper. Finally,
+the event sink checked working directories but did not reject typed MCP, web,
+hook, image, dynamic-tool, sleep, or subagent activity prohibited by the probe.
 
-The benign probe ran from clean source commit
-`1bc05a916c456c33d8db15dea1aa35f832be7c1f` with Codex 0.146.0 on the target
-Linux/ARM64 Docker daemon. The authenticated app-server remained host-owned,
-and the network-isolated Agent used the capability-authenticated loopback
-WebSocket-to-Docker-attach stdio relay with no published Agent port, credential
-mount, Docker socket, or host network route.
-
-The random container-only read completed without mutation, and the independent
-workspace-write task created only its exact declared file. Docker inspection,
-the typed boundary helper, strict shell-environment policy, and typed remote
-environment readiness proved the required user, filesystem, mount, environment,
-and network facts. The app-server, relay and attach client, container, volume,
-network, image tag, temporary canary, and build context were all removed. The
-strict machine-readable evidence and canonical narrative are committed in the
-Phase 0 report; no credential values are present. Phase 0 implementation is
-complete and awaits the normal phase audit before the implementation loop
-advances to final audit.
+The current source replaces those contracts directly. It derives the default
+model and effort from `conversation.DefaultAgentRoleProfile`, records both in
+schema 5, and accepts a canonical report only for that release baseline. The
+helper inventories the workspace root, every directory, every regular file,
+permission modes, byte counts, and digests; it rejects links and special files,
+and the host requires the complete tree to differ only by the declared output.
+The sink preserves the release Agent tool surface but fails the probe on every
+typed external activity kind. The prior schema-4 report and resolution no
+longer establish the current proof. Commit this repair, rerun the same benign
+probe from that clean revision, and record a fresh schema-5 report and Phase 0
+resolution before live execution can advance.
 
 The user's instruction to proceed with the implementation loop authorizes the
 same narrowly bounded benign Phase 0 probe already described by this plan. It

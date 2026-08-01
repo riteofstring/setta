@@ -12,7 +12,7 @@ import (
 )
 
 func TestPhase0SandboxReportRoundTripsStrictPassEvidence(t *testing.T) {
-	evidence := validPhase0SandboxEvidenceForTest(strings.Repeat("a", 40))
+	evidence := validPhase0SandboxEvidenceForTest(t, strings.Repeat("a", 40))
 	report, err := RenderPhase0SandboxReport(evidence)
 	if err != nil {
 		t.Fatalf("render report: %v", err)
@@ -41,6 +41,11 @@ func TestPhase0SandboxReportRoundTripsStrictPassEvidence(t *testing.T) {
 	if _, err := ParsePhase0SandboxReport([]byte(modifiedNarrative)); err == nil {
 		t.Fatal("modified report narrative was accepted")
 	}
+	nonBaseline := evidence
+	nonBaseline.Codex.Model = "diagnostic-model"
+	if err := ValidatePhase0SandboxEvidence(nonBaseline); err == nil {
+		t.Fatal("Phase 0 evidence accepted a non-release Agent model")
+	}
 }
 
 func TestCommittedPhase0PassGateRequiresCleanCommittedReportAndResolution(t *testing.T) {
@@ -53,7 +58,7 @@ func TestCommittedPhase0PassGateRequiresCleanCommittedReportAndResolution(t *tes
 	runPhase0ReportGit(t, repoRoot, "commit", "-m", "add proof source")
 	proofCommit := strings.TrimSpace(runPhase0ReportGit(t, repoRoot, "rev-parse", "HEAD"))
 
-	evidence := validPhase0SandboxEvidenceForTest(proofCommit)
+	evidence := validPhase0SandboxEvidenceForTest(t, proofCommit)
 	report, err := RenderPhase0SandboxReport(evidence)
 	if err != nil {
 		t.Fatalf("render report: %v", err)
@@ -78,7 +83,12 @@ func TestCommittedPhase0PassGateRequiresCleanCommittedReportAndResolution(t *tes
 	}
 }
 
-func validPhase0SandboxEvidenceForTest(commit string) Phase0SandboxEvidence {
+func validPhase0SandboxEvidenceForTest(t *testing.T, commit string) Phase0SandboxEvidence {
+	t.Helper()
+	model, reasoningEffort, err := phase0ReleaseAgentBaseline()
+	if err != nil {
+		t.Fatalf("phase0ReleaseAgentBaseline() error = %v", err)
+	}
 	digests := make(map[string]string, len(phase0EvidenceFileNames))
 	for _, name := range phase0EvidenceFileNames {
 		digests[name] = strings.Repeat("b", 64)
@@ -98,11 +108,13 @@ func validPhase0SandboxEvidenceForTest(commit string) Phase0SandboxEvidence {
 			MemoryBytes:   32 * 1024 * 1024 * 1024,
 		},
 		Codex: Phase0CodexEvidence{
-			HostVersion:   "0.146.0",
-			BundleVersion: "0.146.0",
-			BundleTarget:  phase0CodexBundleTarget,
-			FileSHA256:    digests,
-			ImageID:       "sha256:" + strings.Repeat("c", 64),
+			HostVersion:     "0.146.0",
+			BundleVersion:   "0.146.0",
+			BundleTarget:    phase0CodexBundleTarget,
+			Model:           model,
+			ReasoningEffort: reasoningEffort,
+			FileSHA256:      digests,
+			ImageID:         "sha256:" + strings.Repeat("c", 64),
 		},
 		Boundary: Phase0BoundaryEvidence{
 			ContainerUser:                  "65532:65532",

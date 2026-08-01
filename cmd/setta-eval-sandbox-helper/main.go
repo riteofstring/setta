@@ -49,12 +49,21 @@ type boundaryEvidence struct {
 
 type fileEvidence struct {
 	Path   string `json:"path"`
+	Mode   uint32 `json:"mode"`
 	Bytes  int    `json:"bytes"`
 	SHA256 string `json:"sha256"`
 }
 
+type workspaceEntryEvidence struct {
+	Path   string `json:"path"`
+	Kind   string `json:"kind"`
+	Mode   uint32 `json:"mode"`
+	Bytes  int    `json:"bytes,omitempty"`
+	SHA256 string `json:"sha256,omitempty"`
+}
+
 type workspaceEvidence struct {
-	Files []fileEvidence `json:"files"`
+	Entries []workspaceEntryEvidence `json:"entries"`
 }
 
 type toolchainEvidence struct {
@@ -549,45 +558,89 @@ func verifyOutput() error {
 }
 
 func snapshotWorkspace() error {
-	evidence := workspaceEvidence{Files: []fileEvidence{}}
-	err := filepath.WalkDir("/workspace", func(path string, entry os.DirEntry, walkErr error) error {
+	evidence, err := inspectWorkspace("/workspace")
+	if err != nil {
+		return fmt.Errorf("snapshot workspace: %w", err)
+	}
+	return writeJSON(evidence)
+}
+
+func inspectWorkspace(root string) (workspaceEvidence, error) {
+	evidence := workspaceEvidence{Entries: []workspaceEntryEvidence{}}
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		if entry.IsDir() {
-			return nil
-		}
-		if entry.Type()&os.ModeSymlink != 0 {
-			return fmt.Errorf("workspace snapshot refuses symlink %s", path)
-		}
-		relative, err := filepath.Rel("/workspace", path)
+		info, err := entry.Info()
 		if err != nil {
 			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("workspace snapshot refuses symlink %s", path)
+		}
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		reportedPath := filepath.ToSlash(relative)
+		if info.IsDir() {
+			evidence.Entries = append(evidence.Entries, workspaceEntryEvidence{
+				Path: reportedPath,
+				Kind: "directory",
+				Mode: uint32(info.Mode().Perm()),
+			})
+			return nil
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("workspace snapshot refuses non-regular entry %s", path)
 		}
 		file, err := inspectFile(path, filepath.ToSlash(relative))
 		if err != nil {
 			return err
 		}
-		evidence.Files = append(evidence.Files, file)
+		evidence.Entries = append(evidence.Entries, workspaceEntryEvidence{
+			Path:   file.Path,
+			Kind:   "file",
+			Mode:   file.Mode,
+			Bytes:  file.Bytes,
+			SHA256: file.SHA256,
+		})
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("snapshot workspace: %w", err)
+		return workspaceEvidence{}, err
 	}
-	sort.Slice(evidence.Files, func(left int, right int) bool {
-		return evidence.Files[left].Path < evidence.Files[right].Path
+	sort.Slice(evidence.Entries, func(left int, right int) bool {
+		return evidence.Entries[left].Path < evidence.Entries[right].Path
 	})
-	return writeJSON(evidence)
+	return evidence, nil
 }
 
 func inspectFile(path string, reportedPath string) (fileEvidence, error) {
-	contents, err := os.ReadFile(path)
+	file, err := os.OpenFile(
+		path,
+		os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW,
+		0,
+	)
 	if err != nil {
+		return fileEvidence{}, err
+	}
+	info, statErr := file.Stat()
+	if statErr != nil {
+		return fileEvidence{}, errors.Join(statErr, file.Close())
+	}
+	if !info.Mode().IsRegular() {
+		_ = file.Close()
+		return fileEvidence{}, fmt.Errorf("file evidence requires a regular file, not %s", path)
+	}
+	contents, readErr := io.ReadAll(file)
+	if err := errors.Join(readErr, file.Close()); err != nil {
 		return fileEvidence{}, err
 	}
 	digest := sha256.Sum256(contents)
 	return fileEvidence{
 		Path:   reportedPath,
+		Mode:   uint32(info.Mode().Perm()),
 		Bytes:  len(contents),
 		SHA256: hex.EncodeToString(digest[:]),
 	}, nil

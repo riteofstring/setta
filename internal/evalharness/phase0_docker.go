@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -113,12 +114,21 @@ type phase0HelperBoundary struct {
 
 type phase0HelperFile struct {
 	Path   string `json:"path"`
+	Mode   uint32 `json:"mode"`
 	Bytes  int    `json:"bytes"`
 	SHA256 string `json:"sha256"`
 }
 
+type phase0HelperWorkspaceEntry struct {
+	Path   string `json:"path"`
+	Kind   string `json:"kind"`
+	Mode   uint32 `json:"mode"`
+	Bytes  int    `json:"bytes,omitempty"`
+	SHA256 string `json:"sha256,omitempty"`
+}
+
 type phase0HelperWorkspace struct {
-	Files []phase0HelperFile `json:"files"`
+	Entries []phase0HelperWorkspaceEntry `json:"entries"`
 }
 
 var execServerStdioEntrypoint = []string{
@@ -567,6 +577,10 @@ func (resources *phase0DockerResources) verifyOutput(
 	if err := jsonio.DecodeSingle(strings.NewReader(result.stdout), &evidence); err != nil {
 		return phase0HelperFile{}, fmt.Errorf("decode Phase 0 model output: %w", err)
 	}
+	if evidence.Bytes < 0 || evidence.Mode & ^uint32(0o777) != 0 ||
+		!validLowerHex(evidence.SHA256, 64) {
+		return phase0HelperFile{}, errors.New("Phase 0 model output evidence is invalid")
+	}
 	return evidence, nil
 }
 
@@ -581,7 +595,46 @@ func (resources *phase0DockerResources) workspaceSnapshot(
 	if err := jsonio.DecodeSingle(strings.NewReader(result.stdout), &evidence); err != nil {
 		return phase0HelperWorkspace{}, fmt.Errorf("decode Phase 0 workspace snapshot: %w", err)
 	}
+	if err := validatePhase0HelperWorkspace(evidence); err != nil {
+		return phase0HelperWorkspace{}, fmt.Errorf("validate Phase 0 workspace snapshot: %w", err)
+	}
 	return evidence, nil
+}
+
+func validatePhase0HelperWorkspace(evidence phase0HelperWorkspace) error {
+	if evidence.Entries == nil {
+		return errors.New("entries must be an array")
+	}
+	for index, entry := range evidence.Entries {
+		if entry.Path == "" ||
+			(entry.Path != "." && (path.IsAbs(entry.Path) || path.Clean(entry.Path) != entry.Path ||
+				entry.Path == ".." || strings.HasPrefix(entry.Path, "../"))) {
+			return fmt.Errorf("entry %d has invalid path %q", index, entry.Path)
+		}
+		if index > 0 && evidence.Entries[index-1].Path >= entry.Path {
+			return errors.New("entries must be sorted with unique paths")
+		}
+		if entry.Mode & ^uint32(0o777) != 0 {
+			return fmt.Errorf("entry %q has an invalid permission mode", entry.Path)
+		}
+		switch entry.Kind {
+		case "directory":
+			if entry.Bytes != 0 || entry.SHA256 != "" {
+				return fmt.Errorf("directory entry %q contains file evidence", entry.Path)
+			}
+		case "file":
+			if entry.Bytes < 0 || !validLowerHex(entry.SHA256, 64) {
+				return fmt.Errorf("file entry %q has invalid content evidence", entry.Path)
+			}
+		default:
+			return fmt.Errorf("entry %q has invalid kind %q", entry.Path, entry.Kind)
+		}
+	}
+	if len(evidence.Entries) == 0 || evidence.Entries[0].Path != "." ||
+		evidence.Entries[0].Kind != "directory" {
+		return errors.New("entries must include the workspace root directory")
+	}
+	return nil
 }
 
 func (resources *phase0DockerResources) execHelper(

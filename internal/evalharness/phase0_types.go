@@ -9,10 +9,12 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"setta/internal/conversation"
 )
 
 const (
-	phase0SchemaVersion       = 4
+	phase0SchemaVersion       = 5
 	phase0OutcomePass         = "PASS"
 	phase0EnvironmentID       = "remote"
 	phase0WorkspaceRoot       = "/workspace"
@@ -21,8 +23,6 @@ const (
 	phase0CodexBundleTarget   = "aarch64-unknown-linux-musl"
 	phase0CodexBundleVariant  = "codex"
 	phase0CodexLayoutVersion  = 1
-	phase0ReasoningEffort     = "high"
-	phase0DefaultModel        = "gpt-5.6-sol"
 	phase0FakeEndpointHost    = "host.docker.internal"
 	phase0ImagePlatform       = "linux/arm64"
 	phase0MaximumTurnAttempts = 2
@@ -48,7 +48,6 @@ var phase0AllowedEnvironmentNames = []string{
 type Phase0SandboxProbeConfig struct {
 	RepoRoot         string
 	CodexLinuxBundle string
-	Model            string
 	DockerCommand    string
 	CodexCommand     string
 }
@@ -89,11 +88,13 @@ type Phase0DockerEvidence struct {
 }
 
 type Phase0CodexEvidence struct {
-	HostVersion   string            `json:"hostVersion"`
-	BundleVersion string            `json:"bundleVersion"`
-	BundleTarget  string            `json:"bundleTarget"`
-	FileSHA256    map[string]string `json:"fileSha256"`
-	ImageID       string            `json:"imageId"`
+	HostVersion     string            `json:"hostVersion"`
+	BundleVersion   string            `json:"bundleVersion"`
+	BundleTarget    string            `json:"bundleTarget"`
+	Model           string            `json:"model"`
+	ReasoningEffort string            `json:"reasoningEffort"`
+	FileSHA256      map[string]string `json:"fileSha256"`
+	ImageID         string            `json:"imageId"`
 }
 
 type Phase0BoundaryEvidence struct {
@@ -150,6 +151,7 @@ type phase0ProbeConfig struct {
 	repoRoot         string
 	codexLinuxBundle string
 	model            string
+	reasoningEffort  string
 	dockerCommand    string
 	codexCommand     string
 }
@@ -175,9 +177,9 @@ func normalizePhase0Config(config Phase0SandboxProbeConfig) (phase0ProbeConfig, 
 	if err != nil {
 		return phase0ProbeConfig{}, fmt.Errorf("resolve Codex Linux bundle: %w", err)
 	}
-	model := strings.TrimSpace(config.Model)
-	if model == "" {
-		model = phase0DefaultModel
+	model, reasoningEffort, err := phase0ReleaseAgentBaseline()
+	if err != nil {
+		return phase0ProbeConfig{}, err
 	}
 	dockerCommand := strings.TrimSpace(config.DockerCommand)
 	if dockerCommand == "" {
@@ -198,9 +200,26 @@ func normalizePhase0Config(config Phase0SandboxProbeConfig) (phase0ProbeConfig, 
 		repoRoot:         repoRoot,
 		codexLinuxBundle: bundle,
 		model:            model,
+		reasoningEffort:  reasoningEffort,
 		dockerCommand:    dockerCommand,
 		codexCommand:     codexCommand,
 	}, nil
+}
+
+func phase0ReleaseAgentBaseline() (string, string, error) {
+	profile := conversation.DefaultAgentRoleProfile()
+	if profile.Role != conversation.RoleAgent ||
+		profile.Provider != conversation.ProviderCodex ||
+		profile.ModelSelection.Mode != conversation.ModelSelectionExact ||
+		profile.ModelSelection.ModelID == nil {
+		return "", "", errors.New("release Agent baseline must select one exact Codex model")
+	}
+	model := strings.TrimSpace(*profile.ModelSelection.ModelID)
+	reasoningEffort := strings.TrimSpace(profile.ReasoningEffort)
+	if model == "" || reasoningEffort == "" {
+		return "", "", errors.New("release Agent baseline requires a model and reasoning effort")
+	}
+	return model, reasoningEffort, nil
 }
 
 func validateEnvironmentNames(actual []string) error {

@@ -19,7 +19,7 @@ import (
 const (
 	Phase0SandboxReportRelativePath = "docs/reports/live-ai-eval-sandbox-phase0.md"
 	phase0SandboxReportMaxBytes     = 128 * 1024
-	phase0ReportEvidenceStart       = "<!-- setta-eval-phase0-evidence:v4 -->\n```json\n"
+	phase0ReportEvidenceStart       = "<!-- setta-eval-phase0-evidence:v5 -->\n```json\n"
 	phase0ReportEvidenceEnd         = "```\n<!-- /setta-eval-phase0-evidence -->"
 	phase0PlanPassMarker            = "### Phase 0 resolution\n\n**Outcome:** `PASS`"
 )
@@ -86,6 +86,9 @@ func ValidatePhase0SandboxEvidence(evidence Phase0SandboxEvidence) error {
 	if err := validatePhase0CodexEvidence(evidence.Codex); err != nil {
 		return err
 	}
+	if err := validatePhase0ReleaseAgentEvidence(evidence.Codex); err != nil {
+		return err
+	}
 	if err := validatePhase0BoundaryEvidence(evidence.Boundary); err != nil {
 		return err
 	}
@@ -133,6 +136,9 @@ func validatePhase0CodexEvidence(evidence Phase0CodexEvidence) error {
 	if evidence.BundleTarget != phase0CodexBundleTarget {
 		return fmt.Errorf("Phase 0 evidence Codex bundle target is %q, want %q", evidence.BundleTarget, phase0CodexBundleTarget)
 	}
+	if strings.TrimSpace(evidence.Model) == "" || strings.TrimSpace(evidence.ReasoningEffort) == "" {
+		return errors.New("Phase 0 evidence requires the exact model and reasoning effort")
+	}
 	if !validPhase1ImageID(evidence.ImageID) {
 		return errors.New("Phase 0 evidence Codex imageId must be an exact sha256 image id")
 	}
@@ -143,6 +149,23 @@ func validatePhase0CodexEvidence(evidence Phase0CodexEvidence) error {
 		if !validLowerHex(evidence.FileSHA256[name], 64) {
 			return fmt.Errorf("Phase 0 evidence proof-file digest %q is invalid", name)
 		}
+	}
+	return nil
+}
+
+func validatePhase0ReleaseAgentEvidence(evidence Phase0CodexEvidence) error {
+	model, reasoningEffort, err := phase0ReleaseAgentBaseline()
+	if err != nil {
+		return err
+	}
+	if evidence.Model != model || evidence.ReasoningEffort != reasoningEffort {
+		return fmt.Errorf(
+			"Phase 0 evidence used %s/%s, want the release Agent baseline %s/%s",
+			evidence.Model,
+			evidence.ReasoningEffort,
+			model,
+			reasoningEffort,
+		)
 	}
 	return nil
 }
@@ -325,6 +348,12 @@ func RenderPhase0SandboxReport(evidence Phase0SandboxEvidence) (string, error) {
 	fmt.Fprintf(&report, "- Probe time: `%s`\n", evidence.ProbedAt.Format("2006-01-02T15:04:05.999999999Z07:00"))
 	fmt.Fprintf(&report, "- Repository commit: `%s`\n", evidence.Repository.Commit)
 	fmt.Fprintf(&report, "- Codex version and target: `%s` / `%s`\n", evidence.Codex.HostVersion, evidence.Codex.BundleTarget)
+	fmt.Fprintf(
+		&report,
+		"- Release Agent model and reasoning effort: `%s` / `%s`\n",
+		evidence.Codex.Model,
+		evidence.Codex.ReasoningEffort,
+	)
 	fmt.Fprintf(
 		&report,
 		"- The read-only model task observed the fixture without mutation after %d attempt(s).\n",
