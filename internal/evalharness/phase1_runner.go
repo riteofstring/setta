@@ -338,7 +338,7 @@ func executePhase1Scenario(
 	if state.outcome != ScenarioExecutionCompleted {
 		return state
 	}
-	verification, err := resources.verify(ctx)
+	verification, err := resources.verify(ctx, scenario.Verifier)
 	if err != nil {
 		return phase1InfrastructureFailure("verifier_execution_failed", err, state.roles)
 	}

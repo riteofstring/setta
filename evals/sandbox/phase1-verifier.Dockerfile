@@ -19,4 +19,4 @@ ENV CI=1 \
 USER 65532:65532
 WORKDIR /workspace
 
-ENTRYPOINT ["/usr/local/bin/setta-eval-verifier", "--baseline", "/baseline", "--workspace", "/workspace"]
+ENTRYPOINT ["/usr/local/bin/setta-eval-verifier"]

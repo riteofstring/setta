@@ -726,6 +726,7 @@ func (resources *phase1DockerResources) stopContainer(
 
 func (resources *phase1DockerResources) verify(
 	ctx context.Context,
+	verifierID string,
 ) (evalverifier.Result, error) {
 	if !resources.controllerStopped {
 		return evalverifier.Result{}, errors.New("Phase 1 controller must stop before hidden verification")
@@ -735,7 +736,7 @@ func (resources *phase1DockerResources) verify(
 		return evalverifier.Result{}, err
 	}
 	if copyResult.Status == volumecopy.StatusInvalidWorkspace {
-		return phase1InvalidWorkspaceVerifierResult(copyResult.Detail), nil
+		return phase1InvalidWorkspaceVerifierResult(verifierID, copyResult.Detail), nil
 	}
 	resources.containers[resources.verifierContainer] = true
 	if _, err := resources.client.run(
@@ -757,6 +758,9 @@ func (resources *phase1DockerResources) verify(
 		"--label", "com.setta.eval.phase=1",
 		"--label", "com.setta.eval.run="+resources.suffix,
 		resources.images.verifierID,
+		"--verifier", verifierID,
+		"--baseline", phase1BaselineRoot,
+		"--workspace", phase1WorkspaceRoot,
 	); err != nil {
 		return evalverifier.Result{}, fmt.Errorf("create Phase 1 verifier container: %w", err)
 	}
@@ -774,9 +778,9 @@ func (resources *phase1DockerResources) verify(
 	return result, nil
 }
 
-func phase1InvalidWorkspaceVerifierResult(detail string) evalverifier.Result {
+func phase1InvalidWorkspaceVerifierResult(verifierID string, detail string) evalverifier.Result {
 	return evalverifier.NewResult(
-		ScenarioVerifierStraightforward,
+		verifierID,
 		[]evalverifier.Check{{
 			ID:     "workspace_snapshot",
 			Passed: false,

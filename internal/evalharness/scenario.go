@@ -18,15 +18,30 @@ const (
 	ScenarioMaximumSteps        = 8
 	ScenarioMaximumMessageBytes = 16 * 1024
 	ScenarioMaximumTokenBudget  = 1_000_000
+	ScenarioMaximumAssertions   = 16
 
-	ScenarioFixtureTypeScriptService = "typescript-service"
-	ScenarioVerifierStraightforward  = "straightforward-task"
+	ScenarioFixtureTypeScriptService  = "typescript-service"
+	ScenarioVerifierStraightforward   = "straightforward-task"
+	ScenarioVerifierApparentAmbiguity = "apparent-ambiguity"
+	ScenarioVerifierGenuineAmbiguity  = "genuine-ambiguity"
+	ScenarioVerifierMidRunSteering    = "mid-run-steering"
+	ScenarioVerifierQueueThenCancel   = "queue-then-cancel"
 )
 
 type ScenarioStepKind string
 
 const (
-	ScenarioStepSubmit ScenarioStepKind = "submit"
+	ScenarioStepSubmit     ScenarioStepKind = "submit"
+	ScenarioStepSubmitWhen ScenarioStepKind = "submit_when"
+)
+
+type ScenarioTrigger string
+
+const (
+	ScenarioTriggerDirectorTurnCompleted  ScenarioTrigger = "director_turn_completed"
+	ScenarioTriggerFirstWorkspaceMutation ScenarioTrigger = "first_workspace_mutation"
+	ScenarioTriggerAgentTurnRunning       ScenarioTrigger = "agent_turn_running"
+	ScenarioTriggerQueueNonempty          ScenarioTrigger = "queue_nonempty"
 )
 
 type ScenarioTerminalState string
@@ -38,7 +53,23 @@ const (
 type ScenarioClarificationPolicy string
 
 const (
-	ScenarioClarificationForbidden ScenarioClarificationPolicy = "forbidden"
+	ScenarioClarificationForbidden    ScenarioClarificationPolicy = "forbidden"
+	ScenarioClarificationRequiredOnce ScenarioClarificationPolicy = "required_once"
+)
+
+type ScenarioControlAssertion string
+
+const (
+	ScenarioControlNoMutationBeforeReply    ScenarioControlAssertion = "no_mutation_before_scripted_reply"
+	ScenarioControlScriptedReplyConsumed    ScenarioControlAssertion = "scripted_reply_consumed_once"
+	ScenarioControlFollowUpThroughDirector  ScenarioControlAssertion = "follow_up_routed_through_director"
+	ScenarioControlLatestInstructionWins    ScenarioControlAssertion = "latest_instruction_wins"
+	ScenarioControlObservedRunCancelled     ScenarioControlAssertion = "observed_run_cancelled"
+	ScenarioControlNoMutationAfterCancel    ScenarioControlAssertion = "no_mutation_after_cancel"
+	ScenarioControlQueuedRequestPresentOnce ScenarioControlAssertion = "queued_request_present_once"
+	ScenarioControlQueuedRequestPromoted    ScenarioControlAssertion = "queued_request_promoted_once"
+	ScenarioControlQueuedRequestCompleted   ScenarioControlAssertion = "queued_request_completed_once"
+	ScenarioControlQueueEmpty               ScenarioControlAssertion = "queue_empty"
 )
 
 type ScenarioProgressPolicy string
@@ -60,13 +91,15 @@ type Scenario struct {
 }
 
 type ScenarioStep struct {
-	Kind ScenarioStepKind `json:"kind"`
-	Text string           `json:"text"`
+	Kind    ScenarioStepKind `json:"kind"`
+	Trigger ScenarioTrigger  `json:"trigger,omitempty"`
+	Text    string           `json:"text"`
 }
 
 type ScenarioExpectations struct {
-	TerminalState ScenarioTerminalState       `json:"terminalState"`
-	Clarification ScenarioClarificationPolicy `json:"clarification"`
+	TerminalState     ScenarioTerminalState       `json:"terminalState"`
+	Clarification     ScenarioClarificationPolicy `json:"clarification"`
+	ControlAssertions []ScenarioControlAssertion  `json:"controlAssertions"`
 }
 
 type ScenarioBudget struct {
@@ -147,6 +180,25 @@ func LoadScenarios(directory string, selectedIDs []string) ([]Scenario, error) {
 }
 
 func (scenario Scenario) Validate() error {
+	if err := scenario.validateIdentityAndBounds(); err != nil {
+		return err
+	}
+	if err := scenario.validateSteps(); err != nil {
+		return err
+	}
+	if err := scenario.Expect.Validate(); err != nil {
+		return fmt.Errorf("expect: %w", err)
+	}
+	if err := validateScenarioControlContract(scenario); err != nil {
+		return fmt.Errorf("control contract: %w", err)
+	}
+	if err := scenario.validateVerifierAndLimits(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (scenario Scenario) validateIdentityAndBounds() error {
 	if scenario.SchemaVersion != ScenarioSchemaVersion {
 		return fmt.Errorf(
 			"schemaVersion is %d, want %d",
@@ -167,6 +219,10 @@ func (scenario Scenario) Validate() error {
 			ScenarioTimeoutSeconds,
 		)
 	}
+	return nil
+}
+
+func (scenario Scenario) validateSteps() error {
 	if scenario.Steps == nil {
 		return errors.New("steps must be an array, not null")
 	}
@@ -174,15 +230,19 @@ func (scenario Scenario) Validate() error {
 		return fmt.Errorf("steps contains %d entries, want 1-%d", len(scenario.Steps), ScenarioMaximumSteps)
 	}
 	for index, step := range scenario.Steps {
-		if err := step.Validate(); err != nil {
+		if err := step.Validate(index); err != nil {
 			return fmt.Errorf("step %d: %w", index, err)
 		}
 	}
-	if err := scenario.Expect.Validate(); err != nil {
-		return fmt.Errorf("expect: %w", err)
-	}
-	if scenario.Verifier != ScenarioVerifierStraightforward {
+	return nil
+}
+
+func (scenario Scenario) validateVerifierAndLimits() error {
+	if !supportedScenarioVerifier(scenario.Verifier) {
 		return fmt.Errorf("verifier %q is not supported", scenario.Verifier)
+	}
+	if scenario.Verifier != scenario.ID {
+		return fmt.Errorf("verifier %q must match scenario id %q", scenario.Verifier, scenario.ID)
 	}
 	if err := scenario.Budget.Validate(); err != nil {
 		return fmt.Errorf("budget: %w", err)
@@ -193,8 +253,23 @@ func (scenario Scenario) Validate() error {
 	return nil
 }
 
-func (step ScenarioStep) Validate() error {
-	if step.Kind != ScenarioStepSubmit {
+func (step ScenarioStep) Validate(index int) error {
+	switch step.Kind {
+	case ScenarioStepSubmit:
+		if index != 0 {
+			return errors.New("submit is accepted only as the first step")
+		}
+		if step.Trigger != "" {
+			return errors.New("submit must not declare a trigger")
+		}
+	case ScenarioStepSubmitWhen:
+		if index == 0 {
+			return errors.New("submit_when cannot be the first step")
+		}
+		if !supportedScenarioTrigger(step.Trigger) {
+			return fmt.Errorf("trigger %q is not supported", step.Trigger)
+		}
+	default:
 		return fmt.Errorf("kind %q is not supported", step.Kind)
 	}
 	if err := validateScenarioText("text", step.Text); err != nil {
@@ -214,8 +289,144 @@ func (expectations ScenarioExpectations) Validate() error {
 	if expectations.TerminalState != ScenarioTerminalCompleted {
 		return fmt.Errorf("terminalState %q is not supported", expectations.TerminalState)
 	}
-	if expectations.Clarification != ScenarioClarificationForbidden {
+	if expectations.Clarification != ScenarioClarificationForbidden &&
+		expectations.Clarification != ScenarioClarificationRequiredOnce {
 		return fmt.Errorf("clarification %q is not supported", expectations.Clarification)
+	}
+	if expectations.ControlAssertions == nil {
+		return errors.New("controlAssertions must be an array, not null")
+	}
+	if len(expectations.ControlAssertions) > ScenarioMaximumAssertions {
+		return fmt.Errorf(
+			"controlAssertions contains %d entries, maximum is %d",
+			len(expectations.ControlAssertions),
+			ScenarioMaximumAssertions,
+		)
+	}
+	seen := make(map[ScenarioControlAssertion]struct{}, len(expectations.ControlAssertions))
+	for index, assertion := range expectations.ControlAssertions {
+		if !supportedScenarioControlAssertion(assertion) {
+			return fmt.Errorf("controlAssertions[%d] %q is not supported", index, assertion)
+		}
+		if _, exists := seen[assertion]; exists {
+			return fmt.Errorf("controlAssertions repeats %q", assertion)
+		}
+		seen[assertion] = struct{}{}
+	}
+	return nil
+}
+
+func supportedScenarioVerifier(verifier string) bool {
+	switch verifier {
+	case ScenarioVerifierStraightforward,
+		ScenarioVerifierApparentAmbiguity,
+		ScenarioVerifierGenuineAmbiguity,
+		ScenarioVerifierMidRunSteering,
+		ScenarioVerifierQueueThenCancel:
+		return true
+	default:
+		return false
+	}
+}
+
+func supportedScenarioTrigger(trigger ScenarioTrigger) bool {
+	switch trigger {
+	case ScenarioTriggerDirectorTurnCompleted,
+		ScenarioTriggerFirstWorkspaceMutation,
+		ScenarioTriggerAgentTurnRunning,
+		ScenarioTriggerQueueNonempty:
+		return true
+	default:
+		return false
+	}
+}
+
+func supportedScenarioControlAssertion(assertion ScenarioControlAssertion) bool {
+	switch assertion {
+	case ScenarioControlNoMutationBeforeReply,
+		ScenarioControlScriptedReplyConsumed,
+		ScenarioControlFollowUpThroughDirector,
+		ScenarioControlLatestInstructionWins,
+		ScenarioControlObservedRunCancelled,
+		ScenarioControlNoMutationAfterCancel,
+		ScenarioControlQueuedRequestPresentOnce,
+		ScenarioControlQueuedRequestPromoted,
+		ScenarioControlQueuedRequestCompleted,
+		ScenarioControlQueueEmpty:
+		return true
+	default:
+		return false
+	}
+}
+
+func validateScenarioControlContract(scenario Scenario) error {
+	triggers := make(map[ScenarioTrigger]int, len(scenario.Steps)-1)
+	for _, step := range scenario.Steps[1:] {
+		triggers[step.Trigger]++
+		if triggers[step.Trigger] > 1 {
+			return fmt.Errorf("trigger %q is repeated", step.Trigger)
+		}
+	}
+	assertions := make(map[ScenarioControlAssertion]bool, len(scenario.Expect.ControlAssertions))
+	for _, assertion := range scenario.Expect.ControlAssertions {
+		assertions[assertion] = true
+	}
+
+	if err := validateScenarioClarificationContract(scenario.Expect.Clarification, triggers, assertions); err != nil {
+		return err
+	}
+	if assertions[ScenarioControlFollowUpThroughDirector] != (len(scenario.Steps) > 1) {
+		return errors.New("triggered submissions and follow_up_routed_through_director must be declared together")
+	}
+	if assertions[ScenarioControlLatestInstructionWins] &&
+		triggers[ScenarioTriggerFirstWorkspaceMutation] != 1 {
+		return errors.New("latest_instruction_wins requires first_workspace_mutation")
+	}
+	return validateScenarioQueueContract(triggers, assertions)
+}
+
+func validateScenarioClarificationContract(
+	policy ScenarioClarificationPolicy,
+	triggers map[ScenarioTrigger]int,
+	assertions map[ScenarioControlAssertion]bool,
+) error {
+	hasAssertions := assertions[ScenarioControlNoMutationBeforeReply] &&
+		assertions[ScenarioControlScriptedReplyConsumed]
+	switch policy {
+	case ScenarioClarificationRequiredOnce:
+		if triggers[ScenarioTriggerDirectorTurnCompleted] != 1 || !hasAssertions {
+			return errors.New(
+				"required_once clarification requires one director_turn_completed reply and both clarification assertions",
+			)
+		}
+	case ScenarioClarificationForbidden:
+		if triggers[ScenarioTriggerDirectorTurnCompleted] != 0 ||
+			assertions[ScenarioControlNoMutationBeforeReply] ||
+			assertions[ScenarioControlScriptedReplyConsumed] {
+			return errors.New("forbidden clarification cannot declare a scripted clarification reply")
+		}
+	}
+	return nil
+}
+
+func validateScenarioQueueContract(
+	triggers map[ScenarioTrigger]int,
+	assertions map[ScenarioControlAssertion]bool,
+) error {
+	queueAssertions := []ScenarioControlAssertion{
+		ScenarioControlObservedRunCancelled,
+		ScenarioControlNoMutationAfterCancel,
+		ScenarioControlQueuedRequestPresentOnce,
+		ScenarioControlQueuedRequestPromoted,
+		ScenarioControlQueuedRequestCompleted,
+		ScenarioControlQueueEmpty,
+	}
+	for _, assertion := range queueAssertions {
+		if assertions[assertion] &&
+			(triggers[ScenarioTriggerAgentTurnRunning] != 1 ||
+				triggers[ScenarioTriggerQueueNonempty] != 1) {
+			return fmt.Errorf("%s requires agent_turn_running and queue_nonempty", assertion)
+		}
 	}
 	return nil
 }

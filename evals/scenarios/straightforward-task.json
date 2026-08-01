@@ -11,7 +11,8 @@
   ],
   "expect": {
     "terminalState": "completed",
-    "clarification": "forbidden"
+    "clarification": "forbidden",
+    "controlAssertions": []
   },
   "verifier": "straightforward-task",
   "budget": {

@@ -149,7 +149,7 @@ func TestPhase1InvalidWorkspaceCopyBecomesVerifierFailure(t *testing.T) {
 	if err := copyResult.Validate(); err != nil {
 		t.Fatalf("validate volume-copy result: %v", err)
 	}
-	result := phase1InvalidWorkspaceVerifierResult(copyResult.Detail)
+	result := phase1InvalidWorkspaceVerifierResult(ScenarioVerifierStraightforward, copyResult.Detail)
 	if err := result.Validate(); err != nil {
 		t.Fatalf("validate verifier result: %v", err)
 	}

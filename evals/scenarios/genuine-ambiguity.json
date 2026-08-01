@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "genuine-ambiguity",
+  "fixture": "typescript-service",
+  "timeoutSeconds": 1800,
+  "steps": [
+    {
+      "kind": "submit",
+      "text": "Add the diagnostics endpoint needed by the deployment monitor and cover it with the relevant automated test."
+    },
+    {
+      "kind": "submit_when",
+      "trigger": "director_turn_completed",
+      "text": "Use readiness: GET /ready with the repository's standard readiness body."
+    }
+  ],
+  "expect": {
+    "terminalState": "completed",
+    "clarification": "required_once",
+    "controlAssertions": [
+      "no_mutation_before_scripted_reply",
+      "scripted_reply_consumed_once",
+      "follow_up_routed_through_director"
+    ]
+  },
+  "verifier": "genuine-ambiguity",
+  "budget": {
+    "hardTotalTokens": 50000
+  },
+  "communication": {
+    "progress": "when_useful",
+    "finalResultRequired": true
+  }
+}

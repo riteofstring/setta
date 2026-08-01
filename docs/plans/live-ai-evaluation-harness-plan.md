@@ -11,7 +11,10 @@ its coherent phase audit are complete, including exact token evidence, the
 public transcript, the fixed fresh judge, the complete atomic artifact set, and
 cross-artifact evidence reconstruction. Phase 1 and Phase 2 live exit evidence
 remains gated by Phase 0 and the later user-authorized verification ladder.
-Phase 3 is the earliest phase with incomplete repository-actionable work.
+Phase 3's complete five-scenario benchmark contract and hidden-verifier layer
+are implemented. Its multi-turn event orchestration, typed control evidence
+and reporting, candidate configuration, and failed-scenario rerun policy are
+the earliest incomplete repository-actionable work.
 
 ## Outcome
 
@@ -772,9 +775,12 @@ The verifier rejects symlinks and unrelated mutations, bounds inputs and
 diagnostics, and owns the build, test, original-route, exact `/health`, and
 README checks. A pass requires the exact three task files—`README.md`,
 `src/server.ts`, and `test/server.test.ts`—to change, so omitted automated
-coverage and otherwise-related extra edits both fail. Its source lives outside
-the fixture, and the lifecycle excludes it from the evaluated Agent container.
-The fixture-owned quality command includes formatting, build, and tests.
+coverage and otherwise-related extra edits both fail. The shared hidden fixture
+grader now lives under `internal/evalharness/typescriptverifier`, with its thin
+container entrypoint under `evals/verifiers/typescript-service`; its source
+lives outside the fixture, and the lifecycle excludes it from the evaluated
+Agent container. The fixture-owned quality command includes formatting, build,
+and tests.
 
 The strict Phase 1 result schema, production-role resolution projection,
 objective classification boundary, and atomic artifact publisher are
@@ -1004,6 +1010,38 @@ excludes judge tokens, and receives a schema-valid judge result with the
 transcript and verdict ready for the one-time MVP verification review.
 
 ## Phase 3 — Complete the five-scenario MVP
+
+### Phase 3 implementation status
+
+The benchmark-contract and hidden-verifier batch is implemented. The strict
+scenario schema now owns only the four event triggers the five MVP scenarios
+need—`director_turn_completed`, `first_workspace_mutation`,
+`agent_turn_running`, and `queue_nonempty`—plus the closed clarification and
+control-assertion vocabulary needed to grade their user-control contracts. It
+requires one initial Director submission, triggered later submissions, unique
+triggers, a verifier matching the scenario identity, and internally consistent
+clarification, steering, queueing, and cancellation assertions.
+
+All five exact scenario files are checked in with the quoted messages and the
+fixed 1,800-second and 50,000-token runaway ceilings. The shared hidden fixture
+grader selects the scenario by its validated identifier and preserves the
+strict changed-file boundary. It now grades the original route plus exact
+`/health`, `/ready`, `/status`, or `/version` behavior as applicable; rejected
+obsolete `/live` or `/health` routes; README requirements or byte identity via
+the changed-file boundary; fixture build and tests; and consecutive `/version`
+requests to reject duplicate-response or stateful handling. The
+verifier container entrypoint accepts the selected verifier explicitly, and
+the existing vertical lifecycle passes that identity through both normal and
+invalid-workspace verification paths.
+
+No automated test, changed-file quality gate, supply-chain gate, live probe, or
+live scenario was run for this implementation batch; the implementation-loop
+instruction does not create the repository's separate test authorization. The
+new scenario parser and verifier coverage is checked in for the later
+user-authorized verification ladder. Multi-turn event orchestration, typed
+control evidence/result reporting, all-or-selected scenario invocation,
+candidate role configuration, and the failed-scenario rerun classification
+remain Phase 3 repository work.
 
 Add apparent ambiguity, genuine ambiguity, steering, and queue-then-cancel on
 the same fixture. Add only the event trigger and deterministic assertion
