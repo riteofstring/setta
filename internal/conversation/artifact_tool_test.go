@@ -441,6 +441,7 @@ func requireArtifactRecoveryInstructions(t *testing.T, instructions string) {
 		"Do not expose provider, sandbox, permission, transport, workstream, or file-routing mechanics.",
 		"A stopped or cancelled earlier turn is not part of the current objective",
 		"describe scheduling, not permission to complete cancelled work",
+		"Do not modify documentation, changelogs, or adjacent behavior unless the current input explicitly requests it",
 		"do not repeat equivalent attempts",
 		"omit the unavailable check entirely",
 		"name checks that succeeded",
