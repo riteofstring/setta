@@ -1,7 +1,6 @@
 FROM scratch
 
 COPY --chmod=0555 codex /usr/local/bin/codex
-COPY --chmod=0555 bwrap /usr/local/bin/codex-resources/bwrap
 COPY --chmod=0555 rg /usr/local/bin/rg
 COPY --chmod=0555 sandbox-helper /usr/local/bin/setta-eval-sandbox-helper
 COPY --chmod=0555 zsh /bin/zsh

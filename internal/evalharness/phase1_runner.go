@@ -83,7 +83,9 @@ func runEvaluationScenario(
 	resources := newPhase1DockerResources(client, suffix, images, fixture)
 	state := executePhase1Scenario(ctx, config, resources, scenario, attempt)
 	state.sandbox = cloneManifestSandbox(sandbox)
-	cleanupErr := resources.cleanupScenario()
+	cleanupContext, cancel := context.WithTimeout(context.Background(), phase1CleanupTimeout)
+	cleanupErr := resources.cleanupScenario(cleanupContext)
+	cancel()
 	if cleanupErr != nil {
 		failed := phase1InfrastructureFailure("sandbox_teardown_failed", cleanupErr, state.roles)
 		failed.sandbox = cloneManifestSandbox(sandbox)
@@ -120,17 +122,17 @@ func executePhase1Scenario(
 	)
 	state := phase1StateFromObservation(observation)
 	provider := resources.provider
-	controlRelay := resources.controlRelay
-	controlFailure := controlRelay.beginHealthyShutdown()
-	stopErr := resources.stopController()
+	controlFailure := resources.controlRelay.beginHealthyShutdown()
+	stopContext, cancel := context.WithTimeout(context.Background(), phase1CleanupTimeout)
+	stopErr := resources.stopController(stopContext)
 	if stopErr != nil {
+		cancel()
 		return phase1InfrastructureFailure("controller_teardown_failed", stopErr, state.roles)
 	}
 	if controlFailure == nil {
-		controlFailure = controlRelay.failure()
+		controlFailure = resources.controlRelay.failure()
 	}
-	evidenceContext, cancel := context.WithTimeout(context.Background(), phase1CleanupTimeout)
-	observations, tokenEvidenceErr := resources.readTokenUsageEvidence(evidenceContext)
+	observations, tokenEvidenceErr := resources.readTokenUsageEvidence(stopContext)
 	cancel()
 	state = phase1StateAfterProviderEvidence(
 		state,
@@ -152,12 +154,6 @@ func executePhase1Scenario(
 	}
 	state.verifier = &verification
 	return state
-}
-
-func runPhase1Cleanup(operation func(context.Context) error) error {
-	ctx, cancel := context.WithTimeout(context.Background(), phase1CleanupTimeout)
-	defer cancel()
-	return operation(ctx)
 }
 
 func phase1StateAfterProviderEvidence(
