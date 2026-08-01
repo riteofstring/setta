@@ -24,13 +24,18 @@ func TestPhase0SandboxReportRoundTripsStrictPassEvidence(t *testing.T) {
 	if !reflect.DeepEqual(decoded, evidence) {
 		t.Fatalf("decoded evidence = %#v, want %#v", decoded, evidence)
 	}
+	invalidAttempts := evidence
+	invalidAttempts.Turns.ReadOnly.Attempts = 0
+	if _, err := RenderPhase0SandboxReport(invalidAttempts); err == nil {
+		t.Fatal("zero model-turn attempts were accepted")
+	}
 	if _, err := ParsePhase0SandboxReport([]byte(report + "\n" + phase0ReportEvidenceStart)); err == nil {
 		t.Fatal("duplicate evidence block was accepted")
 	}
 	modifiedNarrative := strings.Replace(
 		report,
-		"A read-only model turn observed the fixture without mutation.",
-		"A model turn observed the fixture without mutation.",
+		"The read-only model task observed the fixture without mutation after 1 attempt(s).",
+		"A model task observed the fixture without mutation after 1 attempt(s).",
 		1,
 	)
 	if _, err := ParsePhase0SandboxReport([]byte(modifiedNarrative)); err == nil {
@@ -100,43 +105,45 @@ func validPhase0SandboxEvidenceForTest(commit string) Phase0SandboxEvidence {
 			ImageID:       "sha256:" + strings.Repeat("c", 64),
 		},
 		Boundary: Phase0BoundaryEvidence{
-			ContainerUser:             "65532:65532",
-			ReadOnlyRootFilesystem:    true,
-			WorkspaceVolumeWritable:   true,
-			WorkspaceDiskLimitBytes:   phase0WorkspaceDiskBytes,
-			RootWriteDenied:           true,
-			HostCanaryVisible:         false,
-			InternalNetwork:           true,
-			FakeHostEndpointBlocked:   true,
-			ControlTransport:          execServerControlTransport,
-			HostControlAddress:        "127.0.0.1:45000",
-			ContainerStdioAttached:    true,
-			HostPortPublicationAbsent: true,
-			MountDestinations:         []string{"/tmp", phase0WorkspaceRoot},
-			ContainerEnvironmentNames: []string{"HOME", "PATH"},
-			ToolEnvironmentNames:      []string{"CODEX_PERMISSION_PROFILE", "HOME"},
-			DroppedCapabilities:       []string{"ALL"},
-			NoNewPrivileges:           true,
-			Privileged:                false,
-			PIDsLimit:                 phase0ContainerPIDs,
-			MemoryLimitBytes:          phase0ContainerMemory,
-			NanoCPUs:                  phase0ContainerNanoCPUs,
+			ContainerUser:                  "65532:65532",
+			ReadOnlyRootFilesystem:         true,
+			WorkspaceVolumeWritable:        true,
+			WorkspaceDiskLimitBytes:        phase0WorkspaceDiskBytes,
+			RootWriteDenied:                true,
+			HostCanaryVisible:              false,
+			InternalNetwork:                true,
+			FakeHostEndpointBlocked:        true,
+			ControlTransport:               execServerControlTransport,
+			HostControlAddress:             "127.0.0.1:45000",
+			ContainerStdioAttached:         true,
+			HostPortPublicationAbsent:      true,
+			MountDestinations:              []string{"/tmp", phase0WorkspaceRoot},
+			ContainerEnvironmentNames:      []string{"HOME", "PATH"},
+			BoundaryHelperEnvironmentNames: []string{"HOME", "PATH"},
+			ShellEnvironmentPolicyInherit:  phase0ShellEnvironmentInherit,
+			ShellEnvironmentPolicySetNames: phase0ShellEnvironmentSetNames(),
+			DroppedCapabilities:            []string{"ALL"},
+			NoNewPrivileges:                true,
+			Privileged:                     false,
+			PIDsLimit:                      phase0ContainerPIDs,
+			MemoryLimitBytes:               phase0ContainerMemory,
+			NanoCPUs:                       phase0ContainerNanoCPUs,
 		},
 		Turns: Phase0TurnEvidence{
 			ReadOnly: Phase0ModelTurnEvidence{
 				Outcome:              "completed",
-				FixtureTokenObserved: true,
+				Attempts:             1,
+				FixtureTokenMatched:  true,
 				WorkspaceUnchanged:   true,
 				OnlyExpectedMutation: true,
-				ActivityCWDs:         []string{phase0WorkspaceRoot},
 			},
 			WorkspaceWrite: Phase0ModelTurnEvidence{
 				Outcome:              "completed",
-				FixtureTokenObserved: true,
+				Attempts:             1,
+				FixtureTokenMatched:  true,
 				WorkspaceUnchanged:   false,
 				OnlyExpectedMutation: true,
 				OutputSHA256:         strings.Repeat("d", 64),
-				ActivityCWDs:         []string{phase0WorkspaceRoot},
 			},
 		},
 		Teardown: Phase0TeardownEvidence{

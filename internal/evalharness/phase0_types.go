@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	phase0SchemaVersion       = 2
+	phase0SchemaVersion       = 4
 	phase0OutcomePass         = "PASS"
 	phase0EnvironmentID       = "remote"
 	phase0WorkspaceRoot       = "/workspace"
@@ -21,10 +21,11 @@ const (
 	phase0CodexBundleTarget   = "aarch64-unknown-linux-musl"
 	phase0CodexBundleVariant  = "codex"
 	phase0CodexLayoutVersion  = 1
-	phase0ReasoningEffort     = "low"
-	phase0DefaultModel        = "gpt-5.4-mini"
+	phase0ReasoningEffort     = "high"
+	phase0DefaultModel        = "gpt-5.6-sol"
 	phase0FakeEndpointHost    = "host.docker.internal"
 	phase0ImagePlatform       = "linux/arm64"
+	phase0MaximumTurnAttempts = 2
 	phase0ContainerMemory     = 1024 * 1024 * 1024
 	phase0ContainerNanoCPUs   = 2_000_000_000
 	phase0ContainerPIDs       = 128
@@ -96,27 +97,29 @@ type Phase0CodexEvidence struct {
 }
 
 type Phase0BoundaryEvidence struct {
-	ContainerUser             string   `json:"containerUser"`
-	ReadOnlyRootFilesystem    bool     `json:"readOnlyRootFilesystem"`
-	WorkspaceVolumeWritable   bool     `json:"workspaceVolumeWritable"`
-	WorkspaceDiskLimitBytes   int64    `json:"workspaceDiskLimitBytes"`
-	RootWriteDenied           bool     `json:"rootWriteDenied"`
-	HostCanaryVisible         bool     `json:"hostCanaryVisible"`
-	InternalNetwork           bool     `json:"internalNetwork"`
-	FakeHostEndpointBlocked   bool     `json:"fakeHostEndpointBlocked"`
-	ControlTransport          string   `json:"controlTransport"`
-	HostControlAddress        string   `json:"hostControlAddress"`
-	ContainerStdioAttached    bool     `json:"containerStdioAttached"`
-	HostPortPublicationAbsent bool     `json:"hostPortPublicationAbsent"`
-	MountDestinations         []string `json:"mountDestinations"`
-	ContainerEnvironmentNames []string `json:"containerEnvironmentNames"`
-	ToolEnvironmentNames      []string `json:"toolEnvironmentNames"`
-	DroppedCapabilities       []string `json:"droppedCapabilities"`
-	NoNewPrivileges           bool     `json:"noNewPrivileges"`
-	Privileged                bool     `json:"privileged"`
-	PIDsLimit                 int64    `json:"pidsLimit"`
-	MemoryLimitBytes          int64    `json:"memoryLimitBytes"`
-	NanoCPUs                  int64    `json:"nanoCpus"`
+	ContainerUser                  string   `json:"containerUser"`
+	ReadOnlyRootFilesystem         bool     `json:"readOnlyRootFilesystem"`
+	WorkspaceVolumeWritable        bool     `json:"workspaceVolumeWritable"`
+	WorkspaceDiskLimitBytes        int64    `json:"workspaceDiskLimitBytes"`
+	RootWriteDenied                bool     `json:"rootWriteDenied"`
+	HostCanaryVisible              bool     `json:"hostCanaryVisible"`
+	InternalNetwork                bool     `json:"internalNetwork"`
+	FakeHostEndpointBlocked        bool     `json:"fakeHostEndpointBlocked"`
+	ControlTransport               string   `json:"controlTransport"`
+	HostControlAddress             string   `json:"hostControlAddress"`
+	ContainerStdioAttached         bool     `json:"containerStdioAttached"`
+	HostPortPublicationAbsent      bool     `json:"hostPortPublicationAbsent"`
+	MountDestinations              []string `json:"mountDestinations"`
+	ContainerEnvironmentNames      []string `json:"containerEnvironmentNames"`
+	BoundaryHelperEnvironmentNames []string `json:"boundaryHelperEnvironmentNames"`
+	ShellEnvironmentPolicyInherit  string   `json:"shellEnvironmentPolicyInherit"`
+	ShellEnvironmentPolicySetNames []string `json:"shellEnvironmentPolicySetNames"`
+	DroppedCapabilities            []string `json:"droppedCapabilities"`
+	NoNewPrivileges                bool     `json:"noNewPrivileges"`
+	Privileged                     bool     `json:"privileged"`
+	PIDsLimit                      int64    `json:"pidsLimit"`
+	MemoryLimitBytes               int64    `json:"memoryLimitBytes"`
+	NanoCPUs                       int64    `json:"nanoCpus"`
 }
 
 type Phase0TurnEvidence struct {
@@ -125,12 +128,12 @@ type Phase0TurnEvidence struct {
 }
 
 type Phase0ModelTurnEvidence struct {
-	Outcome              string   `json:"outcome"`
-	FixtureTokenObserved bool     `json:"fixtureTokenObserved"`
-	WorkspaceUnchanged   bool     `json:"workspaceUnchanged"`
-	OnlyExpectedMutation bool     `json:"onlyExpectedMutation"`
-	OutputSHA256         string   `json:"outputSha256,omitempty"`
-	ActivityCWDs         []string `json:"activityCwds"`
+	Outcome              string `json:"outcome"`
+	Attempts             int    `json:"attempts"`
+	FixtureTokenMatched  bool   `json:"fixtureTokenMatched"`
+	WorkspaceUnchanged   bool   `json:"workspaceUnchanged"`
+	OnlyExpectedMutation bool   `json:"onlyExpectedMutation"`
+	OutputSHA256         string `json:"outputSha256,omitempty"`
 }
 
 type Phase0TeardownEvidence struct {

@@ -155,6 +155,11 @@ func populatePhase0BuildContext(
 			destination: filepath.Join(prepared.contextDir, "codex"),
 		},
 		{
+			name:        "bwrap",
+			source:      filepath.Join(config.codexLinuxBundle, prepared.manifest.ResourcesDir, "bwrap"),
+			destination: filepath.Join(prepared.contextDir, "bwrap"),
+		},
+		{
 			name:        "rg",
 			source:      filepath.Join(config.codexLinuxBundle, prepared.manifest.PathDir, "rg"),
 			destination: filepath.Join(prepared.contextDir, "rg"),
