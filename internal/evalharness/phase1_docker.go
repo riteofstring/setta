@@ -633,30 +633,36 @@ func decodePhase1BackendReady(value string) (settaruntime.ReadyEvent, bool, erro
 	return *found, true, nil
 }
 
-func (resources *phase1DockerResources) stopController(ctx context.Context) error {
+func (resources *phase1DockerResources) stopController() error {
 	if resources == nil || resources.controllerStopped {
 		return nil
 	}
 	var stopErrors []error
-	if err := resources.stopContainer(ctx, resources.backendContainer, "backend"); err != nil {
+	if err := runPhase1Cleanup(func(ctx context.Context) error {
+		return resources.stopContainer(ctx, resources.backendContainer, "backend")
+	}); err != nil {
 		stopErrors = append(stopErrors, err)
 	}
 	if resources.provider != nil {
 		if resources.controlRelay != nil {
 			resources.controlRelay.beginShutdown()
 		}
-		if err := resources.provider.close(ctx); err != nil {
+		if err := runPhase1Cleanup(resources.provider.close); err != nil {
 			stopErrors = append(stopErrors, err)
 		} else {
 			resources.provider = nil
 		}
 	}
 	if resources.controlRelay != nil {
-		if err := resources.controlRelay.close(ctx); err != nil {
+		if err := runPhase1Cleanup(resources.controlRelay.close); err != nil {
 			stopErrors = append(stopErrors, fmt.Errorf("stop Phase 1 Agent control relay: %w", err))
+		} else {
+			resources.controlRelay = nil
 		}
 	}
-	if err := resources.stopContainer(ctx, resources.agentContainer, "Agent"); err != nil {
+	if err := runPhase1Cleanup(func(ctx context.Context) error {
+		return resources.stopContainer(ctx, resources.agentContainer, "Agent")
+	}); err != nil {
 		stopErrors = append(stopErrors, err)
 	}
 	stopErr := errors.Join(stopErrors...)
@@ -867,77 +873,105 @@ func (resources *phase1DockerResources) removeContainer(
 	return nil
 }
 
-func (resources *phase1DockerResources) cleanupScenario(ctx context.Context) error {
+func (resources *phase1DockerResources) cleanupScenario() error {
 	if resources == nil {
 		return nil
 	}
 	return errors.Join(
-		resources.stopController(ctx),
-		resources.cleanupContainers(ctx),
-		resources.cleanupVolumes(ctx),
-		resources.cleanupNetworks(ctx),
+		resources.stopController(),
+		resources.cleanupContainers(),
+		resources.cleanupVolumes(),
+		resources.cleanupNetworks(),
 		resources.fixture.cleanup(),
 	)
 }
 
-func (resources *phase1DockerResources) cleanupContainers(ctx context.Context) error {
+func (resources *phase1DockerResources) cleanupContainers() error {
 	var cleanupErrors []error
 	for container := range resources.containers {
-		if err := resources.removeContainer(ctx, container); err != nil {
+		if err := resources.removeDockerResourceForCleanup(
+			"container",
+			container,
+			[]string{"container", "rm", "--force", container},
+			resources.client.containerExists,
+		); err != nil {
 			cleanupErrors = append(cleanupErrors, err)
+			continue
 		}
+		delete(resources.containers, container)
 	}
 	return errors.Join(cleanupErrors...)
 }
 
-func (resources *phase1DockerResources) cleanupVolumes(ctx context.Context) error {
+func (resources *phase1DockerResources) cleanupVolumes() error {
 	var cleanupErrors []error
 	for volume, created := range resources.volumes {
 		if !created {
 			continue
 		}
-		if _, err := resources.client.run(ctx, "volume", "rm", volume); err != nil {
-			exists, inspectErr := resources.client.volumeExists(ctx, volume)
-			if inspectErr != nil {
-				cleanupErrors = append(cleanupErrors, errors.Join(
-					fmt.Errorf("remove Phase 1 volume %s: %w", volume, err),
-					fmt.Errorf("confirm Phase 1 volume removal %s: %w", volume, inspectErr),
-				))
-				continue
-			}
-			if exists {
-				cleanupErrors = append(cleanupErrors, fmt.Errorf("remove Phase 1 volume %s: %w", volume, err))
-				continue
-			}
+		if err := resources.removeDockerResourceForCleanup(
+			"volume",
+			volume,
+			[]string{"volume", "rm", volume},
+			resources.client.volumeExists,
+		); err != nil {
+			cleanupErrors = append(cleanupErrors, err)
+			continue
 		}
 		resources.volumes[volume] = false
 	}
 	return errors.Join(cleanupErrors...)
 }
 
-func (resources *phase1DockerResources) cleanupNetworks(ctx context.Context) error {
+func (resources *phase1DockerResources) cleanupNetworks() error {
 	var cleanupErrors []error
 	for network, created := range resources.networks {
 		if !created {
 			continue
 		}
-		if _, err := resources.client.run(ctx, "network", "rm", network); err != nil {
-			exists, inspectErr := resources.client.networkExists(ctx, network)
-			if inspectErr != nil {
-				cleanupErrors = append(cleanupErrors, errors.Join(
-					fmt.Errorf("remove Phase 1 network %s: %w", network, err),
-					fmt.Errorf("confirm Phase 1 network removal %s: %w", network, inspectErr),
-				))
-				continue
-			}
-			if exists {
-				cleanupErrors = append(cleanupErrors, fmt.Errorf("remove Phase 1 network %s: %w", network, err))
-				continue
-			}
+		if err := resources.removeDockerResourceForCleanup(
+			"network",
+			network,
+			[]string{"network", "rm", network},
+			resources.client.networkExists,
+		); err != nil {
+			cleanupErrors = append(cleanupErrors, err)
+			continue
 		}
 		resources.networks[network] = false
 	}
 	return errors.Join(cleanupErrors...)
+}
+
+func (resources *phase1DockerResources) removeDockerResourceForCleanup(
+	label string,
+	name string,
+	removeArgs []string,
+	exists dockerResourceExistenceCheck,
+) error {
+	removeErr := runPhase1Cleanup(func(ctx context.Context) error {
+		_, err := resources.client.run(ctx, removeArgs...)
+		return err
+	})
+	if removeErr == nil {
+		return nil
+	}
+	var remaining bool
+	inspectErr := runPhase1Cleanup(func(ctx context.Context) error {
+		var err error
+		remaining, err = exists(ctx, name)
+		return err
+	})
+	if inspectErr != nil {
+		return errors.Join(
+			fmt.Errorf("remove Phase 1 %s %s: %w", label, name, removeErr),
+			fmt.Errorf("confirm Phase 1 %s removal %s: %w", label, name, inspectErr),
+		)
+	}
+	if remaining {
+		return fmt.Errorf("remove Phase 1 %s %s: %w", label, name, removeErr)
+	}
+	return nil
 }
 
 func phase1Tmpfs() string {

@@ -1,17 +1,18 @@
 # Live AI Evaluation Harness Plan
 
 **Date:** 2026-07-31
-**Status:** The reopened Phase 0 control-transport repair is implemented. Phase
-0 and Phase 1 now share a host-owned, capability-authenticated loopback
-WebSocket relay to Docker-managed stdin/stdout and Codex's supported
+**Status:** The reopened Phase 0 repository repair is implemented. Phase 0 and
+Phase 1 share a host-owned, capability-authenticated loopback WebSocket relay
+to Docker-managed stdin/stdout and Codex's supported
 `exec-server --listen stdio` transport; the Agent publishes no host port and
-retains its internal network. The first repaired live probe passed the original
-container-start and control-port failure, then exposed two repository issues:
-its tool-environment preflight calls a local-only Codex API while the app-server
-is remote-only, and teardown reuses an unavailable run context. Replace those
-assumptions and rerun the benign probe before claiming the Phase 0 exit or final
-audit. Phase 2 and Phase 3 repository implementation and their prior audits
-remain complete.
+retains its internal network. Phase 0 obtains tool-environment evidence from a
+live completed remote command item instead of local-only `command/exec` or
+persisted thread history, waits for typed remote environment information before
+starting a turn, requires a strict structured read result, and explicitly stops
+the host attach process during relay teardown. Both lifecycles give each
+teardown stage a fresh bounded context. Rerun the benign probe from the clean
+committed repair before claiming the Phase 0 exit or final audit. Phase 2 and
+Phase 3 repository implementation and their prior audits remain complete.
 
 ## Outcome
 
@@ -757,10 +758,11 @@ bounded WebSocket connection, and attaches only to the fixed per-run Agent
 container through Docker-managed stdin/stdout. Both Agent images now run
 Codex's supported `exec-server --listen stdio` transport with Docker-managed
 stdin kept open. Docker inspection rejects an exposed port, host binding, or
-network port mapping, and Phase 0 evidence schema 2 records the actual
+network port mapping, and Phase 0 evidence schema 3 records the actual
 transport, stdio attachment, absent publication, and relay teardown. Phase 1
 requires the committed relay source digest from the Phase 0 proof before it can
-build its Agent image.
+build its Agent image. Schema 3 also proves the exact bundled bubblewrap input
+used by Codex's Linux filesystem sandbox.
 
 The repaired transport preserves all of these invariants:
 
@@ -822,11 +824,201 @@ The same failed run also reported context-deadline errors while stopping the
 relay and removing the disposable container, volume, network, and image tag.
 The monitor removed those exact Phase 0 resources manually and confirmed no
 eval container, volume, network, image tag, attach process, or app-server
-process remained. Normal probe teardown must own a fresh, bounded cleanup
-context so primary failure, timeout, cancellation, or interruption cannot skip
-cleanup or obscure the primary diagnostic. Fix both issues as one Phase 0
-repair, apply the same relay lifecycle correction to Phase 1 where relevant,
-then rerun the authorized benign probe from a clean commit.
+process remained.
+
+The repository repair removes both failed assumptions together. The read-only
+remote model turn runs the exact sandbox environment helper as a standalone
+command. The probe captures its lossless live `item/completed` notification
+through the existing app-server manager notification boundary and accepts the
+helper evidence only when its provider thread and turn match the completed
+Agent turn and the typed command, working directory, status, exit code, and
+schema-valid bounded output prove it ran inside the selected remote
+environment. The in-memory collector retains only the exact helper command and
+does not add provider output to durable conversation state. It never configures
+a host-local execution environment, reads persisted thread history, or treats
+a host command as remote evidence. Phase 0 app-server, relay, Docker-resource
+removal, and removal confirmation each own a fresh bounded cleanup context.
+Phase 1 applies the same rule independently to backend, provider, relay, Agent,
+container, volume, and network teardown, so an expired stage cannot prevent
+later cleanup or replace the primary diagnostic. The authorized benign probe
+from the clean committed repair is the remaining Phase 0 action.
+
+**Remote-turn probe evidence recorded 2026-08-01:** the next clean-revision
+probe again passed startup and reached a completed read-only model turn. It then
+reported that the final response was not the exact fixture token and that the
+relay exhausted its independent cleanup context while waiting for the
+host-owned `docker attach` process. The later cleanup stages still removed the
+container, volume, network, and image tag. An immediate post-run inspection
+confirmed that no Phase 0 Docker resource, attach process, or app-server process
+remained.
+
+The follow-up correction makes the read-only turn use a strict one-field output
+schema and validates that field against the container-only random fixture. It
+also closes relay I/O and explicitly terminates the host-owned Docker attach
+client before waiting for relay goroutines; `--sig-proxy=false` continues to
+prevent that host process termination from signaling the Agent container. The
+remote environment evidence is inspected before the structured result, so a
+future failure identifies the actual failing contract instead of hiding it
+behind the final-text assertion. Rerun only the same benign probe from the
+amended clean repair.
+
+Required formatting and changed-file quality ran for this repair. File length,
+Go vet, the affected package tests, and dead-code analysis passed. The first
+complexity pass isolated the new remote-evidence decoder and extractor; those
+functions were decomposed, the focused complexity rerun passed, and the
+directly affected remote-environment selector passed after the refactor. After
+the live failure, focused relay-termination, structured-output, and remote-turn
+selectors plus vet, dead-code analysis, and source and test complexity checks
+passed. The repository supply-chain gate was not duplicated because it passed
+for the immediately preceding sandbox repair and this batch changes no
+dependency or lockfile input.
+
+**Ephemeral-history probe evidence recorded 2026-08-01:** the amended clean
+repair passed startup, ran the exact helper and fixture read, and completed the
+read-only model turn. The relay teardown deadline did not recur. Evidence
+inspection then failed with:
+
+```text
+thread/read failed: ephemeral threads do not support includeTurns
+```
+
+Codex source at the pinned revision rejects both `thread/read` with turns and
+`thread/turns/list` for ephemeral threads. Persisting a probe thread merely to
+recover command evidence would weaken the intended lifecycle and is
+unnecessary: the supported lossless `item/completed` notification already
+carries the typed command action, aggregate output, source, working directory,
+status, and exit code while the turn is live. The follow-up correction consumes
+that notification through the existing manager handler, binds it to the
+completed Agent result's provider thread and turn, and keeps the evidence
+ephemeral. Formatting, the focused completed-item and environment-evidence
+selectors, and the changed-file quality gate passed. The preceding green
+supply-chain result remains applicable because no dependency or lockfile input
+changed. Rerun only the same benign probe from the amended clean repair.
+
+**Live-item probe evidence recorded 2026-08-01:** the next clean-revision probe
+again completed the read-only turn, but the initial live collector discarded
+every completed command whose action did not already match the assumed exact
+`unknown` representation. It consequently failed without enough evidence to
+distinguish a provider representation difference from model noncompliance:
+
+```text
+Phase 0 remote turn did not run the exact environment helper command
+```
+
+The follow-up keeps at most 16 completed command items and 64 KiB of their
+evidence only for the lifetime of this disposable runtime, still selects
+evidence by the exact provider thread and turn, and reports only bounded
+command/action identity on a mismatch, never aggregate output. This preserves
+strict acceptance while making the next result conclusive about command-item
+delivery. Formatting, the focused collector and environment-evidence selectors,
+and the changed-file quality gate passed; no dependency input changed, so the
+preceding supply-chain result still applies.
+
+**Environment-readiness probe evidence recorded 2026-08-01:** the bounded
+diagnostic run completed with no command items at all. The same safe probe with
+the production Agent model override `gpt-5.6-sol` also produced no command
+items, ruling out both the command-action representation and the default model
+as the cause. Pinned Codex source shows that deferred environment snapshots do
+not expose shell tools until the selected environment resolves; the probe had
+started each turn immediately after `thread/start` without first awaiting that
+readiness.
+
+The repository correction registers the supported experimental
+`environment/info` method from the pinned Codex contract, regenerates the Go
+protocol surface, and makes one 30-second-bounded typed call before either
+turn. That call waits for the selected `remote` exec-server to initialize and
+requires its reported shell to be `zsh` at `/bin/zsh` and its canonical cwd to
+be `file:///workspace`. Both Phase 0 and Phase 1 strict app-server launches also
+set `features.deferred_executor=false`, so an inherited developer feature flag
+cannot create a tool-less first turn after the readiness proof. A disconnect
+during either Phase 0 turn is now an immediate probe failure. This is one
+blocking readiness request, not polling, and it cannot fall back to a
+host-local environment.
+
+The pinned protocol surface was regenerated after adding its owner-defined
+method registration and experimental schema snapshots. Formatting, the focused
+environment-info decoder/readiness and completed-command selectors, and the
+changed-file shell, vet, package-test, and dead-code quality checks passed. No
+dependency or lockfile input changed, so the preceding green supply-chain gate
+was not duplicated.
+
+**Ready-environment probe evidence recorded 2026-08-01:** the clean-revision
+probe passed the new typed `environment/info` readiness request, proving that
+the remote exec-server was initialized with the expected shell and workspace,
+but the following model turn still emitted no command items. Pinned Codex
+source shows that an inherited `features.shell_tool=false` removes all shell
+tools even when an environment is ready; the strict launch had not pinned that
+stable feature.
+
+The follow-up closes this last host-configuration input in both Phase 0 and
+Phase 1. Their strict app-server arguments now explicitly enable
+`features.shell_tool` and `features.unified_exec` while keeping deferred
+execution, zsh-fork variants, and code mode disabled. This pins the ordinary
+remote command-item protocol instead of inheriting an experimental tool
+surface. The probe still accepts only the exact remote helper item; these
+settings expose the supported tool path but do not broaden the Agent's
+read-only or workspace-write sandbox, approval, environment, or network
+authority. If command delivery is still absent, its diagnostic now includes at
+most 256 bytes of final assistant output, never reasoning or command output, so
+the next benign run distinguishes tool absence from a model refusal without
+another blind probe. Formatting, the focused readiness/collector/output
+selectors, and the changed-file vet, package-test, and dead-code checks passed;
+the dependency inputs remain unchanged.
+
+**Ready-tool probe evidence recorded 2026-08-01:** with remote readiness and
+the ordinary shell features pinned, the then-default turn still made no tool
+call and returned the bounded structured response `{"fixtureToken":""}`. The
+probe was incorrectly using the product's tool-free Narrator baseline
+`gpt-5.4-mini`/low to prove Agent execution. Codex's model-owned shell type can
+also disable command tools independently of host feature flags, so this was not
+a valid Agent boundary proof.
+
+Phase 0 now owns the same exact release Agent baseline as the behavior it
+proves: `gpt-5.6-sol`/high. The command defaults its model flag to empty and
+lets the eval-harness owner resolve that baseline, removing the second
+hardcoded default. The catalog and thread-start checks still reject an
+unavailable model or effort, and no alternate model fallback or search is
+introduced.
+
+Formatting, the focused Agent-baseline/readiness/collector/output selectors,
+and the changed-file vet, two-package test, and dead-code checks passed. The
+model correction changes no dependency or lockfile input, so the preceding
+supply-chain result remains applicable.
+
+**Linux-sandbox-launch probe evidence recorded 2026-08-01:** the clean
+Agent-baseline probe passed the typed remote-environment readiness check. The
+Agent then attempted the fixture read but produced no completed command item
+and returned the bounded response:
+
+```text
+{"fixtureToken":"ERROR: unable to read /workspace/probe-input.txt because the sandbox launcher could not start"}
+```
+
+Pinned Codex source establishes that Linux read-only and workspace-write
+commands use bubblewrap by default. The launcher accepts either a suitable
+system `bwrap` or the official package's executable
+`codex-resources/bwrap`; it fails closed when neither is present. The exact
+official bundle contains that resource, but both eval image preparations had
+copied only Codex, `rg`, and `zsh`, leaving no bubblewrap executable in the
+Agent image. A benign disposable-container probe ran the exact packaged
+bubblewrap successfully under the eval boundary's non-root user, read-only
+root, dropped capabilities, `no-new-privileges`, internal network isolation,
+and resource limits. No permission or containment weakening is required.
+
+The shared correction copies the exact packaged `bwrap` into Codex's supported
+`/usr/local/bin/codex-resources/bwrap` location in both Phase 0 and Phase 1
+Agent images. Phase 0 hashes that executable into evidence schema 3, and Phase
+1 requires its input digest to match the committed proof before building. This
+replaces the incomplete proof contract directly; no schema-2 compatibility
+path remains. Rerun only the same benign Phase 0 probe from the amended clean
+repair.
+
+Required formatting, the focused strict-report round-trip and committed-gate
+selectors, and the changed-file file-length, vet, package-test, and dead-code
+quality checks passed. The exact packaged bubblewrap also passed the benign
+disposable-container namespace probe under the eval hardening flags. No
+dependency or lockfile input changed, so the preceding green supply-chain gate
+was not duplicated.
 
 The user's instruction to proceed with the implementation loop authorizes the
 same narrowly bounded benign Phase 0 probe already described by this plan. It
@@ -937,9 +1129,10 @@ also resolves the installed pnpm package, requires the exact version and
 checked-in bundle and license hashes, and copies only those validated inputs
 into networkless image builds. The lifecycle enforces the committed Phase 0
 gate before it validates those local runtime inputs or contacts Docker. The
-Phase 1 Codex, `rg`, `zsh`, current Phase 0 Dockerfile, and reproducibly built
-sandbox helper must match the committed Phase 0 proof digests and runtime
-metadata, so another caller cannot bypass or drift from the proved boundary.
+Phase 1 Codex, bundled `bwrap`, `rg`, `zsh`, current Phase 0 Dockerfile, and
+reproducibly built sandbox helper must match the committed Phase 0 proof
+digests and runtime metadata, so another caller cannot bypass or drift from the
+proved boundary.
 
 The AI-writable workspace is a 64 MiB named `tmpfs` volume. A locked-down
 holder container keeps that bounded volume mounted across seeding, Agent,

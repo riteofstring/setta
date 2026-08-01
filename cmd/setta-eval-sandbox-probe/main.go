@@ -24,7 +24,12 @@ func main() {
 		"",
 		"local aarch64-unknown-linux-musl Codex standalone bundle",
 	)
-	flag.StringVar(&config.Model, "model", "gpt-5.4-mini", "exact model for the two benign turns")
+	flag.StringVar(
+		&config.Model,
+		"model",
+		"",
+		"exact model for the two benign turns (defaults to the release Agent baseline)",
+	)
 	flag.StringVar(&config.DockerCommand, "docker", "docker", "Docker CLI path")
 	flag.StringVar(&config.CodexCommand, "codex", "codex", "host Codex CLI path")
 	flag.DurationVar(&timeout, "timeout", 10*time.Minute, "overall probe timeout")
