@@ -17,17 +17,30 @@ type Phase1HTTPObservation struct {
 	WorkspaceID         string
 	WorkstreamID        string
 	ConversationID      string
+	ObservedTurnID      string
 	TurnID              string
 	Roles               []EvaluatedRoleConfiguration
 	ResolvedInvocations []conversation.ResolvedInvocation
 	ExecutionOutcome    ScenarioExecutionOutcome
 	ScenarioDiagnostic  *ScenarioDiagnostic
 	transcript          *ScenarioTranscript
-	submittedAt         time.Time
-	directorReceivedAt  time.Time
-	directorReceipt     director.DirectorReceipt
-	directorEvent       *director.DirectorEvent
+	submissions         []scenarioSubmissionObservation
+	triggers            []evaluationTriggerCandidate
+	directorEvents      []director.DirectorEvent
+	finalSnapshotAt     time.Time
 	events              []EvaluationEvent
+}
+
+type scenarioSubmissionObservation struct {
+	stepIndex   int
+	submittedAt time.Time
+	receivedAt  time.Time
+	receipt     director.DirectorReceipt
+}
+
+type evaluationTriggerCandidate struct {
+	observation EvaluationTriggerObservation
+	observedAt  time.Time
 }
 
 // RunPhase1ScenarioOverHTTP drives one validated Phase 1 scenario through the
@@ -96,17 +109,13 @@ func runPhase1ScenarioOverHTTP(
 		return observation, err
 	}
 	defer directorEvents.Close()
-	observation, finished, err := observePhase1Workstream(
+	return orchestrateEvaluationScenario(
 		ctx,
 		client,
 		directorEvents,
 		scenario,
 		observation,
 	)
-	if err != nil || finished {
-		return observation, err
-	}
-	return observePhase1Turn(ctx, client, scenario, observation)
 }
 
 func preparePhase1Scenario(
@@ -138,118 +147,6 @@ func preparePhase1Scenario(
 	return observation, directorEvents, nil
 }
 
-func observePhase1Workstream(
-	ctx context.Context,
-	client *BackendClient,
-	directorEvents *EventStream[director.DirectorEvent],
-	scenario Scenario,
-	observation Phase1HTTPObservation,
-) (Phase1HTTPObservation, bool, error) {
-	observation.submittedAt = time.Now().UTC()
-	receipt, err := client.DispatchDirectorIntent(ctx, phase1SubmitIntent(scenario.Steps[0].Text))
-	observation.directorReceivedAt = time.Now().UTC()
-	if err != nil {
-		return observation, false, err
-	}
-	observation.directorReceipt = receipt
-	if receipt.Submit != nil {
-		observation.ResolvedInvocations = append(
-			observation.ResolvedInvocations,
-			receipt.Submit.ResolvedInvocations...,
-		)
-	}
-	workstreamID, behaviorCode, behaviorMessage := phase1ReceiptWorkstream(receipt)
-	if behaviorCode != "" {
-		failed, err := phase1FailureObservation(
-			observation,
-			ScenarioExecutionFailed,
-			behaviorCode,
-			behaviorMessage,
-		)
-		return failed, true, err
-	}
-	observation.WorkstreamID = workstreamID
-	workstream, workstreamEvent, err := awaitPhase1Workstream(ctx, directorEvents, workstreamID)
-	if err != nil {
-		return observation, false, err
-	}
-	observation.directorEvent = &workstreamEvent
-	if workstream.ResourceScope.Kind != director.WorkstreamResourceScopeFolder ||
-		workstream.ResourceScope.Folder == nil ||
-		workstream.ResourceScope.Folder.WorkspaceID != observation.WorkspaceID {
-		failed, err := phase1FailureObservation(
-			observation,
-			ScenarioExecutionFailed,
-			"director_routed_outside_fixture",
-			"Director did not bind the observed workstream to the opened fixture workspace",
-		)
-		return failed, true, err
-	}
-	observation.ConversationID = workstream.ConversationID
-	return observation, false, nil
-}
-
-func observePhase1Turn(
-	ctx context.Context,
-	client *BackendClient,
-	scenario Scenario,
-	observation Phase1HTTPObservation,
-) (Phase1HTTPObservation, error) {
-	conversationSnapshot, err := client.ReadConversationSnapshot(
-		ctx,
-		observation.WorkspaceID,
-		observation.ConversationID,
-	)
-	if err != nil {
-		return observation, err
-	}
-	conversationEvents, err := client.SubscribeConversationEvents(
-		ctx,
-		observation.WorkspaceID,
-		observation.ConversationID,
-		conversationSnapshot.EventCursor,
-	)
-	if err != nil {
-		return observation, err
-	}
-	defer conversationEvents.Close()
-	turn, behaviorCode, behaviorMessage := phase1ObservedTurn(conversationSnapshot)
-	if behaviorCode != "" {
-		return phase1FailureObservation(
-			observation,
-			ScenarioExecutionFailed,
-			behaviorCode,
-			behaviorMessage,
-		)
-	}
-	observation.TurnID = turn.ID
-	if !phase1TurnTerminal(turn.Status) ||
-		(turn.Status == conversation.TurnStatusCompleted && !phase1NarrationSettled(conversationSnapshot, turn.ID)) {
-		turn, err = awaitPhase1TerminalTurnAndNarration(ctx, conversationEvents, conversationSnapshot, turn)
-		if err != nil {
-			return observation, err
-		}
-	}
-	finalSnapshot, err := client.ReadConversationSnapshot(
-		ctx,
-		observation.WorkspaceID,
-		observation.ConversationID,
-	)
-	if err != nil {
-		return observation, err
-	}
-	observation, err = collectPhase2ConversationEvidence(scenario, observation, finalSnapshot)
-	if err != nil {
-		return observation, err
-	}
-	invocations, err := phase1SnapshotInvocations(finalSnapshot)
-	if err != nil {
-		return observation, err
-	}
-	observation.ResolvedInvocations = append(observation.ResolvedInvocations, invocations...)
-	return phase1TerminalObservation(observation, turn)
-}
-
 func collectPhase2ConversationEvidence(
 	scenario Scenario,
 	observation Phase1HTTPObservation,
@@ -258,21 +155,15 @@ func collectPhase2ConversationEvidence(
 	if err := validateCompletePhase2Snapshot(snapshot); err != nil {
 		return observation, err
 	}
-	transcript, err := buildScenarioTranscript(
-		scenario,
-		observation.submittedAt,
-		observation.directorReceivedAt,
-		observation.directorReceipt,
-		snapshot,
-	)
+	events, err := buildEvaluationEvents(scenario, observation, snapshot)
 	if err != nil {
-		return observation, fmt.Errorf("build Phase 2 user-visible transcript: %w", err)
+		return observation, fmt.Errorf("build evaluation event log: %w", err)
+	}
+	transcript, err := buildScenarioTranscript(scenario, events)
+	if err != nil {
+		return observation, fmt.Errorf("build user-visible transcript: %w", err)
 	}
 	observation.transcript = &transcript
-	events, err := buildPhase1EvaluationEvents(scenario, observation, snapshot)
-	if err != nil {
-		return observation, fmt.Errorf("build Phase 2 event log: %w", err)
-	}
 	observation.events = events
 	return observation, nil
 }
@@ -292,11 +183,7 @@ func validateCompletePhase2Snapshot(snapshot conversation.ConversationSnapshot) 
 
 func validatePhase1HTTPScenario(scenario Scenario) error {
 	if err := scenario.Validate(); err != nil {
-		return fmt.Errorf("validate Phase 1 HTTP scenario: %w", err)
-	}
-	if scenario.ID != ScenarioVerifierStraightforward || len(scenario.Steps) != 1 ||
-		scenario.Steps[0].Kind != ScenarioStepSubmit {
-		return errors.New("Phase 1 HTTP runner accepts only the one-step straightforward-task scenario")
+		return fmt.Errorf("validate evaluation HTTP scenario: %w", err)
 	}
 	return nil
 }
@@ -393,49 +280,6 @@ func awaitPhase1Workstream(
 	}
 }
 
-func phase1ObservedTurn(
-	snapshot conversation.ConversationSnapshot,
-) (conversation.ConversationTurn, string, string) {
-	if len(snapshot.Turns.Turns) == 0 {
-		return conversation.ConversationTurn{},
-			"director_did_not_start_agent_turn",
-			"Director created or selected fixture work without starting an Agent turn"
-	}
-	if len(snapshot.Turns.Turns) != 1 || snapshot.Turns.HasEarlier {
-		return conversation.ConversationTurn{},
-			"director_started_multiple_agent_turns",
-			"Director delivered the one-step fixture request more than once"
-	}
-	return snapshot.Turns.Turns[0], "", ""
-}
-
-func awaitPhase1TerminalTurnAndNarration(
-	ctx context.Context,
-	events *EventStream[conversation.ConversationEvent],
-	snapshot conversation.ConversationSnapshot,
-	observed conversation.ConversationTurn,
-) (conversation.ConversationTurn, error) {
-	reader := newEventStreamReader("conversation", events)
-	settlement := phase1NarrationSettlementFromSnapshot(snapshot, observed.ID)
-	for {
-		if phase1TurnTerminal(observed.Status) &&
-			(observed.Status != conversation.TurnStatusCompleted || settlement.settled()) {
-			return observed, nil
-		}
-		event, err := reader.Next(ctx)
-		if err != nil {
-			return conversation.ConversationTurn{}, err
-		}
-		if event.Type() == conversation.ConversationEventTypeResyncRequired {
-			return conversation.ConversationTurn{}, errors.New("conversation event stream required a snapshot resync")
-		}
-		if turn, ok := phase1TurnUpdatedPayload(event.Payload); ok && turn.ID == observed.ID {
-			observed = turn
-		}
-		settlement.observe(event.Payload, observed.ID)
-	}
-}
-
 type phase1NarrationSettlement struct {
 	terminalSequence int
 	finalSummaryEnd  int
@@ -459,26 +303,6 @@ func phase1NarrationSettlementFromSnapshot(
 
 func phase1NarrationSettled(snapshot conversation.ConversationSnapshot, turnID string) bool {
 	return phase1NarrationSettlementFromSnapshot(snapshot, turnID).settled()
-}
-
-func (settlement *phase1NarrationSettlement) observe(
-	payload conversation.ConversationEventPayload,
-	turnID string,
-) {
-	switch value := payload.(type) {
-	case conversation.ConversationTrajectoryAppendedEventPayload:
-		settlement.observeTrajectory(value.Event, turnID)
-	case *conversation.ConversationTrajectoryAppendedEventPayload:
-		settlement.observeTrajectory(value.Event, turnID)
-	case conversation.ConversationNarrationCreatedEventPayload:
-		settlement.observeNarration(value.Event, turnID)
-	case *conversation.ConversationNarrationCreatedEventPayload:
-		settlement.observeNarration(value.Event, turnID)
-	case conversation.ConversationNarratorStateUpdatedEventPayload:
-		settlement.observeNarratorState(value.State)
-	case *conversation.ConversationNarratorStateUpdatedEventPayload:
-		settlement.observeNarratorState(value.State)
-	}
 }
 
 func (settlement *phase1NarrationSettlement) observeTrajectory(
@@ -558,19 +382,6 @@ func phase1SnapshotHasEarlierInvocations(snapshot conversation.ConversationSnaps
 	return snapshot.Turns.HasEarlier ||
 		snapshot.Narration.HasEarlier ||
 		snapshot.SideEvents.HasEarlier
-}
-
-func phase1TurnUpdatedPayload(
-	payload conversation.ConversationEventPayload,
-) (conversation.ConversationTurn, bool) {
-	switch value := payload.(type) {
-	case conversation.ConversationTurnUpdatedEventPayload:
-		return value.Turn, true
-	case *conversation.ConversationTurnUpdatedEventPayload:
-		return value.Turn, true
-	default:
-		return conversation.ConversationTurn{}, false
-	}
 }
 
 func phase1TurnTerminal(status conversation.TurnStatus) bool {

@@ -11,10 +11,11 @@ its coherent phase audit are complete, including exact token evidence, the
 public transcript, the fixed fresh judge, the complete atomic artifact set, and
 cross-artifact evidence reconstruction. Phase 1 and Phase 2 live exit evidence
 remains gated by Phase 0 and the later user-authorized verification ladder.
-Phase 3's complete five-scenario benchmark contract and hidden-verifier layer
-are implemented. Its multi-turn event orchestration, typed control evidence
-and reporting, candidate configuration, and failed-scenario rerun policy are
-the earliest incomplete repository-actionable work.
+Phase 3's complete five-scenario benchmark contract, hidden-verifier layer,
+multi-turn event orchestration, and typed control evidence and reporting are
+implemented. All-or-selected invocation, candidate configuration, and the
+failed-scenario rerun policy are the earliest incomplete repository-actionable
+work.
 
 ## Outcome
 
@@ -197,10 +198,10 @@ scripts/run_setta_evals.sh
 
 A scenario contains only typed inputs and expectations. It cannot contain an
 arbitrary JSONPath predicate, a fixed sleep, or a large executable command
-string. A small closed trigger catalog maps directly to existing events, such
-as `director_turn_completed`, `agent_turn_running`,
-`first_workspace_mutation`, `queue_nonempty`, and `run_terminal`. Adding a
-trigger requires adding a typed runner implementation and validation.
+string. A small closed trigger catalog maps directly to existing events:
+`director_turn_completed`, `agent_turn_running`, `first_workspace_mutation`,
+and `queue_nonempty`. Adding a trigger requires adding a typed runner
+implementation and validation.
 
 For example:
 
@@ -213,20 +214,23 @@ For example:
   "steps": [
     {
       "kind": "submit",
-      "text": "Add a GET /health endpoint returning {\"ok\": true}."
+      "text": "Add a GET /health endpoint returning {\"ok\": true}, add automated coverage, and document it in README.md."
     },
     {
       "kind": "submit_when",
       "trigger": "first_workspace_mutation",
-      "text": "Change of plan: use /status instead and include the package version. Do not modify README.md."
+      "text": "Change of plan: use GET /status instead, include the package version in the JSON response, and do not modify README.md."
     }
   ],
   "expect": {
     "terminalState": "completed",
     "clarification": "forbidden",
-    "latestInstructionWins": true
+    "controlAssertions": [
+      "follow_up_routed_through_director",
+      "latest_instruction_wins"
+    ]
   },
-  "verifier": "status-endpoint",
+  "verifier": "mid-run-steering",
   "budget": {
     "hardTotalTokens": 50000
   },
@@ -800,10 +804,11 @@ The Phase 1 flow requires a pristine disposable Director profile, opens the
 fixture, captures the effective production role configuration, subscribes from
 snapshot cursors before dispatch, submits only through the Director, follows
 the exact workstream, conversation, and turn identities produced by durable
-state, and waits for a typed terminal turn. Director failures to start exactly
-one Agent turn or to route it into the fixture are classified as ability
-failures; HTTP, contract, cursor, and stream failures remain infrastructure
-failures. Subscriptions close and join their readers on every return path.
+state, and waits for a typed terminal turn. Malformed Agent turns and routing
+outside the fixture remain ability failures; a no-work stall when the scenario
+forbids clarification is now a user-control failure. HTTP, contract, cursor,
+and stream failures remain infrastructure failures. Subscriptions close and
+join their readers on every return path.
 
 The Phase 1 lifecycle core is implemented under `internal/evalharness`. It
 requires the checked-in exact ARM64 manifest and image config to be installed
@@ -825,8 +830,8 @@ preconditions have passed.
 
 `cmd/setta-eval` and `scripts/run_setta_evals.sh` now expose that lifecycle. The
 command reports the objective classification and complete artifact paths,
-returns a nonzero status unless both ability and communication pass, and
-accepts the already-installed Linux Codex bundle explicitly.
+returns a nonzero status unless ability, user control, and communication all
+pass, and accepts the already-installed Linux Codex bundle explicitly.
 `evals/sandbox/phase1-toolchain.json` owns the exact ARM64
 Node manifest digest and image config ID plus the Node and pnpm versions. The
 runner requires that exact image to be installed already and never pulls it. It
@@ -1034,22 +1039,42 @@ verifier container entrypoint accepts the selected verifier explicitly, and
 the existing vertical lifecycle passes that identity through both normal and
 invalid-workspace verification paths.
 
-No automated test, changed-file quality gate, supply-chain gate, live probe, or
-live scenario was run for this implementation batch; the implementation-loop
-instruction does not create the repository's separate test authorization. The
-new scenario parser and verifier coverage is checked in for the later
-user-authorized verification ladder. Multi-turn event orchestration, typed
-control evidence/result reporting, all-or-selected scenario invocation,
-candidate role configuration, and the failed-scenario rerun classification
-remain Phase 3 repository work.
+The multi-turn orchestration and typed-control batch is also implemented. The
+per-scenario production HTTP boundary now dispatches every scripted message
+through the Director and drives later steps from the snapshot cursor plus the
+existing pushed conversation stream. Genuine ambiguity records the completed
+Director turn only after a typed snapshot proves there is no running or queued
+Agent work. Steering waits for a completed file-change event on the observed
+turn. Queue-then-cancel waits first for the observed turn to be running and
+then for the exact second request to appear once in the typed queue before it
+submits the cancellation request. Every action must target the same fixture
+workstream; no trigger uses prose parsing, polling, or a fixed sleep.
 
-Add apparent ambiguity, genuine ambiguity, steering, and queue-then-cancel on
-the same fixture. Add only the event trigger and deterministic assertion
-vocabulary those scenarios require. Add the small model-configuration input
-that applies exact production role-profile updates before a scenario and
-records requested and resolved settings. Validate candidates against the live
-model catalog and fail specifically when a model, effort, or service tier is
-unavailable.
+The current event contract records step-indexed user submissions and Director
+receipts, exact trigger observations, semantic trajectory and narration, and a
+bounded final conversation state. The public transcript is reconstructed from
+that same event log. The current result contract adds a distinct
+`control_failure` classification plus clarification and assertion verdicts
+whose event sequences and narrow hidden-verifier checks are explicit. Artifact
+validation carries the validated scenario definitions and independently
+reconstructs every control verdict from the typed events before publishing
+`results.json` and the User Control report.
+
+Focused orchestration, control, transcript, classification, publication, and
+command selectors passed on 2026-07-31. Changed-file quality then passed for
+the two affected Go packages, including formatting, vet, package tests,
+dead-code checks, file-length limits, and the repository complexity ceilings.
+The supply-chain gate also passed, including the policy-accepted ignored
+desktop advisory. No live probe or scenario was attempted because the existing
+Phase 0 release gate still applies; this batch does not claim live exit
+evidence.
+
+All-or-selected scenario invocation, candidate role configuration, and the
+failed-scenario rerun classification remain Phase 3 repository work. The next
+batch adds the small model-configuration input that applies exact production
+role-profile updates before a scenario and records requested and resolved
+settings. It validates candidates against the live model catalog and fails
+specifically when a model, effort, or service tier is unavailable.
 
 Run once by default and rerun only failed scenarios once. Report first-attempt
 passes, stable failures, flaky scenarios, infrastructure failures, user-control

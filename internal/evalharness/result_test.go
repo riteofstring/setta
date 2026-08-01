@@ -9,6 +9,7 @@ import (
 
 	"setta/internal/agent"
 	"setta/internal/conversation"
+	"setta/internal/director"
 	evalverifier "setta/internal/evalharness/verifier"
 )
 
@@ -26,6 +27,7 @@ func TestScenarioResultClassifiesObjectiveOutcomes(t *testing.T) {
 	)
 	timeoutDiagnostic := mustTestDiagnostic(t, "scenario_timeout", "The scenario reached its runaway ceiling.")
 	executionDiagnostic := mustTestDiagnostic(t, "agent_turn_failed", "The Agent turn failed.")
+	controlDiagnostic := mustTestDiagnostic(t, "director_stalled", "The Director stalled for another user turn.")
 	infrastructureDiagnostic := mustTestDiagnostic(t, "docker_unavailable", "Docker Desktop is stopped.")
 
 	tests := []struct {
@@ -36,6 +38,13 @@ func TestScenarioResultClassifiesObjectiveOutcomes(t *testing.T) {
 		roles          []EvaluatedRoleConfiguration
 		classification ScenarioClassification
 	}{
+		{
+			name:           "control failure",
+			outcome:        ScenarioExecutionControlFailed,
+			diagnostic:     controlDiagnostic,
+			roles:          validTestEvaluatedRoles(),
+			classification: ScenarioClassificationControlFailure,
+		},
 		{
 			name:           "pass",
 			outcome:        ScenarioExecutionCompleted,
@@ -75,12 +84,14 @@ func TestScenarioResultClassifiesObjectiveOutcomes(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			control := mustTestControlForOutcome(t, test.outcome, test.diagnostic)
 			result, err := NewScenarioResult(ScenarioResultInput{
 				Scenario:         validTestScenario(),
 				ExecutionOutcome: test.outcome,
 				StartedAt:        startedAt,
 				FinishedAt:       startedAt.Add(2 * time.Second),
 				Roles:            test.roles,
+				Control:          control,
 				Verifier:         test.verifier,
 				Diagnostic:       test.diagnostic,
 			})
@@ -105,6 +116,7 @@ func TestScenarioResultRejectsAmbiguousClassificationInputs(t *testing.T) {
 		StartedAt:        startedAt,
 		FinishedAt:       startedAt.Add(time.Second),
 		Roles:            validTestEvaluatedRoles(),
+		Control:          validTestPassingControl(),
 	})
 	if err == nil || !strings.Contains(err.Error(), "requires a verifier") {
 		t.Fatalf("missing verifier error = %v", err)
@@ -124,12 +136,40 @@ func TestScenarioResultRejectsAmbiguousClassificationInputs(t *testing.T) {
 			StartedAt:        startedAt,
 			FinishedAt:       startedAt.Add(time.Second),
 			Roles:            validTestEvaluatedRoles(),
+			Control:          mustTestControlForOutcome(t, outcome, mustTestDiagnostic(t, "execution_failed", "Execution did not complete.")),
 			Verifier:         &verifier,
 			Diagnostic:       mustTestDiagnostic(t, "execution_failed", "Execution did not complete."),
 		})
 		if err == nil || !strings.Contains(err.Error(), "must not carry a verifier") {
 			t.Fatalf("%s verifier error = %v", outcome, err)
 		}
+	}
+}
+
+func TestScenarioResultClassifiesPassingWorkspaceControlFailure(t *testing.T) {
+	startedAt := time.Date(2026, time.July, 31, 19, 0, 0, 0, time.UTC)
+	verification := evalverifier.NewResult(
+		ScenarioVerifierStraightforward,
+		[]evalverifier.Check{{ID: "workspace", Passed: true, Detail: "Workspace passed."}},
+		[]string{"README.md"},
+	)
+	control := validTestPassingControl()
+	control.Passed = false
+	control.Clarification.Passed = false
+	result, err := NewScenarioResult(ScenarioResultInput{
+		Scenario:         validTestScenario(),
+		ExecutionOutcome: ScenarioExecutionCompleted,
+		StartedAt:        startedAt,
+		FinishedAt:       startedAt.Add(time.Second),
+		Roles:            validTestEvaluatedRoles(),
+		Control:          control,
+		Verifier:         &verification,
+	})
+	if err != nil {
+		t.Fatalf("classify control failure: %v", err)
+	}
+	if result.Classification != ScenarioClassificationControlFailure {
+		t.Fatalf("classification = %s, want %s", result.Classification, ScenarioClassificationControlFailure)
 	}
 }
 
@@ -148,6 +188,7 @@ func TestScenarioResultRejectsInvalidRequestedRoleProfile(t *testing.T) {
 		StartedAt:        startedAt,
 		FinishedAt:       startedAt.Add(time.Second),
 		Roles:            roles,
+		Control:          validTestPassingControl(),
 		Verifier:         &verifier,
 	})
 	if err == nil || !strings.Contains(err.Error(), "requested profile") {
@@ -184,6 +225,7 @@ func TestWriteResultArtifactsPublishesValidatedSet(t *testing.T) {
 		StartedAt:        startedAt,
 		FinishedAt:       startedAt.Add(1500 * time.Millisecond),
 		Roles:            validTestEvaluatedRoles(),
+		Control:          validTestPassingControl(),
 		Verifier:         &verifierResult,
 	})
 	if err != nil {
@@ -293,6 +335,11 @@ func assertArtifactSetRejectsMismatchedEvidence(
 		mismatched.Transcript.Scenarios[0].Entries[0].Text = "Complete a different fixture task."
 		assertArtifactSetValidationError(t, mismatched, "transcript does not match public event evidence")
 	})
+	t.Run("control event reference", func(t *testing.T) {
+		mismatched := cloneTestArtifactSet(t, artifacts)
+		mismatched.Results.Scenarios[0].Control.Clarification.EvidenceEventSequences = []int{1}
+		assertArtifactSetValidationError(t, mismatched, "does not match typed event evidence")
+	})
 	t.Run("token-only event log", func(t *testing.T) {
 		mismatched := cloneTestArtifactSet(t, artifacts)
 		tokenEvents := make([]EvaluationEvent, 0, len(mismatched.Events))
@@ -304,7 +351,7 @@ func assertArtifactSetRejectsMismatchedEvidence(
 			tokenEvents = append(tokenEvents, event)
 		}
 		mismatched.Events = tokenEvents
-		assertArtifactSetValidationError(t, mismatched, "omitted its semantic event evidence")
+		assertArtifactSetValidationError(t, mismatched, "control event evidence is invalid")
 	})
 }
 
@@ -381,7 +428,9 @@ func assertPublishedResultReport(t *testing.T, path string) {
 			t.Fatalf("report omitted %s: %s", section, report)
 		}
 	}
-	if !strings.Contains(string(report), "agent=42") || strings.Contains(string(report), "judge=99") {
+	if !strings.Contains(string(report), "agent=42") ||
+		!strings.Contains(string(report), "forbidden=pass") ||
+		strings.Contains(string(report), "judge=99") {
 		t.Fatalf("report system/judge token separation = %s", report)
 	}
 }
@@ -393,10 +442,15 @@ func validTestArtifactSet(
 ) EvaluationArtifactSet {
 	t.Helper()
 	manifestScenarios := make([]ManifestScenario, len(results.Scenarios))
+	scenarios := make([]Scenario, len(results.Scenarios))
 	transcripts := make([]ScenarioTranscript, len(results.Scenarios))
 	verifiers := make([]ScenarioVerifierResult, len(results.Scenarios))
 	judges := make([]ScenarioJudgeResult, len(results.Scenarios))
 	for index, scenario := range results.Scenarios {
+		scenarios[index] = validTestScenario()
+		if scenarios[index].ID != scenario.ScenarioID {
+			t.Fatalf("test artifact scenario %d is %s, want %s", index, scenarios[index].ID, scenario.ScenarioID)
+		}
 		manifestScenarios[index] = validTestManifestScenario(scenario.ScenarioID, scenario.Roles)
 		if tokenUsage.Scenarios[index].Judge.EvidenceAvailable {
 			judgeTurns := tokenUsage.Scenarios[index].Judge.ProviderTurns
@@ -411,7 +465,7 @@ func validTestArtifactSet(
 					Sequence:   1,
 					Speaker:    TranscriptSpeakerUser,
 					Kind:       TranscriptEntryUserSubmission,
-					Text:       "Complete the fixture task.",
+					Text:       scenarios[index].Steps[0].Text,
 					OccurredAt: scenario.StartedAt.Format(time.RFC3339Nano),
 				}},
 			}
@@ -442,6 +496,7 @@ func validTestArtifactSet(
 		}
 	}
 	return EvaluationArtifactSet{
+		Scenarios: scenarios,
 		Manifest: EvaluationManifest{
 			SchemaVersion: ManifestSchemaVersion,
 			SettaCommit:   results.SettaCommit,
@@ -457,7 +512,7 @@ func validTestArtifactSet(
 				PNPMVersion:    "10.23.0",
 			},
 		},
-		Events:          testArtifactEvents(results, tokenUsage),
+		Events:          testArtifactEvents(results, tokenUsage, scenarios),
 		Transcript:      mustTestTranscriptArtifact(t, transcripts),
 		TokenUsage:      tokenUsage,
 		VerifierResults: mustTestVerifierArtifact(t, verifiers),
@@ -466,11 +521,16 @@ func validTestArtifactSet(
 	}
 }
 
-func testArtifactEvents(results Results, tokenUsage TokenUsageArtifact) []EvaluationEvent {
+func testArtifactEvents(
+	results Results,
+	tokenUsage TokenUsageArtifact,
+	scenarios []Scenario,
+) []EvaluationEvent {
 	events := []EvaluationEvent{}
 	for index, scenario := range results.Scenarios {
 		sequence := 1
 		recordedAt := scenario.StartedAt
+		workstreamID := "workstream-eval"
 		events = append(events, EvaluationEvent{
 			SchemaVersion: EvaluationEventSchemaVersion,
 			ScenarioID:    scenario.ScenarioID,
@@ -478,7 +538,64 @@ func testArtifactEvents(results Results, tokenUsage TokenUsageArtifact) []Evalua
 			RecordedAt:    recordedAt.Format(time.RFC3339Nano),
 			Kind:          EvaluationEventUserSubmission,
 			UserSubmission: &EvaluationUserSubmission{
-				Text: "Complete the fixture task.",
+				StepIndex: 0,
+				Text:      scenarios[index].Steps[0].Text,
+			},
+		})
+		sequence++
+		recordedAt = recordedAt.Add(time.Nanosecond)
+		directorAttribution := testTokenAttribution(
+			agent.TokenUsageBucketSystem,
+			agent.TokenUsageRoleDirector,
+			"artifact-director",
+			*conversation.DefaultDirectorRoleProfile().ModelSelection.ModelID,
+		)
+		directorAttribution.ReasoningEffort = conversation.DefaultDirectorRoleProfile().ReasoningEffort
+		events = append(events, EvaluationEvent{
+			SchemaVersion: EvaluationEventSchemaVersion,
+			ScenarioID:    scenario.ScenarioID,
+			Sequence:      sequence,
+			RecordedAt:    recordedAt.Format(time.RFC3339Nano),
+			Kind:          EvaluationEventDirectorReceipt,
+			DirectorReceipt: &EvaluationDirectorReceipt{
+				StepIndex: 0,
+				Receipt: director.DirectorReceipt{
+					Kind: director.DirectorIntentSubmit,
+					Submit: &director.DirectorTurnReceipt{
+						IntentID: "intent-eval",
+						ToolCalls: []director.DirectorToolCall{{
+							Tool:         "create_workstream",
+							Succeeded:    true,
+							Summary:      "Started the fixture work.",
+							WorkstreamID: &workstreamID,
+						}},
+						ResolvedInvocations: []conversation.ResolvedInvocation{testResolvedTokenInvocation(
+							conversation.RoleDirector,
+							directorAttribution,
+							"artifact-director-turn",
+						)},
+					},
+				},
+			},
+		})
+		sequence++
+		recordedAt = recordedAt.Add(time.Nanosecond)
+		events = append(events, EvaluationEvent{
+			SchemaVersion: EvaluationEventSchemaVersion,
+			ScenarioID:    scenario.ScenarioID,
+			Sequence:      sequence,
+			RecordedAt:    recordedAt.Format(time.RFC3339Nano),
+			Kind:          EvaluationEventConversationState,
+			ConversationState: &EvaluationConversationState{
+				WorkstreamID:   workstreamID,
+				ConversationID: "conversation-eval",
+				Turns: []EvaluationConversationTurnState{{
+					TurnID:        "turn-eval",
+					AuthoredInput: conversation.AuthoredInput{Text: scenarios[index].Steps[0].Text},
+					Delivery:      conversation.TurnDeliveryNormal,
+					Status:        conversation.TurnStatusCompleted,
+				}},
+				QueueTurnIDs: []string{},
 			},
 		})
 		for _, bucket := range []TokenUsageBucketResult{
@@ -618,6 +735,36 @@ func mustTestDiagnostic(t *testing.T, code string, message string) *ScenarioDiag
 		t.Fatalf("create diagnostic: %v", err)
 	}
 	return diagnostic
+}
+
+func validTestPassingControl() ScenarioControlResult {
+	return ScenarioControlResult{
+		EvidenceAvailable: true,
+		Passed:            true,
+		Clarification: &ScenarioClarificationResult{
+			Policy:                 ScenarioClarificationForbidden,
+			Passed:                 true,
+			ScriptedReplyCount:     0,
+			EvidenceEventSequences: []int{1, 2, 3},
+		},
+		Assertions: []ScenarioControlAssertionResult{},
+	}
+}
+
+func mustTestControlForOutcome(
+	t *testing.T,
+	outcome ScenarioExecutionOutcome,
+	diagnostic *ScenarioDiagnostic,
+) ScenarioControlResult {
+	t.Helper()
+	if outcome == ScenarioExecutionCompleted {
+		return validTestPassingControl()
+	}
+	control, err := unavailableScenarioControlResult(diagnostic)
+	if err != nil {
+		t.Fatalf("create unavailable control result: %v", err)
+	}
+	return control
 }
 
 func validTestEvaluatedRoles() []EvaluatedRoleConfiguration {

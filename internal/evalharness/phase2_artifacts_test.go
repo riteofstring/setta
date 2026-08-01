@@ -14,29 +14,27 @@ import (
 func TestPhase2TranscriptContainsOnlyPublicSpeech(t *testing.T) {
 	startedAt := time.Date(2026, time.July, 31, 20, 0, 0, 0, time.UTC)
 	receivedAt := startedAt.Add(time.Second)
-	snapshot := conversation.ConversationSnapshot{
-		Narration: conversation.ConversationNarrationWindow{Events: []conversation.NarrationEvent{
-			{
-				Kind:            conversation.NarrationEventKindTopicDescriptor,
-				TopicDescriptor: &conversation.NarrationTopicDescriptor{Text: "Internal topic label"},
-				CreatedAt:       receivedAt.Add(time.Second).Format(time.RFC3339Nano),
-			},
-			{
-				Kind:      conversation.NarrationEventKindMilestone,
-				Milestone: &conversation.NarrationMilestone{Text: "The implementation is underway."},
-				CreatedAt: receivedAt.Add(2 * time.Second).Format(time.RFC3339Nano),
-			},
-			{
-				Kind:        conversation.NarrationEventKindStatusReply,
-				StatusReply: &conversation.NarrationStatusReply{Text: "The focused checks are running."},
-				CreatedAt:   receivedAt.Add(3 * time.Second).Format(time.RFC3339Nano),
-			},
-			{
-				Kind:         conversation.NarrationEventKindFinalSummary,
-				FinalSummary: &conversation.NarrationFinalSummary{Text: "The requested change is complete."},
-				CreatedAt:    receivedAt.Add(4 * time.Second).Format(time.RFC3339Nano),
-			},
-		}},
+	narrations := []conversation.NarrationEvent{
+		{
+			Kind:            conversation.NarrationEventKindTopicDescriptor,
+			TopicDescriptor: &conversation.NarrationTopicDescriptor{Text: "Internal topic label"},
+			CreatedAt:       receivedAt.Add(time.Second).Format(time.RFC3339Nano),
+		},
+		{
+			Kind:      conversation.NarrationEventKindMilestone,
+			Milestone: &conversation.NarrationMilestone{Text: "The implementation is underway."},
+			CreatedAt: receivedAt.Add(2 * time.Second).Format(time.RFC3339Nano),
+		},
+		{
+			Kind:        conversation.NarrationEventKindStatusReply,
+			StatusReply: &conversation.NarrationStatusReply{Text: "The focused checks are running."},
+			CreatedAt:   receivedAt.Add(3 * time.Second).Format(time.RFC3339Nano),
+		},
+		{
+			Kind:         conversation.NarrationEventKindFinalSummary,
+			FinalSummary: &conversation.NarrationFinalSummary{Text: "The requested change is complete."},
+			CreatedAt:    receivedAt.Add(4 * time.Second).Format(time.RFC3339Nano),
+		},
 	}
 	receipt := director.DirectorReceipt{
 		Kind: director.DirectorIntentSubmit,
@@ -44,13 +42,41 @@ func TestPhase2TranscriptContainsOnlyPublicSpeech(t *testing.T) {
 			ReplyText: "I started the requested work.",
 		},
 	}
-	transcript, err := buildScenarioTranscript(
-		validTestScenario(),
-		startedAt,
-		receivedAt,
-		receipt,
-		snapshot,
-	)
+	events := []EvaluationEvent{
+		{
+			SchemaVersion: EvaluationEventSchemaVersion,
+			ScenarioID:    ScenarioVerifierStraightforward,
+			Sequence:      1,
+			RecordedAt:    startedAt.Format(time.RFC3339Nano),
+			Kind:          EvaluationEventUserSubmission,
+			UserSubmission: &EvaluationUserSubmission{
+				StepIndex: 0,
+				Text:      validTestScenario().Steps[0].Text,
+			},
+		},
+		{
+			SchemaVersion: EvaluationEventSchemaVersion,
+			ScenarioID:    ScenarioVerifierStraightforward,
+			Sequence:      2,
+			RecordedAt:    receivedAt.Format(time.RFC3339Nano),
+			Kind:          EvaluationEventDirectorReceipt,
+			DirectorReceipt: &EvaluationDirectorReceipt{
+				StepIndex: 0,
+				Receipt:   receipt,
+			},
+		},
+	}
+	for _, narration := range narrations {
+		events = append(events, EvaluationEvent{
+			SchemaVersion: EvaluationEventSchemaVersion,
+			ScenarioID:    ScenarioVerifierStraightforward,
+			Sequence:      len(events) + 1,
+			RecordedAt:    narration.CreatedAt,
+			Kind:          EvaluationEventNarration,
+			Narration:     &narration,
+		})
+	}
+	transcript, err := buildScenarioTranscript(validTestScenario(), events)
 	if err != nil {
 		t.Fatalf("build Phase 2 transcript: %v", err)
 	}

@@ -3,13 +3,11 @@ package evalharness
 import (
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"setta/internal/conversation"
-	"setta/internal/director"
 )
 
 const (
@@ -57,132 +55,30 @@ type TranscriptArtifact struct {
 	Scenarios     []ScenarioTranscript `json:"scenarios"`
 }
 
-type phase2TranscriptCandidate struct {
-	entry   TranscriptEntry
-	when    time.Time
-	ordinal int
-}
-
 func buildScenarioTranscript(
 	scenario Scenario,
-	submittedAt time.Time,
-	receivedAt time.Time,
-	receipt director.DirectorReceipt,
-	snapshot conversation.ConversationSnapshot,
+	events []EvaluationEvent,
 ) (ScenarioTranscript, error) {
-	if err := validateScenarioTranscriptInputs(scenario, submittedAt, receivedAt, receipt); err != nil {
-		return ScenarioTranscript{}, err
-	}
-	candidates := initialScenarioTranscriptCandidates(scenario, submittedAt)
-	candidates = appendDirectorTranscriptCandidate(candidates, receipt.Submit.ReplyText, receivedAt)
-	candidates, err := appendNarrationTranscriptCandidates(candidates, snapshot.Narration.Events)
-	if err != nil {
-		return ScenarioTranscript{}, err
-	}
-	return finalizeScenarioTranscript(scenario.ID, candidates)
-}
-
-func validateScenarioTranscriptInputs(
-	scenario Scenario,
-	submittedAt time.Time,
-	receivedAt time.Time,
-	receipt director.DirectorReceipt,
-) error {
 	if err := scenario.Validate(); err != nil {
-		return err
+		return ScenarioTranscript{}, err
 	}
-	if receipt.Submit == nil {
-		return errors.New("completed transcript requires a Director submit receipt")
-	}
-	if submittedAt.IsZero() || receivedAt.IsZero() || receivedAt.Before(submittedAt) {
-		return errors.New("completed transcript requires an ordered submission timeline")
-	}
-	return nil
-}
-
-func initialScenarioTranscriptCandidates(
-	scenario Scenario,
-	submittedAt time.Time,
-) []phase2TranscriptCandidate {
-	return []phase2TranscriptCandidate{{
-		entry: TranscriptEntry{
-			Speaker:    TranscriptSpeakerUser,
-			Kind:       TranscriptEntryUserSubmission,
-			Text:       scenario.Steps[0].Text,
-			OccurredAt: submittedAt.UTC().Format(time.RFC3339Nano),
-		},
-		when: submittedAt.UTC(),
-	}}
-}
-
-func appendDirectorTranscriptCandidate(
-	candidates []phase2TranscriptCandidate,
-	replyText string,
-	receivedAt time.Time,
-) []phase2TranscriptCandidate {
-	if replyText == "" {
-		return candidates
-	}
-	return append(candidates, phase2TranscriptCandidate{
-		entry: TranscriptEntry{
-			Speaker:    TranscriptSpeakerDirector,
-			Kind:       TranscriptEntryDirectorReply,
-			Text:       replyText,
-			OccurredAt: receivedAt.UTC().Format(time.RFC3339Nano),
-		},
-		when:    receivedAt.UTC(),
-		ordinal: 1,
-	})
-}
-
-func appendNarrationTranscriptCandidates(
-	candidates []phase2TranscriptCandidate,
-	narrations []conversation.NarrationEvent,
-) ([]phase2TranscriptCandidate, error) {
-	for index, narration := range narrations {
-		text, visible := narration.UserVisibleText()
-		if !visible {
+	entries := make([]TranscriptEntry, 0, len(events))
+	for index, event := range events {
+		if event.ScenarioID != scenario.ID {
 			continue
 		}
-		occurredAt, err := time.Parse(time.RFC3339Nano, narration.CreatedAt)
+		entry, err := transcriptEntryFromEvaluationEvent(event)
 		if err != nil {
-			return nil, fmt.Errorf("parse narration event %s timestamp: %w", narration.ID, err)
+			return ScenarioTranscript{}, fmt.Errorf("evaluation event[%d]: %w", index, err)
 		}
-		kind, err := transcriptNarrationKind(narration.Kind)
-		if err != nil {
-			return nil, err
+		if entry == nil {
+			continue
 		}
-		candidates = append(candidates, phase2TranscriptCandidate{
-			entry: TranscriptEntry{
-				Speaker:    TranscriptSpeakerNarrator,
-				Kind:       kind,
-				Text:       text,
-				OccurredAt: occurredAt.UTC().Format(time.RFC3339Nano),
-			},
-			when:    occurredAt.UTC(),
-			ordinal: index + 2,
-		})
-	}
-	return candidates, nil
-}
-
-func finalizeScenarioTranscript(
-	scenarioID string,
-	candidates []phase2TranscriptCandidate,
-) (ScenarioTranscript, error) {
-	sort.SliceStable(candidates, func(left int, right int) bool {
-		if candidates[left].when.Equal(candidates[right].when) {
-			return candidates[left].ordinal < candidates[right].ordinal
-		}
-		return candidates[left].when.Before(candidates[right].when)
-	})
-	entries := make([]TranscriptEntry, len(candidates))
-	for index, candidate := range candidates {
-		entries[index] = candidate.entry
-		entries[index].Sequence = index + 1
+		entry.Sequence = len(entries) + 1
+		entries = append(entries, *entry)
 	}
 	transcript := ScenarioTranscript{
-		ScenarioID:        scenarioID,
+		ScenarioID:        scenario.ID,
 		EvidenceAvailable: true,
 		Entries:           entries,
 	}
@@ -190,6 +86,45 @@ func finalizeScenarioTranscript(
 		return ScenarioTranscript{}, err
 	}
 	return transcript, nil
+}
+
+func transcriptEntryFromEvaluationEvent(event EvaluationEvent) (*TranscriptEntry, error) {
+	switch event.Kind {
+	case EvaluationEventUserSubmission:
+		return &TranscriptEntry{
+			Speaker:    TranscriptSpeakerUser,
+			Kind:       TranscriptEntryUserSubmission,
+			Text:       event.UserSubmission.Text,
+			OccurredAt: event.RecordedAt,
+		}, nil
+	case EvaluationEventDirectorReceipt:
+		if event.DirectorReceipt.Receipt.Submit.ReplyText == "" {
+			return nil, nil
+		}
+		return &TranscriptEntry{
+			Speaker:    TranscriptSpeakerDirector,
+			Kind:       TranscriptEntryDirectorReply,
+			Text:       event.DirectorReceipt.Receipt.Submit.ReplyText,
+			OccurredAt: event.RecordedAt,
+		}, nil
+	case EvaluationEventNarration:
+		text, visible := event.Narration.UserVisibleText()
+		if !visible {
+			return nil, nil
+		}
+		kind, err := transcriptNarrationKind(event.Narration.Kind)
+		if err != nil {
+			return nil, err
+		}
+		return &TranscriptEntry{
+			Speaker:    TranscriptSpeakerNarrator,
+			Kind:       kind,
+			Text:       text,
+			OccurredAt: event.RecordedAt,
+		}, nil
+	default:
+		return nil, nil
+	}
 }
 
 func transcriptNarrationKind(kind conversation.NarrationEventKind) (TranscriptEntryKind, error) {

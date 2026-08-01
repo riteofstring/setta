@@ -130,12 +130,23 @@ func publishPhase1Evaluation(
 	finishedAt time.Time,
 	state phase1RunState,
 ) (Phase1EvaluationOutput, error) {
+	control, err := buildScenarioControlResult(
+		scenario,
+		state.outcome,
+		state.events,
+		state.verifier,
+		state.diagnostic,
+	)
+	if err != nil {
+		return Phase1EvaluationOutput{}, fmt.Errorf("grade scenario user control: %w", err)
+	}
 	scenarioResult, err := NewScenarioResult(ScenarioResultInput{
 		Scenario:         scenario,
 		ExecutionOutcome: state.outcome,
 		StartedAt:        startedAt,
 		FinishedAt:       scenarioFinishedAt,
 		Roles:            state.roles,
+		Control:          control,
 		Verifier:         state.verifier,
 		Diagnostic:       state.diagnostic,
 	})
@@ -167,6 +178,7 @@ func publishPhase1Evaluation(
 		return Phase1EvaluationOutput{}, fmt.Errorf("create Phase 2 judge artifact: %w", err)
 	}
 	artifactSet := EvaluationArtifactSet{
+		Scenarios:       []Scenario{scenario},
 		Manifest:        manifest,
 		Events:          append([]EvaluationEvent{}, state.events...),
 		Transcript:      transcriptArtifact,

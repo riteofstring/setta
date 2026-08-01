@@ -153,7 +153,19 @@ func RenderResultReport(artifactSet EvaluationArtifactSet) (string, error) {
 	writeScenarioDiagnostics(&report, results.Scenarios)
 
 	report.WriteString("## User Control\n\n")
-	report.WriteString("Phase 1 records the objective terminal outcome only. The typed control assertions are added with the remaining MVP scenarios in Phase 3.\n\n")
+	report.WriteString("| Scenario | Overall | Clarification | Typed assertions |\n")
+	report.WriteString("| --- | --- | --- | --- |\n")
+	for _, scenario := range results.Scenarios {
+		fmt.Fprintf(
+			&report,
+			"| `%s` | %s | %s | %s |\n",
+			escapeMarkdownTableCell(scenario.ScenarioID),
+			controlReportLabel(scenario.Control),
+			clarificationReportLabel(scenario.Control),
+			controlAssertionsReportLabel(scenario.Control),
+		)
+	}
+	report.WriteString("\nControl verdicts reference typed Director submissions, trigger observations, trajectory events, final conversation state, and the narrow hidden-verifier checks that own corrected end states.\n\n")
 
 	report.WriteString("## AI Communication\n\n")
 	report.WriteString("| Scenario | Judge | Five checks | Failure tags |\n")
@@ -290,6 +302,50 @@ func verifierReportLabel(result ScenarioResult) string {
 		return "pass"
 	}
 	return "fail"
+}
+
+func controlReportLabel(result ScenarioControlResult) string {
+	if !result.EvidenceAvailable {
+		return "unavailable (`" + escapeMarkdownInline(result.Diagnostic.Code) + "`)"
+	}
+	if result.Passed {
+		return "pass"
+	}
+	return "fail"
+}
+
+func clarificationReportLabel(result ScenarioControlResult) string {
+	if !result.EvidenceAvailable {
+		return "unavailable"
+	}
+	outcome := "fail"
+	if result.Clarification.Passed {
+		outcome = "pass"
+	}
+	return escapeMarkdownTableCell(fmt.Sprintf(
+		"%s=%s (scripted replies=%d)",
+		result.Clarification.Policy,
+		outcome,
+		result.Clarification.ScriptedReplyCount,
+	))
+}
+
+func controlAssertionsReportLabel(result ScenarioControlResult) string {
+	if !result.EvidenceAvailable {
+		return "unavailable"
+	}
+	if len(result.Assertions) == 0 {
+		return "none"
+	}
+	parts := make([]string, len(result.Assertions))
+	for index, assertion := range result.Assertions {
+		outcome := "fail"
+		if assertion.Passed {
+			outcome = "pass"
+		}
+		parts[index] = string(assertion.Assertion) + "=" + outcome
+	}
+	return escapeMarkdownTableCell(strings.Join(parts, "; "))
 }
 
 func judgeReportLabel(result ScenarioJudgeResult) string {

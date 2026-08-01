@@ -47,7 +47,7 @@ func run(
 	}
 	writePhase1Output(stdout, output)
 	if !phase1OutputPassed(output) {
-		fmt.Fprintln(stderr, "Setta live evaluation did not pass ability and communication; inspect the result artifacts.")
+		fmt.Fprintln(stderr, "Setta live evaluation did not pass ability, user control, and communication; inspect the result artifacts.")
 		return 1
 	}
 	return 0

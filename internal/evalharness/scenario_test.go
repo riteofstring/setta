@@ -178,9 +178,9 @@ func TestLoadScenariosRejectsUnknownFieldsAndFilenameDrift(t *testing.T) {
 func TestLoadScenariosPreservesExplicitSelectionOrder(t *testing.T) {
 	directory := t.TempDir()
 	first := validTestScenario()
-	first.ID = "first"
+	first.ID = ScenarioVerifierApparentAmbiguity
+	first.Verifier = ScenarioVerifierApparentAmbiguity
 	second := validTestScenario()
-	second.ID = "second"
 	writeTestScenario(t, filepath.Join(directory, first.ID+".json"), first)
 	writeTestScenario(t, filepath.Join(directory, second.ID+".json"), second)
 

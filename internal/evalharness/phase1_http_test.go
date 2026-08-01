@@ -58,30 +58,50 @@ func TestPhase1ReceiptRequiresExactlyOneWorkstream(t *testing.T) {
 	}
 }
 
-func TestPhase1ObservedTurnRequiresOneDisposableTurn(t *testing.T) {
-	turn := conversation.ConversationTurn{ID: "turn-eval"}
-	observed, diagnostic, _ := phase1ObservedTurn(conversation.ConversationSnapshot{
+func TestEvaluationObservedTurnRequiresOneExactDisposableTurn(t *testing.T) {
+	turn := conversation.ConversationTurn{
+		ID:            "turn-eval",
+		AuthoredInput: conversation.AuthoredInput{Text: "Complete the fixture task."},
+		Delivery:      conversation.TurnDeliveryNormal,
+	}
+	observed, failure := evaluationObservedTurn(conversation.ConversationSnapshot{
 		Turns: conversation.ConversationTurnWindow{Turns: []conversation.ConversationTurn{turn}},
-	})
-	if observed.ID != turn.ID || diagnostic != "" {
-		t.Fatalf("observed turn = %q/%q", observed.ID, diagnostic)
+	}, turn.AuthoredInput.Text)
+	if observed.ID != turn.ID || failure != nil {
+		t.Fatalf("observed turn = %q/%#v", observed.ID, failure)
 	}
 
-	_, diagnostic, _ = phase1ObservedTurn(conversation.ConversationSnapshot{
+	_, failure = evaluationObservedTurn(conversation.ConversationSnapshot{
 		Turns: conversation.ConversationTurnWindow{Turns: []conversation.ConversationTurn{}},
-	})
-	if diagnostic != "director_did_not_start_agent_turn" {
-		t.Fatalf("empty turn diagnostic = %q", diagnostic)
+	}, turn.AuthoredInput.Text)
+	if failure == nil || failure.code != "director_started_unexpected_agent_turns" {
+		t.Fatalf("empty turn failure = %#v", failure)
 	}
 
-	_, diagnostic, _ = phase1ObservedTurn(conversation.ConversationSnapshot{
+	_, failure = evaluationObservedTurn(conversation.ConversationSnapshot{
 		Turns: conversation.ConversationTurnWindow{
 			Turns:      []conversation.ConversationTurn{turn},
 			HasEarlier: true,
 		},
-	})
-	if diagnostic != "director_started_multiple_agent_turns" {
-		t.Fatalf("non-disposable turn diagnostic = %q", diagnostic)
+	}, turn.AuthoredInput.Text)
+	if failure == nil || failure.code != "director_started_unexpected_agent_turns" {
+		t.Fatalf("non-disposable turn failure = %#v", failure)
+	}
+}
+
+func TestClarificationWorkstreamMustRemainStable(t *testing.T) {
+	clarificationWorkstream := "workstream-clarification"
+	triggers := []evaluationTriggerCandidate{{observation: EvaluationTriggerObservation{
+		Trigger:      ScenarioTriggerDirectorTurnCompleted,
+		WorkstreamID: &clarificationWorkstream,
+	}}}
+	if failure := validateClarificationWorkstream(triggers, clarificationWorkstream); failure != nil {
+		t.Fatalf("stable clarification workstream failed: %#v", failure)
+	}
+	failure := validateClarificationWorkstream(triggers, "workstream-other")
+	if failure == nil || failure.outcome != ScenarioExecutionControlFailed ||
+		failure.code != "clarification_changed_workstream" {
+		t.Fatalf("changed clarification workstream failure = %#v", failure)
 	}
 }
 

@@ -24,6 +24,7 @@ type VerifierArtifact struct {
 }
 
 type EvaluationArtifactSet struct {
+	Scenarios       []Scenario
 	Manifest        EvaluationManifest
 	Events          []EvaluationEvent
 	Transcript      TranscriptArtifact
@@ -154,6 +155,7 @@ func validateArtifactInvocationIdentity(artifacts EvaluationArtifactSet, scenari
 		return errors.New("manifest and results invocation identity do not match")
 	}
 	counts := []int{
+		len(artifacts.Scenarios),
 		len(artifacts.Manifest.Scenarios),
 		len(artifacts.Transcript.Scenarios),
 		len(artifacts.TokenUsage.Scenarios),
@@ -186,6 +188,7 @@ func validateArtifactScenarioIdentity(
 	scenarioID string,
 ) error {
 	artifactScenarioIDs := []string{
+		artifacts.Scenarios[index].ID,
 		artifacts.Manifest.Scenarios[index].ScenarioID,
 		artifacts.Transcript.Scenarios[index].ScenarioID,
 		artifacts.TokenUsage.Scenarios[index].ScenarioID,
@@ -205,6 +208,10 @@ func validateArtifactScenarioContracts(
 	index int,
 	scenarioID string,
 ) error {
+	scenario := artifacts.Scenarios[index]
+	if err := scenario.Validate(); err != nil {
+		return fmt.Errorf("scenario %s contract is invalid: %w", scenarioID, err)
+	}
 	result := artifacts.Results.Scenarios[index]
 	manifest := artifacts.Manifest.Scenarios[index]
 	transcript := artifacts.Transcript.Scenarios[index]
@@ -215,6 +222,9 @@ func validateArtifactScenarioContracts(
 		return fmt.Errorf("scenario %s manifest roles do not match results", scenarioID)
 	}
 	if err := validateResultVerifierEvidence(scenarioID, result, verifier); err != nil {
+		return err
+	}
+	if err := validateResultControlEvidence(artifacts.Events, scenario, result); err != nil {
 		return err
 	}
 	if err := validateTokenEventEvidence(artifacts.Events, scenarioID, usage, judge); err != nil {
@@ -234,6 +244,27 @@ func validateArtifactScenarioContracts(
 		return err
 	}
 	return validateJudgePrerequisites(scenarioID, result, transcript, verifier, judge)
+}
+
+func validateResultControlEvidence(
+	events []EvaluationEvent,
+	scenario Scenario,
+	result ScenarioResult,
+) error {
+	derived, err := buildScenarioControlResult(
+		scenario,
+		result.ExecutionOutcome,
+		events,
+		result.Verifier,
+		result.Diagnostic,
+	)
+	if err != nil {
+		return fmt.Errorf("scenario %s control event evidence is invalid: %w", scenario.ID, err)
+	}
+	if !reflect.DeepEqual(derived, result.Control) {
+		return fmt.Errorf("scenario %s control result does not match typed event evidence", scenario.ID)
+	}
+	return nil
 }
 
 func validateResultVerifierEvidence(
@@ -256,37 +287,65 @@ func validateTokenEventEvidence(
 	usage ScenarioTokenUsage,
 	judge ScenarioJudgeResult,
 ) error {
+	derivedUsage, err := deriveTokenEventUsage(events, scenarioID)
+	if err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(derivedUsage, usage) {
+		return fmt.Errorf("scenario %s token artifact does not match accounting event evidence", scenarioID)
+	}
+	if err := validateFixedJudgeTokenConfiguration(scenarioID, usage.Judge.ProviderTurns); err != nil {
+		return err
+	}
+	return validateJudgeTokenIdentity(scenarioID, usage.Judge.ProviderTurns, judge)
+}
+
+func deriveTokenEventUsage(
+	events []EvaluationEvent,
+	scenarioID string,
+) (ScenarioTokenUsage, error) {
 	observations := make([]agent.TokenUsageObservation, 0)
 	for _, event := range events {
 		if event.ScenarioID == scenarioID && event.TokenUsage != nil {
 			observations = append(observations, *event.TokenUsage)
 		}
 	}
-	derivedUsage := EmptyScenarioTokenUsage(scenarioID)
-	if len(observations) > 0 {
-		var err error
-		derivedUsage, err = AggregateScenarioTokenUsage(scenarioID, observations)
-		if err != nil {
-			return fmt.Errorf("scenario %s accounting event evidence is invalid: %w", scenarioID, err)
-		}
+	if len(observations) == 0 {
+		return EmptyScenarioTokenUsage(scenarioID), nil
 	}
-	if !reflect.DeepEqual(derivedUsage, usage) {
-		return fmt.Errorf("scenario %s token artifact does not match accounting event evidence", scenarioID)
+	usage, err := AggregateScenarioTokenUsage(scenarioID, observations)
+	if err != nil {
+		return ScenarioTokenUsage{}, fmt.Errorf("scenario %s accounting event evidence is invalid: %w", scenarioID, err)
 	}
-	for _, turn := range usage.Judge.ProviderTurns {
+	return usage, nil
+}
+
+func validateFixedJudgeTokenConfiguration(
+	scenarioID string,
+	turns []ProviderTurnTokenUsage,
+) error {
+	for _, turn := range turns {
 		if turn.Attribution.Model != JudgeModel ||
 			turn.Attribution.ReasoningEffort != JudgeReasoningEffort ||
 			turn.Attribution.ServiceTier != nil {
 			return fmt.Errorf("scenario %s judge token evidence does not use the fixed judge configuration", scenarioID)
 		}
 	}
+	return nil
+}
+
+func validateJudgeTokenIdentity(
+	scenarioID string,
+	turns []ProviderTurnTokenUsage,
+	judge ScenarioJudgeResult,
+) error {
 	if !judge.EvidenceAvailable {
 		return nil
 	}
-	if len(usage.Judge.ProviderTurns) != 1 {
+	if len(turns) != 1 {
 		return fmt.Errorf("scenario %s judge verdict requires exactly one judge provider turn", scenarioID)
 	}
-	turn := usage.Judge.ProviderTurns[0]
+	turn := turns[0]
 	if judge.Invocation == nil ||
 		turn.Attribution.InvocationID != judge.Invocation.ID ||
 		turn.ProviderThreadID != judge.Invocation.ProviderThreadID ||
@@ -309,39 +368,12 @@ func validateTranscriptEventEvidence(
 		if event.ScenarioID != scenarioID {
 			continue
 		}
-		var entry *TranscriptEntry
-		switch event.Kind {
-		case EvaluationEventUserSubmission:
-			entry = &TranscriptEntry{
-				Speaker: TranscriptSpeakerUser,
-				Kind:    TranscriptEntryUserSubmission,
-				Text:    event.UserSubmission.Text,
-			}
-		case EvaluationEventDirectorReceipt:
-			if event.DirectorReceipt.Submit.ReplyText != "" {
-				entry = &TranscriptEntry{
-					Speaker: TranscriptSpeakerDirector,
-					Kind:    TranscriptEntryDirectorReply,
-					Text:    event.DirectorReceipt.Submit.ReplyText,
-				}
-			}
-		case EvaluationEventNarration:
-			text, visible := event.Narration.UserVisibleText()
-			if visible {
-				kind, err := transcriptNarrationKind(event.Narration.Kind)
-				if err != nil {
-					return fmt.Errorf("scenario %s public narration evidence is invalid: %w", scenarioID, err)
-				}
-				entry = &TranscriptEntry{
-					Speaker: TranscriptSpeakerNarrator,
-					Kind:    kind,
-					Text:    text,
-				}
-			}
+		entry, err := transcriptEntryFromEvaluationEvent(event)
+		if err != nil {
+			return fmt.Errorf("scenario %s public event evidence is invalid: %w", scenarioID, err)
 		}
 		if entry != nil {
 			entry.Sequence = len(entries) + 1
-			entry.OccurredAt = event.RecordedAt
 			entries = append(entries, *entry)
 		}
 	}

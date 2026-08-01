@@ -53,6 +53,7 @@ func TestRunPassesExplicitInputsAndReportsArtifacts(t *testing.T) {
 func TestRunReturnsFailureForObjectiveEvaluationFailure(t *testing.T) {
 	for _, classification := range []evalharness.ScenarioClassification{
 		evalharness.ScenarioClassificationAbilityFailure,
+		evalharness.ScenarioClassificationControlFailure,
 		evalharness.ScenarioClassificationTimeout,
 		evalharness.ScenarioClassificationInfrastructureFailure,
 	} {
@@ -68,7 +69,7 @@ func TestRunReturnsFailureForObjectiveEvaluationFailure(t *testing.T) {
 			if exitCode := run(nil, &stdout, &stderr, runner); exitCode != 1 {
 				t.Fatalf("exit code = %d, want 1", exitCode)
 			}
-			if !strings.Contains(stderr.String(), "did not pass ability and communication") {
+			if !strings.Contains(stderr.String(), "did not pass ability, user control, and communication") {
 				t.Fatalf("stderr = %q", stderr.String())
 			}
 		})
@@ -89,7 +90,7 @@ func TestRunReturnsFailureForCommunicationEvaluationFailure(t *testing.T) {
 	if exitCode := run(nil, &stdout, &stderr, runner); exitCode != 1 {
 		t.Fatalf("exit code = %d, want 1", exitCode)
 	}
-	if !strings.Contains(stderr.String(), "did not pass ability and communication") {
+	if !strings.Contains(stderr.String(), "did not pass ability, user control, and communication") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
@@ -122,6 +123,8 @@ func phase1CommandOutput(
 ) evalharness.Phase1EvaluationOutput {
 	outcome := evalharness.ScenarioExecutionCompleted
 	switch classification {
+	case evalharness.ScenarioClassificationControlFailure:
+		outcome = evalharness.ScenarioExecutionControlFailed
 	case evalharness.ScenarioClassificationTimeout:
 		outcome = evalharness.ScenarioExecutionTimedOut
 	case evalharness.ScenarioClassificationInfrastructureFailure:

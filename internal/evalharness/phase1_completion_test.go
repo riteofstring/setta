@@ -11,6 +11,8 @@ import (
 
 	"setta/internal/agent"
 	"setta/internal/codexapp"
+	"setta/internal/conversation"
+	"setta/internal/director"
 	evalverifier "setta/internal/evalharness/verifier"
 )
 
@@ -135,6 +137,7 @@ func TestPublishPhase1EvaluationExercisesExitClassifications(t *testing.T) {
 		[]string{"README.md"},
 	)
 	timeoutDiagnostic := mustTestDiagnostic(t, "scenario_timeout", "The scenario reached its runaway ceiling.")
+	controlDiagnostic := mustTestDiagnostic(t, "director_stalled", "The Director stalled for another user turn.")
 	infrastructureDiagnostic := mustTestDiagnostic(t, "docker_unavailable", "Docker Desktop is stopped.")
 	tests := []struct {
 		name           string
@@ -158,6 +161,15 @@ func TestPublishPhase1EvaluationExercisesExitClassifications(t *testing.T) {
 				verifier: &failingVerifier,
 			},
 			classification: ScenarioClassificationAbilityFailure,
+		},
+		{
+			name: "control failure",
+			state: phase1RunState{
+				outcome:    ScenarioExecutionControlFailed,
+				roles:      validTestEvaluatedRoles(),
+				diagnostic: controlDiagnostic,
+			},
+			classification: ScenarioClassificationControlFailure,
 		},
 		{
 			name: "timeout",
@@ -235,6 +247,7 @@ func phase2CompletedTestState(
 		t.Fatalf("aggregate Phase 2 completion tokens: %v", err)
 	}
 	state.tokenUsage = &usage
+	scenario := validTestScenario()
 	state.transcript = &ScenarioTranscript{
 		ScenarioID:        ScenarioVerifierStraightforward,
 		EvidenceAvailable: true,
@@ -242,25 +255,82 @@ func phase2CompletedTestState(
 			Sequence:   1,
 			Speaker:    TranscriptSpeakerUser,
 			Kind:       TranscriptEntryUserSubmission,
-			Text:       "Complete the fixture task.",
+			Text:       scenario.Steps[0].Text,
 			OccurredAt: startedAt.Format(time.RFC3339Nano),
 		}},
 	}
-	state.events = []EvaluationEvent{{
-		SchemaVersion: EvaluationEventSchemaVersion,
-		ScenarioID:    ScenarioVerifierStraightforward,
-		Sequence:      1,
-		RecordedAt:    startedAt.Format(time.RFC3339Nano),
-		Kind:          EvaluationEventUserSubmission,
-		UserSubmission: &EvaluationUserSubmission{
-			Text: "Complete the fixture task.",
+	workstreamID := "workstream-eval"
+	directorAttribution := testTokenAttribution(
+		agent.TokenUsageBucketSystem,
+		agent.TokenUsageRoleDirector,
+		"phase2-director",
+		*conversation.DefaultDirectorRoleProfile().ModelSelection.ModelID,
+	)
+	directorAttribution.ReasoningEffort = conversation.DefaultDirectorRoleProfile().ReasoningEffort
+	directorInvocation := testResolvedTokenInvocation(
+		conversation.RoleDirector,
+		directorAttribution,
+		"phase2-director-turn",
+	)
+	state.events = []EvaluationEvent{
+		{
+			SchemaVersion: EvaluationEventSchemaVersion,
+			ScenarioID:    ScenarioVerifierStraightforward,
+			Sequence:      1,
+			RecordedAt:    startedAt.Format(time.RFC3339Nano),
+			Kind:          EvaluationEventUserSubmission,
+			UserSubmission: &EvaluationUserSubmission{
+				StepIndex: 0,
+				Text:      scenario.Steps[0].Text,
+			},
 		},
-	}}
+		{
+			SchemaVersion: EvaluationEventSchemaVersion,
+			ScenarioID:    ScenarioVerifierStraightforward,
+			Sequence:      2,
+			RecordedAt:    startedAt.Add(time.Nanosecond).Format(time.RFC3339Nano),
+			Kind:          EvaluationEventDirectorReceipt,
+			DirectorReceipt: &EvaluationDirectorReceipt{
+				StepIndex: 0,
+				Receipt: director.DirectorReceipt{
+					Kind: director.DirectorIntentSubmit,
+					Submit: &director.DirectorTurnReceipt{
+						IntentID: "intent-eval",
+						ToolCalls: []director.DirectorToolCall{{
+							Tool:         "create_workstream",
+							Succeeded:    true,
+							Summary:      "Started the fixture work.",
+							WorkstreamID: &workstreamID,
+						}},
+						ResolvedInvocations: []conversation.ResolvedInvocation{directorInvocation},
+					},
+				},
+			},
+		},
+		{
+			SchemaVersion: EvaluationEventSchemaVersion,
+			ScenarioID:    ScenarioVerifierStraightforward,
+			Sequence:      3,
+			RecordedAt:    startedAt.Add(2 * time.Nanosecond).Format(time.RFC3339Nano),
+			Kind:          EvaluationEventConversationState,
+			ConversationState: &EvaluationConversationState{
+				WorkstreamID:   workstreamID,
+				ConversationID: "conversation-eval",
+				Turns: []EvaluationConversationTurnState{{
+					TurnID:        "turn-eval",
+					AuthoredInput: conversation.AuthoredInput{Text: scenario.Steps[0].Text},
+					Delivery:      conversation.TurnDeliveryNormal,
+					Status:        conversation.TurnStatusCompleted,
+				}},
+				QueueTurnIDs: []string{},
+			},
+		},
+	}
 	state.events, err = appendTokenUsageEvents(
 		state.events,
 		ScenarioVerifierStraightforward,
 		[]agent.TokenUsageObservation{observation},
-		startedAt.Add(time.Nanosecond),
+		startedAt.Add(3*time.Nanosecond),
 	)
 	if err != nil {
 		t.Fatalf("append Phase 2 completion token event: %v", err)

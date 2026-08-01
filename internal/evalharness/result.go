@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	ResultSchemaVersion          = 1
+	ResultSchemaVersion          = 2
 	ResultMaximumScenarios       = 32
 	ResultMaximumDiagnosticBytes = 4 * 1024
 )
@@ -22,6 +22,7 @@ type ScenarioClassification string
 const (
 	ScenarioClassificationPass                  ScenarioClassification = "pass"
 	ScenarioClassificationAbilityFailure        ScenarioClassification = "ability_failure"
+	ScenarioClassificationControlFailure        ScenarioClassification = "control_failure"
 	ScenarioClassificationTimeout               ScenarioClassification = "timeout"
 	ScenarioClassificationInfrastructureFailure ScenarioClassification = "infrastructure_failure"
 )
@@ -32,6 +33,7 @@ const (
 	ScenarioExecutionCompleted            ScenarioExecutionOutcome = "completed"
 	ScenarioExecutionCancelled            ScenarioExecutionOutcome = "cancelled"
 	ScenarioExecutionFailed               ScenarioExecutionOutcome = "failed"
+	ScenarioExecutionControlFailed        ScenarioExecutionOutcome = "control_failed"
 	ScenarioExecutionTimedOut             ScenarioExecutionOutcome = "timed_out"
 	ScenarioExecutionInfrastructureFailed ScenarioExecutionOutcome = "infrastructure_failed"
 )
@@ -60,6 +62,7 @@ type ScenarioResult struct {
 	FinishedAt           time.Time                    `json:"finishedAt"`
 	DurationMilliseconds int64                        `json:"durationMilliseconds"`
 	Roles                []EvaluatedRoleConfiguration `json:"roles"`
+	Control              ScenarioControlResult        `json:"control"`
 	Verifier             *evalverifier.Result         `json:"verifier"`
 	Diagnostic           *ScenarioDiagnostic          `json:"diagnostic"`
 }
@@ -78,6 +81,7 @@ type ScenarioResultInput struct {
 	StartedAt        time.Time
 	FinishedAt       time.Time
 	Roles            []EvaluatedRoleConfiguration
+	Control          ScenarioControlResult
 	Verifier         *evalverifier.Result
 	Diagnostic       *ScenarioDiagnostic
 }
@@ -135,7 +139,11 @@ func NewScenarioResult(input ScenarioResultInput) (ScenarioResult, error) {
 	if err := input.Scenario.Validate(); err != nil {
 		return ScenarioResult{}, fmt.Errorf("validate classified scenario: %w", err)
 	}
-	classification, err := classifyScenarioExecution(input.ExecutionOutcome, input.Verifier)
+	classification, err := classifyScenarioExecution(
+		input.ExecutionOutcome,
+		input.Verifier,
+		input.Control,
+	)
 	if err != nil {
 		return ScenarioResult{}, err
 	}
@@ -147,6 +155,7 @@ func NewScenarioResult(input ScenarioResultInput) (ScenarioResult, error) {
 		FinishedAt:           input.FinishedAt.UTC(),
 		DurationMilliseconds: input.FinishedAt.Sub(input.StartedAt).Milliseconds(),
 		Roles:                cloneEvaluatedRoleConfigurations(input.Roles),
+		Control:              cloneScenarioControlResult(input.Control),
 		Verifier:             cloneVerifierResult(input.Verifier),
 		Diagnostic:           cloneScenarioDiagnostic(input.Diagnostic),
 	}
@@ -226,7 +235,14 @@ func (result ScenarioResult) Validate() error {
 			return fmt.Errorf("scenario %s verifier: %w", result.ScenarioID, err)
 		}
 	}
-	classification, err := classifyScenarioExecution(result.ExecutionOutcome, result.Verifier)
+	if err := result.Control.Validate(); err != nil {
+		return fmt.Errorf("scenario %s control: %w", result.ScenarioID, err)
+	}
+	classification, err := classifyScenarioExecution(
+		result.ExecutionOutcome,
+		result.Verifier,
+		result.Control,
+	)
 	if err != nil {
 		return fmt.Errorf("scenario %s: %w", result.ScenarioID, err)
 	}
@@ -316,34 +332,59 @@ func evaluatedRoleConfiguration(
 func classifyScenarioExecution(
 	outcome ScenarioExecutionOutcome,
 	verification *evalverifier.Result,
+	control ScenarioControlResult,
 ) (ScenarioClassification, error) {
+	if outcome != ScenarioExecutionCompleted && control.EvidenceAvailable {
+		return "", fmt.Errorf("%s scenario execution must not carry available control evidence", outcome)
+	}
 	switch outcome {
 	case ScenarioExecutionCompleted:
-		if verification == nil {
-			return "", errors.New("completed scenario execution requires a verifier result")
-		}
-		if verification.Passed {
-			return ScenarioClassificationPass, nil
-		}
-		return ScenarioClassificationAbilityFailure, nil
+		return classifyCompletedScenarioExecution(verification, control)
 	case ScenarioExecutionCancelled, ScenarioExecutionFailed:
-		if verification != nil {
-			return "", fmt.Errorf("%s scenario execution must not carry a verifier result", outcome)
-		}
-		return ScenarioClassificationAbilityFailure, nil
+		return classifyUnverifiedScenarioExecution(outcome, verification, ScenarioClassificationAbilityFailure)
+	case ScenarioExecutionControlFailed:
+		return classifyUnverifiedScenarioExecution(outcome, verification, ScenarioClassificationControlFailure)
 	case ScenarioExecutionTimedOut:
-		if verification != nil {
-			return "", errors.New("timed-out scenario execution must not carry a verifier result")
-		}
-		return ScenarioClassificationTimeout, nil
+		return classifyUnverifiedScenarioExecution(outcome, verification, ScenarioClassificationTimeout)
 	case ScenarioExecutionInfrastructureFailed:
-		if verification != nil {
-			return "", errors.New("infrastructure-failed scenario execution must not carry a verifier result")
-		}
-		return ScenarioClassificationInfrastructureFailure, nil
+		return classifyUnverifiedScenarioExecution(
+			outcome,
+			verification,
+			ScenarioClassificationInfrastructureFailure,
+		)
 	default:
 		return "", fmt.Errorf("unsupported scenario execution outcome %q", outcome)
 	}
+}
+
+func classifyCompletedScenarioExecution(
+	verification *evalverifier.Result,
+	control ScenarioControlResult,
+) (ScenarioClassification, error) {
+	if verification == nil {
+		return "", errors.New("completed scenario execution requires a verifier result")
+	}
+	if !control.EvidenceAvailable {
+		return "", errors.New("completed scenario execution requires typed control evidence")
+	}
+	if !verification.Passed {
+		return ScenarioClassificationAbilityFailure, nil
+	}
+	if !control.Passed {
+		return ScenarioClassificationControlFailure, nil
+	}
+	return ScenarioClassificationPass, nil
+}
+
+func classifyUnverifiedScenarioExecution(
+	outcome ScenarioExecutionOutcome,
+	verification *evalverifier.Result,
+	classification ScenarioClassification,
+) (ScenarioClassification, error) {
+	if verification != nil {
+		return "", fmt.Errorf("%s scenario execution must not carry a verifier result", outcome)
+	}
+	return classification, nil
 }
 
 func validateScenarioDiagnosticForOutcome(
@@ -526,6 +567,7 @@ func cloneScenarioResults(scenarios []ScenarioResult) []ScenarioResult {
 	for index, scenario := range scenarios {
 		cloned[index] = scenario
 		cloned[index].Roles = cloneEvaluatedRoleConfigurations(scenario.Roles)
+		cloned[index].Control = cloneScenarioControlResult(scenario.Control)
 		cloned[index].Verifier = cloneVerifierResult(scenario.Verifier)
 		cloned[index].Diagnostic = cloneScenarioDiagnostic(scenario.Diagnostic)
 	}
