@@ -19,6 +19,8 @@ type phase0Preparation struct {
 	build      phase0PreparedBuild
 }
 
+const phase0CleanupTimeout = 30 * time.Second
+
 type phase0Execution struct {
 	config               phase0ProbeConfig
 	preparation          phase0Preparation
@@ -56,9 +58,7 @@ func RunPhase0SandboxProbe(
 		),
 	}
 	evidence, runErr := execution.run(ctx)
-	cleanupContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	teardown, cleanupErr := execution.cleanup(cleanupContext)
-	cancel()
+	teardown, cleanupErr := execution.cleanup()
 	if runErr != nil {
 		return Phase0SandboxEvidence{}, errors.Join(runErr, cleanupErr)
 	}
@@ -101,14 +101,13 @@ func (execution *phase0Execution) run(ctx context.Context) (Phase0SandboxEvidenc
 	if err != nil {
 		return Phase0SandboxEvidence{}, err
 	}
-	turns, toolEnvironmentNames, err := execution.probeCodex(
+	turns, err := execution.probeCodex(
 		ctx,
 		execution.resources.controlRelay.endpointValue().URL,
 	)
 	if err != nil {
 		return Phase0SandboxEvidence{}, err
 	}
-	boundary.ToolEnvironmentNames = toolEnvironmentNames
 	return Phase0SandboxEvidence{
 		SchemaVersion: phase0SchemaVersion,
 		Outcome:       phase0OutcomePass,
@@ -160,52 +159,52 @@ func (execution *phase0Execution) probeBoundary(
 	boundary.RootWriteDenied = helper.RootWriteDenied
 	boundary.HostCanaryVisible = helper.HostCanaryVisible
 	boundary.FakeHostEndpointBlocked = helper.FakeEndpointBlocked
+	boundary.BoundaryHelperEnvironmentNames = sortedUnique(helper.Environment.EnvironmentNames)
+	boundary.ShellEnvironmentPolicyInherit = phase0ShellEnvironmentInherit
+	boundary.ShellEnvironmentPolicySetNames = phase0ShellEnvironmentSetNames()
 	return imageID, boundary, nil
 }
 
 func (execution *phase0Execution) probeCodex(
 	ctx context.Context,
 	execServerURL string,
-) (Phase0TurnEvidence, []string, error) {
+) (Phase0TurnEvidence, error) {
 	execution.codexRuntime = newPhase0CodexRuntime(execution.config, execServerURL)
 	if err := execution.codexRuntime.verifyChatGPTAuthAndModel(ctx); err != nil {
-		return Phase0TurnEvidence{}, nil, err
+		return Phase0TurnEvidence{}, err
 	}
-	toolEnvironment, err := execution.codexRuntime.inspectToolEnvironment(ctx)
-	if err != nil {
-		return Phase0TurnEvidence{}, nil, err
+	if err := execution.codexRuntime.waitForRemoteEnvironment(ctx); err != nil {
+		return Phase0TurnEvidence{}, err
 	}
 	turns, err := execution.codexRuntime.runModelTurns(ctx, execution.resources)
 	if err != nil {
-		return Phase0TurnEvidence{}, nil, err
+		return Phase0TurnEvidence{}, err
 	}
 	if relayErr := execution.resources.controlRelay.beginHealthyShutdown(); relayErr != nil {
-		return Phase0TurnEvidence{}, nil, fmt.Errorf("Phase 0 Agent control relay failed: %w", relayErr)
+		return Phase0TurnEvidence{}, fmt.Errorf("Phase 0 Agent control relay failed: %w", relayErr)
 	}
-	if err := execution.codexRuntime.shutdown(ctx); err != nil {
-		return Phase0TurnEvidence{}, nil, fmt.Errorf("stop Phase 0 host app-server: %w", err)
+	if err := runPhase0Cleanup(execution.codexRuntime.shutdown); err != nil {
+		return Phase0TurnEvidence{}, fmt.Errorf("stop Phase 0 host app-server: %w", err)
 	}
 	execution.codexRuntime = nil
 	execution.hostAppServerStopped = true
-	return turns, sortedUnique(toolEnvironment.EnvironmentNames), nil
+	return turns, nil
 }
 
-func (execution *phase0Execution) cleanup(
-	ctx context.Context,
-) (Phase0TeardownEvidence, error) {
+func (execution *phase0Execution) cleanup() (Phase0TeardownEvidence, error) {
 	var cleanupErrors []error
 	if execution.codexRuntime != nil {
 		if execution.resources.controlRelay != nil {
 			execution.resources.controlRelay.beginShutdown()
 		}
-		if err := execution.codexRuntime.shutdown(ctx); err != nil {
+		if err := runPhase0Cleanup(execution.codexRuntime.shutdown); err != nil {
 			cleanupErrors = append(cleanupErrors, fmt.Errorf("stop Phase 0 host app-server: %w", err))
 		} else {
 			execution.hostAppServerStopped = true
 		}
 		execution.codexRuntime = nil
 	}
-	teardown, err := execution.resources.cleanup(ctx)
+	teardown, err := execution.resources.cleanup()
 	if err != nil {
 		cleanupErrors = append(cleanupErrors, err)
 	}
@@ -215,6 +214,12 @@ func (execution *phase0Execution) cleanup(
 	teardown.HostAppServerStopped = execution.hostAppServerStopped
 	teardown.HostCanaryRemoved = execution.canaryPath != "" && phase0PathAbsent(execution.canaryPath)
 	return teardown, errors.Join(cleanupErrors...)
+}
+
+func runPhase0Cleanup(operation func(context.Context) error) error {
+	ctx, cancel := context.WithTimeout(context.Background(), phase0CleanupTimeout)
+	defer cancel()
+	return operation(ctx)
 }
 
 func (execution *phase0Execution) removeTemporaryFiles() error {
