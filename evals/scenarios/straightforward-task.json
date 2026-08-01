@@ -16,7 +16,7 @@
   },
   "verifier": "straightforward-task",
   "budget": {
-    "hardTotalTokens": 50000
+    "hardTotalTokens": 200000
   },
   "communication": {
     "progress": "when_useful",
