@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	phase0SchemaVersion       = 3
+	phase0SchemaVersion       = 2
 	phase0OutcomePass         = "PASS"
 	phase0EnvironmentID       = "remote"
 	phase0WorkspaceRoot       = "/workspace"
@@ -21,8 +21,8 @@ const (
 	phase0CodexBundleTarget   = "aarch64-unknown-linux-musl"
 	phase0CodexBundleVariant  = "codex"
 	phase0CodexLayoutVersion  = 1
-	phase0ReasoningEffort     = "high"
-	phase0DefaultModel        = "gpt-5.6-sol"
+	phase0ReasoningEffort     = "low"
+	phase0DefaultModel        = "gpt-5.4-mini"
 	phase0FakeEndpointHost    = "host.docker.internal"
 	phase0ImagePlatform       = "linux/arm64"
 	phase0ContainerMemory     = 1024 * 1024 * 1024

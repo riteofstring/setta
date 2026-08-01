@@ -19,14 +19,13 @@ import (
 const (
 	Phase0SandboxReportRelativePath = "docs/reports/live-ai-eval-sandbox-phase0.md"
 	phase0SandboxReportMaxBytes     = 128 * 1024
-	phase0ReportEvidenceStart       = "<!-- setta-eval-phase0-evidence:v3 -->\n```json\n"
+	phase0ReportEvidenceStart       = "<!-- setta-eval-phase0-evidence:v2 -->\n```json\n"
 	phase0ReportEvidenceEnd         = "```\n<!-- /setta-eval-phase0-evidence -->"
 	phase0PlanPassMarker            = "### Phase 0 resolution\n\n**Outcome:** `PASS`"
 )
 
 var phase0EvidenceFileNames = []string{
 	"Dockerfile",
-	"bwrap",
 	"codex",
 	"control-relay",
 	"rg",
