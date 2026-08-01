@@ -1111,10 +1111,11 @@ provider fallback, permission change, or unbounded retry. Because the same
 code-mode path does not guarantee top-level command activity items, schema 5
 also omits the superseded non-empty activity list from PASS evidence. If the
 provider does emit activity, the live sink fails immediately when its type is
-outside local command, file-change, or provider-bookkeeping activity, or when
-its working directory escapes `/workspace`; typed remote readiness plus the
-random read, exact mutation, and Docker/helper facts own the positive proof.
-Rerun only the same benign Phase 0 probe from the amended clean repair.
+outside remote command, remote image-view, file-change, or provider-bookkeeping
+activity, or when its reported working directory escapes `/workspace`; typed
+remote readiness plus the random read, exact mutation, and Docker/helper facts
+own the positive proof. Rerun only the same benign Phase 0 probe from the
+amended clean repair.
 
 **Mechanism-prompt probe evidence recorded 2026-08-01:** the clean
 `ccbbf12be` probe used both bounded read-only attempts. Each mechanism-focused
@@ -1195,7 +1196,8 @@ value. Its workspace snapshot recorded only regular-file bytes and digests, so
 an empty directory or permission-mode change could evade the claimed exact
 delta; attempting to read a special file could also stall the helper. Finally,
 the event sink checked working directories but did not reject typed MCP, web,
-hook, image, dynamic-tool, sleep, or subagent activity prohibited by the probe.
+hook, image-generation, dynamic-tool, sleep, or subagent activity prohibited by
+the probe.
 
 The current source replaces those contracts directly. It derives the default
 model and effort from `conversation.DefaultAgentRoleProfile`, records both in
@@ -1204,10 +1206,27 @@ helper inventories the workspace root, every directory, every regular file,
 permission modes, byte counts, and digests; it rejects links and special files,
 and the host requires the complete tree to differ only by the declared output.
 The sink preserves the release Agent tool surface but fails the probe on every
-typed external activity kind. The prior schema-4 report and resolution no
-longer establish the current proof. Commit this repair, rerun the same benign
-probe from that clean revision, and record a fresh schema-5 report and Phase 0
-resolution before live execution can advance.
+typed external activity kind. Codex's local `view_image` environment tool
+remains allowed because the pinned handler resolves it through the selected
+remote filesystem and sandbox just like the shell tools; it cannot select a
+host-local environment in this probe. The prior schema-4 report and resolution
+no longer establish the current proof. Commit this repair, rerun the same
+benign probe from that clean revision, and record a fresh schema-5 report and
+Phase 0 resolution before live execution can advance.
+
+**Audit-repair probe evidence recorded 2026-08-01:** the first clean repair
+commit `eb7889ae4` reached the read-only Agent turn, then failed closed when the
+provider emitted an `image_view` item. No report was written, and immediate
+inspection found no remaining Phase 0 container, volume, network, image tag,
+attach process, or app-server process. The initial audit repair had grouped
+local image viewing with external image generation. Pinned Codex source instead
+shows that `view_image` resolves against the selected turn environment, reads
+through that environment's filesystem and sandbox, and has deterministic
+coverage proving that a selected remote environment cannot fall through to a
+local filesystem. The corrected activity policy therefore allows that
+container-confined tool while continuing to reject image generation and every
+other prohibited external activity. Rerun the same benign probe from the clean
+amended repair.
 
 The user's instruction to proceed with the implementation loop authorizes the
 same narrowly bounded benign Phase 0 probe already described by this plan. It

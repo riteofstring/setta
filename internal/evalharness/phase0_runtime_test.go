@@ -182,6 +182,7 @@ func TestPhase0EventSinkRejectsExternalActivityKinds(t *testing.T) {
 	allowed := map[agent.ActivityKind]bool{
 		agent.ActivityKindCommand:    true,
 		agent.ActivityKindFileChange: true,
+		agent.ActivityKindImageView:  true,
 		agent.ActivityKindOther:      true,
 	}
 	for _, kind := range agent.ActivityKinds() {

@@ -581,12 +581,12 @@ func phase0AllowsActivity(kind agent.ActivityKind) bool {
 	switch kind {
 	case agent.ActivityKindCommand,
 		agent.ActivityKindFileChange,
+		agent.ActivityKindImageView,
 		agent.ActivityKindOther:
 		return true
 	case agent.ActivityKindMCPTool,
 		agent.ActivityKindDynamicTool,
 		agent.ActivityKindWebSearch,
-		agent.ActivityKindImageView,
 		agent.ActivityKindImageGeneration,
 		agent.ActivityKindSleep,
 		agent.ActivityKindHook,
