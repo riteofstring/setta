@@ -597,11 +597,13 @@ func (resources *phase0DockerResources) execHelper(
 	return resources.client.run(ctx, commandArgs...)
 }
 
-func (resources *phase0DockerResources) cleanup() (Phase0TeardownEvidence, error) {
+func (resources *phase0DockerResources) cleanup(
+	ctx context.Context,
+) (Phase0TeardownEvidence, error) {
 	evidence := Phase0TeardownEvidence{}
 	var cleanupErrors []error
 	if resources.controlRelay != nil {
-		if err := runPhase0Cleanup(resources.controlRelay.close); err != nil {
+		if err := resources.controlRelay.close(ctx); err != nil {
 			cleanupErrors = append(cleanupErrors, fmt.Errorf("stop Phase 0 control relay: %w", err))
 		} else {
 			evidence.ControlRelayStopped = true
@@ -609,10 +611,12 @@ func (resources *phase0DockerResources) cleanup() (Phase0TeardownEvidence, error
 		}
 	}
 	if resources.containerCreated {
-		removed, err := resources.removeDockerResource(
+		_, removeErr := resources.client.run(ctx, "container", "rm", "--force", resources.containerName)
+		removed, err := resolvePhase0DockerRemoval(
+			ctx,
 			"container",
 			resources.containerName,
-			[]string{"container", "rm", "--force", resources.containerName},
+			removeErr,
 			resources.client.containerExists,
 		)
 		if err != nil {
@@ -623,10 +627,12 @@ func (resources *phase0DockerResources) cleanup() (Phase0TeardownEvidence, error
 		}
 	}
 	if resources.volumeCreated {
-		removed, err := resources.removeDockerResource(
+		_, removeErr := resources.client.run(ctx, "volume", "rm", resources.volumeName)
+		removed, err := resolvePhase0DockerRemoval(
+			ctx,
 			"volume",
 			resources.volumeName,
-			[]string{"volume", "rm", resources.volumeName},
+			removeErr,
 			resources.client.volumeExists,
 		)
 		if err != nil {
@@ -637,10 +643,12 @@ func (resources *phase0DockerResources) cleanup() (Phase0TeardownEvidence, error
 		}
 	}
 	if resources.networkCreated {
-		removed, err := resources.removeDockerResource(
+		_, removeErr := resources.client.run(ctx, "network", "rm", resources.networkName)
+		removed, err := resolvePhase0DockerRemoval(
+			ctx,
 			"network",
 			resources.networkName,
-			[]string{"network", "rm", resources.networkName},
+			removeErr,
 			resources.client.networkExists,
 		)
 		if err != nil {
@@ -651,10 +659,12 @@ func (resources *phase0DockerResources) cleanup() (Phase0TeardownEvidence, error
 		}
 	}
 	if resources.imageBuilt {
-		removed, err := resources.removeDockerResource(
+		_, removeErr := resources.client.run(ctx, "image", "rm", resources.imageTag)
+		removed, err := resolvePhase0DockerRemoval(
+			ctx,
 			"image tag",
 			resources.imageTag,
-			[]string{"image", "rm", resources.imageTag},
+			removeErr,
 			resources.client.imageTagExists,
 		)
 		if err != nil {
@@ -667,27 +677,19 @@ func (resources *phase0DockerResources) cleanup() (Phase0TeardownEvidence, error
 	return evidence, errors.Join(cleanupErrors...)
 }
 
-type dockerResourceExistenceCheck func(context.Context, string) (bool, error)
+type phase0DockerExistenceCheck func(context.Context, string) (bool, error)
 
-func (resources *phase0DockerResources) removeDockerResource(
+func resolvePhase0DockerRemoval(
+	ctx context.Context,
 	label string,
 	name string,
-	removeArgs []string,
-	exists dockerResourceExistenceCheck,
+	removeErr error,
+	exists phase0DockerExistenceCheck,
 ) (bool, error) {
-	removeErr := runPhase0Cleanup(func(ctx context.Context) error {
-		_, err := resources.client.run(ctx, removeArgs...)
-		return err
-	})
 	if removeErr == nil {
 		return true, nil
 	}
-	var remaining bool
-	inspectErr := runPhase0Cleanup(func(ctx context.Context) error {
-		var err error
-		remaining, err = exists(ctx, name)
-		return err
-	})
+	remaining, inspectErr := exists(ctx, name)
 	if inspectErr != nil {
 		return false, errors.Join(
 			fmt.Errorf("remove Phase 0 Docker %s %s: %w", label, name, removeErr),

@@ -12,7 +12,6 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"time"
 
 	"setta/internal/agent"
 	"setta/internal/codexaccount"
@@ -24,31 +23,6 @@ const phase0DeveloperInstructions = "" +
 	"This is a bounded sandbox feasibility probe. Work only in /workspace. " +
 	"Do not use network access, web search, MCP, plugins, skills, delegation, or user questions. " +
 	"Perform only the exact read or write requested, then report the result concisely."
-
-const (
-	phase0EnvironmentReadyTimeout = 30 * time.Second
-	phase0EnvironmentShellName    = "zsh"
-	phase0EnvironmentShellPath    = "/bin/zsh"
-	phase0EnvironmentWorkspaceURI = "file:///workspace"
-	phase0ReadOnlyOutputSchema    = `{"type":"object","properties":{"fixtureToken":{"type":"string"}},"required":["fixtureToken"],"additionalProperties":false}`
-	phase0ShellEnvironmentInherit = "none"
-)
-
-type phase0ShellEnvironmentVariable struct {
-	name  string
-	value string
-}
-
-var phase0ShellEnvironmentSet = []phase0ShellEnvironmentVariable{
-	{name: "HOME", value: "/tmp"},
-	{name: "LANG", value: "C.UTF-8"},
-	{name: "PATH", value: "/usr/local/bin:/bin"},
-	{name: "SHELL", value: "/bin/zsh"},
-}
-
-type phase0ReadOnlyOutput struct {
-	FixtureToken string `json:"fixtureToken"`
-}
 
 type phase0CodexRuntime struct {
 	manager *codexapp.Manager
@@ -68,33 +42,19 @@ func newPhase0CodexRuntime(
 	title := "Setta Phase 0 Sandbox Probe"
 	experimental := true
 	requestAttestation := false
-	args := []string{
-		"app-server",
-		"--listen",
-		"stdio://",
-		"--strict-config",
-		"-c",
-		execServerBlockingEnvironment,
-		"-c",
-		execServerCodeModeDisabled,
-		"-c",
-		execServerCodeModeOnlyDisabled,
-		"-c",
-		execServerShellToolEnabled,
-		"-c",
-		execServerShellZshForkDisabled,
-		"-c",
-		execServerUnifiedExecEnabled,
-		"-c",
-		execServerUnifiedZshDisabled,
-	}
-	for _, policy := range phase0ShellEnvironmentPolicyConfig() {
-		args = append(args, "-c", policy)
-	}
 	manager := codexapp.NewManager(codexapp.ManagerConfig{
 		Process: codexapp.ProcessConfig{
 			Command: config.codexCommand,
-			Args:    args,
+			Args: []string{
+				"app-server",
+				"--listen",
+				"stdio://",
+				"--strict-config",
+				"-c",
+				`shell_environment_policy.inherit="none"`,
+				"-c",
+				`shell_environment_policy.set={ HOME = "/tmp", LANG = "C.UTF-8", PATH = "/usr/local/bin:/bin", SHELL = "/bin/zsh" }`,
+			},
 			Env: []string{
 				"CODEX_EXEC_SERVER_URL=" + execServerURL,
 			},
@@ -125,25 +85,6 @@ func newPhase0CodexRuntime(
 		runtime: agent.NewRuntime(agent.Config{Manager: manager}),
 		model:   config.model,
 	}
-}
-
-func phase0ShellEnvironmentPolicyConfig() []string {
-	set := make([]string, 0, len(phase0ShellEnvironmentSet))
-	for _, variable := range phase0ShellEnvironmentSet {
-		set = append(set, fmt.Sprintf("%s = %q", variable.name, variable.value))
-	}
-	return []string{
-		fmt.Sprintf("shell_environment_policy.inherit=%q", phase0ShellEnvironmentInherit),
-		fmt.Sprintf("shell_environment_policy.set={ %s }", strings.Join(set, ", ")),
-	}
-}
-
-func phase0ShellEnvironmentSetNames() []string {
-	names := make([]string, 0, len(phase0ShellEnvironmentSet))
-	for _, variable := range phase0ShellEnvironmentSet {
-		names = append(names, variable.name)
-	}
-	return sortedUnique(names)
 }
 
 func (runtime *phase0CodexRuntime) verifyChatGPTAuthAndModel(ctx context.Context) error {
@@ -182,37 +123,52 @@ func (runtime *phase0CodexRuntime) verifyChatGPTAuthAndModel(ctx context.Context
 	return fmt.Errorf("Phase 0 model %s is unavailable", runtime.model)
 }
 
-func (runtime *phase0CodexRuntime) waitForRemoteEnvironment(ctx context.Context) error {
-	waitContext, cancel := context.WithTimeout(ctx, phase0EnvironmentReadyTimeout)
-	defer cancel()
-	raw, err := runtime.manager.Call(
-		waitContext,
-		codexapp.CodexMethodEnvironmentInfo,
-		codexapp.EnvironmentInfoParams{EnvironmentId: phase0EnvironmentID},
-	)
+func (runtime *phase0CodexRuntime) inspectToolEnvironment(
+	ctx context.Context,
+) (phase0HelperEnvironment, error) {
+	readOnlyPolicy := codexapp.SandboxPolicy(json.RawMessage(`{"type":"readOnly"}`))
+	cwd := phase0WorkspaceRoot
+	timeout := 10_000
+	raw, err := runtime.manager.Call(ctx, codexapp.CodexMethodCommandExec, codexapp.CommandExecParams{
+		Command: []string{
+			"/usr/local/bin/setta-eval-sandbox-helper",
+			"environment",
+		},
+		CWD:           &cwd,
+		SandboxPolicy: &readOnlyPolicy,
+		TimeoutMs:     &timeout,
+	})
 	if err != nil {
-		return fmt.Errorf("wait for Phase 0 remote environment: %w", err)
+		return phase0HelperEnvironment{}, fmt.Errorf("inspect remote tool environment: %w", err)
 	}
-	response, err := codexapp.DecodeEnvironmentInfoResponse(raw)
+	response, err := codexapp.DecodeCommandExecResponse(raw)
 	if err != nil {
-		return fmt.Errorf("decode Phase 0 remote environment: %w", err)
+		return phase0HelperEnvironment{}, fmt.Errorf("decode remote tool environment response: %w", err)
 	}
-	return validatePhase0EnvironmentInfo(response)
-}
-
-func validatePhase0EnvironmentInfo(response codexapp.EnvironmentInfoResponse) error {
-	if response.Shell.Name != phase0EnvironmentShellName ||
-		response.Shell.Path != phase0EnvironmentShellPath {
-		return fmt.Errorf(
-			"Phase 0 remote environment reported shell %s at %s",
-			response.Shell.Name,
-			response.Shell.Path,
+	if response.ExitCode != 0 || strings.TrimSpace(response.Stderr) != "" {
+		return phase0HelperEnvironment{}, fmt.Errorf(
+			"remote environment helper exited %d: %s",
+			response.ExitCode,
+			boundedPhase0Diagnostic(response.Stderr),
 		)
 	}
-	if response.CWD == nil || string(*response.CWD) != phase0EnvironmentWorkspaceURI {
-		return errors.New("Phase 0 remote environment did not initialize in the workspace")
+	var environment phase0HelperEnvironment
+	if err := jsonio.DecodeSingle(strings.NewReader(response.Stdout), &environment); err != nil {
+		return phase0HelperEnvironment{}, fmt.Errorf("decode effective remote environment: %w", err)
 	}
-	return nil
+	if environment.UID != phase0ContainerUID || environment.GID != phase0ContainerGID {
+		return phase0HelperEnvironment{}, fmt.Errorf(
+			"remote tool ran as %d:%d, want %d:%d",
+			environment.UID,
+			environment.GID,
+			phase0ContainerUID,
+			phase0ContainerGID,
+		)
+	}
+	if err := validateEnvironmentNames(environment.EnvironmentNames); err != nil {
+		return phase0HelperEnvironment{}, err
+	}
+	return environment, nil
 }
 
 func (runtime *phase0CodexRuntime) runModelTurns(
@@ -260,12 +216,10 @@ func (runtime *phase0CodexRuntime) runReadOnlyTurn(
 		TurnID:           "phase0-read-only-turn",
 		ProviderThreadID: threadID,
 		ClientInputID:    "phase0-read-only-input",
-		Text: "Read /workspace/probe-input.txt and return the file's value in the fixtureToken " +
-			"field required by the output schema. " +
-			"Do not return anything else and do not write any file.",
+		Text: "Read /workspace/probe-input.txt and reply with exactly its contents, " +
+			"with no quotation marks or commentary. Do not write any file.",
 		WorkspaceRoot: phase0WorkspaceRoot,
 		Invocation:    phase0Invocation(agent.PermissionModeReadOnly, runtime.model),
-		OutputSchema:  []byte(phase0ReadOnlyOutputSchema),
 		TokenUsageAttribution: agent.TokenUsageAttribution{
 			Bucket:          agent.TokenUsageBucketSystem,
 			Role:            agent.TokenUsageRoleAgent,
@@ -280,8 +234,8 @@ func (runtime *phase0CodexRuntime) runReadOnlyTurn(
 	if result.Outcome != agent.TurnOutcomeCompleted {
 		return Phase0ModelTurnEvidence{}, fmt.Errorf("Phase 0 read-only turn ended %s", result.Outcome)
 	}
-	if err := validatePhase0ReadOnlyOutput(sink.finalText, fixtureToken); err != nil {
-		return Phase0ModelTurnEvidence{}, err
+	if strings.TrimSpace(sink.finalText) != fixtureToken {
+		return Phase0ModelTurnEvidence{}, errors.New("Phase 0 read-only turn did not return the fixture token exactly")
 	}
 	after, err := resources.workspaceSnapshot(ctx)
 	if err != nil {
@@ -298,17 +252,6 @@ func (runtime *phase0CodexRuntime) runReadOnlyTurn(
 		OnlyExpectedMutation: true,
 		ActivityCWDs:         sink.sortedActivityCWDs(),
 	}, nil
-}
-
-func validatePhase0ReadOnlyOutput(value string, fixtureToken string) error {
-	var output phase0ReadOnlyOutput
-	if err := jsonio.DecodeSingle(strings.NewReader(value), &output); err != nil {
-		return fmt.Errorf("decode Phase 0 read-only output: %w", err)
-	}
-	if output.FixtureToken != fixtureToken {
-		return errors.New("Phase 0 read-only turn did not return the fixture token exactly")
-	}
-	return nil
 }
 
 func (runtime *phase0CodexRuntime) runWorkspaceWriteTurn(
@@ -441,10 +384,6 @@ func (runtime *phase0CodexRuntime) shutdown(ctx context.Context) error {
 func (sink *phase0EventSink) HandleAgentEvent(event agent.Event) error {
 	if event.Approval != nil {
 		return fmt.Errorf("Phase 0 model requested unexpected approval %s", event.Approval.ID)
-	}
-	if event.Lifecycle != nil &&
-		event.Lifecycle.Reason == agent.LifecycleReasonEnvironmentDisconnected {
-		return errors.New("Phase 0 remote environment disconnected during the model turn")
 	}
 	if event.Text != nil && event.Kind == agent.EventKindAgentTextCompleted {
 		sink.finalText = event.Text.Text
