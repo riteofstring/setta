@@ -26,8 +26,6 @@ import (
 const (
 	probeInputPath              = "/workspace/probe-input.txt"
 	probeOutputPath             = "/workspace/probe-output.txt"
-	probeFixturePrefix          = "SETTA_PHASE0_"
-	probeFixtureMaximumBytes    = 128
 	phase1MaximumCopyEntries    = 1024
 	phase1MaximumCopyFiles      = 512
 	phase1MaximumCopyFileBytes  = 2 * 1024 * 1024
@@ -55,10 +53,6 @@ type fileEvidence struct {
 	SHA256 string `json:"sha256"`
 }
 
-type fixtureEvidence struct {
-	FixtureToken string `json:"fixtureToken"`
-}
-
 type workspaceEvidence struct {
 	Files []fileEvidence `json:"files"`
 }
@@ -82,8 +76,6 @@ func runHelperCommand(args []string) error {
 	switch args[0] {
 	case "boundary":
 		return runBoundary(args[1:])
-	case "copy-fixture":
-		return copyProbeFixture(args[1:])
 	case "environment":
 		return writeJSON(environment())
 	case "phase1-copy-volume", "phase1-hold-volume", "phase1-prepare-volume", "phase1-read-file", "phase1-toolchain":
@@ -97,45 +89,6 @@ func runHelperCommand(args []string) error {
 	default:
 		return fmt.Errorf("unsupported helper command %q", args[0])
 	}
-}
-
-func copyProbeFixture(args []string) error {
-	if len(args) != 0 {
-		return errors.New("copy-fixture accepts no arguments")
-	}
-	value, err := os.ReadFile(probeInputPath)
-	if err != nil {
-		return fmt.Errorf("read probe fixture: %w", err)
-	}
-	fixtureToken, err := validateProbeFixture(value)
-	if err != nil {
-		return err
-	}
-	output, err := os.OpenFile(probeOutputPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
-	if err != nil {
-		return fmt.Errorf("create probe output: %w", err)
-	}
-	_, writeErr := output.Write(value)
-	closeErr := output.Close()
-	if err := errors.Join(writeErr, closeErr); err != nil {
-		return fmt.Errorf("write probe output: %w", err)
-	}
-	return writeJSON(fixtureEvidence{FixtureToken: fixtureToken})
-}
-
-func validateProbeFixture(value []byte) (string, error) {
-	if len(value) == 0 || len(value) > probeFixtureMaximumBytes || value[len(value)-1] != '\n' ||
-		bytes.Count(value, []byte{'\n'}) != 1 {
-		return "", errors.New("probe fixture must contain one bounded newline-terminated token")
-	}
-	fixtureToken := string(value[:len(value)-1])
-	hexValue := strings.TrimPrefix(fixtureToken, probeFixturePrefix)
-	decoded, err := hex.DecodeString(hexValue)
-	if !strings.HasPrefix(fixtureToken, probeFixturePrefix) || err != nil || len(decoded) != 16 ||
-		hex.EncodeToString(decoded) != hexValue {
-		return "", errors.New("probe fixture token is invalid")
-	}
-	return fixtureToken, nil
 }
 
 func runPhase1HelperCommand(args []string) error {
