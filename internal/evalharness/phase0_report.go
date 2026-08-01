@@ -19,7 +19,7 @@ import (
 const (
 	Phase0SandboxReportRelativePath = "docs/reports/live-ai-eval-sandbox-phase0.md"
 	phase0SandboxReportMaxBytes     = 128 * 1024
-	phase0ReportEvidenceStart       = "<!-- setta-eval-phase0-evidence:v2 -->\n```json\n"
+	phase0ReportEvidenceStart       = "<!-- setta-eval-phase0-evidence:v1 -->\n```json\n"
 	phase0ReportEvidenceEnd         = "```\n<!-- /setta-eval-phase0-evidence -->"
 	phase0PlanPassMarker            = "### Phase 0 resolution\n\n**Outcome:** `PASS`"
 )
@@ -27,7 +27,6 @@ const (
 var phase0EvidenceFileNames = []string{
 	"Dockerfile",
 	"codex",
-	"control-relay",
 	"rg",
 	"sandbox-helper",
 	"zsh",
@@ -42,8 +41,6 @@ type phase0BoundaryInvariants struct {
 	HostCanaryVisible       bool
 	InternalNetwork         bool
 	FakeHostEndpointBlocked bool
-	ContainerStdioAttached  bool
-	HostPortPublicationFree bool
 	NoNewPrivileges         bool
 	Privileged              bool
 	PIDsLimit               int64
@@ -156,8 +153,6 @@ func validatePhase0BoundaryEvidence(evidence Phase0BoundaryEvidence) error {
 		HostCanaryVisible:       evidence.HostCanaryVisible,
 		InternalNetwork:         evidence.InternalNetwork,
 		FakeHostEndpointBlocked: evidence.FakeHostEndpointBlocked,
-		ContainerStdioAttached:  evidence.ContainerStdioAttached,
-		HostPortPublicationFree: evidence.HostPortPublicationAbsent,
 		NoNewPrivileges:         evidence.NoNewPrivileges,
 		Privileged:              evidence.Privileged,
 		PIDsLimit:               evidence.PIDsLimit,
@@ -173,8 +168,6 @@ func validatePhase0BoundaryEvidence(evidence Phase0BoundaryEvidence) error {
 		HostCanaryVisible:       false,
 		InternalNetwork:         true,
 		FakeHostEndpointBlocked: true,
-		ContainerStdioAttached:  true,
-		HostPortPublicationFree: true,
 		NoNewPrivileges:         true,
 		Privileged:              false,
 		PIDsLimit:               phase0ContainerPIDs,
@@ -184,13 +177,10 @@ func validatePhase0BoundaryEvidence(evidence Phase0BoundaryEvidence) error {
 	if got != want {
 		return errors.New("Phase 0 evidence does not prove the required filesystem, user, and network boundary")
 	}
-	if evidence.ControlTransport != execServerControlTransport {
-		return errors.New("Phase 0 evidence does not name the shared exec-server control transport")
-	}
-	if err := validateNumericLoopbackAddress(evidence.HostControlAddress); err != nil {
+	if err := validateNumericLoopbackAddress(evidence.PublishedControlAddress); err != nil {
 		return fmt.Errorf("Phase 0 evidence control address: %w", err)
 	}
-	if !strings.HasPrefix(evidence.HostControlAddress, "127.0.0.1:") {
+	if !strings.HasPrefix(evidence.PublishedControlAddress, "127.0.0.1:") {
 		return errors.New("Phase 0 evidence control address must use IPv4 host loopback")
 	}
 	if !reflect.DeepEqual(evidence.MountDestinations, []string{"/tmp", phase0WorkspaceRoot}) {
@@ -278,8 +268,7 @@ func validatePhase0ActivityCWDs(cwds []string, label string) error {
 }
 
 func validatePhase0TeardownEvidence(evidence Phase0TeardownEvidence) error {
-	if !evidence.HostAppServerStopped || !evidence.ControlRelayStopped ||
-		!evidence.ContainerRemoved ||
+	if !evidence.HostAppServerStopped || !evidence.ContainerRemoved ||
 		!evidence.VolumeRemoved || !evidence.NetworkRemoved ||
 		!evidence.ImageTagRemoved || !evidence.HostCanaryRemoved {
 		return errors.New("Phase 0 evidence does not prove complete teardown")
@@ -330,7 +319,7 @@ func RenderPhase0SandboxReport(evidence Phase0SandboxEvidence) (string, error) {
 	report.WriteString("- A read-only model turn observed the fixture without mutation.\n")
 	report.WriteString("- A workspace-write model turn made only the declared throwaway mutation.\n")
 	report.WriteString("- The host canary and fake host endpoint were unreachable from the sandbox.\n")
-	report.WriteString("- The app-server, host control relay, container, volume, network, image tag, and canary were removed.\n")
+	report.WriteString("- The app-server, container, volume, network, image tag, and canary were removed.\n")
 	return report.String(), nil
 }
 

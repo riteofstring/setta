@@ -101,10 +101,7 @@ func (execution *phase0Execution) run(ctx context.Context) (Phase0SandboxEvidenc
 	if err != nil {
 		return Phase0SandboxEvidence{}, err
 	}
-	turns, toolEnvironmentNames, err := execution.probeCodex(
-		ctx,
-		execution.resources.controlRelay.endpointValue().URL,
-	)
+	turns, toolEnvironmentNames, err := execution.probeCodex(ctx, boundary.PublishedControlAddress)
 	if err != nil {
 		return Phase0SandboxEvidence{}, err
 	}
@@ -165,9 +162,9 @@ func (execution *phase0Execution) probeBoundary(
 
 func (execution *phase0Execution) probeCodex(
 	ctx context.Context,
-	execServerURL string,
+	execServerAddress string,
 ) (Phase0TurnEvidence, []string, error) {
-	execution.codexRuntime = newPhase0CodexRuntime(execution.config, execServerURL)
+	execution.codexRuntime = newPhase0CodexRuntime(execution.config, execServerAddress)
 	if err := execution.codexRuntime.verifyChatGPTAuthAndModel(ctx); err != nil {
 		return Phase0TurnEvidence{}, nil, err
 	}
@@ -178,9 +175,6 @@ func (execution *phase0Execution) probeCodex(
 	turns, err := execution.codexRuntime.runModelTurns(ctx, execution.resources)
 	if err != nil {
 		return Phase0TurnEvidence{}, nil, err
-	}
-	if relayErr := execution.resources.controlRelay.beginHealthyShutdown(); relayErr != nil {
-		return Phase0TurnEvidence{}, nil, fmt.Errorf("Phase 0 Agent control relay failed: %w", relayErr)
 	}
 	if err := execution.codexRuntime.shutdown(ctx); err != nil {
 		return Phase0TurnEvidence{}, nil, fmt.Errorf("stop Phase 0 host app-server: %w", err)
@@ -195,9 +189,6 @@ func (execution *phase0Execution) cleanup(
 ) (Phase0TeardownEvidence, error) {
 	var cleanupErrors []error
 	if execution.codexRuntime != nil {
-		if execution.resources.controlRelay != nil {
-			execution.resources.controlRelay.beginShutdown()
-		}
 		if err := execution.codexRuntime.shutdown(ctx); err != nil {
 			cleanupErrors = append(cleanupErrors, fmt.Errorf("stop Phase 0 host app-server: %w", err))
 		} else {
@@ -239,8 +230,8 @@ func phase0TopologyEvidence() Phase0TopologyEvidence {
 		ContainerOwnership: "Codex exec-server, AI-controlled filesystem and process tools, and disposable workspace",
 		AuthenticationBoundary: "ChatGPT authentication remains in the host app-server; " +
 			"no credential is mounted, forwarded, or copied into the container",
-		ControlPath: "capability-authenticated host-loopback WebSocket relay to Docker-managed " +
-			"stdin/stdout for the container exec-server stdio transport; no Agent port is published",
+		ControlPath: "host-loopback WebSocket to the container exec-server through a single " +
+			"ephemeral published port",
 	}
 }
 

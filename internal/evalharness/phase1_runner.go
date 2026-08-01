@@ -122,15 +122,11 @@ func executePhase1Scenario(
 	)
 	state := phase1StateFromObservation(observation)
 	provider := resources.provider
-	controlFailure := resources.controlRelay.beginHealthyShutdown()
 	stopContext, cancel := context.WithTimeout(context.Background(), phase1CleanupTimeout)
 	stopErr := resources.stopController(stopContext)
 	if stopErr != nil {
 		cancel()
 		return phase1InfrastructureFailure("controller_teardown_failed", stopErr, state.roles)
-	}
-	if controlFailure == nil {
-		controlFailure = resources.controlRelay.failure()
 	}
 	observations, tokenEvidenceErr := resources.readTokenUsageEvidence(stopContext)
 	cancel()
@@ -138,7 +134,6 @@ func executePhase1Scenario(
 		state,
 		observation,
 		provider,
-		controlFailure,
 		scenario.ID,
 		attempt,
 		observations,
@@ -160,20 +155,12 @@ func phase1StateAfterProviderEvidence(
 	state phase1RunState,
 	observation Phase1HTTPObservation,
 	provider *phase1ProviderBroker,
-	controlFailure error,
 	scenarioID string,
 	attempt int,
 	observations []agent.TokenUsageObservation,
 	tokenEvidenceErr error,
 	orchestrationErr error,
 ) phase1RunState {
-	if controlFailure != nil {
-		return phase1InfrastructureFailure(
-			"agent_control_transport_failed",
-			controlFailure,
-			observation.Roles,
-		)
-	}
 	if budgetFailure := provider.tokenBudgetFailure(); budgetFailure != nil {
 		return phase1TokenBudgetFailureState(budgetFailure, observation.Roles)
 	}

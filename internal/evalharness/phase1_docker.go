@@ -28,6 +28,7 @@ const (
 	phase1VerificationRoot      = "/verification"
 	phase1AppDataRoot           = "/app-data"
 	phase1TokenUsagePath        = phase1AppDataRoot + "/eval-token-usage.jsonl"
+	phase1ExecServerPort        = "4500"
 	phase1BackendPort           = "4310"
 	phase1ContainerTmpfsBytes   = 128 * 1024 * 1024
 	phase1WorkspaceDiskBytes    = 64 * 1024 * 1024
@@ -46,12 +47,11 @@ const (
 )
 
 type phase1DockerResources struct {
-	client       phase0DockerClient
-	suffix       string
-	images       *phase1Images
-	fixture      phase1FixturePreparation
-	provider     *phase1ProviderBroker
-	controlRelay *execServerControlRelay
+	client   phase0DockerClient
+	suffix   string
+	images   *phase1Images
+	fixture  phase1FixturePreparation
+	provider *phase1ProviderBroker
 
 	agentNetwork       string
 	controllerNetwork  string
@@ -116,14 +116,14 @@ func (resources *phase1DockerResources) start(
 	if err := resources.seedVolumes(ctx); err != nil {
 		return nil, err
 	}
-	controlEndpoint, err := resources.startAgent(ctx, abortScenario)
+	execServerAddress, err := resources.startAgent(ctx)
 	if err != nil {
 		return nil, err
 	}
 	provider, err := startPhase1ProviderBroker(
 		ctx,
 		codexCommand,
-		controlEndpoint.URL,
+		execServerAddress,
 		hardTotalTokens,
 		abortScenario,
 	)
@@ -424,6 +424,43 @@ func (resources *phase1DockerResources) seedVolume(
 	return nil
 }
 
+func (resources *phase1DockerResources) startAgent(ctx context.Context) (string, error) {
+	tmpfs := phase1Tmpfs()
+	resources.containers[resources.agentContainer] = true
+	if _, err := resources.client.run(
+		ctx,
+		"run",
+		"--detach",
+		"--pull", "never",
+		"--name", resources.agentContainer,
+		"--platform", phase1ImagePlatform,
+		"--network", resources.agentNetwork,
+		"--publish", "127.0.0.1::"+phase1ExecServerPort+"/tcp",
+		"--mount", "type=volume,source="+resources.workspaceVolume+",destination="+phase1WorkspaceRoot,
+		"--read-only",
+		"--tmpfs", tmpfs,
+		"--user", fmt.Sprintf("%d:%d", phase1ContainerUID, phase1ContainerGID),
+		"--cap-drop", "ALL",
+		"--security-opt", "no-new-privileges",
+		"--pids-limit", strconv.Itoa(phase1AgentPIDs),
+		"--memory", strconv.FormatInt(phase1AgentMemoryBytes, 10),
+		"--cpus", "4",
+		"--env", "HOME=/tmp",
+		"--env", "LANG=C.UTF-8",
+		"--env", "PATH=/usr/local/bin:/usr/bin:/bin",
+		"--env", "SHELL=/bin/zsh",
+		"--label", "com.setta.eval.phase=1",
+		"--label", "com.setta.eval.run="+resources.suffix,
+		resources.images.agentID,
+	); err != nil {
+		return "", fmt.Errorf("start Phase 1 Agent exec-server container: %w", err)
+	}
+	if err := resources.requireContainerRunning(ctx, resources.agentContainer); err != nil {
+		return "", err
+	}
+	return resources.publishedAddress(ctx, resources.agentContainer, phase1ExecServerPort)
+}
+
 func (resources *phase1DockerResources) startBackend(
 	ctx context.Context,
 ) (*BackendClient, error) {
@@ -642,18 +679,10 @@ func (resources *phase1DockerResources) stopController(ctx context.Context) erro
 		stopErrors = append(stopErrors, err)
 	}
 	if resources.provider != nil {
-		if resources.controlRelay != nil {
-			resources.controlRelay.beginShutdown()
-		}
 		if err := resources.provider.close(ctx); err != nil {
 			stopErrors = append(stopErrors, err)
 		} else {
 			resources.provider = nil
-		}
-	}
-	if resources.controlRelay != nil {
-		if err := resources.controlRelay.close(ctx); err != nil {
-			stopErrors = append(stopErrors, fmt.Errorf("stop Phase 1 Agent control relay: %w", err))
 		}
 	}
 	if err := resources.stopContainer(ctx, resources.agentContainer, "Agent"); err != nil {

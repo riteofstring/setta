@@ -18,4 +18,6 @@ ENV HOME=/tmp \
 
 USER 65532:65532
 WORKDIR /workspace
-ENTRYPOINT ["/usr/local/bin/codex", "exec-server", "--strict-config", "--listen", "stdio://"]
+EXPOSE 4500
+
+ENTRYPOINT ["/usr/local/bin/codex", "exec-server", "--strict-config", "--listen", "ws://0.0.0.0:4500"]

@@ -346,13 +346,6 @@ func preparePhase1BuildContexts(
 	); err != nil {
 		return phase1BuildContexts{}, err
 	}
-	if err := requirePhase1ProofFileDigest(
-		"exec-server control relay",
-		filepath.Join(config.repoRoot, "internal", "evalharness", "exec_server_control_relay.go"),
-		config.phase0Codex.FileSHA256["control-relay"],
-	); err != nil {
-		return phase1BuildContexts{}, err
-	}
 	root, err := os.MkdirTemp("", "setta-eval-phase1-build-")
 	if err != nil {
 		return phase1BuildContexts{}, fmt.Errorf("create Phase 1 build contexts: %w", err)
