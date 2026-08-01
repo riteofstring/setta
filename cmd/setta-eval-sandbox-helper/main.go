@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"setta/internal/evalharness/probefixture"
 	"setta/internal/evalharness/volumecopy"
 )
 
@@ -53,6 +54,10 @@ type fileEvidence struct {
 	SHA256 string `json:"sha256"`
 }
 
+type fixtureEvidence struct {
+	FixtureToken string `json:"fixtureToken"`
+}
+
 type workspaceEvidence struct {
 	Files []fileEvidence `json:"files"`
 }
@@ -76,12 +81,16 @@ func runHelperCommand(args []string) error {
 	switch args[0] {
 	case "boundary":
 		return runBoundary(args[1:])
+	case "copy-fixture":
+		return copyProbeFixture(args[1:])
 	case "environment":
 		return writeJSON(environment())
 	case "phase1-copy-volume", "phase1-hold-volume", "phase1-prepare-volume", "phase1-read-file", "phase1-toolchain":
 		return runPhase1HelperCommand(args)
 	case "seed":
 		return runSeed(args[1:])
+	case "read-fixture":
+		return readProbeFixture(args[1:])
 	case "snapshot":
 		return snapshotWorkspace()
 	case "verify-output":
@@ -89,6 +98,49 @@ func runHelperCommand(args []string) error {
 	default:
 		return fmt.Errorf("unsupported helper command %q", args[0])
 	}
+}
+
+func readProbeFixture(args []string) error {
+	if len(args) != 0 {
+		return errors.New("read-fixture accepts no arguments")
+	}
+	_, fixtureToken, err := loadProbeFixture()
+	if err != nil {
+		return err
+	}
+	return writeJSON(fixtureEvidence{FixtureToken: fixtureToken})
+}
+
+func copyProbeFixture(args []string) error {
+	if len(args) != 0 {
+		return errors.New("copy-fixture accepts no arguments")
+	}
+	value, fixtureToken, err := loadProbeFixture()
+	if err != nil {
+		return err
+	}
+	output, err := os.OpenFile(probeOutputPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		return fmt.Errorf("create probe output: %w", err)
+	}
+	_, writeErr := output.Write(value)
+	closeErr := output.Close()
+	if err := errors.Join(writeErr, closeErr); err != nil {
+		return fmt.Errorf("write probe output: %w", err)
+	}
+	return writeJSON(fixtureEvidence{FixtureToken: fixtureToken})
+}
+
+func loadProbeFixture() ([]byte, string, error) {
+	value, err := os.ReadFile(probeInputPath)
+	if err != nil {
+		return nil, "", fmt.Errorf("read probe fixture: %w", err)
+	}
+	fixtureToken, err := probefixture.DecodeFile(value)
+	if err != nil {
+		return nil, "", err
+	}
+	return value, fixtureToken, nil
 }
 
 func runPhase1HelperCommand(args []string) error {
