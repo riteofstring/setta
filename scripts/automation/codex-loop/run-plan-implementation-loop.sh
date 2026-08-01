@@ -6,6 +6,8 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 PLAN_PATH=""
 COMPLETION_SENTINEL="PLAN_IMPLEMENTATION_COMPLETE"
+BLOCKED_SENTINEL="PLAN_IMPLEMENTATION_BLOCKED"
+BLOCKED_EXIT_CODE="3"
 FINAL_AUDIT_SENTINEL="PLAN_IMPLEMENTATION_READY_FOR_FINAL_AUDIT"
 PHASE_AUDIT_SENTINEL="PLAN_PHASE_READY_FOR_AUDIT"
 PHASE_COMPLETE_SENTINEL="PLAN_PHASE_AUDIT_COMPLETE"
@@ -34,11 +36,11 @@ Runs fresh automation agents in a loop for the repository-relative plan document
 passed as PLAN_PATH.
 
 Agent 1 implements coherent batches from the current plan phase and uses
-focused checks while the batch is changing. Routine batches are not followed
-by a redundant second-agent review. Agent 2 reviews and runs broader gates only
-when Agent 1 declares the current phase ready for audit. When Agent 1 finds no
-remaining repository work, Agent 2 performs a separate whole-plan completion
-audit.
+focused checks when repository policy and current user authorization permit
+them. Routine batches are not followed by a redundant second-agent review.
+Agent 2 reviews at phase boundaries and runs broader gates only when they are
+authorized. When Agent 1 finds no remaining repository work, Agent 2 performs a
+separate whole-plan completion audit.
 
 Within a phase, agents should update all assumptions affected by a contract or
 behavior change before rerunning a focused end-to-end scenario. Broad matrices
@@ -47,6 +49,10 @@ loops.
 
 The loop succeeds only when Agent 2's final message is exactly:
   PLAN_IMPLEMENTATION_COMPLETE
+
+The loop exits with status 3 when either agent establishes a genuine plan-level
+blocker, commits the required evidence, and returns exactly:
+  PLAN_IMPLEMENTATION_BLOCKED
 
 Review findings, failing checks, and incomplete plan work advance to another
 iteration. The loop has no iteration cap and does not stop before the separate
@@ -155,17 +161,56 @@ require_clean_repo() {
   exit 1
 }
 
+collect_process_tree_pids() {
+  local root_pid="$1"
+  local child_pid=""
+
+  for child_pid in $(pgrep -P "${root_pid}" 2>/dev/null || true); do
+    collect_process_tree_pids "${child_pid}"
+  done
+  printf '%s\n' "${root_pid}"
+}
+
+terminate_process_tree() {
+  local root_pid="$1"
+  local process_tree_pids=""
+  local process_pid=""
+
+  if [[ -z "${root_pid}" ]] || ! kill -0 "${root_pid}" 2>/dev/null; then
+    return
+  fi
+
+  process_tree_pids="$(collect_process_tree_pids "${root_pid}")"
+  while IFS= read -r process_pid; do
+    kill -TERM "${process_pid}" 2>/dev/null || true
+  done <<<"${process_tree_pids}"
+
+  sleep 2
+
+  while IFS= read -r process_pid; do
+    if kill -0 "${process_pid}" 2>/dev/null; then
+      kill -KILL "${process_pid}" 2>/dev/null || true
+    fi
+  done <<<"${process_tree_pids}"
+}
+
 stop_active_agent() {
   if [[ -z "${ACTIVE_AGENT_PID}" ]] || ! kill -0 "${ACTIVE_AGENT_PID}" 2>/dev/null; then
     return
   fi
 
-  kill "${ACTIVE_AGENT_PID}" 2>/dev/null || true
+  terminate_process_tree "${ACTIVE_AGENT_PID}"
   wait "${ACTIVE_AGENT_PID}" 2>/dev/null || true
   ACTIVE_AGENT_PID=""
 }
 
-trap 'stop_active_agent; exit 130' INT TERM
+handle_termination_signal() {
+  stop_active_agent
+  exit 130
+}
+
+trap stop_active_agent EXIT
+trap handle_termination_signal INT TERM
 
 run_agent() {
   local agent_name="$1"
@@ -445,6 +490,11 @@ if [[ "${MAX_RETRY_DELAY_SECONDS}" -lt "${INITIAL_RETRY_DELAY_SECONDS}" ]]; then
   exit 1
 fi
 
+if ! command -v pgrep >/dev/null 2>&1; then
+  echo "pgrep is required for safe Agent process-tree cleanup" >&2
+  exit 1
+fi
+
 for agent_configuration in \
   "agent-1:${AGENT_ONE_RUNNER}:${AGENT_ONE_MODEL_WAS_SET}:${AGENT_ONE_EFFORT_WAS_SET}" \
   "agent-2:${AGENT_TWO_RUNNER}:${AGENT_TWO_MODEL_WAS_SET}:${AGENT_TWO_EFFORT_WAS_SET}"; do
@@ -495,7 +545,7 @@ fi
 mkdir -p "${OUTPUT_DIR}"
 OUTPUT_DIR="$(cd "${OUTPUT_DIR}" && pwd -P)"
 
-AGENT_ONE_PROMPT="Before acting, inspect ${PLAN_PATH} and its recent commit history. Work in the earliest phase or milestone with incomplete repository-actionable work; unavailable external evidence does not make a phase actionable. Implement a coherent batch of adjacent, tightly coupled items from that phase, and prefer finishing the coupled batch in one implementation and one commit instead of stopping after one checkbox. Keep plan status current, but never create a status-only commit. During implementation, run the narrowest checks that exercise the changing behavior. Use a directly affected workflow selector instead of a whole workflow matrix while debugging. If a contract or removed behavior changes an end-to-end scenario, search for and update every assumption tied to that behavior before the first rerun; do not discover stale assertions one at a time through repeated long runs. After a check fails, fix the cause and rerun only that focused check until stable. Do not run broad deterministic matrices, complete live-provider suites, or duplicate already-green broad gates during routine implementation; those run at the phase audit, unless repository instructions explicitly require a gate before this commit. Before committing source, obey the repository's required formatting, changed-file quality, and supply-chain rules. Commit the coherent batch and leave a clean worktree. Never seek missing credentials, privileges, GUI applications, background services, or remote access; record unavailable external verification once as a release gate. Avoid repeatedly printing complete diffs or large failure artifacts into the transcript; narrow inspection to relevant files and failure excerpts. Use ${CODEX_REFERENCE_REPO} when needed. If this commit finishes the current phase but later repository-actionable phases remain, return exactly ${PHASE_AUDIT_SENTINEL}. If all repository-actionable plan work is implemented, return exactly ${FINAL_AUDIT_SENTINEL}. Otherwise summarize the committed batch normally."
+AGENT_ONE_PROMPT="Before acting, inspect ${PLAN_PATH} and its recent commit history. Work in the earliest phase or milestone with incomplete repository-actionable work; unavailable external evidence does not make a phase actionable. Implement a coherent batch of adjacent, tightly coupled items from that phase, and prefer finishing the coupled batch in one implementation and one commit instead of stopping after one checkbox. Keep plan status current, but never create a status-only commit. Obey the repository's verification policy: run checks only when repository instructions and current user authorization permit them. When checks are authorized, use the narrowest checks that exercise the changing behavior and a directly affected workflow selector instead of a whole workflow matrix while debugging. If a contract or removed behavior changes an end-to-end scenario, search for and update every assumption tied to that behavior before the first authorized rerun; do not discover stale assertions one at a time through repeated long runs. After an authorized check fails, fix the cause and rerun only that focused check until stable. Do not run broad deterministic matrices, complete live-provider suites, or duplicate already-green broad gates during routine implementation. Before committing source, obey the repository's required formatting, changed-file quality, and supply-chain rules. Commit the coherent batch and leave a clean worktree. Never seek missing credentials, privileges, GUI applications, background services, or remote access; record unavailable or unauthorized external verification once as a release gate. Avoid repeatedly printing complete diffs or large failure artifacts into the transcript; narrow inspection to relevant files and failure excerpts. Use ${CODEX_REFERENCE_REPO} when needed. Only when safe source inspection and any plan-authorized benign probes establish a genuine plan-level blocker, write and commit the evidence required by the plan, leave a clean worktree, and return exactly ${BLOCKED_SENTINEL}; never use that sentinel for a transient command, network, service, credential, or verification failure. If this commit finishes the current phase but later repository-actionable phases remain, return exactly ${PHASE_AUDIT_SENTINEL}. If all repository-actionable plan work is implemented, return exactly ${FINAL_AUDIT_SENTINEL}. Otherwise summarize the committed batch normally."
 
 log_info "Output directory: ${OUTPUT_DIR}"
 log_info "Plan: ${ROOT_DIR}/${PLAN_PATH}"
@@ -513,6 +563,7 @@ log_info "Progress log interval: ${PROGRESS_LOG_INTERVAL_SECONDS}s"
 log_info "Iteration cap: none"
 log_info "Review cadence: phase and final audits only"
 log_info "Completion sentinel: ${COMPLETION_SENTINEL}"
+log_info "Blocked sentinel: ${BLOCKED_SENTINEL}"
 log_info "Phase audit request: ${PHASE_AUDIT_SENTINEL}"
 log_info "Phase audit completion: ${PHASE_COMPLETE_SENTINEL}"
 log_info "Final audit request: ${FINAL_AUDIT_SENTINEL}"
@@ -536,14 +587,18 @@ while true; do
   run_agent "agent-1" "${AGENT_ONE_PROMPT}" "${run_dir}" "${AGENT_ONE_RUNNER}" "${AGENT_ONE_MODEL}" "${AGENT_ONE_EFFORT}" 1
   implementer_head="$(git -C "${ROOT_DIR}" rev-parse HEAD)"
   implementer_message="$(trimmed_nonempty_message "${implementer_last_message}")"
-  if [[ "${implementer_message}" == "${FINAL_AUDIT_SENTINEL}" ]] && repo_is_clean; then
+  if [[ "${implementer_message}" == "${BLOCKED_SENTINEL}" ]] && repo_is_clean; then
+    require_clean_repo "at the Agent 1 blocked exit"
+    log_info "Agent 1 returned ${BLOCKED_SENTINEL}; implementation is blocked by committed plan evidence."
+    exit "${BLOCKED_EXIT_CODE}"
+  elif [[ "${implementer_message}" == "${FINAL_AUDIT_SENTINEL}" ]] && repo_is_clean; then
     final_audit="1"
     audit_kind="final"
-    reviewer_prompt="Perform the final whole-plan audit against ${PLAN_PATH} and its implementation history. Inspect phase-audit evidence before running commands. Do not rerun a broad deterministic or live-provider gate that already passed after the last relevant code change. Run only missing required whole-plan gates, once, after static review is complete. If a gate fails, isolate the cause with the narrowest check, make all related fixes, and reserve one final broad rerun for the stable tree. Reject status-only work and do not retry unavailable external verification; keep it as a release gate. Fix, verify, and commit actionable issues without starting work outside the plan. If all repository-actionable implementation and verification are complete, return exactly ${COMPLETION_SENTINEL}. Otherwise report the concrete remaining work. Do not seek missing credentials, privileges, GUI applications, background services, or remote access."
+    reviewer_prompt="Perform the final whole-plan audit against ${PLAN_PATH} and its implementation history. Inspect phase-audit evidence before running commands. Obey the repository's verification policy: run gates only when repository instructions and current user authorization permit them. Do not rerun a broad deterministic or live-provider gate that already passed after the last relevant code change. When gates are authorized, run only missing required whole-plan gates, once, after static review is complete. If an authorized gate fails, isolate the cause with the narrowest check, make all related fixes, and reserve one final broad rerun for the stable tree. Reject status-only work and do not retry unavailable or unauthorized external verification; keep it as a release gate. Fix and commit actionable issues without starting work outside the plan. If safe source inspection and plan-authorized benign probes establish a genuine plan-level blocker, commit the required evidence and return exactly ${BLOCKED_SENTINEL}; never use it for a transient command, network, service, credential, or verification failure. If all repository-actionable implementation is complete and every currently authorized verification requirement is satisfied or recorded as a release gate, return exactly ${COMPLETION_SENTINEL}. Otherwise report the concrete remaining work. Do not seek missing credentials, privileges, GUI applications, background services, or remote access."
     log_info "Agent 1 requested the final whole-plan audit."
   elif [[ "${implementer_message}" == "${PHASE_AUDIT_SENTINEL}" ]] && repo_is_clean; then
     audit_kind="phase"
-    reviewer_prompt="Audit the completed current phase of ${PLAN_PATH} as one coherent change. Treat ${phase_start_head}..${implementer_head} as the minimum change range, and expand the review to earlier commits for this phase when the loop was restarted mid-phase. Inspect the implementation and existing verification evidence before running commands. Check all assumptions affected by changed or removed behavior in one static pass. Run the phase's applicable required broad deterministic matrix and live-provider suite at most once, after review and fixes are stable; do not duplicate already-green gates that postdate the last relevant code change. If a broad gate fails, use the narrowest failing workflow while fixing it, then run one final applicable broad gate after all edits. Fix, verify, and commit issues in the current phase, but do not start the next phase. Reject status-only work and do not retry unavailable external verification. If the current phase is complete and its required available gates are satisfied, return exactly ${PHASE_COMPLETE_SENTINEL}. Otherwise report the remaining current-phase work. Do not seek missing credentials, privileges, GUI applications, background services, or remote access."
+    reviewer_prompt="Audit the completed current phase of ${PLAN_PATH} as one coherent change. Treat ${phase_start_head}..${implementer_head} as the minimum change range, and expand the review to earlier commits for this phase when the loop was restarted mid-phase. Inspect the implementation and existing verification evidence before running commands. Check all assumptions affected by changed or removed behavior in one static pass. Obey the repository's verification policy: run gates only when repository instructions and current user authorization permit them. When gates are authorized, run the phase's applicable required broad deterministic matrix and live-provider suite at most once, after review and fixes are stable; do not duplicate already-green gates that postdate the last relevant code change. If an authorized broad gate fails, use the narrowest failing workflow while fixing it, then run one final applicable broad gate after all edits. Fix and commit issues in the current phase, but do not start the next phase. Reject status-only work and do not retry unavailable or unauthorized external verification; keep it as a release gate. If safe source inspection and plan-authorized benign probes establish a genuine plan-level blocker, commit the required evidence and return exactly ${BLOCKED_SENTINEL}; never use it for a transient command, network, service, credential, or verification failure. If the current phase is complete and every currently authorized verification requirement is satisfied or recorded as a release gate, return exactly ${PHASE_COMPLETE_SENTINEL}. Otherwise report the remaining current-phase work. Do not seek missing credentials, privileges, GUI applications, background services, or remote access."
     log_info "Agent 1 requested a phase audit for ${phase_start_head}..${implementer_head}."
   else
     require_clean_repo "after implementation batch ${iteration}"
@@ -559,7 +614,11 @@ while true; do
   require_clean_repo "after agent-2 review"
 
   reviewer_message="$(trimmed_nonempty_message "${reviewer_last_message}")"
-  if [[ "${final_audit}" -eq 1 ]] && [[ "${reviewer_message}" == "${COMPLETION_SENTINEL}" ]]; then
+  if [[ "${reviewer_message}" == "${BLOCKED_SENTINEL}" ]]; then
+    require_clean_repo "at the Agent 2 blocked exit"
+    log_info "Agent 2 returned ${BLOCKED_SENTINEL}; implementation is blocked by committed plan evidence."
+    exit "${BLOCKED_EXIT_CODE}"
+  elif [[ "${final_audit}" -eq 1 ]] && [[ "${reviewer_message}" == "${COMPLETION_SENTINEL}" ]]; then
     require_clean_repo "at completion"
     log_info "Agent 2 returned ${COMPLETION_SENTINEL}; implementation is complete."
     exit 0

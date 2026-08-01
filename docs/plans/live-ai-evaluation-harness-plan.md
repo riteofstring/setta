@@ -1,9 +1,7 @@
 # Live AI Evaluation Harness Plan
 
 **Date:** 2026-07-31
-**Status:** Ready for a supervised Phase 0 feasibility spike. Phases 1-5 are
-blocked until Phase 0 records `PASS` and the product owner accepts the sandbox
-boundary.
+**Status:** Ready for implementation.
 
 ## Outcome
 
@@ -90,14 +88,9 @@ container would put a real credential in the same environment as AI-controlled
 commands. A read-only mount does not solve disclosure. The implementation must
 prove a supported credential-safe boundary before claiming Docker isolation.
 
-### Implementation launch gate
+### Autonomous Phase 0 outcome
 
-Do not give the full plan to
-`scripts/automation/codex-loop/run-plan-implementation-loop.sh` yet. That loop
-has no terminal state for an architectural feasibility blocker and would keep
-revisiting Phase 0 if no safe boundary exists.
-
-Phase 0 is a supervised, separately authorized spike. It writes
+The implementation loop begins with Phase 0 and writes
 `docs/reports/live-ai-eval-sandbox-phase0.md` with exactly one outcome:
 
 - `PASS`: names the supported topology, process ownership, authentication
@@ -106,13 +99,18 @@ Phase 0 is a supervised, separately authorized spike. It writes
 - `BLOCKED`: names the unsupported or missing provider capability and the
   evidence establishing the blocker. It proposes no unsafe fallback.
 
-After `PASS`, the product owner reviews the report. Acceptance updates this
-plan's status to `Ready for implementation`, adds a short `Phase 0 resolution`
-section describing the chosen topology, and permits the implementation loop to
-start at Phase 1. After `BLOCKED`, this plan's status becomes `Blocked`, no
-later phase begins, and the implementation loop is not started. Phase 0 is
-never represented as successfully complete merely because the blocker was
-documented.
+After `PASS`, the implementer adds a short `Phase 0 resolution` section to this
+plan, commits the report and proof together, requests the normal phase audit,
+and continues to Phase 1 automatically when that audit succeeds. The audit
+obeys the repository verification policy; it does not create a new test
+authorization. No separate human approval is required. After `BLOCKED`, the
+implementer commits the report and current plan status, returns exactly
+`PLAN_IMPLEMENTATION_BLOCKED`, and the loop exits without starting a later
+phase. A stopped Docker daemon, temporary network failure, unavailable
+credential, or failing command is an infrastructure problem to report or
+retry; it is not proof of an architectural blocker. Phase 0 is blocked only
+when safe source inspection and benign probes establish that the required
+supported boundary does not exist.
 
 ## Decisions
 
@@ -664,11 +662,6 @@ reading two reports.
 
 ## Phase 0 — Prove the sandbox boundary
 
-Begin only after the user explicitly authorizes the Phase 0 live sandbox
-probe. Do not use the plan implementation loop for this phase. The authorization
-covers only the benign throwaway task and probes described here; it does not
-authorize later automated tests or live evaluation runs.
-
 Timebox one focused day to establish how the ChatGPT-authenticated Codex runtime
 can operate while every AI-controlled command stays in Docker and no credential
 is readable there.
@@ -689,11 +682,13 @@ protocol.
 **PASS exit:** one live, mutating throwaway task runs on the target MacBook; the
 real repository and a random host canary remain unreachable; no real credential
 is present in the Agent filesystem or environment; teardown leaves no process
-or container running; and the product owner accepts the written boundary.
+or container running; the report and plan resolution are committed; and the
+normal phase audit can advance the loop automatically.
 
 **BLOCKED exit:** the report identifies the missing supported capability and
-the plan status is `Blocked`. No Phase 1 code, unsandboxed mode, auth mount,
-provider proxy based on undocumented protocols, or automation-loop run follows.
+the plan status is `Blocked`. The implementer commits that evidence and returns
+exactly `PLAN_IMPLEMENTATION_BLOCKED`. No Phase 1 code, unsandboxed mode, auth
+mount, or provider proxy based on undocumented protocols follows.
 
 ## Phase 1 — One vertical scenario
 
@@ -731,14 +726,18 @@ and its five-Boolean result schema. Write the complete local artifact set under
 `.recordings/setta-eval/`.
 
 **Exit:** the first scenario reports exact system tokens by role and total,
-excludes judge tokens, and receives a schema-valid judge result whose verdict
-the product owner has read against the transcript.
+excludes judge tokens, and receives a schema-valid judge result with the
+transcript and verdict ready for the one-time MVP verification review.
 
 ## Phase 3 — Complete the five-scenario MVP
 
 Add apparent ambiguity, genuine ambiguity, steering, and queue-then-cancel on
 the same fixture. Add only the event trigger and deterministic assertion
-vocabulary those scenarios require.
+vocabulary those scenarios require. Add the small model-configuration input
+that applies exact production role-profile updates before a scenario and
+records requested and resolved settings. Validate candidates against the live
+model catalog and fail specifically when a model, effort, or service tier is
+unavailable.
 
 Run once by default and rerun only failed scenarios once. Report first-attempt
 passes, stable failures, flaky scenarios, infrastructure failures, user-control
@@ -749,24 +748,26 @@ yet automate baseline regression thresholds.
 
 **Exit:** all five scenarios can be launched together or individually, every
 failure is attributable to ability, control, communication, efficiency, or
-infrastructure, and no scenario relies on timing luck.
+infrastructure, no scenario relies on timing luck, and an explicitly supplied
+candidate configuration can be evaluated without changing harness code.
 
-## Phase 4 — Screen model combinations
+The implementation loop's repository work ends here and proceeds to its final
+audit. The following sections describe later operation and evidence-driven
+extension of the completed harness; they are not incomplete implementation
+work.
 
-Add a small model-configuration input that applies exact production role
-profile updates before a scenario begins and records both requested and resolved
-settings. It must validate candidates against the live model catalog and fail
-specifically when a model, effort, or service tier is unavailable.
+## Post-MVP operation — Screen model combinations
 
-Run the baseline and one-at-a-time Director, Narrator, and Agent alternatives,
-then the combined winner. Do not add candidates until the product owner has a
-specific model decision to make.
+When there is a concrete model decision, run the baseline and one-at-a-time
+Director, Narrator, and Agent alternatives through the completed candidate
+input, then the combined winner. This is an invocation of the finished harness,
+not unfinished repository work. Do not enumerate candidates speculatively.
 
-**Exit:** one report set makes it possible to choose a static production trio
+**Outcome:** one report set makes it possible to choose a static production trio
 from ability, control, communication, total tokens per successful task, and
 latency without a Cartesian search or a blended score.
 
-## Phase 5 — Add scenarios only from evidence
+## Post-MVP extension — Add scenarios only from evidence
 
 After the MVP, every material real-world failure should be considered for a
 scenario. Add it only when it represents a reusable product contract and has an
@@ -779,27 +780,18 @@ initial merge gate.
 
 ## Verification policy
 
-Writing this plan, asking whether it is ready, asking to implement it, or
-starting the implementation loop does not authorize automated tests or live
-model calls. Formatting changed files and inspecting diffs are allowed during
+An explicit user instruction to run this plan through the implementation loop
+authorizes the narrowly bounded, benign Phase 0 feasibility probe because that
+probe determines the implementation topology. It does not authorize the
+automated test suite, broad verification gates, or post-MVP model screening.
+Formatting changed files and inspecting diffs are allowed during
 implementation.
 
-There are three explicit execution authorizations:
-
-1. **Phase 0 sandbox probe.** The user must specifically authorize the benign
-   live Phase 0 probe after its minimal proof branch is ready. That authorization
-   ends when the report records `PASS` or `BLOCKED`.
-2. **MVP merge verification.** After the Phase 1-3 implementation is ready to
-   merge, the user must explicitly request verification. Run the ladder below
-   in order and stop at the narrowest failing layer.
-3. **Model screening.** Phase 4 live candidate runs occur only after the product
-   owner names a concrete model decision and explicitly authorizes that screen.
-   Merge verification does not silently spend those model calls.
-
-The phase exit statements are acceptance contracts, not permission to execute
-their commands. After an accepted Phase 0 `PASS`, implementation may build the
-Phase 1-3 code in order without automated checks. The implementation loop must
-not interpret its own invocation as test authorization.
+The only routine human checkpoint is MVP merge verification. After the Phase
+1-3 implementation is ready to merge, the user explicitly requests
+verification once. Run the ladder below in order and stop at the narrowest
+failing layer. Phase exit statements are acceptance contracts, not independent
+approval checkpoints.
 
 For user-authorized MVP merge verification, start with the scenario parser,
 token accounting, sandbox preflight, and one fixture verifier. Then prove the
