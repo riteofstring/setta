@@ -12,11 +12,10 @@ import (
 )
 
 const (
-	phase0SchemaVersion       = 1
+	phase0SchemaVersion       = 2
 	phase0OutcomePass         = "PASS"
 	phase0EnvironmentID       = "remote"
 	phase0WorkspaceRoot       = "/workspace"
-	phase0ExecServerPort      = "4500"
 	phase0ContainerUID        = 65532
 	phase0ContainerGID        = 65532
 	phase0CodexBundleTarget   = "aarch64-unknown-linux-musl"
@@ -105,7 +104,10 @@ type Phase0BoundaryEvidence struct {
 	HostCanaryVisible         bool     `json:"hostCanaryVisible"`
 	InternalNetwork           bool     `json:"internalNetwork"`
 	FakeHostEndpointBlocked   bool     `json:"fakeHostEndpointBlocked"`
-	PublishedControlAddress   string   `json:"publishedControlAddress"`
+	ControlTransport          string   `json:"controlTransport"`
+	HostControlAddress        string   `json:"hostControlAddress"`
+	ContainerStdioAttached    bool     `json:"containerStdioAttached"`
+	HostPortPublicationAbsent bool     `json:"hostPortPublicationAbsent"`
 	MountDestinations         []string `json:"mountDestinations"`
 	ContainerEnvironmentNames []string `json:"containerEnvironmentNames"`
 	ToolEnvironmentNames      []string `json:"toolEnvironmentNames"`
@@ -133,6 +135,7 @@ type Phase0ModelTurnEvidence struct {
 
 type Phase0TeardownEvidence struct {
 	HostAppServerStopped bool `json:"hostAppServerStopped"`
+	ControlRelayStopped  bool `json:"controlRelayStopped"`
 	ContainerRemoved     bool `json:"containerRemoved"`
 	VolumeRemoved        bool `json:"volumeRemoved"`
 	NetworkRemoved       bool `json:"networkRemoved"`

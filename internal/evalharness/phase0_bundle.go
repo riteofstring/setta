@@ -133,8 +133,8 @@ func readPhase0HostCodexVersion(
 	if err != nil {
 		return "", fmt.Errorf("inspect host Codex exec-server support: %w", err)
 	}
-	if !strings.Contains(help.stdout, "--listen") {
-		return "", fmt.Errorf("host Codex does not expose the supported exec-server listener")
+	if !strings.Contains(help.stdout, "--listen") || !strings.Contains(help.stdout, "stdio") {
+		return "", fmt.Errorf("host Codex does not expose the supported exec-server stdio listener")
 	}
 	return fields[1], nil
 }
@@ -183,6 +183,17 @@ func populatePhase0BuildContext(
 		}
 		prepared.fileSHA256[file.name] = digest
 	}
+	relayPath := filepath.Join(
+		config.repoRoot,
+		"internal",
+		"evalharness",
+		"exec_server_control_relay.go",
+	)
+	relayDigest, err := hashPhase0File(relayPath)
+	if err != nil {
+		return fmt.Errorf("hash exec-server control relay: %w", err)
+	}
+	prepared.fileSHA256["control-relay"] = relayDigest
 	helperPath := filepath.Join(prepared.contextDir, "sandbox-helper")
 	buildEnvironment := append(
 		append([]string{}, os.Environ()...),
