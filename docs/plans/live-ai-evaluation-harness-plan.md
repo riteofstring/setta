@@ -1,7 +1,8 @@
 # Live AI Evaluation Harness Plan
 
 **Date:** 2026-07-31
-**Status:** Ready for implementation.
+**Status:** Phase 0 proof implementation complete; benign live evidence pending
+local infrastructure availability.
 
 ## Outcome
 
@@ -661,6 +662,32 @@ reading two reports.
   superseded implementation.
 
 ## Phase 0 — Prove the sandbox boundary
+
+### Phase 0 implementation status
+
+Source inspection against Codex commit
+`99744cfe04806ebaa1e5d08e3e790070f852472b` and the installed Codex CLI
+0.146.0 established the supported topology: the authenticated app-server and
+model connection remain host-owned, while Codex's supported `exec-server`
+owns filesystem and process execution inside the container. The app-server
+selects that environment through `CODEX_EXEC_SERVER_URL`; the proof does not
+proxy an authentication protocol or place auth in the container.
+
+The repository proof is implemented by
+`scripts/run_setta_eval_sandbox_probe.sh`, the Go-owned probe under
+`internal/evalharness`, and `evals/sandbox/phase0.Dockerfile`. It requires an
+already-installed, version-matched `aarch64-unknown-linux-musl` Codex standalone
+bundle, builds from `scratch` with networking disabled during the build, and
+returns `PASS` JSON only after all boundary assertions, both benign model turns,
+and teardown succeed. It never downloads Codex, starts Docker Desktop, opens a
+login flow, or emits credential values.
+
+**Release gate recorded 2026-07-31:** the live probe was not run because the
+Docker daemon was stopped and the inspected local Codex/npm installations had
+no `aarch64-unknown-linux-musl` Codex 0.146.0 bundle. These are unavailable
+infrastructure inputs, not evidence of an architectural blocker. No `PASS` or
+`BLOCKED` report exists yet, and Phase 1 remains gated on the Phase 0 `PASS`
+exit below.
 
 Timebox one focused day to establish how the ChatGPT-authenticated Codex runtime
 can operate while every AI-controlled command stays in Docker and no credential

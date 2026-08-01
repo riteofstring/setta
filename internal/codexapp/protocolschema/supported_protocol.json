@@ -1,5 +1,6 @@
 {
   "clientMethods": [
+    { "method": "command/exec" },
     { "method": "config/read" },
     { "method": "initialize" },
     { "method": "model/list" },
