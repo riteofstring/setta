@@ -229,7 +229,7 @@ For example:
   },
   "verifier": "mid-run-steering",
   "budget": {
-    "hardTotalTokens": 200000
+    "hardTotalTokens": 400000
   },
   "communication": {
     "progress": "when_useful",
@@ -238,13 +238,14 @@ For example:
 }
 ```
 
-The number above is a runaway ceiling, not a claim that 200,000 tokens is good.
+The number above is a runaway ceiling, not a claim that 400,000 tokens is good.
 Live production-baseline probes showed that one normal Director, Agent, and
 Narrator cycle already consumes about 50,000 tokens, roughly 34,000 of them in
-the Director's tool-bearing context. The ceiling therefore leaves room to
-finish multi-turn scenarios; the report records actual usage for efficiency
-decisions. Regression thresholds are set only after successful baselines
-provide real measurements.
+the Director's tool-bearing context, and that otherwise healthy coding runs can
+remain active past 200,000. The ceiling therefore leaves room to finish
+multi-turn scenarios while still stopping a genuine runaway; the report records
+actual usage for efficiency decisions. Regression thresholds are set only
+after successful baselines provide real measurements.
 
 All five MVP scenarios initially use the 1,800-second ceiling. This bounds a
 disposable evaluation of an intentionally small fixture task; it is not a
@@ -1614,7 +1615,7 @@ triggers, a verifier matching the scenario identity, and internally consistent
 clarification, steering, queueing, and cancellation assertions.
 
 All five exact scenario files are checked in with the quoted messages and the
-fixed 1,800-second and 200,000-token runaway ceilings. The shared hidden fixture
+fixed 1,800-second and 400,000-token runaway ceilings. The shared hidden fixture
 grader selects the scenario by its validated identifier and preserves the
 strict changed-file boundary. It now grades the original route plus exact
 `/health`, `/ready`, `/status`, or `/version` behavior as applicable; rejected

@@ -25,7 +25,7 @@
   },
   "verifier": "genuine-ambiguity",
   "budget": {
-    "hardTotalTokens": 200000
+    "hardTotalTokens": 400000
   },
   "communication": {
     "progress": "when_useful",
