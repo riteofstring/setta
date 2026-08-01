@@ -38,6 +38,15 @@ func TestDecodePhase1BackendReadyRequiresOneExactProductionEvent(t *testing.T) {
 		t.Fatal("ready event with an unknown field was accepted")
 	}
 
+	event.Addr = "[::]:4310"
+	encoded, err = json.Marshal(event)
+	if err != nil {
+		t.Fatalf("encode IPv6 ready event: %v", err)
+	}
+	if _, found, err := decodePhase1BackendReady(string(encoded)); err != nil || !found {
+		t.Fatalf("IPv6 wildcard ready event was rejected: found=%t err=%v", found, err)
+	}
+
 	event.Addr = "127.0.0.1:4310"
 	encoded, err = json.Marshal(event)
 	if err != nil {

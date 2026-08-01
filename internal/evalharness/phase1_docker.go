@@ -627,12 +627,21 @@ func decodePhase1BackendReady(value string) (settaruntime.ReadyEvent, bool, erro
 	if found == nil {
 		return settaruntime.ReadyEvent{}, false, nil
 	}
-	if found.Addr != net.JoinHostPort("0.0.0.0", phase1BackendPort) ||
+	if !validPhase1BackendReadyAddress(found.Addr) ||
 		found.ProtocolVersion != httpapi.ProtocolVersion ||
 		strings.TrimSpace(found.BootstrapToken) == "" {
 		return settaruntime.ReadyEvent{}, false, errors.New("Phase 1 backend emitted an invalid ready event")
 	}
 	return *found, true, nil
+}
+
+func validPhase1BackendReadyAddress(value string) bool {
+	host, port, err := net.SplitHostPort(value)
+	if err != nil || port != phase1BackendPort {
+		return false
+	}
+	address := net.ParseIP(host)
+	return address != nil && address.IsUnspecified()
 }
 
 func (resources *phase1DockerResources) stopController() error {
