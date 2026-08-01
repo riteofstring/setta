@@ -29,8 +29,9 @@ fi
 schema_source="${codex_repo}/codex-rs/app-server-protocol/schema/json"
 common_source="${codex_repo}/codex-rs/app-server-protocol/src/protocol/common.rs"
 thread_source="${codex_repo}/codex-rs/app-server-protocol/src/protocol/v2/thread.rs"
+environment_source="${codex_repo}/codex-rs/app-server-protocol/src/protocol/v2/environment.rs"
 
-for path in "${schema_source}" "${common_source}" "${thread_source}"; do
+for path in "${schema_source}" "${common_source}" "${thread_source}" "${environment_source}"; do
   if [[ ! -e "${path}" ]]; then
     echo "Required Codex protocol source is missing: ${path}" >&2
     exit 1
@@ -54,6 +55,8 @@ cargo run \
 rm -rf "${snapshot_dir}/json" "${snapshot_dir}/json_experimental" "${snapshot_dir}/rust"
 mkdir -p "${snapshot_dir}/json" "${snapshot_dir}/json_experimental/v2" "${snapshot_dir}/rust/protocol/v2"
 cp -R "${schema_source}/." "${snapshot_dir}/json/"
+cp "${experimental_schema_root}/json/v2/EnvironmentInfoParams.json" "${snapshot_dir}/json_experimental/v2/EnvironmentInfoParams.json"
+cp "${experimental_schema_root}/json/v2/EnvironmentInfoResponse.json" "${snapshot_dir}/json_experimental/v2/EnvironmentInfoResponse.json"
 cp "${experimental_schema_root}/json/v2/ThreadBackgroundTerminalsTerminateParams.json" "${snapshot_dir}/json_experimental/v2/ThreadBackgroundTerminalsTerminateParams.json"
 cp "${experimental_schema_root}/json/v2/ThreadBackgroundTerminalsTerminateResponse.json" "${snapshot_dir}/json_experimental/v2/ThreadBackgroundTerminalsTerminateResponse.json"
 cp "${experimental_schema_root}/json/v2/ThreadResumeParams.json" "${snapshot_dir}/json_experimental/v2/ThreadResumeParams.json"
@@ -64,6 +67,7 @@ cp "${experimental_schema_root}/json/v2/ThreadSettingsUpdateParams.json" "${snap
 cp "${experimental_schema_root}/json/v2/ThreadStartParams.json" "${snapshot_dir}/json_experimental/v2/ThreadStartParams.json"
 cp "${experimental_schema_root}/json/v2/ThreadStartResponse.json" "${snapshot_dir}/json_experimental/v2/ThreadStartResponse.json"
 cp "${common_source}" "${snapshot_dir}/rust/protocol/common.rs"
+cp "${environment_source}" "${snapshot_dir}/rust/protocol/v2/environment.rs"
 cp "${thread_source}" "${snapshot_dir}/rust/protocol/v2/thread.rs"
 
 "${repo_root}/scripts/go.sh" run ./cmd/generate-codex-protocol

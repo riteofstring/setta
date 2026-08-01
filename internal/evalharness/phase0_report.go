@@ -19,13 +19,14 @@ import (
 const (
 	Phase0SandboxReportRelativePath = "docs/reports/live-ai-eval-sandbox-phase0.md"
 	phase0SandboxReportMaxBytes     = 128 * 1024
-	phase0ReportEvidenceStart       = "<!-- setta-eval-phase0-evidence:v2 -->\n```json\n"
+	phase0ReportEvidenceStart       = "<!-- setta-eval-phase0-evidence:v4 -->\n```json\n"
 	phase0ReportEvidenceEnd         = "```\n<!-- /setta-eval-phase0-evidence -->"
 	phase0PlanPassMarker            = "### Phase 0 resolution\n\n**Outcome:** `PASS`"
 )
 
 var phase0EvidenceFileNames = []string{
 	"Dockerfile",
+	"bwrap",
 	"codex",
 	"control-relay",
 	"rg",
@@ -199,8 +200,14 @@ func validatePhase0BoundaryEvidence(evidence Phase0BoundaryEvidence) error {
 	if err := validatePhase0EvidenceEnvironment(evidence.ContainerEnvironmentNames, "container"); err != nil {
 		return err
 	}
-	if err := validatePhase0EvidenceEnvironment(evidence.ToolEnvironmentNames, "tool"); err != nil {
+	if err := validatePhase0EvidenceEnvironment(evidence.BoundaryHelperEnvironmentNames, "boundary helper"); err != nil {
 		return err
+	}
+	if evidence.ShellEnvironmentPolicyInherit != phase0ShellEnvironmentInherit {
+		return errors.New("Phase 0 evidence shell environment policy must inherit none")
+	}
+	if !reflect.DeepEqual(evidence.ShellEnvironmentPolicySetNames, phase0ShellEnvironmentSetNames()) {
+		return errors.New("Phase 0 evidence shell environment policy has an unexpected set-variable list")
 	}
 	if !reflect.DeepEqual(evidence.DroppedCapabilities, []string{"ALL"}) {
 		return errors.New("Phase 0 evidence must show that the container dropped all capabilities")
@@ -330,6 +337,7 @@ func RenderPhase0SandboxReport(evidence Phase0SandboxEvidence) (string, error) {
 	report.WriteString("- A read-only model turn observed the fixture without mutation.\n")
 	report.WriteString("- A workspace-write model turn made only the declared throwaway mutation.\n")
 	report.WriteString("- The host canary and fake host endpoint were unreachable from the sandbox.\n")
+	report.WriteString("- Docker inspection and the boundary helper observed only allowlisted environment names; the strict remote shell policy inherited none.\n")
 	report.WriteString("- The app-server, host control relay, container, volume, network, image tag, and canary were removed.\n")
 	return report.String(), nil
 }
