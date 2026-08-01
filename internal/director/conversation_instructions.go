@@ -50,15 +50,15 @@ const directorContract = "Rules:\n" +
 	"- Never invent a workspace id, workstream id, run id, approval id, resource request id, or filesystem " +
 	"path. Get ids from `setta.list_workspaces`, `setta.list_workstreams`, and `setta.read_activity`, or from a " +
 	"receipt an earlier call returned.\n" +
-	"- Resolve ambiguity from available context only when that context can answer objectively. An explicit request " +
-	"to follow the project's existing convention can be resolved by project inspection. Repository conventions can " +
-	"resolve how to implement a known behavior; they cannot invent an unspecified external contract, such as which " +
-	"route or behavior another system expects. When a missing external choice materially changes the requested " +
-	"outcome, call `setta.request_user_choice` and ask one useful question before starting or queueing work. Do not " +
-	"delegate the user's choice to a worker or guess between materially different outcomes.\n" +
-	"- When queueing a separate next task, send only that task's objective and constraints. Do not restate the active " +
-	"task or make its completion part of the queued instruction; queue order already provides sequencing, and the " +
-	"queued task must remain independent if the active task is later cancelled.\n" +
+	"- Before creating, submitting, queueing, or steering work, classify every unresolved input. An unknown is " +
+	"discoverable when authorized evidence can establish one objectively correct answer; start work and let the " +
+	"worker investigate it. An unknown is an outcome-defining user decision when materially different results could " +
+	"all be valid because the user's requirement is missing. Ask whether one result could be proven correct using only " +
+	"the request and authorized evidence. If not, call `setta.request_user_choice` as the " +
+	"only action and ask one useful question. Do not start exploratory work, delegate the decision, or guess.\n" +
+	"- Author each work delivery from the current user turn. Include only its objective and applicable constraints. " +
+	"The app owns ordering and cancellation; do not copy another turn's unfinished objective into this delivery or " +
+	"infer authorization from its position in a queue.\n" +
 	"- An approval marked secret is the user's to answer, never yours. Tell them it is waiting and what it is " +
 	"asking for.\n" +
 	"- When a tool refuses, read the reason it gives you. Fix the call, call a different tool, or tell the user " +
@@ -72,9 +72,9 @@ const directorContract = "Rules:\n" +
 // the established Director conversation.
 const directorToolUseReview = "Setta internal review: the preceding user request produced no Setta tool call. " +
 	"Re-evaluate that request against your developer contract in this same conversation. If it asked to " +
-	"change, select, inspect, or otherwise control app state, call the appropriate `setta` tool now. If a missing " +
-	"user choice materially changes the outcome, call `setta.request_user_choice` and ask that one question; never " +
-	"start or queue work as a substitute for the answer. If it was correctly answered " +
+	"change, select, inspect, or otherwise control app state, first classify unresolved input as a discoverable fact " +
+	"or an outcome-defining user decision. For a user decision, call `setta.request_user_choice`, ask one question, " +
+	"and make no other state-changing call. Otherwise call the appropriate `setta` tool now. If it was correctly answered " +
 	"as conversation, explanation, or planning, repeat that answer without mentioning this review. Never claim " +
 	"that app state changed unless a Setta tool receipt confirms it."
 

@@ -612,7 +612,7 @@ func projectionInstructions(channel ProjectionChannel) string {
 		"Emit at most one milestone only when the user learned a new result, a blocker needs user action, or the work entered a materially different phase.",
 		"Use semanticEvents as the only event feed for working projections; do not infer progress from raw trajectory gaps or cursor numbers.",
 		"For working projections, prefer an empty milestone list for normal progress, repeated blocked states, waiting updates, partial output streaming, or when semanticEvents do not show a meaningful change.",
-		"An activity or verification failure is not a user-facing blocker while the turn remains active and work can continue without user action; emit no milestone and let the agent recover.",
+		"Working projections report durable user-relevant changes, never troubleshooting. While the turn remains active, emit no milestone for a failed attempt, diagnostic observation, recovery step, provisional verification gap, or any issue that does not require the user's action; later work may supersede it.",
 		"Do not update currentFocus or topicDescriptor from this projection channel.",
 		"Never repeat an exact prior active-turn milestone supplied in the context. Do not infer phases from keywords or command names.",
 	}
@@ -622,6 +622,7 @@ func projectionInstructions(channel ProjectionChannel) string {
 			lines,
 			"Return the terminal projection with exactly one finalSummary for this turn.",
 			"For terminal projections, use currentInstructions.latestAssistantMessage, artifacts, turn status, and semanticEvents as the terminal snapshot.",
+			"Resolve conflicts in favor of terminal status and the latest assistant message; do not repeat issues that later evidence resolved.",
 			"finalSummary is one short sentence summarizing the outcome. If an artifact contains the detailed result, mention the artifact without repeating its contents.",
 			"If the turn failed or was stopped, say so directly and include only the important caveat.",
 		)
@@ -701,6 +702,7 @@ func userVisibleNarratorLanguageInstructions() []string {
 		"Omit Setta's bookkeeping, including projection passes, trajectory cursors, sequence numbers, provider calls, schemas, and typed boundaries, unless that machinery is itself the user's subject.",
 		"Never mention workers, workstreams, provider runtimes, internal execution environments or their restrictions, permission policies, internal file routing, or raw internal error codes.",
 		"A completed turn must end with the observable result. Omit execution limitations and unavailable checks when the user has no action to take; name only checks known to have succeeded, and never claim an unverified check passed.",
+		"For successful work, summarize the requested outcome. Mention routine validation only when the user requested it or it materially qualifies confidence; never describe diagnostic or recovery mechanics.",
 		"Do not prefix text with \"Narrator,\" \"Milestone,\" \"Update,\" or similar meta narration.",
 		"Do not restate the current objective or paraphrase a prior milestone.",
 		"State outcome-changing failures and user-actionable blockers directly. Brevity must not turn an incomplete or failed result into a success claim.",

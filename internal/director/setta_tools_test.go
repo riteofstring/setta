@@ -98,10 +98,10 @@ func TestDirectorDeliveryToolsExposeWorkspaceRequirements(t *testing.T) {
 			t.Fatalf("%s workspaceRequirement description = %q", name, property.Description)
 		}
 	}
-	if !strings.Contains(byName["create_workstream"].Description, "after every user choice") {
+	if !strings.Contains(byName["create_workstream"].Description, "unresolved inputs are discoverable from authorized evidence") {
 		t.Fatalf("create_workstream does not guard unresolved user choices: %q", byName["create_workstream"].Description)
 	}
-	if !strings.Contains(byName["submit_work"].Description, "missing user choice") {
+	if !strings.Contains(byName["submit_work"].Description, "missing user decision determines which outcome is correct") {
 		t.Fatalf("submit_work does not guard unresolved user choices: %q", byName["submit_work"].Description)
 	}
 

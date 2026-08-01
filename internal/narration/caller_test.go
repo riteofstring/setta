@@ -115,7 +115,7 @@ func testCallerWorkingProjection(t *testing.T) {
 		"prefer an empty milestone list for normal progress, repeated blocked states",
 		"Write for the user whose objective appears in the supplied context.",
 		"Lead with the observable outcome",
-		"An activity or verification failure is not a user-facing blocker while the turn remains active",
+		"Working projections report durable user-relevant changes, never troubleshooting.",
 		"Continued working on the current objective.",
 		"Prefer: no milestone.",
 	})
