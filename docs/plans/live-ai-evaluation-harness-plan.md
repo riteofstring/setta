@@ -1,15 +1,13 @@
 # Live AI Evaluation Harness Plan
 
 **Date:** 2026-07-31
-**Status:** Phase 0 proof implementation is complete; benign live evidence
-remains an external release gate. Phase 1 and Phase 2 repository implementation
-and their coherent phase audits are complete. Phase 3 repository implementation
-is complete, including the five-scenario benchmark, hidden verifiers,
-multi-turn control orchestration, all-or-selected invocation, candidate role
-configuration, the one-rerun policy, and first-attempt/stability reporting. All
-repository-actionable implementation is ready for the user-authorized final
-audit. Phase 0 and live harness evidence remain gated by the verification
-ladder below.
+**Status:** Phase 0 live execution has reopened repository work. Docker and the
+version-matched Linux Codex bundle are now available, but the probe established
+that Docker Desktop does not publish the Agent control port from an internal
+network. Phase 0 and Phase 1 currently share that unsupported assumption. The
+control transport must be replaced without giving the Agent general network
+access, then the benign Phase 0 probe must pass. Phase 2 and Phase 3 repository
+implementation and their prior audits remain complete.
 
 ## Outcome
 
@@ -592,17 +590,23 @@ the backend's ephemeral HTTP port on host loopback. Its exact
 `codex app-server --listen stdio://` child contract is fulfilled by a narrow
 bridge authenticated with a per-run random token to the host broker; that token
 is not a provider credential and is never placed in the AI execution container.
-The host-owned Codex app-server reaches the exec-server through a second
-ephemeral loopback port. The repository, home directory, SSH agent, cloud
-credentials, environment secrets, and Docker socket are never mounted. Both
-runtime containers receive explicit environment allowlists.
+The host-owned Codex app-server reaches the exec-server through a host-owned,
+loopback-only control transport that does not require Docker to publish a port
+from the Agent's internal network. A Docker-managed stdio path through a fixed
+container, using Codex's supported `exec-server --listen stdio` surface, is the
+preferred implementation unless source inspection establishes an equally
+supported and equally isolated transport. The Agent must not gain a
+non-internal network merely to make control traffic work. The repository, home
+directory, SSH agent, cloud credentials, environment secrets, and Docker socket
+are never mounted. Both runtime containers receive explicit environment
+allowlists.
 
 The AI execution image is native ARM64 or multi-architecture and based on an
 exact, digest-pinned image. It runs as a non-root user with a read-only root
 filesystem, a writable workspace volume, temporary `tmpfs`, dropped
-capabilities, `no-new-privileges`, no host ports except its loopback exec-server
-control port, and limits for CPU, memory, processes, disk, wall time, and total
-tokens. General network access is off. The controller is also non-root,
+capabilities, `no-new-privileges`, no published host port, and limits for CPU,
+memory, processes, disk, wall time, and total tokens. General network access is
+off. The controller is also non-root,
 read-only, capability-dropped, and resource-limited; it has the network path
 used by its trusted provider bridge, but no AI-controlled shell. The MVP
 fixture requires no package downloads.
@@ -726,13 +730,48 @@ worktree, and requires the committed plan to contain the Phase 0 resolution
 heading followed by an `Outcome` of `PASS`. A missing, uncommitted, stale,
 malformed, or non-PASS report cannot start Docker or provider work.
 
-**Release gate recorded 2026-07-31:** the live probe was not run because the
-Docker daemon was stopped and the inspected local Codex/npm installations had
-no `aarch64-unknown-linux-musl` Codex 0.146.0 bundle. These are unavailable
-infrastructure inputs, not evidence of an architectural blocker. No `PASS` or
-`BLOCKED` report exists yet. Phase 1 live execution remains gated on the Phase
-0 `PASS` exit below; repository-only implementation can continue without
-claiming that the sandbox boundary has passed.
+**Live probe evidence recorded 2026-07-31:** Docker Desktop 28.0.4 is running a
+Linux/ARM64 daemon with eight CPUs and approximately 8 GB of memory. The exact
+official Codex 0.146.0 `aarch64-unknown-linux-musl` package was downloaded
+outside the repository and matched OpenAI's published SHA-256 digest. The
+probe reached container startup, then failed before a model turn with:
+
+```text
+read Phase 0 control port: docker failed: exit status 1: Error: No public port '4500/tcp' published
+```
+
+An independent disposable-container reproduction confirmed that an internal
+Docker bridge combined with `--publish 127.0.0.1::4500/tcp` produces empty
+port mappings on this target Docker Desktop. This is now repository-actionable:
+both `phase0DockerResources.start` and `phase1DockerResources.startAgent` use
+that combination. It is not a macOS permission problem and must not be worked
+around by weakening the Agent network boundary.
+
+Replace the shared assumption with one current control-transport design. The
+preferred path is a host-owned loopback relay that reaches only the fixed Agent
+container through Docker-managed stdin/stdout and Codex's supported
+`exec-server --listen stdio` transport. An alternative is acceptable only when
+it is supported by the installed Codex and Docker surfaces and preserves all
+of these invariants:
+
+- the Agent remains on an internal network or `network=none` and has no general
+  route to the host or internet;
+- the Docker socket and host credentials are never mounted into the Agent;
+- the host relay binds only to numeric loopback, targets only the expected
+  container, has bounded framing and lifecycle behavior, and is removed on
+  success, failure, cancellation, and interruption;
+- Phase 0 and Phase 1 use the same owning transport implementation rather than
+  independent fixes or a transitional fallback;
+- Docker inspection and the canonical Phase 0 report prove the actual control
+  path and the absence of an Agent host-port publication;
+- the live benign Phase 0 read and workspace-write turns pass, all boundary
+  checks pass, and teardown leaves no eval container, network, volume, relay,
+  or tagged image behind.
+
+The user's instruction to proceed with the implementation loop authorizes the
+same narrowly bounded benign Phase 0 probe already described by this plan. It
+does not broaden authorization to destructive probes, the automated test
+suite, broad verification gates, or post-MVP model screening.
 
 Timebox one focused day to establish how the ChatGPT-authenticated Codex runtime
 can operate while every AI-controlled command stays in Docker and no credential
@@ -1155,11 +1194,13 @@ command center, and unbound native artifacts. The topic-conversation table
 artifact again omitted its open workspace ID. That pre-existing artifact-routing
 failure is already documented above, predates this plan's implementation, and
 remains an external production release gate; it was not retried or expanded
-into unrelated work. The unavailable committed Phase 0 PASS evidence still
-gates the live harness, fixed judge, and five-scenario suite, so none was
-invoked. Successful live-scenario timing evidence for the 1,800-second ceiling
-therefore remains the corresponding harness release gate. No repository-actionable
-plan implementation remains behind either external gate.
+into unrelated work. The then-unavailable committed Phase 0 PASS evidence gated
+the live harness, fixed judge, and five-scenario suite, so none was invoked.
+Subsequent live probe evidence above invalidated the internal-network
+port-publication assumption in both Phase 0 and Phase 1. The final audit is
+therefore reopened for that repository-actionable control-transport repair and
+a successful benign Phase 0 exit. Successful live-scenario timing evidence for
+the 1,800-second ceiling remains the later harness release gate.
 
 Run once by default and rerun only failed scenarios once. Report first-attempt
 passes, stable failures, flaky scenarios, infrastructure failures, user-control
