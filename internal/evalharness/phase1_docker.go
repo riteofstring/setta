@@ -28,12 +28,15 @@ const (
 	phase1ExecServerPort      = "4500"
 	phase1BackendPort         = "4310"
 	phase1ContainerTmpfsBytes = 128 * 1024 * 1024
+	phase1WorkspaceDiskBytes  = 64 * 1024 * 1024
 	phase1AgentMemoryBytes    = 4 * 1024 * 1024 * 1024
 	phase1BackendMemoryBytes  = 2 * 1024 * 1024 * 1024
 	phase1VerifierMemoryBytes = 2 * 1024 * 1024 * 1024
+	phase1VolumeHolderMemory  = 32 * 1024 * 1024
 	phase1AgentPIDs           = 256
 	phase1BackendPIDs         = 256
 	phase1VerifierPIDs        = 256
+	phase1VolumeHolderPIDs    = 8
 	phase1BackendReadyTimeout = 30 * time.Second
 	phase1ContainerStopTime   = 15
 )
@@ -51,6 +54,7 @@ type phase1DockerResources struct {
 	baselineVolume     string
 	verificationVolume string
 	workspaceVolume    string
+	volumeHolder       string
 	agentContainer     string
 	backendContainer   string
 	copyContainer      string
@@ -80,6 +84,7 @@ func newPhase1DockerResources(
 		baselineVolume:     base + "-baseline",
 		verificationVolume: base + "-verification",
 		workspaceVolume:    base + "-workspace",
+		volumeHolder:       base + "-workspace-holder",
 		agentContainer:     base + "-agent",
 		backendContainer:   base + "-backend",
 		copyContainer:      base + "-copy",
@@ -93,6 +98,8 @@ func newPhase1DockerResources(
 func (resources *phase1DockerResources) start(
 	ctx context.Context,
 	codexCommand string,
+	hardTotalTokens int64,
+	abortScenario func(),
 ) (*BackendClient, error) {
 	if err := resources.createIsolationResources(ctx); err != nil {
 		return nil, err
@@ -104,7 +111,13 @@ func (resources *phase1DockerResources) start(
 	if err != nil {
 		return nil, err
 	}
-	provider, err := startPhase1ProviderBroker(ctx, codexCommand, execServerAddress)
+	provider, err := startPhase1ProviderBroker(
+		ctx,
+		codexCommand,
+		execServerAddress,
+		hardTotalTokens,
+		abortScenario,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -139,22 +152,118 @@ func (resources *phase1DockerResources) createIsolationResources(ctx context.Con
 		}
 		resources.networks[network.name] = true
 	}
-	for _, volume := range []string{
-		resources.appDataVolume,
-		resources.baselineVolume,
-		resources.verificationVolume,
-		resources.workspaceVolume,
+	for _, volume := range []struct {
+		name        string
+		diskBounded bool
+	}{
+		{name: resources.appDataVolume},
+		{name: resources.baselineVolume},
+		{name: resources.verificationVolume},
+		{name: resources.workspaceVolume, diskBounded: true},
 	} {
-		if _, err := resources.client.run(
-			ctx,
+		args := []string{
 			"volume", "create",
 			"--label", "com.setta.eval.phase=1",
-			"--label", "com.setta.eval.run="+resources.suffix,
-			volume,
-		); err != nil {
-			return fmt.Errorf("create Phase 1 Docker volume %s: %w", volume, err)
+			"--label", "com.setta.eval.run=" + resources.suffix,
 		}
-		resources.volumes[volume] = true
+		if volume.diskBounded {
+			args = append(args, phase1WorkspaceVolumeDriverOptions()...)
+		}
+		args = append(args, volume.name)
+		if _, err := resources.client.run(ctx, args...); err != nil {
+			return fmt.Errorf("create Phase 1 Docker volume %s: %w", volume.name, err)
+		}
+		resources.volumes[volume.name] = true
+	}
+	if err := resources.validateWorkspaceVolume(ctx); err != nil {
+		return err
+	}
+	return resources.startWorkspaceVolumeHolder(ctx)
+}
+
+func phase1WorkspaceVolumeDriverOptions() []string {
+	return []string{
+		"--driver", "local",
+		"--opt", "type=tmpfs",
+		"--opt", "device=tmpfs",
+		"--opt", "o=" + phase1WorkspaceVolumeMountOptions(),
+	}
+}
+
+func phase1WorkspaceVolumeMountOptions() string {
+	return fmt.Sprintf(
+		"size=%d,uid=%d,gid=%d,mode=0755",
+		phase1WorkspaceDiskBytes,
+		phase1ContainerUID,
+		phase1ContainerGID,
+	)
+}
+
+type phase1DockerVolume struct {
+	Driver  string            `json:"Driver"`
+	Options map[string]string `json:"Options"`
+}
+
+func (resources *phase1DockerResources) validateWorkspaceVolume(ctx context.Context) error {
+	result, err := resources.client.run(ctx, "volume", "inspect", resources.workspaceVolume)
+	if err != nil {
+		return fmt.Errorf("inspect Phase 1 bounded workspace volume: %w", err)
+	}
+	var volumes []phase1DockerVolume
+	if err := json.Unmarshal([]byte(result.stdout), &volumes); err != nil {
+		return fmt.Errorf("decode Phase 1 bounded workspace volume: %w", err)
+	}
+	wantOptions := map[string]string{
+		"type":   "tmpfs",
+		"device": "tmpfs",
+		"o":      phase1WorkspaceVolumeMountOptions(),
+	}
+	if len(volumes) != 1 || volumes[0].Driver != "local" ||
+		len(volumes[0].Options) != len(wantOptions) {
+		return errors.New("Phase 1 workspace volume did not retain its local tmpfs disk ceiling")
+	}
+	for name, value := range wantOptions {
+		if volumes[0].Options[name] != value {
+			return fmt.Errorf(
+				"Phase 1 workspace volume option %s is %q, want %q",
+				name,
+				volumes[0].Options[name],
+				value,
+			)
+		}
+	}
+	return nil
+}
+
+func (resources *phase1DockerResources) startWorkspaceVolumeHolder(ctx context.Context) error {
+	if _, err := resources.client.run(
+		ctx,
+		"run",
+		"--detach",
+		"--pull", "never",
+		"--name", resources.volumeHolder,
+		"--platform", phase1ImagePlatform,
+		"--network", "none",
+		"--mount", "type=volume,source="+resources.workspaceVolume+",destination="+phase1WorkspaceRoot+",readonly",
+		"--read-only",
+		"--user", fmt.Sprintf("%d:%d", phase1ContainerUID, phase1ContainerGID),
+		"--cap-drop", "ALL",
+		"--security-opt", "no-new-privileges",
+		"--pids-limit", strconv.Itoa(phase1VolumeHolderPIDs),
+		"--memory", strconv.FormatInt(phase1VolumeHolderMemory, 10),
+		"--cpus", "0.25",
+		"--label", "com.setta.eval.phase=1",
+		"--label", "com.setta.eval.role=volume-holder",
+		"--label", "com.setta.eval.run="+resources.suffix,
+		"--entrypoint", "/usr/local/bin/setta-eval-sandbox-helper",
+		resources.images.verifierID,
+		"phase1-hold-volume",
+	); err != nil {
+		return fmt.Errorf("start Phase 1 bounded workspace volume holder: %w", err)
+	}
+	resources.containers[resources.volumeHolder] = true
+	if err := resources.requireContainerRunning(ctx, resources.volumeHolder); err != nil {
+		return fmt.Errorf("validate Phase 1 bounded workspace volume holder: %w", err)
 	}
 	return nil
 }

@@ -23,7 +23,7 @@ type phase1ImageConfig struct {
 	repoRoot         string
 	codexLinuxBundle string
 	codexCommand     string
-	toolchainImageID string
+	pnpmCommand      string
 }
 
 type phase1Images struct {
@@ -74,18 +74,27 @@ func preparePhase1Images(
 	suffix string,
 	config phase1ImageConfig,
 ) (*phase1Images, error) {
-	if !validPhase1ImageID(config.toolchainImageID) {
-		return nil, errors.New("Phase 1 toolchain image must be an exact local sha256 image id")
-	}
-	if err := inspectPhase1Image(ctx, client, config.toolchainImageID); err != nil {
-		return nil, fmt.Errorf("inspect Phase 1 toolchain image: %w", err)
-	}
-	images := newPhase1Images(client, suffix)
-	contexts, err := preparePhase1BuildContexts(ctx, config)
+	pin, err := loadPhase1ToolchainPin(config.repoRoot)
 	if err != nil {
 		return nil, err
 	}
-	if err := images.build(ctx, config.toolchainImageID, contexts); err != nil {
+	if err := inspectPhase1Image(ctx, client, pin.BaseImage, pin.BaseImageID); err != nil {
+		return nil, fmt.Errorf(
+			"inspect checked-in Phase 1 toolchain image %s; install that exact image locally because the eval runner never pulls: %w",
+			pin.BaseImage,
+			err,
+		)
+	}
+	pnpm, err := resolvePhase1PNPMBundle(ctx, config.repoRoot, config.pnpmCommand, pin)
+	if err != nil {
+		return nil, err
+	}
+	images := newPhase1Images(client, suffix)
+	contexts, err := preparePhase1BuildContexts(ctx, config, pin, pnpm)
+	if err != nil {
+		return nil, err
+	}
+	if err := images.build(ctx, pin.BaseImage, contexts); err != nil {
 		return nil, errors.Join(err, cleanupPhase1ImagePreparation(images, contexts.root))
 	}
 	if err := removePhase1BuildContexts(contexts.root); err != nil {
@@ -128,10 +137,10 @@ func newPhase1Images(client phase0DockerClient, suffix string) *phase1Images {
 
 func (images *phase1Images) build(
 	ctx context.Context,
-	toolchainImageID string,
+	toolchainImage string,
 	contexts phase1BuildContexts,
 ) error {
-	if _, err := images.client.run(ctx, "image", "tag", toolchainImageID, images.toolchainTag); err != nil {
+	if _, err := images.client.run(ctx, "image", "tag", toolchainImage, images.toolchainTag); err != nil {
 		return fmt.Errorf("tag exact Phase 1 toolchain image: %w", err)
 	}
 	images.toolchainTagged = true
@@ -294,9 +303,14 @@ func (images *phase1Images) cleanup(ctx context.Context) error {
 func preparePhase1BuildContexts(
 	ctx context.Context,
 	config phase1ImageConfig,
+	pin phase1ToolchainPin,
+	pnpm phase1PNPMBundle,
 ) (phase1BuildContexts, error) {
 	fixturePackage, err := readPhase1FixturePackage(config.repoRoot)
 	if err != nil {
+		return phase1BuildContexts{}, err
+	}
+	if err := validatePhase1FixtureToolchain(fixturePackage, pin); err != nil {
 		return phase1BuildContexts{}, err
 	}
 	if err := validatePhase1CodexBundle(ctx, config); err != nil {
@@ -322,7 +336,7 @@ func preparePhase1BuildContexts(
 			)
 		}
 	}
-	if err := populatePhase1BuildContexts(ctx, config, contexts); err != nil {
+	if err := populatePhase1BuildContexts(ctx, config, contexts, pnpm); err != nil {
 		return phase1BuildContexts{}, errors.Join(err, removePhase1BuildContexts(root))
 	}
 	return contexts, nil
@@ -332,6 +346,7 @@ func populatePhase1BuildContexts(
 	ctx context.Context,
 	config phase1ImageConfig,
 	contexts phase1BuildContexts,
+	pnpm phase1PNPMBundle,
 ) error {
 	manifest, err := readPhase0BundleManifest(config.codexLinuxBundle)
 	if err != nil {
@@ -344,6 +359,12 @@ func populatePhase1BuildContexts(
 		{source: filepath.Join(config.repoRoot, "evals", "sandbox", "phase1-agent.Dockerfile"), destination: filepath.Join(contexts.agent, "Dockerfile")},
 		{source: filepath.Join(config.repoRoot, "evals", "sandbox", "phase1-backend.Dockerfile"), destination: filepath.Join(contexts.backend, "Dockerfile")},
 		{source: filepath.Join(config.repoRoot, "evals", "sandbox", "phase1-verifier.Dockerfile"), destination: filepath.Join(contexts.verifier, "Dockerfile")},
+		{source: filepath.Join(config.repoRoot, "evals", "sandbox", "pnpm"), destination: filepath.Join(contexts.agent, "pnpm")},
+		{source: filepath.Join(config.repoRoot, "evals", "sandbox", "pnpm"), destination: filepath.Join(contexts.verifier, "pnpm")},
+		{source: pnpm.bundlePath, destination: filepath.Join(contexts.agent, "pnpm.cjs")},
+		{source: pnpm.bundlePath, destination: filepath.Join(contexts.verifier, "pnpm.cjs")},
+		{source: pnpm.licensePath, destination: filepath.Join(contexts.agent, "pnpm-license")},
+		{source: pnpm.licensePath, destination: filepath.Join(contexts.verifier, "pnpm-license")},
 		{source: filepath.Join(config.codexLinuxBundle, manifest.Entrypoint), destination: filepath.Join(contexts.agent, "codex")},
 		{source: filepath.Join(config.codexLinuxBundle, manifest.PathDir, "rg"), destination: filepath.Join(contexts.agent, "rg")},
 		{source: filepath.Join(config.codexLinuxBundle, manifest.ResourcesDir, "zsh", "bin", "zsh"), destination: filepath.Join(contexts.agent, "zsh")},
@@ -463,14 +484,15 @@ func inspectPhase1TaggedImage(
 func inspectPhase1Image(
 	ctx context.Context,
 	client phase0DockerClient,
-	imageID string,
+	reference string,
+	expectedID string,
 ) error {
-	actual, err := inspectPhase1TaggedImage(ctx, client, imageID)
+	actual, err := inspectPhase1TaggedImage(ctx, client, reference)
 	if err != nil {
 		return err
 	}
-	if actual != imageID {
-		return fmt.Errorf("image resolved to %s, want exact id %s", actual, imageID)
+	if actual != expectedID {
+		return fmt.Errorf("image resolved to %s, want exact id %s", actual, expectedID)
 	}
 	return nil
 }

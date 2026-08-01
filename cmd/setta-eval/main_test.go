@@ -23,9 +23,9 @@ func TestRunPassesExplicitInputsAndReportsArtifacts(t *testing.T) {
 		"--repo-root", "/repo",
 		"--recordings-root", "/recordings",
 		"--codex-linux-bundle", "/bundle",
-		"--toolchain-image-id", "sha256:" + strings.Repeat("a", 64),
 		"--docker", "/usr/local/bin/docker",
 		"--codex", "/usr/local/bin/codex",
+		"--pnpm", "/usr/local/bin/pnpm",
 	}, &stdout, &stderr, runner)
 	if exitCode != 0 {
 		t.Fatalf("exit code = %d, stderr = %q", exitCode, stderr.String())
@@ -33,7 +33,8 @@ func TestRunPassesExplicitInputsAndReportsArtifacts(t *testing.T) {
 	if received.RepoRoot != "/repo" || received.RecordingsRoot != "/recordings" ||
 		received.CodexLinuxBundle != "/bundle" ||
 		received.DockerCommand != "/usr/local/bin/docker" ||
-		received.CodexCommand != "/usr/local/bin/codex" {
+		received.CodexCommand != "/usr/local/bin/codex" ||
+		received.PNPMCommand != "/usr/local/bin/pnpm" {
 		t.Fatalf("received config = %#v", received)
 	}
 	if !strings.Contains(stdout.String(), "straightforward-task: pass (completed)") ||
@@ -44,19 +45,27 @@ func TestRunPassesExplicitInputsAndReportsArtifacts(t *testing.T) {
 }
 
 func TestRunReturnsFailureForObjectiveEvaluationFailure(t *testing.T) {
-	runner := func(
-		_ context.Context,
-		_ evalharness.Phase1EvaluationConfig,
-	) (evalharness.Phase1EvaluationOutput, error) {
-		return phase1CommandOutput(evalharness.ScenarioClassificationAbilityFailure), nil
-	}
-	var stdout strings.Builder
-	var stderr strings.Builder
-	if exitCode := run(nil, &stdout, &stderr, runner); exitCode != 1 {
-		t.Fatalf("exit code = %d, want 1", exitCode)
-	}
-	if !strings.Contains(stderr.String(), "completed without an objective pass") {
-		t.Fatalf("stderr = %q", stderr.String())
+	for _, classification := range []evalharness.ScenarioClassification{
+		evalharness.ScenarioClassificationAbilityFailure,
+		evalharness.ScenarioClassificationTimeout,
+		evalharness.ScenarioClassificationInfrastructureFailure,
+	} {
+		t.Run(string(classification), func(t *testing.T) {
+			runner := func(
+				_ context.Context,
+				_ evalharness.Phase1EvaluationConfig,
+			) (evalharness.Phase1EvaluationOutput, error) {
+				return phase1CommandOutput(classification), nil
+			}
+			var stdout strings.Builder
+			var stderr strings.Builder
+			if exitCode := run(nil, &stdout, &stderr, runner); exitCode != 1 {
+				t.Fatalf("exit code = %d, want 1", exitCode)
+			}
+			if !strings.Contains(stderr.String(), "completed without an objective pass") {
+				t.Fatalf("stderr = %q", stderr.String())
+			}
+		})
 	}
 }
 
@@ -77,7 +86,8 @@ func TestRunHelpDoesNotStartEvaluation(t *testing.T) {
 	if called {
 		t.Fatal("evaluation started for --help")
 	}
-	if !strings.Contains(stderr.String(), "-toolchain-image-id") {
+	if !strings.Contains(stderr.String(), "-pnpm") ||
+		strings.Contains(stderr.String(), "toolchain-image-id") {
 		t.Fatalf("help output = %q", stderr.String())
 	}
 }
@@ -85,12 +95,19 @@ func TestRunHelpDoesNotStartEvaluation(t *testing.T) {
 func phase1CommandOutput(
 	classification evalharness.ScenarioClassification,
 ) evalharness.Phase1EvaluationOutput {
+	outcome := evalharness.ScenarioExecutionCompleted
+	switch classification {
+	case evalharness.ScenarioClassificationTimeout:
+		outcome = evalharness.ScenarioExecutionTimedOut
+	case evalharness.ScenarioClassificationInfrastructureFailure:
+		outcome = evalharness.ScenarioExecutionInfrastructureFailed
+	}
 	return evalharness.Phase1EvaluationOutput{
 		Results: evalharness.Results{
 			Scenarios: []evalharness.ScenarioResult{{
 				ScenarioID:       evalharness.ScenarioVerifierStraightforward,
 				Classification:   classification,
-				ExecutionOutcome: evalharness.ScenarioExecutionCompleted,
+				ExecutionOutcome: outcome,
 			}},
 		},
 		Artifacts: evalharness.ResultArtifactPaths{

@@ -74,14 +74,9 @@ func phase1ConfigFromArgs(
 		"",
 		"local aarch64-unknown-linux-musl Codex standalone bundle",
 	)
-	flags.StringVar(
-		&config.ToolchainImageID,
-		"toolchain-image-id",
-		"",
-		"exact local sha256 ARM64 toolchain image id",
-	)
 	flags.StringVar(&config.DockerCommand, "docker", "docker", "Docker CLI path")
 	flags.StringVar(&config.CodexCommand, "codex", "codex", "host Codex CLI path")
+	flags.StringVar(&config.PNPMCommand, "pnpm", "pnpm", "host pnpm CLI path")
 	if err := flags.Parse(args); err != nil {
 		return evalharness.Phase1EvaluationConfig{}, errors.Is(err, flag.ErrHelp), err
 	}
@@ -99,6 +94,7 @@ func writePhase1Usage(output io.Writer) {
 	fmt.Fprintln(output)
 	fmt.Fprintln(output, "Run the straightforward-task live evaluation through the production Setta boundary.")
 	fmt.Fprintln(output, "Execution remains gated until the Phase 0 PASS report and resolution are committed.")
+	fmt.Fprintln(output, "The exact checked-in ARM64 toolchain image must already be installed locally; the runner never pulls it.")
 }
 
 func writePhase1Output(output io.Writer, result evalharness.Phase1EvaluationOutput) {

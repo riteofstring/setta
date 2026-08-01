@@ -56,7 +56,7 @@ func RunPhase1ScenarioOverHTTP(
 		return observation, nil
 	}
 	if ctx.Err() != nil {
-		return Phase1HTTPObservation{}, ctx.Err()
+		return observation, ctx.Err()
 	}
 	if errors.Is(scenarioCtx.Err(), context.DeadlineExceeded) {
 		return phase1FailureObservation(

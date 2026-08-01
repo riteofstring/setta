@@ -2,12 +2,13 @@
 
 **Date:** 2026-07-31
 **Status:** Phase 0 proof implementation complete; benign live evidence remains
-an external release gate. The Phase 1 benchmark-contract, result-reporting, and
-production HTTP/event-orchestration batches are implemented. The Phase 1
-container lifecycle, result wiring, committed Phase 0 gate, and runnable Go and
-shell entrypoints are also implemented. Its checked-in toolchain image pin,
-planned disk and total-token ceilings, and focused classification exercises
-remain incomplete.
+an external release gate. Phase 1 repository implementation is complete,
+including its benchmark contract, result reporting, production orchestration,
+container lifecycle, committed Phase 0 gate, runnable entrypoints, checked-in
+ARM64 toolchain pin, hard disk and total-token ceilings, and focused
+classification exercises. Its live exit evidence remains gated by Phase 0 and
+the later user-authorized verification ladder. Phase 2 is the earliest phase
+with incomplete repository-actionable work.
 
 ## Outcome
 
@@ -181,7 +182,9 @@ evals/
     phase0.Dockerfile
     phase1-agent.Dockerfile
     phase1-backend.Dockerfile
+    phase1-toolchain.json
     phase1-verifier.Dockerfile
+    pnpm
 cmd/setta-eval/
 internal/evalharness/
 scripts/run_setta_evals.sh
@@ -783,42 +786,65 @@ failures; HTTP, contract, cursor, and stream failures remain infrastructure
 failures. Subscriptions close and join their readers on every return path.
 
 The Phase 1 lifecycle core is implemented under `internal/evalharness`. It
-requires an exact local `sha256` ARM64 toolchain image and a version-matched
-Linux Codex bundle, builds the Agent, production backend, and verifier images
-with build networking disabled, and tracks every temporary image, container,
-volume, network, host process, and source copy for bounded teardown. It starts
-the production backend in a controller container, keeps the authenticated
-Codex app-server host-owned, forwards only the supported app-server stdio
-contract through an authenticated per-run bridge, and confines AI-controlled
-commands to the internal-network exec-server container. After the typed HTTP
-observation completes, it stops both runtime containers, copies the final
-workspace volume inside Docker, invokes the hidden networkless verifier, and
-wires both observations into the atomic result publisher. The typed copy
-boundary maps out-of-bounds or non-regular final workspaces to the verifier's
-ability failure while reserving infrastructure failure for Docker, process,
-protocol, or I/O faults. Infrastructure failures still produce classified
-result artifacts once input validation and repository preconditions have
-passed.
+requires the checked-in exact ARM64 manifest and image config to be installed
+locally plus a version-matched Linux Codex bundle, builds the Agent, production
+backend, and verifier images with build networking disabled, and tracks every
+temporary image, container, volume, network, host process, and source copy for
+bounded teardown. It starts the production backend in a controller container,
+keeps the authenticated Codex app-server host-owned, forwards only the
+supported app-server stdio contract through an authenticated per-run bridge,
+and confines AI-controlled commands to the internal-network exec-server
+container. After the typed HTTP observation completes, it stops both runtime
+containers, copies the final workspace volume inside Docker, invokes the hidden
+networkless verifier, and wires both observations into the atomic result
+publisher. The typed copy boundary maps out-of-bounds or non-regular final
+workspaces to the verifier's ability failure while reserving infrastructure
+failure for Docker, process, protocol, or I/O faults. Infrastructure failures
+still produce classified result artifacts once input validation and repository
+preconditions have passed.
 
 `cmd/setta-eval` and `scripts/run_setta_evals.sh` now expose that lifecycle. The
 command reports the objective classification and artifact paths, returns a
 nonzero status for a non-pass, and accepts the already-installed Linux Codex
-bundle and exact local toolchain image ID explicitly. The lifecycle itself
-enforces the committed Phase 0 gate before it validates those local runtime
-inputs or contacts Docker, so another caller cannot bypass the gate.
+bundle explicitly. `evals/sandbox/phase1-toolchain.json` owns the exact ARM64
+Node manifest digest and image config ID plus the Node and pnpm versions. The
+runner requires that exact image to be installed already and never pulls it. It
+also resolves the installed pnpm package, requires the exact version and
+checked-in bundle and license hashes, and copies only those validated inputs
+into networkless image builds. The lifecycle enforces the committed Phase 0
+gate before it validates those local runtime inputs or contacts Docker, so
+another caller cannot bypass the gate.
 
-The checked-in exact ARM64 toolchain base-image pin, the planned disk and
-total-token ceilings, and focused exercise of all four Phase 1 exit
-classifications remain repository work. Until the pin is checked in, the shell
-entrypoint requires `--toolchain-image-id`; live execution also remains gated
-by the unavailable Phase 0 evidence above. No live verification has been run.
-Repository formatting, changed-file quality (including the affected Go packages
-and fixture workflow), and the repository supply-chain gate passed for this
-batch on 2026-07-31. Those implementation checks do not satisfy the live Phase
-0 or Phase 1 exits.
+The AI-writable workspace is a 64 MiB named `tmpfs` volume. A locked-down
+holder container keeps that bounded volume mounted across seeding, Agent,
+controller, copy, and verifier container transitions; the holder has no network
+and receives the volume read-only. Together with the existing 128 MiB temporary
+filesystem, read-only root filesystem, CPU, memory, and process limits, this
+bounds every filesystem the AI-controlled exec-server can write.
 
-Complete the phase with the checked-in ARM64 toolchain-image pin and the
-remaining resource and classification work described above.
+The host provider boundary now enforces each scenario's `hardTotalTokens`
+ceiling from typed `thread/tokenUsage/updated` evidence. It retains the latest
+cumulative total per provider thread, so repeated updates are not double
+counted, sums the Director, Narrator, Agent, and any Side Agent threads, and
+cancels the scenario as a bounded runaway when the aggregate exceeds the
+ceiling. Missing, malformed, negative, or decreasing accounting evidence fails
+as infrastructure rather than silently disabling the guard. Phase 2 still owns
+role and invocation attribution, exact artifact reporting, and separation of
+judge usage.
+
+Focused deterministic publication exercises now drive lifecycle states for a
+passing workspace, an intentionally incorrect workspace, a timeout, and an
+infrastructure failure through the production classification and atomic
+`results.json`/`report.md` publisher. Command-boundary exercises cover every
+result classification and non-pass exit. No live verification has been run;
+the unavailable Phase 0 evidence above still gates it. Repository formatting,
+changed-file quality for the affected Go and shell packages, and the repository
+supply-chain gate passed on 2026-07-31. Those implementation checks do not
+satisfy the live Phase 0 or Phase 1 exits.
+
+Phase 1 has no remaining repository implementation work. Its live exit evidence
+is retained as a release gate for the user-authorized verification ladder, not
+as a reason to block Phase 2 repository work.
 
 The runner validates every input, creates disposable volumes, starts the real
 backend, opens the fixture through `/workspaces/open`, reads the production

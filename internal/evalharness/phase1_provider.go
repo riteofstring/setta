@@ -50,6 +50,7 @@ type phase1ProviderBroker struct {
 	token        string
 	listener     net.Listener
 	appServer    *phase1ManagedProcess
+	tokenBudget  *phase1TokenBudget
 
 	contextCancel context.CancelFunc
 	acceptDone    chan struct{}
@@ -63,6 +64,8 @@ func startPhase1ProviderBroker(
 	ctx context.Context,
 	codexCommand string,
 	execServerAddress string,
+	hardTotalTokens int64,
+	abortScenario func(),
 ) (*phase1ProviderBroker, error) {
 	if ctx == nil {
 		return nil, errors.New("Phase 1 provider context is required")
@@ -97,6 +100,14 @@ func startPhase1ProviderBroker(
 			removePhase1ProviderControlDirectory(socketDir),
 		)
 	}
+	tokenBudget, err := newPhase1TokenBudget(hardTotalTokens, abortScenario)
+	if err != nil {
+		return nil, errors.Join(
+			err,
+			listener.Close(),
+			removePhase1ProviderControlDirectory(socketDir),
+		)
+	}
 	brokerContext, cancel := context.WithCancel(ctx)
 	broker := &phase1ProviderBroker{
 		codexCommand:  codexCommand,
@@ -104,6 +115,7 @@ func startPhase1ProviderBroker(
 		socketPath:    filepath.Join(socketDir, phase1ProviderSocketName),
 		token:         hex.EncodeToString(tokenBytes),
 		listener:      listener,
+		tokenBudget:   tokenBudget,
 		contextCancel: cancel,
 		acceptDone:    make(chan struct{}),
 	}
@@ -256,8 +268,48 @@ func (broker *phase1ProviderBroker) serveConnection(
 	}
 	processContext, cancel := context.WithCancel(ctx)
 	defer cancel()
+	proxy, err := broker.startConnectionProxy(processContext)
+	if err != nil {
+		return err
+	}
+	requestDone := make(chan error, 1)
+	go func() {
+		_, copyErr := io.Copy(proxy.stdin, reader)
+		requestErr := errors.Join(copyErr, proxy.stdin.Close())
+		if requestErr != nil {
+			cancel()
+		}
+		requestDone <- requestErr
+	}()
+	responseErr := forwardPhase1ProviderResponses(connection, proxy.stdout, broker.tokenBudget)
+	if broker.tokenBudgetFailure() != nil && broker.appServer != nil {
+		_, responseStopErr := broker.appServer.interrupt()
+		responseErr = errors.Join(responseErr, responseStopErr)
+	}
+	var requestErr error
+	select {
+	case requestErr = <-requestDone:
+	default:
+		cancel()
+		_ = connection.Close()
+		requestErr = <-requestDone
+	}
+	waitErr := proxy.command.Wait()
+	return phase1ProviderProxyResult(ctx.Err(), requestErr, responseErr, waitErr, proxy.diagnostic)
+}
+
+type phase1ConnectionProxy struct {
+	command    *exec.Cmd
+	stdin      io.WriteCloser
+	stdout     io.ReadCloser
+	diagnostic *phase1DiagnosticBuffer
+}
+
+func (broker *phase1ProviderBroker) startConnectionProxy(
+	ctx context.Context,
+) (phase1ConnectionProxy, error) {
 	command := exec.CommandContext(
-		processContext,
+		ctx,
 		broker.codexCommand,
 		"app-server",
 		"proxy",
@@ -267,38 +319,41 @@ func (broker *phase1ProviderBroker) serveConnection(
 	command.Env = phase1ProviderEnvironment(os.Environ())
 	stdin, err := command.StdinPipe()
 	if err != nil {
-		return fmt.Errorf("open Phase 1 provider proxy stdin: %w", err)
+		return phase1ConnectionProxy{}, fmt.Errorf("open Phase 1 provider proxy stdin: %w", err)
 	}
 	stdout, err := command.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("open Phase 1 provider proxy stdout: %w", err)
+		return phase1ConnectionProxy{}, errors.Join(
+			fmt.Errorf("open Phase 1 provider proxy stdout: %w", err),
+			stdin.Close(),
+		)
 	}
 	diagnostic := newPhase1DiagnosticBuffer(ResultMaximumDiagnosticBytes)
 	command.Stderr = diagnostic
 	if err := command.Start(); err != nil {
-		return fmt.Errorf("start Phase 1 provider proxy: %w", err)
+		return phase1ConnectionProxy{}, errors.Join(
+			fmt.Errorf("start Phase 1 provider proxy: %w", err),
+			stdin.Close(),
+			stdout.Close(),
+		)
 	}
-	requestDone := make(chan error, 1)
-	go func() {
-		_, copyErr := io.Copy(stdin, reader)
-		requestErr := errors.Join(copyErr, stdin.Close())
-		if requestErr != nil {
-			cancel()
-		}
-		requestDone <- requestErr
-	}()
-	_, responseErr := io.Copy(connection, stdout)
-	var requestErr error
-	select {
-	case requestErr = <-requestDone:
-	default:
-		cancel()
-		_ = connection.Close()
-		requestErr = <-requestDone
-	}
-	waitErr := command.Wait()
-	if ctx.Err() != nil {
-		return ctx.Err()
+	return phase1ConnectionProxy{
+		command:    command,
+		stdin:      stdin,
+		stdout:     stdout,
+		diagnostic: diagnostic,
+	}, nil
+}
+
+func phase1ProviderProxyResult(
+	contextErr error,
+	requestErr error,
+	responseErr error,
+	waitErr error,
+	diagnostic fmt.Stringer,
+) error {
+	if contextErr != nil {
+		return contextErr
 	}
 	if requestErr != nil {
 		return fmt.Errorf("forward Phase 1 provider requests: %w", requestErr)
@@ -314,6 +369,17 @@ func (broker *phase1ProviderBroker) serveConnection(
 		)
 	}
 	return nil
+}
+
+func (broker *phase1ProviderBroker) tokenBudgetFailure() *phase1TokenBudgetFailure {
+	if broker == nil {
+		return nil
+	}
+	return broker.tokenBudget.failureState()
+}
+
+func (broker *phase1ProviderBroker) observedTokenUsage() bool {
+	return broker != nil && broker.tokenBudget.observedUsage()
 }
 
 func (broker *phase1ProviderBroker) authenticateConnection(
@@ -450,10 +516,13 @@ func (broker *phase1ProviderBroker) isClosed() bool {
 }
 
 type phase1ManagedProcess struct {
-	command    *exec.Cmd
-	diagnostic *phase1DiagnosticBuffer
-	done       chan error
-	stopOnce   sync.Once
+	command      *exec.Cmd
+	diagnostic   *phase1DiagnosticBuffer
+	done         chan error
+	stopOnce     sync.Once
+	stopMutex    sync.Mutex
+	interrupted  bool
+	interruptErr error
 }
 
 func startPhase1ManagedProcess(
@@ -499,17 +568,21 @@ func (process *phase1ManagedProcess) interrupt() (bool, error) {
 	if process.command.Process == nil {
 		return false, nil
 	}
-	var signalErr error
-	interrupted := false
 	process.stopOnce.Do(func() {
 		err := process.command.Process.Signal(os.Interrupt)
 		if err == nil {
-			interrupted = true
+			process.stopMutex.Lock()
+			process.interrupted = true
+			process.stopMutex.Unlock()
 		} else if !errors.Is(err, os.ErrProcessDone) {
-			signalErr = err
+			process.stopMutex.Lock()
+			process.interruptErr = err
+			process.stopMutex.Unlock()
 		}
 	})
-	return interrupted, signalErr
+	process.stopMutex.Lock()
+	defer process.stopMutex.Unlock()
+	return process.interrupted, process.interruptErr
 }
 
 func phase1ManagedProcessStopError(waitErr error, stopErr error, interrupted bool) error {

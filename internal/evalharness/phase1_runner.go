@@ -18,9 +18,9 @@ type Phase1EvaluationConfig struct {
 	RepoRoot         string
 	RecordingsRoot   string
 	CodexLinuxBundle string
-	ToolchainImageID string
 	DockerCommand    string
 	CodexCommand     string
+	PNPMCommand      string
 }
 
 type Phase1EvaluationOutput struct {
@@ -32,9 +32,9 @@ type phase1NormalizedConfig struct {
 	repoRoot         string
 	recordingsRoot   string
 	codexLinuxBundle string
-	toolchainImageID string
 	dockerCommand    string
 	codexCommand     string
+	pnpmCommand      string
 }
 
 type phase1RunState struct {
@@ -82,8 +82,26 @@ func RunPhase1Evaluation(
 	startedAt := time.Now().UTC()
 	state := runPhase1Evaluation(ctx, normalized, scenarios[0])
 	finishedAt := time.Now().UTC()
+	return publishPhase1Evaluation(
+		normalized.recordingsRoot,
+		repository.Commit,
+		scenarios[0],
+		startedAt,
+		finishedAt,
+		state,
+	)
+}
+
+func publishPhase1Evaluation(
+	recordingsRoot string,
+	settaCommit string,
+	scenario Scenario,
+	startedAt time.Time,
+	finishedAt time.Time,
+	state phase1RunState,
+) (Phase1EvaluationOutput, error) {
 	scenarioResult, err := NewScenarioResult(ScenarioResultInput{
-		Scenario:         scenarios[0],
+		Scenario:         scenario,
 		ExecutionOutcome: state.outcome,
 		StartedAt:        startedAt,
 		FinishedAt:       finishedAt,
@@ -94,11 +112,11 @@ func RunPhase1Evaluation(
 	if err != nil {
 		return Phase1EvaluationOutput{}, fmt.Errorf("classify Phase 1 scenario: %w", err)
 	}
-	results, err := NewResults(repository.Commit, startedAt, finishedAt, []ScenarioResult{scenarioResult})
+	results, err := NewResults(settaCommit, startedAt, finishedAt, []ScenarioResult{scenarioResult})
 	if err != nil {
 		return Phase1EvaluationOutput{}, fmt.Errorf("create Phase 1 results: %w", err)
 	}
-	artifacts, err := WriteResultArtifacts(normalized.recordingsRoot, results)
+	artifacts, err := WriteResultArtifacts(recordingsRoot, results)
 	if err != nil {
 		return Phase1EvaluationOutput{}, fmt.Errorf("publish Phase 1 results: %w", err)
 	}
@@ -146,7 +164,7 @@ func runPhase1Evaluation(
 		repoRoot:         config.repoRoot,
 		codexLinuxBundle: config.codexLinuxBundle,
 		codexCommand:     config.codexCommand,
-		toolchainImageID: config.toolchainImageID,
+		pnpmCommand:      config.pnpmCommand,
 	})
 	if err != nil {
 		cleanupErr := fixture.cleanup()
@@ -169,19 +187,35 @@ func executePhase1Scenario(
 	resources *phase1DockerResources,
 	scenario Scenario,
 ) phase1RunState {
-	backend, err := resources.start(ctx, config.codexCommand)
+	scenarioContext, abortScenario := context.WithCancel(ctx)
+	defer abortScenario()
+	backend, err := resources.start(
+		ctx,
+		config.codexCommand,
+		scenario.Budget.HardTotalTokens,
+		abortScenario,
+	)
 	if err != nil {
 		return phase1InfrastructureFailure("sandbox_start_failed", err, nil)
 	}
 	observation, err := RunPhase1ScenarioOverHTTP(
-		ctx,
+		scenarioContext,
 		backend,
 		scenario,
 		phase1WorkspaceRoot,
 	)
 	state := phase1StateFromObservation(observation)
-	if err != nil {
+	if budgetFailure := resources.provider.tokenBudgetFailure(); budgetFailure != nil {
+		state = phase1TokenBudgetFailureState(budgetFailure, observation.Roles)
+	} else if err != nil {
 		state = phase1InfrastructureFailure("scenario_orchestration_failed", err, observation.Roles)
+	} else if state.outcome != ScenarioExecutionInfrastructureFailed &&
+		!resources.provider.observedTokenUsage() {
+		state = phase1InfrastructureFailure(
+			"token_budget_evidence_missing",
+			errors.New("provider returned no thread/tokenUsage/updated evidence for the evaluated scenario"),
+			observation.Roles,
+		)
 	}
 	stopContext, cancel := context.WithTimeout(context.Background(), phase1CleanupTimeout)
 	stopErr := resources.stopController(stopContext)
@@ -198,6 +232,27 @@ func executePhase1Scenario(
 	}
 	state.verifier = &verification
 	return state
+}
+
+func phase1TokenBudgetFailureState(
+	failure *phase1TokenBudgetFailure,
+	roles []EvaluatedRoleConfiguration,
+) phase1RunState {
+	if failure == nil || failure.kind != phase1TokenBudgetExceeded {
+		return phase1InfrastructureFailure("token_budget_evidence_failed", failure, roles)
+	}
+	diagnostic, err := NewScenarioDiagnostic(
+		"hard_total_tokens_exceeded",
+		boundedResultDiagnostic(failure.Error()),
+	)
+	if err != nil {
+		panic(fmt.Sprintf("invalid Phase 1 token-budget diagnostic: %v", err))
+	}
+	return phase1RunState{
+		outcome:    ScenarioExecutionTimedOut,
+		roles:      cloneEvaluatedRoleConfigurations(roles),
+		diagnostic: diagnostic,
+	}
 }
 
 func phase1StateFromObservation(observation Phase1HTTPObservation) phase1RunState {
@@ -266,9 +321,6 @@ func normalizePhase1EvaluationConfig(
 	if err != nil {
 		return phase1NormalizedConfig{}, err
 	}
-	if !validPhase1ImageID(config.ToolchainImageID) {
-		return phase1NormalizedConfig{}, errors.New("Phase 1 toolchain image must be an exact local sha256 image id")
-	}
 	dockerCommand := strings.TrimSpace(config.DockerCommand)
 	if dockerCommand == "" {
 		dockerCommand = "docker"
@@ -277,13 +329,17 @@ func normalizePhase1EvaluationConfig(
 	if codexCommand == "" {
 		codexCommand = "codex"
 	}
+	pnpmCommand := strings.TrimSpace(config.PNPMCommand)
+	if pnpmCommand == "" {
+		pnpmCommand = "pnpm"
+	}
 	return phase1NormalizedConfig{
 		repoRoot:         repoRoot,
 		recordingsRoot:   recordingsRoot,
 		codexLinuxBundle: bundle,
-		toolchainImageID: config.ToolchainImageID,
 		dockerCommand:    dockerCommand,
 		codexCommand:     codexCommand,
+		pnpmCommand:      pnpmCommand,
 	}, nil
 }
 

@@ -13,9 +13,11 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"setta/internal/evalharness/volumecopy"
@@ -62,33 +64,59 @@ type toolchainEvidence struct {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fatal(errors.New("a helper command is required"))
-	}
-	var err error
-	switch os.Args[1] {
-	case "boundary":
-		err = runBoundary(os.Args[2:])
-	case "environment":
-		err = writeJSON(environment())
-	case "phase1-copy-volume":
-		err = runPhase1CopyVolume(os.Args[2:])
-	case "phase1-prepare-volume":
-		err = runPhase1PrepareVolume(os.Args[2:])
-	case "phase1-toolchain":
-		err = inspectPhase1Toolchain()
-	case "seed":
-		err = runSeed(os.Args[2:])
-	case "snapshot":
-		err = snapshotWorkspace()
-	case "verify-output":
-		err = verifyOutput()
-	default:
-		err = fmt.Errorf("unsupported helper command %q", os.Args[1])
-	}
-	if err != nil {
+	if err := runHelperCommand(os.Args[1:]); err != nil {
 		fatal(err)
 	}
+}
+
+func runHelperCommand(args []string) error {
+	if len(args) == 0 {
+		return errors.New("a helper command is required")
+	}
+	switch args[0] {
+	case "boundary":
+		return runBoundary(args[1:])
+	case "environment":
+		return writeJSON(environment())
+	case "phase1-copy-volume", "phase1-hold-volume", "phase1-prepare-volume", "phase1-toolchain":
+		return runPhase1HelperCommand(args)
+	case "seed":
+		return runSeed(args[1:])
+	case "snapshot":
+		return snapshotWorkspace()
+	case "verify-output":
+		return verifyOutput()
+	default:
+		return fmt.Errorf("unsupported helper command %q", args[0])
+	}
+}
+
+func runPhase1HelperCommand(args []string) error {
+	switch args[0] {
+	case "phase1-copy-volume":
+		return runPhase1CopyVolume(args[1:])
+	case "phase1-hold-volume":
+		return holdPhase1Volume(args[1:])
+	case "phase1-prepare-volume":
+		return runPhase1PrepareVolume(args[1:])
+	case "phase1-toolchain":
+		if len(args) != 1 {
+			return errors.New("phase1-toolchain accepts no arguments")
+		}
+		return inspectPhase1Toolchain()
+	default:
+		return fmt.Errorf("unsupported Phase 1 helper command %q", args[0])
+	}
+}
+
+func holdPhase1Volume(args []string) error {
+	if len(args) != 0 {
+		return errors.New("phase1-hold-volume accepts no arguments")
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	<-ctx.Done()
+	return nil
 }
 
 func runBoundary(args []string) error {
