@@ -1,6 +1,7 @@
 package evalharness
 
 import (
+	"context"
 	"testing"
 
 	"setta/internal/conversation"
@@ -154,28 +155,55 @@ func TestConversationStateObservesOnlyExactTypedTriggers(t *testing.T) {
 	}
 }
 
-func TestConversationStateRetainsPushedHistoryPastSnapshotWindow(t *testing.T) {
-	events := make([]conversation.TrajectoryEvent, conversation.MaxSnapshotTrajectoryEvents)
-	for index := range events {
-		events[index].Sequence = index + 1
+func TestConversationStateReplaysTruncatedSnapshotHistoryFromStreamStart(t *testing.T) {
+	conversationID := "conversation-eval"
+	streamID, err := conversation.ConversationStreamID(conversationID)
+	if err != nil {
+		t.Fatalf("build conversation stream ID: %v", err)
 	}
-	state := &evaluationConversationState{snapshot: conversation.ConversationSnapshot{
-		Trajectory: conversation.ConversationTrajectoryWindow{Events: events},
-	}}
-	appended := conversation.TrajectoryEvent{Sequence: len(events) + 1}
-	if err := state.apply(&conversation.ConversationTrajectoryAppendedEventPayload{
-		Event: appended,
-	}); err != nil {
-		t.Fatalf("apply pushed trajectory event: %v", err)
+	target := conversation.ConversationEventCursor{StreamID: streamID, Sequence: 2}
+	snapshot := conversation.ConversationSnapshot{
+		Conversation: conversation.TopicConversation{ID: conversationID},
+		Trajectory: conversation.ConversationTrajectoryWindow{
+			Events:     []conversation.TrajectoryEvent{{Sequence: 2}},
+			HasEarlier: true,
+		},
+		EventCursor: target,
 	}
-	if got := len(state.snapshot.Trajectory.Events); got != len(events)+1 {
-		t.Fatalf("accumulated trajectory events = %d, want %d", got, len(events)+1)
+	events := make(chan conversation.ConversationEvent, target.Sequence)
+	for sequence := 1; sequence <= target.Sequence; sequence++ {
+		events <- conversation.ConversationEvent{
+			StreamID: streamID,
+			Sequence: sequence,
+			Payload: &conversation.ConversationTrajectoryAppendedEventPayload{
+				Type:  conversation.ConversationEventTypeTrajectoryAppended,
+				Event: conversation.TrajectoryEvent{Sequence: sequence},
+			},
+		}
+	}
+	close(events)
+	errors := make(chan error)
+	close(errors)
+	state := newEvaluationConversationState(snapshot, &EventStream[conversation.ConversationEvent]{
+		events: events,
+		errors: errors,
+	})
+	if err := state.replayThrough(context.Background(), target); err != nil {
+		t.Fatalf("replay conversation event history: %v", err)
+	}
+	if got := len(state.snapshot.Trajectory.Events); got != target.Sequence {
+		t.Fatalf("replayed trajectory events = %d, want %d", got, target.Sequence)
 	}
 	if state.snapshot.Trajectory.HasEarlier {
-		t.Fatal("complete pushed history was marked as truncated")
+		t.Fatal("complete replayed history was marked as truncated")
 	}
-	if got := state.snapshot.Trajectory.Events[len(events)].Sequence; got != appended.Sequence {
-		t.Fatalf("last accumulated sequence = %d, want %d", got, appended.Sequence)
+	for index, event := range state.snapshot.Trajectory.Events {
+		if event.Sequence != index+1 {
+			t.Fatalf("replayed trajectory sequence[%d] = %d, want %d", index, event.Sequence, index+1)
+		}
+	}
+	if state.snapshot.EventCursor != target {
+		t.Fatalf("replayed cursor = %+v, want %+v", state.snapshot.EventCursor, target)
 	}
 }
 

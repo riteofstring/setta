@@ -17,10 +17,48 @@ func newEvaluationConversationState(
 	snapshot conversation.ConversationSnapshot,
 	stream *EventStream[conversation.ConversationEvent],
 ) *evaluationConversationState {
+	snapshot.Turns = conversation.ConversationTurnWindow{
+		Turns: []conversation.ConversationTurn{},
+	}
+	snapshot.Queue = []conversation.QueuedConversationTurn{}
+	snapshot.Trajectory = conversation.ConversationTrajectoryWindow{
+		Events: []conversation.TrajectoryEvent{},
+	}
+	snapshot.NarratorState = conversation.NarratorState{}
+	snapshot.Narration = conversation.ConversationNarrationWindow{
+		Events: []conversation.NarrationEvent{},
+	}
+	snapshot.SideEvents = conversation.ConversationSideEventWindow{
+		Events: []conversation.SideConversationEvent{},
+		Limit:  conversation.MaxSnapshotSideEvents,
+	}
+	snapshot.EventCursor.Sequence = 0
 	return &evaluationConversationState{
 		snapshot: snapshot,
 		reader:   newEventStreamReader("conversation", stream),
 	}
+}
+
+func (state *evaluationConversationState) replayThrough(
+	ctx context.Context,
+	target conversation.ConversationEventCursor,
+) error {
+	if target.StreamID != state.snapshot.EventCursor.StreamID ||
+		target.Sequence < state.snapshot.EventCursor.Sequence {
+		return fmt.Errorf(
+			"conversation replay target %s:%d does not follow %s:%d",
+			target.StreamID,
+			target.Sequence,
+			state.snapshot.EventCursor.StreamID,
+			state.snapshot.EventCursor.Sequence,
+		)
+	}
+	for state.snapshot.EventCursor.Sequence < target.Sequence {
+		if err := state.next(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (state *evaluationConversationState) next(ctx context.Context) error {
@@ -31,7 +69,21 @@ func (state *evaluationConversationState) next(ctx context.Context) error {
 	if event.Type() == conversation.ConversationEventTypeResyncRequired {
 		return errors.New("conversation event stream required a snapshot resync")
 	}
-	return state.apply(event.Payload)
+	wantSequence := state.snapshot.EventCursor.Sequence + 1
+	if event.StreamID != state.snapshot.EventCursor.StreamID || event.Sequence != wantSequence {
+		return fmt.Errorf(
+			"conversation event cursor changed from %s:%d to %s:%d",
+			state.snapshot.EventCursor.StreamID,
+			state.snapshot.EventCursor.Sequence,
+			event.StreamID,
+			event.Sequence,
+		)
+	}
+	if err := state.apply(event.Payload); err != nil {
+		return err
+	}
+	state.snapshot.EventCursor.Sequence = event.Sequence
+	return nil
 }
 
 func (state *evaluationConversationState) apply(

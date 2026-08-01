@@ -1637,12 +1637,13 @@ then for one queued turn from the second Director submission before it submits
 the cancellation request. Every action must target the same fixture workstream;
 no trigger uses prose parsing, polling, or a fixed sleep.
 
-Complete attempt evidence starts with the fresh conversation's cold-start
-snapshot and accumulates every subsequent pushed conversation event through
-terminal narration settlement. It does not mistake the renderer-safe bounded
-final snapshot for a complete history. A cold-start snapshot that already says
-history was omitted still fails loudly; a long live run may exceed production
-snapshot windows without losing the event evidence the evaluator observed.
+Complete attempt evidence uses the fresh renderer-safe snapshot as an atomic
+cursor, then replays the production durable conversation stream from sequence
+zero through that cursor and keeps consuming pushed events through terminal
+narration settlement. Snapshot history may already be omitted before the
+Director returns its receipt, so the evaluator never treats a bounded snapshot
+as complete history. A stream gap or resync still fails loudly, while a long
+live run may exceed production snapshot windows without losing evidence.
 
 The current event contract records step-indexed user submissions and Director
 receipts, exact trigger observations, semantic trajectory and narration, and a

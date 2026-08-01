@@ -294,8 +294,24 @@ func orchestrateEvaluationConversation(
 	if err != nil {
 		return observation, err
 	}
+	replayCursor := snapshot.EventCursor
+	replayCursor.Sequence = 0
+	conversationEvents, err := client.SubscribeConversationEvents(
+		ctx,
+		observation.WorkspaceID,
+		observation.ConversationID,
+		replayCursor,
+	)
+	if err != nil {
+		return observation, err
+	}
+	defer conversationEvents.Close()
+	state := newEvaluationConversationState(snapshot, conversationEvents)
+	if err := state.replayThrough(ctx, snapshot.EventCursor); err != nil {
+		return observation, err
+	}
 	turn, failure := evaluationObservedTurn(
-		snapshot,
+		state.snapshot,
 		missingEvaluationWorkOutcome(scenario, workingStepIndex),
 	)
 	if failure != nil {
@@ -308,17 +324,6 @@ func orchestrateEvaluationConversation(
 	}
 	observation.ObservedTurnID = turn.ID
 	observation.TurnID = turn.ID
-	conversationEvents, err := client.SubscribeConversationEvents(
-		ctx,
-		observation.WorkspaceID,
-		observation.ConversationID,
-		snapshot.EventCursor,
-	)
-	if err != nil {
-		return observation, err
-	}
-	defer conversationEvents.Close()
-	state := newEvaluationConversationState(snapshot, conversationEvents)
 	observation, queuedTurnID, err := orchestrateTriggeredEvaluationSteps(
 		ctx,
 		client,
