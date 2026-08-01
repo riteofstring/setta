@@ -37,7 +37,7 @@ func TestDirectorInstructionsPreserveNativeArtifactIntent(t *testing.T) {
 		"This is app routing, not user-facing copy.",
 		"An explicit request to follow the project's existing convention can be resolved by project inspection.",
 		"they cannot invent an unspecified external contract",
-		"ask one useful question before starting or queueing work",
+		"call `setta.request_user_choice` and ask one useful question",
 		"When queueing a separate next task, send only that task's objective and constraints.",
 		"queue order already provides sequencing",
 		"call the tool before writing user-facing prose",
@@ -46,6 +46,51 @@ func TestDirectorInstructionsPreserveNativeArtifactIntent(t *testing.T) {
 		if !strings.Contains(instructions, required) {
 			t.Fatalf("Director instructions do not contain %q:\n%s", required, instructions)
 		}
+	}
+}
+
+func TestDirectorUserChoiceToolPreventsActionRepair(t *testing.T) {
+	harness := newRegistryHarness(t)
+	registry := harness.start()
+	execution := &recordedExecution{}
+	provider := &scriptedDirectorProvider{
+		reply: "Which externally visible endpoint should the deployment monitor call?",
+		calls: []scriptedDirectorToolCall{{
+			tool: "request_user_choice",
+			arguments: map[string]any{
+				"question": "Which externally visible endpoint should the deployment monitor call?",
+			},
+		}},
+	}
+	director := newDirectorConversationForTest(
+		t,
+		harness,
+		registry,
+		provider,
+		execution,
+		newDirectorConversationStoreForTest(),
+	)
+
+	receipt, err := director.Submit(
+		context.Background(),
+		directorTurnIntent("Add the diagnostics endpoint needed by the deployment monitor."),
+	)
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	if len(provider.turns) != 1 {
+		t.Fatalf("clarification triggered %d provider turns, want one", len(provider.turns))
+	}
+	if len(receipt.ToolCalls) != 1 ||
+		receipt.ToolCalls[0].Tool != "request_user_choice" ||
+		!receipt.ToolCalls[0].Succeeded {
+		t.Fatalf("clarification tool calls = %+v", receipt.ToolCalls)
+	}
+	if receipt.ReplyText != provider.reply {
+		t.Fatalf("clarification reply = %q, want %q", receipt.ReplyText, provider.reply)
+	}
+	if len(execution.starts) != 0 || len(execution.sends) != 0 || len(execution.queues) != 0 {
+		t.Fatalf("clarification started work: starts=%+v sends=%+v queues=%+v", execution.starts, execution.sends, execution.queues)
 	}
 }
 

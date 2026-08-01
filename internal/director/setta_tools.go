@@ -194,6 +194,17 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 			Handler:     box.readActivity(intent),
 		},
 		{
+			Name: "request_user_choice",
+			Description: "Mark that work must wait for one meaningful user choice before it can start. Call this " +
+				"instead of creating, submitting, or queueing work when different answers would materially change " +
+				"the outcome. After the receipt, ask exactly the supplied question in concise user-facing prose. This " +
+				"tool starts no work.",
+			InputSchema: settaToolSchema(map[string]any{
+				"question": settaToolString("The one outcome-changing question only the user can answer.", MaxDirectorReplyBytes),
+			}, []string{"question"}),
+			Handler: box.requestUserChoice(),
+		},
+		{
 			Name: "ask_conversation",
 			Description: "Ask one workstream's conversation a specific question and get its narrator's " +
 				"answer: current state, the evidence for it, and the blocker or next step when there is " +
@@ -357,6 +368,10 @@ type settaWorkstreamArguments struct {
 	WorkstreamID string `json:"workstreamId"`
 }
 
+type settaRequestUserChoiceArguments struct {
+	Question string `json:"question"`
+}
+
 // settaWorkArguments delivers new work, so it declares what that work needs
 // from the user's files. Steering has its own arguments: it changes a run that
 // is already carrying work under a scope the workstream already has.
@@ -425,6 +440,22 @@ func (box *SettaToolbox) listWorkspaces(intent SubmittedIntent) SettaToolHandler
 			Tool:       "list_workspaces",
 			Summary:    fmt.Sprintf("%d workspace(s) are open.", len(decisionContext.Workspaces)),
 			Workspaces: append([]DecisionWorkspaceOption{}, decisionContext.Workspaces...),
+		}, nil
+	}
+}
+
+func (box *SettaToolbox) requestUserChoice() SettaToolHandler {
+	return func(_ context.Context, arguments json.RawMessage) (SettaToolReceipt, error) {
+		var decoded settaRequestUserChoiceArguments
+		if err := decodeSettaToolArguments(arguments, &decoded); err != nil {
+			return SettaToolReceipt{}, err
+		}
+		if err := validateDecisionText("user choice question", decoded.Question, MaxDirectorReplyBytes); err != nil {
+			return SettaToolReceipt{}, err
+		}
+		return SettaToolReceipt{
+			Tool:    "request_user_choice",
+			Summary: "Waiting for the user's answer before starting work.",
 		}, nil
 	}
 }

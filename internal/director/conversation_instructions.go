@@ -50,8 +50,8 @@ const directorContract = "Rules:\n" +
 	"to follow the project's existing convention can be resolved by project inspection. Repository conventions can " +
 	"resolve how to implement a known behavior; they cannot invent an unspecified external contract, such as which " +
 	"route or behavior another system expects. When a missing external choice materially changes the requested " +
-	"outcome, ask one useful question before starting or queueing work. Do not delegate the user's choice to a " +
-	"worker or guess between materially different outcomes.\n" +
+	"outcome, call `setta.request_user_choice` and ask one useful question before starting or queueing work. Do not " +
+	"delegate the user's choice to a worker or guess between materially different outcomes.\n" +
 	"- When queueing a separate next task, send only that task's objective and constraints. Do not restate the active " +
 	"task or make its completion part of the queued instruction; queue order already provides sequencing, and the " +
 	"queued task must remain independent if the active task is later cancelled.\n" +
@@ -68,8 +68,9 @@ const directorContract = "Rules:\n" +
 // the established Director conversation.
 const directorToolUseReview = "Setta internal review: the preceding user request produced no Setta tool call. " +
 	"Re-evaluate that request against your developer contract in this same conversation. If it asked to " +
-	"change, select, inspect, or otherwise control app state, call the appropriate `setta` tool now, or ask " +
-	"one useful clarification when an authorized target is genuinely ambiguous. If it was correctly answered " +
+	"change, select, inspect, or otherwise control app state, call the appropriate `setta` tool now. If a missing " +
+	"user choice materially changes the outcome, call `setta.request_user_choice` and ask that one question; never " +
+	"start or queue work as a substitute for the answer. If it was correctly answered " +
 	"as conversation, explanation, or planning, repeat that answer without mentioning this review. Never claim " +
 	"that app state changed unless a Setta tool receipt confirms it."
 
