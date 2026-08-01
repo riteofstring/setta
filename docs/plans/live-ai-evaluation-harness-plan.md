@@ -4,8 +4,9 @@
 **Status:** Phase 0 proof implementation complete; benign live evidence remains
 an external release gate. The Phase 1 benchmark-contract, result-reporting, and
 production HTTP/event-orchestration batches are implemented. The Phase 1
-container lifecycle and result wiring are also implemented below the command
-boundary; its checked-in image pin, Phase 0 gate, and runnable entrypoints
+container lifecycle, result wiring, committed Phase 0 gate, and runnable Go and
+shell entrypoints are also implemented. Its checked-in toolchain image pin,
+planned disk and total-token ceilings, and focused classification exercises
 remain incomplete.
 
 ## Outcome
@@ -700,6 +701,14 @@ returns `PASS` JSON only after all boundary assertions, both benign model turns,
 and teardown succeed. It never downloads Codex, starts Docker Desktop, opens a
 login flow, or emits credential values.
 
+The probe's `--write-report` option now writes the one accepted strict PASS
+report shape only after that validated evidence and teardown exist. The Phase 1
+runner reads the report and plan from `HEAD`, revalidates every proof invariant,
+requires the evidence commit to be an ancestor of the current commit, requires
+a clean worktree, and requires the committed plan to contain the Phase 0
+resolution heading followed by an `Outcome` of `PASS`. A missing, uncommitted,
+stale, malformed, or non-PASS report cannot start Docker or provider work.
+
 **Release gate recorded 2026-07-31:** the live probe was not run because the
 Docker daemon was stopped and the inspected local Codex/npm installations had
 no `aarch64-unknown-linux-musl` Codex 0.146.0 bundle. These are unavailable
@@ -791,16 +800,25 @@ protocol, or I/O faults. Infrastructure failures still produce classified
 result artifacts once input validation and repository preconditions have
 passed.
 
-The checked-in exact toolchain base-image pin, `cmd/setta-eval`, the shell
-entrypoint, enforcement of the committed Phase 0 `PASS` gate, and focused
-exercise of all four Phase 1 exit classifications remain repository work, as
-do the planned disk and total-token ceilings. The lifecycle is therefore not
-command-runnable yet. No automated or live verification has been run; that
-remains subject to the verification policy below.
+`cmd/setta-eval` and `scripts/run_setta_evals.sh` now expose that lifecycle. The
+command reports the objective classification and artifact paths, returns a
+nonzero status for a non-pass, and accepts the already-installed Linux Codex
+bundle and exact local toolchain image ID explicitly. The lifecycle itself
+enforces the committed Phase 0 gate before it validates those local runtime
+inputs or contacts Docker, so another caller cannot bypass the gate.
 
-Complete the phase with `cmd/setta-eval`, the shell entrypoint, the checked-in
-ARM64 toolchain-image pin, the Phase 0 gate, and the remaining resource and
-classification exercises described above.
+The checked-in exact ARM64 toolchain base-image pin, the planned disk and
+total-token ceilings, and focused exercise of all four Phase 1 exit
+classifications remain repository work. Until the pin is checked in, the shell
+entrypoint requires `--toolchain-image-id`; live execution also remains gated
+by the unavailable Phase 0 evidence above. No live verification has been run.
+Repository formatting, changed-file quality (including the affected Go packages
+and fixture workflow), and the repository supply-chain gate passed for this
+batch on 2026-07-31. Those implementation checks do not satisfy the live Phase
+0 or Phase 1 exits.
+
+Complete the phase with the checked-in ARM64 toolchain-image pin and the
+remaining resource and classification work described above.
 
 The runner validates every input, creates disposable volumes, starts the real
 backend, opens the fixture through `/workspaces/open`, reads the production

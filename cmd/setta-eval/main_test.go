@@ -1,0 +1,102 @@
+package main
+
+import (
+	"context"
+	"strings"
+	"testing"
+
+	"setta/internal/evalharness"
+)
+
+func TestRunPassesExplicitInputsAndReportsArtifacts(t *testing.T) {
+	var received evalharness.Phase1EvaluationConfig
+	runner := func(
+		_ context.Context,
+		config evalharness.Phase1EvaluationConfig,
+	) (evalharness.Phase1EvaluationOutput, error) {
+		received = config
+		return phase1CommandOutput(evalharness.ScenarioClassificationPass), nil
+	}
+	var stdout strings.Builder
+	var stderr strings.Builder
+	exitCode := run([]string{
+		"--repo-root", "/repo",
+		"--recordings-root", "/recordings",
+		"--codex-linux-bundle", "/bundle",
+		"--toolchain-image-id", "sha256:" + strings.Repeat("a", 64),
+		"--docker", "/usr/local/bin/docker",
+		"--codex", "/usr/local/bin/codex",
+	}, &stdout, &stderr, runner)
+	if exitCode != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", exitCode, stderr.String())
+	}
+	if received.RepoRoot != "/repo" || received.RecordingsRoot != "/recordings" ||
+		received.CodexLinuxBundle != "/bundle" ||
+		received.DockerCommand != "/usr/local/bin/docker" ||
+		received.CodexCommand != "/usr/local/bin/codex" {
+		t.Fatalf("received config = %#v", received)
+	}
+	if !strings.Contains(stdout.String(), "straightforward-task: pass (completed)") ||
+		!strings.Contains(stdout.String(), "Results: /recordings/run/results.json") ||
+		!strings.Contains(stdout.String(), "Report: /recordings/run/report.md") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
+func TestRunReturnsFailureForObjectiveEvaluationFailure(t *testing.T) {
+	runner := func(
+		_ context.Context,
+		_ evalharness.Phase1EvaluationConfig,
+	) (evalharness.Phase1EvaluationOutput, error) {
+		return phase1CommandOutput(evalharness.ScenarioClassificationAbilityFailure), nil
+	}
+	var stdout strings.Builder
+	var stderr strings.Builder
+	if exitCode := run(nil, &stdout, &stderr, runner); exitCode != 1 {
+		t.Fatalf("exit code = %d, want 1", exitCode)
+	}
+	if !strings.Contains(stderr.String(), "completed without an objective pass") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRunHelpDoesNotStartEvaluation(t *testing.T) {
+	called := false
+	runner := func(
+		_ context.Context,
+		_ evalharness.Phase1EvaluationConfig,
+	) (evalharness.Phase1EvaluationOutput, error) {
+		called = true
+		return evalharness.Phase1EvaluationOutput{}, nil
+	}
+	var stdout strings.Builder
+	var stderr strings.Builder
+	if exitCode := run([]string{"--help"}, &stdout, &stderr, runner); exitCode != 0 {
+		t.Fatalf("exit code = %d, stderr = %q", exitCode, stderr.String())
+	}
+	if called {
+		t.Fatal("evaluation started for --help")
+	}
+	if !strings.Contains(stderr.String(), "-toolchain-image-id") {
+		t.Fatalf("help output = %q", stderr.String())
+	}
+}
+
+func phase1CommandOutput(
+	classification evalharness.ScenarioClassification,
+) evalharness.Phase1EvaluationOutput {
+	return evalharness.Phase1EvaluationOutput{
+		Results: evalharness.Results{
+			Scenarios: []evalharness.ScenarioResult{{
+				ScenarioID:       evalharness.ScenarioVerifierStraightforward,
+				Classification:   classification,
+				ExecutionOutcome: evalharness.ScenarioExecutionCompleted,
+			}},
+		},
+		Artifacts: evalharness.ResultArtifactPaths{
+			Directory:      "/recordings/run",
+			ResultsJSON:    "/recordings/run/results.json",
+			ReportMarkdown: "/recordings/run/report.md",
+		},
+	}
+}

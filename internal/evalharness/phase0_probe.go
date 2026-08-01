@@ -66,6 +66,9 @@ func RunPhase0SandboxProbe(
 		return Phase0SandboxEvidence{}, cleanupErr
 	}
 	evidence.Teardown = teardown
+	if err := ValidatePhase0SandboxEvidence(evidence); err != nil {
+		return Phase0SandboxEvidence{}, fmt.Errorf("validate Phase 0 PASS evidence: %w", err)
+	}
 	return evidence, nil
 }
 

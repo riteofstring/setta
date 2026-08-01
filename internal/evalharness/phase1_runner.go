@@ -44,9 +44,8 @@ type phase1RunState struct {
 	diagnostic *ScenarioDiagnostic
 }
 
-// RunPhase1Evaluation owns the complete Phase 1 lifecycle below the command
-// boundary. The future command must enforce the committed Phase 0 PASS gate
-// before calling it; this function never supplies an unsandboxed fallback.
+// RunPhase1Evaluation owns the complete Phase 1 lifecycle, including the
+// committed Phase 0 PASS gate. It never supplies an unsandboxed fallback.
 func RunPhase1Evaluation(
 	ctx context.Context,
 	config Phase1EvaluationConfig,
@@ -54,6 +53,14 @@ func RunPhase1Evaluation(
 	if ctx == nil {
 		return Phase1EvaluationOutput{}, errors.New("Phase 1 evaluation context is required")
 	}
+	repoRoot, err := resolvePhase1RepoRoot(config.RepoRoot)
+	if err != nil {
+		return Phase1EvaluationOutput{}, err
+	}
+	if err := requireCommittedPhase0Pass(ctx, repoRoot); err != nil {
+		return Phase1EvaluationOutput{}, err
+	}
+	config.RepoRoot = repoRoot
 	normalized, err := normalizePhase1EvaluationConfig(config)
 	if err != nil {
 		return Phase1EvaluationOutput{}, err
@@ -96,6 +103,22 @@ func RunPhase1Evaluation(
 		return Phase1EvaluationOutput{}, fmt.Errorf("publish Phase 1 results: %w", err)
 	}
 	return Phase1EvaluationOutput{Results: results, Artifacts: artifacts}, nil
+}
+
+func resolvePhase1RepoRoot(value string) (string, error) {
+	repoRoot := strings.TrimSpace(value)
+	if repoRoot == "" {
+		var err error
+		repoRoot, err = os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("find Phase 1 repository root: %w", err)
+		}
+	}
+	absolute, err := filepath.Abs(repoRoot)
+	if err != nil {
+		return "", fmt.Errorf("resolve Phase 1 repository root: %w", err)
+	}
+	return cleanExistingPhase1Directory("repository root", absolute)
 }
 
 func runPhase1Evaluation(
