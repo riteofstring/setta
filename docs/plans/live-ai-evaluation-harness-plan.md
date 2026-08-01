@@ -1,15 +1,15 @@
 # Live AI Evaluation Harness Plan
 
 **Date:** 2026-07-31
-**Status:** The Phase 0 audit invalidated the prior schema-4 proof after finding
-that it did not bind the release-owned Agent model and reasoning effort, and
-that its workspace delta omitted directory and permission-mode changes. The
-repaired schema-5 proof derives the baseline from the production role owner,
-records it, inventories the complete workspace tree, and rejects external tool
-activity. The prior report has been removed; rerun the authorized benign probe
-from the clean repair commit before restoring the Phase 0 resolution. Phase 1
-through Phase 3 repository implementation and their prior audits remain
-complete; no Phase 1 live harness starts before the repaired Phase 0 proof.
+**Status:** Phase 0 achieved a repaired schema-5 `PASS` on 2026-08-01 from
+clean source commit `609a1f8448bbf9bbb26ddec3186a9298670e974b`; the canonical
+report is recorded at `docs/reports/live-ai-eval-sandbox-phase0.md`. The proof
+binds the production-owned Agent model and effort, inventories the complete
+workspace tree and permission modes, rejects external tool activity, and
+records complete teardown. Both benign tasks passed on their first attempt.
+Phase 1 through Phase 3 repository implementation and their prior audits remain
+complete; the current Phase 0 audit repair is ready for authorized final
+verification, not Phase 1 live harness execution.
 
 ## Outcome
 
@@ -1227,6 +1227,29 @@ local filesystem. The corrected activity policy therefore allows that
 container-confined tool while continuing to reject image generation and every
 other prohibited external activity. Rerun the same benign probe from the clean
 amended repair.
+
+### Phase 0 resolution
+
+**Outcome:** `PASS`
+
+The repaired benign probe ran from clean source commit
+`609a1f8448bbf9bbb26ddec3186a9298670e974b` with Codex 0.146.0 and the
+release-owned Agent baseline `gpt-5.6-sol`/high on the target Linux/ARM64 Docker
+daemon. The authenticated app-server remained host-owned, and the
+network-isolated Agent used the capability-authenticated loopback
+WebSocket-to-Docker-attach stdio relay with no published Agent port, credential
+mount, Docker socket, or host network route.
+
+The random container-only read completed without mutation on its first
+attempt. The independent workspace-write task also completed on its first
+attempt, and the entry-complete snapshot proved that the root, directories,
+pre-existing file contents, and permission modes remained unchanged while only
+the exact declared regular file was added. The schema-5 evidence records the
+derived release model and effort, exact proof-input digests, Docker and helper
+boundary facts, strict shell-environment policy, and typed remote readiness.
+The app-server, relay and attach client, container, volume, network, image tag,
+temporary canary, and build context were all removed. The canonical report
+contains no credential values.
 
 The user's instruction to proceed with the implementation loop authorizes the
 same narrowly bounded benign Phase 0 probe already described by this plan. It
