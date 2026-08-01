@@ -2,8 +2,8 @@
 
 **Date:** 2026-07-31
 **Status:** Phase 0 proof implementation complete; benign live evidence remains
-an external release gate. The Phase 1 benchmark-contract batch is implemented;
-the vertical runner remains incomplete.
+an external release gate. The Phase 1 benchmark-contract and result-reporting
+batches are implemented; the vertical runner remains incomplete.
 
 ## Outcome
 
@@ -735,11 +735,19 @@ diagnostics, and owns the build, test, original-route, exact `/health`, and
 README checks. Its source lives outside the fixture so the pending runner can
 exclude it from the evaluated Agent container.
 
-The pinned Phase 1 sandbox images, `cmd/setta-eval`, shell entrypoint, production
-backend/HTTP/event orchestration, verifier-container invocation, teardown, and
-Phase 1 result classification remain repository work. No automated or live
-verification has been run; that remains subject to the verification policy
-below.
+The strict Phase 1 result schema, production-role resolution projection,
+objective classification boundary, and atomic `results.json`/`report.md`
+publisher are implemented. Completed work passes only when the hidden verifier
+passes; an incorrect final workspace, an execution failure, a timeout, and an
+infrastructure failure remain distinct outcomes. The Markdown report already
+uses the four final report sections and identifies which Phase 2 and Phase 3
+evidence is not collected yet.
+
+The pinned Phase 1 sandbox images, `cmd/setta-eval`, shell entrypoint,
+production backend/HTTP/event orchestration, verifier-container invocation,
+and teardown remain repository work. The completed output boundary is not yet
+wired to a runnable live scenario. No automated or live verification has been
+run; that remains subject to the verification policy below.
 
 Add the Go-owned scenario contract, `cmd/setta-eval`, the shell entrypoint, the
 pinned ARM64 sandbox image, one TypeScript fixture, and the straightforward
