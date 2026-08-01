@@ -56,8 +56,9 @@ func TestProviderNotificationNormalizersStayInsideMatrixAuthority(t *testing.T) 
 			t.Errorf("normalizer for %s has no adapter matrix rule", method)
 			continue
 		}
-		if rule.Disposition != ProviderNotificationNormalized {
-			t.Errorf("normalizer for %s exceeds its %q disposition; only normalized notifications may become Setta events", method, rule.Disposition)
+		if rule.Disposition != ProviderNotificationNormalized &&
+			rule.Disposition != ProviderNotificationEvidence {
+			t.Errorf("provider handler for %s exceeds its %q disposition", method, rule.Disposition)
 		}
 		if rule.OptOut {
 			t.Errorf("normalizer for %s is registered for a notification Setta opts out of", method)

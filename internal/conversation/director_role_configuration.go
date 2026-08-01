@@ -192,6 +192,17 @@ func (configuration DirectorRoleConfiguration) PinnedInvocation() (agent.Invocat
 	}, nil
 }
 
+// RequestedRoleProfile returns the canonical production profile that
+// authorized this resolved Director call. Provider adapters use it when they
+// create the durable invocation that is correlated with the call.
+func (configuration DirectorRoleConfiguration) RequestedRoleProfile() (RoleProfile, error) {
+	if err := configuration.Validate(); err != nil {
+		return RoleProfile{}, err
+	}
+	_, profile, err := canonicalDirectorRoleProfile(configuration.RequestedProfile)
+	return profile, err
+}
+
 func canonicalDirectorRoleProfile(raw json.RawMessage) (json.RawMessage, RoleProfile, error) {
 	trimmed := bytes.TrimSpace(raw)
 	if len(trimmed) == 0 {

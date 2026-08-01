@@ -37,6 +37,7 @@ type CallRequest struct {
 }
 
 type CallResult struct {
+	InvocationID     string
 	RequestID        string
 	Generation       uint64
 	Kind             RequestKind
@@ -58,6 +59,7 @@ type CallResult struct {
 type Caller struct {
 	models   *ModelResolver
 	provider FreshStructuredCallProvider
+	newID    func(string) (string, error)
 	now      func() time.Time
 }
 
@@ -73,6 +75,16 @@ func WithCallerClock(now func() time.Time) CallerOption {
 	}
 }
 
+func WithCallerIDGenerator(generator func(string) (string, error)) CallerOption {
+	return func(caller *Caller) error {
+		if generator == nil {
+			return errors.New("narrator caller id generator is required")
+		}
+		caller.newID = generator
+		return nil
+	}
+}
+
 func NewCaller(
 	models *ModelResolver,
 	provider FreshStructuredCallProvider,
@@ -84,7 +96,7 @@ func NewCaller(
 	if provider == nil {
 		return nil, errors.New("narrator caller structured provider is required")
 	}
-	caller := &Caller{models: models, provider: provider, now: time.Now}
+	caller := &Caller{models: models, provider: provider, newID: randomOutputID, now: time.Now}
 	for _, option := range options {
 		if option == nil {
 			return nil, errors.New("narrator caller option must not be nil")
@@ -105,13 +117,23 @@ func (caller *Caller) Call(ctx context.Context, request CallRequest) (CallResult
 		return CallResult{}, narratorCallFailure(ctx, FailureKindInternal, err)
 	}
 	result := preparedCallResult(request, prepared)
+	result.InvocationID, err = caller.newID("narrator_invocation")
+	if err != nil {
+		return result, narratorCallFailure(ctx, FailureKindInternal, err)
+	}
 	result.StartedAt = caller.timestamp()
 	resolution, err := caller.resolveModel(ctx, prepared)
 	result.Model = cloneModelResolution(resolution)
 	if err != nil {
 		return result, narratorModelResolutionFailure(ctx, err)
 	}
-	providerResult, err := caller.runProviderCall(ctx, request, prepared, resolution)
+	providerResult, err := caller.runProviderCall(
+		ctx,
+		request,
+		prepared,
+		resolution,
+		result.InvocationID,
+	)
 	if err != nil {
 		return result, narratorCallFailure(ctx, FailureKindProviderUnavailable, err)
 	}
@@ -225,11 +247,20 @@ func (caller *Caller) runProviderCall(
 	request CallRequest,
 	prepared preparedCallRequest,
 	resolution ModelResolution,
+	invocationID string,
 ) (agent.FreshStructuredCallResult, error) {
 	providerRequest := agent.FreshStructuredCallRequest{
-		ID:                    request.ID,
-		WorkspaceRoot:         request.WorkspaceRoot,
-		Invocation:            resolvedProviderInvocation(resolution),
+		ID:            request.ID,
+		WorkspaceRoot: request.WorkspaceRoot,
+		Invocation:    resolvedProviderInvocation(resolution),
+		TokenUsageAttribution: agent.TokenUsageAttribution{
+			Bucket:          agent.TokenUsageBucketSystem,
+			Role:            agent.TokenUsageRoleNarrator,
+			InvocationID:    invocationID,
+			Model:           resolution.Settings.ModelID,
+			ReasoningEffort: string(resolution.Settings.ReasoningEffort),
+			ServiceTier:     cloneOptionalString(resolution.Settings.ServiceTier),
+		},
 		DeveloperInstructions: prepared.instructions,
 		Input:                 append(json.RawMessage{}, prepared.input...),
 		OutputSchema:          append(json.RawMessage{}, prepared.outputSchema...),

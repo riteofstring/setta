@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/agent"
 	"setta/internal/evalharness/providerbridge"
+	"setta/internal/evalharness/tokenusage"
 	evalverifier "setta/internal/evalharness/verifier"
 	"setta/internal/evalharness/volumecopy"
 	"setta/internal/httpapi"
@@ -25,6 +27,7 @@ const (
 	phase1BaselineRoot          = "/baseline"
 	phase1VerificationRoot      = "/verification"
 	phase1AppDataRoot           = "/app-data"
+	phase1TokenUsagePath        = phase1AppDataRoot + "/eval-token-usage.jsonl"
 	phase1ExecServerPort        = "4500"
 	phase1BackendPort           = "4310"
 	phase1ContainerTmpfsBytes   = 128 * 1024 * 1024
@@ -61,6 +64,7 @@ type phase1DockerResources struct {
 	agentContainer     string
 	backendContainer   string
 	copyContainer      string
+	tokenContainer     string
 	verifierContainer  string
 
 	networks          map[string]bool
@@ -92,6 +96,7 @@ func newPhase1DockerResources(
 		agentContainer:     base + "-agent",
 		backendContainer:   base + "-backend",
 		copyContainer:      base + "-copy",
+		tokenContainer:     base + "-token-evidence",
 		verifierContainer:  base + "-verifier",
 		networks:           map[string]bool{},
 		volumes:            map[string]bool{},
@@ -492,6 +497,7 @@ func (resources *phase1DockerResources) startBackend(
 		"--env", "SETTA_BACKEND_PORT="+phase1BackendPort,
 		"--env", providerbridge.AddressEnvironment+"="+bridgeAddress,
 		"--env", providerbridge.TokenEnvironment+"="+resources.provider.controllerToken(),
+		"--env", tokenusage.PathEnvironment+"="+phase1TokenUsagePath,
 		"--env", "SETTA_RUNTIME_DISPLAY_NAME=Setta Evaluation",
 		"--env", "SETTA_RUNTIME_INFRA_PROVIDER=unknown",
 		"--env", "TMPDIR=/tmp",
@@ -517,6 +523,47 @@ func (resources *phase1DockerResources) startBackend(
 		return nil, fmt.Errorf("create Phase 1 production backend client: %w", err)
 	}
 	return client, nil
+}
+
+func (resources *phase1DockerResources) readTokenUsageEvidence(
+	ctx context.Context,
+) ([]agent.TokenUsageObservation, error) {
+	resources.containers[resources.tokenContainer] = true
+	if _, err := resources.client.run(
+		ctx,
+		"container", "create",
+		"--name", resources.tokenContainer,
+		"--platform", phase1ImagePlatform,
+		"--network", "none",
+		"--read-only",
+		"--user", fmt.Sprintf("%d:%d", phase1ContainerUID, phase1ContainerGID),
+		"--cap-drop", "ALL",
+		"--security-opt", "no-new-privileges",
+		"--pids-limit", strconv.Itoa(phase1VolumeHolderPIDs),
+		"--memory", strconv.FormatInt(phase1VolumeHolderMemory, 10),
+		"--cpus", "0.25",
+		"--mount", "type=volume,source="+resources.appDataVolume+",destination="+phase1AppDataRoot+",readonly",
+		"--entrypoint", "/usr/local/bin/setta-eval-sandbox-helper",
+		resources.images.verifierID,
+		"phase1-read-file",
+		"--root", phase1AppDataRoot,
+		"--path", phase1TokenUsagePath,
+		"--max-bytes", strconv.Itoa(tokenusage.MaximumFileBytes),
+	); err != nil {
+		return nil, fmt.Errorf("create Phase 1 token-evidence reader: %w", err)
+	}
+	output, err := resources.client.run(ctx, "container", "start", "--attach", resources.tokenContainer)
+	if err != nil {
+		return nil, fmt.Errorf("read Phase 1 token evidence: %w", err)
+	}
+	observations, err := tokenusage.DecodeObservations([]byte(output.stdout))
+	if err != nil {
+		return nil, err
+	}
+	if err := resources.removeContainer(ctx, resources.tokenContainer); err != nil {
+		return nil, err
+	}
+	return observations, nil
 }
 
 func (resources *phase1DockerResources) awaitBackendReady(

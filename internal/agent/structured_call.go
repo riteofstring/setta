@@ -18,12 +18,13 @@ const structuredTurnCleanupTimeout = 5 * time.Second
 // call. Each request receives a new ephemeral provider thread and may not use
 // tools, mutate the workspace, or request approval.
 type FreshStructuredCallRequest struct {
-	ID                    string          `json:"id"`
-	WorkspaceRoot         string          `json:"workspaceRoot"`
-	Invocation            Invocation      `json:"invocation"`
-	DeveloperInstructions string          `json:"developerInstructions"`
-	Input                 json.RawMessage `json:"input"`
-	OutputSchema          json.RawMessage `json:"outputSchema"`
+	ID                    string                `json:"id"`
+	WorkspaceRoot         string                `json:"workspaceRoot"`
+	Invocation            Invocation            `json:"invocation"`
+	TokenUsageAttribution TokenUsageAttribution `json:"-"`
+	DeveloperInstructions string                `json:"developerInstructions"`
+	Input                 json.RawMessage       `json:"input"`
+	OutputSchema          json.RawMessage       `json:"outputSchema"`
 }
 
 type FreshStructuredCallResult struct {
@@ -68,6 +69,9 @@ func (request FreshStructuredCallRequest) Validate() error {
 		return err
 	}
 	if err := validateFreshStructuredInvocation(request.Invocation); err != nil {
+		return err
+	}
+	if err := validateTokenUsageAttributionForInvocation(request.TokenUsageAttribution, request.Invocation); err != nil {
 		return err
 	}
 	if strings.TrimSpace(request.DeveloperInstructions) == "" ||
@@ -149,7 +153,15 @@ func (runtime *Runtime) RunFreshStructuredCall(
 	}
 	defer cleanup.apply(&returnErr)
 
-	output, err := runtime.waitForStructuredTurn(ctx, session, request.ID, threadID, turnID, &terminalReceived)
+	output, err := runtime.waitForStructuredTurn(
+		ctx,
+		session,
+		request.ID,
+		request.TokenUsageAttribution,
+		threadID,
+		turnID,
+		&terminalReceived,
+	)
 	if err != nil {
 		return FreshStructuredCallResult{}, err
 	}
@@ -337,15 +349,17 @@ func (runtime *Runtime) waitForStructuredTurn(
 	ctx context.Context,
 	session *codexapp.Session,
 	requestID string,
+	tokenUsageAttribution TokenUsageAttribution,
 	threadID string,
 	turnID string,
 	terminalReceived *bool,
 ) (json.RawMessage, error) {
 	base := Event{
-		ConversationID:   "fresh-structured-" + requestID,
-		TurnID:           requestID,
-		ProviderThreadID: threadID,
-		ProviderTurnID:   turnID,
+		ConversationID:        "fresh-structured-" + requestID,
+		TurnID:                requestID,
+		ProviderThreadID:      threadID,
+		ProviderTurnID:        turnID,
+		tokenUsageAttribution: cloneTokenUsageAttribution(tokenUsageAttribution),
 	}
 	completedMessages := []string{}
 	for {

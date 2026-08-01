@@ -39,6 +39,7 @@ func TestRunPassesExplicitInputsAndReportsArtifacts(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "straightforward-task: pass (completed)") ||
 		!strings.Contains(stdout.String(), "Results: /recordings/run/results.json") ||
+		!strings.Contains(stdout.String(), "Token usage: /recordings/run/token-usage.json") ||
 		!strings.Contains(stdout.String(), "Report: /recordings/run/report.md") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
@@ -113,6 +114,7 @@ func phase1CommandOutput(
 		Artifacts: evalharness.ResultArtifactPaths{
 			Directory:      "/recordings/run",
 			ResultsJSON:    "/recordings/run/results.json",
+			TokenUsageJSON: "/recordings/run/token-usage.json",
 			ReportMarkdown: "/recordings/run/report.md",
 		},
 	}

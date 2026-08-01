@@ -533,6 +533,13 @@ func testTurnRequest(index int, threadID string, workspace string, text string) 
 		Text:             text,
 		WorkspaceRoot:    workspace,
 		Invocation:       testInvocation(),
+		TokenUsageAttribution: TokenUsageAttribution{
+			Bucket:          TokenUsageBucketSystem,
+			Role:            TokenUsageRoleAgent,
+			InvocationID:    "invocation-" + string(rune('a'+index)),
+			Model:           "gpt-agent-test",
+			ReasoningEffort: "high",
+		},
 	}
 }
 

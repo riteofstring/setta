@@ -179,15 +179,16 @@ type InjectedTextItem struct {
 }
 
 type TurnRequest struct {
-	ConversationID   string        `json:"conversationId"`
-	TurnID           string        `json:"turnId"`
-	ProviderThreadID string        `json:"providerThreadId"`
-	ClientInputID    string        `json:"clientInputId"`
-	Text             string        `json:"text"`
-	WorkspaceRoot    string        `json:"workspaceRoot"`
-	Invocation       Invocation    `json:"invocation"`
-	OutputSchema     []byte        `json:"outputSchema,omitempty"`
-	DynamicTools     []DynamicTool `json:"-"`
+	ConversationID        string                `json:"conversationId"`
+	TurnID                string                `json:"turnId"`
+	ProviderThreadID      string                `json:"providerThreadId"`
+	ClientInputID         string                `json:"clientInputId"`
+	Text                  string                `json:"text"`
+	WorkspaceRoot         string                `json:"workspaceRoot"`
+	Invocation            Invocation            `json:"invocation"`
+	TokenUsageAttribution TokenUsageAttribution `json:"-"`
+	OutputSchema          []byte                `json:"outputSchema,omitempty"`
+	DynamicTools          []DynamicTool         `json:"-"`
 }
 
 type TurnResult struct {

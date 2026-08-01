@@ -108,6 +108,7 @@ func writePhase1Output(output io.Writer, result evalharness.Phase1EvaluationOutp
 		)
 	}
 	fmt.Fprintf(output, "Results: %s\n", result.Artifacts.ResultsJSON)
+	fmt.Fprintf(output, "Token usage: %s\n", result.Artifacts.TokenUsageJSON)
 	fmt.Fprintf(output, "Report: %s\n", result.Artifacts.ReportMarkdown)
 }
 

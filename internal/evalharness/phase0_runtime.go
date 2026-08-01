@@ -220,6 +220,13 @@ func (runtime *phase0CodexRuntime) runReadOnlyTurn(
 			"with no quotation marks or commentary. Do not write any file.",
 		WorkspaceRoot: phase0WorkspaceRoot,
 		Invocation:    phase0Invocation(agent.PermissionModeReadOnly, runtime.model),
+		TokenUsageAttribution: agent.TokenUsageAttribution{
+			Bucket:          agent.TokenUsageBucketSystem,
+			Role:            agent.TokenUsageRoleAgent,
+			InvocationID:    "phase0-read-only-invocation",
+			Model:           runtime.model,
+			ReasoningEffort: phase0ReasoningEffort,
+		},
 	}, sink)
 	if err != nil {
 		return Phase0ModelTurnEvidence{}, fmt.Errorf("run Phase 0 read-only turn: %w", err)
@@ -267,6 +274,13 @@ func (runtime *phase0CodexRuntime) runWorkspaceWriteTurn(
 			"containing exactly the same value followed by one newline. Do not modify any other file.",
 		WorkspaceRoot: phase0WorkspaceRoot,
 		Invocation:    phase0Invocation(agent.PermissionModeWorkspaceWrite, runtime.model),
+		TokenUsageAttribution: agent.TokenUsageAttribution{
+			Bucket:          agent.TokenUsageBucketSystem,
+			Role:            agent.TokenUsageRoleAgent,
+			InvocationID:    "phase0-workspace-write-invocation",
+			Model:           runtime.model,
+			ReasoningEffort: phase0ReasoningEffort,
+		},
 	}, sink)
 	if err != nil {
 		return Phase0ModelTurnEvidence{}, fmt.Errorf("run Phase 0 workspace-write turn: %w", err)

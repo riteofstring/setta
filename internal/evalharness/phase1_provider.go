@@ -20,6 +20,7 @@ import (
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
 	"setta/internal/evalharness/providerbridge"
+	"setta/internal/evalharness/tokenusage"
 )
 
 const (
@@ -41,6 +42,7 @@ var phase1ProviderExcludedEnvironment = map[string]struct{}{
 	"OPENAI_API_KEY":                             {},
 	providerbridge.AddressEnvironment:            {},
 	providerbridge.TokenEnvironment:              {},
+	tokenusage.PathEnvironment:                   {},
 }
 
 type phase1ProviderBroker struct {

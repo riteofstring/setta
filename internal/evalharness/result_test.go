@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/agent"
 	"setta/internal/conversation"
 	evalverifier "setta/internal/evalharness/verifier"
 )
@@ -170,7 +171,7 @@ func TestCaptureBaselineRoleConfigurationsUsesWorkspaceEffectiveProfiles(t *test
 	}
 }
 
-func TestWriteResultArtifactsPublishesValidatedPair(t *testing.T) {
+func TestWriteResultArtifactsPublishesValidatedSet(t *testing.T) {
 	startedAt := time.Date(2026, time.July, 31, 19, 0, 0, 123, time.UTC)
 	verifierResult := evalverifier.NewResult(
 		ScenarioVerifierStraightforward,
@@ -199,7 +200,32 @@ func TestWriteResultArtifactsPublishesValidatedPair(t *testing.T) {
 	}
 
 	recordingsRoot := t.TempDir()
-	paths, err := WriteResultArtifacts(recordingsRoot, results)
+	scenarioUsage, err := AggregateScenarioTokenUsage(scenario.ScenarioID, []agent.TokenUsageObservation{
+		testTokenObservation(
+			testTokenAttribution(agent.TokenUsageBucketSystem, agent.TokenUsageRoleAgent, "artifact-agent", "gpt-agent"),
+			"artifact-agent-thread",
+			"artifact-agent-turn",
+			42,
+			30,
+			12,
+		),
+		testTokenObservation(
+			testTokenAttribution(agent.TokenUsageBucketJudge, agent.TokenUsageRoleJudge, "artifact-judge", "gpt-judge"),
+			"artifact-judge-thread",
+			"artifact-judge-turn",
+			99,
+			70,
+			29,
+		),
+	})
+	if err != nil {
+		t.Fatalf("aggregate token usage: %v", err)
+	}
+	tokenUsage, err := NewTokenUsageArtifact([]ScenarioTokenUsage{scenarioUsage})
+	if err != nil {
+		t.Fatalf("build token usage: %v", err)
+	}
+	paths, err := WriteResultArtifacts(recordingsRoot, results, tokenUsage)
 	if err != nil {
 		t.Fatalf("write result artifacts: %v", err)
 	}
@@ -214,6 +240,17 @@ func TestWriteResultArtifactsPublishesValidatedPair(t *testing.T) {
 	if err := decoded.Validate(); err != nil {
 		t.Fatalf("validate decoded results: %v", err)
 	}
+	tokenPayload, err := os.ReadFile(paths.TokenUsageJSON)
+	if err != nil {
+		t.Fatalf("read token usage artifact: %v", err)
+	}
+	var decodedTokens TokenUsageArtifact
+	if err := json.Unmarshal(tokenPayload, &decodedTokens); err != nil {
+		t.Fatalf("decode token usage artifact: %v", err)
+	}
+	if err := decodedTokens.Validate(); err != nil {
+		t.Fatalf("validate decoded token usage: %v", err)
+	}
 	report, err := os.ReadFile(paths.ReportMarkdown)
 	if err != nil {
 		t.Fatalf("read report artifact: %v", err)
@@ -223,7 +260,10 @@ func TestWriteResultArtifactsPublishesValidatedPair(t *testing.T) {
 			t.Fatalf("report omitted %s: %s", section, report)
 		}
 	}
-	if _, err := WriteResultArtifacts(recordingsRoot, results); err == nil {
+	if !strings.Contains(string(report), "agent=42") || strings.Contains(string(report), "judge=99") {
+		t.Fatalf("report system/judge token separation = %s", report)
+	}
+	if _, err := WriteResultArtifacts(recordingsRoot, results, tokenUsage); err == nil {
 		t.Fatal("second artifact publication unexpectedly replaced the first")
 	}
 }

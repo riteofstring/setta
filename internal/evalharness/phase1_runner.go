@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/agent"
 	evalverifier "setta/internal/evalharness/verifier"
 )
 
@@ -42,6 +43,7 @@ type phase1RunState struct {
 	outcome    ScenarioExecutionOutcome
 	roles      []EvaluatedRoleConfiguration
 	verifier   *evalverifier.Result
+	tokenUsage *ScenarioTokenUsage
 	diagnostic *ScenarioDiagnostic
 }
 
@@ -122,7 +124,15 @@ func publishPhase1Evaluation(
 	if err != nil {
 		return Phase1EvaluationOutput{}, fmt.Errorf("create Phase 1 results: %w", err)
 	}
-	artifacts, err := WriteResultArtifacts(recordingsRoot, results)
+	tokenUsage := EmptyScenarioTokenUsage(scenario.ID)
+	if state.tokenUsage != nil {
+		tokenUsage = *state.tokenUsage
+	}
+	tokenArtifact, err := NewTokenUsageArtifact([]ScenarioTokenUsage{tokenUsage})
+	if err != nil {
+		return Phase1EvaluationOutput{}, fmt.Errorf("create Phase 1 token usage artifact: %w", err)
+	}
+	artifacts, err := WriteResultArtifacts(recordingsRoot, results, tokenArtifact)
 	if err != nil {
 		return Phase1EvaluationOutput{}, fmt.Errorf("publish Phase 1 results: %w", err)
 	}
@@ -215,28 +225,21 @@ func executePhase1Scenario(
 	provider := resources.provider
 	stopContext, cancel := context.WithTimeout(context.Background(), phase1CleanupTimeout)
 	stopErr := resources.stopController(stopContext)
-	cancel()
 	if stopErr != nil {
+		cancel()
 		return phase1InfrastructureFailure("controller_teardown_failed", stopErr, state.roles)
 	}
-	if budgetFailure := provider.tokenBudgetFailure(); budgetFailure != nil {
-		state = phase1TokenBudgetFailureState(budgetFailure, observation.Roles)
-	} else if providerFailure := provider.providerFailure(); providerFailure != nil {
-		state = phase1InfrastructureFailure(
-			"provider_boundary_failed",
-			providerFailure,
-			observation.Roles,
-		)
-	} else if err != nil {
-		state = phase1InfrastructureFailure("scenario_orchestration_failed", err, observation.Roles)
-	} else if state.outcome != ScenarioExecutionInfrastructureFailed &&
-		!provider.observedTokenUsage() {
-		state = phase1InfrastructureFailure(
-			"token_budget_evidence_missing",
-			errors.New("provider returned no thread/tokenUsage/updated evidence for the evaluated scenario"),
-			observation.Roles,
-		)
-	}
+	observations, tokenEvidenceErr := resources.readTokenUsageEvidence(stopContext)
+	cancel()
+	state = phase1StateAfterProviderEvidence(
+		state,
+		observation,
+		provider,
+		scenario.ID,
+		observations,
+		tokenEvidenceErr,
+		err,
+	)
 	if state.outcome != ScenarioExecutionCompleted {
 		return state
 	}
@@ -245,6 +248,82 @@ func executePhase1Scenario(
 		return phase1InfrastructureFailure("verifier_execution_failed", err, state.roles)
 	}
 	state.verifier = &verification
+	return state
+}
+
+func phase1StateAfterProviderEvidence(
+	state phase1RunState,
+	observation Phase1HTTPObservation,
+	provider *phase1ProviderBroker,
+	scenarioID string,
+	observations []agent.TokenUsageObservation,
+	tokenEvidenceErr error,
+	orchestrationErr error,
+) phase1RunState {
+	if budgetFailure := provider.tokenBudgetFailure(); budgetFailure != nil {
+		return phase1TokenBudgetFailureState(budgetFailure, observation.Roles)
+	}
+	if providerFailure := provider.providerFailure(); providerFailure != nil {
+		return phase1InfrastructureFailure(
+			"provider_boundary_failed",
+			providerFailure,
+			observation.Roles,
+		)
+	}
+	if orchestrationErr != nil {
+		return phase1InfrastructureFailure("scenario_orchestration_failed", orchestrationErr, observation.Roles)
+	}
+	if state.outcome != ScenarioExecutionInfrastructureFailed &&
+		!provider.observedTokenUsage() {
+		return phase1InfrastructureFailure(
+			"token_budget_evidence_missing",
+			errors.New("provider returned no thread/tokenUsage/updated evidence for the evaluated scenario"),
+			observation.Roles,
+		)
+	}
+	if state.outcome != ScenarioExecutionCompleted {
+		return state
+	}
+	return phase1CompletedTokenState(
+		state,
+		observation,
+		provider,
+		scenarioID,
+		observations,
+		tokenEvidenceErr,
+	)
+}
+
+func phase1CompletedTokenState(
+	state phase1RunState,
+	observation Phase1HTTPObservation,
+	provider *phase1ProviderBroker,
+	scenarioID string,
+	observations []agent.TokenUsageObservation,
+	tokenEvidenceErr error,
+) phase1RunState {
+	if tokenEvidenceErr != nil {
+		return phase1InfrastructureFailure(
+			"token_usage_evidence_failed",
+			tokenEvidenceErr,
+			observation.Roles,
+		)
+	}
+	tokenUsage, accountingErr := AggregateScenarioTokenUsage(scenarioID, observations)
+	if accountingErr == nil {
+		accountingErr = CorrelateSystemTokenUsage(tokenUsage, observation.ResolvedInvocations)
+	}
+	if accountingErr == nil {
+		accountingErr = validatePhase1TokenAccounting(provider.tokenBudget.snapshot(), tokenUsage)
+	}
+	if accountingErr != nil {
+		return phase1InfrastructureFailure(
+			"token_usage_evidence_failed",
+			accountingErr,
+			observation.Roles,
+		)
+	}
+	state.tokenUsage = &tokenUsage
 	return state
 }
 

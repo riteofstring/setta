@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/agent"
 	"setta/internal/appearance"
 	"setta/internal/appstate"
 	"setta/internal/codexaccount"
@@ -43,6 +44,7 @@ type Config struct {
 	Speech                     speech.OpenAIProviderConfig
 	SpeechCredentialOwner      SpeechCredentialOwner
 	SpeechStartupAPIKey        string
+	TokenUsageObserver         agent.TokenUsageObserver
 }
 
 const (

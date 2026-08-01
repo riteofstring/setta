@@ -10,16 +10,18 @@ import (
 )
 
 type Config struct {
-	Command     string
-	Args        []string
-	Env         []string
-	ExcludedEnv []string
-	Manager     *codexapp.Manager
-	Version     string
+	Command            string
+	Args               []string
+	Env                []string
+	ExcludedEnv        []string
+	Manager            *codexapp.Manager
+	TokenUsageObserver TokenUsageObserver
+	Version            string
 }
 
 type Runtime struct {
-	manager *codexapp.Manager
+	manager            *codexapp.Manager
+	tokenUsageObserver TokenUsageObserver
 
 	mu      sync.Mutex
 	active  map[string]*activeTurn
@@ -72,9 +74,10 @@ func NewRuntime(config Config) *Runtime {
 		})
 	}
 	return &Runtime{
-		manager: manager,
-		active:  map[string]*activeTurn{},
-		pending: map[string]pendingApproval{},
+		manager:            manager,
+		tokenUsageObserver: config.TokenUsageObserver,
+		active:             map[string]*activeTurn{},
+		pending:            map[string]pendingApproval{},
 	}
 }
 

@@ -252,8 +252,9 @@ func newRuntimeAgentServices(
 	workspaceService *workspacesession.Service,
 ) (runtimeAgentServices, error) {
 	agentRuntime := agent.NewRuntime(agent.Config{
-		ExcludedEnv: []string{speech.APIKeyEnvironmentVariable},
-		Version:     config.Version,
+		ExcludedEnv:        []string{speech.APIKeyEnvironmentVariable},
+		TokenUsageObserver: config.TokenUsageObserver,
+		Version:            config.Version,
 	})
 	codexManager := agentRuntime.Manager()
 	// The app-global Director role is resolved from its durable profile when

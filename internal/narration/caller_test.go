@@ -75,7 +75,8 @@ func testCallerFocusProjection(t *testing.T) {
 		t.Fatalf("focus Call: %v", err)
 	}
 	if result.Kind != RequestKindFocus || result.Trigger != conversation.NarrationTriggerInputAccepted ||
-		result.NarratorOutput == nil || result.NarratorOutput.FocusProjection == nil {
+		result.NarratorOutput == nil || result.NarratorOutput.FocusProjection == nil ||
+		result.InvocationID != provider.requests[0].TokenUsageAttribution.InvocationID {
 		t.Fatalf("focus call result = %+v", result)
 	}
 	assertCallerProviderRequest(t, provider, bundle.InputBytes, string(CallOutputFocusProjection))
@@ -708,6 +709,13 @@ func assertCallerProviderRequest(
 	if request.Invocation.Model != "gpt-5.4-mini" || request.Invocation.ReasoningEffort != "low" ||
 		request.Invocation.PermissionMode != agent.PermissionModeReadOnly || request.Invocation.ApprovalMode != agent.ApprovalModeNever {
 		t.Fatalf("provider narrator invocation = %+v", request.Invocation)
+	}
+	if request.TokenUsageAttribution.Bucket != agent.TokenUsageBucketSystem ||
+		request.TokenUsageAttribution.Role != agent.TokenUsageRoleNarrator ||
+		!strings.HasPrefix(request.TokenUsageAttribution.InvocationID, "narrator_invocation_") ||
+		request.TokenUsageAttribution.Model != request.Invocation.Model ||
+		request.TokenUsageAttribution.ReasoningEffort != request.Invocation.ReasoningEffort {
+		t.Fatalf("provider narrator token attribution = %+v", request.TokenUsageAttribution)
 	}
 	var contextEnvelope map[string]any
 	if err := json.Unmarshal(request.Input, &contextEnvelope); err != nil {

@@ -217,6 +217,36 @@ var providerNotificationHandlers = map[string]providerNotificationHandler{
 	codexapp.CodexNotificationItemAutoApprovalReviewCompleted:         ignoreRuntime(normalizeGuardianReviewCompleted),
 	codexapp.CodexNotificationModelVerification:                       ignoreRuntime(normalizeModelVerification),
 	codexapp.CodexNotificationServerRequestResolved:                   normalizeServerRequestResolved,
+	codexapp.CodexNotificationThreadTokenUsageUpdated:                 observeTokenUsage,
+}
+
+func observeTokenUsage(
+	runtime *Runtime,
+	raw []byte,
+	base Event,
+) ([]Event, *TerminalEvent, error) {
+	notification, err := codexapp.DecodeThreadTokenUsageUpdatedNotification(raw)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := requireProviderScope(base, notification.ThreadID, notification.TurnID); err != nil {
+		return nil, nil, err
+	}
+	observation := TokenUsageObservation{
+		Attribution:      cloneTokenUsageAttribution(base.tokenUsageAttribution),
+		ProviderThreadID: notification.ThreadID,
+		ProviderTurnID:   notification.TurnID,
+		TokenUsage:       notification.TokenUsage,
+	}
+	if err := observation.Validate(); err != nil {
+		return nil, nil, err
+	}
+	if runtime.tokenUsageObserver != nil {
+		if err := runtime.tokenUsageObserver.ObserveTokenUsage(observation); err != nil {
+			return nil, nil, fmt.Errorf("record token usage evidence: %w", err)
+		}
+	}
+	return nil, nil, nil
 }
 
 // ignoreRuntime adapts a normalizer that reads only the notification and the

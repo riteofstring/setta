@@ -14,13 +14,14 @@ import (
 )
 
 type Phase1HTTPObservation struct {
-	WorkspaceID        string
-	WorkstreamID       string
-	ConversationID     string
-	TurnID             string
-	Roles              []EvaluatedRoleConfiguration
-	ExecutionOutcome   ScenarioExecutionOutcome
-	ScenarioDiagnostic *ScenarioDiagnostic
+	WorkspaceID         string
+	WorkstreamID        string
+	ConversationID      string
+	TurnID              string
+	Roles               []EvaluatedRoleConfiguration
+	ResolvedInvocations []conversation.ResolvedInvocation
+	ExecutionOutcome    ScenarioExecutionOutcome
+	ScenarioDiagnostic  *ScenarioDiagnostic
 }
 
 // RunPhase1ScenarioOverHTTP drives one validated Phase 1 scenario through the
@@ -142,6 +143,12 @@ func observePhase1Workstream(
 	if err != nil {
 		return observation, false, err
 	}
+	if receipt.Submit != nil {
+		observation.ResolvedInvocations = append(
+			observation.ResolvedInvocations,
+			receipt.Submit.ResolvedInvocations...,
+		)
+	}
 	workstreamID, behaviorCode, behaviorMessage := phase1ReceiptWorkstream(receipt)
 	if behaviorCode != "" {
 		failed, err := phase1FailureObservation(
@@ -205,13 +212,26 @@ func observePhase1Turn(
 		)
 	}
 	observation.TurnID = turn.ID
-	terminal := phase1TurnTerminal(turn.Status)
-	if !terminal {
-		turn, err = awaitPhase1TerminalTurn(ctx, conversationEvents, turn)
+	if !phase1TurnTerminal(turn.Status) ||
+		(turn.Status == conversation.TurnStatusCompleted && !phase1NarrationSettled(conversationSnapshot, turn.ID)) {
+		turn, err = awaitPhase1TerminalTurnAndNarration(ctx, conversationEvents, conversationSnapshot, turn)
 		if err != nil {
 			return observation, err
 		}
 	}
+	finalSnapshot, err := client.ReadConversationSnapshot(
+		ctx,
+		observation.WorkspaceID,
+		observation.ConversationID,
+	)
+	if err != nil {
+		return observation, err
+	}
+	invocations, err := phase1SnapshotInvocations(finalSnapshot)
+	if err != nil {
+		return observation, err
+	}
+	observation.ResolvedInvocations = append(observation.ResolvedInvocations, invocations...)
 	return phase1TerminalObservation(observation, turn)
 }
 
@@ -334,13 +354,19 @@ func phase1ObservedTurn(
 	return snapshot.Turns.Turns[0], "", ""
 }
 
-func awaitPhase1TerminalTurn(
+func awaitPhase1TerminalTurnAndNarration(
 	ctx context.Context,
 	events *EventStream[conversation.ConversationEvent],
+	snapshot conversation.ConversationSnapshot,
 	observed conversation.ConversationTurn,
 ) (conversation.ConversationTurn, error) {
 	reader := newEventStreamReader("conversation", events)
+	settlement := phase1NarrationSettlementFromSnapshot(snapshot, observed.ID)
 	for {
+		if phase1TurnTerminal(observed.Status) &&
+			(observed.Status != conversation.TurnStatusCompleted || settlement.settled()) {
+			return observed, nil
+		}
 		event, err := reader.Next(ctx)
 		if err != nil {
 			return conversation.ConversationTurn{}, err
@@ -348,15 +374,135 @@ func awaitPhase1TerminalTurn(
 		if event.Type() == conversation.ConversationEventTypeResyncRequired {
 			return conversation.ConversationTurn{}, errors.New("conversation event stream required a snapshot resync")
 		}
-		turn, ok := phase1TurnUpdatedPayload(event.Payload)
-		if !ok || turn.ID != observed.ID {
-			continue
+		if turn, ok := phase1TurnUpdatedPayload(event.Payload); ok && turn.ID == observed.ID {
+			observed = turn
 		}
-		observed = turn
-		if phase1TurnTerminal(turn.Status) {
-			return turn, nil
+		settlement.observe(event.Payload, observed.ID)
+	}
+}
+
+type phase1NarrationSettlement struct {
+	terminalSequence int
+	finalSummaryEnd  int
+	degradedThrough  int
+}
+
+func phase1NarrationSettlementFromSnapshot(
+	snapshot conversation.ConversationSnapshot,
+	turnID string,
+) phase1NarrationSettlement {
+	settlement := phase1NarrationSettlement{}
+	for _, event := range snapshot.Trajectory.Events {
+		settlement.observeTrajectory(event, turnID)
+	}
+	for _, event := range snapshot.Narration.Events {
+		settlement.observeNarration(event, turnID)
+	}
+	settlement.observeNarratorState(snapshot.NarratorState)
+	return settlement
+}
+
+func phase1NarrationSettled(snapshot conversation.ConversationSnapshot, turnID string) bool {
+	return phase1NarrationSettlementFromSnapshot(snapshot, turnID).settled()
+}
+
+func (settlement *phase1NarrationSettlement) observe(
+	payload conversation.ConversationEventPayload,
+	turnID string,
+) {
+	switch value := payload.(type) {
+	case conversation.ConversationTrajectoryAppendedEventPayload:
+		settlement.observeTrajectory(value.Event, turnID)
+	case *conversation.ConversationTrajectoryAppendedEventPayload:
+		settlement.observeTrajectory(value.Event, turnID)
+	case conversation.ConversationNarrationCreatedEventPayload:
+		settlement.observeNarration(value.Event, turnID)
+	case *conversation.ConversationNarrationCreatedEventPayload:
+		settlement.observeNarration(value.Event, turnID)
+	case conversation.ConversationNarratorStateUpdatedEventPayload:
+		settlement.observeNarratorState(value.State)
+	case *conversation.ConversationNarratorStateUpdatedEventPayload:
+		settlement.observeNarratorState(value.State)
+	}
+}
+
+func (settlement *phase1NarrationSettlement) observeTrajectory(
+	event conversation.TrajectoryEvent,
+	turnID string,
+) {
+	if event.TurnID == nil || *event.TurnID != turnID {
+		return
+	}
+	switch event.Kind {
+	case conversation.TrajectoryEventTurnCompleted,
+		conversation.TrajectoryEventTurnFailed,
+		conversation.TrajectoryEventTurnInterrupted:
+		if event.Sequence > settlement.terminalSequence {
+			settlement.terminalSequence = event.Sequence
 		}
 	}
+}
+
+func (settlement *phase1NarrationSettlement) observeNarration(
+	event conversation.NarrationEvent,
+	turnID string,
+) {
+	if event.TurnID == nil || *event.TurnID != turnID ||
+		event.Kind != conversation.NarrationEventKindFinalSummary ||
+		event.Trigger != conversation.NarrationTriggerTurnTerminal {
+		return
+	}
+	if event.SourceSequenceEnd > settlement.finalSummaryEnd {
+		settlement.finalSummaryEnd = event.SourceSequenceEnd
+	}
+}
+
+func (settlement *phase1NarrationSettlement) observeNarratorState(state conversation.NarratorState) {
+	if state.Status == conversation.NarratorStatusDegraded &&
+		state.ObservedThroughSequence > settlement.degradedThrough {
+		settlement.degradedThrough = state.ObservedThroughSequence
+	}
+}
+
+func (settlement phase1NarrationSettlement) settled() bool {
+	return settlement.terminalSequence > 0 &&
+		(settlement.finalSummaryEnd >= settlement.terminalSequence ||
+			settlement.degradedThrough >= settlement.terminalSequence)
+}
+
+func phase1SnapshotInvocations(
+	snapshot conversation.ConversationSnapshot,
+) ([]conversation.ResolvedInvocation, error) {
+	if phase1SnapshotHasEarlierInvocations(snapshot) {
+		return nil, errors.New("Phase 1 invocation correlation exceeded a bounded snapshot window")
+	}
+	invocations := make([]conversation.ResolvedInvocation, 0)
+	for _, turn := range snapshot.Turns.Turns {
+		if turn.ResolvedInvocation != nil {
+			invocations = append(invocations, *turn.ResolvedInvocation)
+		}
+	}
+	for _, event := range snapshot.Narration.Events {
+		invocations = append(invocations, event.ResolvedInvocation)
+	}
+	for _, sideEvent := range snapshot.SideEvents.Events {
+		if sideEvent.Event.Kind == conversation.TrajectoryEventTurnStarted &&
+			sideEvent.Event.TurnStarted != nil {
+			invocations = append(invocations, sideEvent.Event.TurnStarted.Invocation)
+		}
+	}
+	for index, invocation := range invocations {
+		if err := invocation.Validate(); err != nil {
+			return nil, fmt.Errorf("Phase 1 resolved invocation[%d]: %w", index, err)
+		}
+	}
+	return invocations, nil
+}
+
+func phase1SnapshotHasEarlierInvocations(snapshot conversation.ConversationSnapshot) bool {
+	return snapshot.Turns.HasEarlier ||
+		snapshot.Narration.HasEarlier ||
+		snapshot.SideEvents.HasEarlier
 }
 
 func phase1TurnUpdatedPayload(

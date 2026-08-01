@@ -16,8 +16,8 @@ import {
   type BackendRequestOptions,
 } from "@shared/backend-runtime";
 
-export const backendProtocolVersion = 112;
-export const backendContractSchemaHash = "sha256:37fb730ef905ed1b4b32c09ec42ff421fa201fb88089ebf8ad9aeb385ab87ef5";
+export const backendProtocolVersion = 113;
+export const backendContractSchemaHash = "sha256:83173c9c5ef77fb11a7c1107e48524e1cd164c386c89f3c3c31bb2f6ef4956d6";
 
 export const conversationSnapshotLimits = {
   artifacts: 100,
@@ -2949,6 +2949,7 @@ export interface DirectorTurnReceipt {
   intentId: string;
   replyText: string;
   toolCalls: DirectorToolCall[];
+  resolvedInvocations: ResolvedInvocation[];
 }
 
 export interface DirectorReceipt {
@@ -5773,11 +5774,12 @@ export function decodeDirectorToolCall(value: unknown): DirectorToolCall {
 
 export function decodeDirectorTurnReceipt(value: unknown): DirectorTurnReceipt {
   const record = assertRecord(value, "DirectorTurnReceipt");
-  assertKnownFields(record, "DirectorTurnReceipt", ["intentId", "replyText", "toolCalls"]);
+  assertKnownFields(record, "DirectorTurnReceipt", ["intentId", "replyText", "toolCalls", "resolvedInvocations"]);
   return {
     intentId: decodeString(requireField(record, "intentId", "DirectorTurnReceipt"), "DirectorTurnReceipt.intentId"),
     replyText: decodeString(requireField(record, "replyText", "DirectorTurnReceipt"), "DirectorTurnReceipt.replyText"),
     toolCalls: decodeArray(requireField(record, "toolCalls", "DirectorTurnReceipt"), "DirectorTurnReceipt.toolCalls", (item) => decodeDirectorToolCall(item)),
+    resolvedInvocations: decodeArray(requireField(record, "resolvedInvocations", "DirectorTurnReceipt"), "DirectorTurnReceipt.resolvedInvocations", (item) => decodeResolvedInvocation(item)),
   };
 }
 

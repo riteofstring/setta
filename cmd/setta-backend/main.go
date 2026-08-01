@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"setta/internal/evalharness/tokenusage"
 	"setta/internal/runtime"
 	"setta/internal/speech"
 )
@@ -30,12 +31,18 @@ func run(
 		fmt.Fprintf(stderr, "%v\n", err)
 		return 2
 	}
+	tokenSink, err := configureTokenUsageSink(&config, getenv)
+	if err != nil {
+		fmt.Fprintf(stderr, "%v\n", err)
+		return 2
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	server, err := runtime.Start(ctx, config)
 	if err != nil {
+		_ = tokenSink.Close()
 		fmt.Fprintf(stderr, "start backend: %v\n", err)
 		return 1
 	}
@@ -45,14 +52,36 @@ func run(
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
+		_ = tokenSink.Close()
 		fmt.Fprintf(stderr, "shutdown backend: %v\n", err)
 		return 1
 	}
 	if err := server.Wait(); err != nil {
+		_ = tokenSink.Close()
 		fmt.Fprintf(stderr, "wait for backend: %v\n", err)
 		return 1
 	}
+	if err := tokenSink.Close(); err != nil {
+		fmt.Fprintf(stderr, "close eval token telemetry: %v\n", err)
+		return 1
+	}
 	return 0
+}
+
+func configureTokenUsageSink(
+	config *runtime.Config,
+	getenv func(string) string,
+) (*tokenusage.FileSink, error) {
+	path := getenv(tokenusage.PathEnvironment)
+	if path == "" {
+		return nil, nil
+	}
+	sink, err := tokenusage.OpenFileSink(path)
+	if err != nil {
+		return nil, fmt.Errorf("configure eval token telemetry: %w", err)
+	}
+	config.TokenUsageObserver = sink
+	return sink, nil
 }
 
 func configFromArgs(

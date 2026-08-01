@@ -78,7 +78,7 @@ func runHelperCommand(args []string) error {
 		return runBoundary(args[1:])
 	case "environment":
 		return writeJSON(environment())
-	case "phase1-copy-volume", "phase1-hold-volume", "phase1-prepare-volume", "phase1-toolchain":
+	case "phase1-copy-volume", "phase1-hold-volume", "phase1-prepare-volume", "phase1-read-file", "phase1-toolchain":
 		return runPhase1HelperCommand(args)
 	case "seed":
 		return runSeed(args[1:])
@@ -99,6 +99,8 @@ func runPhase1HelperCommand(args []string) error {
 		return holdPhase1Volume(args[1:])
 	case "phase1-prepare-volume":
 		return runPhase1PrepareVolume(args[1:])
+	case "phase1-read-file":
+		return runPhase1ReadFile(args[1:])
 	case "phase1-toolchain":
 		if len(args) != 1 {
 			return errors.New("phase1-toolchain accepts no arguments")
@@ -107,6 +109,80 @@ func runPhase1HelperCommand(args []string) error {
 	default:
 		return fmt.Errorf("unsupported Phase 1 helper command %q", args[0])
 	}
+}
+
+type phase1ReadFileOptions struct {
+	path         string
+	maximumBytes int64
+}
+
+func runPhase1ReadFile(args []string) error {
+	options, err := parsePhase1ReadFileOptions(args)
+	if err != nil {
+		return err
+	}
+	info, err := inspectPhase1ReadFile(options)
+	if err != nil {
+		return err
+	}
+	file, err := os.Open(options.path)
+	if err != nil {
+		return fmt.Errorf("open Phase 1 evidence file: %w", err)
+	}
+	_, copyErr := io.CopyN(os.Stdout, file, info.Size())
+	closeErr := file.Close()
+	return errors.Join(copyErr, closeErr)
+}
+
+func parsePhase1ReadFileOptions(args []string) (phase1ReadFileOptions, error) {
+	flags := flag.NewFlagSet("phase1-read-file", flag.ContinueOnError)
+	root := flags.String("root", "", "read-only sandbox volume root")
+	path := flags.String("path", "", "regular file to emit")
+	maximumBytes := flags.Int64("max-bytes", 0, "maximum accepted file size")
+	if err := flags.Parse(args); err != nil {
+		return phase1ReadFileOptions{}, err
+	}
+	if flags.NArg() != 0 {
+		return phase1ReadFileOptions{}, errors.New("phase1-read-file accepts no positional arguments")
+	}
+	if err := validatePhase1VolumeRoot(*root); err != nil {
+		return phase1ReadFileOptions{}, err
+	}
+	if err := validatePhase1ReadFilePath(*root, *path); err != nil {
+		return phase1ReadFileOptions{}, err
+	}
+	if *maximumBytes <= 0 || *maximumBytes > phase1MaximumCopyTotalBytes {
+		return phase1ReadFileOptions{}, fmt.Errorf("phase1-read-file max-bytes must be between 1 and %d", phase1MaximumCopyTotalBytes)
+	}
+	return phase1ReadFileOptions{
+		path:         *path,
+		maximumBytes: *maximumBytes,
+	}, nil
+}
+
+func validatePhase1ReadFilePath(root string, path string) error {
+	if path == "" || !filepath.IsAbs(path) || filepath.Clean(path) != path {
+		return errors.New("phase1-read-file path must be absolute and clean")
+	}
+	relative, err := filepath.Rel(root, path)
+	if err != nil || relative == "." || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return errors.New("phase1-read-file path must name a file below its volume root")
+	}
+	return nil
+}
+
+func inspectPhase1ReadFile(options phase1ReadFileOptions) (os.FileInfo, error) {
+	info, err := os.Lstat(options.path)
+	if err != nil {
+		return nil, fmt.Errorf("inspect Phase 1 evidence file: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return nil, errors.New("phase1-read-file accepts only a regular file, not a symbolic link")
+	}
+	if info.Size() > options.maximumBytes {
+		return nil, fmt.Errorf("Phase 1 evidence file is %d bytes, maximum is %d", info.Size(), options.maximumBytes)
+	}
+	return info, nil
 }
 
 func holdPhase1Volume(args []string) error {

@@ -175,6 +175,9 @@ func validateSuccessfulCallResultEnvelope(
 }
 
 func validateSuccessfulCallResultCompletion(result CallResult) error {
+	if err := validateIdentifier("narrator invocation id", result.InvocationID); err != nil {
+		return err
+	}
 	if err := validateCallResultTimeline(result); err != nil {
 		return err
 	}
@@ -217,15 +220,11 @@ func validateCallResultTimeline(result CallResult) error {
 func (committer *OutputCommitter) successfulInvocation(
 	result CallResult,
 ) (conversation.ResolvedInvocation, error) {
-	id, err := committer.newID("narrator_invocation")
-	if err != nil {
-		return conversation.ResolvedInvocation{}, err
-	}
 	endedAt := result.EndedAt
 	requestID := result.RequestID
 	turnID := result.ProviderTurnID
 	invocation := conversation.ResolvedInvocation{
-		ID:        id,
+		ID:        result.InvocationID,
 		Role:      conversation.RoleNarrator,
 		Provider:  conversation.ProviderCodex,
 		Requested: result.Model.RequestedProfile,

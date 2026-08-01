@@ -21,6 +21,7 @@ type successfulCallWitness struct {
 }
 
 type successfulCallMetadata struct {
+	invocationID     string
 	requestID        string
 	generation       uint64
 	kind             RequestKind
@@ -50,6 +51,7 @@ func newSuccessfulCallWitness(
 
 func successfulCallMetadataFor(workspaceRoot string, result CallResult) successfulCallMetadata {
 	return successfulCallMetadata{
+		invocationID:     result.InvocationID,
 		requestID:        result.RequestID,
 		generation:       result.Generation,
 		kind:             result.Kind,

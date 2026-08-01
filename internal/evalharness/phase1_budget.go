@@ -54,6 +54,12 @@ type phase1TokenBudget struct {
 	failure *phase1TokenBudgetFailure
 }
 
+type phase1TokenBudgetSnapshot struct {
+	totals map[string]int64
+	total  int64
+	seen   bool
+}
+
 func newPhase1TokenBudget(limit int64, abort func()) (*phase1TokenBudget, error) {
 	if limit <= 0 || limit > ScenarioMaximumTokenBudget {
 		return nil, fmt.Errorf(
@@ -197,6 +203,50 @@ func (budget *phase1TokenBudget) observedUsage() bool {
 	budget.mutex.Lock()
 	defer budget.mutex.Unlock()
 	return budget.seen
+}
+
+func (budget *phase1TokenBudget) snapshot() phase1TokenBudgetSnapshot {
+	if budget == nil {
+		return phase1TokenBudgetSnapshot{totals: map[string]int64{}}
+	}
+	budget.mutex.Lock()
+	defer budget.mutex.Unlock()
+	totals := make(map[string]int64, len(budget.totals))
+	for threadID, total := range budget.totals {
+		totals[threadID] = total
+	}
+	return phase1TokenBudgetSnapshot{totals: totals, total: budget.total, seen: budget.seen}
+}
+
+func validatePhase1TokenAccounting(
+	budget phase1TokenBudgetSnapshot,
+	usage ScenarioTokenUsage,
+) error {
+	if !budget.seen {
+		return errors.New("raw provider boundary recorded no token usage")
+	}
+	observed := scenarioFinalThreadTokenTotals(usage)
+	if len(observed) != len(budget.totals) {
+		return fmt.Errorf("attributed token evidence covers %d provider threads, raw boundary covers %d", len(observed), len(budget.totals))
+	}
+	var total int64
+	for threadID, rawTotal := range budget.totals {
+		attributedTotal, ok := observed[threadID]
+		if !ok {
+			return fmt.Errorf("raw provider thread %s has no attributed token evidence", threadID)
+		}
+		if attributedTotal != rawTotal {
+			return fmt.Errorf("provider thread %s attributed total is %d, raw boundary total is %d", threadID, attributedTotal, rawTotal)
+		}
+		if rawTotal > math.MaxInt64-total {
+			return errors.New("validated token usage total overflowed int64")
+		}
+		total += rawTotal
+	}
+	if total != budget.total {
+		return fmt.Errorf("attributed total is %d, raw boundary aggregate is %d", total, budget.total)
+	}
+	return nil
 }
 
 func forwardPhase1ProviderResponses(

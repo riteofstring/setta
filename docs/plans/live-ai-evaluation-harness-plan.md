@@ -7,8 +7,10 @@ phase audit are complete, including the benchmark contract, result reporting,
 production orchestration, container lifecycle, committed Phase 0 gate, runnable
 entrypoints, checked-in ARM64 toolchain pin, hard disk and total-token ceilings,
 and focused classification exercises. Its live exit evidence remains gated by
-Phase 0 and the later user-authorized verification ladder. Phase 2 is the
-earliest phase with incomplete repository-actionable work.
+Phase 0 and the later user-authorized verification ladder. Phase 2's exact
+token-evidence batch is implemented; the user-visible transcript, fixed judge,
+and remaining artifact set make Phase 2 the earliest phase with incomplete
+repository-actionable work.
 
 ## Outcome
 
@@ -73,15 +75,13 @@ The implementation starts with substantial existing machinery.
   completed, cancelled, failed, trajectory, file-change, and narration facts.
   The runner can trigger follow-up messages from those typed facts rather than
   parsing prose or sleeping for an arbitrary duration.
-- Codex already emits `thread/tokenUsage/updated`, including input, cached input,
-  output, reasoning output, and total tokens. The checked-in provider matrix
-  correctly classifies it as evidence, but `internal/agent/provider_events.go`
-  currently does not give that evidence an accounting owner. Token accounting
-  therefore needs an ephemeral observer; it must not be added to durable
-  conversation state.
+- Codex emits `thread/tokenUsage/updated`, including input, cached input, output,
+  reasoning output, and total tokens. The checked-in provider matrix classifies
+  it as evidence, and the Agent boundary now gives it an optional ephemeral
+  accounting observer without adding it to durable conversation state.
 - The session recorder already records resolved invocations, narration
-  invocations, and semantic trajectory, but not the exact token evidence or a
-  purpose-built user-visible transcript.
+  invocations, and semantic trajectory. The eval publisher now adds exact token
+  evidence separately; a purpose-built user-visible transcript is still absent.
 - There is no checked-in Docker eval environment today. On the target MacBook,
   Docker Desktop and an ARM64 Docker client are installed. The machine has 8
   CPU cores, 32 GiB of memory, and ample free disk. Docker Desktop must be
@@ -775,11 +775,12 @@ the fixture, and the lifecycle excludes it from the evaluated Agent container.
 The fixture-owned quality command includes formatting, build, and tests.
 
 The strict Phase 1 result schema, production-role resolution projection,
-objective classification boundary, and atomic `results.json`/`report.md`
-publisher are implemented. Completed work passes only when the hidden verifier
+objective classification boundary, and atomic result/report publisher are
+implemented. Completed work passes only when the hidden verifier
 passes; an incorrect final workspace, an execution failure, a timeout, and an
 infrastructure failure remain distinct outcomes. The Markdown report already
-uses the four final report sections and identifies which Phase 2 and Phase 3
+uses the four final report sections, includes exact system-token totals when
+evidence is available, and identifies which remaining Phase 2 and Phase 3
 evidence is not collected yet.
 
 The production-boundary orchestration slice is implemented under
@@ -855,9 +856,11 @@ cumulative total per provider thread, so repeated updates are not double
 counted, sums the Director, Narrator, Agent, and any Side Agent threads, and
 cancels the scenario as a bounded runaway when the aggregate exceeds the
 ceiling. Missing, malformed, negative, or decreasing accounting evidence fails
-as infrastructure rather than silently disabling the guard. Phase 2 still owns
-role and invocation attribution, exact artifact reporting, and separation of
-judge usage.
+as infrastructure rather than silently disabling the guard. The Phase 2
+accounting layer now attributes the same evidence to exact system invocations,
+preserves the final provider record and component breakdown per turn, derives
+per-turn deltas from cumulative thread totals, and keeps judge calls in a
+separate bucket.
 
 Focused deterministic publication exercises now drive lifecycle states for a
 passing workspace, an intentionally incorrect workspace, a timeout, and an
@@ -901,6 +904,31 @@ passing run, one intentionally incorrect final workspace, one timeout, and one
 infrastructure failure, with each classified differently.
 
 ## Phase 2 — Token evidence and the communication judge
+
+The token-evidence batch is implemented. The production Agent boundary accepts
+an optional synchronous observer, and every Director, Agent, Narrator, and Side
+Agent call supplies the invocation ID plus its resolved model, effort, and
+service tier before provider work begins. Director receipts now retain their
+successful resolved invocations, including the optional tool-use review call,
+so the harness can correlate provider turns without parsing text. Narrator
+invocation IDs are likewise minted before the fresh structured call and reused
+by the durable narration output.
+
+The eval-only bounded JSONL sink is enabled only in the disposable backend,
+read back from its app-data volume after orderly shutdown, checked against the
+independent raw provider-boundary total, and published as `token-usage.json`
+with separate system and judge availability. Aggregation retains each final
+typed provider record, attributes cumulative thread deltas by role and exact
+model settings, and counts repeated updates only once. `report.md` now presents
+system totals and per-role diagnostics while excluding the judge bucket.
+
+The user-visible transcript, fixed fresh structured judge and five-Boolean
+schema, judge invocation wiring, and the other artifacts listed above remain
+the next repository-actionable Phase 2 batch. No live Phase 1 scenario was run
+for this implementation batch; the existing external Phase 0 and live-harness
+release gates remain unchanged. Repository formatting, changed-file quality for
+the affected Go and desktop packages, and the repository supply-chain gate
+passed on 2026-07-31.
 
 Give `thread/tokenUsage/updated` an ephemeral accounting sink at the Agent
 boundary. Correlate provider turns to resolved invocations, preserve the exact
