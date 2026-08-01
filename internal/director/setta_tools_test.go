@@ -98,6 +98,12 @@ func TestDirectorDeliveryToolsExposeWorkspaceRequirements(t *testing.T) {
 			t.Fatalf("%s workspaceRequirement description = %q", name, property.Description)
 		}
 	}
+	if !strings.Contains(byName["create_workstream"].Description, "after every user choice") {
+		t.Fatalf("create_workstream does not guard unresolved user choices: %q", byName["create_workstream"].Description)
+	}
+	if !strings.Contains(byName["submit_work"].Description, "missing user choice") {
+		t.Fatalf("submit_work does not guard unresolved user choices: %q", byName["submit_work"].Description)
+	}
 
 	var steerSchema settaToolSchemaFixture
 	if err := json.Unmarshal(byName["steer_work"].InputSchema, &steerSchema); err != nil {

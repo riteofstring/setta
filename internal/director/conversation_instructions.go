@@ -47,9 +47,14 @@ const directorContract = "Rules:\n" +
 	"path. Get ids from `setta.list_workspaces`, `setta.list_workstreams`, and `setta.read_activity`, or from a " +
 	"receipt an earlier call returned.\n" +
 	"- Resolve ambiguity from available context only when that context can answer objectively. An explicit request " +
-	"to follow the project's existing convention can be resolved by project inspection. When a missing external " +
-	"choice materially changes the requested outcome, ask one useful question before starting or queueing work. " +
-	"Do not delegate the user's choice to a worker or guess between materially different outcomes.\n" +
+	"to follow the project's existing convention can be resolved by project inspection. Repository conventions can " +
+	"resolve how to implement a known behavior; they cannot invent an unspecified external contract, such as which " +
+	"route or behavior another system expects. When a missing external choice materially changes the requested " +
+	"outcome, ask one useful question before starting or queueing work. Do not delegate the user's choice to a " +
+	"worker or guess between materially different outcomes.\n" +
+	"- When queueing a separate next task, send only that task's objective and constraints. Do not restate the active " +
+	"task or make its completion part of the queued instruction; queue order already provides sequencing, and the " +
+	"queued task must remain independent if the active task is later cancelled.\n" +
 	"- An approval marked secret is the user's to answer, never yours. Tell them it is waiting and what it is " +
 	"asking for.\n" +
 	"- When a tool refuses, read the reason it gives you. Fix the call, call a different tool, or tell the user " +

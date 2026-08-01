@@ -53,6 +53,35 @@ func TestDirectorTurnSinkPrefersCompletedAssistantText(t *testing.T) {
 	}
 }
 
+func TestDirectorTurnSinkKeepsOnlyTextAfterTheLastToolCall(t *testing.T) {
+	sink := &directorTurnSink{}
+	events := []agent.Event{
+		{
+			Kind: agent.EventKindAgentTextCompleted,
+			Text: &agent.TextEvent{ProviderItemID: "preamble", Text: "I'll route this now."},
+		},
+		{
+			Kind: agent.EventKindActivityStarted,
+			Activity: &agent.ActivityEvent{
+				ProviderItemID: "setta-call",
+				Kind:           agent.ActivityKindDynamicTool,
+			},
+		},
+		{
+			Kind: agent.EventKindAgentTextCompleted,
+			Text: &agent.TextEvent{ProviderItemID: "confirmation", Text: "Started the requested work."},
+		},
+	}
+	for _, event := range events {
+		if err := sink.HandleAgentEvent(event); err != nil {
+			t.Fatalf("HandleAgentEvent: %v", err)
+		}
+	}
+	if reply := sink.replyText(); reply != "Started the requested work." {
+		t.Fatalf("Director reply = %q, want post-tool confirmation", reply)
+	}
+}
+
 func TestRunDirectorTurnCarriesOneResolvedInvocationThroughTokenAccountingAndProviderResult(t *testing.T) {
 	provider := &recordingDirectorProvider{
 		runEvents: []agent.Event{

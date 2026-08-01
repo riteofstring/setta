@@ -218,7 +218,8 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 			Name: "create_workstream",
 			Description: "Create a new workstream and select it. Supply workspaceId from list_workspaces when the " +
 				"work is about the files in that folder, or set it to null when it is not. Supply initialInput to " +
-				"start work immediately, or set it to null to create the workstream idle.",
+				"start work immediately only after every user choice that materially changes the outcome is known, or " +
+				"set it to null to keep the workstream idle while you ask the user.",
 			InputSchema: settaToolSchema(map[string]any{
 				"title":       settaToolString("A short human title for the new workstream.", MaxDecisionTitleBytes),
 				"workspaceId": settaToolNullableString("The workspace id from list_workspaces, or null to create the workstream with no folder.", MaxDecisionReferenceBytes),
@@ -273,7 +274,8 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 		{
 			Name: "submit_work",
 			Description: "Send an instruction to an existing workstream. Setta starts it immediately when the " +
-				"workstream is idle and queues it behind the active run when it is busy.",
+				"workstream is idle and queues it behind the active run when it is busy. Do not submit work while a " +
+				"missing user choice can materially change its outcome.",
 			InputSchema: settaToolSchema(map[string]any{
 				"workstreamId": settaToolString("The workstream id from list_workstreams.", MaxDecisionReferenceBytes),
 				"input":        settaToolString("The instruction to run in that workstream.", MaxDecisionAuthoredInputBytes),

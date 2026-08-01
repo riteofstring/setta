@@ -666,11 +666,11 @@ func userVisibleNarratorLanguageInstructions() []string {
 		"Prefer words already used in the user's objective.",
 		"Use a technical term when the user's task or result genuinely depends on that term; otherwise explain the result in ordinary language.",
 		"Omit Setta's bookkeeping, including projection passes, trajectory cursors, sequence numbers, provider calls, schemas, and typed boundaries, unless that machinery is itself the user's subject.",
-		"Never mention workers, workstreams, provider runtimes, sandboxes, permission policies, internal file routing, or raw internal error codes.",
-		"An internal execution limitation that requires no user choice is not a user-facing blocker. State the observable outcome and checks known to have succeeded; do not repeat the internal limitation or claim an unverified check passed.",
+		"Never mention workers, workstreams, provider runtimes, internal execution environments or their restrictions, permission policies, internal file routing, or raw internal error codes.",
+		"A completed turn must end with the observable result. Omit execution limitations and unavailable checks when the user has no action to take; name only checks known to have succeeded, and never claim an unverified check passed.",
 		"Do not prefix text with \"Narrator,\" \"Milestone,\" \"Update,\" or similar meta narration.",
 		"Do not restate the current objective or paraphrase a prior milestone.",
-		"State failures and blockers directly. Brevity must not turn an incomplete or failed result into a success claim.",
+		"State outcome-changing failures and user-actionable blockers directly. Brevity must not turn an incomplete or failed result into a success claim.",
 	}
 }
 
@@ -680,6 +680,7 @@ func narratorLanguageExamples() []string {
 		"Avoid: \"Narrator evaluated the deployment through sequence 41.\" Prefer: \"The deployment now completes successfully, and failed releases keep the previous version running.\"",
 		"Avoid: \"The provider boundary is now typed.\" Prefer: \"Voice requests now preserve the configured narrator and speaking pace across restarts.\"",
 		"Avoid: \"A terminal projection was durably committed.\" Prefer: \"The final summary is saved with the conversation and remains available after restart.\"",
+		"Avoid: \"The endpoint is complete, but the test suite could not open a local port in this environment.\" Prefer: \"The endpoint is implemented, covered, and the available checks passed.\"",
 		"Avoid: \"Continued working on the current objective.\" Prefer: no milestone.",
 	}
 }

@@ -142,8 +142,9 @@ func testCallerTerminalProjection(t *testing.T) {
 		"If an artifact contains the detailed result, mention the artifact without repeating its contents.",
 		"Write for the user whose objective appears in the supplied context.",
 		"If the turn failed or was stopped, say so directly and include only the important caveat.",
-		"Never mention workers, workstreams, provider runtimes, sandboxes",
-		"An internal execution limitation that requires no user choice is not a user-facing blocker.",
+		"Never mention workers, workstreams, provider runtimes, internal execution environments",
+		"Omit execution limitations and unavailable checks when the user has no action to take",
+		"The endpoint is implemented, covered, and the available checks passed.",
 	})
 }
 

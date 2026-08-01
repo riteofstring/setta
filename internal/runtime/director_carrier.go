@@ -379,6 +379,15 @@ type directorTurnSink struct {
 }
 
 func (sink *directorTurnSink) HandleAgentEvent(event agent.Event) error {
+	// Text before a Setta tool call is provider process narration, not the
+	// Director's answer. Keep only text authored after the last app action so a
+	// tool-first turn produces one user-facing confirmation.
+	if event.Kind == agent.EventKindActivityStarted &&
+		event.Activity != nil &&
+		event.Activity.Kind == agent.ActivityKindDynamicTool {
+		sink.completedText = ""
+		sink.deltaText = ""
+	}
 	if event.Kind == agent.EventKindModelRerouted && event.ModelReroute != nil {
 		reason, err := directorInvocationRerouteReason(event.ModelReroute.Reason)
 		if err != nil {

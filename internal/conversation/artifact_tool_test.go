@@ -439,7 +439,10 @@ func requireArtifactRecoveryInstructions(t *testing.T, instructions string) {
 		"without inventing a website",
 		"Keep progress and final prose concise and user-facing.",
 		"Do not expose provider, sandbox, permission, transport, workstream, or file-routing mechanics.",
+		"A stopped or cancelled earlier turn is not part of the current objective",
+		"describe scheduling, not permission to complete cancelled work",
 		"do not repeat equivalent attempts",
+		"omit the unavailable check entirely",
 		"name checks that succeeded",
 	} {
 		if !strings.Contains(instructions, fragment) {

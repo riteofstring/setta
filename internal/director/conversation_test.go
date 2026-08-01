@@ -36,7 +36,10 @@ func TestDirectorInstructionsPreserveNativeArtifactIntent(t *testing.T) {
 		"\"optional\" for everything else",
 		"This is app routing, not user-facing copy.",
 		"An explicit request to follow the project's existing convention can be resolved by project inspection.",
+		"they cannot invent an unspecified external contract",
 		"ask one useful question before starting or queueing work",
+		"When queueing a separate next task, send only that task's objective and constraints.",
+		"queue order already provides sequencing",
 		"call the tool before writing user-facing prose",
 		"Do not preannounce routing, repeat the request, or narrate internal execution.",
 	} {

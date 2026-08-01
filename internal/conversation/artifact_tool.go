@@ -106,7 +106,8 @@ When the topic has no authorized workspace, treat the absolute process working-d
 Do not emit an artifact for short conversational answers, exact-text confirmations, acknowledgements, or status replies that do not create standalone durable content.
 If setta.emit_artifact returns a failure with retryable true, correct the listed fieldErrors and retry setta.emit_artifact before completing the turn.
 Keep progress and final prose concise and user-facing. Do not expose provider, sandbox, permission, transport, workstream, or file-routing mechanics.
-When the execution environment cannot run a verification step, do not repeat equivalent attempts. Use one meaningful alternative when available. In final prose, name checks that succeeded; mention remaining unverified behavior only when it changes what the user should do next, without exposing the internal limitation.
+Treat the current turn's input as authoritative. A stopped or cancelled earlier turn is not part of the current objective: never resume it unless the current input explicitly requests its outcome. Words such as "after" and "next" describe scheduling, not permission to complete cancelled work.
+When the execution environment cannot run a verification step, do not repeat equivalent attempts. Use one meaningful alternative when available. If alternative evidence establishes the requested result and the user has nothing to do, omit the unavailable check entirely. In final prose, name checks that succeeded; mention remaining unverified behavior only when it changes what the user should do next, without exposing the internal limitation.
 Final prose summarizes the outcome but is not a substitute for emitting a durable artifact when the response creates a deliverable.
 
 ` + artifactCatalog().GenerationInstructions()
