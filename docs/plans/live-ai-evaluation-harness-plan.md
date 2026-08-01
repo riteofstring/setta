@@ -3,8 +3,10 @@
 **Date:** 2026-07-31
 **Status:** Phase 0 proof implementation complete; benign live evidence remains
 an external release gate. The Phase 1 benchmark-contract, result-reporting, and
-production HTTP/event-orchestration batches are implemented; the vertical
-runner remains incomplete.
+production HTTP/event-orchestration batches are implemented. The Phase 1
+container lifecycle and result wiring are also implemented below the command
+boundary; its checked-in image pin, Phase 0 gate, and runnable entrypoints
+remain incomplete.
 
 ## Outcome
 
@@ -175,7 +177,10 @@ evals/
   verifiers/
     ...normal source files...
   sandbox/
-    Dockerfile
+    phase0.Dockerfile
+    phase1-agent.Dockerfile
+    phase1-backend.Dockerfile
+    phase1-verifier.Dockerfile
 cmd/setta-eval/
 internal/evalharness/
 scripts/run_setta_evals.sh
@@ -550,12 +555,15 @@ The intended boundary is:
 
 ```text
 Host
-  scenario runner, scenario definitions, ChatGPT auth, judge, reports
-       |
-       | authenticated loopback control + typed events
-       v
-Disposable Agent container
-  Setta backend, Codex runtime, disposable app data, fixture workspace
+  scenario runner, scenario definitions, ChatGPT-authenticated Codex
+  app-server, judge, reports
+       |                                      |
+       | authenticated loopback HTTP + SSE   | loopback exec-server control
+       v                                      v
+Disposable controller container       Disposable AI execution container
+  production Setta backend               Codex exec-server and fixture workspace
+  disposable app data                    no provider credential or general network
+  credentialless provider bridge
 
 Disposable verifier container
   final workspace copy + hidden verifier, no model access
@@ -569,18 +577,25 @@ containerized tool execution. It may not depend on undocumented internal auth
 protocols, mount the Codex auth store, or weaken the claim silently.
 
 For each scenario, the runner creates Docker volumes for app data and the
-fixture workspace, copies fixture contents in, and exposes only the backend's
-ephemeral control port on host loopback. The repository, home directory, SSH
-agent, cloud credentials, environment secrets, and Docker socket are never
-mounted. The Agent container receives an explicit environment allowlist.
+fixture workspace and copies fixture contents in. The controller exposes only
+the backend's ephemeral HTTP port on host loopback. Its exact
+`codex app-server --listen stdio://` child contract is fulfilled by a narrow
+bridge authenticated with a per-run random token to the host broker; that token
+is not a provider credential and is never placed in the AI execution container.
+The host-owned Codex app-server reaches the exec-server through a second
+ephemeral loopback port. The repository, home directory, SSH agent, cloud
+credentials, environment secrets, and Docker socket are never mounted. Both
+runtime containers receive explicit environment allowlists.
 
-The Agent image is native ARM64 or multi-architecture and based on an exact,
-digest-pinned image. It runs as a non-root user with a read-only root filesystem,
-a writable workspace volume, temporary `tmpfs`, dropped capabilities,
-`no-new-privileges`, no host ports except the loopback control port, and limits
-for CPU, memory, processes, disk, wall time, and total tokens. General network
-access is off. The MVP fixture requires no package downloads; only the narrow
-provider control path established by Phase 0 is reachable.
+The AI execution image is native ARM64 or multi-architecture and based on an
+exact, digest-pinned image. It runs as a non-root user with a read-only root
+filesystem, a writable workspace volume, temporary `tmpfs`, dropped
+capabilities, `no-new-privileges`, no host ports except its loopback exec-server
+control port, and limits for CPU, memory, processes, disk, wall time, and total
+tokens. General network access is off. The controller is also non-root,
+read-only, capability-dropped, and resource-limited; it has the network path
+used by its trusted provider bridge, but no AI-controlled shell. The MVP
+fixture requires no package downloads.
 
 Docker is an outer containment boundary, not a replacement for Setta's role
 permissions. The Director and Narrator remain read-only and tool-free, and the
@@ -733,8 +748,8 @@ source are implemented. The fixture has no package dependencies, pins its Node
 and pnpm runtime requirements exactly, and has an offline-generated lockfile.
 The verifier rejects symlinks and unrelated mutations, bounds inputs and
 diagnostics, and owns the build, test, original-route, exact `/health`, and
-README checks. Its source lives outside the fixture so the pending runner can
-exclude it from the evaluated Agent container.
+README checks. Its source lives outside the fixture, and the lifecycle excludes
+it from the evaluated Agent container.
 
 The strict Phase 1 result schema, production-role resolution projection,
 objective classification boundary, and atomic `results.json`/`report.md`
@@ -758,17 +773,34 @@ one Agent turn or to route it into the fixture are classified as ability
 failures; HTTP, contract, cursor, and stream failures remain infrastructure
 failures. Subscriptions close and join their readers on every return path.
 
-The pinned Phase 1 sandbox images, `cmd/setta-eval`, shell entrypoint,
-production backend/container lifecycle, verifier-container invocation,
-container and process teardown, and wiring the observation and verifier into
-the result publisher remain repository work. The completed production control
-boundary is not yet wired to a runnable live scenario. No automated or live
-verification has been run; that remains subject to the verification policy
-below.
+The Phase 1 lifecycle core is implemented under `internal/evalharness`. It
+requires an exact local `sha256` ARM64 toolchain image and a version-matched
+Linux Codex bundle, builds the Agent, production backend, and verifier images
+with build networking disabled, and tracks every temporary image, container,
+volume, network, host process, and source copy for bounded teardown. It starts
+the production backend in a controller container, keeps the authenticated
+Codex app-server host-owned, forwards only the supported app-server stdio
+contract through an authenticated per-run bridge, and confines AI-controlled
+commands to the internal-network exec-server container. After the typed HTTP
+observation completes, it stops both runtime containers, copies the final
+workspace volume inside Docker, invokes the hidden networkless verifier, and
+wires both observations into the atomic result publisher. The typed copy
+boundary maps out-of-bounds or non-regular final workspaces to the verifier's
+ability failure while reserving infrastructure failure for Docker, process,
+protocol, or I/O faults. Infrastructure failures still produce classified
+result artifacts once input validation and repository preconditions have
+passed.
 
-Add the Go-owned scenario contract, `cmd/setta-eval`, the shell entrypoint, the
-pinned ARM64 sandbox image, one TypeScript fixture, and the straightforward
-scenario.
+The checked-in exact toolchain base-image pin, `cmd/setta-eval`, the shell
+entrypoint, enforcement of the committed Phase 0 `PASS` gate, and focused
+exercise of all four Phase 1 exit classifications remain repository work, as
+do the planned disk and total-token ceilings. The lifecycle is therefore not
+command-runnable yet. No automated or live verification has been run; that
+remains subject to the verification policy below.
+
+Complete the phase with `cmd/setta-eval`, the shell entrypoint, the checked-in
+ARM64 toolchain-image pin, the Phase 0 gate, and the remaining resource and
+classification exercises described above.
 
 The runner validates every input, creates disposable volumes, starts the real
 backend, opens the fixture through `/workspaces/open`, reads the production
