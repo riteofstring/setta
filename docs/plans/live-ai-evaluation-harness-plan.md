@@ -6,12 +6,10 @@
 WebSocket relay to Docker-managed stdin/stdout and Codex's supported
 `exec-server --listen stdio` transport; the Agent publishes no host port and
 retains its internal network. The narrowly bounded benign Phase 0 probe must
-still pass before the Phase 0 exit or final audit can be claimed. Its
-version-matched Linux bundle was not retained after the earlier attempt, and
-remote retrieval is not authorized in this implementation turn, so that live
-proof is recorded below as an external release gate rather than incomplete
-repository work. Phase 2 and Phase 3 repository implementation and their prior
-audits remain complete.
+still pass before the Phase 0 exit or final audit can be claimed. The verified,
+version-matched Linux bundle is present locally, so the probe is the next
+repository-actionable step rather than an external release gate. Phase 2 and
+Phase 3 repository implementation and their prior audits remain complete.
 
 ## Outcome
 
@@ -791,16 +789,15 @@ decomposed, and the focused length and complexity reruns passed. The repository
 supply-chain gate also passed its tidy, exact-version, release-age, and
 vulnerability checks. No dependency input changed.
 
-**External Phase 0 release gate recorded 2026-07-31:** the repaired source is
-ready on a clean committed revision, but the official Codex 0.146.0
-`aarch64-unknown-linux-musl` bundle used by the earlier failed probe was not
-retained. A read-only search of existing local package caches found the matching
-0.146.0 Apple bundle and only an obsolete Codex 0.40.0 Linux binary, not the
-required Linux manifest and resources. This implementation turn did not seek
-remote retrieval, credentials, a login flow, or another external prerequisite,
-so the authorized benign probe was not rerun. The unavailable live evidence is
-not repository-actionable and is not architectural `BLOCKED` evidence; it
-remains the one Phase 0 exit and final-audit release gate.
+**Local prerequisite correction recorded 2026-08-01:** the official Codex
+0.146.0 `aarch64-unknown-linux-musl` package remains present at
+`/Users/kevin/.cache/setta-eval/codex-package-0.146.0-aarch64-unknown-linux-musl`.
+Its manifest names the required target and version, and its downloaded archive
+matched OpenAI's published SHA-256 digest. The preceding implementation attempt
+found that manifest but then incorrectly recorded the bundle as absent and
+skipped the authorized probe. That claim was caught before the final audit and
+is not a release gate. Run the benign Phase 0 probe from the clean corrected
+revision and record its real outcome next.
 
 The user's instruction to proceed with the implementation loop authorizes the
 same narrowly bounded benign Phase 0 probe already described by this plan. It
