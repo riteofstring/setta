@@ -204,15 +204,23 @@ func (relay *execServerControlRelay) close(ctx context.Context) error {
 	relay.beginShutdown()
 	relay.stopIO()
 	relay.cancel()
+	attachErr := relay.stopAttachProcess()
 	select {
 	case <-relay.done:
-		return nil
+		return attachErr
 	case <-ctx.Done():
-		if relay.attach != nil && relay.attach.Process != nil {
-			_ = relay.attach.Process.Kill()
-		}
-		return fmt.Errorf("stop exec-server control relay: %w", ctx.Err())
+		return errors.Join(attachErr, fmt.Errorf("stop exec-server control relay: %w", ctx.Err()))
 	}
+}
+
+func (relay *execServerControlRelay) stopAttachProcess() error {
+	if relay.attach == nil || relay.attach.Process == nil {
+		return nil
+	}
+	if err := relay.attach.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+		return fmt.Errorf("stop Docker attach process: %w", err)
+	}
+	return nil
 }
 
 func (relay *execServerControlRelay) failure() error {
