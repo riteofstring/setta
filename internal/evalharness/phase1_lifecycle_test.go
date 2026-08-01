@@ -1,13 +1,10 @@
 package evalharness
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"setta/internal/evalharness/providerbridge"
 	"setta/internal/evalharness/volumecopy"
@@ -72,6 +69,16 @@ func TestPhase1ProviderEnvironmentScrubsCredentialsAndStaleControl(t *testing.T)
 	}
 }
 
+func TestPhase1AppServerUsesDirectStdioTransport(t *testing.T) {
+	args := strings.Join(phase1AppServerArgs(), " ")
+	if !strings.Contains(args, "--listen stdio://") {
+		t.Fatalf("Phase 1 app-server args omit direct stdio transport: %s", args)
+	}
+	if strings.Contains(args, " proxy") || strings.Contains(args, "unix://") {
+		t.Fatalf("Phase 1 app-server args retain the unsupported Unix proxy transport: %s", args)
+	}
+}
+
 func TestPhase1ProviderFailureAbortsAndPreservesFirstFailure(t *testing.T) {
 	aborts := 0
 	broker := &phase1ProviderBroker{abortScenario: func() { aborts++ }}
@@ -90,41 +97,13 @@ func TestPhase1ProviderFailureAbortsAndPreservesFirstFailure(t *testing.T) {
 	}
 }
 
-func TestPhase1ManagedProcessStopsExplicitlyAfterOwnerCancellation(t *testing.T) {
-	const helperEnvironment = "SETTA_PHASE1_MANAGED_PROCESS_HELPER"
-	if os.Getenv(helperEnvironment) == "1" {
-		for {
-			time.Sleep(time.Hour)
-		}
+func TestPhase1ProviderClaimsOneProductionManagerConnection(t *testing.T) {
+	broker := &phase1ProviderBroker{}
+	if !broker.claimConnection() {
+		t.Fatal("first production manager connection was rejected")
 	}
-
-	executable, err := os.Executable()
-	if err != nil {
-		t.Fatalf("resolve test executable: %v", err)
-	}
-	ownerContext, cancelOwner := context.WithCancel(context.Background())
-	process, err := startPhase1ManagedProcess(
-		ownerContext,
-		executable,
-		[]string{"-test.run=^TestPhase1ManagedProcessStopsExplicitlyAfterOwnerCancellation$"},
-		append(os.Environ(), helperEnvironment+"=1"),
-	)
-	if err != nil {
-		cancelOwner()
-		t.Fatalf("start managed process: %v", err)
-	}
-	cancelOwner()
-
-	select {
-	case processErr := <-process.done:
-		t.Fatalf("owner cancellation stopped explicitly managed process: %v", processErr)
-	case <-time.After(250 * time.Millisecond):
-	}
-
-	stopContext, cancelStop := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancelStop()
-	if err := process.stop(stopContext); err != nil {
-		t.Fatalf("stop managed process: %v", err)
+	if broker.claimConnection() {
+		t.Fatal("second production manager connection was accepted")
 	}
 }
 

@@ -11,7 +11,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -24,8 +23,7 @@ import (
 )
 
 const (
-	phase1ProviderSocketName   = "app-server.sock"
-	phase1ProviderReadyTimeout = 30 * time.Second
+	phase1AuthPreflightTimeout = 30 * time.Second
 	phase1BridgeHandshakeLimit = 160
 	phase1BridgeHandshakeTime  = 10 * time.Second
 	phase1ProcessStopTimeout   = 10 * time.Second
@@ -47,11 +45,9 @@ var phase1ProviderExcludedEnvironment = map[string]struct{}{
 
 type phase1ProviderBroker struct {
 	codexCommand  string
-	socketDir     string
-	socketPath    string
+	execServerURL string
 	token         string
 	listener      net.Listener
-	appServer     *phase1ManagedProcess
 	tokenBudget   *phase1TokenBudget
 	abortScenario func()
 
@@ -60,6 +56,7 @@ type phase1ProviderBroker struct {
 	connections   sync.WaitGroup
 	mutex         sync.Mutex
 	closed        bool
+	connectionSet bool
 	providerErr   error
 }
 
@@ -79,57 +76,27 @@ func startPhase1ProviderBroker(
 	if err := validateExecServerControlEndpointURL(execServerURL); err != nil {
 		return nil, fmt.Errorf("validate Phase 1 exec-server control URL: %w", err)
 	}
-	socketDir, err := os.MkdirTemp("/tmp", "setta-eval-provider-")
-	if err != nil {
-		return nil, fmt.Errorf("create Phase 1 provider control directory: %w", err)
-	}
-	if err := os.Chmod(socketDir, 0o700); err != nil {
-		return nil, errors.Join(
-			fmt.Errorf("secure Phase 1 provider control directory: %w", err),
-			removePhase1ProviderControlDirectory(socketDir),
-		)
-	}
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
-		return nil, errors.Join(
-			fmt.Errorf("create Phase 1 provider bridge token: %w", err),
-			removePhase1ProviderControlDirectory(socketDir),
-		)
+		return nil, fmt.Errorf("create Phase 1 provider bridge token: %w", err)
 	}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return nil, errors.Join(
-			fmt.Errorf("listen for Phase 1 provider bridge: %w", err),
-			removePhase1ProviderControlDirectory(socketDir),
-		)
+		return nil, fmt.Errorf("listen for Phase 1 provider bridge: %w", err)
 	}
 	tokenBudget, err := newPhase1TokenBudget(hardTotalTokens, abortScenario)
 	if err != nil {
-		return nil, errors.Join(
-			err,
-			listener.Close(),
-			removePhase1ProviderControlDirectory(socketDir),
-		)
+		return nil, errors.Join(err, listener.Close())
 	}
 	brokerContext, cancel := context.WithCancel(ctx)
 	broker := &phase1ProviderBroker{
 		codexCommand:  codexCommand,
-		socketDir:     socketDir,
-		socketPath:    filepath.Join(socketDir, phase1ProviderSocketName),
+		execServerURL: execServerURL,
 		token:         hex.EncodeToString(tokenBytes),
 		listener:      listener,
 		tokenBudget:   tokenBudget,
 		abortScenario: abortScenario,
 		contextCancel: cancel,
-	}
-	if err := broker.startAppServer(brokerContext, execServerURL); err != nil {
-		cleanupContext, cleanupCancel := context.WithTimeout(
-			context.Background(),
-			phase1ProcessStopTimeout,
-		)
-		cleanupErr := broker.close(cleanupContext)
-		cleanupCancel()
-		return nil, errors.Join(err, cleanupErr)
 	}
 	broker.acceptDone = make(chan struct{})
 	go broker.acceptConnections(brokerContext)
@@ -149,18 +116,15 @@ func (broker *phase1ProviderBroker) controllerToken() string {
 }
 
 func (broker *phase1ProviderBroker) verifyChatGPTAuth(ctx context.Context) (returnErr error) {
+	preflightContext, cancelPreflight := context.WithTimeout(ctx, phase1AuthPreflightTimeout)
+	defer cancelPreflight()
 	title := "Setta Evaluation Preflight"
 	experimental := true
 	requestAttestation := false
 	manager := codexapp.NewManager(codexapp.ManagerConfig{
 		Process: codexapp.ProcessConfig{
-			Command: broker.codexCommand,
-			Args: []string{
-				"app-server",
-				"proxy",
-				"--sock",
-				broker.socketPath,
-			},
+			Command:     broker.codexCommand,
+			Args:        phase1AppServerArgs(),
 			ExcludedEnv: phase1ProviderExcludedEnvironmentNames(),
 		},
 		InitializeParams: codexapp.InitializeParams{
@@ -189,11 +153,14 @@ func (broker *phase1ProviderBroker) verifyChatGPTAuth(ctx context.Context) (retu
 	if err != nil {
 		return fmt.Errorf("create Phase 1 Codex account service: %w", err)
 	}
-	state, err := service.Read(ctx)
+	state, err := service.Read(preflightContext)
 	if err != nil {
 		return fmt.Errorf("read Phase 1 Codex account: %w", err)
 	}
 	if state.Status != codexaccount.AccountStatusSignedIn || state.Account == nil {
+		if state.Diagnostic != "" {
+			return fmt.Errorf("ChatGPT authentication preflight failed: %s", state.Diagnostic)
+		}
 		return errors.New("ChatGPT authentication is unavailable; the eval runner never starts login")
 	}
 	switch state.Account.Type {
@@ -204,14 +171,11 @@ func (broker *phase1ProviderBroker) verifyChatGPTAuth(ctx context.Context) (retu
 	}
 }
 
-func (broker *phase1ProviderBroker) startAppServer(
-	ctx context.Context,
-	execServerURL string,
-) error {
-	args := []string{
+func phase1AppServerArgs() []string {
+	return []string{
 		"app-server",
 		"--listen",
-		"unix://" + broker.socketPath,
+		"stdio://",
 		"--strict-config",
 		"-c",
 		execServerBlockingEnvironment,
@@ -232,28 +196,6 @@ func (broker *phase1ProviderBroker) startAppServer(
 		"-c",
 		`shell_environment_policy.set={ HOME = "/tmp", LANG = "C.UTF-8", PATH = "/usr/local/bin:/usr/bin:/bin", SHELL = "/bin/zsh" }`,
 	}
-	environment := phase1ProviderEnvironment(
-		os.Environ(),
-		"CODEX_EXEC_SERVER_URL="+execServerURL,
-	)
-	process, err := startPhase1ManagedProcess(ctx, broker.codexCommand, args, environment)
-	if err != nil {
-		return fmt.Errorf("start Phase 1 host Codex app-server: %w", err)
-	}
-	broker.appServer = process
-	readyContext, cancel := context.WithTimeout(ctx, phase1ProviderReadyTimeout)
-	defer cancel()
-	if err := waitForPhase1Socket(readyContext, broker.socketPath, process.done); err != nil {
-		if diagnostic := process.diagnostic.String(); diagnostic != "" {
-			return fmt.Errorf(
-				"wait for Phase 1 host Codex app-server: %w: %s",
-				err,
-				diagnostic,
-			)
-		}
-		return fmt.Errorf("wait for Phase 1 host Codex app-server: %w", err)
-	}
-	return nil
 }
 
 func (broker *phase1ProviderBroker) acceptConnections(ctx context.Context) {
@@ -287,6 +229,9 @@ func (broker *phase1ProviderBroker) serveConnection(
 	if err != nil {
 		return err
 	}
+	if !broker.claimConnection() {
+		return errors.New("Phase 1 provider bridge accepts exactly one production manager connection")
+	}
 	processContext, cancel := context.WithCancel(ctx)
 	defer cancel()
 	proxy, err := broker.startConnectionProxy(processContext)
@@ -303,8 +248,8 @@ func (broker *phase1ProviderBroker) serveConnection(
 		requestDone <- requestErr
 	}()
 	responseErr := forwardPhase1ProviderResponses(connection, proxy.stdout, broker.tokenBudget)
-	if broker.tokenBudgetFailure() != nil && broker.appServer != nil {
-		_, responseStopErr := broker.appServer.interrupt()
+	if broker.tokenBudgetFailure() != nil {
+		responseStopErr := proxy.interrupt()
 		responseErr = errors.Join(responseErr, responseStopErr)
 	}
 	var requestErr error
@@ -332,12 +277,12 @@ func (broker *phase1ProviderBroker) startConnectionProxy(
 	command := exec.CommandContext(
 		ctx,
 		broker.codexCommand,
-		"app-server",
-		"proxy",
-		"--sock",
-		broker.socketPath,
+		phase1AppServerArgs()...,
 	)
-	command.Env = phase1ProviderEnvironment(os.Environ())
+	command.Env = phase1ProviderEnvironment(
+		os.Environ(),
+		"CODEX_EXEC_SERVER_URL="+broker.execServerURL,
+	)
 	stdin, err := command.StdinPipe()
 	if err != nil {
 		return phase1ConnectionProxy{}, fmt.Errorf("open Phase 1 provider proxy stdin: %w", err)
@@ -364,6 +309,16 @@ func (broker *phase1ProviderBroker) startConnectionProxy(
 		stdout:     stdout,
 		diagnostic: diagnostic,
 	}, nil
+}
+
+func (proxy phase1ConnectionProxy) interrupt() error {
+	if proxy.command == nil || proxy.command.Process == nil {
+		return nil
+	}
+	if err := proxy.command.Process.Signal(os.Interrupt); err != nil && !errors.Is(err, os.ErrProcessDone) {
+		return fmt.Errorf("interrupt Phase 1 provider process: %w", err)
+	}
+	return nil
 }
 
 func phase1ProviderProxyResult(
@@ -444,12 +399,6 @@ func (broker *phase1ProviderBroker) close(ctx context.Context) error {
 		// first keeps a timed-out close safe to retry.
 		closeErrors = append(closeErrors, err)
 	}
-	if err := broker.stopAppServer(ctx); err != nil {
-		closeErrors = append(closeErrors, err)
-	}
-	if err := removePhase1ProviderControlDirectory(broker.socketDir); err != nil {
-		closeErrors = append(closeErrors, err)
-	}
 	return errors.Join(closeErrors...)
 }
 
@@ -482,6 +431,16 @@ func (broker *phase1ProviderBroker) recordProviderFailure(err error) {
 	if abort != nil {
 		abort()
 	}
+}
+
+func (broker *phase1ProviderBroker) claimConnection() bool {
+	broker.mutex.Lock()
+	defer broker.mutex.Unlock()
+	if broker.closed || broker.connectionSet {
+		return false
+	}
+	broker.connectionSet = true
+	return true
 }
 
 func (broker *phase1ProviderBroker) providerFailure() error {
@@ -530,163 +489,10 @@ func (broker *phase1ProviderBroker) waitForConnections(ctx context.Context) erro
 	}
 }
 
-func (broker *phase1ProviderBroker) stopAppServer(ctx context.Context) error {
-	if broker.appServer == nil {
-		return nil
-	}
-	if err := broker.appServer.stop(ctx); err != nil {
-		return fmt.Errorf("stop Phase 1 host Codex app-server: %w", err)
-	}
-	return nil
-}
-
-func removePhase1ProviderControlDirectory(path string) error {
-	if path == "" {
-		return nil
-	}
-	if err := os.RemoveAll(path); err != nil {
-		return fmt.Errorf("remove Phase 1 provider control directory: %w", err)
-	}
-	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
-		return errors.New("Phase 1 provider control directory remains after cleanup")
-	}
-	return nil
-}
-
 func (broker *phase1ProviderBroker) isClosed() bool {
 	broker.mutex.Lock()
 	defer broker.mutex.Unlock()
 	return broker.closed
-}
-
-type phase1ManagedProcess struct {
-	command      *exec.Cmd
-	diagnostic   *phase1DiagnosticBuffer
-	done         chan error
-	stopOnce     sync.Once
-	stopMutex    sync.Mutex
-	interrupted  bool
-	interruptErr error
-}
-
-func startPhase1ManagedProcess(
-	ctx context.Context,
-	name string,
-	args []string,
-	environment []string,
-) (*phase1ManagedProcess, error) {
-	if ctx == nil {
-		return nil, errors.New("Phase 1 managed process context is required")
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	// The broker context owns listener and proxy goroutines. The host app-server
-	// has an explicit interrupt/kill lifecycle below; binding it to CommandContext
-	// would race normal broker cancellation against that managed shutdown and turn
-	// a clean close into an apparent "signal: killed" failure.
-	command := exec.Command(name, args...)
-	command.Env = environment
-	diagnostic := newPhase1DiagnosticBuffer(ResultMaximumDiagnosticBytes)
-	command.Stdout = io.Discard
-	command.Stderr = diagnostic
-	if err := command.Start(); err != nil {
-		return nil, err
-	}
-	process := &phase1ManagedProcess{
-		command:    command,
-		diagnostic: diagnostic,
-		done:       make(chan error, 1),
-	}
-	go func() {
-		process.done <- command.Wait()
-		close(process.done)
-	}()
-	return process, nil
-}
-
-func (process *phase1ManagedProcess) stop(ctx context.Context) error {
-	if process == nil || process.command == nil {
-		return nil
-	}
-	interrupted, stopErr := process.interrupt()
-	select {
-	case err := <-process.done:
-		return phase1ManagedProcessStopError(err, stopErr, interrupted)
-	case <-ctx.Done():
-		return errors.Join(stopErr, process.killAndWait(), ctx.Err())
-	}
-}
-
-func (process *phase1ManagedProcess) interrupt() (bool, error) {
-	if process.command.Process == nil {
-		return false, nil
-	}
-	process.stopOnce.Do(func() {
-		err := process.command.Process.Signal(os.Interrupt)
-		if err == nil {
-			process.stopMutex.Lock()
-			process.interrupted = true
-			process.stopMutex.Unlock()
-		} else if !errors.Is(err, os.ErrProcessDone) {
-			process.stopMutex.Lock()
-			process.interruptErr = err
-			process.stopMutex.Unlock()
-		}
-	})
-	process.stopMutex.Lock()
-	defer process.stopMutex.Unlock()
-	return process.interrupted, process.interruptErr
-}
-
-func phase1ManagedProcessStopError(waitErr error, stopErr error, interrupted bool) error {
-	if waitErr != nil && stopErr == nil && !interrupted {
-		return waitErr
-	}
-	return stopErr
-}
-
-func (process *phase1ManagedProcess) killAndWait() error {
-	var killErr error
-	if process.command.Process != nil {
-		if err := process.command.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
-			killErr = err
-		}
-	}
-	select {
-	case <-process.done:
-	case <-time.After(phase1ProcessStopTimeout):
-	}
-	return killErr
-}
-
-func waitForPhase1Socket(
-	ctx context.Context,
-	path string,
-	processDone <-chan error,
-) error {
-	// Codex app-server exposes no supported readiness event before clients can
-	// connect. This bounded, pre-scenario kernel socket probe is the narrow
-	// exception to push-driven scenario observation; all product state still
-	// arrives through the production event streams.
-	ticker := time.NewTicker(25 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		info, err := os.Lstat(path)
-		if err == nil && info.Mode()&os.ModeSocket != 0 {
-			return nil
-		}
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-		select {
-		case processErr := <-processDone:
-			return fmt.Errorf("Codex app-server exited before readiness: %v", processErr)
-		case <-ticker.C:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
 }
 
 func phase1ProviderEnvironment(inherited []string, additions ...string) []string {

@@ -1384,7 +1384,13 @@ supported app-server stdio contract through an authenticated per-run bridge,
 and confines AI-controlled commands to the internal-network exec-server
 container. The app-server reaches that fixed Agent through the same
 capability-authenticated host-loopback WebSocket to Docker-attach stdio relay
-proved by Phase 0; the Agent exposes and publishes no port. After the typed HTTP observation completes, it stops both runtime
+proved by Phase 0; the Agent exposes and publishes no port. The bounded auth
+preflight uses a separate host-side stdio app-server without a tool connection.
+The controller's one production Codex manager then opens one authenticated
+bridge connection, which owns one host-side stdio app-server connected to the
+isolated exec-server. Phase 1 does not use Codex's Unix-socket `app-server
+proxy`: that command forwards raw WebSocket bytes and is not the JSONL stdio
+contract consumed by Setta's manager. After the typed HTTP observation completes, it stops both runtime
 containers, copies the final workspace volume inside Docker, invokes the hidden
 networkless verifier, and wires both observations into the atomic result
 publisher. The typed copy boundary maps out-of-bounds or non-regular final
@@ -1426,9 +1432,10 @@ Docker logs. Provider listener, proxy, and forwarding failures cancel the
 scenario and classify as infrastructure failures; the broker preserves the
 first failure through connection shutdown, waits for all forwarding goroutines,
 and allows teardown to retry a partial stop before verification begins. The
-host app-server has an explicit managed-process lifetime, so cancelling broker
-goroutines cannot preempt its orderly interrupt and misclassify normal teardown
-as a killed provider process.
+connection-scoped host app-server exits through the production manager's normal
+stdio shutdown; broker cancellation remains a bounded fallback. The independent
+authentication preflight has a 30-second deadline, so it cannot sit outside the
+scenario timeout indefinitely.
 
 The host provider boundary now enforces each scenario's `hardTotalTokens`
 ceiling from typed `thread/tokenUsage/updated` evidence. It retains the latest
@@ -1749,7 +1756,7 @@ orchestrator capability, and supplies empty selected capability roots. Topic
 Agent and Side Agent carriers retain only the same remote shell and unified-exec
 features proved by Phase 0; the Director retains its Setta-owned dynamic routing
 tools but receives no shell feature. The fixed judge and Phase 0 probe continue
-to use their existing stricter owners. No app-server proxy rewriting, prompt
+to use their existing stricter owners. No app-server protocol rewriting, prompt
 heuristic, host execution fallback, or alternate scenario path was added.
 
 Static review and formatting are the only verification authorized for this
