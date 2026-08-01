@@ -214,6 +214,8 @@ func (broker *phase1ProviderBroker) startAppServer(
 		"unix://" + broker.socketPath,
 		"--strict-config",
 		"-c",
+		execServerBlockingEnvironment,
+		"-c",
 		`shell_environment_policy.inherit="none"`,
 		"-c",
 		`shell_environment_policy.set={ HOME = "/tmp", LANG = "C.UTF-8", PATH = "/usr/local/bin:/usr/bin:/bin", SHELL = "/bin/zsh" }`,
