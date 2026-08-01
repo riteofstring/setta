@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-31
 **Status:** Phase 0 achieved a schema-6 `PASS` on 2026-08-01 from clean source
-commit `85baac80277b76d992daf36aa614e2dbca677203`; the canonical report is
+commit `b9c2074e9e3161465edcb46024550b5da8eef119`; the canonical report is
 recorded at `docs/reports/live-ai-eval-sandbox-phase0.md`. The proof disables
 effective MCP servers and external Codex features before either model turn,
 rejects untyped provider activity, and records the exact hardened `/tmp` mount
@@ -11,9 +11,8 @@ complete. Phase 1 through Phase 3 repository implementation and their prior
 audits remain complete. The final whole-plan containment audit repair is now
 implemented: every Phase 1 model thread disables inherited host-side external
 capabilities before it starts, while only Agent and Side Agent threads retain
-the proved remote shell surface. The current instruction authorizes static
-inspection and formatting, but not automated tests, broad verification gates,
-or Phase 1 live harness execution.
+the proved remote shell surface. Full Phase 1 live harness execution is now
+authorized for this verification run.
 
 ## Outcome
 
@@ -1264,8 +1263,8 @@ committed and the same authorized benign Phase 0 probe was rerun from that clean
 source revision; the evidence below and the fresh schema-6 report now own the
 resolution.
 
-**Completion-audit probe evidence recorded 2026-08-01:** the clean
-`85baac802` probe disabled every effective MCP server and the owned external
+**Refreshed completion-audit probe evidence recorded 2026-08-01:** the clean
+`b9c2074e9` probe disabled every effective MCP server and the owned external
 feature set before starting either thread, then completed the random read-only
 task and exact workspace-write task on their first attempts. Docker inspection
 proved the full hardened `/tmp` option set in addition to the prior user,
@@ -1279,7 +1278,7 @@ report contains no credential values.
 **Outcome:** `PASS`
 
 The current benign proof ran from clean source commit
-`85baac80277b76d992daf36aa614e2dbca677203` with Codex 0.146.0 and the
+`b9c2074e9e3161465edcb46024550b5da8eef119` with Codex 0.146.0 and the
 release-owned Agent baseline `gpt-5.6-sol`/high on the target Linux/ARM64 Docker
 daemon. The authenticated app-server remained host-owned, and the
 network-isolated Agent used the capability-authenticated loopback
