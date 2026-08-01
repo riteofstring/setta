@@ -1,15 +1,16 @@
 # Live AI Evaluation Harness Plan
 
 **Date:** 2026-07-31
-**Status:** The reopened completion audit superseded Phase 0's schema-5 `PASS`.
-The schema-6 source repair now disables effective MCP servers and external
-Codex features before either model turn, rejects untyped provider activity,
-and proves the exact hardened `/tmp` mount options. The stale report and plan
-resolution are removed; the same narrowly bounded benign Phase 0 probe must run
-from the clean repair commit before a current `PASS` can be recorded. Phase 1
-through Phase 3 repository implementation and their prior audits remain
-complete. The current instruction does not authorize automated tests, broad
-verification gates, or Phase 1 live harness execution.
+**Status:** Phase 0 achieved a schema-6 `PASS` on 2026-08-01 from clean source
+commit `85baac80277b76d992daf36aa614e2dbca677203`; the canonical report is
+recorded at `docs/reports/live-ai-eval-sandbox-phase0.md`. The proof disables
+effective MCP servers and external Codex features before either model turn,
+rejects untyped provider activity, and records the exact hardened `/tmp` mount
+options. Both benign tasks passed on their first attempt, and teardown was
+complete. Phase 1 through Phase 3 repository implementation and their prior
+audits remain complete; the current Phase 0 completion-audit repair is ready
+for final static audit. The current instruction does not authorize automated
+tests, broad verification gates, or Phase 1 live harness execution.
 
 ## Outcome
 
@@ -1255,10 +1256,42 @@ Schema 6 records that exact tool policy without recording configured MCP server
 names. It also closes an adjacent Docker-inspection omission: `/tmp` must retain
 the exact `rw`, `noexec`, `nosuid`, `nodev`, 64 MiB, and mode-1777 option set,
 not merely exist as some tmpfs. The prior schema-5 report and resolution no
-longer establish the current proof and have been removed. Commit this coupled
-repair, rerun only the same authorized benign Phase 0 probe from its clean
-source revision, and record a fresh schema-6 report and resolution before live
-execution can advance.
+longer establish the current proof and were removed. The coupled repair was
+committed and the same authorized benign Phase 0 probe was rerun from that clean
+source revision; the evidence below and the fresh schema-6 report now own the
+resolution.
+
+**Completion-audit probe evidence recorded 2026-08-01:** the clean
+`85baac802` probe disabled every effective MCP server and the owned external
+feature set before starting either thread, then completed the random read-only
+task and exact workspace-write task on their first attempts. Docker inspection
+proved the full hardened `/tmp` option set in addition to the prior user,
+filesystem, network, mount, environment, relay, and resource-limit facts. The
+app-server, relay and attach client, container, volume, network, image tag,
+temporary canary, and build context were removed, and the canonical schema-6
+report contains no credential values.
+
+### Phase 0 resolution
+
+**Outcome:** `PASS`
+
+The current benign proof ran from clean source commit
+`85baac80277b76d992daf36aa614e2dbca677203` with Codex 0.146.0 and the
+release-owned Agent baseline `gpt-5.6-sol`/high on the target Linux/ARM64 Docker
+daemon. The authenticated app-server remained host-owned, and the
+network-isolated Agent used the capability-authenticated loopback
+WebSocket-to-Docker-attach stdio relay with no published Agent port, credential
+mount, Docker socket, or host network route.
+
+The thread policy enabled only remote shell and unified execution, disabled
+every configured MCP server, external feature, web search, and orchestrator
+capability, and passed empty dynamic tools and selected capability roots. The
+event sink accepted only remote command, file-change, and container-confined
+image-view activity. The random container-only read left the complete workspace
+unchanged, and the independent write added only the exact declared regular
+file. Schema 6 records those facts, the exact hardened temporary-filesystem
+options, the release model and effort, proof-input digests, boundary evidence,
+and complete teardown.
 
 The user's instruction to proceed with the implementation loop authorizes the
 same narrowly bounded benign Phase 0 probe already described by this plan. It
