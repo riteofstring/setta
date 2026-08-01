@@ -9,12 +9,16 @@ COMPLETION_SENTINEL="PLAN_IMPLEMENTATION_COMPLETE"
 FINAL_AUDIT_SENTINEL="PLAN_IMPLEMENTATION_READY_FOR_FINAL_AUDIT"
 PHASE_AUDIT_SENTINEL="PLAN_PHASE_READY_FOR_AUDIT"
 PHASE_COMPLETE_SENTINEL="PLAN_PHASE_AUDIT_COMPLETE"
-AGENT_ONE_RUNNER="claude"
-AGENT_ONE_MODEL="claude-opus-5"
-AGENT_ONE_EFFORT="xhigh"
+AGENT_ONE_RUNNER="codex"
+AGENT_ONE_MODEL="gpt-5.6-sol"
+AGENT_ONE_EFFORT="max"
+AGENT_ONE_MODEL_WAS_SET="0"
+AGENT_ONE_EFFORT_WAS_SET="0"
 AGENT_TWO_RUNNER="codex"
 AGENT_TWO_MODEL="gpt-5.6-sol"
 AGENT_TWO_EFFORT="max"
+AGENT_TWO_MODEL_WAS_SET="0"
+AGENT_TWO_EFFORT_WAS_SET="0"
 OUTPUT_DIR=""
 INITIAL_RETRY_DELAY_SECONDS="15"
 MAX_RETRY_DELAY_SECONDS="300"
@@ -49,11 +53,11 @@ iteration. The loop has no iteration cap and does not stop before the separate
 whole-plan audit confirms completion. Operational script failures and manual
 termination still exit non-zero.
 
-This dedicated automation helper intentionally runs Claude Code and Codex CLI agents in the current
-repository checkout with permission checks bypassed. That behavior is
-acceptable here because the loop is for unattended repo-local plan execution
-where agents are expected to edit, verify, and commit directly in a clean
-working tree.
+This dedicated automation helper intentionally runs two independently
+configured Codex or Claude Code CLI agents in the current repository checkout
+with permission checks bypassed. That behavior is acceptable here because the
+loop is for unattended repo-local plan execution where agents are expected to
+edit, verify, and commit directly in a clean working tree.
 
 Agent transcripts are written outside the repository to per-agent log files.
 The terminal prints loop status and periodic progress lines.
@@ -62,8 +66,18 @@ Options:
   --output-dir PATH     Directory for per-iteration transcripts and last
                         messages. Must be outside the repository. Default:
                         mktemp directory under TMPDIR.
-  --agent-1-model NAME  Claude model for Agent 1. Default: claude-opus-5.
-  --agent-2-model NAME  Codex model for Agent 2. Default: gpt-5.6-sol.
+  --agent-1-runner NAME CLI for Agent 1: codex or claude. Default: codex.
+  --agent-1-model NAME  Model for Agent 1. Default: gpt-5.6-sol for codex;
+                        required when the runner is claude.
+  --agent-1-reasoning-effort LEVEL
+                        Reasoning effort for Agent 1. Default: max for codex;
+                        required when the runner is claude.
+  --agent-2-runner NAME CLI for Agent 2: codex or claude. Default: codex.
+  --agent-2-model NAME  Model for Agent 2. Default: gpt-5.6-sol for codex;
+                        required when the runner is claude.
+  --agent-2-reasoning-effort LEVEL
+                        Reasoning effort for Agent 2. Default: max for codex;
+                        required when the runner is claude.
   --codex-reference-repo PATH
                         Full Codex source checkout used for protocol/source
                         verification. Default:
@@ -323,14 +337,38 @@ while [[ $# -gt 0 ]]; do
       OUTPUT_DIR="$2"
       shift 2
       ;;
+    --agent-1-runner)
+      require_value "$1" "${2:-}"
+      AGENT_ONE_RUNNER="$2"
+      shift 2
+      ;;
     --agent-1-model)
       require_value "$1" "${2:-}"
       AGENT_ONE_MODEL="$2"
+      AGENT_ONE_MODEL_WAS_SET="1"
+      shift 2
+      ;;
+    --agent-1-reasoning-effort)
+      require_value "$1" "${2:-}"
+      AGENT_ONE_EFFORT="$2"
+      AGENT_ONE_EFFORT_WAS_SET="1"
+      shift 2
+      ;;
+    --agent-2-runner)
+      require_value "$1" "${2:-}"
+      AGENT_TWO_RUNNER="$2"
       shift 2
       ;;
     --agent-2-model)
       require_value "$1" "${2:-}"
       AGENT_TWO_MODEL="$2"
+      AGENT_TWO_MODEL_WAS_SET="1"
+      shift 2
+      ;;
+    --agent-2-reasoning-effort)
+      require_value "$1" "${2:-}"
+      AGENT_TWO_EFFORT="$2"
+      AGENT_TWO_EFFORT_WAS_SET="1"
       shift 2
       ;;
     --codex-reference-repo)
@@ -407,9 +445,26 @@ if [[ "${MAX_RETRY_DELAY_SECONDS}" -lt "${INITIAL_RETRY_DELAY_SECONDS}" ]]; then
   exit 1
 fi
 
-for required_runner in "${AGENT_ONE_RUNNER}" "${AGENT_TWO_RUNNER}"; do
-  if ! command -v "${required_runner}" >/dev/null 2>&1; then
-    echo "${required_runner} CLI not found on PATH" >&2
+for agent_configuration in \
+  "agent-1:${AGENT_ONE_RUNNER}:${AGENT_ONE_MODEL_WAS_SET}:${AGENT_ONE_EFFORT_WAS_SET}" \
+  "agent-2:${AGENT_TWO_RUNNER}:${AGENT_TWO_MODEL_WAS_SET}:${AGENT_TWO_EFFORT_WAS_SET}"; do
+  IFS=: read -r agent_flag_prefix runner model_was_set effort_was_set <<<"${agent_configuration}"
+  case "${runner}" in
+    claude)
+      if [[ "${model_was_set}" != "1" ]] || [[ "${effort_was_set}" != "1" ]]; then
+        echo "--${agent_flag_prefix}-model and --${agent_flag_prefix}-reasoning-effort are required when --${agent_flag_prefix}-runner is claude" >&2
+        exit 1
+      fi
+      ;;
+    codex)
+      ;;
+    *)
+      echo "--${agent_flag_prefix}-runner must be codex or claude" >&2
+      exit 1
+      ;;
+  esac
+  if ! command -v "${runner}" >/dev/null 2>&1; then
+    echo "${runner} CLI not found on PATH" >&2
     exit 1
   fi
 done

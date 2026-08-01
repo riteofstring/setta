@@ -34,9 +34,10 @@ model=""
 effort=""
 skip_permissions="0"
 no_session_persistence="0"
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    -p|--print)
+    --print)
       print_mode="1"
       shift
       ;;
@@ -72,11 +73,15 @@ if [[ "${print_mode}" != "1" ]]; then
   exit 1
 fi
 if [[ "${output_format}" != "text" ]]; then
-  echo "expected text output format" >&2
+  echo "claude output format = ${output_format}, want text" >&2
   exit 1
 fi
-if [[ "${effort}" != "xhigh" ]]; then
-  echo "effort = ${effort}, want xhigh" >&2
+if [[ "${model}" != "agent-1-test-model" ]]; then
+  echo "claude model = ${model}, want agent-1-test-model" >&2
+  exit 1
+fi
+if [[ "${effort}" != "high" ]]; then
+  echo "claude effort = ${effort}, want high" >&2
   exit 1
 fi
 if [[ "${skip_permissions}" != "1" ]]; then
@@ -95,30 +100,27 @@ fi
 call_count="$((call_count + 1))"
 printf '%s\n' "${call_count}" >"${FAKE_AGENT_STATE}"
 
-expected_model=""
-case "${call_count}" in
-  1|2|4)
-    expected_model="claude-opus-5"
-    ;;
-  *)
-    echo "unexpected Claude call ${call_count}" >&2
-    exit 1
-    ;;
-esac
-if [[ "${model}" != "${expected_model}" ]]; then
-  echo "model = ${model}, want ${expected_model}" >&2
-  exit 1
-fi
-
 case "${call_count}" in
   1)
+    if [[ "${prompt}" != *"Before acting, inspect docs/plan.md"* ]]; then
+      echo "first agent call was not an implementation batch" >&2
+      exit 1
+    fi
     git -C "${repo}" commit --allow-empty --quiet -m "test: coherent implementation batch"
     printf 'Committed a coherent implementation batch.\n'
     ;;
   2)
+    if [[ "${prompt}" != *"Before acting, inspect docs/plan.md"* ]]; then
+      echo "second agent call was not an implementation batch" >&2
+      exit 1
+    fi
     printf 'PLAN_PHASE_READY_FOR_AUDIT\n'
     ;;
   4)
+    if [[ "${prompt}" != *"Before acting, inspect docs/plan.md"* ]]; then
+      echo "fourth agent call was not an implementation batch" >&2
+      exit 1
+    fi
     printf 'PLAN_IMPLEMENTATION_READY_FOR_FINAL_AUDIT\n'
     ;;
   *)
@@ -138,7 +140,6 @@ prompt=""
 model=""
 effort_config=""
 sandbox=""
-approval_policy=""
 bypass_permissions="0"
 ephemeral="0"
 cd_arg=""
@@ -164,10 +165,6 @@ while [[ $# -gt 0 ]]; do
       sandbox="$2"
       shift 2
       ;;
-    --ask-for-approval|-a)
-      approval_policy="$2"
-      shift 2
-      ;;
     --dangerously-bypass-approvals-and-sandbox)
       bypass_permissions="1"
       shift
@@ -191,20 +188,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "${model}" != "gpt-5.6-sol" ]]; then
-  echo "codex model = ${model}, want gpt-5.6-sol" >&2
-  exit 1
-fi
-if [[ "${effort_config}" != 'model_reasoning_effort="max"' ]]; then
-  echo "codex effort config = ${effort_config}, want model_reasoning_effort=\"max\"" >&2
-  exit 1
-fi
 if [[ "${sandbox}" != "danger-full-access" ]]; then
   echo "codex sandbox = ${sandbox}, want danger-full-access" >&2
-  exit 1
-fi
-if [[ "${approval_policy}" != "never" ]]; then
-  echo "codex approval policy = ${approval_policy}, want never" >&2
   exit 1
 fi
 if [[ "${bypass_permissions}" != "1" ]]; then
@@ -230,6 +215,25 @@ if [[ -f "${FAKE_AGENT_STATE}" ]]; then
 fi
 call_count="$((call_count + 1))"
 printf '%s\n' "${call_count}" >"${FAKE_AGENT_STATE}"
+
+case "${call_count}" in
+  3|5)
+    expected_model="agent-2-test-model"
+    expected_effort_config='model_reasoning_effort="low"'
+    ;;
+  *)
+    echo "unexpected Codex call ${call_count}" >&2
+    exit 1
+    ;;
+esac
+if [[ "${model}" != "${expected_model}" ]]; then
+  echo "codex model = ${model}, want ${expected_model}" >&2
+  exit 1
+fi
+if [[ "${effort_config}" != "${expected_effort_config}" ]]; then
+  echo "codex effort config = ${effort_config}, want ${expected_effort_config}" >&2
+  exit 1
+fi
 
 case "${call_count}" in
   3)
@@ -268,6 +272,12 @@ PATH="${TEST_BIN}:${PATH}" \
   docs/plan.md \
   --codex-reference-repo "${TEST_REFERENCE_REPO}" \
   --output-dir "${TEST_OUTPUT}" \
+  --agent-1-runner claude \
+  --agent-1-model agent-1-test-model \
+  --agent-1-reasoning-effort high \
+  --agent-2-runner codex \
+  --agent-2-model agent-2-test-model \
+  --agent-2-reasoning-effort low \
   --progress-log-interval-seconds 0 \
   >"${TEST_TMP_DIR}/loop.log"
 
