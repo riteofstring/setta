@@ -24,17 +24,6 @@ const phase0DeveloperInstructions = "" +
 	"Do not use network access, web search, MCP, plugins, skills, delegation, or user questions. " +
 	"Perform only the exact read or write requested, then report the result concisely."
 
-const (
-	phase0EnvironmentHelperCommand   = "/usr/local/bin/setta-eval-sandbox-helper environment"
-	phase0ToolEnvironmentMaximumSize = 4 * 1024
-	phase0UnknownCommandActionType   = "unknown"
-)
-
-type phase0UnknownCommandAction struct {
-	Command string `json:"command"`
-	Type    string `json:"type"`
-}
-
 type phase0CodexRuntime struct {
 	manager *codexapp.Manager
 	runtime *agent.Runtime
@@ -134,33 +123,81 @@ func (runtime *phase0CodexRuntime) verifyChatGPTAuthAndModel(ctx context.Context
 	return fmt.Errorf("Phase 0 model %s is unavailable", runtime.model)
 }
 
+func (runtime *phase0CodexRuntime) inspectToolEnvironment(
+	ctx context.Context,
+) (phase0HelperEnvironment, error) {
+	readOnlyPolicy := codexapp.SandboxPolicy(json.RawMessage(`{"type":"readOnly"}`))
+	cwd := phase0WorkspaceRoot
+	timeout := 10_000
+	raw, err := runtime.manager.Call(ctx, codexapp.CodexMethodCommandExec, codexapp.CommandExecParams{
+		Command: []string{
+			"/usr/local/bin/setta-eval-sandbox-helper",
+			"environment",
+		},
+		CWD:           &cwd,
+		SandboxPolicy: &readOnlyPolicy,
+		TimeoutMs:     &timeout,
+	})
+	if err != nil {
+		return phase0HelperEnvironment{}, fmt.Errorf("inspect remote tool environment: %w", err)
+	}
+	response, err := codexapp.DecodeCommandExecResponse(raw)
+	if err != nil {
+		return phase0HelperEnvironment{}, fmt.Errorf("decode remote tool environment response: %w", err)
+	}
+	if response.ExitCode != 0 || strings.TrimSpace(response.Stderr) != "" {
+		return phase0HelperEnvironment{}, fmt.Errorf(
+			"remote environment helper exited %d: %s",
+			response.ExitCode,
+			boundedPhase0Diagnostic(response.Stderr),
+		)
+	}
+	var environment phase0HelperEnvironment
+	if err := jsonio.DecodeSingle(strings.NewReader(response.Stdout), &environment); err != nil {
+		return phase0HelperEnvironment{}, fmt.Errorf("decode effective remote environment: %w", err)
+	}
+	if environment.UID != phase0ContainerUID || environment.GID != phase0ContainerGID {
+		return phase0HelperEnvironment{}, fmt.Errorf(
+			"remote tool ran as %d:%d, want %d:%d",
+			environment.UID,
+			environment.GID,
+			phase0ContainerUID,
+			phase0ContainerGID,
+		)
+	}
+	if err := validateEnvironmentNames(environment.EnvironmentNames); err != nil {
+		return phase0HelperEnvironment{}, err
+	}
+	return environment, nil
+}
+
 func (runtime *phase0CodexRuntime) runModelTurns(
 	ctx context.Context,
 	resources *phase0DockerResources,
-) (Phase0TurnEvidence, phase0HelperEnvironment, error) {
+) (Phase0TurnEvidence, error) {
 	fixtureToken, err := phase0RandomToken()
 	if err != nil {
-		return Phase0TurnEvidence{}, phase0HelperEnvironment{}, err
+		return Phase0TurnEvidence{}, err
 	}
 	if err := resources.seedWorkspace(ctx, fixtureToken); err != nil {
-		return Phase0TurnEvidence{}, phase0HelperEnvironment{}, err
+		return Phase0TurnEvidence{}, err
 	}
 	baseline, err := resources.workspaceSnapshot(ctx)
 	if err != nil {
-		return Phase0TurnEvidence{}, phase0HelperEnvironment{}, err
+		return Phase0TurnEvidence{}, err
 	}
-	readOnly, toolEnvironment, err := runtime.runReadOnlyTurn(ctx, resources, fixtureToken, baseline)
+	readOnly, err := runtime.runReadOnlyTurn(ctx, resources, fixtureToken, baseline)
 	if err != nil {
-		return Phase0TurnEvidence{}, phase0HelperEnvironment{}, err
+		return Phase0TurnEvidence{}, err
 	}
 	workspaceWrite, err := runtime.runWorkspaceWriteTurn(ctx, resources, fixtureToken, baseline)
 	if err != nil {
-		return Phase0TurnEvidence{}, phase0HelperEnvironment{}, err
+		return Phase0TurnEvidence{}, err
 	}
 	return Phase0TurnEvidence{
 		ReadOnly:       readOnly,
 		WorkspaceWrite: workspaceWrite,
-	}, toolEnvironment, nil
+	}, nil
 }
 
 func (runtime *phase0CodexRuntime) runReadOnlyTurn(
@@ -168,10 +205,10 @@ func (runtime *phase0CodexRuntime) runReadOnlyTurn(
 	resources *phase0DockerResources,
 	fixtureToken string,
 	baseline phase0HelperWorkspace,
-) (Phase0ModelTurnEvidence, phase0HelperEnvironment, error) {
+) (Phase0ModelTurnEvidence, error) {
 	threadID, err := runtime.startThread(ctx, agent.PermissionModeReadOnly)
 	if err != nil {
-		return Phase0ModelTurnEvidence{}, phase0HelperEnvironment{}, err
+		return Phase0ModelTurnEvidence{}, err
 	}
 	sink := &phase0EventSink{}
 	result, err := runtime.runtime.RunTurn(ctx, agent.TurnRequest{
@@ -179,10 +216,8 @@ func (runtime *phase0CodexRuntime) runReadOnlyTurn(
 		TurnID:           "phase0-read-only-turn",
 		ProviderThreadID: threadID,
 		ClientInputID:    "phase0-read-only-input",
-		Text: "First run exactly this command as its own command: " + phase0EnvironmentHelperCommand +
-			". Do not combine it with another command. Then read /workspace/probe-input.txt and " +
-			"reply with exactly the file contents, with no quotation marks or commentary. " +
-			"Do not write any file.",
+		Text: "Read /workspace/probe-input.txt and reply with exactly its contents, " +
+			"with no quotation marks or commentary. Do not write any file.",
 		WorkspaceRoot: phase0WorkspaceRoot,
 		Invocation:    phase0Invocation(agent.PermissionModeReadOnly, runtime.model),
 		TokenUsageAttribution: agent.TokenUsageAttribution{
@@ -194,29 +229,21 @@ func (runtime *phase0CodexRuntime) runReadOnlyTurn(
 		},
 	}, sink)
 	if err != nil {
-		return Phase0ModelTurnEvidence{}, phase0HelperEnvironment{}, fmt.Errorf("run Phase 0 read-only turn: %w", err)
+		return Phase0ModelTurnEvidence{}, fmt.Errorf("run Phase 0 read-only turn: %w", err)
 	}
 	if result.Outcome != agent.TurnOutcomeCompleted {
-		return Phase0ModelTurnEvidence{}, phase0HelperEnvironment{}, fmt.Errorf("Phase 0 read-only turn ended %s", result.Outcome)
+		return Phase0ModelTurnEvidence{}, fmt.Errorf("Phase 0 read-only turn ended %s", result.Outcome)
 	}
 	if strings.TrimSpace(sink.finalText) != fixtureToken {
-		return Phase0ModelTurnEvidence{}, phase0HelperEnvironment{}, errors.New("Phase 0 read-only turn did not return the fixture token exactly")
-	}
-	toolEnvironment, err := runtime.inspectRemoteToolEnvironment(
-		ctx,
-		result.ProviderThreadID,
-		result.ProviderTurnID,
-	)
-	if err != nil {
-		return Phase0ModelTurnEvidence{}, phase0HelperEnvironment{}, err
+		return Phase0ModelTurnEvidence{}, errors.New("Phase 0 read-only turn did not return the fixture token exactly")
 	}
 	after, err := resources.workspaceSnapshot(ctx)
 	if err != nil {
-		return Phase0ModelTurnEvidence{}, phase0HelperEnvironment{}, err
+		return Phase0ModelTurnEvidence{}, err
 	}
 	unchanged := reflect.DeepEqual(baseline, after)
 	if !unchanged {
-		return Phase0ModelTurnEvidence{}, phase0HelperEnvironment{}, errors.New("Phase 0 read-only turn changed the workspace")
+		return Phase0ModelTurnEvidence{}, errors.New("Phase 0 read-only turn changed the workspace")
 	}
 	return Phase0ModelTurnEvidence{
 		Outcome:              string(result.Outcome),
@@ -224,163 +251,7 @@ func (runtime *phase0CodexRuntime) runReadOnlyTurn(
 		WorkspaceUnchanged:   true,
 		OnlyExpectedMutation: true,
 		ActivityCWDs:         sink.sortedActivityCWDs(),
-	}, toolEnvironment, nil
-}
-
-func (runtime *phase0CodexRuntime) inspectRemoteToolEnvironment(
-	ctx context.Context,
-	threadID string,
-	turnID string,
-) (phase0HelperEnvironment, error) {
-	includeTurns := true
-	raw, err := runtime.manager.Call(ctx, codexapp.CodexMethodThreadRead, codexapp.ThreadReadParams{
-		ThreadID:     threadID,
-		IncludeTurns: &includeTurns,
-	})
-	if err != nil {
-		return phase0HelperEnvironment{}, fmt.Errorf("read Phase 0 remote tool turn: %w", err)
-	}
-	response, err := codexapp.DecodeThreadReadResponse(raw)
-	if err != nil {
-		return phase0HelperEnvironment{}, fmt.Errorf("decode Phase 0 remote tool turn: %w", err)
-	}
-	if response.Thread.ID != threadID {
-		return phase0HelperEnvironment{}, errors.New("Phase 0 remote tool evidence returned the wrong thread")
-	}
-	return phase0ToolEnvironmentFromThread(response.Thread, turnID)
-}
-
-func phase0ToolEnvironmentFromThread(
-	thread codexapp.Thread,
-	turnID string,
-) (phase0HelperEnvironment, error) {
-	turn, err := phase0CompletedRemoteTurn(thread.Turns, turnID)
-	if err != nil {
-		return phase0HelperEnvironment{}, err
-	}
-	command, err := phase0RemoteEnvironmentCommand(turn.Items)
-	if err != nil {
-		return phase0HelperEnvironment{}, err
-	}
-	return decodePhase0ToolEnvironment(command)
-}
-
-func phase0CompletedRemoteTurn(turns []codexapp.Turn, turnID string) (codexapp.Turn, error) {
-	var matchedTurn *codexapp.Turn
-	for index := range turns {
-		if turns[index].ID != turnID {
-			continue
-		}
-		if matchedTurn != nil {
-			return codexapp.Turn{}, errors.New("Phase 0 remote tool evidence repeated the provider turn")
-		}
-		matchedTurn = &turns[index]
-	}
-	if matchedTurn == nil || matchedTurn.Status != codexapp.TurnStatusCompleted {
-		return codexapp.Turn{}, errors.New("Phase 0 remote tool evidence is missing its completed provider turn")
-	}
-	return *matchedTurn, nil
-}
-
-func phase0RemoteEnvironmentCommand(
-	items []codexapp.ThreadItem,
-) (codexapp.CommandExecutionThreadItem, error) {
-	var matchedCommand *codexapp.CommandExecutionThreadItem
-	for _, item := range items {
-		command := item.CommandExecution
-		if command == nil || !phase0RunsEnvironmentHelper(*command) {
-			continue
-		}
-		if matchedCommand != nil {
-			return codexapp.CommandExecutionThreadItem{}, errors.New("Phase 0 remote environment helper ran more than once")
-		}
-		matchedCommand = command
-	}
-	if matchedCommand == nil {
-		return codexapp.CommandExecutionThreadItem{}, errors.New("Phase 0 remote turn did not run the exact environment helper command")
-	}
-	return *matchedCommand, nil
-}
-
-func phase0RunsEnvironmentHelper(command codexapp.CommandExecutionThreadItem) bool {
-	if len(command.CommandActions) != 1 {
-		return false
-	}
-	var action phase0UnknownCommandAction
-	if err := json.Unmarshal(command.CommandActions[0], &action); err != nil {
-		return false
-	}
-	return action.Type == phase0UnknownCommandActionType &&
-		action.Command == phase0EnvironmentHelperCommand
-}
-
-func decodePhase0ToolEnvironment(
-	command codexapp.CommandExecutionThreadItem,
-) (phase0HelperEnvironment, error) {
-	if err := validatePhase0EnvironmentCommand(command); err != nil {
-		return phase0HelperEnvironment{}, err
-	}
-	if err := validatePhase0EnvironmentCommandAction(command.CommandActions); err != nil {
-		return phase0HelperEnvironment{}, err
-	}
-	output := *command.AggregatedOutput
-	if len(output) == 0 || len(output) > phase0ToolEnvironmentMaximumSize {
-		return phase0HelperEnvironment{}, errors.New("Phase 0 remote environment helper returned out-of-bounds output")
-	}
-	var environment phase0HelperEnvironment
-	if err := jsonio.DecodeSingle(strings.NewReader(output), &environment); err != nil {
-		return phase0HelperEnvironment{}, fmt.Errorf("decode effective remote tool environment: %w", err)
-	}
-	if err := validatePhase0ToolIdentity(environment); err != nil {
-		return phase0HelperEnvironment{}, err
-	}
-	if err := validateEnvironmentNames(environment.EnvironmentNames); err != nil {
-		return phase0HelperEnvironment{}, err
-	}
-	return environment, nil
-}
-
-func validatePhase0EnvironmentCommand(command codexapp.CommandExecutionThreadItem) error {
-	if command.Status != codexapp.CommandExecutionStatusCompleted {
-		return errors.New("Phase 0 remote environment helper did not complete in the workspace")
-	}
-	if command.ExitCode == nil || *command.ExitCode != 0 {
-		return errors.New("Phase 0 remote environment helper did not complete in the workspace")
-	}
-	if string(command.CWD) != phase0WorkspaceRoot || command.AggregatedOutput == nil {
-		return errors.New("Phase 0 remote environment helper did not complete in the workspace")
-	}
-	if command.Source == nil || *command.Source != codexapp.CommandExecutionSourceAgent {
-		return errors.New("Phase 0 remote environment helper did not complete in the workspace")
-	}
-	return nil
-}
-
-func validatePhase0EnvironmentCommandAction(actions []codexapp.CommandAction) error {
-	if len(actions) != 1 {
-		return errors.New("Phase 0 remote environment helper command action is invalid")
-	}
-	var action phase0UnknownCommandAction
-	if err := jsonio.DecodeSingle(strings.NewReader(string(actions[0])), &action); err != nil {
-		return errors.New("Phase 0 remote environment helper command action is invalid")
-	}
-	if action.Type != phase0UnknownCommandActionType || action.Command != phase0EnvironmentHelperCommand {
-		return errors.New("Phase 0 remote environment helper command action is invalid")
-	}
-	return nil
-}
-
-func validatePhase0ToolIdentity(environment phase0HelperEnvironment) error {
-	if environment.UID != phase0ContainerUID || environment.GID != phase0ContainerGID {
-		return fmt.Errorf(
-			"remote tool ran as %d:%d, want %d:%d",
-			environment.UID,
-			environment.GID,
-			phase0ContainerUID,
-			phase0ContainerGID,
-		)
-	}
-	return nil
+	}, nil
 }
 
 func (runtime *phase0CodexRuntime) runWorkspaceWriteTurn(

@@ -1,16 +1,17 @@
 # Live AI Evaluation Harness Plan
 
 **Date:** 2026-07-31
-**Status:** The reopened Phase 0 repository repair is implemented. Phase 0 and
-Phase 1 share a host-owned, capability-authenticated loopback WebSocket relay
-to Docker-managed stdin/stdout and Codex's supported
+**Status:** The reopened Phase 0 control-transport repair is implemented. Phase
+0 and Phase 1 now share a host-owned, capability-authenticated loopback
+WebSocket relay to Docker-managed stdin/stdout and Codex's supported
 `exec-server --listen stdio` transport; the Agent publishes no host port and
-retains its internal network. Phase 0 now obtains tool-environment evidence
-from the completed remote turn instead of the local-only `command/exec` API,
-and both lifecycles give each teardown stage a fresh bounded context. Rerun the
-benign probe from the clean committed repair before claiming the Phase 0 exit
-or final audit. Phase 2 and Phase 3 repository implementation and their prior
-audits remain complete.
+retains its internal network. The first repaired live probe passed the original
+container-start and control-port failure, then exposed two repository issues:
+its tool-environment preflight calls a local-only Codex API while the app-server
+is remote-only, and teardown reuses an unavailable run context. Replace those
+assumptions and rerun the benign probe before claiming the Phase 0 exit or final
+audit. Phase 2 and Phase 3 repository implementation and their prior audits
+remain complete.
 
 ## Outcome
 
@@ -821,30 +822,11 @@ The same failed run also reported context-deadline errors while stopping the
 relay and removing the disposable container, volume, network, and image tag.
 The monitor removed those exact Phase 0 resources manually and confirmed no
 eval container, volume, network, image tag, attach process, or app-server
-process remained.
-
-The repository repair removes both failed assumptions together. The read-only
-remote model turn runs the exact sandbox environment helper as a standalone
-command. The probe reads that completed provider turn through the supported
-`thread/read` API and accepts the helper evidence only when the typed command,
-working directory, status, exit code, and schema-valid bounded output prove it
-ran inside the selected remote environment. It never configures a host-local
-execution environment or treats a host command as remote evidence. Phase 0
-app-server, relay, Docker-resource removal, and removal confirmation each own a
-fresh bounded cleanup context. Phase 1 applies the same rule independently to
-backend, provider, relay, Agent, container, volume, and network teardown, so an
-expired stage cannot prevent later cleanup or replace the primary diagnostic.
-The authorized benign probe from the clean committed repair is the remaining
-Phase 0 action.
-
-Required formatting and changed-file quality ran for this repair. File length,
-Go vet, the affected package tests, and dead-code analysis passed. The first
-complexity pass isolated the new remote-evidence decoder and extractor; those
-functions were decomposed, the focused complexity rerun passed, and the
-directly affected remote-environment selector passed after the refactor. The
-repository supply-chain gate was not duplicated because it passed for the
-immediately preceding sandbox repair and this batch changes no dependency or
-lockfile input.
+process remained. Normal probe teardown must own a fresh, bounded cleanup
+context so primary failure, timeout, cancellation, or interruption cannot skip
+cleanup or obscure the primary diagnostic. Fix both issues as one Phase 0
+repair, apply the same relay lifecycle correction to Phase 1 where relevant,
+then rerun the authorized benign probe from a clean commit.
 
 The user's instruction to proceed with the implementation loop authorizes the
 same narrowly bounded benign Phase 0 probe already described by this plan. It
