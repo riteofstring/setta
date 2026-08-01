@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -280,10 +281,7 @@ func (resources *phase0DockerResources) start(
 	); err != nil {
 		return Phase0BoundaryEvidence{}, fmt.Errorf("create Phase 0 workspace volume: %w", err)
 	}
-	tmpfs := fmt.Sprintf(
-		"/tmp:rw,noexec,nosuid,nodev,size=%d,mode=1777",
-		phase0ContainerTmpfsBytes,
-	)
+	tmpfs := "/tmp:" + phase0ContainerTmpfsMountOptions()
 	resources.containerCreated = true
 	if _, err := resources.client.run(
 		ctx,
@@ -346,6 +344,13 @@ func phase0WorkspaceVolumeMountOptions() string {
 	)
 }
 
+func phase0ContainerTmpfsMountOptions() string {
+	return fmt.Sprintf(
+		"rw,noexec,nosuid,nodev,size=%d,mode=1777",
+		phase0ContainerTmpfsBytes,
+	)
+}
+
 func (resources *phase0DockerResources) inspectBoundary(
 	ctx context.Context,
 ) (Phase0BoundaryEvidence, error) {
@@ -381,22 +386,23 @@ func (resources *phase0DockerResources) inspectBoundary(
 	endpoint := resources.controlRelay.endpointValue()
 	environmentNames := environmentNames(container.Config.Env)
 	return Phase0BoundaryEvidence{
-		ContainerUser:             container.Config.User,
-		ReadOnlyRootFilesystem:    container.HostConfig.ReadonlyRootfs,
-		WorkspaceDiskLimitBytes:   phase0WorkspaceDiskBytes,
-		InternalNetwork:           networks[0].Internal,
-		ControlTransport:          execServerControlTransport,
-		HostControlAddress:        endpoint.Address,
-		ContainerStdioAttached:    container.Config.OpenStdin && !container.Config.StdinOnce,
-		HostPortPublicationAbsent: phase0HostPortPublicationAbsent(container),
-		MountDestinations:         phase0MountDestinations(container),
-		ContainerEnvironmentNames: environmentNames,
-		DroppedCapabilities:       sortedUnique(container.HostConfig.CapDrop),
-		NoNewPrivileges:           phase0NoNewPrivileges(container.HostConfig.SecurityOpt),
-		Privileged:                container.HostConfig.Privileged,
-		PIDsLimit:                 *container.HostConfig.PidsLimit,
-		MemoryLimitBytes:          container.HostConfig.Memory,
-		NanoCPUs:                  container.HostConfig.NanoCPUs,
+		ContainerUser:                   container.Config.User,
+		ReadOnlyRootFilesystem:          container.HostConfig.ReadonlyRootfs,
+		WorkspaceDiskLimitBytes:         phase0WorkspaceDiskBytes,
+		TemporaryFilesystemMountOptions: phase0ContainerTmpfsMountOptions(),
+		InternalNetwork:                 networks[0].Internal,
+		ControlTransport:                execServerControlTransport,
+		HostControlAddress:              endpoint.Address,
+		ContainerStdioAttached:          container.Config.OpenStdin && !container.Config.StdinOnce,
+		HostPortPublicationAbsent:       phase0HostPortPublicationAbsent(container),
+		MountDestinations:               phase0MountDestinations(container),
+		ContainerEnvironmentNames:       environmentNames,
+		DroppedCapabilities:             sortedUnique(container.HostConfig.CapDrop),
+		NoNewPrivileges:                 phase0NoNewPrivileges(container.HostConfig.SecurityOpt),
+		Privileged:                      container.HostConfig.Privileged,
+		PIDsLimit:                       *container.HostConfig.PidsLimit,
+		MemoryLimitBytes:                container.HostConfig.Memory,
+		NanoCPUs:                        container.HostConfig.NanoCPUs,
 	}, nil
 }
 
@@ -501,10 +507,41 @@ func validatePhase0ContainerLimits(container phase0DockerContainer) error {
 		container.HostConfig.NanoCPUs != phase0ContainerNanoCPUs {
 		return errors.New("Phase 0 container has unexpected CPU or memory limits")
 	}
-	if _, ok := container.HostConfig.Tmpfs["/tmp"]; !ok {
+	options, ok := container.HostConfig.Tmpfs["/tmp"]
+	if !ok {
 		return errors.New("Phase 0 container is missing its /tmp tmpfs")
 	}
+	return validatePhase0TmpfsMountOptions(options)
+}
+
+func validatePhase0TmpfsMountOptions(actual string) error {
+	actualOptions, err := phase0MountOptionSet(actual)
+	if err != nil {
+		return fmt.Errorf("Phase 0 container /tmp options: %w", err)
+	}
+	wantOptions, err := phase0MountOptionSet(phase0ContainerTmpfsMountOptions())
+	if err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(actualOptions, wantOptions) {
+		return errors.New("Phase 0 container /tmp has unexpected mount options")
+	}
 	return nil
+}
+
+func phase0MountOptionSet(value string) (map[string]struct{}, error) {
+	options := strings.Split(value, ",")
+	result := make(map[string]struct{}, len(options))
+	for _, option := range options {
+		if strings.TrimSpace(option) == "" || strings.TrimSpace(option) != option {
+			return nil, errors.New("mount option is empty or not normalized")
+		}
+		if _, found := result[option]; found {
+			return nil, fmt.Errorf("mount option %q is duplicated", option)
+		}
+		result[option] = struct{}{}
+	}
+	return result, nil
 }
 
 func validatePhase0ContainerFilesystem(container phase0DockerContainer) error {

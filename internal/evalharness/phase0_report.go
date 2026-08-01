@@ -13,13 +13,14 @@ import (
 	"sort"
 	"strings"
 
+	"setta/internal/agent"
 	"setta/internal/jsonio"
 )
 
 const (
 	Phase0SandboxReportRelativePath = "docs/reports/live-ai-eval-sandbox-phase0.md"
 	phase0SandboxReportMaxBytes     = 128 * 1024
-	phase0ReportEvidenceStart       = "<!-- setta-eval-phase0-evidence:v5 -->\n```json\n"
+	phase0ReportEvidenceStart       = "<!-- setta-eval-phase0-evidence:v6 -->\n```json\n"
 	phase0ReportEvidenceEnd         = "```\n<!-- /setta-eval-phase0-evidence -->"
 	phase0PlanPassMarker            = "### Phase 0 resolution\n\n**Outcome:** `PASS`"
 )
@@ -35,21 +36,22 @@ var phase0EvidenceFileNames = []string{
 }
 
 type phase0BoundaryInvariants struct {
-	ContainerUser           string
-	ReadOnlyRootFilesystem  bool
-	WorkspaceVolumeWritable bool
-	WorkspaceDiskLimitBytes int64
-	RootWriteDenied         bool
-	HostCanaryVisible       bool
-	InternalNetwork         bool
-	FakeHostEndpointBlocked bool
-	ContainerStdioAttached  bool
-	HostPortPublicationFree bool
-	NoNewPrivileges         bool
-	Privileged              bool
-	PIDsLimit               int64
-	MemoryLimitBytes        int64
-	NanoCPUs                int64
+	ContainerUser                   string
+	ReadOnlyRootFilesystem          bool
+	WorkspaceVolumeWritable         bool
+	WorkspaceDiskLimitBytes         int64
+	TemporaryFilesystemMountOptions string
+	RootWriteDenied                 bool
+	HostCanaryVisible               bool
+	InternalNetwork                 bool
+	FakeHostEndpointBlocked         bool
+	ContainerStdioAttached          bool
+	HostPortPublicationFree         bool
+	NoNewPrivileges                 bool
+	Privileged                      bool
+	PIDsLimit                       int64
+	MemoryLimitBytes                int64
+	NanoCPUs                        int64
 }
 
 type phase0TurnInvariants struct {
@@ -87,6 +89,9 @@ func ValidatePhase0SandboxEvidence(evidence Phase0SandboxEvidence) error {
 		return err
 	}
 	if err := validatePhase0BoundaryEvidence(evidence.Boundary); err != nil {
+		return err
+	}
+	if err := validatePhase0ToolPolicyEvidence(evidence.Tools); err != nil {
 		return err
 	}
 	if err := validatePhase0TurnEvidence(evidence.Turns); err != nil {
@@ -176,38 +181,40 @@ func validatePhase0ReleaseAgentEvidence(evidence Phase0CodexEvidence) error {
 
 func validatePhase0BoundaryEvidence(evidence Phase0BoundaryEvidence) error {
 	got := phase0BoundaryInvariants{
-		ContainerUser:           evidence.ContainerUser,
-		ReadOnlyRootFilesystem:  evidence.ReadOnlyRootFilesystem,
-		WorkspaceVolumeWritable: evidence.WorkspaceVolumeWritable,
-		WorkspaceDiskLimitBytes: evidence.WorkspaceDiskLimitBytes,
-		RootWriteDenied:         evidence.RootWriteDenied,
-		HostCanaryVisible:       evidence.HostCanaryVisible,
-		InternalNetwork:         evidence.InternalNetwork,
-		FakeHostEndpointBlocked: evidence.FakeHostEndpointBlocked,
-		ContainerStdioAttached:  evidence.ContainerStdioAttached,
-		HostPortPublicationFree: evidence.HostPortPublicationAbsent,
-		NoNewPrivileges:         evidence.NoNewPrivileges,
-		Privileged:              evidence.Privileged,
-		PIDsLimit:               evidence.PIDsLimit,
-		MemoryLimitBytes:        evidence.MemoryLimitBytes,
-		NanoCPUs:                evidence.NanoCPUs,
+		ContainerUser:                   evidence.ContainerUser,
+		ReadOnlyRootFilesystem:          evidence.ReadOnlyRootFilesystem,
+		WorkspaceVolumeWritable:         evidence.WorkspaceVolumeWritable,
+		WorkspaceDiskLimitBytes:         evidence.WorkspaceDiskLimitBytes,
+		TemporaryFilesystemMountOptions: evidence.TemporaryFilesystemMountOptions,
+		RootWriteDenied:                 evidence.RootWriteDenied,
+		HostCanaryVisible:               evidence.HostCanaryVisible,
+		InternalNetwork:                 evidence.InternalNetwork,
+		FakeHostEndpointBlocked:         evidence.FakeHostEndpointBlocked,
+		ContainerStdioAttached:          evidence.ContainerStdioAttached,
+		HostPortPublicationFree:         evidence.HostPortPublicationAbsent,
+		NoNewPrivileges:                 evidence.NoNewPrivileges,
+		Privileged:                      evidence.Privileged,
+		PIDsLimit:                       evidence.PIDsLimit,
+		MemoryLimitBytes:                evidence.MemoryLimitBytes,
+		NanoCPUs:                        evidence.NanoCPUs,
 	}
 	want := phase0BoundaryInvariants{
-		ContainerUser:           fmt.Sprintf("%d:%d", phase0ContainerUID, phase0ContainerGID),
-		ReadOnlyRootFilesystem:  true,
-		WorkspaceVolumeWritable: true,
-		WorkspaceDiskLimitBytes: phase0WorkspaceDiskBytes,
-		RootWriteDenied:         true,
-		HostCanaryVisible:       false,
-		InternalNetwork:         true,
-		FakeHostEndpointBlocked: true,
-		ContainerStdioAttached:  true,
-		HostPortPublicationFree: true,
-		NoNewPrivileges:         true,
-		Privileged:              false,
-		PIDsLimit:               phase0ContainerPIDs,
-		MemoryLimitBytes:        phase0ContainerMemory,
-		NanoCPUs:                phase0ContainerNanoCPUs,
+		ContainerUser:                   fmt.Sprintf("%d:%d", phase0ContainerUID, phase0ContainerGID),
+		ReadOnlyRootFilesystem:          true,
+		WorkspaceVolumeWritable:         true,
+		WorkspaceDiskLimitBytes:         phase0WorkspaceDiskBytes,
+		TemporaryFilesystemMountOptions: phase0ContainerTmpfsMountOptions(),
+		RootWriteDenied:                 true,
+		HostCanaryVisible:               false,
+		InternalNetwork:                 true,
+		FakeHostEndpointBlocked:         true,
+		ContainerStdioAttached:          true,
+		HostPortPublicationFree:         true,
+		NoNewPrivileges:                 true,
+		Privileged:                      false,
+		PIDsLimit:                       phase0ContainerPIDs,
+		MemoryLimitBytes:                phase0ContainerMemory,
+		NanoCPUs:                        phase0ContainerNanoCPUs,
 	}
 	if got != want {
 		return errors.New("Phase 0 evidence does not prove the required filesystem, user, and network boundary")
@@ -238,6 +245,31 @@ func validatePhase0BoundaryEvidence(evidence Phase0BoundaryEvidence) error {
 	}
 	if !reflect.DeepEqual(evidence.DroppedCapabilities, []string{"ALL"}) {
 		return errors.New("Phase 0 evidence must show that the container dropped all capabilities")
+	}
+	return nil
+}
+
+func validatePhase0ToolPolicyEvidence(evidence Phase0ToolPolicyEvidence) error {
+	if !reflect.DeepEqual(evidence.AllowedActivityKinds, phase0AllowedActivityKinds()) {
+		return errors.New("Phase 0 evidence has an unexpected activity allowlist")
+	}
+	if !reflect.DeepEqual(
+		evidence.DisabledFeatureNames,
+		agent.RestrictedThreadDisabledFeatureNames(true),
+	) {
+		return errors.New("Phase 0 evidence did not disable the exact external feature set")
+	}
+	if !reflect.DeepEqual(
+		evidence.EnabledFeatureNames,
+		agent.RestrictedThreadEnabledFeatureNames(true),
+	) {
+		return errors.New("Phase 0 evidence did not enable only the required shell features")
+	}
+	if !evidence.DynamicToolsEmpty || !evidence.EffectiveMCPServersDisabled ||
+		!evidence.OrchestratorMCPDisabled || !evidence.OrchestratorSkillsDisabled ||
+		!evidence.ProjectDocumentationDisabled || !evidence.SelectedCapabilityRootsEmpty ||
+		!evidence.WebSearchDisabled {
+		return errors.New("Phase 0 evidence does not prove the restricted tool policy")
 	}
 	return nil
 }
@@ -370,6 +402,7 @@ func RenderPhase0SandboxReport(evidence Phase0SandboxEvidence) (string, error) {
 	)
 	report.WriteString("- The host canary and fake host endpoint were unreachable from the sandbox.\n")
 	report.WriteString("- Docker inspection and the boundary helper observed only allowlisted environment names; the strict remote shell policy inherited none.\n")
+	report.WriteString("- The turn config disabled every effective MCP server and external feature; only remote shell execution and container-confined image viewing were accepted.\n")
 	report.WriteString("- The app-server, host control relay, container, volume, network, image tag, and canary were removed.\n")
 	return report.String(), nil
 }

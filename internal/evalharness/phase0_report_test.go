@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"setta/internal/agent"
 )
 
 func TestPhase0SandboxReportRoundTripsStrictPassEvidence(t *testing.T) {
@@ -45,6 +47,16 @@ func TestPhase0SandboxReportRoundTripsStrictPassEvidence(t *testing.T) {
 	nonBaseline.Codex.Model = "diagnostic-model"
 	if err := ValidatePhase0SandboxEvidence(nonBaseline); err == nil {
 		t.Fatal("Phase 0 evidence accepted a non-release Agent model")
+	}
+	unsafeTools := evidence
+	unsafeTools.Tools.EffectiveMCPServersDisabled = false
+	if err := ValidatePhase0SandboxEvidence(unsafeTools); err == nil {
+		t.Fatal("Phase 0 evidence accepted an unrestricted MCP policy")
+	}
+	unsafeTmpfs := evidence
+	unsafeTmpfs.Boundary.TemporaryFilesystemMountOptions = "rw,size=67108864,mode=1777"
+	if err := ValidatePhase0SandboxEvidence(unsafeTmpfs); err == nil {
+		t.Fatal("Phase 0 evidence accepted an unhardened temporary filesystem")
 	}
 }
 
@@ -117,29 +129,42 @@ func validPhase0SandboxEvidenceForTest(t *testing.T, commit string) Phase0Sandbo
 			ImageID:         "sha256:" + strings.Repeat("c", 64),
 		},
 		Boundary: Phase0BoundaryEvidence{
-			ContainerUser:                  "65532:65532",
-			ReadOnlyRootFilesystem:         true,
-			WorkspaceVolumeWritable:        true,
-			WorkspaceDiskLimitBytes:        phase0WorkspaceDiskBytes,
-			RootWriteDenied:                true,
-			HostCanaryVisible:              false,
-			InternalNetwork:                true,
-			FakeHostEndpointBlocked:        true,
-			ControlTransport:               execServerControlTransport,
-			HostControlAddress:             "127.0.0.1:45000",
-			ContainerStdioAttached:         true,
-			HostPortPublicationAbsent:      true,
-			MountDestinations:              []string{"/tmp", phase0WorkspaceRoot},
-			ContainerEnvironmentNames:      []string{"HOME", "PATH"},
-			BoundaryHelperEnvironmentNames: []string{"HOME", "PATH"},
-			ShellEnvironmentPolicyInherit:  phase0ShellEnvironmentInherit,
-			ShellEnvironmentPolicySetNames: phase0ShellEnvironmentSetNames(),
-			DroppedCapabilities:            []string{"ALL"},
-			NoNewPrivileges:                true,
-			Privileged:                     false,
-			PIDsLimit:                      phase0ContainerPIDs,
-			MemoryLimitBytes:               phase0ContainerMemory,
-			NanoCPUs:                       phase0ContainerNanoCPUs,
+			ContainerUser:                   "65532:65532",
+			ReadOnlyRootFilesystem:          true,
+			WorkspaceVolumeWritable:         true,
+			WorkspaceDiskLimitBytes:         phase0WorkspaceDiskBytes,
+			TemporaryFilesystemMountOptions: phase0ContainerTmpfsMountOptions(),
+			RootWriteDenied:                 true,
+			HostCanaryVisible:               false,
+			InternalNetwork:                 true,
+			FakeHostEndpointBlocked:         true,
+			ControlTransport:                execServerControlTransport,
+			HostControlAddress:              "127.0.0.1:45000",
+			ContainerStdioAttached:          true,
+			HostPortPublicationAbsent:       true,
+			MountDestinations:               []string{"/tmp", phase0WorkspaceRoot},
+			ContainerEnvironmentNames:       []string{"HOME", "PATH"},
+			BoundaryHelperEnvironmentNames:  []string{"HOME", "PATH"},
+			ShellEnvironmentPolicyInherit:   phase0ShellEnvironmentInherit,
+			ShellEnvironmentPolicySetNames:  phase0ShellEnvironmentSetNames(),
+			DroppedCapabilities:             []string{"ALL"},
+			NoNewPrivileges:                 true,
+			Privileged:                      false,
+			PIDsLimit:                       phase0ContainerPIDs,
+			MemoryLimitBytes:                phase0ContainerMemory,
+			NanoCPUs:                        phase0ContainerNanoCPUs,
+		},
+		Tools: Phase0ToolPolicyEvidence{
+			AllowedActivityKinds:         phase0AllowedActivityKinds(),
+			DisabledFeatureNames:         agent.RestrictedThreadDisabledFeatureNames(true),
+			EnabledFeatureNames:          agent.RestrictedThreadEnabledFeatureNames(true),
+			DynamicToolsEmpty:            true,
+			EffectiveMCPServersDisabled:  true,
+			OrchestratorMCPDisabled:      true,
+			OrchestratorSkillsDisabled:   true,
+			ProjectDocumentationDisabled: true,
+			SelectedCapabilityRootsEmpty: true,
+			WebSearchDisabled:            true,
 		},
 		Turns: Phase0TurnEvidence{
 			ReadOnly: Phase0ModelTurnEvidence{

@@ -101,7 +101,7 @@ func (execution *phase0Execution) run(ctx context.Context) (Phase0SandboxEvidenc
 	if err != nil {
 		return Phase0SandboxEvidence{}, err
 	}
-	turns, err := execution.probeCodex(
+	toolPolicy, turns, err := execution.probeCodex(
 		ctx,
 		execution.resources.controlRelay.endpointValue().URL,
 	)
@@ -125,6 +125,7 @@ func (execution *phase0Execution) run(ctx context.Context) (Phase0SandboxEvidenc
 			ImageID:         imageID,
 		},
 		Boundary: boundary,
+		Tools:    toolPolicy,
 		Turns:    turns,
 	}, nil
 }
@@ -170,27 +171,31 @@ func (execution *phase0Execution) probeBoundary(
 func (execution *phase0Execution) probeCodex(
 	ctx context.Context,
 	execServerURL string,
-) (Phase0TurnEvidence, error) {
+) (Phase0ToolPolicyEvidence, Phase0TurnEvidence, error) {
 	execution.codexRuntime = newPhase0CodexRuntime(execution.config, execServerURL)
 	if err := execution.codexRuntime.verifyChatGPTAuthAndModel(ctx); err != nil {
-		return Phase0TurnEvidence{}, err
+		return Phase0ToolPolicyEvidence{}, Phase0TurnEvidence{}, err
+	}
+	if err := execution.codexRuntime.restrictExternalTools(ctx); err != nil {
+		return Phase0ToolPolicyEvidence{}, Phase0TurnEvidence{}, err
 	}
 	if err := execution.codexRuntime.waitForRemoteEnvironment(ctx); err != nil {
-		return Phase0TurnEvidence{}, err
+		return Phase0ToolPolicyEvidence{}, Phase0TurnEvidence{}, err
 	}
 	turns, err := execution.codexRuntime.runModelTurns(ctx, execution.resources)
 	if err != nil {
-		return Phase0TurnEvidence{}, err
+		return Phase0ToolPolicyEvidence{}, Phase0TurnEvidence{}, err
 	}
 	if relayErr := execution.resources.controlRelay.beginHealthyShutdown(); relayErr != nil {
-		return Phase0TurnEvidence{}, fmt.Errorf("Phase 0 Agent control relay failed: %w", relayErr)
+		return Phase0ToolPolicyEvidence{}, Phase0TurnEvidence{}, fmt.Errorf("Phase 0 Agent control relay failed: %w", relayErr)
 	}
 	if err := runPhase0Cleanup(execution.codexRuntime.shutdown); err != nil {
-		return Phase0TurnEvidence{}, fmt.Errorf("stop Phase 0 host app-server: %w", err)
+		return Phase0ToolPolicyEvidence{}, Phase0TurnEvidence{}, fmt.Errorf("stop Phase 0 host app-server: %w", err)
 	}
+	toolPolicy := execution.codexRuntime.toolPolicy
 	execution.codexRuntime = nil
 	execution.hostAppServerStopped = true
-	return turns, nil
+	return toolPolicy, turns, nil
 }
 
 func (execution *phase0Execution) cleanup() (Phase0TeardownEvidence, error) {

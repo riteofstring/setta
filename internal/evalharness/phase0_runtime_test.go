@@ -183,7 +183,6 @@ func TestPhase0EventSinkRejectsExternalActivityKinds(t *testing.T) {
 		agent.ActivityKindCommand:    true,
 		agent.ActivityKindFileChange: true,
 		agent.ActivityKindImageView:  true,
-		agent.ActivityKindOther:      true,
 	}
 	for _, kind := range agent.ActivityKinds() {
 		if got := phase0AllowsActivity(kind); got != allowed[kind] {
@@ -196,6 +195,11 @@ func TestPhase0EventSinkRejectsExternalActivityKinds(t *testing.T) {
 		Activity: &agent.ActivityEvent{Kind: agent.ActivityKindMCPTool},
 	}); err == nil {
 		t.Fatal("MCP activity was accepted")
+	}
+	if err := sink.HandleAgentEvent(agent.Event{
+		Activity: &agent.ActivityEvent{Kind: agent.ActivityKindOther},
+	}); err == nil {
+		t.Fatal("untyped provider activity was accepted")
 	}
 	workspace := "/workspace"
 	if err := sink.HandleAgentEvent(agent.Event{

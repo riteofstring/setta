@@ -58,6 +58,8 @@ type phase0CodexRuntime struct {
 	runtime         *agent.Runtime
 	model           string
 	reasoningEffort string
+	threadConfig    map[string]json.RawMessage
+	toolPolicy      Phase0ToolPolicyEvidence
 }
 
 type phase0EventSink struct {
@@ -184,6 +186,127 @@ func (runtime *phase0CodexRuntime) verifyChatGPTAuthAndModel(ctx context.Context
 		return nil
 	}
 	return fmt.Errorf("Phase 0 model %s is unavailable", runtime.model)
+}
+
+func (runtime *phase0CodexRuntime) restrictExternalTools(ctx context.Context) error {
+	config, err := agent.ReadRestrictedThreadConfig(
+		ctx,
+		runtime.manager,
+		agent.RestrictedThreadConfigOptions{
+			ReasoningEffort: runtime.reasoningEffort,
+			ShellTools:      true,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("configure Phase 0 restricted thread: %w", err)
+	}
+	policy, err := phase0ToolPolicyFromConfig(config, runtime.reasoningEffort)
+	if err != nil {
+		return err
+	}
+	runtime.threadConfig = config
+	runtime.toolPolicy = policy
+	return nil
+}
+
+func phase0ToolPolicyFromConfig(
+	config map[string]json.RawMessage,
+	reasoningEffort string,
+) (Phase0ToolPolicyEvidence, error) {
+	if len(config) != 6 {
+		return Phase0ToolPolicyEvidence{}, errors.New("Phase 0 restricted thread has an unexpected config field set")
+	}
+	if err := validatePhase0FeaturePolicy(config["features"]); err != nil {
+		return Phase0ToolPolicyEvidence{}, err
+	}
+	if err := validatePhase0MCPPolicy(config["mcp_servers"]); err != nil {
+		return Phase0ToolPolicyEvidence{}, err
+	}
+	if err := validatePhase0OrchestratorPolicy(config["orchestrator"]); err != nil {
+		return Phase0ToolPolicyEvidence{}, err
+	}
+	var projectDocBytes int
+	if err := jsonio.DecodeSingle(strings.NewReader(string(config["project_doc_max_bytes"])), &projectDocBytes); err != nil || projectDocBytes != 0 {
+		return Phase0ToolPolicyEvidence{}, errors.New("Phase 0 restricted thread did not disable project documentation")
+	}
+	var webSearch string
+	if err := jsonio.DecodeSingle(strings.NewReader(string(config["web_search"])), &webSearch); err != nil || webSearch != "disabled" {
+		return Phase0ToolPolicyEvidence{}, errors.New("Phase 0 restricted thread did not disable web search")
+	}
+	var configuredEffort string
+	if err := jsonio.DecodeSingle(strings.NewReader(string(config["model_reasoning_effort"])), &configuredEffort); err != nil || configuredEffort != reasoningEffort {
+		return Phase0ToolPolicyEvidence{}, errors.New("Phase 0 restricted thread did not preserve reasoning effort")
+	}
+	return Phase0ToolPolicyEvidence{
+		AllowedActivityKinds:         phase0AllowedActivityKinds(),
+		DisabledFeatureNames:         agent.RestrictedThreadDisabledFeatureNames(true),
+		EnabledFeatureNames:          agent.RestrictedThreadEnabledFeatureNames(true),
+		DynamicToolsEmpty:            true,
+		EffectiveMCPServersDisabled:  true,
+		OrchestratorMCPDisabled:      true,
+		OrchestratorSkillsDisabled:   true,
+		ProjectDocumentationDisabled: true,
+		SelectedCapabilityRootsEmpty: true,
+		WebSearchDisabled:            true,
+	}, nil
+}
+
+func validatePhase0FeaturePolicy(raw json.RawMessage) error {
+	var features map[string]bool
+	if err := jsonio.DecodeSingle(strings.NewReader(string(raw)), &features); err != nil {
+		return fmt.Errorf("decode Phase 0 restricted features: %w", err)
+	}
+	enabled := agent.RestrictedThreadEnabledFeatureNames(true)
+	disabled := agent.RestrictedThreadDisabledFeatureNames(true)
+	if len(features) != len(enabled)+len(disabled) {
+		return errors.New("Phase 0 restricted thread has an unexpected feature set")
+	}
+	for _, feature := range enabled {
+		if !features[feature] {
+			return fmt.Errorf("Phase 0 restricted thread did not enable %s", feature)
+		}
+	}
+	for _, feature := range disabled {
+		if value, found := features[feature]; !found || value {
+			return fmt.Errorf("Phase 0 restricted thread did not disable %s", feature)
+		}
+	}
+	return nil
+}
+
+func validatePhase0MCPPolicy(raw json.RawMessage) error {
+	var servers map[string]map[string]bool
+	if err := jsonio.DecodeSingle(strings.NewReader(string(raw)), &servers); err != nil {
+		return fmt.Errorf("decode Phase 0 restricted MCP servers: %w", err)
+	}
+	if servers == nil {
+		return errors.New("Phase 0 restricted MCP server policy must be an object")
+	}
+	for name, server := range servers {
+		enabled, found := server["enabled"]
+		if len(server) != 1 || !found || enabled {
+			return fmt.Errorf("Phase 0 restricted thread did not disable MCP server %q", name)
+		}
+	}
+	return nil
+}
+
+func validatePhase0OrchestratorPolicy(raw json.RawMessage) error {
+	var orchestrator map[string]map[string]bool
+	if err := jsonio.DecodeSingle(strings.NewReader(string(raw)), &orchestrator); err != nil {
+		return fmt.Errorf("decode Phase 0 restricted orchestrator policy: %w", err)
+	}
+	if len(orchestrator) != 2 {
+		return errors.New("Phase 0 restricted thread did not disable orchestrator capabilities")
+	}
+	for _, name := range []string{"mcp", "skills"} {
+		capability, found := orchestrator[name]
+		enabled, enabledFound := capability["enabled"]
+		if !found || len(capability) != 1 || !enabledFound || enabled {
+			return fmt.Errorf("Phase 0 restricted thread did not disable orchestrator %s", name)
+		}
+	}
+	return nil
 }
 
 func (runtime *phase0CodexRuntime) waitForRemoteEnvironment(ctx context.Context) error {
@@ -508,15 +631,13 @@ func (runtime *phase0CodexRuntime) startThread(
 			RuntimeWorkspaceRoots: phase0LegacyWorkspaceRoots(),
 		},
 	}
-	effort, err := json.Marshal(runtime.reasoningEffort)
-	if err != nil {
-		return "", fmt.Errorf("encode Phase 0 reasoning effort: %w", err)
+	if runtime.threadConfig == nil {
+		return "", errors.New("Phase 0 restricted thread config is unavailable")
 	}
-	threadConfig := map[string]json.RawMessage{"model_reasoning_effort": effort}
 	raw, err := runtime.manager.Call(ctx, codexapp.CodexMethodThreadStart, codexapp.ThreadStartParams{
 		AllowProviderModelFallback: &allowFallback,
 		ApprovalPolicy:             &approval,
-		Config:                     &threadConfig,
+		Config:                     &runtime.threadConfig,
 		CWD:                        &cwd,
 		DeveloperInstructions:      phase0StringPointer(phase0DeveloperInstructions),
 		DynamicTools:               &dynamicTools,
@@ -581,8 +702,7 @@ func phase0AllowsActivity(kind agent.ActivityKind) bool {
 	switch kind {
 	case agent.ActivityKindCommand,
 		agent.ActivityKindFileChange,
-		agent.ActivityKindImageView,
-		agent.ActivityKindOther:
+		agent.ActivityKindImageView:
 		return true
 	case agent.ActivityKindMCPTool,
 		agent.ActivityKindDynamicTool,
@@ -594,6 +714,14 @@ func phase0AllowsActivity(kind agent.ActivityKind) bool {
 		return false
 	default:
 		return false
+	}
+}
+
+func phase0AllowedActivityKinds() []string {
+	return []string{
+		string(agent.ActivityKindCommand),
+		string(agent.ActivityKindFileChange),
+		string(agent.ActivityKindImageView),
 	}
 }
 

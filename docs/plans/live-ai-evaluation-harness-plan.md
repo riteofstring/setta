@@ -1,15 +1,14 @@
 # Live AI Evaluation Harness Plan
 
 **Date:** 2026-07-31
-**Status:** Phase 0 achieved a repaired schema-5 `PASS` on 2026-08-01 from
-clean source commit `609a1f8448bbf9bbb26ddec3186a9298670e974b`; the canonical
-report is recorded at `docs/reports/live-ai-eval-sandbox-phase0.md`. The proof
-binds the production-owned Agent model and effort, inventories the complete
-workspace tree and permission modes, rejects external tool activity, and
-records complete teardown. Both benign tasks passed on their first attempt.
-Phase 1 through Phase 3 repository implementation and their prior audits remain
-complete; the current Phase 0 audit repair is ready for static completion
-review. The current instruction does not authorize automated tests, broad
+**Status:** The reopened completion audit superseded Phase 0's schema-5 `PASS`.
+The schema-6 source repair now disables effective MCP servers and external
+Codex features before either model turn, rejects untyped provider activity,
+and proves the exact hardened `/tmp` mount options. The stale report and plan
+resolution are removed; the same narrowly bounded benign Phase 0 probe must run
+from the clean repair commit before a current `PASS` can be recorded. Phase 1
+through Phase 3 repository implementation and their prior audits remain
+complete. The current instruction does not authorize automated tests, broad
 verification gates, or Phase 1 live harness execution.
 
 ## Outcome
@@ -756,9 +755,9 @@ bounded WebSocket connection, and attaches only to the fixed per-run Agent
 container through Docker-managed stdin/stdout. Both Agent images now run
 Codex's supported `exec-server --listen stdio` transport with Docker-managed
 stdin kept open. Docker inspection rejects an exposed port, host binding, or
-network port mapping, and current Phase 0 evidence schema 5 records the actual
-transport, stdio attachment, absent publication, relay teardown, boundary
-environment observations, strict remote shell policy, and exact bundled
+network port mapping, and the then-current Phase 0 evidence schema 5 recorded
+the actual transport, stdio attachment, absent publication, relay teardown,
+boundary environment observations, strict remote shell policy, and exact bundled
 bubblewrap input used by Codex's Linux filesystem sandbox. Phase 1 requires
 the committed relay and sandbox-input digests from the Phase 0 proof before it
 can build its Agent image.
@@ -1011,7 +1010,7 @@ The shared correction copies the exact packaged `bwrap` into Codex's supported
 `/usr/local/bin/codex-resources/bwrap` location in both Phase 0 and Phase 1
 Agent images. Phase 0 first hashed that executable into evidence schema 3, and
 Phase 1 requires its input digest to match the committed proof before building.
-The current schema 5 retains that digest while replacing the superseded
+The then-current schema 5 retained that digest while replacing the superseded
 environment-evidence shape directly; no older-schema compatibility path
 remains. Rerun only the same benign Phase 0 probe from the amended clean repair.
 
@@ -1036,9 +1035,9 @@ pinned Codex implementation has nested command lifecycle machinery, this
 supported live turn established that requiring one particular top-level
 completed-command presentation is not a reliable boundary contract and is not
 needed for the plan's accepted composed proof. The correction removes the
-exact environment-helper prompt and ephemeral command collector. Evidence schema 5 now
-names each source honestly: Docker-inspected container variables,
-boundary-helper-observed variables, and the strict remote shell policy whose
+exact environment-helper prompt and ephemeral command collector. The
+then-current evidence schema 5 names each source honestly: Docker-inspected
+container variables, boundary-helper-observed variables, and the strict remote shell policy whose
 inheritance and set-variable names are generated from the same owner values as
 the app-server arguments. Typed environment readiness plus the unguessable
 container fixture read bind the actual Agent turn to that remote workspace;
@@ -1109,9 +1108,9 @@ leave their internal selection and presentation to the release Agent. The
 report records the attempt count, and terminal failure retains only bounded
 final text. This is an invariant-driven bounded repair, not a keyword heuristic,
 provider fallback, permission change, or unbounded retry. Because the same
-code-mode path does not guarantee top-level command activity items, schema 5
-also omits the superseded non-empty activity list from PASS evidence. If the
-provider does emit activity, the live sink fails immediately when its type is
+code-mode path does not guarantee top-level command activity items, the
+then-current schema 5 also omits the superseded non-empty activity list from
+PASS evidence. If the provider does emit activity, the live sink fails immediately when its type is
 outside remote command, remote image-view, file-change, or provider-bookkeeping
 activity, or when its reported working directory escapes `/workspace`; typed
 remote readiness plus the random read, exact mutation, and Docker/helper facts
@@ -1200,20 +1199,20 @@ the event sink checked working directories but did not reject typed MCP, web,
 hook, image-generation, dynamic-tool, sleep, or subagent activity prohibited by
 the probe.
 
-The current source replaces those contracts directly. It derives the default
-model and effort from `conversation.DefaultAgentRoleProfile`, records both in
-schema 5, and accepts a canonical report only for that release baseline. The
+The schema-5 repair replaced those contracts directly. It derived the default
+model and effort from `conversation.DefaultAgentRoleProfile`, recorded both in
+schema 5, and accepted a canonical report only for that release baseline. The
 helper inventories the workspace root, every directory, every regular file,
 permission modes, byte counts, and digests; it rejects links and special files,
 and the host requires the complete tree to differ only by the declared output.
-The sink preserves the release Agent tool surface but fails the probe on every
+The sink preserved the release Agent tool surface but failed the probe on every
 typed external activity kind. Codex's local `view_image` environment tool
 remains allowed because the pinned handler resolves it through the selected
 remote filesystem and sandbox just like the shell tools; it cannot select a
-host-local environment in this probe. The prior schema-4 report and resolution
-no longer establish the current proof. Commit this repair, rerun the same
-benign probe from that clean revision, and record a fresh schema-5 report and
-Phase 0 resolution before live execution can advance.
+host-local environment in this probe. At that point, the prior schema-4 report
+and resolution no longer established the current proof. Commit this repair,
+rerun the same benign probe from that clean revision, and at that point record a fresh schema-5
+report and Phase 0 resolution before live execution could advance.
 
 **Audit-repair probe evidence recorded 2026-08-01:** the first clean repair
 commit `eb7889ae4` reached the read-only Agent turn, then failed closed when the
@@ -1229,28 +1228,37 @@ container-confined tool while continuing to reject image generation and every
 other prohibited external activity. Rerun the same benign probe from the clean
 amended repair.
 
-### Phase 0 resolution
+### Phase 0 completion-audit repair
 
-**Outcome:** `PASS`
+Static inspection found that the schema-5 event policy was not a preventive
+tool boundary. Codex collaboration calls are intentionally normalized by
+Setta's provider adapter as `other` activity because they do not identify a
+durable child workstream, while the probe allowed every `other` item as benign
+provider bookkeeping. A delegation attempt could therefore evade the claimed
+activity rejection. More fundamentally, an event-sink rejection happens only
+after a tool call begins; retaining the release tool surface meant MCP, apps,
+plugins, hooks, web search, browser/computer use, image generation, and
+delegation were instruction-prohibited rather than disabled before action.
 
-The repaired benign probe ran from clean source commit
-`609a1f8448bbf9bbb26ddec3186a9298670e974b` with Codex 0.146.0 and the
-release-owned Agent baseline `gpt-5.6-sol`/high on the target Linux/ARM64 Docker
-daemon. The authenticated app-server remained host-owned, and the
-network-isolated Agent used the capability-authenticated loopback
-WebSocket-to-Docker-attach stdio relay with no published Agent port, credential
-mount, Docker socket, or host network route.
+The current schema-6 source repair reuses Setta's restricted-thread config
+owner. Before either probe thread starts, it reads the effective app-server
+configuration, disables every configured MCP server, disables the complete
+external feature set, disables web search, orchestrator MCP and skills, and
+project documentation, and passes empty dynamic tools and selected capability
+roots. Only the remote shell and unified-exec features are enabled; local image
+viewing remains accepted because it resolves through the selected remote
+environment. The event sink is now defense in depth and accepts only command,
+file-change, and image-view activity; all `other` activity fails closed, so a
+collaboration call cannot hide behind bookkeeping.
 
-The random container-only read completed without mutation on its first
-attempt. The independent workspace-write task also completed on its first
-attempt, and the entry-complete snapshot proved that the root, directories,
-pre-existing file contents, and permission modes remained unchanged while only
-the exact declared regular file was added. The schema-5 evidence records the
-derived release model and effort, exact proof-input digests, Docker and helper
-boundary facts, strict shell-environment policy, and typed remote readiness.
-The app-server, relay and attach client, container, volume, network, image tag,
-temporary canary, and build context were all removed. The canonical report
-contains no credential values.
+Schema 6 records that exact tool policy without recording configured MCP server
+names. It also closes an adjacent Docker-inspection omission: `/tmp` must retain
+the exact `rw`, `noexec`, `nosuid`, `nodev`, 64 MiB, and mode-1777 option set,
+not merely exist as some tmpfs. The prior schema-5 report and resolution no
+longer establish the current proof and have been removed. Commit this coupled
+repair, rerun only the same authorized benign Phase 0 probe from its clean
+source revision, and record a fresh schema-6 report and resolution before live
+execution can advance.
 
 The user's instruction to proceed with the implementation loop authorizes the
 same narrowly bounded benign Phase 0 probe already described by this plan. It

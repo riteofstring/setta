@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	phase0SchemaVersion       = 5
+	phase0SchemaVersion       = 6
 	phase0OutcomePass         = "PASS"
 	phase0EnvironmentID       = "remote"
 	phase0WorkspaceRoot       = "/workspace"
@@ -53,16 +53,17 @@ type Phase0SandboxProbeConfig struct {
 }
 
 type Phase0SandboxEvidence struct {
-	SchemaVersion int                    `json:"schemaVersion"`
-	Outcome       string                 `json:"outcome"`
-	ProbedAt      time.Time              `json:"probedAt"`
-	Topology      Phase0TopologyEvidence `json:"topology"`
-	Repository    Phase0RepoEvidence     `json:"repository"`
-	Docker        Phase0DockerEvidence   `json:"docker"`
-	Codex         Phase0CodexEvidence    `json:"codex"`
-	Boundary      Phase0BoundaryEvidence `json:"boundary"`
-	Turns         Phase0TurnEvidence     `json:"turns"`
-	Teardown      Phase0TeardownEvidence `json:"teardown"`
+	SchemaVersion int                      `json:"schemaVersion"`
+	Outcome       string                   `json:"outcome"`
+	ProbedAt      time.Time                `json:"probedAt"`
+	Topology      Phase0TopologyEvidence   `json:"topology"`
+	Repository    Phase0RepoEvidence       `json:"repository"`
+	Docker        Phase0DockerEvidence     `json:"docker"`
+	Codex         Phase0CodexEvidence      `json:"codex"`
+	Boundary      Phase0BoundaryEvidence   `json:"boundary"`
+	Tools         Phase0ToolPolicyEvidence `json:"tools"`
+	Turns         Phase0TurnEvidence       `json:"turns"`
+	Teardown      Phase0TeardownEvidence   `json:"teardown"`
 }
 
 type Phase0TopologyEvidence struct {
@@ -98,29 +99,43 @@ type Phase0CodexEvidence struct {
 }
 
 type Phase0BoundaryEvidence struct {
-	ContainerUser                  string   `json:"containerUser"`
-	ReadOnlyRootFilesystem         bool     `json:"readOnlyRootFilesystem"`
-	WorkspaceVolumeWritable        bool     `json:"workspaceVolumeWritable"`
-	WorkspaceDiskLimitBytes        int64    `json:"workspaceDiskLimitBytes"`
-	RootWriteDenied                bool     `json:"rootWriteDenied"`
-	HostCanaryVisible              bool     `json:"hostCanaryVisible"`
-	InternalNetwork                bool     `json:"internalNetwork"`
-	FakeHostEndpointBlocked        bool     `json:"fakeHostEndpointBlocked"`
-	ControlTransport               string   `json:"controlTransport"`
-	HostControlAddress             string   `json:"hostControlAddress"`
-	ContainerStdioAttached         bool     `json:"containerStdioAttached"`
-	HostPortPublicationAbsent      bool     `json:"hostPortPublicationAbsent"`
-	MountDestinations              []string `json:"mountDestinations"`
-	ContainerEnvironmentNames      []string `json:"containerEnvironmentNames"`
-	BoundaryHelperEnvironmentNames []string `json:"boundaryHelperEnvironmentNames"`
-	ShellEnvironmentPolicyInherit  string   `json:"shellEnvironmentPolicyInherit"`
-	ShellEnvironmentPolicySetNames []string `json:"shellEnvironmentPolicySetNames"`
-	DroppedCapabilities            []string `json:"droppedCapabilities"`
-	NoNewPrivileges                bool     `json:"noNewPrivileges"`
-	Privileged                     bool     `json:"privileged"`
-	PIDsLimit                      int64    `json:"pidsLimit"`
-	MemoryLimitBytes               int64    `json:"memoryLimitBytes"`
-	NanoCPUs                       int64    `json:"nanoCpus"`
+	ContainerUser                   string   `json:"containerUser"`
+	ReadOnlyRootFilesystem          bool     `json:"readOnlyRootFilesystem"`
+	WorkspaceVolumeWritable         bool     `json:"workspaceVolumeWritable"`
+	WorkspaceDiskLimitBytes         int64    `json:"workspaceDiskLimitBytes"`
+	TemporaryFilesystemMountOptions string   `json:"temporaryFilesystemMountOptions"`
+	RootWriteDenied                 bool     `json:"rootWriteDenied"`
+	HostCanaryVisible               bool     `json:"hostCanaryVisible"`
+	InternalNetwork                 bool     `json:"internalNetwork"`
+	FakeHostEndpointBlocked         bool     `json:"fakeHostEndpointBlocked"`
+	ControlTransport                string   `json:"controlTransport"`
+	HostControlAddress              string   `json:"hostControlAddress"`
+	ContainerStdioAttached          bool     `json:"containerStdioAttached"`
+	HostPortPublicationAbsent       bool     `json:"hostPortPublicationAbsent"`
+	MountDestinations               []string `json:"mountDestinations"`
+	ContainerEnvironmentNames       []string `json:"containerEnvironmentNames"`
+	BoundaryHelperEnvironmentNames  []string `json:"boundaryHelperEnvironmentNames"`
+	ShellEnvironmentPolicyInherit   string   `json:"shellEnvironmentPolicyInherit"`
+	ShellEnvironmentPolicySetNames  []string `json:"shellEnvironmentPolicySetNames"`
+	DroppedCapabilities             []string `json:"droppedCapabilities"`
+	NoNewPrivileges                 bool     `json:"noNewPrivileges"`
+	Privileged                      bool     `json:"privileged"`
+	PIDsLimit                       int64    `json:"pidsLimit"`
+	MemoryLimitBytes                int64    `json:"memoryLimitBytes"`
+	NanoCPUs                        int64    `json:"nanoCpus"`
+}
+
+type Phase0ToolPolicyEvidence struct {
+	AllowedActivityKinds         []string `json:"allowedActivityKinds"`
+	DisabledFeatureNames         []string `json:"disabledFeatureNames"`
+	EnabledFeatureNames          []string `json:"enabledFeatureNames"`
+	DynamicToolsEmpty            bool     `json:"dynamicToolsEmpty"`
+	EffectiveMCPServersDisabled  bool     `json:"effectiveMcpServersDisabled"`
+	OrchestratorMCPDisabled      bool     `json:"orchestratorMcpDisabled"`
+	OrchestratorSkillsDisabled   bool     `json:"orchestratorSkillsDisabled"`
+	ProjectDocumentationDisabled bool     `json:"projectDocumentationDisabled"`
+	SelectedCapabilityRootsEmpty bool     `json:"selectedCapabilityRootsEmpty"`
+	WebSearchDisabled            bool     `json:"webSearchDisabled"`
 }
 
 type Phase0TurnEvidence struct {
