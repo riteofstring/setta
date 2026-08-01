@@ -5,11 +5,13 @@
 0 and Phase 1 now share a host-owned, capability-authenticated loopback
 WebSocket relay to Docker-managed stdin/stdout and Codex's supported
 `exec-server --listen stdio` transport; the Agent publishes no host port and
-retains its internal network. The narrowly bounded benign Phase 0 probe must
-still pass before the Phase 0 exit or final audit can be claimed. The verified,
-version-matched Linux bundle is present locally, so the probe is the next
-repository-actionable step rather than an external release gate. Phase 2 and
-Phase 3 repository implementation and their prior audits remain complete.
+retains its internal network. The first repaired live probe passed the original
+container-start and control-port failure, then exposed two repository issues:
+its tool-environment preflight calls a local-only Codex API while the app-server
+is remote-only, and teardown reuses an unavailable run context. Replace those
+assumptions and rerun the benign probe before claiming the Phase 0 exit or final
+audit. Phase 2 and Phase 3 repository implementation and their prior audits
+remain complete.
 
 ## Outcome
 
@@ -798,6 +800,33 @@ found that manifest but then incorrectly recorded the bundle as absent and
 skipped the authorized probe. That claim was caught before the final audit and
 is not a release gate. Run the benign Phase 0 probe from the clean corrected
 revision and record its real outcome next.
+
+**Repaired live probe evidence recorded 2026-08-01:** the probe started the
+network-isolated Agent container and host app-server through the new relay,
+passing the original missing-port failure. It then stopped before either model
+turn with:
+
+```text
+inspect remote tool environment: command/exec failed: local environment is not configured
+```
+
+Codex source confirms that app-server `command/exec` is a local-environment API;
+it deliberately rejects this request when only the remote exec-server is
+configured. The Phase 0 preflight must prove the effective container/tool
+environment through supported remote-path evidence. It may combine deterministic
+Docker/helper inspection with evidence from an actual remote turn, but it must
+not configure host-local execution, treat a host command as remote evidence, or
+weaken the credential boundary.
+
+The same failed run also reported context-deadline errors while stopping the
+relay and removing the disposable container, volume, network, and image tag.
+The monitor removed those exact Phase 0 resources manually and confirmed no
+eval container, volume, network, image tag, attach process, or app-server
+process remained. Normal probe teardown must own a fresh, bounded cleanup
+context so primary failure, timeout, cancellation, or interruption cannot skip
+cleanup or obscure the primary diagnostic. Fix both issues as one Phase 0
+repair, apply the same relay lifecycle correction to Phase 1 where relevant,
+then rerun the authorized benign probe from a clean commit.
 
 The user's instruction to proceed with the implementation loop authorizes the
 same narrowly bounded benign Phase 0 probe already described by this plan. It
