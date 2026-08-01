@@ -1642,6 +1642,15 @@ validation carries the validated scenario definitions and independently
 reconstructs every control verdict from the typed events before publishing
 `results.json` and the User Control report.
 
+Production workstream, conversation, and turn identities remain bounded opaque
+values in evaluation evidence. They use the production Director reference
+limit and are not constrained by the smaller alphabet reserved for
+eval-authored result codes; in particular, derived workstream identities keep
+their production `workstream:` prefix. A hard token-ceiling cancellation also
+publishes the already-synced per-turn and per-role telemetry after reconciling
+it with the independent provider-boundary total, so efficiency evidence is not
+discarded merely because the runaway guard fired.
+
 Focused orchestration, control, transcript, classification, publication, and
 command selectors passed on 2026-07-31. Changed-file quality then passed for
 the two affected Go packages, including formatting, vet, package tests,

@@ -116,6 +116,33 @@ func TestClarificationWorkstreamMustRemainStable(t *testing.T) {
 	}
 }
 
+func TestEvaluationTriggerAcceptsProductionOpaqueIdentifiers(t *testing.T) {
+	conversationID := "conversation_4bc278f15657b65a37bce5f2d531ed3c"
+	workstreamID, err := director.WorkstreamIDForConversation(conversationID)
+	if err != nil {
+		t.Fatalf("derive production workstream id: %v", err)
+	}
+	turnID := "turn_0a8f2df7"
+	running := conversation.TurnStatusRunning
+	observation := EvaluationTriggerObservation{
+		StepIndex:          1,
+		Trigger:            ScenarioTriggerAgentTurnRunning,
+		WorkstreamID:       &workstreamID,
+		ConversationID:     &conversationID,
+		ObservedTurnID:     &turnID,
+		ObservedTurnStatus: &running,
+		QueueTurnIDs:       []string{},
+	}
+	if err := observation.Validate(); err != nil {
+		t.Fatalf("validate production opaque ids: %v", err)
+	}
+	invalid := " " + workstreamID
+	observation.WorkstreamID = &invalid
+	if err := observation.Validate(); err == nil {
+		t.Fatal("trigger accepted a runtime id with surrounding whitespace")
+	}
+}
+
 func TestBoundedResultDiagnosticPreservesUTF8(t *testing.T) {
 	value := string([]byte{0xff}) + strings.Repeat("a", ResultMaximumDiagnosticBytes-2) + "🙂"
 	bounded := boundedResultDiagnostic(value)

@@ -566,12 +566,12 @@ func (observation EvaluationTriggerObservation) Validate() error {
 	}
 	for _, identity := range identities {
 		if identity.value != nil {
-			if err := validateResultIdentifier(identity.label, *identity.value); err != nil {
+			if err := validateEvaluationRuntimeIdentifier(identity.label, *identity.value); err != nil {
 				return err
 			}
 		}
 	}
-	if err := validateUniqueControlIdentifiers("trigger queue turn", observation.QueueTurnIDs); err != nil {
+	if err := validateUniqueEvaluationRuntimeIdentifiers("trigger queue turn", observation.QueueTurnIDs); err != nil {
 		return err
 	}
 	return validateTriggerObservationShape(observation)
@@ -621,10 +621,10 @@ func activeTriggerIdentityMissing(observation EvaluationTriggerObservation) bool
 }
 
 func (state EvaluationConversationState) Validate() error {
-	if err := validateResultIdentifier("conversation state workstream id", state.WorkstreamID); err != nil {
+	if err := validateEvaluationRuntimeIdentifier("conversation state workstream id", state.WorkstreamID); err != nil {
 		return err
 	}
-	if err := validateResultIdentifier("conversation state conversation id", state.ConversationID); err != nil {
+	if err := validateEvaluationRuntimeIdentifier("conversation state conversation id", state.ConversationID); err != nil {
 		return err
 	}
 	if err := validateConversationStateBounds(state); err != nil {
@@ -634,7 +634,7 @@ func (state EvaluationConversationState) Validate() error {
 	if err != nil {
 		return err
 	}
-	if err := validateUniqueControlIdentifiers("conversation state queue turn", state.QueueTurnIDs); err != nil {
+	if err := validateUniqueEvaluationRuntimeIdentifiers("conversation state queue turn", state.QueueTurnIDs); err != nil {
 		return err
 	}
 	return validateConversationStateQueue(state.QueueTurnIDs, turns)
@@ -680,7 +680,7 @@ func validateConversationStateQueue(
 }
 
 func (state EvaluationConversationTurnState) Validate() error {
-	if err := validateResultIdentifier("conversation state turn id", state.TurnID); err != nil {
+	if err := validateEvaluationRuntimeIdentifier("conversation state turn id", state.TurnID); err != nil {
 		return err
 	}
 	if err := state.AuthoredInput.Validate(); err != nil {
@@ -703,16 +703,34 @@ func (state EvaluationConversationTurnState) Validate() error {
 	}
 }
 
-func validateUniqueControlIdentifiers(label string, values []string) error {
+func validateUniqueEvaluationRuntimeIdentifiers(label string, values []string) error {
 	seen := make(map[string]bool, len(values))
 	for _, value := range values {
-		if err := validateResultIdentifier(label, value); err != nil {
+		if err := validateEvaluationRuntimeIdentifier(label, value); err != nil {
 			return err
 		}
 		if seen[value] {
 			return fmt.Errorf("%s %s is repeated", label, value)
 		}
 		seen[value] = true
+	}
+	return nil
+}
+
+func validateEvaluationRuntimeIdentifier(label string, value string) error {
+	if value == "" {
+		return fmt.Errorf("%s is required", label)
+	}
+	if strings.TrimSpace(value) != value {
+		return fmt.Errorf("%s must not have surrounding whitespace", label)
+	}
+	if len(value) > director.MaxDecisionReferenceBytes {
+		return fmt.Errorf(
+			"%s is %d bytes, maximum is %d",
+			label,
+			len(value),
+			director.MaxDecisionReferenceBytes,
+		)
 	}
 	return nil
 }

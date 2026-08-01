@@ -179,7 +179,15 @@ func phase1StateAfterProviderEvidence(
 		)
 	}
 	if budgetFailure := provider.tokenBudgetFailure(); budgetFailure != nil {
-		return phase1TokenBudgetFailureState(budgetFailure, observation.Roles)
+		return phase1TokenBudgetFailureState(
+			budgetFailure,
+			observation.Roles,
+			scenarioID,
+			attempt,
+			observations,
+			tokenEvidenceErr,
+			provider.tokenBudget.snapshot(),
+		)
 	}
 	if providerFailure := provider.providerFailure(); providerFailure != nil {
 		return phase1InfrastructureFailure(
@@ -273,6 +281,11 @@ func phase1CompletedTokenState(
 func phase1TokenBudgetFailureState(
 	failure *phase1TokenBudgetFailure,
 	roles []EvaluatedRoleConfiguration,
+	scenarioID string,
+	attempt int,
+	observations []agent.TokenUsageObservation,
+	tokenEvidenceErr error,
+	budget phase1TokenBudgetSnapshot,
 ) phase1RunState {
 	if failure == nil || failure.kind != phase1TokenBudgetExceeded {
 		return phase1InfrastructureFailure("token_budget_evidence_failed", failure, roles)
@@ -284,11 +297,33 @@ func phase1TokenBudgetFailureState(
 	if err != nil {
 		panic(fmt.Sprintf("invalid Phase 1 token-budget diagnostic: %v", err))
 	}
-	return phase1RunState{
+	state := phase1RunState{
 		outcome:    ScenarioExecutionTimedOut,
 		roles:      cloneEvaluatedRoleConfigurations(roles),
 		diagnostic: diagnostic,
 	}
+	if tokenEvidenceErr != nil {
+		return phase1InfrastructureFailure("token_budget_evidence_failed", tokenEvidenceErr, roles)
+	}
+	tokenUsage, err := AggregateScenarioTokenUsage(scenarioID, attempt, observations)
+	if err == nil {
+		err = validatePhase1TokenAccounting(budget, tokenUsage)
+	}
+	if err != nil {
+		return phase1InfrastructureFailure("token_budget_evidence_failed", err, roles)
+	}
+	state.tokenUsage = &tokenUsage
+	state.events, err = appendTokenUsageEvents(
+		nil,
+		scenarioID,
+		attempt,
+		observations,
+		time.Now().UTC(),
+	)
+	if err != nil {
+		return phase1InfrastructureFailure("event_artifact_failed", err, roles)
+	}
+	return state
 }
 
 func phase1StateFromObservation(observation Phase1HTTPObservation) phase1RunState {

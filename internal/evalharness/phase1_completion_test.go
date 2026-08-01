@@ -124,6 +124,53 @@ func TestPhase1ProviderForwardingPreservesMessagesAndEnforcesBudget(t *testing.T
 	}
 }
 
+func TestPhase1TokenBudgetFailureRetainsRoleEvidence(t *testing.T) {
+	directorUsage := testTokenObservation(
+		testTokenAttribution(
+			agent.TokenUsageBucketSystem,
+			agent.TokenUsageRoleDirector,
+			"director-invocation",
+			"gpt-director",
+		),
+		"director-thread",
+		"director-turn",
+		30,
+		20,
+		10,
+	)
+	agentUsage := testTokenObservation(
+		testTokenAttribution(
+			agent.TokenUsageBucketSystem,
+			agent.TokenUsageRoleAgent,
+			"agent-invocation",
+			"gpt-agent",
+		),
+		"agent-thread",
+		"agent-turn",
+		71,
+		60,
+		11,
+	)
+	state := phase1TokenBudgetFailureState(
+		&phase1TokenBudgetFailure{kind: phase1TokenBudgetExceeded, limit: 100, total: 101},
+		nil,
+		ScenarioVerifierStraightforward,
+		EvaluationAttemptFirst,
+		[]agent.TokenUsageObservation{directorUsage, agentUsage},
+		nil,
+		phase1TokenBudgetSnapshot{
+			totals: map[string]int64{"director-thread": 30, "agent-thread": 71},
+			total:  101,
+			seen:   true,
+		},
+	)
+	if state.outcome != ScenarioExecutionTimedOut || state.tokenUsage == nil ||
+		state.tokenUsage.System.Total.TotalTokens != 101 ||
+		len(state.tokenUsage.System.Roles) != 2 || len(state.events) != 2 {
+		t.Fatalf("budget failure state = %#v", state)
+	}
+}
+
 func TestPublishPhase1EvaluationExercisesExitClassifications(t *testing.T) {
 	startedAt := time.Date(2026, time.July, 31, 22, 0, 0, 0, time.UTC)
 	passingVerifier := evalverifier.NewResult(
