@@ -12,7 +12,7 @@
     "build": "node scripts/build.mjs",
     "format": "node scripts/format.mjs --check",
     "format:write": "node scripts/format.mjs",
-    "quality": "pnpm run build && pnpm test",
+    "quality": "pnpm run format && pnpm run build && pnpm test",
     "start": "node src/server.ts",
     "test": "node --test test/server.test.ts"
   }

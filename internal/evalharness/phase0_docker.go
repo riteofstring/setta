@@ -8,6 +8,8 @@ import (
 	"net"
 	"strconv"
 	"strings"
+
+	"setta/internal/jsonio"
 )
 
 type phase0DockerClient struct {
@@ -80,6 +82,11 @@ type phase0DockerContainer struct {
 
 type phase0DockerNetwork struct {
 	Internal bool `json:"Internal"`
+}
+
+type phase0DockerVolume struct {
+	Driver  string            `json:"Driver"`
+	Options map[string]string `json:"Options"`
 }
 
 type phase0HelperEnvironment struct {
@@ -172,6 +179,9 @@ func (resources *phase0DockerResources) buildImage(
 	ctx context.Context,
 	build phase0PreparedBuild,
 ) (string, error) {
+	// Mark the deterministic tag before invoking Docker so cleanup still tries
+	// to remove it if the CLI is interrupted after the daemon creates it.
+	resources.imageBuilt = true
 	if _, err := resources.client.run(
 		ctx,
 		"build",
@@ -187,7 +197,6 @@ func (resources *phase0DockerResources) buildImage(
 	); err != nil {
 		return "", fmt.Errorf("build Phase 0 sandbox image: %w", err)
 	}
-	resources.imageBuilt = true
 	result, err := resources.client.run(ctx, "image", "inspect", resources.imageTag)
 	if err != nil {
 		return "", fmt.Errorf("inspect Phase 0 sandbox image: %w", err)
@@ -212,6 +221,7 @@ func (resources *phase0DockerResources) buildImage(
 func (resources *phase0DockerResources) start(
 	ctx context.Context,
 ) (Phase0BoundaryEvidence, error) {
+	resources.networkCreated = true
 	if _, err := resources.client.run(
 		ctx,
 		"network",
@@ -225,22 +235,30 @@ func (resources *phase0DockerResources) start(
 	); err != nil {
 		return Phase0BoundaryEvidence{}, fmt.Errorf("create Phase 0 network: %w", err)
 	}
-	resources.networkCreated = true
+	resources.volumeCreated = true
 	if _, err := resources.client.run(
 		ctx,
 		"volume",
 		"create",
+		"--driver",
+		"local",
+		"--opt",
+		"type=tmpfs",
+		"--opt",
+		"device=tmpfs",
+		"--opt",
+		"o="+phase0WorkspaceVolumeMountOptions(),
 		"--label",
 		"com.setta.eval.phase0="+resources.suffix,
 		resources.volumeName,
 	); err != nil {
 		return Phase0BoundaryEvidence{}, fmt.Errorf("create Phase 0 workspace volume: %w", err)
 	}
-	resources.volumeCreated = true
 	tmpfs := fmt.Sprintf(
 		"/tmp:rw,noexec,nosuid,nodev,size=%d,mode=1777",
 		phase0ContainerTmpfsBytes,
 	)
+	resources.containerCreated = true
 	if _, err := resources.client.run(
 		ctx,
 		"run",
@@ -286,8 +304,16 @@ func (resources *phase0DockerResources) start(
 	); err != nil {
 		return Phase0BoundaryEvidence{}, fmt.Errorf("start Phase 0 exec-server container: %w", err)
 	}
-	resources.containerCreated = true
 	return resources.inspectBoundary(ctx)
+}
+
+func phase0WorkspaceVolumeMountOptions() string {
+	return fmt.Sprintf(
+		"size=%d,uid=%d,gid=%d,mode=0755",
+		phase0WorkspaceDiskBytes,
+		phase0ContainerUID,
+		phase0ContainerGID,
+	)
 }
 
 func (resources *phase0DockerResources) inspectBoundary(
@@ -319,6 +345,9 @@ func (resources *phase0DockerResources) inspectBoundary(
 	if len(networks) != 1 || !networks[0].Internal {
 		return Phase0BoundaryEvidence{}, errors.New("Phase 0 Docker network is not internal")
 	}
+	if err := resources.validateWorkspaceVolume(ctx); err != nil {
+		return Phase0BoundaryEvidence{}, err
+	}
 	address, err := resources.publishedAddress(ctx)
 	if err != nil {
 		return Phase0BoundaryEvidence{}, err
@@ -327,6 +356,7 @@ func (resources *phase0DockerResources) inspectBoundary(
 	return Phase0BoundaryEvidence{
 		ContainerUser:             container.Config.User,
 		ReadOnlyRootFilesystem:    container.HostConfig.ReadonlyRootfs,
+		WorkspaceDiskLimitBytes:   phase0WorkspaceDiskBytes,
 		InternalNetwork:           networks[0].Internal,
 		PublishedControlAddress:   address,
 		MountDestinations:         phase0MountDestinations(container),
@@ -338,6 +368,37 @@ func (resources *phase0DockerResources) inspectBoundary(
 		MemoryLimitBytes:          container.HostConfig.Memory,
 		NanoCPUs:                  container.HostConfig.NanoCPUs,
 	}, nil
+}
+
+func (resources *phase0DockerResources) validateWorkspaceVolume(ctx context.Context) error {
+	result, err := resources.client.run(ctx, "volume", "inspect", resources.volumeName)
+	if err != nil {
+		return fmt.Errorf("inspect Phase 0 bounded workspace volume: %w", err)
+	}
+	var volumes []phase0DockerVolume
+	if err := json.Unmarshal([]byte(result.stdout), &volumes); err != nil {
+		return fmt.Errorf("decode Phase 0 bounded workspace volume: %w", err)
+	}
+	wantOptions := map[string]string{
+		"type":   "tmpfs",
+		"device": "tmpfs",
+		"o":      phase0WorkspaceVolumeMountOptions(),
+	}
+	if len(volumes) != 1 || volumes[0].Driver != "local" ||
+		len(volumes[0].Options) != len(wantOptions) {
+		return errors.New("Phase 0 workspace volume did not retain its local tmpfs disk ceiling")
+	}
+	for name, value := range wantOptions {
+		if volumes[0].Options[name] != value {
+			return fmt.Errorf(
+				"Phase 0 workspace volume option %s is %q, want %q",
+				name,
+				volumes[0].Options[name],
+				value,
+			)
+		}
+	}
+	return nil
 }
 
 func validatePhase0Container(container phase0DockerContainer, networkName string) error {
@@ -439,7 +500,7 @@ func (resources *phase0DockerResources) runBoundaryHelper(
 		return phase0HelperBoundary{}, fmt.Errorf("run Phase 0 boundary helper: %w", err)
 	}
 	var evidence phase0HelperBoundary
-	if err := json.Unmarshal([]byte(result.stdout), &evidence); err != nil {
+	if err := jsonio.DecodeSingle(strings.NewReader(result.stdout), &evidence); err != nil {
 		return phase0HelperBoundary{}, fmt.Errorf("decode Phase 0 boundary helper: %w", err)
 	}
 	if evidence.Environment.UID != phase0ContainerUID || evidence.Environment.GID != phase0ContainerGID {
@@ -477,7 +538,7 @@ func (resources *phase0DockerResources) verifyOutput(
 		return phase0HelperFile{}, fmt.Errorf("verify Phase 0 model output: %w", err)
 	}
 	var evidence phase0HelperFile
-	if err := json.Unmarshal([]byte(result.stdout), &evidence); err != nil {
+	if err := jsonio.DecodeSingle(strings.NewReader(result.stdout), &evidence); err != nil {
 		return phase0HelperFile{}, fmt.Errorf("decode Phase 0 model output: %w", err)
 	}
 	return evidence, nil
@@ -491,7 +552,7 @@ func (resources *phase0DockerResources) workspaceSnapshot(
 		return phase0HelperWorkspace{}, fmt.Errorf("snapshot Phase 0 workspace: %w", err)
 	}
 	var evidence phase0HelperWorkspace
-	if err := json.Unmarshal([]byte(result.stdout), &evidence); err != nil {
+	if err := jsonio.DecodeSingle(strings.NewReader(result.stdout), &evidence); err != nil {
 		return phase0HelperWorkspace{}, fmt.Errorf("decode Phase 0 workspace snapshot: %w", err)
 	}
 	return evidence, nil
@@ -516,42 +577,95 @@ func (resources *phase0DockerResources) cleanup(
 	evidence := Phase0TeardownEvidence{}
 	var cleanupErrors []error
 	if resources.containerCreated {
-		_, err := resources.client.run(ctx, "container", "rm", "--force", resources.containerName)
+		_, removeErr := resources.client.run(ctx, "container", "rm", "--force", resources.containerName)
+		removed, err := resolvePhase0DockerRemoval(
+			ctx,
+			"container",
+			resources.containerName,
+			removeErr,
+			resources.client.containerExists,
+		)
 		if err != nil {
-			cleanupErrors = append(cleanupErrors, fmt.Errorf("remove Phase 0 container: %w", err))
+			cleanupErrors = append(cleanupErrors, err)
 		} else {
-			evidence.ContainerRemoved = true
-			resources.containerCreated = false
+			evidence.ContainerRemoved = removed
+			resources.containerCreated = !removed
 		}
 	}
 	if resources.volumeCreated {
-		_, err := resources.client.run(ctx, "volume", "rm", resources.volumeName)
+		_, removeErr := resources.client.run(ctx, "volume", "rm", resources.volumeName)
+		removed, err := resolvePhase0DockerRemoval(
+			ctx,
+			"volume",
+			resources.volumeName,
+			removeErr,
+			resources.client.volumeExists,
+		)
 		if err != nil {
-			cleanupErrors = append(cleanupErrors, fmt.Errorf("remove Phase 0 volume: %w", err))
+			cleanupErrors = append(cleanupErrors, err)
 		} else {
-			evidence.VolumeRemoved = true
-			resources.volumeCreated = false
+			evidence.VolumeRemoved = removed
+			resources.volumeCreated = !removed
 		}
 	}
 	if resources.networkCreated {
-		_, err := resources.client.run(ctx, "network", "rm", resources.networkName)
+		_, removeErr := resources.client.run(ctx, "network", "rm", resources.networkName)
+		removed, err := resolvePhase0DockerRemoval(
+			ctx,
+			"network",
+			resources.networkName,
+			removeErr,
+			resources.client.networkExists,
+		)
 		if err != nil {
-			cleanupErrors = append(cleanupErrors, fmt.Errorf("remove Phase 0 network: %w", err))
+			cleanupErrors = append(cleanupErrors, err)
 		} else {
-			evidence.NetworkRemoved = true
-			resources.networkCreated = false
+			evidence.NetworkRemoved = removed
+			resources.networkCreated = !removed
 		}
 	}
 	if resources.imageBuilt {
-		_, err := resources.client.run(ctx, "image", "rm", resources.imageTag)
+		_, removeErr := resources.client.run(ctx, "image", "rm", resources.imageTag)
+		removed, err := resolvePhase0DockerRemoval(
+			ctx,
+			"image tag",
+			resources.imageTag,
+			removeErr,
+			resources.client.imageTagExists,
+		)
 		if err != nil {
-			cleanupErrors = append(cleanupErrors, fmt.Errorf("remove Phase 0 image tag: %w", err))
+			cleanupErrors = append(cleanupErrors, err)
 		} else {
-			evidence.ImageTagRemoved = true
-			resources.imageBuilt = false
+			evidence.ImageTagRemoved = removed
+			resources.imageBuilt = !removed
 		}
 	}
 	return evidence, errors.Join(cleanupErrors...)
+}
+
+type phase0DockerExistenceCheck func(context.Context, string) (bool, error)
+
+func resolvePhase0DockerRemoval(
+	ctx context.Context,
+	label string,
+	name string,
+	removeErr error,
+	exists phase0DockerExistenceCheck,
+) (bool, error) {
+	if removeErr == nil {
+		return true, nil
+	}
+	remaining, inspectErr := exists(ctx, name)
+	if inspectErr != nil {
+		return false, errors.Join(
+			fmt.Errorf("remove Phase 0 Docker %s %s: %w", label, name, removeErr),
+			fmt.Errorf("confirm Phase 0 Docker %s removal: %w", label, inspectErr),
+		)
+	}
+	if remaining {
+		return false, fmt.Errorf("remove Phase 0 Docker %s %s: %w", label, name, removeErr)
+	}
+	return true, nil
 }
 
 func (client phase0DockerClient) run(
@@ -559,6 +673,55 @@ func (client phase0DockerClient) run(
 	args ...string,
 ) (phase0CommandResult, error) {
 	return runPhase0Command(ctx, client.repoRoot, nil, client.command, args...)
+}
+
+func (client phase0DockerClient) containerExists(ctx context.Context, name string) (bool, error) {
+	return client.namedResourceExists(
+		ctx,
+		name,
+		"container", "ls", "--all", "--filter", "name="+name, "--format", "{{.Names}}",
+	)
+}
+
+func (client phase0DockerClient) volumeExists(ctx context.Context, name string) (bool, error) {
+	return client.namedResourceExists(
+		ctx,
+		name,
+		"volume", "ls", "--filter", "name="+name, "--format", "{{.Name}}",
+	)
+}
+
+func (client phase0DockerClient) networkExists(ctx context.Context, name string) (bool, error) {
+	return client.namedResourceExists(
+		ctx,
+		name,
+		"network", "ls", "--filter", "name="+name, "--format", "{{.Name}}",
+	)
+}
+
+func (client phase0DockerClient) imageTagExists(ctx context.Context, name string) (bool, error) {
+	return client.namedResourceExists(
+		ctx,
+		name,
+		"image", "ls", "--filter", "reference="+name, "--format", "{{.Repository}}:{{.Tag}}",
+	)
+}
+
+func (client phase0DockerClient) namedResourceExists(
+	ctx context.Context,
+	name string,
+	args ...string,
+) (bool, error) {
+	result, err := client.run(ctx, args...)
+	if err != nil {
+		return false, err
+	}
+	for _, candidate := range strings.Split(result.stdout, "\n") {
+		if strings.TrimSpace(candidate) == name {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func environmentNames(entries []string) []string {

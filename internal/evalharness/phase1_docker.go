@@ -1,13 +1,13 @@
 package evalharness
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
-	"os"
-	"path/filepath"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -21,24 +21,26 @@ import (
 )
 
 const (
-	phase1WorkspaceRoot       = "/workspace"
-	phase1BaselineRoot        = "/baseline"
-	phase1VerificationRoot    = "/verification"
-	phase1AppDataRoot         = "/app-data"
-	phase1ExecServerPort      = "4500"
-	phase1BackendPort         = "4310"
-	phase1ContainerTmpfsBytes = 128 * 1024 * 1024
-	phase1WorkspaceDiskBytes  = 64 * 1024 * 1024
-	phase1AgentMemoryBytes    = 4 * 1024 * 1024 * 1024
-	phase1BackendMemoryBytes  = 2 * 1024 * 1024 * 1024
-	phase1VerifierMemoryBytes = 2 * 1024 * 1024 * 1024
-	phase1VolumeHolderMemory  = 32 * 1024 * 1024
-	phase1AgentPIDs           = 256
-	phase1BackendPIDs         = 256
-	phase1VerifierPIDs        = 256
-	phase1VolumeHolderPIDs    = 8
-	phase1BackendReadyTimeout = 30 * time.Second
-	phase1ContainerStopTime   = 15
+	phase1WorkspaceRoot         = "/workspace"
+	phase1BaselineRoot          = "/baseline"
+	phase1VerificationRoot      = "/verification"
+	phase1AppDataRoot           = "/app-data"
+	phase1ExecServerPort        = "4500"
+	phase1BackendPort           = "4310"
+	phase1ContainerTmpfsBytes   = 128 * 1024 * 1024
+	phase1WorkspaceDiskBytes    = 64 * 1024 * 1024
+	phase1VerificationDiskBytes = 64 * 1024 * 1024
+	phase1AgentMemoryBytes      = 4 * 1024 * 1024 * 1024
+	phase1BackendMemoryBytes    = 2 * 1024 * 1024 * 1024
+	phase1VerifierMemoryBytes   = 2 * 1024 * 1024 * 1024
+	phase1VolumeHolderMemory    = 32 * 1024 * 1024
+	phase1AgentPIDs             = 256
+	phase1BackendPIDs           = 256
+	phase1VerifierPIDs          = 256
+	phase1VolumeHolderPIDs      = 8
+	phase1BackendReadyTimeout   = 30 * time.Second
+	phase1BackendLogLineBytes   = 64 * 1024
+	phase1ContainerStopTime     = 15
 )
 
 type phase1DockerResources struct {
@@ -55,6 +57,7 @@ type phase1DockerResources struct {
 	verificationVolume string
 	workspaceVolume    string
 	volumeHolder       string
+	verificationHolder string
 	agentContainer     string
 	backendContainer   string
 	copyContainer      string
@@ -85,6 +88,7 @@ func newPhase1DockerResources(
 		verificationVolume: base + "-verification",
 		workspaceVolume:    base + "-workspace",
 		volumeHolder:       base + "-workspace-holder",
+		verificationHolder: base + "-verification-holder",
 		agentContainer:     base + "-agent",
 		backendContainer:   base + "-backend",
 		copyContainer:      base + "-copy",
@@ -147,53 +151,70 @@ func (resources *phase1DockerResources) createIsolationResources(ctx context.Con
 			args = append(args, "--internal")
 		}
 		args = append(args, network.name)
+		resources.networks[network.name] = true
 		if _, err := resources.client.run(ctx, args...); err != nil {
 			return fmt.Errorf("create Phase 1 Docker network %s: %w", network.name, err)
 		}
-		resources.networks[network.name] = true
 	}
 	for _, volume := range []struct {
-		name        string
-		diskBounded bool
+		name      string
+		diskBytes int64
 	}{
 		{name: resources.appDataVolume},
 		{name: resources.baselineVolume},
-		{name: resources.verificationVolume},
-		{name: resources.workspaceVolume, diskBounded: true},
+		{name: resources.verificationVolume, diskBytes: phase1VerificationDiskBytes},
+		{name: resources.workspaceVolume, diskBytes: phase1WorkspaceDiskBytes},
 	} {
 		args := []string{
 			"volume", "create",
 			"--label", "com.setta.eval.phase=1",
 			"--label", "com.setta.eval.run=" + resources.suffix,
 		}
-		if volume.diskBounded {
-			args = append(args, phase1WorkspaceVolumeDriverOptions()...)
+		if volume.diskBytes > 0 {
+			args = append(args, phase1BoundedVolumeDriverOptions(volume.diskBytes)...)
 		}
 		args = append(args, volume.name)
+		resources.volumes[volume.name] = true
 		if _, err := resources.client.run(ctx, args...); err != nil {
 			return fmt.Errorf("create Phase 1 Docker volume %s: %w", volume.name, err)
 		}
-		resources.volumes[volume.name] = true
 	}
-	if err := resources.validateWorkspaceVolume(ctx); err != nil {
+	if err := resources.validateBoundedVolume(
+		ctx,
+		resources.workspaceVolume,
+		"workspace",
+		phase1WorkspaceDiskBytes,
+	); err != nil {
 		return err
 	}
-	return resources.startWorkspaceVolumeHolder(ctx)
+	if err := resources.validateBoundedVolume(
+		ctx,
+		resources.verificationVolume,
+		"verification",
+		phase1VerificationDiskBytes,
+	); err != nil {
+		return err
+	}
+	return resources.startBoundedVolumeHolders(ctx)
 }
 
 func phase1WorkspaceVolumeDriverOptions() []string {
+	return phase1BoundedVolumeDriverOptions(phase1WorkspaceDiskBytes)
+}
+
+func phase1BoundedVolumeDriverOptions(diskBytes int64) []string {
 	return []string{
 		"--driver", "local",
 		"--opt", "type=tmpfs",
 		"--opt", "device=tmpfs",
-		"--opt", "o=" + phase1WorkspaceVolumeMountOptions(),
+		"--opt", "o=" + phase1BoundedVolumeMountOptions(diskBytes),
 	}
 }
 
-func phase1WorkspaceVolumeMountOptions() string {
+func phase1BoundedVolumeMountOptions(diskBytes int64) string {
 	return fmt.Sprintf(
 		"size=%d,uid=%d,gid=%d,mode=0755",
-		phase1WorkspaceDiskBytes,
+		diskBytes,
 		phase1ContainerUID,
 		phase1ContainerGID,
 	)
@@ -204,28 +225,34 @@ type phase1DockerVolume struct {
 	Options map[string]string `json:"Options"`
 }
 
-func (resources *phase1DockerResources) validateWorkspaceVolume(ctx context.Context) error {
-	result, err := resources.client.run(ctx, "volume", "inspect", resources.workspaceVolume)
+func (resources *phase1DockerResources) validateBoundedVolume(
+	ctx context.Context,
+	volume string,
+	label string,
+	diskBytes int64,
+) error {
+	result, err := resources.client.run(ctx, "volume", "inspect", volume)
 	if err != nil {
-		return fmt.Errorf("inspect Phase 1 bounded workspace volume: %w", err)
+		return fmt.Errorf("inspect Phase 1 bounded %s volume: %w", label, err)
 	}
 	var volumes []phase1DockerVolume
 	if err := json.Unmarshal([]byte(result.stdout), &volumes); err != nil {
-		return fmt.Errorf("decode Phase 1 bounded workspace volume: %w", err)
+		return fmt.Errorf("decode Phase 1 bounded %s volume: %w", label, err)
 	}
 	wantOptions := map[string]string{
 		"type":   "tmpfs",
 		"device": "tmpfs",
-		"o":      phase1WorkspaceVolumeMountOptions(),
+		"o":      phase1BoundedVolumeMountOptions(diskBytes),
 	}
 	if len(volumes) != 1 || volumes[0].Driver != "local" ||
 		len(volumes[0].Options) != len(wantOptions) {
-		return errors.New("Phase 1 workspace volume did not retain its local tmpfs disk ceiling")
+		return fmt.Errorf("Phase 1 %s volume did not retain its local tmpfs disk ceiling", label)
 	}
 	for name, value := range wantOptions {
 		if volumes[0].Options[name] != value {
 			return fmt.Errorf(
-				"Phase 1 workspace volume option %s is %q, want %q",
+				"Phase 1 %s volume option %s is %q, want %q",
+				label,
 				name,
 				volumes[0].Options[name],
 				value,
@@ -235,16 +262,46 @@ func (resources *phase1DockerResources) validateWorkspaceVolume(ctx context.Cont
 	return nil
 }
 
-func (resources *phase1DockerResources) startWorkspaceVolumeHolder(ctx context.Context) error {
+func (resources *phase1DockerResources) startBoundedVolumeHolders(ctx context.Context) error {
+	for _, holder := range []struct {
+		container string
+		volume    string
+		root      string
+		label     string
+	}{
+		{container: resources.volumeHolder, volume: resources.workspaceVolume, root: phase1WorkspaceRoot, label: "workspace"},
+		{container: resources.verificationHolder, volume: resources.verificationVolume, root: phase1VerificationRoot, label: "verification"},
+	} {
+		if err := resources.startBoundedVolumeHolder(
+			ctx,
+			holder.container,
+			holder.volume,
+			holder.root,
+			holder.label,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (resources *phase1DockerResources) startBoundedVolumeHolder(
+	ctx context.Context,
+	container string,
+	volume string,
+	root string,
+	label string,
+) error {
+	resources.containers[container] = true
 	if _, err := resources.client.run(
 		ctx,
 		"run",
 		"--detach",
 		"--pull", "never",
-		"--name", resources.volumeHolder,
+		"--name", container,
 		"--platform", phase1ImagePlatform,
 		"--network", "none",
-		"--mount", "type=volume,source="+resources.workspaceVolume+",destination="+phase1WorkspaceRoot+",readonly",
+		"--mount", "type=volume,source="+volume+",destination="+root+",readonly",
 		"--read-only",
 		"--user", fmt.Sprintf("%d:%d", phase1ContainerUID, phase1ContainerGID),
 		"--cap-drop", "ALL",
@@ -259,11 +316,10 @@ func (resources *phase1DockerResources) startWorkspaceVolumeHolder(ctx context.C
 		resources.images.verifierID,
 		"phase1-hold-volume",
 	); err != nil {
-		return fmt.Errorf("start Phase 1 bounded workspace volume holder: %w", err)
+		return fmt.Errorf("start Phase 1 bounded %s volume holder: %w", label, err)
 	}
-	resources.containers[resources.volumeHolder] = true
-	if err := resources.requireContainerRunning(ctx, resources.volumeHolder); err != nil {
-		return fmt.Errorf("validate Phase 1 bounded workspace volume holder: %w", err)
+	if err := resources.requireContainerRunning(ctx, container); err != nil {
+		return fmt.Errorf("validate Phase 1 bounded %s volume holder: %w", label, err)
 	}
 	return nil
 }
@@ -298,10 +354,10 @@ func (resources *phase1DockerResources) seedVolume(
 	source string,
 ) error {
 	container := "setta-eval-phase1-" + resources.suffix + "-seed-" + label
-	if _, err := resources.client.run(
-		ctx,
+	args := []string{
 		"container", "create",
 		"--name", container,
+		"--pull", "never",
 		"--platform", phase1ImagePlatform,
 		"--network", "none",
 		"--read-only",
@@ -310,30 +366,52 @@ func (resources *phase1DockerResources) seedVolume(
 		"--cap-add", "CHOWN",
 		"--cap-add", "DAC_OVERRIDE",
 		"--security-opt", "no-new-privileges",
-		"--mount", "type=volume,source="+volume+",destination="+root,
-		"--entrypoint", "/usr/local/bin/setta-eval-sandbox-helper",
-		image,
-		"phase1-prepare-volume",
-		"--root", root,
-		"--uid", strconv.Itoa(phase1ContainerUID),
-		"--gid", strconv.Itoa(phase1ContainerGID),
-	); err != nil {
-		return fmt.Errorf("create Phase 1 %s seed container: %w", label, err)
+		"--mount", "type=volume,source=" + volume + ",destination=" + root,
+	}
+	if source != "" {
+		args = append(
+			args,
+			"--mount", "type=bind,source="+source+",destination=/seed,readonly",
+		)
+	}
+	args = append(args, "--entrypoint", "/usr/local/bin/setta-eval-sandbox-helper", image)
+	if source == "" {
+		args = append(
+			args,
+			"phase1-prepare-volume",
+			"--root", root,
+			"--uid", strconv.Itoa(phase1ContainerUID),
+			"--gid", strconv.Itoa(phase1ContainerGID),
+		)
+	} else {
+		args = append(
+			args,
+			"phase1-copy-volume",
+			"--source", "/seed",
+			"--destination", root,
+			"--uid", strconv.Itoa(phase1ContainerUID),
+			"--gid", strconv.Itoa(phase1ContainerGID),
+		)
 	}
 	resources.containers[container] = true
-	if source != "" {
-		if _, err := resources.client.run(
-			ctx,
-			"container", "cp",
-			"--archive",
-			filepath.Clean(source)+string(os.PathSeparator)+".",
-			container+":"+root,
-		); err != nil {
-			return fmt.Errorf("copy Phase 1 %s fixture into volume: %w", label, err)
-		}
+	if _, err := resources.client.run(ctx, args...); err != nil {
+		return fmt.Errorf("create Phase 1 %s seed container: %w", label, err)
 	}
-	if _, err := resources.client.run(ctx, "container", "start", "--attach", container); err != nil {
+	output, err := resources.client.run(ctx, "container", "start", "--attach", container)
+	if err != nil {
 		return fmt.Errorf("prepare Phase 1 %s volume: %w", label, err)
+	}
+	if source != "" {
+		var result volumecopy.Result
+		if err := jsonio.DecodeSingle(strings.NewReader(output.stdout), &result); err != nil {
+			return fmt.Errorf("decode Phase 1 %s seed result: %w", label, err)
+		}
+		if err := result.Validate(); err != nil {
+			return fmt.Errorf("validate Phase 1 %s seed result: %w", label, err)
+		}
+		if result.Status != volumecopy.StatusCopied {
+			return fmt.Errorf("Phase 1 %s fixture is invalid: %s", label, result.Detail)
+		}
 	}
 	if err := resources.removeContainer(ctx, container); err != nil {
 		return err
@@ -343,6 +421,7 @@ func (resources *phase1DockerResources) seedVolume(
 
 func (resources *phase1DockerResources) startAgent(ctx context.Context) (string, error) {
 	tmpfs := phase1Tmpfs()
+	resources.containers[resources.agentContainer] = true
 	if _, err := resources.client.run(
 		ctx,
 		"run",
@@ -371,7 +450,6 @@ func (resources *phase1DockerResources) startAgent(ctx context.Context) (string,
 	); err != nil {
 		return "", fmt.Errorf("start Phase 1 Agent exec-server container: %w", err)
 	}
-	resources.containers[resources.agentContainer] = true
 	if err := resources.requireContainerRunning(ctx, resources.agentContainer); err != nil {
 		return "", err
 	}
@@ -385,6 +463,7 @@ func (resources *phase1DockerResources) startBackend(
 	if bridgeAddress == "" {
 		return nil, errors.New("Phase 1 provider bridge did not expose a controller address")
 	}
+	resources.containers[resources.backendContainer] = true
 	if _, err := resources.client.run(
 		ctx,
 		"run",
@@ -422,7 +501,6 @@ func (resources *phase1DockerResources) startBackend(
 	); err != nil {
 		return nil, fmt.Errorf("start Phase 1 production backend container: %w", err)
 	}
-	resources.containers[resources.backendContainer] = true
 	ready, err := resources.awaitBackendReady(ctx)
 	if err != nil {
 		return nil, err
@@ -445,33 +523,70 @@ func (resources *phase1DockerResources) awaitBackendReady(
 	ctx context.Context,
 ) (settaruntime.ReadyEvent, error) {
 	// The detached production backend publishes its one typed readiness event
-	// only through container logs. This bounded startup probe ends before any
-	// scenario work; scenario state itself remains push-driven over SSE.
+	// only through container logs. Follow that stream so startup remains
+	// push-driven, and stop following before any scenario work begins.
 	readyContext, cancel := context.WithTimeout(ctx, phase1BackendReadyTimeout)
 	defer cancel()
-	ticker := time.NewTicker(50 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		result, err := resources.client.run(readyContext, "container", "logs", resources.backendContainer)
+	followContext, stopFollowing := context.WithCancel(readyContext)
+	defer stopFollowing()
+	command := exec.CommandContext(
+		followContext,
+		resources.client.command,
+		"container", "logs", "--follow", resources.backendContainer,
+	)
+	command.Dir = resources.client.repoRoot
+	stdout, err := command.StdoutPipe()
+	if err != nil {
+		return settaruntime.ReadyEvent{}, fmt.Errorf("open Phase 1 backend readiness stream: %w", err)
+	}
+	diagnostic := newPhase1DiagnosticBuffer(ResultMaximumDiagnosticBytes)
+	command.Stderr = diagnostic
+	if err := command.Start(); err != nil {
+		return settaruntime.ReadyEvent{}, fmt.Errorf(
+			"start Phase 1 backend readiness stream: %w: %s",
+			err,
+			diagnostic.String(),
+		)
+	}
+
+	scanner := bufio.NewScanner(stdout)
+	scanner.Buffer(make([]byte, 4096), phase1BackendLogLineBytes)
+	for scanner.Scan() {
+		ready, found, err := decodePhase1BackendReady(scanner.Text())
 		if err != nil {
-			return settaruntime.ReadyEvent{}, fmt.Errorf("read Phase 1 backend readiness: %w", err)
-		}
-		ready, found, err := decodePhase1BackendReady(result.stdout)
-		if err != nil {
+			stopFollowing()
+			_ = command.Wait()
 			return settaruntime.ReadyEvent{}, err
 		}
 		if found {
+			stopFollowing()
+			_ = command.Wait()
+			if err := resources.requireContainerRunning(ctx, resources.backendContainer); err != nil {
+				return settaruntime.ReadyEvent{}, err
+			}
 			return ready, nil
 		}
-		if err := resources.requireContainerRunning(readyContext, resources.backendContainer); err != nil {
-			return settaruntime.ReadyEvent{}, err
-		}
-		select {
-		case <-ticker.C:
-		case <-readyContext.Done():
-			return settaruntime.ReadyEvent{}, fmt.Errorf("Phase 1 backend readiness: %w", readyContext.Err())
-		}
 	}
+	scanErr := scanner.Err()
+	stopFollowing()
+	waitErr := command.Wait()
+	if err := readyContext.Err(); err != nil {
+		return settaruntime.ReadyEvent{}, fmt.Errorf("Phase 1 backend readiness: %w", err)
+	}
+	if scanErr != nil {
+		return settaruntime.ReadyEvent{}, fmt.Errorf("read Phase 1 backend readiness stream: %w", scanErr)
+	}
+	if err := resources.requireContainerRunning(ctx, resources.backendContainer); err != nil {
+		return settaruntime.ReadyEvent{}, err
+	}
+	if waitErr != nil {
+		return settaruntime.ReadyEvent{}, fmt.Errorf(
+			"follow Phase 1 backend readiness stream: %w: %s",
+			waitErr,
+			diagnostic.String(),
+		)
+	}
+	return settaruntime.ReadyEvent{}, errors.New("Phase 1 backend readiness stream ended without a ready event")
 }
 
 func decodePhase1BackendReady(value string) (settaruntime.ReadyEvent, bool, error) {
@@ -481,9 +596,15 @@ func decodePhase1BackendReady(value string) (settaruntime.ReadyEvent, bool, erro
 		if line == "" {
 			continue
 		}
-		var event settaruntime.ReadyEvent
-		if err := json.Unmarshal([]byte(line), &event); err != nil || event.Event != "ready" {
+		var envelope struct {
+			Event string `json:"event"`
+		}
+		if err := json.Unmarshal([]byte(line), &envelope); err != nil || envelope.Event != "ready" {
 			continue
+		}
+		var event settaruntime.ReadyEvent
+		if err := jsonio.DecodeSingle(strings.NewReader(line), &event); err != nil {
+			return settaruntime.ReadyEvent{}, false, fmt.Errorf("decode Phase 1 backend ready event: %w", err)
 		}
 		if found != nil {
 			return settaruntime.ReadyEvent{}, false, errors.New("Phase 1 backend emitted more than one ready event")
@@ -506,35 +627,54 @@ func (resources *phase1DockerResources) stopController(ctx context.Context) erro
 	if resources == nil || resources.controllerStopped {
 		return nil
 	}
-	resources.controllerStopped = true
 	var stopErrors []error
-	if resources.containers[resources.backendContainer] {
-		if _, err := resources.client.run(
-			ctx,
-			"container", "stop",
-			"--time", strconv.Itoa(phase1ContainerStopTime),
-			resources.backendContainer,
-		); err != nil {
-			stopErrors = append(stopErrors, fmt.Errorf("stop Phase 1 backend container: %w", err))
-		}
+	if err := resources.stopContainer(ctx, resources.backendContainer, "backend"); err != nil {
+		stopErrors = append(stopErrors, err)
 	}
 	if resources.provider != nil {
 		if err := resources.provider.close(ctx); err != nil {
 			stopErrors = append(stopErrors, err)
-		}
-		resources.provider = nil
-	}
-	if resources.containers[resources.agentContainer] {
-		if _, err := resources.client.run(
-			ctx,
-			"container", "stop",
-			"--time", strconv.Itoa(phase1ContainerStopTime),
-			resources.agentContainer,
-		); err != nil {
-			stopErrors = append(stopErrors, fmt.Errorf("stop Phase 1 Agent container: %w", err))
+		} else {
+			resources.provider = nil
 		}
 	}
-	return errors.Join(stopErrors...)
+	if err := resources.stopContainer(ctx, resources.agentContainer, "Agent"); err != nil {
+		stopErrors = append(stopErrors, err)
+	}
+	stopErr := errors.Join(stopErrors...)
+	if stopErr == nil {
+		resources.controllerStopped = true
+	}
+	return stopErr
+}
+
+func (resources *phase1DockerResources) stopContainer(
+	ctx context.Context,
+	container string,
+	label string,
+) error {
+	if !resources.containers[container] {
+		return nil
+	}
+	if _, err := resources.client.run(
+		ctx,
+		"container", "stop",
+		"--time", strconv.Itoa(phase1ContainerStopTime),
+		container,
+	); err != nil {
+		exists, inspectErr := resources.client.containerExists(ctx, container)
+		if inspectErr != nil {
+			return errors.Join(
+				fmt.Errorf("stop Phase 1 %s container: %w", label, err),
+				fmt.Errorf("confirm Phase 1 %s container state: %w", label, inspectErr),
+			)
+		}
+		if exists {
+			return fmt.Errorf("stop Phase 1 %s container: %w", label, err)
+		}
+		delete(resources.containers, container)
+	}
+	return nil
 }
 
 func (resources *phase1DockerResources) verify(
@@ -550,6 +690,7 @@ func (resources *phase1DockerResources) verify(
 	if copyResult.Status == volumecopy.StatusInvalidWorkspace {
 		return phase1InvalidWorkspaceVerifierResult(copyResult.Detail), nil
 	}
+	resources.containers[resources.verifierContainer] = true
 	if _, err := resources.client.run(
 		ctx,
 		"container", "create",
@@ -572,7 +713,6 @@ func (resources *phase1DockerResources) verify(
 	); err != nil {
 		return evalverifier.Result{}, fmt.Errorf("create Phase 1 verifier container: %w", err)
 	}
-	resources.containers[resources.verifierContainer] = true
 	output, err := resources.client.run(ctx, "container", "start", "--attach", resources.verifierContainer)
 	if err != nil {
 		return evalverifier.Result{}, fmt.Errorf("run Phase 1 hidden verifier: %w", err)
@@ -602,6 +742,7 @@ func phase1InvalidWorkspaceVerifierResult(detail string) evalverifier.Result {
 func (resources *phase1DockerResources) copyWorkspaceForVerification(
 	ctx context.Context,
 ) (volumecopy.Result, error) {
+	resources.containers[resources.copyContainer] = true
 	if _, err := resources.client.run(
 		ctx,
 		"container", "create",
@@ -626,7 +767,6 @@ func (resources *phase1DockerResources) copyWorkspaceForVerification(
 	); err != nil {
 		return volumecopy.Result{}, fmt.Errorf("create Phase 1 verification-copy container: %w", err)
 	}
-	resources.containers[resources.copyContainer] = true
 	output, err := resources.client.run(ctx, "container", "start", "--attach", resources.copyContainer)
 	if err != nil {
 		return volumecopy.Result{}, fmt.Errorf("copy Phase 1 final workspace for verification: %w", err)
@@ -690,7 +830,16 @@ func (resources *phase1DockerResources) removeContainer(
 		return nil
 	}
 	if _, err := resources.client.run(ctx, "container", "rm", "--force", container); err != nil {
-		return fmt.Errorf("remove Phase 1 container %s: %w", container, err)
+		exists, inspectErr := resources.client.containerExists(ctx, container)
+		if inspectErr != nil {
+			return errors.Join(
+				fmt.Errorf("remove Phase 1 container %s: %w", container, err),
+				fmt.Errorf("confirm Phase 1 container removal %s: %w", container, inspectErr),
+			)
+		}
+		if exists {
+			return fmt.Errorf("remove Phase 1 container %s: %w", container, err)
+		}
 	}
 	delete(resources.containers, container)
 	return nil
@@ -727,8 +876,18 @@ func (resources *phase1DockerResources) cleanupVolumes(ctx context.Context) erro
 			continue
 		}
 		if _, err := resources.client.run(ctx, "volume", "rm", volume); err != nil {
-			cleanupErrors = append(cleanupErrors, fmt.Errorf("remove Phase 1 volume %s: %w", volume, err))
-			continue
+			exists, inspectErr := resources.client.volumeExists(ctx, volume)
+			if inspectErr != nil {
+				cleanupErrors = append(cleanupErrors, errors.Join(
+					fmt.Errorf("remove Phase 1 volume %s: %w", volume, err),
+					fmt.Errorf("confirm Phase 1 volume removal %s: %w", volume, inspectErr),
+				))
+				continue
+			}
+			if exists {
+				cleanupErrors = append(cleanupErrors, fmt.Errorf("remove Phase 1 volume %s: %w", volume, err))
+				continue
+			}
 		}
 		resources.volumes[volume] = false
 	}
@@ -742,8 +901,18 @@ func (resources *phase1DockerResources) cleanupNetworks(ctx context.Context) err
 			continue
 		}
 		if _, err := resources.client.run(ctx, "network", "rm", network); err != nil {
-			cleanupErrors = append(cleanupErrors, fmt.Errorf("remove Phase 1 network %s: %w", network, err))
-			continue
+			exists, inspectErr := resources.client.networkExists(ctx, network)
+			if inspectErr != nil {
+				cleanupErrors = append(cleanupErrors, errors.Join(
+					fmt.Errorf("remove Phase 1 network %s: %w", network, err),
+					fmt.Errorf("confirm Phase 1 network removal %s: %w", network, inspectErr),
+				))
+				continue
+			}
+			if exists {
+				cleanupErrors = append(cleanupErrors, fmt.Errorf("remove Phase 1 network %s: %w", network, err))
+				continue
+			}
 		}
 		resources.networks[network] = false
 	}

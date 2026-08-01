@@ -190,24 +190,43 @@ func requireVerifierCommands(names ...string) error {
 }
 
 func checkRelatedChanges(changedFiles []string) evalverifier.Check {
+	required := map[string]bool{
+		"README.md":           false,
+		"src/server.ts":       false,
+		"test/server.test.ts": false,
+	}
 	unrelated := make([]string, 0, len(changedFiles))
 	for _, path := range changedFiles {
-		if path == "README.md" || strings.HasPrefix(path, "src/") || strings.HasPrefix(path, "test/") {
+		if _, ok := required[path]; ok {
+			required[path] = true
 			continue
 		}
 		unrelated = append(unrelated, path)
 	}
-	if len(unrelated) > 0 {
+	missing := make([]string, 0, len(required))
+	for _, path := range []string{"README.md", "src/server.ts", "test/server.test.ts"} {
+		if !required[path] {
+			missing = append(missing, path)
+		}
+	}
+	if len(unrelated) > 0 || len(missing) > 0 {
+		details := make([]string, 0, 2)
+		if len(unrelated) > 0 {
+			details = append(details, "unrelated workspace changes: "+strings.Join(unrelated, ", "))
+		}
+		if len(missing) > 0 {
+			details = append(details, "required task files unchanged: "+strings.Join(missing, ", "))
+		}
 		return evalverifier.Check{
 			ID:     "related_changes_only",
 			Passed: false,
-			Detail: evalverifier.BoundedDetail("Unrelated workspace changes: " + strings.Join(unrelated, ", ")),
+			Detail: evalverifier.BoundedDetail(strings.Join(details, "; ")),
 		}
 	}
 	return evalverifier.Check{
 		ID:     "related_changes_only",
 		Passed: true,
-		Detail: "All final workspace changes are limited to source, tests, and README.md.",
+		Detail: "The final workspace changes exactly the endpoint source, its automated test, and README.md.",
 	}
 }
 

@@ -414,7 +414,7 @@ func copyPhase1File(source string, destination string, mode os.FileMode) error {
 
 func validatePhase1VolumeRoot(root string) error {
 	switch root {
-	case "/app-data", "/baseline", "/verification", "/workspace":
+	case "/app-data", "/baseline", "/seed", "/verification", "/workspace":
 		return nil
 	default:
 		return fmt.Errorf("unsupported Phase 1 volume root %q", root)

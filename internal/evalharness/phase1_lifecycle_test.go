@@ -1,9 +1,13 @@
 package evalharness
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"setta/internal/evalharness/providerbridge"
 	"setta/internal/evalharness/volumecopy"
@@ -31,6 +35,10 @@ func TestDecodePhase1BackendReadyRequiresOneExactProductionEvent(t *testing.T) {
 	}
 	if _, _, err := decodePhase1BackendReady(string(encoded) + "\n" + string(encoded)); err == nil {
 		t.Fatal("duplicate ready events were accepted")
+	}
+	withUnknownField := strings.Replace(string(encoded), "{", `{"unexpected":true,`, 1)
+	if _, _, err := decodePhase1BackendReady(withUnknownField); err == nil {
+		t.Fatal("ready event with an unknown field was accepted")
 	}
 
 	event.Addr = "127.0.0.1:4310"
@@ -60,6 +68,62 @@ func TestPhase1ProviderEnvironmentScrubsCredentialsAndStaleControl(t *testing.T)
 	}
 	if strings.Join(environment, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("provider environment = %q", environment)
+	}
+}
+
+func TestPhase1ProviderFailureAbortsAndPreservesFirstFailure(t *testing.T) {
+	aborts := 0
+	broker := &phase1ProviderBroker{abortScenario: func() { aborts++ }}
+	broker.recordProviderFailure(errors.New("first provider failure"))
+	broker.recordProviderFailure(errors.New("second provider failure"))
+	if aborts != 1 {
+		t.Fatalf("provider failure aborted %d times, want 1", aborts)
+	}
+	if failure := broker.providerFailure(); failure == nil || failure.Error() != "first provider failure" {
+		t.Fatalf("provider failure = %v", failure)
+	}
+	broker.beginClose()
+	broker.recordProviderFailure(errors.New("shutdown failure"))
+	if aborts != 1 {
+		t.Fatalf("provider shutdown failure aborted %d times, want 1", aborts)
+	}
+}
+
+func TestPhase1ManagedProcessStopsExplicitlyAfterOwnerCancellation(t *testing.T) {
+	const helperEnvironment = "SETTA_PHASE1_MANAGED_PROCESS_HELPER"
+	if os.Getenv(helperEnvironment) == "1" {
+		for {
+			time.Sleep(time.Hour)
+		}
+	}
+
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatalf("resolve test executable: %v", err)
+	}
+	ownerContext, cancelOwner := context.WithCancel(context.Background())
+	process, err := startPhase1ManagedProcess(
+		ownerContext,
+		executable,
+		[]string{"-test.run=^TestPhase1ManagedProcessStopsExplicitlyAfterOwnerCancellation$"},
+		append(os.Environ(), helperEnvironment+"=1"),
+	)
+	if err != nil {
+		cancelOwner()
+		t.Fatalf("start managed process: %v", err)
+	}
+	cancelOwner()
+
+	select {
+	case processErr := <-process.done:
+		t.Fatalf("owner cancellation stopped explicitly managed process: %v", processErr)
+	case <-time.After(250 * time.Millisecond):
+	}
+
+	stopContext, cancelStop := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelStop()
+	if err := process.stop(stopContext); err != nil {
+		t.Fatalf("stop managed process: %v", err)
 	}
 }
 

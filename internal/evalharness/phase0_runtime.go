@@ -16,6 +16,7 @@ import (
 	"setta/internal/agent"
 	"setta/internal/codexaccount"
 	"setta/internal/codexapp"
+	"setta/internal/jsonio"
 )
 
 const phase0DeveloperInstructions = "" +
@@ -152,7 +153,7 @@ func (runtime *phase0CodexRuntime) inspectToolEnvironment(
 		)
 	}
 	var environment phase0HelperEnvironment
-	if err := json.Unmarshal([]byte(response.Stdout), &environment); err != nil {
+	if err := jsonio.DecodeSingle(strings.NewReader(response.Stdout), &environment); err != nil {
 		return phase0HelperEnvironment{}, fmt.Errorf("decode effective remote environment: %w", err)
 	}
 	if environment.UID != phase0ContainerUID || environment.GID != phase0ContainerGID {

@@ -411,13 +411,6 @@ while IFS= read -r raw_path; do
       ;;
   esac
 
-  if is_prettier_path "${file_path}" && format_project="$(find_ts_project "${file_path}")"; then
-    if ! has_format_project "${format_project}"; then
-      format_projects+=("${format_project}")
-    fi
-    all_supported_files+=("${file_path}")
-  fi
-
   if is_eval_fixture_path "${file_path}"; then
     if eval_fixture_project="$(find_ts_project "${file_path}")"; then
       if ! has_eval_fixture_project "${eval_fixture_project}"; then
@@ -428,6 +421,13 @@ while IFS= read -r raw_path; do
       collection_status=1
     fi
     continue
+  fi
+
+  if is_prettier_path "${file_path}" && format_project="$(find_ts_project "${file_path}")"; then
+    if ! has_format_project "${format_project}"; then
+      format_projects+=("${format_project}")
+    fi
+    all_supported_files+=("${file_path}")
   fi
 
   case "${file_path}" in

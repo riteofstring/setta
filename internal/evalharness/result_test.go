@@ -108,6 +108,50 @@ func TestScenarioResultRejectsAmbiguousClassificationInputs(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "requires a verifier") {
 		t.Fatalf("missing verifier error = %v", err)
 	}
+	verifier := evalverifier.NewResult(
+		ScenarioVerifierStraightforward,
+		[]evalverifier.Check{{ID: "workspace", Passed: true, Detail: "Workspace passed."}},
+		[]string{"README.md"},
+	)
+	for _, outcome := range []ScenarioExecutionOutcome{
+		ScenarioExecutionCancelled,
+		ScenarioExecutionFailed,
+	} {
+		_, err := NewScenarioResult(ScenarioResultInput{
+			Scenario:         validTestScenario(),
+			ExecutionOutcome: outcome,
+			StartedAt:        startedAt,
+			FinishedAt:       startedAt.Add(time.Second),
+			Roles:            validTestEvaluatedRoles(),
+			Verifier:         &verifier,
+			Diagnostic:       mustTestDiagnostic(t, "execution_failed", "Execution did not complete."),
+		})
+		if err == nil || !strings.Contains(err.Error(), "must not carry a verifier") {
+			t.Fatalf("%s verifier error = %v", outcome, err)
+		}
+	}
+}
+
+func TestScenarioResultRejectsInvalidRequestedRoleProfile(t *testing.T) {
+	startedAt := time.Date(2026, time.July, 31, 19, 0, 0, 0, time.UTC)
+	roles := validTestEvaluatedRoles()
+	roles[0].Requested.ContextBudget.MaxInputBytes = 0
+	verifier := evalverifier.NewResult(
+		ScenarioVerifierStraightforward,
+		[]evalverifier.Check{{ID: "workspace", Passed: true, Detail: "Workspace passed."}},
+		[]string{"README.md"},
+	)
+	_, err := NewScenarioResult(ScenarioResultInput{
+		Scenario:         validTestScenario(),
+		ExecutionOutcome: ScenarioExecutionCompleted,
+		StartedAt:        startedAt,
+		FinishedAt:       startedAt.Add(time.Second),
+		Roles:            roles,
+		Verifier:         &verifier,
+	})
+	if err == nil || !strings.Contains(err.Error(), "requested profile") {
+		t.Fatalf("invalid requested profile error = %v", err)
+	}
 }
 
 func TestCaptureBaselineRoleConfigurationsUsesWorkspaceEffectiveProfiles(t *testing.T) {

@@ -255,6 +255,10 @@ func (results Results) Validate() error {
 	if err := validateResultTimes("eval results", results.StartedAt, results.FinishedAt, results.FinishedAt.Sub(results.StartedAt).Milliseconds()); err != nil {
 		return err
 	}
+	return validateResultScenarios(results)
+}
+
+func validateResultScenarios(results Results) error {
 	if results.Scenarios == nil {
 		return errors.New("eval results scenarios must be an array, not null")
 	}
@@ -323,6 +327,9 @@ func classifyScenarioExecution(
 		}
 		return ScenarioClassificationAbilityFailure, nil
 	case ScenarioExecutionCancelled, ScenarioExecutionFailed:
+		if verification != nil {
+			return "", fmt.Errorf("%s scenario execution must not carry a verifier result", outcome)
+		}
 		return ScenarioClassificationAbilityFailure, nil
 	case ScenarioExecutionTimedOut:
 		if verification != nil {
@@ -370,30 +377,40 @@ func validateEvaluatedRoleConfigurations(
 		return fmt.Errorf("evaluated roles contain %d entries, want %d", len(roles), len(evaluatedRoleOrder))
 	}
 	for index, role := range roles {
-		want := evaluatedRoleOrder[index]
-		if role.Role != want || role.Requested.Role != want {
-			return fmt.Errorf("evaluated role %d is %s/%s, want %s", index, role.Role, role.Requested.Role, want)
-		}
-		if role.Requested.Provider != conversation.ProviderCodex {
-			return fmt.Errorf("evaluated role %s has provider %s", role.Role, role.Requested.Provider)
-		}
-		if strings.TrimSpace(role.Resolved.ModelID) == "" ||
-			strings.TrimSpace(string(role.Resolved.ReasoningEffort)) == "" {
-			return fmt.Errorf("evaluated role %s omitted resolved model settings", role.Role)
-		}
-		if role.Resolved.ServiceTier != nil && strings.TrimSpace(*role.Resolved.ServiceTier) == "" {
-			return fmt.Errorf("evaluated role %s has an empty resolved service tier", role.Role)
-		}
-		switch role.EffectiveSource {
-		case conversation.RoleProfileSourceBuiltIn,
-			conversation.RoleProfileSourceGlobal,
-			conversation.RoleProfileSourceWorkspace,
-			conversation.RoleProfileSourceConversation:
-		default:
-			return fmt.Errorf("evaluated role %s has source %q", role.Role, role.EffectiveSource)
+		if err := validateEvaluatedRoleConfiguration(index, role); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func validateEvaluatedRoleConfiguration(index int, role EvaluatedRoleConfiguration) error {
+	want := evaluatedRoleOrder[index]
+	if role.Role != want || role.Requested.Role != want {
+		return fmt.Errorf("evaluated role %d is %s/%s, want %s", index, role.Role, role.Requested.Role, want)
+	}
+	if role.Requested.Provider != conversation.ProviderCodex {
+		return fmt.Errorf("evaluated role %s has provider %s", role.Role, role.Requested.Provider)
+	}
+	if err := role.Requested.Validate(); err != nil {
+		return fmt.Errorf("evaluated role %s requested profile: %w", role.Role, err)
+	}
+	if strings.TrimSpace(role.Resolved.ModelID) == "" ||
+		strings.TrimSpace(string(role.Resolved.ReasoningEffort)) == "" {
+		return fmt.Errorf("evaluated role %s omitted resolved model settings", role.Role)
+	}
+	if role.Resolved.ServiceTier != nil && strings.TrimSpace(*role.Resolved.ServiceTier) == "" {
+		return fmt.Errorf("evaluated role %s has an empty resolved service tier", role.Role)
+	}
+	switch role.EffectiveSource {
+	case conversation.RoleProfileSourceBuiltIn,
+		conversation.RoleProfileSourceGlobal,
+		conversation.RoleProfileSourceWorkspace,
+		conversation.RoleProfileSourceConversation:
+		return nil
+	default:
+		return fmt.Errorf("evaluated role %s has source %q", role.Role, role.EffectiveSource)
+	}
 }
 
 func validateResultTimes(

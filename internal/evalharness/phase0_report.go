@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -35,6 +36,7 @@ type phase0BoundaryInvariants struct {
 	ContainerUser           string
 	ReadOnlyRootFilesystem  bool
 	WorkspaceVolumeWritable bool
+	WorkspaceDiskLimitBytes int64
 	RootWriteDenied         bool
 	HostCanaryVisible       bool
 	InternalNetwork         bool
@@ -146,6 +148,7 @@ func validatePhase0BoundaryEvidence(evidence Phase0BoundaryEvidence) error {
 		ContainerUser:           evidence.ContainerUser,
 		ReadOnlyRootFilesystem:  evidence.ReadOnlyRootFilesystem,
 		WorkspaceVolumeWritable: evidence.WorkspaceVolumeWritable,
+		WorkspaceDiskLimitBytes: evidence.WorkspaceDiskLimitBytes,
 		RootWriteDenied:         evidence.RootWriteDenied,
 		HostCanaryVisible:       evidence.HostCanaryVisible,
 		InternalNetwork:         evidence.InternalNetwork,
@@ -160,6 +163,7 @@ func validatePhase0BoundaryEvidence(evidence Phase0BoundaryEvidence) error {
 		ContainerUser:           fmt.Sprintf("%d:%d", phase0ContainerUID, phase0ContainerGID),
 		ReadOnlyRootFilesystem:  true,
 		WorkspaceVolumeWritable: true,
+		WorkspaceDiskLimitBytes: phase0WorkspaceDiskBytes,
 		RootWriteDenied:         true,
 		HostCanaryVisible:       false,
 		InternalNetwork:         true,
@@ -323,6 +327,24 @@ func ParsePhase0SandboxReport(value []byte) (Phase0SandboxEvidence, error) {
 	if len(value) == 0 || len(value) > phase0SandboxReportMaxBytes {
 		return Phase0SandboxEvidence{}, fmt.Errorf("Phase 0 sandbox report is %d bytes, want 1-%d", len(value), phase0SandboxReportMaxBytes)
 	}
+	evidence, err := decodePhase0SandboxReportEvidence(value)
+	if err != nil {
+		return Phase0SandboxEvidence{}, err
+	}
+	if err := ValidatePhase0SandboxEvidence(evidence); err != nil {
+		return Phase0SandboxEvidence{}, err
+	}
+	rendered, err := RenderPhase0SandboxReport(evidence)
+	if err != nil {
+		return Phase0SandboxEvidence{}, err
+	}
+	if !bytes.Equal(value, []byte(rendered)) {
+		return Phase0SandboxEvidence{}, errors.New("Phase 0 sandbox report does not match the one current PASS report shape")
+	}
+	return evidence, nil
+}
+
+func decodePhase0SandboxReportEvidence(value []byte) (Phase0SandboxEvidence, error) {
 	if !bytes.HasPrefix(value, []byte("# Live AI Evaluation Sandbox Phase 0\n\n")) {
 		return Phase0SandboxEvidence{}, errors.New("Phase 0 sandbox report has an invalid title")
 	}
@@ -339,9 +361,6 @@ func ParsePhase0SandboxReport(value []byte) (Phase0SandboxEvidence, error) {
 	var evidence Phase0SandboxEvidence
 	if err := jsonio.DecodeSingle(bytes.NewReader(remaining[:end]), &evidence); err != nil {
 		return Phase0SandboxEvidence{}, fmt.Errorf("decode Phase 0 sandbox report evidence: %w", err)
-	}
-	if err := ValidatePhase0SandboxEvidence(evidence); err != nil {
-		return Phase0SandboxEvidence{}, err
 	}
 	return evidence, nil
 }
@@ -425,13 +444,37 @@ func requireCommittedPhase0Pass(ctx context.Context, repoRoot string) error {
 	return nil
 }
 
+func readCommittedPhase0PassEvidence(
+	ctx context.Context,
+	repoRoot string,
+) (Phase0SandboxEvidence, error) {
+	report, err := readPhase0CommittedFile(ctx, repoRoot, Phase0SandboxReportRelativePath)
+	if err != nil {
+		return Phase0SandboxEvidence{}, err
+	}
+	evidence, err := ParsePhase0SandboxReport([]byte(report))
+	if err != nil {
+		return Phase0SandboxEvidence{}, err
+	}
+	return evidence, nil
+}
+
 func readPhase0CommittedFile(ctx context.Context, repoRoot string, relativePath string) (string, error) {
 	if filepath.IsAbs(relativePath) || filepath.ToSlash(filepath.Clean(relativePath)) != relativePath || strings.HasPrefix(relativePath, "../") {
 		return "", fmt.Errorf("invalid committed path %q", relativePath)
 	}
-	result, err := runPhase0Command(ctx, repoRoot, nil, "git", "show", "HEAD:"+relativePath)
+	command := exec.CommandContext(ctx, "git", "show", "HEAD:"+relativePath)
+	command.Dir = repoRoot
+	diagnostic := newPhase1DiagnosticBuffer(phase0MaxDiagnosticBytes)
+	command.Stderr = diagnostic
+	output, err := command.Output()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf(
+			"read committed file %s: %w: %s",
+			relativePath,
+			err,
+			diagnostic.String(),
+		)
 	}
-	return result.stdout, nil
+	return string(output), nil
 }

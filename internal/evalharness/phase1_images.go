@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"setta/internal/jsonio"
 )
 
 const (
@@ -24,6 +26,7 @@ type phase1ImageConfig struct {
 	codexLinuxBundle string
 	codexCommand     string
 	pnpmCommand      string
+	phase0Codex      Phase0CodexEvidence
 }
 
 type phase1Images struct {
@@ -140,10 +143,10 @@ func (images *phase1Images) build(
 	toolchainImage string,
 	contexts phase1BuildContexts,
 ) error {
+	images.toolchainTagged = true
 	if _, err := images.client.run(ctx, "image", "tag", toolchainImage, images.toolchainTag); err != nil {
 		return fmt.Errorf("tag exact Phase 1 toolchain image: %w", err)
 	}
-	images.toolchainTagged = true
 	builds := []struct {
 		label   string
 		tag     string
@@ -171,10 +174,10 @@ func (images *phase1Images) build(
 			args = append(args, "--build-arg", "TOOLCHAIN_IMAGE="+images.toolchainTag)
 		}
 		args = append(args, build.context)
+		*build.built = true
 		if _, err := images.client.run(ctx, args...); err != nil {
 			return fmt.Errorf("build Phase 1 %s image: %w", build.label, err)
 		}
-		*build.built = true
 		imageID, err := inspectPhase1TaggedImage(ctx, images.client, build.tag)
 		if err != nil {
 			return fmt.Errorf("inspect Phase 1 %s image: %w", build.label, err)
@@ -192,6 +195,7 @@ func (images *phase1Images) validateToolchain(
 	wantNode string,
 	wantPNPM string,
 ) error {
+	images.toolchainProbeCreated = true
 	if _, err := images.client.run(
 		ctx,
 		"container", "create",
@@ -216,7 +220,6 @@ func (images *phase1Images) validateToolchain(
 	); err != nil {
 		return fmt.Errorf("create Phase 1 toolchain probe container: %w", err)
 	}
-	images.toolchainProbeCreated = true
 	result, runErr := images.client.run(
 		ctx,
 		"container", "start", "--attach", images.toolchainProbeContainer,
@@ -241,7 +244,7 @@ func phase1ToolchainProbeError(runErr error, removeErr error) error {
 
 func validatePhase1ToolchainEvidence(value string, wantNode string, wantPNPM string) error {
 	var evidence phase1ToolchainEvidence
-	if err := json.Unmarshal([]byte(value), &evidence); err != nil {
+	if err := jsonio.DecodeSingle(strings.NewReader(value), &evidence); err != nil {
 		return fmt.Errorf("decode Phase 1 toolchain evidence: %w", err)
 	}
 	if evidence.Node != wantNode || evidence.PNPM != wantPNPM || strings.TrimSpace(evidence.Git) == "" {
@@ -265,7 +268,16 @@ func (images *phase1Images) removeToolchainProbe(ctx context.Context) error {
 		ctx,
 		"container", "rm", "--force", images.toolchainProbeContainer,
 	); err != nil {
-		return fmt.Errorf("remove Phase 1 toolchain probe container: %w", err)
+		exists, inspectErr := images.client.containerExists(ctx, images.toolchainProbeContainer)
+		if inspectErr != nil {
+			return errors.Join(
+				fmt.Errorf("remove Phase 1 toolchain probe container: %w", err),
+				fmt.Errorf("confirm Phase 1 toolchain probe container removal: %w", inspectErr),
+			)
+		}
+		if exists {
+			return fmt.Errorf("remove Phase 1 toolchain probe container: %w", err)
+		}
 	}
 	images.toolchainProbeCreated = false
 	return nil
@@ -292,8 +304,18 @@ func (images *phase1Images) cleanup(ctx context.Context) error {
 			continue
 		}
 		if _, err := images.client.run(ctx, "image", "rm", image.tag); err != nil {
-			cleanupErrors = append(cleanupErrors, fmt.Errorf("remove Phase 1 image tag %s: %w", image.tag, err))
-			continue
+			exists, inspectErr := images.client.imageTagExists(ctx, image.tag)
+			if inspectErr != nil {
+				cleanupErrors = append(cleanupErrors, errors.Join(
+					fmt.Errorf("remove Phase 1 image tag %s: %w", image.tag, err),
+					fmt.Errorf("confirm Phase 1 image tag removal %s: %w", image.tag, inspectErr),
+				))
+				continue
+			}
+			if exists {
+				cleanupErrors = append(cleanupErrors, fmt.Errorf("remove Phase 1 image tag %s: %w", image.tag, err))
+				continue
+			}
 		}
 		*image.created = false
 	}
@@ -313,7 +335,15 @@ func preparePhase1BuildContexts(
 	if err := validatePhase1FixtureToolchain(fixturePackage, pin); err != nil {
 		return phase1BuildContexts{}, err
 	}
-	if err := validatePhase1CodexBundle(ctx, config); err != nil {
+	manifest, err := validatePhase1CodexBundle(ctx, config)
+	if err != nil {
+		return phase1BuildContexts{}, err
+	}
+	if err := requirePhase1ProofFileDigest(
+		"Phase 0 Dockerfile",
+		filepath.Join(config.repoRoot, "evals", "sandbox", "phase0.Dockerfile"),
+		config.phase0Codex.FileSHA256["Dockerfile"],
+	); err != nil {
 		return phase1BuildContexts{}, err
 	}
 	root, err := os.MkdirTemp("", "setta-eval-phase1-build-")
@@ -336,7 +366,7 @@ func preparePhase1BuildContexts(
 			)
 		}
 	}
-	if err := populatePhase1BuildContexts(ctx, config, contexts, pnpm); err != nil {
+	if err := populatePhase1BuildContexts(ctx, config, contexts, pnpm, manifest); err != nil {
 		return phase1BuildContexts{}, errors.Join(err, removePhase1BuildContexts(root))
 	}
 	return contexts, nil
@@ -347,14 +377,12 @@ func populatePhase1BuildContexts(
 	config phase1ImageConfig,
 	contexts phase1BuildContexts,
 	pnpm phase1PNPMBundle,
+	manifest phase0BundleManifest,
 ) error {
-	manifest, err := readPhase0BundleManifest(config.codexLinuxBundle)
-	if err != nil {
-		return err
-	}
 	copies := []struct {
 		source      string
 		destination string
+		proofName   string
 	}{
 		{source: filepath.Join(config.repoRoot, "evals", "sandbox", "phase1-agent.Dockerfile"), destination: filepath.Join(contexts.agent, "Dockerfile")},
 		{source: filepath.Join(config.repoRoot, "evals", "sandbox", "phase1-backend.Dockerfile"), destination: filepath.Join(contexts.backend, "Dockerfile")},
@@ -365,21 +393,31 @@ func populatePhase1BuildContexts(
 		{source: pnpm.bundlePath, destination: filepath.Join(contexts.verifier, "pnpm.cjs")},
 		{source: pnpm.licensePath, destination: filepath.Join(contexts.agent, "pnpm-license")},
 		{source: pnpm.licensePath, destination: filepath.Join(contexts.verifier, "pnpm-license")},
-		{source: filepath.Join(config.codexLinuxBundle, manifest.Entrypoint), destination: filepath.Join(contexts.agent, "codex")},
-		{source: filepath.Join(config.codexLinuxBundle, manifest.PathDir, "rg"), destination: filepath.Join(contexts.agent, "rg")},
-		{source: filepath.Join(config.codexLinuxBundle, manifest.ResourcesDir, "zsh", "bin", "zsh"), destination: filepath.Join(contexts.agent, "zsh")},
+		{source: filepath.Join(config.codexLinuxBundle, manifest.Entrypoint), destination: filepath.Join(contexts.agent, "codex"), proofName: "codex"},
+		{source: filepath.Join(config.codexLinuxBundle, manifest.PathDir, "rg"), destination: filepath.Join(contexts.agent, "rg"), proofName: "rg"},
+		{source: filepath.Join(config.codexLinuxBundle, manifest.ResourcesDir, "zsh", "bin", "zsh"), destination: filepath.Join(contexts.agent, "zsh"), proofName: "zsh"},
 	}
 	for _, copy := range copies {
-		if _, err := copyAndHashPhase0File(copy.source, copy.destination); err != nil {
+		digest, err := copyAndHashPhase0File(copy.source, copy.destination)
+		if err != nil {
 			return fmt.Errorf("prepare Phase 1 image input %s: %w", filepath.Base(copy.destination), err)
+		}
+		if copy.proofName != "" && digest != config.phase0Codex.FileSHA256[copy.proofName] {
+			return fmt.Errorf(
+				"Phase 1 %s input SHA-256 is %s, want the committed Phase 0 proof digest %s",
+				copy.proofName,
+				digest,
+				config.phase0Codex.FileSHA256[copy.proofName],
+			)
 		}
 	}
 	builds := []struct {
 		output      string
 		packagePath string
+		proofName   string
 	}{
-		{output: filepath.Join(contexts.agent, "sandbox-helper"), packagePath: "./cmd/setta-eval-sandbox-helper"},
-		{output: filepath.Join(contexts.verifier, "sandbox-helper"), packagePath: "./cmd/setta-eval-sandbox-helper"},
+		{output: filepath.Join(contexts.agent, "sandbox-helper"), packagePath: "./cmd/setta-eval-sandbox-helper", proofName: "sandbox-helper"},
+		{output: filepath.Join(contexts.verifier, "sandbox-helper"), packagePath: "./cmd/setta-eval-sandbox-helper", proofName: "sandbox-helper"},
 		{output: filepath.Join(contexts.backend, "setta-backend"), packagePath: "./cmd/setta-backend"},
 		{output: filepath.Join(contexts.backend, "setta-eval-provider-bridge"), packagePath: "./cmd/setta-eval-provider-bridge"},
 		{output: filepath.Join(contexts.verifier, "verifier"), packagePath: "./evals/verifiers/straightforward-task"},
@@ -388,6 +426,31 @@ func populatePhase1BuildContexts(
 		if err := buildPhase1LinuxBinary(ctx, config.repoRoot, build.output, build.packagePath); err != nil {
 			return err
 		}
+		if build.proofName != "" {
+			if err := requirePhase1ProofFileDigest(
+				build.proofName,
+				build.output,
+				config.phase0Codex.FileSHA256[build.proofName],
+			); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func requirePhase1ProofFileDigest(label string, path string, want string) error {
+	digest, err := hashPhase0File(path)
+	if err != nil {
+		return fmt.Errorf("hash Phase 1 proof input %s: %w", label, err)
+	}
+	if digest != want {
+		return fmt.Errorf(
+			"Phase 1 proof input %s SHA-256 is %s, want committed Phase 0 digest %s",
+			label,
+			digest,
+			want,
+		)
 	}
 	return nil
 }
@@ -420,25 +483,33 @@ func buildPhase1LinuxBinary(
 	return nil
 }
 
-func validatePhase1CodexBundle(ctx context.Context, config phase1ImageConfig) error {
+func validatePhase1CodexBundle(
+	ctx context.Context,
+	config phase1ImageConfig,
+) (phase0BundleManifest, error) {
 	manifest, err := readPhase0BundleManifest(config.codexLinuxBundle)
 	if err != nil {
-		return err
+		return phase0BundleManifest{}, err
 	}
 	if err := validatePhase0BundleManifest(manifest); err != nil {
-		return err
+		return phase0BundleManifest{}, err
 	}
 	hostVersion, err := readPhase0HostCodexVersion(ctx, phase0ProbeConfig{
 		repoRoot:     config.repoRoot,
 		codexCommand: config.codexCommand,
 	})
 	if err != nil {
-		return err
+		return phase0BundleManifest{}, err
 	}
 	if hostVersion != manifest.Version {
-		return fmt.Errorf("host Codex %s does not match Linux bundle %s", hostVersion, manifest.Version)
+		return phase0BundleManifest{}, fmt.Errorf("host Codex %s does not match Linux bundle %s", hostVersion, manifest.Version)
 	}
-	return nil
+	if config.phase0Codex.HostVersion != hostVersion ||
+		config.phase0Codex.BundleVersion != manifest.Version ||
+		config.phase0Codex.BundleTarget != manifest.Target {
+		return phase0BundleManifest{}, errors.New("Phase 1 Codex runtime does not match the committed Phase 0 proof")
+	}
+	return manifest, nil
 }
 
 func readPhase1FixturePackage(repoRoot string) (phase1FixturePackage, error) {

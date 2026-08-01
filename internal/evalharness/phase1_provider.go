@@ -44,20 +44,21 @@ var phase1ProviderExcludedEnvironment = map[string]struct{}{
 }
 
 type phase1ProviderBroker struct {
-	codexCommand string
-	socketDir    string
-	socketPath   string
-	token        string
-	listener     net.Listener
-	appServer    *phase1ManagedProcess
-	tokenBudget  *phase1TokenBudget
+	codexCommand  string
+	socketDir     string
+	socketPath    string
+	token         string
+	listener      net.Listener
+	appServer     *phase1ManagedProcess
+	tokenBudget   *phase1TokenBudget
+	abortScenario func()
 
 	contextCancel context.CancelFunc
 	acceptDone    chan struct{}
 	connections   sync.WaitGroup
 	mutex         sync.Mutex
 	closed        bool
-	acceptErr     error
+	providerErr   error
 }
 
 func startPhase1ProviderBroker(
@@ -116,8 +117,8 @@ func startPhase1ProviderBroker(
 		token:         hex.EncodeToString(tokenBytes),
 		listener:      listener,
 		tokenBudget:   tokenBudget,
+		abortScenario: abortScenario,
 		contextCancel: cancel,
-		acceptDone:    make(chan struct{}),
 	}
 	if err := broker.startAppServer(brokerContext, execServerAddress); err != nil {
 		cleanupContext, cleanupCancel := context.WithTimeout(
@@ -128,6 +129,7 @@ func startPhase1ProviderBroker(
 		cleanupCancel()
 		return nil, errors.Join(err, cleanupErr)
 	}
+	broker.acceptDone = make(chan struct{})
 	go broker.acceptConnections(brokerContext)
 	return broker, nil
 }
@@ -246,14 +248,17 @@ func (broker *phase1ProviderBroker) acceptConnections(ctx context.Context) {
 			if ctx.Err() != nil || broker.isClosed() {
 				return
 			}
-			broker.setAcceptError(err)
+			broker.recordProviderFailure(fmt.Errorf("accept Phase 1 provider bridge connection: %w", err))
 			return
 		}
 		broker.connections.Add(1)
 		go func() {
 			defer broker.connections.Done()
 			defer connection.Close()
-			_ = broker.serveConnection(ctx, connection)
+			if err := broker.serveConnection(ctx, connection); err != nil &&
+				ctx.Err() == nil && broker.tokenBudgetFailure() == nil {
+				broker.recordProviderFailure(fmt.Errorf("serve Phase 1 provider bridge connection: %w", err))
+			}
 		}()
 	}
 }
@@ -410,17 +415,26 @@ func (broker *phase1ProviderBroker) close(ctx context.Context) error {
 	if broker == nil {
 		return nil
 	}
-	if !broker.beginClose() {
-		return nil
+	broker.beginClose()
+	var closeErrors []error
+	if err := broker.closeListener(); err != nil {
+		closeErrors = append(closeErrors, err)
 	}
-	return errors.Join(
-		broker.closeListener(),
-		broker.waitForListener(ctx),
-		broker.acceptError(),
-		broker.waitForConnections(ctx),
-		broker.stopAppServer(ctx),
-		removePhase1ProviderControlDirectory(broker.socketDir),
-	)
+	listenerErr := broker.waitForListener(ctx)
+	if listenerErr != nil {
+		closeErrors = append(closeErrors, listenerErr)
+	} else if err := broker.waitForConnections(ctx); err != nil {
+		// WaitGroup.Add happens only in the listener loop. Waiting for that loop
+		// first keeps a timed-out close safe to retry.
+		closeErrors = append(closeErrors, err)
+	}
+	if err := broker.stopAppServer(ctx); err != nil {
+		closeErrors = append(closeErrors, err)
+	}
+	if err := removePhase1ProviderControlDirectory(broker.socketDir); err != nil {
+		closeErrors = append(closeErrors, err)
+	}
+	return errors.Join(closeErrors...)
 }
 
 func (broker *phase1ProviderBroker) beginClose() bool {
@@ -437,16 +451,30 @@ func (broker *phase1ProviderBroker) beginClose() bool {
 	return true
 }
 
-func (broker *phase1ProviderBroker) setAcceptError(err error) {
+func (broker *phase1ProviderBroker) recordProviderFailure(err error) {
+	if err == nil {
+		return
+	}
 	broker.mutex.Lock()
-	defer broker.mutex.Unlock()
-	broker.acceptErr = fmt.Errorf("accept Phase 1 provider bridge connection: %w", err)
+	if broker.closed || broker.providerErr != nil {
+		broker.mutex.Unlock()
+		return
+	}
+	broker.providerErr = err
+	abort := broker.abortScenario
+	broker.mutex.Unlock()
+	if abort != nil {
+		abort()
+	}
 }
 
-func (broker *phase1ProviderBroker) acceptError() error {
+func (broker *phase1ProviderBroker) providerFailure() error {
+	if broker == nil {
+		return nil
+	}
 	broker.mutex.Lock()
 	defer broker.mutex.Unlock()
-	return broker.acceptErr
+	return broker.providerErr
 }
 
 func (broker *phase1ProviderBroker) closeListener() error {
@@ -531,7 +559,17 @@ func startPhase1ManagedProcess(
 	args []string,
 	environment []string,
 ) (*phase1ManagedProcess, error) {
-	command := exec.CommandContext(ctx, name, args...)
+	if ctx == nil {
+		return nil, errors.New("Phase 1 managed process context is required")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	// The broker context owns listener and proxy goroutines. The host app-server
+	// has an explicit interrupt/kill lifecycle below; binding it to CommandContext
+	// would race normal broker cancellation against that managed shutdown and turn
+	// a clean close into an apparent "signal: killed" failure.
+	command := exec.Command(name, args...)
 	command.Env = environment
 	diagnostic := newPhase1DiagnosticBuffer(ResultMaximumDiagnosticBytes)
 	command.Stdout = io.Discard
@@ -611,6 +649,10 @@ func waitForPhase1Socket(
 	path string,
 	processDone <-chan error,
 ) error {
+	// Codex app-server exposes no supported readiness event before clients can
+	// connect. This bounded, pre-scenario kernel socket probe is the narrow
+	// exception to push-driven scenario observation; all product state still
+	// arrives through the production event streams.
 	ticker := time.NewTicker(25 * time.Millisecond)
 	defer ticker.Stop()
 	for {

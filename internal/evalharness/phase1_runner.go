@@ -35,6 +35,7 @@ type phase1NormalizedConfig struct {
 	dockerCommand    string
 	codexCommand     string
 	pnpmCommand      string
+	phase0Codex      Phase0CodexEvidence
 }
 
 type phase1RunState struct {
@@ -65,6 +66,11 @@ func RunPhase1Evaluation(
 	if err != nil {
 		return Phase1EvaluationOutput{}, err
 	}
+	phase0Evidence, err := readCommittedPhase0PassEvidence(ctx, repoRoot)
+	if err != nil {
+		return Phase1EvaluationOutput{}, fmt.Errorf("read committed Phase 0 proof: %w", err)
+	}
+	normalized.phase0Codex = phase0Evidence.Codex
 	scenarios, err := LoadScenarios(
 		filepath.Join(normalized.repoRoot, "evals", "scenarios"),
 		[]string{ScenarioVerifierStraightforward},
@@ -165,6 +171,7 @@ func runPhase1Evaluation(
 		codexLinuxBundle: config.codexLinuxBundle,
 		codexCommand:     config.codexCommand,
 		pnpmCommand:      config.pnpmCommand,
+		phase0Codex:      config.phase0Codex,
 	})
 	if err != nil {
 		cleanupErr := fixture.cleanup()
@@ -205,23 +212,30 @@ func executePhase1Scenario(
 		phase1WorkspaceRoot,
 	)
 	state := phase1StateFromObservation(observation)
-	if budgetFailure := resources.provider.tokenBudgetFailure(); budgetFailure != nil {
-		state = phase1TokenBudgetFailureState(budgetFailure, observation.Roles)
-	} else if err != nil {
-		state = phase1InfrastructureFailure("scenario_orchestration_failed", err, observation.Roles)
-	} else if state.outcome != ScenarioExecutionInfrastructureFailed &&
-		!resources.provider.observedTokenUsage() {
-		state = phase1InfrastructureFailure(
-			"token_budget_evidence_missing",
-			errors.New("provider returned no thread/tokenUsage/updated evidence for the evaluated scenario"),
-			observation.Roles,
-		)
-	}
+	provider := resources.provider
 	stopContext, cancel := context.WithTimeout(context.Background(), phase1CleanupTimeout)
 	stopErr := resources.stopController(stopContext)
 	cancel()
 	if stopErr != nil {
 		return phase1InfrastructureFailure("controller_teardown_failed", stopErr, state.roles)
+	}
+	if budgetFailure := provider.tokenBudgetFailure(); budgetFailure != nil {
+		state = phase1TokenBudgetFailureState(budgetFailure, observation.Roles)
+	} else if providerFailure := provider.providerFailure(); providerFailure != nil {
+		state = phase1InfrastructureFailure(
+			"provider_boundary_failed",
+			providerFailure,
+			observation.Roles,
+		)
+	} else if err != nil {
+		state = phase1InfrastructureFailure("scenario_orchestration_failed", err, observation.Roles)
+	} else if state.outcome != ScenarioExecutionInfrastructureFailed &&
+		!provider.observedTokenUsage() {
+		state = phase1InfrastructureFailure(
+			"token_budget_evidence_missing",
+			errors.New("provider returned no thread/tokenUsage/updated evidence for the evaluated scenario"),
+			observation.Roles,
+		)
 	}
 	if state.outcome != ScenarioExecutionCompleted {
 		return state

@@ -2,13 +2,13 @@
 
 **Date:** 2026-07-31
 **Status:** Phase 0 proof implementation complete; benign live evidence remains
-an external release gate. Phase 1 repository implementation is complete,
-including its benchmark contract, result reporting, production orchestration,
-container lifecycle, committed Phase 0 gate, runnable entrypoints, checked-in
-ARM64 toolchain pin, hard disk and total-token ceilings, and focused
-classification exercises. Its live exit evidence remains gated by Phase 0 and
-the later user-authorized verification ladder. Phase 2 is the earliest phase
-with incomplete repository-actionable work.
+an external release gate. Phase 1 repository implementation and its coherent
+phase audit are complete, including the benchmark contract, result reporting,
+production orchestration, container lifecycle, committed Phase 0 gate, runnable
+entrypoints, checked-in ARM64 toolchain pin, hard disk and total-token ceilings,
+and focused classification exercises. Its live exit evidence remains gated by
+Phase 0 and the later user-authorized verification ladder. Phase 2 is the
+earliest phase with incomplete repository-actionable work.
 
 ## Outcome
 
@@ -704,13 +704,21 @@ returns `PASS` JSON only after all boundary assertions, both benign model turns,
 and teardown succeed. It never downloads Codex, starts Docker Desktop, opens a
 login flow, or emits credential values.
 
+The disposable Phase 0 workspace is an inspected 64 MiB local `tmpfs` volume,
+not an unbounded Docker volume. Typed helper outputs are decoded as exact
+single-value contracts, and process environment overrides replace inherited
+values by name, so a stale host `CODEX_EXEC_SERVER_URL` cannot supersede the
+per-run control address while credential exclusions remain enforced.
+
 The probe's `--write-report` option now writes the one accepted strict PASS
-report shape only after that validated evidence and teardown exist. The Phase 1
-runner reads the report and plan from `HEAD`, revalidates every proof invariant,
-requires the evidence commit to be an ancestor of the current commit, requires
-a clean worktree, and requires the committed plan to contain the Phase 0
-resolution heading followed by an `Outcome` of `PASS`. A missing, uncommitted,
-stale, malformed, or non-PASS report cannot start Docker or provider work.
+report shape only after that validated evidence and teardown exist. Parsing
+requires the entire report, including its human-readable narrative, to equal
+the canonical rendering of the embedded evidence. The Phase 1 runner reads the
+report and plan from `HEAD`, revalidates every proof invariant, requires the
+evidence commit to be an ancestor of the current commit, requires a clean
+worktree, and requires the committed plan to contain the Phase 0 resolution
+heading followed by an `Outcome` of `PASS`. A missing, uncommitted, stale,
+malformed, or non-PASS report cannot start Docker or provider work.
 
 **Release gate recorded 2026-07-31:** the live probe was not run because the
 Docker daemon was stopped and the inspected local Codex/npm installations had
@@ -760,8 +768,11 @@ source are implemented. The fixture has no package dependencies, pins its Node
 and pnpm runtime requirements exactly, and has an offline-generated lockfile.
 The verifier rejects symlinks and unrelated mutations, bounds inputs and
 diagnostics, and owns the build, test, original-route, exact `/health`, and
-README checks. Its source lives outside the fixture, and the lifecycle excludes
-it from the evaluated Agent container.
+README checks. A pass requires the exact three task files—`README.md`,
+`src/server.ts`, and `test/server.test.ts`—to change, so omitted automated
+coverage and otherwise-related extra edits both fail. Its source lives outside
+the fixture, and the lifecycle excludes it from the evaluated Agent container.
+The fixture-owned quality command includes formatting, build, and tests.
 
 The strict Phase 1 result schema, production-role resolution projection,
 objective classification boundary, and atomic `results.json`/`report.md`
@@ -812,15 +823,31 @@ runner requires that exact image to be installed already and never pulls it. It
 also resolves the installed pnpm package, requires the exact version and
 checked-in bundle and license hashes, and copies only those validated inputs
 into networkless image builds. The lifecycle enforces the committed Phase 0
-gate before it validates those local runtime inputs or contacts Docker, so
-another caller cannot bypass the gate.
+gate before it validates those local runtime inputs or contacts Docker. The
+Phase 1 Codex, `rg`, `zsh`, current Phase 0 Dockerfile, and reproducibly built
+sandbox helper must match the committed Phase 0 proof digests and runtime
+metadata, so another caller cannot bypass or drift from the proved boundary.
 
 The AI-writable workspace is a 64 MiB named `tmpfs` volume. A locked-down
 holder container keeps that bounded volume mounted across seeding, Agent,
 controller, copy, and verifier container transitions; the holder has no network
 and receives the volume read-only. Together with the existing 128 MiB temporary
 filesystem, read-only root filesystem, CPU, memory, and process limits, this
-bounds every filesystem the AI-controlled exec-server can write.
+bounds every filesystem the AI-controlled exec-server can write. The final
+verification copy uses a second inspected 64 MiB `tmpfs` volume and a matching
+networkless holder. Trusted fixture seeding now runs through the bounded copy
+helper from a read-only bind mount instead of relying on a stopped-container
+copy operation, and resource identities are retained before daemon mutations so
+interrupted setup still reaches cleanup.
+
+Backend startup follows the production readiness log stream instead of polling
+Docker logs. Provider listener, proxy, and forwarding failures cancel the
+scenario and classify as infrastructure failures; the broker preserves the
+first failure through connection shutdown, waits for all forwarding goroutines,
+and allows teardown to retry a partial stop before verification begins. The
+host app-server has an explicit managed-process lifetime, so cancelling broker
+goroutines cannot preempt its orderly interrupt and misclassify normal teardown
+as a killed provider process.
 
 The host provider boundary now enforces each scenario's `hardTotalTokens`
 ceiling from typed `thread/tokenUsage/updated` evidence. It retains the latest
@@ -836,11 +863,21 @@ Focused deterministic publication exercises now drive lifecycle states for a
 passing workspace, an intentionally incorrect workspace, a timeout, and an
 infrastructure failure through the production classification and atomic
 `results.json`/`report.md` publisher. Command-boundary exercises cover every
-result classification and non-pass exit. No live verification has been run;
-the unavailable Phase 0 evidence above still gates it. Repository formatting,
-changed-file quality for the affected Go and shell packages, and the repository
-supply-chain gate passed on 2026-07-31. Those implementation checks do not
-satisfy the live Phase 0 or Phase 1 exits.
+result classification and non-pass exit. Repository formatting, focused phase
+checks, changed-file quality for the affected Go and shell packages, and the
+repository supply-chain gate passed on 2026-07-31.
+
+The authorized production workflow matrix also passed its deterministic Go
+contracts, 711 desktop tests, and required Electron workflows with temporary
+app data. With local ChatGPT auth and `OPENAI_API_KEY` absent, the live Agent
+protocol, Side Agent isolation, Director command center, and unbound native
+artifact cases passed. The topic-conversation table-artifact case instead
+published an artifact without the open workspace ID. That Director/workspace
+binding failure is outside the Phase 1 change boundary and was not expanded
+into this phase, so the complete production live matrix is not claimed green.
+No live Phase 0 probe or Phase 1 harness execution has been run; the unavailable
+Phase 0 evidence above still gates both exits. None of the implementation or
+production-provider checks satisfies the live Phase 0 or Phase 1 exits.
 
 Phase 1 has no remaining repository implementation work. Its live exit evidence
 is retained as a release gate for the user-authorized verification ladder, not

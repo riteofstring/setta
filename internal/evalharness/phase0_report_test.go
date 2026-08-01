@@ -27,6 +27,15 @@ func TestPhase0SandboxReportRoundTripsStrictPassEvidence(t *testing.T) {
 	if _, err := ParsePhase0SandboxReport([]byte(report + "\n" + phase0ReportEvidenceStart)); err == nil {
 		t.Fatal("duplicate evidence block was accepted")
 	}
+	modifiedNarrative := strings.Replace(
+		report,
+		"A read-only model turn observed the fixture without mutation.",
+		"A model turn observed the fixture without mutation.",
+		1,
+	)
+	if _, err := ParsePhase0SandboxReport([]byte(modifiedNarrative)); err == nil {
+		t.Fatal("modified report narrative was accepted")
+	}
 }
 
 func TestCommittedPhase0PassGateRequiresCleanCommittedReportAndResolution(t *testing.T) {
@@ -94,6 +103,7 @@ func validPhase0SandboxEvidenceForTest(commit string) Phase0SandboxEvidence {
 			ContainerUser:             "65532:65532",
 			ReadOnlyRootFilesystem:    true,
 			WorkspaceVolumeWritable:   true,
+			WorkspaceDiskLimitBytes:   phase0WorkspaceDiskBytes,
 			RootWriteDenied:           true,
 			HostCanaryVisible:         false,
 			InternalNetwork:           true,

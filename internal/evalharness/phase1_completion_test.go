@@ -32,16 +32,24 @@ func TestPhase1CheckedInToolchainMatchesFixture(t *testing.T) {
 	}
 }
 
-func TestPhase1WorkspaceVolumeHasHardDiskCeiling(t *testing.T) {
-	options := strings.Join(phase1WorkspaceVolumeDriverOptions(), " ")
-	for _, expected := range []string{
-		"--driver local",
-		"--opt type=tmpfs",
-		"--opt device=tmpfs",
-		"o=size=67108864,uid=65532,gid=65532,mode=0755",
+func TestPhase1WritableVerificationVolumesHaveHardDiskCeilings(t *testing.T) {
+	for _, volume := range []struct {
+		label   string
+		options []string
+	}{
+		{label: "workspace", options: phase1WorkspaceVolumeDriverOptions()},
+		{label: "verification", options: phase1BoundedVolumeDriverOptions(phase1VerificationDiskBytes)},
 	} {
-		if !strings.Contains(options, expected) {
-			t.Fatalf("workspace volume options %q omitted %q", options, expected)
+		options := strings.Join(volume.options, " ")
+		for _, expected := range []string{
+			"--driver local",
+			"--opt type=tmpfs",
+			"--opt device=tmpfs",
+			"o=size=67108864,uid=65532,gid=65532,mode=0755",
+		} {
+			if !strings.Contains(options, expected) {
+				t.Fatalf("%s volume options %q omitted %q", volume.label, options, expected)
+			}
 		}
 	}
 }

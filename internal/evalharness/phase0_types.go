@@ -30,6 +30,7 @@ const (
 	phase0ContainerNanoCPUs   = 2_000_000_000
 	phase0ContainerPIDs       = 128
 	phase0ContainerTmpfsBytes = 64 * 1024 * 1024
+	phase0WorkspaceDiskBytes  = 64 * 1024 * 1024
 )
 
 var phase0AllowedEnvironmentNames = []string{
@@ -99,6 +100,7 @@ type Phase0BoundaryEvidence struct {
 	ContainerUser             string   `json:"containerUser"`
 	ReadOnlyRootFilesystem    bool     `json:"readOnlyRootFilesystem"`
 	WorkspaceVolumeWritable   bool     `json:"workspaceVolumeWritable"`
+	WorkspaceDiskLimitBytes   int64    `json:"workspaceDiskLimitBytes"`
 	RootWriteDenied           bool     `json:"rootWriteDenied"`
 	HostCanaryVisible         bool     `json:"hostCanaryVisible"`
 	InternalNetwork           bool     `json:"internalNetwork"`
