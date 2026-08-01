@@ -39,7 +39,12 @@ func TestRunPassesExplicitInputsAndReportsArtifacts(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "straightforward-task: pass (completed)") ||
 		!strings.Contains(stdout.String(), "Results: /recordings/run/results.json") ||
+		!strings.Contains(stdout.String(), "Manifest: /recordings/run/manifest.json") ||
+		!strings.Contains(stdout.String(), "Events: /recordings/run/events.jsonl") ||
+		!strings.Contains(stdout.String(), "Transcript: /recordings/run/transcript.json") ||
 		!strings.Contains(stdout.String(), "Token usage: /recordings/run/token-usage.json") ||
+		!strings.Contains(stdout.String(), "Verifier results: /recordings/run/verifier-results.json") ||
+		!strings.Contains(stdout.String(), "Judge results: /recordings/run/judge-results.json") ||
 		!strings.Contains(stdout.String(), "Report: /recordings/run/report.md") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
@@ -63,10 +68,29 @@ func TestRunReturnsFailureForObjectiveEvaluationFailure(t *testing.T) {
 			if exitCode := run(nil, &stdout, &stderr, runner); exitCode != 1 {
 				t.Fatalf("exit code = %d, want 1", exitCode)
 			}
-			if !strings.Contains(stderr.String(), "completed without an objective pass") {
+			if !strings.Contains(stderr.String(), "did not pass ability and communication") {
 				t.Fatalf("stderr = %q", stderr.String())
 			}
 		})
+	}
+}
+
+func TestRunReturnsFailureForCommunicationEvaluationFailure(t *testing.T) {
+	runner := func(
+		_ context.Context,
+		_ evalharness.Phase1EvaluationConfig,
+	) (evalharness.Phase1EvaluationOutput, error) {
+		output := phase1CommandOutput(evalharness.ScenarioClassificationPass)
+		output.JudgeResults.Scenarios[0].Verdict.OverallPass = false
+		return output, nil
+	}
+	var stdout strings.Builder
+	var stderr strings.Builder
+	if exitCode := run(nil, &stdout, &stderr, runner); exitCode != 1 {
+		t.Fatalf("exit code = %d, want 1", exitCode)
+	}
+	if !strings.Contains(stderr.String(), "did not pass ability and communication") {
+		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
 
@@ -111,11 +135,25 @@ func phase1CommandOutput(
 				ExecutionOutcome: outcome,
 			}},
 		},
+		JudgeResults: evalharness.JudgeArtifact{
+			Scenarios: []evalharness.ScenarioJudgeResult{{
+				ScenarioID:        evalharness.ScenarioVerifierStraightforward,
+				EvidenceAvailable: true,
+				Verdict: &evalharness.CommunicationJudgeVerdict{
+					OverallPass: true,
+				},
+			}},
+		},
 		Artifacts: evalharness.ResultArtifactPaths{
-			Directory:      "/recordings/run",
-			ResultsJSON:    "/recordings/run/results.json",
-			TokenUsageJSON: "/recordings/run/token-usage.json",
-			ReportMarkdown: "/recordings/run/report.md",
+			Directory:           "/recordings/run",
+			ManifestJSON:        "/recordings/run/manifest.json",
+			EventsJSONL:         "/recordings/run/events.jsonl",
+			TranscriptJSON:      "/recordings/run/transcript.json",
+			ResultsJSON:         "/recordings/run/results.json",
+			TokenUsageJSON:      "/recordings/run/token-usage.json",
+			VerifierResultsJSON: "/recordings/run/verifier-results.json",
+			JudgeResultsJSON:    "/recordings/run/judge-results.json",
+			ReportMarkdown:      "/recordings/run/report.md",
 		},
 	}
 }

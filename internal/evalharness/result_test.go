@@ -225,10 +225,20 @@ func TestWriteResultArtifactsPublishesValidatedSet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build token usage: %v", err)
 	}
-	paths, err := WriteResultArtifacts(recordingsRoot, results, tokenUsage)
+	artifactSet := validTestArtifactSet(t, results, tokenUsage)
+	paths, err := WriteResultArtifacts(recordingsRoot, artifactSet)
 	if err != nil {
 		t.Fatalf("write result artifacts: %v", err)
 	}
+	assertPublishedResultArtifacts(t, paths)
+	assertPublishedResultReport(t, paths.ReportMarkdown)
+	if _, err := WriteResultArtifacts(recordingsRoot, artifactSet); err == nil {
+		t.Fatal("second artifact publication unexpectedly replaced the first")
+	}
+}
+
+func assertPublishedResultArtifacts(t *testing.T, paths ResultArtifactPaths) {
+	t.Helper()
 	payload, err := os.ReadFile(paths.ResultsJSON)
 	if err != nil {
 		t.Fatalf("read results artifact: %v", err)
@@ -251,7 +261,22 @@ func TestWriteResultArtifactsPublishesValidatedSet(t *testing.T) {
 	if err := decodedTokens.Validate(); err != nil {
 		t.Fatalf("validate decoded token usage: %v", err)
 	}
-	report, err := os.ReadFile(paths.ReportMarkdown)
+	for _, path := range []string{
+		paths.ManifestJSON,
+		paths.EventsJSONL,
+		paths.TranscriptJSON,
+		paths.VerifierResultsJSON,
+		paths.JudgeResultsJSON,
+	} {
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("inspect complete artifact %s: %v", path, err)
+		}
+	}
+}
+
+func assertPublishedResultReport(t *testing.T, path string) {
+	t.Helper()
+	report, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read report artifact: %v", err)
 	}
@@ -263,9 +288,226 @@ func TestWriteResultArtifactsPublishesValidatedSet(t *testing.T) {
 	if !strings.Contains(string(report), "agent=42") || strings.Contains(string(report), "judge=99") {
 		t.Fatalf("report system/judge token separation = %s", report)
 	}
-	if _, err := WriteResultArtifacts(recordingsRoot, results, tokenUsage); err == nil {
-		t.Fatal("second artifact publication unexpectedly replaced the first")
+}
+
+func validTestArtifactSet(
+	t *testing.T,
+	results Results,
+	tokenUsage TokenUsageArtifact,
+) EvaluationArtifactSet {
+	t.Helper()
+	manifestScenarios := make([]ManifestScenario, len(results.Scenarios))
+	transcripts := make([]ScenarioTranscript, len(results.Scenarios))
+	verifiers := make([]ScenarioVerifierResult, len(results.Scenarios))
+	judges := make([]ScenarioJudgeResult, len(results.Scenarios))
+	for index, scenario := range results.Scenarios {
+		manifestScenarios[index] = validTestManifestScenario(scenario.ScenarioID, scenario.Roles)
+		if tokenUsage.Scenarios[index].Judge.EvidenceAvailable {
+			transcripts[index] = ScenarioTranscript{
+				ScenarioID:        scenario.ScenarioID,
+				EvidenceAvailable: true,
+				Entries: []TranscriptEntry{{
+					Sequence:   1,
+					Speaker:    TranscriptSpeakerUser,
+					Kind:       TranscriptEntryUserSubmission,
+					Text:       "Complete the fixture task.",
+					OccurredAt: scenario.StartedAt.Format(time.RFC3339Nano),
+				}},
+			}
+			judges[index] = ScenarioJudgeResult{
+				ScenarioID:        scenario.ScenarioID,
+				EvidenceAvailable: true,
+				Invocation: &JudgeInvocation{
+					ID:               "judge-test",
+					ProviderThreadID: "artifact-judge-thread",
+					ProviderTurnID:   "artifact-judge-turn",
+				},
+				Verdict: communicationJudgeVerdict(communicationJudgeChecks{
+					ProgressSufficient:      true,
+					ProgressRestrained:      true,
+					QuestionsNecessary:      true,
+					FinalTruthfulActionable: true,
+					InternalMechanicsHidden: true,
+				}),
+			}
+		} else {
+			transcripts[index] = mustUnavailableTestTranscript(t, scenario.ScenarioID, scenario.Diagnostic)
+			judges[index] = mustUnavailableTestJudge(t, scenario.ScenarioID, scenario.Diagnostic)
+		}
+		var err error
+		verifiers[index], err = scenarioVerifierResult(scenario)
+		if err != nil {
+			t.Fatalf("create verifier evidence: %v", err)
+		}
 	}
+	return EvaluationArtifactSet{
+		Manifest: EvaluationManifest{
+			SchemaVersion: ManifestSchemaVersion,
+			SettaCommit:   results.SettaCommit,
+			StartedAt:     results.StartedAt,
+			FinishedAt:    results.FinishedAt,
+			Scenarios:     manifestScenarios,
+			Sandbox:       validTestManifestSandbox(),
+			Judge:         FixedJudgeConfiguration(),
+			Runtime: ManifestRuntime{
+				BackendVersion: phase1BackendVersion,
+				CodexVersion:   "0.146.0",
+				NodeVersion:    "25.2.1",
+				PNPMVersion:    "10.23.0",
+			},
+		},
+		Events:          testArtifactEvents(results, tokenUsage),
+		Transcript:      mustTestTranscriptArtifact(t, transcripts),
+		TokenUsage:      tokenUsage,
+		VerifierResults: mustTestVerifierArtifact(t, verifiers),
+		JudgeResults:    mustTestJudgeArtifact(t, judges),
+		Results:         results,
+	}
+}
+
+func testArtifactEvents(results Results, tokenUsage TokenUsageArtifact) []EvaluationEvent {
+	events := []EvaluationEvent{}
+	for index, scenario := range results.Scenarios {
+		sequence := 1
+		recordedAt := scenario.StartedAt
+		events = append(events, EvaluationEvent{
+			SchemaVersion: EvaluationEventSchemaVersion,
+			ScenarioID:    scenario.ScenarioID,
+			Sequence:      sequence,
+			RecordedAt:    recordedAt.Format(time.RFC3339Nano),
+			Kind:          EvaluationEventUserSubmission,
+			UserSubmission: &EvaluationUserSubmission{
+				Text: "Complete the fixture task.",
+			},
+		})
+		for _, bucket := range []TokenUsageBucketResult{
+			tokenUsage.Scenarios[index].System,
+			tokenUsage.Scenarios[index].Judge,
+		} {
+			for _, turn := range bucket.ProviderTurns {
+				sequence++
+				recordedAt = recordedAt.Add(time.Nanosecond)
+				observation := agent.TokenUsageObservation{
+					Attribution:      turn.Attribution,
+					ProviderThreadID: turn.ProviderThreadID,
+					ProviderTurnID:   turn.ProviderTurnID,
+					TokenUsage:       turn.FinalProviderRecord,
+				}
+				events = append(events, EvaluationEvent{
+					SchemaVersion: EvaluationEventSchemaVersion,
+					ScenarioID:    scenario.ScenarioID,
+					Sequence:      sequence,
+					RecordedAt:    recordedAt.Format(time.RFC3339Nano),
+					Kind:          EvaluationEventTokenUsage,
+					TokenUsage:    &observation,
+				})
+			}
+		}
+	}
+	return events
+}
+
+func validTestManifest(
+	resultsCommit string,
+	startedAt time.Time,
+	finishedAt time.Time,
+	roles []EvaluatedRoleConfiguration,
+) EvaluationManifest {
+	return EvaluationManifest{
+		SchemaVersion: ManifestSchemaVersion,
+		SettaCommit:   resultsCommit,
+		StartedAt:     startedAt,
+		FinishedAt:    finishedAt,
+		Scenarios: []ManifestScenario{
+			validTestManifestScenario(ScenarioVerifierStraightforward, roles),
+		},
+		Sandbox: validTestManifestSandbox(),
+		Judge:   FixedJudgeConfiguration(),
+		Runtime: ManifestRuntime{
+			BackendVersion: phase1BackendVersion,
+			CodexVersion:   "0.146.0",
+			NodeVersion:    "25.2.1",
+			PNPMVersion:    "10.23.0",
+		},
+	}
+}
+
+func validTestManifestScenario(
+	scenarioID string,
+	roles []EvaluatedRoleConfiguration,
+) ManifestScenario {
+	return ManifestScenario{
+		ScenarioID:                scenarioID,
+		ScenarioSHA256:            strings.Repeat("a", 64),
+		Fixture:                   ScenarioFixtureTypeScriptService,
+		FixtureSHA256:             strings.Repeat("b", 64),
+		CommunicationRubricSHA256: strings.Repeat("c", 64),
+		Roles:                     cloneEvaluatedRoleConfigurations(roles),
+	}
+}
+
+func validTestManifestSandbox() *ManifestSandbox {
+	return &ManifestSandbox{
+		Platform:         phase1ImagePlatform,
+		ToolchainImage:   "docker.io/library/node@sha256:" + strings.Repeat("d", 64),
+		ToolchainImageID: "sha256:" + strings.Repeat("e", 64),
+		AgentImageID:     "sha256:" + strings.Repeat("f", 64),
+		BackendImageID:   "sha256:" + strings.Repeat("1", 64),
+		VerifierImageID:  "sha256:" + strings.Repeat("2", 64),
+	}
+}
+
+func mustUnavailableTestTranscript(
+	t *testing.T,
+	scenarioID string,
+	diagnostic *ScenarioDiagnostic,
+) ScenarioTranscript {
+	t.Helper()
+	transcript, err := unavailableScenarioTranscript(scenarioID, diagnostic)
+	if err != nil {
+		t.Fatalf("create unavailable transcript: %v", err)
+	}
+	return transcript
+}
+
+func mustUnavailableTestJudge(
+	t *testing.T,
+	scenarioID string,
+	diagnostic *ScenarioDiagnostic,
+) ScenarioJudgeResult {
+	t.Helper()
+	judge, err := unavailableScenarioJudgeResult(scenarioID, diagnostic)
+	if err != nil {
+		t.Fatalf("create unavailable judge: %v", err)
+	}
+	return judge
+}
+
+func mustTestTranscriptArtifact(t *testing.T, scenarios []ScenarioTranscript) TranscriptArtifact {
+	t.Helper()
+	artifact, err := NewTranscriptArtifact(scenarios)
+	if err != nil {
+		t.Fatalf("create transcript artifact: %v", err)
+	}
+	return artifact
+}
+
+func mustTestVerifierArtifact(t *testing.T, scenarios []ScenarioVerifierResult) VerifierArtifact {
+	t.Helper()
+	artifact, err := NewVerifierArtifact(scenarios)
+	if err != nil {
+		t.Fatalf("create verifier artifact: %v", err)
+	}
+	return artifact
+}
+
+func mustTestJudgeArtifact(t *testing.T, scenarios []ScenarioJudgeResult) JudgeArtifact {
+	t.Helper()
+	artifact, err := NewJudgeArtifact(scenarios)
+	if err != nil {
+		t.Fatalf("create judge artifact: %v", err)
+	}
+	return artifact
 }
 
 func mustTestDiagnostic(t *testing.T, code string, message string) *ScenarioDiagnostic {

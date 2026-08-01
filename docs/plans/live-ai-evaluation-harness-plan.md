@@ -6,11 +6,12 @@ an external release gate. Phase 1 repository implementation and its coherent
 phase audit are complete, including the benchmark contract, result reporting,
 production orchestration, container lifecycle, committed Phase 0 gate, runnable
 entrypoints, checked-in ARM64 toolchain pin, hard disk and total-token ceilings,
-and focused classification exercises. Its live exit evidence remains gated by
-Phase 0 and the later user-authorized verification ladder. Phase 2's exact
-token-evidence batch is implemented; the user-visible transcript, fixed judge,
-and remaining artifact set make Phase 2 the earliest phase with incomplete
-repository-actionable work.
+and focused classification exercises. Phase 2 repository implementation is
+complete, including exact token evidence, the public transcript, the fixed
+fresh judge, and the complete atomic artifact set. Phase 1 and Phase 2 live exit
+evidence remains gated by Phase 0 and the later user-authorized verification
+ladder. Phase 3 is the earliest phase with incomplete repository-actionable
+work.
 
 ## Outcome
 
@@ -80,13 +81,14 @@ The implementation starts with substantial existing machinery.
   it as evidence, and the Agent boundary now gives it an optional ephemeral
   accounting observer without adding it to durable conversation state.
 - The session recorder already records resolved invocations, narration
-  invocations, and semantic trajectory. The eval publisher now adds exact token
-  evidence separately; a purpose-built user-visible transcript is still absent.
-- There is no checked-in Docker eval environment today. On the target MacBook,
-  Docker Desktop and an ARM64 Docker client are installed. The machine has 8
-  CPU cores, 32 GiB of memory, and ample free disk. Docker Desktop must be
-  running before an eval; the runner should detect that condition and never
-  start it automatically.
+  invocations, and semantic trajectory. The eval publisher adds exact token
+  evidence separately and derives a bounded user-visible transcript from the
+  same Director and Narrator product contracts.
+- The checked-in Docker eval environment now owns the exact ARM64 toolchain and
+  locked-down controller, Agent, and verifier boundaries. On the target
+  MacBook, Docker Desktop and an ARM64 Docker client are installed. Docker
+  Desktop must be running before an eval; the runner detects that condition and
+  never starts it automatically.
 
 One sandbox fact is unresolved and must be resolved first. The production
 runtime launches `codex app-server` as a child process, and live runs use the
@@ -775,13 +777,13 @@ the fixture, and the lifecycle excludes it from the evaluated Agent container.
 The fixture-owned quality command includes formatting, build, and tests.
 
 The strict Phase 1 result schema, production-role resolution projection,
-objective classification boundary, and atomic result/report publisher are
+objective classification boundary, and atomic artifact publisher are
 implemented. Completed work passes only when the hidden verifier
 passes; an incorrect final workspace, an execution failure, a timeout, and an
 infrastructure failure remain distinct outcomes. The Markdown report already
 uses the four final report sections, includes exact system-token totals when
-evidence is available, and identifies which remaining Phase 2 and Phase 3
-evidence is not collected yet.
+evidence is available, presents the Phase 2 communication verdict, and
+identifies the typed user-control evidence that remains for Phase 3.
 
 The production-boundary orchestration slice is implemented under
 `internal/evalharness`. Its client accepts only an explicit numeric loopback
@@ -816,9 +818,10 @@ still produce classified result artifacts once input validation and repository
 preconditions have passed.
 
 `cmd/setta-eval` and `scripts/run_setta_evals.sh` now expose that lifecycle. The
-command reports the objective classification and artifact paths, returns a
-nonzero status for a non-pass, and accepts the already-installed Linux Codex
-bundle explicitly. `evals/sandbox/phase1-toolchain.json` owns the exact ARM64
+command reports the objective classification and complete artifact paths,
+returns a nonzero status unless both ability and communication pass, and
+accepts the already-installed Linux Codex bundle explicitly.
+`evals/sandbox/phase1-toolchain.json` owns the exact ARM64
 Node manifest digest and image config ID plus the Node and pnpm versions. The
 runner requires that exact image to be installed already and never pulls it. It
 also resolves the installed pnpm package, requires the exact version and
@@ -894,16 +897,19 @@ and invokes the separate verifier container. It always tears down the backend,
 provider, containers, volumes, and subscriptions, including on cancellation or
 failure.
 
-At this phase the report contains objective outcome, resolved models, duration,
-and infrastructure diagnostics. In the later user-authorized verification
-ladder, do not invoke the judge or model matrix until this scenario has run
-repeatedly without harness ambiguity.
+The Phase 1 slice established objective outcome, resolved models, duration, and
+infrastructure diagnostics. Phase 2 now adds its fixed judge after deterministic
+verification; candidate model matrices remain deferred until the later
+user-authorized verification ladder establishes that the vertical scenario is
+unambiguous.
 
 **Exit:** one command produces a correct `results.json` and `report.md` for one
 passing run, one intentionally incorrect final workspace, one timeout, and one
 infrastructure failure, with each classified differently.
 
 ## Phase 2 — Token evidence and the communication judge
+
+### Phase 2 implementation status
 
 The token-evidence batch is implemented. The production Agent boundary accepts
 an optional synchronous observer, and every Director, Agent, Narrator, and Side
@@ -922,13 +928,48 @@ typed provider record, attributes cumulative thread deltas by role and exact
 model settings, and counts repeated updates only once. `report.md` now presents
 system totals and per-role diagnostics while excluding the judge bucket.
 
-The user-visible transcript, fixed fresh structured judge and five-Boolean
-schema, judge invocation wiring, and the other artifacts listed above remain
-the next repository-actionable Phase 2 batch. No live Phase 1 scenario was run
-for this implementation batch; the existing external Phase 0 and live-harness
-release gates remain unchanged. Repository formatting, changed-file quality for
-the affected Go and desktop packages, and the repository supply-chain gate
-passed on 2026-07-31.
+The public transcript is now built from the submitted scenario message, the
+Director receipt's public reply, and the Narrator event payloads owned by the
+conversation contract. Topic descriptors remain presentation metadata and do
+not enter the transcript. Entries are bounded, ordered, explicitly available or
+unavailable, and contain no internal Agent text or private reasoning.
+
+The fixed judge is Go-owned and records the exact configuration above. It runs
+only after the controller, Agent container, and hidden verifier have stopped,
+using the existing fresh structured-call boundary in a new ephemeral read-only
+thread and empty temporary workspace. Preflight requires exact
+`gpt-5.6-sol`/`max`; no fallback or explicit service tier is permitted. The
+judge receives only public transcript messages, the small communication
+contract, and the deterministic verifier result. Its provider schema contains
+only the five Booleans; product code derives `overallPass` and the ordered
+failure tags so inconsistent aggregate JSON cannot enter the artifacts.
+
+Every invocation now publishes `manifest.json`, `events.jsonl`,
+`transcript.json`, `token-usage.json`, `verifier-results.json`,
+`judge-results.json`, `results.json`, and `report.md` through one atomic
+directory rename. The manifest binds source and fixture hashes, exact image
+identities, requested and resolved production roles, fixed judge settings, and
+runtime versions. The event log carries typed public/semantic and accounting
+evidence only. Cross-artifact validation rejects mismatched identities or a
+completed run missing its public transcript, semantic events, system-token
+evidence, or accounting records. Judge failures remain explicit unavailable
+evidence and cannot produce a successful command exit; any observed judge
+tokens remain isolated in the judge bucket.
+
+No live Phase 1 scenario or communication judge was run for this implementation
+batch. The existing external Phase 0 and live-harness release gates remain
+unchanged and are not repository-actionable Phase 2 work.
+
+Repository formatting and the changed-file quality gate passed on 2026-07-31,
+including vet, the four affected Go package tests, dead-code analysis, file
+lengths, and complexity limits. The supply-chain gate passed module tidy, Go
+and npm release-policy configuration, Go module release age, Go vulnerability
+analysis, exact direct dependency pins, and pnpm lockfile sync. Its npm registry
+metadata request for `@esbuild/android-arm64` timed out before the pnpm
+release-age and vulnerability-audit portions could finish. No dependency changed
+in this batch, the unavailable remote check was not retried, and those remaining
+pnpm checks are recorded once as a final-audit release gate rather than a Phase
+2 implementation blocker.
 
 Give `thread/tokenUsage/updated` an ephemeral accounting sink at the Agent
 boundary. Correlate provider turns to resolved invocations, preserve the exact

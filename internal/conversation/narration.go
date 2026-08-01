@@ -87,6 +87,33 @@ type NarrationEvent struct {
 	TopicDescriptor     *NarrationTopicDescriptor `json:"topicDescriptor"`
 }
 
+// UserVisibleText returns the text the product presents as narrator speech.
+// Topic descriptors name a conversation and are presentation metadata rather
+// than communication about the work, so they are intentionally excluded.
+func (event NarrationEvent) UserVisibleText() (string, bool) {
+	switch event.Kind {
+	case NarrationEventKindMilestone:
+		if event.Milestone == nil {
+			return "", false
+		}
+		return event.Milestone.Text, true
+	case NarrationEventKindStatusReply:
+		if event.StatusReply == nil {
+			return "", false
+		}
+		return event.StatusReply.Text, true
+	case NarrationEventKindFinalSummary:
+		if event.FinalSummary == nil {
+			return "", false
+		}
+		return event.FinalSummary.Text, true
+	case NarrationEventKindTopicDescriptor:
+		return "", false
+	default:
+		return "", false
+	}
+}
+
 func (degradation NarratorDegradation) Validate() error {
 	if err := validateIdentifier("narrator degradation code", degradation.Code); err != nil {
 		return err

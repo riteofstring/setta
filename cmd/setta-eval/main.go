@@ -47,7 +47,7 @@ func run(
 	}
 	writePhase1Output(stdout, output)
 	if !phase1OutputPassed(output) {
-		fmt.Fprintln(stderr, "Setta live evaluation completed without an objective pass; inspect the result artifacts.")
+		fmt.Fprintln(stderr, "Setta live evaluation did not pass ability and communication; inspect the result artifacts.")
 		return 1
 	}
 	return 0
@@ -108,7 +108,12 @@ func writePhase1Output(output io.Writer, result evalharness.Phase1EvaluationOutp
 		)
 	}
 	fmt.Fprintf(output, "Results: %s\n", result.Artifacts.ResultsJSON)
+	fmt.Fprintf(output, "Manifest: %s\n", result.Artifacts.ManifestJSON)
+	fmt.Fprintf(output, "Events: %s\n", result.Artifacts.EventsJSONL)
+	fmt.Fprintf(output, "Transcript: %s\n", result.Artifacts.TranscriptJSON)
 	fmt.Fprintf(output, "Token usage: %s\n", result.Artifacts.TokenUsageJSON)
+	fmt.Fprintf(output, "Verifier results: %s\n", result.Artifacts.VerifierResultsJSON)
+	fmt.Fprintf(output, "Judge results: %s\n", result.Artifacts.JudgeResultsJSON)
 	fmt.Fprintf(output, "Report: %s\n", result.Artifacts.ReportMarkdown)
 }
 
@@ -118,6 +123,15 @@ func phase1OutputPassed(output evalharness.Phase1EvaluationOutput) bool {
 	}
 	for _, scenario := range output.Results.Scenarios {
 		if scenario.Classification != evalharness.ScenarioClassificationPass {
+			return false
+		}
+	}
+	if len(output.JudgeResults.Scenarios) != len(output.Results.Scenarios) {
+		return false
+	}
+	for index, scenario := range output.JudgeResults.Scenarios {
+		if scenario.ScenarioID != output.Results.Scenarios[index].ScenarioID ||
+			!scenario.EvidenceAvailable || scenario.Verdict == nil || !scenario.Verdict.OverallPass {
 			return false
 		}
 	}

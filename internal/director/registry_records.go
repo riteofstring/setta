@@ -566,14 +566,11 @@ func (state *registryState) applyNarrationCreated(
 // workstreamNarrationText is the sentence a narration event contributes, and
 // whether it reports on the work at all.
 func workstreamNarrationText(event conversation.NarrationEvent) (string, bool) {
-	switch {
-	case event.Kind == conversation.NarrationEventKindMilestone && event.Milestone != nil:
-		return event.Milestone.Text, true
-	case event.Kind == conversation.NarrationEventKindFinalSummary && event.FinalSummary != nil:
-		return event.FinalSummary.Text, true
-	default:
+	if event.Kind != conversation.NarrationEventKindMilestone &&
+		event.Kind != conversation.NarrationEventKindFinalSummary {
 		return "", false
 	}
+	return event.UserVisibleText()
 }
 
 // appendWorkstreamNarration keeps the newest entries and drops the oldest, so

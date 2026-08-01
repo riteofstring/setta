@@ -22,6 +22,12 @@ type Phase1HTTPObservation struct {
 	ResolvedInvocations []conversation.ResolvedInvocation
 	ExecutionOutcome    ScenarioExecutionOutcome
 	ScenarioDiagnostic  *ScenarioDiagnostic
+	transcript          *ScenarioTranscript
+	submittedAt         time.Time
+	directorReceivedAt  time.Time
+	directorReceipt     director.DirectorReceipt
+	directorEvent       *director.DirectorEvent
+	events              []EvaluationEvent
 }
 
 // RunPhase1ScenarioOverHTTP drives one validated Phase 1 scenario through the
@@ -94,13 +100,13 @@ func runPhase1ScenarioOverHTTP(
 		ctx,
 		client,
 		directorEvents,
-		scenario.Steps[0].Text,
+		scenario,
 		observation,
 	)
 	if err != nil || finished {
 		return observation, err
 	}
-	return observePhase1Turn(ctx, client, observation)
+	return observePhase1Turn(ctx, client, scenario, observation)
 }
 
 func preparePhase1Scenario(
@@ -136,13 +142,16 @@ func observePhase1Workstream(
 	ctx context.Context,
 	client *BackendClient,
 	directorEvents *EventStream[director.DirectorEvent],
-	requestText string,
+	scenario Scenario,
 	observation Phase1HTTPObservation,
 ) (Phase1HTTPObservation, bool, error) {
-	receipt, err := client.DispatchDirectorIntent(ctx, phase1SubmitIntent(requestText))
+	observation.submittedAt = time.Now().UTC()
+	receipt, err := client.DispatchDirectorIntent(ctx, phase1SubmitIntent(scenario.Steps[0].Text))
+	observation.directorReceivedAt = time.Now().UTC()
 	if err != nil {
 		return observation, false, err
 	}
+	observation.directorReceipt = receipt
 	if receipt.Submit != nil {
 		observation.ResolvedInvocations = append(
 			observation.ResolvedInvocations,
@@ -160,10 +169,11 @@ func observePhase1Workstream(
 		return failed, true, err
 	}
 	observation.WorkstreamID = workstreamID
-	workstream, err := awaitPhase1Workstream(ctx, directorEvents, workstreamID)
+	workstream, workstreamEvent, err := awaitPhase1Workstream(ctx, directorEvents, workstreamID)
 	if err != nil {
 		return observation, false, err
 	}
+	observation.directorEvent = &workstreamEvent
 	if workstream.ResourceScope.Kind != director.WorkstreamResourceScopeFolder ||
 		workstream.ResourceScope.Folder == nil ||
 		workstream.ResourceScope.Folder.WorkspaceID != observation.WorkspaceID {
@@ -182,6 +192,7 @@ func observePhase1Workstream(
 func observePhase1Turn(
 	ctx context.Context,
 	client *BackendClient,
+	scenario Scenario,
 	observation Phase1HTTPObservation,
 ) (Phase1HTTPObservation, error) {
 	conversationSnapshot, err := client.ReadConversationSnapshot(
@@ -227,12 +238,56 @@ func observePhase1Turn(
 	if err != nil {
 		return observation, err
 	}
+	observation, err = collectPhase2ConversationEvidence(scenario, observation, finalSnapshot)
+	if err != nil {
+		return observation, err
+	}
 	invocations, err := phase1SnapshotInvocations(finalSnapshot)
 	if err != nil {
 		return observation, err
 	}
 	observation.ResolvedInvocations = append(observation.ResolvedInvocations, invocations...)
 	return phase1TerminalObservation(observation, turn)
+}
+
+func collectPhase2ConversationEvidence(
+	scenario Scenario,
+	observation Phase1HTTPObservation,
+	snapshot conversation.ConversationSnapshot,
+) (Phase1HTTPObservation, error) {
+	if err := validateCompletePhase2Snapshot(snapshot); err != nil {
+		return observation, err
+	}
+	transcript, err := buildScenarioTranscript(
+		scenario,
+		observation.submittedAt,
+		observation.directorReceivedAt,
+		observation.directorReceipt,
+		snapshot,
+	)
+	if err != nil {
+		return observation, fmt.Errorf("build Phase 2 user-visible transcript: %w", err)
+	}
+	observation.transcript = &transcript
+	events, err := buildPhase1EvaluationEvents(scenario, observation, snapshot)
+	if err != nil {
+		return observation, fmt.Errorf("build Phase 2 event log: %w", err)
+	}
+	observation.events = events
+	return observation, nil
+}
+
+func validateCompletePhase2Snapshot(snapshot conversation.ConversationSnapshot) error {
+	if snapshot.Trajectory.HasEarlier {
+		return errors.New("Phase 2 event evidence exceeded the trajectory snapshot window")
+	}
+	if snapshot.Narration.HasEarlier {
+		return errors.New("Phase 2 transcript evidence exceeded the narration snapshot window")
+	}
+	if snapshot.SideEvents.HasEarlier {
+		return errors.New("Phase 2 event evidence exceeded the side-trajectory snapshot window")
+	}
+	return nil
 }
 
 func validatePhase1HTTPScenario(scenario Scenario) error {
@@ -321,19 +376,19 @@ func awaitPhase1Workstream(
 	ctx context.Context,
 	events *EventStream[director.DirectorEvent],
 	workstreamID string,
-) (director.Workstream, error) {
+) (director.Workstream, director.DirectorEvent, error) {
 	reader := newEventStreamReader("Director", events)
 	for {
 		event, err := reader.Next(ctx)
 		if err != nil {
-			return director.Workstream{}, err
+			return director.Workstream{}, director.DirectorEvent{}, err
 		}
 		if event.Kind == director.DirectorEventResyncRequired {
-			return director.Workstream{}, errors.New("Director event stream required a snapshot resync")
+			return director.Workstream{}, director.DirectorEvent{}, errors.New("Director event stream required a snapshot resync")
 		}
 		if event.Kind == director.DirectorEventWorkstreamUpdated &&
 			event.WorkstreamUpdated.Entry.Workstream.ID == workstreamID {
-			return event.WorkstreamUpdated.Entry.Workstream, nil
+			return event.WorkstreamUpdated.Entry.Workstream, event, nil
 		}
 	}
 }

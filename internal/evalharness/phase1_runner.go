@@ -25,8 +25,9 @@ type Phase1EvaluationConfig struct {
 }
 
 type Phase1EvaluationOutput struct {
-	Results   Results
-	Artifacts ResultArtifactPaths
+	Results      Results
+	JudgeResults JudgeArtifact
+	Artifacts    ResultArtifactPaths
 }
 
 type phase1NormalizedConfig struct {
@@ -45,6 +46,10 @@ type phase1RunState struct {
 	verifier   *evalverifier.Result
 	tokenUsage *ScenarioTokenUsage
 	diagnostic *ScenarioDiagnostic
+	transcript *ScenarioTranscript
+	events     []EvaluationEvent
+	sandbox    *ManifestSandbox
+	judge      *ScenarioJudgeResult
 }
 
 // RunPhase1Evaluation owns the complete Phase 1 lifecycle, including the
@@ -89,12 +94,28 @@ func RunPhase1Evaluation(
 	}
 	startedAt := time.Now().UTC()
 	state := runPhase1Evaluation(ctx, normalized, scenarios[0])
+	scenarioFinishedAt := time.Now().UTC()
+	state = completePhase2Judge(ctx, normalized, scenarios[0], state)
 	finishedAt := time.Now().UTC()
-	return publishPhase1Evaluation(
-		normalized.recordingsRoot,
+	manifest, err := buildEvaluationManifest(
+		normalized.repoRoot,
 		repository.Commit,
+		normalized.phase0Codex,
 		scenarios[0],
 		startedAt,
+		finishedAt,
+		state.roles,
+		state.sandbox,
+	)
+	if err != nil {
+		return Phase1EvaluationOutput{}, fmt.Errorf("build Phase 2 manifest: %w", err)
+	}
+	return publishPhase1Evaluation(
+		normalized.recordingsRoot,
+		manifest,
+		scenarios[0],
+		startedAt,
+		scenarioFinishedAt,
 		finishedAt,
 		state,
 	)
@@ -102,9 +123,10 @@ func RunPhase1Evaluation(
 
 func publishPhase1Evaluation(
 	recordingsRoot string,
-	settaCommit string,
+	manifest EvaluationManifest,
 	scenario Scenario,
 	startedAt time.Time,
+	scenarioFinishedAt time.Time,
 	finishedAt time.Time,
 	state phase1RunState,
 ) (Phase1EvaluationOutput, error) {
@@ -112,7 +134,7 @@ func publishPhase1Evaluation(
 		Scenario:         scenario,
 		ExecutionOutcome: state.outcome,
 		StartedAt:        startedAt,
-		FinishedAt:       finishedAt,
+		FinishedAt:       scenarioFinishedAt,
 		Roles:            state.roles,
 		Verifier:         state.verifier,
 		Diagnostic:       state.diagnostic,
@@ -120,7 +142,7 @@ func publishPhase1Evaluation(
 	if err != nil {
 		return Phase1EvaluationOutput{}, fmt.Errorf("classify Phase 1 scenario: %w", err)
 	}
-	results, err := NewResults(settaCommit, startedAt, finishedAt, []ScenarioResult{scenarioResult})
+	results, err := NewResults(manifest.SettaCommit, startedAt, finishedAt, []ScenarioResult{scenarioResult})
 	if err != nil {
 		return Phase1EvaluationOutput{}, fmt.Errorf("create Phase 1 results: %w", err)
 	}
@@ -132,11 +154,74 @@ func publishPhase1Evaluation(
 	if err != nil {
 		return Phase1EvaluationOutput{}, fmt.Errorf("create Phase 1 token usage artifact: %w", err)
 	}
-	artifacts, err := WriteResultArtifacts(recordingsRoot, results, tokenArtifact)
+	transcriptArtifact, err := phase2TranscriptArtifact(scenario.ID, state)
+	if err != nil {
+		return Phase1EvaluationOutput{}, fmt.Errorf("create Phase 2 transcript artifact: %w", err)
+	}
+	verifierArtifact, err := phase2VerifierArtifact(scenarioResult)
+	if err != nil {
+		return Phase1EvaluationOutput{}, fmt.Errorf("create Phase 2 verifier artifact: %w", err)
+	}
+	judgeArtifact, err := phase2JudgeArtifact(scenario.ID, state)
+	if err != nil {
+		return Phase1EvaluationOutput{}, fmt.Errorf("create Phase 2 judge artifact: %w", err)
+	}
+	artifactSet := EvaluationArtifactSet{
+		Manifest:        manifest,
+		Events:          append([]EvaluationEvent{}, state.events...),
+		Transcript:      transcriptArtifact,
+		TokenUsage:      tokenArtifact,
+		VerifierResults: verifierArtifact,
+		JudgeResults:    judgeArtifact,
+		Results:         results,
+	}
+	artifacts, err := WriteResultArtifacts(recordingsRoot, artifactSet)
 	if err != nil {
 		return Phase1EvaluationOutput{}, fmt.Errorf("publish Phase 1 results: %w", err)
 	}
-	return Phase1EvaluationOutput{Results: results, Artifacts: artifacts}, nil
+	return Phase1EvaluationOutput{
+		Results:      results,
+		JudgeResults: judgeArtifact,
+		Artifacts:    artifacts,
+	}, nil
+}
+
+func phase2TranscriptArtifact(
+	scenarioID string,
+	state phase1RunState,
+) (TranscriptArtifact, error) {
+	transcript := state.transcript
+	if transcript == nil {
+		unavailable, err := unavailableScenarioTranscript(scenarioID, state.diagnostic)
+		if err != nil {
+			return TranscriptArtifact{}, err
+		}
+		transcript = &unavailable
+	}
+	return NewTranscriptArtifact([]ScenarioTranscript{*transcript})
+}
+
+func phase2VerifierArtifact(result ScenarioResult) (VerifierArtifact, error) {
+	verifier, err := scenarioVerifierResult(result)
+	if err != nil {
+		return VerifierArtifact{}, err
+	}
+	return NewVerifierArtifact([]ScenarioVerifierResult{verifier})
+}
+
+func phase2JudgeArtifact(
+	scenarioID string,
+	state phase1RunState,
+) (JudgeArtifact, error) {
+	judge := state.judge
+	if judge == nil {
+		unavailable, err := unavailableScenarioJudgeResult(scenarioID, state.diagnostic)
+		if err != nil {
+			return JudgeArtifact{}, err
+		}
+		judge = &unavailable
+	}
+	return NewJudgeArtifact([]ScenarioJudgeResult{*judge})
 }
 
 func resolvePhase1RepoRoot(value string) (string, error) {
@@ -187,13 +272,23 @@ func runPhase1Evaluation(
 		cleanupErr := fixture.cleanup()
 		return phase1InfrastructureFailure("sandbox_image_failed", errors.Join(err, cleanupErr), nil)
 	}
+	sandbox, err := newManifestSandbox(config.repoRoot, images)
+	if err != nil {
+		cleanupContext, cancel := context.WithTimeout(context.Background(), phase1CleanupTimeout)
+		cleanupErr := errors.Join(images.cleanup(cleanupContext), fixture.cleanup())
+		cancel()
+		return phase1InfrastructureFailure("sandbox_manifest_failed", errors.Join(err, cleanupErr), nil)
+	}
 	resources := newPhase1DockerResources(client, suffix, images, fixture)
 	state := executePhase1Scenario(ctx, config, resources, scenario)
+	state.sandbox = cloneManifestSandbox(sandbox)
 	cleanupContext, cancel := context.WithTimeout(context.Background(), phase1CleanupTimeout)
 	cleanupErr := resources.cleanup(cleanupContext)
 	cancel()
 	if cleanupErr != nil {
-		return phase1InfrastructureFailure("sandbox_teardown_failed", cleanupErr, state.roles)
+		failed := phase1InfrastructureFailure("sandbox_teardown_failed", cleanupErr, state.roles)
+		failed.sandbox = cloneManifestSandbox(sandbox)
+		return failed
 	}
 	return state
 }
@@ -324,6 +419,20 @@ func phase1CompletedTokenState(
 		)
 	}
 	state.tokenUsage = &tokenUsage
+	events, eventsErr := appendTokenUsageEvents(
+		state.events,
+		scenarioID,
+		observations,
+		time.Now().UTC(),
+	)
+	if eventsErr != nil {
+		return phase1InfrastructureFailure(
+			"event_artifact_failed",
+			eventsErr,
+			observation.Roles,
+		)
+	}
+	state.events = events
 	return state
 }
 
@@ -360,7 +469,101 @@ func phase1StateFromObservation(observation Phase1HTTPObservation) phase1RunStat
 		outcome:    observation.ExecutionOutcome,
 		roles:      cloneEvaluatedRoleConfigurations(observation.Roles),
 		diagnostic: cloneScenarioDiagnostic(observation.ScenarioDiagnostic),
+		transcript: cloneScenarioTranscript(observation.transcript),
+		events:     append([]EvaluationEvent{}, observation.events...),
 	}
+}
+
+func completePhase2Judge(
+	ctx context.Context,
+	config phase1NormalizedConfig,
+	scenario Scenario,
+	state phase1RunState,
+) phase1RunState {
+	if state.outcome != ScenarioExecutionCompleted || state.verifier == nil || state.transcript == nil {
+		return state
+	}
+	run, err := runCommunicationJudge(
+		ctx,
+		config.repoRoot,
+		config.codexCommand,
+		scenario,
+		*state.transcript,
+		*state.verifier,
+	)
+	state, accountingErr := applyPhase2JudgeAccounting(state, scenario.ID, run)
+	if err != nil || accountingErr != nil {
+		return phase2JudgeUnavailableState(state, scenario.ID, errors.Join(err, accountingErr))
+	}
+	state.judge = &run.result
+	return state
+}
+
+func applyPhase2JudgeAccounting(
+	state phase1RunState,
+	scenarioID string,
+	run communicationJudgeRun,
+) (phase1RunState, error) {
+	if !run.judgeUsage.EvidenceAvailable {
+		if run.result.EvidenceAvailable {
+			return state, errors.New("completed communication judge has no judge token artifact")
+		}
+		return state, nil
+	}
+	if state.tokenUsage == nil {
+		return state, errors.New("communication judge has no system token artifact to accompany it")
+	}
+	usage := *state.tokenUsage
+	usage.Judge = run.judgeUsage
+	if err := usage.Validate(); err != nil {
+		return state, err
+	}
+	events, err := appendTokenUsageEvents(
+		state.events,
+		scenarioID,
+		run.observations,
+		time.Now().UTC(),
+	)
+	if err != nil {
+		return state, err
+	}
+	state.tokenUsage = &usage
+	state.events = events
+	return state, nil
+}
+
+func phase2JudgeUnavailableState(
+	state phase1RunState,
+	scenarioID string,
+	cause error,
+) phase1RunState {
+	message := "Communication judge evidence is unavailable"
+	if cause != nil && strings.TrimSpace(cause.Error()) != "" {
+		message += ": " + cause.Error()
+	}
+	diagnostic, err := NewScenarioDiagnostic(
+		"communication_judge_failed",
+		boundedResultDiagnostic(message),
+	)
+	if err != nil {
+		panic(fmt.Sprintf("invalid communication judge diagnostic: %v", err))
+	}
+	unavailable, err := unavailableScenarioJudgeResult(scenarioID, diagnostic)
+	if err != nil {
+		panic(fmt.Sprintf("invalid unavailable communication judge result: %v", err))
+	}
+	state.judge = &unavailable
+	return state
+}
+
+func cloneScenarioTranscript(value *ScenarioTranscript) *ScenarioTranscript {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	cloned.Entries = append([]TranscriptEntry{}, value.Entries...)
+	cloned.Diagnostic = cloneScenarioDiagnostic(value.Diagnostic)
+	return &cloned
 }
 
 func phase1InfrastructureFailure(
@@ -376,9 +579,13 @@ func phase1InfrastructureFailure(
 	if diagnosticErr != nil {
 		panic(fmt.Sprintf("invalid Phase 1 infrastructure diagnostic: %v", diagnosticErr))
 	}
+	normalizedRoles := cloneEvaluatedRoleConfigurations(roles)
+	if normalizedRoles == nil {
+		normalizedRoles = []EvaluatedRoleConfiguration{}
+	}
 	return phase1RunState{
 		outcome:    ScenarioExecutionInfrastructureFailed,
-		roles:      cloneEvaluatedRoleConfigurations(roles),
+		roles:      normalizedRoles,
 		diagnostic: diagnostic,
 	}
 }

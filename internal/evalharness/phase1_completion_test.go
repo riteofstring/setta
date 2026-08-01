@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/agent"
 	"setta/internal/codexapp"
 	evalverifier "setta/internal/evalharness/verifier"
 )
@@ -179,13 +180,24 @@ func TestPublishPhase1EvaluationExercisesExitClassifications(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			finishedAt := startedAt.Add(time.Second)
+			state := test.state
+			if state.outcome == ScenarioExecutionCompleted {
+				state = phase2CompletedTestState(t, state, startedAt)
+			}
 			output, err := publishPhase1Evaluation(
 				t.TempDir(),
-				strings.Repeat("a", 40),
+				validTestManifest(
+					strings.Repeat("a", 40),
+					startedAt,
+					finishedAt,
+					state.roles,
+				),
 				validTestScenario(),
 				startedAt,
-				startedAt.Add(time.Second),
-				test.state,
+				finishedAt,
+				finishedAt,
+				state,
 			)
 			if err != nil {
 				t.Fatalf("publish Phase 1 evaluation: %v", err)
@@ -197,6 +209,63 @@ func TestPublishPhase1EvaluationExercisesExitClassifications(t *testing.T) {
 			assertPhase1ClassificationArtifacts(t, output, test.classification)
 		})
 	}
+}
+
+func phase2CompletedTestState(
+	t *testing.T,
+	state phase1RunState,
+	startedAt time.Time,
+) phase1RunState {
+	t.Helper()
+	observation := testTokenObservation(
+		testTokenAttribution(
+			agent.TokenUsageBucketSystem,
+			agent.TokenUsageRoleAgent,
+			"phase2-agent",
+			"gpt-agent",
+		),
+		"phase2-agent-thread",
+		"phase2-agent-turn",
+		42,
+		30,
+		12,
+	)
+	usage, err := AggregateScenarioTokenUsage(ScenarioVerifierStraightforward, []agent.TokenUsageObservation{observation})
+	if err != nil {
+		t.Fatalf("aggregate Phase 2 completion tokens: %v", err)
+	}
+	state.tokenUsage = &usage
+	state.transcript = &ScenarioTranscript{
+		ScenarioID:        ScenarioVerifierStraightforward,
+		EvidenceAvailable: true,
+		Entries: []TranscriptEntry{{
+			Sequence:   1,
+			Speaker:    TranscriptSpeakerUser,
+			Kind:       TranscriptEntryUserSubmission,
+			Text:       "Complete the fixture task.",
+			OccurredAt: startedAt.Format(time.RFC3339Nano),
+		}},
+	}
+	state.events = []EvaluationEvent{{
+		SchemaVersion: EvaluationEventSchemaVersion,
+		ScenarioID:    ScenarioVerifierStraightforward,
+		Sequence:      1,
+		RecordedAt:    startedAt.Format(time.RFC3339Nano),
+		Kind:          EvaluationEventUserSubmission,
+		UserSubmission: &EvaluationUserSubmission{
+			Text: "Complete the fixture task.",
+		},
+	}}
+	state.events, err = appendTokenUsageEvents(
+		state.events,
+		ScenarioVerifierStraightforward,
+		[]agent.TokenUsageObservation{observation},
+		startedAt.Add(time.Nanosecond),
+	)
+	if err != nil {
+		t.Fatalf("append Phase 2 completion token event: %v", err)
+	}
+	return state
 }
 
 func phase1TokenUsageMessage(

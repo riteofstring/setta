@@ -14,10 +14,15 @@ import (
 const resultArtifactDirectoryTimestamp = "20060102T150405.000000000Z"
 
 type ResultArtifactPaths struct {
-	Directory      string
-	ResultsJSON    string
-	TokenUsageJSON string
-	ReportMarkdown string
+	Directory           string
+	ManifestJSON        string
+	EventsJSONL         string
+	TranscriptJSON      string
+	TokenUsageJSON      string
+	VerifierResultsJSON string
+	JudgeResultsJSON    string
+	ResultsJSON         string
+	ReportMarkdown      string
 }
 
 // WriteResultArtifacts publishes the current eval artifacts as one directory.
@@ -25,18 +30,14 @@ type ResultArtifactPaths struct {
 // renamed into place, so a consumer never observes a partial artifact set.
 func WriteResultArtifacts(
 	recordingsRoot string,
-	results Results,
-	tokenUsage TokenUsageArtifact,
+	artifactSet EvaluationArtifactSet,
 ) (ResultArtifactPaths, error) {
-	if err := results.Validate(); err != nil {
-		return ResultArtifactPaths{}, err
-	}
-	if err := validateResultTokenUsage(results, tokenUsage); err != nil {
+	if err := artifactSet.Validate(); err != nil {
 		return ResultArtifactPaths{}, err
 	}
 	finalDirectory, pendingDirectory, err := prepareResultArtifactDirectories(
 		recordingsRoot,
-		results.StartedAt,
+		artifactSet.Results.StartedAt,
 	)
 	if err != nil {
 		return ResultArtifactPaths{}, err
@@ -48,7 +49,7 @@ func WriteResultArtifacts(
 		}
 	}()
 
-	if err := writePendingResultArtifacts(pendingDirectory, results, tokenUsage); err != nil {
+	if err := writePendingResultArtifacts(pendingDirectory, artifactSet); err != nil {
 		return ResultArtifactPaths{}, err
 	}
 	if err := os.Rename(pendingDirectory, finalDirectory); err != nil {
@@ -56,10 +57,15 @@ func WriteResultArtifacts(
 	}
 	published = true
 	return ResultArtifactPaths{
-		Directory:      finalDirectory,
-		ResultsJSON:    filepath.Join(finalDirectory, "results.json"),
-		TokenUsageJSON: filepath.Join(finalDirectory, "token-usage.json"),
-		ReportMarkdown: filepath.Join(finalDirectory, "report.md"),
+		Directory:           finalDirectory,
+		ManifestJSON:        filepath.Join(finalDirectory, "manifest.json"),
+		EventsJSONL:         filepath.Join(finalDirectory, "events.jsonl"),
+		TranscriptJSON:      filepath.Join(finalDirectory, "transcript.json"),
+		TokenUsageJSON:      filepath.Join(finalDirectory, "token-usage.json"),
+		VerifierResultsJSON: filepath.Join(finalDirectory, "verifier-results.json"),
+		JudgeResultsJSON:    filepath.Join(finalDirectory, "judge-results.json"),
+		ResultsJSON:         filepath.Join(finalDirectory, "results.json"),
+		ReportMarkdown:      filepath.Join(finalDirectory, "report.md"),
 	}, nil
 }
 
@@ -87,16 +93,28 @@ func prepareResultArtifactDirectories(
 
 func writePendingResultArtifacts(
 	pendingDirectory string,
-	results Results,
-	tokenUsage TokenUsageArtifact,
+	artifactSet EvaluationArtifactSet,
 ) error {
-	if err := writeResultJSONFile(filepath.Join(pendingDirectory, "results.json"), results); err != nil {
+	jsonArtifacts := []struct {
+		name  string
+		value any
+	}{
+		{name: "manifest.json", value: artifactSet.Manifest},
+		{name: "transcript.json", value: artifactSet.Transcript},
+		{name: "token-usage.json", value: artifactSet.TokenUsage},
+		{name: "verifier-results.json", value: artifactSet.VerifierResults},
+		{name: "judge-results.json", value: artifactSet.JudgeResults},
+		{name: "results.json", value: artifactSet.Results},
+	}
+	for _, artifact := range jsonArtifacts {
+		if err := writeResultJSONFile(filepath.Join(pendingDirectory, artifact.name), artifact.value); err != nil {
+			return err
+		}
+	}
+	if err := writeEvaluationEventsFile(filepath.Join(pendingDirectory, "events.jsonl"), artifactSet.Events); err != nil {
 		return err
 	}
-	if err := writeTokenUsageJSONFile(filepath.Join(pendingDirectory, "token-usage.json"), tokenUsage); err != nil {
-		return err
-	}
-	report, err := RenderResultReport(results, tokenUsage)
+	report, err := RenderResultReport(artifactSet)
 	if err != nil {
 		return err
 	}
@@ -107,13 +125,12 @@ func writePendingResultArtifacts(
 	})
 }
 
-func RenderResultReport(results Results, tokenUsage TokenUsageArtifact) (string, error) {
-	if err := results.Validate(); err != nil {
+func RenderResultReport(artifactSet EvaluationArtifactSet) (string, error) {
+	if err := artifactSet.Validate(); err != nil {
 		return "", err
 	}
-	if err := validateResultTokenUsage(results, tokenUsage); err != nil {
-		return "", err
-	}
+	results := artifactSet.Results
+	tokenUsage := artifactSet.TokenUsage
 	var report strings.Builder
 	report.WriteString("# Setta Live AI Evaluation\n\n")
 	fmt.Fprintf(&report, "Setta commit: `%s`  \n", results.SettaCommit)
@@ -139,7 +156,19 @@ func RenderResultReport(results Results, tokenUsage TokenUsageArtifact) (string,
 	report.WriteString("Phase 1 records the objective terminal outcome only. The typed control assertions are added with the remaining MVP scenarios in Phase 3.\n\n")
 
 	report.WriteString("## AI Communication\n\n")
-	report.WriteString("Communication judging is not yet available. The user-visible transcript and fixed communication judge remain the next Phase 2 batch.\n\n")
+	report.WriteString("| Scenario | Judge | Five checks | Failure tags |\n")
+	report.WriteString("| --- | --- | --- | --- |\n")
+	for _, scenario := range artifactSet.JudgeResults.Scenarios {
+		fmt.Fprintf(
+			&report,
+			"| `%s` | %s | %s | %s |\n",
+			escapeMarkdownTableCell(scenario.ScenarioID),
+			judgeReportLabel(scenario),
+			judgeChecksReportLabel(scenario),
+			judgeFailureTagsReportLabel(scenario),
+		)
+	}
+	report.WriteString("\nThe fixed judge sees only scripted user messages, user-visible Director and Narrator text, the small communication contract, and the deterministic verifier result.\n\n")
 
 	report.WriteString("## Efficiency\n\n")
 	report.WriteString("| Scenario | Duration | System tokens | Tokens by role | Production role resolution |\n")
@@ -198,25 +227,36 @@ func prepareResultArtifactRoot(recordingsRoot string) (string, error) {
 	return root, nil
 }
 
-func writeResultJSONFile(path string, results Results) error {
+func writeResultJSONFile(path string, value any) error {
 	return writeResultFile(path, func(writer io.Writer) error {
 		encoder := json.NewEncoder(writer)
 		encoder.SetEscapeHTML(false)
 		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(results); err != nil {
-			return fmt.Errorf("encode eval results: %w", err)
+		if err := encoder.Encode(value); err != nil {
+			return fmt.Errorf("encode eval artifact: %w", err)
 		}
 		return nil
 	})
 }
 
-func writeTokenUsageJSONFile(path string, tokenUsage TokenUsageArtifact) error {
+func writeEvaluationEventsFile(path string, events []EvaluationEvent) error {
 	return writeResultFile(path, func(writer io.Writer) error {
-		encoder := json.NewEncoder(writer)
-		encoder.SetEscapeHTML(false)
-		encoder.SetIndent("", "  ")
-		if err := encoder.Encode(tokenUsage); err != nil {
-			return fmt.Errorf("encode eval token usage: %w", err)
+		for index, event := range events {
+			payload, err := json.Marshal(event)
+			if err != nil {
+				return fmt.Errorf("encode evaluation event[%d]: %w", index, err)
+			}
+			if len(payload) > EvaluationMaximumEventBytes {
+				return fmt.Errorf(
+					"evaluation event[%d] is %d bytes, maximum is %d",
+					index,
+					len(payload),
+					EvaluationMaximumEventBytes,
+				)
+			}
+			if _, err := writer.Write(append(payload, '\n')); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -250,6 +290,55 @@ func verifierReportLabel(result ScenarioResult) string {
 		return "pass"
 	}
 	return "fail"
+}
+
+func judgeReportLabel(result ScenarioJudgeResult) string {
+	if !result.EvidenceAvailable {
+		return "unavailable (`" + escapeMarkdownInline(result.Diagnostic.Code) + "`)"
+	}
+	if result.Verdict.OverallPass {
+		return "pass"
+	}
+	return "fail"
+}
+
+func judgeChecksReportLabel(result ScenarioJudgeResult) string {
+	if !result.EvidenceAvailable {
+		return "unavailable"
+	}
+	checks := []struct {
+		label  string
+		passed bool
+	}{
+		{label: "progress sufficient", passed: result.Verdict.ProgressSufficient},
+		{label: "progress restrained", passed: result.Verdict.ProgressRestrained},
+		{label: "questions necessary", passed: result.Verdict.QuestionsNecessary},
+		{label: "final truthful/actionable", passed: result.Verdict.FinalTruthfulActionable},
+		{label: "mechanics hidden", passed: result.Verdict.InternalMechanicsHidden},
+	}
+	parts := make([]string, 0, len(checks))
+	for _, check := range checks {
+		outcome := "fail"
+		if check.passed {
+			outcome = "pass"
+		}
+		parts = append(parts, check.label+"="+outcome)
+	}
+	return escapeMarkdownTableCell(strings.Join(parts, "; "))
+}
+
+func judgeFailureTagsReportLabel(result ScenarioJudgeResult) string {
+	if !result.EvidenceAvailable {
+		return "unavailable"
+	}
+	if len(result.Verdict.FailureTags) == 0 {
+		return "none"
+	}
+	parts := make([]string, len(result.Verdict.FailureTags))
+	for index, tag := range result.Verdict.FailureTags {
+		parts[index] = string(tag)
+	}
+	return escapeMarkdownTableCell(strings.Join(parts, ", "))
 }
 
 func writeScenarioDiagnostics(report *strings.Builder, scenarios []ScenarioResult) {
