@@ -1,8 +1,9 @@
 # Live AI Evaluation Harness Plan
 
 **Date:** 2026-07-31
-**Status:** Phase 0 proof implementation complete; benign live evidence pending
-local infrastructure availability.
+**Status:** Phase 0 proof implementation complete; benign live evidence remains
+an external release gate. The Phase 1 benchmark-contract batch is implemented;
+the vertical runner remains incomplete.
 
 ## Outcome
 
@@ -102,16 +103,17 @@ The implementation loop begins with Phase 0 and writes
 
 After `PASS`, the implementer adds a short `Phase 0 resolution` section to this
 plan, commits the report and proof together, requests the normal phase audit,
-and continues to Phase 1 automatically when that audit succeeds. The audit
-obeys the repository verification policy; it does not create a new test
-authorization. No separate human approval is required. After `BLOCKED`, the
-implementer commits the report and current plan status, returns exactly
-`PLAN_IMPLEMENTATION_BLOCKED`, and the loop exits without starting a later
-phase. A stopped Docker daemon, temporary network failure, unavailable
-credential, or failing command is an infrastructure problem to report or
-retry; it is not proof of an architectural blocker. Phase 0 is blocked only
-when safe source inspection and benign probes establish that the required
-supported boundary does not exist.
+and lifts the live-execution gate when that audit succeeds. The audit obeys the
+repository verification policy; it does not create a new test authorization.
+No separate human approval is required. Repository-only later-phase work may
+proceed while benign evidence is unavailable, but it cannot claim a Phase 0
+exit or run the live harness. After `BLOCKED`, the implementer commits the
+report and current plan status, returns exactly `PLAN_IMPLEMENTATION_BLOCKED`,
+and the loop exits without live execution or further implementation. A stopped
+Docker daemon, temporary network failure, unavailable credential, or failing
+command is an infrastructure problem to report or retry; it is not proof of an
+architectural blocker. Phase 0 is blocked only when safe source inspection and
+benign probes establish that the required supported boundary does not exist.
 
 ## Decisions
 
@@ -686,8 +688,9 @@ login flow, or emits credential values.
 Docker daemon was stopped and the inspected local Codex/npm installations had
 no `aarch64-unknown-linux-musl` Codex 0.146.0 bundle. These are unavailable
 infrastructure inputs, not evidence of an architectural blocker. No `PASS` or
-`BLOCKED` report exists yet, and Phase 1 remains gated on the Phase 0 `PASS`
-exit below.
+`BLOCKED` report exists yet. Phase 1 live execution remains gated on the Phase
+0 `PASS` exit below; repository-only implementation can continue without
+claiming that the sandbox boundary has passed.
 
 Timebox one focused day to establish how the ChatGPT-authenticated Codex runtime
 can operate while every AI-controlled command stays in Docker and no credential
@@ -714,10 +717,29 @@ normal phase audit can advance the loop automatically.
 
 **BLOCKED exit:** the report identifies the missing supported capability and
 the plan status is `Blocked`. The implementer commits that evidence and returns
-exactly `PLAN_IMPLEMENTATION_BLOCKED`. No Phase 1 code, unsandboxed mode, auth
-mount, or provider proxy based on undocumented protocols follows.
+exactly `PLAN_IMPLEMENTATION_BLOCKED`. No later implementation or live run,
+unsandboxed mode, auth mount, or provider proxy based on undocumented protocols
+follows; repository-only work already committed does not waive the blocker.
 
 ## Phase 1 — One vertical scenario
+
+### Phase 1 implementation status
+
+The Go-owned, strict scenario contract and catalog loader, the exact
+`typescript-service` fixture, the checked-in `straightforward-task` scenario,
+the bounded verifier-result contract, and the hidden deterministic verifier
+source are implemented. The fixture has no package dependencies, pins its Node
+and pnpm runtime requirements exactly, and has an offline-generated lockfile.
+The verifier rejects symlinks and unrelated mutations, bounds inputs and
+diagnostics, and owns the build, test, original-route, exact `/health`, and
+README checks. Its source lives outside the fixture so the pending runner can
+exclude it from the evaluated Agent container.
+
+The pinned Phase 1 sandbox images, `cmd/setta-eval`, shell entrypoint, production
+backend/HTTP/event orchestration, verifier-container invocation, teardown, and
+Phase 1 result classification remain repository work. No automated or live
+verification has been run; that remains subject to the verification policy
+below.
 
 Add the Go-owned scenario contract, `cmd/setta-eval`, the shell entrypoint, the
 pinned ARM64 sandbox image, one TypeScript fixture, and the straightforward

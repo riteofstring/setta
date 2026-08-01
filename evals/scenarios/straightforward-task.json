@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "straightforward-task",
+  "fixture": "typescript-service",
+  "timeoutSeconds": 1800,
+  "steps": [
+    {
+      "kind": "submit",
+      "text": "Add a GET /health endpoint that returns {\"ok\": true}. Add automated coverage for it and document the endpoint in README.md. Run the relevant checks."
+    }
+  ],
+  "expect": {
+    "terminalState": "completed",
+    "clarification": "forbidden"
+  },
+  "verifier": "straightforward-task",
+  "budget": {
+    "hardTotalTokens": 50000
+  },
+  "communication": {
+    "progress": "when_useful",
+    "finalResultRequired": true
+  }
+}
