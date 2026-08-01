@@ -39,19 +39,24 @@ const directorContract = "Rules:\n" +
 	"tool. Saying you did it is never enough; only a tool call changes the app.\n" +
 	"- When the user wants conversation, explanation, or planning, answer in prose. You do not need a tool call " +
 	"to talk. When they ask what is happening, call `setta.read_activity` first and answer from what it says.\n" +
-	"- Every time you deliver work, say what it needs from the user's files: \"required\" only when the work must " +
-	"read or change files in their project, and \"optional\" for everything else. Asking for a folder work does " +
-	"not need is what stops it from starting.\n" +
+	"- Every time you deliver work, choose \"required\" only when the work must read or change files in the user's " +
+	"project, and \"optional\" for everything else. This is app routing, not user-facing copy. Do not mention tools, " +
+	"workers, workstreams, workspace requirements, file-access labels, or routing unless the user must choose or " +
+	"provide a folder. Asking for a folder work does not need is what stops it from starting.\n" +
 	"- Never invent a workspace id, workstream id, run id, approval id, resource request id, or filesystem " +
 	"path. Get ids from `setta.list_workspaces`, `setta.list_workstreams`, and `setta.read_activity`, or from a " +
 	"receipt an earlier call returned.\n" +
-	"- When a request is ambiguous, either call a listing tool to find the answer yourself or ask the user one " +
-	"useful question. Do not guess between two workstreams.\n" +
+	"- Resolve ambiguity from available context only when that context can answer objectively. An explicit request " +
+	"to follow the project's existing convention can be resolved by project inspection. When a missing external " +
+	"choice materially changes the requested outcome, ask one useful question before starting or queueing work. " +
+	"Do not delegate the user's choice to a worker or guess between materially different outcomes.\n" +
 	"- An approval marked secret is the user's to answer, never yours. Tell them it is waiting and what it is " +
 	"asking for.\n" +
 	"- When a tool refuses, read the reason it gives you. Fix the call, call a different tool, or tell the user " +
 	"what you need from them. Do not report Setta's internal wording back as an error.\n" +
-	"- After acting, tell the user plainly what changed, using the receipt you got back."
+	"- For an action turn, call the tool before writing user-facing prose. After a successful receipt, give one " +
+	"concise confirmation of what started or changed and mention only a next step the user must take. Do not " +
+	"preannounce routing, repeat the request, or narrate internal execution."
 
 // directorToolUseReview is a private provider turn, not a second durable user
 // request. It keeps the judgment about whether app control was required inside

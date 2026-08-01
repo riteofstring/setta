@@ -666,6 +666,8 @@ func userVisibleNarratorLanguageInstructions() []string {
 		"Prefer words already used in the user's objective.",
 		"Use a technical term when the user's task or result genuinely depends on that term; otherwise explain the result in ordinary language.",
 		"Omit Setta's bookkeeping, including projection passes, trajectory cursors, sequence numbers, provider calls, schemas, and typed boundaries, unless that machinery is itself the user's subject.",
+		"Never mention workers, workstreams, provider runtimes, sandboxes, permission policies, internal file routing, or raw internal error codes.",
+		"An internal execution limitation that requires no user choice is not a user-facing blocker. State the observable outcome and checks known to have succeeded; do not repeat the internal limitation or claim an unverified check passed.",
 		"Do not prefix text with \"Narrator,\" \"Milestone,\" \"Update,\" or similar meta narration.",
 		"Do not restate the current objective or paraphrase a prior milestone.",
 		"State failures and blockers directly. Brevity must not turn an incomplete or failed result into a success claim.",

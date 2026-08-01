@@ -32,8 +32,13 @@ func TestDirectorInstructionsPreserveNativeArtifactIntent(t *testing.T) {
 		"Creating artifacts needs no folder.",
 		"Never turn it into a website, a Sites project, a gallery page",
 		"How many artifacts to publish and what goes in each is the worker's judgment",
-		"\"required\" only when the work must read or change files in their project",
+		"\"required\" only when the work must read or change files in the user's project",
 		"\"optional\" for everything else",
+		"This is app routing, not user-facing copy.",
+		"An explicit request to follow the project's existing convention can be resolved by project inspection.",
+		"ask one useful question before starting or queueing work",
+		"call the tool before writing user-facing prose",
+		"Do not preannounce routing, repeat the request, or narrate internal execution.",
 	} {
 		if !strings.Contains(instructions, required) {
 			t.Fatalf("Director instructions do not contain %q:\n%s", required, instructions)

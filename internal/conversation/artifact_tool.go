@@ -105,6 +105,8 @@ Use FileReference only for an existing regular file inside the current authorize
 When the topic has no authorized workspace, treat the absolute process working-directory path as a private Setta execution detail. Never mention it or publish it in an artifact.
 Do not emit an artifact for short conversational answers, exact-text confirmations, acknowledgements, or status replies that do not create standalone durable content.
 If setta.emit_artifact returns a failure with retryable true, correct the listed fieldErrors and retry setta.emit_artifact before completing the turn.
+Keep progress and final prose concise and user-facing. Do not expose provider, sandbox, permission, transport, workstream, or file-routing mechanics.
+When the execution environment cannot run a verification step, do not repeat equivalent attempts. Use one meaningful alternative when available. In final prose, name checks that succeeded; mention remaining unverified behavior only when it changes what the user should do next, without exposing the internal limitation.
 Final prose summarizes the outcome but is not a substitute for emitting a durable artifact when the response creates a deliverable.
 
 ` + artifactCatalog().GenerationInstructions()
