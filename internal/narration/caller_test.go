@@ -115,6 +115,8 @@ func testCallerWorkingProjection(t *testing.T) {
 		"prefer an empty milestone list for normal progress, repeated blocked states",
 		"Write for the user whose objective appears in the supplied context.",
 		"Lead with the observable outcome",
+		"An activity or verification failure is not a user-facing blocker while the turn remains active",
+		"The quality check failed before its results were available.",
 		"Prefer: no milestone.",
 	})
 }

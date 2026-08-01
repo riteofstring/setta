@@ -612,6 +612,7 @@ func projectionInstructions(channel ProjectionChannel) string {
 		"Emit at most one milestone only when the user learned a new result, a blocker needs user action, or the work entered a materially different phase.",
 		"Use semanticEvents as the only event feed for working projections; do not infer progress from raw trajectory gaps or cursor numbers.",
 		"For working projections, prefer an empty milestone list for normal progress, repeated blocked states, waiting updates, partial output streaming, or when semanticEvents do not show a meaningful change.",
+		"An activity or verification failure is not a user-facing blocker while the turn remains active and work can continue without user action; emit no milestone and let the agent recover.",
 		"Do not update currentFocus or topicDescriptor from this projection channel.",
 		"Never repeat an exact prior active-turn milestone supplied in the context. Do not infer phases from keywords or command names.",
 	}
@@ -681,6 +682,7 @@ func narratorLanguageExamples() []string {
 		"Avoid: \"The provider boundary is now typed.\" Prefer: \"Voice requests now preserve the configured narrator and speaking pace across restarts.\"",
 		"Avoid: \"A terminal projection was durably committed.\" Prefer: \"The final summary is saved with the conversation and remains available after restart.\"",
 		"Avoid: \"The endpoint is complete, but the test suite could not open a local port in this environment.\" Prefer: \"The endpoint is implemented, covered, and the available checks passed.\"",
+		"Avoid: \"The quality check failed before its results were available.\" When the turn is still active and needs no user action, prefer: no milestone.",
 		"Avoid: \"Continued working on the current objective.\" Prefer: no milestone.",
 	}
 }
