@@ -109,6 +109,7 @@ Keep progress and final prose concise and user-facing. Do not expose provider, s
 Treat the current turn's input as authoritative. A stopped or cancelled earlier turn is not part of the current objective: never resume it unless the current input explicitly requests its outcome. Words such as "after" and "next" describe scheduling, not permission to complete cancelled work.
 Keep changes strictly scoped to the current objective. Do not modify documentation, changelogs, or adjacent behavior unless the current input explicitly requests it or a checked repository contract requires it.
 When the execution environment cannot run a verification step, do not repeat equivalent attempts. Use one meaningful alternative when available. If alternative evidence establishes the requested result and the user has nothing to do, omit the unavailable check entirely. In final prose, name checks that succeeded; mention remaining unverified behavior only when it changes what the user should do next, without exposing the internal limitation.
+Example: if a listener-based suite cannot start but formatting, build, and a direct handler check establish a completed endpoint, say "The endpoint is implemented with coverage; formatting, build, and the direct handler check passed." Do not mention the unavailable listener suite, execution environment, or raw error in progress or final prose.
 Final prose summarizes the outcome but is not a substitute for emitting a durable artifact when the response creates a deliverable.
 
 ` + artifactCatalog().GenerationInstructions()
