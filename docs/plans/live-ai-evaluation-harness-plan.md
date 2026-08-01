@@ -2,8 +2,9 @@
 
 **Date:** 2026-07-31
 **Status:** Phase 0 proof implementation complete; benign live evidence remains
-an external release gate. The Phase 1 benchmark-contract and result-reporting
-batches are implemented; the vertical runner remains incomplete.
+an external release gate. The Phase 1 benchmark-contract, result-reporting, and
+production HTTP/event-orchestration batches are implemented; the vertical
+runner remains incomplete.
 
 ## Outcome
 
@@ -743,11 +744,27 @@ infrastructure failure remain distinct outcomes. The Markdown report already
 uses the four final report sections and identifies which Phase 2 and Phase 3
 evidence is not collected yet.
 
+The production-boundary orchestration slice is implemented under
+`internal/evalharness`. Its client accepts only an explicit numeric loopback
+HTTP origin, refuses redirects, carries the bootstrap token only in the
+authorization header, and strictly bounds and decodes JSON and server-sent
+events. The conversation package owns decoding its discriminated event union.
+The Phase 1 flow requires a pristine disposable Director profile, opens the
+fixture, captures the effective production role configuration, subscribes from
+snapshot cursors before dispatch, submits only through the Director, follows
+the exact workstream, conversation, and turn identities produced by durable
+state, and waits for a typed terminal turn. Director failures to start exactly
+one Agent turn or to route it into the fixture are classified as ability
+failures; HTTP, contract, cursor, and stream failures remain infrastructure
+failures. Subscriptions close and join their readers on every return path.
+
 The pinned Phase 1 sandbox images, `cmd/setta-eval`, shell entrypoint,
-production backend/HTTP/event orchestration, verifier-container invocation,
-and teardown remain repository work. The completed output boundary is not yet
-wired to a runnable live scenario. No automated or live verification has been
-run; that remains subject to the verification policy below.
+production backend/container lifecycle, verifier-container invocation,
+container and process teardown, and wiring the observation and verifier into
+the result publisher remain repository work. The completed production control
+boundary is not yet wired to a runnable live scenario. No automated or live
+verification has been run; that remains subject to the verification policy
+below.
 
 Add the Go-owned scenario contract, `cmd/setta-eval`, the shell entrypoint, the
 pinned ARM64 sandbox image, one TypeScript fixture, and the straightforward
