@@ -296,7 +296,6 @@ func orchestrateEvaluationConversation(
 	}
 	turn, failure := evaluationObservedTurn(
 		snapshot,
-		scenario.Steps[workingStepIndex].Text,
 		missingEvaluationWorkOutcome(scenario, workingStepIndex),
 	)
 	if failure != nil {
@@ -440,7 +439,6 @@ func completeEvaluationConversationEvidence(
 
 func evaluationObservedTurn(
 	snapshot conversation.ConversationSnapshot,
-	text string,
 	missingTurnOutcome ScenarioExecutionOutcome,
 ) (conversation.ConversationTurn, *scenarioBehaviorFailure) {
 	if !snapshot.Turns.HasEarlier && len(snapshot.Turns.Turns) == 0 {
@@ -458,11 +456,15 @@ func evaluationObservedTurn(
 		}
 	}
 	turn := snapshot.Turns.Turns[0]
-	if turn.AuthoredInput.Text != text || turn.Delivery != conversation.TurnDeliveryNormal {
+	if turn.Delivery != conversation.TurnDeliveryNormal {
 		return conversation.ConversationTurn{}, &scenarioBehaviorFailure{
 			outcome: ScenarioExecutionFailed,
-			code:    "director_delivered_unexpected_agent_input",
-			message: "Director did not deliver the exact scripted fixture request as one normal Agent turn",
+			code:    "director_used_unexpected_agent_delivery",
+			message: boundedResultDiagnostic(fmt.Sprintf(
+				"Director started the Agent turn with %s delivery; authored instruction: %q",
+				turn.Delivery,
+				turn.AuthoredInput.Text,
+			)),
 		}
 	}
 	return turn, nil
@@ -498,7 +500,7 @@ func awaitEvaluationTrigger(
 			return EvaluationTriggerObservation{}, nil, err
 		}
 		if ready {
-			return observation, validateReadyEvaluationTrigger(state, scenario, stepIndex, observation), nil
+			return observation, validateReadyEvaluationTrigger(state, observation), nil
 		}
 		if phase1TurnTerminal(turn.Status) {
 			return EvaluationTriggerObservation{}, controlBehaviorFailure(
@@ -527,23 +529,19 @@ func duplicateQueueTriggerFailure(
 
 func validateReadyEvaluationTrigger(
 	state *evaluationConversationState,
-	scenario Scenario,
-	stepIndex int,
 	observation EvaluationTriggerObservation,
 ) *scenarioBehaviorFailure {
 	if observation.Trigger != ScenarioTriggerQueueNonempty {
 		return nil
 	}
 	queued, found := state.turn(observation.QueueTurnIDs[0])
-	wantText := scenario.Steps[stepIndex-1].Text
-	if found && queued.AuthoredInput.Text == wantText &&
-		queued.Delivery == conversation.TurnDeliveryQueued &&
+	if found && queued.Delivery == conversation.TurnDeliveryQueued &&
 		queued.Status == conversation.TurnStatusQueued {
 		return nil
 	}
 	return controlBehaviorFailure(
 		"queued_request_not_preserved",
-		"The exact follow-up request was not present once in the queue behind the observed run",
+		"The Director's follow-up was not present once in the queue behind the observed run",
 	)
 }
 

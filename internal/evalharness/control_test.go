@@ -243,12 +243,12 @@ func genuineAmbiguityControlEvents() []EvaluationEvent {
 		controlReceiptEvent(5, 1, "create_workstream", workstreamID),
 		controlTrajectoryEvent(6, turnID, conversation.TrajectoryEventUserInputAccepted, func(event *conversation.TrajectoryEvent) {
 			event.UserInputAccepted = &conversation.TrajectoryUserInputAccepted{
-				Input:    conversation.AuthoredInput{Text: "Use readiness."},
+				Input:    conversation.AuthoredInput{Text: "Implement the standard readiness endpoint and cover it."},
 				Delivery: conversation.TurnDeliveryNormal,
 			}
 		}),
 		controlFinalStateEvent(7, workstreamID, []EvaluationConversationTurnState{{
-			TurnID: turnID, AuthoredInput: conversation.AuthoredInput{Text: "Use readiness."},
+			TurnID: turnID, AuthoredInput: conversation.AuthoredInput{Text: "Implement the standard readiness endpoint and cover it."},
 			Delivery: conversation.TurnDeliveryNormal, Status: conversation.TurnStatusCompleted,
 		}}),
 	})
@@ -271,7 +271,7 @@ func steeringControlEvents() []EvaluationEvent {
 		controlUserEvent(5, 1, triggerPointer(ScenarioTriggerFirstWorkspaceMutation), "Use status instead."),
 		controlReceiptEvent(6, 1, "steer_work", workstreamID),
 		controlFinalStateEvent(7, workstreamID, []EvaluationConversationTurnState{{
-			TurnID: turnID, AuthoredInput: conversation.AuthoredInput{Text: "Add health."},
+			TurnID: turnID, AuthoredInput: conversation.AuthoredInput{Text: "Implement the service health route."},
 			Delivery: conversation.TurnDeliveryNormal, Status: conversation.TurnStatusCompleted,
 		}}),
 	})
@@ -290,7 +290,7 @@ func queueControlEvents() []EvaluationEvent {
 		controlReceiptEvent(5, 1, "submit_work", workstreamID),
 		controlTrajectoryEvent(6, queuedID, conversation.TrajectoryEventUserInputAccepted, func(event *conversation.TrajectoryEvent) {
 			event.UserInputAccepted = &conversation.TrajectoryUserInputAccepted{
-				Input:    conversation.AuthoredInput{Text: "Queue version."},
+				Input:    conversation.AuthoredInput{Text: "After logging, add a package-version endpoint."},
 				Delivery: conversation.TurnDeliveryQueued,
 			}
 		}),
@@ -310,8 +310,8 @@ func queueControlEvents() []EvaluationEvent {
 			event.TurnCompleted = &conversation.TrajectoryTurnCompleted{}
 		}),
 		controlFinalStateEvent(14, workstreamID, []EvaluationConversationTurnState{
-			{TurnID: observedID, AuthoredInput: conversation.AuthoredInput{Text: "Update logging."}, Delivery: conversation.TurnDeliveryNormal, Status: conversation.TurnStatusCancelled},
-			{TurnID: queuedID, AuthoredInput: conversation.AuthoredInput{Text: "Queue version."}, Delivery: conversation.TurnDeliveryQueued, Status: conversation.TurnStatusCompleted},
+			{TurnID: observedID, AuthoredInput: conversation.AuthoredInput{Text: "Include method and path in request logs."}, Delivery: conversation.TurnDeliveryNormal, Status: conversation.TurnStatusCancelled},
+			{TurnID: queuedID, AuthoredInput: conversation.AuthoredInput{Text: "After logging, add a package-version endpoint."}, Delivery: conversation.TurnDeliveryQueued, Status: conversation.TurnStatusCompleted},
 		}),
 	}
 	events[7].TriggerObserved.QueueTurnIDs = []string{queuedID}

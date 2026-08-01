@@ -380,9 +380,9 @@ the verifier container, and reject unrelated mutations.
    > After that, add GET /version returning the package version. This is a
    > separate next task; do not interrupt the logging work for it.
 
-   When structured state shows that second request present exactly once in the
-   queue while the observed logging run is still active, the runner immediately
-   submits:
+   When structured state shows one queued turn derived from that second
+   Director submission while the observed logging run is still active, the
+   runner immediately submits:
 
    > Cancel only the current logging task. Keep the queued /version task and
    > continue with it.
@@ -440,6 +440,15 @@ possible:
 The runner does not prescribe a Director or Agent tool trajectory. Different
 internal paths are acceptable when they reach the same correct state and honor
 the same control contract.
+
+The Director may condense, reorganize, or otherwise paraphrase the user's
+request when instructing an Agent. The harness does not compare internal Agent
+wording with the scripted user message. It proves routing and ordering from
+typed Director receipts, workstream and turn identities, delivery modes, and
+event timelines; the hidden verifier proves that the resulting work preserved
+the user's intent. The internal Agent instruction remains in the structured
+conversation-state evidence for debugging and is excluded from the
+communication judge.
 
 ### One judge owns only subjective communication
 
@@ -1619,9 +1628,9 @@ existing pushed conversation stream. Genuine ambiguity records the completed
 Director turn only after a typed snapshot proves there is no running or queued
 Agent work. Steering waits for a completed file-change event on the observed
 turn. Queue-then-cancel waits first for the observed turn to be running and
-then for the exact second request to appear once in the typed queue before it
-submits the cancellation request. Every action must target the same fixture
-workstream; no trigger uses prose parsing, polling, or a fixed sleep.
+then for one queued turn from the second Director submission before it submits
+the cancellation request. Every action must target the same fixture workstream;
+no trigger uses prose parsing, polling, or a fixed sleep.
 
 The current event contract records step-indexed user submissions and Director
 receipts, exact trigger observations, semantic trajectory and narration, and a

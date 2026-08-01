@@ -58,22 +58,22 @@ func TestPhase1ReceiptRequiresExactlyOneWorkstream(t *testing.T) {
 	}
 }
 
-func TestEvaluationObservedTurnRequiresOneExactDisposableTurn(t *testing.T) {
+func TestEvaluationObservedTurnAcceptsOneParaphrasedNormalDisposableTurn(t *testing.T) {
 	turn := conversation.ConversationTurn{
 		ID:            "turn-eval",
-		AuthoredInput: conversation.AuthoredInput{Text: "Complete the fixture task."},
+		AuthoredInput: conversation.AuthoredInput{Text: "Implement the requested endpoint and verify it."},
 		Delivery:      conversation.TurnDeliveryNormal,
 	}
 	observed, failure := evaluationObservedTurn(conversation.ConversationSnapshot{
 		Turns: conversation.ConversationTurnWindow{Turns: []conversation.ConversationTurn{turn}},
-	}, turn.AuthoredInput.Text, ScenarioExecutionControlFailed)
+	}, ScenarioExecutionControlFailed)
 	if observed.ID != turn.ID || failure != nil {
 		t.Fatalf("observed turn = %q/%#v", observed.ID, failure)
 	}
 
 	_, failure = evaluationObservedTurn(conversation.ConversationSnapshot{
 		Turns: conversation.ConversationTurnWindow{Turns: []conversation.ConversationTurn{}},
-	}, turn.AuthoredInput.Text, ScenarioExecutionControlFailed)
+	}, ScenarioExecutionControlFailed)
 	if failure == nil || failure.outcome != ScenarioExecutionControlFailed ||
 		failure.code != "director_did_not_start_agent_turn" {
 		t.Fatalf("empty turn failure = %#v", failure)
@@ -84,9 +84,19 @@ func TestEvaluationObservedTurnRequiresOneExactDisposableTurn(t *testing.T) {
 			Turns:      []conversation.ConversationTurn{turn},
 			HasEarlier: true,
 		},
-	}, turn.AuthoredInput.Text, ScenarioExecutionControlFailed)
+	}, ScenarioExecutionControlFailed)
 	if failure == nil || failure.code != "director_started_unexpected_agent_turns" {
 		t.Fatalf("non-disposable turn failure = %#v", failure)
+	}
+
+	turn.Delivery = conversation.TurnDeliveryQueued
+	_, failure = evaluationObservedTurn(conversation.ConversationSnapshot{
+		Turns: conversation.ConversationTurnWindow{Turns: []conversation.ConversationTurn{turn}},
+	}, ScenarioExecutionControlFailed)
+	if failure == nil || failure.code != "director_used_unexpected_agent_delivery" ||
+		!strings.Contains(failure.message, string(conversation.TurnDeliveryQueued)) ||
+		!strings.Contains(failure.message, turn.AuthoredInput.Text) {
+		t.Fatalf("queued delivery failure = %#v", failure)
 	}
 }
 

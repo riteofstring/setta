@@ -361,7 +361,6 @@ func (index controlEvidenceIndex) clarificationResult(
 	}
 	replyCount := 0
 	passed := true
-	workingText := scenario.Steps[0].Text
 	workstreamID := index.finalState.ConversationState.WorkstreamID
 	if scenario.Expect.Clarification == ScenarioClarificationRequiredOnce {
 		trigger, found := index.triggers[ScenarioTriggerDirectorTurnCompleted]
@@ -372,7 +371,6 @@ func (index controlEvidenceIndex) clarificationResult(
 		}
 		sequences = append(sequences, index.submissions[1].Sequence, index.receipts[1].Sequence)
 		replyCount = 1
-		workingText = scenario.Steps[1].Text
 		if !receiptHasExpectedControlAction(
 			ScenarioTriggerDirectorTurnCompleted,
 			index.receipts[1].DirectorReceipt.Receipt,
@@ -389,7 +387,7 @@ func (index controlEvidenceIndex) clarificationResult(
 	) {
 		passed = false
 	}
-	if countConversationStateTurns(index.finalState, workingText) != 1 {
+	if countConversationStateTurnsByDelivery(index.finalState, conversation.TurnDeliveryNormal) != 1 {
 		passed = false
 	}
 	return ScenarioClarificationResult{
@@ -409,7 +407,7 @@ func (index controlEvidenceIndex) assertionResult(
 	case ScenarioControlNoMutationBeforeReply:
 		return index.noMutationBeforeReply(), nil
 	case ScenarioControlScriptedReplyConsumed:
-		return index.scriptedReplyConsumed(scenario), nil
+		return index.scriptedReplyConsumed(), nil
 	case ScenarioControlFollowUpThroughDirector:
 		return index.followUpThroughDirector(scenario), nil
 	case ScenarioControlLatestInstructionWins:
@@ -419,7 +417,7 @@ func (index controlEvidenceIndex) assertionResult(
 	case ScenarioControlNoMutationAfterCancel:
 		return index.noMutationAfterCancel(), nil
 	case ScenarioControlQueuedRequestPresentOnce:
-		return index.queuedRequestPresentOnce(scenario), nil
+		return index.queuedRequestPresentOnce(), nil
 	case ScenarioControlQueuedRequestPromoted:
 		return index.queuedRequestTransition(assertion, conversation.TrajectoryEventTurnPromoted), nil
 	case ScenarioControlQueuedRequestCompleted:
@@ -448,16 +446,19 @@ func (index controlEvidenceIndex) noMutationBeforeReply() ScenarioControlAsserti
 	)
 }
 
-func (index controlEvidenceIndex) scriptedReplyConsumed(
-	scenario Scenario,
-) ScenarioControlAssertionResult {
-	text := scenario.Steps[1].Text
+func (index controlEvidenceIndex) scriptedReplyConsumed() ScenarioControlAssertionResult {
+	turn, found := singleConversationStateTurnByDelivery(
+		index.finalState,
+		conversation.TurnDeliveryNormal,
+	)
 	accepted := index.trajectoryMatches(func(event *conversation.TrajectoryEvent) bool {
-		return event.Kind == conversation.TrajectoryEventUserInputAccepted &&
-			event.UserInputAccepted != nil && event.UserInputAccepted.Input.Text == text &&
+		return found && trajectoryTargets(event, turn.TurnID) &&
+			event.Kind == conversation.TrajectoryEventUserInputAccepted &&
+			event.UserInputAccepted != nil &&
+			event.UserInputAccepted.Input == turn.AuthoredInput &&
 			event.UserInputAccepted.Delivery == conversation.TurnDeliveryNormal
 	})
-	passed := countConversationStateTurns(index.finalState, text) == 1 && len(accepted) == 1
+	passed := found && len(accepted) == 1
 	sequences := []int{index.submissions[1].Sequence, index.finalState.Sequence}
 	sequences = append(sequences, controlEventSequences(accepted)...)
 	return controlAssertionResult(
@@ -547,23 +548,21 @@ func (index controlEvidenceIndex) noMutationAfterCancel() ScenarioControlAsserti
 	)
 }
 
-func (index controlEvidenceIndex) queuedRequestPresentOnce(
-	scenario Scenario,
-) ScenarioControlAssertionResult {
+func (index controlEvidenceIndex) queuedRequestPresentOnce() ScenarioControlAssertionResult {
 	_, queuedID, triggerSequence := index.queueControlTurnIDs()
 	queuedEvents := index.trajectoryMatches(func(event *conversation.TrajectoryEvent) bool {
 		return trajectoryTargets(event, queuedID) && event.Kind == conversation.TrajectoryEventTurnQueued
 	})
+	turn, found := conversationStateTurn(index.finalState, queuedID)
 	accepted := index.trajectoryMatches(func(event *conversation.TrajectoryEvent) bool {
-		return trajectoryTargets(event, queuedID) &&
+		return found && trajectoryTargets(event, queuedID) &&
 			event.Kind == conversation.TrajectoryEventUserInputAccepted &&
 			event.UserInputAccepted != nil &&
 			event.UserInputAccepted.Delivery == conversation.TurnDeliveryQueued &&
-			event.UserInputAccepted.Input.Text == scenario.Steps[1].Text
+			event.UserInputAccepted.Input == turn.AuthoredInput
 	})
-	turn, found := conversationStateTurn(index.finalState, queuedID)
-	passed := found && turn.AuthoredInput.Text == scenario.Steps[1].Text &&
-		turn.Delivery == conversation.TurnDeliveryQueued && len(queuedEvents) == 1 && len(accepted) == 1
+	passed := found && turn.Delivery == conversation.TurnDeliveryQueued &&
+		len(queuedEvents) == 1 && len(accepted) == 1
 	sequences := []int{triggerSequence, index.finalState.Sequence}
 	sequences = append(sequences, controlEventSequences(queuedEvents)...)
 	sequences = append(sequences, controlEventSequences(accepted)...)
@@ -666,14 +665,36 @@ func controlEventSequences(events []EvaluationEvent) []int {
 	return sequences
 }
 
-func countConversationStateTurns(state EvaluationEvent, text string) int {
+func countConversationStateTurnsByDelivery(
+	state EvaluationEvent,
+	delivery conversation.TurnDelivery,
+) int {
 	count := 0
 	for _, turn := range state.ConversationState.Turns {
-		if turn.AuthoredInput.Text == text {
+		if turn.Delivery == delivery {
 			count++
 		}
 	}
 	return count
+}
+
+func singleConversationStateTurnByDelivery(
+	state EvaluationEvent,
+	delivery conversation.TurnDelivery,
+) (EvaluationConversationTurnState, bool) {
+	var matched EvaluationConversationTurnState
+	found := false
+	for _, turn := range state.ConversationState.Turns {
+		if turn.Delivery != delivery {
+			continue
+		}
+		if found {
+			return EvaluationConversationTurnState{}, false
+		}
+		matched = turn
+		found = true
+	}
+	return matched, found
 }
 
 func conversationStateTurn(
