@@ -18,30 +18,41 @@ func TestCheckRelatedChangesRequiresExactTaskFiles(t *testing.T) {
 		name     string
 		changes  []string
 		required []string
+		allowed  []string
 		passed   bool
 	}{
 		{
 			name:     "exact task files",
 			changes:  []string{"README.md", "src/server.ts", "test/server.test.ts"},
 			required: []string{"README.md", "src/server.ts", "test/server.test.ts"},
+			allowed:  []string{"README.md", "src/server.ts", "test/server.test.ts"},
 			passed:   true,
 		},
 		{
 			name:     "missing automated test change",
 			changes:  []string{"README.md", "src/server.ts"},
 			required: []string{"README.md", "src/server.ts", "test/server.test.ts"},
+			allowed:  []string{"README.md", "src/server.ts", "test/server.test.ts"},
 			passed:   false,
 		},
 		{
 			name:     "unrelated source change",
 			changes:  []string{"src/server.ts", "src/unrelated.ts", "test/server.test.ts"},
 			required: []string{"src/server.ts", "test/server.test.ts"},
+			allowed:  []string{"src/server.ts", "test/server.test.ts"},
 			passed:   false,
+		},
+		{
+			name:     "allowed optional test change omitted",
+			changes:  []string{"src/server.ts"},
+			required: []string{"src/server.ts"},
+			allowed:  []string{"src/server.ts", "test/server.test.ts"},
+			passed:   true,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := checkRelatedChanges(test.changes, test.required)
+			result := checkRelatedChanges(test.changes, test.required, test.allowed)
 			if result.Passed != test.passed {
 				t.Fatalf("related changes check = %#v, want passed %t", result, test.passed)
 			}
@@ -56,6 +67,7 @@ func TestVerifierAcceptsEachExactScenarioOutcome(t *testing.T) {
 		sourceValue string
 		bodyValue   string
 		document    bool
+		changeTest  bool
 	}{
 		{
 			verifierID:  evalharness.ScenarioVerifierStraightforward,
@@ -63,24 +75,28 @@ func TestVerifierAcceptsEachExactScenarioOutcome(t *testing.T) {
 			sourceValue: `{ ok: true }`,
 			bodyValue:   `{ ok: true }`,
 			document:    true,
+			changeTest:  true,
 		},
 		{
 			verifierID:  evalharness.ScenarioVerifierApparentAmbiguity,
 			path:        "/ready",
 			sourceValue: `{ ready: true, version: packageVersion }`,
 			bodyValue:   `{ ready: true, version: "1.2.3" }`,
+			changeTest:  true,
 		},
 		{
 			verifierID:  evalharness.ScenarioVerifierGenuineAmbiguity,
 			path:        "/ready",
 			sourceValue: `{ ready: true, version: packageVersion }`,
 			bodyValue:   `{ ready: true, version: "1.2.3" }`,
+			changeTest:  true,
 		},
 		{
 			verifierID:  evalharness.ScenarioVerifierMidRunSteering,
 			path:        "/status",
 			sourceValue: `{ ok: true, version: packageVersion }`,
 			bodyValue:   `{ ok: true, version: "1.2.3" }`,
+			changeTest:  true,
 		},
 		{
 			verifierID:  evalharness.ScenarioVerifierQueueThenCancel,
@@ -99,7 +115,7 @@ func TestVerifierAcceptsEachExactScenarioOutcome(t *testing.T) {
 					t.Fatalf("copy fixture to %s: %v", filepath.Base(destination), err)
 				}
 			}
-			addRoute(t, workspaceRoot, test.path, test.sourceValue, test.bodyValue)
+			addRoute(t, workspaceRoot, test.path, test.sourceValue, test.bodyValue, test.changeTest)
 			if test.document {
 				appendTestFile(
 					t,
@@ -115,7 +131,10 @@ func TestVerifierAcceptsEachExactScenarioOutcome(t *testing.T) {
 			if !result.Passed {
 				t.Fatalf("correct fixture failed verification: %#v", result.Checks)
 			}
-			wantChanges := []string{"src/server.ts", "test/server.test.ts"}
+			wantChanges := []string{"src/server.ts"}
+			if test.changeTest {
+				wantChanges = append(wantChanges, "test/server.test.ts")
+			}
 			if test.document {
 				wantChanges = []string{"README.md", "src/server.ts", "test/server.test.ts"}
 			}
@@ -149,6 +168,7 @@ func addRoute(
 	path string,
 	sourceValue string,
 	bodyValue string,
+	changeTest bool,
 ) {
 	t.Helper()
 	replaceTestFile(
@@ -161,10 +181,11 @@ func addRoute(
     }
     writeJSON(response, 404, { error: "not_found" });`, path, sourceValue),
 	)
-	appendTestFile(
-		t,
-		filepath.Join(workspaceRoot, "test", "server.test.ts"),
-		fmt.Sprintf(`
+	if changeTest {
+		appendTestFile(
+			t,
+			filepath.Join(workspaceRoot, "test", "server.test.ts"),
+			fmt.Sprintf(`
 
 test(%q, async (context) => {
   const server = createServer();
@@ -187,7 +208,22 @@ test(%q, async (context) => {
   assert.deepEqual(await response.json(), %s);
 });
 `, "GET "+path+" returns the expected body", path, bodyValue),
-	)
+		)
+	}
+}
+
+func TestValidateWorkspaceTreeRejectsSymlinksInsideIgnoredDirectories(t *testing.T) {
+	root := t.TempDir()
+	dist := filepath.Join(root, "dist")
+	if err := os.Mkdir(dist, 0o700); err != nil {
+		t.Fatalf("create ignored directory: %v", err)
+	}
+	if err := os.Symlink("missing", filepath.Join(dist, "server.js")); err != nil {
+		t.Fatalf("create ignored symlink: %v", err)
+	}
+	if err := validateWorkspaceTree(root); err == nil || !strings.Contains(err.Error(), "symbolic link") {
+		t.Fatalf("workspace tree error = %v", err)
+	}
 }
 
 func replaceTestFile(t *testing.T, path string, old string, replacement string) {

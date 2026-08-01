@@ -1,6 +1,7 @@
 package evalharness
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -69,6 +70,7 @@ type EvaluationManifest struct {
 }
 
 func buildEvaluationManifest(
+	ctx context.Context,
 	repoRoot string,
 	settaCommit string,
 	phase0 Phase0CodexEvidence,
@@ -86,7 +88,7 @@ func buildEvaluationManifest(
 	if err != nil {
 		return EvaluationManifest{}, err
 	}
-	manifestScenarios, err := buildManifestScenarios(repoRoot, runs, rubricDigest)
+	manifestScenarios, err := buildManifestScenarios(ctx, repoRoot, runs, rubricDigest)
 	if err != nil {
 		return EvaluationManifest{}, err
 	}
@@ -113,6 +115,7 @@ func buildEvaluationManifest(
 }
 
 func buildManifestScenarios(
+	ctx context.Context,
 	repoRoot string,
 	runs []evaluationScenarioRun,
 	rubricDigest string,
@@ -129,9 +132,14 @@ func buildManifestScenarios(
 		}
 		fixtureDigest, ok := fixtureDigests[scenario.Fixture]
 		if !ok {
-			fixtureDigest, err = hashManifestWorkspace(
-				filepath.Join(repoRoot, "evals", "fixtures", scenario.Fixture),
-			)
+			if scenario.Fixture != ScenarioFixtureTypeScriptService {
+				return nil, fmt.Errorf("hash manifest fixture %s: fixture is not supported", scenario.Fixture)
+			}
+			fixture, fixtureErr := readCommittedPhase1Fixture(ctx, repoRoot)
+			if fixtureErr != nil {
+				return nil, fmt.Errorf("hash manifest fixture %s: %w", scenario.Fixture, fixtureErr)
+			}
+			fixtureDigest, err = hashManifestSnapshot(fixture)
 			if err != nil {
 				return nil, fmt.Errorf("hash manifest fixture %s: %w", scenario.Fixture, err)
 			}
@@ -197,11 +205,7 @@ func newManifestSandbox(repoRoot string, images *phase1Images) (*ManifestSandbox
 	return sandbox, nil
 }
 
-func hashManifestWorkspace(root string) (string, error) {
-	snapshot, err := evalverifier.ReadWorkspace(root, evalverifier.SnapshotOptions{})
-	if err != nil {
-		return "", err
-	}
+func hashManifestSnapshot(snapshot evalverifier.WorkspaceSnapshot) (string, error) {
 	paths := make([]string, 0, len(snapshot))
 	for path := range snapshot {
 		paths = append(paths, path)
@@ -324,10 +328,14 @@ func (scenario ManifestScenario) Validate() error {
 	if scenario.Fixture != ScenarioFixtureTypeScriptService {
 		return fmt.Errorf("manifest scenario fixture is %q", scenario.Fixture)
 	}
-	if len(scenario.Attempts) == 0 || len(scenario.Attempts) > EvaluationAttemptRerun {
-		return fmt.Errorf("manifest scenario contains %d attempts, want 1-%d", len(scenario.Attempts), EvaluationAttemptRerun)
+	return validateManifestScenarioAttempts(scenario.Attempts)
+}
+
+func validateManifestScenarioAttempts(attempts []ManifestScenarioAttempt) error {
+	if len(attempts) == 0 || len(attempts) > EvaluationAttemptRerun {
+		return fmt.Errorf("manifest scenario contains %d attempts, want 1-%d", len(attempts), EvaluationAttemptRerun)
 	}
-	for index, attempt := range scenario.Attempts {
+	for index, attempt := range attempts {
 		if attempt.Attempt != index+1 {
 			return fmt.Errorf("manifest scenario attempt[%d] is %d, want %d", index, attempt.Attempt, index+1)
 		}

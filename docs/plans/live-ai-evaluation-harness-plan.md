@@ -1120,6 +1120,47 @@ verification. Successful live baselines are also required to confirm that the
 checked-in 1,800-second ceiling is generous; that unavailable evidence is one
 final-audit release gate, not incomplete repository implementation.
 
+### Final whole-plan audit status
+
+The user-authorized whole-plan audit on 2026-07-31 reviewed the committed
+implementation history from the Phase 0 preparation through `14fcf9b0f`, the
+phase-audit evidence above, and the complete current Phase 1-3 source boundary.
+It corrected four repository-actionable contract gaps. Fixture preparation and
+manifest hashing now read the committed fixture tree, so ignored developer
+build output cannot enter an Agent workspace or its manifest identity. The
+queue-then-cancel verifier requires the `/version` source change while allowing,
+but not requiring, the cancelled logging run's relevant test change. A Director
+workstream that starts no Agent turn again produces the scenario-appropriate
+no-work outcome, including `control_failure` whenever clarification is
+forbidden or already consumed. The verifier also rejects symbolic links inside
+directories excluded from source comparison instead of letting those links hide
+under `.git`, `dist`, or `node_modules`.
+
+The focused harness, verifier, accounting, sandbox-contract, result,
+classification, judge, and command packages passed after those corrections.
+The first changed-file quality run isolated three complexity violations in the
+touched files; the functions were split without changing their contracts, the
+narrow complexity check passed, and the one final changed-file quality rerun
+passed formatting, vet, package tests, dead-code analysis, file lengths, and
+complexity. The authorized deterministic production workflow gate then passed
+the desktop production build and typecheck, Director/conversation/HTTP/runtime
+Go contracts, all 711 desktop tests, and all required Electron workflows with
+temporary app data. The dependency and supply-chain gate was not repeated:
+it passed after the last dependency-relevant implementation batch, and this
+audit changed no dependency input.
+
+With local ChatGPT auth and `OPENAI_API_KEY` absent, the one authorized live
+Codex matrix attempt passed Agent protocol, Side Agent isolation, Director
+command center, and unbound native artifacts. The topic-conversation table
+artifact again omitted its open workspace ID. That pre-existing artifact-routing
+failure is already documented above, predates this plan's implementation, and
+remains an external production release gate; it was not retried or expanded
+into unrelated work. The unavailable committed Phase 0 PASS evidence still
+gates the live harness, fixed judge, and five-scenario suite, so none was
+invoked. Successful live-scenario timing evidence for the 1,800-second ceiling
+therefore remains the corresponding harness release gate. No repository-actionable
+plan implementation remains behind either external gate.
+
 Run once by default and rerun only failed scenarios once. Report first-attempt
 passes, stable failures, flaky scenarios, infrastructure failures, user-control
 assertions, communication checks, and token totals. Confirm that the checked-in

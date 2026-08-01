@@ -294,7 +294,11 @@ func orchestrateEvaluationConversation(
 	if err != nil {
 		return observation, err
 	}
-	turn, failure := evaluationObservedTurn(snapshot, scenario.Steps[workingStepIndex].Text)
+	turn, failure := evaluationObservedTurn(
+		snapshot,
+		scenario.Steps[workingStepIndex].Text,
+		missingEvaluationWorkOutcome(scenario, workingStepIndex),
+	)
 	if failure != nil {
 		return scenarioBehaviorObservation(
 			observation,
@@ -437,7 +441,15 @@ func completeEvaluationConversationEvidence(
 func evaluationObservedTurn(
 	snapshot conversation.ConversationSnapshot,
 	text string,
+	missingTurnOutcome ScenarioExecutionOutcome,
 ) (conversation.ConversationTurn, *scenarioBehaviorFailure) {
+	if !snapshot.Turns.HasEarlier && len(snapshot.Turns.Turns) == 0 {
+		return conversation.ConversationTurn{}, &scenarioBehaviorFailure{
+			outcome: missingTurnOutcome,
+			code:    "director_did_not_start_agent_turn",
+			message: "Director created or selected fixture work without starting an Agent turn",
+		}
+	}
 	if snapshot.Turns.HasEarlier || len(snapshot.Turns.Turns) != 1 {
 		return conversation.ConversationTurn{}, &scenarioBehaviorFailure{
 			outcome: ScenarioExecutionFailed,

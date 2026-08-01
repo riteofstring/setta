@@ -30,6 +30,7 @@ type routeExpectation struct {
 type scenarioDefinition struct {
 	verifierID           string
 	requiredChangedFiles []string
+	allowedChangedFiles  []string
 	routes               []routeExpectation
 	documentation        *documentationExpectation
 }
@@ -68,13 +69,25 @@ func Verify(
 		return evalverifier.Result{}, err
 	}
 	definition = definition.withFixtureVersion(version)
+	if err := validateWorkspaceTree(workspaceRoot); err != nil {
+		return workspaceSnapshotFailure(definition.verifierID, err), nil
+	}
 	workspace, err := evalverifier.ReadWorkspace(workspaceRoot, snapshotOptions)
 	if err != nil {
 		return workspaceSnapshotFailure(definition.verifierID, err), nil
 	}
 	changedFiles := evalverifier.ChangedFiles(baseline, workspace)
 	checks := initialChecks(definition, changedFiles, workspaceRoot)
+	return runFixtureChecks(ctx, definition, workspaceRoot, changedFiles, checks)
+}
 
+func runFixtureChecks(
+	ctx context.Context,
+	definition scenarioDefinition,
+	workspaceRoot string,
+	changedFiles []string,
+	checks []evalverifier.Check,
+) (evalverifier.Result, error) {
 	buildCheck, err := runCommandCheck(
 		ctx,
 		workspaceRoot,
@@ -172,6 +185,9 @@ func definitionFor(verifierID string) (scenarioDefinition, error) {
 		evalharness.ScenarioVerifierQueueThenCancel: {
 			verifierID: evalharness.ScenarioVerifierQueueThenCancel,
 			requiredChangedFiles: []string{
+				"src/server.ts",
+			},
+			allowedChangedFiles: []string{
 				"src/server.ts",
 				"test/server.test.ts",
 			},
@@ -307,7 +323,11 @@ func initialChecks(
 	workspaceRoot string,
 ) []evalverifier.Check {
 	checks := []evalverifier.Check{
-		checkRelatedChanges(changedFiles, definition.requiredChangedFiles),
+		checkRelatedChanges(
+			changedFiles,
+			definition.requiredChangedFiles,
+			definition.allowedChanges(),
+		),
 	}
 	if definition.documentation != nil {
 		checks = append(checks, checkDocumentation(workspaceRoot, *definition.documentation))
@@ -315,18 +335,51 @@ func initialChecks(
 	return checks
 }
 
-func checkRelatedChanges(changedFiles []string, requiredFiles []string) evalverifier.Check {
+func (definition scenarioDefinition) allowedChanges() []string {
+	if definition.allowedChangedFiles != nil {
+		return definition.allowedChangedFiles
+	}
+	return definition.requiredChangedFiles
+}
+
+func checkRelatedChanges(
+	changedFiles []string,
+	requiredFiles []string,
+	allowedFiles []string,
+) evalverifier.Check {
+	unrelated, missing := relatedChangeFailures(changedFiles, requiredFiles, allowedFiles)
+	if len(unrelated) > 0 || len(missing) > 0 {
+		return relatedChangesFailure(unrelated, missing)
+	}
+	return evalverifier.Check{
+		ID:     "related_changes_only",
+		Passed: true,
+		Detail: "The final workspace changes only task-related files and includes every required file.",
+	}
+}
+
+func relatedChangeFailures(
+	changedFiles []string,
+	requiredFiles []string,
+	allowedFiles []string,
+) ([]string, []string) {
 	required := make(map[string]bool, len(requiredFiles))
 	for _, path := range requiredFiles {
 		required[path] = false
 	}
+	allowed := make(map[string]struct{}, len(allowedFiles))
+	for _, path := range allowedFiles {
+		allowed[path] = struct{}{}
+	}
 	unrelated := make([]string, 0, len(changedFiles))
 	for _, path := range changedFiles {
-		if _, ok := required[path]; ok {
-			required[path] = true
+		if _, ok := allowed[path]; !ok {
+			unrelated = append(unrelated, path)
 			continue
 		}
-		unrelated = append(unrelated, path)
+		if _, ok := required[path]; ok {
+			required[path] = true
+		}
 	}
 	missing := make([]string, 0, len(required))
 	for _, path := range requiredFiles {
@@ -334,25 +387,52 @@ func checkRelatedChanges(changedFiles []string, requiredFiles []string) evalveri
 			missing = append(missing, path)
 		}
 	}
-	if len(unrelated) > 0 || len(missing) > 0 {
-		details := make([]string, 0, 2)
-		if len(unrelated) > 0 {
-			details = append(details, "unrelated workspace changes: "+strings.Join(unrelated, ", "))
-		}
-		if len(missing) > 0 {
-			details = append(details, "required task files unchanged: "+strings.Join(missing, ", "))
-		}
-		return evalverifier.Check{
-			ID:     "related_changes_only",
-			Passed: false,
-			Detail: evalverifier.BoundedDetail(strings.Join(details, "; ")),
-		}
+	return unrelated, missing
+}
+
+func relatedChangesFailure(unrelated []string, missing []string) evalverifier.Check {
+	details := make([]string, 0, 2)
+	if len(unrelated) > 0 {
+		details = append(details, "unrelated workspace changes: "+strings.Join(unrelated, ", "))
+	}
+	if len(missing) > 0 {
+		details = append(details, "required task files unchanged: "+strings.Join(missing, ", "))
 	}
 	return evalverifier.Check{
 		ID:     "related_changes_only",
-		Passed: true,
-		Detail: "The final workspace changes exactly the source files required by the scenario.",
+		Passed: false,
+		Detail: evalverifier.BoundedDetail(strings.Join(details, "; ")),
 	}
+}
+
+func validateWorkspaceTree(root string) error {
+	return filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			return fmt.Errorf("workspace contains symbolic link %s", relativePath(root, path))
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("workspace contains non-regular file %s", relativePath(root, path))
+		}
+		return nil
+	})
+}
+
+func relativePath(root string, value string) string {
+	relative, err := filepath.Rel(root, value)
+	if err != nil {
+		return filepath.ToSlash(value)
+	}
+	return filepath.ToSlash(relative)
 }
 
 func checkDocumentation(

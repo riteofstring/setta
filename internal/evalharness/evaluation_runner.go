@@ -90,6 +90,7 @@ func RunEvaluation(ctx context.Context, config EvaluationConfig) (EvaluationOutp
 	}
 	finishedAt := time.Now().UTC()
 	manifest, err := buildEvaluationManifest(
+		ctx,
 		normalized.repoRoot,
 		repository.Commit,
 		normalized.phase0Codex,

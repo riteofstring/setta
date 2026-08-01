@@ -66,15 +66,16 @@ func TestEvaluationObservedTurnRequiresOneExactDisposableTurn(t *testing.T) {
 	}
 	observed, failure := evaluationObservedTurn(conversation.ConversationSnapshot{
 		Turns: conversation.ConversationTurnWindow{Turns: []conversation.ConversationTurn{turn}},
-	}, turn.AuthoredInput.Text)
+	}, turn.AuthoredInput.Text, ScenarioExecutionControlFailed)
 	if observed.ID != turn.ID || failure != nil {
 		t.Fatalf("observed turn = %q/%#v", observed.ID, failure)
 	}
 
 	_, failure = evaluationObservedTurn(conversation.ConversationSnapshot{
 		Turns: conversation.ConversationTurnWindow{Turns: []conversation.ConversationTurn{}},
-	}, turn.AuthoredInput.Text)
-	if failure == nil || failure.code != "director_started_unexpected_agent_turns" {
+	}, turn.AuthoredInput.Text, ScenarioExecutionControlFailed)
+	if failure == nil || failure.outcome != ScenarioExecutionControlFailed ||
+		failure.code != "director_did_not_start_agent_turn" {
 		t.Fatalf("empty turn failure = %#v", failure)
 	}
 
@@ -83,7 +84,7 @@ func TestEvaluationObservedTurnRequiresOneExactDisposableTurn(t *testing.T) {
 			Turns:      []conversation.ConversationTurn{turn},
 			HasEarlier: true,
 		},
-	}, turn.AuthoredInput.Text)
+	}, turn.AuthoredInput.Text, ScenarioExecutionControlFailed)
 	if failure == nil || failure.code != "director_started_unexpected_agent_turns" {
 		t.Fatalf("non-disposable turn failure = %#v", failure)
 	}

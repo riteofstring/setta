@@ -1,15 +1,23 @@
 package evalharness
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
+	"path"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	evalverifier "setta/internal/evalharness/verifier"
 )
+
+const phase1FixtureRelativePath = "evals/fixtures/" + ScenarioFixtureTypeScriptService
 
 type phase1FixturePreparation struct {
 	root      string
@@ -21,8 +29,7 @@ func preparePhase1Fixture(
 	ctx context.Context,
 	repoRoot string,
 ) (phase1FixturePreparation, error) {
-	fixtureRoot := filepath.Join(repoRoot, "evals", "fixtures", "typescript-service")
-	snapshot, err := evalverifier.ReadWorkspace(fixtureRoot, evalverifier.SnapshotOptions{})
+	snapshot, err := readCommittedPhase1Fixture(ctx, repoRoot)
 	if err != nil {
 		return phase1FixturePreparation{}, fmt.Errorf("read Phase 1 fixture: %w", err)
 	}
@@ -45,6 +52,130 @@ func preparePhase1Fixture(
 		return phase1FixturePreparation{}, errors.Join(err, preparation.cleanup())
 	}
 	return preparation, nil
+}
+
+func readCommittedPhase1Fixture(
+	ctx context.Context,
+	repoRoot string,
+) (evalverifier.WorkspaceSnapshot, error) {
+	command := exec.CommandContext(
+		ctx,
+		"git",
+		"archive",
+		"--format=tar",
+		"HEAD:"+phase1FixtureRelativePath,
+	)
+	command.Dir = repoRoot
+	diagnostic := newPhase1DiagnosticBuffer(phase0MaxDiagnosticBytes)
+	command.Stderr = diagnostic
+	archive, err := command.Output()
+	if err != nil {
+		return nil, fmt.Errorf(
+			"read committed fixture tree %s: %w: %s",
+			phase1FixtureRelativePath,
+			err,
+			diagnostic.String(),
+		)
+	}
+	return readPhase1FixtureArchive(archive)
+}
+
+func readPhase1FixtureArchive(archive []byte) (evalverifier.WorkspaceSnapshot, error) {
+	reader := tar.NewReader(bytes.NewReader(archive))
+	state := phase1FixtureArchiveState{snapshot: evalverifier.WorkspaceSnapshot{}}
+	for {
+		header, err := reader.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("decode committed fixture archive: %w", err)
+		}
+		if err := state.add(header, reader); err != nil {
+			return nil, err
+		}
+	}
+	if len(state.snapshot) == 0 {
+		return nil, errors.New("committed fixture tree is empty")
+	}
+	return state.snapshot, nil
+}
+
+type phase1FixtureArchiveState struct {
+	snapshot   evalverifier.WorkspaceSnapshot
+	totalBytes int64
+}
+
+func (state *phase1FixtureArchiveState) add(header *tar.Header, reader io.Reader) error {
+	entryPath := strings.TrimSuffix(header.Name, "/")
+	if err := validatePhase1FixtureArchivePath(entryPath); err != nil {
+		return err
+	}
+	if header.Typeflag == tar.TypeDir {
+		return nil
+	}
+	if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA {
+		return fmt.Errorf("committed fixture contains non-regular file %s", entryPath)
+	}
+	if _, exists := state.snapshot[entryPath]; exists {
+		return fmt.Errorf("committed fixture contains duplicate file %s", entryPath)
+	}
+	if err := state.reserve(entryPath, header.Size); err != nil {
+		return err
+	}
+	content, err := readPhase1FixtureArchiveFile(reader, entryPath, header.Size)
+	if err != nil {
+		return err
+	}
+	state.snapshot[entryPath] = evalverifier.FileState{
+		Content:    content,
+		Executable: header.Mode&0o111 != 0,
+	}
+	return nil
+}
+
+func (state *phase1FixtureArchiveState) reserve(entryPath string, size int64) error {
+	if len(state.snapshot) >= evalverifier.DefaultMaximumFiles {
+		return fmt.Errorf(
+			"committed fixture contains more than %d files",
+			evalverifier.DefaultMaximumFiles,
+		)
+	}
+	if size < 0 || size > evalverifier.DefaultMaximumFileBytes {
+		return fmt.Errorf(
+			"committed fixture file %s is %d bytes, maximum is %d",
+			entryPath,
+			size,
+			evalverifier.DefaultMaximumFileBytes,
+		)
+	}
+	state.totalBytes += size
+	if state.totalBytes > evalverifier.DefaultMaximumTotalBytes {
+		return fmt.Errorf(
+			"committed fixture files exceed %d total bytes",
+			evalverifier.DefaultMaximumTotalBytes,
+		)
+	}
+	return nil
+}
+
+func readPhase1FixtureArchiveFile(reader io.Reader, entryPath string, size int64) ([]byte, error) {
+	content, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("read committed fixture file %s: %w", entryPath, err)
+	}
+	if int64(len(content)) != size {
+		return nil, fmt.Errorf("committed fixture file %s was truncated", entryPath)
+	}
+	return content, nil
+}
+
+func validatePhase1FixtureArchivePath(value string) error {
+	if value == "" || value == "." || value == ".." || path.IsAbs(value) || path.Clean(value) != value ||
+		strings.Contains(value, `\`) || strings.HasPrefix(value, "../") {
+		return fmt.Errorf("committed fixture contains invalid path %q", value)
+	}
+	return nil
 }
 
 func materializePhase1Fixture(
