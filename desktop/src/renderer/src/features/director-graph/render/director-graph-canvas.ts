@@ -189,6 +189,7 @@ export class DirectorGraphCanvas {
   private disposed = false;
   /** The ambient field's session clock origin. See GraphRenderView.fieldTimeSeconds. */
   private firstFrameTimeSeconds: number | null = null;
+  private lastHeartbeatMs = 0;
   /*
    * The mockup's thread-switch slide (mockup lines 1278–1285). By the time the
    * shell knows the selection changed, the new snapshot is already on screen,
@@ -932,6 +933,7 @@ export class DirectorGraphCanvas {
   }
 
   private recordFrame(frameStart: number, timing: GraphFrameTiming): void {
+    this.logMotionHeartbeat(timing);
     const gpuFrameMs = this.gpuTimer.poll();
     const refreshPeriodMs = graphRefreshPeriodMs(timing.shortestDeltaMs);
     this.sampler.setFrameBudgetMs(refreshPeriodMs);
@@ -950,6 +952,37 @@ export class DirectorGraphCanvas {
       frameDeltaMs: timing.deltaSeconds * 1000,
       marks: this.stopwatch.marks(),
     });
+  }
+
+  /**
+   * One line every ten seconds naming every input the ambient motion depends
+   * on. The field was observed frozen in a session whose code was verified
+   * fluid, so the next observation must be of the running values, not the
+   * source: which clock is advancing, whether flow is gated off, and what the
+   * quality controller currently holds.
+   */
+  private logMotionHeartbeat(timing: GraphFrameTiming): void {
+    if (timing.timestampMs - this.lastHeartbeatMs < 10_000) {
+      return;
+    }
+    this.lastHeartbeatMs = timing.timestampMs;
+    const decision = this.quality.current();
+    console.info(
+      JSON.stringify({
+        type: "graph_motion_heartbeat",
+        timeSeconds: +this.options.timeSecondsAt(timing.timestampMs).toFixed(3),
+        fieldTimeSeconds: +(
+          this.options.timeSecondsAt(timing.timestampMs) - (this.firstFrameTimeSeconds ?? 0)
+        ).toFixed(3),
+        reducedMotion: this.reducedMotion,
+        fieldFlow: decision.profile.effects.fieldFlow,
+        ambientMotion: this.ambientMotion,
+        tier: decision.profile.tier,
+        renderScale: +decision.renderScale.toFixed(3),
+        fieldParticles: decision.profile.fieldParticles,
+        awake: this.scheduler.isAwake(),
+      }),
+    );
   }
 
   private decideOutcome(
