@@ -230,6 +230,9 @@ func validateArtifactScenarioContracts(
 	); err != nil {
 		return err
 	}
+	if err := validateTranscriptEventEvidence(artifacts.Events, scenarioID, transcript); err != nil {
+		return err
+	}
 	return validateJudgePrerequisites(scenarioID, result, transcript, verifier, judge)
 }
 
@@ -253,16 +256,97 @@ func validateTokenEventEvidence(
 	usage ScenarioTokenUsage,
 	judge ScenarioJudgeResult,
 ) error {
-	if judge.EvidenceAvailable && !usage.Judge.EvidenceAvailable {
-		return fmt.Errorf("scenario %s judge verdict has no judge token evidence", scenarioID)
+	observations := make([]agent.TokenUsageObservation, 0)
+	for _, event := range events {
+		if event.ScenarioID == scenarioID && event.TokenUsage != nil {
+			observations = append(observations, *event.TokenUsage)
+		}
 	}
-	if usage.System.EvidenceAvailable &&
-		!evaluationEventsContainTokenBucket(events, scenarioID, agent.TokenUsageBucketSystem) {
-		return fmt.Errorf("scenario %s system token artifact has no accounting event evidence", scenarioID)
+	derivedUsage := EmptyScenarioTokenUsage(scenarioID)
+	if len(observations) > 0 {
+		var err error
+		derivedUsage, err = AggregateScenarioTokenUsage(scenarioID, observations)
+		if err != nil {
+			return fmt.Errorf("scenario %s accounting event evidence is invalid: %w", scenarioID, err)
+		}
 	}
-	if usage.Judge.EvidenceAvailable &&
-		!evaluationEventsContainTokenBucket(events, scenarioID, agent.TokenUsageBucketJudge) {
-		return fmt.Errorf("scenario %s judge token artifact has no accounting event evidence", scenarioID)
+	if !reflect.DeepEqual(derivedUsage, usage) {
+		return fmt.Errorf("scenario %s token artifact does not match accounting event evidence", scenarioID)
+	}
+	for _, turn := range usage.Judge.ProviderTurns {
+		if turn.Attribution.Model != JudgeModel ||
+			turn.Attribution.ReasoningEffort != JudgeReasoningEffort ||
+			turn.Attribution.ServiceTier != nil {
+			return fmt.Errorf("scenario %s judge token evidence does not use the fixed judge configuration", scenarioID)
+		}
+	}
+	if !judge.EvidenceAvailable {
+		return nil
+	}
+	if len(usage.Judge.ProviderTurns) != 1 {
+		return fmt.Errorf("scenario %s judge verdict requires exactly one judge provider turn", scenarioID)
+	}
+	turn := usage.Judge.ProviderTurns[0]
+	if judge.Invocation == nil ||
+		turn.Attribution.InvocationID != judge.Invocation.ID ||
+		turn.ProviderThreadID != judge.Invocation.ProviderThreadID ||
+		turn.ProviderTurnID != judge.Invocation.ProviderTurnID {
+		return fmt.Errorf("scenario %s judge invocation does not match judge token evidence", scenarioID)
+	}
+	return nil
+}
+
+func validateTranscriptEventEvidence(
+	events []EvaluationEvent,
+	scenarioID string,
+	transcript ScenarioTranscript,
+) error {
+	if !transcript.EvidenceAvailable {
+		return nil
+	}
+	entries := make([]TranscriptEntry, 0, len(transcript.Entries))
+	for _, event := range events {
+		if event.ScenarioID != scenarioID {
+			continue
+		}
+		var entry *TranscriptEntry
+		switch event.Kind {
+		case EvaluationEventUserSubmission:
+			entry = &TranscriptEntry{
+				Speaker: TranscriptSpeakerUser,
+				Kind:    TranscriptEntryUserSubmission,
+				Text:    event.UserSubmission.Text,
+			}
+		case EvaluationEventDirectorReceipt:
+			if event.DirectorReceipt.Submit.ReplyText != "" {
+				entry = &TranscriptEntry{
+					Speaker: TranscriptSpeakerDirector,
+					Kind:    TranscriptEntryDirectorReply,
+					Text:    event.DirectorReceipt.Submit.ReplyText,
+				}
+			}
+		case EvaluationEventNarration:
+			text, visible := event.Narration.UserVisibleText()
+			if visible {
+				kind, err := transcriptNarrationKind(event.Narration.Kind)
+				if err != nil {
+					return fmt.Errorf("scenario %s public narration evidence is invalid: %w", scenarioID, err)
+				}
+				entry = &TranscriptEntry{
+					Speaker: TranscriptSpeakerNarrator,
+					Kind:    kind,
+					Text:    text,
+				}
+			}
+		}
+		if entry != nil {
+			entry.Sequence = len(entries) + 1
+			entry.OccurredAt = event.RecordedAt
+			entries = append(entries, *entry)
+		}
+	}
+	if !reflect.DeepEqual(entries, transcript.Entries) {
+		return fmt.Errorf("scenario %s transcript does not match public event evidence", scenarioID)
 	}
 	return nil
 }
@@ -287,7 +371,7 @@ func validateCompletedScenarioEvidence(
 	if !usage.System.EvidenceAvailable {
 		return fmt.Errorf("completed scenario %s omitted system token evidence", scenarioID)
 	}
-	if !evaluationEventsContainScenario(events, scenarioID) {
+	if !evaluationEventsContainSemanticEvidence(events, scenarioID) {
 		return fmt.Errorf("completed scenario %s omitted its semantic event evidence", scenarioID)
 	}
 	return nil
@@ -308,23 +392,9 @@ func validateJudgePrerequisites(
 	return nil
 }
 
-func evaluationEventsContainScenario(events []EvaluationEvent, scenarioID string) bool {
+func evaluationEventsContainSemanticEvidence(events []EvaluationEvent, scenarioID string) bool {
 	for _, event := range events {
-		if event.ScenarioID == scenarioID {
-			return true
-		}
-	}
-	return false
-}
-
-func evaluationEventsContainTokenBucket(
-	events []EvaluationEvent,
-	scenarioID string,
-	bucket agent.TokenUsageBucket,
-) bool {
-	for _, event := range events {
-		if event.ScenarioID == scenarioID && event.TokenUsage != nil &&
-			event.TokenUsage.Attribution.Bucket == bucket {
+		if event.ScenarioID == scenarioID && event.Kind != EvaluationEventTokenUsage {
 			return true
 		}
 	}

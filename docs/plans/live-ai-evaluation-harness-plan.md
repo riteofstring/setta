@@ -6,12 +6,12 @@ an external release gate. Phase 1 repository implementation and its coherent
 phase audit are complete, including the benchmark contract, result reporting,
 production orchestration, container lifecycle, committed Phase 0 gate, runnable
 entrypoints, checked-in ARM64 toolchain pin, hard disk and total-token ceilings,
-and focused classification exercises. Phase 2 repository implementation is
-complete, including exact token evidence, the public transcript, the fixed
-fresh judge, and the complete atomic artifact set. Phase 1 and Phase 2 live exit
-evidence remains gated by Phase 0 and the later user-authorized verification
-ladder. Phase 3 is the earliest phase with incomplete repository-actionable
-work.
+and focused classification exercises. Phase 2 repository implementation and
+its coherent phase audit are complete, including exact token evidence, the
+public transcript, the fixed fresh judge, the complete atomic artifact set, and
+cross-artifact evidence reconstruction. Phase 1 and Phase 2 live exit evidence
+remains gated by Phase 0 and the later user-authorized verification ladder.
+Phase 3 is the earliest phase with incomplete repository-actionable work.
 
 ## Outcome
 
@@ -950,8 +950,11 @@ Every invocation now publishes `manifest.json`, `events.jsonl`,
 directory rename. The manifest binds source and fixture hashes, exact image
 identities, requested and resolved production roles, fixed judge settings, and
 runtime versions. The event log carries typed public/semantic and accounting
-evidence only. Cross-artifact validation rejects mismatched identities or a
-completed run missing its public transcript, semantic events, system-token
+evidence only. Cross-artifact validation reconstructs token totals from every
+raw accounting event, rebuilds available transcripts from their public events,
+and binds an available verdict to the sole fixed-configuration judge invocation
+and provider turn. It rejects mismatched identities, token-only semantic logs,
+or a completed run missing its public transcript, semantic events, system-token
 evidence, or accounting records. Judge failures remain explicit unavailable
 evidence and cannot produce a successful command exit; any observed judge
 tokens remain isolated in the judge bucket.
@@ -970,6 +973,21 @@ release-age and vulnerability-audit portions could finish. No dependency changed
 in this batch, the unavailable remote check was not retried, and those remaining
 pnpm checks are recorded once as a final-audit release gate rather than a Phase
 2 implementation blocker.
+
+The coherent Phase 2 audit on 2026-07-31 reviewed the full phase boundary from
+`e7ba7f7fb5c51fe5fc2bcbe0772a5d3a30f8ede1` through
+`8027b2d8aa4d96540224d5a86dfbdd3cdaddb605`, including the inherited Phase 1
+assumptions affected by Phase 2. It corrected the cross-artifact integrity gaps
+described above and added focused regression coverage. The changed Go files
+were formatted with the repository-pinned toolchain, and the final static diff
+inspection and whitespace check were clean. No automated test or verification
+gate was run during the audit: the plan's phase-audit instruction does not
+create the explicit test authorization required by repository policy. Because
+the audit changes postdate the earlier green changed-file and deterministic
+evidence, the focused Go checks, applicable broad deterministic matrix, and
+live-provider harness suite remain release gates for the later user-authorized
+verification ladder. The existing Phase 0 and remote pnpm release gates were
+not retried.
 
 Give `thread/tokenUsage/updated` an ephemeral accounting sink at the Agent
 boundary. Correlate provider turns to resolved invocations, preserve the exact

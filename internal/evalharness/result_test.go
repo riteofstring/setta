@@ -200,6 +200,13 @@ func TestWriteResultArtifactsPublishesValidatedSet(t *testing.T) {
 	}
 
 	recordingsRoot := t.TempDir()
+	judgeAttribution := testTokenAttribution(
+		agent.TokenUsageBucketJudge,
+		agent.TokenUsageRoleJudge,
+		"artifact-judge",
+		JudgeModel,
+	)
+	judgeAttribution.ReasoningEffort = JudgeReasoningEffort
 	scenarioUsage, err := AggregateScenarioTokenUsage(scenario.ScenarioID, []agent.TokenUsageObservation{
 		testTokenObservation(
 			testTokenAttribution(agent.TokenUsageBucketSystem, agent.TokenUsageRoleAgent, "artifact-agent", "gpt-agent"),
@@ -210,7 +217,7 @@ func TestWriteResultArtifactsPublishesValidatedSet(t *testing.T) {
 			12,
 		),
 		testTokenObservation(
-			testTokenAttribution(agent.TokenUsageBucketJudge, agent.TokenUsageRoleJudge, "artifact-judge", "gpt-judge"),
+			judgeAttribution,
 			"artifact-judge-thread",
 			"artifact-judge-turn",
 			99,
@@ -226,6 +233,7 @@ func TestWriteResultArtifactsPublishesValidatedSet(t *testing.T) {
 		t.Fatalf("build token usage: %v", err)
 	}
 	artifactSet := validTestArtifactSet(t, results, tokenUsage)
+	assertArtifactSetRejectsMismatchedEvidence(t, artifactSet)
 	paths, err := WriteResultArtifacts(recordingsRoot, artifactSet)
 	if err != nil {
 		t.Fatalf("write result artifacts: %v", err)
@@ -234,6 +242,94 @@ func TestWriteResultArtifactsPublishesValidatedSet(t *testing.T) {
 	assertPublishedResultReport(t, paths.ReportMarkdown)
 	if _, err := WriteResultArtifacts(recordingsRoot, artifactSet); err == nil {
 		t.Fatal("second artifact publication unexpectedly replaced the first")
+	}
+}
+
+func assertArtifactSetRejectsMismatchedEvidence(
+	t *testing.T,
+	artifacts EvaluationArtifactSet,
+) {
+	t.Helper()
+	t.Run("accounting event", func(t *testing.T) {
+		mismatched := cloneTestArtifactSet(t, artifacts)
+		for index := range mismatched.Events {
+			if mismatched.Events[index].TokenUsage != nil {
+				mismatched.Events[index].TokenUsage.TokenUsage.Total.TotalTokens++
+				break
+			}
+		}
+		assertArtifactSetValidationError(t, mismatched, "token artifact does not match accounting event evidence")
+	})
+	t.Run("judge invocation", func(t *testing.T) {
+		mismatched := cloneTestArtifactSet(t, artifacts)
+		mismatched.JudgeResults.Scenarios[0].Invocation.ID = "different-judge-invocation"
+		assertArtifactSetValidationError(t, mismatched, "judge invocation does not match judge token evidence")
+	})
+	t.Run("judge configuration", func(t *testing.T) {
+		mismatched := cloneTestArtifactSet(t, artifacts)
+		observations := make([]agent.TokenUsageObservation, 0)
+		for index := range mismatched.Events {
+			observation := mismatched.Events[index].TokenUsage
+			if observation == nil {
+				continue
+			}
+			if observation.Attribution.Bucket == agent.TokenUsageBucketJudge {
+				observation.Attribution.Model = "different-judge-model"
+			}
+			observations = append(observations, *observation)
+		}
+		usage, err := AggregateScenarioTokenUsage(
+			mismatched.Results.Scenarios[0].ScenarioID,
+			observations,
+		)
+		if err != nil {
+			t.Fatalf("aggregate altered token evidence: %v", err)
+		}
+		mismatched.TokenUsage.Scenarios[0] = usage
+		assertArtifactSetValidationError(t, mismatched, "judge token evidence does not use the fixed judge configuration")
+	})
+	t.Run("public transcript", func(t *testing.T) {
+		mismatched := cloneTestArtifactSet(t, artifacts)
+		mismatched.Transcript.Scenarios[0].Entries[0].Text = "Complete a different fixture task."
+		assertArtifactSetValidationError(t, mismatched, "transcript does not match public event evidence")
+	})
+	t.Run("token-only event log", func(t *testing.T) {
+		mismatched := cloneTestArtifactSet(t, artifacts)
+		tokenEvents := make([]EvaluationEvent, 0, len(mismatched.Events))
+		for _, event := range mismatched.Events {
+			if event.Kind != EvaluationEventTokenUsage {
+				continue
+			}
+			event.Sequence = len(tokenEvents) + 1
+			tokenEvents = append(tokenEvents, event)
+		}
+		mismatched.Events = tokenEvents
+		assertArtifactSetValidationError(t, mismatched, "omitted its semantic event evidence")
+	})
+}
+
+func cloneTestArtifactSet(t *testing.T, artifacts EvaluationArtifactSet) EvaluationArtifactSet {
+	t.Helper()
+	payload, err := json.Marshal(artifacts)
+	if err != nil {
+		t.Fatalf("encode artifact set clone: %v", err)
+	}
+	var cloned EvaluationArtifactSet
+	if err := json.Unmarshal(payload, &cloned); err != nil {
+		t.Fatalf("decode artifact set clone: %v", err)
+	}
+	return cloned
+}
+
+func assertArtifactSetValidationError(
+	t *testing.T,
+	artifacts EvaluationArtifactSet,
+	want string,
+) {
+	t.Helper()
+	err := artifacts.Validate()
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("artifact validation error = %v, want %q", err, want)
 	}
 }
 
@@ -303,6 +399,11 @@ func validTestArtifactSet(
 	for index, scenario := range results.Scenarios {
 		manifestScenarios[index] = validTestManifestScenario(scenario.ScenarioID, scenario.Roles)
 		if tokenUsage.Scenarios[index].Judge.EvidenceAvailable {
+			judgeTurns := tokenUsage.Scenarios[index].Judge.ProviderTurns
+			if len(judgeTurns) != 1 {
+				t.Fatalf("judge provider turns = %d, want 1", len(judgeTurns))
+			}
+			judgeTurn := judgeTurns[0]
 			transcripts[index] = ScenarioTranscript{
 				ScenarioID:        scenario.ScenarioID,
 				EvidenceAvailable: true,
@@ -318,9 +419,9 @@ func validTestArtifactSet(
 				ScenarioID:        scenario.ScenarioID,
 				EvidenceAvailable: true,
 				Invocation: &JudgeInvocation{
-					ID:               "judge-test",
-					ProviderThreadID: "artifact-judge-thread",
-					ProviderTurnID:   "artifact-judge-turn",
+					ID:               judgeTurn.Attribution.InvocationID,
+					ProviderThreadID: judgeTurn.ProviderThreadID,
+					ProviderTurnID:   judgeTurn.ProviderTurnID,
 				},
 				Verdict: communicationJudgeVerdict(communicationJudgeChecks{
 					ProgressSufficient:      true,
