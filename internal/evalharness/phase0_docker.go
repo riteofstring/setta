@@ -605,29 +605,9 @@ func validatePhase0HelperWorkspace(evidence phase0HelperWorkspace) error {
 	if evidence.Entries == nil {
 		return errors.New("entries must be an array")
 	}
-	for index, entry := range evidence.Entries {
-		if entry.Path == "" ||
-			(entry.Path != "." && (path.IsAbs(entry.Path) || path.Clean(entry.Path) != entry.Path ||
-				entry.Path == ".." || strings.HasPrefix(entry.Path, "../"))) {
-			return fmt.Errorf("entry %d has invalid path %q", index, entry.Path)
-		}
-		if index > 0 && evidence.Entries[index-1].Path >= entry.Path {
-			return errors.New("entries must be sorted with unique paths")
-		}
-		if entry.Mode & ^uint32(0o777) != 0 {
-			return fmt.Errorf("entry %q has an invalid permission mode", entry.Path)
-		}
-		switch entry.Kind {
-		case "directory":
-			if entry.Bytes != 0 || entry.SHA256 != "" {
-				return fmt.Errorf("directory entry %q contains file evidence", entry.Path)
-			}
-		case "file":
-			if entry.Bytes < 0 || !validLowerHex(entry.SHA256, 64) {
-				return fmt.Errorf("file entry %q has invalid content evidence", entry.Path)
-			}
-		default:
-			return fmt.Errorf("entry %q has invalid kind %q", entry.Path, entry.Kind)
+	for index := range evidence.Entries {
+		if err := validatePhase0HelperWorkspaceEntry(evidence.Entries, index); err != nil {
+			return err
 		}
 	}
 	if len(evidence.Entries) == 0 || evidence.Entries[0].Path != "." ||
@@ -635,6 +615,56 @@ func validatePhase0HelperWorkspace(evidence phase0HelperWorkspace) error {
 		return errors.New("entries must include the workspace root directory")
 	}
 	return nil
+}
+
+func validatePhase0HelperWorkspaceEntry(
+	entries []phase0HelperWorkspaceEntry,
+	index int,
+) error {
+	entry := entries[index]
+	if err := validatePhase0HelperWorkspacePath(entry.Path); err != nil {
+		return fmt.Errorf("entry %d: %w", index, err)
+	}
+	if index > 0 && entries[index-1].Path >= entry.Path {
+		return errors.New("entries must be sorted with unique paths")
+	}
+	if entry.Mode&^uint32(0o777) != 0 {
+		return fmt.Errorf("entry %q has an invalid permission mode", entry.Path)
+	}
+	return validatePhase0HelperWorkspaceEntryContent(entry)
+}
+
+func validatePhase0HelperWorkspacePath(value string) error {
+	if value == "" {
+		return errors.New("path is empty")
+	}
+	if value == "." {
+		return nil
+	}
+	if path.IsAbs(value) || path.Clean(value) != value {
+		return fmt.Errorf("path %q must be relative and clean", value)
+	}
+	if value == ".." || strings.HasPrefix(value, "../") {
+		return fmt.Errorf("path %q escapes the workspace", value)
+	}
+	return nil
+}
+
+func validatePhase0HelperWorkspaceEntryContent(entry phase0HelperWorkspaceEntry) error {
+	switch entry.Kind {
+	case "directory":
+		if entry.Bytes != 0 || entry.SHA256 != "" {
+			return fmt.Errorf("directory entry %q contains file evidence", entry.Path)
+		}
+		return nil
+	case "file":
+		if entry.Bytes < 0 || !validLowerHex(entry.SHA256, 64) {
+			return fmt.Errorf("file entry %q has invalid content evidence", entry.Path)
+		}
+		return nil
+	default:
+		return fmt.Errorf("entry %q has invalid kind %q", entry.Path, entry.Kind)
+	}
 }
 
 func (resources *phase0DockerResources) execHelper(

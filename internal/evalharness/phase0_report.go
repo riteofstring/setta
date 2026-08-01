@@ -83,10 +83,7 @@ func ValidatePhase0SandboxEvidence(evidence Phase0SandboxEvidence) error {
 	if err := validatePhase0DockerEvidence(evidence.Docker); err != nil {
 		return err
 	}
-	if err := validatePhase0CodexEvidence(evidence.Codex); err != nil {
-		return err
-	}
-	if err := validatePhase0ReleaseAgentEvidence(evidence.Codex); err != nil {
+	if err := validatePhase0ProofCodexEvidence(evidence.Codex); err != nil {
 		return err
 	}
 	if err := validatePhase0BoundaryEvidence(evidence.Boundary); err != nil {
@@ -96,6 +93,13 @@ func ValidatePhase0SandboxEvidence(evidence Phase0SandboxEvidence) error {
 		return err
 	}
 	return validatePhase0TeardownEvidence(evidence.Teardown)
+}
+
+func validatePhase0ProofCodexEvidence(evidence Phase0CodexEvidence) error {
+	if err := validatePhase0CodexEvidence(evidence); err != nil {
+		return err
+	}
+	return validatePhase0ReleaseAgentEvidence(evidence)
 }
 
 func validatePhase0TopologyEvidence(evidence Phase0TopologyEvidence) error {
