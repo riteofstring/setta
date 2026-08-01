@@ -221,6 +221,16 @@ func validateArtifactScenarioContracts(
 	if !reflect.DeepEqual(manifest.Roles, result.Roles) {
 		return fmt.Errorf("scenario %s manifest roles do not match results", scenarioID)
 	}
+	if artifacts.Manifest.Candidate != nil && len(result.Roles) > 0 {
+		candidate := CandidateConfiguration{
+			SchemaVersion: artifacts.Manifest.Candidate.SchemaVersion,
+			ID:            artifacts.Manifest.Candidate.ID,
+			Roles:         artifacts.Manifest.Candidate.Roles,
+		}
+		if err := validateAppliedCandidate(candidate, result.Roles); err != nil {
+			return fmt.Errorf("scenario %s candidate role evidence is invalid: %w", scenarioID, err)
+		}
+	}
 	if err := validateResultVerifierEvidence(scenarioID, result, verifier); err != nil {
 		return err
 	}

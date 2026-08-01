@@ -896,7 +896,7 @@ func (resources *phase1DockerResources) removeContainer(
 	return nil
 }
 
-func (resources *phase1DockerResources) cleanup(ctx context.Context) error {
+func (resources *phase1DockerResources) cleanupScenario(ctx context.Context) error {
 	if resources == nil {
 		return nil
 	}
@@ -905,7 +905,6 @@ func (resources *phase1DockerResources) cleanup(ctx context.Context) error {
 		resources.cleanupContainers(ctx),
 		resources.cleanupVolumes(ctx),
 		resources.cleanupNetworks(ctx),
-		resources.cleanupImages(ctx),
 		resources.fixture.cleanup(),
 	)
 }
@@ -968,13 +967,6 @@ func (resources *phase1DockerResources) cleanupNetworks(ctx context.Context) err
 		resources.networks[network] = false
 	}
 	return errors.Join(cleanupErrors...)
-}
-
-func (resources *phase1DockerResources) cleanupImages(ctx context.Context) error {
-	if resources.images != nil {
-		return resources.images.cleanup(ctx)
-	}
-	return nil
 }
 
 func phase1Tmpfs() string {

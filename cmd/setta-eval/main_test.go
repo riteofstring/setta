@@ -9,11 +9,11 @@ import (
 )
 
 func TestRunPassesExplicitInputsAndReportsArtifacts(t *testing.T) {
-	var received evalharness.Phase1EvaluationConfig
+	var received evalharness.EvaluationConfig
 	runner := func(
 		_ context.Context,
-		config evalharness.Phase1EvaluationConfig,
-	) (evalharness.Phase1EvaluationOutput, error) {
+		config evalharness.EvaluationConfig,
+	) (evalharness.EvaluationOutput, error) {
 		received = config
 		return phase1CommandOutput(evalharness.ScenarioClassificationPass), nil
 	}
@@ -26,27 +26,48 @@ func TestRunPassesExplicitInputsAndReportsArtifacts(t *testing.T) {
 		"--docker", "/usr/local/bin/docker",
 		"--codex", "/usr/local/bin/codex",
 		"--pnpm", "/usr/local/bin/pnpm",
+		"--scenario", "mid-run-steering",
+		"--scenario", "queue-then-cancel",
+		"--candidate", "evals/models/director-alternative.json",
 	}, &stdout, &stderr, runner)
 	if exitCode != 0 {
 		t.Fatalf("exit code = %d, stderr = %q", exitCode, stderr.String())
 	}
+	assertReceivedEvaluationConfig(t, received)
+	assertEvaluationCommandOutput(t, stdout.String())
+}
+
+func assertReceivedEvaluationConfig(t *testing.T, received evalharness.EvaluationConfig) {
+	t.Helper()
 	if received.RepoRoot != "/repo" || received.RecordingsRoot != "/recordings" ||
 		received.CodexLinuxBundle != "/bundle" ||
 		received.DockerCommand != "/usr/local/bin/docker" ||
 		received.CodexCommand != "/usr/local/bin/codex" ||
-		received.PNPMCommand != "/usr/local/bin/pnpm" {
+		received.PNPMCommand != "/usr/local/bin/pnpm" ||
+		received.CandidatePath != "evals/models/director-alternative.json" ||
+		len(received.ScenarioIDs) != 2 || received.ScenarioIDs[0] != "mid-run-steering" ||
+		received.ScenarioIDs[1] != "queue-then-cancel" {
 		t.Fatalf("received config = %#v", received)
 	}
-	if !strings.Contains(stdout.String(), "straightforward-task: pass (completed)") ||
-		!strings.Contains(stdout.String(), "Results: /recordings/run/results.json") ||
-		!strings.Contains(stdout.String(), "Manifest: /recordings/run/manifest.json") ||
-		!strings.Contains(stdout.String(), "Events: /recordings/run/events.jsonl") ||
-		!strings.Contains(stdout.String(), "Transcript: /recordings/run/transcript.json") ||
-		!strings.Contains(stdout.String(), "Token usage: /recordings/run/token-usage.json") ||
-		!strings.Contains(stdout.String(), "Verifier results: /recordings/run/verifier-results.json") ||
-		!strings.Contains(stdout.String(), "Judge results: /recordings/run/judge-results.json") ||
-		!strings.Contains(stdout.String(), "Report: /recordings/run/report.md") {
-		t.Fatalf("stdout = %q", stdout.String())
+}
+
+func assertEvaluationCommandOutput(t *testing.T, output string) {
+	t.Helper()
+	want := []string{
+		"straightforward-task: pass (completed)",
+		"Results: /recordings/run/results.json",
+		"Manifest: /recordings/run/manifest.json",
+		"Events: /recordings/run/events.jsonl",
+		"Transcript: /recordings/run/transcript.json",
+		"Token usage: /recordings/run/token-usage.json",
+		"Verifier results: /recordings/run/verifier-results.json",
+		"Judge results: /recordings/run/judge-results.json",
+		"Report: /recordings/run/report.md",
+	}
+	for _, expected := range want {
+		if !strings.Contains(output, expected) {
+			t.Fatalf("stdout omitted %q: %q", expected, output)
+		}
 	}
 }
 
@@ -60,8 +81,8 @@ func TestRunReturnsFailureForObjectiveEvaluationFailure(t *testing.T) {
 		t.Run(string(classification), func(t *testing.T) {
 			runner := func(
 				_ context.Context,
-				_ evalharness.Phase1EvaluationConfig,
-			) (evalharness.Phase1EvaluationOutput, error) {
+				_ evalharness.EvaluationConfig,
+			) (evalharness.EvaluationOutput, error) {
 				return phase1CommandOutput(classification), nil
 			}
 			var stdout strings.Builder
@@ -79,8 +100,8 @@ func TestRunReturnsFailureForObjectiveEvaluationFailure(t *testing.T) {
 func TestRunReturnsFailureForCommunicationEvaluationFailure(t *testing.T) {
 	runner := func(
 		_ context.Context,
-		_ evalharness.Phase1EvaluationConfig,
-	) (evalharness.Phase1EvaluationOutput, error) {
+		_ evalharness.EvaluationConfig,
+	) (evalharness.EvaluationOutput, error) {
 		output := phase1CommandOutput(evalharness.ScenarioClassificationPass)
 		output.JudgeResults.Scenarios[0].Verdict.OverallPass = false
 		return output, nil
@@ -99,10 +120,10 @@ func TestRunHelpDoesNotStartEvaluation(t *testing.T) {
 	called := false
 	runner := func(
 		_ context.Context,
-		_ evalharness.Phase1EvaluationConfig,
-	) (evalharness.Phase1EvaluationOutput, error) {
+		_ evalharness.EvaluationConfig,
+	) (evalharness.EvaluationOutput, error) {
 		called = true
-		return evalharness.Phase1EvaluationOutput{}, nil
+		return evalharness.EvaluationOutput{}, nil
 	}
 	var stdout strings.Builder
 	var stderr strings.Builder
@@ -120,7 +141,7 @@ func TestRunHelpDoesNotStartEvaluation(t *testing.T) {
 
 func phase1CommandOutput(
 	classification evalharness.ScenarioClassification,
-) evalharness.Phase1EvaluationOutput {
+) evalharness.EvaluationOutput {
 	outcome := evalharness.ScenarioExecutionCompleted
 	switch classification {
 	case evalharness.ScenarioClassificationControlFailure:
@@ -130,7 +151,7 @@ func phase1CommandOutput(
 	case evalharness.ScenarioClassificationInfrastructureFailure:
 		outcome = evalharness.ScenarioExecutionInfrastructureFailed
 	}
-	return evalharness.Phase1EvaluationOutput{
+	return evalharness.EvaluationOutput{
 		Results: evalharness.Results{
 			Scenarios: []evalharness.ScenarioResult{{
 				ScenarioID:       evalharness.ScenarioVerifierStraightforward,

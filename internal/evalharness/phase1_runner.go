@@ -15,21 +15,6 @@ import (
 
 const phase1CleanupTimeout = 90 * time.Second
 
-type Phase1EvaluationConfig struct {
-	RepoRoot         string
-	RecordingsRoot   string
-	CodexLinuxBundle string
-	DockerCommand    string
-	CodexCommand     string
-	PNPMCommand      string
-}
-
-type Phase1EvaluationOutput struct {
-	Results      Results
-	JudgeResults JudgeArtifact
-	Artifacts    ResultArtifactPaths
-}
-
 type phase1NormalizedConfig struct {
 	repoRoot         string
 	recordingsRoot   string
@@ -37,6 +22,8 @@ type phase1NormalizedConfig struct {
 	dockerCommand    string
 	codexCommand     string
 	pnpmCommand      string
+	scenarioIDs      []string
+	candidate        *loadedCandidateConfiguration
 	phase0Codex      Phase0CodexEvidence
 }
 
@@ -50,190 +37,6 @@ type phase1RunState struct {
 	events     []EvaluationEvent
 	sandbox    *ManifestSandbox
 	judge      *ScenarioJudgeResult
-}
-
-// RunPhase1Evaluation owns the complete Phase 1 lifecycle, including the
-// committed Phase 0 PASS gate. It never supplies an unsandboxed fallback.
-func RunPhase1Evaluation(
-	ctx context.Context,
-	config Phase1EvaluationConfig,
-) (Phase1EvaluationOutput, error) {
-	if ctx == nil {
-		return Phase1EvaluationOutput{}, errors.New("Phase 1 evaluation context is required")
-	}
-	repoRoot, err := resolvePhase1RepoRoot(config.RepoRoot)
-	if err != nil {
-		return Phase1EvaluationOutput{}, err
-	}
-	if err := requireCommittedPhase0Pass(ctx, repoRoot); err != nil {
-		return Phase1EvaluationOutput{}, err
-	}
-	config.RepoRoot = repoRoot
-	normalized, err := normalizePhase1EvaluationConfig(config)
-	if err != nil {
-		return Phase1EvaluationOutput{}, err
-	}
-	phase0Evidence, err := readCommittedPhase0PassEvidence(ctx, repoRoot)
-	if err != nil {
-		return Phase1EvaluationOutput{}, fmt.Errorf("read committed Phase 0 proof: %w", err)
-	}
-	normalized.phase0Codex = phase0Evidence.Codex
-	scenarios, err := LoadScenarios(
-		filepath.Join(normalized.repoRoot, "evals", "scenarios"),
-		[]string{ScenarioVerifierStraightforward},
-	)
-	if err != nil {
-		return Phase1EvaluationOutput{}, err
-	}
-	if len(scenarios) != 1 {
-		return Phase1EvaluationOutput{}, fmt.Errorf("Phase 1 loaded %d scenarios, want one", len(scenarios))
-	}
-	repository, err := inspectPhase0Repository(ctx, normalized.repoRoot)
-	if err != nil {
-		return Phase1EvaluationOutput{}, fmt.Errorf("inspect Phase 1 repository: %w", err)
-	}
-	startedAt := time.Now().UTC()
-	state := runPhase1Evaluation(ctx, normalized, scenarios[0])
-	scenarioFinishedAt := time.Now().UTC()
-	state = completePhase2Judge(ctx, normalized, scenarios[0], state)
-	finishedAt := time.Now().UTC()
-	manifest, err := buildEvaluationManifest(
-		normalized.repoRoot,
-		repository.Commit,
-		normalized.phase0Codex,
-		scenarios[0],
-		startedAt,
-		finishedAt,
-		state.roles,
-		state.sandbox,
-	)
-	if err != nil {
-		return Phase1EvaluationOutput{}, fmt.Errorf("build Phase 2 manifest: %w", err)
-	}
-	return publishPhase1Evaluation(
-		normalized.recordingsRoot,
-		manifest,
-		scenarios[0],
-		startedAt,
-		scenarioFinishedAt,
-		finishedAt,
-		state,
-	)
-}
-
-func publishPhase1Evaluation(
-	recordingsRoot string,
-	manifest EvaluationManifest,
-	scenario Scenario,
-	startedAt time.Time,
-	scenarioFinishedAt time.Time,
-	finishedAt time.Time,
-	state phase1RunState,
-) (Phase1EvaluationOutput, error) {
-	control, err := buildScenarioControlResult(
-		scenario,
-		state.outcome,
-		state.events,
-		state.verifier,
-		state.diagnostic,
-	)
-	if err != nil {
-		return Phase1EvaluationOutput{}, fmt.Errorf("grade scenario user control: %w", err)
-	}
-	scenarioResult, err := NewScenarioResult(ScenarioResultInput{
-		Scenario:         scenario,
-		ExecutionOutcome: state.outcome,
-		StartedAt:        startedAt,
-		FinishedAt:       scenarioFinishedAt,
-		Roles:            state.roles,
-		Control:          control,
-		Verifier:         state.verifier,
-		Diagnostic:       state.diagnostic,
-	})
-	if err != nil {
-		return Phase1EvaluationOutput{}, fmt.Errorf("classify Phase 1 scenario: %w", err)
-	}
-	results, err := NewResults(manifest.SettaCommit, startedAt, finishedAt, []ScenarioResult{scenarioResult})
-	if err != nil {
-		return Phase1EvaluationOutput{}, fmt.Errorf("create Phase 1 results: %w", err)
-	}
-	tokenUsage := EmptyScenarioTokenUsage(scenario.ID)
-	if state.tokenUsage != nil {
-		tokenUsage = *state.tokenUsage
-	}
-	tokenArtifact, err := NewTokenUsageArtifact([]ScenarioTokenUsage{tokenUsage})
-	if err != nil {
-		return Phase1EvaluationOutput{}, fmt.Errorf("create Phase 1 token usage artifact: %w", err)
-	}
-	transcriptArtifact, err := phase2TranscriptArtifact(scenario.ID, state)
-	if err != nil {
-		return Phase1EvaluationOutput{}, fmt.Errorf("create Phase 2 transcript artifact: %w", err)
-	}
-	verifierArtifact, err := phase2VerifierArtifact(scenarioResult)
-	if err != nil {
-		return Phase1EvaluationOutput{}, fmt.Errorf("create Phase 2 verifier artifact: %w", err)
-	}
-	judgeArtifact, err := phase2JudgeArtifact(scenario.ID, state)
-	if err != nil {
-		return Phase1EvaluationOutput{}, fmt.Errorf("create Phase 2 judge artifact: %w", err)
-	}
-	artifactSet := EvaluationArtifactSet{
-		Scenarios:       []Scenario{scenario},
-		Manifest:        manifest,
-		Events:          append([]EvaluationEvent{}, state.events...),
-		Transcript:      transcriptArtifact,
-		TokenUsage:      tokenArtifact,
-		VerifierResults: verifierArtifact,
-		JudgeResults:    judgeArtifact,
-		Results:         results,
-	}
-	artifacts, err := WriteResultArtifacts(recordingsRoot, artifactSet)
-	if err != nil {
-		return Phase1EvaluationOutput{}, fmt.Errorf("publish Phase 1 results: %w", err)
-	}
-	return Phase1EvaluationOutput{
-		Results:      results,
-		JudgeResults: judgeArtifact,
-		Artifacts:    artifacts,
-	}, nil
-}
-
-func phase2TranscriptArtifact(
-	scenarioID string,
-	state phase1RunState,
-) (TranscriptArtifact, error) {
-	transcript := state.transcript
-	if transcript == nil {
-		unavailable, err := unavailableScenarioTranscript(scenarioID, state.diagnostic)
-		if err != nil {
-			return TranscriptArtifact{}, err
-		}
-		transcript = &unavailable
-	}
-	return NewTranscriptArtifact([]ScenarioTranscript{*transcript})
-}
-
-func phase2VerifierArtifact(result ScenarioResult) (VerifierArtifact, error) {
-	verifier, err := scenarioVerifierResult(result)
-	if err != nil {
-		return VerifierArtifact{}, err
-	}
-	return NewVerifierArtifact([]ScenarioVerifierResult{verifier})
-}
-
-func phase2JudgeArtifact(
-	scenarioID string,
-	state phase1RunState,
-) (JudgeArtifact, error) {
-	judge := state.judge
-	if judge == nil {
-		unavailable, err := unavailableScenarioJudgeResult(scenarioID, state.diagnostic)
-		if err != nil {
-			return JudgeArtifact{}, err
-		}
-		judge = &unavailable
-	}
-	return NewJudgeArtifact([]ScenarioJudgeResult{*judge})
 }
 
 func resolvePhase1RepoRoot(value string) (string, error) {
@@ -252,50 +55,35 @@ func resolvePhase1RepoRoot(value string) (string, error) {
 	return cleanExistingPhase1Directory("repository root", absolute)
 }
 
-func runPhase1Evaluation(
+func runEvaluationScenario(
 	ctx context.Context,
 	config phase1NormalizedConfig,
+	client phase0DockerClient,
+	images *phase1Images,
+	sandbox *ManifestSandbox,
 	scenario Scenario,
 ) phase1RunState {
-	client := phase0DockerClient{command: config.dockerCommand, repoRoot: config.repoRoot}
-	if _, err := inspectPhase0Docker(ctx, client); err != nil {
-		return phase1InfrastructureFailure("docker_preflight_failed", err, nil)
-	}
 	fixture, err := preparePhase1Fixture(ctx, config.repoRoot)
 	if err != nil {
-		return phase1InfrastructureFailure("fixture_preparation_failed", err, nil)
+		state := phase1InfrastructureFailure("fixture_preparation_failed", err, nil)
+		state.sandbox = cloneManifestSandbox(sandbox)
+		return state
 	}
 	suffix, err := phase0RandomHex(6)
 	if err != nil {
-		return phase1InfrastructureFailure(
+		state := phase1InfrastructureFailure(
 			"sandbox_identity_failed",
 			errors.Join(err, fixture.cleanup()),
 			nil,
 		)
-	}
-	images, err := preparePhase1Images(ctx, client, suffix, phase1ImageConfig{
-		repoRoot:         config.repoRoot,
-		codexLinuxBundle: config.codexLinuxBundle,
-		codexCommand:     config.codexCommand,
-		pnpmCommand:      config.pnpmCommand,
-		phase0Codex:      config.phase0Codex,
-	})
-	if err != nil {
-		cleanupErr := fixture.cleanup()
-		return phase1InfrastructureFailure("sandbox_image_failed", errors.Join(err, cleanupErr), nil)
-	}
-	sandbox, err := newManifestSandbox(config.repoRoot, images)
-	if err != nil {
-		cleanupContext, cancel := context.WithTimeout(context.Background(), phase1CleanupTimeout)
-		cleanupErr := errors.Join(images.cleanup(cleanupContext), fixture.cleanup())
-		cancel()
-		return phase1InfrastructureFailure("sandbox_manifest_failed", errors.Join(err, cleanupErr), nil)
+		state.sandbox = cloneManifestSandbox(sandbox)
+		return state
 	}
 	resources := newPhase1DockerResources(client, suffix, images, fixture)
 	state := executePhase1Scenario(ctx, config, resources, scenario)
 	state.sandbox = cloneManifestSandbox(sandbox)
 	cleanupContext, cancel := context.WithTimeout(context.Background(), phase1CleanupTimeout)
-	cleanupErr := resources.cleanup(cleanupContext)
+	cleanupErr := resources.cleanupScenario(cleanupContext)
 	cancel()
 	if cleanupErr != nil {
 		failed := phase1InfrastructureFailure("sandbox_teardown_failed", cleanupErr, state.roles)
@@ -327,6 +115,7 @@ func executePhase1Scenario(
 		backend,
 		scenario,
 		phase1WorkspaceRoot,
+		config.candidate,
 	)
 	state := phase1StateFromObservation(observation)
 	provider := resources.provider
@@ -378,6 +167,14 @@ func phase1StateAfterProviderEvidence(
 		)
 	}
 	if orchestrationErr != nil {
+		var candidateFailure *candidateConfigurationError
+		if errors.As(orchestrationErr, &candidateFailure) {
+			return phase1InfrastructureFailure(
+				"candidate_configuration_failed",
+				candidateFailure,
+				observation.Roles,
+			)
+		}
 		return phase1InfrastructureFailure("scenario_orchestration_failed", orchestrationErr, observation.Roles)
 	}
 	if state.outcome != ScenarioExecutionInfrastructureFailed &&
@@ -583,13 +380,13 @@ func phase1InfrastructureFailure(
 	err error,
 	roles []EvaluatedRoleConfiguration,
 ) phase1RunState {
-	message := "Phase 1 infrastructure failed"
+	message := "Live evaluation infrastructure failed"
 	if err != nil && strings.TrimSpace(err.Error()) != "" {
 		message += ": " + err.Error()
 	}
 	diagnostic, diagnosticErr := NewScenarioDiagnostic(code, boundedResultDiagnostic(message))
 	if diagnosticErr != nil {
-		panic(fmt.Sprintf("invalid Phase 1 infrastructure diagnostic: %v", diagnosticErr))
+		panic(fmt.Sprintf("invalid live-evaluation infrastructure diagnostic: %v", diagnosticErr))
 	}
 	normalizedRoles := cloneEvaluatedRoleConfigurations(roles)
 	if normalizedRoles == nil {
@@ -602,57 +399,84 @@ func phase1InfrastructureFailure(
 	}
 }
 
-func normalizePhase1EvaluationConfig(
-	config Phase1EvaluationConfig,
+func normalizeEvaluationConfig(
+	config EvaluationConfig,
 ) (phase1NormalizedConfig, error) {
-	repoRoot := strings.TrimSpace(config.RepoRoot)
-	if repoRoot == "" {
-		var err error
-		repoRoot, err = os.Getwd()
-		if err != nil {
-			return phase1NormalizedConfig{}, fmt.Errorf("find Phase 1 repository root: %w", err)
-		}
-	}
-	repoRoot, err := cleanExistingPhase1Directory("repository root", repoRoot)
+	repoRoot, err := resolvePhase1RepoRoot(config.RepoRoot)
 	if err != nil {
 		return phase1NormalizedConfig{}, err
 	}
-	recordingsRoot := strings.TrimSpace(config.RecordingsRoot)
-	if recordingsRoot == "" {
-		recordingsRoot = filepath.Join(repoRoot, ".recordings", "setta-eval")
-	}
-	recordingsRoot, err = cleanAbsolutePhase1Path("recordings root", recordingsRoot)
+	recordingsRoot, err := normalizeEvaluationRecordingsRoot(repoRoot, config.RecordingsRoot)
 	if err != nil {
 		return phase1NormalizedConfig{}, err
 	}
-	bundle := strings.TrimSpace(config.CodexLinuxBundle)
-	if bundle == "" {
-		return phase1NormalizedConfig{}, errors.New("Phase 1 Codex Linux bundle is required")
-	}
-	bundle, err = cleanExistingPhase1Directory("Codex Linux bundle", bundle)
+	bundle, err := normalizeEvaluationBundle(config.CodexLinuxBundle)
 	if err != nil {
 		return phase1NormalizedConfig{}, err
 	}
-	dockerCommand := strings.TrimSpace(config.DockerCommand)
-	if dockerCommand == "" {
-		dockerCommand = "docker"
-	}
-	codexCommand := strings.TrimSpace(config.CodexCommand)
-	if codexCommand == "" {
-		codexCommand = "codex"
-	}
-	pnpmCommand := strings.TrimSpace(config.PNPMCommand)
-	if pnpmCommand == "" {
-		pnpmCommand = "pnpm"
+	candidate, err := normalizeCandidateConfiguration(repoRoot, config.CandidatePath)
+	if err != nil {
+		return phase1NormalizedConfig{}, err
 	}
 	return phase1NormalizedConfig{
 		repoRoot:         repoRoot,
 		recordingsRoot:   recordingsRoot,
 		codexLinuxBundle: bundle,
-		dockerCommand:    dockerCommand,
-		codexCommand:     codexCommand,
-		pnpmCommand:      pnpmCommand,
+		dockerCommand:    evaluationCommand(config.DockerCommand, "docker"),
+		codexCommand:     evaluationCommand(config.CodexCommand, "codex"),
+		pnpmCommand:      evaluationCommand(config.PNPMCommand, "pnpm"),
+		scenarioIDs:      append([]string{}, config.ScenarioIDs...),
+		candidate:        candidate,
 	}, nil
+}
+
+func normalizeEvaluationRecordingsRoot(repoRoot string, value string) (string, error) {
+	recordingsRoot := strings.TrimSpace(value)
+	if recordingsRoot == "" {
+		recordingsRoot = filepath.Join(repoRoot, ".recordings", "setta-eval")
+	}
+	return cleanAbsolutePhase1Path("recordings root", recordingsRoot)
+}
+
+func normalizeEvaluationBundle(value string) (string, error) {
+	bundle := strings.TrimSpace(value)
+	if bundle == "" {
+		return "", errors.New("Phase 1 Codex Linux bundle is required")
+	}
+	return cleanExistingPhase1Directory("Codex Linux bundle", bundle)
+}
+
+func evaluationCommand(value string, fallback string) string {
+	command := strings.TrimSpace(value)
+	if command == "" {
+		return fallback
+	}
+	return command
+}
+
+func normalizeCandidateConfiguration(
+	repoRoot string,
+	value string,
+) (*loadedCandidateConfiguration, error) {
+	if strings.TrimSpace(value) != value {
+		return nil, errors.New("eval candidate path must not have surrounding whitespace")
+	}
+	if value == "" {
+		return nil, nil
+	}
+	path := value
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(repoRoot, path)
+	}
+	path, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("resolve eval candidate path: %w", err)
+	}
+	loaded, err := loadCandidateConfiguration(filepath.Clean(path))
+	if err != nil {
+		return nil, err
+	}
+	return &loaded, nil
 }
 
 func cleanExistingPhase1Directory(label string, value string) (string, error) {

@@ -197,7 +197,7 @@ func TestPublishPhase1EvaluationExercisesExitClassifications(t *testing.T) {
 			if state.outcome == ScenarioExecutionCompleted {
 				state = phase2CompletedTestState(t, state, startedAt)
 			}
-			output, err := publishPhase1Evaluation(
+			output, err := publishEvaluation(
 				t.TempDir(),
 				validTestManifest(
 					strings.Repeat("a", 40),
@@ -205,11 +205,14 @@ func TestPublishPhase1EvaluationExercisesExitClassifications(t *testing.T) {
 					finishedAt,
 					state.roles,
 				),
-				validTestScenario(),
+				[]evaluationScenarioRun{{
+					scenario:   validTestScenario(),
+					startedAt:  startedAt,
+					finishedAt: finishedAt,
+					state:      state,
+				}},
 				startedAt,
 				finishedAt,
-				finishedAt,
-				state,
 			)
 			if err != nil {
 				t.Fatalf("publish Phase 1 evaluation: %v", err)
@@ -366,7 +369,7 @@ func phase1TokenUsageMessage(
 
 func assertPhase1ClassificationArtifacts(
 	t *testing.T,
-	output Phase1EvaluationOutput,
+	output EvaluationOutput,
 	classification ScenarioClassification,
 ) {
 	t.Helper()

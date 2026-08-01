@@ -134,6 +134,16 @@ func RenderResultReport(artifactSet EvaluationArtifactSet) (string, error) {
 	var report strings.Builder
 	report.WriteString("# Setta Live AI Evaluation\n\n")
 	fmt.Fprintf(&report, "Setta commit: `%s`  \n", results.SettaCommit)
+	if artifactSet.Manifest.Candidate == nil {
+		report.WriteString("Role configuration: `production-baseline`  \n")
+	} else {
+		fmt.Fprintf(
+			&report,
+			"Role configuration: candidate `%s` (`%s`)  \n",
+			escapeMarkdownInline(artifactSet.Manifest.Candidate.ID),
+			artifactSet.Manifest.Candidate.SourceSHA256,
+		)
+	}
 	fmt.Fprintf(&report, "Started: `%s`  \n", results.StartedAt.Format(time.RFC3339Nano))
 	fmt.Fprintf(&report, "Finished: `%s`\n\n", results.FinishedAt.Format(time.RFC3339Nano))
 

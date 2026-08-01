@@ -2,11 +2,16 @@ package evalharness
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"setta/internal/conversation"
+	"setta/internal/httpapi"
 )
 
 func TestNewBackendClientRequiresNumericLoopbackOrigin(t *testing.T) {
@@ -36,6 +41,52 @@ func TestNewBackendClientRequiresNumericLoopbackOrigin(t *testing.T) {
 				t.Fatal("unsafe backend origin was accepted")
 			}
 		})
+	}
+}
+
+func TestBackendClientUpdatesRoleConfigurationsThroughProductionEndpoints(t *testing.T) {
+	global, workspace := validTestRoleConfigurations()
+	profile := conversation.DefaultDirectorRoleProfile()
+	updates := []conversation.RoleProfileUpdate{{Role: conversation.RoleDirector, Profile: &profile}}
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		switch request.URL.Path {
+		case "/roles/configuration/global/update":
+			var payload httpapi.UpdateGlobalRoleProfilesRequest
+			if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+				t.Errorf("decode global update: %v", err)
+			}
+			if !reflect.DeepEqual(payload.Updates, updates) {
+				t.Errorf("global updates = %#v", payload.Updates)
+			}
+			_ = json.NewEncoder(response).Encode(global)
+		case "/workspaces/roles/update":
+			var payload httpapi.UpdateWorkspaceRoleProfilesRequest
+			if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+				t.Errorf("decode workspace update: %v", err)
+			}
+			if payload.WorkspaceID != "workspace-eval" || !reflect.DeepEqual(payload.Updates, updates) {
+				t.Errorf("workspace update = %#v", payload)
+			}
+			_ = json.NewEncoder(response).Encode(workspace)
+		default:
+			http.NotFound(response, request)
+		}
+	}))
+	defer server.Close()
+	client, err := NewBackendClient(BackendClientConfig{BaseURL: server.URL, Token: "token"})
+	if err != nil {
+		t.Fatalf("create backend client: %v", err)
+	}
+	if _, err := client.UpdateGlobalRoleConfiguration(context.Background(), updates); err != nil {
+		t.Fatalf("update global roles: %v", err)
+	}
+	if _, err := client.UpdateWorkspaceRoleConfiguration(
+		context.Background(),
+		"workspace-eval",
+		updates,
+	); err != nil {
+		t.Fatalf("update workspace roles: %v", err)
 	}
 }
 

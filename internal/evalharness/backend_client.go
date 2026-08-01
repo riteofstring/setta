@@ -118,6 +118,31 @@ func (client *BackendClient) ReadGlobalRoleConfiguration(
 	return configuration, nil
 }
 
+func (client *BackendClient) UpdateGlobalRoleConfiguration(
+	ctx context.Context,
+	updates []conversation.RoleProfileUpdate,
+) (conversation.RoleConfiguration, error) {
+	configuration, err := postBackendJSON[conversation.RoleConfiguration](
+		ctx,
+		client,
+		"/roles/configuration/global/update",
+		httpapi.UpdateGlobalRoleProfilesRequest{Updates: updates},
+	)
+	if err != nil {
+		return conversation.RoleConfiguration{}, err
+	}
+	if err := configuration.Validate(); err != nil {
+		return conversation.RoleConfiguration{}, fmt.Errorf("validate updated global role configuration response: %w", err)
+	}
+	if configuration.Scope.Kind != conversation.RoleProfileScopeGlobal {
+		return conversation.RoleConfiguration{}, fmt.Errorf(
+			"updated global role configuration response has scope %s",
+			configuration.Scope.Kind,
+		)
+	}
+	return configuration, nil
+}
+
 func (client *BackendClient) ReadWorkspaceRoleConfiguration(
 	ctx context.Context,
 	workspaceID string,
@@ -138,6 +163,36 @@ func (client *BackendClient) ReadWorkspaceRoleConfiguration(
 		configuration.Scope.WorkspaceID == nil || *configuration.Scope.WorkspaceID != workspaceID {
 		return conversation.RoleConfiguration{}, fmt.Errorf(
 			"workspace role configuration response does not target workspace %s",
+			workspaceID,
+		)
+	}
+	return configuration, nil
+}
+
+func (client *BackendClient) UpdateWorkspaceRoleConfiguration(
+	ctx context.Context,
+	workspaceID string,
+	updates []conversation.RoleProfileUpdate,
+) (conversation.RoleConfiguration, error) {
+	configuration, err := postBackendJSON[conversation.RoleConfiguration](
+		ctx,
+		client,
+		"/workspaces/roles/update",
+		httpapi.UpdateWorkspaceRoleProfilesRequest{
+			WorkspaceID: workspaceID,
+			Updates:     updates,
+		},
+	)
+	if err != nil {
+		return conversation.RoleConfiguration{}, err
+	}
+	if err := configuration.Validate(); err != nil {
+		return conversation.RoleConfiguration{}, fmt.Errorf("validate updated workspace role configuration response: %w", err)
+	}
+	if configuration.Scope.Kind != conversation.RoleProfileScopeWorkspace ||
+		configuration.Scope.WorkspaceID == nil || *configuration.Scope.WorkspaceID != workspaceID {
+		return conversation.RoleConfiguration{}, fmt.Errorf(
+			"updated workspace role configuration response does not target workspace %s",
 			workspaceID,
 		)
 	}

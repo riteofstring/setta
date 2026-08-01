@@ -12,10 +12,10 @@ public transcript, the fixed fresh judge, the complete atomic artifact set, and
 cross-artifact evidence reconstruction. Phase 1 and Phase 2 live exit evidence
 remains gated by Phase 0 and the later user-authorized verification ladder.
 Phase 3's complete five-scenario benchmark contract, hidden-verifier layer,
-multi-turn event orchestration, and typed control evidence and reporting are
-implemented. All-or-selected invocation, candidate configuration, and the
-failed-scenario rerun policy are the earliest incomplete repository-actionable
-work.
+multi-turn event orchestration, typed control evidence and reporting,
+all-or-selected invocation, and candidate role configuration are implemented.
+The failed-scenario rerun policy and its first-attempt/stability reporting are
+the earliest incomplete repository-actionable work.
 
 ## Outcome
 
@@ -266,13 +266,13 @@ fresh copy and an independent disposable git repository.
 
 The first five scenarios are:
 
-| Scenario | What it proves |
-| --- | --- |
-| Straightforward multi-step task | Correct multi-file work, command execution, restrained progress, truthful completion |
-| Apparent ambiguity resolved by context | The Director inspects available context and starts useful work without involving the user |
-| Genuine ambiguity | The Director does not mutate first, asks one useful question, consumes the scripted answer, and then succeeds |
-| Mid-run steering | A follow-up sent after the first real mutation replaces the obsolete requirement |
-| Queue then cancel | A second request is retained exactly once while work is active; cancelling the observed run stops it without losing or duplicating the queued request |
+| Scenario                               | What it proves                                                                                                                                        |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Straightforward multi-step task        | Correct multi-file work, command execution, restrained progress, truthful completion                                                                  |
+| Apparent ambiguity resolved by context | The Director inspects available context and starts useful work without involving the user                                                             |
+| Genuine ambiguity                      | The Director does not mutate first, asks one useful question, consumes the scripted answer, and then succeeds                                         |
+| Mid-run steering                       | A follow-up sent after the first real mutation replaces the obsolete requirement                                                                      |
+| Queue then cancel                      | A second request is retained exactly once while work is active; cancelling the observed run stops it without losing or duplicating the queued request |
 
 The fixture and scenario semantics are benchmark inputs, not implementation
 details for the harness author to improvise. The MVP checks in the following
@@ -1069,12 +1069,39 @@ desktop advisory. No live probe or scenario was attempted because the existing
 Phase 0 release gate still applies; this batch does not claim live exit
 evidence.
 
-All-or-selected scenario invocation, candidate role configuration, and the
-failed-scenario rerun classification remain Phase 3 repository work. The next
-batch adds the small model-configuration input that applies exact production
-role-profile updates before a scenario and records requested and resolved
-settings. It validates candidates against the live model catalog and fails
-specifically when a model, effort, or service tier is unavailable.
+All-or-selected scenario invocation and candidate role configuration are now
+implemented. With no selector, the command loads the complete sorted scenario
+catalog into one atomic artifact set; repeated `--scenario` flags select an
+explicit ordered subset. The sandbox images are prepared once per invocation,
+while every selected scenario still receives independent app data, fixture
+copies, Docker resources, provider accounting, hidden verification, and fixed
+judge evidence.
+
+An optional `--candidate` JSON input has one strict current schema and can
+change only a role's exact model, reasoning effort, and service tier. Before a
+Director turn, the runner validates every requested setting against the live
+production model catalog, derives updates by copying the effective production
+profiles without changing permissions or context budgets, and applies them
+through the existing global and workspace role-configuration HTTP endpoints.
+The manifest records the candidate ID, source hash, requested settings, and
+each scenario's resolved production roles; artifact validation reconstructs
+that binding. The communication judge remains fixed and outside candidate
+control. Unavailable models, efforts, or tiers produce the specific
+`candidate_configuration_failed` infrastructure diagnostic.
+
+Focused candidate parsing, catalog validation, production role-update client,
+multi-scenario publication, classification publication, and command-boundary
+selectors passed on 2026-07-31. The changed-file quality gate then passed for
+the two affected Go packages, including formatting, vet, package tests,
+dead-code analysis, file-length limits, and complexity limits. The repository
+supply-chain gate also passed module tidy, Go and pnpm release-age policy,
+vulnerability analysis, exact direct dependency pins, and lockfile sync,
+including the policy-accepted ignored desktop advisory.
+
+The failed-scenario rerun classification remains Phase 3 repository work. The
+next batch adds the one permitted rerun only after a first-attempt failure and
+reports `PASS`, `STABLE_FAIL`, or `FLAKY` without displacing first-attempt
+success as the headline.
 
 Run once by default and rerun only failed scenarios once. Report first-attempt
 passes, stable failures, flaky scenarios, infrastructure failures, user-control

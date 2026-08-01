@@ -15,11 +15,25 @@ import (
 
 type evaluationRunner func(
 	context.Context,
-	evalharness.Phase1EvaluationConfig,
-) (evalharness.Phase1EvaluationOutput, error)
+	evalharness.EvaluationConfig,
+) (evalharness.EvaluationOutput, error)
+
+type repeatedStringFlag []string
+
+func (values *repeatedStringFlag) String() string {
+	return fmt.Sprintf("%v", []string(*values))
+}
+
+func (values *repeatedStringFlag) Set(value string) error {
+	if value == "" {
+		return errors.New("scenario id is required")
+	}
+	*values = append(*values, value)
+	return nil
+}
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, evalharness.RunPhase1Evaluation))
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, evalharness.RunEvaluation))
 }
 
 func run(
@@ -28,7 +42,7 @@ func run(
 	stderr io.Writer,
 	runner evaluationRunner,
 ) int {
-	config, help, err := phase1ConfigFromArgs(args, stdout, stderr)
+	config, help, err := evaluationConfigFromArgs(args, stdout, stderr)
 	if help {
 		return 0
 	}
@@ -45,24 +59,25 @@ func run(
 		fmt.Fprintf(stderr, "run Setta live evaluation: %v\n", err)
 		return 1
 	}
-	writePhase1Output(stdout, output)
-	if !phase1OutputPassed(output) {
+	writeEvaluationOutput(stdout, output)
+	if !evaluationOutputPassed(output) {
 		fmt.Fprintln(stderr, "Setta live evaluation did not pass ability, user control, and communication; inspect the result artifacts.")
 		return 1
 	}
 	return 0
 }
 
-func phase1ConfigFromArgs(
+func evaluationConfigFromArgs(
 	args []string,
 	stdout io.Writer,
 	stderr io.Writer,
-) (evalharness.Phase1EvaluationConfig, bool, error) {
-	var config evalharness.Phase1EvaluationConfig
+) (evalharness.EvaluationConfig, bool, error) {
+	var config evalharness.EvaluationConfig
+	var scenarios repeatedStringFlag
 	flags := flag.NewFlagSet("setta-eval", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.Usage = func() {
-		writePhase1Usage(flags.Output())
+		writeEvaluationUsage(flags.Output())
 		fmt.Fprintln(flags.Output(), "Options:")
 		flags.PrintDefaults()
 	}
@@ -77,27 +92,35 @@ func phase1ConfigFromArgs(
 	flags.StringVar(&config.DockerCommand, "docker", "docker", "Docker CLI path")
 	flags.StringVar(&config.CodexCommand, "codex", "codex", "host Codex CLI path")
 	flags.StringVar(&config.PNPMCommand, "pnpm", "pnpm", "host pnpm CLI path")
+	flags.Var(&scenarios, "scenario", "scenario id to run (repeat for an ordered subset; default: all)")
+	flags.StringVar(
+		&config.CandidatePath,
+		"candidate",
+		"",
+		"candidate role configuration JSON (relative paths resolve from the repository root)",
+	)
 	if err := flags.Parse(args); err != nil {
-		return evalharness.Phase1EvaluationConfig{}, errors.Is(err, flag.ErrHelp), err
+		return evalharness.EvaluationConfig{}, errors.Is(err, flag.ErrHelp), err
 	}
 	if flags.NArg() != 0 {
-		return evalharness.Phase1EvaluationConfig{}, false, fmt.Errorf("setta-eval does not accept positional arguments")
+		return evalharness.EvaluationConfig{}, false, fmt.Errorf("setta-eval does not accept positional arguments")
 	}
 	if stdout == nil {
-		return evalharness.Phase1EvaluationConfig{}, false, errors.New("setta-eval stdout is required")
+		return evalharness.EvaluationConfig{}, false, errors.New("setta-eval stdout is required")
 	}
+	config.ScenarioIDs = append([]string{}, scenarios...)
 	return config, false, nil
 }
 
-func writePhase1Usage(output io.Writer) {
+func writeEvaluationUsage(output io.Writer) {
 	fmt.Fprintln(output, "Usage: setta-eval [options]")
 	fmt.Fprintln(output)
-	fmt.Fprintln(output, "Run the straightforward-task live evaluation through the production Setta boundary.")
+	fmt.Fprintln(output, "Run all five live evaluations, or a selected subset, through the production Setta boundary.")
 	fmt.Fprintln(output, "Execution remains gated until the Phase 0 PASS report and resolution are committed.")
 	fmt.Fprintln(output, "The exact checked-in ARM64 toolchain image must already be installed locally; the runner never pulls it.")
 }
 
-func writePhase1Output(output io.Writer, result evalharness.Phase1EvaluationOutput) {
+func writeEvaluationOutput(output io.Writer, result evalharness.EvaluationOutput) {
 	for _, scenario := range result.Results.Scenarios {
 		fmt.Fprintf(
 			output,
@@ -117,7 +140,7 @@ func writePhase1Output(output io.Writer, result evalharness.Phase1EvaluationOutp
 	fmt.Fprintf(output, "Report: %s\n", result.Artifacts.ReportMarkdown)
 }
 
-func phase1OutputPassed(output evalharness.Phase1EvaluationOutput) bool {
+func evaluationOutputPassed(output evalharness.EvaluationOutput) bool {
 	if len(output.Results.Scenarios) == 0 {
 		return false
 	}

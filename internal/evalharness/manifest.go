@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	ManifestSchemaVersion = 1
+	ManifestSchemaVersion = 2
 	phase1BackendVersion  = "dev"
 )
 
@@ -44,12 +44,20 @@ type ManifestRuntime struct {
 	PNPMVersion    string `json:"pnpmVersion"`
 }
 
+type ManifestCandidate struct {
+	SchemaVersion int                     `json:"schemaVersion"`
+	ID            string                  `json:"id"`
+	SourceSHA256  string                  `json:"sourceSha256"`
+	Roles         []CandidateRoleSettings `json:"roles"`
+}
+
 type EvaluationManifest struct {
 	SchemaVersion int                `json:"schemaVersion"`
 	SettaCommit   string             `json:"settaCommit"`
 	StartedAt     time.Time          `json:"startedAt"`
 	FinishedAt    time.Time          `json:"finishedAt"`
 	Scenarios     []ManifestScenario `json:"scenarios"`
+	Candidate     *ManifestCandidate `json:"candidate"`
 	Sandbox       *ManifestSandbox   `json:"sandbox"`
 	Judge         JudgeConfiguration `json:"judge"`
 	Runtime       ManifestRuntime    `json:"runtime"`
@@ -59,20 +67,12 @@ func buildEvaluationManifest(
 	repoRoot string,
 	settaCommit string,
 	phase0 Phase0CodexEvidence,
-	scenario Scenario,
+	runs []evaluationScenarioRun,
 	startedAt time.Time,
 	finishedAt time.Time,
-	roles []EvaluatedRoleConfiguration,
 	sandbox *ManifestSandbox,
+	candidate *loadedCandidateConfiguration,
 ) (EvaluationManifest, error) {
-	scenarioDigest, err := hashPhase0File(filepath.Join(repoRoot, "evals", "scenarios", scenario.ID+".json"))
-	if err != nil {
-		return EvaluationManifest{}, fmt.Errorf("hash manifest scenario %s: %w", scenario.ID, err)
-	}
-	fixtureDigest, err := hashManifestWorkspace(filepath.Join(repoRoot, "evals", "fixtures", scenario.Fixture))
-	if err != nil {
-		return EvaluationManifest{}, fmt.Errorf("hash manifest fixture %s: %w", scenario.Fixture, err)
-	}
 	rubricDigest, err := hashPhase0File(filepath.Join(repoRoot, filepath.FromSlash(judgeRubricRelativePath)))
 	if err != nil {
 		return EvaluationManifest{}, fmt.Errorf("hash communication judge rubric: %w", err)
@@ -81,25 +81,19 @@ func buildEvaluationManifest(
 	if err != nil {
 		return EvaluationManifest{}, err
 	}
-	manifestRoles := cloneEvaluatedRoleConfigurations(roles)
-	if manifestRoles == nil {
-		manifestRoles = []EvaluatedRoleConfiguration{}
+	manifestScenarios, err := buildManifestScenarios(repoRoot, runs, rubricDigest)
+	if err != nil {
+		return EvaluationManifest{}, err
 	}
 	manifest := EvaluationManifest{
 		SchemaVersion: ManifestSchemaVersion,
 		SettaCommit:   settaCommit,
 		StartedAt:     startedAt.UTC(),
 		FinishedAt:    finishedAt.UTC(),
-		Scenarios: []ManifestScenario{{
-			ScenarioID:                scenario.ID,
-			ScenarioSHA256:            scenarioDigest,
-			Fixture:                   scenario.Fixture,
-			FixtureSHA256:             fixtureDigest,
-			CommunicationRubricSHA256: rubricDigest,
-			Roles:                     manifestRoles,
-		}},
-		Sandbox: cloneManifestSandbox(sandbox),
-		Judge:   FixedJudgeConfiguration(),
+		Scenarios:     manifestScenarios,
+		Candidate:     manifestCandidate(candidate),
+		Sandbox:       cloneManifestSandbox(sandbox),
+		Judge:         FixedJudgeConfiguration(),
 		Runtime: ManifestRuntime{
 			BackendVersion: phase1BackendVersion,
 			CodexVersion:   phase0.BundleVersion,
@@ -111,6 +105,60 @@ func buildEvaluationManifest(
 		return EvaluationManifest{}, err
 	}
 	return manifest, nil
+}
+
+func buildManifestScenarios(
+	repoRoot string,
+	runs []evaluationScenarioRun,
+	rubricDigest string,
+) ([]ManifestScenario, error) {
+	manifestScenarios := make([]ManifestScenario, 0, len(runs))
+	fixtureDigests := map[string]string{}
+	for _, run := range runs {
+		scenario := run.scenario
+		scenarioDigest, err := hashPhase0File(
+			filepath.Join(repoRoot, "evals", "scenarios", scenario.ID+".json"),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("hash manifest scenario %s: %w", scenario.ID, err)
+		}
+		fixtureDigest, ok := fixtureDigests[scenario.Fixture]
+		if !ok {
+			fixtureDigest, err = hashManifestWorkspace(
+				filepath.Join(repoRoot, "evals", "fixtures", scenario.Fixture),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("hash manifest fixture %s: %w", scenario.Fixture, err)
+			}
+			fixtureDigests[scenario.Fixture] = fixtureDigest
+		}
+		roles := cloneEvaluatedRoleConfigurations(run.state.roles)
+		if roles == nil {
+			roles = []EvaluatedRoleConfiguration{}
+		}
+		manifestScenarios = append(manifestScenarios, ManifestScenario{
+			ScenarioID:                scenario.ID,
+			ScenarioSHA256:            scenarioDigest,
+			Fixture:                   scenario.Fixture,
+			FixtureSHA256:             fixtureDigest,
+			CommunicationRubricSHA256: rubricDigest,
+			Roles:                     roles,
+		})
+	}
+	return manifestScenarios, nil
+}
+
+func manifestCandidate(candidate *loadedCandidateConfiguration) *ManifestCandidate {
+	if candidate == nil {
+		return nil
+	}
+	configuration := candidate.configuration
+	return &ManifestCandidate{
+		SchemaVersion: configuration.SchemaVersion,
+		ID:            configuration.ID,
+		SourceSHA256:  candidate.sha256,
+		Roles:         cloneCandidateConfiguration(configuration).Roles,
+	}
 }
 
 func newManifestSandbox(repoRoot string, images *phase1Images) (*ManifestSandbox, error) {
@@ -181,6 +229,11 @@ func (manifest EvaluationManifest) Validate() error {
 	if err := validateManifestScenarios(manifest.Scenarios); err != nil {
 		return err
 	}
+	if manifest.Candidate != nil {
+		if err := manifest.Candidate.Validate(); err != nil {
+			return err
+		}
+	}
 	if err := validateManifestSandbox(manifest.Sandbox); err != nil {
 		return err
 	}
@@ -188,6 +241,21 @@ func (manifest EvaluationManifest) Validate() error {
 		return err
 	}
 	return manifest.Runtime.Validate()
+}
+
+func (candidate ManifestCandidate) Validate() error {
+	configuration := CandidateConfiguration{
+		SchemaVersion: candidate.SchemaVersion,
+		ID:            candidate.ID,
+		Roles:         candidate.Roles,
+	}
+	if err := configuration.Validate(); err != nil {
+		return fmt.Errorf("manifest candidate: %w", err)
+	}
+	if !validPhase1SHA256(candidate.SourceSHA256) {
+		return errors.New("manifest candidate source SHA-256 is invalid")
+	}
+	return nil
 }
 
 func validateManifestEnvelope(manifest EvaluationManifest) error {

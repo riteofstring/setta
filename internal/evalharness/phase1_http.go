@@ -52,6 +52,7 @@ func RunPhase1ScenarioOverHTTP(
 	client *BackendClient,
 	scenario Scenario,
 	workspaceRoot string,
+	candidate *loadedCandidateConfiguration,
 ) (Phase1HTTPObservation, error) {
 	if ctx == nil {
 		return Phase1HTTPObservation{}, errors.New("Phase 1 scenario context is required")
@@ -71,7 +72,7 @@ func RunPhase1ScenarioOverHTTP(
 		time.Duration(scenario.TimeoutSeconds)*time.Second,
 	)
 	defer cancel()
-	observation, runErr := runPhase1ScenarioOverHTTP(scenarioCtx, client, scenario, root)
+	observation, runErr := runPhase1ScenarioOverHTTP(scenarioCtx, client, scenario, root, candidate)
 	if runErr == nil {
 		return observation, nil
 	}
@@ -86,6 +87,10 @@ func RunPhase1ScenarioOverHTTP(
 			fmt.Sprintf("scenario exceeded its %d-second runaway ceiling", scenario.TimeoutSeconds),
 		)
 	}
+	var candidateFailure *candidateConfigurationError
+	if errors.As(runErr, &candidateFailure) {
+		return observation, candidateFailure
+	}
 	return phase1FailureObservation(
 		observation,
 		ScenarioExecutionInfrastructureFailed,
@@ -99,11 +104,13 @@ func runPhase1ScenarioOverHTTP(
 	client *BackendClient,
 	scenario Scenario,
 	workspaceRoot string,
+	candidate *loadedCandidateConfiguration,
 ) (Phase1HTTPObservation, error) {
 	observation, directorEvents, err := preparePhase1Scenario(
 		ctx,
 		client,
 		workspaceRoot,
+		candidate,
 	)
 	if err != nil {
 		return observation, err
@@ -122,14 +129,23 @@ func preparePhase1Scenario(
 	ctx context.Context,
 	client *BackendClient,
 	workspaceRoot string,
+	candidate *loadedCandidateConfiguration,
 ) (Phase1HTTPObservation, *EventStream[director.DirectorEvent], error) {
 	opened, err := client.OpenWorkspace(ctx, workspaceRoot)
 	if err != nil {
 		return Phase1HTTPObservation{}, nil, err
 	}
 	observation := Phase1HTTPObservation{WorkspaceID: opened.Workspace.ID}
-	roles, err := readPhase1RoleConfigurations(ctx, client, observation.WorkspaceID)
+	roles, err := configureEvaluationRoleConfigurations(
+		ctx,
+		client,
+		observation.WorkspaceID,
+		candidate,
+	)
 	if err != nil {
+		if candidate != nil {
+			return observation, nil, &candidateConfigurationError{cause: err}
+		}
 		return observation, nil, err
 	}
 	observation.Roles = roles
@@ -145,6 +161,71 @@ func preparePhase1Scenario(
 		return observation, nil, err
 	}
 	return observation, directorEvents, nil
+}
+
+type candidateConfigurationError struct {
+	cause error
+}
+
+func (failure *candidateConfigurationError) Error() string {
+	if failure == nil || failure.cause == nil {
+		return "candidate role configuration failed"
+	}
+	return failure.cause.Error()
+}
+
+func (failure *candidateConfigurationError) Unwrap() error {
+	if failure == nil {
+		return nil
+	}
+	return failure.cause
+}
+
+func configureEvaluationRoleConfigurations(
+	ctx context.Context,
+	client *BackendClient,
+	workspaceID string,
+	candidate *loadedCandidateConfiguration,
+) ([]EvaluatedRoleConfiguration, error) {
+	global, err := client.ReadGlobalRoleConfiguration(ctx)
+	if err != nil {
+		return nil, err
+	}
+	workspace, err := client.ReadWorkspaceRoleConfiguration(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	if candidate == nil {
+		return CaptureBaselineRoleConfigurations(global, workspace)
+	}
+	globalUpdates, workspaceUpdates, err := candidateRoleProfileUpdates(
+		global,
+		workspace,
+		candidate.configuration,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if len(globalUpdates) > 0 {
+		global, err = client.UpdateGlobalRoleConfiguration(ctx, globalUpdates)
+		if err != nil {
+			return nil, fmt.Errorf("apply candidate %s global role settings: %w", candidate.configuration.ID, err)
+		}
+	}
+	if len(workspaceUpdates) > 0 {
+		workspace, err = client.UpdateWorkspaceRoleConfiguration(ctx, workspaceID, workspaceUpdates)
+		if err != nil {
+			return nil, fmt.Errorf("apply candidate %s workspace role settings: %w", candidate.configuration.ID, err)
+		}
+	}
+	roles, err := CaptureBaselineRoleConfigurations(global, workspace)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateAppliedCandidate(candidate.configuration, roles); err != nil {
+		return nil, err
+	}
+	return roles, nil
 }
 
 func collectPhase2ConversationEvidence(
@@ -200,22 +281,6 @@ func validatePhase1WorkspaceRoot(workspaceRoot string) (string, error) {
 		return "", fmt.Errorf("Phase 1 workspace root must be an absolute clean path: %s", workspaceRoot)
 	}
 	return root, nil
-}
-
-func readPhase1RoleConfigurations(
-	ctx context.Context,
-	client *BackendClient,
-	workspaceID string,
-) ([]EvaluatedRoleConfiguration, error) {
-	global, err := client.ReadGlobalRoleConfiguration(ctx)
-	if err != nil {
-		return nil, err
-	}
-	workspace, err := client.ReadWorkspaceRoleConfiguration(ctx, workspaceID)
-	if err != nil {
-		return nil, err
-	}
-	return CaptureBaselineRoleConfigurations(global, workspace)
 }
 
 func validatePhase1DirectorBaseline(snapshot director.DirectorSnapshot) error {
