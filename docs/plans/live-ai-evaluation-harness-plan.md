@@ -8,8 +8,9 @@ binds the production-owned Agent model and effort, inventories the complete
 workspace tree and permission modes, rejects external tool activity, and
 records complete teardown. Both benign tasks passed on their first attempt.
 Phase 1 through Phase 3 repository implementation and their prior audits remain
-complete; the current Phase 0 audit repair is ready for authorized final
-verification, not Phase 1 live harness execution.
+complete; the current Phase 0 audit repair is ready for static completion
+review. The current instruction does not authorize automated tests, broad
+verification gates, or Phase 1 live harness execution.
 
 ## Outcome
 

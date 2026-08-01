@@ -25,6 +25,8 @@ OUTPUT_DIR=""
 INITIAL_RETRY_DELAY_SECONDS="15"
 MAX_RETRY_DELAY_SECONDS="300"
 PROGRESS_LOG_INTERVAL_SECONDS="120"
+VERIFICATION_AUTHORIZATION="none"
+VERIFICATION_AUTHORIZATION_PROMPT=""
 CODEX_REFERENCE_REPO="${CODEX_REFERENCE_REPO:-/Users/kevin/Documents/AppDevelopment/reference_repos/codex}"
 ACTIVE_AGENT_PID=""
 
@@ -93,6 +95,12 @@ Options:
   --progress-log-interval-seconds N
                         Print an in-flight agent status line at most every N
                         seconds. Default: 120. Use 0 to disable.
+  --verification-authorization SCOPE
+                        Verification authorized by the current user: none,
+                        plan-probes, or tests. Default: none. plan-probes permits
+                        only non-destructive live probes explicitly authorized
+                        by the plan; tests records explicit test authorization,
+                        still subject to repository policy.
   --help                Show this help text.
 EOF
 }
@@ -215,7 +223,7 @@ trap handle_termination_signal INT TERM
 run_agent() {
   local agent_name="$1"
   local prompt="$2"
-  local attempt_prompt="${prompt}"
+  local attempt_prompt="${VERIFICATION_AUTHORIZATION_PROMPT} ${prompt}"
   local run_dir="$3"
   local runner="$4"
   local model="$5"
@@ -331,7 +339,7 @@ run_agent() {
         return
       fi
 
-      attempt_prompt="Finish and commit the current work. Do not start another plan batch."
+      attempt_prompt="${VERIFICATION_AUTHORIZATION_PROMPT} Finish and commit the current work. Do not start another plan batch."
       log_info "${agent_name} left work to finish; starting another attempt in ${retry_delay_seconds}s."
     elif [[ "${completed_head}" != "${attempt_head}" ]] || [[ "${worktree_state}" == "dirty" ]]; then
       if [[ ! -s "${last_message_file}" ]]; then
@@ -345,7 +353,7 @@ run_agent() {
         return
       fi
 
-      attempt_prompt="Finish and commit the current work. Do not start another plan batch."
+      attempt_prompt="${VERIFICATION_AUTHORIZATION_PROMPT} Finish and commit the current work. Do not start another plan batch."
       log_info "${agent_name} left work to finish after an incomplete result; retrying in ${retry_delay_seconds}s."
     elif [[ "${exit_code}" -ne 0 ]]; then
       log_info "${agent_name} attempt ${attempt} failed without changing the repository; retrying in ${retry_delay_seconds}s."
@@ -436,6 +444,11 @@ while [[ $# -gt 0 ]]; do
       PROGRESS_LOG_INTERVAL_SECONDS="$2"
       shift 2
       ;;
+    --verification-authorization)
+      require_value "$1" "${2:-}"
+      VERIFICATION_AUTHORIZATION="$2"
+      shift 2
+      ;;
     --help|-h)
       usage
       exit 0
@@ -489,6 +502,22 @@ if [[ "${MAX_RETRY_DELAY_SECONDS}" -lt "${INITIAL_RETRY_DELAY_SECONDS}" ]]; then
   echo "--retry-max-delay must be greater than or equal to --retry-delay" >&2
   exit 1
 fi
+
+case "${VERIFICATION_AUTHORIZATION}" in
+  none)
+    VERIFICATION_AUTHORIZATION_PROMPT="This loop invocation carries no user authorization for automated tests, verification gates, live-provider suites, or live probes. Do not run them. Static inspection and formatting are allowed."
+    ;;
+  plan-probes)
+    VERIFICATION_AUTHORIZATION_PROMPT="This loop invocation authorizes only non-destructive benign live probes that the plan explicitly identifies as authorized. It does not authorize automated tests, quality or supply-chain gates, workflow matrices, live-provider suites, or any other live execution. Static inspection and formatting are allowed."
+    ;;
+  tests)
+    VERIFICATION_AUTHORIZATION_PROMPT="This loop invocation records explicit user authorization for automated verification. Repository policy, phase readiness, and the plan still govern which checks may run; this does not authorize destructive probes or work outside the plan."
+    ;;
+  *)
+    echo "--verification-authorization must be none, plan-probes, or tests" >&2
+    exit 1
+    ;;
+esac
 
 if ! command -v pgrep >/dev/null 2>&1; then
   echo "pgrep is required for safe Agent process-tree cleanup" >&2
@@ -560,6 +589,7 @@ log_info "Dangerously skip permissions: enabled"
 log_info "Agent attempts: unlimited"
 log_info "Retry delays: ${INITIAL_RETRY_DELAY_SECONDS}s initial, ${MAX_RETRY_DELAY_SECONDS}s maximum"
 log_info "Progress log interval: ${PROGRESS_LOG_INTERVAL_SECONDS}s"
+log_info "Verification authorization: ${VERIFICATION_AUTHORIZATION}"
 log_info "Iteration cap: none"
 log_info "Review cadence: phase and final audits only"
 log_info "Completion sentinel: ${COMPLETION_SENTINEL}"
