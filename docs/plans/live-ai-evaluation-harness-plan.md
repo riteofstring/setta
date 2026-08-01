@@ -1,7 +1,9 @@
 # Live AI Evaluation Harness Plan
 
 **Date:** 2026-07-31
-**Status:** Proposed.
+**Status:** Ready for a supervised Phase 0 feasibility spike. Phases 1-5 are
+blocked until Phase 0 records `PASS` and the product owner accepts the sandbox
+boundary.
 
 ## Outcome
 
@@ -88,6 +90,30 @@ container would put a real credential in the same environment as AI-controlled
 commands. A read-only mount does not solve disclosure. The implementation must
 prove a supported credential-safe boundary before claiming Docker isolation.
 
+### Implementation launch gate
+
+Do not give the full plan to
+`scripts/automation/codex-loop/run-plan-implementation-loop.sh` yet. That loop
+has no terminal state for an architectural feasibility blocker and would keep
+revisiting Phase 0 if no safe boundary exists.
+
+Phase 0 is a supervised, separately authorized spike. It writes
+`docs/reports/live-ai-eval-sandbox-phase0.md` with exactly one outcome:
+
+- `PASS`: names the supported topology, process ownership, authentication
+  boundary, allowed network path, mounts, environment allowlist, teardown
+  behavior, and benign probe evidence. It contains no credential values.
+- `BLOCKED`: names the unsupported or missing provider capability and the
+  evidence establishing the blocker. It proposes no unsafe fallback.
+
+After `PASS`, the product owner reviews the report. Acceptance updates this
+plan's status to `Ready for implementation`, adds a short `Phase 0 resolution`
+section describing the chosen topology, and permits the implementation loop to
+start at Phase 1. After `BLOCKED`, this plan's status becomes `Blocked`, no
+later phase begins, and the implementation loop is not started. Phase 0 is
+never represented as successfully complete merely because the blocker was
+documented.
+
 ## Decisions
 
 ### The runner is Go-owned and headless
@@ -167,7 +193,7 @@ For example:
   "schemaVersion": 1,
   "id": "mid-run-steering",
   "fixture": "typescript-service",
-  "timeoutSeconds": 300,
+  "timeoutSeconds": 1800,
   "steps": [
     {
       "kind": "submit",
@@ -199,6 +225,12 @@ The number above is a runaway ceiling, not a claim that 50,000 tokens is good.
 Regression thresholds are set only after the first baseline provides real
 measurements.
 
+All five MVP scenarios initially use the 1,800-second ceiling. This bounds a
+disposable evaluation of an intentionally small fixture task; it is not a
+timeout on the plan implementation loop or a general product limit on how long
+an Agent may work. Changing it requires an intentional scenario-contract edit,
+not an adaptive timeout heuristic.
+
 All natural-language scenario messages enter through a `submit` Director
 intent. The scenario never names an Agent conversation or invokes steer, queue,
 or cancel APIs behind the Director's back. Whether the Director sends, steers,
@@ -221,6 +253,136 @@ The first five scenarios are:
 | Genuine ambiguity | The Director does not mutate first, asks one useful question, consumes the scripted answer, and then succeeds |
 | Mid-run steering | A follow-up sent after the first real mutation replaces the obsolete requirement |
 | Queue then cancel | A second request is retained exactly once while work is active; cancelling the observed run stops it without losing or duplicating the queued request |
+
+The fixture and scenario semantics are benchmark inputs, not implementation
+details for the harness author to improvise. The MVP checks in the following
+exact contract.
+
+#### Fixture contract
+
+`typescript-service` is an offline-buildable HTTP service with:
+
+- package version `1.2.3`;
+- a passing build and test command whose complete pinned dependencies are
+  already available in the sandbox image;
+- `GET /` returning `200` and
+  `{"service":"setta-eval-fixture"}`;
+- no `/health`, `/ready`, `/live`, `/status`, or `/version` route;
+- a baseline `README.md` that does not mention those routes;
+- `docs/api-conventions.md`, which states that this repository's standard
+  readiness endpoint is `GET /ready` returning
+  `{"ready":true,"version":"<package version>"}`;
+- `docs/diagnostics.md`, which states that a deployment monitor may use either
+  liveness (`GET /live`, `{"live":true}`) or readiness (`GET /ready`, the
+  standard readiness body), and deliberately chooses neither one;
+- a request-logging implementation that does not yet include both HTTP method
+  and path.
+
+Every scenario starts from a fresh byte-for-byte copy and independent git
+repository. Hidden verifiers compare against that baseline, run code only in
+the verifier container, and reject unrelated mutations.
+
+#### Exact scenario contracts
+
+1. `straightforward-task`
+
+   Initial Director submission:
+
+   > Add a GET /health endpoint that returns {"ok": true}. Add automated
+   > coverage for it and document the endpoint in README.md. Run the relevant
+   > checks.
+
+   No scripted reply exists. A clarification or a second user turn fails user
+   control. The verifier requires `GET /health` to return status `200`, JSON
+   content type, and exactly `{"ok":true}`; the original `/` behavior to remain
+   unchanged; the fixture build and tests to pass; `/health` to be documented;
+   and no unrelated file to change.
+
+2. `apparent-ambiguity`
+
+   Initial Director submission:
+
+   > Add this service's standard readiness endpoint and cover it with the
+   > relevant automated test. Follow the repository's existing convention.
+
+   No scripted reply exists. The repository context above is the answer, so a
+   clarification or a stall for user input fails. The verifier requires
+   `GET /ready` to return status `200`, JSON content type, and exactly
+   `{"ready":true,"version":"1.2.3"}`; the fixture build and tests to pass;
+   `/live` not to exist; and no unrelated file to change.
+
+3. `genuine-ambiguity`
+
+   Initial Director submission:
+
+   > Add the diagnostics endpoint needed by the deployment monitor and cover
+   > it with the relevant automated test.
+
+   The runner waits for the Director turn to finish with no Agent run started,
+   no workspace mutation, and no queued work. It then supplies exactly one
+   scripted reply through another Director submission:
+
+   > Use readiness: GET /ready with the repository's standard readiness body.
+
+   The deterministic contract requires no mutation before that reply, exactly
+   one consumed scripted reply, and then successful work. The verifier requires
+   `/ready` with the standard `1.2.3` body, no `/live`, passing build and tests,
+   and no unrelated change. The communication judge decides whether the first
+   Director reply was one concise, targeted question that let the user make the
+   liveness-versus-readiness choice; punctuation and keywords are not used.
+
+4. `mid-run-steering`
+
+   Initial Director submission:
+
+   > Add a GET /health endpoint returning {"ok": true}, add automated coverage,
+   > and document it in README.md.
+
+   On `first_workspace_mutation` for that observed run, the runner submits:
+
+   > Change of plan: use GET /status instead, include the package version in the
+   > JSON response, and do not modify README.md.
+
+   No clarification is allowed. The verifier requires `GET /status` to return
+   `200`, JSON content type, and exactly
+   `{"ok":true,"version":"1.2.3"}`; `/health` not to exist; `README.md` to be
+   byte-identical to baseline; relevant tests to pass; and no unrelated change.
+   Structured events must show that the follow-up entered through the Director
+   and affected the observed work; the harness does not call an Agent steering
+   API directly.
+
+5. `queue-then-cancel`
+
+   Initial Director submission:
+
+   > Update request logging to include both the HTTP method and request path,
+   > add automated coverage, and run the relevant checks.
+
+   On `agent_turn_running` for that observed work, the runner submits:
+
+   > After that, add GET /version returning the package version. This is a
+   > separate next task; do not interrupt the logging work for it.
+
+   When structured state shows that second request present exactly once in the
+   queue while the observed logging run is still active, the runner immediately
+   submits:
+
+   > Cancel only the current logging task. Keep the queued /version task and
+   > continue with it.
+
+   All three messages are ordinary Director submissions. The deterministic
+   contract requires the observed logging run to become cancelled, no mutation
+   attributed to it after cancellation, the queued request to be promoted once
+   and completed once, and the queue to finish empty. The verifier requires
+   `GET /version` to return `200`, JSON content type, and exactly
+   `{"version":"1.2.3"}`, with passing build and tests and no duplicated route
+   or unrelated change. Mutations made by the logging run before cancellation
+   are not required to roll back; cancellation owns stopping future work, not
+   transactional filesystem rollback.
+
+Changing any quoted message, scripted answer, fixture convention, or verifier
+outcome is an intentional benchmark-contract edit reviewed with the scenario
+and verifier in the same change.
 
 Recoverable provider failure, genuine external blocking, approvals, restart,
 and more task domains are the next scenarios only after the vertical slice is
@@ -268,6 +430,27 @@ After deterministic verification, one fixed, exact model runs an existing
 fresh structured call with read-only permission, no tools, and a strict JSON
 schema. Judge tokens are recorded separately and never counted as Setta's task
 cost.
+
+The MVP judge configuration is fixed in the Go owner and recorded in every
+manifest:
+
+```text
+provider: codex
+model selection: exact
+model: gpt-5.6-sol
+reasoning effort: max
+service tier: provider default (no explicit tier)
+approval policy: never
+provider permission profile: read-only
+tools, MCP, web search, project instructions, and delegation: disabled
+thread: fresh and ephemeral
+```
+
+Preflight validates that the live model catalog supports the exact model and
+`max` effort. Unavailability is an infrastructure failure, not permission to
+fall back, lower effort, substitute the production Narrator, or change the
+judge between candidate configurations. The model-comparison input cannot
+override any judge field.
 
 The judge receives only:
 
@@ -481,14 +664,19 @@ reading two reports.
 
 ## Phase 0 — Prove the sandbox boundary
 
+Begin only after the user explicitly authorizes the Phase 0 live sandbox
+probe. Do not use the plan implementation loop for this phase. The authorization
+covers only the benign throwaway task and probes described here; it does not
+authorize later automated tests or live evaluation runs.
+
 Timebox one focused day to establish how the ChatGPT-authenticated Codex runtime
 can operate while every AI-controlled command stays in Docker and no credential
 is readable there.
 
 Build only enough to run one read-only model turn and one harmless fixture write
 through the proposed boundary. Inspect mounts, environment, user, network, and
-Docker configuration with benign canaries. Record the chosen topology and its
-security assumptions in this plan before proceeding.
+Docker configuration with benign canaries. Record the evidence and either
+`PASS` or `BLOCKED` in `docs/reports/live-ai-eval-sandbox-phase0.md`.
 
 This phase can fail. If the current Codex runtime offers no supported way to
 separate ChatGPT auth from tool execution, stop and report the blocker. The
@@ -498,10 +686,14 @@ temporary host-execution mode, or a second transitional runner. Do not mount
 auth and label the result safe, and do not build against an internal-only auth
 protocol.
 
-**Exit:** one live, mutating throwaway task runs on the target MacBook; the real
-repository and a random host canary remain unreachable; no real credential is
-present in the Agent filesystem or environment; teardown leaves no process or
-container running.
+**PASS exit:** one live, mutating throwaway task runs on the target MacBook; the
+real repository and a random host canary remain unreachable; no real credential
+is present in the Agent filesystem or environment; teardown leaves no process
+or container running; and the product owner accepts the written boundary.
+
+**BLOCKED exit:** the report identifies the missing supported capability and
+the plan status is `Blocked`. No Phase 1 code, unsandboxed mode, auth mount,
+provider proxy based on undocumented protocols, or automation-loop run follows.
 
 ## Phase 1 — One vertical scenario
 
@@ -518,8 +710,9 @@ provider, containers, volumes, and subscriptions, including on cancellation or
 failure.
 
 At this phase the report contains objective outcome, resolved models, duration,
-and infrastructure diagnostics. Do not add the judge or model matrix until one
-scenario can run repeatedly without harness ambiguity.
+and infrastructure diagnostics. In the later user-authorized verification
+ladder, do not invoke the judge or model matrix until this scenario has run
+repeatedly without harness ambiguity.
 
 **Exit:** one command produces a correct `results.json` and `report.md` for one
 passing run, one intentionally incorrect final workspace, one timeout, and one
@@ -549,9 +742,10 @@ vocabulary those scenarios require.
 
 Run once by default and rerun only failed scenarios once. Report first-attempt
 passes, stable failures, flaky scenarios, infrastructure failures, user-control
-assertions, communication checks, and token totals. Establish generous hard
-runaway caps from observed data; do not yet automate baseline regression
-thresholds.
+assertions, communication checks, and token totals. Confirm that the checked-in
+1,800-second runaway ceiling is generous relative to successful baselines;
+change that scenario contract explicitly if the evidence disproves it. Do not
+yet automate baseline regression thresholds.
 
 **Exit:** all five scenarios can be launched together or individually, every
 failure is attributable to ability, control, communication, efficiency, or
@@ -585,11 +779,34 @@ initial merge gate.
 
 ## Verification policy
 
-Writing and implementing this plan does not authorize automated tests. During
-implementation, formatting changed files is allowed. When the branch is ready
-to merge and the user explicitly requests verification, start with the narrowest
-checks for the scenario parser, token accounting, sandbox preflight, and one
-fixture verifier.
+Writing this plan, asking whether it is ready, asking to implement it, or
+starting the implementation loop does not authorize automated tests or live
+model calls. Formatting changed files and inspecting diffs are allowed during
+implementation.
+
+There are three explicit execution authorizations:
+
+1. **Phase 0 sandbox probe.** The user must specifically authorize the benign
+   live Phase 0 probe after its minimal proof branch is ready. That authorization
+   ends when the report records `PASS` or `BLOCKED`.
+2. **MVP merge verification.** After the Phase 1-3 implementation is ready to
+   merge, the user must explicitly request verification. Run the ladder below
+   in order and stop at the narrowest failing layer.
+3. **Model screening.** Phase 4 live candidate runs occur only after the product
+   owner names a concrete model decision and explicitly authorizes that screen.
+   Merge verification does not silently spend those model calls.
+
+The phase exit statements are acceptance contracts, not permission to execute
+their commands. After an accepted Phase 0 `PASS`, implementation may build the
+Phase 1-3 code in order without automated checks. The implementation loop must
+not interpret its own invocation as test authorization.
+
+For user-authorized MVP merge verification, start with the scenario parser,
+token accounting, sandbox preflight, and one fixture verifier. Then prove the
+Phase 1 classification cases in order: one passing workspace, one intentionally
+incorrect workspace, one timeout, and one infrastructure failure. Only after
+that vertical slice is unambiguous, verify token accounting and the fixed judge,
+then run the five-scenario suite once.
 
 Because this work touches provider handling, role configuration, Director
 dispatch, conversation lifecycle, queueing, steering, cancellation, streaming,
