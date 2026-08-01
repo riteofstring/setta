@@ -79,6 +79,15 @@ export interface GraphRenderView {
   readonly shiftX: number;
   /** 0..1 signal tear and aberration during a workstream switch. */
   readonly glitch: number;
+  /** 1 while the app is actually capturing the user's voice; 0 otherwise. */
+  readonly listening: number;
+  /**
+   * Seconds since this canvas first drew, for the ambient field only. The
+   * field compares against no event time, and the committed-time clock grows
+   * past float32 precision on a days-old thread, which quantised the drift
+   * into shimmering noise.
+   */
+  readonly fieldTimeSeconds: number;
   readonly reducedMotion: boolean;
 }
 
@@ -130,6 +139,7 @@ const nodeUniformNames = [
   "u_scale",
   "u_maxPoint",
   "u_motion",
+  "u_listen",
   "u_hoverX",
   "u_hoverY",
   "u_hoverAmount",
@@ -355,9 +365,27 @@ export class DirectorGraphRenderer {
    */
   applyProfile(profile: GraphQualityProfile): void {
     this.profile = profile;
-    this.uploadFieldParticles(profile.fieldParticles);
+    this.uploadFieldParticles(this.scaledFieldParticles());
     this.uploadParticleTemplate(profile.particlesPerNode);
     this.uploadEdgeSegments(profile.edgeSegments);
+  }
+
+  /*
+   * The field's particle count follows the viewport's area, so its density on
+   * screen is a constant rather than an accident of window size: a fixed count
+   * over a wrapped unit square reads dense on a laptop and sparse on a 6K
+   * display. The scale is quantised so ordinary window drags do not rebuild
+   * the buffer, and clamped so the tier's count stays the budget's anchor.
+   */
+  private scaledFieldParticles(): number {
+    const referenceArea = 1280 * 820;
+    const area = this.surfaces.cssWidth * this.surfaces.cssHeight;
+    // Wide bounds on purpose: the old clamps bit at ordinary window sizes,
+    // which is what made a shrunken window read too dense and a fullscreen
+    // display too sparse. The bounds are sanity rails, not tuning.
+    const scale = Math.min(6, Math.max(0.25, area / referenceArea));
+    const quantised = Math.round(scale * 4) / 4;
+    return Math.round(this.profile.fieldParticles * quantised);
   }
 
   /** The context the instrumentation samples GPU frame time from. */
@@ -385,6 +413,10 @@ export class DirectorGraphRenderer {
       cssWidth: Math.max(1, cssWidth),
       cssHeight: Math.max(1, cssHeight),
     };
+    const fieldParticles = this.scaledFieldParticles();
+    if (fieldParticles !== this.fieldCount) {
+      this.uploadFieldParticles(fieldParticles);
+    }
     if (canvas.width !== sizes.postWidth || canvas.height !== sizes.postHeight) {
       canvas.width = sizes.postWidth;
       canvas.height = sizes.postHeight;
@@ -869,7 +901,7 @@ export class DirectorGraphRenderer {
     const gl = this.gl;
     gl.useProgram(this.fieldProgram);
     const count = this.collectHalos(frame, fit);
-    gl.uniform1f(this.fieldUniforms.u_time, frame.view.timeSeconds);
+    gl.uniform1f(this.fieldUniforms.u_time, frame.view.fieldTimeSeconds);
     gl.uniform1f(this.fieldUniforms.u_cam, frame.view.cameraWorldY);
     gl.uniform1f(this.fieldUniforms.u_pointScale, this.surfaces.scenePixelScale);
     gl.uniform1f(
@@ -925,6 +957,7 @@ export class DirectorGraphRenderer {
     gl.uniform1f(this.nodeUniforms.u_fitY, fit.fitY);
     gl.uniform1f(this.nodeUniforms.u_scale, fit.size);
     gl.uniform1f(this.nodeUniforms.u_motion, motion);
+    gl.uniform1f(this.nodeUniforms.u_listen, frame.view.listening);
     gl.uniform1f(this.nodeUniforms.u_hoverX, frame.view.hoverLaneX);
     gl.uniform1f(this.nodeUniforms.u_hoverY, frame.view.hoverWorldY);
     gl.uniform1f(this.nodeUniforms.u_hoverAmount, frame.view.hoverAmount);

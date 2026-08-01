@@ -75,11 +75,21 @@ vec2 nodeState(int index){
 }
 `;
 
-/** Applies the same CRT barrel the post pass uses, in clip space. */
+/**
+ * Applies the same CRT barrel the post pass uses, in clip space. The glyph
+ * pass draws onto the already-warped output, so this is the post map's exact
+ * inverse — the same fixed-point solve as graphWarpToScreen, because an
+ * approximate inverse put glyphs off their node bodies toward the edges.
+ */
 const barrelChunk = glsl`
 vec2 barrelClip(vec2 clip){
   vec2 c=clip*0.5;
-  return (c/(1.0+dot(c,c)*${barrel}))*2.0;
+  float r2=dot(c,c);
+  float k=1.0+${barrel}*r2;
+  k=1.0+${barrel}*r2/(k*k);
+  k=1.0+${barrel}*r2/(k*k);
+  k=1.0+${barrel}*r2/(k*k);
+  return (c/k)*2.0;
 }
 `;
 
@@ -94,6 +104,9 @@ out float v_alpha,v_seed;
 void main(){
   float depth=0.35+a_field.w*0.65;
   vec2 p=a_field.xy;
+  // The mockup's constants exactly: this is the ocean. u_time here is the
+  // session clock, not event time — a days-old thread pushes event time past
+  // float precision and the drift quantises into shimmering noise.
   float motionTime=u_time*u_flow;
   p.y+=(u_cam*0.16+motionTime*0.004)*depth;
   p.x+=0.028*depth*sin(motionTime*0.13+a_field.z*31.0+a_field.y*7.0);
@@ -226,7 +239,7 @@ layout(location=1) in float a_particleRole;   // 0 core, 1 spark, 2 orbital
 layout(location=2) in vec4 a_node;       // lane x, born, settle, terminal
 layout(location=3) in vec4 a_style;      // mode, glyph, role, emphasis
 layout(location=4) in float a_detail;
-uniform float u_time,u_cam,u_pointScale,u_shiftX,u_fitX,u_fitY,u_scale,u_maxPoint,u_motion;
+uniform float u_time,u_cam,u_pointScale,u_shiftX,u_fitX,u_fitY,u_scale,u_maxPoint,u_motion,u_listen;
 uniform float u_hoverX,u_hoverY,u_hoverAmount;
 uniform int u_instanceBase;   // first drawn node; the visible slice starts here
 uniform vec3 u_modeColor[${modeCount}];
@@ -298,8 +311,10 @@ void main(){
       psize=mix((3.0+recent*3.5)*(0.35+(1.0-t2)*0.8),6.5+recent*10.0,burst);
     }
   } else if(a_particleRole<0.5){
+    // The listening node breathes only while the app is actually hearing the
+    // user (mockup line 622: listen*u_listen); an idle input node holds still.
     float listening=step(${listeningMode}-0.5,a_style.x);
-    float calm=1.0+listening*0.16*abs(sin(u_time*6.0))*u_motion;
+    float calm=1.0+listening*0.32*abs(sin(u_time*6.0))*u_motion*u_listen;
     pos=center; psize=bodySize*pop*calm; palpha=1.0;
   } else if(a_particleRole<1.5){
     float act=working;
@@ -496,7 +511,10 @@ void main(){
   vec2 fromCenter=uvw-0.5;
   vec2 cell=floor(fc/px);
   vec2 base=(cell*px+px*0.5)/u_res;
-  vec2 ab=fromCenter*(0.012+u_glitch*0.03);
+  // Gentler than the mockup's 0.012: the fringe grows with distance from
+  // centre, and at the mockup's strength the grid's outer tiles — which live
+  // exactly there — smeared into unreadable rainbows.
+  vec2 ab=fromCenter*(0.0045+u_glitch*0.03);
   vec3 s;
   s.r=texture(u_tex,base+ab).r;
   s.g=texture(u_tex,base).g;

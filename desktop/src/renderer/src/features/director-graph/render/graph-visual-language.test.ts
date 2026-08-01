@@ -132,4 +132,23 @@ describe("graph barrel warp", () => {
     expect(corner.y).toBeGreaterThan(0);
     expect(graphBarrel).toBeGreaterThan(0);
   });
+
+  // The post pass samples the scene at t·(1 + |t|²·barrel); the DOM warp must
+  // be that map's exact inverse or labels drift from their nodes toward the
+  // edges — the approximation this replaced was sixteen pixels off in a
+  // corner.
+  it("inverts the post pass's forward map exactly", () => {
+    for (const [x, y] of [
+      [940, 120],
+      [60, 700],
+      [990, 790],
+    ] as const) {
+      const point = graphWarpToScreen(x, y, 1000, 800);
+      const centeredX = point.x / 1000 - 0.5;
+      const centeredY = point.y / 800 - 0.5;
+      const forward = 1 + graphBarrel * (centeredX * centeredX + centeredY * centeredY);
+      expect((centeredX * forward + 0.5) * 1000).toBeCloseTo(x, 2);
+      expect((centeredY * forward + 0.5) * 800).toBeCloseTo(y, 2);
+    }
+  });
 });

@@ -117,7 +117,7 @@ describe("graph pointer projection", () => {
       fit,
       viewport,
     );
-    // Clip Y of the live edge is -0.35, which sits below centre on screen.
+    // The live edge clip Y is negative, which sits below centre on screen.
     expect(position.y).toBeGreaterThan(viewport.height / 2);
     expect(position.x).toBeCloseTo(viewport.width / 2, 3);
   });
@@ -376,7 +376,7 @@ describe("graph label placement", () => {
     return { count, out };
   }
 
-  it("places an outcome pill over a success and below a failure", () => {
+  it("places every outcome pill below its node, success and failure alike", () => {
     const { snapshot, scene } = sceneFor("failure-recovery-and-cancellation", 1e6);
     const { count, out } = placementsFor(scene);
     const byNode = new Map(
@@ -385,7 +385,7 @@ describe("graph label placement", () => {
     const failedOutcome = outcomeNodeOf(snapshot, 1);
     const succeededOutcome = outcomeNodeOf(snapshot, 2);
     expect(byNode.get(failedOutcome)?.anchor).toBe("below");
-    expect(byNode.get(succeededOutcome)?.anchor).toBe("over");
+    expect(byNode.get(succeededOutcome)?.anchor).toBe("below");
   });
 
   it("fades a step label as the flow passes it", () => {

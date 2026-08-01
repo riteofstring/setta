@@ -51,40 +51,32 @@ export function useDirectorWorkstreamSwitchTransition(
   return transition;
 }
 
-export function WorkstreamSwitchTransition({
-  transition,
-}: {
-  transition: DirectorWorkstreamSwitchTransition;
-}) {
-  return (
-    <div
-      aria-hidden="true"
-      className="director-workstream-transition"
-      data-active={transition.active && transition.direction !== null ? "true" : "false"}
-      data-direction={transition.direction ?? undefined}
-    />
-  );
-}
-
+/*
+ * The Director's own view is a destination, not the absence of one: it leads
+ * the strip, so it sits at index -1 and a move between it and any workstream
+ * has a direction like any other move. Treating null as "no transition" is
+ * what made the most common arrow press — Director to the only workstream —
+ * switch with no animation at all.
+ */
 export function directorWorkstreamSwitchTransition(
   previousSelectedWorkstreamId: string | null,
   selectedWorkstreamId: string | null,
   entries: readonly DirectorWorkstreamEntry[],
 ): DirectorWorkstreamSwitchDirection | null {
+  if (previousSelectedWorkstreamId === selectedWorkstreamId) {
+    return null;
+  }
+  const previousIndex =
+    previousSelectedWorkstreamId === null
+      ? -1
+      : workstreamEntryIndexById(entries, previousSelectedWorkstreamId);
+  const selectedIndex =
+    selectedWorkstreamId === null ? -1 : workstreamEntryIndexById(entries, selectedWorkstreamId);
   if (
-    previousSelectedWorkstreamId === null ||
-    selectedWorkstreamId === null ||
-    previousSelectedWorkstreamId === selectedWorkstreamId
+    (previousSelectedWorkstreamId !== null && previousIndex === -1) ||
+    (selectedWorkstreamId !== null && selectedIndex === -1)
   ) {
-    return null;
-  }
-  const previousIndex = workstreamEntryIndexById(entries, previousSelectedWorkstreamId);
-  const selectedIndex = workstreamEntryIndexById(entries, selectedWorkstreamId);
-  if (previousIndex === -1 || selectedIndex === -1) {
     return "jump";
-  }
-  if (selectedIndex === previousIndex) {
-    return null;
   }
   return selectedIndex > previousIndex ? "next" : "previous";
 }
