@@ -8,7 +8,6 @@ import (
 const (
 	CodexMethodCommandExec                        = "command/exec"
 	CodexMethodConfigRead                         = "config/read"
-	CodexMethodEnvironmentInfo                    = "environment/info"
 	CodexMethodInitialize                         = "initialize"
 	CodexMethodModelList                          = "model/list"
 	CodexMethodThreadBackgroundTerminalsTerminate = "thread/backgroundTerminals/terminate"
@@ -32,7 +31,6 @@ const (
 var CodexMethodValues = []string{
 	CodexMethodCommandExec,
 	CodexMethodConfigRead,
-	CodexMethodEnvironmentInfo,
 	CodexMethodInitialize,
 	CodexMethodModelList,
 	CodexMethodThreadBackgroundTerminalsTerminate,
@@ -145,7 +143,6 @@ const (
 var CodexSupportedMethodValues = []string{
 	CodexMethodCommandExec,
 	CodexMethodConfigRead,
-	CodexMethodEnvironmentInfo,
 	CodexMethodInitialize,
 	CodexMethodModelList,
 	CodexMethodThreadBackgroundTerminalsTerminate,
@@ -1471,74 +1468,6 @@ func validateEnvironmentConnectionNotification(raw json.RawMessage, name string)
 func DecodeEnvironmentConnectionNotification(raw json.RawMessage) (EnvironmentConnectionNotification, error) {
 	var value EnvironmentConnectionNotification
 	err := decodeCodexObject(raw, "EnvironmentConnectionNotification", validateEnvironmentConnectionNotification, &value)
-	return value, err
-}
-
-type EnvironmentInfoParams struct {
-	EnvironmentId string `json:"environmentId"`
-}
-
-func validateEnvironmentInfoParams(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "environmentId"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeEnvironmentInfoParams(raw json.RawMessage) (EnvironmentInfoParams, error) {
-	var value EnvironmentInfoParams
-	err := decodeCodexObject(raw, "EnvironmentInfoParams", validateEnvironmentInfoParams, &value)
-	return value, err
-}
-
-type EnvironmentInfoResponse struct {
-	CWD   *PathUri             `json:"cwd,omitempty"`
-	Shell EnvironmentShellInfo `json:"shell"`
-}
-
-func validateEnvironmentInfoResponse(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "shell"}}); err != nil {
-		return err
-	}
-	if err := validateCodexObjectField(fields, "shell", name+".shell", false, validateEnvironmentShellInfo); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeEnvironmentInfoResponse(raw json.RawMessage) (EnvironmentInfoResponse, error) {
-	var value EnvironmentInfoResponse
-	err := decodeCodexObject(raw, "EnvironmentInfoResponse", validateEnvironmentInfoResponse, &value)
-	return value, err
-}
-
-type EnvironmentShellInfo struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
-}
-
-func validateEnvironmentShellInfo(raw json.RawMessage, name string) error {
-	fields, err := codexObjectFields(raw, name)
-	if err != nil {
-		return err
-	}
-	if err := requireCodexFields(fields, name, []codexRequiredField{{name: "name"}, {name: "path"}}); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeEnvironmentShellInfo(raw json.RawMessage) (EnvironmentShellInfo, error) {
-	var value EnvironmentShellInfo
-	err := decodeCodexObject(raw, "EnvironmentShellInfo", validateEnvironmentShellInfo, &value)
 	return value, err
 }
 
@@ -3595,8 +3524,6 @@ func decodePatchChangeKind(raw json.RawMessage, name string) (PatchChangeKind, e
 	}
 	return item, nil
 }
-
-type PathUri = string
 
 type PermissionsRequestApprovalParams struct {
 	CWD           AbsolutePathBuf          `json:"cwd"`
