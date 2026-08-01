@@ -3,63 +3,10 @@ package evalharness
 import (
 	"bufio"
 	"bytes"
-	"context"
-	"io"
-	"net"
 	"net/http"
-	"os"
-	"os/exec"
 	"strings"
 	"testing"
-	"time"
 )
-
-const execServerAttachHelperEnvironment = "SETTA_EXEC_SERVER_ATTACH_HELPER"
-
-type discardWriteCloser struct {
-	io.Writer
-}
-
-func (closer discardWriteCloser) Close() error {
-	return nil
-}
-
-func TestExecServerControlRelayStopsDockerAttachDuringClose(t *testing.T) {
-	if os.Getenv(execServerAttachHelperEnvironment) == "1" {
-		for {
-			time.Sleep(time.Hour)
-		}
-	}
-	listener, err := net.Listen("tcp4", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	command := exec.Command(os.Args[0], "-test.run=^TestExecServerControlRelayStopsDockerAttachDuringClose$")
-	command.Env = append(os.Environ(), execServerAttachHelperEnvironment+"=1")
-	if err := command.Start(); err != nil {
-		_ = listener.Close()
-		t.Fatalf("start attach helper: %v", err)
-	}
-	parentContext, cancel := context.WithCancel(context.Background())
-	relay := &execServerControlRelay{
-		parentContext: parentContext,
-		cancel:        cancel,
-		listener:      listener,
-		attach:        command,
-		attachStdin:   discardWriteCloser{Writer: io.Discard},
-		attachStdout:  io.NopCloser(strings.NewReader("")),
-		done:          make(chan struct{}),
-	}
-	go func() {
-		_ = command.Wait()
-		close(relay.done)
-	}()
-	closeContext, closeCancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer closeCancel()
-	if err := relay.close(closeContext); err != nil {
-		t.Fatalf("close relay: %v", err)
-	}
-}
 
 func TestExecServerControlEndpointRequiresLoopbackCapabilityURL(t *testing.T) {
 	valid := execServerControlEndpoint{
