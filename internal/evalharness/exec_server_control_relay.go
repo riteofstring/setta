@@ -31,13 +31,6 @@ const (
 	execServerHandshakeMaximumBytes = 16 * 1024
 	execServerHandshakeTimeout      = 10 * time.Second
 	execServerMessageMaximumBytes   = 64 * 1024 * 1024
-	execServerBlockingEnvironment   = "features.deferred_executor=false"
-	execServerCodeModeDisabled      = "features.code_mode=false"
-	execServerCodeModeOnlyDisabled  = "features.code_mode_only=false"
-	execServerShellToolEnabled      = "features.shell_tool=true"
-	execServerShellZshForkDisabled  = "features.shell_zsh_fork=false"
-	execServerUnifiedExecEnabled    = "features.unified_exec=true"
-	execServerUnifiedZshDisabled    = "features.unified_exec_zsh_fork=false"
 	webSocketAcceptGUID             = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 )
 
@@ -211,23 +204,15 @@ func (relay *execServerControlRelay) close(ctx context.Context) error {
 	relay.beginShutdown()
 	relay.stopIO()
 	relay.cancel()
-	attachErr := relay.stopAttachProcess()
 	select {
 	case <-relay.done:
-		return attachErr
-	case <-ctx.Done():
-		return errors.Join(attachErr, fmt.Errorf("stop exec-server control relay: %w", ctx.Err()))
-	}
-}
-
-func (relay *execServerControlRelay) stopAttachProcess() error {
-	if relay.attach == nil || relay.attach.Process == nil {
 		return nil
+	case <-ctx.Done():
+		if relay.attach != nil && relay.attach.Process != nil {
+			_ = relay.attach.Process.Kill()
+		}
+		return fmt.Errorf("stop exec-server control relay: %w", ctx.Err())
 	}
-	if err := relay.attach.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
-		return fmt.Errorf("stop Docker attach process: %w", err)
-	}
-	return nil
 }
 
 func (relay *execServerControlRelay) failure() error {
