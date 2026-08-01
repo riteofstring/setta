@@ -46,6 +46,7 @@ func TestPhase2TranscriptContainsOnlyPublicSpeech(t *testing.T) {
 		{
 			SchemaVersion: EvaluationEventSchemaVersion,
 			ScenarioID:    ScenarioVerifierStraightforward,
+			Attempt:       EvaluationAttemptFirst,
 			Sequence:      1,
 			RecordedAt:    startedAt.Format(time.RFC3339Nano),
 			Kind:          EvaluationEventUserSubmission,
@@ -57,6 +58,7 @@ func TestPhase2TranscriptContainsOnlyPublicSpeech(t *testing.T) {
 		{
 			SchemaVersion: EvaluationEventSchemaVersion,
 			ScenarioID:    ScenarioVerifierStraightforward,
+			Attempt:       EvaluationAttemptFirst,
 			Sequence:      2,
 			RecordedAt:    receivedAt.Format(time.RFC3339Nano),
 			Kind:          EvaluationEventDirectorReceipt,
@@ -70,13 +72,14 @@ func TestPhase2TranscriptContainsOnlyPublicSpeech(t *testing.T) {
 		events = append(events, EvaluationEvent{
 			SchemaVersion: EvaluationEventSchemaVersion,
 			ScenarioID:    ScenarioVerifierStraightforward,
+			Attempt:       EvaluationAttemptFirst,
 			Sequence:      len(events) + 1,
 			RecordedAt:    narration.CreatedAt,
 			Kind:          EvaluationEventNarration,
 			Narration:     &narration,
 		})
 	}
-	transcript, err := buildScenarioTranscript(validTestScenario(), events)
+	transcript, err := buildScenarioTranscript(validTestScenario(), EvaluationAttemptFirst, events)
 	if err != nil {
 		t.Fatalf("build Phase 2 transcript: %v", err)
 	}
@@ -149,6 +152,7 @@ func TestCommunicationJudgeInputOmitsExecutionInternals(t *testing.T) {
 	startedAt := time.Date(2026, time.July, 31, 20, 0, 0, 0, time.UTC)
 	transcript := ScenarioTranscript{
 		ScenarioID:        ScenarioVerifierStraightforward,
+		Attempt:           EvaluationAttemptFirst,
 		EvidenceAvailable: true,
 		Entries: []TranscriptEntry{{
 			Sequence:   1,

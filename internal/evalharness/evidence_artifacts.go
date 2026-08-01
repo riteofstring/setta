@@ -9,10 +9,11 @@ import (
 	evalverifier "setta/internal/evalharness/verifier"
 )
 
-const VerifierArtifactSchemaVersion = 1
+const VerifierArtifactSchemaVersion = 2
 
 type ScenarioVerifierResult struct {
 	ScenarioID        string               `json:"scenarioId"`
+	Attempt           int                  `json:"attempt"`
 	EvidenceAvailable bool                 `json:"evidenceAvailable"`
 	Result            *evalverifier.Result `json:"result"`
 	Diagnostic        *ScenarioDiagnostic  `json:"diagnostic"`
@@ -48,6 +49,7 @@ func NewVerifierArtifact(scenarios []ScenarioVerifierResult) (VerifierArtifact, 
 func scenarioVerifierResult(result ScenarioResult) (ScenarioVerifierResult, error) {
 	evidence := ScenarioVerifierResult{
 		ScenarioID:        result.ScenarioID,
+		Attempt:           result.Attempt,
 		EvidenceAvailable: result.Verifier != nil,
 		Result:            cloneVerifierResult(result.Verifier),
 	}
@@ -74,24 +76,28 @@ func (artifact VerifierArtifact) Validate() error {
 	if artifact.SchemaVersion != VerifierArtifactSchemaVersion {
 		return fmt.Errorf("verifier artifact schemaVersion is %d, want %d", artifact.SchemaVersion, VerifierArtifactSchemaVersion)
 	}
-	if artifact.Scenarios == nil || len(artifact.Scenarios) == 0 || len(artifact.Scenarios) > ResultMaximumScenarios {
-		return fmt.Errorf("verifier artifact contains %d scenarios, want 1-%d", len(artifact.Scenarios), ResultMaximumScenarios)
+	if artifact.Scenarios == nil || len(artifact.Scenarios) == 0 || len(artifact.Scenarios) > ResultMaximumAttempts {
+		return fmt.Errorf("verifier artifact contains %d attempts, want 1-%d", len(artifact.Scenarios), ResultMaximumAttempts)
 	}
-	seen := map[string]bool{}
+	seen := map[evaluationAttemptIdentity]bool{}
 	for index, scenario := range artifact.Scenarios {
 		if err := scenario.Validate(); err != nil {
 			return fmt.Errorf("verifier scenario[%d]: %w", index, err)
 		}
-		if seen[scenario.ScenarioID] {
-			return fmt.Errorf("verifier artifact repeats scenario %q", scenario.ScenarioID)
+		identity := evaluationAttemptIdentity{ScenarioID: scenario.ScenarioID, Attempt: scenario.Attempt}
+		if seen[identity] {
+			return fmt.Errorf("verifier artifact repeats scenario attempt %s/%d", scenario.ScenarioID, scenario.Attempt)
 		}
-		seen[scenario.ScenarioID] = true
+		seen[identity] = true
 	}
 	return nil
 }
 
 func (result ScenarioVerifierResult) Validate() error {
 	if err := validateScenarioIdentifier("verifier scenario id", result.ScenarioID); err != nil {
+		return err
+	}
+	if err := validateEvaluationAttempt(result.Attempt); err != nil {
 		return err
 	}
 	if result.EvidenceAvailable {
@@ -110,17 +116,22 @@ func (artifacts EvaluationArtifactSet) Validate() error {
 	if err := validateEvaluationArtifactComponents(artifacts); err != nil {
 		return err
 	}
-	scenarioIDs := make([]string, len(artifacts.Results.Scenarios))
-	for index, scenario := range artifacts.Results.Scenarios {
-		scenarioIDs[index] = scenario.ScenarioID
+	attempts := resultAttemptReferences(artifacts.Results)
+	identities := make([]evaluationAttemptIdentity, len(attempts))
+	for index, attempt := range attempts {
+		identities[index] = attempt.identity
 	}
-	if err := validateEvaluationEvents(artifacts.Events, scenarioIDs); err != nil {
+	if err := validateEvaluationEvents(artifacts.Events, identities); err != nil {
 		return err
 	}
-	if err := validateArtifactInvocationIdentity(artifacts, len(scenarioIDs)); err != nil {
+	if err := validateArtifactInvocationIdentity(
+		artifacts,
+		len(artifacts.Results.Scenarios),
+		len(attempts),
+	); err != nil {
 		return err
 	}
-	return validateArtifactScenarios(artifacts, scenarioIDs)
+	return validateArtifactScenarios(artifacts, attempts)
 }
 
 func validateEvaluationArtifactComponents(artifacts EvaluationArtifactSet) error {
@@ -148,34 +159,100 @@ func validateEvaluationArtifactComponents(artifacts EvaluationArtifactSet) error
 	return nil
 }
 
-func validateArtifactInvocationIdentity(artifacts EvaluationArtifactSet, scenarioCount int) error {
+func validateArtifactInvocationIdentity(
+	artifacts EvaluationArtifactSet,
+	scenarioCount int,
+	attemptCount int,
+) error {
 	if artifacts.Manifest.SettaCommit != artifacts.Results.SettaCommit ||
 		!artifacts.Manifest.StartedAt.Equal(artifacts.Results.StartedAt) ||
 		!artifacts.Manifest.FinishedAt.Equal(artifacts.Results.FinishedAt) {
 		return errors.New("manifest and results invocation identity do not match")
 	}
-	counts := []int{
+	scenarioCounts := []int{
 		len(artifacts.Scenarios),
 		len(artifacts.Manifest.Scenarios),
+	}
+	for _, count := range scenarioCounts {
+		if count != scenarioCount {
+			return errors.New("eval artifacts contain different scenario counts")
+		}
+	}
+	attemptCounts := []int{
 		len(artifacts.Transcript.Scenarios),
 		len(artifacts.TokenUsage.Scenarios),
 		len(artifacts.VerifierResults.Scenarios),
 		len(artifacts.JudgeResults.Scenarios),
 	}
-	for _, count := range counts {
-		if count != scenarioCount {
-			return errors.New("eval artifacts contain different scenario counts")
+	for _, count := range attemptCounts {
+		if count != attemptCount {
+			return errors.New("eval artifacts contain different attempt counts")
 		}
+	}
+	manifestAttemptCount := 0
+	for _, scenario := range artifacts.Manifest.Scenarios {
+		manifestAttemptCount += len(scenario.Attempts)
+	}
+	if manifestAttemptCount != attemptCount {
+		return errors.New("manifest and results contain different attempt counts")
 	}
 	return nil
 }
 
-func validateArtifactScenarios(artifacts EvaluationArtifactSet, scenarioIDs []string) error {
-	for index, scenarioID := range scenarioIDs {
-		if err := validateArtifactScenarioIdentity(artifacts, index, scenarioID); err != nil {
+type resultAttemptReference struct {
+	scenarioIndex int
+	attemptIndex  int
+	identity      evaluationAttemptIdentity
+	result        ScenarioResult
+}
+
+func resultAttemptReferences(results Results) []resultAttemptReference {
+	attempts := make([]resultAttemptReference, 0, len(results.Scenarios)*EvaluationAttemptRerun)
+	for scenarioIndex, scenario := range results.Scenarios {
+		attempts = append(attempts, resultAttemptReference{
+			scenarioIndex: scenarioIndex,
+			attemptIndex:  0,
+			identity: evaluationAttemptIdentity{
+				ScenarioID: scenario.ScenarioID,
+				Attempt:    EvaluationAttemptFirst,
+			},
+			result: scenario.FirstAttempt,
+		})
+		if scenario.Rerun != nil {
+			attempts = append(attempts, resultAttemptReference{
+				scenarioIndex: scenarioIndex,
+				attemptIndex:  1,
+				identity: evaluationAttemptIdentity{
+					ScenarioID: scenario.ScenarioID,
+					Attempt:    EvaluationAttemptRerun,
+				},
+				result: *scenario.Rerun,
+			})
+		}
+	}
+	return attempts
+}
+
+func validateArtifactScenarios(
+	artifacts EvaluationArtifactSet,
+	attempts []resultAttemptReference,
+) error {
+	for index, result := range artifacts.Results.Scenarios {
+		if err := validateArtifactScenarioIdentity(artifacts, index, result.ScenarioID); err != nil {
 			return err
 		}
-		if err := validateArtifactScenarioContracts(artifacts, index, scenarioID); err != nil {
+		if len(artifacts.Manifest.Scenarios[index].Attempts) != scenarioResultAttemptCount(result) {
+			return fmt.Errorf("scenario %s manifest and results contain different attempt counts", result.ScenarioID)
+		}
+		if err := artifacts.Scenarios[index].Validate(); err != nil {
+			return fmt.Errorf("scenario %s contract is invalid: %w", result.ScenarioID, err)
+		}
+	}
+	for artifactIndex, attempt := range attempts {
+		if err := validateArtifactAttemptIdentity(artifacts, artifactIndex, attempt); err != nil {
+			return err
+		}
+		if err := validateArtifactAttemptContracts(artifacts, artifactIndex, attempt); err != nil {
 			return err
 		}
 	}
@@ -190,10 +267,6 @@ func validateArtifactScenarioIdentity(
 	artifactScenarioIDs := []string{
 		artifacts.Scenarios[index].ID,
 		artifacts.Manifest.Scenarios[index].ScenarioID,
-		artifacts.Transcript.Scenarios[index].ScenarioID,
-		artifacts.TokenUsage.Scenarios[index].ScenarioID,
-		artifacts.VerifierResults.Scenarios[index].ScenarioID,
-		artifacts.JudgeResults.Scenarios[index].ScenarioID,
 	}
 	for _, artifactScenarioID := range artifactScenarioIDs {
 		if artifactScenarioID != scenarioID {
@@ -203,23 +276,44 @@ func validateArtifactScenarioIdentity(
 	return nil
 }
 
-func validateArtifactScenarioContracts(
+func validateArtifactAttemptIdentity(
 	artifacts EvaluationArtifactSet,
-	index int,
-	scenarioID string,
+	artifactIndex int,
+	attempt resultAttemptReference,
 ) error {
-	scenario := artifacts.Scenarios[index]
-	if err := scenario.Validate(); err != nil {
-		return fmt.Errorf("scenario %s contract is invalid: %w", scenarioID, err)
+	manifest := artifacts.Manifest.Scenarios[attempt.scenarioIndex].Attempts[attempt.attemptIndex]
+	identities := []evaluationAttemptIdentity{
+		{ScenarioID: attempt.result.ScenarioID, Attempt: attempt.result.Attempt},
+		{ScenarioID: artifacts.Transcript.Scenarios[artifactIndex].ScenarioID, Attempt: artifacts.Transcript.Scenarios[artifactIndex].Attempt},
+		{ScenarioID: artifacts.TokenUsage.Scenarios[artifactIndex].ScenarioID, Attempt: artifacts.TokenUsage.Scenarios[artifactIndex].Attempt},
+		{ScenarioID: artifacts.VerifierResults.Scenarios[artifactIndex].ScenarioID, Attempt: artifacts.VerifierResults.Scenarios[artifactIndex].Attempt},
+		{ScenarioID: artifacts.JudgeResults.Scenarios[artifactIndex].ScenarioID, Attempt: artifacts.JudgeResults.Scenarios[artifactIndex].Attempt},
+		{ScenarioID: artifacts.Manifest.Scenarios[attempt.scenarioIndex].ScenarioID, Attempt: manifest.Attempt},
 	}
-	result := artifacts.Results.Scenarios[index]
-	manifest := artifacts.Manifest.Scenarios[index]
-	transcript := artifacts.Transcript.Scenarios[index]
-	usage := artifacts.TokenUsage.Scenarios[index]
-	verifier := artifacts.VerifierResults.Scenarios[index]
-	judge := artifacts.JudgeResults.Scenarios[index]
+	for _, identity := range identities {
+		if identity != attempt.identity {
+			return fmt.Errorf("eval artifact attempt[%d] identities do not match", artifactIndex)
+		}
+	}
+	return nil
+}
+
+func validateArtifactAttemptContracts(
+	artifacts EvaluationArtifactSet,
+	artifactIndex int,
+	attempt resultAttemptReference,
+) error {
+	scenarioID := attempt.identity.ScenarioID
+	scenario := artifacts.Scenarios[attempt.scenarioIndex]
+	result := attempt.result
+	manifest := artifacts.Manifest.Scenarios[attempt.scenarioIndex].Attempts[attempt.attemptIndex]
+	transcript := artifacts.Transcript.Scenarios[artifactIndex]
+	usage := artifacts.TokenUsage.Scenarios[artifactIndex]
+	verifier := artifacts.VerifierResults.Scenarios[artifactIndex]
+	judge := artifacts.JudgeResults.Scenarios[artifactIndex]
+	events := evaluationAttemptEvents(artifacts.Events, attempt.identity)
 	if !reflect.DeepEqual(manifest.Roles, result.Roles) {
-		return fmt.Errorf("scenario %s manifest roles do not match results", scenarioID)
+		return fmt.Errorf("scenario %s attempt %d manifest roles do not match results", scenarioID, result.Attempt)
 	}
 	if artifacts.Manifest.Candidate != nil && len(result.Roles) > 0 {
 		candidate := CandidateConfiguration{
@@ -228,20 +322,20 @@ func validateArtifactScenarioContracts(
 			Roles:         artifacts.Manifest.Candidate.Roles,
 		}
 		if err := validateAppliedCandidate(candidate, result.Roles); err != nil {
-			return fmt.Errorf("scenario %s candidate role evidence is invalid: %w", scenarioID, err)
+			return fmt.Errorf("scenario %s attempt %d candidate role evidence is invalid: %w", scenarioID, result.Attempt, err)
 		}
 	}
 	if err := validateResultVerifierEvidence(scenarioID, result, verifier); err != nil {
 		return err
 	}
-	if err := validateResultControlEvidence(artifacts.Events, scenario, result); err != nil {
+	if err := validateResultControlEvidence(events, scenario, result); err != nil {
 		return err
 	}
-	if err := validateTokenEventEvidence(artifacts.Events, scenarioID, usage, judge); err != nil {
+	if err := validateTokenEventEvidence(events, scenarioID, result.Attempt, usage, judge); err != nil {
 		return err
 	}
 	if err := validateCompletedScenarioEvidence(
-		artifacts.Events,
+		events,
 		artifacts.Manifest.Sandbox,
 		scenarioID,
 		result,
@@ -250,10 +344,37 @@ func validateArtifactScenarioContracts(
 	); err != nil {
 		return err
 	}
-	if err := validateTranscriptEventEvidence(artifacts.Events, scenarioID, transcript); err != nil {
+	if err := validateTranscriptEventEvidence(events, scenarioID, transcript); err != nil {
 		return err
 	}
-	return validateJudgePrerequisites(scenarioID, result, transcript, verifier, judge)
+	if err := validateJudgePrerequisites(scenarioID, result, transcript, verifier, judge); err != nil {
+		return err
+	}
+	wantStatus := classifyScenarioAttemptStatus(result.Classification, &judge)
+	if result.Status != wantStatus {
+		return fmt.Errorf("scenario %s attempt %d status is %s, want %s from communication evidence", scenarioID, result.Attempt, result.Status, wantStatus)
+	}
+	return nil
+}
+
+func scenarioResultAttemptCount(result ScenarioEvaluationResult) int {
+	if result.Rerun != nil {
+		return EvaluationAttemptRerun
+	}
+	return EvaluationAttemptFirst
+}
+
+func evaluationAttemptEvents(
+	events []EvaluationEvent,
+	identity evaluationAttemptIdentity,
+) []EvaluationEvent {
+	filtered := make([]EvaluationEvent, 0)
+	for _, event := range events {
+		if event.ScenarioID == identity.ScenarioID && event.Attempt == identity.Attempt {
+			filtered = append(filtered, event)
+		}
+	}
+	return filtered
 }
 
 func validateResultControlEvidence(
@@ -294,10 +415,11 @@ func validateResultVerifierEvidence(
 func validateTokenEventEvidence(
 	events []EvaluationEvent,
 	scenarioID string,
+	attempt int,
 	usage ScenarioTokenUsage,
 	judge ScenarioJudgeResult,
 ) error {
-	derivedUsage, err := deriveTokenEventUsage(events, scenarioID)
+	derivedUsage, err := deriveTokenEventUsage(events, scenarioID, attempt)
 	if err != nil {
 		return err
 	}
@@ -313,17 +435,18 @@ func validateTokenEventEvidence(
 func deriveTokenEventUsage(
 	events []EvaluationEvent,
 	scenarioID string,
+	attempt int,
 ) (ScenarioTokenUsage, error) {
 	observations := make([]agent.TokenUsageObservation, 0)
 	for _, event := range events {
-		if event.ScenarioID == scenarioID && event.TokenUsage != nil {
+		if event.ScenarioID == scenarioID && event.Attempt == attempt && event.TokenUsage != nil {
 			observations = append(observations, *event.TokenUsage)
 		}
 	}
 	if len(observations) == 0 {
-		return EmptyScenarioTokenUsage(scenarioID), nil
+		return EmptyScenarioTokenUsage(scenarioID, attempt), nil
 	}
-	usage, err := AggregateScenarioTokenUsage(scenarioID, observations)
+	usage, err := AggregateScenarioTokenUsage(scenarioID, attempt, observations)
 	if err != nil {
 		return ScenarioTokenUsage{}, fmt.Errorf("scenario %s accounting event evidence is invalid: %w", scenarioID, err)
 	}
@@ -375,7 +498,7 @@ func validateTranscriptEventEvidence(
 	}
 	entries := make([]TranscriptEntry, 0, len(transcript.Entries))
 	for _, event := range events {
-		if event.ScenarioID != scenarioID {
+		if event.ScenarioID != scenarioID || event.Attempt != transcript.Attempt {
 			continue
 		}
 		entry, err := transcriptEntryFromEvaluationEvent(event)
@@ -413,7 +536,7 @@ func validateCompletedScenarioEvidence(
 	if !usage.System.EvidenceAvailable {
 		return fmt.Errorf("completed scenario %s omitted system token evidence", scenarioID)
 	}
-	if !evaluationEventsContainSemanticEvidence(events, scenarioID) {
+	if !evaluationEventsContainSemanticEvidence(events, scenarioID, result.Attempt) {
 		return fmt.Errorf("completed scenario %s omitted its semantic event evidence", scenarioID)
 	}
 	return nil
@@ -434,9 +557,14 @@ func validateJudgePrerequisites(
 	return nil
 }
 
-func evaluationEventsContainSemanticEvidence(events []EvaluationEvent, scenarioID string) bool {
+func evaluationEventsContainSemanticEvidence(
+	events []EvaluationEvent,
+	scenarioID string,
+	attempt int,
+) bool {
 	for _, event := range events {
-		if event.ScenarioID == scenarioID && event.Kind != EvaluationEventTokenUsage {
+		if event.ScenarioID == scenarioID && event.Attempt == attempt &&
+			event.Kind != EvaluationEventTokenUsage {
 			return true
 		}
 	}

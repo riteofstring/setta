@@ -62,6 +62,7 @@ func runEvaluationScenario(
 	images *phase1Images,
 	sandbox *ManifestSandbox,
 	scenario Scenario,
+	attempt int,
 ) phase1RunState {
 	fixture, err := preparePhase1Fixture(ctx, config.repoRoot)
 	if err != nil {
@@ -80,7 +81,7 @@ func runEvaluationScenario(
 		return state
 	}
 	resources := newPhase1DockerResources(client, suffix, images, fixture)
-	state := executePhase1Scenario(ctx, config, resources, scenario)
+	state := executePhase1Scenario(ctx, config, resources, scenario, attempt)
 	state.sandbox = cloneManifestSandbox(sandbox)
 	cleanupContext, cancel := context.WithTimeout(context.Background(), phase1CleanupTimeout)
 	cleanupErr := resources.cleanupScenario(cleanupContext)
@@ -98,6 +99,7 @@ func executePhase1Scenario(
 	config phase1NormalizedConfig,
 	resources *phase1DockerResources,
 	scenario Scenario,
+	attempt int,
 ) phase1RunState {
 	scenarioContext, abortScenario := context.WithCancel(ctx)
 	defer abortScenario()
@@ -114,6 +116,7 @@ func executePhase1Scenario(
 		scenarioContext,
 		backend,
 		scenario,
+		attempt,
 		phase1WorkspaceRoot,
 		config.candidate,
 	)
@@ -132,6 +135,7 @@ func executePhase1Scenario(
 		observation,
 		provider,
 		scenario.ID,
+		attempt,
 		observations,
 		tokenEvidenceErr,
 		err,
@@ -152,6 +156,7 @@ func phase1StateAfterProviderEvidence(
 	observation Phase1HTTPObservation,
 	provider *phase1ProviderBroker,
 	scenarioID string,
+	attempt int,
 	observations []agent.TokenUsageObservation,
 	tokenEvidenceErr error,
 	orchestrationErr error,
@@ -193,6 +198,7 @@ func phase1StateAfterProviderEvidence(
 		observation,
 		provider,
 		scenarioID,
+		attempt,
 		observations,
 		tokenEvidenceErr,
 	)
@@ -203,6 +209,7 @@ func phase1CompletedTokenState(
 	observation Phase1HTTPObservation,
 	provider *phase1ProviderBroker,
 	scenarioID string,
+	attempt int,
 	observations []agent.TokenUsageObservation,
 	tokenEvidenceErr error,
 ) phase1RunState {
@@ -213,7 +220,7 @@ func phase1CompletedTokenState(
 			observation.Roles,
 		)
 	}
-	tokenUsage, accountingErr := AggregateScenarioTokenUsage(scenarioID, observations)
+	tokenUsage, accountingErr := AggregateScenarioTokenUsage(scenarioID, attempt, observations)
 	if accountingErr == nil {
 		accountingErr = CorrelateSystemTokenUsage(tokenUsage, observation.ResolvedInvocations)
 	}
@@ -231,6 +238,7 @@ func phase1CompletedTokenState(
 	events, eventsErr := appendTokenUsageEvents(
 		state.events,
 		scenarioID,
+		attempt,
 		observations,
 		time.Now().UTC(),
 	)
@@ -302,7 +310,12 @@ func completePhase2Judge(
 	)
 	state, accountingErr := applyPhase2JudgeAccounting(state, scenario.ID, run)
 	if err != nil || accountingErr != nil {
-		return phase2JudgeUnavailableState(state, scenario.ID, errors.Join(err, accountingErr))
+		return phase2JudgeUnavailableState(
+			state,
+			scenario.ID,
+			state.transcript.Attempt,
+			errors.Join(err, accountingErr),
+		)
 	}
 	state.judge = &run.result
 	return state
@@ -330,6 +343,7 @@ func applyPhase2JudgeAccounting(
 	events, err := appendTokenUsageEvents(
 		state.events,
 		scenarioID,
+		usage.Attempt,
 		run.observations,
 		time.Now().UTC(),
 	)
@@ -344,6 +358,7 @@ func applyPhase2JudgeAccounting(
 func phase2JudgeUnavailableState(
 	state phase1RunState,
 	scenarioID string,
+	attempt int,
 	cause error,
 ) phase1RunState {
 	message := "Communication judge evidence is unavailable"
@@ -357,7 +372,7 @@ func phase2JudgeUnavailableState(
 	if err != nil {
 		panic(fmt.Sprintf("invalid communication judge diagnostic: %v", err))
 	}
-	unavailable, err := unavailableScenarioJudgeResult(scenarioID, diagnostic)
+	unavailable, err := unavailableScenarioJudgeResult(scenarioID, attempt, diagnostic)
 	if err != nil {
 		panic(fmt.Sprintf("invalid unavailable communication judge result: %v", err))
 	}

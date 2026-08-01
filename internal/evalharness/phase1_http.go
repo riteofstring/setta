@@ -14,6 +14,7 @@ import (
 )
 
 type Phase1HTTPObservation struct {
+	Attempt             int
 	WorkspaceID         string
 	WorkstreamID        string
 	ConversationID      string
@@ -51,6 +52,7 @@ func RunPhase1ScenarioOverHTTP(
 	ctx context.Context,
 	client *BackendClient,
 	scenario Scenario,
+	attempt int,
 	workspaceRoot string,
 	candidate *loadedCandidateConfiguration,
 ) (Phase1HTTPObservation, error) {
@@ -63,6 +65,9 @@ func RunPhase1ScenarioOverHTTP(
 	if err := validatePhase1HTTPScenario(scenario); err != nil {
 		return Phase1HTTPObservation{}, err
 	}
+	if err := validateEvaluationAttempt(attempt); err != nil {
+		return Phase1HTTPObservation{}, err
+	}
 	root, err := validatePhase1WorkspaceRoot(workspaceRoot)
 	if err != nil {
 		return Phase1HTTPObservation{}, err
@@ -72,7 +77,14 @@ func RunPhase1ScenarioOverHTTP(
 		time.Duration(scenario.TimeoutSeconds)*time.Second,
 	)
 	defer cancel()
-	observation, runErr := runPhase1ScenarioOverHTTP(scenarioCtx, client, scenario, root, candidate)
+	observation, runErr := runPhase1ScenarioOverHTTP(
+		scenarioCtx,
+		client,
+		scenario,
+		attempt,
+		root,
+		candidate,
+	)
 	if runErr == nil {
 		return observation, nil
 	}
@@ -103,6 +115,7 @@ func runPhase1ScenarioOverHTTP(
 	ctx context.Context,
 	client *BackendClient,
 	scenario Scenario,
+	attempt int,
 	workspaceRoot string,
 	candidate *loadedCandidateConfiguration,
 ) (Phase1HTTPObservation, error) {
@@ -115,6 +128,7 @@ func runPhase1ScenarioOverHTTP(
 	if err != nil {
 		return observation, err
 	}
+	observation.Attempt = attempt
 	defer directorEvents.Close()
 	return orchestrateEvaluationScenario(
 		ctx,
@@ -236,11 +250,11 @@ func collectPhase2ConversationEvidence(
 	if err := validateCompletePhase2Snapshot(snapshot); err != nil {
 		return observation, err
 	}
-	events, err := buildEvaluationEvents(scenario, observation, snapshot)
+	events, err := buildEvaluationEvents(scenario, observation.Attempt, observation, snapshot)
 	if err != nil {
 		return observation, fmt.Errorf("build evaluation event log: %w", err)
 	}
-	transcript, err := buildScenarioTranscript(scenario, events)
+	transcript, err := buildScenarioTranscript(scenario, observation.Attempt, events)
 	if err != nil {
 		return observation, fmt.Errorf("build user-visible transcript: %w", err)
 	}

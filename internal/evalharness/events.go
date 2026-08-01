@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	EvaluationEventSchemaVersion = 2
-	EvaluationMaximumEvents      = 4096
-	EvaluationMaximumEventBytes  = 256 * 1024
+	EvaluationEventSchemaVersion   = 3
+	EvaluationMaximumEvents        = 8192
+	EvaluationMaximumAttemptEvents = 4096
+	EvaluationMaximumEventBytes    = 256 * 1024
 )
 
 type EvaluationEventKind string
@@ -71,6 +72,7 @@ type EvaluationConversationState struct {
 type EvaluationEvent struct {
 	SchemaVersion     int                                 `json:"schemaVersion"`
 	ScenarioID        string                              `json:"scenarioId"`
+	Attempt           int                                 `json:"attempt"`
 	Sequence          int                                 `json:"sequence"`
 	RecordedAt        string                              `json:"recordedAt"`
 	Kind              EvaluationEventKind                 `json:"kind"`
@@ -93,6 +95,7 @@ type evaluationEventCandidate struct {
 
 func buildEvaluationEvents(
 	scenario Scenario,
+	attempt int,
 	observation Phase1HTTPObservation,
 	snapshot conversation.ConversationSnapshot,
 ) ([]EvaluationEvent, error) {
@@ -128,7 +131,7 @@ func buildEvaluationEvents(
 	if err != nil {
 		return nil, err
 	}
-	return finalizeEvaluationEventCandidates(scenario.ID, candidates)
+	return finalizeEvaluationEventCandidates(scenario.ID, attempt, candidates)
 }
 
 func initialEvaluationEventCandidates(
@@ -337,8 +340,16 @@ func appendSideEventCandidates(
 
 func finalizeEvaluationEventCandidates(
 	scenarioID string,
+	attempt int,
 	candidates []evaluationEventCandidate,
 ) ([]EvaluationEvent, error) {
+	if len(candidates) > EvaluationMaximumAttemptEvents {
+		return nil, fmt.Errorf(
+			"evaluation attempt event log contains %d entries, maximum is %d",
+			len(candidates),
+			EvaluationMaximumAttemptEvents,
+		)
+	}
 	sort.SliceStable(candidates, func(left int, right int) bool {
 		if candidates[left].when.Equal(candidates[right].when) {
 			return candidates[left].ordinal < candidates[right].ordinal
@@ -350,6 +361,7 @@ func finalizeEvaluationEventCandidates(
 		events[index] = candidate.event
 		events[index].SchemaVersion = EvaluationEventSchemaVersion
 		events[index].ScenarioID = scenarioID
+		events[index].Attempt = attempt
 		events[index].Sequence = index + 1
 		events[index].RecordedAt = candidate.when.UTC().Format(time.RFC3339Nano)
 		if err := events[index].Validate(); err != nil {
@@ -362,11 +374,12 @@ func finalizeEvaluationEventCandidates(
 func appendTokenUsageEvents(
 	events []EvaluationEvent,
 	scenarioID string,
+	attempt int,
 	observations []agent.TokenUsageObservation,
 	recordedAt time.Time,
 ) ([]EvaluationEvent, error) {
-	if len(events)+len(observations) > EvaluationMaximumEvents {
-		return nil, fmt.Errorf("evaluation event log would exceed %d entries", EvaluationMaximumEvents)
+	if len(events)+len(observations) > EvaluationMaximumAttemptEvents {
+		return nil, fmt.Errorf("evaluation attempt event log would exceed %d entries", EvaluationMaximumAttemptEvents)
 	}
 	appended := append([]EvaluationEvent{}, events...)
 	for index := range observations {
@@ -374,6 +387,7 @@ func appendTokenUsageEvents(
 		event := EvaluationEvent{
 			SchemaVersion: EvaluationEventSchemaVersion,
 			ScenarioID:    scenarioID,
+			Attempt:       attempt,
 			Sequence:      len(appended) + 1,
 			RecordedAt:    recordedAt.UTC().Format(time.RFC3339Nano),
 			Kind:          EvaluationEventTokenUsage,
@@ -387,35 +401,44 @@ func appendTokenUsageEvents(
 	return appended, nil
 }
 
-func validateEvaluationEvents(events []EvaluationEvent, scenarioIDs []string) error {
+func validateEvaluationEvents(events []EvaluationEvent, attempts []evaluationAttemptIdentity) error {
 	if events == nil {
 		return errors.New("evaluation events must be an array, not null")
 	}
 	if len(events) > EvaluationMaximumEvents {
 		return fmt.Errorf("evaluation event log contains %d entries, maximum is %d", len(events), EvaluationMaximumEvents)
 	}
-	allowed := make(map[string]bool, len(scenarioIDs))
-	for _, id := range scenarioIDs {
-		allowed[id] = true
+	allowed := make(map[evaluationAttemptIdentity]bool, len(attempts))
+	for _, attempt := range attempts {
+		allowed[attempt] = true
 	}
-	sequences := map[string]int{}
-	previousTimes := map[string]time.Time{}
+	sequences := map[evaluationAttemptIdentity]int{}
+	previousTimes := map[evaluationAttemptIdentity]time.Time{}
 	for index, event := range events {
 		if err := event.Validate(); err != nil {
 			return fmt.Errorf("evaluation event[%d]: %w", index, err)
 		}
-		if !allowed[event.ScenarioID] {
-			return fmt.Errorf("evaluation event[%d] belongs to unknown scenario %s", index, event.ScenarioID)
+		identity := evaluationAttemptIdentity{ScenarioID: event.ScenarioID, Attempt: event.Attempt}
+		if !allowed[identity] {
+			return fmt.Errorf("evaluation event[%d] belongs to unknown scenario attempt %s/%d", index, event.ScenarioID, event.Attempt)
 		}
-		sequences[event.ScenarioID]++
-		if event.Sequence != sequences[event.ScenarioID] {
-			return fmt.Errorf("evaluation event[%d] sequence is %d, want %d", index, event.Sequence, sequences[event.ScenarioID])
+		sequences[identity]++
+		if sequences[identity] > EvaluationMaximumAttemptEvents {
+			return fmt.Errorf(
+				"scenario attempt %s/%d contains more than %d events",
+				event.ScenarioID,
+				event.Attempt,
+				EvaluationMaximumAttemptEvents,
+			)
+		}
+		if event.Sequence != sequences[identity] {
+			return fmt.Errorf("evaluation event[%d] sequence is %d, want %d", index, event.Sequence, sequences[identity])
 		}
 		recordedAt, _ := time.Parse(time.RFC3339Nano, event.RecordedAt)
-		if previous, exists := previousTimes[event.ScenarioID]; exists && recordedAt.Before(previous) {
-			return fmt.Errorf("evaluation event[%d] precedes the prior event for scenario %s", index, event.ScenarioID)
+		if previous, exists := previousTimes[identity]; exists && recordedAt.Before(previous) {
+			return fmt.Errorf("evaluation event[%d] precedes the prior event for scenario attempt %s/%d", index, event.ScenarioID, event.Attempt)
 		}
-		previousTimes[event.ScenarioID] = recordedAt
+		previousTimes[identity] = recordedAt
 	}
 	return nil
 }
@@ -435,6 +458,9 @@ func validateEvaluationEventEnvelope(event EvaluationEvent) error {
 		return fmt.Errorf("schemaVersion is %d, want %d", event.SchemaVersion, EvaluationEventSchemaVersion)
 	}
 	if err := validateScenarioIdentifier("evaluation event scenario id", event.ScenarioID); err != nil {
+		return err
+	}
+	if err := validateEvaluationAttempt(event.Attempt); err != nil {
 		return err
 	}
 	if event.Sequence <= 0 {

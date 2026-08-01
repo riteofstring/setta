@@ -87,6 +87,7 @@ func TestScenarioResultClassifiesObjectiveOutcomes(t *testing.T) {
 			control := mustTestControlForOutcome(t, test.outcome, test.diagnostic)
 			result, err := NewScenarioResult(ScenarioResultInput{
 				Scenario:         validTestScenario(),
+				Attempt:          EvaluationAttemptFirst,
 				ExecutionOutcome: test.outcome,
 				StartedAt:        startedAt,
 				FinishedAt:       startedAt.Add(2 * time.Second),
@@ -108,10 +109,172 @@ func TestScenarioResultClassifiesObjectiveOutcomes(t *testing.T) {
 	}
 }
 
+func TestScenarioResultUsesCommunicationEvidenceForAttemptStatus(t *testing.T) {
+	startedAt := time.Date(2026, time.July, 31, 19, 15, 0, 0, time.UTC)
+	verification := evalverifier.NewResult(
+		ScenarioVerifierStraightforward,
+		[]evalverifier.Check{{ID: "workspace", Passed: true, Detail: "Workspace passed."}},
+		[]string{"README.md"},
+	)
+	judgeResult := func(finalTruthful bool) ScenarioJudgeResult {
+		return ScenarioJudgeResult{
+			ScenarioID:        ScenarioVerifierStraightforward,
+			Attempt:           EvaluationAttemptFirst,
+			EvidenceAvailable: true,
+			Invocation: &JudgeInvocation{
+				ID:               "judge-attempt-status",
+				ProviderThreadID: "judge-thread",
+				ProviderTurnID:   "judge-turn",
+			},
+			Verdict: communicationJudgeVerdict(communicationJudgeChecks{
+				ProgressSufficient:      true,
+				ProgressRestrained:      true,
+				QuestionsNecessary:      true,
+				FinalTruthfulActionable: finalTruthful,
+				InternalMechanicsHidden: true,
+			}),
+		}
+	}
+	unavailable, err := unavailableScenarioJudgeResult(
+		ScenarioVerifierStraightforward,
+		EvaluationAttemptFirst,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("create unavailable judge evidence: %v", err)
+	}
+	tests := []struct {
+		name   string
+		judge  ScenarioJudgeResult
+		status ScenarioAttemptStatus
+	}{
+		{name: "pass", judge: judgeResult(true), status: ScenarioAttemptStatusPass},
+		{name: "communication failure", judge: judgeResult(false), status: ScenarioAttemptStatusFail},
+		{name: "judge unavailable", judge: unavailable, status: ScenarioAttemptStatusInfrastructureFailure},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := NewScenarioResult(ScenarioResultInput{
+				Scenario:         validTestScenario(),
+				Attempt:          EvaluationAttemptFirst,
+				ExecutionOutcome: ScenarioExecutionCompleted,
+				StartedAt:        startedAt,
+				FinishedAt:       startedAt.Add(time.Second),
+				Roles:            validTestEvaluatedRoles(),
+				Control:          validTestPassingControl(),
+				Verifier:         &verification,
+				Judge:            &test.judge,
+			})
+			if err != nil {
+				t.Fatalf("classify completed attempt: %v", err)
+			}
+			if result.Status != test.status {
+				t.Fatalf("attempt status = %s, want %s", result.Status, test.status)
+			}
+		})
+	}
+}
+
+func TestScenarioEvaluationResultClassifiesFirstAttemptStability(t *testing.T) {
+	startedAt := time.Date(2026, time.July, 31, 19, 30, 0, 0, time.UTC)
+	passingVerifier := evalverifier.NewResult(
+		ScenarioVerifierStraightforward,
+		[]evalverifier.Check{{ID: "workspace", Passed: true, Detail: "Workspace passed."}},
+		[]string{"README.md"},
+	)
+	passingAttempt := func(attempt int, offset time.Duration) ScenarioResult {
+		result, err := NewScenarioResult(ScenarioResultInput{
+			Scenario:         validTestScenario(),
+			Attempt:          attempt,
+			ExecutionOutcome: ScenarioExecutionCompleted,
+			StartedAt:        startedAt.Add(offset),
+			FinishedAt:       startedAt.Add(offset + time.Second),
+			Roles:            validTestEvaluatedRoles(),
+			Control:          validTestPassingControl(),
+			Verifier:         &passingVerifier,
+			Judge: &ScenarioJudgeResult{
+				ScenarioID:        ScenarioVerifierStraightforward,
+				Attempt:           attempt,
+				EvidenceAvailable: true,
+				Invocation: &JudgeInvocation{
+					ID:               "judge-stability",
+					ProviderThreadID: "judge-thread",
+					ProviderTurnID:   "judge-turn",
+				},
+				Verdict: communicationJudgeVerdict(communicationJudgeChecks{
+					ProgressSufficient:      true,
+					ProgressRestrained:      true,
+					QuestionsNecessary:      true,
+					FinalTruthfulActionable: true,
+					InternalMechanicsHidden: true,
+				}),
+			},
+		})
+		if err != nil {
+			t.Fatalf("create passing attempt %d: %v", attempt, err)
+		}
+		return result
+	}
+	failingAttempt := func(attempt int, offset time.Duration) ScenarioResult {
+		diagnostic := mustTestDiagnostic(t, "scenario_timeout", "The scenario reached its runaway ceiling.")
+		result, err := NewScenarioResult(ScenarioResultInput{
+			Scenario:         validTestScenario(),
+			Attempt:          attempt,
+			ExecutionOutcome: ScenarioExecutionTimedOut,
+			StartedAt:        startedAt.Add(offset),
+			FinishedAt:       startedAt.Add(offset + time.Second),
+			Roles:            validTestEvaluatedRoles(),
+			Control:          mustTestControlForOutcome(t, ScenarioExecutionTimedOut, diagnostic),
+			Diagnostic:       diagnostic,
+		})
+		if err != nil {
+			t.Fatalf("create failing attempt %d: %v", attempt, err)
+		}
+		return result
+	}
+
+	firstPass := passingAttempt(EvaluationAttemptFirst, 0)
+	passed, err := NewScenarioEvaluationResult(firstPass.ScenarioID, firstPass, nil)
+	if err != nil || passed.Stability != ScenarioStabilityPass {
+		t.Fatalf("pass stability = %s / %v", passed.Stability, err)
+	}
+	firstFail := failingAttempt(EvaluationAttemptFirst, 0)
+	rerunFail := failingAttempt(EvaluationAttemptRerun, time.Second)
+	stable, err := NewScenarioEvaluationResult(firstFail.ScenarioID, firstFail, &rerunFail)
+	if err != nil || stable.Stability != ScenarioStabilityStableFail {
+		t.Fatalf("stable-fail stability = %s / %v", stable.Stability, err)
+	}
+	rerunPass := passingAttempt(EvaluationAttemptRerun, time.Second)
+	flaky, err := NewScenarioEvaluationResult(firstFail.ScenarioID, firstFail, &rerunPass)
+	if err != nil || flaky.Stability != ScenarioStabilityFlaky {
+		t.Fatalf("flaky stability = %s / %v", flaky.Stability, err)
+	}
+
+	infrastructure := firstFail
+	infrastructure.ExecutionOutcome = ScenarioExecutionInfrastructureFailed
+	infrastructure.Classification = ScenarioClassificationInfrastructureFailure
+	infrastructure.Status = ScenarioAttemptStatusInfrastructureFailure
+	infrastructure.Roles = []EvaluatedRoleConfiguration{}
+	infrastructure.Control = mustTestControlForOutcome(
+		t,
+		ScenarioExecutionInfrastructureFailed,
+		infrastructure.Diagnostic,
+	)
+	unavailable, err := NewScenarioEvaluationResult(
+		infrastructure.ScenarioID,
+		infrastructure,
+		nil,
+	)
+	if err != nil || unavailable.Stability != ScenarioStabilityInfrastructureFailure {
+		t.Fatalf("infrastructure stability = %s / %v", unavailable.Stability, err)
+	}
+}
+
 func TestScenarioResultRejectsAmbiguousClassificationInputs(t *testing.T) {
 	startedAt := time.Date(2026, time.July, 31, 19, 0, 0, 0, time.UTC)
 	_, err := NewScenarioResult(ScenarioResultInput{
 		Scenario:         validTestScenario(),
+		Attempt:          EvaluationAttemptFirst,
 		ExecutionOutcome: ScenarioExecutionCompleted,
 		StartedAt:        startedAt,
 		FinishedAt:       startedAt.Add(time.Second),
@@ -132,6 +295,7 @@ func TestScenarioResultRejectsAmbiguousClassificationInputs(t *testing.T) {
 	} {
 		_, err := NewScenarioResult(ScenarioResultInput{
 			Scenario:         validTestScenario(),
+			Attempt:          EvaluationAttemptFirst,
 			ExecutionOutcome: outcome,
 			StartedAt:        startedAt,
 			FinishedAt:       startedAt.Add(time.Second),
@@ -158,6 +322,7 @@ func TestScenarioResultClassifiesPassingWorkspaceControlFailure(t *testing.T) {
 	control.Clarification.Passed = false
 	result, err := NewScenarioResult(ScenarioResultInput{
 		Scenario:         validTestScenario(),
+		Attempt:          EvaluationAttemptFirst,
 		ExecutionOutcome: ScenarioExecutionCompleted,
 		StartedAt:        startedAt,
 		FinishedAt:       startedAt.Add(time.Second),
@@ -184,6 +349,7 @@ func TestScenarioResultRejectsInvalidRequestedRoleProfile(t *testing.T) {
 	)
 	_, err := NewScenarioResult(ScenarioResultInput{
 		Scenario:         validTestScenario(),
+		Attempt:          EvaluationAttemptFirst,
 		ExecutionOutcome: ScenarioExecutionCompleted,
 		StartedAt:        startedAt,
 		FinishedAt:       startedAt.Add(time.Second),
@@ -221,6 +387,7 @@ func TestWriteResultArtifactsPublishesValidatedSet(t *testing.T) {
 	)
 	scenario, err := NewScenarioResult(ScenarioResultInput{
 		Scenario:         validTestScenario(),
+		Attempt:          EvaluationAttemptFirst,
 		ExecutionOutcome: ScenarioExecutionCompleted,
 		StartedAt:        startedAt,
 		FinishedAt:       startedAt.Add(1500 * time.Millisecond),
@@ -231,11 +398,16 @@ func TestWriteResultArtifactsPublishesValidatedSet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("classify scenario: %v", err)
 	}
+	scenario.Status = ScenarioAttemptStatusPass
+	evaluation, err := NewScenarioEvaluationResult(scenario.ScenarioID, scenario, nil)
+	if err != nil {
+		t.Fatalf("classify scenario stability: %v", err)
+	}
 	results, err := NewResults(
 		strings.Repeat("a", 40),
 		startedAt,
 		startedAt.Add(2*time.Second),
-		[]ScenarioResult{scenario},
+		[]ScenarioEvaluationResult{evaluation},
 	)
 	if err != nil {
 		t.Fatalf("build results: %v", err)
@@ -249,7 +421,7 @@ func TestWriteResultArtifactsPublishesValidatedSet(t *testing.T) {
 		JudgeModel,
 	)
 	judgeAttribution.ReasoningEffort = JudgeReasoningEffort
-	scenarioUsage, err := AggregateScenarioTokenUsage(scenario.ScenarioID, []agent.TokenUsageObservation{
+	scenarioUsage, err := AggregateScenarioTokenUsage(scenario.ScenarioID, EvaluationAttemptFirst, []agent.TokenUsageObservation{
 		testTokenObservation(
 			testTokenAttribution(agent.TokenUsageBucketSystem, agent.TokenUsageRoleAgent, "artifact-agent", "gpt-agent"),
 			"artifact-agent-thread",
@@ -322,6 +494,7 @@ func assertArtifactSetRejectsMismatchedEvidence(
 		}
 		usage, err := AggregateScenarioTokenUsage(
 			mismatched.Results.Scenarios[0].ScenarioID,
+			EvaluationAttemptFirst,
 			observations,
 		)
 		if err != nil {
@@ -335,9 +508,19 @@ func assertArtifactSetRejectsMismatchedEvidence(
 		mismatched.Transcript.Scenarios[0].Entries[0].Text = "Complete a different fixture task."
 		assertArtifactSetValidationError(t, mismatched, "transcript does not match public event evidence")
 	})
+	t.Run("attempt identity", func(t *testing.T) {
+		mismatched := cloneTestArtifactSet(t, artifacts)
+		mismatched.Transcript.Scenarios[0].Attempt = EvaluationAttemptRerun
+		assertArtifactSetValidationError(t, mismatched, "identities do not match")
+	})
+	t.Run("first-attempt stability", func(t *testing.T) {
+		mismatched := cloneTestArtifactSet(t, artifacts)
+		mismatched.Results.Scenarios[0].Stability = ScenarioStabilityFlaky
+		assertArtifactSetValidationError(t, mismatched, "stability is FLAKY, want PASS")
+	})
 	t.Run("control event reference", func(t *testing.T) {
 		mismatched := cloneTestArtifactSet(t, artifacts)
-		mismatched.Results.Scenarios[0].Control.Clarification.EvidenceEventSequences = []int{1}
+		mismatched.Results.Scenarios[0].FirstAttempt.Control.Clarification.EvidenceEventSequences = []int{1}
 		assertArtifactSetValidationError(t, mismatched, "does not match typed event evidence")
 	})
 	t.Run("token-only event log", func(t *testing.T) {
@@ -430,6 +613,7 @@ func assertPublishedResultReport(t *testing.T, path string) {
 	}
 	if !strings.Contains(string(report), "agent=42") ||
 		!strings.Contains(string(report), "forbidden=pass") ||
+		!strings.Contains(string(report), "First-attempt passes: **1/1**") ||
 		strings.Contains(string(report), "judge=99") {
 		t.Fatalf("report system/judge token separation = %s", report)
 	}
@@ -443,34 +627,40 @@ func validTestArtifactSet(
 	t.Helper()
 	manifestScenarios := make([]ManifestScenario, len(results.Scenarios))
 	scenarios := make([]Scenario, len(results.Scenarios))
-	transcripts := make([]ScenarioTranscript, len(results.Scenarios))
-	verifiers := make([]ScenarioVerifierResult, len(results.Scenarios))
-	judges := make([]ScenarioJudgeResult, len(results.Scenarios))
+	attempts := resultAttemptReferences(results)
+	transcripts := make([]ScenarioTranscript, len(attempts))
+	verifiers := make([]ScenarioVerifierResult, len(attempts))
+	judges := make([]ScenarioJudgeResult, len(attempts))
 	for index, scenario := range results.Scenarios {
 		scenarios[index] = validTestScenario()
 		if scenarios[index].ID != scenario.ScenarioID {
 			t.Fatalf("test artifact scenario %d is %s, want %s", index, scenarios[index].ID, scenario.ScenarioID)
 		}
-		manifestScenarios[index] = validTestManifestScenario(scenario.ScenarioID, scenario.Roles)
-		if tokenUsage.Scenarios[index].Judge.EvidenceAvailable {
-			judgeTurns := tokenUsage.Scenarios[index].Judge.ProviderTurns
+		manifestScenarios[index] = validTestManifestScenarioForResult(scenario)
+	}
+	for index, attempt := range attempts {
+		usage := tokenUsage.Scenarios[index]
+		if usage.Judge.EvidenceAvailable {
+			judgeTurns := usage.Judge.ProviderTurns
 			if len(judgeTurns) != 1 {
 				t.Fatalf("judge provider turns = %d, want 1", len(judgeTurns))
 			}
 			judgeTurn := judgeTurns[0]
 			transcripts[index] = ScenarioTranscript{
-				ScenarioID:        scenario.ScenarioID,
+				ScenarioID:        attempt.identity.ScenarioID,
+				Attempt:           attempt.identity.Attempt,
 				EvidenceAvailable: true,
 				Entries: []TranscriptEntry{{
 					Sequence:   1,
 					Speaker:    TranscriptSpeakerUser,
 					Kind:       TranscriptEntryUserSubmission,
-					Text:       scenarios[index].Steps[0].Text,
-					OccurredAt: scenario.StartedAt.Format(time.RFC3339Nano),
+					Text:       scenarios[attempt.scenarioIndex].Steps[0].Text,
+					OccurredAt: attempt.result.StartedAt.Format(time.RFC3339Nano),
 				}},
 			}
 			judges[index] = ScenarioJudgeResult{
-				ScenarioID:        scenario.ScenarioID,
+				ScenarioID:        attempt.identity.ScenarioID,
+				Attempt:           attempt.identity.Attempt,
 				EvidenceAvailable: true,
 				Invocation: &JudgeInvocation{
 					ID:               judgeTurn.Attribution.InvocationID,
@@ -486,11 +676,21 @@ func validTestArtifactSet(
 				}),
 			}
 		} else {
-			transcripts[index] = mustUnavailableTestTranscript(t, scenario.ScenarioID, scenario.Diagnostic)
-			judges[index] = mustUnavailableTestJudge(t, scenario.ScenarioID, scenario.Diagnostic)
+			transcripts[index] = mustUnavailableTestTranscript(
+				t,
+				attempt.identity.ScenarioID,
+				attempt.identity.Attempt,
+				attempt.result.Diagnostic,
+			)
+			judges[index] = mustUnavailableTestJudge(
+				t,
+				attempt.identity.ScenarioID,
+				attempt.identity.Attempt,
+				attempt.result.Diagnostic,
+			)
 		}
 		var err error
-		verifiers[index], err = scenarioVerifierResult(scenario)
+		verifiers[index], err = scenarioVerifierResult(attempt.result)
 		if err != nil {
 			t.Fatalf("create verifier evidence: %v", err)
 		}
@@ -527,19 +727,20 @@ func testArtifactEvents(
 	scenarios []Scenario,
 ) []EvaluationEvent {
 	events := []EvaluationEvent{}
-	for index, scenario := range results.Scenarios {
+	for index, attempt := range resultAttemptReferences(results) {
 		sequence := 1
-		recordedAt := scenario.StartedAt
+		recordedAt := attempt.result.StartedAt
 		workstreamID := "workstream-eval"
 		events = append(events, EvaluationEvent{
 			SchemaVersion: EvaluationEventSchemaVersion,
-			ScenarioID:    scenario.ScenarioID,
+			ScenarioID:    attempt.identity.ScenarioID,
+			Attempt:       attempt.identity.Attempt,
 			Sequence:      sequence,
 			RecordedAt:    recordedAt.Format(time.RFC3339Nano),
 			Kind:          EvaluationEventUserSubmission,
 			UserSubmission: &EvaluationUserSubmission{
 				StepIndex: 0,
-				Text:      scenarios[index].Steps[0].Text,
+				Text:      scenarios[attempt.scenarioIndex].Steps[0].Text,
 			},
 		})
 		sequence++
@@ -553,7 +754,8 @@ func testArtifactEvents(
 		directorAttribution.ReasoningEffort = conversation.DefaultDirectorRoleProfile().ReasoningEffort
 		events = append(events, EvaluationEvent{
 			SchemaVersion: EvaluationEventSchemaVersion,
-			ScenarioID:    scenario.ScenarioID,
+			ScenarioID:    attempt.identity.ScenarioID,
+			Attempt:       attempt.identity.Attempt,
 			Sequence:      sequence,
 			RecordedAt:    recordedAt.Format(time.RFC3339Nano),
 			Kind:          EvaluationEventDirectorReceipt,
@@ -582,7 +784,8 @@ func testArtifactEvents(
 		recordedAt = recordedAt.Add(time.Nanosecond)
 		events = append(events, EvaluationEvent{
 			SchemaVersion: EvaluationEventSchemaVersion,
-			ScenarioID:    scenario.ScenarioID,
+			ScenarioID:    attempt.identity.ScenarioID,
+			Attempt:       attempt.identity.Attempt,
 			Sequence:      sequence,
 			RecordedAt:    recordedAt.Format(time.RFC3339Nano),
 			Kind:          EvaluationEventConversationState,
@@ -591,7 +794,7 @@ func testArtifactEvents(
 				ConversationID: "conversation-eval",
 				Turns: []EvaluationConversationTurnState{{
 					TurnID:        "turn-eval",
-					AuthoredInput: conversation.AuthoredInput{Text: scenarios[index].Steps[0].Text},
+					AuthoredInput: conversation.AuthoredInput{Text: scenarios[attempt.scenarioIndex].Steps[0].Text},
 					Delivery:      conversation.TurnDeliveryNormal,
 					Status:        conversation.TurnStatusCompleted,
 				}},
@@ -613,7 +816,8 @@ func testArtifactEvents(
 				}
 				events = append(events, EvaluationEvent{
 					SchemaVersion: EvaluationEventSchemaVersion,
-					ScenarioID:    scenario.ScenarioID,
+					ScenarioID:    attempt.identity.ScenarioID,
+					Attempt:       attempt.identity.Attempt,
 					Sequence:      sequence,
 					RecordedAt:    recordedAt.Format(time.RFC3339Nano),
 					Kind:          EvaluationEventTokenUsage,
@@ -660,8 +864,22 @@ func validTestManifestScenario(
 		Fixture:                   ScenarioFixtureTypeScriptService,
 		FixtureSHA256:             strings.Repeat("b", 64),
 		CommunicationRubricSHA256: strings.Repeat("c", 64),
-		Roles:                     cloneEvaluatedRoleConfigurations(roles),
+		Attempts: []ManifestScenarioAttempt{{
+			Attempt: EvaluationAttemptFirst,
+			Roles:   cloneEvaluatedRoleConfigurations(roles),
+		}},
 	}
+}
+
+func validTestManifestScenarioForResult(result ScenarioEvaluationResult) ManifestScenario {
+	manifest := validTestManifestScenario(result.ScenarioID, result.FirstAttempt.Roles)
+	if result.Rerun != nil {
+		manifest.Attempts = append(manifest.Attempts, ManifestScenarioAttempt{
+			Attempt: EvaluationAttemptRerun,
+			Roles:   cloneEvaluatedRoleConfigurations(result.Rerun.Roles),
+		})
+	}
+	return manifest
 }
 
 func validTestManifestSandbox() *ManifestSandbox {
@@ -678,10 +896,11 @@ func validTestManifestSandbox() *ManifestSandbox {
 func mustUnavailableTestTranscript(
 	t *testing.T,
 	scenarioID string,
+	attempt int,
 	diagnostic *ScenarioDiagnostic,
 ) ScenarioTranscript {
 	t.Helper()
-	transcript, err := unavailableScenarioTranscript(scenarioID, diagnostic)
+	transcript, err := unavailableScenarioTranscript(scenarioID, attempt, diagnostic)
 	if err != nil {
 		t.Fatalf("create unavailable transcript: %v", err)
 	}
@@ -691,10 +910,11 @@ func mustUnavailableTestTranscript(
 func mustUnavailableTestJudge(
 	t *testing.T,
 	scenarioID string,
+	attempt int,
 	diagnostic *ScenarioDiagnostic,
 ) ScenarioJudgeResult {
 	t.Helper()
-	judge, err := unavailableScenarioJudgeResult(scenarioID, diagnostic)
+	judge, err := unavailableScenarioJudgeResult(scenarioID, attempt, diagnostic)
 	if err != nil {
 		t.Fatalf("create unavailable judge: %v", err)
 	}

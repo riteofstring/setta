@@ -11,7 +11,7 @@ import (
 	"setta/internal/conversation"
 )
 
-const TokenUsageSchemaVersion = 1
+const TokenUsageSchemaVersion = 2
 
 type TokenUsageArtifact struct {
 	SchemaVersion int                  `json:"schemaVersion"`
@@ -20,6 +20,7 @@ type TokenUsageArtifact struct {
 
 type ScenarioTokenUsage struct {
 	ScenarioID string                 `json:"scenarioId"`
+	Attempt    int                    `json:"attempt"`
 	System     TokenUsageBucketResult `json:"system"`
 	Judge      TokenUsageBucketResult `json:"judge"`
 }
@@ -79,9 +80,10 @@ type tokenUsageAccumulator struct {
 	providerTurnThreads map[string]string
 }
 
-func EmptyScenarioTokenUsage(scenarioID string) ScenarioTokenUsage {
+func EmptyScenarioTokenUsage(scenarioID string, attempt int) ScenarioTokenUsage {
 	return ScenarioTokenUsage{
 		ScenarioID: scenarioID,
+		Attempt:    attempt,
 		System:     emptyTokenUsageBucket(),
 		Judge:      emptyTokenUsageBucket(),
 	}
@@ -89,10 +91,14 @@ func EmptyScenarioTokenUsage(scenarioID string) ScenarioTokenUsage {
 
 func AggregateScenarioTokenUsage(
 	scenarioID string,
+	attempt int,
 	observations []agent.TokenUsageObservation,
 ) (ScenarioTokenUsage, error) {
-	result := EmptyScenarioTokenUsage(scenarioID)
+	result := EmptyScenarioTokenUsage(scenarioID, attempt)
 	if err := validateScenarioIdentifier("token usage scenario id", scenarioID); err != nil {
+		return ScenarioTokenUsage{}, err
+	}
+	if err := validateEvaluationAttempt(attempt); err != nil {
 		return ScenarioTokenUsage{}, err
 	}
 	if len(observations) == 0 {
@@ -247,24 +253,29 @@ func (artifact TokenUsageArtifact) Validate() error {
 	if artifact.SchemaVersion != TokenUsageSchemaVersion {
 		return fmt.Errorf("token usage schemaVersion is %d, want %d", artifact.SchemaVersion, TokenUsageSchemaVersion)
 	}
-	if artifact.Scenarios == nil || len(artifact.Scenarios) == 0 {
-		return errors.New("token usage scenarios must be a non-empty array")
+	if artifact.Scenarios == nil || len(artifact.Scenarios) == 0 ||
+		len(artifact.Scenarios) > ResultMaximumAttempts {
+		return fmt.Errorf("token usage contains %d attempts, want 1-%d", len(artifact.Scenarios), ResultMaximumAttempts)
 	}
-	seen := map[string]bool{}
+	seen := map[evaluationAttemptIdentity]bool{}
 	for index, scenario := range artifact.Scenarios {
 		if err := scenario.Validate(); err != nil {
 			return fmt.Errorf("token usage scenario[%d]: %w", index, err)
 		}
-		if seen[scenario.ScenarioID] {
-			return fmt.Errorf("token usage scenario %s is duplicated", scenario.ScenarioID)
+		identity := evaluationAttemptIdentity{ScenarioID: scenario.ScenarioID, Attempt: scenario.Attempt}
+		if seen[identity] {
+			return fmt.Errorf("token usage scenario attempt %s/%d is duplicated", scenario.ScenarioID, scenario.Attempt)
 		}
-		seen[scenario.ScenarioID] = true
+		seen[identity] = true
 	}
 	return nil
 }
 
 func (scenario ScenarioTokenUsage) Validate() error {
 	if err := validateScenarioIdentifier("token usage scenario id", scenario.ScenarioID); err != nil {
+		return err
+	}
+	if err := validateEvaluationAttempt(scenario.Attempt); err != nil {
 		return err
 	}
 	if err := validateTokenUsageBucket(agent.TokenUsageBucketSystem, scenario.System); err != nil {

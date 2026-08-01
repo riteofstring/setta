@@ -130,7 +130,7 @@ func RenderResultReport(artifactSet EvaluationArtifactSet) (string, error) {
 		return "", err
 	}
 	results := artifactSet.Results
-	tokenUsage := artifactSet.TokenUsage
+	evidence := evaluationReportEvidenceByAttempt(artifactSet)
 	var report strings.Builder
 	report.WriteString("# Setta Live AI Evaluation\n\n")
 	fmt.Fprintf(&report, "Setta commit: `%s`  \n", results.SettaCommit)
@@ -145,68 +145,73 @@ func RenderResultReport(artifactSet EvaluationArtifactSet) (string, error) {
 		)
 	}
 	fmt.Fprintf(&report, "Started: `%s`  \n", results.StartedAt.Format(time.RFC3339Nano))
-	fmt.Fprintf(&report, "Finished: `%s`\n\n", results.FinishedAt.Format(time.RFC3339Nano))
+	fmt.Fprintf(&report, "Finished: `%s`  \n", results.FinishedAt.Format(time.RFC3339Nano))
+	fmt.Fprintf(
+		&report,
+		"First-attempt passes: **%d/%d**\n\n",
+		firstAttemptPassCount(results.Scenarios),
+		len(results.Scenarios),
+	)
 
 	report.WriteString("## Ability\n\n")
-	report.WriteString("| Scenario | Classification | Execution | Hidden verifier |\n")
+	report.WriteString("| Scenario | First attempt | Stability | Rerun |\n")
 	report.WriteString("| --- | --- | --- | --- |\n")
 	for _, scenario := range results.Scenarios {
 		fmt.Fprintf(
 			&report,
 			"| `%s` | %s | %s | %s |\n",
 			escapeMarkdownTableCell(scenario.ScenarioID),
-			escapeMarkdownTableCell(string(scenario.Classification)),
-			escapeMarkdownTableCell(string(scenario.ExecutionOutcome)),
-			verifierReportLabel(scenario),
+			abilityAttemptReportLabel(scenario.FirstAttempt),
+			escapeMarkdownTableCell(string(scenario.Stability)),
+			optionalAbilityAttemptReportLabel(scenario.Rerun),
 		)
 	}
 	writeScenarioDiagnostics(&report, results.Scenarios)
+	report.WriteString("First-attempt success is the headline. Only a failed evaluated attempt receives one fresh rerun; infrastructure failure leaves stability unassessed.\n\n")
 
 	report.WriteString("## User Control\n\n")
-	report.WriteString("| Scenario | Overall | Clarification | Typed assertions |\n")
-	report.WriteString("| --- | --- | --- | --- |\n")
+	report.WriteString("| Scenario | First attempt | Rerun |\n")
+	report.WriteString("| --- | --- | --- |\n")
 	for _, scenario := range results.Scenarios {
 		fmt.Fprintf(
 			&report,
-			"| `%s` | %s | %s | %s |\n",
+			"| `%s` | %s | %s |\n",
 			escapeMarkdownTableCell(scenario.ScenarioID),
-			controlReportLabel(scenario.Control),
-			clarificationReportLabel(scenario.Control),
-			controlAssertionsReportLabel(scenario.Control),
+			controlAttemptReportLabel(scenario.FirstAttempt),
+			optionalControlAttemptReportLabel(scenario.Rerun),
 		)
 	}
 	report.WriteString("\nControl verdicts reference typed Director submissions, trigger observations, trajectory events, final conversation state, and the narrow hidden-verifier checks that own corrected end states.\n\n")
 
 	report.WriteString("## AI Communication\n\n")
-	report.WriteString("| Scenario | Judge | Five checks | Failure tags |\n")
-	report.WriteString("| --- | --- | --- | --- |\n")
-	for _, scenario := range artifactSet.JudgeResults.Scenarios {
+	report.WriteString("| Scenario | First attempt | Rerun |\n")
+	report.WriteString("| --- | --- | --- |\n")
+	for _, scenario := range results.Scenarios {
+		first := evidence[evaluationAttemptIdentity{ScenarioID: scenario.ScenarioID, Attempt: EvaluationAttemptFirst}]
 		fmt.Fprintf(
 			&report,
-			"| `%s` | %s | %s | %s |\n",
+			"| `%s` | %s | %s |\n",
 			escapeMarkdownTableCell(scenario.ScenarioID),
-			judgeReportLabel(scenario),
-			judgeChecksReportLabel(scenario),
-			judgeFailureTagsReportLabel(scenario),
+			communicationAttemptReportLabel(first.judge),
+			optionalCommunicationAttemptReportLabel(scenario, evidence),
 		)
 	}
 	report.WriteString("\nThe fixed judge sees only scripted user messages, user-visible Director and Narrator text, the small communication contract, and the deterministic verifier result.\n\n")
 
 	report.WriteString("## Efficiency\n\n")
-	report.WriteString("| Scenario | Duration | System tokens | Tokens by role | Production role resolution |\n")
-	report.WriteString("| --- | --- | --- | --- | --- |\n")
-	for index, scenario := range results.Scenarios {
+	report.WriteString("| Scenario | First attempt | Rerun |\n")
+	report.WriteString("| --- | --- | --- |\n")
+	for _, scenario := range results.Scenarios {
+		first := evidence[evaluationAttemptIdentity{ScenarioID: scenario.ScenarioID, Attempt: EvaluationAttemptFirst}]
 		fmt.Fprintf(
 			&report,
-			"| `%s` | %s | %s | %s | %s |\n",
+			"| `%s` | %s | %s |\n",
 			escapeMarkdownTableCell(scenario.ScenarioID),
-			(time.Duration(scenario.DurationMilliseconds) * time.Millisecond).String(),
-			tokenTotalReportLabel(tokenUsage.Scenarios[index]),
-			tokenRolesReportLabel(tokenUsage.Scenarios[index]),
-			escapeMarkdownTableCell(roleResolutionReportLabel(scenario.Roles)),
+			efficiencyAttemptReportLabel(scenario.FirstAttempt, first.usage),
+			optionalEfficiencyAttemptReportLabel(scenario, evidence),
 		)
 	}
-	report.WriteString("\nSystem totals include Director, Agent, Narrator, and Side Agent calls. Judge usage is recorded separately and excluded from every system total. Duration and resolved models remain diagnostics.\n")
+	report.WriteString("\nSystem totals include Director, Agent, Narrator, and Side Agent calls. Judge usage is recorded separately and excluded from every system total. First-attempt tokens are the efficiency headline; rerun tokens remain separate diagnostics and are never averaged into it.\n")
 	return report.String(), nil
 }
 
@@ -214,12 +219,14 @@ func validateResultTokenUsage(results Results, tokenUsage TokenUsageArtifact) er
 	if err := tokenUsage.Validate(); err != nil {
 		return err
 	}
-	if len(results.Scenarios) != len(tokenUsage.Scenarios) {
-		return fmt.Errorf("results contain %d scenarios, token usage contains %d", len(results.Scenarios), len(tokenUsage.Scenarios))
+	attempts := resultAttemptReferences(results)
+	if len(attempts) != len(tokenUsage.Scenarios) {
+		return fmt.Errorf("results contain %d attempts, token usage contains %d", len(attempts), len(tokenUsage.Scenarios))
 	}
-	for index := range results.Scenarios {
-		if results.Scenarios[index].ScenarioID != tokenUsage.Scenarios[index].ScenarioID {
-			return fmt.Errorf("result scenario[%d] is %s, token usage scenario is %s", index, results.Scenarios[index].ScenarioID, tokenUsage.Scenarios[index].ScenarioID)
+	for index, attempt := range attempts {
+		usage := tokenUsage.Scenarios[index]
+		if attempt.identity != (evaluationAttemptIdentity{ScenarioID: usage.ScenarioID, Attempt: usage.Attempt}) {
+			return fmt.Errorf("result attempt[%d] is %s/%d, token usage attempt is %s/%d", index, attempt.identity.ScenarioID, attempt.identity.Attempt, usage.ScenarioID, usage.Attempt)
 		}
 	}
 	return nil
@@ -302,6 +309,129 @@ func writeResultFile(path string, write func(io.Writer) error) error {
 		return fmt.Errorf("close eval artifact %s: %w", filepath.Base(path), closeErr)
 	}
 	return nil
+}
+
+type evaluationReportAttemptEvidence struct {
+	usage ScenarioTokenUsage
+	judge ScenarioJudgeResult
+}
+
+func evaluationReportEvidenceByAttempt(
+	artifacts EvaluationArtifactSet,
+) map[evaluationAttemptIdentity]evaluationReportAttemptEvidence {
+	evidence := make(
+		map[evaluationAttemptIdentity]evaluationReportAttemptEvidence,
+		len(artifacts.TokenUsage.Scenarios),
+	)
+	for index, usage := range artifacts.TokenUsage.Scenarios {
+		identity := evaluationAttemptIdentity{ScenarioID: usage.ScenarioID, Attempt: usage.Attempt}
+		evidence[identity] = evaluationReportAttemptEvidence{
+			usage: usage,
+			judge: artifacts.JudgeResults.Scenarios[index],
+		}
+	}
+	return evidence
+}
+
+func firstAttemptPassCount(results []ScenarioEvaluationResult) int {
+	passed := 0
+	for _, result := range results {
+		if result.FirstAttempt.Status == ScenarioAttemptStatusPass {
+			passed++
+		}
+	}
+	return passed
+}
+
+func abilityAttemptReportLabel(result ScenarioResult) string {
+	return escapeMarkdownTableCell(fmt.Sprintf(
+		"status=%s; classification=%s; execution=%s; verifier=%s",
+		result.Status,
+		result.Classification,
+		result.ExecutionOutcome,
+		verifierReportLabel(result),
+	))
+}
+
+func optionalAbilityAttemptReportLabel(result *ScenarioResult) string {
+	if result == nil {
+		return "not run"
+	}
+	return abilityAttemptReportLabel(*result)
+}
+
+func controlAttemptReportLabel(result ScenarioResult) string {
+	return escapeMarkdownTableCell(fmt.Sprintf(
+		"overall=%s; clarification=%s; assertions=%s",
+		controlReportLabel(result.Control),
+		clarificationReportLabel(result.Control),
+		controlAssertionsReportLabel(result.Control),
+	))
+}
+
+func optionalControlAttemptReportLabel(result *ScenarioResult) string {
+	if result == nil {
+		return "not run"
+	}
+	return controlAttemptReportLabel(*result)
+}
+
+func communicationAttemptReportLabel(result ScenarioJudgeResult) string {
+	return escapeMarkdownTableCell(fmt.Sprintf(
+		"judge=%s; checks=%s; failure tags=%s",
+		judgeReportLabel(result),
+		judgeChecksReportLabel(result),
+		judgeFailureTagsReportLabel(result),
+	))
+}
+
+func optionalCommunicationAttemptReportLabel(
+	result ScenarioEvaluationResult,
+	evidence map[evaluationAttemptIdentity]evaluationReportAttemptEvidence,
+) string {
+	if result.Rerun == nil {
+		return "not run"
+	}
+	rerun := evidence[evaluationAttemptIdentity{
+		ScenarioID: result.ScenarioID,
+		Attempt:    EvaluationAttemptRerun,
+	}]
+	return communicationAttemptReportLabel(rerun.judge)
+}
+
+func efficiencyAttemptReportLabel(
+	result ScenarioResult,
+	usage ScenarioTokenUsage,
+) string {
+	return escapeMarkdownTableCell(fmt.Sprintf(
+		"duration=%s; system tokens=%s; by role=%s; roles=%s",
+		(time.Duration(result.DurationMilliseconds) * time.Millisecond).String(),
+		tokenTotalReportLabel(usage),
+		tokenRolesReportLabel(usage),
+		roleResolutionReportLabel(result.Roles),
+	))
+}
+
+func optionalEfficiencyAttemptReportLabel(
+	result ScenarioEvaluationResult,
+	evidence map[evaluationAttemptIdentity]evaluationReportAttemptEvidence,
+) string {
+	if result.Rerun == nil {
+		return "not run"
+	}
+	rerun := evidence[evaluationAttemptIdentity{
+		ScenarioID: result.ScenarioID,
+		Attempt:    EvaluationAttemptRerun,
+	}]
+	return efficiencyAttemptReportLabel(*result.Rerun, rerun.usage)
+}
+
+func scenarioResultAttempts(result ScenarioEvaluationResult) []ScenarioResult {
+	attempts := []ScenarioResult{result.FirstAttempt}
+	if result.Rerun != nil {
+		attempts = append(attempts, *result.Rerun)
+	}
+	return attempts
 }
 
 func verifierReportLabel(result ScenarioResult) string {
@@ -407,23 +537,26 @@ func judgeFailureTagsReportLabel(result ScenarioJudgeResult) string {
 	return escapeMarkdownTableCell(strings.Join(parts, ", "))
 }
 
-func writeScenarioDiagnostics(report *strings.Builder, scenarios []ScenarioResult) {
+func writeScenarioDiagnostics(report *strings.Builder, scenarios []ScenarioEvaluationResult) {
 	wroteHeading := false
 	for _, scenario := range scenarios {
-		if scenario.Diagnostic == nil {
-			continue
+		for _, attempt := range scenarioResultAttempts(scenario) {
+			if attempt.Diagnostic == nil {
+				continue
+			}
+			if !wroteHeading {
+				report.WriteString("\nDiagnostics:\n\n")
+				wroteHeading = true
+			}
+			fmt.Fprintf(
+				report,
+				"- `%s` attempt %d — `%s`: %s\n",
+				escapeMarkdownInline(scenario.ScenarioID),
+				attempt.Attempt,
+				escapeMarkdownInline(attempt.Diagnostic.Code),
+				escapeMarkdownInline(attempt.Diagnostic.Message),
+			)
 		}
-		if !wroteHeading {
-			report.WriteString("\nDiagnostics:\n\n")
-			wroteHeading = true
-		}
-		fmt.Fprintf(
-			report,
-			"- `%s` — `%s`: %s\n",
-			escapeMarkdownInline(scenario.ScenarioID),
-			escapeMarkdownInline(scenario.Diagnostic.Code),
-			escapeMarkdownInline(scenario.Diagnostic.Message),
-		)
 	}
 	report.WriteString("\n")
 }

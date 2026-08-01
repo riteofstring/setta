@@ -12,9 +12,34 @@ import (
 )
 
 const (
-	ResultSchemaVersion          = 2
+	ResultSchemaVersion          = 3
 	ResultMaximumScenarios       = 32
 	ResultMaximumDiagnosticBytes = 4 * 1024
+	EvaluationAttemptFirst       = 1
+	EvaluationAttemptRerun       = 2
+	ResultMaximumAttempts        = ResultMaximumScenarios * EvaluationAttemptRerun
+)
+
+type ScenarioAttemptStatus string
+
+const (
+	ScenarioAttemptStatusPass                  ScenarioAttemptStatus = "pass"
+	ScenarioAttemptStatusFail                  ScenarioAttemptStatus = "fail"
+	ScenarioAttemptStatusInfrastructureFailure ScenarioAttemptStatus = "infrastructure_failure"
+)
+
+type ScenarioStability string
+
+type evaluationAttemptIdentity struct {
+	ScenarioID string
+	Attempt    int
+}
+
+const (
+	ScenarioStabilityPass                  ScenarioStability = "PASS"
+	ScenarioStabilityStableFail            ScenarioStability = "STABLE_FAIL"
+	ScenarioStabilityFlaky                 ScenarioStability = "FLAKY"
+	ScenarioStabilityInfrastructureFailure ScenarioStability = "INFRASTRUCTURE_FAILURE"
 )
 
 type ScenarioClassification string
@@ -56,6 +81,8 @@ type ScenarioDiagnostic struct {
 
 type ScenarioResult struct {
 	ScenarioID           string                       `json:"scenarioId"`
+	Attempt              int                          `json:"attempt"`
+	Status               ScenarioAttemptStatus        `json:"status"`
 	Classification       ScenarioClassification       `json:"classification"`
 	ExecutionOutcome     ScenarioExecutionOutcome     `json:"executionOutcome"`
 	StartedAt            time.Time                    `json:"startedAt"`
@@ -67,16 +94,24 @@ type ScenarioResult struct {
 	Diagnostic           *ScenarioDiagnostic          `json:"diagnostic"`
 }
 
+type ScenarioEvaluationResult struct {
+	ScenarioID   string            `json:"scenarioId"`
+	Stability    ScenarioStability `json:"stability"`
+	FirstAttempt ScenarioResult    `json:"firstAttempt"`
+	Rerun        *ScenarioResult   `json:"rerun"`
+}
+
 type Results struct {
-	SchemaVersion int              `json:"schemaVersion"`
-	SettaCommit   string           `json:"settaCommit"`
-	StartedAt     time.Time        `json:"startedAt"`
-	FinishedAt    time.Time        `json:"finishedAt"`
-	Scenarios     []ScenarioResult `json:"scenarios"`
+	SchemaVersion int                        `json:"schemaVersion"`
+	SettaCommit   string                     `json:"settaCommit"`
+	StartedAt     time.Time                  `json:"startedAt"`
+	FinishedAt    time.Time                  `json:"finishedAt"`
+	Scenarios     []ScenarioEvaluationResult `json:"scenarios"`
 }
 
 type ScenarioResultInput struct {
 	Scenario         Scenario
+	Attempt          int
 	ExecutionOutcome ScenarioExecutionOutcome
 	StartedAt        time.Time
 	FinishedAt       time.Time
@@ -84,6 +119,7 @@ type ScenarioResultInput struct {
 	Control          ScenarioControlResult
 	Verifier         *evalverifier.Result
 	Diagnostic       *ScenarioDiagnostic
+	Judge            *ScenarioJudgeResult
 }
 
 // CaptureBaselineRoleConfigurations combines the app-global Director profile
@@ -132,12 +168,21 @@ func NewScenarioDiagnostic(code string, message string) (*ScenarioDiagnostic, er
 	return diagnostic, nil
 }
 
-// NewScenarioResult is the single classification boundary for Phase 1. A
-// completed workspace is a pass only when its hidden verifier passes; a cheap
-// or well-communicated incorrect workspace remains an ability failure.
+// NewScenarioResult is the single attempt-classification boundary. A completed
+// workspace is objectively correct only when its hidden verifier and control
+// evidence pass; communication evidence then determines the overall attempt
+// status without compensating for an objective failure.
 func NewScenarioResult(input ScenarioResultInput) (ScenarioResult, error) {
 	if err := input.Scenario.Validate(); err != nil {
 		return ScenarioResult{}, fmt.Errorf("validate classified scenario: %w", err)
+	}
+	if input.Judge != nil {
+		if err := input.Judge.Validate(); err != nil {
+			return ScenarioResult{}, fmt.Errorf("validate scenario communication evidence: %w", err)
+		}
+		if input.Judge.ScenarioID != input.Scenario.ID || input.Judge.Attempt != input.Attempt {
+			return ScenarioResult{}, errors.New("scenario communication evidence identity does not match the classified attempt")
+		}
 	}
 	classification, err := classifyScenarioExecution(
 		input.ExecutionOutcome,
@@ -149,6 +194,8 @@ func NewScenarioResult(input ScenarioResultInput) (ScenarioResult, error) {
 	}
 	result := ScenarioResult{
 		ScenarioID:           input.Scenario.ID,
+		Attempt:              input.Attempt,
+		Status:               classifyScenarioAttemptStatus(classification, input.Judge),
 		Classification:       classification,
 		ExecutionOutcome:     input.ExecutionOutcome,
 		StartedAt:            input.StartedAt.UTC(),
@@ -173,11 +220,28 @@ func NewScenarioResult(input ScenarioResultInput) (ScenarioResult, error) {
 	return result, nil
 }
 
+func NewScenarioEvaluationResult(
+	scenarioID string,
+	firstAttempt ScenarioResult,
+	rerun *ScenarioResult,
+) (ScenarioEvaluationResult, error) {
+	result := ScenarioEvaluationResult{
+		ScenarioID:   scenarioID,
+		FirstAttempt: cloneScenarioResult(firstAttempt),
+		Rerun:        cloneScenarioResultPointer(rerun),
+	}
+	result.Stability = classifyScenarioStability(result.FirstAttempt.Status, result.Rerun)
+	if err := result.Validate(); err != nil {
+		return ScenarioEvaluationResult{}, err
+	}
+	return result, nil
+}
+
 func NewResults(
 	settaCommit string,
 	startedAt time.Time,
 	finishedAt time.Time,
-	scenarios []ScenarioResult,
+	scenarios []ScenarioEvaluationResult,
 ) (Results, error) {
 	results := Results{
 		SchemaVersion: ResultSchemaVersion,
@@ -190,6 +254,50 @@ func NewResults(
 		return Results{}, err
 	}
 	return results, nil
+}
+
+func classifyScenarioAttemptStatus(
+	classification ScenarioClassification,
+	judge *ScenarioJudgeResult,
+) ScenarioAttemptStatus {
+	if classification == ScenarioClassificationInfrastructureFailure {
+		return ScenarioAttemptStatusInfrastructureFailure
+	}
+	if classification != ScenarioClassificationPass {
+		return ScenarioAttemptStatusFail
+	}
+	if judge == nil || !judge.EvidenceAvailable || judge.Verdict == nil {
+		return ScenarioAttemptStatusInfrastructureFailure
+	}
+	if judge.Verdict.OverallPass {
+		return ScenarioAttemptStatusPass
+	}
+	return ScenarioAttemptStatusFail
+}
+
+func classifyScenarioStability(
+	firstStatus ScenarioAttemptStatus,
+	rerun *ScenarioResult,
+) ScenarioStability {
+	switch firstStatus {
+	case ScenarioAttemptStatusPass:
+		return ScenarioStabilityPass
+	case ScenarioAttemptStatusInfrastructureFailure:
+		return ScenarioStabilityInfrastructureFailure
+	case ScenarioAttemptStatusFail:
+		if rerun == nil {
+			return ""
+		}
+		switch rerun.Status {
+		case ScenarioAttemptStatusPass:
+			return ScenarioStabilityFlaky
+		case ScenarioAttemptStatusFail:
+			return ScenarioStabilityStableFail
+		case ScenarioAttemptStatusInfrastructureFailure:
+			return ScenarioStabilityInfrastructureFailure
+		}
+	}
+	return ""
 }
 
 func (diagnostic ScenarioDiagnostic) Validate() error {
@@ -218,6 +326,9 @@ func (diagnostic ScenarioDiagnostic) Validate() error {
 func (result ScenarioResult) Validate() error {
 	if err := validateScenarioIdentifier("scenario result id", result.ScenarioID); err != nil {
 		return err
+	}
+	if err := validateEvaluationAttempt(result.Attempt); err != nil {
+		return fmt.Errorf("scenario %s: %w", result.ScenarioID, err)
 	}
 	if err := validateResultTimes(
 		"scenario "+result.ScenarioID,
@@ -254,7 +365,74 @@ func (result ScenarioResult) Validate() error {
 			classification,
 		)
 	}
+	if err := validateScenarioAttemptStatus(result); err != nil {
+		return fmt.Errorf("scenario %s attempt %d: %w", result.ScenarioID, result.Attempt, err)
+	}
 	return validateScenarioDiagnosticForOutcome(result.ExecutionOutcome, result.Diagnostic)
+}
+
+func (result ScenarioEvaluationResult) Validate() error {
+	if err := validateScenarioIdentifier("scenario evaluation result id", result.ScenarioID); err != nil {
+		return err
+	}
+	if err := result.FirstAttempt.Validate(); err != nil {
+		return fmt.Errorf("scenario %s first attempt: %w", result.ScenarioID, err)
+	}
+	if result.FirstAttempt.ScenarioID != result.ScenarioID ||
+		result.FirstAttempt.Attempt != EvaluationAttemptFirst {
+		return fmt.Errorf("scenario %s has an invalid first-attempt identity", result.ScenarioID)
+	}
+	if result.Rerun != nil {
+		if err := result.Rerun.Validate(); err != nil {
+			return fmt.Errorf("scenario %s rerun: %w", result.ScenarioID, err)
+		}
+		if result.Rerun.ScenarioID != result.ScenarioID ||
+			result.Rerun.Attempt != EvaluationAttemptRerun {
+			return fmt.Errorf("scenario %s has an invalid rerun identity", result.ScenarioID)
+		}
+		if result.Rerun.StartedAt.Before(result.FirstAttempt.FinishedAt) {
+			return fmt.Errorf("scenario %s rerun overlaps its first attempt", result.ScenarioID)
+		}
+	}
+	want := classifyScenarioStability(result.FirstAttempt.Status, result.Rerun)
+	if want == "" {
+		return fmt.Errorf("scenario %s failed its first attempt without the required rerun", result.ScenarioID)
+	}
+	if result.FirstAttempt.Status != ScenarioAttemptStatusFail && result.Rerun != nil {
+		return fmt.Errorf("scenario %s reran after first-attempt status %s", result.ScenarioID, result.FirstAttempt.Status)
+	}
+	if result.Stability != want {
+		return fmt.Errorf("scenario %s stability is %s, want %s", result.ScenarioID, result.Stability, want)
+	}
+	return nil
+}
+
+func validateScenarioAttemptStatus(result ScenarioResult) error {
+	switch result.Status {
+	case ScenarioAttemptStatusPass:
+		if result.Classification != ScenarioClassificationPass {
+			return fmt.Errorf("status %s requires objective classification %s", result.Status, ScenarioClassificationPass)
+		}
+	case ScenarioAttemptStatusFail:
+		if result.Classification == ScenarioClassificationInfrastructureFailure {
+			return errors.New("infrastructure classification cannot have fail attempt status")
+		}
+	case ScenarioAttemptStatusInfrastructureFailure:
+		if result.Classification != ScenarioClassificationPass &&
+			result.Classification != ScenarioClassificationInfrastructureFailure {
+			return fmt.Errorf("status %s is incompatible with classification %s", result.Status, result.Classification)
+		}
+	default:
+		return fmt.Errorf("unsupported attempt status %q", result.Status)
+	}
+	return nil
+}
+
+func validateEvaluationAttempt(attempt int) error {
+	if attempt != EvaluationAttemptFirst && attempt != EvaluationAttemptRerun {
+		return fmt.Errorf("evaluation attempt is %d, want %d or %d", attempt, EvaluationAttemptFirst, EvaluationAttemptRerun)
+	}
+	return nil
 }
 
 func (results Results) Validate() error {
@@ -290,7 +468,8 @@ func validateResultScenarios(results Results) error {
 			return fmt.Errorf("eval results repeat scenario %q", scenario.ScenarioID)
 		}
 		seen[scenario.ScenarioID] = struct{}{}
-		if scenario.StartedAt.Before(results.StartedAt) || scenario.FinishedAt.After(results.FinishedAt) {
+		if scenario.FirstAttempt.StartedAt.Before(results.StartedAt) ||
+			scenarioFinishedAt(scenario).After(results.FinishedAt) {
 			return fmt.Errorf("eval results scenario %s falls outside the invocation timeline", scenario.ScenarioID)
 		}
 	}
@@ -559,19 +738,44 @@ func cloneScenarioDiagnostic(diagnostic *ScenarioDiagnostic) *ScenarioDiagnostic
 	return &cloned
 }
 
-func cloneScenarioResults(scenarios []ScenarioResult) []ScenarioResult {
+func cloneScenarioResults(scenarios []ScenarioEvaluationResult) []ScenarioEvaluationResult {
 	if scenarios == nil {
 		return nil
 	}
-	cloned := make([]ScenarioResult, len(scenarios))
+	cloned := make([]ScenarioEvaluationResult, len(scenarios))
 	for index, scenario := range scenarios {
-		cloned[index] = scenario
-		cloned[index].Roles = cloneEvaluatedRoleConfigurations(scenario.Roles)
-		cloned[index].Control = cloneScenarioControlResult(scenario.Control)
-		cloned[index].Verifier = cloneVerifierResult(scenario.Verifier)
-		cloned[index].Diagnostic = cloneScenarioDiagnostic(scenario.Diagnostic)
+		cloned[index] = ScenarioEvaluationResult{
+			ScenarioID:   scenario.ScenarioID,
+			Stability:    scenario.Stability,
+			FirstAttempt: cloneScenarioResult(scenario.FirstAttempt),
+			Rerun:        cloneScenarioResultPointer(scenario.Rerun),
+		}
 	}
 	return cloned
+}
+
+func cloneScenarioResult(result ScenarioResult) ScenarioResult {
+	cloned := result
+	cloned.Roles = cloneEvaluatedRoleConfigurations(result.Roles)
+	cloned.Control = cloneScenarioControlResult(result.Control)
+	cloned.Verifier = cloneVerifierResult(result.Verifier)
+	cloned.Diagnostic = cloneScenarioDiagnostic(result.Diagnostic)
+	return cloned
+}
+
+func cloneScenarioResultPointer(result *ScenarioResult) *ScenarioResult {
+	if result == nil {
+		return nil
+	}
+	cloned := cloneScenarioResult(*result)
+	return &cloned
+}
+
+func scenarioFinishedAt(result ScenarioEvaluationResult) time.Time {
+	if result.Rerun != nil {
+		return result.Rerun.FinishedAt
+	}
+	return result.FirstAttempt.FinishedAt
 }
 
 func cloneStringPointer(value *string) *string {

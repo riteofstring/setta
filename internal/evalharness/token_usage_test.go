@@ -24,7 +24,7 @@ func TestAggregateScenarioTokenUsageUsesFinalCumulativeDeltaPerProviderTurn(t *t
 		testTokenObservation(judgeTurn, "thread-judge", "provider-judge-1", 11, 7, 4),
 	}
 
-	usage, err := AggregateScenarioTokenUsage(ScenarioVerifierStraightforward, observations)
+	usage, err := AggregateScenarioTokenUsage(ScenarioVerifierStraightforward, EvaluationAttemptFirst, observations)
 	if err != nil {
 		t.Fatalf("AggregateScenarioTokenUsage: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestAggregateScenarioTokenUsageUsesFinalCumulativeDeltaPerProviderTurn(t *t
 
 func TestAggregateScenarioTokenUsageRejectsDecreasingCumulativeEvidence(t *testing.T) {
 	attribution := testTokenAttribution(agent.TokenUsageBucketSystem, agent.TokenUsageRoleAgent, "agent-invocation", "gpt-agent")
-	_, err := AggregateScenarioTokenUsage(ScenarioVerifierStraightforward, []agent.TokenUsageObservation{
+	_, err := AggregateScenarioTokenUsage(ScenarioVerifierStraightforward, EvaluationAttemptFirst, []agent.TokenUsageObservation{
 		testTokenObservation(attribution, "thread-agent", "provider-agent", 20, 12, 8),
 		testTokenObservation(attribution, "thread-agent", "provider-agent", 19, 12, 7),
 	})
@@ -75,7 +75,7 @@ func TestCorrelateSystemTokenUsageAllowsStateOnlyNarratorCallsButNotOtherUnowned
 		"narrator-invocation",
 		"gpt-narrator",
 	)
-	usage, err := AggregateScenarioTokenUsage(ScenarioVerifierStraightforward, []agent.TokenUsageObservation{
+	usage, err := AggregateScenarioTokenUsage(ScenarioVerifierStraightforward, EvaluationAttemptFirst, []agent.TokenUsageObservation{
 		testTokenObservation(narrator, "thread-narrator", "provider-narrator", 20, 12, 8),
 	})
 	if err != nil {
@@ -94,7 +94,7 @@ func TestCorrelateSystemTokenUsageAllowsStateOnlyNarratorCallsButNotOtherUnowned
 		"agent-invocation",
 		"gpt-agent",
 	)
-	usage, err = AggregateScenarioTokenUsage(ScenarioVerifierStraightforward, []agent.TokenUsageObservation{
+	usage, err = AggregateScenarioTokenUsage(ScenarioVerifierStraightforward, EvaluationAttemptFirst, []agent.TokenUsageObservation{
 		testTokenObservation(agentTurn, "thread-agent", "provider-agent", 20, 12, 8),
 	})
 	if err != nil {
@@ -112,7 +112,7 @@ func TestCorrelateSystemTokenUsageUsesSideAgentModelAtTurnStart(t *testing.T) {
 		"side-invocation",
 		"gpt-side-rerouted",
 	)
-	usage, err := AggregateScenarioTokenUsage(ScenarioVerifierStraightforward, []agent.TokenUsageObservation{
+	usage, err := AggregateScenarioTokenUsage(ScenarioVerifierStraightforward, EvaluationAttemptFirst, []agent.TokenUsageObservation{
 		testTokenObservation(attribution, "thread-side", "provider-side", 20, 12, 8),
 	})
 	if err != nil {

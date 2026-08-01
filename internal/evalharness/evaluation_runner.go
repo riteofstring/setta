@@ -25,11 +25,17 @@ type EvaluationOutput struct {
 	Artifacts    ResultArtifactPaths
 }
 
-type evaluationScenarioRun struct {
-	scenario   Scenario
+type evaluationScenarioAttempt struct {
+	attempt    int
 	startedAt  time.Time
 	finishedAt time.Time
 	state      phase1RunState
+}
+
+type evaluationScenarioRun struct {
+	scenario     Scenario
+	firstAttempt evaluationScenarioAttempt
+	rerun        *evaluationScenarioAttempt
 }
 
 type evaluationScenarioArtifacts struct {
@@ -78,7 +84,10 @@ func RunEvaluation(ctx context.Context, config EvaluationConfig) (EvaluationOutp
 		return EvaluationOutput{}, fmt.Errorf("inspect live-evaluation repository: %w", err)
 	}
 	startedAt := time.Now().UTC()
-	runs, sandbox := runEvaluationScenarios(ctx, normalized, scenarios)
+	runs, sandbox, err := runEvaluationScenarios(ctx, normalized, scenarios)
+	if err != nil {
+		return EvaluationOutput{}, err
+	}
 	finishedAt := time.Now().UTC()
 	manifest, err := buildEvaluationManifest(
 		normalized.repoRoot,
@@ -106,35 +115,103 @@ func runEvaluationScenarios(
 	ctx context.Context,
 	config phase1NormalizedConfig,
 	scenarios []Scenario,
-) ([]evaluationScenarioRun, *ManifestSandbox) {
+) ([]evaluationScenarioRun, *ManifestSandbox, error) {
 	client := phase0DockerClient{command: config.dockerCommand, repoRoot: config.repoRoot}
 	if _, err := inspectPhase0Docker(ctx, client); err != nil {
-		return failedEvaluationRuns(scenarios, "docker_preflight_failed", err, nil), nil
+		return failedEvaluationRuns(scenarios, "docker_preflight_failed", err, nil), nil, nil
 	}
 	images, sandbox, err := prepareEvaluationImages(ctx, config, client)
 	if err != nil {
-		return failedEvaluationRuns(scenarios, "sandbox_image_failed", err, nil), nil
+		return failedEvaluationRuns(scenarios, "sandbox_image_failed", err, nil), nil, nil
 	}
 	runs := make([]evaluationScenarioRun, 0, len(scenarios))
+	var runErr error
 	for _, scenario := range scenarios {
-		startedAt := time.Now().UTC()
-		state := runEvaluationScenario(ctx, config, client, images, sandbox, scenario)
-		finishedAt := time.Now().UTC()
-		state = completePhase2Judge(ctx, config, scenario, state)
-		runs = append(runs, evaluationScenarioRun{
-			scenario:   scenario,
-			startedAt:  startedAt,
-			finishedAt: finishedAt,
-			state:      state,
-		})
+		run, err := runEvaluationScenarioWithRerun(
+			scenario,
+			func(attempt int) evaluationScenarioAttempt {
+				return runEvaluationScenarioAttempt(
+					ctx,
+					config,
+					client,
+					images,
+					sandbox,
+					scenario,
+					attempt,
+				)
+			},
+		)
+		if err != nil {
+			runErr = err
+			break
+		}
+		runs = append(runs, run)
 	}
 	cleanupContext, cancel := context.WithTimeout(context.Background(), phase1CleanupTimeout)
 	cleanupErr := images.cleanup(cleanupContext)
 	cancel()
+	if runErr != nil {
+		return nil, sandbox, errors.Join(runErr, cleanupErr)
+	}
 	if cleanupErr != nil {
 		markEvaluationRunsFailed(runs, "sandbox_image_teardown_failed", cleanupErr, sandbox)
 	}
-	return runs, sandbox
+	return runs, sandbox, nil
+}
+
+func runEvaluationScenarioWithRerun(
+	scenario Scenario,
+	execute func(int) evaluationScenarioAttempt,
+) (evaluationScenarioRun, error) {
+	if execute == nil {
+		return evaluationScenarioRun{}, errors.New("evaluation scenario executor is required")
+	}
+	run := evaluationScenarioRun{
+		scenario:     scenario,
+		firstAttempt: execute(EvaluationAttemptFirst),
+	}
+	artifacts, err := buildEvaluationScenarioArtifacts(scenario, run.firstAttempt)
+	if err != nil {
+		return evaluationScenarioRun{}, fmt.Errorf(
+			"classify first attempt for scenario %s: %w",
+			scenario.ID,
+			err,
+		)
+	}
+	if artifacts.result.Status == ScenarioAttemptStatusFail {
+		rerun := execute(EvaluationAttemptRerun)
+		run.rerun = &rerun
+	}
+	return run, nil
+}
+
+func runEvaluationScenarioAttempt(
+	ctx context.Context,
+	config phase1NormalizedConfig,
+	client phase0DockerClient,
+	images *phase1Images,
+	sandbox *ManifestSandbox,
+	scenario Scenario,
+	attempt int,
+) evaluationScenarioAttempt {
+	startedAt := time.Now().UTC()
+	state := runEvaluationScenario(
+		ctx,
+		config,
+		client,
+		images,
+		sandbox,
+		scenario,
+		attempt,
+	)
+	finishedAt := time.Now().UTC()
+	state = completePhase2Judge(ctx, config, scenario, state)
+	return evaluationScenarioAttempt{
+		attempt:    attempt,
+		startedAt:  startedAt,
+		finishedAt: finishedAt,
+		state:      state,
+	}
 }
 
 func prepareEvaluationImages(
@@ -178,10 +255,13 @@ func failedEvaluationRuns(
 		state := phase1InfrastructureFailure(code, cause, nil)
 		state.sandbox = cloneManifestSandbox(sandbox)
 		runs = append(runs, evaluationScenarioRun{
-			scenario:   scenario,
-			startedAt:  startedAt,
-			finishedAt: time.Now().UTC(),
-			state:      state,
+			scenario: scenario,
+			firstAttempt: evaluationScenarioAttempt{
+				attempt:    EvaluationAttemptFirst,
+				startedAt:  startedAt,
+				finishedAt: time.Now().UTC(),
+				state:      state,
+			},
 		})
 	}
 	return runs
@@ -194,9 +274,11 @@ func markEvaluationRunsFailed(
 	sandbox *ManifestSandbox,
 ) {
 	for index := range runs {
-		state := phase1InfrastructureFailure(code, cause, runs[index].state.roles)
+		state := phase1InfrastructureFailure(code, cause, runs[index].firstAttempt.state.roles)
 		state.sandbox = cloneManifestSandbox(sandbox)
-		runs[index].state = state
+		runs[index].firstAttempt.state = state
+		runs[index].firstAttempt.finishedAt = time.Now().UTC()
+		runs[index].rerun = nil
 	}
 }
 
@@ -229,24 +311,37 @@ func buildEvaluationArtifactSet(
 	finishedAt time.Time,
 ) (EvaluationArtifactSet, error) {
 	scenarios := make([]Scenario, 0, len(runs))
-	results := make([]ScenarioResult, 0, len(runs))
-	transcripts := make([]ScenarioTranscript, 0, len(runs))
-	tokenUsage := make([]ScenarioTokenUsage, 0, len(runs))
-	verifiers := make([]ScenarioVerifierResult, 0, len(runs))
-	judges := make([]ScenarioJudgeResult, 0, len(runs))
+	results := make([]ScenarioEvaluationResult, 0, len(runs))
+	transcripts := make([]ScenarioTranscript, 0, len(runs)*EvaluationAttemptRerun)
+	tokenUsage := make([]ScenarioTokenUsage, 0, len(runs)*EvaluationAttemptRerun)
+	verifiers := make([]ScenarioVerifierResult, 0, len(runs)*EvaluationAttemptRerun)
+	judges := make([]ScenarioJudgeResult, 0, len(runs)*EvaluationAttemptRerun)
 	events := make([]EvaluationEvent, 0)
 	for _, run := range runs {
-		artifacts, err := buildEvaluationScenarioArtifacts(run)
-		if err != nil {
-			return EvaluationArtifactSet{}, err
-		}
 		scenarios = append(scenarios, run.scenario)
-		results = append(results, artifacts.result)
-		transcripts = append(transcripts, artifacts.transcript)
-		tokenUsage = append(tokenUsage, artifacts.tokenUsage)
-		verifiers = append(verifiers, artifacts.verifier)
-		judges = append(judges, artifacts.judge)
-		events = append(events, artifacts.events...)
+		attempts := evaluationScenarioAttempts(run)
+		attemptResults := make([]ScenarioResult, 0, len(attempts))
+		for _, attempt := range attempts {
+			artifacts, err := buildEvaluationScenarioArtifacts(run.scenario, attempt)
+			if err != nil {
+				return EvaluationArtifactSet{}, err
+			}
+			attemptResults = append(attemptResults, artifacts.result)
+			transcripts = append(transcripts, artifacts.transcript)
+			tokenUsage = append(tokenUsage, artifacts.tokenUsage)
+			verifiers = append(verifiers, artifacts.verifier)
+			judges = append(judges, artifacts.judge)
+			events = append(events, artifacts.events...)
+		}
+		var rerun *ScenarioResult
+		if len(attemptResults) == EvaluationAttemptRerun {
+			rerun = &attemptResults[1]
+		}
+		result, err := NewScenarioEvaluationResult(run.scenario.ID, attemptResults[0], rerun)
+		if err != nil {
+			return EvaluationArtifactSet{}, fmt.Errorf("classify scenario %s stability: %w", run.scenario.ID, err)
+		}
+		results = append(results, result)
 	}
 	return newEvaluationArtifactSet(
 		manifest,
@@ -263,46 +358,49 @@ func buildEvaluationArtifactSet(
 }
 
 func buildEvaluationScenarioArtifacts(
-	run evaluationScenarioRun,
+	scenario Scenario,
+	attempt evaluationScenarioAttempt,
 ) (evaluationScenarioArtifacts, error) {
 	control, err := buildScenarioControlResult(
-		run.scenario,
-		run.state.outcome,
-		run.state.events,
-		run.state.verifier,
-		run.state.diagnostic,
+		scenario,
+		attempt.state.outcome,
+		attempt.state.events,
+		attempt.state.verifier,
+		attempt.state.diagnostic,
 	)
 	if err != nil {
-		return evaluationScenarioArtifacts{}, fmt.Errorf("grade scenario %s user control: %w", run.scenario.ID, err)
+		return evaluationScenarioArtifacts{}, fmt.Errorf("grade scenario %s attempt %d user control: %w", scenario.ID, attempt.attempt, err)
 	}
-	result, err := NewScenarioResult(ScenarioResultInput{
-		Scenario:         run.scenario,
-		ExecutionOutcome: run.state.outcome,
-		StartedAt:        run.startedAt,
-		FinishedAt:       run.finishedAt,
-		Roles:            run.state.roles,
-		Control:          control,
-		Verifier:         run.state.verifier,
-		Diagnostic:       run.state.diagnostic,
-	})
-	if err != nil {
-		return evaluationScenarioArtifacts{}, fmt.Errorf("classify scenario %s: %w", run.scenario.ID, err)
-	}
-	transcript, err := scenarioTranscriptEvidence(run.scenario.ID, run.state)
+	transcript, err := scenarioTranscriptEvidence(scenario.ID, attempt.attempt, attempt.state)
 	if err != nil {
 		return evaluationScenarioArtifacts{}, err
+	}
+	judge, err := scenarioJudgeEvidence(scenario.ID, attempt.attempt, attempt.state)
+	if err != nil {
+		return evaluationScenarioArtifacts{}, err
+	}
+	result, err := NewScenarioResult(ScenarioResultInput{
+		Scenario:         scenario,
+		Attempt:          attempt.attempt,
+		ExecutionOutcome: attempt.state.outcome,
+		StartedAt:        attempt.startedAt,
+		FinishedAt:       attempt.finishedAt,
+		Roles:            attempt.state.roles,
+		Control:          control,
+		Verifier:         attempt.state.verifier,
+		Diagnostic:       attempt.state.diagnostic,
+		Judge:            &judge,
+	})
+	if err != nil {
+		return evaluationScenarioArtifacts{}, fmt.Errorf("classify scenario %s attempt %d: %w", scenario.ID, attempt.attempt, err)
 	}
 	verifier, err := scenarioVerifierResult(result)
 	if err != nil {
 		return evaluationScenarioArtifacts{}, err
 	}
-	judge, err := scenarioJudgeEvidence(run.scenario.ID, run.state)
-	if err != nil {
-		return evaluationScenarioArtifacts{}, err
-	}
-	usage := EmptyScenarioTokenUsage(run.scenario.ID)
-	if run.state.tokenUsage != nil {
-		usage = *run.state.tokenUsage
+	usage := EmptyScenarioTokenUsage(scenario.ID, attempt.attempt)
+	if attempt.state.tokenUsage != nil {
+		usage = *attempt.state.tokenUsage
 	}
 	return evaluationScenarioArtifacts{
 		result:     result,
@@ -310,14 +408,14 @@ func buildEvaluationScenarioArtifacts(
 		tokenUsage: usage,
 		verifier:   verifier,
 		judge:      judge,
-		events:     append([]EvaluationEvent{}, run.state.events...),
+		events:     append([]EvaluationEvent{}, attempt.state.events...),
 	}, nil
 }
 
 func newEvaluationArtifactSet(
 	manifest EvaluationManifest,
 	scenarios []Scenario,
-	scenarioResults []ScenarioResult,
+	scenarioResults []ScenarioEvaluationResult,
 	transcripts []ScenarioTranscript,
 	tokenUsage []ScenarioTokenUsage,
 	verifiers []ScenarioVerifierResult,
@@ -360,20 +458,30 @@ func newEvaluationArtifactSet(
 
 func scenarioTranscriptEvidence(
 	scenarioID string,
+	attempt int,
 	state phase1RunState,
 ) (ScenarioTranscript, error) {
 	if state.transcript != nil {
 		return *cloneScenarioTranscript(state.transcript), nil
 	}
-	return unavailableScenarioTranscript(scenarioID, state.diagnostic)
+	return unavailableScenarioTranscript(scenarioID, attempt, state.diagnostic)
 }
 
 func scenarioJudgeEvidence(
 	scenarioID string,
+	attempt int,
 	state phase1RunState,
 ) (ScenarioJudgeResult, error) {
 	if state.judge != nil {
 		return *state.judge, nil
 	}
-	return unavailableScenarioJudgeResult(scenarioID, state.diagnostic)
+	return unavailableScenarioJudgeResult(scenarioID, attempt, state.diagnostic)
+}
+
+func evaluationScenarioAttempts(run evaluationScenarioRun) []evaluationScenarioAttempt {
+	attempts := []evaluationScenarioAttempt{run.firstAttempt}
+	if run.rerun != nil {
+		attempts = append(attempts, *run.rerun)
+	}
+	return attempts
 }

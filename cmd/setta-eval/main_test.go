@@ -54,7 +54,7 @@ func assertReceivedEvaluationConfig(t *testing.T, received evalharness.Evaluatio
 func assertEvaluationCommandOutput(t *testing.T, output string) {
 	t.Helper()
 	want := []string{
-		"straightforward-task: pass (completed)",
+		"straightforward-task: first=pass/pass; stability=PASS",
 		"Results: /recordings/run/results.json",
 		"Manifest: /recordings/run/manifest.json",
 		"Events: /recordings/run/events.jsonl",
@@ -90,7 +90,7 @@ func TestRunReturnsFailureForObjectiveEvaluationFailure(t *testing.T) {
 			if exitCode := run(nil, &stdout, &stderr, runner); exitCode != 1 {
 				t.Fatalf("exit code = %d, want 1", exitCode)
 			}
-			if !strings.Contains(stderr.String(), "did not pass ability, user control, and communication") {
+			if !strings.Contains(stderr.String(), "did not pass ability, user control, and communication on the first attempt") {
 				t.Fatalf("stderr = %q", stderr.String())
 			}
 		})
@@ -104,6 +104,8 @@ func TestRunReturnsFailureForCommunicationEvaluationFailure(t *testing.T) {
 	) (evalharness.EvaluationOutput, error) {
 		output := phase1CommandOutput(evalharness.ScenarioClassificationPass)
 		output.JudgeResults.Scenarios[0].Verdict.OverallPass = false
+		output.Results.Scenarios[0].Stability = evalharness.ScenarioStabilityStableFail
+		output.Results.Scenarios[0].FirstAttempt.Status = evalharness.ScenarioAttemptStatusFail
 		return output, nil
 	}
 	var stdout strings.Builder
@@ -111,7 +113,7 @@ func TestRunReturnsFailureForCommunicationEvaluationFailure(t *testing.T) {
 	if exitCode := run(nil, &stdout, &stderr, runner); exitCode != 1 {
 		t.Fatalf("exit code = %d, want 1", exitCode)
 	}
-	if !strings.Contains(stderr.String(), "did not pass ability, user control, and communication") {
+	if !strings.Contains(stderr.String(), "did not pass ability, user control, and communication on the first attempt") {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
@@ -151,17 +153,33 @@ func phase1CommandOutput(
 	case evalharness.ScenarioClassificationInfrastructureFailure:
 		outcome = evalharness.ScenarioExecutionInfrastructureFailed
 	}
+	status := evalharness.ScenarioAttemptStatusFail
+	stability := evalharness.ScenarioStabilityStableFail
+	if classification == evalharness.ScenarioClassificationPass {
+		status = evalharness.ScenarioAttemptStatusPass
+		stability = evalharness.ScenarioStabilityPass
+	} else if classification == evalharness.ScenarioClassificationInfrastructureFailure {
+		status = evalharness.ScenarioAttemptStatusInfrastructureFailure
+		stability = evalharness.ScenarioStabilityInfrastructureFailure
+	}
 	return evalharness.EvaluationOutput{
 		Results: evalharness.Results{
-			Scenarios: []evalharness.ScenarioResult{{
-				ScenarioID:       evalharness.ScenarioVerifierStraightforward,
-				Classification:   classification,
-				ExecutionOutcome: outcome,
+			Scenarios: []evalharness.ScenarioEvaluationResult{{
+				ScenarioID: evalharness.ScenarioVerifierStraightforward,
+				Stability:  stability,
+				FirstAttempt: evalharness.ScenarioResult{
+					ScenarioID:       evalharness.ScenarioVerifierStraightforward,
+					Attempt:          evalharness.EvaluationAttemptFirst,
+					Status:           status,
+					Classification:   classification,
+					ExecutionOutcome: outcome,
+				},
 			}},
 		},
 		JudgeResults: evalharness.JudgeArtifact{
 			Scenarios: []evalharness.ScenarioJudgeResult{{
 				ScenarioID:        evalharness.ScenarioVerifierStraightforward,
+				Attempt:           evalharness.EvaluationAttemptFirst,
 				EvidenceAvailable: true,
 				Verdict: &evalharness.CommunicationJudgeVerdict{
 					OverallPass: true,

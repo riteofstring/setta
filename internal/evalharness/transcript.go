@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	TranscriptSchemaVersion     = 1
+	TranscriptSchemaVersion     = 2
 	TranscriptMaximumEntries    = 256
 	TranscriptMaximumEntryBytes = 16 * 1024
 	TranscriptMaximumTotalBytes = 256 * 1024
@@ -45,6 +45,7 @@ type TranscriptEntry struct {
 
 type ScenarioTranscript struct {
 	ScenarioID        string              `json:"scenarioId"`
+	Attempt           int                 `json:"attempt"`
 	EvidenceAvailable bool                `json:"evidenceAvailable"`
 	Entries           []TranscriptEntry   `json:"entries"`
 	Diagnostic        *ScenarioDiagnostic `json:"diagnostic"`
@@ -57,6 +58,7 @@ type TranscriptArtifact struct {
 
 func buildScenarioTranscript(
 	scenario Scenario,
+	attempt int,
 	events []EvaluationEvent,
 ) (ScenarioTranscript, error) {
 	if err := scenario.Validate(); err != nil {
@@ -64,7 +66,7 @@ func buildScenarioTranscript(
 	}
 	entries := make([]TranscriptEntry, 0, len(events))
 	for index, event := range events {
-		if event.ScenarioID != scenario.ID {
+		if event.ScenarioID != scenario.ID || event.Attempt != attempt {
 			continue
 		}
 		entry, err := transcriptEntryFromEvaluationEvent(event)
@@ -79,6 +81,7 @@ func buildScenarioTranscript(
 	}
 	transcript := ScenarioTranscript{
 		ScenarioID:        scenario.ID,
+		Attempt:           attempt,
 		EvidenceAvailable: true,
 		Entries:           entries,
 	}
@@ -144,6 +147,7 @@ func transcriptNarrationKind(kind conversation.NarrationEventKind) (TranscriptEn
 
 func unavailableScenarioTranscript(
 	scenarioID string,
+	attempt int,
 	diagnostic *ScenarioDiagnostic,
 ) (ScenarioTranscript, error) {
 	if diagnostic == nil {
@@ -158,6 +162,7 @@ func unavailableScenarioTranscript(
 	}
 	transcript := ScenarioTranscript{
 		ScenarioID:        scenarioID,
+		Attempt:           attempt,
 		EvidenceAvailable: false,
 		Entries:           []TranscriptEntry{},
 		Diagnostic:        cloneScenarioDiagnostic(diagnostic),
@@ -183,24 +188,28 @@ func (artifact TranscriptArtifact) Validate() error {
 	if artifact.SchemaVersion != TranscriptSchemaVersion {
 		return fmt.Errorf("transcript schemaVersion is %d, want %d", artifact.SchemaVersion, TranscriptSchemaVersion)
 	}
-	if artifact.Scenarios == nil || len(artifact.Scenarios) == 0 || len(artifact.Scenarios) > ResultMaximumScenarios {
-		return fmt.Errorf("transcript contains %d scenarios, want 1-%d", len(artifact.Scenarios), ResultMaximumScenarios)
+	if artifact.Scenarios == nil || len(artifact.Scenarios) == 0 || len(artifact.Scenarios) > ResultMaximumAttempts {
+		return fmt.Errorf("transcript contains %d attempts, want 1-%d", len(artifact.Scenarios), ResultMaximumAttempts)
 	}
-	seen := map[string]bool{}
+	seen := map[evaluationAttemptIdentity]bool{}
 	for index, scenario := range artifact.Scenarios {
 		if err := scenario.Validate(); err != nil {
 			return fmt.Errorf("transcript scenario[%d]: %w", index, err)
 		}
-		if seen[scenario.ScenarioID] {
-			return fmt.Errorf("transcript repeats scenario %q", scenario.ScenarioID)
+		identity := evaluationAttemptIdentity{ScenarioID: scenario.ScenarioID, Attempt: scenario.Attempt}
+		if seen[identity] {
+			return fmt.Errorf("transcript repeats scenario attempt %s/%d", scenario.ScenarioID, scenario.Attempt)
 		}
-		seen[scenario.ScenarioID] = true
+		seen[identity] = true
 	}
 	return nil
 }
 
 func (transcript ScenarioTranscript) Validate() error {
 	if err := validateScenarioIdentifier("transcript scenario id", transcript.ScenarioID); err != nil {
+		return err
+	}
+	if err := validateEvaluationAttempt(transcript.Attempt); err != nil {
 		return err
 	}
 	if transcript.Entries == nil {

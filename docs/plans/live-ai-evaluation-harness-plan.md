@@ -1,21 +1,15 @@
 # Live AI Evaluation Harness Plan
 
 **Date:** 2026-07-31
-**Status:** Phase 0 proof implementation complete; benign live evidence remains
-an external release gate. Phase 1 repository implementation and its coherent
-phase audit are complete, including the benchmark contract, result reporting,
-production orchestration, container lifecycle, committed Phase 0 gate, runnable
-entrypoints, checked-in ARM64 toolchain pin, hard disk and total-token ceilings,
-and focused classification exercises. Phase 2 repository implementation and
-its coherent phase audit are complete, including exact token evidence, the
-public transcript, the fixed fresh judge, the complete atomic artifact set, and
-cross-artifact evidence reconstruction. Phase 1 and Phase 2 live exit evidence
-remains gated by Phase 0 and the later user-authorized verification ladder.
-Phase 3's complete five-scenario benchmark contract, hidden-verifier layer,
-multi-turn event orchestration, typed control evidence and reporting,
-all-or-selected invocation, and candidate role configuration are implemented.
-The failed-scenario rerun policy and its first-attempt/stability reporting are
-the earliest incomplete repository-actionable work.
+**Status:** Phase 0 proof implementation is complete; benign live evidence
+remains an external release gate. Phase 1 and Phase 2 repository implementation
+and their coherent phase audits are complete. Phase 3 repository implementation
+is complete, including the five-scenario benchmark, hidden verifiers,
+multi-turn control orchestration, all-or-selected invocation, candidate role
+configuration, the one-rerun policy, and first-attempt/stability reporting. All
+repository-actionable implementation is ready for the user-authorized final
+audit. Phase 0 and live harness evidence remain gated by the verification
+ladder below.
 
 ## Outcome
 
@@ -558,6 +552,9 @@ rerun once:
 - both runs fail: `STABLE_FAIL`;
 - one passes and one fails: `FLAKY`.
 
+Infrastructure-unavailable evidence is reported as `INFRASTRUCTURE_FAILURE`;
+it is not treated as a model result or given an eval-only retry heuristic.
+
 First-attempt success remains the headline. Only finalists run three times, and
 only before a significant release or model decision. The judge model and rubric
 remain fixed across every candidate and do not receive candidate names.
@@ -1098,10 +1095,30 @@ supply-chain gate also passed module tidy, Go and pnpm release-age policy,
 vulnerability analysis, exact direct dependency pins, and lockfile sync,
 including the policy-accepted ignored desktop advisory.
 
-The failed-scenario rerun classification remains Phase 3 repository work. The
-next batch adds the one permitted rerun only after a first-attempt failure and
-reports `PASS`, `STABLE_FAIL`, or `FLAKY` without displacing first-attempt
-success as the headline.
+The failed-scenario rerun batch is implemented. Each scenario has an explicit
+first-attempt result and at most one rerun. A first-attempt `pass` produces
+`PASS` without another run; a first-attempt evaluated `fail` receives one fresh
+fixture, app-data, container-resource, provider-accounting, verifier, and judge
+attempt, producing `STABLE_FAIL` when it fails again or `FLAKY` when it passes.
+An `infrastructure_failure` does not pretend that model stability was measured
+and produces `INFRASTRUCTURE_FAILURE` without an eval-only retry heuristic.
+
+Attempt identity is part of the single current result, manifest, event,
+transcript, token, verifier, and judge contracts. Cross-artifact validation
+reconstructs each attempt independently, rejects mixed evidence, binds resolved
+roles per attempt, and derives the scenario stability label from objective and
+communication evidence. The CLI and all four Markdown report sections lead
+with first-attempt success while showing rerun outcomes separately; rerun token
+totals are diagnostics and are never averaged into the efficiency headline.
+
+Focused contract exercises were updated for attempt identity, rerun selection,
+stability derivation, publication, command exit, and cross-artifact rejection.
+Formatting was applied during implementation. Automated tests, changed-file
+quality, supply-chain gates, and live execution were not run because the
+verification policy reserves them for explicit user-authorized merge
+verification. Successful live baselines are also required to confirm that the
+checked-in 1,800-second ceiling is generous; that unavailable evidence is one
+final-audit release gate, not incomplete repository implementation.
 
 Run once by default and rerun only failed scenarios once. Report first-attempt
 passes, stable failures, flaky scenarios, infrastructure failures, user-control

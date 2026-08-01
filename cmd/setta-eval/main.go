@@ -61,7 +61,7 @@ func run(
 	}
 	writeEvaluationOutput(stdout, output)
 	if !evaluationOutputPassed(output) {
-		fmt.Fprintln(stderr, "Setta live evaluation did not pass ability, user control, and communication; inspect the result artifacts.")
+		fmt.Fprintln(stderr, "Setta live evaluation did not pass ability, user control, and communication on the first attempt; inspect the result artifacts.")
 		return 1
 	}
 	return 0
@@ -124,11 +124,21 @@ func writeEvaluationOutput(output io.Writer, result evalharness.EvaluationOutput
 	for _, scenario := range result.Results.Scenarios {
 		fmt.Fprintf(
 			output,
-			"%s: %s (%s)\n",
+			"%s: first=%s/%s; stability=%s",
 			scenario.ScenarioID,
-			scenario.Classification,
-			scenario.ExecutionOutcome,
+			scenario.FirstAttempt.Classification,
+			scenario.FirstAttempt.Status,
+			scenario.Stability,
 		)
+		if scenario.Rerun != nil {
+			fmt.Fprintf(
+				output,
+				"; rerun=%s/%s",
+				scenario.Rerun.Classification,
+				scenario.Rerun.Status,
+			)
+		}
+		fmt.Fprintln(output)
 	}
 	fmt.Fprintf(output, "Results: %s\n", result.Artifacts.ResultsJSON)
 	fmt.Fprintf(output, "Manifest: %s\n", result.Artifacts.ManifestJSON)
@@ -145,16 +155,7 @@ func evaluationOutputPassed(output evalharness.EvaluationOutput) bool {
 		return false
 	}
 	for _, scenario := range output.Results.Scenarios {
-		if scenario.Classification != evalharness.ScenarioClassificationPass {
-			return false
-		}
-	}
-	if len(output.JudgeResults.Scenarios) != len(output.Results.Scenarios) {
-		return false
-	}
-	for index, scenario := range output.JudgeResults.Scenarios {
-		if scenario.ScenarioID != output.Results.Scenarios[index].ScenarioID ||
-			!scenario.EvidenceAvailable || scenario.Verdict == nil || !scenario.Verdict.OverallPass {
+		if scenario.Stability != evalharness.ScenarioStabilityPass {
 			return false
 		}
 	}

@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	JudgeSchemaVersion            = 1
+	JudgeSchemaVersion            = 2
 	JudgeProvider                 = "codex"
 	JudgeModelSelection           = "exact"
 	JudgeModel                    = "gpt-5.6-sol"
@@ -77,6 +77,7 @@ type JudgeInvocation struct {
 
 type ScenarioJudgeResult struct {
 	ScenarioID        string                     `json:"scenarioId"`
+	Attempt           int                        `json:"attempt"`
 	EvidenceAvailable bool                       `json:"evidenceAvailable"`
 	Invocation        *JudgeInvocation           `json:"invocation"`
 	Verdict           *CommunicationJudgeVerdict `json:"verdict"`
@@ -163,7 +164,7 @@ func runCommunicationJudge(
 	defer removeCommunicationJudgeWorkspace(workspaceRoot, &returnErr)
 
 	observer := &judgeTokenObserver{observations: []agent.TokenUsageObservation{}}
-	defer observer.finalize(scenario.ID, &run, &returnErr)
+	defer observer.finalize(scenario.ID, transcript.Attempt, &run, &returnErr)
 	runtime := newCommunicationJudgeRuntime(codexCommand, observer)
 	defer shutdownCommunicationJudgeRuntime(runtime, &returnErr)
 
@@ -203,6 +204,7 @@ func runCommunicationJudge(
 	}
 	result := ScenarioJudgeResult{
 		ScenarioID:        scenario.ID,
+		Attempt:           transcript.Attempt,
 		EvidenceAvailable: true,
 		Invocation: &JudgeInvocation{
 			ID:               prepared.invocationID,
@@ -438,6 +440,7 @@ func communicationJudgeVerdict(checks communicationJudgeChecks) *CommunicationJu
 
 func unavailableScenarioJudgeResult(
 	scenarioID string,
+	attempt int,
 	diagnostic *ScenarioDiagnostic,
 ) (ScenarioJudgeResult, error) {
 	if diagnostic == nil {
@@ -452,6 +455,7 @@ func unavailableScenarioJudgeResult(
 	}
 	result := ScenarioJudgeResult{
 		ScenarioID:        scenarioID,
+		Attempt:           attempt,
 		EvidenceAvailable: false,
 		Diagnostic:        cloneScenarioDiagnostic(diagnostic),
 	}
@@ -487,24 +491,28 @@ func (artifact JudgeArtifact) Validate() error {
 	if err := artifact.Configuration.Validate(); err != nil {
 		return err
 	}
-	if artifact.Scenarios == nil || len(artifact.Scenarios) == 0 || len(artifact.Scenarios) > ResultMaximumScenarios {
-		return fmt.Errorf("judge artifact contains %d scenarios, want 1-%d", len(artifact.Scenarios), ResultMaximumScenarios)
+	if artifact.Scenarios == nil || len(artifact.Scenarios) == 0 || len(artifact.Scenarios) > ResultMaximumAttempts {
+		return fmt.Errorf("judge artifact contains %d attempts, want 1-%d", len(artifact.Scenarios), ResultMaximumAttempts)
 	}
-	seen := map[string]bool{}
+	seen := map[evaluationAttemptIdentity]bool{}
 	for index, scenario := range artifact.Scenarios {
 		if err := scenario.Validate(); err != nil {
 			return fmt.Errorf("judge scenario[%d]: %w", index, err)
 		}
-		if seen[scenario.ScenarioID] {
-			return fmt.Errorf("judge artifact repeats scenario %q", scenario.ScenarioID)
+		identity := evaluationAttemptIdentity{ScenarioID: scenario.ScenarioID, Attempt: scenario.Attempt}
+		if seen[identity] {
+			return fmt.Errorf("judge artifact repeats scenario attempt %s/%d", scenario.ScenarioID, scenario.Attempt)
 		}
-		seen[scenario.ScenarioID] = true
+		seen[identity] = true
 	}
 	return nil
 }
 
 func (result ScenarioJudgeResult) Validate() error {
 	if err := validateScenarioIdentifier("judge scenario id", result.ScenarioID); err != nil {
+		return err
+	}
+	if err := validateEvaluationAttempt(result.Attempt); err != nil {
 		return err
 	}
 	if result.EvidenceAvailable {
@@ -584,6 +592,7 @@ func (observer *judgeTokenObserver) snapshotOptional() ([]agent.TokenUsageObserv
 
 func (observer *judgeTokenObserver) finalize(
 	scenarioID string,
+	attempt int,
 	run *communicationJudgeRun,
 	returnErr *error,
 ) {
@@ -599,7 +608,7 @@ func (observer *judgeTokenObserver) finalize(
 		}
 		return
 	}
-	usage, usageErr := AggregateScenarioTokenUsage(scenarioID, observations)
+	usage, usageErr := AggregateScenarioTokenUsage(scenarioID, attempt, observations)
 	if usageErr != nil {
 		*returnErr = errors.Join(
 			*returnErr,

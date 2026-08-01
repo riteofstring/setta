@@ -15,17 +15,22 @@ import (
 )
 
 const (
-	ManifestSchemaVersion = 2
+	ManifestSchemaVersion = 3
 	phase1BackendVersion  = "dev"
 )
 
 type ManifestScenario struct {
-	ScenarioID                string                       `json:"scenarioId"`
-	ScenarioSHA256            string                       `json:"scenarioSha256"`
-	Fixture                   string                       `json:"fixture"`
-	FixtureSHA256             string                       `json:"fixtureSha256"`
-	CommunicationRubricSHA256 string                       `json:"communicationRubricSha256"`
-	Roles                     []EvaluatedRoleConfiguration `json:"roles"`
+	ScenarioID                string                    `json:"scenarioId"`
+	ScenarioSHA256            string                    `json:"scenarioSha256"`
+	Fixture                   string                    `json:"fixture"`
+	FixtureSHA256             string                    `json:"fixtureSha256"`
+	CommunicationRubricSHA256 string                    `json:"communicationRubricSha256"`
+	Attempts                  []ManifestScenarioAttempt `json:"attempts"`
+}
+
+type ManifestScenarioAttempt struct {
+	Attempt int                          `json:"attempt"`
+	Roles   []EvaluatedRoleConfiguration `json:"roles"`
 }
 
 type ManifestSandbox struct {
@@ -132,9 +137,17 @@ func buildManifestScenarios(
 			}
 			fixtureDigests[scenario.Fixture] = fixtureDigest
 		}
-		roles := cloneEvaluatedRoleConfigurations(run.state.roles)
-		if roles == nil {
-			roles = []EvaluatedRoleConfiguration{}
+		attempts := evaluationScenarioAttempts(run)
+		manifestAttempts := make([]ManifestScenarioAttempt, len(attempts))
+		for index, attempt := range attempts {
+			roles := cloneEvaluatedRoleConfigurations(attempt.state.roles)
+			if roles == nil {
+				roles = []EvaluatedRoleConfiguration{}
+			}
+			manifestAttempts[index] = ManifestScenarioAttempt{
+				Attempt: attempt.attempt,
+				Roles:   roles,
+			}
 		}
 		manifestScenarios = append(manifestScenarios, ManifestScenario{
 			ScenarioID:                scenario.ID,
@@ -142,7 +155,7 @@ func buildManifestScenarios(
 			Fixture:                   scenario.Fixture,
 			FixtureSHA256:             fixtureDigest,
 			CommunicationRubricSHA256: rubricDigest,
-			Roles:                     roles,
+			Attempts:                  manifestAttempts,
 		})
 	}
 	return manifestScenarios, nil
@@ -311,13 +324,23 @@ func (scenario ManifestScenario) Validate() error {
 	if scenario.Fixture != ScenarioFixtureTypeScriptService {
 		return fmt.Errorf("manifest scenario fixture is %q", scenario.Fixture)
 	}
-	if scenario.Roles == nil {
-		return errors.New("manifest scenario roles must be an array, not null")
+	if len(scenario.Attempts) == 0 || len(scenario.Attempts) > EvaluationAttemptRerun {
+		return fmt.Errorf("manifest scenario contains %d attempts, want 1-%d", len(scenario.Attempts), EvaluationAttemptRerun)
 	}
-	if len(scenario.Roles) == 0 {
-		return nil
+	for index, attempt := range scenario.Attempts {
+		if attempt.Attempt != index+1 {
+			return fmt.Errorf("manifest scenario attempt[%d] is %d, want %d", index, attempt.Attempt, index+1)
+		}
+		if attempt.Roles == nil {
+			return errors.New("manifest scenario attempt roles must be an array, not null")
+		}
+		if len(attempt.Roles) > 0 {
+			if err := validateEvaluatedRoleConfigurations(attempt.Roles, ScenarioExecutionCompleted); err != nil {
+				return fmt.Errorf("manifest scenario attempt %d: %w", attempt.Attempt, err)
+			}
+		}
 	}
-	return validateEvaluatedRoleConfigurations(scenario.Roles, ScenarioExecutionCompleted)
+	return nil
 }
 
 func (sandbox ManifestSandbox) Validate() error {

@@ -197,28 +197,56 @@ func TestPublishPhase1EvaluationExercisesExitClassifications(t *testing.T) {
 			if state.outcome == ScenarioExecutionCompleted {
 				state = phase2CompletedTestState(t, state, startedAt)
 			}
-			output, err := publishEvaluation(
-				t.TempDir(),
-				validTestManifest(
-					strings.Repeat("a", 40),
-					startedAt,
-					finishedAt,
-					state.roles,
-				),
-				[]evaluationScenarioRun{{
-					scenario:   validTestScenario(),
+			run := evaluationScenarioRun{
+				scenario: validTestScenario(),
+				firstAttempt: evaluationScenarioAttempt{
+					attempt:    EvaluationAttemptFirst,
 					startedAt:  startedAt,
 					finishedAt: finishedAt,
-					state:      state,
-				}},
+					state:      phase3TestStateAttempt(state, EvaluationAttemptFirst),
+				},
+			}
+			if test.classification != ScenarioClassificationPass &&
+				test.classification != ScenarioClassificationInfrastructureFailure {
+				rerun := evaluationScenarioAttempt{
+					attempt:    EvaluationAttemptRerun,
+					startedAt:  finishedAt,
+					finishedAt: finishedAt.Add(time.Second),
+					state:      phase3TestStateAttempt(state, EvaluationAttemptRerun),
+				}
+				run.rerun = &rerun
+			}
+			invocationFinishedAt := finishedAt
+			if run.rerun != nil {
+				invocationFinishedAt = run.rerun.finishedAt
+			}
+			manifest := validTestManifest(
+				strings.Repeat("a", 40),
 				startedAt,
-				finishedAt,
+				invocationFinishedAt,
+				state.roles,
+			)
+			if run.rerun != nil {
+				manifest.Scenarios[0].Attempts = append(
+					manifest.Scenarios[0].Attempts,
+					ManifestScenarioAttempt{
+						Attempt: EvaluationAttemptRerun,
+						Roles:   cloneEvaluatedRoleConfigurations(state.roles),
+					},
+				)
+			}
+			output, err := publishEvaluation(
+				t.TempDir(),
+				manifest,
+				[]evaluationScenarioRun{run},
+				startedAt,
+				invocationFinishedAt,
 			)
 			if err != nil {
 				t.Fatalf("publish Phase 1 evaluation: %v", err)
 			}
 			if len(output.Results.Scenarios) != 1 ||
-				output.Results.Scenarios[0].Classification != test.classification {
+				output.Results.Scenarios[0].FirstAttempt.Classification != test.classification {
 				t.Fatalf("published results = %#v", output.Results.Scenarios)
 			}
 			assertPhase1ClassificationArtifacts(t, output, test.classification)
@@ -245,7 +273,11 @@ func phase2CompletedTestState(
 		30,
 		12,
 	)
-	usage, err := AggregateScenarioTokenUsage(ScenarioVerifierStraightforward, []agent.TokenUsageObservation{observation})
+	usage, err := AggregateScenarioTokenUsage(
+		ScenarioVerifierStraightforward,
+		EvaluationAttemptFirst,
+		[]agent.TokenUsageObservation{observation},
+	)
 	if err != nil {
 		t.Fatalf("aggregate Phase 2 completion tokens: %v", err)
 	}
@@ -253,6 +285,7 @@ func phase2CompletedTestState(
 	scenario := validTestScenario()
 	state.transcript = &ScenarioTranscript{
 		ScenarioID:        ScenarioVerifierStraightforward,
+		Attempt:           EvaluationAttemptFirst,
 		EvidenceAvailable: true,
 		Entries: []TranscriptEntry{{
 			Sequence:   1,
@@ -279,6 +312,7 @@ func phase2CompletedTestState(
 		{
 			SchemaVersion: EvaluationEventSchemaVersion,
 			ScenarioID:    ScenarioVerifierStraightforward,
+			Attempt:       EvaluationAttemptFirst,
 			Sequence:      1,
 			RecordedAt:    startedAt.Format(time.RFC3339Nano),
 			Kind:          EvaluationEventUserSubmission,
@@ -290,6 +324,7 @@ func phase2CompletedTestState(
 		{
 			SchemaVersion: EvaluationEventSchemaVersion,
 			ScenarioID:    ScenarioVerifierStraightforward,
+			Attempt:       EvaluationAttemptFirst,
 			Sequence:      2,
 			RecordedAt:    startedAt.Add(time.Nanosecond).Format(time.RFC3339Nano),
 			Kind:          EvaluationEventDirectorReceipt,
@@ -313,6 +348,7 @@ func phase2CompletedTestState(
 		{
 			SchemaVersion: EvaluationEventSchemaVersion,
 			ScenarioID:    ScenarioVerifierStraightforward,
+			Attempt:       EvaluationAttemptFirst,
 			Sequence:      3,
 			RecordedAt:    startedAt.Add(2 * time.Nanosecond).Format(time.RFC3339Nano),
 			Kind:          EvaluationEventConversationState,
@@ -332,6 +368,7 @@ func phase2CompletedTestState(
 	state.events, err = appendTokenUsageEvents(
 		state.events,
 		ScenarioVerifierStraightforward,
+		EvaluationAttemptFirst,
 		[]agent.TokenUsageObservation{observation},
 		startedAt.Add(3*time.Nanosecond),
 	)
@@ -339,6 +376,30 @@ func phase2CompletedTestState(
 		t.Fatalf("append Phase 2 completion token event: %v", err)
 	}
 	return state
+}
+
+func phase3TestStateAttempt(state phase1RunState, attempt int) phase1RunState {
+	cloned := state
+	if state.tokenUsage != nil {
+		usage := *state.tokenUsage
+		usage.Attempt = attempt
+		cloned.tokenUsage = &usage
+	}
+	if state.transcript != nil {
+		transcript := cloneScenarioTranscript(state.transcript)
+		transcript.Attempt = attempt
+		cloned.transcript = transcript
+	}
+	if state.judge != nil {
+		judge := *state.judge
+		judge.Attempt = attempt
+		cloned.judge = &judge
+	}
+	cloned.events = append([]EvaluationEvent{}, state.events...)
+	for index := range cloned.events {
+		cloned.events[index].Attempt = attempt
+	}
+	return cloned
 }
 
 func phase1TokenUsageMessage(
@@ -382,8 +443,8 @@ func assertPhase1ClassificationArtifacts(
 	if err != nil {
 		t.Fatalf("read classification report: %v", err)
 	}
-	row := "| `straightforward-task` | " + string(classification) + " |"
-	if !strings.Contains(string(report), row) {
-		t.Fatalf("classification report omitted %q: %s", row, report)
+	want := "classification=" + string(classification)
+	if !strings.Contains(string(report), want) {
+		t.Fatalf("classification report omitted %q: %s", want, report)
 	}
 }
