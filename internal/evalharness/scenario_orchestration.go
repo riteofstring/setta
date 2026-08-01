@@ -159,6 +159,10 @@ func observeDirectorCompletionTrigger(
 		snapshot,
 	)
 	if failure != nil {
+		observation, err = collectPartialDirectorEvidence(scenario, observation)
+		if err != nil {
+			return observation, err
+		}
 		return scenarioBehaviorObservation(
 			observation,
 			failure.outcome,

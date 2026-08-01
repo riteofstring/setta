@@ -263,6 +263,27 @@ func collectPhase2ConversationEvidence(
 	return observation, nil
 }
 
+func collectPartialDirectorEvidence(
+	scenario Scenario,
+	observation Phase1HTTPObservation,
+) (Phase1HTTPObservation, error) {
+	candidates, err := directorSubmissionEventCandidates(scenario, observation)
+	if err != nil {
+		return observation, fmt.Errorf("build partial Director event evidence: %w", err)
+	}
+	events, err := finalizeEvaluationEventCandidates(scenario.ID, observation.Attempt, candidates)
+	if err != nil {
+		return observation, fmt.Errorf("finalize partial Director event evidence: %w", err)
+	}
+	transcript, err := buildScenarioTranscript(scenario, observation.Attempt, events)
+	if err != nil {
+		return observation, fmt.Errorf("build partial Director transcript: %w", err)
+	}
+	observation.events = events
+	observation.transcript = &transcript
+	return observation, nil
+}
+
 func validateCompletePhase2Snapshot(snapshot conversation.ConversationSnapshot) error {
 	if snapshot.Trajectory.HasEarlier {
 		return errors.New("Phase 2 event evidence exceeded the trajectory snapshot window")

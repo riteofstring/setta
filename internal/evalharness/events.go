@@ -148,6 +148,16 @@ func initialEvaluationEventCandidates(
 			len(scenario.Steps),
 		)
 	}
+	return directorSubmissionEventCandidates(scenario, observation)
+}
+
+func directorSubmissionEventCandidates(
+	scenario Scenario,
+	observation Phase1HTTPObservation,
+) ([]evaluationEventCandidate, error) {
+	if err := scenario.Validate(); err != nil {
+		return nil, err
+	}
 	candidates := make([]evaluationEventCandidate, 0, len(observation.submissions)*2)
 	for index, submission := range observation.submissions {
 		if submission.stepIndex != index || submission.submittedAt.IsZero() ||
