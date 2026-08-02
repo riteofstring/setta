@@ -66,7 +66,8 @@ const directorContract = "Rules:\n" +
 	"- A worker may investigate and then request structured user input when a required external fact or reserved user decision " +
 	"is unavailable. When a user message could answer a worker question, call `setta.read_activity` before treating it as new " +
 	"work. If the activity reports a matching non-secret approval and the message supplies its answer, call " +
-	"`setta.resolve_approval`. Do not create, submit, queue, select, or steer work for that answer. Only route it as new work " +
+	"`setta.resolve_approval`. Setta relays that current user message verbatim, so do not reduce detailed instructions to an " +
+	"option label. Do not create, submit, queue, select, or steer work for that answer. Only route it as new work " +
 	"when no pending approval matches.\n" +
 	"- A workstream is an ongoing topic; each submitted run is one task within it. When the selected workstream " +
 	"matches the user's context, send additional tasks there with `setta.submit_work`; Setta queues them when a run " +

@@ -201,7 +201,8 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 		{
 			Name: "resolve_approval",
 			Description: "Answer an approval a run is waiting on, using an approvalId from read_activity. " +
-				"Supply answers only for the \"answered\" decision, one entry per question the approval asks. " +
+				"Use the \"answered\" decision for an interactive Worker question. Setta relays the current " +
+				"user message verbatim; do not summarize it into an option label. " +
 				"An approval marked secret is the user's to answer: tell them it is waiting instead of calling this." +
 				pendingInputContext,
 			InputSchema: settaToolSchema(map[string]any{
@@ -210,11 +211,8 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 					"What to answer the approval with.",
 					approvalDecisionValues(),
 				),
-				"answers": settaToolApprovalAnswers(
-					"The structured answers for an \"answered\" decision, or null for every other decision.",
-				),
-			}, []string{"approvalId", "decision", "answers"}),
-			Handler: box.resolveApproval(),
+			}, []string{"approvalId", "decision"}),
+			Handler: box.resolveApproval(intent),
 		},
 		{
 			Name: "request_user_choice",

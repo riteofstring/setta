@@ -1,7 +1,5 @@
 import { nonEmptyString } from "./fake-topic-codex-app-server-helpers.mjs";
 
-export const directorInventedSecretApprovalAnswer = "invented-secret";
-
 const directorToolNames = [
   "archive_workstream",
   "ask_conversation",
@@ -477,12 +475,8 @@ function recoverRunCall(receipts) {
 
 function resolveApprovalCall(step, receipts) {
   const approval = requiredApproval(receipts, step.secret);
-  const question = approval.questions?.[0];
   return {
     arguments: {
-      answers: step.secret
-        ? [{ answers: [directorInventedSecretApprovalAnswer], questionId: question?.questionId }]
-        : null,
       approvalId: approval.approvalId,
       decision: step.secret ? "answered" : "denied",
     },

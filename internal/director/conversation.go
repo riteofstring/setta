@@ -321,6 +321,10 @@ func (director *DirectorConversation) Submit(
 	if err != nil {
 		return DirectorTurnReceipt{}, err
 	}
+	turnContext, err := director.toolbox.CurrentTurnContext()
+	if err != nil {
+		return DirectorTurnReceipt{}, err
+	}
 	carrier, err := director.establish(ctx, recorded)
 	if err != nil {
 		return DirectorTurnReceipt{}, err
@@ -328,7 +332,7 @@ func (director *DirectorConversation) Submit(
 	if err := director.persistUserTurn(ctx, intent); err != nil {
 		return DirectorTurnReceipt{}, err
 	}
-	providerTurn, err := director.runSubmittedIntent(ctx, intent, carrier, recorded, recorder)
+	providerTurn, err := director.runSubmittedIntent(ctx, intent, carrier, recorded, recorder, turnContext)
 	if err != nil {
 		return DirectorTurnReceipt{}, err
 	}
@@ -394,11 +398,12 @@ func (director *DirectorConversation) runSubmittedIntent(
 	carrier conversation.Carrier,
 	tools []SettaTool,
 	recorder *directorToolRecorder,
+	turnContext string,
 ) (submittedDirectorTurn, error) {
 	providerTurn, err := director.runTurn(ctx, DirectorTurnRequest{
 		Carrier: carrier,
 		TurnID:  intent.ID,
-		Text:    intent.Text,
+		Text:    directorProviderTurnText(intent.Text, turnContext),
 		Tools:   tools,
 	})
 	if err != nil {
@@ -426,6 +431,13 @@ func (director *DirectorConversation) runSubmittedIntent(
 		ReplyText:   providerTurn.ReplyText,
 		Invocations: invocations,
 	}, nil
+}
+
+func directorProviderTurnText(userText string, turnContext string) string {
+	if turnContext == "" {
+		return userText
+	}
+	return turnContext + "\n\nCurrent user message:\n" + userText
 }
 
 // finishTurn makes the Director's reply durable and reports the turn. The reply
