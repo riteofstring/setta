@@ -230,7 +230,8 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 			Description: "Create and select an independent ongoing topic, not merely another task for a matching " +
 				"existing workstream. Supply workspaceId from list_workspaces when the " +
 				"work is about the files in that folder, or set it to null when it is not. Supply initialInput to start " +
-				"work immediately; the worker should investigate resolvable uncertainty before asking the user.",
+				"work immediately; the worker should investigate resolvable uncertainty before asking the user. Never " +
+				"use this to deliver an answer to a pending worker question; read_activity and resolve_approval own that.",
 			InputSchema: settaToolSchema(map[string]any{
 				"title":       settaToolString("A short human title for the new workstream.", MaxDecisionTitleBytes),
 				"workspaceId": settaToolNullableString("The workspace id from list_workspaces, or null to create the workstream with no folder.", MaxDecisionReferenceBytes),
@@ -287,7 +288,8 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 			Description: "Send another task to an existing workstream whose topic matches the user's context. " +
 				"Setta starts it immediately when the " +
 				"workstream is idle and queues it behind the active run when it is busy. Let the worker investigate " +
-				"resolvable uncertainty instead of asking the user for implementation details up front.",
+				"resolvable uncertainty instead of asking the user for implementation details up front. Never use this " +
+				"to deliver an answer to a pending worker question; read_activity and resolve_approval own that.",
 			InputSchema: settaToolSchema(map[string]any{
 				"workstreamId": settaToolString("The workstream id from list_workstreams.", MaxDecisionReferenceBytes),
 				"input":        settaToolString("The instruction to run in that workstream.", MaxDecisionAuthoredInputBytes),
@@ -304,6 +306,7 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 				"Treat the user's change as a patch: retain active requirements they did not explicitly change, and " +
 				"send one complete updated instruction without substituting inferred conventions. " +
 				"Do not use this for an additional task that should run later; submit that task instead. " +
+				"Do not use it to answer a pending worker question; use resolve_approval. " +
 				"Only valid while that workstream has a run in flight.",
 			InputSchema: settaToolSchema(map[string]any{
 				"workstreamId": settaToolString("The workstream id whose active run should change course.", MaxDecisionReferenceBytes),

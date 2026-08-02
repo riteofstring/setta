@@ -511,7 +511,10 @@ func validateTriggeredDirectorAction(
 			!directorClarificationToolAllowed(call.Tool) {
 			return controlBehaviorFailure(
 				"clarification_started_replacement_work",
-				"Director performed another app action instead of only inspecting and answering the waiting Agent",
+				fmt.Sprintf(
+					"Director called %s instead of only inspecting and answering the waiting Agent",
+					call.Tool,
+				),
 			)
 		}
 		if call.Succeeded && call.WorkstreamID != nil && *call.WorkstreamID != workstreamID {

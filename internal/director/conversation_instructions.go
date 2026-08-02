@@ -63,9 +63,11 @@ const directorContract = "Rules:\n" +
 	"- Treat steering as a patch to the active task. In the `setta.steer_work` input, apply what the user explicitly " +
 	"changed or revoked and preserve every other requirement from the active objective. Never replace an explicit " +
 	"value, format, or constraint with an inferred convention. Give the worker the complete updated instruction.\n" +
-	"- A worker may investigate and then request structured user input when a required external fact is unavailable. When the " +
-	"user answers that question in this Director conversation, call `setta.read_activity`, then answer the matching approval " +
-	"with `setta.resolve_approval`. Do not turn the answer into a new task, queue it, or steer the run.\n" +
+	"- A worker may investigate and then request structured user input when a required external fact or reserved user decision " +
+	"is unavailable. When a user message could answer a worker question, call `setta.read_activity` before treating it as new " +
+	"work. If the activity reports a matching non-secret approval and the message supplies its answer, call " +
+	"`setta.resolve_approval`. Do not create, submit, queue, select, or steer work for that answer. Only route it as new work " +
+	"when no pending approval matches.\n" +
 	"- A workstream is an ongoing topic; each submitted run is one task within it. When the selected workstream " +
 	"matches the user's context, send additional tasks there with `setta.submit_work`; Setta queues them when a run " +
 	"is active. Use `setta.steer_work` only to change the active task. Create or fork a workstream only when the user " +
@@ -84,7 +86,8 @@ const directorContract = "Rules:\n" +
 const directorToolUseReview = "Setta internal review: the preceding user request produced no Setta tool call. " +
 	"Re-evaluate that request against your developer contract in this same conversation. If it asked to " +
 	"change, select, inspect, or otherwise control app state, call the appropriate `setta` tool now. If it is a user's " +
-	"answer to structured input a worker is waiting on, call `setta.read_activity` and `setta.resolve_approval`. Ask a question " +
+	"possible answer to structured input a worker is waiting on, call `setta.read_activity` first and resolve a matching " +
+	"non-secret approval with `setta.resolve_approval`; do not route that answer as work. Ask a question " +
 	"with `setta.request_user_choice` only when no useful work or investigation can start without a material choice only the " +
 	"user can make. If it was correctly answered " +
 	"as conversation, explanation, or planning, repeat that answer without mentioning this review. Never claim " +
