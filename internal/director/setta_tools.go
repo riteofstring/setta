@@ -200,13 +200,14 @@ func (box *SettaToolbox) Tools(intent SubmittedIntent) ([]SettaTool, error) {
 		},
 		{
 			Name: "resolve_approval",
-			Description: "Answer an approval a run is waiting on, using an approvalId from read_activity. " +
+			Description: "Answer an approval a run is waiting on, using an approvalId from the fresh current-turn " +
+				"activity observation or read_activity. " +
 				"Use the \"answered\" decision for an interactive Worker question. Setta relays the current " +
 				"user message verbatim; do not summarize it into an option label. " +
 				"An approval marked secret is the user's to answer: tell them it is waiting instead of calling this." +
 				pendingInputContext,
 			InputSchema: settaToolSchema(map[string]any{
-				"approvalId": settaToolString("The approval id from read_activity.", MaxDecisionReferenceBytes),
+				"approvalId": settaToolString("The approval id from the current-turn activity observation or read_activity.", MaxDecisionReferenceBytes),
 				"decision": settaToolEnum(
 					"What to answer the approval with.",
 					approvalDecisionValues(),
