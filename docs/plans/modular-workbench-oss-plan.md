@@ -913,3 +913,41 @@ For each track:
 - Every application owns its CLI and MCP interface.
 - Existing Setta functionality has a clear independent destination or an explicit decision not to release it.
 - Additional applications are released only when technically distinct, complete, maintainable, secure, tested, accessible, and correctly licensed.
+
+## Excluded Setta features
+
+For this section, excluded means that the functionality is explicitly retired, has no planned release, or has no owning application. Features assigned to conditional candidate applications are listed separately and are not counted as excluded.
+
+| # | Excluded feature | Scope |
+|---:|---|---|
+| 1 | Share and app deployment | Versioned deployments, project snapshots, per-visitor overlays, artifact isolation, deployment policies, listener processes, session limits, and deployment serving. The plan currently assigns this no initial release. |
+| 2 | JSON-rendered app generation | Generated app specifications, AI generation, component catalog, responsive themes, action runtime, previews, policies, and generated-app deployments. |
+| 3 | Plugin platform | Plugin installation, scopes, lockfiles, rollback, dynamic frontend/backend loading, configuration UI, workers, probes, custom routes, commands, sections, panes, and extension registration. Watch Code and the language servers move directly into Python Canvas. |
+| 4 | Launcher and desktop integration | Workspace launcher mode, macOS application installation, Windows shortcuts and wrappers, Linux desktop entries, launcher repair, and launcher updates. |
+| 5 | SSH and remote-workspace operation | Remote server startup and reuse, SSH connection management, port forwarding, and the current remote bootstrap protocol. |
+| 6 | Legacy Setta application shell | Current local-session discovery, browser-authentication bootstrap, standalone project, section, and view routes, named window spaces, and project-chat docking, floating, maximizing, and standalone-window infrastructure. |
+| 7 | Managed LLM runtime | Direct OpenAI, Anthropic, Gemini, and Azure OpenAI execution; provider-native reasoning; usage and context metadata; and managed multi-round MCP tool execution. Agent Canvas currently targets Codex, Claude Code, ACP, and native coding-agent protocols. |
+| 8 | Scriptable chats | Python chat CRUD, streaming chat events, frontend synchronization, Python-driven MCP calls, and `ChatToolkit`. |
+| 9 | Python reactive automation SDK | `SettaListener`, dependency subscriptions, debounce and throttle, ordered events, binary frames, bidirectional updates, callback hot reload, frontend emitters, and listener/router endpoints. An application may eventually ship its own SDK, but no current release owns this system. |
+| 10 | Voice transcription | Whisper profiles, file and realtime transcription, PCM streaming, transport fallback, transcription sessions, and provider-backed chat dictation. |
+| 11 | Task boards | List and Kanban boards, lanes, recurrence, dates, completion state, and task-specific drag-and-drop. Release requires a future coherent independent application. |
+| 12 | IFrames, social embeds, and plugin sections | YouTube and Twitter sections, arbitrary IFrames, plugin-defined custom UI, and generic plugin JSON fallbacks. |
+| 13 | Git tooling | Status, diff, log, commit details, commit-file diffs, worktree presentation, and the Git graph UI. Data Canvas covers files and artifacts, with Git currently unassigned. |
+| 14 | Legacy project-management system | Existing Setta project-file compatibility, project home, favorites, default project, save-as workflows, retained backups, guarded restoration, YAML export, and settings represented as a generated canvas project. Each new application owns a smaller project format and persistence system. |
+| 15 | Universal Setta MCP server and gateway | The single MCP surface spanning projects, plugins, agents, Python, layouts, settings, runs, and state machines, plus any general-purpose aggregation gateway. Each application exposes only its own MCP concepts. |
+| 16 | Setta-specific control actions | Buttons directly invoking Setta APIs or listener endpoints, current stateful dropzone behavior, and other control semantics coupled to the monolithic backend. Generic visual controls remain in Section Workspace. |
+| 17 | Cross-domain execution behavior | Drawing snapshots injected into Python runs and similar behavior requiring one independent application to understand another application's internal state. |
+| 18 | Exact legacy SDK and format compatibility | Compatibility with the existing `SettaRunner` API, current Setta project format, deployment snapshots, plugin-defined multi-file generation, and generated-file compatibility conventions. Python Canvas retains the underlying execution, run-plan, compiler, and diagnostic capabilities under new contracts. |
+| 19 | Monolithic operational tooling | Global Setta server management, backend reload watching, plugin commands, launcher commands, deployment commands, SSH commands, backup commands, machine-readable launcher bootstrap, plugin restart UI, and global runtime settings. Applications receive focused operational commands of their own. |
+| 20 | Incomplete or unsupported paths | Unsupported plugin entry-point execution, CLI-output runs, unfinished plugin hooks, ineffective profile flags, incomplete summary caching, unenforced state-machine limits, disabled file-drop paths, and existing TODO-only flows. Functional replacements may be implemented inside an owning application. |
+
+### Conditional feature families
+
+These major feature families have candidate releases and are therefore part of the plan, although their releases are not yet committed:
+
+- MCP connections, discovery, calls, results, and automation through MCP Canvas.
+- Coding agents, chats, profiles, approvals, attachments, and AI Follow through Agent Canvas.
+- Files, previews, spreadsheets, charts, images, drawings, and artifacts through Data Canvas.
+- State-machine chats, gates, signals, and runs through Agent Signal Canvas.
+
+Section Workspace and Python Canvas are the committed release tracks.
