@@ -5,12 +5,12 @@ package conversation
 // only its typed app-control tools and replays the durable Director
 // conversation.
 func DefaultDirectorRoleProfile() RoleProfile {
-	modelID := "gpt-5.6-terra"
+	modelID := "gpt-5.6-sol"
 	return RoleProfile{
 		Role:            RoleDirector,
 		Provider:        ProviderCodex,
 		ModelSelection:  ModelSelection{Mode: ModelSelectionExact, ModelID: &modelID},
-		ReasoningEffort: ReasoningEffortMedium,
+		ReasoningEffort: ReasoningEffortHigh,
 		PermissionProfile: PermissionProfile{
 			ApprovalPolicy:            ApprovalPolicyNever,
 			ProviderPermissionProfile: ":read-only",
