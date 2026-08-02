@@ -34,9 +34,10 @@ type directorAssessmentArguments struct {
 }
 
 type directorTurnAssessment struct {
-	mutex    sync.Mutex
-	assessed bool
-	basis    directorAssessmentBasis
+	mutex       sync.Mutex
+	provisional bool
+	assessed    bool
+	basis       directorAssessmentBasis
 }
 
 // assessDirectorTurnTools puts the private assessment tool first, hides the
@@ -87,7 +88,9 @@ func (assessment *directorTurnAssessment) tool(requestUserChoice SettaTool) Sett
 			"the unresolved material choice, or why this is only conversation/control. When neither form of authority exists, " +
 			"use missing_outcome_authority. For that basis, also supply one concise outcome-defining question; this assessment " +
 			"records that work is waiting for the user's answer, so ask exactly that question in prose and call no other " +
-			"tool. For every other basis, question must be empty. Do not call this for a prose-only conversational response.",
+			"tool. A basis that would start new work is provisional on its first call: after the receipt, reassess from scratch " +
+			"in one more assess_request call before using any app tool. For every other basis, question must be empty. Do not " +
+			"call this for a prose-only conversational response.",
 		InputSchema: settaToolSchema(map[string]any{
 			"basis": settaToolEnum(
 				"The authority for responding to the current request.",
@@ -148,6 +151,15 @@ func (assessment *directorTurnAssessment) handle(requestUserChoice SettaTool) Se
 			assessment.basis = payload.Basis
 			return receipt, nil
 		}
+		if payload.Basis != directorAssessmentNonWorkOrControl && !assessment.provisional {
+			assessment.provisional = true
+			return SettaToolReceipt{
+				Tool: directorAssessRequestTool,
+				Summary: "This work assessment is provisional. Reassess from scratch once more before any app tool. " +
+					"If the request neither states the observable completion contract nor delegates every material choice " +
+					"to an identified authority that uniquely resolves it, revise to missing_outcome_authority and ask one question.",
+			}, nil
+		}
 
 		assessment.assessed = true
 		assessment.basis = payload.Basis
@@ -162,10 +174,17 @@ func (assessment *directorTurnAssessment) guard(tool SettaTool) SettaToolHandler
 	return func(ctx context.Context, arguments json.RawMessage) (SettaToolReceipt, error) {
 		assessment.mutex.Lock()
 		assessed := assessment.assessed
+		provisional := assessment.provisional
 		basis := assessment.basis
 		assessment.mutex.Unlock()
 
 		if !assessed {
+			if provisional {
+				return SettaToolReceipt{
+					Tool:    tool.Name,
+					Summary: "This call did not run. The work assessment is provisional; call setta.assess_request once more first.",
+				}, nil
+			}
 			return SettaToolReceipt{
 				Tool: tool.Name,
 				Summary: "This call did not run. Call setta.assess_request first, then continue only when its " +

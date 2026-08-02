@@ -28,14 +28,21 @@ type scriptedDirectorToolCall struct {
 }
 
 func readyDirectorCalls(calls ...scriptedDirectorToolCall) []scriptedDirectorToolCall {
-	return append([]scriptedDirectorToolCall{{
+	return append([]scriptedDirectorToolCall{
+		readyDirectorAssessment("The scripted request states the completion contract."),
+		readyDirectorAssessment("A fresh review confirms that no material outcome choice is unresolved."),
+	}, calls...)
+}
+
+func readyDirectorAssessment(evidence string) scriptedDirectorToolCall {
+	return scriptedDirectorToolCall{
 		tool: directorAssessRequestTool,
 		arguments: map[string]any{
 			"basis":    string(directorAssessmentExplicitlyCheckable),
-			"evidence": "The scripted request states the completion contract.",
+			"evidence": evidence,
 			"question": "",
 		},
-	}}, calls...)
+	}
 }
 
 func missingRequirementDirectorCall(question string) []scriptedDirectorToolCall {

@@ -102,7 +102,7 @@ func TestDirectorUserChoiceToolPreventsActionRepair(t *testing.T) {
 	}
 }
 
-func TestDirectorCannotRunAnAppToolBeforeAssessingTheRequest(t *testing.T) {
+func TestDirectorCannotRunAnAppToolBeforeCompletingTheAssessment(t *testing.T) {
 	harness := newRegistryHarness(t)
 	registry := harness.start()
 	execution := &publishingStartExecution{harness: harness}
@@ -111,15 +111,18 @@ func TestDirectorCannotRunAnAppToolBeforeAssessingTheRequest(t *testing.T) {
 		scripted: []scriptedDirectorTurn{
 			{
 				reply: "I started it.",
-				calls: []scriptedDirectorToolCall{{
-					tool: "create_workstream",
-					arguments: map[string]any{
-						"title":                "Launch announcement",
-						"workspaceId":          nil,
-						"workspaceRequirement": string(WorkspaceOptional),
-						"initialInput":         "Draft the announcement without knowing its audience.",
+				calls: []scriptedDirectorToolCall{
+					readyDirectorAssessment("The request asks for a launch announcement."),
+					{
+						tool: "create_workstream",
+						arguments: map[string]any{
+							"title":                "Launch announcement",
+							"workspaceId":          nil,
+							"workspaceRequirement": string(WorkspaceOptional),
+							"initialInput":         "Draft the announcement without knowing its audience.",
+						},
 					},
-				}},
+				},
 			},
 			{
 				reply: question,
@@ -504,7 +507,7 @@ func TestDirectorToolRefusalStaysInsideTheConversation(t *testing.T) {
 	if !strings.Contains(receipt.ToolCalls[0].Summary, "workstream-missing") {
 		t.Fatalf("refusal does not say what was wrong: %q", receipt.ToolCalls[0].Summary)
 	}
-	if len(provider.receipts) != 2 || provider.receipts[1].Summary != receipt.ToolCalls[0].Summary {
+	if len(provider.receipts) != 3 || provider.receipts[2].Summary != receipt.ToolCalls[0].Summary {
 		t.Fatalf("the director was not told what the refusal was: %+v", provider.receipts)
 	}
 	if len(execution.sends)+len(execution.queues)+len(execution.starts) != 0 {

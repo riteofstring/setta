@@ -52,10 +52,10 @@ func callSettaTool(
 	if err != nil {
 		t.Fatalf("Submit %s: %v", call.tool, err)
 	}
-	if len(receipt.ToolCalls) != 1 || len(provider.receipts) != 2 {
+	if len(receipt.ToolCalls) != 1 || len(provider.receipts) != 3 {
 		t.Fatalf("director tool calls = %+v", receipt.ToolCalls)
 	}
-	return settaToolOutcome{receipt: provider.receipts[1], succeeded: receipt.ToolCalls[0].Succeeded}
+	return settaToolOutcome{receipt: provider.receipts[2], succeeded: receipt.ToolCalls[0].Succeeded}
 }
 
 func TestDirectorDeliveryToolsExposeWorkspaceRequirements(t *testing.T) {
