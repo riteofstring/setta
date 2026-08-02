@@ -40,7 +40,7 @@ const (
 	phase1AgentPIDs             = 256
 	phase1BackendPIDs           = 256
 	phase1VerifierPIDs          = 256
-	phase1VolumeHolderPIDs      = 8
+	phase1VolumeHolderPIDs      = 16
 	phase1BackendReadyTimeout   = 30 * time.Second
 	phase1BackendLogLineBytes   = 64 * 1024
 	phase1ContainerStopTime     = 15
