@@ -335,7 +335,7 @@ func (provider *recordingDirectorProvider) RunFreshStructuredCall(
 		return agent.FreshStructuredCallResult{
 			ProviderThreadID: "provider-readiness-thread",
 			ProviderTurnID:   "provider-readiness-turn",
-			Output:           json.RawMessage(`{"disposition":"work_permitted","question":""}`),
+			Output:           json.RawMessage(`{"basis":"fully_specified","question":""}`),
 		}, nil
 	}
 	return provider.structuredResult, nil

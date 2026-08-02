@@ -20,15 +20,17 @@ const (
 	DirectorReadinessUserChoiceNeeded DirectorReadinessDisposition = "user_choice_needed"
 )
 
-const directorReadinessReview = `Act as Setta's pre-action readiness reviewer. Decide only whether the current user turn may have normal Director tool access or must be limited to asking one question before any new work starts.
+const directorReadinessReview = `Act as Setta's pre-action readiness reviewer. Classify what authorizes the response before any new work starts.
 
-Return user_choice_needed only when the requested outcome depends on a missing user-owned requirement and materially different results could all be valid. Count an unknown as discoverable only when the supplied request or recent conversation identifies authoritative evidence that can establish one objectively correct answer. The possibility that future investigation might uncover a requirement is not evidence.
+Choose exactly one basis:
+- non_work_or_control: the turn calls for conversation, explanation, status, app control, cancellation, or answers an earlier question.
+- fully_specified: the requested outcome is sufficiently defined for normal implementation judgment and has one objectively checkable completion state.
+- objectively_discoverable: an outcome-defining fact is unstated, but the supplied request or recent conversation establishes a concrete, authoritative basis that is actually available to the worker and yields one objectively correct answer.
+- missing_user_requirement: the outcome depends on an unstated user-owned requirement, materially different results could all fit the known context, and no concrete authoritative basis for choosing among them is established here.
 
-Treat a fact as discoverable only when the conversation establishes a concrete, authoritative basis that is actually available to the worker. Do not infer that basis from contextual clues or from the possibility that future investigation might uncover one. Distinguish facts with one evidence-grounded answer from preferences or requirements for which materially different answers would all fit the known context.
+Do not infer an authoritative basis from contextual clues or from the possibility that future investigation might uncover one. Do not turn normal implementation details into user choices.
 
-Return work_permitted for conversation, explanation, status, app control, cancellation, an answer to an earlier question, a fully specified work request, or work whose remaining unknowns are objectively discoverable from identified authoritative evidence. Do not ask the user to decide implementation details that evidence can settle.
-
-When a user choice is needed, return one concise question about only the outcome-defining information. Do not ask for secondary implementation details that normal conventions can settle after that answer. Otherwise return an empty question. Do not perform, route, plan, or narrate the work.`
+For missing_user_requirement, return one concise question about only the outcome-defining information. For every other basis, return an empty question. Do not perform, route, plan, or narrate the work.`
 
 type DirectorReadinessRequest struct {
 	Intent  SubmittedIntent
@@ -42,9 +44,18 @@ type DirectorReadinessReview struct {
 }
 
 type directorReadinessWireOutput struct {
-	Disposition DirectorReadinessDisposition `json:"disposition"`
-	Question    string                       `json:"question"`
+	Basis    directorReadinessBasis `json:"basis"`
+	Question string                 `json:"question"`
 }
+
+type directorReadinessBasis string
+
+const (
+	directorReadinessBasisNonWorkOrControl        directorReadinessBasis = "non_work_or_control"
+	directorReadinessBasisFullySpecified          directorReadinessBasis = "fully_specified"
+	directorReadinessBasisObjectivelyDiscoverable directorReadinessBasis = "objectively_discoverable"
+	directorReadinessBasisMissingUserRequirement  directorReadinessBasis = "missing_user_requirement"
+)
 
 type directorReadinessInput struct {
 	RecentConversation []directorReadinessHistoryItem `json:"recentConversation"`
@@ -63,13 +74,15 @@ func mustDirectorReadinessOutputSchemaJSON() json.RawMessage {
 	encoded, err := json.Marshal(map[string]any{
 		"type":                 "object",
 		"additionalProperties": false,
-		"required":             []string{"disposition", "question"},
+		"required":             []string{"basis", "question"},
 		"properties": map[string]any{
-			"disposition": map[string]any{
+			"basis": map[string]any{
 				"type": "string",
 				"enum": []string{
-					string(DirectorReadinessWorkPermitted),
-					string(DirectorReadinessUserChoiceNeeded),
+					string(directorReadinessBasisNonWorkOrControl),
+					string(directorReadinessBasisFullySpecified),
+					string(directorReadinessBasisObjectivelyDiscoverable),
+					string(directorReadinessBasisMissingUserRequirement),
 				},
 			},
 			"question": map[string]any{
@@ -131,10 +144,29 @@ func DecodeDirectorReadinessOutput(raw json.RawMessage) (DirectorReadinessDispos
 	if err := jsonio.DecodeSingle(bytes.NewReader(raw), &output); err != nil {
 		return "", "", fmt.Errorf("decode Director readiness output: %w", err)
 	}
-	if err := validateDirectorReadinessDecision(output.Disposition, output.Question); err != nil {
+	disposition, err := directorReadinessDispositionForBasis(output.Basis)
+	if err != nil {
 		return "", "", err
 	}
-	return output.Disposition, output.Question, nil
+	if err := validateDirectorReadinessDecision(disposition, output.Question); err != nil {
+		return "", "", err
+	}
+	return disposition, output.Question, nil
+}
+
+func directorReadinessDispositionForBasis(
+	basis directorReadinessBasis,
+) (DirectorReadinessDisposition, error) {
+	switch basis {
+	case directorReadinessBasisNonWorkOrControl,
+		directorReadinessBasisFullySpecified,
+		directorReadinessBasisObjectivelyDiscoverable:
+		return DirectorReadinessWorkPermitted, nil
+	case directorReadinessBasisMissingUserRequirement:
+		return DirectorReadinessUserChoiceNeeded, nil
+	default:
+		return "", fmt.Errorf("unsupported Director readiness basis %q", basis)
+	}
 }
 
 func (request DirectorReadinessRequest) Validate() error {

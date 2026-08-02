@@ -84,12 +84,12 @@ func TestDirectorReadinessRestrictionRefusesWorkButLeavesOtherToolsAvailable(t *
 
 func TestDecodeDirectorReadinessOutputEnforcesQuestionContract(t *testing.T) {
 	if _, _, err := DecodeDirectorReadinessOutput(json.RawMessage(
-		`{"disposition":"work_permitted","question":"What should happen?"}`,
+		`{"basis":"fully_specified","question":"What should happen?"}`,
 	)); err == nil {
 		t.Fatal("work-permitted readiness accepted a question")
 	}
 	disposition, question, err := DecodeDirectorReadinessOutput(json.RawMessage(
-		`{"disposition":"user_choice_needed","question":"What should happen?"}`,
+		`{"basis":"missing_user_requirement","question":"What should happen?"}`,
 	))
 	if err != nil {
 		t.Fatalf("DecodeDirectorReadinessOutput: %v", err)
