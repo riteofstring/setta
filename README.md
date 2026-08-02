@@ -102,25 +102,6 @@ pnpm -C desktop run test:electron:built
 ./scripts/check_supply_chain.sh
 ```
 
-The normal supply-chain command includes static eval-container policy checks.
-When an eval Dockerfile, pinned toolchain image, scanner pin, Codex Linux bundle,
-or image-building input changes, also run the local container gate:
-
-```sh
-./scripts/pull_eval_container_scanner.sh
-./scripts/check_eval_container_security.sh \
-  --codex-linux-bundle /absolute/path/to/codex-package-aarch64-unknown-linux-musl
-```
-
-The scanner image and vulnerability policy are pinned in
-`evals/sandbox/container-security-policy.json`. The gate builds the production
-eval images without build-time network access, exports them to bounded archives,
-generates CycloneDX SBOMs, and fails on `HIGH` or `CRITICAL` vulnerability,
-secret, or misconfiguration findings—or an end-of-life base OS. Trivy receives
-neither the Docker socket nor developer credentials. Reports are local under
-`.recordings/setta-container-security/`. See
-`docs/security/eval-container-scanning.md` for the trust boundary and limits.
-
 `pnpm -C desktop run test:electron:built` runs the required Electron workflow
 manifest against temporary app data after the app has been built. Use
 `node desktop/tests/electron/run-workflows.mjs --list` to inspect the registered
