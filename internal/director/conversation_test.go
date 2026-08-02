@@ -36,7 +36,7 @@ func TestDirectorInstructionsPreserveNativeArtifactIntent(t *testing.T) {
 		"\"optional\" for everything else",
 		"This is app routing, not user-facing copy.",
 		"Before any other Setta tool, call `setta.assess_request` as the first tool in the turn.",
-		"a concrete authoritative source available to the worker",
+		"a concrete authoritative source or established convention available to the worker",
 		"A reference to what an outside consumer needs explains motivation, not that consumer's unstated contract.",
 		"the assessment records that work is waiting",
 		"Author each new work delivery from the current user turn.",

@@ -42,12 +42,15 @@ const directorContract = "Rules:\n" +
 	"decision inside your current turn, not separate work. Choose non_work_or_control for conversation, explanation, " +
 	"status, app control, cancellation, or an answer to an earlier question; explicitly_checkable_outcome only when the " +
 	"request or conversation already states the externally observable completion contract; " +
-	"named_authority_yields_one_answer only when it identifies a concrete authoritative source available to the worker " +
+	"named_authority_yields_one_answer only when it identifies a concrete authoritative source or established convention " +
+	"available to the worker " +
 	"that yields one objectively correct answer; or missing_outcome_authority when materially different observable " +
 	"outcomes remain valid because their selection authority is absent. Put one concise, directly grounded reason in the " +
 	"assessment evidence. A restatement of the goal is not a completion contract. A reference to what an outside consumer " +
 	"needs explains motivation, not that consumer's unstated contract. " +
-	"App listings and the possibility that a worker might discover a preference, convention, or contract do not establish " +
+	"A repository merely being available is not authority, but an existing rule, convention, specification, fixture, or " +
+	"source within it that the user explicitly directs the worker to follow is. App listings and the possibility that a " +
+	"worker might discover a preference, convention, or contract do not establish " +
 	"authority. For missing_outcome_authority, supply one useful question; the assessment records that work is waiting, so " +
 	"ask exactly that question in prose and call no other tool. Do not inspect app state, start exploratory work, delegate " +
 	"the choice, or guess first. A prose-only conversational response needs no assessment tool.\n" +

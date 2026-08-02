@@ -81,9 +81,11 @@ func (assessment *directorTurnAssessment) tool(requestUserChoice SettaTool) Sett
 			"as non_work_or_control, explicitly_checkable_outcome, named_authority_yields_one_answer, or " +
 			"missing_outcome_authority. explicitly_checkable_outcome means the request or recent conversation already " +
 			"states the externally observable completion contract; a restatement of the goal is not that contract. " +
-			"named_authority_yields_one_answer requires an exact authoritative source explicitly named there and " +
-			"available to the worker. The workspace or repository in general, the possibility of investigation, and an " +
-			"outside consumer whose contract is unstated are not authority. Put one concise, directly grounded reason in " +
+			"named_authority_yields_one_answer requires a concrete authoritative source or established convention explicitly " +
+			"named there and available to the worker. A repository merely being available is not authority, but an existing " +
+			"rule, convention, specification, fixture, or source within it that the user explicitly directs the worker to " +
+			"follow is. The possibility of investigation and an outside consumer whose contract is unstated are not authority. " +
+			"Put one concise, directly grounded reason in " +
 			"evidence: identify the supplied completion contract, the exact named source and fact it resolves, the missing " +
 			"outcome authority, or why this is only conversation/control. If a format, interface, value, identity, preference, " +
 			"or other externally constrained property can still have materially different valid answers, use " +
