@@ -58,6 +58,7 @@ func RunPhase1ScenarioOverHTTP(
 	scenario Scenario,
 	attempt int,
 	workspaceRoot string,
+	workspaceObserver *evaluationWorkspaceObserver,
 	candidate *loadedCandidateConfiguration,
 ) (Phase1HTTPObservation, error) {
 	if ctx == nil {
@@ -65,6 +66,9 @@ func RunPhase1ScenarioOverHTTP(
 	}
 	if client == nil {
 		return Phase1HTTPObservation{}, errors.New("Phase 1 backend client is required")
+	}
+	if workspaceObserver == nil {
+		return Phase1HTTPObservation{}, errors.New("Phase 1 workspace observer is required")
 	}
 	if err := validatePhase1HTTPScenario(scenario); err != nil {
 		return Phase1HTTPObservation{}, err
@@ -87,6 +91,7 @@ func RunPhase1ScenarioOverHTTP(
 		scenario,
 		attempt,
 		root,
+		workspaceObserver,
 		candidate,
 	)
 	if runErr == nil {
@@ -121,6 +126,7 @@ func runPhase1ScenarioOverHTTP(
 	scenario Scenario,
 	attempt int,
 	workspaceRoot string,
+	workspaceObserver *evaluationWorkspaceObserver,
 	candidate *loadedCandidateConfiguration,
 ) (Phase1HTTPObservation, error) {
 	observation, directorEvents, err := preparePhase1Scenario(
@@ -133,7 +139,7 @@ func runPhase1ScenarioOverHTTP(
 		return observation, err
 	}
 	observation.Attempt = attempt
-	observation.workspace = newEvaluationWorkspaceObserver(workspaceRoot)
+	observation.workspace = workspaceObserver
 	observation.trajectoryWorkspaces = map[string]EvaluationWorkspaceObservation{}
 	defer directorEvents.Close()
 	return orchestrateEvaluationScenario(

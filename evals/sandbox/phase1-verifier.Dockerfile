@@ -4,6 +4,7 @@ FROM ${TOOLCHAIN_IMAGE}
 USER 0:0
 
 COPY --chmod=0555 sandbox-helper /usr/local/bin/setta-eval-sandbox-helper
+COPY --chmod=0555 workspace-observer /usr/local/bin/setta-eval-workspace-observer
 COPY --chmod=0444 pnpm.cjs /usr/local/lib/pnpm/pnpm.cjs
 COPY --chmod=0444 pnpm-license /usr/local/share/licenses/pnpm/LICENSE
 COPY --chmod=0555 pnpm /usr/local/bin/pnpm

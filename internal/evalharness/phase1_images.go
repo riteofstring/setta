@@ -429,6 +429,7 @@ func populatePhase1BuildContexts(
 		{output: filepath.Join(contexts.backend, "setta-backend"), packagePath: "./cmd/setta-backend"},
 		{output: filepath.Join(contexts.backend, "setta-eval-provider-bridge"), packagePath: "./cmd/setta-eval-provider-bridge"},
 		{output: filepath.Join(contexts.verifier, "verifier"), packagePath: "./evals/verifiers/typescript-service"},
+		{output: filepath.Join(contexts.verifier, "workspace-observer"), packagePath: "./cmd/setta-eval-workspace-observer"},
 	}
 	for _, build := range builds {
 		if err := buildPhase1LinuxBinary(ctx, config.repoRoot, build.output, build.packagePath); err != nil {

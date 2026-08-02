@@ -1,8 +1,6 @@
 package evalharness
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"sort"
@@ -12,6 +10,7 @@ import (
 	"setta/internal/agent"
 	"setta/internal/conversation"
 	"setta/internal/director"
+	"setta/internal/evalharness/workspaceevidence"
 )
 
 const (
@@ -617,14 +616,7 @@ func (observation EvaluationWorkspaceObservation) Validate() error {
 	if observation.Revision < 0 {
 		return errors.New("workspace observation revision must be non-negative")
 	}
-	if len(observation.Digest) != sha256.Size*2 {
-		return fmt.Errorf("workspace observation digest must be %d lowercase hexadecimal characters", sha256.Size*2)
-	}
-	decoded, err := hex.DecodeString(observation.Digest)
-	if err != nil || hex.EncodeToString(decoded) != observation.Digest {
-		return errors.New("workspace observation digest must be lowercase hexadecimal")
-	}
-	return nil
+	return (workspaceevidence.Digest{SHA256: observation.Digest}).Validate()
 }
 
 func validateEvaluationDirectorReceipt(receipt EvaluationDirectorReceipt) error {

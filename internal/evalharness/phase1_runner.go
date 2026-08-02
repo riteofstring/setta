@@ -11,6 +11,7 @@ import (
 
 	"setta/internal/agent"
 	evalverifier "setta/internal/evalharness/verifier"
+	"setta/internal/evalharness/workspaceevidence"
 )
 
 const phase1CleanupTimeout = 90 * time.Second
@@ -110,12 +111,16 @@ func executePhase1Scenario(
 	if err != nil {
 		return phase1InfrastructureFailure("sandbox_start_failed", err, nil)
 	}
+	workspaceObserver := newEvaluationWorkspaceObserverWithReader(func() (workspaceevidence.Digest, error) {
+		return resources.readWorkspaceDigest(scenarioContext)
+	})
 	observation, err := RunPhase1ScenarioOverHTTP(
 		scenarioContext,
 		backend,
 		scenario,
 		attempt,
 		phase1WorkspaceRoot,
+		workspaceObserver,
 		config.candidate,
 	)
 	state := phase1StateFromObservation(observation)

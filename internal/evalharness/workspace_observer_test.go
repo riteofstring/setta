@@ -3,7 +3,10 @@ package evalharness
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"setta/internal/evalharness/workspaceevidence"
 )
 
 func TestEvaluationWorkspaceObserverDetectsWritesAndReverts(t *testing.T) {
@@ -36,5 +39,32 @@ func TestEvaluationWorkspaceObserverDetectsWritesAndReverts(t *testing.T) {
 	}
 	if reverted.Revision != 2 || reverted.Digest != baseline.Digest {
 		t.Fatalf("revert observation = %+v, baseline = %+v", reverted, baseline)
+	}
+}
+
+func TestEvaluationWorkspaceObserverUsesInjectedDigestReader(t *testing.T) {
+	t.Parallel()
+
+	digests := []workspaceevidence.Digest{
+		{SHA256: strings.Repeat("0", 64)},
+		{SHA256: strings.Repeat("1", 64)},
+	}
+	readIndex := 0
+	observer := newEvaluationWorkspaceObserverWithReader(func() (workspaceevidence.Digest, error) {
+		digest := digests[readIndex]
+		readIndex++
+		return digest, nil
+	})
+	baseline, err := observer.CaptureBaseline()
+	if err != nil {
+		t.Fatalf("capture injected baseline: %v", err)
+	}
+	mutated, err := observer.Observe()
+	if err != nil {
+		t.Fatalf("observe injected mutation: %v", err)
+	}
+	if baseline.Revision != 0 || baseline.Digest != digests[0].SHA256 ||
+		mutated.Revision != 1 || mutated.Digest != digests[1].SHA256 {
+		t.Fatalf("injected observations = baseline %+v mutated %+v", baseline, mutated)
 	}
 }
