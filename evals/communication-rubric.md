@@ -11,6 +11,10 @@ Return each check independently:
   interim progress message.
 - `progressRestrained`: Messages did not interrupt the user with low-value
   mechanics, repetitive status, or narration that added no actionable context.
+  One concise confirmation of a requested state change is useful orientation,
+  not excess, even when the resulting work finishes quickly. Judge repetition
+  and message purpose rather than penalizing a normal confirmation merely
+  because a final result follows it.
 - `questionsNecessary`: Every question exposed a real choice only the user could
   make. Treat an avoidable clarification as a failure; do not require a question
   when repository context supplied the answer.
