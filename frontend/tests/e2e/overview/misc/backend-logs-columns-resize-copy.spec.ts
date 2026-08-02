@@ -1,0 +1,242 @@
+import { expect, test } from "@playwright/test";
+import {
+  ensureAppReady,
+  seedLocalStorage,
+  setOverviewTab,
+} from "../../helpers";
+
+test("notifications pane can open logs first and still allows tab switching", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "Notifications",
+    overviewNotificationsPaneTab: "backend_logs",
+    overviewVis: true,
+  });
+  await ensureAppReady(page);
+
+  await expect(
+    page.getByTestId("notifications-pane-backend-logs-view"),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("notifications-pane-tab-backend-logs"),
+  ).toHaveAttribute("aria-selected", "true");
+
+  await page.getByTestId("notifications-pane-tab-notifications").click();
+  await expect(
+    page.getByTestId("notifications-pane-notifications-view"),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("notifications-pane-tab-notifications"),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(
+    page.getByTestId("notifications-pane-tab-backend-logs"),
+  ).toHaveAttribute("aria-selected", "false");
+});
+
+test("switching notifications pane state to backend logs always activates logs", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "Notifications",
+    overviewNotificationsPaneTab: "notifications",
+    overviewVis: true,
+  });
+  await ensureAppReady(page);
+
+  await expect(
+    page.getByTestId("notifications-pane-notifications-view"),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("notifications-pane-tab-notifications"),
+  ).toHaveAttribute("aria-selected", "true");
+
+  await page.evaluate(async () => {
+    const { useLocalStorage } = await import("/src/state/definitions.ts");
+    useLocalStorage.setState({
+      overviewTab: "Notifications",
+      overviewNotificationsPaneTab: "backend_logs",
+      overviewVis: true,
+    });
+  });
+
+  await expect(
+    page.getByTestId("notifications-pane-backend-logs-view"),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("notifications-pane-tab-backend-logs"),
+  ).toHaveAttribute("aria-selected", "true");
+});
+
+test("backend logs pane supports column resize handles and copy feedback", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Notifications");
+  await ensureAppReady(page);
+  await page.getByTestId("notifications-pane-tab-backend-logs").click();
+  await expect(
+    page.getByTestId("notifications-pane-backend-logs-view"),
+  ).toBeVisible();
+  await page.evaluate(async () => {
+    const { addBackendLogEvent } = await import(
+      "/src/state/actions/backendLogEvents.ts"
+    );
+    const { useProjectState } = await import("/src/state/definitions.ts");
+
+    const projectConfigId = useProjectState.getState().projectConfig.id;
+    addBackendLogEvent({
+      id: "backend-log-event-1",
+      projectConfigId,
+      severity: "info",
+      message: "Saved managed API keys revision 1.",
+      timestamp: new Date().toISOString(),
+    });
+    addBackendLogEvent({
+      id: "backend-log-event-2",
+      projectConfigId,
+      severity: "warning",
+      message: "Saved managed API keys revision 2.",
+      timestamp: new Date(Date.now() + 1).toISOString(),
+    });
+  });
+
+  const rows = page.getByTestId("backend-log-row");
+  await expect(rows.first()).toBeVisible();
+
+  const dragProjectColumn = async (deltaX: number) => {
+    await page.evaluate((delta) => {
+      const handle = document.querySelector(
+        '[data-testid="backend-log-resize-project"]',
+      );
+      if (!(handle instanceof HTMLElement)) {
+        throw new Error("Missing backend log project resize handle.");
+      }
+
+      const rect = handle.getBoundingClientRect();
+      const startX = rect.left + rect.width / 2;
+      const startY = rect.top + rect.height / 2;
+
+      handle.dispatchEvent(
+        new MouseEvent("mousedown", {
+          bubbles: true,
+          clientX: startX,
+          clientY: startY,
+          button: 0,
+        }),
+      );
+
+      window.dispatchEvent(
+        new MouseEvent("mousemove", {
+          bubbles: true,
+          clientX: startX + delta,
+          clientY: startY,
+          buttons: 1,
+        }),
+      );
+
+      window.dispatchEvent(
+        new MouseEvent("mouseup", {
+          bubbles: true,
+          clientX: startX + delta,
+          clientY: startY,
+          button: 0,
+        }),
+      );
+    }, deltaX);
+  };
+
+  const projectColumnHeader = page.getByTestId(
+    "backend-log-col-header-project",
+  );
+  const gridScrollShell = page.getByTestId("backend-log-grid-scroll-shell");
+  const projectWidthBefore = await projectColumnHeader.evaluate(
+    (element) => element.getBoundingClientRect().width,
+  );
+  const scrollWidthBefore = await gridScrollShell.evaluate(
+    (element) => element.scrollWidth,
+  );
+
+  await dragProjectColumn(60);
+
+  const projectWidthAfter = await projectColumnHeader.evaluate(
+    (element) => element.getBoundingClientRect().width,
+  );
+  const scrollWidthAfterExpand = await gridScrollShell.evaluate(
+    (element) => element.scrollWidth,
+  );
+  expect(projectWidthAfter).toBeGreaterThan(projectWidthBefore + 30);
+  expect(scrollWidthAfterExpand).toBeGreaterThan(scrollWidthBefore + 20);
+
+  await dragProjectColumn(-100);
+  const projectWidthAfterNarrow = await projectColumnHeader.evaluate(
+    (element) => element.getBoundingClientRect().width,
+  );
+  const scrollWidthAfterNarrow = await gridScrollShell.evaluate(
+    (element) => element.scrollWidth,
+  );
+  expect(projectWidthAfterNarrow).toBeLessThan(projectWidthAfter - 30);
+  expect(scrollWidthAfterNarrow).toBeLessThan(scrollWidthAfterExpand - 20);
+
+  const firstRow = rows.first();
+  const copyButton = firstRow.getByTestId("backend-log-copy-message");
+  const copyButtonClassName = await copyButton.getAttribute("class");
+  expect(copyButtonClassName).toContain("opacity-0");
+  expect(copyButtonClassName).not.toContain("pointer-events-none");
+  expect(copyButtonClassName).toContain(
+    "group-hover/backend-log-row:opacity-100",
+  );
+  await expect(copyButton).toHaveAttribute("data-copy-status", "idle");
+  await expect(copyButton).toHaveText("");
+  const copyIconBox = await copyButton.evaluate((button) => {
+    const icon = button.querySelector("svg");
+    if (!(icon instanceof SVGElement)) {
+      return null;
+    }
+    const rect = icon.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  });
+  expect(copyIconBox).not.toBeNull();
+  expect(copyIconBox?.width ?? 0).toBeGreaterThan(8);
+  expect(copyIconBox?.height ?? 0).toBeGreaterThan(8);
+
+  await firstRow.click();
+  const selectedRowTitle = (await firstRow.getAttribute("title")) ?? "";
+  expect(selectedRowTitle.length).toBeGreaterThan(0);
+  const selectedPanel = page.getByTestId("backend-log-selected-message-panel");
+  await expect(selectedPanel).toBeVisible();
+  await expect(
+    selectedPanel.getByTestId("backend-log-selected-message"),
+  ).toContainText(selectedRowTitle);
+
+  await copyButton.evaluate((button) => {
+    if (!(button instanceof HTMLButtonElement)) {
+      throw new Error("Missing backend logs copy button.");
+    }
+    button.click();
+  });
+  await expect(copyButton).toHaveAttribute("data-copy-status", /copied|failed/);
+
+  await expect(gridScrollShell).toBeVisible();
+  const overflowState = await page.evaluate(() => {
+    const shell = document.querySelector(
+      '[data-testid="backend-log-grid-scroll-shell"]',
+    );
+    const virtualList = document.querySelector(
+      '[data-testid="backend-log-virtual-list"]',
+    );
+    if (
+      !(shell instanceof HTMLElement) ||
+      !(virtualList instanceof HTMLElement)
+    ) {
+      throw new Error("Missing backend logs scroller elements.");
+    }
+    const shellStyle = getComputedStyle(shell);
+    const listStyle = getComputedStyle(virtualList);
+    return {
+      shellOverflowX: shellStyle.overflowX,
+      listOverflowX: listStyle.overflowX,
+    };
+  });
+  expect(overflowState.shellOverflowX).toBe("auto");
+  expect(overflowState.listOverflowX).toBe("hidden");
+});

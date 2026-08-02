@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Setta Basedpyright Plugin Config",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "basedpyright": {
+      "type": "object",
+      "default": {
+        "analysis": {
+          "diagnosticSeverityOverrides": {
+            "reportUnknownVariableType": "none",
+            "reportUnknownMemberType": "none",
+            "reportUnannotatedClassAttribute": "none",
+            "reportSelfClsParameterName": "none"
+          }
+        }
+      },
+      "additionalProperties": true,
+      "properties": {
+        "analysis": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "diagnosticSeverityOverrides": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "extraPaths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

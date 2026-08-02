@@ -1,0 +1,9 @@
+[build-system]
+requires = ["setuptools==80.9.0", "wheel==0.45.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "setta-fixture-metadata-id-package"
+version = "0.1.0"
+description = "Intentional metadata mismatch fixture (id)"
+requires-python = ">=3.12"
